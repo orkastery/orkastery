@@ -49,7 +49,7 @@ function citacaoDe(source: any): Citacao | null {
   return { instance, source_ref, source_hash, source_version, location };
 }
 
-/** O servidor exige também `authority`: o pacote dele só traz item com a citação inteira. */
+/** O servidor exige também `authority`: o pacote dele só traz item com a citação inteira; a consulta exige o mesmo. */
 const citadoPeloServidor = (source: any) => citacaoDe(source) !== null && typeof source.authority === 'string' && source.authority !== '';
 
 interface Resolvido { brain: Map<string, any>; retidos: Set<string>; semCitacao: Set<string>; escopo: Set<string>; }
@@ -207,7 +207,9 @@ export function buildContext(c: ManifestoCarregado, ids: string[], transport: Br
     if (semCitacao.has(id)) { lacuna(id, 'citacao.incompleta'); continue; }
     const b = brain.get(id), f = fonte.get(id);
     if (!b && !f) { lacuna(id, 'entidade.desconhecida'); continue; }
-    const entidade = b ?? f, citacao = citacaoDe(entidade.source);
+    // Suspeitas da revisao de 03/10: a citacao exige `authority` nos dois caminhos, como o servidor (o
+    // schema do Source a exige); sem isso, um Brain fora do contrato dava pacote e digest diferentes por caminho.
+    const entidade = b ?? f, citacao = citadoPeloServidor(entidade.source) ? citacaoDe(entidade.source) : null;
     if (!citacao) { lacuna(id, 'citacao.incompleta'); continue; }
     const frescor = !b ? 'ausente-no-brain' : !f ? 'ausente-na-fonte'
       : b.source?.source_hash === f.source.source_hash && b.version === f.version ? 'confere' : 'divergente';

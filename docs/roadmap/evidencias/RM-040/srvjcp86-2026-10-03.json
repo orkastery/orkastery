@@ -1,0 +1,274 @@
+{
+  "contrato": "ork.prova-rm040/v1",
+  "item": "RM-040",
+  "maquina": "srvjcp86",
+  "thread": "ork-rm040piloto",
+  "em": "2026-10-03T07:19:44.128Z",
+  "modo": "so leitura: nenhum perfil, store, login ou registro de contas foi gravado; nenhum despacho",
+  "resumo": {
+    "projetosRegistrados": 3,
+    "projetosComPerfil": [
+      "orkastery"
+    ],
+    "perfisNoOrkastery": [
+      {
+        "id": "codex-a",
+        "runtime": "codex",
+        "estado": "ativo",
+        "esgotadoAte": null
+      },
+      {
+        "id": "codex-b",
+        "runtime": "codex",
+        "estado": "ativo",
+        "esgotadoAte": null
+      },
+      {
+        "id": "claude-b",
+        "runtime": "claude-bg",
+        "estado": "ativo",
+        "esgotadoAte": null
+      }
+    ],
+    "perfisForaDoRodizioNoStore": 0,
+    "marcasDeOutroProjetoNaTabela": 0,
+    "despachosComPerfilNosLedgers": 4,
+    "despachosEmContaMarcadaPorOutroProjeto": 0,
+    "testeDuasFabricas": "aprovado"
+  },
+  "varredura": [
+    {
+      "projeto": "fx",
+      "raiz": "<scratchpad>/fx",
+      "despachos": [],
+      "despachosComPerfil": 0,
+      "eventosDeConta": []
+    },
+    {
+      "projeto": "orkastery",
+      "raiz": "~/orkastery",
+      "despachos": [
+        {
+          "ts": "2026-10-01T04:52:46.066Z",
+          "thread": "ork-rm032ativaca",
+          "fase": "GOAL",
+          "runtime": "claude-bg",
+          "perfil": "claude-b"
+        },
+        {
+          "ts": "2026-10-01T04:53:00.644Z",
+          "thread": "ork-rm040piloto",
+          "fase": "GOAL",
+          "runtime": "codex",
+          "perfil": "codex-a"
+        },
+        {
+          "ts": "2026-09-29T22:59:45.302Z",
+          "thread": "ork-rm052projeto",
+          "fase": "GOAL",
+          "runtime": "claude-bg",
+          "perfil": null
+        },
+        {
+          "ts": "2026-09-29T22:59:46.286Z",
+          "thread": "ork-rm053network",
+          "fase": "GOAL",
+          "runtime": "claude-bg",
+          "perfil": null
+        },
+        {
+          "ts": "2026-09-30T02:33:30.159Z",
+          "thread": "ork-rm054fatia2",
+          "fase": "GOAL",
+          "runtime": "claude-bg",
+          "perfil": null
+        },
+        {
+          "ts": "2026-09-29T22:59:47.272Z",
+          "thread": "ork-rm054roadmap",
+          "fase": "GOAL",
+          "runtime": "claude-bg",
+          "perfil": null
+        },
+        {
+          "ts": "2026-10-01T04:52:49.898Z",
+          "thread": "ork-rm055impedim",
+          "fase": "GOAL",
+          "runtime": "codex",
+          "perfil": "codex-a"
+        },
+        {
+          "ts": "2026-10-01T04:58:10.698Z",
+          "thread": "ork-rm056perfil",
+          "fase": "GOAL",
+          "runtime": "claude-bg",
+          "perfil": "claude-b"
+        }
+      ],
+      "despachosComPerfil": 4,
+      "eventosDeConta": []
+    },
+    {
+      "projeto": "p",
+      "raiz": "<scratchpad>/antes/p",
+      "despachos": [],
+      "despachosComPerfil": 0,
+      "eventosDeConta": []
+    }
+  ],
+  "comandos": [
+    {
+      "rotulo": "head-da-main-que-roda-o-ork",
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "cwd": "~/orkastery",
+      "inicio": "2026-10-03T07:19:41.426Z",
+      "fim": "2026-10-03T07:19:41.428Z",
+      "codigo": 0,
+      "stdout": "3d77e53b8d3238ff9a4a5bc24c1b391bd62032f8\n",
+      "stderr": ""
+    },
+    {
+      "rotulo": "versao",
+      "argv": [
+        "node",
+        "~/orkastery/core/dist/index.js",
+        "--version"
+      ],
+      "cwd": "~/orkastery",
+      "inicio": "2026-10-03T07:19:41.428Z",
+      "fim": "2026-10-03T07:19:41.555Z",
+      "codigo": 0,
+      "stdout": "0.5.2\n",
+      "stderr": ""
+    },
+    {
+      "rotulo": "projetos",
+      "argv": [
+        "node",
+        "~/orkastery/core/dist/index.js",
+        "projetos",
+        "--json"
+      ],
+      "cwd": "~/orkastery",
+      "inicio": "2026-10-03T07:19:41.555Z",
+      "fim": "2026-10-03T07:19:41.694Z",
+      "codigo": 0,
+      "stdout": "{\n  \"contrato\": \"ork.projetos/v1\",\n  \"arquivo\": \"~/.orkastery/projetos.json\",\n  \"projetos\": [\n    {\n      \"nome\": \"fx\",\n      \"abbrev\": \"fx\",\n      \"raiz\": \"<scratchpad>/fx\",\n      \"remoto\": null,\n      \"atualizadoEm\": \"2026-10-03T04:21:38.103Z\",\n      \"fonte\": \"init\",\n      \"registradoEm\": \"2026-10-03T04:21:38.103Z\",\n      \"presente\": true\n    },\n    {\n      \"nome\": \"orkastery\",\n      \"abbrev\": \"ork\",\n      \"raiz\": \"~/orkastery\",\n      \"remoto\": \"https://github.com/orkastery/orkastery.git\",\n      \"atualizadoEm\": \"2026-10-03T07:04:06.301Z\",\n      \"fonte\": \"thread new\",\n      \"registradoEm\": \"2026-09-30T02:32:39.180Z\",\n      \"presente\": true\n    },\n    {\n      \"nome\": \"p\",\n      \"abbrev\": \"p\",\n      \"raiz\": \"<scratchpad>/antes/p\",\n      \"remoto\": \"../o.git\",\n      \"atualizadoEm\": \"2026-10-03T03:09:45.739Z\",\n      \"fonte\": \"init\",\n      \"registradoEm\": \"2026-10-03T03:09:45.739Z\",\n      \"presente\": true\n    }\n  ]\n}\n",
+      "stderr": ""
+    },
+    {
+      "rotulo": "perfis-vistos-pelo-despacho-orkastery",
+      "argv": [
+        "node",
+        "~/orkastery/core/dist/index.js",
+        "accounts",
+        "list"
+      ],
+      "cwd": "~/orkastery",
+      "inicio": "2026-10-03T07:19:41.694Z",
+      "fim": "2026-10-03T07:19:41.834Z",
+      "codigo": 0,
+      "stdout": "  PERFIL    RUNTIME    DIRETORIO              ESTADO  ESGOTADO ATE  ULTIMO USO   ULTIMA FALHA\n  --------  ---------  ---------------------  ------  ------------  -----------  -----------------------------------\n  codex-a   codex      ~/.codex-a   ativo   -             01/10 04:53  runtime.auth-missing em 01/10 04:34\n  codex-b   codex      ~/.codex-b   ativo   -             -            runtime.auth-missing em 01/10 04:43\n  claude-b  claude-bg  ~/.claude-b  ativo   -             01/10 04:58  runtime.auth-missing em 01/10 04:47\nHorários em UTC.\n",
+      "stderr": ""
+    },
+    {
+      "rotulo": "store-de-perfis-orkastery",
+      "argv": [
+        "node",
+        "~/orkastery/core/dist/index.js",
+        "accounts",
+        "list",
+        "--json"
+      ],
+      "cwd": "~/orkastery",
+      "inicio": "2026-10-03T07:19:41.834Z",
+      "fim": "2026-10-03T07:19:41.976Z",
+      "codigo": 0,
+      "stdout": "{\n  \"contrato\": \"ork.runtime-profiles/v1\",\n  \"perfis\": [\n    {\n      \"id\": \"codex-a\",\n      \"runtime\": \"codex\",\n      \"codexHome\": \"~/.codex-a\",\n      \"estado\": \"ativo\",\n      \"esgotadoAte\": null,\n      \"ultimaFalha\": {\n        \"motivo\": \"runtime.auth-missing\",\n        \"em\": \"2026-10-01T04:34:09.054Z\",\n        \"detalhe\": \"codex login status saiu 1: Not logged in\"\n      },\n      \"ultimoUso\": \"2026-10-01T04:53:00.646Z\",\n      \"criadoEm\": \"2026-10-01T04:34:09.011Z\"\n    },\n    {\n      \"id\": \"codex-b\",\n      \"runtime\": \"codex\",\n      \"codexHome\": \"~/.codex-b\",\n      \"estado\": \"ativo\",\n      \"esgotadoAte\": null,\n      \"ultimaFalha\": {\n        \"motivo\": \"runtime.auth-missing\",\n        \"em\": \"2026-10-01T04:43:41.364Z\",\n        \"detalhe\": \"codex login status saiu 1: Not logged in\"\n      },\n      \"ultimoUso\": null,\n      \"criadoEm\": \"2026-10-01T04:43:41.323Z\"\n    },\n    {\n      \"id\": \"claude-b\",\n      \"runtime\": \"claude-bg\",\n      \"configDir\": \"~/.claude-b\",\n      \"estado\": \"ativo\",\n      \"esgotadoAte\": null,\n      \"ultimaFalha\": {\n        \"motivo\": \"runtime.auth-missing\",\n        \"em\": \"2026-10-01T04:47:03.096Z\",\n        \"detalhe\": \"claude auth status: loggedIn false\"\n      },\n      \"ultimoUso\": \"2026-10-01T04:58:10.700Z\",\n      \"criadoEm\": \"2026-10-01T04:47:02.979Z\"\n    }\n  ]\n}\n",
+      "stderr": ""
+    },
+    {
+      "rotulo": "perfis-projeto-fx",
+      "argv": [
+        "node",
+        "~/orkastery/core/dist/index.js",
+        "--projeto",
+        "fx",
+        "accounts",
+        "list"
+      ],
+      "cwd": "~/orkastery",
+      "inicio": "2026-10-03T07:19:41.976Z",
+      "fim": "2026-10-03T07:19:42.117Z",
+      "codigo": 0,
+      "stdout": "Nenhum perfil configurado: cada runtime despacha pelo ambiente do processo.\n",
+      "stderr": ""
+    },
+    {
+      "rotulo": "perfis-projeto-p",
+      "argv": [
+        "node",
+        "~/orkastery/core/dist/index.js",
+        "--projeto",
+        "p",
+        "accounts",
+        "list"
+      ],
+      "cwd": "~/orkastery",
+      "inicio": "2026-10-03T07:19:42.117Z",
+      "fim": "2026-10-03T07:19:42.259Z",
+      "codigo": 0,
+      "stdout": "Nenhum perfil configurado: cada runtime despacha pelo ambiente do processo.\n",
+      "stderr": ""
+    },
+    {
+      "rotulo": "ledger-stats-7d",
+      "argv": [
+        "node",
+        "~/orkastery/core/dist/index.js",
+        "ledger",
+        "stats",
+        "--desde",
+        "7d"
+      ],
+      "cwd": "~/orkastery",
+      "inicio": "2026-10-03T07:19:42.259Z",
+      "fim": "2026-10-03T07:19:42.412Z",
+      "codigo": 0,
+      "stdout": "Ledger stats  26/09 07:19 ate 03/10 07:19 (UTC) [desde,ate)\n  threads/sessoes  35 / 3 concluidas (8 despachos)\n  throughput       25 ship(s); 0 retry(ies)\n  execucao         0.08 h (2 medidas; 1 ausentes)\n  tokens           870932 total; input 857619 (cached 766592); output 13313\n  custo referencia sem cobertura — estimativa por tarifa publica, nao gasto/fatura\n  espera humana    0.00 h; 0 aberta(s)\n  HITL de conducao 0 pergunta(s); parado 0.00 h; mediana sem resposta medida; 0 aberta(s); texto fora da excecao 0\n  riscos evitados  8 gate(s) preventivo(s)\n  estimativas PLAN 1 amostra(s)\n  cobertura         1 sessao(oes) sem medicao de tokens\n  cobertura         2 sessao(oes) com tokens, mas sem tarifa de referencia\n",
+      "stderr": ""
+    },
+    {
+      "rotulo": "doctor",
+      "argv": [
+        "node",
+        "~/orkastery/core/dist/index.js",
+        "doctor"
+      ],
+      "cwd": "~/orkastery",
+      "inicio": "2026-10-03T07:19:42.412Z",
+      "fim": "2026-10-03T07:19:43.720Z",
+      "codigo": 0,
+      "stdout": "  [ok]   runtime claude-bg            ~/.npm-global/bin/claude (2.1.288 (Claude Code))\n  [ok]   runtime codex                ~/.npm-global/bin/codex (codex-cli 0.159.3)\n  [ok]   contas por runtime           claude-bg: claude-b pronto; codex: codex-a pronto, codex-b pronto\n",
+      "stderr": ""
+    },
+    {
+      "rotulo": "teste-duas-fabricas-na-mesma-conta",
+      "argv": [
+        "node",
+        "--test",
+        "core/dist-test/test/contas-compartilhadas.test.js"
+      ],
+      "cwd": "~/orkastery/.claude/worktrees/ork-rm040piloto",
+      "inicio": "2026-10-03T07:19:43.721Z",
+      "fim": "2026-10-03T07:19:44.113Z",
+      "codigo": 0,
+      "stdout": "\n",
+      "stderr": ""
+    }
+  ]
+}

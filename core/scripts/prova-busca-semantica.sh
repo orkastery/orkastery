@@ -9,7 +9,15 @@
 # Exclusiva e um alvo que aparece no top 5 semantico e fica fora da tag e do FTS da parafrase.
 # Sai 1 se nenhum par der exclusiva, 2 se um par vier malformado.
 #
+# Diagnostico (RM-038, 10/10/2026), sem mudar o criterio acima: a busca vetorial pede o ranking
+# inteiro na mesma chamada (ate o limite da busca) e a prova imprime, por par, a posicao e a
+# similaridade de cada alvo nesse ranking e quantas entradas da busca tem vetor coerente no indice.
+# A exclusiva continua julgada so nos 5 primeiros da mesma resposta.
+#
 # Uso: bash core/scripts/prova-busca-semantica.sh ["termo|parafrase" ...]
+# Sem argumentos, usa os pares padrao que o dono decidiu em 10/10/2026 (RM-038, D6 da ork-rm038busca3,
+# opcao A): os dois pares pre-registrados no PLAN da ork-rm038univers. Os pares anteriores (rotacao e
+# handoff) ficam no historico da pagina da RM-038. Pares passados como argumentos substituem os padrao.
 # Roda o CLI deste checkout contra o manifesto do diretorio corrente. Custo com o primario do
 # OpenRouter: uma consulta embedada por par (cerca de 20 tokens cada); com o fallback local, so CPU.
 set -euo pipefail
@@ -17,10 +25,25 @@ set -euo pipefail
 CLI="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/dist/index.js"
 ork() { node "$CLI" "$@"; }
 
+# set -e encerra a prova na falha; preserve antes o JSON com o motivo tipado no stderr.
+buscar() {
+  local resposta codigo
+  if resposta=$(ork memory search "$@"); then
+    printf '%s\n' "$resposta"
+  else
+    codigo=$?
+    printf '%s\n' "$resposta" >&2
+    return "$codigo"
+  fi
+}
+
 if [ "$#" -gt 0 ]; then
   PARES=("$@")
 else
-  PARES=("rotacao|trocar de conta quando acaba a cota" "handoff|esquecimento da memoria entre sessoes")
+  PARES=(
+    "watchdog|vigia agendado que inunda a conversa privada com avisos repetidos"
+    "duplicacao|dois repositorios gemeos fundidos num unico oficial"
+  )
 fi
 
 # Le o JSON do stdin e imprime "colecao/id" por linha: resultados da busca por texto ou entradas da busca por tag.
@@ -49,14 +72,39 @@ for par in "${PARES[@]}"; do
     const palavras = process.argv[2].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[a-z0-9]{4,}/g) || [];
     console.log(JSON.stringify({ project: [process.argv[1]], domain: [...new Set(palavras)] }));
   ' "$TENANT" "$frase")
-  alvo=$(ork memory search --texto "$termo" --modo fts --limite 100 --json | ids)
-  tag=$(ork memory search --tags "$tags" --json | ids)
-  fts=$(ork memory search --texto "$frase" --modo fts --limite 100 --json | ids)
-  semantica_json=$(ork memory search --texto "$frase" --modo vetor --limite 5 --json)
+  alvo_json=$(buscar --texto "$termo" --modo fts --limite 100 --json)
+  alvo=$(printf '%s' "$alvo_json" | ids)
+  tag_json=$(buscar --tags "$tags" --json)
+  tag=$(printf '%s' "$tag_json" | ids)
+  fts_json=$(buscar --texto "$frase" --modo fts --limite 100 --json)
+  fts=$(printf '%s' "$fts_json" | ids)
+  # Uma consulta embedada por par: o ranking inteiro serve ao diagnostico, e a exclusiva olha so os 5 primeiros.
+  semantica_json=$(buscar --texto "$frase" --modo vetor --limite 100 --json)
   semantica=$(printf '%s' "$semantica_json" | ids 5)
   origem=$(printf '%s' "$semantica_json" | node -e '
     const r = JSON.parse(require("fs").readFileSync(0, "utf8"));
     console.log(`${r.origem}${r.modeloUsado ? " " + r.modeloUsado : ""}${r.motivo ? ", motivo " + r.motivo : ""}`);
+  ')
+  posicoes=$(printf '%s' "$semantica_json" | node -e '
+    const r = JSON.parse(require("fs").readFileSync(0, "utf8"));
+    const itens = r.resultados || [];
+    const c = r.coberturaDoIndice;
+    const alvos = process.argv[1].split(String.fromCharCode(10)).filter(Boolean);
+    if (!alvos.length) { console.log("(nenhum alvo)"); process.exit(0); }
+    if (r.origem !== "primario" && r.origem !== "fallback") { console.log(`(sem ranking vetorial: origem ${r.origem})`); process.exit(0); }
+    console.log(alvos.map((a) => {
+      const i = itens.findIndex((e) => `${e.collection}/${e.id}` === a);
+      if (i < 0) {
+        // A resposta traz todos os vetores coerentes quando cabe no limite: alvo fora dela nao tem vetor.
+        return c && itens.length >= c.coerentes ? `${a} sem vetor coerente no indice` : `${a} fora dos ${itens.length} primeiros do ranking vetorial`;
+      }
+      const sim = typeof itens[i].similaridade === "number" ? ` (similaridade ${itens[i].similaridade})` : "";
+      return `${a} na posicao ${i + 1}${sim}`;
+    }).join(", "));
+  ' "$alvo")
+  cobertura=$(printf '%s' "$semantica_json" | node -e '
+    const c = JSON.parse(require("fs").readFileSync(0, "utf8")).coberturaDoIndice;
+    console.log(c ? `${c.coerentes} de ${c.universo} entrada(s) da busca com vetor coerente` : "(nao informada)");
   ')
   echo ""
   echo "par ${n}: termo \"${termo}\" | parafrase \"${frase}\""
@@ -64,6 +112,8 @@ for par in "${PARES[@]}"; do
   echo "  tag equivalente          $(linha "$tag")"
   echo "  FTS da parafrase         $(linha "$fts")"
   echo "  semantica top 5          $(linha "$semantica")  [origem ${origem}]"
+  echo "  posicao dos alvos        ${posicoes}"
+  echo "  cobertura do indice      ${cobertura}"
   while IFS= read -r id; do
     [ -z "$id" ] && continue
     if grep -qxF "$id" <<<"$alvo" && ! grep -qxF "$id" <<<"$tag" && ! grep -qxF "$id" <<<"$fts"; then

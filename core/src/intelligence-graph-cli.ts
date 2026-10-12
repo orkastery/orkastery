@@ -16,17 +16,20 @@
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { TIPOS_DE_ARESTA, canonico, compararUtf8, type Aresta, type GrafoCodigo, type TipoDeAresta } from './intelligence-graph-contract';
+import {
+  TIPOS_DE_ARESTA, canonico, compararUtf8, type Aresta, type EntradaDoManifesto, type GrafoCodigo, type TipoDeAresta,
+} from './intelligence-graph-contract';
 import {
   chaveDoIndice, concessaoLocal, construirIndice, estadoDosIndices, indiceDoHead, lerIndice, limparIndices, perfilDoIndice,
   type ContextoDoIndice, type PerfilDoIndice, type ResultadoDaConstrucao,
 } from './intelligence-graph-index';
 import { carregarAnalisadores, versoesDosAnalisadores, type VersoesDosAnalisadores } from './intelligence-graph-parsers';
 import {
-  CONSULTA_SCHEMA, ErroDeConsulta, caminho, chamadores, filtrarGrafo, importadores, jsonDaResposta, prepararConsulta, textoDaResposta, vizinhos,
-  type CabecalhoDoIndice, type RespostaDeConsulta, type Sentido,
+  CONSULTA_SCHEMA, ErroDeConsulta, TUDO_IGUAL, caminho, chamadores, filtrarGrafo, importadores, jsonDaResposta, prepararConsulta, textoDaResposta, vizinhos,
+  type CabecalhoDoIndice, type RespostaDeConsulta, type Sentido, type SituacaoDaFonte, type SituacaoNaArvore,
 } from './intelligence-graph-query';
 import { headsDasArvores, revisaoDaArvore } from './intelligence-graph-repo';
+import { CONTEXTO_SCHEMA, pacoteDeContexto, type EntradaDoContexto } from './intelligence-graph-contexto';
 
 export const STATUS_SCHEMA = 'ork.code-graph-index-status/v0' as const;
 
@@ -87,6 +90,7 @@ export const AMOSTRA_SCHEMA = 'ork.graph-edge-audit-sample/v0' as const;
 export const USO_DO_GRAFO = [
   'uso: ork grafo indexar [--verificar] [--forcar] [--json]',
   '     ork grafo status [--json]',
+  '     ork grafo contexto <thread> [--json [--teto-bytes N]]',
   '     ork grafo vizinhos <no> [--profundidade N] [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json [--teto-bytes N]]',
   '     ork grafo chamadores <simbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]',
   '     ork grafo importadores <arquivo|simbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]',
@@ -106,6 +110,8 @@ const ESTADO_DO_INDICE: Readonly<Record<string, string>> = Object.freeze({
 });
 
 export interface ContextoDoCli extends ContextoDoIndice {
+  /** A borda le a thread; a familia do grafo nao importa o estado nem o servidor. */
+  contextoDaThread?: (id: string) => { raiz: string; head: string; entrada: EntradaDoContexto };
   /** RM-031: a versao do `ork` que roda, para a correcao do `status` sem os analisadores (o `index.ts` passa). */
   versao?: string;
   escrever: (texto: string) => void;
@@ -115,6 +121,7 @@ interface Especificacao { posicionais: number; bandeiras: readonly string[]; val
 const SUBCOMANDOS: Readonly<Record<string, Especificacao>> = Object.freeze({
   indexar: { posicionais: 0, bandeiras: ['verificar', 'forcar', 'json'], valores: [] },
   status: { posicionais: 0, bandeiras: ['json'], valores: [] },
+  contexto: { posicionais: 1, bandeiras: ['json'], valores: ['teto-bytes'] },
   vizinhos: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'sentido', 'tipo', 'limite', 'teto-bytes'] },
   chamadores: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'limite', 'teto-bytes'] },
   importadores: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'limite', 'teto-bytes'] },
@@ -332,8 +339,13 @@ function semIndiceDoHead(ctx: ContextoDoCli, original: Error): never {
   throw original;
 }
 
-/** O indice do HEAD pronto para consulta, com a concessao local e o cabecalho; `grafo` ja vem filtrado por ela. */
-function consultavel(ctx: ContextoDoCli): { g: ReturnType<typeof prepararConsulta>; cabecalho: CabecalhoDoIndice; grafo: GrafoCodigo; raiz: string } {
+/**
+ * O indice do HEAD pronto para consulta, com a concessao local e o cabecalho; `grafo` ja vem filtrado por ela.
+ * KG5 fatia 5 (D3): `situacao` so le a arvore quando o cabecalho diz `modificada`; limpa, tudo vale `igual`.
+ */
+function consultavel(ctx: ContextoDoCli): {
+  g: ReturnType<typeof prepararConsulta>; cabecalho: CabecalhoDoIndice; grafo: GrafoCodigo; raiz: string; situacao: SituacaoNaArvore;
+} {
   let doHead: ReturnType<typeof indiceDoHead>;
   try {
     doHead = indiceDoHead(ctx);
@@ -349,7 +361,8 @@ function consultavel(ctx: ContextoDoCli): { g: ReturnType<typeof prepararConsult
     arvore: arvore.motivo === null ? 'limpa' : 'modificada',
     extratores: grafo.snapshot.extractors.map((e) => ({ extractor_id: e.extractor_id, extractor_version: e.extractor_version })),
   };
-  return { g: prepararConsulta(grafo, concessao), cabecalho, grafo, raiz: arvore.raiz };
+  const situacao = cabecalho.arvore === 'limpa' ? TUDO_IGUAL : situacaoNaArvore(arvore.raiz, grafo.snapshot.source_manifest);
+  return { g: prepararConsulta(grafo, concessao), cabecalho, grafo, raiz: arvore.raiz, situacao };
 }
 
 function responder(ctx: ContextoDoCli, p: Pedido, r: RespostaDeConsulta): number {
@@ -394,15 +407,40 @@ function consultar(ctx: ContextoDoCli, p: Pedido): number {
   // As opcoes sao conferidas antes de carregar o indice: erro de uso nao custa a leitura do grafo.
   const [a, b] = p.posicionais;
   const profundidade = inteiro(p, 'profundidade'), limite = inteiro(p, 'limite'), s = sentido(p), t = tipos(p), teto = tetoDeBytes(p);
-  const { g, cabecalho } = consultavel(ctx);
+  const { g, cabecalho, situacao } = consultavel(ctx);
+  // A busca binaria do teto pergunta de novo com outro limite; a situacao guarda o que ja leu da arvore.
   const perguntar = (lim: number | undefined): RespostaDeConsulta => {
-    if (p.sub === 'vizinhos') return vizinhos(g, cabecalho, a, { profundidade, limite: lim, sentido: s, tipos: t });
-    if (p.sub === 'chamadores') return chamadores(g, cabecalho, a, { profundidade, limite: lim });
-    if (p.sub === 'importadores') return importadores(g, cabecalho, a, { profundidade, limite: lim });
-    return caminho(g, cabecalho, a, b, { sentido: s, tipos: t });
+    if (p.sub === 'vizinhos') return vizinhos(g, cabecalho, a, { profundidade, limite: lim, sentido: s, tipos: t }, situacao);
+    if (p.sub === 'chamadores') return chamadores(g, cabecalho, a, { profundidade, limite: lim }, situacao);
+    if (p.sub === 'importadores') return importadores(g, cabecalho, a, { profundidade, limite: lim }, situacao);
+    return caminho(g, cabecalho, a, b, { sentido: s, tipos: t }, situacao);
   };
   if (teto === undefined) return responder(ctx, p, perguntar(limite));
   ctx.escrever(respostaComTeto(perguntar, limite, teto));
+  return 0;
+}
+
+function contexto(ctx: ContextoDoCli, p: Pedido): number {
+  const teto = tetoDeBytes(p);
+  if (teto !== undefined && (teto < 4096 || teto > 65536))
+    throw new ErroDeConsulta('grafo.contexto.teto-invalido', 'teto deve ser inteiro de 4096 a 65536 bytes');
+  if (!ctx.contextoDaThread) throw new ErroDeConsulta('grafo.contexto.indisponivel', 'borda sem leitor da thread');
+  const lido = ctx.contextoDaThread(p.posicionais[0]);
+  const { grafo, cabecalho, situacao } = consultavel({ ...ctx, raiz: lido.raiz });
+  if (lido.head !== cabecalho.revision) throw new ErroDeConsulta('grafo.contexto.revisao-mudou', 'HEAD mudou durante a leitura; repita a consulta');
+  const json = pacoteDeContexto(grafo, cabecalho, lido.entrada, teto, situacao);
+  if (p.bandeiras.has('json')) ctx.escrever(json);
+  else {
+    const r = JSON.parse(json);
+    // KG5 fatia 5 (D9): o resumo conta as ligacoes cuja fonte mudou na arvore, como o JSON marca.
+    const mudadas = (r.arestas as { arvore?: string }[]).filter((a) => a.arvore === 'modificada').length;
+    ctx.escrever([`Contexto ${r.thread} @ ${r.indice.revision}`,
+      `  ${r.sementes.length}/${r.total_sementes} sementes, ${r.arestas.length}/${r.total_ligacoes} ligacoes agregadas; ${r.medida.pacote_bytes} bytes JSON`,
+      `  tamanho dos arquivos no pacote (nao descoberta): ${r.medida.leitura_crua_bytes} bytes (revisao indexada); tokens: unavailable`,
+      `  diff: ${r.fontes.diff}`,
+      ...(mudadas ? [`  ligacoes com fonte modificada na arvore: ${mudadas}`] : []),
+      `  truncado: ${r.truncado}; arvore: ${r.indice.arvore}; use --json para nos e evidencias`, json].join('\n'));
+  }
   return 0;
 }
 
@@ -438,6 +476,57 @@ function leitorDaArvore(raiz: string, grafo: GrafoCodigo): (p: string) => Buffer
     if (sha256(bytes) !== esperado) throw new Error(`grafo.amostra.fonte-mudou: ${p}`);
     lidos.set(p, bytes);
     return bytes;
+  };
+}
+
+/**
+ * KG5 fatia 5 (D3, D6): a situacao de cada fonte do indice na arvore, pelos bytes. So caminho do manifesto;
+ * sem seguir link, nem no ultimo nome nem numa pasta do caminho: o caminho real tem de ser o proprio caminho
+ * indexado dentro da raiz (CHECK rodada 1, A1). So arquivo regular; tamanho diferente do indexado e
+ * `modificada` sem ler, e o sha256 dos bytes decide o resto, lidos ate o tamanho indexado mais um. O arquivo
+ * aberto tem de ser o mesmo do `lstat` (dispositivo e inode, CHECK rodada 1, S3): troca entre a conferencia e
+ * a abertura vira `ausente`; duas trocas no intervalo ainda passam, e revelariam so se os bytes sao os
+ * indexados. Qualquer falha e `ausente`: nao ha arquivo regular legivel no caminho. Cada caminho e lido uma
+ * vez, sob demanda, e nada e escrito.
+ */
+export function situacaoNaArvore(raiz: string, manifesto: readonly EntradaDoManifesto[]): SituacaoNaArvore {
+  const porCaminho = new Map(manifesto.map((m) => [m.path, m]));
+  const vistas = new Map<string, SituacaoDaFonte>();
+  let raizReal: string | null = null;
+  const ler = (p: string): SituacaoDaFonte => {
+    const m = porCaminho.get(p);
+    if (!m) return 'ausente';
+    const absoluto = path.join(raiz, p);
+    try {
+      raizReal ??= fs.realpathSync(raiz);
+      const st = fs.lstatSync(absoluto, { throwIfNoEntry: false });
+      if (!st || !st.isFile()) return 'ausente';
+      // CHECK rodada 2 (R2-S1): caminho de manifesto adulterado com `..` coincidiria com o real fora da raiz.
+      const real = fs.realpathSync(absoluto);
+      if (real !== path.join(raizReal, p) || !real.startsWith(raizReal + path.sep)) return 'ausente';
+      if (st.size !== m.size_bytes) return 'modificada';
+      const fd = fs.openSync(absoluto, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+      try {
+        const aberto = fs.fstatSync(fd);
+        if (!aberto.isFile() || aberto.dev !== st.dev || aberto.ino !== st.ino) return 'ausente';
+        if (aberto.size !== m.size_bytes) return 'modificada';
+        const bytes = Buffer.alloc(m.size_bytes + 1);
+        let lidos = 0;
+        for (let n = 1; n > 0 && lidos < bytes.length; lidos += n) n = fs.readSync(fd, bytes, lidos, bytes.length - lidos, null);
+        return lidos === m.size_bytes && sha256(bytes.subarray(0, lidos)) === m.source_hash ? 'igual' : 'modificada';
+      } finally {
+        fs.closeSync(fd);
+      }
+    } catch {
+      return 'ausente';
+    }
+  };
+  return (p: string): SituacaoDaFonte => {
+    const vista = vistas.get(p);
+    if (vista !== undefined) return vista;
+    const s = ler(p);
+    vistas.set(p, s);
+    return s;
   };
 }
 
@@ -558,12 +647,12 @@ function limpar(ctx: ContextoDoCli, p: Pedido): number {
 }
 
 /** KG5 (D4, D5): com `--teto-bytes` o erro tambem sai compacto; recusa de indice traz o estado e a correcao. */
-const erroEmJson = (ctx: ContextoDoCli, e: unknown, compacto: boolean): number => {
+const erroEmJson = (ctx: ContextoDoCli, e: unknown, compacto: boolean, schema: string = CONSULTA_SCHEMA): number => {
   const [codigo, ...detalhe] = String((e as Error).message).split('\n')[0].split(': ');
   const doIndice = Object.prototype.hasOwnProperty.call(ESTADO_DO_INDICE, codigo)
     ? { estado_do_indice: ESTADO_DO_INDICE[codigo], correcao: CORRECAO_DO_INDICE } : {};
   const r = {
-    schema: CONSULTA_SCHEMA,
+    schema,
     erro: { codigo, detalhe: detalhe.join(': ') || null, candidatos: e instanceof ErroDeConsulta ? e.candidatos : [], ...doIndice },
   };
   ctx.escrever(compacto ? JSON.stringify(r) : JSON.stringify(r, null, 2));
@@ -572,13 +661,14 @@ const erroEmJson = (ctx: ContextoDoCli, e: unknown, compacto: boolean): number =
 
 /** `ork grafo <subcomando> ...`: devolve o codigo de saida; sem `--json`, o erro de uso ou tipado e lancado. */
 export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): number {
-  const compacto = argv.some((a) => a === '--teto-bytes' || a.startsWith('--teto-bytes='));
+  const schema = argv[0] === 'contexto' ? CONTEXTO_SCHEMA : CONSULTA_SCHEMA;
+  const compacto = argv[0] === 'contexto' || argv.some((a) => a === '--teto-bytes' || a.startsWith('--teto-bytes='));
   let p: Pedido;
   try {
     p = lerPedido(argv);
   } catch (e) {
     // Com `--json` no argv, tambem o erro de uso sai como objeto, como os demais.
-    if (argv.includes('--json')) return erroEmJson(ctx, e, compacto);
+    if (argv.includes('--json')) return erroEmJson(ctx, e, compacto, schema);
     throw e;
   }
   try {
@@ -586,10 +676,10 @@ export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): numb
     if (p.sub === 'status') return status(ctx, p);
     if (p.sub === 'amostra') return amostra(ctx, p);
     if (p.sub === 'limpar') return limpar(ctx, p);
+    if (p.sub === 'contexto') return contexto(ctx, p);
     return consultar(ctx, p);
   } catch (e) {
     if (!p.bandeiras.has('json')) throw e;
-    return erroEmJson(ctx, e, compacto);
+    return erroEmJson(ctx, e, compacto, schema);
   }
 }
-

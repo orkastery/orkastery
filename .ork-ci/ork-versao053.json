@@ -1,0 +1,181 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-versao053",
+  "branch": "ork/ork-versao053-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-versao053",
+      "fase": "GO",
+      "arquivo": "core/package.json",
+      "alegacao": "O CLI se declara 0.5.3: o package.json do core, o ork --version e o teste de versão (core e adaptador OpenClaw na mesma versão)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/versao.test.js >/dev/null && test \"$(node core/dist/index.js --version)\" = 0.5.3"
+      ],
+      "criadoEm": "2026-10-03T10:19:17.471Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-versao053",
+      "fase": "GO",
+      "arquivo": "core/package-lock.json",
+      "alegacao": "O lockfile do core acompanha a 0.5.3, na raiz e no pacote do projeto",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const l=require('./core/package-lock.json'); if (l.name!=='@orkastery/cli' || l.version!=='0.5.3' || l.packages[''].version!=='0.5.3') process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-03T10:19:17.709Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-versao053",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/package.json",
+      "alegacao": "O pacote do adaptador OpenClaw anda na 0.5.3, a mesma versão do core",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const p=require('./adapters/openclaw/package.json'); if (p.version!=='0.5.3' || p.version!==require('./core/package.json').version) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-03T10:19:17.934Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-versao053",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/openclaw.plugin.json",
+      "alegacao": "O manifesto do plugin OpenClaw anda na 0.5.3, a mesma versão do core",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const p=require('./adapters/openclaw/openclaw.plugin.json'); if (p.version!=='0.5.3' || p.version!==require('./core/package.json').version) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-03T10:19:18.183Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-versao053",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/.claude-plugin/plugin.json",
+      "alegacao": "O plugin do Claude Code nos marketplaces sai na 0.5.3 e é igual ao que o gerador produz do catálogo",
+      "negativa": false,
+      "verificar": [
+        "node -e \"if (require('./marketplaces/claude-code/orkastery/.claude-plugin/plugin.json').version!=='0.5.3') process.exit(1)\" && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-03T10:19:18.416Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-versao053",
+      "fase": "GO",
+      "arquivo": "marketplaces/codex/orkastery/.codex-plugin/plugin.json",
+      "alegacao": "O plugin de skills do Codex nos marketplaces sai na 0.5.3 e é igual ao que o gerador produz do catálogo",
+      "negativa": false,
+      "verificar": [
+        "node -e \"if (require('./marketplaces/codex/orkastery/.codex-plugin/plugin.json').version!=='0.5.3') process.exit(1)\" && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-03T10:19:18.651Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-versao053",
+      "fase": "GO",
+      "arquivo": "docs",
+      "alegacao": "A documentação passa na paridade do PR (docs verificar --pr, como o CI), no lint e nos links; sem --pr, o único erro é o da RM-057 que a main já traz (merge 7266df6 com o estado.codigo antigo), e nenhum outro",
+      "negativa": true,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr && node core/dist/index.js docs verificar --json | node -e \"let s=''; process.stdin.on('data',d=>s+=d).on('end',()=>{const e=JSON.parse(s).achados.filter(a=>a.gravidade==='erro' && !(a.id==='RM-057' && a.regra==='docs.paridade.merge')); if(e.length){console.error(e); process.exit(1)}})\" && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-10-03T10:19:19.198Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-versao053",
+      "fase": "GO",
+      "arquivo": "eval",
+      "alegacao": "Os canários de comportamento passam",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js eval --so-canarios"
+      ],
+      "criadoEm": "2026-10-03T10:19:19.473Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-versao053",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-versao053.json",
+      "alegacao": "Bundle por thread da ork-versao053: é da thread e da branch dela, leva as claims e não leva caminho de máquina nem e-mail",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-versao053.json'); if (b.schema!=='ork.ci-bundle/v1' || b.thread!=='ork-versao053' || b.branch!=='ork/ork-versao053-go' || b.claims.length<10) process.exit(1)\" && ! grep -IEl '/hom[e]/|/User[s]/|[[:alnum:]._%+-]+@[[:alnum:]-]+[.][[:alpha:]]{2,}' .ork-ci/ork-versao053.json"
+      ],
+      "criadoEm": "2026-10-03T10:19:19.740Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-versao053",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A 0.5.3 preserva todos os itens e o histórico da base 799106af, abre Não publicado vazia e cobre os 44 merges da lista com grupos únicos, incluindo sete notas ausentes. Substitui conceitualmente C11, cuja retirada cabe à condutora.",
+      "negativa": true,
+      "verificar": [
+        "node -e 'const fs=require('\\''node:fs'\\''),assert=require('\\''node:assert/strict'\\'');const t=fs.readFileSync('\\''CHANGELOG.md'\\'','\\''utf8'\\'');const sec=(s,h)=>{const a=s.split('\\''\\n'\\''),i=a.indexOf(h);assert(i>=0,h);let j=i+1;while(j<a.length&&!a[j].startsWith('\\''## '\\''))j++;return a.slice(i+1,j).filter(x=>x.trim())};const v=sec(t,'\\''## [0.5.3] - 2026-10-03'\\'');assert.equal(sec(t,'\\''## Não publicado'\\'').length,0);assert.equal(t.split('\\''\\n'\\'').indexOf('\\''## Não publicado'\\''),6);const groups=v.filter(x=>x.startsWith('\\''### '\\''));assert.equal(new Set(groups).size,groups.length);const coverage=[[\"799106af\",\"Avisos finais dos leases multicanais\"],[\"262a8243\",\"Ramos do `ork doctor` sob teste, C5\"],[\"f8408567\",\"Fechamento com falha parcial sob teste, C4\"],[\"a9f2be7a\",\"Contexto compacto da thread, KG5 fatia 3\"],[\"0d8fe4fe\",\"O MASTER sem `--classe` junta `base-avancou`\"],[\"9fed53c8\",\"O POSTMORTEM conta o CHECK e o SHIP\"],[\"b0573ade\",\"Id da instalação numa pasta dividida\"],[\"fba6b678\",\"Testes instáveis do CI de 03/10\"],[\"059f257a\",\"Marcas visíveis da categoria `Cf`\"],[\"4e1a6f0c\",\"Leases de todas as famílias no estado canônico\"],[\"8250e5e7\",\"Instalação e suíte sem os avisos do próprio repositório\"],[\"7202e479\",\"Recibos do ensaio com o estado real dos achados\"],[\"04275d34\",\"O `ork ship registrar-pr` avisa a página\"],[\"7afb7ccc\",\"Suspeitas da revisão de 03/10\"],[\"f11986ec\",\"A vez de publicar na rede tem um vencedor só\"],[\"76f8f300\",\"Medida da conta esgotada entre projetos\"],[\"5b75aa64\",\"Fechar a thread solta as sessões fantasma\"],[\"0e8f1052\",\"O MASTER sem `--classe` infere a classe de falha\"],[\"4a36782d\",\"Contexto determinístico da thread, KG5 fatia 2\"],[\"288bc6cd\",\"Revisão das entregas da madrugada de 03/10\"],[\"44674be5\",\"Piloto de contas compartilhadas\"],[\"4d973a6f\",\"Defeitos do ensaio isolado da reinstalação do OpenClaw\"],[\"3d77e53b\",\"Avisos da rodada 2 do universo da busca\"],[\"b432dd79\",\"Aceite por omissão só da thread indicada\"],[\"e8935fa2\",\"O grafo de código funciona em quem instala\"],[\"2de5a4d7\",\"Orkastery Network, fatia 2\"],[\"0080d87f\",\"Achados do ensaio de 03/10, com a recomendada\"],[\"73df05b1\",\"Primeira experiência sobre a main de 03/10\"],[\"3db40996\",\"Fatos da rede após os merges\"],[\"91dd9877\",\"A rede por pessoa no roadmap da rede, fatia 3\"],[\"f741faef\",\"**Orkastery Network**\"],[\"2e87f98a\",\"Teste instável do lease da sucessora no Node 22\"],[\"888770c0\",\"O universo do índice é o mesmo da busca\"],[\"02578074\",\"Company Brain, B4.2 após o merge\"],[\"f0bee981\",\"Prova de ativação do Maestro no Codex\"],[\"64cdeea9\",\"`--remoto` de `ork ship --para` validado\"],[\"56788756\",\"`ork brain context` pelo modo `context`\"],[\"67d1f7a8\",\"Suíte local sem as dependências opcionais\"],[\"d796ad3f\",\"Fatos do roadmap e ordem do CHANGELOG, B3\"],[\"8bc25f35\",\"`--remoto` de `ork ship registrar-pr` e de `ork ci status`\"],[\"f621f541\",\"HITL de condução por alternativas, fatia 3\"],[\"95134df4\",\"Remoto da fábrica validado antes do git\"],[\"96a0e1c5\",\"Conferência opt-in da claim no registro\"],[\"d3ae643b\",\"`ork doctor` acusa o pulse que bate devagar\"]];const missing=coverage.filter(([sha,title])=>!v.some(x=>x.startsWith('\\''- **'\\'')&&x.includes(title)));assert.deepEqual(missing,[]);console.log('\\''CHANGELOG: 44 merges da lista com nota, seção futura vazia, grupos únicos'\\'');'",
+        "node -e 'const fs=require('\\''node:fs'\\''),cp=require('\\''node:child_process'\\''),assert=require('\\''node:assert/strict'\\'');const before=cp.execFileSync('\\''git'\\'',['\\''show'\\'','\\''799106aff54907ebaa36ba93faf682b47aa037f0:CHANGELOG.md'\\''],{encoding:'\\''utf8'\\''}),after=fs.readFileSync('\\''CHANGELOG.md'\\'','\\''utf8'\\'');const sec=(s,h)=>s.split(h+'\\''\\n'\\'')[1].split('\\''\\n## '\\'')[0].split('\\''\\n'\\'').filter(x=>x.trim());const old=sec(before,'\\''## Não publicado'\\''),now=sec(after,'\\''## [0.5.3] - 2026-10-03'\\'');let i=0;for(const line of now)if(line===old[i])i++;assert.equal(i,old.length,'\\''itens antigos preservados em ordem'\\'');assert.equal(after.split('\\''## [0.5.2] - 2026-10-03'\\'')[1],before.split('\\''## [0.5.2] - 2026-10-03'\\'')[1]);console.log('\\''CHANGELOG: itens da base e histórico preservados'\\'');' && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-03T10:31:25.374Z",
+      "estado": "pendente",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "799106af",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        },
+        {
+          "regra": "sha-intermediario",
+          "trecho": "799106aff54907ebaa36ba93faf682b47aa037f0",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-versao053",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-docs.test.ts",
+      "alegacao": "O teste de docs da RM-036 acha o item do CHANGELOG na seção que o publicou (Não publicado antes da versão, a seção da versão depois)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:46:35.051Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import * as path from 'node:path';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
 import { createInitiative, createProduct, createProject, readPortfolio } from '../src/portfolio';
 import { BRAIN_API, BrainResponse, BrainTransport } from '../src/company-brain-client';
-import { BrainEntity, canonical, digest } from '../src/company-brain-contract';
+import { BrainEntity, canonical, digest, validateContract } from '../src/company-brain-contract';
 import { buildContext, SERVER_CONTEXT_SCHEMA } from '../src/company-brain-context';
 import { portfolioEntities } from '../src/company-brain-source';
 
@@ -183,5 +183,46 @@ test('B4.2 só brain.selection.context-unsupported leva à consulta; outra recus
     const pacote = buildContext(p.carregado, ['init-alpha-one'], orkmindFalso(fonte(p), { semModo: true, chamadas }), 'thread-recusa');
     assert.deepEqual([pacote.state, pacote.caminho], ['ok', 'consulta']);
     assert.deepEqual(chamadas.slice(0, 2), ['query:context', 'query:selection']);
+  } finally { p.limpar(); }
+});
+
+// Suspeitas da revisao de 03/10 (thread ork-suspeitasdar): "o caminho do servidor exige
+// source.authority e segue so o pai da fonte local; o por consulta nao. Se a projecao tirar
+// authority ou os pais divergirem, os dois caminhos dao digests diferentes".
+test('suspeitas 03/10: pais divergentes entre a fonte e o Brain dao o mesmo pacote nos dois caminhos', () => {
+  const p = montar('susp0310-b42-pais');
+  try {
+    const locais = fonte(p), um = locais.find(e => e.id === 'init-alpha-one')!;
+    const so = (id: string, kind: 'prod' | 'proj' | 'init', parent_id: string | null): BrainEntity => ({ ...copia(um), id, kind, parent_id,
+      aliases: [{ system: 'ork', instance: 'orkastery', id }], source: { ...um.source, source_ref: `portfolio.json#${id}`, location: `id:${id}` } });
+    // No Brain, a init-alpha-two mudou de projeto (pai e avo so no Brain); a init-alpha-one perdeu o pai.
+    const brain: BrainEntity[] = locais.map(e => e.id === 'init-alpha-two' ? { ...e, parent_id: 'proj-gama-core' }
+      : e.id === 'init-alpha-one' ? { ...e, parent_id: null } : e);
+    brain.push(so('prod-gama', 'prod', null), so('proj-gama-core', 'proj', 'prod-gama'));
+    const pedido = ['init-alpha-one', 'init-alpha-two'];
+    const pelaServidor = buildContext(p.carregado, pedido, orkmindFalso(brain), 'thread-pais');
+    const pelaConsulta = buildContext(p.carregado, pedido, orkmindFalso(brain, { semModo: true }), 'thread-pais');
+    assert.equal(pelaServidor.caminho, 'servidor');
+    assert.equal(pelaConsulta.caminho, 'consulta');
+    assert.deepEqual(semHorario(pelaServidor), semHorario(pelaConsulta));
+    assert.equal(pelaServidor.digest, pelaConsulta.digest);
+    // Os dois fecham pelos dois pais: o da fonte (proj-alpha-core) e o do Brain (proj-gama-core), ate os produtos.
+    assert.deepEqual(pelaServidor.itens.map(i => i.id).sort(), ['init-alpha-one', 'init-alpha-two', 'prod-alpha', 'prod-gama', 'proj-alpha-core', 'proj-gama-core']);
+  } finally { p.limpar(); }
+});
+
+test('suspeitas 03/10: entidade sem authority nao e citavel em nenhum dos dois caminhos', () => {
+  const p = montar('susp0310-b42-authority');
+  try {
+    const locais = fonte(p);
+    const semAuthority = locais.map(e => e.id === 'init-alpha-one' ? { ...e, source: (({ authority: _a, ...s }) => s)(e.source) as any } : e);
+    assert.throws(() => validateContract(semAuthority.find(e => e.id === 'init-alpha-one')), /authority|contract|schema/i,
+      'o schema canonico (Source.authority: const "ork", obrigatorio) recusa a entidade');
+    const pelaServidor = buildContext(p.carregado, ['init-alpha-one'], orkmindFalso(semAuthority), 'thread-auth');
+    assert.ok(pelaServidor.lacunas.some(l => l.id === 'init-alpha-one' && l.codigo === 'citacao.incompleta'));
+    // Um Brain fora do proprio contrato entrega a entidade sem authority pela consulta: o pacote e o mesmo do servidor.
+    const pelaConsulta = buildContext(p.carregado, ['init-alpha-one'], orkmindFalso(semAuthority, { semModo: true }), 'thread-auth');
+    assert.deepEqual(semHorario(pelaConsulta), semHorario(pelaServidor));
+    assert.equal(pelaConsulta.digest, pelaServidor.digest);
   } finally { p.limpar(); }
 });

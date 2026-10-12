@@ -18,16 +18,17 @@ Proposta de 26/09/2026, a confirmar pelo dono. Ordem por impacto em quem constr�
 | 2 | [RM-046](RM-046-go-to-open-source.md) GoToOpenSource | Sem repositório público, release atual e página, ninguém adota o resto |
 | 3 | [RM-042](RM-042-modo-fast.md) Modo #Fast | Tira a cerimônia do pedido pequeno, que é o primeiro contato de quem chega |
 | 4 | [RM-047](RM-047-fabrica-em-varias-maquinas.md) Fábrica em várias máquinas | Builder usa notebook, desktop e servidor; hoje cada um é uma ilha |
-| 5 | [RM-037](RM-037-verify-rapido-e-confiavel.md) Verify rápido e confiável | Confiança na prova em qualquer máquina, inclusive a de quem contribui |
-| 6 | [RM-040](RM-040-estado-de-conta-compartilhado.md) Estado de conta compartilhado | Quem tem vários projetos não bate duas vezes na mesma conta esgotada |
-| 7 | [RM-036](RM-036-maestro-multicanal.md) Condução multicanal | Conduzir do celular e do terminal como uma conversa só |
-| 8 | [RM-039](RM-039-cadencia-do-pulse-por-tag.md) Cadência do pulse por tag | O dono controla quando é interrompido, em conversa |
-| 9 | [RM-031](RM-031-grafo-de-codigo.md) Grafo de código | Menos contexto gasto por fase em bases grandes |
-| 10 | [RM-038](RM-038-busca-semantica-na-memoria.md) Busca semântica na memória | Memória útil sem depender de etiqueta |
-| 11 | [RM-008](RM-008-loop-de-aprendizado.md) Loop de aprendizado | A fábrica melhora a cada entrega, sem ninguém lembrar a lição |
-| 12 | [RM-032](RM-032-bootstrap-maestro.md) e [RM-012](RM-012-ci-check-independente.md) | Fechamentos: ativação por host e proteção da `main`, que o repositório público destrava |
-| 13 | [RM-025](RM-025-company-brain-fundacao.md) e [RM-026](RM-026-workspace-empresarial.md) Company Brain | Produto principal é o OrkMind; entra depois da adoção do núcleo |
-| 14 | [RM-050](RM-050-guia-de-contribuicao.md) Guia de contribuição | Quem é convidado a colaborar chega ao primeiro PR verde sem perguntar |
+| 5 | [RM-058](RM-058-modo-noctum.md) Modo #Noctum (posição proposta; decisão final do dono) | Após a base multimáquina da RM-047, planeja arcos autônomos de muitas threads; proposta de 03/10/2026 |
+| 6 | [RM-037](RM-037-verify-rapido-e-confiavel.md) Verify rápido e confiável | Confiança na prova em qualquer máquina, inclusive a de quem contribui |
+| 7 | [RM-040](RM-040-estado-de-conta-compartilhado.md) Estado de conta compartilhado | Quem tem vários projetos não bate duas vezes na mesma conta esgotada |
+| 8 | [RM-036](RM-036-maestro-multicanal.md) Condução multicanal | Conduzir do celular e do terminal como uma conversa só |
+| 9 | [RM-039](RM-039-cadencia-do-pulse-por-tag.md) Cadência do pulse por tag | O dono controla quando é interrompido, em conversa |
+| 10 | [RM-031](RM-031-grafo-de-codigo.md) Grafo de código | Menos contexto gasto por fase em bases grandes |
+| 11 | [RM-038](RM-038-busca-semantica-na-memoria.md) Busca semântica na memória | Memória útil sem depender de etiqueta |
+| 12 | [RM-008](RM-008-loop-de-aprendizado.md) Loop de aprendizado | A fábrica melhora a cada entrega, sem ninguém lembrar a lição |
+| 13 | [RM-032](RM-032-bootstrap-maestro.md) e [RM-012](RM-012-ci-check-independente.md) | Fechamentos: ativação por host e proteção da `main`, que o repositório público destrava |
+| 14 | [RM-025](RM-025-company-brain-fundacao.md) e [RM-026](RM-026-workspace-empresarial.md) Company Brain | Produto principal é o OrkMind; entra depois da adoção do núcleo |
+| 15 | [RM-050](RM-050-guia-de-contribuicao.md) Guia de contribuição | Quem é convidado a colaborar chega ao primeiro PR verde sem perguntar |
 
 ## Itens
 
@@ -53,15 +54,15 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-018](RM-018-ontologia-de-portfolio.md) | Ontologia de portfólio | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-019](RM-019-catalogo-multi-repositorio.md) | Catálogo multi-repositório | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-025](RM-025-company-brain-fundacao.md) | Company Brain: fundação | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-03 |
-| [RM-026](RM-026-workspace-empresarial.md) | Workspace empresarial e Maestro | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
-| [RM-031](RM-031-grafo-de-codigo.md) | Grafo determinístico de código e artefatos | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-02 |
+| [RM-026](RM-026-workspace-empresarial.md) | Workspace empresarial e Maestro | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-03 |
+| [RM-031](RM-031-grafo-de-codigo.md) | Grafo determinístico de código e artefatos | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-10 |
 | [RM-032](RM-032-bootstrap-maestro.md) | Bootstrap universal Maestro | Disponível | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-033](RM-033-rotacao-de-contas.md) | Rotação de contas e perfis dos runtimes | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-034](RM-034-conclusao-claude-bg.md) | Conclusão nativa das sessões claude-bg | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-035](RM-035-horario-do-dono.md) | Horário do dono em toda superfície humana | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
-| [RM-036](RM-036-maestro-multicanal.md) | Condução multicanal do Maestro no núcleo | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
-| [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-10-01 |
-| [RM-038](RM-038-busca-semantica-na-memoria.md) | Busca semântica na memória | Em validação | Mesclado | Aprovados | Produção | 2026-10-03 |
+| [RM-036](RM-036-maestro-multicanal.md) | Condução multicanal do Maestro no núcleo | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
+| [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
+| [RM-038](RM-038-busca-semantica-na-memoria.md) | Busca semântica na memória | Em validação | Mesclado | Aprovados | Produção | 2026-10-10 |
 | [RM-039](RM-039-cadencia-do-pulse-por-tag.md) | Cadência do pulse por tag em qualquer canal | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-040](RM-040-estado-de-conta-compartilhado.md) | Estado de conta compartilhado entre projetos | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-041](RM-041-hitl-invertido.md) | HITL invertido: decisão tomada, lote e pergunta rara | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
@@ -70,17 +71,21 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-044](RM-044-documentacao-como-codigo.md) | Documentação como código com paridade | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-045](RM-045-pulse-enxuto.md) | Pulse enxuto: fila sem lixo e varredura dentro do teto | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-046](RM-046-go-to-open-source.md) | GoToOpenSource, o Orkastery aberto, seguro e fácil de adotar | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
-| [RM-047](RM-047-fabrica-em-varias-maquinas.md) | Fábrica em várias máquinas, com threads em mais de um computador | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
+| [RM-047](RM-047-fabrica-em-varias-maquinas.md) | Fábrica em várias máquinas, com threads em mais de um computador | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-048](RM-048-hitl-humano-no-centro.md) | HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal | Em validação | Mesclado | Aprovados | Produção | 2026-10-01 |
-| [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
-| [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-03 |
+| [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Piloto | Mesclado | Aprovados | Produção | 2026-10-10 |
 | [RM-051](RM-051-pacote-de-experiencia.md) | Pacote de experiência de orquestração | Disponível | Mesclado | Aprovados | Produção | 2026-10-01 |
-| [RM-052](RM-052-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | Em validação | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-052](RM-052-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | Em validação | Mesclado | Aprovados | Produção | 2026-10-10 |
 | [RM-053](RM-053-orkastery-network.md) | Orkastery Network, as máquinas de uma pessoa em rede | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-03 |
 | [RM-054](RM-054-roadmaps-e-threads-da-rede.md) | Roadmaps e threads da rede visíveis a todo agente e runtime | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-10-03 |
-| [RM-055](RM-055-impedimento-do-dono-vira-hitl.md) | Impedimento que só o dono resolve vira pedido a ele | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-02 |
+| [RM-055](RM-055-impedimento-do-dono-vira-hitl.md) | Impedimento que só o dono resolve vira pedido a ele | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-10 |
 | [RM-056](RM-056-perfil-por-thread-e-carga.md) | Perfil por thread, rodízio por carga e sessões dos perfis | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-02 |
 | [RM-057](RM-057-hitl-por-alternativas.md) | HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-03 |
+| [RM-058](RM-058-modo-noctum.md) | Modo #Noctum: arcos autônomos de muitas threads e máquinas | Refinamento | Não iniciado | Não iniciados | Não implantado | 2026-10-12 |
+| [RM-059](RM-059-conducao-dentro-do-claude-code.md) | Condução dentro do Claude Code: dez mods para ver, decidir, destravar, entregar e pontuar sem sair do terminal | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
+| [RM-060](RM-060-site-como-produto.md) | Site como produto: os dois sites públicos com o mesmo rigor do núcleo | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
+| [RM-061](RM-061-cli-em-ingles-e-pt-br.md) | CLI em inglês e pt-BR | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-12 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->

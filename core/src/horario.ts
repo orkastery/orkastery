@@ -11,6 +11,8 @@
  * (sem ciclo): quem conhece o projeto registra a fonte com `registrarFonteDoFuso`.
  */
 
+import { Locale, localeAtivo, msg } from './locale';
+
 export const CHAVE_DO_FUSO = 'owner.timezone';
 /** Único fuso com nome próprio no rótulo; exemplo da documentação e do `ork init`. */
 export const FUSO_DE_BRASILIA = 'America/Sao_Paulo';
@@ -27,6 +29,12 @@ export interface OpcoesDeFormato {
   fuso?: string;
   /** Referência de "hoje", do ano corrente e do relativo; sem ela vale o relógio. */
   agora?: string | number | Date;
+  /**
+   * Prova de conceito do CLI por locale (EN6): pt-BR escreve `19/09 15:16`; `en` escreve a data ISO,
+   * `2026-09-19 15:16`, que um leitor dos EUA nao le como mes/dia. Sem ela vale o locale ativo, que so
+   * os comandos de `COMANDOS_COM_LOCALE` trocam.
+   */
+  locale?: Locale;
 }
 
 /** Forma canônica do Intl (`america/sao_paulo` vira `America/Sao_Paulo`) ou undefined. */
@@ -197,9 +205,9 @@ export function duracaoRelativa(minutos: number): string {
   return minutos < 1 ? 'menos de 1 min' : duracaoCurta(minutos);
 }
 
-function sigla(fuso: string, ms: number): string {
+function sigla(fuso: string, ms: number, locale: Locale = localeAtivo()): string {
   try {
-    return new Intl.DateTimeFormat('pt-BR', { timeZone: fuso, timeZoneName: 'short' })
+    return new Intl.DateTimeFormat(locale === 'en' ? 'en-US' : 'pt-BR', { timeZone: fuso, timeZoneName: 'short' })
       .formatToParts(new Date(ms)).find(p => p.type === 'timeZoneName')?.value ?? '';
   } catch {
     return '';
@@ -208,7 +216,7 @@ function sigla(fuso: string, ms: number): string {
 
 /** Como o fuso aparece entre parênteses: `horário de Brasília`, `UTC`, `Europe/Lisbon, GMT+1`. */
 export function rotuloDoFuso(fuso: string = fusoDoDono().fuso, quando?: string | number | Date): string {
-  if (fuso === FUSO_DE_BRASILIA) return 'horário de Brasília';
+  if (fuso === FUSO_DE_BRASILIA) return msg().horario.brasilia;
   if (fuso === 'UTC') return 'UTC';
   const ms = instante(quando);
   const s = sigla(fuso, Number.isFinite(ms) ? ms : Date.now());
@@ -217,17 +225,23 @@ export function rotuloDoFuso(fuso: string = fusoDoDono().fuso, quando?: string |
 
 /** Legenda de mensagem com vários horários: `Horários de Brasília.` */
 export function legendaDoFuso(fuso: string = fusoDoDono().fuso, quando?: string | number | Date): string {
-  if (fuso === FUSO_DE_BRASILIA) return 'Horários de Brasília.';
-  return `Horários em ${rotuloDoFuso(fuso, quando)}.`;
+  if (fuso === FUSO_DE_BRASILIA) return msg().horario.legendaBrasilia;
+  return msg().horario.legenda(rotuloDoFuso(fuso, quando));
 }
 
-/** `19/09 15:16`; `19/09/2025 15:16` quando o ano não é o corrente do dono. Inválido volta como veio. */
+/**
+ * `19/09 15:16`; `19/09/2025 15:16` quando o ano não é o corrente do dono. Em `en`, sempre
+ * `2026-09-19 15:16` (EN6). Inválido volta como veio.
+ */
 export function formatarDataHora(quando: string | number | Date | null | undefined,
   opcoes: OpcoesDeFormato & { segundos?: boolean } = {}): string {
   const ms = instante(quando ?? null);
   if (!Number.isFinite(ms)) return quando === null || quando === undefined ? '' : String(quando);
   const fuso = opcoes.fuso ?? fusoDoDono().fuso;
   const p = partesLocais(ms, fuso), a = partesLocais(instante(opcoes.agora), fuso);
+  if ((opcoes.locale ?? localeAtivo()) === 'en') {
+    return `${p.ano}-${p.mes}-${p.dia} ${p.hora}:${p.minuto}` + (opcoes.segundos ? `:${p.segundo}` : '');
+  }
   return `${p.dia}/${p.mes}${p.ano !== a.ano ? `/${p.ano}` : ''} ${p.hora}:${p.minuto}` +
     (opcoes.segundos ? `:${p.segundo}` : '');
 }

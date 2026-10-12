@@ -1,0 +1,412 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm031grafo3",
+  "branch": "ork/ork-rm031grafo3-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-query.ts",
+      "alegacao": "RM-031 KG5 fatia 5 (T1): a consulta por nó (ork.code-graph-query/v0) traz fontes, uma entrada por caminho dos nós e das evidências devolvidas, com path, source_hash, source_version e arvore; cada aresta traz arvore, igual só quando origem, alvo e evidências conferem; sem a situação de quem chama, tudo vale igual; o texto marca a aresta e lista as fontes que mudaram.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-proveniencia.test.js core/dist-test/test/intelligence-graph-query.test.js core/dist-test/test/intelligence-kg1-boundary.test.js"
+      ],
+      "criadoEm": "2026-10-10T06:43:10.863Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "RM-031 KG5 fatia 5 (T1): o ork grafo só lê a árvore quando o cabeçalho diz modificada, pelos bytes (sha256 contra o source_hash do índice), só arquivo regular com caminho real dentro da raiz, tamanho conferido antes de abrir e cada caminho lido uma vez; o teto corta pelo limite com fontes no cálculo, e o worker do MCP responde os mesmos bytes da CLI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-proveniencia.test.js core/dist-test/test/intelligence-graph-index.test.js core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-10T06:43:13.685Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-proveniencia.test.ts",
+      "alegacao": "RM-031 KG5 fatia 5 (T1): o grupo KG5 proveniencia cobre a consulta pura (padrão tudo igual, marca pela origem, pelo alvo e por evidência auxiliar, situação pedida só para o que a resposta cita), a CLI com a árvore limpa e modificada (mesmo tamanho, outro tamanho, apagada, link, pasta, pasta-mãe fora da raiz, FIFO e mudança só no índice do Git), o skip-worktree do D3, a leitura única com tamanho antes de abrir, o teto e o worker igual à CLI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-proveniencia.test.js"
+      ],
+      "criadoEm": "2026-10-10T06:43:19.023Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "RM-031 KG5 fatia 5 (D3, critério C3 do GOAL): nenhum módulo da impressão do extrator (MODULOS_DO_EXTRATOR) muda no diff da thread contra a base, então a chave dos índices guardados não muda e ninguém precisa reindexar por causa desta fatia.",
+      "negativa": true,
+      "verificar": [
+        "git diff --quiet \"$(git merge-base origin/main HEAD)\" HEAD -- core/src/intelligence-graph-contract.ts core/src/intelligence-graph-extract.ts core/src/intelligence-graph-extract-ts.ts core/src/intelligence-graph-extract-md.ts core/src/intelligence-graph-repo.ts core/src/intelligence-graph-parsers.ts core/src/intelligence-graph-index.ts core/src/yaml.ts"
+      ],
+      "criadoEm": "2026-10-10T06:43:39.466Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-contexto.ts",
+      "alegacao": "RM-031 KG5 fatia 5 (T2, D5): no pacote ork.thread-graph-context/v2, só o grupo cuja origem ou alvo não confere com a árvore ganha arvore: \"modificada\"; sem a situação, ou com ela toda igual, o pacote sai byte a byte como antes, e a medida histórica e a fixture sintética do v2 seguem válidas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-proveniencia.test.js core/dist-test/test/rm031-kg5-contexto.test.js core/dist-test/test/rm031-kg5-citacoes.test.js"
+      ],
+      "criadoEm": "2026-10-10T06:48:02.874Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "RM-031 KG5 fatia 5 (T2): o ork grafo contexto passa ao compositor a mesma situação das consultas por nó, e o resumo em texto conta as ligações com fonte modificada na árvore; com a árvore limpa, nada é marcado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"KG5 proveniencia\" core/dist-test/test/rm031-kg5-proveniencia.test.js"
+      ],
+      "criadoEm": "2026-10-10T06:48:20.508Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-proveniencia.test.ts",
+      "alegacao": "RM-031 KG5 fatia 5 (T2): o grupo KG5 proveniencia cobre o pacote v2 (só o grupo de fonte mudada marcado, pela origem e pelo alvo, e sem mudança os mesmos bytes), o ork grafo contexto com a árvore limpa e editada, e CLI, worker e MCP entregando a mesma marca, inclusive na consulta por nó pela tool.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-proveniencia.test.js"
+      ],
+      "criadoEm": "2026-10-10T06:48:24.972Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-grafo.ts",
+      "alegacao": "RM-031 KG5 fatia 5 (T3): as descrições das quatro consultas por nó dizem que cada aresta traz arvore e a resposta traz fontes com sha256 e blob, e a de ork_grafo_contexto diz que o grupo de fonte mudada traz arvore: modificada; o registro continua só com a flag e as tools seguem de leitura.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-proveniencia.test.js core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-10T06:51:39.914Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/src/prompts.ts",
+      "alegacao": "RM-031 KG5 fatia 5 (T3): com a flag ligada, a dica do pedido da fase diz que a aresta com arvore: modificada vem de fonte que mudou depois do HEAD e pede conferir o arquivo; com a flag desligada, o pedido e o prompt ficam byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-proveniencia.test.js core/dist-test/test/rm031-kg5-contexto.test.js core/dist-test/test/prompts.test.js"
+      ],
+      "criadoEm": "2026-10-10T06:51:42.207Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-proveniencia.test.ts",
+      "alegacao": "RM-031 KG5 fatia 5 (T3): o grupo KG5 proveniencia confere as descrições das cinco tools (fontes e a marca arvore) e a dica do pedido com a flag ligada e desligada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"descricoes das tools\" core/dist-test/test/rm031-kg5-proveniencia.test.js"
+      ],
+      "criadoEm": "2026-10-10T06:51:44.226Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/kg5-medida-mcp.json",
+      "alegacao": "RM-031 KG5 fatia 5 (T4, D7): o registro ork.graph-mcp-cost/v0 foi regravado pelo medir-mcp-grafo.cjs na revisão b91573e6 da thread, com as cinco tools no formato novo (fontes e arvore), o teto padrão de 32.768 bytes e tokens unavailable; o validador aceita o registro.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/medir-mcp-grafo.cjs --validar core/test/fixtures/kg5-medida-mcp.json",
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"KG5 medida\" core/dist-test/test/mcp-grafo.test.js",
+        "grep -F -q '\"revisao\": \"b91573e6c92d74c6a92b3e3ecf13bad8f78c47c3\"' core/test/fixtures/kg5-medida-mcp.json"
+      ],
+      "criadoEm": "2026-10-10T06:57:07.243Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "RM-031 KG5 fatia 5 (T5): o contrato do KG5 descreve a proveniência conferida contra a árvore (fontes, arvore por aresta, marca no pacote v2, como a situação é lida, teto e custo medido no mesmo índice) e o custo das tools com a medida regravada na revisão b91573e6, mantendo o retrato da fatia 1; a paridade de docs passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -q '## Fatia 5: proveniência conferida contra a árvore' docs/referencia/contratos/consumo-grafo-kg5.md && grep -F -q '| P5 | 32.460 | 41 de 123, cortada | 32.146 | 34 de 123, cortada | 21 |' docs/referencia/contratos/consumo-grafo-kg5.md && grep -F -q 'b91573e6' docs/referencia/contratos/consumo-grafo-kg5.md",
+        "env -u ORK_PROJETO node core/dist/index.js docs verificar",
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/consumo-grafo-kg5.md"
+      ],
+      "criadoEm": "2026-10-10T07:04:13.521Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "RM-031 KG5 fatia 5 (T5): o item aponta sdlc.thread para ork-rm031grafo3, traz a linha da fatia 5, as fatias 2 a 4 como mescladas (2 e 3 publicadas na 0.5.3), o próximo passo só com decisões do dono, as decisões D1 a D10 e a linha do histórico; a fatia 2 não aparece mais como em GO.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -q 'thread: ork-rm031grafo3' docs/roadmap/RM-031-grafo-de-codigo.md && grep -F -q 'KG5, fatia 5, thread' docs/roadmap/RM-031-grafo-de-codigo.md && ! grep -F -q 'Implementação em GO, pendente da verificação oficial' docs/roadmap/RM-031-grafo-de-codigo.md",
+        "env -u ORK_PROJETO node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-10T07:04:16.808Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "RM-031 KG5 fatia 5 (T5): o índice do roadmap foi regenerado pelo ork docs sincronizar --escrever --so RM-031 e segue em paridade com o frontmatter do item.",
+      "negativa": false,
+      "verificar": [
+        "env -u ORK_PROJETO node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-10T07:04:18.614Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-031 KG5 fatia 5 (T5): o CHANGELOG traz em \"Não publicado\" a linha da proveniência conferida contra a árvore, e o checador do CHANGELOG aceita o diff da thread contra a base.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -q 'KG5 fatia 5' CHANGELOG.md",
+        "node core/scripts/checar-changelog.cjs --base \"$(git merge-base origin/main HEAD)\""
+      ],
+      "criadoEm": "2026-10-10T07:04:21.337Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "README.md",
+      "alegacao": "RM-031 (T5, D8): o README em inglês deixa de dizer planned para o grafo e diz o que existe: o ork grafo na CLI, para quem instala pelo npm desde a 0.5.3, e as tools MCP atrás da flag grafo.mcp, desligada.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -q '**works** in the CLI (' README.md && ! grep -F -q '**planned** ([RM-031]' README.md",
+        "core/node_modules/.bin/markdownlint-cli2 README.md"
+      ],
+      "criadoEm": "2026-10-10T07:04:23.996Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "README.pt-BR.md",
+      "alegacao": "RM-031 (T5, D8): o README em português deixa de dizer planejado para o grafo e diz o que existe: o ork grafo na CLI, em quem instala pelo npm desde a 0.5.3, e as tools MCP atrás da flag grafo.mcp, desligada.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -q '**funciona** na CLI (' README.pt-BR.md && ! grep -F -q '**planejado** ([RM-031]' README.pt-BR.md",
+        "core/node_modules/.bin/markdownlint-cli2 README.pt-BR.md"
+      ],
+      "criadoEm": "2026-10-10T07:04:27.157Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "docs/conceitos/arquitetura.md",
+      "alegacao": "RM-031 (T5, D8): a arquitetura deixa de dizer que o pacote de contexto da thread não existe e diz que a proveniência de cada aresta é conferida contra a árvore; federação e paridade entre hosts seguem como inexistentes.",
+      "negativa": true,
+      "verificar": [
+        "! grep -F -q 'pacote de contexto da thread, federação (KG6)' docs/conceitos/arquitetura.md && grep -F -q 'conferida contra a árvore' docs/conceitos/arquitetura.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/conceitos/arquitetura.md"
+      ],
+      "criadoEm": "2026-10-10T07:04:29.565Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "RM-031 KG5 fatia 5, GO-FIX 1 (CHECK rodada 1, A1, A3 e S3): a situação de uma fonte só é igual quando o caminho real é o próprio caminho indexado (link no último nome ou numa pasta do caminho, dentro ou fora da raiz, vira ausente) e o arquivo aberto é o mesmo inode do lstat; os cenários entram no grupo KG5 proveniencia.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"KG5 proveniencia\" core/dist-test/test/rm031-kg5-proveniencia.test.js"
+      ],
+      "criadoEm": "2026-10-10T07:54:13.000Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-proveniencia.test.ts",
+      "alegacao": "RM-031 KG5 fatia 5, GO-FIX 2 (CHECK rodada 1, A2): com a árvore modificada, o grupo KG5 proveniencia confere a marca pela CLI nas quatro consultas: vizinhos sem teto, com teto e cortado pela busca binária, importadores, caminho (só os passos que tocam a fonte mudada) e chamadores.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"vizinhos \\(com e sem teto, cortado\\)\" core/dist-test/test/rm031-kg5-proveniencia.test.js"
+      ],
+      "criadoEm": "2026-10-10T07:56:26.466Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-proveniencia.test.ts",
+      "alegacao": "RM-031 KG5 fatia 5, GO-FIX 3 (CHECK rodada 1, S2): com a árvore limpa, o pacote v2 tem os bytes que o código da base 8248d98d produz para as mesmas entradas (sha256 6cb56b0f, 2.516 bytes), com as versões do Node e do Unicode fixadas para não depender do Node do CI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"codigo da base produz\" core/dist-test/test/rm031-kg5-proveniencia.test.js"
+      ],
+      "criadoEm": "2026-10-10T07:57:59.186Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/indice-grafo-kg3.md",
+      "alegacao": "RM-031 KG5 fatia 5, GO-FIX 4 (CHECK rodada 1, S6): a referência do KG3 lista na resposta ork.code-graph-query/v0 a marca arvore por aresta e as fontes da fatia 5, e distingue o indice.arvore do cabeçalho da marca de cada aresta.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -q 'traz também a situação das fontes dela na árvore' docs/referencia/contratos/indice-grafo-kg3.md && grep -F -q 'e, por aresta, no' docs/referencia/contratos/indice-grafo-kg3.md",
+        "env -u ORK_PROJETO node core/dist/index.js docs verificar",
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/indice-grafo-kg3.md"
+      ],
+      "criadoEm": "2026-10-10T08:00:25.747Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "RM-031 KG5 fatia 5, GO-FIX 4 (CHECK rodada 1, S6): a referência do CLI diz que o texto do ork grafo marca a aresta de fonte mudada e lista as fontes que mudaram, e que o JSON traz arvore por aresta e fontes.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -q '[fonte modificada na arvore]' docs/referencia/cli.md && grep -F -q 'lista até cinco fontes que mudaram' docs/referencia/cli.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-10T08:00:28.141Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "RM-031 KG5 fatia 5, GO-FIX 4 (CHECK rodada 1, A1, S1, S3, S4 e S5): o contrato diz que o caminho real tem de ser o próprio caminho indexado, que o inode aberto é conferido e qual é o limite, que com teto são lidos os arquivos da resposta do limite pedido, que a marca do v2 pode mudar a seleção com a árvore modificada, que a busca binária acha o maior limite que cabe e que a fixture sintética dá 3.137 bytes depois da fatia 4.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -q 'o caminho real tem de ser o próprio caminho indexado' docs/referencia/contratos/consumo-grafo-kg5.md && grep -F -q 'o maior limite que cabe, sempre o mesmo' docs/referencia/contratos/consumo-grafo-kg5.md && grep -F -q 'mesma fixture dá 3.137 bytes' docs/referencia/contratos/consumo-grafo-kg5.md && grep -F -q 'pode trocar ou tirar ligações da seleção' docs/referencia/contratos/consumo-grafo-kg5.md"
+      ],
+      "criadoEm": "2026-10-10T08:00:31.915Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "RM-031 KG5 fatia 5, GO-FIX 4: o item registra a rodada 1 do CHECK e o GO-FIX no histórico e na evidência da fatia 5.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -q 'KG5 fatia 5, CHECK rodada 1 e GO-FIX' docs/roadmap/RM-031-grafo-de-codigo.md",
+        "env -u ORK_PROJETO node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-10T08:00:34.077Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "RM-031 KG5 fatia 5, GO-FIX 5 (CHECK rodada 2, R2-S1): além do caminho real igual ao indexado, a situação exige o caminho real dentro da raiz; um manifesto adulterado com .. não lê arquivo fora da raiz, mesmo com os bytes certos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"le cada caminho uma vez\" core/dist-test/test/rm031-kg5-proveniencia.test.js"
+      ],
+      "criadoEm": "2026-10-10T08:24:27.444Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm031grafo3",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "RM-031 KG5 fatia 5, GO-FIX 5 (CHECK rodada 2, R2-S2): a lista de mutações do contrato diz que seguir o link no último nome só derruba o grupo junto com o caminho real só dentro da raiz, porque o lstat, o O_NOFOLLOW e o caminho real exato recusam o link cada um por si.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -q 'link seguido no último nome junto com o caminho real só dentro da raiz' docs/referencia/contratos/consumo-grafo-kg5.md && grep -F -q 'recusam o link, cada um por si' docs/referencia/contratos/consumo-grafo-kg5.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/consumo-grafo-kg5.md"
+      ],
+      "criadoEm": "2026-10-10T08:24:30.316Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C29",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

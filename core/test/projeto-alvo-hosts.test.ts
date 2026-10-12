@@ -87,6 +87,18 @@ test('Hermes de ponta a ponta com o ork real: gateway no cwd de outro projeto de
   } finally { process.env.ORK_USUARIO_DIR = anterior; a.limpar(); gateway.limpar(); fs.rmSync(usuario, { recursive: true, force: true }); }
 });
 
+test('RM-052 (fatia 2, L4): a skill do Hermes manda --projeto em todo ork do terminal, dentro do teto de linhas', () => {
+  const p = projeto('orkastery', 'ork');
+  try {
+    const hermes = instalarAdaptador('hermes', { projeto: p.dir });
+    const skill = fs.readFileSync(path.join(hermes.destino, 'skills/orkastery-devmaster/SKILL.md'), 'utf8');
+    // Fora dos wrappers (que declaram o modo host), o `ork` do terminal do Hermes resolvia pelo cwd do gateway.
+    assert.ok(skill.includes('No terminal, todo `ork` de projeto leva `--projeto <nome>` do projeto pedido; sem ele, quem escolhe é o cwd do gateway.'),
+      'a regra do terminal');
+    assert.ok(skill.split('\n').length <= 170, 'a skill do Hermes segue no teto de hosts.test');
+  } finally { p.limpar(); }
+});
+
 test('skill do Hermes, /ork do Claude Code e bootstrap comum: projeto pedido, cabecalho lido e roadmap so da fonte do roadmap', () => {
   const p = projeto('orkastery', 'ork');
   try {

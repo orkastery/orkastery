@@ -19,7 +19,7 @@ import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { exigirEntrega, provaDeEntrega } from './thread-close';
 import { raizDoEstado } from './estado-thread';
-import { ScoreProposto, MasterLogPendente, PostmortemPendente } from './types';
+import { EventoLedger, MotivoGate, ScoreProposto, MasterLogPendente, PostmortemPendente } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { tagDoModo } from './modos';
 import { dirThread, gravarThread, lerThread, listarIds, pausaNaThread } from './thread';
@@ -33,7 +33,7 @@ import {
   ScoreHumano,
   Thread,
 } from './types';
-import { agora, gravarJson, lerJson, tabela } from './util';
+import { agora, exec, gravarJson, lerJson, tabela } from './util';
 import * as fs from 'node:fs';
 import { formatarDataHora, formatarDataHoraRotulada, legendaDoFuso } from './horario';
 import { calcularIndice, Indice } from './indice';
@@ -59,6 +59,64 @@ export const CLASSES_DE_FALHA: Readonly<Record<ClasseDeFalha, string>> = {
   'scope-creep': 'a entrega cresceu alem do que o GOAL prometia',
   outra: 'nao cabe em nenhuma classe acima (descreva na justificativa)',
 };
+
+/**
+ * RM-008 (classe pelo gate): a classe que cada motivo tipado do gate sustenta quando ninguem informa
+ * `--classe`. Antes, todo gate virava "outra", a classe que o `ork licoes` ignora: 8 POSTMORTEMs de
+ * 03/10 fecharam assim por aceite por omissao. Motivo fora da tabela (prazo, falta de veredito,
+ * runtime, conta, custo, espera humana) nao cabe numa classe fixa e segue "outra".
+ */
+export const CLASSE_DO_MOTIVO: Readonly<Partial<Record<MotivoGate, ClasseDeFalha>>> = {
+  'artifact.missing': 'processo',
+  'claims.failed': 'processo',
+  'claims.unverifiable': 'processo',
+  'policy.violation': 'processo',
+  'runtime.autoconferencia': 'processo',
+  'verify.regression': 'processo',
+  'verify.failed': 'processo',
+  'ci.failed': 'processo',
+  'hitl.formato': 'processo',
+  'runtime.rate-limited': 'rate-limit',
+  'runtime.quota-exhausted': 'rate-limit',
+  'lease.busy': 'conflito',
+  'conducao.em-andamento': 'conflito',
+  'tree.blocked': 'conflito',
+};
+
+/** As classes que os motivos dos gates sustentam, na ordem canonica e sem repetir. */
+export function classesPelosGates(motivos: readonly string[]): ClasseDeFalha[] {
+  const achadas = new Set<ClasseDeFalha>();
+  for (const m of motivos) achadas.add(CLASSE_DO_MOTIVO[m as MotivoGate] ?? 'outra');
+  if (achadas.size === 0) achadas.add('sem-falha');
+  return ORDEM_DAS_CLASSES.filter((c) => achadas.has(c));
+}
+
+/** Teto de merges conferidos por entrega: a branch de 03/10 com mais sincronizacoes trouxe 16. */
+const TETO_DE_MERGES_POR_ENTREGA = 200;
+
+/**
+ * RM-008 (base-avancou): quantas vezes a thread precisou trazer a base para dentro da branch. Conta os
+ * `worktree_synced` do ledger e, em cada entrega com merge, os merges da branch (entre o primeiro e o
+ * segundo pai do merge) cujo pai trazido ja estava na base. Em 03/10/2026, 29 de 35 entregas trouxeram
+ * a `origin/main` antes do merge, e nenhuma fechou com `base-avancou`. Git sem resposta conta 0 e nunca
+ * derruba o MASTER.
+ */
+export function sincronizacoesComABase(raiz: string, eventos: readonly EventoLedger[], mergeShas: readonly string[]): number {
+  let total = eventos.filter((e) => e.tipo === TIPOS_DE_EVENTO.worktreeSincronizada).length;
+  for (const sha of new Set(mergeShas)) {
+    if (!/^[0-9a-f]{40}$/.test(sha)) continue;
+    const r = exec('git', ['rev-list', '--merges', '--parents', `--max-count=${TETO_DE_MERGES_POR_ENTREGA}`,
+      `${sha}^1..${sha}^2`], raiz, 30000);
+    if (!r.ok) continue;
+    for (const linha of r.stdout.split('\n')) {
+      const pais = linha.trim().split(/\s+/).slice(1);
+      // O pai trazido (o segundo em diante) ja estava na base: e a base entrando na branch.
+      if (pais.slice(1).some((p) => /^[0-9a-f]{40}$/.test(p) &&
+          exec('git', ['merge-base', '--is-ancestor', p, `${sha}^1`], raiz, 30000).ok)) total += 1;
+    }
+  }
+  return total;
+}
 
 /** Ordem canonica das classes na saida do CLI. */
 export const ORDEM_DAS_CLASSES: readonly ClasseDeFalha[] = [
@@ -98,6 +156,20 @@ export function caminhoMasterLog(raiz: string, id: string): string {
 }
 
 /**
+ * RM-008 (fases pelo tipo): a fase dos eventos que o nucleo grava sem o campo `fase`. O `verify_run`
+ * e o `ship_done` nunca trouxeram fase, e 34 dos 35 POSTMORTEM de 03/10 sairam sem o CHECK, e 33 sem o
+ * SHIP, embora o ledger os tivesse (`ork-rm037testesi`: 6 `verify_run`, 1 `ship_done`, "GOAL GO MASTER").
+ * So vale quando o evento nao traz `fase`: o campo explicito continua vencendo.
+ */
+export const FASE_DO_TIPO: Readonly<Record<string, Fase>> = {
+  [TIPOS_DE_EVENTO.verificacao]: 'CHECK',
+  [TIPOS_DE_EVENTO.reverifyConcluido]: 'CHECK',
+  [TIPOS_DE_EVENTO.shipIniciado]: 'SHIP',
+  [TIPOS_DE_EVENTO.shipConcluido]: 'SHIP',
+  [TIPOS_DE_EVENTO.shipBloqueado]: 'SHIP',
+};
+
+/**
  * As fases que a thread realmente percorreu, reconstruidas do LEDGER.
  *
  * Nao e o que o modo prometia nem o que a sessao disse ter feito: e o que ficou
@@ -107,7 +179,7 @@ export function fasesPercorridas(raiz: string, id: string): FasePercorrida[] {
   const eventos = lerLedger(dirThread(raiz, id));
   const porFase = new Map<Fase, FasePercorrida>();
   for (const e of eventos) {
-    const bruta = typeof e.fase === 'string' ? (e.fase.toUpperCase() as Fase) : null;
+    const bruta = typeof e.fase === 'string' ? (e.fase.toUpperCase() as Fase) : (FASE_DO_TIPO[e.tipo] ?? null);
     if (!bruta || !FASES.includes(bruta)) continue;
     const atual = porFase.get(bruta) ?? {
       fase: bruta,
@@ -271,12 +343,21 @@ function prepararDocumentos(
   let classes = opcoes.classes ?? [];
   if (classes.length === 0) {
     classesInferidas = true;
-    classes = gatesBloqueados.length > 0 ? ['outra'] : ['sem-falha'];
+    classes = classesPelosGates(gatesBloqueados.map((g) => g.motivo));
+    const motivos = [...new Set(gatesBloqueados.map((g) => g.motivo))];
+    const sincronizacoes = sincronizacoesComABase(raiz, eventos, entregas.map((e) => e.mergeSha));
+    if (sincronizacoes > 0) {
+      classes = ORDEM_DAS_CLASSES.filter((c) => c === 'base-avancou' || (c !== 'sem-falha' && classes.includes(c)));
+    }
+    const pelaBase = sincronizacoes > 0
+      ? ` A branch trouxe a base ${sincronizacoes} vez(es) antes da entrega: o \`ork\` juntou "base-avancou".` : '';
     avisos.push(
-      gatesBloqueados.length > 0
-        ? `a thread levou ${gatesBloqueados.length} reprovacao(oes) tipada(s) e nenhuma --classe foi ` +
-          'informada: o `ork` gravou "outra". Corrija com --classe <classe> --refazer.'
-        : 'nenhuma --classe informada e nenhum gate reprovou: o `ork` gravou "sem-falha".'
+      (gatesBloqueados.length > 0
+        ? `a thread levou ${gatesBloqueados.length} reprovacao(oes) tipada(s) (${motivos.join(', ')}) e nenhuma --classe foi ` +
+          `informada: o \`ork\` inferiu "${classes.join('", "')}" pelo motivo do gate.${pelaBase} Corrija com --classe <classe> --refazer.`
+        : sincronizacoes > 0
+          ? `nenhuma --classe informada e nenhum gate reprovou.${pelaBase} Corrija com --classe <classe> --refazer.`
+          : 'nenhuma --classe informada e nenhum gate reprovou: o `ork` gravou "sem-falha".')
     );
   }
 
@@ -723,7 +804,8 @@ export function tabelaDeEntregas(raiz: string, todas = false): string {
     tabela(['ID', 'SLUG', 'MODO', 'FASE', 'STATUS', 'ENTREGOU', 'INDICE', 'DE ONDE VEIO'], linhas),
     '',
     'ENTREGUE E ACEITO, a menos que voce diga o contrario.',
-    '  ork master --aceitar-omissao          aceita as entregues, com o indice e os insumos no ledger',
+    '  ork master <id> --aceitar-omissao     aceita so esta entrega, com o indice e os insumos no ledger',
+    '  ork master --aceitar-omissao          aceita TODAS as entregues da lista (--dry-run mostra quais, sem gravar)',
     '  ork master <id> --score <0-5> --justificativa "<por que>" --por <humano>   se quiser reclamar',
     '',
     `Classes fixas: ${ORDEM_DAS_CLASSES.join(', ')}`,
@@ -738,10 +820,41 @@ export function tabelaDeEntregas(raiz: string, todas = false): string {
  * ENTREGOU: uma thread que nunca chegou ao ship nao tem entrega para aceitar, e
  * aceita-la seria inventar um fato.
  */
-export function aceitarPendentesPorOmissao(raiz: string): AceitePorOmissao[] {
+export function aceitarPendentesPorOmissao(raiz: string, opcoes: { thread?: string } = {}): AceitePorOmissao[] {
+  return entregasParaOmissao(raiz, opcoes.thread).map((p) => aceitarPorOmissao(raiz, p.thread.id));
+}
+
+/**
+ * RM-008 (03/10/2026): o que `ork master --aceitar-omissao` fecharia, sem gravar nada.
+ *
+ * Na madrugada de 03/10, tres vezes, um condutor rodou `ork master --aceitar-omissao` para fechar
+ * a PROPRIA thread, e o comando fechou tambem as entregues de outras frentes paralelas. A CLI nao
+ * deixava indicar a thread. Com `thread`, o alvo e so ela; sem, continua sendo toda entrega que
+ * espera decisao (o padrao nao mudou). Thread inexistente recusa pelo `lerThread`.
+ */
+export function entregasParaOmissao(raiz: string, thread?: string): PendenteDeScore[] {
+  if (thread !== undefined) lerThread(raiz, thread);
   return pendentesDeScore(raiz)
     .filter((p) => p.entregou)
-    .map((p) => aceitarPorOmissao(raiz, p.thread.id));
+    .filter((p) => thread === undefined || p.thread.id === thread);
+}
+
+/**
+ * Por que a thread indicada nao entra no aceite por omissao, ou `null` quando entra.
+ * `ja-fechada` e idempotencia (nada a fazer); `fechamento-admin` e `sem-entrega` sao recusa.
+ */
+export function motivoForaDaOmissao(raiz: string, id: string): { motivo: 'ja-fechada' | 'fechamento-admin' | 'sem-entrega'; texto: string } | null {
+  const thread = lerThread(raiz, id);
+  if (thread.fechamentoAdmin) {
+    return { motivo: 'fechamento-admin', texto: `a thread ${id} foi fechada administrativamente (${thread.fechamentoAdmin.motivo}); nao ha entrega para aceitar.` };
+  }
+  if (masterRatificado(raiz, id)) {
+    return { motivo: 'ja-fechada', texto: `a thread ${id} ja tem MASTER registrado; nada a aceitar.` };
+  }
+  if (!entregou(raiz, id)) {
+    return { motivo: 'sem-entrega', texto: `a thread ${id} ainda nao entregou (sem ship_done no ledger); registre a entrega antes: ork ship registrar-pr ${id}` };
+  }
+  return null;
 }
 
 /** Texto de `ork master <thread-id> --score`. */

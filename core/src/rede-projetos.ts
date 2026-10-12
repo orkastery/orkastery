@@ -14,7 +14,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { git } from './branch-de-estado';
+import { git, remotoValido } from './branch-de-estado';
 import { raizDoEstado } from './estado-thread';
 import { carregarManifesto, NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
 import { pastaDoUsuario } from './maquina';
@@ -158,8 +158,10 @@ export function projetoDoDiretorio(dir: string): ProjetoConhecido | null {
   if (!carregado || carregado.erros.length > 0) return null;
   let raiz: string;
   try { raiz = raizDoEstado(carregado.raiz); } catch { raiz = carregado.raiz; }
-  const remoto = comGitIsolado(() => git(carregado.raiz, ['remote', 'get-url', carregado.manifesto.fabrica.remoto]));
-  return { nome: carregado.manifesto.project.name, remoto: remoto.ok ? limparRemoto(remoto.stdout.trim()) : null,
+  // RM-047: o `fabrica.remoto` vem do manifesto versionado; fora do formato de remoto, nada vai ao git.
+  const nomeDoRemoto = carregado.manifesto.fabrica.remoto;
+  const remoto = remotoValido(nomeDoRemoto) ? comGitIsolado(() => git(carregado.raiz, ['remote', 'get-url', '--', nomeDoRemoto])) : null;
+  return { nome: carregado.manifesto.project.name, remoto: remoto?.ok ? limparRemoto(remoto.stdout.trim()) : null,
     caminho: raiz, fonte: 'cwd', presente: true };
 }
 

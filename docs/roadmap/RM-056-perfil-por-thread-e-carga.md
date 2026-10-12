@@ -105,3 +105,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-01 | Item criado e implementado na thread `ork-rm056perfil` | Pedido do dono de 29/09 e evidências de 01/10 | Julio |
+| 2026-10-03 | Fatia na thread `ork-rm056fechara`: o fechamento (MASTER e `ork thread close`) solta o vínculo das sessões fantasma da própria thread com `sessao_morta`, só quando o ledger tem sessão sem fim; sessão viva fica | `ork sessions list` de 03/10 com 624f65db e d38ae1d4 presas a threads fechadas; teste `rm056-fantasma-ao-fechar` | Condutor #Auto, por delegação do dono |

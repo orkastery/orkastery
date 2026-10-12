@@ -10,6 +10,7 @@
  * verificacao reprova no gate, porque nao existe como comprova-la depois.
  */
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { carregarManifesto } from './manifest';
@@ -114,6 +115,11 @@ export interface OpcoesDeClaim {
   origem?: Claim['origem'];
   /** RM-008 (B8): executor da conferencia local (o do verify; injetavel no teste). */
   executarProva?: (nome: string, comando: string, cwd: string, prazoMs: number) => ResultadoDeComando;
+  /**
+   * Suspeitas da revisao de 03/10: o registro pelo MCP (`ork_claim_add`, "Nao executa comandos") nunca
+   * roda o texto da claim; a prova dele e o `ork_verify`, no sandbox.
+   */
+  semProvaLocal?: boolean;
 }
 
 /** A claim registrada e, com a policy de prova local declarada, os avisos dela (fora do claims.jsonl). */
@@ -155,7 +161,7 @@ export function adicionarClaim(raiz: string, threadId: string, opcoes: OpcoesDeC
     estado: claim.estado,
     ...(claim.lint?.length ? { lint: claim.lint.map((a) => a.regra) } : {}),
   });
-  const avisosDePolicy = conferirProvaLocal(raiz, thread, claim, opcoes.executarProva ?? executar);
+  const avisosDePolicy = opcoes.semProvaLocal ? [] : conferirProvaLocal(raiz, thread, claim, opcoes.executarProva ?? executar);
   return avisosDePolicy.length ? { ...claim, avisosDePolicy } : claim;
 }
 
@@ -170,8 +176,10 @@ function conferirProvaLocal(raiz: string, thread: ReturnType<typeof lerThread>, 
   if (!carregado || claim.verificar.length === 0 || !policyDeProvaLocal(carregado.manifesto)) return [];
   const prazoMs = carregado.manifesto.verify.timeout_ms ?? TIMEOUT_VERIFY_MS;
   const cwd = cwdDaThread(raiz, thread);
-  let reprovada: { comando: string; code: number; estourou: boolean } | undefined;
-  for (const comando of claim.verificar) {
+  let reprovada: { comando: string; code: number; estourou: boolean; semDiretorio?: string } | undefined;
+  // Suspeitas da revisao de 03/10: sem a worktree (apagada), nada roda e o aviso diz por que, sem culpar a claim.
+  if (!fs.existsSync(cwd)) reprovada = { comando: claim.verificar[0], code: -1, estourou: false, semDiretorio: cwd };
+  for (const comando of reprovada ? [] : claim.verificar) {
     const r = executarProva(`claim ${claim.id}`, comando, cwd, prazoMs);
     if (!r.ok) { reprovada = { comando, code: r.code, estourou: r.causa === 'timeout' }; break; }
   }

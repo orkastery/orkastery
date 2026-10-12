@@ -63,7 +63,7 @@ export interface IndiceVetorial {
  * driver). Uma leitura so, ate o fim ou com falha tipada.
  */
 export interface FonteDoUniverso {
-  universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null };
+  universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null; latenciaMs?: number };
 }
 
 export type Embeddar = (pedido: PedidoDeEmbedding, opcoes?: { timeoutMs?: number }) => RespostaDeEmbedding;
@@ -78,6 +78,8 @@ export interface ResultadoDoIndice {
   /** RM-038: o universo da busca por colecao e o que fica fora dele (isso nunca vai ao embed). */
   porColecao: Record<ColecaoDoOrk, number>;
   foraDaBusca: ForaDaBusca | null;
+  /** Tempo observado na leitura do universo, null quando a fonte nao mede. */
+  latenciaUniversoMs: number | null;
   coerentes: number;
   embedados: number;
   reescritos: number;
@@ -183,10 +185,10 @@ export function gravarIndice(arquivo: string, indice: IndiceVetorial): boolean {
  * RM-038 (D6): a fronteira do universo no `ork`, num lugar so. Entrada de outro tenant, de colecao
  * fora do ork ou com id repetido e violacao tipada, nunca descarte silencioso: nada disso vai ao embed.
  */
-export function conferirUniverso(entradas: readonly EntradaDeMemoria[], tenant: string): void {
+export function conferirUniverso(entradas: readonly EntradaDeMemoria[], tenant: string, lidoEm = Date.now()): void {
   const vistos = new Set<string>();
   for (const e of entradas) {
-    if (!pertenceAoUniverso(e, tenant) || vistos.has(e.id)) throw new Error('memory.query.scope-violation');
+    if (!pertenceAoUniverso(e, tenant, lidoEm) || vistos.has(e.id)) throw new Error('memory.query.scope-violation');
     vistos.add(e.id);
   }
 }
@@ -197,12 +199,14 @@ export function conferirUniverso(entradas: readonly EntradaDeMemoria[], tenant: 
  * novo, a ordem fica estavel e a contagem por colecao sai pronta para o status e o index.
  */
 export function universoDaBusca(fonte: FonteDoUniverso, tenant: string): UniversoDaBusca {
+  const lidoEm = Date.now();
   const lido = fonte.universo(tenant);
-  conferirUniverso(lido.entradas, tenant);
+  conferirUniverso(lido.entradas, tenant, lidoEm);
   const entradas = [...lido.entradas].sort((a, b) => a.collection.localeCompare(b.collection) || a.id.localeCompare(b.id));
   const porColecao = Object.fromEntries(COLECOES_DO_ORK.map(c => [c, 0])) as Record<ColecaoDoOrk, number>;
   for (const e of entradas) porColecao[e.collection as ColecaoDoOrk] += 1;
-  return { tenant, entradas, porColecao, foraDaBusca: lido.foraDaBusca };
+  return { tenant, lidoEm, entradas, porColecao, foraDaBusca: lido.foraDaBusca,
+    ...(lido.latenciaMs === undefined ? {} : { latenciaMs: lido.latenciaMs }) };
 }
 
 /** Codigo tipado de uma falha (`memory.query.window-saturated`), ou o padrao quando nao ha. */
@@ -290,7 +294,7 @@ export function indexar(o: OpcoesDoIndice): ResultadoDoIndice {
   // RM-038 (D6): conferir de novo antes de qualquer coisa; nada de outro tenant vai ao embed, nem de
   // um chamador que montou o universo a mao. Violacao falha alto, nunca vira descarte silencioso.
   if (o.universo.tenant !== o.tenant) throw new Error('memory.query.scope-violation');
-  conferirUniverso(o.universo.entradas, o.tenant);
+  conferirUniverso(o.universo.entradas, o.tenant, o.universo.lidoEm);
   const espaco = espacoDoAlvo(o.config, o.alvo, o.env);
   const universo = o.universo.entradas;
   const foraDoLimite = universo.filter(e => e.content.length > EMBED_MAX_CARACTERES);
@@ -298,6 +302,7 @@ export function indexar(o: OpcoesDoIndice): ResultadoDoIndice {
   const indexaveis = universo.filter(indexavel);
   const base: ResultadoDoIndice = { alvo: o.alvo, modelo: null, dim: null, arquivo: null, dryRun: o.dryRun,
     universo: universo.length, porColecao: { ...o.universo.porColecao }, foraDaBusca: o.universo.foraDaBusca,
+    latenciaUniversoMs: o.universo.latenciaMs ?? null,
     coerentes: 0, embedados: 0, reescritos: 0, removidos: 0, recusados: recusados.length,
     foraDoLimite: foraDoLimite.length, truncados: 0, tokensEstimados: 0, custoEstimadoUsd: 0, chamadasAoProvider: 0, motivo: null, detalhe: '' };
   if ('motivo' in espaco) {

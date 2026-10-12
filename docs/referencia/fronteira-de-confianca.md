@@ -33,7 +33,7 @@ Auditoria de 03/10/2026 (thread `ork-rm047frontei`), sobre a `main` depois dos m
 | **Inerte** | Só constantes, ou dado confiável |
 | **Defendido** | Dado externo, mas validado, depois de `--`/`--end-of-options`, qualificado com `refs/`, ou sha conferido |
 | **Corrigido nesta auditoria** | Era injeção de opção, executável escolhido pelo clone ou caminho fora da raiz |
-| **Corrigido, em decisão do dono** | Fecha um pendente da seção 6 mudando comportamento; vale quando o dono mesclar o PR da thread `ork-rm047procede` |
+| **Corrigido, em decisão do dono** | Fecha um pendente da seção 6 mudando comportamento; o dono escolheu mesclar como patch de segurança (S1 a, 11/10/2026), na thread `ork-rm047procede` |
 | **Pendente do dono** | Fechar exige mudar comportamento documentado ou aceito hoje; a decisão é do dono |
 
 Toda chamada de processo do núcleo é `spawn`/`spawnSync` com vetor de argumentos e sem shell
@@ -102,8 +102,8 @@ Agrupada por módulo. "Dado externo" é o que pode vir do clone; o resto é iner
 ## 6. Pendentes do dono
 
 Fechar estes itens exige mudar comportamento que hoje é aceito ou documentado. Por isso a auditoria não os
-alterou. P1 a P5 ganharam correção na thread `ork-rm047procede`, num PR em rascunho que só vale quando o dono
-o mesclar; a coluna da direita diz o estado de cada um. A regra é a mesma nos cinco: o que vem com o repositório
+alterou. P1 a P5 ganharam correção na thread `ork-rm047procede`, mesclada por decisão do dono (S1 a, 11/10/2026)
+como patch de segurança; a coluna da direita diz o estado de cada um. A regra é a mesma nos cinco: o que vem com o repositório
 não decide executável, caminho fora da raiz nem publicação desta máquina; quando o uso é legítimo, a máquina
 confirma fora do git, e a recusa é tipada e diz o comando.
 

@@ -103,7 +103,13 @@ test('KG1 graph: exemplo sintetico minimo valido, canonico e com digest estavel'
   assert.deepEqual(validarGrafo(GRAFO), GRAFO);
   assert.equal(digestDoGrafo(GRAFO), corpus.digest);
   assert.deepEqual([...new Set(GRAFO.nodes.map((n) => n.kind))].sort(), [...TIPOS_DE_NO].sort());
-  assert.deepEqual([...new Set(GRAFO.edges.map((a) => a.kind))].sort(), [...TIPOS_DE_ARESTA].sort());
+  // O corpus KG1 permanece historico; a extensao KG5 tambem passa pelo contrato fechado.
+  const origem = GRAFO.edges[0];
+  const arquivo = GRAFO.nodes.find((n) => n.kind === 'file' && n.locator.path === origem.evidence[0].path)!;
+  const citacao = { ...origem, kind: 'cites' as const, from: arquivo.node_id, to: arquivo.node_id };
+  const ampliado = derivarIds({ ...GRAFO, edges: [...GRAFO.edges, citacao] });
+  assert.deepEqual(validarGrafo(ampliado), ampliado);
+  assert.deepEqual([...new Set(ampliado.edges.map((a) => a.kind))].sort(), [...TIPOS_DE_ARESTA].sort());
   assert.equal(GRAFO.diagnostics[0].kind, 'unresolved-import');
 });
 

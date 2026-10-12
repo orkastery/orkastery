@@ -31,8 +31,13 @@ export interface IdentidadeNaForja {
   host: string;
   cli: string;
   versao: string | null;
-  /** So o login; `null` quando a CLI existe e nao tem login. */
+  /** So o login; `null` quando a CLI existe e nao tem login, ou quando a leitura falhou (`falha`). */
   usuario: string | null;
+  /**
+   * Suspeitas da revisao de 03/10: a leitura do login falhou por outro motivo que nao a falta de login
+   * (prazo, erro da forja, sem rede). Interno: o retrato copia campo a campo e nunca leva este.
+   */
+  falha?: string;
 }
 
 export interface RepositorioNaForja {
@@ -170,6 +175,16 @@ function falhou(cli: string, rota: string, s: Saida): Error {
   return new Error(`rede.forja: ${cli} api ${rota} falhou${linha ? `: ${linha}` : ''}`);
 }
 
+/** A resposta de quem nao tem login (ou tem credencial recusada), no `gh` e no `glab`. */
+const SEM_LOGIN = /auth login|not logged|not authenticated|authentication|HTTP 401|401 Unauthorized|Bad credentials|no token/i;
+
+/** `usuario: null` so e falta de login quando a forja disse isso; o resto e falha da leitura. */
+function falhaDoLogin(cli: string, s: Saida): { falha?: string } {
+  if (!s.ok && SEM_LOGIN.test(`${s.stderr}\n${s.stdout}`)) return {};
+  if (s.ok) return { falha: `${cli} api user devolveu uma resposta sem login legivel` };
+  return { falha: falhou(cli, 'user', s.stderr.trim() ? s : { ...s, stderr: 'sem resposta da forja no prazo' }).message.replace(/^rede\.forja: /, '') };
+}
+
 /** Caminho seguro para o shell que o git usa no helper: aspas simples, com `'` escapada (B10). */
 const citar = (caminho: string) => /^[A-Za-z0-9_./+-]+$/.test(caminho) ? caminho : `'${caminho.replace(/'/g, `'\\''`)}'`;
 const helper = (binario: string) => `!${citar(binario)} auth git-credential`;
@@ -196,8 +211,8 @@ function github(binario: string, amb: AmbienteDaMaquina, host = 'github.com'): F
     identidade() {
       const r = api(['user'], 15000);
       const login = r.ok ? json(r.stdout)?.login : null;
-      return { forja: 'github', host, cli: 'gh', versao: versaoDoBinario(binario, amb),
-        usuario: typeof login === 'string' && LOGIN.test(login) ? login : null };
+      const usuario = typeof login === 'string' && LOGIN.test(login) ? login : null;
+      return { forja: 'github', host, cli: 'gh', versao: versaoDoBinario(binario, amb), usuario, ...(usuario ? {} : falhaDoLogin('gh', r)) };
     },
     repositorio(dono, nome) {
       const rota = `repos/${dono}/${nome}`;
@@ -235,8 +250,8 @@ function gitlab(binario: string, amb: AmbienteDaMaquina, hostPedido?: string): F
     identidade() {
       const r = api(['user'], 15000);
       const login = r.ok ? json(r.stdout)?.username : null;
-      return { forja: 'gitlab', host, cli: 'glab', versao: versaoDoBinario(binario, amb),
-        usuario: typeof login === 'string' && LOGIN.test(login) ? login : null };
+      const usuario = typeof login === 'string' && LOGIN.test(login) ? login : null;
+      return { forja: 'gitlab', host, cli: 'glab', versao: versaoDoBinario(binario, amb), usuario, ...(usuario ? {} : falhaDoLogin('glab', r)) };
     },
     repositorio(dono, nome) {
       const rota = `projects/${encodeURIComponent(`${dono}/${nome}`)}`;

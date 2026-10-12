@@ -8,11 +8,12 @@ license: MIT
 
 Ao receber literalmente `orkastery maestro`, a primeira ação é a ferramenta `ork_maestro` do
 servidor MCP `orkastery`, descoberta no namespace efetivamente exposto: ela consulta o projeto
-fixado. Com a ferramenta exposta, não rode `ork maestro`, `ork doctor` nem `ork onboarding` no
-shell antes nem no lugar dela: o CLI resolve o projeto pelo diretório da sessão, e é essa a
+fixado. Com a ferramenta exposta, não rode `ork maestro`, `ork doctor`, `ork onboarding` nem
+`ork experiencia show` no shell antes nem no lugar dela: o CLI resolve o projeto pelo diretório da sessão, e é essa a
 classe de erro que a frase evita (prova de ativação do Codex, RM-032).
 
-Consulte `ork experiencia show --json` no projeto da sessão. Quando `experience` for true,
+Só depois da `ork_maestro` (ou, sem MCP, do `ork maestro --json`), consulte `ork experiencia show --json`
+no projeto da sessão. Quando `experience` for true,
 leia `../core/<skill>/SKILL.md`, usando o nome devolvido em `skill` pelo núcleo:
 `orchestration-experience-pt-br` ou `orchestration-experience`. Idioma, fuso e profundidade
 vêm da mesma consulta. Se false, não ative o pacote. O bloco próprio de AGENTS.md também

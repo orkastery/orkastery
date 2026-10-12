@@ -8,10 +8,10 @@ import { exigirManifesto } from './manifest';
 import { lerThread, dirThread, blocoDaThread } from './thread';
 import { lerClaims } from './claims';
 import { branchDaWorktree } from './worktree';
-import { validarArquivosEstadoMcp } from './mcp-artifacts';
+import { diagnosticoNomeForaDeUtf8, validarArquivosEstadoMcp } from './mcp-artifacts';
 import { comEstadoParaGit, auditarEstado, raizDoEstado } from './estado-thread';
 import { adquirirRegiao, lerLease, liberar, leasesColidentes, podarRegioesDeThreadsFechadas } from './leases';
-import { registrar } from './ledger';
+import { lerLedger, registrar } from './ledger';
 import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
 import { Lease } from './types';
@@ -129,13 +129,24 @@ function arvoreMetadados(root:string,alvo:string,opcoes:{armazemDeObjetos?:boole
     if(++vistos>8192) falha(`metadata.unsupported: mais de 8192 entradas em ${rotulo(alvo)}`+(opcoes.armazemDeObjetos
       ? '; empacote os objetos soltos sem perda com git repack -d (git count-objects -v mostra quantos)' : ''));
     if(profundidade>32) falha(`metadata.unsupported: mais de 32 niveis em ${rotulo(alvo)}`);
-    const st=fs.lstatSync(f);
+    const st=fs.lstatSync(f,{throwIfNoEntry:false});
+    if(!st)return; // Uma retomada pode remover a fila ou o candidato depois da enumeracao.
     if(st.isSymbolicLink()) falha(`metadata.unsafe: link simbolico em ${rotulo(f)}`);
     if(!st.isDirectory() && !st.isFile()) falha(`metadata.unsafe: ${rotulo(f)} nao e arquivo regular nem pasta`);
     if(st.isFile() && st.nlink!==1 && !opcoes.armazemDeObjetos) falha(`metadata.unsafe: hard link em ${rotulo(f)} (${st.nlink} vinculos); `+
       `tire o vinculo sem perder conteudo: cp -p ${rotulo(f)} ${rotulo(f+'.tmp')} && mv ${rotulo(f+'.tmp')} ${rotulo(f)}`);
     if(f!==root && !dentro(root,f))falha(`metadata.unsafe: ${rotulo(f)} fora de ${path.basename(root)}`);
-    if(st.isDirectory())for(const n of fs.readdirSync(f))visitar(path.join(f,n),profundidade+1);
+    if(st.isDirectory()) {
+      let entradas:Buffer[];
+      try {entradas=fs.readdirSync(f,{encoding:'buffer'});}
+      catch(e) {if((e as NodeJS.ErrnoException).code==='ENOENT')return;throw e;}
+      for(const bytes of entradas) {
+        const n=bytes.toString('utf8');
+        // Perda de bytes nao e ENOENT transitorio: o nome decodificado pode nem apontar para esta entrada.
+        if(!Buffer.from(n,'utf8').equals(bytes))falha('metadata.unsafe: '+diagnosticoNomeForaDeUtf8(opcoes.relativoA ?? path.dirname(root),f,bytes));
+        visitar(path.join(f,n),profundidade+1);
+      }
+    }
   };
   if(fs.realpathSync(alvo)!==alvo)falha(`metadata.unsafe: ${rotulo(alvo)} passa por link simbolico`);visitar(alvo,0);
 }
@@ -236,12 +247,27 @@ export function estadoGitMcp(raiz:string,threadId:string) {
 }
 
 /** Somente o worker dedicado chama este corpo; não altera env do servidor. */
-function executar(raiz: string,p: PedidoCommitMcp): ResultadoCommitMcp {
+function executar(raiz: string,p: PedidoCommitMcp,dispatchId?: string): ResultadoCommitMcp {
   const proprias: Lease[]=[]; let commit: string|null=null, estadoAuditado=false;
   try {
     validar(p); if(!path.isAbsolute(raiz) || fs.realpathSync(raiz)!==raiz || exigirManifesto(raiz).raiz!==raiz) falha('project.invalid');
     fisico(raiz,dirThread(raiz,p.threadId));validarArquivosEstadoMcp(raiz,p.threadId);
     const t=lerThread(raiz,p.threadId),wt=t.worktree;
+    // Identidade vem do startup do servidor, nunca dos argumentos públicos da tool.
+    // Sem vínculo conhecido, o recibo continua sem atribuição de sessão.
+    let vinculo: { sessionId: string; despachoEm: string } | undefined;
+    if(dispatchId!==undefined) {
+      if(!/^[a-f0-9-]{36}$/.test(dispatchId)) falha('session.invalid');
+      const despachos=lerLedger(dirThread(raiz,t.id)).filter(e=>e.tipo==='phase_dispatch');
+      const despacho=despachos.filter(e=>(e.identidade as {dispatchId?:string}|undefined)?.dispatchId===dispatchId).at(-1);
+      const proximo=despacho ? despachos[despachos.indexOf(despacho)+1] : undefined;
+      const sessoes=despacho ? t.sessoes.filter(s=>s.sessionId===despacho.sessionId && s.origem!=='adocao' &&
+        s.fase===despacho.fase && s.promptSha256===despacho.promptSha256 && typeof s.despachadaEm==='string' &&
+        Date.parse(s.despachadaEm)>=Date.parse(despacho.ts) &&
+        (!proximo || Date.parse(s.despachadaEm)<Date.parse(proximo.ts))) : [];
+      if(sessoes.length!==1) falha('session.invalid');
+      vinculo={sessionId:sessoes[0].sessionId!,despachoEm:sessoes[0].despachadaEm!};
+    }
     if(!wt || t.status==='fechada' || !blocoDaThread(t,t.faseAtual).fases.includes('GO') || wt===raiz) falha('thread.invalid');
     // I-42 (D7): ciclo sem PLAN nem CHECK nao commita contrato publico; a mudanca vira iniciativa.
     if(cicloSemCheck(t) && contratosTocados(p.paths).length) falha('contract.protected');
@@ -300,7 +326,7 @@ function executar(raiz: string,p: PedidoCommitMcp): ResultadoCommitMcp {
     if(!commit || git(wt,['rev-parse','HEAD^']).trim()!==p.expectedHead) falha('commit.parent-invalid');
     const alterados=git(wt,['diff-tree','--no-commit-id','--name-only','-r','-z',commit]).split('\0').filter(Boolean);
     if(!alterados.length || alterados.some(f=>!p.paths.includes(f))) falha('commit.paths-invalid');
-    registrar(dirThread(raiz,t.id),t.id,'mcp_git_committed',{commit,paths:alterados,origem:'mcp.git',estadoAuditado});
+    registrar(dirThread(raiz,t.id),t.id,'mcp_git_committed',{commit,paths:alterados,origem:'mcp.git',estadoAuditado,...vinculo});
     return {ok:true,commit,erro:null,estadoAuditado};
   } catch(e) {
     const mensagem=(e as Error).message;
@@ -310,7 +336,7 @@ function executar(raiz: string,p: PedidoCommitMcp): ResultadoCommitMcp {
   }
 }
 /** Entrada do servidor: argumentos nunca escolhem executável/env/cwd/opções Git. */
-export async function commitMcp(raiz: string,pedido: PedidoCommitMcp,signal?: AbortSignal): Promise<ResultadoCommitMcp> {
+export async function commitMcp(raiz: string,pedido: PedidoCommitMcp,signal?: AbortSignal,dispatchId?: string): Promise<ResultadoCommitMcp> {
   validar(pedido);
   if(signal?.aborted) return {ok:false,commit:null,erro:'mcp.git.cancelled',estadoAuditado:false};
   return new Promise(resolve=>{
@@ -318,7 +344,7 @@ export async function commitMcp(raiz: string,pedido: PedidoCommitMcp,signal?: Ab
     let stdout='',erro=false,fechou=false,inicio:string|undefined;
     const identidade=()=>{try {const st=fs.readFileSync(`/proc/${child.pid}/stat`,'utf8');return st.slice(st.lastIndexOf(')')+2).split(' ')[19];}catch{return undefined;}};
     const terminar=()=>{erro=true;if(!fechou && inicio && identidade()===inicio) {try{process.kill(-child.pid!,'SIGKILL');}catch{}}};
-    child.once('spawn',()=>{inicio=identidade();if(!inicio){erro=true;child.stdin.end();return;}child.stdin.end(JSON.stringify({raiz,pedido}));});
+    child.once('spawn',()=>{inicio=identidade();if(!inicio){erro=true;child.stdin.end();return;}child.stdin.end(JSON.stringify({raiz,pedido,dispatchId}));});
     child.stdin.on('error',()=>{erro=true;});
     child.on('error',()=>{erro=true;});
     child.stdout.on('data',(b:Buffer)=>{if(Buffer.byteLength(stdout)+b.length>LIMITE) terminar();else stdout+=b.toString();});
@@ -332,7 +358,7 @@ export async function commitMcp(raiz: string,pedido: PedidoCommitMcp,signal?: Ab
 }
 if(require.main===module && process.argv[2]==='--worker') {
   try {const raw=fs.readFileSync(0,'utf8');if(Buffer.byteLength(raw)>LIMITE)falha('request.invalid');
-    const p=JSON.parse(raw) as {raiz:string;pedido:PedidoCommitMcp};process.stdout.write(JSON.stringify(executar(p.raiz,p.pedido)));}
+    const p=JSON.parse(raw) as {raiz:string;pedido:PedidoCommitMcp;dispatchId?:string};process.stdout.write(JSON.stringify(executar(p.raiz,p.pedido,p.dispatchId)));}
   catch {process.stdout.write(JSON.stringify({ok:false,commit:null,erro:'mcp.git.worker.invalid',estadoAuditado:false}));}
 }
 

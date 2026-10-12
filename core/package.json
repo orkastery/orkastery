@@ -1,6 +1,6 @@
 {
   "name": "@orkastery/cli",
-  "version": "0.5.2",
+  "version": "0.5.4",
   "description": "A software factory of AI agents that proves its work: parallel threads, verified results, and short decisions only when they matter.",
   "license": "MIT",
   "homepage": "https://github.com/orkastery/orkastery#readme",
@@ -65,7 +65,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "markdownlint-cli2": "^0.23.3"
+    "markdownlint-cli2": "^0.22.1"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",

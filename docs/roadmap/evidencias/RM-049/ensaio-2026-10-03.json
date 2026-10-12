@@ -1245,7 +1245,9 @@
         7,
         11,
         13
-      ]
+      ],
+      "pr": 74,
+      "commit": "293cefbd64a07418c2f297358a9864d4c2045c57"
     },
     {
       "id": "E2",
@@ -1257,7 +1259,9 @@
         26,
         27,
         28
-      ]
+      ],
+      "pr": 74,
+      "commit": "1b549ad27d1e500930d3df7008b587e8bd5b1936"
     },
     {
       "id": "E3",
@@ -1268,7 +1272,9 @@
         34,
         39,
         41
-      ]
+      ],
+      "pr": 74,
+      "commit": "2c9cc974052b8701226fb72d175e790bafc1231c"
     },
     {
       "id": "E4",
@@ -1278,14 +1284,18 @@
       "comandos": [
         48,
         65
-      ]
+      ],
+      "pr": 74,
+      "commit": "8bba03e1fa162a3f26502f56644968a1afd05424"
     },
     {
       "id": "E5",
       "tipo": "defeito",
       "estado": "corrigido",
       "o_que": "ork phase list mostra 'pedido [object Object]' na decisão autônoma registrada por ork decisao registrar; visto no ledger desta fábrica (ork phase list ork-rm047remoto2), reproduzido no teste ensaio-0310 E5",
-      "comandos": []
+      "comandos": [],
+      "pr": 74,
+      "commit": "b17d33b5b079d2ef0f87e8f588ebeb5623a2d7a2"
     },
     {
       "id": "E6",
@@ -1295,14 +1305,18 @@
       "comandos": [
         35,
         38
-      ]
+      ],
+      "pr": 74,
+      "commit": "b17d33b5b079d2ef0f87e8f588ebeb5623a2d7a2"
     },
     {
       "id": "E7",
       "tipo": "defeito",
       "estado": "corrigido",
       "o_que": "o npm --prefix core test da worktree, numa máquina sem o interpretador do OrkMind, reprova 9 testes da ponte da RM-038 (runtime.unavailable: installed OrkMind interpreter); eles entraram depois do skip tipado da RM-037 sem usá-lo",
-      "comandos": []
+      "comandos": [],
+      "pr": 74,
+      "commit": "57ef2c8c4fe82f8facd4f74a0a4517ead47b6589"
     },
     {
       "id": "Q1",
@@ -1312,7 +1326,9 @@
       "comandos": [
         40,
         41
-      ]
+      ],
+      "pr": 74,
+      "commit": "fb5e4e1e8701ab969996de00251f2a95be6aeac9"
     },
     {
       "id": "Q2",
@@ -1325,29 +1341,35 @@
         35,
         36,
         37
-      ]
+      ],
+      "pr": 74,
+      "commit": "fb5e4e1e8701ab969996de00251f2a95be6aeac9"
     },
     {
       "id": "R1",
       "tipo": "achado",
-      "estado": "registrado",
+      "estado": "corrigido",
       "o_que": "o doctor diz PRONTO com o claude sem login nem confiança no HOME; o primeiro despacho falha tipado (runtime.workspace-untrusted) e vira pedido ao dono no pulse",
       "recomendacao": "a) (Recomendação) o check do runtime claude-bg, sem perfis de conta, roda o 'claude auth status' que o check de contas já usa e avisa (warn) sem login; b) só documentar no quickstart que o primeiro despacho pede abrir o claude na worktree; c) deixar como está",
       "comandos": [
         18,
         25,
         26
-      ]
+      ],
+      "pr": 77,
+      "commit": "9577ec5970a36e239d746e8a2d2b513785180f79"
     },
     {
       "id": "R2",
       "tipo": "achado",
-      "estado": "registrado",
+      "estado": "corrigido",
       "o_que": "com LANG=C.UTF-8, o onboarding recomenda a experiência em en-US, e a CLI inteira fala português",
       "recomendacao": "a) (Recomendação) sem locale explícito (C/POSIX), recomendar pt-BR, a língua da CLI; b) perguntar a língua sem recomendar; c) deixar",
       "comandos": [
         19
-      ]
+      ],
+      "pr": 77,
+      "commit": "4ef553259fc0197c110c884307b67426c72eb8f5"
     },
     {
       "id": "R3",
@@ -1364,53 +1386,63 @@
     {
       "id": "R4",
       "tipo": "achado",
-      "estado": "registrado",
+      "estado": "corrigido",
       "o_que": "ork ci status aceita só o sha de 40 caracteres; com --sha HEAD responde só a linha de uso ('--sha <commit>'), sem dizer por quê",
       "recomendacao": "a) (Recomendação) a mensagem diz 'sha completo de 40 caracteres (git rev-parse HEAD)'; b) resolver o commit pelo git com --end-of-options; c) deixar",
       "comandos": [
         54,
         57,
         59
-      ]
+      ],
+      "pr": 77,
+      "commit": "c985c1915b7b3a61542c2a447381e3ec4c6af851"
     },
     {
       "id": "R5",
       "tipo": "achado",
-      "estado": "registrado",
+      "estado": "corrigido",
       "o_que": "sem remoto, o ship --dry-run lista 'git push origin main' e o 'ls-remote' como passos; só o ship real diz 'remoto origin não configurado: merge local concluído, sem push a provar'",
       "recomendacao": "a) (Recomendação) o dry-run diz o mesmo que o real quando o remoto não existe; b) deixar",
       "comandos": [
         35,
         38
-      ]
+      ],
+      "pr": 77,
+      "commit": "b04cc9f7c0b5881e46612402df34517c2264b4c6"
     },
     {
       "id": "R6",
       "tipo": "achado",
-      "estado": "registrado",
+      "estado": "corrigido",
       "o_que": "ork adapter install claude-code imprime a ativação no começo e depois mais de cem linhas de arquivos e os três pitfalls; o fim da saída não diz o próximo passo",
       "recomendacao": "a) (Recomendação) repetir as quatro linhas de ativação e o ork mcp install no fim; b) lista de arquivos só com --verbose; c) deixar",
       "comandos": [
         61
-      ]
+      ],
+      "pr": 77,
+      "commit": "750e02731736c77a13aa7190b28c0682dc9ded94"
     },
     {
       "id": "R7",
       "tipo": "achado",
-      "estado": "registrado",
+      "estado": "corrigido",
       "o_que": "ork verify --baseline diz 'test ja falhava (codigo 1)  npm test' sem dizer onde ver a saída do comando",
       "recomendacao": "a) (Recomendação) apontar 'ork phase list <thread>' ou o caminho do ledger; b) mostrar as últimas linhas da saída; c) deixar",
       "comandos": [
         30
-      ]
+      ],
+      "pr": 77,
+      "commit": "767257c59f2f25cb4cc41bac81f393ef9ec0067e"
     },
     {
       "id": "R8",
       "tipo": "achado",
-      "estado": "registrado",
+      "estado": "corrigido",
       "o_que": "o README diz '1,553 core tests ... (PR #28, 2026-09-27)'; a suíte de hoje passa de 2.600",
       "recomendacao": "a) (Recomendação) atualizar o número e a data na próxima versão, com o run do CI; b) tirar o número e deixar o link do CI",
-      "comandos": []
+      "comandos": [],
+      "pr": 77,
+      "commit": "dfb72d2330ac90a905b0e23819a241fd02864e9f"
     }
   ],
   "coerenciaDaMadrugada": [

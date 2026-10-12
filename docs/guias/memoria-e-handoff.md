@@ -158,12 +158,18 @@ ork memory status
 ```
 
 ```text
+Regime de memoria do projeto
+
   pedido no manifesto   files
   regime efetivo        files
   tenant                orkastery
   variavel da base      (nao declarada)
+  DSN no ambiente       nao
+  cli do OrkMind        orkmind
+
   degradacao: modo.files
-    correcao: memory.mode: orkmind + memory.database_url_env no manifesto
+    manifesto opera em regime files (fallback honesto do B1)
+    correcao: para ligar a memoria semantica: memory.mode: orkmind + memory.database_url_env no manifesto
 
   O ciclo NAO para por isso: em regime files o handoff continua triado em 3 niveis,
   os ponteiros continuam `path#ancora` e `ork recall` continua resolvendo.

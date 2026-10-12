@@ -12,6 +12,7 @@
  */
 import { exigirRemoto } from './branch-de-estado';
 import { consultarCi, consultarCiDoRepositorio, ExecutorCi, ResultadoCi } from './ci';
+import { DocPendente, docsPendentesDoMerge } from './docs';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
@@ -27,6 +28,12 @@ export interface EntregaPorPr {
   headSha: string | null;
   ci: ResultadoCi | null;
   motivo: string;
+  /**
+   * RM-044 (A3): as paginas do roadmap desta thread que o push da base vai reprovar em
+   * `docs.paridade.merge` (merge ship(<thread>) na base com o `estado.codigo` fora de `Mesclado`).
+   * So aviso: nao grava, nao bloqueia o registro e nao muda o veredito do `docs verificar`.
+   */
+  docsPendentes: DocPendente[];
 }
 
 /** O merge `ship(<thread>)` mais recente na base remota, com o head do PR (segundo pai). */
@@ -55,7 +62,7 @@ function avancarParaShip(raiz: string, threadId: string): void {
 }
 
 function resultado(thread: string, acao: EntregaPorPr['acao'], motivo: string, extra: Partial<EntregaPorPr> = {}): EntregaPorPr {
-  return { thread, acao, motivo, mergeSha: null, headSha: null, ci: null, ...extra };
+  return { thread, acao, motivo, mergeSha: null, headSha: null, ci: null, docsPendentes: [], ...extra };
 }
 
 /**
@@ -71,8 +78,11 @@ export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: s
   const thread = lerThread(raiz, threadId);
   if (thread.status === 'fechada') return resultado(threadId, 'ja-registrada', 'thread ja fechada');
   if (opcoes.buscar !== false) exec('git', ['fetch', '-q', '--', remoto, `+refs/heads/${base}:refs/remotes/${remoto}/${base}`], raiz);
-  const merge = mergeDaEntrega(raiz, threadId, remoto, base);
-  if (!merge) return resultado(threadId, 'sem-merge', `nenhum merge ship(${threadId}) em ${remoto}/${base}`);
+  const encontrado = mergeDaEntrega(raiz, threadId, remoto, base);
+  if (!encontrado) return resultado(threadId, 'sem-merge', `nenhum merge ship(${threadId}) em ${remoto}/${base}`);
+  // RM-044 (A3): o condutor roda o registrar-pr logo depois do merge; e aqui que ele fica sabendo da pagina que
+  // vai deixar o push da base vermelho, lida da base remota que o fetch acabou de trazer.
+  const merge = { ...encontrado, docsPendentes: docsPendentesDoMerge(raiz, threadId, `refs/remotes/${remoto}/${base}`) };
 
   const dir = dirThread(raiz, threadId);
   const jaTem = lerLedger(dir).some((e) => e.tipo === TIPOS_DE_EVENTO.shipConcluido && e.mergeSha === merge.mergeSha);

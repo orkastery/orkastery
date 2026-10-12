@@ -2,12 +2,13 @@
 import { runBrain } from './company-brain-cli';
 import { raizDoEstado } from './estado-thread';
 import { checarAnalisadoresDoGrafo, executarGrafo } from './intelligence-graph-cli';
+import { lerEntradaDaThread } from './mcp-grafo';
 import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
 import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
-import { exigirNotaSemHost, pedirNota, textoDoPedidoDeNota } from './master-nota';
+import { exigirNotaSemHost, marcaDeHost, pedirNota, textoDoPedidoDeNota } from './master-nota';
 import { readNativeOfferStdin } from './hitl-native-offer';
 import { prepararRecibosParaDespacho } from './hitl-ingress-receipt';
 import { isAbsolute } from 'node:path';
@@ -114,13 +115,17 @@ import { atualizarAgentsMd } from './agents-md';
 import { adquirirRegiao, liberar, tabelaDeLeases } from './leases';
 import { inventariarSessoes } from './sessoes-inventario';
 import { coletarEstatisticas, registrarEstimativaPlano, textoDasEstatisticas } from './ledger-stats';
+import { relatorioDeEsgotamentos, textoDosEsgotamentos } from './esgotamentos';
 import { adotarSessao } from './sessoes-adopt';
 import { textoDoInventario } from './sessoes';
-import { ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
+import { ENV_THREAD_DO_DESPACHO, ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
 import { avaliarPolicies, linhasDeAviso } from './policies';
 import {
   aceitarPendentesPorOmissao,
   aceitosPorOmissao,
+  entregasParaOmissao,
+  indiceDaThread,
+  motivoForaDaOmissao,
   ORDEM_DAS_CLASSES,
   parseClasse,
   registrarMaster,
@@ -134,7 +139,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, ONDE_FICAM_OS_SEGREDOS, resetarOnboarding, textoDaPauta } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { PROXIMO_PASSO_INIT } from './init';
+import { ativarLocale, COMANDOS_COM_LOCALE, msg, resolverLocale } from './locale';
 import {
   abrirMemoria,
   sondarEmbeddings,
@@ -148,7 +153,7 @@ import {
 } from './memoria';
 import { chaveDeEmbeddingAceita, COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
 import { AlvoDeEmbedding, codigoDaFalha, indexar, ResultadoDoIndice, textoDoIndice, universoDaBusca } from './indice-vetorial';
-import { buscarPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
+import { buscarPorSignificado, textoDaBuscaPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
 import { recallDaThread, textoDoRecall } from './recall';
 import { inventariarHandoffs, migrarHandoffs } from './memory-migration';
 import {
@@ -208,7 +213,8 @@ import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, cami
   linhaDaWorktree, listarIds, novaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
 } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
-import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
+import { BRANCH_DE_RESERVAS, leituraDasReservas, listarReservas, PainelDeReservas, pegarItem, REMOTO_PADRAO, reservarFeat, reservasOrfas,
+  soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
 import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
@@ -235,10 +241,10 @@ import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLic
 import { executarDemo } from './demo';
 import { registrarEntregaExternaPorPr, registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
 import {
-  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto, fixarProjetoAlvo,
-  FORA_DA_CONSULTA,
-  linhasDaConsulta, listarProjetos, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, remotoDoProjeto,
-  resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
+  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, declaracaoQueFaltou, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto,
+  fixarProjetoAlvo, FORA_DA_CONSULTA, iniciarDeclaracaoDoProjeto,
+  linhasDaConsulta, listarProjetos, pedirDeclaracaoDoProjeto, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio,
+  remotoDoProjeto, resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
 } from './projeto-alvo';
 import { ARQUIVO_WORKTREE_LOCAL, COMANDO_CONFIRMAR_WORKTREE, confirmarWorktreeLocal, lerWorktreeLocal, pastaDasWorktreesPedida,
   recusaDePastaDasWorktrees, revogarWorktreeLocal } from './worktree-local';
@@ -334,6 +340,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--sem-login]                            do perfil (nunca copia credencial)
   accounts remove <id>                      Desativa o perfil (diretorio e login ficam onde estao)
   accounts check [<id>]                     Confere o login de cada perfil e marca o store
+  accounts esgotamentos [--desde 7d] [--json]
+                                            Despachos numa conta que outro projeto desta maquina viu esgotada
+                                            (RM-040), so leitura: conta opaca, perfil pelo id, sem diretorio
   setup [<modo>] --reset                    Volta o modo (ou tudo) ao default
   setup sandbox [confirmar <postura>|revogar]  Postura de sandbox desta maquina (RM-047): runtime.sandbox que afrouxa
                                             (danger-full-access) so despacha com a confirmacao local, fora do git
@@ -362,8 +371,6 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   portfolio create <product|project|initiative> <id> --title T [--parent ID]
   portfolio list [product|project|initiative] [--parent ID] [--json]
   portfolio show <id> [--json]              Catálogo prod -> proj -> init
-        [--constraints A;B] [--outcomes A;B] [--threads N]
-        [--execution-runtime R] [--validation-runtimes R1,R2]
   objective ...                             Aposentado na I-43: as duas vigas viraram
                                             --exige-runtime-diferente e --done de thread
 
@@ -484,6 +491,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                                  completo; --verificar confere contrato, bytes, determinismo e o incremental
                                                  contra a completa; precisa de typescript e micromark
   grafo status [--json]                     Indices guardados, o do HEAD, os analisadores e o tamanho
+  grafo contexto <thread> [--json]          Pacote da thread com evidencias e medida em bytes [--teto-bytes N]
   grafo vizinhos <no> [--profundidade N]    Vizinhanca de arquivo ou simbolo, com extrator e evidencia de cada aresta
         [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json]
   grafo chamadores <simbolo>                Quem chama (arestas calls que chegam) [--profundidade N] [--limite N] [--json]
@@ -496,7 +504,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
 
   ship <thread-id> --para <branch>          Merge --no-ff serializado por lease e push PROVADO
   ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
-        [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master --aceitar-omissao
+        [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master <thread> --aceitar-omissao
         [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
         [--dry-run]                              Ensaio: as mesmas conferencias, sem gravar ship_done, fase nem fabrica
         [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
@@ -534,7 +542,11 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                             Pede a nota ao dono com codigo curto; ele responde pelo Telegram
                                             (<codigo> <0 a 5> <porque>) e a nota vai ao ledger com o recibo (RM-048)
   master [--todas] [--json]                 As entregas, com o indice derivado do ledger
-  master --aceitar-omissao [--json]         Aceita as entregues por omissao, com registro
+  master <thread-id> --aceitar-omissao      Aceita por omissao SO a entrega desta thread, com registro (ou --thread T)
+        [--dry-run] [--json]                     --dry-run lista o que seria fechado, sem gravar
+  master --aceitar-omissao [--dry-run] [--json]
+                                            Aceita TODAS as entregues por omissao, listando cada uma
+                                            (de processo de agente com mais de uma, avisa em stderr)
   master classes                            As classes de falha fixas do POSTMORTEM
   licoes [--json]                           O que volta no GOAL e no PLAN da proxima thread (POSTMORTEM e
                                             MASTER) e as propostas de policy por recorrencia (I-55)
@@ -1067,7 +1079,15 @@ function comandoAccounts(args: Args): number {
     imprimir();
     return falhas > 0 ? 1 : 0;
   }
-  console.error(`subcomando desconhecido: accounts ${sub} (use list, add, remove ou check)`);
+  if (sub === 'esgotamentos') {
+    // RM-040 (B7): so leitura do registro de contas e dos ledgers dos projetos registrados.
+    let relatorio;
+    try { relatorio = relatorioDeEsgotamentos({ desde: texto(args.opcoes.desde) ?? '7d' }); }
+    catch (e) { console.error(`${(e as Error).message} (use --desde 7d, 24h, 30m ou uma data ISO)`); return 2; }
+    console.log(args.opcoes.json === true ? JSON.stringify(relatorio, null, 2) : textoDosEsgotamentos(relatorio));
+    return 0;
+  }
+  console.error(`subcomando desconhecido: accounts ${sub} (use list, add, remove, check ou esgotamentos)`);
   return 2;
 }
 
@@ -2133,11 +2153,25 @@ function comandoShip(args: Args): number {
     if (dryRun) console.log('Ensaio (--dry-run): nada foi gravado.');
     if (r.length === 0) console.log('Nenhuma thread aberta com merge ship(<thread>) na base.');
     for (const x of r) console.log(`  ${x.thread.padEnd(20)} ${x.acao.padEnd(13)} ${x.motivo}`);
+    // RM-044 (A3): a pagina que o push da base vai reprovar em docs.paridade.merge, com o comando que corrige.
+    // So aviso: nada e gravado e o codigo de saida nao muda.
+    const pendentes = r.flatMap((x) => x.docsPendentes.map((d) => ({ thread: x.thread, ...d })));
+    if (pendentes.length) {
+      console.log('');
+      console.log(`Aviso: ${pendentes.length} pagina(s) do roadmap com estado.codigo fora de "Mesclado" depois do merge; o push da base reprova em docs.paridade.merge:`);
+      for (const d of pendentes) {
+        console.log(`  ${d.id} (${d.arquivo}): merge ${d.merge.slice(0, 7)} de ship(${d.thread}), estado.codigo "${d.codigo || 'vazio'}"`);
+        console.log(`    ${d.comando}   (num PR de docs sobre a base atualizada)`);
+      }
+    }
     const registradas = r.filter((x) => x.acao === 'registrou').length;
     const registrariam = r.filter((x) => x.acao === 'registraria').length;
     if (registradas) {
       console.log('');
-      console.log(`${registradas} entrega(s) registrada(s). Fechar pelo MASTER: ork master --aceitar-omissao (a nota humana sobrescreve).`);
+      // RM-008 (03/10): o texto ensina a forma COM a thread. A forma sem thread fechava tambem as
+      // entregues de outras frentes paralelas, e era ela que os condutores copiavam daqui.
+      console.log(`${registradas} entrega(s) registrada(s). Fechar pelo MASTER so a(s) desta entrega (a nota humana sobrescreve):`);
+      for (const x of r.filter((y) => y.acao === 'registrou')) console.log(`  ork master ${x.thread} --aceitar-omissao`);
     }
     if (registrariam) {
       console.log('');
@@ -2168,6 +2202,26 @@ function comandoShip(args: Args): number {
   return r.ok ? 0 : 1;
 }
 
+/**
+ * RM-043 (sobra achada na RM-044): opcoes que o `portfolio show` herdou do `objective`,
+ * aposentado na I-43. A ajuda as listava e o `parseArgs` as aceitava, mas o `show` nunca as
+ * leu: eram ignoradas em silencio. A recusa e tipada e diz para onde ir, como a do
+ * `objective.aposentado`.
+ */
+const SOBRAS_DO_OBJECTIVE = ['constraints', 'outcomes', 'threads', 'execution-runtime', 'validation-runtimes'];
+
+function recusarSobraDoObjective(opcao: string): number {
+  console.error(
+    `portfolio.opcao-aposentada: --${opcao} era do Objective Envelope, aposentado na I-43, e o\n` +
+    '  portfolio show nunca a leu. As duas vigas do envelope viraram propriedade de thread comum:\n' +
+    '    ork thread new "<nome>" --modo <MODO> --exige-runtime-diferente\n' +
+    '        o CHECK precisa de runtime que o GO nao usou\n' +
+    '    ork thread new "<nome>" --modo <MODO> --done "<criterio> :: <comando>"\n' +
+    '        criterio de pronto EXECUTAVEL, que vira claim e roda no ork verify'
+  );
+  return 2;
+}
+
 function comandoPortfolio(args: Args): number {
   const root = exigirManifesto().raiz;
   const sub = args.posicionais[1] ?? 'list';
@@ -2189,6 +2243,8 @@ function comandoPortfolio(args: Args): number {
     return 0;
   }
   if (sub === 'show') {
+    const sobra = SOBRAS_DO_OBJECTIVE.find((opcao) => args.opcoes[opcao] !== undefined);
+    if (sobra) return recusarSobraDoObjective(sobra);
     const id = args.posicionais[2];
     if (!id) { console.error('uso: ork portfolio show <id>'); return 2; }
     const item = findEntity(root, id);
@@ -2589,7 +2645,7 @@ function comandoNetwork(args: Args): number {
   }
   if (sub === 'publicar') {
     if (args.opcoes.silencioso === true) {
-      // O filho do evento de thread: quem disparou ja tomou a vez (teto de 15 min) e nao espera.
+      // O filho do evento de thread: quem disparou ja tomou a vez (teto de 14 min) e nao espera.
       try { registrarNaRede({ ...publicarRede({ diretorio }), origem: 'evento' }); return 0; }
       catch (e) { registrarNaRede({ acao: 'falhou', origem: 'evento', erro: (e as Error).message }); return 1; }
     }
@@ -2841,20 +2897,14 @@ function comandoMaster(args: Args): number {
       'master.fila-aposentada: a fila de ratificacao de score saiu na I-43. ' +
       'Entregue e aceito, a menos que voce diga o contrario.\n' +
       '  ork master                     as entregas, com o indice ja derivado do ledger\n' +
-      '  ork master --aceitar-omissao   aceita as entregues, com indice e insumos no ledger\n' +
+      '  ork master <id> --aceitar-omissao   aceita so esta entrega, com indice e insumos no ledger\n' +
+      '  ork master --aceitar-omissao        aceita todas as entregues (--dry-run mostra quais)\n' +
       '  ork master <id> --score <0-5> --justificativa "<por que>" --por <humano>   para reclamar'
     );
     return 2;
   }
-  if (args.opcoes['aceitar-omissao'] === true) {
-    const aceitos = aceitarPendentesPorOmissao(carregado.raiz);
-    if (args.opcoes.json === true) { console.log(JSON.stringify(aceitos, null, 2)); return 0; }
-    if (aceitos.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
-    console.log(`Aceitas por omissao: ${aceitos.length}. O indice e os insumos foram ao ledger.`);
-    for (const a of aceitos) console.log(`  ${a.thread.padEnd(20)} indice ${a.indice.valor}/${a.indice.base}`);
-    console.log('');
-    console.log('Discordou? A nota humana sobrescreve, e o registro da omissao permanece.');
-    return 0;
+  if (args.opcoes['aceitar-omissao'] !== undefined) {
+    return comandoAceitarOmissao(args, carregado.raiz, primeiro);
   }
   if (primeiro === undefined) {
     console.log(args.opcoes.json
@@ -2922,6 +2972,72 @@ function comandoMaster(args: Args): number {
   return 0;
 }
 
+/**
+ * RM-008 (03/10/2026): `ork master [<thread>] --aceitar-omissao [--thread T] [--dry-run] [--json]`.
+ *
+ * Tres vezes na madrugada de 03/10, um condutor rodou `ork master --aceitar-omissao` para fechar a
+ * propria thread, e o comando fechou tambem as entregues de outras frentes (ork-rm057fatia3t,
+ * ork-rm025modocon). A thread indicada (posicional, `--thread T` ou `--aceitar-omissao=T`) limita o
+ * aceite a ela. Sem thread, o padrao continua o mesmo, por decisao registrada: drenar todas, agora
+ * listando cada uma e avisando em stderr quando quem roda e processo de agente.
+ */
+function comandoAceitarOmissao(args: Args, raiz: string, posicional: string | undefined): number {
+  const bruto = args.opcoes['aceitar-omissao'];
+  const candidatos = [posicional, texto(args.opcoes.thread), typeof bruto === 'string' ? bruto : undefined]
+    .filter((v): v is string => typeof v === 'string' && v.trim() !== '').map((v) => v.trim());
+  if (args.opcoes.thread === true || new Set(candidatos).size > 1) {
+    console.error('uso: ork master <thread-id> --aceitar-omissao [--dry-run] [--json]   (ou --thread <thread-id>, uma thread so)');
+    return 2;
+  }
+  const alvo = candidatos[0];
+  const dryRun = args.opcoes['dry-run'] === true;
+  const json = args.opcoes.json === true;
+  if (alvo) {
+    const fora = motivoForaDaOmissao(raiz, alvo);
+    if (fora) {
+      if (json) console.log(JSON.stringify(dryRun ? { dryRun: true, fecharia: [], motivo: fora.motivo } : [], null, 2));
+      else (fora.motivo === 'ja-fechada' ? console.log : console.error)(fora.texto);
+      return fora.motivo === 'ja-fechada' ? 0 : 1;
+    }
+  }
+  if (dryRun) {
+    const fecharia = entregasParaOmissao(raiz, alvo).map((p) => ({ thread: p.thread.id, indice: indiceDaThread(raiz, p.thread.id) }));
+    if (json) { console.log(JSON.stringify({ dryRun: true, fecharia }, null, 2)); return 0; }
+    console.log('Ensaio (--dry-run): nada foi gravado.');
+    if (fecharia.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
+    console.log(`Fecharia por omissao: ${fecharia.length}.`);
+    for (const f of fecharia) console.log(`  ${f.thread.padEnd(20)} indice ${f.indice.valor}/${f.indice.base}`);
+    avisoDeOmissaoSemAlvo(alvo, fecharia.length, true);
+    return 0;
+  }
+  const aceitos = aceitarPendentesPorOmissao(raiz, { thread: alvo });
+  avisoDeOmissaoSemAlvo(alvo, aceitos.length, false);
+  if (json) { console.log(JSON.stringify(aceitos, null, 2)); return 0; }
+  if (aceitos.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
+  console.log(`Aceitas por omissao: ${aceitos.length}. O indice e os insumos foram ao ledger.`);
+  for (const a of aceitos) console.log(`  ${a.thread.padEnd(20)} indice ${a.indice.valor}/${a.indice.base}`);
+  console.log('');
+  console.log('Discordou? A nota humana sobrescreve, e o registro da omissao permanece.');
+  return 0;
+}
+
+/**
+ * O aviso do aceite SEM thread vindo de processo de agente que alcanca mais de uma entrega. A marca
+ * e a mesma do `master.prova-de-canal` (ambiente do host ou do despacho). Vai para stderr: o stdout,
+ * inclusive o `--json`, fica como era.
+ */
+function avisoDeOmissaoSemAlvo(alvo: string | undefined, quantas: number, ensaio: boolean): void {
+  if (alvo || quantas <= 1) return;
+  const marca = marcaDeHost(process.env);
+  if (!marca) return;
+  const propria = (process.env[ENV_THREAD_DO_DESPACHO] ?? '').trim();
+  console.error('');
+  console.error(`aviso: master.omissao-sem-thread: processo de agente (${marca}) ${ensaio ? 'fecharia' : 'fechou'} ${quantas} threads, ` +
+    'inclusive as de outras frentes paralelas.');
+  console.error(`  Para fechar so a sua: ork master ${propria || '<thread-id>'} --aceitar-omissao` +
+    (ensaio ? '' : '  (a nota humana sobrescreve o aceite de quem nao era seu)'));
+}
+
 /** I-55 (RM-008): `ork licoes` mostra o que volta no proximo GOAL e PLAN, e as propostas de policy. */
 function comandoLicoes(args: Args): number {
   const carregado = exigirManifesto();
@@ -2958,9 +3074,27 @@ function comandoRoadmap(args: Args): number {
         : soltas.map((s) => `${s.item}: ${s.detalhe} (thread fechada ${s.thread})`).join('\n'));
       return 0;
     }
-    const painel = listarReservas(carregado.raiz, { remoto });
+    // RM-052 (fatia 2, D4): as reservas moram no remoto do projeto. Sem ele, nada e lido; com ele mudo e
+    // sem copia, tambem nao. A resposta diz qual projeto leu e o que ficou de fora, nunca "nenhum item".
+    // RM-047: nome fora do formato de remoto recusa antes do git, como sempre.
+    const nomeDoRemoto = exigirRemoto(remoto ?? REMOTO_PADRAO, 'roadmap');
+    const url = remotoDoProjeto(carregado.raiz, nomeDoRemoto);
+    const painel: PainelDeReservas = url === null ? { reservas: [], feats: [], atualizado: false, ponta: null }
+      : listarReservas(carregado.raiz, { remoto });
+    const leitura = leituraDasReservas(painel, url !== null);
     const orfas = reservasOrfas(carregado.raiz, painel.reservas);
-    console.log(args.opcoes.json === true ? JSON.stringify({ ...painel, orfas }, null, 2) : textoDasReservas(painel, orfas));
+    const lido = leitura === 'lido-agora' || leitura === 'copia-local';
+    const consulta = consultaDoProjeto(carregado, {
+      remoto: url,
+      lido: lido ? [`reservas do roadmap (${BRANCH_DE_RESERVAS} em ${nomeDoRemoto}, ${leitura === 'lido-agora' ? 'lido agora' : 'última cópia local'})`] : [],
+      naoLido: [FORA_DA_CONSULTA.roadmap,
+        ...(leitura === 'sem-remoto' ? [`reservas do roadmap: o projeto não tem o remoto ${nomeDoRemoto}, nada foi lido de ${BRANCH_DE_RESERVAS}`]
+          : leitura === 'sem-copia' ? [`reservas do roadmap: o remoto ${nomeDoRemoto} não respondeu e não há cópia local de ${BRANCH_DE_RESERVAS}`]
+            : [])],
+    });
+    console.log(args.opcoes.json === true ? JSON.stringify({ ...painel, orfas, leitura, consulta }, null, 2)
+      : [...linhasDaConsulta(consulta), '', textoDasReservas(painel, orfas,
+        { remoto: nomeDoRemoto, projeto: carregado.manifesto.project.name, temRemoto: url !== null })].join('\n'));
     return 0;
   }
   if (sub === 'status') {
@@ -3175,6 +3309,17 @@ function exigirFaseCanonica(bruto: string | undefined): Fase {
 /**
  * `ork adapter list|show|install <host>`: instalacao dos adaptadores de Camada 1 (bloco B4).
  */
+/**
+ * O caminho real do `ork` em execução, quando o processo é este CLI (argv[1] resolve para este arquivo).
+ * Importado por outro script, devolve undefined e o install volta à ordem antiga (PATH, catálogo).
+ */
+function orkEmExecucao(): string | undefined {
+  try {
+    const proprio = fs.realpathSync(__filename);
+    return process.argv[1] && fs.realpathSync(process.argv[1]) === proprio ? proprio : undefined;
+  } catch { return undefined; }
+}
+
 function comandoAdapter(args: Args): number {
   const sub = args.posicionais[1] ?? 'list';
 
@@ -3211,6 +3356,8 @@ function comandoAdapter(args: Args): number {
       dryRun: args.opcoes['dry-run'] === true,
       force: args.opcoes.force === true || args.opcoes.forcar === true,
       orkBin: texto(args.opcoes.ork),
+      // Ensaio de 03/10: a extensão chama o ork que a instalou, não o primeiro do PATH.
+      orkEmExecucao: orkEmExecucao(),
       versao: VERSAO,
       // I-43 (D5): a decisao por ARQUIVO, que e o que faz `--force` deixar de ser o
       // unico caminho de saida. `;` separa varios, como o resto do CLI ja faz.
@@ -3400,6 +3547,8 @@ function comandoAudit(args: Args): number {
   }
 
   if (sub === 'show') {
+    const sobra = SOBRAS_DO_OBJECTIVE.find((opcao) => args.opcoes[opcao] !== undefined);
+    if (sobra) return recusarSobraDoObjective(sobra);
     const id = args.posicionais[2];
     if (!id) {
       console.error('uso: ork audit show <rodada> [--ledger]');
@@ -3952,21 +4101,13 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
       fallbackUsavel: memoria.estado.embeddings?.sondado === true && fallback?.dependencias === true,
       embeddar: (p, o) => transporte.embeddar(p, o), buscarTexto: (t, q) => transporte.buscarTexto(t, q) });
   }
+  const codigo = universo ? 0 : 1;
   if (args.opcoes.json === true) {
     console.log(JSON.stringify(r, null, 2));
-    return 0;
+    return codigo;
   }
-  console.log(`Busca por significado (NAO deterministica; modo ${r.modo}, origem ${r.origem}${r.modeloUsado ? ` ${r.modeloUsado}` : ''})`);
-  if (r.motivo) console.log(`  motivo: ${r.motivo}${r.detalhe ? `; ${r.detalhe}` : ''}`);
-  console.log('');
-  r.resultados.forEach((e, i) => {
-    const sim = e.similaridade === null ? '' : `  similaridade ${e.similaridade}`;
-    console.log(`  ${i + 1}. [${e.collection}] ${e.id}  score ${e.score}  ${e.fontes.join('+')}${sim}`);
-    console.log(`      ${e.resumo}`);
-  });
-  console.log('');
-  console.log(`  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
-  return 0;
+  console.log(textoDaBuscaPorSignificado(r));
+  return codigo;
 }
 
 /**
@@ -3992,25 +4133,52 @@ export function extrairOpcaoDeProjeto(argv: readonly string[]): { argv: string[]
 const COMANDOS_SEM_PROJETO = new Set(['demo', 'ciclos', 'mcp', 'init', 'projetos']);
 
 /**
+ * Fatia 2 (D3): os comandos que leem projeto e nao terminam com a linha `Projeto consultado`. Hoje so
+ * o `sessions event`, o sensor dos hooks do Claude Code: maquina falando com maquina, e o sensor compara
+ * o stderr da recusa. O `maestro` declara no snapshot e nao passa por aqui.
+ */
+const SEM_DECLARACAO_DO_PROJETO: ReadonlySet<string> = new Set(['sessions event']);
+
+/**
  * Comandos cujo `--projeto` e DELES (RM-054: `ork network roadmap --projeto github:dono/repo`, que
  * le varios projetos). A opcao volta intacta ao argv do subcomando e o alvo global nao e resolvido:
  * nem `--projeto`, nem `ORK_PROJETO`, nem o modo host escolhem um projeto por eles.
  */
 export const COMANDOS_COM_PROJETO_PROPRIO: ReadonlySet<string> = new Set(['network']);
 
-/** Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. */
-function fixarAlvoDoProcesso(projeto: string | undefined): ProjetoAlvo | null {
+/**
+ * Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. Fatia 2 (D3): com
+ * `declarar`, o comando termina dizendo qual projeto leu, quando o leitor nao tem como saber.
+ */
+function fixarAlvoDoProcesso(projeto: string | undefined, declarar = true): ProjetoAlvo | null {
   const alvo = resolverProjetoAlvo({ opcao: projeto ?? null });
   fixarProjetoAlvo(alvo);
+  if (declarar) pedirDeclaracaoDoProjeto(alvo);
   return alvo;
 }
 
+/**
+ * RM-052 (fatia 2, D3): o comando que leu um projeto que o leitor nao tem como adivinhar (no host, ou
+ * fora do diretorio dele) escreve no fim a linha `Projeto consultado: ...` no stderr, salvo se ja montou
+ * o proprio cabecalho. Quando ele falha, a linha sai antes da mensagem de erro, que a entrada imprime.
+ */
 export function main(argvBruto: string[]): number {
   // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso, e já
   // depois de o projeto-alvo abaixo estar fixado: a fonte é preguiçosa).
   registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
   // RM-052: sem alvo herdado de uma chamada anterior no mesmo processo (os testes chamam `main` em serie).
   fixarProjetoAlvo(null);
+  // Prova de conceito do CLI por locale: cada chamada comeca em pt-BR; so os comandos cobertos trocam.
+  ativarLocale(undefined);
+  iniciarDeclaracaoDoProjeto();
+  try { return executarComando(argvBruto); }
+  finally {
+    const linha = declaracaoQueFaltou();
+    if (linha) console.error(linha);
+  }
+}
+
+function executarComando(argvBruto: string[]): number {
   const extraida = extrairOpcaoDeProjeto(argvBruto);
   const proprio = COMANDOS_COM_PROJETO_PROPRIO.has(parseArgs(extraida.argv).posicionais[0] ?? '');
   const argv = proprio && extraida.projeto !== undefined
@@ -4032,8 +4200,9 @@ export function main(argvBruto: string[]): number {
   }
   if (argv[0] === 'maestro') {
     if (argv.length === 2 && argv[1] === '--help') return runMaestroCli(argv.slice(1));
-    // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre.
-    const alvo = fixarAlvoDoProcesso(projeto);
+    // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre. O
+    // snapshot ja declara o projeto consultado (project.root, notConsulted): sem a linha da fatia 2.
+    const alvo = fixarAlvoDoProcesso(projeto, false);
     return alvo ? runMaestroCli(argv.slice(1), alvo.raiz, { allowedRoots: [alvo.raiz], selected: alvo.raiz })
       : runMaestroCli(argv.slice(1));
   }
@@ -4049,8 +4218,9 @@ export function main(argvBruto: string[]): number {
     console.log(AJUDA);
     return 0;
   }
-  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) fixarAlvoDoProcesso(projeto);
-  else if (projeto !== undefined && comando !== 'projetos') {
+  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) {
+    fixarAlvoDoProcesso(projeto, !SEM_DECLARACAO_DO_PROJETO.has(`${comando} ${args.posicionais[1] ?? ''}`.trim()));
+  } else if (projeto !== undefined && comando !== 'projetos') {
     throw new Error(comando === 'init'
       ? 'uso: ork init cria o projeto no diretório atual; entre nele e rode ork init, sem --projeto'
       : comando === 'mcp' ? 'uso: o servidor MCP recebe a raiz por --project <raiz absoluta>, não por --projeto'
@@ -4065,6 +4235,13 @@ export function main(argvBruto: string[]): number {
     // O gate oficial precisa observar e registrar a violação (inclusive warn).
     // Diagnósticos continuam acessíveis; os adapters sanitizam seus filhos sempre.
     if (violacoes.length === 0) for (const nome of ENVS_DE_PROVIDER_PAGO) delete process.env[nome];
+  }
+
+  // Prova de conceito do CLI por locale (EN1, EN7): a escolha do onboarding (owner.language) ou o
+  // LC_ALL/LC_MESSAGES/LANG decidem a lingua do TEXTO dos comandos cobertos; `--json` e contrato e
+  // `doctor --modo` (preflight) ainda nao passa pelo catalogo, entao os dois ficam em pt-BR.
+  if (COMANDOS_COM_LOCALE.includes(comando) && args.opcoes.json === undefined && args.opcoes.modo === undefined) {
+    ativarLocale(resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale);
   }
 
   switch (comando) {
@@ -4125,22 +4302,23 @@ export function main(argvBruto: string[]): number {
       // RM-052 (D7): o projeto entra no registro desta maquina; falha vira aviso, nunca derruba o init.
       const avisoDoRegistro = registrarProjetoEmSilencio(r.deteccao.raiz, 'init');
       if (avisoDoRegistro) console.error(avisoDoRegistro);
+      const m = msg().init, estadoAgents = m.estadosAgents[agents.estado] ?? agents.estado;
       if (!r.criado) {
-        console.log(`Manifesto ja existe: ${r.caminho}`);
-        console.log('Nada foi sobrescrito. Use --force para regerar.');
-        console.log(`AGENTS.md ${agents.estado}: ${agents.caminho}`);
+        console.log(m.jaExiste(r.caminho));
+        console.log(m.nadaSobrescrito);
+        console.log(m.agentsMd(estadoAgents, agents.caminho));
         return 0;
       }
-      console.log(`Manifesto criado: ${r.caminho}`);
-      console.log(`  projeto     ${r.deteccao.nome} (abbrev "${r.deteccao.abbrev}")`);
-      console.log(`  branch base ${r.deteccao.baseBranch}`);
-      console.log(`  gerenciador ${r.deteccao.gerenciador}`);
-      console.log(`  verify      ${Object.entries(r.deteccao.verify).map(([k, v]) => `${k}="${v}"`).join(', ') || '(nenhum script detectado)'}`);
-      console.log(`  AGENTS.md   ${agents.estado}: ${agents.caminho}`);
+      console.log(m.criado(r.caminho));
+      console.log(m.projeto(r.deteccao.nome, r.deteccao.abbrev));
+      console.log(m.branchBase(r.deteccao.baseBranch));
+      console.log(m.gerenciador(r.deteccao.gerenciador));
+      console.log(m.verify(Object.entries(r.deteccao.verify).map(([k, v]) => `${k}="${v}"`).join(', ') || m.semScript));
+      console.log(m.agentsMdLinha(estadoAgents, agents.caminho));
       // Fatia 2 do ensaio da 0.5.0 (P3): o estado fica fora do git por um `.gitignore` proprio.
-      if (r.estadoIgnorado) console.log(`  estado      ${DIR_ESTADO}/ fora do git (${DIR_ESTADO}/.gitignore com *; o seu .gitignore fica como está)`);
+      if (r.estadoIgnorado) console.log(m.estado(DIR_ESTADO));
       console.log('');
-      console.log(PROXIMO_PASSO_INIT);
+      console.log(m.proximoPasso);
       return 0;
     }
     case 'modos': {
@@ -4284,6 +4462,7 @@ export function main(argvBruto: string[]): number {
       const carregado = exigirManifesto();
       return executarGrafo(argv.slice(argv.indexOf('grafo') + 1),
         { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, versao: VERSAO_DO_ORK,
+          contextoDaThread: (id) => lerEntradaDaThread(carregado.raiz, id),
           escrever: (texto) => console.log(texto) });
     }
     case 'ship':

@@ -1,0 +1,197 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm036ajusted",
+  "branch": "ork/ork-rm036ajuste-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "RM-036 ajuste: teste fila-symlink isolado; arvoreMetadados tolera ENOENT transitório da fila; erro de limpeza no finally da retomada não encobre a aquisição",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-mcp.test.js && node --test core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:59:26.621Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-git.ts",
+      "alegacao": "RM-036 ajuste: teste fila-symlink isolado; arvoreMetadados tolera ENOENT transitório da fila; erro de limpeza no finally da retomada não encobre a aquisição",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-mcp.test.js && node --test core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:59:26.862Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-mcp.test.ts",
+      "alegacao": "RM-036 ajuste: teste fila-symlink isolado; arvoreMetadados tolera ENOENT transitório da fila; erro de limpeza no finally da retomada não encobre a aquisição",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-mcp.test.js && node --test core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:59:27.102Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-gofix.test.ts",
+      "alegacao": "RM-036 ajuste: teste fila-symlink isolado; arvoreMetadados tolera ENOENT transitório da fila; erro de limpeza no finally da retomada não encobre a aquisição",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-mcp.test.js && node --test core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:59:27.342Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "core/scripts/rm036-leases-mutantes.cjs",
+      "alegacao": "RM-036 ajuste: teste fila-symlink isolado; arvoreMetadados tolera ENOENT transitório da fila; erro de limpeza no finally da retomada não encobre a aquisição",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-mcp.test.js && node --test core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:59:27.590Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-036 ajuste: teste fila-symlink isolado; arvoreMetadados tolera ENOENT transitório da fila; erro de limpeza no finally da retomada não encobre a aquisição",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-mcp.test.js && node --test core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:59:27.818Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "core/scripts/rm036-leases-mutantes.cjs",
+      "alegacao": "As receitas R6-MCP-fila-symlink, R6-MCP-metadados-lstat, R6-MCP-metadados-readdir, R6-MCP-metadados-erros e R6-limpeza-resultado localizam os trechos compilados e produzem JavaScript válido. Validação estrutural não prova a morte dos mutantes; execução reservada à condutora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/rm036-leases-mutantes.cjs --validar"
+      ],
+      "criadoEm": "2026-10-03T09:12:22.666Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-artifacts.ts",
+      "alegacao": "RM-036 ajuste: nome fora de UTF-8 é recusado, não pulado, na conferência da fila e dos metadados",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-mcp.test.js && node --test core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T09:20:36.059Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "T5/R7: erro EPERM no unlink do candidato no finally preserva a aquisição já gravada e a identidade do EIO original no caminho de exceção; candidato remanescente usa a coleta existente por PID morto ou prazo. Testes e execução da mutação ficam com a condutora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='R7 limpeza do candidato' core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T09:25:32.302Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-git.ts",
+      "alegacao": "T6/R7: arvoreMetadados lê nomes em Buffer e recusa UTF-8 não reversível antes de lstat, inclusive subárvore com link; mantém ENOENT transitório real e confere nomes UTF-8 válidos com U+FFFD literal.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='R[67].*(metadados|UTF-8)' core/dist-test/test/rm036-leases-mcp.test.js"
+      ],
+      "criadoEm": "2026-10-03T09:28:46.977Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-artifacts.ts",
+      "alegacao": "T6/R7: preflight de documentos e claims recusa nomes fora de UTF-8 em leases, filas e candidatos, sem escrita do documento ou claim; criação real por Buffer tem skip motivado se o filesystem recusar.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='R7.*UTF-8' core/dist-test/test/rm036-leases-mcp.test.js"
+      ],
+      "criadoEm": "2026-10-03T09:28:47.006Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "core/scripts/rm036-leases-mutantes.cjs",
+      "alegacao": "T5/T6: receitas R7-limpeza-candidato, R7-MCP-metadados-UTF8, R7-MCP-leases-UTF8 e R7-MCP-candidatos-UTF8 localizam guardas compiladas e produzem JavaScript válido. Validação estrutural não prova morte dos mutantes; execução pela condutora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/rm036-leases-mutantes.cjs --validar"
+      ],
+      "criadoEm": "2026-10-03T09:28:47.041Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm036ajusted",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T7: a mesma entrada Avisos finais dos leases multicanais em Não publicado descreve as guardas UTF-8, limpeza de unlink/rmdir sem alterar resultado ou erro original e coleta de candidatos remanescentes por PID morto ou prazo.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('node:fs'),assert=require('node:assert/strict'); const s=fs.readFileSync('CHANGELOG.md','utf8'); const item=s.match(/- \\*\\*Avisos finais dos leases multicanais\\*\\*[\\s\\S]*?(?=\\n- )/)[0]; assert.equal(s.split('**Avisos finais dos leases multicanais**').length-1,1); for (const texto of ['UTF-8','unlink','rmdir','exceção original','PID morre','prazo vence']) assert.ok(item.includes(texto)); console.log('entrada unica do CHANGELOG cobre UTF-8 e limpeza');\""
+      ],
+      "criadoEm": "2026-10-03T09:29:47.749Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

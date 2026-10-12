@@ -188,7 +188,9 @@ const PROJETO_DA_REDE = {
 /**
  * RM-057 (fatia 2): a regra do HITL de conducao, a mesma frase dos adaptadores do Claude Code e do
  * Codex (fatia 1). No OpenClaw o modelo so le as descricoes das tools: ela vai nas que recebem o
- * pedido do dono (ork_modo_do_pedido), apresentam o panorama (ork_maestro) e despacham fase.
+ * pedido do dono (ork_modo_do_pedido), apresentam o panorama (ork_maestro) e despacham fase. Ensaio
+ * de 03/10: no perfil `coding` o modelo so ve as tools do `toolMetadata` (ork_network_roadmap e
+ * ork_network_status), entao a regra vai tambem nelas, sem ampliar o que o perfil expoe.
  */
 const REGRA_HITL_DE_CONDUCAO = 'HITL de condução é seleção (RM-057): de 3 a 5 alternativas, exatamente uma com o selo "Recomendação". ' +
     'Nunca peça ao dono um "confirmo" em texto livre nem que ele cole texto; o pedido que ele colou com autorização ' +
@@ -445,7 +447,7 @@ const FERRAMENTAS = [
     },
     {
         name: 'ork_network_roadmap',
-        description: 'Roadmap da rede, somente leitura: para cada projeto, o status report do roadmap (RM-048) com as threads de TODAS as máquinas, as reservas, as threads por máquina com a idade da batida, a fonte e a hora de cada parte e as lacunas. É a fonte para qualquer pergunta sobre o roadmap ou o status report: transporte o texto como vem, sem reescrever nem resumir. Passe projeto com o nome que o dono pediu (ex.: orkastery) ou github:dono/repo; sem projeto, vêm todos os projetos conhecidos, e esse é o panorama da frase orkastery maestro sem projeto. Lacuna, "não lido" e "Não consultado" são fontes que ficaram sem leitura: nunca conclua "roadmap vazio" nem "nenhuma máquina publicou" a partir delas.',
+        description: 'Roadmap da rede, somente leitura: para cada projeto, o status report do roadmap (RM-048) com as threads de TODAS as máquinas, as reservas, as threads por máquina com a idade da batida, a fonte e a hora de cada parte e as lacunas. É a fonte para qualquer pergunta sobre o roadmap ou o status report: transporte o texto como vem, sem reescrever nem resumir. Passe projeto com o nome que o dono pediu (ex.: orkastery) ou github:dono/repo; sem projeto, vêm todos os projetos conhecidos, e esse é o panorama da frase orkastery maestro sem projeto. Lacuna, "não lido" e "Não consultado" são fontes que ficaram sem leitura: nunca conclua "roadmap vazio" nem "nenhuma máquina publicou" a partir delas. ' + REGRA_HITL_DE_CONDUCAO,
         parameters: schema({}),
         projeto: PROJETO_DA_REDE,
         // RM-054 (fatia 2): uma chamada de CLI; o `--projeto` vai no inicio e o nucleo o devolve ao `network`.
@@ -453,7 +455,7 @@ const FERRAMENTAS = [
     },
     {
         name: 'ork_network_status',
-        description: 'Status da Orkastery Network, somente leitura: as máquinas da pessoa (a casa privada na forja), com a batida de cada uma, a forja e o login, os runtimes e hosts com versão e os projetos que cada uma declara, mais a fonte e as lacunas. É a fonte para "quais máquinas eu tenho" e "qual máquina está parada": transporte o texto como vem. Lacuna e "Não consultado" são o que não foi lido: nunca conclua "nenhuma máquina" nem "rede vazia" a partir delas. Não lê roadmap nem threads: para isso, ork_network_roadmap.',
+        description: 'Status da Orkastery Network, somente leitura: as máquinas da pessoa (a casa privada na forja), com a batida de cada uma, a forja e o login, os runtimes e hosts com versão e os projetos que cada uma declara, mais a fonte e as lacunas. É a fonte para "quais máquinas eu tenho" e "qual máquina está parada": transporte o texto como vem. Lacuna e "Não consultado" são o que não foi lido: nunca conclua "nenhuma máquina" nem "rede vazia" a partir delas. Não lê roadmap nem threads: para isso, ork_network_roadmap. ' + REGRA_HITL_DE_CONDUCAO,
         parameters: schema({}),
         semProjeto: true,
         // RM-054 (fatia 3): uma chamada de CLI; a rede e da pessoa e nao recebe `--projeto`.

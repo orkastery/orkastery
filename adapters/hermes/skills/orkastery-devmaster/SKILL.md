@@ -8,11 +8,11 @@ license: MIT
 
 # Orkastery no Hermes
 
-Consulte `ork experiencia show --json --projeto <nome>`. Se `experience` for true, leia `../<skill>/SKILL.md` conforme `skill`: `orchestration-experience-pt-br` ou `orchestration-experience`, ambas instaladas. Use idioma, fuso e profundidade efetivos; se false, não ative o pacote. Preferências não alteram permissões nem HMAC.
+Mensagem literal `orkastery maestro`: a primeira ação é a `ork_maestro`; só depois dela consulte `ork experiencia show --json --projeto <nome>`. Se `experience` for true, leia `../<skill>/SKILL.md` conforme `skill`: `orchestration-experience-pt-br` ou `orchestration-experience`, ambas instaladas. Use idioma, fuso e profundidade efetivos; se false, não ative o pacote. Preferências não alteram permissões nem HMAC.
 
 Mensagem literal `orkastery maestro`: use `ork_maestro` (wrapper de `ork maestro --json`) para o panorama do projeto pedido; o nome dito pelo dono ("do orkastery") vai como `--projeto <nome>` (RM-052). Sem projeto nomeado, ofereça o panorama da rede: `ork_network_roadmap` (wrapper de `ork network roadmap`), com cada projeto conhecido, as threads de todas as máquinas, fontes, frescor e lacunas, transportado como vem (RM-054).
 Não abra thread por essa consulta. O gateway não tem diretório de projeto: `projeto.escolha` traz os candidatos; apresente-os e pergunte, nunca escolha pelo cwd.
-Apresente fontes/lacunas e próximas ações; ausência/ambiguidade de projeto exige contexto permitido; leia o cabeçalho "Projeto consultado" e o "Não lido" antes de responder.
+Apresente fontes/lacunas e próximas ações; ausência/ambiguidade de projeto exige contexto permitido; leia o cabeçalho "Projeto consultado" e o "Não lido" antes de responder. No terminal, todo `ork` de projeto leva `--projeto <nome>` do projeto pedido; sem ele, quem escolhe é o cwd do gateway.
 Em sessão de fase já despachada, siga o bloco recebido sem abrir outra orquestração.
 Ações usam os comandos tipados do núcleo com precondições e readback.
 
@@ -135,8 +135,8 @@ Quando o bloco nao pausa (`#Maestro`, `#Auto`, `#Fast`), o `ork` registra a deci
 
 ## Passo 5: a entrega e o MASTER
 
-O MASTER fecha com POSTMORTEM tipado e indice derivado do ledger; `ork master --aceitar-omissao` aceita as
-pendentes com registro. Nota do dono: `ork master pedir <thread>` e mande a linha; ele responde `<codigo> 4 porque`
+O MASTER fecha com POSTMORTEM tipado e indice derivado do ledger; `ork master <thread> --aceitar-omissao` aceita a
+entrega da sua thread com registro (sem a thread, aceita tambem as de outras frentes). Nota do dono: `ork master pedir <thread>` e mande a linha; ele responde `<codigo> 4 porque`
 e o ingresso prova a origem. Nunca `--por` em nome dele: daqui da `master.prova-de-canal` (RM-048).
 
 Memoria "degradada" tem dois portoes: a variavel da DSN no ambiente do processo

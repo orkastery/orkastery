@@ -109,6 +109,25 @@ verify:
 Sem nada no manifesto, vale 600 s. O `ork_verify` do MCP usa o mesmo prazo, até o teto de
 300 s por comando e 180 s no total da chamada.
 
+### Steal da CPU: a máquina julgada antes do código (RM-037)
+
+Numa VPS, o hipervisor pode tomar a CPU: em 23 e 24/09/2026 a máquina de referência perdeu de 67% a
+92% dela (sar), e a suíte que leva 3,4 min levou de 24 a 30. Teste que mede relógio reprova nessa
+hora sem que o código tenha mudado.
+
+O `ork verify` mede o steal do `/proc/stat` na rodada inteira e na janela de cada comando, e grava a
+medida no `verify_run` (`steal`, e `stealPct` em cada comando que falha). Quando um comando reprova
+**só** em teste com relógio e o steal na janela dele passou de 40%, a reprovação vira
+`verify.timeout`: sem veredito, o retry reexecuta, e nunca é regressão. Teste com relógio é o que
+falhou com a assinatura de prazo do `node --test` (estouro do teste, ou cancelado pelo pai que
+estourou) ou o que tem entrada vigente no registro de instabilidade, `core/instabilidade.json`.
+Asserção comum sob steal alto continua regressão, e sem `/proc/stat` nada é atenuado. O `ork ci run`
+não mede nem atenua: o CI segue sendo a prova independente.
+
+O registro nasce vazio e só aceita entrada com a taxa medida (falhas em rodadas, o comando que mediu
+e a data) e revalidação em até 30 dias. O contrato completo está em
+[instabilidade-rm037](../referencia/contratos/instabilidade-rm037.md).
+
 ### O que o ledger guarda de um comando que falha
 
 Para abrir o GO-FIX sem reexecutar nada, o `verify_run` e o `ship_done` gravam, por comando
@@ -118,7 +137,8 @@ que falha:
 | --- | --- |
 | `causa` | `exit`, `timeout`, `nao-encontrado` ou `sinal` |
 | `prazoMs`, `duracaoMs` | O prazo aplicado e o tempo que o comando levou |
-| `testeQueCaiu` | Até 10 testes que o runner reportou como reprovados (`not ok` do `node --test`, `FAIL` de jest e vitest) |
+| `testeQueCaiu` | Até 10 testes que o runner reportou como reprovados (`not ok` do TAP e a seção "failing tests" do reporter `spec` do `node --test`, `FAIL` de jest e vitest) |
+| `stealPct`, `relogioSobSteal` | O steal da CPU na janela do comando e, quando a reprovação foi só de relógio sob steal acima de 40%, os testes (RM-037) |
 | `trecho` | O fim da saída real, até 1024 caracteres, redigido |
 
 A redação segue a regra do prompt: credencial em URL vira `[credencial redigida]@`, e se
@@ -196,9 +216,9 @@ Os atalhos são `semCodexSandbox()`, `semOrkMind()` e `semPostgres()`, em
 
 ---
 
-## 3. Os 22 motivos tipados de gate
+## 3. Os motivos tipados de gate
 
-Nenhum bloqueio é uma string de prosa. Todo bloqueio é um destes vinte e dois, e o motivo
+Nenhum bloqueio é uma string de prosa. Todo bloqueio tem um motivo tipado, e o motivo
 determina a ação. Isso é o que torna retry, metrica e auditoria automatizaveis: `ork retry
 policy` imprime a tabela a partir do código, que é um mapa total sobre o catálogo (motivo novo
 não compila sem política).
@@ -217,6 +237,7 @@ não compila sem política).
 | `runtime.profile-invalid` | escalar-humano | **não** | O perfil pedido (`--perfil`) não existe ou é de outro runtime (RM-056): repetir dá a mesma recusa, e trocar de perfil sozinho desobedeceria o pedido |
 | `tree.blocked` | sincronizar-worktree | sim | A árvore andou por baixo da thread: reexecutar antes de rebasar só repete o conflito |
 | `lease.busy` | reexecutar | sim | O lease e de outra thread e vai ser liberado. A fila já serializa: nunca furar a fila |
+| `lease.resume-unavailable` | escalar-humano | **não** | Retomada sem caminho seguro, como hard link ou link simbólico: avaliar a posse antes de `ork lease release <nome> --forcar`. Ausência de `flock` usa retomada portátil; `nlink === 0` é `lease.busy`. Fila de retomada expirada (30 minutos): candidatos e temporários recolhidos; consultar `ork lease list` e repetir a aquisição, sem apagar o lease |
 | `conducao.em-andamento` | esperar a vez | sim | Outra condução executa na mesma worktree agora (I-36). A vez chega quando ela terminar; repetir já recebe a mesma recusa, e furar a fila é o incidente de 19/09/2026 |
 | `runtime.unavailable` | reexecutar | sim | Falha de infra não é falha de conteúdo: o MESMO prompt, com o mesmo sha256, e redespachado |
 | `runtime.silencio` | reexecutar | sim, com prova terminal | Fase sem heartbeat: só redespacha com prova terminal atual da mesma sessão |
@@ -224,8 +245,8 @@ não compila sem política).
 | `runtime.quota-exhausted` | reexecutar com rotação | sim | A cota, os créditos ou o limite do plano da **conta** acabaram: o perfil sai do rodízio e o mesmo prompt segue no próximo perfil, no runtime de fallback ou na fila (I-33) |
 | `runtime.auth-missing` | reexecutar com rotação | sim | A conta perdeu o login: o perfil nunca mais recebe despacho até o login ser refeito pelo próprio CLI (I-33) |
 | `runtime.model-unavailable` | reexecutar com troca de destino | sim | O modelo pedido não existe ou a conta não tem acesso a ele (`model_not_found`): o perfil segue no rodízio, e o mesmo prompt vai a outro perfil com o mesmo modelo ou ao fallback do bloco; sem destino, o humano recebe a correção exata (RM-037) |
-| `runtime.workspace-untrusted` | reexecutar depois do dono | sim, depois do aceite | O runtime recusou o diretório da worktree (`Workspace not trusted`). Só o dono aceita a confiança no terminal: a fase vira espera dele, com o comando exato, e `ork retry run` só re-despacha o mesmo prompt quando o `.claude.json` da conta já confia no diretório (RM-055) |
-| `runtime.consent-pending` | reexecutar depois do dono | sim, depois do aceite | O CLI do runtime espera o dono aceitar termos novos: a fase vira espera dele, e o retry re-despacha o mesmo prompt; se o runtime recusar de novo, a mesma espera volta (RM-055) |
+| `runtime.workspace-untrusted` | reexecutar depois do dono | sim, depois do aceite | O runtime recusou o diretório da worktree (`Workspace not trusted`). Só o dono aceita a confiança no terminal: a fase vira espera dele, com o comando exato, e `ork retry run` só re-despacha o mesmo prompt quando o `.claude.json` da conta já confia no diretório pela regra do claude: o próprio diretório e os de cima até a raiz git, ou o repositório principal da worktree vinculada; acima da raiz git não vale. O diretório que não existe mais e o diretório home não são do dono e ficam em `runtime.unavailable` (RM-055) |
+| `runtime.consent-pending` | reexecutar depois do dono | sim, depois do aceite | O CLI do runtime espera o dono aceitar algo no terminal (os termos novos do `[ACTION REQUIRED]`, o aviso do modo sem permissões ou a ativação do modo auto do `--bg`): a fase vira espera dele, com o comando que o próprio runtime manda rodar, e o retry re-despacha o mesmo prompt; se o runtime recusar de novo, a mesma espera volta, e essa recusa não gasta tentativa nem sobe esforço (RM-055) |
 | `ci.failed` | escalar-humano | **não** | O recibo pertence ao provedor e ao SHA candidato: repetir a fase não cria esse resultado |
 | `policy.violation` | escalar-humano | **não** | Policy `block` em qualquer modo: reexecutar sozinho seria a máquina revogando a policy |
 | `human.pending` | escalar-humano | **não** | Não é reprovacao, e espera de autorização. Automatizar seria a máquina se autorizando |
@@ -539,7 +560,9 @@ o `ork claims add` roda os comandos da claim uma vez, na worktree da thread e no
 `verify.timeout_ms`. A claim entra de qualquer jeito. Se o comando reprova, o `ork` grava
 `policy_warn` com `claims.failed`; se estoura o prazo, com `verify.timeout`. Ela nunca para o
 registro, nem declarada em `block`. Como o `add` fica tão lento quanto o comando da claim, quem
-decide ligá-la é o dono do projeto.
+decide ligá-la é o dono do projeto. Sem a worktree da thread (apagada), nada roda e o aviso diz
+isso. Pelo MCP (`ork_claim_add`), o registro nunca roda o texto da claim, com ou sem a policy: lá a
+prova é o `ork_verify`, no sandbox.
 
 A política `provider_policy: subscription-only` do bloco `runtime` é o que da sentido a policy
 `provider`: ela declara que este projeto só despacha pela assinatura local, e transforma

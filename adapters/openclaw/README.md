@@ -41,6 +41,9 @@ openclaw plugins install ~/.openclaw/extensions/orkastery   # registra explicita
 # ou aponte plugins.load.paths para o diretorio instalado na config do OpenClaw
 ```
 
+O instalador grava o `ork` que roda o install (o caminho real do CLI), nao o primeiro `ork` do
+PATH; com outro `ork` no PATH, a saida avisa com as duas versoes. `--ork <caminho>` escolhe outro.
+
 Se a copia nao passou pelo instalador (placeholder nao renderizado), o entry cai no
 fallback: usa `ORK_BIN` do ambiente ou o `ork` do PATH.
 
@@ -76,7 +79,8 @@ nunca um caminho. Ele vai ao `ork` como `--projeto <nome>`. O adaptador declara
 `ORK_PROJETO_EXPLICITO=1`: o diretorio do gateway nao escolhe projeto. Sem `projeto` e com mais de
 um projeto conhecido, a resposta e a escolha tipada `projeto.escolha`, com os candidatos; com um
 so, vale ele. Toda resposta de `ork_maestro`, `ork_board` e `ork_roadmap_status` comeca dizendo o
-projeto consultado e o que nao foi lido.
+projeto consultado e o que nao foi lido; as demais tools de projeto terminam com a linha
+`Projeto consultado: ...` (RM-052, fatia 2), que vem no stderr e o plugin junta ao texto da tool.
 
 ### O roadmap da rede (RM-054, fatia 2)
 
@@ -209,7 +213,8 @@ nativo adicional só fica disponível após prova do callback e configuração d
 Instalação fixture/SDK simulado não comprova ativação em uma sessão real.
 
 HITL de condução é seleção (RM-057, nas descrições de `ork_modo_do_pedido`,
-`ork_maestro` e `ork_phase_run`): de 3 a 5 alternativas, exatamente uma com o selo
+`ork_maestro`, `ork_phase_run`, `ork_network_roadmap` e `ork_network_status`; as duas de rede são as
+únicas que o perfil `coding` expõe, e com elas a regra chega ao modelo sem `tools.alsoAllow`): de 3 a 5 alternativas, exatamente uma com o selo
 "Recomendação". Nunca peça ao dono um "confirmo" em texto livre nem que ele cole texto; o pedido
 que ele colou com autorização explícita vale como instrução dele, dentro dessa autorização.
 Dúvida dentro da autorização vira `ork decisao registrar` e a thread segue. Texto só quando a

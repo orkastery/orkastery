@@ -268,8 +268,10 @@ export interface Manifesto {
     cli: string;
     /** Tenant/produto dono da base. Vazio herda `project.name`. */
     tenant: string;
-    /** Timeout de cada chamada ao OrkMind, em ms. Estourou, degrada para `files`. */
+    /** Timeout geral de chamada ao OrkMind, em ms (universo tem prazo proprio). */
     timeout_ms: number;
+    /** Prazo da leitura das cinco colecoes; padrao 90.000 ms. */
+    universo_timeout_ms?: number;
     /** I-38 (D5): embeddings da busca por significado. Ausente vale `provider: none`. */
     embedding?: ConfigDeEmbedding;
   };
@@ -541,6 +543,7 @@ export type MotivoGate =
   | 'cost.violation'
   | 'tree.blocked'
   | 'lease.busy'
+  | 'lease.resume-unavailable'
   /**
    * I-36 (RM-036, D2): outra conducao ja executa na worktree desta thread. Nao e reprovacao nem
    * falha: e a resposta util ao segundo pedido, com quem conduz e as tres acoes possiveis.
@@ -622,6 +625,21 @@ export interface ResultadoDeComando {
    * que nao rodou, e ele nunca vira verificado. Ausente so em baseline gravada antes da I-54.
    */
   executado?: boolean;
+  /**
+   * RM-037 (fatia 6): steal da CPU na janela do comando, em %, lido de `/proc/stat`. `null` sem
+   * medida (sem `/proc/stat`, janela vazia). Ausente em resultado anterior a fatia 6.
+   */
+  stealPct?: number | null;
+  /**
+   * RM-037 (fatia 6): os testes que reprovaram, cada um com a natureza da falha (estouro do relogio
+   * do runner ou nao). So em comando que falha e cujo runner nomeia os testes.
+   */
+  falhasDeTeste?: { nome: string; relogio: boolean }[];
+  /**
+   * RM-037 (fatia 6): a reprovacao foi so de teste com relogio, sob steal acima de 40%. Os nomes. O
+   * verify trata como `verify.timeout` (sem veredito, o retry reexecuta), nunca como regressao.
+   */
+  relogioSobSteal?: string[];
 }
 
 /** Baseline gravada antes do GO: separa regressao de divida pre-existente. */
@@ -1332,7 +1350,7 @@ export interface EstadoDeEmbeddings {
   /** Coerentes do indice ativo / entradas do universo da busca; null fora do `memory status`. */
   cobertura: number | null;
   /** RM-038: o universo da busca por colecao e o que fica fora dele; null sem leitura do universo. */
-  universo: { porColecao: Record<ColecaoDoOrk, number>; foraDaBusca: ForaDaBusca | null } | null;
+  universo: { porColecao: Record<ColecaoDoOrk, number>; foraDaBusca: ForaDaBusca | null; latenciaMs?: number } | null;
   /** RM-038: o indice ativo cobre menos que o universo da busca; null quando cobre tudo ou sem universo. */
   aviso: string | null;
   /** RM-038: codigo tipado quando o universo nao foi lido inteiro (a cobertura fica null, nunca inventada). */
@@ -1372,6 +1390,9 @@ export interface EntradaDeMemoria {
   author_id?: string | null;
   visibility?: string;
   protected?: boolean;
+  /** Governanca recebida da biblioteca, reconferida antes do embed. */
+  injection_risk?: boolean;
+  expires_at?: string | null;
 }
 
 /** RM-038: entradas do tenant que ficam fora do universo da busca, so a contagem e o porque. */
@@ -1389,11 +1410,15 @@ export interface ForaDaBusca {
  */
 export interface UniversoDaBusca {
   tenant: string;
+  /** Instante anterior a leitura, em ms desde epoch; referencia unica para a expiracao. */
+  lidoEm: number;
   /** Ordenadas por colecao e id. */
   entradas: EntradaDeMemoria[];
   porColecao: Record<ColecaoDoOrk, number>;
   /** null quando a base nao mede (backend sem a contagem). */
   foraDaBusca: ForaDaBusca | null;
+  /** Tempo monotonico da leitura pelo transporte, incluindo o subprocesso; ausente se nao medido. */
+  latenciaMs?: number;
 }
 
 /** O que o `ork` manda gravar (o id e a data quem carimba e o OrkMind). */

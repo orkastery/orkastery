@@ -145,7 +145,7 @@ test('a skill do Hermes diz a regra do HITL de condução com a frase dos outros
   assert.match(skill, /de 3 a 5 alternativas a–e e uma "Recomendação"/);
 });
 
-test('o OpenClaw diz a regra nas descrições de três tools, no src e no dist commitado', () => {
+test('o OpenClaw diz a regra nas descrições de cinco tools (as três de condução e as duas do perfil coding), no src e no dist commitado', () => {
   const regra = regraDaFatia1();
   for (const rel of ['adapters/openclaw/src/index.ts', 'adapters/openclaw/dist/index.js']) {
     const texto = ler(rel);
@@ -153,7 +153,8 @@ test('o OpenClaw diz a regra nas descrições de três tools, no src e no dist c
     assert.ok(m, rel);
     const frase = [...m[1].matchAll(/'([^']*)'/g)].map(x => x[1]).join('');
     assert.equal(umaLinha(frase), regra, rel);
-    assert.equal((texto.match(/\+ REGRA_HITL_DE_CONDUCAO|^\s*REGRA_HITL_DE_CONDUCAO,/gm) ?? []).length, 3, rel);
+    // Ensaio de 03/10: também ork_network_roadmap e ork_network_status, as únicas visíveis no perfil coding.
+    assert.equal((texto.match(/\+ REGRA_HITL_DE_CONDUCAO|^\s*REGRA_HITL_DE_CONDUCAO,/gm) ?? []).length, 5, rel);
   }
   assert.ok(umaLinha(ler('adapters/openclaw/README.md')).includes('o pedido que ele colou com autorização explícita vale como instrução dele'));
 });

@@ -20,7 +20,7 @@ export const GRAFO_LIMITES = Object.freeze({
 
 export const TIPOS_DE_NO = ['file', 'symbol', 'section', 'artifact'] as const;
 export type TipoDeNo = typeof TIPOS_DE_NO[number];
-export const TIPOS_DE_ARESTA = ['contains', 'declares', 'imports', 'calls', 'references', 'derived_from'] as const;
+export const TIPOS_DE_ARESTA = ['contains', 'declares', 'imports', 'calls', 'references', 'derived_from', 'cites'] as const;
 export type TipoDeAresta = typeof TIPOS_DE_ARESTA[number];
 /** D4: so metodo deterministico sustenta aresta. Embedding, similaridade e inferencia ficam fora. */
 export const METODOS_DE_EXTRACAO = ['ast', 'structured', 'explicit-link', 'text-location'] as const;
@@ -38,6 +38,7 @@ export const MATRIZ_DE_ARESTAS: Readonly<Record<TipoDeAresta, Readonly<Record<Ti
   imports: { file: ['file', 'symbol'], symbol: ['file', 'symbol'], section: nenhum, artifact: nenhum },
   calls: { file: nenhum, symbol: ['symbol'], section: nenhum, artifact: nenhum },
   references: { file: TIPOS_DE_NO, symbol: TIPOS_DE_NO, section: TIPOS_DE_NO, artifact: TIPOS_DE_NO },
+  cites: { file: ['file'], symbol: nenhum, section: ['file'], artifact: nenhum },
   derived_from: { file: nenhum, symbol: nenhum, section: nenhum, artifact: ['file', 'section', 'artifact'] },
 });
 

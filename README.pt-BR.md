@@ -17,10 +17,26 @@
 npm install -g @orkastery/cli
 ork demo          # 30 segundos: uma afirmação falsa reprovada e a corrigida aceita, sem conta nem modelo
 ork doctor        # o que vale nesta máquina agora; sai != 0 se estiver bloqueado
-ork init          # gera o orkastery.yaml do seu repositório
+ork init          # gera o orkastery.yaml; rode na raiz de um repositório git com pelo menos um commit
 ork modos         # os quatro modos de condução
 ork docs init     # documentação de produto e roadmap no padrão, com lint
 ```
+
+## A primeira thread
+
+O menor ciclo completo, no modo `#Fast` (uma fase só, o GO), logo depois do `ork init`. `<thread>` é o ID que o `ork thread new` imprime.
+
+```bash
+git add orkastery.yaml AGENTS.md && git commit -m "ork init"
+ork thread new "pôr exclamação no greet" --modo fast
+ork phase run <thread> GO --prompt "<o pedido>"      # o runtime do agente trabalha na worktree da thread
+ork verify <thread>                                  # reexecuta as claims e o verify do manifesto no HEAD real
+ork ship <thread> --para main --autorizar-push <você> # o #Fast nunca faz push sem a sua autorização
+ork master <thread> --aceitar-omissao                # fecha a thread com o índice derivado do ledger
+```
+
+- Se o `phase run` parar com `runtime.workspace-untrusted`, rode `claude` uma vez na worktree, aceite a confiança e depois `ork retry run <thread>`. O `ork pulse` mostra a mesma instrução.
+- Uma claim é o que o agente afirma mais o comando que a julga: `ork claims add <thread> <arquivo> --claim "<alegação>" --verificar "<comando>"`.
 
 ## Por que existe
 
@@ -168,7 +184,7 @@ ork adapter install claude-code --dry-run
 | Medida `runtime_reported` da janela de contexto | **não existe**: o `claude-bg` não expõe uso de contexto, e o gate diz `unavailable` |
 | Modo `#Fast`: uma fase, prova mínima, sem push sozinho | **funciona** desde 27/09/2026 ([RM-042](docs/roadmap/RM-042-modo-fast.md)) |
 | Reservas de item do roadmap entre máquinas | **funciona** desde 27/09/2026 ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)); o estado das threads ainda é por máquina |
-| Grafo determinístico de código | **planejado** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)) |
+| Grafo determinístico de código | **funciona** na CLI (`ork grafo`: índice, atualização incremental, consultas e contexto da thread, com a proveniência de cada aresta), em quem instala pelo npm desde a 0.5.3; as tools MCP e a dica no pedido da fase ficam atrás da flag `grafo.mcp`, desligada por padrão ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)) |
 
 O quadro completo, item por item e com evidência do git, está no [índice do roadmap](docs/roadmap/README.md).
 
