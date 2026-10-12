@@ -43,14 +43,14 @@ sdlc:
 
 ## Problema e resultado
 
-- **Público e problema:** a pessoa conduz o Orkastery em várias máquinas (hoje srvjcp86 e vps) e vários projetos. Fora do clone de um projeto, nenhum agente dela enxerga as outras máquinas.
+- **Público e problema:** a pessoa conduz o Orkastery em várias máquinas (hoje maquina-b e vps) e vários projetos. Fora do clone de um projeto, nenhum agente dela enxerga as outras máquinas.
 - **Evidências e fonte:**
   - incidente de 29/09/2026 no Telegram: "orkastery maestro - qual é o status report do roadmap do orkastery agora?" voltou com o panorama de `~/.openclaw/workspace` e "outras máquinas: nenhuma publicou ainda", com 10 threads ativas na vps;
-  - reproduzido só com leitura em 29/09: de `~/.openclaw/workspace`, `ork fabrica --sem-remoto` diz "Nenhuma maquina publicou ainda"; de `/tmp`, "manifesto orkastery.yaml nao encontrado"; só de dentro de `/home/julio/orkastery` aparecem srvjcp86 e vps;
+  - reproduzido só com leitura em 29/09: de `~/.openclaw/workspace`, `ork fabrica --sem-remoto` diz "Nenhuma maquina publicou ainda"; de `/tmp`, "manifesto orkastery.yaml nao encontrado"; só de dentro de `/home/usuario/orkastery` aparecem maquina-b e vps;
   - causa que este item fecha: o estado das máquinas (RM-047) vive na branch `ork/fabrica-estado` do remoto de **um** repositório.
 - **Objetivo:** a pessoa e os agentes dela respondem "quais máquinas eu tenho e o que cada uma tem" de qualquer diretório, sem confundir "não olhei" com "não existe".
 - **Hipótese:** Se cada máquina publicar o próprio retrato num repositório privado da pessoa, e a leitura declarar a fonte e as lacunas, então qualquer agente dela responde sobre as máquinas de qualquer diretório, sem o falso "nenhuma publicou", porque a rede deixa de depender do clone e do cwd.
-- **Métrica principal:** máquinas da pessoa visíveis de um diretório fora do clone. Linha de base: 0 de 2 (29/09, srvjcp86, `ork fabrica` de `~/.openclaw/workspace`). Meta: 2 de 2 com `ork network status --json` do mesmo diretório. Janela: a primeira semana depois do merge e do `ork network entrar` numa máquina. Fonte: a saída do comando.
+- **Métrica principal:** máquinas da pessoa visíveis de um diretório fora do clone. Linha de base: 0 de 2 (29/09, maquina-b, `ork fabrica` de `~/.openclaw/workspace`). Meta: 2 de 2 com `ork network status --json` do mesmo diretório. Janela: a primeira semana depois do merge e do `ork network entrar` numa máquina. Fonte: a saída do comando.
 - **Métricas de proteção:** zero segredo na casa da rede (varredura de todos os blobs em todo PR); zero escrita no retrato de outra máquina; a fábrica da RM-047 inalterada.
 
 ## Escopo e validação
@@ -81,7 +81,7 @@ sdlc:
 | Projetos da RM-052 lidos por adaptador tolerante | `RM-053 projetos` |
 
 - **Piloto, medição e critérios de expansão/interrupção:**
-  - piloto: depois do merge, o dono roda `ork network entrar` na srvjcp86; a vps entra sozinha na batida do pulse quando o `ork` dela for atualizado;
+  - piloto: depois do merge, o dono roda `ork network entrar` na maquina-b; a vps entra sozinha na batida do pulse quando o `ork` dela for atualizado;
   - medição: a métrica principal, 7 dias depois do piloto;
   - interromper se um segredo aparecer na casa ou se o repositório ficar público; a guarda já recusa a publicação nesses casos.
 - **Incluído na fatia 2 (thread `ork-rm053fatia2r`, 03/10/2026):**
@@ -90,7 +90,7 @@ sdlc:
   - saneador de saída comum ao núcleo (`core/src/saida-segura.ts`), aplicado ao `ork fabrica`, ao `ork fabrica --json` e à seção de outras máquinas do `ork board` (o achado do `por` e do `projeto` legados);
   - faxina da trava órfã serializada sob `publicar.lock.faxina` (W9 do CHECK 5): a trava viva nunca sai do lugar.
 - **Próxima fatia (registrada, não implementada):**
-  - piloto com GitLab real: `glab auth git-credential` só foi provado com `glab` simulado (o `glab` não está instalado na srvjcp86).
+  - piloto com GitLab real: `glab auth git-credential` só foi provado com `glab` simulado (o `glab` não está instalado na maquina-b).
 - **Y4 resolvida (thread `ork-rm053marcasv`, 03/10/2026):** as marcas visíveis da categoria `Cf` (sinais numéricos árabes U+0600 a U+0605, U+06DD, U+070F, U+0890, U+0891, U+08E2, U+110BD e U+110CD, todas com `Prepended_Concatenation_Mark=Yes` no Unicode 17) passam no saneador comum e na regra da rede como texto; o projeto com elas fica no retrato. Bidi, largura zero, tags e o resto de `Cf` continuam barrados. Lista fechada em `core/src/saida-segura.ts`, conferida ponto a ponto em `core/test/rm053-y4-cf-visivel.test.ts`.
 - **X6 resolvida (thread `ork-rm053iddains`, 03/10/2026):** sem hard link, e na troca do `maquina-id` ruim, o id sai de uma reserva (`~/.orkastery/maquina-id.reserva/`, ou `maquina-id.troca-<chave>/` do arquivo ruim): uma pasta temporária com o id inteiro é renomeada para o nome da reserva, e o `rename` de pasta sobre pasta não vazia falha. Assim só a primeira entra, e todo host ou contêiner que divide a pasta lê o mesmo id. Não há arquivo vazio nem espera por relógio, e clones de uma imagem seguem separados, porque cada disco cria a sua reserva. Se a reserva falhar, vale o id derivado de antes. Teste: `core/test/rm053-x6-id-sem-hard-link.test.ts`.
 - **Achado extra, fora do escopo:** despacho que falha por impedimento que só o dono resolve (por exemplo, "Workspace not trusted" do Claude Code) hoje vira só `phase_dispatch_failed`, sem HITL e sem "espera você" no board e na fábrica. Evidência: o `phase_dispatch_failed` de 29/09 16:32 UTC no ledger desta thread. Proposta: classificar o motivo e abrir pedido tipado ao dono; candidato a item próprio.
@@ -99,7 +99,7 @@ sdlc:
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** 2 de 3 no pedido do dono de 29/09/2026 (RM-052, RM-053, RM-054); método: ordem de dependência declarada pelo dono; a RM-054 consome esta rede.
-- **Horizonte / alvo / previsão / confiança / marcos:** Agora; fatia 1 em PR em 29/09/2026; confiança média, porque o merge depende da revisão do dono e das duas threads paralelas; marcos: PR verde, merge, `ork network entrar` na srvjcp86, vps na rede.
+- **Horizonte / alvo / previsão / confiança / marcos:** Agora; fatia 1 em PR em 29/09/2026; confiança média, porque o merge depende da revisão do dono e das duas threads paralelas; marcos: PR verde, merge, `ork network entrar` na maquina-b, vps na rede.
 - **Dependências e bloqueios (ID, owner, próxima revisão):**
   - RM-047 (Julio): a fábrica por repositório, generalizada para a pessoa;
   - RM-040 (Julio): contas continuam locais, a rede não carrega credencial;
@@ -134,7 +134,7 @@ sdlc:
 - GO-FIX 7 (30/09): a batida legível de outra fábrica vence a ilegível; o AWS com borda dos dois lados e a OpenAI com `T3BlbkFJ` no corpo ou 60 na cauda, sem os falsos positivos novos; testes dos lookaheads de caixa e do `boot_id` sozinho; 70 testes verdes em `core/test/rede.test.ts` contra forja simulada.
 - Evidência dos testes: cada correção tem teste. Os que cobrem correção nova reprovam no código anterior, inclusive a corrida do id da instalação: os processos concorrentes reprovam `b3f5dbe`, e o processo lento determinístico reprova `f4da67c`. A trava órfã movida, a saída JSON do CLI, o helper só para https, o filtro de caminho do escritor, o id sem hard link, o `boot_id` no id derivado, os lookaheads de caixa dos padrões, o `~` da célula, os tetos do escritor e o `core.sshCommand` na leitura legada foram provados por mutação. A guarda "conteúdo já válido" do id derivado só aparece em estresse de milhares de processos e não tem teste na suíte. O SSH em lote (M5) é provado só pelo formato do ambiente.
 - Nenhum repositório real foi criado e nada foi publicado no npm.
-- Fatia 2 na branch `ork/ork-rm053fatia2r-full` (03/10/2026): quatro commits de GO, um por parte, cada um com teste em `core/test/rm053-fatia2.test.ts` (e o do `REDE.md` também em `core/test/rede.test.ts`) que reprova o código da fatia 1. Na srvjcp86, o `ork doctor` passou a acusar o que o `rede.log` guardava desde 02/10: membro herdado da fábrica com `rede.sem-repositorio`, porque a casa só nasce no `ork network entrar` do dono.
+- Fatia 2 na branch `ork/ork-rm053fatia2r-full` (03/10/2026): quatro commits de GO, um por parte, cada um com teste em `core/test/rm053-fatia2.test.ts` (e o do `REDE.md` também em `core/test/rede.test.ts`) que reprova o código da fatia 1. Na maquina-b, o `ork doctor` passou a acusar o que o `rede.log` guardava desde 02/10: membro herdado da fábrica com `rede.sem-repositorio`, porque a casa só nasce no `ork network entrar` do dono.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -156,7 +156,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: agentes do Orkastery (thread `ork-rm053network`) · A: Julio · C: — · I: —
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** Claude (claude-code, sessão `624f65db`) conduziu do GOAL à SHIP no modo `#Auto`, com as decisões autônomas no ledger; revisão e merge: Julio.
-- **Próxima ação, responsável e prazo:** Julio roda `ork network entrar` na srvjcp86 (o `ork doctor` acusa a casa ausente desde a fatia 2); prazo a definir pelo dono.
+- **Próxima ação, responsável e prazo:** Julio roda `ork network entrar` na maquina-b (o `ork doctor` acusa a casa ausente desde a fatia 2); prazo a definir pelo dono.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |

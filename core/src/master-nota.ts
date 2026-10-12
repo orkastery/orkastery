@@ -38,6 +38,7 @@ import { gerarCodigo } from './pulse-consentimento';
 import { comLockDaConversa } from './monitor-lock';
 import type { RespostaHumana } from './hitl-gates';
 import { CanalDeConducao } from './types';
+import { msg } from './locale';
 
 export const CONTRATO_PEDIDO_DE_NOTA = 'ork.master-nota/v1' as const;
 export const ERRO_PROVA_DE_CANAL = 'master.prova-de-canal';
@@ -56,7 +57,7 @@ export function marcaDeHost(ambiente: NodeJS.ProcessEnv = process.env): string |
   // thread e conduzida do terminal, e o Claude Code e o Codex marcam os proprios processos. Qualquer
   // marca de host ou de despacho conta, mesmo com o canal declarado como terminal.
   return canal !== 'cli' ? canal
-    : ambiente.ORK_DISPATCH_ID ? 'sessão despachada (ORK_DISPATCH_ID)'
+    : ambiente.ORK_DISPATCH_ID ? msg().master.marcaDespachada
       : ambiente.CLAUDECODE === '1' ? 'claude-code (CLAUDECODE)'
         : ambiente.CODEX_SANDBOX || ambiente.CODEX_SANDBOX_NETWORK_DISABLED ? 'codex (CODEX_SANDBOX)'
           : (ambiente.HERMES_HOME ?? '').trim() ? 'hermes (HERMES_HOME)' : undefined;
@@ -140,11 +141,8 @@ export function pedidoDeNotaDoCodigo(raiz: string, codigo: string, estadoDir?: s
 export function textoDoPedidoDeNota(raiz: string, p: PedidoDeNota, canal: 'telegram' | 'terminal'): string {
   const t = lerThread(raiz, p.thread);
   const tg = canal === 'telegram';
-  return [
-    `${tg ? '🧾 ' : ''}Nota da entrega ${p.thread} (${t.nome.slice(0, 80)})`,
-    `${tg ? '• ' : '- '}Sem nota, vale a aceita por omissão, com o índice derivado do ledger ao lado.`,
-    `${tg ? '↩️ ' : ''}Responda: ${p.codigo} <0 a 5> <porquê>, por exemplo: ${p.codigo} 4 entregou o que pedi.`,
-  ].join('\n');
+  const m = msg().master;
+  return [m.notaTitulo(tg, p.thread, t.nome.slice(0, 80)), m.notaSemNota(tg), m.notaResponda(tg, p.codigo)].join('\n');
 }
 
 /** "4 entregou o que pedi" vira nota e justificativa; o resto e devolvido como pergunta. */

@@ -17,6 +17,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   captura do Brain grava; o id do Brain confere só pela forma até a fatia 2. A pasta segue a fronteira da RM-047: fica
   dentro da raiz pelo caminho real, link não é seguido e nada é executado. Ainda sem CLI pública nem tools MCP (fatias
   2 e 3); projeto sem o bloco segue igual.
+- **Item novo de roadmap, RM-062: repositório público sem dado privado** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)):
+  nada privado do dono entra em repositório público, nem em linha, nem em nome de arquivo, nem em JSON de evidência.
+  Quatro fatias: barreira no CI do núcleo e dos sites (padrões genéricos mais uma lista local fora do git), a mesma
+  barreira no `ork verify` e no `ork ci prepare`, nome genérico de máquina na evidência de rede e o relatório honesto de
+  quando algo escapou. Só a página e o registro no índice; o código das fatias vem depois.
 - **Freio de Lote, o primeiro mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `adapters/claude-code/mods/ork-freio` acha, a cada lote de ferramentas da sessão de fase, os arquivos que o lote
   mexeu (inclusive por `Bash`, pela diferença do `git status`) e as claims da thread que os citam, pede ao núcleo a
@@ -32,6 +37,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   segue igual byte a byte; o `--json`, o ledger, o `thread.json` e os prompts não mudam com a língua. Erro do validador
   do manifesto, do regime de memória e de estado durante a gravação segue em pt-BR até a F2b.
   `core/scripts/contar-mensagens-de-saida.cjs` mede a cobertura do catálogo (de 92 para 382 entradas).
+- **CLI em inglês e pt-BR, fatia F2b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): `ork verify` (com
+  `--baseline`), `ork ship`, `ork ship registrar-pr`, `ork pulse`, `ork master` (o índice, `--aceitar-omissao` e
+  `master pedir`), `ork retry plan`, `ork retry run` e `ork roadmap status` saem em inglês quando `owner.language` ou o
+  locale pedem `en`. O pt-BR segue igual byte a byte; o `--json`, o ledger, o MASTER log e os demais arquivos gravados
+  não mudam com a língua: o texto que o comando monta e grava nasce em pt-BR, e só a impressão o remonta. Motivo
+  tipado, ação e código saem iguais nas duas línguas. O catálogo vai de 389 para 835 entradas.
 - **Mods de papel `fase` nas sessões de fase, conferidos contra o recibo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   o despacho `claude-bg` passa um `--plugin-dir` por mod de `adapters/claude-code/mods/` que declara o papel `fase` no
   `orkastery-mod.json` (`ork.mod/v1`), depois do plugin do Orkastery, quando a pasta instalada tem exatamente os arquivos
@@ -93,6 +104,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   no terminal, tabela nas outras superfícies), os arquivos em conflito, o lease `path:` que cobre cada um e o comando
   `ork worktree sync <thread> --dry-run` que resolve, como texto. A colisão nova vira uma linha na faixa pela ponte, e
   o que o dono viu entra no registro da ponte, para o Telegram não repetir.
+- **Mesa do Dono no Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md), fatia F5): o
+  mod `ork-mesa` (`adapters/claude-code/mods/ork-mesa`), sobre a ponte, junta na sessão do dono tudo que espera por
+  ele. `/mesa` abre um painel com o lote de até cinco perguntas, cada uma com a recomendada na frente, o porquê e a
+  consequência das outras alternativas; as decisões que a fábrica tomou por ele na semana, com como mudar e o custo de
+  reverter agora e depois; e as paradas, só leitura. O botão Decidir só pede ao núcleo o diálogo nativo do host
+  (`ork_request_decision`, com o `threadId` e o `pedidoId`), e o código e a letra para o Telegram ficam sempre à
+  vista. A Mesa só decide pelo dono pela decisão autônoma do núcleo (`ork_decision_record`), quando o pedido passa no
+  mesmo teste das quatro condições do núcleo, e nunca responde um pedido. A prova de que o diálogo abre quando o
+  pedido vem de um mod fica com o dono: `core/scripts/prova-mods-dialogo-nativo.cjs` e
+  `docs/roadmap/evidencias/mods-dialogo-nativo.md`.
 - **CLI em inglês e pt-BR** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): nova página do
   roadmap, em desenvolvimento, com a decisão do dono de 12/10/2026 de que o CLI fala inglês e pt-BR. A
   língua vem de `owner.language` e, sem ela, de `LC_ALL`, `LC_MESSAGES` e `LANG`; o pt-BR fica idêntico
@@ -122,6 +143,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
+- **Requisito de linguagem simples no HITL por alternativas** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md)):
+  todo passo que depende do dono chega como pergunta com 3 alternativas e uma recomendada, em linguagem simples, sem lista
+  de comandos crus e sem termo técnico sem explicação (o caso: o comando de uma tag mandado sem dizer o que é uma tag).
+  A recomendada, quando possível, é a que o dono responde com uma palavra e a fábrica executa o resto com a autorização dele.
 - **Teto do `test` no verify deste repositório** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
   o `orkastery.yaml` do projeto passa a dar 40 min ao comando `test` (`verify.timeout_ms_por_comando.test`),
   porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba CPU. O `build` e os
@@ -197,6 +222,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `core/scripts/prova-mods-sessao-de-fase.cjs` abre a sessão de sonda com `--strict-mcp-config`, como o despacho de fase;
   sem a flag, a sessão parava na aprovação do MCP do projeto e a prova saía inconclusiva. Veredito da T0.1: o mod carrega
   numa sessão `claude --bg` e recebe `classic.PostToolBatch`.
+- **Nome de máquina do dono fora do repositório público** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)):
+  o arquivo de evidência da RM-040 foi renomeado para `docs/roadmap/evidencias/RM-040/maquina-b-2026-10-03.json`, e o
+  hostname de uma máquina do dono, que aparecia em recibos, páginas do roadmap, contratos, comentários e bundles de
+  claims, virou `maquina-b`; caminhos de home de exemplo passaram a `/home/usuario`. O nome antigo continua nos commits
+  anteriores, porque o histórico não é reescrito.
 
 ## [0.5.4] - 2026-10-12
 

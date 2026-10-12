@@ -2,7 +2,7 @@
   "contrato": "ork.prova-ativacao/v1",
   "host": "openclaw",
   "frase": "orkastery maestro",
-  "maquina": "srvjcp86",
+  "maquina": "maquina-b",
   "inicio": "2026-10-01T05:40:03.046Z",
   "fim": "2026-10-01T05:40:14.173Z",
   "estado": "aprovada",
@@ -328,6 +328,6 @@
       }
     ],
     "custoUsd": 0.011601736,
-    "respostaFinal": "Panorama da rede lido de srvjcp86 (01/10, 05:40)\nConsultado: provaativacao (clone em ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto)\nNão consultado:\n• rede por pessoa (RM-053, ork.rede-status/v1): não lida nesta versão; as máquinas vêm da branch ork/fabrica-estado de cada projeto\n\n────────\n\nRoadmap do provaativacao: não lido (roadmap.sem-leitura, reservas.sem-leitura, fabrica.sem-leitura).\n\nThreads por máquina\n• srvjcp86 (esta máquina): 0 ativa(s), estado local lido agora\n\nReservas\n• não lidas: veja as lacunas\n\nFontes\n• esta máquina: estado local em ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto/.orkastery, lido agora\n\nLacunas\n• roadmap.sem-leitura (origin/main): sem leitura de origin/main: a leitura de origin falhou; esta máquina não tem cópia dela. O que fazer: confira a rede e o acesso a origin (git fetch).\n• reservas.sem-leitura (origin/ork/roadmap-reservas): sem leitura de origin/ork/roadmap-reservas: a leitura de origin falhou antes, e não houve nova tentativa; esta máquina não tem cópia dela. O que fazer: confira a rede e o acesso a origin (git fetch).\n• fabrica.sem-leitura (origin/ork/fabrica-estado): sem leitura de origin/ork/fabrica-estado: a leitura de origin falhou antes, e não houve nova tentativa; esta máquina não tem cópia dela. O que fazer: confira a rede e o acesso a origin (git fetch).\n\nHorários em UTC."
+    "respostaFinal": "Panorama da rede lido de maquina-b (01/10, 05:40)\nConsultado: provaativacao (clone em ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto)\nNão consultado:\n• rede por pessoa (RM-053, ork.rede-status/v1): não lida nesta versão; as máquinas vêm da branch ork/fabrica-estado de cada projeto\n\n────────\n\nRoadmap do provaativacao: não lido (roadmap.sem-leitura, reservas.sem-leitura, fabrica.sem-leitura).\n\nThreads por máquina\n• maquina-b (esta máquina): 0 ativa(s), estado local lido agora\n\nReservas\n• não lidas: veja as lacunas\n\nFontes\n• esta máquina: estado local em ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto/.orkastery, lido agora\n\nLacunas\n• roadmap.sem-leitura (origin/main): sem leitura de origin/main: a leitura de origin falhou; esta máquina não tem cópia dela. O que fazer: confira a rede e o acesso a origin (git fetch).\n• reservas.sem-leitura (origin/ork/roadmap-reservas): sem leitura de origin/ork/roadmap-reservas: a leitura de origin falhou antes, e não houve nova tentativa; esta máquina não tem cópia dela. O que fazer: confira a rede e o acesso a origin (git fetch).\n• fabrica.sem-leitura (origin/ork/fabrica-estado): sem leitura de origin/ork/fabrica-estado: a leitura de origin falhou antes, e não houve nova tentativa; esta máquina não tem cópia dela. O que fazer: confira a rede e o acesso a origin (git fetch).\n\nHorários em UTC."
   }
 }

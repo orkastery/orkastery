@@ -15,7 +15,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import * as path from 'node:path';
-import { commitar, projetoTemporario } from './apoio';
+import { commitar, envPtBr, projetoTemporario } from './apoio';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { masterRatificado } from '../src/master';
 import { marcaDeHost } from '../src/master-nota';
@@ -28,7 +28,8 @@ const MARCAS = ['ORK_CANAL', 'CLAUDECODE', 'HERMES_HOME', 'ORK_DISPATCH_ID', 'OR
 
 /** O dono no terminal: sem marca de host no ambiente. */
 function terminal(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, ORK_FABRICA_PUBLICAR: '0' };
+  // RM-061 (F2b, D13 da F2a): o teste le o texto pt-BR do aceite; o filho nao herda o LANG de quem roda.
+  const env: NodeJS.ProcessEnv = { ...envPtBr(process.env), ORK_FABRICA_PUBLICAR: '0' };
   for (const n of MARCAS) delete env[n];
   return { ...env, ...extra };
 }

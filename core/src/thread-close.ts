@@ -9,6 +9,7 @@ import { MotivoFechamentoAdmin, ProvaDeEntrega, Thread } from './types';
 import { agora } from './util';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { liberarAoFechar } from './fechamento';
+import { ErroDoCatalogo } from './locale';
 
 export function validarArtefato(raiz: string, arquivo: string, sha256: string): ProvaDeEntrega {
   if (!/^[a-f0-9]{64}$/.test(sha256)) throw new Error('sha256 inválido');
@@ -37,9 +38,9 @@ export function provaDeEntrega(raiz: string, id: string): ProvaDeEntrega | null 
 
 export function exigirEntrega(raiz: string, id: string): ProvaDeEntrega {
   const t = lerThread(raiz, id);
-  if (t.fechamentoAdmin) throw new Error('thread encerrada administrativamente não pode receber MASTER');
+  if (t.fechamentoAdmin) throw new ErroDoCatalogo((m) => m.master.encerradaAdmin);
   const prova = provaDeEntrega(raiz, id);
-  if (!prova) throw new Error('MASTER exige entrega: ship_done ou artefato existente com hash verificado');
+  if (!prova) throw new ErroDoCatalogo((m) => m.master.exigeEntrega);
   return prova;
 }
 

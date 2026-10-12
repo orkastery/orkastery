@@ -70,7 +70,7 @@ test('projeto vai como --projeto no inicio do argv; sem ele o nucleo recebe o mo
 test('caminho, traversal ou tipo errado em projeto recusa no host, sem chamar o ork', async () => {
   await comPlugin(async (tools, chamadas) => {
     const roadmap = tools.find(t => t.name === 'ork_roadmap_status');
-    for (const projeto of ['/home/julio/.openclaw/workspace', '../orkastery', '~/orkastery', '', 42, 'a b']) {
+    for (const projeto of ['/home/usuario/.openclaw/workspace', '../orkastery', '~/orkastery', '', 42, 'a b']) {
       const r = await roadmap.execute({ projeto }, {}, {});
       assert.match(r, /^\[ork recusou\] projeto\.invalido: informe o NOME de um projeto/, `recusado: ${projeto}`);
     }

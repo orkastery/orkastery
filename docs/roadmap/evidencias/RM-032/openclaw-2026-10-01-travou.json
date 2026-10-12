@@ -2,7 +2,7 @@
   "contrato": "ork.prova-ativacao/v1",
   "host": "openclaw",
   "frase": "orkastery maestro",
-  "maquina": "srvjcp86",
+  "maquina": "maquina-b",
   "inicio": "2026-10-01T05:34:23.477Z",
   "fim": "2026-10-01T05:39:25.308Z",
   "estado": "falha",
