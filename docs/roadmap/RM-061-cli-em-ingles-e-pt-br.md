@@ -146,14 +146,16 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 Medida por `node core/scripts/contar-mensagens-de-saida.cjs --json`, com o recibo em [`cobertura-f2a.json`](evidencias/RM-061/cobertura-f2a.json). O contador reimplementa o método do #113: na árvore da F1 ele lê as mesmas 92 entradas do catálogo e 3.162 literais de saída, contra cerca de 3.240 que o #113 contou antes do merge.
 
-| Medida | F1 (`4a889fc`) | F2a (`47afbe8`) |
-| --- | --- | --- |
-| Entradas do catálogo | 92 | 356 |
-| Literais de saída fora do catálogo | 3.162 | 2.972 |
-| Cobertura | 2,8% | 10,7% |
-| Ajuda do `ork` (355 linhas) | fora do catálogo | no catálogo, em pt-BR e em inglês |
+| Medida | F1 (`4a889fc`) | Só a F2a (`47afbe8`) | F2a final (`6f6a7e0`) |
+| --- | --- | --- | --- |
+| Entradas do catálogo | 92 | 356 | 382 |
+| Literais de saída fora do catálogo | 3.162 | 2.972 | 3.085 |
+| Cobertura | 2,8% | 10,7% | 11,0% |
+| Ajuda do `ork` | fora do catálogo, 355 linhas | no catálogo, em pt-BR e em inglês | no catálogo, 365 linhas nas duas línguas |
 
-Fica fora da conta, por decisão da F2a, o texto que já é dado gravado (erro do ledger, recusa registrada, policy avaliada): ele sai como foi gravado, em pt-BR, até a família dona dele migrar.
+A coluna "Só a F2a" mede a fatia antes do merge da `origin/main`; a final já traz as frentes mescladas (RM-037, RM-047, RM-049, RM-058, RM-059 e RM-060), que somam literais de saída fora do catálogo e dez linhas da ajuda.
+
+Fica fora da F2a, por decisão da thread (D1 e D14), o texto que já é dado gravado (erro do ledger, recusa registrada, policy avaliada) e o que vem de módulo compartilhado ainda sem família no catálogo (o validador do manifesto, o regime de memória e o erro de estado durante a gravação): ele sai como o módulo dono escreve, em pt-BR, até a família migrar. O cabeçalho `Projeto consultado:` é contrato do RM-052 com os hosts e fica igual nas duas línguas.
 
 ## Responsabilidades e histórico
 
