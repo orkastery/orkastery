@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T08:30:52.697Z",
+  "publicadoEm": "2026-10-12T08:38:40.610Z",
   "threads": [
     {
       "id": "ork-rm059clima",
@@ -41,21 +41,21 @@
       "esforco": "max"
     },
     {
-      "id": "ork-rm059torre",
-      "nome": "rm059torre",
+      "id": "ork-rm059radar",
+      "nome": "rm059radar",
       "modo": "#Auto",
-      "fase": "SHIP",
+      "fase": "GOAL",
       "status": "aberta",
       "roadmap": null,
-      "branch": "ork/ork-rm059torre-full",
-      "atualizadaEm": "2026-10-12T08:30:52.450Z",
-      "entregue": "485f56aa",
+      "branch": "ork/ork-rm059radar-full",
+      "atualizadaEm": "2026-10-12T08:38:40.357Z",
+      "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     },
     {
       "id": "ork-rm060previa",
