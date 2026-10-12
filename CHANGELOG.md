@@ -8,6 +8,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Design system Partitura no repositório** ([docs/design](docs/design/README.md)): o kit do Claude Design do dono (tokens
+  em `docs/design/partitura/`, marca em `docs/design/marca/`, manual, brand kit, componentes, diretrizes e revisão de
+  copy) entra no repositório, com um README de entrada e um apontamento no `AGENTS.md` para toda sessão que mexer em UI,
+  design, frontend, componentes visuais ou layout. Em conflito, a Partitura vence o `tokens.css` legado.
 - **#Noctum, fatia N1: envelope e estado do arco** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
   `core/src/noctum-envelope.ts` define o contrato `ork.noctum-envelope/v1` (janela de 6 a 12 h com fuso, destinos com
   `push`, `pr` e `merge`, teto do arco e subtetos por conta e por runtime com unidade, horário e canal do relatório da

@@ -1,0 +1,149 @@
+/* Partitura · tokens da Orkastery · v1.0
+   Nomes em PT. Primitivos não mudam entre temas; os semânticos mudam.
+   Uso: <html data-tema="dia"> ou <html data-tema="noite">. Sem atributo = dia. */
+
+:root {
+  /* ---------- Primitivos · dia ---------- */
+  --nevoa: #EEF0F2;
+  --papel: #FFFFFF;
+  --trilho: #E3E6EA;
+  --tinta: #12161C;
+  --tinta-2: #454C56;
+  --tinta-3: #5F6670;
+
+  /* ---------- Primitivos · noite ---------- */
+  --noite: #0D1015;
+  --noite-2: #161A21;
+  --noite-3: #232831;
+  --luar: #E9ECEF;
+  --luar-2: #A7AEB8;
+
+  /* ---------- Primitivos · estado ----------
+     Latão é o único acento: "espera você" e pontos de HITL.
+     As variantes -tinta são para texto de estado no modo dia (≥ 4,5:1 em papel e névoa). */
+  --latao: #E0B264;
+  --latao-tinta: #8A5F17;
+  --regencia: #4F78B8;
+  --regencia-tinta: #3D639F;
+  --patina: #3C9A86;
+  --patina-tinta: #1F6B5C;
+  --brasa: #D9673F;
+  --brasa-tinta: #A8461F;
+
+  /* ---------- Tipografia ---------- */
+  --f-titulo: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --f-texto: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  --t-display: clamp(2.75rem, 6vw, 4.5rem);   /* Geist 600 · lh 1.0 · -0.035em */
+  --t-titulo-1: clamp(2rem, 4vw, 2.75rem);    /* Geist 600 · lh 1.1 · -0.03em */
+  --t-titulo-2: clamp(1.5rem, 2.6vw, 1.75rem);/* Geist 600 · lh 1.15 · -0.02em */
+  --t-titulo-3: 1.25rem;                      /* Geist 600 · lh 1.3 · -0.01em */
+  --t-corpo: 1.0625rem;                       /* Hanken 400 · lh 1.5 */
+  --t-apoio: 0.875rem;                        /* Hanken 400 · lh 1.45 */
+  --t-rotulo: 0.75rem;                        /* Plex Mono 500 · +0.06em · caixa alta */
+  --t-codigo: 0.875rem;                       /* Plex Mono 400 · lh 1.6 */
+
+  --peso-titulo: 600;
+  --peso-texto: 400;
+  --peso-destaque: 500;
+  --espaco-rotulo: 0.06em;
+
+  /* ---------- Espaço · base 4 ---------- */
+  --e-1: 4px;
+  --e-2: 8px;
+  --e-3: 12px;
+  --e-4: 16px;
+  --e-5: 24px;
+  --e-6: 32px;
+  --e-7: 48px;
+  --e-8: 64px;
+  --e-9: 96px;
+  --calha: clamp(20px, 4vw, 48px);
+  --largura: 1280px;
+  --largura-texto: 64ch;
+
+  /* ---------- Raio ---------- */
+  --raio-segmento: 3px;
+  --raio-chip: 7px;
+  --raio-botao: 12px;
+  --raio-cartao: 18px;
+  --raio-palco: 24px;
+  --raio-pilula: 999px;
+
+  /* ---------- Movimento · andante, nunca allegro ---------- */
+  --curva: cubic-bezier(.16, 1, .3, 1);
+  --dur-curta: 160ms;   /* hover, foco, cor */
+  --dur-media: 280ms;   /* abrir, trocar aba, toast */
+  --dur-longa: 600ms;   /* entrada ao rolar, partitura */
+  --pulso: 2800ms;      /* só no que está vivo */
+
+  /* ---------- Semânticos · dia (padrão) ---------- */
+  --chao: var(--nevoa);
+  --superficie: var(--papel);
+  --superficie-2: var(--nevoa);
+  --linha: var(--trilho);
+  --linha-forte: #C9CED5;
+  --texto: var(--tinta);
+  --texto-2: var(--tinta-2);
+  --texto-3: var(--tinta-3);
+  --acao: var(--tinta);
+  --sobre-acao: var(--papel);
+  --campo: var(--papel);
+
+  --espera: var(--latao);
+  --espera-texto: var(--latao-tinta);
+  --executando: var(--regencia);
+  --executando-texto: var(--regencia-tinta);
+  --verificado: var(--patina);
+  --verificado-texto: var(--patina-tinta);
+  --falha: var(--brasa);
+  --falha-texto: var(--brasa-tinta);
+
+  --foco: var(--regencia-tinta);
+  --anel-foco: 0 0 0 2px var(--chao), 0 0 0 4px var(--foco);
+
+  /* Sombras frias e quase invisíveis. Separe por linha antes de separar por sombra. */
+  --sombra-1: 0 1px 2px rgba(18, 22, 28, .05);
+  --sombra-2: 0 1px 2px rgba(18, 22, 28, .04), 0 8px 24px rgba(18, 22, 28, .06);
+  --sombra-3: 0 2px 4px rgba(18, 22, 28, .04), 0 20px 48px rgba(18, 22, 28, .10);
+  --luz-latao: 0 0 0 1px rgba(224, 178, 100, .55), 0 0 24px rgba(224, 178, 100, .18);
+
+  color-scheme: light;
+}
+
+[data-tema="noite"] {
+  --chao: var(--noite);
+  --superficie: var(--noite-2);
+  --superficie-2: var(--noite-3);
+  --linha: var(--noite-3);
+  --linha-forte: #343B46;
+  --texto: var(--luar);
+  --texto-2: var(--luar-2);
+  --texto-3: var(--luar-2);
+  --acao: var(--luar);
+  --sobre-acao: var(--noite);
+  --campo: var(--noite);
+
+  /* No noite, latão, pátina e brasa passam de 4,5:1 como texto.
+     Regência não passa (3,9:1 em noite-2): o rótulo de "executando" vai em luar, e a cor fica no ponto. */
+  --espera-texto: var(--latao);
+  --executando-texto: var(--luar);
+  --verificado-texto: var(--patina);
+  --falha-texto: var(--brasa);
+
+  --foco: var(--regencia);
+  --sombra-1: 0 1px 2px rgba(0, 0, 0, .4);
+  --sombra-2: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+  --sombra-3: 0 2px 4px rgba(0, 0, 0, .4), 0 20px 48px rgba(0, 0, 0, .45);
+
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-curta: 0ms; --dur-media: 0ms; --dur-longa: 0ms; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Responsividade (referência; variáveis não funcionam em @media):
+   movel 390px · tablet 768px · desktop 1280px · amplo 1440px */
