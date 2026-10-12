@@ -2947,8 +2947,9 @@ function comandoDocs(args: Args): number {
     return 0;
   }
   if (sub === 'init') {
-    // RM-061 (F3a, D5): `docs init` segue o locale inteiro: o texto e os sete arquivos, na lingua do dono.
-    const criados = iniciarDocs(raiz, localeAtivo());
+    // RM-061 (F3a, D1 e D5): os sete arquivos nascem na lingua do dono, resolvida pelo manifesto (tambem com `--json`,
+    // que tira so o texto impresso do locale); o texto segue o locale do comando coberto.
+    const criados = iniciarDocs(raiz, resolverLocale(carregado?.manifesto.owner?.language).locale);
     const m = msg().gerados.docsInit;
     console.log(criados.length === 0
       ? m.jaEstava
@@ -4035,9 +4036,10 @@ function executarComando(argvBruto: string[]): number {
     }
     case 'init': {
       exigirRepositorioParaInit(process.cwd());
-      // RM-061 (F3a, D1 e D2): os arquivos nascem na lingua do dono no momento da geracao, a do comando, resolvida
-      // antes do `--force` regravar o manifesto: o YAML e o AGENTS.md saem na mesma lingua.
-      const localeDosArquivos = localeAtivo();
+      // RM-061 (F3a, D1 e D2): os arquivos nascem na lingua do dono no momento da geracao, resolvida pelo manifesto lido
+      // antes do `--force` regrava-lo (o YAML e o AGENTS.md saem na mesma lingua) e independente do texto impresso, que
+      // nao segue o locale com `--json` (GO-FIX do CHECK, W3).
+      const localeDosArquivos = resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale;
       const r = init(process.cwd(), {
         force: args.opcoes.force === true,
         nome: texto(args.opcoes.name) ?? texto(args.opcoes.nome),

@@ -113,6 +113,16 @@ test('locale F3a init (negativo): o gerador chamado como funcao segue em pt-BR c
   } finally { ativarLocale(undefined); }
 });
 
+test('locale F3a init: com --json o texto impresso sai do locale, mas os arquivos seguem a lingua do dono (W3 do CHECK)', () => {
+  const c = cenario('f3a-init-json', false);
+  try {
+    const r = ork(c, EN, false, 'init', '--json', '--name', 'loja', '--abbrev', 'loj');
+    assert.equal(r.status, 0, r.stderr);
+    confereYamlIngles(ler(c.dir, 'orkastery.yaml'), snapshot()['cli: ork init, orkastery.yaml']);
+    confereAgentsIngles(ler(c.dir, 'AGENTS.md'));
+  } finally { c.limpar(); }
+});
+
 test('locale F3a init: com LANG ingles, os marcadores repetidos no AGENTS.md recusam em ingles, sem escrever', () => {
   const c = cenario('f3a-init-marcadores', false);
   try {

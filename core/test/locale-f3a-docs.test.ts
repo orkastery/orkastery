@@ -16,6 +16,8 @@ import { cenario, Cenario, EN, linhasEmPortugues, ork } from './locale-apoio';
 import { ARQUIVOS_DO_DOCS_INIT } from './locale-f3a-casos';
 
 const C = { LANG: 'C.UTF-8' };
+const FIXTURE = path.resolve(__dirname, '../../test/fixtures/locale-f3a-pt-BR.json');
+const snapshot = (): Record<string, string> => JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string>;
 const AGORA = '2026-09-24T20:00:00-03:00';
 /** O arquivo do projeto e o modelo do nucleo de onde ele sai (o `.markdownlint-cli2.jsonc` perde o ponto). */
 const ORIGEM: Readonly<Record<string, string>> = Object.fromEntries(ARQUIVOS_DO_DOCS_INIT.map((a) =>
@@ -76,6 +78,16 @@ test('locale F3a docs: com LANG ingles, ork docs init cria os sete arquivos dos 
   } finally { c.limpar(); }
 });
 
+test('locale F3a docs: com --json os sete arquivos seguem a lingua do dono, mesmo com o texto fora do locale (W3 do CHECK)', () => {
+  const c = cenario('f3a-docs-json', false);
+  try {
+    assert.equal(ork(c, EN, false, 'docs', 'init', '--json').status, 0);
+    for (const arquivo of ARQUIVOS_DO_DOCS_INIT) {
+      assert.equal(ler(c.dir, arquivo), fs.readFileSync(path.join(dirDosModelos('en'), ORIGEM[arquivo]), 'utf8'), arquivo);
+    }
+  } finally { c.limpar(); }
+});
+
 test('locale F3a docs: owner.language en-US vence o C.UTF-8 no docs init', () => {
   const c = cenario('f3a-docs-owner', false);
   try {
@@ -116,18 +128,19 @@ test('locale F3a docs (negativo): em pt-BR os arquivos sao os de core/assets/doc
   const c = cenario('f3a-docs-pt', false);
   try {
     assert.equal(ork(c, C, false, 'docs', 'init').status, 0);
-    for (const arquivo of ARQUIVOS_DO_DOCS_INIT) {
-      assert.equal(ler(c.dir, arquivo), fs.readFileSync(path.join(dirDosModelos(), ORIGEM[arquivo]), 'utf8'), arquivo);
-    }
+    const s = snapshot();
+    for (const arquivo of ARQUIVOS_DO_DOCS_INIT) assert.equal(ler(c.dir, arquivo), s[`cli: ork docs init, ${arquivo}`], arquivo);
     const pt = ork(c, C, false, 'docs', 'verificar'), en = ork(c, EN, false, 'docs', 'verificar');
     assert.equal(en.status, pt.status);
     assert.equal(en.stdout, pt.stdout, 'docs verificar nao segue o locale (F3b)');
   } finally { c.limpar(); }
-  // A funcao sem locale segue em pt-BR mesmo com o locale ativo em ingles (D2).
+  // A funcao sem locale segue em pt-BR mesmo com o locale ativo em ingles (D2): o esperado vem da fixture da base, nao do
+  // padrao do proprio codigo (W2 do CHECK).
   const d = cenario('f3a-docs-funcao', false);
   ativarLocale('en');
   try {
     iniciarDocs(d.dir);
-    assert.equal(ler(d.dir, 'docs/roadmap/README.md'), fs.readFileSync(path.join(dirDosModelos(), 'roadmap/README.md'), 'utf8'));
+    const s = snapshot();
+    for (const arquivo of ARQUIVOS_DO_DOCS_INIT) assert.equal(ler(d.dir, arquivo), s[`cli: ork docs init, ${arquivo}`], arquivo);
   } finally { ativarLocale(undefined); d.limpar(); }
 });

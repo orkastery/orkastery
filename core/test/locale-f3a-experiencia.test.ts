@@ -14,6 +14,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { aplicarExperiencia, FIM_EXPERIENCIA, HostComBloco, INICIO_EXPERIENCIA, planejarExperiencia } from '../src/experiencia-instalacao';
 import { instalarAdaptador } from '../src/hosts';
+import { ativarLocale } from '../src/locale';
 import { ajustarManifesto, projetoTemporario } from './apoio';
 import { cenario, Cenario, EN, linhasEmPortugues, ork } from './locale-apoio';
 
@@ -160,11 +161,14 @@ test('locale F3a experiencia (negativo): dono pt-BR com LANG ingles, e dono sem 
   }
 });
 
-test('locale F3a experiencia (negativo): instalarAdaptador sem locale segue em pt-BR com o dono en-US; com locale en, ingles', () => {
+test('locale F3a experiencia (negativo): instalarAdaptador sem locale segue em pt-BR com o dono en-US e o locale ativo en; com locale en, ingles', () => {
   const p = projetoTemporario('locale-f3a-exp-funcao');
   try {
     ajustarManifesto(p, '  # language: pt-BR  # ausente: locale do sistema', '  language: en-US');
-    const r = instalarAdaptador('claude-code', { projeto: p.dir, catalogo: CATALOGO, orkBin: 'ork' });
+    // O locale ativo em ingles (o que um `main` anterior deixa no processo) nao escolhe a lingua do bloco (D2, W2 do CHECK).
+    ativarLocale('en');
+    let r: ReturnType<typeof instalarAdaptador>;
+    try { r = instalarAdaptador('claude-code', { projeto: p.dir, catalogo: CATALOGO, orkBin: 'ork' }); } finally { ativarLocale(undefined); }
     assert.equal(r.ok, true);
     const pt = blocoDe(fs.readFileSync(path.join(p.dir, 'CLAUDE.md'), 'utf8'));
     assert.equal(pt, blocoEsperado('claude-code', diretorioDo(pt), 'pt-BR'));
