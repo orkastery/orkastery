@@ -97,6 +97,9 @@ export interface FatosDoTrabalho {
   doDono: string | null;
 }
 
+/** A leitura das reservas: a última cópia local da branch de reservas, ou a falta dela. */
+export type LeitorDeReservas = () => { leitura: 'copia-local' | 'sem-copia'; reservas: Array<{ item: string; maquina: string; thread: string | null }> };
+
 export interface FatosDaFila {
   arco: string;
   quando: string;
@@ -216,15 +219,14 @@ export function montarFila(fatos: FatosDaFila): FilaDoArco {
  * última cópia local (sem rede) e o lote. `lerReservas` é dependência dos testes.
  */
 export function fatosDaFila(carregado: ManifestoCarregado, arco: string, opcoes: { quando?: string; maquina?: string;
-  lerReservas?: () => { leitura: 'copia-local' | 'sem-copia'; reservas: Array<{ item: string; maquina: string; thread: string | null }> } } = {}):
-  FatosDaFila {
+  lerReservas?: LeitorDeReservas } = {}): FatosDaFila {
   const quando = opcoes.quando ?? new Date().toISOString();
   const { raiz } = carregado;
   const estado = lerArco(raiz, arco, quando);
   const maquina = nomeDaMaquina(opcoes.maquina);
   const lidas = (opcoes.lerReservas ?? (() => pontaLocal(raiz, REMOTO_PADRAO, BRANCH_DE_RESERVAS) === null
     ? { leitura: 'sem-copia' as const, reservas: [] }
-    : { leitura: 'copia-local' as const, reservas: reservasLocais(raiz) }))();
+    : { leitura: 'copia-local' as const, reservas: reservasLocais(raiz) }) as LeitorDeReservas)();
   const fatos: FatosDaFila = { arco, quando, maquina, estado, porTrabalho: new Map(), threadsIlegiveis: [],
     reservas: { leitura: lidas.leitura, porItem: new Map(lidas.reservas.map(r => [r.item, { maquina: r.maquina, thread: r.thread }])) } };
   if (!estado?.conteudo || !envelopeComTrabalhos(estado.conteudo)) return fatos;
