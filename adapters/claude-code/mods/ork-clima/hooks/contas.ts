@@ -1,7 +1,8 @@
 // O cruzamento do Clima de Cota (RM-059, onda 1, F4; T4.2): a previsao das janelas da conta desta sessao
-// contra os despachos que dependem de cota, lidos no retrato do nucleo (a fila de retomada e as threads
-// paradas por cota), e contra as marcas de esgotamento por conta do registro compartilhado (RM-040). D7 e
-// D8 da thread. Modulo puro: le o que a ponte trouxe, classifica e escreve; nenhum `$` passa por aqui.
+// contra os despachos que dependem de cota (a fila de retomada inteira, de `ork retry list --json`, e as
+// threads abertas paradas por cota, no retrato do nucleo) e contra as marcas de esgotamento por conta do
+// registro compartilhado (RM-040). D7, D8 e D13 da thread. Modulo puro: le o que a ponte trouxe, classifica
+// e escreve; nenhum `$` passa por aqui.
 import type { ClimaEstado, ClimaPrevisao } from '../types'
 import { duracao, emAlerta, formatarHora, rotuloDaJanela, textoDaFaixa } from './previsao'
 
@@ -9,14 +10,16 @@ import { duracao, emAlerta, formatarHora, rotuloDaJanela, textoDaFaixa } from '.
 export type ClimaRetomada = {
   id: string
   thread: string
-  estado: 'aguardando' | 'due'
-  /** Quando a fila libera, em ms desde a epoca; `null` quando o retrato nao disse. */
+  /** Quando a fila libera, em ms desde a epoca; `null` quando a fila nao disse. */
   liberaEm: number | null
   tentativas: number | null
 }
 
-/** Uma thread cujo ultimo gate reprovado foi por cota. */
+/** Uma thread aberta cujo ultimo gate reprovado foi por cota. */
 export type ClimaParada = { thread: string; motivo: string }
+
+/** O que o retrato trouxe dos bloqueios: as paradas, se a pagina veio cortada e quantas threads ficaram sem ledger. */
+export type ClimaParadas = { itens: ClimaParada[]; paginaCortada: boolean; lacunas: number }
 
 /** Uma marca do registro compartilhado de contas (`ork.esgotamentos/v1`), com a conta opaca. */
 export type ClimaMarca = {
@@ -44,13 +47,11 @@ export type ClimaDespacho = {
   folgaMs: number | null
 }
 
-export type ClimaLido<T> = { itens: T[]; parcial: boolean }
-
-/** O que o `/clima` cruzou: `null` em `despachos` ou `marcas` quando a leitura falhou. */
+/** O que o `/clima` cruzou: `null` onde a leitura falhou, com o motivo ao lado. */
 export type ClimaCruzamento = {
   despachos: ClimaDespacho[] | null
-  paradas: ClimaParada[]
-  parcial: boolean
+  erroDaFila: string | null
+  paradas: ClimaParadas | null
   erroDoRetrato: string | null
   marcas: ClimaMarca[] | null
   erroDoRegistro: string | null
@@ -59,8 +60,6 @@ export type ClimaCruzamento = {
 /** Os motivos de gate que sao de cota: a politica do nucleo espera a janela ou roda o perfil (D7). */
 export const MOTIVOS_DE_COTA: readonly string[] = ['runtime.quota-exhausted', 'runtime.rate-limited']
 export const CONTRATO_DOS_ESGOTAMENTOS = 'ork.esgotamentos/v1'
-/** Quantas threads que nao cabem a faixa nomeia antes do `e mais N`. */
-export const TETO_NA_FAIXA = 3
 /** O que o nucleo ja sabe fazer, com os comandos da propria politica dele; o Clima nunca executa (D7). */
 export const SUGESTOES: readonly string[] = [
   'esperar a janela: a retomada fica na fila até renovar, e ork retry list mostra a fila;',
@@ -71,6 +70,7 @@ export const SUGESTOES: readonly string[] = [
 const ID_DE_THREAD = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/
 const ID_DE_RETOMADA = /^R[1-9][0-9]{0,8}$/
 const CONTA_OPACA = /^[a-f0-9]{12}$/
+const NAO_REGISTRADO = 'nao registrado'
 const ORDEM_DA_CLASSE: Readonly<Record<ClimaClasse, number>> = { 'nao-cabe': 0, 'cabe': 1, 'depois-de-renovar': 2 }
 
 type Bruto = Record<string, unknown>
@@ -88,20 +88,35 @@ function instante(v: unknown): number | null {
   return Number.isFinite(t) ? t : null
 }
 
-function secaoDoRetrato(retrato: unknown, nome: string): Bruto | null {
-  return objeto(objeto(objeto(retrato)?.sections)?.[nome])
+/**
+ * As retomadas que ainda vao despachar, da fila inteira (`ork retry list --json`, D13): a fila e um JSONL so de
+ * acrescimo, entao a ultima gravacao de um id vence, e so o estado `aguardando` conta. `null` fora do formato.
+ */
+export function retomadasDaFila(fila: unknown): ClimaRetomada[] | null {
+  if (!Array.isArray(fila)) return null
+  const porId = new Map<string, Bruto>()
+  for (const bruto of fila) {
+    const p = objeto(bruto)
+    if (p !== null && typeof p.id === 'string' && ID_DE_RETOMADA.test(p.id)) porId.set(p.id, p)
+  }
+  const itens: ClimaRetomada[] = []
+  for (const p of porId.values()) {
+    if (p.estado !== 'aguardando' || typeof p.thread !== 'string' || !ID_DE_THREAD.test(p.thread)) continue
+    const tentativas = p.tentativas
+    itens.push({
+      id: p.id as string, thread: p.thread, liberaEm: instante(p.liberaEm),
+      tentativas: typeof tentativas === 'number' && Number.isInteger(tentativas) && tentativas >= 0 ? tentativas : null,
+    })
+  }
+  return itens
 }
 
-/** A secao veio inteira: `available` ou `empty`, sem pagina seguinte. */
-function inteira(s: Bruto | null): boolean {
-  if (s === null) return false
-  const proxima = objeto(s.coverage)?.nextOffset
-  return (s.state === 'available' || s.state === 'empty') && (proxima === null || proxima === undefined)
-}
-
-function itensDa(s: Bruto | null): unknown[] {
-  const itens = s?.items
-  return Array.isArray(itens) ? itens : []
+/** As threads abertas, de `ork thread list --json` (que sem `--todas` so lista as nao fechadas); `null` fora do formato. */
+export function threadsAbertas(lista: unknown): string[] | null {
+  const threads = objeto(lista)?.threads
+  if (!Array.isArray(threads)) return null
+  return threads.map(objeto).filter((t): t is Bruto => t !== null && typeof t.id === 'string' && t.status !== 'fechada')
+    .map(t => t.id as string)
 }
 
 function threadDasRefs(refs: unknown): string | null {
@@ -112,38 +127,26 @@ function threadDasRefs(refs: unknown): string | null {
   return null
 }
 
-/** As retomadas `aguardando` e `due` da secao `retries` do retrato (D7). */
-export function retomadasDoRetrato(retrato: unknown): ClimaLido<ClimaRetomada> {
-  const s = secaoDoRetrato(retrato, 'retries')
-  const itens: ClimaRetomada[] = []
-  for (const bruto of itensDa(s)) {
-    const i = objeto(bruto)
-    if (i === null || typeof i.id !== 'string' || !ID_DE_RETOMADA.test(i.id)) continue
-    if (i.status !== 'aguardando' && i.status !== 'due') continue
-    const thread = threadDasRefs(i.refs)
-    if (thread === null) continue
-    const fatos = objeto(i.facts)
-    const tentativas = fatos?.attempts
-    itens.push({
-      id: i.id, thread, estado: i.status, liberaEm: instante(fatos?.availableAt),
-      tentativas: typeof tentativas === 'number' && Number.isInteger(tentativas) && tentativas >= 0 ? tentativas : null,
-    })
-  }
-  return { itens, parcial: !inteira(s) }
-}
-
-/** As threads paradas por cota, da secao `blockers` do retrato (D7). */
-export function paradasDoRetrato(retrato: unknown): ClimaLido<ClimaParada> {
-  const s = secaoDoRetrato(retrato, 'blockers')
+/**
+ * As threads paradas por cota, da secao `blockers` do retrato (D7), so as abertas quando a lista delas veio
+ * (o retrato tambem traz thread fechada). A pagina cortada e a lacuna de ledger sao ditas a parte (D13).
+ */
+export function paradasDoRetrato(retrato: unknown, abertas: readonly string[] | null): ClimaParadas {
+  const s = objeto(objeto(objeto(retrato)?.sections)?.blockers)
   const itens: ClimaParada[] = []
-  for (const bruto of itensDa(s)) {
+  const lista = s?.items
+  for (const bruto of Array.isArray(lista) ? lista : []) {
     const i = objeto(bruto)
     const motivo = objeto(i?.facts)?.reason
     if (i === null || typeof motivo !== 'string' || !MOTIVOS_DE_COTA.includes(motivo)) continue
     const thread = threadDasRefs(i.refs)
-    if (thread !== null && !itens.some(p => p.thread === thread)) itens.push({ thread, motivo })
+    if (thread === null || (abertas !== null && !abertas.includes(thread)) || itens.some(p => p.thread === thread)) continue
+    itens.push({ thread, motivo })
   }
-  return { itens, parcial: !inteira(s) }
+  const proxima = objeto(s?.coverage)?.nextOffset
+  const gaps = s?.gaps
+  const lacunas = Array.isArray(gaps) ? gaps.filter(g => typeof g === 'string' && g.startsWith('ledger.unavailable:')).length : 0
+  return { itens, paginaCortada: typeof proxima === 'number', lacunas }
 }
 
 /** As marcas do registro de contas; `null` quando o relatorio nao e do contrato `ork.esgotamentos/v1`. */
@@ -159,7 +162,7 @@ export function marcasDoRelatorio(relatorio: unknown): ClimaMarca[] | null {
     if (runtime === null || estado === null) continue
     marcas.push({
       conta: m.conta, runtime, estado, motivo: texto(m.motivo, 80) ?? 'sem motivo',
-      esgotadoAte: instante(m.esgotadoAte), projeto: texto(m.projeto, 80) ?? 'nao registrado',
+      esgotadoAte: instante(m.esgotadoAte), projeto: texto(m.projeto, 80) ?? NAO_REGISTRADO,
     })
   }
   return marcas
@@ -175,8 +178,8 @@ function trechoSemCota(p: ClimaPrevisao): { p: ClimaPrevisao; inicio: number; fi
 
 /**
  * Cada retomada contra os trechos sem cota das janelas em alerta (D7): `nao-cabe` quando despacha dentro de
- * um deles; `cabe`, com a folga ate o primeiro esgotamento, quando despacha antes; `depois-de-renovar`
- * quando todos ja renovaram. Sem janela em alerta, `cabe` sem folga.
+ * um deles (na hora exata da renovacao a janela ja renovou); `cabe`, com a folga ate o primeiro esgotamento,
+ * quando despacha antes; `depois-de-renovar` quando todos ja renovaram. Sem janela em alerta, `cabe` sem folga.
  */
 export function cruzar(previsoes: readonly ClimaPrevisao[], retomadas: readonly ClimaRetomada[], agora: number): ClimaDespacho[] {
   const trechos = previsoes.map(trechoSemCota).filter((t): t is NonNullable<ReturnType<typeof trechoSemCota>> => t !== null)
@@ -199,13 +202,20 @@ export function cruzar(previsoes: readonly ClimaPrevisao[], retomadas: readonly 
   }).sort((a, b) => ORDEM_DA_CLASSE[a.classe] - ORDEM_DA_CLASSE[b.classe] || a.quando - b.quando)
 }
 
-/** Uma retomada no `/clima` e no registro do mostrado. */
+/** As threads das retomadas que nao cabem, sem repetir, na ordem do cruzamento. */
+export function threadsQueNaoCabem(despachos: readonly ClimaDespacho[]): string[] {
+  const threads: string[] = []
+  for (const d of despachos) if (d.classe === 'nao-cabe' && !threads.includes(d.retomada.thread)) threads.push(d.retomada.thread)
+  return threads
+}
+
+/** Uma retomada no `/clima`. */
 export function textoDoDespacho(d: ClimaDespacho, fuso: string, agora: number): string {
   const volta = d.quando <= agora ? 'volta agora' : `volta ${formatarHora(d.quando, fuso, agora)}`
   const quem = `${d.retomada.id} da ${d.retomada.thread} ${volta}`
   const janela = d.janela === null ? 'a janela' : `a janela de ${rotuloDaJanela(d.janela)}`
   if (d.classe === 'nao-cabe') {
-    const acaba = d.estadoDaJanela === 'esgotada' || d.acabaEm === null ? 'já se esgotou' : `acaba ~${formatarHora(d.acabaEm, fuso, agora)}`
+    const acaba = d.estadoDaJanela === 'esgotada' || d.acabaEm === null ? 'já esgotou' : `acaba ~${formatarHora(d.acabaEm, fuso, agora)}`
     const renova = d.renovaEm === null ? 'não tem hora de renovar' : `renova ${formatarHora(d.renovaEm, fuso, agora)}`
     return `${quem} e não cabe: ${janela} ${acaba} e ${renova}.`
   }
@@ -214,44 +224,47 @@ export function textoDoDespacho(d: ClimaDespacho, fuso: string, agora: number): 
   return `${quem}.`
 }
 
+/** O que vai ao registro do mostrado por retomada que nao cabe: so o que nao muda a cada leitura (D13). */
+export function textoDoNaoCabe(d: ClimaDespacho, fuso: string, agora: number): string {
+  const janela = d.janela === null ? 'na janela' : `na janela de ${rotuloDaJanela(d.janela)}`
+  const renova = d.renovaEm === null ? ', que não tem hora de renovar' : `, que renova ${formatarHora(d.renovaEm, fuso, agora)}`
+  return `${d.retomada.id} da ${d.retomada.thread} não cabe ${janela}${renova}.`
+}
+
+/** O resumo que o `/clima` registra como mostrado (D8): a linha da faixa, ou que nada pede atencao. */
+export function resumoDoClima(previsoes: readonly ClimaPrevisao[], naoCabem: readonly string[], fuso: string, agora: number): string {
+  return textoDaFaixa(previsoes, fuso, agora, naoCabem) ?? 'nenhuma janela pede atenção'
+}
+
 export function textoDaParada(p: ClimaParada): string {
   return `${p.thread} parada por ${p.motivo}.`
 }
 
 export function textoDaMarca(m: ClimaMarca, fuso: string, agora: number): string {
   const prazo = m.esgotadoAte === null ? 'sem prazo' : `até ${formatarHora(m.esgotadoAte, fuso, agora)}`
-  return `conta ${m.conta} (${m.runtime}): ${m.estado} ${prazo}, visto em ${m.projeto} (${m.motivo}).`
+  const onde = m.projeto === NAO_REGISTRADO ? 'em projeto não registrado' : `em ${m.projeto}`
+  return `conta ${m.conta} (${m.runtime}): ${m.estado} ${prazo}, visto ${onde} (${m.motivo}).`
 }
 
-/** O fim da linha da faixa com as threads que nao cabem (D7). */
-export function sufixoDaFaixa(despachos: readonly ClimaDespacho[]): string {
-  const threads: string[] = []
-  for (const d of despachos) if (d.classe === 'nao-cabe' && !threads.includes(d.retomada.thread)) threads.push(d.retomada.thread)
-  if (threads.length === 0) return ''
-  const nomeadas = threads.slice(0, TETO_NA_FAIXA)
-  return `; não cabe: ${nomeadas.join(', ')}${threads.length > nomeadas.length ? ` e mais ${threads.length - nomeadas.length}` : ''}`
-}
-
-/** O resumo que o `/clima` registra como mostrado (D8): a linha da faixa, ou que nada pede atencao. */
-export function resumoDoClima(previsoes: readonly ClimaPrevisao[], despachos: readonly ClimaDespacho[] | null, fuso: string, agora: number): string {
-  return textoDaFaixa(previsoes, fuso, agora, sufixoDaFaixa(despachos ?? [])) ?? 'nenhuma janela pede atenção'
-}
-
-/** As linhas do cruzamento no `/clima`: despachos, paradas, contas do registro e, se algo aperta, as sugestoes. */
+/** As linhas do cruzamento no `/clima`: fila, paradas, contas do registro e, se algo aperta, as sugestoes. */
 export function linhasDoCruzamento(c: ClimaCruzamento, previsoes: readonly ClimaPrevisao[], fuso: string, agora: number): string[] {
-  const linhas = ['Despachos que dependem da cota (retrato do núcleo):']
-  if (c.despachos === null) linhas.push(`- Retrato do núcleo indisponível (${c.erroDoRetrato ?? 'sem resposta'}).`)
+  const linhas = ['Despachos que dependem da cota (fila de retomada do núcleo):']
+  if (c.despachos === null) linhas.push(`- Fila de retomada indisponível (${c.erroDaFila ?? 'fora do formato'}).`)
+  else if (c.despachos.length === 0) linhas.push('- Nenhuma retomada na fila.')
+  else for (const d of c.despachos) linhas.push(`- ${textoDoDespacho(d, fuso, agora)}`)
+  linhas.push('Threads abertas paradas por cota (retrato do núcleo):')
+  if (c.paradas === null) linhas.push(`- Retrato do núcleo indisponível (${c.erroDoRetrato ?? 'sem resposta'}).`)
   else {
-    for (const d of c.despachos) linhas.push(`- ${textoDoDespacho(d, fuso, agora)}`)
-    for (const p of c.paradas) linhas.push(`- ${textoDaParada(p)}`)
-    if (c.despachos.length === 0 && c.paradas.length === 0) linhas.push('- Nenhuma retomada na fila nem thread parada por cota.')
-    if (c.parcial) linhas.push('- Retrato parcial: a fila de retomada ou os bloqueios vieram incompletos.')
+    if (c.paradas.itens.length === 0) linhas.push('- Nenhuma.')
+    for (const p of c.paradas.itens) linhas.push(`- ${textoDaParada(p)}`)
+    if (c.paradas.paginaCortada) linhas.push('- Os bloqueios vieram em mais de uma página; o Clima leu a primeira.')
+    if (c.paradas.lacunas > 0) linhas.push(`- O retrato não leu o ledger de ${c.paradas.lacunas} thread(s).`)
   }
   linhas.push('Contas no registro do núcleo (ork accounts esgotamentos):')
   if (c.marcas === null) linhas.push(`- Registro de contas indisponível (${c.erroDoRegistro ?? 'fora do contrato ork.esgotamentos/v1'}).`)
   else if (c.marcas.length === 0) linhas.push('- Nenhuma conta marcada no registro.')
   else for (const m of c.marcas) linhas.push(`- ${textoDaMarca(m, fuso, agora)}`)
-  const aperta = previsoes.some(emAlerta) || (c.despachos ?? []).some(d => d.classe === 'nao-cabe') || c.paradas.length > 0
+  const aperta = previsoes.some(emAlerta) || (c.despachos ?? []).some(d => d.classe === 'nao-cabe') || (c.paradas?.itens.length ?? 0) > 0
   if (aperta) linhas.push('O que o núcleo já sabe fazer:', ...SUGESTOES.map(s => `- ${s}`))
   return linhas
 }

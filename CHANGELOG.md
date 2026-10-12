@@ -20,10 +20,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 - **Clima de Cota no Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md), onda 1): o mod
   `ork-clima` (`adapters/claude-code/mods/ork-clima`), na sessão do dono, lê as janelas de limite da conta a cada
   medição do motor (`session.measure`), guarda a série e prevê quando cada janela acaba no ritmo atual. Na faixa da
-  ponte, só no alerta, aparece algo como `5 h em 82%, acaba ~16:40, renova 17:00`, com a retomada da fila que cai
-  entre o esgotamento e a renovação; o `/clima` mostra cada janela, a fila de retomada, as threads paradas por cota e
-  as contas do registro (`ork accounts esgotamentos`), com o que o núcleo já sabe fazer. O Clima só lê e avisa: troca
-  de conta, de runtime ou de modelo fica com o núcleo e com o dono.
+  ponte, só no alerta, aparece algo como `não cabe: ork-x; 5 h com 80% ou mais, acaba ~16:45, renova 17:00`, com a
+  retomada da fila que cai entre o esgotamento e a renovação na frente; o `/clima` mostra cada janela, a fila de
+  retomada, as threads abertas paradas por cota e as contas do registro (`ork accounts esgotamentos`), com o que o
+  núcleo já sabe fazer. O Clima só lê e avisa: troca de conta, de runtime ou de modelo fica com o núcleo e com o dono.
 - **CLI em inglês e pt-BR** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): nova página do
   roadmap, em desenvolvimento, com a decisão do dono de 12/10/2026 de que o CLI fala inglês e pt-BR. A
   língua vem de `owner.language` e, sem ela, de `LC_ALL`, `LC_MESSAGES` e `LANG`; o pt-BR fica idêntico
