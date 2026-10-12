@@ -3,8 +3,10 @@
 // `Button`, os mesmos no terminal e no desktop). Todo estado tem rotulo e glifo, nunca so cor (regra da Partitura).
 // O texto da resposta do dono nunca aparece aqui: so a thread, o pedido e o estado da entrega. So importa tipos e
 // modulos puros do Mensageiro.
-import type { MensageiroDono, MensageiroEntrega, MensageiroEstadoDaEntrega, MensageiroMostrado } from '../types'
+import type { MensageiroDono, MensageiroEntrega, MensageiroEstadoDaEntrega, MensageiroEstadoDaRecebida, MensageiroFase, MensageiroMostrado,
+  MensageiroRecebida } from '../types'
 import { umaLinha } from './caixa'
+import { codigoDoMotivo, motivoLegivel } from './recepcao'
 
 export type LinhaDoMensageiro = {
   tipo: 'titulo' | 'secao' | 'texto' | 'dim' | 'falha' | 'feito'
@@ -70,6 +72,54 @@ export function linhasDoDono(dono: MensageiroDono, agora: number): LinhaDoMensag
   linhas.push({ tipo: 'dim', chave: 'limite', texto: 'A resposta chega como mensagem de outra sessão: informa a sessão de fase, não autoriza ação que só você aprova. Para isso, claude attach.' })
   if (dono.lidoEm === null) linhas.push({ tipo: 'dim', chave: 'lido', texto: 'a caixa de saída ainda não foi lida' })
   else linhas.push({ tipo: 'dim', chave: 'lido', texto: `caixa de saída lida ${idade(agora - dono.lidoEm)}` })
+  return linhas
+}
+
+export const ROTULO_DA_RECEBIDA: Record<MensageiroEstadoDaRecebida, string> = {
+  'consumida': 'consumida antes do modelo',
+  'confirmando': 'entrou na conversa; gravando o recibo no núcleo',
+  'entregue': 'entrou na conversa, com o recibo no núcleo',
+  'sem-recibo': 'entrou na conversa, mas o recibo não foi gravado',
+  'nao-entrou': 'conferida, mas não entrou na conversa',
+}
+
+const GLIFO_DA_RECEBIDA: Record<MensageiroEstadoDaRecebida, string> = {
+  'consumida': '○', 'confirmando': '●', 'entregue': '✓', 'sem-recibo': '?', 'nao-entrou': '×',
+}
+
+const TIPO_DA_RECEBIDA: Record<MensageiroEstadoDaRecebida, LinhaDoMensageiro['tipo']> = {
+  'consumida': 'texto', 'confirmando': 'texto', 'entregue': 'feito', 'sem-recibo': 'falha', 'nao-entrou': 'falha',
+}
+
+function linhasDaRecebida(r: MensageiroRecebida, i: number, agora: number): LinhaDoMensageiro[] {
+  const k = (s: string) => `recebida:${i}:${s}`
+  const quem = r.estado === 'consumida'
+    ? `mensagem de outra sessão (${umaLinha(r.origem, 80)})${r.pedidoId ? ` com a marca do pedido ${curto(r.pedidoId)}` : ''}`
+    : `resposta do dono ao pedido ${r.pedidoId ? curto(r.pedidoId) : '?'}`
+  const linhas: LinhaDoMensageiro[] = [{ tipo: TIPO_DA_RECEBIDA[r.estado], chave: k('estado'),
+    texto: umaLinha(`${GLIFO_DA_RECEBIDA[r.estado]} ${quem} · ${ROTULO_DA_RECEBIDA[r.estado]} · ${idade(agora - r.em)}`, 300) }]
+  if (r.motivo) {
+    const motivo = r.estado === 'consumida' ? `${motivoLegivel(r.motivo)} · ${codigoDoMotivo(r.motivo)}` : r.motivo
+    linhas.push({ tipo: 'dim', chave: k('motivo'), texto: `  ${umaLinha(motivo, 200)}` })
+  }
+  return linhas
+}
+
+/**
+ * As linhas do painel na sessao de fase: o que chegou de outras sessoes, o mais novo primeiro. Sem botao: o estado so
+ * muda quando algo chega, e o painel se redesenha sozinho. O texto de nenhuma mensagem aparece aqui.
+ */
+export function linhasDaFase(fase: MensageiroFase, agora: number): LinhaDoMensageiro[] {
+  const linhas: LinhaDoMensageiro[] = [
+    { tipo: 'secao', chave: 'titulo', texto: 'Mensageiro de Sessões' },
+    { tipo: 'dim', chave: 'o-que-faz', texto: `Nesta sessão de fase${fase.thread ? ` da ${fase.thread}` : ''}, só entra na conversa a resposta do dono que o núcleo conferiu; o resto que chega de outra sessão é consumido.` },
+  ]
+  if (fase.erro) linhas.push({ tipo: 'falha', chave: 'erro', texto: `× ${umaLinha(fase.erro, 200)}` })
+  linhas.push({ tipo: 'secao', chave: 'secao-recebidas', texto: 'O que chegou de outras sessões' })
+  if (!fase.recebidas.length) linhas.push({ tipo: 'dim', chave: 'sem-recebidas', texto: '  nada chegou de outra sessão' })
+  const recebidas = fase.recebidas.map((r, i) => ({ r, i })).reverse()
+  for (const { r, i } of recebidas) linhas.push(...linhasDaRecebida(r, i, agora))
+  linhas.push({ tipo: 'dim', chave: 'limite', texto: 'A resposta do dono informa esta sessão; ação que só o dono aprova continua pedindo o dono.' })
   return linhas
 }
 

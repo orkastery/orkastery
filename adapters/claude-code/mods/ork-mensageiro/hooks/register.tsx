@@ -1,23 +1,32 @@
 // O Mensageiro de Sessoes do Orkastery (RM-059, fatia F9; ficha M9 do plano dos mods). Na sessao do dono, leva a
 // resposta que o dono deu pelo dialogo nativo a sessao de fase `claude-bg` que parou esperando por ela: pega a
 // mensagem na caixa de saida do nucleo (`ork_session_outbox`, so na memoria do servidor desta sessao), envia por
-// `$.session.send` sem mexer no texto e anota o envio no nucleo. Le o que segue incerto pelo `$.ork.retrato`, nunca
-// o estado em `.orkastery/` por conta propria. Nunca responde, aprova ou abre pedido pelo dono. A logica fica nos
-// modulos puros ao lado; aqui so os ganchos e as chamadas ao `$`, sempre escritas como `x.noun.metodo(...)`, como o
-// validador exige.
-import type { EngineInterface, Register } from 'claude-code'
-import type { MensageiroDono, MensageiroMostrado } from '../types'
+// `$.session.send` sem mexer no texto e anota o envio no nucleo. Na sessao de fase, so deixa entrar na conversa a
+// mensagem de outra sessao que o nucleo confirma, pela `ork_session_inbox`, como a resposta do dono reservada para
+// ela; o resto que chega de outra sessao e consumido antes do modelo. Le o que segue incerto pelo `$.ork.retrato`,
+// nunca o estado em `.orkastery/` por conta propria. Nunca responde, aprova ou abre pedido pelo dono. A logica fica
+// nos modulos puros ao lado; aqui so os ganchos e as chamadas ao `$`, sempre escritas como `x.noun.metodo(...)`, como
+// o validador exige.
+import type { EngineInterface, Register, SessionReceiveInput, SessionReceiveResult } from 'claude-code'
+import type { MensageiroDono, MensageiroFase, MensageiroMostrado, MensageiroRecebida } from '../types'
 import type { EntradaDaCaixa } from './caixa'
 import {
   argsDaAnotacao, argsDoEnvio, atualizarEntregas, deveEnviar, DONO_VAZIO, entradaAnotada, FERRAMENTA_DA_CAIXA, incertasDoRetrato,
   jsonDoMcp, lerCaixa, pedidosNoRetrato, resultadoDoEnvio, textoDaFaixa, threadDoLedger, umaLinha,
 } from './caixa'
-import { desenharPainel, linhasDoDono, mostradosVisiveis } from './painel'
+import { desenharPainel, linhasDaFase, linhasDoDono, mostradosVisiveis } from './painel'
+import type { Conferencia } from './recepcao'
+import {
+  argsDaConferencia, argsDaConfirmacao, classificarOrigem, comRecebida, confirmadasDaFase, ESPERAS_DA_CONFIRMACAO_MS, FASE_VAZIA,
+  FERRAMENTA_DA_CONFERENCIA, idsDaMarca, lerConferencia, lerConfirmacao, LIMITE_DA_MENSAGEM, motivoDoConsumo, mudarRecebida,
+  nomeDaOrigem, registroDaRecebida, temMarca, textoComRotulo,
+} from './recepcao'
 
 const MOD = 'ork-mensageiro'
 const PAINEL = 'mensageiro'
 const TITULO = 'Mensageiro de Sessões'
 const DONO = { plugin: 'ork-mensageiro', key: 'dono' } as const
+const FASE = { plugin: 'ork-mensageiro', key: 'fase' } as const
 /** D9 da thread ork-rm059mensag: o tique do lado do dono, que tambem mantem o Mensageiro vivo na caixa de saida. */
 const PERIODO_DO_TIQUE_MS = 20000
 /** Os ledgers que mudam juntos entram numa leitura so. */
@@ -28,16 +37,25 @@ const PRAZO_DO_NUCLEO_MS = 20000
 const ESPERAS_DO_PAPEL_MS = [3000, 10000, 30000]
 const ESPERA_LONGA_DO_PAPEL_MS = 300000
 
-// O que o modulo guarda entre ganchos. O estado em `$.state` (o lado do dono) e o que o desenho le; aqui ficam a copia
-// dele, gravada inteira por `$.state.set` sem versao (uma gravacao por mudanca), e o que nao se desenha. Uma recarga
-// do modulo zera tudo, e o `session.start` dispara de novo nela.
+// O que o modulo guarda entre ganchos. O estado em `$.state` (o lado do dono e o da fase) e o que o desenho le; aqui
+// ficam a copia dele, gravada inteira por `$.state.set` sem versao (uma gravacao por mudanca), e o que nao se
+// desenha. Uma recarga do modulo zera tudo, e o `session.start` dispara de novo nela.
 let ativa = false
+let naFase = false
 let desistiu = false
 let ciclo: { cancel: () => void } | undefined
 let lote: { cancel: () => void } | undefined
 let lendo: Promise<void> | undefined
 let pendente = false
 let dono: MensageiroDono = DONO_VAZIO
+let fase: MensageiroFase = FASE_VAZIA
+/**
+ * O papel e a thread que a ponte deu. O papel `fase` sai do `ORK_DISPATCH_ID` do despacho e nunca muda na sessao, e
+ * a sessao que nao e de fase nunca vira: o receptor decide por isto, lido uma vez.
+ */
+let contextoVisto: { papel: string; thread: string | null } | null = null
+/** As mensagens que o nucleo confirmou e que ainda nao entraram na fila: o `.catch` do receptor deixa passar so elas. */
+const confirmadasEmVoo = new Set<string>()
 /** O ultimo texto publicado na faixa; null antes da primeira publicacao. */
 let ultimaFaixa: string | undefined | null = null
 /** O que o desenho pos na janela de rolagem e ainda nao foi ao registro da ponte (M5). */
@@ -57,20 +75,36 @@ function comPrazo<T>($: EngineInterface, chamada: Promise<T>, ms = PRAZO_DO_NUCL
   })
 }
 
+/** O instante do relogio da sessao; sem ele, o da ultima linha: o receptor nunca para por falta de relogio. */
+async function instante($: EngineInterface): Promise<number> {
+  try {
+    return await $.clock.now()
+  } catch {
+    return fase.recebidas.at(-1)?.em ?? 0
+  }
+}
+
 async function gravarDono($: EngineInterface, novo: MensageiroDono): Promise<void> {
   dono = novo
   await $.state.set(DONO, novo)
 }
 
+async function gravarFase($: EngineInterface, nova: MensageiroFase): Promise<void> {
+  fase = nova
+  await $.state.set(FASE, nova)
+}
+
 /**
- * Trabalho em segundo plano (o tique, o lote, a leitura pedida): a falha vai ao painel; sem como gravar (a sessao
- * acabou ou o estado recusou), ela fica guardada aqui e o proximo desenho a mostra. O `.catch` nao depende do `$`.
+ * Trabalho em segundo plano (o tique, o lote, a leitura pedida, o recibo da entrega): a falha vai ao painel; sem como
+ * gravar (a sessao acabou ou o estado recusou), ela fica guardada aqui e o proximo desenho a mostra. O `.catch` nao
+ * depende do `$`.
  */
 function emSegundoPlano($: EngineInterface, trabalho: Promise<unknown>, oQue: string): void {
   trabalho.catch(async erro => {
     const texto = `${oQue} parou: ${mensagem(erro)}`
     try {
-      await gravarDono($, { ...dono, erro: texto })
+      if (naFase) await gravarFase($, { ...fase, erro: texto })
+      else await gravarDono($, { ...dono, erro: texto })
     } catch (erroDoAviso) {
       problemaSemAviso = `${texto} (o aviso também falhou: ${mensagem(erroDoAviso)})`
     }
@@ -78,15 +112,19 @@ function emSegundoPlano($: EngineInterface, trabalho: Promise<unknown>, oQue: st
 }
 
 /**
- * O papel pela ponte. `null` so quando o `$.ork` nao existe (a ponte nao carregou); uma falha da propria ponte conta
- * como dormente e o papel e conferido de novo depois.
+ * O papel e a thread pela ponte. `null` so quando o `$.ork` nao existe (a ponte nao carregou); a falha da propria
+ * ponte lanca. O que a ponte respondeu fica em `contextoVisto`.
  */
-async function papelDaSessao($: EngineInterface): Promise<string | null> {
+async function contextoDaSessao($: EngineInterface): Promise<{ papel: string; thread: string | null } | null> {
+  let lido: { papel: unknown; thread: unknown }
   try {
-    return String(await $.ork.papel())
+    lido = await comPrazo($, $.ork.contexto())
   } catch (erro) {
-    return erro instanceof TypeError ? null : 'dormente'
+    if (erro instanceof TypeError) return null
+    throw erro
   }
+  contextoVisto = { papel: String(lido.papel), thread: typeof lido.thread === 'string' ? lido.thread : null }
+  return contextoVisto
 }
 
 /** Liga o lado do dono: o `/mensageiro`, o tique e a primeira leitura da caixa. */
@@ -107,14 +145,38 @@ async function ativarDono($: EngineInterface): Promise<void> {
   agendar($, 1)
 }
 
-/** Confere o papel: o dono liga, a fase fica sem o lado do dono, e a sessao dormente e conferida de novo. */
+/** Liga o lado da sessao de fase: o `/mensageiro` mostra o que chegou. O filtro do receptor nao depende disto. */
+async function ativarFase($: EngineInterface): Promise<void> {
+  if (naFase) return
+  naFase = true
+  desistiu = true
+  const guardada = (await $.state.get(FASE)).value
+  // O que chegou antes desta leitura ja esta na memoria e no estado: a copia guardada so volta quando nada chegou.
+  if (guardada && !fase.recebidas.length) fase = guardada
+  fase = { ...fase, thread: contextoVisto?.thread ?? fase.thread }
+  try {
+    await $.command.register({ name: 'mensageiro', description: 'Abre o Mensageiro de Sessões: o que chegou de outras sessões a esta sessão de fase', immediate: true })
+  } catch (erro) {
+    // O filtro segue sem o comando; o painel diz por que ele nao abre.
+    await gravarFase($, { ...fase, erro: `o /mensageiro não foi registrado: ${mensagem(erro)}` })
+  }
+}
+
+/** Confere o papel: o dono liga o lado do dono, a fase liga o da fase, e a sessao dormente e conferida de novo. */
 async function conferirPapel($: EngineInterface, tentativa: number): Promise<void> {
-  if (ativa || desistiu) return
-  const papel = await papelDaSessao($)
+  if (ativa || naFase || desistiu) return
+  let papel: string | null
+  try {
+    papel = (await contextoDaSessao($))?.papel ?? null
+  } catch {
+    // A ponte falhou: a sessao conta como dormente e o papel e conferido de novo depois.
+    papel = 'dormente'
+  }
   if (papel === 'dono') return ativarDono($)
-  if (papel === 'fase' || papel === null) {
+  if (papel === 'fase') return ativarFase($)
+  if (papel === null) {
     desistiu = true
-    if (papel === null) $.ui.toast('mensageiro: a ponte ork-ponte não carregou; o Mensageiro de Sessões fica desligado nesta sessão')
+    $.ui.toast('mensageiro: a ponte ork-ponte não carregou; o Mensageiro de Sessões não leva respostas nesta sessão, e mensagem de outra sessão é consumida antes do modelo')
     return
   }
   const espera = ESPERAS_DO_PAPEL_MS[tentativa] ?? ESPERA_LONGA_DO_PAPEL_MS
@@ -243,11 +305,122 @@ async function registrarMostrados($: EngineInterface): Promise<void> {
   }
 }
 
+/**
+ * Anota o que chegou no estado da fase e, quando a mensagem nao entrou como devia, uma linha no transcript (dim, fora
+ * do modelo). Nunca lanca: o receptor decide sem depender do estado nem do transcript.
+ */
+async function anotar($: EngineInterface, mudar: (f: MensageiroFase) => MensageiroFase, registro: MensageiroRecebida | null): Promise<void> {
+  try {
+    await gravarFase($, mudar(fase))
+  } catch (erro) {
+    problemaSemAviso = `o estado da sessão de fase não foi gravado: ${mensagem(erro)}`
+  }
+  const linha = registro ? registroDaRecebida(registro) : null
+  if (!linha) return
+  try {
+    $.ui.log(linha)
+  } catch (erro) {
+    problemaSemAviso = `o transcript recusou a linha do Mensageiro: ${mensagem(erro)}`
+  }
+}
+
+/** Consome a mensagem de outra sessao antes do modelo, com o motivo no estado, no transcript e no registro do Claude Code. */
+async function consumir($: EngineInterface, e: SessionReceiveInput, motivo: string, detalhe?: string): Promise<SessionReceiveResult> {
+  const r: MensageiroRecebida = { em: await instante($), origem: nomeDaOrigem(e.origin), estado: 'consumida', ...idsDaMarca(e.text),
+    motivo: detalhe ? `${motivo}: ${umaLinha(detalhe, 160)}` : motivo }
+  await anotar($, f => comRecebida(f, r), r)
+  return { consumed: motivoDoConsumo(motivo) }
+}
+
+/**
+ * A mensagem de outra sessao (T9.3). Na sessao de fase: sem a marca, consumida sem chamar o nucleo (D13); com ela, vai
+ * ao `conferir` do nucleo, e so a confirmada segue para a conversa, como chegou (D11), com o `confirmar` depois de
+ * entrar na fila. Falha, prazo vencido e resposta fora do contrato consomem. Sem a ponte, ou sem o papel, consome.
+ * Nas sessoes do dono e dormente, passa como chegou.
+ */
+async function receber($: EngineInterface, e: SessionReceiveInput, next: (e: SessionReceiveInput) => Promise<SessionReceiveResult>): Promise<SessionReceiveResult> {
+  let contexto = contextoVisto
+  if (contexto === null) {
+    try {
+      contexto = await contextoDaSessao($)
+    } catch (erro) {
+      return consumir($, e, 'entrega.sem-papel', mensagem(erro))
+    }
+    if (contexto === null) return consumir($, e, 'entrega.sem-ponte')
+  }
+  if (contexto.papel !== 'fase') return next(e)
+  if (typeof e.text !== 'string' || e.text.length > LIMITE_DA_MENSAGEM) return consumir($, e, 'entrega.grande')
+  if (!temMarca(e.text)) return consumir($, e, 'entrega.sem-marca')
+  const thread = contexto.thread
+  if (thread === null) return consumir($, e, 'entrega.despacho')
+  let conferencia: Conferencia
+  try {
+    conferencia = lerConferencia(jsonDoMcp(await comPrazo($, $.mcp.call('orkastery', 'ork_session_inbox', argsDaConferencia(thread, e.text))), FERRAMENTA_DA_CONFERENCIA))
+  } catch (erro) {
+    return consumir($, e, 'entrega.conferencia-falhou', mensagem(erro))
+  }
+  if (!conferencia.confirmada) return consumir($, e, conferencia.motivo)
+  const { pedidoId, envioId } = conferencia
+  const texto = e.text
+  confirmadasEmVoo.add(texto)
+  let r: SessionReceiveResult
+  try {
+    const chegada: MensageiroRecebida = { em: await instante($), origem: nomeDaOrigem(e.origin), estado: 'confirmando', pedidoId, envioId, motivo: null }
+    await anotar($, f => comRecebida(f, chegada), null)
+    r = await next(e)
+  } finally {
+    confirmadasEmVoo.delete(texto)
+  }
+  if (r.consumed !== undefined) {
+    const caiu: MensageiroRecebida = { em: await instante($), origem: nomeDaOrigem(e.origin), estado: 'nao-entrou', pedidoId, envioId,
+      motivo: `outro plugin a consumiu abaixo do Mensageiro (${umaLinha(r.consumed, 120)})` }
+    await anotar($, f => mudarRecebida(f, envioId, caiu.estado, caiu.motivo, caiu.em), caiu)
+    return r
+  }
+  emSegundoPlano($, confirmar($, thread, pedidoId, envioId, texto, 0), 'a confirmação da entrega')
+  return r
+}
+
+/** O recibo da entrega que entrou na conversa; a falha volta nas esperas e, esgotadas, a linha fica sem recibo. */
+async function confirmar($: EngineInterface, thread: string, pedidoId: string, envioId: string, texto: string, tentativa: number): Promise<void> {
+  let r: { ok: boolean; definitiva: boolean; motivo: string | null }
+  try {
+    r = lerConfirmacao(jsonDoMcp(await comPrazo($, $.mcp.call('orkastery', 'ork_session_inbox', argsDaConfirmacao(thread, envioId, texto))), FERRAMENTA_DA_CONFERENCIA))
+  } catch (erro) {
+    r = { ok: false, definitiva: false, motivo: mensagem(erro) }
+  }
+  const em = await instante($)
+  if (r.ok) return anotar($, f => mudarRecebida(f, envioId, 'entregue', null, em), null)
+  const motivo = r.motivo
+  const espera = r.definitiva ? undefined : ESPERAS_DA_CONFIRMACAO_MS[tentativa]
+  if (espera === undefined) {
+    const semRecibo: MensageiroRecebida = { em, origem: '', estado: 'sem-recibo', pedidoId, envioId, motivo }
+    return anotar($, f => mudarRecebida(f, envioId, 'sem-recibo', motivo, em), semRecibo)
+  }
+  await anotar($, f => mudarRecebida(f, envioId, 'confirmando', `o recibo volta a ser gravado: ${motivo ?? 'sem motivo'}`, em), null)
+  $.clock.after(espera, () => { emSegundoPlano($, confirmar($, thread, pedidoId, envioId, texto, tentativa + 1), 'a confirmação da entrega') })
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const iniciada = await next(e)
     await conferirPapel($, 0).catch(() => undefined)
     return iniciada
+  })
+
+  // Toda entrega que chega a sessao. So a de outra sessao passa pelo receptor (G4); Remote Control, notificacao de
+  // tarefa, agendamento, canais, agentes e teammates verificados desta sessao seguem como chegaram, sem chamada ao
+  // nucleo. O `.catch` fecha: a mensagem de outra sessao que o gancho nao decidiu e consumida, salvo a que o nucleo
+  // ja confirmou e reservou, que segue.
+  on('session.receive', async ($, e, next) => {
+    if (classificarOrigem(e.origin, e.agentId) !== 'outra-sessao') return next(e)
+    return receber($, e, next)
+  }).catch(($, e, next) => {
+    if (next.called) return next(e)
+    if (classificarOrigem(e.origin, e.agentId) !== 'outra-sessao') return next(e)
+    if (contextoVisto !== null && contextoVisto.papel !== 'fase') return next(e)
+    if (confirmadasEmVoo.has(e.text)) return next(e)
+    return { consumed: motivoDoConsumo('entrega.conferencia-falhou') }
   })
 
   // O ledger de uma thread mudou (uma resposta entrou na caixa, a sessao reservou ou confirmou): a leitura entra no
@@ -257,23 +430,37 @@ export const register: Register = on => {
     return next(e)
   }).catch(($, e, next) => next(e))
 
-  // `/mensageiro` abre o painel e le a caixa agora. O comando so existe com o lado do dono ligado.
+  // `/mensageiro` abre o painel: na sessao do dono, as entregas, e le a caixa agora; na de fase, o que chegou.
   on('command.run', { command: 'mensageiro' }, async ($) => {
-    if (!ativa && !desistiu) await conferirPapel($, ESPERAS_DO_PAPEL_MS.length)
-    if (!ativa) return { text: 'O Mensageiro de Sessões só abre na sessão do dono de um projeto do Orkastery.' }
+    if (!ativa && !naFase && !desistiu) await conferirPapel($, ESPERAS_DO_PAPEL_MS.length)
+    if (!ativa && !naFase) return { text: 'O Mensageiro de Sessões só abre numa sessão do Orkastery: a do dono ou a de uma fase.' }
     const aberto = await $.ui.open({ id: PAINEL, title: TITULO })
-    emSegundoPlano($, levar($), 'a leitura da caixa de saída')
+    if (ativa) emSegundoPlano($, levar($), 'a leitura da caixa de saída')
     return { text: aberto.isPlaced ? 'Mensageiro de Sessões aberto.' : `Mensageiro de Sessões aberto, à espera de lugar: ${aberto.reason}` }
   })
 
-  // O painel: as entregas desta sessao e as que seguem noutra. O desenho nunca escreve: so anota o que pos na janela
-  // de rolagem, para o registro do mostrado (M5).
+  // O painel: na sessao do dono, as entregas desta sessao e as que seguem noutra; na de fase, o que chegou. O desenho
+  // nunca escreve: so anota o que pos na janela de rolagem, para o registro do mostrado (M5).
   on('ui.render', { component: 'Pane', requestId: PAINEL }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)
+    if (naFase) {
+      const daFase = (await $.state.get(FASE)).value ?? fase
+      const comProblema: MensageiroFase = problemaSemAviso ? { ...daFase, erro: problemaSemAviso } : daFase
+      return desenharPainel({ Box, Text, Button }, linhasDaFase(comProblema, await $.clock.now()), {})
+    }
     const atual = (await $.state.get(DONO)).value ?? dono
     const comProblema: MensageiroDono = problemaSemAviso ? { ...atual, erro: problemaSemAviso } : atual
     const linhas = linhasDoDono(comProblema, await $.clock.now())
     for (const m of mostradosVisiveis(linhas, e.props.scroll)) vistosNoDesenho.set(`${m.chave}|${m.texto}`, m)
     return desenharPainel({ Box, Text, Button }, linhas, { atualizar: () => { emSegundoPlano($, levar($), 'a leitura da caixa de saída') } })
   })
+
+  // Na sessao de fase, a linha da resposta que o nucleo confirmou mostra o rotulo no lugar do cabecalho. So visual: o
+  // que fica guardado e o que o modelo le nao mudam (D11).
+  on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
+    if (!naFase || !temMarca(e.props.text)) return next(e)
+    const daFase = (await $.state.get(FASE)).value ?? fase
+    const texto = textoComRotulo(e.props.text, confirmadasDaFase(daFase))
+    return texto === null ? next(e) : next({ ...e, props: { ...e.props, text: texto } })
+  }).catch(($, e, next) => next(e))
 }

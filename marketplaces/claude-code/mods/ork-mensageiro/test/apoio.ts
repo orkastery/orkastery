@@ -3,7 +3,8 @@
 // autocontida. Ela segue o contrato do `$.ork` da `ork-ponte` no que o Mensageiro usa: o papel e a thread vem do
 // `env.get` (`ORK_TESTE_PAPEL`, `ORK_TESTE_THREAD`), o retrato vem do `ork_maestro` pelo `mcp.call`, e a faixa e o
 // mostrado vao ao servidor `ponte-falsa`, onde o teste os le. O nucleo embaixo responde as duas ferramentas da
-// entrega pelo fundo `mcp.call`, com o mundo que o teste escolhe. Respostas e mensagens SIMULADAS.
+// entrega pelo fundo `mcp.call`, com o mundo que o teste escolhe; a fila do modelo da sessao de fase e o fundo
+// `session.receive`, e a linha da mensagem e o fundo `ui.render` do `UserMessage`. Respostas e mensagens SIMULADAS.
 export const PONTE_FALSA = {
   name: 'ork-ponte',
   register(on) {
@@ -99,9 +100,15 @@ export function montar(on, opcoes: { papel: string; thread?: string; caixa?: unk
     /** A conferencia do nucleo no receptor: o que `conferir` e `confirmar` respondem, ou `null` para recusa da ferramenta. */
     conferencia: { confirmada: false, motivo: 'entrega.formato' } as unknown, confirmacao: { ok: true, estado: 'entregue' } as unknown,
     atrasoDaConferencia: null as null | (() => Promise<void>),
+    /** O que a fila do modelo responde: `null` enfileira; um texto e um plugin abaixo que consome. */
+    consumoAbaixo: null as string | null,
     listar: 0, anotacoes: [] as any[], envios: [] as any[], conferencias: [] as any[], confirmacoes: [] as any[],
     filas: [] as any[], faixas: [] as any[], mostrados: [] as any[], comandos: [] as string[], abertos: [] as string[], toasts: [] as string[],
     logs: [] as any[], maestro: 0, outrasMcp: [] as any[], proibidas: [] as any[],
+    /** A ordem do que aconteceu na sessao de fase: a conferencia, a fila do modelo e a confirmacao. */
+    ordem: [] as string[],
+    /** O texto que cada linha de mensagem recebeu para desenhar. */
+    linhas: [] as string[],
   }
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('classic.FileChanged', () => ({}))
@@ -132,10 +139,12 @@ export function montar(on, opcoes: { papel: string; thread?: string; caixa?: unk
     if (e.server === 'orkastery' && e.tool === 'ork_session_inbox') {
       if (e.args.operacao === 'conferir') {
         mundo.conferencias.push(e.args)
+        mundo.ordem.push('conferir')
         if (mundo.atrasoDaConferencia) await mundo.atrasoDaConferencia()
         return mundo.conferencia === null ? falha('o servidor do núcleo caiu') : ok(mundo.conferencia)
       }
       mundo.confirmacoes.push(e.args)
+      mundo.ordem.push('confirmar')
       return mundo.confirmacao === null ? falha('o servidor do núcleo caiu') : ok(mundo.confirmacao)
     }
     mundo.outrasMcp.push({ server: e.server, tool: e.tool, args: e.args })
@@ -147,7 +156,17 @@ export function montar(on, opcoes: { papel: string; thread?: string; caixa?: unk
     return mundo.respostaDoEnvio
   })
   // A fila do modelo, embaixo do receptor: o que chega aqui entrou na conversa da sessao de fase.
-  on('session.receive', ($, e) => { mundo.filas.push({ text: e.text, origin: e.origin }); return { text: e.text } })
+  on('session.receive', ($, e) => {
+    mundo.ordem.push('fila')
+    if (mundo.consumoAbaixo) return { consumed: mundo.consumoAbaixo }
+    mundo.filas.push({ text: e.text, origin: e.origin, agentId: e.agentId })
+    return { text: e.text }
+  })
+  // A linha da mensagem como o Claude Code a desenharia: o texto que chegou ate aqui.
+  on('ui.render', { component: 'UserMessage' }, ($, e) => {
+    mundo.linhas.push(e.props.text)
+    return { type: 'Text', children: [e.props.text] }
+  })
   on('command.register', ($, e) => { mundo.comandos.push(e.name); return { value: { command: e.name } } })
   on('ui.open', ($, e) => { mundo.abertos.push(e.id); return { value: { isPlaced: true } } })
   on('ui.close', () => ({ value: undefined }))
@@ -163,6 +182,17 @@ export function montar(on, opcoes: { papel: string; thread?: string; caixa?: unk
 /** O inicio da sessao: a do dono e interativa no terminal; a de fase (`claude --bg`) nao tem pessoa no prompt. */
 export async function iniciar($, interativa = true) {
   await $.session.start({ cwd: '/projeto', surface: interativa ? 'terminal' : null, isInteractive: interativa })
+}
+
+/** Uma entrega que chega a sessao, como o Claude Code a levanta. */
+export async function receber($, origin, text, agentId?: string) {
+  return $.session.receive({ origin, text, ...(agentId ? { agentId } : {}) })
+}
+
+/** A linha de mensagem desenhada numa superficie, com o texto que a sessao guardou. */
+export async function montarMensagem($, surface, text, requestId = 'mensagem-1') {
+  return $.ui.mount({ plugin: 'ork-mensageiro', surface, component: 'UserMessage', requestId,
+    props: { text, origin: { kind: 'peer' }, isExpanded: true, from: { name: 'sessão do dono' } } })
 }
 
 /** O `/mensageiro` como o dono o digita. */

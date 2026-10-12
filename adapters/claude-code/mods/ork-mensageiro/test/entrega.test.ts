@@ -123,16 +123,29 @@ test('sem a caixa de saida lida, nada e enviado e o painel diz por que', { plugi
   expect(textos.some(t => t.startsWith('× a caixa de saída não foi lida: ork_session_outbox recusou: mcp.tool.unknown'))).toBe(true)
 })
 
-test('na sessao de fase e na dormente o lado do dono nao liga: nem /mensageiro, nem caixa, nem envio', { plugins: [PONTE_FALSA] }, async ($, on) => {
+test('na sessao de fase o lado do dono nao liga: o /mensageiro e o do lado da fase, sem caixa, envio nem faixa', { plugins: [PONTE_FALSA] }, async ($, on) => {
   const relogio = mock.clock(on, { now: EPOCA })
   const mundo = montar(on, { papel: 'fase', caixa: [entradaDe()] })
   await iniciar($, false)
   await relogio.advance(5 * 60000)
-  expect(mundo.comandos).toEqual([])
+  expect(mundo.comandos).toEqual(['mensageiro'])
   expect(mundo.listar).toBe(0)
   expect(mundo.envios).toEqual([])
   expect(mundo.faixas).toEqual([])
-  expect((await abrirMensageiro($)).text).toBe('O Mensageiro de Sessões só abre na sessão do dono de um projeto do Orkastery.')
+  expect((await abrirMensageiro($)).text).toBe('Mensageiro de Sessões aberto.')
+  expect(mundo.abertos).toEqual(['mensageiro'])
+  expect(mundo.listar).toBe(0)
+})
+
+test('na sessao dormente nada liga: nem /mensageiro, nem caixa, nem envio', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dormente', caixa: [entradaDe()] })
+  await iniciar($)
+  await relogio.advance(10 * 60000)
+  expect(mundo.comandos).toEqual([])
+  expect(mundo.listar).toBe(0)
+  expect(mundo.envios).toEqual([])
+  expect((await abrirMensageiro($)).text).toBe('O Mensageiro de Sessões só abre numa sessão do Orkastery: a do dono ou a de uma fase.')
 })
 
 test('dormente no inicio, o Mensageiro confere o papel de novo e liga quando a sessao vira do dono', { plugins: [PONTE_FALSA] }, async ($, on) => {

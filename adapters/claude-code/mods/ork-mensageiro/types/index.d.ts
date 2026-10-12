@@ -36,6 +36,35 @@ export type MensageiroDono = {
   erro: string | null
 }
 
+/**
+ * O que aconteceu, na sessao de fase, com uma mensagem que chegou de outra sessao: consumida antes do modelo (sem
+ * entrega confirmada pelo nucleo), confirmando (conferida, na conversa, gravando o recibo), entregue (com o recibo),
+ * sem recibo (na conversa, mas o recibo nao foi gravado) ou nao entrou (conferida, e outro plugin a consumiu abaixo).
+ */
+export type MensageiroEstadoDaRecebida = 'consumida' | 'confirmando' | 'entregue' | 'sem-recibo' | 'nao-entrou'
+
+/** Uma mensagem de outra sessao que chegou a sessao de fase, sem o texto dela. */
+export type MensageiroRecebida = {
+  /** Quando chegou ou mudou de estado (ms desde a epoca). */
+  em: number
+  /** O tipo da origem e o plugin que o remetente diz ser, numa linha. */
+  origem: string
+  estado: MensageiroEstadoDaRecebida
+  /** O pedido e a entrega: conferidos pelo nucleo na entrega confirmada; na consumida, so o que a marca dizia. */
+  pedidoId: string | null
+  envioId: string | null
+  /** Por que foi consumida ou ficou sem recibo, com o codigo do nucleo. */
+  motivo: string | null
+}
+
+/** O lado da sessao de fase: a thread do despacho e o que chegou de outras sessoes. */
+export type MensageiroFase = {
+  thread: string | null
+  recebidas: MensageiroRecebida[]
+  /** Por que um trabalho em segundo plano parou, quando parou. */
+  erro: string | null
+}
+
 /** O que o painel mostrou ao dono e o Telegram tambem diria: a chave junta o que e a mesma coisa (M5). */
 export type MensageiroMostrado = { chave: string; thread: string | null; texto: string }
 
@@ -44,6 +73,8 @@ declare module 'claude-code' {
     'ork-mensageiro': {
       /** O lado do dono: as entregas a caminho das sessoes de fase. */
       dono: MensageiroDono
+      /** O lado da sessao de fase: o que chegou de outras sessoes e o que o nucleo confirmou. */
+      fase: MensageiroFase
     }
   }
 }

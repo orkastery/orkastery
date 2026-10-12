@@ -3,7 +3,10 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ts from 'typescript';
-import { CONTRATO_DA_ENTREGA, lerMensagemDaEntrega, mensagemDaEntrega, novaCaixaDeSaida } from '../src/entrega-por-mod';
+import {
+  cabecalhoDaEntrega, confirmarNoReceptor, conferirNoReceptor, CONTRATO_DA_ENTREGA, LIMITE_DA_MENSAGEM, lerMensagemDaEntrega, mensagemDaEntrega,
+  novaCaixaDeSaida, rotuloDaEntrega,
+} from '../src/entrega-por-mod';
 import { projetoTemporario } from './apoio';
 import { novaThread } from '../src/thread';
 
@@ -11,16 +14,16 @@ import { novaThread } from '../src/thread';
 // o runner do CI nao tem o `claude`, entao a claim hermetica transpila os modulos puros do Mensageiro com o compilador
 // do `core` e os roda num escopo proprio, como os testes da ponte e dos outros mods. O contrato da mensagem e cruzado
 // com o do nucleo (`entrega-por-mod.ts`), e o fonte e varrido pela AST: o Mensageiro le o nucleo pela ponte e por duas
-// ferramentas MCP, e o envio leva so a mensagem da caixa de saida.
+// ferramentas MCP, o envio leva so a mensagem da caixa de saida e o receptor nunca reescreve a mensagem que deixa passar.
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const MENSAGEIRO = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-mensageiro');
-const MODULOS_PUROS = ['hooks/caixa.ts', 'hooks/painel.tsx', 'test/apoio.ts'];
-/** As unicas ferramentas do nucleo que o Mensageiro chama, no servidor `orkastery`. */
-const LISTA_FECHADA_DO_MCP = ['ork_session_outbox'];
+const MODULOS_PUROS = ['hooks/caixa.ts', 'hooks/painel.tsx', 'hooks/recepcao.ts', 'test/apoio.ts'];
+/** As unicas ferramentas do nucleo que o Mensageiro chama, no servidor `orkastery`: a caixa do dono e a conferencia da fase. */
+const LISTA_FECHADA_DO_MCP = ['ork_session_outbox', 'ork_session_inbox'];
 const NOUNS_PROIBIDOS = ['process', 'fs', 'store', 'env', 'prompt'];
 /** Tudo que o Mensageiro chama direto no `$`. */
-const CHAMADAS_PERMITIDAS = ['ork.papel', 'ork.retrato', 'ork.faixa', 'ork.mostrado', 'command.register', 'clock.now', 'clock.after',
-  'clock.every', 'ui.open', 'ui.panes', 'ui.resolve', 'ui.toast', 'mcp.call', 'session.send', 'state.get', 'state.set'];
+const CHAMADAS_PERMITIDAS = ['ork.contexto', 'ork.retrato', 'ork.faixa', 'ork.mostrado', 'command.register', 'clock.now', 'clock.after',
+  'clock.every', 'ui.open', 'ui.panes', 'ui.resolve', 'ui.toast', 'ui.log', 'mcp.call', 'session.send', 'state.get', 'state.set'];
 const EPOCA = 1760000000000;
 
 type No = { tipo: string; props: Record<string, unknown>; filhos: unknown[] };
@@ -56,6 +59,7 @@ function carregar(rel: string): Record<string, any> {
 const lerJson = (rel: string) => JSON.parse(fs.readFileSync(path.join(MENSAGEIRO, rel), 'utf8'));
 const caixa = () => carregar('hooks/caixa.ts');
 const painel = () => carregar('hooks/painel.tsx');
+const recepcao = () => carregar('hooks/recepcao.ts');
 const apoio = () => carregar('test/apoio.ts');
 
 /** Os textos de uma arvore desenhada com o `h` deste teste, um por `Text` e um por `Button` (o rotulo). */
@@ -82,14 +86,14 @@ test('manifesto do Mensageiro: nome, papeis dono e fase, so a ponte como depende
 test('o contrato declara o estado sem import nem referencia, e nenhuma entrega guarda o texto da resposta', () => {
   const tipos = fs.readFileSync(path.join(MENSAGEIRO, 'types/index.d.ts'), 'utf8');
   assert.ok(!/^import /m.test(tipos) && !tipos.includes('/// <reference'));
-  for (const chave of ["'ork-mensageiro': {", 'dono: MensageiroDono']) assert.ok(tipos.includes(chave), chave);
+  for (const chave of ["'ork-mensageiro': {", 'dono: MensageiroDono', 'fase: MensageiroFase']) assert.ok(tipos.includes(chave), chave);
   const bloco = (nome: string) => {
     const i = tipos.indexOf(`export type ${nome} =`);
     assert.ok(i >= 0, nome);
     const j = tipos.indexOf('\nexport type ', i + 1);
     return tipos.slice(i, j < 0 ? undefined : j).split('\n').filter((l) => !/^\s*(\/\/|\/\*\*|\*)/.test(l)).join('\n');
   };
-  for (const nome of ['MensageiroEntrega', 'MensageiroDono', 'MensageiroIncerta']) {
+  for (const nome of ['MensageiroEntrega', 'MensageiroDono', 'MensageiroIncerta', 'MensageiroRecebida', 'MensageiroFase']) {
     assert.ok(!/\b(texto|mensagem|resposta|text)\??\s*:/.test(bloco(nome)), nome);
   }
 });
@@ -254,8 +258,10 @@ test('o Mensageiro so chama no $ uma lista fechada; o MCP so as ferramentas da e
   const vistas = new Set<string>();
   const ferramentas: Record<string, string[]> = {};
   const envios: string[] = [];
+  const nexts: string[] = [];
   for (const arquivo of fontes) {
     for (const c of chamadasDoFonte(arquivo)) {
+      if (c.cadeia.join('.') === 'next') nexts.push(c.argumentos[0]);
       const onde = `${path.relative(raizDoRepo, arquivo)}:${c.linha} ${c.cadeia.join('.')}`;
       assert.ok(!c.cadeia.slice(1, -1).some((n) => NOUNS_PROIBIDOS.includes(n)), `chamada proibida: ${onde}`);
       if (c.cadeia[0] === '$') {
@@ -274,36 +280,145 @@ test('o Mensageiro so chama no $ uma lista fechada; o MCP so as ferramentas da e
   }
   assert.deepEqual(Object.keys(ferramentas).sort(), [...LISTA_FECHADA_DO_MCP].sort());
   assert.deepEqual(ferramentas.ork_session_outbox.sort(), ['chamada:argsDaAnotacao', 'objeto:operacao'].sort());
+  assert.deepEqual(ferramentas.ork_session_inbox.sort(), ['chamada:argsDaConferencia', 'chamada:argsDaConfirmacao'].sort());
   assert.deepEqual(envios, ['chamada:argsDoEnvio'], 'o envio monta o argumento so pelo argsDoEnvio, com a mensagem da caixa');
-  for (const chamada of ['ork.retrato', 'ork.faixa', 'ork.mostrado', 'session.send', 'mcp.call']) assert.ok(vistas.has(chamada), chamada);
+  // D11: todo `next` leva o evento como chegou; a unica reescrita e a do desenho do UserMessage (`props`, so visual).
+  assert.deepEqual(nexts.filter((a) => a !== 'nome:e'), ['objeto:?,props']);
+  assert.ok(nexts.filter((a) => a === 'nome:e').length >= 6);
+  for (const chamada of ['ork.contexto', 'ork.retrato', 'ork.faixa', 'ork.mostrado', 'session.send', 'mcp.call', 'ui.log']) assert.ok(vistas.has(chamada), chamada);
   const registro = fs.readFileSync(path.join(MENSAGEIRO, 'hooks/register.tsx'), 'utf8');
   assert.ok(!/\$\.(fs|env|process|store|prompt)\./.test(registro));
   assert.ok(!registro.includes('session.append'), 'o Mensageiro nunca grava linha de usuario');
+  // O receptor fecha na falha: o `.catch` consome a mensagem de outra sessao que o gancho nao decidiu.
+  assert.match(registro, /on\('session\.receive', async \(\$, e, next\) => \{[\s\S]*?\}\)\.catch\(\(\$, e, next\) => \{\n    if \(next\.called\) return next\(e\)[\s\S]*?return \{ consumed: motivoDoConsumo\('entrega\.conferencia-falhou'\) \}/);
 });
 
 test('as ferramentas da lista existem no nucleo: a caixa so no servidor do dono do Claude Code', () => {
   const servidor = fs.readFileSync(path.join(raizDoRepo, 'core/src/mcp-server.ts'), 'utf8');
   assert.ok(servidor.includes("if(caixa) registrarTool('ork_session_outbox',"));
   assert.match(servidor, /const caixa = opcoes\.host==='claude-code' && !opcoes\.threadId \? novaCaixaDeSaida\(\) : null;/);
+  // A conferencia do receptor so no servidor preso a uma thread e a um despacho.
+  assert.match(servidor, /if\(opcoes\.threadId && opcoes\.dispatchId\) \{\n\s+const despacho=opcoes\.dispatchId;\n\s+registrarTool\('ork_session_inbox',/);
+  assert.equal(recepcao().FERRAMENTA_DA_CONFERENCIA, 'ork_session_inbox');
+  assert.equal(caixa().FERRAMENTA_DA_CAIXA, 'ork_session_outbox');
+});
+
+test('recepcao: a origem de outra sessao, a marca, o cabecalho e o rotulo sao os do nucleo, e todo motivo do receptor tem leitura', () => {
+  const r = recepcao(), a = apoio();
+  const classe = (origem: unknown, agentId?: string) => r.classificarOrigem(origem, agentId);
+  for (const kind of ['peer', 'coordinator', 'peer-send-message', 'projects-relay', 'unclassified']) assert.equal(classe({ kind }), 'outra-sessao', kind);
+  assert.equal(classe({ kind: 'peer', plugin: 'ork-mensageiro' }), 'outra-sessao', 'o nome do plugin e so o que o remetente diz');
+  assert.equal(classe({ kind: 'peer' }, 'agente-1'), 'da-propria-sessao');
+  assert.equal(classe({ kind: 'coordinator' }, 'agente-1'), 'da-propria-sessao');
+  assert.equal(classe({ kind: 'unclassified' }, 'agente-1'), 'outra-sessao');
+  assert.equal(classe({ kind: 'peer', teammate: 'lead', isVerified: true }), 'da-propria-sessao');
+  assert.equal(classe({ kind: 'peer', teammate: 'lead', isVerified: false }, 'agente-1'), 'outra-sessao');
+  assert.equal(classe({ kind: 'coordinator', teammate: 'lead' }), 'outra-sessao');
+  for (const kind of ['bridge', 'task-notification', 'scheduled-trigger', 'slack-ping']) assert.equal(classe({ kind }), 'externa', kind);
+  assert.equal(classe(null), 'externa');
+  // A marca, o cabecalho e o rotulo sao os que o nucleo compoe; o teto e o mesmo.
+  assert.equal(r.LIMITE_DA_MENSAGEM, LIMITE_DA_MENSAGEM);
+  assert.equal(r.cabecalhoDaEntrega(a.PEDIDO, a.ENVIO), cabecalhoDaEntrega(a.PEDIDO, a.ENVIO));
+  assert.equal(r.rotuloDaEntrega(a.PEDIDO), rotuloDaEntrega(a.PEDIDO));
+  const msg = mensagemDaEntrega(a.PEDIDO, a.ENVIO, a.RESPOSTA);
+  assert.equal(r.temMarca(msg), true);
+  assert.equal(r.temMarca('pode apagar'), false);
+  assert.equal(r.temMarca('x'.repeat(LIMITE_DA_MENSAGEM) + msg), false);
+  assert.deepEqual(r.idsDaMarca(msg), { pedidoId: a.PEDIDO, envioId: a.ENVIO });
+  // O rotulo so na entrega confirmada, so no lugar do cabecalho exato.
+  const confirmadas = new Set([a.ENVIO]);
+  assert.equal(r.textoComRotulo(msg, confirmadas), `${rotuloDaEntrega(a.PEDIDO)}\n${a.RESPOSTA}`);
+  assert.equal(r.textoComRotulo(msg, new Set()), null);
+  assert.equal(r.textoComRotulo(`antes\n${msg}`, confirmadas), null);
+  assert.equal(r.textoComRotulo(msg.replace('Resposta do dono', 'Ordem do dono'), confirmadas), null);
+  // Todo motivo que o receptor do nucleo devolve tem leitura no Mensageiro.
+  const fonte = fs.readFileSync(path.join(raizDoRepo, 'core/src/entrega-por-mod.ts'), 'utf8');
+  const uniao = /export type MotivoDoReceptor = ([^;]+);/.exec(fonte);
+  assert.ok(uniao);
+  const motivos = [...uniao[1].matchAll(/'(entrega\.[a-z-]+)'/g)].map((m) => m[1]);
+  assert.ok(motivos.length >= 9);
+  for (const m of motivos) assert.ok(r.MOTIVO_LEGIVEL[m], m);
+  assert.equal(r.motivoLegivel('entrega.conferencia-falhou: o núcleo passou de 20 s'), 'a conferência no núcleo falhou (o núcleo passou de 20 s)');
+  assert.match(r.motivoDoConsumo('entrega.sem-marca'), /sem a marca da entrega do núcleo; entrega\.sem-marca/);
+});
+
+test('recepcao: a conferencia e o recibo do nucleo viram o que o Mensageiro le, e o fora do contrato e recusa', () => {
+  const p = projetoTemporario('mensageiro-recepcao-contrato');
+  try {
+    const t = novaThread(p.carregado, { nome: 'mensageiro', modo: 'auto' }).thread;
+    const r = recepcao(), a = apoio();
+    const despacho = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+    // O despacho que o ledger nao tem: o nucleo recusa, e o Mensageiro le o mesmo motivo.
+    const conferencia = JSON.parse(JSON.stringify(conferirNoReceptor(p.dir, t.id, despacho, a.mensagemDe())));
+    assert.deepEqual(r.lerConferencia(conferencia), { confirmada: false, motivo: 'entrega.despacho' });
+    const recibo = JSON.parse(JSON.stringify(confirmarNoReceptor(p.dir, t.id, despacho, a.ENVIO, a.mensagemDe())));
+    assert.deepEqual(r.lerConfirmacao(recibo), { ok: false, definitiva: true, motivo: 'entrega.despacho' });
+    // A confirmada precisa dos dois ids; o resto e recusa fora do contrato.
+    assert.deepEqual(r.lerConferencia({ confirmada: true, pedidoId: a.PEDIDO, envioId: a.ENVIO, rotulo: 'x' }), { confirmada: true, pedidoId: a.PEDIDO, envioId: a.ENVIO });
+    assert.deepEqual(r.lerConferencia({ confirmada: true, pedidoId: a.PEDIDO }), { confirmada: false, motivo: 'entrega.fora-do-contrato' });
+    assert.deepEqual(r.lerConferencia({ confirmada: 'sim', pedidoId: a.PEDIDO, envioId: a.ENVIO }), { confirmada: false, motivo: 'entrega.fora-do-contrato' });
+    assert.deepEqual(r.lerConferencia({ confirmada: false, motivo: 'qualquer coisa' }), { confirmada: false, motivo: 'entrega.fora-do-contrato' });
+    assert.deepEqual(r.lerConfirmacao({ ok: true, estado: 'entregue' }), { ok: true, definitiva: true, motivo: null });
+    assert.deepEqual(r.lerConfirmacao({ ok: false, estado: 'pendente' }), { ok: false, definitiva: false, motivo: 'o núcleo respondeu pendente' });
+    assert.deepEqual(r.argsDaConferencia(t.id, 'm'), { threadId: t.id, operacao: 'conferir', texto: 'm' });
+    assert.deepEqual(r.argsDaConfirmacao(t.id, a.ENVIO, 'm'), { threadId: t.id, operacao: 'confirmar', envioId: a.ENVIO, texto: 'm' });
+  } finally { p.limpar(); }
+});
+
+test('painel da fase: glifo e rotulo em cada estado, a origem e o motivo, sem o texto e sem botao', () => {
+  const p = painel(), r = recepcao(), a = apoio();
+  const recebida = (estado: string, o: Record<string, unknown> = {}) => ({ em: EPOCA, origem: 'peer, plugin declarado ork-mensageiro', estado,
+    pedidoId: a.PEDIDO, envioId: a.ENVIO, motivo: null, ...o });
+  let fase = { ...r.FASE_VAZIA, thread: 'ork-a' };
+  fase = r.comRecebida(fase, recebida('consumida', { pedidoId: null, envioId: null, motivo: 'entrega.sem-marca' }));
+  for (const estado of ['confirmando', 'entregue', 'sem-recibo', 'nao-entrou']) fase = r.comRecebida(fase, recebida(estado, { motivo: estado === 'sem-recibo' ? 'entrega.sem-reserva' : null }));
+  const desenho = textos(p.desenharPainel({ Box: 'Box', Text: 'Text', Button: 'Button' }, p.linhasDaFase(fase, EPOCA + 120000), {}));
+  assert.equal(desenho[0], 'Mensageiro de Sessões');
+  assert.ok(!desenho.includes('Atualizar'));
+  for (const estado of Object.keys(p.ROTULO_DA_RECEBIDA)) assert.ok(desenho.some((t) => t.includes(p.ROTULO_DA_RECEBIDA[estado])), estado);
+  assert.ok(desenho.includes('○ mensagem de outra sessão (peer, plugin declarado ork-mensageiro) · consumida antes do modelo · há 2 min'));
+  assert.ok(desenho.includes('  sem a marca da entrega do núcleo · entrega.sem-marca'));
+  assert.ok(desenho.includes(`? resposta do dono ao pedido ${a.PEDIDO.slice(0, 8)} · entrou na conversa, mas o recibo não foi gravado · há 2 min`));
+  assert.ok(!desenho.some((t) => t.includes(a.RESPOSTA)));
+  // O mais novo em cima, e o teto de 30 linhas guardadas.
+  assert.ok(desenho.findIndex((t) => t.startsWith('×')) < desenho.findIndex((t) => t.startsWith('○')));
+  let cheia = r.FASE_VAZIA;
+  for (let i = 0; i < 40; i++) cheia = r.comRecebida(cheia, recebida('consumida', { em: i }));
+  assert.equal(cheia.recebidas.length, 30);
+  assert.equal(cheia.recebidas[0].em, 10);
+  // A mudanca vale so para a entrega confirmada daquele envio.
+  const mudada = r.mudarRecebida(fase, a.ENVIO, 'entregue', null, EPOCA + 5);
+  assert.ok(mudada.recebidas.filter((x: { estado: string }) => x.estado !== 'consumida').every((x: { estado: string }) => x.estado === 'entregue'));
+  assert.equal(mudada.recebidas[0].estado, 'consumida');
+  assert.deepEqual([...r.confirmadasDaFase(fase)], [a.ENVIO]);
 });
 
 test('os modulos puros nao importam o motor nem valor de fora', () => {
   for (const rel of MODULOS_PUROS) assert.ok(carregar(rel), rel);
-  for (const rel of ['hooks/caixa.ts', 'hooks/painel.tsx']) {
+  for (const rel of ['hooks/caixa.ts', 'hooks/painel.tsx', 'hooks/recepcao.ts']) {
     const fonte = fs.readFileSync(path.join(MENSAGEIRO, rel), 'utf8');
     assert.ok(!/from 'claude-code'/.test(fonte), `${rel} nao importa o motor`);
   }
 });
 
-test('os testes do kit cobrem terminal e desktop e os casos do lado do dono', () => {
+test('os testes do kit cobrem terminal e desktop e os casos do lado do dono e do lado da fase', () => {
   const entrega = fs.readFileSync(path.join(MENSAGEIRO, 'test/entrega.test.ts'), 'utf8');
   const doPainel = fs.readFileSync(path.join(MENSAGEIRO, 'test/painel.test.tsx'), 'utf8');
-  assert.ok((entrega.match(/^test\(/gm) ?? []).length >= 9);
-  assert.ok((doPainel.match(/^test\(/gm) ?? []).length >= 4);
-  assert.ok(doPainel.includes("for (const surface of ['terminal', 'desktop'] as const)"));
-  assert.ok(entrega.includes("for (const surface of ['terminal', 'desktop'] as const)"));
+  const receber = fs.readFileSync(path.join(MENSAGEIRO, 'test/receber.test.ts'), 'utf8');
+  assert.ok((entrega.match(/^test\(/gm) ?? []).length >= 10);
+  assert.ok((doPainel.match(/^test\(/gm) ?? []).length >= 5);
+  assert.ok((receber.match(/^test\(/gm) ?? []).length >= 11);
+  for (const fonte of [doPainel, entrega, receber]) assert.ok(fonte.includes("for (const surface of ['terminal', 'desktop'] as const)"));
   for (const titulo of ['a resposta da caixa vai a sessao de fase como o nucleo a compos', 'o que o receptor reservou nao vai de novo',
-    'na sessao de fase e na dormente o lado do dono nao liga']) assert.ok(entrega.includes(titulo), titulo);
+    'na sessao de fase o lado do dono nao liga', 'na sessao dormente nada liga']) assert.ok(entrega.includes(titulo), titulo);
+  for (const titulo of ['sem a marca e consumida sem chamar o nucleo, mesmo com plugin ork-mensageiro',
+    'Remote Control, notificacao, agendamento, canal, agentes e teammates verificados passam intocados e sem chamada ao nucleo',
+    'a mensagem com a marca que o nucleo confirma entra na conversa como chegou, e o recibo vai depois de entrar na fila',
+    'a recusa do nucleo, a falha da conferencia, o prazo vencido e a resposta fora do contrato consomem',
+    'na sessao do dono o Mensageiro nao filtra', 'na sessao dormente o Mensageiro nao filtra', 'sem a ponte, a mensagem de outra sessao e consumida']) {
+    assert.ok(receber.includes(titulo), titulo);
+  }
+  assert.ok(doPainel.includes('na sessao de fase o painel mostra o que chegou'));
 });
 
 test('guarda: o Mensageiro passa na guarda estatica, sozinho e junto dos outros mods', () => {
