@@ -1,0 +1,153 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm058rm061",
+  "branch": "ork/ork-rm058rm061-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm058rm061",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG tem, em Não publicado, uma entrada para a RM-061 e outra para as decisões da RM-058.",
+      "negativa": false,
+      "verificar": [
+        "grep -F '**CLI em inglês e pt-BR** ([RM-061]' CHANGELOG.md",
+        "grep -F '**Decisões do dono no modo #Noctum** ([RM-058]' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T03:24:40.293Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm058rm061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "A RM-058 registra D1 a D4 como decididas pelo dono em 12/10/2026 (C, B, C, B), com alternativas descartadas mantidas.",
+      "negativa": false,
+      "verificar": [
+        "grep -F '### Decisões do dono' docs/roadmap/RM-058-modo-noctum.md",
+        "grep -cE 'Decidida em 12/10/2026' docs/roadmap/RM-058-modo-noctum.md | grep -Fx 4"
+      ],
+      "criadoEm": "2026-10-12T03:24:44.517Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm058rm061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "A RM-058 não diz mais que nenhuma decisão está ratificada, e o ciclo continua em Refinamento.",
+      "negativa": true,
+      "verificar": [
+        "grep -F 'ciclo: Refinamento' docs/roadmap/RM-058-modo-noctum.md",
+        "grep -cE 'Decisões para o dono|nenhuma está ratificada' docs/roadmap/RM-058-modo-noctum.md | grep -Fx 0"
+      ],
+      "criadoEm": "2026-10-12T03:24:45.883Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm058rm061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "A RM-061 tem ciclo Em desenvolvimento, as fatias F1 a F3 e está no índice do roadmap.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'ciclo: Em desenvolvimento' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+        "grep -F 'RM-061-cli-em-ingles-e-pt-br.md' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-12T03:24:47.186Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm058rm061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "A RM-061 diz que a F1 (#113) está mesclada com o commit 4a889fc e que o EN9 já está na main.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'commit: 4a889fc' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+        "grep -F 'F1: Prova de conceito e docs (mesclada)' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
+      ],
+      "criadoEm": "2026-10-12T03:52:10.631Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm058rm061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice lista RM-059, RM-060 e RM-061 em Desenvolvimento com código Mesclado.",
+      "negativa": false,
+      "verificar": [
+        "grep -E '^\\| \\[RM-0(59|60|61)\\].*Em desenvolvimento \\| Mesclado' docs/roadmap/README.md | grep -c . | grep -Fx 3"
+      ],
+      "criadoEm": "2026-10-12T03:53:21.113Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm058rm061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-059-conducao-dentro-do-claude-code.md",
+      "alegacao": "A RM-059 tem estado.codigo Mesclado com o commit 8087442, como diz o ledger do ship.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'codigo: Mesclado' docs/roadmap/RM-059-conducao-dentro-do-claude-code.md",
+        "grep -F 'commit: \"8087442\"' docs/roadmap/RM-059-conducao-dentro-do-claude-code.md"
+      ],
+      "criadoEm": "2026-10-12T03:53:22.450Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm058rm061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-060-site-como-produto.md",
+      "alegacao": "A RM-060 tem estado.codigo Mesclado com o commit 8087442, como diz o ledger do ship.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'codigo: Mesclado' docs/roadmap/RM-060-site-como-produto.md",
+        "grep -F 'commit: \"8087442\"' docs/roadmap/RM-060-site-como-produto.md"
+      ],
+      "criadoEm": "2026-10-12T03:53:23.488Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm058rm061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "A página da RM-061 não cita caminho de máquina, e-mail pessoal nem nome de máquina.",
+      "negativa": false,
+      "verificar": [
+        "grep -cE '/home/|@gmail|srvjcp' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md | grep -Fx 0"
+      ],
+      "criadoEm": "2026-10-12T03:53:31.777Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C15",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
