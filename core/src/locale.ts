@@ -48,6 +48,7 @@ import { SHIP_EN, SHIP_PT_BR } from './locale-ship';
 import { RETRY_EN, RETRY_PT_BR } from './locale-retry';
 import { MASTER_EN, MASTER_PT_BR } from './locale-master';
 import { PULSE_EN, PULSE_PT_BR } from './locale-pulse';
+import { ROADMAP_EN, ROADMAP_PT_BR } from './locale-roadmap';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -57,12 +58,12 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
  * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync`,
  * `experiencia uninstall` e `thread list|close|entrega`. A F2b (G3) acrescenta `verify` (com `--baseline`),
  * `ship`, `ship registrar-pr`, `retry plan`, `retry run`, `master` (o indice), `master aceitar-omissao` e
- * `master pedir`, e `pulse` (sem `responder` nem `cadencia`).
+ * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
   'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
-  'master', 'master aceitar-omissao', 'master pedir', 'pulse'];
+  'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -71,6 +72,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['thread', { padrao: 'list', conhecidos: ['new', 'list', 'status', 'close', 'entrega'] }],
   ['phase', { padrao: null, conhecidos: ['run', 'list'] }],
   ['retry', { padrao: null, conhecidos: ['plan', 'run', 'policy', 'parse', 'list', 'resume', 'cancel'] }],
+  ['roadmap', { padrao: 'reservas', conhecidos: ['reservas', 'status', 'feat', 'pegar', 'soltar'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
@@ -376,6 +378,7 @@ const PT_BR = {
   retry: RETRY_PT_BR,
   master: MASTER_PT_BR,
   pulse: PULSE_PT_BR,
+  roadmap: ROADMAP_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -629,6 +632,7 @@ const EN: Mensagens = {
   retry: RETRY_EN,
   master: MASTER_EN,
   pulse: PULSE_EN,
+  roadmap: ROADMAP_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',
