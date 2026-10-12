@@ -10,6 +10,7 @@ import { MODOS, ORDEM_DOS_MODOS } from './modos';
 import { lerSetup, configDoBloco } from './setup';
 import { resolverDespacho } from './phase';
 import { resolverRuntime } from './runtimes';
+import { msg } from './locale';
 import { sondarSandbox } from './adapters/codex';
 import { nomesDeProviderAtivos, ENVS_DE_PROVIDER_PAGO } from './runtime-ambiente';
 import { validarAbbrev } from './slug';
@@ -60,23 +61,23 @@ export function umaskDoProcesso():number|null {
 export function sondasDeAmbiente(raiz:string,umask:number|null=umaskDoProcesso()):Check[] {
   const checks:Check[]=[];
   const octal=(v:number)=>'0'+v.toString(8).padStart(3,'0');
-  checks.push(umask===null?{nome:'umask',nivel:'warn',detalhe:'umask do processo nao medido nesta plataforma'}
-    :(umask&0o022)===0o022?{nome:'umask',nivel:'ok',detalhe:`umask ${octal(umask)} nega escrita de grupo e outros`}
-    :{nome:'umask',nivel:'warn',detalhe:`umask ${octal(umask)} permite escrita de grupo ou outros: o que o runtime criar sera recusado pelo sensor (bits 0o022)`,
-      correcao:'umask 022 (ou 077) no shell que roda o ork e os runtimes'});
+  const m=msg().doctor;
+  checks.push(umask===null?{nome:'umask',nivel:'warn',detalhe:m.umaskNaoMedido}
+    :(umask&0o022)===0o022?{nome:'umask',nivel:'ok',detalhe:m.umaskOk(octal(umask))}
+    :{nome:'umask',nivel:'warn',detalhe:m.umaskAberto(octal(umask)),correcao:m.umaskCorrecao});
   const estado=path.join(raizDoEstado(raiz),'.orkastery');
   let st:fs.Stats|null=null;
   try {st=fs.lstatSync(estado);} catch {/* ausencia e do check de estado do projeto */}
-  if(st) checks.push(!st.isDirectory() || st.isSymbolicLink()?{nome:'permissoes do estado',nivel:'fail',detalhe:`${estado} nao e diretorio real`}
-    :st.mode&0o022?{nome:'permissoes do estado',nivel:'warn',detalhe:`${estado} com modo ${octal(st.mode&0o777)}: grupo ou outros podem escrever no estado`,correcao:`chmod go-w ${estado}`}
-    :{nome:'permissoes do estado',nivel:'ok',detalhe:`${estado} com modo ${octal(st.mode&0o777)}`});
+  if(st) checks.push(!st.isDirectory() || st.isSymbolicLink()?{nome:'permissoes do estado',nivel:'fail',detalhe:m.estadoNaoDiretorio(estado)}
+    :st.mode&0o022?{nome:'permissoes do estado',nivel:'warn',detalhe:m.estadoAberto(estado,octal(st.mode&0o777)),correcao:`chmod go-w ${estado}`}
+    :{nome:'permissoes do estado',nivel:'ok',detalhe:m.estadoComModo(estado,octal(st.mode&0o777))});
   const privada=path.join(estado,'private');
   let sp:fs.Stats|null=null;
   try {sp=fs.lstatSync(privada);} catch {/* criada sob demanda */}
-  checks.push(!sp?{nome:'pasta privada',nivel:'ok',detalhe:`${privada} ausente: criada sob demanda com 0700`}
+  checks.push(!sp?{nome:'pasta privada',nivel:'ok',detalhe:m.privadaAusente(privada)}
     :!sp.isDirectory() || sp.isSymbolicLink() || sp.uid!==process.getuid?.() || (sp.mode&0o777)!==0o700
-      ?{nome:'pasta privada',nivel:'fail',detalhe:`${privada} precisa ser diretorio 0700 do proprio usuario (modo ${octal(sp.mode&0o777)}): recibo HITL e perfis recusam`,correcao:`chmod 700 ${privada}`}
-      :{nome:'pasta privada',nivel:'ok',detalhe:`${privada} com modo 0700`});
+      ?{nome:'pasta privada',nivel:'fail',detalhe:m.privadaAberta(privada,octal(sp.mode&0o777)),correcao:`chmod 700 ${privada}`}
+      :{nome:'pasta privada',nivel:'ok',detalhe:m.privadaOk(privada)});
   return checks;
 }
 

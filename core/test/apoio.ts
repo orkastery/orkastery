@@ -92,6 +92,29 @@ export function semManutencaoAutomaticaDoGit(env: NodeJS.ProcessEnv = process.en
   process.once('exit', () => fs.rmSync(base, { recursive: true, force: true }));
 }
 
+/**
+ * RM-061 (F2a, D13): ambiente de um filho cujo texto o teste le em pt-BR. O texto dos comandos que
+ * seguem o locale vem de `LC_ALL`, `LC_MESSAGES` e `LANG`; quem le esse texto fixa o pt-BR em vez de
+ * herdar o locale de quem roda a suite (numa maquina com `LANG=en_US.UTF-8`, o texto sairia em ingles).
+ */
+export function envPtBr(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const r: NodeJS.ProcessEnv = { ...env, LANG: 'C.UTF-8' };
+  delete r.LC_ALL;
+  delete r.LC_MESSAGES;
+  return r;
+}
+
+/** RM-061 (D13): o mesmo para o teste que chama o `main` no proprio processo; o ambiente volta ao fim. */
+export function comAmbientePtBr<T>(fn: () => T): T {
+  const antes = { LANG: process.env.LANG, LC_ALL: process.env.LC_ALL, LC_MESSAGES: process.env.LC_MESSAGES };
+  process.env.LANG = 'C.UTF-8';
+  delete process.env.LC_ALL;
+  delete process.env.LC_MESSAGES;
+  try { return fn(); } finally {
+    for (const [k, v] of Object.entries(antes)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+}
+
 /** Diretorio temporario com caminho real (o macOS e o /tmp do linux usam symlink). */
 export function dirTemporario(nome: string): string {
   return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-test-${nome}-`)));

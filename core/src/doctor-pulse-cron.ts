@@ -12,6 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Check } from './types';
 import { exec } from './util';
+import { msg } from './locale';
 
 /** A batida do template `monitor/pulse.cron` (I-50): a menor cadencia das tags. */
 export const BATIDA_DO_TEMPLATE = '*/15 * * * *';
@@ -28,9 +29,9 @@ export type LeitorDoCrontab = () => LeituraDoCrontab;
 export function lerCrontabDoSistema(): LeituraDoCrontab {
   const r = exec('crontab', ['-l'], undefined, 5000);
   if (r.ok) return { ok: true, texto: r.stdout };
-  if (r.error === 'ENOENT') return { ok: false, motivo: 'comando crontab ausente nesta maquina' };
-  const msg = (r.stderr || r.stdout).trim().split('\n')[0] ?? '';
-  return { ok: false, motivo: msg ? `crontab -l falhou: ${msg}` : `crontab -l saiu ${r.code}` };
+  if (r.error === 'ENOENT') return { ok: false, motivo: msg().doctor.cronSemComando };
+  const primeira = (r.stderr || r.stdout).trim().split('\n')[0] ?? '';
+  return { ok: false, motivo: primeira ? msg().doctor.cronFalhou(primeira) : msg().doctor.cronSaiu(r.code) };
 }
 
 const MACROS: Record<string, number> = { '@hourly': 60, '@daily': 1440, '@midnight': 1440, '@weekly': 10080,
@@ -133,12 +134,12 @@ export function checarCronDoPulse(dirMonitor: string, raizDoCheckout: string,
   const comandoSugerido = comandoDaVarredura(raizDoCheckout, scriptDoOrk);
   const linhaNova = (comando: string) => `${BATIDA_DO_TEMPLATE} ${comando}`;
   const ausente = (detalhe: string): Check => ({ nome, nivel: 'warn', detalhe,
-    correcao: `adicione ao crontab (crontab -e), como no template monitor/pulse.cron: ${linhaNova(comandoSugerido)}` });
+    correcao: msg().doctor.cronAdicione(linhaNova(comandoSugerido)) });
 
   const leitura = ler();
-  if (!leitura.ok) return ausente(`pulse-host.json presente, mas sem crontab para ler (${leitura.motivo}): a varredura nao bate`);
+  if (!leitura.ok) return ausente(msg().doctor.cronSemLeitura(leitura.motivo));
   const linhas = linhasDaVarredura(leitura.texto);
-  if (linhas.length === 0) return ausente(`pulse-host.json presente, e nenhuma linha do crontab roda ${SCRIPT_DA_VARREDURA}: o resumo nao sai`);
+  if (linhas.length === 0) return ausente(msg().doctor.cronSemLinha(SCRIPT_DA_VARREDURA));
 
   const lentas: { linha: string; comando: string; intervalo: number | null }[] = [];
   for (const linha of linhas) {
@@ -147,12 +148,9 @@ export function checarCronDoPulse(dirMonitor: string, raizDoCheckout: string,
     if (intervalo === null || intervalo > 15) lentas.push({ linha, comando: partes?.comando ?? comandoSugerido, intervalo });
   }
   if (lentas.length < linhas.length) {
-    return { nome, nivel: 'ok', detalhe: `varredura no cron a cada 15 minutos ou menos (${linhas.length} linha(s))` };
+    return { nome, nivel: 'ok', detalhe: msg().doctor.cronOk(linhas.length) };
   }
   const l = lentas[0];
-  const ritmo = l.intervalo === null ? 'com horario que o doctor nao le' : l.intervalo === 60 ? 'de hora em hora'
-    : `a cada ${l.intervalo} minutos`;
-  return { nome, nivel: 'warn',
-    detalhe: `a varredura do pulse bate ${ritmo} (\`${l.linha}\`): a cadencia por tag (RM-039) pede 15 minutos`,
-    correcao: `troque a linha no crontab (crontab -e) por: ${linhaNova(l.comando)}` };
+  return { nome, nivel: 'warn', detalhe: msg().doctor.cronLento(msg().doctor.cronRitmo(l.intervalo), l.linha),
+    correcao: msg().doctor.cronTroque(linhaNova(l.comando)) };
 }

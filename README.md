@@ -11,7 +11,7 @@
 - **Status:** in daily use · on npm as [`@orkastery/cli`](https://www.npmjs.com/package/@orkastery/cli), with [changes per version](CHANGELOG.md) · reviewed on 2026-09-27
 - **Proof:** GitHub CI on every PR: 2,733 core tests, 24 canaries and 20 skills with 199 assertions, zero failures (CI of the `main` at PR #74, run 37102089623, 2026-10-03)
 - **Product and roadmap:** [`docs/produto/`](docs/produto/README.md) and [`docs/roadmap/`](docs/roadmap/README.md), checked against the code by `ork docs verificar`
-- **Language:** this page is the canonical entry point, mirrored in [Portuguese](README.pt-BR.md). The pages under `docs/` are in Brazilian Portuguese. The CLI prints Brazilian Portuguese too, except `ork doctor` and `ork init`, which print English when `owner.language` or your locale asks for `en`; in English, read the [quickstart on orkastery.com](https://orkastery.com/en/docs/comecar/) and the [glossary of what the CLI prints](#reading-the-cli-in-english)
+- **Language:** this page is the canonical entry point, mirrored in [Portuguese](README.pt-BR.md). The pages under `docs/` are in Brazilian Portuguese. The CLI prints Brazilian Portuguese too, except `ork doctor`, `ork init`, `ork onboarding`, `ork experiencia show`, `ork thread new`, `ork thread status`, `ork phase list`, `ork phase run` and the help, which print English when `owner.language` or your locale asks for `en`; in English, read the [quickstart on orkastery.com](https://orkastery.com/en/docs/comecar/) and the [glossary of what the CLI prints](#reading-the-cli-in-english)
 
 ```bash
 npm install -g @orkastery/cli
@@ -214,7 +214,7 @@ The [docs home](docs/README.md) is organized by what you want to do now. Every p
 
 ## Reading the CLI in English
 
-Most commands print Brazilian Portuguese (`ork doctor` and `ork init` follow an English locale). These are the words a first run shows.
+Most commands print Brazilian Portuguese (`ork doctor`, `ork init`, `ork onboarding`, `ork experiencia show`, `ork thread new`, `ork thread status`, `ork phase list`, `ork phase run` and the help follow an English locale). These are the words a first run shows.
 
 | The CLI prints | It means |
 | --- | --- |
@@ -229,9 +229,9 @@ Most commands print Brazilian Portuguese (`ork doctor` and `ork init` follow an 
 | `pendente`, `respondida` | pending, answered |
 | `Horários em <zone>` | times are shown in that time zone |
 
-- **Dates are day/month:** `03/10 06:30` is October 3.
+- **Dates are day/month** in Portuguese output: `03/10 06:30` is October 3. The commands that follow an English locale print `2026-10-03 06:30`.
 - **Commands and flags in Portuguese:** `modos` (modes), `--modo` (mode; `--mode` also works), `--para` (target branch), `--por` (who records it), `--autorizar-push` (authorize the push), `--conteudo` (content), `--verificar` (the command that verifies), `decisao registrar` (record a decision), `docs verificar` (check the docs), `experiencia show` (conversation preferences).
-- **`owner.language: en-US`** sets the language of the conversation in your host (Claude Code, Codex); the CLI itself stays in Portuguese.
+- **`owner.language: en-US`** sets the language of the conversation in your host (Claude Code, Codex) and of the CLI commands that follow the locale; `owner.language: pt-BR` keeps them in Portuguese even with `LANG=en_US`.
 
 | Term | Meaning |
 | --- | --- |

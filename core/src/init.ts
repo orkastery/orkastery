@@ -251,8 +251,7 @@ export interface ResultadoInit {
 export function exigirRepositorioParaInit(dir: string): void {
   const r = exec('git', ['rev-parse', '--is-inside-work-tree'], dir);
   if (r.ok && r.stdout.trim() === 'true') return;
-  throw new Error(`init.fora-do-repositorio: ${path.resolve(dir)} não está num repositório git; nada foi criado. ` +
-    'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.');
+  throw new Error(msg().init.foraDoRepositorio(path.resolve(dir)));
 }
 
 /** Gera o manifesto e o esqueleto de `.orkastery/`. Nao sobrescreve sem `force`. */

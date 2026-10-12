@@ -10,25 +10,30 @@ import { ConteudoOnboarding, EtapaOnboarding, Onboarding, RespostaOnboarding } f
 import { CHAVE_DO_FUSO, FUSO_DE_BRASILIA, normalizarFuso } from './horario';
 import { resolverExperiencia, validarPreferencias } from './experiencia';
 import { lerYaml } from './yaml';
+import { Locale, msg } from './locale';
 
 export const CONTRATO_ONBOARDING = 'ork.onboarding/v1';
 /**
  * Fatia 2 do ensaio da 0.5.0 (P5): onde ficam os segredos, para quem usa o Hermes e para quem nao
  * usa. Perguntas, erro e ajuda leem daqui; as docs e os hosts repetem a frase, conferida por teste.
  */
-export const ONDE_FICAM_OS_SEGREDOS = 'no ambiente do processo ou no cofre do host (no Hermes, ~/.hermes/.env)';
-export const PAUTA_ONBOARDING: ReadonlyArray<{ etapa: EtapaOnboarding; pergunta: string }> = [
-  { etapa: 'maestro', pergunta: `Quem conduz o projeto, quais são seus objetivos e preferências, e em qual fuso horário o Orkastery deve mostrar horários? Informe o fuso como nome IANA, ex.: {"fuso":"${FUSO_DE_BRASILIA}"}; ele orienta ${CHAVE_DO_FUSO} no manifesto, sem editá-lo. Preferências em {"owner":{...}} gravam owner no manifesto.` },
-  { etapa: 'credenciais', pergunta: `Quais provedores públicos e nomes de variáveis em env serão usados? Segredos ficam ${ONDE_FICAM_OS_SEGREDOS}; nunca informe valores.` },
-  { etapa: 'bancos', pergunta: `Quais bancos públicos e nomes de variáveis em env configuram as conexões? Nunca informe DSN ou senha; valores ficam ${ONDE_FICAM_OS_SEGREDOS}.` },
-  { etapa: 'memoria', pergunta: 'Deseja OrkMind? Informe {"modo":"orkmind"} ou {"modo":"files"}; a escolha orienta memory.mode no manifesto, sem editá-lo.' },
-  { etapa: 'produtos', pergunta: 'Quais produtos e repositórios públicos pertencem ao projeto?' },
-  { etapa: 'topologia', pergunta: 'Como se distribuem ambientes e serviços? Informe identificadores públicos.' },
-  { etapa: 'arquitetura', pergunta: 'Quais decisões e restrições de arquitetura devem orientar o trabalho?' },
-  { etapa: 'skills', pergunta: 'Quais capacidades e skills serão necessárias?' },
-  { etapa: 'auditores', pergunta: 'Quais auditorias e cadências são desejadas?' },
-];
-export const ETAPAS_ONBOARDING = PAUTA_ONBOARDING.map(p => p.etapa);
+export const ONDE_FICAM_OS_SEGREDOS = msg('pt-BR').onboarding.segredos;
+/** RM-061 (F2a): as etapas, na ordem da entrevista; a pergunta de cada uma sai do catalogo. */
+export const ETAPAS_ONBOARDING: readonly EtapaOnboarding[] =
+  ['maestro', 'credenciais', 'bancos', 'memoria', 'produtos', 'topologia', 'arquitetura', 'skills', 'auditores'];
+
+/** A pergunta da etapa no locale pedido (ou no ativo, que so os comandos cobertos trocam). */
+export function perguntaDaEtapa(etapa: EtapaOnboarding, locale?: Locale): string {
+  const m = msg(locale).onboarding, p = m.perguntas;
+  if (etapa === 'maestro') return p.maestro(FUSO_DE_BRASILIA, CHAVE_DO_FUSO);
+  if (etapa === 'credenciais') return p.credenciais(m.segredos);
+  if (etapa === 'bancos') return p.bancos(m.segredos);
+  return p[etapa];
+}
+
+/** A pauta em pt-BR, como dado (testes e docs a leem); o texto do CLI usa `perguntaDaEtapa`. */
+export const PAUTA_ONBOARDING: ReadonlyArray<{ etapa: EtapaOnboarding; pergunta: string }> =
+  ETAPAS_ONBOARDING.map((etapa) => ({ etapa, pergunta: perguntaDaEtapa(etapa, 'pt-BR') }));
 
 export function caminhoOnboarding(raiz: string): string {
   return stateFile(raiz, 'onboarding.json');
@@ -40,7 +45,7 @@ function objeto(v: unknown): v is Record<string, unknown> {
 }
 
 /** Recusa antes de persistir. Diagnósticos nunca incluem a entrada recebida. */
-function invalido(): never { throw new Error(`onboarding.input.invalid: use JSON público e referências de variáveis; segredos ficam ${ONDE_FICAM_OS_SEGREDOS}`); }
+function invalido(): never { throw new Error(msg().onboarding.entradaInvalida(msg().onboarding.segredos)); }
 
 function textoSeguro(v: string): boolean {
   return !procurarSegredos(v).length &&
@@ -296,10 +301,23 @@ export function resetarOnboarding(raiz: string, nome?: string, por = 'owner'): O
 }
 
 export function textoDaPauta(estado: Onboarding = onboardingPadrao(), owner = {}): string {
-  const p = resolverExperiencia(owner);
-  return ['Onboarding do projeto (' + CONTRATO_ONBOARDING + ')',
-    `Experiência recomendada: ${p.language}, ${p.timezone}, resposta ${p.depth}. Ativar com esses valores, configurar ou desativar?`,
-    'Registre a escolha em maestro com {"owner":{"language":"' + p.language + '","timezone":"' + p.timezone + '","depth":"' + p.depth + '","experience":true}}; use experience:false para desativar. Consulta não registra resposta.',
-    ...PAUTA_ONBOARDING.map(({ etapa, pergunta }) => `${estado.etapas[etapa] ? '[respondida]' : '[pendente]'} ${etapa}: ${pergunta}`),
-    'Responda com ork onboarding set <etapa> --conteudo <JSON> --por <quem>.'].join('\n');
+  const p = resolverExperiencia(owner), m = msg().onboarding;
+  return [m.titulo(CONTRATO_ONBOARDING),
+    m.recomendada(p.language, p.timezone, p.depth),
+    m.registre(p.language, p.timezone, p.depth),
+    ...ETAPAS_ONBOARDING.map((etapa) => `${estado.etapas[etapa] ? m.respondida : m.pendente} ${etapa}: ${perguntaDaEtapa(etapa)}`),
+    m.responda].join('\n');
+}
+
+/**
+ * RM-061 (F2a): a mesma recusa que `gravarEtapa` e `resetarOnboarding` dariam, antes de gravar: o CLI a
+ * chama no locale do comando e grava depois em `comLocale('pt-BR')`, entao a recusa de uso sai na
+ * lingua do texto e o dado gravado nao muda.
+ */
+export function validarPedidoDeEtapa(nome: string | undefined, conteudo: unknown, por: string): void {
+  exigirAutor(por);
+  if (nome !== undefined) {
+    const etapa = exigirEtapa(nome);
+    if (conteudo !== undefined) validarConteudo(etapa, conteudo);
+  }
 }
