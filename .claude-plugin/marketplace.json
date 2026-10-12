@@ -43,6 +43,13 @@
       "homepage": "https://orkastery.com/"
     },
     {
+      "name": "ork-portao",
+      "source": "./marketplaces/claude-code/mods/ork-portao",
+      "description": "Portão de Tarefas do Orkastery no Claude Code: na sessão de fase do GO, cada tarefa do quadro é uma tarefa do plano com touch_paths e verify, só fecha com a conferência do núcleo aprovada e, com agent teams no piloto, vai ao teammate ocioso com lease livre.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
       "name": "ork-radar",
       "source": "./marketplaces/claude-code/mods/ork-radar",
       "description": "Radar de Colisão do Orkastery no Claude Code: o merge de cada thread aberta contra a origin/main e entre as threads, calculado sem worktree e sem gravar objeto no repositório, com os arquivos em conflito, os leases que os cobrem e o comando que resolve. Só lê.",

@@ -6,6 +6,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Portão de Tarefas, o segundo mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `adapters/claude-code/mods/ork-portao` faz do quadro de tarefas do Claude Code, na sessão de fase do GO, o quadro
+  do plano: a tarefa só entra apontando uma tarefa do plano com `touch_paths` e verify, e só fecha com a conferência
+  do núcleo aprovada (`ork claims conferir --tarefa`, no sandbox do verify), nunca com o verify rodado pelo mod. Com
+  agent teams no piloto, o teammate ocioso recebe a próxima tarefa cuja região está livre, com os leases `path:`
+  tomados por `ork lease acquire`. O manifesto ganha `runtime.agent_teams` (`ligado`, `teammates`, `custo_usd`),
+  desligado por padrão: ligado, o despacho do GO com o Portão na sessão passa `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` e
+  os dois tetos, que o Portão aplica no nascimento de teammate e na entrega de tarefa.
+
 ## [0.5.5] - 2026-10-12
 
 ### Adicionado

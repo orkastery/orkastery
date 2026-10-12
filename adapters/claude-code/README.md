@@ -239,6 +239,55 @@ entrega. Falha de claim cujo arquivo foi tocado de novo durante a conferência n
 uma conferência nova já foi pedida. Um `Edit` que falhou também conta como toque e pode pedir uma
 conferência a mais.
 
+### Portão de Tarefas (`ork-portao`)
+
+O segundo mod de papel `fase`. Ele age só na sessão de fase cujo bloco atual tem o GO (pelo slug do
+bloco no retrato do núcleo) e cuja thread tem plano com tarefas `T<n>`; fora disso, os ganchos passam
+sem tocar em nada. Com ele, o quadro de tarefas do Claude Code é o do plano:
+
+- **criação:** `TaskCreated` recusa a tarefa cujo assunto não traz o id de uma tarefa do plano
+  (`T2.1 ...`), ou cuja tarefa do plano não tem `touch_paths` ou não tem verify com um comando só entre
+  crases, a regra do `ork claims conferir --tarefa`. A recusa volta ao modelo com o motivo e as tarefas
+  do plano que servem;
+- **conclusão:** `TaskCompleted` de uma tarefa do plano pede ao núcleo
+  `ork claims conferir <thread> --tarefa T2.1 --prazo 540 --json`, no sandbox do verify, e só deixa a
+  tarefa fechar com o item aprovado. Reprovação volta com o comando, o código e o fim da saída; sem
+  veredito, recusa tipada, outra condução na thread ou conferência que não roda também bloqueiam, sempre
+  com a saída: corrigir e concluir de novo, ou devolver a tarefa para `pending` e seguir. Uma conferência
+  por vez: a conclusão que chega no meio de outra é recusada na hora. Da terceira reprovação igual em
+  diante, o texto manda deixar a tarefa aberta;
+- **teammate ocioso:** com agent teams no piloto (abaixo), `TeammateIdle` entrega ao teammate a próxima
+  tarefa do plano cuja região está livre: nenhum lease ativo de outra thread cruza os `touch_paths` dela
+  (seção `leases` do retrato) e ela não cruza as tarefas de outros teammates. Os leases
+  `path:<touch_path>` são tomados por `ork lease acquire`, e o que a thread já segura não é pedido de
+  novo. Quem fica ocioso sem concluir devolve a tarefa, que sai da distribuição automática e fica com o
+  líder.
+
+O Portão nunca roda o verify por conta própria: quem verifica de verdade continua sendo o `ork verify`.
+Ele lê o papel, o estado, o bloco e os leases pelo `$.ork.retrato` da ponte e o plano pelo
+`ork_artifact_read`, nunca do disco em `.orkastery/`. Teste que cria processo pode reprovar no sandbox e
+passar no `ork verify`, e o bloqueio diz isso.
+
+Agent teams na sessão de fase só rodam no piloto, desligado por padrão. Quem conduz liga no manifesto da
+raiz:
+
+```yaml
+runtime:
+  agent_teams:
+    ligado: true
+    teammates: 2   # teto de teammates vivos, de 1 a 8
+    custo_usd: 10  # teto do custo da sessão, como o /cost soma, até 500
+```
+
+Com a chave ligada, o GO no bloco da fase atual e o Portão entre os mods que vão à sessão, o despacho
+`claude-bg` acrescenta ao `--settings` a variável `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, os dois tetos
+(`ORK_AGENT_TEAMS_TEAMMATES` e `ORK_AGENT_TEAMS_CUSTO_USD`) e `teammateMode` `in-process`, porque a sessão
+de fundo não tem `tmux`. Teto inválido vira aviso do manifesto e deixa desligado. Na sessão de fase, o
+Portão recusa o nascimento de teammate sem os tetos, no teto de teammates vivos ou com o custo da sessão
+no teto, e no teto de custo não entrega tarefa nova. O comportamento desses eventos numa sessão
+`claude --bg` real com agent teams ainda não foi medido; os testes do kit e do núcleo cobrem o mod e o
+despacho.
+
 ## A #TAG de conducao
 
 O comando `/goal` extrai o modo do proprio pedido, sem reimplementar nada:

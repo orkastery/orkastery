@@ -1,0 +1,306 @@
+// O Portão de Tarefas (RM-059, fatia F10). Na sessão de fase do GO, o quadro de tarefas do Claude Code é o do
+// plano: a tarefa nativa só entra apontando uma tarefa do plano com `touch_paths` e verify que o núcleo confere
+// (T10.1), só fecha com essa conferência aprovada (T10.2) e, com agent teams no piloto do núcleo, vai ao teammate
+// ocioso quando a região dela está livre (T10.3). O Portão lê o núcleo pelo `$.ork` da ponte e pela ferramenta de
+// leitura do plano, nunca o estado interno do disco; age só por comando do `ork`; nunca roda o verify por conta
+// própria e nunca fala pelo dono. A lógica fica nos módulos puros ao lado; aqui só as chamadas ao `$`, sempre
+// escritas como `x.noun.metodo(...)`, como o validador exige.
+import type { EngineInterface, Register } from 'claude-code'
+import type { PortaoQuadro, PortaoTarefa } from '../types'
+import {
+  argsDoPlano, decidirCriacao, escopoDoPlano, escopoDoRetrato, FERRAMENTA_DO_PLANO, IDADE_DO_PLANO_MS, IDADE_SEM_PLANO_MS,
+  idsNoAssunto, jsonDoMcp, SERVIDOR, tarefasDoPlano, textoDaRecusa, textoDoPlano, threadNoRetrato,
+} from './plano'
+import {
+  argvDaConferencia, assinatura, contarRepeticao, lerConferencia, textoDeOutraConferencia, textoDoBloqueio, textoDoStatus,
+  VIGIA_DA_CONFERENCIA_MS,
+} from './verify'
+import type { Leitura } from './verify'
+import {
+  argvDoLease, escolherTarefa, leasesDoRetrato, nomeDoTeammate, PRAZO_DO_LEASE_MS, recusaDoTeammate,
+  TENTATIVAS_DE_TAREFA, tetosDoAmbiente, TETO_DO_LEASE_MS, textoDaEntrega, VIVOS,
+} from './lease'
+import type { LeaseAtivo } from './lease'
+
+const QUADRO = { plugin: 'ork-portao', key: 'quadro' } as const
+
+/**
+ * O quadro desta carga do módulo (D9 do plano da thread): lido do `$.state` uma vez por thread e gravado sem versão a
+ * cada mudança. Uma segunda gravação com `ifVersion` no mesmo despacho nunca acertaria.
+ */
+let quadro: PortaoQuadro | null = null
+/** O plano lido e quando, por thread; relido depois da idade (D3). */
+let plano: { thread: string; em: number; tarefas: PortaoTarefa[] | null } | null = null
+/**
+ * A tarefa do plano que o Portão está conferindo no núcleo agora (D5): uma conferência por vez. Fica no módulo, não no
+ * `$.state`: uma troca do worker mata o processo junto com a marca.
+ */
+let conferindo: string | null = null
+
+/** A sessão de fase com thread, pelo contexto da ponte; qualquer outra sessão fica sem Portão (D1). */
+type ContextoDeFase = { thread: string; raiz: string }
+/** O Portão age nesta sessão: o contexto e as tarefas do plano. */
+type Ativo = { ctx: ContextoDeFase; tarefas: PortaoTarefa[] }
+
+const mensagem = (erro: unknown) => (erro instanceof Error ? erro.message : String(erro)).slice(0, 300)
+
+function quadroVazio(thread: string): PortaoQuadro {
+  return { thread, tarefas: {}, concluidas: [], repeticoes: {}, atribuicoes: {}, devolvidas: [], leases: {}, ultimaFalha: null }
+}
+
+async function contextoDeFase($: EngineInterface): Promise<ContextoDeFase | null> {
+  const ctx = await $.ork.contexto()
+  return ctx.papel === 'fase' && ctx.thread ? { thread: ctx.thread, raiz: ctx.raiz } : null
+}
+
+async function lerQuadro($: EngineInterface, thread: string): Promise<PortaoQuadro> {
+  if (quadro && quadro.thread === thread) return quadro
+  const lido = (await $.state.get(QUADRO)).value
+  quadro = lido && lido.thread === thread ? { ...quadroVazio(thread), ...lido } : quadroVazio(thread)
+  return quadro
+}
+
+async function gravarQuadro($: EngineInterface, novo: PortaoQuadro): Promise<void> {
+  quadro = novo
+  await $.state.set(QUADRO, novo)
+}
+
+/** As tarefas do plano pela ferramenta de leitura do núcleo, com a idade da D3; erro sobe para quem chamou. */
+async function lerTarefas($: EngineInterface, ctx: ContextoDeFase): Promise<PortaoTarefa[] | null> {
+  const agora = await $.clock.now()
+  if (plano && plano.thread === ctx.thread) {
+    const idade = agora - plano.em
+    const teto = plano.tarefas && plano.tarefas.length > 0 ? IDADE_DO_PLANO_MS : IDADE_SEM_PLANO_MS
+    if (idade >= 0 && idade < teto) return plano.tarefas
+  }
+  const r = await $.mcp.call(SERVIDOR, FERRAMENTA_DO_PLANO, argsDoPlano(ctx.thread))
+  const tarefas = tarefasDoPlano(textoDoPlano(jsonDoMcp(r, FERRAMENTA_DO_PLANO)))
+  plano = { thread: ctx.thread, em: agora, tarefas }
+  return tarefas
+}
+
+/**
+ * O Portão age nesta sessão (D1): papel `fase` com thread, thread não fechada e GO no bloco pelo retrato da ponte,
+ * e plano legível com tarefas. O retrato que falha conta como GO e aberta, e fica na linha de status.
+ */
+async function portaoAtivo($: EngineInterface): Promise<Ativo | null> {
+  const ctx = await contextoDeFase($)
+  if (!ctx) return null
+  let retrato: { status: string | null; bloco: string | null } | null
+  try {
+    retrato = threadNoRetrato((await $.ork.retrato({ thread: ctx.thread })).retrato, ctx.thread)
+  } catch {
+    retrato = null
+  }
+  const doRetrato = escopoDoRetrato(retrato)
+  if (!doRetrato.ativo) return null
+  let tarefas: PortaoTarefa[] | null
+  try {
+    tarefas = await lerTarefas($, ctx)
+  } catch (erro) {
+    await anotarFalha($, 'leitura do plano', erro, ctx.thread)
+    return null
+  }
+  if (!escopoDoPlano(tarefas).ativo || !tarefas) return null
+  if (doRetrato.avisos.length > 0) $.ui.status(`portão: ${doRetrato.avisos.join('; ')}`)
+  return { ctx, tarefas }
+}
+
+/**
+ * Guarda a falha do próprio Portão no quadro e a diz uma vez no transcript (não vai ao modelo) e na linha de
+ * status: nenhuma captura fica muda.
+ */
+async function anotarFalha($: EngineInterface, onde: string, erro: unknown, thread?: string): Promise<void> {
+  const motivo = mensagem(erro)
+  $.ui.status(`portão: falhou em ${onde}`)
+  const atual = thread ? await lerQuadro($, thread) : quadro
+  if (atual && atual.ultimaFalha?.onde === onde && atual.ultimaFalha.motivo === motivo) return
+  $.ui.log(`Portão de Tarefas: falhou em ${onde}: ${motivo}`)
+  if (atual) await gravarQuadro($, { ...atual, ultimaFalha: { onde, motivo, em: await $.clock.now() } })
+}
+
+/**
+ * A tarefa do plano de uma tarefa nativa (D2): a registrada na criação vence (renomear não tira a tarefa do portão);
+ * sem registro, o assunto que cita uma tarefa do plano, e uma só. Fora disso, a tarefa não é do plano.
+ */
+function tarefaDoEvento(assunto: unknown, taskId: string, q: PortaoQuadro, tarefas: readonly PortaoTarefa[]): string | null {
+  const registrada = q.tarefas[taskId]
+  if (registrada) return registrada
+  const ids = idsNoAssunto(assunto).filter(id => tarefas.some(t => t.id === id))
+  return ids.length === 1 ? (ids[0] as string) : null
+}
+
+/**
+ * A conferência do verify da tarefa no núcleo (D4, D5): `ork claims conferir --tarefa` por `$.process.run`, na raiz
+ * da sessão, com o vigia do mod. A espera é chamada de `$` e não conta no orçamento do gancho.
+ */
+async function rodarConferencia($: EngineInterface, ctx: ContextoDeFase, tarefa: string): Promise<Leitura> {
+  try {
+    const r = await $.process.run(argvDaConferencia(ctx.thread, tarefa), { cwd: ctx.raiz, timeoutMs: VIGIA_DA_CONFERENCIA_MS })
+    return lerConferencia(tarefa, r.stdout, r.exitCode, r.stderr)
+  } catch (erro) {
+    return { tipo: 'indisponivel', motivo: `ork claims conferir não rodou: ${mensagem(erro)}` }
+  }
+}
+
+/** Os tetos do piloto de agent teams que o núcleo passou no ambiente da sessão (D10); `null` sem eles. */
+async function lerTetos($: EngineInterface): Promise<{ teammates: number; custoUsd: number } | null> {
+  // O validador pede o nome literal; o teste do núcleo confere que ele é o de ENV_TEAMMATES e ENV_CUSTO.
+  return tetosDoAmbiente(await $.env.get('ORK_AGENT_TEAMS_TEAMMATES'), await $.env.get('ORK_AGENT_TEAMS_CUSTO_USD'))
+}
+
+/** O custo da sessão como o `/cost` soma; `null` quando ele não vem. */
+async function custoDaSessao($: EngineInterface): Promise<number | null> {
+  const uso = await $.session.usage()
+  return typeof uso.cost?.usd === 'number' ? uso.cost.usd : null
+}
+
+/** Um `ork lease` (D8) por `$.process.run`, na raiz da sessão: só a saída 0 conta como feito. */
+async function lease($: EngineInterface, ctx: ContextoDeFase, argv: string[]): Promise<boolean> {
+  try {
+    const r = await $.process.run(argv, { cwd: ctx.raiz, timeoutMs: TETO_DO_LEASE_MS })
+    return r.exitCode === 0
+  } catch (erro) {
+    await anotarFalha($, 'ork lease', erro, ctx.thread)
+    return false
+  }
+}
+
+export const register: Register = on => {
+  // A criação (T10.1): a tarefa nativa só entra apontando uma tarefa do plano que serve ao quadro (D2, D3). A recusa
+  // volta ao modelo pelo `block`, com o motivo e as tarefas que servem; a que passa fica registrada pelo id nativo.
+  on('classic.TaskCreated', async ($, e, next) => {
+    const ativo = await portaoAtivo($)
+    if (!ativo) return next(e)
+    const veredito = decidirCriacao(e.task_subject, ativo.tarefas)
+    if (veredito.tipo === 'recusa') return { block: textoDaRecusa(veredito, e.task_subject, ativo.tarefas) }
+    const q = await lerQuadro($, ativo.ctx.thread)
+    await gravarQuadro($, { ...q, tarefas: { ...q.tarefas, [String(e.task_id)]: veredito.tarefa } })
+    return next(e)
+  }).catch(async ($, e, next) => {
+    // Na reentrada o gancho nem rodou e as chamadas de `$` recusam: só a falha de verdade é anotada.
+    if (next.error && next.error.kind !== 're-entry') await anotarFalha($, 'criação de tarefa', next.error.message ?? next.error.kind)
+    return next(e)
+  })
+
+  // A conclusão (T10.2): a tarefa do plano só fecha com a conferência do núcleo aprovada (D4), uma por vez (D5).
+  // Todo bloqueio volta ao modelo com o motivo e a saída (corrigir, ou devolver a tarefa para pending), e a terceira
+  // vez seguida com o mesmo resultado manda deixar a tarefa aberta (D6). Tarefa que não é do plano passa.
+  on('classic.TaskCompleted', async ($, e, next) => {
+    const ativo = await portaoAtivo($)
+    if (!ativo) return next(e)
+    const tarefa = tarefaDoEvento(e.task_subject, String(e.task_id), await lerQuadro($, ativo.ctx.thread), ativo.tarefas)
+    if (!tarefa) return next(e)
+    if (conferindo) return { block: textoDeOutraConferencia(tarefa, conferindo) }
+    conferindo = tarefa
+    let leitura: Leitura
+    try {
+      $.ui.status(`portão: conferindo ${tarefa} no núcleo`)
+      leitura = await rodarConferencia($, ativo.ctx, tarefa)
+    } finally {
+      conferindo = null
+    }
+    const atual = await lerQuadro($, ativo.ctx.thread)
+    if (leitura.tipo === 'aprovada') {
+      const resultado = await next(e)
+      if (!resultado.block) {
+        const repeticoes = { ...atual.repeticoes }
+        delete repeticoes[tarefa]
+        await gravarQuadro($, { ...atual, concluidas: atual.concluidas.includes(tarefa) ? atual.concluidas : [...atual.concluidas, tarefa], repeticoes })
+      }
+      $.ui.status(textoDoStatus(tarefa, leitura))
+      return resultado
+    }
+    const repeticao = contarRepeticao(atual.repeticoes[tarefa], assinatura(leitura))
+    await gravarQuadro($, { ...atual, repeticoes: { ...atual.repeticoes, [tarefa]: repeticao } })
+    $.ui.status(textoDoStatus(tarefa, leitura))
+    return { block: textoDoBloqueio(tarefa, leitura, repeticao.vezes) }
+  }).catch(async ($, e, next) => {
+    // A conclusão fecha só aprovada (D4): se o próprio Portão falhou no meio de uma tarefa do plano, ela não fecha.
+    if (!next.error || next.error.kind === 're-entry') return next(e)
+    const motivo = next.error.message ?? next.error.kind
+    await anotarFalha($, 'conclusão de tarefa', motivo)
+    const tarefa = quadro ? tarefaDoEvento(e.task_subject, String(e.task_id), quadro, plano?.tarefas ?? []) : null
+    if (!tarefa) return next(e)
+    return { block: textoDoBloqueio(tarefa, { tipo: 'indisponivel', motivo: `o Portão falhou ao conferir: ${motivo}` }) }
+  })
+
+  // O teammate ocioso (T10.3): com os tetos do piloto na sessão, quem ficou ocioso sem concluir devolve a tarefa, e a
+  // próxima tarefa livre do plano (D7) vai a ele pelo `block`, com os leases `path:` tomados pelo `ork lease acquire`
+  // (D8). Lease que outra thread toma no meio solta o que o Portão tomou na tentativa e passa para a seguinte. No teto
+  // de custo, ou sem tarefa livre, o teammate fica ocioso.
+  on('classic.TeammateIdle', async ($, e, next) => {
+    const ativo = await portaoAtivo($)
+    if (!ativo) return next(e)
+    const tetos = await lerTetos($)
+    const teammate = nomeDoTeammate(e.teammate_name)
+    if (!tetos || !teammate) return next(e)
+    const { ctx } = ativo
+    let q = await lerQuadro($, ctx.thread)
+    const tinha = q.atribuicoes[teammate]
+    if (tinha) {
+      const atribuicoes = { ...q.atribuicoes }
+      delete atribuicoes[teammate]
+      const devolvida = !q.concluidas.includes(tinha) && !q.devolvidas.includes(tinha)
+      q = { ...q, atribuicoes, devolvidas: devolvida ? [...q.devolvidas, tinha] : q.devolvidas }
+      await gravarQuadro($, q)
+    }
+    const custo = await custoDaSessao($)
+    if (custo === null || custo >= tetos.custoUsd) {
+      $.ui.status(custo === null ? 'portão: custo da sessão ilegível; nenhuma tarefa nova ao time' : `portão: teto de custo do piloto (US$ ${tetos.custoUsd}) atingido`)
+      return next(e)
+    }
+    let leases: LeaseAtivo[] | null
+    try {
+      leases = leasesDoRetrato((await $.ork.retrato({ secao: 'leases' })).retrato)
+    } catch {
+      leases = null
+    }
+    const agora = await $.clock.now()
+    const pular: string[] = []
+    for (let tentativa = 0; tentativa < TENTATIVAS_DE_TAREFA; tentativa++) {
+      const escolha = escolherTarefa({ tarefas: ativo.tarefas, quadro: q, teammate, thread: ctx.thread, leases, agora, pular })
+      if (!escolha) break
+      const tomados: string[] = []
+      for (const nome of escolha.tomar) {
+        if (!await lease($, ctx, argvDoLease('acquire', nome, ctx.thread, `ork-portao: ${escolha.tarefa.id} com ${teammate}`))) break
+        tomados.push(nome)
+      }
+      if (tomados.length < escolha.tomar.length) {
+        for (const nome of tomados) await lease($, ctx, argvDoLease('release', nome, ctx.thread))
+        pular.push(escolha.tarefa.id)
+        continue
+      }
+      const vence = agora + PRAZO_DO_LEASE_MS
+      q = { ...q, atribuicoes: { ...q.atribuicoes, [teammate]: escolha.tarefa.id }, leases: { ...q.leases, ...Object.fromEntries(tomados.map(n => [n, vence])) } }
+      await gravarQuadro($, q)
+      $.ui.status(`portão: ${escolha.tarefa.id} com ${teammate}`)
+      return { block: textoDaEntrega(escolha.tarefa, teammate) }
+    }
+    return next(e)
+  }).catch(async ($, e, next) => {
+    if (next.error && next.error.kind !== 're-entry') await anotarFalha($, 'teammate ocioso', next.error.message ?? next.error.kind)
+    return next(e)
+  })
+
+  // Os tetos do piloto (D10): na sessão de fase, o teammate só nasce com os tetos do núcleo, abaixo do teto de
+  // teammates vivos e do teto de custo. Subagente que não é teammate passa.
+  on('agent.spawn', async ($, e, next) => {
+    if (!e.isTeammate) return next(e)
+    const ctx = await contextoDeFase($)
+    if (!ctx) return next(e)
+    const tetos = await lerTetos($)
+    const vivos = (await $.agent.list()).filter(a => a.teammateId && VIVOS.includes(a.status)).length
+    const recusa = recusaDoTeammate(tetos, vivos, tetos ? await custoDaSessao($) : null)
+    if (recusa) {
+      $.ui.status('portão: teammate recusado pelo teto do piloto')
+      return { deny: recusa }
+    }
+    return next(e)
+  }).catch(async ($, e, next) => {
+    if (!next.error || next.error.kind === 're-entry' || !e.isTeammate || next.called) return next(e)
+    const motivo = next.error.message ?? next.error.kind
+    await anotarFalha($, 'teto de teammates', motivo)
+    return { deny: `Portão de Tarefas: teammate recusado. O Portão não conseguiu conferir os tetos do piloto (${motivo}).` }
+  })
+}
