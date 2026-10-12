@@ -58,6 +58,33 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   depois de um bloco que passou do CHECK, e a pendência do dono segura tudo. `bater` e `desligar`
   mantêm a presença, uma por máquina, com `sentinela_ligada` e `sentinela_desligada` no ledger do projeto só na troca.
   O guia `docs/guias/conducao-pela-sentinela.md` diz ao condutor externo como ceder o despacho enquanto ela conduz.
+- **Publicação provada da branch e do PR** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `ork ship publicar <thread>` (`ork.ship-publicar/v1`) publica a branch da thread e abre o PR pelo núcleo, só no modo
+  que já autoriza o push (#Auto e #Maestro). Antes de qualquer efeito confere a thread aberta, ninguém conduzindo, a
+  branch com produto, o CHECK com veredito PASSOU depois do último commit de produto, o último `ork verify` verde no
+  HEAD (ou só o bundle depois dele), o bundle `.ork-ci/<thread>.json` com as claims ativas e os comandos delas, o remoto do GitHub e os
+  PRs da branch; a recusa antes de qualquer efeito volta com motivo tipado e não grava nada. Empurra sem força o sha
+  conferido, prova pelo `git ls-remote`, reaproveita o PR aberto ou abre um com o texto do `pr-body.md` da thread
+  (título `ship(<thread>): ...`) e grava `ship_published`, também para o push que ficou sem prova; repetido, ou com o
+  PR já mesclado no HEAD, responde `ja-publicada`. Não aceita `--autorizar-push`: nos outros modos o push é do
+  dono, e a correção diz o comando dele. `ork ship pista --json` (`ork.ship-pista/v1`) dá, por thread aberta na
+  entrega, as etapas (CHECK, verify, bundle, branch, PR, CI, conflito e `ship_done`) e o próximo passo com a ação
+  que o núcleo declara disponível. A leitura dos PRs do pulse passa a trazer o estado de merge do PR aberto, e a prova
+  do push pelo `git ls-remote` passa a valer só pela ref exata, também no `ork ship`.
+- **Pista de Entrega, mod de papel `dono`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `adapters/claude-code/mods/ork-pista` liga só na sessão do dono e abre com `/pista [thread]` (a Torre abre a Pista
+  assim) um painel com uma pista por entrega: as oito etapas do `ork ship pista --json` (CHECK, verify, bundle, branch,
+  PR, CI, conflito e `ship_done`), o texto do núcleo em cada uma que falta e o próximo passo com o comando dele, no
+  terminal e no desktop. Relê a pista fora do desenho, uma leitura por vez, quando um ledger muda, quando o retrato da
+  ponte diz que uma entrega andou e por idade; publica na faixa só o que pede o dono e registra pela ponte o que o
+  painel à vista mostrou, para o Telegram não repetir. Botão só com a ação que o núcleo declara disponível: Publicar
+  (`ork ship publicar`, só em #Auto e #Maestro) e Registrar a entrega (`ork ship registrar-pr`); o clique relê a pista
+  da thread antes de valer, roda o argv do próprio mod (nunca `git` nem `gh`) e deixa o resultado na pista. Fora de
+  #Auto e #Maestro, só o comando para o dono. O CI acompanha o evento do GitHub que a sessão recebe (`session.receive`,
+  fonte `github`, só pelos campos asseridos) como gatilho da consulta `ork ci status --sha <head> --json`, com reserva
+  a cada 2 min à vista e 10 min escondido; o conteúdo do evento nunca vira estado, e a consulta que falha não apaga o
+  que o núcleo leu. O guia `docs/guias/pista-de-entrega.md`
+  diz ao condutor externo como trocar a publicação crua pelo `ork ship publicar`.
 - **CLI em inglês e pt-BR, fatia F3a** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): o que o CLI escreve em
   arquivo nasce na língua do dono no momento da geração (`owner.language` ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou `LANG`
   em `en`): os comentários do `orkastery.yaml` e o bloco do `AGENTS.md` do `ork init`, o bloco da experiência que

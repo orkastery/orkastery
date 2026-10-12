@@ -1,0 +1,651 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm059pista",
+  "branch": "ork/ork-rm059pista-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "core/src/ship-publicar.ts",
+      "alegacao": "O ork ship publicar só publica em #Auto e #Maestro, confere CHECK, verify e bundle no HEAD antes de qualquer efeito, prova o push pelo ls-remote, reaproveita o PR aberto e grava ship_published só com efeito; o ork ship pista dá as oito etapas e o próximo passo que o núcleo declara.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ship-publicar.test.js"
+      ],
+      "criadoEm": "2026-10-12T15:47:45.469Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "core/test/ship-publicar.test.ts",
+      "alegacao": "O teste do publicar cobre a recusa fora de #Auto e #Maestro sem push nem PR, a prova pelo ls-remote de um remoto bare, o PR idempotente, o ensaio sem efeito, as recusas tipadas, o push sem prova (gancho que desfaz a ref) e a pista.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'publicar: fora de #Auto e #Maestro recusa com human.pending, sem push, sem PR e sem evento' core/test/ship-publicar.test.ts && grep -F 'publicar: repetido responde ja-publicada sem outro PR' core/test/ship-publicar.test.ts && grep -F 'git update-ref -d' core/test/ship-publicar.test.ts && grep -F 'pista: as etapas e o proximo passo de cada entrega' core/test/ship-publicar.test.ts"
+      ],
+      "criadoEm": "2026-10-12T15:47:47.941Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "core/src/ledger.ts",
+      "alegacao": "O ledger tem o tipo ship_published para a publicação provada.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'shipPublicado: .ship_published.,' core/src/ledger.ts"
+      ],
+      "criadoEm": "2026-10-12T15:47:52.211Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A CLI liga ork ship publicar e ork ship pista e recusa --autorizar-push no publicar com saída 2.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'return comandoShipPublicar(carregado, args);' core/src/index.ts && grep -F 'return comandoShipPista(carregado, args);' core/src/index.ts && grep -F 'console.error(p.semAutorizarPush);' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T15:47:53.811Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ship.ts",
+      "alegacao": "As mensagens do publicar e da pista estão no catálogo do ship em pt-BR e em inglês, com as mesmas chaves.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-ship.test.js core/dist-test/test/locale-dado.test.js"
+      ],
+      "criadoEm": "2026-10-12T15:47:57.542Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "A ajuda declara ship publicar e ship pista nas duas línguas, e a referência do CLI os documenta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-ajuda.test.js core/dist-test/test/rm044-paridade-cli-md.test.js core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-12T15:47:59.362Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "A fixture da ajuda pt-BR traz as linhas novas do ship publicar e do ship pista.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'ship publicar <thread-id>                 Publica a branch e abre o PR com prova (ls-remote)' core/test/fixtures/locale-f2a-pt-BR.json && grep -F 'ship pista [<thread-id>] [--json]         Etapas da entrega' core/test/fixtures/locale-f2a-pt-BR.json"
+      ],
+      "criadoEm": "2026-10-12T15:48:01.645Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência do CLI documenta ork ship publicar e ork ship pista.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'ork ship publicar <thread> [--dry-run] [--remoto R] [--json]' docs/referencia/cli.md && grep -F 'ork ship pista [<thread>] [--remoto R] [--json]' docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-12T15:48:03.066Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG tem a linha da publicação provada em Não publicado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -F 'Publicação provada da branch e do PR' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T15:48:04.217Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-pista/.claude-plugin/plugin.json",
+      "alegacao": "O manifesto da Pista declara o nome ork-pista, o contrato de estado em types/index.d.ts e a dependência da ork-ponte, sem chave de papel.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-pista.test.js"
+      ],
+      "criadoEm": "2026-10-12T16:02:16.850Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-pista/orkastery-mod.json",
+      "alegacao": "A Pista segue a convenção ork.mod/v1, só no papel dono, com o Claude Code mínimo 2.1.287.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-pista.test.js"
+      ],
+      "criadoEm": "2026-10-12T16:02:18.600Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-pista/hooks/hooks.json",
+      "alegacao": "O módulo de ganchos da Pista é o register.tsx.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-pista.test.js"
+      ],
+      "criadoEm": "2026-10-12T16:02:19.863Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-pista/types/index.d.ts",
+      "alegacao": "O estado da Pista (quadro, foco, acoes e ci) está declarado em PluginState, sem import nem referência.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-pista.test.js"
+      ],
+      "criadoEm": "2026-10-12T16:02:21.502Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-pista/hooks/pista.tsx",
+      "alegacao": "O módulo puro da Pista lê o ork.ship-pista/v1 campo a campo, ordena, monta a faixa e as linhas do painel e o argv só pelo construtor; a leitura casa com o ork ship pista --json de verdade.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-pista.test.js"
+      ],
+      "criadoEm": "2026-10-12T16:02:23.266Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-pista/hooks/register.tsx",
+      "alegacao": "A Pista liga só na sessão do dono, abre com /pista [thread], lê a pista fora do desenho uma vez por vez, só chama a lista fechada do $ e passa na guarda estática dos mods.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-pista",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-pista.test.js"
+      ],
+      "criadoEm": "2026-10-12T16:02:25.015Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-pista/test/apoio.ts",
+      "alegacao": "O apoio do kit tem a ponte falsa autocontida e o núcleo pelo fundo process.run, sem git nem gh.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'export const PONTE_FALSA' adapters/claude-code/mods/ork-pista/test/apoio.ts && grep -F 'nenhum' adapters/claude-code/mods/ork-pista/test/apoio.ts && grep -F 'export function montar(on' adapters/claude-code/mods/ork-pista/test/apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T16:02:29.034Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-pista/test/pista.test.tsx",
+      "alegacao": "Os testes do kit do esqueleto cobrem o painel no terminal e no desktop, o papel fase e dormente, a falha de leitura, o registro do mostrado, o foco, o lote e o retrato.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-pista/test/pista.test.tsx) -ge 8 && grep -E 'for .const surface of ..terminal., .desktop.. as const.' adapters/claude-code/mods/ork-pista/test/pista.test.tsx && grep -F 'pista:ork-a' adapters/claude-code/mods/ork-pista/test/pista.test.tsx"
+      ],
+      "criadoEm": "2026-10-12T16:02:31.351Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-pista.test.ts",
+      "alegacao": "O teste do núcleo da Pista confere manifesto, contrato de estado, módulos puros, a leitura contra o CLI de verdade, a lista fechada do $ por AST e a guarda estática.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-pista.test.js"
+      ],
+      "criadoEm": "2026-10-12T16:02:33.102Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/.claude-plugin/plugin.json",
+      "alegacao": "A cópia do marketplace de .claude-plugin/plugin.json da Pista é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-pista/.claude-plugin/plugin.json marketplaces/claude-code/mods/ork-pista/.claude-plugin/plugin.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:02:34.858Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/orkastery-mod.json",
+      "alegacao": "A cópia do marketplace de orkastery-mod.json da Pista é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-pista/orkastery-mod.json marketplaces/claude-code/mods/ork-pista/orkastery-mod.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:02:36.592Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/hooks/hooks.json",
+      "alegacao": "A cópia do marketplace de hooks/hooks.json da Pista é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-pista/hooks/hooks.json marketplaces/claude-code/mods/ork-pista/hooks/hooks.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:02:38.032Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/hooks/pista.tsx",
+      "alegacao": "A cópia do marketplace de hooks/pista.tsx da Pista é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-pista/hooks/pista.tsx marketplaces/claude-code/mods/ork-pista/hooks/pista.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:02:41.440Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/hooks/register.tsx",
+      "alegacao": "A cópia do marketplace de hooks/register.tsx da Pista é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-pista/hooks/register.tsx marketplaces/claude-code/mods/ork-pista/hooks/register.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:02:43.183Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/test/apoio.ts",
+      "alegacao": "A cópia do marketplace de test/apoio.ts da Pista é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-pista/test/apoio.ts marketplaces/claude-code/mods/ork-pista/test/apoio.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:02:44.984Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/test/pista.test.tsx",
+      "alegacao": "A cópia do marketplace de test/pista.test.tsx da Pista é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-pista/test/pista.test.tsx marketplaces/claude-code/mods/ork-pista/test/pista.test.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:02:46.850Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/types/index.d.ts",
+      "alegacao": "A cópia do marketplace de types/index.d.ts da Pista é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-pista/types/index.d.ts marketplaces/claude-code/mods/ork-pista/types/index.d.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:02:48.634Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/autoridade.json",
+      "alegacao": "A cópia do marketplace da Pista leva a lista de autoridade dos mods.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/autoridade.json marketplaces/claude-code/mods/ork-pista/autoridade.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:02:50.135Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": ".claude-plugin/marketplace.json",
+      "alegacao": "O marketplace do repositório lista a Pista, gerado pelo gerador.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && grep -F './marketplaces/claude-code/mods/ork-pista' .claude-plugin/marketplace.json"
+      ],
+      "criadoEm": "2026-10-12T16:02:53.508Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/pista-de-entrega.md",
+      "alegacao": "O guia da Pista diz o que ela mostra, o que nunca faz, o que o núcleo oferece e o que o condutor externo troca.",
+      "negativa": true,
+      "verificar": [
+        "test -s docs/guias/pista-de-entrega.md && grep -F 'ork ship publicar <thread> [--dry-run] [--json]' docs/guias/pista-de-entrega.md && grep -F 'O que mudar no script do condutor externo' docs/guias/pista-de-entrega.md && core/node_modules/.bin/markdownlint-cli2 docs/guias/pista-de-entrega.md"
+      ],
+      "criadoEm": "2026-10-12T16:02:55.835Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "docs/README.md",
+      "alegacao": "O índice das docs lista o guia da Pista.",
+      "negativa": false,
+      "verificar": [
+        "grep -F '(guias/pista-de-entrega.md)' docs/README.md"
+      ],
+      "criadoEm": "2026-10-12T16:02:57.002Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG tem a linha da Pista de Entrega em Não publicado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -F 'adapters/claude-code/mods/ork-pista' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T16:02:58.169Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-pista/hooks/acoes.ts",
+      "alegacao": "Botão da Pista só com a ação que o núcleo declara disponível (publicar só em #Auto e #Maestro, e registrar); o argv sai só dos construtores do mod, a guarda da ponte o aceita e barra a autorização de push, e a leitura do resultado casa com o ork ship publicar e o ork ship registrar-pr de verdade.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-pista.test.js"
+      ],
+      "criadoEm": "2026-10-12T16:09:24.656Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-pista/test/acoes.test.ts",
+      "alegacao": "Os testes do kit dos botões cobrem o Publicar em #Auto pelo argv do mod, nenhum botão em #Classic, a releitura que muda, a recusa do núcleo, o registrar, o duplo clique e a falha do CLI e da ponte.",
+      "negativa": true,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-pista/test/acoes.test.ts) -ge 7 && grep -F 'publicar:ork-a' adapters/claude-code/mods/ork-pista/test/acoes.test.ts && grep -F 'registrar:ork-m' adapters/claude-code/mods/ork-pista/test/acoes.test.ts && grep -F 'nenhum botao de publicar' adapters/claude-code/mods/ork-pista/test/acoes.test.ts"
+      ],
+      "criadoEm": "2026-10-12T16:09:27.537Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/hooks/acoes.ts",
+      "alegacao": "A cópia do marketplace de hooks/acoes.ts da Pista é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-pista/hooks/acoes.ts marketplaces/claude-code/mods/ork-pista/hooks/acoes.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:09:29.258Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/test/acoes.test.ts",
+      "alegacao": "A cópia do marketplace de test/acoes.test.ts da Pista é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-pista/test/acoes.test.ts marketplaces/claude-code/mods/ork-pista/test/acoes.test.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:09:31.062Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-pista/hooks/ci.ts",
+      "alegacao": "O CI da Pista sai da consulta ao núcleo no sha exato (ork ci status --sha), o evento do GitHub só cita pista por campo asserido e só dispara a consulta, a reserva respeita 2 min à vista e 10 min escondido, e leitura de outro head não vale; a leitura casa com o ork ci status de verdade.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-pista.test.js"
+      ],
+      "criadoEm": "2026-10-12T16:15:09.209Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-pista/test/ci.test.ts",
+      "alegacao": "Os testes do kit do CI cobrem o evento do GitHub que cita o PR e segue para o modelo, os eventos que não valem, a reserva por intervalo à vista e escondido e o CI vermelho na pista e na faixa.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-pista/test/ci.test.ts) -ge 4 && grep -F 'session.receive(evento(' adapters/claude-code/mods/ork-pista/test/ci.test.ts && grep -F 'expect(r.text).toBe(' adapters/claude-code/mods/ork-pista/test/ci.test.ts"
+      ],
+      "criadoEm": "2026-10-12T16:15:11.704Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/hooks/ci.ts",
+      "alegacao": "A cópia do marketplace de hooks/ci.ts da Pista é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-pista/hooks/ci.ts marketplaces/claude-code/mods/ork-pista/hooks/ci.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:15:13.576Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-pista/test/ci.test.ts",
+      "alegacao": "A cópia do marketplace de test/ci.test.ts da Pista é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-pista/test/ci.test.ts marketplaces/claude-code/mods/ork-pista/test/ci.test.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T16:15:15.179Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "O ork ship exporta a lista de modos que autorizam o push, que o ork ship publicar reaproveita, e a prova do push pelo ls-remote vale só pela ref exata (a ref de sufixo igual no remoto não engana a prova); os testes do ship seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'export const MODOS_QUE_AUTORIZAM_PUSH' core/src/ship.ts && grep -F 'MODOS_QUE_PUBLICAM: readonly Thread' core/src/ship-publicar.ts && grep -F '= MODOS_QUE_AUTORIZAM_PUSH;' core/src/ship-publicar.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ship.test.js core/dist-test/test/ship-remoto-validado.test.js core/dist-test/test/ship-publicar.test.js"
+      ],
+      "criadoEm": "2026-10-12T17:26:10.502Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "core/src/parado-no-condutor.ts",
+      "alegacao": "A leitura dos PRs do pulse traz o estado de merge do PR aberto (conflito), aceita a forja já conhecida e exporta a regra de quem conduz agora (conducaoAgora), que o pulse (também no dono da condução da RM-063) e o publicar usam; os casos do condutor e as superfícies seguem iguais.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'statusCheckRollup,mergeable' core/src/parado-no-condutor.ts && grep -F 'export function conducaoAgora(' core/src/parado-no-condutor.ts && grep -F 'const conducao = conducaoAgora(raiz, t, eventos, quando);' core/src/parado-no-condutor.ts && grep -F 'const conduzidaAgora = conducao !== null;' core/src/parado-no-condutor.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm037-fatia4-parado-no-condutor.test.js core/dist-test/test/rm037-fatia4-pulse-condutor.test.js core/dist-test/test/rm037-fatia5-forja-sem-leitura.test.js core/dist-test/test/rm063-superficies.test.js"
+      ],
+      "criadoEm": "2026-10-12T17:47:51.564Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência do CLI em inglês documenta ork ship publicar e ork ship pista nas mesmas linhas da de pt-BR, e a conferência da RM-061 F3a segue verde.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'ork ship publicar <thread> [--dry-run] [--remoto R] [--json]' docs/referencia/cli.en.md && grep -F 'ork ship pista [<thread>] [--remoto R] [--json]' docs/referencia/cli.en.md",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/rm044-paridade-cli-md.test.js"
+      ],
+      "criadoEm": "2026-10-12T17:47:53.810Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "O manifesto lido como texto (comandosDoTextoDoManifesto) dá os comandos de verify e o do CI com as regras do carregarManifesto, e o ork ship publicar confere o verify e o bundle pelo orkastery.yaml do HEAD da branch, não pelo de quem chama; os testes do manifesto seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'export function comandosDoTextoDoManifesto(bruto: string)' core/src/manifest.ts && grep -F 'const daBranch = manifestoDaBranch(carregado, head);' core/src/ship-publicar.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ship-publicar.test.js core/dist-test/test/manifesto-modos.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:32:06.910Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "O ci exporta os comandos que o bundle leva ao runner (comandosDoBundle), e o ork ship publicar recusa o bundle no HEAD cujos comandos de claim ou do manifesto da branch mudaram depois dele; os testes do ci seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'export function comandosDoBundle(carregado: ManifestoCarregado)' core/src/ci.ts && grep -F 'comandosDoBundle(daBranch)' core/src/ship-publicar.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ci.test.js core/dist-test/test/ship-publicar.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:51:41.213Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm059pista",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm059pista.json",
+      "alegacao": "O bundle da thread para o check ork-verify tem o contrato ork.ci-bundle/v1, a branch da thread e as 45 claims ativas, com no máximo uma adiada (artifact-not-in-checkout).",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const b=require(\"./.ork-ci/ork-rm059pista.json\");const d=b.deferredClaims||[];process.exit(b.schema===\"ork.ci-bundle/v1\"&&b.thread===\"ork-rm059pista\"&&b.branch===\"ork/ork-rm059pista-full\"&&b.claims.length+d.length>=45&&d.length<=1&&d.every(x=>x.reason===\"artifact-not-in-checkout\")?0:1)'"
+      ],
+      "criadoEm": "2026-10-12T18:53:26.663Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
