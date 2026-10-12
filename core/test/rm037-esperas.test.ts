@@ -17,7 +17,7 @@ import { exigirCatalogo } from '../src/catalogo';
 import { instalarAdaptador } from '../src/hosts';
 import { Modo } from '../src/types';
 import { esperarVaga, LeituraDoRuntime, leituraReaproveitada, vagaDoDespacho } from '../src/board';
-import { registrarConducaoDaSessao } from '../src/conducao';
+import { registrarConducaoDaSessao, tomarConducao } from '../src/conducao';
 import { rodarFase } from '../src/phase';
 import { SessaoDaConta } from '../src/sessoes-contas';
 import { novaThread } from '../src/thread';
@@ -158,7 +158,7 @@ test('V1: no limite, a sessao que o runtime mostra parada (stopped) nao conta; t
   } finally { p.limpar(); }
 });
 
-test('V2: done, failed, completed, exited e fantasma soltam a vaga; blocked e a parada de outra sessao contam', () => {
+test('V2: done, failed, completed, exited e fantasma (a blocked sem processo) soltam a vaga; blocked com processo e a parada de outra sessao contam', () => {
   const p = projetoTemporario('rm037-esperas-v2');
   try {
     p.carregado.manifesto.concurrency.max_parallel_threads = 1;
@@ -172,7 +172,9 @@ test('V2: done, failed, completed, exited e fantasma soltam a vaga; blocked e a 
     }
     assert.equal(vaga([{ sessionId: SESSAO, state: 'working', fantasma: true, viva: false }]), null, 'fantasma');
     assert.equal(vaga([{ sessionId: SESSAO, state: undefined, status: 'stopped', viva: false }]), null, 'status sem state');
-    assert.ok(vaga([{ sessionId: SESSAO, state: 'blocked' }]), 'blocked conta');
+    // S1 do CHECK: a `blocked` cujo processo saiu e fantasma (RM-056, D5) e solta; com o processo vivo, conta.
+    assert.equal(vaga([{ sessionId: SESSAO, state: 'blocked', fantasma: true, viva: false }]), null, 'blocked sem processo');
+    assert.ok(vaga([{ sessionId: SESSAO, state: 'blocked' }]), 'blocked com processo vivo conta');
     assert.ok(vaga([{ sessionId: codex, state: 'stopped', viva: false }]), 'a parada de outra sessao nao solta esta');
     // A sessao codex do lease, encerrada nos rollouts, tambem sai.
     const p2 = projetoTemporario('rm037-esperas-v2-codex');
@@ -296,5 +298,25 @@ test('V7: a espera do --esperar le o runtime uma vez por janela de 30 s, e nao a
     const trabalhando = runtimeCom([{ sessionId: SESSAO, state: 'working' }]);
     assert.equal(esperarVaga(p.carregado, nova.id, 4_500, trabalhando.ler), false, 'a sessao segue trabalhando');
     assert.equal(trabalhando.leituras(), 1, 'tres voltas de 2 s, uma leitura so');
+  } finally { p.limpar(); }
+});
+
+test('V8: com o runtime lido no limite, o despacho em curso de outra thread segue contando', () => {
+  // A1 do CHECK: so a sessao sai pela prova do runtime; o despacho em curso (conducao de processo) nao tem sessao.
+  const p = projetoTemporario('rm037-esperas-v8');
+  try {
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    const despachando = novaThread(p.carregado, { nome: 'despachando', modo: 'auto' }).thread;
+    threadComSessao(p, 'parada', SESSAO);
+    const nova = novaThread(p.carregado, { nome: 'quer a vaga', modo: 'auto' }).thread;
+    const tomada = tomarConducao(p.dir, despachando.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 60_000 });
+    assert.equal(tomada.ok, true);
+    try {
+      const parada = runtimeCom([{ sessionId: SESSAO, state: 'stopped', viva: false }]);
+      const recusa = vagaDoDespacho(p.carregado, nova.id, undefined, undefined, parada.ler);
+      assert.equal(parada.leituras(), 1, 'o runtime foi lido');
+      assert.deepEqual(recusa?.ocupam.map((o) => [o.thread, o.sessao]), [[despachando.id, null]], 'a parada saiu, o despacho ficou');
+      assert.match(recusa!.detalhe, /despacho em curso/);
+    } finally { if (tomada.ok) tomada.liberar(); }
   } finally { p.limpar(); }
 });
