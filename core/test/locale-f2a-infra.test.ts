@@ -41,9 +41,8 @@ test('locale F2a infra: cobreLocale so com a entrada na lista, nunca com --json 
   // A F2b (G3) cobre `verify`, `ship`, `pulse`, `master`, `retry plan|run` e `roadmap status`; aqui ficam so as
   // rotas que seguem em pt-BR.
   for (const fora of [['retry', 'list'], ['retry', 'policy'], ['pulse', 'cadencia'], ['master', 'classes'], ['master', 'x'],
-    ['network', 'roadmap'], ['onboarding', 'sync'], ['experiencia', 'uninstall', 'codex'], ['projetos'], ['modos'],
-    // F3a (D5): de `docs`, so `docs init` segue o locale; `docs` (verificar), `docs sincronizar` e o desconhecido, nao.
-    ['docs'], ['docs', 'verificar'], ['docs', 'sincronizar'], ['docs', 'x']]) {
+    // F3b: `docs` inteiro segue o locale (verificar, sincronizar, init e o desconhecido), e sai desta lista.
+    ['network', 'roadmap'], ['onboarding', 'sync'], ['experiencia', 'uninstall', 'codex'], ['projetos'], ['modos']]) {
     assert.equal(cobreLocale(fora, {}), false, fora.join(' '));
   }
 });

@@ -3055,9 +3055,11 @@ function comandoDocs(args: Args): number {
   const raiz = carregado?.raiz ?? diretorioDoProjeto();
   const baseBranch = carregado?.manifesto.worktree?.base_branch ?? 'main';
 
+  const md = msg().docs;
   if (sub === 'verificar') {
     // RM-037 (fatia 3, GO-FIX 2): o CI passa --pr no pull_request; no push da main as duas regras novas reprovam.
-    const { docs, achados } = verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA, pr: args.opcoes.pr === true });
+    // RM-061 (F3b, G4): verifica no escopo pt-BR, como o `--json` leva os achados; o texto os remonta no locale do comando.
+    const { docs, achados } = comLocale('pt-BR', () => verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA, pr: args.opcoes.pr === true }));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ paginas: docs.length, erros: achados.filter((a) => a.gravidade === 'erro').length,
         achados }, null, 2));
@@ -3073,30 +3075,30 @@ function comandoDocs(args: Args): number {
     // Sugestao 4 do CHECK 1 (e 8 do CHECK 2, `--so=`): `--so` sem item e erro de uso, nunca o escopo
     // padrao em silencio.
     if (args.opcoes.so === true || (typeof args.opcoes.so === 'string' && !args.opcoes.so.trim())) {
-      console.error('uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (faltou o item depois de --so)');
+      console.error(md.usoSoSemItem);
       return 2;
     }
     const so = texto(args.opcoes.so);
     let itens: string[] | undefined;
-    let escopo = 'todo item do roadmap';
+    let escopo = md.escopoTodos;
     if (so) {
       itens = so.split(',').map((i) => i.trim().toUpperCase()).filter(Boolean);
       const fora = itens.filter((i) => !/^RM-\d{3}$/.test(i));
       if (fora.length || itens.length === 0) {
-        console.error(`uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (recebido: ${so})`);
+        console.error(md.usoSoInvalido(so));
         return 2;
       }
-      escopo = `so ${itens.join(', ')} (--so)`;
+      escopo = md.escopoSo(itens.join(', '));
     } else if (args.opcoes.todos !== true) {
       const padrao = escopoPadraoDoSync(raiz);
       if (padrao.itens) {
         itens = padrao.itens;
-        escopo = `so ${itens.join(', ')}, o item da thread ${padrao.thread} desta worktree (--todos para todo item)`;
+        escopo = md.escopoDaThread(itens.join(', '), String(padrao.thread));
       }
     }
-    const r = sincronizarDocs(raiz, { baseBranch, escrever, itens });
+    const r = comLocale('pt-BR', () => sincronizarDocs(raiz, { baseBranch, escrever, itens }));
     console.log(args.opcoes.json === true ? JSON.stringify({ ...r, escopo: itens ?? null }, null, 2)
-      : `Escopo: ${escopo}.\n${textoDaSincronizacao(r, escrever)}`);
+      : `${md.escopo(escopo)}\n${textoDaSincronizacao(r, escrever)}`);
     return 0;
   }
   if (sub === 'init') {
@@ -3109,7 +3111,7 @@ function comandoDocs(args: Args): number {
       : [m.criado, ...criados.map((c) => `  ${c}`), '', m.proximoPasso].join('\n'));
     return 0;
   }
-  console.error(`uso: ork docs verificar [--json] [--pr] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);
+  console.error(md.uso);
   return 2;
 }
 

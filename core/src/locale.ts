@@ -69,6 +69,7 @@ import { DECISAO_EN, DECISAO_PT_BR } from './locale-decisao';
 import { ACCOUNTS_EN, ACCOUNTS_PT_BR } from './locale-accounts';
 import { NETWORK_EN, NETWORK_PT_BR } from './locale-network';
 import { RESERVAS_EN, RESERVAS_PT_BR } from './locale-reservas';
+import { DOCS_EN, DOCS_PT_BR } from './locale-docs';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -93,7 +94,9 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'accounts list', 'accounts add', 'accounts remove', 'accounts check', 'accounts esgotamentos', 'accounts ?',
   // G6: `network roadmap` segue em pt-BR (o texto e contrato com os hosts e com a prova de ativacao).
   'network status', 'network entrar', 'network sair', 'network publicar', 'network ?',
-  'roadmap reservas', 'roadmap pegar', 'roadmap soltar', 'roadmap feat', 'roadmap ?'];
+  'roadmap reservas', 'roadmap pegar', 'roadmap soltar', 'roadmap feat', 'roadmap ?',
+  // O contrato que o `docs verificar` le nas paginas (chaves, valores, secoes, marcadores) segue em pt-BR; so a mensagem muda.
+  'docs verificar', 'docs sincronizar', 'docs ?'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -435,6 +438,7 @@ const PT_BR = {
   accounts: ACCOUNTS_PT_BR,
   network: NETWORK_PT_BR,
   reservas: RESERVAS_PT_BR,
+  docs: DOCS_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -706,6 +710,7 @@ const EN: Mensagens = {
   accounts: ACCOUNTS_EN,
   network: NETWORK_EN,
   reservas: RESERVAS_EN,
+  docs: DOCS_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',
