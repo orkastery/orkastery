@@ -111,9 +111,9 @@ const PALAVRAS_PT = [
   'entrevista', 'escolheu', 'informou', 'declara', 'revise', 'altera', 'fase', 'fases', 'despachar', 'rode', 'instale',
   'garanta', 'binario', 'binário', 'fora', 'dentro', 'deste', 'desta', 'nesta', 'neste', 'esse', 'essa', 'isso', 'ela', 'ele',
 ];
-// Palavra colada a ponto ou a sublinhado (dominio, arquivo, identificador: `github.com`, `rede.log`,
-// `despacho_idempotente`) nao conta.
-const RE_PT = new RegExp(`(^|[^\\p{L}._])(${PALAVRAS_PT.join('|')})(?=[^\\p{L}._]|$)`, 'iu');
+// Palavra colada a ponto, sublinhado ou hifen (dominio, arquivo, flag, identificador: `github.com`,
+// `rede.log`, `despacho_idempotente`, `--sem-worktree`, `pausa-humana`) nao conta.
+const RE_PT = new RegExp(`(^|[^\\p{L}._-])(${PALAVRAS_PT.join('|')})(?=[^\\p{L}._-]|$)`, 'iu');
 
 /** As linhas do texto que ainda trazem palavra pt-BR fora de crases e fora dos trechos de dado. */
 export function linhasEmPortugues(texto: string, dados: readonly string[] = []): string[] {

@@ -28,6 +28,7 @@
 import { ONBOARDING_EN, ONBOARDING_PT_BR } from './locale-onboarding';
 import { THREAD_EN, THREAD_PT_BR } from './locale-thread';
 import { PHASE_EN, PHASE_PT_BR } from './locale-phase';
+import { AJUDA_EN, AJUDA_PT_BR } from './locale-ajuda';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -314,6 +315,7 @@ const PT_BR = {
   onboarding: ONBOARDING_PT_BR,
   thread: THREAD_PT_BR,
   phase: PHASE_PT_BR,
+  ajuda: AJUDA_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -549,6 +551,7 @@ const EN: Mensagens = {
   onboarding: ONBOARDING_EN,
   thread: THREAD_EN,
   phase: PHASE_EN,
+  ajuda: AJUDA_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

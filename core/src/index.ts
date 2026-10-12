@@ -136,10 +136,11 @@ import {
 import { carregarManifesto, configDeEmbedding, DIR_ESTADO, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
-import { gravarEtapa, lerOnboarding, ONDE_FICAM_OS_SEGREDOS, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
+import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, comLocale, msg, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, comLocale, Locale, localeAtivo, msg, resolverLocale } from './locale';
+import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
   sondarEmbeddings,
@@ -305,361 +306,24 @@ function conducaoDoCli(args: Args): { canal: ReturnType<typeof canalDoProcesso>;
   return { canal: canalDoProcesso(texto(args.opcoes.canal)), correlacao: texto(args.opcoes.correlacao) ?? null, esperarMs };
 }
 
-const AJUDA = `ork ${VERSAO}, nucleo de orquestracao do Orkastery
+/** RM-061 (F2a): o que a ajuda interpola; a redacao mora no catalogo (`msg().ajuda`, D10). */
+function dadosDaAjuda(locale: Locale = localeAtivo()): DadosDaAjuda {
+  return { versao: VERSAO, modos: ORDEM_DOS_MODOS.length, segredos: msg(locale).onboarding.segredos,
+    tags: ORDEM_DOS_MODOS.map((m) => MODOS[m].tag).join(' ') };
+}
 
-Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
+/** A ajuda em pt-BR, o texto de sempre: o `docs verificar` a compara com a referencia do CLI. */
+const AJUDA = msg('pt-BR').ajuda.texto(dadosDaAjuda('pt-BR'));
 
-  --projeto <nome|caminho>                  Projeto-alvo de qualquer comando (RM-052): vence ORK_PROJETO, que vence o
-                                            diretorio atual; nome ambiguo ou desconhecido recusa com os candidatos (saida 4)
-  projetos [--json]                         Projetos conhecidos desta maquina (~/.orkastery/projetos.json)
-  projetos registrar [caminho]              Registra a copia (init, thread new e fabrica entrar ja registram)
-  projetos esquecer <nome|caminho>          Tira do registro a copia que sumiu ou sobrou (nada no disco e apagado)
-
-  doctor                                    O que vale nesta maquina agora (sai != 0 se bloqueado)
-  init [--force] [--name N] [--abbrev A]    Gera o orkastery.yaml do repositorio
-  modos                                     Tabela dos ${ORDEM_DOS_MODOS.length} modos de conducao vivos por #TAG
-
-  setup                                     Pauta da entrevista #setup: runtime/modelo/esforco
-                                            por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
-  onboarding [show|set <etapa>|reset [etapa]] Pauta e respostas do projeto (9 etapas)
-        [--conteudo JSON] [--por Q] [--json]  Segredos ficam ${ONDE_FICAM_OS_SEGREDOS}
-        [--reset [etapa]]                    Reset seletivo ou total, idempotente
-  onboarding sync [--json]                  Publicação opcional na memória, com degradação
-  experiencia show [--json]                 Preferências efetivas; configure por onboarding set maestro --conteudo '{"owner":{"experience":true}}'
-  experiencia uninstall <host> [--dry-run] [--json]
-                                            Remove o bloco de Claude Code/Codex; sem --dry-run aplica a remoção
-  setup <modo>                              Config atual de cada bloco do modo
-  setup <modo> --bloco N [--runtime R]      Edita o bloco (runtimes: claude-bg, codex);
-        [--model M] [--effort E] [--por Q]       evento setup_configured no ledger do projeto
-        [--fallback R:M[:E],...]                  ordem de fallback de runtime do bloco (I-33)
-  accounts list [--json]                    Perfis de conta por runtime, sem segredo (I-33)
-  accounts add <id> --runtime R --dir D     Cria o perfil e roda o login do proprio CLI com o env
-        [--sem-login]                            do perfil (nunca copia credencial)
-  accounts remove <id>                      Desativa o perfil (diretorio e login ficam onde estao)
-  accounts check [<id>]                     Confere o login de cada perfil e marca o store
-  accounts esgotamentos [--desde 7d] [--json]
-                                            Despachos numa conta que outro projeto desta maquina viu esgotada
-                                            (RM-040), so leitura: conta opaca, perfil pelo id, sem diretorio
-  setup [<modo>] --reset                    Volta o modo (ou tudo) ao default
-  setup versionar                           Leva o setup que vale para orkastery.setup.json: por PR, vale em
-                                            todas as maquinas e passa a ser o arquivo editado (I-52)
-
-  thread new <nome> --modo <MODO>           Cria a thread, o slug de 3 partes e o ledger
-        [--exige-runtime-diferente]              o CHECK precisa de runtime que o GO nao usou
-        [--done "<criterio> :: <comando>"]       criterio de pronto EXECUTAVEL (use ;; para varios)
-        [--slug S] [--assunto A] [--worktree auto|DIR] [--dry-run]
-        [--sem-worktree]                         cria sem worktree (na branch base, o ship barra a entrega com
-                                                 push_direto_na_base: block, o padrão do ork init); com
-                                                 worktree.por_thread: true, a worktree nasce sem flag
-        [--roadmap RM-NNN]                       reserva o item do roadmap antes de criar (I-47)
-  thread list [--todas] [--json]            Threads NAO fechadas do projeto (--todas inclui as fechadas)
-  thread close <id> --motivo orfa|engano|superada --por Q --justificativa J
-  thread entrega <id> --arquivo A --sha256 H --por Q
-  thread status <thread-id> [--json]        Estado da thread, cruzado com o runtime
-
-  portfolio inspect <id> --json              Entidade, origem e ciclos com lacunas explícitas
-  creation start --input-file F --json       Criação durável com identidade do processo local
-  creation show|list|events [id] --json       Consulta journal e recuperação
-  creation resume|compensate <id> --expected-version N --json
-  portfolio create <product|project|initiative> <id> --title T [--parent ID]
-  portfolio list [product|project|initiative] [--parent ID] [--json]
-  portfolio show <id> [--json]              Catálogo prod -> proj -> init
-  objective ...                             Aposentado na I-43: as duas vigas viraram
-                                            --exige-runtime-diferente e --done de thread
-
-  phase run <thread-id> <FASE> --prompt "<texto>"
-        [--runtime R] [--model M]           Despacha a fase como background agent
-        [--effort E] [--dry-run]                 (runtime: CLI > setup do bloco > manifesto;
-                                             so --model assume --effort high; o trio
-                                             efetivo vai ao ledger como fato verificavel)
-        [--canal C] [--correlacao ID]        Canal de origem (sem ele, o que o host declara)
-        [--esperar [min]]                    Com a thread ja conduzida, espera a vez (sem: recusa na hora)
-        [--perfil ID]                        Conta do despacho (ork accounts list); inexistente, de outro
-                                             runtime, esgotado ou sem login recusa com motivo tipado
-  phase list <thread-id>                    Historico do ledger da thread
-                                            (mostra o modelo/esforco reais de cada fase)
-  ledger stats --desde 7d [--ate ISO]       Telemetria economica do ledger (intervalo [desde,ate))
-        [--thread T] [--modo M] [--runtime R] [--json]
-  ledger estimate <thread-id> --sem-ia H --ia-sem-ork H --por Q --metodo M --premissas P
-        [--incerteza I]                     Registra estimativas explicitas da fase PLAN
-
-  sessions [--all] [--global] [--json]      Inventário Claude e Codex da conta do processo e de cada perfil
-        [--exigir-limpo]                    Sai != 0 com fonte inválida ou sessão sem thread
-  sessions adopt <id> [--json]             Adota identidade real sem executar prompt
-  sessions event --tipo T --sessao ID       Ingere JSON limitado no stdin; observa sem aprovar gates
-  sessions watch --thread T [--sessao ID]   Observa somente a sessão selecionada; --once faz uma varredura
-  sessions limpar-fantasmas [--dry-run]     Solta do ork (sessao_morta no ledger) a sessao sem pid e sem processo;
-        [--json]                             nunca toca no runtime (RM-056)
-  sessions logs <sessao> [--linhas N]       Logs de uma sessao
-  sessions supersede <thread> <UUID> --fase F --runtime R  Confirma encerramento de sessão superada
-  sessions request <thread> <UUID> --fase F --runtime R --pergunta P  Abre pedido vinculado ao prompt nativo
-  sessions answer <thread> <pedido> --stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]  Confirma entrega autenticada
-  sessions reconcile <thread> <pedido>      Fecha envio pendente so com thread e pedido; consulta recibo, nunca reenvia
-  sessions stop <sessao>                    Para uma sessao
-  sessions attach <sessao>                  Imprime o comando de attach (precisa de TTY)
-  pulse [--json] [--registrar]             Fila unificada de atenção humana e retry de órfãs
-  pulse responder --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
-                                            Recebe o que o dono digitou no canal do resumo (P4EJ a, 1a 2c)
-  pulse cadencia [<tag>] [--por P] [--json] Mostra ou troca a cadencia do resumo: OrkPulseOn, OrkPulseOn-15m,
-                                            -30m, -60m ou OrkPulseOff; pergunta nova sai na hora (I-50)
-  sessions hitl [--json] [--so-paradas]     Radar de sessoes que exigem acao humana AGORA:
-        [--atencao N] [--sem-logs]              classifica o estado de cada sessao do runtime,
-        [--so-da-raiz] [--exigir-limpo]         le a pergunta que a sessao trava e diz o que
-                                                destrava (pega HITL de sessao SEM thread)
-
-  claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"] [--fase F]
-                                            Registra alegacao verificavel da thread
-  claims list <thread-id>                   Claims da thread e o estado de cada uma
-  decisao registrar <thread-id> --decidido D --porque P --como-mudar C --custo-agora A --custo-depois B
-        --criterio manifesto:CHAVE|ledger:REF|medicao:COMANDO --quem Q --evidencia E [--razao R] [--reverte ID]
-                                            Decisao tomada sem perguntar: chega ao dono no resumo
-  decisao placar <thread-id> [--json]       Decididas contra perguntas por fase, reversoes e o limiar
-  claims verificar <thread-id> <claim-id> --comando "<comando>"
-                                            Anexa o comando que comprova uma claim ja feita
-  claims retirar <thread-id> <claim-id> --motivo "<motivo>"
-                                            Retira a alegacao (o historico fica no claims.jsonl)
-  claims ausente <thread-id> --paths A,B --motivo "<motivo>" [--commit SHA]
-                                            Ciclo sem CHECK: declara no ledger o que ficou sem prova
-  verify <thread-id> [--baseline]           Reexecuta claims e verify do manifesto no HEAD real
-        [--so-claims]                       --baseline grava o estado do mundo antes do GO
-        [--canal C] [--esperar [min]]       So executa com a conducao da thread (sai 3 se outra conduz)
-  ci prepare <thread-id>                    Exporta claims/comandos para a candidata (.ork-ci/<thread>.json)
-  ci run [<thread-id>] [--bundle ARQ]       Executa o CHECK no runner independente
-        [--branch B]                         acha o bundle da thread pelo nome da branch (o CI usa)
-  ci status [--sha SHA] [--remoto origin]   Consulta o check exato publicado no GitHub
-
-  gate next <thread-id> [--proximo FASE]    Gate de tokens: mesma sessao ou nova sessao
-        [--ocupacao 0..1] [--fonte F] [--transcript ARQ] [--janela N] [--refazer]
-  gate request <thread-id> [--motivo M]     Apresenta pedido HITL correlacionado à pausa
-        [--formato telegram|terminal]           no contrato curto, com o codigo estavel para responder
-  gate answer <thread-id> <pedido>          Recebe envelope do ingresso humano autenticado
-        --resposta-stdin --por Q --mensagem ID --origem telegram [--canal hermes|openclaw]
-        [--conta ID]  conta homologada do canal; obrigatoria no canal openclaw
-  gate approve                             Aposentado: aprovação sem pedido é recusada
-
-  retry policy [--motivo M] [--json]        Politica de retry por motivo tipado de gate
-  retry plan <thread-id> [--motivo M]       O que o ork faria pelo ultimo gate reprovado
-        [--fase F] [--json]                      (calcula, nao executa, nao gasta tentativa)
-  retry run <thread-id> [--reverify]        Executa a acao tipada do ultimo gate reprovado
-        [--por Q] [--dry-run]                    (--por autoriza quando o bloco do modo pausa)
-  retry list [--json]                       Fila DURAVEL de rate limit do projeto
-  retry resume [--id R1] [--agora ISO]      Retoma a fase morta por rate limit na janela seguinte
-        [--ocupacao 0..1] [--forcar] [--dry-run] (playbooks: mesma-sessao, nova-sessao, escalada)
-  retry cancel <id> --motivo M              Tira um pedido da fila, com motivo registrado
-  retry parse --stderr "<texto>"            Le o horario de reset do stderr do adapter
-
-  fix open <thread-id> [--so-claims]        GO-FIX: deriva a spec exata do CHECK reprovado
-        [--reverify] [--json]                    (uma correcao por motivo tipado, tipo A ou B)
-  fix list <thread-id> [--rodada N]         Correcoes da rodada e o veredito de cada uma
-  fix reverify <thread-id> [--rodada N]     CHECK-REVERIFY com veredito POR correcao
-        [--parcial] [--json]                     (--parcial e RECUSADO se houver tipo B)
-
-  handoff export <thread-id>                Handoff triado CRITICO/IMPORTANTE/RESUMIVEL
-        [--proxima-fase FASE] [--slug S]
-  handoff recall <thread-id> <ponteiro>     Resolve um ponteiro path#ancora de volta ao conteudo
-
-  recall <thread-id> --fase FASE            Recuperacao TARDIA: resolve so os ponteiros do
-        [--id ptr-N] [--todos] [--forcar]        momento (retrieve_when), nunca a janela inteira
-        [--sem-conteudo] [--json]                (orkmind por tag, files por path#ancora)
-
-  brain status|inventory|get|query|receipts|context|dossie|sync|reconcile|apply|rollback|bind
-  brain dossie --thread T [--decisao ID]    Dossie de decisao: vinculo, contexto citavel, alternativas,
-                                            quem decidiu e evidencia, com os ids do Brain (so leitura)
-  memory status [--json] [--sondar]         Regime efetivo (files|orkmind), tenant, degradacao e embeddings
-                                            (--sondar: uma chamada real de embedding, com a latencia)
-  memory sync [<thread-id>] [--json]        Publica decisoes, policies, handoff, licao e roadmap
-  memory inventory --escopo <threads> [--json]                 Inventaria fontes canonicas e tenants excluidos, sem gravar
-  memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]                   Migra handoffs por G3, com pacote integral e readback
-  memory search --tags '<json>' [--colecao C]  Busca deterministica por tag (mandatory sempre volta)
-        [--thread ID] [--restrito] [--janela N] [--limite N] [--json]
-  memory search --texto "<frase>"          Busca por significado (I-38): vetor + FTS por RRF no tenant,
-        [--modo hibrido|vetor|fts]               NAO deterministica; nao combina com --tags nem --thread
-        [--colecao C] [--limite N] [--json]
-  memory index [--modelo primario|fallback|todos] Indice vetorial local do tenant (I-38), idempotente,
-        [--dry-run] [--json]                     com tokens e custo estimados; --dry-run nao chama o provider
-
-  grafo indexar [--verificar] [--forcar]    Indice do grafo de codigo do HEAD limpo (RM-031 KG3) no estado do projeto:
-        [--json]                                 pastas 0700, chave por revisao e extrator, idempotente; incremental (KG4)
-                                                 a partir do indice ancestral, ou completo com o motivo; --forcar extrai
-                                                 completo; --verificar confere contrato, bytes, determinismo e o incremental
-                                                 contra a completa; precisa de typescript e micromark
-  grafo status [--json]                     Indices guardados, o do HEAD, os analisadores e o tamanho
-  grafo contexto <thread> [--json]          Pacote da thread com evidencias e medida em bytes [--teto-bytes N]
-  grafo vizinhos <no> [--profundidade N]    Vizinhanca de arquivo ou simbolo, com extrator e evidencia de cada aresta
-        [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json]
-  grafo chamadores <simbolo>                Quem chama (arestas calls que chegam) [--profundidade N] [--limite N] [--json]
-  grafo importadores <arquivo|simbolo>      Quem importa (arestas imports que chegam) [--profundidade N] [--limite N] [--json]
-  grafo caminho <de> <para>                 Menor caminho pelas arestas [--sentido saida|entrada|ambos] [--tipo T,...] [--json]
-        [--json --teto-bytes N]                  Nas quatro consultas (KG5): JSON compacto de no maximo N bytes; as arestas mais
-                                                 longe do alvo saem ate caber, e o caminho que nao cabe recusa
-  grafo amostra [--por-estrato N]           Amostra de arestas para auditoria manual; --conferir ARQ confere a auditada
-  grafo limpar [--tudo] [--json]            Apaga os indices que nao sao do HEAD e as sobras com mais de uma hora
-
-  ship <thread-id> --para <branch>          Merge --no-ff serializado por lease e push PROVADO
-  ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
-        [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master <thread> --aceitar-omissao
-        [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
-        [--dry-run]                              Ensaio: as mesmas conferencias, sem gravar ship_done, fase nem fabrica
-        [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
-
-  board [--all] [--sem-remoto]              Visao unica das threads (todos os perfis com --all); com a
-                                            fabrica compartilhada, tambem as outras maquinas (I-51)
-  board plan                                Escalonador: quem avanca agora, quem espera e por que
-
-  orquestracao status [--all] [--json]      Monitor PROATIVO de pausas e impedimentos: quem esta
-        [--atencao N] [--so-paradas]             parado, esperando o que, ha quanto tempo e o que
-        [--sem-runtime] [--exigir-limpo]         destrava (alias curto: ork monitor)
-
-  worktree ensure <thread-id>               Garante a worktree da thread (base resolvida pelo ork)
-  worktree sync <thread-id> [--dry-run]     Rebasa a branch da thread quando a base avancou
-  worktree audit <thread-id>                Confere a worktree no proprio git (sai != 0 se divergir)
-  worktree release <thread-id> [--forcar]   Remove a worktree e limpa o registro
-
-  activation plan|status|enable|disable     Escrita escopada com aceite, hash, leases e recibo
-  lease list                                Leases, familias e as filas (merge e colisao de regiao)
-  lease acquire <nome> --thread T --motivo M   Toma um lease tipado (entra na fila se colidir)
-  lease release <nome> [--thread T] [--forcar]
-  conducao status <thread-id> [--json]      Quem conduz a thread agora (canal, sessao, fase, desde)
-  conducao assumir <thread-id> --por Q --motivo M
-                                            Handoff: encerra a conducao atual pelo runtime e registra quem assumiu
-
-  master propor <id> --score N --justificativa J --por <agente>
-  master batch --aceitar <thread:assinatura,...> --por <humano>
-  master migrar --dry-run --por Q           Inspeciona correções sem alterar originais
-  master digest <enviar|preview|responder>  Digest semanal com recibos do host
-  master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>
-        [--classe C[,C]] [--resumo R] [--refazer]
-                                            Fecha a thread: POSTMORTEM + MASTER log + score (so do terminal;
-                                            de processo de host e recusado com master.prova-de-canal)
-  master pedir <thread-id> [--formato telegram|terminal|json]
-                                            Pede a nota ao dono com codigo curto; ele responde pelo Telegram
-                                            (<codigo> <0 a 5> <porque>) e a nota vai ao ledger com o recibo (RM-048)
-  master [--todas] [--json]                 As entregas, com o indice derivado do ledger
-  master <thread-id> --aceitar-omissao      Aceita por omissao SO a entrega desta thread, com registro (ou --thread T)
-        [--dry-run] [--json]                     --dry-run lista o que seria fechado, sem gravar
-  master --aceitar-omissao [--dry-run] [--json]
-                                            Aceita TODAS as entregues por omissao, listando cada uma
-                                            (de processo de agente com mais de uma, avisa em stderr)
-  master classes                            As classes de falha fixas do POSTMORTEM
-  licoes [--json]                           O que volta no GOAL e no PLAN da proxima thread (POSTMORTEM e
-                                            MASTER) e as propostas de policy por recorrencia (I-55)
-
-  demo [--manter] [--dir D]                 A promessa em 30 s: uma afirmacao falsa reprovada e a corrigida aceita,
-                                            offline, num repositorio temporario (I-56)
-  ciclos                                    Variantes de ciclo de "ork thread new --ciclo"
-  modos --do-pedido "<texto>" [--json]      Le a #TAG do pedido do builder (usado pelos adaptadores)
-  modos migrar [--dry-run] [--por Q]        Tira modo aposentado do orkastery.yaml e do setup.json
-        [--json]                             (idempotente, com backup; nao toca em historico)
-
-  prompt list                               Templates de prompt (embutidos e os do projeto)
-  prompt lint [--template ID]               Reprova template quebrado antes de ele virar despacho
-  prompt render <thread-id> --fase F        Mostra o prompt exato, com o sha256 que vai ao ledger
-        [--pedido "<texto>"] [--template ID]
-  prompt render --exemplo --fase F --modo M Renderiza sem thread nenhuma, para revisar o texto
-
-  roadmap status [--json]                   Status report unico do roadmap: grupos com icones, #HITL no que espera
-                                            voce e o fecho com o que precisa de voce e o que vem a seguir (RM-048)
-  roadmap reservas [--json] [--remoto R]    Quem esta com cada item do roadmap, lido da branch ork/roadmap-reservas
-        [--soltar-orfas]                     marca a reserva de thread ja fechada (orfa) e, com a opcao, solta
-                                             ou passa para outra thread aberta do mesmo item, com registro
-  roadmap pegar <RM-NNN> [--thread T]       Reserva o item para esta maquina (push atomico: o primeiro vence)
-        [--nota N] [--por Q] [--maquina M]       maquina = --maquina, ORK_MAQUINA ou o hostname
-        [--forcar --motivo M]                    tomar a reserva de outra maquina fica registrado
-  roadmap soltar <RM-NNN> [--forcar --motivo M]  Devolve o item
-  roadmap feat [--thread T] [--nota N]      Reserva o proximo numero de FEAT na mesma branch (push atomico: duas
-                                            maquinas nunca levam o mesmo numero; numero reservado nao volta)
-  fabrica [--json] [--sem-remoto]           O que cada maquina conduz, lido da branch ork/fabrica-estado (I-51)
-  fabrica entrar [--maquina NOME]           Esta maquina entra na fabrica compartilhada deste usuario, com
-                                            este nome (~/.orkastery/maquina.json), e publica o primeiro retrato
-  fabrica publicar [--forcar] [--json]      Grava o retrato desta maquina na branch (push atomico, sem forca);
-                                            depois de entrar, sai sozinho ao criar thread, despachar fase,
-                                            entregar e fechar, e a cada batida do pulse
-  fabrica sair                              Para de publicar daqui e tira o retrato desta maquina da branch
-  network status [--json] [--sem-remoto]    A Orkastery Network desta pessoa: as maquinas, de qualquer diretorio,
-                                            com a fonte, as lacunas e o que nao foi lido (RM-053)
-  network entrar [--maquina NOME]           Esta maquina entra na rede: repositorio privado <usuario>/orkastery-network
-        [--forja github|gitlab] [--repositorio [DONO/]NOME]  na forja (criado se falta) e o primeiro retrato;
-        [--forcar]                               --forcar toma um nome que outra instalacao usa (fica no commit)
-  network publicar [--forcar] [--json]      Grava o retrato desta maquina na casa da rede (push sem forca); depois de
-                                            entrar, sai sozinho na batida do pulse e nos eventos de thread
-  network sair                              Para de publicar daqui e tira o retrato desta maquina da casa
-  network roadmap [--projeto P] [--json]    Roadmap, reservas e threads de cada maquina de cada projeto, de qualquer diretorio:
-        [--sem-remoto]                           fonte e hora de cada parte, lacuna tipada no que nao leu. P = caminho do clone,
-                                                 github:dono/repo, gitlab:grupo/repo ou nome conhecido; sem clone, le a forja (RM-054)
-  docs verificar [--json] [--pr]            Documentacao de produto e roadmap contra o codigo e o git; no PR (--pr),
-                                            o merge de outra thread e o indice que divergem da main so avisam
-                                            (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
-  docs sincronizar [--escrever]             Fatos do ledger e do git para o roadmap (merge, fase) e indices;
-                                            sem --escrever so mostra; nunca muda status por passagem de tempo
-        [--so RM-NNN[,RM-MMM]] [--todos]     so esses itens (e os indices); na worktree de uma thread com item,
-                                             o padrao e o item dela; --todos volta a todo item (RM-037)
-  docs init                                 Cria padroes, modelos, indices e o lint de Markdown no projeto
-
-  mcp serve --project RAIZ --host HOST       Servidor MCP stdio deste projeto (codex|claude-code)
-  mcp install --project RAIZ --host HOST     Prepara MCP; aceita --dry-run, --ship-transport, --child-permissions e --owner-permissions (Codex)
-
-  adapter list                              Adaptadores de host (Camada 1) e o destino de cada um
-  adapter show <host>                       Os 3 pitfalls de instalacao do host
-  adapter install <host> [--dir D]          Instala o adaptador (claude-code|codex|hermes|openclaw)
-        [--dry-run] [--force]                    divergencia segura resolve sozinha; o resto pergunta
-        [--aceitar-catalogo <arquivo>]           sobrescreve a copia com o catalogo, arquivo a arquivo
-        [--manter-copia <arquivo>]               deixa a copia como esta, arquivo a arquivo
-
-  eval [--skill S] [--canario C]            Canarios de comportamento + corpus das skills finas
-        [--so-canarios] [--so-skills] [--json]   (sai != 0 em qualquer falha)
-
-  audit packs [--estagio E] [--pack P]      Os 7 packs, o estagio que os ativa e a postura
-  audit run <pack> [--profile P]            Monta o prompt do pack e despacha pelo runtime adapter
-        [--since Nd] [--tudo] [--effort E] [--model M] [--agora "<quem>"] [--forcar] [--dry-run]
-  audit list                                Rodadas de auditoria do projeto
-  audit show <rodada> [--ledger]            Contexto, achados e propostas de uma rodada
-  audit prompt <pack> [--since Nd]          O prompt exato do pack, com o sha256 que vai ao ledger
-  audit lint                                Reprova template de auditoria quebrado (auditors/)
-  audit ingest <rodada> --arquivo J         Registra em lote os achados que o auditor escreveu
-  audit finding add <rodada> --regra R      Registra um achado com evidencia, claim e proposta
-        --titulo T --arquivo caminho:linha --impacto I --fix F --estimativa E
-        [--severidade critico|maior|menor] [--irreversivel "<passo>"] [--verificar "<comando>"]
-  audit verify <rodada>                     Reexecuta as claims dos achados (auditor sem self-report)
-  audit report <rodada> [--publicar]        Relatorio com o bloco OBRIGATORIO de propostas
-  audit divida [--pack P] [--todos]         Board de divida: propostas abertas e recorrencia
-  audit surface [<dir>] [--regra SPn]       Varredura DETERMINISTICA da superficie de ataque de rede
-        [--limite N] [--json]                    (SP8..SP12; sai != 0 quando ha achado)
-  audit surface --registrar <rodada>        Grava os achados da varredura no board da rodada
-  audit finding estado <id> <estado>        Carimba o achado (aberto|adiado|resolvido|descartado)
-
-  thread new <nome> --from-finding <ID>     Abre a thread a partir de um achado de auditoria
-        [--modo M] [--worktree auto] [--sem-worktree] [--dry-run]
-                                                 (evidencia, claim e proposta viajam junto; a worktree segue
-                                                 worktree.por_thread como no thread new)
-
-Regimes de memoria: files (fallback honesto) e orkmind (bloco B6, base propria por tenant
-declarada em memory.database_url_env pelo NOME da variavel de ambiente, sem fallback).
-Colecoes gravadas no OrkMind: decision, handoff, rule, learning, roadmap (source=agent,
-nunca mandatory: regra critica so nasce de humano autenticado).
-
-Retry tipado (bloco B3): reexecutar, corrigir-dirigido, sincronizar-worktree,
-escalar-esforco, esperar-janela, escalar-humano, sem-retry. Violacao de custo
-(cost.violation) NUNCA recebe retry automatico. O limite de escalacao do manifesto
-(retry.max_tentativas) pausa QUALQUER modo, inclusive #Auto.
-
-Monitor de orquestracao (ork orquestracao status / ork monitor): duas naturezas de parada.
-pausa-humana e a parada PREVISTA pelo modo (o bloco fechou e espera veredito, com o
-pausaSobre do bloco dizendo o que o humano decide); impedimento e a nao prevista
-(lease.busy, runtime.rate-limited, concurrency.limite e os demais gates tipados). Tudo e
-DERIVADO de thread.json, ledger.jsonl e das filas em disco: o monitor le, nunca grava.
---exigir-limpo sai != 0 enquanto houver thread parada, para virar watchdog do orquestrador.
-
-Fases: GOAL PLAN GO CHECK SHIP MASTER. Modos: ${ORDEM_DOS_MODOS.map((m) => MODOS[m].tag).join(' ')}.
-Familias de lease: main-tree, worktree-write:<thread>, path:<glob>, board:<card>, service:<porta>.
-Ciclos: greenfield, merge-branch, goal-plan, gap, feature-xl-faseada.
-Fontes de medida do gate de tokens: runtime_reported, estimated, informada, unavailable.
-Hosts de Camada 1: claude-code, codex, hermes, openclaw. Canarios: fx-happy, fx-hallucination,
-fx-stale-base, fx-wiki-destroy, fx-schema-drift, fx-concurrency.
-Packs de auditoria: clean-code, reuse, architecture, data-model, ux, security-privacy, process.
-Superficie de ataque de rede (SP8..SP12, varredura deterministica): rota sem auth, endpoint de
-administracao exposto, rota sem rate limit, CORS permissivo, rota sem esquema de payload.
-Estagios do produto: nascente, crescendo, maduro (hardening gradual, visao secao 5.2).
-`;
+/**
+ * RM-061 (F2a): a ajuda segue o locale como os comandos cobertos: `owner.language` do projeto do
+ * diretorio, senao `LC_ALL`, `LC_MESSAGES` e `LANG`. Manifesto ilegivel nao derruba a ajuda.
+ */
+function localeDaAjuda(): Locale {
+  let ownerLanguage: unknown;
+  try { ownerLanguage = carregarManifesto()?.manifesto.owner?.language; } catch { /* vale o ambiente */ }
+  return resolverLocale(ownerLanguage).locale;
+}
 
 
 function comandoThread(args: Args): number {
@@ -4142,7 +3806,8 @@ function executarComando(argvBruto: string[]): number {
     return 0;
   }
   if (!comando || args.opcoes.help === true || comando === 'help') {
-    console.log(AJUDA);
+    ativarLocale(localeDaAjuda());
+    console.log(msg().ajuda.texto(dadosDaAjuda()));
     return 0;
   }
   if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) {
@@ -4440,8 +4105,9 @@ function executarComando(argvBruto: string[]): number {
       console.log(tabelaDeVariantes());
       return 0;
     default:
-      console.error(`comando desconhecido: ${comando}`);
-      console.log(AJUDA);
+      ativarLocale(localeDaAjuda());
+      console.error(msg().ajuda.comandoDesconhecido(comando));
+      console.log(msg().ajuda.texto(dadosDaAjuda()));
       return 2;
   }
 }
