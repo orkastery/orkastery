@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.4",
-  "publicadoEm": "2026-10-12T12:25:20.507Z",
+  "publicadoEm": "2026-10-12T12:25:35.098Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -44,11 +44,11 @@
       "id": "ork-rm043sobrasd",
       "nome": "RM-043: sobras do objective na ajuda do portfolio",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm043sobrasd-full",
-      "atualizadaEm": "2026-10-03T11:35:14.872Z",
+      "atualizadaEm": "2026-10-12T12:25:34.935Z",
       "entregue": "bf5d527b",
       "esperaVoce": false,
       "pergunta": null,
