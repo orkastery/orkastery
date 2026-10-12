@@ -8,6 +8,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Condução pela Sentinela no núcleo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `ork conducao sentinela status --json` (`ork.conducao-sentinela/v1`) diz se a Sentinela do Condutor está ligada nesta
+  máquina (canal `claude-code`, sessão, batida e prazo de 3 min) e dá o passo do condutor em cada thread aberta, com as
+  leituras do pulse, sem o limiar de 30 min e sem a forja; no #Auto, a fase seguinte não sai quando a sessão do bloco já
+  a fez (artefato gravado depois do despacho, produto na branch, `ship_done` ou `master_done`). `bater` e `desligar`
+  mantêm a presença, uma por máquina, com `sentinela_ligada` e `sentinela_desligada` no ledger do projeto só na troca.
+  O guia `docs/guias/conducao-pela-sentinela.md` diz ao condutor externo como ceder o despacho enquanto ela conduz.
 - **Freio de Lote, o primeiro mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `adapters/claude-code/mods/ork-freio` acha, a cada lote de ferramentas da sessão de fase, os arquivos que o lote
   mexeu (inclusive por `Bash`, pela diferença do `git status`) e as claims da thread que os citam, pede ao núcleo a
