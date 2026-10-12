@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-12T20:52:06.772Z",
+  "publicadoEm": "2026-10-12T20:52:15.520Z",
   "threads": [
     {
       "id": "ork-rm059mensag",
@@ -54,11 +54,11 @@
       "id": "ork-rm060previa",
       "nome": "rm060previa",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm060previa-full",
-      "atualizadaEm": "2026-10-12T08:25:44.803Z",
+      "atualizadaEm": "2026-10-12T20:52:15.120Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -136,28 +136,6 @@
         "viva": false,
         "desdeEm": "2026-10-12T13:24:20.621Z",
         "motivo": "sessão 13c61036 encerrada (done)"
-      }
-    },
-    {
-      "id": "ork-sitedesignom",
-      "nome": "sitedesignom",
-      "modo": "#Auto",
-      "fase": "GOAL",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-sitedesignom-full",
-      "atualizadaEm": "2026-10-12T19:56:40.346Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-12T20:00:31.158Z",
-        "motivo": "sessão ca8bc4c1 encerrada (done)"
       }
     },
     {
