@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T17:30:03.457Z",
+  "publicadoEm": "2026-10-12T17:30:14.611Z",
   "threads": [
     {
       "id": "ork-designidioma",
@@ -15,7 +15,7 @@
       "roadmap": null,
       "branch": "ork/ork-designidioma-go",
       "atualizadaEm": "2026-10-12T17:17:04.179Z",
-      "entregue": null,
+      "entregue": "cf04b7d6",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
