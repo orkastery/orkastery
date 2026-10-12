@@ -36,8 +36,8 @@ import { nativeBinding, nativeContextSchema, nativeKey } from './hitl-native';
 import { publicBindingMatches, publicReceiptAuthority, signPublicReceipt, verifyPublicReceipt } from './hitl-public-receipt';
 import { avaliarEfeito, avaliarJanela, canonico, ConteudoDoEnvelope, envelopeComTrabalhos, hashDoEnvelope, ID_DO_ARCO,
   PedidoDeEfeito, RecusaDoArco, recusaDeExclusao, resumoDoEnvelope, shaDoPedido, Teto, validarPedidoDeAbertura } from './noctum-envelope';
-import { lerThread, pedidoDaThread } from './thread';
-import { Fase } from './types';
+import { lerThread, listarIds, pedidoDaThread } from './thread';
+import { Fase, Thread } from './types';
 
 export const CONTRATO_ARCO = 'ork.noctum-arco/v1' as const;
 
@@ -874,13 +874,6 @@ export interface DespachoReservado {
   consumo: ConsumoDoArco;
 }
 
-/**
- * D11 e D12 da ork-rm058n2: confere o envelope e reserva o despacho, as duas coisas sob o lock do arco, imediatamente
- * antes do efeito. A cadeia da N1 (`vigenteConferido`) mais a janela, o trabalho na lista `v2`, a conta e o runtime do
- * envelope e o orçamento: cada despacho reserva uma sessão no teto do arco e nos subtetos da conta e do runtime, e teto
- * em outra unidade recusa, porque a N2 não mede consumo nela. A revogação usa o mesmo lock: ou ela vem antes e nada é
- * reservado, ou vem depois e vale para o despacho seguinte.
- */
 /** As fases que o arco da N2 nunca despacha: a entrega fica com a condutora (A2 do CHECK da ork-rm058n2). */
 const FASES_DA_ENTREGA: readonly Fase[] = ['SHIP', 'MASTER'];
 
@@ -892,6 +885,26 @@ function threadDoPedido(raiz: string, id: string, item: string, texto: string): 
   } catch { return false; }
 }
 
+/** As threads que já casam com o trabalho de pedido (o item mais o sha256 do pedido); `null` com thread ilegível. */
+function threadsDoTrabalho(raiz: string, item: string, texto: string): string[] | null {
+  const sha = shaDoPedido(texto);
+  const achadas: string[] = [];
+  for (const id of listarIds(raiz)) {
+    let t: Thread;
+    try { t = lerThread(raiz, id); } catch { return null; }
+    if (t.roadmap === item && t.pedido?.sha256 === sha) achadas.push(id);
+  }
+  return achadas;
+}
+
+/**
+ * D11 e D12 da ork-rm058n2: confere o envelope e reserva o despacho, as duas coisas sob o lock do arco, imediatamente
+ * antes do efeito. A cadeia da N1 (`vigenteConferido`) mais a janela, o trabalho na lista `v2`, a conta e o runtime do
+ * envelope e o orçamento: cada despacho reserva uma sessão no teto do arco e nos subtetos da conta e do runtime, e teto
+ * em outra unidade recusa, porque a N2 não mede consumo nela. O trabalho de pedido só despacha a thread que o arco abriu
+ * para ele, e só abre uma pelo GOAL quando nenhuma casa ainda; SHIP e MASTER nunca saem do arco da N2. A revogação usa o
+ * mesmo lock: ou ela vem antes e nada é reservado, ou vem depois e vale para o despacho seguinte.
+ */
 export function reservarDespacho(raiz: string, pedido: PedidoDeDespacho, quando = new Date().toISOString()): DespachoReservado {
   return comLockDoArco(raiz, pedido.arco, false, () => {
     const log = lerLog(raiz, pedido.arco);
@@ -909,6 +922,13 @@ export function reservarDespacho(raiz: string, pedido: PedidoDeDespacho, quando 
     }
     if (FASES_DA_ENTREGA.includes(pedido.fase)) {
       throw fora(`a fase ${String(pedido.fase)} é entrega: a N2 não despacha SHIP nem MASTER, que ficam com a condutora`);
+    }
+    // S3 da rodada 2: abrir a thread de um trabalho de pedido é pelo GOAL, e só quando nenhuma casa com ele ainda.
+    if (t.pedido !== undefined && pedido.thread === null) {
+      if (pedido.fase !== 'GOAL') throw fora(`o trabalho ${t.id} abre a thread pelo GOAL, não pelo ${String(pedido.fase)}`);
+      const ja = threadsDoTrabalho(raiz, t.item, t.pedido);
+      if (ja === null) throw fora(`há thread ilegível no projeto, e ela pode ser a do trabalho ${t.id}: abrir outra a duplicaria`);
+      if (ja.length) throw fora(`o trabalho ${t.id} já tem a thread ${ja.join(', ')}: o despacho vai por ela`);
     }
     const tetoDoRuntime = c.orcamento.porRuntime.find(x => x.runtime === pedido.runtime)?.teto;
     if (!tetoDoRuntime || !c.capacidade.porRuntime.some(x => x.runtime === pedido.runtime)) {
