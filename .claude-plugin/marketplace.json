@@ -43,6 +43,13 @@
       "homepage": "https://orkastery.com/"
     },
     {
+      "name": "ork-radar",
+      "source": "./marketplaces/claude-code/mods/ork-radar",
+      "description": "Radar de Colisão do Orkastery no Claude Code: o merge de cada thread aberta contra a origin/main e entre as threads, calculado sem worktree e sem gravar objeto no repositório, com os arquivos em conflito, os leases que os cobrem e o comando que resolve. Só lê.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
       "name": "ork-torre",
       "source": "./marketplaces/claude-code/mods/ork-torre",
       "description": "Torre de Controle do Orkastery no Claude Code: a fábrica num painel, cada thread aberta numa linha com a fase, quem conduz, o bloqueio e a ação que o estado dela pede. Só lê; ação com efeito vai ao mod dono dela ou aparece como o comando do ork.",
