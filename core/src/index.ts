@@ -244,6 +244,7 @@ import { linhaDoLintDeClaim } from './claim-lint';
 import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLicoes } from './licoes';
 import { executarDemo } from './demo';
 import { registrarEntregaExternaPorPr, registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
+import { pistaDeEntrega, publicarEntrega } from './ship-publicar';
 import {
   caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, declaracaoQueFaltou, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto,
   fixarProjetoAlvo, FORA_DA_CONSULTA, iniciarDeclaracaoDoProjeto,
@@ -1883,9 +1884,91 @@ function comandoHandoff(args: Args): number {
   return 2;
 }
 
+/**
+ * RM-059 (F7, T7.1; DD4 do plano dos mods): `ork ship publicar <thread>`. So publica no modo que ja autoriza push
+ * (#Auto e #Maestro); a autorizacao humana na linha nao vale aqui (D1 da ork-rm059pista), e o push do modo que pausa
+ * e do dono, no terminal dele.
+ */
+function comandoShipPublicar(carregado: ManifestoCarregado, args: Args): number {
+  const m = msg().ship;
+  const p = m.publicar;
+  if (args.opcoes['autorizar-push'] !== undefined) {
+    console.error(p.semAutorizarPush);
+    return 2;
+  }
+  const alvo = args.posicionais[2];
+  if (!alvo || args.posicionais.length > 3) {
+    console.error(p.uso);
+    return 2;
+  }
+  if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
+  // Como o ship: o que o publicar grava (ledger, detalhe e correcao do --json) nasce em pt-BR.
+  const r = comLocale('pt-BR', () => publicarEntrega(carregado, alvo, {
+    remoto: texto(args.opcoes.remoto), dryRun: args.opcoes['dry-run'] === true,
+  }));
+  if (args.opcoes.json === true) {
+    console.log(JSON.stringify(r, null, 2));
+    return r.acao === 'recusada' ? 1 : 0;
+  }
+  const curtoOuTraco = (sha: string | null) => (sha ? sha.slice(0, 7) : '-');
+  console.log(p.cabecalho(r.dryRun, r.thread, r.tag ?? '-'));
+  if (r.branch) console.log(p.linhaBranch(r.branch, curtoOuTraco(r.head)));
+  if (r.passos.length) {
+    console.log(p.linhaRemoto(r.remoto, curtoOuTraco(r.remotaAntes), curtoOuTraco(r.remota)));
+    if (!r.dryRun && r.acao !== 'recusada') console.log(r.pushVerificado ? p.linhaPushProvado : p.linhaPushSemProva);
+  }
+  if (r.pr) console.log(p.linhaPr(r.pr.numero, r.pr.criado, r.pr.url ?? ''));
+  if (r.corpo) console.log(p.linhaCorpo(r.corpo));
+  if (r.acao === 'recusada') {
+    console.log(m.bloqueado(r.motivo ?? '-'));
+    console.log(m.detalhe(remontar(r.detalhe)));
+    if (r.correcao) console.log(m.correcao(remontar(r.correcao)));
+  } else {
+    console.log(p.resultado(p.acoes[r.acao] ?? r.acao));
+    if (r.detalhe) console.log(m.detalhe(remontar(r.detalhe)));
+    if (r.correcao) console.log(m.correcao(remontar(r.correcao)));
+  }
+  if (r.passos.length) {
+    console.log(m.evidencia);
+    for (const passo of r.passos) console.log(`  ${remontar(passo)}`);
+  }
+  return r.acao === 'recusada' ? 1 : 0;
+}
+
+/** RM-059 (F7, T7.1): `ork ship pista [<thread>]`, as etapas da entrega e o proximo passo que o nucleo declara. */
+function comandoShipPista(carregado: ManifestoCarregado, args: Args): number {
+  const p = msg().ship.publicar;
+  if (args.posicionais.length > 3) {
+    console.error(p.usoPista);
+    return 2;
+  }
+  if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
+  const r = comLocale('pt-BR', () => pistaDeEntrega(carregado, { remoto: texto(args.opcoes.remoto), thread: args.posicionais[2] }));
+  if (args.opcoes.json === true) {
+    console.log(JSON.stringify(r, null, 2));
+    return 0;
+  }
+  console.log(p.cabecalhoPista(formatarDataHora(r.lidoEm), r.remoto, r.base));
+  if (!r.remotoLido) console.log(p.remotoNaoRespondeu(r.remoto));
+  if (!r.prsLidos) console.log(p.prsNaoResponderam(remontar(r.prsNaoLidos ?? '-')));
+  if (!r.pistas.length) console.log(p.semPistas);
+  for (const pista of r.pistas) {
+    console.log('');
+    console.log(p.linhaDaThread(pista.thread, pista.tag, pista.branch));
+    console.log(`    ${pista.etapas.map((e) => `${p.nomeDaEtapa(e.id)} ${p.marcaDaEtapa(e.estado)}`).join(' | ')}`);
+    for (const e of pista.etapas.filter((x) => x.estado !== 'feita' && x.estado !== 'nao-se-aplica')) {
+      console.log(`      ${p.nomeDaEtapa(e.id)}: ${remontar(e.texto)}`);
+    }
+    console.log(p.linhaDoProximo(remontar(pista.proximo.texto), pista.proximo.comando));
+  }
+  return 0;
+}
+
 function comandoShip(args: Args): number {
   const carregado = exigirManifesto();
   const m = msg().ship;
+  if (args.posicionais[1] === 'publicar') return comandoShipPublicar(carregado, args);
+  if (args.posicionais[1] === 'pista') return comandoShipPista(carregado, args);
   if (args.posicionais[1] === 'registrar-pr') {
     // I-57 (RM-008): a entrega feita por PR vira ship_done, provada no remoto e no CI.
     const alvo = args.posicionais[2];

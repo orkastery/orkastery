@@ -224,6 +224,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
         [--dry-run]                              Ensaio: as mesmas conferencias, sem gravar ship_done, fase nem fabrica
         [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
+  ship publicar <thread-id>                 Publica a branch e abre o PR com prova (ls-remote), so em #Auto e #Maestro
+        [--dry-run] [--remoto R] [--json]        Ensaio confere tudo sem publicar; repetido, nao abre outro PR
+  ship pista [<thread-id>] [--json]         Etapas da entrega, do CHECK ao ship_done, e o proximo passo do nucleo
 
   board [--all] [--sem-remoto]              Visao unica das threads (todos os perfis com --all); com a
                                             fabrica compartilhada, tambem as outras maquinas (I-51)
@@ -595,6 +598,9 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
         [--repo <owner/name> --pr <n>]           PR merged in an external repository of ci.external_repositories
         [--dry-run]                              Rehearsal: the same checks, without writing ship_done, phase or factory
         [--de <branch>] [--remoto origin] [--autorizar-push <who>] [--sem-push] [--dry-run]
+  ship publicar <thread-id>                 Publishes the branch and opens the PR with proof (ls-remote), only in #Auto and #Maestro
+        [--dry-run] [--remoto R] [--json]        The rehearsal checks everything without publishing; repeated, it opens no other PR
+  ship pista [<thread-id>] [--json]         Delivery steps, from CHECK to ship_done, and the core's next step
 
   board [--all] [--sem-remoto]              Single view of the threads (all profiles with --all); with the
                                             shared factory, also the other machines (I-51)
