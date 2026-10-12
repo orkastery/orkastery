@@ -8,6 +8,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **CLI em inglês e pt-BR, fatia F2a** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): `ork doctor` inteiro, o
+  erro de `ork init` fora do repositório, `ork onboarding` (pauta, `show`, `set`, `reset`), `ork experiencia show`,
+  `ork thread new`, `ork thread status`, `ork phase list`, o resumo de `ork phase run` e a ajuda (`ork --help` e a ajuda
+  por comando) saem em inglês quando `owner.language` ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou `LANG` pedem `en`. O pt-BR
+  segue igual byte a byte; o `--json`, o ledger, o `thread.json` e os prompts não mudam com a língua.
+  `core/scripts/contar-mensagens-de-saida.cjs` mede a cobertura do catálogo (de 92 para 356 entradas).
 - **Fundação dos mods no Claude Code, lado do adaptador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   a ponte `ork-ponte` (`adapters/claude-code/mods/ork-ponte`) acrescenta ao `$` dos mods o noun `$.ork`, com o papel
   da sessão (`dono`, `fase` ou `dormente`), o retrato do núcleo pelo `ork_maestro` com reserva numa lista fechada de

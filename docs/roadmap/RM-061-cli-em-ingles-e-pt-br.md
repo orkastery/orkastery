@@ -45,7 +45,7 @@ Relações: [RM-049](RM-049-lancamento.md) (lançamento), [RM-016](RM-016-experi
 - **Público e problema:** quem chega ao Orkastery em inglês encontra o CLI, as datas e boa parte das mensagens só em pt-BR. O lançamento ([RM-049](RM-049-lancamento.md)) tem canais em inglês, e a primeira experiência dessas pessoas termina num texto que não leem. Com `LANG=en_US.UTF-8` e `owner.language` `en-US`, a saída de ajuda, `demo`, `doctor`, `init`, onboarding, `thread new`, `verify`, `ship`, `pulse`, `board`, `master`, adaptadores e `mcp` está toda em português, assim como os arquivos gerados.
 - **Evidências e fonte:**
   - achados EN1, EN6 e EN7 do recibo [`ensaio-2026-10-03-en.json`](evidencias/RM-049/ensaio-2026-10-03-en.json), ensaio da primeira experiência em inglês: EN1 (toda a saída do CLI em português), EN6 (datas `03/10 06:30` lidas por um leitor dos EUA como 10 de março) e EN7 (escolher `en-US` no onboarding muda só a conversa no host, não o CLI);
-  - corpo do PR [#113](https://github.com/orkastery/orkastery/pull/113), com a prova de conceito e a contagem do custo (feita antes do merge): cerca de 3.240 literais de texto de pessoa em posição de saída, em 159 arquivos de `core/src`, e a ajuda do `ork` com 357 linhas. A prova cobre 92 entradas do catálogo (68 mensagens e 24 nomes de check), cerca de 3%. As contagens são medidas do #113, feitas pela árvore sintática do TypeScript; o contador ainda não está no repositório, e a F2 o leva para lá (veja a métrica principal).
+  - corpo do PR [#113](https://github.com/orkastery/orkastery/pull/113), com a prova de conceito e a contagem do custo (feita antes do merge): cerca de 3.240 literais de texto de pessoa em posição de saída, em 159 arquivos de `core/src`, e a ajuda do `ork` com 357 linhas. A prova cobre 92 entradas do catálogo (68 mensagens e 24 nomes de check), cerca de 3%. As contagens são medidas do #113, feitas pela árvore sintática do TypeScript. Desde a F2a o contador está no repositório, em `core/scripts/contar-mensagens-de-saida.cjs`, reimplementado pelo método que o #113 descreve (veja [Cobertura medida](#cobertura-medida)).
 - **Objetivo:** inglês e pt-BR como línguas de primeira classe do CLI, sem degradar quem já usa em português.
 - **Resultado esperado:**
   - **língua:** vem da escolha do onboarding (`owner.language`) e, sem ela, do locale do ambiente (`LC_ALL`, `LC_MESSAGES`, `LANG`, a primeira não vazia, como no POSIX). Só `en*` vira inglês; as demais línguas e `C`/`POSIX` ficam em pt-BR;
@@ -80,6 +80,8 @@ Relações: [RM-049](RM-049-lancamento.md) (lançamento), [RM-016](RM-016-experi
 | F1: Prova de conceito e docs (mesclada) | `doctor` e `init` por locale, com catálogo tipado, datas pelo locale e `owner.language` valendo para o CLI; mais os achados EN9 (mesclado) e EN5 (quickstart em inglês do site, ainda aberto no recibo), que são só documentação | Snapshot pt-BR passa também no código da base; teste confere que as chaves pt-BR e en são as mesmas; `modos`, `doctor --modo fast` e `projetos --json` iguais byte a byte com `LANG=en_US`; `ork docs verificar` verde nos achados de docs. Cobertos pelo #113 e pelo teste `locale-cli` | Nenhuma |
 | F2: Caminho da primeira experiência | Onboarding, `thread new`, `phase list`, `verify`, `ship`, `pulse`, `master` e a ajuda, em PRs por família de comando | Cada PR tem o snapshot pt-BR do comando, o equivalente em inglês e os testes que leem texto com o locale fixado; o contador mostra o caminho inteiro coberto | F1 |
 | F3: O resto do CLI | Demais comandos; arquivos gerados (comentários do `orkastery.yaml`, blocos do `AGENTS.md` e do `CLAUDE.md`, modelos do `ork docs init`); skills e prompts; referência do CLI em inglês | Contador cobre o conjunto; arquivos gerados nascem na língua escolhida; `docs/referencia/cli.md` tem a versão em inglês e `ork docs verificar` fecha a paridade | F2 |
+
+A F2 sai em duas metades: a F2a (`doctor` inteiro, o erro de `init` fora do repositório, onboarding, `experiencia show`, `thread new`, `thread status`, `phase list`, `phase run` e a ajuda) e a F2b (`verify`, `ship`, `pulse`, `master`, `retry` e `roadmap status`).
 
 Os aceites acima são o que cada fatia terá de provar; não são provas já executadas. Os achados EN5 e EN9 entram na F1 porque são só de documentação: EN9 é a regra de idioma do guia de pull request em relação ao `CONTRIBUTING.md`, já corrigida na `main` ("em pt-BR ou em inglês"); EN5 é o quickstart em inglês do site, que para em `ork thread new`, `thread status` e `phase list`, e cujos exemplos seguem em português, e continua aberto.
 
@@ -140,12 +142,26 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 <!-- ork-docs:estado:fim -->
 
+### Cobertura medida
+
+Medida por `node core/scripts/contar-mensagens-de-saida.cjs --json`, com o recibo em [`cobertura-f2a.json`](evidencias/RM-061/cobertura-f2a.json). O contador reimplementa o método do #113: na árvore da F1 ele lê as mesmas 92 entradas do catálogo e 3.162 literais de saída, contra cerca de 3.240 que o #113 contou antes do merge.
+
+| Medida | F1 (`4a889fc`) | F2a (`47afbe8`) |
+| --- | --- | --- |
+| Entradas do catálogo | 92 | 356 |
+| Literais de saída fora do catálogo | 3.162 | 2.972 |
+| Cobertura | 2,8% | 10,7% |
+| Ajuda do `ork` (355 linhas) | fora do catálogo | no catálogo, em pt-BR e em inglês |
+
+Fica fora da conta, por decisão da F2a, o texto que já é dado gravado (erro do ledger, recusa registrada, policy avaliada): ele sai como foi gravado, em pt-BR, até a família dona dele migrar.
+
 ## Responsabilidades e histórico
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery nas fatias; A: Julio; C: revisão humana do inglês; I: quem usa o CLI em inglês.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente Claude Code redigiu esta página em #Fast, restrita à documentação. O código da F1 vem do #113, mesclado por outra thread. Revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** abrir a F2 (onboarding, `thread new`, `phase list` e a ajuda primeiro) e fechar o EN5; responsável: fábrica; sem data definida nesta página.
+- **Próxima ação, responsável e prazo:** revisar o inglês da F2a, abrir a F2b (`verify`, `ship`, `pulse`, `master`, `retry` e `roadmap status`) e fechar o EN5; responsável: fábrica, com a revisão do inglês pelo dono; sem data definida nesta página.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-12 | Item criado em Desenvolvimento, com F1 a F3; F1 já mesclada (#113) | Decisão do dono sobre a prova de conceito #113 e o recibo `ensaio-2026-10-03-en.json` | Julio |
+| 2026-10-12 | F2 dividida em F2a e F2b; a F2a leva o caminho da primeira experiência ao catálogo, com a cobertura medida | Thread `ork-rm061f2a` e o recibo `cobertura-f2a.json` | Fábrica, pelo pedido do dono |
