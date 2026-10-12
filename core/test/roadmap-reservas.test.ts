@@ -19,7 +19,7 @@ import {
   textoDasReservas,
 } from '../src/roadmap-reservas';
 import { exec } from '../src/util';
-import { commitar, dirTemporario, projetoTemporario } from './apoio';
+import { commitar, dirTemporario, envPtBr, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const A = { maquina: 'pc-a' };
@@ -48,7 +48,8 @@ function duasMaquinas(nome: string) {
 }
 
 function ork(dir: string, args: string[], env: NodeJS.ProcessEnv = {}) {
-  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, ...env } });
+  // RM-061 (D13): os testes leem o texto de thread new em pt-BR; o locale de quem roda nao entra.
+  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8', env: envPtBr({ ...process.env, ...env }) });
 }
 
 test('o primeiro pega; o segundo ve com quem esta e e recusado; outro item segue livre', () => {

@@ -9,7 +9,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ajustarManifesto, projetoTemporario, ProjetoDeTeste } from './apoio';
+import { ajustarManifesto, envPtBr, ProjetoDeTeste, projetoTemporario } from './apoio';
 import { novaThread, dirThread } from '../src/thread';
 import { registrar } from '../src/ledger';
 import { registrarPedidoHitl } from '../src/hitl-gates';
@@ -22,7 +22,8 @@ const UTC_TRUNCADO = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}/;
 const ANO = '(?:/2026)?';
 
 function rodar(p: ProjetoDeTeste, tz: string, argv: string[]) {
-  const env: NodeJS.ProcessEnv = { ...process.env, TZ: tz };
+  // RM-061 (D13): o teste le o texto em pt-BR (phase list e os demais); o locale de quem roda nao entra.
+  const env: NodeJS.ProcessEnv = envPtBr({ ...process.env, TZ: tz });
   for (const nome of Object.keys(env)) if (nome.startsWith('ORK_HITL_')) delete env[nome];
   const r = spawnSync(process.execPath, [CLI, ...argv], { cwd: p.dir, encoding: 'utf8', env, timeout: 60000 });
   return { code: r.status, stdout: r.stdout, stderr: r.stderr };

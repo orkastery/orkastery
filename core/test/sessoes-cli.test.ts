@@ -3,14 +3,15 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { projetoTemporario } from './apoio';
+import { envPtBr, projetoTemporario } from './apoio';
 
 test('CLI conta, adota, prova limpeza e denuncia indisponibilidade no doctor', () => {
   const p = projetoTemporario('sessoes-cli');
   const cli = path.resolve(__dirname, '../../dist/index.js');
   const id = 'aaaaaaaa-1111-2222-3333-444444444444';
   try {
-    const env = { ...process.env, PATH: `${p.dir}:${process.env.PATH}`, CODEX_HOME: p.dir };
+    // RM-061 (D13): o teste le o texto do doctor, que segue o locale: fixa o pt-BR.
+    const env = envPtBr({ ...process.env, PATH: `${p.dir}:${process.env.PATH}`, CODEX_HOME: p.dir });
     fs.mkdirSync(path.join(p.dir, 'sessions'));
     fs.writeFileSync(path.join(p.dir, 'claude'), `#!${process.execPath}
 if(process.argv.includes('agents'))console.log(JSON.stringify([{sessionId:'${id}',cwd:${JSON.stringify(p.dir)}}]));

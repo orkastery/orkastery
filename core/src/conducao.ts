@@ -27,6 +27,7 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { nomeDaMaquina } from './maquina';
 import { dirThread, lerThread } from './thread';
 import { formatarDataHoraRotulada } from './horario';
+import { msg } from './locale';
 import { exec, agora } from './util';
 import { diretorioDaThread } from './procedencia';
 import { ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO } from './runtime-ambiente';
@@ -746,12 +747,12 @@ export function recusaDeConducao(threadId: string, atual: ConducaoAtual | null, 
  * e o texto diz onde acompanhar a sessao que ja atende o pedido.
  */
 export function textoDoPedidoRepetido(threadId: string, atual: ConducaoAtual, opcoes: { agora?: string } = {}): string {
+  // RM-061 (F2a): texto de impressao (o despacho nao o grava), no locale do comando.
+  const m = msg().phase;
   return [
-    `Pedido ja em andamento: a fase ${atual.fase ?? '-'} da thread ${threadId} roda com este mesmo prompt ` +
-      `(sha256 ${(atual.promptSha256 ?? '').slice(0, 12)}) desde ${formatarDataHoraRotulada(atual.desde, opcoes)}. ` +
-      'Nenhuma sessao nova foi aberta e nenhuma cota foi gasta.',
+    m.repetido(atual.fase ?? '-', threadId, (atual.promptSha256 ?? '').slice(0, 12), formatarDataHoraRotulada(atual.desde, opcoes)),
     `  ${linhaDeConducao(atual, opcoes)}`,
-    `  acompanhar: ${comandoDeAcompanhar(threadId, atual)}`,
+    m.acompanhar(comandoDeAcompanhar(threadId, atual)),
   ].join('\n');
 }
 

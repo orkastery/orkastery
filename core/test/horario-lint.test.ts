@@ -128,7 +128,6 @@ const EXCECOES: { arquivo: string; trecho: string; razao: string }[] = [
   { arquivo: 'retry.ts', trecho: 'libera em ${pedido.liberaEm})', razao: 'detalhe gravado na tentativa; textoDoRetry e textoDaRetomada localizam' },
   { arquivo: 'retry.ts', trecho: 'o proximo libera em ${fila[0].liberaEm}', razao: 'detalhe gravado no ledger (retry_tentado); textoDoRetry localiza' },
   // Delta da I-33 (GO-FIX 2): perfis e fila duravel. O ISO fica no dado; quem imprime localiza.
-  { arquivo: 'doctor.ts', trecho: 'ate ${p.esgotadoAte}', razao: 'estado do perfil no Check (lido tambem por teste); relatorio() localiza e diz o fuso uma vez' },
   { arquivo: 'preflight.ts', trecho: 'ate ${p.esgotadoAte}', razao: 'estado do perfil no Check; textoPreflight localiza e diz o fuso uma vez' },
   { arquivo: 'phase.ts', trecho: 'ate ${pedido.esgotadoAte}', razao: 'erro gravado em dispatch_failed e gate_blocked; o CLI localiza ao imprimir' },
   { arquivo: 'retry.ts', trecho: ': fila duravel ate ${liberaEm}', razao: 'razao gravada no evento runtime_profile_rotated' },

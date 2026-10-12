@@ -8,6 +8,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **CLI em inglês e pt-BR, fatia F2a** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): `ork doctor` inteiro, o
+  erro de `ork init` fora do repositório, `ork onboarding` (pauta, `show`, `set`, `reset`), `ork experiencia show`,
+  `ork thread new`, `ork thread status`, `ork phase list`, o resumo de `ork phase run` e a ajuda (`ork --help` e a ajuda
+  por comando) saem em inglês quando `owner.language` ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou `LANG` pedem `en`. O pt-BR
+  segue igual byte a byte; o `--json`, o ledger, o `thread.json` e os prompts não mudam com a língua. Erro do validador
+  do manifesto, do regime de memória e de estado durante a gravação segue em pt-BR até a F2b.
+  `core/scripts/contar-mensagens-de-saida.cjs` mede a cobertura do catálogo (de 92 para 382 entradas).
 - **Mods de papel `fase` nas sessões de fase, conferidos contra o recibo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   o despacho `claude-bg` passa um `--plugin-dir` por mod de `adapters/claude-code/mods/` que declara o papel `fase` no
   `orkastery-mod.json` (`ork.mod/v1`), depois do plugin do Orkastery, quando a pasta instalada tem exatamente os arquivos

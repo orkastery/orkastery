@@ -54,8 +54,8 @@ export function manifestoForaDoRepositorio(dirInicial: string, caminhoDoManifest
   return {
     nome: 'manifesto do repositorio',
     nivel: 'warn',
-    detalhe: `o ${NOME_MANIFESTO} lido fica fora deste repositorio (${caminhoDoManifesto}): o ork conduz o projeto daquela pasta, nao o de ${topo.stdout.trim()}`,
-    correcao: `rode ork init na raiz deste repositorio (${topo.stdout.trim()}); se o manifesto de fora nasceu por engano, apague-o junto com o AGENTS.md e o .orkastery/ ao lado dele`,
+    detalhe: msg().doctor.manifestoForaDoRepo(NOME_MANIFESTO, caminhoDoManifesto, topo.stdout.trim()),
+    correcao: msg().doctor.manifestoForaDoRepoCorrecao(topo.stdout.trim()),
   };
 }
 
@@ -69,8 +69,8 @@ export function checarContas(raiz: string, auth: (p: PerfilDeDespacho) => Status
   let perfis;
   try { perfis = lerPerfisComContas(raiz).perfis.filter(p => p.estado !== 'desativado'); }
   catch (e) {
-    return { nome: 'contas por runtime', nivel: 'fail', detalhe: `store de perfis invalido: ${(e as Error).message}`,
-      correcao: 'o store fica em .orkastery/private/runtime-profiles.json (arquivo 0600, pasta 0700)' };
+    return { nome: 'contas por runtime', nivel: 'fail', detalhe: msg().doctor.storeInvalido((e as Error).message),
+      correcao: msg().doctor.storeCorrecao };
   }
   if (perfis.length === 0) return { nome: 'contas por runtime', nivel: 'ok',
     detalhe: msg().doctor.semPerfis };
@@ -82,8 +82,8 @@ export function checarContas(raiz: string, auth: (p: PerfilDeDespacho) => Status
     const estados = doRuntime.map(p => {
       const a = auth(perfilDeDespacho(p));
       return { id: p.id, pronto: a.ok && perfilDisponivel(p),
-        texto: !a.ok ? (a.pago ? 'provider pago (nunca despacha)' : a.transitorio ? 'conferencia de login inconclusiva' : 'sem login')
-          : perfilDisponivel(p) ? 'pronto' : `${p.estado}${p.esgotadoAte ? ` ate ${p.esgotadoAte}` : ''}` };
+        texto: !a.ok ? (a.pago ? msg().doctor.contaPaga : a.transitorio ? msg().doctor.contaInconclusiva : msg().doctor.contaSemLogin)
+          : perfilDisponivel(p) ? msg().doctor.contaPronta : msg().doctor.contaFora(p.estado, p.esgotadoAte) };
     });
     const prontos = estados.filter(e => e.pronto).length;
     if (prontos === 0) nivel = 'fail';
@@ -91,7 +91,7 @@ export function checarContas(raiz: string, auth: (p: PerfilDeDespacho) => Status
     partes.push(`${runtime}: ${estados.map(e => `${e.id} ${e.texto}`).join(', ')}`);
   }
   return { nome: 'contas por runtime', nivel, detalhe: partes.join('; '),
-    ...(nivel !== 'ok' ? { correcao: 'ork accounts check marca os perfis (sem-auth, provider-pago); ork accounts add refaz o login de assinatura pelo proprio CLI, nunca copiando credencial' } : {}) };
+    ...(nivel !== 'ok' ? { correcao: msg().doctor.contasCorrecao } : {}) };
 }
 
 /**
@@ -122,24 +122,21 @@ export function checarChaveDeEmbedding(carregado: ManifestoCarregado, env: NodeJ
   if (config.provider === 'none') return { nome, nivel: 'ok', detalhe: msg().doctor.embeddingNone };
   const variavel = config.api_key_env;
   if ((ENVS_DE_PROVIDER_PAGO as readonly string[]).includes(variavel)) {
-    return { nome, nivel: 'fail', detalhe: `memory.embedding.api_key_env declara ${variavel}, nome da lista de provider pago`,
-      correcao: 'use uma chave dedicada ao Orkastery com nome proprio, por exemplo ORKASTERY_EMBEDDING_API_KEY' };
+    return { nome, nivel: 'fail', detalhe: msg().doctor.embeddingPago(variavel), correcao: msg().doctor.embeddingPagoCorrecao };
   }
   if (!variavel) {
-    return { nome, nivel: 'fail', detalhe: `memory.embedding com provider ${config.provider} sem api_key_env`,
-      correcao: 'declare em memory.embedding.api_key_env o NOME da variavel com a chave dedicada' };
+    return { nome, nivel: 'fail', detalhe: msg().doctor.embeddingSemVariavel(config.provider),
+      correcao: msg().doctor.embeddingSemVariavelCorrecao };
   }
   const valor = (env[variavel] ?? '').trim();
   const dsn = carregado.manifesto.memory.database_url_env ? (env[carregado.manifesto.memory.database_url_env] ?? '') : '';
   if (valor !== '' && !chaveDeEmbeddingAceita(valor, dsn)) {
-    return { nome, nivel: 'fail', detalhe: `${variavel} tem valor recusado: parece URL, DSN ou texto com espaco (valor nunca impresso)`,
-      correcao: `confira se ${variavel} guarda a chave dedicada, e nao outra credencial` };
+    return { nome, nivel: 'fail', detalhe: msg().doctor.embeddingRecusada(variavel), correcao: msg().doctor.embeddingRecusadaCorrecao(variavel) };
   }
   if (valor !== '') {
-    return { nome, nivel: 'ok', detalhe: `${variavel} presente no ambiente (valor nunca impresso); ${config.provider} ${config.model}` };
+    return { nome, nivel: 'ok', detalhe: msg().doctor.embeddingPresente(variavel, config.provider, config.model) };
   }
-  return { nome, nivel: 'warn', detalhe: `${variavel} ausente do ambiente: a busca por significado usa o fallback local ou cai para FTS; o regime nao muda`,
-    correcao: `exporte ${variavel} com a chave dedicada ao Orkastery (com limite de credito no painel do provider)` };
+  return { nome, nivel: 'warn', detalhe: msg().doctor.embeddingAusente(variavel), correcao: msg().doctor.embeddingAusenteCorrecao(variavel) };
 }
 
 /** Acima disso a conferencia do dono do `.git` fica parcial (aviso), para o doctor nao pesar. */
@@ -187,16 +184,15 @@ export function checarDonoDoGit(dirInicial: string,
   }
   if (total > 0) {
     return { nome, nivel: 'fail',
-      detalhe: `${total} entrada(s) de ${relativo(dirComum)} com outro dono (uid ${[...uids].sort((a, b) => a - b).join(', ')}; o do ` +
-        `repositorio e ${raiz.uid}): ${estranhos.join(', ')}${total > estranhos.length ? ', ...' : ''}; o git do dono nao grava nelas, ` +
-        `e o fetch e o commit falham${parcial ? ` (conferencia parcial: mais de ${teto} entradas)` : ''}`,
-      correcao: `sudo chown -R ${raiz.uid}:${raiz.gid} ${noShell(dirComum)} (o ork nao roda isso sozinho)` };
+      detalhe: msg().doctor.donoOutro(total, relativo(dirComum), [...uids].sort((a, b) => a - b).join(', '), raiz.uid,
+        `${estranhos.join(', ')}${total > estranhos.length ? ', ...' : ''}`, parcial ? teto : null),
+      correcao: msg().doctor.donoCorrecao(`sudo chown -R ${raiz.uid}:${raiz.gid} ${noShell(dirComum)}`) };
   }
   if (parcial) {
-    return { nome, nivel: 'warn', detalhe: `mais de ${teto} entradas em ${relativo(dirComum)}: conferencia parcial, sem outro dono ate aqui`,
-      correcao: `confira o resto com: find ${noShell(dirComum)} -not -uid ${raiz.uid}` };
+    return { nome, nivel: 'warn', detalhe: msg().doctor.donoParcial(teto, relativo(dirComum)),
+      correcao: msg().doctor.donoParcialCorrecao(`find ${noShell(dirComum)} -not -uid ${raiz.uid}`) };
   }
-  return { nome, nivel: 'ok', detalhe: `${vistos} entradas de ${relativo(dirComum)} com o dono do repositorio (uid ${raiz.uid})` };
+  return { nome, nivel: 'ok', detalhe: msg().doctor.donoOk(vistos, relativo(dirComum), raiz.uid) };
 }
 
 /** Checks locais; ler a entrevista não abre driver, banco, runtime ou rede. */
@@ -211,8 +207,8 @@ export function checarOnboarding(carregado: ManifestoCarregado): Check[] {
     escolha === 'orkmind' || escolha === 'files' ? escolha :
     escolha && typeof escolha === 'object' && !Array.isArray(escolha) ? escolha.modo : null;
   if ((modo === 'orkmind' || modo === 'files') && modo !== carregado.manifesto.memory.mode) {
-    checks.push({ nome: 'onboarding memoria', nivel: 'warn', detalhe: `entrevista escolheu ${modo}; manifesto declara ${carregado.manifesto.memory.mode}`,
-      correcao: `revise memory.mode: ${modo} em orkastery.yaml; a entrevista não altera o manifesto` });
+    checks.push({ nome: 'onboarding memoria', nivel: 'warn', detalhe: msg().doctor.entrevistaMemoria(modo, carregado.manifesto.memory.mode),
+      correcao: msg().doctor.entrevistaMemoriaCorrecao(modo) });
   }
   // I-35: o fuso respondido na etapa maestro orienta owner.timezone, sem editar o manifesto. Com
   // `owner.timezone` na mesma resposta (gravado no manifesto pelo `onboarding set`), vale ele: no
@@ -225,8 +221,8 @@ export function checarOnboarding(carregado: ManifestoCarregado): Check[] {
     ? normalizarFuso(fusoDoOwner) ?? normalizarFuso(maestro.fuso) : undefined;
   if (fusoDaEntrevista && fusoDaEntrevista !== carregado.manifesto.owner?.timezone) {
     checks.push({ nome: 'onboarding fuso', nivel: 'warn',
-      detalhe: `entrevista informou ${fusoDaEntrevista}; manifesto declara ${carregado.manifesto.owner?.timezone ?? `${CHAVE_DO_FUSO} ausente`}`,
-      correcao: `revise ${CHAVE_DO_FUSO}: "${fusoDaEntrevista}" em orkastery.yaml; a entrevista não altera o manifesto` });
+      detalhe: msg().doctor.entrevistaFuso(fusoDaEntrevista, carregado.manifesto.owner?.timezone, CHAVE_DO_FUSO),
+      correcao: msg().doctor.entrevistaFusoCorrecao(CHAVE_DO_FUSO, fusoDaEntrevista) });
   }
   return checks;
 }
@@ -299,18 +295,13 @@ export function checarRuntimeClaude(carregado: ManifestoCarregado | null, claude
   if (blocos && blocos.principal.length === 0) {
     // CHECK, rodada 1 (S6): as fases nao precisam dele, mas o `ork audit run` despacha sempre pelo claude-bg.
     return { nome, nivel: 'warn',
-      detalhe: 'binario `claude` fora do PATH (opcional para as fases: nenhum bloco dos modos permitidos despacha pelo claude-bg' +
-        (blocos.fallback.length
-          ? `; o fallback de ${blocos.fallback.length} bloco(s) cai nele e falharia: ${textoDosBlocos(blocos.fallback)}` : '') +
-        '; o ork audit run ainda despacha por ele)',
-      correcao: 'para despachar pelo claude-bg (e rodar ork audit run), instale o Claude Code e garanta `claude` no PATH' };
+      detalhe: msg().doctor.claudeOpcional(blocos.fallback.length
+        ? { blocos: blocos.fallback.length, texto: textoDosBlocos(blocos.fallback) } : null),
+      correcao: msg().doctor.claudeOpcionalCorrecao };
   }
   return { nome, nivel: 'fail',
-    detalhe: 'binario `claude` fora do PATH' + (blocos
-      ? `; ${blocos.principal.length} bloco(s) dos modos permitidos despacham por ele (${textoDosBlocos(blocos.principal)})` : ''),
-    correcao: 'instale o Claude Code e garanta `claude` no PATH; so com o Codex, passe cada bloco para ele ' +
-      '(ork setup <modo> --bloco N --runtime codex --model <modelo>) ou tire o modo de conduction.allowed_modes ' +
-      '(mantenha o conduction.default_mode entre os permitidos)' };
+    detalhe: msg().doctor.claudeAusente(blocos ? { blocos: blocos.principal.length, texto: textoDosBlocos(blocos.principal) } : null),
+    correcao: msg().doctor.claudeAusenteCorrecao };
 }
 
 /**
@@ -324,9 +315,7 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
   const pelaAdapter = carregado.manifesto.runtime.adapter === 'codex';
   const blocos = blocosDoRuntime(carregado, 'codex')?.principal ?? [];
   if (!pelaAdapter && blocos.length === 0) return null;
-  const origem = [pelaAdapter ? 'runtime.adapter: codex' : '',
-    blocos.length ? `${blocos.length} bloco(s) dos modos permitidos no codex (${textoDosBlocos(blocos)})` : '']
-    .filter(Boolean).join(' e ');
+  const origem = msg().doctor.origemDoCodex(pelaAdapter, blocos.length ? { blocos: blocos.length, texto: textoDosBlocos(blocos) } : null);
   const sandboxConfigurado = carregado.manifesto.runtime.sandbox;
   const sandboxQuebrado = sonda !== null && !sonda.ok && sandboxConfigurado !== 'danger-full-access';
   // RM-047 (P1): a postura que afrouxa o sandbox so despacha com a confirmacao local desta maquina.
@@ -335,18 +324,18 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
     nome: 'despacho pelo codex',
     nivel: !codex ? 'fail' : sandboxQuebrado || posturaSemConfirmacao ? 'fail' : 'ok',
     detalhe: !codex
-      ? `${origem}, mas o binario \`codex\` esta fora do PATH`
+      ? msg().doctor.codexForaNoDespacho(origem)
       : sandboxQuebrado
-        ? `${origem} com sandbox "${sandboxConfigurado}", mas o sandbox nao executa nesta maquina (o agente narraria sucesso sem rodar nada)`
+        ? msg().doctor.codexSandboxQuebrado(origem, sandboxConfigurado)
         : posturaSemConfirmacao
-          ? `${origem} com sandbox "${sandboxConfigurado}" pedido pelo orkastery.yaml, sem a confirmacao desta maquina: o despacho recusa com runtime.sandbox-nao-confirmado`
-          : `${origem} com sandbox "${sandboxConfigurado}"`,
+          ? msg().doctor.codexSemConfirmacao(origem, sandboxConfigurado)
+          : msg().doctor.codexSandboxOk(origem, sandboxConfigurado),
     correcao: !codex
-      ? 'instale o Codex CLI e autentique com `codex login` (assinatura, nunca API key)'
+      ? msg().doctor.codexForaNoDespachoCorrecao
       : sandboxQuebrado
-        ? `instale o bubblewrap do sistema, ou declare runtime.sandbox: danger-full-access ciente do risco e confirme nesta maquina com ${comandoDeConfirmacao('danger-full-access')}`
+        ? msg().doctor.codexSandboxQuebradoCorrecao(comandoDeConfirmacao('danger-full-access'))
         : posturaSemConfirmacao
-          ? `${comandoDeConfirmacao(sandboxConfigurado)} (ou volte o manifesto para workspace-write)`
+          ? msg().doctor.codexSemConfirmacaoCorrecao(comandoDeConfirmacao(sandboxConfigurado))
           : undefined,
   };
 }
@@ -458,7 +447,7 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
         carregado.erros.length > 0
           ? `${carregado.caminho}: ${carregado.erros.join('; ')}`
           : msg().doctor.manifestoOk(carregado.caminho, carregado.bytes, LIMITE_MANIFESTO_BYTES) +
-            (carregado.avisos.length > 0 ? `; ${carregado.avisos.join('; ')}` : ''),
+            (carregado.avisos.length > 0 ? `; ${carregado.avisos.map((a) => msg().onboarding.avisoDaPreferencia(a)).join('; ')}` : ''),
       correcao: carregado.erros.length > 0 ? msg().doctor.corrijaManifesto : undefined,
     });
     if (dentroDeRepo) {
@@ -505,16 +494,15 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     const fabricaPedida = avisoDaFabricaPedida(carregado.manifesto);
     if (fabricaPedida) {
       checks.push({ nome: 'fabrica compartilhada', nivel: 'warn',
-        detalhe: 'o orkastery.yaml pede fabrica.compartilhada: true e esta maquina nao entrou: nada desta maquina e publicado no remoto',
-        correcao: 'ork fabrica entrar, se esta maquina deve publicar o retrato dela no remoto do projeto' });
+        detalhe: msg().doctor.fabricaPedida, correcao: msg().doctor.fabricaPedidaCorrecao });
     }
 
     // RM-047 (P3): worktree.dir fora da raiz so cria checkout com a confirmacao local desta maquina.
     const recusaDaPasta = recusaDePastaDasWorktrees(carregado.raiz, carregado.manifesto);
     if (recusaDaPasta) {
       checks.push({ nome: 'pasta das worktrees', nivel: 'fail',
-        detalhe: `worktree.dir "${carregado.manifesto.worktree.dir}" leva para fora da raiz e esta maquina nao confirmou: a criacao de worktree recusa com worktree.dir-fora-da-raiz`,
-        correcao: `${COMANDO_CONFIRMAR_WORKTREE}, ou volte worktree.dir para dentro do projeto` });
+        detalhe: msg().doctor.pastaForaDaRaiz(carregado.manifesto.worktree.dir),
+        correcao: msg().doctor.pastaForaDaRaizCorrecao(COMANDO_CONFIRMAR_WORKTREE) });
     }
 
     const politica = carregado.manifesto.runtime.provider_policy;
@@ -549,15 +537,15 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     const context = memoryState(carregado);
     const { estado } = resolverRegime(context.loaded.manifesto, null);
     checks.push({ nome: 'fonte da memoria', nivel: context.divergent ? 'warn' : 'ok',
-      detalhe: `${context.source}${context.divergent ? ' (cópia da worktree divergente preservada)' : ''}` });
+      detalhe: msg().doctor.fonteDaMemoria(context.source, context.divergent) });
     checks.push({
       nome: 'regime de memoria',
       nivel: estado.efetivo === 'orkmind' ? 'ok' : estado.pedido === 'orkmind' ? 'warn' : 'ok',
       detalhe:
         estado.pedido === 'orkmind' && estado.efetivo === 'files'
-          ? `pedido orkmind, efetivo files (${estado.motivo}): ${estado.detalhe}`
+          ? msg().doctor.regimeDegradado(estado.motivo, estado.detalhe)
           : estado.efetivo === 'orkmind'
-            ? `orkmind ativo no tenant "${estado.tenant}" pela variavel ${estado.variavel}`
+            ? msg().doctor.regimeOrkmind(estado.tenant, estado.variavel)
             : msg().doctor.memoriaFiles,
       correcao: estado.pedido === 'orkmind' && estado.efetivo === 'files' ? estado.correcao : undefined,
     });
@@ -580,9 +568,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
             (esperando.length > 0 ? msg().doctor.filaProxima(formatarDataHoraRotulada(esperando[0].liberaEm)) : ''),
       correcao:
         escalados.length > 0
-          ? `pedido escalado alem do limite de retry.max_tentativas: ork retry list e ork gate request <thread>`
+          ? msg().doctor.filaEscaladoCorrecao
           : esperando.length > 0
-            ? 'ork retry resume retoma o que ja liberou'
+            ? msg().doctor.filaEsperaCorrecao
             : undefined,
     });
 
@@ -615,12 +603,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       checks.push({
         nome: 'governanca de sessoes',
         nivel: inventario.ok && inventario.semThread === 0 ? 'ok' : 'warn',
-        detalhe: `${inventario.escopo.usuario}, Claude e Codex, global com histórico: ${inventario.total} sessões; ` +
-          `${inventario.semThread} sem thread; ${inventario.ambiguas} ambíguas; ` +
-          `inventário ${inventario.ok ? 'válido' : 'INCOMPLETO (zero não comprovado)'}` +
-          (ausentes.length ? `; fonte ausente: ${ausentes.join(', ')}` : ''),
-        correcao: inventario.ok && inventario.semThread === 0 ? undefined :
-          'ork sessions --global --all --json; adote identidades sem vínculo com ork sessions adopt <id>',
+        detalhe: msg().doctor.governanca({ usuario: inventario.escopo.usuario, total: inventario.total, semThread: inventario.semThread,
+          ambiguas: inventario.ambiguas, ok: inventario.ok, ausentes: ausentes.map((o) => msg().doctor.fonteDaSessao(o)) }),
+        correcao: inventario.ok && inventario.semThread === 0 ? undefined : msg().doctor.governancaCorrecao,
       });
     }
   }

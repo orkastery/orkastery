@@ -12,6 +12,7 @@
 
 import { PontoDeGate } from './gates';
 import { Manifesto, MotivoGate } from './types';
+import { msg } from './locale';
 
 export type Severidade = 'block' | 'warn' | 'off';
 
@@ -374,10 +375,9 @@ export function motivoDominante(violacoes: ViolacaoDePolicy[]): MotivoGate {
 
 /** RM-008 (fatia 3): as linhas de aviso (policies em warn) para a saida do CLI. Nada quando nao ha aviso. */
 export function linhasDeAviso(violacoes: ViolacaoDePolicy[], recuo = '  '): string[] {
-  return avisos(violacoes).flatMap((v) => [
-    `${recuo}aviso da policy ${v.policy}: ${v.detalhe}`,
-    `${recuo}  correcao: ${v.correcao}`,
-  ]);
+  // RM-061 (F2a): a moldura segue o locale do comando; detalhe e correcao sao dado da policy avaliada.
+  const m = msg().phase;
+  return avisos(violacoes).flatMap((v) => [m.avisoDaPolicy(recuo, v.policy, v.detalhe), m.avisoCorrecao(recuo, v.correcao)]);
 }
 
 /** Texto das violacoes para a saida do CLI. */

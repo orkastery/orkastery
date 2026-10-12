@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { execFileSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ajustarManifesto, projetoTemporario, runtimePorConta } from './apoio';
+import { ajustarManifesto, envPtBr, projetoTemporario, runtimePorConta } from './apoio';
 import { vagaDoDespacho } from '../src/board';
 import { assumirConducao, conducaoDaThread, registrarConducaoDaSessao, tomarConducao } from '../src/conducao';
 import { lerLedger, registrar } from '../src/ledger';
@@ -118,7 +118,8 @@ test('defeito 3 (B1): o CLI diz quem ocupa, cita slot_refused e sai com 3, a esp
     const viva = threadComSessaoViva(p, 'viva', 'codex', 11);
     const nova = novaThread(p.carregado, { nome: 'pelo cli', modo: 'auto' }).thread;
     let codigo = 0, saida = '';
-    try { saida = execFileSync(process.execPath, [ORK, 'phase', 'run', nova.id, 'GOAL', '--prompt', 'objetivo SIMULADO'], { cwd: p.dir, encoding: 'utf8', stdio: 'pipe' }); }
+    // RM-061 (D13): o teste le a recusa em pt-BR; o locale de quem roda nao entra.
+    try { saida = execFileSync(process.execPath, [ORK, 'phase', 'run', nova.id, 'GOAL', '--prompt', 'objetivo SIMULADO'], { cwd: p.dir, encoding: 'utf8', stdio: 'pipe', env: envPtBr() }); }
     catch (e) { const x = e as { status?: number; stdout?: string; stderr?: string }; codigo = x.status ?? -1; saida = `${x.stdout ?? ''}${x.stderr ?? ''}`; }
     assert.equal(codigo, 3, saida);
     assert.match(saida, /Despacho recusado: concurrency\.limite/);

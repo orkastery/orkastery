@@ -24,7 +24,7 @@ import {
   consultaDoProjeto, declaracaoQueFaltou, iniciarDeclaracaoDoProjeto, pedirDeclaracaoDoProjeto, registrarProjeto,
   remotoParaExibir,
 } from '../src/projeto-alvo';
-import { dirTemporario, projetoTemporario } from './apoio';
+import { dirTemporario, envPtBr, projetoTemporario } from './apoio';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 const DIST_OPENCLAW = path.resolve(__dirname, '../../../adapters/openclaw/dist');
@@ -55,7 +55,8 @@ function maquina(t: TestContext) {
 }
 
 function ork(cwd: string, args: string[], env: NodeJS.ProcessEnv, entrada?: string) {
-  const r = spawnSync(process.execPath, [ORK, ...args], { cwd, env, encoding: 'utf8', timeout: 60_000, input: entrada });
+  // RM-061 (D13): o teste le o texto de thread status em pt-BR; o locale de quem roda nao entra.
+  const r = spawnSync(process.execPath, [ORK, ...args], { cwd, env: envPtBr(env), encoding: 'utf8', timeout: 60_000, input: entrada });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 

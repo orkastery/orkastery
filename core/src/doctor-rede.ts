@@ -61,13 +61,12 @@ const curto = (s: string, teto = 200): string => {
 /** A correcao pela familia do erro da ultima falha (o prefixo tipado, como `rede.sem-repositorio`). */
 export function correcaoDaFalha(erro: string): string {
   const codigo = /^([a-z]+\.[a-z-]+):/.exec(erro)?.[1] ?? '';
-  if (codigo === 'rede.sem-repositorio' || codigo === 'rede.repositorio-alheio') {
-    return 'a casa da rede ainda nao existe: o dono roda ork network entrar, que cria o repositorio privado; ou ork network sair, para tirar esta maquina da rede';
-  }
-  if (codigo === 'rede.sem-forja') return 'faca login na forja (gh auth login ou glab auth login) e rode ork network publicar';
-  if (codigo === 'rede.repositorio-publico') return 'torne a casa da rede privada na forja; nada e publicado num repositorio publico';
-  if (codigo === 'rede.nome-em-uso') return 'escolha outro nome com ork network entrar --maquina NOME, ou tome este com --forcar';
-  return 'ork network status mostra as lacunas; ork network publicar tenta de novo';
+  const m = msg().doctor;
+  if (codigo === 'rede.sem-repositorio' || codigo === 'rede.repositorio-alheio') return m.redeSemCasaCorrecao;
+  if (codigo === 'rede.sem-forja') return m.redeSemForjaCorrecao;
+  if (codigo === 'rede.repositorio-publico') return m.redePublicaCorrecao;
+  if (codigo === 'rede.nome-em-uso') return m.redeNomeCorrecao;
+  return m.redeOutraCorrecao;
 }
 
 /** O check "rede". `agoraMs` e o log ficam injetaveis para o teste. */
@@ -77,7 +76,7 @@ export function checarRede(opcoes: { agoraMs?: number; log?: string } = {}): Che
   const adesao = adesaoDaRede();
   if (!adesao.membro) {
     return { nome, nivel: 'ok', detalhe: adesao.config && !adesao.config.membro
-      ? 'fora da rede (saiu com ork network sair)'
+      ? msg().doctor.redeSaiu
       : msg().doctor.foraDaRede };
   }
   const marca = lerMarcaDaRede();
@@ -89,18 +88,18 @@ export function checarRede(opcoes: { agoraMs?: number; log?: string } = {}): Che
   const emBatida = marca && typeof marca.em === 'string' && Number.isFinite(Date.parse(marca.em)) ? marca.em : null;
   const idade = emBatida ? agora - Date.parse(emBatida) : NaN;
 
+  const m = msg().doctor;
   const partes = [
-    adesao.adesao === 'fabrica' ? 'membro herdado da fabrica' : 'membro',
-    casa ? `casa ${curto(casa, 120)}` : 'casa ainda nao gravada',
-    emBatida ? `ultima batida ${formatarDataHora(emBatida)} (ha ${duracao(idade)})` : 'nenhuma batida publicada',
-    falha ? `ultima falha ${formatarDataHora(falha.ts)}${falha.origem ? ` (${curto(falha.origem, 20)})` : ''}: ${curto(falha.erro ?? 'sem detalhe')}`
-      : 'nenhuma falha no rede.log',
+    adesao.adesao === 'fabrica' ? m.redeMembroHerdado : m.redeMembro,
+    casa ? m.redeCasa(curto(casa, 120)) : m.redeSemCasa,
+    emBatida ? m.redeBatida(formatarDataHora(emBatida), duracao(idade)) : m.redeSemBatida,
+    falha ? m.redeFalha(formatarDataHora(falha.ts), falha.origem ? curto(falha.origem, 20) : null, curto(falha.erro ?? m.redeSemDetalhe))
+      : m.redeSemFalha,
   ];
   // A falha mais nova que a ultima batida e o estado de agora; a de antes ja passou.
   const falhaAtual = !!falha && (!emBatida || Date.parse(falha.ts) > Date.parse(emBatida));
   const parada = !emBatida || !(idade <= SEM_BATIDA_MS);
   if (!falhaAtual && !parada) return { nome, nivel: 'ok', detalhe: partes.join('; ') };
-  const correcao = falhaAtual ? correcaoDaFalha(falha!.erro ?? '')
-    : 'a batida sai do pulse: confira o cron do pulse e rode ork network publicar';
+  const correcao = falhaAtual ? correcaoDaFalha(falha!.erro ?? '') : m.redeParadaCorrecao;
   return { nome, nivel: 'warn', detalhe: partes.join('; '), correcao };
 }
