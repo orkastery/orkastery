@@ -377,3 +377,30 @@ test('F15: sem #Auto entre os modos do projeto, o arco não tenta abrir thread',
     assert.deepEqual(f.candidatos, []);
   } finally { p.limpar(); }
 });
+
+test('F16: a thread nunca despachada com o despacho falho no runtime vai para a retomada, e não para um despacho novo', () => {
+  const p = projetoTemporario('noctum-f16');
+  try {
+    const t = threadDoTrabalho(p.carregado, 'falhou no runtime', 'RM-901', PEDIDO.a);
+    abrirArco(p.dir, 'arco-f16', { trabalhos: [TRES[0]] });
+    assert.equal(resumo(fila(p, 'arco-f16').trabalhos[0]), 'despachavel:GOAL');
+    registrar(dirThread(p.dir, t.id), t.id, 'phase_dispatch_failed', { fase: 'GOAL', erro: 'runtime.unavailable: SIMULADO',
+      sessionId: '99999999-0000-4000-8000-000000000001' });
+    assert.equal(resumo(fila(p, 'arco-f16').trabalhos[0]), 'bloqueado:retomada', 'a sessão pode ter aberto: quem decide é a N4');
+  } finally { p.limpar(); }
+});
+
+test('F17: a reserva pendente conta como falha seguida no erro-repetido, e conta no teto', () => {
+  const p = projetoTemporario('noctum-f17');
+  try {
+    const h = abrirArco(p.dir, 'arco-f17', { trabalhos: [TRES[0], TRES[2]] });
+    const reservar = () => reservarDespacho(p.dir, { arco: 'arco-f17', envelopeSha256: h, trabalho: 'a', thread: null, fase: 'GOAL',
+      runtime: 'claude-bg', conta: 'perfil-a', revisao: false });
+    reservar();
+    concluirDespacho(p.dir, 'arco-f17', reservar().seq, { motivo: MOTIVO_DO_ERRO_NO_DESPACHO });
+    assert.equal(resumo(porId(fila(p, 'arco-f17')).get('a')), 'abrir:GOAL', 'uma pendente e uma recusa por erro: duas falhas');
+    reservar();
+    assert.equal(resumo(porId(fila(p, 'arco-f17')).get('a')), 'bloqueado:erro-repetido');
+    assert.equal(lerArco(p.dir, 'arco-f17')!.consumo.arco, 2, 'as duas pendentes contam no teto');
+  } finally { p.limpar(); }
+});

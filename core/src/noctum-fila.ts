@@ -10,8 +10,10 @@
  *
  * Quando a fila acaba: vazia (todo trabalho entregue, encerrado ou preso a uma dependência que fechou sem entrega)
  * encerra cedo; só bloqueada, ou com fonte que não foi lida, espera com backoff até o fim da janela; com sessão em curso,
- * espera a cadência de 5 min. Lacuna nunca vira fila vazia. O trabalho cujo despacho falhou no núcleo três vezes seguidas
- * fica bloqueado (`erro-repetido`): o passo não insiste no mesmo erro a noite toda. Fechar o arco e o relatório são da N6.
+ * espera a cadência de 5 min. Lacuna nunca vira fila vazia. O trabalho cujo despacho falhou três vezes seguidas (no núcleo,
+ * antes de lançar, ou com a reserva deixada pendente porque a sessão pode ter aberto) fica bloqueado (`erro-repetido`), e a
+ * thread nunca despachada cujo despacho falhou no runtime vai para a retomada da N4: o passo não insiste no mesmo erro a
+ * noite toda nem abre outra sessão por cima de uma que pode estar aberta. Fechar o arco e o relatório são da N6.
  *
  * `fatosDaFila` relê o disco a cada chamada; `montarFila` é pura sobre os fatos e o instante. Nada aqui despacha nem grava.
  */
@@ -40,7 +42,7 @@ export type MotivoDoBloqueio =
   | 'retomada' | 'fim-de-turno-sem-resultado' | 'sem-passo' | 'modo' | 'pedido-ausente' | 'thread-ausente' | 'thread-ambigua'
   | 'thread-ilegivel' | 'item-divergente' | 'erro-repetido' | 'dependencia-encerrada';
 
-/** Quantas falhas seguidas do núcleo no despacho de um trabalho o bloqueiam (A4 do CHECK da ork-rm058n2). */
+/** Quantas falhas seguidas no despacho de um trabalho o bloqueiam (A4 do CHECK da ork-rm058n2; B1 da rodada 2). */
 export const ERROS_SEGUIDOS_QUE_BLOQUEIAM = 3;
 /** O motivo que o passo grava no log do arco quando o despacho de um candidato falha antes de lançar a sessão. */
 export const MOTIVO_DO_ERRO_NO_DESPACHO = 'noctum.despacho.erro';
@@ -97,6 +99,8 @@ export interface FatosDoTrabalho {
   entregueEm: string | null;
   /** A thread ligada já teve algum despacho de fase. */
   despachada: boolean;
+  /** Nunca despachada, mas com um `phase_dispatch_failed`: o runtime foi chamado e a sessão pode ter aberto. */
+  despachoFalho: boolean;
   pedidoGuardado: boolean;
   passo: PassoDoCondutor | null;
   espera: EsperaDoCondutor | null;
@@ -129,11 +133,14 @@ function antes(a: TrabalhoNaFila, b: TrabalhoNaFila): number {
 
 const FASES_DA_ENTREGA: readonly Fase[] = ['SHIP', 'MASTER'];
 
-/** As falhas seguidas do núcleo nos despachos mais recentes do trabalho, contadas do último para trás. */
+/**
+ * As falhas seguidas nos despachos mais recentes do trabalho, contadas do último para trás: a recusa por erro antes de
+ * lançar e a reserva pendente (o lançamento que pode ter aberto sessão, ou o passo que caiu no meio).
+ */
 function errosSeguidos(trabalho: string, despachos: EstadoDoArco['despachos']): number {
   let n = 0;
   for (const d of despachos.filter(x => x.trabalho === trabalho).sort((a, b) => b.seq - a.seq)) {
-    if (d.desfecho !== 'recusado' || d.motivo !== MOTIVO_DO_ERRO_NO_DESPACHO) break;
+    if (d.desfecho !== 'pendente' && (d.desfecho !== 'recusado' || d.motivo !== MOTIVO_DO_ERRO_NO_DESPACHO)) break;
     n += 1;
   }
   return n;
@@ -176,7 +183,7 @@ function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefine
   }
   const erros = errosSeguidos(t.id, estado.despachos);
   if (erros >= ERROS_SEGUIDOS_QUE_BLOQUEIAM) {
-    return bloqueado('erro-repetido', `os ${erros} últimos despachos falharam no núcleo antes de abrir sessão; quem decide é a N4 ou o dono`);
+    return bloqueado('erro-repetido', `os ${erros} últimos despachos falharam (antes de lançar ou sem sessão provada); quem decide é a N4 ou o dono`);
   }
   if (!th) {
     // A4 do CHECK: abrir a thread num projeto que não deixa criar #Auto falharia toda noite; o arco nem tenta.
@@ -186,7 +193,11 @@ function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefine
   if (th.modo !== 'auto') return bloqueado('modo', `a thread ${th.id} está em ${th.modo}; o arco só conduz #Auto`);
   if (f.doDono) return bloqueado('dono', `a thread ${th.id} espera o dono (${f.doDono})`);
   if (!f.pedidoGuardado) return bloqueado('pedido-ausente', `a thread ${th.id} não guardou o pedido na criação; o arco não inventa um`);
-  if (!f.despachada) return { ...base, estado: 'despachavel', fase: th.faseAtual, detalhe: `a thread ${th.id} nunca foi despachada` };
+  if (!f.despachada) {
+    // B1 da rodada 2: o runtime foi chamado e falhou; a sessão pode ter aberto, e despachar de novo abriria outra.
+    if (f.despachoFalho) return bloqueado('retomada', `o despacho da thread ${th.id} falhou no runtime e a sessão pode ter aberto; a retomada é da N4`);
+    return { ...base, estado: 'despachavel', fase: th.faseAtual, detalhe: `a thread ${th.id} nunca foi despachada` };
+  }
   const passo = f.passo;
   if (passo?.acao === 'despachar' && passo.fase) {
     if (FASES_DA_ENTREGA.includes(passo.fase)) return { ...base, estado: 'aguardando-entrega', detalhe: `${passo.porque}; a entrega é da N5` };
@@ -303,6 +314,7 @@ export function fatosDaFila(carregado: ManifestoCarregado, arco: string, opcoes:
       threads: casam, ilegivel,
       entregueEm: eventos.find(e => e.tipo === TIPOS_DE_EVENTO.shipConcluido)?.ts ?? null,
       despachada: eventos.some(e => e.tipo === TIPOS_DE_EVENTO.faseDespachada),
+      despachoFalho: !eventos.some(e => e.tipo === TIPOS_DE_EVENTO.faseDespachada) && eventos.some(e => e.tipo === TIPOS_DE_EVENTO.despachoFalhou),
       pedidoGuardado,
       passo: th ? passos.get(th.id) ?? null : null,
       espera: th && th.status !== 'fechada' ? esperaDoCondutor(th, eventos, quando) : null,
