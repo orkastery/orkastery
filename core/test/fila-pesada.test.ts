@@ -346,9 +346,9 @@ test('P10: o comando que o dono da vez roda reentra pela marca; marca de vaga so
     assert.equal(process.env[ENV_DONO_DA_FILA], antes, 'a marca sai do ambiente junto com a vez');
     // A marca de quem já soltou a vaga não vale: o pedido entra pela fila, como qualquer outro.
     assert.equal(pedidoAvulso(raiz, 5000, { ...process.env, [ENV_DONO_DA_FILA]: marca }).situacao, 'adquirida');
-    // O arquivo da vaga com o nome do dono, mas sem a trava dele, também não vale.
+    // O arquivo da vaga com o nome e a posse do dono, mas sem a trava dele, também não vale.
     const vaga = path.join(raiz, '.orkastery', 'fila-pesada', 'vaga-0.lock');
-    fs.writeFileSync(vaga, JSON.stringify({ pid: process.pid }) + '\n');
+    fs.writeFileSync(vaga, JSON.stringify({ pid: process.pid, posse: (JSON.parse(marca) as { posse: string }).posse }) + '\n');
     assert.equal(pedidoAvulso(raiz, 5000, { ...process.env, [ENV_DONO_DA_FILA]: marca }).situacao, 'adquirida');
     // A marca copiada de um dono vivo, que segura a vaga, mas não é ancestral de quem pede: espera e é recusado.
     estranho = disputante(raiz, 'estranho', { artefato: path.join(raiz, 'wt-estranho'), slots: 1, segura: 60000, log });
@@ -357,6 +357,39 @@ test('P10: o comando que o dono da vez roda reentra pela marca; marca de vaga so
     const r = pedidoAvulso(raiz, 1500, { ...process.env, [ENV_DONO_DA_FILA]: forjada });
     assert.equal(r.situacao, 'recusada');
     assert.ok(r.levouMs >= 1400, `levou ${r.levouMs} ms`);
+  } finally {
+    if (estranho) { estranho.kill('SIGKILL'); await terminar(estranho); }
+    fs.rmSync(raiz, { recursive: true, force: true });
+  }
+});
+
+test('P11: marca com outro início, outra raiz, posse de uma vez anterior ou vaga de outro dono não pula a fila', { skip: semKernel }, async () => {
+  const raiz = raizTemporaria('p11');
+  const log = path.join(raiz, 'log');
+  let estranho: ChildProcess | null = null;
+  try {
+    const pedido = { artefato: path.join(raiz, 'wt'), operacao: 'verify', thread: 'ork-pai', slots: 1, esperarMs: 0 };
+    let primeira = '';
+    comRecursoPesado(raiz, pedido, () => { primeira = process.env[ENV_DONO_DA_FILA] ?? ''; });
+    comRecursoPesado(raiz, pedido, () => {
+      const marca = JSON.parse(process.env[ENV_DONO_DA_FILA] ?? '{}') as Record<string, unknown>;
+      const com = (troca: Record<string, unknown>) => ({ ...process.env, [ENV_DONO_DA_FILA]: JSON.stringify({ ...marca, ...troca }) });
+      assert.equal(pedidoAvulso(raiz, 3000, com({})).situacao, 'reentrada', 'a marca desta vez vale');
+      // O pid é o deste processo, ancestral e vivo, mas o início é de outro: pid reusado não herda a vez.
+      assert.equal(pedidoAvulso(raiz, 1000, com({ inicio: '1' })).situacao, 'recusada');
+      // A marca de outra raiz de estado não vale aqui.
+      assert.equal(pedidoAvulso(raiz, 1000, com({ raiz: `${raiz}-outra` })).situacao, 'recusada');
+      // A marca guardada da primeira vez do mesmo dono: a vaga agora tem outra posse.
+      assert.notEqual(JSON.parse(primeira).posse, marca.posse);
+      assert.equal(pedidoAvulso(raiz, 1000, { ...process.env, [ENV_DONO_DA_FILA]: primeira }).situacao, 'recusada');
+    });
+    // A vaga de outro dono, com a posse copiada do arquivo dela e o pid de um ancestral vivo: o pid gravado não bate.
+    estranho = disputante(raiz, 'estranho', { artefato: path.join(raiz, 'wt-estranho'), slots: 1, segura: 60000, log });
+    await esperarLinha(log, 'E estranho');
+    const gravado = JSON.parse(fs.readFileSync(path.join(raiz, '.orkastery', 'fila-pesada', 'vaga-0.lock'), 'utf8')) as { posse: string };
+    const copiada = JSON.stringify({ ...JSON.parse(primeira) as object, pid: process.pid, inicio: inicioDe(process.pid), slot: 0,
+      posse: gravado.posse });
+    assert.equal(pedidoAvulso(raiz, 1000, { ...process.env, [ENV_DONO_DA_FILA]: copiada }).situacao, 'recusada');
   } finally {
     if (estranho) { estranho.kill('SIGKILL'); await terminar(estranho); }
     fs.rmSync(raiz, { recursive: true, force: true });

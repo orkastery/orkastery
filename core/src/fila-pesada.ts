@@ -18,7 +18,8 @@
  * O dono da vez passa aos comandos que roda a marca da posse (`ORK_FILA_PESADA_DONO`): um verify aninhado num
  * comando dele (a claim que roda `ork verify` de outra thread do mesmo projeto) entra como reentrada, em vez de
  * esperar a vaga do próprio pai até o prazo. A marca só vale com o dono vivo, ancestral do processo e segurando a
- * vaga que diz; marca copiada para fora dessa árvore de processos não pula a fila.
+ * vaga que diz, com o identificador da posse que gravou nela: marca copiada para fora dessa árvore de processos, ou
+ * guardada de uma vez anterior do mesmo dono, não pula a fila.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -186,10 +187,11 @@ function minhaVez(dir: string, senha: Senha): boolean {
   return true;
 }
 
-interface Posse { fdArtefato: number; fdVaga: number; slot: number }
+/** `id`: o identificador desta posse, gravado na vaga e na marca que os filhos herdam (S1 da rodada 2 do CHECK). */
+interface Posse { fdArtefato: number; fdVaga: number; slot: number; id: string }
 
-function gravarDono(fd: number, dono: OcupanteDaFila): void {
-  const bytes = Buffer.from(JSON.stringify({ contrato: CONTRATO_FILA_PESADA, ...dono }) + '\n', 'utf8');
+function gravarDono(fd: number, dono: OcupanteDaFila, posse: string): void {
+  const bytes = Buffer.from(JSON.stringify({ contrato: CONTRATO_FILA_PESADA, ...dono, posse }) + '\n', 'utf8');
   fs.ftruncateSync(fd, 0);
   fs.writeSync(fd, bytes, 0, bytes.length, 0);
 }
@@ -203,9 +205,10 @@ function tentarVaga(dir: string, pedido: PedidoDeRecursoPesado): Posse | null {
     if (fdVaga === null) continue;
     const dono: OcupanteDaFila = { slot, operacao: pedido.operacao, thread: pedido.thread, artefato: path.resolve(pedido.artefato),
       pid: process.pid, desde: new Date().toISOString() };
-    gravarDono(fdVaga, dono);
-    gravarDono(fdArtefato, dono);
-    return { fdArtefato, fdVaga, slot };
+    const id = randomUUID();
+    gravarDono(fdVaga, dono, id);
+    gravarDono(fdArtefato, dono, id);
+    return { fdArtefato, fdVaga, slot, id };
   }
   fs.closeSync(fdArtefato);
   return null;
@@ -295,20 +298,22 @@ function ancestral(pid: number): boolean {
 
 /**
  * A vaga que um processo ancestral segura nesta raiz, pela marca que ele passou; `null` quando a marca não vale: outra
- * raiz, dono morto ou trocado (pid com outro início), dono que não é ancestral, ou vaga que ele não segura mais.
+ * raiz, dono morto ou trocado (pid com outro início), dono que não é ancestral, ou vaga que ele não segura mais, inclusive
+ * a de uma vez anterior dele (o identificador da posse gravado na vaga é outro).
  */
 function vagaDoAncestral(chave: string, dir: string): number | null {
   const bruto = process.env[ENV_DONO_DA_FILA];
   if (!bruto) return null;
-  let marca: { raiz?: unknown; pid?: unknown; inicio?: unknown; slot?: unknown };
+  let marca: { raiz?: unknown; pid?: unknown; inicio?: unknown; slot?: unknown; posse?: unknown };
   try { marca = JSON.parse(bruto) as typeof marca; } catch { return null; }
   const { pid, slot } = marca;
   if (marca.raiz !== chave || typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 1 || pid === process.pid ||
-      typeof slot !== 'number' || !Number.isSafeInteger(slot) || slot < 0) return null;
+      typeof slot !== 'number' || !Number.isSafeInteger(slot) || slot < 0 || typeof marca.posse !== 'string') return null;
   if (inicioDoProcesso(pid) !== marca.inicio || !ancestral(pid)) return null;
   const arquivo = path.join(dir, `vaga-${slot}.lock`);
   try {
-    if ((JSON.parse(fs.readFileSync(arquivo, 'utf8')) as { pid?: unknown }).pid !== pid) return null;
+    const gravado = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as { pid?: unknown; posse?: unknown };
+    if (gravado.pid !== pid || gravado.posse !== marca.posse) return null;
   } catch { return null; }
   let fd: number;
   try { fd = abrirTrava(arquivo, false); } catch { return null; }
@@ -343,7 +348,8 @@ export function comRecursoPesado<T>(raiz: string, pedido: PedidoDeRecursoPesado,
         emCurso.set(chave, { slot: posse.slot });
         // Os comandos que rodam dentro da vez herdam a marca da posse: o verify aninhado neles é reentrada.
         const marcaAnterior = process.env[ENV_DONO_DA_FILA];
-        process.env[ENV_DONO_DA_FILA] = JSON.stringify({ raiz: chave, pid: process.pid, inicio: inicioDoProcesso(process.pid), slot: posse.slot });
+        process.env[ENV_DONO_DA_FILA] = JSON.stringify({ raiz: chave, pid: process.pid, inicio: inicioDoProcesso(process.pid), slot: posse.slot,
+          posse: posse.id });
         try { return executar({ situacao: 'adquirida', slot: posse.slot, esperouMs: Date.now() - inicio }); }
         finally {
           if (marcaAnterior === undefined) delete process.env[ENV_DONO_DA_FILA]; else process.env[ENV_DONO_DA_FILA] = marcaAnterior;
