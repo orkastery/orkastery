@@ -17,6 +17,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `node core/scripts/checar-mods.cjs` reprova o mod pelo fonte, e a ponte recusa em tempo de execução. O script
   `core/scripts/prova-mods-sessao-de-fase.cjs` prova se um mod carrega numa sessão `claude --bg`; o veredito fica com
   quem conduz.
+- **Torre de Controle no Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md), fatia F1):
+  o mod `ork-torre` (`adapters/claude-code/mods/ork-torre`), sobre a ponte, abre na sessão do dono um painel com cada
+  thread aberta numa linha: o trilho das seis fases, o modo, quem conduz e desde quando, o bloqueio tipado numa frase
+  curta, os pedidos ao dono e as ações que o retrato do núcleo declara. `/torre` abre o painel; sozinho, ele só abre
+  no fullscreen. Apertar a linha abre o detalhe (sessões, últimos eventos, claims com estado e as leituras de estado,
+  observação e git). Ação com efeito nunca roda pela Torre: abre o mod dono dela pelo comando dele, quando ele está
+  carregado, ou aparece como o comando do `ork` para o dono rodar. As threads das outras máquinas entram quando a rede
+  é lida, a linha da faixa sai pela ponte e o que o painel mostra entra no registro da ponte, para o Telegram não
+  repetir.
 - **CLI em inglês e pt-BR** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): nova página do
   roadmap, em desenvolvimento, com a decisão do dono de 12/10/2026 de que o CLI fala inglês e pt-BR. A
   língua vem de `owner.language` e, sem ela, de `LC_ALL`, `LC_MESSAGES` e `LANG`; o pt-BR fica idêntico
