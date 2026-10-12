@@ -30,8 +30,12 @@ const PERIODO_DO_TIQUE_MS = 60000
 /** As entregas sao relidas por idade: a cada 5 min com o painel a vista, a cada 15 min escondido. */
 const IDADE_A_VISTA_MS = 5 * 60000
 const IDADE_ESCONDIDO_MS = 15 * 60000
-/** Entre duas leituras que o dono nao pediu, no minimo isto: cada pagina do retrato le os ledgers de todas as threads. */
-const INTERVALO_MINIMO_MS = 30000
+/**
+ * Entre duas leituras que o dono nao pediu (ledger que mudou, idade), no minimo isto com o painel a vista; escondido, a
+ * idade de 15 min. Cada leitura rele todas as paginas da secao `master` do retrato, e cada pagina le os ledgers de todas
+ * as threads: a faixa nao precisa de mais que isso, e a entrega anda em minutos, nao em segundos.
+ */
+const INTERVALO_A_VISTA_MS = 60000
 /** Os ledgers que mudam juntos entram numa leitura so. */
 const ESPERA_DO_LOTE_MS = 5000
 /** Teto de cada chamada ao nucleo (uma pagina do retrato ou as claims de uma thread). */
@@ -174,14 +178,19 @@ async function painelAVista($: EngineInterface): Promise<boolean> {
 
 /**
  * Uma leitura por vez; pedido que chega no meio volta a rodar logo depois. Fora do pedido do dono (`forcar`), a leitura
- * respeita o intervalo minimo e volta a ser agendada para quando ele vencer.
+ * respeita o intervalo: com o painel a vista, volta a ser agendada para quando ele vencer; escondido, espera o tique da
+ * idade.
  */
 async function atualizar($: EngineInterface, forcar = false): Promise<void> {
   if (!ativa) return
   const agora = await $.clock.now()
-  if (!forcar && agora - tentadaEm < INTERVALO_MINIMO_MS) {
-    agendar($, INTERVALO_MINIMO_MS - (agora - tentadaEm))
-    return
+  if (!forcar && tentadaEm > 0) {
+    const aVista = await painelAVista($)
+    const espera = (aVista ? INTERVALO_A_VISTA_MS : IDADE_ESCONDIDO_MS) - (agora - tentadaEm)
+    if (espera > 0) {
+      if (aVista) agendar($, espera)
+      return
+    }
   }
   if (lendo) {
     pendente = true

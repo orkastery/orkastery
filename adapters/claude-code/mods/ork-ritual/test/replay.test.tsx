@@ -222,3 +222,32 @@ test('a leitura que falha fica no painel com o motivo e a anterior continua; sem
   expect(mundo.faixas.at(-1)).toEqual({ mod: 'ork-ritual' })
   await ui.unmount()
 })
+
+test('o ledger que muda rele as entregas em lote no intervalo de 1 min com o painel a vista; escondido, so a idade de 15 min rele', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', paginas: PAGINAS, paineis: A_VISTA })
+  await iniciar($)
+  await relogio.advance(1)
+  await esperar(() => mundo.faixas.length > 0)
+  const leituras = () => mundo.maestro.length
+  expect(leituras()).toBe(1)
+  const ledger = (thread: string) => ({ file_path: `/projeto/.orkastery/threads/${thread}/ledger.jsonl`, event: 'change' })
+  await $.classic.FileChanged(ledger('ork-a'))
+  await $.classic.FileChanged(ledger('ork-b'))
+  await $.classic.FileChanged({ file_path: '/projeto/outro/arquivo.txt', event: 'change' })
+  await relogio.advance(5000)
+  await esperar(() => false, 10)
+  expect(leituras()).toBe(1)
+  await relogio.advance(55000)
+  await esperar(() => leituras() > 1)
+  expect(leituras()).toBe(2)
+  // Escondido: o ledger que muda nao rele antes da idade de 15 min; o tique da idade rele.
+  mundo.paineis = []
+  await $.classic.FileChanged(ledger('ork-a'))
+  await relogio.advance(10 * 60000)
+  await esperar(() => false, 10)
+  expect(leituras()).toBe(2)
+  await relogio.advance(6 * 60000)
+  await esperar(() => leituras() > 2)
+  expect(leituras()).toBe(3)
+})

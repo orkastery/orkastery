@@ -29,7 +29,7 @@ A faixa acima do prompt resume ("3 entregas esperam a sua nota: ork-a, ork-b, or
 
 ## Dar a nota
 
-"Dar a nota" pede ao núcleo o diálogo nativo do host, pela ferramenta `ork_request_master_note`, só com o id da thread. O formulário tem a nota (de 5 a 0) e o porquê (de 3 a 1000 caracteres), os dois obrigatórios. Respondido, o núcleo grava o MASTER com `avaliadoPor` `mcp-local:claude-code` e o recibo assinado do ingresso local em `.orkastery/threads/<thread>/hitl-ingress-local/`, e a entrega sai da lista. Fechado sem resposta, nada é gravado e a entrega segue esperando.
+"Dar a nota" pede ao núcleo o diálogo nativo do host, pela ferramenta `ork_request_master_note`, só com o id da thread. O formulário tem a nota (de 5 a 0) e o porquê (de 3 a 1000 caracteres), os dois obrigatórios. Respondido, o núcleo grava o MASTER com `avaliadoPor` `mcp-local:claude-code` e o recibo assinado do ingresso local em `.orkastery/threads/<thread>/hitl-ingress-local/`, e a entrega sai da lista. Fechado sem resposta, nenhuma nota é gravada (fica só o pedido de nota no ledger, o mesmo do `ork master pedir`) e a entrega segue esperando. O painel relê as entregas quando você pede, logo depois de uma nota, a cada minuto em que um ledger muda com o painel à vista e a cada 15 minutos com ele escondido.
 
 A nota pelo diálogo vale como nota humana em toda leitura, só com o recibo conferido. Depois dela, `ork master --aceitar-omissao` não a troca, e a resposta pelo Telegram ao código da mesma entrega também não. Com nota humana dada antes por outro caminho, o botão diz que ela já existia e não abre diálogo.
 
