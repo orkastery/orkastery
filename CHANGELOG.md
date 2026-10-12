@@ -42,8 +42,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   do plano: a tarefa só entra apontando uma tarefa do plano com `touch_paths` e verify, e só fecha com a conferência
   do núcleo aprovada (`ork claims conferir --tarefa`, no sandbox do verify), nunca com o verify rodado pelo mod. Plano
   sem nenhuma tarefa assim não ganha portão. Com agent teams no piloto, o teammate ocioso recebe a próxima tarefa
-  cuja região está livre: sem lease `path:` ativo de nenhuma thread no caminho (lidos pelo `ork maestro --json`) e
-  sem cruzar as tarefas dos outros teammates; o Portão não toma lease. O manifesto ganha `runtime.agent_teams`
+  cuja região está livre: sem lease `path:` ativo de nenhuma thread no caminho (lidos de todas as threads pelo
+  `ork maestro --json`, página a página; leitura incompleta deixa o teammate ocioso) e sem cruzar as tarefas dos
+  outros teammates; o Portão não toma lease. O manifesto ganha `runtime.agent_teams`
   (`ligado`, `teammates`, `custo_usd`), desligado por padrão: ligado, o despacho do GO com o Portão na sessão passa
   `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` e os dois tetos, que o Portão aplica no nascimento de teammate e na entrega
   de tarefa.

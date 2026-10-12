@@ -209,6 +209,7 @@ export type LeaseDoTeste = { nome: string; thread: string; status?: 'active' | '
  */
 export function processos(on, relogio, opcoes: {
   conferencias?: RespostaDoProcesso[]; leasesAtivos?: LeaseDoTeste[]; pagina?: number; esperaDoMaestro?: number; maestroIndisponivel?: boolean
+  lacunas?: string[]; estado?: string
 } = {}) {
   const conferencias: Array<{ argv: string[]; cwd: unknown; timeoutMs: unknown }> = []
   const maestro: string[][] = []
@@ -232,10 +233,12 @@ export function processos(on, relogio, opcoes: {
         id: l.nome, title: 'Região reservada', status: l.status ?? 'active', refs: [{ kind: 'thread', id: l.thread }], facts: {},
       }))
       const seguinte = offset + itens.length < todos.length ? offset + itens.length : null
+      // Como o núcleo: a página cortada antes do fim leva `maestro.page.byte_limit` e o `nextOffset`.
+      const gaps = [...(seguinte !== null ? ['maestro.page.byte_limit'] : []), ...(opcoes.lacunas ?? [])]
       const secao = opcoes.maestroIndisponivel
         ? { state: 'unavailable', gaps: ['leases.unavailable'], items: [] }
-        : { state: todos.length ? 'available' : 'empty', gaps: [], items: itens,
-          coverage: { total: todos.length, offset, returned: itens.length, omitted: todos.length - offset - itens.length, nextOffset: seguinte, limit: tamanho } }
+        : { state: opcoes.estado ?? (todos.length ? 'available' : 'empty'), gaps, items: itens,
+          coverage: { total: todos.length, offset, returned: itens.length, omitted: todos.length - offset - itens.length, nextOffset: seguinte, limit: 50 } }
       return saida(0, JSON.stringify({ schema: 'ork.maestro-snapshot/v1', sections: { leases: secao } }))
     }
     if (e.argv[0] !== 'ork' || e.argv[1] !== 'claims' || e.argv[2] !== 'conferir') throw new Error(`processo fora do teste: ${e.argv.join(' ')}`)

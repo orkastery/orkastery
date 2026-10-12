@@ -262,12 +262,14 @@ ganha portão, para não travar o quadro do GO. Com o portão ligado:
 - **teammate ocioso:** com agent teams no piloto (abaixo), `TeammateIdle` entrega ao teammate a próxima
   tarefa do plano que serve, não fechou nesta sessão e cuja região está livre: nenhum lease `path:` ativo,
   de nenhuma thread, cruza os `touch_paths` dela e ela não cruza as tarefas dos outros teammates. Os leases
-  vêm do retrato de todas as threads, página a página, pela consulta `maestro` da ponte
-  (`ork maestro --json`), porque o servidor MCP da sessão de fase só mostra os da própria thread. O Portão
-  não toma nem solta lease: o `ork_git_commit` toma o `path:` de cada arquivo na hora do commit e recusa o
-  commit com qualquer lease no caminho. Quem fica ocioso sem concluir devolve a tarefa, que sai da
-  distribuição automática desta sessão. Sem os leases legíveis, no teto de custo ou sem tarefa livre, o
-  teammate fica ocioso.
+  vêm do retrato de todas as threads pela consulta `maestro` da ponte
+  (`ork maestro --json --section leases --offset N`), seguindo o `nextOffset` das páginas que o teto de
+  bytes do retrato corta, até 10 páginas, porque o servidor MCP da sessão de fase só mostra os da própria
+  thread. O Portão não toma nem solta lease: o `ork_git_commit` toma o `path:` de cada arquivo na hora do
+  commit e recusa o commit com qualquer lease no caminho. Quem fica ocioso sem concluir devolve a tarefa,
+  que sai da distribuição automática desta sessão. Sem a lista de leases inteira (seção indisponível,
+  lacuna, retrato em conflito ou mais de 10 páginas), no teto de custo ou sem tarefa livre, o teammate
+  fica ocioso.
 
 O Portão nunca roda o verify por conta própria: quem verifica de verdade continua sendo o `ork verify`.
 Ele lê o papel pelo `$.ork.contexto` da ponte, o estado e o bloco pelo `$.ork.retrato`, os leases pela
@@ -302,6 +304,8 @@ Limites conhecidos:
 - os tetos dependem de o Portão carregar de verdade: o despacho decide pelo `--plugin-dir`, e se o mod não
   registrar na sessão, agent teams fica ligado sem ninguém aplicando os tetos;
 - se o turno for interrompido no meio da conferência, o Claude Code segue sem a resposta do gancho;
+- nome de lease que o retrato redige (caminho absoluto ou texto com cara de segredo) chega irreconhecível e
+  não cruza nenhuma região;
 - o comportamento desses eventos numa sessão `claude --bg` real com agent teams ainda não foi medido; os
   testes do kit e do núcleo cobrem o mod e o despacho.
 

@@ -182,22 +182,24 @@ async function custoDaSessao($: EngineInterface): Promise<number | null> {
 }
 
 /**
- * Os leases ativos de todas as threads (D8 revista), página a página. O servidor MCP da sessão de fase é fixado na
- * thread e o retrato dele só traz os leases dela; por isso a leitura vai pela consulta `maestro` da lista fechada da
- * ponte (`ork maestro --json --section leases`), que vê o projeto inteiro. Lança se uma página não vem.
+ * Os leases ativos de todas as threads (D8 revista), página a página pelo `nextOffset`. O servidor MCP da sessão de fase
+ * é fixado na thread e o retrato dele só traz os leases dela; por isso a leitura vai pela consulta `maestro` da lista
+ * fechada da ponte (`ork maestro --json --section leases --offset N`), que vê o projeto inteiro. Lança se uma página não
+ * vem ou se a leitura fica incompleta (lacuna de verdade, retrato em conflito, mais páginas que o teto): lista parcial
+ * nunca vira região livre.
  */
-async function lerLeases($: EngineInterface): Promise<{ leases: LeaseAtivo[]; lacuna: string | null }> {
+async function lerLeases($: EngineInterface): Promise<LeaseAtivo[]> {
   const leases: LeaseAtivo[] = []
   let offset = 0
   for (let pagina = 0; pagina < TETO_DE_PAGINAS_DE_LEASES; pagina++) {
     const pedido = { consulta: 'maestro' as const, secao: 'leases' as const, offset }
     const p = paginaDosLeases(await $.ork.ler(pedido))
+    if (p.lacuna) throw new Error(`ork-portao: ${p.lacuna}`)
     leases.push(...p.leases)
-    if (p.lacuna) return { leases, lacuna: p.lacuna }
-    if (p.proximo === null) return { leases, lacuna: null }
+    if (p.proximo === null) return leases
     offset = p.proximo
   }
-  return { leases, lacuna: `mais de ${TETO_DE_PAGINAS_DE_LEASES} páginas de leases; o resto não foi lido` }
+  throw new Error(`ork-portao: a seção leases tem mais de ${TETO_DE_PAGINAS_DE_LEASES} páginas; o resto não foi lido`)
 }
 
 export const register: Register = on => {
@@ -293,9 +295,7 @@ export const register: Register = on => {
     }
     let leases: LeaseAtivo[]
     try {
-      const lidos = await lerLeases($)
-      leases = lidos.leases
-      if (lidos.lacuna) $.ui.log(`Portão de Tarefas: ${lidos.lacuna}`, { to: 'debug' })
+      leases = await lerLeases($)
     } catch (erro) {
       await anotarFalha($, 'leitura dos leases', erro, ctx.thread)
       return next(e)

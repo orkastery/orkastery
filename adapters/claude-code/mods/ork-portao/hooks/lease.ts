@@ -11,12 +11,16 @@ export const ENV_TEAMMATES = 'ORK_AGENT_TEAMS_TEAMMATES'
 export const ENV_CUSTO = 'ORK_AGENT_TEAMS_CUSTO_USD'
 export const TETO_MAXIMO_DE_TEAMMATES = 8
 export const TETO_MAXIMO_DE_CUSTO_USD = 500
-/** Quantas páginas da seção `leases` o Portão lê numa vez (o retrato traz até 50 itens por página). */
-export const TETO_DE_PAGINAS_DE_LEASES = 5
+/**
+ * Quantas páginas da seção `leases` o Portão lê numa vez. O retrato traz até 50 itens por página e corta a página pelo
+ * teto de bytes do retrato inteiro (`maestro.page.byte_limit`), então uma página costuma vir com menos.
+ */
+export const TETO_DE_PAGINAS_DE_LEASES = 10
+/** A lacuna que o núcleo põe na página cortada pelo teto de bytes: é paginação, com `nextOffset`, não falta de dado. */
+export const LACUNA_DE_PAGINA = 'maestro.page.byte_limit'
 /** Os estados de agente que contam como teammate vivo para o teto. */
 export const VIVOS: readonly string[] = ['pending', 'running', 'waiting', 'idle']
 
-const ID_DE_THREAD = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/
 const NOME_DE_TEAMMATE = /^[A-Za-z0-9][A-Za-z0-9._@-]{0,79}$/
 const FAMILIAS = ['worktree-write', 'path', 'board', 'service', 'exec']
 
@@ -108,7 +112,11 @@ export function leasesDoRetrato(retrato: unknown): LeaseAtivo[] {
 /** Uma página da seção `leases`: os ativos, o offset da página seguinte (`coverage.nextOffset`) e o que faltou. */
 export type PaginaDeLeases = { leases: LeaseAtivo[]; proximo: number | null; lacuna: string | null }
 
-/** A página da seção `leases` de um retrato; seção indisponível lança (sem ela, nenhuma região está livre). */
+/**
+ * A página da seção `leases` de um retrato. Seção indisponível lança (sem ela, nenhuma região está livre). A página
+ * cortada pelo teto de bytes (`maestro.page.byte_limit`) só diz que há página seguinte; qualquer outra lacuna, ou o
+ * retrato em conflito (fontes mudando durante a leitura), deixa a leitura incompleta.
+ */
 export function paginaDosLeases(retrato: unknown): PaginaDeLeases {
   type Secao = { state?: unknown; gaps?: unknown; coverage?: { nextOffset?: unknown } }
   const secao = (retrato as { sections?: { leases?: Secao } } | null)?.sections?.leases
@@ -117,7 +125,10 @@ export function paginaDosLeases(retrato: unknown): PaginaDeLeases {
   if (secao.state === 'unavailable') throw new Error(`ork-portao: a seção leases veio indisponível${faltas.length ? ` (${faltas.join(', ')})` : ''}`)
   const seguinte = secao.coverage?.nextOffset
   const proximo = typeof seguinte === 'number' && Number.isInteger(seguinte) && seguinte > 0 ? seguinte : null
-  return { leases: leasesDoRetrato(retrato), proximo, lacuna: faltas.length > 0 ? `a seção leases veio com lacunas (${faltas.join(', ')})` : null }
+  const outras = faltas.filter(g => g !== LACUNA_DE_PAGINA)
+  const lacuna = secao.state === 'conflict' ? 'a seção leases veio em conflito (o retrato mudou durante a leitura)'
+    : outras.length > 0 ? `a seção leases veio com lacunas (${outras.join(', ')})` : null
+  return { leases: leasesDoRetrato(retrato), proximo, lacuna }
 }
 
 /** Os tetos do piloto lidos do ambiente: teammates inteiro de 1 a 8 e custo de 0 a 500 dólares; `null` sem os dois. */

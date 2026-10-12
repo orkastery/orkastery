@@ -69,6 +69,42 @@ test('os leases de todas as paginas do retrato contam', { plugins: PLUGINS }, as
   expect(maestro.map(a => a[6])).toEqual(['0', '1', '2'])
 })
 
+test('pagina cortada pelo teto de bytes: o lease path: da pagina seguinte ainda barra a tarefa', { plugins: PLUGINS }, async ($, on) => {
+  const execs = Array.from({ length: 37 }, (_, i) => ({ nome: `exec:ork-t${String(i).padStart(2, '0')}`, thread: `ork-t${i}`, status: 'expired' as const }))
+  const { relogio } = preparar(on, { extra: TETOS })
+  const { maestro } = processos(on, relogio, { pagina: 37, leasesAtivos: [...execs, { nome: 'path:src/a.ts', thread: 'ork-outra' }] })
+  time(on)
+  expect((await ocioso($, 'ana')).block).toContain('pegue a tarefa T5')
+  expect(maestro.map(a => a[6])).toEqual(['0', '37'])
+})
+
+test('lacuna de verdade, retrato em conflito ou mais paginas que o teto deixam o teammate ocioso', { plugins: PLUGINS }, async ($, on) => {
+  const { relogio, status } = preparar(on, { extra: TETOS })
+  processos(on, relogio, { lacunas: ['ledger.unavailable:ork-x'] })
+  time(on)
+  expect(await ocioso($, 'ana')).toEqual({})
+  expect(status[status.length - 1]).toBe('portão: falhou em leitura dos leases')
+  expect((await quadro($)).ultimaFalha.motivo).toContain('a seção leases veio com lacunas (ledger.unavailable:ork-x)')
+})
+
+test('retrato em conflito deixa o teammate ocioso', { plugins: PLUGINS }, async ($, on) => {
+  const { relogio } = preparar(on, { extra: TETOS })
+  processos(on, relogio, { estado: 'conflict' })
+  time(on)
+  expect(await ocioso($, 'ana')).toEqual({})
+  expect((await quadro($)).ultimaFalha.motivo).toContain('em conflito')
+})
+
+test('mais paginas de leases que o teto deixam o teammate ocioso', { plugins: PLUGINS }, async ($, on) => {
+  const muitos = Array.from({ length: 11 }, (_, i) => ({ nome: `exec:ork-t${String(i).padStart(2, '0')}`, thread: `ork-t${i}` }))
+  const { relogio } = preparar(on, { extra: TETOS })
+  const { maestro } = processos(on, relogio, { pagina: 1, leasesAtivos: muitos })
+  time(on)
+  expect(await ocioso($, 'ana')).toEqual({})
+  expect(maestro.length).toBe(10)
+  expect((await quadro($)).ultimaFalha.motivo).toContain('mais de 10 páginas')
+})
+
 test('retrato dos leases indisponivel: o teammate fica ocioso e a falha e anotada', { plugins: PLUGINS }, async ($, on) => {
   const { relogio, status, logs } = preparar(on, { extra: TETOS })
   processos(on, relogio, { maestroIndisponivel: true })

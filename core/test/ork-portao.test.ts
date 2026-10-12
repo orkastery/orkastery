@@ -350,12 +350,28 @@ test('lease: os leases ativos de uma página do retrato, a página seguinte, a l
   assert.deepEqual(paginaDosLeases(secao({ coverage: { nextOffset: 50 } })).proximo, 50);
   assert.deepEqual(paginaDosLeases(secao({ coverage: { nextOffset: null } })).proximo, null);
   assert.match(paginaDosLeases(secao({ gaps: ['lease.invalid:x'] })).lacuna, /veio com lacunas \(lease\.invalid:x\)/);
+  const cortada = paginaDosLeases(secao({ gaps: ['maestro.page.byte_limit'], coverage: { nextOffset: 37 } }));
+  assert.deepEqual([cortada.proximo, cortada.lacuna], [37, null], 'a página cortada pelo teto de bytes é paginação');
+  assert.match(paginaDosLeases(secao({ gaps: ['maestro.page.byte_limit', 'ledger.unavailable:x'] })).lacuna, /\(ledger\.unavailable:x\)/);
+  assert.match(paginaDosLeases(secao({ state: 'conflict' })).lacuna, /em conflito/);
   assert.throws(() => paginaDosLeases({ sections: { leases: { state: 'unavailable', gaps: ['leases.unavailable'], items: [] } } }), /indisponível \(leases\.unavailable\)/);
   assert.throws(() => paginaDosLeases({ sections: {} }), /sem a seção leases/);
   assert.throws(() => leasesDoRetrato(null), /sem a seção leases/);
   assert.equal(nomeDoTeammate('ana'), 'ana');
   assert.equal(nomeDoTeammate('ana@time'), 'ana@time');
   for (const ruim of ['-x', '', 3, 'a b']) assert.equal(nomeDoTeammate(ruim), null, String(ruim));
+});
+
+test('lease: a ponte monta o argv da consulta maestro com a seção e o offset que o Portão pede', () => {
+  const nucleo = carregarModuloDoMod(path.join(raizDoRepo, 'adapters/claude-code/mods/ork-ponte/hooks/nucleo.ts'));
+  assert.deepEqual(nucleo.argvDaConsulta({ consulta: 'maestro', secao: 'leases', offset: 37 }),
+    ['ork', 'maestro', '--json', '--section', 'leases', '--offset', '37']);
+  assert.deepEqual(nucleo.argvDaConsulta({ consulta: 'maestro', secao: 'leases', offset: 0 }),
+    ['ork', 'maestro', '--json', '--section', 'leases', '--offset', '0']);
+  const { LACUNA_DE_PAGINA, TETO_DE_PAGINAS_DE_LEASES } = carregar('hooks/lease.ts');
+  assert.equal(LACUNA_DE_PAGINA, 'maestro.page.byte_limit');
+  assert.equal(TETO_DE_PAGINAS_DE_LEASES, 10);
+  assert.match(fs.readFileSync(path.join(raizDoRepo, 'core/src/maestro-snapshot.ts'), 'utf8'), /section\.gaps\.push\('maestro\.page\.byte_limit'\)/);
 });
 
 test('lease: o Portão nunca pede lease e lê os leases pela consulta maestro da ponte, página a página', () => {
