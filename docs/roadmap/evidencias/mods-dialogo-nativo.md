@@ -25,7 +25,7 @@ O cliente sintético prova o lado do núcleo e o roteiro. O que falta é o elo d
    ```
 
 2. Rode, num terminal seu, o comando que o roteiro imprime. Ele abre o `claude` na pasta da cópia, com a ponte e a Mesa por `--plugin-dir`, `--strict-mcp-config` e um `--mcp-config` só com o servidor `orkastery` da cópia, e tira do ambiente `ORK_DISPATCH_ID`, `ORK_DISPATCH_THREAD`, `ORK_PROJETO` e `ORK_PROJETO_EXPLICITO`. Aceite a confiança na pasta se o Claude Code pedir.
-3. Na sessão, rode `/mesa`, aperte Decidir no cartão do pedido de teste e responda no diálogo, se ele aparecer.
+3. Na sessão, rode `/mesa`, aperte Decidir no cartão do pedido de teste e responda no diálogo, se ele aparecer. Use só o botão: não peça ao modelo que decida, porque o ledger não diz quem chamou `ork_request_decision`, e a prova é a do pedido vindo da Mesa.
 4. Confira o ledger da cópia:
 
    ```bash

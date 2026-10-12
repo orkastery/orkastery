@@ -54,11 +54,26 @@ function semIdentidadeDeDespacho() {
   for (const nome of SEM_ESTES) delete process.env[nome];
 }
 
-/** A pasta fica fora do repositorio: a copia nunca e o estado do projeto. */
-function exigirForaDoRepositorio(dir) {
-  const real = fs.realpathSync(dir);
+/**
+ * A copia fica fora do repositorio e fora de qualquer projeto do Orkastery (nenhuma pasta acima tem `orkastery.yaml`):
+ * ela nunca e, nem fica dentro de, o estado de um projeto. Confere o caminho pedido ANTES de criar qualquer coisa: a
+ * parte que ja existe pelo caminho real, o resto como foi pedido.
+ */
+function exigirForaDeProjeto(alvo) {
+  let existente = path.resolve(alvo);
+  const resto = [];
+  while (!fs.existsSync(existente)) {
+    resto.unshift(path.basename(existente));
+    existente = path.dirname(existente);
+  }
+  const base = fs.realpathSync(existente);
+  const real = path.join(base, ...resto);
   const raiz = fs.realpathSync(RAIZ);
   if (real === raiz || real.startsWith(raiz + path.sep)) throw new ErroDeUso(`a copia precisa ficar fora do repositorio: ${real}`);
+  for (let d = base; ; d = path.dirname(d)) {
+    if (fs.existsSync(path.join(d, 'orkastery.yaml'))) throw new ErroDeUso(`a copia precisa ficar fora de um projeto do Orkastery: ${d}`);
+    if (path.dirname(d) === d) break;
+  }
   return real;
 }
 
@@ -83,9 +98,9 @@ function prepararCopia(opcoes = {}) {
   const { novaThread, gravarThread, dirThread } = doNucleo('thread');
   const { registrar } = doNucleo('ledger');
   const { abrirPedidoGate } = doNucleo('hitl-gates');
-  const base = opcoes.saida ? path.resolve(opcoes.saida) : os.tmpdir();
+  const base = exigirForaDeProjeto(opcoes.saida ? path.resolve(opcoes.saida) : os.tmpdir());
   fs.mkdirSync(base, { recursive: true });
-  const dir = exigirForaDoRepositorio(fs.mkdtempSync(path.join(base, 'ork-prova-dialogo-')));
+  const dir = exigirForaDeProjeto(fs.mkdtempSync(path.join(base, 'ork-prova-dialogo-')));
   git(dir, ['init', '-q', '-b', 'main']);
   fs.writeFileSync(path.join(dir, 'README.md'), '# copia de prova do dialogo nativo\n');
   git(dir, ['add', 'README.md']);

@@ -73,9 +73,18 @@ test('ensaio: a copia nasce fora do repositorio com a pergunta v2 aberta pelo nu
   for (const nome of ['ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'ORK_PROJETO']) assert.match(c.linha, new RegExp(`-u ${nome} `));
 });
 
-test('a copia nunca fica dentro do repositorio', () => {
+test('a copia nunca fica dentro do repositorio nem de um projeto, e a recusa nao cria pasta nenhuma', () => comPasta((fora) => {
+  const sobras = (dir: string) => fs.readdirSync(dir).filter((n) => n.startsWith('ork-prova-dialogo-'));
+  const antes = sobras(path.join(raizDoRepo, 'core')).length;
   assert.throws(() => prova.prepararCopia({ saida: path.join(raizDoRepo, 'core') }), (e: Error) => e instanceof prova.ErroDeUso);
-});
+  assert.throws(() => prova.prepararCopia({ saida: path.join(raizDoRepo, 'core', 'nova', 'funda') }), (e: Error) => e instanceof prova.ErroDeUso);
+  assert.equal(sobras(path.join(raizDoRepo, 'core')).length, antes, 'a recusa vem antes de criar a pasta');
+  assert.equal(fs.existsSync(path.join(raizDoRepo, 'core', 'nova')), false);
+  // Uma pasta qualquer com orkastery.yaml acima tambem e projeto: a copia nao entra nela.
+  fs.writeFileSync(path.join(fora, 'orkastery.yaml'), 'project:\n  name: outro\n');
+  assert.throws(() => prova.prepararCopia({ saida: path.join(fora, 'sub') }), /fora de um projeto do Orkastery/);
+  assert.deepEqual(fs.readdirSync(fora), ['orkastery.yaml']);
+}));
 
 test('cliente sintetico que recusa: o servidor da copia pede o formulario do pedido, nada e gravado como resposta', () => comPasta(async (base) => {
   const copia = prova.prepararCopia({ saida: base });
