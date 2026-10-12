@@ -16,7 +16,12 @@ test('locale F2a infra: a chave de cada linha de comando, com o subcomando padra
   assert.equal(chaveDoLocale(['thread'], {}), 'thread list');
   assert.equal(chaveDoLocale(['thread', 'status', 'x'], {}), 'thread status');
   assert.equal(chaveDoLocale(['phase', 'run', 'x', 'GO'], {}), 'phase run');
-  assert.equal(chaveDoLocale(['phase'], {}), 'phase');
+  // Subcomando desconhecido (ou ausente onde nao ha padrao) e `?`: o erro de uso e do proprio comando.
+  assert.equal(chaveDoLocale(['phase'], {}), 'phase ?');
+  assert.equal(chaveDoLocale(['thread', 'qualquer'], {}), 'thread ?');
+  assert.equal(chaveDoLocale(['onboarding', 'qualquer'], {}), 'onboarding ?');
+  assert.equal(chaveDoLocale(['experiencia', 'qualquer'], {}), 'experiencia ?');
+  assert.equal(chaveDoLocale(['constructor'], {}), 'constructor');
   assert.equal(chaveDoLocale([], {}), '');
 });
 

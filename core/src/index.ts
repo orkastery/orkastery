@@ -136,10 +136,10 @@ import {
 import { carregarManifesto, configDeEmbedding, DIR_ESTADO, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
-import { gravarEtapa, lerOnboarding, ONDE_FICAM_OS_SEGREDOS, resetarOnboarding, textoDaPauta } from './onboarding';
+import { gravarEtapa, lerOnboarding, ONDE_FICAM_OS_SEGREDOS, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, msg, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, comLocale, msg, resolverLocale } from './locale';
 import {
   abrirMemoria,
   sondarEmbeddings,
@@ -941,7 +941,7 @@ function comandoThread(args: Args): number {
  * Toda edicao vira evento `setup_configured` no ledger do projeto.
  */
 function comandoOnboarding(args: Args): number {
-  const invalido = () => { throw new Error('onboarding.input.invalid: use ork onboarding [show|set <etapa>|reset [etapa]] --conteudo <JSON> [--por Q] [--json]'); };
+  const invalido = () => { throw new Error(msg().onboarding.usoInvalido); };
   if (Object.keys(args.opcoes).some(k => !['conteudo', 'por', 'json', 'reset'].includes(k))) invalido();
   if ('json' in args.opcoes && args.opcoes.json !== true) invalido();
   if ('por' in args.opcoes && typeof args.opcoes.por !== 'string') invalido();
@@ -961,12 +961,16 @@ function comandoOnboarding(args: Args): number {
     return 0;
   }
   let estado;
+  // RM-061 (F2a, D6): a recusa de uso sai no locale do comando; a gravacao roda em pt-BR (o dado nao muda).
   if (sub === 'set') {
     let conteudo: unknown;
     try { conteudo = JSON.parse(args.opcoes.conteudo as string); } catch { return invalido(); }
-    estado = gravarEtapa(raiz, etapa!, conteudo, por);
-  } else if (sub === 'reset') estado = resetarOnboarding(raiz, etapa, por);
-  else estado = lerOnboarding(raiz);
+    validarPedidoDeEtapa(etapa, conteudo, por);
+    estado = comLocale('pt-BR', () => gravarEtapa(raiz, etapa!, conteudo, por));
+  } else if (sub === 'reset') {
+    validarPedidoDeEtapa(etapa, undefined, por);
+    estado = comLocale('pt-BR', () => resetarOnboarding(raiz, etapa, por));
+  } else estado = lerOnboarding(raiz);
   console.log(args.opcoes.json === true ? JSON.stringify(estado, null, 2) : textoDaPauta(estado, exigirManifesto(raiz).manifesto.owner));
   return 0;
 }
@@ -4307,16 +4311,17 @@ function executarComando(argvBruto: string[]): number {
       }
       if ((args.posicionais[1] ?? 'show') !== 'show' || args.posicionais.length > 2 ||
           Object.keys(args.opcoes).some(k => k !== 'json') || ('json' in args.opcoes && args.opcoes.json !== true)) {
-        throw Error('uso: ork experiencia show [--json]');
+        throw Error(msg().onboarding.experienciaUso);
       }
       const manifesto = exigirManifesto(), p = resolverExperiencia(manifesto.manifesto.owner);
       // Preferência inválida vale o padrão e faz o adapter install pular o pacote: a consulta avisa.
       const avisos = manifesto.avisos.filter(a => a.startsWith('experiencia.config.invalid'));
+      const m = msg().onboarding;
       console.log(args.opcoes.json ? JSON.stringify({ ...p, avisos }, null, 2) :
-        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\n` +
+        `${m.experiencia(p.experience, p.language, p.timezone, p.depth)}\nSkill: ${p.skill}\n` +
         // Fatia 2 do ensaio da 0.5.0 (R2): as origens em texto, e nao o JSON cru.
-        `Origens: ${Object.entries(p.origem).map(([chave, origem]) => `${chave} ${origem}`).join(', ')}` +
-        avisos.map(a => `\nAviso: ${a}; o adapter install pula o pacote até ork onboarding set maestro corrigir.`).join(''));
+        m.experienciaOrigens(Object.entries(p.origem).map(([chave, origem]) => `${chave} ${m.origemDaPreferencia(origem)}`).join(', ')) +
+        avisos.map(a => `\n${m.experienciaAviso(a)}`).join(''));
       return 0;
     }
     case 'thread':

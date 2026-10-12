@@ -25,23 +25,34 @@
  * e identificador dentro de frase vao entre crases; valor que e so um comando (a linha `fix:`) fica nu.
  */
 
+import { ONBOARDING_EN, ONBOARDING_PT_BR } from './locale-onboarding';
+
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
 /**
- * Comandos cujo texto ja sai pelo catalogo, por `comando` ou por `comando subcomando`; os demais
- * seguem em pt-BR. Ficam de fora por decisao (D2 da F2a): `doctor --modo`, `thread new
- * --from-finding`, `onboarding sync`, `experiencia uninstall` e `thread list|close|entrega`.
+ * Comandos cujo texto ja sai pelo catalogo, por `comando` ou por `comando subcomando`; `comando ?` e o
+ * subcomando desconhecido (o erro de uso e do proprio comando). Os demais seguem em pt-BR. Ficam de
+ * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync`,
+ * `experiencia uninstall` e `thread list|close|entrega`.
  */
-export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init'];
+export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
+  'onboarding ?', 'experiencia show', 'experiencia ?'];
+
+/** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
+const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
+  ['onboarding', { padrao: 'show', conhecidos: ['show', 'set', 'reset', 'sync'] }],
+  ['experiencia', { padrao: 'show', conhecidos: ['show', 'uninstall'] }],
+  ['thread', { padrao: 'list', conhecidos: ['new', 'list', 'status', 'close', 'entrega'] }],
+  ['phase', { padrao: null, conhecidos: ['run', 'list'] }],
+]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
 export function chaveDoLocale(posicionais: readonly (string | undefined)[], opcoes: Readonly<Record<string, unknown>>): string {
-  const [comando = '', sub] = posicionais;
-  if (comando === 'onboarding') return `onboarding ${'reset' in opcoes ? 'reset' : sub ?? 'show'}`;
-  if (comando === 'experiencia') return `experiencia ${sub ?? 'show'}`;
-  if (comando === 'thread') return `thread ${sub ?? 'list'}`;
-  if (comando === 'phase') return sub ? `phase ${sub}` : 'phase';
-  return comando;
+  const [comando = '', bruto] = posicionais;
+  const familia = FAMILIAS.get(comando);
+  if (!familia) return comando;
+  const sub = comando === 'onboarding' && 'reset' in opcoes ? 'reset' : bruto ?? familia.padrao;
+  return `${comando} ${sub !== null && familia.conhecidos.includes(sub) ? sub : '?'}`;
 }
 
 /** O comando pede o texto pelo locale? Nunca com `--json`, nem nos recortes da D2. */
@@ -296,6 +307,7 @@ const PT_BR = {
     /** A fonte de sessoes ausente, como o inventario a nomeia (dado); o ingles so troca o rotulo da conta. */
     fonteDaSessao: (origem: string) => origem,
   },
+  onboarding: ONBOARDING_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -527,6 +539,7 @@ const EN: Mensagens = {
     },
     fonteDaSessao: (origem) => origem.replace(/\(conta do processo\)$/, '(process account)').replace(/\(perfil ([^)]+)\)$/, '(profile $1)'),
   },
+  onboarding: ONBOARDING_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

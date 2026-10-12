@@ -96,7 +96,8 @@ export function encerrarWatchers(repo: string): void {
 
 /**
  * Palavras que denunciam pt-BR num texto que deveria estar em ingles. O que esta entre crases
- * (comando, flag, identificador) e o que o teste declara como dado saem antes da busca.
+ * (comando, flag, identificador), entre aspas duplas (chave e valor de JSON) e o que o teste declara
+ * como dado saem antes da busca.
  */
 const PALAVRAS_PT = [
   'não', 'nao', 'você', 'voce', 'está', 'também', 'tambem', 'já', 'até', 'ate', 'pelo', 'pela', 'para', 'com', 'sem', 'uma',
@@ -116,7 +117,8 @@ const RE_PT = new RegExp(`(^|[^\\p{L}.])(${PALAVRAS_PT.join('|')})(?=[^\\p{L}.]|
 /** As linhas do texto que ainda trazem palavra pt-BR fora de crases e fora dos trechos de dado. */
 export function linhasEmPortugues(texto: string, dados: readonly string[] = []): string[] {
   return texto.split('\n').filter((linha) => {
-    let l = linha.replace(/`[^`]*`/g, ' ');
+    // Entre crases e entre aspas duplas ficam comando, identificador e chave de JSON: nao contam.
+    let l = linha.replace(/`[^`]*`/g, ' ').replace(/"[^"]*"/g, ' ');
     for (const d of dados) l = l.split(d).join(' ');
     return RE_PT.test(l);
   });
