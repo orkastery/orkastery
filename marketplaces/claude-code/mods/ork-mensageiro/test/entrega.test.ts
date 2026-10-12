@@ -117,8 +117,9 @@ test('a reserva sem recibo por 5 min deixa de ser confirmando: o painel e a faix
   expect(antes).toContain(`● ${THREAD} · pedido ${PEDIDO.slice(0, 8)} · recebida pela sessão, confirmando · agora`)
   // Quatro minutos depois a reserva passa de 5 min sem recibo.
   await relogio.advance(4 * 60000 + 1000)
-  await esperar(() => mundo.faixas.some(f => /não chegou/.test(f.texto ?? '')))
-  expect(mundo.faixas.at(-1)).toEqual({ mod: 'ork-mensageiro', texto: `a resposta para a ${THREAD} não chegou; responda pelo claude attach` })
+  // Sem recibo, a resposta pode ter entrado na conversa: a faixa pede para conferir, nao para responder de novo.
+  await esperar(() => mundo.faixas.some(f => /sem recibo/.test(f.texto ?? '')))
+  expect(mundo.faixas.at(-1)).toEqual({ mod: 'ork-mensageiro', texto: `a resposta para a ${THREAD} ficou sem recibo; confira pelo claude attach` })
   for (const surface of ['terminal', 'desktop'] as const) {
     const textos = await textosDoPainel($, surface)
     expect(textos).toContain(`? ${THREAD} · pedido ${PEDIDO.slice(0, 8)} · recebida pela sessão, sem recibo em 5 min: confira pelo claude attach · agora`)

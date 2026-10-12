@@ -431,15 +431,16 @@ function contextoDoReceptor(raiz: string, thread: string, dispatchId: string,
 /**
  * Confere e reserva, uma vez so, a entrega que chegou a sessao do despacho deste servidor. A sessao sai do
  * despacho (`phase_dispatch` com o `dispatchId` do servidor), nunca de argumento; antes de reservar, a transcricao
- * tem de seguir no turno do pedido (D7), para uma resposta velha nao entrar num turno que andou. Com `ate` (o prazo
- * que o mod da a conferencia, D21), o receptor so reserva antes dele: a conferencia que chega depois de o mod ter
- * desistido e consumido a mensagem nao deixa uma reserva sem ninguem para confirma-la.
+ * tem de seguir no turno do pedido (D7), para uma resposta velha nao entrar num turno que andou. O `ate` (o prazo que
+ * o mod da a conferencia, D21) e obrigatorio, e o receptor so reserva antes dele: a conferencia que chega depois de o
+ * mod ter desistido e consumido a mensagem nao deixa uma reserva sem ninguem para confirma-la. Sem `ate` (uma copia
+ * velha do mod), a conferencia recusa: falha fechada.
  */
 export function conferirNoReceptor(raiz: string, thread: string, dispatchId: string, texto: unknown, ate?: unknown,
   deps: DependenciasDaEntrega = {}): ConferenciaNoReceptor {
   const agora = deps.agora ?? Date.now;
-  const prazo = ate === undefined ? null : typeof ate === 'string' ? Date.parse(ate) : NaN;
-  if (prazo !== null && !(Number.isFinite(prazo) && prazo - agora() <= PRAZO_MAXIMO_DA_CONFERENCIA_MS)) {
+  const prazo = typeof ate === 'string' ? Date.parse(ate) : NaN;
+  if (!(Number.isFinite(prazo) && prazo - agora() <= PRAZO_MAXIMO_DA_CONFERENCIA_MS)) {
     return { confirmada: false, motivo: 'entrega.formato' };
   }
   const lida = lerMensagemDaEntrega(texto);
@@ -452,7 +453,7 @@ export function conferirNoReceptor(raiz: string, thread: string, dispatchId: str
     const turno = cauda === null ? null : turnoQueParou(cauda);
     if (!turno || turno.uuid !== ctx.sessao.bloqueio) return { confirmada: false, motivo: 'entrega.turno-mudou' };
     // O prazo e conferido aqui, dentro da trava e logo antes de reservar: a espera pela trava tambem conta.
-    if (prazo !== null && agora() > prazo) return { confirmada: false, motivo: 'entrega.prazo' };
+    if (agora() > prazo) return { confirmada: false, motivo: 'entrega.prazo' };
     const reservadaEm = new Date(agora()).toISOString();
     if (!escreverUmaVez(path.join(garantirPasta(raiz, thread), `${lida.envioId}.reserva.json`), { contrato: CONTRATO_DA_ENTREGA,
       envioId: lida.envioId, pedidoId: lida.pedidoId, sessionId: ctx.sessionId, dispatchId, textoSha256: ctx.textoSha256, reservadaEm }))

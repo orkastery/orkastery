@@ -65,12 +65,12 @@ export function linhasDoDono(dono: MensageiroDono, agora: number): LinhaDoMensag
   if (!dono.entregas.length) linhas.push({ tipo: 'dim', chave: 'sem-entregas', texto: '  nenhuma resposta a caminho agora' })
   for (const e of [...dono.entregas].reverse()) linhas.push(...linhasDaEntrega(e, agora))
   if (dono.incertas.length) {
-    // O retrato so diz que a entrega esta incerta: a caixa que tem o texto pode estar viva noutra sessao do dono, ou
-    // ter fechado com ela. O painel nao sabe qual, e diz isso.
+    // O retrato so diz que a entrega esta incerta (sem o runtime): ela pode seguir noutra sessao do dono ou noutro canal
+    // (um envio nativo pendente), ou ter se perdido com uma sessao que fechou. O painel nao sabe qual, e diz isso.
     linhas.push({ tipo: 'secao', chave: 'secao-incertas', texto: 'Fora desta sessão' })
     for (const i of dono.incertas) {
       linhas.push({ tipo: 'texto', chave: `incerta:${i.pedidoId}`,
-        texto: `· ${i.thread} · pedido ${curto(i.pedidoId)} · entrega incerta: noutra sessão do dono, ou perdida se ela fechou` })
+        texto: `· ${i.thread} · pedido ${curto(i.pedidoId)} · entrega incerta fora desta sessão: noutra sessão do dono, noutro canal ou perdida` })
     }
     linhas.push({ tipo: 'dim', chave: 'incertas-limite', texto: '  sem retorno, responda pelo claude attach' })
   }

@@ -17,7 +17,7 @@ Use este guia se uma sessão de fase despachada por `claude --bg` parou com uma 
 2. Você responde pelo diálogo nativo da sua sessão. Antes do diálogo, o núcleo confere que um Mensageiro consultou a caixa de saída desta sessão nos últimos 120 s; sem ele, recusa antes de você digitar.
 3. O núcleo compõe a mensagem no contrato `ork.session-delivery/v1` (um cabeçalho exato e a sua resposta, literal), grava `session_delivery_queued` com o sha256 do corpo, nunca o texto, e põe a mensagem na caixa de saída, só na memória do servidor MCP desta sessão.
 4. O Mensageiro lê a caixa (`ork_session_outbox`), envia a mensagem à sessão de fase por `$.session.send`, como o núcleo a compôs, e anota o envio (`session_delivery_sent`).
-5. Na sessão de fase, o Mensageiro leva a mensagem ao `ork_session_inbox` (`conferir`), com um prazo (`ate`) de 15 s. O núcleo aceita o envelope `<cross-session-message ...>` do Claude Code só na forma que o motor escreve (os atributos conhecidos, cada um numa linha só), confere o despacho do servidor, a entrega, a sessão, o sha256 e que a sessão ainda está no mesmo turno, e reserva a entrega uma vez (`session_delivery_reserved`), só antes do prazo. Só a confirmada entra na conversa do modelo, como chegou.
+5. Na sessão de fase, o Mensageiro leva a mensagem ao `ork_session_inbox` (`conferir`), com um prazo (`ate`) de 15 s. O núcleo aceita o envelope `<cross-session-message ...>` do Claude Code só na forma que o motor escreve (os atributos conhecidos, cada um numa linha só), confere o despacho do servidor, a entrega, a sessão, o sha256 e que a sessão ainda está no mesmo turno, e reserva a entrega uma vez (`session_delivery_reserved`), só antes do prazo. Só a confirmada entra na conversa do modelo, e só o corpo que o núcleo conferiu, num envelope fixo do Mensageiro (`<cross-session-message from="ork-mensageiro">`): o envelope que chegou sai, com o nome e o plugin que a sessão remetente declara.
 6. Depois de a mensagem entrar na fila do modelo, o `confirmar` grava o recibo do receptor, e a reconciliação de sempre grava o `session_answered`.
 
 | Evento no ledger da thread | Quem grava | O que diz |
@@ -49,10 +49,10 @@ Depois de atualizar o `ork`, rode `ork adapter install claude-code` de novo: o d
 | --- | --- |
 | Remote Control do dono (`bridge`), notificação de tarefa, agendamento e canal (`slack-ping`) | passa como chegou, sem chamada ao núcleo |
 | Mensagem para um agente desta sessão (com o `agentId` dele) e de teammate que o harness verificou | passa como chegou |
-| Todo o resto: mensagem de outra sessão (`peer`, `peer-send-message`), de sessão coordenadora (`coordinator`, `projects-relay`), sem classe (`unclassified`), mailbox de teammate que o harness não verificou, tipo de origem desconhecido | só entra confirmada pelo núcleo; sem a marca `ork.session-delivery/v1`, é consumida sem chamar o núcleo |
+| Todo o resto: mensagem de outra sessão (`peer`, `peer-send-message`), de sessão coordenadora (`coordinator`, `projects-relay`), sem classe (`unclassified`), mailbox de teammate que o harness não verificou, tipo de origem desconhecido | só entra confirmada pelo núcleo, no envelope fixo do Mensageiro; sem a marca `ork.session-delivery/v1`, é consumida sem chamar o núcleo |
 
 - O nome do plugin que o remetente declara (`origin.plugin`) nunca conta: uma mensagem que diz vir do `ork-mensageiro` e não tem entrega confirmada é consumida.
-- A falha do núcleo, o prazo vencido (15 s no núcleo, 20 s no mod) e a resposta fora do contrato consomem. Sem a ponte, ou sem o papel da sessão, o Mensageiro também consome a mensagem de outra sessão. O `.catch` do gancho fecha do mesmo jeito, salvo a mensagem que o núcleo já confirmou e reservou, que segue.
+- A falha do núcleo, o prazo vencido (15 s no núcleo, 20 s no mod), a conferência sem prazo (uma cópia velha do mod: reinstale o adaptador), a falta do relógio da sessão e a resposta fora do contrato consomem. Sem a ponte, ou sem o papel da sessão, o Mensageiro também consome a mensagem de outra sessão. O `.catch` do gancho fecha do mesmo jeito, salvo a mensagem que o núcleo já confirmou e reservou, que segue.
 - Cada mensagem consumida deixa uma linha no transcript, fora do modelo, e uma linha no `/mensageiro`, com a origem e o motivo, nunca o texto.
 - A linha da resposta confirmada mostra "Resposta do dono ao pedido X, conferida pelo núcleo" no lugar do cabeçalho, só na linha de mensagem de outra sessão e com o mesmo texto que o núcleo conferiu (a impressão do texto, nunca o texto, fica no estado). É só visual: o que fica guardado e o que o modelo lê não mudam.
 
@@ -71,7 +71,9 @@ Depois de atualizar o `ork`, rode `ork adapter install claude-code` de novo: o d
 | `✓` entregue | com o recibo da sessão |
 | `?` saiu da caixa sem recibo | a caixa soltou a entrega com o pedido ainda aberto (o servidor da sua sessão reiniciou, por exemplo): responda pelo `claude attach` |
 
-Abaixo, "Fora desta sessão" lista o pedido que o retrato mostra com a entrega incerta e que a caixa desta sessão não tem: a entrega pode seguir noutra sessão do dono, ou ter se perdido com uma sessão que fechou. O painel não sabe qual; sem retorno, responda pelo `claude attach`.
+Abaixo, "Fora desta sessão" lista o pedido que o retrato mostra com a entrega incerta e que a caixa desta sessão não tem: a entrega pode seguir noutra sessão do dono ou noutro canal (um envio nativo pendente de outro runtime), ou ter se perdido com uma sessão que fechou. O retrato não diz o runtime, e o painel não sabe qual; sem retorno, responda pelo `claude attach`.
+
+Na faixa, o que não chegou pede a resposta pelo `claude attach`; o que ficou sem recibo pede só a conferência, porque a resposta pode ter entrado na conversa.
 
 Na sessão de fase, o painel lista o que chegou de outras sessões, o mais novo em cima: `○` consumida antes do modelo, `●` na conversa gravando o recibo, `✓` com o recibo no núcleo, `?` na conversa sem o recibo e `×` conferida, mas consumida por outro plugin abaixo. O recibo que falha volta em 5 s, 30 s e 120 s; a recusa do núcleo não volta.
 
@@ -87,7 +89,8 @@ Na sessão de fase, o painel lista o que chegou de outras sessões, o mais novo 
 - **Só `claude-bg`:** a sessão `codex` segue pelo caminho nativo dela.
 - **A resposta não vai ao estado do Orkastery:** o ledger e a pasta `entregas-de-sessao` guardam só ids e o sha256, e a caixa de saída fica na memória. A transcrição da sessão de fase, que o próprio Claude Code grava, tem a mensagem, como qualquer conversa. Se o servidor MCP da sua sessão reiniciar antes da entrega, a entrada sai da caixa sem recibo e o painel pede o `claude attach`; se a sessão inteira fechar, a nova só vê a entrega como incerta, fora dela.
 - **Mensagem de um agente desta sessão para a conversa principal:** chega como mensagem de outra sessão (`peer`, sem `agentId`) e não se distingue de uma; o Mensageiro a consome. O que vai para um agente, e o resultado e a notificação dos agentes, passam.
-- **O envelope do Claude Code:** só a forma que o motor escreve passa. Os atributos dele (o nome que a sessão remetente declara, por exemplo) são do motor e chegam ao modelo junto, como em toda mensagem de outra sessão.
+- **O envelope do Claude Code:** só a forma que o motor escreve passa na conferência, e ela sai antes do modelo: a sessão de fase lê o envelope fixo do Mensageiro, sem o nome, o plugin nem o endereço que a sessão remetente declara. Se o motor mudar o formato, a entrega falha fechada até o núcleo acompanhar.
+- **O rótulo visual:** supõe que a linha guardada da mensagem é de outra sessão (`peer`) e mostra o corpo sem o envelope; se não for assim, o rótulo não aparece. É só visual.
 - **Plugin abaixo do Mensageiro:** se outro plugin consumir a mensagem depois da conferência, a entrega fica reservada sem recibo; o painel da fase diz que ela não entrou na conversa.
 - **Teammate em painel próprio:** o despacho roda os teammates no mesmo processo; uma entrada de mailbox sem verificação é consumida.
 - **Sem a ponte:** o Mensageiro consome as mensagens de outras sessões também na sua sessão, até a ponte carregar; o aviso da sessão diz isso.

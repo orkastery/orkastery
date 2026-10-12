@@ -18,8 +18,8 @@ import { desenharPainel, linhasDaFase, linhasDoDono, mostradosVisiveis } from '.
 import type { Conferencia } from './recepcao'
 import {
   argsDaConferencia, argsDaConfirmacao, classificarOrigem, comRecebida, confirmadasDaFase, ESPERAS_DA_CONFIRMACAO_MS, FASE_VAZIA,
-  FERRAMENTA_DA_CONFERENCIA, idsDaMarca, impressaoDoTexto, lerConferencia, lerConfirmacao, LIMITE_DA_MENSAGEM, mensagemSemEnvelope,
-  motivoDoConsumo, mudarRecebida, nomeDaOrigem, passaNaFalha, registroDaRecebida, temMarca, textoComRotulo,
+  decisaoNaFalha, FERRAMENTA_DA_CONFERENCIA, idsDaMarca, impressaoDoTexto, lerConferencia, lerConfirmacao, LIMITE_DA_MENSAGEM,
+  mensagemSemEnvelope, motivoDoConsumo, mudarRecebida, nomeDaOrigem, registroDaRecebida, temMarca, textoComRotulo, textoParaOModelo,
 } from './recepcao'
 
 const MOD = 'ork-mensageiro'
@@ -54,8 +54,11 @@ let fase: MensageiroFase = FASE_VAZIA
  * a sessao que nao e de fase nunca vira: o receptor decide por isto, lido uma vez.
  */
 let contextoVisto: { papel: string; thread: string | null } | null = null
-/** As mensagens que o nucleo confirmou e que ainda nao entraram na fila: o `.catch` do receptor deixa passar so elas. */
-const confirmadasEmVoo = new Set<string>()
+/**
+ * As mensagens que o nucleo confirmou e que ainda nao entraram na fila, com o texto que o modelo vai ler: o `.catch`
+ * do receptor deixa passar so elas, e no envelope do Mensageiro.
+ */
+const confirmadasEmVoo = new Map<string, string>()
 /** O ultimo texto publicado na faixa; null antes da primeira publicacao. */
 let ultimaFaixa: string | undefined | null = null
 /** O que o desenho pos na janela de rolagem e ainda nao foi ao registro da ponte (M5). */
@@ -75,7 +78,10 @@ function comPrazo<T>($: EngineInterface, chamada: Promise<T>, ms = PRAZO_DO_NUCL
   })
 }
 
-/** O instante do relogio da sessao; sem ele, o da ultima linha: o receptor nunca para por falta de relogio. */
+/**
+ * O instante do relogio da sessao para as linhas do estado; sem ele, o da ultima linha. O prazo da conferencia nao usa
+ * isto: sem relogio, a conferencia falha e a mensagem e consumida.
+ */
 async function instante($: EngineInterface): Promise<number> {
   try {
     return await $.clock.now()
@@ -334,9 +340,9 @@ async function consumir($: EngineInterface, e: SessionReceiveInput, motivo: stri
 
 /**
  * A mensagem de outra sessao (T9.3). Na sessao de fase: sem a marca, consumida sem chamar o nucleo (D13); com ela, vai
- * ao `conferir` do nucleo, e so a confirmada segue para a conversa, como chegou (D11), com o `confirmar` depois de
- * entrar na fila. Falha, prazo vencido e resposta fora do contrato consomem. Sem a ponte, ou sem o papel, consome.
- * Nas sessoes do dono e dormente, passa como chegou.
+ * ao `conferir` do nucleo, e so a confirmada segue para a conversa, no envelope fixo do Mensageiro e com o corpo que o
+ * nucleo conferiu (D23, que reve a D11), com o `confirmar` depois de entrar na fila. Falha, prazo vencido e resposta
+ * fora do contrato consomem. Sem a ponte, ou sem o papel, consome. Nas sessoes do dono e dormente, passa como chegou.
  */
 async function receber($: EngineInterface, e: SessionReceiveInput, next: (e: SessionReceiveInput) => Promise<SessionReceiveResult>): Promise<SessionReceiveResult> {
   let contexto = contextoVisto
@@ -353,25 +359,29 @@ async function receber($: EngineInterface, e: SessionReceiveInput, next: (e: Ses
   if (!temMarca(e.text)) return consumir($, e, 'entrega.sem-marca')
   const thread = contexto.thread
   if (thread === null) return consumir($, e, 'entrega.despacho')
+  // A mensagem que o nucleo vai conferir, sem o envelope do motor: e so ela que o modelo vai ler (D23).
+  const conferivel = mensagemSemEnvelope(e.text)
+  if (conferivel === null) return consumir($, e, 'entrega.formato')
   let conferencia: Conferencia
   try {
-    conferencia = lerConferencia(jsonDoMcp(await comPrazo($, $.mcp.call('orkastery', 'ork_session_inbox', argsDaConferencia(thread, e.text, await instante($)))), FERRAMENTA_DA_CONFERENCIA))
+    const agora = await $.clock.now()
+    conferencia = lerConferencia(jsonDoMcp(await comPrazo($, $.mcp.call('orkastery', 'ork_session_inbox', argsDaConferencia(thread, e.text, agora))), FERRAMENTA_DA_CONFERENCIA))
   } catch (erro) {
     return consumir($, e, 'entrega.conferencia-falhou', mensagem(erro))
   }
   if (!conferencia.confirmada) return consumir($, e, conferencia.motivo)
   const { pedidoId, envioId } = conferencia
   const texto = e.text
-  // A impressao da mensagem como a linha da conversa a mostra (sem o envelope do motor), para o rotulo visual.
-  const semEnvelope = mensagemSemEnvelope(texto)
-  const impressao = semEnvelope === null ? null : impressaoDoTexto(semEnvelope)
-  confirmadasEmVoo.add(texto)
+  const paraOModelo = textoParaOModelo(conferivel)
+  // A impressao da mensagem como a linha da conversa a mostra, para o rotulo visual.
+  const impressao = impressaoDoTexto(conferivel)
+  confirmadasEmVoo.set(texto, paraOModelo)
   let r: SessionReceiveResult
   try {
     const chegada: MensageiroRecebida = { em: await instante($), origem: nomeDaOrigem(e.origin), estado: 'confirmando', pedidoId, envioId,
       motivo: null, impressao }
     await anotar($, f => comRecebida(f, chegada), null)
-    r = await next(e)
+    r = await next({ ...e, text: paraOModelo })
   } finally {
     confirmadasEmVoo.delete(texto)
   }
@@ -420,9 +430,11 @@ export const register: Register = on => {
     if (classificarOrigem(e.origin, e.agentId) !== 'outra-sessao') return next(e)
     return receber($, e, next)
   }).catch(($, e, next) => {
-    const passa = passaNaFalha({ chamouNext: next.called, origem: e.origin, agentId: e.agentId, texto: e.text,
-      papel: contextoVisto?.papel ?? null, emVoo: confirmadasEmVoo })
-    return passa ? next(e) : { consumed: motivoDoConsumo('entrega.conferencia-falhou') }
+    if (next.called) return next(e)
+    const decisao = decisaoNaFalha({ origem: e.origin, agentId: e.agentId, texto: e.text, papel: contextoVisto?.papel ?? null, emVoo: confirmadasEmVoo })
+    if (decisao.acao === 'passa') return next(e)
+    if (decisao.acao === 'conferida') return next({ ...e, text: decisao.texto })
+    return { consumed: motivoDoConsumo('entrega.conferencia-falhou') }
   })
 
   // O ledger de uma thread mudou (uma resposta entrou na caixa, a sessao reservou ou confirmou): a leitura entra no
@@ -458,7 +470,7 @@ export const register: Register = on => {
   })
 
   // Na sessao de fase, a linha da resposta que o nucleo confirmou mostra o rotulo no lugar do cabecalho. So visual: o
-  // que fica guardado e o que o modelo le nao mudam (D11).
+  // que fica guardado e o que o modelo le nao mudam.
   on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
     // So a linha de mensagem de outra sessao (`peer`): a de teammate chega `unclassified`, e a do dono, de outra origem.
     if (!naFase || e.props.origin.kind !== 'peer' || !temMarca(e.props.text)) return next(e)

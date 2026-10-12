@@ -162,17 +162,32 @@ export function registroDaRecebida(r: MensageiroRecebida): string | null {
   return null
 }
 
+/** O remetente do envelope fixo com que o receptor entrega a resposta conferida ao modelo (D23). */
+export const REMETENTE_DO_MENSAGEIRO = 'ork-mensageiro'
+
 /**
- * O que o `.catch` do receptor faz quando o gancho falha (D18): a entrega que nao e de outra sessao passa, como na
- * sessao que nao e de fase; a de outra sessao so passa se o gancho ja tinha chamado `next` ou se o nucleo ja a
- * confirmou e reservou (ela esta em voo); o resto e consumido. Papel desconhecido conta como fase.
+ * O texto que a sessao de fase le (D23): a mensagem que o nucleo conferiu, no envelope fixo do Mensageiro. O envelope
+ * que chegou sai inteiro, com os rotulos que o remetente escolhe (o nome da sessao, o plugin, o endereco): nada que o
+ * nucleo nao compos chega ao modelo, e o enquadramento de mensagem de outra sessao fica.
  */
-export function passaNaFalha(f: { chamouNext: boolean; origem: unknown; agentId: unknown; texto: unknown; papel: string | null;
-  emVoo: ReadonlySet<string> }): boolean {
-  if (f.chamouNext) return true
-  if (classificarOrigem(f.origem, f.agentId) !== 'outra-sessao') return true
-  if (f.papel !== null && f.papel !== 'fase') return true
-  return typeof f.texto === 'string' && f.emVoo.has(f.texto)
+export function textoParaOModelo(mensagem: string): string {
+  return `<cross-session-message from="${REMETENTE_DO_MENSAGEIRO}">\n${mensagem}\n</cross-session-message>`
+}
+
+export type DecisaoNaFalha = { acao: 'passa' } | { acao: 'conferida'; texto: string } | { acao: 'consome' }
+
+/**
+ * O que o `.catch` do receptor faz quando o gancho falha antes de chamar `next` (D18): a entrega que nao e de outra
+ * sessao passa como chegou, como na sessao que nao e de fase; a de outra sessao que o nucleo ja confirmou e reservou
+ * (em voo) segue no envelope do Mensageiro, como no caminho normal; o resto e consumido. Papel desconhecido conta como
+ * fase.
+ */
+export function decisaoNaFalha(f: { origem: unknown; agentId: unknown; texto: unknown; papel: string | null;
+  emVoo: ReadonlyMap<string, string> }): DecisaoNaFalha {
+  if (classificarOrigem(f.origem, f.agentId) !== 'outra-sessao') return { acao: 'passa' }
+  if (f.papel !== null && f.papel !== 'fase') return { acao: 'passa' }
+  const conferida = typeof f.texto === 'string' ? f.emVoo.get(f.texto) : undefined
+  return conferida !== undefined ? { acao: 'conferida', texto: conferida } : { acao: 'consome' }
 }
 
 /** Um valor de atributo do envelope do motor: uma linha so, sem aspas nem sinal de tag (o mesmo do nucleo). */
@@ -229,7 +244,7 @@ export function confirmadasDaFase(fase: MensageiroFase | null | undefined): Map<
 /**
  * O texto da linha da mensagem com o rotulo no lugar do cabecalho, so para a entrega que o nucleo confirmou nesta
  * sessao e com o mesmo texto (a impressao); `null` deixa a linha como o Claude Code a desenha. So visual: o que fica
- * guardado e o que o modelo le nao mudam (D11).
+ * guardado e o que o modelo le nao mudam.
  */
 export function textoComRotulo(texto: unknown, confirmadas: ReadonlyMap<string, string>): string | null {
   const { pedidoId, envioId } = idsDaMarca(texto)

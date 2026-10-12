@@ -34,6 +34,8 @@ export type EntradaDaCaixa = {
   tentativas: number
   ultimoEnvio: { em: number; entregue: boolean; motivo: string | null } | null
   reservada: boolean
+  /** Quando a entrega entrou na caixa (ms desde a epoca); conta o sem-recibo quando o envio nao foi anotado. */
+  criadaEm: number | null
 }
 
 const objeto = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -62,10 +64,11 @@ function lerEntrada(e: unknown): EntradaDaCaixa[] {
       !e.mensagem.startsWith(`[${CONTRATO_DA_ENTREGA} pedido=${e.pedidoId} entrega=${e.envioId}] `)) return []
   const u = objeto(e.ultimoEnvio) ? e.ultimoEnvio : null
   const em = u && typeof u.em === 'string' ? Date.parse(u.em) : NaN
+  const criadaEm = typeof e.criadaEm === 'string' ? Date.parse(e.criadaEm) : NaN
   return [{ thread: e.thread, pedidoId: e.pedidoId, envioId: e.envioId, sessionId: e.sessionId, mensagem: e.mensagem,
     tentativas: Number.isSafeInteger(e.tentativas) && e.tentativas > 0 ? e.tentativas : 0,
     ultimoEnvio: u && Number.isFinite(em) ? { em, entregue: u.entregue === true, motivo: typeof u.motivo === 'string' ? umaLinha(u.motivo) : null } : null,
-    reservada: e.reservada === true }]
+    reservada: e.reservada === true, criadaEm: Number.isFinite(criadaEm) ? criadaEm : null }]
 }
 
 /** A caixa de saida do `listar`; o que nao bate com o contrato fica de fora, e a resposta fora do contrato e erro. */
@@ -134,7 +137,10 @@ export function incertasDoRetrato(retrato: unknown): MensageiroIncerta[] {
 
 /** O estado de uma entrega que esta na caixa, agora. */
 export function estadoDaEntrada(e: EntradaDaCaixa, agora: number): MensageiroEstadoDaEntrega {
-  if (e.reservada) return e.ultimoEnvio && agora - e.ultimoEnvio.em >= ESPERA_DO_RECIBO_MS ? 'sem-recibo' : 'reservada'
+  if (e.reservada) {
+    const desde = e.ultimoEnvio?.em ?? e.criadaEm
+    return typeof desde === 'number' && agora - desde >= ESPERA_DO_RECIBO_MS ? 'sem-recibo' : 'reservada'
+  }
   if (!e.ultimoEnvio) return 'na-fila'
   if (e.tentativas >= MAXIMO_DE_ENVIOS) return 'desistiu'
   return e.ultimoEnvio.entregue ? 'a-caminho' : 'nao-chegou'
@@ -194,9 +200,13 @@ function daThread(entregas: readonly MensageiroEntrega[], um: string, varios: (n
  * depois o que acabou de ser entregue. Sem nada disso, a linha sai da faixa.
  */
 export function textoDaFaixa(dono: MensageiroDono, agora: number): string | undefined {
-  const falhas = dono.entregas.filter(e => e.estado === 'desistiu' || e.estado === 'saiu-da-caixa' || e.estado === 'sem-recibo')
+  const falhas = dono.entregas.filter(e => e.estado === 'desistiu' || e.estado === 'saiu-da-caixa')
   if (falhas.length) return falhas.length === 1
     ? `a resposta para a ${falhas[0].thread} não chegou; responda pelo claude attach` : `${falhas.length} respostas não chegaram; abra /mensageiro`
+  // Sem recibo, a resposta pode ter entrado na conversa: o dono confere antes de responder de novo.
+  const semRecibo = dono.entregas.filter(e => e.estado === 'sem-recibo')
+  if (semRecibo.length) return semRecibo.length === 1
+    ? `a resposta para a ${semRecibo[0].thread} ficou sem recibo; confira pelo claude attach` : `${semRecibo.length} respostas sem recibo; abra /mensageiro`
   const vivas = dono.entregas.filter(e => VIVOS.includes(e.estado))
   if (vivas.length) return daThread(vivas, 'resposta a caminho da', n => `${n} respostas a caminho das sessões de fase`)
   const entregues = dono.entregas.filter(e => e.estado === 'entregue' && agora - e.em <= FAIXA_DA_ENTREGA_MS)

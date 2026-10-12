@@ -16,7 +16,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `adapters/claude-code/mods/ork-mensageiro` leva a mensagem por `$.session.send`, com reenvio pela D10 e o painel
   `/mensageiro`; na sessão de fase, só entra na conversa a mensagem de outra sessão que o núcleo confirma pelo
   `ork_session_inbox` (o envelope do Claude Code só na forma do motor, reserva uma vez e antes do prazo, mesmo turno,
-  mesmo sha256), como chegou, e o resto é consumido antes do modelo.
+  mesmo sha256), só com o corpo conferido e num envelope fixo do Mensageiro, e o resto é consumido antes do modelo.
   Muda para todos: o despacho `claude-bg` acrescenta `crossSessionInbound: accept` ao `--settings` só com o Mensageiro na
   sessão e o `ORK_DISPATCH_ID`; a resposta a uma sessão `claude-bg` pelo Telegram, ou sem um Mensageiro vivo na sessão do
   dono, recusa com `runtime.unavailable` antes de gravar nada. O guia é o `docs/guias/mensageiro-de-sessoes.md`.
