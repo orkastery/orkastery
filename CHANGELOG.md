@@ -8,6 +8,22 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Que página do site uma mudança deixa para revisar, e a medida do piloto de contribuição** ([RM-050](docs/roadmap/RM-050-guia-de-contribuicao.md)):
+  `node core/scripts/checar-fontes-do-site.cjs --snapshot <docs-sources.json>` compara o checkout com o snapshot de fontes
+  do site e lista, por página, as fontes mudadas, novas e removidas; com `--base <ref>`, só o que a mudança tocou desde
+  que saiu da ref. Sai 0 em dia, 1 com fonte a revisar e 2 com erro. `node core/scripts/medir-piloto-de-contribuicao.cjs`
+  mede pelo `gh api` os PRs de fora desde a publicação do guia, a conclusão da primeira execução do CI de cada um e o
+  critério de dois PRs mesclados sem ajuda; lacuna da coleta reprova em vez de virar zero. O guia de documentação passa
+  a explicar o catálogo dos dois sites, e a triagem, a medida.
+- **Roadmap: condução dentro do Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  página nova do item que leva a condução da fábrica para a sessão do Claude Code com dez mods (Freio de Lote,
+  Sentinela do Condutor, Torre de Controle, Mesa do Dono, Portão de Tarefas, Clima de Cota, Pista de Entrega,
+  Ritual do MASTER, Mensageiro de Sessões e Radar de Colisão), em quatro ondas, com as decisões do dono, os
+  riscos e as métricas pelo ledger. Só documentação: nenhum mod existe ainda.
+- **Roadmap: site como produto** ([RM-060](docs/roadmap/RM-060-site-como-produto.md)): página nova do item que
+  trata os dois sites públicos como produto, com seis fatias (código que não quebra, quickstart, mesma regra
+  no site do OrkMind, docs e home por versão, CI e prévia de PR) e a regra de que nada é mesclado nem
+  publicado sem a aprovação do dono. Só documentação.
 - **Diagnóstico na prova da busca por significado** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
   `core/scripts/prova-busca-semantica.sh` mostra, por par, a posição e a similaridade de cada alvo no
   ranking vetorial e quantas entradas da busca têm vetor coerente no índice, na mesma consulta
@@ -25,6 +41,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   bytes por resposta; na pergunta cortada pelo teto, 34 arestas em vez de 41. A flag `grafo.mcp`
   continua desligada.
 - **Planejamento do modo #Noctum** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): proposta no roadmap de arcos autônomos de 6 a 12 horas, com envelope de autorização, muitas threads e máquinas, resiliência, qualidade, custo e relatório; modo ainda não implementado.
+- **CLI em inglês e pt-BR, fatia 1 da RM-061** (achados EN1, EN6 e EN7 do
+  [recibo do ensaio em inglês](docs/roadmap/evidencias/RM-049/ensaio-2026-10-03-en.json)): o texto de `ork doctor` e
+  `ork init` sai em inglês quando `owner.language` (a escolha do onboarding) ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou
+  `LANG` pedem `en`; com `en`, as datas desses comandos saem em ISO (`2026-10-03 06:30`). O padrão segue pt-BR, igual
+  byte a byte; os demais comandos, o `--json` e o `ork doctor --modo` não mudam. Sem dependência nova
+  (`core/src/locale.ts`).
 - **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   arestas `cites` ligam caminhos literais em Markdown e strings de testes/scripts a arquivos existentes
   no índice, com evidência de linha, sem duplicar links ou imports resolvidos, inclusive código inline
@@ -49,6 +71,21 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Impedimento que só o dono resolve, RM-055, continuação** ([RM-055](docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md)):
+  - a classificação segue as frases reais do claude 2.1.296: o aviso de termos que bloqueia ("[ACTION
+    REQUIRED] ... You must run `claude` to review the updated terms.") e os portões do `--bg` para o modo
+    sem permissões e o modo auto viram `runtime.consent-pending`, com o comando exato tirado da própria
+    frase (só na forma fechada do binário com opções); "could not be resolved on disk", o diretório home e
+    o aviso de carência dos termos não viram espera do dono, porque aceitar a confiança não os resolve;
+  - a prova de que o dono aceitou a confiança segue a regra que o claude aplica no `--bg`: vale o diretório
+    e os de cima até a raiz git, e o repositório principal de uma worktree vinculada, dentro ou fora dele; o
+    diretório acima do repositório não vale mais (dava "resolvido" onde o claude recusa, e travava o
+    re-despacho numa worktree fora do repositório);
+  - o redespacho recusado de novo pelo mesmo impedimento não gasta tentativa nem sobe esforço: antes, a
+    quarta chamada do `ork retry run` escalava e o retry nunca mais re-despachava, nem depois do aceite;
+  - o resumo que chega ao dono traz o bloco "Só você destrava, no terminal", com a thread, a fase, o
+    comando e o `ork retry run` de cada impedimento, e o impedimento novo sai na hora, sem esperar a janela
+    da cadência.
 - **Projeto-alvo explícito, fatia 2: o que faltou da resposta honesta** ([RM-052](docs/roadmap/RM-052-projeto-alvo-explicito.md)):
   a sessão despachada por um host (fase, retry e `ork audit run`) deixa de herdar o modo host e o `ORK_PROJETO`
   do gateway (o despacho leva `ORK_PROJETO` vazio e `ORK_PROJETO_EXPLICITO=0`), e o `ork` dela, na worktree da
