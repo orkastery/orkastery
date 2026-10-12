@@ -112,8 +112,11 @@ const PALAVRAS_PT = [
   'garanta', 'binario', 'binário', 'fora', 'dentro', 'deste', 'desta', 'nesta', 'neste', 'esse', 'essa', 'isso', 'ela', 'ele',
 ];
 // Palavra colada a ponto, sublinhado ou hifen (dominio, arquivo, flag, identificador: `github.com`,
-// `rede.log`, `despacho_idempotente`, `--sem-worktree`, `pausa-humana`) nao conta.
-const RE_PT = new RegExp(`(^|[^\\p{L}._-])(${PALAVRAS_PT.join('|')})(?=[^\\p{L}._-]|$)`, 'iu');
+// `rede.log`, `despacho_idempotente`, `--sem-worktree`, `pausa-humana`) nao conta; o ponto final de
+// frase (seguido de espaco ou do fim da linha) conta como fronteira. Colada a digito tambem nao conta:
+// "de" e "da" sao letras hexadecimais, e um sha como `...70da4efb...` (o sha256 do prompt muda a cada
+// execucao) derrubava o teste de vez em quando (D14).
+const RE_PT = new RegExp(`(^|[^\\p{L}\\p{N}._-])(${PALAVRAS_PT.join('|')})(?=[^\\p{L}\\p{N}._-]|\\.(?:\\s|$)|$)`, 'iu');
 
 /** As linhas do texto que ainda trazem palavra pt-BR fora de crases e fora dos trechos de dado. */
 export function linhasEmPortugues(texto: string, dados: readonly string[] = []): string[] {

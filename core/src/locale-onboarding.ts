@@ -40,7 +40,18 @@ export const ONBOARDING_PT_BR = {
   experienciaOrigens: (origens: string) => `Origens: ${origens}`,
   /** De onde veio cada preferencia (dado do `resolverExperiencia`); o ingles so troca o rotulo. */
   origemDaPreferencia: (origem: string) => origem,
+  /** Aviso de preferencia invalida que o manifesto gravou ao carregar (pt-BR): traduzido so na impressao (D14). */
+  avisoDaPreferencia: (aviso: string) => aviso,
   experienciaAviso: (aviso: string) => `Aviso: ${aviso}; o adapter install pula o pacote até ork onboarding set maestro corrigir.`,
+};
+
+/** Os avisos de `validarPreferencias` (`core/src/experiencia.ts`), pela frase exata que o manifesto grava. */
+const AVISOS_DA_PREFERENCIA_EN: Readonly<Record<string, string>> = {
+  'experiencia.config.invalid: owner deve ser um objeto': 'experiencia.config.invalid: `owner` must be an object',
+  'experiencia.config.invalid: owner.language exige locale BCP-47': 'experiencia.config.invalid: `owner.language` requires a BCP 47 locale',
+  'experiencia.config.invalid: owner.timezone exige fuso IANA': 'experiencia.config.invalid: `owner.timezone` requires an IANA time zone',
+  'experiencia.config.invalid: owner.depth exige curta ou detalhada': 'experiencia.config.invalid: `owner.depth` requires `curta` or `detalhada`',
+  'experiencia.config.invalid: owner.experience exige booleano': 'experiencia.config.invalid: `owner.experience` requires a boolean',
 };
 
 export const ONBOARDING_EN: typeof ONBOARDING_PT_BR = {
@@ -68,11 +79,18 @@ export const ONBOARDING_EN: typeof ONBOARDING_PT_BR = {
   pendente: '[pending]',
   responda: 'Answer with `ork onboarding set <step> --conteudo <JSON> --por <who>`.',
   entradaInvalida: (segredos) => `onboarding.input.invalid: use public JSON and variable references; secrets live ${segredos}`,
-  usoInvalido: 'onboarding.input.invalid: use ork onboarding [show|set <step>|reset [step]] --conteudo <JSON> [--por WHO] [--json]',
+  usoInvalido: 'onboarding.input.invalid: use `ork onboarding [show|set <step>|reset [step]] --conteudo <JSON> [--por WHO] [--json]`',
   experienciaUso: 'usage: ork experiencia show [--json]',
   experiencia: (ativa, language, timezone, depth) =>
     `Experience ${ativa ? 'on' : 'off'}: ${language}, ${timezone}, depth ${depth}.`,
   experienciaOrigens: (origens) => `Sources: ${origens}`,
   origemDaPreferencia: (origem) => ({ manifesto: 'manifest', sistema: 'system', padrao: 'default' } as Record<string, string>)[origem] ?? origem,
+  avisoDaPreferencia: (aviso) => {
+    const sufixo = '; vale o padrão até corrigir';
+    const texto = aviso.endsWith(sufixo) ? aviso.slice(0, -sufixo.length) : aviso;
+    const traduzido = AVISOS_DA_PREFERENCIA_EN[texto];
+    // Aviso que o catalogo nao conhece sai inteiro como foi gravado, sem meia traducao.
+    return traduzido === undefined ? aviso : traduzido + (texto === aviso ? '' : '; the default applies meanwhile');
+  },
   experienciaAviso: (aviso) => `Warning: ${aviso}; \`ork adapter install\` skips the package until \`ork onboarding set maestro\` fixes it.`,
 };

@@ -22,7 +22,7 @@ import { readCreationOperation, withCreationLock, writeCreationJson } from './cr
 import { formatarDataHoraRotulada } from './horario';
 import { nomeDaMaquina } from './maquina';
 import { linhaDeConducao } from './conducao-texto';
-import { msg } from './locale';
+import { ErroDoCatalogo, msg } from './locale';
 import { CasoSemWorktree } from './locale-thread';
 
 /** Diretorio de threads do projeto. */
@@ -459,7 +459,7 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   const slug = opcoes.slug ?? montarSlug(abbrev, assunto, blocos[0].slugFases);
   // O override `--slug` do builder tambem passa pela regex canonica.
   if (!slugValido(slug)) {
-    throw new Error(`slug invalido: "${slug}" (regex canonica: ${REGEX_SLUG.source})`);
+    throw new ErroDoCatalogo((m) => m.thread.slugInvalido(slug, REGEX_SLUG.source));
   }
 
   const thread: Thread = {

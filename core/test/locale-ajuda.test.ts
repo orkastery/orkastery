@@ -9,7 +9,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { msg } from '../src/locale';
 import { DadosDaAjuda } from '../src/locale-ajuda';
-import { cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
+import { cenario, EN, linhasEmPortugues, ork, orkEm, PT } from './locale-apoio';
 
 const DADOS: DadosDaAjuda = { versao: '9.9.9', modos: 4, segredos: 'S', tags: '#Classic #Maestro #Auto #Fast' };
 const flags = (t: string) => t.match(/(?<![\w-])--[a-z][a-z0-9-]*/g) ?? [];
@@ -71,6 +71,17 @@ test('locale en F2a ajuda: a escolha do onboarding vence o LANG, nos dois sentid
     assert.equal(ork(c, PT, false, '--help').stdout, en);
     assert.equal(ork(c, EN, false, 'onboarding', 'set', 'maestro', '--conteudo', '{"owner":{"language":"pt-BR"}}', '--por', 'teste').status, 0);
     assert.equal(ork(c, EN, false, '--help').stdout, pt);
+  } finally { c.limpar(); }
+});
+
+test('locale en F2a ajuda: com --projeto, vale o owner.language do projeto-alvo', () => {
+  const c = cenario('ajuda-projeto');
+  try {
+    const en = ork(c, EN, false, '--help').stdout;
+    assert.equal(ork(c, PT, false, 'onboarding', 'set', 'maestro', '--conteudo', '{"owner":{"language":"en-US"}}', '--por', 'teste').status, 0);
+    // Fora do projeto (o HOME do cenario, onde o init registrou o projeto): o --projeto escolhe o manifesto.
+    assert.equal(orkEm(c, c.casa, PT, false, '--projeto', 'loc', '--help').stdout, en);
+    assert.match(orkEm(c, c.casa, PT, false, '--help').stdout, /^ork \S+, nucleo de orquestracao do Orkastery\n/);
   } finally { c.limpar(); }
 });
 

@@ -67,7 +67,7 @@ test('locale en F2a phase: erros de uso e a moldura das recusas saem em ingles',
       [['phase', 'list'], /^usage: ork phase list <thread-id>\n$/],
       [['phase', 'list', 'loc-nada'], /^error: thread "loc-nada" not found in /],
       [['phase', 'qualquer'], /^unknown subcommand: phase qualquer\n$/],
-      [['phase'], /^unknown subcommand: phase undefined\n$/],
+      [['phase'], /^missing subcommand: phase\n$/],
     ];
     for (const [args, esperado] of casos) {
       const r = ork(c, EN, true, ...args);

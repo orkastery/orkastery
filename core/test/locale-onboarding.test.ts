@@ -44,7 +44,7 @@ test('locale en F2a onboarding: os erros de uso saem em ingles, com error:', () 
   try {
     const sub = ork(c, EN, false, 'onboarding', 'qualquer');
     assert.equal(sub.status, 1);
-    assert.equal(sub.stderr, 'error: onboarding.input.invalid: use ork onboarding [show|set <step>|reset [step]] --conteudo <JSON> [--por WHO] [--json]\n');
+    assert.equal(sub.stderr, 'error: onboarding.input.invalid: use `ork onboarding [show|set <step>|reset [step]] --conteudo <JSON> [--por WHO] [--json]`\n');
     const segredo = ork(c, EN, false, 'onboarding', 'set', 'produtos', '--conteudo', '{"senha":"x"}', '--por', 'teste');
     assert.equal(segredo.stderr, 'error: onboarding.input.invalid: use public JSON and variable references; secrets live in the process ' +
       'environment or in the host vault (with Hermes, ~/.hermes/.env)\n');
@@ -64,8 +64,8 @@ test('locale en F2a onboarding: experiencia show em ingles, com as origens e o a
     assert.equal(ork(c, EN, false, 'experiencia').stdout, r.stdout);
     fs.appendFileSync(path.join(c.dir, 'orkastery.yaml'), '\nowner:\n  depth: "funda"\n');
     const aviso = ork(c, EN, false, 'experiencia', 'show');
-    // O aviso e dado do manifesto (pt-BR); a moldura e inglesa.
-    assert.match(aviso.stdout, /\nWarning: experiencia\.config\.invalid: [^\n]*; `ork adapter install` skips the package until `ork onboarding set maestro` fixes it\.\n$/);
+    // O aviso que o manifesto gravou em pt-BR sai traduzido na impressao (D14); o --json leva o gravado.
+    assert.match(aviso.stdout, /\nWarning: experiencia\.config\.invalid: `owner\.depth` requires `curta` or `detalhada`; the default applies meanwhile; `ork adapter install` skips the package until `ork onboarding set maestro` fixes it\.\n$/);
   } finally { c.limpar(); }
 });
 

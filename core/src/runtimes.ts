@@ -20,6 +20,7 @@ import * as codex from './adapters/codex';
 import type { ContextoRuntime } from './runtime-context';
 import { prepararRecibosParaDespacho } from './hitl-ingress-receipt';
 import type { PerfilDeDespacho } from './runtime-profiles';
+import { ErroDoCatalogo } from './locale';
 
 /** Pedido de despacho comum aos runtimes (os campos extras sao ignorados por quem nao usa). */
 export interface PedidoDeDespacho {
@@ -120,9 +121,7 @@ export function runtimeConhecido(nome: string): boolean {
 export function resolverRuntime(nome: string): RuntimeAdapter {
   const adapter = RUNTIMES[nome];
   if (!adapter) {
-    throw new Error(
-      `runtime de despacho desconhecido: "${nome}" (homologados: ${ORDEM_DOS_RUNTIMES.join(', ')})`
-    );
+    throw new ErroDoCatalogo((m) => m.phase.runtimeDesconhecido(nome, ORDEM_DOS_RUNTIMES.join(', ')));
   }
   return adapter;
 }

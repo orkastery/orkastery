@@ -438,7 +438,7 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
         carregado.erros.length > 0
           ? `${carregado.caminho}: ${carregado.erros.join('; ')}`
           : msg().doctor.manifestoOk(carregado.caminho, carregado.bytes, LIMITE_MANIFESTO_BYTES) +
-            (carregado.avisos.length > 0 ? `; ${carregado.avisos.join('; ')}` : ''),
+            (carregado.avisos.length > 0 ? `; ${carregado.avisos.map((a) => msg().onboarding.avisoDaPreferencia(a)).join('; ')}` : ''),
       correcao: carregado.erros.length > 0 ? msg().doctor.corrijaManifesto : undefined,
     });
     if (dentroDeRepo) {

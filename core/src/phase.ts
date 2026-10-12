@@ -30,7 +30,7 @@ import { conferirAuth as authCodex } from './adapters/codex';
 import { abrirMemoria, injecaoDaFase, Memoria } from './memoria';
 import { pedidoComDicaDoGrafo, renderizar, templateDaFase } from './prompts';
 import { montarSlug, parseSlug, proximaRotacao } from './slug';
-import { msg } from './locale';
+import { ErroDoCatalogo, msg } from './locale';
 import { blocoDaThread, dirThread, gravarThread, lerThread, pausaNaThread } from './thread';
 import {
   CanalDeConducao,
@@ -424,10 +424,10 @@ export function resolverDespacho(
   const origem = doBloco?.runtime ?? manifesto.runtime.adapter;
   const runtime = opcoes.runtime ?? origem;
   if (runtimeConhecido(runtime) && runtime !== origem && !opcoes.model?.trim())
-    throw new Error(`setup.model.required: ao trocar runtime de ${origem} para ${runtime}, informe --runtime ${runtime} --model <modelo> para este despacho; o setup do projeto permanece intacto.`);
+    throw new ErroDoCatalogo((m) => m.phase.modeloAoTrocarRuntime(origem, runtime));
   const model = opcoes.model ?? doBloco?.model ?? manifesto.runtime.model;
   if (!model.trim())
-    throw new Error(`setup.model.required: modelo pendente para ${runtime}; informe --model <modelo> neste despacho ou complete o bloco em ork setup.`);
+    throw new ErroDoCatalogo((m) => m.phase.modeloPendente(runtime));
   const effort =
     opcoes.effort ??
     (opcoes.model !== undefined ? 'high' : doBloco?.effort ?? manifesto.runtime.effort);

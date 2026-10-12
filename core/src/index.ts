@@ -139,7 +139,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, comLocale, Locale, localeAtivo, msg, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, comLocale, Locale, localeAtivo, mensagemDoErro, msg, resolverLocale } from './locale';
 import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
@@ -316,12 +316,17 @@ function dadosDaAjuda(locale: Locale = localeAtivo()): DadosDaAjuda {
 const AJUDA = msg('pt-BR').ajuda.texto(dadosDaAjuda('pt-BR'));
 
 /**
- * RM-061 (F2a): a ajuda segue o locale como os comandos cobertos: `owner.language` do projeto do
- * diretorio, senao `LC_ALL`, `LC_MESSAGES` e `LANG`. Manifesto ilegivel nao derruba a ajuda.
+ * RM-061 (F2a): a ajuda segue o locale como os comandos cobertos: `owner.language` do projeto de
+ * `--projeto` ou do diretorio, senao `LC_ALL`, `LC_MESSAGES` e `LANG`. Manifesto ilegivel nao derruba a ajuda.
  */
-function localeDaAjuda(): Locale {
+function localeDaAjuda(projeto?: string): Locale {
+  // A ajuda sai antes de o projeto-alvo ser fixado: com `--projeto`, vale o manifesto dele (D14).
+  let raiz: string | undefined;
+  if (projeto !== undefined) {
+    try { raiz = resolverProjetoAlvo({ opcao: projeto })?.raiz; } catch { /* nome ambiguo ou desconhecido: o cwd */ }
+  }
   let ownerLanguage: unknown;
-  try { ownerLanguage = carregarManifesto()?.manifesto.owner?.language; } catch { /* vale o ambiente */ }
+  try { ownerLanguage = carregarManifesto(raiz)?.manifesto.owner?.language; } catch { /* vale o ambiente */ }
   return resolverLocale(ownerLanguage).locale;
 }
 
@@ -3806,7 +3811,7 @@ function executarComando(argvBruto: string[]): number {
     return 0;
   }
   if (!comando || args.opcoes.help === true || comando === 'help') {
-    ativarLocale(localeDaAjuda());
+    ativarLocale(localeDaAjuda(projeto));
     console.log(msg().ajuda.texto(dadosDaAjuda()));
     return 0;
   }
@@ -3986,7 +3991,7 @@ function executarComando(argvBruto: string[]): number {
         `${m.experiencia(p.experience, p.language, p.timezone, p.depth)}\nSkill: ${p.skill}\n` +
         // Fatia 2 do ensaio da 0.5.0 (R2): as origens em texto, e nao o JSON cru.
         m.experienciaOrigens(Object.entries(p.origem).map(([chave, origem]) => `${chave} ${m.origemDaPreferencia(origem)}`).join(', ')) +
-        avisos.map(a => `\n${m.experienciaAviso(a)}`).join(''));
+        avisos.map(a => `\n${m.experienciaAviso(m.avisoDaPreferencia(a))}`).join(''));
       return 0;
     }
     case 'thread':
@@ -4125,8 +4130,9 @@ if (require.main === module) {
       console.log(process.argv.includes('--json') ? JSON.stringify(e.recusa, null, 2) : e.texto);
       process.exitCode = SAIDA_DE_PROJETO;
     } else {
-      // RM-061 (F2a, D11): o prefixo segue o locale do comando coberto; a mensagem sai como veio.
-      console.error(msg().cli.erro((e as Error).message));
+      // RM-061 (F2a, D11): o prefixo segue o locale do comando coberto; a mensagem sai como veio, salvo o
+      // erro do catalogo, remontado no locale do comando (D14).
+      console.error(msg().cli.erro(mensagemDoErro(e)));
       process.exitCode = 1;
     }
   }

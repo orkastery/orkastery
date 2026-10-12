@@ -17,6 +17,7 @@ import { lerFusoDoDono } from './horario';
 import { validarPreferencias } from './experiencia';
 import { ENVS_DE_PROVIDER_PAGO } from './runtime-ambiente';
 import { LIMITE_TIMEOUT_DO_UNIVERSO_MS, MODELO_DE_EMBEDDING, TIMEOUT_DO_UNIVERSO_MS } from './orkmind';
+import { ErroDoCatalogo } from './locale';
 
 export const NOME_MANIFESTO = 'orkastery.yaml';
 export const NOME_MANIFESTO_LEGADO = 'devmaster.yaml';
@@ -552,9 +553,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
 export function exigirManifesto(dirInicial: string = diretorioDoProjeto()): ManifestoCarregado {
   const carregado = carregarManifesto(dirInicial);
   if (!carregado) {
-    throw new Error(
-      `manifesto ${NOME_MANIFESTO} nao encontrado a partir de ${dirInicial}. Rode: ork init`
-    );
+    throw new ErroDoCatalogo((m) => m.cli.manifestoNaoEncontrado(NOME_MANIFESTO, dirInicial));
   }
   if (carregado.erros.length > 0) {
     throw new Error(

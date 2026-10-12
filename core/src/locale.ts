@@ -20,6 +20,13 @@
  * avaliada) e montado dentro de `comLocale('pt-BR', ...)` e sai como foi gravado. Valor que e dado,
  * como o nome de um check ou o `pausaSobre` de um bloco, so e traduzido na impressao.
  *
+ * D14: o erro que o catalogo monta e que nasce no escopo pt-BR da gravacao (`ErroDoCatalogo`: manifesto
+ * ausente, `--slug`, `--roadmap`, `--runtime` e o modelo ao trocar de runtime) e remontado no locale do
+ * comando pela entrada do CLI. Seguem como o modulo dono escreve, ate a familia dele migrar: o validador
+ * do manifesto (fora os avisos de preferencia da experiencia, traduzidos na impressao), o regime de
+ * memoria e o erro de estado durante a gravacao. O cabecalho `Projeto consultado:` e `Não lido:` e
+ * contrato do RM-052 com os hosts e fica igual nas duas linguas.
+ *
  * Ingles (D8): curto, no imperativo onde e instrucao, com os mesmos termos em todo o CLI (`thread`,
  * `phase`, `claim`, `verify`, `ship`, `pulse`, `lease`, `ledger`, `worktree`, `slug`). Comando, flag
  * e identificador dentro de frase vao entre crases; valor que e so um comando (a linha `fix:`) fica nu.
@@ -120,6 +127,8 @@ const PT_BR = {
     /** Prefixo do erro que a entrada do CLI imprime (D11). */
     erro: (mensagem: string) => `erro: ${mensagem}`,
     subcomandoDesconhecido: (comando: string, sub: string | undefined) => `subcomando desconhecido: ${comando} ${sub}`,
+    /** `exigirManifesto` fora de um projeto: o primeiro erro de quem chega (D14). */
+    manifestoNaoEncontrado: (nome: string, dir: string) => `manifesto ${nome} nao encontrado a partir de ${dir}. Rode: ork init`,
   },
   horario: {
     brasilia: 'horário de Brasília',
@@ -340,7 +349,8 @@ export type Mensagens = typeof PT_BR;
 const EN: Mensagens = {
   cli: {
     erro: (mensagem) => `error: ${mensagem}`,
-    subcomandoDesconhecido: (comando, sub) => `unknown subcommand: ${comando} ${sub}`,
+    subcomandoDesconhecido: (comando, sub) => sub === undefined ? `missing subcommand: ${comando}` : `unknown subcommand: ${comando} ${sub}`,
+    manifestoNaoEncontrado: (nome, dir) => `\`${nome}\` not found in ${dir} or any parent directory; run \`ork init\` first.`,
   },
   horario: {
     brasilia: 'Brasília time',
@@ -396,7 +406,7 @@ const EN: Mensagens = {
     sandboxFalhou: (detalhe) => `probe \`codex sandbox true\` failed: ${detalhe}`,
     sandboxCorrecao: 'install the system bubblewrap package (the bundled bwrap cannot create a user namespace ' +
       'on this machine) or declare runtime.sandbox: danger-full-access knowing the risk',
-    manifestoAusente: (nome, dir) => `${nome} not found from ${dir}`,
+    manifestoAusente: (nome, dir) => `${nome} not found in ${dir} or any parent directory`,
     rodeInit: 'ork init',
     entreNoRepoEInit: 'enter the project repository (or create one with `git init` and a first commit) and run `ork init`',
     corrijaManifesto: 'fix the manifest and run `ork doctor` again',
@@ -418,7 +428,7 @@ const EN: Mensagens = {
       'or create a profile with `ork accounts add <id> --runtime claude-bg --dir <folder>`',
     onboardingPendente: (n, etapas) => `${n} step(s) pending: ${etapas}`,
     onboardingCompleto: '9 steps answered',
-    foraDaRede: 'outside the network; `ork network entrar` puts this machine on the person\'s network',
+    foraDaRede: 'outside the network; `ork network entrar` puts this machine on your network',
     manifestoOk: (caminho, bytes, limite) => `${caminho} (${bytes} B of ${limite})`,
     politicaViolada: (politica, envs) => `policy ${politica} violated: ${envs} redirects the claude dispatch`,
     politicaComPaga: (politica, envs) =>
@@ -429,7 +439,7 @@ const EN: Mensagens = {
     providersAtivos: (nomes) => `active names: ${nomes}`,
     nenhumProvider: 'no name from the provider list is active',
     memoriaFiles: 'files (honest fallback: handoff through files, path#anchor pointer)',
-    embeddingNone: 'memory.embedding with provider none: search by meaning is off',
+    embeddingNone: 'memory.embedding with provider none: semantic search is off',
     semPerfis: 'no profile configured: each runtime dispatches through the process environment',
     manifestoForaDoRepo: (nome, caminho, topo) =>
       `the ${nome} that was read sits outside this repository (${caminho}): ork runs the project in that folder, not the one in ${topo}`,
@@ -453,7 +463,7 @@ const EN: Mensagens = {
     embeddingRecusadaCorrecao: (variavel) => `check that ${variavel} holds the dedicated key, not another credential`,
     embeddingPresente: (variavel, provider, modelo) => `${variavel} present in the environment (value never printed); ${provider} ${modelo}`,
     embeddingAusente: (variavel) =>
-      `${variavel} missing from the environment: search by meaning uses the local fallback or falls back to FTS; the regime does not change`,
+      `${variavel} missing from the environment: semantic search uses the local fallback or falls back to FTS; the regime does not change`,
     embeddingAusenteCorrecao: (variavel) =>
       `export ${variavel} with the key dedicated to Orkastery (with a credit limit in the provider dashboard)`,
     donoOutro: (total, dir, uids, uid, exemplos, parcialDe) =>
@@ -511,16 +521,16 @@ const EN: Mensagens = {
     privadaAberta: (dir, modo) => `${dir} must be a 0700 directory owned by the user (mode ${modo}): HITL receipts and profiles refuse it`,
     privadaOk: (dir) => `${dir} with mode 0700`,
     cronSemComando: 'crontab command missing on this machine',
-    cronFalhou: (detalhe) => `crontab -l failed: ${detalhe}`,
-    cronSaiu: (codigo) => `crontab -l exited ${codigo}`,
-    cronAdicione: (linha) => `add to the crontab (crontab -e), as in the monitor/pulse.cron template: ${linha}`,
+    cronFalhou: (detalhe) => `\`crontab -l\` failed: ${detalhe}`,
+    cronSaiu: (codigo) => `\`crontab -l\` exited ${codigo}`,
+    cronAdicione: (linha) => `add to the crontab (\`crontab -e\`), as in the \`monitor/pulse.cron\` template: ${linha}`,
     cronSemLeitura: (motivo) => `pulse-host.json present, but there is no crontab to read (${motivo}): the scan never runs`,
     cronSemLinha: (script) => `pulse-host.json present, and no crontab line runs ${script}: the summary never goes out`,
     cronOk: (linhas) => `scan in cron every 15 minutes or less (${linhas} line(s))`,
     cronRitmo: (intervalo) => intervalo === null ? 'on a schedule the doctor cannot read'
       : intervalo === 60 ? 'every hour' : `every ${intervalo} minutes`,
     cronLento: (ritmo, linha) => `the pulse scan runs ${ritmo} (\`${linha}\`): the cadence by tag (RM-039) needs 15 minutes`,
-    cronTroque: (linha) => `replace the crontab line (crontab -e) with: ${linha}`,
+    cronTroque: (linha) => `replace the crontab line (\`crontab -e\`) with: ${linha}`,
     redeSaiu: 'outside the network (left with `ork network sair`)',
     redeMembroHerdado: 'member inherited from the factory',
     redeMembro: 'member',
@@ -576,6 +586,21 @@ const CATALOGO: Record<Locale, Mensagens> = { 'pt-BR': PT_BR, en: EN };
 /** As mensagens do locale pedido, ou do ativo. */
 export function msg(locale: Locale = ativo): Mensagens {
   return CATALOGO[locale];
+}
+
+/**
+ * D14: erro cujo texto vem do catalogo. Ele nasce no locale ativo (dentro de `comLocale('pt-BR', ...)`,
+ * em pt-BR, como o que la se grava), e a entrada do CLI o remonta no locale do comando ao imprimir.
+ */
+export class ErroDoCatalogo extends Error {
+  constructor(readonly montar: (m: Mensagens) => string) {
+    super(montar(msg()));
+  }
+}
+
+/** A mensagem de um erro para a pessoa: a do catalogo no locale ativo; as demais como vieram. */
+export function mensagemDoErro(e: unknown): string {
+  return e instanceof ErroDoCatalogo ? e.montar(msg()) : e instanceof Error ? e.message : String(e);
 }
 
 /** Nome de check como o texto o mostra no locale ativo. */

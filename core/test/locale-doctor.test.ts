@@ -41,7 +41,7 @@ test('locale en F2a doctor (doctor.ts, index.ts): num repositorio novo, o relato
     assert.match(r.stdout, /\[ok\] +session governance +\S+, Claude and Codex, global with history: 0 sessions; 0 without a thread; 0 ambiguous; inventory valid; source missing: claude agents --json --all \(process account\)\n/);
     assert.match(r.stdout, /\[ok\] +umask +umask 0022 denies write to group and others\n/);
     assert.match(r.stdout, /\[ok\] +private folder +\S+ missing: created on demand with 0700\n/);
-    assert.match(r.stdout, /\[ok\] +network +outside the network; `ork network entrar` puts this machine on the person's network\n/);
+    assert.match(r.stdout, /\[ok\] +network +outside the network; `ork network entrar` puts this machine on your network\n/);
     assert.match(r.stdout, /\[ok\] +\.git owner +\d+ entries in \.git owned by the repository owner \(uid \d+\)\n/);
     // O que sobra em pt-BR so pode ser dado: o caminho do repositorio e os nomes das etapas e dos modos.
     assert.deepEqual(linhasEmPortugues(r.stdout, [c.dir, c.casa]), []);
@@ -102,7 +102,7 @@ test('locale en F2a doctor (doctor.ts): manifesto, contas, embedding, dono do .g
     assert.deepEqual(linhasEmPortugues(tudo, [c.dir, path.dirname(c.dir)]), [], tudo);
     assert.match(tudo, /the orkastery\.yaml that was read sits outside this repository/);
     assert.match(tudo, /memory\.embedding\.api_key_env declares ANTHROPIC_API_KEY, a name from the paid provider list/);
-    assert.match(tudo, /ORKASTERY_EMBEDDING_API_KEY missing from the environment: search by meaning uses the local fallback/);
+    assert.match(tudo, /ORKASTERY_EMBEDDING_API_KEY missing from the environment: semantic search uses the local fallback/);
     assert.match(tudo, /more than 3 entries in \.git: partial check, no other owner so far/);
     assert.match(tudo, /runtime\.adapter: codex, but the `codex` binary is not on PATH/);
   } finally { c.limpar(); }

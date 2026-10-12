@@ -6,6 +6,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { ativarLocale, chaveDoLocale, cobreLocale, comLocale, COMANDOS_COM_LOCALE, localeAtivo, msg } from '../src/locale';
+import { linhasEmPortugues } from './locale-apoio';
 
 test('locale F2a infra: a chave de cada linha de comando, com o subcomando padrao', () => {
   assert.equal(chaveDoLocale(['doctor'], {}), 'doctor');
@@ -48,4 +49,20 @@ test('locale F2a infra: comLocale roda no locale pedido e volta ao anterior, mes
     assert.equal(msg().cli.erro('x'), 'error: x');
   } finally { ativarLocale(undefined); }
   assert.equal(msg().cli.erro('x'), 'erro: x');
+});
+
+test('locale F2a infra: o detector de pt-BR dos testes ignora sha, uuid e identificador e acha a palavra solta', () => {
+  // D14: "de" e "da" sao letras hexadecimais; coladas a digito nao sao palavra.
+  for (const linha of [
+    '  sha256         : 2bebefe8f34a2484fcf33d39f922b8ae70da4efb69c63f484cbc28a38edcedec',
+    '  base           : 1de2da3f',
+    'session 11111111-2222-3333-4444-5555de555555',
+    'Request already in progress (sha256 0de9da1b2c3d) since 2000-01-01 00:00.',
+    'see `ork thread status --sem-worktree` and "pausa-humana" in github.com/rede.log',
+  ]) assert.deepEqual(linhasEmPortugues(linha), [], linha);
+  // Controle: a palavra solta segue acusada, inclusive antes do ponto final da frase.
+  for (const linha of ['Thread criada com sucesso', 'erro: nada foi gravado', 'falha (de rede)', 'passo 3 de 5', 'Thread criada.',
+    'O pedido segue pendente. Next']) {
+    assert.deepEqual(linhasEmPortugues(linha), [linha], linha);
+  }
 });

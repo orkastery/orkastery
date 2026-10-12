@@ -132,6 +132,10 @@ export const THREAD_PT_BR = {
   // ork thread status
   naoEncontrada: (id: string, dir: string) => `thread "${id}" nao encontrada em ${dir}`,
   usoStatus: 'uso: ork thread status <thread-id>',
+  /** D14: erros de argumento de `thread new` que nascem no escopo pt-BR da gravacao (`ErroDoCatalogo`). */
+  slugInvalido: (slug: string, regex: string) => `slug invalido: "${slug}" (regex canonica: ${regex})`,
+  roadmapItemInvalido: (item: string) => `roadmap.item: "${item}" nao e um item do roadmap (esperado RM-NNN)`,
+  roadmapItemInexistente: (id: string) => `roadmap.item: ${id} nao existe em docs/roadmap`,
   nenhumaSessao: '  nenhuma sessao despachada ainda',
   sessoesDespachadas: '  sessoes despachadas (estado real conferido em `ork sessions`)',
   sessao: (verificada: boolean, canal: string) => `verificada no runtime: ${verificada ? 'sim' : 'nao'}  canal: ${canal}`,
@@ -143,10 +147,10 @@ export const THREAD_EN: typeof THREAD_PT_BR = {
   rotulos: { id: 'id', slug: 'slug', nome: 'name', modo: 'mode', ciclo: 'cycle', fase: 'phase', status: 'status', base: 'base',
     worktree: 'worktree', conducao: 'conduction', score: 'score' },
   modo: (tag, pausas) => `${tag} (${pausas} planned human pause${pausas === 1 ? '' : 's'})`,
-  cicloPadrao: 'mode default',
+  cicloPadrao: 'default for the mode',
   status: (status) => STATUS_EN[status] ?? status,
   raizDoProjeto: '(project root)',
-  ninguemConduz: 'nobody is conducting it now',
+  ninguemConduz: 'nobody right now',
   validacao: '  validation CHECK on a runtime other than the GO one (required by the thread)',
   prontoQuando: (n) => `  done when (${n} executable criteri${n === 1 ? 'on' : 'a'})`,
   score: (valor, por, regime, quando) => `${valor}/5 by ${por} (${regime}) on ${quando}`,
@@ -208,7 +212,7 @@ export const THREAD_EN: typeof THREAD_PT_BR = {
         `with \`--para ${c.branch}\`, the delivery becomes a direct push, which the \`push_direto_na_base\` policy checks. ${ensure}.`;
     }
     const efeito = c.policy === 'block'
-      ? '`ork ship` blocks the delivery through `push_direto_na_base` (block): there is no thread branch to merge'
+      ? '`ork ship` refuses the delivery under `push_direto_na_base` (block): there is no thread branch to merge'
       : c.policy === undefined || c.policy === 'off'
         ? '`ork ship` pushes the base directly, without a thread branch (`push_direto_na_base` off)'
         : `\`ork ship\` warns about \`push_direto_na_base\` (${c.policy}) and pushes the base directly, without a thread branch`;
@@ -246,8 +250,11 @@ export const THREAD_EN: typeof THREAD_PT_BR = {
   gravacoesFalhas: (n) => `  ${n} write(s) not completed; see \`ork memory status\`.`,
   naoEncontrada: (id, dir) => `thread "${id}" not found in ${dir}`,
   usoStatus: 'usage: ork thread status <thread-id>',
+  slugInvalido: (slug, regex) => `invalid slug: "${slug}" (canonical regex: ${regex})`,
+  roadmapItemInvalido: (item) => `roadmap.item: "${item}" is not a roadmap item (expected RM-NNN)`,
+  roadmapItemInexistente: (id) => `roadmap.item: ${id} does not exist in \`docs/roadmap\``,
   nenhumaSessao: '  no session dispatched yet',
   sessoesDespachadas: '  dispatched sessions (real state checked in `ork sessions`)',
   sessao: (verificada, canal) => `verified in the runtime: ${verificada ? 'yes' : 'no'}  channel: ${canal}`,
-  pausasDoModo: (n) => `  human pauses of the mode: ${n}`,
+  pausasDoModo: (n) => `  planned human pauses in this mode: ${n}`,
 };

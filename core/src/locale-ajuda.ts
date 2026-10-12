@@ -381,11 +381,11 @@ export const AJUDA_EN: typeof AJUDA_PT_BR = {
 
 Usage: ork [--projeto <name|path>] <command> [arguments]
 
-  --projeto <name|path>                     Target project of any command (RM-052): beats ORK_PROJETO, which beats the
-                                            current directory; an ambiguous or unknown name refuses with the candidates (exit 4)
+  --projeto <name|path>                     Target project of any command (RM-052): takes precedence over ORK_PROJETO,
+                                            which takes precedence over the current directory; an ambiguous or unknown name is refused with the candidates (exit 4)
   projetos [--json]                         Projects known on this machine (~/.orkastery/projetos.json)
-  projetos registrar [path]                 Registers the copy (init, thread new and fabrica entrar already register)
-  projetos esquecer <name|path>             Removes from the registry the copy that vanished or was left over (nothing on disk is deleted)
+  projetos registrar [path]                 Registers this checkout (init, thread new and fabrica entrar already do)
+  projetos esquecer <name|path>             Removes a checkout that vanished or is no longer needed from the registry (nothing on disk is deleted)
 
   doctor                                    What holds on this machine now (exits != 0 when blocked)
   init [--force] [--name N] [--abbrev A]    Generates the repository orkastery.yaml
@@ -436,7 +436,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   portfolio create <product|project|initiative> <id> --title T [--parent ID]
   portfolio list [product|project|initiative] [--parent ID] [--json]
   portfolio show <id> [--json]              Catalog prod -> proj -> init
-  objective ...                             Retired in I-43: its two beams became
+  objective ...                             Retired in I-43: its two parts became
                                             --exige-runtime-diferente and the thread --done
 
   phase run <thread-id> <PHASE> --prompt "<text>"
@@ -445,9 +445,9 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
                                              only --model implies --effort high; the effective
                                              trio goes to the ledger as a verifiable fact)
         [--canal C] [--correlacao ID]        Source channel (without it, what the host declares)
-        [--esperar [min]]                    With the thread already conducted, waits its turn (without it: refuses at once)
-        [--perfil ID]                        Dispatch account (ork accounts list); missing, from another
-                                             runtime, exhausted or not signed in refuses with a typed reason
+        [--esperar [min]]                    If the thread is already being conducted, waits its turn (without it: refuses at once)
+        [--perfil ID]                        Dispatch account (ork accounts list); a profile that is missing, belongs to another
+                                             runtime, is exhausted or is not signed in is refused with a typed reason
   phase list <thread-id>                    Thread ledger history
                                             (shows the real model/effort of each phase)
   ledger stats --desde 7d [--ate ISO]       Ledger economic telemetry (half-open interval: start included, end excluded)

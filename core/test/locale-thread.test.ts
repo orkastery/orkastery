@@ -30,7 +30,7 @@ test('locale en F2a thread: thread new e thread status saem em ingles', () => {
     assert.equal(l[1], '  id         loc-myslice');
     assert.equal(l[3], '  name       My slice');
     assert.equal(l[4], '  mode       #Auto (0 planned human pauses)');
-    assert.equal(l[5], '  cycle      mode default');
+    assert.equal(l[5], '  cycle      default for the mode');
     assert.equal(l[6], '  phase      GOAL');
     assert.equal(l[7], '  status     open');
     assert.match(nova.stdout, /\n {2}planned blocks\n {4}full {3}GOAL-PLAN-GO-CHECK-SHIP-MASTER no planned human pause\n/);
@@ -40,8 +40,8 @@ test('locale en F2a thread: thread new e thread status saem em ingles', () => {
     const status = ork(c, EN, true, 'thread', 'status', 'loc-myslice');
     assert.equal(status.status, 0, status.stderr);
     assert.match(status.stdout, /^Thread loc-myslice\n/);
-    assert.match(status.stdout, /\n {2}conduction nobody is conducting it now\n/);
-    assert.match(status.stdout, /\n {2}no session dispatched yet\n\n {2}human pauses of the mode: 0\n$/);
+    assert.match(status.stdout, /\n {2}conduction nobody right now\n/);
+    assert.match(status.stdout, /\n {2}no session dispatched yet\n\n {2}planned human pauses in this mode: 0\n$/);
     assert.deepEqual(linhasEmPortugues(nova.stdout + status.stdout, [c.dir]), []);
     // Controle do detector: o mesmo status em pt-BR e acusado.
     assert.ok(linhasEmPortugues(ork(c, PT, true, 'thread', 'status', 'loc-myslice').stdout, [c.dir]).length >= 5, 'o detector acha o pt-BR');
@@ -62,7 +62,7 @@ test('locale en F2a thread: #Classic em simulacao, criterios de pronto e os avis
     assert.equal(rm.status, 0, rm.stderr);
     assert.match(rm.stdout, /\n {2}validation CHECK on a runtime other than the GO one \(required by the thread\)\n {2}done when \(1 executable criterion\)\n/);
     assert.match(rm.stderr, /^Warning: RM-123 in the name does not link the thread to the roadmap\./);
-    assert.match(rm.stderr, /\nWarning: thread loc-rm123thing has no worktree \(`--sem-worktree`\): it works at the project root, on the base branch main, and `ork ship` blocks the delivery through `push_direto_na_base` \(block\)/);
+    assert.match(rm.stderr, /\nWarning: thread loc-rm123thing has no worktree \(`--sem-worktree`\): it works at the project root, on the base branch main, and `ork ship` refuses the delivery under `push_direto_na_base` \(block\)/);
     assert.deepEqual(linhasEmPortugues(classic.stdout + rm.stdout + rm.stderr, [c.dir]), []);
   } finally { c.limpar(); }
 });

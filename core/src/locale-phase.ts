@@ -75,6 +75,12 @@ export const PHASE_PT_BR = {
   avisoCorrecao: (recuo: string, correcao: string) => `${recuo}  correcao: ${correcao}`,
   // thread.ts
   faseInvalida: (bruto: string, fases: string) => `fase invalida: "${bruto}" (esperado uma de ${fases})`,
+  /** D14: erros de argumento de `phase run` que nascem no escopo pt-BR do despacho (`ErroDoCatalogo`). */
+  runtimeDesconhecido: (nome: string, homologados: string) => `runtime de despacho desconhecido: "${nome}" (homologados: ${homologados})`,
+  modeloAoTrocarRuntime: (origem: string, runtime: string) => `setup.model.required: ao trocar runtime de ${origem} para ${runtime}, ` +
+    `informe --runtime ${runtime} --model <modelo> para este despacho; o setup do projeto permanece intacto.`,
+  modeloPendente: (runtime: string) =>
+    `setup.model.required: modelo pendente para ${runtime}; informe --model <modelo> neste despacho ou complete o bloco em ork setup.`,
 };
 
 export const PHASE_EN: typeof PHASE_PT_BR = {
@@ -140,4 +146,9 @@ export const PHASE_EN: typeof PHASE_PT_BR = {
   avisoDaPolicy: (recuo, policy, detalhe) => `${recuo}policy ${policy} warning: ${detalhe}`,
   avisoCorrecao: (recuo, correcao) => `${recuo}  fix: ${correcao}`,
   faseInvalida: (bruto, fases) => `invalid phase: "${bruto}" (expected one of ${fases})`,
+  runtimeDesconhecido: (nome, homologados) => `unknown dispatch runtime: "${nome}" (supported: ${homologados})`,
+  modeloAoTrocarRuntime: (origem, runtime) => `setup.model.required: switching the runtime from ${origem} to ${runtime} needs a model; ` +
+    `pass \`--runtime ${runtime} --model <model>\` for this dispatch. The project setup stays as it is.`,
+  modeloPendente: (runtime) =>
+    `setup.model.required: no model set for ${runtime}; pass \`--model <model>\` in this dispatch or complete the block with \`ork setup\`.`,
 };

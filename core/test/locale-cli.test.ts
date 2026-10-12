@@ -245,7 +245,7 @@ test('locale en: ork doctor abre e fecha em ingles com LANG=en_US.UTF-8', () => 
     const linhas = r.stdout.trimEnd().split('\n');
     assert.equal(linhas[0], 'ork doctor: what holds on this machine now');
     assert.match(linhas.at(-1) ?? '', /^Verdict: (BLOCKED \(\d+ fail, \d+ warn\)\. Fix the items above before dispatching a phase\.|READY \(\d+ warn\)\. Phase dispatch allowed through `ork phase run`\.)$/);
-    assert.match(r.stdout, /\[FAIL\] manifest +orkastery\.yaml not found from /);
+    assert.match(r.stdout, /\[FAIL\] manifest +orkastery\.yaml not found in .+ or any parent directory\n/);
     assert.match(r.stdout, / fix: ork init\n/);
   } finally { limpar(dir, casa); }
 });
