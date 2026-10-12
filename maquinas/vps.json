@@ -4,8 +4,30 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-12T21:15:02.325Z",
+  "publicadoEm": "2026-10-12T21:16:40.033Z",
   "threads": [
+    {
+      "id": "ork-rm037esperas",
+      "nome": "rm037esperas",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm037esperas-full",
+      "atualizadaEm": "2026-10-12T21:16:39.639Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-12T21:16:39.654Z",
+        "motivo": "nenhuma sessão despachada na fase GOAL"
+      }
+    },
     {
       "id": "ork-rm059mensag",
       "nome": "rm059mensag",
