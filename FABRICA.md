@@ -9,6 +9,7 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | srvjcp86 | ork-rm026k7conhe | #Auto | GO | claude-bg opus/max | RM-026 | — | 12/10 11:15 |
 | srvjcp86 | ork-rm062fabrica | #Auto | GO | claude-bg opus/max | — | — | 12/10 11:15 |
 | vps | ork-rm058n2 | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 11:58 |
+| vps | ork-rm059pista | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 11:58 |
 | vps | ork-rm059portao | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 11:58 |
 | vps | ork-rm060previa | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 11:58 |
 | vps | ork-rm060release | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 11:58 |
