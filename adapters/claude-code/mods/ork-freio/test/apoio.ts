@@ -99,6 +99,52 @@ export function nucleo(on, opcoes: { claims?: unknown[]; plano?: string | null; 
   return pedidos
 }
 
+/** Um caminho sujo da worktree falsa; sem `size`, o arquivo foi apagado. */
+export type Sujo = { xy: string; size?: number; mtimeMs?: number }
+
+/**
+ * A worktree falsa: o `git status --porcelain=v2 --branch -z` e o `fs.stat` saem de `estado`, que o teste muda
+ * entre os lotes como uma edicao (ou um commit) mudaria o disco. Conta as chamadas de cada um.
+ */
+export function disco(on, inicial: { head?: string; sujos?: Record<string, Sujo> } = {}) {
+  const estado = { head: inicial.head ?? 'a'.repeat(40), sujos: { ...(inicial.sujos ?? {}) } as Record<string, Sujo>, status: 0, stats: 0, argv: [] as string[][] }
+  on('process.run', ($, e) => {
+    estado.argv.push([...e.argv])
+    if (e.argv[0] !== 'git' || e.argv[1] !== 'status') throw new Error(`processo fora do teste: ${e.argv.join(' ')}`)
+    estado.status++
+    const registros = [`# branch.oid ${estado.head}`, '# branch.head ork/ork-exemplo-full']
+    for (const [caminho, s] of Object.entries(estado.sujos)) {
+      registros.push(s.xy === '??' ? `? ${caminho}` : `1 ${s.xy} N... 100644 100644 100644 ${'1'.repeat(40)} ${'2'.repeat(40)} ${caminho}`)
+    }
+    return { value: { exitCode: 0, stdout: registros.join('\0') + '\0', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+  on('fs.stat', ($, e) => {
+    estado.stats++
+    const rel = String(e.path).slice(RAIZ.length + 1)
+    const s = estado.sujos[rel]
+    if (!s || s.size === undefined) throw new Error(`ENOENT: ${e.path}`)
+    return { value: { kind: 'file', size: s.size, mtimeMs: s.mtimeMs ?? 0, isLink: false } }
+  })
+  return estado
+}
+
+/** O fundo do lote: nenhum settings hook embaixo. */
+export function comLote(on) {
+  on('classic.PostToolBatch', () => ({}))
+}
+
+/** Um lote de ferramentas como o motor o levanta depois de todas resolverem. */
+export function lote($, ...chamadas: unknown[]) {
+  return $.classic.PostToolBatch({ tool_calls: chamadas })
+}
+
+let sequencia = 0
+const id = () => `toolu_${++sequencia}`
+export const editar = (rel: string) => ({ tool_name: 'Edit', tool_input: { file_path: `${RAIZ}/${rel}`, old_string: 'a', new_string: 'b' }, tool_use_id: id() })
+export const escrever = (rel: string) => ({ tool_name: 'Write', tool_input: { file_path: `${RAIZ}/${rel}`, content: 'x' }, tool_use_id: id() })
+export const bash = (command: string) => ({ tool_name: 'Bash', tool_input: { command }, tool_use_id: id() })
+export const ler = (rel: string) => ({ tool_name: 'Read', tool_input: { file_path: `${RAIZ}/${rel}` }, tool_use_id: id() })
+
 /** O fundo do inicio da sessao; registrado antes da primeira chamada ao `$`, que carrega os plugins. */
 export function comInicio(on) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))

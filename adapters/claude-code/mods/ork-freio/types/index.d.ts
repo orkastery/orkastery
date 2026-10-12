@@ -36,11 +36,28 @@ export type FreioFoto = {
   caminhos: Record<string, string>
 }
 
+/** Uma claim afetada pelo lote, na fila da conferencia (T2.2). */
+export type FreioPedido = {
+  id: string
+  /** 3 pelo `arquivo`, 2 pelo caminho citado no comando, 1 pelo nome-base citado (D5). */
+  forca: number
+  /** Os caminhos tocados que a afetaram. */
+  caminhos: string[]
+}
+
 /** O que o Freio vigia entre os lotes. */
 export type FreioVigia = {
   thread: string
   /** A ultima foto do `git status`; `null` antes da primeira. */
   foto: FreioFoto | null
+  /** O numero do lote, que marca quando cada caminho foi tocado. */
+  seq: number
+  /** O ultimo lote que tocou cada caminho. */
+  toques: Record<string, number>
+  /** As claims afetadas que esperam conferencia. */
+  fila: FreioPedido[]
+  /** Os caminhos fora dos `touch_paths` ja avisados nesta sessao. */
+  avisadosFora: string[]
 }
 
 declare module 'claude-code' {
