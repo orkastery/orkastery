@@ -1,3 +1,4 @@
+import * as os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { ManifestoCarregado } from './manifest';
 import { memoryState } from './project-state';
@@ -31,7 +32,8 @@ export function brainClient(loaded: ManifestoCarregado, execute: typeof spawnSyn
     if (config.mode !== 'orkmind' || (!dsn && request.operation !== 'capabilities')) return unavailable('brain.configuration.missing');
     const payload = request.payload as any;
     if (payload?.tenant_id !== undefined && payload.tenant_id !== config.tenant) return {schema:BRAIN_API,state:'forbidden',error:'brain.tenant.mismatch'};
-    const result = execute(config.cli, ['brain','request'], { cwd: loaded.raiz, encoding:'utf8', timeout:Math.min(config.timeout_ms,15000),
+    // RM-047: cwd fora do clone; um nome de interpretador em memory.cli não acha arquivo do repositório.
+    const result = execute(config.cli, ['brain','request'], { cwd: os.homedir(), encoding:'utf8', timeout:Math.min(config.timeout_ms,15000),
       maxBuffer:2*1024*1024, input:JSON.stringify(request), shell:false,
       env:{ PATH:process.env.PATH ?? '/usr/bin:/bin', PYTHONDONTWRITEBYTECODE:'1',
         ORKMIND_DATABASE_URL:dsn ?? '', ORKMIND_BRAIN_TENANT:config.tenant } });

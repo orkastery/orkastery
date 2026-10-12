@@ -1,0 +1,8 @@
+{
+  "name": "ork-exemplo",
+  "version": "0.0.1",
+  "description": "Mod de exemplo dos testes do nucleo do Orkastery: declara o papel de fase e nao muda nada na sessao.",
+  "author": {
+    "name": "Contribuidores do Orkastery"
+  }
+}

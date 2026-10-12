@@ -8,6 +8,33 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Mods de papel `fase` nas sessões de fase, conferidos contra o recibo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  o despacho `claude-bg` passa um `--plugin-dir` por mod de `adapters/claude-code/mods/` que declara o papel `fase` no
+  `orkastery-mod.json` (`ork.mod/v1`), depois do plugin do Orkastery, quando a pasta instalada tem exatamente os arquivos
+  do `INSTALADO.json` e o `claude --version` atende o `claudeCodeMinimo` do mod e o 2.1.287 da API de mods. Arquivo a
+  mais, link ou declaração inválida recusa o despacho com `runtime.context.installation`; mod que pede versão mais nova
+  fica de fora e o despacho segue, e o mod que depende dele sai junto. O arquivo comum da raiz de `mods/` (a lista de
+  autoridade da ponte) também precisa estar no recibo. O `ork adapter install claude-code` tira da cópia o arquivo de
+  mod que saiu do catálogo. Sem mods, o comando é o de antes.
+- **Mods no marketplace próprio, pelo gerador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `node core/scripts/gerar-marketplaces.cjs` copia cada mod de `adapters/claude-code/mods/*/orkastery-mod.json` para
+  `marketplaces/claude-code/mods/<mod>/`, com os arquivos comuns da raiz de `mods/` dentro de cada cópia, e põe o mod no
+  `.claude-plugin/marketplace.json` com `source` na cópia. O `--verificar` confere a declaração, o manifesto, o
+  `hooks/hooks.json` e a cópia em dia. A pasta do diretório da Anthropic segue sem mods e sem hooks.
+- **Job dos mods no CI e canário de eventos** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)): o job
+  `mods` instala o Claude Code 2.1.296 fixado pelo npm, sem credencial nem chave de API, e roda
+  `node core/scripts/canario-eventos-mods.cjs --com-plugin`: `claude plugin validate --strict` e `claude plugin test` em
+  cada mod e a busca, no binário, de cada evento e chamada de `$` que os mods usam, com um nome de controle que precisa
+  ficar ausente. Medido: os builds 2.1.288 e 2.1.289 reprovam (sem `ui.notify`) e o 2.1.296 aprova.
+- **`ork claims conferir`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)): reexecuta só as claims
+  pedidas (`--claims C3,C7`) ou o verify de uma tarefa do plano da thread (`--tarefa T2.1`, quando ele é um comando só
+  entre crases) no sandbox do `ork_verify`, na worktree da thread registrada no git do projeto, sob a condução da
+  thread e sem gravar recibo; `--json` devolve `ork.claims-conferencia/v1`, com prazo total de 180 s (teto de 600 s).
+  No sandbox, processo filho do node falha: teste que cria processo pode reprovar ali e passar no `ork verify`.
+- **Pedido guardado na criação da thread** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `ork thread new --pedido "<texto>"` guarda o pedido em `pedido.md`, com o sha256 no `thread.json` e no
+  `thread_created`, e o `ork prompt render` sem `--pedido` usa esse pedido, conferido pelo sha256. Thread sem pedido
+  guardado segue como antes.
 - **Fundação dos mods no Claude Code, lado do adaptador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   a ponte `ork-ponte` (`adapters/claude-code/mods/ork-ponte`) acrescenta ao `$` dos mods o noun `$.ork`, com o papel
   da sessão (`dono`, `fase` ou `dormente`), o retrato do núcleo pelo `ork_maestro` com reserva numa lista fechada de
@@ -45,6 +72,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `core/instabilidade.json`, contrato `ork.instabilidade/v1` ([contrato](docs/referencia/contratos/instabilidade-rm037.md)),
     nasce vazio e só aceita entrada com a taxa medida e revalidação em até 30 dias;
   - o `testeQueCaiu` do ledger lê a seção "failing tests" do reporter `spec` do `node --test` 24, que antes saía vazio.
+- **O `ork roadmap status` diz quando uma thread fora do roadmap espera você** ([RM-049](docs/roadmap/RM-049-lancamento.md), R3):
+  no ensaio, uma thread sem item do roadmap esperava o dono por `runtime.workspace-untrusted`, e o relatório dizia
+  "O que precisa de você: Nada agora" enquanto o `ork pulse` dizia "Precisa de humano agora: 1". Pela alternativa (a)
+  da decisão do dono, o fecho ganha a linha "Fora do roadmap: N thread(s) esperam você (ork pulse)", só quando há, e o
+  `--json` o campo opcional e aditivo `foraDoRoadmap`. Sem thread fora do roadmap esperando, a saída fica igual byte a byte.
 
 ### Alterado
 
@@ -52,6 +84,77 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   o `orkastery.yaml` do projeto passa a dar 40 min ao comando `test` (`verify.timeout_ms_por_comando.test`),
   porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba CPU. O `build` e os
   outros comandos seguem no prazo padrão.
+- **No #Fast, o ship sem `--autorizar-push` não desconta o índice** ([RM-049](docs/roadmap/RM-049-lancamento.md), EN8):
+  o `ship_blocked` com `human.pending` de uma thread #Fast é a pausa prevista do modo, como o `ork ship --dry-run`
+  barrado, e deixa de entrar no índice derivado do MASTER (era 4.75/5, `ship_blocked x1`). Fora do #Fast, ou com
+  outro motivo, o desconto segue. Decisão do dono, alternativa (a) do recibo do ensaio em inglês.
+
+### Segurança
+
+- **Postura de sandbox e procedência do estado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md),
+  P1 a P5 da [fronteira de confiança](docs/referencia/fronteira-de-confianca.md)). Patch de segurança, por decisão do
+  dono (S1 a, 11/10/2026).
+  - **Muda para quem já usa** (uma vez em cada máquina): com `runtime.sandbox: danger-full-access`, rode
+    `ork setup sandbox confirmar danger-full-access`; com `.orkastery/` versionado, `git rm -r --cached .orkastery`;
+    com `worktree.dir` fora da raiz, `ork setup worktree confirmar`; com a fábrica ligada só pelo manifesto,
+    `ork fabrica entrar`; com o `ork` instalado rodando `ork eval` num checkout do Orkastery, `node core/dist/index.js eval`.
+    Quem usa `.claude/worktrees`, `workspace-write`, estado fora do índice e `ork fabrica entrar` não percebe mudança.
+  - o `runtime.sandbox` que afrouxa o sandbox do agente (`danger-full-access`) só despacha pelo Codex depois de a
+    máquina confirmá-lo com `ork setup sandbox confirmar <postura>`, gravado em `.orkastery/private/postura-local.json`
+    (0600, fora do git, só para este checkout). Sem isso, `ork phase run` e `ork retry run` recusam com
+    `runtime.sandbox-nao-confirmado`, e o `ork doctor` acusa. **Muda para quem já usa `danger-full-access`:** rode o
+    comando uma vez em cada máquina;
+  - estado de `.orkastery/` rastreado pelo git não escolhe cwd, worktree nem executável (`estado.rastreado`), e o cwd
+    de git e agente vindo do `thread.json`, do ledger ou da fila só vale na raiz do projeto ou numa worktree do
+    `git worktree list` do repositório (`estado.worktree-nao-registrada`). Vale para despacho, retomada, verify, claims,
+    GO-FIX, prova do GO, handoff, liveness, `ci prepare` e `ork worktree audit|release`. **Muda para quem versiona o
+    `.orkastery/`:** tire o estado do índice (`git rm -r --cached .orkastery`);
+  - o transporte do pulse e do digest só vale do `pulse-host.json` e do `master-host.json` locais, arquivos comuns
+    fora do índice do git (`transporte.rastreado`);
+  - os ponteiros do `ork recall`, do `ork handoff recall` e do `ork handoff export` (o `location` do `handoff.json`,
+    o arquivo de uma claim, o prompt de uma sessão, o handoff e a lição vindos da memória) só leem arquivo que, pelo
+    caminho real, fica na raiz do projeto ou na worktree registrada da thread. O recall recusa com
+    `ponteiro.fora-da-raiz`, e o export deixa de apontar para fora;
+  - o `worktree.dir` do manifesto que leva para fora da raiz pelo caminho real (`..`, caminho absoluto, link no
+    caminho ou `.git`) só cria worktree depois de a máquina confirmar a pasta com `ork setup worktree confirmar`,
+    gravado em `.orkastery/private/worktree-local.json` (0600, fora do git, só para este checkout e esta pasta). Sem
+    isso, a criação recusa com `worktree.dir-fora-da-raiz`, e o `ork doctor` acusa. **Muda para quem já usa worktree
+    fora da raiz:** rode o comando uma vez em cada máquina; as worktrees que já existem seguem valendo;
+  - o `ork eval` só executa o catálogo (canários, hooks e `core/dist`) do pacote que está rodando. Um diretório com
+    `skills/`, `references/` e `eval/` achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio`.
+    **Muda para quem roda o `ork` instalado dentro de um checkout do Orkastery:** use o `ork` do checkout
+    (`node core/dist/index.js eval`), como o CI já faz;
+  - o `fabrica.compartilhada: true` do manifesto não liga mais a publicação do retrato desta máquina (threads, nome,
+    host) no remoto do clone, nem a leitura das outras máquinas: só a adesão da máquina liga (`ork fabrica entrar`,
+    em `~/.orkastery/maquina.json`, ou `ORK_FABRICA_COMPARTILHADA=1`). Com o pedido no manifesto e sem a adesão, o
+    `ork doctor` e o `ork fabrica` avisam com `fabrica.nao-confirmada`. **Muda para o time que ligava a fábrica só
+    pelo manifesto:** rode `ork fabrica entrar` uma vez em cada máquina.
+- **Fronteira de confiança do repositório clonado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
+  auditoria de cada chamada de processo e de cada caminho montado com dado do clone em `core/src`, com a matriz em
+  [docs/referencia/fronteira-de-confianca.md](docs/referencia/fronteira-de-confianca.md). Corrigido:
+  - o `mergeSha` e o `para` de um `ship_done` do ledger só chegam ao `git log` da detecção de reversão como sha
+    hexadecimal e nome de branch, depois de `--end-of-options`; antes, um ledger versionado no clone passava uma
+    opção ao git em `ork master` e `ork ship`;
+  - `ork docs sincronizar` não cai mais na base crua do manifesto quando ela não resolve, e o sha do ledger e o
+    commit do frontmatter só vão ao git como sha hexadecimal;
+  - o manifesto recusa `worktree.base_branch` que o git não aceita como nome de branch (começa com `-`, tem `..`);
+  - o manifesto recusa `memory.cli` relativo: vale nome procurado no PATH, como `orkmind`, ou caminho absoluto. A
+    sonda do OrkMind (inclusive a do `ork doctor`) ignora entradas relativas do PATH e shebang com interpretador
+    relativo, e o `ork brain` roda o executável com cwd no `$HOME`, não na raiz do clone;
+  - `.orkastery`, `.orkastery/threads` e a pasta de uma thread como link simbólico recusam com `estado.link`, e o
+    append do ledger, das claims e do board usa `O_NOFOLLOW`; antes, um link versionado levava a escrita para fora
+    da raiz;
+  - o id de uma rodada de auditoria lido do `run.json` precisa ser um nome simples (`audit.rodada-invalida`).
+  - O SECURITY.md passa a listar todos os comandos declarados que o `ork` executa (inclusive `verify.preparo`,
+    `ci.command`, `.ork-ci/` e `doneWhen`). Cinco itens que exigem mudar comportamento aceito hoje ficam na matriz
+    como pendentes do dono.
+
+### Corrigido
+
+- **Prova de mod em sessão de fase** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `core/scripts/prova-mods-sessao-de-fase.cjs` abre a sessão de sonda com `--strict-mcp-config`, como o despacho de fase;
+  sem a flag, a sessão parava na aprovação do MCP do projeto e a prova saía inconclusiva. Veredito da T0.1: o mod carrega
+  numa sessão `claude --bg` e recebe `classic.PostToolBatch`.
 
 ## [0.5.4] - 2026-10-12
 

@@ -13,6 +13,13 @@
       "description": "Six-phase threads (GOAL, PLAN, GO, CHECK, SHIP, MASTER) run by the local ork CLI: each claim is re-run against the repository before it counts, and you get short decisions only when they matter.",
       "category": "development",
       "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-ponte",
+      "source": "./marketplaces/claude-code/mods/ork-ponte",
+      "description": "Ponte dos mods do Orkastery no Claude Code: o papel da sessão, a leitura do núcleo, a faixa e os caminhos vigiados com dono único, e a guarda de autoridade que nenhum mod passa.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
     }
   ]
 }

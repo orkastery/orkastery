@@ -99,3 +99,18 @@ test('o texto mostra de ONDE o numero veio, nao so o numero', () => {
   assert.match(t, /go_fix_opened x2/);
   assert.match(textoDoIndice(calcularIndice([])), /nenhum insumo/);
 });
+
+// EN8 (a), decisao do dono de 11/10/2026: no #Fast, o ship sem --autorizar-push grava `ship_blocked`
+// com `human.pending`, que e a pausa prevista do modo, e nao tropeco da entrega. Em outro modo, ou
+// com outro motivo, o desconto segue.
+test('EN8: ship do #Fast barrado so pela autorizacao de push nao desconta o indice', () => {
+  const bloqueio = (modo: string, motivo: string): EventoLedger => ({
+    ts: '2026-10-03T06:30:00.000Z', thread: 't', tipo: TIPOS_DE_EVENTO.shipBloqueado, eventId: `e-${modo}-${motivo}`, modo, motivo,
+  });
+  const fast = calcularIndice([bloqueio('fast', 'human.pending')]);
+  assert.equal(fast.valor, INDICE_BASE, 'pausa prevista do #Fast');
+  assert.deepEqual(fast.parcelas, []);
+
+  assert.ok(calcularIndice([bloqueio('auto', 'human.pending')]).valor < INDICE_BASE, 'fora do #Fast segue descontando');
+  assert.ok(calcularIndice([bloqueio('fast', 'ci.failed')]).valor < INDICE_BASE, 'outro motivo no #Fast segue descontando');
+});

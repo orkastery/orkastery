@@ -1,0 +1,631 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm059nucleo",
+  "branch": "ork/ork-rm059nucleo-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C3",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/claude-bg-mods.test.ts",
+      "alegacao": "T0.7: o teste do despacho com mods passa. Instalado de um catálogo com um mod de papel fase e um de papel dono, o INSTALADO.json lista os dois e o montarComando passa um --plugin-dir a mais só para o de fase, logo depois do plugin; sem mods, um --plugin-dir só; arquivo fora do recibo, link, arquivo especial, declaração inválida e manifesto fora do recibo recusam com runtime.context.installation; tipos do motor em .claude-plugin/types ficam fora da conta; versão abaixo do mínimo do mod ou do 2.1.287, ou ilegível, deixa o mod de fora; a dependência vai antes de quem depende.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/claude-bg-mods.test.js"
+      ],
+      "criadoEm": "2026-10-12T03:47:14.899Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "T0.7 (D2): montarComando acrescenta um --plugin-dir por mod de fase que o claude do despacho carrega (versão no mínimo do mod e no 2.1.287 da API de mods), logo depois do --plugin-dir do plugin do Orkastery; sem mod de fase, o comando é o de antes.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"^export function modsParaOClaude[(]\" core/src/adapters/claude-bg.ts && grep -F \"args.push('--plugin-dir', contexto.instalacao, ...mods.flatMap((m) => ['--plugin-dir', m.dir]), '--strict-mcp-config',\" core/src/adapters/claude-bg.ts && grep -F \"export const MINIMO_DA_API_DE_MODS = '2.1.287';\" core/src/adapters/claude-bg.ts"
+      ],
+      "criadoEm": "2026-10-12T03:47:20.967Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/README.md",
+      "alegacao": "T0.7: o README do adaptador Claude Code documenta os mods nas sessões de fase: a declaração orkastery-mod.json, o que o ork adapter install copia, o que o despacho passa e confere (recusa com runtime.context.installation) e como tirar um mod das sessões de fase.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"## Mods nas sessões de fase (RM-059)\" adapters/claude-code/README.md && grep -F '{\"formato\":\"ork.mod/v1\",\"papeis\":[\"fase\"],\"claudeCodeMinimo\":\"2.1.287\"}' adapters/claude-code/README.md && grep -F \"runtime.context.installation\" adapters/claude-code/README.md"
+      ],
+      "criadoEm": "2026-10-12T03:47:23.643Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/mods/ork-exemplo/orkastery-mod.json",
+      "alegacao": "T0.7: o mod de exemplo dos testes segue a convenção compartilhada ork.mod/v1 com papel fase e claudeCodeMinimo 2.1.287, tem manifesto com nome ork-exemplo, hooks.json com o módulo ./register.js que registra classic.SessionStart, e um teste do kit claude-code/testing.",
+      "negativa": false,
+      "verificar": [
+        "python3 -I -c \"import json; b='core/test/fixtures/mods/ork-exemplo/'; p=json.load(open(b+'.claude-plugin/plugin.json')); h=json.load(open(b+'hooks/hooks.json')); d=json.load(open(b+'orkastery-mod.json')); r=open(b+'hooks/register.js').read(); t=open(b+'test/exemplo.test.tsx').read(); assert p['name']=='ork-exemplo' and p['description'] and p['version'] and p['author']['name']; assert h=={'modules':['./register.js']}; assert d=={'formato':'ork.mod/v1','papeis':['fase'],'claudeCodeMinimo':'2.1.287'}; assert 'export const register' in r and chr(39)+'classic.SessionStart'+chr(39) in r; assert chr(39)+'claude-code/testing'+chr(39) in t; print('mod de exemplo na convencao ork.mod/v1, papel fase')\""
+      ],
+      "criadoEm": "2026-10-12T03:47:30.622Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/mods/ork-exemplo/.claude-plugin/plugin.json",
+      "alegacao": "T0.7: o manifesto do mod de exemplo tem nome ork-exemplo, versão, descrição e autor, e o mod inteiro segue a convenção ork.mod/v1 com papel fase.",
+      "negativa": false,
+      "verificar": [
+        "python3 -I -c \"import json; b='core/test/fixtures/mods/ork-exemplo/'; p=json.load(open(b+'.claude-plugin/plugin.json')); h=json.load(open(b+'hooks/hooks.json')); d=json.load(open(b+'orkastery-mod.json')); r=open(b+'hooks/register.js').read(); t=open(b+'test/exemplo.test.tsx').read(); assert p['name']=='ork-exemplo' and p['description'] and p['version'] and p['author']['name']; assert h=={'modules':['./register.js']}; assert d=={'formato':'ork.mod/v1','papeis':['fase'],'claudeCodeMinimo':'2.1.287'}; assert 'export const register' in r and chr(39)+'classic.SessionStart'+chr(39) in r; assert chr(39)+'claude-code/testing'+chr(39) in t; print('mod de exemplo na convencao ork.mod/v1, papel fase')\""
+      ],
+      "criadoEm": "2026-10-12T03:47:34.368Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/mods/ork-exemplo/hooks/hooks.json",
+      "alegacao": "T0.7: o hooks.json do mod de exemplo nomeia só o módulo ./register.js, e o mod inteiro segue a convenção ork.mod/v1 com papel fase.",
+      "negativa": false,
+      "verificar": [
+        "python3 -I -c \"import json; b='core/test/fixtures/mods/ork-exemplo/'; p=json.load(open(b+'.claude-plugin/plugin.json')); h=json.load(open(b+'hooks/hooks.json')); d=json.load(open(b+'orkastery-mod.json')); r=open(b+'hooks/register.js').read(); t=open(b+'test/exemplo.test.tsx').read(); assert p['name']=='ork-exemplo' and p['description'] and p['version'] and p['author']['name']; assert h=={'modules':['./register.js']}; assert d=={'formato':'ork.mod/v1','papeis':['fase'],'claudeCodeMinimo':'2.1.287'}; assert 'export const register' in r and chr(39)+'classic.SessionStart'+chr(39) in r; assert chr(39)+'claude-code/testing'+chr(39) in t; print('mod de exemplo na convencao ork.mod/v1, papel fase')\""
+      ],
+      "criadoEm": "2026-10-12T03:47:38.087Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/mods/ork-exemplo/hooks/register.js",
+      "alegacao": "T0.7: o módulo do mod de exemplo exporta register e registra classic.SessionStart sem mudar a resposta; o .js e o teste .tsx ficam fora do build:test do núcleo, que compila test/**/*.ts.",
+      "negativa": false,
+      "verificar": [
+        "python3 -I -c \"import json; b='core/test/fixtures/mods/ork-exemplo/'; p=json.load(open(b+'.claude-plugin/plugin.json')); h=json.load(open(b+'hooks/hooks.json')); d=json.load(open(b+'orkastery-mod.json')); r=open(b+'hooks/register.js').read(); t=open(b+'test/exemplo.test.tsx').read(); assert p['name']=='ork-exemplo' and p['description'] and p['version'] and p['author']['name']; assert h=={'modules':['./register.js']}; assert d=={'formato':'ork.mod/v1','papeis':['fase'],'claudeCodeMinimo':'2.1.287'}; assert 'export const register' in r and chr(39)+'classic.SessionStart'+chr(39) in r; assert chr(39)+'claude-code/testing'+chr(39) in t; print('mod de exemplo na convencao ork.mod/v1, papel fase')\"",
+        "grep -F '\"include\": [\"src/**/*.ts\", \"test/**/*.ts\"]' core/tsconfig.test.json"
+      ],
+      "criadoEm": "2026-10-12T03:47:42.219Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/mods/ork-exemplo/test/exemplo.test.tsx",
+      "alegacao": "T0.7: o mod de exemplo tem um teste do kit claude-code/testing (claude plugin test roda *.test.ts e *.test.tsx), e o mod inteiro segue a convenção ork.mod/v1 com papel fase.",
+      "negativa": false,
+      "verificar": [
+        "python3 -I -c \"import json; b='core/test/fixtures/mods/ork-exemplo/'; p=json.load(open(b+'.claude-plugin/plugin.json')); h=json.load(open(b+'hooks/hooks.json')); d=json.load(open(b+'orkastery-mod.json')); r=open(b+'hooks/register.js').read(); t=open(b+'test/exemplo.test.tsx').read(); assert p['name']=='ork-exemplo' and p['description'] and p['version'] and p['author']['name']; assert h=={'modules':['./register.js']}; assert d=={'formato':'ork.mod/v1','papeis':['fase'],'claudeCodeMinimo':'2.1.287'}; assert 'export const register' in r and chr(39)+'classic.SessionStart'+chr(39) in r; assert chr(39)+'claude-code/testing'+chr(39) in t; print('mod de exemplo na convencao ork.mod/v1, papel fase')\""
+      ],
+      "criadoEm": "2026-10-12T03:47:45.830Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/gerar-marketplaces-mods.test.ts",
+      "alegacao": "T0.8: o gerador põe cada mod de adapters/claude-code/mods/*/orkastery-mod.json no marketplace próprio, com source na pasta do mod e nome e descrição do manifesto dele; sem mods, o marketplace gerado tem só o plugin e o --verificar sai 0 no HEAD; cada regra da declaração ork.mod/v1 e do manifesto do mod reprova sozinha; a pasta do diretório da Anthropic não leva mod.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/scripts/gerar-marketplaces.cjs --verificar && npm --prefix core run build:test && node --test core/dist-test/test/gerar-marketplaces-mods.test.js"
+      ],
+      "criadoEm": "2026-10-12T03:49:00.855Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/fontes/listagem.json",
+      "alegacao": "T0.8: a fonte da listagem tem a categoria das entradas de mod do marketplace próprio (mods.category development), e o --verificar segue saindo 0.",
+      "negativa": false,
+      "verificar": [
+        "python3 -I -c \"import json; l=json.load(open('marketplaces/fontes/listagem.json')); assert l['mods']=={'category':'development'}; print('listagem com a categoria dos mods')\" && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T03:49:05.446Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/canario-eventos-mods.test.ts",
+      "alegacao": "T0.9: o canário de eventos aprova com o contrato inteiro no binário, reprova e diz qual nome falta, reprova quando o controle aparece, acha nome que cruza a fronteira do bloco, extrai os nomes do fonte do mod fora dos testes, roda validate --strict e test por mod com --com-plugin (o test reprovado reprova), sai 2 sem claude ou com o invólucro do npm; e o job mods do ci.yml instala o Claude Code fixado sem credencial e roda o canário.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/canario-eventos-mods.test.js"
+      ],
+      "criadoEm": "2026-10-12T03:50:30.061Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/canario-eventos-mods.cjs",
+      "alegacao": "T0.9: o canário procura no binário cada evento e chamada do contrato dos mods e dos mods da pasta; aprova num binário com o contrato inteiro e reprova, dizendo o nome, quando falta classic.PostToolBatch.",
+      "negativa": false,
+      "verificar": [
+        "node --check core/scripts/canario-eventos-mods.cjs && node -e \"const c=require('./core/scripts/canario-eventos-mods.cjs'); const fs=require('fs'); const os=require('os'); const p=require('path'); const d=fs.mkdtempSync(p.join(os.tmpdir(),'canario-')); const f=p.join(d,'bin'); fs.writeFileSync(f, c.CONTRATO.map((n)=>c.comoNoBinario(n)).join(String.fromCharCode(0))); const ok=c.canario(['--binario',f,'--mods','core/test/fixtures/mods']); fs.writeFileSync(f, c.CONTRATO.filter((n)=>n!=='classic.PostToolBatch').map((n)=>c.comoNoBinario(n)).join(String.fromCharCode(0))); const falta=c.canario(['--binario',f,'--mods','core/test/fixtures/mods']); fs.rmSync(d,{recursive:true}); if(ok.codigo!==0||ok.relatorio.controle.achado!==false||falta.codigo!==1||falta.relatorio.nomes.faltando.join()!=='classic.PostToolBatch') process.exit(1); console.log('canario: aprova com o contrato inteiro e reprova sem classic.PostToolBatch')\""
+      ],
+      "criadoEm": "2026-10-12T03:50:34.625Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "T0.9 (D5): o CI tem o job mods, que instala o Claude Code 2.1.296 fixado do registro do npm, sem credencial e com o tráfego não essencial desligado, e roda o canário com --com-plugin (validate --strict e test de cada mod).",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"        run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2.1.296\" .github/workflows/ci.yml && grep -F \"        run: node core/scripts/canario-eventos-mods.cjs --com-plugin\" .github/workflows/ci.yml && grep -F \"    name: mods do Claude Code (validate, test e canario)\" .github/workflows/ci.yml && grep -F \"      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1'\" .github/workflows/ci.yml"
+      ],
+      "criadoEm": "2026-10-12T03:50:37.510Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/claims-conferir.test.ts",
+      "alegacao": "T0.10: ork claims conferir roda só as claims pedidas, na ordem pedida, sem gravar ledger nem claims.jsonl e devolvendo a condução; o prazo por comando nunca passa do que resta e o que não cabe não roda; recusas tipadas (desconhecida, retirada, repetida, prazo, pedido duplo, thread fechada) antes de executar; sem sandbox recusa sem fallback e sem tomar a condução; --tarefa lê o verify nos formatos de plano em uso, também com o manifesto lido da worktree; outra condução recusa; o CLI sai 2 em uso errado.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/claims-conferir.test.js"
+      ],
+      "criadoEm": "2026-10-12T04:01:48.683Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/claims-conferir.ts",
+      "alegacao": "T0.10 (D6, D7): a conferência usa o executor confinado do ork_verify (criarExecutorSandbox) como fábrica padrão, julga cada claim pelo verificarClaim do ork verify e não grava nada: o módulo não chama registrar, carimbarEstado, registrarGateBloqueado nem anexarJsonl.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"export const FORMATO_DA_CONFERENCIA = 'ork.claims-conferencia/v1';\" core/src/claims-conferir.ts && grep -F \"const fabricaPadrao: FabricaDeExecutor = (worktree, timeoutMs) => criarExecutorSandbox({ worktree, timeoutMs });\" core/src/claims-conferir.ts && grep -F \"const resultados = selecionadas.map((c) => verificarClaim(c, cwd, executor));\" core/src/claims-conferir.ts && ! grep -qE \"registrar[(]|carimbarEstado|registrarGateBloqueado|anexarJsonl\" core/src/claims-conferir.ts"
+      ],
+      "criadoEm": "2026-10-12T04:01:52.175Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T0.10: o CLI tem ork claims conferir na ajuda e no despacho de ork claims, chamando conferirClaims com --claims ou --tarefa, --prazo e --json.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"  if (sub === 'conferir') {\" core/src/index.ts && grep -F \"  claims conferir <thread-id> --claims C1,C2|--tarefa T1 [--prazo S] [--json]\" core/src/index.ts && grep -F \"const r = conferirClaims(carregado, id, {\" core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T04:01:54.558Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "T0.10: a referência do CLI documenta ork claims conferir, as opções --tarefa, --prazo e --json (ork.claims-conferencia/v1) e a limitação do sandbox, e passa no markdownlint.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"ork claims conferir <thread> --claims C1,C2\" docs/referencia/cli.md && grep -F \"(no lugar de\" docs/referencia/cli.md && grep -F \"ork.claims-conferencia/v1\" docs/referencia/cli.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-12T04:01:56.727Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/pedido-da-thread.test.ts",
+      "alegacao": "T6.0: a thread criada com pedido guarda o texto em pedido.md (modo 600) com o sha256 no thread.json e no thread_created; sem pedido, nada muda; vazio ou acima de 64 KiB recusa antes de gravar e o ensaio não grava; o render sem --pedido usa o guardado e diz isso, --pedido vence, thread sem pedido segue com o exemplo; pedido editado, apagado ou trocado por link vira erro tipado; o CLI guarda o pedido no thread new e recusa --pedido sem texto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/pedido-da-thread.test.js"
+      ],
+      "criadoEm": "2026-10-12T04:06:51.721Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "T6.0 (D8): o tipo Thread ganha o campo opcional pedido (PedidoDaThread: arquivo pedido.md, sha256 e bytes); thread antiga sem o campo continua válida.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"  pedido?: PedidoDaThread;\" core/src/types.ts && grep -F \"export interface PedidoDaThread {\" core/src/types.ts && grep -F \"  arquivo: 'pedido.md';\" core/src/types.ts"
+      ],
+      "criadoEm": "2026-10-12T04:06:56.722Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T6.0: ork thread new aceita --pedido e o passa à novaThread; ork prompt render sem --pedido usa o pedido guardado da thread (pedidoDaThread), e a ajuda diz isso.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"const guardado = texto(args.opcoes.pedido) === undefined ? pedidoDaThread(obrigatorio.raiz, thread) : null;\" core/src/index.ts && grep -F \"...(pedidoDoBuilder !== undefined ? { pedido: pedidoDoBuilder } : {}),\" core/src/index.ts && grep -F \"guarda o pedido do builder (pedido.md, com sha256): o\" core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T04:06:59.333Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "T6.0: a referência do CLI documenta ork thread new --pedido e o render que usa o pedido guardado quando falta --pedido, e passa no markdownlint.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"Guarda o pedido do builder em\" docs/referencia/cli.md && grep -F \"usa o pedido guardado na cria\" docs/referencia/cli.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-12T04:07:01.072Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG tem em \"Não publicado\" uma linha por tarefa desta thread (mods de fase no despacho, marketplace pelo gerador, job dos mods e canário, ork claims conferir e pedido guardado), o checador do CI aceita contra a origin/main e nenhuma linha de outra entrega foi apagada.",
+      "negativa": true,
+      "verificar": [
+        "grep -F \"conferidos contra o recibo**\" CHANGELOG.md && grep -F \"**Mods no marketplace pr\" CHANGELOG.md && grep -F \"**Job dos mods no CI\" CHANGELOG.md && grep -F \"ork.claims-conferencia/v1\" CHANGELOG.md && grep -F \"**Pedido guardado na cria\" CHANGELOG.md && test \"$(git diff --numstat origin/main...HEAD -- CHANGELOG.md | cut -f2)\" = 0 && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-12T04:09:40.926Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "Escopo da thread: nenhum arquivo de adapters/claude-code/mods nem core/scripts/checar-mods.cjs (caminhos da thread da ponte) muda, e nenhuma linha acrescentada pela thread traz caminho de máquina, e-mail pessoal ou o caractere em-dash.",
+      "negativa": true,
+      "verificar": [
+        "base=$(git merge-base origin/main HEAD) && git diff --quiet \"$base\" HEAD -- adapters/claude-code/mods core/scripts/checar-mods.cjs && ! git diff \"$base\" HEAD -- . \":(exclude).ork-ci\" | grep -E \"^[+]\" | grep -E \"/hom[e]/|@gmai[l]\" && python3 -I -c \"import subprocess,sys; d=subprocess.run(['git','diff',sys.argv[1],'HEAD'],capture_output=True,text=True).stdout; add=[l for l in d.splitlines() if l.startswith('+') and not l.startswith('+++')]; assert add and not any(chr(0x2014) in l for l in add); print('sem em-dash nas', len(add), 'linhas acrescentadas')\" \"$base\""
+      ],
+      "criadoEm": "2026-10-12T04:10:04.296Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/README.md",
+      "alegacao": "T0.8: o README do adaptador diz que o mod de papel dono não vai ao despacho e se instala pelo marketplace próprio, no escopo do projeto.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"claude plugin install <mod>@orkastery --scope project\" adapters/claude-code/README.md && grep -F \"claude plugin marketplace add orkastery/orkastery\" adapters/claude-code/README.md"
+      ],
+      "criadoEm": "2026-10-12T04:10:05.877Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/integracoes-locais.ts",
+      "alegacao": "GO-FIX do CHECK (A5): o teste do sandbox real da conferência entra na lista de integrações locais, como o do mcp-verify, e o CI hermético não o roda.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"  'claims-conferir-sandbox.test.js',\" core/src/integracoes-locais.ts"
+      ],
+      "criadoEm": "2026-10-12T04:56:38.254Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/gerar-marketplaces.cjs",
+      "alegacao": "GO-FIX do CHECK (B1, D13): o gerador copia cada mod para marketplaces/claude-code/mods/&lt;mod&gt; com os arquivos comuns da raiz de adapters/claude-code/mods dentro da cópia, aponta a entrada do marketplace para a cópia, não reprova arquivo comum na raiz de mods/ e o --verificar segue saindo 0 no HEAD.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"  mods: 'marketplaces/claude-code/mods',\" core/scripts/gerar-marketplaces.cjs && grep -E \"^function compartilhadosDeMods[(]raiz[)] [{]\" core/scripts/gerar-marketplaces.cjs && grep -F \"}, ...entradasDosMods],\" core/scripts/gerar-marketplaces.cjs && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T05:00:31.508Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/README.md",
+      "alegacao": "O guia dos marketplaces diz que a cópia de cada mod em marketplaces/claude-code/mods é gerada, leva os arquivos comuns da raiz de mods/ e só entra no marketplace próprio, e passa no markdownlint.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"claude-code/mods/<mod>/\" marketplaces/README.md && grep -F \"e as cópias dos mods são **geradas**\" marketplaces/README.md && core/node_modules/.bin/markdownlint-cli2 marketplaces/README.md"
+      ],
+      "criadoEm": "2026-10-12T05:00:33.494Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-context.ts",
+      "alegacao": "T0.7 com o GO-FIX do CHECK (A1 e dependências): os mods de fase do recibo conferido levam as dependências que são mods desta instalação; arquivo fora do recibo recusa dizendo que a reinstalação tira o que saiu do catálogo e onde apagar o que foi editado à mão.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"^export function modsDeFaseInstalados[(]\" core/src/runtime-context.ts && grep -F \"export interface ModDeFase { nome: string; dir: string; claudeCodeMinimo: string; dependencias: string[] }\" core/src/runtime-context.ts && grep -F \".filter((d) => daInstalacao.has(d) && d !== nome)\" core/src/runtime-context.ts && grep -F \"se ele saiu do catalogo, ork adapter install claude-code o tira da copia\" core/src/runtime-context.ts && grep -F \"&& !tipoDoMotor(relativo)) {\" core/src/runtime-context.ts"
+      ],
+      "criadoEm": "2026-10-12T05:04:01.040Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "GO-FIX do CHECK (dependências): mod de fase cuja dependência ficou de fora do despacho (pela versão, ou por ser só de papel dono) também fica de fora.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"const sobram = vao.filter((m) => m.dependencias.every((d) => nomes.has(d)));\" core/src/adapters/claude-bg.ts && grep -E \"^export function modsParaOClaude[(]\" core/src/adapters/claude-bg.ts"
+      ],
+      "criadoEm": "2026-10-12T05:04:03.261Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/hosts.ts",
+      "alegacao": "GO-FIX do CHECK (A1): ork adapter install tira da cópia os arquivos de mods/ que o recibo anterior instalou, ninguém editou e saíram do catálogo (no --dry-run só os lista); arquivo editado, link ou caminho fora do destino fica.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"^function sobrasDeMods[(]destino: string, recibo: ReciboDeInstalacao [|] null, arquivos: ArquivoInstalado[[][]][)]: string[[][]] [{]\" core/src/hosts.ts && grep -F \"  const removidos = sobrasDeMods(destino, recibo, arquivos);\" core/src/hosts.ts && grep -F \"return sha256(fs.readFileSync(alvo)) === a.sha256 ? [rel] : [];\" core/src/hosts.ts"
+      ],
+      "criadoEm": "2026-10-12T05:04:05.736Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/canario-eventos-mods.cjs",
+      "alegacao": "GO-FIX do CHECK (A2): o canário deixa fora da busca no binário as chamadas de nouns que os próprios mods acrescentam a $ (declarados em interface EngineInterface nos .d.ts do mod, como o $.ork da ponte) e lista o que ignorou.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"^function nounsDosMods[(]dirs[)] [{]\" core/scripts/canario-eventos-mods.cjs && grep -F \"const dosMods = usados.filter((n) => !nouns.includes(n.split('.')[0]));\" core/scripts/canario-eventos-mods.cjs && node --check core/scripts/canario-eventos-mods.cjs"
+      ],
+      "criadoEm": "2026-10-12T05:05:34.478Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/thread.ts",
+      "alegacao": "T6.0 com o GO-FIX do CHECK: o pedido.md é gravado por temporário com fsync e link (sem sobrescrever) antes do thread.json, com o sha256 no thread.json e no thread_created; pedidoDaThread recusa nome de arquivo diferente de pedido.md e confere o sha256 antes de devolver o texto; teto de 64 KiB.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"^export function pedidoDaThread[(]raiz: string, thread: Thread[)]\" core/src/thread.ts && grep -F \"export const TETO_DO_PEDIDO = 64 * 1024;\" core/src/thread.ts && test \"$(grep -cF '...(pedido ? { pedido: pedido.meta } : {}),' core/src/thread.ts)\" = 2 && grep -E \"^function gravarPedido[(]dir: string, texto: string[)]: void [{]\" core/src/thread.ts && grep -F \"fs.linkSync(temporario, alvo);\" core/src/thread.ts && grep -F \"if (meta.arquivo !== ARQUIVO_DO_PEDIDO\" core/src/thread.ts"
+      ],
+      "criadoEm": "2026-10-12T05:07:48.452Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "GO-FIX do CHECK (A4): ork thread new confere o pedido antes da reserva do roadmap e sai 2 com o motivo quando ele é inválido, sem ir ao remoto.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"try { prepararPedido(pedidoDoBuilder); }\" core/src/index.ts && grep -F \"A4 do CHECK: pedido invalido e erro de uso\" core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T05:07:50.229Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": ".claude-plugin/marketplace.json",
+      "alegacao": "Marketplace próprio regenerado depois do merge da ponte (D13): a entrada ork-ponte aponta para a cópia em marketplaces/claude-code/mods/ork-ponte, com a descrição do manifesto do mod e a categoria development; a cópia é igual à pasta do mod no catálogo mais o autoridade.json da raiz de mods/, e o gerador --verificar sai 0.",
+      "negativa": false,
+      "verificar": [
+        "python3 -I -c \"import json; m=json.load(open('.claude-plugin/marketplace.json')); e=[p for p in m['plugins'] if p['name']=='ork-ponte']; d=json.load(open('adapters/claude-code/mods/ork-ponte/.claude-plugin/plugin.json')); assert len(e)==1 and e[0]['source']=='./marketplaces/claude-code/mods/ork-ponte' and e[0]['category']=='development' and e[0]['description']==d['description'], e; print('entrada da ork-ponte aponta para a copia gerada')\" && node core/scripts/gerar-marketplaces.cjs --verificar && diff -r -x autoridade.json adapters/claude-code/mods/ork-ponte marketplaces/claude-code/mods/ork-ponte && cmp adapters/claude-code/mods/autoridade.json marketplaces/claude-code/mods/ork-ponte/autoridade.json"
+      ],
+      "criadoEm": "2026-10-12T05:48:24.263Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/marketplaces.test.ts",
+      "alegacao": "Integração com a ponte na base: o teste do gerador dos marketplaces (RM-049) copia também adapters/claude-code/mods quando a pasta existe, então a cópia da ork-ponte em marketplaces/claude-code/mods não vira deriva na raiz temporária, e o arquivo passa inteiro.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"...(fs.existsSync(path.join(RAIZ, 'adapters/claude-code/mods')) ? ['adapters/claude-code/mods'] : []),\" core/test/marketplaces.test.ts && npm --prefix core run build:test && node --test core/dist-test/test/marketplaces.test.js"
+      ],
+      "criadoEm": "2026-10-12T05:51:01.208Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/claims-conferir.ts",
+      "alegacao": "GO-FIX da rodada 2 do CHECK (resíduos do B2 e do A3): o item do verify da tarefa inclui as linhas que o Markdown junta a ele (continuação colada, linhas mais recuadas e subitens, mesmo depois de linha em branco), então o comando que quebra na linha de baixo recusa com tarefa-ambigua em vez de rodar só a primeira linha; e a worktree da thread precisa ficar dentro do projeto (a árvore principal, mesmo com o CLI rodando de dentro de uma worktree) e estar registrada no git dele na branch da thread, como no ork_verify.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"function itemDoVerify(bloco: string[], k: number, inicio: string): string {\" core/src/claims-conferir.ts && grep -F \"return m ? [itemDoVerify(bloco, k, m[1].trim())] : [];\" core/src/claims-conferir.ts && grep -E \"^function worktreeConferida[(]raiz: string, thread: Thread[)]: string [{]\" core/src/claims-conferir.ts && grep -F \"const projeto = fs.realpathSync(raizDoEstado(raiz));\" core/src/claims-conferir.ts && grep -F \"if (!worktreesDoGit(projeto).some((w) => w.dir === dir && w.branch === branch))\" core/src/claims-conferir.ts && grep -F \"const cwd = worktreeConferida(raiz, thread);\" core/src/claims-conferir.ts && grep -F \"a conferencia nao escolhe qual pedaco rodar\" core/src/claims-conferir.ts && ! grep -qF \"worktreesDoGit(dir)\" core/src/claims-conferir.ts"
+      ],
+      "criadoEm": "2026-10-12T06:00:43.077Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/claims-conferir.test.ts",
+      "alegacao": "O teste da conferência cobre os resíduos da rodada 2 do CHECK: cinco formas de verify que continua na linha de baixo recusam como ambíguas (uma delas com a forma da T1 da ork-rm055impedi2), quatro vizinhos (outro item, parágrafo depois de linha em branco, cabeçalho e outra lista) não entram no verify, e a worktree de outro repositório na branch da thread recusa, fora do projeto pela pasta e aninhada nele por não estar no git do projeto; a C18 roda o arquivo inteiro.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"Rodada 2 do CHECK: o item do verify continua nas linhas de baixo\" core/test/claims-conferir.test.ts && grep -F \"e o teste da fatia 1 (\" core/test/claims-conferir.test.ts && grep -F \"worktree-fora-do-projeto\" core/test/claims-conferir.test.ts && grep -F \"alheio(path.join(p.dir, 'aninhado'), path.join(p.dir, 'aninhado-wt'));\" core/test/claims-conferir.test.ts"
+      ],
+      "criadoEm": "2026-10-12T06:00:59.366Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-context.ts",
+      "alegacao": "GO-FIX da rodada 2 do CHECK (N2): com mod de fase no despacho, todo arquivo direto na raiz de mods/ da instalação (como a lista de autoridade que a ponte lê em ../autoridade.json) precisa estar no INSTALADO.json; arquivo fora do recibo, link ou arquivo especial ali recusam com runtime.context.installation (mods/: ...) e a recusa diz o caminho para apagar. Sem mod de fase, a raiz não é conferida.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"^function conferirRaizDosMods[(]raiz: string, instalacao: string, arquivos: ReadonlyMap<string, string>[)]: void [{]\" core/src/runtime-context.ts && grep -F \"if (achados.length) conferirRaizDosMods(raiz, instalacao, arquivos);\" core/src/runtime-context.ts && grep -F \"runtime.context.installation: mods/: \" core/src/runtime-context.ts && grep -F \"if (entrada.isSymbolicLink()) throw recusa(\" core/src/runtime-context.ts"
+      ],
+      "criadoEm": "2026-10-12T06:01:34.339Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/src/hosts.ts",
+      "alegacao": "GO-FIX da rodada 2 do CHECK (N2): a reinstalação também tira da cópia o arquivo comum da raiz de mods/ que o recibo anterior instalou, ninguém editou e saiu do catálogo, e mantém a pasta mods/; o S11 do claude-bg-mods (rodado pela C3) prova a remoção de mods/autoridade.json.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"copia guarda como foram instalados (sha256 do recibo), os de cada mod e os comuns da raiz de\" core/src/hosts.ts && grep -E \"^function sobrasDeMods[(]destino: string, recibo: ReciboDeInstalacao [|] null, arquivos: ArquivoInstalado[[][]][)]: string[[][]] [{]\" core/src/hosts.ts"
+      ],
+      "criadoEm": "2026-10-12T06:01:37.323Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "core/test/claude-bg-mods.test.ts",
+      "alegacao": "O teste do despacho com mods cobre o N2 da rodada 2 do CHECK: a lista comum na raiz de mods/ entra no recibo, arquivo escrito à mão ali ou link recusam o despacho com o caminho para apagar, a reinstalação sem a lista no catálogo a tira da cópia (removidos mods/autoridade.json) e o despacho segue, e com só mod de dono a raiz não é conferida; a C3 roda o arquivo inteiro.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"S11 arquivo comum da raiz de mods/ so vale com recibo\" core/test/claude-bg-mods.test.ts && grep -F \"assert.deepEqual(r.removidos, ['mods/autoridade.json']);\" core/test/claude-bg-mods.test.ts"
+      ],
+      "criadoEm": "2026-10-12T06:01:40.317Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/README.md",
+      "alegacao": "Sugestão 10 e N2 da rodada 2 do CHECK no README do adaptador: num projeto com o adaptador instalado, o mod de papel dono carrega na sessão de quem conduz pela cópia instalada (claude --plugin-dir .claude/plugins/orkastery/mods/&lt;mod&gt;); o marketplace do repositório fica para quem não tem o adaptador local; o README avisa que remover um marketplace desinstala os plugins que vieram dele e não manda mais tirar o marketplace local; e diz que o arquivo comum da raiz de mods/ segue a regra do recibo quando há mod de fase.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"claude --plugin-dir .claude/plugins/orkastery/mods/<mod>\" adapters/claude-code/README.md && grep -F \"remover um marketplace desinstala os plugins que vieram dele\" adapters/claude-code/README.md && grep -F \"e o plugin do marketplace do repositório não traz o guard\" adapters/claude-code/README.md && grep -F \"antes da própria pasta, segue a mesma regra quando há mod de fase no despacho\" adapters/claude-code/README.md && ! grep -qF \"tire-o antes com\" adapters/claude-code/README.md"
+      ],
+      "criadoEm": "2026-10-12T06:02:53.779Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm059nucleo.json",
+      "alegacao": "O bundle do CI da thread, regravado depois da rodada 2 do CHECK, leva para o runner as claims ativas de C3 a C68, sem as retiradas (C4, C13, C23, C30, C31, C42, C43 a C59 e C63); adia só C1 e C2 (goal e plan, fora do checkout) e C32 (teste do sandbox real, integração local); roda o test:ci e não tem caminho de máquina, e-mail pessoal nem em-dash.",
+      "negativa": false,
+      "verificar": [
+        "python3 -I -c \"import json,re; b=json.load(open('.ork-ci/ork-rm059nucleo.json')); ids=[c['id'] for c in b['claims']]; adiadas=dict((d['id'],d['reason']) for d in b.get('deferredClaims',[])); t=open('.ork-ci/ork-rm059nucleo.json',encoding='utf-8').read(); assert b['schema']=='ork.ci-bundle/v1' and b['thread']=='ork-rm059nucleo' and b['branch']=='ork/ork-rm059nucleo-full'; fora=set(['C4','C13','C23','C30','C31','C42','C63']+['C%d'%i for i in range(43,60)]); esperadas=set('C%d'%i for i in range(3,69))-fora-set(['C32']); assert esperadas <= set(ids), sorted(esperadas-set(ids)); assert not fora & set(ids), sorted(fora & set(ids)); assert adiadas==dict(C1='artifact-not-in-checkout',C2='artifact-not-in-checkout',C32='local-integration-required'), adiadas; assert b['commands']==[dict(name='ci',command='npm --prefix core run test:ci')]; assert not re.search('/hom[e]/|@gmai[l]', t) and chr(0x2014) not in t; print('bundle ok:', len(ids), 'claims no CI,', len(adiadas), 'adiadas')\""
+      ],
+      "criadoEm": "2026-10-12T06:06:22.328Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/README.md",
+      "alegacao": "Sugestão da rodada 3 do CHECK: o README não diz mais que a cópia do mod de dono é conferida pelo INSTALADO.json ao carregar por --plugin-dir; diz que cada arquivo está registrado no recibo e que a conferência dos bytes roda no despacho, para mod de fase.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"carregamento ninguém confere os bytes: a conferência contra o recibo roda no despacho, para mod de\" adapters/claude-code/README.md && ! grep -qF \"conferida pelo\" adapters/claude-code/README.md"
+      ],
+      "criadoEm": "2026-10-12T06:15:59.579Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C1",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C2",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C32",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

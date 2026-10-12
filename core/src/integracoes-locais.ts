@@ -15,4 +15,6 @@ export const TESTES_DE_INTEGRACAO_LOCAL: ReadonlySet<string> = new Set([
   'rm037-fatia3-hard-link-mcp-git.test.js', 'rm037-fatia3-lease-mcp-git.test.js',
   // RM-038 (fatia de correcao): a ponte com o GovernedStore real da biblioteca instalada.
   'rm038-universo-ponte.test.js',
+  // RM-059 (T0.10): a conferencia pontual com o sandbox real do codex, como o mcp-verify.test.js.
+  'claims-conferir-sandbox.test.js',
 ]);
