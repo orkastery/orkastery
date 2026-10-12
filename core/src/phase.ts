@@ -260,6 +260,10 @@ export const REGRAS_DE_EVIDENCIA: readonly string[] = [
   'Nada de self-report: toda alegacao vem com o comando que a comprova e a saida real.',
   'Trabalhe apenas no diretorio de trabalho indicado acima.',
   'Passos irreversiveis (push, merge, delecao) so acontecem quando o modo autoriza.',
+  // RM-058 N2 (D13 da ork-rm058n2): tres sessoes de 12/10/2026 mandaram verify ou suite para segundo plano com `&`,
+  // perderam o processo e esperaram para sempre.
+  'Verify, build e suite rodam em primeiro plano, com timeout, nunca com `&` no comando: o processo em segundo plano ' +
+    'se perde e a sessao espera para sempre. O `ork verify` espera a vez na fila de recursos pesados.',
 ];
 
 /**
