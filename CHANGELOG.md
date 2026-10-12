@@ -21,6 +21,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   com teto e subtetos). Continuam pendentes a prioridade final, o horário e o canal do relatório e os
   valores do teto; o item segue em Refinamento até o dono autorizar o primeiro piloto.
 
+### Alterado
+
+- **Teto do `test` no verify deste repositório** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  o `orkastery.yaml` do projeto passa a dar 40 min ao comando `test` (`verify.timeout_ms_por_comando.test`),
+  porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba CPU. O `build` e os
+  outros comandos seguem no prazo padrão.
+
 ## [0.5.4] - 2026-10-12
 
 ### Adicionado
