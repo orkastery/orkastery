@@ -20,6 +20,7 @@ import { contextoHitl, abrirPedidoGate } from './hitl-gates';
 import { CAMPOS_DA_DECISAO_NO_MCP, estadoDoPedido, recusaNaSuperficie, respostaAceitaDoPedido } from './hitl-contract';
 import { apresentarDecisao, ofertaDoPedido, pedidoHitlAberto, prazoLocalDoPedido } from './hitl-presentation';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
+import { filaDoDono } from './pulse';
 import { montarPanoramaDaRede, redeDoProjetoFixado, textoDoPanoramaDaRede } from './network-roadmap';
 import { jsonDaRede, textoDaRede } from './rede-status';
 import { controleNativo } from './hitl-sessions';
@@ -402,7 +403,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       // RM-052: origem `instalacao`; o servidor fixado nao revela os outros projetos da maquina.
       const consulta=consultaDoProjeto(c,{origem:'instalacao',outrosProjetos:false,
         lido:['roadmap (docs/roadmap)',FORA_DA_CONSULTA.threadsDaMaquina],naoLido:[FORA_DA_CONSULTA.reservas,'threads de outras máquinas (ork network roadmap)']});
-      const status=montarStatusDoRoadmap(raiz,{projeto:c.manifesto.project.name,consulta});
+      // RM-062 (F2): a mesma fila do `ork pulse`; a consulta que falha e dita no fecho, nunca "Nada agora".
+      const status=montarStatusDoRoadmap(raiz,{projeto:c.manifesto.project.name,consulta,fila:(quando)=>filaDoDono(c,{quando})});
       return resposta({texto:textoDoStatusDoRoadmap(status),status});
     });
   /**

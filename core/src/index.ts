@@ -78,7 +78,7 @@ import {
 } from './superficie';
 import { devolverVagas, textoDoBoard, textoDoPlano, textoDoReap, planejar, threadsDeTodosOsPerfis } from './board';
 import { textoDoRadar, varrerSessoes } from './hitl';
-import { montarPulse, textoDoPulse } from './pulse';
+import { filaDoDono, montarPulse, textoDoPulse } from './pulse';
 import { codigosEmUso, interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
 import { CADENCIAS, gravarCadencia, inicioDaProximaJanela, lerCadencia, textoDaCadencia } from './pulse-cadencia';
 import { LIMIAR_DE_DECISOES_POR_FASE, placarDaThread, registrarDecisao, taxaDeReversao } from './decisao-autonoma';
@@ -2845,7 +2845,9 @@ function comandoRoadmap(args: Args): number {
     // RM-052: com o projeto consultado e o que ficou de fora (as outras maquinas nao sao lidas aqui).
     const consulta = consultaDoProjeto(carregado, { lido: ['roadmap (docs/roadmap)', FORA_DA_CONSULTA.threadsDaMaquina],
       naoLido: [FORA_DA_CONSULTA.reservas, 'threads de outras máquinas (ork network roadmap)'] });
-    const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta });
+    // RM-062 (F2): o fecho le a mesma fila do `ork pulse`, sem forja e sem registrar.
+    const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta,
+      fila: (quando) => filaDoDono(carregado, { quando }) });
     console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
     return 0;
   }

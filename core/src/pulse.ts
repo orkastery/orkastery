@@ -1,7 +1,8 @@
 import { exigirEscopoDeEscrita } from './escopo-escrita';
 /** D4: uma fila para quem precisa de humano, com fontes e espera observada. */
 import { consultarSessoes, ConsultaDeSessoes } from './adapters/claude-bg';
-import { estadoBruto, varrerSessoes } from './hitl';
+import { estadoBruto, redigirSegredos, varrerSessoes } from './hitl';
+import type { FilaDoDono } from './roadmap-status';
 import { detectarFasesOrfas, FaseOrfa, FontesDeVida } from './liveness';
 import { ManifestoCarregado } from './manifest';
 import { pendentesDeScore, PendenteDeScore, ORDEM_DAS_CLASSES } from './master';
@@ -267,6 +268,11 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
   registrar?: boolean; escopo?: readonly string[]; quando?: string; linhasLogs?: number; semRuntime?: boolean; consulta?: ConsultaDeSessoes;
   /** RM-037 (fatia 4): quem roda o `gh` na leitura dos PRs; os testes trocam por resposta gravada. */
   executorDoGh?: ExecutorDoGh;
+  /**
+   * RM-062 (F2): sem tocar a forja. A fila do dono nao depende dos PRs; quem so le a fila (o status do roadmap)
+   * nao espera a rede nem grava o retrato dos PRs.
+   */
+  semForja?: boolean;
 } = {}): Pulse {
   if (opcoes.registrar) exigirEscopoDeEscrita(opcoes.escopo);
   const diagnosticos: string[] = [];
@@ -289,7 +295,7 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
   // retrato que o status do roadmap le sem rede. Falha de leitura e diagnostico, nunca "sem PR".
   let entregas: EntregasDoProjeto | undefined;
   try {
-    entregas = entregasDoProjeto(carregado, { quando, sessoes: radar.sessoes, lerPrs: (candidatas): LeituraDePrs => {
+    entregas = entregasDoProjeto(carregado, { quando, sessoes: radar.sessoes, lerPrs: opcoes.semForja ? () => null : (candidatas): LeituraDePrs => {
       const leitura = lerPrsDaForja(carregado, { quando, executor: opcoes.executorDoGh, candidatas });
       if (leitura.ok) {
         try { gravarRetratoDePrs(carregado.raiz, leitura.retrato); } catch { /* o retrato e economia do status */ }
@@ -320,6 +326,26 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
   } catch (e) { diagnosticos.push(`hitl-conducao.indisponivel: ${(e as Error).message.slice(0, 120)}`); }
   if (diagnosticos.length) pulse.runtime.detalhe = [pulse.runtime.detalhe, ...diagnosticos].filter(Boolean).join('; ');
   return pulse;
+}
+
+/**
+ * RM-062 (F2): a fila do dono que o `ork roadmap status` le, a MESMA do `ork pulse` (`precisaDeHumanoAgora`). Em 12/10/2026
+ * o status disse "Nada agora" com o pulse contando 3: as duas superficies montavam a fila cada uma do seu jeito. Sem
+ * forja e sem registrar; o texto de cada item sai numa linha, redigido.
+ */
+export function filaDoDono(carregado: ManifestoCarregado, opcoes: { quando?: string } = {}): FilaDoDono {
+  const linha = (texto: string, teto: number) => {
+    const limpo = redigirSegredos(texto).replace(/[\p{Cc}\s]+/gu, ' ').trim();
+    return limpo.length > teto ? `${limpo.slice(0, teto - 3)}...` : limpo;
+  };
+  try {
+    const p = montarPulse(carregado, { quando: opcoes.quando, semForja: true });
+    return { lida: p.runtime.ok, detalhe: p.runtime.ok ? null : linha(p.runtime.detalhe, 160),
+      itens: p.precisaDeHumanoAgora.map(i => ({ id: i.id, thread: i.thread, sessionId: i.sessionId, fase: i.fase, classe: i.classe,
+        motivo: i.motivo, pergunta: linha(i.pergunta || i.motivo, 200), comando: linha(i.comandoResposta, 160), paradaHaMin: i.paradaHaMin })) };
+  } catch (e) {
+    return { lida: false, detalhe: linha((e as Error).message, 160), itens: [] };
+  }
 }
 
 export function textoDoPulse(p: Pulse): string {

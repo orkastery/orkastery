@@ -747,6 +747,11 @@ export interface EstadoDaEntrega {
   /** Por que os PRs nao valeram, quando a thread precisava deles. */
   prNaoLido: string | null;
   conduzidaAgora: boolean;
+  /**
+   * RM-062 (F2): quem conduz agora, quando alguem conduz. O lease de uma SESSAO sobrevive a sessao morta ate a prova do
+   * fim; so o processo do condutor (um `ork verify`, um `ork ship`) e a reserva do canal dizem, por si, que ha trabalho agora.
+   */
+  donoDaConducao: 'sessao' | 'processo' | 'reserva' | null;
   espera: EsperaDoCondutor | null;
   parado: ParadoNoCondutor | null;
   /** O estado real em uma frase, para o status do roadmap. */
@@ -1064,7 +1069,8 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
         : daBranch.fechado ? `branch publicada, PR #${daBranch.fechado.numero} fechado sem merge` : 'branch publicada sem PR')
       : null;
     estados.push({ thread: t.id, branch: f.branch, comProduto: f.comProduto, publicada, pr: prDaEntrega,
-      prLidoEm: prLido && (usouPr || aberto) ? prLido.lidoEm : null, prNaoLido, conduzidaAgora, espera, parado, resumo });
+      prLidoEm: prLido && (usouPr || aberto) ? prLido.lidoEm : null, prNaoLido, conduzidaAgora,
+      donoDaConducao: conduzidaAgora && conducao ? conducao.dono.tipo : null, espera, parado, resumo });
   }
 
   // As sessoes `blocked` sem pergunta que sobraram: de thread fechada, ou de despacho antigo de thread aberta.
