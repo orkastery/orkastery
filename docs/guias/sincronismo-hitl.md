@@ -149,10 +149,16 @@ evento `batida_instalada` (ou `batida_removida`) vai ao ledger da máquina,
 `~/.orkastery/ledger.jsonl`, com a linha que entrou e as que saíram. Crontab que não se lê não é
 gravado: o comando recusa com `fabrica.batida.sem-leitura`.
 
+O crontab é lido como o cron e o `sh` o leem: a linha de ambiente (`ORK_PULSE_PROJECT=/outro`)
+vale para as entradas que vêm depois dela, e aspas, `~` e `$HOME` valem. O `instalar` e o `remover`
+releem o crontab antes de gravar e recusam com `fabrica.batida.concorrencia` quando ele mudou no meio.
+
 O `status` sai 1 sem a batida e avisa "atrasada" quando a batida está instalada e a última rodada
 do `hitl.log` passou de 30 minutos. O `ork doctor` reprova quando o projeto tem thread aberta e
-nenhuma batida, com ou sem `pulse-host.json`, e a correção é `ork fabrica batida instalar`. A
-linha que diz outro projeto (`ORK_PULSE_PROJECT` de outro checkout) não conta como batida deste.
+nenhuma batida deste projeto, com ou sem `pulse-host.json`, e a correção é `ork fabrica batida
+instalar`. A linha que roda a varredura de outro projeto, ou de outro checkout, não conta. Quem
+bate por outro agendador (timer do systemd, batida do host) prova a batida pelo `hitl.log`: uma
+rodada de até 30 minutos basta.
 
 Provas de operação:
 

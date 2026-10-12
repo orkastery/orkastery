@@ -14,9 +14,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `claude` e o transporte, e a marca `# ork-batida`; preserva as outras entradas, nunca grava sem ler e confere
   relendo. O `remover` tira só a linha marcada; o `status` diz a linha e a última rodada do `hitl.log`, com a idade,
   e sai 1 sem a batida. Os eventos novos `batida_instalada` e `batida_removida` vão ao ledger da máquina
-  (`~/.orkastery/ledger.jsonl`). O `ork doctor` passa a reprovar quando o projeto tem thread aberta e não há batida,
-  com ou sem `pulse-host.json`, com a correção `ork fabrica batida instalar`; antes, sem transporte, ele calava, e o
-  srvjcp86 ficou de 03/10 a 12/10/2026 sem varredura.
+  (`~/.orkastery/ledger.jsonl`). O crontab é lido como o cron e o `sh` o leem (linha de ambiente que vale para as
+  entradas seguintes, aspas, `~` e `$HOME`), e o que mudou entre a leitura e a gravação não é sobrescrito. O
+  `ork doctor` passa a reprovar quando o projeto tem thread aberta e não há batida deste projeto, com ou sem
+  `pulse-host.json`, com a correção `ork fabrica batida instalar`; uma rodada de até 30 min no `hitl.log` prova a
+  batida de outro agendador. Antes, sem transporte, ele calava, e o srvjcp86 ficou de 03/10 a 12/10/2026 sem varredura.
 
 ### Corrigido
 
@@ -32,8 +34,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   grava o prompt e o evento `phase_prompt_recorded` (prompt e sha256) antes de chamar o adaptador; a falha seca do
   adaptador e a exceção dele viram `gate_blocked runtime.unavailable` com o prompt e o sha256. O `ork retry run`
   acha o prompt pelo despacho da sessão do gate, pelo próprio gate ou pela tentativa mais recente da fase, localiza o
-  arquivo pelo sha256 (o caminho gravado da worktree não resolvia do checkout) e redespacha o mesmo sha256 sem pedir
-  o texto. Antes saía com "não há despacho falho registrado em GO com prompt gravado".
+  arquivo pelo sha256, só dentro do projeto (o caminho gravado da worktree não resolvia do checkout), e redespacha o
+  mesmo sha256 sem pedir o texto. Antes de redespachar, confere no runtime que nenhuma sessão viva trabalha na thread
+  (o `claude --bg` lento devolve erro com a sessão aberta): com ela, ou sem resposta do runtime, nada sai e a tentativa
+  não conta. Antes saía com "não há despacho falho registrado em GO com prompt gravado".
 
 ## [0.5.5] - 2026-10-12
 
