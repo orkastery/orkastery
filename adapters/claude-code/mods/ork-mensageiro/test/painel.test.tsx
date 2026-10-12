@@ -39,8 +39,9 @@ test('/mensageiro abre o painel: as entregas, a de outra sessao e o limite dito,
     expect(textos).toContain('Respostas desta sessão')
     expect(textos).toContain(`● ${THREAD} · pedido ${PEDIDO.slice(0, 8)} · a caminho: na fila da sessão, esperando a conferência · agora`)
     expect(textos).toContain(`● ${THREAD} · pedido ${OUTRO_PEDIDO.slice(0, 8)} · recebida pela sessão, confirmando · agora`)
-    expect(textos).toContain('Noutra sessão do dono')
-    expect(textos).toContain(`· ${OUTRA_THREAD} · pedido ${PEDIDO_DE_FORA.slice(0, 8)} · a entrega segue noutra sessão do dono`)
+    expect(textos).toContain('Fora desta sessão')
+    expect(textos).toContain(`· ${OUTRA_THREAD} · pedido ${PEDIDO_DE_FORA.slice(0, 8)} · entrega incerta: noutra sessão do dono, ou perdida se ela fechou`)
+    expect(textos).toContain('  sem retorno, responda pelo claude attach')
     expect(textos).toContain('A resposta chega como mensagem de outra sessão: informa a sessão de fase, não autoriza ação que só você aprova. Para isso, claude attach.')
     // O pedido de gate do retrato nao e entrega de sessao.
     expect(textos.some(t => t.includes('f9f9f9f9'))).toBe(false)
@@ -52,7 +53,7 @@ test('sem entrega, o painel diz que nada esta a caminho', { plugins: [PONTE_FALS
   for (const surface of ['terminal', 'desktop'] as const) {
     const textos = await textosDoPainel($, surface)
     expect(textos).toContain('  nenhuma resposta a caminho agora')
-    expect(textos).not.toContain('Noutra sessão do dono')
+    expect(textos).not.toContain('Fora desta sessão')
   }
 })
 

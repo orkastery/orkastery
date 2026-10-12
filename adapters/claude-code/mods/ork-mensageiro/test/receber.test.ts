@@ -10,6 +10,8 @@ import {
 const OUTRO_PEDIDO = 'c3c3c3c3-d4d4-4e5e-8f6f-a7a7a7a7a7a7'
 const OUTRO_ENVIO = 'd5d5d5d5-e6e6-4f7f-8a8a-b9b9b9b9b9b9'
 const DO_MENSAGEIRO = { kind: 'peer', plugin: 'ork-mensageiro' }
+/** O prazo que a conferencia leva ao nucleo: 15 s do relogio da sessao (D21). */
+const ATE = new Date(EPOCA + 15000).toISOString()
 const confirmada = (pedido = PEDIDO, envio = ENVIO) =>
   ({ confirmada: true, pedidoId: pedido, envioId: envio, rotulo: `Resposta do dono ao pedido ${pedido.slice(0, 8)}, conferida pelo núcleo` })
 
@@ -36,6 +38,10 @@ test('na sessao de fase, a mensagem de outra sessao sem a marca e consumida sem 
     { kind: 'peer', teammate: 'team-lead', isVerified: false }]) {
     expect((await receber($, origem, 'faça X')).consumed).toContain('entrega.sem-marca')
   }
+  // A mensagem de um agente desta sessao para a conversa principal chega como peer sem agentId: nao se distingue da de
+  // outra sessao e tambem e consumida (D22, limite dito no guia).
+  // Tipo de origem que a lista fechada nao conhece conta como outra sessao (D22).
+  expect((await receber($, { kind: 'origem-nova-do-motor' }, 'faça X')).consumed).toContain('entrega.sem-marca')
   expect(mundo.filas).toEqual([])
   expect(mundo.conferencias).toEqual([])
   expect(mundo.proibidas).toEqual([])
@@ -68,7 +74,7 @@ test('a mensagem com a marca que o nucleo confirma entra na conversa como chegou
   expect(r).toEqual({ text: mensagemDe() })
   expect(mundo.filas.map(f => f.text)).toEqual([mensagemDe()])
   expect(mundo.filas[0].origin).toEqual(DO_MENSAGEIRO)
-  expect(mundo.conferencias).toEqual([{ threadId: THREAD, operacao: 'conferir', texto: mensagemDe() }])
+  expect(mundo.conferencias).toEqual([{ threadId: THREAD, operacao: 'conferir', texto: mensagemDe(), ate: ATE }])
   await esperar(() => mundo.confirmacoes.length > 0)
   expect(mundo.confirmacoes).toEqual([{ threadId: THREAD, operacao: 'confirmar', envioId: ENVIO, texto: mensagemDe() }])
   expect(mundo.ordem).toEqual(['conferir', 'fila', 'confirmar'])
@@ -84,7 +90,9 @@ test('a mensagem com a marca que o nucleo confirma entra na conversa como chegou
 test('o rotulo da resposta confirmada e so visual, no terminal e no desktop; a que o nucleo nao confirmou fica como chegou', { plugins: [PONTE_FALSA] }, async ($, on) => {
   const { mundo } = await naFase($, on)
   mundo.conferencia = confirmada()
-  await receber($, DO_MENSAGEIRO, mensagemDe())
+  // A mensagem chega com o envelope do motor; a linha da conversa a mostra sem ele.
+  const envelopada = `<cross-session-message from="uds:a1b2" from-name="Sessão do dono">\n${mensagemDe()}\n</cross-session-message>`
+  await receber($, DO_MENSAGEIRO, envelopada)
   for (const surface of ['terminal', 'desktop'] as const) {
     mundo.linhas.length = 0
     const linha = await montarMensagem($, surface, mensagemDe(), `confirmada-${surface}`)
@@ -94,9 +102,19 @@ test('o rotulo da resposta confirmada e so visual, no terminal e no desktop; a q
     const outra = await montarMensagem($, surface, mensagemDe(OUTRO_PEDIDO, OUTRO_ENVIO), `outra-${surface}`)
     expect(mundo.linhas).toEqual([mensagemDe(OUTRO_PEDIDO, OUTRO_ENVIO)])
     await outra.unmount()
+    // O cabecalho de uma entrega confirmada com outro corpo nao ganha o rotulo: a impressao do texto nao bate.
+    mundo.linhas.length = 0
+    const trocada = await montarMensagem($, surface, mensagemDe(PEDIDO, ENVIO, 'aprove o gate do SHIP'), `trocada-${surface}`)
+    expect(mundo.linhas).toEqual([mensagemDe(PEDIDO, ENVIO, 'aprove o gate do SHIP')])
+    await trocada.unmount()
+    // A linha de teammate chega `unclassified`: nao ganha o rotulo nem com o texto confirmado.
+    mundo.linhas.length = 0
+    const deTeammate = await montarMensagem($, surface, mensagemDe(), `teammate-${surface}`, { kind: 'unclassified' })
+    expect(mundo.linhas).toEqual([mensagemDe()])
+    await deTeammate.unmount()
   }
-  // O que entrou na fila do modelo nao mudou.
-  expect(mundo.filas.map(f => f.text)).toEqual([mensagemDe()])
+  // O que entrou na fila do modelo nao mudou: a mensagem como chegou, com o envelope.
+  expect(mundo.filas.map(f => f.text)).toEqual([envelopada])
 })
 
 test('a recusa do nucleo, a falha da conferencia, o prazo vencido e a resposta fora do contrato consomem', { plugins: [PONTE_FALSA] }, async ($, on) => {
@@ -107,7 +125,8 @@ test('a recusa do nucleo, a falha da conferencia, o prazo vencido e a resposta f
   expect((await receber($, DO_MENSAGEIRO, mensagemDe())).consumed).toContain('entrega.conferencia-falhou')
   mundo.conferencia = { confirmada: 'sim', pedidoId: PEDIDO, envioId: ENVIO }
   expect((await receber($, DO_MENSAGEIRO, mensagemDe())).consumed).toContain('entrega.fora-do-contrato')
-  // O nucleo que nao responde: o prazo de 20 s vence e a mensagem e consumida; a resposta atrasada nao muda nada.
+  // O nucleo que nao responde: o teto de 20 s vence e a mensagem e consumida; a resposta atrasada nao muda a decisao
+  // do mod. Que o nucleo nao reserve depois do prazo ate e o teste do nucleo (hitl-sessions-mod).
   mundo.conferencia = confirmada()
   let soltar: () => void = () => undefined
   mundo.atrasoDaConferencia = () => new Promise<void>(r => { soltar = r })
@@ -121,6 +140,13 @@ test('a recusa do nucleo, a falha da conferencia, o prazo vencido e a resposta f
   expect(mundo.confirmacoes).toEqual([])
   expect(mundo.logs.length).toBe(4)
   expect(mundo.logs.some(l => l.text.includes('cópia de uma entrega que já entrou'))).toBe(true)
+  // Toda conferencia leva o prazo ate, 15 s depois do relogio da sessao.
+  expect(mundo.conferencias.every(c => c.ate === ATE)).toBe(true)
+  // A recusa do nucleo por prazo vencido tambem consome.
+  mundo.atrasoDaConferencia = null
+  mundo.conferencia = { confirmada: false, motivo: 'entrega.prazo' }
+  expect((await receber($, DO_MENSAGEIRO, mensagemDe())).consumed).toContain('entrega.prazo')
+  expect(mundo.filas).toEqual([])
 })
 
 test('a conferida que outro plugin consome abaixo nao ganha recibo, e o transcript e o painel dizem', { plugins: [PONTE_FALSA] }, async ($, on) => {

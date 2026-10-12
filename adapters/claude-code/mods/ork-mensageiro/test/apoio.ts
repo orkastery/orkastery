@@ -190,9 +190,9 @@ export async function receber($, origin, text, agentId?: string) {
 }
 
 /** A linha de mensagem desenhada numa superficie, com o texto que a sessao guardou. */
-export async function montarMensagem($, surface, text, requestId = 'mensagem-1') {
+export async function montarMensagem($, surface, text, requestId = 'mensagem-1', origin: Record<string, unknown> = { kind: 'peer' }) {
   return $.ui.mount({ plugin: 'ork-mensageiro', surface, component: 'UserMessage', requestId,
-    props: { text, origin: { kind: 'peer' }, isExpanded: true, from: { name: 'sessão do dono' } } })
+    props: { text, origin, isExpanded: true, from: { name: 'sessão do dono' } } })
 }
 
 /** O `/mensageiro` como o dono o digita. */

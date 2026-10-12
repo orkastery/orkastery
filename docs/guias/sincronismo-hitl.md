@@ -676,8 +676,10 @@ o pedido ao turno que parou nem entregar a resposta, e o caminho era o `claude a
   ingresso local recusa antes do diálogo, a entrega recusa antes de reservar e o Telegram recusa antes de gravar o
   ingresso, sempre com `runtime.unavailable` e a correção.
 - **O receptor:** o `ork_session_inbox` só existe no servidor preso a uma thread e a um despacho. Ele tira a sessão do
-  `phase_dispatch` do despacho, nunca de argumento, confere a entrega, o sha256 e o turno, e reserva uma vez. A pasta
-  `.orkastery/threads/<thread>/entregas-de-sessao/` guarda a reserva e o recibo, só com ids e o sha256.
+  `phase_dispatch` do despacho, nunca de argumento, aceita o envelope do Claude Code só na forma que o motor escreve,
+  confere a entrega, o sha256 e o turno, e reserva uma vez, só antes do prazo (`ate`) que o Mensageiro dá à conferência
+  (`entrega.prazo` depois dele). A pasta `.orkastery/threads/<thread>/entregas-de-sessao/` guarda a reserva e o recibo,
+  só com ids e o sha256.
 - **O que isto NÃO prova:** a entrega numa sessão `claude --bg` de verdade, que esta fatia não abriu. O guia diz os
   passos da prova e o que acontece se o formato no destino for outro: a entrega falha fechada.
 

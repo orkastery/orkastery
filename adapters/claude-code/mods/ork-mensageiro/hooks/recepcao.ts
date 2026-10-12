@@ -14,6 +14,11 @@ export const LIMITE_DA_MENSAGEM = 8192
 export const MAXIMO_DE_RECEBIDAS = 30
 /** O recibo que nao foi gravado volta nestas esperas; depois delas, a linha fica sem recibo. */
 export const ESPERAS_DA_CONFIRMACAO_MS = [5000, 30000, 120000]
+/**
+ * D21: o prazo que a conferencia leva ao nucleo (`ate`), bem antes do teto de 20 s da chamada no mod. O nucleo nao
+ * reserva depois dele: a conferencia atrasada nao deixa reserva sem ninguem para confirma-la.
+ */
+export const PRAZO_DA_CONFERENCIA_MS = 15000
 export const FASE_VAZIA: MensageiroFase = { thread: null, recebidas: [], erro: null }
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/
@@ -22,29 +27,31 @@ const uuid = (v: unknown): v is string => typeof v === 'string' && UUID.test(v)
 const curto = (id: string) => id.slice(0, 8)
 
 /**
- * As origens que trazem texto de outra sessao (G4 da thread ork-rm059mensag): a mensagem de outra sessao (`peer`,
- * `peer-send-message`), a de uma sessao coordenadora (`coordinator`, `projects-relay`) e a que ninguem classificou
- * (`unclassified`). `peer` e `coordinator` com `agentId` sao de agentes desta sessao.
+ * As origens que nao trazem texto de outra sessao (G4, D22 da thread ork-rm059mensag): o Remote Control do dono
+ * (`bridge`), a notificacao de tarefa, o agendamento e o canal. A lista e fechada: tipo novo ou desconhecido conta
+ * como outra sessao ate entrar aqui.
  */
-const SO_DE_FORA = ['peer-send-message', 'projects-relay', 'unclassified']
+const EXTERNAS = ['bridge', 'task-notification', 'scheduled-trigger', 'slack-ping']
+/** Entre a conversa principal e os agentes desta sessao: so com o `agentId` do agente de destino. */
 const ENTRE_AGENTES = ['peer', 'coordinator']
 
 export type ClasseDaOrigem = 'outra-sessao' | 'da-propria-sessao' | 'externa'
 
 /**
- * Classifica uma entrega que chegou: de outra sessao (so entra confirmada pelo nucleo), da propria sessao (agentes e
- * teammates que o harness verificou) ou externa (Remote Control do dono, notificacao de tarefa, agendamento, canais).
- * O mailbox de teammate que o harness nao verificou (`isVerified` diferente de `true`) conta como outra sessao: o
- * despacho roda os teammates no mesmo processo (`teammateMode: in-process`), e ali a entrada sem verificacao e uma
- * que nenhum membro mandou.
+ * Classifica uma entrega que chegou: externa (a lista fechada acima), da propria sessao (para um agente desta sessao,
+ * ou de teammate que o harness verificou) ou de outra sessao, que so entra confirmada pelo nucleo. Conta como outra
+ * sessao o mailbox que o harness nao verificou (`isVerified` diferente de `true`, D17: o despacho roda os teammates no
+ * mesmo processo, e ali a entrada sem verificacao e uma que nenhum membro mandou), `peer` e `coordinator` sem agente
+ * desta sessao como destino, inclusive a mensagem de um agente desta sessao para a conversa principal, que chega sem
+ * `agentId` e nao se distingue da de outra sessao (D22), e todo tipo desconhecido ou origem malformada.
  */
 export function classificarOrigem(origem: unknown, agentId: unknown): ClasseDaOrigem {
   const o = objeto(origem) ? origem : {}
   if ('teammate' in o || 'isVerified' in o) return o.isVerified === true ? 'da-propria-sessao' : 'outra-sessao'
   const kind = typeof o.kind === 'string' ? o.kind : ''
-  if (SO_DE_FORA.includes(kind)) return 'outra-sessao'
-  if (ENTRE_AGENTES.includes(kind)) return typeof agentId === 'string' && agentId !== '' ? 'da-propria-sessao' : 'outra-sessao'
-  return 'externa'
+  if (EXTERNAS.includes(kind)) return 'externa'
+  if (ENTRE_AGENTES.includes(kind) && typeof agentId === 'string' && agentId !== '') return 'da-propria-sessao'
+  return 'outra-sessao'
 }
 
 /** A origem para o registro e o painel, numa linha curta: o tipo e o plugin que o remetente diz ser. */
@@ -76,8 +83,9 @@ export function idsDaMarca(texto: unknown): { pedidoId: string | null; envioId: 
   return { pedidoId: m && uuid(m[1]) ? m[1] : null, envioId: m && uuid(m[2]) ? m[2] : null }
 }
 
-export function argsDaConferencia(thread: string, texto: string): Record<string, unknown> {
-  return { threadId: thread, operacao: 'conferir', texto }
+/** O argumento do `conferir`, com o prazo (`ate`) contado do relogio da sessao. */
+export function argsDaConferencia(thread: string, texto: string, agora: number): Record<string, unknown> {
+  return { threadId: thread, operacao: 'conferir', texto, ate: new Date(agora + PRAZO_DA_CONFERENCIA_MS).toISOString() }
 }
 
 export function argsDaConfirmacao(thread: string, envioId: string, texto: string): Record<string, unknown> {
@@ -118,6 +126,7 @@ export const MOTIVO_LEGIVEL: Record<string, string> = {
   'entrega.reservada': 'cópia de uma entrega que já entrou',
   'entrega.turno-mudou': 'a sessão já saiu do turno do pedido',
   'entrega.sem-reserva': 'a entrega não foi reservada por esta sessão',
+  'entrega.prazo': 'a conferência chegou ao núcleo depois do prazo',
   'entrega.fora-do-contrato': 'a conferência respondeu fora do contrato',
   'entrega.conferencia-falhou': 'a conferência no núcleo falhou',
   'entrega.sem-ponte': 'a ponte do Orkastery não carregou nesta sessão',
@@ -153,6 +162,53 @@ export function registroDaRecebida(r: MensageiroRecebida): string | null {
   return null
 }
 
+/**
+ * O que o `.catch` do receptor faz quando o gancho falha (D18): a entrega que nao e de outra sessao passa, como na
+ * sessao que nao e de fase; a de outra sessao so passa se o gancho ja tinha chamado `next` ou se o nucleo ja a
+ * confirmou e reservou (ela esta em voo); o resto e consumido. Papel desconhecido conta como fase.
+ */
+export function passaNaFalha(f: { chamouNext: boolean; origem: unknown; agentId: unknown; texto: unknown; papel: string | null;
+  emVoo: ReadonlySet<string> }): boolean {
+  if (f.chamouNext) return true
+  if (classificarOrigem(f.origem, f.agentId) !== 'outra-sessao') return true
+  if (f.papel !== null && f.papel !== 'fase') return true
+  return typeof f.texto === 'string' && f.emVoo.has(f.texto)
+}
+
+/** Um valor de atributo do envelope do motor: uma linha so, sem aspas nem sinal de tag (o mesmo do nucleo). */
+const VALOR_DE_LINHA = '[^"<>\\n\\r\\v\\f\\u0085\\u2028\\u2029]{1,200}'
+/** O envelope do Claude Code na forma que o motor escreve, o mesmo que o nucleo aceita (`entrega-por-mod.ts`). */
+const ENVELOPE_DO_MOTOR = new RegExp('^<cross-session-message' +
+  '(?: from="[^"<>\\s]{1,300}")?' +
+  '(?: from-session="[A-Za-z0-9_-]{1,80}")?' +
+  '(?: hop-chain="[0-9a-f]{24}(?:,[0-9a-f]{24}){0,31}")?' +
+  `(?: from-name="${VALOR_DE_LINHA}")?` +
+  '(?: from-mode="[A-Za-z-]{1,40}")?' +
+  `(?: from-plugin="${VALOR_DE_LINHA}")?` +
+  '>\\n([\\s\\S]*)\\n</cross-session-message>$')
+
+/** A mensagem sem o envelope do motor, como a linha da conversa a mostra; o texto como veio quando nao ha envelope. */
+export function mensagemSemEnvelope(texto: string): string | null {
+  const t = texto.replace(/\r\n?/g, '\n')
+  if (!t.startsWith('<')) return t
+  const m = ENVELOPE_DO_MOTOR.exec(t)
+  return m ? m[1] : null
+}
+
+/**
+ * A impressao do texto de uma mensagem (FNV-1a de 32 bits do texto normalizado, com o tamanho): so diz se a linha da
+ * conversa e a mensagem que o nucleo confirmou, sem guardar o texto (D12). Nao e prova: o que prova e a conferencia.
+ */
+export function impressaoDoTexto(texto: string): string {
+  const t = texto.replace(/\r\n?/g, '\n').replace(/\s+$/, '')
+  let h = 0x811c9dc5
+  for (let i = 0; i < t.length; i++) {
+    h ^= t.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return `${t.length.toString(16)}-${h.toString(16).padStart(8, '0')}`
+}
+
 /** Guarda o que chegou, o mais novo por ultimo e com teto, sem o texto da mensagem. */
 export function comRecebida(fase: MensageiroFase, r: MensageiroRecebida): MensageiroFase {
   return { ...fase, recebidas: [...fase.recebidas, r].slice(-MAXIMO_DE_RECEBIDAS) }
@@ -164,19 +220,20 @@ export function mudarRecebida(fase: MensageiroFase, envioId: string, estado: Men
   return { ...fase, recebidas: fase.recebidas.map(r => (r.envioId === envioId && r.estado !== 'consumida' ? { ...r, estado, motivo, em } : r)) }
 }
 
-/** As entregas que o nucleo confirmou nesta sessao: so a linha de uma delas ganha o rotulo. */
-export function confirmadasDaFase(fase: MensageiroFase | null | undefined): Set<string> {
-  return new Set((fase?.recebidas ?? []).flatMap(r => (r.envioId && r.estado !== 'consumida' && r.estado !== 'nao-entrou' ? [r.envioId] : [])))
+/** As entregas que o nucleo confirmou nesta sessao, com a impressao do texto: so a linha de uma delas ganha o rotulo. */
+export function confirmadasDaFase(fase: MensageiroFase | null | undefined): Map<string, string> {
+  return new Map((fase?.recebidas ?? []).flatMap(r =>
+    (r.envioId && r.impressao && r.estado !== 'consumida' && r.estado !== 'nao-entrou' ? [[r.envioId, r.impressao] as [string, string]] : [])))
 }
 
 /**
  * O texto da linha da mensagem com o rotulo no lugar do cabecalho, so para a entrega que o nucleo confirmou nesta
- * sessao; `null` deixa a linha como o Claude Code a desenha. So visual: o que fica guardado e o que o modelo le nao
- * mudam (D11).
+ * sessao e com o mesmo texto (a impressao); `null` deixa a linha como o Claude Code a desenha. So visual: o que fica
+ * guardado e o que o modelo le nao mudam (D11).
  */
-export function textoComRotulo(texto: unknown, confirmadas: ReadonlySet<string>): string | null {
+export function textoComRotulo(texto: unknown, confirmadas: ReadonlyMap<string, string>): string | null {
   const { pedidoId, envioId } = idsDaMarca(texto)
-  if (typeof texto !== 'string' || !pedidoId || !envioId || !confirmadas.has(envioId)) return null
+  if (typeof texto !== 'string' || !pedidoId || !envioId || confirmadas.get(envioId) !== impressaoDoTexto(texto)) return null
   const cabecalho = `${cabecalhoDaEntrega(pedidoId, envioId)}\n`
   return texto.startsWith(cabecalho) ? `${rotuloDaEntrega(pedidoId)}\n${texto.slice(cabecalho.length)}` : null
 }

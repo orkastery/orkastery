@@ -18,8 +18,8 @@ import { desenharPainel, linhasDaFase, linhasDoDono, mostradosVisiveis } from '.
 import type { Conferencia } from './recepcao'
 import {
   argsDaConferencia, argsDaConfirmacao, classificarOrigem, comRecebida, confirmadasDaFase, ESPERAS_DA_CONFIRMACAO_MS, FASE_VAZIA,
-  FERRAMENTA_DA_CONFERENCIA, idsDaMarca, lerConferencia, lerConfirmacao, LIMITE_DA_MENSAGEM, motivoDoConsumo, mudarRecebida,
-  nomeDaOrigem, registroDaRecebida, temMarca, textoComRotulo,
+  FERRAMENTA_DA_CONFERENCIA, idsDaMarca, impressaoDoTexto, lerConferencia, lerConfirmacao, LIMITE_DA_MENSAGEM, mensagemSemEnvelope,
+  motivoDoConsumo, mudarRecebida, nomeDaOrigem, passaNaFalha, registroDaRecebida, temMarca, textoComRotulo,
 } from './recepcao'
 
 const MOD = 'ork-mensageiro'
@@ -327,7 +327,7 @@ async function anotar($: EngineInterface, mudar: (f: MensageiroFase) => Mensagei
 /** Consome a mensagem de outra sessao antes do modelo, com o motivo no estado, no transcript e no registro do Claude Code. */
 async function consumir($: EngineInterface, e: SessionReceiveInput, motivo: string, detalhe?: string): Promise<SessionReceiveResult> {
   const r: MensageiroRecebida = { em: await instante($), origem: nomeDaOrigem(e.origin), estado: 'consumida', ...idsDaMarca(e.text),
-    motivo: detalhe ? `${motivo}: ${umaLinha(detalhe, 160)}` : motivo }
+    motivo: detalhe ? `${motivo}: ${umaLinha(detalhe, 160)}` : motivo, impressao: null }
   await anotar($, f => comRecebida(f, r), r)
   return { consumed: motivoDoConsumo(motivo) }
 }
@@ -355,17 +355,21 @@ async function receber($: EngineInterface, e: SessionReceiveInput, next: (e: Ses
   if (thread === null) return consumir($, e, 'entrega.despacho')
   let conferencia: Conferencia
   try {
-    conferencia = lerConferencia(jsonDoMcp(await comPrazo($, $.mcp.call('orkastery', 'ork_session_inbox', argsDaConferencia(thread, e.text))), FERRAMENTA_DA_CONFERENCIA))
+    conferencia = lerConferencia(jsonDoMcp(await comPrazo($, $.mcp.call('orkastery', 'ork_session_inbox', argsDaConferencia(thread, e.text, await instante($)))), FERRAMENTA_DA_CONFERENCIA))
   } catch (erro) {
     return consumir($, e, 'entrega.conferencia-falhou', mensagem(erro))
   }
   if (!conferencia.confirmada) return consumir($, e, conferencia.motivo)
   const { pedidoId, envioId } = conferencia
   const texto = e.text
+  // A impressao da mensagem como a linha da conversa a mostra (sem o envelope do motor), para o rotulo visual.
+  const semEnvelope = mensagemSemEnvelope(texto)
+  const impressao = semEnvelope === null ? null : impressaoDoTexto(semEnvelope)
   confirmadasEmVoo.add(texto)
   let r: SessionReceiveResult
   try {
-    const chegada: MensageiroRecebida = { em: await instante($), origem: nomeDaOrigem(e.origin), estado: 'confirmando', pedidoId, envioId, motivo: null }
+    const chegada: MensageiroRecebida = { em: await instante($), origem: nomeDaOrigem(e.origin), estado: 'confirmando', pedidoId, envioId,
+      motivo: null, impressao }
     await anotar($, f => comRecebida(f, chegada), null)
     r = await next(e)
   } finally {
@@ -373,7 +377,7 @@ async function receber($: EngineInterface, e: SessionReceiveInput, next: (e: Ses
   }
   if (r.consumed !== undefined) {
     const caiu: MensageiroRecebida = { em: await instante($), origem: nomeDaOrigem(e.origin), estado: 'nao-entrou', pedidoId, envioId,
-      motivo: `outro plugin a consumiu abaixo do Mensageiro (${umaLinha(r.consumed, 120)})` }
+      motivo: `outro plugin a consumiu abaixo do Mensageiro (${umaLinha(r.consumed, 120)})`, impressao: null }
     await anotar($, f => mudarRecebida(f, envioId, caiu.estado, caiu.motivo, caiu.em), caiu)
     return r
   }
@@ -394,7 +398,7 @@ async function confirmar($: EngineInterface, thread: string, pedidoId: string, e
   const motivo = r.motivo
   const espera = r.definitiva ? undefined : ESPERAS_DA_CONFIRMACAO_MS[tentativa]
   if (espera === undefined) {
-    const semRecibo: MensageiroRecebida = { em, origem: '', estado: 'sem-recibo', pedidoId, envioId, motivo }
+    const semRecibo: MensageiroRecebida = { em, origem: '', estado: 'sem-recibo', pedidoId, envioId, motivo, impressao: null }
     return anotar($, f => mudarRecebida(f, envioId, 'sem-recibo', motivo, em), semRecibo)
   }
   await anotar($, f => mudarRecebida(f, envioId, 'confirmando', `o recibo volta a ser gravado: ${motivo ?? 'sem motivo'}`, em), null)
@@ -416,11 +420,9 @@ export const register: Register = on => {
     if (classificarOrigem(e.origin, e.agentId) !== 'outra-sessao') return next(e)
     return receber($, e, next)
   }).catch(($, e, next) => {
-    if (next.called) return next(e)
-    if (classificarOrigem(e.origin, e.agentId) !== 'outra-sessao') return next(e)
-    if (contextoVisto !== null && contextoVisto.papel !== 'fase') return next(e)
-    if (confirmadasEmVoo.has(e.text)) return next(e)
-    return { consumed: motivoDoConsumo('entrega.conferencia-falhou') }
+    const passa = passaNaFalha({ chamouNext: next.called, origem: e.origin, agentId: e.agentId, texto: e.text,
+      papel: contextoVisto?.papel ?? null, emVoo: confirmadasEmVoo })
+    return passa ? next(e) : { consumed: motivoDoConsumo('entrega.conferencia-falhou') }
   })
 
   // O ledger de uma thread mudou (uma resposta entrou na caixa, a sessao reservou ou confirmou): a leitura entra no
@@ -458,7 +460,8 @@ export const register: Register = on => {
   // Na sessao de fase, a linha da resposta que o nucleo confirmou mostra o rotulo no lugar do cabecalho. So visual: o
   // que fica guardado e o que o modelo le nao mudam (D11).
   on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
-    if (!naFase || !temMarca(e.props.text)) return next(e)
+    // So a linha de mensagem de outra sessao (`peer`): a de teammate chega `unclassified`, e a do dono, de outra origem.
+    if (!naFase || e.props.origin.kind !== 'peer' || !temMarca(e.props.text)) return next(e)
     const daFase = (await $.state.get(FASE)).value ?? fase
     const texto = textoComRotulo(e.props.text, confirmadasDaFase(daFase))
     return texto === null ? next(e) : next({ ...e, props: { ...e.props, text: texto } })

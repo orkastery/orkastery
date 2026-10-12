@@ -4,9 +4,12 @@
 // campo guarda o texto da resposta do dono (D12 da thread ork-rm059mensag): so ids, estado, motivo e instantes.
 // Sem import nem referencia.
 
-/** Onde uma entrega esta, vista da sessao do dono que a leva. */
+/**
+ * Onde uma entrega esta, vista da sessao do dono que a leva. `sem-recibo`: a sessao de fase reservou e nao gravou o
+ * recibo em 5 min (D21).
+ */
 export type MensageiroEstadoDaEntrega =
-  | 'na-fila' | 'a-caminho' | 'reservada' | 'nao-chegou' | 'desistiu' | 'entregue' | 'saiu-da-caixa'
+  | 'na-fila' | 'a-caminho' | 'reservada' | 'sem-recibo' | 'nao-chegou' | 'desistiu' | 'entregue' | 'saiu-da-caixa'
 
 /** Uma entrega da caixa de saida desta sessao do dono, sem o texto. */
 export type MensageiroEntrega = {
@@ -55,6 +58,8 @@ export type MensageiroRecebida = {
   envioId: string | null
   /** Por que foi consumida ou ficou sem recibo, com o codigo do nucleo. */
   motivo: string | null
+  /** A impressao do texto da entrega confirmada (FNV-1a e tamanho), para o rotulo; nunca o texto. */
+  impressao: string | null
 }
 
 /** O lado da sessao de fase: a thread do despacho e o que chegou de outras sessoes. */

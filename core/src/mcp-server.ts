@@ -481,12 +481,12 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     });
   if(opcoes.threadId && opcoes.dispatchId) {
     const despacho=opcoes.dispatchId;
-    registrarTool('ork_session_inbox',{description:'Lado receptor do Mensageiro de Sessoes na sessao de fase deste despacho: confere e reserva uma vez a resposta do dono que chegou de outra sessao (conferir) e, depois de ela entrar na fila, grava o recibo (confirmar). A sessao sai do despacho deste servidor, nunca de argumento. Nao responde nem aprova pedido.',
+    registrarTool('ork_session_inbox',{description:'Lado receptor do Mensageiro de Sessoes na sessao de fase deste despacho: confere e reserva uma vez a resposta do dono que chegou de outra sessao (conferir, com o prazo ate) e, depois de ela entrar na fila, grava o recibo (confirmar). A sessao sai do despacho deste servidor, nunca de argumento. Nao responde nem aprova pedido.',
       inputSchema:daThread.extend({operacao:z.enum(['conferir','confirmar']),texto:z.string().max(LIMITE_DA_MENSAGEM),
-        envioId:z.string().uuid().optional()}).strict(),
-      annotations:{readOnlyHint:false,destructiveHint:false}},async({threadId,operacao,texto,envioId})=>{
+        envioId:z.string().uuid().optional(),ate:z.string().max(40).optional()}).strict(),
+      annotations:{readOnlyHint:false,destructiveHint:false}},async({threadId,operacao,texto,envioId,ate})=>{
         thread(threadId);
-        return resposta(operacao==='conferir' ? conferirNoReceptor(raiz,threadId,despacho,texto)
+        return resposta(operacao==='conferir' ? conferirNoReceptor(raiz,threadId,despacho,texto,ate)
           : confirmarNoReceptor(raiz,threadId,despacho,envioId,texto));
       });
   }

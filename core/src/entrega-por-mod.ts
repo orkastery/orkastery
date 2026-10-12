@@ -56,7 +56,8 @@ const sha = (texto: string) => createHash('sha256').update(texto).digest('hex');
 
 /** Os motivos tipados da conferencia no receptor. */
 export type MotivoDoReceptor = 'entrega.formato' | 'entrega.despacho' | 'entrega.desconhecida' | 'entrega.outra-sessao' |
-  'entrega.texto-diferente' | 'entrega.respondida' | 'entrega.reservada' | 'entrega.turno-mudou' | 'entrega.sem-reserva';
+  'entrega.texto-diferente' | 'entrega.respondida' | 'entrega.reservada' | 'entrega.turno-mudou' | 'entrega.sem-reserva' |
+  'entrega.prazo';
 
 // ---------------------------------------------------------------------------------------------------------------
 // A mensagem (D5): o nucleo compoe e o nucleo confere; o mod so a carrega.
@@ -79,20 +80,38 @@ export function hashDoCorpo(texto: string): string {
   return sha(normalizarCorpo(texto));
 }
 
-const ABERTURA_DO_ENVELOPE = /^<cross-session-message\b[^>]*>\n/;
-const FECHO_DO_ENVELOPE = /\n<\/cross-session-message>$/;
+/** Um valor de atributo do envelope: uma linha so, sem aspas nem sinal de tag. */
+const VALOR_DE_LINHA = '[^"<>\\n\\r\\v\\f\\u0085\\u2028\\u2029]{1,200}';
+/**
+ * O envelope que o Claude Code 2.1.296 escreve em volta da mensagem de outra sessao, e so ele: os atributos que o motor
+ * conhece, na ordem em que ele os escreve (`from`, `from-session`, `hop-chain`, `from-name`, `from-mode`,
+ * `from-plugin`), cada valor numa linha so, depois a quebra de linha, o corpo e o fecho exato no fim. Qualquer outra
+ * forma recusa (D5, D20 da thread ork-rm059mensag): texto posto dentro ou antes da tag chegaria ao modelo da fase sem
+ * ter passado pelo nucleo, porque o receptor deixa a mensagem entrar como chegou.
+ */
+const ENVELOPE_DO_MOTOR = new RegExp('^<cross-session-message' +
+  '(?: from="[^"<>\\s]{1,300}")?' +
+  '(?: from-session="[A-Za-z0-9_-]{1,80}")?' +
+  '(?: hop-chain="[0-9a-f]{24}(?:,[0-9a-f]{24}){0,31}")?' +
+  `(?: from-name="${VALOR_DE_LINHA}")?` +
+  '(?: from-mode="[A-Za-z-]{1,40}")?' +
+  `(?: from-plugin="${VALOR_DE_LINHA}")?` +
+  '>\\n([\\s\\S]*)\\n</cross-session-message>$');
 const CABECALHO = /^\[ork\.session-delivery\/v1 pedido=([0-9a-f-]{36}) entrega=([0-9a-f-]{36})\] /;
 
 /**
- * Le a mensagem que chegou ao receptor. Tira o envelope `<cross-session-message ...>` do Claude Code quando ele vem
- * inteiro no texto (abertura e fecho); depois disso, o cabecalho tem de ser a primeira linha e exatamente o que o
- * nucleo compoe. Qualquer texto a mais antes dele ou na linha dele recusa: quem sabe a resposta nao poe nada antes.
+ * Le a mensagem que chegou ao receptor. Com o envelope `<cross-session-message ...>` do Claude Code, ele so passa na
+ * forma exata que o motor escreve, e sai; depois disso, o cabecalho tem de ser a primeira linha e exatamente o que o
+ * nucleo compoe. Qualquer texto a mais antes dele, dentro da tag ou na linha dele recusa: quem sabe a resposta nao poe
+ * nada antes.
  */
 export function lerMensagemDaEntrega(bruto: unknown): { pedidoId: string; envioId: string; corpo: string } | null {
   if (typeof bruto !== 'string' || bruto.length > LIMITE_DA_MENSAGEM) return null;
   let texto = bruto.replace(/\r\n?/g, '\n');
-  if (ABERTURA_DO_ENVELOPE.test(texto) && FECHO_DO_ENVELOPE.test(texto)) {
-    texto = texto.replace(ABERTURA_DO_ENVELOPE, '').replace(FECHO_DO_ENVELOPE, '');
+  if (texto.startsWith('<')) {
+    const envelope = ENVELOPE_DO_MOTOR.exec(texto);
+    if (!envelope) return null;
+    texto = envelope[1];
   }
   const quebra = texto.indexOf('\n');
   if (quebra < 0) return null;
@@ -297,7 +316,12 @@ export interface DependenciasDaEntrega {
   consultarAgentes?: (ambiente: NodeJS.ProcessEnv, prazoMs: number) => ConsultaDeSessoes;
   /** A cauda da transcricao de uma sessao; por omissao, a do arquivo do perfil. */
   lerTranscricao?: (perfil: PerfilDeDespacho | null, cwd: string, sessionId: string) => string | null;
+  /** O relogio do receptor (ms desde a epoca); por omissao, `Date.now`. */
+  agora?: () => number;
 }
+
+/** O prazo mais longo que o receptor aceita no `ate` da conferencia: o mod pede bem menos (15 s). */
+export const PRAZO_MAXIMO_DA_CONFERENCIA_MS = 60000;
 
 const lerTranscricaoPadrao = (perfil: PerfilDeDespacho | null, cwd: string, sessionId: string): string | null => {
   const arquivo = arquivoDaTranscricao(perfil, cwd, sessionId);
@@ -407,10 +431,17 @@ function contextoDoReceptor(raiz: string, thread: string, dispatchId: string,
 /**
  * Confere e reserva, uma vez so, a entrega que chegou a sessao do despacho deste servidor. A sessao sai do
  * despacho (`phase_dispatch` com o `dispatchId` do servidor), nunca de argumento; antes de reservar, a transcricao
- * tem de seguir no turno do pedido (D7), para uma resposta velha nao entrar num turno que andou.
+ * tem de seguir no turno do pedido (D7), para uma resposta velha nao entrar num turno que andou. Com `ate` (o prazo
+ * que o mod da a conferencia, D21), o receptor so reserva antes dele: a conferencia que chega depois de o mod ter
+ * desistido e consumido a mensagem nao deixa uma reserva sem ninguem para confirma-la.
  */
-export function conferirNoReceptor(raiz: string, thread: string, dispatchId: string, texto: unknown,
+export function conferirNoReceptor(raiz: string, thread: string, dispatchId: string, texto: unknown, ate?: unknown,
   deps: DependenciasDaEntrega = {}): ConferenciaNoReceptor {
+  const agora = deps.agora ?? Date.now;
+  const prazo = ate === undefined ? null : typeof ate === 'string' ? Date.parse(ate) : NaN;
+  if (prazo !== null && !(Number.isFinite(prazo) && prazo - agora() <= PRAZO_MAXIMO_DA_CONFERENCIA_MS)) {
+    return { confirmada: false, motivo: 'entrega.formato' };
+  }
   const lida = lerMensagemDaEntrega(texto);
   if (!lida) return { confirmada: false, motivo: 'entrega.formato' };
   return comLockHitl(raiz, thread, (): ConferenciaNoReceptor => {
@@ -420,7 +451,9 @@ export function conferirNoReceptor(raiz: string, thread: string, dispatchId: str
     const cauda = (deps.lerTranscricao ?? lerTranscricaoPadrao)(ctx.perfil, ctx.sessao.cwd, ctx.sessionId);
     const turno = cauda === null ? null : turnoQueParou(cauda);
     if (!turno || turno.uuid !== ctx.sessao.bloqueio) return { confirmada: false, motivo: 'entrega.turno-mudou' };
-    const reservadaEm = new Date().toISOString();
+    // O prazo e conferido aqui, dentro da trava e logo antes de reservar: a espera pela trava tambem conta.
+    if (prazo !== null && agora() > prazo) return { confirmada: false, motivo: 'entrega.prazo' };
+    const reservadaEm = new Date(agora()).toISOString();
     if (!escreverUmaVez(path.join(garantirPasta(raiz, thread), `${lida.envioId}.reserva.json`), { contrato: CONTRATO_DA_ENTREGA,
       envioId: lida.envioId, pedidoId: lida.pedidoId, sessionId: ctx.sessionId, dispatchId, textoSha256: ctx.textoSha256, reservadaEm }))
       return { confirmada: false, motivo: 'entrega.reservada' };

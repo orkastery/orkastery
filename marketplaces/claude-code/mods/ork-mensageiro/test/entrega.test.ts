@@ -106,8 +106,26 @@ test('o envio que nao entra na fila fica com o motivo, e o que sai da caixa com 
   await esperar(() => mundo.faixas.some(f => /não chegou/.test(f.texto ?? '')))
   const textos = await textosDoPainel($, 'terminal')
   expect(textos).toContain(`? ${THREAD} · pedido ${PEDIDO.slice(0, 8)} · saiu da caixa sem recibo: responda pelo claude attach · 2 envios · agora`)
-  // O pedido que esta sessao conhece nao aparece como se seguisse noutra sessao do dono.
-  expect(textos).not.toContain('Noutra sessão do dono')
+  // O pedido que esta sessao conhece nao aparece como se estivesse fora dela.
+  expect(textos).not.toContain('Fora desta sessão')
+})
+
+test('a reserva sem recibo por 5 min deixa de ser confirmando: o painel e a faixa pedem o attach', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { relogio, mundo } = await ligado($, on, { caixa: [entradaDe({ reservada: true, tentativas: 1, ultimoEnvio: { em: EPOCA - 60000, entregue: true } })],
+    retrato: retratoHitl([{ pedido: PEDIDO, incerto: true }]) })
+  const antes = await textosDoPainel($, 'terminal')
+  expect(antes).toContain(`● ${THREAD} · pedido ${PEDIDO.slice(0, 8)} · recebida pela sessão, confirmando · agora`)
+  // Quatro minutos depois a reserva passa de 5 min sem recibo.
+  await relogio.advance(4 * 60000 + 1000)
+  await esperar(() => mundo.faixas.some(f => /não chegou/.test(f.texto ?? '')))
+  expect(mundo.faixas.at(-1)).toEqual({ mod: 'ork-mensageiro', texto: `a resposta para a ${THREAD} não chegou; responda pelo claude attach` })
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const textos = await textosDoPainel($, surface)
+    expect(textos).toContain(`? ${THREAD} · pedido ${PEDIDO.slice(0, 8)} · recebida pela sessão, sem recibo em 5 min: confira pelo claude attach · agora`)
+    expect(textos).toContain('  a sessão de fase reservou a entrega e não gravou o recibo em 5 min')
+  }
+  // O que o receptor reservou continua sem reenvio.
+  expect(mundo.envios).toEqual([])
 })
 
 test('sem a caixa de saida lida, nada e enviado e o painel diz por que', { plugins: [PONTE_FALSA] }, async ($, on) => {

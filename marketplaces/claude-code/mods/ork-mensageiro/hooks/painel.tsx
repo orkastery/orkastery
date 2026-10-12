@@ -20,6 +20,7 @@ export const ROTULO_DO_ESTADO: Record<MensageiroEstadoDaEntrega, string> = {
   'na-fila': 'na fila do núcleo',
   'a-caminho': 'a caminho: na fila da sessão, esperando a conferência',
   'reservada': 'recebida pela sessão, confirmando',
+  'sem-recibo': 'recebida pela sessão, sem recibo em 5 min: confira pelo claude attach',
   'nao-chegou': 'não entrou na fila da sessão; nova tentativa em breve',
   'desistiu': 'não chegou: responda pelo claude attach',
   'entregue': 'entregue, com o recibo da sessão',
@@ -27,11 +28,11 @@ export const ROTULO_DO_ESTADO: Record<MensageiroEstadoDaEntrega, string> = {
 }
 
 const GLIFO: Record<MensageiroEstadoDaEntrega, string> = {
-  'na-fila': '·', 'a-caminho': '●', 'reservada': '●', 'nao-chegou': '×', 'desistiu': '×', 'entregue': '✓', 'saiu-da-caixa': '?',
+  'na-fila': '·', 'a-caminho': '●', 'reservada': '●', 'sem-recibo': '?', 'nao-chegou': '×', 'desistiu': '×', 'entregue': '✓', 'saiu-da-caixa': '?',
 }
 
 const TIPO: Record<MensageiroEstadoDaEntrega, LinhaDoMensageiro['tipo']> = {
-  'na-fila': 'texto', 'a-caminho': 'texto', 'reservada': 'texto', 'nao-chegou': 'falha', 'desistiu': 'falha', 'entregue': 'feito', 'saiu-da-caixa': 'falha',
+  'na-fila': 'texto', 'a-caminho': 'texto', 'reservada': 'texto', 'sem-recibo': 'falha', 'nao-chegou': 'falha', 'desistiu': 'falha', 'entregue': 'feito', 'saiu-da-caixa': 'falha',
 }
 
 /** Quanto tempo faz, como o dono le. */
@@ -64,10 +65,14 @@ export function linhasDoDono(dono: MensageiroDono, agora: number): LinhaDoMensag
   if (!dono.entregas.length) linhas.push({ tipo: 'dim', chave: 'sem-entregas', texto: '  nenhuma resposta a caminho agora' })
   for (const e of [...dono.entregas].reverse()) linhas.push(...linhasDaEntrega(e, agora))
   if (dono.incertas.length) {
-    linhas.push({ tipo: 'secao', chave: 'secao-incertas', texto: 'Noutra sessão do dono' })
+    // O retrato so diz que a entrega esta incerta: a caixa que tem o texto pode estar viva noutra sessao do dono, ou
+    // ter fechado com ela. O painel nao sabe qual, e diz isso.
+    linhas.push({ tipo: 'secao', chave: 'secao-incertas', texto: 'Fora desta sessão' })
     for (const i of dono.incertas) {
-      linhas.push({ tipo: 'texto', chave: `incerta:${i.pedidoId}`, texto: `· ${i.thread} · pedido ${curto(i.pedidoId)} · a entrega segue noutra sessão do dono` })
+      linhas.push({ tipo: 'texto', chave: `incerta:${i.pedidoId}`,
+        texto: `· ${i.thread} · pedido ${curto(i.pedidoId)} · entrega incerta: noutra sessão do dono, ou perdida se ela fechou` })
     }
+    linhas.push({ tipo: 'dim', chave: 'incertas-limite', texto: '  sem retorno, responda pelo claude attach' })
   }
   linhas.push({ tipo: 'dim', chave: 'limite', texto: 'A resposta chega como mensagem de outra sessão: informa a sessão de fase, não autoriza ação que só você aprova. Para isso, claude attach.' })
   if (dono.lidoEm === null) linhas.push({ tipo: 'dim', chave: 'lido', texto: 'a caixa de saída ainda não foi lida' })

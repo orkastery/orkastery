@@ -14,6 +14,8 @@ export const CONTRATO_DA_ENTREGA = 'ork.session-delivery/v1'
 export const RECUO_DO_ENVIO_MS = 30000
 export const ESPERA_DA_RESERVA_MS = 60000
 export const MAXIMO_DE_ENVIOS = 10
+/** D21: a reserva sem recibo por este tempo deixa de ser "confirmando" e pede o dono. */
+export const ESPERA_DO_RECIBO_MS = 5 * 60000
 /** A faixa diz "entregue" por este tempo; o painel guarda o que terminou por este outro. */
 export const FAIXA_DA_ENTREGA_MS = 10 * 60000
 export const GUARDA_DO_TERMINADO_MS = 30 * 60000
@@ -130,15 +132,16 @@ export function incertasDoRetrato(retrato: unknown): MensageiroIncerta[] {
   })
 }
 
-/** O estado de uma entrega que esta na caixa. */
-export function estadoDaEntrada(e: EntradaDaCaixa): MensageiroEstadoDaEntrega {
-  if (e.reservada) return 'reservada'
+/** O estado de uma entrega que esta na caixa, agora. */
+export function estadoDaEntrada(e: EntradaDaCaixa, agora: number): MensageiroEstadoDaEntrega {
+  if (e.reservada) return e.ultimoEnvio && agora - e.ultimoEnvio.em >= ESPERA_DO_RECIBO_MS ? 'sem-recibo' : 'reservada'
   if (!e.ultimoEnvio) return 'na-fila'
   if (e.tentativas >= MAXIMO_DE_ENVIOS) return 'desistiu'
   return e.ultimoEnvio.entregue ? 'a-caminho' : 'nao-chegou'
 }
 
 function motivoDaEntrada(e: EntradaDaCaixa, estado: MensageiroEstadoDaEntrega): string | null {
+  if (estado === 'sem-recibo') return 'a sessão de fase reservou a entrega e não gravou o recibo em 5 min'
   if (estado === 'desistiu') {
     return e.ultimoEnvio?.entregue
       ? `a sessão de fase não confirmou a entrega depois de ${e.tentativas} envios`
@@ -156,14 +159,14 @@ export function atualizarEntregas(anteriores: readonly MensageiroEntrega[], caix
   const restantes = new Map(anteriores.map(e => [e.envioId, e]))
   const saida: MensageiroEntrega[] = []
   for (const c of caixa) {
-    const estado = estadoDaEntrada(c)
+    const estado = estadoDaEntrada(c, agora)
     const antes = restantes.get(c.envioId)
     restantes.delete(c.envioId)
     saida.push({ thread: c.thread, pedidoId: c.pedidoId, envioId: c.envioId, sessionId: c.sessionId, estado, tentativas: c.tentativas,
       motivo: motivoDaEntrada(c, estado), em: antes && antes.estado === estado ? antes.em : agora })
   }
   for (const e of restantes.values()) {
-    if (!VIVOS.includes(e.estado) && e.estado !== 'desistiu') {
+    if (!VIVOS.includes(e.estado) && e.estado !== 'desistiu' && e.estado !== 'sem-recibo') {
       if (agora - e.em <= GUARDA_DO_TERMINADO_MS) saida.push(e)
       continue
     }
@@ -191,7 +194,7 @@ function daThread(entregas: readonly MensageiroEntrega[], um: string, varios: (n
  * depois o que acabou de ser entregue. Sem nada disso, a linha sai da faixa.
  */
 export function textoDaFaixa(dono: MensageiroDono, agora: number): string | undefined {
-  const falhas = dono.entregas.filter(e => e.estado === 'desistiu' || e.estado === 'saiu-da-caixa')
+  const falhas = dono.entregas.filter(e => e.estado === 'desistiu' || e.estado === 'saiu-da-caixa' || e.estado === 'sem-recibo')
   if (falhas.length) return falhas.length === 1
     ? `a resposta para a ${falhas[0].thread} não chegou; responda pelo claude attach` : `${falhas.length} respostas não chegaram; abra /mensageiro`
   const vivas = dono.entregas.filter(e => VIVOS.includes(e.estado))
