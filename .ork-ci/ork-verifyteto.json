@@ -1,0 +1,43 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-verifyteto",
+  "branch": "ork/ork-verifyteto-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-verifyteto",
+      "fase": "GO",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "O manifesto do projeto dá 40 min (2400000 ms) ao comando test do verify.",
+      "negativa": false,
+      "verificar": [
+        "grep -A1 \"timeout_ms_por_comando:\" orkastery.yaml | grep -E \"^    test: 2400000$\""
+      ],
+      "criadoEm": "2026-10-12T05:11:49.572Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-verifyteto",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG registra o teto do test em Não publicado.",
+      "negativa": false,
+      "verificar": [
+        "awk \"/^## Não publicado/{f=1} /^## \\\\[0\\\\.5\\\\.4\\\\]/{f=0} f\" CHANGELOG.md | grep -F \"verify.timeout_ms_por_comando.test\""
+      ],
+      "criadoEm": "2026-10-12T05:11:50.008Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

@@ -44,6 +44,11 @@ verify:
   # typecheck: nao detectado
   # I-54 (RM-037): compila uma vez antes das claims e confere o produto do preparo ao fim da rodada.
   preparo: "npm --prefix core run build && npm --prefix core run build:test"
+  # RM-037: o teto global de 10 min nao cobre a suite quando o hipervisor rouba CPU. A mesma
+  # suite mede 3,6 min com CPU livre (medido em 10/10/2026: 2753 testes, 0 falhas) e 24 a 30 min
+  # com steal alto (sar de 23-24/09/2026). Sobe so o `test`; build e demais comandos no padrao.
+  timeout_ms_por_comando:
+    test: 2400000
 
 ci:
   # O SHIP consulta o check obrigatório no SHA candidato antes de tomar o lease da base.

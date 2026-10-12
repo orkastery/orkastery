@@ -6,6 +6,46 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Fundação dos mods no Claude Code, lado do adaptador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a ponte `ork-ponte` (`adapters/claude-code/mods/ork-ponte`) acrescenta ao `$` dos mods o noun `$.ork`, com o papel
+  da sessão (`dono`, `fase` ou `dormente`), o retrato do núcleo pelo `ork_maestro` com reserva numa lista fechada de
+  consultas `--json` do CLI, a faixa acima do prompt e os `watchPaths` com dono único, e o registro do que um mod
+  mostrou ao dono (`ork.mod-mostrado/v1`). A regra de autoridade (nenhum mod aprova gate, permissão, nota do MASTER,
+  push ou tag pelo dono, nem fala como o dono) mora em `adapters/claude-code/mods/autoridade.json` e tem duas guardas:
+  `node core/scripts/checar-mods.cjs` reprova o mod pelo fonte, e a ponte recusa em tempo de execução. O script
+  `core/scripts/prova-mods-sessao-de-fase.cjs` prova se um mod carrega numa sessão `claude --bg`; o veredito fica com
+  quem conduz.
+- **CLI em inglês e pt-BR** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): nova página do
+  roadmap, em desenvolvimento, com a decisão do dono de 12/10/2026 de que o CLI fala inglês e pt-BR. A
+  língua vem de `owner.language` e, sem ela, de `LC_ALL`, `LC_MESSAGES` e `LANG`; o pt-BR fica idêntico
+  byte a byte, o `--json` não muda com a língua e as datas seguem o locale. Fatias: F1, a prova de
+  conceito do #113 (`doctor`, `init`, catálogo tipado e datas), já mesclada; F2, o caminho da primeira
+  experiência; F3, o resto do CLI, os arquivos gerados e a referência em inglês. A entrada é só
+  documentação.
+- **Decisões do dono no modo #Noctum** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): em 12/10/2026 o
+  dono decidiu D1 a D4 (entrega com push, PR e merge no SHA exato; piloto local e depois em duas
+  máquinas; janela de 6 a 12 h com vigia externo a cada 5 min; vários perfis e runtimes de assinatura
+  com teto e subtetos). Continuam pendentes a prioridade final, o horário e o canal do relatório e os
+  valores do teto; o item segue em Refinamento até o dono autorizar o primeiro piloto.
+- **Verify ciente do steal e registro de instabilidade** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 6):
+  - o `ork verify` (CLI, MCP e CHECK-REVERIFY) mede o steal da CPU no `/proc/stat` na rodada e na janela de cada
+    comando e grava a medida no `verify_run` (`steal`, e `stealPct` em cada comando que falha);
+  - a reprovação só de teste com relógio (estouro de prazo do `node --test`, ou entrada vigente do registro) sob steal
+    acima de 40% vira `verify.timeout`, que o retry reexecuta, e nunca `verify.regression`; asserção comum continua
+    regressão, sem `/proc/stat` nada é atenuado e o `ork ci run` não atenua;
+  - `core/instabilidade.json`, contrato `ork.instabilidade/v1` ([contrato](docs/referencia/contratos/instabilidade-rm037.md)),
+    nasce vazio e só aceita entrada com a taxa medida e revalidação em até 30 dias;
+  - o `testeQueCaiu` do ledger lê a seção "failing tests" do reporter `spec` do `node --test` 24, que antes saía vazio.
+
+### Alterado
+
+- **Teto do `test` no verify deste repositório** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  o `orkastery.yaml` do projeto passa a dar 40 min ao comando `test` (`verify.timeout_ms_por_comando.test`),
+  porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba CPU. O `build` e os
+  outros comandos seguem no prazo padrão.
+
 ## [0.5.4] - 2026-10-12
 
 ### Adicionado
