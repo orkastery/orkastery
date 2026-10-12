@@ -39,6 +39,9 @@ export type TorreLinha = {
   lacunas: string[]
 }
 
+/** O que o painel mostrou ao dono e o Telegram tambem avisaria: a chave junta o que e a mesma coisa (D10). */
+export type TorreMostrado = { chave: string; thread: string; texto: string }
+
 /** O quadro da fabrica: uma linha por thread aberta, na ordem do estado. */
 export type TorreQuadro = {
   linhas: TorreLinha[]
@@ -98,6 +101,8 @@ declare module 'claude-code' {
       detalhes: Record<string, TorreDetalhe>
       /** Os comandos dos mods donos das acoes carregados nesta sessao, com o plugin que registrou cada um. */
       donos: Record<string, string>
+      /** O dono fechou o painel nesta sessao: ele nao abre mais sozinho, nem depois de uma recarga do modulo. */
+      fechado: boolean
     }
   }
 }

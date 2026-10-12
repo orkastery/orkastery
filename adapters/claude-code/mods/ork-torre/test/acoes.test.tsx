@@ -1,26 +1,28 @@
 import { test, expect, mock } from 'claude-code/testing'
-import { iniciar, montar, montarPainel, PONTE_FALSA, retratoDe, textosDe, torre } from './apoio'
+import { DISPONIVEIS, EPOCA, iniciar, montar, montarPainel, PONTE_FALSA, retratoDe, textosDe, torre } from './apoio'
 
-// O detalhe da thread, os botoes de leitura e o encaminhamento da acao com efeito ao mod dono (D4).
+// O detalhe da thread, os botoes de leitura e o encaminhamento da acao com efeito ao mod dono (D4). As acoes
+// disponiveis seguem o nucleo na sessao do dono; a Torre oferece a leitura e a acao que o estado pede (D15).
 const LEITURAS_DO_NUCLEO = ['ork_phase_list', 'ork_claims_list', 'ork_observe', 'ork_git_status']
 const RETRATOS = {
   'ork-a': retratoDe({ thread: 'ork-a', fase: 'SHIP', modo: 'classic', motivo: 'human.pending',
-    pedidos: [{ id: 'p1', texto: 'Autorizar o SHIP da ork-a', prazo: '12/10 14:00', recomendacao: 'Aprovar' }], acoes: ['hitl.decide', 'ship', 'verify', 'git.commit'] }),
+    pedidos: [{ id: 'p1', texto: 'Autorizar o SHIP da ork-a', prazo: '12/10 14:00', recomendacao: 'Aprovar' }], acoes: DISPONIVEIS }),
   'ork-c': retratoDe({ thread: 'ork-c', fase: 'GO', modo: 'auto', conducao: 'conduzido agora por cli, sessao 1a2b3c4d, fase GO, desde 12/10 02:21',
-    acoes: ['thread.status', 'thread.observe', 'git.status'] }),
+    acoes: DISPONIVEIS }),
 }
+const SEGUNDOS = s => new Date(EPOCA - s * 1000).toISOString()
 const RESPOSTAS = {
   'ork_phase_list': { threadId: 'x', phases: { limite: 20, omitidos: 0, eventos: [
-    { tipo: 'phase_dispatch', ts: '1970-01-01T00:00:00.000Z', fase: 'GO' },
-    { tipo: 'phase_result', ts: '1970-01-01T00:01:00.000Z', fase: 'GO', classificacao: 'fase_concluida' },
-    { tipo: 'gate_blocked', ts: '1970-01-01T00:05:00.000Z', fase: 'SHIP' },
+    { tipo: 'phase_dispatch', ts: SEGUNDOS(600), fase: 'GO' },
+    { tipo: 'phase_result', ts: SEGUNDOS(540), fase: 'GO', classificacao: 'fase_concluida' },
+    { tipo: 'gate_blocked', ts: SEGUNDOS(300), fase: 'SHIP', motivo: 'human.pending' },
   ] } },
   'ork_claims_list': [
     { id: 'C1', estado: 'verificado', alegacao: 'manifesto' },
     { id: 'C2', estado: 'pendente', alegacao: 'teste do kit da Torre' },
     { id: 'C3', estado: 'reprovado', alegacao: 'guarda estática' },
   ],
-  'thread.status': { id: 'ork-c', status: 'aberta', faseAtual: 'GO', sessoes: [{}], claims: ['C1', 'C2'], atualizadaEm: '1970-01-01T00:05:00.000Z',
+  'thread.status': { id: 'ork-c', status: 'aberta', faseAtual: 'GO', sessoes: [{}], claims: ['C1', 'C2'], atualizadaEm: SEGUNDOS(300),
     baseline: { commit: '84114aa66e91e3c6', comandos: [{ nome: 'build', ok: true }, { nome: 'test', ok: true }] } },
   'ork_observe': { thread: {}, phases: {}, pendencias: [], nativas: [{ sessionId: '1a2b3c4d-0000-4000-8000-000000000000', runtime: 'claude-bg', disponivel: true,
     sessao: { estado: 'working' }, turno: { conclusaoDeFase: 'nao-inferida' } }] },
@@ -28,13 +30,14 @@ const RESPOSTAS = {
 }
 const MOD = (name, plugin) => ({ name, description: '', source: 'plugin', plugin })
 
-async function preparado(on, extra = {}) {
-  mock.clock(on, { now: 600000 })
-  return montar(on, { papel: 'dono', abertas: ['ork-a', 'ork-c'], retratos: RETRATOS, respostas: RESPOSTAS, ...extra })
+function preparado(on, extra = {}) {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', abertas: ['ork-a', 'ork-c'], retratos: RETRATOS, respostas: RESPOSTAS, ...extra })
+  return { relogio, mundo }
 }
 
 test('apertar a linha abre o detalhe com sessoes, bloqueio, pedidos, ultimos eventos e claims, e Voltar volta a lista', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  const mundo = await preparado(on)
+  const { mundo } = preparado(on)
   await iniciar($)
   await torre($)
   for (const surface of ['terminal', 'desktop'] as const) {
@@ -45,8 +48,8 @@ test('apertar a linha abre o detalhe com sessoes, bloqueio, pedidos, ultimos eve
       'bloqueio: espera a sua autorização (human.pending)'])
     expect(textos).toContain('pedido p1: Autorizar o SHIP da ork-a')
     expect(textos).toContain('  prazo 12/10 14:00 · recomendação: Aprovar')
-    expect(textos).toContain('sessão sessao-1 claude-bg · SHIP: unknown · não confirmada')
-    expect(textos).toContain('  gate_blocked · SHIP · há 5 min')
+    expect(textos).toContain('sessão sessao-1 claude-bg · SHIP: desconhecido · não confirmada')
+    expect(textos).toContain('  gate_blocked · SHIP · human.pending · há 5 min')
     expect(textos).toContain('  phase_result · GO · fase_concluida · há 9 min')
     expect(textos).toContain('  3 claims: 1 pendente, 1 reprovado, 1 verificado')
     expect(textos).toContain('  C3 reprovado: guarda estática')
@@ -59,8 +62,8 @@ test('apertar a linha abre o detalhe com sessoes, bloqueio, pedidos, ultimos eve
   ])
 })
 
-test('botao so nas acoes disponiveis; cada leitura mostra o resultado no detalhe e nada mais roda', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  const mundo = await preparado(on)
+test('botao so nas acoes que o estado pede; cada leitura mostra o resultado no detalhe e nada mais roda', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { mundo } = preparado(on)
   await iniciar($)
   await torre($)
   const ui = await montarPainel($, 'terminal')
@@ -85,7 +88,7 @@ test('botao so nas acoes disponiveis; cada leitura mostra o resultado no detalhe
 })
 
 test('acao com efeito abre o mod dono pelo comando dele, com o id da thread, quando o plugin esperado o registrou', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  const mundo = await preparado(on, { carregados: [MOD('mesa', 'ork-mesa'), MOD('pista', 'ork-pista')] })
+  const { mundo } = preparado(on, { carregados: [MOD('mesa', 'ork-mesa'), MOD('pista', 'ork-pista')] })
   await iniciar($)
   await torre($)
   for (const surface of ['terminal', 'desktop'] as const) {
@@ -102,7 +105,7 @@ test('acao com efeito abre o mod dono pelo comando dele, com o id da thread, qua
 })
 
 test('sem o mod dono, ou com o comando registrado por outro plugin, aparece o comando do ork e nada roda', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  const mundo = await preparado(on, { carregados: [MOD('mesa', 'outro-plugin')] })
+  const { mundo } = preparado(on, { carregados: [MOD('mesa', 'outro-plugin')] })
   await iniciar($)
   await torre($)
   const ui = await montarPainel($, 'desktop')
@@ -110,37 +113,82 @@ test('sem o mod dono, ou com o comando registrado por outro plugin, aparece o co
   expect(await ui.find({ key: 'acao:hitl.decide', type: 'Button' })).toBe(undefined)
   const textos = await textosDe(ui)
   expect(textos).toContain('Decidir: rode ork sessions hitl; a resposta vai pelo Telegram ou pelo diálogo nativo')
-  expect(textos).toContain('Entregar: rode ork ship ork-a --para <base>')
-  expect(textos).toContain('Verificar: rode ork verify ork-a')
-  expect(textos).toContain('Commit: o commit é da sessão de GO, pelo ork_git_commit')
+  expect(textos).toContain('Entregar: rode ork ship ork-a --para main; troque main pela branch base do projeto, se for outra')
+  expect(textos.some(t => t.startsWith('Verificar') || t.startsWith('Commit') || t.startsWith('Fase seguinte'))).toBe(false)
   await ui.unmount()
   expect(mundo.rodados).toEqual([])
 })
 
-test('o mod dono que some entre o desenho e o aperto nao roda, e o detalhe passa a mostrar o comando', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  const mundo = await preparado(on, { carregados: [MOD('mesa', 'ork-mesa')] })
+test('o mod dono que some, ou passa a outro plugin, entre o desenho e o aperto nao roda', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { mundo } = preparado(on, { carregados: [MOD('mesa', 'ork-mesa')] })
   await iniciar($)
   await torre($)
   const ui = await montarPainel($, 'terminal')
   await ui.press({ key: 'abrir:ork-a' })
   expect((await ui.find({ key: 'acao:hitl.decide' }))?.type).toBe('Button')
-  mundo.carregados = []
+  mundo.carregados = [MOD('mesa', 'outro-plugin')]
   await ui.press({ key: 'acao:hitl.decide' })
   expect(mundo.rodados).toEqual([])
   expect(await ui.find({ key: 'acao:hitl.decide', type: 'Button' })).toBe(undefined)
+  mundo.carregados = [MOD('mesa', 'ork-mesa')]
+  await ui.press({ key: 'atualizar' })
+  expect((await ui.find({ key: 'acao:hitl.decide' }))?.type).toBe('Button')
+  mundo.carregados = []
+  await ui.press({ key: 'acao:hitl.decide' })
+  expect(mundo.rodados).toEqual([])
   expect(await textosDe(ui)).toContain('Decidir: rode ork sessions hitl; a resposta vai pelo Telegram ou pelo diálogo nativo')
   await ui.unmount()
 })
 
+test('o Atualizar do detalhe rele so a thread aberta, nunca o quadro inteiro', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { mundo } = preparado(on)
+  await iniciar($)
+  await torre($)
+  const ui = await montarPainel($, 'terminal')
+  await ui.press({ key: 'abrir:ork-c' })
+  mundo.maestro.length = 0
+  mundo.mcp.length = 0
+  const lidas = mundo.ler.length
+  await ui.press({ key: 'atualizar' })
+  expect(mundo.maestro).toEqual(['ork-c'])
+  expect(mundo.mcp.map(c => `${c.tool}:${c.args.threadId}`)).toEqual(['ork_phase_list:ork-c', 'ork_claims_list:ork-c'])
+  expect(mundo.ler.length).toBe(lidas)
+  await ui.unmount()
+})
+
+test('leitura atrasada do detalhe de uma thread nao apaga o detalhe da thread aberta depois', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  on('mcp.call', { server: 'orkastery', tool: 'ork_phase_list' }, async ($2, e, next) => {
+    if (e.args.threadId === 'ork-a') await relogio.sleep(5000)
+    return next(e)
+  })
+  const mundo = montar(on, { papel: 'dono', abertas: ['ork-a', 'ork-c'], retratos: RETRATOS, respostas: RESPOSTAS })
+  await iniciar($)
+  await torre($)
+  const ui = await montarPainel($, 'terminal')
+  const primeiro = ui.press({ key: 'abrir:ork-a' })
+  await relogio.settle()
+  await ui.press({ key: 'voltar' })
+  await ui.press({ key: 'abrir:ork-c' })
+  expect(await textosDe(ui)).toContain('  3 claims: 1 pendente, 1 reprovado, 1 verificado')
+  await relogio.advance(5000)
+  await primeiro
+  const depois = await textosDe(ui)
+  expect(depois[2]).toBe('>  ork-c  ●●◉○○○ GO  #Auto')
+  expect(depois.filter(t => t === '  lendo…').length).toBe(0)
+  expect(depois).toContain('  3 claims: 1 pendente, 1 reprovado, 1 verificado')
+  expect(mundo.mcp.map(c => `${c.tool}:${c.args.threadId}`)).toEqual(['ork_phase_list:ork-c', 'ork_claims_list:ork-c', 'ork_phase_list:ork-a', 'ork_claims_list:ork-a'])
+  await ui.unmount()
+})
+
 test('leitura que falha mostra o motivo no detalhe, sem derrubar o painel', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  await preparado(on, { respostas: {} })
+  preparado(on, { respostas: {} })
   await iniciar($)
   await torre($)
   const ui = await montarPainel($, 'terminal')
   await ui.press({ key: 'abrir:ork-c' })
   await ui.press({ key: 'acao:git.status' })
   const textos = await textosDe(ui)
-  expect(textos).toContain('  não leu: o núcleo respondeu com erro')
   expect(textos.filter(t => t === '  não leu: o núcleo respondeu com erro').length).toBe(3)
   await ui.unmount()
 })

@@ -72,7 +72,8 @@ function cortar(texto: string, teto: number): string {
 
 /**
  * A linha da faixa (D9): as threads abertas e o que pede acao primeiro (quem espera o dono e as paradas,
- * com a primeira de cada), e a rede quando lida. Sem quadro lido, nenhuma linha (a faixa fica com os outros).
+ * com a primeira de cada), a rede quando lida e o aviso de lista velha. Sem quadro lido, nenhuma linha (a
+ * faixa fica com os outros).
  */
 export function textoDaFaixa(q: TorreQuadro, rede: TorreRede | null): string | undefined {
   if (q.lidoEm === null) return undefined
@@ -91,5 +92,6 @@ export function textoDaFaixa(q: TorreQuadro, rede: TorreRede | null): string | u
     const esperaNaRede = rede.linhas.filter(l => l.esperaVoce).length
     partes.push(`rede: ${rede.linhas.length} em outras máquinas${esperaNaRede ? `, ${esperaNaRede} espera você` : ''}`)
   }
+  if (q.erro) partes.push('lista não relida')
   return cortar(partes.join(' · '), TETO_DO_TEXTO_DA_FAIXA)
 }

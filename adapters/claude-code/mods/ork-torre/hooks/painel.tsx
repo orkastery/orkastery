@@ -3,7 +3,9 @@
 // `$.ork.retrato`: o trilho das seis fases, o modo, quem conduz e desde quando, o bloqueio tipado numa frase,
 // os pedidos ao dono e as acoes que o nucleo declara disponiveis. Modulo puro: o `$` fica no register.tsx, e
 // o desenho recebe a tabela de elementos que a superficie resolveu.
-import type { TorreAcao, TorreEstado, TorreFase, TorreLinha, TorreLinhaDaRede, TorrePedido, TorreQuadro, TorreRede, TorreSessao } from '../types'
+import type {
+  TorreAcao, TorreEstado, TorreFase, TorreLinha, TorreLinhaDaRede, TorreMostrado, TorrePedido, TorreQuadro, TorreRede, TorreSessao,
+} from '../types'
 import { fraseDoMotivo, MOTIVOS_DO_DONO } from './frases'
 
 export const FASES: readonly TorreFase[] = ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER']
@@ -33,6 +35,17 @@ const SECOES_LIDAS = ['threads', 'sessions', 'blockers', 'hitl', 'nextActions']
 const TAG_DO_MODO: Readonly<Record<string, string>> = { classic: '#Classic', maestro: '#Maestro', auto: '#Auto', fast: '#Fast' }
 const MARCA_DO_ESTADO: Readonly<Record<TorreEstado, string>> = {
   'espera-voce': '!', 'parada': 'x', 'andando': '>', 'quieta': '-', 'sem-leitura': '?',
+}
+/** Os valores do nucleo que chegam ao dono, em portugues; o que a tabela nao conhece aparece cru. */
+const EM_PORTUGUES: Readonly<Record<string, string>> = {
+  delivered: 'entregue', incomplete: 'incompleta', pending: 'pendente', recorded: 'gravado',
+  'ratificacao-pendente': 'ratificação pendente', unknown: 'desconhecido', working: 'trabalhando', running: 'rodando',
+  blocked: 'bloqueada', completed: 'concluída', done: 'concluída', stopped: 'parada', exited: 'encerrada',
+  conflict: 'em conflito', unavailable: 'indisponível', stale: 'velha', available: 'disponível',
+}
+
+export function emPortugues(valor: string): string {
+  return Object.prototype.hasOwnProperty.call(EM_PORTUGUES, valor) ? EM_PORTUGUES[valor] as string : valor
 }
 
 type Item = { id?: unknown; title?: unknown; status?: unknown; refs?: unknown; facts?: unknown; action?: unknown }
@@ -103,7 +116,7 @@ export function linhaDaThread(thread: string, retrato: unknown,
   const lacunas = lido
     ? [...(linha ? [] : ['a thread não veio no retrato']),
       ...SECOES_LIDAS.filter(s => ['unavailable', 'conflict', 'stale'].includes(String(r?.sections?.[s]?.state)))
-        .map(s => `${s}: ${String(r?.sections?.[s]?.state)}`)]
+        .map(s => `${s}: ${emPortugues(String(r?.sections?.[s]?.state))}`)]
     : [meta.erro ?? 'o retrato não veio']
   const base = {
     thread,
@@ -126,6 +139,30 @@ export function linhaDaThread(thread: string, retrato: unknown,
 function posicao(operacao: string): number {
   const i = ORDEM_DAS_ACOES.indexOf(operacao)
   return i < 0 ? ORDEM_DAS_ACOES.length : i
+}
+
+/** A acao com efeito que o estado da thread pede (D15); commit e criacao nunca sao acao do dono. */
+function pedidaPeloEstado(operacao: string, l: TorreLinha): boolean {
+  const motivo = l.bloqueio?.motivo ?? ''
+  switch (operacao) {
+    case 'hitl.decide': return l.pedidos.length > 0 || motivo === 'human.pending'
+    case 'retry': return l.estado === 'parada'
+    case 'phase': return l.estado === 'quieta'
+    case 'verify': return /^(claims|verify)\./.test(motivo)
+    case 'ship': return l.fase === 'SHIP' && l.entrega !== 'delivered'
+    case 'master': return (l.entrega === 'delivered' || l.fase === 'MASTER') && l.master !== 'recorded'
+    default: return false
+  }
+}
+
+/**
+ * As acoes que a Torre oferece ao dono (D15). O `available` do retrato so diz que a ferramenta existe no
+ * servidor (core/src/maestro-actions.ts): a leitura aparece sempre que disponivel, e a acao com efeito so
+ * quando, alem de disponivel, o estado da thread a pede.
+ */
+export function acoesRelevantes(l: TorreLinha): TorreAcao[] {
+  if (l.estado === 'sem-leitura') return []
+  return l.acoes.filter(a => LEITURAS.includes(a.operacao) || pedidaPeloEstado(a.operacao, l))
 }
 
 /** As linhas na ordem do estado (D6) e, dentro dele, pelo id. */
@@ -180,32 +217,31 @@ export function cabecalhoDaLinha(l: TorreLinha): string {
     .filter(p => p !== '').join('  ')
 }
 
-/** As linhas de baixo: o que espera o dono, o bloqueio, quem conduz, as acoes com efeito e as lacunas. */
-export function detalhesDaLinha(l: TorreLinha): string[] {
-  const saida: string[] = []
-  for (const p of l.pedidos) saida.push(`espera você: ${p.texto || p.id}${p.prazo ? ` (prazo ${p.prazo})` : ''}`)
+/** Uma linha de texto com o que ela mostra ao dono, quando e algo que o Telegram tambem avisaria (D10). */
+export type ItemDoPainel = { texto: string; mostrado?: TorreMostrado }
+
+/** As linhas de baixo: o que espera o dono, o bloqueio, quem conduz, as acoes pedidas e as lacunas. */
+export function detalhesDaLinha(l: TorreLinha): ItemDoPainel[] {
+  const saida: ItemDoPainel[] = []
+  for (const p of l.pedidos) {
+    const texto = `espera você: ${p.texto || p.id}`
+    saida.push({ texto: `${texto}${p.prazo ? ` (prazo ${p.prazo})` : ''}`, mostrado: { chave: `hitl:${p.id}`, thread: l.thread, texto: `${l.thread}: ${texto}` } })
+  }
   if (l.bloqueio) {
     const doDono = MOTIVOS_DO_DONO.includes(l.bloqueio.motivo)
-    saida.push(`${doDono ? 'espera você' : 'parada'}: ${l.bloqueio.frase} (${l.bloqueio.motivo})`)
+    saida.push({ texto: `${doDono ? 'espera você' : 'parada'}: ${l.bloqueio.frase} (${l.bloqueio.motivo})`,
+      mostrado: { chave: `bloqueio:${l.thread}:${l.bloqueio.motivo}`, thread: l.thread, texto: `${l.thread}: ${l.bloqueio.frase}` } })
   }
-  if (l.estado !== 'sem-leitura') saida.push(l.conducao ?? 'ninguém conduz agora')
-  const efeitos = l.acoes.filter(a => !LEITURAS.includes(a.operacao)).map(a => ROTULO_DA_ACAO[a.operacao] ?? a.operacao)
-  if (efeitos.length) saida.push(`ações: ${efeitos.join(' · ')}`)
-  if (l.lacunas.length) saida.push(`lacuna: ${l.lacunas.join('; ')}`)
+  if (l.estado !== 'sem-leitura') saida.push({ texto: l.conducao ?? 'ninguém conduz agora' })
+  const efeitos = acoesRelevantes(l).filter(a => !LEITURAS.includes(a.operacao)).map(a => ROTULO_DA_ACAO[a.operacao] ?? a.operacao)
+  if (efeitos.length) saida.push({ texto: `ações: ${efeitos.join(' · ')}` })
+  if (l.lacunas.length) saida.push({ texto: `lacuna: ${l.lacunas.join('; ')}` })
   return saida
 }
 
-/**
- * O que o painel mostra e o Telegram nao precisa repetir (M5 do dono, D10): cada bloqueio e cada pedido,
- * com a chave que junta o que e a mesma coisa.
- */
-export function mostradosDoQuadro(q: TorreQuadro): Array<{ chave: string; thread: string; texto: string }> {
-  const saida: Array<{ chave: string; thread: string; texto: string }> = []
-  for (const l of q.linhas) {
-    if (l.bloqueio) saida.push({ chave: `bloqueio:${l.thread}:${l.bloqueio.motivo}`, thread: l.thread, texto: `${l.thread}: ${l.bloqueio.frase}` })
-    for (const p of l.pedidos) saida.push({ chave: `hitl:${p.id}`, thread: l.thread, texto: `${l.thread}: espera você: ${p.texto || p.id}` })
-  }
-  return saida
+/** Tudo que o quadro mostraria e o Telegram tambem avisa: cada bloqueio e cada pedido, com a chave. */
+export function mostradosDoQuadro(q: TorreQuadro): TorreMostrado[] {
+  return q.linhas.flatMap(l => detalhesDaLinha(l).flatMap(d => (d.mostrado ? [d.mostrado] : [])))
 }
 
 /** A linha da rede no painel (D11): nao lida, lida com a idade e as lacunas, ou o erro da ultima tentativa. */
@@ -231,37 +267,78 @@ export function cabecalhoDaRede(l: TorreLinhaDaRede): string {
   return [l.esperaVoce ? '!' : '~', l.thread, `${trilho(l.fase)} ${l.fase}`, l.modo, `@${l.maquina}, ${batida}`].filter(p => p !== '').join('  ')
 }
 
+/** Corta o texto a largura, quando ha uma, para a linha ocupar uma linha so da tela. */
+export function cortar(texto: string, largura?: number): string {
+  if (largura === undefined || largura < 2 || texto.length <= largura) return texto
+  return `${texto.slice(0, largura - 1)}…`
+}
+
+/** Uma linha da tela do painel, na ordem do desenho; cada uma ocupa uma linha so. */
+export type LinhaDoPainel =
+  | { tipo: 'placar' | 'rede' | 'omitidas'; texto: string }
+  | { tipo: 'cabecalho' | 'rede-cabecalho' | 'rede-pergunta'; texto: string; thread: string }
+  | { tipo: 'detalhe'; texto: string; thread: string; indice: number; mostrado?: TorreMostrado }
+
 /**
- * A arvore do painel com os elementos que a superficie resolveu (`$.ui.resolve(e)` no register.tsx). A
- * primeira linha de cada thread desta maquina e um botao que abre o detalhe dela (T1.2); as threads das
- * outras maquinas vem depois, sem botao (T1.3).
+ * As linhas da tela do painel, na ordem em que o desenho as poe: o placar, a linha da rede, cada thread desta
+ * maquina (a primeira linha e as de baixo), o que ficou alem do teto e as threads das outras maquinas. A
+ * janela de rolagem conta estas linhas, uma a uma.
+ */
+export function linhasDoPainel(q: TorreQuadro, opcoes: { agora: number; rede?: TorreRede | null }): LinhaDoPainel[] {
+  const saida: LinhaDoPainel[] = [{ tipo: 'placar', texto: placar(q, opcoes.agora) }, { tipo: 'rede', texto: placarDaRede(opcoes.rede, opcoes.agora) }]
+  for (const l of q.linhas) {
+    saida.push({ tipo: 'cabecalho', texto: cabecalhoDaLinha(l), thread: l.thread })
+    detalhesDaLinha(l).forEach((d, indice) => saida.push({ tipo: 'detalhe', texto: `  ${d.texto}`, thread: l.thread, indice,
+      ...(d.mostrado ? { mostrado: d.mostrado } : {}) }))
+  }
+  if (q.omitidas > 0) saida.push({ tipo: 'omitidas', texto: `+${q.omitidas} threads abertas além do teto de ${TETO_DE_THREADS}` })
+  for (const l of linhasDaRedeVisiveis(opcoes.rede, q)) {
+    saida.push({ tipo: 'rede-cabecalho', texto: cabecalhoDaRede(l), thread: l.thread })
+    if (l.esperaVoce) saida.push({ tipo: 'rede-pergunta', texto: `  espera você: ${l.pergunta ?? 'pausa humana valendo'}`, thread: l.thread })
+  }
+  return saida
+}
+
+/**
+ * O que esta dentro da janela de rolagem (D10): as linhas `primeira` em diante da tela, de `offset` ate
+ * `offset + bodyRows`. Sem janela, nada conta como visto: o registro nunca diz que o dono viu o que talvez
+ * nao estivesse na tela.
+ */
+export function mostradosVisiveis(linhas: ReadonlyArray<{ mostrado?: TorreMostrado }>, primeira: number,
+  janela: { offset: number; bodyRows: number } | undefined): TorreMostrado[] {
+  if (!janela || !(janela.bodyRows > 0)) return []
+  const fim = janela.offset + janela.bodyRows
+  return linhas.flatMap((l, i) => (l.mostrado && primeira + i >= janela.offset && primeira + i < fim ? [l.mostrado] : []))
+}
+
+/**
+ * A arvore do painel com os elementos que a superficie resolveu (`$.ui.resolve(e)` no register.tsx), uma
+ * linha da tela por elemento. A primeira linha de cada thread desta maquina e um botao que abre o detalhe dela
+ * (T1.2); as threads das outras maquinas vem depois, sem botao (T1.3).
  */
 export function desenharPainel(el: { Box: any; Text: any; Button: any }, q: TorreQuadro,
-  opcoes: { agora: number; abrir?: (thread: string) => void; rede?: TorreRede | null; lerRede?: () => void }) {
+  opcoes: { agora: number; largura?: number; abrir?: (thread: string) => void; rede?: TorreRede | null; lerRede?: () => void }) {
   const { Box, Text, Button } = el
-  const daRede = linhasDaRedeVisiveis(opcoes.rede, q)
   return (
     <Box flexDirection="column">
-      <Text key="placar" bold wrap="truncate">{placar(q, opcoes.agora)}</Text>
-      <Box key="rede" flexDirection="row">
-        <Text key="placar-da-rede" dimColor wrap="truncate">{placarDaRede(opcoes.rede, opcoes.agora)}</Text>
-        <Button key="ler-rede" label="Ler a rede" onPress={() => opcoes.lerRede?.()} />
-      </Box>
-      {q.linhas.map(l => (
-        <Box key={`linha:${l.thread}`} flexDirection="column">
-          <Button key={`abrir:${l.thread}`} plain onPress={() => opcoes.abrir?.(l.thread)}>{cabecalhoDaLinha(l)}</Button>
-          {detalhesDaLinha(l).map((d, i) => (
-            <Text key={`detalhe:${l.thread}:${i}`} dimColor wrap="truncate">{`  ${d}`}</Text>
-          ))}
-        </Box>
-      ))}
-      {q.omitidas > 0 && <Text key="omitidas" dimColor>{`+${q.omitidas} threads abertas além do teto de ${TETO_DE_THREADS}`}</Text>}
-      {daRede.map(l => (
-        <Box key={`rede:${l.thread}`} flexDirection="column">
-          <Text key={`rede-cabecalho:${l.thread}`} wrap="truncate">{cabecalhoDaRede(l)}</Text>
-          {l.esperaVoce && <Text key={`rede-pergunta:${l.thread}`} dimColor wrap="truncate">{`  espera você: ${l.pergunta ?? 'pausa humana valendo'}`}</Text>}
-        </Box>
-      ))}
+      {linhasDoPainel(q, opcoes).map(l => {
+        if (l.tipo === 'placar') return <Text key="placar" bold wrap="truncate">{l.texto}</Text>
+        if (l.tipo === 'rede') {
+          return (
+            <Box key="rede" flexDirection="row">
+              <Text key="placar-da-rede" dimColor wrap="truncate">{l.texto}</Text>
+              <Button key="ler-rede" label="Ler a rede" onPress={() => opcoes.lerRede?.()} />
+            </Box>
+          )
+        }
+        if (l.tipo === 'cabecalho') {
+          return <Button key={`abrir:${l.thread}`} plain onPress={() => opcoes.abrir?.(l.thread)}>{cortar(l.texto, opcoes.largura)}</Button>
+        }
+        if (l.tipo === 'detalhe') return <Text key={`detalhe:${l.thread}:${l.indice}`} dimColor wrap="truncate">{l.texto}</Text>
+        if (l.tipo === 'omitidas') return <Text key="omitidas" dimColor wrap="truncate">{l.texto}</Text>
+        if (l.tipo === 'rede-cabecalho') return <Text key={`rede-cabecalho:${l.thread}`} wrap="truncate">{l.texto}</Text>
+        return <Text key={`rede-pergunta:${l.thread}`} dimColor wrap="truncate">{l.texto}</Text>
+      })}
     </Box>
   )
 }

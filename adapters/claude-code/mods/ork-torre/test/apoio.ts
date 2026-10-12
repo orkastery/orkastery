@@ -2,7 +2,7 @@
 // verdade (teste do kit nao importa arquivo fora da pasta do plugin): esta ponte falsa, inline, acrescenta o
 // noun no `engine.create`. O retrato sai do `mcp.call` do fundo para `ork_maestro`, como na ponte real; a
 // lista fechada, a faixa e o mostrado saem do `mcp.call` para o servidor `ponte-falsa`, onde o teste os le.
-// O papel vem da variavel `PONTE_FALSA_PAPEL` do ambiente do teste.
+// O papel vem da variavel `PONTE_FALSA_PAPEL` do ambiente do teste; `erro` faz a ponte falhar (falha passageira).
 export const PONTE_FALSA = {
   name: 'ork-ponte',
   register(on) {
@@ -13,7 +13,11 @@ export const PONTE_FALSA = {
         if (r.isError) throw new Error(`ork-ponte: ${ferramenta} recusado`)
         return JSON.parse(r.content[0].text)
       }
-      const papel = async () => (await built.env.get('PONTE_FALSA_PAPEL')) ?? 'dormente'
+      const papel = async () => {
+        const p = await built.env.get('PONTE_FALSA_PAPEL')
+        if (p === 'erro') throw new Error('ork-ponte: o servidor do nucleo ainda nao respondeu')
+        return p ?? 'dormente'
+      }
       const ork = {
         papel,
         contexto: async () => ({ papel: await papel(), thread: null, raiz: '/p' }),
@@ -33,7 +37,13 @@ export const PONTE_FALSA = {
   },
 }
 
-export const PANE = { title: 'Torre', isFocused: false, bodyColumns: 72, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {} }
+export const PANE = { title: 'Torre', isFocused: false, bodyColumns: 100, placement: 'dock', scroll: { offset: 0, bodyRows: 60 }, view: {} }
+/** O painel posto e a vista do dono, como `$.ui.panes()` o lista. */
+export const A_VISTA = [{ id: 'torre', title: 'Torre', isShown: true, isFocused: false, isPlaced: true }]
+/** As acoes que o nucleo declara disponiveis na sessao do dono: toda ferramenta do servidor sem thread (D15). */
+export const DISPONIVEIS = ['thread.status', 'thread.observe', 'git.status', 'git.commit', 'verify', 'ship', 'hitl.decide', 'phase']
+/** Um relogio na epoca de hoje, para erro relativo ao zero nao passar despercebido. */
+export const EPOCA = 1760000000000
 export const P = { isFullscreen: true, columns: 160 }
 
 const ok = valor => ({ value: { content: [{ type: 'text', text: JSON.stringify(valor) }], isError: false } })
@@ -78,7 +88,7 @@ export function retratoDe(t) {
  */
 export function montar(on, opcoes) {
   const mundo = { abertas: opcoes.abertas, retratos: { ...opcoes.retratos }, paineis: opcoes.paineis ?? [],
-    respostas: { ...(opcoes.respostas ?? {}) }, carregados: opcoes.carregados ?? [],
+    respostas: { ...(opcoes.respostas ?? {}) }, carregados: opcoes.carregados ?? [], listaFalha: opcoes.listaFalha ?? false,
     maestro: [], ler: [], mcp: [], faixas: [], mostrados: [], comandos: [], abertos: [], toasts: [], rodados: [] }
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('classic.FileChanged', () => ({}))
@@ -92,7 +102,9 @@ export function montar(on, opcoes) {
     if (e.server === 'ponte-falsa') {
       if (e.tool === 'ler') {
         mundo.ler.push(e.args)
-        if (e.args.consulta === 'thread.list') return ok({ todas: false, total: mundo.abertas.length, threads: mundo.abertas.map(id => ({ id, status: 'aberta' })) })
+        if (e.args.consulta === 'thread.list') {
+          return mundo.listaFalha ? falha() : ok({ todas: false, total: mundo.abertas.length, threads: mundo.abertas.map(id => ({ id, status: 'aberta' })) })
+        }
         const resposta = mundo.respostas[e.args.consulta]
         return resposta === undefined ? falha() : ok(resposta)
       }
@@ -107,15 +119,16 @@ export function montar(on, opcoes) {
   on('command.list', () => ({ value: mundo.carregados }))
   on('command.register', ($, e) => { mundo.comandos.push(e.name); return { value: { command: e.name } } })
   on('ui.open', ($, e) => { mundo.abertos.push(e.id); return { value: { isPlaced: true } } })
+  on('ui.close', () => ({ value: undefined }))
   on('ui.panes', () => ({ value: mundo.paineis }))
   on('ui.toast', ($, e) => { mundo.toasts.push(e.text); return { value: undefined } })
   on('command.run', ($, e) => { mundo.rodados.push({ command: e.command, args: e.args }); return { text: 'ok' } })
   return mundo
 }
 
-/** O inicio de uma sessao interativa do dono no terminal. */
-export async function iniciar($) {
-  await $.session.start({ cwd: '/p', surface: 'terminal', isInteractive: true })
+/** O inicio de uma sessao interativa no terminal; `false` e uma sessao sem pessoa (`-p` ou SDK). */
+export async function iniciar($, interativa = true) {
+  await $.session.start({ cwd: '/p', surface: interativa ? 'terminal' : null, isInteractive: interativa })
 }
 
 /** O `/torre` como o dono o digita. */
@@ -131,9 +144,9 @@ export async function textosDoPainel($, surface) {
   return textos
 }
 
-/** O painel montado numa superficie, para o teste apertar os botoes. */
-export async function montarPainel($, surface) {
-  return $.ui.mount({ plugin: 'ork-torre', surface, component: 'Pane', requestId: 'torre', props: PANE })
+/** O painel montado numa superficie, para o teste apertar os botoes; `janela` troca a janela de rolagem. */
+export async function montarPainel($, surface, janela?) {
+  return $.ui.mount({ plugin: 'ork-torre', surface, component: 'Pane', requestId: 'torre', props: janela ? { ...PANE, scroll: janela } : PANE })
 }
 
 /** Os textos de `Text` e `Button` de um painel ja montado. */

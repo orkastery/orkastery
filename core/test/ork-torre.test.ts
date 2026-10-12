@@ -17,6 +17,9 @@ const MODULOS_PUROS = ['hooks/frases.ts', 'hooks/agenda.ts', 'hooks/painel.tsx',
 /** D3: as unicas ferramentas que a Torre chama direto no servidor `orkastery`, todas de leitura no nucleo. */
 const LISTA_FECHADA_DO_MCP = ['ork_phase_list', 'ork_claims_list', 'ork_observe', 'ork_git_status', 'ork_network_roadmap'];
 const NOUNS_PROIBIDOS = ['process', 'fs', 'store', 'env'];
+/** D3: tudo que a Torre chama direto no `$`; o estado passa pelo `read` e pelo `update` do motor. */
+const CHAMADAS_PERMITIDAS = ['ork.papel', 'ork.retrato', 'ork.ler', 'ork.faixa', 'ork.mostrado', 'command.register', 'command.list',
+  'command.run', 'clock.now', 'clock.after', 'clock.every', 'ui.open', 'ui.panes', 'ui.resolve', 'ui.toast', 'mcp.call'];
 
 type No = { tipo: string; props: Record<string, unknown>; filhos: unknown[] };
 (globalThis as unknown as { h: unknown }).h = (tipo: string, props: Record<string, unknown> | null, ...filhos: unknown[]): No =>
@@ -137,6 +140,7 @@ test('frases: uma por motivo tipado do nucleo, nem mais nem menos, e motivo desc
   for (const [motivo, frase] of Object.entries(FRASE_DO_MOTIVO)) {
     assert.ok(typeof frase === 'string' && frase.length > 0 && frase.length <= 60 && !/[\n.]$/.test(frase), motivo);
   }
+  assert.deepEqual([...MOTIVOS_DO_DONO], ['human.pending', 'runtime.workspace-untrusted', 'runtime.consent-pending', 'runtime.auth-missing']);
   for (const m of MOTIVOS_DO_DONO) assert.ok(m in DESCRICAO_DO_MOTIVO, m);
   assert.equal(fraseDoMotivo('claims.failed'), 'uma claim reprovou no HEAD');
   assert.equal(fraseDoMotivo('motivo.novo'), 'motivo.novo');
@@ -155,8 +159,11 @@ test('agenda: o evento de arquivo marca a thread do ledger ou a lista, e nada ma
 });
 
 test('agenda: cada thread e lida no maximo a cada 10 s, e o tique pega o que ficou velho', () => {
-  const { escolher, vencidas, INTERVALO_POR_THREAD_MS, IDADE_MAXIMA_MS, ESPERA_DO_LOTE_MS, PERIODO_DO_TIQUE_MS } = carregar('hooks/agenda.ts');
-  assert.deepEqual([ESPERA_DO_LOTE_MS, INTERVALO_POR_THREAD_MS, PERIODO_DO_TIQUE_MS, IDADE_MAXIMA_MS], [2000, 10000, 60000, 300000]);
+  const { escolher, vencidas, INTERVALO_POR_THREAD_MS, IDADE_MAXIMA_MS, ESPERA_DO_LOTE_MS, PERIODO_DO_TIQUE_MS, INTERVALO_ESCONDIDO_MS,
+    IDADE_MAXIMA_ESCONDIDO_MS } = carregar('hooks/agenda.ts');
+  assert.deepEqual([ESPERA_DO_LOTE_MS, INTERVALO_POR_THREAD_MS, PERIODO_DO_TIQUE_MS, IDADE_MAXIMA_MS, INTERVALO_ESCONDIDO_MS, IDADE_MAXIMA_ESCONDIDO_MS],
+    [2000, 10000, 60000, 300000, 60000, 900000]);
+  assert.deepEqual(escolher(['ork-a'], { 'ork-a': 1000 }, 31000, INTERVALO_ESCONDIDO_MS), { ler: [], adiadas: ['ork-a'], proximaEm: 61000 });
   assert.deepEqual(escolher(['ork-b', 'ork-a', 'ork-b', 'ork-c'], { 'ork-a': 1000, 'ork-c': 5000 }, 12000),
     { ler: ['ork-a', 'ork-b'], adiadas: ['ork-c'], proximaEm: 15000 });
   assert.deepEqual(escolher([], {}, 0), { ler: [], adiadas: [], proximaEm: null });
@@ -299,15 +306,18 @@ test('detalhe: o botao do mod dono so com o comando registrado pelo plugin esper
   const { linhaDaThread } = carregar('hooks/painel.tsx');
   assert.deepEqual(donosCarregados([{ name: 'mesa', plugin: 'ork-mesa' }, { name: 'pista' }, { name: 'nota', plugin: 'outro' }, { name: 'help', plugin: 'x' }]),
     { mesa: 'ork-mesa', nota: 'outro' });
-  const linha = linhaDaThread('ork-a', retratoDe({ thread: 'ork-a', fase: 'SHIP', modo: 'auto', acoes: ['thread.status', 'hitl.decide', 'ship', 'master', 'git.commit'] }),
+  const todas = ['thread.status', 'hitl.decide', 'ship', 'master', 'git.commit'];
+  const linha = linhaDaThread('ork-a', retratoDe({ thread: 'ork-a', fase: 'SHIP', modo: 'auto', pedidos: [{ id: 'p1', texto: 'Autorizar' }], acoes: todas }),
     { fonte: 'mcp', lidoEm: 0 });
   const acoes = acoesDoDetalhe(linha, { mesa: 'ork-mesa', nota: 'outro' });
-  assert.deepEqual(acoes.map((a: { operacao: string; tipo: string }) => `${a.operacao}=${a.tipo}`),
-    ['thread.status=leitura', 'hitl.decide=mod', 'ship=texto', 'master=texto', 'git.commit=texto']);
-  assert.equal(acoes[2].texto, 'Entregar: rode ork ship ork-a --para <base>');
-  assert.equal(acoes[3].texto, 'Nota do MASTER: rode ork master pedir ork-a');
-  assert.equal(acoes[4].texto, 'Commit: o commit é da sessão de GO, pelo ork_git_commit');
+  assert.deepEqual(acoes.map((a: { operacao: string; tipo: string }) => `${a.operacao}=${a.tipo}`), ['thread.status=leitura', 'hitl.decide=mod', 'ship=texto']);
+  assert.equal(acoes[2].texto, 'Entregar: rode ork ship ork-a --para main; troque main pela branch base do projeto, se for outra');
+  const entregue = { ...linha, pedidos: [], estado: 'quieta', entrega: 'delivered', master: 'pending' };
+  const doMaster = acoesDoDetalhe(entregue, { nota: 'outro' });
+  assert.deepEqual(doMaster.map((a: { operacao: string }) => a.operacao), ['thread.status', 'master']);
+  assert.equal(doMaster[1].texto, 'Nota do MASTER: rode ork master pedir ork-a');
   assert.deepEqual(acoesDoDetalhe({ ...linha, acoes: [{ operacao: 'operacao.nova' }] }, {}), []);
+  assert.deepEqual(acoesDoDetalhe({ ...linha, estado: 'sem-leitura' }, {}), []);
 });
 
 test('detalhe: a leitura de cada resposta do nucleo, e resposta fora do formato vira erro', () => {
@@ -319,6 +329,8 @@ test('detalhe: a leitura de cada resposta do nucleo, e resposta fora do formato 
   const eventos = { phases: { eventos: [{ tipo: 'phase_dispatch', ts: '2026-01-01T00:00:00.000Z', fase: 'GO' },
     { tipo: 'phase_result', ts: '2026-01-01T00:09:00.000Z', fase: 'GO', classificacao: 'fase_concluida' }, { tipo: 'x', ts: 'ruim' }] } };
   assert.deepEqual(d.linhasDosEventos(eventos, agora), ['x · sem hora', 'phase_result · GO · fase_concluida · há 1 min', 'phase_dispatch · GO · há 10 min']);
+  assert.deepEqual(d.linhasDosEventos({ phases: { eventos: [{ tipo: 'gate_blocked', ts: '2026-01-01T00:08:00.000Z', fase: 'CHECK', motivo: 'claims.failed' }] } }, agora),
+    ['gate_blocked · CHECK · claims.failed · há 2 min']);
   assert.deepEqual(d.linhasDosEventos({ phases: { eventos: [] } }, agora), ['nenhum evento de fase registrado']);
   assert.throws(() => d.linhasDosEventos({}, agora), /sem eventos/);
   assert.deepEqual(d.linhasDasClaims([{ id: 'C1', estado: 'verificado', alegacao: 'a' }, { id: 'C2', estado: 'pendente', alegacao: 'b' },
@@ -353,7 +365,7 @@ test('detalhe: o desenho tem voltar, atualizar, o texto e um botao por acao de l
   assert.deepEqual(textos(arvore), [
     'Voltar', 'Atualizar',
     'x  ork-a  ●●●◉○○ CHECK  #Auto', 'ninguém conduz agora', 'bloqueio: uma claim reprovou no HEAD (claims.failed)',
-    'sessão s-1 claude-bg · CHECK: working',
+    'sessão s-1 claude-bg · CHECK: trabalhando',
     'últimos eventos', '  phase_dispatch · GO · há 1 min', '  (lido há 1 min)', 'claims', '  lendo…', 'Estado', '  não leu: falhou',
     'ações', 'Estado', 'Retomar: abrir a Sentinela do Condutor', 'Verificar: rode ork verify ork-a',
   ]);
@@ -409,6 +421,7 @@ test('rede: a linha da faixa resume o quadro e a rede numa linha, com teto, e so
   assert.equal(textoDaFaixa({ ...q, linhas: [l('ork-g', { conducao: 'conduzido agora' })] }, null), '1 thread aberta · 1 andando');
   assert.equal(textoDaFaixa({ linhas: [], omitidas: 0, lidoEm: 0, erro: null }, null), 'nenhuma thread aberta nesta máquina');
   assert.equal(textoDaFaixa({ linhas: [], omitidas: 0, lidoEm: null, erro: 'x' }, null), undefined);
+  assert.equal(textoDaFaixa({ linhas: [], omitidas: 0, lidoEm: 0, erro: 'x' }, null), 'nenhuma thread aberta nesta máquina · lista não relida');
   const rede = { lidoEm: 1, linhas: [{ thread: 'ork-x', esperaVoce: true }, { thread: 'ork-y', esperaVoce: false }], maquinas: 1, lacunas: 0, erro: null };
   assert.equal(textoDaFaixa({ linhas: [], omitidas: 0, lidoEm: 0, erro: null }, rede), 'nenhuma thread aberta nesta máquina · rede: 2 em outras máquinas, 1 espera você');
   assert.equal(textoDaFaixa({ linhas: [], omitidas: 0, lidoEm: 0, erro: null }, { ...rede, lidoEm: null }), 'nenhuma thread aberta nesta máquina');
@@ -444,6 +457,77 @@ test('painel: o placar da rede, a linha de outra maquina e a local que vence no 
   assert.deepEqual(lidas, ['rede']);
 });
 
+test('D15: a leitura aparece sempre que disponivel, e a acao com efeito so quando o estado da thread a pede', () => {
+  const { linhaDaThread, acoesRelevantes } = carregar('hooks/painel.tsx');
+  const todas = ['thread.status', 'thread.observe', 'git.status', 'git.commit', 'verify', 'ship', 'hitl.decide', 'retry', 'master', 'phase'];
+  const ops = (extra: Record<string, unknown>, mudar: Record<string, unknown> = {}) => acoesRelevantes({
+    ...linhaDaThread('ork-a', retratoDe({ thread: 'ork-a', fase: 'GO', modo: 'auto', acoes: todas, ...extra }), { fonte: 'mcp', lidoEm: 0 }), ...mudar,
+  }).map((a: { operacao: string }) => a.operacao);
+  const leituras = ['thread.status', 'thread.observe', 'git.status'];
+  assert.deepEqual(ops({}), [...leituras, 'phase']);
+  assert.deepEqual(ops({ conducao: 'conduzido agora' }), leituras);
+  assert.deepEqual(ops({ pedidos: [{ id: 'p', texto: 't' }] }), [...leituras, 'hitl.decide']);
+  assert.deepEqual(ops({ motivo: 'human.pending' }), [...leituras, 'hitl.decide']);
+  assert.deepEqual(ops({ motivo: 'verify.regression' }), [...leituras, 'retry', 'verify']);
+  assert.deepEqual(ops({ motivo: 'lease.busy' }), [...leituras, 'retry']);
+  assert.deepEqual(ops({ fase: 'SHIP', conducao: 'x' }), [...leituras, 'ship']);
+  assert.deepEqual(ops({ fase: 'SHIP', conducao: 'x' }, { entrega: 'delivered' }), [...leituras, 'master']);
+  assert.deepEqual(ops({ fase: 'MASTER', conducao: 'x' }, { master: 'recorded' }), leituras);
+  assert.deepEqual(ops({}, { estado: 'sem-leitura' }), []);
+  assert.deepEqual(ops({ acoes: ['git.commit', 'creation'] }), []);
+});
+
+test('D10: as linhas da tela seguem o desenho, e so o que esta na janela de rolagem conta como mostrado', () => {
+  const { linhaDaThread, ordenarLinhas, linhasDoPainel, mostradosVisiveis, desenharPainel } = carregar('hooks/painel.tsx');
+  const q = { omitidas: 0, lidoEm: 0, erro: null, linhas: ordenarLinhas([
+    linhaDaThread('ork-a', retratoDe({ thread: 'ork-a', fase: 'SHIP', modo: 'classic', motivo: 'human.pending', pedidos: [{ id: 'p1', texto: 'Autorizar' }] }), { fonte: 'mcp', lidoEm: 0 }),
+    linhaDaThread('ork-b', retratoDe({ thread: 'ork-b', fase: 'CHECK', modo: 'auto', motivo: 'claims.failed' }), { fonte: 'mcp', lidoEm: 0 }),
+  ]) };
+  const linhas = linhasDoPainel(q, { agora: 0 });
+  assert.deepEqual(linhas.map((l: { texto: string }) => l.texto),
+    textos(desenharPainel({ Box: 'Box', Text: 'Text', Button: 'Button' }, q, { agora: 0 })).filter((t) => t !== 'Ler a rede'));
+  assert.deepEqual(linhas.map((l: { tipo: string }) => l.tipo), ['placar', 'rede', 'cabecalho', 'detalhe', 'detalhe', 'detalhe', 'cabecalho', 'detalhe', 'detalhe']);
+  const chaves = (janela: unknown, primeira = 0) => mostradosVisiveis(linhas, primeira, janela).map((m: { chave: string }) => m.chave);
+  assert.deepEqual(chaves({ offset: 0, bodyRows: 60 }), ['hitl:p1', 'bloqueio:ork-a:human.pending', 'bloqueio:ork-b:claims.failed']);
+  assert.deepEqual(chaves({ offset: 0, bodyRows: 4 }), ['hitl:p1']);
+  assert.deepEqual(chaves({ offset: 5, bodyRows: 4 }), ['bloqueio:ork-b:claims.failed']);
+  assert.deepEqual(chaves({ offset: 0, bodyRows: 4 }, 1), []);
+  assert.deepEqual(chaves(undefined), []);
+  assert.deepEqual(chaves({ offset: 0, bodyRows: 0 }), []);
+});
+
+test('painel: os valores do nucleo chegam ao dono em portugues, e a primeira linha cabe na largura', () => {
+  const { emPortugues, cortar, linhaDaThread, desenharPainel } = carregar('hooks/painel.tsx');
+  assert.deepEqual(['delivered', 'pending', 'recorded', 'unknown', 'working', 'unavailable', 'conflict', 'outro'].map(emPortugues),
+    ['entregue', 'pendente', 'gravado', 'desconhecido', 'trabalhando', 'indisponível', 'em conflito', 'outro']);
+  assert.equal(emPortugues('constructor'), 'constructor');
+  assert.equal(cortar('abcdef', 4), 'abc…');
+  assert.equal(cortar('abc', 4), 'abc');
+  assert.equal(cortar('abcdef'), 'abcdef');
+  const r = retratoDe({ thread: 'ork-a', fase: 'GO', modo: 'auto' });
+  (r.sections.sessions as { state: string }).state = 'unavailable';
+  const l = linhaDaThread('ork-a', r, { fonte: 'mcp', lidoEm: 0 });
+  assert.deepEqual(l.lacunas, ['sessions: indisponível']);
+  const arvore = desenharPainel({ Box: 'Box', Text: 'Text', Button: 'Button' }, { linhas: [l], omitidas: 0, lidoEm: 0, erro: null }, { agora: 0, largura: 10 });
+  assert.equal(botao(arvore, 'abrir:ork-a')?.filhos.join(''), '-  ork-a …');
+});
+
+test('detalhe: thread sem leitura so diz que nao leu, e o detalhe marca o bloqueio e o pedido que mostra', () => {
+  const { linhasDoDetalhe, desenharDetalhe } = carregar('hooks/detalhe.tsx');
+  const { linhaDaThread } = carregar('hooks/painel.tsx');
+  const semLeitura = linhaDaThread('ork-x', null, { fonte: null, lidoEm: null, erro: 'o retrato não veio' });
+  const itens = linhasDoDetalhe(semLeitura, undefined, 0);
+  assert.deepEqual(itens.slice(0, 2).map((i: { texto: string }) => i.texto), ['?  ork-x  ······ ?', 'não li o retrato: o retrato não veio']);
+  const desenho = textos(desenharDetalhe({ Box: 'Box', Text: 'Text', Button: 'Button' }, semLeitura, undefined, {}, { agora: 0 }));
+  assert.ok(!desenho.some((t) => t.includes('conduz') || t.includes('ação')), desenho.join(' | '));
+  const lida = linhaDaThread('ork-a', retratoDe({ thread: 'ork-a', fase: 'SHIP', modo: 'auto', motivo: 'human.pending', pedidos: [{ id: 'p1', texto: 'Autorizar' }] }),
+    { fonte: 'mcp', lidoEm: 0 });
+  assert.deepEqual(linhasDoDetalhe(lida, undefined, 0).flatMap((i: { mostrado?: { chave: string } }) => (i.mostrado ? [i.mostrado.chave] : [])),
+    ['bloqueio:ork-a:human.pending', 'hitl:p1']);
+  assert.ok(textos(desenharDetalhe({ Box: 'Box', Text: 'Text', Button: 'Button' }, { ...lida, acoes: [] }, undefined, {}, { agora: 0 }))
+    .includes('nenhuma ação pedida pelo estado desta thread'));
+});
+
 /** As chamadas `x.noun.metodo(...)` de um fonte, com os argumentos literais de texto quando ha. */
 function chamadasDoFonte(arquivo: string): Array<{ cadeia: string[]; literais: Array<string | null>; linha: number }> {
   const texto = fs.readFileSync(arquivo, 'utf8');
@@ -472,20 +556,26 @@ function fontesDoMod(dir: string): string[] {
   });
 }
 
-test('D3: a Torre nao usa processo, disco, store nem ambiente, e chama o MCP so na lista fechada de leitura', () => {
+test('D3: a Torre so chama no $ uma lista fechada de nouns e metodos, e o MCP so na lista fechada de leitura', () => {
   const fontes = fontesDoMod(TORRE);
   assert.ok(fontes.some((f) => f.endsWith('hooks/register.tsx')));
+  const vistas = new Set<string>();
   for (const arquivo of fontes) {
     for (const c of chamadasDoFonte(arquivo)) {
       const onde = `${path.relative(raizDoRepo, arquivo)}:${c.linha} ${c.cadeia.join('.')}`;
-      const nouns = c.cadeia.slice(1, -1);
-      assert.ok(!nouns.some((n) => NOUNS_PROIBIDOS.includes(n)), `chamada proibida: ${onde}`);
+      assert.ok(!c.cadeia.slice(1, -1).some((n) => NOUNS_PROIBIDOS.includes(n)), `chamada proibida: ${onde}`);
+      if (c.cadeia[0] === '$') {
+        const chamada = c.cadeia.slice(1).join('.');
+        assert.ok(CHAMADAS_PERMITIDAS.includes(chamada), `chamada fora da lista fechada do $: ${onde}`);
+        vistas.add(chamada);
+      }
       if (c.cadeia.slice(-2).join('.') === 'mcp.call') {
         assert.equal(c.literais[0], 'orkastery', `servidor nao literal ou outro: ${onde}`);
         assert.ok(c.literais[1] !== null && LISTA_FECHADA_DO_MCP.includes(c.literais[1]), `ferramenta fora da lista fechada: ${onde}`);
       }
     }
   }
+  assert.ok(vistas.has('ork.retrato') && vistas.has('mcp.call'), [...vistas].join(', '));
 });
 
 test('D3: cada ferramenta da lista fechada e de leitura no nucleo (readOnlyHint)', () => {

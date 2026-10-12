@@ -11,6 +11,12 @@ export const INTERVALO_POR_THREAD_MS = 10000
 export const PERIODO_DO_TIQUE_MS = 60000
 /** Linha lida ha mais que isto volta a ser lida no tique, mesmo sem evento de arquivo. */
 export const IDADE_MAXIMA_MS = 300000
+/**
+ * Com o painel escondido so a faixa le o quadro: o intervalo por thread e a idade maxima se espacam, porque
+ * cada retrato roda a observacao nativa no servidor do dono (D16).
+ */
+export const INTERVALO_ESCONDIDO_MS = 60000
+export const IDADE_MAXIMA_ESCONDIDO_MS = 900000
 
 const ID_DE_THREAD = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/
 

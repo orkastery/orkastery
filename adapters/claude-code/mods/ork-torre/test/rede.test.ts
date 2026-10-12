@@ -113,3 +113,17 @@ test('leitura da rede que falha guarda o que havia e diz o erro; sem leitura ant
   expect(textos).toContain('~  ork-y  ●●◉○○○ GO  #Fast  @maquina-c, sem batida')
   await ui.unmount()
 })
+
+test('sem quadro lido a linha sai da faixa, e lista que deixa de ser relida aparece na faixa', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  mock.clock(on, { now: 1000 })
+  const mundo = montar(on, { papel: 'dono', abertas: ABERTAS, retratos: RETRATOS, listaFalha: true })
+  await iniciar($)
+  await torre($)
+  expect(mundo.faixas).toEqual([{ mod: 'ork-torre' }])
+  mundo.listaFalha = false
+  await torre($)
+  expect(mundo.faixas[1]).toEqual({ mod: 'ork-torre', texto: '3 threads abertas · 1 espera você (ork-a) · 1 parada (ork-b: uma claim reprovou no HEAD)' })
+  mundo.listaFalha = true
+  await torre($)
+  expect(mundo.faixas[2]).toEqual({ mod: 'ork-torre', texto: '3 threads abertas · 1 espera você (ork-a) · 1 parada (ork-b: uma claim reprovou no HEAD) · lista não relida' })
+})

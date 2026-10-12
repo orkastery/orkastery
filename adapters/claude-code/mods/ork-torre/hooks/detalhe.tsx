@@ -4,7 +4,8 @@
 // o atalho para o mod dono dela (que aplica as proprias regras) ou o comando do `ork` em texto, para o dono
 // rodar. Nenhuma acao com efeito roda pela Torre. Modulo puro: o `$` fica no register.tsx.
 import type { TorreDetalhe, TorreLeitura, TorreLinha } from '../types'
-import { cabecalhoDaLinha, idade, LEITURAS, ROTULO_DA_ACAO } from './painel'
+import type { ItemDoPainel } from './painel'
+import { acoesRelevantes, cabecalhoDaLinha, emPortugues, idade, LEITURAS, ROTULO_DA_ACAO } from './painel'
 
 export type Dono = { plugin: string; comando: string; nome: string }
 export type ClasseDaAcao =
@@ -22,7 +23,7 @@ export const CLASSE_DA_ACAO: Readonly<Record<string, ClasseDaAcao>> = {
   'hitl.decide': { tipo: 'efeito', dono: { plugin: 'ork-mesa', comando: 'mesa', nome: 'a Mesa do Dono' },
     comando: () => 'ork sessions hitl', nota: 'a resposta vai pelo Telegram ou pelo diálogo nativo' },
   'ship': { tipo: 'efeito', dono: { plugin: 'ork-pista', comando: 'pista', nome: 'a Pista de Entrega' },
-    comando: t => `ork ship ${t} --para <base>`, nota: null },
+    comando: t => `ork ship ${t} --para main`, nota: 'troque main pela branch base do projeto, se for outra' },
   'phase': { tipo: 'efeito', dono: { plugin: 'ork-sentinela', comando: 'sentinela', nome: 'a Sentinela do Condutor' },
     comando: t => `ork conducao status ${t}`, nota: 'a fase seguinte sai pelo condutor' },
   'retry': { tipo: 'efeito', dono: { plugin: 'ork-sentinela', comando: 'sentinela', nome: 'a Sentinela do Condutor' },
@@ -55,12 +56,13 @@ export type AcaoNoDetalhe =
   | { operacao: string; rotulo: string; tipo: 'texto'; texto: string }
 
 /**
- * Como cada acao disponivel aparece no detalhe (D4): leitura vira botao; efeito abre o mod dono so quando o
- * comando dele esta carregado pelo plugin esperado; senao, o comando do `ork` (ou a nota) aparece em texto.
+ * Como cada acao que a Torre oferece aparece no detalhe (D4 e D15): leitura vira botao; efeito pedido pelo
+ * estado abre o mod dono so quando o comando dele esta carregado pelo plugin esperado; senao, o comando do
+ * `ork` (ou a nota) aparece em texto.
  */
 export function acoesDoDetalhe(linha: TorreLinha, donos: Readonly<Record<string, string>>): AcaoNoDetalhe[] {
   const saida: AcaoNoDetalhe[] = []
-  for (const { operacao } of linha.acoes) {
+  for (const { operacao } of acoesRelevantes(linha)) {
     const classe = Object.prototype.hasOwnProperty.call(CLASSE_DA_ACAO, operacao) ? CLASSE_DA_ACAO[operacao] : undefined
     if (!classe) continue
     const rotulo = ROTULO_DA_ACAO[operacao] ?? operacao
@@ -99,7 +101,7 @@ export function linhasDosEventos(resultado: unknown, agora: number, teto = 6): s
   return eventos.slice(-teto).reverse().map(e => {
     const x = (e ?? {}) as Record<string, unknown>
     return [String(x.tipo ?? '?'), typeof x.fase === 'string' ? x.fase : null, typeof x.classificacao === 'string' ? x.classificacao : null,
-      haQuanto(x.ts, agora)].filter(p => p !== null).join(' · ')
+      typeof x.motivo === 'string' ? x.motivo : null, haQuanto(x.ts, agora)].filter(p => p !== null).join(' · ')
   })
 }
 
@@ -165,26 +167,37 @@ function linhasDaLeitura(l: TorreLeitura | null | undefined, agora: number): str
   return [...l.linhas.map(x => `  ${x}`), `  (lido há ${idade(agora - l.lidoEm)})`]
 }
 
-/** O texto do detalhe, linha a linha, na ordem em que aparece. */
-export function linhasDoDetalhe(linha: TorreLinha, detalhe: TorreDetalhe | undefined, agora: number): string[] {
-  const saida = [cabecalhoDaLinha(linha), linha.conducao ?? 'ninguém conduz agora']
-  if (linha.bloqueio) saida.push(`bloqueio: ${linha.bloqueio.frase} (${linha.bloqueio.motivo})`)
-  for (const p of linha.pedidos) {
-    saida.push(`pedido ${p.id}: ${p.texto}`)
-    const sub = [p.prazo ? `prazo ${p.prazo}` : null, p.recomendacao ? `recomendação: ${p.recomendacao}` : null].filter(Boolean)
-    if (sub.length) saida.push(`  ${sub.join(' · ')}`)
+/**
+ * O texto do detalhe, linha a linha, na ordem em que aparece, com o que cada linha mostra ao dono (D10).
+ * Thread sem leitura so diz que nao leu e por que: nada de quem conduz nem de acao (D6).
+ */
+export function linhasDoDetalhe(linha: TorreLinha, detalhe: TorreDetalhe | undefined, agora: number): ItemDoPainel[] {
+  const saida: ItemDoPainel[] = [{ texto: cabecalhoDaLinha(linha) }]
+  if (linha.estado === 'sem-leitura') {
+    saida.push({ texto: `não li o retrato: ${linha.lacunas.join('; ')}` })
+  } else {
+    saida.push({ texto: linha.conducao ?? 'ninguém conduz agora' })
+    if (linha.bloqueio) {
+      saida.push({ texto: `bloqueio: ${linha.bloqueio.frase} (${linha.bloqueio.motivo})`,
+        mostrado: { chave: `bloqueio:${linha.thread}:${linha.bloqueio.motivo}`, thread: linha.thread, texto: `${linha.thread}: ${linha.bloqueio.frase}` } })
+    }
+    for (const p of linha.pedidos) {
+      saida.push({ texto: `pedido ${p.id}: ${p.texto}`,
+        mostrado: { chave: `hitl:${p.id}`, thread: linha.thread, texto: `${linha.thread}: espera você: ${p.texto || p.id}` } })
+      const sub = [p.prazo ? `prazo ${p.prazo}` : null, p.recomendacao ? `recomendação: ${p.recomendacao}` : null].filter(Boolean)
+      if (sub.length) saida.push({ texto: `  ${sub.join(' · ')}` })
+    }
+    for (const s of linha.sessoes) {
+      saida.push({ texto: `sessão ${curto(s.id)} ${s.rotulo}: ${emPortugues(s.estado)}${s.conduz ? ' · conduz' : ''}${s.confirmada ? '' : ' · não confirmada'}` })
+    }
+    if (linha.entrega) saida.push({ texto: `entrega: ${emPortugues(linha.entrega)}` })
+    if (linha.master) saida.push({ texto: `MASTER: ${emPortugues(linha.master)}` })
+    if (linha.lacunas.length) saida.push({ texto: `lacuna: ${linha.lacunas.join('; ')}` })
   }
-  for (const s of linha.sessoes) {
-    saida.push(`sessão ${curto(s.id)} ${s.rotulo}: ${s.estado}${s.conduz ? ' · conduz' : ''}${s.confirmada ? '' : ' · não confirmada'}`)
-  }
-  if (linha.entrega) saida.push(`entrega: ${linha.entrega}`)
-  if (linha.master) saida.push(`MASTER: ${linha.master}`)
-  if (linha.lacunas.length) saida.push(`lacuna: ${linha.lacunas.join('; ')}`)
-  saida.push('últimos eventos', ...linhasDaLeitura(detalhe?.eventos, agora))
-  saida.push('claims', ...linhasDaLeitura(detalhe?.claims, agora))
+  for (const t of ['últimos eventos', ...linhasDaLeitura(detalhe?.eventos, agora), 'claims', ...linhasDaLeitura(detalhe?.claims, agora)]) saida.push({ texto: t })
   for (const op of LEITURAS) {
     const l = detalhe?.leituras?.[op]
-    if (l) saida.push(ROTULO_DA_ACAO[op] ?? op, ...linhasDaLeitura(l, agora))
+    if (l) for (const t of [ROTULO_DA_ACAO[op] ?? op, ...linhasDaLeitura(l, agora)]) saida.push({ texto: t })
   }
   return saida
 }
@@ -196,11 +209,12 @@ export type Gestos = {
   abrirMod?: (dono: Dono) => void
 }
 
-/** A arvore do detalhe: os botoes de voltar e atualizar, o texto, e uma linha por acao disponivel. */
+/** A arvore do detalhe: os botoes de voltar e atualizar, o texto, e uma linha por acao oferecida. */
 export function desenharDetalhe(el: { Box: any; Text: any; Button: any }, linha: TorreLinha, detalhe: TorreDetalhe | undefined,
   donos: Readonly<Record<string, string>>, opcoes: { agora: number } & Gestos) {
   const { Box, Text, Button } = el
   const acoes = acoesDoDetalhe(linha, donos)
+  const lida = linha.estado !== 'sem-leitura'
   return (
     <Box flexDirection="column">
       <Box key="gestos" flexDirection="row">
@@ -208,7 +222,7 @@ export function desenharDetalhe(el: { Box: any; Text: any; Button: any }, linha:
         <Button key="atualizar" label="Atualizar" onPress={() => opcoes.atualizar?.()} />
       </Box>
       {linhasDoDetalhe(linha, detalhe, opcoes.agora).map((t, i) => (
-        <Text key={`detalhe:${i}`} dimColor={i > 0} wrap="truncate">{t}</Text>
+        <Text key={`detalhe:${i}`} dimColor={i > 0} wrap="truncate">{t.texto}</Text>
       ))}
       {acoes.length > 0 && <Text key="acoes-titulo" bold>ações</Text>}
       {acoes.map(a => (a.tipo === 'leitura'
@@ -216,7 +230,7 @@ export function desenharDetalhe(el: { Box: any; Text: any; Button: any }, linha:
         : a.tipo === 'mod'
           ? <Button key={`acao:${a.operacao}`} label={`${a.rotulo}: abrir ${a.dono.nome}`} onPress={() => opcoes.abrirMod?.(a.dono)} />
           : <Text key={`acao:${a.operacao}`} wrap="truncate">{a.texto}</Text>))}
-      {linha.acoes.length === 0 && <Text key="sem-acoes" dimColor>o retrato não declara ação disponível para esta thread</Text>}
+      {lida && acoes.length === 0 && <Text key="sem-acoes" dimColor>nenhuma ação pedida pelo estado desta thread</Text>}
     </Box>
   )
 }
