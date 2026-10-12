@@ -12,6 +12,7 @@ import * as path from 'node:path';
 import { REGRA_DAS_ESPERAS, valoresDoPrompt } from '../src/phase';
 import { renderizar, templateDaFase, threadDeExemplo } from '../src/prompts';
 import { exigirCatalogo } from '../src/catalogo';
+import { instalarAdaptador } from '../src/hosts';
 import { Modo } from '../src/types';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
@@ -26,6 +27,19 @@ function linhasComARegra(arquivo: string): number {
 /** As skills do catalogo que a sessao de fase le (D4): a de entrada das duas instalacoes e as de GO e CHECK. */
 const SKILLS_DO_CATALOGO = ['skills/core/orkastery-bootstrap/SKILL.md', 'skills/phases/go-implementation/SKILL.md',
   'skills/phases/check-quality/SKILL.md'];
+
+/** Os guias dos adaptadores que a sessao de fase le (D4, D10), com a copia de cada um no marketplace do host. */
+const GUIAS_DOS_ADAPTADORES: Record<string, string> = {
+  'adapters/codex/skills/ork/SKILL.md': 'marketplaces/codex/orkastery/skills/ork/SKILL.md',
+  'adapters/claude-code/agents/ork-go.md': 'marketplaces/claude-code/orkastery/agents/ork-go.md',
+  'adapters/claude-code/agents/ork-check.md': 'marketplaces/claude-code/orkastery/agents/ork-check.md',
+};
+
+/** O que a instalacao real de cada host de fase precisa levar com a regra, relativo ao destino da instalacao. */
+const INSTALADOS: Record<'claude-code' | 'codex', string[]> = {
+  'claude-code': [...SKILLS_DO_CATALOGO, 'agents/ork-go.md', 'agents/ork-check.md'],
+  codex: ['skills/ork/SKILL.md', ...SKILLS_DO_CATALOGO],
+};
 
 test('R1: o prompt de toda fase, em todo modo, traz a regra das esperas numa linha so, uma vez, no lugar da linha da N2', () => {
   // Os tres pontos do pedido, um a um, numa linha so.
@@ -69,4 +83,20 @@ test('R2: as skills do catalogo que a sessao de fase le trazem a regra numa linh
   }
   // O bootstrap segue no teto do catalogo (D5): a linha nova coube juntando duas linhas do mesmo paragrafo.
   assert.ok(fs.readFileSync(path.join(RAIZ, SKILLS_DO_CATALOGO[0]), 'utf8').split('\n').length <= 120);
+});
+
+test('R3: os guias dos adaptadores trazem a regra numa linha, uma vez, e o ork adapter install a leva para o que instala', () => {
+  for (const [fonte, copia] of Object.entries(GUIAS_DOS_ADAPTADORES)) {
+    assert.equal(linhasComARegra(path.join(RAIZ, fonte)), 1, fonte);
+    assert.equal(linhasComARegra(path.join(RAIZ, copia)), 1, copia);
+  }
+  // A instalacao real num projeto temporario, nos dois hosts que rodam sessao de fase.
+  for (const host of ['claude-code', 'codex'] as const) {
+    const projeto = fs.mkdtempSync(path.join(os.tmpdir(), `ork-rm037-inst-${host}-`));
+    try {
+      const r = instalarAdaptador(host, { projeto, catalogo: RAIZ, orkBin: '/opt/ork/bin/ork' });
+      assert.equal(r.ok, true, `${host}: ${JSON.stringify(r)}`);
+      for (const rel of INSTALADOS[host]) assert.equal(linhasComARegra(path.join(r.destino, rel)), 1, `${host}: ${rel}`);
+    } finally { fs.rmSync(projeto, { recursive: true, force: true }); }
+  }
 });
