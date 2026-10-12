@@ -148,6 +148,10 @@ test('D13: o texto de ork conhecimento sai pelo catálogo em pt-BR e em inglês,
     assert.deepEqual([verificar.linhas[0], verificar.linhas.at(-2)], ['Knowledge in docs/conhecimento: 2 valid document(s), ' +
       '1 Brain id(s) and 1 decision(s) checked.', 'Check failed: 1 gap(s).']);
     assert.equal(texto(PT, 'verificar').linhas.at(-2), 'Verificação reprovada: 1 lacuna(s).');
+    assert.deepEqual(texto(PT, 'listar', '--colecao', 'people').linhas.slice(0, 2), ['Conhecimento em docs/conhecimento, coleção people: 1 documento(s).',
+      '  doc-vacation  Vacation policy (people, policies)']);
+    assert.equal(texto(EN, 'listar', '--colecao', 'nada').linhas.join('\n'),
+      'Knowledge in docs/conhecimento, collection nada: 0 document(s).\n  (no document)\n');
     // Nenhuma palavra pt-BR no texto em inglês (o que é dado do repositório já está em inglês no cenário).
     for (const args of [['listar'], ['colecoes'], ['mostrar', 'doc-vacation'], ['mostrar', 'doc-nao-tem'], ['verificar']]) {
       assert.deepEqual(linhasEmPortugues(texto(EN, ...args).linhas.join('\n')), [], args.join(' '));
@@ -159,21 +163,22 @@ test('D13: o texto de ork conhecimento sai pelo catálogo em pt-BR e em inglês,
   } finally { c.limpar(); }
 });
 
-test('D13: uso errado de ork conhecimento recusa pelo catálogo, nas duas línguas, sem ler nada', () => {
+test('D13: uso errado de ork conhecimento sai 2 e recusa pelo catálogo, nas duas línguas, sem ler nada', () => {
   const c = cenarioDoConhecimento('uso');
   try {
     for (const args of [['mostrar'], ['mostrar', 'DOC-X'], ['mostrar', 'doc-aaa', 'doc-bbb'], ['listar', '--colecao', 'RH'],
       ['listar', '--colecao'], ['colecoes', '--colecao', 'rh'], ['verificar', 'doc-aaa'], ['ler', 'doc-aaa']]) {
       const pt = ork(c, PT, DSN, 'conhecimento', ...args), en = ork(c, EN, DSN, 'conhecimento', ...args);
-      assert.deepEqual([pt.status, pt.stdout, pt.stderr], [1, '',
+      // Saída 2, e não 1: o gate de CI separa o uso errado da lacuna (achado do CHECK).
+      assert.deepEqual([pt.status, pt.stdout, pt.stderr], [2, '',
         'erro: uso: ork conhecimento [listar [--colecao C]|mostrar <doc-id>|colecoes|verificar] [--json]\n'], args.join(' '));
-      assert.deepEqual([en.status, en.stdout, en.stderr], [1, '',
+      assert.deepEqual([en.status, en.stdout, en.stderr], [2, '',
         'error: usage: ork conhecimento [listar [--colecao C]|mostrar <doc-id>|colecoes|verificar] [--json]\n'], args.join(' '));
     }
     // Com --json o texto não segue o locale (a regra da RM-061): o uso errado sai em pt-BR nas duas línguas.
     for (const locale of [PT, EN]) {
-      assert.deepEqual(ork(c, locale, DSN, 'conhecimento', 'verificar', '--json=sim').stderr,
-        'erro: uso: ork conhecimento [listar [--colecao C]|mostrar <doc-id>|colecoes|verificar] [--json]\n');
+      const r = ork(c, locale, DSN, 'conhecimento', 'verificar', '--json=sim');
+      assert.deepEqual([r.status, r.stderr], [2, 'erro: uso: ork conhecimento [listar [--colecao C]|mostrar <doc-id>|colecoes|verificar] [--json]\n']);
     }
     assert.deepEqual(pedidosAoBrain(c), []);
   } finally { c.limpar(); }
@@ -194,5 +199,28 @@ test('D13: o corpo com caractere invisível vem inteiro no --json, escrito como 
     assert.equal(texto.status, 0, texto.stderr);
     assert.ok(!INVISIVEL.test(texto.stdout.replace(/\n/g, '')), 'nenhum invisível no texto');
     assert.ok(texto.stdout.includes('red [31malert[0m, 2J clear, reversed, zerowidth.\n'), texto.stdout);
+  } finally { c.limpar(); }
+});
+
+test('D13 revista: o texto do mostrar sai inteiro para um documento de muitas linhas, e a pasta não lida sai 1 pelo catálogo', () => {
+  const c = cenarioDoConhecimento('longo');
+  try {
+    // Mais de 130 mil linhas estouravam a pilha quando o corpo ia espalhado nos argumentos (achado do CHECK).
+    documento(c, 'deploy.md', 'id: doc-deploy\ntitulo: Deploy guide\ncolecoes: [engineering]\n', 'x\n'.repeat(200000) + 'last line\n');
+    const r = ork(c, EN, DSN, 'conhecimento', 'mostrar', 'doc-deploy');
+    assert.equal(r.status, 0, r.stderr.slice(0, 300));
+    const linhas = r.stdout.split('\n');
+    assert.equal(linhas.filter((l) => l === 'x').length, 200000);
+    assert.equal(linhas.at(-2), 'last line');
+    // A pasta que não existe: nada foi lido, as quatro consultas saem 1, e o texto diz isso pelo catálogo.
+    fs.rmSync(path.join(c.dir, 'docs', 'conhecimento'), { recursive: true, force: true });
+    for (const [locale, cabeca] of [[PT, 'Conhecimento: a pasta não foi lida.'], [EN, 'Knowledge: the folder was not read.']] as const) {
+      for (const args of [['listar'], ['colecoes'], ['mostrar', 'doc-deploy'], ['verificar']]) {
+        const x = ork(c, locale, DSN, 'conhecimento', ...args);
+        assert.equal(x.status, 1, args.join(' '));
+        assert.equal(x.stdout.split('\n')[0], cabeca, args.join(' '));
+        assert.ok(x.stdout.includes('conhecimento.dir-ausente'), x.stdout);
+      }
+    }
   } finally { c.limpar(); }
 });

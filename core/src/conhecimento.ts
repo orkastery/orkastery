@@ -14,6 +14,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { isUtf8 } from 'node:buffer';
 import { bytesHash } from './company-brain-journal';
 import { ehPaginaDeDocs, separarFrontmatter } from './docs';
 import { Mensagens, textoDoCatalogo } from './locale';
@@ -44,7 +45,11 @@ const reservada = (segmento: string) => PASTAS_RESERVADAS.includes(segmento.toLo
 /** D10: o invisível é o do `saida-segura.ts`, a regra única do núcleo para texto alheio (ZWJ e seletores de emoji valem). */
 const INVISIVEIS = new RegExp(INVISIVEL.source, 'gu');
 
-/** D7: tetos da leitura. Os da pasta falham fechado; o do documento vira lacuna só dele. */
+/**
+ * D7: tetos da leitura. Os da pasta falham fechado; o do documento vira lacuna só dele; os dos ledgers viram lacuna
+ * da referência. Fatia 2: `bytesDosLedgers` soma os ledgers lidos numa leitura, e `getsDoBrain` e `msDaConferencia`
+ * são os da conferência do Brain na consulta (D12 revista).
+ */
 export interface LimitesDoConhecimento {
   entradas: number;
   profundidade: number;
@@ -52,10 +57,14 @@ export interface LimitesDoConhecimento {
   bytesDoFrontmatter: number;
   bytesNoTotal: number;
   bytesDoLedger: number;
+  bytesDosLedgers: number;
+  getsDoBrain: number;
+  msDaConferencia: number;
 }
 export const LIMITES_DO_CONHECIMENTO: Readonly<LimitesDoConhecimento> = Object.freeze({
   entradas: 5000, profundidade: 8, bytesPorDocumento: 1024 * 1024, bytesDoFrontmatter: 16 * 1024,
-  bytesNoTotal: 32 * 1024 * 1024, bytesDoLedger: 16 * 1024 * 1024,
+  bytesNoTotal: 32 * 1024 * 1024, bytesDoLedger: 16 * 1024 * 1024, bytesDosLedgers: 64 * 1024 * 1024,
+  getsDoBrain: 100, msDaConferencia: 60 * 1000,
 });
 
 export type CodigoDeLacunaDoConhecimento =
@@ -107,6 +116,12 @@ export interface DocumentoDeConhecimento {
 export interface OpcoesDaLeitura {
   /** O id do documento cujo corpo volta na resposta (o `ork conhecimento mostrar`). */
   corpoDe?: string;
+  /**
+   * De quais documentos as decisões citadas conferem no ledger: de todos (o padrão, o `verificar`), de nenhum (o
+   * `listar` e o `colecoes`, que não mostram referência) ou só do id pedido (o `mostrar`). Sem conferir, nenhum ledger
+   * é lido para o documento, e as decisões dele saem da resposta sem lacuna.
+   */
+  decisoesDe?: 'todos' | 'nenhum' | string;
 }
 
 export interface Conhecimento {
@@ -295,9 +310,12 @@ type LinhasCitadas = { linhas: Map<number, string>; completas: number } | { moti
 /**
  * As linhas citadas do ledger canônico de uma thread (D5). O ledger é lido como a captura do Brain o lê
  * (`readCycle`): só linhas completas, em UTF-8 exato, para o sha256 da linha ser o `source_hash` dela no Brain.
- * Cada ledger é lido uma vez, e só as linhas citadas ficam na memória.
+ * Cada ledger é lido uma vez, até a maior linha citada, e só as linhas citadas viram texto (fatia 2: a leitura não parte
+ * o ledger inteiro em linhas). `completas` é exato quando alguma linha citada passa do fim, o único caso em que ele é
+ * dito. O `orcamento` é o que resta do teto de bytes dos ledgers da leitura.
  */
-function linhasCitadas(raiz: string, thread: string, citadas: Set<number>, teto: number): LinhasCitadas {
+function linhasCitadas(raiz: string, thread: string, citadas: Set<number>, limites: LimitesDoConhecimento,
+  orcamento: { restante: number }): LinhasCitadas {
   let arquivo: string;
   try { arquivo = path.join(dirThread(raiz, thread), 'ledger.jsonl'); }
   catch { return { motivo: t((l) => l.ledgerLinkOuId) }; }
@@ -308,15 +326,23 @@ function linhasCitadas(raiz: string, thread: string, citadas: Set<number>, teto:
     if ((e as NodeJS.ErrnoException).code !== 'ENOTDIR') return { motivo: t((l) => l.ledgerNaoAbriu(thread)) };
   }
   if (!st) return { motivo: t((l) => l.semLedger(thread)) };
-  const bytes = lerArquivo(arquivo, st, teto, true);
-  if (!Buffer.isBuffer(bytes)) return { motivo: t((l) => l.ledgerNaoRegular(thread, teto / 1024 / 1024)) };
-  const fim = bytes.lastIndexOf(10) + 1;
-  const completo = bytes.subarray(0, fim).toString('utf8');
-  if (!Buffer.from(completo, 'utf8').equals(bytes.subarray(0, fim))) return { motivo: t((l) => l.ledgerNaoUtf8(thread)) };
-  const todas = completo.split('\n').slice(0, -1);
+  if (st.size > orcamento.restante) return { motivo: t((l) => l.ledgersDemais(limites.bytesDosLedgers / 1024 / 1024)) };
+  const bytes = lerArquivo(arquivo, st, limites.bytesDoLedger, true);
+  if (!Buffer.isBuffer(bytes)) return { motivo: t((l) => l.ledgerNaoRegular(thread, limites.bytesDoLedger / 1024 / 1024)) };
+  orcamento.restante -= bytes.length;
+  const completo = bytes.subarray(0, bytes.lastIndexOf(10) + 1);
+  if (!isUtf8(completo)) return { motivo: t((l) => l.ledgerNaoUtf8(thread)) };
+  let maior = 0;
+  for (const n of citadas) if (n > maior) maior = n;
   const linhas = new Map<number, string>();
-  for (const n of citadas) if (n <= todas.length) linhas.set(n, todas[n - 1]);
-  return { linhas, completas: todas.length };
+  let inicio = 0, n = 0;
+  while (inicio < completo.length && n < maior) {
+    const fimDaLinha = completo.indexOf(10, inicio);
+    n++;
+    if (citadas.has(n)) linhas.set(n, completo.subarray(inicio, fimDaLinha).toString('utf8'));
+    inicio = fimDaLinha + 1;
+  }
+  return { linhas, completas: n };
 }
 
 /** D5: a referência `thread#linha` confere quando a linha completa existe, é da thread e é uma decisão. */
@@ -418,14 +444,19 @@ export function lerConhecimento(c: ManifestoCarregado, limites: LimitesDoConheci
     return vezes === 1;
   });
 
-  // D5: cada ledger citado é lido uma vez, com as linhas que os documentos válidos pedem.
+  // D5: cada ledger citado é lido uma vez, com as linhas que os documentos válidos pedem, em ordem de thread e até o
+  // teto de bytes da leitura. Fatia 2: só os documentos cujas decisões a consulta mostra (`decisoesDe`).
+  const decisoesDe = opcoes.decisoesDe ?? 'todos';
+  const confere = (id: string) => decisoesDe === 'todos' || decisoesDe === id;
   const citadas = new Map<string, Set<number>>();
-  for (const v of unicos) for (const ref of v.decisoes) {
+  for (const v of unicos) if (confere(v.id)) for (const ref of v.decisoes) {
     const m = REFERENCIA_DE_DECISAO.exec(ref);
     if (m) citadas.set(m[1], (citadas.get(m[1]) ?? new Set<number>()).add(Number(m[2])));
   }
-  const ledgers = new Map<string, LinhasCitadas>();
-  for (const [thread, linhas] of citadas) ledgers.set(thread, linhasCitadas(c.raiz, thread, linhas, limites.bytesDoLedger));
+  const ledgers = new Map<string, LinhasCitadas>(), orcamento = { restante: limites.bytesDosLedgers };
+  for (const thread of [...citadas.keys()].sort(comparar)) {
+    ledgers.set(thread, linhasCitadas(c.raiz, thread, citadas.get(thread)!, limites, orcamento));
+  }
 
   const documentos: DocumentoDeConhecimento[] = [];
   for (const v of unicos) {
@@ -435,7 +466,7 @@ export function lerConhecimento(c: ManifestoCarregado, limites: LimitesDoConheci
       if (ID_DE_ENTIDADE.test(referencia)) brain.push(referencia);
       else lacunas.push(lacuna('referencia.invalida', t((l) => l.brainForma), { ...onde, referencia }));
     }
-    for (const referencia of v.decisoes) {
+    for (const referencia of confere(v.id) ? v.decisoes : []) {
       const r = conferirDecisao(referencia, ledgers);
       if ('codigo' in r) lacunas.push(lacuna(r.codigo, r.detalhe, { ...onde, referencia }));
       else decisoes.push(r);

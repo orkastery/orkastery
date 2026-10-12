@@ -12,8 +12,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { BRAIN_API, BrainRequest, BrainResponse } from '../src/company-brain-client';
 import { BrainEntity } from '../src/company-brain-contract';
-import { BrainDaConsulta, brainDoProjeto, consultarConhecimento, consultaRespondeu, LIMITE_DE_GET_DO_CONHECIMENTO,
-  PedidoDoConhecimento, RespostaDoConhecimento } from '../src/conhecimento-consulta';
+import { LIMITES_DO_CONHECIMENTO, LimitesDoConhecimento } from '../src/conhecimento';
+import { BrainDaConsulta, brainDoProjeto, consultarConhecimento, consultaRespondeu, PedidoDoConhecimento,
+  RespostaDoConhecimento } from '../src/conhecimento-consulta';
 import { ativarLocale, comLocale, ligarRemontagem, remontar } from '../src/locale';
 import { carregarManifesto } from '../src/manifest';
 import { dirTemporario } from './apoio';
@@ -71,8 +72,9 @@ function brainFalso(respostas: Record<string, BrainResponse | BrainEntity>, padr
 }
 const idsPedidos = (f: Falso) => f.pedidos.map((p) => `${p.operation}:${(p.payload as { id: string }).id}`);
 
-function consultar(raiz: string, pedido: PedidoDoConhecimento, abrir: () => BrainDaConsulta): RespostaDoConhecimento {
-  return consultarConhecimento(carregarManifesto(raiz)!, pedido, abrir);
+function consultar(raiz: string, pedido: PedidoDoConhecimento, abrir: () => BrainDaConsulta,
+  limites: Partial<LimitesDoConhecimento> = {}): RespostaDoConhecimento {
+  return consultarConhecimento(carregarManifesto(raiz)!, pedido, abrir, { ...LIMITES_DO_CONHECIMENTO, ...limites });
 }
 const lacunas = (r: RespostaDoConhecimento) => r.lacunas.map((l) => [l.codigo, l.documento, l.referencia]);
 const ref = (id: string, titulo: string) => ({ id, kind: id.slice(0, 4), titulo, versao: 3, fonte: `portfolio.json#${id}`, sha256: sha(id) });
@@ -190,7 +192,7 @@ test('D12: resposta ok fora do contrato da entidade vira brain-indisponivel, e a
     documento(p.dir, 'docs/conhecimento/b.md', `id: doc-bbb\ntitulo: B\ncolecoes: [rh]\nreferencias:\n  brain: [${ids('b').join(', ')}]\n`);
     const muitos = brainFalso({});
     const teto = consultar(p.dir, { consulta: 'verificar' }, muitos.abrir);
-    assert.equal(muitos.pedidos.length, LIMITE_DE_GET_DO_CONHECIMENTO);
+    assert.equal(muitos.pedidos.length, LIMITES_DO_CONHECIMENTO.getsDoBrain);
     const todos = [...ids('a'), ...ids('b')].sort();
     assert.deepEqual(idsPedidos(muitos), todos.slice(0, 100).map((id) => `get:${id}`));
     const porCodigo = (codigo: string) => teto.lacunas.filter((l) => l.codigo === codigo).map((l) => l.referencia).sort();
@@ -304,8 +306,10 @@ test('D13: o detalhe das lacunas nasce no catálogo, em pt-BR na resposta, e a i
     const brain = brainFalso({ 'proj-secreto': { schema: BRAIN_API, state: 'withheld' } });
     ligarRemontagem(true);
     try {
+      // A consulta fixa o pt-BR por conta própria (achado do CHECK): o locale ativo de quem chama não muda a resposta.
       ativarLocale('en');
-      const r = comLocale('pt-BR', () => consultar(p.dir, { consulta: 'verificar' }, brain.abrir));
+      const r = consultar(p.dir, { consulta: 'verificar' }, brain.abrir);
+      assert.deepEqual(comLocale('pt-BR', () => consultar(p.dir, { consulta: 'verificar' }, brain.abrir)), r);
       assert.equal(r.lacunas.length, 7);
       for (const l of r.lacunas) {
         assert.ok(linhasEmPortugues(l.detalhe).length > 0, `pt-BR na resposta: ${l.detalhe}`);
@@ -315,5 +319,103 @@ test('D13: o detalhe das lacunas nasce no catálogo, em pt-BR na resposta, e a i
       }
       assert.ok(r.lacunas.some((l) => remontar(l.detalhe) === 'the Company Brain does not have this id (get answered unknown)'));
     } finally { ativarLocale(undefined); ligarRemontagem(false); }
+  } finally { p.limpar(); }
+});
+
+test('D12 revista: empty é o id que o Brain não tem; só unavailable, forbidden e conflict param a conferência; estado estranho vale só para o id', () => {
+  const p = projeto('estados');
+  try {
+    documento(p.dir, 'docs/conhecimento/a.md', 'id: doc-aaa\ntitulo: A\ncolecoes: [rh]\nreferencias:\n' +
+      '  brain: [proj-aaa-vazio, proj-bbb-estranho, proj-ccc-ok, proj-ddd-recusa, proj-eee-depois]\n');
+    const brain = brainFalso({
+      'proj-aaa-vazio': { schema: BRAIN_API, state: 'empty' },
+      'proj-bbb-estranho': { schema: BRAIN_API, state: 'talvez' as BrainResponse['state'] },
+      'proj-ccc-ok': entidade('proj-ccc-ok', 'Ok'),
+      'proj-ddd-recusa': { schema: BRAIN_API, state: 'forbidden', error: 'brain.acl.denied' },
+    });
+    const r = consultar(p.dir, { consulta: 'verificar' }, brain.abrir);
+    assert.ok(r.consulta === 'verificar');
+    assert.deepEqual(r.documentos[0].referencias.brain.map((x) => x.id), ['proj-ccc-ok']);
+    assert.deepEqual(idsPedidos(brain), ['get:proj-aaa-vazio', 'get:proj-bbb-estranho', 'get:proj-ccc-ok', 'get:proj-ddd-recusa'],
+      'a recusa para a conferência; o estado estranho, não');
+    assert.deepEqual(r.lacunas.map((l) => [l.referencia, l.codigo]), [
+      ['proj-bbb-estranho', 'referencia.brain-indisponivel'],
+      ['proj-ddd-recusa', 'referencia.brain-indisponivel'],
+      ['proj-eee-depois', 'referencia.brain-indisponivel'],
+      ['proj-aaa-vazio', 'referencia.brain-inexistente'],
+    ]);
+    const detalhe = (id: string) => r.lacunas.find((l) => l.referencia === id)!.detalhe;
+    assert.match(detalhe('proj-bbb-estranho'), /fora do contrato da entidade/);
+    assert.equal(detalhe('proj-eee-depois'), detalhe('proj-ddd-recusa'));
+    assert.match(detalhe('proj-ddd-recusa'), /\(forbidden, brain\.acl\.denied\)/);
+  } finally { p.limpar(); }
+});
+
+test('D12 revista: o prazo da consulta para a conferência do Brain, e o resto vira brain-indisponivel com o prazo', () => {
+  const p = projeto('prazo');
+  try {
+    const ids = ['proj-aaa1', 'proj-aaa2', 'proj-aaa3', 'proj-aaa4', 'proj-aaa5'];
+    documento(p.dir, 'docs/conhecimento/a.md', `id: doc-aaa\ntitulo: A\ncolecoes: [rh]\nreferencias:\n  brain: [${ids.join(', ')}]\n`);
+    const pedidos: string[] = [];
+    const lento: BrainDaConsulta = { tenant: 'teste', transporte: (pedido) => {
+      pedidos.push((pedido.payload as { id: string }).id);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+      return { schema: BRAIN_API, state: 'unknown' };
+    } };
+    const r = consultar(p.dir, { consulta: 'verificar' }, () => lento, { msDaConferencia: 150 });
+    assert.ok(pedidos.length >= 1 && pedidos.length < ids.length, `pedidos: ${pedidos.join(', ')}`);
+    const sem = r.lacunas.filter((l) => !pedidos.includes(l.referencia!));
+    assert.equal(sem.length, ids.length - pedidos.length);
+    for (const l of sem) {
+      assert.equal(l.codigo, 'referencia.brain-indisponivel');
+      assert.equal(l.detalhe, 'a conferência do Brain passou do prazo de 0.15 s da consulta; a referência não foi conferida');
+    }
+  } finally { p.limpar(); }
+});
+
+test('D12 revista: as decisões só conferem onde a resposta as mostra, a leitura tem teto de bytes de ledger e acha a linha sem partir o ledger', (t) => {
+  const p = projeto('ledgers');
+  try {
+    const um = ledger(p.dir, 'ork-um', [{ tipo: 'autonomous_decision' }, { tipo: 'autonomous_decision' }]);
+    const dois = ledger(p.dir, 'ork-dois', [{ tipo: 'autonomous_decision' }]);
+    documento(p.dir, 'docs/conhecimento/a.md', 'id: doc-aaa\ntitulo: A\ncolecoes: [rh]\nreferencias:\n  decisoes: [ork-um#2, ork-dois#1]\n');
+    documento(p.dir, 'docs/conhecimento/b.md', 'id: doc-bbb\ntitulo: B\ncolecoes: [rh]\n');
+    const real = require('node:fs') as typeof import('node:fs');
+    const abrir = real.openSync;
+    const abertos: string[] = [];
+    t.mock.method(real, 'openSync', (...args: unknown[]) => {
+      if (String(args[0]).endsWith('ledger.jsonl')) abertos.push(path.basename(path.dirname(String(args[0]))));
+      return Reflect.apply(abrir, real, args);
+    });
+    const nenhum = brainFalso({});
+    const lidos = (pedido: PedidoDoConhecimento, limites: Partial<LimitesDoConhecimento> = {}) => {
+      abertos.length = 0;
+      const r = consultar(p.dir, pedido, nenhum.abrir, limites);
+      return { r, abertos: [...abertos].sort() };
+    };
+    assert.deepEqual(lidos({ consulta: 'listar' }).abertos, [], 'listar não lê ledger');
+    assert.deepEqual(lidos({ consulta: 'colecoes' }).abertos, [], 'colecoes não lê ledger');
+    assert.deepEqual(lidos({ consulta: 'mostrar', id: 'doc-bbb' }).abertos, [], 'mostrar de outro documento não lê ledger');
+    const a = lidos({ consulta: 'mostrar', id: 'doc-aaa' });
+    assert.deepEqual(a.abertos, ['ork-dois', 'ork-um']);
+    assert.ok(a.r.consulta === 'mostrar' && a.r.documento);
+    assert.deepEqual(a.r.documento.referencias.decisoes.map((d) => [d.ref, d.sha256]), [['ork-dois#1', sha(dois[0])], ['ork-um#2', sha(um[1])]]);
+    // O teto da leitura: os ledgers em ordem de thread, e o que não cabe vira decisao-ausente com o teto.
+    const v = lidos({ consulta: 'verificar' }, { bytesDosLedgers: Buffer.byteLength(dois[0]) + 1 });
+    assert.deepEqual(v.abertos, ['ork-dois']);
+    assert.deepEqual(v.r.lacunas.map((l) => [l.codigo, l.referencia, l.detalhe]), [['referencia.decisao-ausente', 'ork-um#2',
+      `a leitura passa de ${(Buffer.byteLength(dois[0]) + 1) / 1024 / 1024} MiB de ledger lido; a decisão não foi conferida`]]);
+    t.mock.restoreAll();
+
+    // Um ledger com um milhão de linhas vazias antes da citada: a linha certa, com o sha256 dela, e a conta das completas.
+    const longo = path.join(p.dir, '.orkastery', 'threads', 'ork-longo');
+    fs.mkdirSync(longo, { recursive: true });
+    const citada = JSON.stringify({ ts: '2026-10-12T12:00:00.000Z', thread: 'ork-longo', tipo: 'autonomous_decision' });
+    fs.writeFileSync(path.join(longo, 'ledger.jsonl'), '\n'.repeat(1000000) + citada + '\n');
+    documento(p.dir, 'docs/conhecimento/c.md', 'id: doc-ccc\ntitulo: C\ncolecoes: [rh]\nreferencias:\n  decisoes: [ork-longo#1000001, ork-longo#1000003]\n');
+    const c = consultar(p.dir, { consulta: 'mostrar', id: 'doc-ccc' }, nenhum.abrir);
+    assert.ok(c.consulta === 'mostrar' && c.documento);
+    assert.deepEqual(c.documento.referencias.decisoes.map((d) => [d.linha, d.sha256]), [[1000001, sha(citada)]]);
+    assert.deepEqual(c.lacunas.map((l) => [l.referencia, l.detalhe]), [['ork-longo#1000003', 'o ledger da thread ork-longo tem 1000001 linha(s) completa(s)']]);
   } finally { p.limpar(); }
 });

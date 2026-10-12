@@ -13,11 +13,12 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { consultarConhecimento, PedidoDoConhecimento } from '../src/conhecimento-consulta';
 import { exigirManifesto } from '../src/manifest';
+import { TOOLS_DO_CONHECIMENTO } from '../src/mcp-conhecimento';
 import { criarServidorMcp } from '../src/mcp-server';
 import { novaThread } from '../src/thread';
 import { ajustarManifesto, dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
 
-const TOOLS = ['ork_conhecimento_listar', 'ork_conhecimento_mostrar', 'ork_conhecimento_colecoes', 'ork_conhecimento_verificar'];
+const TOOLS: readonly string[] = TOOLS_DO_CONHECIMENTO;
 const DSN = 'KB_MCP_FAKE_DSN';
 
 /** O Brain falso atrás do `memory.cli`: responde o `get` como o OrkMind e anota cada pedido. */

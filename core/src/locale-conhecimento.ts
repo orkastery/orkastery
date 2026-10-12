@@ -79,6 +79,7 @@ export const CONHECIMENTO_PT_BR = {
     semLedger: (thread: string) => `a thread ${thread} não tem ledger neste projeto`,
     ledgerNaoRegular: (thread: string, mib: number) => `o ledger da thread ${thread} não é arquivo comum de até ${mib} MiB`,
     ledgerNaoUtf8: (thread: string) => `o ledger da thread ${thread} não é UTF-8`,
+    ledgersDemais: (mib: number) => `a leitura passa de ${mib} MiB de ledger lido; a decisão não foi conferida`,
     linhasCompletas: (thread: string, n: number) => `o ledger da thread ${thread} tem ${n} linha(s) completa(s)`,
     naoEJson: (linha: number, thread: string) => `a linha ${linha} do ledger da thread ${thread} não é um evento JSON`,
     outraThread: (linha: number, thread: string) => `a linha ${linha} do ledger da thread ${thread} é de outra thread`,
@@ -95,6 +96,7 @@ export const CONHECIMENTO_PT_BR = {
     brainSemConfiguracao: (codigo: string | null) =>
       `a configuração do Company Brain não foi lida (${codigo ?? 'sem código'}); a referência não foi conferida`,
     brainTeto: (n: number) => `a consulta passa de ${n} ids do Brain conferidos por get; a referência não foi conferida`,
+    brainPrazo: (s: number) => `a conferência do Brain passou do prazo de ${s} s da consulta; a referência não foi conferida`,
     documentoInexistente: (id: string, semId: number) => `nenhum documento válido da pasta tem o id ${id}` +
       (semId ? `; ${semId} arquivo(s) da pasta viraram lacuna antes de o id ser lido (ork conhecimento verificar)` : ''),
   },
@@ -166,6 +168,7 @@ export const CONHECIMENTO_EN: typeof CONHECIMENTO_PT_BR = {
     semLedger: (thread) => `thread ${thread} has no ledger in this project`,
     ledgerNaoRegular: (thread, mib) => `the ledger of thread ${thread} is not a regular file of up to ${mib} MiB`,
     ledgerNaoUtf8: (thread) => `the ledger of thread ${thread} is not UTF-8`,
+    ledgersDemais: (mib) => `the read goes past ${mib} MiB of ledger read; the decision was not checked`,
     linhasCompletas: (thread, n) => `the ledger of thread ${thread} has ${n} complete line(s)`,
     naoEJson: (linha, thread) => `line ${linha} of the ledger of thread ${thread} is not a JSON event`,
     outraThread: (linha, thread) => `line ${linha} of the ledger of thread ${thread} belongs to another thread`,
@@ -180,6 +183,7 @@ export const CONHECIMENTO_EN: typeof CONHECIMENTO_PT_BR = {
     brainSemConfiguracao: (codigo) =>
       `the Company Brain configuration was not read (${codigo ?? 'no code'}); the reference was not checked`,
     brainTeto: (n) => `the query goes past ${n} Brain ids checked by get; the reference was not checked`,
+    brainPrazo: (s) => `the Brain check went past the query deadline of ${s} s; the reference was not checked`,
     documentoInexistente: (id, semId) => `no valid document in the folder has the id ${id}` +
       (semId ? `; ${semId} file(s) in the folder became gaps before the id was read (\`ork conhecimento verificar\`)` : ''),
   },

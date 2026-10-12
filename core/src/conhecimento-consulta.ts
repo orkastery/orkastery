@@ -15,7 +15,7 @@ import {
   compararLacunas, CONTRATO_CONHECIMENTO, DecisaoCitada, detalheDoConhecimento, DocumentoDeConhecimento, ID_DE_DOCUMENTO,
   LacunaDoConhecimento, lacunaDoConhecimento, lerConhecimento, LimitesDoConhecimento, LIMITES_DO_CONHECIMENTO, NOME_DE_COLECAO,
 } from './conhecimento';
-import { msg, remontar } from './locale';
+import { comLocale, msg, remontar } from './locale';
 import { ManifestoCarregado } from './manifest';
 import { memoryState } from './project-state';
 import { emUmaLinha } from './saida-segura';
@@ -28,9 +28,6 @@ export type PedidoDoConhecimento =
   | { consulta: 'mostrar'; id: string }
   | { consulta: 'colecoes' }
   | { consulta: 'verificar' };
-
-/** D12: quantos ids do Brain uma consulta confere por `get`; cada `get` é um processo do `memory.cli`. */
-export const LIMITE_DE_GET_DO_CONHECIMENTO = 100;
 
 /** O id do Brain conferido por `get`: o tipo, o título e a versão da entidade, com a fonte e o hash que o Brain guarda. */
 export interface ReferenciaDoBrain {
@@ -101,16 +98,25 @@ function referenciaDoBrain(r: BrainResponse, id: string, tenant: string): Refere
   return { id, kind: e.kind, titulo: emUmaLinha(e.title), versao: e.version, fonte: e.source.source_ref, sha256: e.source.source_hash };
 }
 
+/** Os estados do Brain que encerram a conferência: os mesmos que o contexto e o dossiê tratam como falha. */
+const FALHAS_DO_BRAIN: readonly string[] = ['unavailable', 'forbidden', 'conflict'];
+
 /**
- * D12: um `get` por id distinto, em ordem, até o teto da consulta. O Brain que não responde (fora do ar, sem
- * configuração, recusa) para a conferência: nenhum `get` sai depois, e o resto leva o mesmo detalhe.
+ * D12 (revista depois do CHECK): um `get` por id distinto, em ordem, até o teto de `get` e o prazo da consulta (cada
+ * `get` é um processo do `memory.cli`). O Brain que não responde (fora do ar, sem configuração, recusa ou conflito) para
+ * a conferência: nenhum `get` sai depois, e o resto leva o mesmo detalhe. A resposta fora do contrato vale só para o id
+ * dela. `unknown` e `empty` são o id que o Brain não tem, como no dossiê.
  */
-function conferirNoBrain(ids: readonly string[], abrir: () => BrainDaConsulta): Map<string, Conferencia> {
+function conferirNoBrain(ids: readonly string[], abrir: () => BrainDaConsulta, limites: LimitesDoConhecimento): Map<string, Conferencia> {
   const conferidas = new Map<string, Conferencia>();
   const naoConferida = (detalhe: string): Conferencia => ({ codigo: 'referencia.brain-indisponivel', detalhe });
   let brain: BrainDaConsulta | null = null, parada: string | null = null, gets = 0;
+  const inicio = Date.now();
   for (const id of [...new Set(ids)].sort(comparar)) {
-    if (parada === null && gets >= LIMITE_DE_GET_DO_CONHECIMENTO) parada = t((l) => l.brainTeto(LIMITE_DE_GET_DO_CONHECIMENTO));
+    if (parada === null && gets >= limites.getsDoBrain) parada = t((l) => l.brainTeto(limites.getsDoBrain));
+    if (parada === null && gets > 0 && Date.now() - inicio > limites.msDaConferencia) {
+      parada = t((l) => l.brainPrazo(limites.msDaConferencia / 1000));
+    }
     if (parada !== null) { conferidas.set(id, naoConferida(parada)); continue; }
     if (brain === null) {
       try { brain = abrir(); }
@@ -131,21 +137,22 @@ function conferirNoBrain(ids: readonly string[], abrir: () => BrainDaConsulta): 
       continue;
     }
     if (r.state === 'ok') conferidas.set(id, referenciaDoBrain(r, id, brain.tenant) ?? naoConferida(t((l) => l.brainForaDoContrato)));
-    else if (r.state === 'unknown') conferidas.set(id, { codigo: 'referencia.brain-inexistente', detalhe: t((l) => l.brainInexistente) });
-    else if (r.state === 'withheld') conferidas.set(id, { codigo: 'referencia.brain-retido', detalhe: t((l) => l.brainRetido) });
-    else {
-      const estado = typeof r.state === 'string' && /^[a-z]{1,20}$/.test(r.state) ? r.state : 'unavailable', erro = erroDoBrain(r.error);
+    else if (r.state === 'unknown' || r.state === 'empty') {
+      conferidas.set(id, { codigo: 'referencia.brain-inexistente', detalhe: t((l) => l.brainInexistente) });
+    } else if (r.state === 'withheld') conferidas.set(id, { codigo: 'referencia.brain-retido', detalhe: t((l) => l.brainRetido) });
+    else if (FALHAS_DO_BRAIN.includes(r.state)) {
+      const estado = r.state, erro = erroDoBrain(r.error);
       parada = t((l) => l.brainNaoRespondeu(estado, erro));
       conferidas.set(id, naoConferida(parada));
-    }
+    } else conferidas.set(id, naoConferida(t((l) => l.brainForaDoContrato)));
   }
   return conferidas;
 }
 
 /** As referências do Brain conferidas; a que não confere vira lacuna, e o documento segue sem ela (D4). */
 function conferirDocumentos(docs: readonly DocumentoDeConhecimento[], abrir: () => BrainDaConsulta,
-  lacunas: LacunaDoConhecimento[]): DocumentoConferido[] {
-  const conferencias = conferirNoBrain(docs.flatMap((d) => d.referencias.brain), abrir);
+  lacunas: LacunaDoConhecimento[], limites: LimitesDoConhecimento): DocumentoConferido[] {
+  const conferencias = conferirNoBrain(docs.flatMap((d) => d.referencias.brain), abrir, limites);
   return docs.map((d) => {
     const brain: ReferenciaDoBrain[] = [];
     for (const id of d.referencias.brain) {
@@ -164,7 +171,8 @@ const resumo = (d: DocumentoDeConhecimento): ResumoDoDocumento =>
 /**
  * A consulta pedida, no contrato `ork.conhecimento/v1`. Nunca lança por causa do conteúdo do repositório nem do Brain:
  * o que não vale vira lacuna. O pedido fora da forma (id de documento, nome de coleção) é erro de quem chama; a CLI e
- * as tools o recusam antes.
+ * as tools o recusam antes. A resposta nasce em pt-BR em qualquer locale (D13): o detalhe das lacunas é o do `--json`
+ * e do MCP, e só a impressão o remonta.
  */
 export function consultarConhecimento(c: ManifestoCarregado, pedido: PedidoDoConhecimento,
   abrirBrain: () => BrainDaConsulta = () => brainDoProjeto(c), limites: LimitesDoConhecimento = LIMITES_DO_CONHECIMENTO): RespostaDoConhecimento {
@@ -172,7 +180,14 @@ export function consultarConhecimento(c: ManifestoCarregado, pedido: PedidoDoCon
   if (pedido.consulta === 'listar' && pedido.colecao !== undefined && !NOME_DE_COLECAO.test(pedido.colecao)) {
     throw new Error('conhecimento.pedido-invalido: nome de coleção');
   }
-  const k = lerConhecimento(c, limites, pedido.consulta === 'mostrar' ? { corpoDe: pedido.id } : {});
+  return comLocale('pt-BR', () => responder(c, pedido, abrirBrain, limites));
+}
+
+function responder(c: ManifestoCarregado, pedido: PedidoDoConhecimento, abrirBrain: () => BrainDaConsulta,
+  limites: LimitesDoConhecimento): RespostaDoConhecimento {
+  // D12 (revista): as decisões só conferem onde a resposta as mostra; listar e colecoes não leem ledger.
+  const k = lerConhecimento(c, limites, pedido.consulta === 'mostrar' ? { corpoDe: pedido.id, decisoesDe: pedido.id }
+    : pedido.consulta === 'verificar' ? {} : { decisoesDe: 'nenhum' });
   const base = { contrato: CONTRATO_CONHECIMENTO, consulta: pedido.consulta, dir: k.dir };
   // D12: quem não mostra referência não mostra a lacuna dela.
   const semReferencia = () => k.lacunas.filter((l) => !l.codigo.startsWith('referencia.'));
@@ -198,12 +213,12 @@ export function consultarConhecimento(c: ManifestoCarregado, pedido: PedidoDoCon
         }
         return { ...comum, documento: null, lacunas };
       }
-      const [conferido] = conferirDocumentos([doc], abrirBrain, lacunas);
+      const [conferido] = conferirDocumentos([doc], abrirBrain, lacunas, limites);
       return { ...comum, documento: { ...conferido, corpo: doc.corpo ?? '' }, lacunas: lacunas.sort(compararLacunas) };
     }
     case 'verificar': {
       const lacunas = [...k.lacunas];
-      const documentos = conferirDocumentos(k.documentos, abrirBrain, lacunas);
+      const documentos = conferirDocumentos(k.documentos, abrirBrain, lacunas, limites);
       return { ...base, consulta: 'verificar', documentos, colecoes: k.colecoes, lacunas: lacunas.sort(compararLacunas) };
     }
   }
@@ -230,7 +245,7 @@ export function textoDoConhecimento(r: RespostaDoConhecimento): string {
     if (!leu) linhas.push(m.naoLido);
     else {
       linhas.push(m.listar(dir, r.documentos.length, r.colecao));
-      const largura = Math.max(0, ...r.documentos.map((d) => d.id.length));
+      const largura = r.documentos.reduce((n, d) => Math.max(n, d.id.length), 0);
       for (const d of r.documentos) linhas.push(m.documento(d.id.padEnd(largura), d.titulo, d.colecoes.join(', ')));
       if (!r.documentos.length) linhas.push(m.nenhumDocumento);
     }
@@ -238,7 +253,7 @@ export function textoDoConhecimento(r: RespostaDoConhecimento): string {
     if (!leu) linhas.push(m.naoLido);
     else {
       linhas.push(m.colecoes(dir, r.colecoes.length));
-      const largura = Math.max(0, ...r.colecoes.map((x) => x.nome.length));
+      const largura = r.colecoes.reduce((n, x) => Math.max(n, x.nome.length), 0);
       for (const x of r.colecoes) linhas.push(m.colecao(x.nome.padEnd(largura), x.documentos.join(', ')));
       if (!r.colecoes.length) linhas.push(m.nenhumaColecao);
     }
@@ -265,6 +280,10 @@ export function textoDoConhecimento(r: RespostaDoConhecimento): string {
   }
   if (r.consulta === 'listar' && r.documentos.length) linhas.push(m.paraLer);
   if (r.consulta === 'verificar') linhas.push(r.lacunas.length ? m.reprovado(r.lacunas.length) : m.aprovado);
-  if (r.consulta === 'mostrar' && r.documento) linhas.push('', m.corpo, ...r.documento.corpo.replace(/\n$/, '').split('\n').map(emUmaLinha));
+  // O corpo vai linha a linha: espalhar um documento de muitas linhas nos argumentos estoura a pilha (achado do CHECK).
+  if (r.consulta === 'mostrar' && r.documento) {
+    linhas.push('', m.corpo);
+    for (const linha of r.documento.corpo.replace(/\n$/, '').split('\n')) linhas.push(emUmaLinha(linha));
+  }
   return linhas.join('\n');
 }
