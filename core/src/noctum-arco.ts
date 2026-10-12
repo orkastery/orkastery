@@ -576,7 +576,8 @@ export function revogarPeloIngresso(raiz: string, arco: string, envelope: Respos
     // O recibo da revogação é auditoria e nunca é reconferido: falha nele não segura o ato de segurança, e o motivo fica na linha.
     let recibo: { evidencia: string; evidenciaSha256: string; semRecibo?: string };
     try { recibo = gravarRecibo(raiz, arco, 'revogar', null, null, provado); }
-    catch (e) { recibo = { evidencia: '', evidenciaSha256: '', semRecibo: String((e as Error).message ?? e).slice(0, 200) }; }
+    // Só o motivo tipado: a mensagem crua do erro pode trazer caminho da máquina, e o relatório da manhã lê esta linha.
+    catch (e) { recibo = { evidencia: '', evidenciaSha256: '', semRecibo: e instanceof RecusaDoArco ? e.motivo : 'noctum.recibo.nao-gravado' }; }
     const ingresso = { ...provado, ...recibo };
     anexar(raiz, arco, log, { tipo: 'revogado', ingresso }, quando);
     return confirmado(raiz, arco, quando, e => e.situacao === 'revogado', 'revogação');
@@ -647,7 +648,9 @@ export function criarDialogoDoArco(raiz: string, origem: { host: 'claude-code' |
       });
     },
     async revogar(arco: string): Promise<EstadoDoArco> {
-      const atual = comLockDoArco(raiz, arco, false, () => estadoDe(arco, derivar(lerLog(raiz, arco).linhas), new Date().toISOString()));
+      // Leitura sem lock (o log é lido inteiro e conferido): revogar não pode falhar antes de perguntar ao dono.
+      const atual = lerArco(raiz, arco);
+      if (!atual) throw new RecusaDoArco('noctum.efeito.sem-autorizacao', `arco ${arco} sem proposta`);
       const a: ApresentacaoDoArco = { contrato: 'ork.noctum-dialogo/v1', arco, ato: 'revogar', envelopeSha256: atual.envelopeSha256,
         resumo: [`Revogar o arco ${arco}: nenhum efeito novo passa depois disto, e o arco não reabre`],
         opcoes: ['Revogar o arco', 'Manter o arco'] };

@@ -351,6 +351,10 @@ test('A14: callback nativo autoriza só quando assina o hash, o contexto e o pra
     const estado = autorizarPeloIngresso(raiz, 'arco-a', h, resposta(h, 'm2'), A);
     assert.equal(estado.envelopeSha256, h);
     assert.equal((estado.autorizadoPor as Record<string, unknown>).origem, 'native');
+    assert.equal(conferirAntesDoEfeito(raiz, efeito('arco-a', h), DENTRO).ok, true);
+    // O vínculo de agora é reconferido pela chave: outra pessoa no mesmo canal não herda a autorização.
+    process.env.ORK_HITL_NATIVE_BINDING_HERMES = JSON.stringify({ ...binding, personId: '43' });
+    recusa(() => conferirAntesDoEfeito(raiz, efeito('arco-a', h), DENTRO), 'noctum.estado.adulterado');
   } finally {
     delete process.env.ORK_HITL_NATIVE_KEY_HERMES;
     delete process.env.ORK_HITL_NATIVE_BINDING_HERMES;
@@ -574,6 +578,15 @@ test('A25: cauda que corta um caractere não trava o arco, e recibo que já exis
   fs.writeFileSync(path.join(pasta, `${sha(envelope.mensagem)}.json`), '{"outro":"conteudo"}', { mode: 0o600 });
   recusa(() => autorizarPeloIngresso(raiz, 'arco-b', b, envelope, A), 'noctum.estado.adulterado');
   assert.equal(lerArco(raiz, 'arco-b', DENTRO)!.situacao, 'proposto');
+  // O recibo da revogação é auditoria: com ele bloqueado, a revogação grava assim mesmo, com o motivo tipado.
+  const h2 = abrir(raiz, 'arco-c');
+  const revogacao = assinado('arco-c', TEXTO_DE_REVOGACAO, DENTRO);
+  fs.writeFileSync(path.join(raiz, '.orkastery', 'noctum', 'arcos', 'arco-c', 'ingresso', `${sha(revogacao.mensagem)}.json`),
+    '{"outro":"conteudo"}', { mode: 0o600 });
+  const revogado = revogarPeloIngresso(raiz, 'arco-c', revogacao, DENTRO);
+  assert.equal(revogado.situacao, 'revogado');
+  assert.equal((revogado.revogadoPor as Record<string, unknown>).semRecibo, 'noctum.estado.adulterado');
+  recusa(() => conferirAntesDoEfeito(raiz, efeito('arco-c', h2), DENTRO), 'noctum.efeito.revogado');
 }));
 
 test('A26: a prova de um ato não volta noutra linha do log', () => comRaiz('replay', raiz => {
