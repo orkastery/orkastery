@@ -10,7 +10,7 @@ import { SECTION_NAMES } from '../src/maestro-contract';
 // do `core` e os roda num escopo proprio. Modulo puro so importa tipos: nenhum `require` acontece.
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const PONTE = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-ponte');
-const MODULOS_PUROS = ['hooks/papel.ts', 'hooks/nucleo.ts'];
+const MODULOS_PUROS = ['hooks/papel.ts', 'hooks/nucleo.ts', 'hooks/faixa.tsx', 'hooks/vigia.ts', 'hooks/mostrado.ts'];
 
 function carregar(rel: string): any {
   const arquivo = path.join(PONTE, rel);
@@ -176,4 +176,83 @@ test('nucleo: a raiz do estado sobe da worktree ao checkout principal, e o git e
   assert.equal(raizPeloGit('/srv/proj/.git\n'), '/srv/proj');
   assert.equal(raizPeloGit('.git'), null);
   assert.equal(raizPeloGit('/srv/proj/.git/worktrees/ork-a'), null);
+});
+
+test('faixa: uma linha por mod, texto de uma linha, e tirar a linha sem texto', () => {
+  const { trocarLinha, nomeDeModValido, TETO_DO_TEXTO } = carregar('hooks/faixa.tsx');
+  let linhas = trocarLinha(undefined, 'ork-torre', '  3 threads\n andando  ', 10);
+  assert.deepEqual(linhas, [{ mod: 'ork-torre', texto: '3 threads andando', em: 10 }]);
+  linhas = trocarLinha(linhas, 'ork-torre', 'outra', 20);
+  assert.deepEqual(linhas, [{ mod: 'ork-torre', texto: 'outra', em: 20 }]);
+  assert.equal(trocarLinha(linhas, 'ork-clima', 'x'.repeat(500), 30)[1].texto.length, TETO_DO_TEXTO);
+  assert.deepEqual(trocarLinha(linhas, 'ork-torre', undefined, 40), []);
+  assert.deepEqual(trocarLinha(linhas, 'ork-torre', '   ', 40), []);
+  assert.equal(nomeDeModValido('ork-torre'), true);
+  for (const ruim of ['Ork', '../x', '', 'a b', 'x'.repeat(65), 7]) assert.equal(nomeDeModValido(ruim), false, String(ruim));
+});
+
+test('faixa: ordem de nome, corte a largura, teto de linhas e a linha do que ficou de fora', () => {
+  const { comporFaixa, TETO_DE_LINHAS } = carregar('hooks/faixa.tsx');
+  const l = (mod: string, texto: string) => ({ mod, texto, em: 0 });
+  assert.deepEqual(comporFaixa([l('ork-torre', 'a'), l('ork-clima', 'b')], 80, 6), ['clima: b', 'torre: a']);
+  assert.deepEqual(comporFaixa([l('ork-torre', '3 threads andando, 1 parada')], 25, 6), ['torre: 3 threads andando\u2026']);
+  assert.equal(TETO_DE_LINHAS, 4);
+  const seis = ['a', 'b', 'c', 'd', 'e', 'f'].map((x) => l(`ork-${x}`, x));
+  assert.deepEqual(comporFaixa(seis, 80, 10), ['a: a', 'b: b', 'c: c', '+3 mods do Orkastery']);
+  assert.deepEqual(comporFaixa(seis, 80, 2), ['a: a', '+5 mods do Orkastery']);
+  assert.deepEqual(comporFaixa(seis, 80, 0), []);
+  assert.deepEqual(comporFaixa([], 80, 6), []);
+  assert.deepEqual(comporFaixa([l('outro-mod', 'x')], 80, 6), ['outro-mod: x']);
+});
+
+test('vigia: padroes por papel, ledgers recentes e pedidos conferidos', () => {
+  const v = carregar('hooks/vigia.ts');
+  assert.deepEqual(v.caminhosPadrao('fase', '/p', 'ork-a', []), ['/p/.orkastery/threads/ork-a/ledger.jsonl']);
+  assert.deepEqual(v.caminhosPadrao('fase', '/p', null, []), []);
+  assert.deepEqual(v.caminhosPadrao('dono', '/p', null, ['/l1']), ['/p/.orkastery/threads', '/l1']);
+  assert.deepEqual(v.caminhosPadrao('dormente', '/p', 'ork-a', ['/l1']), []);
+  assert.deepEqual(v.caminhosPadrao('dono', null, null, ['/l1']), []);
+  assert.deepEqual(v.idsDeThread([{ name: 'ork-a', kind: 'dir' }, { name: 'x.json', kind: 'file' }, { name: '.oculto', kind: 'dir' }]), ['ork-a']);
+  assert.deepEqual(v.ledgersRecentes([{ caminho: '/a', mtimeMs: 1 }, { caminho: '/b', mtimeMs: 3 }, { caminho: '/c' }], 1), ['/b']);
+  assert.deepEqual(v.registrarPedido({ 'ork-x': ['/x'] }, 'ork-y', ['/y', '/y']), { 'ork-x': ['/x'], 'ork-y': ['/y'] });
+  assert.deepEqual(v.registrarPedido({ 'ork-x': ['/x'] }, 'ork-x', []), {});
+  assert.throws(() => v.registrarPedido({}, 'ork-x', ['rel/x']), /absoluto/);
+  assert.throws(() => v.registrarPedido({}, 'ork-x', ['/a/../b']), /absoluto/);
+  assert.throws(() => v.registrarPedido({}, 'ork-x', Array.from({ length: 17 }, (_, i) => `/c${i}`)), /no maximo 16/);
+  assert.throws(() => v.registrarPedido({}, 'X', ['/x']), /nome de mod invalido/);
+});
+
+test('vigia: o watchPaths guarda o de baixo inteiro, sem duplicata e com teto para o resto', () => {
+  const { fundirCaminhos, TETO_DE_CAMINHOS } = carregar('hooks/vigia.ts');
+  assert.equal(TETO_DE_CAMINHOS, 64);
+  assert.deepEqual(fundirCaminhos(['/b', '/a'], ['/a', '/p'], { 'ork-z': ['/z'], 'ork-m': ['/m', '/p'] }), ['/b', '/a', '/p', '/m', '/z']);
+  assert.deepEqual(fundirCaminhos(undefined, ['/p'], undefined), ['/p']);
+  const muitos = Array.from({ length: 70 }, (_, i) => `/d${i}`);
+  assert.equal(fundirCaminhos(muitos, ['/p'], undefined).length, 70);
+  assert.equal(fundirCaminhos([], muitos, undefined).length, 64);
+});
+
+test('mostrado: um item por mod, chave e texto, com vezes, teto e formato versionado', () => {
+  const m = carregar('hooks/mostrado.ts');
+  assert.equal(m.FORMATO_DO_MOSTRADO, 'ork.mod-mostrado/v1');
+  let r = m.registrarMostrado(undefined, { mod: 'ork-mesa', canal: 'faixa', texto: 'a' }, 't1');
+  r = m.registrarMostrado(r, { mod: 'ork-mesa', canal: 'painel', texto: 'a' }, 't2');
+  assert.deepEqual(r.itens, [{ mod: 'ork-mesa', canal: 'painel', chave: null, thread: null, texto: 'a', primeiraVez: 't1', ultimaVez: 't2', vezes: 2 }]);
+  r = m.registrarMostrado(r, { mod: 'ork-mesa', canal: 'painel', chave: 'hitl:p1', thread: 'ork-a', texto: 'a' }, 't3');
+  assert.equal(r.itens.length, 2);
+  for (let i = 0; i < m.TETO_DE_MOSTRADOS + 5; i++) r = m.registrarMostrado(r, { mod: 'ork-x', canal: 'toast', texto: `t${i}` }, `u${i}`);
+  assert.equal(r.itens.length, m.TETO_DE_MOSTRADOS);
+  assert.equal(r.itens[r.itens.length - 1].texto, `t${m.TETO_DE_MOSTRADOS + 4}`);
+  assert.deepEqual(m.lerRegistro({ formato: 'outro', itens: [] }), { formato: 'ork.mod-mostrado/v1', itens: [] });
+  assert.equal(m.registrarMostrado(undefined, { mod: 'ork-x', canal: 'toast', texto: 'y'.repeat(900) }, 't').itens[0].texto.length, 500);
+});
+
+test('mostrado: o que o mod declara e conferido', () => {
+  const { conferirMostrado } = carregar('hooks/mostrado.ts');
+  assert.deepEqual(conferirMostrado({ mod: 'ork-mesa', canal: 'painel', texto: 'x', chave: 'k', thread: 'ork-a' }),
+    { mod: 'ork-mesa', canal: 'painel', texto: 'x', chave: 'k', thread: 'ork-a' });
+  assert.throws(() => conferirMostrado({ mod: 'ork-mesa', canal: 'telegram', texto: 'x' }), /canal desconhecido/);
+  assert.throws(() => conferirMostrado({ mod: 'ork-mesa', canal: 'painel', texto: ' ' }), /vazio/);
+  assert.throws(() => conferirMostrado({ mod: 'ork-mesa', canal: 'painel', texto: 'x', thread: '../a' }), /thread invalido/);
+  assert.throws(() => conferirMostrado(undefined), /nome de mod invalido/);
 });

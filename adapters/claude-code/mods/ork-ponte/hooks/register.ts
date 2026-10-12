@@ -1,15 +1,32 @@
 // A ponte dos mods do Orkastery (RM-059, onda 0). Acrescenta ao `$` o noun `$.ork`, que os outros mods
-// do Orkastery usam para saber em que sessao estao e para ler o nucleo. A logica fica nos modulos puros
-// ao lado; aqui so as chamadas ao `$`, sempre escritas como `x.noun.metodo(...)`, como o validador exige.
+// do Orkastery usam para saber em que sessao estao, ler o nucleo, publicar na faixa e pedir caminhos
+// vigiados. A logica fica nos modulos puros ao lado; aqui so as chamadas ao `$`, sempre escritas como
+// `x.noun.metodo(...)`, como o validador exige.
 import type { Register } from 'claude-code'
-import type { Ork, OrkAssinatura, OrkContexto, OrkMaestro, OrkRetratoGuardado } from '../types'
+import type { Ork, OrkAssinatura, OrkContexto, OrkMaestro, OrkMostrado, OrkRetratoGuardado } from '../types'
+import { comporFaixa, desenharFaixa, nomeDeModValido, trocarLinha } from './faixa'
+import { CHAVE_NO_STORE, conferirMostrado, lerRegistro, registrarMostrado } from './mostrado'
 import {
   argsDoMaestro, argvDaConsulta, cacheValido, caminhosCobertos, chaveDoPedido, conferirPedidoDeRetrato, FERRAMENTA_DO_RETRATO,
   guardar, interpretarCli, interpretarMcp, raizPeloGit, SERVIDOR, subirAteOEstado, TETO_DO_CLI_MS,
 } from './nucleo'
 import { decidirPapel, juntar, MANIFESTO_DO_PROJETO, threadDoDespacho } from './papel'
+import { caminhosPadrao, fundirCaminhos, idsDeThread, ledgerDaThread, ledgersRecentes, pastaDasThreads, registrarPedido } from './vigia'
 
 const RETRATOS = { plugin: 'ork-ponte', key: 'retratos' } as const
+const FAIXA = { plugin: 'ork-ponte', key: 'faixa' } as const
+const VIGIAS = { plugin: 'ork-ponte', key: 'vigias' } as const
+const TENTATIVAS_DE_ESCRITA = 5
+
+/** O que os ganchos da ponte usam do noun, montado no `engine.create` de cada carga. */
+type Interno = {
+  contexto: () => Promise<OrkContexto>
+  raizDoEstado: () => Promise<string | null>
+  ledgersRecentes: (raiz: string) => Promise<string[]>
+}
+let interno: Interno | undefined
+/** O `classic.SessionStart` desta carga ja respondeu os `watchPaths`. */
+let inicioRespondido = false
 
 export const register: Register = on => {
   on('engine.create', async ($, e, next) => {
@@ -54,6 +71,22 @@ export const register: Register = on => {
       return assinatura
     }
 
+    const lerLedgersRecentes = async (raiz: string): Promise<string[]> => {
+      const entradas = await built.fs.list(pastaDasThreads(raiz)).catch(() => [])
+      const ledgers: Array<{ caminho: string; mtimeMs?: number }> = []
+      for (const id of idsDeThread(entradas).slice(0, 400)) {
+        const caminho = ledgerDaThread(raiz, id)
+        const s = await built.fs.stat(caminho).catch(() => undefined)
+        ledgers.push(s ? { caminho, mtimeMs: s.mtimeMs } : { caminho })
+      }
+      return ledgersRecentes(ledgers)
+    }
+
+    const registrar = async (m: OrkMostrado): Promise<void> => {
+      const agora = new Date(await built.clock.now()).toISOString()
+      await built.store.set(CHAVE_NO_STORE, registrarMostrado(await built.store.get(CHAVE_NO_STORE), m, agora))
+    }
+
     const ork: Ork = {
       papel: async () => (await lerContexto()).papel,
       contexto: async () => lerContexto(),
@@ -93,7 +126,57 @@ export const register: Register = on => {
         const argv = argvDaConsulta(pedido)
         return interpretarCli(argv, await built.process.run(argv, { timeoutMs: TETO_DO_CLI_MS }))
       },
+      faixa: async ({ mod, texto }) => {
+        if (!nomeDeModValido(mod)) throw new Error('ork-ponte: nome de mod invalido')
+        if (texto !== undefined && typeof texto !== 'string') throw new Error('ork-ponte: texto da faixa precisa ser texto')
+        let publicada = false
+        for (let i = 0; i < TENTATIVAS_DE_ESCRITA; i++) {
+          const atual = await built.state.get(FAIXA)
+          const linhas = trocarLinha(atual.value, mod, texto, await built.clock.now())
+          const escrita = await built.state.set(FAIXA, linhas, { ifVersion: atual.version })
+          if (escrita.isSet) { publicada = linhas.some(l => l.mod === mod); break }
+        }
+        if (publicada && texto !== undefined && (await lerContexto()).papel === 'dono') {
+          await registrar({ mod, canal: 'faixa', texto })
+        }
+        return { publicada }
+      },
+      vigiar: async ({ mod, caminhos }) => {
+        for (let i = 0; i < TENTATIVAS_DE_ESCRITA; i++) {
+          const atual = await built.state.get(VIGIAS)
+          const pedidos = registrarPedido(atual.value, mod, caminhos)
+          const escrita = await built.state.set(VIGIAS, pedidos, { ifVersion: atual.version })
+          if (escrita.isSet) return { caminhos: pedidos[mod] ?? [], valeNoProximoInicio: inicioRespondido }
+        }
+        throw new Error('ork-ponte: o pedido de caminhos nao foi guardado')
+      },
+      mostrado: async pedido => registrar(conferirMostrado(pedido)),
+      mostrados: async () => lerRegistro(await built.store.get(CHAVE_NO_STORE)),
     }
+
+    interno = { contexto: lerContexto, raizDoEstado: acharRaizDoEstado, ledgersRecentes: lerLedgersRecentes }
     return { ...built, ork }
+  })
+
+  // So a ponte responde `watchPaths` entre os mods do Orkastery: o que veio de baixo, os padroes e os pedidos.
+  on('classic.SessionStart', async ($, e, next) => {
+    const resultado = await next(e)
+    if (interno === undefined) return resultado
+    const contexto = await interno.contexto()
+    if (contexto.papel === 'dormente') return resultado
+    const raiz = await interno.raizDoEstado()
+    const recentes = contexto.papel === 'dono' && raiz !== null ? await interno.ledgersRecentes(raiz) : []
+    const pedidos = (await $.state.get(VIGIAS)).value
+    inicioRespondido = true
+    return { ...resultado, watchPaths: fundirCaminhos(resultado.watchPaths, caminhosPadrao(contexto.papel, raiz, contexto.thread, recentes), pedidos) }
+  }).catch(($, e, next) => next(e))
+
+  // A faixa acima do prompt: uma linha por mod; sem linha, a faixa fica com quem esta abaixo.
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if (e.props.hasSurvey) return next(e)
+    const linhas = comporFaixa((await $.state.get(FAIXA)).value, e.props.bodyColumns, e.props.maxRows)
+    if (linhas.length === 0) return next(e)
+    const { Box, Text } = $.ui.resolve(e)
+    return desenharFaixa({ Box, Text }, linhas)
   })
 }
