@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T19:36:11.467Z",
+  "publicadoEm": "2026-10-12T19:45:03.562Z",
   "threads": [
     {
       "id": "ork-rm058n2",
@@ -16,23 +16,6 @@
       "branch": "ork/ork-rm058n2-full",
       "atualizadaEm": "2026-10-12T19:23:38.712Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
-    },
-    {
-      "id": "ork-rm059pista",
-      "nome": "rm059pista",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-rm059pista-full",
-      "atualizadaEm": "2026-10-12T19:36:11.155Z",
-      "entregue": "050a2721",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
