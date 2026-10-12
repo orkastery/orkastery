@@ -8,7 +8,9 @@ import { formatarHora } from '../hooks/previsao'
 // da consulta `maestro` do CLI; `ler` roda a consulta da lista fechada pelo `process.run`, com as mesmas
 // mensagens de erro; a faixa corta o texto em 200 caracteres, desenha uma linha por mod (`rotulo: texto`) e, na
 // sessao do dono, entra no registro do mostrado. Com `ORK_TESTE_RECUSAR_FAIXA`, ela recusa a primeira publicacao
-// (`{ publicada: false }`). O que ela guardou sai pelos comandos `ponte-falsa` e `ponte-falsa-mostrados`.
+// (`{ publicada: false }`); com `ORK_TESTE_FAIXA_QUEBRADA`, a faixa lanca erro; com `ORK_TESTE_MOSTRADO_FALHAS`
+// igual a N, os N primeiros registros do mostrado lancam erro. O que ela guardou sai pelos comandos `ponte-falsa`
+// e `ponte-falsa-mostrados`.
 export const PONTE_FALSA = {
   name: 'ork-ponte',
   register(on) {
@@ -16,6 +18,7 @@ export const PONTE_FALSA = {
     const PUBLICACOES = { plugin: 'ork-ponte', key: 'publicacoes' }
     const MOSTRADOS = { plugin: 'ork-ponte', key: 'mostrados' }
     const RECUSADAS = { plugin: 'ork-ponte', key: 'recusadas' }
+    const FALHAS_DO_MOSTRADO = { plugin: 'ork-ponte', key: 'falhasDoMostrado' }
     const CONSULTAS = {
       'retry.list': ['ork', 'retry', 'list', '--json'],
       'thread.list': ['ork', 'thread', 'list', '--json'],
@@ -58,6 +61,7 @@ export const PONTE_FALSA = {
           return cli(CONSULTAS[consulta])
         },
         faixa: async ({ mod, texto }) => {
+          if ((await built.env.get('ORK_TESTE_FAIXA_QUEBRADA')) === '1') throw new Error('ork-ponte: a faixa quebrou')
           const recusadas = await built.state.get(RECUSADAS)
           if ((await built.env.get('ORK_TESTE_RECUSAR_FAIXA')) === '1' && (recusadas.value ?? 0) < 1) {
             await built.state.set(RECUSADAS, (recusadas.value ?? 0) + 1, { ifVersion: recusadas.version })
@@ -75,7 +79,14 @@ export const PONTE_FALSA = {
           if (publicada && (await papel()) === 'dono') await mostrar({ mod, canal: 'faixa', texto: limpo })
           return { publicada }
         },
-        mostrado: async pedido => mostrar(pedido),
+        mostrado: async pedido => {
+          const falhas = await built.state.get(FALHAS_DO_MOSTRADO)
+          if ((falhas.value ?? 0) < Number((await built.env.get('ORK_TESTE_MOSTRADO_FALHAS')) ?? 0)) {
+            await built.state.set(FALHAS_DO_MOSTRADO, (falhas.value ?? 0) + 1, { ifVersion: falhas.version })
+            throw new Error('ork-ponte: o registro do mostrado falhou')
+          }
+          return mostrar(pedido)
+        },
       }
       return { ...built, ork }
     })
@@ -109,20 +120,29 @@ export const horaNaFaixa = (ms: number, agora: number) => formatarHora(Math.floo
 
 /**
  * O que o motor responde embaixo dos plugins numa sessao de teste: relogio, store e ambiente em memoria,
- * o registro de comandos, o inicio da sessao e a medicao. `papel` muda o papel que a ponte falsa le.
+ * o registro de comandos, o inicio da sessao, a medicao e as linhas do `$.ui.log`. `papel` muda o papel que a
+ * ponte falsa le; o `env` e lido a cada chamada, entao o teste pode muda-lo no meio; `recusarComando` faz o
+ * motor recusar o registro do comando.
  */
-export function fundo(on, opcoes: { agora?: number; store?: Record<string, unknown>; papel?: () => string | undefined; env?: Record<string, string> } = {}) {
+export function fundo(on, opcoes: { agora?: number; store?: Record<string, unknown>; papel?: () => string | undefined;
+  env?: Record<string, string>; recusarComando?: boolean } = {}) {
   const relogio = mock.clock(on, { now: opcoes.agora ?? T0 })
   mock.store(on, opcoes.store)
   on('env.get', ($, e) => ({ value: e.name === 'ORK_TESTE_PAPEL' && opcoes.papel ? opcoes.papel() : opcoes.env?.[e.name] }))
   const comandos: string[] = []
   on('command.register', ($, e) => {
+    if (opcoes.recusarComando) throw new Error(`o comando ${e.name} foi recusado`)
     comandos.push(e.name)
+    return { value: undefined }
+  })
+  const logs: Array<{ text: string; to: string }> = []
+  on('ui.log', ($, e) => {
+    logs.push({ text: e.text, to: e.to })
     return { value: undefined }
   })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.measure', ($, e) => ({ changed: e.changed }))
-  return { relogio, comandos }
+  return { relogio, comandos, logs }
 }
 
 export async function iniciar($) {

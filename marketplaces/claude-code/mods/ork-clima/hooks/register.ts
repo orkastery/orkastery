@@ -5,20 +5,20 @@
 // da `ork-ponte`; a logica fica nos modulos puros ao lado, e aqui so as chamadas ao `$`, sempre escritas
 // pelo nome do noun e do metodo, como o validador exige.
 import type { Register } from 'claude-code'
-import type { ClimaNaoCabe } from '../types'
-import type { ClimaDespacho } from './contas'
+import type { ClimaNaoCabe, ClimaProblema } from '../types'
 import {
-  cruzar, linhasDoCruzamento, marcasDoRelatorio, paradasDoRetrato, resumoDoClima, retomadasDaFila, textoDoNaoCabe,
-  threadsAbertas, threadsQueNaoCabem,
+  cruzar, linhasDoCruzamento, marcasDoRelatorio, naoCabemGuardados, paradasDoRetrato, resumoDoClima, retomadasDaFila,
+  textoDoNaoCabe, threadsAbertas, threadsQueNaoCabem,
 } from './contas'
 import {
-  CHAVE_DA_SERIE, emAlerta, motivoDoErro, prever, registrarLeituras, TEXTO_SEM_PONTE, textoDaFaixa, textoDoClima,
-  textoForaDoDono,
+  CHAVE_DA_SERIE, emAlerta, MOTIVO_SEM_PONTE, motivoDoErro, prever, problemaDaLeitura, registrarLeituras, TEXTO_SEM_PONTE,
+  textoDaFaixa, textoDoClima, textoForaDoDono,
 } from './previsao'
 
 const MOD = 'ork-clima'
 const FAIXA = { plugin: 'ork-clima', key: 'faixa' } as const
 const NAO_CABEM = { plugin: 'ork-clima', key: 'naoCabem' } as const
+const PROBLEMA = { plugin: 'ork-clima', key: 'problema' } as const
 
 /** O fuso da sessao (D6): a ponte nao entrega o `owner.timezone`. */
 function fusoDaSessao(): string {
@@ -32,6 +32,7 @@ function fusoDaSessao(): string {
 export const register: Register = on => {
   // O `/clima` fica disponivel fora da sessao de fase (D3), e tambem sem a ponte, para dizer o motivo. A faixa
   // so sai na primeira medicao: antes de o servidor `orkastery` conectar, a ponte ainda responde `dormente`.
+  // O registro recusado nao segura o inicio da sessao, mas o motivo vai ao transcript (D15).
   on('session.start', async ($, e, next) => {
     let papel: string | null = null
     try {
@@ -41,72 +42,124 @@ export const register: Register = on => {
     }
     if (papel !== 'fase') {
       await $.command.register({ name: 'clima', description: 'Previsão da cota da conta desta sessão: quando cada janela acaba no ritmo atual' })
-        .catch(() => undefined)
+        .catch(erro => $.ui.log(`Clima de Cota: o /clima não foi registrado (${motivoDoErro(erro)}).`))
     }
     return next(e)
   })
 
   // Cada medicao: grava a leitura quando as janelas mudaram (D2) e republica a faixa so quando o texto muda (D5).
   // Com janela em alerta e leitura nova, le a fila inteira de retomada e guarda as que nao cabem (D7, D13); a
-  // medicao sem leitura nova usa o que ficou guardado. Fora do papel `dono`, a linha publicada sai (D13).
+  // medicao sem leitura nova usa o que ficou guardado. So vai ao registro do mostrado o que a faixa mostrou, e o
+  // registro que falhar fica pendente para a medicao seguinte (D15). Fora do papel `dono`, a linha sai (D13).
+  // Uma falha nunca segura a medicao: o motivo novo vai uma vez ao transcript e fica no estado para o `/clima`,
+  // ate uma medicao boa limpa-lo (D15).
   on('session.measure', async ($, e, next) => {
+    let agora: number | null = null
+    let problema: ClimaProblema | null = null
+    let semLeituraNova = false
     try {
-      const papel = await $.ork.papel()
+      agora = await $.clock.now()
+      let papel: string | null = null
+      try {
+        papel = await $.ork.papel()
+      } catch {
+        papel = null
+      }
       const anterior = await $.state.get(FAIXA)
-      if (papel !== 'dono') {
+      if (papel === null) {
+        problema = { motivo: MOTIVO_SEM_PONTE, em: agora, daLeitura: false }
+      } else if (papel !== 'dono') {
         if ((anterior.value ?? null) !== null) {
           await $.ork.faixa({ mod: MOD })
           await $.state.set(FAIXA, null, { ifVersion: anterior.version })
         }
       } else {
-        const agora = await $.clock.now()
         const fuso = fusoDaSessao()
         const leu = e.changed.includes('rateLimits')
+        semLeituraNova = !leu
         let serie = await $.store.get(CHAVE_DA_SERIE)
         if (leu) {
-          serie = registrarLeituras(serie, e.rateLimits, agora)
-          await $.store.set(CHAVE_DA_SERIE, serie)
+          const motivo = problemaDaLeitura(e.rateLimits)
+          if (motivo !== null) problema = { motivo, em: agora, daLeitura: true }
+          // A medicao sem a lista de janelas nao apaga a serie guardada (D15).
+          if (Array.isArray(e.rateLimits)) {
+            serie = registrarLeituras(serie, e.rateLimits, agora)
+            await $.store.set(CHAVE_DA_SERIE, serie)
+          }
         }
         const previsoes = prever(serie, agora)
         const alerta = previsoes.some(emAlerta)
         const guardados = await $.state.get(NAO_CABEM)
-        let naoCabem: ClimaNaoCabe[] = alerta ? (guardados.value ?? []) : []
-        let novos: ClimaDespacho[] = []
+        let naoCabem: ClimaNaoCabe[] = alerta ? naoCabemGuardados(guardados.value) : []
         if (alerta && leu) {
           try {
             const fila = retomadasDaFila(await $.ork.ler({ consulta: 'retry.list' }))
             if (fila !== null) {
-              const despachos = cruzar(previsoes, fila, agora).filter(d => d.classe === 'nao-cabe')
-              novos = despachos.filter(d => !naoCabem.some(n => n.id === d.retomada.id))
-              naoCabem = despachos.map(d => ({ id: d.retomada.id, thread: d.retomada.thread }))
+              const antes = naoCabem
+              const lidaEm = agora
+              naoCabem = cruzar(previsoes, fila, lidaEm).filter(d => d.classe === 'nao-cabe').map(d =>
+                antes.find(n => n.id === d.retomada.id)
+                  ?? { id: d.retomada.id, thread: d.retomada.thread, texto: textoDoNaoCabe(d, fuso, lidaEm), registrada: false })
             }
           } catch {
-            // Fila indisponivel: vale o que a ultima leitura deixou.
+            // Fila indisponivel: vale o que a ultima leitura deixou, e o `/clima` diz o motivo quando le a fila.
           }
         }
+        let versao = guardados.version
         if (JSON.stringify(naoCabem) !== JSON.stringify(guardados.value ?? [])) {
-          await $.state.set(NAO_CABEM, naoCabem, { ifVersion: guardados.version })
+          versao = (await $.state.set(NAO_CABEM, naoCabem, { ifVersion: guardados.version })).version
         }
         const threads = naoCabem.map(n => n.thread).filter((t, i, todas) => todas.indexOf(t) === i)
         const texto = textoDaFaixa(previsoes, fuso, agora, threads)
-        if ((anterior.value ?? null) !== texto) {
+        let mostrada = (anterior.value ?? null) === texto
+        if (!mostrada) {
           const r = await $.ork.faixa(texto === null ? { mod: MOD } : { mod: MOD, texto })
-          if (texto === null || r.publicada) await $.state.set(FAIXA, texto, { ifVersion: anterior.version })
+          if (texto === null || r.publicada) {
+            await $.state.set(FAIXA, texto, { ifVersion: anterior.version })
+            mostrada = true
+          }
         }
-        for (const d of novos) {
-          await $.ork.mostrado({ mod: MOD, canal: 'faixa', chave: `clima:nao-cabe:${d.retomada.id}`, thread: d.retomada.thread,
-            texto: textoDoNaoCabe(d, fuso, agora) })
+        if (mostrada && texto !== null && naoCabem.some(n => !n.registrada)) {
+          const registradas: ClimaNaoCabe[] = []
+          for (const n of naoCabem) {
+            if (n.registrada) {
+              registradas.push(n)
+              continue
+            }
+            try {
+              await $.ork.mostrado({ mod: MOD, canal: 'faixa', chave: `clima:nao-cabe:${n.id}`, thread: n.thread, texto: n.texto })
+              registradas.push({ ...n, registrada: true })
+            } catch (erro) {
+              registradas.push(n)
+              if (problema === null) problema = { motivo: `o registro do mostrado na ponte falhou (${motivoDoErro(erro)})`, em: agora, daLeitura: false }
+            }
+          }
+          naoCabem = registradas
+          await $.state.set(NAO_CABEM, naoCabem, { ifVersion: versao })
         }
       }
-    } catch {
-      // A medicao segue: o Clima so avisa, e uma falha dele nunca segura a sessao.
+    } catch (erro) {
+      problema = { motivo: `a medição falhou (${motivoDoErro(erro)})`, em: agora, daLeitura: false }
+    }
+    try {
+      const guardado = await $.state.get(PROBLEMA)
+      const antes = guardado.value ?? null
+      const depois = problema ?? (semLeituraNova && antes !== null && antes.daLeitura ? antes : null)
+      if (JSON.stringify(depois) !== JSON.stringify(antes)) {
+        await $.state.set(PROBLEMA, depois, { ifVersion: guardado.version })
+        // So o motivo novo vai ao transcript: a falha que se repete a cada medicao nao enche a tela.
+        if (depois !== null && depois.motivo !== antes?.motivo) $.ui.log(`Clima de Cota: ${depois.motivo}. O /clima mostra o que ficou guardado.`)
+      }
+    } catch (erro) {
+      $.ui.log(`Clima de Cota: o problema da medição não foi guardado (${motivoDoErro(erro)}).`, { to: 'debug' })
     }
     return next(e)
   })
 
-  // O `/clima` le a serie guardada e nao grava ponto: `$.session.usage()` repete a ultima resposta, e um ponto
+  // O `/clima` le a serie guardada e nao grava ponto: o uso pedido na hora repete a ultima resposta, e um ponto
   // com a hora de agora achataria o ritmo (D2). Le a fila, o retrato, as threads abertas e o registro de contas
-  // ao mesmo tempo (D3, D13); leitura que falha vira aviso no texto, e o que foi mostrado vai ao registro da ponte (D8).
+  // ao mesmo tempo (D3, D13); leitura que falha vira aviso no texto, o problema da ultima medicao aparece (D15), e
+  // o que foi mostrado vai ao registro da ponte (D8).
   on('command.run', { command: 'clima' }, async $ => {
     const agora = await $.clock.now()
     const fuso = fusoDaSessao()
@@ -118,6 +171,7 @@ export const register: Register = on => {
     }
     if (papel !== 'dono') return { text: textoForaDoDono(papel) }
     const previsoes = prever(await $.store.get(CHAVE_DA_SERIE), agora)
+    const problema = (await $.state.get(PROBLEMA)).value ?? null
     const ler = (p: Promise<unknown>) => p.then(valor => ({ ok: true as const, valor }), erro => ({ ok: false as const, erro: motivoDoErro(erro) }))
     const [fila, retrato, abertas, registro] = await Promise.all([
       ler($.ork.ler({ consulta: 'retry.list' })),
@@ -144,8 +198,8 @@ export const register: Register = on => {
           texto: textoDoNaoCabe(d, fuso, agora) })
       }
     } catch {
-      // O registro do mostrado e melhor esforco: o texto chega ao dono de qualquer jeito.
+      // O registro do mostrado e melhor esforco: o texto chega ao dono de qualquer jeito, e cada `/clima` registra de novo.
     }
-    return { text: textoDoClima(previsoes, fuso, agora, linhas) }
+    return { text: textoDoClima(previsoes, fuso, agora, linhas, problema) }
   })
 }

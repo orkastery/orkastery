@@ -173,11 +173,68 @@ test('publicacao que a ponte recusa e tentada de novo na medicao seguinte', { pl
   expect((await ponte($)).faixa).toEqual({ 'ork-clima': `5 h com 70% ou mais, acaba ~${horaNaFaixa(T0 + 2 * HORA, agora)}, renova ${hora(RENOVA, agora)}` })
 })
 
-test('sem a ponte o /clima existe e diz o motivo, sem vazar o erro interno', async ($, on) => {
-  const { comandos } = fundo(on)
+test('a falha da medicao vai uma vez ao transcript e ao /clima, e a medicao boa a limpa', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const agora = T0 + 40 * MIN
+  const env: Record<string, string> = { ORK_TESTE_FAIXA_QUEBRADA: '1' }
+  const { logs, relogio } = fundo(on, { agora, store: { serie: SERIE_EM_ALERTA }, env })
+  await medir($, cinco(70), ['context'])
+  await relogio.set(agora + MIN)
+  await medir($, cinco(70), ['context'])
+  expect(logs).toEqual([{ text: 'Clima de Cota: a medição falhou (ork-ponte: a faixa quebrou). O /clima mostra o que ficou guardado.', to: 'transcript' }])
+  const texto = await clima($)
+  expect(texto).toContain('- 5 h: 70%, ritmo de 20 pontos por hora')
+  expect(texto).toContain(`A medição falhou (ork-ponte: a faixa quebrou) às ${hora(agora + MIN, agora)}.`)
+  delete env.ORK_TESTE_FAIXA_QUEBRADA
+  await medir($, cinco(70), ['context'])
+  expect((await ponte($)).faixa).toEqual({ 'ork-clima': `5 h com 70% ou mais, acaba ~${horaNaFaixa(T0 + 2 * HORA, agora)}, renova ${hora(RENOVA, agora)}` })
+  expect(await clima($)).not.toContain('falhou')
+  expect(logs).toHaveLength(1)
+})
+
+test('leitura fora do formato vai ao /clima, nao apaga a serie e so sai com a leitura boa', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const agora = T0 + 40 * MIN
+  const { logs, relogio } = fundo(on, { agora, store: { serie: SERIE_EM_ALERTA } })
+  // O motor trocou o nome do percentual: a janela e descartada, mas a serie guardada fica.
+  await medir($, [{ kind: 'five_hour', utilization: 70, resetsAt: iso(RENOVA) }])
+  expect((await ponte($)).faixa).toEqual({ 'ork-clima': `5 h com 70% ou mais, acaba ~${horaNaFaixa(T0 + 2 * HORA, agora)}, renova ${hora(RENOVA, agora)}` })
+  const problema = `A leitura trouxe 1 janela num formato que o Clima não conhece às ${hora(agora, agora)}.`
+  expect(await clima($)).toContain(problema)
+  expect(await clima($)).toContain('- 5 h: 70%, ritmo de 20 pontos por hora')
+  // A medicao sem leitura nova nao limpa o problema da leitura; a leitura boa limpa.
+  await relogio.set(agora + MIN)
+  await medir($, cinco(70), ['context'])
+  expect(await clima($)).toContain(problema)
+  await medir($, cinco(71))
+  expect(await clima($)).not.toContain('formato que o Clima não conhece')
+  expect(logs).toEqual([{ text: 'Clima de Cota: a leitura trouxe 1 janela num formato que o Clima não conhece. O /clima mostra o que ficou guardado.', to: 'transcript' }])
+})
+
+test('a medicao que avisa leitura nova sem a lista de janelas nao apaga a serie', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const agora = T0 + 40 * MIN
+  fundo(on, { agora, store: { serie: SERIE_EM_ALERTA } })
+  await medir($, undefined)
+  expect((await ponte($)).faixa).toEqual({ 'ork-clima': `5 h com 70% ou mais, acaba ~${horaNaFaixa(T0 + 2 * HORA, agora)}, renova ${hora(RENOVA, agora)}` })
+  const texto = await clima($)
+  expect(texto).toContain('- 5 h: 70%, ritmo de 20 pontos por hora')
+  expect(texto).toContain(`A medição avisou leitura nova sem a lista de janelas às ${hora(agora, agora)}.`)
+})
+
+test('o /clima recusado pelo motor deixa o motivo no transcript', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { comandos, logs } = fundo(on, { recusarComando: true })
+  await iniciar($)
+  expect(comandos).toEqual([])
+  expect(logs).toHaveLength(1)
+  expect(logs[0].text).toMatch(/^Clima de Cota: o \/clima não foi registrado \(.+\)\.$/)
+})
+
+test('sem a ponte o /clima existe e diz o motivo, sem vazar o erro interno, e a medicao avisa uma vez', async ($, on) => {
+  const { comandos, logs } = fundo(on)
   await iniciar($)
   expect(comandos).toEqual(['clima'])
   const texto = await clima($)
   expect(texto).toBe('O Clima de Cota depende da ponte ork-ponte, que não respondeu nesta sessão; confira se ela está instalada e carregada.')
   expect(texto).not.toContain('undefined')
+  await medir($, cinco(70))
+  await medir($, cinco(71))
+  expect(logs).toEqual([{ text: 'Clima de Cota: a ponte ork-ponte não respondeu; confira se ela está instalada e carregada. O /clima mostra o que ficou guardado.', to: 'transcript' }])
 })

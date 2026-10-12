@@ -174,3 +174,49 @@ test('a fila inteira conta, e a ultima gravacao de cada retomada vence', { plugi
   expect(texto).toContain('- R70 da ork-k volta')
   expect(texto).not.toContain('R3 da ork-x')
 })
+
+test('o registro do mostrado que falha fica pendente e vai na medicao seguinte, sem tirar o que nao cabe da faixa', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { relogio, logs } = fundo(on, { env: { ORK_TESTE_MOSTRADO_FALHAS: '1' } })
+  nucleo(on, { fila: FILA })
+  await alerta($, relogio)
+  const agora = T0 + 30 * MIN
+  const naFaixa = async () => (await mostrados($)).filter(m => m.chave === 'clima:nao-cabe:R3' && m.canal === 'faixa')
+  expect(await naFaixa()).toEqual([])
+  expect(await clima($)).toContain(`O registro do mostrado na ponte falhou (ork-ponte: o registro do mostrado falhou) às ${hora(agora, agora)}.`)
+  // A medicao seguinte, mesmo sem leitura nova, registra a pendente; a faixa nao perde o que nao cabe.
+  await relogio.set(T0 + 31 * MIN)
+  await medir($, cinco(70), ['context'])
+  expect((await ponte($)).faixa['ork-clima']).toMatch(/^não cabe: ork-x; 5 h com 70% ou mais/)
+  expect(await naFaixa()).toEqual([
+    { mod: 'ork-clima', canal: 'faixa', chave: 'clima:nao-cabe:R3', thread: 'ork-x', texto: `R3 da ork-x não cabe na janela de 5 h, que renova ${hora(RENOVA, agora)}.` },
+  ])
+  expect(await clima($)).not.toContain('O registro do mostrado na ponte falhou')
+  await medir($, cinco(70), ['context'])
+  expect(await naFaixa()).toHaveLength(1)
+  expect(logs).toEqual([{ text: 'Clima de Cota: o registro do mostrado na ponte falhou (ork-ponte: o registro do mostrado falhou). O /clima mostra o que ficou guardado.', to: 'transcript' }])
+})
+
+test('o que nao cabe so vai ao registro quando a faixa o mostrou', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { relogio } = fundo(on, { env: { ORK_TESTE_RECUSAR_FAIXA: '1' } })
+  nucleo(on, { fila: FILA })
+  await alerta($, relogio)
+  const naFaixa = async () => (await mostrados($)).filter(m => m.chave === 'clima:nao-cabe:R3' && m.canal === 'faixa')
+  expect((await ponte($)).faixa).toEqual({})
+  expect(await naFaixa()).toEqual([])
+  await medir($, cinco(70), ['context'])
+  expect((await ponte($)).faixa['ork-clima']).toMatch(/^não cabe: ork-x; /)
+  expect(await naFaixa()).toHaveLength(1)
+})
+
+test('a retomada nova que nao cabe vai ao registro sem repetir a que ja tinha ido', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { relogio } = fundo(on)
+  const dados = { fila: [pedido('R3', 'ork-x', 'aguardando', T0 + 150 * MIN)] }
+  nucleo(on, dados)
+  await alerta($, relogio)
+  dados.fila = [...dados.fila, pedido('R7', 'ork-k', 'aguardando', T0 + 160 * MIN)]
+  await relogio.set(T0 + 34.5 * MIN)
+  await medir($, cinco(71.5))
+  expect((await ponte($)).faixa['ork-clima']).toMatch(/^não cabe: ork-x, ork-k; /)
+  const chaves = (await mostrados($)).filter(m => m.canal === 'faixa' && typeof m.chave === 'string').map(m => m.chave)
+  expect(chaves).toEqual(['clima:nao-cabe:R3', 'clima:nao-cabe:R7'])
+})
