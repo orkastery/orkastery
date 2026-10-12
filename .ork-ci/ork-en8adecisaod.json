@@ -19,20 +19,6 @@
       "lint": []
     },
     {
-      "id": "C2",
-      "thread": "ork-en8adecisaod",
-      "fase": "GO",
-      "arquivo": "core/test/indice.test.ts",
-      "alegacao": "o teste EN8 reprova no codigo anterior (indice.ts da base)",
-      "negativa": false,
-      "verificar": [
-        "d=$(mktemp -d) && cp -r core/src core/test core/tsconfig*.json core/package.json \"$d/\" && git show $(git merge-base HEAD origin/main):core/src/indice.ts > \"$d/src/indice.ts\" && ln -s \"$PWD/core/node_modules\" \"$d/node_modules\" && (cd \"$d\" && npx tsc -p tsconfig.test.json >/dev/null 2>&1; ! node --test --test-name-pattern='EN8' dist-test/test/indice.test.js >/dev/null 2>&1)"
-      ],
-      "criadoEm": "2026-10-12T06:07:22.704Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C3",
       "thread": "ork-en8adecisaod",
       "fase": "GO",
@@ -43,6 +29,20 @@
         "node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-10-12T06:07:22.867Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-en8adecisaod",
+      "fase": "GO",
+      "arquivo": "core/test/indice.test.ts",
+      "alegacao": "o teste EN8 reprova no codigo anterior (indice.ts da base)",
+      "negativa": false,
+      "verificar": [
+        "d=$(mktemp -d) && cp -r core/src core/test core/tsconfig*.json core/package.json \"$d/\" && git show $(git merge-base HEAD origin/main):core/src/indice.ts > \"$d/src/indice.ts\" && ln -s \"$PWD/core/node_modules\" \"$d/node_modules\" && (cd \"$d\" && npx tsc -p tsconfig.test.json >/dev/null 2>&1; node --test --test-reporter=tap --test-name-pattern='EN8' dist-test/test/indice.test.js > \"$d/tap.log\" 2>&1); grep -qx '# fail 1' \"$d/tap.log\" && grep -qx '# pass 0' \"$d/tap.log\""
+      ],
+      "criadoEm": "2026-10-12T06:09:49.221Z",
       "estado": "verificado",
       "lint": []
     }
