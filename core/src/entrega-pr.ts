@@ -19,6 +19,7 @@ import { ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
 import { dirThread, gravarThread, lerThread, listarIds } from './thread';
 import { exec } from './util';
+import { ErroDoCatalogo, remontar, textoDoCatalogo } from './locale';
 
 export interface EntregaPorPr {
   thread: string;
@@ -76,31 +77,31 @@ export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: s
   const remoto = exigirRemoto(opcoes.remoto ?? 'origin', 'ship');
   const base = carregado.manifesto.worktree.base_branch;
   const thread = lerThread(raiz, threadId);
-  if (thread.status === 'fechada') return resultado(threadId, 'ja-registrada', 'thread ja fechada');
+  if (thread.status === 'fechada') return resultado(threadId, 'ja-registrada', textoDoCatalogo((m) => m.ship.prThreadFechada));
   if (opcoes.buscar !== false) exec('git', ['fetch', '-q', '--', remoto, `+refs/heads/${base}:refs/remotes/${remoto}/${base}`], raiz);
   const encontrado = mergeDaEntrega(raiz, threadId, remoto, base);
-  if (!encontrado) return resultado(threadId, 'sem-merge', `nenhum merge ship(${threadId}) em ${remoto}/${base}`);
+  if (!encontrado) return resultado(threadId, 'sem-merge', textoDoCatalogo((m) => m.ship.prSemMerge(threadId, remoto, base)));
   // RM-044 (A3): o condutor roda o registrar-pr logo depois do merge; e aqui que ele fica sabendo da pagina que
   // vai deixar o push da base vermelho, lida da base remota que o fetch acabou de trazer.
   const merge = { ...encontrado, docsPendentes: docsPendentesDoMerge(raiz, threadId, `refs/remotes/${remoto}/${base}`) };
 
   const dir = dirThread(raiz, threadId);
   const jaTem = lerLedger(dir).some((e) => e.tipo === TIPOS_DE_EVENTO.shipConcluido && e.mergeSha === merge.mergeSha);
-  if (jaTem) return resultado(threadId, 'ja-registrada', 'esta entrega ja tem ship_done', merge);
+  if (jaTem) return resultado(threadId, 'ja-registrada', textoDoCatalogo((m) => m.ship.prJaTemShipDone), merge);
 
   // A ponta do remoto AGORA, e o merge dentro dela: e o que torna o push provado, nao presumido.
   const remotoAgora = exec('git', ['ls-remote', '--', remoto, `refs/heads/${base}`], raiz);
   const ponta = remotoAgora.ok ? remotoAgora.stdout.split('\t')[0].trim() : '';
   if (!ponta || !exec('git', ['merge-base', '--is-ancestor', merge.mergeSha, ponta], raiz).ok) {
-    return resultado(threadId, 'recusada', `o merge ${merge.mergeSha.slice(0, 7)} nao esta na ponta de ${remoto}/${base}`, merge);
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prForaDaPonta(merge.mergeSha.slice(0, 7), remoto, base)), merge);
   }
   const ci = consultarCi(carregado, merge.headSha ?? merge.mergeSha, remoto, opcoes.executorCi);
   if (ci.required && !ci.ok) {
-    return resultado(threadId, 'recusada', `sem CI verde no head do PR: ${ci.detail}`, { ...merge, ci });
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemCiVerde(remontar(ci.detail))), { ...merge, ci });
   }
   // RM-037 (fatia 3, defeito 6): o ensaio confere tudo e para aqui, sem ledger, fase nem fabrica.
   if (opcoes.dryRun) {
-    return resultado(threadId, 'registraria', `ensaio: registraria ship_done pelo merge ${merge.mergeSha.slice(0, 7)} do PR (nada gravado)`, { ...merge, ci });
+    return resultado(threadId, 'registraria', textoDoCatalogo((m) => m.ship.prRegistraria(merge.mergeSha.slice(0, 7))), { ...merge, ci });
   }
 
   registrar(dir, threadId, TIPOS_DE_EVENTO.shipConcluido, {
@@ -125,7 +126,7 @@ export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: s
   // Como no `ork ship`: a thread chega ao SHIP quando o ciclo dela tem SHIP.
   avancarParaShip(raiz, threadId);
   if (opcoes.publicar !== false) publicarEmSegundoPlano(raiz);
-  return resultado(threadId, 'registrou', `ship_done pelo merge ${merge.mergeSha.slice(0, 7)} do PR`, { ...merge, ci });
+  return resultado(threadId, 'registrou', textoDoCatalogo((m) => m.ship.prRegistrou(merge.mergeSha.slice(0, 7))), { ...merge, ci });
 }
 
 // ---------------------------------------------------------------------------
@@ -164,24 +165,24 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
   const gh = opcoes.executorGitHub ?? ghApi;
   const declarados = carregado.manifesto.ci.external_repositories;
   if (!Object.hasOwn(declarados, repo)) {
-    return resultado(threadId, 'recusada', `o repositorio ${repo} nao esta declarado em ci.external_repositories do orkastery.yaml`);
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prRepoNaoDeclarado(repo)));
   }
-  if (!Number.isSafeInteger(n) || n < 1) return resultado(threadId, 'recusada', `--pr precisa ser o numero do PR, recebido ${String(n)}`);
+  if (!Number.isSafeInteger(n) || n < 1) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prNumeroInvalido(String(n))));
   const thread = lerThread(raiz, threadId);
-  if (thread.status === 'fechada') return resultado(threadId, 'ja-registrada', 'thread ja fechada');
+  if (thread.status === 'fechada') return resultado(threadId, 'ja-registrada', textoDoCatalogo((m) => m.ship.prThreadFechada));
   const dir = dirThread(raiz, threadId);
   if (lerLedger(dir).some((e) => e.tipo === TIPOS_DE_EVENTO.shipConcluido && e.repositorio === repo && e.pr === n)) {
-    return resultado(threadId, 'ja-registrada', `o PR #${n} de ${repo} ja tem ship_done`);
+    return resultado(threadId, 'ja-registrada', textoDoCatalogo((m) => m.ship.prExternoJaTem(n, repo)));
   }
 
   const pr = lerJson<{ merged?: boolean; merge_commit_sha?: string | null; html_url?: string; title?: string | null; body?: string | null;
     base?: { ref?: string }; head?: { sha?: string; ref?: string } }>(gh(`repos/${repo}/pulls/${n}`));
-  if (!pr) return resultado(threadId, 'recusada', `a consulta do PR #${n} de ${repo} ao GitHub falhou`);
+  if (!pr) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prConsultaFalhou(n, repo)));
   const mergeSha = typeof pr.merge_commit_sha === 'string' && /^[0-9a-f]{40}$/.test(pr.merge_commit_sha) ? pr.merge_commit_sha : null;
   const headSha = typeof pr.head?.sha === 'string' && /^[0-9a-f]{40}$/.test(pr.head.sha) ? pr.head.sha : null;
   const base = typeof pr.base?.ref === 'string' && /^[A-Za-z0-9._/-]{1,200}$/.test(pr.base.ref) ? pr.base.ref : null;
   if (pr.merged !== true || !mergeSha || !headSha || !base) {
-    return resultado(threadId, 'sem-merge', `o PR #${n} de ${repo} nao esta mesclado`);
+    return resultado(threadId, 'sem-merge', textoDoCatalogo((m) => m.ship.prNaoMesclado(n, repo)));
   }
   // Achado A4 do CHECK: o PR precisa ser DESTA thread e ter entrado na branch padrao do repositorio. Sem o
   // vinculo, qualquer PR mesclado do repositorio viraria entrega de qualquer thread; sem a base, um PR
@@ -191,12 +192,12 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
     // letra ou digito colado nao (outro id). Sem diferenciar maiusculas.
     .some((x) => new RegExp(`(^|[^a-z0-9-])${threadId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9])`, 'i').test(x));
   if (!vinculo) {
-    return resultado(threadId, 'recusada', `o PR #${n} de ${repo} nao cita a thread ${threadId} no titulo, no corpo nem na branch`, { mergeSha, headSha });
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prNaoCitaThread(n, repo, threadId)), { mergeSha, headSha });
   }
   const repositorio = lerJson<{ default_branch?: string }>(gh(`repos/${repo}`));
-  if (!repositorio) return resultado(threadId, 'recusada', `a consulta de ${repo} ao GitHub falhou`, { mergeSha, headSha });
+  if (!repositorio) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prRepoFalhou(repo)), { mergeSha, headSha });
   if (repositorio.default_branch !== base) {
-    return resultado(threadId, 'recusada', `o PR #${n} entrou em ${base}, e a branch padrao de ${repo} e ${repositorio.default_branch ?? 'desconhecida'}`,
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prOutraBase(n, base, repo, repositorio.default_branch)),
       { mergeSha, headSha });
   }
 
@@ -205,16 +206,16 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
   const ponta = typeof ramo?.commit?.sha === 'string' && /^[0-9a-f]{40}$/.test(ramo.commit.sha) ? ramo.commit.sha : '';
   const comparacao = ponta ? lerJson<{ status?: string }>(gh(`repos/${repo}/compare/${mergeSha}...${ponta}`)) : null;
   if (!ponta || !comparacao || !['ahead', 'identical'].includes(String(comparacao.status))) {
-    return resultado(threadId, 'recusada', `o merge ${mergeSha.slice(0, 7)} nao esta na ponta de ${repo}:${base}`, { mergeSha, headSha });
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prExternoForaDaPonta(mergeSha.slice(0, 7), repo, base)), { mergeSha, headSha });
   }
 
   const check = declarados[repo];
   const ci = check ? consultarCiDoRepositorio(repo, headSha, check, opcoes.executorCi) : null;
   if (ci && !ci.ok) {
-    return resultado(threadId, 'recusada', `sem CI verde no head do PR: ${ci.detail}`, { mergeSha, headSha, ci });
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemCiVerde(remontar(ci.detail))), { mergeSha, headSha, ci });
   }
   if (opcoes.dryRun) {
-    return resultado(threadId, 'registraria', `ensaio: registraria ship_done pelo merge ${mergeSha.slice(0, 7)} do PR #${n} de ${repo} (nada gravado)`,
+    return resultado(threadId, 'registraria', textoDoCatalogo((m) => m.ship.prExternoRegistraria(mergeSha.slice(0, 7), n, repo)),
       { mergeSha, headSha, ci });
   }
 
@@ -242,7 +243,7 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
   });
   avancarParaShip(raiz, threadId);
   if (opcoes.publicar !== false) publicarEmSegundoPlano(raiz);
-  return resultado(threadId, 'registrou', `ship_done pelo merge ${mergeSha.slice(0, 7)} do PR #${n} de ${repo}`, { mergeSha, headSha, ci });
+  return resultado(threadId, 'registrou', textoDoCatalogo((m) => m.ship.prExternoRegistrou(mergeSha.slice(0, 7), n, repo)), { mergeSha, headSha, ci });
 }
 
 /** `ork ship registrar-pr --todas`: toda thread aberta que ja tem merge `ship(<thread>)` na base. */
@@ -256,7 +257,7 @@ export function registrarEntregasPorPr(carregado: ManifestoCarregado,
     .filter((id) => mergeDaEntrega(carregado.raiz, id, remoto, base) !== null)
     .map((id) => {
       try { return registrarEntregaPorPr(carregado, id, { ...opcoes, buscar: false, publicar: false }); }
-      catch (e) { return resultado(id, 'recusada', (e as Error).message); }
+      catch (e) { return resultado(id, 'recusada', e instanceof ErroDoCatalogo ? textoDoCatalogo(e.montar) : (e as Error).message); }
     });
   // Uma publicacao so para o lote inteiro, nao uma por thread.
   if (r.some((x) => x.acao === 'registrou')) publicarEmSegundoPlano(carregado.raiz);

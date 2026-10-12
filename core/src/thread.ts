@@ -57,7 +57,7 @@ export function listarIds(raiz: string): string[] {
 export function lerThread(raiz: string, id: string): Thread {
   const caminho = caminhoThread(raiz, id);
   if (!fs.existsSync(caminho)) {
-    throw new Error(msg().thread.naoEncontrada(id, dirThreads(raiz)));
+    throw new ErroDoCatalogo((m) => m.thread.naoEncontrada(id, dirThreads(raiz)));
   }
   return lerJson<Thread>(caminho);
 }

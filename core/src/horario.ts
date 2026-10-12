@@ -202,7 +202,7 @@ export function duracaoCurta(minutos: number): string {
 
 /** Duração até ou desde agora: abaixo de 1 min diz `menos de 1 min`, nunca `0min`. */
 export function duracaoRelativa(minutos: number): string {
-  return minutos < 1 ? 'menos de 1 min' : duracaoCurta(minutos);
+  return minutos < 1 ? msg().horario.menosDeUmMin : duracaoCurta(minutos);
 }
 
 function sigla(fuso: string, ms: number, locale: Locale = localeAtivo()): string {

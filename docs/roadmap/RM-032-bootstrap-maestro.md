@@ -47,14 +47,14 @@ sdlc:
 - **Evidência:** em 29/09/2026 o dono pediu ao OpenClaw, pelo Telegram, o status report do roadmap do orkastery; a resposta leu o workspace do gateway (projeto "workspace", 0 threads) e concluiu "o roadmap está vazio", com 13 itens reservados e 10 threads ativas na VPS. A RM-052 e a RM-054 corrigiram o projeto-alvo e a fonte do roadmap; faltava a prova de ativação que pega essa classe de erro num host novo.
 - **Resultado:** pacote de código com 8 de 12 critérios do GOAL atendidos (19/09/2026) e, desde 01/10/2026, um roteiro que prova a ativação em sessão nova por host, com recibo citável.
 - **Hipótese (fatia de 01/10):** Se cada host novo passar por uma prova em sessão nova e não interativa que confere a ferramenta chamada e o projeto lido, então uma instalação que não expõe o Maestro, ou que lê o projeto do diretório, aparece antes de o dono perguntar, porque a conferência julga a chamada e o resultado, não o texto do modelo.
-- **Métrica principal / linha de base / meta / janela / fonte:** hosts com prova de ativação aprovada em sessão nova; linha de base 0 de 4 (até 30/09/2026); meta 4 de 4; janela até a publicação dos pacotes; fonte: recibos `ork.prova-ativacao/v1` em [evidencias/RM-032](evidencias/RM-032/). Em 01/10/2026: 2 de 4 aprovados (Claude Code e OpenClaw), 2 sem host na máquina de prova (Hermes, Codex). Em 03/10/2026: 3 de 4 (o Codex 0.159.3 aprovado na srvjcp86); falta o Hermes.
+- **Métrica principal / linha de base / meta / janela / fonte:** hosts com prova de ativação aprovada em sessão nova; linha de base 0 de 4 (até 30/09/2026); meta 4 de 4; janela até a publicação dos pacotes; fonte: recibos `ork.prova-ativacao/v1` em [evidencias/RM-032](evidencias/RM-032/). Em 01/10/2026: 2 de 4 aprovados (Claude Code e OpenClaw), 2 sem host na máquina de prova (Hermes, Codex). Em 03/10/2026: 3 de 4 (o Codex 0.159.3 aprovado na maquina-b); falta o Hermes.
 - **Métricas de proteção:** os arquivos de configuração global do host (settings e registro de plugins do Claude; `openclaw.json` e a extensão global do OpenClaw; `config.toml` e `skills/` do `CODEX_HOME` e os arquivos do primeiro nível de `~/.codex`) têm o mesmo sha256 antes e depois; a sessão do Codex não fica em `$CODEX_HOME/sessions`; o estado do CLI do Claude (`.claude.json`) não ganha aceite para a raiz temporária; o log do OpenClaw da cópia fica na raiz da prova, fora de `/tmp/openclaw`; o recibo é redigido campo a campo antes de ser gravado; a consulta não escreve em `.orkastery`.
 
 ## Escopo e validação
 
-- **Incluído (fatia de 01/10/2026):** conferência pura do transcript ([`core/src/prova-ativacao.ts`](../../core/src/prova-ativacao.ts)); roteiro [`core/scripts/prova-ativacao.cjs`](../../core/scripts/prova-ativacao.cjs) para Claude Code e OpenClaw; recibos reais da srvjcp86; documentação no [contrato do snapshot](../referencia/contratos/maestro-i32.md#prova-de-ativação-por-host-rm-032) e nos READMEs dos adaptadores.
-- **Incluído (fatia de 03/10/2026, B11 do backlog):** o host `codex` no roteiro e na conferência (`transcriptDoCodex`); recibo real da srvjcp86; a skill `ork` do Codex pede `ork_maestro` antes de qualquer `ork` no shell.
-- **Fora de escopo:** Hermes (sem host na srvjcp86; o roteiro recusa com `host.nao-suportado`); publicação dos pacotes (ato do mantenedor); atualizar a extensão global do OpenClaw ou reiniciar o gateway.
+- **Incluído (fatia de 01/10/2026):** conferência pura do transcript ([`core/src/prova-ativacao.ts`](../../core/src/prova-ativacao.ts)); roteiro [`core/scripts/prova-ativacao.cjs`](../../core/scripts/prova-ativacao.cjs) para Claude Code e OpenClaw; recibos reais da maquina-b; documentação no [contrato do snapshot](../referencia/contratos/maestro-i32.md#prova-de-ativação-por-host-rm-032) e nos READMEs dos adaptadores.
+- **Incluído (fatia de 03/10/2026, B11 do backlog):** o host `codex` no roteiro e na conferência (`transcriptDoCodex`); recibo real da maquina-b; a skill `ork` do Codex pede `ork_maestro` antes de qualquer `ork` no shell.
+- **Fora de escopo:** Hermes (sem host na maquina-b; o roteiro recusa com `host.nao-suportado`); publicação dos pacotes (ato do mantenedor); atualizar a extensão global do OpenClaw ou reiniciar o gateway.
 - **Entregáveis e critérios de aceite:**
   - conferência → `npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/prova-ativacao.test.js` (11 testes: entrada exposta e chamada, desvio pelo shell (inclusive ao lado da chamada contratada), erro e nova tentativa, snapshot fora do contrato, panorama da rede, projeto de outra cópia, "roadmap vazio" afirmado e negado, redação);
   - roteiro sem host → `node --test core/dist-test/test/prova-ativacao-roteiro.test.js` (`host.nao-suportado` e `host.ausente`, saída 2; no Codex, também o roteiro inteiro com um `codex` falso no PATH e a pendência de login, saída 3);
@@ -87,8 +87,8 @@ sdlc:
 ## Estado com evidências
 
 - Merge `20e3835` (PR #13, 19/09/2026); score humano 3/5 ratificado em 19/09/2026.
-- Prova de ativação, 01/10/2026, srvjcp86, candidato `c6a7636` sobre a 0.5.0: Claude Code e OpenClaw aprovados, 11 de 11 conferências cada. Recibos em [evidencias/RM-032](evidencias/RM-032/).
-- Prova de ativação do Codex, 03/10/2026, srvjcp86, candidato `d924cda` (thread `ork-provadeativa`): aprovada, 11 de 11 conferências, na segunda rodada.
+- Prova de ativação, 01/10/2026, maquina-b, candidato `c6a7636` sobre a 0.5.0: Claude Code e OpenClaw aprovados, 11 de 11 conferências cada. Recibos em [evidencias/RM-032](evidencias/RM-032/).
+- Prova de ativação do Codex, 03/10/2026, maquina-b, candidato `d924cda` (thread `ork-provadeativa`): aprovada, 11 de 11 conferências, na segunda rodada.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -116,5 +116,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-09-19 | pacote de código entregue (8 de 12) | PR #13, merge `20e3835` | Julio |
 | 2026-10-01 | prova de ativação por host automatizada; Claude Code e OpenClaw aprovados | thread `ork-rm032ativaca`, recibos em `evidencias/RM-032` | agente (#Auto), revisão de Julio |
-| 2026-10-03 | prova de ativação do Codex aprovada (3 de 4 hosts) | B11 do backlog; thread `ork-provadeativa`, recibo `evidencias/RM-032/codex-2026-10-03.json` | claude-srvjcp86 (#Auto) |
+| 2026-10-03 | prova de ativação do Codex aprovada (3 de 4 hosts) | B11 do backlog; thread `ork-provadeativa`, recibo `evidencias/RM-032/codex-2026-10-03.json` | claude-maquina-b (#Auto) |
 | 2026-10-03 | a skill do Codex e a do Hermes consultam o `ork` no shell só depois da `ork_maestro` | achado da segunda rodada da prova do Codex; thread `ork-skilldocodex` (#Auto), teste `rm032-ordem-da-skill` | Claude (agente, #Auto), autorizado por Julio |

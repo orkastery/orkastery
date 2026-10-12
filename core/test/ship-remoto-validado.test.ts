@@ -23,7 +23,7 @@ import { lerPrsDaForja, repositorioDoRemoto } from '../src/parado-no-condutor';
 import { remotoConfigurado, ship, shaNoRemoto } from '../src/ship';
 import { dirThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
-import { commitar, dirTemporario, projetoTemporario, shaDaBranch, shaNoRemotoDeTeste } from './apoio';
+import { commitar, dirTemporario, envPtBr, projetoTemporario, shaDaBranch, shaNoRemotoDeTeste } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const GIT_REAL = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
@@ -103,7 +103,7 @@ test('ship --para: a CLI recusa --remoto ruim e --remoto sem valor, sem tocar a 
   try {
     const thread = threadComEntrega(p, 'entrega');
     const mainAntes = shaDaBranch(p.dir, 'main');
-    const env = { ...process.env, PATH: e.PATH, ORK_USUARIO_DIR: path.join(e.dir, 'usuario'), ORK_MAQUINA: 'pc-teste',
+    const env = { ...envPtBr(process.env), PATH: e.PATH, ORK_USUARIO_DIR: path.join(e.dir, 'usuario'), ORK_MAQUINA: 'pc-teste',
       ORK_FABRICA_PUBLICAR: '0' };
     const ork = (args: string[]) => spawnSync(process.execPath, [CLI, ...args], { cwd: p.dir, encoding: 'utf8', env, timeout: 60000 });
     for (const ruim of [...maliciosos(e.marca), '']) {

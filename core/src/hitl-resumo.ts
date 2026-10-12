@@ -15,6 +15,7 @@
  * mensagem do canal. Quem entrega chama a segunda.
  */
 import { formatarDataHoraRotulada, formatarHora } from './horario';
+import { msg } from './locale';
 import { HitlDeConducaoAgora, linhaDoHitlAcimaDaMeta } from './hitl-tempo-parado';
 import { DecisaoParaODono, FaseAcimaDoLimiar, LIMIAR_DE_DECISOES_POR_FASE } from './decisao-autonoma';
 import {
@@ -161,7 +162,7 @@ export const TETO_DE_PARADOS_NO_CONDUTOR = 5;
 export function linhaDoParadoNoCondutor(p: Pick<LinhaDoCondutor, 'thread' | 'desdeEm' | 'proximoPasso'>,
   opcoes: { agora: string; fuso?: string }): string {
   const { desdeEm: desde } = p;
-  return `${p.thread} parado no condutor desde ${formatarHora(desde, opcoes)}: ${p.proximoPasso}`;
+  return msg().pulse.linhaDoCondutor(p.thread, formatarHora(desde, opcoes), p.proximoPasso);
 }
 
 /** As linhas do condutor no resumo, uma por thread, com o resto contado. */
