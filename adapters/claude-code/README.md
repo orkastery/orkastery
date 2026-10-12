@@ -180,24 +180,37 @@ editou. Arquivo editado ou acrescentado à mão fica, e a recusa diz o caminho p
 `plugin.json` do mod) entra antes de quem depende; o resto segue o nome. Os mods que foram ficam no
 comando gravado no evento `phase_dispatch` do ledger da thread.
 
+O arquivo comum da raiz de `mods/`, como a lista de autoridade que a ponte lê em `../autoridade.json`
+antes da própria pasta, segue a mesma regra quando há mod de fase no despacho: fora do recibo, link
+ou arquivo especial recusam, e o que saiu do catálogo sai da cópia na reinstalação.
+
 Para tirar um mod das sessões de fase, mude o papel no `orkastery-mod.json` do catálogo, ou tire o
 mod, e rode `ork adapter install claude-code` de novo.
 
-O mod de papel `dono` não vai ao despacho: cada mod tem uma entrada no marketplace próprio do
-repositório (`.claude-plugin/marketplace.json`, gerado por `node core/scripts/gerar-marketplaces.cjs`),
-que aponta para uma cópia gerada em `marketplaces/claude-code/mods/<mod>/`. Instalado pelo
-marketplace, o plugin é só a própria pasta, então o arquivo comum da raiz de
-`adapters/claude-code/mods/` (a lista de autoridade da ponte, por exemplo) vai dentro de cada cópia.
-A instalação é no escopo do projeto:
+O mod de papel `dono` não vai ao despacho: ele roda na sessão de quem conduz. Num projeto com o
+adaptador instalado, a cópia dele já está em `.claude/plugins/orkastery/mods/<mod>`, conferida pelo
+`INSTALADO.json` e com os arquivos comuns da raiz de `mods/` ao lado. Carregue-a na sessão com:
+
+```bash
+claude --plugin-dir .claude/plugins/orkastery/mods/<mod>
+```
+
+Sem o adaptador local, cada mod tem uma entrada no marketplace próprio do repositório
+(`.claude-plugin/marketplace.json`, gerado por `node core/scripts/gerar-marketplaces.cjs`), que aponta
+para uma cópia gerada em `marketplaces/claude-code/mods/<mod>/`. Instalado pelo marketplace, o plugin
+é só a própria pasta, então o arquivo comum da raiz de `adapters/claude-code/mods/` (a lista de
+autoridade da ponte, por exemplo) vai dentro de cada cópia. A instalação é no escopo do projeto:
 
 ```bash
 claude plugin marketplace add orkastery/orkastery
 claude plugin install <mod>@orkastery --scope project
 ```
 
-O marketplace local do adaptador, registrado na instalação acima a partir de `.claude/plugins/orkastery`,
-também se chama `orkastery` e não lista os mods. Se ele já estiver registrado, tire-o antes com
-`claude plugin marketplace remove orkastery`.
+Os dois marketplaces se chamam `orkastery`, e o local, registrado na instalação acima a partir de
+`.claude/plugins/orkastery`, não lista os mods. Não troque um pelo outro num projeto que usa o
+plugin do adaptador: remover um marketplace desinstala os plugins que vieram dele (medido no
+Claude Code 2.1.296), e o plugin do marketplace do repositório não traz o guard `PreToolUse` nem o
+MCP do adaptador.
 
 ## A #TAG de conducao
 
