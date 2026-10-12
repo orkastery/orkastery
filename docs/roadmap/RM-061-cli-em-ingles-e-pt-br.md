@@ -181,8 +181,9 @@ A F3a mede no mesmo contador, com o recibo em [`cobertura-f3a.json`](evidencias/
 | Cobertura | 23,0% | 23,9% |
 
 - **O que mudou:** a família nova `gerados` (42 entradas) traz o texto dos arquivos que o CLI escreve: os comentários do `orkastery.yaml` (24), o bloco do `AGENTS.md` do `ork init` (11), o bloco da experiência que `ork adapter install` põe no `CLAUDE.md` ou no `AGENTS.md` (4) e o que o `ork docs init` imprime (3). Os arquivos nascem na língua do dono no momento da geração (`owner.language`, senão o locale do ambiente).
-- **Fora da régua:** o contador conta literais nos `.ts` de `core/src`, e um arquivo gerado inteiro contava como um literal só. Os sete modelos do `ork docs init` em inglês moram em `core/assets/docs-en/`, como arquivos `.md`, e ficam fora do método.
+- **Fora da régua:** o contador conta literais nos `.ts` de `core/src`, e um arquivo gerado inteiro contava como um literal só. Os sete arquivos do `ork docs init` em inglês (seis `.md` e o `.jsonc` do markdownlint) moram em `core/assets/docs-en/` e ficam fora do método.
 - **O dado não muda:** chaves, valores e marcadores dos arquivos são os mesmos nas duas línguas. Nos modelos do `docs init`, o que o `ork docs verificar` lê (chaves e valores do frontmatter, nomes das seções e a linha `Em uma frase`) segue em pt-BR em qualquer língua; um verificador bilíngue fica para a F3b ou para a [RM-044](RM-044-documentacao-como-codigo.md).
+- **Língua fixa:** sem `owner.language`, a língua dos arquivos segue o locale de quem roda o comando; num projeto conduzido de máquinas com locales diferentes, fixe `owner.language`, senão os blocos versionados trocam de língua a cada execução. Seguem em pt-BR, até a F3b, o `.orkastery/.gitignore` que o `ork init` cria e os arquivos do adaptador que o `ork adapter install` copia.
 - **Referência do CLI:** [`docs/referencia/cli.en.md`](../referencia/cli.en.md) é a versão em inglês de [`cli.md`](../referencia/cli.md), ligada nos dois sentidos; um teste confere, seção por seção, as mesmas invocações `ork`, tabelas e blocos de código.
 
 ## Responsabilidades e histórico

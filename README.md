@@ -11,7 +11,7 @@
 - **Status:** in daily use · on npm as [`@orkastery/cli`](https://www.npmjs.com/package/@orkastery/cli), with [changes per version](CHANGELOG.md) · reviewed on 2026-09-27
 - **Proof:** GitHub CI on every PR: 2,733 core tests, 24 canaries and 20 skills with 199 assertions, zero failures (CI of the `main` at PR #74, run 37102089623, 2026-10-03)
 - **Product and roadmap:** [`docs/produto/`](docs/produto/README.md) and [`docs/roadmap/`](docs/roadmap/README.md), checked against the code by `ork docs verificar`
-- **Language:** this page is the canonical entry point, mirrored in [Portuguese](README.pt-BR.md). The pages under `docs/` are in Brazilian Portuguese, and the [CLI reference](docs/referencia/cli.en.md) is also in English. The CLI prints Brazilian Portuguese too, except `ork doctor`, `ork init`, `ork onboarding`, `ork experiencia show`, `ork thread new`, `ork thread status`, `ork phase list`, `ork phase run`, `ork verify`, `ork ship`, `ork pulse`, `ork master`, `ork retry plan`, `ork retry run`, `ork roadmap status` and the help, which print English when `owner.language` or your locale asks for `en`; so do `ork docs init` and the files that `ork init`, `ork docs init` and `ork adapter install` generate; in English, read the [quickstart on orkastery.com](https://orkastery.com/en/docs/comecar/) and the [glossary of what the CLI prints](#reading-the-cli-in-english)
+- **Language:** this page is the canonical entry point, mirrored in [Portuguese](README.pt-BR.md). The pages under `docs/` are in Brazilian Portuguese, and the [CLI reference](docs/referencia/cli.en.md) is also in English. The CLI prints Brazilian Portuguese too, except `ork doctor`, `ork init`, `ork onboarding`, `ork experiencia show`, `ork thread new`, `ork thread status`, `ork phase list`, `ork phase run`, `ork verify`, `ork ship`, `ork pulse`, `ork master`, `ork retry plan`, `ork retry run`, `ork roadmap status` and the help, which print English when `owner.language` or your locale asks for `en`; so do `ork docs init`, the `orkastery.yaml` comments, the `AGENTS.md` and `CLAUDE.md` blocks and the `ork docs init` templates; in English, read the [quickstart on orkastery.com](https://orkastery.com/en/docs/comecar/) and the [glossary of what the CLI prints](#reading-the-cli-in-english)
 
 ```bash
 npm install -g @orkastery/cli
@@ -202,7 +202,7 @@ On a virtual machine whose CPU the hypervisor steals (the `steal` in `sar`), the
 
 ## Documentation
 
-The [docs home](docs/README.md) is organized by what you want to do now. Every page under `docs/` is in Brazilian Portuguese, except the [CLI reference](docs/referencia/cli.en.md), which also has an English version; the English quickstart lives on [orkastery.com](https://orkastery.com/en/docs/comecar/).
+The [docs home](docs/README.md) is organized by what you want to do now. Every page under `docs/` is in Brazilian Portuguese; the [CLI reference](docs/referencia/cli.en.md) and the [orchestration experience guide](docs/guias/orchestration-experience.md) also have English versions, and the English quickstart lives on [orkastery.com](https://orkastery.com/en/docs/comecar/).
 
 | Section | Start with |
 | --- | --- |
@@ -231,7 +231,7 @@ Most commands print Brazilian Portuguese (`ork doctor`, `ork init`, `ork onboard
 
 - **Dates are day/month** in Portuguese output: `03/10 06:30` is October 3. The commands that follow an English locale print `2026-10-03 06:30`.
 - **Commands and flags in Portuguese:** `modos` (modes), `--modo` (mode; `--mode` also works), `--para` (target branch), `--por` (who records it), `--autorizar-push` (authorize the push), `--conteudo` (content), `--verificar` (the command that verifies), `decisao registrar` (record a decision), `docs verificar` (check the docs), `experiencia show` (conversation preferences).
-- **`owner.language: en-US`** sets the language of the conversation in your host (Claude Code, Codex), of the CLI commands that follow the locale and of the files that `ork init`, `ork docs init` and `ork adapter install` generate (the `orkastery.yaml` comments, the `AGENTS.md` and `CLAUDE.md` blocks and the docs templates); `owner.language: pt-BR` keeps them in Portuguese even with `LANG=en_US`.
+- **`owner.language: en-US`** sets the language of the conversation in your host (Claude Code, Codex), of the CLI commands that follow the locale and of what `ork init`, `ork docs init` and `ork adapter install` write for people to read (the `orkastery.yaml` comments, the `AGENTS.md` and `CLAUDE.md` blocks and the docs templates); set it when machines with different locales conduct the same project, or those committed blocks switch language on each run; `owner.language: pt-BR` keeps them in Portuguese even with `LANG=en_US`.
 
 | Term | Meaning |
 | --- | --- |

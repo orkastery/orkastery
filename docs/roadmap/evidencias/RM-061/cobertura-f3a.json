@@ -837,5 +837,5 @@
   "familiasNovas": {
     "locale-gerados.ts": 42
   },
-  "nota": "a familia gerados tem 42 entradas: 24 comentarios do orkastery.yaml, 11 do bloco do AGENTS.md, 4 do bloco da experiencia e 3 do ork docs init; o contador conta literais nos .ts de core/src, e um arquivo gerado inteiro (o YAML, o bloco) contava como um literal so; os sete modelos do ork docs init em ingles sao arquivos .md em core/assets/docs-en/ e ficam fora do metodo, como a referencia do CLI em ingles (docs/referencia/cli.en.md)"
+  "nota": "a familia gerados tem 42 entradas: 24 comentarios do orkastery.yaml, 11 do bloco do AGENTS.md, 4 do bloco da experiencia e 3 do ork docs init; o contador conta literais nos .ts de core/src, e um arquivo gerado inteiro (o YAML, o bloco) contava como um literal so; os sete arquivos do ork docs init em ingles (seis .md e um .jsonc) moram em core/assets/docs-en/ e ficam fora do metodo, como a referencia do CLI em ingles (docs/referencia/cli.en.md)"
 }

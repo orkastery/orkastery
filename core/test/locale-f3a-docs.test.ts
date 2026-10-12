@@ -74,7 +74,7 @@ test('locale F3a docs: com LANG ingles, ork docs init cria os sete arquivos dos 
       assert.ok(!texto.includes('—'), `${arquivo} sem travessao`);
     }
     const de = ork(c, EN, false, 'docs', 'init');
-    assert.equal(de.stdout, 'Docs as code were already in the project: nothing created.\n');
+    assert.equal(de.stdout, 'Docs as code is already set up in this project: nothing created.\n');
   } finally { c.limpar(); }
 });
 

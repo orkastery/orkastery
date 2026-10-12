@@ -139,8 +139,8 @@ export const GERADOS_EN: typeof GERADOS_PT_BR = {
     worktree: 'Edit product code only in the linked worktree; the state in `.orkastery/` belongs to the core.',
     fases: 'PLAN does not implement. GO makes atomic commits. CHECK does not fix. SHIP happens through `ork ship`.',
     claims: 'Every statement needs a claim and a reproducible command; self-report is not evidence.',
-    master: 'Accept MASTER by default only for your own thread: `ork master <thread> --aceitar-omissao`; without the ' +
-      'thread, it also closes deliveries from other workstreams.',
+    master: 'Use the default acceptance of MASTER only for your own thread: `ork master <thread> --aceitar-omissao`; ' +
+      'without the thread, it also closes deliveries from other workstreams.',
     verificacoes: 'Manifest verify commands:',
     rodape: 'This block is maintained by `ork init`. Edit the rest of the file freely.',
     marcadoresAmbiguos: 'AGENTS.md has ambiguous Orkastery markers; fix the block before you run `ork init`.',
@@ -152,7 +152,7 @@ export const GERADOS_EN: typeof GERADOS_PT_BR = {
     preferencias: 'Preferences are core data; preserve gates, human provenance and host permissions.',
   },
   docsInit: {
-    jaEstava: 'Docs as code were already in the project: nothing created.',
+    jaEstava: 'Docs as code is already set up in this project: nothing created.',
     criado: 'Created:',
     proximoPasso: 'Next step: copy `docs/produto/_modelo-feature.md` and `docs/roadmap/_modelo-item.md`, then run `ork docs verificar`.',
   },
