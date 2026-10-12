@@ -69,8 +69,8 @@ test('locale en F2a doctor (init.ts): ork init fora do repositorio recusa em ing
     assert.equal(r.stdout, '');
     assert.equal(r.stderr, `error: init.fora-do-repositorio: ${fora} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.\n');
-    // Caso negativo: comando fora da F2a segue em pt-BR, prefixo incluido.
-    const pt = ork(c, EN, false, 'claims', 'list', 'loc-nada');
+    // Caso negativo: comando fora do catalogo segue em pt-BR, prefixo incluido (a F3b levou `claims list`; `lease` segue fora).
+    const pt = ork(c, EN, false, 'lease', 'release', 'x', 'loc-nada');
     assert.match(pt.stderr, /^erro: /);
   } finally { c.limpar(); fs.rmSync(fora, { recursive: true, force: true }); }
 });

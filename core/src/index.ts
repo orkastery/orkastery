@@ -1294,32 +1294,35 @@ function comandoCadenciaDoPulse(args: Args): number {
 function comandoClaims(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  // RM-061 (F3b, D3): o texto pelo catalogo; o que se grava (claims.jsonl, ledger) roda no escopo pt-BR, e a alegacao,
+  // o arquivo, o comando e o motivo digitado saem como vieram. O estado da claim so se traduz na impressao.
+  const mc = msg().claims;
   if (sub === 'add') {
     const id = args.posicionais[2];
     const arquivo = args.posicionais[3];
     const alegacao = texto(args.opcoes.claim) ?? texto(args.opcoes.alegacao);
     if (!id || !arquivo || !alegacao) {
-      console.error('uso: ork claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"]');
+      console.error(mc.usoAdd);
       return 2;
     }
     const comando = texto(args.opcoes.verificar) ?? texto(args.opcoes.verify);
     const faseBruta = texto(args.opcoes.fase);
     const thread = lerThread(carregado.raiz, id);
-    const claim = adicionarClaim(carregado.raiz, id, {
+    const claim = comLocale('pt-BR', () => adicionarClaim(carregado.raiz, id, {
       arquivo,
       alegacao,
       verificar: comando ? [comando] : [],
       fase: faseBruta ? exigirFase(thread, faseBruta) : undefined,
-    });
-    console.log(`Claim ${claim.id} registrada na thread ${id}.`);
-    console.log(`  arquivo    ${claim.arquivo}`);
-    console.log(`  alegacao   ${claim.alegacao}`);
-    console.log(`  negativa   ${claim.negativa ? 'sim (exige comando de verificacao)' : 'nao'}`);
-    console.log(`  verificar  ${claim.verificar.join(' && ') || '(nenhum comando declarado)'}`);
-    console.log(`  estado     ${claim.estado}`);
+    }));
+    console.log(mc.registrada(claim.id, id));
+    console.log(mc.campoArquivo(claim.arquivo));
+    console.log(mc.campoAlegacao(claim.alegacao));
+    console.log(mc.campoNegativa(claim.negativa));
+    console.log(mc.campoVerificar(claim.verificar.join(' && ')));
+    console.log(mc.campoEstado(mc.estado(claim.estado)));
     if (claim.negativa && claim.verificar.length === 0) {
       console.log('');
-      console.log('AVISO: alegacao negativa sem comando de verificacao reprova em `ork verify`.');
+      console.log(mc.avisoNegativa);
     }
     // RM-008 (B8): a conferencia local da policy claim_sem_prova_local avisa e segue.
     const linhasDePolicy = linhasDeAviso(claim.avisosDePolicy ?? []);
@@ -1327,7 +1330,7 @@ function comandoClaims(args: Args): number {
     // I-53 (RM-037, P6): o lint avisa aqui; a suite inteira e recusada no `ci prepare`.
     for (const a of claim.lint ?? []) {
       console.log('');
-      console.log(`AVISO: ${linhaDoLintDeClaim(claim.id, a)}${a.regra === 'suite-inteira' ? '. O `ci prepare` recusa esta claim.' : ''}`);
+      console.log(mc.avisoDoLint(linhaDoLintDeClaim(claim.id, a), a.regra === 'suite-inteira'));
     }
     return 0;
   }
@@ -1340,24 +1343,25 @@ function comandoClaims(args: Args): number {
     const prazo = texto(args.opcoes.prazo);
     const semValor = ['claims', 'tarefa', 'prazo'].some((o) => args.opcoes[o] === true);
     if (!id || semValor || (claims === undefined) === (tarefa === undefined)) {
-      console.error('uso: ork claims conferir <thread-id> --claims C1,C2 | --tarefa T1 [--prazo S] [--json]');
+      console.error(mc.usoConferir);
       return 2;
     }
     const conducao = conducaoDoCli(args);
     try {
-      const r = conferirClaims(carregado, id, {
+      // O resultado e as recusas nascem em pt-BR, como o --json os leva; o texto os remonta no locale do comando.
+      const r = comLocale('pt-BR', () => conferirClaims(carregado, id, {
         claims: claims !== undefined ? idsDeClaims(claims) : undefined,
         tarefa,
         prazoMs: prazo !== undefined ? Number(prazo) * 1000 : undefined,
         canal: conducao.canal,
         correlacao: conducao.correlacao,
-      });
+      }));
       console.log(json ? JSON.stringify(r, null, 2) : textoDaConferencia(r));
       return r.ok ? 0 : 1;
     } catch (e) {
       if (!(e instanceof ErroDeConferencia)) throw e;
       if (json) console.log(JSON.stringify({ formato: FORMATO_DA_CONFERENCIA, thread: id, ok: false, erro: e.message }, null, 2));
-      else console.error(e.message);
+      else console.error(mensagemDoErro(e));
       return 2;
     }
   }
@@ -1366,15 +1370,15 @@ function comandoClaims(args: Args): number {
     const claimId = args.posicionais[3];
     const comando = texto(args.opcoes.comando) ?? texto(args.opcoes.verificar);
     if (!id || !claimId || !comando) {
-      console.error('uso: ork claims verificar <thread-id> <claim-id> --comando "<comando>"');
+      console.error(mc.usoVerificar);
       return 2;
     }
-    const claim = anexarComando(carregado.raiz, id, claimId, comando);
-    console.log(`Claim ${claim.id} agora tem comando de verificacao.`);
-    console.log(`  verificar  ${claim.verificar.join(' && ')}`);
-    console.log(`  estado     ${claim.estado}`);
+    const claim = comLocale('pt-BR', () => anexarComando(carregado.raiz, id, claimId, comando));
+    console.log(mc.comandoAnexado(claim.id));
+    console.log(mc.campoVerificar(claim.verificar.join(' && ')));
+    console.log(mc.campoEstado(mc.estado(claim.estado)));
     console.log('');
-    console.log(`Prove agora: ork verify ${id}`);
+    console.log(mc.proveAgora(id));
     return 0;
   }
   if (sub === 'retirar') {
@@ -1382,14 +1386,14 @@ function comandoClaims(args: Args): number {
     const claimId = args.posicionais[3];
     const motivo = texto(args.opcoes.motivo);
     if (!id || !claimId || !motivo) {
-      console.error('uso: ork claims retirar <thread-id> <claim-id> --motivo "<motivo>"');
+      console.error(mc.usoRetirar);
       return 2;
     }
-    const claim = retirarClaim(carregado.raiz, id, claimId, motivo);
-    console.log(`Claim ${claim.id} retirada da thread ${id}.`);
-    console.log(`  alegacao   ${claim.alegacao}`);
-    console.log(`  motivo     ${motivo}`);
-    console.log('  o historico da alegacao continua no claims.jsonl e no ledger.');
+    const claim = comLocale('pt-BR', () => retirarClaim(carregado.raiz, id, claimId, motivo));
+    console.log(mc.retirada(claim.id, id));
+    console.log(mc.campoAlegacao(claim.alegacao));
+    console.log(mc.campoMotivo(motivo));
+    console.log(mc.historicoContinua);
     return 0;
   }
   if (sub === 'ausente') {
@@ -1397,24 +1401,24 @@ function comandoClaims(args: Args): number {
     const paths = (texto(args.opcoes.paths) ?? '').split(',').map((p) => p.trim()).filter(Boolean);
     const motivo = texto(args.opcoes.motivo);
     if (!id || paths.length === 0 || !motivo) {
-      console.error('uso: ork claims ausente <thread-id> --paths A,B --motivo "<motivo>" [--commit SHA]');
+      console.error(mc.usoAusente);
       return 2;
     }
-    registrarProvaAusente(carregado.raiz, id, { paths, motivo, commit: texto(args.opcoes.commit) });
-    console.log(`Ausencia de prova registrada na thread ${id}: ${paths.join(', ')}.`);
-    console.log(`  motivo     ${motivo}`);
+    comLocale('pt-BR', () => registrarProvaAusente(carregado.raiz, id, { paths, motivo, commit: texto(args.opcoes.commit) }));
+    console.log(mc.ausenciaRegistrada(id, paths.join(', ')));
+    console.log(mc.campoMotivo(motivo));
     return 0;
   }
   if (sub === 'list' || sub === undefined) {
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork claims list <thread-id>');
+      console.error(mc.usoList);
       return 2;
     }
     console.log(tabelaDeClaims(carregado.raiz, id));
     return 0;
   }
-  console.error(`subcomando desconhecido: claims ${sub}`);
+  console.error(msg().cli.subcomandoDesconhecido('claims', sub));
   return 2;
 }
 

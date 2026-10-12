@@ -64,6 +64,7 @@ import { ROADMAP_EN, ROADMAP_PT_BR } from './locale-roadmap';
 import { GERADOS_EN, GERADOS_PT_BR } from './locale-gerados';
 import { WORKTREE_EN, WORKTREE_PT_BR } from './locale-worktree';
 import { ESTADO_EN, ESTADO_PT_BR } from './locale-estado';
+import { CLAIMS_EN, CLAIMS_PT_BR } from './locale-claims';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -81,7 +82,8 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
   'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status', 'docs init',
   // F3b (D1): o resto do CLI, na ordem do pedido.
-  'thread list', 'thread close', 'thread entrega', 'worktree ensure', 'worktree sync', 'worktree audit', 'worktree release', 'worktree ?'];
+  'thread list', 'thread close', 'thread entrega', 'worktree ensure', 'worktree sync', 'worktree audit', 'worktree release', 'worktree ?',
+  'claims add', 'claims conferir', 'claims verificar', 'claims retirar', 'claims ausente', 'claims list', 'claims ?'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -93,6 +95,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['roadmap', { padrao: 'reservas', conhecidos: ['reservas', 'status', 'feat', 'pegar', 'soltar'] }],
   ['docs', { padrao: 'verificar', conhecidos: ['verificar', 'sincronizar', 'init'] }],
   ['worktree', { padrao: null, conhecidos: ['ensure', 'sync', 'audit', 'release'] }],
+  ['claims', { padrao: 'list', conhecidos: ['add', 'conferir', 'verificar', 'retirar', 'ausente', 'list'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
@@ -414,6 +417,7 @@ const PT_BR = {
   gerados: GERADOS_PT_BR,
   worktree: WORKTREE_PT_BR,
   estado: ESTADO_PT_BR,
+  claims: CLAIMS_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -680,6 +684,7 @@ const EN: Mensagens = {
   gerados: GERADOS_EN,
   worktree: WORKTREE_EN,
   estado: ESTADO_EN,
+  claims: CLAIMS_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

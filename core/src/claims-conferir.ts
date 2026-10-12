@@ -28,6 +28,7 @@ import { CanalDeConducao, Claim, MotivoGate, ResultadoDeComando, Thread } from '
 import { commitReal, ExecutorVerify, prazoDoComando, TIMEOUT_VERIFY_MS, verificarClaim } from './verify';
 import { criarExecutorSandbox } from './verify-sandbox';
 import { branchDaWorktree, worktreesDoGit } from './worktree';
+import { ErroDoCatalogo, Mensagens, msg, remontar, textoDoCatalogo } from './locale';
 
 export const FORMATO_DA_CONFERENCIA = 'ork.claims-conferencia/v1';
 /** O prazo total do `ork_verify` pelo MCP: a conferencia e pontual e nao deve demorar mais que ele. */
@@ -91,17 +92,19 @@ export interface ResultadoDaConferencia {
 }
 
 /** Erro de uso tipado: o CLI sai 2 com ele. */
-export class ErroDeConferencia extends Error {}
-const recusa = (motivo: string, detalhe: string) => new ErroDeConferencia(`claims.conferir.${motivo}: ${detalhe}`);
+export class ErroDeConferencia extends ErroDoCatalogo {}
+/** RM-061 (F3b): a recusa nasce do catalogo; o `--json` a leva como nasceu e o texto a remonta no locale do comando. */
+const recusa = (motivo: string, detalhe: (m: Mensagens['claims']) => string) =>
+  new ErroDeConferencia((m) => m.claims.recusa(motivo, detalhe(m.claims)));
 
 /** `C3,C7, c9` vira `['C3', 'C7', 'C9']`, sem repeticao e na ordem pedida. */
 export function idsDeClaims(bruto: string): string[] {
   const ids = bruto.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
-  if (!ids.length) throw recusa('uso', 'informe ao menos uma claim em --claims (ex.: C3,C7)');
+  if (!ids.length) throw recusa('uso', (m) => m.semClaims);
   const invalido = ids.find((id) => !/^C\d+$/.test(id));
-  if (invalido) throw recusa('uso', `id de claim invalido: ${invalido}`);
+  if (invalido) throw recusa('uso', (m) => m.idInvalido(invalido));
   const repetido = ids.find((id, i) => ids.indexOf(id) !== i);
-  if (repetido) throw recusa('repetida', `${repetido} pedida duas vezes`);
+  if (repetido) throw recusa('repetida', (m) => m.repetida(repetido));
   return ids;
 }
 
@@ -143,7 +146,7 @@ function itemDoVerify(bloco: string[], k: number, inicio: string): string {
  */
 export function verifyDaTarefa(plano: string, tarefaBruta: string): { tarefa: string; comando: string } {
   const id = tarefaBruta.trim().replace(/^T/i, '');
-  if (!/^\d+(?:\.\d+)*$/.test(id)) throw recusa('uso', `tarefa invalida: ${tarefaBruta} (ex.: T2.1)`);
+  if (!/^\d+(?:\.\d+)*$/.test(id)) throw recusa('uso', (m) => m.tarefaInvalida(tarefaBruta));
   const tarefa = `T${id}`;
   const linhas = plano.replace(/\r\n/g, '\n').split('\n');
   const cabecalho = /^(#{2,6})\s+T(\d+(?:\.\d+)*)(?=[\s.:)]|$)/;
@@ -151,8 +154,8 @@ export function verifyDaTarefa(plano: string, tarefaBruta: string): { tarefa: st
     const m = cabecalho.exec(l);
     return m && m[2] === id ? [{ i, nivel: m[1].length }] : [];
   });
-  if (inicios.length === 0) throw recusa('tarefa-ausente', `o plano nao tem a tarefa ${tarefa}`);
-  if (inicios.length > 1) throw recusa('tarefa-repetida', `o plano tem ${inicios.length} cabecalhos da tarefa ${tarefa}`);
+  if (inicios.length === 0) throw recusa('tarefa-ausente', (m) => m.tarefaAusente(tarefa));
+  if (inicios.length > 1) throw recusa('tarefa-repetida', (m) => m.tarefaRepetida(inicios.length, tarefa));
   const { i, nivel } = inicios[0];
   const fimDoBloco = linhas.findIndex((l, j) => j > i && new RegExp(`^#{1,${nivel}}\\s`).test(l));
   const bloco = linhas.slice(i + 1, fimDoBloco < 0 ? undefined : fimDoBloco);
@@ -160,15 +163,14 @@ export function verifyDaTarefa(plano: string, tarefaBruta: string): { tarefa: st
     const m = ROTULO_DE_VERIFY.exec(l);
     return m ? [itemDoVerify(bloco, k, m[1].trim())] : [];
   });
-  if (verifies.length === 0) throw recusa('tarefa-sem-verify', `a tarefa ${tarefa} nao tem linha de verify`);
-  if (verifies.length > 1) throw recusa('tarefa-ambigua', `a tarefa ${tarefa} tem ${verifies.length} linhas de verify`);
+  if (verifies.length === 0) throw recusa('tarefa-sem-verify', (m) => m.tarefaSemVerify(tarefa));
+  if (verifies.length > 1) throw recusa('tarefa-ambigua', (m) => m.tarefaAmbigua(tarefa, verifies.length));
   const resto = verifies[0];
   const trechos = [...resto.matchAll(/`([^`]+)`/g)].length;
-  if (trechos === 0) throw recusa('tarefa-sem-comando', `o verify da tarefa ${tarefa} nao tem comando entre crases: ${resto.slice(0, 120)}`);
+  if (trechos === 0) throw recusa('tarefa-sem-comando', (m) => m.tarefaSemComando(tarefa, resto.slice(0, 120)));
   const unico = /^`([^`]+)`\s*\.?$/.exec(resto);
   if (!unico || !unico[1].trim()) {
-    throw recusa('tarefa-ambigua', `o verify da tarefa ${tarefa} tem ${trechos} trecho(s) entre crases e texto alem de um comando so ` +
-      `(${resto.slice(0, 120)}); a conferencia nao escolhe qual pedaco rodar`);
+    throw recusa('tarefa-ambigua', (m) => m.tarefaVariosTrechos(tarefa, trechos, resto.slice(0, 120)));
   }
   return { tarefa, comando: unico[1].trim() };
 }
@@ -186,11 +188,11 @@ function lerPlano(raiz: string, threadId: string): { arquivo: string; sha256: st
   try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
   catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    throw recusa('plano-inseguro', 'docs/plan.md da thread nao abre como arquivo comum');
+    throw recusa('plano-inseguro', (m) => m.planoNaoAbre);
   }
   try {
     const st = fs.fstatSync(fd);
-    if (!st.isFile() || st.size > LIMITE_DO_PLANO) throw recusa('plano-inseguro', 'docs/plan.md da thread nao e arquivo comum de ate 128 KiB');
+    if (!st.isFile() || st.size > LIMITE_DO_PLANO) throw recusa('plano-inseguro', (m) => m.planoGrande);
     const bytes = fs.readFileSync(fd);
     return { arquivo: 'docs/plan.md', sha256: createHash('sha256').update(bytes).digest('hex'), conteudo: bytes.toString('utf8') };
   } finally { fs.closeSync(fd); }
@@ -203,16 +205,16 @@ function lerPlano(raiz: string, threadId: string): { arquivo: string; sha256: st
  * outro repositorio numa branch de mesmo nome abriria escrita fora do projeto: as duas recusam.
  */
 function worktreeConferida(raiz: string, thread: Thread): string {
-  if (!thread.worktree) throw recusa('sem-worktree', `a thread ${thread.id} nao tem worktree propria; a conferencia so roda nela`);
+  if (!thread.worktree) throw recusa('sem-worktree', (m) => m.semWorktree(thread.id));
   let dir: string;
   try { dir = fs.realpathSync(thread.worktree); }
-  catch { throw recusa('worktree-ausente', `a worktree da thread ${thread.id} nao existe no disco`); }
+  catch { throw recusa('worktree-ausente', (m) => m.worktreeAusente(thread.id)); }
   const projeto = fs.realpathSync(raizDoEstado(raiz));
   if (!dir.startsWith(projeto + path.sep))
-    throw recusa('worktree-fora-do-projeto', `a worktree da thread ${thread.id} fica fora do projeto`);
+    throw recusa('worktree-fora-do-projeto', (m) => m.worktreeFora(thread.id));
   const branch = branchDaWorktree(thread);
   if (!worktreesDoGit(projeto).some((w) => w.dir === dir && w.branch === branch))
-    throw recusa('worktree-nao-registrada', `a worktree da thread ${thread.id} nao esta registrada no git do projeto na branch ${branch}`);
+    throw recusa('worktree-nao-registrada', (m) => m.worktreeNaoRegistrada(thread.id, branch));
   return dir;
 }
 
@@ -222,7 +224,7 @@ const fabricaPadrao: FabricaDeExecutor = (worktree, timeoutMs) => criarExecutorS
 /** Sandbox que nao abre vira recusa tipada: a conferencia nunca roda fora dele (D6). */
 function confinado(fabrica: FabricaDeExecutor, worktree: string, timeoutMs: number) {
   try { return fabrica(worktree, timeoutMs); }
-  catch (e) { throw recusa('sandbox-indisponivel', `${(e as Error).message}; a conferencia so roda confinada, sem fallback`); }
+  catch (e) { const erro = (e as Error).message; throw recusa('sandbox-indisponivel', (m) => m.sandboxIndisponivel(erro)); }
 }
 
 function conferida(r: ResultadoDeComando): ExecucaoConferida {
@@ -238,14 +240,14 @@ function conferida(r: ResultadoDeComando): ExecucaoConferida {
 /** `ork claims conferir`: so o que foi pedido, no sandbox, sob a conducao da thread, sem gravar nada. */
 export function conferirClaims(carregado: ManifestoCarregado, threadId: string, pedido: PedidoDeConferencia): ResultadoDaConferencia {
   const { raiz, manifesto } = carregado;
-  if (!pedido.claims === !pedido.tarefa) throw recusa('uso', 'informe --claims C1,C2 ou --tarefa T1, um dos dois');
+  if (!pedido.claims === !pedido.tarefa) throw recusa('uso', (m) => m.claimsOuTarefa);
   const prazoTotalMs = pedido.prazoMs ?? PRAZO_PADRAO_MS;
   if (!Number.isInteger(prazoTotalMs) || prazoTotalMs < PRAZO_MINIMO_MS || prazoTotalMs > PRAZO_MAXIMO_MS)
-    throw recusa('prazo', `--prazo vai de ${PRAZO_MINIMO_MS / 1000} a ${PRAZO_MAXIMO_MS / 1000} segundos`);
+    throw recusa('prazo', (m) => m.prazo(PRAZO_MINIMO_MS / 1000, PRAZO_MAXIMO_MS / 1000));
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(threadId) || !fs.existsSync(caminhoThread(raiz, threadId)))
-    throw recusa('thread-ausente', `a thread ${threadId} nao existe neste projeto`);
+    throw recusa('thread-ausente', (m) => m.threadAusente(threadId));
   const thread = lerThread(raiz, threadId);
-  if (thread.status === 'fechada') throw recusa('thread-fechada', `a thread ${threadId} esta fechada`);
+  if (thread.status === 'fechada') throw recusa('thread-fechada', (m) => m.threadFechada(threadId));
   const cwd = worktreeConferida(raiz, thread);
 
   // O que vai rodar, inteiro resolvido antes de tomar a conducao: recusa de uso nao toca a worktree.
@@ -256,14 +258,14 @@ export function conferirClaims(carregado: ManifestoCarregado, threadId: string, 
     const todas = lerClaims(raiz, threadId);
     selecionadas = ids.map((id) => {
       const claim = todas.find((c) => c.id === id);
-      if (!claim) throw recusa('desconhecida', `${id} nao existe na thread ${threadId}`);
-      if (claim.estado === 'retirada') throw recusa('retirada', `${id} foi retirada (${claim.motivoDaRetirada ?? 'sem motivo'})`);
+      if (!claim) throw recusa('desconhecida', (m) => m.desconhecida(id, threadId));
+      if (claim.estado === 'retirada') { const motivo = claim.motivoDaRetirada; throw recusa('retirada', (m) => m.retiradaNaConferencia(id, motivo)); }
       return claim;
     });
     alvo = { tipo: 'claims', ids };
   } else {
     const plano = lerPlano(raiz, threadId);
-    if (!plano) throw recusa('plano-ausente', `a thread ${threadId} nao tem docs/plan.md`);
+    if (!plano) throw recusa('plano-ausente', (m) => m.planoAusente(threadId));
     const { tarefa, comando } = verifyDaTarefa(plano.conteudo, pedido.tarefa!);
     selecionadas = [{ id: tarefa, thread: threadId, fase: null, arquivo: plano.arquivo, alegacao: `verify da tarefa ${tarefa} do plano`,
       negativa: false, verificar: [comando], criadoEm: '', estado: 'pendente' }];
@@ -285,7 +287,7 @@ export function conferirClaims(carregado: ManifestoCarregado, threadId: string, 
     const executor: ExecutorVerify = (nome, comando, dir) => {
       const restante = prazoFinal - Date.now() - RESERVA_MS;
       if (restante < 100) {
-        return { nome, comando, ok: false, code: -1, executado: false, resumo: 'nao executado: prazo total da conferencia esgotado' };
+        return { nome, comando, ok: false, code: -1, executado: false, resumo: textoDoCatalogo((m) => m.claims.prazoEsgotado) };
       }
       const prazoMs = Math.min(prazoDoComando(manifesto, nome), restante);
       tomada.renovar(prazoMs);
@@ -312,22 +314,24 @@ export function conferirClaims(carregado: ManifestoCarregado, threadId: string, 
 
 /** Texto de `ork claims conferir`, para quem roda no terminal. */
 export function textoDaConferencia(r: ResultadoDaConferencia): string {
-  const linhas = [`Conferencia pontual da thread ${r.thread} (sem recibo: o ork verify continua sendo quem verifica)`];
-  linhas.push(`  HEAD real   ${r.commit}`);
-  linhas.push(`  executor    ${r.executor}, prazo total ${Math.round(r.prazoTotalMs / 1000)} s`);
+  // RM-061 (F3b): a moldura pelo catalogo; o detalhe de cada claim (montado em pt-BR, como o --json o leva) remontado.
+  const m = msg().claims;
+  const linhas = [m.conferencia(r.thread)];
+  linhas.push(m.headReal(r.commit));
+  linhas.push(m.executor(r.executor, Math.round(r.prazoTotalMs / 1000)));
   linhas.push(r.alvo.tipo === 'claims'
-    ? `  alvo        claims ${r.alvo.ids.join(', ')}`
-    : `  alvo        verify da tarefa ${r.alvo.tarefa} (plano sha256 ${r.alvo.plano.sha256.slice(0, 12)}): ${r.alvo.comando}`);
+    ? m.alvoClaims(r.alvo.ids.join(', '))
+    : m.alvoTarefa(r.alvo.tarefa, r.alvo.plano.sha256.slice(0, 12), r.alvo.comando));
   linhas.push('');
   for (const i of r.itens) {
-    linhas.push(`  ${i.id}  ${i.verificado ? 'passou' : `NAO PASSOU (${i.motivo})`}  ${i.alegacao}`);
+    linhas.push(m.item(i.id, i.verificado, i.motivo, i.alegacao));
     if (!i.verificado) {
-      linhas.push(`      ${i.detalhe}`);
+      linhas.push(`      ${remontar(i.detalhe)}`);
       const falhou = i.execucoes.find((e) => !e.ok);
-      if (falhou?.fim) linhas.push(...falhou.fim.split('\n').map((l) => `      | ${l}`));
+      if (falhou?.fim) linhas.push(...remontar(falhou.fim).split('\n').map((l) => `      | ${l}`));
     }
   }
   linhas.push('');
-  linhas.push(r.ok ? 'Resultado: tudo passou.' : `Resultado: nao passou. Motivos: ${r.motivos.join(', ')}`);
+  linhas.push(r.ok ? m.tudoPassou : m.naoPassou(r.motivos.join(', ')));
   return linhas.join('\n');
 }
