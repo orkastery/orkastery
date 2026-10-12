@@ -37,7 +37,7 @@
       "thread": "ork-provadeativa",
       "fase": "GO",
       "arquivo": "docs/roadmap/evidencias/RM-032/codex-2026-10-03.json",
-      "alegacao": "o recibo real do Codex na srvjcp86 está aprovado, com 11 de 11 conferências, ork_maestro chamada e a config global intocada; o da primeira rodada registra o desvio pelo shell",
+      "alegacao": "o recibo real do Codex na maquina-b está aprovado, com 11 de 11 conferências, ork_maestro chamada e a config global intocada; o da primeira rodada registra o desvio pelo shell",
       "negativa": false,
       "verificar": [
         "node -e \"const r=require('./docs/roadmap/evidencias/RM-032/codex-2026-10-03.json');const d=require('./docs/roadmap/evidencias/RM-032/codex-2026-10-03-desvio.json');process.exit(r.contrato==='ork.prova-ativacao/v1'&&r.host==='codex'&&r.estado==='aprovada'&&r.conferencias.length===11&&r.conferencias.every(c=>c.ok)&&r.global.intocado&&r.transcript.chamadas.some(c=>c.nome==='mcp__orkastery__ork_maestro'&&c.via==='entrada')&&d.estado==='reprovada'&&/desvio/.test(d.conferencias.find(c=>c.id==='entrada.chamada').detalhe)?0:1)\""

@@ -2,7 +2,7 @@
  * RM-053 (fatia 2): o check "rede" do `ork doctor`.
  *
  * A rede pessoal publica sozinha (batida do pulse e eventos de thread) e so deixava rastro em
- * `~/.orkastery/rede/rede.log`: a srvjcp86 ficou de 02/10 em diante como membro herdado da fabrica,
+ * `~/.orkastery/rede/rede.log`: a maquina-b ficou de 02/10 em diante como membro herdado da fabrica,
  * com toda publicacao caindo em `rede.sem-repositorio`, e o doctor dizia PRONTO sem uma palavra.
  *
  * O check diz a adesao, a casa, a ultima batida publicada e a ultima falha do log. Ele so le

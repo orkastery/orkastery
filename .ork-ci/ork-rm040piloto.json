@@ -8,11 +8,11 @@
       "id": "C1",
       "thread": "ork-rm040piloto",
       "fase": "GOAL",
-      "arquivo": "docs/roadmap/evidencias/RM-040/srvjcp86-2026-10-03.json",
+      "arquivo": "docs/roadmap/evidencias/RM-040/maquina-b-2026-10-03.json",
       "alegacao": "o recibo registra 0 despacho em conta marcada por outro projeto, 0 perfil fora do rodizio e o teste de duas fabricas aprovado",
       "negativa": false,
       "verificar": [
-        "node -e \"const r=require('./docs/roadmap/evidencias/RM-040/srvjcp86-2026-10-03.json').resumo;process.exit(r.despachosEmContaMarcadaPorOutroProjeto===0&&r.perfisForaDoRodizioNoStore===0&&r.marcasDeOutroProjetoNaTabela===0&&r.testeDuasFabricas==='aprovado'?0:1)\""
+        "node -e \"const r=require('./docs/roadmap/evidencias/RM-040/maquina-b-2026-10-03.json').resumo;process.exit(r.despachosEmContaMarcadaPorOutroProjeto===0&&r.perfisForaDoRodizioNoStore===0&&r.marcasDeOutroProjetoNaTabela===0&&r.testeDuasFabricas==='aprovado'?0:1)\""
       ],
       "criadoEm": "2026-10-03T07:20:30.891Z",
       "estado": "verificado",
@@ -22,11 +22,11 @@
       "id": "C2",
       "thread": "ork-rm040piloto",
       "fase": "GOAL",
-      "arquivo": "docs/roadmap/evidencias/RM-040/srvjcp86-2026-10-03.json",
+      "arquivo": "docs/roadmap/evidencias/RM-040/maquina-b-2026-10-03.json",
       "alegacao": "o recibo nao expoe caminho do home nem da pasta temporaria",
       "negativa": false,
       "verificar": [
-        "! grep -qE '/home/|/tmp/claude' docs/roadmap/evidencias/RM-040/srvjcp86-2026-10-03.json"
+        "! grep -qE '/home/|/tmp/claude' docs/roadmap/evidencias/RM-040/maquina-b-2026-10-03.json"
       ],
       "criadoEm": "2026-10-03T07:20:31.048Z",
       "estado": "verificado",
@@ -40,7 +40,7 @@
       "alegacao": "a pagina da RM-040 cita o recibo e o ciclo segue Piloto",
       "negativa": false,
       "verificar": [
-        "grep -q 'evidencias/RM-040/srvjcp86-2026-10-03.json' docs/roadmap/RM-040-estado-de-conta-compartilhado.md && grep -q '^  ciclo: Piloto$' docs/roadmap/RM-040-estado-de-conta-compartilhado.md"
+        "grep -q 'evidencias/RM-040/maquina-b-2026-10-03.json' docs/roadmap/RM-040-estado-de-conta-compartilhado.md && grep -q '^  ciclo: Piloto$' docs/roadmap/RM-040-estado-de-conta-compartilhado.md"
       ],
       "criadoEm": "2026-10-03T07:20:31.203Z",
       "estado": "verificado",

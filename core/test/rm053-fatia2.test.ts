@@ -45,7 +45,7 @@ test('RM-053 fatia 2 doctor: membro herdado com a casa ausente vira aviso com a 
     assert.equal(c.nivel, 'ok');
     assert.match(c.detalhe, /fora da rede; ork network entrar/);
 
-    // O caso da srvjcp86 em 02/10: membro herdado da fabrica, toda publicacao caindo sem casa.
+    // O caso da maquina-b em 02/10: membro herdado da fabrica, toda publicacao caindo sem casa.
     fs.writeFileSync(path.join(usuario, 'maquina.json'), JSON.stringify({ contrato: 'ork.maquina/v1', nome: 'pc-a', fabricaCompartilhada: true }));
     const log = path.join(usuario, 'rede', 'rede.log');
     fs.writeFileSync(log, [

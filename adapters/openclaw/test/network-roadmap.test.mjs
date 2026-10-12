@@ -56,7 +56,7 @@ test('ork_network_roadmap: caminho, URL, traversal e tipo errado em projeto recu
     assert.equal(rede.parameters.additionalProperties, false);
     assert.match(p.description, /github:dono\/repo/);
     assert.match(p.description, /Nunca caminho nem URL/);
-    for (const projeto of ['/home/julio/.openclaw/workspace', '../orkastery', '~/orkastery', './orkastery', '',
+    for (const projeto of ['/home/usuario/.openclaw/workspace', '../orkastery', '~/orkastery', './orkastery', '',
       'https://github.com/orkastery/orkastery', 'https://u:segredo@github.com/o/r', 'git@github.com:orkastery/orkastery.git',
       'github:../x', 'github:orkastery', 'gitlab:/grupo/repo', 'orkastery/orkastery', 'a b', 42, 'github:o/r;id']) {
       const r = await rede.execute({ projeto }, {}, {});
