@@ -151,6 +151,35 @@ Sem `tool_use_id`, cada invocação do hook recebe uma identidade de ocorrência
 do transcript não identifica uma ocorrência; eventos de um novo episódio de permissão
 podem chegar sem alteração do arquivo. Replays com `tool_use_id` continuam idempotentes.
 
+## Mods nas sessões de fase (RM-059)
+
+Mod é plugin de *function hooks* do Claude Code 2.1.287 ou mais novo. Cada mod do Orkastery mora
+em `adapters/claude-code/mods/<mod>/`, com o próprio `.claude-plugin/plugin.json`, e declara o
+papel em `orkastery-mod.json`:
+
+```json
+{"formato":"ork.mod/v1","papeis":["fase"],"claudeCodeMinimo":"2.1.287"}
+```
+
+O papel `dono` roda na sessão de quem conduz; o papel `fase`, nas sessões de fase que o `ork`
+despacha. O `ork adapter install claude-code` copia os mods com o resto do adaptador e grava cada
+arquivo deles no `INSTALADO.json`. No despacho `claude-bg`, cada mod de papel `fase` entra com o
+próprio `--plugin-dir`, logo depois do plugin do Orkastery, quando:
+
+- a pasta instalada do mod tem exatamente os arquivos do recibo, com os mesmos bytes e sem link;
+  os tipos que o próprio Claude Code escreve em `.claude-plugin/types/` (`*.d.ts` e
+  `tsconfig.json`) ficam fora da conta;
+- o `claude --version` atende o `claudeCodeMinimo` do mod e o 2.1.287 da API de mods.
+
+Mod que pede versão mais nova fica fora do comando, e o despacho segue: o núcleo não depende de
+mod. Declaração inválida, manifesto fora do recibo ou arquivo a mais na pasta recusa o despacho com
+`runtime.context.installation`, como um byte divergente. A dependência (`dependencies` do
+`plugin.json` do mod) entra antes de quem depende; o resto segue o nome. Os mods que foram ficam no
+comando gravado no evento `phase_dispatch` do ledger da thread.
+
+Para tirar um mod das sessões de fase, mude o papel no `orkastery-mod.json` do catálogo, ou tire o
+mod, e rode `ork adapter install claude-code` de novo.
+
 ## A #TAG de conducao
 
 O comando `/goal` extrai o modo do proprio pedido, sem reimplementar nada:

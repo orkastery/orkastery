@@ -131,19 +131,24 @@ export function validarContextoRuntime(contexto: ContextoRuntime, cwd: string) {
   if (recibo.contrato !== 'ork.adapter-install/v1' || recibo.host !== contexto.host || !Array.isArray(recibo.arquivos) || recibo.arquivos.length > 512)
     throw Error('runtime.context.installation: recibo instalado invalido');
   const arquivos = new Map<string, string>();
+  // RM-059 (T0.7): os bytes ja conferidos da declaracao e do manifesto de cada mod, lidos uma vez so.
+  const conferidos = new Map<string, Buffer>();
   for (const item of recibo.arquivos) {
     const a = objeto(item);
     if (typeof a.arquivo !== 'string' || path.isAbsolute(a.arquivo) || a.arquivo.split(/[\\/]/).includes('..') ||
         typeof a.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(a.sha256) || arquivos.has(a.arquivo))
       throw Error('runtime.context.installation: arquivo do recibo invalido');
     const file = path.join(instalacao, a.arquivo);
-    if (!dentro(raiz, file).startsWith(instalacao + path.sep) || createHash('sha256').update(ler(raiz, file, 1048576)).digest('hex') !== a.sha256)
-      throw Error('runtime.context.installation: bytes instalados divergentes');
+    if (!dentro(raiz, file).startsWith(instalacao + path.sep)) throw Error('runtime.context.installation: bytes instalados divergentes');
+    const bytes = ler(raiz, file, 1048576);
+    if (createHash('sha256').update(bytes).digest('hex') !== a.sha256) throw Error('runtime.context.installation: bytes instalados divergentes');
     arquivos.set(a.arquivo, file);
+    if (DECLARACAO_OU_MANIFESTO_DE_MOD.test(a.arquivo)) conferidos.set(a.arquivo, bytes);
   }
   const bootstrap = arquivos.get('skills/core/orkastery-bootstrap/SKILL.md');
   if (!bootstrap || (contexto.host === 'claude-code' && !arquivos.has('.claude-plugin/plugin.json')))
     throw Error('runtime.context.installation: catalogo ou plugin incompleto');
+  const modsDeFase = contexto.host === 'claude-code' ? modsDeFaseInstalados(raiz, instalacao, arquivos, conferidos) : [];
   // Capacidade derivada do bloco atual, nunca aceita como entrada do modelo.
   const permiteEditarProduto = permissoesFilho === 'worktree' && blocoDaThread(thread,thread.faseAtual).fases.includes('GO');
   // RM-031 KG5 (D2, D7): as tools do grafo seguem a flag do manifesto da raiz, que o servidor do filho tambem le;
@@ -153,5 +158,114 @@ export function validarContextoRuntime(contexto: ContextoRuntime, cwd: string) {
   const servidor={...configuracaoServidorMcp(raiz, contexto.host, contexto.threadId,transporteShip,permissoesFilho,contexto.identidade?.dispatchId),
     ...(publicVerifiers ? { env: { [ENV_HITL_VERIFIERS]: publicVerifiers } } : {}),
     ...(contexto.host==='codex' && permissoesFilho==='worktree'?politicasFilhoCodex(perfil.politicasCodex??{}):{})};
-  return { projeto: raiz, instalacao, bootstrap, permissoesFilho, permiteEditarProduto, grafoMcp, servidor };
+  return { projeto: raiz, instalacao, bootstrap, permissoesFilho, permiteEditarProduto, grafoMcp, servidor, modsDeFase };
+}
+
+/**
+ * RM-059 (T0.7): a convencao com que cada mod do Orkastery declara o proprio papel, em
+ * `mods/<mod>/orkastery-mod.json`. `dono` roda na sessao de quem conduz; `fase`, nas sessoes despachadas.
+ */
+export type PapelDeMod = 'dono' | 'fase';
+export interface DeclaracaoDeMod { formato: 'ork.mod/v1'; papeis: PapelDeMod[]; claudeCodeMinimo: string }
+/** Um mod de papel `fase` conferido contra o recibo, na ordem em que vai ao despacho. */
+export interface ModDeFase { nome: string; dir: string; claudeCodeMinimo: string }
+
+const DECLARACAO_OU_MANIFESTO_DE_MOD = /^mods\/[^/]+\/(?:orkastery-mod\.json|\.claude-plugin\/plugin\.json)$/;
+const DECLARACAO_DE_MOD = /^mods\/([^/]+)\/orkastery-mod\.json$/;
+const NOME_DE_MOD = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+
+/** A declaracao de papel de um mod; o erro diz o que esta fora da convencao. */
+export function lerDeclaracaoDeMod(texto: string): DeclaracaoDeMod {
+  let bruto: unknown;
+  try { bruto = JSON.parse(texto); } catch { throw Error('orkastery-mod.json nao e JSON'); }
+  if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) throw Error('orkastery-mod.json precisa ser objeto');
+  const d = bruto as Record<string, unknown>;
+  if (d.formato !== 'ork.mod/v1') throw Error('orkastery-mod.json com formato diferente de ork.mod/v1');
+  const papeis = d.papeis;
+  if (!Array.isArray(papeis) || papeis.length === 0 || papeis.some((p) => p !== 'dono' && p !== 'fase') ||
+      new Set(papeis).size !== papeis.length) throw Error('orkastery-mod.json com papeis fora de dono e fase, vazios ou repetidos');
+  if (typeof d.claudeCodeMinimo !== 'string' || !/^\d+\.\d+\.\d+$/.test(d.claudeCodeMinimo))
+    throw Error('orkastery-mod.json com claudeCodeMinimo fora do formato X.Y.Z');
+  return { formato: 'ork.mod/v1', papeis: papeis as PapelDeMod[], claudeCodeMinimo: d.claudeCodeMinimo };
+}
+
+/**
+ * RM-059 (T0.7, D3): os nomes que o `dependencies` do `plugin.json` de um mod cita, em melhor esforco:
+ * lista de nomes (com ou sem `@marketplace`), objeto com os nomes nas chaves, ou lista de objetos com `name`.
+ */
+function dependenciasDoManifesto(texto: string): string[] {
+  let manifesto: unknown;
+  try { manifesto = JSON.parse(texto); } catch { throw Error('.claude-plugin/plugin.json nao e JSON'); }
+  if (!manifesto || typeof manifesto !== 'object' || Array.isArray(manifesto)) throw Error('.claude-plugin/plugin.json precisa ser objeto');
+  const deps = (manifesto as Record<string, unknown>).dependencies;
+  const itens = Array.isArray(deps) ? deps : deps && typeof deps === 'object' ? Object.keys(deps) : [];
+  return itens.flatMap((item) => {
+    const nome = typeof item === 'string' ? item : item && typeof item === 'object' ? (item as { name?: unknown }).name : undefined;
+    return typeof nome === 'string' && nome ? [nome.split('@')[0]] : [];
+  });
+}
+
+/** Os tipos que o proprio Claude Code escreve na pasta do mod que ele carrega: declaracoes, nunca codigo. */
+function tipoDoMotor(relativo: string): boolean {
+  return relativo.startsWith('.claude-plugin/types/') && (relativo.endsWith('.d.ts') || path.posix.basename(relativo) === 'tsconfig.json');
+}
+
+/**
+ * RM-059 (T0.7, D1): a pasta instalada de um mod de fase tem exatamente os arquivos do recibo. O
+ * `--plugin-dir` carrega o que estiver nela (comandos, agentes e skills sao descobertos), entao arquivo
+ * fora do recibo entraria na sessao de fase sem prova. Link e arquivo especial recusam sempre.
+ */
+function conferirPastaDoMod(raiz: string, instalacao: string, nome: string, arquivos: ReadonlyMap<string, string>): string {
+  const dir = path.join(instalacao, 'mods', nome);
+  const recusa = (motivo: string) => Error(`runtime.context.installation: mod ${nome}: ${motivo}; reinstale com ork adapter install claude-code`);
+  if (!fs.lstatSync(dir, { throwIfNoEntry: false })?.isDirectory() || dentro(raiz, dir) !== dir) throw recusa('pasta instalada ausente ou fora da instalacao');
+  const visitar = (atual: string, prefixo: string): void => {
+    for (const entrada of fs.readdirSync(atual, { withFileTypes: true })) {
+      const relativo = prefixo ? `${prefixo}/${entrada.name}` : entrada.name;
+      if (entrada.isSymbolicLink()) throw recusa(`link em ${relativo}`);
+      if (entrada.isDirectory()) { visitar(path.join(atual, entrada.name), relativo); continue; }
+      if (!entrada.isFile()) throw recusa(`arquivo especial em ${relativo}`);
+      if (!arquivos.has(`mods/${nome}/${relativo}`) && !tipoDoMotor(relativo)) throw recusa(`arquivo fora do INSTALADO.json (${relativo})`);
+    }
+  };
+  visitar(dir, '');
+  return dir;
+}
+
+/**
+ * RM-059 (T0.7): os mods de papel `fase` da instalacao, lidos do recibo ja conferido e na ordem da D3:
+ * a dependencia antes de quem depende, depois o nome. Declaracao ou manifesto invalidos recusam como
+ * um byte divergente (D2): e instalacao corrompida, e o CI do catalogo ja reprova esse caso.
+ */
+export function modsDeFaseInstalados(raiz: string, instalacao: string, arquivos: ReadonlyMap<string, string>,
+  conferidos: ReadonlyMap<string, Buffer>): ModDeFase[] {
+  const achados: (ModDeFase & { dependencias: string[] })[] = [];
+  const nomes = [...arquivos.keys()].flatMap((arquivo) => DECLARACAO_DE_MOD.exec(arquivo)?.[1] ?? []).sort();
+  for (const nome of nomes) {
+    const arquivo = `mods/${nome}/orkastery-mod.json`;
+    const recusa = (motivo: string) => Error(`runtime.context.installation: mod ${nome}: ${motivo}; reinstale com ork adapter install claude-code`);
+    if (!NOME_DE_MOD.test(nome)) throw recusa('nome fora de letras minusculas, digitos e hifen');
+    let declaracao: DeclaracaoDeMod;
+    try { declaracao = lerDeclaracaoDeMod(conferidos.get(arquivo)!.toString('utf8')); } catch (e) { throw recusa((e as Error).message); }
+    if (!declaracao.papeis.includes('fase')) continue;
+    const manifesto = conferidos.get(`mods/${nome}/.claude-plugin/plugin.json`);
+    if (!manifesto) throw recusa('.claude-plugin/plugin.json fora do recibo');
+    let dependencias: string[];
+    try { dependencias = dependenciasDoManifesto(manifesto.toString('utf8')); } catch (e) { throw recusa((e as Error).message); }
+    achados.push({ nome, dir: conferirPastaDoMod(raiz, instalacao, nome, arquivos), claudeCodeMinimo: declaracao.claudeCodeMinimo, dependencias });
+  }
+  const porNome = new Map(achados.map((m) => [m.nome, m]));
+  const ordem: ModDeFase[] = [];
+  const feitos = new Set<string>(), abertos = new Set<string>();
+  // Busca em profundidade: a dependencia sai antes; num ciclo, a aresta de volta e ignorada (melhor esforco).
+  const visitar = (m: ModDeFase & { dependencias: string[] }): void => {
+    if (feitos.has(m.nome) || abertos.has(m.nome)) return;
+    abertos.add(m.nome);
+    for (const dep of [...m.dependencias].sort()) { const alvo = porNome.get(dep); if (alvo) visitar(alvo); }
+    abertos.delete(m.nome);
+    feitos.add(m.nome);
+    ordem.push({ nome: m.nome, dir: m.dir, claudeCodeMinimo: m.claudeCodeMinimo });
+  };
+  for (const m of achados) visitar(m);
+  return ordem;
 }

@@ -1,0 +1,178 @@
+/**
+ * RM-059 (T0.7): o despacho `claude-bg` leva os mods de papel `fase` da instalacao do adaptador,
+ * conferidos contra o `INSTALADO.json`. Os mods de verdade chegam por outra thread: aqui o catalogo e
+ * uma copia temporaria com o mod de exemplo de `core/test/fixtures/mods/ork-exemplo`, sem rede e sem
+ * `claude` (a versao vai no pedido do despacho).
+ */
+import { test } from 'node:test';
+import * as assert from 'node:assert/strict';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { projetoTemporario } from './apoio';
+import { exigirCatalogo } from '../src/catalogo';
+import { instalarAdaptador, lerRecibo } from '../src/hosts';
+import { instalarMcp } from '../src/mcp-install';
+import { novaThread } from '../src/thread';
+import { contextoDoProjeto, lerDeclaracaoDeMod, ModDeFase } from '../src/runtime-context';
+import { montarComando, modsParaOClaude } from '../src/adapters/claude-bg';
+
+const RAIZ = exigirCatalogo(path.resolve(__dirname, '../../..'));
+const EXEMPLO = path.join(RAIZ, 'core', 'test', 'fixtures', 'mods', 'ork-exemplo');
+const VERSAO = '2.1.296 (Claude Code)';
+
+interface ModDoCatalogo { nome: string; papeis: unknown; minimo?: string; dependencias?: unknown; semManifesto?: boolean }
+
+/** Copia do catalogo com os mods pedidos no lugar dos que o repositorio tiver em `adapters/claude-code/mods/`. */
+function catalogoCom(mods: ModDoCatalogo[]): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-test-mods-catalogo-'));
+  for (const parte of ['skills', 'references', 'adapters/claude-code']) {
+    fs.cpSync(path.join(RAIZ, parte), path.join(dir, parte), { recursive: true });
+  }
+  fs.mkdirSync(path.join(dir, 'eval'));
+  fs.rmSync(path.join(dir, 'adapters', 'claude-code', 'mods'), { recursive: true, force: true });
+  for (const m of mods) {
+    const alvo = path.join(dir, 'adapters', 'claude-code', 'mods', m.nome);
+    fs.cpSync(EXEMPLO, alvo, { recursive: true });
+    const arquivoDoManifesto = path.join(alvo, '.claude-plugin', 'plugin.json');
+    const manifesto = JSON.parse(fs.readFileSync(arquivoDoManifesto, 'utf8'));
+    manifesto.name = m.nome;
+    if (m.dependencias !== undefined) manifesto.dependencies = m.dependencias;
+    fs.writeFileSync(arquivoDoManifesto, JSON.stringify(manifesto, null, 2) + '\n');
+    if (m.semManifesto) fs.rmSync(arquivoDoManifesto);
+    fs.writeFileSync(path.join(alvo, 'orkastery-mod.json'),
+      JSON.stringify({ formato: 'ork.mod/v1', papeis: m.papeis, claudeCodeMinimo: m.minimo ?? '2.1.287' }) + '\n');
+  }
+  return dir;
+}
+
+/** Projeto com o adaptador instalado do catalogo temporario; o contexto do runtime ja confere os mods. */
+function preparar(nome: string, mods: ModDoCatalogo[]) {
+  const catalogo = catalogoCom(mods);
+  let p: ReturnType<typeof projetoTemporario> | null = null;
+  const limpar = () => { try { p?.limpar(); } finally { fs.rmSync(catalogo, { recursive: true, force: true }); } };
+  try {
+    p = projetoTemporario(nome);
+    const instalado = instalarAdaptador('claude-code', { projeto: p.dir, catalogo, orkBin: 'ork' });
+    instalarMcp({ projeto: p.dir, host: 'claude-code', permissoesFilho: 'interactive' });
+    const t = novaThread(p.carregado, { nome: 'mods', modo: 'auto', criarWorktree: true }).thread;
+    const contexto = contextoDoProjeto(p.dir, 'claude-bg', t.worktree!, t.id)!;
+    const comando = (versaoClaude: string | null = VERSAO) =>
+      montarComando({ cwd: t.worktree!, nome: 'fase', prompt: 'pedido', contextoRuntime: contexto, versaoClaude });
+    return { p, t, instalado, comando, limpar };
+  } catch (e) { limpar(); throw e; }
+}
+
+const pastasDePlugin = (args: string[]) => args.flatMap((a, i) => (a === '--plugin-dir' ? [args[i + 1]] : []));
+
+test('S1 o recibo lista os mods de fase e de dono, e o despacho leva so o de fase, logo depois do plugin', () => {
+  const f = preparar('mods-papel', [{ nome: 'ork-exemplo', papeis: ['fase'] }, { nome: 'ork-exemplo-dono', papeis: ['dono'] }]);
+  try {
+    const recibo = lerRecibo(f.instalado.destino)!.arquivos.map((a) => a.arquivo);
+    for (const arquivo of ['mods/ork-exemplo/orkastery-mod.json', 'mods/ork-exemplo/hooks/register.js',
+      'mods/ork-exemplo/.claude-plugin/plugin.json', 'mods/ork-exemplo-dono/orkastery-mod.json']) {
+      assert.ok(recibo.includes(arquivo), `${arquivo} no INSTALADO.json`);
+    }
+    const args = f.comando();
+    const pastas = pastasDePlugin(args);
+    assert.equal(pastas.length, 2);
+    assert.equal(pastas[1], path.join(pastas[0], 'mods', 'ork-exemplo'));
+    assert.equal(args[args.indexOf('--plugin-dir') + 2], '--plugin-dir');
+    assert.equal(args[args.indexOf('--plugin-dir') + 4], '--strict-mcp-config');
+  } finally { f.limpar(); }
+});
+
+test('S2 sem mods o comando continua com um --plugin-dir so, seguido do --strict-mcp-config', () => {
+  const f = preparar('mods-nenhum', []);
+  try {
+    for (const versao of [VERSAO, null]) {
+      const args = f.comando(versao);
+      assert.equal(pastasDePlugin(args).length, 1);
+      assert.equal(args[args.indexOf('--plugin-dir') + 2], '--strict-mcp-config');
+    }
+  } finally { f.limpar(); }
+});
+
+test('S3 arquivo fora do recibo, link e arquivo especial no mod de fase recusam o despacho; no mod de dono, nao', () => {
+  const f = preparar('mods-recibo', [{ nome: 'ork-exemplo', papeis: ['fase'] }, { nome: 'ork-exemplo-dono', papeis: ['dono'] }]);
+  try {
+    const mod = path.join(f.instalado.destino, 'mods', 'ork-exemplo');
+    const extra = path.join(mod, 'commands', 'extra.md');
+    fs.mkdirSync(path.dirname(extra));
+    fs.writeFileSync(extra, '---\ndescription: entrou sem recibo\n---\n');
+    assert.throws(() => f.comando(), /runtime\.context\.installation: mod ork-exemplo: arquivo fora do INSTALADO\.json \(commands\/extra\.md\)/);
+    fs.rmSync(path.dirname(extra), { recursive: true });
+    const atalho = path.join(mod, 'hooks', 'atalho.js');
+    fs.symlinkSync('register.js', atalho);
+    assert.throws(() => f.comando(), /runtime\.context\.installation: mod ork-exemplo: link em hooks\/atalho\.js/);
+    fs.unlinkSync(atalho);
+    const cano = path.join(mod, 'hooks', 'cano');
+    execFileSync('mkfifo', [cano]);
+    assert.throws(() => f.comando(), /runtime\.context\.installation: mod ork-exemplo: arquivo especial em hooks\/cano/);
+    fs.unlinkSync(cano);
+    fs.writeFileSync(path.join(f.instalado.destino, 'mods', 'ork-exemplo-dono', 'extra.js'), 'export const x = 1\n');
+    assert.equal(pastasDePlugin(f.comando()).length, 2, 'o mod de dono nao vai ao despacho e nao e conferido');
+    fs.writeFileSync(path.join(mod, 'hooks', 'register.js'), '// editado depois da instalacao\n');
+    assert.throws(() => f.comando(), /runtime\.context\.installation: bytes instalados divergentes/);
+  } finally { f.limpar(); }
+});
+
+test('S4 os tipos que o Claude Code escreve em .claude-plugin/types ficam fora da conta; outro arquivo ali, nao', () => {
+  const f = preparar('mods-tipos', [{ nome: 'ork-exemplo', papeis: ['fase'] }]);
+  try {
+    const tipos = path.join(f.instalado.destino, 'mods', 'ork-exemplo', '.claude-plugin', 'types');
+    fs.mkdirSync(path.join(tipos, 'claude-code'), { recursive: true });
+    fs.writeFileSync(path.join(tipos, 'claude-code', 'index.d.ts'), 'export type X = 1;\n');
+    fs.writeFileSync(path.join(tipos, 'tsconfig.json'), '{}\n');
+    assert.equal(pastasDePlugin(f.comando()).length, 2);
+    fs.writeFileSync(path.join(tipos, 'gancho.js'), 'export const y = 2\n');
+    assert.throws(() => f.comando(), /arquivo fora do INSTALADO\.json \(\.claude-plugin\/types\/gancho\.js\)/);
+  } finally { f.limpar(); }
+});
+
+test('S5 declaracao invalida ou manifesto fora do recibo no mod de fase recusam o contexto do despacho', () => {
+  for (const [nome, mod, erro] of [
+    ['mods-repetido', { nome: 'ork-exemplo', papeis: ['fase', 'fase'] }, /papeis fora de dono e fase, vazios ou repetidos/],
+    ['mods-papel-invalido', { nome: 'ork-exemplo', papeis: ['revisor'] }, /papeis fora de dono e fase/],
+    ['mods-sem-manifesto', { nome: 'ork-exemplo', papeis: ['fase'], semManifesto: true }, /\.claude-plugin\/plugin\.json fora do recibo/],
+  ] as const) {
+    assert.throws(() => preparar(nome, [mod]),
+      (e: Error) => /^runtime\.context\.installation: mod ork-exemplo: /.test(e.message) && erro.test(e.message), nome);
+  }
+  assert.throws(() => lerDeclaracaoDeMod('{"formato":"ork.mod/v2","papeis":["fase"],"claudeCodeMinimo":"2.1.287"}'), /ork\.mod\/v1/);
+  assert.throws(() => lerDeclaracaoDeMod('{"formato":"ork.mod/v1","papeis":["fase"],"claudeCodeMinimo":"2.1"}'), /X\.Y\.Z/);
+  assert.throws(() => lerDeclaracaoDeMod('[]'), /objeto/);
+  assert.deepEqual(lerDeclaracaoDeMod('{"formato":"ork.mod/v1","papeis":["dono","fase"],"claudeCodeMinimo":"2.1.287"}').papeis, ['dono', 'fase']);
+});
+
+test('S6 versao: abaixo do minimo do mod ou da API de mods, ou ilegivel, o mod fica fora e o despacho segue', () => {
+  const f = preparar('mods-versao', [{ nome: 'ork-exemplo', papeis: ['fase'] }, { nome: 'ork-exemplo-novo', papeis: ['fase'], minimo: '2.1.300' }]);
+  try {
+    const base = pastasDePlugin(f.comando())[0];
+    assert.deepEqual(pastasDePlugin(f.comando()), [base, path.join(base, 'mods', 'ork-exemplo')]);
+    assert.deepEqual(pastasDePlugin(f.comando('2.1.300 (Claude Code)')),
+      [base, path.join(base, 'mods', 'ork-exemplo'), path.join(base, 'mods', 'ork-exemplo-novo')]);
+    assert.deepEqual(pastasDePlugin(f.comando('2.1.286 (Claude Code)')), [base]);
+    assert.deepEqual(pastasDePlugin(f.comando(null)), [base]);
+    assert.deepEqual(pastasDePlugin(f.comando('claude sem numero')), [base]);
+  } finally { f.limpar(); }
+  const antigo: ModDeFase = { nome: 'ork-velho', dir: '/x', claudeCodeMinimo: '2.0.0' };
+  assert.deepEqual(modsParaOClaude([antigo], '2.1.280 (Claude Code)'), [], 'o piso da API de mods vale mesmo com minimo declarado menor');
+  assert.deepEqual(modsParaOClaude([antigo], '2.1.287 (Claude Code)'), [antigo]);
+  assert.deepEqual(modsParaOClaude([antigo], '10.0.0'), [antigo]);
+});
+
+test('S7 a dependencia vai antes de quem depende, nas formas de dependencies aceitas; o resto segue o nome', () => {
+  const f = preparar('mods-ordem', [
+    { nome: 'ork-a', papeis: ['fase'], dependencias: ['ork-ponte@orkastery'] },
+    { nome: 'ork-b', papeis: ['fase'], dependencias: [{ name: 'ork-ponte' }] },
+    { nome: 'ork-c', papeis: ['fase'], dependencias: { 'ork-ponte': '*' } },
+    { nome: 'ork-ponte', papeis: ['dono', 'fase'], dependencias: 'texto que nao e lista' },
+    { nome: 'ork-d', papeis: ['fase'] },
+  ]);
+  try {
+    const nomes = pastasDePlugin(f.comando()).slice(1).map((p) => path.basename(p));
+    assert.deepEqual(nomes, ['ork-ponte', 'ork-a', 'ork-b', 'ork-c', 'ork-d']);
+  } finally { f.limpar(); }
+});
