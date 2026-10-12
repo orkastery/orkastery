@@ -293,7 +293,7 @@ export function agirNaVarredura(carregado: ManifestoCarregado, opcoes: OpcoesDaV
     }
     if (p.acao === 'registrar') {
       let r: ReturnType<typeof registrarEntregaPorPr>;
-      try { r = registrarEntregaPorPr({ ...carregado, raiz }, p.thread, { buscar: false }); }
+      try { r = registrarEntregaPorPr({ ...carregado, raiz }, p.thread, { buscar: false, remoto: carregado.manifesto.fabrica.remoto }); }
       catch (e) { gravar(p, 'recusada', (e as Error).message); ficam.push(p); continue; }
       if (r.acao === 'registrou' || r.acao === 'ja-registrada') gravar(p, 'feita', `${r.acao}: ${r.motivo}`);
       else { gravar(p, 'recusada', `${r.acao}: ${r.motivo}`); ficam.push({ ...p, recusa: { em: quando, detalhe: `${r.acao}: ${r.motivo}` } }); }
