@@ -105,6 +105,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidÃªncia de merge, estÃ
   - O SECURITY.md passa a listar todos os comandos declarados que o `ork` executa (inclusive `verify.preparo`,
     `ci.command`, `.ork-ci/` e `doneWhen`). Cinco itens que exigem mudar comportamento aceito hoje ficam na matriz
     como pendentes do dono.
+
 ## [0.5.4] - 2026-10-12
 
 ### Adicionado
