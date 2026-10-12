@@ -283,14 +283,387 @@
       "criadoEm": "2026-10-12T06:16:13.864Z",
       "estado": "verificado",
       "lint": []
-    }
-  ],
-  "deferredClaims": [
+    },
     {
-      "id": "C21",
-      "reason": "artifact-not-in-checkout"
+      "id": "C22",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-torre/hooks/register.tsx",
+      "alegacao": "GO-FIX (revisão 1): o desenho anota só o que pôs na janela de rolagem (lista ou detalhe) para o registro do mostrado; o papel volta a ser conferido a cada 5 min enquanto dormente e falha passageira da ponte não desliga a Torre; o painel fechado pelo dono não reabre sozinho; o Atualizar do detalhe relê só a thread aberta; a guarda estática passa",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'anotarVistos(mostradosVisiveis(linhasDoPainel(q' adapters/claude-code/mods/ork-torre/hooks/register.tsx && grep -cF 'mostradosVisiveis(linhasDoDetalhe(linha, detalhe, agora), 1, e.props.scroll)' adapters/claude-code/mods/ork-torre/hooks/register.tsx && grep -cF 'ESPERA_LONGA_DO_PAPEL_MS = 300000' adapters/claude-code/mods/ork-torre/hooks/register.tsx && grep -cF 'erro instanceof TypeError' adapters/claude-code/mods/ork-torre/hooks/register.tsx && grep -cF \"on('ui.close', { id: PAINEL }\" adapters/claude-code/mods/ork-torre/hooks/register.tsx && grep -cF 'async function releerThread' adapters/claude-code/mods/ork-torre/hooks/register.tsx && node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-torre"
+      ],
+      "criadoEm": "2026-10-12T07:06:20.080Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-torre/hooks/painel.tsx",
+      "alegacao": "GO-FIX (revisão 1, D15 e D10): a ação com efeito só aparece quando o estado da thread a pede, e as linhas da tela permitem saber o que está na janela de rolagem; coberto pelo teste hermético do núcleo",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'export function acoesRelevantes' adapters/claude-code/mods/ork-torre/hooks/painel.tsx && grep -cF 'export function mostradosVisiveis' adapters/claude-code/mods/ork-torre/hooks/painel.tsx && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-torre.test.js"
+      ],
+      "criadoEm": "2026-10-12T07:06:22.612Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-torre/hooks/agenda.ts",
+      "alegacao": "GO-FIX (revisão 1, D16): com o painel escondido, cada thread é relida no máximo a cada 60 s e a idade máxima sobe para 15 min",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const ts=require('./core/node_modules/typescript');const src=require('fs').readFileSync('adapters/claude-code/mods/ork-torre/hooks/agenda.ts','utf8');const js=ts.transpileModule(src,{compilerOptions:{module:1,target:9}}).outputText;const m={exports:{}};new Function('exports','module','require',js)(m.exports,m,function(){throw new Error('import')});const a=m.exports;const r=a.escolher(['ork-a'],{'ork-a':1000},31000,a.INTERVALO_ESCONDIDO_MS);process.exit(a.INTERVALO_ESCONDIDO_MS===60000&&a.IDADE_MAXIMA_ESCONDIDO_MS===900000&&r.adiadas.join()==='ork-a'&&r.proximaEm===61000?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T07:06:25.910Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-torre/hooks/detalhe.tsx",
+      "alegacao": "GO-FIX (revisão 1): o detalhe oferece só as ações que o estado pede, a thread sem leitura só diz que não leu, e o comando de entrega mostrado ao dono não traz marcador que o shell leria como redirecionamento",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'for (const { operacao } of acoesRelevantes(linha))' adapters/claude-code/mods/ork-torre/hooks/detalhe.tsx && grep -cF 'não li o retrato' adapters/claude-code/mods/ork-torre/hooks/detalhe.tsx && grep -cF 'nenhuma ação pedida pelo estado desta thread' adapters/claude-code/mods/ork-torre/hooks/detalhe.tsx && ! grep -nF -- '--para <base>' adapters/claude-code/mods/ork-torre/hooks/detalhe.tsx"
+      ],
+      "criadoEm": "2026-10-12T07:06:29.061Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-torre/test/painel.test.tsx",
+      "alegacao": "GO-FIX (revisão 1): o kit prova o registro só do que estava na janela, o detalhe aberto que esconde as outras threads, o painel escondido ou sem lugar, a sessão não interativa, o tique sem releitura a cada minuto, a falha passageira da ponte e o painel fechado pelo dono, com pelo menos 13 casos",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-torre/test/painel.test.tsx) -ge 13 && grep -cF 'com o detalhe de uma thread aberto, o bloqueio novo de outra thread nao vai ao registro' adapters/claude-code/mods/ork-torre/test/painel.test.tsx && grep -cF 'offset: 0, bodyRows: 4' adapters/claude-code/mods/ork-torre/test/painel.test.tsx && grep -cF 'fora de sessao interativa' adapters/claude-code/mods/ork-torre/test/painel.test.tsx"
+      ],
+      "criadoEm": "2026-10-12T07:06:32.611Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-torre/test/acoes.test.tsx",
+      "alegacao": "GO-FIX (revisão 1): o kit prova que a leitura atrasada de uma thread não apaga o detalhe da aberta, que o Atualizar relê só a thread aberta e que o mod que passa a outro plugin entre o desenho e o aperto não roda, com pelo menos 8 casos",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-torre/test/acoes.test.tsx) -ge 8 && grep -cF 'leitura atrasada do detalhe de uma thread nao apaga' adapters/claude-code/mods/ork-torre/test/acoes.test.tsx && grep -cF 'o Atualizar do detalhe rele so a thread aberta' adapters/claude-code/mods/ork-torre/test/acoes.test.tsx"
+      ],
+      "criadoEm": "2026-10-12T07:06:35.300Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-torre/hooks/register.tsx",
+      "alegacao": "GO-FIX 2 (revisão 2, A-1 e S-C): a anotação do que foi desenhado é podada contra o quadro e descartada com o painel escondido antes de qualquer registro; a releitura da thread do detalhe passa pelo laço único de leitura; a guarda estática passa",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'for (const vista of [...vistosNoDesenho.keys()]) if (!existentes.has(vista)) vistosNoDesenho.delete(vista)' adapters/claude-code/mods/ork-torre/hooks/register.tsx && grep -cF 'if (!await painelAVista($)) { vistosNoDesenho.clear(); return }' adapters/claude-code/mods/ork-torre/hooks/register.tsx && grep -cF 'forcadas.add(thread)' adapters/claude-code/mods/ork-torre/hooks/register.tsx && node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-torre"
+      ],
+      "criadoEm": "2026-10-12T07:31:09.286Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-torre/hooks/painel.tsx",
+      "alegacao": "GO-FIX 2 (revisão 2, S-B): Fase seguinte não aparece em thread quieta na fase MASTER, e Entregar não aparece enquanto alguém conduz a fase SHIP; coberto pelo teste hermético do núcleo",
+      "negativa": false,
+      "verificar": [
+        "grep -cF \"case 'phase': return l.estado === 'quieta' && l.fase !== 'MASTER'\" adapters/claude-code/mods/ork-torre/hooks/painel.tsx && grep -cF \"&& l.entrega !== 'delivered' && l.estado !== 'andando'\" adapters/claude-code/mods/ork-torre/hooks/painel.tsx && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-torre.test.js"
+      ],
+      "criadoEm": "2026-10-12T07:31:12.085Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-torre/test/painel.test.tsx",
+      "alegacao": "GO-FIX 2 (revisão 2): o kit prova o descarte da anotação com o painel escondido, o item que some antes do registro, o item que volta a contar, a nova tentativa do registro recusado, o início da janela no detalhe e o prazo de 20 s com a leitura falha relida no tique, com pelo menos 18 casos",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-torre/test/painel.test.tsx) -ge 18 && grep -cF 'item desenhado que some do quadro antes do registro' adapters/claude-code/mods/ork-torre/test/painel.test.tsx && grep -cF 'no detalhe, a janela comeca depois da linha de Voltar e Atualizar' adapters/claude-code/mods/ork-torre/test/painel.test.tsx && grep -cF 'retrato que nao volta para no prazo de 20 s' adapters/claude-code/mods/ork-torre/test/painel.test.tsx"
+      ],
+      "criadoEm": "2026-10-12T07:31:15.434Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-torre/test/rede.test.ts",
+      "alegacao": "GO-FIX 2 (revisão 2, M22): os testes da rede rodam com o relógio na época de hoje, para erro relativo ao zero não passar despercebido",
+      "negativa": true,
+      "verificar": [
+        "test $(grep -c 'now: EPOCA' adapters/claude-code/mods/ork-torre/test/rede.test.ts) -ge 6 && ! grep -nF 'now: 1000' adapters/claude-code/mods/ork-torre/test/rede.test.ts"
+      ],
+      "criadoEm": "2026-10-12T07:31:17.354Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/autoridade.json",
+      "alegacao": "Marketplace (R6): a cópia gerada da Torre leva a lista de autoridade da raiz de mods/ dentro dela, igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/autoridade.json marketplaces/claude-code/mods/ork-torre/autoridade.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:35:44.955Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/orkastery-mod.json",
+      "alegacao": "Marketplace (R6): a cópia gerada do orkastery-mod.json da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/orkastery-mod.json marketplaces/claude-code/mods/ork-torre/orkastery-mod.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:35:46.901Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/.claude-plugin/plugin.json",
+      "alegacao": "Marketplace (R6): a cópia gerada do manifesto da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/.claude-plugin/plugin.json marketplaces/claude-code/mods/ork-torre/.claude-plugin/plugin.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:35:48.885Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/hooks/agenda.ts",
+      "alegacao": "Marketplace (R6): a cópia gerada de hooks/agenda.ts da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/hooks/agenda.ts marketplaces/claude-code/mods/ork-torre/hooks/agenda.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:35:50.863Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/hooks/detalhe.tsx",
+      "alegacao": "Marketplace (R6): a cópia gerada de hooks/detalhe.tsx da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/hooks/detalhe.tsx marketplaces/claude-code/mods/ork-torre/hooks/detalhe.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:35:52.828Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/hooks/frases.ts",
+      "alegacao": "Marketplace (R6): a cópia gerada de hooks/frases.ts da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/hooks/frases.ts marketplaces/claude-code/mods/ork-torre/hooks/frases.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:35:54.723Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/hooks/hooks.json",
+      "alegacao": "Marketplace (R6): a cópia gerada de hooks/hooks.json da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/hooks/hooks.json marketplaces/claude-code/mods/ork-torre/hooks/hooks.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:35:56.579Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/hooks/painel.tsx",
+      "alegacao": "Marketplace (R6): a cópia gerada de hooks/painel.tsx da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/hooks/painel.tsx marketplaces/claude-code/mods/ork-torre/hooks/painel.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:35:58.334Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/hooks/rede.ts",
+      "alegacao": "Marketplace (R6): a cópia gerada de hooks/rede.ts da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/hooks/rede.ts marketplaces/claude-code/mods/ork-torre/hooks/rede.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:36:05.501Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/hooks/register.tsx",
+      "alegacao": "Marketplace (R6): a cópia gerada de hooks/register.tsx da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/hooks/register.tsx marketplaces/claude-code/mods/ork-torre/hooks/register.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:36:07.386Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/test/acoes.test.tsx",
+      "alegacao": "Marketplace (R6): a cópia gerada de test/acoes.test.tsx da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/test/acoes.test.tsx marketplaces/claude-code/mods/ork-torre/test/acoes.test.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:36:09.334Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/test/apoio.ts",
+      "alegacao": "Marketplace (R6): a cópia gerada de test/apoio.ts da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/test/apoio.ts marketplaces/claude-code/mods/ork-torre/test/apoio.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:36:11.146Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/test/painel.test.tsx",
+      "alegacao": "Marketplace (R6): a cópia gerada de test/painel.test.tsx da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/test/painel.test.tsx marketplaces/claude-code/mods/ork-torre/test/painel.test.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:36:13.107Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/test/rede.test.ts",
+      "alegacao": "Marketplace (R6): a cópia gerada de test/rede.test.ts da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/test/rede.test.ts marketplaces/claude-code/mods/ork-torre/test/rede.test.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:36:14.996Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/types/index.d.ts",
+      "alegacao": "Marketplace (R6): a cópia gerada de types/index.d.ts da Torre é igual à fonte, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-torre/types/index.d.ts marketplaces/claude-code/mods/ork-torre/types/index.d.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:36:16.904Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": ".claude-plugin/marketplace.json",
+      "alegacao": "Marketplace (R6): o marketplace próprio da raiz ganha a entrada ork-torre apontando para a cópia gerada, com a descrição do manifesto e a categoria dos mods, e o gerador não acha deriva",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const m=require('./.claude-plugin/marketplace.json');const e=m.plugins.find(p=>p.name==='ork-torre');const d=require('./adapters/claude-code/mods/ork-torre/.claude-plugin/plugin.json');process.exit(e&&e.source==='./marketplaces/claude-code/mods/ork-torre'&&e.description===d.description&&e.category==='development'?0:1)\" && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T07:36:19.267Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm059torre",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm059torre.json",
+      "alegacao": "Fecho do GO (substitui a C21): o bundle do CI da thread (ork.ci-bundle/v1) leva as 47 claims herméticas da thread; a claim do próprio bundle só fica diferida (artifact-not-in-checkout) enquanto o arquivo não está versionado, nenhuma outra é diferida, e o bundle não traz caminho de máquina",
+      "negativa": true,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-rm059torre.json');const d=b.deferredClaims||[];const t=JSON.stringify(b);process.exit(b.schema==='ork.ci-bundle/v1'&&b.thread==='ork-rm059torre'&&b.claims.length+d.length>=47&&d.length<=1&&d.every(x=>x.reason==='artifact-not-in-checkout')&&!t.includes('/hom'+'e/')?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T07:52:39.306Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
