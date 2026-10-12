@@ -1,0 +1,620 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm059ritual",
+  "branch": "ork/ork-rm059ritual-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/src/master-nota-local.ts",
+      "alegacao": "A ferramenta ork_request_master_note recebe só o threadId, pede a nota de 0 a 5 e o porquê pelo diálogo nativo (elicitation em formulário) e grava o MASTER com avaliadoPor mcp-local e o recibo assinado do ingresso local; sem elicitation em formulário no cliente ela recusa com master.nota.sem-dialogo e o estado fica igual; recusa, cancelamento e resposta fora do formulário não gravam nota (S1 a S5 do GOAL).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js"
+      ],
+      "criadoEm": "2026-10-12T20:42:17.652Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/src/master.ts",
+      "alegacao": "A nota do diálogo nativo vale como nota humana só com o recibo íntegro; o aceite por omissão e a resposta pelo Telegram não a trocam, e a identidade mcp-local não se digita no --por do terminal (S6 a S8 do GOAL), sem regressão nos testes do MASTER.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js core/dist-test/test/master.test.js core/dist-test/test/master-omissao.test.js core/dist-test/test/master-pulse.test.js core/dist-test/test/master-prova-canal.test.js core/dist-test/test/master-audit.test.js"
+      ],
+      "criadoEm": "2026-10-12T20:42:20.082Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/src/maestro-runtime.ts",
+      "alegacao": "A seção master do retrato traz regime, index, indexDetail, reprovals, classes, deliveredAt, deliveredAtLocal e deliveredSha, e o MASTER log da nota pelo diálogo nativo não vira master.invalid (S9 do GOAL).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/maestro-master-ritual.test.js core/dist-test/test/maestro-runtime.test.js"
+      ],
+      "criadoEm": "2026-10-12T20:42:23.998Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/hooks/register.tsx",
+      "alegacao": "O Ritual passa na guarda estática e no teste hermético do núcleo: papel dono, só a ponte como dependência, lista fechada de ferramentas MCP (ork_request_master_note e ork_claims_list), o botão Dar a nota manda exatamente o threadId, nenhum argv de ork master com --score e as entregas só pelo retrato da ponte (S10 do GOAL).",
+      "negativa": true,
+      "verificar": [
+        "node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-ritual && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-12T20:42:26.437Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/evidencias/mods-nota-nativa.md",
+      "alegacao": "A página da prova do diálogo nativo da nota existe, tem exatamente uma linha de veredito e ela diz pendente do dono, com o roteiro da sessão interativa (P10 e S12 do GOAL).",
+      "negativa": false,
+      "verificar": [
+        "test -s docs/roadmap/evidencias/mods-nota-nativa.md && grep -c '^Veredito:' docs/roadmap/evidencias/mods-nota-nativa.md | grep -qx 1 && grep -qF 'Veredito: pendente do dono' docs/roadmap/evidencias/mods-nota-nativa.md && grep -qF 'prova-ritual-nota-nativa.cjs --conferir' docs/roadmap/evidencias/mods-nota-nativa.md && core/node_modules/.bin/markdownlint-cli2 docs/roadmap/evidencias/mods-nota-nativa.md"
+      ],
+      "criadoEm": "2026-10-12T20:42:29.264Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/prova-ritual-nota-nativa.cjs",
+      "alegacao": "O roteiro da prova da nota prepara, fora do repositório, uma cópia com uma entrega sem nota humana e o servidor MCP só da cópia, confere o ledger dela e, no ensaio sem resposta, deixa o veredito pendente do dono e apaga a cópia.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/prova-ritual-nota-nativa.test.js"
+      ],
+      "criadoEm": "2026-10-12T20:42:31.235Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG tem a entrada do Ritual do MASTER e da ferramenta ork_request_master_note em Não publicado, sem tirar linha da main.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -F 'ork_request_master_note' CHANGELOG.md && grep -F 'adapters/claude-code/mods/ork-ritual' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T20:42:33.078Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": ".claude-plugin/marketplace.json",
+      "alegacao": "O marketplace do repositório tem a entrada do ork-ritual escrita pelo gerador, e a cópia gerada confere com o catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && grep -F './marketplaces/claude-code/mods/ork-ritual' .claude-plugin/marketplace.json"
+      ],
+      "criadoEm": "2026-10-12T20:42:34.579Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/src/master-nota.ts",
+      "alegacao": "O LIMITE DITO da nota do MASTER diz o que o diálogo nativo fecha (a sessão de host tem caminho com recibo) e o que fica (o --por do terminal segue sem prova, e o recibo local prova o caminho, não a pessoa).",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'RM-059 (fatia F8, T8.1): a sessao de host ganhou o caminho com recibo que faltava' core/src/master-nota.ts && grep -F 'roda como o mesmo usuario do sistema le a chave local e forja o recibo' core/src/master-nota.ts && ! grep -F 'que fica fora desta entrega' core/src/master-nota.ts"
+      ],
+      "criadoEm": "2026-10-12T21:00:20.459Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse-resposta.ts",
+      "alegacao": "A resposta da nota pelo Telegram não troca a nota humana dada pelo diálogo nativo: responderNota usa notaHumanaRegistrada, e os testes do pulse e da prova de canal seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'if (notaHumanaRegistrada(raiz, t)) return t.score!.valor;' core/src/pulse-resposta.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js core/dist-test/test/pulse-resposta.test.js core/dist-test/test/master-prova-canal.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:00:22.854Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/test/master-nota-local.test.ts",
+      "alegacao": "Os testes da nota local cobrem o formulário, o esquema estrito, a recusa sem diálogo com o estado byte a byte igual, recusa e cancelamento, a nota aceita com recibo, o recibo adulterado ou apagado, a omissão e o Telegram nos dois sentidos, o --por e as condições de entrega e de diálogo em curso.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' core/test/master-nota-local.test.ts) -ge 10 && grep -F 'nota local: sem formulário no cliente, recusa master.nota.sem-dialogo e o estado fica byte a byte igual' core/test/master-nota-local.test.ts && grep -F 'nota local: o aceite por omissão e o Telegram não trocam a nota do diálogo' core/test/master-nota-local.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:00:26.011Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/test/maestro-master-ritual.test.ts",
+      "alegacao": "Os testes do retrato do MASTER cobrem a aceita por omissão (regime, índice com parcelas, reprovações, classes e entrega), a pendente, a proposta, a nota pelo diálogo nativo (recorded, não master.invalid) e o recibo de ship inválido que não entra nos fatos.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' core/test/maestro-master-ritual.test.ts) -ge 4 && grep -F 'Recibo de ship inválido depois (GO-FIX7) não entra' core/test/maestro-master-ritual.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/maestro-master-ritual.test.js core/dist-test/test/maestro-runtime.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:06:00.233Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/.claude-plugin/plugin.json",
+      "alegacao": "O manifesto do Ritual tem o nome ork-ritual, o contrato de tipos, só a ponte como dependência e nenhuma chave de papel fora da convenção.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:19:41.297Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/orkastery-mod.json",
+      "alegacao": "O Ritual segue a convenção ork.mod/v1 com o papel dono e o Claude Code mínimo 2.1.287.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:19:42.870Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/hooks/hooks.json",
+      "alegacao": "O hooks.json do Ritual carrega um módulo só, o register.tsx.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:19:44.510Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/hooks/ritual.ts",
+      "alegacao": "O módulo puro do Ritual tira as entregas que esperam a nota da seção master do retrato (sem MASTER, proposta ou aceita por omissão, na janela de 7 dias, a mais nova primeiro), a linha da faixa e as claims do replay (último registro de cada id, retiradas à parte), sem chamar o $ nem importar valor de fora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:19:46.858Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/hooks/replay.tsx",
+      "alegacao": "O painel do Ritual mostra um cartão por entrega (espera sua nota, situação, índice com o comando que o prova, POSTMORTEM) e o replay da prova uma claim por vez, com glifo e rótulo de estado, sem saída de comando; só o que está na janela de rolagem conta como mostrado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:19:49.160Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/types/index.d.ts",
+      "alegacao": "O contrato de tipos declara o estado do Ritual em PluginState (quadro, foco, passo e prova), sem import nem referência e sem campo que guarde a nota ou o porquê do dono.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:19:51.013Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/test/apoio.ts",
+      "alegacao": "O apoio do kit do Ritual tem a ponte falsa autocontida (retrato com seção e offset), o fundo que responde as páginas e as claims e guarda leitura de disco e processo para o caso negativo.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'export const PONTE_FALSA' adapters/claude-code/mods/ork-ritual/test/apoio.ts && grep -F 'export function montar(on' adapters/claude-code/mods/ork-ritual/test/apoio.ts && grep -F \"on('fs.read'\" adapters/claude-code/mods/ork-ritual/test/apoio.ts && grep -F 'section: pedido.secao, offset: pedido.offset' adapters/claude-code/mods/ork-ritual/test/apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T21:19:53.912Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/test/replay.test.tsx",
+      "alegacao": "Os testes do kit do esqueleto do Ritual cobrem o painel em terminal e desktop, o papel fase e dormente, as páginas da seção master, o replay uma claim por vez, o /nota com a thread, o registro do mostrado e a leitura que falha; o claude plugin test deles roda no host e no job mods do CI.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-ritual/test/replay.test.tsx) -ge 8 && grep -E 'for .const surface of ..terminal., .desktop.. as const.' adapters/claude-code/mods/ork-ritual/test/replay.test.tsx && grep -F 'prova:ork-a' adapters/claude-code/mods/ork-ritual/test/replay.test.tsx && grep -F 'expect(mundo.lidos).toEqual([])' adapters/claude-code/mods/ork-ritual/test/replay.test.tsx"
+      ],
+      "criadoEm": "2026-10-12T21:19:57.366Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-ritual.test.ts",
+      "alegacao": "O teste hermético do Ritual transpila os módulos puros, confere manifesto, contrato e painel, roda o parser contra o retrato e as claims de verdade do núcleo e varre a AST: lista fechada do $, entregas só pelo retrato e ferramentas do núcleo só da lista fechada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:19:59.201Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-ritual/.claude-plugin/plugin.json",
+      "alegacao": "A cópia gerada do manifesto do Ritual no marketplace é igual à fonte, e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-ritual/.claude-plugin/plugin.json marketplaces/claude-code/mods/ork-ritual/.claude-plugin/plugin.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:20:05.533Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-ritual/orkastery-mod.json",
+      "alegacao": "A cópia gerada do orkastery-mod.json do Ritual é igual à fonte, e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-ritual/orkastery-mod.json marketplaces/claude-code/mods/ork-ritual/orkastery-mod.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:20:07.298Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-ritual/hooks/hooks.json",
+      "alegacao": "A cópia gerada do hooks.json do Ritual é igual à fonte, e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-ritual/hooks/hooks.json marketplaces/claude-code/mods/ork-ritual/hooks/hooks.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:20:09.169Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-ritual/hooks/register.tsx",
+      "alegacao": "A cópia gerada do register.tsx do Ritual é igual à fonte, e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-ritual/hooks/register.tsx marketplaces/claude-code/mods/ork-ritual/hooks/register.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:20:11.015Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-ritual/hooks/replay.tsx",
+      "alegacao": "A cópia gerada do replay.tsx do Ritual é igual à fonte, e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-ritual/hooks/replay.tsx marketplaces/claude-code/mods/ork-ritual/hooks/replay.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:20:12.866Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-ritual/hooks/ritual.ts",
+      "alegacao": "A cópia gerada do ritual.ts do Ritual é igual à fonte, e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-ritual/hooks/ritual.ts marketplaces/claude-code/mods/ork-ritual/hooks/ritual.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:20:14.735Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-ritual/test/apoio.ts",
+      "alegacao": "A cópia gerada do apoio do kit do Ritual é igual à fonte, e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-ritual/test/apoio.ts marketplaces/claude-code/mods/ork-ritual/test/apoio.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:20:16.613Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-ritual/test/replay.test.tsx",
+      "alegacao": "A cópia gerada dos testes do kit do esqueleto do Ritual é igual à fonte, e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-ritual/test/replay.test.tsx marketplaces/claude-code/mods/ork-ritual/test/replay.test.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:20:18.595Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-ritual/types/index.d.ts",
+      "alegacao": "A cópia gerada do contrato de tipos do Ritual é igual à fonte, e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-ritual/types/index.d.ts marketplaces/claude-code/mods/ork-ritual/types/index.d.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:20:20.398Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-ritual/autoridade.json",
+      "alegacao": "A cópia do Ritual no marketplace leva a lista de autoridade da ponte igual à da raiz dos mods, e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/autoridade.json marketplaces/claude-code/mods/ork-ritual/autoridade.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:20:22.041Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/hooks/nota.ts",
+      "alegacao": "O módulo da nota do Ritual monta os argumentos do Dar a nota só com o threadId e o argv da reserva (ork master pedir com --formato json), lê o resultado do núcleo (registrada, repetida, pendente, sem diálogo ou erro) e a saída do pedido de nota, e a guarda da ponte deixa passar o pedido e barra a nota no argv.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:27:36.984Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/test/nota.test.ts",
+      "alegacao": "Os testes do kit da nota cobrem o Dar a nota só com o threadId, os dois toques com um diálogo só, a reserva sem diálogo nativo e só no clique, o núcleo sem a ferramenta, o diálogo fechado, a nota repetida, o erro do núcleo e o replay em terminal e desktop; o claude plugin test deles roda no host e no job mods do CI.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-ritual/test/nota.test.ts) -ge 6 && grep -F \"expect(Object.keys(mundo.notas[0] as object)).toEqual(['threadId'])\" adapters/claude-code/mods/ork-ritual/test/nota.test.ts && grep -F \"['ork', 'master', 'pedir', 'ork-a', '--formato', 'json']\" adapters/claude-code/mods/ork-ritual/test/nota.test.ts && grep -E 'for .const surface of ..terminal., .desktop.. as const.' adapters/claude-code/mods/ork-ritual/test/nota.test.ts"
+      ],
+      "criadoEm": "2026-10-12T21:27:40.772Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-ritual/hooks/nota.ts",
+      "alegacao": "A cópia gerada do nota.ts do Ritual é igual à fonte, e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-ritual/hooks/nota.ts marketplaces/claude-code/mods/ork-ritual/hooks/nota.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:27:42.623Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-ritual/test/nota.test.ts",
+      "alegacao": "A cópia gerada dos testes do kit da nota do Ritual é igual à fonte, e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-ritual/test/nota.test.ts marketplaces/claude-code/mods/ork-ritual/test/nota.test.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:27:44.367Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/test/prova-ritual-nota-nativa.test.ts",
+      "alegacao": "Os testes do roteiro da prova da nota cobrem o ensaio (cópia fora do repositório, veredito pendente, cópia apagada, comando com a ponte e o Ritual), a recusa de cópia dentro do repositório ou de um projeto e a conferência que separa a nota com recibo, o recibo adulterado, o diálogo fechado sem nota e o nada.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' core/test/prova-ritual-nota-nativa.test.ts) -ge 3 && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/prova-ritual-nota-nativa.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:33:03.069Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/ritual-do-master.md",
+      "alegacao": "O guia do Ritual do MASTER diz o que o painel mostra, a prova, como dar a nota pelo diálogo nativo, a reserva pelo Telegram, o que o mod nunca faz, o limite do recibo, como ligar e o que o núcleo oferece, e aponta a página da prova pendente do dono.",
+      "negativa": true,
+      "verificar": [
+        "test -s docs/guias/ritual-do-master.md && grep -qF 'ork master pedir <thread> --formato json' docs/guias/ritual-do-master.md && grep -qF 'O recibo da nota prova o caminho' docs/guias/ritual-do-master.md && grep -qF '(../roadmap/evidencias/mods-nota-nativa.md)' docs/guias/ritual-do-master.md && core/node_modules/.bin/markdownlint-cli2 docs/guias/ritual-do-master.md"
+      ],
+      "criadoEm": "2026-10-12T21:33:06.050Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "docs/README.md",
+      "alegacao": "O índice das docs tem a linha do guia do Ritual do MASTER.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '(guias/ritual-do-master.md)' docs/README.md && core/node_modules/.bin/markdownlint-cli2 docs/README.md"
+      ],
+      "criadoEm": "2026-10-12T21:33:07.490Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/sincronismo-hitl.md",
+      "alegacao": "O guia de HITL descreve a nota do MASTER pelo diálogo nativo (ferramenta, recibo, recusa sem formulário e o limite do recibo) e não diz mais que esse diálogo fica para depois.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'Nota do MASTER pelo diálogo nativo (RM-059, fatia F8)' docs/guias/sincronismo-hitl.md && ! grep -qF 'O diálogo MCP de nota para Claude Code e Codex fica para' docs/guias/sincronismo-hitl.md && core/node_modules/.bin/markdownlint-cli2 docs/guias/sincronismo-hitl.md"
+      ],
+      "criadoEm": "2026-10-12T21:33:09.939Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/test/mcp-grafo.test.ts",
+      "alegacao": "O teste do KG5 conta 32 ferramentas no servidor do dono sem a flag do grafo (com a ork_request_master_note) e, com a flag, só as do grafo a mais, no fim da lista.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'lista as mesmas 32 tools' core/test/mcp-grafo.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:52:38.765Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/test/projeto-alvo-mcp.test.ts",
+      "alegacao": "O teste do projeto-alvo no MCP conta 32 ferramentas, nomeia a ork_request_master_note entre as somadas e confere que toda ferramenta aceita o projeto com esquema fechado.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"'ork_request_master_note']) assert.ok(tools.some\" core/test/projeto-alvo-mcp.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/projeto-alvo-mcp.test.js"
+      ],
+      "criadoEm": "2026-10-12T21:52:41.105Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "O contrato do KG5 diz que, sem a flag, o servidor lista as mesmas tools do servidor sem a flag, sem fixar um número que a ferramenta nova da nota tornaria falso.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'Sem a flag, nada muda: as mesmas tools do servidor sem a flag' docs/referencia/contratos/consumo-grafo-kg5.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/consumo-grafo-kg5.md"
+      ],
+      "criadoEm": "2026-10-12T21:52:43.246Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C3",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C10",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C14",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C47",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
