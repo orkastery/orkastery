@@ -136,7 +136,7 @@ Nome ambíguo ou desconhecido **recusa com a lista de candidatos, na saída 4**;
 | `ork projetos registrar [caminho]` | Registra a cópia que já existia antes do registro. `ork init`, `ork thread new` e `ork fabrica entrar` já registram sozinhos |
 | `ork projetos esquecer <nome\|caminho>` | Tira do registro a cópia que sumiu ou sobrou; nada no disco é apagado |
 
-Toda resposta de `maestro`, `board`, `board plan`, `fabrica` e `roadmap status` começa dizendo o projeto consultado e o que não foi lido. O contrato completo, para quem consome o registro (RM-053, RM-054), está em [projetos-rm052](contratos/projetos-rm052.md).
+Toda resposta de `maestro`, `board`, `board plan`, `fabrica`, `roadmap status` e `roadmap reservas` começa dizendo o projeto consultado e o que não foi lido; os demais comandos que leem um projeto que o leitor não tem como adivinhar (no host, ou fora do diretório dele) terminam com a linha `Projeto consultado: ...` no stderr (fatia 2). O contrato completo, para quem consome o registro (RM-053, RM-054), está em [projetos-rm052](contratos/projetos-rm052.md).
 
 Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool `ork_network_roadmap` do OpenClaw e do Hermes chama `ork network roadmap`, e a do MCP lê o projeto servido em todas as máquinas dele. Sem projeto e com mais de um conhecido, a recusa `projeto.escolha` termina oferecendo o mesmo panorama.
 
@@ -300,7 +300,7 @@ a decisão antes de ela existir.
 | --- | --- |
 | `ork retry policy [--motivo M] [--json]` | A política de retry por motivo tipado, com o porque de cada ação |
 | `ork retry plan <thread> [--motivo M] [--fase F]` | O que o `ork` faria pelo último gate reprovado. **Calcula, não executa, não gasta tentativa** |
-| `ork retry run <thread> [--reverify] [--por Q] [--dry-run]` | Executa a ação tipada. `--por` autoriza quando o bloco do modo pausa. Em `runtime.quota-exhausted` e `runtime.auth-missing`, segue com o mesmo prompt: outro perfil do mesmo runtime só com a troca ligada no manifesto (`runtime_profiles.rotate_same_runtime_on_quota`, padrão `true` desde a D16; `runtime_profiles.rotate_same_runtime_on_auth`, padrão `true`), depois o fallback do bloco e a fila (I-33); rate limit comum espera a janela, sem troca. Em `runtime.model-unavailable`, o mesmo prompt vai a outro perfil do mesmo runtime com o mesmo modelo e depois ao fallback do bloco, sem tirar o perfil do rodízio; sem destino, escala com a correção `ork setup <modo> --bloco N --model` (RM-037). Em `runtime.workspace-untrusted` e `runtime.consent-pending`, o despacho espera o dono rodar o comando da pausa; o retry re-despacha a mesma fase com o mesmo prompt, e na confiança do diretório só depois que o `.claude.json` da conta a registra (RM-055) |
+| `ork retry run <thread> [--reverify] [--por Q] [--dry-run]` | Executa a ação tipada. `--por` autoriza quando o bloco do modo pausa. Em `runtime.quota-exhausted` e `runtime.auth-missing`, segue com o mesmo prompt: outro perfil do mesmo runtime só com a troca ligada no manifesto (`runtime_profiles.rotate_same_runtime_on_quota`, padrão `true` desde a D16; `runtime_profiles.rotate_same_runtime_on_auth`, padrão `true`), depois o fallback do bloco e a fila (I-33); rate limit comum espera a janela, sem troca. Em `runtime.model-unavailable`, o mesmo prompt vai a outro perfil do mesmo runtime com o mesmo modelo e depois ao fallback do bloco, sem tirar o perfil do rodízio; sem destino, escala com a correção `ork setup <modo> --bloco N --model` (RM-037). Em `runtime.workspace-untrusted` e `runtime.consent-pending`, o despacho espera o dono rodar o comando da pausa; o retry re-despacha a mesma fase com o mesmo prompt, e na confiança do diretório só depois que o `.claude.json` da conta a registra (no diretório ou num de cima até a raiz git, ou no repositório principal da worktree); a recusa do runtime pelo mesmo impedimento não gasta tentativa nem sobe esforço (RM-055) |
 | `ork retry list [--json]` | A fila **durável** de rate limit do projeto |
 | `ork retry resume [--id R1] [--agora ISO] [--ocupacao 0..1]` | Retoma a fase morta por rate limit na janela seguinte |
 | ↳ opções | `[--forcar] [--dry-run]` (playbooks: mesma-sessão, nova-sessão, escalada) |
@@ -338,7 +338,14 @@ tipo B não é CHECK.
 (`modo.files`, `dsn.env-ausente`, `orkmind.indisponivel`), com motivo tipado em texto e JSON,
 como `memory index`. Universo vazio lido com sucesso continua saindo 0. A prova
 `core/scripts/prova-busca-semantica.sh` imprime a resposta com o motivo antes de encerrar
-quando uma busca falha, preservando seu código de saída.
+quando uma busca falha, preservando seu código de saída. Por par, a prova também mostra, como
+diagnóstico, a posição e a similaridade de cada alvo no ranking vetorial e quantas entradas da
+busca têm vetor coerente no índice, numa única consulta vetorial com `--limite 100`; a exclusiva
+continua julgada nos 5 primeiros dessa resposta, e o diagnóstico não muda os pares nem os códigos
+de saída. Sem argumentos, a prova usa os pares padrão que o dono decidiu em 10/10/2026 (RM-038):
+`watchdog|vigia agendado que inunda a conversa privada com avisos repetidos` e
+`duplicacao|dois repositorios gemeos fundidos num unico oficial`; pares passados como argumentos
+(`"termo|parafrase"`) substituem os padrão.
 
 A leitura das cinco coleções usa `memory.universo_timeout_ms`: inteiro de 1 a 86.400.000 ms
 (24 h), com padrão de 90.000 ms, independente de `memory.timeout_ms` (15.000 ms por padrão nas

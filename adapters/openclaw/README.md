@@ -79,7 +79,8 @@ nunca um caminho. Ele vai ao `ork` como `--projeto <nome>`. O adaptador declara
 `ORK_PROJETO_EXPLICITO=1`: o diretorio do gateway nao escolhe projeto. Sem `projeto` e com mais de
 um projeto conhecido, a resposta e a escolha tipada `projeto.escolha`, com os candidatos; com um
 so, vale ele. Toda resposta de `ork_maestro`, `ork_board` e `ork_roadmap_status` comeca dizendo o
-projeto consultado e o que nao foi lido.
+projeto consultado e o que nao foi lido; as demais tools de projeto terminam com a linha
+`Projeto consultado: ...` (RM-052, fatia 2), que vem no stderr e o plugin junta ao texto da tool.
 
 ### O roadmap da rede (RM-054, fatia 2)
 
