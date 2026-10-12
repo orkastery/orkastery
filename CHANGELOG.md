@@ -6,6 +6,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.5.6] - 2026-10-12
+
 ### Adicionado
 
 - **#Noctum, fatia N2: fila local e capacidade** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): o contrato
@@ -147,6 +149,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   de tarefa.
 
 ## [0.5.5] - 2026-10-12
+
+Não publicada no npm; o conteúdo saiu na 0.5.6.
 
 ### Adicionado
 
@@ -363,7 +367,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## [0.5.4] - 2026-10-12
 
-Não publicada no npm; o conteúdo saiu na 0.5.5.
+Não publicada no npm; o conteúdo saiu na 0.5.6.
 
 ### Adicionado
 
