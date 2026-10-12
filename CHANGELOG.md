@@ -13,8 +13,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `orkastery-mod.json` (`ork.mod/v1`), depois do plugin do Orkastery, quando a pasta instalada tem exatamente os arquivos
   do `INSTALADO.json` e o `claude --version` atende o `claudeCodeMinimo` do mod e o 2.1.287 da API de mods. Arquivo a
   mais, link ou declaração inválida recusa o despacho com `runtime.context.installation`; mod que pede versão mais nova
-  fica de fora e o despacho segue, e o mod que depende dele sai junto. O `ork adapter install claude-code` tira da cópia
-  o arquivo de mod que saiu do catálogo. Sem mods, o comando é o de antes.
+  fica de fora e o despacho segue, e o mod que depende dele sai junto. O arquivo comum da raiz de `mods/` (a lista de
+  autoridade da ponte) também precisa estar no recibo. O `ork adapter install claude-code` tira da cópia o arquivo de
+  mod que saiu do catálogo. Sem mods, o comando é o de antes.
 - **Mods no marketplace próprio, pelo gerador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `node core/scripts/gerar-marketplaces.cjs` copia cada mod de `adapters/claude-code/mods/*/orkastery-mod.json` para
   `marketplaces/claude-code/mods/<mod>/`, com os arquivos comuns da raiz de `mods/` dentro de cada cópia, e põe o mod no
@@ -26,10 +27,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   cada mod e a busca, no binário, de cada evento e chamada de `$` que os mods usam, com um nome de controle que precisa
   ficar ausente. Medido: os builds 2.1.288 e 2.1.289 reprovam (sem `ui.notify`) e o 2.1.296 aprova.
 - **`ork claims conferir`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)): reexecuta só as claims
-  pedidas (`--claims C3,C7`) ou o verify de uma tarefa do plano da thread (`--tarefa T2.1`) no sandbox do `ork_verify`,
-  sob a condução da thread e sem gravar recibo; `--json` devolve `ork.claims-conferencia/v1`, com prazo total de 180 s
-  (teto de 600 s). No sandbox, processo filho do node falha: teste que cria processo pode reprovar ali e passar no
-  `ork verify`.
+  pedidas (`--claims C3,C7`) ou o verify de uma tarefa do plano da thread (`--tarefa T2.1`, quando ele é um comando só
+  entre crases) no sandbox do `ork_verify`, na worktree da thread registrada no git do projeto, sob a condução da
+  thread e sem gravar recibo; `--json` devolve `ork.claims-conferencia/v1`, com prazo total de 180 s (teto de 600 s).
+  No sandbox, processo filho do node falha: teste que cria processo pode reprovar ali e passar no `ork verify`.
 - **Pedido guardado na criação da thread** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `ork thread new --pedido "<texto>"` guarda o pedido em `pedido.md`, com o sha256 no `thread.json` e no
   `thread_created`, e o `ork prompt render` sem `--pedido` usa esse pedido, conferido pelo sha256. Thread sem pedido
