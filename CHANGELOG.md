@@ -45,6 +45,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   o `orkastery.yaml` do projeto passa a dar 40 min ao comando `test` (`verify.timeout_ms_por_comando.test`),
   porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba CPU. O `build` e os
   outros comandos seguem no prazo padrão.
+- **No #Fast, o ship sem `--autorizar-push` não desconta o índice** ([RM-049](docs/roadmap/RM-049-lancamento.md), EN8):
+  o `ship_blocked` com `human.pending` de uma thread #Fast é a pausa prevista do modo, como o `ork ship --dry-run`
+  barrado, e deixa de entrar no índice derivado do MASTER (era 4.75/5, `ship_blocked x1`). Fora do #Fast, ou com
+  outro motivo, o desconto segue. Decisão do dono, alternativa (a) do recibo do ensaio em inglês.
 
 ## [0.5.4] - 2026-10-12
 
