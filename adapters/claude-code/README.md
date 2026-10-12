@@ -182,12 +182,19 @@ mod, e rode `ork adapter install claude-code` de novo.
 
 O mod de papel `dono` não vai ao despacho: cada mod tem uma entrada no marketplace próprio do
 repositório (`.claude-plugin/marketplace.json`, gerado por `node core/scripts/gerar-marketplaces.cjs`),
-e a instalação é no escopo do projeto:
+que aponta para uma cópia gerada em `marketplaces/claude-code/mods/<mod>/`. Instalado pelo
+marketplace, o plugin é só a própria pasta, então o arquivo comum da raiz de
+`adapters/claude-code/mods/` (a lista de autoridade da ponte, por exemplo) vai dentro de cada cópia.
+A instalação é no escopo do projeto:
 
 ```bash
 claude plugin marketplace add orkastery/orkastery
 claude plugin install <mod>@orkastery --scope project
 ```
+
+O marketplace local do adaptador, registrado na instalação acima a partir de `.claude/plugins/orkastery`,
+também se chama `orkastery` e não lista os mods. Se ele já estiver registrado, tire-o antes com
+`claude plugin marketplace remove orkastery`.
 
 ## A #TAG de conducao
 

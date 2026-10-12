@@ -12,7 +12,7 @@ import { exigirCatalogo } from '../src/catalogo';
 
 interface Achado { codigo: string; arquivo: string; detalhe: string }
 interface Gerador {
-  DESTINOS: { claude: string; codex: string; marketplaceClaude: string; marketplaceCodex: string };
+  DESTINOS: { claude: string; codex: string; marketplaceClaude: string; marketplaceCodex: string; mods: string };
   MODS: string;
   gerar(raiz: string): Map<string, Buffer>;
   verificar(raiz: string): Achado[];
@@ -66,10 +66,11 @@ test('S1 sem mods o marketplace gerado tem so o plugin, com o resto igual ao do 
     assert.deepEqual({ ...depois, plugins: [] }, { ...antes, plugins: [] });
     fs.mkdirSync(path.join(dir, gen.MODS), { recursive: true });
     assert.deepEqual(gen.verificar(dir), [], 'pasta de mods vazia nao muda nada');
+    assert.equal(fs.existsSync(path.join(dir, gen.DESTINOS.mods)), false, 'sem mods, nenhuma copia');
   });
 });
 
-test('S2 cada mod vira uma entrada que aponta para a pasta dele, com nome e descricao do manifesto do mod', () => {
+test('S2 cada mod vira uma entrada que aponta para a copia gerada dele, com nome e descricao do manifesto do mod', () => {
   comCopia((dir) => {
     comMod(dir, 'ork-exemplo');
     comMod(dir, 'ork-segundo');
@@ -82,13 +83,41 @@ test('S2 cada mod vira uma entrada que aponta para a pasta dele, com nome e desc
     assert.equal(m.plugins[0].name, 'orkastery');
     assert.deepEqual(m.plugins.slice(1), ['ork-exemplo', 'ork-segundo'].map((nome) => ({
       name: nome,
-      source: `./${gen.MODS}/${nome}`,
+      source: `./${gen.DESTINOS.mods}/${nome}`,
       description: json(path.join(dir, gen.MODS, nome, '.claude-plugin', 'plugin.json')).description,
       category: listagem.mods.category,
       homepage: listagem.homepage,
     })));
     const pasta = path.join(dir, gen.DESTINOS.claude);
     assert.equal(fs.readdirSync(pasta).includes('mods'), false, 'a pasta do diretorio da Anthropic nao leva mod');
+    for (const arquivo of ['.claude-plugin/plugin.json', 'hooks/hooks.json', 'hooks/register.js', 'orkastery-mod.json', 'test/exemplo.test.tsx']) {
+      const copia = path.join(dir, gen.DESTINOS.mods, 'ork-exemplo', arquivo);
+      assert.ok(fs.readFileSync(copia).equals(fs.readFileSync(path.join(dir, gen.MODS, 'ork-exemplo', arquivo))), arquivo);
+    }
+  });
+});
+
+test('S2b arquivo comum na raiz de mods/ e compartilhado: vai dentro de cada copia; oculto e ignorado; colisao com o mod aponta', () => {
+  comCopia((dir) => {
+    comMod(dir, 'ork-exemplo');
+    comMod(dir, 'ork-ponte');
+    // A lista de autoridade da ponte mora na raiz de mods/ (D6 da thread dela); o marketplace instala so a pasta do mod.
+    fs.writeFileSync(path.join(dir, gen.MODS, 'autoridade.json'), '{"formato":"ork.mods-autoridade/v1"}\n');
+    fs.writeFileSync(path.join(dir, gen.MODS, '.gitkeep'), '');
+    gen.escrever(dir);
+    assert.deepEqual(gen.verificar(dir), [], 'arquivo comum e oculto na raiz nao reprovam');
+    for (const mod of ['ork-exemplo', 'ork-ponte']) {
+      const copia = path.join(dir, gen.DESTINOS.mods, mod);
+      assert.equal(fs.readFileSync(path.join(copia, 'autoridade.json'), 'utf8'), '{"formato":"ork.mods-autoridade/v1"}\n', mod);
+      assert.equal(fs.existsSync(path.join(copia, '.gitkeep')), false, mod);
+    }
+    fs.writeFileSync(path.join(dir, gen.MODS, 'ork-ponte', 'autoridade.json'), '{"proprio":true}\n');
+    gen.escrever(dir);
+    assert.ok(temAchado(gen.verificar(dir), 'mod.compartilhado', /vale o do mod/));
+    assert.equal(fs.readFileSync(path.join(dir, gen.DESTINOS.mods, 'ork-ponte', 'autoridade.json'), 'utf8'), '{"proprio":true}\n');
+    fs.symlinkSync('autoridade.json', path.join(dir, gen.MODS, 'atalho.json'));
+    gen.escrever(dir);
+    assert.ok(temAchado(gen.verificar(dir), 'arquivo.link', /symlink/));
   });
 });
 
@@ -136,7 +165,7 @@ test('S4 entrada de mod escrita a mao no marketplace e listagem sem categoria de
   });
 });
 
-test('S5 a regra da declaracao e a mesma do despacho', () => {
+test('S5 a regra da declaracao no catalogo (o despacho aplica o piso de 2.1.287 por conta propria)', () => {
   assert.equal(gen.problemaDaDeclaracao('{"formato":"ork.mod/v1","papeis":["dono","fase"],"claudeCodeMinimo":"2.1.287"}'), null);
   assert.equal(gen.problemaDaDeclaracao('{"formato":"ork.mod/v1","papeis":["fase"],"claudeCodeMinimo":"3.0.0"}'), null);
   assert.match(gen.problemaDaDeclaracao('{"formato":"ork.mod/v1","papeis":[],"claudeCodeMinimo":"2.1.287"}') ?? '', /papeis/);
