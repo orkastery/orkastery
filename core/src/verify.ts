@@ -243,13 +243,16 @@ export interface ConducaoDoVerify {
   esperarMs?: number;
   /**
    * RM-058 N2 (D10 da ork-rm058n2): a espera pela fila de recursos pesados. Sem ela, `esperarMs` e depois
-   * `ESPERA_DA_FILA_PESADA_MS`; o MCP pede pouco, porque tem prazo total curto.
+   * `ESPERA_PADRAO_DA_FILA_PESADA_MS`: quem verifica por dentro de outro comando (ship, fix, retry, a baseline do
+   * despacho) nunca espera em silencio por muito tempo. O `ork verify` do CLI pede `ESPERA_DA_FILA_PESADA_MS` e avisa.
    */
-  filaPesada?: { esperarMs?: number; aoEsperar?: (ocupantes: OcupanteDaFila[]) => void };
+  filaPesada?: { esperarMs?: number; aoEsperar?: (ocupantes: OcupanteDaFila[]) => void; comandoDeEsperar?: string };
 }
 
-/** RM-058 N2 (D10): quanto o verify espera a vez na fila pesada quando ninguem disse outro prazo. */
+/** RM-058 N2 (D10): quanto o `ork verify` do CLI espera a vez na fila pesada sem `--esperar`. */
 export const ESPERA_DA_FILA_PESADA_MS = 60 * 60 * 1000;
+/** RM-058 N2 (GO-FIX 1, B1 e A9 do CHECK): a espera de quem verifica por dentro de outro comando e nao disse prazo. */
+export const ESPERA_PADRAO_DA_FILA_PESADA_MS = 30_000;
 
 /**
  * RM-058 N2 (D9 e D10 da ork-rm058n2): a rodada inteira na fila de recursos pesados, depois da conducao. O
@@ -259,10 +262,10 @@ export const ESPERA_DA_FILA_PESADA_MS = 60 * 60 * 1000;
 function naFilaPesada<T>(carregado: ManifestoCarregado, threadId: string, operacao: 'verify' | 'baseline',
   conducao: ConducaoDoVerify, executar: (uso: UsoDaFilaPesada) => T): T {
   const cwd = cwdDaThread(carregado.raiz, lerThread(carregado.raiz, threadId));
-  const espera = conducao.filaPesada?.esperarMs ?? conducao.esperarMs ?? ESPERA_DA_FILA_PESADA_MS;
+  const espera = conducao.filaPesada?.esperarMs ?? conducao.esperarMs ?? ESPERA_PADRAO_DA_FILA_PESADA_MS;
   return comRecursoPesado(carregado.raiz, { artefato: cwd, operacao, thread: threadId,
     slots: carregado.manifesto.concurrency.max_parallel_heavy, esperarMs: espera, aoEsperar: conducao.filaPesada?.aoEsperar,
-    comandoDeEsperar: `ork verify ${threadId}${operacao === 'baseline' ? ' --baseline' : ''} --esperar 60` }, executar);
+    comandoDeEsperar: conducao.filaPesada?.comandoDeEsperar }, executar);
 }
 
 /** O pedido de conducao de uma verificacao, com o prazo derivado dos comandos que ela vai rodar (D3). */

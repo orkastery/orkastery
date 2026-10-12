@@ -14,6 +14,11 @@
  * Limites ditos: a fila é da raiz de estado, e outro projeto da mesma máquina tem a sua; o descritor não passa
  * aos filhos, então o processo que morre por SIGKILL solta a vaga mesmo que um comando dele ainda rode até o
  * próprio prazo (o `timeout` do verify o encerra); e só o Linux com `/usr/bin/flock` tem a fila.
+ *
+ * O dono da vez passa aos comandos que roda a marca da posse (`ORK_FILA_PESADA_DONO`): um verify aninhado num
+ * comando dele (a claim que roda `ork verify` de outra thread do mesmo projeto) entra como reentrada, em vez de
+ * esperar a vaga do próprio pai até o prazo. A marca só vale com o dono vivo, ancestral do processo e segurando a
+ * vaga que diz; marca copiada para fora dessa árvore de processos não pula a fila.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -23,6 +28,8 @@ import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
 import { formatarDesde } from './horario';
 
 export const CONTRATO_FILA_PESADA = 'ork.fila-pesada/v1' as const;
+/** A marca da posse que o dono da vez passa aos processos filhos. */
+export const ENV_DONO_DA_FILA = 'ORK_FILA_PESADA_DONO';
 const FLOCK = '/usr/bin/flock';
 const DIR = 'fila-pesada';
 /** Entre uma tentativa e outra. A vez costuma durar minutos; meio segundo não pesa em ninguém. */
@@ -154,10 +161,21 @@ function devolverSenha(dir: string, senha: Senha | null): void {
 
 /**
  * É a vez desta senha? Só quando nenhuma senha anterior segue viva. A de processo morto está destrancada: quem a
- * acha a tranca, apaga e solta, para ela não segurar a fila de ninguém.
+ * acha a tranca, apaga e solta, para ela não segurar a fila de ninguém. A provisória de quem morreu entre criar e
+ * renomear também sai, pelo mesmo teste da trava.
  */
 function minhaVez(dir: string, senha: Senha): boolean {
-  const anteriores = fs.readdirSync(dir).filter(n => /^senha-.+\.lock$/.test(n) && n < senha.nome).sort();
+  const nomes = fs.readdirSync(dir);
+  for (const nome of nomes.filter(n => /^\.senha-.+\.tmp$/.test(n))) {
+    // Entre criar e trancar, a provisória viva fica um instante destrancada: só a velha é de quem morreu.
+    const st = fs.statSync(path.join(dir, nome), { throwIfNoEntry: false });
+    if (!st || Date.now() - st.mtimeMs < 30_000) continue;
+    let fd: number;
+    try { fd = abrirTrava(path.join(dir, nome), false); } catch { continue; }
+    if (trancar(fd)) { try { fs.unlinkSync(path.join(dir, nome)); } catch { /* outro já limpou */ } }
+    fs.closeSync(fd);
+  }
+  const anteriores = nomes.filter(n => /^senha-.+\.lock$/.test(n) && n < senha.nome).sort();
   for (const nome of anteriores) {
     let fd: number;
     try { fd = abrirTrava(path.join(dir, nome), false); } catch { continue; }
@@ -249,6 +267,54 @@ function dormir(ms: number): void {
 /** A vez que este processo segura, por raiz de estado: a reentrada não pede vaga de novo. */
 const emCurso = new Map<string, { slot: number | null }>();
 
+/** O campo 22 do `/proc/<pid>/stat` (instante de início em ticks): com o pid, identifica o processo sem reuso. */
+function inicioDoProcesso(pid: number): string | null {
+  try {
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+    return stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19] ?? null;
+  } catch { return null; }
+}
+
+function paiDe(pid: number): number | null {
+  try {
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+    const pai = Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[1]);
+    return Number.isSafeInteger(pai) && pai > 0 ? pai : null;
+  } catch { return null; }
+}
+
+/** O processo é ancestral deste? Sobe pela cadeia de pais, no máximo 64 degraus. */
+function ancestral(pid: number): boolean {
+  let atual: number | null = process.ppid;
+  for (let i = 0; i < 64 && atual !== null && atual > 1; i++) {
+    if (atual === pid) return true;
+    atual = paiDe(atual);
+  }
+  return false;
+}
+
+/**
+ * A vaga que um processo ancestral segura nesta raiz, pela marca que ele passou; `null` quando a marca não vale: outra
+ * raiz, dono morto ou trocado (pid com outro início), dono que não é ancestral, ou vaga que ele não segura mais.
+ */
+function vagaDoAncestral(chave: string, dir: string): number | null {
+  const bruto = process.env[ENV_DONO_DA_FILA];
+  if (!bruto) return null;
+  let marca: { raiz?: unknown; pid?: unknown; inicio?: unknown; slot?: unknown };
+  try { marca = JSON.parse(bruto) as typeof marca; } catch { return null; }
+  const { pid, slot } = marca;
+  if (marca.raiz !== chave || typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 1 || pid === process.pid ||
+      typeof slot !== 'number' || !Number.isSafeInteger(slot) || slot < 0) return null;
+  if (inicioDoProcesso(pid) !== marca.inicio || !ancestral(pid)) return null;
+  const arquivo = path.join(dir, `vaga-${slot}.lock`);
+  try {
+    if ((JSON.parse(fs.readFileSync(arquivo, 'utf8')) as { pid?: unknown }).pid !== pid) return null;
+  } catch { return null; }
+  let fd: number;
+  try { fd = abrirTrava(arquivo, false); } catch { return null; }
+  try { return trancar(fd) ? null : slot; } finally { fs.closeSync(fd); }
+}
+
 /**
  * Roda `executar` com a vez da fila de recursos pesados desta raiz de estado: a senha de chegada, a trava do
  * artefato e uma das `slots` vagas, todas do kernel. Espera em primeiro plano até `esperarMs` e, sem a vez, lança
@@ -261,6 +327,8 @@ export function comRecursoPesado<T>(raiz: string, pedido: PedidoDeRecursoPesado,
   if (atual) return executar({ situacao: 'reentrada', slot: atual.slot, esperouMs: 0 });
   if (!kernelDisponivel()) return executar({ situacao: 'sem-kernel', slot: null, esperouMs: 0 });
   const dir = dirDaFilaPesada(raiz);
+  const doAncestral = vagaDoAncestral(chave, dir);
+  if (doAncestral !== null) return executar({ situacao: 'reentrada', slot: doAncestral, esperouMs: 0 });
   const inicio = Date.now();
   const prazo = inicio + Math.max(0, pedido.esperarMs);
   let senha: Senha | null = tirarSenha(dir);
@@ -273,8 +341,15 @@ export function comRecursoPesado<T>(raiz: string, pedido: PedidoDeRecursoPesado,
         devolverSenha(dir, senha);
         senha = null;
         emCurso.set(chave, { slot: posse.slot });
+        // Os comandos que rodam dentro da vez herdam a marca da posse: o verify aninhado neles é reentrada.
+        const marcaAnterior = process.env[ENV_DONO_DA_FILA];
+        process.env[ENV_DONO_DA_FILA] = JSON.stringify({ raiz: chave, pid: process.pid, inicio: inicioDoProcesso(process.pid), slot: posse.slot });
         try { return executar({ situacao: 'adquirida', slot: posse.slot, esperouMs: Date.now() - inicio }); }
-        finally { emCurso.delete(chave); soltar(posse); }
+        finally {
+          if (marcaAnterior === undefined) delete process.env[ENV_DONO_DA_FILA]; else process.env[ENV_DONO_DA_FILA] = marcaAnterior;
+          emCurso.delete(chave);
+          soltar(posse);
+        }
       }
       if (Date.now() >= prazo) throw new ErroDaFilaPesada(recusaDaFila(pedido, Date.now() - inicio, ocupantesDaFilaPesada(raiz)));
       if (!avisou) {

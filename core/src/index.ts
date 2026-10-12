@@ -232,7 +232,7 @@ import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
 import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
-import { gravarBaseline, textoDoVerify, verificar } from './verify';
+import { ESPERA_DA_FILA_PESADA_MS, gravarBaseline, textoDoVerify, verificar } from './verify';
 import { ErroDaFilaPesada, OcupanteDaFila } from './fila-pesada';
 import {
   auditarWorktree,
@@ -1411,7 +1411,10 @@ function comandoVerify(args: Args): number {
   // RM-058 N2 (D10): enquanto a fila de recursos pesados nao da a vez, o CLI diz uma vez por quem espera.
   const aoEsperar = (ocupantes: OcupanteDaFila[]) => console.error(m.filaPesadaEsperando(args.opcoes.baseline === true ? 'baseline' : 'verify',
     ocupantes.map((o) => m.filaPesadaOcupante(o.operacao, o.thread, formatarDataHora(o.desde))).join('; ')));
-  const conducao = { ...conducaoDoCli(args), filaPesada: { aoEsperar } };
+  const doCli = conducaoDoCli(args);
+  // O `ork verify` do CLI espera a fila em primeiro plano ate `--esperar` ou 60 min; a recusa sugere o dobro.
+  const conducao = { ...doCli, filaPesada: { aoEsperar, esperarMs: doCli.esperarMs ?? ESPERA_DA_FILA_PESADA_MS,
+    comandoDeEsperar: `ork verify ${id}${args.opcoes.baseline === true ? ' --baseline' : ''} --esperar 120` } };
   if (args.opcoes.baseline === true) {
     // RM-061 (F2b, G2): a baseline e o ledger sao gravados em pt-BR; so a impressao segue o locale.
     const b = comLocale('pt-BR', () => gravarBaseline(carregado, id, undefined, conducao));

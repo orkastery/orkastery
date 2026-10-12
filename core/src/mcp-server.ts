@@ -31,6 +31,7 @@ import {exigirModoVivo,ORDEM_DOS_MODOS} from './modos';
 import {VERSAO_DO_ORK} from './versao';
 import {verificarMcp} from './mcp-verify';
 import { conducaoDaThread, ErroDeConducao } from './conducao';
+import { ErroDaFilaPesada } from './fila-pesada';
 import { registrarDecisao } from './decisao-autonoma';
 import { linhaDeConducao } from './conducao-texto';
 import {criarPerfilShipMcp,PerfilShipMcp,shipMcp} from './mcp-ship';
@@ -332,6 +333,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       } catch(e) {
         // I-36 (T18): a mesma recusa tipada do CLI, com o mesmo texto, sem reescrever nada no host.
         if(e instanceof ErroDeConducao) return {...resposta(e.recusa),isError:true};
+        // RM-058 N2 (A6 do CHECK): a fila pesada que nao deu a vez no prazo responde como a conducao.
+        if(e instanceof ErroDaFilaPesada) return {...resposta(e.recusa),isError:true};
         throw e;
       }
     });

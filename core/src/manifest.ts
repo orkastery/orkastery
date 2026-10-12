@@ -80,9 +80,13 @@ function numero(v: ValorYaml, padrao: number): number {
   return typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v)) ? Number(v) : padrao;
 }
 
-/** RM-058 N2: as vagas da fila pesada, inteiras de 0 a 64; valor sem sentido volta ao padrao 1, nunca a "sem fila". */
+/**
+ * RM-058 N2: as vagas da fila pesada, inteiras de 0 a 64. So o 0 escrito desliga a fila; fracao positiva sobe para 1 e
+ * valor sem sentido volta ao padrao 1, nunca a "sem fila".
+ */
 function vagasPesadas(v: number): number {
-  return Number.isFinite(v) && v >= 0 ? Math.min(64, Math.trunc(v)) : 1;
+  if (!Number.isFinite(v) || v < 0) return 1;
+  return v === 0 ? 0 : Math.min(64, Math.max(1, Math.trunc(v)));
 }
 
 /**

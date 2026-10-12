@@ -43,6 +43,11 @@ export interface OpcoesShip {
   revalidarGit?: (etapa: 'preparar' | 'merge' | 'push', arvore?: string) => void;
   /** Executor interno confiável; não é uma opção de CLI nem argumento MCP. */
   executorVerify?: ExecutorVerify;
+  /**
+   * RM-058 N2 (GO-FIX 1, B1 do CHECK): quanto a verificação do ship espera a fila de recursos pesados. O worker do
+   * `ork_ship` passa o que cabe no prazo dele; sem valor, vale o padrão curto do verify.
+   */
+  esperarFilaPesadaMs?: number;
   /** Executor interno confiável da consulta ao provedor de CI. */
   executorCi?: ExecutorCi;
   /** Branch de destino (`--para main`). */
@@ -531,7 +536,8 @@ export function ship(
   }
 
   // 3. Verificacao independente: reexecuta claims e comandos no HEAD real da thread.
-  const verificacao = verificar(carregado, threadId, { executor: opcoes.executorVerify });
+  const verificacao = verificar(carregado, threadId, { executor: opcoes.executorVerify,
+    conducao: { filaPesada: { esperarMs: opcoes.esperarFilaPesadaMs } } });
   r.verificacao = verificacao;
   if (!verificacao.ok) {
     const motivo = verificacao.motivos.find((m) => m !== 'claims.unverifiable') as MotivoGate;
