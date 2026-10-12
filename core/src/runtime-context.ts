@@ -153,12 +153,18 @@ export function validarContextoRuntime(contexto: ContextoRuntime, cwd: string) {
   const permiteEditarProduto = permissoesFilho === 'worktree' && blocoDaThread(thread,thread.faseAtual).fases.includes('GO');
   // RM-031 KG5 (D2, D7): as tools do grafo seguem a flag do manifesto da raiz, que o servidor do filho tambem le;
   // o manifesto da worktree da thread e o pedido do modelo nao ligam nada.
-  const grafoMcp = grafoLigado(exigirManifesto(raiz).manifesto);
+  const manifestoDaRaiz = exigirManifesto(raiz).manifesto;
+  const grafoMcp = grafoLigado(manifestoDaRaiz);
+  // RM-059 (T10.4, D11 da thread ork-rm059portao): os tetos do piloto de agent teams so vao ao despacho do Claude Code
+  // quando o bloco da fase atual tem o GO, a mesma regra da edicao de produto; o manifesto da raiz decide, nunca o
+  // pedido do modelo. Quem liga de fato e o `montarComando`, e so com o Portao de Tarefas na sessao.
+  const tetos = contexto.host === 'claude-code' ? manifestoDaRaiz.runtime.agent_teams : undefined;
+  const agentTeams = tetos && blocoDaThread(thread, thread.faseAtual).fases.includes('GO') ? { ...tetos } : null;
   const publicVerifiers = publicHitlVerifiers();
   const servidor={...configuracaoServidorMcp(raiz, contexto.host, contexto.threadId,transporteShip,permissoesFilho,contexto.identidade?.dispatchId),
     ...(publicVerifiers ? { env: { [ENV_HITL_VERIFIERS]: publicVerifiers } } : {}),
     ...(contexto.host==='codex' && permissoesFilho==='worktree'?politicasFilhoCodex(perfil.politicasCodex??{}):{})};
-  return { projeto: raiz, instalacao, bootstrap, permissoesFilho, permiteEditarProduto, grafoMcp, servidor, modsDeFase };
+  return { projeto: raiz, instalacao, bootstrap, permissoesFilho, permiteEditarProduto, grafoMcp, servidor, modsDeFase, agentTeams };
 }
 
 /**

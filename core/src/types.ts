@@ -164,6 +164,11 @@ export interface Manifesto {
     provider_policy: string;
     /** Sandbox do runtime codex (`read-only` | `workspace-write` | `danger-full-access`). */
     sandbox: string;
+    /**
+     * RM-059 (T10.4): agent teams no despacho do GO, só no piloto, com o teto de teammates e o de custo da sessão
+     * em dólares. Ausente: desligado, o padrão. Só existe com `ligado: true` e os dois tetos válidos no manifesto.
+     */
+    agent_teams?: { teammates: number; custo_usd: number };
   };
   conduction: {
     default_mode: Modo;
