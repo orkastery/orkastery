@@ -3,8 +3,8 @@
   "maquina": "vps",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T20:45:02.141Z",
+  "versaoOrk": "0.5.6",
+  "publicadoEm": "2026-10-12T20:52:06.772Z",
   "threads": [
     {
       "id": "ork-rm059mensag",
@@ -14,14 +14,19 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm059mensag-full",
-      "atualizadaEm": "2026-10-12T20:20:54.217Z",
+      "atualizadaEm": "2026-10-12T20:49:39.211Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
-      "esforco": "max"
+      "esforco": "max",
+      "sessao": {
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
+      }
     },
     {
       "id": "ork-rm059ritual",
@@ -38,7 +43,12 @@
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
-      "esforco": "max"
+      "esforco": "max",
+      "sessao": {
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
+      }
     },
     {
       "id": "ork-rm060previa",
@@ -55,7 +65,12 @@
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
-      "esforco": "max"
+      "esforco": "max",
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-12T08:37:29.971Z",
+        "motivo": "sessão 82b49aa6 encerrada (done)"
+      }
     },
     {
       "id": "ork-rm060release",
@@ -72,7 +87,12 @@
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
-      "esforco": "max"
+      "esforco": "max",
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-12T11:46:51.603Z",
+        "motivo": "sessão c7133db1 encerrada (done)"
+      }
     },
     {
       "id": "ork-rm061f3b",
@@ -89,7 +109,12 @@
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
-      "esforco": "max"
+      "esforco": "max",
+      "sessao": {
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
+      }
     },
     {
       "id": "ork-sitedelta055",
@@ -106,24 +131,12 @@
       "paradaDesde": "2026-10-12T13:23:23.840Z",
       "runtime": "claude-bg",
       "modelo": "sonnet",
-      "esforco": "high"
-    },
-    {
-      "id": "ork-sitedesign",
-      "nome": "sitedesign",
-      "modo": "#Auto",
-      "fase": "GOAL",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-sitedesign-full",
-      "atualizadaEm": "2026-10-12T19:51:58.245Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
+      "esforco": "high",
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-12T13:24:20.621Z",
+        "motivo": "sessão 13c61036 encerrada (done)"
+      }
     },
     {
       "id": "ork-sitedesignom",
@@ -140,7 +153,12 @@
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
-      "esforco": "max"
+      "esforco": "max",
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-12T20:00:31.158Z",
+        "motivo": "sessão ca8bc4c1 encerrada (done)"
+      }
     },
     {
       "id": "ork-siteorkaste2",
@@ -157,7 +175,12 @@
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
-      "esforco": "max"
+      "esforco": "max",
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-11T00:41:05.661Z",
+        "motivo": "sessão 8a1d5665 sem processo (fantasma)"
+      }
     }
   ]
 }
