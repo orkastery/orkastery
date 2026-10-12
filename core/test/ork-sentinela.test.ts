@@ -4,7 +4,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import * as ts from 'typescript';
-import { envPtBr, projetoTemporario } from './apoio';
+import { lerLedger } from '../src/ledger';
+import { dirThread, novaThread } from '../src/thread';
+import { envPtBr, projetoTemporario, runtimeFalso } from './apoio';
 
 // RM-059 (fatia F6): a Sentinela do Condutor (`ork-sentinela`) testada sem o Claude Code. O sandbox do `ork verify` e o
 // runner do CI nao tem o `claude`, entao a claim hermetica transpila os modulos puros da Sentinela com o compilador do
@@ -14,13 +16,15 @@ import { envPtBr, projetoTemporario } from './apoio';
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const SENTINELA = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-sentinela');
 const CLI = path.resolve(__dirname, '../../dist/index.js');
-const MODULOS_PUROS = ['hooks/vigia.ts'];
+const MODULOS_PUROS = ['hooks/vigia.ts', 'hooks/despacho.ts'];
 /** D2: tudo que a Sentinela chama direto no `$`; o estado passa pelo `read` e pelo `update` do motor. */
-const CHAMADAS_PERMITIDAS = ['ork.papel', 'ork.faixa', 'command.register', 'clock.now', 'clock.after', 'clock.every', 'process.run',
-  'session.id', 'ui.toast'];
+const CHAMADAS_PERMITIDAS = ['ork.papel', 'ork.faixa', 'ork.ler', 'ork.retrato', 'command.register', 'clock.now', 'clock.after',
+  'clock.every', 'process.run', 'session.id', 'state.get', 'state.set', 'ui.toast'];
 const NOUNS_PROIBIDOS = ['mcp', 'store', 'env', 'fs', 'prompt', 'agent', 'tool'];
 /** D2: os unicos construtores de argv da Sentinela, nos modulos puros. */
-const CONSTRUTORES_DE_ARGV = ['argvDoStatus', 'argvDaBatida', 'argvDoDesligar'];
+const CONSTRUTORES_DE_ARGV = ['argvDoStatus', 'argvDaBatida', 'argvDoDesligar', 'argvDoRender', 'argvDoDespacho', 'argvDaRetomada'];
+/** D9: as consultas da lista fechada da ponte que a Sentinela le. */
+const CONSULTAS_PERMITIDAS = ['conducao.status', 'retry.plan'];
 
 type No = { tipo: string; props: Record<string, unknown>; filhos: unknown[] };
 (globalThis as unknown as { h: unknown }).h = (tipo: string, props: Record<string, unknown> | null, ...filhos: unknown[]): No =>
@@ -223,6 +227,12 @@ test('D2: a Sentinela so chama no $ a lista fechada, todo argv sai dos construto
       assert.ok(!NOUNS_PROIBIDOS.includes(c.cadeia[1] ?? ''), `noun proibido: ${onde}`);
       assert.ok(CHAMADAS_PERMITIDAS.includes(chamada), `chamada fora da lista fechada do $: ${onde}`);
       vistas.add(chamada);
+      if (chamada === 'ork.ler') {
+        const pedido = c.no.arguments[0];
+        const consulta = pedido && ts.isObjectLiteralExpression(pedido)
+          ? pedido.properties.find((x): x is ts.PropertyAssignment => ts.isPropertyAssignment(x) && x.name.getText(fonte) === 'consulta') : undefined;
+        assert.ok(consulta && ts.isStringLiteral(consulta.initializer) && CONSULTAS_PERMITIDAS.includes(consulta.initializer.text), `consulta fora da lista: ${onde}`);
+      }
       if (chamada === 'process.run') {
         processos++;
         const argv = c.no.arguments[0];
@@ -233,11 +243,81 @@ test('D2: a Sentinela so chama no $ a lista fechada, todo argv sai dos construto
     // A Sentinela nunca toma a conducao de ninguem: nenhum literal do fonte forma o subcomando de handoff.
     assert.doesNotMatch(fs.readFileSync(arquivo, 'utf8'), /'assumir'/, `${path.relative(raizDoRepo, arquivo)} cita o handoff`);
   }
-  assert.ok(processos >= 3, `process.run achados: ${processos}`);
-  for (const esperada of ['ork.papel', 'ork.faixa', 'process.run', 'session.id', 'command.register', 'clock.every']) assert.ok(vistas.has(esperada), esperada);
+  assert.ok(processos >= 6, `process.run achados: ${processos}`);
+  for (const esperada of ['ork.papel', 'ork.faixa', 'ork.ler', 'ork.retrato', 'process.run', 'session.id', 'command.register', 'clock.every']) {
+    assert.ok(vistas.has(esperada), esperada);
+  }
   const v = carregar('hooks/vigia.ts');
+  const d = carregar('hooks/despacho.ts');
   for (const argv of [v.argvDoStatus(), v.argvDaBatida('s'), v.argvDoDesligar('s')]) {
     assert.deepEqual(argv.slice(0, 3), ['ork', 'conducao', 'sentinela']);
     assert.ok(!argv.includes('assumir'));
   }
+  for (const argv of [d.argvDoRender('ork-a', 'PLAN'), d.argvDoDespacho('ork-a', 'PLAN', 'p', 's'), d.argvDaRetomada('ork-a')]) {
+    assert.ok(!argv.includes('assumir') && !argv.includes('--por') && !argv.includes('--autorizar-push'), argv.join(' '));
+  }
+});
+
+test('despacho: so o passo despachar do #Auto, sem conducao, com fase do ciclo e turno novo; retomar so com bloqueio', () => {
+  const d = carregar('hooks/despacho.ts');
+  const fim = '2026-10-12T14:00:00.000Z';
+  const despachar = (thread: string, extra = {}) => passo(thread, { acao: 'despachar', fase: 'PLAN', desdeEm: fim, ...extra });
+  const passos = [despachar('ork-a'), despachar('ork-b', { conduzida: true }), despachar('ork-c', { modo: 'classic' }), despachar('ork-d', { fase: 'X' }),
+    despachar('ork-e', { desdeEm: null }), despachar('ork-f'), passo('ork-g', { acao: 'avisar' })];
+  assert.equal(d.chaveDoDespacho(passos[0]), `ork-a|PLAN|${fim}`);
+  assert.deepEqual(d.paraDespachar(passos, [`ork-f|PLAN|${fim}`]).map((p: { thread: string }) => p.thread), ['ork-a']);
+  const retomar = (thread: string, extra = {}) => passo(thread, { acao: 'retomar', bloqueio: { motivo: 'runtime.quota-exhausted', em: fim }, ...extra });
+  assert.equal(d.chaveDaRetomada(retomar('ork-a')), `ork-a|runtime.quota-exhausted|${fim}`);
+  assert.deepEqual(d.paraRetomar([retomar('ork-a'), retomar('ork-b', { conduzida: true }), retomar('ork-c', { bloqueio: null }),
+    retomar('ork-d', { modo: 'maestro' }), retomar('ork-e')], [`ork-e|runtime.quota-exhausted|${fim}`]).map((p: { thread: string }) => p.thread), ['ork-a']);
+  assert.equal(d.retomadaAutomatica({ automatica: true, bloqueio: null }), true);
+  for (const nao of [{ automatica: true, bloqueio: 'escalacao.limite' }, { automatica: false, bloqueio: null }, null, 'x']) {
+    assert.equal(d.retomadaAutomatica(nao), false, JSON.stringify(nao));
+  }
+  assert.deepEqual(d.argvDaRetomada('ork-a'), ['ork', 'retry', 'run', 'ork-a']);
+  assert.deepEqual({ ...d.AMBIENTE_DA_RETOMADA }, { ORK_CANAL: 'claude-code' });
+  assert.equal(d.pedidoAbertoNoRetrato({ sections: { hitl: { items: [{ status: 'aberto', refs: [{ kind: 'thread', id: 'ork-a' }], facts: { target: 'gate' } }] } } }, 'ork-a'), true);
+  for (const item of [{ status: 'stale', refs: [{ kind: 'thread', id: 'ork-a' }] }, { status: 'aberto', refs: [{ kind: 'thread', id: 'ork-b' }] },
+    { status: 'aberto', refs: [{ kind: 'thread', id: 'ork-a' }], facts: { target: 'decidido' } }]) {
+    assert.equal(d.pedidoAbertoNoRetrato({ sections: { hitl: { items: [item] } } }, 'ork-a'), false, JSON.stringify(item));
+  }
+  assert.equal(d.pedidoAbertoNoRetrato(null, 'ork-a'), false);
+  for (const [r, esperado] of [[saida(0, 'Fase despachada.\n  sessionId      : 11111111-2222-3333-4444-555555555555\n'), 'despachada'],
+    [saida(0, 'Pedido ja em andamento: a fase PLAN da thread ork-a roda'), 'repetida'], [saida(3, 'Thread ork-a: conduzida'), 'ocupada'],
+    [saida(1, '', 'erro: HITL ocupado; exclusao do kernel'), 'ocupada'], [saida(1, '', 'erro: runtime.unavailable'), 'falhou']] as const) {
+    assert.equal(d.lerDespacho(r).resultado, esperado, JSON.stringify(r));
+  }
+  assert.equal(d.lerDespacho(saida(0, 'x\n  sessionId      : 11111111-2222-3333-4444-555555555555')).detalhe, 'sessão 11111111');
+  assert.throws(() => d.argvDoDespacho('ork-a', 'PLAN', '  ', 's'), /prompt vazio/);
+  assert.throws(() => d.argvDoDespacho('../x', 'PLAN', 'p', 's'), /id de thread invalido/);
+  assert.throws(() => d.argvDoRender('ork-a', 'FIM'), /fase fora do ciclo/);
+});
+
+test('despacho: o render, o phase run e a conducao de verdade casam com a leitura da Sentinela, e o pedido repetido nao abre sessao', (t) => {
+  const v = carregar('hooks/vigia.ts');
+  const d = carregar('hooks/despacho.ts');
+  const p = projetoTemporario('ork-sentinela-despacho');
+  const runtime = runtimeFalso('ork-sentinela-despacho');
+  t.after(() => { runtime.restaurar(); p.limpar(); });
+  const env = envPtBr({ ...process.env, ORK_MAQUINA: 'maquina-de-teste' });
+  for (const nome of ['ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'ORK_CANAL', 'CLAUDECODE', 'ORK_PROJETO']) delete env[nome];
+  const rodar = (argv: string[]) => {
+    const r = spawnSync(process.execPath, [CLI, ...argv.slice(1)], { cwd: p.dir, encoding: 'utf8', env });
+    return { exitCode: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
+  };
+  const { thread } = novaThread(p.carregado, { nome: 'com pedido', modo: 'auto', pedido: 'Implementar a fatia da Sentinela. #Auto' });
+  const { thread: semPedido } = novaThread(p.carregado, { nome: 'sem pedido', modo: 'auto' });
+  assert.match(String((d.promptDoRender(rodar(d.argvDoRender(semPedido.id, 'PLAN'))) as { motivo: string }).motivo), /nao tem o pedido guardado|não tem o pedido guardado/);
+  const render = d.promptDoRender(rodar(d.argvDoRender(thread.id, 'PLAN')));
+  assert.ok('prompt' in render, JSON.stringify(render));
+  assert.match(render.prompt, /Implementar a fatia da Sentinela/);
+  assert.equal(d.conducaoLivre(JSON.parse(rodar(['ork', 'conducao', 'status', thread.id, '--json']).stdout)), true);
+  assert.equal(d.lerDespacho(rodar(d.argvDoDespacho(thread.id, 'PLAN', render.prompt, 'sessao-a'))).resultado, 'despachada');
+  assert.equal(d.conducaoLivre(JSON.parse(rodar(['ork', 'conducao', 'status', thread.id, '--json']).stdout)), false);
+  assert.equal(d.lerDespacho(rodar(d.argvDoDespacho(thread.id, 'PLAN', render.prompt, 'sessao-a'))).resultado, 'repetida');
+  assert.equal(d.lerDespacho(rodar(d.argvDoDespacho(thread.id, 'PLAN', 'outro prompt', 'sessao-a'))).resultado, 'ocupada');
+  assert.equal(runtime.chamadas().length, 1, 'uma sessao so');
+  const despacho = lerLedger(dirThread(p.dir, thread.id)).find((e) => e.tipo === 'phase_dispatch')!;
+  assert.deepEqual([despacho.canal, despacho.correlacao], ['claude-code', 'sentinela:sessao-a']);
+  assert.ok(v.lerStatus(rodar(v.argvDoStatus()), 'sessao-a').passos.some((x: { thread: string; conduzida: boolean }) => x.thread === thread.id && x.conduzida));
 });
