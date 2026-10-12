@@ -8,11 +8,6 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
-- **Item novo de roadmap, RM-062: repositório público sem dado privado** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)):
-  nada privado do dono entra em repositório público, nem em linha, nem em nome de arquivo, nem em JSON de evidência.
-  Quatro fatias: barreira no CI do núcleo e dos sites (padrões genéricos mais uma lista local fora do git), a mesma
-  barreira no `ork verify` e no `ork ci prepare`, nome genérico de máquina na evidência de rede e o relatório honesto de
-  quando algo escapou. Só a página e o registro no índice; o código das fatias vem depois.
 - **Batida da fábrica instalada e vigiada pelo `ork`** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F1):
   `ork fabrica batida instalar|status|remover`. O `instalar` põe no crontab desta máquina, de forma idempotente, a
   linha do template `monitor/pulse.cron` com o checkout canônico (`ORK_PULSE_PROJECT`), o PATH que acha `node`,
@@ -22,6 +17,33 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   (`~/.orkastery/ledger.jsonl`). O `ork doctor` passa a reprovar quando o projeto tem thread aberta e não há batida,
   com ou sem `pulse-host.json`, com a correção `ork fabrica batida instalar`; antes, sem transporte, ele calava, e o
   srvjcp86 ficou de 03/10 a 12/10/2026 sem varredura.
+
+### Corrigido
+
+- **Superfícies honestas: "sigo" só com sessão viva** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F2): o
+  `ork roadmap status` (o fecho "O que eu faço em seguida", também no MCP e na visão da rede) só diz `sigo <thread> na fase <F>` com a sessão viva verificada no runtime (`claude agents --json --all` de cada conta e os rollouts do
+  Codex) ou com o processo do condutor conduzindo agora; sessão fantasma, despacho falho e nenhuma sessão viram
+  `<thread> parada desde HH:MM: <motivo>`. O "O que precisa de você" lê a mesma fila do `ork pulse`
+  (`precisaDeHumanoAgora`, sem forja e sem registrar) e nunca diz "Nada agora" com item do dono nela, nem com a fila
+  lida pela metade; o campo aditivo `filaDoDono` leva os itens no `--json`. O `ork fabrica` e o `FABRICA.md` ganham a
+  coluna da sessão de cada thread (`viva` ou `parada desde HH:MM`), publicada no retrato (`sessao`, opcional). Em
+  12/10/2026 o status disse "Nada agora" e "sigo" com o despacho da K7 morto e o pulse contando 3.
+- **Retry que sempre tem o prompt** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F3): o `ork phase run`
+  grava o prompt e o evento `phase_prompt_recorded` (prompt e sha256) antes de chamar o adaptador; a falha seca do
+  adaptador e a exceção dele viram `gate_blocked runtime.unavailable` com o prompt e o sha256. O `ork retry run`
+  acha o prompt pelo despacho da sessão do gate, pelo próprio gate ou pela tentativa mais recente da fase, localiza o
+  arquivo pelo sha256 (o caminho gravado da worktree não resolvia do checkout) e redespacha o mesmo sha256 sem pedir
+  o texto. Antes saía com "não há despacho falho registrado em GO com prompt gravado".
+
+## [0.5.5] - 2026-10-12
+
+### Adicionado
+
+- **Item novo de roadmap, RM-062: repositório público sem dado privado** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)):
+  nada privado do dono entra em repositório público, nem em linha, nem em nome de arquivo, nem em JSON de evidência.
+  Quatro fatias: barreira no CI do núcleo e dos sites (padrões genéricos mais uma lista local fora do git), a mesma
+  barreira no `ork verify` e no `ork ci prepare`, nome genérico de máquina na evidência de rede e o relatório honesto de
+  quando algo escapou. Só a página e o registro no índice; o código das fatias vem depois.
 - **Freio de Lote, o primeiro mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `adapters/claude-code/mods/ork-freio` acha, a cada lote de ferramentas da sessão de fase, os arquivos que o lote
   mexeu (inclusive por `Bash`, pela diferença do `git status`) e as claims da thread que os citam, pede ao núcleo a
@@ -218,20 +240,6 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
-- **Superfícies honestas: "sigo" só com sessão viva** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F2): o
-  `ork roadmap status` (o fecho "O que eu faço em seguida", também no MCP e na visão da rede) só diz `sigo <thread> na fase <F>` com a sessão viva verificada no runtime (`claude agents --json --all` de cada conta e os rollouts do
-  Codex) ou com o processo do condutor conduzindo agora; sessão fantasma, despacho falho e nenhuma sessão viram
-  `<thread> parada desde HH:MM: <motivo>`. O "O que precisa de você" lê a mesma fila do `ork pulse`
-  (`precisaDeHumanoAgora`, sem forja e sem registrar) e nunca diz "Nada agora" com item do dono nela, nem com a fila
-  lida pela metade; o campo aditivo `filaDoDono` leva os itens no `--json`. O `ork fabrica` e o `FABRICA.md` ganham a
-  coluna da sessão de cada thread (`viva` ou `parada desde HH:MM`), publicada no retrato (`sessao`, opcional). Em
-  12/10/2026 o status disse "Nada agora" e "sigo" com o despacho da K7 morto e o pulse contando 3.
-- **Retry que sempre tem o prompt** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F3): o `ork phase run`
-  grava o prompt e o evento `phase_prompt_recorded` (prompt e sha256) antes de chamar o adaptador; a falha seca do
-  adaptador e a exceção dele viram `gate_blocked runtime.unavailable` com o prompt e o sha256. O `ork retry run`
-  acha o prompt pelo despacho da sessão do gate, pelo próprio gate ou pela tentativa mais recente da fase, localiza o
-  arquivo pelo sha256 (o caminho gravado da worktree não resolvia do checkout) e redespacha o mesmo sha256 sem pedir
-  o texto. Antes saía com "não há despacho falho registrado em GO com prompt gravado".
 - **Prova de mod em sessão de fase** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `core/scripts/prova-mods-sessao-de-fase.cjs` abre a sessão de sonda com `--strict-mcp-config`, como o despacho de fase;
   sem a flag, a sessão parava na aprovação do MCP do projeto e a prova saía inconclusiva. Veredito da T0.1: o mod carrega
@@ -243,6 +251,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   anteriores, porque o histórico não é reescrito.
 
 ## [0.5.4] - 2026-10-12
+
+Não publicada no npm; o conteúdo saiu na 0.5.5.
 
 ### Adicionado
 
