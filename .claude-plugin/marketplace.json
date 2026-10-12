@@ -22,9 +22,23 @@
       "homepage": "https://orkastery.com/"
     },
     {
+      "name": "ork-freio",
+      "source": "./marketplaces/claude-code/mods/ork-freio",
+      "description": "Freio de Lote do Orkastery no Claude Code: na sessão de fase, acha as claims que o lote de ferramentas mexeu, pede ao núcleo a conferência delas no sandbox do verify e devolve o que quebrou no lote seguinte.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
       "name": "ork-ponte",
       "source": "./marketplaces/claude-code/mods/ork-ponte",
       "description": "Ponte dos mods do Orkastery no Claude Code: o papel da sessão, a leitura do núcleo, a faixa e os caminhos vigiados com dono único, e a guarda de autoridade que nenhum mod passa.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-radar",
+      "source": "./marketplaces/claude-code/mods/ork-radar",
+      "description": "Radar de Colisão do Orkastery no Claude Code: o merge de cada thread aberta contra a origin/main e entre as threads, calculado sem worktree e sem gravar objeto no repositório, com os arquivos em conflito, os leases que os cobrem e o comando que resolve. Só lê.",
       "category": "development",
       "homepage": "https://orkastery.com/"
     },
