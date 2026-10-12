@@ -10,12 +10,24 @@
  * relógio. Quem persiste, autentica a origem e confere antes do efeito é `noctum-arco.ts`.
  *
  * Nada aqui liga o modo: `#Noctum` continua fora de `MODOS_LEGADOS`.
+ *
+ * RM-058, fatia N2 (D1 da ork-rm058n2): a `v2` acrescenta o que a `v1` deixou para uma versão nova, a lista
+ * fechada de trabalhos do arco e os limites de concorrência. A `v1` segue valendo como estava, byte a byte, e
+ * um arco autorizado nela não despacha nada.
  */
 import { createHash } from 'node:crypto';
 import { FUSO_DE_BRASILIA, normalizarFuso } from './horario';
 import { RUNTIMES_COM_PERFIL } from './runtime-profiles';
 
 export const CONTRATO_ENVELOPE = 'ork.noctum-envelope/v1' as const;
+export const CONTRATO_ENVELOPE_V2 = 'ork.noctum-envelope/v2' as const;
+export type ContratoDoEnvelope = typeof CONTRATO_ENVELOPE | typeof CONTRATO_ENVELOPE_V2;
+
+/** D1 da ork-rm058n2: a lista do arco é fechada e curta, e cada pedido cabe com folga numa linha do log do arco. */
+export const MAXIMO_DE_TRABALHOS = 30;
+export const TETO_DO_PEDIDO_DO_TRABALHO = 16 * 1024;
+/** Mais sessões que isto numa máquina não limita nada: é a ausência do limite escrita como número. */
+export const MAXIMO_DE_SESSOES_DA_MAQUINA = 64;
 
 /** D3 do dono (12/10/2026): a janela do arco fica entre 6 e 12 horas. */
 export const JANELA_MINIMA_H = 6;
@@ -92,14 +104,41 @@ export interface Orcamento {
 }
 export interface Relatorio { horario: string; canal: CanalDoRelatorio }
 
+/**
+ * D2 da ork-rm058n2: um trabalho do arco é uma thread. A que já existe vem pelo `thread`; a que o arco abre vem
+ * pelo `pedido` do dono, e o vínculo dela é o item mais o sha256 desse pedido, o mesmo que a criação guarda.
+ */
+export interface Trabalho {
+  id: string;
+  item: string;
+  /** 1 vem primeiro. É do dono: a página diz que a prioridade final é dele. */
+  prioridade: number;
+  /** Ids de trabalhos deste mesmo arco que precisam estar entregues antes. */
+  dependeDe: string[];
+  thread?: string;
+  pedido?: string;
+}
+
+/** Limites de sessões ao mesmo tempo. `revisao` são os slots da máquina que só o CHECK usa. */
+export interface Capacidade {
+  maquina: number;
+  porConta: Array<{ conta: string; sessoes: number }>;
+  porRuntime: Array<{ runtime: string; sessoes: number }>;
+  revisao: number;
+}
+
 /** O pedido de abertura. Todo valor dele é do dono; o núcleo não preenche nenhum. */
 export interface PedidoDeAbertura {
-  contrato: typeof CONTRATO_ENVELOPE;
+  contrato: ContratoDoEnvelope;
   arco: string;
   janela: Janela;
   destinos: Destino[];
   orcamento: Orcamento;
   relatorio: Relatorio;
+  /** Só na `v2`. */
+  trabalhos?: Trabalho[];
+  /** Só na `v2`. */
+  capacidade?: Capacidade;
 }
 
 /** O que o dono autoriza: o pedido normalizado mais as exclusões fixas, guardadas para o registro. */
@@ -119,6 +158,9 @@ export interface PedidoDeEfeito {
 }
 
 export const ID_DO_ARCO = /^[a-z0-9][a-z0-9-]{0,62}$/;
+export const ID_DO_TRABALHO = /^[a-z0-9][a-z0-9-]{0,31}$/;
+const ITEM_DO_ROADMAP = /^RM-\d{3}$/;
+const ID_DE_THREAD = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/;
 const ID_DE_CONTA = /^[a-z0-9][a-z0-9._-]{0,62}$/i;
 const REPOSITORIO = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 const BRANCH = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/;
@@ -316,6 +358,150 @@ function lerRelatorio(v: unknown, p: Problemas): Relatorio | undefined {
   return horario && canal ? { horario, canal } : undefined;
 }
 
+/** O sha256 do pedido de um trabalho, o mesmo que a criação da thread guarda (`prepararPedido`). */
+export function shaDoPedido(texto: string): string {
+  return sha256(texto.trim());
+}
+
+/**
+ * D1 e D2 da ork-rm058n2: a lista fechada de trabalhos. A ordem da lista é do dono e entra no hash, porque a
+ * posição desempata a fila (D3); a ordem dentro de `dependeDe` não muda nada e é normalizada.
+ */
+function lerTrabalhos(v: unknown, p: Problemas): Trabalho[] | undefined {
+  if (ausente(v) || (Array.isArray(v) && v.length === 0)) {
+    p.faltas.push('trabalhos (a lista fechada do arco: id, item, prioridade, dependeDe e thread ou pedido)');
+    return undefined;
+  }
+  if (!Array.isArray(v)) { p.invalidos.push('trabalhos: precisa ser lista'); return undefined; }
+  if (v.length > MAXIMO_DE_TRABALHOS) { p.invalidos.push(`trabalhos: até ${MAXIMO_DE_TRABALHOS} por arco`); return undefined; }
+  const lidos: Trabalho[] = [];
+  const ids = new Set<string>(), threads = new Set<string>(), pedidos = new Set<string>();
+  v.forEach((t, i) => {
+    const onde = `trabalhos[${i}]`;
+    if (!objeto(t)) { p.invalidos.push(`${onde}: precisa ser { id, item, prioridade, dependeDe, thread ou pedido }`); return; }
+    chavesConhecidas(t, ['id', 'item', 'prioridade', 'dependeDe', 'thread', 'pedido'], onde, p);
+    let ok = true;
+    if (ausente(t.id)) { p.faltas.push(`${onde}.id`); ok = false; }
+    else if (typeof t.id !== 'string' || !ID_DO_TRABALHO.test(t.id)) { p.invalidos.push(`${onde}.id: letras minúsculas, dígitos e hífen, até 32`); ok = false; }
+    else if (ids.has(t.id)) { p.invalidos.push(`${onde}.id: repetido`); ok = false; }
+    else ids.add(t.id);
+    if (ausente(t.item)) { p.faltas.push(`${onde}.item`); ok = false; }
+    else if (typeof t.item !== 'string' || !ITEM_DO_ROADMAP.test(t.item)) { p.invalidos.push(`${onde}.item: item do roadmap, como RM-058`); ok = false; }
+    if (ausente(t.prioridade)) { p.faltas.push(`${onde}.prioridade`); ok = false; }
+    else if (typeof t.prioridade !== 'number' || !Number.isSafeInteger(t.prioridade) || t.prioridade < 1) {
+      p.invalidos.push(`${onde}.prioridade: inteiro a partir de 1 (o 1 vem primeiro)`); ok = false;
+    }
+    // Nem a lista vazia é presumida: o dono diz que o trabalho não depende de nada.
+    if (t.dependeDe === undefined || t.dependeDe === null) { p.faltas.push(`${onde}.dependeDe (lista, vazia quando não depende de nada)`); ok = false; }
+    else if (!Array.isArray(t.dependeDe) || t.dependeDe.some(d => typeof d !== 'string' || !ID_DO_TRABALHO.test(d))) {
+      p.invalidos.push(`${onde}.dependeDe: lista de ids de trabalhos deste arco`); ok = false;
+    } else if (new Set(t.dependeDe).size !== t.dependeDe.length) { p.invalidos.push(`${onde}.dependeDe: id repetido`); ok = false; }
+    const comThread = !ausente(t.thread), comPedido = !ausente(t.pedido);
+    if (!comThread && !comPedido) { p.faltas.push(`${onde}.thread ou ${onde}.pedido`); ok = false; }
+    else if (comThread && comPedido) { p.invalidos.push(`${onde}: thread ou pedido, nunca os dois`); ok = false; }
+    else if (comThread) {
+      if (typeof t.thread !== 'string' || !ID_DE_THREAD.test(t.thread)) { p.invalidos.push(`${onde}.thread: id de uma thread que já existe`); ok = false; }
+      else if (threads.has(t.thread)) { p.invalidos.push(`${onde}.thread: a mesma thread em dois trabalhos`); ok = false; }
+      else threads.add(t.thread);
+    } else if (typeof t.pedido !== 'string' || !t.pedido.trim()) { p.invalidos.push(`${onde}.pedido: o texto do dono para a thread nova`); ok = false; }
+    else if (Buffer.byteLength(t.pedido.trim(), 'utf8') > TETO_DO_PEDIDO_DO_TRABALHO) {
+      p.invalidos.push(`${onde}.pedido: até ${TETO_DO_PEDIDO_DO_TRABALHO} bytes`); ok = false;
+    } else if (typeof t.item === 'string' && pedidos.has(`${t.item}|${shaDoPedido(t.pedido)}`)) {
+      // O vínculo da thread aberta é o item mais o sha256 do pedido: dois trabalhos iguais seriam a mesma thread.
+      p.invalidos.push(`${onde}.pedido: o mesmo item e o mesmo pedido em dois trabalhos`); ok = false;
+    } else if (typeof t.item === 'string') pedidos.add(`${t.item}|${shaDoPedido(t.pedido)}`);
+    if (ok) {
+      lidos.push({ id: t.id as string, item: t.item as string, prioridade: t.prioridade as number,
+        dependeDe: [...(t.dependeDe as string[])].sort(),
+        ...(comThread ? { thread: t.thread as string } : { pedido: (t.pedido as string).trim() }) });
+    }
+  });
+  if (lidos.length !== v.length) return undefined;
+  for (const t of lidos) {
+    for (const d of t.dependeDe) {
+      if (d === t.id) p.invalidos.push(`trabalho ${t.id}: depende de si mesmo`);
+      else if (!ids.has(d)) p.invalidos.push(`trabalho ${t.id}: depende de ${d}, que não está na lista do arco`);
+    }
+  }
+  // Ciclo: nenhum trabalho do ciclo chegaria a ser entregue, e a fila ficaria bloqueada até o fim da janela.
+  const porId = new Map(lidos.map(t => [t.id, t]));
+  const estado = new Map<string, 'visitando' | 'feito'>();
+  const ciclos = new Set<string>();
+  const visitar = (id: string, caminho: string[]): void => {
+    if (estado.get(id) === 'feito') return;
+    if (estado.get(id) === 'visitando') { ciclos.add([...caminho.slice(caminho.indexOf(id)), id].join(' -> ')); return; }
+    estado.set(id, 'visitando');
+    for (const d of porId.get(id)?.dependeDe ?? []) if (porId.has(d) && d !== id) visitar(d, [...caminho, id]);
+    estado.set(id, 'feito');
+  };
+  for (const t of lidos) visitar(t.id, []);
+  for (const c of ciclos) p.invalidos.push(`trabalhos: dependência em ciclo (${c})`);
+  return lidos;
+}
+
+const inteiroDeSessoes = (v: unknown, minimo: number): boolean =>
+  typeof v === 'number' && Number.isSafeInteger(v) && v >= minimo && v <= MAXIMO_DE_SESSOES_DA_MAQUINA;
+
+/**
+ * D7 da ork-rm058n2: os limites de sessões ao mesmo tempo. Cada conta e cada runtime do orçamento tem o seu, e
+ * nenhum outro entra: a conta e o runtime que o arco pode usar são os que o dono pôs no envelope.
+ */
+function lerCapacidade(v: unknown, orcamento: Orcamento | undefined, p: Problemas): Capacidade | undefined {
+  if (ausente(v)) {
+    p.faltas.push('capacidade.maquina (sessões ao mesmo tempo nesta máquina)', 'capacidade.porConta (sessões por conta)',
+      'capacidade.porRuntime (sessões por runtime)', 'capacidade.revisao (slots que só o CHECK usa)');
+    return undefined;
+  }
+  if (!objeto(v)) { p.invalidos.push('capacidade: precisa ser { maquina, porConta, porRuntime, revisao }'); return undefined; }
+  chavesConhecidas(v, ['maquina', 'porConta', 'porRuntime', 'revisao'], 'capacidade', p);
+  let maquina: number | undefined, revisao: number | undefined;
+  if (ausente(v.maquina)) p.faltas.push('capacidade.maquina (sessões ao mesmo tempo nesta máquina)');
+  else if (!inteiroDeSessoes(v.maquina, 1)) p.invalidos.push(`capacidade.maquina: inteiro de 1 a ${MAXIMO_DE_SESSOES_DA_MAQUINA}`);
+  else maquina = v.maquina as number;
+  if (v.revisao === undefined || v.revisao === null) p.faltas.push('capacidade.revisao (slots que só o CHECK usa; 0 é um valor)');
+  else if (!inteiroDeSessoes(v.revisao, 0)) p.invalidos.push('capacidade.revisao: inteiro a partir de 0');
+  else if (maquina !== undefined && (v.revisao as number) >= maquina) {
+    p.invalidos.push('capacidade.revisao: precisa deixar ao menos um slot da máquina para a execução');
+  } else revisao = v.revisao as number;
+  const lerLimites = <K extends 'conta' | 'runtime'>(bruto: unknown, chave: K, onde: string, doOrcamento: string[] | undefined):
+    Array<Record<K, string> & { sessoes: number }> | undefined => {
+    if (ausente(bruto) || (Array.isArray(bruto) && bruto.length === 0)) { p.faltas.push(`${onde} (sessões por ${chave})`); return undefined; }
+    if (!Array.isArray(bruto)) { p.invalidos.push(`${onde}: precisa ser lista`); return undefined; }
+    const itens: Array<Record<K, string> & { sessoes: number }> = [];
+    const vistos = new Set<string>();
+    bruto.forEach((s, i) => {
+      const aqui = `${onde}[${i}]`;
+      if (!objeto(s)) { p.invalidos.push(`${aqui}: precisa ser { ${chave}, sessoes }`); return; }
+      chavesConhecidas(s, [chave, 'sessoes'], aqui, p);
+      const nome = s[chave];
+      let ok = true;
+      if (ausente(nome)) { p.faltas.push(`${aqui}.${chave}`); ok = false; }
+      else if (typeof nome !== 'string') { p.invalidos.push(`${aqui}.${chave}: texto`); ok = false; }
+      else if (vistos.has(nome.toLowerCase())) { p.invalidos.push(`${aqui}.${chave}: repetido`); ok = false; }
+      else if (doOrcamento && !doOrcamento.includes(nome)) {
+        p.invalidos.push(`${aqui}.${chave}: ${nome} não está no orçamento, e só entra aqui quem tem teto`); ok = false;
+      } else vistos.add(nome.toLowerCase());
+      if (ausente(s.sessoes)) { p.faltas.push(`${aqui}.sessoes`); ok = false; }
+      else if (!inteiroDeSessoes(s.sessoes, 1)) { p.invalidos.push(`${aqui}.sessoes: inteiro de 1 a ${MAXIMO_DE_SESSOES_DA_MAQUINA}`); ok = false; }
+      else if (maquina !== undefined && (s.sessoes as number) > maquina) {
+        // Limite acima da máquina não limita nada: é o limite da máquina disfarçado, como o subteto acima do teto.
+        p.invalidos.push(`${aqui}.sessoes: passa do limite da máquina`); ok = false;
+      }
+      if (ok) itens.push({ [chave]: nome, sessoes: s.sessoes } as Record<K, string> & { sessoes: number });
+    });
+    for (const falta of (doOrcamento ?? []).filter(n => !vistos.has(n.toLowerCase()))) p.faltas.push(`${onde} (${falta}, que está no orçamento)`);
+    return itens.length === bruto.length ? itens.sort((a, b) => a[chave].localeCompare(b[chave], 'en')) : undefined;
+  };
+  const porConta = lerLimites(v.porConta, 'conta', 'capacidade.porConta', orcamento?.porConta.map(s => s.conta));
+  const porRuntime = lerLimites(v.porRuntime, 'runtime', 'capacidade.porRuntime', orcamento?.porRuntime.map(s => s.runtime));
+  return maquina !== undefined && revisao !== undefined && porConta && porRuntime ? { maquina, porConta, porRuntime, revisao } : undefined;
+}
+
+/** O conteúdo traz a lista e os limites da `v2`? Só ele despacha (D1 da ork-rm058n2). */
+export function envelopeComTrabalhos(c: ConteudoDoEnvelope): c is ConteudoDoEnvelope & { trabalhos: Trabalho[]; capacidade: Capacidade } {
+  return c.contrato === CONTRATO_ENVELOPE_V2 && Array.isArray(c.trabalhos) && !!c.capacidade;
+}
+
 /**
  * Valida o pedido de abertura e devolve o conteúdo normalizado que o dono autoriza.
  *
@@ -326,8 +512,11 @@ function lerRelatorio(v: unknown, p: Problemas): Relatorio | undefined {
 export function validarPedidoDeAbertura(v: unknown): ConteudoDoEnvelope {
   const p: Problemas = { faltas: [], ilimitados: [], excluidas: [], invalidos: [] };
   if (!objeto(v)) throw new RecusaDoArco('noctum.envelope.invalido', 'o pedido de abertura precisa ser um objeto');
-  chavesConhecidas(v, ['contrato', 'arco', 'janela', 'destinos', 'orcamento', 'relatorio'], 'pedido', p);
-  if (v.contrato !== CONTRATO_ENVELOPE) p.invalidos.push(`contrato: precisa ser ${CONTRATO_ENVELOPE}`);
+  // Na `v1`, `trabalhos` e `capacidade` continuam campo desconhecido, como antes da N2.
+  const v2 = v.contrato === CONTRATO_ENVELOPE_V2;
+  chavesConhecidas(v, ['contrato', 'arco', 'janela', 'destinos', 'orcamento', 'relatorio', ...(v2 ? ['trabalhos', 'capacidade'] : [])],
+    'pedido', p);
+  if (v.contrato !== CONTRATO_ENVELOPE && !v2) p.invalidos.push(`contrato: precisa ser ${CONTRATO_ENVELOPE} ou ${CONTRATO_ENVELOPE_V2}`);
   let arco: string | undefined;
   if (ausente(v.arco)) p.faltas.push('arco (identificador do arco)');
   else if (typeof v.arco !== 'string' || !ID_DO_ARCO.test(v.arco)) p.invalidos.push('arco: letras minúsculas, dígitos e hífen, até 63');
@@ -336,6 +525,8 @@ export function validarPedidoDeAbertura(v: unknown): ConteudoDoEnvelope {
   const destinos = lerDestinos(v.destinos, p);
   const orcamento = lerOrcamento(v.orcamento, p);
   const relatorio = lerRelatorio(v.relatorio, p);
+  const trabalhos = v2 ? lerTrabalhos(v.trabalhos, p) : undefined;
+  const capacidade = v2 ? lerCapacidade(v.capacidade, orcamento, p) : undefined;
   const partes = [
     p.excluidas.length ? `ação excluída: ${p.excluidas.join('; ')}` : '',
     p.ilimitados.length ? `teto ilimitado não é aceito: ${p.ilimitados.join('; ')}` : '',
@@ -348,8 +539,9 @@ export function validarPedidoDeAbertura(v: unknown): ConteudoDoEnvelope {
         : p.faltas.length ? 'noctum.envelope.valores-ausentes' : 'noctum.envelope.invalido';
     throw new RecusaDoArco(motivo, `${partes.join(' | ')}. Nenhum valor do dono é presumido.`);
   }
-  return { contrato: CONTRATO_ENVELOPE, arco: arco!, janela: janela!, destinos: destinos!, orcamento: orcamento!,
-    relatorio: relatorio!, exclusoes: [...EXCLUSOES_FIXAS] };
+  return { contrato: v2 ? CONTRATO_ENVELOPE_V2 : CONTRATO_ENVELOPE, arco: arco!, janela: janela!, destinos: destinos!,
+    orcamento: orcamento!, relatorio: relatorio!, exclusoes: [...EXCLUSOES_FIXAS],
+    ...(v2 ? { trabalhos: trabalhos!, capacidade: capacidade! } : {}) };
 }
 
 /** JSON com as chaves em ordem: o mesmo conteúdo dá o mesmo hash, qualquer que seja a ordem de entrada. */
@@ -417,7 +609,24 @@ export function resumoDoEnvelope(conteudo: ConteudoDoEnvelope, envelopeSha256: s
     ...conteudo.orcamento.porConta.map(s => `Subteto da conta ${s.conta}: ${teto(s.teto)}`),
     ...conteudo.orcamento.porRuntime.map(s => `Subteto do runtime ${s.runtime}: ${teto(s.teto)}`),
     `Relatório da manhã: ${conteudo.relatorio.horario} (${conteudo.janela.fuso}) por ${conteudo.relatorio.canal}`,
+    ...(envelopeComTrabalhos(conteudo) ? linhasDaV2(conteudo) : []),
     `Nunca entram: ${conteudo.exclusoes.join(', ')}`,
     `Hash do envelope: ${envelopeSha256}`,
+  ];
+}
+
+/** O que a `v2` acrescenta ao resumo: cada trabalho, na ordem do dono, e os limites. O pedido vai pelo começo e pelo hash. */
+function linhasDaV2(c: ConteudoDoEnvelope & { trabalhos: Trabalho[]; capacidade: Capacidade }): string[] {
+  const inicio = (texto: string): string => {
+    const linha = texto.split('\n')[0];
+    return linha.length > 80 ? `${linha.slice(0, 77)}...` : linha;
+  };
+  return [
+    ...c.trabalhos.map(t => `Trabalho ${t.id} (${t.item}), prioridade ${t.prioridade}` +
+      `${t.dependeDe.length ? `, depois de ${t.dependeDe.join(', ')}` : ''}: ` +
+      (t.thread ? `thread ${t.thread}` : `abre uma thread com o pedido "${inicio(t.pedido!)}" (sha256 ${shaDoPedido(t.pedido!).slice(0, 12)})`)),
+    `Sessões ao mesmo tempo: ${c.capacidade.maquina} na máquina, ${c.capacidade.revisao} delas só para revisão`,
+    ...c.capacidade.porConta.map(s => `Sessões ao mesmo tempo na conta ${s.conta}: ${s.sessoes}`),
+    ...c.capacidade.porRuntime.map(s => `Sessões ao mesmo tempo no runtime ${s.runtime}: ${s.sessoes}`),
   ];
 }
