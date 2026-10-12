@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T06:46:23.017Z",
+  "publicadoEm": "2026-10-12T06:47:43.803Z",
   "threads": [
     {
       "id": "ork-rm059clima",
@@ -22,6 +22,23 @@
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max"
+    },
+    {
+      "id": "ork-rm059freio",
+      "nome": "rm059freio",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm059freio-full",
+      "atualizadaEm": "2026-10-12T06:47:43.533Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     },
     {
       "id": "ork-rm059nucleo",
@@ -116,7 +133,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-t01veredito-go",
-      "atualizadaEm": "2026-10-12T06:46:22.770Z",
+      "atualizadaEm": "2026-10-12T06:47:03.285Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
