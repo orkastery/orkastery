@@ -1,9 +1,9 @@
 // O cruzamento do Clima de Cota (RM-059, onda 1, F4; T4.2): a previsao das janelas da conta desta sessao
 // contra os despachos que dependem de cota (a fila de retomada inteira, de `ork retry list --json`, e as
 // threads abertas paradas por cota, no retrato do nucleo) e contra as marcas de esgotamento por conta do
-// registro compartilhado (RM-040). D7, D8, D13 e D14 da thread. Modulo puro: le o que a ponte trouxe, classifica
+// registro compartilhado (RM-040). D7, D8 e D13 a D15 da thread. Modulo puro: le o que a ponte trouxe, classifica
 // e escreve; nenhum `$` passa por aqui.
-import type { ClimaEstado, ClimaPrevisao } from '../types'
+import type { ClimaEstado, ClimaNaoCabe, ClimaPrevisao } from '../types'
 import { duracao, emAlerta, formatarHora, rotuloDaJanela, textoDaFaixa } from './previsao'
 
 /** Uma retomada da fila do nucleo que ainda vai despachar. */
@@ -226,6 +226,13 @@ export function textoDoDespacho(d: ClimaDespacho, fuso: string, agora: number): 
   if (d.classe === 'depois-de-renovar') return `${quem}, depois de ${janela} renovar.`
   if (d.folgaMs !== null) return `${quem}, com ~${duracao(d.folgaMs)} de cota no ritmo atual.`
   return `${quem}.`
+}
+
+/** As retomadas que nao cabiam, como o estado guardou; a entrada fora do formato fica de fora (D15). */
+export function naoCabemGuardados(valor: unknown): ClimaNaoCabe[] {
+  if (!Array.isArray(valor)) return []
+  return valor.filter((n): n is ClimaNaoCabe => !!n && typeof n.id === 'string' && typeof n.thread === 'string'
+    && typeof n.texto === 'string' && typeof n.registrada === 'boolean')
 }
 
 /** O que vai ao registro do mostrado por retomada que nao cabe: so o que nao muda a cada leitura (D13). */

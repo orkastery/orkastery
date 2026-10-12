@@ -70,6 +70,7 @@ test('o contrato declara o estado do Clima sem import nem referencia', () => {
   assert.match(contrato, /interface PluginState \{\s*'ork-clima': \{/);
   assert.match(contrato, /faixa: string \| null/);
   assert.match(contrato, /naoCabem: ClimaNaoCabe\[\]/);
+  assert.match(contrato, /problema: ClimaProblema \| null/);
   assert.doesNotMatch(contrato, /^\s*import\s/m);
   assert.doesNotMatch(contrato, /\/\/\/\s*<reference/);
 });
@@ -116,6 +117,16 @@ test('serie: uma janela por kind, corrida plana compacta, renovacao, janela que 
   // Leitura invalida nao entra.
   const invalidas = [{ kind: '../x', percentUsed: 1 }, { kind: 'five_hour', percentUsed: 'muito' }, { kind: 'five_hour', percentUsed: 5, resetsAt: 'ontem' }, null];
   assert.deepEqual(registrarLeituras(undefined, invalidas, T0).janelas, []);
+  // A leitura com janela fora do formato nao esta completa: as outras janelas guardadas ficam, e o problema tem
+  // uma frase (D15).
+  const incompleta = registrarLeituras(duas, [...sete(6), { kind: 'five_hour', utilization: 10 }], T0 + 10 * MIN);
+  assert.deepEqual(incompleta.janelas.map((j: { kind: string; pontos: unknown[] }) => [j.kind, j.pontos.length]), [['five_hour', 1], ['seven_day', 2]]);
+  const { problemaDaLeitura } = carregar('hooks/previsao.ts');
+  assert.equal(problemaDaLeitura(cinco(10)), null);
+  assert.equal(problemaDaLeitura([]), null);
+  assert.equal(problemaDaLeitura(undefined), 'a medição avisou leitura nova sem a lista de janelas');
+  assert.equal(problemaDaLeitura([...cinco(10), { kind: 'five_hour', utilization: 10 }]), 'a leitura trouxe 1 janela num formato que o Clima não conhece');
+  assert.equal(problemaDaLeitura(invalidas), 'a leitura trouxe 4 janelas num formato que o Clima não conhece');
   // Teto de pontos por janela.
   let longa: unknown = undefined;
   for (let i = 0; i < TETO_DE_PONTOS + 30; i++) longa = registrarLeituras(longa, [{ kind: 'seven_day', percentUsed: i / 10 }], T0 + i * MIN);
@@ -167,10 +178,12 @@ test('ritmo (D13): o valor no inicio do intervalo sai dos pontos que o cercam, e
     const p = ritmo([[T0 - 30 * HORA, sete(70)], [T0 - antes * MIN, sete(70)], [T0, sete(70.1)]], T0);
     assert.deepEqual([p.estado, p.ritmoPorHora], ['folga', 0], `repeticao ${antes} min antes`);
   }
-  // 7 d no comeco da semana: 0,5% e 1% a 15 min um do outro nao dao ritmo, e 5 h de serie tambem nao (D14):
-  // a janela de 7 d so tem ritmo com um dia inteiro de serie, noite incluida. Com 25 h, da.
+  // 7 d no comeco da semana: 0,5% e 1% a 15 min um do outro nao dao ritmo (menos de um sexto do intervalo, 4 h).
+  // Com 5 h de serie ha ritmo, mas a serie jovem so preve ate onde ja observou (D15): 0,5 por hora so acabaria
+  // depois de renovar, e isso e folga. Com 25 h, a serie cobre o intervalo inteiro.
   assert.equal(ritmo([[T0 - 15 * MIN, sete(0.5)], [T0, sete(1)]], T0).estado, 'sem-ritmo');
-  assert.equal(ritmo([[T0 - 5 * HORA, sete(0.5)], [T0, sete(3)]], T0).estado, 'sem-ritmo');
+  const cincoHoras = ritmo([[T0 - 5 * HORA, sete(0.5)], [T0, sete(3)]], T0);
+  assert.deepEqual([cincoHoras.estado, cincoHoras.ritmoPorHora], ['folga', 0.5]);
   assert.equal(ritmo([[T0 - 25 * HORA, sete(0.5)], [T0, sete(3)]], T0).ritmoPorHora, 0.1);
   // Semana de dia util (N1 da revisao 2): 1,5% por hora das 09:00 as 18:00, nada a noite. Na segunda nao ha alerta;
   // na terca as 09:00, com a noite no meio, o ritmo de 0,56 por hora so acabaria depois de renovar.
@@ -184,6 +197,14 @@ test('ritmo (D13): o valor no inicio do intervalo sai dos pontos que o cercam, e
   const terca = segunda + DIA;
   const comTerca = prever(serieDe(registrarLeituras, [...util, [terca, sete(13.5, renovaNaSemana)]]), terca)[0];
   assert.deepEqual([comTerca.estado, comTerca.ritmoPorHora], ['folga', 0.56]);
+  // Serie nova no meio da semana (A1 da revisao 3): 80% e 2 pontos por hora. Com 4 h, o fim (6 h adiante) passa do
+  // que a serie viu; com 5 h, em 90%, o fim fica 5 h adiante e ela preve: acaba na 10a hora, antes de renovar.
+  const meio: Array<[number, unknown[]]> = [];
+  for (let h = 0; h <= 5; h++) meio.push([T0 + h * HORA, sete(80 + 2 * h, T0 + 2 * DIA)]);
+  const comQuatro = prever(serieDe(registrarLeituras, meio.slice(0, 5)), T0 + 4 * HORA)[0];
+  assert.deepEqual([comQuatro.estado, comQuatro.ritmoPorHora, comQuatro.acabaEm], ['sem-ritmo', 2, null]);
+  const comCinco = prever(serieDe(registrarLeituras, meio), T0 + 5 * HORA)[0];
+  assert.deepEqual([comCinco.estado, comCinco.acabaEm], ['acaba-antes', T0 + 10 * HORA]);
   // A compactacao da corrida plana nao muda o ritmo: com ou sem o ponto do meio, o mesmo resultado.
   const com = [[T0 - 30 * HORA, sete(70)], [T0 - 20 * HORA, sete(70)], [T0 - 10 * MIN, sete(70)], [T0, sete(70.1)]] as Array<[number, unknown[]]>;
   const sem = [com[0], com[2], com[3]] as Array<[number, unknown[]]>;
@@ -200,6 +221,10 @@ test('ritmo (D13): o valor no inicio do intervalo sai dos pontos que o cercam, e
   const umaHora = ritmo([[T0, cinco(0, T0 + 5 * HORA)], [T0 + HORA, cinco(60, T0 + 5 * HORA)], [T0 + 2 * HORA, cinco(70, T0 + 5 * HORA)]], T0 + 2 * HORA);
   assert.equal(umaHora.ritmoPorHora, 10);
   assert.equal(ritmoDaJanela({ kind: 'five_hour', pontos: [] }), null);
+  // Janela fora da tabela (S2 da revisao 3): intervalo de 60 min, e a serie jovem precisa de um sexto dele, 10 min.
+  const gasto = (pct: number) => [{ kind: 'spend_limit', percentUsed: pct, resetsAt: iso(T0 + DIA) }];
+  assert.equal(ritmo([[T0 - 9 * MIN, gasto(10)], [T0, gasto(12)]], T0).ritmoPorHora, null);
+  assert.equal(ritmo([[T0 - 10 * MIN, gasto(10)], [T0, gasto(12)]], T0).ritmoPorHora, 12);
 });
 
 test('formato: hora truncada no fuso explicito, outro dia e outro ano, distancias como o nucleo escreve', () => {
@@ -239,6 +264,10 @@ test('faixa (D5, D13): so no alerta, em degraus e com a hora arredondada, o que 
   // E nunca passa da renovacao (N2 da revisao 2): renovacao as 16:40 e esgotamento as 16:3x dao 16:30.
   const ate1640 = registrarLeituras(registrarLeituras(undefined, cinco(60, T0 + 160 * MIN), T0), cinco(70, T0 + 160 * MIN), T0 + 38 * MIN);
   assert.equal(textoDaFaixa(prever(ate1640, T0 + 38 * MIN), FUSO, T0 + 38 * MIN), '5 h com 70% ou mais, acaba ~16:30, renova 16:40');
+  // O fim que, para baixo, nao fica depois da leitura vira `acaba em instantes` (S1 da revisao 3): 90% as 13:55 e
+  // 98% as 14:05 acabam as 14:07:30.
+  const ja = registrarLeituras(registrarLeituras(undefined, cinco(90), T0 - 5 * MIN), cinco(98), T0 + 5 * MIN);
+  assert.equal(textoDaFaixa(prever(ja, T0 + 5 * MIN), FUSO, T0 + 5 * MIN), '5 h com 90% ou mais, acaba em instantes, renova 17:00');
   assert.equal(textoDaFaixa(prever(alerta, T0 + 30 * MIN), FUSO, T0 + 30 * MIN, ['ork-x']), 'não cabe: ork-x; 5 h com 70% ou mais, acaba ~16:00, renova 17:00');
   assert.match(textoDaFaixa(prever(alerta, T0 + 30 * MIN), FUSO, T0 + 30 * MIN, ['a', 'b', 'c', 'd', 'e']), /^não cabe: a, b, c e mais 2; /);
   const longo = textoDaFaixa(prever(alerta, T0 + 30 * MIN), FUSO, T0 + 30 * MIN, ['ork-' + 'x'.repeat(75), 'ork-' + 'y'.repeat(75), 'ork-' + 'z'.repeat(75)]);
@@ -272,6 +301,12 @@ test('/clima: cada janela com ritmo, previsao, renovacao, distancias e hora da l
   const lenta = serieDe(registrarLeituras, [[T0 - 30 * HORA, sete(40)], [T0, sete(41.2)]]);
   assert.match(textoDoClima(prever(lenta, T0), FUSO, T0), /- 7 d: 41,2%, ritmo de 0,04 pontos por hora, folga no ritmo atual/);
   assert.match(textoDoClima([], FUSO, T0), /Sem leitura de cota ainda\..*só existe em conta de assinatura/);
+  // Com problema guardado, a falta de leitura nao e atribuida a conta, e o problema vem com a hora (D15).
+  const problema = { motivo: 'a medição falhou (x)', em: T0, daLeitura: false };
+  const comProblema = textoDoClima([], FUSO, T0 + 5 * MIN, [], problema);
+  assert.match(comProblema, /Sem leitura de cota guardada\.\nA medição falhou \(x\) às 14:00\./);
+  assert.doesNotMatch(comProblema, /assinatura/);
+  assert.match(textoDoClima(prever(s, T0 + 40 * MIN), FUSO, T0 + 40 * MIN, [], { ...problema, em: null }), /Lida às 14:30\.\nA medição falhou \(x\)\.\n/);
   assert.equal(textoForaDoDono('fase'), 'O Clima de Cota só roda na sessão do dono de um projeto do Orkastery; o papel desta sessão é fase.');
   assert.match(textoForaDoDono('dormente'), /é dormente\. Se o servidor orkastery ainda está conectando, tente de novo em instantes\.$/);
   assert.equal(TEXTO_SEM_PONTE, 'O Clima de Cota depende da ponte ork-ponte, que não respondeu nesta sessão; confira se ela está instalada e carregada.');
@@ -289,6 +324,10 @@ test('cruzamento: a fila inteira com a ultima gravacao de cada id, as threads ab
     { id: 'R70', thread: 'ork-k', liberaEm: T0 + HORA, tentativas: 1 },
   ]);
   assert.equal(c.retomadasDaFila({ nao: 'lista' }), null);
+  // O estado das que nao cabem volta validado: entrada fora do formato fica de fora (D15).
+  assert.deepEqual(c.naoCabemGuardados([{ id: 'R3', thread: 'ork-x', texto: 't', registrada: false }, { id: 'R4', thread: 'ork-y' }, null]),
+    [{ id: 'R3', thread: 'ork-x', texto: 't', registrada: false }]);
+  assert.deepEqual(c.naoCabemGuardados(undefined), []);
   assert.deepEqual(c.threadsAbertas({ todas: false, threads: [{ id: 'ork-a', status: 'aberta' }, { id: 'ork-b', status: 'fechada' }] }), ['ork-a']);
   assert.equal(c.threadsAbertas([]), null);
   const retrato = { sections: { blockers: { state: 'unavailable', coverage: { nextOffset: 50 },

@@ -1,8 +1,8 @@
 // O Clima de Cota (RM-059, onda 1, F4; T4.1): a serie das janelas de limite da conta desta sessao e a
-// previsao de quando cada uma acaba no ritmo atual (D4 a D6 e D12 a D14 da thread). Modulo puro: so dados
+// previsao de quando cada uma acaba no ritmo atual (D4 a D6 e D12 a D15 da thread). Modulo puro: so dados
 // entram e saem, para o teste do nucleo transpila-lo sem o Claude Code. Nenhum `$` passa por aqui, e o
 // fuso chega explicito: quem chama decide qual e.
-import type { ClimaEstado, ClimaJanela, ClimaPonto, ClimaPrevisao, ClimaSerie } from '../types'
+import type { ClimaEstado, ClimaJanela, ClimaPonto, ClimaPrevisao, ClimaProblema, ClimaSerie } from '../types'
 
 export const FORMATO_DA_SERIE = 'ork.clima-serie/v1'
 /** A chave da serie no `$.store` do mod, que dura entre sessoes. */
@@ -20,15 +20,16 @@ export const INTERVALO_DO_RITMO_MS: Readonly<Record<string, number>> = {
 }
 export const INTERVALO_PADRAO_DO_RITMO_MS = 60 * 60 * 1000
 /**
- * Serie mais nova que o intervalo so tem ritmo quando a primeira e a ultima leitura distam ao menos isto: 10 min
- * na janela de 5 h (D13) e um dia inteiro na de 7 d, para o ritmo do dia util nao valer pela madrugada (D14).
+ * Serie mais nova que o intervalo so tem ritmo com esta fracao dele entre a primeira e a ultima leitura: 10 min
+ * na janela de 5 h e 4 h na de 7 d (D13).
  */
-export const MINIMO_DA_SERIE_JOVEM_MS: Readonly<Record<string, number>> = {
-  five_hour: 10 * 60 * 1000,
-  seven_day: 24 * 60 * 60 * 1000,
-}
-/** Nas outras janelas, a serie jovem precisa desta fracao do intervalo. */
 export const FRACAO_MINIMA_DO_INTERVALO = 6
+/**
+ * Nestas janelas, a serie mais nova que o intervalo so preve o esgotamento ate a distancia que ela ja observou:
+ * o ritmo de quatro horas de dia util nao vale pela madrugada (D14), e a serie nova no meio da semana ainda
+ * avisa quando o fim esta perto (D15).
+ */
+export const JANELAS_COM_HORIZONTE: readonly string[] = ['seven_day']
 /** A partir deste percentual a faixa avisa mesmo sem ritmo (D5). */
 export const LIMIAR_DE_ATENCAO = 90
 /** Na faixa, o percentual vai em degraus e a hora de acabar vai arredondada, para o texto nao mudar a cada ponto (D13). */
@@ -71,8 +72,18 @@ export function intervaloDoRitmo(kind: string): number {
 
 /** Quanto de serie a janela precisa antes de ter ritmo, enquanto e mais nova que o intervalo. */
 export function minimoDaSerieJovem(kind: string): number {
-  return Object.prototype.hasOwnProperty.call(MINIMO_DA_SERIE_JOVEM_MS, kind) ? (MINIMO_DA_SERIE_JOVEM_MS[kind] as number)
-    : intervaloDoRitmo(kind) / FRACAO_MINIMA_DO_INTERVALO
+  return intervaloDoRitmo(kind) / FRACAO_MINIMA_DO_INTERVALO
+}
+
+/**
+ * Ate onde a serie jovem preve, nas janelas com horizonte: o tempo entre a primeira e a ultima leitura. `null`
+ * quando a serie ja cobre o intervalo inteiro ou a janela nao tem horizonte (D15).
+ */
+export function horizonteDaSerie(j: Pick<ClimaJanela, 'kind' | 'pontos'>): number | null {
+  const ultimo = j.pontos[j.pontos.length - 1]
+  const primeiro = j.pontos[0]
+  if (ultimo === undefined || primeiro === undefined || !JANELAS_COM_HORIZONTE.includes(j.kind)) return null
+  return primeiro.em >= ultimo.em - intervaloDoRitmo(j.kind) ? ultimo.em - primeiro.em : null
 }
 
 /** A leitura conferida, ou `null` quando ela nao serve (kind estranho, percentual que nao e numero, data ruim). */
@@ -127,14 +138,28 @@ function acrescentar(pontos: readonly ClimaPonto[], novo: ClimaPonto): ClimaPont
 }
 
 /**
+ * O que a medicao trouxe fora do formato, numa frase, ou `null` quando tudo serviu: a lista de janelas que nem e
+ * lista, ou as janelas que `conferirLeitura` descarta. Sem isso, um campo renomeado no motor apagaria o Clima
+ * calado (D15).
+ */
+export function problemaDaLeitura(leituras: unknown): string | null {
+  if (!Array.isArray(leituras)) return 'a medição avisou leitura nova sem a lista de janelas'
+  const descartadas = leituras.filter(l => conferirLeitura(l) === null).length
+  if (descartadas === 0) return null
+  return `a leitura trouxe ${descartadas === 1 ? '1 janela' : `${descartadas} janelas`} num formato que o Clima não conhece`
+}
+
+/**
  * Grava as leituras de uma medicao em que as janelas mudaram: uma serie por `kind`, serie nova quando a
  * janela renova (o `resetsAt` muda ou o percentual cai), tetos de pontos e de janelas (D4). A medicao traz
- * todas as janelas da conta, entao a janela vencida e a que saiu da leitura deixam a serie (D13).
+ * todas as janelas da conta, entao a janela vencida e a que saiu da leitura deixam a serie (D13). Com janela
+ * fora do formato a leitura nao esta completa, e as outras janelas guardadas ficam (D15).
  */
 export function registrarLeituras(guardado: unknown, leituras: readonly unknown[] | undefined, agora: number): ClimaSerie {
-  const lidas = (leituras ?? []).map(conferirLeitura).filter((l): l is NonNullable<ReturnType<typeof conferirLeitura>> => l !== null)
+  const brutas = leituras ?? []
+  const lidas = brutas.map(conferirLeitura).filter((l): l is NonNullable<ReturnType<typeof conferirLeitura>> => l !== null)
   const anteriores = lerSerie(guardado).janelas.filter(j => !vencida(j, agora))
-  const janelas: ClimaJanela[] = []
+  const janelas: ClimaJanela[] = lidas.length === brutas.length ? [] : anteriores.filter(a => !lidas.some(l => l.kind === a.kind))
   for (const l of lidas) {
     if (janelas.some(j => j.kind === l.kind)) continue
     const anterior = anteriores.find(j => j.kind === l.kind)
@@ -193,7 +218,13 @@ export function prever(guardado: unknown, agora: number): ClimaPrevisao[] {
     else if (ritmoPorMs <= 0) estado = 'folga'
     else {
       acabaEm = Math.round(ultimo.em + (100 - ultimo.pct) / ritmoPorMs)
-      estado = j.renovaEm !== null && acabaEm >= j.renovaEm ? 'folga' : 'acaba-antes'
+      const horizonte = horizonteDaSerie(j)
+      if (j.renovaEm !== null && acabaEm >= j.renovaEm) estado = 'folga'
+      else if (horizonte !== null && acabaEm - ultimo.em > horizonte) {
+        // A serie jovem nao preve alem do que ja observou (D15).
+        estado = 'sem-ritmo'
+        acabaEm = null
+      } else estado = 'acaba-antes'
     }
     previsoes.push({
       kind: j.kind, rotulo: rotuloDaJanela(j.kind), pct: ultimo.pct, lidaEm: ultimo.em, renovaEm: j.renovaEm,
@@ -269,14 +300,16 @@ export function percentualEmDegrau(pct: number): string {
 
 /**
  * O trecho de uma janela na faixa: percentual em degraus e hora de acabar arredondada para baixo ao quarto de
- * hora (D13), que assim nunca passa da renovacao (D14).
+ * hora (D13), que assim nunca passa da renovacao (D14). A hora que nao fica depois da leitura vira `acaba em
+ * instantes` (D15).
  */
 function trechoDaFaixa(p: ClimaPrevisao, fuso: string, agora: number): string {
   const renova = p.renovaEm === null ? '' : `, renova ${formatarHora(p.renovaEm, fuso, agora)}`
   if (p.estado === 'esgotada') return `${p.rotulo} esgotou${renova}`
   if (p.estado === 'acaba-antes' && p.acabaEm !== null) {
     const acaba = Math.floor(p.acabaEm / PASSO_DA_HORA_NA_FAIXA_MS) * PASSO_DA_HORA_NA_FAIXA_MS
-    return `${p.rotulo} com ${percentualEmDegrau(p.pct)}, acaba ~${formatarHora(acaba, fuso, agora)}${renova}`
+    const quando = acaba > p.lidaEm ? `acaba ~${formatarHora(acaba, fuso, agora)}` : 'acaba em instantes'
+    return `${p.rotulo} com ${percentualEmDegrau(p.pct)}, ${quando}${renova}`
   }
   return `${p.rotulo} com ${percentualEmDegrau(p.pct)}${renova}`
 }
@@ -318,14 +351,27 @@ export function linhaDaJanela(p: ClimaPrevisao, fuso: string, agora: number): st
   return `- ${p.rotulo}: ${numeroBr(p.pct)}%, ${ritmo}, ${previsao}, ${renova}. Lida ${quandoLida(p.lidaEm, fuso, agora)}.`
 }
 
-/** O texto do `/clima`: as janelas da conta desta sessao, o que vier depois delas e o aviso de autoridade. */
-export function textoDoClima(previsoes: readonly ClimaPrevisao[], fuso: string, agora: number, extras: readonly string[] = []): string {
+/** O problema da ultima medicao numa linha: `A medicao falhou (...) as 14:30.` (D15). */
+export function textoDoProblema(p: ClimaProblema, fuso: string, agora: number): string {
+  const quando = p.em === null ? '' : ` ${quandoLida(p.em, fuso, agora)}`
+  return `${p.motivo.charAt(0).toUpperCase()}${p.motivo.slice(1)}${quando}.`
+}
+
+/**
+ * O texto do `/clima`: as janelas da conta desta sessao, o problema da ultima medicao, o que vier depois e o aviso
+ * de autoridade. Com problema guardado, a falta de leitura nao e atribuida a conta (D15).
+ */
+export function textoDoClima(previsoes: readonly ClimaPrevisao[], fuso: string, agora: number, extras: readonly string[] = [],
+  problema: ClimaProblema | null = null): string {
   const linhas = ['Clima de cota da conta desta sessão']
-  if (previsoes.length === 0) {
+  if (previsoes.length > 0) {
+    for (const p of previsoes) linhas.push(linhaDaJanela(p, fuso, agora))
+  } else if (problema === null) {
     linhas.push('Sem leitura de cota ainda. A leitura chega na medição depois de uma resposta da API desta sessão, e só existe em conta de assinatura.')
   } else {
-    for (const p of previsoes) linhas.push(linhaDaJanela(p, fuso, agora))
+    linhas.push('Sem leitura de cota guardada.')
   }
+  if (problema !== null) linhas.push(textoDoProblema(problema, fuso, agora))
   return [...linhas, ...extras, AVISO_DE_AUTORIDADE].join('\n')
 }
 
@@ -337,6 +383,8 @@ export function textoForaDoDono(papel: string): string {
 
 /** O `/clima` sem a ponte, de quem o Clima depende para tudo; o erro interno nao vai ao dono (D13). */
 export const TEXTO_SEM_PONTE = 'O Clima de Cota depende da ponte ork-ponte, que não respondeu nesta sessão; confira se ela está instalada e carregada.'
+/** O mesmo motivo, como problema da medicao (D15). */
+export const MOTIVO_SEM_PONTE = 'a ponte ork-ponte não respondeu; confira se ela está instalada e carregada'
 
 /** O motivo de um erro em uma linha curta. */
 export function motivoDoErro(erro: unknown): string {
