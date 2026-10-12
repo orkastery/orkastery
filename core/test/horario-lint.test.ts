@@ -132,7 +132,6 @@ const EXCECOES: { arquivo: string; trecho: string; razao: string }[] = [
   { arquivo: 'retry.ts', trecho: ': fila duravel ate ${liberaEm}', razao: 'razao gravada no evento runtime_profile_rotated' },
   { arquivo: 'retry.ts', trecho: 'aguarde ate ${pedido.liberaEm})', razao: 'correcao gravada no evento rate_limit_enqueued, como a de phase.ts' },
   { arquivo: 'retry.ts', trecho: 'fila duravel: pedido ${pedido.id} libera em ${pedido.liberaEm}', razao: 'detalhe gravado no evento retry_tentado' },
-  { arquivo: 'pulse.ts', trecho: 'sem heartbeat desde ${o.ultimoHeartbeatEm}', razao: 'pergunta entra na assinatura de deduplicação; texto e mensagem localizam' },
   { arquivo: 'leases.ts', trecho: 'desde ${dono.adquiridoEm}', razao: 'detalhe de lease.busy devolvido e gravado; o CLI localiza' },
   { arquivo: 'phase.ts', trecho: 'aguarde ate ${pedido.liberaEm})', razao: 'correção gravada no evento rate_limit_enqueued' },
   { arquivo: 'orquestracao.ts', trecho: '(${p.liberaEm}, ', razao: 'detalhe do JSON do monitor guarda ISO; linhaDaParada localiza' },

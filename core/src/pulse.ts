@@ -14,6 +14,7 @@ import { lerLedger } from './ledger';
 import { FASES, MonitorDeOrquestracao, RadarDeSessoes, Thread, EventoLedger } from './types';
 import { agora } from './util';
 import { formatarDataHoraRotulada, localizarTexto } from './horario';
+import { msg, remontar, textoDoCatalogo } from './locale';
 import { apresentarHitl, ApresentacaoHitl, ofertaDoPedido, pedidoHitlAberto } from './hitl-presentation';
 import { alvoDoPedido, chaveDaEscolha, ehV2, escolhasDoPedido, PedidoHitlQualquer,
   recomendacaoDoPedido, textoDoPedido } from './hitl-contract';
@@ -224,7 +225,7 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
     if (ehRegistro(o.thread)) continue;
     const item: ItemPulse={id:`orfa:${o.thread}:${o.fase}:${o.sessionId}`,classe:o.classe,motivo:o.motivo,
       thread:o.thread,fase:o.fase,sessionId:o.sessionId,desdeEm:o.desdeEm,paradaHaMin:minutos(o.desdeEm,quando),
-      impacto:impacto(o.fase),pergunta:`Fase ${o.fase} sem heartbeat desde ${o.ultimoHeartbeatEm}.`,
+      impacto:impacto(o.fase),pergunta:textoDoCatalogo((m) => m.pulse.semHeartbeat(o.fase, o.ultimoHeartbeatEm)),
       opcoes:[],recomendacao:o.retry.razao,
       comandoResposta:o.retry.automatica?`ork retry run ${o.thread} --motivo runtime.silencio --fase ${o.fase}`:
         `ork retry plan ${o.thread} --motivo runtime.silencio --fase ${o.fase}`,
@@ -272,10 +273,11 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
   const diagnosticos: string[] = [];
   const quando=opcoes.quando??agora();
   const consulta=opcoes.consulta??(opcoes.semRuntime
-    ? {ok:false,sessoes:[],detalhe:'runtime não consultado por --sem-runtime'} : consultarSessoes(undefined,true));
+    ? {ok:false,sessoes:[],detalhe:textoDoCatalogo((m) => m.pulse.semRuntime)} : consultarSessoes(undefined,true));
   const estados=consulta.ok?new Map(consulta.sessoes.map(s=>[s.sessionId??'',estadoBruto(s)])):null;
   const radar=varrerSessoes({raiz:carregado.raiz,consulta,agora:quando,registrar:opcoes.registrar,escopo:opcoes.escopo,linhasLogs:opcoes.linhasLogs});
-  if (radar.telasAdiadas) diagnosticos.push(`radar.orcamento: ${radar.telasAdiadas} tela(s) de sessão ficaram para a próxima varredura`);
+  const telasAdiadas = radar.telasAdiadas;
+  if (telasAdiadas) diagnosticos.push(textoDoCatalogo((m) => m.pulse.telasAdiadas(telasAdiadas)));
   // Falha de observação não prova silêncio: Claude indisponível preserva sua guarda de HITL e Codex mantém sua coleta independente.
   const orfas=detectarFasesOrfas(carregado,{quando,registrar:opcoes.registrar,escopo:opcoes.escopo,diagnosticos,
     fontes:opcoes.fontes,estados:estados??undefined,runtimes:consulta.ok?undefined:['codex']});
@@ -306,7 +308,9 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
     } else if (leitura && !leitura.ok) diagnosticos.push(`prs.nao-lidos: ${leitura.erro.slice(0, 160)}`);
   } catch (e) { diagnosticos.push(`entregas.indisponiveis: ${(e as Error).message.slice(0, 120)}`); }
   const pulse = comporPulse(carregado,{radar,monitor,orfas,batch:pendentesDeScore(carregado.raiz),...(entregas?{entregas}:{})});
-  const conducoes = monitor.linhas.filter((l) => l.conducao).map((l) => ({ thread: l.thread, linha: linhaDeConducao(l.conducao!, { agora: quando }) }));
+  // RM-061 (F2b, G2): a linha de conducao e da familia `thread` e segue o locale ativo; o JSON a guarda em pt-BR.
+  const conducoes = monitor.linhas.filter((l) => l.conducao)
+    .map((l) => ({ thread: l.thread, linha: textoDoCatalogo(() => linhaDeConducao(l.conducao!, { agora: quando })) }));
   if (conducoes.length > 0) pulse.conducoes = conducoes;
   // B4: a metade que presta contas. Leitura pura; falhar aqui nunca derruba a fila de atencao.
   try {
@@ -323,35 +327,39 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
 }
 
 export function textoDoPulse(p: Pulse): string {
+  const m = msg().pulse;
   // I-35: o pulse guarda ISO; o texto ao dono sai no fuso dele, rotulado no cabeçalho.
-  const local = (texto: string) => localizarTexto(texto, { agora: p.consultadoEm });
-  const linhas=[`Pulse (${p.contrato}) ${formatarDataHoraRotulada(p.consultadoEm, { agora: p.consultadoEm })}`,`Precisa de humano agora: ${p.resumo.humanos}`, `${p.resumo.scores} entrega(s) sem nota, aceitas por padrão com registro`];
+  // RM-061 (F2b, G2): o que o pulse montou pelo catalogo sai remontado; o resto (pedido HITL, ledger) como veio.
+  const local = (texto: string) => localizarTexto(remontar(texto), { agora: p.consultadoEm });
+  // O detalhe do runtime junta partes separadas por "; ": cada uma e remontada.
+  const detalhe = (texto: string) => localizarTexto(texto.split('; ').map(remontar).join('; '), { agora: p.consultadoEm });
+  const linhas=[m.cabecalho(p.contrato, formatarDataHoraRotulada(p.consultadoEm, { agora: p.consultadoEm })),m.precisaDeHumano(p.resumo.humanos), m.semNota(p.resumo.scores)];
   // RM-037 (fatia 4): PR nao lido tambem e dito, para a falta de linha do condutor nao parecer "nada parado".
   if(p.runtime.ok && ['liveness.snapshot.invalid', 'prs.nao-lidos', 'prs.sem-leitura', 'entregas.indisponiveis'].some(d => p.runtime.detalhe.includes(d))) {
-    linhas.push(`[diagnostico] ${local(p.runtime.detalhe)}`);
+    linhas.push(m.diagnostico(detalhe(p.runtime.detalhe)));
   }
-  if(!p.runtime.ok) linhas.push(`[consulta incompleta] ${local(p.runtime.detalhe)}`);
+  if(!p.runtime.ok) linhas.push(m.consultaIncompleta(detalhe(p.runtime.detalhe)));
   for(const i of p.precisaDeHumanoAgora) {
-    linhas.push('',`${i.thread??i.sessionId} [${i.classe}] ${i.paradaHaMin==null?'desconhecido':i.paradaHaMin<1?'menos de 1':i.paradaHaMin} min`,local(i.pergunta),
-      ...i.opcoes.map(o=>`  opção: ${o}`),`Recomendação: ${i.recomendacao}`,`Responder: ${i.comandoResposta}`,
-      ...i.contextoLogs.map(l=>`  log: ${l}`));
+    linhas.push('',m.item(String(i.thread??i.sessionId), i.classe, i.paradaHaMin==null?m.desconhecido:i.paradaHaMin<1?m.menosDeUm:String(i.paradaHaMin)),local(i.pergunta),
+      ...i.opcoes.map(o=>m.opcao(o)),m.recomendacao(remontar(i.recomendacao)),m.responder(i.comandoResposta),
+      ...i.contextoLogs.map(l=>m.log(l)));
   }
   if (p.conducoes?.length) {
-    linhas.push('',`Conduzidas agora: ${p.conducoes.length}`);
-    for (const c of p.conducoes) linhas.push(`${c.thread}: ${c.linha}`);
+    linhas.push('',m.conduzidas(p.conducoes.length));
+    for (const c of p.conducoes) linhas.push(m.conducao(c.thread, remontar(c.linha)));
   }
   // RM-037 (fatia 4): o que espera o condutor, uma linha por thread; nao e pergunta ao dono.
   if (p.paradoNoCondutor?.length) {
-    linhas.push('',`Parado no condutor: ${p.paradoNoCondutor.length}`);
+    linhas.push('',m.paradoNoCondutor(p.paradoNoCondutor.length));
     for (const x of p.paradoNoCondutor) linhas.push(linhaDoParadoNoCondutor(x, { agora: p.consultadoEm }));
   }
   // RM-057 (fatia 3): quanto tempo cada pergunta de conducao aberta ja parou a thread, e a mediana da semana.
   if (p.hitlDeConducao) {
     const h = p.hitlDeConducao;
-    linhas.push('',`HITL de condução: ${h.abertas.length} aberta(s); ${textoDaMediana(h)}`);
+    linhas.push('',m.hitlDeConducao(h.abertas.length, textoDaMediana(h)));
     for (const a of h.abertas) linhas.push(linhaDaPerguntaParada(a, { agora: p.consultadoEm }));
   }
-  linhas.push('',`Ações automáticas pendentes: ${p.resumo.automaticas}`);
-  for(const i of p.acoesAutomaticas) linhas.push(`${i.thread}: ${i.motivo}; ${i.comandoResposta}`);
+  linhas.push('',m.automaticas(p.resumo.automaticas));
+  for(const i of p.acoesAutomaticas) linhas.push(m.automatica(String(i.thread), i.motivo, i.comandoResposta));
   return linhas.join('\n');
 }

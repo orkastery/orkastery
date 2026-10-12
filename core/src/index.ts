@@ -4161,10 +4161,12 @@ function executarComando(argvBruto: string[]): number {
         return 0;
       }
       if (args.posicionais[1] === 'cadencia') return comandoCadenciaDoPulse(args);
-      const p = montarPulse(exigirManifesto(), { registrar: args.opcoes.registrar === true,
+      // RM-061 (F2b, G2): o pulse grava (sensores, condução) e monta o --json em pt-BR; so o texto segue o locale.
+      const carregadoDoPulse = exigirManifesto();
+      const p = comLocale('pt-BR', () => montarPulse(carregadoDoPulse, { registrar: args.opcoes.registrar === true,
         escopo: texto(args.opcoes.escopo)?.split(',').map(s => s.trim()),
         semRuntime: args.opcoes['sem-runtime'] === true,
-        linhasLogs: texto(args.opcoes.linhas) === undefined ? undefined : Number(texto(args.opcoes.linhas)) });
+        linhasLogs: texto(args.opcoes.linhas) === undefined ? undefined : Number(texto(args.opcoes.linhas)) }));
       console.log(args.opcoes.json === true ? JSON.stringify(p, null, 2) : textoDoPulse(p));
       return p.runtime.ok || args.opcoes['sem-runtime'] === true ? 0 : 1;
     }
