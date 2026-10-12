@@ -227,6 +227,9 @@ test('locale en: escolher en-US no onboarding muda o CLI (EN7), e pt-BR no onboa
     assert.equal(ork(dir, casa, pt, 'init', '--name', 'loc', '--abbrev', 'loc').stdout, INIT_PT);
     const set = ork(dir, casa, pt, 'onboarding', 'set', 'maestro', '--conteudo', '{"owner":{"language":"en-US"}}', '--por', 'teste');
     assert.equal(set.status, 0, set.stderr);
+    // RM-061 (F3a, D1): o init de novo regrava o bloco do AGENTS.md na lingua escolhida; a segunda vez nao muda nada.
+    assert.equal(ork(dir, casa, pt, 'init').stdout, INIT_EN_DE_NOVO.replace('AGENTS.md unchanged', 'AGENTS.md updated'));
+    assert.match(fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8'), /\nThis block is maintained by `ork init`\. Edit the rest of the file freely\.\n/);
     assert.equal(ork(dir, casa, pt, 'init').stdout, INIT_EN_DE_NOVO);
     const doctor = ork(dir, casa, pt, 'doctor');
     assert.match(doctor.stdout, /^ork doctor: what holds on this machine now\n/);
@@ -234,6 +237,8 @@ test('locale en: escolher en-US no onboarding muda o CLI (EN7), e pt-BR no onboa
     assert.match(doctor.stdout, /\[ok\] +project abbrev +"loc" \(part 1 of the session slug\)\n/);
     const volta = ork(dir, casa, pt, 'onboarding', 'set', 'maestro', '--conteudo', '{"owner":{"language":"pt-BR"}}', '--por', 'teste');
     assert.equal(volta.status, 0, volta.stderr);
+    assert.equal(ork(dir, casa, en, 'init').stdout, INIT_PT_DE_NOVO.replace('AGENTS.md inalterado', 'AGENTS.md atualizado'));
+    assert.match(fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8'), /\nEste bloco é mantido por `ork init`\. Edite livremente o restante do arquivo\.\n/);
     assert.equal(ork(dir, casa, en, 'init').stdout, INIT_PT_DE_NOVO);
   } finally { limpar(dir, casa); }
 });

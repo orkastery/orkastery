@@ -6,9 +6,14 @@
  * pulse configurado (`.orkastery/monitor/pulse-host.json`), o doctor le o `crontab -l` e avisa,
  * sem bloquear, quando a linha da varredura falta ou bate mais devagar que o template
  * `monitor/pulse.cron`. O doctor nunca edita o crontab: a correcao traz a linha pronta.
+ *
+ * RM-063 (F1): com thread aberta no projeto, a falta da batida REPROVA, com ou sem `pulse-host.json`.
+ * Sem transporte o doctor calava, e o maquina-b ficou de 03/10 a 12/10/2026 sem varredura nenhuma. A
+ * correcao e o `ork fabrica batida instalar`, que instala a linha do template de forma idempotente.
  */
 
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { Check } from './types';
 import { exec } from './util';
@@ -30,6 +35,8 @@ export function lerCrontabDoSistema(): LeituraDoCrontab {
   const r = exec('crontab', ['-l'], undefined, 5000);
   if (r.ok) return { ok: true, texto: r.stdout };
   if (r.error === 'ENOENT') return { ok: false, motivo: msg().doctor.cronSemComando };
+  // RM-063 (F1): o usuario sem crontab tem um crontab vazio, nao uma leitura que falhou; e o caso da maquina nova.
+  if (/no crontab for /i.test(`${r.stderr}${r.stdout}`)) return { ok: true, texto: '' };
   const primeira = (r.stderr || r.stdout).trim().split('\n')[0] ?? '';
   return { ok: false, motivo: primeira ? msg().doctor.cronFalhou(primeira) : msg().doctor.cronSaiu(r.code) };
 }
@@ -88,14 +95,135 @@ function dividirLinha(linha: string): { quando: string; comando: string } | null
   return m ? { quando: m[1], comando: m[2] } : null;
 }
 
-/** Linhas ativas (nao comentario, nao variavel) que agendam a varredura do pulse. */
-export function linhasDaVarredura(crontab: string): string[] {
-  return crontab.split('\n').map(l => l.trim())
-    .filter(l => l && !l.startsWith('#') && !/^[A-Za-z_][A-Za-z0-9_]*\s*=/.test(l) && l.includes(SCRIPT_DA_VARREDURA));
+/**
+ * RM-063 (F1, GO-FIX): um valor como o `sh` do cron o le: aspas simples literais; aspas duplas com `$HOME`; sem aspas,
+ * com o `~` do comeco e `$HOME`. So o que a linha da varredura usa; o resto fica como esta.
+ */
+export function valorNoShell(bruto: string, home: string = os.homedir()): string {
+  const comHome = (v: string) => v.replace(/\$\{HOME\}|\$HOME(?![A-Za-z0-9_])/g, home);
+  if (bruto.length >= 2 && bruto.startsWith(`'`) && bruto.endsWith(`'`)) return bruto.slice(1, -1).replace(/'\\''/g, `'`);
+  if (bruto.length >= 2 && bruto.startsWith('"') && bruto.endsWith('"')) return comHome(bruto.slice(1, -1).replace(/\\(["\\$`])/g, '$1'));
+  return comHome(bruto === '~' ? home : bruto.startsWith('~/') ? home + bruto.slice(1) : bruto);
 }
 
+/** Um valor de atribuicao ou um caminho: entre aspas simples, entre aspas duplas, ou ate o espaco. */
+const VALOR = String.raw`(?:'(?:[^']|'\\'')*'|"(?:[^"\\]|\\.)*"|[^\s;&|<>()]+)`;
+
+/** O valor de `ORK_PULSE_PROJECT=` na linha, como o `sh` o le; `null` quando a linha nao o diz. */
+export function projetoDaLinha(linha: string, home: string = os.homedir()): string | null {
+  const m = new RegExp(`(?:^|\\s)ORK_PULSE_PROJECT=(${VALOR})`).exec(linha);
+  return m ? valorNoShell(m[1], home) : null;
+}
+
+/** Os scripts da varredura citados na linha, como o `sh` os le; `varredura-pulse.sh.bak` nao e o script. */
+export function scriptsDaLinha(linha: string, home: string = os.homedir()): string[] {
+  const nome = SCRIPT_DA_VARREDURA.replace(/\./g, '\\.');
+  const re = new RegExp(`(?:^|[\\s=])('[^']*${nome}'|"[^"]*${nome}"|[^\\s'";&|<>()]*${nome})(?=$|[\\s;&|<>)])`, 'g');
+  return [...linha.matchAll(re)].map((m) => valorNoShell(m[1], home));
+}
+
+/** Uma entrada ativa do crontab que roda a varredura, com o projeto alvo que o `sh` vai ver. */
+export interface EntradaDaVarredura {
+  /** A linha como esta no crontab. */
+  linha: string;
+  /** `ORK_PULSE_PROJECT` efetivo: o da propria linha ou o de uma linha de ambiente acima dela; `null` sem nenhum. */
+  projeto: string | null;
+  scripts: string[];
+}
+
+/**
+ * RM-063 (F1, GO-FIX): as entradas da varredura, na ordem. A linha de ambiente do crontab (`NOME=valor`) vale para as
+ * entradas que vem depois dela: o template sem `ORK_PULSE_PROJECT` abaixo de `ORK_PULSE_PROJECT=/outro` varre o outro.
+ */
+export function entradasDaVarredura(crontab: string, home: string = os.homedir()): EntradaDaVarredura[] {
+  const ambiente: Record<string, string> = {};
+  const entradas: EntradaDaVarredura[] = [];
+  for (const linha of crontab.split('\n')) {
+    const t = linha.trim();
+    if (!t || t.startsWith('#')) continue;
+    const env = /^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(t);
+    if (env) { ambiente[env[1]] = valorNoShell(env[2].trim(), ambiente.HOME ?? home); continue; }
+    const casa = ambiente.HOME ?? home;
+    const scripts = scriptsDaLinha(t, casa);
+    if (!scripts.length) continue;
+    entradas.push({ linha, projeto: projetoDaLinha(t, casa) ?? ambiente.ORK_PULSE_PROJECT ?? null, scripts });
+  }
+  return entradas;
+}
+
+/**
+ * RM-063 (F1): a entrada roda, com certeza, a varredura DESTE projeto: o `ORK_PULSE_PROJECT` efetivo e ele, ou nao ha
+ * projeto nenhum e o script e o do proprio checkout (que entao e o alvo, como no template).
+ */
+export function entradaDoProjeto(e: EntradaDaVarredura, raiz: string): boolean {
+  if (e.projeto !== null) return mesmoCaminho(e.projeto, raiz);
+  const doCheckout = path.join(raiz, 'monitor', SCRIPT_DA_VARREDURA);
+  return e.scripts.some((s) => mesmoCaminho(s, doCheckout));
+}
+
+/** O mesmo caminho, escrito igual ou pelo mesmo destino real. */
+export function mesmoCaminho(a: string, b: string): boolean {
+  if (path.resolve(a) === path.resolve(b)) return true;
+  try { return fs.realpathSync(a) === fs.realpathSync(b); } catch { return false; }
+}
+
+/**
+ * A entrada vale para o aviso de cadencia (sem thread aberta) quando nao aponta OUTRO projeto: a linha antiga do
+ * template, sem projeto, continua valendo como na RM-039.
+ */
+export function entradaNaoEDeOutro(e: EntradaDaVarredura, raiz: string): boolean {
+  return e.projeto === null || mesmoCaminho(e.projeto, raiz);
+}
+
+/** Acima disto sem rodada nova no `hitl.log`, a batida esta atrasada: duas batidas do template perdidas. */
+export const ATRASO_DA_BATIDA_MIN = 30;
+
+/** A ultima rodada da varredura, lida do `hitl.log` que ela mesma escreve a cada batida. */
+export interface RodadaDaVarredura { em: string; code: number | null; detalhe: string }
+
+export function ultimaRodadaDaVarredura(dirMonitor: string): RodadaDaVarredura | null {
+  const arquivo = path.join(dirMonitor, 'hitl.log');
+  let texto: string;
+  try {
+    const fd = fs.openSync(arquivo, 'r');
+    try {
+      const tamanho = fs.fstatSync(fd).size, lido = Math.min(tamanho, 64 * 1024);
+      const buffer = Buffer.alloc(lido);
+      fs.readSync(fd, buffer, 0, lido, tamanho - lido);
+      texto = buffer.toString('utf8');
+    } finally { fs.closeSync(fd); }
+  } catch { return null; }
+  for (const linha of texto.split('\n').reverse()) {
+    try {
+      const e = JSON.parse(linha) as { ts?: unknown; tipo?: unknown; code?: unknown; detalhe?: unknown };
+      if (e.tipo !== 'pulse_scan' || typeof e.ts !== 'string' || !Number.isFinite(Date.parse(e.ts))) continue;
+      return { em: e.ts, code: typeof e.code === 'number' ? e.code : null, detalhe: typeof e.detalhe === 'string' ? e.detalhe : '' };
+    } catch { /* linha cortada no inicio do trecho, ou ilegivel */ }
+  }
+  return null;
+}
+
+/** RM-063 (F1): threads nao fechadas no estado do projeto (`.orkastery/threads/<id>/thread.json`). */
+export function threadsAbertasNoEstado(dirEstado: string): number {
+  const dir = path.join(dirEstado, 'threads');
+  let nomes: string[];
+  try { nomes = fs.readdirSync(dir); } catch { return 0; }
+  let abertas = 0;
+  for (const nome of nomes) {
+    try {
+      const t = JSON.parse(fs.readFileSync(path.join(dir, nome, 'thread.json'), 'utf8')) as { status?: unknown; origem?: unknown };
+      // O registro de adocao nao tem trabalho a conduzir; a thread pausada espera o dono, e a batida e quem o lembra.
+      if (t.status !== 'fechada' && t.origem !== 'adocao') abertas++;
+    } catch { /* pasta sem thread.json, ou ilegivel: nao e thread a vigiar */ }
+  }
+  return abertas;
+}
+
+/** O comando que instala a batida; e a correcao do doctor quando ela falta (RM-063, F1). */
+export const COMANDO_DE_INSTALAR_A_BATIDA = 'ork fabrica batida instalar';
+
 /** Aspas de shell so quando o caminho precisa (a linha vai colada no crontab, que roda por `sh`). */
-function citar(caminho: string): string {
+export function citarNoShell(caminho: string): string {
   return /^[A-Za-z0-9_./:@+-]+$/.test(caminho) ? caminho : `'${caminho.replace(/'/g, `'\\''`)}'`;
 }
 
@@ -119,27 +247,42 @@ export function scriptDaVarreduraDoOrk(dirDoDist: string = __dirname): string | 
  */
 export function comandoDaVarredura(raizDoProjeto: string, scriptDoOrk: string | null = scriptDaVarreduraDoOrk()): string {
   const doProjeto = path.join(raizDoProjeto, 'monitor', SCRIPT_DA_VARREDURA);
-  if (fs.existsSync(doProjeto) || !scriptDoOrk) return citar(doProjeto);
-  return `ORK_PULSE_PROJECT=${citar(raizDoProjeto)} ${citar(scriptDoOrk)}`;
+  if (fs.existsSync(doProjeto) || !scriptDoOrk) return citarNoShell(doProjeto);
+  return `ORK_PULSE_PROJECT=${citarNoShell(raizDoProjeto)} ${citarNoShell(scriptDoOrk)}`;
 }
 
 /**
- * Check "cadencia do pulse no cron". `null` quando o projeto nao tem transporte do pulse: sem
- * `pulse-host.json` nao ha resumo para entregar, e o doctor nao fala de cron.
+ * Check "cadencia do pulse no cron". `null` quando o projeto nao tem transporte do pulse nem thread
+ * aberta: sem `pulse-host.json` e sem thread a vigiar, o doctor nao fala de cron.
+ *
+ * RM-063 (F1): com thread aberta (`abertas`, contadas no estado ao lado de `dirMonitor`), a falta da
+ * batida reprova, com ou sem transporte, e a correcao e o `ork fabrica batida instalar`.
  */
 export function checarCronDoPulse(dirMonitor: string, raizDoCheckout: string,
-  ler: LeitorDoCrontab = lerCrontabDoSistema, scriptDoOrk: string | null = scriptDaVarreduraDoOrk()): Check | null {
-  if (!fs.existsSync(path.join(dirMonitor, 'pulse-host.json'))) return null;
+  ler: LeitorDoCrontab = lerCrontabDoSistema, scriptDoOrk: string | null = scriptDaVarreduraDoOrk(),
+  abertas: number = threadsAbertasNoEstado(path.dirname(dirMonitor))): Check | null {
+  const comHost = fs.existsSync(path.join(dirMonitor, 'pulse-host.json'));
+  if (!comHost && abertas === 0) return null;
   const nome = 'cadencia do pulse no cron';
   const comandoSugerido = comandoDaVarredura(raizDoCheckout, scriptDoOrk);
   const linhaNova = (comando: string) => `${BATIDA_DO_TEMPLATE} ${comando}`;
-  const ausente = (detalhe: string): Check => ({ nome, nivel: 'warn', detalhe,
-    correcao: msg().doctor.cronAdicione(linhaNova(comandoSugerido)) });
+  const ausente = (detalhe: string): Check => abertas > 0
+    ? { nome, nivel: 'fail', detalhe: msg().doctor.batidaAusente(abertas, detalhe),
+      correcao: msg().doctor.batidaInstale(COMANDO_DE_INSTALAR_A_BATIDA) }
+    : { nome, nivel: 'warn', detalhe, correcao: msg().doctor.cronAdicione(linhaNova(comandoSugerido)) };
+
+  // RM-063 (F1, GO-FIX): a varredura que bate por outro agendador (timer do systemd, batida do host) se prova pelo hitl.log.
+  const rodada = ultimaRodadaDaVarredura(dirMonitor);
+  const haMin = rodada ? Math.floor((Date.now() - Date.parse(rodada.em)) / 60000) : null;
+  const semCron = (detalhe: string): Check => haMin !== null && haMin >= 0 && haMin <= ATRASO_DA_BATIDA_MIN
+    ? { nome, nivel: 'ok', detalhe: msg().doctor.batidaPeloLog(haMin) } : ausente(detalhe);
 
   const leitura = ler();
-  if (!leitura.ok) return ausente(msg().doctor.cronSemLeitura(leitura.motivo));
-  const linhas = linhasDaVarredura(leitura.texto);
-  if (linhas.length === 0) return ausente(msg().doctor.cronSemLinha(SCRIPT_DA_VARREDURA));
+  if (!leitura.ok) return semCron(comHost ? msg().doctor.cronSemLeitura(leitura.motivo) : msg().doctor.batidaSemLeitura(leitura.motivo));
+  // Com thread aberta, so a batida DESTE projeto; sem thread, o aviso de cadencia aceita a linha antiga sem projeto.
+  const linhas = entradasDaVarredura(leitura.texto)
+    .filter(e => abertas > 0 ? entradaDoProjeto(e, raizDoCheckout) : entradaNaoEDeOutro(e, raizDoCheckout)).map(e => e.linha.trim());
+  if (linhas.length === 0) return semCron(comHost ? msg().doctor.cronSemLinha(SCRIPT_DA_VARREDURA) : msg().doctor.batidaSemLinha(SCRIPT_DA_VARREDURA));
 
   const lentas: { linha: string; comando: string; intervalo: number | null }[] = [];
   for (const linha of linhas) {

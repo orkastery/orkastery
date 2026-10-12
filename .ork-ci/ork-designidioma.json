@@ -1,0 +1,29 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-designidioma",
+  "branch": "ork/ork-designidioma-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-designidioma",
+      "fase": "GO",
+      "arquivo": "docs/design/README.md",
+      "alegacao": "O README do design registra que o espanhol saiu dos sites.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"O espanhol saiu dos sites\" docs/design/README.md"
+      ],
+      "criadoEm": "2026-10-12T17:17:04.178Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

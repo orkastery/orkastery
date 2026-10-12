@@ -773,6 +773,11 @@ export interface EstadoDaEntrega {
   /** Por que os PRs nao valeram, quando a thread precisava deles. */
   prNaoLido: string | null;
   conduzidaAgora: boolean;
+  /**
+   * RM-063 (F2): quem conduz agora, quando alguem conduz. O lease de uma SESSAO sobrevive a sessao morta ate a prova do
+   * fim; so o processo do condutor (um `ork verify`, um `ork ship`) e a reserva do canal dizem, por si, que ha trabalho agora.
+   */
+  donoDaConducao: 'sessao' | 'processo' | 'reserva' | null;
   espera: EsperaDoCondutor | null;
   parado: ParadoNoCondutor | null;
   /** O estado real em uma frase, para o status do roadmap. */
@@ -960,7 +965,9 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
       doCondutor.gates.add(`${t.id}|${espera.fase ?? t.faseAtual}`);
       if (espera.sessionId) { doCondutor.sessoes.add(espera.sessionId); doCondutor.turnosEncerrados.add(espera.sessionId); }
     }
-    const conduzidaAgora = conducaoAgora(raiz, t, eventos, quando) !== null;
+    // A mesma regra do `ork ship publicar` (RM-059): quem conduz agora, ou ninguem.
+    const conducao = conducaoAgora(raiz, t, eventos, quando);
+    const conduzidaAgora = conducao !== null;
     const doDono = pendenciaDoDono(t, eventos, quando);
     // A2 do CHECK (rodada 3): depois do veredito do dono, o tempo do condutor conta a partir dele.
     const aprovacao = despacho ? eventos.slice(eventos.lastIndexOf(despacho) + 1).filter(ehAprovacaoHumana).at(-1) : undefined;
@@ -1088,7 +1095,8 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
         : daBranch.fechado ? `branch publicada, PR #${daBranch.fechado.numero} fechado sem merge` : 'branch publicada sem PR')
       : null;
     estados.push({ thread: t.id, branch: f.branch, comProduto: f.comProduto, publicada, pr: prDaEntrega,
-      prLidoEm: prLido && (usouPr || aberto) ? prLido.lidoEm : null, prNaoLido, conduzidaAgora, espera, parado, resumo });
+      prLidoEm: prLido && (usouPr || aberto) ? prLido.lidoEm : null, prNaoLido, conduzidaAgora,
+      donoDaConducao: conduzidaAgora && conducao ? conducao.dono.tipo : null, espera, parado, resumo });
   }
 
   // As sessoes `blocked` sem pergunta que sobraram: de thread fechada, ou de despacho antigo de thread aberta.

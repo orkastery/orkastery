@@ -44,7 +44,7 @@ Cada guia resolve uma tarefa, com os comandos na ordem em que você vai usar.
 
 | Página | O que tem |
 | --- | --- |
-| [CLI](referencia/cli.md) | Todos os comandos, por tarefa (a fonte é `ork --help`) |
+| [CLI](referencia/cli.md) / [English](referencia/cli.en.md) | Todos os comandos, por tarefa (a fonte é `ork --help`) |
 | [Contratos](referencia/contratos/) | Os contratos versionados que outros sistemas leem |
 | [Capacidades do Maestro](referencia/maestro-capacidades.json) | O que cada host pode e não pode fazer, com a evidência de cada capacidade |
 | [Fronteira de confiança](referencia/fronteira-de-confianca.md) | O que o `ork` faz com valor vindo do repositório clonado: cada chamada de processo e cada caminho, por classe |
@@ -68,6 +68,7 @@ Produto e roadmap vivem em páginas com frontmatter, conferidas contra o código
 | [Produto](produto/README.md) | O que o Orkastery é e faz hoje: plataforma, sistemas, módulos e features, com as fontes no código |
 | [Roadmap](roadmap/README.md) | Um arquivo por item, com as sete dimensões de estado, o commit do merge e quem está com ele |
 | [Padrões](padroes/documentacao-de-produto.md) | As regras de escrita e leitura para pessoa, verificador e agente |
+| [Design (Partitura)](design/README.md) | Design system, marca, voz e componentes: leia antes de mexer em qualquer UI, site, mod ou imagem do Orkastery |
 
 ## Governança
 

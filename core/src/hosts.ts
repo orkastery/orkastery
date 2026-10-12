@@ -39,6 +39,7 @@ import { VERSAO_DO_ORK } from './versao';
 import { carregarManifesto } from './manifest';
 import { resolverExperiencia } from './experiencia';
 import { aplicarExperiencia, planejarExperiencia, HostComBloco } from './experiencia-instalacao';
+import type { Locale } from './locale';
 
 export type Host = 'claude-code' | 'codex' | 'hermes' | 'openclaw';
 
@@ -339,6 +340,11 @@ export interface OpcoesInstalacao {
    */
   aceitarCatalogo?: string[];
   manterCopia?: string[];
+  /**
+   * RM-061 (F3a, D1 e D2): a língua do bloco da experiência no `CLAUDE.md` ou no `AGENTS.md`. Sem ela, pt-BR; o
+   * `ork adapter install` passa a língua do dono (`owner.language`, senão o locale do ambiente).
+   */
+  locale?: Locale;
 }
 
 function sha256(conteudo: Buffer | string): string {
@@ -464,7 +470,7 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
   let planoExperiencia: ReturnType<typeof planejarExperiencia> | null = null;
   if (preferencias && hostComBloco && !avisoExperiencia) {
     try {
-      planoExperiencia = planejarExperiencia(projeto, host, preferencias.experience ? diretorioExperiencia : null);
+      planoExperiencia = planejarExperiencia(projeto, host, preferencias.experience ? diretorioExperiencia : null, opcoes.locale);
     } catch (e) {
       const motivo = (e as Error).message;
       if (!/^experiencia\.(bloco\.conflict|path\.unsafe)/.test(motivo)) throw e;

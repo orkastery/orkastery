@@ -98,6 +98,7 @@ Agrupada por módulo. "Dado externo" é o que pode vir do clone; o resto é iner
 | `docs/roadmap/*.md`, `README.md`, `orkastery.setup.json`, `orkastery.yaml` como link | arquivo do clone | escrita segue o link, só se o alvo tiver o formato esperado e só em comando explícito | Defendido pelo formato; baixo |
 | nomes vindos das branches `ork/*` e de outras máquinas | branch de estado | nunca viram caminho local | Inerte |
 | `projetos.json` | `~/.orkastery` | exige caminho absoluto | Inerte |
+| `conhecimento.dir` e os documentos dela ([RM-026 K7](contratos/conhecimento-rm026.md)) | manifesto e arquivos do clone | não existia | só leitura: pasta relativa, sem `..`, fora de `.git` e `.orkastery` e, pelo caminho real, dentro da raiz (`conhecimento.dir-fora-da-raiz`); link dentro dela nunca é seguido (`documento.link`), arquivo abre com `O_NOFOLLOW` e nenhum processo é criado; a citação `thread#linha` só vira caminho depois da regra de id e do `estado.link` |
 
 ## 6. Pendentes do dono
 
