@@ -2,7 +2,22 @@
 
 Esta página responde se um mod do Claude Code carrega numa sessão de fase do Orkastery, a sessão `claude --bg` que o núcleo despacha para GOAL, PLAN, GO ou CHECK, e quatro perguntas que decidem o plano dos mods de papel `fase` (Freio, Portão, Clima nas sessões de fase e o lado receptor do Mensageiro). A sessão que escreveu esta página é ela mesma uma sessão de fase e não abre outra sessão `claude --bg`, porque isso seria recursão. O que ela mediu está abaixo, com a fonte de cada medida. O resto sai do script de prova, que a condutora roda.
 
-Veredito: pendente da condutora
+Veredito: carrega. Um mod carregado por `--plugin-dir` numa sessão `claude --bg` recebe `session.start`, `classic.SessionStart` e `classic.PostToolBatch` (Claude Code 2.1.296, prova da condutora em 12/10/2026). O Freio nasce como mod (F2), sem o plano B.
+
+## Resultado da prova
+
+A primeira rodada do script não registrou nada: a sessão de sonda parou na tela de aprovação do servidor MCP do projeto ("New MCP server found in this project"), antes do primeiro turno. O despacho real de fase passa `--strict-mcp-config` e não para nessa tela; o script passou a passar a mesma flag. Com ela, a sonda registrou:
+
+| Evento | O que a sonda viu |
+| --- | --- |
+| `classic.SessionStart` | origem `startup` |
+| `session.start` | marca do `--settings` lida pelo `$.env.get`; ferramentas `TaskCreate`, `TaskGet`, `TaskList`, `TaskStop` e `TaskUpdate`; versão 2.1.296 |
+| `classic.PostToolBatch` | um lote com 2 chamadas de `Bash`; `permission_mode` `auto` |
+
+- **P1:** sim. O `$.env.get` lê a marca que o `--settings` passa.
+- **P2:** sim. As ferramentas Task existem na sessão de fundo.
+- **P3:** `auto`.
+- **P4:** o `claude` não está no PATH do sandbox do verify (`--ensaio`); as claims de mod seguem herméticas.
 
 ## Como rodar a prova
 

@@ -377,6 +377,12 @@ export interface Thread {
    * timeout, a mesma captura de saida e o mesmo registro de evidencia.
    */
   doneWhen?: CriterioDePronto[];
+  /**
+   * RM-059 (T6.0): o pedido do builder guardado na criacao (`ork thread new --pedido`). O texto mora em
+   * `pedido.md` na pasta da thread, e o sha256 prova que ninguem o editou fora do nucleo. Ausente na
+   * thread criada sem pedido, que segue recebendo o pedido a cada render.
+   */
+  pedido?: PedidoDaThread;
   /** Decisoes D1..Dn fechadas com o humano (bloco B2 alimenta; o handoff ja le). */
   decisoes: DecisaoDaThread[];
   /** Ids das claims da thread; o corpo vive em `claims.jsonl` (append-only). */
@@ -395,6 +401,13 @@ export interface Thread {
   score?: ScoreHumano | null;
   score_proposto?: ScoreProposto | null;
   fechamentoAdmin?: { motivo: MotivoFechamentoAdmin; por: string; justificativa: string; fechadoEm: string };
+}
+
+/** RM-059 (T6.0): onde o pedido guardado mora e os bytes que ele tinha na criacao. */
+export interface PedidoDaThread {
+  arquivo: 'pedido.md';
+  sha256: string;
+  bytes: number;
 }
 
 /** Decisao fechada com o humano. `locked` vai inline em todo handoff da thread. */

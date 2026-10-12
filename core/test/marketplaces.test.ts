@@ -38,6 +38,8 @@ const PARTES = [
   'skills', 'references', 'adapters/claude-code/.claude-plugin', 'adapters/claude-code/commands',
   'adapters/claude-code/agents', 'adapters/codex', 'docs/assets/marca', 'marketplaces', '.claude-plugin',
   '.agents/plugins', 'LICENSE', 'core/package.json',
+  // RM-059: cada mod do catalogo vira copia em marketplaces/claude-code/mods; sem mods, a pasta nem existe.
+  ...(fs.existsSync(path.join(RAIZ, 'adapters/claude-code/mods')) ? ['adapters/claude-code/mods'] : []),
 ];
 
 function comCopia<T>(fn: (dir: string) => T): T {

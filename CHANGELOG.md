@@ -8,6 +8,33 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Mods de papel `fase` nas sessões de fase, conferidos contra o recibo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  o despacho `claude-bg` passa um `--plugin-dir` por mod de `adapters/claude-code/mods/` que declara o papel `fase` no
+  `orkastery-mod.json` (`ork.mod/v1`), depois do plugin do Orkastery, quando a pasta instalada tem exatamente os arquivos
+  do `INSTALADO.json` e o `claude --version` atende o `claudeCodeMinimo` do mod e o 2.1.287 da API de mods. Arquivo a
+  mais, link ou declaração inválida recusa o despacho com `runtime.context.installation`; mod que pede versão mais nova
+  fica de fora e o despacho segue, e o mod que depende dele sai junto. O arquivo comum da raiz de `mods/` (a lista de
+  autoridade da ponte) também precisa estar no recibo. O `ork adapter install claude-code` tira da cópia o arquivo de
+  mod que saiu do catálogo. Sem mods, o comando é o de antes.
+- **Mods no marketplace próprio, pelo gerador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `node core/scripts/gerar-marketplaces.cjs` copia cada mod de `adapters/claude-code/mods/*/orkastery-mod.json` para
+  `marketplaces/claude-code/mods/<mod>/`, com os arquivos comuns da raiz de `mods/` dentro de cada cópia, e põe o mod no
+  `.claude-plugin/marketplace.json` com `source` na cópia. O `--verificar` confere a declaração, o manifesto, o
+  `hooks/hooks.json` e a cópia em dia. A pasta do diretório da Anthropic segue sem mods e sem hooks.
+- **Job dos mods no CI e canário de eventos** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)): o job
+  `mods` instala o Claude Code 2.1.296 fixado pelo npm, sem credencial nem chave de API, e roda
+  `node core/scripts/canario-eventos-mods.cjs --com-plugin`: `claude plugin validate --strict` e `claude plugin test` em
+  cada mod e a busca, no binário, de cada evento e chamada de `$` que os mods usam, com um nome de controle que precisa
+  ficar ausente. Medido: os builds 2.1.288 e 2.1.289 reprovam (sem `ui.notify`) e o 2.1.296 aprova.
+- **`ork claims conferir`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)): reexecuta só as claims
+  pedidas (`--claims C3,C7`) ou o verify de uma tarefa do plano da thread (`--tarefa T2.1`, quando ele é um comando só
+  entre crases) no sandbox do `ork_verify`, na worktree da thread registrada no git do projeto, sob a condução da
+  thread e sem gravar recibo; `--json` devolve `ork.claims-conferencia/v1`, com prazo total de 180 s (teto de 600 s).
+  No sandbox, processo filho do node falha: teste que cria processo pode reprovar ali e passar no `ork verify`.
+- **Pedido guardado na criação da thread** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `ork thread new --pedido "<texto>"` guarda o pedido em `pedido.md`, com o sha256 no `thread.json` e no
+  `thread_created`, e o `ork prompt render` sem `--pedido` usa esse pedido, conferido pelo sha256. Thread sem pedido
+  guardado segue como antes.
 - **Fundação dos mods no Claude Code, lado do adaptador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   a ponte `ork-ponte` (`adapters/claude-code/mods/ork-ponte`) acrescenta ao `$` dos mods o noun `$.ork`, com o papel
   da sessão (`dono`, `fase` ou `dormente`), o retrato do núcleo pelo `ork_maestro` com reserva numa lista fechada de
@@ -123,6 +150,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - O SECURITY.md passa a listar todos os comandos declarados que o `ork` executa (inclusive `verify.preparo`,
     `ci.command`, `.ork-ci/` e `doneWhen`). Cinco itens que exigem mudar comportamento aceito hoje ficam na matriz
     como pendentes do dono.
+
+### Corrigido
+
+- **Prova de mod em sessão de fase** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `core/scripts/prova-mods-sessao-de-fase.cjs` abre a sessão de sonda com `--strict-mcp-config`, como o despacho de fase;
+  sem a flag, a sessão parava na aprovação do MCP do projeto e a prova saía inconclusiva. Veredito da T0.1: o mod carrega
+  numa sessão `claude --bg` e recebe `classic.PostToolBatch`.
 
 ## [0.5.4] - 2026-10-12
 
