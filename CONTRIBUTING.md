@@ -27,7 +27,7 @@ npm --prefix core run test:ci
 5. **Language:** the PR title, the commit messages and the CHANGELOG line can be in pt-BR or in English. Keep the CHANGELOG group names (Adicionado, Mudado, Corrigido, Removido) as they are.
 6. **Security issues** never go in a public issue: see [SECURITY.md](SECURITY.md).
 
-The CLI prints Portuguese, except `ork doctor`, `ork init`, `ork onboarding`, `ork experiencia show`, `ork thread new`, `ork thread status`, `ork phase list`, `ork phase run`, `ork verify`, `ork ship`, `ork pulse`, `ork master`, `ork retry plan`, `ork retry run`, `ork roadmap status` and the help, which print English when `owner.language` or the locale (`LC_ALL`, `LC_MESSAGES`, `LANG`) asks for `en`; the README has a [glossary of what it prints](README.md#reading-the-cli-in-english).
+The CLI prints Portuguese, except `ork doctor`, `ork init`, `ork onboarding`, `ork experiencia show`, `ork thread new`, `ork thread status`, `ork phase list`, `ork phase run`, `ork verify`, `ork ship`, `ork pulse`, `ork master`, `ork retry plan`, `ork retry run`, `ork roadmap status` and the help, which print English when `owner.language` or the locale (`LC_ALL`, `LC_MESSAGES`, `LANG`) asks for `en`; so do `ork docs init` and the files that `ork init`, `ork docs init` and `ork adapter install` generate. The README has a [glossary of what it prints](README.md#reading-the-cli-in-english), and the CLI reference has an [English version](docs/referencia/cli.en.md).
 
 > **Nada entra sem evidência executável.** Toda mudança de comportamento vem com o comando que a
 > comprova, e o comando roda nesta árvore. Vale para quem contribui como vale para os agentes que o

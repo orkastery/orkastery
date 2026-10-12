@@ -11,7 +11,7 @@
 - **Estado:** em uso diário · no npm como [`@orkastery/cli`](https://www.npmjs.com/package/@orkastery/cli), com as [mudanças por versão](CHANGELOG.md) · revisado em 27/09/2026
 - **Prova:** CI no GitHub em todo PR: 2.733 testes do núcleo, 24 canários e 20 skills com 199 asserções, zero falhas (CI da `main` no PR #74, run 37102089623, 03/10/2026)
 - **Produto e roadmap:** [`docs/produto/`](docs/produto/README.md) e [`docs/roadmap/`](docs/roadmap/README.md), conferidos contra o código por `ork docs verificar`
-- **Idioma:** a página canônica é a [versão em inglês](README.md), e esta a espelha em português; os docs estão em português do Brasil, e o CLI também, exceto `ork doctor`, `ork init`, `ork onboarding`, `ork experiencia show`, `ork thread new`, `ork thread status`, `ork phase list`, `ork phase run`, `ork verify`, `ork ship`, `ork pulse`, `ork master`, `ork retry plan`, `ork retry run`, `ork roadmap status` e a ajuda, que saem em inglês quando `owner.language` ou o locale pedem `en`
+- **Idioma:** a página canônica é a [versão em inglês](README.md), e esta a espelha em português; os docs estão em português do Brasil (a [referência do CLI](docs/referencia/cli.en.md) também em inglês), e o CLI também, exceto `ork doctor`, `ork init`, `ork onboarding`, `ork experiencia show`, `ork thread new`, `ork thread status`, `ork phase list`, `ork phase run`, `ork verify`, `ork ship`, `ork pulse`, `ork master`, `ork retry plan`, `ork retry run`, `ork roadmap status` e a ajuda, que saem em inglês quando `owner.language` ou o locale pedem `en`; `ork docs init` também, e os arquivos que `ork init`, `ork docs init` e `ork adapter install` geram seguem a mesma língua
 
 ```bash
 npm install -g @orkastery/cli
