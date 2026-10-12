@@ -17,6 +17,26 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   (Telegram assinado e callback nativo, com recibo durável do canal, ou diálogo nativo do host, na fronteira da conta
   do sistema) e confere o recibo, o hash, a revogação, a janela e o destino imediatamente antes de cada efeito. O modo
   continua desligado: `#Noctum` não é aceito e nenhum comando abre arco ainda.
+- **Sentinela do Condutor, mod de papel `dono`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `adapters/claude-code/mods/ork-sentinela` liga só na sessão do dono, mantém pelo núcleo a presença dela nesta
+  máquina (`ork conducao sentinela bater` a cada 60 s; sai no fim da sessão e no `/sentinela pausar`), relê o passo do
+  condutor de cada thread aberta quando um ledger muda e a cada batida, e publica pela ponte a linha da faixa (threads
+  andando, paradas em degraus de tempo, pausada). `/sentinela` mostra o passo de cada thread e o diário. Despacha a
+  fase seguinte das threads #Auto que o núcleo manda despachar, uma vez por turno: relê a condução e o retrato da
+  thread, renderiza o prompt com o pedido guardado e despacha por `ork phase run --canal claude-code --correlacao
+  sentinela:<sessão>`; a recusa que passa (outro condutor, sem vaga, pedido aberto) volta depois de 3 min, com a
+  espera dobrando até 30 min na mesma recusa, e a retomada só roda `ork retry run` quando o `ork retry plan` é
+  automático. A cada 5 min, o que só o dono resolve no `ork pulse --json` vira notificação do sistema, linha no diário
+  e conta na faixa, uma vez por texto e com o próximo passo do núcleo (em #Auto, nunca o pedido de gate); o que foi
+  mostrado entra no registro da ponte, para o Telegram não repetir.
+- **Condução pela Sentinela no núcleo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `ork conducao sentinela status --json` (`ork.conducao-sentinela/v1`) diz se a Sentinela do Condutor está ligada nesta
+  máquina (canal `claude-code`, sessão, batida e prazo de 3 min) e dá o passo do condutor em cada thread aberta, com as
+  leituras do pulse, sem o limiar de 30 min e sem a forja; no #Auto, sai a fase seguinte à prova mais adiantada que a
+  sessão do bloco deixou (artefato gravado depois do despacho, produto na branch, `ship_done` ou `master_done`), nada sai
+  depois de um bloco que passou do CHECK, e a pendência do dono segura tudo. `bater` e `desligar`
+  mantêm a presença, uma por máquina, com `sentinela_ligada` e `sentinela_desligada` no ledger do projeto só na troca.
+  O guia `docs/guias/conducao-pela-sentinela.md` diz ao condutor externo como ceder o despacho enquanto ela conduz.
 
 ## [0.5.5] - 2026-10-12
 
