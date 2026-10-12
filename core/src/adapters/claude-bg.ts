@@ -16,6 +16,7 @@ import * as path from 'node:path';
 import { ContextoRuntime, ModDeFase, validarContextoRuntime } from '../runtime-context';
 import { ambienteComPerfil, diretorioEfetivo, PerfilDeDespacho } from '../runtime-profiles';
 import { TOOLS_DO_GRAFO } from '../mcp-grafo';
+import { textoDoCatalogo } from '../locale';
 
 function exec(cmd: string, args: string[], cwd?: string, timeoutMs?: number, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()) {
   return executar(cmd, args, cwd, timeoutMs, ambiente);
@@ -236,8 +237,8 @@ export function consultarSessoes(cwd?: string, todas = false, ambiente: NodeJS.P
   const args = ['agents', '--json'];
   if (todas) args.push('--all');
   const r = exec('claude', args, undefined, 60000, ambiente);
-  if (r.error === 'ENOENT') return { ok: false, ausente: true, sessoes: [], detalhe: 'binário `claude` fora do PATH' };
-  if (!r.ok) return { ok: false, sessoes: [], detalhe: `claude agents falhou (código ${r.code})` };
+  if (r.error === 'ENOENT') return { ok: false, ausente: true, sessoes: [], detalhe: textoDoCatalogo((m) => m.pulse.claudeForaDoPath) };
+  if (!r.ok) return { ok: false, sessoes: [], detalhe: textoDoCatalogo((m) => m.pulse.claudeAgentsFalhou(r.code)) };
   let dados: SessaoRuntime[];
   try {
     const bruto = JSON.parse(r.stdout) as SessaoRuntime[];

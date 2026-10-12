@@ -25,6 +25,7 @@ import { definirFusoDoDono } from '../src/horario';
 import { painelDaFabricaEmMarkdown, retratoDaMaquina, textoDaFabrica } from '../src/fabrica-estado';
 import { LeituraDoRuntime, paradaDesde, vidaDoRetrato } from '../src/vida-da-thread';
 import { main } from '../src/index';
+import { ativarLocale } from '../src/locale';
 
 const RESPONDEU: LeituraDoRuntime = { responderam: ['claude-bg', 'codex'], falhas: [], sessoes: [] };
 
@@ -68,7 +69,7 @@ test('F2: sessao fantasma em GO nao produz "sigo"; a mesma sessao viva produz', 
   assert.deepEqual(fantasma.seguir, [`• RM-026: ${thread.id} ${paradaDesde({ desdeEm: ultimoDaSessao.ts,
     motivo: `sessão ${r.sessionId!.slice(0, 8)} sem processo (fantasma)` }, { agora: quando })}.`]);
   assert.deepEqual(s.emSeguida[0].vida, { viva: false, sessionId: r.sessionId, desdeEm: ultimoDaSessao.ts,
-    motivo: `sessão ${r.sessionId!.slice(0, 8)} sem processo (fantasma)` });
+    motivo: `sessão ${r.sessionId!.slice(0, 8)} sem processo (fantasma)`, causa: { tipo: 'fantasma', sessao: r.sessionId!.slice(0, 8) } });
 });
 
 test('F2: despacho falho e nenhuma sessao viram "parada desde HH:MM: <motivo>"', (t) => {
@@ -136,7 +137,13 @@ test('F2: CLI: ork roadmap status le a mesma fila do ork pulse, e nao diz "Nada 
   const p = projetoTemporario('rm062-f2-cli');
   const runtime = runtimeFalso('rm062-f2-cli');
   const cwd = process.cwd(), log = console.log;
-  t.after(() => { console.log = log; process.chdir(cwd); runtime.restaurar(); p.limpar(); });
+  // O CLI ativa o locale do ambiente; os testes seguintes do arquivo voltam ao pt-BR.
+  const lingua = { LANG: process.env.LANG, LC_ALL: process.env.LC_ALL, LC_MESSAGES: process.env.LC_MESSAGES };
+  Object.assign(process.env, { LANG: 'pt_BR.UTF-8', LC_ALL: '', LC_MESSAGES: '' });
+  t.after(() => {
+    console.log = log; process.chdir(cwd); runtime.restaurar(); p.limpar(); ativarLocale(undefined);
+    for (const [k, v] of Object.entries(lingua)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  });
   const { thread: a } = novaThread(p.carregado, { nome: 'parada no runtime', modo: 'auto' });
   const { thread: b } = novaThread(p.carregado, { nome: 'outra parada', modo: 'auto' });
   item(p.dir, 'RM-026', a.id);

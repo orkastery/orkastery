@@ -14,6 +14,7 @@ import { consultarContas } from './sessoes-contas';
 import { raizDoEstado } from './estado-thread';
 import { TIPOS_DE_EVENTO } from './ledger';
 import { formatarHora } from './horario';
+import { ROADMAP_PT_BR } from './locale-roadmap';
 import { EventoLedger, Thread } from './types';
 
 /** Uma sessao como o runtime a ve agora. */
@@ -28,7 +29,36 @@ export interface LeituraDoRuntime {
   sessoes: SessaoNoRuntime[];
 }
 
-/** O que a vida de uma thread diz: viva, ou parada desde quando e por que. */
+/** Por que a thread parou, pelo tipo: e o que o texto de cada lingua monta (`motivoDaParada` do catalogo `roadmap`). */
+export type CausaDaParada =
+  | { tipo: 'nenhumaSessao'; fase: string }
+  | { tipo: 'despachoFalhou'; fase: string | null; detalhe: string }
+  | { tipo: 'sessaoCaiu'; sessao: string; motivo: string }
+  | { tipo: 'runtimeSemResposta'; runtime: string; detalhe: string | null; sessao: string }
+  | { tipo: 'naoAparece'; sessao: string }
+  | { tipo: 'fantasma'; sessao: string }
+  | { tipo: 'encerrada'; sessao: string; estado: string }
+  | { tipo: 'naoLida'; detalhe: string };
+
+/** O motivo de uma causa, no catalogo pedido (pt-BR por padrao: e o que vai ao `--json` e ao retrato). */
+export function motivoDaCausa(c: CausaDaParada, m: typeof ROADMAP_PT_BR.motivoDaParada = ROADMAP_PT_BR.motivoDaParada): string {
+  switch (c.tipo) {
+    case 'nenhumaSessao': return m.nenhumaSessao(c.fase);
+    case 'despachoFalhou': return m.despachoFalhou(c.fase, c.detalhe);
+    case 'sessaoCaiu': return m.sessaoCaiu(c.sessao, c.motivo);
+    case 'runtimeSemResposta': return m.runtimeSemResposta(c.runtime, c.detalhe, c.sessao);
+    case 'naoAparece': return m.naoAparece(c.sessao);
+    case 'fantasma': return m.fantasma(c.sessao);
+    case 'encerrada': return m.encerrada(c.sessao, c.estado);
+    case 'naoLida': return m.naoLida(c.detalhe);
+  }
+}
+
+/**
+ * O que a vida de uma thread diz: viva, ou parada desde quando e por que. `motivo` e o texto pt-BR (contrato do
+ * `--json` e do retrato); `causa`, o tipo, para o texto em outra lingua. Sem `motivo`, nada foi verificado (o
+ * retrato de outra maquina que nao publica a sessao).
+ */
 export interface VidaDaThread {
   viva: boolean;
   /** A sessao do despacho corrente da fase, quando ha. */
@@ -36,6 +66,7 @@ export interface VidaDaThread {
   /** O ultimo sinal de vida no ledger (ISO), so quando nao esta viva. */
   desdeEm: string | null;
   motivo: string | null;
+  causa?: CausaDaParada;
 }
 
 const curto = (texto: unknown, teto = 100): string => {
@@ -68,10 +99,9 @@ function motivoComDetalhe(e: EventoLedger): string {
   return !detalhe ? motivo || 'sem detalhe' : !motivo || detalhe.startsWith(motivo) ? detalhe : `${motivo}: ${detalhe}`;
 }
 
-function motivoDaFalha(e: EventoLedger, sessionId: string | null): string {
-  const daFase = typeof e.fase === 'string' && e.fase ? ` de ${e.fase}` : '';
-  if (sessionId && e.sessionId === sessionId) return `sessão ${sessionId.slice(0, 8)} caiu (${curto(e.motivo, 40)})`;
-  return `despacho${daFase} falhou (${curto(motivoComDetalhe(e), 90)})`;
+function causaDaFalha(e: EventoLedger, sessionId: string | null): CausaDaParada {
+  if (sessionId && e.sessionId === sessionId) return { tipo: 'sessaoCaiu', sessao: sessionId.slice(0, 8), motivo: curto(e.motivo, 40) };
+  return { tipo: 'despachoFalhou', fase: typeof e.fase === 'string' && e.fase ? e.fase : null, detalhe: curto(motivoComDetalhe(e), 90) };
 }
 
 /**
@@ -81,8 +111,8 @@ function motivoDaFalha(e: EventoLedger, sessionId: string | null): string {
  */
 export function vidaDaThread(t: Thread, eventos: readonly EventoLedger[], leitura: () => LeituraDoRuntime): VidaDaThread {
   const fase = t.faseAtual;
-  const parada = (desdeEm: string | null | undefined, motivo: string, sessionId: string | null = null): VidaDaThread =>
-    ({ viva: false, sessionId, desdeEm: desdeEm ?? null, motivo });
+  const parada = (desdeEm: string | null | undefined, causa: CausaDaParada, sessionId: string | null = null): VidaDaThread =>
+    ({ viva: false, sessionId, desdeEm: desdeEm ?? null, motivo: motivoDaCausa(causa), causa });
   const ultimoSinal = eventos.at(-1)?.ts ?? t.atualizadaEm ?? t.criadaEm ?? null;
   let iDespacho = -1;
   for (let i = eventos.length - 1; i >= 0; i--) {
@@ -97,20 +127,20 @@ export function vidaDaThread(t: Thread, eventos: readonly EventoLedger[], leitur
   const falha = eventos.slice(iDespacho + 1).reverse().find((e) => e.tipo === TIPOS_DE_EVENTO.despachoFalhou ||
     (e.tipo === TIPOS_DE_EVENTO.gateBloqueado && typeof e.motivo === 'string' && e.motivo.startsWith('runtime.'))) ?? null;
   if (!sessionId) {
-    return falha ? parada(falha.ts, motivoDaFalha(falha, null)) : parada(ultimoSinal, `nenhuma sessão despachada na fase ${fase}`);
+    return falha ? parada(falha.ts, causaDaFalha(falha, null)) : parada(ultimoSinal, { tipo: 'nenhumaSessao', fase });
   }
   const l = leitura();
   const s = l.sessoes.find((x) => x.runtime === runtime && (x.sessionId === sessionId || x.sessionId.startsWith(sessionId)));
   if (s?.viva) return { viva: true, sessionId, desdeEm: null, motivo: null };
-  if (falha) return parada(falha.ts, motivoDaFalha(falha, sessionId), sessionId);
+  if (falha) return parada(falha.ts, causaDaFalha(falha, sessionId), sessionId);
   const id = sessionId.slice(0, 8);
   const daSessao = [...eventos].reverse().find((e) => e.sessionId === sessionId)?.ts ?? despacho?.ts ?? ultimoSinal;
   if (!l.responderam.includes(runtime)) {
-    return parada(daSessao, `runtime ${runtime} sem resposta${l.falhas.length ? ` (${curto(l.falhas[0], 80)})` : ''}; a sessão ${id} não foi verificada`, sessionId);
+    return parada(daSessao, { tipo: 'runtimeSemResposta', runtime, detalhe: l.falhas.length ? curto(l.falhas[0], 80) : null, sessao: id }, sessionId);
   }
-  if (!s) return parada(daSessao, `sessão ${id} não aparece no runtime`, sessionId);
-  if (s.fantasma) return parada(daSessao, `sessão ${id} sem processo (fantasma)`, sessionId);
-  return parada(daSessao, `sessão ${id} encerrada (${s.estado || 'sem estado'})`, sessionId);
+  if (!s) return parada(daSessao, { tipo: 'naoAparece', sessao: id }, sessionId);
+  if (s.fantasma) return parada(daSessao, { tipo: 'fantasma', sessao: id }, sessionId);
+  return parada(daSessao, { tipo: 'encerrada', sessao: id, estado: s.estado || 'sem estado' }, sessionId);
 }
 
 /** "parada desde HH:MM: <motivo>", no fuso do dono; sem o instante, so o motivo. */
@@ -125,14 +155,19 @@ export function textoDaParada(thread: string, v: Pick<VidaDaThread, 'desdeEm' | 
   return `${thread} ${paradaDesde(v, opcoes)}`;
 }
 
+/** A vida de quem nao foi verificado: o retrato de outra maquina que nao publica a sessao. */
+export const VIDA_NAO_VERIFICADA: VidaDaThread = Object.freeze({ viva: false, sessionId: null, desdeEm: null, motivo: null });
+
 /**
  * A vida que vem no retrato de outra maquina (`ork/fabrica-estado`): so vale com os tipos certos. Retrato
- * antigo, sem o campo, ou com o campo fora do formato, nao diz nada (`undefined`), e a linha nao diz "sigo".
+ * antigo, sem o campo, ou com o campo fora do formato, vira "nao verificada", e a linha nao diz "sigo".
  */
-export function vidaDoRetrato(bruto: unknown): VidaDaThread | undefined {
-  if (!bruto || typeof bruto !== 'object') return undefined;
+export function vidaDoRetrato(bruto: unknown): VidaDaThread {
+  if (!bruto || typeof bruto !== 'object') return VIDA_NAO_VERIFICADA;
   const v = bruto as Record<string, unknown>;
   const textoOuNulo = (x: unknown): x is string | null => x === null || typeof x === 'string';
-  if (typeof v.viva !== 'boolean' || !textoOuNulo(v.desdeEm) || !textoOuNulo(v.motivo)) return undefined;
-  return { viva: v.viva, sessionId: null, desdeEm: v.desdeEm, motivo: v.motivo === null ? null : curto(v.motivo, 120) };
+  if (typeof v.viva !== 'boolean' || !textoOuNulo(v.desdeEm) || !textoOuNulo(v.motivo)) return VIDA_NAO_VERIFICADA;
+  // Parada sem motivo publicado nao vira "nao verificada": a outra maquina disse que a sessao nao esta viva.
+  const motivo = v.motivo === null ? (v.viva ? null : 'sem sessão viva') : curto(v.motivo, 120);
+  return { viva: v.viva, sessionId: null, desdeEm: v.desdeEm, motivo };
 }

@@ -9,7 +9,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import * as path from 'node:path';
-import { commitar, projetoTemporario } from './apoio';
+import { commitar, envPtBr, projetoTemporario } from './apoio';
 import { ExecutorGitHub, registrarEntregaExternaPorPr, registrarEntregasPorPr } from '../src/entrega-pr';
 import { lerLedger } from '../src/ledger';
 import { dirThread, lerThread, novaThread } from '../src/thread';
@@ -37,7 +37,7 @@ function entregaPorPr(nome: string) {
 
 const shipDone = (dir: string) => lerLedger(dir).filter((e) => e.tipo === 'ship_done').length;
 const ork = (cwd: string, ...args: string[]) =>
-  spawnSync(process.execPath, [ORK, ...args], { cwd, encoding: 'utf8', env: { ...process.env, ORK_FABRICA_PUBLICAR: '0' } });
+  spawnSync(process.execPath, [ORK, ...args], { cwd, encoding: 'utf8', env: { ...envPtBr(process.env), ORK_FABRICA_PUBLICAR: '0' } });
 
 test('defeito 6: registrar-pr --dry-run diz o que registraria e nao grava ship_done nem muda a fase', () => {
   const { p, t, dir, merge } = entregaPorPr('rm037-f3-ensaio');

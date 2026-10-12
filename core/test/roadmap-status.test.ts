@@ -10,7 +10,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { projetoTemporario } from './apoio';
+import { comAmbientePtBr, projetoTemporario } from './apoio';
 import { CONTRATO_STATUS_DO_ROADMAP, GRUPOS_DO_ROADMAP, montarStatusDoRoadmap, textoDoStatusDoRoadmap } from '../src/roadmap-status';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { lerLedger, registrar } from '../src/ledger';
@@ -121,11 +121,11 @@ test('CLI: ork roadmap status imprime o relatório e --json devolve o contrato',
   try {
     process.chdir(p.dir);
     let saida = ''; console.log = (s: unknown) => { saida += String(s) + '\n'; };
-    assert.equal(main(['roadmap', 'status']), 0);
+    assert.equal(comAmbientePtBr(() => main(['roadmap', 'status'])), 0);
     assert.match(saida, /^Roadmap do Orkastery \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/m);
     assert.match(saida, /^O que eu faço em seguida$/m);
     saida = '';
-    assert.equal(main(['roadmap', 'status', '--json']), 0);
+    assert.equal(comAmbientePtBr(() => main(['roadmap', 'status', '--json'])), 0);
     assert.equal(JSON.parse(saida).contrato, CONTRATO_STATUS_DO_ROADMAP);
   } finally { console.log = log; process.chdir(cwd); p.limpar(); definirFusoDoDono(undefined); }
 });

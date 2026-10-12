@@ -24,8 +24,21 @@
  * ausente, os erros de argumento de `thread new`, `--runtime` e o modelo ao trocar de runtime no `phase run`)
  * e remontado no locale do comando pela entrada do CLI. Seguem como o modulo dono escreve, ate a familia dele migrar: o validador
  * do manifesto (fora os avisos de preferencia da experiencia, traduzidos na impressao), o regime de
- * memoria e o erro de estado durante a gravacao. O cabecalho `Projeto consultado:` e `Não lido:` e
+ * memoria, o erro de estado durante a gravacao e, na F2b, a recusa `ship.remoto-invalido` do `exigirRemoto`
+ * (`branch-de-estado.ts`, modulo compartilhado com a fabrica e a rede). O cabecalho `Projeto consultado:` e `Não lido:` e
  * contrato do RM-052 com os hosts e fica igual nas duas linguas.
+ *
+ * F2b (G2 e D1 da thread ork-rm061f2b): o texto que o proprio comando monta e que tambem vai ao ledger ou
+ * ao `--json` (o detalhe de uma claim reexecutada, o bloqueio do ship, a razao do retry) nasce em pt-BR por
+ * `textoDoCatalogo`, dentro do escopo da gravacao, e a impressao o remonta no locale ativo por `remontar`.
+ * O registro dos montadores so existe nos comandos cobertos (`ligarRemontagem`); o servidor MCP e o cron
+ * nunca o ligam. O que outro processo gravou, a policy avaliada e a saida de ferramenta externa saem como
+ * vieram, e tambem (G5) o proximo passo e o estado da entrega de uma thread parada no condutor
+ * (`parado-no-condutor.ts`, a familia de entregas), ate a F3. Motivo tipado, acao e bloqueio do retry, codigo,
+ * comando e sha saem iguais nas duas linguas (G4); valor de estado mostrado em tabela ou entre parenteses (a
+ * acao do `registrar-pr`, o tipo da autorizacao do ship, o status da thread, o veredito e a cobertura do
+ * CHECK-REVERIFY, o titulo do grupo do roadmap, a classe do item do pulse) e dado do `--json` e so se traduz
+ * na impressao, pelo id (D4).
  *
  * Ingles (D8): curto, no imperativo onde e instrucao, com os mesmos termos em todo o CLI (`thread`,
  * `phase`, `claim`, `verify`, `ship`, `pulse`, `lease`, `ledger`, `worktree`, `slug`). Comando, flag
@@ -36,6 +49,12 @@ import { ONBOARDING_EN, ONBOARDING_PT_BR } from './locale-onboarding';
 import { THREAD_EN, THREAD_PT_BR } from './locale-thread';
 import { PHASE_EN, PHASE_PT_BR } from './locale-phase';
 import { AJUDA_EN, AJUDA_PT_BR } from './locale-ajuda';
+import { VERIFY_EN, VERIFY_PT_BR } from './locale-verify';
+import { SHIP_EN, SHIP_PT_BR } from './locale-ship';
+import { RETRY_EN, RETRY_PT_BR } from './locale-retry';
+import { MASTER_EN, MASTER_PT_BR } from './locale-master';
+import { PULSE_EN, PULSE_PT_BR } from './locale-pulse';
+import { ROADMAP_EN, ROADMAP_PT_BR } from './locale-roadmap';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -43,11 +62,14 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
  * Comandos cujo texto ja sai pelo catalogo, por `comando` ou por `comando subcomando`; `comando ?` e o
  * subcomando desconhecido (o erro de uso e do proprio comando). Os demais seguem em pt-BR. Ficam de
  * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync`,
- * `experiencia uninstall` e `thread list|close|entrega`.
+ * `experiencia uninstall` e `thread list|close|entrega`. A F2b (G3) acrescenta `verify` (com `--baseline`),
+ * `ship`, `ship registrar-pr`, `retry plan`, `retry run`, `master` (o indice), `master aceitar-omissao` e
+ * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
-  'phase list', 'phase run', 'phase ?'];
+  'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
+  'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -55,15 +77,38 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['experiencia', { padrao: 'show', conhecidos: ['show', 'uninstall'] }],
   ['thread', { padrao: 'list', conhecidos: ['new', 'list', 'status', 'close', 'entrega'] }],
   ['phase', { padrao: null, conhecidos: ['run', 'list'] }],
+  ['retry', { padrao: null, conhecidos: ['plan', 'run', 'policy', 'parse', 'list', 'resume', 'cancel'] }],
+  ['roadmap', { padrao: 'reservas', conhecidos: ['reservas', 'status', 'feat', 'pegar', 'soltar'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
 export function chaveDoLocale(posicionais: readonly (string | undefined)[], opcoes: Readonly<Record<string, unknown>>): string {
   const [comando = '', bruto] = posicionais;
+  // F2b (D2): `ork ship <thread>` tem a thread no lugar do subcomando; so `registrar-pr` e rota propria.
+  if (comando === 'ship') return bruto === 'registrar-pr' ? 'ship registrar-pr' : 'ship';
+  if (comando === 'master') return chaveDoMaster(bruto, opcoes);
+  // `ork pulse` le qualquer posicional como o pulse de sempre; `responder` e `cadencia` sao rotas proprias.
+  if (comando === 'pulse') return bruto === 'responder' || bruto === 'cadencia' ? `pulse ${bruto}` : 'pulse';
   const familia = FAMILIAS.get(comando);
   if (!familia) return comando;
   const sub = comando === 'onboarding' && 'reset' in opcoes ? 'reset' : bruto ?? familia.padrao;
   return `${comando} ${sub !== null && familia.conhecidos.includes(sub) ? sub : '?'}`;
+}
+
+/** Os subcomandos do `ork master` que nao seguem o locale (G3 da F2b): cada um e rota propria. */
+const SUBCOMANDOS_DO_MASTER: readonly string[] = ['audit', 'digest', 'migrar', 'classes', 'ratificar', 'batch', 'propor'];
+
+/**
+ * A rota do `ork master`, na mesma ordem em que o comando a decide: `pedir` (nunca com `--formato json`),
+ * os subcomandos proprios, `--batch`, o aceite por omissao e, sem nada, o indice. A thread sozinha e a nota
+ * (`--score`), que segue em pt-BR.
+ */
+function chaveDoMaster(bruto: string | undefined, opcoes: Readonly<Record<string, unknown>>): string {
+  if (bruto === 'pedir') return opcoes.formato === 'json' ? 'master pedir json' : 'master pedir';
+  if (bruto !== undefined && SUBCOMANDOS_DO_MASTER.includes(bruto)) return `master ${bruto}`;
+  if (opcoes.batch !== undefined) return 'master batch';
+  if (opcoes['aceitar-omissao'] !== undefined) return 'master aceitar-omissao';
+  return bruto === undefined ? 'master' : 'master <thread>';
 }
 
 /** O comando pede o texto pelo locale? Nunca com `--json`, nem nos recortes da D2. */
@@ -136,6 +181,10 @@ const PT_BR = {
     legenda: (rotulo: string) => `Horários em ${rotulo}.`,
     duracaoDesconhecida: 'tempo desconhecido',
     menosDeUmMin: 'menos de 1 min',
+    /** `faltaPara` (ratelimit.ts): quanto falta para o pedido da fila liberar. */
+    jaLiberou: 'ja liberou',
+    emMinutos: (n: number) => `em ${n} min`,
+    emHoras: (h: number, mm: string) => `em ${h}h${mm}`,
   },
   doctor: {
     titulo: 'ork doctor: o que vale nesta maquina agora',
@@ -340,6 +389,12 @@ const PT_BR = {
   thread: THREAD_PT_BR,
   phase: PHASE_PT_BR,
   ajuda: AJUDA_PT_BR,
+  verify: VERIFY_PT_BR,
+  ship: SHIP_PT_BR,
+  retry: RETRY_PT_BR,
+  master: MASTER_PT_BR,
+  pulse: PULSE_PT_BR,
+  roadmap: ROADMAP_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -373,6 +428,9 @@ const EN: Mensagens = {
     legenda: (rotulo) => `Times in ${rotulo}.`,
     duracaoDesconhecida: 'unknown time',
     menosDeUmMin: 'less than 1 min',
+    jaLiberou: 'already released',
+    emMinutos: (n) => `in ${n} min`,
+    emHoras: (h, mm) => `in ${h}h${mm}`,
   },
   doctor: {
     titulo: 'ork doctor: what holds on this machine now',
@@ -567,12 +625,12 @@ const EN: Mensagens = {
     redeMembro: 'member',
     redeCasa: (casa) => `home ${casa}`,
     redeSemCasa: 'home not recorded yet',
-    redeBatida: (quando, idade) => `last beat ${quando} (${idade} ago)`,
-    redeSemBatida: 'no beat published',
+    redeBatida: (quando, idade) => `last heartbeat ${quando} (${idade} ago)`,
+    redeSemBatida: 'no heartbeat published',
     redeFalha: (quando, origem, erro) => `last failure ${quando}${origem ? ` (${origem})` : ''}: ${erro}`,
     redeSemDetalhe: 'no detail',
     redeSemFalha: 'no failure in rede.log',
-    redeParadaCorrecao: 'the beat comes from the pulse: check the pulse cron and run `ork network publicar`',
+    redeParadaCorrecao: 'the heartbeat comes from the pulse: check the pulse cron and run `ork network publicar`',
     redeSemCasaCorrecao: 'the network home does not exist yet: the owner runs `ork network entrar`, which creates the private ' +
       'repository; or `ork network sair`, to take this machine out of the network',
     redeSemForjaCorrecao: 'sign in to the forge (`gh auth login` or `glab auth login`) and run `ork network publicar`',
@@ -593,6 +651,12 @@ const EN: Mensagens = {
   thread: THREAD_EN,
   phase: PHASE_EN,
   ajuda: AJUDA_EN,
+  verify: VERIFY_EN,
+  ship: SHIP_EN,
+  retry: RETRY_EN,
+  master: MASTER_EN,
+  pulse: PULSE_EN,
+  roadmap: ROADMAP_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',
@@ -632,6 +696,36 @@ export class ErroDoCatalogo extends Error {
 /** A mensagem de um erro para a pessoa: a do catalogo no locale ativo; as demais como vieram. */
 export function mensagemDoErro(e: unknown): string {
   return e instanceof ErroDoCatalogo ? e.montar(msg()) : e instanceof Error ? e.message : String(e);
+}
+
+/** Monta um texto do catalogo a partir das mensagens de um locale. */
+export type Montador = (m: Mensagens) => string;
+
+/** G2 e D1 da F2b: os montadores dos textos que o comando coberto guardou num resultado, pelo texto. */
+let remontagem: Map<string, Montador> | null = null;
+
+/**
+ * Liga o registro dos montadores (o CLI, nos comandos cobertos) ou o desliga (o `main`, no comeco de cada
+ * chamada). Desligado, nada se guarda: o servidor MCP e o cron nao acumulam texto.
+ */
+export function ligarRemontagem(ligada: boolean): void {
+  remontagem = ligada ? new Map() : null;
+}
+
+/**
+ * O texto no locale ativo. No escopo da gravacao ele sai em pt-BR, como o ledger e o `--json` o guardam;
+ * com o registro ligado, o montador fica guardado para a impressao remonta-lo no locale do comando.
+ */
+export function textoDoCatalogo(montar: Montador): string {
+  const texto = montar(msg());
+  remontagem?.set(texto, montar);
+  return texto;
+}
+
+/** O texto como a pessoa o le no locale ativo: o que veio do catalogo e remontado; o resto sai como veio. */
+export function remontar(texto: string): string {
+  const montar = remontagem?.get(texto);
+  return montar ? montar(msg()) : texto;
 }
 
 /** Nome de check como o texto o mostra no locale ativo. */

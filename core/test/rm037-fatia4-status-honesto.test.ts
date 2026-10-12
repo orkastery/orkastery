@@ -13,7 +13,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { projetoTemporario } from './apoio';
+import { comAmbientePtBr, projetoTemporario } from './apoio';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { registrar } from '../src/ledger';
 import { exec } from '../src/util';
@@ -203,7 +203,7 @@ test('leitura pura e sem rede: o CLI nao chama o gh e nao muda o ledger', () => 
     process.env.PATH = `${bin}${path.delimiter}${caminho ?? ''}`;
     process.chdir(c.p.dir);
     let saida = ''; console.log = (s: unknown) => { saida += String(s) + '\n'; };
-    assert.equal(main(['roadmap', 'status']), 0);
+    assert.equal(comAmbientePtBr(() => main(['roadmap', 'status'])), 0);
     console.log = log;
     assert.match(saida, /parado no condutor desde .*: corrigir o check ork-verify vermelho do PR #40/);
     assert.equal(fs.existsSync(marca), false, 'o status nao chamou o gh');

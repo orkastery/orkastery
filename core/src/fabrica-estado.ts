@@ -348,7 +348,7 @@ function tabela(cabecalho: string[], linhas: string[][]): string[] {
 /** RM-062 (F2): a coluna da sessao: `viva`, `parada desde HH:MM: <motivo>`, ou `-` no retrato que nao a traz. */
 function sessaoNaFabrica(t: ThreadNaFabrica, teto: number): string {
   const v = vidaDoRetrato(t.sessao);
-  return !v ? '-' : v.viva ? 'viva' : curto(paradaDesde(v), teto);
+  return v.viva ? 'viva' : v.motivo === null ? '-' : curto(paradaDesde(v), teto);
 }
 
 function blocoDaMaquina(m: EstadoDaMaquina, eu: string): string[] {

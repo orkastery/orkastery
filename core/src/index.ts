@@ -140,7 +140,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, comLocale, Locale, localeAtivo, mensagemDoErro, msg, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, comLocale, ligarRemontagem, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
 import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
@@ -1402,30 +1402,31 @@ function comandoClaims(args: Args): number {
 function comandoVerify(args: Args): number {
   const carregado = exigirManifesto();
   const id = args.posicionais[1];
+  const m = msg().verify;
   if (!id) {
-    console.error('uso: ork verify <thread-id> [--baseline] [--so-claims] [--canal C] [--esperar [min]]');
+    console.error(m.uso);
     return 2;
   }
   const conducao = conducaoDoCli(args);
   if (args.opcoes.baseline === true) {
-    const b = gravarBaseline(carregado, id, undefined, conducao);
-    console.log(`Baseline gravada para a thread ${id}.`);
-    console.log(`  commit ${b.commit}`);
+    // RM-061 (F2b, G2): a baseline e o ledger sao gravados em pt-BR; so a impressao segue o locale.
+    const b = comLocale('pt-BR', () => gravarBaseline(carregado, id, undefined, conducao));
+    console.log(m.baselineGravada(id));
+    console.log(m.baselineCommit(b.commit));
     for (const c of b.comandos) {
-      console.log(`  ${c.nome.padEnd(10)} ${c.ok ? 'passava' : `ja falhava (codigo ${c.code})`}  ${c.comando}`);
+      console.log(m.baselineComando(c.nome, c.ok, c.code, c.comando));
     }
     if (b.comandos.some((c) => !c.ok)) {
       // Ensaio de 03/10 (R7): "ja falhava" sem dizer onde ver a saida do comando.
-      console.log(`  saida de quem falhou: as ultimas linhas em ${caminhoThread(carregado.raiz, id)}, campo baseline.comandos ` +
-        `(resumo e trecho); o evento baseline_recorded esta em ork phase list ${id}`);
+      console.log(m.baselineSaida(caminhoThread(carregado.raiz, id), id));
     }
     if (b.comandos.length === 0) {
       // Fatia 2 do ensaio da 0.5.0 (R5): a baseline foi gravada; o que falta e comando, nao baseline.
-      console.log('  (nenhum comando em verify: no manifesto: a baseline guarda so o commit, e o verify nao tem como separar regressao de divida)');
+      console.log(m.baselineSemComandos);
     }
     return 0;
   }
-  const r = verificar(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao });
+  const r = comLocale('pt-BR', () => verificar(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao }));
   console.log(textoDoVerify(r));
   return r.ok ? 0 : 1;
 }
@@ -1620,7 +1621,7 @@ function comandoRetry(args: Args): number {
   if (sub === 'plan' || sub === 'run') {
     const id = args.posicionais[2];
     if (!id) {
-      console.error(`uso: ork retry ${sub} <thread-id> [--motivo M] [--fase F]`);
+      console.error(msg().retry.usoPlanRun(sub));
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
@@ -1631,7 +1632,8 @@ function comandoRetry(args: Args): number {
       autorizadoPor: texto(args.opcoes.por) ?? texto(args.opcoes.quem),
     };
     if (sub === 'plan') {
-      const plano = planejarRetry(carregado, id, opcoes);
+      // RM-061 (F2b, G2): a razao nasce em pt-BR, como o --json e o ledger a guardam; so a impressao segue o locale.
+      const plano = comLocale('pt-BR', () => planejarRetry(carregado, id, opcoes));
       if (args.opcoes.json === true) {
         console.log(JSON.stringify(plano, null, 2));
         return 0;
@@ -1642,11 +1644,11 @@ function comandoRetry(args: Args): number {
     // I-36 (D2): `--esperar` espera a conducao em andamento terminar antes de executar a retomada.
     const conducao = conducaoDoCli(args);
     if (conducao.esperarMs && args.opcoes['dry-run'] !== true) esperarConducaoLivre(carregado.raiz, id, conducao.esperarMs);
-    const r = executarRetry(carregado, id, {
+    const r = comLocale('pt-BR', () => executarRetry(carregado, id, {
       ...opcoes,
       dryRun: args.opcoes['dry-run'] === true,
       reverify: args.opcoes.reverify === true,
-    });
+    }));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify(r, null, 2));
     } else {
@@ -1850,6 +1852,7 @@ function comandoHandoff(args: Args): number {
 
 function comandoShip(args: Args): number {
   const carregado = exigirManifesto();
+  const m = msg().ship;
   if (args.posicionais[1] === 'registrar-pr') {
     // I-57 (RM-008): a entrega feita por PR vira ship_done, provada no remoto e no CI.
     const alvo = args.posicionais[2];
@@ -1857,28 +1860,30 @@ function comandoShip(args: Args): number {
     // RM-037 (defeito 5): PR mesclado em repositorio externo declarado em ci.external_repositories.
     const repo = texto(args.opcoes.repo), numeroDoPr = texto(args.opcoes.pr);
     if ((!alvo && args.opcoes.todas !== true) || (!!repo !== !!numeroDoPr) || (repo && !alvo)) {
-      console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]');
+      console.error(m.usoRegistrarPr);
       return 2;
     }
     // RM-047: o `--remoto` da linha de comando so chega ao git como nome de remoto (ship.remoto-invalido).
     if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
     // RM-037 (fatia 3, defeito 6): o `--dry-run` era ignorado, e o ensaio gravava o ship_done de verdade.
     const dryRun = args.opcoes['dry-run'] === true;
-    const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
-      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto, dryRun })] : registrarEntregasPorPr(carregado, { remoto, dryRun });
+    // RM-061 (F2b, G2): o ship_done e o motivo nascem em pt-BR; so a impressao segue o locale.
+    const r = comLocale('pt-BR', () => alvo && repo
+      ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
+      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto, dryRun })] : registrarEntregasPorPr(carregado, { remoto, dryRun }));
     if (args.opcoes.json === true) { console.log(JSON.stringify(r, null, 2)); return r.some((x) => x.acao === 'recusada') ? 1 : 0; }
-    if (dryRun) console.log('Ensaio (--dry-run): nada foi gravado.');
-    if (r.length === 0) console.log('Nenhuma thread aberta com merge ship(<thread>) na base.');
-    for (const x of r) console.log(`  ${x.thread.padEnd(20)} ${x.acao.padEnd(13)} ${x.motivo}`);
+    if (dryRun) console.log(m.ensaio);
+    if (r.length === 0) console.log(m.nenhumaComMerge);
+    for (const x of r) console.log(m.linhaDoRegistro(x.thread, m.acoes[x.acao] ?? x.acao, remontar(x.motivo)));
     // RM-044 (A3): a pagina que o push da base vai reprovar em docs.paridade.merge, com o comando que corrige.
     // So aviso: nada e gravado e o codigo de saida nao muda.
     const pendentes = r.flatMap((x) => x.docsPendentes.map((d) => ({ thread: x.thread, ...d })));
     if (pendentes.length) {
       console.log('');
-      console.log(`Aviso: ${pendentes.length} pagina(s) do roadmap com estado.codigo fora de "Mesclado" depois do merge; o push da base reprova em docs.paridade.merge:`);
+      console.log(m.avisoDeDocs(pendentes.length));
       for (const d of pendentes) {
-        console.log(`  ${d.id} (${d.arquivo}): merge ${d.merge.slice(0, 7)} de ship(${d.thread}), estado.codigo "${d.codigo || 'vazio'}"`);
-        console.log(`    ${d.comando}   (num PR de docs sobre a base atualizada)`);
+        console.log(m.docPendente(d.id, d.arquivo, d.merge.slice(0, 7), d.thread, d.codigo));
+        console.log(m.docPendenteComando(d.comando));
       }
     }
     const registradas = r.filter((x) => x.acao === 'registrou').length;
@@ -1887,26 +1892,27 @@ function comandoShip(args: Args): number {
       console.log('');
       // RM-008 (03/10): o texto ensina a forma COM a thread. A forma sem thread fechava tambem as
       // entregues de outras frentes paralelas, e era ela que os condutores copiavam daqui.
-      console.log(`${registradas} entrega(s) registrada(s). Fechar pelo MASTER so a(s) desta entrega (a nota humana sobrescreve):`);
+      console.log(m.registradas(registradas));
       for (const x of r.filter((y) => y.acao === 'registrou')) console.log(`  ork master ${x.thread} --aceitar-omissao`);
     }
     if (registrariam) {
       console.log('');
-      console.log(`${registrariam} entrega(s) seria(m) registrada(s). Para gravar, rode o mesmo comando sem --dry-run.`);
+      console.log(m.registrariam(registrariam));
     }
     return r.some((x) => x.acao === 'recusada') ? 1 : 0;
   }
   const id = args.posicionais[1];
   const para = texto(args.opcoes.para) ?? texto(args.opcoes.to);
   if (!id || !para) {
-    console.error('uso: ork ship <thread-id> --para <branch> [--de <branch>] [--dry-run]');
+    console.error(m.uso);
     return 2;
   }
   // RM-047: como no registrar-pr, o `--remoto` so chega ao git como nome de remoto (ship.remoto-invalido),
   // e `--remoto` sem valor nao vira `origin` em silencio.
   if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
   const autorizar = args.opcoes['autorizar-push'];
-  const r = ship(carregado, id, {
+  // RM-061 (F2b, G2): o que o ship grava (ledger, verificacao, mensagem do merge) nasce em pt-BR.
+  const r = comLocale('pt-BR', () => ship(carregado, id, {
     para,
     de: texto(args.opcoes.de),
     remoto: texto(args.opcoes.remoto),
@@ -1914,7 +1920,7 @@ function comandoShip(args: Args): number {
     dryRun: args.opcoes['dry-run'] === true,
     autorizarPush: typeof autorizar === 'string' ? autorizar : undefined,
     semPush: args.opcoes['sem-push'] === true,
-  });
+  }));
   console.log(textoDoShip(r));
   return r.ok ? 0 : 1;
 }
@@ -2585,8 +2591,9 @@ function comandoMaster(args: Args): number {
     // RM-048 (item 8): a nota com prova. O canal mostra a linha; o dono responde pelo Telegram.
     const id = args.posicionais[2];
     const formato = texto(args.opcoes.formato) ?? 'telegram';
-    if (!id || !['telegram', 'terminal', 'json'].includes(formato)) throw new Error('uso: ork master pedir <thread> [--formato telegram|terminal|json]');
-    const pedido = pedirNota(carregado.raiz, id, { codigosEmUso: codigosEmUso(carregado.raiz) });
+    if (!id || !['telegram', 'terminal', 'json'].includes(formato)) throw new Error(msg().master.usoPedir);
+    // RM-061 (F2b, G2): o pedido de nota e gravado no escopo pt-BR; o erro da entrega volta no locale do comando.
+    const pedido = comLocale('pt-BR', () => pedirNota(carregado.raiz, id, { codigosEmUso: codigosEmUso(carregado.raiz) }));
     console.log(formato === 'json' ? JSON.stringify(pedido, null, 2) : textoDoPedidoDeNota(carregado.raiz, pedido, formato as 'telegram' | 'terminal'));
     return 0;
   }
@@ -2729,7 +2736,7 @@ function comandoAceitarOmissao(args: Args, raiz: string, posicional: string | un
   const candidatos = [posicional, texto(args.opcoes.thread), typeof bruto === 'string' ? bruto : undefined]
     .filter((v): v is string => typeof v === 'string' && v.trim() !== '').map((v) => v.trim());
   if (args.opcoes.thread === true || new Set(candidatos).size > 1) {
-    console.error('uso: ork master <thread-id> --aceitar-omissao [--dry-run] [--json]   (ou --thread <thread-id>, uma thread so)');
+    console.error(msg().master.usoOmissao);
     return 2;
   }
   const alvo = candidatos[0];
@@ -2746,21 +2753,24 @@ function comandoAceitarOmissao(args: Args, raiz: string, posicional: string | un
   if (dryRun) {
     const fecharia = entregasParaOmissao(raiz, alvo).map((p) => ({ thread: p.thread.id, indice: indiceDaThread(raiz, p.thread.id) }));
     if (json) { console.log(JSON.stringify({ dryRun: true, fecharia }, null, 2)); return 0; }
-    console.log('Ensaio (--dry-run): nada foi gravado.');
-    if (fecharia.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
-    console.log(`Fecharia por omissao: ${fecharia.length}.`);
-    for (const f of fecharia) console.log(`  ${f.thread.padEnd(20)} indice ${f.indice.valor}/${f.indice.base}`);
+    const m = msg().master;
+    console.log(m.ensaio);
+    if (fecharia.length === 0) { console.log(m.nadaEsperando); return 0; }
+    console.log(m.fecharia(fecharia.length));
+    for (const f of fecharia) console.log(m.linhaDoIndice(f.thread, f.indice.valor, f.indice.base));
     avisoDeOmissaoSemAlvo(alvo, fecharia.length, true);
     return 0;
   }
-  const aceitos = aceitarPendentesPorOmissao(raiz, { thread: alvo });
+  // RM-061 (F2b, G2): o MASTER log, o POSTMORTEM e o registro da omissao nascem em pt-BR.
+  const aceitos = comLocale('pt-BR', () => aceitarPendentesPorOmissao(raiz, { thread: alvo }));
   avisoDeOmissaoSemAlvo(alvo, aceitos.length, false);
   if (json) { console.log(JSON.stringify(aceitos, null, 2)); return 0; }
-  if (aceitos.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
-  console.log(`Aceitas por omissao: ${aceitos.length}. O indice e os insumos foram ao ledger.`);
-  for (const a of aceitos) console.log(`  ${a.thread.padEnd(20)} indice ${a.indice.valor}/${a.indice.base}`);
+  const m = msg().master;
+  if (aceitos.length === 0) { console.log(m.nadaEsperando); return 0; }
+  console.log(m.aceitas(aceitos.length));
+  for (const a of aceitos) console.log(m.linhaDoIndice(a.thread, a.indice.valor, a.indice.base));
   console.log('');
-  console.log('Discordou? A nota humana sobrescreve, e o registro da omissao permanece.');
+  console.log(m.discordou);
   return 0;
 }
 
@@ -2775,10 +2785,8 @@ function avisoDeOmissaoSemAlvo(alvo: string | undefined, quantas: number, ensaio
   if (!marca) return;
   const propria = (process.env[ENV_THREAD_DO_DESPACHO] ?? '').trim();
   console.error('');
-  console.error(`aviso: master.omissao-sem-thread: processo de agente (${marca}) ${ensaio ? 'fecharia' : 'fechou'} ${quantas} threads, ` +
-    'inclusive as de outras frentes paralelas.');
-  console.error(`  Para fechar so a sua: ork master ${propria || '<thread-id>'} --aceitar-omissao` +
-    (ensaio ? '' : '  (a nota humana sobrescreve o aceite de quem nao era seu)'));
+  console.error(msg().master.avisoSemThread(marca, ensaio, quantas));
+  console.error(msg().master.avisoSoASua(propria || '<thread-id>', ensaio));
 }
 
 /** I-55 (RM-008): `ork licoes` mostra o que volta no proximo GOAL e PLAN, e as propostas de policy. */
@@ -2845,9 +2853,11 @@ function comandoRoadmap(args: Args): number {
     // RM-052: com o projeto consultado e o que ficou de fora (as outras maquinas nao sao lidas aqui).
     const consulta = consultaDoProjeto(carregado, { lido: ['roadmap (docs/roadmap)', FORA_DA_CONSULTA.threadsDaMaquina],
       naoLido: [FORA_DA_CONSULTA.reservas, 'threads de outras máquinas (ork network roadmap)'] });
-    // RM-062 (F2): o fecho le a mesma fila do `ork pulse`, sem forja e sem registrar.
-    const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta,
-      fila: (quando) => filaDoDono(carregado, { quando }) });
+    // RM-061 (F2b, G2): o status e montado em pt-BR, como o --json; so o texto segue o locale. Os canais (Hermes,
+    // OpenClaw) transportam o texto: com owner.language ou LANG en no host, o dono o recebe em ingles.
+    // RM-063 (F2): o fecho le a mesma fila do `ork pulse`, sem forja e sem registrar.
+    const status = comLocale('pt-BR', () => montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta,
+      fila: (quando) => filaDoDono(carregado, { quando }) }));
     console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
     return 0;
   }
@@ -3921,9 +3931,14 @@ export function main(argvBruto: string[]): number {
   fixarProjetoAlvo(null);
   // Prova de conceito do CLI por locale: cada chamada comeca em pt-BR; so os comandos cobertos trocam.
   ativarLocale(undefined);
+  // RM-061 (F2b, D1): e sem o registro dos textos remontaveis, que so os comandos cobertos ligam.
+  ligarRemontagem(false);
   iniciarDeclaracaoDoProjeto();
   try { return executarComando(argvBruto); }
   finally {
+    // RM-061 (F2b): o registro dos textos remontaveis nao sobrevive a chamada (o locale sim: a entrada do CLI
+    // ainda imprime o erro no locale do comando).
+    ligarRemontagem(false);
     const linha = declaracaoQueFaltou();
     if (linha) console.error(linha);
   }
@@ -3994,6 +4009,7 @@ function executarComando(argvBruto: string[]): number {
   // da F2a (`doctor --modo`, `thread new --from-finding` e os subcomandos fora da lista) ficam em pt-BR.
   if (cobreLocale(args.posicionais, args.opcoes)) {
     ativarLocale(resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale);
+    ligarRemontagem(true);
   }
 
   switch (comando) {
@@ -4179,10 +4195,12 @@ function executarComando(argvBruto: string[]): number {
         return 0;
       }
       if (args.posicionais[1] === 'cadencia') return comandoCadenciaDoPulse(args);
-      const p = montarPulse(exigirManifesto(), { registrar: args.opcoes.registrar === true,
+      // RM-061 (F2b, G2): o pulse grava (sensores, condução) e monta o --json em pt-BR; so o texto segue o locale.
+      const carregadoDoPulse = exigirManifesto();
+      const p = comLocale('pt-BR', () => montarPulse(carregadoDoPulse, { registrar: args.opcoes.registrar === true,
         escopo: texto(args.opcoes.escopo)?.split(',').map(s => s.trim()),
         semRuntime: args.opcoes['sem-runtime'] === true,
-        linhasLogs: texto(args.opcoes.linhas) === undefined ? undefined : Number(texto(args.opcoes.linhas)) });
+        linhasLogs: texto(args.opcoes.linhas) === undefined ? undefined : Number(texto(args.opcoes.linhas)) }));
       console.log(args.opcoes.json === true ? JSON.stringify(p, null, 2) : textoDoPulse(p));
       return p.runtime.ok || args.opcoes['sem-runtime'] === true ? 0 : 1;
     }

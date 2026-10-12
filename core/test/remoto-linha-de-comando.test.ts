@@ -20,12 +20,13 @@ import { registrarEntregaPorPr, registrarEntregasPorPr } from '../src/entrega-pr
 import { lerLedger } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
-import { ajustarManifesto, commitar, dirTemporario, projetoTemporario, ProjetoDeTeste, shaDaBranch } from './apoio';
+import { ajustarManifesto, commitar, dirTemporario, envPtBr, projetoTemporario, ProjetoDeTeste, shaDaBranch } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 
 function ork(dir: string, args: string[], env: NodeJS.ProcessEnv = {}) {
-  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, ...env }, timeout: 60000 });
+  // RM-061 (F2b, D13 da F2a): o teste le o texto pt-BR do comando; o filho nao herda o LANG de quem roda.
+  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8', env: { ...envPtBr(process.env), ...env }, timeout: 60000 });
 }
 
 /** Projeto com remoto bare, uma pasta fora dele para a marca e o ambiente sem publicacao da fabrica. */
