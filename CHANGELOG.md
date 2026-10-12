@@ -18,9 +18,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   trabalho por passo, sob a trava do kernel, com o envelope conferido e a sessão reservada no orçamento imediatamente
   antes, só pelo `ork phase run`, e grava fora dessa trava a baseline que o despacho pede. Muda para todos:
   `ork verify` e a baseline esperam a vez na fila de recursos pesados (`concurrency.max_parallel_heavy`, padrão 1, 0
-  desliga) e, sem ela no prazo, recusam com `fila-pesada.ocupada` e saem com 3 (o CLI espera até `--esperar` ou 60 min;
-  o MCP, até 20 s; `ork ship`, `ork fix`, `ork retry`, `ork ci prepare` e a baseline do despacho, até 30 s); o comando
-  que roda dentro da vez herda a marca da posse, e o `ork verify` aninhado nele não espera a vaga do próprio pai; a
+  desliga) e, sem ela no prazo, recusam com `fila-pesada.ocupada` e saem com 3 (o `ork verify` espera até `--esperar`
+  ou 60 min; `ork ship`, `ork fix` e a baseline do `ork phase run`, até o `--esperar` deles ou 30 s, com aviso no
+  stderr; o `ork retry`, até 30 s; o MCP, até 20 s); o comando que roda dentro da vez herda a marca da posse, e o
+  `ork verify` aninhado nele não espera a vaga do próprio pai; a
   sessão com o turno encerrado sem resultado deixa a vaga do `ork phase run` depois de 15 min sem atividade; e o prompt
   de fase pede verify, build e suíte em primeiro plano, nunca com `&`. O modo continua desligado: `#Noctum` não é
   aceito e nenhum comando abre ou executa arco.

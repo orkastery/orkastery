@@ -271,7 +271,7 @@ is nothing, `1` when the runtime did not respond).
 | `ork claims verificar <thread> <claim-id> --comando "<cmd>"` | Attaches the command that proves a claim already made |
 | `ork claims retirar <thread> <claim-id> --motivo "<motivo>"` | Withdraws the claim. **The history stays in `claims.jsonl`** |
 | `ork claims ausente <thread> --paths A,B --motivo "<motivo>" [--commit SHA]` | Cycle without CHECK: declares in the ledger what was left without proof (`#Fast` uses it, see [modos.md](../guias/modos.md)) |
-| `ork verify <thread> [--baseline] [--so-claims] [--canal C] [--esperar [min]]` | Re-runs the claims and the manifest verify **on the real HEAD**. The run and the baseline wait for their turn in the heavy-work queue (`concurrency.max_parallel_heavy`, default 1, 0 turns it off): at most that many at the same time across the project's worktrees on this machine and never two in the same worktree, with a kernel lock that is released when the process dies. It waits in the foreground up to `--esperar` or 60 min, warns once on stderr and then refuses with `fila-pesada.ocupada`, says who holds the turn and exits with 3; the MCP `ork_verify` and `ork_ship` wait up to 20 s and return the same refusal, and `ork ship`, `ork fix`, `ork retry`, `ork ci prepare` and the dispatch baseline, up to 30 s. A claim command that runs `ork verify` for another thread inside the turn does not wait for its own parent's slot (RM-058) |
+| `ork verify <thread> [--baseline] [--so-claims] [--canal C] [--esperar [min]]` | Re-runs the claims and the manifest verify **on the real HEAD**. The run and the baseline wait for their turn in the heavy-work queue (`concurrency.max_parallel_heavy`, default 1, 0 turns it off): at most that many at the same time across the project's worktrees on this machine and never two in the same worktree, with a kernel lock that is released when the process dies. It waits in the foreground up to `--esperar` or 60 min, warns once on stderr and then refuses with `fila-pesada.ocupada`, says who holds the turn and exits with 3; the MCP `ork_verify` and `ork_ship` wait up to 20 s and return the same refusal; `ork ship`, `ork fix` and the `ork phase run` baseline wait up to their `--esperar`, with the same warning, or 30 s without it, and `ork retry` and `ork ci run`, up to 30 s. A claim command that runs `ork verify` for another thread inside the turn does not wait for its own parent's slot (RM-058) |
 | `ork gate next <thread> [--proximo FASE]` | Token gate: same session or new session |
 | ↳ options | `[--ocupacao 0..1] [--fonte F] [--transcript ARQ] [--janela N] [--refazer]` |
 | `ork gate request <thread> [--motivo M]` | Opens the request correlated with the current pause or escalation |
@@ -531,7 +531,9 @@ acquisition. Normal contention on `flock` or on the tickets remains `lease.busy`
 `--canal <claude-code|hermes|openclaw|codex|mcp|cli>` (without it, whatever the host declares),
 `--correlacao <id>` (the originating conversation or message) and `--esperar [min]` (waits for its turn, up to 30
 minutes when given no value, instead of refusing right away). In `ork phase run`, `--esperar` also waits for a project
-slot when the session limit is reached.
+slot when the session limit is reached. In `ork verify`, `ork phase run` (the dispatch baseline), `ork fix open`,
+`ork fix reverify` and `ork ship`, the same `--esperar` applies to the heavy-work queue, with a warning on stderr while
+waiting (RM-058).
 
 ---
 

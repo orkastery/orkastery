@@ -269,7 +269,7 @@ há, `1` quando o runtime não respondeu).
 | `ork claims verificar <thread> <claim-id> --comando "<cmd>"` | Anexa o comando que comprova uma claim já feita |
 | `ork claims retirar <thread> <claim-id> --motivo "<motivo>"` | Retira a alegação. **O histórico fica no `claims.jsonl`** |
 | `ork claims ausente <thread> --paths A,B --motivo "<motivo>" [--commit SHA]` | Ciclo sem CHECK: declara no ledger o que ficou sem prova (o `#Fast` usa, ver [modos.md](../guias/modos.md)) |
-| `ork verify <thread> [--baseline] [--so-claims] [--canal C] [--esperar [min]]` | Reexecuta claims e verify do manifesto **no HEAD real**. A rodada e a baseline esperam a vez na fila de recursos pesados (`concurrency.max_parallel_heavy`, padrão 1, 0 desliga): no máximo essa quantidade ao mesmo tempo nas worktrees do projeto nesta máquina e nunca duas na mesma worktree, com trava do kernel que solta quando o processo morre. Espera em primeiro plano até `--esperar` ou 60 min, avisa uma vez no stderr e então recusa com `fila-pesada.ocupada`, diz quem ocupa e sai com 3; o `ork_verify` e o `ork_ship` do MCP esperam até 20 s e devolvem a mesma recusa, e `ork ship`, `ork fix`, `ork retry`, `ork ci prepare` e a baseline do despacho, até 30 s. O comando de claim que roda `ork verify` de outra thread dentro da vez não espera a vaga do próprio pai (RM-058) |
+| `ork verify <thread> [--baseline] [--so-claims] [--canal C] [--esperar [min]]` | Reexecuta claims e verify do manifesto **no HEAD real**. A rodada e a baseline esperam a vez na fila de recursos pesados (`concurrency.max_parallel_heavy`, padrão 1, 0 desliga): no máximo essa quantidade ao mesmo tempo nas worktrees do projeto nesta máquina e nunca duas na mesma worktree, com trava do kernel que solta quando o processo morre. Espera em primeiro plano até `--esperar` ou 60 min, avisa uma vez no stderr e então recusa com `fila-pesada.ocupada`, diz quem ocupa e sai com 3; o `ork_verify` e o `ork_ship` do MCP esperam até 20 s e devolvem a mesma recusa; `ork ship`, `ork fix` e a baseline do `ork phase run` esperam até o `--esperar` deles, com o mesmo aviso, ou 30 s sem ele, e o `ork retry` e o `ork ci run`, até 30 s. O comando de claim que roda `ork verify` de outra thread dentro da vez não espera a vaga do próprio pai (RM-058) |
 | `ork gate next <thread> [--proximo FASE]` | Gate de tokens: mesma sessão ou nova sessão |
 | ↳ opções | `[--ocupacao 0..1] [--fonte F] [--transcript ARQ] [--janela N] [--refazer]` |
 | `ork gate request <thread> [--motivo M]` | Abre o pedido correlacionado à pausa ou escalação atual |
@@ -529,7 +529,9 @@ O `ship --dry-run` consulta também o legado válido e vivo durante a janela, se
 `--canal <claude-code|hermes|openclaw|codex|mcp|cli>` (sem ele, o que o host declara),
 `--correlacao <id>` (conversa ou mensagem de origem) e `--esperar [min]` (espera a vez, até 30
 minutos sem valor, em vez de recusar na hora). No `ork phase run`, `--esperar` também espera a vaga
-do projeto quando o limite de sessões está cheio.
+do projeto quando o limite de sessões está cheio. Em `ork verify`, `ork phase run` (a baseline do
+despacho), `ork fix open`, `ork fix reverify` e `ork ship`, o mesmo `--esperar` vale para a fila de
+recursos pesados, com aviso no stderr enquanto espera (RM-058).
 
 ---
 
