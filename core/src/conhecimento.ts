@@ -17,6 +17,7 @@ import { bytesHash } from './company-brain-journal';
 import { ehPaginaDeDocs, separarFrontmatter } from './docs';
 import { ManifestoCarregado } from './manifest';
 import { ID_DE_ENTIDADE } from './portfolio';
+import { emUmaLinha, INVISIVEL } from './saida-segura';
 import { dirThread } from './thread';
 import { lerYaml, ValorYaml } from './yaml';
 
@@ -35,11 +36,11 @@ const CHAVES_DAS_REFERENCIAS = ['brain', 'decisoes'];
 /** D5: as linhas do ledger que são decisão, as do dossiê; `human_decision` é relato sem recibo e não conta. */
 const TIPOS_DE_DECISAO = ['autonomous_decision', 'hitl_requested', 'human_gate'] as const;
 type TipoDeDecisao = typeof TIPOS_DE_DECISAO[number];
-/** D6: pastas do repositório que nunca guardam conhecimento. */
+/** D6: pastas do repositório que nunca guardam conhecimento, sem distinguir caixa (o disco do macOS não distingue). */
 const PASTAS_RESERVADAS = ['.git', '.orkastery'];
-/** Caractere de controle, de formato ou separador de linha: não entra em título, nome de arquivo nem lacuna. */
-const CONTROLE = /[\p{Cc}\p{Cf}\u2028\u2029]/u;
-const CONTROLES = new RegExp(CONTROLE.source, 'gu');
+const reservada = (segmento: string) => PASTAS_RESERVADAS.includes(segmento.toLowerCase());
+/** D10: o invisível é o do `saida-segura.ts`, a regra única do núcleo para texto alheio (ZWJ e seletores de emoji valem). */
+const INVISIVEIS = new RegExp(INVISIVEL.source, 'gu');
 
 /** D7: tetos da leitura. Os da pasta falham fechado; o do documento vira lacuna só dele. */
 export interface LimitesDoConhecimento {
@@ -107,42 +108,44 @@ export interface Conhecimento {
 
 const comparar = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
 const ehMapa = (v: ValorYaml | undefined): v is { [k: string]: ValorYaml } => !!v && typeof v === 'object' && !Array.isArray(v);
-/** Texto que veio do repositório, pronto para ir a uma lacuna: sem controle e curto. */
-const semControle = (v: string, teto = 200) => v.replace(CONTROLES, '').slice(0, teto);
+/** Texto que veio do repositório, pronto para a resposta: numa linha, sem invisível e, com teto, cortado sem partir caractere. */
+const limpo = (v: string, teto = Infinity) => Array.from(emUmaLinha(v)).slice(0, teto).join('');
 const relativo = (raizReal: string, abs: string) => path.relative(raizReal, abs).split(path.sep).join('/');
 const LINK = 'link simbólico não é seguido; o documento é o arquivo versionado';
+/** `stat` que nunca lança: a pasta que some ou não abre vale como ausente. */
+const statOuNulo = (p: string): fs.Stats | null => { try { return fs.statSync(p, { throwIfNoEntry: false }) ?? null; } catch { return null; } };
 
 function lacuna(codigo: CodigoDeLacunaDoConhecimento, detalhe: string,
   onde: { arquivo?: string | null; documento?: string | null; referencia?: string | null } = {}): LacunaDoConhecimento {
   return { codigo, arquivo: onde.arquivo ?? null, documento: onde.documento ?? null,
-    referencia: typeof onde.referencia === 'string' ? semControle(onde.referencia) : null, detalhe };
+    referencia: typeof onde.referencia === 'string' ? limpo(onde.referencia, 200) : null, detalhe };
 }
 
 /**
- * D6: a pasta declarada, pelo caminho real. A forma recusa antes de tocar o disco (absoluta, `..`, `\`, controle,
- * a própria raiz, `.git` e `.orkastery`); o caminho real, com os links resolvidos, precisa ficar dentro da raiz.
+ * D6: a pasta declarada, pelo caminho real. A forma recusa antes de tocar o disco (vazia, absoluta, `..`, `\`,
+ * invisível, a própria raiz, `.git` e `.orkastery`); o caminho real, com os links resolvidos, precisa ficar dentro
+ * da raiz.
  */
 function pastaDoConhecimento(raiz: string, dir: string): { real: string; raizReal: string } | LacunaDoConhecimento {
   const segmentos = dir.split('/').filter((s) => s !== '' && s !== '.');
-  if (path.isAbsolute(dir) || dir.includes('\\') || CONTROLE.test(dir) || !segmentos.length || segmentos.includes('..') ||
-      PASTAS_RESERVADAS.includes(segmentos[0])) {
+  if (path.isAbsolute(dir) || dir.includes('\\') || INVISIVEL.test(dir) || !segmentos.length || segmentos.includes('..') ||
+      reservada(segmentos[0])) {
     return lacuna('conhecimento.dir-invalido', 'conhecimento.dir precisa ser uma pasta relativa à raiz, sem "..", ' +
       'fora de .git e .orkastery, como docs/conhecimento; nada foi lido');
   }
-  const raizReal = fs.realpathSync(raiz);
-  let real: string;
-  try { real = fs.realpathSync(path.join(raizReal, ...segmentos)); }
-  catch { return lacuna('conhecimento.dir-ausente', 'a pasta de conhecimento.dir não existe'); }
+  let raizReal: string, real: string;
+  try { raizReal = fs.realpathSync(raiz); real = fs.realpathSync(path.join(raizReal, ...segmentos)); }
+  catch { return lacuna('conhecimento.dir-ausente', 'a pasta de conhecimento.dir não existe ou não abre'); }
   const rel = path.relative(raizReal, real);
   if (rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) {
     return lacuna('conhecimento.dir-fora-da-raiz', 'pelo caminho real (links resolvidos), conhecimento.dir sai da raiz ' +
       'do projeto; o manifesto vem com o repositório e não escolhe caminho fora dela; nada foi lido');
   }
-  if (rel === '' || PASTAS_RESERVADAS.includes(rel.split(path.sep)[0]) || CONTROLE.test(rel)) {
+  if (rel === '' || reservada(rel.split(path.sep)[0]) || INVISIVEL.test(rel)) {
     return lacuna('conhecimento.dir-invalido', 'pelo caminho real, conhecimento.dir é a própria raiz, cai em .git ou ' +
-      '.orkastery, ou tem caractere de controle; nada foi lido');
+      '.orkastery, ou tem caractere invisível; nada foi lido');
   }
-  if (!fs.statSync(real, { throwIfNoEntry: false })?.isDirectory()) return lacuna('conhecimento.dir-ausente', 'conhecimento.dir não é uma pasta');
+  if (!statOuNulo(real)?.isDirectory()) return lacuna('conhecimento.dir-ausente', 'conhecimento.dir não é uma pasta');
   return { real, raizReal };
 }
 
@@ -150,7 +153,7 @@ interface Candidato { abs: string; arquivo: string; st: fs.Stats; }
 
 /**
  * Varre a pasta sem seguir link (D6) e sem ler entrada oculta (D8). Devolve os candidatos a documento, ou o
- * detalhe do teto estourado (D7), que falha fechado.
+ * detalhe do teto estourado (D7), que falha fechado. Entrada que não abre vira lacuna, nunca exceção.
  */
 function varrer(real: string, raizReal: string, limites: LimitesDoConhecimento, lacunas: LacunaDoConhecimento[]):
   Candidato[] | { teto: string } {
@@ -159,6 +162,11 @@ function varrer(real: string, raizReal: string, limites: LimitesDoConhecimento, 
   let entradas = 0;
   while (pilha.length) {
     const atual = pilha.pop()!;
+    // Uma pasta trocada por link depois de entrar na pilha não leva a varredura para fora: o caminho real é
+    // conferido logo antes da listagem. Num clone parado não há troca; a conferência fecha a janela larga.
+    let realDaPasta: string | null;
+    try { realDaPasta = fs.realpathSync(atual.abs); } catch { realDaPasta = null; }
+    if (realDaPasta !== atual.abs) { lacunas.push(lacuna('documento.link', LINK, { arquivo: relativo(raizReal, atual.abs) })); continue; }
     let nomes: Buffer[];
     try { nomes = fs.readdirSync(atual.abs, { encoding: 'buffer' }).sort(Buffer.compare); }
     catch {
@@ -170,21 +178,19 @@ function varrer(real: string, raizReal: string, limites: LimitesDoConhecimento, 
       if (bruto[0] === 0x2e) continue;
       if (++entradas > limites.entradas) return { teto: `a pasta passa de ${limites.entradas} entradas` };
       const nome = bruto.toString('utf8');
-      if (!Buffer.from(nome, 'utf8').equals(bruto) || CONTROLE.test(nome)) {
-        lacunas.push(lacuna('documento.nome-invalido', 'nome fora de UTF-8 ou com caractere de controle; não foi lido',
-          { arquivo: relativo(raizReal, path.join(atual.abs, nome.replace(CONTROLES, '?'))) }));
+      if (!Buffer.from(nome, 'utf8').equals(bruto) || INVISIVEL.test(nome)) {
+        lacunas.push(lacuna('documento.nome-invalido', 'nome fora de UTF-8 ou com caractere invisível; não foi lido',
+          { arquivo: relativo(raizReal, path.join(atual.abs, nome.replace(INVISIVEIS, '?'))) }));
         continue;
       }
       const abs = path.join(atual.abs, nome), arquivo = relativo(raizReal, abs);
-      const st = fs.lstatSync(abs, { throwIfNoEntry: false });
+      let st: fs.Stats | undefined;
+      try { st = fs.lstatSync(abs, { throwIfNoEntry: false }); }
+      catch { lacunas.push(lacuna('documento.nao-regular', 'a entrada não abriu para leitura; não foi lida', { arquivo })); continue; }
       if (!st) continue;
       if (st.isSymbolicLink()) { lacunas.push(lacuna('documento.link', LINK, { arquivo })); continue; }
       if (st.isDirectory()) {
         if (atual.profundidade + 1 > limites.profundidade) return { teto: `a pasta passa de ${limites.profundidade} níveis` };
-        // Uma pasta trocada por link entre a listagem e a leitura não leva a varredura para fora.
-        let realDaPasta: string | null;
-        try { realDaPasta = fs.realpathSync(abs); } catch { realDaPasta = null; }
-        if (realDaPasta !== abs) { lacunas.push(lacuna('documento.link', LINK, { arquivo })); continue; }
         pilha.push({ abs, profundidade: atual.profundidade + 1 });
         continue;
       }
@@ -198,9 +204,11 @@ function varrer(real: string, raizReal: string, limites: LimitesDoConhecimento, 
 
 /**
  * Lê um arquivo comum sem seguir link (`O_NOFOLLOW`) e sem travar em FIFO (`O_NONBLOCK`), conferindo que é o
- * mesmo do `lstat` e que cabe no teto. Devolve os bytes ou o motivo.
+ * mesmo do `lstat` e que cabe no teto. Devolve os bytes ou o motivo. Com `crescer` (o ledger, que só recebe linha
+ * no fim), vale o que existia no `fstat`, mesmo que o arquivo cresça durante a leitura; o documento que muda
+ * durante a leitura não vale.
  */
-function lerArquivo(abs: string, st: fs.Stats, teto: number): Buffer | 'link' | 'nao-regular' | 'grande' {
+function lerArquivo(abs: string, st: fs.Stats, teto: number, crescer = false): Buffer | 'link' | 'nao-regular' | 'grande' {
   let fd: number;
   try { fd = fs.openSync(abs, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
   catch (e) { return (e as NodeJS.ErrnoException).code === 'ELOOP' ? 'link' : 'nao-regular'; }
@@ -208,9 +216,10 @@ function lerArquivo(abs: string, st: fs.Stats, teto: number): Buffer | 'link' | 
     const f = fs.fstatSync(fd);
     if (!f.isFile() || f.dev !== st.dev || f.ino !== st.ino) return 'nao-regular';
     if (f.size > teto) return 'grande';
-    const bytes = Buffer.alloc(f.size + 1);
+    const bytes = Buffer.alloc(crescer ? f.size : f.size + 1);
     let lidos = 0, n: number;
     while (lidos < bytes.length && (n = fs.readSync(fd, bytes, lidos, bytes.length - lidos, null)) > 0) lidos += n;
+    if (crescer) return bytes.subarray(0, lidos);
     return lidos === f.size ? bytes.subarray(0, lidos) : 'nao-regular';
   } finally { fs.closeSync(fd); }
 }
@@ -243,11 +252,11 @@ function validarFrontmatter(dados: ValorYaml, arquivo: string): Valido | LacunaD
   const onde = { arquivo, documento: id };
   const estranhas = Object.keys(dados).filter((k) => !CHAVES_DO_DOCUMENTO.includes(k));
   if (estranhas.length) {
-    return lacuna('documento.chave-desconhecida', `chave fora do contrato: ${estranhas.map((k) => JSON.stringify(semControle(k, 40))).join(', ')} ` +
+    return lacuna('documento.chave-desconhecida', `chave fora do contrato: ${estranhas.map((k) => JSON.stringify(limpo(k, 40))).join(', ')} ` +
       `(o frontmatter tem só ${CHAVES_DO_DOCUMENTO.join(', ')})`, onde);
   }
   const titulo = typeof dados.titulo === 'string' ? dados.titulo.trim() : '';
-  if (!titulo || titulo.length > LIMITE_DO_TITULO || CONTROLE.test(titulo)) {
+  if (!titulo || titulo.length > LIMITE_DO_TITULO || INVISIVEL.test(titulo)) {
     return lacuna('documento.titulo-invalido', `titulo precisa ser texto de 1 a ${LIMITE_DO_TITULO} caracteres, ` +
       'sem caractere de controle', onde);
   }
@@ -278,9 +287,14 @@ function linhasCitadas(raiz: string, thread: string, citadas: Set<number>, teto:
   let arquivo: string;
   try { arquivo = path.join(dirThread(raiz, thread), 'ledger.jsonl'); }
   catch { return { motivo: 'a pasta da thread no estado do projeto é link ou fica fora da regra de id' }; }
-  const st = fs.lstatSync(arquivo, { throwIfNoEntry: false });
+  let st: fs.Stats | undefined;
+  try { st = fs.lstatSync(arquivo, { throwIfNoEntry: false }); }
+  catch (e) {
+    // A pasta da thread que é arquivo comum dá ENOTDIR: a thread não tem ledger, e nada lança.
+    if ((e as NodeJS.ErrnoException).code !== 'ENOTDIR') return { motivo: `o ledger da thread ${thread} não abriu para leitura` };
+  }
   if (!st) return { motivo: `a thread ${thread} não tem ledger neste projeto` };
-  const bytes = lerArquivo(arquivo, st, teto);
+  const bytes = lerArquivo(arquivo, st, teto, true);
   if (!Buffer.isBuffer(bytes)) return { motivo: `o ledger da thread ${thread} não é arquivo comum de até ${teto / 1024 / 1024} MiB` };
   const fim = bytes.lastIndexOf(10) + 1;
   const completo = bytes.subarray(0, fim).toString('utf8');
@@ -324,7 +338,7 @@ function conferirDecisao(ref: string, ledgers: Map<string, LinhasCitadas>): Deci
  */
 export function lerConhecimento(c: ManifestoCarregado, limites: LimitesDoConhecimento = LIMITES_DO_CONHECIMENTO): Conhecimento {
   const declarado = c.manifesto.conhecimento?.dir ?? null;
-  const dir = declarado === null ? null : semControle(declarado);
+  const dir = declarado === null ? null : limpo(declarado);
   const so = (l: LacunaDoConhecimento): Conhecimento => ({ contrato: CONTRATO_CONHECIMENTO, dir, documentos: [], colecoes: [], lacunas: [l] });
   if (declarado === null) return so(lacuna('conhecimento.nao-declarado', 'o orkastery.yaml não declara conhecimento.dir'));
   const pasta = pastaDoConhecimento(c.raiz, declarado);
@@ -337,6 +351,7 @@ export function lerConhecimento(c: ManifestoCarregado, limites: LimitesDoConheci
 
   const decodificador = new TextDecoder('utf-8', { fatal: true });
   const validos: (Valido & { arquivo: string; bytes: number; sha256: string })[] = [];
+  const declarados = new Map<string, number>();
   let total = 0;
   for (const { abs, arquivo, st } of candidatos) {
     const bytes = lerArquivo(abs, st, limites.bytesPorDocumento);
@@ -364,18 +379,21 @@ export function lerConhecimento(c: ManifestoCarregado, limites: LimitesDoConheci
       continue;
     }
     let dados: ValorYaml;
-    try { dados = lerYaml(bruto, { estrito: true }); }
-    catch (e) { lacunas.push(lacuna('documento.frontmatter-invalido', semControle((e as Error).message), { arquivo })); continue; }
+    // A linha do `---` de abertura entra na leitura (e é pulada nela) para o erro dizer a linha do arquivo.
+    try { dados = lerYaml('---\n' + bruto, { estrito: true }); }
+    catch (e) { lacunas.push(lacuna('documento.frontmatter-invalido', limpo((e as Error).message, 200), { arquivo })); continue; }
+    // D4: o id na forma certa conta para a regra do repetido mesmo quando o resto do documento não vale.
+    const idDeclarado = ehMapa(dados) && typeof dados.id === 'string' && ID_DE_DOCUMENTO.test(dados.id) ? dados.id : null;
+    if (idDeclarado) declarados.set(idDeclarado, (declarados.get(idDeclarado) ?? 0) + 1);
     const v = validarFrontmatter(dados, arquivo);
     if ('codigo' in v) { lacunas.push(v); continue; }
     validos.push({ ...v, arquivo, bytes: bytes.length, sha256: bytesHash(bytes) });
   }
 
-  // D4: id repetido não escolhe arquivo; todos os documentos com ele saem da resposta.
-  const porId = new Map<string, number>();
-  for (const v of validos) porId.set(v.id, (porId.get(v.id) ?? 0) + 1);
+  // D4: id repetido não escolhe arquivo; todos os documentos com ele saem da resposta, também quando a outra
+  // cópia não vale por outro motivo (ela já tem a lacuna dela).
   const unicos = validos.filter((v) => {
-    const vezes = porId.get(v.id)!;
+    const vezes = declarados.get(v.id)!;
     if (vezes > 1) {
       lacunas.push(lacuna('documento.id-repetido', `o id aparece em ${vezes} arquivos; nenhum deles vale até sobrar um`,
         { arquivo: v.arquivo, documento: v.id }));

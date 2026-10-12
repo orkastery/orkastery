@@ -66,10 +66,12 @@ test('D1: o bloco conhecimento declara a pasta; sem ele não há conhecimento, e
     assert.deepEqual(lido('conhecimento:\n  dir: docs/conhecimento\n'), { conhecimento: { dir: 'docs/conhecimento' }, avisos: [] });
     // A regra do caminho é do leitor: o manifesto guarda o texto, e o leitor recusa com lacuna tipada (D6).
     assert.deepEqual(lido('conhecimento:\n  dir: /etc\n'), { conhecimento: { dir: '/etc' }, avisos: [] });
-    assert.deepEqual(lido('conhecimento: docs/conhecimento\n'), { conhecimento: undefined,
-      avisos: ['conhecimento deve ser um mapa com dir: <pasta dentro da raiz>; o bloco foi ignorado'] });
-    assert.deepEqual(lido('conhecimento:\n  dir:\n'), { conhecimento: undefined,
-      avisos: ['conhecimento.dir deve ser uma pasta dentro da raiz, como docs/conhecimento; o bloco foi ignorado'] });
+    // Bloco fora do formato avisa e fica declarado com dir vazio: o leitor recusa, em vez de dizer que nada foi declarado.
+    assert.deepEqual(lido('conhecimento: docs/conhecimento\n'), { conhecimento: { dir: '' },
+      avisos: ['conhecimento deve ser um mapa com dir: <pasta dentro da raiz>; o leitor recusa ate corrigir'] });
+    assert.deepEqual(lido('conhecimento:\n  dir:\n'), { conhecimento: { dir: '' },
+      avisos: ['conhecimento.dir deve ser uma pasta dentro da raiz, como docs/conhecimento; o leitor recusa ate corrigir'] });
+    assert.deepEqual([ler(p.dir).dir, lacunas(ler(p.dir))], ['', [{ codigo: 'conhecimento.dir-invalido', arquivo: null, documento: null, referencia: null }]]);
     assert.deepEqual(lido('conhecimento:\n  dir: kb\n  pasta: outra\n'), { conhecimento: { dir: 'kb' },
       avisos: ['conhecimento.pasta desconhecida; o bloco conhecimento so tem dir'] });
 
@@ -93,15 +95,18 @@ test('D2: frontmatter fechado: chave fora do contrato, repetida ou fora do bloco
     documento(p.dir, 'docs/conhecimento/recuo.md', 'id: doc-recuo\n' + resto + 'referencias:\n  brain: [proj-aaa]\n decisoes: [ork-x#1]\n');
     documento(p.dir, 'docs/conhecimento/proto.md', 'id: doc-proto\n' + resto + '__proto__:\n  id: doc-outro\n');
     documento(p.dir, 'docs/conhecimento/lista.md', '- id\n- titulo\n');
+    documento(p.dir, 'docs/conhecimento/comentario.md', 'id: doc-comentario\ntitulo: Decisão #42 do time\ncolecoes: [rh]\n');
+    documento(p.dir, 'docs/conhecimento/comentado.md', 'id: doc-comentado\n# nota de quem escreveu\ntitulo: "Decisão #42 do time"\ncolecoes: [rh]\n');
     fs.writeFileSync(path.join(p.dir, 'docs/conhecimento/sem.md'), '# Sem frontmatter\n');
     fs.writeFileSync(path.join(p.dir, 'docs/conhecimento/aberto.md'), '---\nid: doc-aberto\n' + resto);
     const k = ler(p.dir);
-    assert.deepEqual(k.documentos.map((d) => d.id), ['doc-ok1']);
+    assert.deepEqual(k.documentos.map((d) => [d.id, d.titulo]), [['doc-comentado', 'Decisão #42 do time'], ['doc-ok1', 'T']]);
     const sem = (arquivo: string, codigo: string, documento: string | null = null) =>
       ({ codigo, arquivo: `docs/conhecimento/${arquivo}`, documento, referencia: null });
     assert.deepEqual(lacunas(k), [
       sem('aberto.md', 'documento.sem-frontmatter'),
       sem('autor.md', 'documento.chave-desconhecida', 'doc-autor'),
+      sem('comentario.md', 'documento.frontmatter-invalido'),
       sem('lista.md', 'documento.frontmatter-invalido'),
       sem('proto.md', 'documento.frontmatter-invalido'),
       sem('recuo.md', 'documento.frontmatter-invalido'),
@@ -111,8 +116,10 @@ test('D2: frontmatter fechado: chave fora do contrato, repetida ou fora do bloco
     ]);
     const detalhe = (arquivo: string) => k.lacunas.find((l) => l.arquivo === `docs/conhecimento/${arquivo}`)!.detalhe;
     assert.match(detalhe('autor.md'), /chave fora do contrato: "autor"/);
-    assert.match(detalhe('repetida.md'), /linha 4: chave repetida/);
-    assert.match(detalhe('recuo.md'), /linha 6: indentacao fora do bloco/);
+    // A linha é a do arquivo, contando o --- de abertura.
+    assert.match(detalhe('repetida.md'), /linha 5: chave repetida/);
+    assert.match(detalhe('recuo.md'), /linha 7: indentacao fora do bloco/);
+    assert.match(detalhe('comentario.md'), /linha 3: comentario depois do valor/);
     assert.match(detalhe('proto.md'), /chave reservada/);
   } finally { p.limpar(); }
 });
@@ -137,8 +144,11 @@ test('D3: forma do id, do título, das coleções e das referências; fora da fo
   try {
     const d = (nome: string, frontmatter: string) => documento(p.dir, `docs/conhecimento/${nome}.md`, frontmatter);
     const nomes = (n: number) => Array.from({ length: n }, (_, i) => `c${i}`).join(', ');
-    const esc = String.fromCharCode(0x1b), rlo = String.fromCharCode(0x202e);
-    // Valem: os extremos de cada forma, coleção num texto só e o inteiro que o YAML lê como número.
+    const esc = String.fromCharCode(0x1b), rlo = String.fromCharCode(0x202e), hangul = String.fromCharCode(0x3164);
+    const programadora = String.fromCodePoint(0x1f469, 0x200d, 0x1f4bb);
+    // Valem: os extremos de cada forma, coleção num texto só, o inteiro que o YAML lê como número e o emoji com ZWJ
+    // (a regra de invisível é a do saida-segura.ts).
+    d('titulo-emoji', `id: doc-titulo-emoji\ntitulo: Guia do time ${programadora}\ncolecoes: [rh]\n`);
     d('extremos', `id: doc-${'a'.repeat(48)}\ntitulo: ${'t'.repeat(160)}\ncolecoes: [${nomes(16)}]\n`);
     d('escalares', 'id: doc-ano\ntitulo: Relatório 2026\ncolecoes: 2026\n');
     d('um-texto', 'id: doc-um-texto\ntitulo: Uma coleção\ncolecoes: rh\n');
@@ -152,6 +162,7 @@ test('D3: forma do id, do título, das coleções e das referências; fora da fo
     d('titulo-longo', `id: doc-titulo-longo\ntitulo: ${'t'.repeat(161)}\ncolecoes: [rh]\n`);
     d('titulo-escape', `id: doc-titulo-escape\ntitulo: a${esc}[31mb\ncolecoes: [rh]\n`);
     d('titulo-bidi', `id: doc-titulo-bidi\ntitulo: a${rlo}b\ncolecoes: [rh]\n`);
+    d('titulo-hangul', `id: doc-titulo-hangul\ntitulo: ${hangul}\ncolecoes: [rh]\n`);
     d('colecao-ausente', 'id: doc-colecao-ausente\ntitulo: T\n');
     d('colecao-vazia', 'id: doc-colecao-vazia\ntitulo: T\ncolecoes: []\n');
     d('colecao-maiuscula', 'id: doc-colecao-maiuscula\ntitulo: T\ncolecoes: [RH]\n');
@@ -167,9 +178,10 @@ test('D3: forma do id, do título, das coleções e das referências; fora da fo
     assert.deepEqual(k.documentos.map((x) => [x.id, x.titulo.length, x.colecoes]), [
       [`doc-${'a'.repeat(48)}`, 160, nomes(16).split(', ').sort()],
       ['doc-ano', 14, ['2026']],
+      ['doc-titulo-emoji', 18, ['rh']],
       ['doc-um-texto', 11, ['rh']],
     ]);
-    assert.equal(k.lacunas.length, 20, 'uma lacuna por documento inválido');
+    assert.equal(k.lacunas.length, 21, 'uma lacuna por documento inválido');
     const porArquivo = Object.fromEntries(k.lacunas.map((l) => [path.basename(l.arquivo!, '.md'), [l.codigo, l.documento]]));
     const id = 'documento.id-invalido', titulo = 'documento.titulo-invalido', colecoes = 'documento.colecoes-invalidas',
       refs = 'documento.referencias-invalidas';
@@ -177,7 +189,7 @@ test('D3: forma do id, do título, das coleções e das referências; fora da fo
       'id-curto': [id, null], 'id-longo': [id, null], 'id-maiusculo': [id, null], 'id-ausente': [id, null],
       'titulo-ausente': [titulo, 'doc-titulo-ausente'], 'titulo-numero': [titulo, 'doc-titulo-numero'],
       'titulo-longo': [titulo, 'doc-titulo-longo'], 'titulo-escape': [titulo, 'doc-titulo-escape'],
-      'titulo-bidi': [titulo, 'doc-titulo-bidi'],
+      'titulo-bidi': [titulo, 'doc-titulo-bidi'], 'titulo-hangul': [titulo, 'doc-titulo-hangul'],
       'colecao-ausente': [colecoes, 'doc-colecao-ausente'], 'colecao-vazia': [colecoes, 'doc-colecao-vazia'],
       'colecao-maiuscula': [colecoes, 'doc-colecao-maiuscula'], 'colecao-repetida': [colecoes, 'doc-colecao-repetida'],
       'colecao-demais': [colecoes, 'doc-colecao-demais'], 'colecao-booleana': [colecoes, 'doc-colecao-booleana'],
@@ -196,18 +208,27 @@ test('D4: o documento vale inteiro, cada referência vale sozinha e id repetido 
     documento(p.dir, 'docs/conhecimento/b/dup.md', 'id: doc-dup\ntitulo: Outro\ncolecoes: [financeiro]\n');
     documento(p.dir, 'docs/conhecimento/refs.md', 'id: doc-refs\ntitulo: Refs\ncolecoes: [rh]\nreferencias:\n' +
       '  brain: [proj-aaa, Projeto A, proj-aaa, init-bbb]\n  decisoes: [ork-x#2, ork-x#1, ork-x#2, ork-x]\n');
+    // A cópia que não vale por outro motivo também conta: o reader nunca escolhe entre dois arquivos com o mesmo id.
+    documento(p.dir, 'docs/conhecimento/unico.md', 'id: doc-unico\ntitulo: Único\ncolecoes: [rh]\n');
+    documento(p.dir, 'docs/conhecimento/z/sombra.md', 'id: doc-unico\ntitulo: Sombra\ncolecoes: [rh]\nautor: Ana\n');
+    // Referência longa volta cortada sem partir caractere.
+    const longa = 'x' + String.fromCodePoint(0x1f4a5).repeat(250);
+    documento(p.dir, 'docs/conhecimento/longa.md', `id: doc-longa\ntitulo: Longa\ncolecoes: [outra]\nreferencias:\n  brain: [${longa}]\n`);
     const k = ler(p.dir);
     assert.deepEqual(k.documentos.map((d) => [d.id, d.referencias.brain, d.referencias.decisoes.map((x) => x.ref)]),
-      [['doc-refs', ['init-bbb', 'proj-aaa'], ['ork-x#2']]]);
-    assert.deepEqual(k.colecoes, [{ nome: 'rh', documentos: ['doc-refs'] }]);
+      [['doc-longa', [], []], ['doc-refs', ['init-bbb', 'proj-aaa'], ['ork-x#2']]]);
+    assert.deepEqual(k.colecoes, [{ nome: 'outra', documentos: ['doc-longa'] }, { nome: 'rh', documentos: ['doc-refs'] }]);
     const em = (arquivo: string, codigo: string, documento: string, referencia: string | null = null) =>
       ({ codigo, arquivo: `docs/conhecimento/${arquivo}`, documento, referencia });
     assert.deepEqual(lacunas(k), [
       em('a/dup.md', 'documento.id-repetido', 'doc-dup'),
       em('b/dup.md', 'documento.id-repetido', 'doc-dup'),
+      em('longa.md', 'referencia.invalida', 'doc-longa', 'x' + String.fromCodePoint(0x1f4a5).repeat(199)),
       em('refs.md', 'referencia.invalida', 'doc-refs', 'Projeto A'),
       em('refs.md', 'referencia.invalida', 'doc-refs', 'ork-x'),
       em('refs.md', 'referencia.nao-e-decisao', 'doc-refs', 'ork-x#1'),
+      em('unico.md', 'documento.id-repetido', 'doc-unico'),
+      em('z/sombra.md', 'documento.chave-desconhecida', 'doc-unico'),
     ]);
   } finally { p.limpar(); }
 });
@@ -266,7 +287,8 @@ test('D5: de dentro da worktree, a decisão confere no ledger canônico; a que n
     git(['init', '-q', '-b', 'main'], principal);
     fs.writeFileSync(path.join(principal, 'orkastery.yaml'), PROJETO + KB);
     documento(principal, 'docs/conhecimento/x.md', 'id: doc-xis\ntitulo: X\ncolecoes: [rh]\nreferencias:\n  brain: [proj-sem-conferir]\n' +
-      '  decisoes: [ork-x#2, ork-x#3, ork-x#1, ork-x#4, ork-x#5, ork-x#6, ork-x#7, ork-x#8, ork-nada#1, ork-x#0, ork-x#01, ../x#1]\n');
+      '  decisoes: [ork-x#2, ork-x#3, ork-x#1, ork-x#4, ork-x#5, ork-x#6, ork-x#7, ork-x#8, ork-nada#1, ork-arquivo#1, ork-x#0, ' +
+      'ork-x#01, ../x#1]\n');
     git(['add', '-A'], principal);
     git(['commit', '-q', '-m', 'conhecimento'], principal);
     git(['worktree', 'add', '-q', '-b', 'kb', wt], principal);
@@ -277,6 +299,8 @@ test('D5: de dentro da worktree, a decisão confere no ledger canônico; a que n
     eventos.push(JSON.stringify({ ts: '2026-10-12T12:00:00.000Z', thread: 'ork-outra', tipo: 'autonomous_decision' }), 'isto não é JSON');
     const pasta = path.join(principal, '.orkastery', 'threads', 'ork-x');
     fs.mkdirSync(pasta, { recursive: true });
+    // A pasta de uma thread que é arquivo comum: o lstat do ledger dentro dela dá ENOTDIR, e a leitura não lança.
+    fs.writeFileSync(path.join(principal, '.orkastery', 'threads', 'ork-arquivo'), 'não é pasta');
     // A sétima linha fica sem o fim de linha: escrita pela metade, ela ainda não existe para a captura nem aqui.
     fs.writeFileSync(path.join(pasta, 'ledger.jsonl'), eventos.join('\n') + '\n' +
       JSON.stringify({ ts: '2026-10-12T12:00:00.000Z', thread: 'ork-x', tipo: 'autonomous_decision' }));
@@ -287,6 +311,7 @@ test('D5: de dentro da worktree, a decisão confere no ledger canônico; a que n
     ]);
     const em = (codigo: string, referencia: string) => ({ codigo, arquivo: 'docs/conhecimento/x.md', documento: 'doc-xis', referencia });
     assert.deepEqual(lacunas(k), [
+      em('referencia.decisao-ausente', 'ork-arquivo#1'),
       em('referencia.decisao-ausente', 'ork-nada#1'),
       em('referencia.decisao-ausente', 'ork-x#7'),
       em('referencia.decisao-ausente', 'ork-x#8'),
@@ -304,6 +329,7 @@ test('D5: de dentro da worktree, a decisão confere no ledger canônico; a que n
     assert.match(detalhe('ork-x#5'), /é de outra thread/);
     assert.match(detalhe('ork-x#6'), /não é um evento JSON/);
     assert.match(detalhe('ork-nada#1'), /não tem ledger neste projeto/);
+    assert.match(detalhe('ork-arquivo#1'), /não tem ledger neste projeto/);
   } finally {
     fs.rmSync(principal, { recursive: true, force: true });
     fs.rmSync(fora, { recursive: true, force: true });
@@ -331,7 +357,7 @@ test('D6: pasta fora da raiz, reservada ou de forma inválida recusa sem ler nad
       return [k.lacunas.map((l) => l.codigo).join(), k.documentos.map((d) => `${d.id}@${d.arquivo}`).join()];
     };
     for (const dir of [fora, '/etc', '../fora', 'docs/../docs/kb', '.', './', '.git', '.orkastery/threads', 'docs\\kb',
-      'atalho-git', 'atalho-raiz', 'atalho-controle']) {
+      '.ORKASTERY/threads', '.Git', 'atalho-git', 'atalho-raiz', 'atalho-controle']) {
       assert.deepEqual(com(dir), ['conhecimento.dir-invalido', ''], dir);
     }
     // O texto do manifesto com escape de terminal recusa, e não volta cru na resposta.
@@ -392,6 +418,49 @@ test('D6: dentro da pasta, link nunca é seguido, FIFO e nome estranho viram lac
   }
 });
 
+test('D5: o ledger que cresce durante a leitura vale como estava no fstat, sem derrubar a citação', (t) => {
+  const p = projeto('ledger-cresce', KB);
+  try {
+    const linhas = ledger(p.dir, 'ork-x', [{ tipo: 'autonomous_decision' }, { tipo: 'autonomous_decision' }, { tipo: 'autonomous_decision' }]);
+    documento(p.dir, 'docs/conhecimento/a.md', 'id: doc-aaa\ntitulo: T\ncolecoes: [rh]\nreferencias:\n  decisoes: [ork-x#2, ork-x#3]\n');
+    const alvo = fs.statSync(path.join(p.dir, '.orkastery', 'threads', 'ork-x', 'ledger.jsonl'));
+    // O fstat vê o ledger com duas linhas; a terceira chega depois dele, durante a leitura.
+    const tamanho = Buffer.byteLength(`${linhas[0]}\n${linhas[1]}\n`);
+    const real = require('node:fs') as typeof import('node:fs');
+    const fstat = real.fstatSync;
+    t.mock.method(real, 'fstatSync', (...args: unknown[]) => {
+      const st = Reflect.apply(fstat, real, args) as fs.Stats;
+      return st.dev === alvo.dev && st.ino === alvo.ino ? Object.assign(Object.create(Object.getPrototypeOf(st)), st, { size: tamanho }) : st;
+    });
+    const k = ler(p.dir);
+    t.mock.restoreAll();
+    assert.deepEqual(k.documentos.map((d) => d.referencias.decisoes.map((x) => [x.ref, x.sha256])), [[['ork-x#2', sha(linhas[1])]]]);
+    assert.deepEqual(lacunas(k), [{ codigo: 'referencia.decisao-ausente', arquivo: 'docs/conhecimento/a.md', documento: 'doc-aaa', referencia: 'ork-x#3' }]);
+  } finally { p.limpar(); }
+});
+
+const COMO_ROOT = typeof process.getuid === 'function' && process.getuid() === 0 ? 'como root a permissão da pasta não barra a leitura' : false;
+
+test('D6: entrada que não abre para leitura vira lacuna, e a leitura segue sem lançar', { skip: COMO_ROOT }, () => {
+  const p = projeto('permissao', KB);
+  const kb = path.join(p.dir, 'docs', 'conhecimento');
+  try {
+    documento(p.dir, 'docs/conhecimento/ok.md', 'id: doc-ok1\ntitulo: Ok\ncolecoes: [rh]\n');
+    documento(p.dir, 'docs/conhecimento/so-leitura/dentro.md', 'id: doc-dentro\ntitulo: T\ncolecoes: [rh]\n');
+    documento(p.dir, 'docs/conhecimento/fechada/dentro.md', 'id: doc-fechada\ntitulo: T\ncolecoes: [rh]\n');
+    // Lista, mas não entra: o lstat do que está dentro dá EACCES. A outra nem lista.
+    fs.chmodSync(path.join(kb, 'so-leitura'), 0o600);
+    fs.chmodSync(path.join(kb, 'fechada'), 0o000);
+    const k = ler(p.dir);
+    assert.deepEqual(k.documentos.map((d) => d.id), ['doc-ok1']);
+    const em = (arquivo: string) => ({ codigo: 'documento.nao-regular', arquivo: `docs/conhecimento/${arquivo}`, documento: null, referencia: null });
+    assert.deepEqual(lacunas(k), [em('fechada'), em('so-leitura/dentro.md')]);
+  } finally {
+    for (const pasta of ['so-leitura', 'fechada']) fs.chmodSync(path.join(kb, pasta), 0o700);
+    p.limpar();
+  }
+});
+
 test('D7: teto da pasta estourado falha fechado; teto do documento e do ledger viram lacuna só deles', () => {
   const p = projeto('tetos', KB);
   try {
@@ -442,6 +511,10 @@ test('D9: lerYaml estrito recusa chave repetida, __proto__ e linha fora do bloco
   assert.throws(() => lerYaml('__proto__:\n  id: doc-x\n', { estrito: true }), /linha 1: chave reservada/);
   assert.throws(() => lerYaml('r:\n  b: [x]\n d: [y]\n', { estrito: true }), /linha 3: indentacao fora do bloco/);
   assert.throws(() => lerYaml('a: [x]\n  - y\n', { estrito: true }), /linha 2: indentacao fora do bloco/);
+  // O # depois do valor é comentário no YAML: no modo padrão corta o valor, no estrito recusa; entre aspas, vale.
+  assert.deepEqual(lerYaml('titulo: Decisao #42\n'), { titulo: 'Decisao' });
+  assert.throws(() => lerYaml('titulo: Decisao #42\n', { estrito: true }), /linha 1: comentario depois do valor/);
+  assert.deepEqual(lerYaml('# nota\ntitulo: "Decisao #42"\n  # recuado\n', { estrito: true }), { titulo: 'Decisao #42' });
 
   const valido = 'id: doc-a\ncolecoes: [rh, politicas]\nreferencias:\n  brain:\n    - proj-a\n  decisoes: [ork-x#3]\n';
   assert.deepEqual(lerYaml(valido, { estrito: true }),

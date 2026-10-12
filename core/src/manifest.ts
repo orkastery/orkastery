@@ -160,21 +160,19 @@ function lerGrafo(v: ValorYaml | undefined, avisos: string[]): Manifesto['grafo'
 
 /**
  * RM-026 K7 (D1): `conhecimento.dir`, a pasta dos documentos `ork.conhecimento/v1`. Sem o bloco, o projeto nao
- * declarou conhecimento. Bloco que nao e mapa, `dir` vazio e chave desconhecida so avisam: ler a pasta nao
- * executa nada, e a regra do caminho mora no leitor (`conhecimento.ts`), que recusa com lacuna tipada.
+ * declarou conhecimento. Bloco que nao e mapa e `dir` vazio avisam e ficam declarados com `dir` vazio, que o
+ * leitor (`conhecimento.ts`) recusa com `conhecimento.dir-invalido`: quem declarou nao ouve que nao declarou.
+ * Chave desconhecida so avisa. Ler a pasta nao executa nada, e a regra do caminho mora no leitor.
  */
 function lerBlocoConhecimento(v: ValorYaml | undefined, avisos: string[]): Manifesto['conhecimento'] {
   if (v === undefined || v === null) return undefined;
   if (typeof v !== 'object' || Array.isArray(v)) {
-    avisos.push('conhecimento deve ser um mapa com dir: <pasta dentro da raiz>; o bloco foi ignorado');
-    return undefined;
+    avisos.push('conhecimento deve ser um mapa com dir: <pasta dentro da raiz>; o leitor recusa ate corrigir');
+    return { dir: '' };
   }
   for (const chave of Object.keys(v)) if (chave !== 'dir') avisos.push(`conhecimento.${chave} desconhecida; o bloco conhecimento so tem dir`);
   const dir = texto(v.dir, '').trim();
-  if (!dir) {
-    avisos.push('conhecimento.dir deve ser uma pasta dentro da raiz, como docs/conhecimento; o bloco foi ignorado');
-    return undefined;
-  }
+  if (!dir) avisos.push('conhecimento.dir deve ser uma pasta dentro da raiz, como docs/conhecimento; o leitor recusa ate corrigir');
   return { dir };
 }
 
