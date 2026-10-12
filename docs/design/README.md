@@ -41,7 +41,7 @@ A pasta `docs/assets/marca/` é a marca anterior. A marca vigente é a de `marca
 - Contraste de texto de pelo menos 4,5:1 nos dois temas, foco visível e alvos de toque de pelo menos 44 × 44 px.
 - Todo número vem com o comando que o prova; lacuna aparece como lacuna.
 - Comando, caminho e identificador técnico sempre como código, inteiro, sem quebrar no meio da linha.
-- Idiomas: PT-BR e inglês, como manda o `DESIGN.md`. Se o espanhol fica ou sai é decisão do dono, ainda aberta.
+- Idiomas: só PT-BR (em `/`) e inglês (em `/en/`), como manda o `DESIGN.md`. O espanhol saiu dos sites por decisão do dono em 12/10/2026; os endereços antigos em `/es/` redirecionam para o equivalente em inglês.
 
 ## OrkMind
 
