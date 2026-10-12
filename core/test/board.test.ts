@@ -195,7 +195,7 @@ test('cenario do bug: threads orfas presas nao seguram as vagas das prontas', ()
 
   // 5 horas depois, runtime consultado e SEM nenhuma sessao viva: max=3.
   const apertado = { ...p.carregado, manifesto: { ...p.carregado.manifesto } };
-  apertado.manifesto.concurrency = { max_parallel_threads: 3, stale_after_min: 240 };
+  apertado.manifesto.concurrency = { max_parallel_threads: 3, stale_after_min: 240, max_parallel_heavy: 1 };
   const plano = planejar(apertado, { agora: horasDepois(5), estados: new Map() });
   const vaga = new Map(plano.vagas.map((v) => [v.thread, v]));
 
@@ -237,7 +237,7 @@ test('stale timeout: sessao working segura a vaga, sessao morta devolve depois d
   });
 
   const apertado = { ...p.carregado, manifesto: { ...p.carregado.manifesto } };
-  apertado.manifesto.concurrency = { max_parallel_threads: 2, stale_after_min: 60 };
+  apertado.manifesto.concurrency = { max_parallel_threads: 2, stale_after_min: 60, max_parallel_heavy: 1 };
 
   // 2 horas depois (stale_after_min=60 ja estourou), a sessao da Viva segue working.
   const estados = new Map([[SESSAO_A, 'working']]);

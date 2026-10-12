@@ -8,6 +8,23 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **#Noctum, fatia N2: fila local e capacidade** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): o contrato
+  `ork.noctum-envelope/v2` traz a lista fechada de trabalhos do arco (prioridade e dependências do dono, thread que já
+  existe ou pedido para abrir uma, que o dono lê inteiro no resumo que autoriza) e os limites de sessões ao mesmo tempo
+  (máquina, conta, runtime e slots de revisão). `core/src/noctum-fila.ts` escolhe de forma determinística (dependências
+  entregues, item reservado por esta máquina, prioridade, prova mais adiantada da Sentinela, posição e id) e diz quando
+  esperar e quando encerrar, sem chamar lacuna de fila vazia; `core/src/noctum-capacidade.ts` admite um despacho só com
+  projeto, máquina, revisão, conta e runtime ao mesmo tempo; `core/src/noctum-execucao.ts` despacha no máximo um
+  trabalho por passo, sob a trava do kernel, com o envelope conferido e a sessão reservada no orçamento imediatamente
+  antes, só pelo `ork phase run`, e grava fora dessa trava a baseline que o despacho pede. Muda para todos:
+  `ork verify` e a baseline esperam a vez na fila de recursos pesados (`concurrency.max_parallel_heavy`, padrão 1, 0
+  desliga) e, sem ela no prazo, recusam com `fila-pesada.ocupada` e saem com 3 (o `ork verify` espera até `--esperar`
+  ou 60 min; `ork ship`, `ork fix` e a baseline do `ork phase run`, até o `--esperar` deles ou 30 s, com aviso no
+  stderr; o `ork retry`, até 30 s; o MCP, até 20 s); o comando que roda dentro da vez herda a marca da posse, e o
+  `ork verify` aninhado nele não espera a vaga do próprio pai; a
+  sessão com o turno encerrado sem resultado deixa a vaga do `ork phase run` depois de 15 min sem atividade; e o prompt
+  de fase pede verify, build e suíte em primeiro plano, nunca com `&`. O modo continua desligado: `#Noctum` não é
+  aceito e nenhum comando abre ou executa arco.
 - **Design system Partitura no repositório** ([docs/design](docs/design/README.md)): o kit do Claude Design do dono (tokens
   em `docs/design/partitura/`, marca em `docs/design/marca/`, manual, brand kit, componentes, diretrizes e revisão de
   copy) entra no repositório, com um README de entrada e um apontamento no `AGENTS.md` para toda sessão que mexer em UI,

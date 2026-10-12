@@ -27,7 +27,7 @@ export function comVerify(c: Cenario): void {
  */
 export function dadoDoLedger(c: Cenario, thread: string, tipos: readonly string[]): unknown[] {
   const ledger = path.join(c.dir, '.orkastery', 'threads', thread, 'ledger.jsonl');
-  const volateis = new Set(['ts', 'eventId', 'id', 'pedidoId', 'duracaoMs', 'stealPct', 'steal', 'pid', 'gravadaEm', 'conducao',
+  const volateis = new Set(['ts', 'eventId', 'id', 'pedidoId', 'duracaoMs', 'esperouMs', 'stealPct', 'steal', 'pid', 'gravadaEm', 'conducao',
     'identidade', 'despacho', 'expiraEm', 'adquiridoEm', 'liberaEm', 'desde', 'sessionId', 'commit', 'prazoMs']);
   const limpar = (v: unknown): unknown => Array.isArray(v) ? v.map(limpar)
     : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v as Record<string, unknown>)

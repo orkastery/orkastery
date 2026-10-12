@@ -169,3 +169,11 @@ test('I-42: o bloco unico e parcial descreve so as proprias fases; os outros cic
   assert.ok(tamanho(fast) < tamanho(auto), `${tamanho(fast)} >= ${tamanho(auto)}`);
   assert.deepEqual(lintTemplate(t), []);
 });
+
+test('N2: o prompt de toda fase traz a regra contra & em verify, build e suite (aprendizado 1 da RM-058)', () => {
+  for (const fase of FASES) {
+    const prompt = renderizar(templateDaFase(fase), valoresDoPrompt(threadDeExemplo('auto', fase), fase, 'pedido do builder'));
+    assert.match(prompt, /- Verify, build e suite rodam em primeiro plano, com timeout, nunca com `&` no comando: o processo em segundo plano se perde e a sessao espera para sempre\./, fase);
+    assert.match(prompt, /O `ork verify` espera a vez na fila de recursos pesados\./, fase);
+  }
+});
