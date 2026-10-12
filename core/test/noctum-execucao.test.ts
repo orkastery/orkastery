@@ -11,12 +11,13 @@ import * as path from 'node:path';
 import { dirTemporario, projetoTemporario, runtimePorConta } from './apoio';
 import { abrirArco, concluirFase, entregar, gravarArtefato, prepararIngressoSimulado, revogarArco, TrabalhoSimulado } from './noctum-apoio';
 import { passoDoArco, OpcoesDoPasso, ResultadoDoPasso } from '../src/noctum-execucao';
-import { lerArco } from '../src/noctum-arco';
+import { lerArco, reservarDespacho } from '../src/noctum-arco';
+import { RecusaDoArco } from '../src/noctum-envelope';
 import { registrarConducaoDaSessao } from '../src/conducao';
 import { ErroDaFilaPesada, kernelDisponivel, tentarTravaExclusiva } from '../src/fila-pesada';
 import { registrar } from '../src/ledger';
 import { OpcoesRun, ResultadoRun } from '../src/phase';
-import { dirThread, lerThread, listarIds, novaThread } from '../src/thread';
+import { caminhoThread, dirThread, lerThread, listarIds, novaThread } from '../src/thread';
 
 prepararIngressoSimulado();
 const semKernel = !kernelDisponivel();
@@ -195,11 +196,29 @@ test('X5: o despacho que o núcleo recusa devolve a sessão ao orçamento e diz 
     const estado = lerArco(p.dir, 'arco-x5')!;
     assert.equal(estado.despachos[0].desfecho, 'recusado');
     assert.equal(estado.consumo.arco, 0, 'a recusa devolveu a sessão');
-    // O núcleo que volta sem sessão e sem idempotência também não despachou nada: é recusa, e a sessão volta.
+    // B1 da rodada 2: o núcleo que volta sem sessão, sem recusa e sem dizer por quê pode ter aberto a sessão; a reserva
+    // fica pendente e contada até a N4 reconciliar.
     const semSessao = passo(p, 'arco-x5', { despachar: () => ({ sessionId: null, bloqueado: false, motivo: null }) as unknown as ResultadoRun });
-    assert.ok(semSessao.acao === 'recusado' && semSessao.motivo === 'despacho.sem-sessao', JSON.stringify(semSessao.acao));
-    assert.deepEqual(lerArco(p.dir, 'arco-x5')!.despachos.map(d => d.desfecho), ['recusado', 'recusado']);
-    assert.equal(lerArco(p.dir, 'arco-x5')!.consumo.arco, 0);
+    assert.ok(semSessao.acao === 'recusado' && semSessao.motivo === 'despacho.sem-sessao' && semSessao.reserva !== null,
+      JSON.stringify(semSessao.acao));
+    assert.deepEqual(lerArco(p.dir, 'arco-x5')!.despachos.map(d => d.desfecho), ['recusado', 'pendente']);
+    assert.equal(lerArco(p.dir, 'arco-x5')!.consumo.arco, 1);
+    // O limite de uso da conta recusa antes de rodar; sem id de sessão na falha, a sessão volta ao orçamento.
+    const limite = passo(p, 'arco-x5', { despachar: () => ({ sessionId: null, bloqueado: false, motivo: 'runtime.rate-limited',
+      erro: 'limite de uso SIMULADO' }) as unknown as ResultadoRun });
+    assert.ok(limite.acao === 'recusado' && limite.motivo === 'runtime.rate-limited', JSON.stringify(limite.acao));
+    assert.deepEqual(lerArco(p.dir, 'arco-x5')!.despachos.map(d => d.desfecho), ['recusado', 'pendente', 'recusado']);
+    assert.equal(lerArco(p.dir, 'arco-x5')!.consumo.arco, 1);
+    // Com o id da sessão dito na falha, nem o limite de uso devolve: a sessão existe até a N4 provar o contrário.
+    const comId = passo(p, 'arco-x5', { despachar: (_k, threadId, o) => {
+      registrar(dirThread(p.dir, threadId), threadId, 'phase_dispatch_failed', { fase: o.fase, erro: 'limite SIMULADO depois do id',
+        sessionId: '99999999-0000-4000-8000-0000000000aa' });
+      return { sessionId: null, bloqueado: false, motivo: 'runtime.rate-limited', erro: 'limite de uso SIMULADO' } as unknown as ResultadoRun;
+    } });
+    assert.ok(comId.acao === 'recusado' && comId.reserva !== null, JSON.stringify(comId.acao));
+    assert.match(comId.acao === 'recusado' ? comId.detalhe : '', /a sessão pode ter aberto \(99999999-0000-4000-8000-0000000000aa\)/);
+    assert.deepEqual(lerArco(p.dir, 'arco-x5')!.despachos.map(d => d.desfecho), ['recusado', 'pendente', 'recusado', 'pendente']);
+    assert.equal(lerArco(p.dir, 'arco-x5')!.consumo.arco, 2);
   } finally { p.limpar(); }
 });
 
@@ -346,5 +365,82 @@ test('X12: o log do arco adulterado volta como recusa tipada do passo, sem exce�
     const r = passo(p, 'arco-x12');
     assert.ok(r.acao === 'aguardar' && r.motivo === 'noctum.estado.adulterado', JSON.stringify(r.acao === 'aguardar' ? r.motivo : r.acao));
     assert.equal(listarIds(p.dir).length, 0);
+  } finally { p.limpar(); }
+});
+
+test('X13: o claude --bg que diz o id e sai com erro deixa a reserva pendente e contada, e o passo seguinte não abre outra sessão', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-x13');
+  const claude = runtimePorConta('noctum-x13');
+  const codex = dirTemporario('noctum-x13-codex');
+  const codexAntes = process.env.CODEX_HOME;
+  try {
+    fs.mkdirSync(path.join(codex, 'sessions'));
+    process.env.CODEX_HOME = codex;
+    // O stub dos testes, com uma diferença: no despacho, diz o id da sessão e sai com 1 (a falha que o RM-063 descreve).
+    const stub = path.join(claude.dir, 'claude');
+    const original = fs.readFileSync(stub, 'utf8');
+    const alterado = original.replace('echo "Background agent started: $SESSAO"\nexit 0',
+      'echo "Background agent started: $SESSAO"\necho "erro SIMULADO depois do id" >&2\nexit 1');
+    assert.notEqual(alterado, original);
+    fs.writeFileSync(stub, alterado, { mode: 0o755 });
+    claude.conta(p.dir, 'perfil-a');
+    abrirArco(p.dir, 'arco-x13', { trabalhos: [AC[0]], maquina: 3, contas: [{ conta: 'perfil-a', sessoes: 3 }], tetoDoArco: 3 });
+    const real = () => passoDoArco(p.carregado, 'arco-x13', { maquina: MAQUINA, lerReservas: reservadas(['RM-901']) });
+    const r1 = real();
+    assert.ok(r1.acao === 'recusado' && r1.motivo === 'runtime.unavailable' && r1.reserva !== null, JSON.stringify(r1.acao));
+    assert.match(r1.acao === 'recusado' ? r1.detalhe : '', /a sessão pode ter aberto \(99999999-0000-4000-8000-000000000001\)/);
+    let estado = lerArco(p.dir, 'arco-x13')!;
+    assert.deepEqual(estado.despachos.map(d => d.desfecho), ['pendente']);
+    assert.equal(estado.consumo.arco, 1, 'a sessão que pode ter aberto conta no teto');
+    const r2 = real();
+    assert.ok(r2.acao === 'aguardar', JSON.stringify(r2.acao));
+    assert.equal(r2.acao === 'aguardar' && r2.fila?.trabalhos[0].motivo, 'retomada', 'a thread com o despacho falho vai para a retomada da N4');
+    assert.equal(Number(fs.readFileSync(path.join(claude.dir, 'n'), 'utf8').trim()), 1, 'o runtime abriu uma sessão só');
+    estado = lerArco(p.dir, 'arco-x13')!;
+    assert.equal(estado.despachos.length, 1, 'nenhuma reserva nova');
+  } finally {
+    if (codexAntes === undefined) delete process.env.CODEX_HOME; else process.env.CODEX_HOME = codexAntes;
+    p.limpar(); claude.restaurar(); fs.rmSync(codex, { recursive: true, force: true });
+  }
+});
+
+test('X14: a recusa da reserva que é só do candidato deixa o passo seguir; a que vale para o arco para tudo', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-x14');
+  try {
+    const recusandoA = (motivo: 'noctum.orcamento.esgotado' | 'noctum.efeito.revogado'): NonNullable<OpcoesDoPasso['reservar']> =>
+      (raiz, pedido, quando) => {
+        if (pedido.trabalho === 'a') throw new RecusaDoArco(motivo, 'recusa SIMULADA da reserva do trabalho a');
+        return reservarDespacho(raiz, pedido, quando);
+      };
+    abrirArco(p.dir, 'arco-x14', { trabalhos: AC });
+    const r1 = passo(p, 'arco-x14', { reservar: recusandoA('noctum.orcamento.esgotado') });
+    assert.ok(r1.acao === 'despachou' && r1.trabalho === 'c', JSON.stringify(r1.acao));
+    // Outros itens, para os dois trabalhos estarem na fila de novo: a recusa do arco inteiro não deixa tentar o segundo.
+    const DE: TrabalhoSimulado[] = [
+      { id: 'a', item: 'RM-904', prioridade: 1, dependeDe: [], pedido: 'Fatia D SIMULADA.' },
+      { id: 'c', item: 'RM-905', prioridade: 2, dependeDe: [], pedido: 'Fatia E SIMULADA.' },
+    ];
+    abrirArco(p.dir, 'arco-x14b', { trabalhos: DE });
+    const threads = listarIds(p.dir).length;
+    const r2 = passo(p, 'arco-x14b', { itens: ['RM-904', 'RM-905'], reservar: recusandoA('noctum.efeito.revogado') });
+    assert.ok(r2.acao === 'recusado' && r2.trabalho === 'a' && r2.motivo === 'noctum.efeito.revogado', JSON.stringify(r2.acao));
+    assert.equal(lerArco(p.dir, 'arco-x14b')!.despachos.length, 0);
+    assert.equal(listarIds(p.dir).length, threads, 'nenhuma thread aberta');
+  } finally { p.limpar(); }
+});
+
+test('X15: a reserva que abre a thread de um trabalho de pedido é só pelo GOAL e só quando nenhuma thread casa com ele', () => {
+  const p = projetoTemporario('noctum-x15');
+  try {
+    const h = abrirArco(p.dir, 'arco-x15', { trabalhos: [AC[0]] });
+    const base = { arco: 'arco-x15', envelopeSha256: h, trabalho: 'a', thread: null, runtime: 'claude-bg', conta: 'perfil-a', revisao: false };
+    const recusa = (fase: 'GOAL' | 'PLAN', texto: RegExp) => assert.throws(() => reservarDespacho(p.dir, { ...base, fase }),
+      (e: unknown) => e instanceof RecusaDoArco && e.motivo === 'noctum.despacho.fora-do-envelope' && texto.test(e.message));
+    recusa('PLAN', /o trabalho a abre a thread pelo GOAL, não pelo PLAN/);
+    const t = novaThread(p.carregado, { nome: 'ja aberta', modo: 'auto', roadmap: 'RM-901', pedido: PEDIDO.a }).thread;
+    recusa('GOAL', new RegExp(`o trabalho a já tem a thread ${t.id}: o despacho vai por ela`));
+    fs.writeFileSync(caminhoThread(p.dir, t.id), '{ ilegível');
+    recusa('GOAL', /há thread ilegível no projeto, e ela pode ser a do trabalho a/);
+    assert.equal(lerArco(p.dir, 'arco-x15')!.despachos.length, 0);
   } finally { p.limpar(); }
 });

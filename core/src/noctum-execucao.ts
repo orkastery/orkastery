@@ -11,8 +11,11 @@
  * A baseline que o bloco com GO no codex pede nunca roda entre a reserva e o lançamento (A1 do CHECK da ork-rm058n2): o
  * despacho recusa com `baseline.pendente`, a reserva volta, a trava de despacho é solta e só então a baseline é gravada;
  * o passo seguinte confere o envelope de novo e despacha. A falha de um candidato antes de lançar (abrir a thread, ler o
- * pedido) devolve a reserva e o passo segue para o próximo (A4); a falha depois de chamar o núcleo deixa a reserva pendente,
- * porque a sessão pode ter aberto, e sobe. A recusa tipada do arco, inclusive a do log adulterado, volta como resultado.
+ * pedido) devolve a reserva e o passo segue para o próximo (A4). Do núcleo, só a recusa de antes do lançamento devolve a
+ * reserva: a recusa dos portões, e a da conta, do limite de uso ou do impedimento do dono quando nenhuma sessão foi dita.
+ * Quando o runtime pode ter aberto a sessão (a falha seca dele, o id dito antes da falha, o núcleo que voltou sem sessão
+ * nem recusa, ou a exceção de dentro do `rodarFase`), a reserva fica pendente e contada até a N4 reconciliar (B1 da rodada
+ * 2). A recusa tipada do arco, inclusive a do log adulterado, volta como resultado.
  *
  * A revogação nunca espera um despacho: ela usa o lock do arco, e a trava de despacho é outra. Quem chama decide quando
  * chamar de novo (o vigia é da N4); a decisão da fila diz até quando esperar. Nada aqui liga o modo.
@@ -21,6 +24,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { vagaDoDespacho } from './board';
 import { canalDoProcesso, ErroDeConducao } from './conducao';
+import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
 import { ErroDaFilaPesada, kernelDisponivel, tentarTravaExclusiva } from './fila-pesada';
 import { ManifestoCarregado } from './manifest';
@@ -31,7 +35,7 @@ import { DecisaoDaFila, FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, 
 import { OpcoesRun, resolverDespacho, ResultadoRun, rodarFase } from './phase';
 import { lerPerfis, perfilDisponivel } from './runtime-profiles';
 import { configDoBloco, lerSetup } from './setup';
-import { lerThread, novaThread, OpcoesNovaThread, pedidoDaThread } from './thread';
+import { dirThread, lerThread, novaThread, OpcoesNovaThread, pedidoDaThread } from './thread';
 import { Fase, Thread } from './types';
 import { ConducaoDoVerify, gravarBaseline } from './verify';
 
@@ -51,6 +55,8 @@ export interface OpcoesDoPasso {
   perfis?: () => Array<{ id: string; runtime: string }>;
   /** A baseline que o despacho pediu, gravada fora da trava de despacho; em produção, `gravarBaseline`. */
   gravarBaseline?: (carregado: ManifestoCarregado, threadId: string, conducao: ConducaoDoVerify) => void;
+  /** A reserva no log do arco; em produção, `reservarDespacho`. */
+  reservar?: typeof reservarDespacho;
 }
 
 export type ResultadoDoPasso =
@@ -100,6 +106,11 @@ const MOTIVOS_DE_MAQUINA: readonly string[] = ['capacidade.fonte-indisponivel', 
 const RECUSAS_DO_CANDIDATO: readonly string[] = ['noctum.despacho.fora-do-envelope', 'noctum.orcamento.esgotado'];
 
 const mensagem = (e: unknown): string => (e instanceof Error ? e.message : String(e)).slice(0, 500);
+
+/** Os eventos do ledger da thread, ou `null` quando ele não se lê. */
+function eventosDaThread(raiz: string, threadId: string): ReturnType<typeof lerLedger> | null {
+  try { return lerLedger(dirThread(raiz, threadId)); } catch { return null; }
+}
 
 type Recusado = Extract<ResultadoDoPasso, { acao: 'recusado' }>;
 /** O despacho que parou na baseline: a reserva já voltou, e a baseline roda depois de soltar a trava de despacho. */
@@ -218,8 +229,8 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
   const { raiz } = carregado;
   let reserva: number;
   try {
-    reserva = reservarDespacho(raiz, { arco, envelopeSha256: fila.envelopeSha256 ?? '', trabalho: c.trabalho, thread: c.thread?.id ?? null,
-      fase: c.fase, runtime: c.runtime, conta: c.conta, revisao: c.fase === 'CHECK' }, c.quando).seq;
+    reserva = (opcoes.reservar ?? reservarDespacho)(raiz, { arco, envelopeSha256: fila.envelopeSha256 ?? '', trabalho: c.trabalho,
+      thread: c.thread?.id ?? null, fase: c.fase, runtime: c.runtime, conta: c.conta, revisao: c.fase === 'CHECK' }, c.quando).seq;
   } catch (e) {
     if (!(e instanceof RecusaDoArco)) throw e;
     const r: Recusado = { acao: 'recusado', trabalho: c.trabalho, thread: c.thread?.id ?? null, fase: c.fase, motivo: e.motivo,
@@ -245,17 +256,29 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
   }
   if (!pedido) return { ...recusar('noctum.despacho.pedido-ausente', `a thread ${thread.id} não guardou o pedido`, thread.id), seguir: true };
   // S5 do CHECK: a falha de dentro do núcleo pode ter aberto a sessão; ela sobe, e a reserva fica pendente e conta.
+  const antes = eventosDaThread(raiz, thread.id)?.length ?? 0;
   const r = (opcoes.despachar ?? rodarFase)(carregado, thread.id, { fase: c.fase, prompt: pedido.texto, perfil: c.conta,
     canal: canalDoProcesso(), correlacao: `noctum:${arco}`, baselinePeloDespacho: false });
   if (r.motivo === 'baseline.pendente') {
     concluirDespacho(raiz, arco, reserva, { motivo: 'baseline.pendente' });
     return { acao: 'baseline', thread: thread.id, fila };
   }
-  if (r.bloqueado || (!r.sessionId && !r.idempotente)) {
-    return recusar(String(r.motivo ?? 'despacho.sem-sessao'), r.erro ?? 'o núcleo não abriu sessão', thread.id);
+  // A recusa dos portões do núcleo vem antes de chamar o runtime: nada abriu, e a sessão volta ao orçamento.
+  if (r.bloqueado) return recusar(String(r.motivo ?? 'despacho.bloqueado'), r.erro ?? 'o núcleo recusou o despacho', thread.id);
+  if (r.sessionId || r.idempotente) {
+    concluirDespacho(raiz, arco, reserva, { thread: thread.id, sessionId: r.sessionId, idempotente: r.idempotente === true });
+    return { acao: 'despachou', trabalho: c.trabalho, thread: thread.id, fase: c.fase, runtime: c.runtime, conta: c.conta,
+      sessionId: r.sessionId, idempotente: r.idempotente === true, reserva, fila };
   }
-  concluirDespacho(raiz, arco, reserva, { thread: thread.id, sessionId: r.sessionId, idempotente: r.idempotente === true });
-  return { acao: 'despachou', trabalho: c.trabalho, thread: thread.id, fase: c.fase, runtime: c.runtime, conta: c.conta,
-    sessionId: r.sessionId, idempotente: r.idempotente === true, reserva, fila };
+  // B1 da rodada 2: o núcleo chamou o runtime e voltou sem sessão. A conta, o limite de uso e o impedimento do dono recusam
+  // antes de rodar, e devolvem a sessão; mas a falha seca do runtime, o id dito antes da falha (o `claude --bg` que diz o id
+  // e sai com erro deixa a sessão aberta) e o núcleo que não diz nada deixam a reserva pendente e contada.
+  const novos = eventosDaThread(raiz, thread.id);
+  const idDaFalha = novos === null ? '(ledger ilegível)' : novos.slice(antes)
+    .filter(e => e.tipo === TIPOS_DE_EVENTO.despachoFalhou && typeof e.sessionId === 'string').map(e => e.sessionId as string).at(-1) ?? null;
+  if (!idDaFalha && r.motivo && r.motivo !== 'runtime.unavailable') return recusar(String(r.motivo), r.erro ?? 'o runtime recusou o despacho', thread.id);
+  return { acao: 'recusado', trabalho: c.trabalho, thread: thread.id, fase: c.fase, motivo: String(r.motivo ?? 'despacho.sem-sessao'),
+    detalhe: `${r.erro ?? 'o núcleo não abriu sessão'}; a sessão pode ter aberto${idDaFalha ? ` (${idDaFalha})` : ''}, e a reserva fica ` +
+      'pendente e contada até a N4 reconciliar', reserva, fila };
 }
 
