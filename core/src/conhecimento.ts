@@ -142,7 +142,7 @@ function pastaDoConhecimento(raiz: string, dir: string): { real: string; raizRea
     return lacuna('conhecimento.dir-invalido', 'pelo caminho real, conhecimento.dir é a própria raiz, cai em .git ou ' +
       '.orkastery, ou tem caractere de controle; nada foi lido');
   }
-  if (!fs.statSync(real).isDirectory()) return lacuna('conhecimento.dir-ausente', 'conhecimento.dir não é uma pasta');
+  if (!fs.statSync(real, { throwIfNoEntry: false })?.isDirectory()) return lacuna('conhecimento.dir-ausente', 'conhecimento.dir não é uma pasta');
   return { real, raizReal };
 }
 
@@ -411,7 +411,11 @@ export function lerConhecimento(c: ManifestoCarregado, limites: LimitesDoConheci
   }
 
   const colecoes = new Map<string, string[]>();
-  for (const d of documentos) for (const nome of d.colecoes) colecoes.set(nome, [...(colecoes.get(nome) ?? []), d.id]);
+  for (const d of documentos) for (const nome of d.colecoes) {
+    const ids = colecoes.get(nome) ?? [];
+    ids.push(d.id);
+    colecoes.set(nome, ids);
+  }
   return {
     contrato: CONTRATO_CONHECIMENTO, dir,
     documentos: documentos.sort((a, b) => comparar(a.id, b.id)),
