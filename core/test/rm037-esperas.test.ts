@@ -11,10 +11,21 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { REGRA_DAS_ESPERAS, valoresDoPrompt } from '../src/phase';
 import { renderizar, templateDaFase, threadDeExemplo } from '../src/prompts';
+import { exigirCatalogo } from '../src/catalogo';
 import { Modo } from '../src/types';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 const MODOS_VIVOS: Modo[] = ['classic', 'maestro', 'auto', 'fast'];
+const RAIZ = exigirCatalogo(path.resolve(__dirname, '../../..'));
+
+/** Quantas linhas do arquivo trazem a regra inteira. */
+function linhasComARegra(arquivo: string): number {
+  return fs.readFileSync(arquivo, 'utf8').split('\n').filter((l) => l.includes(REGRA_DAS_ESPERAS)).length;
+}
+
+/** As skills do catalogo que a sessao de fase le (D4): a de entrada das duas instalacoes e as de GO e CHECK. */
+const SKILLS_DO_CATALOGO = ['skills/core/orkastery-bootstrap/SKILL.md', 'skills/phases/go-implementation/SKILL.md',
+  'skills/phases/check-quality/SKILL.md'];
 
 test('R1: o prompt de toda fase, em todo modo, traz a regra das esperas numa linha so, uma vez, no lugar da linha da N2', () => {
   // Os tres pontos do pedido, um a um, numa linha so.
@@ -46,4 +57,16 @@ test('R1: o prompt de toda fase, em todo modo, traz a regra das esperas numa lin
     assert.equal(r.status, 0, r.stderr);
     assert.ok(r.stdout.split('\n').includes(`- ${REGRA_DAS_ESPERAS}`), r.stdout);
   } finally { fs.rmSync(fora, { recursive: true, force: true }); }
+});
+
+test('R2: as skills do catalogo que a sessao de fase le trazem a regra numa linha, uma vez, e as copias dos marketplaces tambem', () => {
+  for (const rel of SKILLS_DO_CATALOGO) {
+    assert.equal(linhasComARegra(path.join(RAIZ, rel)), 1, rel);
+    for (const host of ['claude-code', 'codex']) {
+      const copia = path.join(RAIZ, 'marketplaces', host, 'orkastery', rel);
+      assert.equal(linhasComARegra(copia), 1, copia);
+    }
+  }
+  // O bootstrap segue no teto do catalogo (D5): a linha nova coube juntando duas linhas do mesmo paragrafo.
+  assert.ok(fs.readFileSync(path.join(RAIZ, SKILLS_DO_CATALOGO[0]), 'utf8').split('\n').length <= 120);
 });
