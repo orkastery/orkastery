@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import './apoio';
 import { criarServidorMcp } from '../src/mcp-server';
 import { lerLedger } from '../src/ledger';
 import { dirThread } from '../src/thread';
@@ -59,7 +60,18 @@ test('ensaio: a copia nasce fora do repositorio com uma entrega aceita por omiss
     '--plugin-dir', path.join(raizDoRepo, 'adapters/claude-code/mods/ork-ritual')]);
   assert.ok(c.argv.includes('--strict-mcp-config'));
   for (const nome of ['ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'ORK_PROJETO']) assert.match(c.linha, new RegExp(`-u ${nome} `));
+  // A copia nunca e publicada: nem pela sessao do dono nem pelo servidor MCP dela.
+  assert.deepEqual(c.env, { ORK_FABRICA_PUBLICAR: '0', ORK_REDE_PUBLICAR: '0' });
+  assert.match(c.linha, / ORK_FABRICA_PUBLICAR=0 ORK_REDE_PUBLICAR=0 claude /);
 });
+
+test('o servidor MCP da copia nasce sem a publicacao em segundo plano', () => comPasta((fora) => {
+  const r = prova.prepararCopia({ saida: fora });
+  const mcp = JSON.parse(fs.readFileSync(path.join(r.raiz, 'mcp-prova.json'), 'utf8'));
+  assert.deepEqual(Object.keys(mcp.mcpServers), ['orkastery']);
+  assert.deepEqual(mcp.mcpServers.orkastery.env, { ORK_FABRICA_PUBLICAR: '0', ORK_REDE_PUBLICAR: '0' });
+  assert.deepEqual(mcp.mcpServers.orkastery.args.slice(1), ['mcp', 'serve', '--project', r.raiz, '--host', 'claude-code']);
+}));
 
 test('a copia nunca fica dentro do repositorio nem de um projeto, e a recusa nao cria pasta nenhuma', () => comPasta((fora) => {
   const sobras = (dir: string) => fs.readdirSync(dir).filter((n) => n.startsWith('ork-prova-nota-'));

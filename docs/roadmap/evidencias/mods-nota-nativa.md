@@ -25,7 +25,7 @@ O cliente sintético prova o lado do núcleo e o roteiro. O que falta é o elo d
    node core/scripts/prova-ritual-nota-nativa.cjs --preparar
    ```
 
-2. Rode, num terminal seu, o comando que o roteiro imprime. Ele abre o `claude` na pasta da cópia, com a ponte e o Ritual por `--plugin-dir`, `--strict-mcp-config` e um `--mcp-config` só com o servidor `orkastery` da cópia, e tira do ambiente `ORK_DISPATCH_ID`, `ORK_DISPATCH_THREAD`, `ORK_PROJETO` e `ORK_PROJETO_EXPLICITO`. Aceite a confiança na pasta se o Claude Code pedir.
+2. Rode, num terminal seu, o comando que o roteiro imprime. Ele abre o `claude` na pasta da cópia, com a ponte e o Ritual por `--plugin-dir`, `--strict-mcp-config` e um `--mcp-config` só com o servidor `orkastery` da cópia, tira do ambiente `ORK_DISPATCH_ID`, `ORK_DISPATCH_THREAD`, `ORK_PROJETO` e `ORK_PROJETO_EXPLICITO` e desliga a publicação em segundo plano que o MASTER dispara (`ORK_FABRICA_PUBLICAR=0` e `ORK_REDE_PUBLICAR=0`, na sessão e no servidor da cópia): a cópia nunca é publicada na fábrica nem na sua rede. Aceite a confiança na pasta se o Claude Code pedir.
 3. Na sessão, rode `/nota`, aperte Dar a nota no cartão da entrega e dê a nota e o porquê no diálogo, se ele aparecer. Use só o botão: não peça ao modelo que chame a ferramenta, porque o ledger não diz quem a chamou, e a prova é a do pedido vindo do Ritual.
 4. Confira o ledger da cópia:
 

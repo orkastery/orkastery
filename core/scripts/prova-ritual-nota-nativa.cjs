@@ -23,8 +23,9 @@
  *
  * O roteiro nunca le nem grava o `.orkastery/` do projeto e nunca da nota nenhuma: quem da a nota e o dono, no dialogo.
  * Usa o `core/dist` (rode `npm --prefix core run build` antes). O processo tira do proprio ambiente a identidade de
- * despacho e o projeto fixado, para o ledger da copia nao herdar a sessao de quem roda. Sai 0 com o resumo e 2 em erro
- * de uso ou sem o `core/dist`.
+ * despacho e o projeto fixado, para o ledger da copia nao herdar a sessao de quem roda, e desliga a publicacao em
+ * segundo plano que o MASTER dispara (fabrica e rede da pessoa): no proprio processo, no servidor MCP da copia e na
+ * sessao do dono, a copia nunca e publicada. Sai 0 com o resumo e 2 em erro de uso ou sem o `core/dist`.
  */
 'use strict';
 
@@ -44,6 +45,8 @@ const PENDENTE = 'Veredito: pendente do dono';
 const IDENTIDADE = 'mcp-local:claude-code';
 /** O que nao entra no ambiente do roteiro nem no da sessao do dono: despacho de fase e projeto fixado. */
 const SEM_ESTES = ['ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'ORK_PROJETO', 'ORK_PROJETO_EXPLICITO'];
+/** O MASTER publica em segundo plano a fabrica e a rede da pessoa; a copia de prova nunca. */
+const SEM_PUBLICAR = { ORK_FABRICA_PUBLICAR: '0', ORK_REDE_PUBLICAR: '0' };
 
 class ErroDeUso extends Error {}
 
@@ -55,6 +58,7 @@ function doNucleo(modulo) {
 
 function semIdentidadeDeDespacho() {
   for (const nome of SEM_ESTES) delete process.env[nome];
+  Object.assign(process.env, SEM_PUBLICAR);
 }
 
 /**
@@ -86,11 +90,15 @@ function git(dir, args) {
   return (r.stdout || '').trim();
 }
 
-/** O comando da sessao interativa do dono na copia: a ponte e o Ritual por `--plugin-dir`, so o servidor da copia. */
+/**
+ * O comando da sessao interativa do dono na copia: a ponte e o Ritual por `--plugin-dir`, so o servidor da copia, sem a
+ * identidade de despacho e sem a publicacao em segundo plano.
+ */
 function montarComando(dir) {
   const argv = ['claude', '--plugin-dir', PONTE, '--plugin-dir', RITUAL, '--strict-mcp-config', '--mcp-config', path.join(dir, ARQUIVO_DO_MCP)];
-  const linha = `cd ${dir} && env ${SEM_ESTES.map((n) => `-u ${n}`).join(' ')} ${argv.join(' ')}`;
-  return { argv, sem: [...SEM_ESTES], linha };
+  const definir = Object.entries(SEM_PUBLICAR).map(([n, v]) => `${n}=${v}`).join(' ');
+  const linha = `cd ${dir} && env ${SEM_ESTES.map((n) => `-u ${n}`).join(' ')} ${definir} ${argv.join(' ')}`;
+  return { argv, sem: [...SEM_ESTES], env: { ...SEM_PUBLICAR }, linha };
 }
 
 /** Prepara a copia minima do estado com uma entrega aceita por omissao, como o condutor deixa depois do SHIP. */
@@ -116,7 +124,7 @@ function prepararCopia(opcoes = {}) {
     mergeSha: merge, pushVerificado: false });
   aceitarPorOmissao(dir, thread.id);
   const servidor = { mcpServers: { orkastery: { command: process.execPath,
-    args: [path.join(DIST, 'index.js'), 'mcp', 'serve', '--project', dir, '--host', 'claude-code'] } } };
+    args: [path.join(DIST, 'index.js'), 'mcp', 'serve', '--project', dir, '--host', 'claude-code'], env: { ...SEM_PUBLICAR } } } };
   fs.writeFileSync(path.join(dir, ARQUIVO_DO_MCP), JSON.stringify(servidor, null, 2) + '\n');
   const prova = { formato: FORMATO, raiz: dir, thread: thread.id };
   fs.writeFileSync(path.join(dir, ARQUIVO_DA_PROVA), JSON.stringify(prova, null, 2) + '\n');
