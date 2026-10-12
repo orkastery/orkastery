@@ -1,7 +1,9 @@
 /**
  * RM-037 (ork-rm037esperas): as esperas que nunca terminam. Em 12/10/2026, sessoes de fase esperaram para sempre por
  * verify ou suite mandados para segundo plano com `&` (o processo morreu com a chamada) e por lacos de espera com
- * `pgrep -f` que acham a si mesmos, porque o proprio laco traz o texto procurado. Os nomes comecam por R (a regra).
+ * `pgrep -f` que acham a si mesmos, porque o proprio laco traz o texto procurado; e uma sessao parada com `claude stop`
+ * antes do `phase_result` seguiu contando no `concurrency.max_parallel_threads` ate a thread fechar. Os nomes comecam
+ * por R (a regra das esperas) e V (a vaga do `ork phase run`).
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -14,6 +16,12 @@ import { renderizar, templateDaFase, threadDeExemplo } from '../src/prompts';
 import { exigirCatalogo } from '../src/catalogo';
 import { instalarAdaptador } from '../src/hosts';
 import { Modo } from '../src/types';
+import { esperarVaga, LeituraDoRuntime, leituraReaproveitada, vagaDoDespacho } from '../src/board';
+import { registrarConducaoDaSessao } from '../src/conducao';
+import { rodarFase } from '../src/phase';
+import { SessaoDaConta } from '../src/sessoes-contas';
+import { novaThread } from '../src/thread';
+import { ajustarManifesto, envPtBr, ProjetoDeTeste, projetoTemporario } from './apoio';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 const MODOS_VIVOS: Modo[] = ['classic', 'maestro', 'auto', 'fast'];
@@ -111,4 +119,182 @@ test('R3: os guias dos adaptadores trazem a regra numa linha, uma vez, e o ork a
       for (const rel of INSTALADOS[host]) assert.equal(linhasComARegra(path.join(r.destino, rel)), 1, `${host}: ${rel}`);
     } finally { fs.rmSync(projeto, { recursive: true, force: true }); }
   }
+});
+
+/** Uma thread com sessao viva: a conducao do despacho convertida em sessao, como o `phase run` deixa. */
+function threadComSessao(p: ProjetoDeTeste, nome: string, sessionId: string, runtime = 'claude-bg'): string {
+  const t = novaThread(p.carregado, { nome, modo: 'auto' }).thread;
+  assert.equal(registrarConducaoDaSessao(p.dir, t.id, { canal: 'cli', operacao: 'phase.run', fase: 'GO', prazoMs: 3600_000 },
+    { sessionId, runtime, perfil: null }), true);
+  return t.id;
+}
+
+/** A leitura do runtime com estas sessoes, no formato de `consultarContas`; conta quantas vezes foi lida. */
+function runtimeCom(sessoes: Array<Partial<SessaoDaConta> & { sessionId: string }>): { ler: LeituraDoRuntime; leituras: () => number } {
+  let leituras = 0;
+  return {
+    ler: () => {
+      leituras++;
+      return { sessoes: sessoes.map((s) => ({ runtime: 'claude-bg', perfil: null, fantasma: false, viva: true, state: 'working', ...s }) as SessaoDaConta) };
+    },
+    leituras: () => leituras,
+  };
+}
+
+const SESSAO = '00000000-0000-4000-8000-000000000037';
+
+test('V1: no limite, a sessao que o runtime mostra parada (stopped) nao conta; trabalhando, conta', () => {
+  const p = projetoTemporario('rm037-esperas-v1');
+  try {
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    const ocupada = threadComSessao(p, 'parada com claude stop', SESSAO);
+    const nova = novaThread(p.carregado, { nome: 'quer a vaga', modo: 'auto' }).thread;
+    const vaga = (sessoes: Array<Partial<SessaoDaConta> & { sessionId: string }>) =>
+      vagaDoDespacho(p.carregado, nova.id, undefined, undefined, runtimeCom(sessoes).ler);
+    // Controle: o lease de pe, com o runtime sem dizer nada dela, segue ocupando (ausencia nao prova nada).
+    assert.deepEqual(vaga([])?.ocupam.map((o) => o.thread), [ocupada]);
+    assert.deepEqual(vaga([{ sessionId: SESSAO, state: 'working' }])?.ocupam.map((o) => o.thread), [ocupada]);
+    assert.equal(vaga([{ sessionId: SESSAO, state: 'stopped', viva: false }]), null);
+  } finally { p.limpar(); }
+});
+
+test('V2: done, failed, completed, exited e fantasma soltam a vaga; blocked e a parada de outra sessao contam', () => {
+  const p = projetoTemporario('rm037-esperas-v2');
+  try {
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    threadComSessao(p, 'ocupada', SESSAO);
+    const codex = '00000000-0000-4000-8000-000000000038';
+    const nova = novaThread(p.carregado, { nome: 'quer a vaga', modo: 'auto' }).thread;
+    const vaga = (sessoes: Array<Partial<SessaoDaConta> & { sessionId: string }>) =>
+      vagaDoDespacho(p.carregado, nova.id, undefined, undefined, runtimeCom(sessoes).ler);
+    for (const state of ['done', 'failed', 'completed', 'exited', 'STOPPED']) {
+      assert.equal(vaga([{ sessionId: SESSAO, state, viva: false }]), null, state);
+    }
+    assert.equal(vaga([{ sessionId: SESSAO, state: 'working', fantasma: true, viva: false }]), null, 'fantasma');
+    assert.equal(vaga([{ sessionId: SESSAO, state: undefined, status: 'stopped', viva: false }]), null, 'status sem state');
+    assert.ok(vaga([{ sessionId: SESSAO, state: 'blocked' }]), 'blocked conta');
+    assert.ok(vaga([{ sessionId: codex, state: 'stopped', viva: false }]), 'a parada de outra sessao nao solta esta');
+    // A sessao codex do lease, encerrada nos rollouts, tambem sai.
+    const p2 = projetoTemporario('rm037-esperas-v2-codex');
+    try {
+      p2.carregado.manifesto.concurrency.max_parallel_threads = 1;
+      threadComSessao(p2, 'ocupada codex', codex, 'codex');
+      const outra = novaThread(p2.carregado, { nome: 'quer a vaga', modo: 'auto' }).thread;
+      assert.equal(vagaDoDespacho(p2.carregado, outra.id, undefined, undefined,
+        runtimeCom([{ sessionId: codex, runtime: 'codex', state: 'completed', viva: false }]).ler), null);
+    } finally { p2.limpar(); }
+  } finally { p.limpar(); }
+});
+
+test('V3: a leitura do runtime que lanca nao solta vaga nenhuma', () => {
+  const p = projetoTemporario('rm037-esperas-v3');
+  try {
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    const ocupada = threadComSessao(p, 'ocupada', SESSAO);
+    const nova = novaThread(p.carregado, { nome: 'quer a vaga', modo: 'auto' }).thread;
+    const falha: LeituraDoRuntime = () => { throw new Error('claude agents falhou SIMULADO'); };
+    assert.deepEqual(vagaDoDespacho(p.carregado, nova.id, undefined, undefined, falha)?.ocupam.map((o) => o.thread), [ocupada]);
+  } finally { p.limpar(); }
+});
+
+test('V4: abaixo do limite o runtime nao e lido; no limite, uma leitura so', () => {
+  const p = projetoTemporario('rm037-esperas-v4');
+  try {
+    p.carregado.manifesto.concurrency.max_parallel_threads = 2;
+    threadComSessao(p, 'primeira', SESSAO);
+    const nova = novaThread(p.carregado, { nome: 'quer a vaga', modo: 'auto' }).thread;
+    const abaixo = runtimeCom([]);
+    assert.equal(vagaDoDespacho(p.carregado, nova.id, undefined, undefined, abaixo.ler), null);
+    assert.equal(abaixo.leituras(), 0, 'o despacho comum nao paga a consulta');
+    threadComSessao(p, 'segunda', '00000000-0000-4000-8000-000000000039');
+    const noLimite = runtimeCom([{ sessionId: SESSAO, state: 'stopped', viva: false }]);
+    assert.equal(vagaDoDespacho(p.carregado, nova.id, undefined, undefined, noLimite.ler), null);
+    assert.equal(noLimite.leituras(), 1);
+  } finally { p.limpar(); }
+});
+
+/**
+ * O `claude` falso fiel ao de verdade no que o portao le: `claude agents --json` sem `--all` so lista a sessao viva, e a
+ * parada (`stopped`, `done`, `failed`) so aparece com `--all` (medido em 12/10/2026). A lista de cada estado mora em
+ * `agents-<estado>.json`, e o estado, em `state`.
+ */
+function claudeFiel(dir: string): void {
+  const script = ['#!/bin/sh', `D='${dir}'`, 'if [ "$1" = "--version" ]; then echo stub-rm037; exit 0; fi',
+    'if [ "$1" != "agents" ]; then echo "stub-rm037: so agents" >&2; exit 2; fi', 'ESTADO=$(cat "$D/state")',
+    'case " $* " in *" --all "*) TODAS=1 ;; *) TODAS=0 ;; esac',
+    'case "$ESTADO" in done|stopped|failed) if [ "$TODAS" = 0 ]; then echo "[]"; exit 0; fi ;; esac',
+    'cat "$D/agents-$ESTADO.json"', ''].join('\n');
+  fs.writeFileSync(path.join(dir, 'claude'), script, { mode: 0o755 });
+}
+
+test('V5: o phase run em ensaio, a espera e o CLI despacham quando a sessao que ocupava esta stopped no runtime', () => {
+  const p = projetoTemporario('rm037-esperas-v5');
+  const stub = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm037-v5-claude-'));
+  const casa = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm037-v5-casa-'));
+  const pathAnterior = process.env.PATH;
+  try {
+    ajustarManifesto(p, 'max_parallel_threads: 3', 'max_parallel_threads: 1');
+    threadComSessao(p, 'ocupada', SESSAO);
+    claudeFiel(stub);
+    // Trabalhando, o registro traz o pid do processo vivo; parada com `claude stop`, fica sem pid.
+    const registro = (state: string, pid?: number) => JSON.stringify([{ id: SESSAO.slice(0, 8), sessionId: SESSAO, cwd: p.dir,
+      kind: 'background', state, ...(pid ? { pid, status: 'busy' } : {}) }]);
+    fs.writeFileSync(path.join(stub, 'agents-working.json'), registro('working', process.pid));
+    fs.writeFileSync(path.join(stub, 'agents-stopped.json'), registro('stopped'));
+    process.env.PATH = `${stub}:${pathAnterior ?? ''}`;
+    const nova = novaThread(p.carregado, { nome: 'quer a vaga', modo: 'auto' }).thread;
+    const cli = () => spawnSync(process.execPath, [ORK, 'phase', 'run', nova.id, 'GOAL', '--prompt', 'objetivo SIMULADO', '--dry-run'],
+      { cwd: p.dir, encoding: 'utf8', env: { ...envPtBr(), HOME: casa }, timeout: 120000 });
+    // Trabalhando no runtime: o ensaio e o CLI recusam por vaga (saida 3).
+    fs.writeFileSync(path.join(stub, 'state'), 'working');
+    assert.equal(rodarFase(p.carregado, nova.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO', dryRun: true }).motivo, 'concurrency.limite');
+    const recusado = cli();
+    assert.equal(recusado.status, 3, `${recusado.stdout}${recusado.stderr}`);
+    assert.match(`${recusado.stdout}${recusado.stderr}`, /concurrency\.limite/);
+    // Parada com `claude stop`: so a lista com `--all` a mostra. O ensaio, a espera e o CLI passam do portao.
+    fs.writeFileSync(path.join(stub, 'state'), 'stopped');
+    assert.equal(spawnSync('claude', ['agents', '--json'], { encoding: 'utf8' }).stdout.trim(), '[]', 'sem --all a parada some');
+    assert.notEqual(rodarFase(p.carregado, nova.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO', dryRun: true }).motivo, 'concurrency.limite');
+    const inicio = Date.now();
+    assert.equal(esperarVaga(p.carregado, nova.id, 60_000), true);
+    assert.ok(Date.now() - inicio < 30_000, 'a vaga vem na primeira leitura, sem esperar o prazo');
+    const liberado = cli();
+    assert.equal(liberado.status, 0, `${liberado.stdout}${liberado.stderr}`);
+    assert.doesNotMatch(`${liberado.stdout}${liberado.stderr}`, /concurrency\.limite/);
+  } finally {
+    process.env.PATH = pathAnterior;
+    p.limpar();
+    for (const d of [stub, casa]) fs.rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test('V6: a leitura reaproveitada consulta o runtime uma vez por janela, e a que lanca nao fica guardada', () => {
+  let leituras = 0, relogio = 0, lanca = false;
+  const ler = leituraReaproveitada(() => {
+    leituras++;
+    if (lanca) throw new Error('SIMULADO');
+    return { sessoes: [] };
+  }, 30_000, () => relogio);
+  ler(); ler();
+  assert.equal(leituras, 1);
+  relogio = 29_999; ler();
+  assert.equal(leituras, 1, 'dentro da janela');
+  relogio = 30_000; ler();
+  assert.equal(leituras, 2, 'a janela venceu');
+  relogio = 70_000; lanca = true;
+  assert.throws(() => ler());
+  lanca = false; ler();
+  assert.equal(leituras, 4, 'a leitura que lancou nao ficou guardada');
+});
+
+test('V7: a espera do --esperar le o runtime uma vez por janela de 30 s, e nao a cada volta de 2 s', () => {
+  const p = projetoTemporario('rm037-esperas-v7');
+  try {
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    threadComSessao(p, 'ocupada', SESSAO);
+    const nova = novaThread(p.carregado, { nome: 'quer a vaga', modo: 'auto' }).thread;
+    const trabalhando = runtimeCom([{ sessionId: SESSAO, state: 'working' }]);
+    assert.equal(esperarVaga(p.carregado, nova.id, 4_500, trabalhando.ler), false, 'a sessao segue trabalhando');
+    assert.equal(trabalhando.leituras(), 1, 'tres voltas de 2 s, uma leitura so');
+  } finally { p.limpar(); }
 });
