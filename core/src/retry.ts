@@ -29,6 +29,7 @@ import { alvosDaOrdemDeFallback, AlvoDeFallback, configDoBloco, lerSetup, limite
 import { registrarGateBloqueado } from './gates';
 import { EventoLedger } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
+import { raizDoEstado } from './estado-thread';
 import { ManifestoCarregado } from './manifest';
 import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, perfilParaDespacho, resolverDespacho, slugDaSessao,
   baselineDoDespachoNecessaria, estadoParaDespacho, garantirBaselineDoDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
@@ -600,6 +601,48 @@ export function redespachar(carregado: ManifestoCarregado, thread: Thread, fase:
   } finally { retida.devolver(); }
 }
 
+/**
+ * RM-062 (F3): onde esta o prompt gravado. O ledger guarda o caminho relativo a raiz de codigo de quem despachou:
+ * da worktree, ele sai `../../../.orkastery/threads/...` (a K7 de 12/10/2026), e lido do checkout principal aponta
+ * para fora do projeto. O arquivo certo e o que tem o MESMO sha256: absoluto, relativo a raiz de codigo, a raiz do
+ * estado ou a pasta de prompts da thread. Sem nenhum com o sha, vale o primeiro que existe (a recusa diz que o prompt
+ * mudou), senao o caminho de antes (a recusa diz que sumiu).
+ */
+export function localizarPromptGravado(raiz: string, threadId: string, promptPath: string, sha: string): string {
+  const candidatos = path.isAbsolute(promptPath) ? [promptPath] : [path.join(raiz, promptPath)];
+  try { candidatos.push(path.join(raizDoEstado(raiz), promptPath)); } catch { /* raiz sem estado legivel */ }
+  candidatos.push(path.join(dirThread(raiz, threadId), 'prompts', path.basename(promptPath)));
+  const existentes = [...new Set(candidatos.map((c) => path.resolve(c)))].filter((c) => fs.existsSync(c));
+  for (const c of existentes) {
+    try { if (hashDoPrompt(fs.readFileSync(c, 'utf8')) === sha) return c; } catch { /* ilegivel: tenta o proximo */ }
+  }
+  return existentes[0] ?? candidatos[0];
+}
+
+/**
+ * RM-062 (F3): o despacho cujo prompt o `reexecutar` devolve ao runtime. Primeiro o despacho da sessao do gate (a
+ * sessao que morreu depois de despachada, como a K7 de 12/10/2026, nao deixa `phase_dispatch_failed`), depois o
+ * proprio gate quando ele carrega o prompt, e por fim a tentativa mais recente da fase com prompt gravado:
+ * `phase_dispatch_failed` ou `phase_prompt_recorded` (e o `phase_dispatch`, no silencio do runtime).
+ */
+export function despachoParaRedespachar(eventos: readonly EventoLedger[], fase: Fase, gate: EventoLedger | null,
+  silencio = false): EventoLedger | null {
+  const comPrompt = (e: EventoLedger | undefined | null): e is EventoLedger =>
+    !!e && typeof e.promptPath === 'string' && typeof e.promptSha256 === 'string';
+  if (gate && typeof gate.sessionId === 'string') {
+    const daSessao = eventos.filter((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada && e.sessionId === gate.sessionId).at(-1);
+    if (comPrompt(daSessao)) return daSessao;
+  }
+  if (comPrompt(gate)) return gate;
+  for (let i = eventos.length - 1; i >= 0; i--) {
+    const e = eventos[i];
+    if (e.fase !== fase || !comPrompt(e)) continue;
+    if (e.tipo === TIPOS_DE_EVENTO.despachoFalhou || e.tipo === TIPOS_DE_EVENTO.promptGravado ||
+        (silencio && e.tipo === TIPOS_DE_EVENTO.faseDespachada)) return e;
+  }
+  return null;
+}
+
 function redespacharSobLock(
   carregado: ManifestoCarregado,
   thread: Thread,
@@ -611,9 +654,7 @@ function redespacharSobLock(
   tomadaPrevia?: ConducaoTomada
 ): ResultadoDoRedespacho {
   const { raiz, manifesto } = carregado;
-  const absoluto = path.isAbsolute(promptRelativo)
-    ? promptRelativo
-    : path.join(raiz, promptRelativo);
+  const absoluto = localizarPromptGravado(raiz, thread.id, promptRelativo, sha);
   const slug = opcoes.slug ?? slugDaSessao(thread, fase);
   const vazio = { slug, sessionId: null, verificada: false, sinal: null, comando: [] as string[] };
   const erroDeEstado = estadoParaDespacho(raiz, thread, opcoes.dryRun);
@@ -1510,8 +1551,13 @@ export function executarRetry(
     return trocarDestinoDoModelo(carregado, thread, plano, opcoes, vazio, registrarTentativa);
   }
 
-  // `reexecutar` e `escalar-esforco`: o MESMO prompt volta ao runtime.
-  const falho = ultimoDespachoFalho(raiz, threadId, plano.fase as Fase, plano.motivo === 'runtime.silencio');
+  // `reexecutar` e `escalar-esforco`: o MESMO prompt volta ao runtime. RM-062 (F3): o gate que o plano leu diz de que
+  // despacho e o prompt; sem ele, a tentativa mais recente da fase com prompt gravado.
+  const reprovacao = ultimaReprovacao(raiz, threadId);
+  const gateDoPlano = reprovacao && reprovacao.motivo === plano.motivo && faseDoEvento(reprovacao, thread) === plano.fase
+    ? reprovacao : null;
+  const falho = despachoParaRedespachar(lerLedger(dirThread(raiz, threadId)), plano.fase as Fase, gateDoPlano,
+    plano.motivo === 'runtime.silencio');
   if (!falho || typeof falho.promptPath !== 'string' || typeof falho.promptSha256 !== 'string') {
     const detalhe =
       `nao ha despacho falho registrado em ${plano.fase} com prompt gravado: ` +

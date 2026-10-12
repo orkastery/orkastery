@@ -20,6 +20,10 @@ export const TIPOS_DE_EVENTO = {
   faseDespachada: 'phase_dispatch',
   despachoVerificado: 'phase_dispatch_verified',
   despachoFalhou: 'phase_dispatch_failed',
+  // RM-062 (F3): o prompt foi ao disco e ao ledger, com o sha256, ANTES do adaptador. O despacho que morre
+  // depois (contexto do runtime, adaptador que lanca, processo morto) deixa o que o `ork retry run`
+  // redespacha sem pedir o texto. Escritor: `phase.ts` (`rodarFaseSobLock`).
+  promptGravado: 'phase_prompt_recorded',
   decisaoAutonoma: 'autonomous_decision',
   pausaHumana: 'human_gate',
   // Bloco B1: verdade, leases, ship e handoff
