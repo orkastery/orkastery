@@ -1620,7 +1620,7 @@ function comandoRetry(args: Args): number {
   if (sub === 'plan' || sub === 'run') {
     const id = args.posicionais[2];
     if (!id) {
-      console.error(`uso: ork retry ${sub} <thread-id> [--motivo M] [--fase F]`);
+      console.error(msg().retry.usoPlanRun(sub));
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
@@ -1631,7 +1631,8 @@ function comandoRetry(args: Args): number {
       autorizadoPor: texto(args.opcoes.por) ?? texto(args.opcoes.quem),
     };
     if (sub === 'plan') {
-      const plano = planejarRetry(carregado, id, opcoes);
+      // RM-061 (F2b, G2): a razao nasce em pt-BR, como o --json e o ledger a guardam; so a impressao segue o locale.
+      const plano = comLocale('pt-BR', () => planejarRetry(carregado, id, opcoes));
       if (args.opcoes.json === true) {
         console.log(JSON.stringify(plano, null, 2));
         return 0;
@@ -1642,11 +1643,11 @@ function comandoRetry(args: Args): number {
     // I-36 (D2): `--esperar` espera a conducao em andamento terminar antes de executar a retomada.
     const conducao = conducaoDoCli(args);
     if (conducao.esperarMs && args.opcoes['dry-run'] !== true) esperarConducaoLivre(carregado.raiz, id, conducao.esperarMs);
-    const r = executarRetry(carregado, id, {
+    const r = comLocale('pt-BR', () => executarRetry(carregado, id, {
       ...opcoes,
       dryRun: args.opcoes['dry-run'] === true,
       reverify: args.opcoes.reverify === true,
-    });
+    }));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify(r, null, 2));
     } else {

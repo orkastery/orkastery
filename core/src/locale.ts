@@ -45,6 +45,7 @@ import { PHASE_EN, PHASE_PT_BR } from './locale-phase';
 import { AJUDA_EN, AJUDA_PT_BR } from './locale-ajuda';
 import { VERIFY_EN, VERIFY_PT_BR } from './locale-verify';
 import { SHIP_EN, SHIP_PT_BR } from './locale-ship';
+import { RETRY_EN, RETRY_PT_BR } from './locale-retry';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -53,11 +54,11 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
  * subcomando desconhecido (o erro de uso e do proprio comando). Os demais seguem em pt-BR. Ficam de
  * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync`,
  * `experiencia uninstall` e `thread list|close|entrega`. A F2b (G3) acrescenta `verify` (com `--baseline`),
- * `ship` e `ship registrar-pr`.
+ * `ship`, `ship registrar-pr`, `retry plan` e `retry run`.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
-  'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr'];
+  'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -65,6 +66,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['experiencia', { padrao: 'show', conhecidos: ['show', 'uninstall'] }],
   ['thread', { padrao: 'list', conhecidos: ['new', 'list', 'status', 'close', 'entrega'] }],
   ['phase', { padrao: null, conhecidos: ['run', 'list'] }],
+  ['retry', { padrao: null, conhecidos: ['plan', 'run', 'policy', 'parse', 'list', 'resume', 'cancel'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
@@ -348,6 +350,7 @@ const PT_BR = {
   ajuda: AJUDA_PT_BR,
   verify: VERIFY_PT_BR,
   ship: SHIP_PT_BR,
+  retry: RETRY_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -598,6 +601,7 @@ const EN: Mensagens = {
   ajuda: AJUDA_EN,
   verify: VERIFY_EN,
   ship: SHIP_EN,
+  retry: RETRY_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

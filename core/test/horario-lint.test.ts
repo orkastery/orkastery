@@ -126,15 +126,12 @@ function linhasCruas(linhas: readonly string[]): number[] {
 /** Dado de máquina ou fora do escopo (D5, D12): o texto guarda ISO e quem exibe localiza. */
 const EXCECOES: { arquivo: string; trecho: string; razao: string }[] = [
   { arquivo: 'retry.ts', trecho: 'libera em ${pedido.liberaEm})', razao: 'detalhe gravado na tentativa; textoDoRetry e textoDaRetomada localizam' },
-  { arquivo: 'retry.ts', trecho: 'o proximo libera em ${fila[0].liberaEm}', razao: 'detalhe gravado no ledger (retry_tentado); textoDoRetry localiza' },
   // Delta da I-33 (GO-FIX 2): perfis e fila duravel. O ISO fica no dado; quem imprime localiza.
   { arquivo: 'preflight.ts', trecho: 'ate ${p.esgotadoAte}', razao: 'estado do perfil no Check; textoPreflight localiza e diz o fuso uma vez' },
   { arquivo: 'phase.ts', trecho: 'ate ${pedido.esgotadoAte}', razao: 'erro gravado em dispatch_failed e gate_blocked; o CLI localiza ao imprimir' },
   { arquivo: 'retry.ts', trecho: ': fila duravel ate ${liberaEm}', razao: 'razao gravada no evento runtime_profile_rotated' },
-  { arquivo: 'retry.ts', trecho: 'ensaio: entraria na fila duravel ate ${liberaEm}', razao: 'detalhe do ensaio devolvido; textoDoRetry localiza' },
   { arquivo: 'retry.ts', trecho: 'aguarde ate ${pedido.liberaEm})', razao: 'correcao gravada no evento rate_limit_enqueued, como a de phase.ts' },
   { arquivo: 'retry.ts', trecho: 'fila duravel: pedido ${pedido.id} libera em ${pedido.liberaEm}', razao: 'detalhe gravado no evento retry_tentado' },
-  { arquivo: 'retry.ts', trecho: 'na fila ate ${pedido.liberaEm}', razao: 'detalhe devolvido do enfileiramento; textoDoRetry e textoDaRetomada localizam' },
   { arquivo: 'pulse.ts', trecho: 'sem heartbeat desde ${o.ultimoHeartbeatEm}', razao: 'pergunta entra na assinatura de deduplicação; texto e mensagem localizam' },
   { arquivo: 'leases.ts', trecho: 'desde ${dono.adquiridoEm}', razao: 'detalhe de lease.busy devolvido e gravado; o CLI localiza' },
   { arquivo: 'phase.ts', trecho: 'aguarde ate ${pedido.liberaEm})', razao: 'correção gravada no evento rate_limit_enqueued' },
