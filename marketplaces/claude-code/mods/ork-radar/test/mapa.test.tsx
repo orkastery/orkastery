@@ -234,3 +234,50 @@ test('o cabecalho mostra a base diferente do remoto e a rodada que parou, com o 
   expect(textos).toContain(CONFLITO_COM_A_BASE)
   await ui.unmount()
 })
+
+test('anotacao de um desenho anterior a rodada nao marca como vista a colisao nova do mesmo par', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, opcoes({ paineis: A_VISTA }))
+  await iniciar($)
+  await relogio.advance(1000)
+  // A janela mostra só a linha 10, o conflito entre ork-a e ork-b; o registro o marca como visto.
+  const ui = await montarPainel($, 'terminal', { offset: 10, bodyRows: 1 })
+  await relogio.advance(60000)
+  expect(mundo.mostrados.map(m => m.chave)).toEqual(['radar:ork-a|ork-b'])
+  // A ork-b anda: passa a colidir com a base e o par com a ork-a ganha um arquivo que nunca esteve na janela.
+  const B2 = sha('d')
+  mundo.refs['refs/heads/ork/ork-b-full'] = B2
+  mundo.merges[chave(B2, M)] = conflito('README.md')
+  mundo.merges[chave(A, B2)] = conflito('core/src/x.ts', 'core/src/y.ts')
+  await ui.press({ key: 'atualizar' })
+  await relogio.settle()
+  await relogio.advance(60000)
+  await ui.unmount()
+  expect(mundo.faixas.some(f => (f.texto ?? '').endsWith('e mais 2; /radar abre o mapa'))).toBe(true)
+  const todo = await montarPainel($, 'desktop')
+  expect(await textosDe(todo)).toContain('nova: ork-a × ork-b: core/src/x.ts, core/src/y.ts')
+  await todo.unmount()
+})
+
+test('o /radar que mostrou um mapa nao marca como vista a colisao nova de uma rodada que terminou no meio dele', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, opcoes({ relogio }))
+  await iniciar($)
+  await relogio.advance(1000)
+  // A ork-b anda (o par com a ork-a ganha um arquivo) e a rodada do relógio fica nos merges, 25 s cada.
+  const B2 = sha('d')
+  mundo.refs['refs/heads/ork/ork-b-full'] = B2
+  mundo.merges[chave(A, B2)] = conflito('core/src/x.ts', 'core/src/y.ts')
+  mundo.atrasoDoMerge = 25000
+  await relogio.advance(599000)
+  // O /radar responde o mapa velho e registra cada conflito dele; o registro demora mais que a rodada.
+  mundo.atrasoDoMostrado = 100000
+  const p = radar($)
+  await relogio.advance(100000)
+  await relogio.advance(100000)
+  const r = await p
+  expect(r.text).toContain('Uma rodada já estava em andamento')
+  const ui = await montarPainel($, 'desktop')
+  expect(await textosDe(ui)).toContain('nova: ork-a × ork-b: core/src/x.ts, core/src/y.ts')
+  await ui.unmount()
+})

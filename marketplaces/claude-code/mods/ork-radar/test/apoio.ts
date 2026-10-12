@@ -114,14 +114,14 @@ export function montar(on, opcoes) {
     abertas: opcoes.abertas, refs: { ...opcoes.refs }, remoto: opcoes.remoto === undefined ? opcoes.refs[BASE] : opcoes.remoto,
     merges: { ...(opcoes.merges ?? {}) }, leases: opcoes.leases ?? [], status: { ...statusPadrao, ...(opcoes.status ?? {}) },
     statusFalha: new Set(opcoes.statusFalha ?? []), tamanhoDaPagina: opcoes.tamanhoDaPagina ?? 50, leasesIndisponiveis: false,
-    atrasoDoMerge: opcoes.atrasoDoMerge ?? 0,
+    atrasoDoMerge: opcoes.atrasoDoMerge ?? 0, atrasoDoMostrado: 0,
     temporario: opcoes.temporario ?? TEMPORARIO, gitArquivo: opcoes.gitArquivo ?? null, commondir: opcoes.commondir ?? null,
     paineis: opcoes.paineis ?? [], listaFalha: false, retratoFalha: false,
     processos: [], ler: [], maestro: [], faixas: [], mostrados: [], comandos: [], abertos: [], toasts: [], lidos: [],
   }
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('env.get', ($, e) => ({ value: e.name === 'PONTE_FALSA_PAPEL' ? opcoes.papel : undefined }))
-  on('mcp.call', ($, e) => {
+  on('mcp.call', async ($, e) => {
     if (e.server === 'orkastery' && e.tool === 'ork_maestro') {
       mundo.maestro.push(e.args)
       return mundo.retratoFalha ? falha() : ok(retratoDosLeases(mundo.leases, e.args.offset ?? 0, mundo.tamanhoDaPagina, mundo.leasesIndisponiveis))
@@ -139,7 +139,12 @@ export function montar(on, opcoes) {
         return falha()
       }
       if (e.tool === 'faixa') { mundo.faixas.push(e.args); return ok({ publicada: e.args.texto !== undefined }) }
-      if (e.tool === 'mostrado') { mundo.mostrados.push(e.args); return ok(null) }
+      if (e.tool === 'mostrado') {
+        // O registro da ponte pode responder atrasado pelo relógio falso, para uma rodada terminar no meio dele.
+        if (mundo.atrasoDoMostrado > 0 && opcoes.relogio) await opcoes.relogio.sleep(mundo.atrasoDoMostrado)
+        mundo.mostrados.push(e.args)
+        return ok(null)
+      }
       return falha()
     }
     return falha()

@@ -53,6 +53,12 @@ const cache = new Map<string, Resultado>()
 const branchDoStatus = new Map<string, string | null>()
 /** O diretório de objetos do repositório, achado uma vez por carga. */
 let objetos: string | undefined
+/**
+ * O `lidoEm` do último mapa que uma rodada desta carga gravou. A leitura de `$.state` num despacho vê o momento em
+ * que ele começou, e não a gravação que outro despacho faz no meio: quem compara a versão do mapa visto com a atual
+ * usa esta variável. Undefined até a primeira rodada desta carga gravar.
+ */
+let versaoGravada: number | null | undefined
 /** As colisões (par e arquivo) da rodada anterior; null até a primeira rodada desta carga ler o mapa guardado (D6). */
 let anteriores: Set<string> | null = null
 /**
@@ -60,8 +66,11 @@ let anteriores: Set<string> | null = null
  * da ponte, então a primeira publicação sempre acontece, inclusive a que tira a linha.
  */
 let ultimaFaixa: string | undefined | null = null
-/** O que o desenho pôs na janela de rolagem e ainda não foi ao registro da ponte. */
-const vistosNoDesenho = new Map<string, RadarMostrado>()
+/**
+ * O que o desenho pôs na janela de rolagem e ainda não foi ao registro da ponte, com a versão do mapa desenhado
+ * (`lidoEm`): anotação de um desenho anterior à última rodada não vale, porque o texto da tela era outro.
+ */
+const vistosNoDesenho = new Map<string, { visto: RadarMostrado; versao: number | null }>()
 /** O que já foi ao registro nesta carga, por chave e texto, com a chave do par; sai quando o conflito some do mapa. */
 const jaMostrado = new Map<string, string>()
 
@@ -183,7 +192,7 @@ async function branchesDasThreads($: EngineInterface, threads: readonly ThreadDa
       try {
         branchDoStatus.set(t.id, refDoStatus(await comPrazo($, $.ork.ler({ consulta: 'thread.status', thread: t.id }))))
       } catch (erro) {
-        lacunas.push(`status de ${t.id} não lido; vale a ork/<slug> nesta rodada (${mensagem(erro)})`)
+        lacunas.push(`status de ${t.id} não lido; vale a ork/${t.slug} nesta rodada (${mensagem(erro)})`)
       }
     }))
   }
@@ -334,6 +343,7 @@ async function rodadaUmaVez($: EngineInterface): Promise<void> {
   // anterior é a do mapa guardado em `$.state`, lido antes de o mapa novo ir por cima dele.
   if (anteriores === null) anteriores = anterioresDoMapa(await read($, mapa))
   await update($, mapa, () => novo)
+  versaoGravada = novo.lidoEm
   const novosPares = paresComColisaoNova(anteriores, novo)
   anteriores = new Set(colisoesDoMapa(novo))
   await update($, novas, antigas => novasDepoisDaRodada(antigas, novosPares, novo))
@@ -366,8 +376,12 @@ async function publicarFaixa($: EngineInterface): Promise<void> {
   }
 }
 
-/** O que o dono viu (conflito por conflito) deixa de ser novo, e a linha da faixa acompanha. */
-async function marcarVistos($: EngineInterface, vistos: readonly RadarMostrado[]): Promise<void> {
+/**
+ * O que o dono viu (conflito por conflito) deixa de ser novo, e a linha da faixa acompanha. Só vale para a versão
+ * do mapa que ele viu: se uma rodada gravou outra no meio, a colisão nova dela continua nova.
+ */
+async function marcarVistos($: EngineInterface, vistos: readonly RadarMostrado[], versao: number | null): Promise<void> {
+  if (versaoGravada === undefined || versao !== versaoGravada) return
   const pares = new Set(vistos.map(v => v.chave.slice('radar:'.length)))
   if (!(await read($, novas)).some(p => pares.has(p))) return
   await update($, novas, atuais => atuais.filter(p => !pares.has(p)))
@@ -395,22 +409,25 @@ async function registrar($: EngineInterface, canal: 'painel' | 'transcript', vis
  * do desenho: o Telegram não repete o que o dono já viu no terminal, e nada que não estava na tela entra.
  */
 async function registrarMostrados($: EngineInterface): Promise<void> {
-  // A poda é pela chave do par: o texto anotado pode ser o pedaço que coube na largura do painel.
-  const emConflito = new Set(mostradosDoMapa(await read($, mapa)).map(v => v.chave))
+  const m = await read($, mapa)
+  // O registro já feito sai quando o par deixa de estar em conflito (a chave do par, porque o texto pode ser o
+  // pedaço que coube na largura); a anotação de outra versão do mapa sai sempre, e o próximo desenho anota de novo.
+  const emConflito = new Set(mostradosDoMapa(m).map(v => v.chave))
   for (const [chave, par] of [...jaMostrado]) if (!emConflito.has(par)) jaMostrado.delete(chave)
-  for (const [chave, v] of [...vistosNoDesenho]) if (!emConflito.has(v.chave)) vistosNoDesenho.delete(chave)
-  if (vistosNoDesenho.size === 0) return
+  const versao = versaoGravada
+  for (const [chave, a] of [...vistosNoDesenho]) if (versao === undefined || a.versao !== versao) vistosNoDesenho.delete(chave)
+  if (vistosNoDesenho.size === 0 || versao === undefined) return
   // Com o painel escondido, o que foi anotado é descartado: o próximo desenho à vista anota de novo.
   if (!await painelAVista($)) { vistosNoDesenho.clear(); return }
-  const vistos = [...vistosNoDesenho.values()]
+  const vistos = [...vistosNoDesenho.values()].map(a => a.visto)
   vistosNoDesenho.clear()
-  for (const v of await registrar($, 'painel', vistos)) vistosNoDesenho.set(`${v.chave}|${v.texto}`, v)
-  await marcarVistos($, vistos)
+  for (const v of await registrar($, 'painel', vistos)) vistosNoDesenho.set(`${v.chave}|${v.texto}`, { visto: v, versao })
+  await marcarVistos($, vistos, versao)
 }
 
-/** O desenho anota o que pôs na janela; quem registra é o laço, fora do desenho. */
-function anotarVistos(vistos: readonly RadarMostrado[]): void {
-  for (const v of vistos) vistosNoDesenho.set(`${v.chave}|${v.texto}`, v)
+/** O desenho anota o que pôs na janela, com a versão do mapa desenhado; quem registra é o laço, fora do desenho. */
+function anotarVistos(vistos: readonly RadarMostrado[], versao: number | null): void {
+  for (const v of vistos) vistosNoDesenho.set(`${v.chave}|${v.texto}`, { visto: v, versao })
 }
 
 export const register: Register = on => {
@@ -435,7 +452,7 @@ export const register: Register = on => {
     if (falharam.length > 0) {
       await anotarLacuna($, `${contar(falharam.length, 'conflito não foi', 'conflitos não foram')} ao registro do mostrado da ponte`)
     }
-    await marcarVistos($, vistos)
+    await marcarVistos($, vistos, m.lidoEm)
     const andamento = propria ? '' : '\nUma rodada já estava em andamento: o painel mostra a conta nova quando ela terminar.'
     const espera = aberto && !aberto.isPlaced ? `\nO painel espera lugar: ${aberto.reason}` : ''
     return { text: resumoDoMapa(m) + andamento + espera }
@@ -447,7 +464,7 @@ export const register: Register = on => {
     const el = $.ui.resolve(e) as unknown as ElementosDoPainel
     const m = await read($, mapa)
     const linhas = linhasDoPainel(m, await read($, novas), await $.clock.now())
-    anotarVistos(mostradosVisiveis(linhas, e.props.scroll, e.props.bodyColumns))
+    anotarVistos(mostradosVisiveis(linhas, e.props.scroll, e.props.bodyColumns), m.lidoEm)
     return desenharPainel(el, m, linhas, { terminal: e.surface === 'terminal', atualizar: () => { void pedirRodada($) } })
   })
 }

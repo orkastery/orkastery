@@ -121,7 +121,7 @@ test('o status que falha usa a ork/<slug> nesta rodada, vira lacuna e e lido de 
   await iniciar($)
   const r = await radar($)
   expect(merges(mundo)).toContain(mergeTree(A, M))
-  expect(r.text).toContain('Lacuna: status de ork-a não lido; vale a ork/<slug> nesta rodada (ork-ponte: ler recusado).')
+  expect(r.text).toContain('Lacuna: status de ork-a não lido; vale a ork/ork-a-full nesta rodada (ork-ponte: ler recusado).')
   mundo.statusFalha.clear()
   const r2 = await radar($)
   expect(mundo.ler.filter(l => l.consulta === 'thread.status' && l.thread === 'ork-a').length).toBe(2)

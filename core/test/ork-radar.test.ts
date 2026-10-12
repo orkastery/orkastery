@@ -600,8 +600,16 @@ test('mapa: o desenho decide pela superficie: Raster no terminal, tabela de Box 
   assert.deepEqual(celulas.filter((t) => textoDoNo(t) === ' + ').map((t) => t.props.backgroundColor), ['#c62828', '#c62828']);
 });
 
-test('D5: o mktemp e o rm de verdade, pelo argv do Radar: o temporario nasce com a forma esperada e o rm apaga so ele', () => {
+test('D5: o mktemp e o rm de verdade, pelo argv do Radar: o temporario nasce com a forma esperada e o rm apaga so ele', (t) => {
   const c = carregar('hooks/colisao.ts');
+  // O sandbox do verify do MCP e do `ork claims conferir` deixa o `/tmp` só leitura: lá esta prova não roda, com o
+  // motivo dito; o CI e o `ork verify` do CLI a rodam inteira.
+  let tmpGravavel = true;
+  try { fs.rmdirSync(fs.mkdtempSync('/tmp/ork-radar-sonda-')); } catch { tmpGravavel = false; }
+  if (!tmpGravavel) {
+    t.skip('o /tmp não é gravável aqui (sandbox do verify): a prova do mktemp e do rm reais roda no CI e no ork verify do CLI');
+    return;
+  }
   const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-radar-tmp-'));
   try {
     const rodar = rodador(raiz);
