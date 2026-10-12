@@ -444,10 +444,7 @@ export function exigirVarianteCompativel(variante: VarianteDeCiclo, def: Definic
   if (!definicaoDaVariante(variante).mudaBlocos) return;
   const [unico, ...resto] = def.blocos;
   if (unico && resto.length === 0 && unico.fases.length < FASES.length) {
-    throw new Error(
-      `o ciclo ${variante} redesenha os blocos e o modo ${def.tag} tem um bloco so ` +
-        `(${unico.fases.join('-')}): crie a thread sem --ciclo ou escolha um modo de ciclo completo`
-    );
+    throw new ErroDoCatalogo((m) => m.thread.varianteIncompativel(variante, def.tag, unico.fases.join('-')));
   }
 }
 
@@ -455,15 +452,14 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   const { raiz, manifesto } = carregado;
   const permitidos = manifesto.conduction.allowed_modes;
   if (!permitidos.includes(opcoes.modo)) {
-    throw new Error(
-      `modo ${MODOS[opcoes.modo].tag} fora de conduction.allowed_modes ` +
-        `(permitidos: ${permitidos.map((m) => MODOS[m].tag).join(', ')})`
-    );
+    const tag = MODOS[opcoes.modo].tag, lista = permitidos.map((p) => MODOS[p].tag).join(', ');
+    throw new ErroDoCatalogo((m) => m.thread.modoNaoPermitido(tag, lista));
   }
 
   const assuntoBruto = normalizarAssunto(opcoes.assunto ?? opcoes.nome);
   if (!assuntoBruto) {
-    throw new Error(`nome "${opcoes.nome}" nao produz assunto valido (esperado [a-z0-9])`);
+    const nome = opcoes.nome;
+    throw new ErroDoCatalogo((m) => m.thread.nomeSemAssunto(nome));
   }
   // RM-059 (T6.0): o pedido e conferido antes de qualquer gravacao, tambem no ensaio.
   const pedido = opcoes.pedido !== undefined ? prepararPedido(opcoes.pedido) : null;
@@ -478,18 +474,17 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   if (variante) {
     const dv = definicaoDaVariante(variante);
     if (dv.exigeBranch && !opcoes.branch) {
-      throw new Error(
-        `o ciclo ${variante} parte de uma branch que ja existe: informe --branch <branch>`
-      );
+      throw new ErroDoCatalogo((m) => m.thread.cicloExigeBranch(variante));
     }
-    if (opcoes.branch) {
-      const existe = exec('git', ['rev-parse', '--verify', `refs/heads/${opcoes.branch}`], raiz);
+    const branch = opcoes.branch;
+    if (branch) {
+      const existe = exec('git', ['rev-parse', '--verify', `refs/heads/${branch}`], raiz);
       if (!existe.ok) {
-        throw new Error(`branch "${opcoes.branch}" nao existe neste repositorio`);
+        throw new ErroDoCatalogo((m) => m.thread.branchInexistente(branch));
       }
     }
   } else if (opcoes.branch) {
-    throw new Error('--branch so vale com --ciclo merge-branch');
+    throw new ErroDoCatalogo((m) => m.thread.branchSemCiclo);
   }
   // `greenfield`, `merge-branch` e `feature-xl-faseada` exigem worktree isolada: sao os
   // ciclos que escrevem codigo em paralelo com outras threads.
@@ -596,8 +591,9 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   const ocupadaPelaChave = pelaChave && !exigeWorktree && prevista &&
     (prevista.falha === 'pasta-existe' || prevista.falha === 'branch-existe') ? prevista : null;
   if (ocupadaPelaChave) {
-    const qual = ocupadaPelaChave.falha === 'pasta-existe' ? `a pasta ${ocupadaPelaChave.dir}` : `a branch ${ocupadaPelaChave.branch}`;
-    throw new Error(`${qual} já existe, e a chave worktree.por_thread pede a worktree da thread: tire-a ou crie com --sem-worktree`);
+    const pasta = ocupadaPelaChave.falha === 'pasta-existe';
+    const alvo = pasta ? ocupadaPelaChave.dir : ocupadaPelaChave.branch;
+    throw new ErroDoCatalogo((m) => m.thread.ocupadaPelaChave(pasta, alvo));
   }
 
   let worktreeCriada: WorktreeDaThread | null = null;

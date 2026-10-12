@@ -391,8 +391,8 @@ export const AJUDA_EN: typeof AJUDA_PT_BR = {
 
 Usage: ork [--projeto <name|path>] <command> [arguments]
 
-  --projeto <name|path>                     Target project of any command (RM-052): takes precedence over ORK_PROJETO,
-                                            which takes precedence over the current directory; an ambiguous or unknown name is refused with the candidates (exit 4)
+  --projeto <name|path>                     Target project of any command (RM-052): overrides ORK_PROJETO, which overrides
+                                            the current directory; an ambiguous or unknown name lists the candidates (exit 4)
   projetos [--json]                         Projects known on this machine (~/.orkastery/projetos.json)
   projetos registrar [path]                 Registers this checkout (init, thread new and fabrica entrar already do)
   projetos esquecer <name|path>             Removes a checkout that vanished or is no longer needed from the registry (nothing on disk is deleted)
@@ -423,10 +423,10 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
                                             Dispatches on an account that another project on this machine saw exhausted
                                             (RM-040), read only: opaque account, profile by id, no directory
   setup [<mode>] --reset                    Resets the mode (or everything) to the default
-  setup sandbox [confirmar <posture>|revogar]  Sandbox posture of this machine (RM-047): a runtime.sandbox that loosens it
-                                            (danger-full-access) only dispatches with the local confirmation, outside git
-  setup worktree [confirmar [<dir>]|revogar]  Worktree folder of this machine (RM-047): a worktree.dir outside the root
-                                            only creates checkouts with the local confirmation, outside git
+  setup sandbox [confirmar <posture>|revogar]  This machine's sandbox posture (RM-047): a runtime.sandbox that loosens the sandbox
+                                            (danger-full-access) only dispatches after a local confirmation, kept out of git
+  setup worktree [confirmar [<dir>]|revogar]  This machine's worktree folder (RM-047): a worktree.dir outside the root
+                                            only creates checkouts after a local confirmation, kept out of git
   setup versionar                           Moves the setup in force to orkastery.setup.json: through a PR, it holds on
                                             every machine and becomes the edited file (I-52)
 

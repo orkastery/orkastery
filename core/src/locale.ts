@@ -21,8 +21,8 @@
  * como o nome de um check ou o `pausaSobre` de um bloco, so e traduzido na impressao.
  *
  * D14: o erro que o catalogo monta e que nasce no escopo pt-BR da gravacao (`ErroDoCatalogo`: manifesto
- * ausente, `--slug`, `--roadmap`, `--runtime` e o modelo ao trocar de runtime) e remontado no locale do
- * comando pela entrada do CLI. Seguem como o modulo dono escreve, ate a familia dele migrar: o validador
+ * ausente, os erros de argumento de `thread new`, `--runtime` e o modelo ao trocar de runtime no `phase run`)
+ * e remontado no locale do comando pela entrada do CLI. Seguem como o modulo dono escreve, ate a familia dele migrar: o validador
  * do manifesto (fora os avisos de preferencia da experiencia, traduzidos na impressao), o regime de
  * memoria e o erro de estado durante a gravacao. O cabecalho `Projeto consultado:` e `Não lido:` e
  * contrato do RM-052 com os hosts e fica igual nas duas linguas.
@@ -416,7 +416,7 @@ const EN: Mensagens = {
     sandboxOk: '`codex sandbox true` runs on this machine',
     sandboxFalhou: (detalhe) => `probe \`codex sandbox true\` failed: ${detalhe}`,
     sandboxCorrecao: (confirmar) => 'install the system bubblewrap package (the bundled bwrap cannot create a user namespace ' +
-      `on this machine) or declare runtime.sandbox: danger-full-access knowing the risk, and confirm on this machine with ${confirmar}`,
+      `on this machine) or declare \`runtime.sandbox: danger-full-access\` knowing the risk, and confirm on this machine with \`${confirmar}\``,
     manifestoAusente: (nome, dir) => `${nome} not found in ${dir} or any parent directory`,
     rodeInit: 'ork init',
     entreNoRepoEInit: 'enter the project repository (or create one with `git init` and a first commit) and run `ork init`',
@@ -511,13 +511,13 @@ const EN: Mensagens = {
       'on this machine: dispatch is refused with `runtime.sandbox-nao-confirmado`',
     codexForaNoDespachoCorrecao: 'install the Codex CLI and sign in with `codex login` (subscription, never an API key)',
     codexSandboxQuebradoCorrecao: (confirmar) =>
-      `install the system bubblewrap, or declare runtime.sandbox: danger-full-access knowing the risk, and confirm on this machine with ${confirmar}`,
-    codexSemConfirmacaoCorrecao: (confirmar) => `${confirmar} (or set the manifest back to workspace-write)`,
+      `install the system bubblewrap, or declare \`runtime.sandbox: danger-full-access\` knowing the risk, and confirm on this machine with \`${confirmar}\``,
+    codexSemConfirmacaoCorrecao: (confirmar) => `\`${confirmar}\` (or set the manifest back to \`workspace-write\`)`,
     fabricaPedida: '`orkastery.yaml` asks for `fabrica.compartilhada: true` and this machine has not joined: nothing from this machine is published to the remote',
-    fabricaPedidaCorrecao: 'ork fabrica entrar, if this machine should publish its snapshot to the project remote',
+    fabricaPedidaCorrecao: '`ork fabrica entrar`, if this machine should publish its snapshot to the project remote',
     pastaForaDaRaiz: (dir) =>
       `\`worktree.dir\` "${dir}" points outside the project root and this machine has not confirmed it: worktree creation is refused with \`worktree.dir-fora-da-raiz\``,
-    pastaForaDaRaizCorrecao: (confirmar) => `${confirmar}, or move \`worktree.dir\` back inside the project`,
+    pastaForaDaRaizCorrecao: (confirmar) => `\`${confirmar}\`, or move \`worktree.dir\` back inside the project`,
     fonteDaMemoria: (fonte, divergente) => `${fonte}${divergente ? ' (divergent worktree copy kept)' : ''}`,
     regimeDegradado: (motivo, detalhe) => `orkmind requested, files in effect (${motivo}): ${detalhe}`,
     regimeOrkmind: (tenant, variavel) => `orkmind active in tenant "${tenant}" through the variable ${variavel}`,

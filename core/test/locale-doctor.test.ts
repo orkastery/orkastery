@@ -124,7 +124,7 @@ test('locale en F2a doctor (doctor.ts): os checks da RM-047 (fabrica compartilha
       runtime: { ...carregado.manifesto.runtime, adapter: 'codex', sandbox: 'danger-full-access' } } } as ManifestoCarregado;
     const semConfirmacao = emIngles(() => checarDespachoPeloCodex(codex, '/opt/bin/codex', { ok: true }));
     assert.match(semConfirmacao?.detalhe ?? '', /requested by `orkastery\.yaml` but not confirmed on this machine: dispatch is refused with `runtime\.sandbox-nao-confirmado`$/);
-    assert.match(semConfirmacao?.correcao ?? '', /\(or set the manifest back to workspace-write\)$/);
+    assert.match(semConfirmacao?.correcao ?? '', /\(or set the manifest back to `workspace-write`\)$/);
     assert.deepEqual(linhasEmPortugues(`${semConfirmacao?.detalhe}\n${semConfirmacao?.correcao}`), []);
   } finally { c.limpar(); }
 });

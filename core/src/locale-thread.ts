@@ -138,6 +138,16 @@ export const THREAD_PT_BR = {
   roadmapItemInexistente: (id: string) => `roadmap.item: ${id} nao existe em docs/roadmap`,
   /** RM-059 (T6.0) no thread new: o pedido do builder guardado ao lado do thread.json. */
   usoPedido: 'uso: --pedido "<texto do pedido do builder>"',
+  /** D14: os demais erros de argumento de `thread new`, lancados no escopo pt-BR da criacao. */
+  varianteIncompativel: (variante: string, tag: string, fases: string) => `o ciclo ${variante} redesenha os blocos e o modo ${tag} ` +
+    `tem um bloco so (${fases}): crie a thread sem --ciclo ou escolha um modo de ciclo completo`,
+  modoNaoPermitido: (tag: string, permitidos: string) => `modo ${tag} fora de conduction.allowed_modes (permitidos: ${permitidos})`,
+  nomeSemAssunto: (nome: string) => `nome "${nome}" nao produz assunto valido (esperado [a-z0-9])`,
+  cicloExigeBranch: (variante: string) => `o ciclo ${variante} parte de uma branch que ja existe: informe --branch <branch>`,
+  branchInexistente: (branch: string) => `branch "${branch}" nao existe neste repositorio`,
+  branchSemCiclo: '--branch so vale com --ciclo merge-branch',
+  ocupadaPelaChave: (pasta: boolean, alvo: string) => `${pasta ? 'a pasta' : 'a branch'} ${alvo} já existe, e a chave ` +
+    'worktree.por_thread pede a worktree da thread: tire-a ou crie com --sem-worktree',
   usoComMotivo: (motivo: string) => `uso: ${motivo}`,
   pedidoVazio: 'thread.pedido.invalido: o pedido esta vazio',
   pedidoGrande: (bytes: number, teto: number) => `thread.pedido.invalido: o pedido tem ${bytes} bytes, e o teto e ${teto}`,
@@ -261,6 +271,15 @@ export const THREAD_EN: typeof THREAD_PT_BR = {
   roadmapItemInvalido: (item) => `roadmap.item: "${item}" is not a roadmap item (expected RM-NNN)`,
   roadmapItemInexistente: (id) => `roadmap.item: ${id} does not exist in \`docs/roadmap\``,
   usoPedido: 'usage: --pedido "<builder request text>"',
+  varianteIncompativel: (variante, tag, fases) => `the ${variante} cycle redraws the blocks, and mode ${tag} has a single block ` +
+    `(${fases}): create the thread without \`--ciclo\` or pick a full-cycle mode`,
+  modoNaoPermitido: (tag, permitidos) => `mode ${tag} is not in \`conduction.allowed_modes\` (allowed: ${permitidos})`,
+  nomeSemAssunto: (nome) => `name "${nome}" does not produce a valid subject (expected [a-z0-9])`,
+  cicloExigeBranch: (variante) => `the ${variante} cycle starts from a branch that already exists: pass \`--branch <branch>\``,
+  branchInexistente: (branch) => `branch "${branch}" does not exist in this repository`,
+  branchSemCiclo: '`--branch` only applies with `--ciclo merge-branch`',
+  ocupadaPelaChave: (pasta, alvo) => `${pasta ? 'the folder' : 'the branch'} ${alvo} already exists, and \`worktree.por_thread\` ` +
+    'asks for the thread worktree: remove it or create the thread with `--sem-worktree`',
   usoComMotivo: (motivo) => `usage: ${motivo}`,
   pedidoVazio: 'thread.pedido.invalido: the request is empty',
   pedidoGrande: (bytes, teto) => `thread.pedido.invalido: the request has ${bytes} bytes, above the ${teto}-byte limit`,

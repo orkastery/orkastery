@@ -12,6 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ativarLocale, comLocale, ErroDoCatalogo, mensagemDoErro, msg } from '../src/locale';
 import { validarPreferencias } from '../src/experiencia';
+import { exec } from '../src/util';
 import { cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 
 const REGEX = '\\^\\[a-z0-9\\]\\{1,3\\}-';
@@ -75,6 +76,35 @@ test('locale en F2a erros: thread new --pedido em ingles, com o pedido gravado i
   } finally { pt.limpar(); en.limpar(); }
 });
 
+test('locale en F2a erros: os demais erros de argumento de thread new saem em ingles e o pt-BR segue o da base', () => {
+  const c = cenario('erros-thread');
+  try {
+    exec('git', ['branch', 'ork/loc-zzz-full'], c.dir);
+    const casos: Array<[string[], string, string]> = [
+      [['x', '--modo', 'fast', '--ciclo', 'goal-plan', '--sem-worktree', '--dry-run'],
+        'the goal-plan cycle redraws the blocks, and mode #Fast has a single block (GO): create the thread without `--ciclo` or pick a full-cycle mode',
+        'o ciclo goal-plan redesenha os blocos e o modo #Fast tem um bloco so (GO): crie a thread sem --ciclo ou escolha um modo de ciclo completo'],
+      [['###', '--modo', 'auto', '--sem-worktree', '--dry-run'],
+        'name "###" does not produce a valid subject (expected [a-z0-9])', 'nome "###" nao produz assunto valido (esperado [a-z0-9])'],
+      [['x', '--modo', 'auto', '--ciclo', 'merge-branch', '--dry-run'],
+        'the merge-branch cycle starts from a branch that already exists: pass `--branch <branch>`',
+        'o ciclo merge-branch parte de uma branch que ja existe: informe --branch <branch>'],
+      [['x', '--modo', 'auto', '--ciclo', 'merge-branch', '--branch', 'nao-existe', '--dry-run'],
+        'branch "nao-existe" does not exist in this repository', 'branch "nao-existe" nao existe neste repositorio'],
+      [['x', '--modo', 'auto', '--branch', 'foo', '--dry-run'],
+        '`--branch` only applies with `--ciclo merge-branch`', '--branch so vale com --ciclo merge-branch'],
+      [['zzz', '--modo', 'auto'],
+        'the branch ork/loc-zzz-full already exists, and `worktree.por_thread` asks for the thread worktree: remove it or create the thread with `--sem-worktree`',
+        'a branch ork/loc-zzz-full já existe, e a chave worktree.por_thread pede a worktree da thread: tire-a ou crie com --sem-worktree'],
+    ];
+    for (const [args, en, pt] of casos) {
+      assert.equal(ork(c, EN, false, 'thread', 'new', ...args).stderr, `error: ${en}\n`, args.join(' '));
+      assert.equal(ork(c, PT, false, 'thread', 'new', ...args).stderr, `erro: ${pt}\n`, args.join(' '));
+    }
+    assert.deepEqual(fs.readdirSync(path.join(c.dir, '.orkastery', 'threads')).filter((d) => !d.startsWith('.')), []);
+  } finally { c.limpar(); }
+});
+
 test('locale en F2a erros: em pt-BR e com --json as mensagens seguem as da base', () => {
   const fora = cenario('erros-fora-pt', false);
   try {
@@ -108,7 +138,7 @@ test('locale en F2a erros: o aviso de preferencia invalida sai inteiro em ingles
   try {
     fs.appendFileSync(path.join(c.dir, 'orkastery.yaml'), '\nowner:\n  depth: "funda"\n');
     const gravado = 'experiencia.config.invalid: owner.depth exige curta ou detalhada; vale o padrão até corrigir';
-    const traduzido = 'experiencia.config.invalid: `owner.depth` requires `curta` or `detalhada`; the default applies meanwhile';
+    const traduzido = 'experiencia.config.invalid: `owner.depth` requires `curta` or `detalhada`; the default is used for now';
     const show = ork(c, EN, false, 'experiencia', 'show');
     assert.match(show.stdout, new RegExp(`\\nWarning: ${traduzido.replace(/[.`]/g, '\\$&')}; \`ork adapter install\` skips the package ` +
       'until `ork onboarding set maestro` fixes it\\.\\n$'));

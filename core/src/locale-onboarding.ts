@@ -90,7 +90,7 @@ export const ONBOARDING_EN: typeof ONBOARDING_PT_BR = {
     const texto = aviso.endsWith(sufixo) ? aviso.slice(0, -sufixo.length) : aviso;
     const traduzido = AVISOS_DA_PREFERENCIA_EN[texto];
     // Aviso que o catalogo nao conhece sai inteiro como foi gravado, sem meia traducao.
-    return traduzido === undefined ? aviso : traduzido + (texto === aviso ? '' : '; the default applies meanwhile');
+    return traduzido === undefined ? aviso : traduzido + (texto === aviso ? '' : '; the default is used for now');
   },
   experienciaAviso: (aviso) => `Warning: ${aviso}; \`ork adapter install\` skips the package until \`ork onboarding set maestro\` fixes it.`,
 };

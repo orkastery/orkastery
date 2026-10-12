@@ -65,7 +65,7 @@ test('locale en F2a onboarding: experiencia show em ingles, com as origens e o a
     fs.appendFileSync(path.join(c.dir, 'orkastery.yaml'), '\nowner:\n  depth: "funda"\n');
     const aviso = ork(c, EN, false, 'experiencia', 'show');
     // O aviso que o manifesto gravou em pt-BR sai traduzido na impressao (D14); o --json leva o gravado.
-    assert.match(aviso.stdout, /\nWarning: experiencia\.config\.invalid: `owner\.depth` requires `curta` or `detalhada`; the default applies meanwhile; `ork adapter install` skips the package until `ork onboarding set maestro` fixes it\.\n$/);
+    assert.match(aviso.stdout, /\nWarning: experiencia\.config\.invalid: `owner\.depth` requires `curta` or `detalhada`; the default is used for now; `ork adapter install` skips the package until `ork onboarding set maestro` fixes it\.\n$/);
   } finally { c.limpar(); }
 });
 
