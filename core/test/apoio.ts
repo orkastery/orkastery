@@ -104,6 +104,17 @@ export function envPtBr(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv
   return r;
 }
 
+/** RM-061 (D13): o mesmo para o teste que chama o `main` no proprio processo; o ambiente volta ao fim. */
+export function comAmbientePtBr<T>(fn: () => T): T {
+  const antes = { LANG: process.env.LANG, LC_ALL: process.env.LC_ALL, LC_MESSAGES: process.env.LC_MESSAGES };
+  process.env.LANG = 'C.UTF-8';
+  delete process.env.LC_ALL;
+  delete process.env.LC_MESSAGES;
+  try { return fn(); } finally {
+    for (const [k, v] of Object.entries(antes)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+}
+
 /** Diretorio temporario com caminho real (o macOS e o /tmp do linux usam symlink). */
 export function dirTemporario(nome: string): string {
   return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-test-${nome}-`)));

@@ -88,8 +88,8 @@ test('ensaio 0310 R2: com LANG=C.UTF-8, o onboarding recomenda pt-BR, a lingua d
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /Experiência recomendada: pt-BR, /);
     assert.match(r.stdout, /"owner":\{"language":"pt-BR"/);
-    // Locale escolhido continua valendo.
-    assert.match(ork(p.dir, casa, ['onboarding'], { LANG: 'en_GB.UTF-8' }).stdout, /Experiência recomendada: en-GB, /);
+    // Locale escolhido continua valendo. Desde a RM-061 (F2a), com LANG=en_GB a pauta sai em ingles.
+    assert.match(ork(p.dir, casa, ['onboarding'], { LANG: 'en_GB.UTF-8' }).stdout, /Recommended experience: en-GB, /);
   } finally { limpar(p.dir, casa); }
 });
 

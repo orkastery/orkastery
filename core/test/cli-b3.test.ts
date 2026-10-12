@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { projetoTemporario } from './apoio';
+import { envPtBr, projetoTemporario } from './apoio';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 
@@ -23,6 +23,8 @@ function ork(cwd: string, args: string[]): { saida: string; codigo: number } {
         cwd,
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        // RM-061 (D13): o teste le a ajuda em pt-BR; o locale de quem roda nao entra.
+        env: envPtBr(),
       }),
       codigo: 0,
     };

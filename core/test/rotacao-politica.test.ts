@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ajustarManifesto, desligarRotacaoPorCota, ligarRotacaoPorCota, projetoTemporario, runtimePorConta } from './apoio';
+import { ajustarManifesto, desligarRotacaoPorCota, envPtBr, ligarRotacaoPorCota, projetoTemporario, runtimePorConta } from './apoio';
 import { controllerSimulado, esperarCondicao } from './controller-simulado';
 import { encerrarController } from '../src/adapters/codex-controller';
 import { lerLedger } from '../src/ledger';
@@ -225,7 +225,8 @@ test('N2 aviso no proprio comando: accounts, retry e phase run imprimem o aviso 
   try {
     const base = fs.readFileSync(path.join(p.dir, 'orkastery.yaml'), 'utf8');
     const t = novaThread(p.carregado, { nome: 'n2-cli', modo: 'auto' }).thread;
-    const ork = (args: string[]) => spawnSync(process.execPath, [CLI, ...args], { cwd: p.dir, encoding: 'utf8' });
+    // RM-061 (D13): o teste le o aviso em pt-BR; o locale de quem roda nao entra.
+    const ork = (args: string[]) => spawnSync(process.execPath, [CLI, ...args], { cwd: p.dir, encoding: 'utf8', env: envPtBr() });
     const comandos = [['accounts', 'list'], ['retry', 'plan', t.id], ['phase', 'run', t.id, 'GOAL', '--prompt', 'objetivo SIMULADO', '--dry-run']];
     comChave(p, base, 'off');
     for (const args of comandos) {
