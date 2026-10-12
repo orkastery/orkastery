@@ -316,6 +316,11 @@ export function textoDosArquivos(c: Pick<RadarCelula, 'arquivos'>): string {
   return resto > 0 ? `${mostrados} e mais ${resto}` : mostrados
 }
 
+/** Uma contagem com o substantivo no número certo. */
+export function contar(n: number, singular: string, plural: string): string {
+  return `${n} ${n === 1 ? singular : plural}`
+}
+
 /** O SHA curto, como o git mostra. */
 export function curto(sha: string | null): string {
   return sha === null ? '?' : sha.slice(0, 7)
@@ -334,18 +339,18 @@ export function resumoDoMapa(m: RadarMapa): string {
   if (m.lidoEm === null) return `Radar de Colisão: ainda sem rodada${m.erro ? ` (${m.erro})` : ''}.`
   const linhas: string[] = []
   const omitidas = m.omitidas > 0 ? ` (mais ${m.omitidas} fora do teto)` : ''
-  linhas.push(`Radar de Colisão: ${m.threads.length} threads abertas${omitidas}; base ${textoDaBase(m.base)}.`)
+  linhas.push(`Radar de Colisão: ${contar(m.threads.length, 'thread aberta', 'threads abertas')}${omitidas}; base ${textoDaBase(m.base)}.`)
   if (m.erro) linhas.push(`A rodada parou: ${m.erro}.`)
   const conflitos = m.celulas.filter(c => c.estado === 'conflito')
   for (const c of conflitos) {
     linhas.push(`- ${nomeDoLado(c.a)} × ${nomeDoLado(c.b)}: ${textoDosArquivos(c)}; resolve: ${comandoQueResolve(c)}`)
   }
   const limpas = m.celulas.filter(c => c.estado === 'limpa').length
-  if (conflitos.length === 0 && !m.erro) linhas.push(`Nenhuma colisão: ${limpas} pares limpos.`)
-  else if (!m.erro) linhas.push(`${conflitos.length} pares em conflito e ${limpas} limpos.`)
+  if (conflitos.length === 0 && !m.erro) linhas.push(`Nenhuma colisão: ${contar(limpas, 'par limpo', 'pares limpos')}.`)
+  else if (!m.erro) linhas.push(`${contar(conflitos.length, 'par em conflito', 'pares em conflito')} e ${contar(limpas, 'limpo', 'limpos')}.`)
   for (const c of m.celulas.filter(x => x.estado === 'erro')) linhas.push(`Erro em ${nomeDoLado(c.a)} × ${nomeDoLado(c.b)}: ${c.erro}`)
   const pendentes = m.celulas.filter(c => c.estado === 'pendente').length
-  if (pendentes > 0) linhas.push(`${pendentes} pares ficaram para a próxima rodada.`)
+  if (pendentes > 0) linhas.push(`${pendentes === 1 ? '1 par ficou' : `${pendentes} pares ficaram`} para a próxima rodada.`)
   const semBranch = m.threads.filter(t => t.sha === null).map(t => t.id)
   if (semBranch.length > 0) linhas.push(`Sem branch local: ${semBranch.join(', ')}.`)
   for (const l of m.lacunas) linhas.push(`Lacuna: ${l}.`)

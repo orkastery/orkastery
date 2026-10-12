@@ -65,6 +65,8 @@ declare module 'claude-code' {
     'ork-radar': {
       /** O mapa da última rodada. */
       mapa: RadarMapa
+      /** Os pares com colisão nova que o dono ainda não viu no painel nem no `/radar` (D6). */
+      novas: string[]
     }
   }
 }

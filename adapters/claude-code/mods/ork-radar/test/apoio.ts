@@ -104,7 +104,7 @@ export function montar(on, opcoes) {
     abertas: opcoes.abertas, refs: { ...opcoes.refs }, remoto: opcoes.remoto === undefined ? opcoes.refs[BASE] : opcoes.remoto,
     merges: { ...(opcoes.merges ?? {}) }, leases: opcoes.leases ?? [], status: { ...(opcoes.status ?? {}) },
     temporario: opcoes.temporario ?? TEMPORARIO, gitArquivo: opcoes.gitArquivo ?? null, commondir: opcoes.commondir ?? null,
-    listaFalha: false, retratoFalha: false,
+    paineis: opcoes.paineis ?? [], listaFalha: false, retratoFalha: false,
     processos: [], ler: [], maestro: [], faixas: [], mostrados: [], comandos: [], abertos: [], toasts: [], lidos: [],
   }
   on('session.start', ($, e) => ({ cwd: e.cwd }))
@@ -134,7 +134,7 @@ export function montar(on, opcoes) {
   })
   on('command.register', ($, e) => { mundo.comandos.push(e.name); return { value: { command: e.name } } })
   on('ui.open', ($, e) => { mundo.abertos.push(e.id); return { value: { isPlaced: true } } })
-  on('ui.panes', () => ({ value: [] }))
+  on('ui.panes', () => ({ value: mundo.paineis }))
   on('ui.toast', ($, e) => { mundo.toasts.push(e.text); return { value: undefined } })
   on('process.run', ($, e) => {
     mundo.processos.push({ argv: e.argv, init: e.init })
@@ -166,4 +166,42 @@ export async function radar($) {
 /** Os argv que o Radar rodou, um por linha, para comparar sem o ambiente. */
 export function argvs(mundo) {
   return mundo.processos.map(p => p.argv.join(' '))
+}
+
+export const PANE = { title: 'Radar', isFocused: false, bodyColumns: 120, placement: 'dock', scroll: { offset: 0, bodyRows: 60 }, view: {} }
+/** O painel do Radar posto e à vista do dono, como `$.ui.panes()` o lista. */
+export const A_VISTA = [{ id: 'radar', title: 'Radar', isShown: true, isFocused: false, isPlaced: true }]
+
+/** O painel montado numa superfície; `janela` troca a janela de rolagem. */
+export async function montarPainel($, surface, janela?) {
+  return $.ui.mount({ plugin: 'ork-radar', surface, component: 'Pane', requestId: 'radar', props: janela ? { ...PANE, scroll: janela } : PANE })
+}
+
+/** Os textos de `Text` e `Button` de um painel já montado, na ordem do desenho. */
+export async function textosDe(ui) {
+  return (await ui.findAll({})).filter(e => e.type === 'Text' || e.type === 'Button').map(e => e.text)
+}
+
+const ALFABETO = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+/** Base64 padrão para bytes, sem depender do ambiente do kit (que não tem `Buffer`). */
+export function deBase64(texto: string): number[] {
+  const bytes: number[] = []
+  const limpo = texto.replace(/=+$/, '')
+  for (let i = 0; i < limpo.length; i += 4) {
+    const n = [0, 1, 2, 3].map(k => (i + k < limpo.length ? ALFABETO.indexOf(limpo[i + k] as string) : 0))
+    const v = (n[0] << 18) | (n[1] << 12) | (n[2] << 6) | n[3]
+    bytes.push((v >> 16) & 255)
+    if (i + 2 < limpo.length) bytes.push((v >> 8) & 255)
+    if (i + 3 < limpo.length) bytes.push(v & 255)
+  }
+  return bytes
+}
+
+/** Uma célula do `Raster`: o caractere, a frente e o fundo, pela linha e pela coluna de terminal. */
+export function celulaDoRaster(props, linha: number, coluna: number) {
+  const bytes = deBase64(props.cells)
+  const u32 = (j: number) => ((bytes[j] as number) | ((bytes[j + 1] as number) << 8) | ((bytes[j + 2] as number) << 16) | ((bytes[j + 3] as number) << 24)) >>> 0
+  const i = (linha * props.columns + coluna) * 12
+  return { ch: String.fromCodePoint(u32(i)), frente: u32(i + 4), fundo: u32(i + 8) }
 }

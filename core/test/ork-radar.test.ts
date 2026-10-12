@@ -16,7 +16,7 @@ import { caminhoBateComGlob } from '../src/leases';
 // gravar objeto, ref nem índice no repositório (D3).
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const RADAR = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-radar');
-const MODULOS_PUROS = ['hooks/colisao.ts'];
+const MODULOS_PUROS = ['hooks/colisao.ts', 'hooks/mapa.tsx'];
 /** D2: tudo que o Radar chama direto no `$`; o estado passa pelo `read` e pelo `update` do motor. */
 const CHAMADAS_PERMITIDAS = ['ork.papel', 'ork.contexto', 'ork.retrato', 'ork.ler', 'ork.faixa', 'ork.mostrado', 'command.register',
   'clock.now', 'clock.after', 'clock.every', 'process.run', 'fs.stat', 'fs.read', 'ui.open', 'ui.panes', 'ui.resolve', 'ui.toast'];
@@ -25,6 +25,10 @@ const NOUNS_PROIBIDOS = ['mcp', 'store', 'env', 'session', 'prompt', 'agent', 't
 const CONSTRUTORES_DE_ARGV = ['argvDoLsRemoteLocal', 'argvDoLsRemoteRemoto', 'argvDoTemporario', 'argvDoMergeTree', 'argvDeApagar'];
 const CONSULTAS_PERMITIDAS = ['thread.list', 'thread.status'];
 const NUL = String.fromCharCode(0);
+
+type No = { tipo: string; props: Record<string, unknown>; filhos: unknown[] };
+(globalThis as unknown as { h: unknown }).h = (tipo: string, props: Record<string, unknown> | null, ...filhos: unknown[]): No =>
+  ({ tipo, props: props ?? {}, filhos: filhos.flat(Infinity) });
 
 const modulos = new Map<string, Record<string, any>>();
 function resolver(base: string): string {
@@ -73,6 +77,7 @@ test('o contrato declara o estado do Radar em PluginState, sem import nem refere
   const contrato = fs.readFileSync(path.join(RADAR, 'types/index.d.ts'), 'utf8');
   assert.match(contrato, /interface PluginState \{\s*'ork-radar': \{/);
   assert.ok(contrato.includes('mapa: RadarMapa'));
+  assert.ok(contrato.includes('novas: string[]'));
   assert.doesNotMatch(contrato, /^\s*import\s/m);
   assert.doesNotMatch(contrato, /\/\/\/\s*<reference/);
   assert.doesNotMatch(contrato, /interface EngineInterface/);
@@ -234,7 +239,7 @@ test('colisao: a celula do par, a base, as colisoes novas da sessao, o comando q
     'Radar de Colisão: 3 threads abertas (mais 2 fora do teto); base origin/main 0000000, igual ao remoto.',
     '- ork-a × origin/main: CHANGELOG.md (lease path:CHANGELOG.md de ork-c), x.ts; resolve: ork worktree sync ork-a --dry-run',
     '- ork-a × ork-b: y.ts; resolve: a que entregar depois roda: ork worktree sync <ork-a ou ork-b> --dry-run',
-    '2 pares em conflito e 1 limpos.',
+    '2 pares em conflito e 1 limpo.',
     'Sem branch local: ork-x.',
     'Lacuna: leases não lidos (x).',
   ]);
@@ -298,7 +303,9 @@ test('D2: o Radar so chama no $ a lista fechada, todo argv sai dos construtores 
     }
   }
   assert.ok(processos >= 5, `process.run achados: ${processos}`);
-  for (const esperada of ['ork.contexto', 'ork.ler', 'ork.retrato', 'process.run', 'fs.stat']) assert.ok(vistas.has(esperada), esperada);
+  for (const esperada of ['ork.contexto', 'ork.ler', 'ork.retrato', 'process.run', 'fs.stat', 'ork.faixa', 'ork.mostrado', 'ui.open', 'ui.panes']) {
+    assert.ok(vistas.has(esperada), esperada);
+  }
 });
 
 /** Roda um comando com a saída em arquivo (o sandbox do verify recusa pipe de processo filho) e sem config do usuário. */
@@ -406,4 +413,148 @@ test('D3: o argv e o ambiente do Radar num repositorio de verdade acham o confli
   } finally {
     fs.rmSync(raiz, { recursive: true, force: true });
   }
+});
+
+/** Um mapa de teste: ork-a em conflito com a base e com a ork-b, a ork-c limpa, e a ork-x sem branch local. */
+function mapaDeTeste(c: Record<string, any>) {
+  const t = (id: string, fase: string, rotulo: string, s: string | null) => ({ id, fase, rotulo, branch: `refs/heads/ork/${id}`, sha: s, motivo: s ? null : 'sem branch local' });
+  const celulas = [
+    c.celulaDoPar({ a: 'ork-a', b: '@main' }, { estado: 'conflito', arquivos: ['CHANGELOG.md'] }, [{ glob: 'CHANGELOG.md', thread: 'ork-c' }]),
+    c.celulaDoPar({ a: 'ork-b', b: '@main' }, { estado: 'limpa' }, []),
+    c.celulaDoPar({ a: 'ork-c', b: '@main' }, { estado: 'erro', erro: 'fatal: x' }, []),
+    c.celulaDoPar({ a: 'ork-a', b: 'ork-b' }, { estado: 'conflito', arquivos: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'] }, []),
+    c.celulaDoPar({ a: 'ork-a', b: 'ork-c' }, null, [], 'não calculado nesta rodada (orçamento de 60 s)'),
+    c.celulaDoPar({ a: 'ork-b', b: 'ork-c' }, { estado: 'conflito', arquivos: ['x', 'y'] }, []),
+  ];
+  return {
+    threads: [t('ork-a', 'SHIP', '1', sha('a')), t('ork-b', 'GO', '2', sha('b')), t('ork-c', 'GOAL', '3', sha('c')), t('ork-x', 'PLAN', '4', null)],
+    base: c.baseDoMapa(sha('0'), { sha: sha('0'), erro: null }), celulas, omitidas: 0, lacunas: [], lidoEm: 1000, erro: null,
+  };
+}
+
+function nosDe(no: unknown, tipo: string): No[] {
+  if (!no || typeof no !== 'object') return [];
+  const n = no as No;
+  return [...(n.tipo === tipo ? [n] : []), ...n.filhos.flatMap((f) => nosDe(f, tipo))];
+}
+
+function textoDoNo(n: No): string {
+  return n.filhos.filter((f) => typeof f === 'string' || typeof f === 'number').join('');
+}
+
+test('mapa: a faixa de calor e o simbolo de cada par, e a grade simetrica com a coluna da base e a diagonal', () => {
+  const c = carregar('hooks/colisao.ts');
+  const m = carregar('hooks/mapa.tsx');
+  const mapa = mapaDeTeste(c);
+  assert.deepEqual(mapa.celulas.map((x: any) => m.faixaDaCelula(x)), ['baixa', 'limpa', 'erro', 'alta', 'pendente', 'media']);
+  assert.equal(m.faixaDaCelula(undefined), 'vazia');
+  assert.deepEqual(mapa.celulas.map((x: any) => m.simboloDaCelula(m.faixaDaCelula(x), x)), ['1', '.', '!', '+', '?', '2']);
+  const g = m.gradeDoMapa(mapa);
+  assert.deepEqual(g.colunas, ['m', '1', '2', '3', '4']);
+  // A ork-x (sem branch) não tem par: a coluna e a linha dela ficam vazias, com a diagonal no lugar.
+  assert.deepEqual(g.linhas.map((l: any) => l.celulas.map((x: any) => x.simbolo).join('')), ['1-+? ', '.+-2 ', '!?2- ', '    -']);
+  assert.equal(m.PALETA.baixa.fundo, '#f9a825');
+  assert.equal(m.corDoRaster('#f9a825'), 0xf9a825);
+  assert.equal(m.corDoRaster(null), 0x01000000);
+  assert.equal(m.corDoRaster('vermelho'), 0x01000000);
+});
+
+test('mapa: o Raster em base64 de triplas u32 traz o cabecalho, o simbolo e as cores da faixa', () => {
+  const c = carregar('hooks/colisao.ts');
+  const m = carregar('hooks/mapa.tsx');
+  for (let n = 0; n <= 10; n++) {
+    const bytes = Uint8Array.from({ length: n }, (_, i) => (i * 37 + 11) % 256);
+    assert.equal(m.base64(bytes), Buffer.from(bytes).toString('base64'), `n=${n}`);
+  }
+  const r = m.rasterDoMapa(mapaDeTeste(c));
+  assert.deepEqual([r.columns, r.rows], [15, 5]);
+  const bytes = Buffer.from(r.cells, 'base64');
+  assert.equal(bytes.length, 15 * 5 * 12);
+  const celula = (linha: number, coluna: number) => {
+    const i = (linha * 15 + coluna) * 12;
+    return [String.fromCodePoint(bytes.readUInt32LE(i)), bytes.readUInt32LE(i + 4), bytes.readUInt32LE(i + 8)];
+  };
+  assert.deepEqual([1, 4, 7, 10, 13].map((col) => celula(0, col)[0]), ['m', '1', '2', '3', '4']);
+  assert.deepEqual(celula(1, 1), ['1', 0x000000, 0xf9a825]);
+  assert.deepEqual(celula(1, 0), [' ', 0x000000, 0xf9a825]);
+  assert.deepEqual(celula(1, 7), ['+', 0xffffff, 0xc62828]);
+  assert.deepEqual(celula(2, 1), ['.', 0xffffff, 0x2e7d32]);
+  assert.deepEqual(celula(3, 1), ['!', 0xffffff, 0x6a1b9a]);
+  assert.deepEqual(celula(1, 10), ['?', 0xffffff, 0x546e7a]);
+  assert.deepEqual(celula(1, 4), ['-', 0x757575, 0x01000000]);
+  assert.deepEqual(celula(4, 1), [' ', 0x01000000, 0x01000000]);
+});
+
+test('mapa: as linhas do painel, a janela do registro do mostrado e o texto de cada conflito', () => {
+  const c = carregar('hooks/colisao.ts');
+  const m = carregar('hooks/mapa.tsx');
+  const mapa = mapaDeTeste(c);
+  const linhas = m.linhasDoPainel(mapa, ['ork-a|ork-b'], 61000);
+  assert.deepEqual(linhas.map((l: any) => (l.tipo === 'matriz' ? `matriz:${l.altura}` : `${l.tipo}:${l.texto}`)), [
+    'titulo:Radar de Colisão · 4 threads · 3 pares em conflito (1 nova) · lido há 1 min',
+    'base:base: origin/main 0000000, igual ao remoto',
+    'botao:Atualizar',
+    'matriz:5',
+    'legenda:m = origin/main · número = arquivos em conflito · . limpo · ! erro do git · ? não calculado',
+    'conflito:ork-a × origin/main: CHANGELOG.md (lease path:CHANGELOG.md de ork-c)',
+    'resolve:  resolve: ork worktree sync ork-a --dry-run',
+    'conflito:nova: ork-a × ork-b: a, b, c, d, e e mais 5',
+    'resolve:  resolve: a que entregar depois roda: ork worktree sync <ork-a ou ork-b> --dry-run',
+    'conflito:ork-b × ork-c: x, y',
+    'resolve:  resolve: a que entregar depois roda: ork worktree sync <ork-b ou ork-c> --dry-run',
+    'nota:erro em ork-c × origin/main: fatal: x',
+    'nota:1 par ficou para a próxima rodada',
+    'nota:sem branch local: ork-x',
+  ]);
+  // Linhas da tela: 0 título, 1 base, 2 botão, 3 a 7 matriz, 8 legenda, 9 o primeiro conflito, 11 o segundo.
+  assert.deepEqual(m.mostradosVisiveis(linhas, { offset: 9, bodyRows: 2 }).map((v: any) => v.chave), ['radar:@main|ork-a']);
+  assert.deepEqual(m.mostradosVisiveis(linhas, { offset: 0, bodyRows: 9 }), []);
+  assert.deepEqual(m.mostradosVisiveis(linhas, { offset: 10, bodyRows: 4 }).map((v: any) => v.chave), ['radar:ork-a|ork-b', 'radar:ork-b|ork-c']);
+  assert.deepEqual(m.mostradosVisiveis(linhas, undefined), []);
+  assert.deepEqual(m.mostradosVisiveis(linhas, { offset: 0, bodyRows: 0 }), []);
+  const conflito = linhas.find((l: any) => l.tipo === 'conflito' && l.nova);
+  assert.deepEqual(conflito.mostrado, { chave: 'radar:ork-a|ork-b', thread: 'ork-a', texto: 'ork-a × ork-b: a, b, c, d, e e mais 5' });
+  assert.deepEqual(m.mostradosDoMapa(mapa).map((v: any) => [v.chave, v.thread]), [['radar:@main|ork-a', 'ork-a'], ['radar:ork-a|ork-b', 'ork-a'], ['radar:ork-b|ork-c', 'ork-b']]);
+  assert.deepEqual(m.linhasDoPainel({ ...mapa, lidoEm: null, erro: 'a lista falhou' }, [], 0).map((l: any) => l.texto),
+    ['Radar de Colisão · ainda sem rodada', 'a rodada parou: a lista falhou', 'Atualizar']);
+  assert.deepEqual(m.linhasDoPainel({ ...mapa, threads: [], celulas: [] }, [], 1000).map((l: any) => l.texto).slice(-1), ['nenhuma thread aberta para cruzar']);
+  assert.ok(m.linhasDoPainel({ ...mapa, erro: 'x' }, [], 1000).some((l: any) => l.texto === 'a última rodada parou: x; o mapa é o da rodada anterior'));
+  assert.deepEqual([m.idade(0), m.idade(59400), m.idade(61000), m.idade(3 * 3600000)], ['0 s', '59 s', '1 min', '3 h']);
+});
+
+test('mapa (D6): as colisoes novas depois da rodada e a linha da faixa, que sai sem nova', () => {
+  const c = carregar('hooks/colisao.ts');
+  const m = carregar('hooks/mapa.tsx');
+  const mapa = mapaDeTeste(c);
+  assert.deepEqual(m.novasDepoisDaRodada([], ['ork-b|ork-c', '@main|ork-a'], mapa), ['@main|ork-a', 'ork-b|ork-c']);
+  assert.deepEqual(m.novasDepoisDaRodada(['ork-a|ork-b', '@main|ork-sumiu'], [], mapa), ['ork-a|ork-b']);
+  assert.equal(m.textoDaFaixa(mapa, ['@main|ork-a', 'ork-b|ork-c']), 'radar: colisão nova entre ork-a e origin/main (1 arquivo) e mais 1; /radar abre o mapa');
+  assert.equal(m.textoDaFaixa(mapa, ['ork-b|ork-c']), 'radar: colisão nova entre ork-b e ork-c (2 arquivos); /radar abre o mapa');
+  assert.equal(m.textoDaFaixa(mapa, []), undefined);
+  assert.equal(m.textoDaFaixa(mapa, ['@main|ork-b']), undefined);
+});
+
+test('mapa: o desenho decide pela superficie: Raster no terminal, tabela de Box e Text fora dele, mesmo com o construtor', () => {
+  const c = carregar('hooks/colisao.ts');
+  const m = carregar('hooks/mapa.tsx');
+  const mapa = mapaDeTeste(c);
+  const el = { Box: 'Box', Text: 'Text', Button: 'Button', Raster: 'Raster' };
+  const linhas = m.linhasDoPainel(mapa, [], 1000);
+  let apertou = 0;
+  const terminal = m.desenharPainel(el, mapa, linhas, { terminal: true, atualizar: () => { apertou++; } });
+  const raster = nosDe(terminal, 'Raster');
+  assert.equal(raster.length, 1);
+  assert.deepEqual([raster[0]?.props.columns, raster[0]?.props.rows, raster[0]?.props.key], [15, 5, 'mapa']);
+  assert.equal(raster[0]?.props.cells, m.rasterDoMapa(mapa).cells);
+  assert.ok(nosDe(terminal, 'Text').every((t) => !t.props.backgroundColor));
+  const botao = nosDe(terminal, 'Button')[0] as No;
+  assert.equal(botao.props.label, 'Atualizar');
+  (botao.props.onPress as () => void)();
+  assert.equal(apertou, 1);
+  const desktop = m.desenharPainel(el, mapa, linhas, { terminal: false });
+  assert.equal(nosDe(desktop, 'Raster').length, 0);
+  const celulas = nosDe(desktop, 'Text').filter((t) => t.props.backgroundColor);
+  assert.equal(celulas.length, 9);
+  assert.deepEqual(celulas.filter((t) => textoDoNo(t) === ' 1 ').map((t) => t.props.backgroundColor), ['#f9a825']);
+  assert.deepEqual(celulas.filter((t) => textoDoNo(t) === ' + ').map((t) => t.props.backgroundColor), ['#c62828', '#c62828']);
 });

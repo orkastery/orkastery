@@ -1,25 +1,33 @@
 // O Radar de Colisão do Orkastery (RM-059, fatia F3; ficha M10 do plano dos mods). Na sessão do dono, calcula sem
 // worktree o merge de cada thread aberta contra a origin/main local e entre as threads, cruza os conflitos com os
-// leases e guarda o mapa no estado. Lê o núcleo pela ponte (`$.ork`), nunca `.orkastery/` por conta própria; do
-// git, só ls-remote e merge-tree com objetos temporários (D6 do dono). Só lê: nenhum caminho daqui age pelo dono.
-// A lógica fica no módulo puro ao lado; aqui só os ganchos e as chamadas ao `$`, sempre escritas como
-// `x.noun.metodo(...)`, como o validador exige.
+// leases e desenha o mapa de calor num painel; a colisão nova vira uma linha na faixa pela ponte, e o que o dono
+// viu entra no registro da ponte (M5 do dono). Lê o núcleo pela ponte (`$.ork`), nunca `.orkastery/` por conta
+// própria; do git, só ls-remote e merge-tree com objetos temporários (D6 do dono). Só lê: nenhum caminho daqui
+// age pelo dono. A lógica fica nos módulos puros ao lado; aqui só os ganchos e as chamadas ao `$`, sempre
+// escritas como `x.noun.metodo(...)`, como o validador exige.
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 import type { RadarMapa, RadarThread } from '../types'
 import {
   AMBIENTE_DO_GIT, ambienteDoMerge, argvDeApagar, argvDoLsRemoteLocal, argvDoLsRemoteRemoto, argvDoMergeTree, argvDoTemporario,
-  baseDoMapa, celulaDoPar, chaveDoPar, gitdirDoArquivo, guardarNoCache, juntar, leasesDoRetrato, lerLsRemote, lerMergeTree,
-  objetosDoComum, ORCAMENTO_DO_MERGE_MS, paresDaRodada, PERIODO_DA_RODADA_MS, PRAZO_DO_MERGE_MS, PRAZO_DO_REMOTO_MS, PRAZO_LOCAL_MS,
-  REF_DA_BASE, REF_REMOTA, refDaThread, refDoStatus, resumoDoMapa, rotuloDe, temporarioValido, threadsDaLista,
+  baseDoMapa, celulaDoPar, chaveDoPar, colisoesDoMapa, gitdirDoArquivo, guardarNoCache, juntar, leasesDoRetrato, lerLsRemote,
+  lerMergeTree, objetosDoComum, ORCAMENTO_DO_MERGE_MS, paresComColisaoNova, paresDaRodada, PERIODO_DA_RODADA_MS, PRAZO_DO_MERGE_MS,
+  PRAZO_DO_REMOTO_MS, PRAZO_LOCAL_MS, REF_DA_BASE, REF_REMOTA, refDaThread, refDoStatus, resumoDoMapa, rotuloDe, temporarioValido,
+  threadsDaLista,
 } from './colisao'
 import type { LeaseDePath, Par, Resultado } from './colisao'
+import { desenharPainel, linhasDoPainel, mostradosDoMapa, mostradosVisiveis, novasDepoisDaRodada, textoDaFaixa } from './mapa'
+import type { ElementosDoPainel, RadarMostrado } from './mapa'
 
+const MOD = 'ork-radar'
+const PAINEL = 'radar'
+const TITULO = 'Radar'
 const MAPA_VAZIO: RadarMapa = {
   threads: [], base: { ref: REF_DA_BASE, sha: null, remoto: null, situacao: 'nao-conferida', erroRemoto: null },
   celulas: [], omitidas: 0, lacunas: [], lidoEm: null, erro: null,
 }
 const mapa = atom({ plugin: 'ork-radar', key: 'mapa' } as const, MAPA_VAZIO)
+const novas = atom({ plugin: 'ork-radar', key: 'novas' } as const, [] as string[])
 /** O servidor do núcleo pode conectar depois do início da sessão: o papel é conferido de novo nestas esperas. */
 const ESPERAS_DO_PAPEL_MS = [3000, 10000, 30000]
 /** Depois delas, enquanto dormente, a cada 5 min. */
@@ -28,12 +36,15 @@ const ESPERA_LONGA_DO_PAPEL_MS = 300000
 const PRAZO_DA_PONTE_MS = 20000
 /** A primeira rodada sai logo depois da ativação, fora do início da sessão. */
 const ESPERA_DA_PRIMEIRA_MS = 1000
+/** O que o desenho anotou vai ao registro da ponte, fora do desenho, a cada minuto. */
+const PERIODO_DO_REGISTRO_MS = 60000
 
 // O que o módulo guarda entre ganchos e não desenha. Uma recarga do módulo zera tudo, e o `session.start`
 // dispara de novo nela; o mapa em `$.state` fica.
 let ativa = false
 let desistiu = false
 let ciclo: { cancel: () => void } | undefined
+let registro: { cancel: () => void } | undefined
 let rodando: Promise<void> | undefined
 let pendente = false
 /** O resultado de cada par de SHAs já calculado nesta carga (D12): par que não andou não roda de novo. */
@@ -42,6 +53,14 @@ const cache = new Map<string, Resultado>()
 const branchDoStatus = new Map<string, string | null>()
 /** O diretório de objetos do repositório, achado uma vez por carga. */
 let objetos: string | undefined
+/** As colisões (par e arquivo) da rodada anterior desta carga; null antes da primeira (D6). */
+let anteriores: Set<string> | null = null
+/** A última linha publicada na faixa; undefined enquanto nada foi publicado. */
+let ultimaFaixa: string | undefined
+/** O que o desenho pôs na janela de rolagem e ainda não foi ao registro da ponte. */
+const vistosNoDesenho = new Map<string, RadarMostrado>()
+/** O que já foi ao registro nesta carga, por chave e texto; sai quando o conflito some do mapa. */
+const jaMostrado = new Set<string>()
 
 function mensagem(erro: unknown): string {
   return (erro instanceof Error ? erro.message : String(erro)).replace(/\s+/g, ' ').trim().slice(0, 200)
@@ -81,6 +100,8 @@ async function ativar($: EngineInterface): Promise<void> {
   })
   ciclo?.cancel()
   ciclo = $.clock.every(PERIODO_DA_RODADA_MS, () => { void rodar($) })
+  registro?.cancel()
+  registro = $.clock.every(PERIODO_DO_REGISTRO_MS, () => { void registrarMostrados($) })
   $.clock.after(ESPERA_DA_PRIMEIRA_MS, () => { void rodar($) })
 }
 
@@ -292,6 +313,88 @@ async function rodadaUmaVez($: EngineInterface): Promise<void> {
     threads, base: baseDoMapa(shaDaBase, remoto), celulas, omitidas: escolha.omitidas, lacunas, lidoEm: await $.clock.now(), erro: null,
   }
   await update($, mapa, () => novo)
+  // D6: nova é a colisão que não estava na rodada anterior; a que o dono ainda não viu continua nova.
+  const novosPares = paresComColisaoNova(anteriores, novo)
+  anteriores = new Set(colisoesDoMapa(novo))
+  await update($, novas, antigas => novasDepoisDaRodada(antigas, novosPares, novo))
+  await publicarFaixa($)
+  await registrarMostrados($)
+}
+
+/** O painel do Radar está posto e à vista do dono. */
+async function painelAVista($: EngineInterface): Promise<boolean> {
+  const paineis = await $.ui.panes().catch(() => [])
+  return paineis.some(p => p.id === PAINEL && p.isPlaced && p.isShown)
+}
+
+/** Uma falha que o dono precisa ver: entra nas lacunas do mapa, que o painel e o `/radar` mostram, uma vez só. */
+async function anotarLacuna($: EngineInterface, lacuna: string): Promise<void> {
+  await update($, mapa, m => (m.lacunas.includes(lacuna) ? m : { ...m, lacunas: [...m.lacunas, lacuna] }))
+}
+
+/** A linha da faixa pela ponte (D6 e D7), só quando o texto muda; sem colisão nova não vista, a linha sai. */
+async function publicarFaixa($: EngineInterface): Promise<void> {
+  const texto = textoDaFaixa(await read($, mapa), await read($, novas))
+  if (texto === ultimaFaixa) return
+  try {
+    if (texto === undefined) await $.ork.faixa({ mod: MOD })
+    else await $.ork.faixa({ mod: MOD, texto })
+    ultimaFaixa = texto
+  } catch (erro) {
+    // A linha fica como estava; o motivo vai às lacunas, e a próxima rodada tenta de novo.
+    await anotarLacuna($, `linha da faixa não publicada (${mensagem(erro)})`)
+  }
+}
+
+/** O que o dono viu (conflito por conflito) deixa de ser novo, e a linha da faixa acompanha. */
+async function marcarVistos($: EngineInterface, vistos: readonly RadarMostrado[]): Promise<void> {
+  const pares = new Set(vistos.map(v => v.chave.slice('radar:'.length)))
+  if (!(await read($, novas)).some(p => pares.has(p))) return
+  await update($, novas, atuais => atuais.filter(p => !pares.has(p)))
+  await publicarFaixa($)
+}
+
+/** Registra pela ponte o que o dono viu, uma vez por chave e texto enquanto o conflito existir no mapa. */
+async function registrar($: EngineInterface, canal: 'painel' | 'transcript', vistos: readonly RadarMostrado[]): Promise<RadarMostrado[]> {
+  const falharam: RadarMostrado[] = []
+  for (const v of vistos) {
+    const chave = `${v.chave}|${v.texto}`
+    if (jaMostrado.has(chave)) continue
+    try {
+      await $.ork.mostrado({ mod: MOD, canal, chave: v.chave, thread: v.thread, texto: v.texto })
+      jaMostrado.add(chave)
+    } catch {
+      falharam.push(v)
+    }
+  }
+  return falharam
+}
+
+/**
+ * O que o desenho pôs na janela de rolagem do painel posto e à vista vai ao registro da ponte (M5 do dono), fora
+ * do desenho: o Telegram não repete o que o dono já viu no terminal, e nada que não estava na tela entra.
+ */
+async function registrarMostrados($: EngineInterface): Promise<void> {
+  const existentes = new Set(mostradosDoMapa(await read($, mapa)).map(v => `${v.chave}|${v.texto}`))
+  for (const chave of [...jaMostrado]) if (!existentes.has(chave)) jaMostrado.delete(chave)
+  for (const chave of [...vistosNoDesenho.keys()]) if (!existentes.has(chave)) vistosNoDesenho.delete(chave)
+  if (vistosNoDesenho.size === 0) return
+  // Com o painel escondido, o que foi anotado é descartado: o próximo desenho à vista anota de novo.
+  if (!await painelAVista($)) { vistosNoDesenho.clear(); return }
+  const vistos = [...vistosNoDesenho.values()]
+  vistosNoDesenho.clear()
+  for (const v of await registrar($, 'painel', vistos)) vistosNoDesenho.set(`${v.chave}|${v.texto}`, v)
+  await marcarVistos($, vistos)
+}
+
+/** O desenho anota o que pôs na janela; quem registra é o laço, fora do desenho. */
+function anotarVistos(vistos: readonly RadarMostrado[]): void {
+  for (const v of vistos) vistosNoDesenho.set(`${v.chave}|${v.texto}`, v)
+}
+
+/** O botão Atualizar do painel: uma rodada agora, pelo laço único. */
+async function atualizarPeloBotao($: EngineInterface): Promise<void> {
+  await rodar($)
 }
 
 export const register: Register = on => {
@@ -300,12 +403,30 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // `/radar` roda uma rodada agora e responde o resumo. O comando só existe com o Radar ligado; a conferência do
-  // papel aqui só cobre o caso raro de o comando ter sobrado de uma carga anterior.
+  // `/radar` abre o painel, roda uma rodada agora e responde o resumo, que o dono lê ali mesmo: os conflitos do
+  // resumo entram no registro da ponte e deixam de ser novos. O painel não abre sozinho (D6). O comando só existe
+  // com o Radar ligado; a conferência do papel aqui só cobre o caso raro de o comando ter sobrado de outra carga.
   on('command.run', { command: 'radar' }, async $ => {
     if (!ativa && !desistiu) await conferirPapel($, ESPERAS_DO_PAPEL_MS.length)
     if (!ativa) return { text: 'O Radar de Colisão só roda na sessão do dono de um projeto do Orkastery.' }
+    const aberto = await $.ui.open({ id: PAINEL, title: TITULO }).catch(() => null)
     await rodar($)
-    return { text: resumoDoMapa(await read($, mapa)) }
+    const m = await read($, mapa)
+    const vistos = mostradosDoMapa(m)
+    const falharam = await registrar($, 'transcript', vistos)
+    if (falharam.length > 0) await anotarLacuna($, `${falharam.length} conflitos não foram ao registro do mostrado da ponte`)
+    await marcarVistos($, vistos)
+    const espera = aberto && !aberto.isPlaced ? `\nO painel espera lugar: ${aberto.reason}` : ''
+    return { text: resumoDoMapa(m) + espera }
+  })
+
+  // O painel: a matriz (Raster no terminal, tabela fora dele), a lista de conflitos e o botão Atualizar. O desenho
+  // nunca escreve: só anota o que pôs na janela de rolagem, para o registro do mostrado.
+  on('ui.render', { component: 'Pane', requestId: PAINEL }, async ($, e) => {
+    const el = $.ui.resolve(e) as unknown as ElementosDoPainel
+    const m = await read($, mapa)
+    const linhas = linhasDoPainel(m, await read($, novas), await $.clock.now())
+    anotarVistos(mostradosVisiveis(linhas, e.props.scroll))
+    return desenharPainel(el, m, linhas, { terminal: e.surface === 'terminal', atualizar: () => atualizarPeloBotao($) })
   })
 }
