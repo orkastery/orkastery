@@ -90,6 +90,8 @@ const rotulo = (c: ContaDeSessoes): string => c.perfil ? `perfil ${c.perfil.id}`
  * sessoes". `staleMin` e a janela de atividade que torna viva uma sessao codex (D3).
  */
 export function consultarContas(raiz: string | null, opcoes: { todas?: boolean; agoraMs?: number; staleMin?: number;
+  /** RM-063 (F2): prazo do `claude agents` por conta; o padrao e o de sempre (60 s). */
+  prazoMs?: number;
   contas?: ContaDeSessoes[] } = {}): { sessoes: SessaoDaConta[]; fontes: FonteDeSessoes[]; contas: ContaDeSessoes[] } {
   const base = opcoes.contas ? { contas: opcoes.contas, fontes: [] as FonteDeSessoes[] } : contasDeSessoes(raiz);
   const fontes = [...base.fontes];
@@ -102,7 +104,7 @@ export function consultarContas(raiz: string | null, opcoes: { todas?: boolean; 
       let ambiente: NodeJS.ProcessEnv;
       try { ambiente = ambienteDoPerfil(conta.perfil); }
       catch (e) { fontes.push({ origem: `claude agents (${rotulo(conta)})`, ok: false, detalhe: (e as Error).message }); continue; }
-      const r = consultarSessoes(undefined, opcoes.todas, ambiente);
+      const r = consultarSessoes(undefined, opcoes.todas, ambiente, opcoes.prazoMs);
       const origem = `claude agents --json${opcoes.todas ? ' --all' : ''} (${rotulo(conta)})`;
       // Fatia 2 do ensaio da 0.5.0 (P1): só o ENOENT antes da consulta prova a fonte ausente; qualquer
       // outra falha do `claude` continua deixando o inventário incompleto.

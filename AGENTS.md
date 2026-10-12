@@ -18,3 +18,7 @@ Verificações do manifesto:
 
 Este bloco é mantido por `ork init`. Edite livremente o restante do arquivo.
 <!-- orkastery:end -->
+
+## UI, design e frontend
+
+Antes de criar ou alterar qualquer UI, design, frontend, componente visual ou layout do Orkastery (os sites, os mods do Claude Code, painéis, imagens de README e de redes sociais), leia [`docs/design/README.md`](docs/design/README.md) e o [`docs/design/DESIGN.md`](docs/design/DESIGN.md). O design system é a Partitura: tokens em `docs/design/partitura/`, marca em `docs/design/marca/`, voz e termos proibidos no `DESIGN.md` e no `docs/design/CLAUDE.md`. Em conflito, a Partitura vence qualquer `tokens.css` legado.

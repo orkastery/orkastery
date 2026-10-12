@@ -67,6 +67,7 @@ Produto e roadmap vivem em páginas com frontmatter, conferidas contra o código
 | [Produto](produto/README.md) | O que o Orkastery é e faz hoje: plataforma, sistemas, módulos e features, com as fontes no código |
 | [Roadmap](roadmap/README.md) | Um arquivo por item, com as sete dimensões de estado, o commit do merge e quem está com ele |
 | [Padrões](padroes/documentacao-de-produto.md) | As regras de escrita e leitura para pessoa, verificador e agente |
+| [Design (Partitura)](design/README.md) | Design system, marca, voz e componentes: leia antes de mexer em qualquer UI, site, mod ou imagem do Orkastery |
 
 ## Governança
 

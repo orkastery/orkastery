@@ -49,6 +49,7 @@ import { emUmaLinha } from './rede-projetos';
 import { lerRede, MembroDaRede, StatusDaRede, TipoDeLacuna as TipoDeLacunaDoStatus } from './rede-status';
 import { BRANCH_DE_RESERVAS, DIR_DE_RESERVAS, quemSouEu, ReservaDeItem, reservaValida } from './roadmap-reservas';
 import { EsperaDoDono, esperaDoDono, FatoDeThread, fatosLocais, montarStatusDeFatos, StatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
+import { vidaDoRetrato } from './vida-da-thread';
 import { dirThread, lerThread, listarIds } from './thread';
 import { Thread } from './types';
 import { VERSAO_DO_ORK } from './versao';
@@ -513,12 +514,14 @@ function retratoLegivel(v: unknown): v is EstadoDaMaquina {
     textoOuNulo(t.runtime) && textoOuNulo(t.modelo) && textoOuNulo(t.esforco));
 }
 
-function fatosDoRetrato(m: EstadoDaMaquina, entregues: Set<string>, itemDaReserva: Map<string, string>): FatoDeThread[] {
+function fatosDoRetrato(m: EstadoDaMaquina, entregues: Set<string>, itemDaReserva: Map<string, string>, quando: string): FatoDeThread[] {
   return m.threads.map((t) => ({
     id: t.id, roadmap: t.roadmap ?? itemDaReserva.get(t.id) ?? null, aberta: t.status !== 'fechada', fase: t.fase,
     entregueHoje: () => entregues.has(t.id),
     espera: () => t.esperaVoce ? { thread: t.id, pergunta: pontuar(t.pergunta ?? 'o veredito da pausa'), maquina: m.maquina } : undefined,
     maquina: m.maquina,
+    // RM-063 (F2): a sessao que a outra maquina verificou ao publicar; retrato sem o campo, ou velho, nao diz "sigo".
+    vida: () => vidaDoRetrato(t.sessao, m.publicadoEm, quando),
   }));
 }
 
@@ -571,7 +574,7 @@ function montarProjeto(p: ProjetoDaRede, d: DadosDoProjeto, ctx: Contexto, fonte
   const fatos: FatoDeThread[] = [], ids = new Set<string>();
   const somar = (f: FatoDeThread): void => { if (!ids.has(f.id)) { ids.add(f.id); fatos.push(f); } };
   if (d.local) fatosDaMaquinaLocal(d.local.raiz, ctx.quando, ctx.fuso, d.local.retrato.maquina, entregues, itemDaReserva).forEach(somar);
-  for (const m of d.retratos ?? []) if (!d.local || m.maquina !== d.local.retrato.maquina) fatosDoRetrato(m, entregues, itemDaReserva).forEach(somar);
+  for (const m of d.retratos ?? []) if (!d.local || m.maquina !== d.local.retrato.maquina) fatosDoRetrato(m, entregues, itemDaReserva, ctx.quando).forEach(somar);
   // Entregue hoje e ja fechada: nao esta em retrato nenhum, mas o merge na base e o fato do dia.
   for (const id of entregues) somar({ id, roadmap: itemDaReserva.get(id) ?? null, aberta: false, fase: 'SHIP', entregueHoje: () => true,
     espera: () => undefined });

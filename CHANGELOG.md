@@ -8,6 +8,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Design system Partitura no repositório** ([docs/design](docs/design/README.md)): o kit do Claude Design do dono (tokens
+  em `docs/design/partitura/`, marca em `docs/design/marca/`, manual, brand kit, componentes, diretrizes e revisão de
+  copy) entra no repositório, com um README de entrada e um apontamento no `AGENTS.md` para toda sessão que mexer em UI,
+  design, frontend, componentes visuais ou layout. Em conflito, a Partitura vence o `tokens.css` legado.
 - **#Noctum, fatia N1: envelope e estado do arco** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
   `core/src/noctum-envelope.ts` define o contrato `ork.noctum-envelope/v1` (janela de 6 a 12 h com fuso, destinos com
   `push`, `pr` e `merge`, teto do arco e subtetos por conta e por runtime com unidade, horário e canal do relatório da
@@ -66,8 +70,51 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `referencia.brain-indisponivel`), nunca resposta. `listar` e `colecoes` não chamam o Brain nem leem ledger, e
   `verificar` confere a pasta inteira e sai 1 com qualquer lacuna (uso errado sai 2). A conferência tem teto de 100
   `get`, prazo de 60 s e teto de 64 MiB de ledger por consulta. O texto sai em pt-BR e em inglês pelo catálogo, e o
-  `--json` é o mesmo nas duas línguas. Os hosts OpenClaw e Hermes chegam na fatia 3. No transporte do Company Brain,
-  `memory.timeout_ms` fora da faixa (0, negativo, fração) passa a valer o padrão de 15 s, em vez de esperar sem prazo.
+  `--json` é o mesmo nas duas línguas. Os hosts OpenClaw e Hermes chegam na fatia 3.
+- **Batida da fábrica instalada e vigiada pelo `ork`** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F1):
+  `ork fabrica batida instalar|status|remover`. O `instalar` põe no crontab desta máquina, de forma idempotente, a
+  linha do template `monitor/pulse.cron` com o checkout canônico (`ORK_PULSE_PROJECT`), o PATH que acha `node`,
+  `claude` e o transporte, e a marca `# ork-batida`; preserva as outras entradas, nunca grava sem ler e confere
+  relendo. O `remover` tira só a linha marcada; o `status` diz a linha e a última rodada do `hitl.log`, com a idade,
+  e sai 1 sem a batida. Os eventos novos `batida_instalada` e `batida_removida` vão ao ledger da máquina
+  (`~/.orkastery/ledger.jsonl`). O crontab é lido como o cron e o `sh` o leem (linha de ambiente que vale para as
+  entradas seguintes, aspas, `~` e `$HOME`), e o que mudou entre a leitura e a gravação não é sobrescrito. O
+  `ork doctor` passa a reprovar quando o projeto tem thread aberta e não há batida deste projeto, com ou sem
+  `pulse-host.json`, com a correção `ork fabrica batida instalar`; uma rodada de até 30 min no `hitl.log` prova a
+  batida de outro agendador. Antes, sem transporte, ele calava, e o maquina-b ficou de 03/10 a 12/10/2026 sem varredura.
+
+### Corrigido
+
+- **Prazo de cada chamada ao Company Brain** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
+  `memory.timeout_ms` fora da faixa (0, negativo ou fração) passa a valer o padrão de 15 s no transporte do Brain, em
+  vez de esperar sem prazo (0) ou falhar com erro (negativo ou fração). Visto na revisão da fatia 2 do K7.
+- **Superfícies honestas: "sigo" só com sessão viva** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F2): o
+  `ork roadmap status` (o fecho "O que eu faço em seguida", também no MCP e na visão da rede) só diz `sigo <thread> na fase <F>` com a sessão viva verificada no runtime (`claude agents --json --all` de cada conta e os rollouts do
+  Codex) ou com o processo do condutor conduzindo agora; sessão fantasma, despacho falho e nenhuma sessão viram
+  `<thread> parada desde HH:MM: <motivo>`. O "O que precisa de você" lê a mesma fila do `ork pulse`
+  (`precisaDeHumanoAgora`, sem forja e sem registrar) e nunca diz "Nada agora" com item do dono nela, nem com a fila
+  lida pela metade; o campo aditivo `filaDoDono` leva os itens no `--json`. O `ork fabrica` e o `FABRICA.md` ganham a
+  coluna da sessão de cada thread (`viva` ou `parada desde HH:MM`), publicada no retrato (`sessao`, opcional). Em
+  12/10/2026 o status disse "Nada agora" e "sigo" com o despacho da K7 morto e o pulse contando 3.
+- **Retry que sempre tem o prompt** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F3): o `ork phase run`
+  grava o prompt e o evento `phase_prompt_recorded` (prompt e sha256) antes de chamar o adaptador; a falha seca do
+  adaptador e a exceção dele viram `gate_blocked runtime.unavailable` com o prompt e o sha256. O `ork retry run`
+  acha o prompt pelo despacho da sessão do gate, pelo próprio gate ou pela tentativa mais recente da fase, localiza o
+  arquivo pelo sha256, só dentro do projeto (o caminho gravado da worktree não resolvia do checkout), e redespacha o
+  mesmo sha256 sem pedir o texto. Antes de redespachar, confere no runtime que nenhuma sessão viva trabalha na thread
+  (o `claude --bg` lento devolve erro com a sessão aberta): com ela, ou sem resposta do runtime, nada sai e a tentativa
+  não conta. Antes saía com "não há despacho falho registrado em GO com prompt gravado".
+- **Portão de Tarefas, o segundo mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `adapters/claude-code/mods/ork-portao` faz do quadro de tarefas do Claude Code, na sessão de fase do GO, o quadro
+  do plano: a tarefa só entra apontando uma tarefa do plano com `touch_paths` e verify, e só fecha com a conferência
+  do núcleo aprovada (`ork claims conferir --tarefa`, no sandbox do verify), nunca com o verify rodado pelo mod. Plano
+  sem nenhuma tarefa assim não ganha portão. Com agent teams no piloto, o teammate ocioso recebe a próxima tarefa
+  cuja região está livre: sem lease `path:` ativo de nenhuma thread no caminho (lidos de todas as threads pelo
+  `ork maestro --json`, página a página; leitura incompleta deixa o teammate ocioso) e sem cruzar as tarefas dos
+  outros teammates; o Portão não toma lease. O manifesto ganha `runtime.agent_teams`
+  (`ligado`, `teammates`, `custo_usd`), desligado por padrão: ligado, o despacho do GO com o Portão na sessão passa
+  `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` e os dois tetos, que o Portão aplica no nascimento de teammate e na entrega
+  de tarefa.
 
 ## [0.5.5] - 2026-10-12
 

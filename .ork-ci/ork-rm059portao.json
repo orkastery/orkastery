@@ -1,0 +1,776 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm059portao",
+  "branch": "ork/ork-rm059portao-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/.claude-plugin/plugin.json",
+      "alegacao": "S1: o manifesto do Portão de Tarefas se chama ork-portao, tem author, licença MIT, o contrato de tipos em ./types/index.d.ts e depende só da ork-ponte.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const m=require('./adapters/claude-code/mods/ork-portao/.claude-plugin/plugin.json');process.exit(m.name==='ork-portao'&&m.types==='./types/index.d.ts'&&m.dependencies.join()==='ork-ponte'&&typeof m.author.name==='string'&&m.license==='MIT'?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T14:14:17.540Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/orkastery-mod.json",
+      "alegacao": "S1: o Portão declara o papel fase na convenção ork.mod/v1, com claudeCodeMinimo 2.1.287 e só as três chaves.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const a=require('./adapters/claude-code/mods/ork-portao/orkastery-mod.json');process.exit(a.formato==='ork.mod/v1'&&a.papeis.join()==='fase'&&a.claudeCodeMinimo==='2.1.287'&&Object.keys(a).length===3?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T14:14:19.729Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/hooks/hooks.json",
+      "alegacao": "S1: o hooks.json do Portão carrega um módulo só, ./register.ts, que existe.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const h=require('./adapters/claude-code/mods/ork-portao/hooks/hooks.json');process.exit(h.modules.join()==='./register.ts'&&Object.keys(h).length===1?0:1)\"",
+        "test -f adapters/claude-code/mods/ork-portao/hooks/register.ts"
+      ],
+      "criadoEm": "2026-10-12T14:14:21.725Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/types/index.d.ts",
+      "alegacao": "T10.1: o contrato de tipos declara o estado ork-portao.quadro e a tarefa do plano como o Portão a usa.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF \"'ork-portao': {\" adapters/claude-code/mods/ork-portao/types/index.d.ts",
+        "grep -cF 'quadro: PortaoQuadro' adapters/claude-code/mods/ork-portao/types/index.d.ts",
+        "grep -cF 'export type PortaoTarefa' adapters/claude-code/mods/ork-portao/types/index.d.ts"
+      ],
+      "criadoEm": "2026-10-12T14:14:30.719Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/test/apoio.ts",
+      "alegacao": "T10.1: o apoio dos testes do kit traz a ponte falsa com o slug do bloco no retrato e a criação de tarefa como o motor a levanta.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF \"name: 'ork-ponte'\" adapters/claude-code/mods/ork-portao/test/apoio.ts",
+        "grep -cF ORK_TESTE_BLOCO adapters/claude-code/mods/ork-portao/test/apoio.ts",
+        "grep -cF 'export function criar' adapters/claude-code/mods/ork-portao/test/apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T14:14:33.030Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/test/portao.test.ts",
+      "alegacao": "S4a: os testes do kit da criação cobrem a tarefa sem touch_paths e sem verify conferível no plano, com ao menos 12 cenários.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-portao/test/portao.test.ts) -ge 12",
+        "grep -cF 'criacao sem touch_paths no plano devolve block' adapters/claude-code/mods/ork-portao/test/portao.test.ts",
+        "grep -cF 'criacao sem verify conferivel devolve block' adapters/claude-code/mods/ork-portao/test/portao.test.ts"
+      ],
+      "criadoEm": "2026-10-12T14:14:35.553Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-portao.test.ts",
+      "alegacao": "S5: o teste hermético do Portão no núcleo passa: manifesto e convenção, módulos puros só com tipos, lista fechada do MCP, paridade com verifyDaTarefa e slugDasFases, e a guarda estática.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-portao.test.js"
+      ],
+      "criadoEm": "2026-10-12T14:14:37.416Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/hooks/plano.ts",
+      "alegacao": "T10.1: o módulo puro do plano lê as tarefas com touch_paths e verify, recusa a criação sem touch_paths e sem id, decide o GO pelo slug do bloco e só usa a ferramenta ork_artifact_read.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const p=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-portao/hooks/plano.ts'));const q=String.fromCharCode(96);const n=String.fromCharCode(10);const t=p.tarefasDoPlano(['### T1 a','- **touch_paths:** '+q+'src/a.ts'+q,'- **verify:** '+q+'make check'+q,'### T2 b','- **verify:** '+q+'make check'+q].join(n));const ok=t.length===2&&t[0].verify==='make check'&&t[0].touchPaths.join()==='src/a.ts'&&p.decidirCriacao('T1 a',t).tipo==='passa'&&p.decidirCriacao('T2 b',t).motivo==='sem-touch-paths'&&p.decidirCriacao('sem id',t).motivo==='sem-id'&&p.faseNoBloco('f45')===false&&p.faseNoBloco('full')===true&&p.FERRAMENTAS_DO_PORTAO.join()==='ork_artifact_read';process.exit(ok?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T14:14:58.506Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/hooks/verify.ts",
+      "alegacao": "T10.2: o módulo puro da conclusão monta o argv do ork claims conferir --tarefa com prazo 540 e vigia no teto do process.run, lê aprovada, reprovada e recusa tipada do JSON do núcleo e escreve o bloqueio com a saída de voltar para pending.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const v=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-portao/hooks/verify.ts'));const item=(ok,motivo)=>({id:'T1',verificado:ok,motivo:motivo,detalhe:'d',execucoes:[{comando:'make check',ok:ok,code:ok?0:1,fim:'not ok 1'}]});const r=(ok,motivo)=>JSON.stringify({formato:'ork.claims-conferencia/v1',itens:[item(ok,motivo)]});const a=v.lerConferencia('T1',r(true,null),0,'');const b=v.lerConferencia('T1',r(false,'claims.failed'),1,'');const c=v.lerConferencia('T1',JSON.stringify({erro:'claims.conferir.tarefa-ausente: x'}),2,'');const ok=v.argvDaConferencia('ork-a','T1').join(' ')==='ork claims conferir ork-a --tarefa T1 --prazo 540 --json'&&a.tipo==='aprovada'&&b.tipo==='reprovada'&&b.fim==='not ok 1'&&c.tipo==='recusada'&&v.textoDoBloqueio('T1',b).includes('devolva a tarefa para pending')&&v.VIGIA_DA_CONFERENCIA_MS<=600000;process.exit(ok?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T14:15:54.387Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/hooks/register.ts",
+      "alegacao": "T10.2: o classic.TaskCompleted do Portão confere a tarefa do plano pelo ork claims conferir do núcleo, uma conferência por vez, e o register.ts segue passando na guarda estática.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-portao",
+        "grep -cF \"on('classic.TaskCompleted'\" adapters/claude-code/mods/ork-portao/hooks/register.ts",
+        "grep -cF 'textoDeOutraConferencia(tarefa, conferindo)' adapters/claude-code/mods/ork-portao/hooks/register.ts",
+        "grep -cF 'argvDaConferencia(ctx.thread, tarefa)' adapters/claude-code/mods/ork-portao/hooks/register.ts"
+      ],
+      "criadoEm": "2026-10-12T14:15:57.218Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/types/index.d.ts",
+      "alegacao": "T10.2: o contrato do quadro guarda as tarefas concluídas e a repetição de bloqueios por tarefa.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'export type PortaoRepeticao' adapters/claude-code/mods/ork-portao/types/index.d.ts",
+        "grep -cF 'concluidas: string[]' adapters/claude-code/mods/ork-portao/types/index.d.ts"
+      ],
+      "criadoEm": "2026-10-12T14:15:59.084Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/test/apoio.ts",
+      "alegacao": "T10.2: o apoio dos testes do kit levanta a conclusão da tarefa e responde o ork claims conferir com o JSON ork.claims-conferencia/v1 do núcleo.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'export function concluir' adapters/claude-code/mods/ork-portao/test/apoio.ts",
+        "grep -cF 'export function nucleoDeConferencia' adapters/claude-code/mods/ork-portao/test/apoio.ts",
+        "grep -cF \"formato: 'ork.claims-conferencia/v1'\" adapters/claude-code/mods/ork-portao/test/apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T14:16:01.706Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/test/verify.test.ts",
+      "alegacao": "S4b: os testes do kit da conclusão cobrem a conferência reprovada com o comando e o fim da saída, a aprovada, a conclusão no meio de outra conferência e ao menos 9 cenários.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-portao/test/verify.test.ts) -ge 9",
+        "grep -cF 'conclusao com a conferencia reprovada devolve block com o comando e o fim da saida' adapters/claude-code/mods/ork-portao/test/verify.test.ts",
+        "grep -cF 'conclusao que chega no meio de outra conferencia' adapters/claude-code/mods/ork-portao/test/verify.test.ts"
+      ],
+      "criadoEm": "2026-10-12T14:16:04.050Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/test/apoio.ts",
+      "alegacao": "T10.3: o apoio dos testes do kit responde o ork lease, levanta o teammate ocioso e o nascimento de agente.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'export function processos' adapters/claude-code/mods/ork-portao/test/apoio.ts",
+        "grep -cF 'export function ocioso' adapters/claude-code/mods/ork-portao/test/apoio.ts",
+        "grep -cF 'export function nascer' adapters/claude-code/mods/ork-portao/test/apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T14:17:07.146Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/test/lease.test.ts",
+      "alegacao": "S4c: os testes do kit do teammate ocioso cobrem o lease ocupado por outra thread, a tarefa seguinte livre, a ociosidade sem tarefa livre e os tetos, com ao menos 14 cenários.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-portao/test/lease.test.ts) -ge 14",
+        "grep -cF 'teammate ocioso com o lease da proxima tarefa ocupado por outra thread nao a recebe e recebe a seguinte livre' adapters/claude-code/mods/ork-portao/test/lease.test.ts",
+        "grep -cF 'sem tarefa livre o teammate fica ocioso' adapters/claude-code/mods/ork-portao/test/lease.test.ts"
+      ],
+      "criadoEm": "2026-10-12T14:17:09.885Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "T10.4: o tipo do manifesto ganha runtime.agent_teams opcional, com o teto de teammates e o de custo, ausente quando desligado.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'agent_teams?: { teammates: number; custo_usd: number };' core/src/types.ts"
+      ],
+      "criadoEm": "2026-10-12T14:20:19.588Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "T10.4: o manifesto lê runtime.agent_teams com ligado e os tetos de 1 a 8 teammates e até 500 dólares, desligado por padrão e com aviso no teto inválido.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'function lerAgentTeams(v: ValorYaml | undefined, avisos: string[])' core/src/manifest.ts",
+        "grep -cF 'export const TETO_MAXIMO_DE_TEAMMATES = 8;' core/src/manifest.ts",
+        "grep -cF 'export const TETO_MAXIMO_DE_CUSTO_USD = 500;' core/src/manifest.ts",
+        "grep -cF 'const agentTeams = lerAgentTeams(runtime.agent_teams, avisos);' core/src/manifest.ts"
+      ],
+      "criadoEm": "2026-10-12T14:20:22.177Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-context.ts",
+      "alegacao": "T10.4: o contexto validado do despacho leva os tetos de agent teams só quando o bloco da fase atual tem o GO.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF \"blocoDaThread(thread, thread.faseAtual).fases.includes('GO') ? { ...tetos } : null\" core/src/runtime-context.ts",
+        "grep -cF 'servidor, modsDeFase, agentTeams };' core/src/runtime-context.ts"
+      ],
+      "criadoEm": "2026-10-12T14:20:24.041Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "T10.4: o montarComando do claude-bg só põe CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS, os tetos e teammateMode in-process no --settings quando o ork-portao vai à sessão com os tetos do contexto.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF \"export const MOD_DOS_TETOS = 'ork-portao';\" core/src/adapters/claude-bg.ts",
+        "grep -cF \"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',\" core/src/adapters/claude-bg.ts",
+        "grep -cF \"teammateMode: 'in-process',\" core/src/adapters/claude-bg.ts",
+        "grep -cF 'const teams = agentTeamsDoDespacho(contexto?.agentTeams, mods);' core/src/adapters/claude-bg.ts"
+      ],
+      "criadoEm": "2026-10-12T14:20:26.979Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "core/test/claude-bg-teams.test.ts",
+      "alegacao": "S7: o teste da T10.4 passa: sem a chave o despacho sai como hoje; ligado com GO no bloco e o Portão na sessão leva a variável, os tetos e o teammateMode; sem GO, sem o Portão ou com teto inválido fica desligado; limites iguais aos do Portão.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/claude-bg-teams.test.js"
+      ],
+      "criadoEm": "2026-10-12T14:20:29.233Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-portao-despacho.test.ts",
+      "alegacao": "S6: com o catálogo real, o recibo do adaptador lista cada arquivo do Portão, ele entra nos mods de fase com a ponte como dependência, o despacho claude-bg o leva depois da ponte e um claude velho o deixa de fora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-portao-despacho.test.js"
+      ],
+      "criadoEm": "2026-10-12T14:22:46.409Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/.claude-plugin/plugin.json",
+      "alegacao": "S8: a cópia do manifesto do Portão no marketplace próprio é a que o gerador produz da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/ork-portao/.claude-plugin/plugin.json marketplaces/claude-code/mods/ork-portao/.claude-plugin/plugin.json"
+      ],
+      "criadoEm": "2026-10-12T14:22:48.307Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/autoridade.json",
+      "alegacao": "S8: a cópia do Portão no marketplace leva a lista de autoridade compartilhada da raiz dos mods.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/autoridade.json marketplaces/claude-code/mods/ork-portao/autoridade.json"
+      ],
+      "criadoEm": "2026-10-12T14:22:50.104Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/hooks/hooks.json",
+      "alegacao": "S8: a cópia do hooks.json do Portão no marketplace é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/ork-portao/hooks/hooks.json marketplaces/claude-code/mods/ork-portao/hooks/hooks.json"
+      ],
+      "criadoEm": "2026-10-12T14:22:52.011Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/hooks/lease.ts",
+      "alegacao": "S8: a cópia do lease.ts do Portão no marketplace é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/ork-portao/hooks/lease.ts marketplaces/claude-code/mods/ork-portao/hooks/lease.ts"
+      ],
+      "criadoEm": "2026-10-12T14:22:53.806Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/hooks/plano.ts",
+      "alegacao": "S8: a cópia do plano.ts do Portão no marketplace é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/ork-portao/hooks/plano.ts marketplaces/claude-code/mods/ork-portao/hooks/plano.ts"
+      ],
+      "criadoEm": "2026-10-12T14:22:55.605Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/hooks/register.ts",
+      "alegacao": "S8: a cópia do register.ts do Portão no marketplace é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/ork-portao/hooks/register.ts marketplaces/claude-code/mods/ork-portao/hooks/register.ts"
+      ],
+      "criadoEm": "2026-10-12T14:22:57.410Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/hooks/verify.ts",
+      "alegacao": "S8: a cópia do verify.ts do Portão no marketplace é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/ork-portao/hooks/verify.ts marketplaces/claude-code/mods/ork-portao/hooks/verify.ts"
+      ],
+      "criadoEm": "2026-10-12T14:22:59.227Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/orkastery-mod.json",
+      "alegacao": "S8: a cópia do orkastery-mod.json do Portão no marketplace é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/ork-portao/orkastery-mod.json marketplaces/claude-code/mods/ork-portao/orkastery-mod.json"
+      ],
+      "criadoEm": "2026-10-12T14:23:00.846Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/test/apoio.ts",
+      "alegacao": "S8: a cópia do apoio dos testes do kit do Portão no marketplace é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/ork-portao/test/apoio.ts marketplaces/claude-code/mods/ork-portao/test/apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T14:23:04.899Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/test/lease.test.ts",
+      "alegacao": "S8: a cópia dos testes do kit do teammate ocioso no marketplace é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/ork-portao/test/lease.test.ts marketplaces/claude-code/mods/ork-portao/test/lease.test.ts"
+      ],
+      "criadoEm": "2026-10-12T14:23:06.692Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/test/portao.test.ts",
+      "alegacao": "S8: a cópia dos testes do kit da criação no marketplace é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/ork-portao/test/portao.test.ts marketplaces/claude-code/mods/ork-portao/test/portao.test.ts"
+      ],
+      "criadoEm": "2026-10-12T14:23:08.496Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/test/verify.test.ts",
+      "alegacao": "S8: a cópia dos testes do kit da conclusão no marketplace é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/ork-portao/test/verify.test.ts marketplaces/claude-code/mods/ork-portao/test/verify.test.ts"
+      ],
+      "criadoEm": "2026-10-12T14:23:10.308Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-portao/types/index.d.ts",
+      "alegacao": "S8: a cópia do contrato de tipos do Portão no marketplace é a gerada da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "cmp adapters/claude-code/mods/ork-portao/types/index.d.ts marketplaces/claude-code/mods/ork-portao/types/index.d.ts"
+      ],
+      "criadoEm": "2026-10-12T14:23:12.049Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": ".claude-plugin/marketplace.json",
+      "alegacao": "S8: o marketplace próprio tem a entrada ork-portao apontando a cópia gerada, e o gerador confere tudo igual ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const m=require('./.claude-plugin/marketplace.json');const e=m.plugins.find(p=>p.name==='ork-portao');process.exit(e&&e.source==='./marketplaces/claude-code/mods/ork-portao'&&e.category==='development'?0:1)\"",
+        "node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T14:23:14.303Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/README.md",
+      "alegacao": "S10: o README do adaptador tem a seção do Portão de Tarefas, com o comando da conferência e a chave runtime.agent_teams com os tetos.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF '### Portão de Tarefas (' adapters/claude-code/README.md",
+        "grep -cF 'ork claims conferir <thread> --tarefa T2.1 --prazo 540 --json' adapters/claude-code/README.md",
+        "grep -cF 'teammates: 2   # teto de teammates vivos, de 1 a 8' adapters/claude-code/README.md",
+        "grep -cF 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS' adapters/claude-code/README.md"
+      ],
+      "criadoEm": "2026-10-12T14:23:16.830Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "S10: o CHANGELOG traz a linha do Portão de Tarefas dentro de Não publicado, e o checador do CHANGELOG aprova contra a origin/main.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main",
+        "node -e \"const t=require('fs').readFileSync('CHANGELOG.md','utf8');const i=t.indexOf('## Não publicado');const j=t.indexOf('## [',i);const k=t.indexOf('Portão de Tarefas, o segundo mod de papel',i);process.exit(i>=0&&k>i&&k<j?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T14:23:19.099Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/hooks/register.ts",
+      "alegacao": "T10.1 (GO-FIX): o register.ts passa na guarda estática e o classic.TaskCreated decide a criação pelas tarefas da sessão do Portão.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-portao",
+        "grep -cF \"on('classic.TaskCreated'\" adapters/claude-code/mods/ork-portao/hooks/register.ts",
+        "grep -cF 'decidirCriacao(e.task_subject, sessao.tarefas)' adapters/claude-code/mods/ork-portao/hooks/register.ts"
+      ],
+      "criadoEm": "2026-10-12T15:05:39.933Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/hooks/register.ts",
+      "alegacao": "T10.3 (GO-FIX): o TeammateIdle lê os leases de todas as threads pela consulta maestro da ponte, página a página, o register.ts não pede lease e o quadro só muda pelo mudarQuadro.",
+      "negativa": true,
+      "verificar": [
+        "node -e \"const s=require('fs').readFileSync('adapters/claude-code/mods/ork-portao/hooks/register.ts','utf8');const ok=s.includes(String.fromCharCode(39)+'classic.TeammateIdle'+String.fromCharCode(39))&&s.includes('paginaDosLeases(await $.ork.ler(pedido))')&&s.includes('secao: '+String.fromCharCode(39)+'leases'+String.fromCharCode(39)+' as const')&&!s.includes(String.fromCharCode(39)+'acquire'+String.fromCharCode(39))&&s.split('await mudarQuadro(').length>=6;process.exit(ok?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T15:05:43.071Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/hooks/lease.ts",
+      "alegacao": "T10.3 (GO-FIX): o módulo dos leases colide como o núcleo, lê os tetos do piloto, recusa teammate sem tetos, pagina a seção leases e escolhe a tarefa sem lease path: ativo de nenhuma thread, sem argv de ork lease.",
+      "negativa": true,
+      "verificar": [
+        "node -e \"const l=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-portao/hooks/lease.ts'));const t=(id,tp)=>({id:id,titulo:id,touchPaths:tp,verify:'make check',problema:null});const q={thread:'ork-a',tarefas:{},concluidas:[],repeticoes:{},atribuicoes:{},devolvidas:[],ultimaFalha:null};const ts=[t('T1',['src/a.ts']),t('T2',['docs/b.md'])];const e=l.escolherTarefa({tarefas:ts,quadro:q,teammate:'ana',leases:[{nome:'path:src/**',thread:'ork-b'}]});const p=l.escolherTarefa({tarefas:ts,quadro:q,teammate:'ana',leases:[{nome:'path:src/a.ts',thread:'ork-a'},{nome:'path:docs',thread:'ork-a'}]});const pag=l.paginaDosLeases({sections:{leases:{state:'available',gaps:[],items:[],coverage:{nextOffset:50}}}});let ind=false;try{l.paginaDosLeases({sections:{leases:{state:'unavailable',gaps:[],items:[]}}})}catch(x){ind=true}const ok=l.globsColidem('src/a.ts','src/**')&&!l.leasesColidem('path:a','board:a')&&l.tetosDoAmbiente('2','10').teammates===2&&l.tetosDoAmbiente('9','10')===null&&l.recusaDoTeammate(null,0,0).includes('piloto')&&e.id==='T2'&&p===null&&pag.proximo===50&&ind&&typeof l.argvDoLease==='undefined';process.exit(ok?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T15:05:49.065Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/types/index.d.ts",
+      "alegacao": "T10.3 (GO-FIX): o quadro guarda as atribuições por teammate e as tarefas devolvidas, e não guarda lease.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'atribuicoes: Record<string, string>' adapters/claude-code/mods/ork-portao/types/index.d.ts",
+        "grep -cF 'devolvidas: string[]' adapters/claude-code/mods/ork-portao/types/index.d.ts",
+        "test $(grep -c 'leases: Record' adapters/claude-code/mods/ork-portao/types/index.d.ts) -eq 0"
+      ],
+      "criadoEm": "2026-10-12T15:05:51.427Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/hooks/plano.ts",
+      "alegacao": "GO-FIX: o plano aceita touch_paths com a contagem no rótulo, ignora identificador da prosa e só liga o portão com ao menos uma tarefa que serve ao quadro.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const p=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-portao/hooks/plano.ts'));const q=String.fromCharCode(96);const n=String.fromCharCode(10);const t=p.tarefasDoPlano(['### T1 a','- touch_paths (2): '+q+'src/a.ts'+q+', '+q+'Modo'+q,'- **verify:** '+q+'make check'+q,'### T2 b','- **verify:** '+q+'make check'+q].join(n));const sem=p.tarefasDoPlano(['### T1 a','- **verify:** '+q+'make check'+q].join(n));const ok=t[0].touchPaths.join()==='src/a.ts'&&p.escopoDoPlano(t).ativo===true&&p.escopoDoPlano(sem).ativo===false&&p.escopoDoPlano(sem).motivo.includes('nenhuma tarefa');process.exit(ok?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T15:05:55.266Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/hooks/verify.ts",
+      "alegacao": "GO-FIX: a recusa de condução que o ork claims conferir --json põe no stdout vira o texto da recusa no bloqueio.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const v=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-portao/hooks/verify.ts'));const r=v.lerConferencia('T1',JSON.stringify({contrato:'ork.conducao-recusa/v1',texto:'outra sessao conduz'}),3,'');process.exit(r.tipo==='ocupada'&&r.motivo==='outra sessao conduz'?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T15:05:57.867Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/test/lease.test.ts",
+      "alegacao": "GO-FIX: os testes do kit do teammate cobrem os dois teammates ociosos ao mesmo tempo, a conclusão e a criação no meio do gancho e conferem em ao menos três cenários que nenhum lease é pedido.",
+      "negativa": true,
+      "verificar": [
+        "grep -cF 'dois teammates ociosos ao mesmo tempo nao recebem regioes que se cruzam' adapters/claude-code/mods/ork-portao/test/lease.test.ts",
+        "grep -cF 'conclusao aprovada e criacao registrada no meio do teammate ocioso nao se perdem do quadro' adapters/claude-code/mods/ork-portao/test/lease.test.ts",
+        "test $(grep -cF 'expect(leases).toEqual([])' adapters/claude-code/mods/ork-portao/test/lease.test.ts) -ge 3"
+      ],
+      "criadoEm": "2026-10-12T15:06:00.873Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/test/verify.test.ts",
+      "alegacao": "GO-FIX: os testes do kit da conclusão cobrem a falha do próprio Portão, a tarefa registrada com o plano ilegível e a recusa de condução no stdout.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'quando o proprio Portao falha na conclusao, a tarefa que cita um id do plano nao fecha' adapters/claude-code/mods/ork-portao/test/verify.test.ts",
+        "grep -cF 'com o plano ilegivel na conclusao, a tarefa registrada na criacao ainda e conferida' adapters/claude-code/mods/ork-portao/test/verify.test.ts",
+        "grep -cF 'recusa de conducao com --json no stdout vira o texto da recusa' adapters/claude-code/mods/ork-portao/test/verify.test.ts"
+      ],
+      "criadoEm": "2026-10-12T15:06:03.631Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/test/portao.test.ts",
+      "alegacao": "GO-FIX: os testes do kit da criação cobrem o plano sem tarefa que sirva e os touch_paths com a contagem no rótulo.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'plano com tarefas mas nenhuma que sirva ao quadro deixa a criacao passar' adapters/claude-code/mods/ork-portao/test/portao.test.ts",
+        "grep -cF 'touch_paths com a contagem no rotulo valem' adapters/claude-code/mods/ork-portao/test/portao.test.ts"
+      ],
+      "criadoEm": "2026-10-12T15:06:05.735Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/README.md",
+      "alegacao": "GO-FIX: a seção do Portão no README diz que ele não toma nem solta lease e lista os limites conhecidos.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'não toma nem solta lease' adapters/claude-code/README.md",
+        "grep -cF 'Limites conhecidos:' adapters/claude-code/README.md"
+      ],
+      "criadoEm": "2026-10-12T15:06:07.181Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/hooks/lease.ts",
+      "alegacao": "GO-FIX 2: a página da seção leases cortada pelo teto de bytes (maestro.page.byte_limit) é paginação com nextOffset; outra lacuna ou o retrato em conflito deixam a leitura incompleta; teto de 10 páginas.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const l=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-portao/hooks/lease.ts'));const s=(extra)=>({sections:{leases:Object.assign({state:'available',gaps:[],items:[]},extra)}});const c=l.paginaDosLeases(s({gaps:['maestro.page.byte_limit'],coverage:{nextOffset:37}}));const ok=c.proximo===37&&c.lacuna===null&&l.paginaDosLeases(s({gaps:['maestro.page.byte_limit','ledger.unavailable:x']})).lacuna!==null&&l.paginaDosLeases(s({state:'conflict'})).lacuna!==null&&l.TETO_DE_PAGINAS_DE_LEASES===10&&l.LACUNA_DE_PAGINA==='maestro.page.byte_limit';process.exit(ok?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T15:29:54.267Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-portao/test/lease.test.ts",
+      "alegacao": "GO-FIX 2: os testes do kit cobrem o lease path: na página seguinte à cortada pelo teto de bytes e o teammate ocioso quando a leitura dos leases passa do teto de páginas.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'pagina cortada pelo teto de bytes: o lease path: da pagina seguinte ainda barra a tarefa' adapters/claude-code/mods/ork-portao/test/lease.test.ts",
+        "grep -cF 'mais paginas de leases que o teto deixam o teammate ocioso' adapters/claude-code/mods/ork-portao/test/lease.test.ts"
+      ],
+      "criadoEm": "2026-10-12T15:29:56.910Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm059portao",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/README.md",
+      "alegacao": "GO-FIX 2: o README diz que os leases seguem o nextOffset das páginas cortadas, até 10 páginas, e que leitura incompleta deixa o teammate ocioso.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'seguindo o `nextOffset` das páginas que o teto de' adapters/claude-code/README.md",
+        "grep -cF 'lacuna, retrato em conflito ou mais de 10 páginas' adapters/claude-code/README.md"
+      ],
+      "criadoEm": "2026-10-12T15:29:58.895Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C56",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

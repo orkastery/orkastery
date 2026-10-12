@@ -80,7 +80,7 @@ import {
 } from './superficie';
 import { devolverVagas, textoDoBoard, textoDoPlano, textoDoReap, planejar, threadsDeTodosOsPerfis } from './board';
 import { textoDoRadar, varrerSessoes } from './hitl';
-import { montarPulse, textoDoPulse } from './pulse';
+import { filaDoDono, montarPulse, textoDoPulse } from './pulse';
 import { codigosEmUso, interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
 import { CADENCIAS, gravarCadencia, inicioDaProximaJanela, lerCadencia, textoDaCadencia } from './pulse-cadencia';
 import { LIMIAR_DE_DECISOES_POR_FASE, placarDaThread, registrarDecisao, taxaDeReversao } from './decisao-autonoma';
@@ -225,6 +225,7 @@ import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, texto
 import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
+import { estadoDaBatida, instalarBatida, removerBatida, textoDoEstadoDaBatida, textoDoResultadoDaBatida } from './fabrica-batida';
 import { avisoDaFabricaPedida, fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
 import { entrarNaRede, publicarRede, refDaCasa, sairDaRede } from './rede';
 import { registrarNaRede } from './rede-adesao';
@@ -2274,6 +2275,8 @@ const CONTRATO_DO_BOARD = 'ork.board/v1';
 function comandoFabrica(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  // RM-063 (F1): a batida e do crontab desta maquina; nao le nem escreve o remoto.
+  if (sub === 'batida') return comandoDaBatida(carregado, args);
   // RM-047: o remoto vem do manifesto de quem fez o repositorio; fora do formato, recusa antes do git.
   // O `publicar` recusa dentro do try (publicarMaquina), para o silencioso deixar a recusa no log.
   const remoto = texto(args.opcoes.remoto) ?? carregado.manifesto.fabrica.remoto;
@@ -2326,7 +2329,8 @@ function comandoFabrica(args: Args): number {
   }
   if (sub !== undefined && sub !== 'list') {
     console.error(`subcomando desconhecido: fabrica ${sub}`);
-    console.error('uso: ork fabrica [--json] [--sem-remoto] | fabrica publicar [--forcar] [--json] | fabrica entrar [--maquina NOME] | fabrica sair');
+    console.error('uso: ork fabrica [--json] [--sem-remoto] | fabrica publicar [--forcar] [--json] | fabrica entrar [--maquina NOME] | fabrica sair' +
+      ' | fabrica batida [status|instalar|remover] [--por Q] [--json]');
     return 2;
   }
   // RM-052: a fabrica le a branch de UM projeto, no remoto dele; o cabecalho diz qual e o que ficou de fora.
@@ -2351,6 +2355,29 @@ function comandoFabrica(args: Args): number {
   const pedida = avisoDaFabricaPedida(carregado.manifesto);
   if (pedida) console.log(`\n${pedida}`);
   return 0;
+}
+
+/**
+ * RM-063 (F1): `ork fabrica batida` instala, mostra e remove a batida da varredura do pulse no crontab desta
+ * maquina. `status` sai 0 com a batida instalada e 1 sem ela (ou sem crontab legivel); `instalar` e
+ * `remover` gravam o evento no ledger da maquina quando o crontab muda.
+ */
+function comandoDaBatida(carregado: ManifestoCarregado, args: Args): number {
+  const acao = args.posicionais[2] ?? 'status';
+  const json = args.opcoes.json === true;
+  if (acao === 'status') {
+    const estado = estadoDaBatida(carregado.raiz);
+    console.log(json ? JSON.stringify(estado, null, 2) : textoDoEstadoDaBatida(estado));
+    return estado.leitura.ok && estado.instalada ? 0 : 1;
+  }
+  if ((acao === 'instalar' || acao === 'remover') && args.posicionais.length === 3) {
+    const por = texto(args.opcoes.por);
+    const r = acao === 'instalar' ? instalarBatida(carregado.raiz, { por }) : removerBatida(carregado.raiz, { por });
+    console.log(json ? JSON.stringify(r, null, 2) : textoDoResultadoDaBatida(r));
+    return 0;
+  }
+  console.error('uso: ork fabrica batida [status|instalar|remover] [--por Q] [--json]');
+  return 2;
 }
 
 /**
@@ -2864,7 +2891,9 @@ function comandoRoadmap(args: Args): number {
       naoLido: [FORA_DA_CONSULTA.reservas, 'threads de outras máquinas (ork network roadmap)'] });
     // RM-061 (F2b, G2): o status e montado em pt-BR, como o --json; so o texto segue o locale. Os canais (Hermes,
     // OpenClaw) transportam o texto: com owner.language ou LANG en no host, o dono o recebe em ingles.
-    const status = comLocale('pt-BR', () => montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta }));
+    // RM-063 (F2): o fecho le a mesma fila do `ork pulse`, sem forja e sem registrar.
+    const status = comLocale('pt-BR', () => montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta,
+      fila: (quando) => filaDoDono(carregado, { quando }) }));
     console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
     return 0;
   }

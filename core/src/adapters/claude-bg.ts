@@ -129,6 +129,12 @@ export function versao(): string | null {
 /** Ferramentas de arquivo negadas no PLAN: o plano sai pelo núcleo, não pelo disco. */
 const ESCRITA_DE_ARQUIVO = ['Edit', 'Write', 'NotebookEdit'] as const;
 
+/** O contexto do despacho conferido para o host Claude Code (D4 do RM-037: o host errado recusa antes de tudo). */
+function validarDoClaude(contexto: ContextoRuntime, cwd: string) {
+  if (contexto.host !== 'claude-code') throw Error('runtime.context.invalid: host Claude esperado');
+  return validarContextoRuntime(contexto, cwd);
+}
+
 /** RM-059 (T0.7, D2): a API de mods saiu no Claude Code 2.1.287; nenhum mod vai a um `claude` mais velho. */
 export const MINIMO_DA_API_DE_MODS = '2.1.287';
 
@@ -162,6 +168,28 @@ export function modsParaOClaude(mods: readonly ModDeFase[], versao: string | nul
   }
 }
 
+/** RM-059 (T10.4): o mod que aplica os tetos de agent teams dentro da sessao de fase. */
+export const MOD_DOS_TETOS = 'ork-portao';
+
+/**
+ * RM-059 (T10.4, D11 da thread ork-rm059portao): o que o despacho acrescenta ao `--settings` para agent teams no
+ * piloto, e so quando o contexto validado trouxe os tetos (manifesto ligado, GO no bloco) e o Portao de Tarefas esta
+ * entre os mods que vao de fato a sessao: sem ele, ninguem aplicaria os tetos. A sessao de fundo nao tem `tmux`, entao
+ * os teammates rodam no mesmo processo (`teammateMode` `in-process`).
+ */
+export function agentTeamsDoDespacho(tetos: { teammates: number; custo_usd: number } | null | undefined,
+  mods: readonly ModDeFase[]): { env: Record<string, string>; teammateMode: 'in-process' } | null {
+  if (!tetos || !mods.some((m) => m.nome === MOD_DOS_TETOS)) return null;
+  return {
+    env: {
+      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
+      ORK_AGENT_TEAMS_TEAMMATES: String(tetos.teammates),
+      ORK_AGENT_TEAMS_CUSTO_USD: String(tetos.custo_usd),
+    },
+    teammateMode: 'in-process',
+  };
+}
+
 /** Monta a linha de comando exata do despacho (usada tambem pelo `--dry-run`). */
 export function montarComando(pedido: DespachoPedido): string[] {
   const args = ['--bg', pedido.prompt, '--name', pedido.nome];
@@ -175,11 +203,17 @@ export function montarComando(pedido: DespachoPedido): string[] {
   // O `claude --bg` entrega a sessao a um processo reserva do daemon da conta, e o daemon guarda o
   // ambiente de quem o iniciou: pelo ambiente, a sessao nascia com a identidade de outro despacho.
   // Medido em 28/09/2026 (2.1.284): o `env` de `--settings` chega ao Bash da sessao e vence o herdado.
-  const doDespacho = pedido.ambienteExtra ?? {};
-  if (Object.keys(doDespacho).length) args.push('--settings', JSON.stringify({ env: doDespacho }));
-  if (pedido.contextoRuntime) {
-    if (pedido.contextoRuntime.host !== 'claude-code') throw Error('runtime.context.invalid: host Claude esperado');
-    const contexto = validarContextoRuntime(pedido.contextoRuntime, pedido.cwd);
+  const contexto = pedido.contextoRuntime ? validarDoClaude(pedido.contextoRuntime, pedido.cwd) : null;
+  // RM-059 (T0.7): cada mod de fase conferido entra com o proprio --plugin-dir, depois do plugin do Orkastery.
+  const mods = !contexto || contexto.modsDeFase.length === 0 ? []
+    : modsParaOClaude(contexto.modsDeFase, pedido.versaoClaude !== undefined ? pedido.versaoClaude : versao());
+  // RM-059 (T10.4): agent teams so no piloto, com os tetos no env e o Portao na sessao; sem eles, o --settings de antes.
+  const teams = agentTeamsDoDespacho(contexto?.agentTeams, mods);
+  const doDespacho = { ...(pedido.ambienteExtra ?? {}), ...(teams ? teams.env : {}) };
+  if (Object.keys(doDespacho).length) {
+    args.push('--settings', JSON.stringify(teams ? { env: doDespacho, teammateMode: teams.teammateMode } : { env: doDespacho }));
+  }
+  if (contexto) {
     const consultas = [...CONSULTAS_MCP, ...(contexto.grafoMcp ? consultasDoGrafoMcp() : [])];
     // Somente o servidor gerado: nao mesclar MCP de outros escopos nesta sessao filha.
     const permissoes = contexto.permissoesFilho === 'worktree'
@@ -189,9 +223,6 @@ export function montarComando(pedido: DespachoPedido): string[] {
     const allow = plano ? [...consultas, 'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_decision_record']
       : permissoes?.allow ?? consultas;
     const deny = [...(plano ? ESCRITA_DE_ARQUIVO : []), ...(permissoes?.deny ?? [])];
-    // RM-059 (T0.7): cada mod de fase conferido entra com o proprio --plugin-dir, depois do plugin do Orkastery.
-    const mods = contexto.modsDeFase.length === 0 ? []
-      : modsParaOClaude(contexto.modsDeFase, pedido.versaoClaude !== undefined ? pedido.versaoClaude : versao());
     args.push('--plugin-dir', contexto.instalacao, ...mods.flatMap((m) => ['--plugin-dir', m.dir]), '--strict-mcp-config',
       '--mcp-config', JSON.stringify({ mcpServers: { orkastery: contexto.servidor } }),
       '--allowedTools', allow.join(','));
@@ -233,10 +264,11 @@ export interface ConsultaDeSessoes {
  * falha aqui (o observador e o pulse não concluem nada dele); só o inventário o trata como fonte
  * ausente, com a correção.
  */
-export function consultarSessoes(cwd?: string, todas = false, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()): ConsultaDeSessoes {
+export function consultarSessoes(cwd?: string, todas = false, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura(),
+  prazoMs = 60000): ConsultaDeSessoes {
   const args = ['agents', '--json'];
   if (todas) args.push('--all');
-  const r = exec('claude', args, undefined, 60000, ambiente);
+  const r = exec('claude', args, undefined, prazoMs, ambiente);
   if (r.error === 'ENOENT') return { ok: false, ausente: true, sessoes: [], detalhe: textoDoCatalogo((m) => m.pulse.claudeForaDoPath) };
   if (!r.ok) return { ok: false, sessoes: [], detalhe: textoDoCatalogo((m) => m.pulse.claudeAgentsFalhou(r.code)) };
   let dados: SessaoRuntime[];
