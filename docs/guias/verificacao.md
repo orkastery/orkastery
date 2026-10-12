@@ -109,6 +109,25 @@ verify:
 Sem nada no manifesto, vale 600 s. O `ork_verify` do MCP usa o mesmo prazo, até o teto de
 300 s por comando e 180 s no total da chamada.
 
+### Steal da CPU: a máquina julgada antes do código (RM-037)
+
+Numa VPS, o hipervisor pode tomar a CPU: em 23 e 24/09/2026 a máquina de referência perdeu de 67% a
+92% dela (sar), e a suíte que leva 3,4 min levou de 24 a 30. Teste que mede relógio reprova nessa
+hora sem que o código tenha mudado.
+
+O `ork verify` mede o steal do `/proc/stat` na rodada inteira e na janela de cada comando, e grava a
+medida no `verify_run` (`steal`, e `stealPct` em cada comando que falha). Quando um comando reprova
+**só** em teste com relógio e o steal na janela dele passou de 40%, a reprovação vira
+`verify.timeout`: sem veredito, o retry reexecuta, e nunca é regressão. Teste com relógio é o que
+falhou com a assinatura de prazo do `node --test` (estouro do teste, ou cancelado pelo pai que
+estourou) ou o que tem entrada vigente no registro de instabilidade, `core/instabilidade.json`.
+Asserção comum sob steal alto continua regressão, e sem `/proc/stat` nada é atenuado. O `ork ci run`
+não mede nem atenua: o CI segue sendo a prova independente.
+
+O registro nasce vazio e só aceita entrada com a taxa medida (falhas em rodadas, o comando que mediu
+e a data) e revalidação em até 30 dias. O contrato completo está em
+[instabilidade-rm037](../referencia/contratos/instabilidade-rm037.md).
+
 ### O que o ledger guarda de um comando que falha
 
 Para abrir o GO-FIX sem reexecutar nada, o `verify_run` e o `ship_done` gravam, por comando
@@ -118,7 +137,8 @@ que falha:
 | --- | --- |
 | `causa` | `exit`, `timeout`, `nao-encontrado` ou `sinal` |
 | `prazoMs`, `duracaoMs` | O prazo aplicado e o tempo que o comando levou |
-| `testeQueCaiu` | Até 10 testes que o runner reportou como reprovados (`not ok` do `node --test`, `FAIL` de jest e vitest) |
+| `testeQueCaiu` | Até 10 testes que o runner reportou como reprovados (`not ok` do TAP e a seção "failing tests" do reporter `spec` do `node --test`, `FAIL` de jest e vitest) |
+| `stealPct`, `relogioSobSteal` | O steal da CPU na janela do comando e, quando a reprovação foi só de relógio sob steal acima de 40%, os testes (RM-037) |
 | `trecho` | O fim da saída real, até 1024 caracteres, redigido |
 
 A redação segue a regra do prompt: credencial em URL vira `[credencial redigida]@`, e se
