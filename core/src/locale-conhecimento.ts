@@ -10,6 +10,35 @@
  */
 
 export const CONHECIMENTO_PT_BR = {
+  uso: 'uso: ork conhecimento [listar [--colecao C]|mostrar <doc-id>|colecoes|verificar] [--json]',
+  // ork conhecimento: o texto para gente (D13). O titulo, o id, o arquivo e o corpo sao dado do repositorio.
+  naoLido: 'Conhecimento: a pasta não foi lida.',
+  listar: (dir: string, n: number, colecao: string | null) =>
+    `Conhecimento em ${dir}${colecao === null ? '' : `, coleção ${colecao}`}: ${n} documento(s).`,
+  documento: (id: string, titulo: string, colecoes: string) => `  ${id}  ${titulo} (${colecoes})`,
+  nenhumDocumento: '  (nenhum documento)',
+  paraLer: 'Para ler um documento: ork conhecimento mostrar <doc-id>.',
+  colecoes: (dir: string, n: number) => `Coleções em ${dir}: ${n}.`,
+  colecao: (nome: string, documentos: string) => `  ${nome}  ${documentos}`,
+  nenhumaColecao: '  (nenhuma coleção)',
+  mostrar: (id: string, titulo: string) => `${id}: ${titulo}`,
+  semDocumento: (id: string) => `${id}: nenhum documento válido com este id.`,
+  colecoesDoDocumento: (colecoes: string) => `  coleções   ${colecoes}`,
+  arquivo: (arquivo: string) => `  arquivo    ${arquivo}`,
+  versao: (sha256: string, bytes: number) => `  versão     sha256 ${sha256}, ${bytes} bytes`,
+  brain: (id: string, titulo: string, kind: string, versao: number, fonte: string) =>
+    `  Brain      ${id}: ${titulo} (${kind}, versão ${versao}, fonte ${fonte})`,
+  decisao: (ref: string, tipo: string, fonte: string) => `  decisão    ${ref}: ${tipo} (fonte ${fonte})`,
+  semReferencia: '  referências nenhuma',
+  corpo: 'Corpo do documento:',
+  verificar: (dir: string, documentos: number, brain: number, decisoes: number) =>
+    `Conhecimento em ${dir}: ${documentos} documento(s) válido(s), ${brain} id(s) do Brain e ${decisoes} decisão(ões) conferido(s).`,
+  aprovado: 'Verificação aprovada: nenhuma lacuna.',
+  reprovado: (n: number) => `Verificação reprovada: ${n} lacuna(s).`,
+  lacunasTitulo: (n: number) => `${n} lacuna(s), o que ficou fora da resposta:`,
+  lacuna: (codigo: string, onde: string, detalhe: string) => `  ${codigo}  ${onde}: ${detalhe}`,
+  pasta: 'a pasta',
+  naReferencia: (referencia: string) => `referência ${referencia}`,
   lacunas: {
     naoDeclarado: 'o orkastery.yaml não declara conhecimento.dir',
     dirForma: 'conhecimento.dir precisa ser uma pasta relativa à raiz, sem "..", fora de .git e .orkastery, como ' +
@@ -72,6 +101,32 @@ export const CONHECIMENTO_PT_BR = {
 };
 
 export const CONHECIMENTO_EN: typeof CONHECIMENTO_PT_BR = {
+  uso: 'usage: ork conhecimento [listar [--colecao C]|mostrar <doc-id>|colecoes|verificar] [--json]',
+  naoLido: 'Knowledge: the folder was not read.',
+  listar: (dir, n, colecao) => `Knowledge in ${dir}${colecao === null ? '' : `, collection ${colecao}`}: ${n} document(s).`,
+  documento: (id, titulo, colecoes) => `  ${id}  ${titulo} (${colecoes})`,
+  nenhumDocumento: '  (no document)',
+  paraLer: 'To read a document: `ork conhecimento mostrar <doc-id>`.',
+  colecoes: (dir, n) => `Collections in ${dir}: ${n}.`,
+  colecao: (nome, documentos) => `  ${nome}  ${documentos}`,
+  nenhumaColecao: '  (no collection)',
+  mostrar: (id, titulo) => `${id}: ${titulo}`,
+  semDocumento: (id) => `${id}: no valid document with this id.`,
+  colecoesDoDocumento: (colecoes) => `  collections  ${colecoes}`,
+  arquivo: (arquivo) => `  file         ${arquivo}`,
+  versao: (sha256, bytes) => `  version      sha256 ${sha256}, ${bytes} bytes`,
+  brain: (id, titulo, kind, versao, fonte) => `  Brain        ${id}: ${titulo} (${kind}, version ${versao}, source ${fonte})`,
+  decisao: (ref, tipo, fonte) => `  decision     ${ref}: ${tipo} (source ${fonte})`,
+  semReferencia: '  references   none',
+  corpo: 'Document body:',
+  verificar: (dir, documentos, brain, decisoes) =>
+    `Knowledge in ${dir}: ${documentos} valid document(s), ${brain} Brain id(s) and ${decisoes} decision(s) checked.`,
+  aprovado: 'Check passed: no gap.',
+  reprovado: (n) => `Check failed: ${n} gap(s).`,
+  lacunasTitulo: (n) => `${n} gap(s), what was left out of the answer:`,
+  lacuna: (codigo, onde, detalhe) => `  ${codigo}  ${onde}: ${detalhe}`,
+  pasta: 'the folder',
+  naReferencia: (referencia) => `reference ${referencia}`,
   lacunas: {
     naoDeclarado: 'the orkastery.yaml does not declare conhecimento.dir',
     dirForma: 'conhecimento.dir must be a folder relative to the root, without "..", outside .git and .orkastery, like ' +

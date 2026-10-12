@@ -15,6 +15,7 @@ import {
   compararLacunas, CONTRATO_CONHECIMENTO, DecisaoCitada, detalheDoConhecimento, DocumentoDeConhecimento, ID_DE_DOCUMENTO,
   LacunaDoConhecimento, lacunaDoConhecimento, lerConhecimento, LimitesDoConhecimento, LIMITES_DO_CONHECIMENTO, NOME_DE_COLECAO,
 } from './conhecimento';
+import { msg, remontar } from './locale';
 import { ManifestoCarregado } from './manifest';
 import { memoryState } from './project-state';
 import { emUmaLinha } from './saida-segura';
@@ -216,4 +217,54 @@ export function consultaRespondeu(r: RespostaDoConhecimento): boolean {
   if (r.consulta === 'verificar') return r.lacunas.length === 0;
   if (r.consulta === 'mostrar') return r.documento !== null;
   return !r.lacunas.some(daPasta);
+}
+
+/**
+ * D13: o texto para gente, pelo catálogo, no locale ativo. O detalhe das lacunas nasce em pt-BR na consulta e é
+ * remontado aqui; o corpo do documento é dado do repositório e sai linha a linha, sem caractere invisível.
+ */
+export function textoDoConhecimento(r: RespostaDoConhecimento): string {
+  const m = msg().conhecimento, linhas: string[] = [];
+  const leu = !r.lacunas.some(daPasta), dir = r.dir ?? '';
+  if (r.consulta === 'listar') {
+    if (!leu) linhas.push(m.naoLido);
+    else {
+      linhas.push(m.listar(dir, r.documentos.length, r.colecao));
+      const largura = Math.max(0, ...r.documentos.map((d) => d.id.length));
+      for (const d of r.documentos) linhas.push(m.documento(d.id.padEnd(largura), d.titulo, d.colecoes.join(', ')));
+      if (!r.documentos.length) linhas.push(m.nenhumDocumento);
+    }
+  } else if (r.consulta === 'colecoes') {
+    if (!leu) linhas.push(m.naoLido);
+    else {
+      linhas.push(m.colecoes(dir, r.colecoes.length));
+      const largura = Math.max(0, ...r.colecoes.map((x) => x.nome.length));
+      for (const x of r.colecoes) linhas.push(m.colecao(x.nome.padEnd(largura), x.documentos.join(', ')));
+      if (!r.colecoes.length) linhas.push(m.nenhumaColecao);
+    }
+  } else if (r.consulta === 'mostrar') {
+    const d = r.documento;
+    if (!d) linhas.push(leu ? m.semDocumento(r.id) : m.naoLido);
+    else {
+      linhas.push(m.mostrar(d.id, d.titulo), m.colecoesDoDocumento(d.colecoes.join(', ')), m.arquivo(d.arquivo), m.versao(d.sha256, d.bytes));
+      for (const b of d.referencias.brain) linhas.push(m.brain(b.id, b.titulo, b.kind, b.versao, b.fonte));
+      for (const x of d.referencias.decisoes) linhas.push(m.decisao(x.ref, x.tipo, x.fonte));
+      if (!d.referencias.brain.length && !d.referencias.decisoes.length) linhas.push(m.semReferencia);
+    }
+  } else if (!leu) linhas.push(m.naoLido);
+  else {
+    const soma = (f: (d: DocumentoConferido) => number) => r.documentos.reduce((n, d) => n + f(d), 0);
+    linhas.push(m.verificar(dir, r.documentos.length, soma((d) => d.referencias.brain.length), soma((d) => d.referencias.decisoes.length)));
+  }
+  if (r.lacunas.length) {
+    linhas.push(m.lacunasTitulo(r.lacunas.length));
+    for (const l of r.lacunas) {
+      const onde = (l.arquivo ?? m.pasta) + (l.documento ? ` (${l.documento})` : '') + (l.referencia !== null ? `, ${m.naReferencia(l.referencia)}` : '');
+      linhas.push(m.lacuna(l.codigo, onde, remontar(l.detalhe)));
+    }
+  }
+  if (r.consulta === 'listar' && r.documentos.length) linhas.push(m.paraLer);
+  if (r.consulta === 'verificar') linhas.push(r.lacunas.length ? m.reprovado(r.lacunas.length) : m.aprovado);
+  if (r.consulta === 'mostrar' && r.documento) linhas.push('', m.corpo, ...r.documento.corpo.replace(/\n$/, '').split('\n').map(emUmaLinha));
+  return linhas.join('\n');
 }

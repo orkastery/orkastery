@@ -73,12 +73,14 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
  * `experiencia uninstall` e `thread list|close|entrega`. A F2b (G3) acrescenta `verify` (com `--baseline`),
  * `ship`, `ship registrar-pr`, `retry plan`, `retry run`, `master` (o indice), `master aceitar-omissao` e
  * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`. A F3a (D5) acrescenta `docs init`;
- * `docs verificar` e `docs sincronizar` seguem em pt-BR.
+ * `docs verificar` e `docs sincronizar` seguem em pt-BR. O conhecimento escrito (RM-026 K7, fatia 2) nasce coberto:
+ * `conhecimento listar|mostrar|colecoes|verificar` e o uso errado dele.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
   'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
-  'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status', 'docs init'];
+  'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status', 'docs init',
+  'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -89,6 +91,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['retry', { padrao: null, conhecidos: ['plan', 'run', 'policy', 'parse', 'list', 'resume', 'cancel'] }],
   ['roadmap', { padrao: 'reservas', conhecidos: ['reservas', 'status', 'feat', 'pegar', 'soltar'] }],
   ['docs', { padrao: 'verificar', conhecidos: ['verificar', 'sincronizar', 'init'] }],
+  ['conhecimento', { padrao: 'listar', conhecidos: ['listar', 'mostrar', 'colecoes', 'verificar'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
