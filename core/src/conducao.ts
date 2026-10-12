@@ -71,6 +71,20 @@ export const CANAIS_DE_CONDUCAO: Readonly<Record<CanalDeConducao, { origem: stri
 /** Codigo tipado da recusa de canal fora do registro. */
 export const ERRO_CANAL_DESCONHECIDO = 'conducao.canal-desconhecido';
 
+// ---------------------------------------------------------------------------
+// RM-059 (F6, T6.4; DD5 do plano dos mods): a conducao pela Sentinela do Condutor. A presenca e o passo
+// do condutor moram em `conducao-sentinela.ts`; as constantes ficam aqui, para quem so conhece a conducao.
+// ---------------------------------------------------------------------------
+
+/** O contrato do `ork conducao sentinela status --json`. */
+export const CONTRATO_DA_SENTINELA = 'ork.conducao-sentinela/v1';
+/** A Sentinela roda na sessao do dono no Claude Code: e o canal dela, sempre. */
+export const CANAL_DA_SENTINELA: CanalDeConducao = 'claude-code';
+/** A presenca vale ate 3 min depois da ultima batida; vencida, o condutor externo volta a conduzir. */
+export const PRAZO_DA_PRESENCA_MS = 3 * 60 * 1000;
+/** A Sentinela bate a cada 60 s: tres batidas perdidas e a presenca vence. */
+export const BATIDA_DA_SENTINELA_MS = 60 * 1000;
+
 /** Canal fora do registro e recusado com motivo tipado, nunca adivinhado (T9). */
 export function validarCanal(bruto: string): CanalDeConducao {
   const canal = bruto.trim();

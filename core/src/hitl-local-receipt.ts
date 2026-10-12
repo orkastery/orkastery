@@ -59,7 +59,8 @@ function diretorioPrivado(file: string): fs.Stats {
   return validarDiretorio(file, 0o700);
 }
 
-function chaveLocal(raiz: string, criar: boolean): Buffer {
+/** RM-058 (N1): exportada só para o arco #Noctum derivar a subchave dele (`noctum-arco.ts`). */
+export function chaveLocal(raiz: string, criar: boolean): Buffer {
   const estado = path.join(raizDoEstado(raiz), '.orkastery');
   const stEstado = fs.lstatSync(estado);
   if (!stEstado.isDirectory() || stEstado.isSymbolicLink() || fs.realpathSync(estado) !== estado) {
