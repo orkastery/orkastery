@@ -42,7 +42,7 @@ function sandboxFalso(resposta: (comando: string) => Partial<ResultadoDeComando>
 
 function preparar(nome: string) {
   const p = projetoTemporario(nome);
-  const { thread } = novaThread(p.carregado, { nome: 'conferir', modo: 'auto' });
+  const { thread } = novaThread(p.carregado, { nome: 'conferir', modo: 'auto', criarWorktree: true });
   const claim = (alegacao: string, verificar: string[]) =>
     adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao, verificar, semProvaLocal: true }).id;
   const ids = [claim('o README existe', ['test -f README.md']), claim('o README fala de teste', ['grep -q teste README.md', 'true']),
@@ -143,6 +143,8 @@ test('S5 --tarefa le o verify da tarefa nos formatos de plano em uso, e recusa o
     ['#### T0.1 Provar\n\n- **touch_paths:** `a`\n- **verify:** `test -s a.md`\n#### T0.2 Outra\n- **verify:** `false`\n', 'T0.1', 'test -s a.md'],
     ['## T1. Classificacao\n\n- touch_paths: `a`\n- verify: `node --test t.js`\n', 'T1', 'node --test t.js'],
     ['### T1 sem dois pontos\n* **verify**: `echo ok`\n', 't1', 'echo ok'],
+    ['### T1 rotulo em codigo\n- `verify`: `node a.js`\n', 'T1', 'node a.js'],
+    ['### T1 fora de lista\nVerify: `make check`.\n', 'T1', 'make check'],
   ];
   for (const [plano, tarefa, comando] of formatos) {
     assert.deepEqual(verifyDaTarefa(plano, tarefa), { tarefa: tarefa.toUpperCase(), comando }, plano.split('\n')[0]);
@@ -153,6 +155,14 @@ test('S5 --tarefa le o verify da tarefa nos formatos de plano em uso, e recusa o
   assert.throws(() => verifyDaTarefa('### T1 x\n- **touch_paths:** `a`\n### T2\n- **verify:** `b`\n', 'T1'), /claims\.conferir\.tarefa-sem-verify/);
   assert.throws(() => verifyDaTarefa('### T1 x\n- **verify:** `a`\n- **verify:** `b`\n', 'T1'), /claims\.conferir\.tarefa-ambigua/);
   assert.throws(() => verifyDaTarefa('### T1 x\n- **verify:** claims C5 a C7 (secao 4).\n', 'T1'), /claims\.conferir\.tarefa-sem-comando/);
+  // Linhas reais de planos com mais de um trecho ou com texto alem do comando: rodar so o primeiro daria "passou" falso.
+  for (const linha of [
+    '- verify: `git status --porcelain` vazio e `ork verify ork-x` com as claims ativas.',
+    '- **verify:** `npm --prefix core run build && node --test t.js` e `claude plugin validate --strict mods/x && claude plugin test mods/x`',
+    '- **verify:** `test -s a.md` (rodado no fim)',
+  ]) {
+    assert.throws(() => verifyDaTarefa(`### T1 x\n${linha}\n`, 'T1'), /claims\.conferir\.tarefa-ambigua: o verify da tarefa T1 tem \d trecho/, linha);
+  }
   assert.throws(() => verifyDaTarefa('### T1 x\n', 'Tx'), /claims\.conferir\.uso: tarefa invalida/);
 });
 
@@ -172,6 +182,25 @@ test('S6 --tarefa roda o verify da tarefa do plano da thread e diz o sha256 do p
     }
     assert.equal(r.ok, true);
   } finally { f.p.limpar(); }
+});
+
+test('S3b sem worktree propria e registrada no git na branch da thread, a conferencia recusa como o ork_verify', () => {
+  const p = projetoTemporario('conferir-sem-worktree');
+  try {
+    const s = sandboxFalso();
+    const semWorktree = novaThread(p.carregado, { nome: 'sem worktree', modo: 'auto' }).thread;
+    assert.equal(semWorktree.worktree, null);
+    assert.throws(() => conferirClaims(p.carregado, semWorktree.id, { claims: ['C1'], fabrica: s.fabrica }),
+      (e: Error) => e instanceof ErroDeConferencia && /claims\.conferir\.sem-worktree/.test(e.message));
+    const solta = path.join(p.dir, 'pasta-solta');
+    fs.mkdirSync(solta);
+    gravarThread(p.dir, { ...lerThread(p.dir, semWorktree.id), worktree: solta });
+    assert.throws(() => conferirClaims(p.carregado, semWorktree.id, { claims: ['C1'], fabrica: s.fabrica }),
+      (e: Error) => e instanceof ErroDeConferencia && /claims\.conferir\.worktree-nao-registrada/.test(e.message));
+    assert.throws(() => conferirClaims(p.carregado, 'ork-naoexiste', { claims: ['C1'], fabrica: s.fabrica }),
+      (e: Error) => e instanceof ErroDeConferencia && /claims\.conferir\.thread-ausente/.test(e.message));
+    assert.equal(s.chamadas.length, 0);
+  } finally { p.limpar(); }
 });
 
 test('S6b da worktree da thread (manifesto lido nela), --tarefa e --claims leem o estado do checkout principal', () => {
@@ -216,6 +245,9 @@ test('S8 o CLI recusa uso errado e claim desconhecida com saida 2, antes de qual
     assert.equal(rodar(f.thread.id).status, 2);
     assert.equal(rodar(f.thread.id, '--claims', 'C1', '--tarefa', 'T1').status, 2);
     assert.equal(rodar(f.thread.id, '--claims').status, 2);
+    const ausente = rodar('ork-naoexiste', '--claims', 'C1', '--json');
+    assert.equal(ausente.status, 2);
+    assert.match(JSON.parse(ausente.stdout).erro, /claims\.conferir\.thread-ausente: a thread ork-naoexiste nao existe/);
     const desconhecida = rodar(f.thread.id, '--claims', 'C99', '--json');
     assert.equal(desconhecida.status, 2);
     assert.deepEqual(JSON.parse(desconhecida.stdout), {

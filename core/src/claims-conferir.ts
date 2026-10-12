@@ -22,10 +22,11 @@ import { lerClaims } from './claims';
 import { canalDoProcesso, comConducao, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
 import { ManifestoCarregado } from './manifest';
 import { redigirSaida } from './redacao-saida';
-import { dirThread, lerThread } from './thread';
-import { CanalDeConducao, Claim, MotivoGate, ResultadoDeComando } from './types';
-import { commitReal, cwdDaThread, ExecutorVerify, prazoDoComando, TIMEOUT_VERIFY_MS, verificarClaim } from './verify';
+import { caminhoThread, dirThread, lerThread } from './thread';
+import { CanalDeConducao, Claim, MotivoGate, ResultadoDeComando, Thread } from './types';
+import { commitReal, ExecutorVerify, prazoDoComando, TIMEOUT_VERIFY_MS, verificarClaim } from './verify';
 import { criarExecutorSandbox } from './verify-sandbox';
+import { branchDaWorktree, worktreesDoGit } from './worktree';
 
 export const FORMATO_DA_CONFERENCIA = 'ork.claims-conferencia/v1';
 /** O prazo total do `ork_verify` pelo MCP: a conferencia e pontual e nao deve demorar mais que ele. */
@@ -104,9 +105,17 @@ export function idsDeClaims(bruto: string): string[] {
 }
 
 /**
+ * A linha de verify de uma tarefa nos formatos em uso nos planos: `- **verify:** ...`, `- **verify**: ...`,
+ * `- verify: ...`, `` - `verify`: ... `` e `Verify: ...` fora de lista. O grupo 1 e o que vem depois do rotulo.
+ */
+const ROTULO_DE_VERIFY = /^\s*(?:[-*]\s+)?(?:\*\*verify:\*\*|\*\*verify\*\*\s*:|`verify`\s*:|verify\s*:)\s*(.*)$/i;
+
+/**
  * O comando de verify da tarefa `T<id>` no texto do plano (D7). O cabeçalho (niveis `##` a `######`)
  * aparece uma vez so; no bloco dele, ate o proximo cabecalho de nivel igual ou maior, ha uma unica
- * linha `verify` (com ou sem negrito), e o comando e o primeiro trecho entre crases dela.
+ * linha `verify`, e ela e um trecho entre crases e nada mais (ponto final aceito). Linha com dois
+ * trechos ou com texto alem do comando ("`git status` vazio e `ork verify`") recusa: rodar so um
+ * pedaco daria "passou" a um verify que nao rodou inteiro.
  */
 export function verifyDaTarefa(plano: string, tarefaBruta: string): { tarefa: string; comando: string } {
   const id = tarefaBruta.trim().replace(/^T/i, '');
@@ -123,12 +132,21 @@ export function verifyDaTarefa(plano: string, tarefaBruta: string): { tarefa: st
   const { i, nivel } = inicios[0];
   const fimDoBloco = linhas.findIndex((l, j) => j > i && new RegExp(`^#{1,${nivel}}\\s`).test(l));
   const bloco = linhas.slice(i + 1, fimDoBloco < 0 ? undefined : fimDoBloco);
-  const verifies = bloco.filter((l) => /^\s*[-*]\s+(?:\*\*)?verify(?:\*\*)?\s*:/i.test(l) || /^\s*[-*]\s+\*\*verify:\*\*/i.test(l));
+  const verifies = bloco.flatMap((l) => {
+    const m = ROTULO_DE_VERIFY.exec(l);
+    return m ? [m[1].trim()] : [];
+  });
   if (verifies.length === 0) throw recusa('tarefa-sem-verify', `a tarefa ${tarefa} nao tem linha de verify`);
   if (verifies.length > 1) throw recusa('tarefa-ambigua', `a tarefa ${tarefa} tem ${verifies.length} linhas de verify`);
-  const comando = /`([^`]+)`/.exec(verifies[0])?.[1]?.trim();
-  if (!comando) throw recusa('tarefa-sem-comando', `o verify da tarefa ${tarefa} nao tem comando entre crases: ${verifies[0].trim().slice(0, 120)}`);
-  return { tarefa, comando };
+  const resto = verifies[0];
+  const trechos = [...resto.matchAll(/`([^`]+)`/g)].length;
+  if (trechos === 0) throw recusa('tarefa-sem-comando', `o verify da tarefa ${tarefa} nao tem comando entre crases: ${resto.slice(0, 120)}`);
+  const unico = /^`([^`]+)`\s*\.?$/.exec(resto);
+  if (!unico || !unico[1].trim()) {
+    throw recusa('tarefa-ambigua', `o verify da tarefa ${tarefa} tem ${trechos} trecho(s) entre crases e texto alem de um comando so ` +
+      `(${resto.slice(0, 120)}); a conferencia nao escolhe qual pedaco rodar`);
+  }
+  return { tarefa, comando: unico[1].trim() };
 }
 
 /** O teto dos documentos de fase (`docs/*.md` da thread). */
@@ -152,6 +170,21 @@ function lerPlano(raiz: string, threadId: string): { arquivo: string; sha256: st
     const bytes = fs.readFileSync(fd);
     return { arquivo: 'docs/plan.md', sha256: createHash('sha256').update(bytes).digest('hex'), conteudo: bytes.toString('utf8') };
   } finally { fs.closeSync(fd); }
+}
+
+/**
+ * Como o `ork_verify` (`mcp-verify.ts`): so a worktree propria da thread, registrada no git na branch dela, fica
+ * gravavel no sandbox. Thread sem worktree seria conferida com a arvore principal gravavel, e isso recusa.
+ */
+function worktreeConferida(thread: Thread): string {
+  if (!thread.worktree) throw recusa('sem-worktree', `a thread ${thread.id} nao tem worktree propria; a conferencia so roda nela`);
+  let dir: string;
+  try { dir = fs.realpathSync(thread.worktree); }
+  catch { throw recusa('worktree-ausente', `a worktree da thread ${thread.id} nao existe no disco`); }
+  const branch = branchDaWorktree(thread);
+  if (!worktreesDoGit(dir).some((w) => w.dir === dir && w.branch === branch))
+    throw recusa('worktree-nao-registrada', `a worktree da thread ${thread.id} nao esta registrada no git na branch ${branch}`);
+  return dir;
 }
 
 /** A fabrica padrao: o sandbox do codex, um por comando, como o `ork_verify`. */
@@ -180,8 +213,11 @@ export function conferirClaims(carregado: ManifestoCarregado, threadId: string, 
   const prazoTotalMs = pedido.prazoMs ?? PRAZO_PADRAO_MS;
   if (!Number.isInteger(prazoTotalMs) || prazoTotalMs < PRAZO_MINIMO_MS || prazoTotalMs > PRAZO_MAXIMO_MS)
     throw recusa('prazo', `--prazo vai de ${PRAZO_MINIMO_MS / 1000} a ${PRAZO_MAXIMO_MS / 1000} segundos`);
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(threadId) || !fs.existsSync(caminhoThread(raiz, threadId)))
+    throw recusa('thread-ausente', `a thread ${threadId} nao existe neste projeto`);
   const thread = lerThread(raiz, threadId);
   if (thread.status === 'fechada') throw recusa('thread-fechada', `a thread ${threadId} esta fechada`);
+  const cwd = worktreeConferida(thread);
 
   // O que vai rodar, inteiro resolvido antes de tomar a conducao: recusa de uso nao toca a worktree.
   let alvo: ResultadoDaConferencia['alvo'];
@@ -205,7 +241,6 @@ export function conferirClaims(carregado: ManifestoCarregado, threadId: string, 
     alvo = { tipo: 'tarefa', tarefa, plano: { arquivo: plano.arquivo, sha256: plano.sha256 }, comando };
   }
 
-  const cwd = cwdDaThread(raiz, thread);
   // O sandbox e conferido antes da conducao: sem ele, nada toma o lease nem toca a worktree.
   const fabrica = pedido.fabrica ?? fabricaPadrao;
   confinado(fabrica, cwd, PRAZO_MINIMO_MS).fechar();
