@@ -244,3 +244,42 @@ test('S10 o claude --version so roda quando a instalacao tem mod de fase', () =>
     sem.limpar(); com.limpar(); fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('S11 arquivo comum da raiz de mods/ so vale com recibo; o que saiu do catalogo sai da copia; sem mod de fase, nada muda', () => {
+  const comLista = catalogoCom([{ nome: 'ork-exemplo', papeis: ['fase'] }]);
+  fs.writeFileSync(path.join(comLista, 'adapters', 'claude-code', 'mods', 'autoridade.json'), '{"lista":[]}\n');
+  const semLista = catalogoCom([{ nome: 'ork-exemplo', papeis: ['fase'] }]);
+  const soDono = catalogoCom([{ nome: 'ork-exemplo-dono', papeis: ['dono'] }]);
+  const p = projetoTemporario('mods-raiz');
+  try {
+    const instalado = instalarAdaptador('claude-code', { projeto: p.dir, catalogo: comLista, orkBin: 'ork' });
+    instalarMcp({ projeto: p.dir, host: 'claude-code', permissoesFilho: 'interactive' });
+    const t = novaThread(p.carregado, { nome: 'mods', modo: 'auto', criarWorktree: true }).thread;
+    const comando = () => montarComando({ cwd: t.worktree!, nome: 'fase', prompt: 'pedido',
+      contextoRuntime: contextoDoProjeto(p.dir, 'claude-bg', t.worktree!, t.id)!, versaoClaude: VERSAO });
+    const raizDosMods = path.join(instalado.destino, 'mods');
+    assert.ok(lerRecibo(instalado.destino)!.arquivos.some((a) => a.arquivo === 'mods/autoridade.json'));
+    assert.equal(pastasDePlugin(comando()).length, 2);
+    // Escrito a mao na raiz, fora do recibo: a ponte le ../autoridade.json antes da propria pasta.
+    const solta = path.join(raizDosMods, 'outra-lista.json');
+    fs.writeFileSync(solta, '{"lista":["tudo"]}\n');
+    assert.throws(() => comando(), (e: Error) => /runtime\.context\.installation: mods\/: arquivo fora do INSTALADO\.json \(outra-lista\.json\)/.test(e.message) &&
+      e.message.includes(`apague ${solta}`));
+    fs.unlinkSync(solta);
+    fs.symlinkSync('autoridade.json', path.join(raizDosMods, 'atalho.json'));
+    assert.throws(() => comando(), /runtime\.context\.installation: mods\/: link em atalho\.json/);
+    fs.unlinkSync(path.join(raizDosMods, 'atalho.json'));
+    // A lista saiu do catalogo (foi para dentro da pasta do mod, por exemplo): a reinstalacao tira a copia velha.
+    const r = instalarAdaptador('claude-code', { projeto: p.dir, catalogo: semLista, orkBin: 'ork' });
+    assert.deepEqual(r.removidos, ['mods/autoridade.json']);
+    assert.equal(fs.existsSync(path.join(raizDosMods, 'autoridade.json')), false);
+    assert.equal(pastasDePlugin(comando()).length, 2, 'a pasta dos mods fica e o despacho segue');
+    // So mod de dono: o despacho nao leva mod e nao confere a raiz, como antes dos mods.
+    instalarAdaptador('claude-code', { projeto: p.dir, catalogo: soDono, orkBin: 'ork' });
+    fs.writeFileSync(solta, '{"lista":["tudo"]}\n');
+    assert.equal(pastasDePlugin(comando()).length, 1);
+  } finally {
+    p.limpar();
+    for (const c of [comLista, semLista, soDono]) fs.rmSync(c, { recursive: true, force: true });
+  }
+});

@@ -240,6 +240,28 @@ function conferirPastaDoMod(raiz: string, instalacao: string, nome: string, arqu
 }
 
 /**
+ * RM-059 (rodada 2 do CHECK, N2): o arquivo comum da raiz de `mods/` tambem so vale com prova. A ponte le a lista
+ * de autoridade em `../autoridade.json` antes da propria pasta, entao uma copia velha ou escrita a mao ali mudaria o
+ * que a sessao de fase aceita. Com mod de fase no despacho, todo arquivo direto em `mods/` esta no recibo (que ja
+ * conferiu os bytes); link e arquivo especial recusam. Pastas sao os mods, conferidos um a um.
+ */
+function conferirRaizDosMods(raiz: string, instalacao: string, arquivos: ReadonlyMap<string, string>): void {
+  const dir = path.join(instalacao, 'mods');
+  const recusa = (motivo: string, correcao = 'reinstale com ork adapter install claude-code') =>
+    Error(`runtime.context.installation: mods/: ${motivo}; ${correcao}`);
+  if (!fs.lstatSync(dir, { throwIfNoEntry: false })?.isDirectory() || dentro(raiz, dir) !== dir) throw recusa('pasta instalada ausente ou fora da instalacao');
+  for (const entrada of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entrada.isSymbolicLink()) throw recusa(`link em ${entrada.name}`);
+    if (entrada.isDirectory()) continue;
+    if (!entrada.isFile()) throw recusa(`arquivo especial em ${entrada.name}`);
+    if (!arquivos.has(`mods/${entrada.name}`)) {
+      throw recusa(`arquivo fora do INSTALADO.json (${entrada.name})`, 'se ele saiu do catalogo, ork adapter install claude-code o tira da copia; ' +
+        `se foi editado ou acrescentado a mao, apague ${path.join(dir, entrada.name)}`);
+    }
+  }
+}
+
+/**
  * RM-059 (T0.7): os mods de papel `fase` da instalacao, lidos do recibo ja conferido e na ordem da D3:
  * a dependencia antes de quem depende, depois o nome. Declaracao ou manifesto invalidos recusam como
  * um byte divergente (D2): e instalacao corrompida, e o CI do catalogo ja reprova esse caso.
@@ -263,6 +285,7 @@ export function modsDeFaseInstalados(raiz: string, instalacao: string, arquivos:
     catch (e) { throw recusa((e as Error).message); }
     achados.push({ nome, dir: conferirPastaDoMod(raiz, instalacao, nome, arquivos), claudeCodeMinimo: declaracao.claudeCodeMinimo, dependencias });
   }
+  if (achados.length) conferirRaizDosMods(raiz, instalacao, arquivos);
   const porNome = new Map(achados.map((m) => [m.nome, m]));
   const ordem: ModDeFase[] = [];
   const feitos = new Set<string>(), abertos = new Set<string>();

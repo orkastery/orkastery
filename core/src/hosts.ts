@@ -639,8 +639,9 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
 
 /**
  * RM-059 (T0.7, A1 do CHECK): os arquivos de `mods/` do recibo anterior que nao estao mais no catalogo e que a
- * copia guarda como foram instalados (sha256 do recibo). Arquivo editado, link ou caminho fora do destino fica:
- * o despacho continua recusando o mod com o motivo, e a decisao e de quem editou.
+ * copia guarda como foram instalados (sha256 do recibo), os de cada mod e os comuns da raiz de `mods/` (N2 da
+ * rodada 2). Arquivo editado, link ou caminho fora do destino fica: o despacho continua recusando com o motivo,
+ * e a decisao e de quem editou.
  */
 function sobrasDeMods(destino: string, recibo: ReciboDeInstalacao | null, arquivos: ArquivoInstalado[]): string[] {
   if (!recibo) return [];
@@ -649,7 +650,7 @@ function sobrasDeMods(destino: string, recibo: ReciboDeInstalacao | null, arquiv
   try { base = fs.realpathSync(destino); } catch { return []; }
   return recibo.arquivos.flatMap((a) => {
     const rel = typeof a.arquivo === 'string' ? a.arquivo : '';
-    if (!/^mods\/[^/]+\/./.test(rel) || novos.has(rel) || path.isAbsolute(rel) || rel.split('/').includes('..')) return [];
+    if (!/^mods\/[^/]+(?:$|\/.)/.test(rel) || novos.has(rel) || path.isAbsolute(rel) || rel.split('/').includes('..')) return [];
     const alvo = path.join(destino, rel);
     const st = fs.lstatSync(alvo, { throwIfNoEntry: false });
     if (!st || !st.isFile() || st.nlink !== 1) return [];
