@@ -2483,73 +2483,64 @@ function comandoDaBatida(carregado: ManifestoCarregado, args: Args): number {
  */
 function comandoNetwork(args: Args): number {
   const sub = args.posicionais[1];
-  // RM-054: `network roadmap` tem o proprio --projeto e o proprio uso.
+  // RM-054: `network roadmap` tem o proprio --projeto e o proprio uso (e segue em pt-BR, G6 da RM-061 F3b).
   if (sub === 'roadmap') return comandoNetworkRoadmap(args);
   const diretorio = process.cwd();
-  const uso = 'uso: ork network [status] [--json] [--sem-remoto] | network entrar [--maquina NOME] [--forja github|gitlab] ' +
-    '[--repositorio [DONO/]NOME] [--forcar] | network publicar [--forcar] [--json] | network sair | ' +
-    'network roadmap [--projeto P] [--json] [--sem-remoto]';
+  // RM-061 (F3b, D3): o texto pelo catalogo; o que se grava (adesao, retrato, casa) roda no escopo pt-BR, e o nome da
+  // maquina, a casa, a forja e o commit saem como vieram.
+  const mn = msg().network;
   const forja = texto(args.opcoes.forja), repositorio = texto(args.opcoes.repositorio);
   if ((args.opcoes.forja !== undefined && !ehNomeDeForja(forja)) || args.opcoes.repositorio === true ||
       (repositorio !== undefined && !/^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/)?[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repositorio))) {
-    console.error(uso);
+    console.error(mn.uso);
     return 2;
   }
   if (sub === 'entrar') {
-    const r = entrarNaRede({ maquina: texto(args.opcoes.maquina), forja: ehNomeDeForja(forja) ? forja : undefined, repositorio, diretorio,
-      tomarNome: args.opcoes.forcar === true });
-    console.log(`Rede: ${r.publicacao.maquina} entrou na Orkastery Network de ${r.casa.dono} (${r.casa.forja}: ${refDaCasa(r.casa)}, ` +
-      `privado${r.criado ? ', criado agora' : ''}).`);
-    console.log(`  Primeiro retrato publicado (${r.publicacao.commit?.slice(0, 7)}). Depois, esta maquina publica sozinha na batida do pulse`);
-    if (r.publicacao.tomouNome) console.log(`  Tomou o nome "${r.publicacao.maquina}" de outra instalacao; o commit registra.`);
-    console.log('  e ao criar thread, despachar fase, entregar e fechar. De qualquer maquina desta pessoa: ork network status');
-    for (const d of r.publicacao.descartados) {
-      console.log(`  AVISO: um projeto ficou fora do retrato: padrao "${d.padrao}" em ${d.campo} (valor omitido de proposito).`);
-    }
+    const r = comLocale('pt-BR', () => entrarNaRede({ maquina: texto(args.opcoes.maquina), forja: ehNomeDeForja(forja) ? forja : undefined,
+      repositorio, diretorio, tomarNome: args.opcoes.forcar === true }));
+    console.log(mn.entrou(r.publicacao.maquina, r.casa.dono, r.casa.forja, refDaCasa(r.casa), r.criado));
+    console.log(mn.primeiroRetrato(String(r.publicacao.commit?.slice(0, 7))));
+    if (r.publicacao.tomouNome) console.log(mn.tomouNome(r.publicacao.maquina));
+    console.log(mn.eAoCriar);
+    for (const d of r.publicacao.descartados) console.log(mn.avisoDescartado(d.padrao, d.campo));
     if (process.env.ORK_MAQUINA && process.env.ORK_MAQUINA.trim() !== r.publicacao.maquina) {
-      console.log(`  AVISO: ORK_MAQUINA=${process.env.ORK_MAQUINA} neste shell vence o nome gravado; alinhe os dois.`);
+      console.log(mn.avisoOrkMaquina(process.env.ORK_MAQUINA));
     }
     return 0;
   }
   if (sub === 'sair') {
-    const r = sairDaRede({ forja: ehNomeDeForja(forja) ? forja : undefined, repositorio });
-    console.log(`Rede: ${r.maquina} saiu; nada mais e publicado daqui.` + (r.commit
-      ? ` Retrato removido de ${r.casa} (${r.commit.slice(0, 7)}).`
-      : r.alheio
-        ? ` O retrato "${r.maquina}" em ${r.casa} e de outra instalacao com o mesmo nome; nada foi removido.` +
-          (r.mesmoHostname ? ' Ele tem o hostname desta maquina: se ~/.orkastery foi apagada, retome o nome com ork network entrar --forcar.' : '')
-        : ` Nao havia retrato desta maquina${r.casa ? ` em ${r.casa}` : ' numa casa alcancavel'}.`));
-    if (lerConfigDaMaquina()?.fabricaCompartilhada) {
-      console.log('  A fabrica compartilhada dos projetos continua publicando daqui (ork/fabrica-estado); ork fabrica sair em cada um para parar.');
-    }
+    const r = comLocale('pt-BR', () => sairDaRede({ forja: ehNomeDeForja(forja) ? forja : undefined, repositorio }));
+    console.log(mn.saiu(r.maquina, r.commit ? mn.retratoRemovido(r.casa, r.commit.slice(0, 7))
+      : r.alheio ? mn.retratoDeOutraInstalacao(r.maquina, r.casa, r.mesmoHostname === true)
+        : mn.semRetrato(r.casa)));
+    if (lerConfigDaMaquina()?.fabricaCompartilhada) console.log(mn.fabricaContinua);
     return 0;
   }
   if (sub === 'publicar') {
     if (args.opcoes.silencioso === true) {
       // O filho do evento de thread: quem disparou ja tomou a vez (teto de 14 min) e nao espera.
-      try { registrarNaRede({ ...publicarRede({ diretorio }), origem: 'evento' }); return 0; }
-      catch (e) { registrarNaRede({ acao: 'falhou', origem: 'evento', erro: (e as Error).message }); return 1; }
+      // RM-061 (F3b): o rede.log guarda o que aconteceu em pt-BR, com qualquer lingua no ambiente.
+      try { comLocale('pt-BR', () => registrarNaRede({ ...publicarRede({ diretorio }), origem: 'evento' })); return 0; }
+      catch (e) { comLocale('pt-BR', () => registrarNaRede({ acao: 'falhou', origem: 'evento', erro: (e as Error).message })); return 1; }
     }
-    const r = publicarRede({ diretorio, forcar: args.opcoes.forcar === true, forja: ehNomeDeForja(forja) ? forja : undefined, repositorio });
+    const r = comLocale('pt-BR', () => publicarRede({ diretorio, forcar: args.opcoes.forcar === true,
+      forja: ehNomeDeForja(forja) ? forja : undefined, repositorio }));
     if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
-    else console.log(r.acao === 'publicou'
-      ? `Rede: ${r.maquina} publicou o retrato em ${r.casa} (${r.commit?.slice(0, 7)}, ${r.tentativas} tentativa(s)).`
-      : r.acao === 'ocupado'
-        ? 'Rede: outra publicacao desta maquina esta em andamento; tente de novo em instantes.'
-        : `Rede: retrato de ${r.maquina} igual ao ultimo publicado em ${r.casa}; nada a enviar (use --forcar para publicar mesmo assim).`);
+    else console.log(r.acao === 'publicou' ? mn.publicou(r.maquina, r.casa, r.commit?.slice(0, 7), r.tentativas)
+      : r.acao === 'ocupado' ? mn.ocupado : mn.igual(r.maquina, r.casa));
     if (args.opcoes.json !== true) {
-      for (const d of r.descartados) console.log(`  AVISO: um projeto ficou fora do retrato: padrao "${d.padrao}" em ${d.campo} (valor omitido de proposito).`);
+      for (const d of r.descartados) console.log(mn.avisoDescartado(d.padrao, d.campo));
     }
     return 0;
   }
   if (sub !== undefined && sub !== 'status') {
-    console.error(`subcomando desconhecido: network ${sub}`);
-    console.error(uso);
+    console.error(msg().cli.subcomandoDesconhecido('network', sub));
+    console.error(mn.uso);
     return 2;
   }
   // RM-054 (fatia 3): o host sem cwd de projeto (RM-052, D3) nao faz do diretorio do gateway um projeto lido.
   const doHost = (process.env[ENV_PROJETO_EXPLICITO] ?? '').trim() === '1';
-  const status = lerRede({ semRemoto: args.opcoes['sem-remoto'] === true, diretorio: doHost ? null : diretorio });
+  const status = comLocale('pt-BR', () => lerRede({ semRemoto: args.opcoes['sem-remoto'] === true, diretorio: doHost ? null : diretorio }));
   console.log(args.opcoes.json === true ? jsonDaRede(status) : textoDaRede(status));
   return 0;
 }

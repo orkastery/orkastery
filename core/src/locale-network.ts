@@ -1,0 +1,252 @@
+/**
+ * RM-061, fatia F3b: a familia `network` do catalogo de mensagens (`ork network status|entrar|sair|publicar` e o uso),
+ * o texto do status da rede, as lacunas que a leitura devolve e as recusas da rede (`rede.ts`, `rede-adesao.ts`,
+ * `rede-forja.ts`). O pt-BR e a fonte; o ingles e tipado por ele. Sem import do nucleo.
+ *
+ * O detalhe de cada lacuna vai ao `--json` e nasce em pt-BR no escopo da leitura (`textoDoCatalogo`); so a impressao o
+ * remonta. O nome da maquina, a casa, a forja, o login, a versao e o motivo tipado (`rede.sem-leitura`) sao dado e
+ * saem iguais. O retrato publicado, a mensagem de commit e o indice da casa nao mudam com a lingua. `ork network
+ * roadmap` segue em pt-BR (G6): o texto dele e contrato com os hosts e com a prova de ativacao.
+ */
+
+const NAO_CONSULTADO_EN: Readonly<Record<string, string>> = { roadmap: 'roadmap', reservas: 'reservations', threads: 'threads' };
+
+export const NETWORK_PT_BR = {
+  // ork network status
+  cabecalhoComCasa: (dono: string, forja: string, ref: string, estado: string) => `Orkastery Network de ${dono} · ${forja}: ${ref} · ${estado}`,
+  casaLidaAgora: 'lida agora',
+  casaUltimaCopia: 'última cópia local',
+  casaNaoLida: 'não lida',
+  semCasa: 'Orkastery Network · sem casa: nenhuma forja com login nesta máquina',
+  repositorioDaRede: (ponta: string | null) => `repositório da rede (${ponta ?? 'vazio'})`,
+  fabricaDe: (projeto: string, ref: string, atualizado: boolean) => `fábrica de ${projeto} (${ref}, ${atualizado ? 'lida agora' : 'última cópia'})`,
+  consultado: (lista: string | null) => `Consultado: ${lista ?? 'nada (veja as lacunas)'}.`,
+  naoConsultado: (lista: string) => `Não consultado: ${lista}. O roadmap de um projeto sai do ork roadmap status nele.`,
+  /** O que a leitura nao olha (dado do `--json`), como o texto o mostra. */
+  itemNaoConsultado: (item: string) => item,
+  nenhumaMaquina: 'Nenhuma máquina lida. Isso não quer dizer que não há máquinas: veja as lacunas.',
+  outraInstalacao: ' (outra instalação com o nome desta máquina)',
+  estaMaquina: ' (esta máquina)',
+  origemRede: (herdada: boolean) => `rede${herdada ? ', adesão herdada da fábrica' : ''}`,
+  origemFabrica: (projetos: string) => `vista só na fábrica de ${projetos}; sem retrato na rede`,
+  membro: (maquina: string, esta: string, origem: string, batida: string, idade: string) =>
+    `${maquina}${esta} · ${origem} · batida ${batida} (há ${idade})`,
+  fichaHostname: (hostname: string) => `hostname ${hostname}`,
+  fichaOrk: (versao: string) => `ork ${versao}`,
+  fichaForja: (forja: string, usuario: string | null) => `${forja}: ${usuario ?? 'sem login'}`,
+  fichaPessoa: (pessoa: string) => `pessoa ${pessoa}`,
+  runtimes: (lista: string) => `  runtimes: ${lista}`,
+  hosts: (lista: string) => `  hosts: ${lista}`,
+  hostAdaptador: (adaptador: string) => ` (adaptador ${adaptador})`,
+  projetos: (lista: string) => `  projetos: ${lista}`,
+  projetoEm: (caminho: string) => ` em ${caminho}`,
+  estaEMembro: (maquina: string, herdado: boolean, publicada: boolean) => `Esta máquina (${maquina}) é membro` +
+    `${herdado ? ', herdado da fábrica' : ''}${publicada ? '.' : '; o retrato dela ainda não está na casa.'}`,
+  foraDaRedeLinha: (maquina: string) => `Esta máquina (${maquina}) não está na rede: ork network entrar.`,
+  semLacunas: 'Lacunas: nenhuma.',
+  lacunas: (n: number) => `Lacunas (${n}), o que faltou ler:`,
+  lacuna: (tipo: string, detalhe: string) => `  • ${tipo}: ${detalhe}`,
+  // As lacunas que a leitura devolve (o detalhe vai ao `--json` em pt-BR).
+  semRedeSemCasa: 'sem rede e sem casa conhecida nesta maquina: rode sem --sem-remoto',
+  casaNaoExiste: (ref: string) => `${ref} ainda nao existe: nenhuma maquina rodou ork network entrar`,
+  casaPublica: (ref: string) => `${ref} nao e privado: nenhuma maquina publica nele`,
+  casaSemHttps: (ref: string) => `${ref}: a forja devolveu uma URL sem https; a rede so fala por https (vale a ultima copia local, quando ha)`,
+  comErro: (ref: string, erro: string) => `${ref}: ${erro}`,
+  semLeituraNova: (ref: string, temCopia: boolean) =>
+    `${ref} sem leitura nova: ${temCopia ? 'mostrando a ultima copia local' : 'nenhuma copia local'}`,
+  nuncaLida: (ref: string) => `${ref} nunca foi lida nesta maquina`,
+  semClone: (nome: string, caminho: string) => `${nome}: ${caminho} nao tem mais o projeto nesta maquina`,
+  remotoInvalido: (nome: string, remoto: string) => `${nome}: fabrica.remoto ${remoto} nao e nome de remoto do git; nada foi lido pelo git`,
+  semRemoto: (nome: string, remoto: string) => `${nome}: sem o remoto ${remoto}, nao ha fabrica compartilhada para ler`,
+  fabricaSemLeituraNova: (nome: string, branch: string) => `${nome}: ${branch} sem leitura nova; usei a ultima copia local`,
+  nomeEmUsoNaCasa: (maquina: string) => `o retrato "${maquina}" na casa e de outra instalacao: esta maquina nao ` +
+    'publica ate trocar de nome (ork network entrar --maquina NOME) ou retomar este (ork network entrar --forcar)',
+  batidaIlegivel: (maquina: string) => `${maquina}: batida ilegivel`,
+  semBatidaHa: (maquina: string, idade: string) => `${maquina}: sem batida ha ${idade}`,
+  // A casa (resolverCasa) e a forja.
+  cliAusente: (forja: string) => `a CLI da forja ${forja} nao esta nesta maquina`,
+  nenhumaCli: 'nenhuma CLI de forja (gh ou glab) nesta maquina',
+  loginNaoLido: (falhas: string) => `${falhas}; o login nao foi lido, rode de novo com a forja respondendo`,
+  semLogin: (clis: readonly string[]) => `${clis.join(' e ')} sem login nesta maquina (${clis.map((c) => `${c} auth login`).join(' ou ')})`,
+  respostaSemLogin: (cli: string) => `${cli} api user devolveu uma resposta sem login legivel`,
+  semRespostaNoPrazo: 'sem resposta da forja no prazo',
+  apiFalhou: (cli: string, rota: string, linha: string) => `rede.forja: ${cli} api ${rota} falhou${linha ? `: ${linha}` : ''}`,
+  repositorioIlegivel: 'rede.forja: gh devolveu um repositorio ilegivel',
+  projetoIlegivel: 'rede.forja: glab devolveu um projeto ilegivel',
+  // As recusas da rede (rede.ts e rede-adesao.ts).
+  foraDoContrato: (onde: string) => `rede.segredo: ${onde} fora do contrato; nada foi publicado`,
+  campoForaDaLista: (campo: string) => `rede.segredo: campo "${campo}" fora da lista de permissao; nada foi publicado`,
+  campoLongo: (campo: string) => `rede.segredo: campo "${campo}" longo demais; nada foi publicado`,
+  contratoDoRetrato: 'rede.contrato: o retrato desta maquina nao passa no contrato ork.rede-maquina/v1; nada foi publicado',
+  segredoNoRetrato: (padrao: string, onde: string) => `rede.segredo: padrao "${padrao}" em ${onde}; nada foi publicado (valor omitido de proposito)`,
+  retratoAlheio: (maquina: string, caminho: string, proprio: string) =>
+    `rede.retrato-alheio: ${maquina} tentou gravar ${caminho}; cada maquina so escreve ${proprio}`,
+  semForja: (detalhe: string | null) => `rede.sem-forja: ${detalhe ?? 'nenhuma forja utilizavel'}`,
+  semRepositorio: (ref: string) => `rede.sem-repositorio: ${ref} ainda nao existe; ork network entrar o cria, privado`,
+  repositorioAlheio: (ref: string, login: string | null) =>
+    `rede.repositorio-alheio: ${ref} nao existe e nao e do login ${login}; crie o repositorio privado na forja e rode de novo`,
+  repositorioPublico: (ref: string) => `rede.repositorio-publico: ${ref} nao e privado; nada foi publicado`,
+  semUrl: (cli: string, ref: string) => `rede.forja: ${cli} nao devolveu a URL de ${ref}`,
+  semHttps: (cli: string, ref: string) =>
+    `rede.sem-https: ${cli} devolveu para ${ref} uma URL sem https; a rede so fala com a forja por https, e nada foi publicado`,
+  saiuDaRede: 'rede.fora: esta maquina saiu da rede; nada foi publicado',
+  semLeitura: (ref: string) => `rede.sem-leitura: nao consegui ler ${ref}; publicar exige rede`,
+  nomeEmUso: (maquina: string, quem: string, dica: string) => `rede.nome-em-uso: outra instalacao ja publica como "${maquina}"${quem}${dica}`,
+  quemHostname: (hostname: string, batida: string) => ` (hostname ${hostname}, batida ${batida})`,
+  quemIlegivel: ' (num retrato que esta versao nao le)',
+  dicaMesmoHostname: '; o retrato tem o hostname desta maquina: se for ela mesma, com ~/.orkastery apagada ou copiada, retome o nome com ' +
+    'ork network entrar --forcar; se for outra maquina ou instalacao com o mesmo hostname, escolha outro nome com --maquina NOME',
+  dicaOutroNome: '; escolha outro nome com ork network entrar --maquina NOME, ou tome este com --forcar',
+  concorrencia: (n: number) => `rede.concorrencia: ${n} pushes recusados seguidos; tente de novo em instantes`,
+  foraDaRede: 'rede.fora: esta maquina nao esta na rede; ork network entrar',
+  nomeInvalido: (maquina: string) =>
+    `rede.maquina: nome de maquina invalido ("${maquina}"); use ork network entrar --maquina NOME (letras, numeros, ponto, _ ou -)`,
+  ocupadoAoEntrar: (trava: string) =>
+    `rede.ocupado: outra publicacao desta maquina esta em andamento (${trava}); rode ork network entrar de novo em instantes`,
+  semHttpsAoSair: (cli: string, ref: string) =>
+    `rede.sem-https: saiu da rede aqui, mas ${cli} devolveu para ${ref} uma URL sem https; o retrato fica na casa`,
+  ocupadoAoSair: (trava: string) =>
+    `rede.ocupado: saiu da rede aqui, mas outra publicacao desta maquina segura a casa (${trava}); rode ork network sair de novo`,
+  semLeituraAoSair: (ref: string) =>
+    `rede.sem-leitura: saiu da rede aqui, mas nao consegui ler ${ref} para tirar o retrato; rode ork network sair de novo com rede`,
+  hostInvalido: (host: string | null) => `rede.config: host invalido ("${host}")`,
+  campoInvalido: (campo: string, valor: string) => `rede.config: ${campo} invalido ("${valor}")`,
+  idNaoGravou: (arquivo: string) => `rede.id: nao consegui gravar nem ler ${arquivo}`,
+  idNaoArquivo: (arquivo: string) => `rede.id: ${arquivo} nao e um arquivo; apague-o e rode de novo`,
+  // O CLI
+  uso: 'uso: ork network [status] [--json] [--sem-remoto] | network entrar [--maquina NOME] [--forja github|gitlab] ' +
+    '[--repositorio [DONO/]NOME] [--forcar] | network publicar [--forcar] [--json] | network sair | ' +
+    'network roadmap [--projeto P] [--json] [--sem-remoto]',
+  entrou: (maquina: string, dono: string, forja: string, ref: string, criado: boolean) =>
+    `Rede: ${maquina} entrou na Orkastery Network de ${dono} (${forja}: ${ref}, privado${criado ? ', criado agora' : ''}).`,
+  primeiroRetrato: (commit: string) => `  Primeiro retrato publicado (${commit}). Depois, esta maquina publica sozinha na batida do pulse`,
+  tomouNome: (maquina: string) => `  Tomou o nome "${maquina}" de outra instalacao; o commit registra.`,
+  eAoCriar: '  e ao criar thread, despachar fase, entregar e fechar. De qualquer maquina desta pessoa: ork network status',
+  avisoDescartado: (padrao: string, campo: string) =>
+    `  AVISO: um projeto ficou fora do retrato: padrao "${padrao}" em ${campo} (valor omitido de proposito).`,
+  avisoOrkMaquina: (valor: string) => `  AVISO: ORK_MAQUINA=${valor} neste shell vence o nome gravado; alinhe os dois.`,
+  saiu: (maquina: string, resto: string) => `Rede: ${maquina} saiu; nada mais e publicado daqui.${resto}`,
+  retratoRemovido: (casa: string | null, commit: string) => ` Retrato removido de ${casa} (${commit}).`,
+  retratoDeOutraInstalacao: (maquina: string, casa: string | null, mesmoHostname: boolean) =>
+    ` O retrato "${maquina}" em ${casa} e de outra instalacao com o mesmo nome; nada foi removido.` +
+    (mesmoHostname ? ' Ele tem o hostname desta maquina: se ~/.orkastery foi apagada, retome o nome com ork network entrar --forcar.' : ''),
+  semRetrato: (casa: string | null) => ` Nao havia retrato desta maquina${casa ? ` em ${casa}` : ' numa casa alcancavel'}.`,
+  fabricaContinua: '  A fabrica compartilhada dos projetos continua publicando daqui (ork/fabrica-estado); ork fabrica sair em cada um para parar.',
+  publicou: (maquina: string, casa: string | null, commit: string | undefined, tentativas: number) =>
+    `Rede: ${maquina} publicou o retrato em ${casa} (${commit}, ${tentativas} tentativa(s)).`,
+  ocupado: 'Rede: outra publicacao desta maquina esta em andamento; tente de novo em instantes.',
+  igual: (maquina: string, casa: string | null) =>
+    `Rede: retrato de ${maquina} igual ao ultimo publicado em ${casa}; nada a enviar (use --forcar para publicar mesmo assim).`,
+};
+
+export type MensagensDeNetwork = typeof NETWORK_PT_BR;
+
+export const NETWORK_EN: MensagensDeNetwork = {
+  cabecalhoComCasa: (dono, forja, ref, estado) => `Orkastery Network of ${dono} · ${forja}: ${ref} · ${estado}`,
+  casaLidaAgora: 'read now',
+  casaUltimaCopia: 'last local copy',
+  casaNaoLida: 'not read',
+  semCasa: 'Orkastery Network · no home: no forge with a login on this machine',
+  repositorioDaRede: (ponta) => `network repository (${ponta ?? 'empty'})`,
+  fabricaDe: (projeto, ref, atualizado) => `factory of ${projeto} (${ref}, ${atualizado ? 'read now' : 'last copy'})`,
+  consultado: (lista) => `Queried: ${lista ?? 'nothing (see the gaps)'}.`,
+  naoConsultado: (lista) => `Not queried: ${lista}. The roadmap of a project comes from \`ork roadmap status\` in it.`,
+  itemNaoConsultado: (item) => NAO_CONSULTADO_EN[item] ?? item,
+  nenhumaMaquina: 'No machine read. That does not mean there are no machines: see the gaps.',
+  outraInstalacao: ' (another installation with this machine\'s name)',
+  estaMaquina: ' (this machine)',
+  origemRede: (herdada) => `network${herdada ? ', membership inherited from the factory' : ''}`,
+  origemFabrica: (projetos) => `seen only in the factory of ${projetos}; no snapshot in the network`,
+  membro: (maquina, esta, origem, batida, idade) => `${maquina}${esta} · ${origem} · heartbeat ${batida} (${idade} ago)`,
+  fichaHostname: (hostname) => `hostname ${hostname}`,
+  fichaOrk: (versao) => `ork ${versao}`,
+  fichaForja: (forja, usuario) => `${forja}: ${usuario ?? 'no login'}`,
+  fichaPessoa: (pessoa) => `person ${pessoa}`,
+  runtimes: (lista) => `  runtimes: ${lista}`,
+  hosts: (lista) => `  hosts: ${lista}`,
+  hostAdaptador: (adaptador) => ` (adapter ${adaptador})`,
+  projetos: (lista) => `  projects: ${lista}`,
+  projetoEm: (caminho) => ` in ${caminho}`,
+  estaEMembro: (maquina, herdado, publicada) => `This machine (${maquina}) is a member` +
+    `${herdado ? ', inherited from the factory' : ''}${publicada ? '.' : '; its snapshot is not in the home yet.'}`,
+  foraDaRedeLinha: (maquina) => `This machine (${maquina}) is not in the network: \`ork network entrar\`.`,
+  semLacunas: 'Gaps: none.',
+  lacunas: (n) => `Gaps (${n}), what was not read:`,
+  lacuna: (tipo, detalhe) => `  • ${tipo}: ${detalhe}`,
+  semRedeSemCasa: 'no network and no known home on this machine: run without `--sem-remoto`',
+  casaNaoExiste: (ref) => `${ref} does not exist yet: no machine has run \`ork network entrar\``,
+  casaPublica: (ref) => `${ref} is not private: no machine publishes to it`,
+  casaSemHttps: (ref) => `${ref}: the forge returned a URL without https; the network only talks over https (the last local copy counts, when there is one)`,
+  comErro: (ref, erro) => `${ref}: ${erro}`,
+  semLeituraNova: (ref, temCopia) => `${ref} not read again: ${temCopia ? 'showing the last local copy' : 'no local copy'}`,
+  nuncaLida: (ref) => `${ref} was never read on this machine`,
+  semClone: (nome, caminho) => `${nome}: ${caminho} no longer has the project on this machine`,
+  remotoInvalido: (nome, remoto) => `${nome}: \`fabrica.remoto\` ${remoto} is not a git remote name; git read nothing`,
+  semRemoto: (nome, remoto) => `${nome}: without the remote ${remoto}, there is no shared factory to read`,
+  fabricaSemLeituraNova: (nome, branch) => `${nome}: ${branch} not read again; used the last local copy`,
+  nomeEmUsoNaCasa: (maquina) => `the snapshot "${maquina}" in the home belongs to another installation: this machine does not ` +
+    'publish until it changes its name (`ork network entrar --maquina NAME`) or takes this one back (`ork network entrar --forcar`)',
+  batidaIlegivel: (maquina) => `${maquina}: unreadable heartbeat`,
+  semBatidaHa: (maquina, idade) => `${maquina}: no heartbeat for ${idade}`,
+  cliAusente: (forja) => `the ${forja} forge CLI is not on this machine`,
+  nenhumaCli: 'no forge CLI (gh or glab) on this machine',
+  loginNaoLido: (falhas) => `${falhas}; the login was not read, run again with the forge responding`,
+  semLogin: (clis) => `${clis.join(' and ')} without a login on this machine (${clis.map((c) => `\`${c} auth login\``).join(' or ')})`,
+  respostaSemLogin: (cli) => `${cli} api user returned a response without a readable login`,
+  semRespostaNoPrazo: 'no answer from the forge in time',
+  apiFalhou: (cli, rota, linha) => `rede.forja: ${cli} api ${rota} failed${linha ? `: ${linha}` : ''}`,
+  repositorioIlegivel: 'rede.forja: gh returned an unreadable repository',
+  projetoIlegivel: 'rede.forja: glab returned an unreadable project',
+  foraDoContrato: (onde) => `rede.segredo: ${onde} is outside the contract; nothing was published`,
+  campoForaDaLista: (campo) => `rede.segredo: field "${campo}" is not on the allow list; nothing was published`,
+  campoLongo: (campo) => `rede.segredo: field "${campo}" is too long; nothing was published`,
+  contratoDoRetrato: 'rede.contrato: this machine\'s snapshot does not pass the ork.rede-maquina/v1 contract; nothing was published',
+  segredoNoRetrato: (padrao, onde) => `rede.segredo: pattern "${padrao}" in ${onde}; nothing was published (value left out on purpose)`,
+  retratoAlheio: (maquina, caminho, proprio) => `rede.retrato-alheio: ${maquina} tried to write ${caminho}; each machine only writes ${proprio}`,
+  semForja: (detalhe) => `rede.sem-forja: ${detalhe ?? 'no usable forge'}`,
+  semRepositorio: (ref) => `rede.sem-repositorio: ${ref} does not exist yet; \`ork network entrar\` creates it, private`,
+  repositorioAlheio: (ref, login) =>
+    `rede.repositorio-alheio: ${ref} does not exist and does not belong to the login ${login}; create the private repository on the forge and run again`,
+  repositorioPublico: (ref) => `rede.repositorio-publico: ${ref} is not private; nothing was published`,
+  semUrl: (cli, ref) => `rede.forja: ${cli} did not return the URL of ${ref}`,
+  semHttps: (cli, ref) => `rede.sem-https: ${cli} returned a URL without https for ${ref}; the network only talks to the forge over https, and nothing was published`,
+  saiuDaRede: 'rede.fora: this machine left the network; nothing was published',
+  semLeitura: (ref) => `rede.sem-leitura: could not read ${ref}; publishing needs the network`,
+  nomeEmUso: (maquina, quem, dica) => `rede.nome-em-uso: another installation already publishes as "${maquina}"${quem}${dica}`,
+  quemHostname: (hostname, batida) => ` (hostname ${hostname}, heartbeat ${batida})`,
+  quemIlegivel: ' (in a snapshot this version does not read)',
+  dicaMesmoHostname: '; the snapshot has this machine\'s hostname: if it is this machine, with ~/.orkastery deleted or copied, take the name back with ' +
+    '`ork network entrar --forcar`; if it is another machine or installation with the same hostname, pick another name with `--maquina NAME`',
+  dicaOutroNome: '; pick another name with `ork network entrar --maquina NAME`, or take this one with `--forcar`',
+  concorrencia: (n) => `rede.concorrencia: ${n} pushes refused in a row; try again in a moment`,
+  foraDaRede: 'rede.fora: this machine is not in the network; `ork network entrar`',
+  nomeInvalido: (maquina) => `rede.maquina: invalid machine name ("${maquina}"); use \`ork network entrar --maquina NAME\` (letters, digits, dot, _ or -)`,
+  ocupadoAoEntrar: (trava) => `rede.ocupado: another publication from this machine is in progress (${trava}); run \`ork network entrar\` again in a moment`,
+  semHttpsAoSair: (cli, ref) => `rede.sem-https: left the network here, but ${cli} returned a URL without https for ${ref}; the snapshot stays in the home`,
+  ocupadoAoSair: (trava) => `rede.ocupado: left the network here, but another publication from this machine holds the home (${trava}); run \`ork network sair\` again`,
+  semLeituraAoSair: (ref) => `rede.sem-leitura: left the network here, but could not read ${ref} to remove the snapshot; run \`ork network sair\` again with the network`,
+  hostInvalido: (host) => `rede.config: invalid host ("${host}")`,
+  campoInvalido: (campo, valor) => `rede.config: invalid ${campo} ("${valor}")`,
+  idNaoGravou: (arquivo) => `rede.id: could not write or read ${arquivo}`,
+  idNaoArquivo: (arquivo) => `rede.id: ${arquivo} is not a file; delete it and run again`,
+  uso: 'usage: ork network [status] [--json] [--sem-remoto] | network entrar [--maquina NAME] [--forja github|gitlab] ' +
+    '[--repositorio [OWNER/]NAME] [--forcar] | network publicar [--forcar] [--json] | network sair | ' +
+    'network roadmap [--projeto P] [--json] [--sem-remoto]',
+  entrou: (maquina, dono, forja, ref, criado) =>
+    `Network: ${maquina} joined the Orkastery Network of ${dono} (${forja}: ${ref}, private${criado ? ', created now' : ''}).`,
+  primeiroRetrato: (commit) => `  First snapshot published (${commit}). From now on, this machine publishes by itself on the pulse heartbeat`,
+  tomouNome: (maquina) => `  Took the name "${maquina}" from another installation; the commit records it.`,
+  eAoCriar: '  and when it creates a thread, dispatches a phase, delivers and closes. From any machine of this person: `ork network status`',
+  avisoDescartado: (padrao, campo) => `  WARNING: a project was left out of the snapshot: pattern "${padrao}" in ${campo} (value left out on purpose).`,
+  avisoOrkMaquina: (valor) => `  WARNING: ORK_MAQUINA=${valor} in this shell wins over the recorded name; align the two.`,
+  saiu: (maquina, resto) => `Network: ${maquina} left; nothing else is published from here.${resto}`,
+  retratoRemovido: (casa, commit) => ` Snapshot removed from ${casa} (${commit}).`,
+  retratoDeOutraInstalacao: (maquina, casa, mesmoHostname) =>
+    ` The snapshot "${maquina}" in ${casa} belongs to another installation with the same name; nothing was removed.` +
+    (mesmoHostname ? ' It has this machine\'s hostname: if ~/.orkastery was deleted, take the name back with `ork network entrar --forcar`.' : ''),
+  semRetrato: (casa) => ` There was no snapshot of this machine${casa ? ` in ${casa}` : ' in a reachable home'}.`,
+  fabricaContinua: '  The shared factory of the projects keeps publishing from here (ork/fabrica-estado); run `ork fabrica sair` in each one to stop.',
+  publicou: (maquina, casa, commit, tentativas) => `Network: ${maquina} published the snapshot to ${casa} (${commit}, ${tentativas} attempt(s)).`,
+  ocupado: 'Network: another publication from this machine is in progress; try again in a moment.',
+  igual: (maquina, casa) => `Network: the snapshot of ${maquina} matches the last one published to ${casa}; nothing to send (use \`--forcar\` to publish anyway).`,
+};

@@ -32,6 +32,7 @@ import { AmbienteDaMaquina, acharBinario, comGitIsolado, Forja, forjaPorNome, fo
   versaoDoBinario } from './rede-forja';
 import { ehNomeDeProjeto, emUmaLinha, INVISIVEL, limparRemoto, projetosConhecidos } from './rede-projetos';
 import { VERSAO_DO_ORK } from './versao';
+import { ErroDoCatalogo, montadorDe, textoDoCatalogo } from './locale';
 
 export const CONTRATO_DO_RETRATO = 'ork.rede-maquina/v1' as const;
 export const BRANCH_DA_REDE = 'main';
@@ -136,14 +137,14 @@ export function resolverCasa(opcoes: OpcoesDaCasa = {}): CasaResolvida {
     // B9: a forja da casa e a do host gravado (GitLab proprio), nao a do ambiente de quem chamou.
     const forja = forjaPorNome(config.forja, amb, config.host);
     return { casa: { forja: config.forja, host: config.host, dono: config.dono, repositorio: config.repositorio, origem: 'rede.json' },
-      forja, identidades, motivo: forja ? null : { tipo: 'forja.ausente', detalhe: `a CLI da forja ${config.forja} nao esta nesta maquina` } };
+      forja, identidades, motivo: forja ? null : { tipo: 'forja.ausente', detalhe: textoDoCatalogo((m) => m.network.cliAusente(config.forja as string)) } };
   }
   // A forja gravada vale com o host gravado (GitLab proprio), mesmo quando so o repositorio muda.
   const daCasaGravada = nomeDaForja && config?.forja === nomeDaForja && config.host ? forjaPorNome(nomeDaForja, amb, config.host) : null;
   const candidatas = daCasaGravada ? [daCasaGravada] : nomeDaForja ? forjas.filter((f) => f.nome === nomeDaForja) : forjas;
   if (candidatas.length === 0) {
     return { casa: null, forja: null, identidades, motivo: { tipo: 'forja.ausente',
-      detalhe: nomeDaForja ? `a CLI da forja ${nomeDaForja} nao esta nesta maquina` : 'nenhuma CLI de forja (gh ou glab) nesta maquina' } };
+      detalhe: textoDoCatalogo((m) => nomeDaForja ? m.network.cliAusente(nomeDaForja) : m.network.nenhumaCli) } };
   }
   const falhas: string[] = [];
   for (const forja of candidatas) {
@@ -157,11 +158,13 @@ export function resolverCasa(opcoes: OpcoesDaCasa = {}): CasaResolvida {
   // Suspeitas da revisao de 03/10: prazo, erro da forja ou falta de rede no `gh api user` nao e falta de
   // login; mandar a pessoa ao `gh auth login` esconderia o motivo de verdade.
   if (falhas.length) {
+    // RM-061 (F3b): o montador de cada falha e guardado agora; o detalhe pode virar erro remontado depois.
+    const montarFalhas = falhas.map(montadorDe);
     return { casa: null, forja: null, identidades, motivo: { tipo: 'rede.sem-leitura',
-      detalhe: `${falhas.join('; ')}; o login nao foi lido, rode de novo com a forja respondendo` } };
+      detalhe: textoDoCatalogo((m) => m.network.loginNaoLido(montarFalhas.map((f) => f(m)).join('; '))) } };
   }
   return { casa: null, forja: null, identidades, motivo: { tipo: 'forja.sem-login',
-    detalhe: `${candidatas.map((f) => f.cli).join(' e ')} sem login nesta maquina (${candidatas.map((f) => `${f.cli} auth login`).join(' ou ')})` } };
+    detalhe: textoDoCatalogo((m) => m.network.semLogin(candidatas.map((f) => f.cli))) } };
 }
 
 // ---------------------------------------------------------------------------
@@ -314,10 +317,10 @@ const CAMPOS: Record<string, readonly string[]> = {
 };
 
 function exigirSoCampos(onde: string, v: unknown, permitidos: readonly string[]): void {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error(`rede.segredo: ${onde} fora do contrato; nada foi publicado`);
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ErroDoCatalogo((m) => m.network.foraDoContrato(onde));
   for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
-    if (!permitidos.includes(k)) throw new Error(`rede.segredo: campo "${onde}.${k}" fora da lista de permissao; nada foi publicado`);
-    if (x !== null && typeof x === 'string' && x.length > 1024) throw new Error(`rede.segredo: campo "${onde}.${k}" longo demais; nada foi publicado`);
+    if (!permitidos.includes(k)) throw new ErroDoCatalogo((m) => m.network.campoForaDaLista(`${onde}.${k}`));
+    if (x !== null && typeof x === 'string' && x.length > 1024) throw new ErroDoCatalogo((m) => m.network.campoLongo(`${onde}.${k}`));
   }
 }
 
@@ -328,13 +331,13 @@ function exigirSoCampos(onde: string, v: unknown, permitidos: readonly string[])
 export function exigirRetratoSeguro(r: RetratoDaMaquina): void {
   exigirSoCampos('retrato', r, CAMPOS.retrato);
   for (const lista of ['forjas', 'runtimes', 'hosts', 'projetos'] as const) {
-    if (!Array.isArray(r[lista])) throw new Error(`rede.segredo: ${lista} fora do contrato; nada foi publicado`);
+    if (!Array.isArray(r[lista])) throw new ErroDoCatalogo((m) => m.network.foraDoContrato(lista));
     r[lista].forEach((item, i) => exigirSoCampos(`${lista}[${i}]`, item, CAMPOS[lista]));
   }
   // S2 da revisao 2: o que o escritor publica, o leitor aceita; senao, ninguem ve esta maquina.
-  if (!normalizarRetrato(r)) throw new Error('rede.contrato: o retrato desta maquina nao passa no contrato ork.rede-maquina/v1; nada foi publicado');
+  if (!normalizarRetrato(r)) throw new ErroDoCatalogo((m) => m.network.contratoDoRetrato);
   const achado = segredoNoRetrato(r);
-  if (achado) throw new Error(`rede.segredo: padrao "${achado.padrao}" em ${achado.onde}; nada foi publicado (valor omitido de proposito)`);
+  if (achado) throw new ErroDoCatalogo((m) => m.network.segredoNoRetrato(achado.padrao, achado.onde));
 }
 
 /** O primeiro valor do retrato com cara de segredo: o padrao e o campo, nunca o valor. */
@@ -355,7 +358,8 @@ export function exigirSoOProprioRetrato(maquina: string, mudancas: readonly Muda
   const proprio = arquivoDoRetrato(maquina);
   for (const m of mudancas) {
     if (m.caminho !== proprio && m.caminho !== PAINEL_DA_REDE) {
-      throw new Error(`rede.retrato-alheio: ${maquina} tentou gravar ${m.caminho}; cada maquina so escreve ${proprio}`);
+      const caminho = m.caminho;
+      throw new ErroDoCatalogo((t) => t.network.retratoAlheio(maquina, caminho, proprio));
     }
   }
 }
@@ -603,22 +607,27 @@ interface CasaConferida { casa: CasaDaRede; forja: Forja; url: string; criado: b
 /** A casa com o repositorio conferido: existe e e privado (D3). `criar` so no `ork network entrar`. */
 function casaConferida(opcoes: OpcoesDaCasa & { criar?: boolean }): CasaConferida {
   const r = resolverCasa(opcoes);
-  if (!r.casa || !r.forja) throw new Error(`rede.sem-forja: ${r.motivo?.detalhe ?? 'nenhuma forja utilizavel'}`);
+  if (!r.casa || !r.forja) {
+    const detalhe = r.motivo ? montadorDe(r.motivo.detalhe) : null;
+    throw new ErroDoCatalogo((m) => m.network.semForja(detalhe === null ? null : detalhe(m)));
+  }
   let repo = r.forja.repositorio(r.casa.dono, r.casa.repositorio);
   let criado = false;
   if (!repo.existe) {
-    if (!opcoes.criar) throw new Error(`rede.sem-repositorio: ${refDaCasa(r.casa)} ainda nao existe; ork network entrar o cria, privado`);
+    const ref = refDaCasa(r.casa);
+    if (!opcoes.criar) throw new ErroDoCatalogo((m) => m.network.semRepositorio(ref));
     const login = (r.identidades.find((i) => i.forja === r.forja!.nome && i.host === r.forja!.host) ?? r.forja.identidade()).usuario;
     if (r.casa.dono !== login) {
-      throw new Error(`rede.repositorio-alheio: ${refDaCasa(r.casa)} nao existe e nao e do login ${login}; crie o repositorio privado na forja e rode de novo`);
+      throw new ErroDoCatalogo((m) => m.network.repositorioAlheio(ref, login));
     }
     repo = r.forja.criarPrivado(r.casa.repositorio, DESCRICAO);
     criado = true;
   }
-  if (repo.privado !== true) throw new Error(`rede.repositorio-publico: ${refDaCasa(r.casa)} nao e privado; nada foi publicado`);
-  if (!repo.url) throw new Error(`rede.forja: ${r.forja.cli} nao devolveu a URL de ${refDaCasa(r.casa)}`);
+  const refDaConferida = refDaCasa(r.casa), cli = r.forja.cli;
+  if (repo.privado !== true) throw new ErroDoCatalogo((m) => m.network.repositorioPublico(refDaConferida));
+  if (!repo.url) throw new ErroDoCatalogo((m) => m.network.semUrl(cli, refDaConferida));
   if (!urlDaCasaAceita(repo.url)) {
-    throw new Error(`rede.sem-https: ${r.forja.cli} devolveu para ${refDaCasa(r.casa)} uma URL sem https; a rede so fala com a forja por https, e nada foi publicado`);
+    throw new ErroDoCatalogo((m) => m.network.semHttps(cli, refDaConferida));
   }
   return { casa: r.casa, forja: r.forja, url: repo.url, criado, identidades: r.identidades };
 }
@@ -733,12 +742,12 @@ function gravarNaCasa(conferida: CasaConferida, retrato: RetratoDaMaquina, desca
   const trava = travarCasa(0);
   if (!trava.ok) return { acao: 'ocupado', maquina, casa: refDaCasa(casa), commit: null, tentativas: 0, descartados };
   try {
-    if (opcoes.exigirAdesao && !adesaoDaRede().membro) throw new Error('rede.fora: esta maquina saiu da rede; nada foi publicado');
+    if (opcoes.exigirAdesao && !adesaoDaRede().membro) throw new ErroDoCatalogo((m) => m.network.saiuDaRede);
     const cache = prepararCache(casa, url, forja.helperDeCredencial(), maquina);
     const assinatura = assinaturaDoRetrato(retrato);
     for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
       const { ponta, atualizado } = comGitIsolado(() => buscarBranch(cache, 'origin', BRANCH_DA_REDE, PREFIXO, 30000));
-      if (!atualizado) throw new Error(`rede.sem-leitura: nao consegui ler ${refDaCasa(casa)}; publicar exige rede`);
+      if (!atualizado) throw new ErroDoCatalogo((m) => m.network.semLeitura(refDaCasa(casa)));
       const { retratos } = retratosDaPonta(cache, ponta);
       const atual = retratos.find((r) => r.maquina === maquina);
       // U2: o arquivo que esta versao nao le ainda pode ser de outra instalacao (contrato mais novo).
@@ -746,12 +755,11 @@ function gravarNaCasa(conferida: CasaConferida, retrato: RetratoDaMaquina, desca
       const alheio = !!idDoOutro && idDoOutro !== retrato.id;
       if (alheio && !opcoes.tomarNome) {
         // U7 da revisao 3: o hostname igual sugere a propria maquina, mas duas VMs podem se chamar `ubuntu`.
-        const dica = atual?.hostname === hostnameSeguro()
-          ? '; o retrato tem o hostname desta maquina: se for ela mesma, com ~/.orkastery apagada ou copiada, retome o nome com ' +
-            'ork network entrar --forcar; se for outra maquina ou instalacao com o mesmo hostname, escolha outro nome com --maquina NOME'
-          : '; escolha outro nome com ork network entrar --maquina NOME, ou tome este com --forcar';
-        const quem = atual ? ` (hostname ${atual.hostname}, batida ${formatarDataHora(atual.publicadoEm)})` : ' (num retrato que esta versao nao le)';
-        throw new Error(`rede.nome-em-uso: outra instalacao ja publica como "${maquina}"${quem}${dica}`);
+        const mesmoHostname = atual?.hostname === hostnameSeguro();
+        const outro = atual ? { hostname: atual.hostname, publicadoEm: atual.publicadoEm } : null;
+        throw new ErroDoCatalogo((m) => m.network.nomeEmUso(maquina,
+          outro ? m.network.quemHostname(String(outro.hostname), formatarDataHora(outro.publicadoEm)) : m.network.quemIlegivel,
+          mesmoHostname ? m.network.dicaMesmoHostname : m.network.dicaOutroNome));
       }
       const mudancas: MudancaNaBranch[] = [
         { caminho: arquivoDoRetrato(maquina), conteudo: JSON.stringify(retrato, null, 2) + '\n' },
@@ -767,7 +775,7 @@ function gravarNaCasa(conferida: CasaConferida, retrato: RetratoDaMaquina, desca
         return { acao: 'publicou', maquina, casa: refDaCasa(casa), commit, tentativas: tentativa, descartados, ...(alheio ? { tomouNome: true as const } : {}) };
       }
     }
-    throw new Error(`rede.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
+    throw new ErroDoCatalogo((m) => m.network.concorrencia(TENTATIVAS));
   } finally { trava.liberar(); }
 }
 
@@ -778,7 +786,7 @@ function gravarNaCasa(conferida: CasaConferida, retrato: RetratoDaMaquina, desca
  */
 export function publicarRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaRede {
   const adesao = adesaoDaRede();
-  if (!adesao.membro) throw new Error('rede.fora: esta maquina nao esta na rede; ork network entrar');
+  if (!adesao.membro) throw new ErroDoCatalogo((m) => m.network.foraDaRede);
   const amb = opcoes.amb ?? {};
   const maquina = nomeSeguro(nomeDaMaquina(opcoes.maquina));
   const id = idDaMaquina();
@@ -836,7 +844,7 @@ export function entrarNaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaEntrad
   const explicito = (opcoes.maquina ?? '').trim();
   const maquina = explicito || nomeSeguro(lerConfigDaMaquina()?.nome || nomeDaMaquina());
   if (!NOME_DE_MAQUINA.test(maquina)) {
-    throw new Error(`rede.maquina: nome de maquina invalido ("${maquina}"); use ork network entrar --maquina NOME (letras, numeros, ponto, _ ou -)`);
+    throw new ErroDoCatalogo((m) => m.network.nomeInvalido(maquina));
   }
   const amb = opcoes.amb ?? {};
   const lidas = opcoes.identidades ?? forjasDaMaquina(amb).map((f) => f.identidade());
@@ -850,7 +858,8 @@ export function entrarNaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaEntrad
   exigirRetratoSeguro(retrato);
   const publicacao = gravarNaCasa(conferida, retrato, descartados, { exigirAdesao: false, tomarNome: opcoes.tomarNome });
   if (publicacao.acao === 'ocupado') {
-    throw new Error(`rede.ocupado: outra publicacao desta maquina esta em andamento (${TRAVA()}); rode ork network entrar de novo em instantes`);
+    const trava = TRAVA();
+    throw new ErroDoCatalogo((m) => m.network.ocupadoAoEntrar(trava));
   }
   gravarConfigDaMaquina({ nome: maquina });
   const { casa } = conferida;
@@ -883,10 +892,11 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
   const repo = r.forja.repositorio(r.casa.dono, r.casa.repositorio);
   if (!repo.existe || !repo.url) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: false };
   if (!urlDaCasaAceita(repo.url)) {
-    throw new Error(`rede.sem-https: saiu da rede aqui, mas ${r.forja.cli} devolveu para ${refDaCasa(r.casa)} uma URL sem https; o retrato fica na casa`);
+    const cli = r.forja.cli, ref = refDaCasa(r.casa);
+    throw new ErroDoCatalogo((m) => m.network.semHttpsAoSair(cli, ref));
   }
   const trava = travarCasa(30000);
-  if (!trava.ok) throw new Error(`rede.ocupado: saiu da rede aqui, mas outra publicacao desta maquina segura a casa (${TRAVA()}); rode ork network sair de novo`);
+  if (!trava.ok) { const qual = TRAVA(); throw new ErroDoCatalogo((m) => m.network.ocupadoAoSair(qual)); }
   try {
     // Suspeitas da revisao de 03/10: a publicacao que ja segurava a trava quando o `sair` comecou grava
     // a marca ao terminar o push. Sob a trava ela ja terminou, e a proxima reconfere a adesao e recusa
@@ -897,7 +907,7 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
     const id = idDaMaquina();
     for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
       const { ponta, atualizado } = comGitIsolado(() => buscarBranch(cache, 'origin', BRANCH_DA_REDE, PREFIXO, 30000));
-      if (!atualizado) throw new Error(`rede.sem-leitura: saiu da rede aqui, mas nao consegui ler ${refDaCasa(r.casa)} para tirar o retrato; rode ork network sair de novo com rede`);
+      if (!atualizado) { const ref = refDaCasa(r.casa); throw new ErroDoCatalogo((m) => m.network.semLeituraAoSair(ref)); }
       const { retratos, invalidos } = retratosDaPonta(cache, ponta);
       const atual = retratos.find((x) => x.maquina === maquina);
       // S9 da revisao 2: o arquivo com o nome desta maquina sai tambem quando esta invalido; so o de
@@ -919,7 +929,7 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
         identidadeDoGit(maquina));
       if (commit) return { maquina, casa: refDaCasa(r.casa), commit, alheio: false };
     }
-    throw new Error(`rede.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
+    throw new ErroDoCatalogo((m) => m.network.concorrencia(TENTATIVAS));
   } finally { trava.liberar(); }
 }
 

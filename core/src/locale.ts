@@ -67,6 +67,7 @@ import { ESTADO_EN, ESTADO_PT_BR } from './locale-estado';
 import { CLAIMS_EN, CLAIMS_PT_BR } from './locale-claims';
 import { DECISAO_EN, DECISAO_PT_BR } from './locale-decisao';
 import { ACCOUNTS_EN, ACCOUNTS_PT_BR } from './locale-accounts';
+import { NETWORK_EN, NETWORK_PT_BR } from './locale-network';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -88,7 +89,9 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'claims add', 'claims conferir', 'claims verificar', 'claims retirar', 'claims ausente', 'claims list', 'claims ?',
   // G5: `decisao registrar` segue em pt-BR (as recusas sao do contrato HITL v2).
   'decisao placar', 'decisao ?',
-  'accounts list', 'accounts add', 'accounts remove', 'accounts check', 'accounts esgotamentos', 'accounts ?'];
+  'accounts list', 'accounts add', 'accounts remove', 'accounts check', 'accounts esgotamentos', 'accounts ?',
+  // G6: `network roadmap` segue em pt-BR (o texto e contrato com os hosts e com a prova de ativacao).
+  'network status', 'network entrar', 'network sair', 'network publicar', 'network ?'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -103,6 +106,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['claims', { padrao: 'list', conhecidos: ['add', 'conferir', 'verificar', 'retirar', 'ausente', 'list'] }],
   ['decisao', { padrao: null, conhecidos: ['registrar', 'placar'] }],
   ['accounts', { padrao: 'list', conhecidos: ['list', 'add', 'remove', 'check', 'esgotamentos'] }],
+  ['network', { padrao: 'status', conhecidos: ['status', 'entrar', 'sair', 'publicar', 'roadmap'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
@@ -427,6 +431,7 @@ const PT_BR = {
   claims: CLAIMS_PT_BR,
   decisao: DECISAO_PT_BR,
   accounts: ACCOUNTS_PT_BR,
+  network: NETWORK_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -696,6 +701,7 @@ const EN: Mensagens = {
   claims: CLAIMS_EN,
   decisao: DECISAO_EN,
   accounts: ACCOUNTS_EN,
+  network: NETWORK_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',
@@ -767,6 +773,15 @@ export function textoDoCatalogo(montar: Montador): string {
   const texto = montar(msg());
   remontagem?.set(texto, montar);
   return texto;
+}
+
+/**
+ * F3b: o montador registrado de um texto do catalogo, ou um que devolve o texto como veio. Serve ao erro que embute um
+ * texto ja montado: o `ErroDoCatalogo` e remontado na entrada do CLI depois que o registro foi desligado, entao ele
+ * guarda o montador do texto de dentro no momento em que nasce.
+ */
+export function montadorDe(texto: string): Montador {
+  return remontagem?.get(texto) ?? (() => texto);
 }
 
 /** O texto como a pessoa o le no locale ativo: o que veio do catalogo e remontado; o resto sai como veio. */
