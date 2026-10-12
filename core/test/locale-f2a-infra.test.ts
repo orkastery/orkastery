@@ -42,7 +42,9 @@ test('locale F2a infra: cobreLocale so com a entrada na lista, nunca com --json 
   // rotas que seguem em pt-BR.
   for (const fora of [['retry', 'list'], ['retry', 'policy'], ['pulse', 'cadencia'], ['master', 'classes'], ['master', 'x'],
     ['roadmap', 'reservas'], ['network', 'roadmap'], ['thread', 'list'],
-    ['thread', 'close', 'x'], ['onboarding', 'sync'], ['experiencia', 'uninstall', 'codex'], ['projetos'], ['modos']]) {
+    ['thread', 'close', 'x'], ['onboarding', 'sync'], ['experiencia', 'uninstall', 'codex'], ['projetos'], ['modos'],
+    // F3a (D5): de `docs`, so `docs init` segue o locale; `docs` (verificar), `docs sincronizar` e o desconhecido, nao.
+    ['docs'], ['docs', 'verificar'], ['docs', 'sincronizar'], ['docs', 'x']]) {
     assert.equal(cobreLocale(fora, {}), false, fora.join(' '));
   }
 });

@@ -23,6 +23,7 @@ import { lerYaml, ValorYaml } from './yaml';
 import { dirThread, lerThread, listarIds } from './thread';
 import { lerLedger } from './ledger';
 import { branchValida, shaValido } from './branch-de-estado';
+import { Locale, LOCALE_PADRAO } from './locale';
 
 export type TipoDoc = 'plataforma' | 'sistema' | 'modulo' | 'feature' | 'roadmap';
 
@@ -1000,16 +1001,21 @@ const ARQUIVOS_DO_PADRAO: ReadonlyArray<[string, string]> = [
   ['markdownlint-cli2.jsonc', '.markdownlint-cli2.jsonc'],
 ];
 
-export function dirDosModelos(): string {
-  for (const c of [path.join(__dirname, '..', 'assets', 'docs'), path.join(__dirname, '..', '..', 'assets', 'docs')]) {
+/**
+ * A pasta dos modelos do nucleo na lingua pedida. RM-061 (F3a, D3 e D6): o ingles mora em `assets/docs-en/`, com os
+ * mesmos nomes; o contrato que o `ork docs verificar` le (frontmatter, secoes, `Em uma frase`) e o mesmo nas duas.
+ */
+export function dirDosModelos(locale: Locale = LOCALE_PADRAO): string {
+  const pasta = locale === 'en' ? 'docs-en' : 'docs';
+  for (const c of [path.join(__dirname, '..', 'assets', pasta), path.join(__dirname, '..', '..', 'assets', pasta)]) {
     if (fs.existsSync(c)) return c;
   }
-  throw new Error('docs.modelos: assets/docs do nucleo nao encontrado');
+  throw new Error(`docs.modelos: assets/${pasta} do nucleo nao encontrado`);
 }
 
-/** Cria o que falta; nunca sobrescreve pagina existente. Devolve o que criou. */
-export function iniciarDocs(raiz: string): string[] {
-  const origem = dirDosModelos();
+/** Cria o que falta, no `locale` pedido (pt-BR por omissao); nunca sobrescreve pagina existente. Devolve o que criou. */
+export function iniciarDocs(raiz: string, locale: Locale = LOCALE_PADRAO): string[] {
+  const origem = dirDosModelos(locale);
   const criados: string[] = [];
   for (const [de, para] of ARQUIVOS_DO_PADRAO) {
     const destino = path.join(raiz, para);

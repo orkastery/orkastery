@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-12T09:00:00-03:00
+atualizado_em: 2026-10-12T11:40:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -82,6 +82,8 @@ Relações: [RM-049](RM-049-lancamento.md) (lançamento), [RM-016](RM-016-experi
 | F3: O resto do CLI | Demais comandos; arquivos gerados (comentários do `orkastery.yaml`, blocos do `AGENTS.md` e do `CLAUDE.md`, modelos do `ork docs init`); skills e prompts; referência do CLI em inglês | Contador cobre o conjunto; arquivos gerados nascem na língua escolhida; `docs/referencia/cli.md` tem a versão em inglês e `ork docs verificar` fecha a paridade | F2 |
 
 A F2 sai em duas metades: a F2a (`doctor` inteiro, o erro de `init` fora do repositório, onboarding, `experiencia show`, `thread new`, `thread status`, `phase list`, `phase run` e a ajuda) e a F2b (`verify`, `ship`, `pulse`, `master`, `retry` e `roadmap status`).
+
+A F3 também sai em duas: a F3a (os arquivos gerados, a referência do CLI em inglês e a cobertura medida) e a F3b (o resto das mensagens do CLI, as skills e os prompts).
 
 Os aceites acima são o que cada fatia terá de provar; não são provas já executadas. Os achados EN5 e EN9 entram na F1 porque são só de documentação: EN9 é a regra de idioma do guia de pull request em relação ao `CONTRIBUTING.md`, já corrigida na `main` ("em pt-BR ou em inglês"); EN5 é o quickstart em inglês do site, que para em `ork thread new`, `thread status` e `phase list`, e cujos exemplos seguem em português, e continua aberto.
 
@@ -165,16 +167,34 @@ A F2b mede no mesmo contador, com o recibo em [`cobertura-f2b.json`](evidencias/
 | Literais de saída fora do catálogo | 3.077 | 2.795 |
 | Cobertura | 11,2% | 23,0% |
 
-As famílias novas são `verify` (46 entradas), `ship` (112), `retry` (115, com a política dos 26 motivos), `master` (47), `pulse` (94, com a descrição dos 26 motivos de gate) e `roadmap` (29). O texto que o comando monta e também grava, ou devolve no `--json` (o detalhe da claim, o bloqueio do ship, a razão do retry), nasce em pt-BR e só a impressão o remonta no locale. O que o próprio `pulse` monta ao ler o estado (as paradas do monitor, o estado e a recomendação do radar, a consulta do runtime, a descrição de cada motivo, as alternativas do impedimento do despacho e a correção das vagas do escalonador) também passa pelo catálogo. Seguem como o módulo dono escreve, além da fronteira da F2a: o próximo passo e o estado da entrega de uma thread parada no condutor (família de entregas), o que outro processo gravou no ledger e, pela D14 da F2a, a recusa `ship.remoto-invalido` do `--remoto` inválido. Em inglês, a impressão traduz alguns valores de estado (a ação do `registrar-pr`, o tipo da autorização do `ship`, o veredito e a cobertura do CHECK-REVERIFY, o status da thread e a classe do item do `pulse`); motivo tipado, código e o `--json` saem iguais nas duas línguas. Os adaptadores do Hermes e do OpenClaw transportam o texto do comando: com `owner.language` ou o locale do host em `en`, o dono o recebe em inglês.
+- As famílias novas são `verify` (46 entradas), `ship` (112), `retry` (115, com a política dos 26 motivos), `master` (47), `pulse` (94, com a descrição dos 26 motivos de gate) e `roadmap` (29).
+- O texto que o comando monta e também grava, ou devolve no `--json` (o detalhe da claim, o bloqueio do ship, a razão do retry), nasce em pt-BR e só a impressão o remonta no locale. O que o próprio `pulse` monta ao ler o estado (as paradas do monitor, o estado e a recomendação do radar, a consulta do runtime, a descrição de cada motivo, as alternativas do impedimento do despacho e a correção das vagas do escalonador) também passa pelo catálogo.
+- Seguem como o módulo dono escreve, além da fronteira da F2a: o próximo passo e o estado da entrega de uma thread parada no condutor (família de entregas), o que outro processo gravou no ledger e, pela D14 da F2a, a recusa `ship.remoto-invalido` do `--remoto` inválido.
+- Em inglês, a impressão traduz alguns valores de estado (a ação do `registrar-pr`, o tipo da autorização do `ship`, o veredito e a cobertura do CHECK-REVERIFY, o status da thread e a classe do item do `pulse`); motivo tipado, código e o `--json` saem iguais nas duas línguas. Os adaptadores do Hermes e do OpenClaw transportam o texto do comando: com `owner.language` ou o locale do host em `en`, o dono o recebe em inglês.
+
+A F3a mede no mesmo contador, com o recibo em [`cobertura-f3a.json`](evidencias/RM-061/cobertura-f3a.json):
+
+| Medida | F2b na `main` (`583a0c40`) | F3a (`988fd588`) |
+| --- | --- | --- |
+| Entradas do catálogo | 835 | 877 |
+| Literais de saída fora do catálogo | 2.795 | 2.786 |
+| Cobertura | 23,0% | 23,9% |
+
+- **O que mudou:** a família nova `gerados` (42 entradas) traz o texto dos arquivos que o CLI escreve: os comentários do `orkastery.yaml` (24), o bloco do `AGENTS.md` do `ork init` (11), o bloco da experiência que `ork adapter install` põe no `CLAUDE.md` ou no `AGENTS.md` (4) e o que o `ork docs init` imprime (3). Os arquivos nascem na língua do dono no momento da geração (`owner.language`, senão o locale do ambiente).
+- **Fora da régua:** o contador conta literais nos `.ts` de `core/src`, e um arquivo gerado inteiro contava como um literal só. Os sete arquivos do `ork docs init` em inglês (seis `.md` e o `.jsonc` do markdownlint) moram em `core/assets/docs-en/` e ficam fora do método.
+- **O dado não muda:** chaves, valores e marcadores dos arquivos são os mesmos nas duas línguas. Nos modelos do `docs init`, o que o `ork docs verificar` lê (chaves e valores do frontmatter, nomes das seções e a linha `Em uma frase`) segue em pt-BR em qualquer língua; um verificador bilíngue fica para a F3b ou para a [RM-044](RM-044-documentacao-como-codigo.md).
+- **Língua fixa:** sem `owner.language`, a língua dos arquivos segue o locale de quem roda o comando; num projeto conduzido de máquinas com locales diferentes, fixe `owner.language`, senão os blocos versionados trocam de língua a cada execução. Seguem em pt-BR, até a F3b, o `.orkastery/.gitignore` que o `ork init` cria e os arquivos do adaptador que o `ork adapter install` copia.
+- **Referência do CLI:** [`docs/referencia/cli.en.md`](../referencia/cli.en.md) é a versão em inglês de [`cli.md`](../referencia/cli.md), ligada nos dois sentidos; um teste confere, seção por seção, as mesmas invocações `ork`, tabelas e blocos de código.
 
 ## Responsabilidades e histórico
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery nas fatias; A: Julio; C: revisão humana do inglês; I: quem usa o CLI em inglês.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente Claude Code redigiu esta página em #Fast, restrita à documentação. O código da F1 vem do #113, mesclado por outra thread. Revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** revisar o inglês da F2a e da F2b, abrir a F3 e fechar o EN5; responsável: fábrica, com a revisão do inglês pelo dono; sem data definida nesta página.
+- **Próxima ação, responsável e prazo:** revisar o inglês da F2a, da F2b e da F3a, abrir a F3b e fechar o EN5; responsável: fábrica, com a revisão do inglês pelo dono; sem data definida nesta página.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-12 | Item criado em Desenvolvimento, com F1 a F3; F1 já mesclada (#113) | Decisão do dono sobre a prova de conceito #113 e o recibo `ensaio-2026-10-03-en.json` | Julio |
 | 2026-10-12 | F2 dividida em F2a e F2b; a F2a leva o caminho da primeira experiência ao catálogo, com a cobertura medida | Thread `ork-rm061f2a` e o recibo `cobertura-f2a.json` | Fábrica, pelo pedido do dono |
 | 2026-10-12 | A F2b leva `verify`, `ship`, `pulse`, `master`, `retry` e `roadmap status` ao catálogo, com a cobertura medida | Thread `ork-rm061f2b` e o recibo `cobertura-f2b.json` | Fábrica, pelo pedido do dono |
+| 2026-10-12 | F3 dividida em F3a e F3b; a F3a leva os arquivos gerados à língua do dono, cria a referência do CLI em inglês e mede a cobertura | Thread `ork-rm061f3a` e o recibo `cobertura-f3a.json` | Fábrica, pelo pedido do dono |

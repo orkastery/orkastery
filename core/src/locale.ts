@@ -40,6 +40,12 @@
  * CHECK-REVERIFY, o titulo do grupo do roadmap, a classe do item do pulse) e dado do `--json` e so se traduz
  * na impressao, pelo id (D4).
  *
+ * F3a (D1 a D3 da thread ork-rm061f3a): o que o CLI escreve em arquivo para pessoas e agentes lerem (os comentarios
+ * do `orkastery.yaml`, o bloco do `AGENTS.md`, o bloco da experiencia no `CLAUDE.md` e os modelos do `ork docs init`)
+ * nasce na lingua do dono no momento da geracao, pela familia `gerados` e por `core/assets/docs-en/`.
+ * O gerador recebe o locale por parametro, com pt-BR por omissao, e so a entrada do CLI passa a lingua do dono: o
+ * locale ativo nunca escolhe a lingua de um arquivo. Chave, valor e marcador do arquivo nao mudam com a lingua.
+ *
  * Ingles (D8): curto, no imperativo onde e instrucao, com os mesmos termos em todo o CLI (`thread`,
  * `phase`, `claim`, `verify`, `ship`, `pulse`, `lease`, `ledger`, `worktree`, `slug`). Comando, flag
  * e identificador dentro de frase vao entre crases; valor que e so um comando (a linha `fix:`) fica nu.
@@ -55,6 +61,7 @@ import { RETRY_EN, RETRY_PT_BR } from './locale-retry';
 import { MASTER_EN, MASTER_PT_BR } from './locale-master';
 import { PULSE_EN, PULSE_PT_BR } from './locale-pulse';
 import { ROADMAP_EN, ROADMAP_PT_BR } from './locale-roadmap';
+import { GERADOS_EN, GERADOS_PT_BR } from './locale-gerados';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -64,12 +71,13 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
  * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync`,
  * `experiencia uninstall` e `thread list|close|entrega`. A F2b (G3) acrescenta `verify` (com `--baseline`),
  * `ship`, `ship registrar-pr`, `retry plan`, `retry run`, `master` (o indice), `master aceitar-omissao` e
- * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`.
+ * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`. A F3a (D5) acrescenta `docs init`;
+ * `docs verificar` e `docs sincronizar` seguem em pt-BR.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
   'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
-  'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status'];
+  'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status', 'docs init'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -79,6 +87,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['phase', { padrao: null, conhecidos: ['run', 'list'] }],
   ['retry', { padrao: null, conhecidos: ['plan', 'run', 'policy', 'parse', 'list', 'resume', 'cancel'] }],
   ['roadmap', { padrao: 'reservas', conhecidos: ['reservas', 'status', 'feat', 'pegar', 'soltar'] }],
+  ['docs', { padrao: 'verificar', conhecidos: ['verificar', 'sincronizar', 'init'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
@@ -397,6 +406,7 @@ const PT_BR = {
   master: MASTER_PT_BR,
   pulse: PULSE_PT_BR,
   roadmap: ROADMAP_PT_BR,
+  gerados: GERADOS_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -660,6 +670,7 @@ const EN: Mensagens = {
   master: MASTER_EN,
   pulse: PULSE_EN,
   roadmap: ROADMAP_EN,
+  gerados: GERADOS_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

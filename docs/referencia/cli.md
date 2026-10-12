@@ -1,5 +1,7 @@
 # Referência do CLI `ork`
 
+[English](cli.en.md) · **Português**
+
 Fonte de verdade: `ork --help`. Este documento organiza a mesma informação por tarefa, e
 explica o **porque** de cada grupo de comandos.
 
