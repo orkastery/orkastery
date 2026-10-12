@@ -70,6 +70,12 @@ export interface LinhaDoImpedimento { thread: string; fase: string | null; coman
  */
 export interface LinhaDaVarredura { thread: string; acao: string; texto: string; comando: string | null }
 
+/** RM-063 (F6): a maquina ociosa, como o resumo a mostra: as vagas, o trabalho reservado e as proximas threads. */
+export interface LinhaDaOciosidade {
+  maquina: string; livres: number; limite: number; reservados: number;
+  sugeridas: { item: string; thread: string | null; passo: string; comando: string }[];
+}
+
 export interface ResumoHitl extends ContagemDeClassificacao {
   contrato: typeof CONTRATO_RESUMO;
   consultadoEm: string;
@@ -115,6 +121,8 @@ export interface ResumoHitl extends ContagemDeClassificacao {
   acoesDaVarredura?: LinhaDaVarredura[];
   /** RM-063 (F5): o que a varredura fez sozinha desde o ultimo resumo, pela autorizacao do dono. */
   feitasPelaVarredura?: LinhaDaVarredura[];
+  /** RM-063 (F6): a maquina ociosa, uma vez por episodio. */
+  maquinaOciosa?: LinhaDaOciosidade;
   /**
    * RM-057 (fatia 3): o tempo parado por HITL de conducao, so quando passou da meta de 5 min (uma
    * aberta alem dela ou a mediana dos 7 dias acima). Vira uma linha; nao conta como pergunta nem e
@@ -138,6 +146,7 @@ export interface OpcoesDeResumo {
   impedimentosDoDono?: readonly LinhaDoImpedimento[];
   acoesDaVarredura?: readonly LinhaDaVarredura[];
   feitasPelaVarredura?: readonly LinhaDaVarredura[];
+  maquinaOciosa?: LinhaDaOciosidade | null;
   hitlDeConducao?: HitlDeConducaoAgora;
 }
 
@@ -162,8 +171,22 @@ export function resumirHitl(itens: readonly ItemClassificavel[], opcoes: OpcoesD
       fase: i.fase, comando: i.comando, retry: i.retry })) } : {}),
     ...(opcoes.acoesDaVarredura?.length ? { acoesDaVarredura: opcoes.acoesDaVarredura.map(a => ({ ...a })) } : {}),
     ...(opcoes.feitasPelaVarredura?.length ? { feitasPelaVarredura: opcoes.feitasPelaVarredura.map(a => ({ ...a })) } : {}),
+    ...(opcoes.maquinaOciosa ? { maquinaOciosa: { ...opcoes.maquinaOciosa, sugeridas: opcoes.maquinaOciosa.sugeridas.map(x => ({ ...x })) } } : {}),
     ...(opcoes.hitlDeConducao?.acimaDaMeta ? { hitlDeConducao: opcoes.hitlDeConducao } : {}),
   };
+}
+
+/**
+ * RM-063 (F6): a maquina ociosa no resumo, igual nos dois canais: as vagas livres, o trabalho reservado parado e as
+ * proximas threads sugeridas, cada uma com o comando.
+ */
+export function linhasDaOciosidade(r: ResumoHitl, marcador: string, recuo: string): string[] {
+  const o = r.maquinaOciosa;
+  if (!o) return [];
+  return [`${marcador}Máquina ociosa: ${semQuebra(o.maquina)}, com ${o.livres} de ${o.limite} vagas livres e ${o.reservados} ` +
+    `${o.reservados === 1 ? 'item reservado parado' : 'itens reservados parados'}. Próximas sugeridas:`,
+    ...o.sugeridas.map(x => `${recuo}• ${semQuebra(x.item)}${x.thread ? ` (${semQuebra(x.thread)})` : ''}: ${uma(x.passo, 120)} ` +
+      `(\`${semQuebra(x.comando)}\`)`)];
 }
 
 /** Quantas acoes da varredura o resumo detalha antes de contar o resto. */
@@ -370,6 +393,7 @@ function textoTelegram(r: ResumoHitl, codigo: string | undefined): string {
     ...(r.tecnicos ? [`🔧 ${linhaDosTecnicos(r)}`] : []),
     ...(r.consertos ? [`🔧 ${linhaDosConsertos(r.consertos)}`] : []),
     ...linhaDoHitlParado(r).map(l => `⏳ ${l}`),
+    ...(r.maquinaOciosa ? ['', ...linhasDaOciosidade(r, '💤 ', '   ')] : []),
     ...(r.impedimentosDoDono?.length ? ['', ...linhasDosImpedimentos(r, '🔑 ', '   ')] : []),
     ...(r.acoesDaVarredura?.length || r.feitasPelaVarredura?.length ? ['', ...linhasDaVarredura(r, { dono: '🧹 ', feitas: '🤖 ' }, '   ')] : []),
     ...(r.paradosNoCondutor?.length ? ['', ...linhasDoCondutor(r, '🚧 ', '   ')] : []),
@@ -405,6 +429,7 @@ function textoTerminal(r: ResumoHitl, codigo: string | undefined): string {
     ...(r.tecnicos ? ['', `  ${linhaDosTecnicos(r)}`] : []),
     ...(r.consertos ? ['', `  ${linhaDosConsertos(r.consertos)}`] : []),
     ...linhaDoHitlParado(r).flatMap(l => ['', `  ${l}`]),
+    ...(r.maquinaOciosa ? ['', ...linhasDaOciosidade(r, '  ', '    ')] : []),
     ...(r.impedimentosDoDono?.length ? ['', ...linhasDosImpedimentos(r, '  ', '  ')] : []),
     ...(r.acoesDaVarredura?.length || r.feitasPelaVarredura?.length ? ['', ...linhasDaVarredura(r, { dono: '  ', feitas: '  ' }, '    ')] : []),
     ...(r.paradosNoCondutor?.length ? ['', ...linhasDoCondutor(r, '  ', '  ')] : []),

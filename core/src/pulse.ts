@@ -13,6 +13,7 @@ import { pedidoCurtoDaEscada } from './runtime-escada';
 import { autorizada, LeituraDaAutorizacao, lerAutorizacao } from './autorizacao-duravel';
 import { AcaoPendente, acoesFeitasDesde, acoesPendentes } from './varredura-acoes';
 import type { FantasmaTratado } from './sessoes';
+import { maquinaOciosa, MaquinaOciosa } from './maquina-ociosa';
 import { dirThread, lerThread } from './thread';
 import { ehRegistroDeAdocao } from './sessoes-adopt';
 import { lerLedger } from './ledger';
@@ -84,6 +85,11 @@ export interface Pulse {
    * Campo aditivo: so sai com acao pendente ou feita, ou com uma autorizacao gravada.
    */
   varredura?: VarreduraDoPulse;
+  /**
+   * RM-063 (F6): a maquina esta ociosa: vaga livre no projeto e item do roadmap reservado para ela sem ninguem
+   * trabalhando, com as proximas threads sugeridas. Campo aditivo: so sai quando ela esta ociosa.
+   */
+  maquinaOciosa?: MaquinaOciosa;
 }
 
 /** RM-063 (F5): a varredura que age, como o pulse a mostra. */
@@ -423,6 +429,11 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
     const hitl = lerHitlDeConducaoAgora(carregado.raiz, quando);
     if (hitl.abertas.length || hitl.seteDias.pedidos || hitl.seteDias.respondidos) pulse.hitlDeConducao = hitl;
   } catch (e) { diagnosticos.push(`hitl-conducao.indisponivel: ${(e as Error).message.slice(0, 120)}`); }
+  // RM-063 (F6): a maquina ociosa, leitura pura das vagas, das reservas locais e do passo do condutor.
+  try {
+    const ociosa = maquinaOciosa(carregado, { quando });
+    if (ociosa) pulse.maquinaOciosa = ociosa;
+  } catch (e) { diagnosticos.push(`ociosidade.indisponivel: ${(e as Error).message.slice(0, 120)}`); }
   if (diagnosticos.length) pulse.runtime.detalhe = [pulse.runtime.detalhe, ...diagnosticos].filter(Boolean).join('; ');
   return pulse;
 }
@@ -495,6 +506,13 @@ export function textoDoPulse(p: Pulse): string {
       linhas.push(m.varredura.feitas(v.feitas.length));
       for (const f of v.feitas) linhas.push(m.varredura.feita(f.thread, f.acao, f.detalhe));
     }
+  }
+  // RM-063 (F6): a maquina ociosa e as proximas threads sugeridas.
+  if (p.maquinaOciosa) {
+    const o = p.maquinaOciosa;
+    linhas.push('', m.ociosa.linha(o.maquina, o.livres, o.limite, o.reservados));
+    for (const s of o.sugeridas) linhas.push(m.ociosa.sugerida(s.item, s.thread ? `${s.thread}, ${s.fase}` : m.ociosa.semThread,
+      remontar(s.passo), s.comando));
   }
   return linhas.join('\n');
 }

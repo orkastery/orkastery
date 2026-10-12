@@ -23,6 +23,7 @@ import { publicarRedeNaBatida } from './rede';
 import { registrarNaRede } from './rede-adesao';
 import { lerCadencia, janelaAberta, lerUltimoResumo, gravarUltimoResumo } from './pulse-cadencia';
 import { agirNaVarredura, OpcoesDaVarreduraQueAge, VarreduraQueAge } from './varredura-acoes';
+import { registrar, TIPOS_DE_EVENTO } from './ledger';
 
 // O lock dos monitores mudou de modulo (I-41, GO-FIX 1); quem o importava daqui continua importando.
 export { adquirirLockMonitor } from './monitor-lock';
@@ -30,6 +31,11 @@ export { adquirirLockMonitor } from './monitor-lock';
 export interface TransportePulse { executavel: string; argumentos: string[] }
 /** RM-037 (fatia 4): por quanto tempo a parada ja informada continua sabida depois de sumir de uma batida. */
 export const RETEM_PARADO_MS = 6 * 60 * 60 * 1000;
+/**
+ * RM-063 (F6): o fim de um episodio de maquina ociosa. A marca do alerta fica enquanto ela continua ociosa e por mais
+ * duas batidas depois: a maquina que volta a ficar ociosa depois disso e outro episodio, e o dono e avisado de novo.
+ */
+export const FIM_DO_EPISODIO_OCIOSO_MS = 30 * 60 * 1000;
 export interface ResultadoVarredura { code: number; novas: number; enviadas: number; detalhe: string }
 
 /**
@@ -170,8 +176,13 @@ export function varrerPulse(opcoes: {
     for(const f of feitas) presentes.add(chaveDaFeita(f.eventId));
     // A parada que some por uma batida (gh que falhou, um `ork verify` do condutor) e volta nao e noticia
     // nova: a marca fica guardada por `RETEM_PARADO_MS` depois da ultima vez que a parada apareceu.
-    const guardada=(id:string,valor:string)=>id.startsWith('parado:')&&
-      Date.parse(quando)-Number(valor.split('|')[1])<RETEM_PARADO_MS;
+    // RM-063 (F6): a maquina ociosa e alerta uma vez por episodio; a marca guarda a ultima vez que ela apareceu ociosa.
+    const ociosa=pulse.maquinaOciosa??null;
+    const chaveDaOciosa=ociosa?`ociosa:${ociosa.maquina}`:null;
+    if(chaveDaOciosa) presentes.add(chaveDaOciosa);
+    const guardada=(id:string,valor:string)=>(id.startsWith('parado:')&&
+      Date.parse(quando)-Number(valor.split('|')[1])<RETEM_PARADO_MS)||
+      (id.startsWith('ociosa:')&&Date.parse(quando)-Number(valor.split('|')[1])<FIM_DO_EPISODIO_OCIOSO_MS);
     vistas=Object.fromEntries(Object.entries(vistas).filter(([id,valor])=>presentes.has(id)||guardada(id,valor)));
     const esperaNovaFora=esperasFora.some(k=>vistas[k]===undefined);
     const decisoesNovas=decisoes.filter(d=>vistas[chaveDaDecisao(d.id)]===undefined);
@@ -179,6 +190,8 @@ export function varrerPulse(opcoes: {
     const paradosNovos=parados.filter(p=>vistas[chaveDoParado(p)]===undefined);
     // A marca guarda o instante em milissegundos: e dado de maquina, nao texto para o dono.
     for(const p of parados) if(vistas[chaveDoParado(p)]!==undefined) vistas[chaveDoParado(p)]=`informada|${Date.parse(quando)}`;
+    const ociosaNova=!!chaveDaOciosa&&vistas[chaveDaOciosa]===undefined;
+    if(chaveDaOciosa&&!ociosaNova) vistas[chaveDaOciosa]=`informada|${Date.parse(quando)}`;
     // I-41 (GO-FIX 1): a thread que ja recebeu a pergunta e ainda nao respondeu nao e noticia. A
     // mudanca no item dela (o pedido que o sim do dono abriu) e obra nossa, e avisar sobre ela seria
     // mandar ao dono um resumo sobre a pergunta que ele acabou de receber.
@@ -232,8 +245,10 @@ export function varrerPulse(opcoes: {
     // cadencia do dono, e a novidade que esperou continua nao vista ate sair.
     const noPrazo=!opcoes.comCadencia||janelaAberta(cadencia,lerUltimoResumo(opcoes.raiz,dir),quando);
     const informacaoNova=novas>0||decisoesNovas.length>0||paradosNovos.length>0||feitasNovas.length>0;
-    const adiada=!conjuntoNovo&&!esperaNovaFora&&!impedimentoNovo&&informacaoNova&&!noPrazo;
-    if(conjuntoNovo||esperaNovaFora||impedimentoNovo||(noPrazo&&informacaoNova)) {
+    // RM-063 (F6): a maquina ociosa sai na hora, como a pergunta nova: esperar a janela da cadencia (ate 8 h no
+    // #OrkPulseOff) e exatamente a maquina parada sem o dono saber.
+    const adiada=!conjuntoNovo&&!esperaNovaFora&&!impedimentoNovo&&!ociosaNova&&informacaoNova&&!noPrazo;
+    if(conjuntoNovo||esperaNovaFora||impedimentoNovo||ociosaNova||(noPrazo&&informacaoNova)) {
       const guardadas=anterior?fila.candidatos.filter(c=>anterior.candidatos.some(a=>a.thread===c.thread)).length:0;
       const resumo=resumirHitl(itens,{quando,janelaMin,prontas:fila.candidatos.length,acumuladas:guardadas,
         consertos:fila.consertos,atoDoItem:i=>fila.atos.get(`${i.thread}|${i.fase}`),
@@ -243,6 +258,8 @@ export function varrerPulse(opcoes: {
         acoesDaVarredura:(pulse.varredura?.pendentes??[]).filter(a=>a.quemFaz==='dono')
           .map(a=>({thread:a.thread,acao:a.acao,texto:a.oQue,comando:a.comando})),
         feitasPelaVarredura:feitasNovas.map(f=>({thread:f.thread,acao:f.acao,texto:`${f.acao}: ${f.detalhe}`,comando:null})),
+        maquinaOciosa:ociosa?{maquina:ociosa.maquina,livres:ociosa.livres,limite:ociosa.limite,reservados:ociosa.reservados,
+          sugeridas:ociosa.sugeridas.map(x=>({item:x.item,thread:x.thread,passo:x.passo,comando:x.comando}))}:null,
         // RM-057 (fatia 3): a linha so acompanha o resumo que ja sai; nao e novidade nem fura a cadencia.
         ...(pulse.hitlDeConducao?{hitlDeConducao:pulse.hitlDeConducao}:{})});
       // Pedir licenca para mandar zero perguntas era o defeito: sem pergunta, nao ha codigo.
@@ -258,6 +275,13 @@ export function varrerPulse(opcoes: {
       for(const k of esperasFora) vistas[k]='informada';
       for(const p of parados) vistas[chaveDoParado(p)]=`informada|${Date.parse(quando)}`;
       for(const f of feitas) vistas[chaveDaFeita(f.eventId)]='informada';
+      if(chaveDaOciosa) vistas[chaveDaOciosa]=`informada|${Date.parse(quando)}`;
+      // RM-063 (F6): o aviso de maquina ociosa vai ao ledger do projeto, uma linha por episodio: e a metrica do item.
+      if(ociosa&&ociosaNova) {
+        try { registrar(path.join(raiz,'.orkastery'),'projeto',TIPOS_DE_EVENTO.maquinaOciosaAvisada,{maquina:ociosa.maquina,
+          livres:ociosa.livres,limite:ociosa.limite,reservados:ociosa.reservados,sugeridas:ociosa.sugeridas.map(x=>x.item),
+          fonte:ociosa.fonte}); } catch { /* o aviso ja saiu; o ledger e a metrica */ }
+      }
       gravarUltimoResumo(opcoes.raiz,quando,dir);
     }
     gravarCache(cache,vistas);

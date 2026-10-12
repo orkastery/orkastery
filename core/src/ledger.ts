@@ -150,6 +150,9 @@ export const TIPOS_DE_EVENTO = {
   // RM-063 (F5): uma acao da varredura (limpar sessao fantasma, registrar a entrega de PR mesclado, MASTER por omissao),
   // feita ou recusada, com a autorizacao duravel do dono que a permitiu. Escritor: `varredura-acoes.ts`.
   acaoDaVarredura: 'varredura_acao',
+  // RM-063 (F6): o dono foi avisado de que a maquina esta ociosa (vaga livre e item reservado para ela sem ninguem
+  // trabalhando), uma linha por episodio, no ledger do projeto. Escritor: a varredura (`pulse-delivery.ts`).
+  maquinaOciosaAvisada: 'maquina_ociosa_avisada',
   // RM-059 (F6, T6.4): a Sentinela do Condutor ligou ou desligou nesta maquina (ledger do projeto, so na troca).
   sentinelaLigada: 'sentinela_ligada',
   sentinelaDesligada: 'sentinela_desligada',

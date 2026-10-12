@@ -130,6 +130,17 @@ export const PULSE_PT_BR = {
     feitas: (n: number) => `A varredura fez sozinha nos últimos 7 dias: ${n}`,
     feita: (thread: string, acao: string, detalhe: string) => `  ${thread}: ${acao}; ${detalhe}`,
   },
+  /** RM-063 (F6): a maquina ociosa (`maquina-ociosa.ts`): o passo de cada sugestao e as linhas do pulse. */
+  ociosa: {
+    despachar: (fase: string) => `despachar a fase ${fase} com o pedido guardado da thread`,
+    retomar: 'retomar a fase pelo retry, com o mesmo prompt',
+    verAThread: (fase: string) => `ver por que a thread parou na fase ${fase}`,
+    abrir: 'abrir a thread do item, que ainda não tem uma',
+    linha: (maquina: string, livres: number, limite: number, reservados: number) => `Máquina ociosa: ${maquina} com ${livres} de ` +
+      `${limite} vagas livres e ${reservados} item(ns) do roadmap reservado(s) para ela sem ninguém trabalhando`,
+    sugerida: (item: string, onde: string, passo: string, comando: string) => `  ${item} (${onde}): ${passo}; ${comando}`,
+    semThread: 'sem thread',
+  },
   /** A descricao de cada motivo tipado: a fonte de `DESCRICAO_DO_MOTIVO` (reserva do detalhe da parada). */
   motivos: {
     'artifact.missing': 'artefato exigido pela fase nao existe no disco',
@@ -249,6 +260,16 @@ export const PULSE_EN: typeof PULSE_PT_BR = {
     autorizacaoInvalida: (motivo, detalhe) => `Sweep: durable authorization without effect (${motivo}: ${detalhe}); its actions stay in the owner queue`,
     feitas: (n) => `The sweep did on its own in the last 7 days: ${n}`,
     feita: (thread, acao, detalhe) => `  ${thread}: ${acao}; ${detalhe}`,
+  },
+  ociosa: {
+    despachar: (fase) => `dispatch phase ${fase} with the thread's stored request`,
+    retomar: 'resume the phase through the retry, with the same prompt',
+    verAThread: (fase) => `see why the thread stopped in phase ${fase}`,
+    abrir: 'open the thread of the item, which has none yet',
+    linha: (maquina, livres, limite, reservados) => `Idle machine: ${maquina} with ${livres} of ${limite} free slots and ` +
+      `${reservados} roadmap item(s) reserved for it with nobody working`,
+    sugerida: (item, onde, passo, comando) => `  ${item} (${onde}): ${passo}; ${comando}`,
+    semThread: 'no thread',
   },
   motivos: {
     'artifact.missing': 'an artifact the phase requires does not exist on disk',
