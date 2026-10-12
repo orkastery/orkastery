@@ -1,0 +1,204 @@
+{
+  "$schema": "partitura/1.0",
+  "nome": "Partitura",
+  "marca": "Orkastery",
+  "versao": "1.0.0",
+  "cor": {
+    "nevoa": "#EEF0F2",
+    "papel": "#FFFFFF",
+    "trilho": "#E3E6EA",
+    "tinta": "#12161C",
+    "tinta-2": "#454C56",
+    "tinta-3": {
+      "valor": "#5F6670",
+      "nota": "---------- Primitivos · noite ----------"
+    },
+    "noite": "#0D1015",
+    "noite-2": "#161A21",
+    "noite-3": "#232831",
+    "luar": "#E9ECEF",
+    "luar-2": {
+      "valor": "#A7AEB8",
+      "nota": "---------- Primitivos · estado ----------\n     Latão é o único acento: \"espera você\" e pontos de HITL.\n     As variantes -tinta são para texto de estado no modo dia (≥ 4,5:1 em papel e névoa)."
+    },
+    "latao": "#E0B264",
+    "latao-tinta": "#8A5F17",
+    "regencia": "#4F78B8",
+    "regencia-tinta": "#3D639F",
+    "patina": "#3C9A86",
+    "patina-tinta": "#1F6B5C",
+    "brasa": "#D9673F",
+    "brasa-tinta": {
+      "valor": "#A8461F",
+      "nota": "---------- Tipografia ----------"
+    }
+  },
+  "semantico": {
+    "dia": {
+      "chao": "{cor.nevoa}",
+      "superficie": "{cor.papel}",
+      "superficie-2": "{cor.nevoa}",
+      "linha": "{cor.trilho}",
+      "linha-forte": "#C9CED5",
+      "texto": "{cor.tinta}",
+      "texto-2": "{cor.tinta-2}",
+      "texto-3": "{cor.tinta-3}",
+      "acao": "{cor.tinta}",
+      "sobre-acao": "{cor.papel}",
+      "campo": "{cor.papel}",
+      "espera": "{cor.latao}",
+      "espera-texto": "{cor.latao-tinta}",
+      "executando": "{cor.regencia}",
+      "executando-texto": "{cor.regencia-tinta}",
+      "verificado": "{cor.patina}",
+      "verificado-texto": "{cor.patina-tinta}",
+      "falha": "{cor.brasa}",
+      "falha-texto": "{cor.brasa-tinta}",
+      "foco": "{cor.regencia-tinta}",
+      "anel-foco": "0 0 0 2px var(--chao), 0 0 0 4px var(--foco)",
+      "sombra-1": "0 1px 2px rgba(18, 22, 28, .05)",
+      "sombra-2": "0 1px 2px rgba(18, 22, 28, .04), 0 8px 24px rgba(18, 22, 28, .06)",
+      "sombra-3": "0 2px 4px rgba(18, 22, 28, .04), 0 20px 48px rgba(18, 22, 28, .10)",
+      "luz-latao": "0 0 0 1px rgba(224, 178, 100, .55), 0 0 24px rgba(224, 178, 100, .18)"
+    },
+    "noite": {
+      "chao": "{cor.noite}",
+      "superficie": "{cor.noite-2}",
+      "superficie-2": "{cor.noite-3}",
+      "linha": "{cor.noite-3}",
+      "linha-forte": "#343B46",
+      "texto": "{cor.luar}",
+      "texto-2": "{cor.luar-2}",
+      "texto-3": "{cor.luar-2}",
+      "acao": "{cor.luar}",
+      "sobre-acao": "{cor.noite}",
+      "campo": "{cor.noite}",
+      "espera": "{cor.latao}",
+      "espera-texto": "{cor.latao}",
+      "executando": "{cor.regencia}",
+      "executando-texto": "{cor.luar}",
+      "verificado": "{cor.patina}",
+      "verificado-texto": "{cor.patina}",
+      "falha": "{cor.brasa}",
+      "falha-texto": "{cor.brasa}",
+      "foco": "{cor.regencia}",
+      "anel-foco": "0 0 0 2px var(--chao), 0 0 0 4px var(--foco)",
+      "sombra-1": "0 1px 2px rgba(0, 0, 0, .4)",
+      "sombra-2": "0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3)",
+      "sombra-3": "0 2px 4px rgba(0, 0, 0, .4), 0 20px 48px rgba(0, 0, 0, .45)",
+      "luz-latao": "0 0 0 1px rgba(224, 178, 100, .55), 0 0 24px rgba(224, 178, 100, .18)"
+    }
+  },
+  "tipografia": {
+    "familia": {
+      "titulo": "'Geist', ui-sans-serif, system-ui, sans-serif",
+      "texto": "'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif",
+      "mono": "'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace"
+    },
+    "peso": {
+      "titulo": 600,
+      "texto": 400,
+      "destaque": 500
+    },
+    "escala": {
+      "t-display": {
+        "valor": "clamp(2.75rem, 6vw, 4.5rem)",
+        "nota": "Geist 600 · lh 1.0 · -0.035em"
+      },
+      "t-titulo-1": {
+        "valor": "clamp(2rem, 4vw, 2.75rem)",
+        "nota": "Geist 600 · lh 1.1 · -0.03em"
+      },
+      "t-titulo-2": {
+        "valor": "clamp(1.5rem, 2.6vw, 1.75rem)",
+        "nota": "Geist 600 · lh 1.15 · -0.02em"
+      },
+      "t-titulo-3": {
+        "valor": "1.25rem",
+        "nota": "Geist 600 · lh 1.3 · -0.01em"
+      },
+      "t-corpo": {
+        "valor": "1.0625rem",
+        "nota": "Hanken 400 · lh 1.5"
+      },
+      "t-apoio": {
+        "valor": "0.875rem",
+        "nota": "Hanken 400 · lh 1.45"
+      },
+      "t-rotulo": {
+        "valor": "0.75rem",
+        "nota": "Plex Mono 500 · +0.06em · caixa alta"
+      },
+      "t-codigo": {
+        "valor": "0.875rem",
+        "nota": "Plex Mono 400 · lh 1.6"
+      }
+    },
+    "espacoRotulo": {
+      "valor": "0.06em",
+      "nota": "---------- Espaço · base 4 ----------"
+    }
+  },
+  "espaco": {
+    "e-1": "4px",
+    "e-2": "8px",
+    "e-3": "12px",
+    "e-4": "16px",
+    "e-5": "24px",
+    "e-6": "32px",
+    "e-7": "48px",
+    "e-8": "64px",
+    "e-9": "96px",
+    "calha": "clamp(20px, 4vw, 48px)",
+    "largura": "1280px",
+    "largura-texto": {
+      "valor": "64ch",
+      "nota": "---------- Raio ----------"
+    }
+  },
+  "raio": {
+    "raio-segmento": "3px",
+    "raio-chip": "7px",
+    "raio-botao": "12px",
+    "raio-cartao": "18px",
+    "raio-palco": "24px",
+    "raio-pilula": {
+      "valor": "999px",
+      "nota": "---------- Movimento · andante, nunca allegro ----------"
+    }
+  },
+  "movimento": {
+    "curva": "cubic-bezier(.16, 1, .3, 1)",
+    "duracao": {
+      "curta": {
+        "valor": "160ms",
+        "nota": "hover, foco, cor"
+      },
+      "media": {
+        "valor": "280ms",
+        "nota": "abrir, trocar aba, toast"
+      },
+      "longa": {
+        "valor": "600ms",
+        "nota": "entrada ao rolar, partitura"
+      },
+      "pulso": {
+        "valor": "2800ms",
+        "nota": "só no que está vivo"
+      }
+    },
+    "reduzido": "prefers-reduced-motion: reduce zera durações e animações"
+  },
+  "breakpoints": {
+    "movel": 390,
+    "tablet": 768,
+    "desktop": 1280,
+    "amplo": 1440
+  },
+  "regras": {
+    "acentoUnico": "latao só para espera você e pontos de HITL; exceção: borda de luz no CTA de instalação",
+    "contrasteTexto": 4.5,
+    "estadoNuncaSoCor": true,
+    "focoVisivel": "anel-foco em todo elemento interativo"
+  }
+}

@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Partitura · Componentes · Orkastery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Hanken+Grotesk:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="./partitura/partitura.css">
+<style>
+body{margin:0;-webkit-font-smoothing:antialiased;background:#EEF0F2}
+a{color:inherit;text-decoration-color:var(--linha-forte);text-underline-offset:3px}
+a:hover{text-decoration-color:currentColor}
+@keyframes pulso{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes anel{0%{box-shadow:0 0 0 0 rgba(224,178,100,.45)}70%,100%{box-shadow:0 0 0 7px rgba(224,178,100,0)}}
+@keyframes fluxo{to{stroke-dashoffset:-16}}
+@keyframes gira{to{transform:rotate(360deg)}}
+@keyframes partitura{0%{transform:scaleX(0);opacity:0}10%{transform:scaleX(1);opacity:1}88%{transform:scaleX(1);opacity:1}100%{transform:scaleX(1);opacity:0}}
+@keyframes brilho{0%{background-position:-200px 0}100%{background-position:200px 0}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div data-tema="{{ tema }}" style="min-height:100vh;background:var(--chao);color:var(--texto);font-family:var(--f-texto);font-size:17px;line-height:1.5;transition:background 280ms cubic-bezier(.16,1,.3,1),color 280ms cubic-bezier(.16,1,.3,1)">
+
+<header style="border-bottom:1px solid var(--linha);background:var(--chao)">
+  <div style="max-width:1280px;margin:0 auto;padding:16px var(--calha);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <img src="marca/svg/assinatura-fundo-claro.svg" alt="Orkastery" style="height:28px;width:auto;display:{{ mostraDia }}"><img src="marca/svg/assinatura.svg" alt="Orkastery" style="height:28px;width:auto;display:{{ mostraNoite }}">
+      <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">PARTITURA · COMPONENTES · V1.0</span>
+    </div>
+    <div role="group" aria-label="Tema" style="display:flex;gap:2px;padding:3px;border:1px solid var(--linha);border-radius:12px;background:var(--superficie)">
+      <button onClick="{{ setDia }}" aria-pressed="{{ isDia }}" style="font-family:var(--f-mono);font-size:12px;letter-spacing:.04em;height:32px;padding:0 14px;border:0;border-radius:9px;cursor:pointer;background:{{ diaBg }};color:{{ diaCor }}" style-focus="box-shadow:var(--anel-foco);outline:none">Dia</button>
+      <button onClick="{{ setNoite }}" aria-pressed="{{ isNoite }}" style="font-family:var(--f-mono);font-size:12px;letter-spacing:.04em;height:32px;padding:0 14px;border:0;border-radius:9px;cursor:pointer;background:{{ noiteBg }};color:{{ noiteCor }}" style-focus="box-shadow:var(--anel-foco);outline:none">Noite</button>
+    </div>
+  </div>
+  <nav style="max-width:1280px;margin:0 auto;padding:0 var(--calha) 12px;display:flex;flex-wrap:wrap;gap:4px 18px;font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">
+    <a href="#fundamentos">fundamentos</a><a href="#acoes">ações</a><a href="#formulario">formulário</a><a href="#navegacao">navegação</a><a href="#feedback">feedback</a><a href="#estado">estado</a><a href="#conducao">condução</a><a href="#dados">dados</a><a href="#codigo">código</a><a href="#acessibilidade">acessibilidade</a><a href="#responsivo">responsividade</a><a href="#movimento">movimento</a>
+  </nav>
+</header>
+
+<main style="max-width:1280px;margin:0 auto;padding:0 var(--calha) 96px">
+
+<section style="padding:64px 0 48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:32px;align-items:end">
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">DESIGN SYSTEM</span>
+    <h1 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-display);line-height:1;letter-spacing:-.035em">Partitura</h1>
+  </div>
+  <p style="margin:0;font-size:17px;line-height:1.5;color:var(--texto-2);max-width:56ch;text-wrap:pretty">Componentes da Orkastery em todos os estados, no modo dia e no modo noite. Tokens em <code style="font-family:var(--f-mono);font-size:14px">partitura/partitura.css</code> e <code style="font-family:var(--f-mono);font-size:14px">partitura.json</code>. Troque o tema no canto superior.</p>
+</section>
+
+<div style="position:relative;height:9px;display:flex;align-items:center;justify-content:center;margin-bottom:8px">
+  <div style="position:absolute;left:0;right:0;top:4px;height:1px;background:linear-gradient(90deg,transparent,var(--linha-forte) 25%,var(--linha-forte) 75%,transparent)"></div>
+  <div style="position:relative;width:7px;height:7px;border-radius:50%;background:var(--latao);box-shadow:0 0 0 4px var(--chao)"></div>
+</div>
+
+<section id="fundamentos" style="padding:48px 0;display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px">
+    <h2 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-titulo-1);line-height:1.1;letter-spacing:-.03em">Fundamentos</h2>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">01</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr));gap:12px">
+    <sc-for list="{{ swatches }}" as="s" hint-placeholder-count="12">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="height:56px;border-radius:12px;border:1px solid var(--linha);background:{{ s.v }}"></div>
+        <div style="font-family:var(--f-mono);font-size:12px;color:var(--texto)">{{ s.n }}</div>
+        <div style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3);line-height:1.4">{{ s.uso }}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px">
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">ESPAÇO · BASE 4</span>
+      <sc-for list="{{ espacos }}" as="e" hint-placeholder-count="9">
+        <div style="display:grid;grid-template-columns:48px 1fr 40px;gap:10px;align-items:center">
+          <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-2)">{{ e.n }}</span>
+          <span style="height:8px;border-radius:3px;background:var(--executando);width:{{ e.v }}"></span>
+          <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3);text-align:right">{{ e.v }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px">
+      <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">RAIO</span>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:48px;height:12px;border-radius:3px;background:var(--superficie-2);border:1px solid var(--linha-forte)"></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">3 segmento</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:56px;height:26px;border-radius:7px;background:var(--superficie-2);border:1px solid var(--linha-forte)"></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">7 chip</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:64px;height:40px;border-radius:12px;background:var(--superficie-2);border:1px solid var(--linha-forte)"></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">12 botão</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:72px;height:56px;border-radius:18px;background:var(--superficie-2);border:1px solid var(--linha-forte)"></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">18 cartão</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:80px;height:64px;border-radius:24px;background:var(--superficie-2);border:1px solid var(--linha-forte)"></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">24 palco</span></div>
+      </div>
+      <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3);margin-top:6px">SOMBRA · FRIA, QUASE INVISÍVEL</span>
+      <div style="display:flex;flex-wrap:wrap;gap:14px">
+        <div style="flex:1;min-width:70px;height:52px;border-radius:12px;background:var(--superficie);border:1px solid var(--linha);display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">linha</div>
+        <div style="flex:1;min-width:70px;height:52px;border-radius:12px;background:var(--superficie);box-shadow:var(--sombra-1);display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">sombra-1</div>
+        <div style="flex:1;min-width:70px;height:52px;border-radius:12px;background:var(--superficie);box-shadow:var(--sombra-2);display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">sombra-2</div>
+        <div style="flex:1;min-width:70px;height:52px;border-radius:12px;background:var(--superficie);box-shadow:var(--sombra-3);display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">sombra-3</div>
+      </div>
+    </div>
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">MOVIMENTO · ANDANTE, NUNCA ALLEGRO</span>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;font-family:var(--f-mono);font-size:12px"><span style="color:var(--texto-2)">curva</span><span>cubic-bezier(.16,1,.3,1)</span></div>
+        <div style="display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;font-family:var(--f-mono);font-size:12px"><span style="color:var(--texto-2)">160 ms</span><span>hover, foco, cor</span></div>
+        <div style="display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;font-family:var(--f-mono);font-size:12px"><span style="color:var(--texto-2)">280 ms</span><span>abrir, trocar aba, toast</span></div>
+        <div style="display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;font-family:var(--f-mono);font-size:12px"><span style="color:var(--texto-2)">600 ms</span><span>entrada ao rolar, partitura</span></div>
+        <div style="display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;font-family:var(--f-mono);font-size:12px"><span style="color:var(--texto-2)">2,8 s</span><span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:var(--executando);animation:pulso 2.8s cubic-bezier(.16,1,.3,1) infinite"></span>pulso, só no que está vivo</span></div>
+      </div>
+      <div style="margin-top:4px;height:44px;border-radius:12px;border:1px solid var(--linha);background:var(--superficie-2);position:relative;overflow:hidden" style-hover="background:var(--superficie-2)">
+        <div style="position:absolute;top:13px;left:12px;width:18px;height:18px;border-radius:50%;background:var(--texto);transition:left 600ms cubic-bezier(.16,1,.3,1)" style-hover="left:calc(100% - 30px)"></div>
+      </div>
+      <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">passe o cursor no ponto · 600 ms</span>
+    </div>
+  </div>
+</section>
+
+<section id="acoes" style="padding:48px 0;border-top:1px solid var(--linha);display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px">
+    <h2 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-titulo-1);line-height:1.1;letter-spacing:-.03em">Ações</h2>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">02</span>
+  </div>
+
+  <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:18px">
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">COMANDO COPIÁVEL · CTA DE INSTALAÇÃO</span>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:center">
+      <div style="display:flex;align-items:center;gap:4px;max-width:100%;padding:6px 6px 6px 18px;border-radius:12px;background:#161A21;box-shadow:var(--luz-latao);transition:box-shadow 160ms cubic-bezier(.16,1,.3,1)" style-hover="box-shadow:0 0 0 1px rgba(224,178,100,.8),0 0 32px rgba(224,178,100,.26)">
+        <code style="font-family:var(--f-mono);font-size:15px;color:#E9ECEF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#A7AEB8">$ </span>npm install -g @orkastery/cli</code>
+        <button onClick="{{ copiarInstalar }}" aria-label="Copiar comando" style="flex:none;margin-left:12px;height:36px;padding:0 14px;border-radius:9px;border:1px solid #343B46;background:#232831;color:#E9ECEF;font-family:var(--f-mono);font-size:12px;white-space:nowrap;cursor:pointer;transition:background 160ms cubic-bezier(.16,1,.3,1)" style-hover="background:#343B46" style-focus="outline:none;box-shadow:0 0 0 2px #161A21,0 0 0 4px #4F78B8">{{ copiaRotulo }}</button>
+      </div>
+      <span style="font-size:14px;color:var(--texto-2)">Clique em copiar. Sempre escuro, nos dois temas.</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px">
+      <div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 6px 6px 14px;border-radius:12px;background:#161A21;box-shadow:var(--luz-latao)"><code style="font-family:var(--f-mono);font-size:13px;color:#E9ECEF">ork doctor</code><span style="height:30px;padding:0 10px;display:flex;align-items:center;border-radius:9px;background:#232831;color:#E9ECEF;font-family:var(--f-mono);font-size:11px">copiar</span></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">padrão</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 6px 6px 14px;border-radius:12px;background:#161A21;box-shadow:0 0 0 1px rgba(224,178,100,.8),0 0 32px rgba(224,178,100,.26)"><code style="font-family:var(--f-mono);font-size:13px;color:#E9ECEF">ork doctor</code><span style="height:30px;padding:0 10px;display:flex;align-items:center;border-radius:9px;background:#343B46;color:#E9ECEF;font-family:var(--f-mono);font-size:11px">copiar</span></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">hover</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 6px 6px 14px;border-radius:12px;background:#161A21;box-shadow:var(--luz-latao)"><code style="font-family:var(--f-mono);font-size:13px;color:#E9ECEF">ork doctor</code><span style="height:30px;padding:0 10px;display:flex;align-items:center;border-radius:9px;background:#232831;color:#E9ECEF;font-family:var(--f-mono);font-size:11px;box-shadow:0 0 0 2px #161A21,0 0 0 4px #4F78B8">copiar</span></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">foco</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 6px 6px 14px;border-radius:12px;background:#161A21;box-shadow:var(--luz-latao)"><code style="font-family:var(--f-mono);font-size:13px;color:#E9ECEF">ork doctor</code><span style="height:30px;padding:0 10px;display:flex;align-items:center;gap:6px;border-radius:9px;background:#232831;color:#3C9A86;font-family:var(--f-mono);font-size:11px">✓ copiado</span></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">copiado · 1,6 s</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 6px 6px 14px;border-radius:12px;background:#161A21;box-shadow:0 0 0 1px #D9673F"><code style="font-family:var(--f-mono);font-size:13px;color:#E9ECEF">ork doctor</code><span style="height:30px;padding:0 10px;display:flex;align-items:center;border-radius:9px;background:#232831;color:#D9673F;font-family:var(--f-mono);font-size:11px;white-space:nowrap">× use ⌘C</span></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">erro · sem permissão</span></div>
+    </div>
+  </div>
+
+  <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:16px;overflow-x:auto">
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">BOTÕES</span>
+    <div style="display:grid;grid-template-columns:96px repeat(6,minmax(128px,1fr));gap:14px 12px;align-items:center;min-width:900px">
+      <span></span>
+      <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">padrão</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">hover</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">foco</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">ativo</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">desabilitado</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">carregando</span>
+
+      <span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">primário</span>
+      <button style="height:44px;padding:0 18px;border:0;border-radius:12px;background:var(--acao);color:var(--sobre-acao);font-family:var(--f-texto);font-weight:500;font-size:15px;cursor:pointer;transition:background 160ms cubic-bezier(.16,1,.3,1)" style-hover="background:color-mix(in oklch,var(--acao) 84%,var(--chao))" style-active="transform:translateY(1px)" style-focus="outline:none;box-shadow:var(--anel-foco)">Abrir thread</button>
+      <span style="height:44px;padding:0 18px;border-radius:12px;background:color-mix(in oklch,var(--acao) 84%,var(--chao));color:var(--sobre-acao);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start">Abrir thread</span>
+      <span style="height:44px;padding:0 18px;border-radius:12px;background:var(--acao);color:var(--sobre-acao);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start;box-shadow:var(--anel-foco)">Abrir thread</span>
+      <span style="height:44px;padding:0 18px;border-radius:12px;background:color-mix(in oklch,var(--acao) 74%,var(--chao));color:var(--sobre-acao);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start;transform:translateY(1px)">Abrir thread</span>
+      <span aria-disabled="true" style="height:44px;padding:0 18px;border-radius:12px;background:var(--linha);color:var(--texto-3);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start;cursor:not-allowed">Abrir thread</span>
+      <span style="height:44px;padding:0 18px;border-radius:12px;background:var(--acao);color:var(--sobre-acao);font-weight:500;font-size:15px;display:inline-flex;align-items:center;gap:8px;justify-self:start"><span style="width:14px;height:14px;border-radius:50%;border:2px solid var(--sobre-acao);border-right-color:transparent;animation:gira 900ms linear infinite"></span>Abrindo…</span>
+
+      <span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">secundário</span>
+      <button style="height:44px;padding:0 18px;border:1px solid var(--linha-forte);border-radius:12px;background:var(--superficie);color:var(--texto);font-family:var(--f-texto);font-weight:500;font-size:15px;cursor:pointer;transition:border-color 160ms cubic-bezier(.16,1,.3,1)" style-hover="border-color:var(--texto-3)" style-focus="outline:none;box-shadow:var(--anel-foco)">Ver ledger</button>
+      <span style="height:44px;padding:0 18px;border:1px solid var(--texto-3);border-radius:12px;background:var(--superficie);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start">Ver ledger</span>
+      <span style="height:44px;padding:0 18px;border:1px solid var(--linha-forte);border-radius:12px;background:var(--superficie);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start;box-shadow:var(--anel-foco)">Ver ledger</span>
+      <span style="height:44px;padding:0 18px;border:1px solid var(--texto-3);border-radius:12px;background:var(--superficie-2);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start;transform:translateY(1px)">Ver ledger</span>
+      <span aria-disabled="true" style="height:44px;padding:0 18px;border:1px dashed var(--linha-forte);border-radius:12px;background:transparent;color:var(--texto-3);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start;cursor:not-allowed">Ver ledger</span>
+      <span style="height:44px;padding:0 18px;border:1px solid var(--linha-forte);border-radius:12px;background:var(--superficie);font-weight:500;font-size:15px;display:inline-flex;align-items:center;gap:8px;justify-self:start"><span style="width:14px;height:14px;border-radius:50%;border:2px solid var(--texto);border-right-color:transparent;animation:gira 900ms linear infinite"></span>Carregando</span>
+
+      <span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">fantasma</span>
+      <button style="height:44px;padding:0 14px;border:0;border-radius:12px;background:transparent;color:var(--texto);font-family:var(--f-texto);font-weight:500;font-size:15px;cursor:pointer;transition:background 160ms cubic-bezier(.16,1,.3,1)" style-hover="background:var(--superficie-2)" style-focus="outline:none;box-shadow:var(--anel-foco)">Depois</button>
+      <span style="height:44px;padding:0 14px;border-radius:12px;background:var(--superficie-2);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start">Depois</span>
+      <span style="height:44px;padding:0 14px;border-radius:12px;font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start;box-shadow:var(--anel-foco)">Depois</span>
+      <span style="height:44px;padding:0 14px;border-radius:12px;background:var(--linha);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start">Depois</span>
+      <span aria-disabled="true" style="height:44px;padding:0 14px;border-radius:12px;color:var(--texto-3);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start;cursor:not-allowed">Depois</span>
+      <span style="height:44px;padding:0 14px;border-radius:12px;font-weight:500;font-size:15px;display:inline-flex;align-items:center;gap:8px;justify-self:start"><span style="width:14px;height:14px;border-radius:50%;border:2px solid var(--texto);border-right-color:transparent;animation:gira 900ms linear infinite"></span>Depois</span>
+
+      <span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">perigo</span>
+      <button style="height:44px;padding:0 18px;border:1px solid var(--falha);border-radius:12px;background:transparent;color:var(--falha-texto);font-family:var(--f-texto);font-weight:500;font-size:15px;cursor:pointer;transition:background 160ms cubic-bezier(.16,1,.3,1)" style-hover="background:color-mix(in oklch,var(--falha) 10%,transparent)" style-focus="outline:none;box-shadow:var(--anel-foco)">Abrir GO-FIX</button>
+      <span style="height:44px;padding:0 18px;border:1px solid var(--falha);border-radius:12px;background:color-mix(in oklch,var(--falha) 10%,transparent);color:var(--falha-texto);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start">Abrir GO-FIX</span>
+      <span style="height:44px;padding:0 18px;border:1px solid var(--falha);border-radius:12px;color:var(--falha-texto);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start;box-shadow:var(--anel-foco)">Abrir GO-FIX</span>
+      <span style="height:44px;padding:0 18px;border:1px solid var(--falha);border-radius:12px;background:color-mix(in oklch,var(--falha) 18%,transparent);color:var(--falha-texto);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start;transform:translateY(1px)">Abrir GO-FIX</span>
+      <span aria-disabled="true" style="height:44px;padding:0 18px;border:1px dashed var(--linha-forte);border-radius:12px;color:var(--texto-3);font-weight:500;font-size:15px;display:inline-flex;align-items:center;justify-self:start;cursor:not-allowed">Abrir GO-FIX</span>
+      <span style="height:44px;padding:0 18px;border:1px solid var(--falha);border-radius:12px;color:var(--falha-texto);font-weight:500;font-size:15px;display:inline-flex;align-items:center;gap:8px;justify-self:start"><span style="width:14px;height:14px;border-radius:50%;border:2px solid var(--falha-texto);border-right-color:transparent;animation:gira 900ms linear infinite"></span>Abrindo…</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:24px;font-size:14px;color:var(--texto-2);border-top:1px solid var(--linha);padding-top:14px">
+      <span>Altura 44 px (alvo de toque). Raio 12. Um primário por tela.</span>
+      <span>Desabilitado muda contorno e cursor, não só a cor.</span>
+    </div>
+  </div>
+
+  <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px">
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">LINKS</span>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:16px;align-items:start">
+      <div style="display:flex;flex-direction:column;gap:6px"><a href="#conducao" style="color:var(--texto);text-decoration:underline;text-decoration-color:var(--linha-forte);text-underline-offset:3px;transition:text-decoration-color 160ms" style-hover="text-decoration-color:var(--texto)" style-focus="outline:none;box-shadow:var(--anel-foco);border-radius:3px">Leia sobre os modos</a><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">padrão</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="text-decoration:underline;text-decoration-color:var(--texto);text-underline-offset:3px">Leia sobre os modos</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">hover</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="text-decoration:underline;text-decoration-color:var(--linha-forte);text-underline-offset:3px;box-shadow:var(--anel-foco);border-radius:3px;align-self:start">Leia sobre os modos</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">foco</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="text-decoration:underline;text-decoration-color:var(--linha-forte);text-underline-offset:3px">github.com/orkastery ↗</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">externo</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font-family:var(--f-mono);font-size:14px;text-decoration:underline;text-decoration-color:var(--linha-forte);text-underline-offset:3px">RM-037</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">ID técnico</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="formulario" style="padding:48px 0;border-top:1px solid var(--linha);display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px">
+    <h2 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-titulo-1);line-height:1.1;letter-spacing:-.03em">Formulário</h2>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">03</span>
+  </div>
+  <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:20px 24px">
+    <label style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:14px;font-weight:500">ID da thread</span>
+      <input placeholder="th-rm042" style="height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--linha-forte);background:var(--campo);color:var(--texto);font-family:var(--f-mono);font-size:14px;transition:border-color 160ms cubic-bezier(.16,1,.3,1)" style-hover="border-color:var(--texto-3)" style-focus="outline:none;border-color:var(--foco);box-shadow:0 0 0 3px color-mix(in oklch,var(--foco) 25%,transparent)">
+      <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">padrão · interativo</span>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:14px;font-weight:500">ID da thread</span>
+      <span style="height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--foco);box-shadow:0 0 0 3px color-mix(in oklch,var(--foco) 25%,transparent);background:var(--campo);font-family:var(--f-mono);font-size:14px;display:flex;align-items:center">th-rm04<span style="width:1px;height:18px;background:var(--texto);margin-left:1px"></span></span>
+      <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">foco</span>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:14px;font-weight:500">ID da thread</span>
+      <span style="height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--falha);background:var(--campo);font-family:var(--f-mono);font-size:14px;display:flex;align-items:center">rm42</span>
+      <span style="font-size:13px;color:var(--falha-texto);display:flex;gap:6px"><span aria-hidden="true">×</span>Use o formato th-rm042.</span>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:14px;font-weight:500;color:var(--texto-3)">ID da thread</span>
+      <span aria-disabled="true" style="height:44px;padding:0 14px;border-radius:12px;border:1px dashed var(--linha-forte);background:var(--superficie-2);color:var(--texto-3);font-family:var(--f-mono);font-size:14px;display:flex;align-items:center;cursor:not-allowed">th-rm042</span>
+      <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">desabilitado</span>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:14px;font-weight:500">Modo</span>
+      <select style="height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--linha-forte);background:var(--campo);color:var(--texto);font-family:var(--f-mono);font-size:14px" style-focus="outline:none;border-color:var(--foco);box-shadow:0 0 0 3px color-mix(in oklch,var(--foco) 25%,transparent)">
+        <option>#Classic</option><option>#Maestro</option><option>#Auto</option><option>#Fast</option>
+      </select>
+      <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">seleção</span>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:14px;font-weight:500">Pedido</span>
+      <textarea rows="2" placeholder="adicione uma exclamação ao greet" style="padding:10px 14px;border-radius:12px;border:1px solid var(--linha-forte);background:var(--campo);color:var(--texto);font-family:var(--f-texto);font-size:15px;resize:vertical" style-focus="outline:none;border-color:var(--foco);box-shadow:0 0 0 3px color-mix(in oklch,var(--foco) 25%,transparent)"></textarea>
+      <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">texto longo</span>
+    </label>
+  </div>
+</section>
+
+<section id="navegacao" style="padding:48px 0;border-top:1px solid var(--linha);display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px">
+    <h2 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-titulo-1);line-height:1.1;letter-spacing:-.03em">Navegação</h2>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">04</span>
+  </div>
+  <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px">
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">HEADER DO SITE · DESKTOP</span>
+    <div style="border:1px solid var(--linha);border-radius:12px;background:var(--chao);padding:12px 18px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+      <img src="marca/svg/assinatura-fundo-claro.svg" alt="Orkastery" style="height:24px;width:auto;display:{{ mostraDia }}"><img src="marca/svg/assinatura.svg" alt="Orkastery" style="height:24px;width:auto;display:{{ mostraNoite }}">
+      <nav style="display:flex;flex-wrap:wrap;gap:4px;font-size:15px">
+        <a href="#navegacao" style="padding:8px 12px;border-radius:12px;text-decoration:none;color:var(--texto);background:var(--superficie-2)" aria-current="page">Produto</a>
+        <a href="#navegacao" style="padding:8px 12px;border-radius:12px;text-decoration:none;color:var(--texto-2)" style-hover="color:var(--texto);background:var(--superficie-2)">Docs</a>
+        <a href="#navegacao" style="padding:8px 12px;border-radius:12px;text-decoration:none;color:var(--texto-2)" style-hover="color:var(--texto);background:var(--superficie-2)">Roadmap</a>
+        <a href="#navegacao" style="padding:8px 12px;border-radius:12px;text-decoration:none;color:var(--texto-2)" style-hover="color:var(--texto);background:var(--superficie-2)">GitHub ↗</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="display:flex;font-family:var(--f-mono);font-size:12px;border:1px solid var(--linha);border-radius:7px;overflow:hidden"><span style="padding:5px 9px;background:var(--acao);color:var(--sobre-acao)">PT</span><a href="#navegacao" style="padding:5px 9px;text-decoration:none;color:var(--texto-2)">EN</a></div>
+        <span style="height:36px;padding:0 12px;display:inline-flex;align-items:center;border-radius:12px;background:#161A21;color:#E9ECEF;font-family:var(--f-mono);font-size:12px;box-shadow:var(--luz-latao)">$ npm i -g @orkastery/cli</span>
+      </div>
+    </div>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3);margin-top:8px">390 PX · MENU</span>
+    <div style="display:flex;flex-wrap:wrap;gap:16px">
+      <div style="width:100%;max-width:390px;border:1px solid var(--linha);border-radius:12px;background:var(--chao);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
+        <img src="marca/svg/simbolo-fundo-claro.svg" alt="Orkastery" style="height:28px;width:28px;display:{{ mostraDia }}"><img src="marca/svg/simbolo.svg" alt="Orkastery" style="height:28px;width:28px;display:{{ mostraNoite }}">
+        <button aria-label="Abrir menu" style="width:44px;height:44px;border-radius:12px;border:1px solid var(--linha-forte);background:var(--superficie);color:var(--texto);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer" style-focus="outline:none;box-shadow:var(--anel-foco)"><span style="width:16px;height:1.5px;background:currentColor"></span><span style="width:16px;height:1.5px;background:currentColor"></span></button>
+      </div>
+      <div style="width:100%;max-width:390px;border:1px solid var(--linha);border-radius:12px;background:var(--chao);padding:10px 14px 16px;display:flex;flex-direction:column;gap:2px;box-sizing:border-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px"><img src="marca/svg/simbolo-fundo-claro.svg" alt="" style="height:28px;width:28px;display:{{ mostraDia }}"><img src="marca/svg/simbolo.svg" alt="" style="height:28px;width:28px;display:{{ mostraNoite }}"><span style="width:44px;height:44px;border-radius:12px;border:1px solid var(--linha-forte);display:flex;align-items:center;justify-content:center;font-family:var(--f-mono)">×</span></div>
+        <span style="padding:12px 4px;border-bottom:1px solid var(--linha);font-size:17px">Produto</span><span style="padding:12px 4px;border-bottom:1px solid var(--linha);font-size:17px;color:var(--texto-2)">Docs</span><span style="padding:12px 4px;border-bottom:1px solid var(--linha);font-size:17px;color:var(--texto-2)">Roadmap</span><span style="padding:12px 4px;font-size:17px;color:var(--texto-2)">GitHub ↗</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:16px">
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">TABS</span>
+    <div role="tablist" style="display:flex;gap:4px;border-bottom:1px solid var(--linha);overflow-x:auto">
+      <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="4">
+        <button role="tab" aria-selected="{{ tb.ativo }}" onClick="{{ tb.ir }}" style="flex:none;height:44px;padding:0 14px;border:0;background:transparent;cursor:pointer;font-family:var(--f-texto);font-size:15px;font-weight:500;color:{{ tb.cor }};box-shadow:inset 0 -2px 0 {{ tb.barra }};transition:color 160ms cubic-bezier(.16,1,.3,1)" style-hover="color:var(--texto)" style-focus="outline:none;box-shadow:var(--anel-foco)">{{ tb.nome }}</button>
+      </sc-for>
+    </div>
+    <p style="margin:0;font-size:16px;color:var(--texto-2);max-width:64ch;min-height:48px">{{ tabTexto }}</p>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;border-top:1px solid var(--linha);padding-top:14px;font-size:15px;font-weight:500">
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="padding:10px 14px;box-shadow:inset 0 -2px 0 var(--texto)">Fases</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3);font-weight:400">ativo</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="padding:10px 14px;color:var(--texto);box-shadow:inset 0 -2px 0 var(--linha-forte)">Claims</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3);font-weight:400">hover</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="padding:10px 14px;color:var(--texto-2);box-shadow:var(--anel-foco);border-radius:3px">Ledger</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3);font-weight:400">foco</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="padding:10px 14px;color:var(--texto-3);text-decoration:line-through;text-decoration-color:var(--linha-forte)">Grafo</span><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3);font-weight:400">desabilitado · planejado</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="feedback" style="padding:48px 0;border-top:1px solid var(--linha);display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px">
+    <h2 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-titulo-1);line-height:1.1;letter-spacing:-.03em">Feedback</h2>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">05</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px">
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">ALERTA</span>
+      <sc-for list="{{ alertas }}" as="al" hint-placeholder-count="4">
+        <div role="status" style="display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--linha);background:var(--superficie-2)">
+          <span style="width:9px;height:9px;margin-top:7px;border-radius:50%;background:{{ al.cor }}"></span>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:{{ al.texto }}">{{ al.rotulo }}</span>
+            <span style="font-size:15px;line-height:1.45">{{ al.msg }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:16px">
+      <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">TOAST · TOOLTIP</span>
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:12px;background:var(--superficie);border:1px solid var(--linha);box-shadow:var(--sombra-3);max-width:380px">
+        <span style="width:9px;height:9px;margin-top:7px;flex:none;border-radius:50%;background:var(--verificado)"></span>
+        <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">RM-042 verificado</span><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">4/4 claims · a41f9c2 · 14:31</span></div>
+        <span aria-hidden="true" style="font-family:var(--f-mono);color:var(--texto-3)">×</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+        <button onClick="{{ mostrarToast }}" style="height:44px;padding:0 18px;border:1px solid var(--linha-forte);border-radius:12px;background:var(--superficie);color:var(--texto);font-family:var(--f-texto);font-weight:500;font-size:15px;cursor:pointer" style-hover="border-color:var(--texto-3)" style-focus="outline:none;box-shadow:var(--anel-foco)">Disparar toast</button>
+        <span style="font-size:14px;color:var(--texto-2)">Entra em 280 ms, sai sozinho em 5 s.</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;padding-top:28px;border-top:1px solid var(--linha);margin-top:4px;position:relative">
+        <div style="position:absolute;top:-2px;left:0;transform:translateY(-4px);display:flex;flex-direction:column;align-items:flex-start">
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px">
+          <span role="tooltip" style="padding:6px 10px;border-radius:7px;background:var(--texto);color:var(--chao);font-family:var(--f-mono);font-size:12px">CHECK verificado às 14:31 BRT</span>
+          <span style="margin-left:16px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid var(--texto);margin-top:-6px"></span>
+          <code style="font-family:var(--f-mono);font-size:14px;padding:2px 6px;border-radius:3px;background:var(--superficie-2);text-decoration:underline dotted var(--texto-3);text-underline-offset:3px">a41f9c2</code>
+        </div>
+        <span style="font-size:14px;color:var(--texto-2)">Tooltip aparece em hover e em foco, após 400 ms. Nunca guarda informação que só existe nele.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="estado" style="padding:48px 0;border-top:1px solid var(--linha);display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px">
+    <h2 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-titulo-1);line-height:1.1;letter-spacing:-.03em">Estado</h2>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">06</span>
+  </div>
+  <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px">
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">CHIPS DE ESTADO · SEMPRE COM RÓTULO</span>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
+        <span style="display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:7px;border:1px {{ c.estilo }} {{ c.borda }};background:{{ c.fundo }};font-family:var(--f-mono);font-size:12px;color:{{ c.texto }}"><span aria-hidden="true" style="width:7px;height:7px;box-sizing:border-box;border-radius:50%;background:{{ c.cor }};border:{{ c.anelPonto }};animation:{{ c.anim }}"></span>{{ c.rotulo }}</span>
+      </sc-for>
+    </div>
+    <span style="font-size:14px;color:var(--texto-2)">Latão só em “espera você”. Pulso só em “executando”. Pendente usa contorno tracejado.</span>
+  </div>
+
+  <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:18px">
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">BARRA DE 6 FASES</span>
+    <sc-for list="{{ barras }}" as="b" hint-placeholder-count="4">
+      <div style="display:grid;grid-template-columns:minmax(110px,160px) minmax(0,1fr);gap:16px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:2px"><span style="font-family:var(--f-mono);font-size:13px">{{ b.thread }}</span><span style="font-size:13px;color:var(--texto-2)">{{ b.nota }}</span></div>
+        <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px" aria-label="{{ b.aria }}">
+          <sc-for list="{{ b.fases }}" as="f" hint-placeholder-count="6">
+            <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+              <div style="height:6px;border-radius:3px;background:{{ f.fundo }};border:{{ f.borda }};box-sizing:border-box;animation:{{ f.anim }}"></div>
+              <span style="font-family:var(--f-mono);font-size:11px;letter-spacing:.04em;color:{{ f.texto }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.glifo }} {{ f.nome }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px">
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">RESUMO HORÁRIO · ORK PULSE</span><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-3)">14:00 · America/Sao_Paulo</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--linha);border-radius:12px;overflow:hidden">
+        <sc-for list="{{ contadores }}" as="k" hint-placeholder-count="4">
+          <div style="padding:14px 12px;display:flex;flex-direction:column;gap:4px;border-right:1px solid var(--linha)">
+            <span style="font-family:var(--f-titulo);font-weight:600;font-size:32px;line-height:1;letter-spacing:-.02em;color:{{ k.cor }}">{{ k.n }}</span>
+            <span style="font-size:13px;color:var(--texto-2)">{{ k.rotulo }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+        <span style="font-size:15px">Posso enviar as 2 urgentes agora?</span>
+        <div style="display:flex;gap:8px"><button style="height:44px;padding:0 14px;border:0;border-radius:12px;background:transparent;color:var(--texto);font-family:var(--f-texto);font-weight:500;font-size:15px;cursor:pointer" style-hover="background:var(--superficie-2)" style-focus="outline:none;box-shadow:var(--anel-foco)">Depois</button><button style="height:44px;padding:0 18px;border:0;border-radius:12px;background:var(--acao);color:var(--sobre-acao);font-family:var(--f-texto);font-weight:500;font-size:15px;cursor:pointer" style-focus="outline:none;box-shadow:var(--anel-foco)">Enviar agora</button></div>
+      </div>
+      <div style="border-top:1px solid var(--linha);padding-top:12px;display:flex;align-items:center;gap:10px"><span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">vazio</span><span style="font-size:15px;color:var(--texto-2)">Nada espera você. Próximo resumo às 15:00.</span></div>
+    </div>
+
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px">
+      <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">NÚMERO DE PROVA</span>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ provas }}" as="p" hint-placeholder-count="4">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:12px;border:1px {{ p.borda }} var(--linha-forte);background:var(--superficie-2);min-width:0">
+            <span style="font-family:var(--f-titulo);font-weight:600;font-size:30px;line-height:1;letter-spacing:-.02em;color:{{ p.cor }}">{{ p.n }}</span>
+            <span style="font-size:14px;line-height:1.35">{{ p.rotulo }}</span>
+            <code style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2);overflow-wrap:anywhere">{{ p.cmd }}</code>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size:14px;color:var(--texto-2)">Todo número vem com o comando que o prova. Lacuna aparece como lacuna, com contorno tracejado.</span>
+    </div>
+  </div>
+
+  <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px">
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">SEPARADOR DE SEÇÃO</span>
+    <div style="position:relative;height:9px;display:flex;align-items:center;justify-content:center">
+      <div style="position:absolute;left:0;right:0;top:4px;height:1px;background:linear-gradient(90deg,transparent,var(--linha-forte) 25%,var(--linha-forte) 75%,transparent)"></div>
+      <div style="position:relative;width:7px;height:7px;border-radius:50%;background:var(--latao);box-shadow:0 0 0 4px var(--superficie)"></div>
+    </div>
+    <span style="font-size:14px;color:var(--texto-2)">Linha que se dissolve nas pontas, ponto de latão no centro. No máximo um por dobra de tela.</span>
+  </div>
+</section>
+
+<section id="conducao" style="padding:48px 0;border-top:1px solid var(--linha);display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px">
+    <h2 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-titulo-1);line-height:1.1;letter-spacing:-.03em">Condução</h2>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">07</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px">
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="display:inline-flex;align-items:center;gap:7px;font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--espera-texto)"><span style="width:8px;height:8px;border-radius:50%;background:var(--espera);animation:anel 2.8s cubic-bezier(.16,1,.3,1) infinite"></span>PONTO DE HITL · DECIDIR</span><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-3)">th-rm040 · PLAN · 1 de 5</span></div>
+      <p style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:20px;line-height:1.3;letter-spacing:-.01em">Onde guardar o estado de conta compartilhado entre máquinas?</p>
+      <div role="radiogroup" style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ opcoes }}" as="o" hint-placeholder-count="4">
+          <button role="radio" aria-checked="{{ o.sel }}" onClick="{{ o.escolher }}" style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;min-height:48px;padding:8px 12px;border-radius:12px;border:{{ o.borda }};background:{{ o.fundo }};color:var(--texto);font-family:var(--f-texto);font-size:15px;cursor:pointer;transition:border-color 160ms cubic-bezier(.16,1,.3,1)" style-hover="border-color:var(--texto-3)" style-focus="outline:none;box-shadow:var(--anel-foco)">
+            <span style="width:26px;height:26px;border-radius:7px;border:1px solid var(--linha-forte);display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-size:13px;background:{{ o.letraFundo }};color:{{ o.letraCor }}">{{ o.letra }}</span>
+            <span>{{ o.texto }}</span>
+            <sc-if value="{{ o.rec }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:11px;color:var(--espera-texto);white-space:nowrap"><span style="width:6px;height:6px;border-radius:50%;background:var(--espera)"></span>recomendada</span></sc-if>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;border-top:1px solid var(--linha);padding-top:12px">
+        <span style="font-size:13px;color:var(--texto-2)">Prazo vencido espera ou escala. Nunca aprova.</span>
+        <button style="height:44px;padding:0 18px;border:0;border-radius:12px;background:var(--acao);color:var(--sobre-acao);font-family:var(--f-texto);font-weight:500;font-size:15px;cursor:pointer" style-focus="outline:none;box-shadow:var(--anel-foco)">Responder {{ escolhida }}</button>
+      </div>
+    </div>
+
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">EVENTOS DO LEDGER</span><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-3)">ork phase list th-rm042</span></div>
+      <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column">
+        <sc-for list="{{ ledger }}" as="l" hint-placeholder-count="5">
+          <li style="display:grid;grid-template-columns:64px 14px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid var(--linha)">
+            <span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-3);padding-top:2px">{{ l.hora }}</span>
+            <span style="width:9px;height:9px;margin-top:5px;border-radius:50%;background:{{ l.cor }}"></span>
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+              <span style="font-family:var(--f-mono);font-size:12px;color:{{ l.texto }}">{{ l.tipo }}</span>
+              <span style="font-size:15px;line-height:1.4">{{ l.msg }}</span>
+            </div>
+          </li>
+        </sc-for>
+      </ol>
+    </div>
+  </div>
+
+  <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px;overflow-x:auto">
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">MATRIZ DE MODOS · PONTOS DE HITL</span><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-3)">ork modos</span></div>
+    <div style="min-width:760px;display:flex;flex-direction:column">
+      <div style="display:grid;grid-template-columns:110px 60px minmax(0,1fr) 260px;gap:14px;padding-bottom:8px;border-bottom:1px solid var(--texto);font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">
+        <span>#TAG</span><span>HITL</span>
+        <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px"><span>GOAL</span><span>PLAN</span><span>GO</span><span>CHECK</span><span>SHIP</span><span>MASTER</span></div>
+        <span>quando usar</span>
+      </div>
+      <sc-for list="{{ modos }}" as="m" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:110px 60px minmax(0,1fr) 260px;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--linha)">
+          <span style="font-family:var(--f-mono);font-size:14px;font-weight:500">{{ m.tag }}</span>
+          <span style="font-family:var(--f-mono);font-size:14px;color:var(--texto-2)">{{ m.hitl }}</span>
+          <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px">
+            <sc-for list="{{ m.blocos }}" as="bl" hint-placeholder-count="2">
+              <div style="grid-column:{{ bl.col }};height:28px;border-radius:7px;background:var(--superficie-2);border:1px solid var(--linha-forte);display:flex;align-items:center;justify-content:space-between;padding:0 8px;gap:6px;min-width:0">
+                <span style="font-family:var(--f-mono);font-size:10.5px;color:var(--texto-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ bl.f }}</span>
+                <sc-if value="{{ bl.hitl }}" hint-placeholder-val="{{ false }}"><span title="ponto de HITL" style="flex:none;width:9px;height:9px;border-radius:50%;background:var(--espera);box-shadow:0 0 0 3px color-mix(in oklch,var(--espera) 25%,transparent)"></span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <span style="font-size:13px;line-height:1.4;color:var(--texto-2)">{{ m.uso }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;font-size:14px;color:var(--texto-2)">
+      <span style="display:inline-flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:var(--espera)"></span>ponto de HITL: decidir ou aprovar</span>
+      <span>O modo ajusta a autonomia. A verificação é sempre a mesma.</span>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px">
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:10px">
+      <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">TOPOLOGIA</span>
+      <svg viewBox="0 0 520 300" role="img" aria-label="Você conduz o núcleo ork, que rege três máquinas com runtimes e perfis e entrega na main" style="width:100%;height:auto;display:block;font-family:'IBM Plex Mono',monospace">
+        <g fill="none" style="stroke:var(--executando)" stroke-width="1.2" stroke-dasharray="4 4"><path d="M260 58V96" style="animation:fluxo 2.8s linear infinite"></path><path d="M260 138V160H96V196M260 160V196M260 160H424V196" style="animation:fluxo 2.8s linear infinite"></path></g>
+        <g fill="none" style="stroke:var(--verificado)" stroke-width="1.4"><path d="M96 246V268H232M424 246V268H288M260 246V256"></path></g>
+        <rect x="196" y="18" width="128" height="40" rx="7" style="fill:var(--superficie-2);stroke:var(--linha-forte)"></rect>
+        <circle cx="214" cy="38" r="5" style="fill:var(--espera)"></circle>
+        <text x="230" y="42" font-size="13" style="fill:var(--texto)">você</text>
+        <text x="336" y="42" font-size="11" style="fill:var(--espera-texto)">ponto de HITL</text>
+        <rect x="180" y="96" width="160" height="42" rx="7" style="fill:var(--acao)"></rect>
+        <text x="260" y="122" font-size="13" text-anchor="middle" style="fill:var(--sobre-acao)">núcleo ork</text>
+        <rect x="22" y="196" width="148" height="50" rx="7" style="fill:var(--superficie-2);stroke:var(--linha-forte)"></rect>
+        <text x="96" y="215" font-size="12" text-anchor="middle" style="fill:var(--texto)">máquina a</text>
+        <text x="96" y="234" font-size="10.5" text-anchor="middle" style="fill:var(--texto-2)">claude-bg · p1 p2</text>
+        <rect x="186" y="196" width="148" height="50" rx="7" style="fill:var(--superficie-2);stroke:var(--linha-forte)"></rect>
+        <text x="260" y="215" font-size="12" text-anchor="middle" style="fill:var(--texto)">máquina b</text>
+        <text x="260" y="234" font-size="10.5" text-anchor="middle" style="fill:var(--texto-2)">codex · p1</text>
+        <rect x="350" y="196" width="148" height="50" rx="7" style="fill:var(--superficie-2);stroke:var(--linha-forte)"></rect>
+        <text x="424" y="215" font-size="12" text-anchor="middle" style="fill:var(--texto)">máquina c</text>
+        <text x="424" y="234" font-size="10.5" text-anchor="middle" style="fill:var(--texto-2)">claude-bg · p3</text>
+        <rect x="232" y="256" width="56" height="26" rx="7" style="fill:var(--superficie);stroke:var(--verificado)"></rect>
+        <text x="260" y="273" font-size="12" text-anchor="middle" style="fill:var(--verificado-texto)">main</text>
+        <text x="272" y="81" font-size="10.5" style="fill:var(--executando-texto)">instrução</text>
+        <text x="300" y="292" font-size="10.5" style="fill:var(--verificado-texto)">evidência · push comprovado</text>
+      </svg>
+    </div>
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">MAPA DE RESERVA DO ROADMAP</span><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-3)">ork roadmap pegar</span></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px">
+        <sc-for list="{{ reservas }}" as="r" hint-placeholder-count="8">
+          <div style="display:flex;flex-direction:column;gap:4px;padding:10px;border-radius:12px;border:1px {{ r.estilo }} {{ r.borda }};background:{{ r.fundo }}">
+            <span style="font-family:var(--f-mono);font-size:13px;font-weight:500">{{ r.id }}</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:11px;color:{{ r.texto }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ r.cor }}"></span>{{ r.estado }}</span>
+            <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">{{ r.quem }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size:14px;color:var(--texto-2)">Duas máquinas nunca pegam o mesmo item. O estado da thread ainda é por máquina.</span>
+    </div>
+  </div>
+</section>
+
+<section id="dados" style="padding:48px 0;border-top:1px solid var(--linha);display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px">
+    <h2 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-titulo-1);line-height:1.1;letter-spacing:-.03em">Dados</h2>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">08</span>
+  </div>
+  <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">QUADRO DE THREADS · ORK BOARD</span><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-3)">clique numa linha para selecionar</span></div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;min-width:720px;border-collapse:collapse;font-size:15px">
+        <thead>
+          <tr style="text-align:left;font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;color:var(--texto-3)">
+            <th style="padding:8px 12px;border-bottom:1px solid var(--texto);font-weight:500">THREAD</th>
+            <th style="padding:8px 12px;border-bottom:1px solid var(--texto);font-weight:500">MODO</th>
+            <th style="padding:8px 12px;border-bottom:1px solid var(--texto);font-weight:500">FASE</th>
+            <th style="padding:8px 12px;border-bottom:1px solid var(--texto);font-weight:500">ESTADO</th>
+            <th style="padding:8px 12px;border-bottom:1px solid var(--texto);font-weight:500">MÁQUINA · RUNTIME</th>
+            <th style="padding:8px 12px;border-bottom:1px solid var(--texto);font-weight:500;text-align:right">ATUALIZADO</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{ board }}" as="t" hint-placeholder-count="5">
+            <tr onClick="{{ t.selecionar }}" aria-selected="{{ t.sel }}" style="cursor:pointer;background:{{ t.fundo }};transition:background 160ms cubic-bezier(.16,1,.3,1)" style-hover="background:var(--superficie-2)">
+              <td style="padding:12px;border-bottom:1px solid var(--linha);font-family:var(--f-mono);font-size:13px;box-shadow:{{ t.marca }}">{{ t.id }}</td>
+              <td style="padding:12px;border-bottom:1px solid var(--linha);font-family:var(--f-mono);font-size:13px;color:var(--texto-2)">{{ t.modo }}</td>
+              <td style="padding:12px;border-bottom:1px solid var(--linha);font-family:var(--f-mono);font-size:13px">{{ t.fase }}</td>
+              <td style="padding:12px;border-bottom:1px solid var(--linha)"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border-radius:7px;border:1px {{ t.estilo }} {{ t.borda }};background:{{ t.chipFundo }};font-family:var(--f-mono);font-size:12px;color:{{ t.texto }};white-space:nowrap"><span style="width:7px;height:7px;box-sizing:border-box;border-radius:50%;background:{{ t.cor }};border:{{ t.anelPonto }};animation:{{ t.anim }}"></span>{{ t.estado }}</span></td>
+              <td style="padding:12px;border-bottom:1px solid var(--linha);font-family:var(--f-mono);font-size:13px;color:var(--texto-2)">{{ t.maquina }}</td>
+              <td style="padding:12px;border-bottom:1px solid var(--linha);font-family:var(--f-mono);font-size:13px;color:var(--texto-3);text-align:right">{{ t.hora }}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px">
+      <div style="border:1px dashed var(--linha-forte);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+        <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">vazio</span>
+        <span style="font-size:15px">Nenhuma thread aberta nesta máquina.</span>
+        <code style="font-family:var(--f-mono);font-size:13px;color:var(--texto-2)">$ ork thread new "&lt;pedido&gt;" --modo fast</code>
+      </div>
+      <div style="border:1px solid var(--linha);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px" aria-busy="true">
+        <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">carregando</span>
+        <div style="height:12px;border-radius:3px;width:80%;background:linear-gradient(90deg,var(--linha) 0,var(--superficie-2) 50%,var(--linha) 100%);background-size:400px 100%;animation:brilho 1.6s linear infinite"></div>
+        <div style="height:12px;border-radius:3px;width:64%;background:linear-gradient(90deg,var(--linha) 0,var(--superficie-2) 50%,var(--linha) 100%);background-size:400px 100%;animation:brilho 1.6s linear infinite"></div>
+        <div style="height:12px;border-radius:3px;width:72%;background:linear-gradient(90deg,var(--linha) 0,var(--superficie-2) 50%,var(--linha) 100%);background-size:400px 100%;animation:brilho 1.6s linear infinite"></div>
+      </div>
+      <div style="border:1px solid var(--falha);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px">
+        <span style="font-family:var(--f-mono);font-size:11px;color:var(--falha-texto)">× erro</span>
+        <span style="font-size:15px">Não li o ledger: arquivo ausente.</span>
+        <code style="font-family:var(--f-mono);font-size:13px;color:var(--texto-2)">$ ork doctor</code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="codigo" style="padding:48px 0;border-top:1px solid var(--linha);display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px">
+    <h2 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-titulo-1);line-height:1.1;letter-spacing:-.03em">Código</h2>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">09</span>
+  </div>
+  <div style="background:#161A21;border:1px solid #232831;border-radius:18px;overflow:hidden;color:#E9ECEF">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-bottom:1px solid #232831">
+      <span style="font-family:var(--f-mono);font-size:12px;color:#A7AEB8">sua primeira thread · bash</span>
+      <button onClick="{{ copiarBloco }}" style="height:36px;padding:0 12px;border-radius:9px;border:1px solid #343B46;background:#232831;color:#E9ECEF;font-family:var(--f-mono);font-size:12px;cursor:pointer" style-hover="background:#343B46" style-focus="outline:none;box-shadow:0 0 0 2px #161A21,0 0 0 4px #4F78B8">{{ copiaBlocoRotulo }}</button>
+    </div>
+    <div style="overflow-x:auto;padding:14px 0">
+      <sc-for list="{{ linhas }}" as="ln" hint-placeholder-count="6">
+        <div style="display:grid;grid-template-columns:44px auto;gap:12px;font-family:var(--f-mono);font-size:14px;line-height:1.75;white-space:pre;padding-right:20px">
+          <span style="text-align:right;color:#5F6670;user-select:none">{{ ln.n }}</span>
+          <span><span style="color:#E9ECEF">{{ ln.c }}</span><span style="color:#A7AEB8">{{ ln.k }}</span></span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <span style="font-size:14px;color:var(--texto-2)">Bloco de código é sempre noite. Comentários em luar-2. Numeração em tinta-3, fora da seleção.</span>
+</section>
+
+<section id="acessibilidade" style="padding:48px 0;border-top:1px solid var(--linha);display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px">
+    <h2 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-titulo-1);line-height:1.1;letter-spacing:-.03em">Acessibilidade</h2>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">10</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px">
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column">
+      <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3);padding-bottom:10px">REGRAS</span>
+      <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:10px 0;border-top:1px solid var(--linha)"><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">contraste</span><span style="font-size:15px">Texto ≥ 4,5:1. Estado em texto usa a variante -tinta no dia.</span></div>
+      <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:10px 0;border-top:1px solid var(--linha)"><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">foco</span><span style="font-size:15px">Anel de 2 px em regência, separado por 2 px do chão. Nunca removido.</span></div>
+      <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:10px 0;border-top:1px solid var(--linha)"><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">estado</span><span style="font-size:15px">Sempre cor + rótulo, e forma quando cabe: ✓, ×, tracejado, pulso.</span></div>
+      <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:10px 0;border-top:1px solid var(--linha)"><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">alvo</span><span style="font-size:15px">44 × 44 px no mínimo para tudo que se toca.</span></div>
+      <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:10px 0;border-top:1px solid var(--linha)"><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">movimento</span><span style="font-size:15px">prefers-reduced-motion zera durações, pulso e fluxo.</span></div>
+    </div>
+    <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column">
+      <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3);padding-bottom:10px">CONTRASTE · TEMA ATUAL</span>
+      <sc-for list="{{ contrastes }}" as="ct" hint-placeholder-count="7">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 64px 56px;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--linha)">
+          <span style="font-size:15px;color:{{ ct.cor }}">{{ ct.nome }}</span>
+          <span style="font-family:var(--f-mono);font-size:13px;text-align:right">{{ ct.r }}</span>
+          <span style="font-family:var(--f-mono);font-size:11px;color:var(--verificado-texto);text-align:right">✓ AA</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section id="responsivo" style="padding:48px 0;border-top:1px solid var(--linha);display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px">
+    <h2 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-titulo-1);line-height:1.1;letter-spacing:-.03em">Responsividade</h2>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">11</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px">
+    <sc-for list="{{ breakpoints }}" as="bp" hint-placeholder-count="4">
+      <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:var(--f-titulo);font-weight:600;font-size:28px;letter-spacing:-.02em">{{ bp.w }}</span><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-3)">{{ bp.nome }}</span></div>
+        <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px;height:28px">
+          <sc-for list="{{ bp.cols }}" as="cl" hint-placeholder-count="4"><span style="grid-column:{{ cl }};border-radius:3px;background:color-mix(in oklch,var(--executando) 22%,transparent);border:1px solid color-mix(in oklch,var(--executando) 50%,transparent)"></span></sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--texto-2)">
+          <span>{{ bp.grade }}</span><span>{{ bp.calha }}</span><span>{{ bp.nota }}</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+    <div style="width:100%;max-width:390px;border:1px solid var(--linha);border-radius:24px;background:var(--chao);padding:16px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box">
+      <span style="font-family:var(--f-mono);font-size:11px;color:var(--texto-3)">ork board em 390 px · tabela vira lista</span>
+      <sc-for list="{{ board }}" as="t" hint-placeholder-count="5">
+        <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center">
+          <span style="font-family:var(--f-mono);font-size:13px">{{ t.id }}</span>
+          <span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-3)">{{ t.hora }}</span>
+          <span style="display:inline-flex;align-items:center;gap:7px;font-family:var(--f-mono);font-size:12px;color:{{ t.texto }}"><span style="width:7px;height:7px;box-sizing:border-box;border-radius:50%;background:{{ t.cor }};border:{{ t.anelPonto }}"></span>{{ t.estado }} · {{ t.fase }}</span>
+          <span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">{{ t.modo }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:10px;font-size:15px;color:var(--texto-2);max-width:56ch">
+      <p style="margin:0">Abaixo de 768 px, tabelas viram listas de cartões, a matriz de modos rola na horizontal e o header vira menu.</p>
+      <p style="margin:0">Títulos usam clamp(): o display vai de 44 a 72 px. Corpo fica em 17 px em todas as larguras.</p>
+      <p style="margin:0">Acima de 1440 px, o conteúdo para em 1280 px e centraliza.</p>
+    </div>
+  </div>
+</section>
+
+<section id="movimento" style="padding:48px 0;border-top:1px solid var(--linha);display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:12px">
+    <h2 style="margin:0;font-family:var(--f-titulo);font-weight:600;font-size:var(--t-titulo-1);line-height:1.1;letter-spacing:-.03em">Movimento</h2>
+    <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">12</span>
+  </div>
+  <div style="background:var(--superficie);border:1px solid var(--linha);border-radius:24px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;overflow-x:auto">
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">PARTITURA ANIMADA DE ROADMAPS</span><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-3)">ciclo de 8 s · fase a fase, 600 ms</span></div>
+    <div style="min-width:620px;display:flex;flex-direction:column">
+      <div style="display:grid;grid-template-columns:80px repeat(6,minmax(0,1fr));gap:0 6px;padding-bottom:8px;border-bottom:1px solid var(--linha);font-family:var(--f-mono);font-size:11px;color:var(--texto-3)"><span></span><span>GOAL</span><span>PLAN</span><span>GO</span><span>CHECK</span><span>SHIP</span><span>MASTER</span></div>
+      <sc-for list="{{ partitura }}" as="row" hint-placeholder-count="6">
+        <div style="display:grid;grid-template-columns:80px repeat(6,minmax(0,1fr));gap:0 6px;align-items:center;height:34px;border-bottom:1px solid var(--linha)">
+          <span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">{{ row.id }}</span>
+          <sc-for list="{{ row.segs }}" as="sg" hint-placeholder-count="3">
+            <span style="grid-column:{{ sg.col }};height:{{ sg.h }};width:{{ sg.w }};border-radius:{{ sg.r }};background:{{ sg.fundo }};border:{{ sg.borda }};box-sizing:border-box;transform-origin:left center;animation:partitura 8s cubic-bezier(.16,1,.3,1) {{ sg.atraso }} infinite both"></span>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+    <span style="font-size:14px;color:var(--texto-2)">Cada linha é um roadmap; cada fase entra quando termina. Pátina = verificado, tracejado regência = executando, ponto latão = ponto de HITL, brasa = GO-FIX. Com movimento reduzido, a partitura aparece completa e parada.</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px">
+    <div onMouseMove="{{ brilhoMove }}" onMouseLeave="{{ brilhoSai }}" style="position:relative;min-height:240px;border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:12px;background:radial-gradient(320px circle at {{ gx }}px {{ gy }}px, color-mix(in oklch,var(--texto) {{ brilhoForca }}%,transparent), transparent 70%), var(--superficie);transition:border-color 280ms cubic-bezier(.16,1,.3,1)">
+      <span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">BRILHO QUE SEGUE O CURSOR</span>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span style="font-family:var(--f-titulo);font-weight:600;font-size:24px;line-height:1.2;letter-spacing:-.015em">Uma camada rege todos os seus runtimes, em todas as suas máquinas.</span>
+        <span style="font-size:14px;color:var(--texto-2)">Passe o cursor. Luz neutra (texto a 7%), raio de 320 px. Nunca latão. Só em cartões de destaque, no máximo um por dobra; desligado em toque.</span>
+      </div>
+    </div>
+    <div style="border:1px solid var(--linha);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:12px;background:var(--superficie)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--texto-3)">ENTRADA SUAVE AO ROLAR</span><button onClick="{{ repetirEntrada }}" style="height:36px;padding:0 12px;border:1px solid var(--linha-forte);border-radius:12px;background:var(--superficie);color:var(--texto);font-family:var(--f-mono);font-size:12px;cursor:pointer" style-hover="border-color:var(--texto-3)" style-focus="outline:none;box-shadow:var(--anel-foco)">repetir</button></div>
+      <div data-revelar="1" style="opacity:0;transform:translateY(16px);transition:opacity 600ms cubic-bezier(.16,1,.3,1),transform 600ms cubic-bezier(.16,1,.3,1);padding:12px 14px;border-radius:12px;background:var(--superficie-2);font-size:15px">1 · dor: três agentes no mesmo arquivo.</div>
+      <div data-revelar="2" style="opacity:0;transform:translateY(16px);transition:opacity 600ms cubic-bezier(.16,1,.3,1) 80ms,transform 600ms cubic-bezier(.16,1,.3,1) 80ms;padding:12px 14px;border-radius:12px;background:var(--superficie-2);font-size:15px">2 · calma: uma worktree por thread.</div>
+      <div data-revelar="3" style="opacity:0;transform:translateY(16px);transition:opacity 600ms cubic-bezier(.16,1,.3,1) 160ms,transform 600ms cubic-bezier(.16,1,.3,1) 160ms;padding:12px 14px;border-radius:12px;background:var(--superficie-2);font-size:15px">3 · prova: <code style="font-family:var(--f-mono);font-size:13px">ork verify</code> no HEAD real.</div>
+      <span style="font-size:14px;color:var(--texto-2)">600 ms, deslocamento de 16 px, atraso de 80 ms entre irmãos. Dispara uma vez, quando 20% do bloco entra na tela.</span>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+  <div role="status" aria-live="polite" style="position:fixed;right:24px;bottom:24px;z-index:10;display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:12px;background:var(--superficie);border:1px solid var(--linha);box-shadow:var(--sombra-3);max-width:min(380px,calc(100vw - 48px))">
+    <span style="width:9px;height:9px;margin-top:7px;flex:none;border-radius:50%;background:var(--espera)"></span>
+    <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">2 decisões esperam você</span><span style="font-family:var(--f-mono);font-size:12px;color:var(--texto-2)">th-rm040 · PLAN · opção b recomendada</span></div>
+    <button onClick="{{ fecharToast }}" aria-label="Fechar" style="width:32px;height:32px;border:0;border-radius:7px;background:transparent;color:var(--texto-2);cursor:pointer;font-family:var(--f-mono)" style-hover="background:var(--superficie-2)" style-focus="outline:none;box-shadow:var(--anel-foco)">×</button>
+  </div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tema&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dia&quot;,&quot;noite&quot;],&quot;default&quot;:&quot;dia&quot;,&quot;tsType&quot;:&quot;'dia' | 'noite'&quot;}}">
+class Component extends DCLogic {
+  state = { tema: null, copia: 'copiar', copiaBloco: 'copiar', tab: 0, opcao: 1, sel: 'th-rm037', toast: false, gx: -400, gy: -400 };
+
+  componentDidMount() { this.observar(); }
+  componentWillUnmount() { this.obs && this.obs.disconnect(); }
+  observar() {
+    this.obs && this.obs.disconnect();
+    const els = document.querySelectorAll('[data-revelar]');
+    const reduz = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const mostra = el => { el.style.opacity = '1'; el.style.transform = 'none'; };
+    if (reduz || !('IntersectionObserver' in window)) { els.forEach(mostra); return; }
+    this.obs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { mostra(e.target); this.obs.unobserve(e.target); } }), { threshold: 0.2 });
+    els.forEach(el => this.obs.observe(el));
+  }
+
+  copiar(txt, key) {
+    const done = ok => { this.setState({ [key]: ok ? '✓ copiado' : '× use ⌘C' }); clearTimeout(this['t' + key]); this['t' + key] = setTimeout(() => this.setState({ [key]: 'copiar' }), 1600); };
+    try { navigator.clipboard.writeText(txt).then(() => done(true), () => done(false)); } catch (e) { done(false); }
+  }
+
+  renderVals() {
+    const tema = this.state.tema || this.props.tema || 'dia';
+    const noite = tema === 'noite';
+    const E = {
+      espera: { cor: 'var(--espera)', texto: 'var(--espera-texto)', rotulo: 'espera você', borda: 'color-mix(in oklch,var(--espera) 55%,transparent)', fundo: 'color-mix(in oklch,var(--espera) 12%,transparent)', anim: 'anel 2.8s cubic-bezier(.16,1,.3,1) infinite' },
+      executando: { cor: 'var(--executando)', texto: 'var(--executando-texto)', rotulo: 'executando', borda: 'var(--linha)', fundo: 'transparent', anim: 'pulso 2.8s cubic-bezier(.16,1,.3,1) infinite' },
+      verificado: { cor: 'var(--verificado)', texto: 'var(--verificado-texto)', rotulo: 'verificado', borda: 'var(--linha)', fundo: 'transparent', anim: 'none' },
+      falha: { cor: 'var(--falha)', texto: 'var(--falha-texto)', rotulo: 'falha', borda: 'var(--linha)', fundo: 'transparent', anim: 'none' },
+      pendente: { cor: 'transparent', texto: 'var(--texto-2)', rotulo: 'pendente', borda: 'var(--linha-forte)', fundo: 'transparent', anim: 'none' }
+    };
+    E.pendente.borda = 'var(--linha-forte)';
+    const chips = ['espera', 'executando', 'verificado', 'falha', 'pendente'].map(k => ({ ...E[k], cor: k === 'pendente' ? 'transparent' : E[k].cor, borda: k === 'pendente' ? 'var(--texto-3)' : E[k].borda }));
+    chips.forEach(c => { c.estilo = 'solid'; c.anelPonto = '0'; });
+    chips[4] = { ...chips[4], borda: 'var(--texto-3)', cor: 'transparent', fundo: 'transparent', estilo: 'dashed', anelPonto: '1px solid var(--texto-3)' };
+
+    const FN = ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER'];
+    const fase = s => ({
+      v: { fundo: 'var(--verificado)', borda: '0', texto: 'var(--verificado-texto)', glifo: '✓', anim: 'none' },
+      x: { fundo: 'var(--executando)', borda: '0', texto: 'var(--executando-texto)', glifo: '…', anim: 'pulso 2.8s cubic-bezier(.16,1,.3,1) infinite' },
+      h: { fundo: 'var(--espera)', borda: '0', texto: 'var(--espera-texto)', glifo: '●', anim: 'none' },
+      f: { fundo: 'var(--falha)', borda: '0', texto: 'var(--falha-texto)', glifo: '×', anim: 'none' },
+      p: { fundo: 'transparent', borda: '1px dashed var(--linha-forte)', texto: 'var(--texto-3)', glifo: '·', anim: 'none' }
+    })[s];
+    const mk = (thread, nota, seq) => ({ thread, nota, aria: FN.map((n, i) => n + ' ' + ({ v: 'verificado', x: 'executando', h: 'espera você', f: 'falha', p: 'pendente' })[seq[i]]).join(', '), fases: FN.map((n, i) => ({ nome: n, ...fase(seq[i]) })) });
+    const barras = [mk('th-rm045', 'executando GO', 'vvxppp'), mk('th-rm037', 'PLAN espera você', 'vhpppp'), mk('th-rm040', 'CHECK falhou · GO-FIX', 'vvvfpp'), mk('th-rm042', 'verificado e entregue', 'vvvvvv')];
+
+    const boardRaw = [
+      ['th-rm042', '#Classic', 'SHIP', 'verificado', 'maquina-a · claude-bg', '14:31'],
+      ['th-rm045', '#Maestro', 'GO', 'executando', 'maquina-b · codex', '14:29'],
+      ['th-rm037', '#Classic', 'PLAN', 'espera', 'maquina-a · claude-bg', '14:12'],
+      ['th-rm040', '#Classic', 'GO-FIX', 'falha', 'maquina-c · claude-bg', '13:58'],
+      ['th-rm031', '#Auto', 'GOAL', 'pendente', '—', '13:40']
+    ];
+    const board = boardRaw.map(r => {
+      const e = E[r[3]]; const sel = this.state.sel === r[0];
+      const pend = r[3] === 'pendente';
+      return { id: r[0], modo: r[1], fase: r[2], estado: e.rotulo, maquina: r[4], hora: r[5], estilo: pend ? 'dashed' : 'solid', anelPonto: pend ? '1px solid var(--texto-3)' : '0', cor: pend ? 'transparent' : e.cor, texto: e.texto, borda: r[3] === 'espera' ? e.borda : pend ? 'var(--texto-3)' : 'var(--linha)', chipFundo: e.fundo, anim: e.anim, sel: sel ? 'true' : 'false', fundo: sel ? 'var(--superficie-2)' : 'transparent', marca: sel ? 'inset 2px 0 0 var(--texto)' : 'none', selecionar: () => this.setState({ sel: r[0] }) };
+    });
+
+    const opTxt = ['Arquivo no repositório do projeto', 'OrkMind, com fallback em arquivo', 'Serviço próprio do ork', 'Manter por projeto, como hoje'];
+    const opcoes = opTxt.map((t, i) => {
+      const s = this.state.opcao === i;
+      return { letra: 'abcd'[i], texto: t, rec: i === 1, sel: s ? 'true' : 'false', borda: s ? '1.5px solid var(--texto)' : '1px solid var(--linha)', fundo: s ? 'var(--superficie-2)' : 'var(--superficie)', letraFundo: s ? 'var(--acao)' : 'transparent', letraCor: s ? 'var(--sobre-acao)' : 'var(--texto)', escolher: () => this.setState({ opcao: i }) };
+    });
+
+    const tabsN = ['Visão geral', 'Fases', 'Claims', 'Ledger'];
+    const tabsT = ['Uma thread percorre seis fases. O modo decide onde há ponto de HITL; a verificação é a mesma nos quatro.', 'GOAL, PLAN, GO, CHECK, SHIP e MASTER. Cada fase tem um contrato, e nenhum agente pula uma.', 'Uma claim é a afirmação, o arquivo e o comando que a julga, em claims.jsonl.', 'O ledger é o log só de acréscimo da thread. ork phase list mostra os eventos.'];
+    const tabs = tabsN.map((n, i) => ({ nome: n, ativo: this.state.tab === i ? 'true' : 'false', cor: this.state.tab === i ? 'var(--texto)' : 'var(--texto-2)', barra: this.state.tab === i ? 'var(--texto)' : 'transparent', ir: () => this.setState({ tab: i }) }));
+
+    const ct = noite
+      ? [['luar · texto', '16,1:1', 'var(--texto)'], ['luar-2 · apoio', '8,5:1', 'var(--texto-2)'], ['latão · espera você', '9,7:1', 'var(--espera-texto)'], ['pátina · verificado', '5,6:1', 'var(--verificado-texto)'], ['brasa · falha', '5,4:1', 'var(--falha-texto)'], ['executando · em luar', '16,1:1', 'var(--executando-texto)'], ['luar-2 em noite-3', '6,6:1', 'var(--texto-2)']]
+      : [['tinta · texto', '15,9:1', 'var(--texto)'], ['tinta-2 · apoio', '7,6:1', 'var(--texto-2)'], ['tinta-3 · rótulo', '5,1:1', 'var(--texto-3)'], ['latão-tinta · espera você', '4,9:1', 'var(--espera-texto)'], ['regência-tinta · executando', '5,3:1', 'var(--executando-texto)'], ['pátina-tinta · verificado', '5,5:1', 'var(--verificado-texto)'], ['brasa-tinta · falha', '5,2:1', 'var(--falha-texto)']];
+
+    const sw = [['--chao', 'chão da página'], ['--superficie', 'cartões'], ['--superficie-2', 'campo elevado'], ['--linha', 'separação'], ['--linha-forte', 'borda de controle'], ['--texto', 'texto'], ['--texto-2', 'apoio'], ['--texto-3', 'rótulo'], ['--espera', 'espera você · HITL'], ['--executando', 'executando'], ['--verificado', 'verificado'], ['--falha', 'falha · GO-FIX']];
+
+    const P = (id, segs) => ({ id, segs: segs.map(([c, k], j) => ({ col: c, atraso: (j * 0.6 + this.partIdx++ * 0.0).toFixed(2) + 's', ...({ v: { fundo: 'var(--verificado)', borda: '0', h: '6px', w: 'auto', r: '3px' }, x: { fundo: 'transparent', borda: '1.5px dashed var(--executando)', h: '6px', w: 'auto', r: '3px' }, h: { fundo: 'var(--espera)', borda: '0', h: '10px', w: '10px', r: '50%' }, f: { fundo: 'var(--falha)', borda: '0', h: '6px', w: 'auto', r: '3px' } })[k] })) });
+    this.partIdx = 0;
+    const partitura = [
+      P('RM-041', [['2 / 3','v'],['3 / 4','v'],['4 / 5','v'],['5 / 6','v'],['6 / 7','v'],['7 / 8','v']]),
+      P('RM-042', [['2 / 3','v'],['3 / 4','v'],['4 / 5','v'],['5 / 6','x']]),
+      P('RM-044', [['2 / 3','v'],['3 / 3','h']]),
+      P('RM-045', [['2 / 3','v'],['3 / 4','v'],['4 / 5','f']]),
+      P('RM-047', [['2 / 3','v'],['3 / 4','v'],['4 / 5','v'],['5 / 6','v'],['6 / 7','x']]),
+      P('RM-040', [['2 / 3','v'],['3 / 4','v'],['4 / 5','x']])
+    ].map((r, i) => ({ ...r, segs: r.segs.map((s, j) => ({ ...s, atraso: (i * 0.25 + j * 0.6).toFixed(2) + 's' })) }));
+    partitura[2].segs[1] = { ...partitura[2].segs[1], col: '3 / 4' };
+    return {
+      partitura, gx: this.state.gx, gy: this.state.gy, brilhoForca: this.state.gx < 0 ? 0 : 7,
+      brilhoMove: e => { const r = e.currentTarget.getBoundingClientRect(); this.setState({ gx: Math.round(e.clientX - r.left), gy: Math.round(e.clientY - r.top) }); },
+      brilhoSai: () => this.setState({ gx: -400, gy: -400 }),
+      repetirEntrada: () => { document.querySelectorAll('[data-revelar]').forEach(el => { const tr = el.style.transition; el.style.transition = 'none'; el.style.opacity = '0'; el.style.transform = 'translateY(16px)'; void el.offsetWidth; el.style.transition = tr; }); setTimeout(() => this.observar(), 60); },
+      tema, logoSrc: noite ? 'marca/svg/assinatura.svg' : 'marca/svg/assinatura-fundo-claro.svg', simboloSrc: noite ? 'marca/svg/simbolo.svg' : 'marca/svg/simbolo-fundo-claro.svg',
+      mostraDia: noite ? 'none' : 'block', mostraNoite: noite ? 'block' : 'none',
+      isDia: noite ? 'false' : 'true', isNoite: noite ? 'true' : 'false',
+      diaBg: noite ? 'transparent' : 'var(--acao)', diaCor: noite ? 'var(--texto-2)' : 'var(--sobre-acao)',
+      noiteBg: noite ? 'var(--acao)' : 'transparent', noiteCor: noite ? 'var(--sobre-acao)' : 'var(--texto-2)',
+      setDia: () => this.setState({ tema: 'dia' }), setNoite: () => this.setState({ tema: 'noite' }),
+      swatches: sw.map(([n, uso]) => ({ n, uso, v: `var(${n})` })),
+      espacos: [['e-1', '4px'], ['e-2', '8px'], ['e-3', '12px'], ['e-4', '16px'], ['e-5', '24px'], ['e-6', '32px'], ['e-7', '48px'], ['e-8', '64px'], ['e-9', '96px']].map(([n, v]) => ({ n, v })),
+      copiaRotulo: this.state.copia, copiarInstalar: () => this.copiar('npm install -g @orkastery/cli', 'copia'),
+      copiaBlocoRotulo: this.state.copiaBloco,
+      copiarBloco: () => this.copiar(this.linhas().map(l => l.c.trimEnd()).join('\n'), 'copiaBloco'),
+      tabs, tabTexto: tabsT[this.state.tab],
+      alertas: [
+        { ...E.verificado, rotulo: 'VERIFICADO', msg: 'RM-042 entregue. 4/4 claims sustentadas, push comprovado em a41f9c2.' },
+        { ...E.executando, rotulo: 'EXECUTANDO', msg: 'th-rm045 em GO na maquina-b. 2 de 5 tarefas com commit.' },
+        { ...E.espera, rotulo: 'ESPERA VOCÊ', msg: 'Ponto de HITL em th-rm040: aprovar o plano. Opção b recomendada.' },
+        { ...E.falha, rotulo: 'FALHA · GO-FIX', msg: 'CHECK reprovou 1 de 4 claims (claims.failed). GO-FIX aberto com spec tipada.' }
+      ],
+      toast: this.state.toast,
+      mostrarToast: () => { this.setState({ toast: true }); clearTimeout(this.tt); this.tt = setTimeout(() => this.setState({ toast: false }), 5000); },
+      fecharToast: () => this.setState({ toast: false }),
+      chips, barras,
+      contadores: [{ n: 7, rotulo: 'pendentes', cor: 'var(--texto)' }, { n: 2, rotulo: 'urgentes', cor: 'var(--espera-texto)' }, { n: 1, rotulo: 'bloqueiam', cor: 'var(--texto)' }, { n: 0, rotulo: 'críticos', cor: 'var(--texto-3)' }],
+      provas: [
+        { n: '2.733', rotulo: 'testes do núcleo, zero falhas', cmd: 'npm --prefix core run test:ci', cor: 'var(--texto)', borda: 'solid' },
+        { n: '24', rotulo: 'canários, todos verdes', cmd: 'ork eval --so-canarios', cor: 'var(--texto)', borda: 'solid' },
+        { n: '199', rotulo: 'asserções em 20 skills', cmd: 'ork eval --so-skills', cor: 'var(--texto)', borda: 'solid' },
+        { n: '—', rotulo: 'verify local estável em VM com CPU roubada: não existe', cmd: 'planejado · RM-037', cor: 'var(--texto-3)', borda: 'dashed' }
+      ],
+      opcoes, escolhida: 'abcd'[this.state.opcao],
+      ledger: [
+        { hora: '14:31:08', tipo: 'claim.verificada', msg: '4/4 claims sustentadas no HEAD a41f9c2', ...E.verificado },
+        { hora: '14:30:52', tipo: 'fase.concluida', msg: 'GO · 3 commits atômicos na worktree', ...E.verificado },
+        { hora: '14:12:40', tipo: 'hitl.perguntado', msg: 'PLAN espera você: 1 pergunta, opção b recomendada', ...E.espera },
+        { hora: '13:58:11', tipo: 'gate.falhou', msg: 'claims.failed em 1 de 4 · GO-FIX aberto', ...E.falha },
+        { hora: '13:40:02', tipo: 'thread.criada', msg: '#Classic · goal, plan, f34, f56', ...E.executando }
+      ],
+      modos: [
+        { tag: '#Classic', hitl: '3', uso: 'O padrão do ork init: premissas delicadas com entrega confiável.', blocos: [{ f: 'GOAL', col: '1 / span 1', hitl: true }, { f: 'PLAN', col: '2 / span 1', hitl: true }, { f: 'GO-CHECK', col: '3 / span 2', hitl: true }, { f: 'SHIP-MASTER', col: '5 / span 2', hitl: false }] },
+        { tag: '#Maestro', hitl: '1', uso: 'Solução clara e ágil, sem tradeoff pesado: um ponto de HITL para alinhar as premissas.', blocos: [{ f: 'GOAL-PLAN', col: '1 / span 2', hitl: true }, { f: 'GO-CHECK-SHIP', col: '3 / span 3', hitl: false }, { f: 'MASTER', col: '6 / span 1', hitl: false }] },
+        { tag: '#Auto', hitl: '0', uso: 'Docs, estudos, pesquisas, configurações, auditorias, migrações.', blocos: [{ f: 'GOAL-PLAN-GO-CHECK-SHIP-MASTER', col: '1 / span 6', hitl: false }] },
+        { tag: '#Fast', hitl: '0', uso: 'Pedido pequeno e claro, de minutos. O push para a base ainda pede autorização.', blocos: [{ f: 'GO', col: '3 / span 1', hitl: false }] }
+      ],
+      reservas: [
+        ['RM-031', 'entregue', 'v', 'grafo de código'], ['RM-037', 'reservado', 'x', 'maquina-a'], ['RM-040', 'reservado', 'x', 'maquina-c'], ['RM-041', 'entregue', 'v', '24/09'],
+        ['RM-042', 'entregue', 'v', '27/09'], ['RM-045', 'reservado', 'x', 'maquina-b'], ['RM-047', 'entregue', 'v', '27/09'], ['RM-048', 'livre', 'p', 'ninguém']
+      ].map(([id, estado, k, quem]) => ({ id, estado, quem, cor: k === 'v' ? 'var(--verificado)' : k === 'x' ? 'var(--executando)' : 'var(--texto-3)', texto: k === 'v' ? 'var(--verificado-texto)' : k === 'x' ? 'var(--executando-texto)' : 'var(--texto-2)', estilo: k === 'p' ? 'dashed' : 'solid', borda: k === 'p' ? 'var(--linha-forte)' : 'var(--linha)', fundo: k === 'p' ? 'transparent' : 'var(--superficie-2)' })),
+      board, linhas: this.linhas(), contrastes: ct.map(([nome, r, cor]) => ({ nome, r, cor })),
+      breakpoints: [
+        { w: '390', nome: 'móvel', grade: '4 colunas', calha: 'calha 20 px', nota: 'header vira menu; tabela vira lista', cols: ['1 / span 3', '4 / span 3', '7 / span 3', '10 / span 3'] },
+        { w: '768', nome: 'tablet', grade: '8 colunas', calha: 'calha 32 px', nota: 'cartões em 2 colunas', cols: ['1 / span 6', '7 / span 6'] },
+        { w: '1280', nome: 'desktop', grade: '12 colunas', calha: 'calha 48 px', nota: 'conteúdo 1184 px', cols: ['1 / span 4', '5 / span 4', '9 / span 4'] },
+        { w: '1440', nome: 'amplo', grade: '12 colunas', calha: 'margem automática', nota: 'conteúdo para em 1280 px', cols: ['2 / span 5', '7 / span 5'] }
+      ]
+    };
+  }
+
+  linhas() {
+    return [
+      ['git add orkastery.yaml AGENTS.md && git commit -m "ork init"', ''],
+      ['ork thread new "add an exclamation mark to greet" --modo fast', ''],
+      ['ork phase run <thread> GO --prompt "<the request>"', '   # o runtime trabalha na worktree'],
+      ['ork verify <thread>', '                                    # re-roda as claims no HEAD real'],
+      ['ork ship <thread> --para main --autorizar-push <você>', '  # #Fast nunca faz push sozinho'],
+      ['ork master <thread> --aceitar-omissao', '                  # fecha a thread com o índice do ledger']
+    ].map(([c, k], i) => ({ n: i + 1, c, k }));
+  }
+}
+</script>
+</body>
+</html>
