@@ -157,8 +157,8 @@ const PT_BR = {
     instaleCodex: 'para despachar pelo codex, instale o Codex CLI e autentique com `codex login`',
     sandboxOk: '`codex sandbox true` executa nesta maquina',
     sandboxFalhou: (detalhe: string) => `sonda \`codex sandbox true\` falhou: ${detalhe}`,
-    sandboxCorrecao: 'instale o pacote bubblewrap do sistema (o bwrap embutido nao cria user namespace ' +
-      'nesta maquina) ou declare runtime.sandbox: danger-full-access ciente do risco',
+    sandboxCorrecao: (confirmar: string) => 'instale o pacote bubblewrap do sistema (o bwrap embutido nao cria user namespace ' +
+      `nesta maquina) ou declare runtime.sandbox: danger-full-access ciente do risco e confirme nesta maquina com ${confirmar}`,
     manifestoAusente: (nome: string, dir: string) => `${nome} nao encontrado a partir de ${dir}`,
     rodeInit: 'ork init',
     entreNoRepoEInit: 'entre no repositorio do projeto (ou crie um com git init e o primeiro commit) e rode ork init',
@@ -251,8 +251,17 @@ const PT_BR = {
     codexSandboxQuebrado: (origem: string, sandbox: string) =>
       `${origem} com sandbox "${sandbox}", mas o sandbox nao executa nesta maquina (o agente narraria sucesso sem rodar nada)`,
     codexSandboxOk: (origem: string, sandbox: string) => `${origem} com sandbox "${sandbox}"`,
+    codexSemConfirmacao: (origem: string, sandbox: string) => `${origem} com sandbox "${sandbox}" pedido pelo orkastery.yaml, ` +
+      'sem a confirmacao desta maquina: o despacho recusa com runtime.sandbox-nao-confirmado',
     codexForaNoDespachoCorrecao: 'instale o Codex CLI e autentique com `codex login` (assinatura, nunca API key)',
-    codexSandboxQuebradoCorrecao: 'instale o bubblewrap do sistema, ou declare runtime.sandbox: danger-full-access ciente do risco',
+    codexSandboxQuebradoCorrecao: (confirmar: string) =>
+      `instale o bubblewrap do sistema, ou declare runtime.sandbox: danger-full-access ciente do risco e confirme nesta maquina com ${confirmar}`,
+    codexSemConfirmacaoCorrecao: (confirmar: string) => `${confirmar} (ou volte o manifesto para workspace-write)`,
+    fabricaPedida: 'o orkastery.yaml pede fabrica.compartilhada: true e esta maquina nao entrou: nada desta maquina e publicado no remoto',
+    fabricaPedidaCorrecao: 'ork fabrica entrar, se esta maquina deve publicar o retrato dela no remoto do projeto',
+    pastaForaDaRaiz: (dir: string) =>
+      `worktree.dir "${dir}" leva para fora da raiz e esta maquina nao confirmou: a criacao de worktree recusa com worktree.dir-fora-da-raiz`,
+    pastaForaDaRaizCorrecao: (confirmar: string) => `${confirmar}, ou volte worktree.dir para dentro do projeto`,
     fonteDaMemoria: (fonte: string, divergente: boolean) => `${fonte}${divergente ? ' (cópia da worktree divergente preservada)' : ''}`,
     regimeDegradado: (motivo: string | null, detalhe: string) => `pedido orkmind, efetivo files (${motivo}): ${detalhe}`,
     regimeOrkmind: (tenant: string | null, variavel: string | null) => `orkmind ativo no tenant "${tenant}" pela variavel ${variavel}`,
@@ -391,6 +400,8 @@ const EN: Mensagens = {
       'permissoes do estado': 'state permissions',
       'pasta privada': 'private folder',
       'cadencia do pulse no cron': 'pulse cron cadence',
+      'fabrica compartilhada': 'shared factory',
+      'pasta das worktrees': 'worktree folder',
     },
     instaleNode: 'install Node 20 or later',
     gitAusente: 'not found on PATH',
@@ -404,8 +415,8 @@ const EN: Mensagens = {
     instaleCodex: 'to dispatch through codex, install the Codex CLI and sign in with `codex login`',
     sandboxOk: '`codex sandbox true` runs on this machine',
     sandboxFalhou: (detalhe) => `probe \`codex sandbox true\` failed: ${detalhe}`,
-    sandboxCorrecao: 'install the system bubblewrap package (the bundled bwrap cannot create a user namespace ' +
-      'on this machine) or declare runtime.sandbox: danger-full-access knowing the risk',
+    sandboxCorrecao: (confirmar) => 'install the system bubblewrap package (the bundled bwrap cannot create a user namespace ' +
+      `on this machine) or declare runtime.sandbox: danger-full-access knowing the risk, and confirm on this machine with ${confirmar}`,
     manifestoAusente: (nome, dir) => `${nome} not found in ${dir} or any parent directory`,
     rodeInit: 'ork init',
     entreNoRepoEInit: 'enter the project repository (or create one with `git init` and a first commit) and run `ork init`',
@@ -496,8 +507,17 @@ const EN: Mensagens = {
     codexSandboxQuebrado: (origem, sandbox) =>
       `${origem} with sandbox "${sandbox}", but the sandbox does not run on this machine (the agent would narrate success without running anything)`,
     codexSandboxOk: (origem, sandbox) => `${origem} with sandbox "${sandbox}"`,
+    codexSemConfirmacao: (origem, sandbox) => `${origem} with sandbox "${sandbox}" requested by \`orkastery.yaml\` but not confirmed ` +
+      'on this machine: dispatch is refused with `runtime.sandbox-nao-confirmado`',
     codexForaNoDespachoCorrecao: 'install the Codex CLI and sign in with `codex login` (subscription, never an API key)',
-    codexSandboxQuebradoCorrecao: 'install the system bubblewrap, or declare runtime.sandbox: danger-full-access knowing the risk',
+    codexSandboxQuebradoCorrecao: (confirmar) =>
+      `install the system bubblewrap, or declare runtime.sandbox: danger-full-access knowing the risk, and confirm on this machine with ${confirmar}`,
+    codexSemConfirmacaoCorrecao: (confirmar) => `${confirmar} (or set the manifest back to workspace-write)`,
+    fabricaPedida: '`orkastery.yaml` asks for `fabrica.compartilhada: true` and this machine has not joined: nothing from this machine is published to the remote',
+    fabricaPedidaCorrecao: 'ork fabrica entrar, if this machine should publish its snapshot to the project remote',
+    pastaForaDaRaiz: (dir) =>
+      `\`worktree.dir\` "${dir}" points outside the project root and this machine has not confirmed it: worktree creation is refused with \`worktree.dir-fora-da-raiz\``,
+    pastaForaDaRaizCorrecao: (confirmar) => `${confirmar}, or move \`worktree.dir\` back inside the project`,
     fonteDaMemoria: (fonte, divergente) => `${fonte}${divergente ? ' (divergent worktree copy kept)' : ''}`,
     regimeDegradado: (motivo, detalhe) => `orkmind requested, files in effect (${motivo}): ${detalhe}`,
     regimeOrkmind: (tenant, variavel) => `orkmind active in tenant "${tenant}" through the variable ${variavel}`,

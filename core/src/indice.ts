@@ -99,6 +99,10 @@ export interface Indice {
  * reversao e `ship.ts`, que e quem sabe de merge e de base; aqui so se conta o evento
  * que ele gravou.
  */
+function pausaPrevistaDoFast(e: EventoLedger): boolean {
+  return e.tipo === TIPOS_DE_EVENTO.shipBloqueado && e.modo === 'fast' && e.motivo === 'human.pending';
+}
+
 export function calcularIndice(eventos: readonly EventoLedger[]): Indice {
   const parcelas: ParcelaDoIndice[] = [];
   let valor = INDICE_BASE;
@@ -106,7 +110,10 @@ export function calcularIndice(eventos: readonly EventoLedger[]): Indice {
   for (const insumo of INSUMOS_DO_INDICE) {
     // Ensaio de 03/10/2026 (RM-049): o `ork ship --dry-run` barrado grava `ship_blocked` com `dryRun: true`;
     // ensaio nao e tropeco da entrega, como ja nao e pausa no board (fatia 2 do ensaio da 0.5.0, P2).
-    const ocorrencias = eventos.filter((e) => e.tipo === insumo.evento && e.dryRun !== true).length;
+    // EN8 (a), decisao do dono de 11/10/2026: no #Fast, o ship sem autorizacao de push e a pausa prevista
+    // do modo, e o `ship_blocked` com `human.pending` tambem nao conta.
+    const ocorrencias = eventos.filter((e) => e.tipo === insumo.evento && e.dryRun !== true &&
+      !pausaPrevistaDoFast(e)).length;
     if (ocorrencias === 0) continue;
     const bruto = insumo.peso * ocorrencias;
     const desconto = Math.max(bruto, insumo.piso);

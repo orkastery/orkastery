@@ -108,6 +108,27 @@ test('locale en F2a doctor (doctor.ts): manifesto, contas, embedding, dono do .g
   } finally { c.limpar(); }
 });
 
+test('locale en F2a doctor (doctor.ts): os checks da RM-047 (fabrica compartilhada, pasta das worktrees, sandbox sem confirmacao) em ingles', () => {
+  const c = cenario('doctor-rm047');
+  try {
+    const yaml = path.join(c.dir, 'orkastery.yaml');
+    fs.writeFileSync(yaml, fs.readFileSync(yaml, 'utf8').replace('dir: ".claude/worktrees"', 'dir: "../fora-da-raiz"') +
+      '\nfabrica:\n  compartilhada: true\n');
+    const en = ork(c, EN, false, 'doctor').stdout, pt = ork(c, PT, false, 'doctor').stdout;
+    assert.match(en, /\[warn\] shared factory +`orkastery\.yaml` asks for `fabrica\.compartilhada: true` and this machine has not joined/, en);
+    assert.match(en, /\[FAIL\] worktree folder +`worktree\.dir` "\.\.\/fora-da-raiz" points outside the project root/, en);
+    assert.match(pt, /\[warn\] fabrica compartilhada +o orkastery\.yaml pede fabrica\.compartilhada: true e esta maquina nao entrou/, pt);
+    assert.match(pt, /\[FAIL\] pasta das worktrees +worktree\.dir "\.\.\/fora-da-raiz" leva para fora da raiz/, pt);
+    const carregado = exigirManifesto(c.dir);
+    const codex = { ...carregado, manifesto: { ...carregado.manifesto,
+      runtime: { ...carregado.manifesto.runtime, adapter: 'codex', sandbox: 'danger-full-access' } } } as ManifestoCarregado;
+    const semConfirmacao = emIngles(() => checarDespachoPeloCodex(codex, '/opt/bin/codex', { ok: true }));
+    assert.match(semConfirmacao?.detalhe ?? '', /requested by `orkastery\.yaml` but not confirmed on this machine: dispatch is refused with `runtime\.sandbox-nao-confirmado`$/);
+    assert.match(semConfirmacao?.correcao ?? '', /\(or set the manifest back to workspace-write\)$/);
+    assert.deepEqual(linhasEmPortugues(`${semConfirmacao?.detalhe}\n${semConfirmacao?.correcao}`), []);
+  } finally { c.limpar(); }
+});
+
 test('locale en F2a doctor (preflight.ts): sondas de umask, estado e pasta privada em ingles', () => {
   const c = cenario('doctor-sondas');
   try {

@@ -13,7 +13,7 @@ import { instanteNoFuso, normalizarFuso, partesLocais } from '../horario';
 import { exec as executar, noPath } from '../util';
 import { ambienteDeAssinatura } from '../runtime-ambiente';
 import * as path from 'node:path';
-import { ContextoRuntime, validarContextoRuntime } from '../runtime-context';
+import { ContextoRuntime, ModDeFase, validarContextoRuntime } from '../runtime-context';
 import { ambienteComPerfil, diretorioEfetivo, PerfilDeDespacho } from '../runtime-profiles';
 import { TOOLS_DO_GRAFO } from '../mcp-grafo';
 
@@ -92,6 +92,11 @@ export interface DespachoPedido {
   perfil?: PerfilDeDespacho;
   /** I-36 (D4): identidade, thread e canal do despacho no ambiente da sessao filha. */
   ambienteExtra?: Record<string, string>;
+  /**
+   * RM-059 (T0.7): a saida do `claude --version` que vai rodar a sessao. Ausente, ela e lida so quando
+   * a instalacao tem mod de fase; `null` (ilegivel) deixa todos os mods de fora.
+   */
+  versaoClaude?: string | null;
 }
 
 export interface DespachoResultado {
@@ -123,6 +128,39 @@ export function versao(): string | null {
 /** Ferramentas de arquivo negadas no PLAN: o plano sai pelo núcleo, não pelo disco. */
 const ESCRITA_DE_ARQUIVO = ['Edit', 'Write', 'NotebookEdit'] as const;
 
+/** RM-059 (T0.7, D2): a API de mods saiu no Claude Code 2.1.287; nenhum mod vai a um `claude` mais velho. */
+export const MINIMO_DA_API_DE_MODS = '2.1.287';
+
+/** `2.1.296 (Claude Code)` vira `[2, 1, 296]`; texto sem versao vira `null`. */
+function versaoNumerica(texto: string | null | undefined): number[] | null {
+  const m = /(\d+)\.(\d+)\.(\d+)/.exec(texto ?? '');
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+function atende(versao: number[], minimo: number[]): boolean {
+  const i = versao.findIndex((parte, j) => parte !== minimo[j]);
+  return i < 0 || versao[i] > minimo[i];
+}
+
+/**
+ * RM-059 (T0.7, D2): os mods de fase que este `claude` carrega. O mod que pede versao mais nova fica de
+ * fora e o despacho segue, porque o nucleo nao depende de mod; versao ilegivel nao leva mod nenhum. Mod
+ * cuja dependencia ficou de fora (por versao, ou por ser so de papel `dono`) tambem fica: sem ela, ele
+ * carregaria pela metade na sessao de fase.
+ */
+export function modsParaOClaude(mods: readonly ModDeFase[], versao: string | null | undefined): ModDeFase[] {
+  const atual = versaoNumerica(versao);
+  if (!atual) return [];
+  const piso = versaoNumerica(MINIMO_DA_API_DE_MODS)!;
+  let vao = mods.filter((m) => atende(atual, piso) && atende(atual, versaoNumerica(m.claudeCodeMinimo) ?? piso));
+  for (;;) {
+    const nomes = new Set(vao.map((m) => m.nome));
+    const sobram = vao.filter((m) => m.dependencias.every((d) => nomes.has(d)));
+    if (sobram.length === vao.length) return vao;
+    vao = sobram;
+  }
+}
+
 /** Monta a linha de comando exata do despacho (usada tambem pelo `--dry-run`). */
 export function montarComando(pedido: DespachoPedido): string[] {
   const args = ['--bg', pedido.prompt, '--name', pedido.nome];
@@ -150,7 +188,10 @@ export function montarComando(pedido: DespachoPedido): string[] {
     const allow = plano ? [...consultas, 'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_decision_record']
       : permissoes?.allow ?? consultas;
     const deny = [...(plano ? ESCRITA_DE_ARQUIVO : []), ...(permissoes?.deny ?? [])];
-    args.push('--plugin-dir', contexto.instalacao, '--strict-mcp-config',
+    // RM-059 (T0.7): cada mod de fase conferido entra com o proprio --plugin-dir, depois do plugin do Orkastery.
+    const mods = contexto.modsDeFase.length === 0 ? []
+      : modsParaOClaude(contexto.modsDeFase, pedido.versaoClaude !== undefined ? pedido.versaoClaude : versao());
+    args.push('--plugin-dir', contexto.instalacao, ...mods.flatMap((m) => ['--plugin-dir', m.dir]), '--strict-mcp-config',
       '--mcp-config', JSON.stringify({ mcpServers: { orkastery: contexto.servidor } }),
       '--allowedTools', allow.join(','));
     if (deny.length) args.push('--disallowedTools', deny.join(','));

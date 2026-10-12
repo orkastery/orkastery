@@ -29,6 +29,9 @@ import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponive
 import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
 import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
+import { comandoDeConfirmacao, recusaDePostura } from './postura-local';
+import { COMANDO_CONFIRMAR_WORKTREE, recusaDePastaDasWorktrees } from './worktree-local';
+import { avisoDaFabricaPedida } from './maquina';
 import { checarRede } from './doctor-rede';
 import { msg, nomeDoCheck } from './locale';
 
@@ -315,19 +318,25 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
   const origem = msg().doctor.origemDoCodex(pelaAdapter, blocos.length ? { blocos: blocos.length, texto: textoDosBlocos(blocos) } : null);
   const sandboxConfigurado = carregado.manifesto.runtime.sandbox;
   const sandboxQuebrado = sonda !== null && !sonda.ok && sandboxConfigurado !== 'danger-full-access';
+  // RM-047 (P1): a postura que afrouxa o sandbox so despacha com a confirmacao local desta maquina.
+  const posturaSemConfirmacao = recusaDePostura(carregado.raiz, carregado.manifesto, 'codex') !== null;
   return {
     nome: 'despacho pelo codex',
-    nivel: !codex ? 'fail' : sandboxQuebrado ? 'fail' : 'ok',
+    nivel: !codex ? 'fail' : sandboxQuebrado || posturaSemConfirmacao ? 'fail' : 'ok',
     detalhe: !codex
       ? msg().doctor.codexForaNoDespacho(origem)
       : sandboxQuebrado
         ? msg().doctor.codexSandboxQuebrado(origem, sandboxConfigurado)
-        : msg().doctor.codexSandboxOk(origem, sandboxConfigurado),
+        : posturaSemConfirmacao
+          ? msg().doctor.codexSemConfirmacao(origem, sandboxConfigurado)
+          : msg().doctor.codexSandboxOk(origem, sandboxConfigurado),
     correcao: !codex
       ? msg().doctor.codexForaNoDespachoCorrecao
       : sandboxQuebrado
-        ? msg().doctor.codexSandboxQuebradoCorrecao
-        : undefined,
+        ? msg().doctor.codexSandboxQuebradoCorrecao(comandoDeConfirmacao('danger-full-access'))
+        : posturaSemConfirmacao
+          ? msg().doctor.codexSemConfirmacaoCorrecao(comandoDeConfirmacao(sandboxConfigurado))
+          : undefined,
   };
 }
 
@@ -418,7 +427,7 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
         : msg().doctor.sandboxFalhou(sondaDoCodex.detalhe),
       correcao: sondaDoCodex.ok
         ? undefined
-        : msg().doctor.sandboxCorrecao,
+        : msg().doctor.sandboxCorrecao(comandoDeConfirmacao('danger-full-access')),
     });
   }
 
@@ -480,6 +489,21 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     // sandbox que nao executa) deixa de ser aviso: e exatamente o que bloquearia a fase.
     const despachoPeloCodex = checarDespachoPeloCodex(carregado, codex, sondaDoCodex);
     if (despachoPeloCodex) checks.push(despachoPeloCodex);
+
+    // RM-047 (P5): o manifesto pede a fabrica compartilhada, mas quem liga a publicacao e a maquina.
+    const fabricaPedida = avisoDaFabricaPedida(carregado.manifesto);
+    if (fabricaPedida) {
+      checks.push({ nome: 'fabrica compartilhada', nivel: 'warn',
+        detalhe: msg().doctor.fabricaPedida, correcao: msg().doctor.fabricaPedidaCorrecao });
+    }
+
+    // RM-047 (P3): worktree.dir fora da raiz so cria checkout com a confirmacao local desta maquina.
+    const recusaDaPasta = recusaDePastaDasWorktrees(carregado.raiz, carregado.manifesto);
+    if (recusaDaPasta) {
+      checks.push({ nome: 'pasta das worktrees', nivel: 'fail',
+        detalhe: msg().doctor.pastaForaDaRaiz(carregado.manifesto.worktree.dir),
+        correcao: msg().doctor.pastaForaDaRaizCorrecao(COMANDO_CONFIRMAR_WORKTREE) });
+    }
 
     const politica = carregado.manifesto.runtime.provider_policy;
     const soAssinatura = politica === 'subscription-only';

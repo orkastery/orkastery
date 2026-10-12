@@ -151,6 +151,69 @@ Sem `tool_use_id`, cada invocação do hook recebe uma identidade de ocorrência
 do transcript não identifica uma ocorrência; eventos de um novo episódio de permissão
 podem chegar sem alteração do arquivo. Replays com `tool_use_id` continuam idempotentes.
 
+## Mods nas sessões de fase (RM-059)
+
+Mod é plugin de *function hooks* do Claude Code 2.1.287 ou mais novo. Cada mod do Orkastery mora
+em `adapters/claude-code/mods/<mod>/`, com o próprio `.claude-plugin/plugin.json`, e declara o
+papel em `orkastery-mod.json`:
+
+```json
+{"formato":"ork.mod/v1","papeis":["fase"],"claudeCodeMinimo":"2.1.287"}
+```
+
+O papel `dono` roda na sessão de quem conduz; o papel `fase`, nas sessões de fase que o `ork`
+despacha. O `ork adapter install claude-code` copia os mods com o resto do adaptador e grava cada
+arquivo deles no `INSTALADO.json`. No despacho `claude-bg`, cada mod de papel `fase` entra com o
+próprio `--plugin-dir`, logo depois do plugin do Orkastery, quando:
+
+- a pasta instalada do mod tem exatamente os arquivos do recibo, com os mesmos bytes e sem link;
+  os tipos que o próprio Claude Code escreve em `.claude-plugin/types/` (`*.d.ts` e
+  `tsconfig.json`) ficam fora da conta;
+- o `claude --version` atende o `claudeCodeMinimo` do mod e o 2.1.287 da API de mods.
+
+Mod que pede versão mais nova fica fora do comando, e o despacho segue: o núcleo não depende de
+mod. Mod cuja dependência ficou de fora (pela versão, ou por ser só de papel `dono`) também fica.
+Declaração inválida, manifesto fora do recibo ou arquivo a mais na pasta recusa o despacho com
+`runtime.context.installation`, como um byte divergente. Arquivo de mod que saiu do catálogo sai da
+cópia na reinstalação: o `ork adapter install claude-code` tira o que ele mesmo instalou e ninguém
+editou. Arquivo editado ou acrescentado à mão fica, e a recusa diz o caminho para apagar. A dependência (`dependencies` do
+`plugin.json` do mod) entra antes de quem depende; o resto segue o nome. Os mods que foram ficam no
+comando gravado no evento `phase_dispatch` do ledger da thread.
+
+O arquivo comum da raiz de `mods/`, como a lista de autoridade que a ponte lê em `../autoridade.json`
+antes da própria pasta, segue a mesma regra quando há mod de fase no despacho: fora do recibo, link
+ou arquivo especial recusam, e o que saiu do catálogo sai da cópia na reinstalação.
+
+Para tirar um mod das sessões de fase, mude o papel no `orkastery-mod.json` do catálogo, ou tire o
+mod, e rode `ork adapter install claude-code` de novo.
+
+O mod de papel `dono` não vai ao despacho: ele roda na sessão de quem conduz. Num projeto com o
+adaptador instalado, a cópia dele já está em `.claude/plugins/orkastery/mods/<mod>`, com cada
+arquivo registrado no `INSTALADO.json` e os arquivos comuns da raiz de `mods/` ao lado. Nesse
+carregamento ninguém confere os bytes: a conferência contra o recibo roda no despacho, para mod de
+fase. Carregue-a na sessão com:
+
+```bash
+claude --plugin-dir .claude/plugins/orkastery/mods/<mod>
+```
+
+Sem o adaptador local, cada mod tem uma entrada no marketplace próprio do repositório
+(`.claude-plugin/marketplace.json`, gerado por `node core/scripts/gerar-marketplaces.cjs`), que aponta
+para uma cópia gerada em `marketplaces/claude-code/mods/<mod>/`. Instalado pelo marketplace, o plugin
+é só a própria pasta, então o arquivo comum da raiz de `adapters/claude-code/mods/` (a lista de
+autoridade da ponte, por exemplo) vai dentro de cada cópia. A instalação é no escopo do projeto:
+
+```bash
+claude plugin marketplace add orkastery/orkastery
+claude plugin install <mod>@orkastery --scope project
+```
+
+Os dois marketplaces se chamam `orkastery`, e o local, registrado na instalação acima a partir de
+`.claude/plugins/orkastery`, não lista os mods. Não troque um pelo outro num projeto que usa o
+plugin do adaptador: remover um marketplace desinstala os plugins que vieram dele (medido no
+Claude Code 2.1.296), e o plugin do marketplace do repositório não traz o guard `PreToolUse` nem o
+MCP do adaptador.
+
 ## A #TAG de conducao
 
 O comando `/goal` extrai o modo do proprio pedido, sem reimplementar nada:

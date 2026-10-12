@@ -1,0 +1,13 @@
+{
+  "name": "ork-ponte",
+  "version": "0.1.0",
+  "description": "Ponte dos mods do Orkastery no Claude Code: o papel da sessão, a leitura do núcleo, a faixa e os caminhos vigiados com dono único, e a guarda de autoridade que nenhum mod passa.",
+  "author": {
+    "name": "Orkastery contributors",
+    "url": "https://github.com/orkastery"
+  },
+  "homepage": "https://orkastery.com/",
+  "repository": "https://github.com/orkastery/orkastery",
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}

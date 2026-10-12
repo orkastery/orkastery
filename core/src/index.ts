@@ -93,7 +93,8 @@ import {
 } from './divida';
 import { definicaoDaVariante, parseVariante, tabelaDeVariantes, VARIANTES } from './ciclos';
 import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './claims';
-import { exigirCatalogo } from './catalogo';
+import { conferirClaims, ErroDeConferencia, FORMATO_DA_CONFERENCIA, idsDeClaims, textoDaConferencia } from './claims-conferir';
+import { exigirCatalogoDoPacote } from './catalogo';
 import { doctor } from './doctor';
 import { endurecerUmask, preflight, textoPreflight } from './preflight';
 import { rodarEval, textoDoEval } from './evalrunner';
@@ -207,11 +208,12 @@ import {
   threadDeExemplo,
 } from './prompts';
 import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLimpeza } from './sessoes';
-import { exec, tabela } from './util';
+import { exec, shaCurto, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
 import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, caminhoThread, canalDaSessao, dirThread, exigirFase, lerThread,
-  linhaDaWorktree, listarIds, novaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
+  linhaDaWorktree, listarIds, novaThread, pedidoDaThread, pedidoDeWorktree, PedidoDeWorktree, prepararPedido, resumoDaThread, tabelaDeThreads,
+  threadsDaListagem,
 } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { BRANCH_DE_RESERVAS, leituraDasReservas, listarReservas, PainelDeReservas, pegarItem, REMOTO_PADRAO, reservarFeat, reservasOrfas,
@@ -220,7 +222,7 @@ import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, texto
 import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
-import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
+import { avisoDaFabricaPedida, fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
 import { entrarNaRede, publicarRede, refDaCasa, sairDaRede } from './rede';
 import { registrarNaRede } from './rede-adesao';
 import { jsonSemInvisivel } from './saida-segura';
@@ -247,6 +249,9 @@ import {
   linhasDaConsulta, listarProjetos, pedirDeclaracaoDoProjeto, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio,
   remotoDoProjeto, resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
 } from './projeto-alvo';
+import { ARQUIVO_WORKTREE_LOCAL, COMANDO_CONFIRMAR_WORKTREE, confirmarWorktreeLocal, lerWorktreeLocal, pastaDasWorktreesPedida,
+  recusaDePastaDasWorktrees, revogarWorktreeLocal } from './worktree-local';
+import { caminhoDaPosturaLocal, comandoDeConfirmacao, confirmarPosturaLocal, lerPosturaLocal, posturaAfrouxada, recusaDePostura, revogarPosturaLocal } from './postura-local';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
 // Antes de qualquer arquivo ou despacho: sem escrita de grupo nem de outros, que o sensor recusaria.
@@ -465,6 +470,17 @@ function comandoThread(args: Args): number {
         return { criterio, comando };
       });
     const dryRun = args.opcoes['dry-run'] === true;
+    // RM-059 (T6.0): o pedido do builder, guardado para o render da fase quando falta `--pedido`.
+    if (args.opcoes.pedido === true) {
+      console.error(mt.usoPedido);
+      return 2;
+    }
+    const pedidoDoBuilder = texto(args.opcoes.pedido);
+    // A4 do CHECK: pedido invalido e erro de uso, e sai antes da reserva do roadmap, que vai ao remoto.
+    if (pedidoDoBuilder !== undefined) {
+      try { prepararPedido(pedidoDoBuilder); }
+      catch (e) { console.error(mt.usoComMotivo(mensagemDoErro(e))); return 2; }
+    }
     // `--worktree auto` (ou `--worktree` sozinho) cria a worktree isolada da thread; um caminho reusa um
     // diretorio que ja existe. P4 do ensaio da 0.5.0: sem flag, `worktree.por_thread: true` cria como o
     // `--worktree auto`, e `--sem-worktree` cria sem ela. Uso invalido sai antes da reserva do roadmap.
@@ -509,6 +525,7 @@ function comandoThread(args: Args): number {
         exigeRuntimeDiferente,
         doneWhen,
         roadmap: itemReservado,
+        ...(pedidoDoBuilder !== undefined ? { pedido: pedidoDoBuilder } : {}),
       }));
     } catch (e) {
       if (itemDoRoadmap) {
@@ -534,6 +551,10 @@ function comandoThread(args: Args): number {
     const avisoDaWorktreeNova = criada.worktreeFalharia ? avisoDeWorktreeQueFalharia(criada.worktreeFalharia)
       : avisoDaWorktree(pedido.origem, criada, carregado.manifesto);
     const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
+    if (thread.pedido) {
+      console.log(mt.pedidoGuardado(gravada, `.orkastery/threads/${thread.id}/${thread.pedido.arquivo}`, shaCurto(thread.pedido.sha256),
+        thread.pedido.bytes));
+    }
     if (gravada) {
       console.log(mt.estado(thread.id));
       // Bloco B6: a origem da thread e as policies do projeto vao para a memoria
@@ -765,6 +786,70 @@ function comandoSetup(args: Args): number {
     if (args.opcoes.json === true) { console.log(JSON.stringify({ caminho: r.caminho, setup: r.setup }, null, 2)); return 0; }
     console.log(`Setup versionado em ${r.caminho}.`);
     console.log('  Leve para o repositorio por PR: dali em diante ele vale em todas as maquinas, e ork setup <modo> --bloco N passa a editar este arquivo.');
+    return 0;
+  }
+  if (modoBruto === 'worktree') {
+    // RM-047 (P3): worktree.dir fora da raiz so cria checkout com a confirmacao desta maquina, fora do git.
+    const acao = args.posicionais[2];
+    const json = args.opcoes.json === true;
+    if (acao === 'confirmar') {
+      const local = confirmarWorktreeLocal(raiz, carregado.manifesto, por, args.posicionais[3]);
+      if (json) { console.log(JSON.stringify(local, null, 2)); return 0; }
+      console.log(`Pasta das worktrees "${local.dir}" confirmada nesta maquina para ${local.raiz}.`);
+      console.log(`  Gravada em .orkastery/private/${ARQUIVO_WORKTREE_LOCAL} (local, fora do git). Para desfazer: ork setup worktree revogar.`);
+      return 0;
+    }
+    if (acao === 'revogar') {
+      const havia = revogarWorktreeLocal(raiz);
+      if (json) { console.log(JSON.stringify({ revogada: havia }, null, 2)); return 0; }
+      console.log(havia ? 'Confirmacao local da pasta das worktrees revogada.' : 'Nao havia confirmacao local da pasta das worktrees.');
+      return 0;
+    }
+    if (acao !== undefined) { console.error(`subcomando desconhecido: setup worktree ${acao} (use confirmar [<dir>] ou revogar)`); return 2; }
+    const pedida = pastaDasWorktreesPedida(raiz, carregado.manifesto);
+    const local = lerWorktreeLocal(raiz);
+    const recusa = recusaDePastaDasWorktrees(raiz, carregado.manifesto);
+    if (json) {
+      console.log(JSON.stringify({ manifesto: carregado.manifesto.worktree.dir, dir: pedida.dir, dentroDaRaiz: pedida.dentro,
+        confirmadaNestaMaquina: local.local?.dir ?? null, criacao: recusa === null ? 'permitida' : 'recusada' }, null, 2));
+      return 0;
+    }
+    console.log(`worktree.dir no orkastery.yaml: ${carregado.manifesto.worktree.dir} (${pedida.dir}, ${pedida.dentro ? 'dentro' : 'fora'} da raiz)`);
+    console.log(`confirmacao local desta maquina: ${local.local ? local.local.dir : `nenhuma (${local.motivo})`}`);
+    console.log(recusa === null ? 'criacao de worktree: permitida' : `criacao de worktree: recusada. ${COMANDO_CONFIRMAR_WORKTREE}`);
+    return 0;
+  }
+  if (modoBruto === 'sandbox') {
+    // RM-047 (P1): a postura de sandbox que afrouxa so vale com a confirmacao desta maquina, fora do git.
+    const acao = args.posicionais[2];
+    const json = args.opcoes.json === true;
+    if (acao === 'confirmar') {
+      const postura = args.posicionais[3];
+      if (!postura) { console.error('uso: ork setup sandbox confirmar <read-only|workspace-write|danger-full-access> [--por Q]'); return 2; }
+      const p = confirmarPosturaLocal(raiz, postura, por);
+      if (json) { console.log(JSON.stringify(p, null, 2)); return 0; }
+      console.log(`Postura de sandbox "${p.sandbox}" confirmada nesta maquina para ${p.raiz}.`);
+      console.log(`  Gravada em ${caminhoDaPosturaLocal(raiz)} (local, fora do git). Para desfazer: ork setup sandbox revogar.`);
+      return 0;
+    }
+    if (acao === 'revogar') {
+      const havia = revogarPosturaLocal(raiz);
+      if (json) { console.log(JSON.stringify({ revogada: havia }, null, 2)); return 0; }
+      console.log(havia ? 'Confirmacao local da postura de sandbox revogada.' : 'Nao havia confirmacao local de postura de sandbox.');
+      return 0;
+    }
+    if (acao !== undefined) { console.error(`subcomando desconhecido: setup sandbox ${acao} (use confirmar <postura> ou revogar)`); return 2; }
+    const pedida = carregado.manifesto.runtime.sandbox;
+    const local = lerPosturaLocal(raiz);
+    const recusa = recusaDePostura(raiz, carregado.manifesto, 'codex');
+    if (json) {
+      console.log(JSON.stringify({ manifesto: pedida, afrouxa: posturaAfrouxada(carregado.manifesto) !== null,
+        confirmadaNestaMaquina: local.postura?.sandbox ?? null, despachoCodex: recusa === null ? 'permitido' : 'recusado' }, null, 2));
+      return 0;
+    }
+    console.log(`runtime.sandbox no orkastery.yaml: ${pedida}`);
+    console.log(`confirmacao local desta maquina: ${local.postura ? local.postura.sandbox : `nenhuma (${local.motivo})`}`);
+    console.log(recusa === null ? 'despacho pelo codex: permitido' : `despacho pelo codex: recusado. ${comandoDeConfirmacao(pedida)}`);
     return 0;
   }
   if (!modoBruto) {
@@ -1225,6 +1310,36 @@ function comandoClaims(args: Args): number {
       console.log(`AVISO: ${linhaDoLintDeClaim(claim.id, a)}${a.regra === 'suite-inteira' ? '. O `ci prepare` recusa esta claim.' : ''}`);
     }
     return 0;
+  }
+  if (sub === 'conferir') {
+    // RM-059 (T0.10): so o que foi pedido, no sandbox do verify, sob a conducao da thread, sem recibo.
+    const id = args.posicionais[2];
+    const json = args.opcoes.json === true;
+    const claims = texto(args.opcoes.claims);
+    const tarefa = texto(args.opcoes.tarefa);
+    const prazo = texto(args.opcoes.prazo);
+    const semValor = ['claims', 'tarefa', 'prazo'].some((o) => args.opcoes[o] === true);
+    if (!id || semValor || (claims === undefined) === (tarefa === undefined)) {
+      console.error('uso: ork claims conferir <thread-id> --claims C1,C2 | --tarefa T1 [--prazo S] [--json]');
+      return 2;
+    }
+    const conducao = conducaoDoCli(args);
+    try {
+      const r = conferirClaims(carregado, id, {
+        claims: claims !== undefined ? idsDeClaims(claims) : undefined,
+        tarefa,
+        prazoMs: prazo !== undefined ? Number(prazo) * 1000 : undefined,
+        canal: conducao.canal,
+        correlacao: conducao.correlacao,
+      });
+      console.log(json ? JSON.stringify(r, null, 2) : textoDaConferencia(r));
+      return r.ok ? 0 : 1;
+    } catch (e) {
+      if (!(e instanceof ErroDeConferencia)) throw e;
+      if (json) console.log(JSON.stringify({ formato: FORMATO_DA_CONFERENCIA, thread: id, ok: false, erro: e.message }, null, 2));
+      else console.error(e.message);
+      return 2;
+    }
   }
   if (sub === 'verificar') {
     const id = args.posicionais[2];
@@ -2134,6 +2249,8 @@ function comandoFabrica(args: Args): number {
           : `Fabrica: retrato de ${r.maquina} igual ao ultimo publicado; nada a enviar (use --forcar para publicar mesmo assim).`);
       if (!fabricaCompartilhada(carregado.manifesto) && !silencioso) {
         console.log('  esta maquina nao entrou na fabrica compartilhada: so publica quando voce pede (ork fabrica entrar liga).');
+        // RM-047 (P5): o manifesto que pede a fabrica nao liga a publicacao desta maquina.
+        if (carregado.manifesto.fabrica.compartilhada) console.log('  o orkastery.yaml pede a fabrica compartilhada; quem liga e a maquina, com ork fabrica entrar.');
       }
       return 0;
     } catch (e) {
@@ -2161,7 +2278,7 @@ function comandoFabrica(args: Args): number {
     const r = removerMaquina(carregado, { remoto });
     console.log(`Fabrica: ${nomeDaMaquina()} saiu; nada mais e publicado daqui.` +
       (r ? ` Retrato removido de ork/fabrica-estado (${r.slice(0, 7)}).` : ' Nao havia retrato desta maquina na branch.'));
-    if (fabricaCompartilhada(carregado.manifesto)) console.log('  AVISO: o manifesto do projeto (ou ORK_FABRICA_COMPARTILHADA) ainda liga a fabrica aqui.');
+    if (fabricaCompartilhada(carregado.manifesto)) console.log('  AVISO: ORK_FABRICA_COMPARTILHADA=1 neste shell ainda liga a fabrica aqui.');
     void config;
     return 0;
   }
@@ -2188,6 +2305,9 @@ function comandoFabrica(args: Args): number {
   console.log(url === null
     ? `Fabrica: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`
     : textoDaFabrica(painel, nomeDaMaquina()));
+  // RM-047 (P5): o manifesto pede a fabrica, mas quem liga a publicacao e a maquina.
+  const pedida = avisoDaFabricaPedida(carregado.manifesto);
+  if (pedida) console.log(`\n${pedida}`);
   return 0;
 }
 
@@ -2878,12 +2998,17 @@ function comandoPrompt(args: Args): number {
       return 2;
     }
     const thread = lerThread(obrigatorio.raiz, threadId);
+    // RM-059 (T6.0): sem --pedido, o pedido guardado na criacao, conferido pelo sha256; thread sem pedido
+    // guardado segue com o texto de exemplo, como antes.
+    const guardado = texto(args.opcoes.pedido) === undefined ? pedidoDaThread(obrigatorio.raiz, thread) : null;
+    const pedidoDaFase = guardado?.texto ?? pedido;
     const template = idTemplate ? exigirTemplate(idTemplate, obrigatorio.raiz) : templateDaFase(fase, obrigatorio.raiz);
     const prompt = idTemplate
-      ? renderizar(template, valoresDoPrompt(thread, fase, pedido))
-      : montarPrompt(thread, fase, pedido, obrigatorio.raiz);
+      ? renderizar(template, valoresDoPrompt(thread, fase, pedidoDaFase))
+      : montarPrompt(thread, fase, pedidoDaFase, obrigatorio.raiz);
     console.log(`# template ${template.id} v${template.versao} (origem: ${template.origem})`);
     console.log(`# thread ${thread.id}, fase ${fase}, sha256 ${hashDoPrompt(prompt)}`);
+    if (guardado) console.log(`# pedido guardado na criacao da thread (sha256 ${shaCurto(guardado.sha256)})`);
     console.log('');
     console.log(prompt);
     return 0;
@@ -2975,7 +3100,8 @@ function comandoAdapter(args: Args): number {
  * de zero em qualquer falha, para o CI do kit poder barrar merge sem eval.
  */
 function comandoEval(args: Args): number {
-  const catalogo = exigirCatalogo(carregarManifesto()?.raiz ?? diretorioDoProjeto());
+  // RM-047 (P4): o eval so executa o catalogo do proprio pacote, nunca o achado a partir do cwd.
+  const catalogo = exigirCatalogoDoPacote(carregarManifesto()?.raiz ?? diretorioDoProjeto());
   const lista = (v: string | boolean | undefined): string[] | undefined => {
     const t = texto(v);
     return t ? t.split(',').map((x) => x.trim()).filter(Boolean) : undefined;

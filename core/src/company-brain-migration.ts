@@ -1,3 +1,4 @@
+import * as os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { ManifestoCarregado } from './manifest';
 import { memoryState, stateFile } from './project-state';
@@ -11,7 +12,8 @@ export function brainAdmin(c:ManifestoCarregado):AdminTransport{
   return(operation,payload)=>{
     const dsn=config.database_url_env?process.env[config.database_url_env]:undefined;
     if(config.mode!=='orkmind'||!dsn)throw Error('brain.configuration.missing');
-    const r=spawnSync(config.cli,['brain','migration'],{cwd:c.raiz,shell:false,encoding:'utf8',timeout:Math.min(config.timeout_ms,15000),maxBuffer:2*1024*1024,
+    // RM-047: cwd fora do clone; um nome de interpretador em memory.cli não acha arquivo do repositório.
+    const r=spawnSync(config.cli,['brain','migration'],{cwd:os.homedir(),shell:false,encoding:'utf8',timeout:Math.min(config.timeout_ms,15000),maxBuffer:2*1024*1024,
       input:JSON.stringify({schema:'orkmind.company-brain-admin/v1',operation,payload}),
       env:{PATH:process.env.PATH??'/usr/bin:/bin',PYTHONDONTWRITEBYTECODE:'1',ORKMIND_DATABASE_URL:dsn,ORKMIND_BRAIN_TENANT:config.tenant}});
     try{const response=JSON.parse(r.stdout);if(r.status!==0||response.state!=='ok')throw Error();return response.result;}

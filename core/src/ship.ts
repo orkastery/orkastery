@@ -34,7 +34,7 @@ import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
 import { formatarDataHora, legendaDoFuso, localizarTexto } from './horario';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
-import { exigirRemoto } from './branch-de-estado';
+import { branchValida, exigirRemoto, shaValido } from './branch-de-estado';
 
 export interface OpcoesShip {
   /** Revalidação interna confiável; nunca exposta pela CLI/MCP como argumento. */
@@ -373,7 +373,9 @@ export function detectarReversaoDaEntrega(
   const entregas = lerLedger(dir)
     .filter((e) => e.tipo === TIPOS_DE_EVENTO.shipConcluido && typeof e.mergeSha === 'string')
     .map((e) => ({ mergeSha: String(e.mergeSha), para: para ?? String(e.para ?? '') }))
-    .filter((e) => e.para.length > 0);
+    // RM-047 (fronteira de confiança): o ledger pode vir do clone. Só sha hexadecimal e nome de branch
+    // chegam ao `git log`; qualquer outro valor viraria opção dele e é ignorado.
+    .filter((e) => e.para.length > 0 && shaValido(e.mergeSha) && branchValida(e.para));
   if (entregas.length === 0) return null;
 
   const perguntados = new Set<string>();
@@ -382,7 +384,7 @@ export function detectarReversaoDaEntrega(
     if (perguntados.has(intervalo)) continue;
     perguntados.add(intervalo);
     // O historico e append-only: o merge continua la, e o revert vem DEPOIS dele.
-    const log = exec('git', ['log', '--format=%H%x1f%B%x1e', intervalo], raiz, 60000);
+    const log = exec('git', ['log', '--format=%H%x1f%B%x1e', '--end-of-options', intervalo], raiz, 60000);
     if (!log.ok) continue;
     for (const bruto of log.stdout.split('\x1e')) {
       const [sha, corpo] = bruto.split('\x1f');

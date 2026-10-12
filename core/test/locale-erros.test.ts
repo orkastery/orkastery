@@ -54,6 +54,27 @@ test('locale en F2a erros: manifesto ausente, --slug, --roadmap, --runtime e o m
   } finally { c.limpar(); }
 });
 
+test('locale en F2a erros: thread new --pedido em ingles, com o pedido gravado igual nas duas linguas', () => {
+  const pt = cenario('pedido-pt'), en = cenario('pedido-en');
+  try {
+    const r = ork(en, EN, false, 'thread', 'new', 'Pedido', '--modo', 'auto', '--sem-worktree', '--pedido', 'map the goal');
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /\n {2}request: saved to \.orkastery\/threads\/loc-pedido\/pedido\.md \(sha256 [0-9a-f]{8}, 12 bytes\); `ork prompt render` uses it when `--pedido` is missing\n/);
+    const p = ork(pt, PT, false, 'thread', 'new', 'Pedido', '--modo', 'auto', '--sem-worktree', '--pedido', 'map the goal');
+    assert.match(p.stdout, /\n {2}pedido: guardado em \.orkastery\/threads\/loc-pedido\/pedido\.md \(sha256 [0-9a-f]{8}, 12 bytes\); o ork prompt render o usa quando falta --pedido\n/);
+    const pedido = (c: typeof pt) => fs.readFileSync(path.join(c.dir, '.orkastery', 'threads', 'loc-pedido', 'pedido.md'), 'utf8');
+    const meta = (c: typeof pt) => JSON.parse(fs.readFileSync(path.join(c.dir, '.orkastery', 'threads', 'loc-pedido', 'thread.json'), 'utf8')).pedido;
+    assert.equal(pedido(en), pedido(pt));
+    assert.deepEqual(meta(en), meta(pt));
+    assert.equal(ork(en, EN, false, 'thread', 'new', 'Outro', '--modo', 'auto', '--sem-worktree', '--pedido').stderr,
+      'usage: --pedido "<builder request text>"\n');
+    assert.equal(ork(en, EN, false, 'thread', 'new', 'Outro', '--modo', 'auto', '--sem-worktree', '--pedido', '   ').stderr,
+      'usage: thread.pedido.invalido: the request is empty\n');
+    assert.equal(ork(pt, PT, false, 'thread', 'new', 'Outro', '--modo', 'auto', '--sem-worktree', '--pedido', '   ').stderr,
+      'uso: thread.pedido.invalido: o pedido esta vazio\n');
+  } finally { pt.limpar(); en.limpar(); }
+});
+
 test('locale en F2a erros: em pt-BR e com --json as mensagens seguem as da base', () => {
   const fora = cenario('erros-fora-pt', false);
   try {

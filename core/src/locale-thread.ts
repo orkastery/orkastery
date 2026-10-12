@@ -136,6 +136,13 @@ export const THREAD_PT_BR = {
   slugInvalido: (slug: string, regex: string) => `slug invalido: "${slug}" (regex canonica: ${regex})`,
   roadmapItemInvalido: (item: string) => `roadmap.item: "${item}" nao e um item do roadmap (esperado RM-NNN)`,
   roadmapItemInexistente: (id: string) => `roadmap.item: ${id} nao existe em docs/roadmap`,
+  /** RM-059 (T6.0) no thread new: o pedido do builder guardado ao lado do thread.json. */
+  usoPedido: 'uso: --pedido "<texto do pedido do builder>"',
+  usoComMotivo: (motivo: string) => `uso: ${motivo}`,
+  pedidoVazio: 'thread.pedido.invalido: o pedido esta vazio',
+  pedidoGrande: (bytes: number, teto: number) => `thread.pedido.invalido: o pedido tem ${bytes} bytes, e o teto e ${teto}`,
+  pedidoGuardado: (gravada: boolean, caminho: string, sha: string, bytes: number) =>
+    `  pedido: ${gravada ? 'guardado em' : 'seria guardado em'} ${caminho} (sha256 ${sha}, ${bytes} bytes); o ork prompt render o usa quando falta --pedido`,
   nenhumaSessao: '  nenhuma sessao despachada ainda',
   sessoesDespachadas: '  sessoes despachadas (estado real conferido em `ork sessions`)',
   sessao: (verificada: boolean, canal: string) => `verificada no runtime: ${verificada ? 'sim' : 'nao'}  canal: ${canal}`,
@@ -253,6 +260,12 @@ export const THREAD_EN: typeof THREAD_PT_BR = {
   slugInvalido: (slug, regex) => `invalid slug: "${slug}" (canonical regex: ${regex})`,
   roadmapItemInvalido: (item) => `roadmap.item: "${item}" is not a roadmap item (expected RM-NNN)`,
   roadmapItemInexistente: (id) => `roadmap.item: ${id} does not exist in \`docs/roadmap\``,
+  usoPedido: 'usage: --pedido "<builder request text>"',
+  usoComMotivo: (motivo) => `usage: ${motivo}`,
+  pedidoVazio: 'thread.pedido.invalido: the request is empty',
+  pedidoGrande: (bytes, teto) => `thread.pedido.invalido: the request has ${bytes} bytes, above the ${teto}-byte limit`,
+  pedidoGuardado: (gravada, caminho, sha, bytes) => `  request: ${gravada ? 'saved to' : 'would be saved to'} ${caminho} (sha256 ${sha}, ` +
+    `${bytes} bytes); \`ork prompt render\` uses it when \`--pedido\` is missing`,
   nenhumaSessao: '  no session dispatched yet',
   sessoesDespachadas: '  dispatched sessions (real state checked in `ork sessions`)',
   sessao: (verificada, canal) => `verified in the runtime: ${verificada ? 'yes' : 'no'}  channel: ${canal}`,

@@ -54,6 +54,10 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                             Despachos numa conta que outro projeto desta maquina viu esgotada
                                             (RM-040), so leitura: conta opaca, perfil pelo id, sem diretorio
   setup [<modo>] --reset                    Volta o modo (ou tudo) ao default
+  setup sandbox [confirmar <postura>|revogar]  Postura de sandbox desta maquina (RM-047): runtime.sandbox que afrouxa
+                                            (danger-full-access) so despacha com a confirmacao local, fora do git
+  setup worktree [confirmar [<dir>]|revogar]  Pasta das worktrees desta maquina (RM-047): worktree.dir fora da raiz
+                                            so cria checkout com a confirmacao local, fora do git
   setup versionar                           Leva o setup que vale para orkastery.setup.json: por PR, vale em
                                             todas as maquinas e passa a ser o arquivo editado (I-52)
 
@@ -65,6 +69,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                                  push_direto_na_base: block, o padrão do ork init); com
                                                  worktree.por_thread: true, a worktree nasce sem flag
         [--roadmap RM-NNN]                       reserva o item do roadmap antes de criar (I-47)
+        [--pedido "<texto>"]                     guarda o pedido do builder (pedido.md, com sha256): o
+                                                 prompt render usa quando falta --pedido (RM-059)
   thread list [--todas] [--json]            Threads NAO fechadas do projeto (--todas inclui as fechadas)
   thread close <id> --motivo orfa|engano|superada --por Q --justificativa J
   thread entrega <id> --arquivo A --sha256 H --por Q
@@ -123,6 +129,10 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"] [--fase F]
                                             Registra alegacao verificavel da thread
   claims list <thread-id>                   Claims da thread e o estado de cada uma
+  claims conferir <thread-id> --claims C1,C2|--tarefa T1 [--prazo S] [--json]
+                                            Reexecuta so essas claims, ou o verify da tarefa do plano, no
+                                            sandbox do verify, sem gravar recibo (RM-059); sai 3 se outra
+                                            sessao conduz e 2 sem sandbox
   decisao registrar <thread-id> --decidido D --porque P --como-mudar C --custo-agora A --custo-depois B
         --criterio manifesto:CHAVE|ledger:REF|medicao:COMANDO --quem Q --evidencia E [--razao R] [--reverte ID]
                                             Decisao tomada sem perguntar: chega ao dono no resumo
@@ -267,7 +277,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   prompt list                               Templates de prompt (embutidos e os do projeto)
   prompt lint [--template ID]               Reprova template quebrado antes de ele virar despacho
   prompt render <thread-id> --fase F        Mostra o prompt exato, com o sha256 que vai ao ledger
-        [--pedido "<texto>"] [--template ID]
+        [--pedido "<texto>"] [--template ID]     sem --pedido, o guardado na criacao da thread (RM-059)
   prompt render --exemplo --fase F --modo M Renderiza sem thread nenhuma, para revisar o texto
 
   roadmap status [--json]                   Status report unico do roadmap: grupos com icones, #HITL no que espera
@@ -413,6 +423,10 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
                                             Dispatches on an account that another project on this machine saw exhausted
                                             (RM-040), read only: opaque account, profile by id, no directory
   setup [<mode>] --reset                    Resets the mode (or everything) to the default
+  setup sandbox [confirmar <posture>|revogar]  Sandbox posture of this machine (RM-047): a runtime.sandbox that loosens it
+                                            (danger-full-access) only dispatches with the local confirmation, outside git
+  setup worktree [confirmar [<dir>]|revogar]  Worktree folder of this machine (RM-047): a worktree.dir outside the root
+                                            only creates checkouts with the local confirmation, outside git
   setup versionar                           Moves the setup in force to orkastery.setup.json: through a PR, it holds on
                                             every machine and becomes the edited file (I-52)
 
@@ -424,6 +438,8 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
                                                  push_direto_na_base: block, the ork init default); with
                                                  worktree.por_thread: true, the worktree is created without a flag
         [--roadmap RM-NNN]                       reserves the roadmap item before creating (I-47)
+        [--pedido "<text>"]                      saves the builder request (pedido.md, with sha256):
+                                                 prompt render uses it when --pedido is missing (RM-059)
   thread list [--todas] [--json]            Project threads that are NOT closed (--todas includes the closed ones)
   thread close <id> --motivo orfa|engano|superada --por Q --justificativa J
   thread entrega <id> --arquivo A --sha256 H --por Q
@@ -482,6 +498,10 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   claims add <thread-id> <file> --claim "<claim>" [--verificar "<command>"] [--fase F]
                                             Records a verifiable claim of the thread
   claims list <thread-id>                   Claims of the thread and the state of each one
+  claims conferir <thread-id> --claims C1,C2|--tarefa T1 [--prazo S] [--json]
+                                            Reruns only those claims, or the verify of the plan task, in the
+                                            verify sandbox, without writing a receipt (RM-059); exits 3 if another
+                                            session is conducting and 2 without a sandbox
   decisao registrar <thread-id> --decidido D --porque P --como-mudar C --custo-agora A --custo-depois B
         --criterio manifesto:KEY|ledger:REF|medicao:COMMAND --quem Q --evidencia E [--razao R] [--reverte ID]
                                             Decision taken without asking: reaches the owner in the summary
@@ -626,7 +646,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   prompt list                               Prompt templates (built in and the project ones)
   prompt lint [--template ID]               Refuses a broken template before it becomes a dispatch
   prompt render <thread-id> --fase F        Shows the exact prompt, with the sha256 that goes to the ledger
-        [--pedido "<text>"] [--template ID]
+        [--pedido "<text>"] [--template ID]      without --pedido, the one saved when the thread was created (RM-059)
   prompt render --exemplo --fase F --modo M  Renders without any thread, to review the text
 
   roadmap status [--json]                   Single roadmap status report: groups with icons, #HITL on what waits for

@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { listarBatch, ratificarBatch, SelecaoMaster } from './master-batch';
 import { ORDEM_DAS_CLASSES } from './master';
 import { raizDoEstado } from './estado-thread';
+import { exigirHostLocal } from './procedencia';
 import { redigirSegredos } from './hitl';
 import { enviarPayloadHost, ReciboHost, TransportePulse, adquirirLockMonitor } from './pulse-delivery';
 import { lerJson } from './util';
@@ -82,7 +83,10 @@ export function enviarDigest(opcoes: { raiz: string; quando?: string; transporte
     const job = fs.existsSync(file) ? lerDigest(raiz, semana) : montarDigest(raiz, quando);
     if (job.concluidoEm) return { code: 0, detalhe: 'semana já confirmada', enviadas, semana };
     salvar(file, job);
-    const config = opcoes.transporte ?? (!opcoes.enviar ? lerJson<TransportePulse>(path.join(raiz, '.orkastery/monitor/master-host.json')) : undefined);
+    // RM-047 (P2): o executavel do transporte so sai do arquivo local, nunca de um versionado no git.
+    const hostLocal = path.join(raiz, '.orkastery/monitor/master-host.json');
+    if (!opcoes.transporte && !opcoes.enviar) exigirHostLocal(raiz, hostLocal);
+    const config = opcoes.transporte ?? (!opcoes.enviar ? lerJson<TransportePulse>(hostLocal) : undefined);
     for (const [indice, p] of job.paginas.entries()) {
       if (job.recibos.some(r => r.pagina === indice && r.sha256 === hash(p))) continue;
       const recibo = opcoes.enviar ? opcoes.enviar(p) : enviarPayloadHost(raiz, config!, p);
