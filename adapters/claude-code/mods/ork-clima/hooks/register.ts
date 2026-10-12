@@ -3,7 +3,7 @@
 // da ponte antes de a fase morrer no meio, com as retomadas que nao cabem (T4.2). So na sessao do dono, so
 // le e so avisa: troca de conta, runtime ou modelo fica com o nucleo (rodizio) e com o dono. O `$.ork` vem
 // da `ork-ponte`; a logica fica nos modulos puros ao lado, e aqui so as chamadas ao `$`, sempre escritas
-// como `$.noun.metodo(...)`.
+// pelo nome do noun e do metodo, como o validador exige.
 import type { Register } from 'claude-code'
 import type { ClimaNaoCabe } from '../types'
 import type { ClimaDespacho } from './contas'
@@ -127,10 +127,13 @@ export const register: Register = on => {
     ])
     const retomadas = fila.ok ? retomadasDaFila(fila.valor) : null
     const despachos = retomadas === null ? null : cruzar(previsoes, retomadas, agora)
+    // Sem a lista de threads abertas, as paradas nao sao conferidas: o retrato tambem traz thread fechada (D14).
+    const listaDeAbertas = abertas.ok ? threadsAbertas(abertas.valor) : null
     const linhas = linhasDoCruzamento({
       despachos, erroDaFila: fila.ok ? null : fila.erro,
-      paradas: retrato.ok ? paradasDoRetrato(retrato.valor, abertas.ok ? threadsAbertas(abertas.valor) : null) : null,
-      erroDoRetrato: retrato.ok ? null : retrato.erro,
+      paradas: retrato.ok && listaDeAbertas !== null ? paradasDoRetrato(retrato.valor, listaDeAbertas) : null,
+      erroDoRetrato: !retrato.ok ? retrato.erro
+        : listaDeAbertas === null ? `sem a lista de threads abertas: ${abertas.ok ? 'fora do formato' : abertas.erro}` : null,
       marcas: registro.ok ? marcasDoRelatorio(registro.valor) : null, erroDoRegistro: registro.ok ? null : registro.erro,
     }, previsoes, fuso, agora)
     const naoCabem = (despachos ?? []).filter(d => d.classe === 'nao-cabe')

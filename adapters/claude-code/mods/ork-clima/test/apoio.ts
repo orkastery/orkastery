@@ -7,14 +7,15 @@ import { formatarHora } from '../hooks/previsao'
 // no que o Clima usa: o papel vem do `env.get` (`ORK_TESTE_PAPEL`); o retrato vem do `ork_maestro` e, na falha,
 // da consulta `maestro` do CLI; `ler` roda a consulta da lista fechada pelo `process.run`, com as mesmas
 // mensagens de erro; a faixa corta o texto em 200 caracteres, desenha uma linha por mod (`rotulo: texto`) e, na
-// sessao do dono, entra no registro do mostrado. O que ela guardou sai pelos comandos `ponte-falsa` e
-// `ponte-falsa-mostrados`.
+// sessao do dono, entra no registro do mostrado. Com `ORK_TESTE_RECUSAR_FAIXA`, ela recusa a primeira publicacao
+// (`{ publicada: false }`). O que ela guardou sai pelos comandos `ponte-falsa` e `ponte-falsa-mostrados`.
 export const PONTE_FALSA = {
   name: 'ork-ponte',
   register(on) {
     const FAIXA = { plugin: 'ork-ponte', key: 'faixa' }
     const PUBLICACOES = { plugin: 'ork-ponte', key: 'publicacoes' }
     const MOSTRADOS = { plugin: 'ork-ponte', key: 'mostrados' }
+    const RECUSADAS = { plugin: 'ork-ponte', key: 'recusadas' }
     const CONSULTAS = {
       'retry.list': ['ork', 'retry', 'list', '--json'],
       'thread.list': ['ork', 'thread', 'list', '--json'],
@@ -57,6 +58,11 @@ export const PONTE_FALSA = {
           return cli(CONSULTAS[consulta])
         },
         faixa: async ({ mod, texto }) => {
+          const recusadas = await built.state.get(RECUSADAS)
+          if ((await built.env.get('ORK_TESTE_RECUSAR_FAIXA')) === '1' && (recusadas.value ?? 0) < 1) {
+            await built.state.set(RECUSADAS, (recusadas.value ?? 0) + 1, { ifVersion: recusadas.version })
+            return { publicada: false }
+          }
           const limpo = typeof texto === 'string' ? texto.replace(/\s+/g, ' ').trim().slice(0, 200) : ''
           const atual = await built.state.get(FAIXA)
           const linhas = { ...(atual.value ?? {}) }
@@ -98,17 +104,17 @@ const QUARTO = 15 * MIN
 
 export const iso = (ms: number) => new Date(ms).toISOString()
 export const hora = (ms: number, agora: number) => formatarHora(ms, FUSO, agora)
-/** A hora de acabar como a faixa mostra: arredondada ao quarto de hora (D13). */
-export const horaNaFaixa = (ms: number, agora: number) => formatarHora(Math.round(ms / QUARTO) * QUARTO, FUSO, agora)
+/** A hora de acabar como a faixa mostra: arredondada para baixo ao quarto de hora (D13, D14). */
+export const horaNaFaixa = (ms: number, agora: number) => formatarHora(Math.floor(ms / QUARTO) * QUARTO, FUSO, agora)
 
 /**
  * O que o motor responde embaixo dos plugins numa sessao de teste: relogio, store e ambiente em memoria,
  * o registro de comandos, o inicio da sessao e a medicao. `papel` muda o papel que a ponte falsa le.
  */
-export function fundo(on, opcoes: { agora?: number; store?: Record<string, unknown>; papel?: () => string | undefined } = {}) {
+export function fundo(on, opcoes: { agora?: number; store?: Record<string, unknown>; papel?: () => string | undefined; env?: Record<string, string> } = {}) {
   const relogio = mock.clock(on, { now: opcoes.agora ?? T0 })
   mock.store(on, opcoes.store)
-  on('env.get', ($, e) => ({ value: e.name === 'ORK_TESTE_PAPEL' && opcoes.papel ? opcoes.papel() : undefined }))
+  on('env.get', ($, e) => ({ value: e.name === 'ORK_TESTE_PAPEL' && opcoes.papel ? opcoes.papel() : opcoes.env?.[e.name] }))
   const comandos: string[] = []
   on('command.register', ($, e) => {
     comandos.push(e.name)

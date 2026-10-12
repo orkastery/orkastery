@@ -123,7 +123,7 @@ test('leituras indisponiveis viram aviso com a mensagem da ponte, e a faixa segu
   expect((await ponte($)).faixa).toEqual({ 'ork-clima': `5 h com 70% ou mais, acaba ~${horaNaFaixa(T0 + 2 * HORA, agora)}, renova ${hora(RENOVA, agora)}` })
   const texto = await clima($)
   expect(texto).toContain('- Fila de retomada indisponível (ork-ponte: ork retry list saiu 3: falhou).')
-  expect(texto).toContain('- Retrato do núcleo indisponível (ork-ponte: ork maestro --json saiu 3: falhou).')
+  expect(texto).toContain('- Não deu para conferir as paradas (ork-ponte: ork maestro --json saiu 3: falhou).')
   expect(texto).toContain('- Registro de contas indisponível (ork-ponte: ork accounts esgotamentos saiu 3: falhou).')
   expect(texto).toContain('- 5 h: 70%')
 })
@@ -139,6 +139,26 @@ test('pagina cortada e lacuna de ledger sao ditas a parte, e a retomada que ja l
   expect(texto).toContain('- R8 da ork-v volta agora, com ~1h30 de cota no ritmo atual.')
   expect(texto).toContain('- Os bloqueios vieram em mais de uma página; o Clima leu a primeira.')
   expect(texto).toContain('- O retrato não leu o ledger de 2 thread(s).')
+})
+
+test('quando o alerta passa, o que nao cabia sai da faixa, mesmo com a janela acima de 90%', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { relogio } = fundo(on)
+  nucleo(on, { fila: FILA })
+  await alerta($, relogio)
+  expect((await ponte($)).faixa['ork-clima']).toMatch(/^não cabe: ork-x; /)
+  // 92% as 16:30: no ritmo da ultima hora (11 por hora) so acabaria depois de renovar, mas passa do limiar.
+  await relogio.set(T0 + 150 * MIN)
+  await medir($, cinco(92))
+  expect((await ponte($)).faixa).toEqual({ 'ork-clima': `5 h com 90% ou mais, renova ${hora(RENOVA, T0 + 150 * MIN)}` })
+})
+
+test('sem a lista de threads abertas, as paradas nao sao conferidas nem listadas', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  fundo(on)
+  nucleo(on, { retrato: retrato({ blockers: [bloqueio('ork-d', 'runtime.quota-exhausted')] }), abertas: null })
+  const texto = await clima($)
+  expect(texto).toContain('- Não deu para conferir as paradas (sem a lista de threads abertas: ork-ponte: ork thread list saiu 3: falhou).')
+  expect(texto).not.toContain('ork-d')
+  expect(texto).not.toContain('O que o núcleo já sabe fazer')
 })
 
 test('a fila inteira conta, e a ultima gravacao de cada retomada vence', { plugins: [PONTE_FALSA] }, async ($, on) => {

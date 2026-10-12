@@ -1,5 +1,5 @@
 // O Clima de Cota (RM-059, onda 1, F4; T4.1): a serie das janelas de limite da conta desta sessao e a
-// previsao de quando cada uma acaba no ritmo atual (D4 a D6, D12 e D13 da thread). Modulo puro: so dados
+// previsao de quando cada uma acaba no ritmo atual (D4 a D6 e D12 a D14 da thread). Modulo puro: so dados
 // entram e saem, para o teste do nucleo transpila-lo sem o Claude Code. Nenhum `$` passa por aqui, e o
 // fuso chega explicito: quem chama decide qual e.
 import type { ClimaEstado, ClimaJanela, ClimaPonto, ClimaPrevisao, ClimaSerie } from '../types'
@@ -20,9 +20,14 @@ export const INTERVALO_DO_RITMO_MS: Readonly<Record<string, number>> = {
 }
 export const INTERVALO_PADRAO_DO_RITMO_MS = 60 * 60 * 1000
 /**
- * Serie mais nova que o intervalo so tem ritmo quando a primeira e a ultima leitura distam ao menos esta
- * fracao dele: 10 min na janela de 5 h, 4 h na de 7 d (D13).
+ * Serie mais nova que o intervalo so tem ritmo quando a primeira e a ultima leitura distam ao menos isto: 10 min
+ * na janela de 5 h (D13) e um dia inteiro na de 7 d, para o ritmo do dia util nao valer pela madrugada (D14).
  */
+export const MINIMO_DA_SERIE_JOVEM_MS: Readonly<Record<string, number>> = {
+  five_hour: 10 * 60 * 1000,
+  seven_day: 24 * 60 * 60 * 1000,
+}
+/** Nas outras janelas, a serie jovem precisa desta fracao do intervalo. */
 export const FRACAO_MINIMA_DO_INTERVALO = 6
 /** A partir deste percentual a faixa avisa mesmo sem ritmo (D5). */
 export const LIMIAR_DE_ATENCAO = 90
@@ -62,6 +67,12 @@ function porKind(a: { kind: string }, b: { kind: string }): number {
 export function intervaloDoRitmo(kind: string): number {
   return Object.prototype.hasOwnProperty.call(INTERVALO_DO_RITMO_MS, kind) ? (INTERVALO_DO_RITMO_MS[kind] as number)
     : INTERVALO_PADRAO_DO_RITMO_MS
+}
+
+/** Quanto de serie a janela precisa antes de ter ritmo, enquanto e mais nova que o intervalo. */
+export function minimoDaSerieJovem(kind: string): number {
+  return Object.prototype.hasOwnProperty.call(MINIMO_DA_SERIE_JOVEM_MS, kind) ? (MINIMO_DA_SERIE_JOVEM_MS[kind] as number)
+    : intervaloDoRitmo(kind) / FRACAO_MINIMA_DO_INTERVALO
 }
 
 /** A leitura conferida, ou `null` quando ela nao serve (kind estranho, percentual que nao e numero, data ruim). */
@@ -143,8 +154,8 @@ export function registrarLeituras(guardado: unknown, leituras: readonly unknown[
  * O ritmo da janela, em pontos por ms, no intervalo recente (D13). Como o uso so cresce, o valor no inicio do
  * intervalo sai dos pontos que o cercam: exato quando o ultimo antes e o primeiro dentro sao iguais, e por
  * interpolacao quando nao sao; com leitura esparsa (D12), isso da a inclinacao desde o ultimo ponto antes do
- * intervalo. Serie mais nova que o intervalo precisa de `1/FRACAO_MINIMA_DO_INTERVALO` dele entre a primeira
- * e a ultima leitura; antes disso, nao ha ritmo.
+ * intervalo. Serie mais nova que o intervalo precisa de `minimoDaSerieJovem` entre a primeira e a ultima
+ * leitura; antes disso, nao ha ritmo.
  */
 export function ritmoDaJanela(j: Pick<ClimaJanela, 'kind' | 'pontos'>): number | null {
   const ultimo = j.pontos[j.pontos.length - 1]
@@ -159,8 +170,13 @@ export function ritmoDaJanela(j: Pick<ClimaJanela, 'kind' | 'pontos'>): number |
       : antes.pct + (dentro.pct - antes.pct) * (inicio - antes.em) / (dentro.em - antes.em)
     return (ultimo.pct - noInicio) / intervalo
   }
-  if (ultimo.em - primeiro.em < intervalo / FRACAO_MINIMA_DO_INTERVALO) return null
+  if (ultimo.em - primeiro.em < minimoDaSerieJovem(j.kind)) return null
   return (ultimo.pct - primeiro.pct) / (ultimo.em - primeiro.em)
+}
+
+/** Pontos por hora com uma casa, ou duas abaixo de 1, para o ritmo lento da semana nao virar zero (D14). */
+function arredondarRitmo(porHora: number): number {
+  return Math.abs(porHora) < 1 ? Math.round(porHora * 100) / 100 : Math.round(porHora * 10) / 10
 }
 
 /** A previsao de cada janela que ainda nao renovou, da mais urgente para a mais calma. */
@@ -181,7 +197,7 @@ export function prever(guardado: unknown, agora: number): ClimaPrevisao[] {
     }
     previsoes.push({
       kind: j.kind, rotulo: rotuloDaJanela(j.kind), pct: ultimo.pct, lidaEm: ultimo.em, renovaEm: j.renovaEm,
-      ritmoPorHora: ritmoPorMs === null ? null : Math.round(ritmoPorMs * 3600 * 1000 * 10) / 10, acabaEm, estado,
+      ritmoPorHora: ritmoPorMs === null ? null : arredondarRitmo(ritmoPorMs * 3600 * 1000), acabaEm, estado,
     })
   }
   return previsoes.sort((a, b) => GRAVIDADE[a.estado] - GRAVIDADE[b.estado] || porKind(a, b))
@@ -239,9 +255,10 @@ export function distancia(ms: number, agora: number): string {
   return ms >= agora ? `em ${duracao(ms - agora)}` : `há ${duracao(agora - ms)}`
 }
 
-/** O numero com virgula decimal e no maximo uma casa. */
-export function numeroBr(n: number): string {
-  return String(Math.round(n * 10) / 10).replace('.', ',')
+/** O numero com virgula decimal e no maximo `casas` casas. */
+export function numeroBr(n: number, casas = 1): string {
+  const fator = 10 ** casas
+  return String(Math.round(n * fator) / fator).replace('.', ',')
 }
 
 /** O percentual da faixa em degraus: `70% ou mais`, ou `menos de 10%` (D13). */
@@ -250,12 +267,15 @@ export function percentualEmDegrau(pct: number): string {
   return degrau <= 0 ? `menos de ${DEGRAU_DO_PERCENTUAL}%` : `${degrau}% ou mais`
 }
 
-/** O trecho de uma janela na faixa: percentual em degraus e hora de acabar arredondada (D13). */
+/**
+ * O trecho de uma janela na faixa: percentual em degraus e hora de acabar arredondada para baixo ao quarto de
+ * hora (D13), que assim nunca passa da renovacao (D14).
+ */
 function trechoDaFaixa(p: ClimaPrevisao, fuso: string, agora: number): string {
   const renova = p.renovaEm === null ? '' : `, renova ${formatarHora(p.renovaEm, fuso, agora)}`
   if (p.estado === 'esgotada') return `${p.rotulo} esgotou${renova}`
   if (p.estado === 'acaba-antes' && p.acabaEm !== null) {
-    const acaba = Math.round(p.acabaEm / PASSO_DA_HORA_NA_FAIXA_MS) * PASSO_DA_HORA_NA_FAIXA_MS
+    const acaba = Math.floor(p.acabaEm / PASSO_DA_HORA_NA_FAIXA_MS) * PASSO_DA_HORA_NA_FAIXA_MS
     return `${p.rotulo} com ${percentualEmDegrau(p.pct)}, acaba ~${formatarHora(acaba, fuso, agora)}${renova}`
   }
   return `${p.rotulo} com ${percentualEmDegrau(p.pct)}${renova}`
@@ -286,7 +306,8 @@ function quandoLida(ms: number, fuso: string, agora: number): string {
 
 /** Uma janela no `/clima`, com o ritmo, a previsao, a renovacao, as distancias e a hora da leitura. */
 export function linhaDaJanela(p: ClimaPrevisao, fuso: string, agora: number): string {
-  const ritmo = p.ritmoPorHora === null ? 'ritmo ainda sem leituras suficientes' : `ritmo de ${numeroBr(p.ritmoPorHora)} pontos por hora`
+  const ritmo = p.ritmoPorHora === null ? 'ritmo ainda sem leituras suficientes'
+    : `ritmo de ${numeroBr(p.ritmoPorHora, Math.abs(p.ritmoPorHora) < 1 ? 2 : 1)} pontos por hora`
   let previsao: string
   if (p.estado === 'esgotada') previsao = 'esgotou'
   else if (p.estado === 'acaba-antes' && p.acabaEm !== null) {

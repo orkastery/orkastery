@@ -1,7 +1,7 @@
 // O cruzamento do Clima de Cota (RM-059, onda 1, F4; T4.2): a previsao das janelas da conta desta sessao
 // contra os despachos que dependem de cota (a fila de retomada inteira, de `ork retry list --json`, e as
 // threads abertas paradas por cota, no retrato do nucleo) e contra as marcas de esgotamento por conta do
-// registro compartilhado (RM-040). D7, D8 e D13 da thread. Modulo puro: le o que a ponte trouxe, classifica
+// registro compartilhado (RM-040). D7, D8, D13 e D14 da thread. Modulo puro: le o que a ponte trouxe, classifica
 // e escreve; nenhum `$` passa por aqui.
 import type { ClimaEstado, ClimaPrevisao } from '../types'
 import { duracao, emAlerta, formatarHora, rotuloDaJanela, textoDaFaixa } from './previsao'
@@ -18,8 +18,11 @@ export type ClimaRetomada = {
 /** Uma thread aberta cujo ultimo gate reprovado foi por cota. */
 export type ClimaParada = { thread: string; motivo: string }
 
-/** O que o retrato trouxe dos bloqueios: as paradas, se a pagina veio cortada e quantas threads ficaram sem ledger. */
-export type ClimaParadas = { itens: ClimaParada[]; paginaCortada: boolean; lacunas: number }
+/**
+ * O que o retrato trouxe dos bloqueios: as paradas, se a pagina veio cortada e quantas threads ficaram sem ledger
+ * (`lacunasCortadas` quando o retrato cortou a lista de lacunas e o numero e um piso).
+ */
+export type ClimaParadas = { itens: ClimaParada[]; paginaCortada: boolean; lacunas: number; lacunasCortadas: boolean }
 
 /** Uma marca do registro compartilhado de contas (`ork.esgotamentos/v1`), com a conta opaca. */
 export type ClimaMarca = {
@@ -144,9 +147,10 @@ export function paradasDoRetrato(retrato: unknown, abertas: readonly string[] | 
     itens.push({ thread, motivo })
   }
   const proxima = objeto(s?.coverage)?.nextOffset
-  const gaps = s?.gaps
-  const lacunas = Array.isArray(gaps) ? gaps.filter(g => typeof g === 'string' && g.startsWith('ledger.unavailable:')).length : 0
-  return { itens, paginaCortada: typeof proxima === 'number', lacunas }
+  const gaps = Array.isArray(s?.gaps) ? (s?.gaps as unknown[]).filter((g): g is string => typeof g === 'string') : []
+  const lacunas = gaps.filter(g => g.startsWith('ledger.unavailable:')).length
+  // O retrato guarda so as primeiras lacunas e conta o resto em `maestro.messages.omitted:N` (D14).
+  return { itens, paginaCortada: typeof proxima === 'number', lacunas, lacunasCortadas: gaps.some(g => g.startsWith('maestro.messages.omitted:')) }
 }
 
 /** As marcas do registro de contas; `null` quando o relatorio nao e do contrato `ork.esgotamentos/v1`. */
@@ -253,12 +257,14 @@ export function linhasDoCruzamento(c: ClimaCruzamento, previsoes: readonly Clima
   else if (c.despachos.length === 0) linhas.push('- Nenhuma retomada na fila.')
   else for (const d of c.despachos) linhas.push(`- ${textoDoDespacho(d, fuso, agora)}`)
   linhas.push('Threads abertas paradas por cota (retrato do núcleo):')
-  if (c.paradas === null) linhas.push(`- Retrato do núcleo indisponível (${c.erroDoRetrato ?? 'sem resposta'}).`)
+  if (c.paradas === null) linhas.push(`- Não deu para conferir as paradas (${c.erroDoRetrato ?? 'sem resposta'}).`)
   else {
     if (c.paradas.itens.length === 0) linhas.push('- Nenhuma.')
     for (const p of c.paradas.itens) linhas.push(`- ${textoDaParada(p)}`)
     if (c.paradas.paginaCortada) linhas.push('- Os bloqueios vieram em mais de uma página; o Clima leu a primeira.')
-    if (c.paradas.lacunas > 0) linhas.push(`- O retrato não leu o ledger de ${c.paradas.lacunas} thread(s).`)
+    if (c.paradas.lacunas > 0) {
+      linhas.push(`- O retrato não leu o ledger de ${c.paradas.lacunasCortadas ? 'pelo menos ' : ''}${c.paradas.lacunas} thread(s).`)
+    }
   }
   linhas.push('Contas no registro do núcleo (ork accounts esgotamentos):')
   if (c.marcas === null) linhas.push(`- Registro de contas indisponível (${c.erroDoRegistro ?? 'fora do contrato ork.esgotamentos/v1'}).`)

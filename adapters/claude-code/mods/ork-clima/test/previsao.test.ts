@@ -164,6 +164,15 @@ test('a janela que sai da leitura sai da serie, e o papel que deixa de ser dono 
   expect((await ponte($)).faixa).toEqual({})
 })
 
+test('publicacao que a ponte recusa e tentada de novo na medicao seguinte', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const agora = T0 + 40 * MIN
+  fundo(on, { agora, store: { serie: SERIE_EM_ALERTA }, env: { ORK_TESTE_RECUSAR_FAIXA: '1' } })
+  await medir($, cinco(70), ['context'])
+  expect(await ponte($)).toEqual({ faixa: {}, publicacoes: 0 })
+  await medir($, cinco(70), ['context'])
+  expect((await ponte($)).faixa).toEqual({ 'ork-clima': `5 h com 70% ou mais, acaba ~${horaNaFaixa(T0 + 2 * HORA, agora)}, renova ${hora(RENOVA, agora)}` })
+})
+
 test('sem a ponte o /clima existe e diz o motivo, sem vazar o erro interno', async ($, on) => {
   const { comandos } = fundo(on)
   await iniciar($)
