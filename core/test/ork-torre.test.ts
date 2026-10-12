@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ts from 'typescript';
 import { DESCRICAO_DO_MOTIVO } from '../src/gates';
-import { validateMaestroSnapshot } from '../src/maestro-contract';
+import { maestroActionSchema, validateMaestroSnapshot } from '../src/maestro-contract';
 
 // RM-059 (fatia F1): a Torre de Controle (`ork-torre`) testada sem o Claude Code. O sandbox do `ork verify` e o
 // runner do CI nao tem o `claude`, entao a claim hermetica transpila os modulos puros da Torre com o compilador
@@ -13,7 +13,7 @@ import { validateMaestroSnapshot } from '../src/maestro-contract';
 // pela AST: a Torre so le o nucleo pela ponte e por uma lista fechada de ferramentas MCP de leitura (D3).
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const TORRE = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-torre');
-const MODULOS_PUROS = ['hooks/frases.ts', 'hooks/agenda.ts', 'hooks/painel.tsx'];
+const MODULOS_PUROS = ['hooks/frases.ts', 'hooks/agenda.ts', 'hooks/painel.tsx', 'hooks/detalhe.tsx'];
 /** D3: as unicas ferramentas que a Torre chama direto no servidor `orkastery`, todas de leitura no nucleo. */
 const LISTA_FECHADA_DO_MCP = ['ork_phase_list', 'ork_claims_list', 'ork_observe', 'ork_git_status', 'ork_network_roadmap'];
 const NOUNS_PROIBIDOS = ['process', 'fs', 'store', 'env'];
@@ -50,12 +50,26 @@ function carregar(rel: string): Record<string, any> {
 }
 const lerJson = (rel: string) => JSON.parse(fs.readFileSync(path.join(TORRE, rel), 'utf8'));
 
-/** Os textos de uma arvore desenhada com o `h` deste teste, um por `Text`. */
+/** Os textos de uma arvore desenhada com o `h` deste teste, um por `Text` e um por `Button` (o rotulo). */
 function textos(no: unknown): string[] {
   if (!no || typeof no !== 'object') return [];
   const n = no as No;
-  if (n.tipo === 'Text') return [n.filhos.filter((f) => typeof f === 'string' || typeof f === 'number').join('')];
+  const proprios = () => n.filhos.filter((f) => typeof f === 'string' || typeof f === 'number').join('');
+  if (n.tipo === 'Text') return [proprios()];
+  if (n.tipo === 'Button') return [typeof n.props.label === 'string' ? n.props.label : proprios()];
   return n.filhos.flatMap(textos);
+}
+
+/** O botao de uma arvore pela chave. */
+function botao(no: unknown, chave: string): No | undefined {
+  if (!no || typeof no !== 'object') return undefined;
+  const n = no as No;
+  if (n.tipo === 'Button' && n.props.key === chave) return n;
+  for (const f of n.filhos) {
+    const achado = botao(f, chave);
+    if (achado) return achado;
+  }
+  return undefined;
 }
 
 /** Um retrato de thread valido pelo contrato do nucleo (`validateMaestroSnapshot`). */
@@ -99,7 +113,9 @@ test('manifesto da Torre: nome, contrato de estado, dependencia da ponte e nenhu
 test('o contrato declara o estado da Torre em PluginState, sem import nem referencia', () => {
   const contrato = fs.readFileSync(path.join(TORRE, 'types/index.d.ts'), 'utf8');
   assert.match(contrato, /interface PluginState \{\s*'ork-torre': \{/);
-  assert.match(contrato, /quadro: TorreQuadro/);
+  for (const chave of ['quadro: TorreQuadro', 'aberta: string | null', 'detalhes: Record<string, TorreDetalhe>', 'donos: Record<string, string>']) {
+    assert.ok(contrato.includes(chave), chave);
+  }
   assert.doesNotMatch(contrato, /^\s*import\s/m);
   assert.doesNotMatch(contrato, /\/\/\/\s*<reference/);
 });
@@ -224,7 +240,8 @@ test('painel: o desenho tem o placar, a linha de cada thread e as linhas de baix
     linhaDaThread('ork-b', retratoDe({ thread: 'ork-b', fase: 'CHECK', modo: 'auto', motivo: 'claims.failed', acoes: ['thread.observe', 'retry'] }), { fonte: 'mcp', lidoEm: 0 }),
   ]);
   const q = { linhas, omitidas: 1, lidoEm: 0, erro: null };
-  const arvore = desenharPainel({ Box: 'Box', Text: 'Text' }, q, { agora: 3000 });
+  const abertas: string[] = [];
+  const arvore = desenharPainel({ Box: 'Box', Text: 'Text', Button: 'Button' }, q, { agora: 3000, abrir: (t: string) => abertas.push(t) });
   assert.deepEqual(textos(arvore), [
     '3 threads abertas · 1 espera você · 1 parada · lido há 3 s',
     '!  ork-a  ●●●●◉○ SHIP  #Classic',
@@ -237,10 +254,110 @@ test('painel: o desenho tem o placar, a linha de cada thread e as linhas de baix
     '  ações: Retomar',
     '+1 threads abertas além do teto de 40',
   ]);
+  (botao(arvore, 'abrir:ork-b')?.props.onPress as () => void)();
+  assert.deepEqual(abertas, ['ork-b']);
   assert.deepEqual(mostradosDoQuadro(q), [
     { chave: 'hitl:p1', thread: 'ork-a', texto: 'ork-a: espera você: Autorizar o SHIP' },
     { chave: 'bloqueio:ork-b:claims.failed', thread: 'ork-b', texto: 'ork-b: uma claim reprovou no HEAD' },
   ]);
+});
+
+const raizDaPonte = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-ponte');
+const { carregarModuloDoMod } = require(path.join(raizDoRepo, 'core/scripts/checar-mods.cjs'));
+
+test('detalhe: a classe de cada acao cobre exatamente o enum operation do nucleo, e a leitura e so leitura', () => {
+  const { CLASSE_DA_ACAO } = carregar('hooks/detalhe.tsx');
+  const { ROTULO_DA_ACAO, LEITURAS } = carregar('hooks/painel.tsx');
+  const operacoes = [...maestroActionSchema.shape.operation.options].sort();
+  assert.deepEqual(Object.keys(CLASSE_DA_ACAO).sort(), operacoes);
+  assert.deepEqual(Object.keys(ROTULO_DA_ACAO).sort(), operacoes);
+  assert.deepEqual(Object.entries(CLASSE_DA_ACAO).filter(([, c]) => (c as { tipo: string }).tipo === 'leitura').map(([op]) => op).sort(), [...LEITURAS].sort());
+  assert.deepEqual([...LEITURAS].sort(), ['git.status', 'thread.observe', 'thread.status']);
+});
+
+test('detalhe: mod dono por acao com efeito, e todo comando do ork mostrado passa pela guarda da ponte', () => {
+  const { CLASSE_DA_ACAO, COMANDOS_DOS_DONOS } = carregar('hooks/detalhe.tsx');
+  assert.deepEqual(COMANDOS_DOS_DONOS.map((d: { plugin: string; comando: string }) => `${d.plugin}:${d.comando}`),
+    ['ork-mesa:mesa', 'ork-pista:pista', 'ork-sentinela:sentinela', 'ork-ritual:nota']);
+  const guarda = carregarModuloDoMod(path.join(raizDaPonte, 'hooks/guarda.ts'));
+  const autoridade = guarda.lerAutoridade(fs.readFileSync(path.join(raizDoRepo, 'adapters/claude-code/mods/autoridade.json'), 'utf8'));
+  for (const [op, classe] of Object.entries(CLASSE_DA_ACAO) as Array<[string, { tipo: string; comando?: ((t: string) => string) | null; nota?: string | null }]>) {
+    if (classe.tipo !== 'efeito') continue;
+    for (const texto of [classe.comando ? classe.comando('ork-exemplo') : null, classe.nota].filter((t): t is string => !!t)) {
+      assert.equal(guarda.avaliarTexto(autoridade, texto), null, `${op}: ${texto}`);
+    }
+  }
+  assert.deepEqual(['hitl.decide', 'ship', 'phase', 'retry', 'master'].map((op) => CLASSE_DA_ACAO[op].dono.comando), ['mesa', 'pista', 'sentinela', 'sentinela', 'nota']);
+  assert.equal(CLASSE_DA_ACAO.verify.dono, null);
+  assert.equal(CLASSE_DA_ACAO['git.commit'].comando, null);
+});
+
+test('detalhe: o botao do mod dono so com o comando registrado pelo plugin esperado; senao o comando em texto', () => {
+  const { acoesDoDetalhe, donosCarregados } = carregar('hooks/detalhe.tsx');
+  const { linhaDaThread } = carregar('hooks/painel.tsx');
+  assert.deepEqual(donosCarregados([{ name: 'mesa', plugin: 'ork-mesa' }, { name: 'pista' }, { name: 'nota', plugin: 'outro' }, { name: 'help', plugin: 'x' }]),
+    { mesa: 'ork-mesa', nota: 'outro' });
+  const linha = linhaDaThread('ork-a', retratoDe({ thread: 'ork-a', fase: 'SHIP', modo: 'auto', acoes: ['thread.status', 'hitl.decide', 'ship', 'master', 'git.commit'] }),
+    { fonte: 'mcp', lidoEm: 0 });
+  const acoes = acoesDoDetalhe(linha, { mesa: 'ork-mesa', nota: 'outro' });
+  assert.deepEqual(acoes.map((a: { operacao: string; tipo: string }) => `${a.operacao}=${a.tipo}`),
+    ['thread.status=leitura', 'hitl.decide=mod', 'ship=texto', 'master=texto', 'git.commit=texto']);
+  assert.equal(acoes[2].texto, 'Entregar: rode ork ship ork-a --para <base>');
+  assert.equal(acoes[3].texto, 'Nota do MASTER: rode ork master pedir ork-a');
+  assert.equal(acoes[4].texto, 'Commit: o commit é da sessão de GO, pelo ork_git_commit');
+  assert.deepEqual(acoesDoDetalhe({ ...linha, acoes: [{ operacao: 'operacao.nova' }] }, {}), []);
+});
+
+test('detalhe: a leitura de cada resposta do nucleo, e resposta fora do formato vira erro', () => {
+  const d = carregar('hooks/detalhe.tsx');
+  assert.deepEqual(d.jsonDoMcp({ content: [{ type: 'text', text: '{"a":1}' }], isError: false }), { a: 1 });
+  assert.throws(() => d.jsonDoMcp({ content: [{ type: 'text', text: '{}' }], isError: true }), /respondeu com erro/);
+  assert.throws(() => d.jsonDoMcp({ content: [] }), /não devolveu texto/);
+  const agora = Date.parse('2026-01-01T00:10:00.000Z');
+  const eventos = { phases: { eventos: [{ tipo: 'phase_dispatch', ts: '2026-01-01T00:00:00.000Z', fase: 'GO' },
+    { tipo: 'phase_result', ts: '2026-01-01T00:09:00.000Z', fase: 'GO', classificacao: 'fase_concluida' }, { tipo: 'x', ts: 'ruim' }] } };
+  assert.deepEqual(d.linhasDosEventos(eventos, agora), ['x · sem hora', 'phase_result · GO · fase_concluida · há 1 min', 'phase_dispatch · GO · há 10 min']);
+  assert.deepEqual(d.linhasDosEventos({ phases: { eventos: [] } }, agora), ['nenhum evento de fase registrado']);
+  assert.throws(() => d.linhasDosEventos({}, agora), /sem eventos/);
+  assert.deepEqual(d.linhasDasClaims([{ id: 'C1', estado: 'verificado', alegacao: 'a' }, { id: 'C2', estado: 'pendente', alegacao: 'b' },
+    { id: 'C3', estado: 'retirada', alegacao: 'c' }]), ['3 claims: 1 pendente, 1 retirada, 1 verificado', 'C2 pendente: b']);
+  assert.deepEqual(d.linhasDasClaims([]), ['nenhuma claim registrada']);
+  assert.throws(() => d.linhasDasClaims({}), /outro formato/);
+  assert.deepEqual(d.linhasDoEstado({ id: 'ork-a', status: 'aberta', faseAtual: 'GO', sessoes: [1, 2], claims: [], atualizadaEm: '2026-01-01T00:05:00.000Z',
+    baseline: { commit: 'abcdef0123456789', comandos: [{ nome: 'build', ok: true }, { nome: 'test', ok: false }] } }, agora),
+  ['status aberta · fase GO · 2 sessões · 0 claims · atualizada há 5 min', 'baseline em abcdef01: build passava, test falhava']);
+  assert.deepEqual(d.linhasDoEstado({ id: 'ork-a' }, agora)[1], 'sem baseline gravada');
+  assert.throws(() => d.linhasDoEstado({}, agora), /sem id/);
+  assert.deepEqual(d.linhasDaObservacao({ pendencias: [1], nativas: [{ sessionId: '12345678-aaaa', runtime: 'codex', disponivel: false }] }),
+    ['1 pedido pendente', 'sessão 12345678 codex: não confirmada']);
+  assert.throws(() => d.linhasDaObservacao({}), /sessões nativas/);
+  assert.deepEqual(d.linhasDoGit({ source: { branch: 'b', head: 'a'.repeat(40) }, destination: { branch: 'main', head: 'a'.repeat(40) } }),
+    ['b @ aaaaaaaa', 'destino main @ aaaaaaaa (iguais)']);
+  assert.throws(() => d.linhasDoGit({}), /origem e destino/);
+});
+
+test('detalhe: o desenho tem voltar, atualizar, o texto e um botao por acao de leitura ou de mod dono, com o gesto certo', () => {
+  const { desenharDetalhe } = carregar('hooks/detalhe.tsx');
+  const { linhaDaThread } = carregar('hooks/painel.tsx');
+  const linha = linhaDaThread('ork-a', retratoDe({ thread: 'ork-a', fase: 'CHECK', modo: 'auto', motivo: 'claims.failed',
+    acoes: ['thread.status', 'retry', 'verify'] }), { fonte: 'mcp', lidoEm: 0 });
+  const gestos: string[] = [];
+  const detalhe = { eventos: { lidoEm: 0, linhas: ['phase_dispatch · GO · há 1 min'], erro: null }, claims: null,
+    leituras: { 'thread.status': { lidoEm: 0, linhas: [], erro: 'falhou' } } };
+  const arvore = desenharDetalhe({ Box: 'Box', Text: 'Text', Button: 'Button' }, linha, detalhe, { sentinela: 'ork-sentinela' }, {
+    agora: 60000, voltar: () => gestos.push('voltar'), atualizar: () => gestos.push('atualizar'),
+    ler: (op: string) => gestos.push(`ler:${op}`), abrirMod: (dono: { comando: string }) => gestos.push(`mod:${dono.comando}`),
+  });
+  assert.deepEqual(textos(arvore), [
+    'Voltar', 'Atualizar',
+    'x  ork-a  ●●●◉○○ CHECK  #Auto', 'ninguém conduz agora', 'bloqueio: uma claim reprovou no HEAD (claims.failed)',
+    'sessão s-1 claude-bg · CHECK: working',
+    'últimos eventos', '  phase_dispatch · GO · há 1 min', '  (lido há 1 min)', 'claims', '  lendo…', 'Estado', '  não leu: falhou',
+    'ações', 'Estado', 'Retomar: abrir a Sentinela do Condutor', 'Verificar: rode ork verify ork-a',
+  ]);
+  for (const chave of ['voltar', 'atualizar', 'acao:thread.status', 'acao:retry']) (botao(arvore, chave)?.props.onPress as () => void)();
+  assert.equal(botao(arvore, 'acao:verify'), undefined);
+  assert.deepEqual(gestos, ['voltar', 'atualizar', 'ler:thread.status', 'mod:sentinela']);
 });
 
 /** As chamadas `x.noun.metodo(...)` de um fonte, com os argumentos literais de texto quando ha. */

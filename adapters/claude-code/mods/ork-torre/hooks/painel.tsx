@@ -208,15 +208,19 @@ export function mostradosDoQuadro(q: TorreQuadro): Array<{ chave: string; thread
   return saida
 }
 
-/** A arvore do painel com os elementos que a superficie resolveu (`$.ui.resolve(e)` no register.tsx). */
-export function desenharPainel(el: { Box: any; Text: any }, q: TorreQuadro, opcoes: { agora: number }) {
-  const { Box, Text } = el
+/**
+ * A arvore do painel com os elementos que a superficie resolveu (`$.ui.resolve(e)` no register.tsx). A
+ * primeira linha de cada thread e um botao que abre o detalhe dela (T1.2).
+ */
+export function desenharPainel(el: { Box: any; Text: any; Button: any }, q: TorreQuadro,
+  opcoes: { agora: number; abrir?: (thread: string) => void }) {
+  const { Box, Text, Button } = el
   return (
     <Box flexDirection="column">
       <Text key="placar" bold wrap="truncate">{placar(q, opcoes.agora)}</Text>
       {q.linhas.map(l => (
         <Box key={`linha:${l.thread}`} flexDirection="column">
-          <Text key={`cabecalho:${l.thread}`} wrap="truncate">{cabecalhoDaLinha(l)}</Text>
+          <Button key={`abrir:${l.thread}`} plain onPress={() => opcoes.abrir?.(l.thread)}>{cabecalhoDaLinha(l)}</Button>
           {detalhesDaLinha(l).map((d, i) => (
             <Text key={`detalhe:${l.thread}:${i}`} dimColor wrap="truncate">{`  ${d}`}</Text>
           ))}

@@ -78,6 +78,7 @@ export function retratoDe(t) {
  */
 export function montar(on, opcoes) {
   const mundo = { abertas: opcoes.abertas, retratos: { ...opcoes.retratos }, paineis: opcoes.paineis ?? [],
+    respostas: { ...(opcoes.respostas ?? {}) }, carregados: opcoes.carregados ?? [],
     maestro: [], ler: [], mcp: [], faixas: [], mostrados: [], comandos: [], abertos: [], toasts: [], rodados: [] }
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('classic.FileChanged', () => ({}))
@@ -92,15 +93,18 @@ export function montar(on, opcoes) {
       if (e.tool === 'ler') {
         mundo.ler.push(e.args)
         if (e.args.consulta === 'thread.list') return ok({ todas: false, total: mundo.abertas.length, threads: mundo.abertas.map(id => ({ id, status: 'aberta' })) })
-        return falha()
+        const resposta = mundo.respostas[e.args.consulta]
+        return resposta === undefined ? falha() : ok(resposta)
       }
       if (e.tool === 'faixa') { mundo.faixas.push(e.args); return ok({ publicada: e.args.texto !== undefined }) }
       if (e.tool === 'mostrado') { mundo.mostrados.push(e.args); return ok(null) }
       return falha()
     }
-    mundo.mcp.push(e)
-    return falha()
+    mundo.mcp.push({ server: e.server, tool: e.tool, args: e.args })
+    const resposta = e.server === 'orkastery' ? mundo.respostas[e.tool] : undefined
+    return resposta === undefined ? falha() : ok(resposta)
   })
+  on('command.list', () => ({ value: mundo.carregados }))
   on('command.register', ($, e) => { mundo.comandos.push(e.name); return { value: { command: e.name } } })
   on('ui.open', ($, e) => { mundo.abertos.push(e.id); return { value: { isPlaced: true } } })
   on('ui.panes', () => ({ value: mundo.paineis }))
@@ -119,10 +123,20 @@ export async function torre($) {
   return $.command.run({ command: 'torre', args: '', origin: { kind: 'composer' }, presentation: P })
 }
 
-/** Os textos do painel montado numa superficie. */
+/** Os textos do painel montado numa superficie, de `Text` e de `Button`, na ordem do desenho. */
 export async function textosDoPainel($, surface) {
   const ui = await $.ui.mount({ plugin: 'ork-torre', surface, component: 'Pane', requestId: 'torre', props: PANE })
-  const textos = (await ui.findAll({ type: 'Text' })).map(t => t.text)
+  const textos = (await ui.findAll({})).filter(e => e.type === 'Text' || e.type === 'Button').map(e => e.text)
   await ui.unmount()
   return textos
+}
+
+/** O painel montado numa superficie, para o teste apertar os botoes. */
+export async function montarPainel($, surface) {
+  return $.ui.mount({ plugin: 'ork-torre', surface, component: 'Pane', requestId: 'torre', props: PANE })
+}
+
+/** Os textos de `Text` e `Button` de um painel ja montado. */
+export async function textosDe(ui) {
+  return (await ui.findAll({})).filter(e => e.type === 'Text' || e.type === 'Button').map(e => e.text)
 }

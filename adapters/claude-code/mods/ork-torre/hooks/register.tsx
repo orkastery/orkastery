@@ -5,8 +5,13 @@
 // sempre escritas como `x.noun.metodo(...)`, como o validador exige.
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
-import type { TorreLinha, TorreQuadro } from '../types'
+import type { TorreDetalhe, TorreLeitura, TorreLinha, TorreQuadro } from '../types'
 import { escolher, ESPERA_DO_LOTE_MS, marcaDoArquivo, PERIODO_DO_TIQUE_MS, vencidas } from './agenda'
+import type { Dono } from './detalhe'
+import {
+  desenharDetalhe, donosCarregados, jsonDoMcp, leituraFalha, leituraFeita, linhasDaObservacao, linhasDasClaims, linhasDoEstado,
+  linhasDoGit, linhasDosEventos,
+} from './detalhe'
 import { abertasDaLista, desenharPainel, linhaDaThread, mostradosDoQuadro, ordenarLinhas } from './painel'
 
 const MOD = 'ork-torre'
@@ -14,6 +19,10 @@ const PAINEL = 'torre'
 const TITULO = 'Torre'
 const QUADRO_VAZIO: TorreQuadro = { linhas: [], omitidas: 0, lidoEm: null, erro: null }
 const quadro = atom({ plugin: 'ork-torre', key: 'quadro' } as const, QUADRO_VAZIO)
+const aberta = atom({ plugin: 'ork-torre', key: 'aberta' } as const, null as string | null)
+const detalhes = atom({ plugin: 'ork-torre', key: 'detalhes' } as const, {} as Record<string, TorreDetalhe>)
+const donos = atom({ plugin: 'ork-torre', key: 'donos' } as const, {} as Record<string, string>)
+const DETALHE_VAZIO: TorreDetalhe = { eventos: null, claims: null, leituras: {} }
 /** O servidor do nucleo pode conectar depois do inicio da sessao: o papel e conferido de novo nestas esperas. */
 const ESPERAS_DO_PAPEL_MS = [3000, 10000, 30000]
 
@@ -179,6 +188,77 @@ async function registrarMostrados($: EngineInterface): Promise<void> {
   }
 }
 
+/** Grava o que o detalhe leu de uma thread; so o detalhe aberto fica guardado. */
+async function gravarDetalhe($: EngineInterface, thread: string, mudar: (d: TorreDetalhe) => TorreDetalhe): Promise<void> {
+  await update($, detalhes, todos => ({ [thread]: mudar(todos[thread] ?? DETALHE_VAZIO) }))
+}
+
+/** Os comandos dos mods donos carregados agora, pelo plugin que registrou cada um (D4). */
+async function lerDonos($: EngineInterface): Promise<Record<string, string>> {
+  const carregados = donosCarregados(await $.command.list().catch(() => []))
+  await update($, donos, () => carregados)
+  return carregados
+}
+
+/** Ao abrir o detalhe: os donos das acoes, os ultimos eventos e as claims com estado da thread. */
+async function carregarDetalhe($: EngineInterface, thread: string): Promise<void> {
+  await lerDonos($)
+  const agora = await $.clock.now()
+  let eventos: TorreLeitura
+  try {
+    eventos = leituraFeita(linhasDosEventos(jsonDoMcp(await $.mcp.call('orkastery', 'ork_phase_list', { threadId: thread })), agora), agora)
+  } catch (erro) {
+    eventos = leituraFalha(mensagem(erro), agora)
+  }
+  let claims: TorreLeitura
+  try {
+    claims = leituraFeita(linhasDasClaims(jsonDoMcp(await $.mcp.call('orkastery', 'ork_claims_list', { threadId: thread }))), agora)
+  } catch (erro) {
+    claims = leituraFalha(mensagem(erro), agora)
+  }
+  await gravarDetalhe($, thread, d => ({ ...d, eventos, claims }))
+}
+
+async function abrir($: EngineInterface, thread: string): Promise<void> {
+  await update($, aberta, () => thread)
+  await update($, detalhes, () => ({ [thread]: DETALHE_VAZIO }))
+  await carregarDetalhe($, thread)
+}
+
+async function recarregar($: EngineInterface, thread: string): Promise<void> {
+  await atualizar($, true)
+  await carregarDetalhe($, thread)
+}
+
+/** As tres acoes de leitura do retrato (D4): o resultado vai para o detalhe, e nada mais roda. */
+async function lerAcao($: EngineInterface, thread: string, operacao: string): Promise<void> {
+  const agora = await $.clock.now()
+  let leitura: TorreLeitura
+  try {
+    if (operacao === 'thread.status') {
+      leitura = leituraFeita(linhasDoEstado(await $.ork.ler({ consulta: 'thread.status', thread }), agora), agora)
+    } else if (operacao === 'thread.observe') {
+      leitura = leituraFeita(linhasDaObservacao(jsonDoMcp(await $.mcp.call('orkastery', 'ork_observe', { threadId: thread }))), agora)
+    } else if (operacao === 'git.status') {
+      leitura = leituraFeita(linhasDoGit(jsonDoMcp(await $.mcp.call('orkastery', 'ork_git_status', { threadId: thread }))), agora)
+    } else return
+  } catch (erro) {
+    leitura = leituraFalha(mensagem(erro), agora)
+  }
+  await gravarDetalhe($, thread, d => ({ ...d, leituras: { ...d.leituras, [operacao]: leitura } }))
+}
+
+/**
+ * A acao com efeito vai ao mod dono dela (D4): o comando dele roda como se o dono o digitasse, com o id da
+ * thread, so se a lista de comandos agora o mostra registrado pelo plugin esperado. Senao, o detalhe redesenha
+ * com o comando do `ork` em texto, e nada roda.
+ */
+async function abrirMod($: EngineInterface, thread: string, dono: Dono): Promise<void> {
+  const carregados = await lerDonos($)
+  if (carregados[dono.comando] !== dono.plugin) return
+  await $.command.run({ command: dono.comando, args: thread }).catch(() => undefined)
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     if (e.isInteractive) await conferirPapel($, 0)
@@ -216,8 +296,23 @@ export const register: Register = on => {
     return next(e)
   })
 
+  // O painel: a lista das threads, ou o detalhe da thread aberta (T1.2). Os gestos so mudam o estado da Torre
+  // e leem o nucleo; o desenho nunca escreve.
   on('ui.render', { component: 'Pane', requestId: PAINEL }, async ($, e) => {
-    const { Box, Text } = $.ui.resolve(e)
-    return desenharPainel({ Box, Text }, await read($, quadro), { agora: await $.clock.now() })
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const q = await read($, quadro)
+    const agora = await $.clock.now()
+    const id = await read($, aberta)
+    const linha = id === null ? undefined : q.linhas.find(l => l.thread === id)
+    if (linha) {
+      return desenharDetalhe({ Box, Text, Button }, linha, (await read($, detalhes))[linha.thread], await read($, donos), {
+        agora,
+        voltar: () => update($, aberta, () => null),
+        atualizar: () => recarregar($, linha.thread),
+        ler: operacao => lerAcao($, linha.thread, operacao),
+        abrirMod: dono => abrirMod($, linha.thread, dono),
+      })
+    }
+    return desenharPainel({ Box, Text, Button }, q, { agora, abrir: thread => abrir($, thread) })
   })
 }

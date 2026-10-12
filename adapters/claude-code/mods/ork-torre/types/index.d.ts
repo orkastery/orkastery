@@ -50,11 +50,28 @@ export type TorreQuadro = {
   erro: string | null
 }
 
+/** O resultado de uma leitura do detalhe: as linhas a mostrar, ou o motivo de nao ter lido. */
+export type TorreLeitura = { lidoEm: number; linhas: string[]; erro: string | null }
+
+/** O que o detalhe de uma thread leu: os ultimos eventos, as claims e cada acao de leitura pedida. */
+export type TorreDetalhe = {
+  eventos: TorreLeitura | null
+  claims: TorreLeitura | null
+  /** Por operacao de leitura do retrato (`thread.status`, `thread.observe`, `git.status`). */
+  leituras: Record<string, TorreLeitura>
+}
+
 declare module 'claude-code' {
   interface PluginState {
     'ork-torre': {
       /** O quadro que o painel desenha. */
       quadro: TorreQuadro
+      /** A thread com o detalhe aberto no painel, ou null para a lista. */
+      aberta: string | null
+      /** O que o detalhe leu, por thread. */
+      detalhes: Record<string, TorreDetalhe>
+      /** Os comandos dos mods donos das acoes carregados nesta sessao, com o plugin que registrou cada um. */
+      donos: Record<string, string>
     }
   }
 }
