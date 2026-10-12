@@ -167,6 +167,44 @@ function lerGrafo(v: ValorYaml | undefined, avisos: string[]): Manifesto['grafo'
   return { mcp: false };
 }
 
+/** RM-059 (T10.4): os limites dos tetos de agent teams, os mesmos que o Portao de Tarefas aceita do ambiente. */
+export const TETO_MAXIMO_DE_TEAMMATES = 8;
+export const TETO_MAXIMO_DE_CUSTO_USD = 500;
+
+/**
+ * RM-059 (T10.4, D11 da thread ork-rm059portao): agent teams no despacho do GO, so em piloto. `runtime.agent_teams`
+ * liga com `ligado: true` e os dois tetos validos: `teammates` inteiro de 1 a 8 e `custo_usd` maior que 0 e ate 500,
+ * escrito como numero decimal simples. Ausente ou `ligado: false` fica desligado sem aviso; ligado com teto invalido,
+ * outro tipo ou chave desconhecida avisa e fica desligado, nunca erro: a chave e experimental e nao para a fabrica.
+ */
+function lerAgentTeams(v: ValorYaml | undefined, avisos: string[]): Manifesto['runtime']['agent_teams'] {
+  const mostrar = (x: ValorYaml | undefined): string => (x === undefined ? 'ausente' : JSON.stringify(x).slice(0, 80));
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    avisos.push(`runtime.agent_teams deve ser um mapa com ligado, teammates e custo_usd; fica desligado (${mostrar(v)} nao reconhecido)`);
+    return undefined;
+  }
+  for (const chave of Object.keys(v)) {
+    if (!['ligado', 'teammates', 'custo_usd'].includes(chave)) avisos.push(`runtime.agent_teams.${chave} desconhecida; o bloco so tem ligado, teammates e custo_usd`);
+  }
+  if (v.ligado !== true) {
+    if (v.ligado !== undefined && v.ligado !== null && v.ligado !== false) {
+      avisos.push(`runtime.agent_teams.ligado deve ser true ou false; fica desligado (${mostrar(v.ligado)} nao reconhecido)`);
+    }
+    return undefined;
+  }
+  const teammates = v.teammates;
+  const custo = v.custo_usd;
+  const tetoOk = typeof teammates === 'number' && Number.isInteger(teammates) && teammates >= 1 && teammates <= TETO_MAXIMO_DE_TEAMMATES;
+  const custoOk = typeof custo === 'number' && /^\d+(?:\.\d+)?$/.test(String(custo)) && custo > 0 && custo <= TETO_MAXIMO_DE_CUSTO_USD;
+  if (!tetoOk || !custoOk) {
+    avisos.push(`runtime.agent_teams ligado sem teto valido (teammates inteiro de 1 a ${TETO_MAXIMO_DE_TEAMMATES} e custo_usd maior que 0 ` +
+      `e ate ${TETO_MAXIMO_DE_CUSTO_USD}; recebido teammates ${mostrar(teammates)} e custo_usd ${mostrar(custo)}); fica desligado`);
+    return undefined;
+  }
+  return { teammates: teammates as number, custo_usd: custo as number };
+}
+
 /**
  * RM-026 K7 (D1): `conhecimento.dir`, a pasta dos documentos `ork.conhecimento/v1`. Sem o bloco, o projeto nao
  * declarou conhecimento. Bloco que nao e mapa e `dir` vazio avisam e ficam declarados com `dir` vazio, que o
@@ -437,6 +475,8 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       `runtime.sandbox invalido: "${sandboxDoRuntime}" (aceitos: ${SANDBOXES_DO_CODEX.join(', ')})`
     );
   }
+  // RM-059 (T10.4): agent teams no despacho do GO, so no piloto e desligado por padrao.
+  const agentTeams = lerAgentTeams(runtime.agent_teams, avisos);
 
   // Bloco B6, isolamento por tenant (precedente do incidente memory-orkmind):
   // `database_url_env` recebe o NOME da variavel de ambiente, nunca a string de conexao.
@@ -507,6 +547,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       effort: texto(runtime.effort, 'high'),
       provider_policy: providerPolicy,
       sandbox: sandboxDoRuntime,
+      ...(agentTeams ? { agent_teams: agentTeams } : {}),
     },
     conduction: {
       default_mode: defaultModo ?? 'classic',
