@@ -201,20 +201,6 @@
       "lint": []
     },
     {
-      "id": "C29",
-      "thread": "ork-rm062fabrica",
-      "fase": "GO",
-      "arquivo": "docs/roadmap/RM-063-fabrica-que-nao-para.md",
-      "alegacao": "Documentacao da fatia: ork docs verificar sem erro de paridade, markdownlint sem erro e nenhum link relativo quebrado",
-      "negativa": true,
-      "verificar": [
-        "node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
-      ],
-      "criadoEm": "2026-10-12T13:29:09.375Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C30",
       "thread": "ork-rm062fabrica",
       "fase": "GO",
@@ -267,6 +253,20 @@
         "node --test --test-name-pattern=\"^F3 \\(GO-FIX\\)\" core/dist-test/test/rm063-retry-prompt.test.js"
       ],
       "criadoEm": "2026-10-12T13:44:50.065Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-063-fabrica-que-nao-para.md",
+      "alegacao": "Documentacao da fatia no modo de PR: ork docs verificar --pr sem erro de paridade, markdownlint sem erro e nenhum link relativo quebrado",
+      "negativa": true,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-10-12T14:03:31.401Z",
       "estado": "verificado",
       "lint": []
     }
