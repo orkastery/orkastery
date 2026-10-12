@@ -6,19 +6,19 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-12T13:11:47+00:00
+atualizado_em: 2026-10-12T18:04:38+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
-    pr: null
+    commit: adc973d
+    pr: 144
 sdlc:
   thread: ork-rm062fabrica
   modo: auto
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -116,7 +116,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
 | Documentação | Em revisão | — | 2026-10-12 | Julio |
-| Código | Branch criada | — | 2026-10-12 | Julio |
+| Código | Mesclado | commit `adc973d` · PR #144 | 2026-10-12 | Julio |
 | Testes | Em execução | — | 2026-10-12 | Julio |
 | Deploy | Não implantado | — | 2026-10-12 | Julio |
 | Exposição | Flag desligada | — | 2026-10-12 | Julio |
@@ -128,10 +128,11 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: condutor do maquina-b (núcleo e hosts) e VPS (mods, se o dono decidir); A: Julio; C: —; I: —.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** condutor do maquina-b (#Auto), merge pela X1.a até 18/10/2026; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** merge do PR da fatia 1 (F1, F2, F3) e, com ele na base, `ork fabrica batida instalar` no maquina-b (o crontab é do dono, autorizado uma vez); depois, a fatia 2 (F4, F5, F6). Responsável: condutor do maquina-b; prazo: 14/10/2026.
+- **Próxima ação, responsável e prazo:** merge do PR da fatia 2 (F4, F5, F6) e, com ele na base, `ork ship registrar-pr ork-rm062fabrica`; a autorização durável da varredura nesta máquina (`.orkastery/monitor/autorizacao.json`) é ato do dono, e sem ela a varredura só põe as ações na fila dele; depois, a fatia 3 (F7 e os hosts H1 a H4). Responsável: condutor do maquina-b; prazo: 14/10/2026.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-12 | Item criado com as frentes do núcleo, dos mods e dos hosts | Incidente do maquina-b de 03/10 a 12/10/2026 (P1 a P7) | Julio |
 | 2026-10-12 | Fatia 1 no GO da thread `ork-rm062fabrica`: F1 (`ork fabrica batida` e o doctor que reprova sem batida), F2 ("sigo" só com sessão viva e o fecho lendo a fila do pulse) e F3 (prompt no ledger antes do adaptador e retry pelo sha256); F4 a F7, mods e hosts ficam para as fatias seguintes | Testes `core/test/rm062-batida.test.ts`, `rm062-superficies.test.ts` e `rm062-retry-prompt.test.ts`; decisões no ledger da thread | condutor do maquina-b (#Auto) |
+| 2026-10-12 | Fatia 2 no GO da thread `ork-rm062fabrica`: F4 (a escada de recuperação do runtime no `ork retry run`: reerguer o daemon pelo `claude daemon status` e `stop`, o fallback do bloco, outro perfil, e o dono só depois dos três, com alternativas da RM-057), F5 (a varredura que age com a autorização durável `ork.autorizacao-duravel/v1`: limpar fantasmas, registrar a entrega do PR mesclado e o MASTER por omissão; sem ela, item da fila com o comando) e F6 (o alerta de máquina ociosa, uma vez por episódio); o mod `ork-sentinela` herda a F4 pelo `ork retry plan` e `retry run`, sem mudança nele | Testes `core/test/rm063-escada.test.ts`, `rm063-varredura.test.ts` e `rm063-ociosa.test.ts`; contrato em `docs/referencia/contratos/autorizacao-duravel-rm063.md`; decisões no ledger da thread | condutor do maquina-b (#Auto) |
 | 2026-10-12 | Item renumerado de RM-062 para RM-063; a thread segue `ork-rm062fabrica` | A RM-062 "Repositório público sem dado privado" nasceu em paralelo (thread `ork-rm062privado`), sem reserva de nenhuma das duas, e já estava na `main` e na branch da versão 0.5.5; a renumeração desta, ainda sem merge, é a troca barata. Decisão no ledger da thread | condutor do maquina-b (#Auto) |
