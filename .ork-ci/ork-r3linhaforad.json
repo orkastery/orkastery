@@ -43,7 +43,7 @@
         "grep -q foraDoRoadmap docs/referencia/cli.md && grep -q 'Fora do roadmap' CHANGELOG.md && node core/dist/index.js docs verificar"
       ],
       "criadoEm": "2026-10-03T11:59:07.464Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     }
   ],
