@@ -2,8 +2,9 @@
 // mod, e o plugin inline do teste roda serializado, sem as variaveis deste arquivo: a ponte falsa e autocontida. Ela
 // segue o contrato do `$.ork` da `ork-ponte` no que o Ritual usa: o papel vem do `env.get` (`ORK_TESTE_PAPEL`), o
 // retrato vem do `ork_maestro` pelo `mcp.call` (com a secao e o offset, como a ponte real), e a faixa e o mostrado vao
-// ao servidor `ponte-falsa`, onde o teste os le. As entregas e as claims sao sinteticas; nenhum processo roda aqui e
-// nenhum arquivo e lido: o fundo guarda qualquer tentativa, para o caso negativo.
+// ao servidor `ponte-falsa`, onde o teste os le. As entregas, as claims, a resposta do dialogo da nota e a do pedido pelo
+// Telegram sao sinteticas; nenhum processo de verdade roda aqui e nenhum arquivo e lido: o fundo guarda cada tentativa,
+// para o caso negativo.
 export const PONTE_FALSA = {
   name: 'ork-ponte',
   register(on) {
@@ -89,6 +90,13 @@ export function claim(thread: string, id: string, estado: string, o: { arquivo?:
 
 const ok = valor => ({ value: { content: [{ type: 'text', text: JSON.stringify(valor) }], isError: false } })
 const falha = (erro = 'falhou') => ({ value: { content: [{ type: 'text', text: JSON.stringify({ erro }) }], isError: true } })
+export const saida = (exitCode: number, stdout: unknown, stderr = '') =>
+  ({ value: { exitCode, stdout: typeof stdout === 'string' ? stdout : JSON.stringify(stdout), stderr, isStdoutTruncated: false, isStderrTruncated: false } })
+
+/** O que o `ork master pedir <thread> --formato json` imprime: o pedido de nota com o codigo do Telegram. */
+export function pedidoDeNota(thread: string, codigo = 'K7QX') {
+  return { contrato: 'ork.master-nota/v1', pedidoId: 'p1000000-0000-4000-8000-000000000001', thread, codigo, criadoEm: '2025-10-09T10:00:00.000Z' }
+}
 
 /**
  * Monta o fundo do teste: o papel, as paginas do retrato (por offset), as claims por thread, o registro de comando, o
@@ -102,15 +110,29 @@ export function montar(on, opcoes: { papel: string; paginas?: Record<number, unk
     paineis: opcoes.paineis ?? [], maestroFalha: false,
     maestro: [] as unknown[], claimsPedidas: [] as unknown[], outrasMcp: [] as unknown[], faixas: [] as unknown[], mostrados: [] as unknown[],
     comandos: [] as string[], abertos: [] as string[], toasts: [] as string[], processos: [] as unknown[], lidos: [] as unknown[],
+    /** O "Dar a nota": os pedidos que chegaram ao nucleo, a resposta dele (ou o erro) e uma espera real antes de responder. */
+    notas: [] as unknown[], respostaNota: null as unknown, erroNota: null as string | null, atrasoRealDaNotaMs: 0,
+    /** A reserva: a saida do `ork master pedir` (o padrao devolve o pedido de nota com o codigo). */
+    reserva: null as null | { exitCode: number; stdout: string; stderr: string },
+    /** Ao registrar a nota, o nucleo passa a servir estas paginas (a entrega anotada sai). */
+    paginasDepoisDaNota: null as null | Record<number, unknown>,
   }
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('classic.FileChanged', () => ({}))
   on('env.get', ($, e) => ({ value: e.name === 'ORK_TESTE_PAPEL' ? mundo.papel : undefined }))
-  on('mcp.call', ($, e) => {
+  on('mcp.call', async ($, e) => {
     if (e.server === 'orkastery' && e.tool === 'ork_maestro') {
       mundo.maestro.push(e.args)
       const pagina = mundo.paginas[Number(e.args.offset ?? 0)]
       return mundo.maestroFalha || pagina === undefined ? falha('pagina fora do retrato') : ok(pagina)
+    }
+    if (e.server === 'orkastery' && e.tool === 'ork_request_master_note') {
+      mundo.notas.push(e.args)
+      if (mundo.atrasoRealDaNotaMs) await new Promise(r => setTimeout(r, mundo.atrasoRealDaNotaMs))
+      if (mundo.erroNota) return falha(mundo.erroNota)
+      const resposta = mundo.respostaNota ?? { ok: true, threadId: e.args.threadId, estado: 'registrada', repetida: false, score: 4 }
+      if (mundo.paginasDepoisDaNota && (resposta as { estado?: string }).estado === 'registrada') mundo.paginas = mundo.paginasDepoisDaNota
+      return ok(resposta)
     }
     if (e.server === 'orkastery' && e.tool === 'ork_claims_list') {
       mundo.claimsPedidas.push(e.args)
@@ -124,7 +146,15 @@ export function montar(on, opcoes: { papel: string; paginas?: Record<number, unk
     mundo.outrasMcp.push({ server: e.server, tool: e.tool, args: e.args })
     return falha('ferramenta fora da lista')
   })
-  on('process.run', ($, e) => { mundo.processos.push(e.argv); return { value: { exitCode: 1, stdout: '', stderr: '' } } })
+  on('process.run', ($, e) => {
+    const argv = e.argv as string[]
+    mundo.processos.push(argv)
+    if (argv.slice(0, 3).join(' ') === 'ork master pedir' && argv.length === 6) {
+      if (mundo.reserva) return { value: { ...mundo.reserva, isStdoutTruncated: false, isStderrTruncated: false } }
+      return saida(0, pedidoDeNota(argv[3] as string))
+    }
+    return saida(2, '', `subcomando desconhecido: ${argv.slice(1, 3).join(' ')}`)
+  })
   on('fs.read', ($, e) => { mundo.lidos.push(e.path); return { value: '' } })
   on('command.register', ($, e) => { mundo.comandos.push(e.name); return { value: { command: e.name } } })
   on('ui.open', ($, e) => { mundo.abertos.push(e.id); return { value: { isPlaced: true } } })

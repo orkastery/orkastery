@@ -2,17 +2,26 @@
 // prova de uma delas, uma claim por vez, como o replay-theater percorre edicoes. Modulo puro: monta as linhas e a
 // arvore com os elementos que a superficie resolveu; o `$` fica no register.tsx. Estado sempre com rotulo e glifo,
 // nunca so cor; "espera sua nota" e o ponto de HITL do cartao; numero vem com o comando que o prova (Partitura).
-import type { RitualEntrega, RitualMostrado, RitualProva, RitualQuadro } from '../types'
+import type { RitualEntrega, RitualMostrado, RitualNota, RitualProva, RitualQuadro, RitualReserva } from '../types'
+import { pedeReserva } from './nota'
 import { JANELA_DIAS, numero, plural } from './ritual'
+
+/** Os botoes de uma entrega, na linha de acoes do cartao. */
+export type BotaoDoCartao = 'prova' | 'nota' | 'telegram'
 
 /** Uma linha do painel: o tipo decide o elemento; `mostrado` e o que o registro da ponte guarda (M5). */
 export type LinhaDoPainel = {
-  tipo: 'placar' | 'aviso' | 'vazio' | 'cabecalho' | 'situacao' | 'indice' | 'postmortem' | 'ver-prova' | 'prova-placar'
-    | 'claim' | 'alegacao' | 'comando' | 'navegacao'
+  tipo: 'placar' | 'aviso' | 'feita' | 'vazio' | 'cabecalho' | 'situacao' | 'indice' | 'postmortem' | 'acoes' | 'nota' | 'reserva'
+    | 'prova-placar' | 'claim' | 'alegacao' | 'comando' | 'navegacao'
   texto: string
   thread?: string
+  /** So na linha de acoes: os botoes que ela tem, na ordem. */
+  botoes?: BotaoDoCartao[]
   mostrado?: RitualMostrado
 }
+
+/** Os rotulos dos botoes do cartao. */
+export const ROTULO_DO_BOTAO: Readonly<Record<BotaoDoCartao, string>> = { prova: 'Ver a prova', nota: 'Dar a nota', telegram: 'Pelo Telegram' }
 
 /** O glifo e o rotulo de cada estado de claim que o nucleo registra. */
 export const ESTADO_DA_CLAIM: Readonly<Record<string, { glifo: string; rotulo: string }>> = {
@@ -56,6 +65,35 @@ export function linhasDaEntrega(e: RitualEntrega): LinhaDoPainel[] {
   ]
 }
 
+/**
+ * A linha de acoes e o resultado do "Dar a nota" e da reserva de uma entrega (T8.3). O "Dar a nota" some com o dialogo
+ * aberto e com a nota ja registrada; a reserva pelo Telegram so aparece quando o dialogo nao serviu (D7).
+ */
+export function linhasDaNota(thread: string, opcoes: { comProva: boolean; nota?: RitualNota; reserva?: RitualReserva }): LinhaDoPainel[] {
+  const { nota, reserva } = opcoes
+  const botoes: BotaoDoCartao[] = []
+  if (opcoes.comProva) botoes.push('prova')
+  if (!nota || !['abrindo', 'registrada', 'repetida'].includes(nota.estado)) botoes.push('nota')
+  if (pedeReserva(nota) && reserva?.estado !== 'pedindo') botoes.push('telegram')
+  const saida: LinhaDoPainel[] = []
+  if (botoes.length) saida.push({ tipo: 'acoes', thread, botoes, texto: botoes.map(b => ROTULO_DO_BOTAO[b]).join(' | ') })
+  if (nota) saida.push({ tipo: 'nota', thread, texto: `  ${nota.estado === 'abrindo' ? 'diálogo da nota aberto no Claude Code: responda lá' : nota.texto}` })
+  if (reserva) {
+    saida.push({ tipo: 'reserva', thread, texto: `  ${reserva.estado === 'pedindo' ? 'pedindo o código ao núcleo...' : reserva.texto}`,
+      ...(reserva.estado === 'pronta' && reserva.codigo
+        ? { mostrado: { chave: `nota:${thread}`, thread, texto: `${thread}: pelo Telegram, responda ${reserva.codigo} <0 a 5> <porquê>` } } : {}) })
+  }
+  return saida
+}
+
+/** As notas desta sessao que ja sairam da lista (registradas ou ja dadas), as mais novas primeiro, no maximo tres. */
+export function notasFeitas(q: RitualQuadro, notas: Readonly<Record<string, RitualNota>>): LinhaDoPainel[] {
+  const naLista = new Set(q.entregas.map(e => e.thread))
+  return Object.entries(notas).filter(([t, n]) => (n.estado === 'registrada' || n.estado === 'repetida') && !naLista.has(t))
+    .sort((a, b) => b[1].em - a[1].em).slice(0, 3)
+    .map(([thread, n]) => ({ tipo: 'feita' as const, thread, texto: `✓ ${n.texto}` }))
+}
+
 /** As linhas do replay: a claim do passo, com estado, arquivo, alegacao e comandos; nunca a saida do comando (D6). */
 export function linhasDaProva(foco: string, prova: RitualProva | null, passo: number): LinhaDoPainel[] {
   if (!prova || prova.thread !== foco || (prova.lidoEm === null && !prova.erro)) return [{ tipo: 'vazio', thread: foco, texto: 'lendo as claims no núcleo...' }]
@@ -82,16 +120,20 @@ export function linhasDaProva(foco: string, prova: RitualProva | null, passo: nu
  * As linhas do painel, na ordem do desenho. Sem foco: o placar, os avisos e um cartao por entrega com "Ver a prova".
  * Com foco (`/nota <thread>` ou "Ver a prova"): o placar do replay, o cartao da thread e a claim do passo.
  */
-export function linhasDoPainel(q: RitualQuadro, opcoes: { agora: number; foco?: string | null; prova?: RitualProva | null; passo?: number }): LinhaDoPainel[] {
+export function linhasDoPainel(q: RitualQuadro, opcoes: { agora: number; foco?: string | null; prova?: RitualProva | null; passo?: number;
+  notas?: Readonly<Record<string, RitualNota>>; reservas?: Readonly<Record<string, RitualReserva>> }): LinhaDoPainel[] {
   const saida: LinhaDoPainel[] = []
   const foco = opcoes.foco ?? null
+  const notas = opcoes.notas ?? {}
+  const reservas = opcoes.reservas ?? {}
   saida.push({ tipo: 'placar', texto: foco ? `Ritual do MASTER · prova da ${foco}`
     : `Ritual do MASTER · ${plural(q.entregas.length, 'entrega espera', 'entregas esperam')} a sua nota · ${haQuanto(q.lidoEm, opcoes.agora)}` })
   if (q.erro) saida.push({ tipo: 'aviso', texto: `a última leitura falhou: ${q.erro}` })
   for (const aviso of q.avisos) saida.push({ tipo: 'aviso', texto: aviso })
+  saida.push(...notasFeitas(q, notas))
   if (foco) {
     const e = q.entregas.find(x => x.thread === foco)
-    if (e) saida.push(...linhasDaEntrega(e))
+    if (e) saida.push(...linhasDaEntrega(e), ...linhasDaNota(foco, { comProva: false, nota: notas[foco], reserva: reservas[foco] }))
     else if (q.lidoEm !== null) saida.push({ tipo: 'aviso', thread: foco, texto: `a ${foco} não está entre as entregas dos últimos ${JANELA_DIAS} dias que esperam a sua nota` })
     saida.push(...linhasDaProva(foco, opcoes.prova ?? null, opcoes.passo ?? 0))
     return saida
@@ -104,8 +146,7 @@ export function linhasDoPainel(q: RitualQuadro, opcoes: { agora: number; foco?: 
     return saida
   }
   for (const e of q.entregas) {
-    saida.push(...linhasDaEntrega(e))
-    saida.push({ tipo: 'ver-prova', thread: e.thread, texto: 'Ver a prova' })
+    saida.push(...linhasDaEntrega(e), ...linhasDaNota(e.thread, { comProva: true, nota: notas[e.thread], reserva: reservas[e.thread] }))
   }
   return saida
 }
@@ -165,13 +206,15 @@ export function mostradosVisiveis(linhas: ReadonlyArray<{ tipo?: string; texto?:
   return vistos
 }
 
-/** Os gestos do painel: reler, abrir e fechar o replay e andar entre as claims. */
+/** Os gestos do painel: reler, abrir e fechar o replay, andar entre as claims, pedir a nota e a reserva. */
 export type Gestos = {
   atualizar?: () => void
   verProva?: (thread: string) => void
   voltar?: () => void
   anterior?: () => void
   proxima?: () => void
+  darNota?: (thread: string) => void
+  telegram?: (thread: string) => void
 }
 
 /**
@@ -193,10 +236,16 @@ export function desenharRitual(el: { Box: any; Text: any; Button: any }, linhas:
           )
         }
         if (l.tipo === 'cabecalho') return <Text key={`cabecalho:${l.thread}`} bold wrap="truncate">{l.texto}</Text>
-        if (l.tipo === 'ver-prova' && l.thread) {
+        if (l.tipo === 'acoes' && l.thread) {
           const thread = l.thread
-          return <Button key={`prova:${thread}`} label={l.texto} onPress={() => opcoes.verProva?.(thread)} />
+          const gesto: Record<BotaoDoCartao, ((t: string) => void) | undefined> = { prova: opcoes.verProva, nota: opcoes.darNota, telegram: opcoes.telegram }
+          return (
+            <Box key={`acoes:${thread}`} flexDirection="row">
+              {(l.botoes ?? []).map(b => <Button key={`${b}:${thread}`} label={ROTULO_DO_BOTAO[b]} onPress={() => gesto[b]?.(thread)} />)}
+            </Box>
+          )
         }
+        if (l.tipo === 'feita') return <Text key={`feita:${l.thread}`} wrap="truncate">{l.texto}</Text>
         if (l.tipo === 'navegacao') {
           const [anterior, proxima] = l.texto.split('|')
           return (

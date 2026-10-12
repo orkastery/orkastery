@@ -26,16 +26,19 @@ const LISTA = [
   '  índice derivado do ledger: 4,5 de 5 (check_reverify x1) · ork master',
   '  POSTMORTEM: classes sem-falha · 1 reprovação tipada',
   'Ver a prova',
+  'Dar a nota',
   '● espera sua nota · ork-b · entregue 19/10 14:20 (horário de Brasília) · merge aaaaaaaa',
   '  sem nota: sem a sua, o MASTER fecha por omissão',
   '  índice derivado do ledger: 5 de 5 (sem desconto) · ork master',
   '  POSTMORTEM: nasce no fechamento · 0 reprovações tipadas',
   'Ver a prova',
+  'Dar a nota',
   '● espera sua nota · ork-a · entregue 18/10 14:20 (horário de Brasília) · merge aaaaaaaa',
   '  aceita por omissão com 4/5; a sua nota sobrescreve',
   '  índice derivado do ledger: 3,75 de 5 (go_fix_opened x2, check_reverify x1) · ork master',
   '  POSTMORTEM: classes base-avancou, processo · 2 reprovações tipadas',
   'Ver a prova',
+  'Dar a nota',
 ]
 
 test('na sessao do dono, o /nota abre o painel com as entregas sem nota humana da janela, a mais nova primeiro, no terminal e no desktop', { plugins: [PONTE_FALSA] }, async ($, on) => {

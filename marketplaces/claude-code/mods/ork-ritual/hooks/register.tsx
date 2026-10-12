@@ -1,10 +1,15 @@
 // O Ritual do MASTER do Orkastery (RM-059, fatia F8; ficha M8 do plano dos mods). Na sessao do dono, um painel com as
 // entregas que esperam a nota do dono, lidas do nucleo pelo retrato da ponte (`$.ork.retrato`, secao `master`), e o
-// replay da prova de cada uma, com as claims pelo `ork_claims_list`. Nunca le `.orkastery/` por conta propria e nunca
-// da a nota pelo dono. A logica fica nos modulos puros ao lado; aqui so os ganchos e as chamadas ao `$`, sempre
-// escritas como `x.noun.metodo(...)`, como o validador exige.
+// replay da prova de cada uma, com as claims pelo `ork_claims_list`. O botao "Dar a nota" so pede ao nucleo o dialogo
+// nativo (`ork_request_master_note`, com o `threadId` e nada mais), e a reserva pelo Telegram so pede o codigo
+// (`ork master pedir`), no clique do dono. Nunca le `.orkastery/` por conta propria e nunca da a nota pelo dono. A
+// logica fica nos modulos puros ao lado; aqui so os ganchos e as chamadas ao `$`, sempre escritas como
+// `x.noun.metodo(...)`, como o validador exige.
 import type { EngineInterface, Register } from 'claude-code'
-import type { RitualMostrado, RitualProva, RitualQuadro } from '../types'
+import type { RitualMostrado, RitualNota, RitualProva, RitualQuadro, RitualReserva } from '../types'
+import {
+  argsDaNota, argvDaReserva, lerReserva, notaDoErro, PRAZO_DA_NOTA_MS, PRAZO_DA_RESERVA_MS, resultadoDaNota, soltarAbrindo,
+} from './nota'
 import { desenharRitual, linhasDoPainel, mostradosVisiveis } from './replay'
 import {
   argsDasClaims, avisoDasLacunas, claimsDaProva, entregasDaJanela, exigirThread, jsonDoMcp, paginaDoMaster, plural, QUADRO_VAZIO,
@@ -18,6 +23,8 @@ const QUADRO = { plugin: 'ork-ritual', key: 'quadro' } as const
 const FOCO = { plugin: 'ork-ritual', key: 'foco' } as const
 const PASSO = { plugin: 'ork-ritual', key: 'passo' } as const
 const PROVA = { plugin: 'ork-ritual', key: 'prova' } as const
+const NOTAS = { plugin: 'ork-ritual', key: 'notas' } as const
+const RESERVAS = { plugin: 'ork-ritual', key: 'reservas' } as const
 /** O tique: idade das entregas e registro do mostrado. */
 const PERIODO_DO_TIQUE_MS = 60000
 /** As entregas sao relidas por idade: a cada 5 min com o painel a vista, a cada 15 min escondido. */
@@ -50,6 +57,11 @@ let prova: RitualProva | null = null
 /** A leitura das claims em curso e de qual thread. */
 let lendoProva: Promise<void> | undefined
 let lendoProvaDe: string | null = null
+/** O "Dar a nota" e a reserva de cada entrega, e as threads com um dialogo ou um pedido rodando no nucleo agora. */
+let notas: Record<string, RitualNota> = {}
+let reservas: Record<string, RitualReserva> = {}
+const emDialogo = new Set<string>()
+const pedindo = new Set<string>()
 /** O que o desenho pos na janela de rolagem e ainda nao foi ao registro da ponte. */
 const vistosNoDesenho = new Map<string, RitualMostrado>()
 /** O que ja foi ao registro nesta sessao, por chave e texto. */
@@ -119,6 +131,13 @@ async function ativar($: EngineInterface): Promise<void> {
   foco = (await $.state.get(FOCO)).value ?? null
   passo = (await $.state.get(PASSO)).value ?? 0
   prova = (await $.state.get(PROVA)).value ?? null
+  // Depois de uma recarga do modulo, nenhum dialogo nem pedido esta rodando: o que ficou em curso volta a ter o botao.
+  notas = soltarAbrindo((await $.state.get(NOTAS)).value ?? {})
+  await $.state.set(NOTAS, notas)
+  const guardadas = (await $.state.get(RESERVAS)).value ?? {}
+  reservas = Object.fromEntries(Object.entries(guardadas).map(([t, r]) => [t, r.estado === 'pedindo'
+    ? { ...r, estado: 'erro' as const, texto: 'o pedido pelo Telegram foi interrompido por uma recarga; peça de novo' } : r]))
+  await $.state.set(RESERVAS, reservas)
   ciclo?.cancel()
   ciclo = $.clock.every(PERIODO_DO_TIQUE_MS, () => { emSegundoPlano($, tique($), 'o tique do Ritual') })
   agendar($, 1)
@@ -281,6 +300,65 @@ async function andar($: EngineInterface, delta: number): Promise<void> {
   await $.state.set(PASSO, passo)
 }
 
+async function gravarNota($: EngineInterface, thread: string, n: RitualNota): Promise<void> {
+  notas = { ...notas, [thread]: n }
+  await $.state.set(NOTAS, notas)
+}
+
+async function gravarReserva($: EngineInterface, thread: string, r: RitualReserva): Promise<void> {
+  reservas = { ...reservas, [thread]: r }
+  await $.state.set(RESERVAS, reservas)
+}
+
+/**
+ * O "Dar a nota" (T8.3, DD2): um dialogo por thread, em segundo plano. A chamada leva exatamente o `threadId`; quem da a
+ * nota e o porque e o dono, no dialogo nativo do host, e quem grava e o nucleo. A entrega anotada sai da lista na
+ * releitura que vem logo depois.
+ */
+async function darNota($: EngineInterface, thread: string): Promise<void> {
+  if (emDialogo.has(thread)) return
+  // Marcado antes de qualquer espera: dois toques ao mesmo tempo abrem um dialogo so.
+  emDialogo.add(thread)
+  try {
+    exigirThread(thread)
+    await gravarNota($, thread, { estado: 'abrindo', texto: '', em: await $.clock.now() })
+    let n: RitualNota
+    try {
+      n = resultadoDaNota(jsonDoMcp(await comPrazo($, $.mcp.call(SERVIDOR, 'ork_request_master_note', argsDaNota(thread)), PRAZO_DA_NOTA_MS)),
+        thread, await $.clock.now())
+    } catch (erro) {
+      n = notaDoErro(erro, await $.clock.now())
+    }
+    await gravarNota($, thread, n)
+  } finally {
+    emDialogo.delete(thread)
+  }
+  await atualizar($, true)
+}
+
+/**
+ * A reserva pelo Telegram (T8.3, D7): so no clique do dono, o pedido de nota do nucleo (`ork master pedir`), que guarda
+ * o pedido e devolve o codigo. O mod nunca roda `ork master` com nota no argv.
+ */
+async function pedirTelegram($: EngineInterface, thread: string): Promise<void> {
+  if (pedindo.has(thread)) return
+  pedindo.add(thread)
+  try {
+    exigirThread(thread)
+    await gravarReserva($, thread, { estado: 'pedindo', texto: '', codigo: null, em: await $.clock.now() })
+    let r: RitualReserva
+    try {
+      r = lerReserva(await $.process.run(argvDaReserva(thread), { timeoutMs: PRAZO_DA_RESERVA_MS }), thread, await $.clock.now())
+    } catch (erro) {
+      r = { estado: 'erro', texto: `o pedido pelo Telegram falhou: ${mensagem(erro)}`, codigo: null, em: await $.clock.now() }
+    }
+    await gravarReserva($, thread, r)
+  } finally {
+    pedindo.delete(thread)
+  }
+  await registrarMostrados($)
+}
+
 /** O tique: a idade das entregas e o registro do que o painel mostrou. */
 async function tique($: EngineInterface): Promise<void> {
   if (!ativa) return
@@ -314,7 +392,8 @@ function anotarVistos(vistos: readonly RitualMostrado[]): void {
  * chave e texto enquanto o texto existir no painel: o Telegram nao repete o que o dono ja viu no terminal.
  */
 async function registrarMostrados($: EngineInterface): Promise<void> {
-  const existentes = new Set(linhasDoPainel(quadro, { agora: 0, foco, prova, passo }).flatMap(l => (l.mostrado ? [`${l.mostrado.chave}|${l.mostrado.texto}`] : [])))
+  const existentes = new Set(linhasDoPainel(quadro, { agora: 0, foco, prova, passo, notas, reservas })
+    .flatMap(l => (l.mostrado ? [`${l.mostrado.chave}|${l.mostrado.texto}`] : [])))
   for (const vista of [...jaMostrado]) if (!existentes.has(vista)) jaMostrado.delete(vista)
   for (const vista of [...vistosNoDesenho.keys()]) if (!existentes.has(vista)) vistosNoDesenho.delete(vista)
   if (vistosNoDesenho.size === 0) return
@@ -378,9 +457,11 @@ export const register: Register = on => {
     const emFoco = (await $.state.get(FOCO)).value ?? null
     const p = (await $.state.get(PASSO)).value ?? 0
     const pr = (await $.state.get(PROVA)).value ?? null
+    const ns = (await $.state.get(NOTAS)).value ?? {}
+    const rs = (await $.state.get(RESERVAS)).value ?? {}
     const agora = await $.clock.now()
     const comProblema: RitualQuadro = problemaSemAviso ? { ...q, avisos: [...q.avisos, problemaSemAviso] } : q
-    const linhas = linhasDoPainel(comProblema, { agora, foco: emFoco, prova: pr, passo: p })
+    const linhas = linhasDoPainel(comProblema, { agora, foco: emFoco, prova: pr, passo: p, notas: ns, reservas: rs })
     anotarVistos(mostradosVisiveis(linhas, e.props.scroll, e.props.bodyColumns))
     return desenharRitual({ Box, Text, Button }, linhas, {
       foco: emFoco,
@@ -392,6 +473,8 @@ export const register: Register = on => {
       voltar: () => { emSegundoPlano($, soltarFoco($), 'o Voltar') },
       anterior: () => { emSegundoPlano($, andar($, -1), 'o Anterior') },
       proxima: () => { emSegundoPlano($, andar($, 1), 'o Próxima') },
+      darNota: thread => { emSegundoPlano($, darNota($, thread), 'o Dar a nota') },
+      telegram: thread => { emSegundoPlano($, pedirTelegram($, thread), 'o pedido pelo Telegram') },
     })
   })
 }

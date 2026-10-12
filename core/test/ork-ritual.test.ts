@@ -4,6 +4,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import * as ts from 'typescript';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { criarServidorMcp } from '../src/mcp-server';
 import { adicionarClaim, retirarClaim } from '../src/claims';
 import { listarClaimsMcp } from '../src/mcp-artifacts';
 import { registrar, TIPOS_DE_EVENTO } from '../src/ledger';
@@ -16,18 +20,21 @@ import { projetoTemporario, ProjetoDeTeste } from './apoio';
 // RM-059 (fatia F8): o Ritual do MASTER (`ork-ritual`) testado sem o Claude Code. O sandbox do `ork verify` e o runner
 // do CI nao tem o `claude`, entao a claim hermetica transpila os modulos puros do Ritual com o compilador do `core` e os
 // roda num escopo proprio, como os testes da ponte, da Torre, da Mesa e da Pista. O fonte do mod e varrido pela AST (as
-// entregas so pelo retrato da ponte, a lista fechada de chamadas ao `$` e de ferramentas do nucleo), e o parser do
-// Ritual roda contra o retrato e as claims de verdade de um projeto temporario.
+// entregas so pelo retrato da ponte, a lista fechada de chamadas ao `$` e de ferramentas do nucleo, o botao da nota so
+// com o `threadId` e o argv da reserva so do construtor), e o parser do Ritual roda contra o retrato, as claims, a
+// ferramenta da nota e o `ork master pedir` de verdade de um projeto temporario.
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const RITUAL = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-ritual');
-const MODULOS_PUROS = ['hooks/ritual.ts', 'hooks/replay.tsx'];
+const MODULOS_PUROS = ['hooks/ritual.ts', 'hooks/replay.tsx', 'hooks/nota.ts'];
 /** Tudo que o Ritual chama direto no `$`. */
 const CHAMADAS_PERMITIDAS = ['ork.papel', 'ork.faixa', 'ork.retrato', 'ork.mostrado', 'command.register', 'clock.now', 'clock.after',
-  'clock.every', 'mcp.call', 'state.get', 'state.set', 'ui.open', 'ui.panes', 'ui.resolve', 'ui.toast'];
-/** Nada de disco, de processo, de ambiente, de texto como o dono, de agente ou de ferramenta do host. */
-const NOUNS_PROIBIDOS = ['process', 'store', 'env', 'fs', 'prompt', 'agent', 'tool', 'session'];
-/** A lista fechada das ferramentas do nucleo que o Ritual chama no servidor `orkastery`. */
-const LISTA_FECHADA_DO_MCP = ['ork_claims_list'];
+  'clock.every', 'mcp.call', 'process.run', 'state.get', 'state.set', 'ui.open', 'ui.panes', 'ui.resolve', 'ui.toast'];
+/** Nada de disco, de ambiente, de texto como o dono, de agente ou de ferramenta do host. */
+const NOUNS_PROIBIDOS = ['store', 'env', 'fs', 'prompt', 'agent', 'tool', 'session'];
+/** A lista fechada das ferramentas do nucleo que o Ritual chama no servidor `orkastery`, com o construtor dos argumentos de cada uma. */
+const LISTA_FECHADA_DO_MCP: Record<string, string> = { ork_claims_list: 'argsDasClaims', ork_request_master_note: 'argsDaNota' };
+/** O unico construtor de argv do Ritual: o pedido de nota pelo Telegram. */
+const CONSTRUTORES_DE_ARGV = ['argvDaReserva'];
 const EPOCA = 1760000000000;
 const DIA = 86400000;
 
@@ -64,6 +71,7 @@ function carregar(rel: string): Record<string, any> {
 const lerJson = (rel: string) => JSON.parse(fs.readFileSync(path.join(RITUAL, rel), 'utf8'));
 const ritual = () => carregar('hooks/ritual.ts');
 const replay = () => carregar('hooks/replay.tsx');
+const nota = () => carregar('hooks/nota.ts');
 
 /** Os textos de uma arvore desenhada com o `h` deste teste, um por `Text` e um por `Button` (o rotulo). */
 function textos(no: unknown): string[] {
@@ -101,7 +109,8 @@ test('manifesto do Ritual: nome, contrato de estado, dependencia da ponte, papel
 test('o contrato declara o estado do Ritual sem import nem referencia, e nada nele guarda a nota ou o porque do dono', () => {
   const tipos = fs.readFileSync(path.join(RITUAL, 'types/index.d.ts'), 'utf8');
   assert.match(tipos, /interface PluginState \{\s*'ork-ritual': \{/);
-  for (const chave of ['quadro: RitualQuadro', 'foco: string | null', 'passo: number', 'prova: RitualProva | null']) assert.ok(tipos.includes(chave), chave);
+  for (const chave of ['quadro: RitualQuadro', 'foco: string | null', 'passo: number', 'prova: RitualProva | null', 'notas: Record<string, RitualNota>',
+    'reservas: Record<string, RitualReserva>']) assert.ok(tipos.includes(chave), chave);
   assert.doesNotMatch(tipos, /^\s*import\s/m);
   assert.doesNotMatch(tipos, /\/\/\/\s*<reference/);
   assert.doesNotMatch(tipos, /interface EngineInterface/);
@@ -195,12 +204,12 @@ test('painel: a lista com o cartao de cada entrega e o replay com a claim do pas
     '  aceita por omissão com 4/5; a sua nota sobrescreve',
     '  índice derivado do ledger: 2,75 de 5 (go_fix_opened x3) · ork master',
     '  POSTMORTEM: classes processo · 2 reprovações tipadas',
-    'Ver a prova',
+    'Ver a prova | Dar a nota',
     '● espera sua nota · ork-b · entregue 10/10 14:20 (horário de Brasília) · merge bbbbbbbb',
     '  sem nota: sem a sua, o MASTER fecha por omissão',
     '  índice derivado do ledger: 5 de 5 (sem desconto) · ork master',
     '  POSTMORTEM: nasce no fechamento · 0 reprovações tipadas',
-    'Ver a prova',
+    'Ver a prova | Dar a nota',
   ]);
   assert.deepEqual(lista.filter((l: { mostrado?: unknown }) => l.mostrado).map((l: { mostrado: unknown }) => l.mostrado), [
     { chave: 'nota:ork-a', thread: 'ork-a', texto: 'ork-a: entregue, espera sua nota (índice 2,75 de 5)' },
@@ -264,6 +273,78 @@ test('o parser do Ritual casa com o retrato e as claims de verdade do nucleo', (
   } finally { p.limpar(); }
 });
 
+test('nota: os argumentos do botao so com o threadId, o argv da reserva, a leitura do resultado e a autoridade da ponte', () => {
+  const n = nota();
+  assert.deepEqual(n.argsDaNota('ork-a'), { threadId: 'ork-a' });
+  assert.deepEqual(Object.keys(n.argsDaNota('ork-a')), ['threadId']);
+  assert.deepEqual(n.argvDaReserva('ork-a'), ['ork', 'master', 'pedir', 'ork-a', '--formato', 'json']);
+  for (const ruim of ['../x', '--score', '', 'a b']) {
+    assert.throws(() => n.argsDaNota(ruim), /id de thread invalido/, ruim);
+    assert.throws(() => n.argvDaReserva(ruim), /id de thread invalido/, ruim);
+  }
+  assert.equal(n.FERRAMENTA_DA_NOTA, 'ork_request_master_note');
+  assert.ok(n.PRAZO_DA_NOTA_MS > 300000, 'o botao espera mais que o dialogo do nucleo');
+  assert.deepEqual(n.resultadoDaNota({ ok: true, estado: 'registrada', repetida: false, score: 3 }, 'ork-a', 7),
+    { estado: 'registrada', texto: 'nota 3/5 da ork-a registrada pelo diálogo nativo', em: 7 });
+  assert.equal(n.resultadoDaNota({ ok: true, estado: 'registrada', repetida: true, score: 5 }, 'ork-a', 7).estado, 'repetida');
+  assert.equal(n.resultadoDaNota({ ok: false, estado: 'pendente' }, 'ork-a', 7).estado, 'pendente');
+  assert.equal(n.resultadoDaNota(null, 'ork-a', 7).estado, 'pendente');
+  assert.equal(n.notaDoErro(new Error('master.nota.sem-dialogo: x'), 1).estado, 'sem-dialogo');
+  assert.equal(n.notaDoErro(new Error('mcp.tool.unknown'), 1).estado, 'sem-dialogo');
+  assert.equal(n.notaDoErro(new Error('hitl.local.chave-invalida'), 1).estado, 'erro');
+  assert.equal(n.pedeReserva({ estado: 'sem-dialogo' }), true);
+  assert.equal(n.pedeReserva({ estado: 'erro' }), true);
+  for (const estado of ['abrindo', 'registrada', 'repetida', 'pendente']) assert.equal(n.pedeReserva({ estado }), false, estado);
+  assert.equal(n.pedeReserva(undefined), false);
+  assert.deepEqual(n.soltarAbrindo({ a: { estado: 'abrindo', texto: '', em: 1 }, b: { estado: 'registrada', texto: 'x', em: 2 } }).a.estado, 'pendente');
+  const pronta = n.lerReserva({ exitCode: 0, stdout: JSON.stringify({ contrato: 'ork.master-nota/v1', thread: 'ork-a', codigo: 'K7QX' }), stderr: '' }, 'ork-a', 3);
+  assert.deepEqual(pronta, { estado: 'pronta', texto: 'pelo Telegram, responda: K7QX <0 a 5> <porquê>', codigo: 'K7QX', em: 3 });
+  assert.equal(n.lerReserva({ exitCode: 0, stdout: JSON.stringify({ contrato: 'ork.master-nota/v1', thread: 'ork-b', codigo: 'K7QX' }), stderr: '' }, 'ork-a', 3).estado, 'erro');
+  assert.equal(n.lerReserva({ exitCode: 1, stdout: '', stderr: 'linha 1\nMASTER exige entrega' }, 'ork-a', 3).texto, 'o pedido pelo Telegram falhou: linha 1 MASTER exige entrega');
+  // A guarda da ponte (a mesma lista que ela aplica em tempo de execucao) deixa passar o pedido e barra a nota no argv.
+  const { carregarModuloDoMod } = require(path.join(raizDoRepo, 'core/scripts/checar-mods.cjs'));
+  const guarda = carregarModuloDoMod(path.join(raizDoRepo, 'adapters/claude-code/mods/ork-ponte/hooks/guarda.ts'), raizDoRepo);
+  const autoridade = guarda.lerAutoridade(fs.readFileSync(path.join(raizDoRepo, 'adapters/claude-code/mods/autoridade.json'), 'utf8'));
+  assert.equal(guarda.avaliarArgv(autoridade, n.argvDaReserva('ork-a')), null);
+  assert.notEqual(guarda.avaliarArgv(autoridade, ['ork', 'master', 'ork-a', '--score', '4', '--justificativa', 'pelo mod']), null);
+});
+
+test('o Ritual casa com a ferramenta da nota e com o ork master pedir de verdade do nucleo', async () => {
+  const p = projetoTemporario('ork-ritual-nota');
+  try {
+    const t = entregue(p, 'nota');
+    aceitarPorOmissao(p.dir, t.id);
+    const n = nota(), r = ritual();
+    // O pedido pelo Telegram: a saida real do `ork master pedir --formato json` vira o codigo no cartao.
+    const env = { ...process.env };
+    for (const nome of ['ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'ORK_PROJETO', 'ORK_PROJETO_EXPLICITO', 'CLAUDECODE']) delete env[nome];
+    const cli = spawnSync(process.execPath, [path.resolve(__dirname, '../../dist/index.js'), ...n.argvDaReserva(t.id).slice(1)], { cwd: p.dir, env, encoding: 'utf8' });
+    const reserva = n.lerReserva({ exitCode: cli.status ?? 1, stdout: cli.stdout, stderr: cli.stderr }, t.id, 1);
+    assert.equal(reserva.estado, 'pronta', `${cli.stdout}\n${cli.stderr}`);
+    assert.match(reserva.texto, /^pelo Telegram, responda: [0-9A-Za-z]{3,8} <0 a 5> <porquê>$/);
+    // O "Dar a nota": sem formulario no cliente, o erro real vira a reserva; com o formulario, a resposta real vira a nota registrada.
+    const chamar = async (formulario: boolean) => {
+      const server = criarServidorMcp({ projeto: p.dir, host: 'claude-code' });
+      const client = new Client({ name: 'cliente-sintetico-do-ritual', version: '1' }, formulario ? { capabilities: { elicitation: { form: {} } } } : {});
+      if (formulario) client.setRequestHandler(ElicitRequestSchema, async () => ({ action: 'accept' as const, content: { nota: '4', porque: 'entregou com prova' } }));
+      const [ct, st] = InMemoryTransport.createLinkedPair();
+      try {
+        await server.connect(st);
+        await client.connect(ct);
+        return await client.callTool({ name: n.FERRAMENTA_DA_NOTA, arguments: n.argsDaNota(t.id) });
+      } finally { await client.close(); await server.close(); }
+    };
+    let semDialogo: unknown;
+    try { r.jsonDoMcp(await chamar(false)); } catch (erro) { semDialogo = erro; }
+    assert.equal(n.notaDoErro(semDialogo, 1).estado, 'sem-dialogo');
+    const feita = n.resultadoDaNota(r.jsonDoMcp(await chamar(true)), t.id, 2);
+    assert.deepEqual(feita, { estado: 'registrada', texto: `nota 4/5 da ${t.id} registrada pelo diálogo nativo`, em: 2 });
+    // Depois da nota, o retrato do nucleo tira a entrega da lista do Ritual.
+    const pagina = r.paginaDoMaster({ retrato: maestroSnapshot(discoverMaestro({ cwd: p.dir })) });
+    assert.deepEqual(r.entregasDaJanela(pagina.itens, Date.now()).entregas, []);
+  } finally { p.limpar(); }
+});
+
 type Chamada = { cadeia: string[]; no: ts.CallExpression; linha: number };
 function chamadasDoFonte(arquivo: string): { chamadas: Chamada[]; fonte: ts.SourceFile } {
   const texto = fs.readFileSync(arquivo, 'utf8');
@@ -296,6 +377,7 @@ test('o Ritual so chama no $ a lista fechada, le as entregas so pelo retrato e c
   assert.ok(fontes.some((f) => f.endsWith('hooks/register.tsx')));
   const vistas = new Set<string>();
   const ferramentas = new Set<string>();
+  let processos = 0;
   for (const arquivo of fontes) {
     const { chamadas, fonte } = chamadasDoFonte(arquivo);
     for (const c of chamadas) {
@@ -306,11 +388,21 @@ test('o Ritual so chama no $ a lista fechada, le as entregas so pelo retrato e c
       assert.ok(CHAMADAS_PERMITIDAS.includes(chamada), `chamada fora da lista fechada do $: ${onde}`);
       vistas.add(chamada);
       if (chamada === 'mcp.call') {
-        const [servidor, ferramenta] = c.no.arguments;
+        const [servidor, ferramenta, args] = c.no.arguments;
         assert.ok(servidor && ts.isIdentifier(servidor) && servidor.text === 'SERVIDOR', `servidor que nao e o do nucleo: ${onde}`);
-        assert.ok(ferramenta && ts.isStringLiteral(ferramenta) && LISTA_FECHADA_DO_MCP.includes(ferramenta.text),
+        assert.ok(ferramenta && ts.isStringLiteral(ferramenta) && Object.hasOwn(LISTA_FECHADA_DO_MCP, ferramenta.text),
           `ferramenta fora da lista fechada: ${onde}: ${ferramenta?.getText(fonte)}`);
+        const construtor = LISTA_FECHADA_DO_MCP[(ferramenta as ts.StringLiteral).text];
+        // Os argumentos saem so do construtor da ferramenta: o do botao da nota leva o threadId e nada mais.
+        assert.ok(args && ts.isCallExpression(args) && ts.isIdentifier(args.expression) && args.expression.text === construtor,
+          `argumentos que nao saem de ${construtor}: ${onde}: ${args?.getText(fonte)}`);
         ferramentas.add((ferramenta as ts.StringLiteral).text);
+      }
+      if (chamada === 'process.run') {
+        processos++;
+        const argv = c.no.arguments[0];
+        assert.ok(argv && ts.isCallExpression(argv) && ts.isIdentifier(argv.expression) && CONSTRUTORES_DE_ARGV.includes(argv.expression.text),
+          `argv que nao sai de um construtor: ${onde}: ${argv?.getText(fonte)}`);
       }
     }
     const texto = fs.readFileSync(arquivo, 'utf8');
@@ -318,8 +410,9 @@ test('o Ritual so chama no $ a lista fechada, le as entregas so pelo retrato e c
     assert.doesNotMatch(texto, /--score/, `${path.relative(raizDoRepo, arquivo)} cita a nota no argv do ork master`);
     assert.doesNotMatch(texto, /\.orkastery\/threads\/[^\\]*['`]\s*\)/, `${path.relative(raizDoRepo, arquivo)} monta caminho de estado para ler`);
   }
-  assert.deepEqual([...ferramentas].sort(), [...LISTA_FECHADA_DO_MCP].sort());
-  for (const esperada of ['ork.papel', 'ork.faixa', 'ork.retrato', 'ork.mostrado', 'command.register', 'clock.every', 'ui.open', 'mcp.call']) {
+  assert.deepEqual([...ferramentas].sort(), Object.keys(LISTA_FECHADA_DO_MCP).sort());
+  assert.equal(processos, 1, `process.run achados: ${processos}`);
+  for (const esperada of ['ork.papel', 'ork.faixa', 'ork.retrato', 'ork.mostrado', 'command.register', 'clock.every', 'ui.open', 'mcp.call', 'process.run']) {
     assert.ok(vistas.has(esperada), esperada);
   }
   assert.ok(!vistas.has('ork.ler'), 'as entregas saem do retrato, nao de consulta do CLI');
