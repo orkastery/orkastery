@@ -1131,11 +1131,15 @@ function rodarFaseSobLock(
 
     if (!resultado.ok || !resultado.sessionId) {
       const erro = resultado.erro ?? 'sem sessionId na saida do runtime';
+      // RM-063 (F3, GO-FIX): o `claude --bg` que sai com erro, ou estoura o prazo, depois de dizer o id deixa a sessao
+      // aberta; o id vai a falha e ao gate, para o retry conferir que ela morreu antes de redespachar.
+      const daSessao = resultado.sessionId ? { sessionId: resultado.sessionId } : {};
       registrar(dir, thread.id, TIPOS_DE_EVENTO.despachoFalhou, {
         ...comum,
         controlador: resultado.controlador,
         erro,
         stderr: resultado.stderr.slice(0, 500),
+        ...daSessao,
       });
 
       // I-33 (D1, D5): a CONTA recusou o despacho. Nada rodou, entao nada foi produzido: o perfil
@@ -1222,7 +1226,7 @@ function rodarFaseSobLock(
       // RM-063 (F3): a falha seca do adaptador vira gate tipado, com o prompt e o sha256. Antes so o `phase_dispatch_failed`
       // a registrava: o `ork retry plan` nao a via e a fase ficava parada sem ninguem saber.
       registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'runtime.unavailable', modo: thread.modo,
-        detalhe: erro, correcao: correcaoDoRetry, fase, slug, runtime, origem: 'phase.run', ...promptNoLedger,
+        detalhe: erro, correcao: correcaoDoRetry, fase, slug, runtime, origem: 'phase.run', ...promptNoLedger, ...daSessao,
         evidencia: 'saida real do runtime adapter no despacho, nao relato do agente' });
       return {
         thread,

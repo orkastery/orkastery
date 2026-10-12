@@ -30,6 +30,7 @@ import { registrarGateBloqueado } from './gates';
 import { EventoLedger } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { raizDoEstado } from './estado-thread';
+import { sessaoVivaNaThread } from './vida-da-thread';
 import { ManifestoCarregado } from './manifest';
 import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, perfilParaDespacho, resolverDespacho, slugDaSessao,
   baselineDoDespachoNecessaria, estadoParaDespacho, garantirBaselineDoDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
@@ -1528,6 +1529,18 @@ export function executarRetry(
       const detalhe = textoDoCatalogo((m) => m.retry.semConfianca(motivo, cwd, threadId));
       return { ...vazio, detalhe };
     }
+  }
+  // RM-063 (F3, GO-FIX): antes de devolver o prompt ao runtime, a prova de que nenhuma sessao viva trabalha na thread. O
+  // despacho que falhou depois de abrir a sessao (o `claude --bg` lento) e o adaptador que lanca deixariam duas sessoes
+  // na mesma worktree. Sem a prova, nada e redespachado, e a tentativa nao conta.
+  const ids = [falho.sessionId, gateDoPlano?.sessionId].filter((x): x is string => typeof x === 'string' && !!x);
+  const viva = sessaoVivaNaThread(raiz, thread, ids);
+  if (!viva.respondeu || viva.sessionId) {
+    const { sessionId: sessao, detalhe: falhaDaConsulta } = viva;
+    const detalhe = sessao ? textoDoCatalogo((m) => m.retry.sessaoAindaViva(sessao.slice(0, 8), threadId))
+      : textoDoCatalogo((m) => m.retry.runtimeSemProva(falhaDaConsulta ?? '', threadId));
+    registrarTentativa(false, detalhe, { conta: false });
+    return { ...vazio, detalhe };
   }
   const redespacho = redespachar(
     carregado,

@@ -10,6 +10,8 @@
  * processo). Sessao fantasma, despacho falho ou nenhuma sessao viram "<thread> parada desde HH:MM:
  * <motivo>", com o ultimo sinal de vida que o ledger guarda.
  */
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { consultarContas } from './sessoes-contas';
 import { raizDoEstado } from './estado-thread';
 import { TIPOS_DE_EVENTO } from './ledger';
@@ -154,6 +156,29 @@ export function textoDaParada(thread: string, v: Pick<VidaDaThread, 'desdeEm' | 
   opcoes: { agora?: string; fuso?: string } = {}): string {
   return `${thread} ${paradaDesde(v, opcoes)}`;
 }
+
+/**
+ * RM-063 (F3, GO-FIX): ha sessao viva trabalhando na thread? Pelo sessionId conhecido ou pela worktree dela (o
+ * adaptador que falha ou lanca depois de abrir a sessao nao devolve o id). E a prova que o `ork retry run` pede antes
+ * de redespachar: sem ela, a fase pode ganhar uma segunda sessao na mesma worktree. `respondeu: false` quando o
+ * runtime nao respondeu: sem prova, nada e redespachado.
+ */
+export function sessaoVivaNaThread(raiz: string, thread: Pick<Thread, 'worktree'>, ids: readonly string[],
+  consultar: () => ReturnType<typeof consultarContas> = () => consultarContas(raizDoEstado(raiz), { todas: false })):
+  { respondeu: boolean; sessionId: string | null; detalhe: string | null } {
+  let r: ReturnType<typeof consultarContas>;
+  try { r = consultar(); } catch (e) { return { respondeu: false, sessionId: null, detalhe: curto((e as Error).message, 120) }; }
+  const falha = r.fontes.find((f) => f.origem.startsWith('claude agents') && !f.ok);
+  if (falha) return { respondeu: false, sessionId: null, detalhe: curto(`${f(falha.origem)}: ${falha.detalhe}`, 160) };
+  const real = (p: string): string => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+  const worktree = thread.worktree ? real(thread.worktree) : null;
+  const naWorktree = (cwd: unknown): boolean => typeof cwd === 'string' && !!worktree &&
+    (real(cwd) === worktree || real(cwd).startsWith(worktree + path.sep));
+  const viva = r.sessoes.find((s) => s.viva && (ids.some((id) => id && (s.sessionId === id || s.sessionId.startsWith(id))) || naWorktree(s.cwd)));
+  return { respondeu: true, sessionId: viva?.sessionId ?? null, detalhe: null };
+}
+
+const f = (origem: string): string => origem.replace(/\s+/g, ' ');
 
 /** A vida de quem nao foi verificado: o retrato de outra maquina que nao publica a sessao. */
 export const VIDA_NAO_VERIFICADA: VidaDaThread = Object.freeze({ viva: false, sessionId: null, desdeEm: null, motivo: null });

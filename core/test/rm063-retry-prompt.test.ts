@@ -120,6 +120,44 @@ test('F3: a sessao que morre depois do despacho (a K7) volta pelo prompt do desp
   assert.equal(depois[0].promptSha256, r.promptSha256);
 });
 
+test('F3 (GO-FIX): o despacho que falha depois de abrir a sessao (claude --bg lento) nao vira segunda sessao no retry', (t) => {
+  const p = projetoTemporario('rm063-f3-lento');
+  const runtime = runtimeFalso('rm063-f3-lento');
+  const { thread } = novaThread(p.carregado, { nome: 'f3 lento', modo: 'auto' });
+  const dir = dirThread(p.dir, thread.id);
+  // O `claude --bg` estoura o prazo depois de dizer o id: a sessao existe e trabalha (pid vivo no stub).
+  const lento = mock.method(RUNTIMES['claude-bg'], 'despachar', () => {
+    fs.writeFileSync(path.join(runtime.dir, 'sessao'), runtime.sessionId);
+    fs.writeFileSync(path.join(runtime.dir, 'cwd'), p.dir);
+    fs.writeFileSync(path.join(runtime.dir, 'nome'), 'ork-f3lento-full');
+    return { ok: false, comando: [], sessionId: runtime.sessionId, verificada: false, stdout: '', stderr: '',
+      erro: 'claude --bg passou de 180 s depois de imprimir a sessao (simulado)' };
+  });
+  t.after(() => { lento.mock.restore(); runtime.restaurar(); p.limpar(); });
+
+  const r = rodarFase(p.carregado, thread.id, { fase: 'GO', prompt: PEDIDO });
+  lento.mock.restore();
+  assert.equal(r.motivo, 'runtime.unavailable');
+  const eventos = lerLedger(dir);
+  assert.equal(eventos.find((e) => e.tipo === TIPOS_DE_EVENTO.despachoFalhou)?.sessionId, runtime.sessionId, 'a falha guarda a sessao');
+  assert.equal(eventos.find((e) => e.tipo === TIPOS_DE_EVENTO.gateBloqueado)?.sessionId, runtime.sessionId, 'o gate tambem');
+
+  const recusa = executarRetry(p.carregado, thread.id);
+  assert.equal(recusa.executada, false);
+  assert.match(recusa.detalhe, /a sessao 11111111 ainda trabalha na thread no runtime; nada foi redespachado/);
+  assert.equal(lerLedger(dir).some((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada), false, 'nenhuma segunda sessao');
+  assert.equal(lerLedger(dir).filter((e) => e.tipo === 'retry_attempt').at(-1)?.conta, false, 'a recusa nao gasta tentativa');
+  assert.deepEqual(runtime.chamadas(), []);
+
+  // A sessao morre (o processo some): agora o retry redespacha o mesmo prompt.
+  runtime.pidDaSessao(null);
+  const rr = executarRetry(p.carregado, thread.id);
+  assert.equal(rr.executada, true, rr.detalhe);
+  const despachos = lerLedger(dir).filter((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada);
+  assert.equal(despachos.length, 1);
+  assert.equal(despachos[0].promptSha256, r.promptSha256);
+});
+
 test('F3: o prompt e achado pelo sha256, so dentro do projeto; o arquivo que mudou depois do despacho e recusado, nunca redespachado', (t) => {
   const p = projetoTemporario('rm062-f3-sha');
   t.after(() => p.limpar());
