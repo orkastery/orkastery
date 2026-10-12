@@ -180,6 +180,15 @@ comando gravado no evento `phase_dispatch` do ledger da thread.
 Para tirar um mod das sessões de fase, mude o papel no `orkastery-mod.json` do catálogo, ou tire o
 mod, e rode `ork adapter install claude-code` de novo.
 
+O mod de papel `dono` não vai ao despacho: cada mod tem uma entrada no marketplace próprio do
+repositório (`.claude-plugin/marketplace.json`, gerado por `node core/scripts/gerar-marketplaces.cjs`),
+e a instalação é no escopo do projeto:
+
+```bash
+claude plugin marketplace add orkastery/orkastery
+claude plugin install <mod>@orkastery --scope project
+```
+
 ## A #TAG de conducao
 
 O comando `/goal` extrai o modo do proprio pedido, sem reimplementar nada:
