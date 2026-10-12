@@ -13,7 +13,7 @@ import { maestroActionSchema, validateMaestroSnapshot } from '../src/maestro-con
 // pela AST: a Torre so le o nucleo pela ponte e por uma lista fechada de ferramentas MCP de leitura (D3).
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const TORRE = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-torre');
-const MODULOS_PUROS = ['hooks/frases.ts', 'hooks/agenda.ts', 'hooks/painel.tsx', 'hooks/detalhe.tsx'];
+const MODULOS_PUROS = ['hooks/frases.ts', 'hooks/agenda.ts', 'hooks/painel.tsx', 'hooks/detalhe.tsx', 'hooks/rede.ts'];
 /** D3: as unicas ferramentas que a Torre chama direto no servidor `orkastery`, todas de leitura no nucleo. */
 const LISTA_FECHADA_DO_MCP = ['ork_phase_list', 'ork_claims_list', 'ork_observe', 'ork_git_status', 'ork_network_roadmap'];
 const NOUNS_PROIBIDOS = ['process', 'fs', 'store', 'env'];
@@ -113,7 +113,7 @@ test('manifesto da Torre: nome, contrato de estado, dependencia da ponte e nenhu
 test('o contrato declara o estado da Torre em PluginState, sem import nem referencia', () => {
   const contrato = fs.readFileSync(path.join(TORRE, 'types/index.d.ts'), 'utf8');
   assert.match(contrato, /interface PluginState \{\s*'ork-torre': \{/);
-  for (const chave of ['quadro: TorreQuadro', 'aberta: string | null', 'detalhes: Record<string, TorreDetalhe>', 'donos: Record<string, string>']) {
+  for (const chave of ['quadro: TorreQuadro', 'rede: TorreRede | null', 'aberta: string | null', 'detalhes: Record<string, TorreDetalhe>', 'donos: Record<string, string>']) {
     assert.ok(contrato.includes(chave), chave);
   }
   assert.doesNotMatch(contrato, /^\s*import\s/m);
@@ -244,6 +244,8 @@ test('painel: o desenho tem o placar, a linha de cada thread e as linhas de baix
   const arvore = desenharPainel({ Box: 'Box', Text: 'Text', Button: 'Button' }, q, { agora: 3000, abrir: (t: string) => abertas.push(t) });
   assert.deepEqual(textos(arvore), [
     '3 threads abertas · 1 espera você · 1 parada · lido há 3 s',
+    'rede: não lida',
+    'Ler a rede',
     '!  ork-a  ●●●●◉○ SHIP  #Classic',
     '  espera você: Autorizar o SHIP (prazo 12/10 14:00)',
     '  ninguém conduz agora',
@@ -358,6 +360,88 @@ test('detalhe: o desenho tem voltar, atualizar, o texto e um botao por acao de l
   for (const chave of ['voltar', 'atualizar', 'acao:thread.status', 'acao:retry']) (botao(arvore, chave)?.props.onPress as () => void)();
   assert.equal(botao(arvore, 'acao:verify'), undefined);
   assert.deepEqual(gestos, ['voltar', 'atualizar', 'ler:thread.status', 'mod:sentinela']);
+});
+
+const PANORAMA = {
+  texto: 'status',
+  panorama: {
+    contrato: 'ork.network-roadmap/v1', projetos: [{
+      maquinas: [
+        { maquina: 'maquina-a', estaMaquina: true, threadsLidas: true, idadeMin: 0, ativas: [{ id: 'ork-a', fase: 'GO', modo: '#Auto', status: 'aberta' }] },
+        { maquina: 'maquina-b', estaMaquina: false, threadsLidas: true, idadeMin: 3.4, semBatida: false, ativas: [
+          { id: 'ork-a', fase: 'GO', modo: '#Auto', status: 'aberta' }, { id: 'ork-z', fase: 'PLAN', modo: '#Fast', status: 'aberta' },
+          { id: 'ork-x', fase: 'CHECK', modo: '#Auto', status: 'aberta', esperaVoce: true, pergunta: ' Aprovar o merge ' },
+          { id: '../ruim', fase: 'GO', modo: '#Auto', status: 'aberta' }, { id: 'ork-f', fase: 'GO', modo: '#Auto', status: 'fechada' }] },
+        { maquina: 'maquina-c', estaMaquina: false, threadsLidas: true, semBatida: true, ativas: [{ id: 'ork-x', fase: 'CHECK', modo: '#Auto', status: 'aberta' }] },
+        { maquina: 'maquina-d', estaMaquina: false, threadsLidas: false, ativas: [{ id: 'ork-d', fase: 'GO', modo: '#Auto', status: 'aberta' }] },
+      ],
+      lacunas: [{ tipo: 'forja.nao-consultada' }],
+    }, { maquinas: null, lacunas: [{ tipo: 'projeto.sem-clone' }] }],
+    lacunas: [{ tipo: 'registro.invalido' }],
+  },
+};
+
+test('rede: as threads das outras maquinas vem do panorama, sem a local, sem repetir, sem id ruim nem fechada, e as lacunas contam', () => {
+  const { redeDoPanorama, redeComErro, CONTRATO_DA_REDE, PERIODO_DA_REDE_MS } = carregar('hooks/rede.ts');
+  assert.equal(CONTRATO_DA_REDE, 'ork.network-roadmap/v1');
+  assert.equal(PERIODO_DA_REDE_MS, 600000);
+  const r = redeDoPanorama(PANORAMA, ['ork-a'], 5000);
+  assert.deepEqual(r, {
+    lidoEm: 5000, maquinas: 2, lacunas: 3, erro: null,
+    linhas: [
+      { thread: 'ork-x', maquina: 'maquina-b', fase: 'CHECK', modo: '#Auto', esperaVoce: true, pergunta: 'Aprovar o merge', idadeMin: 3, semBatida: false },
+      { thread: 'ork-z', maquina: 'maquina-b', fase: 'PLAN', modo: '#Fast', esperaVoce: false, pergunta: null, idadeMin: 3, semBatida: false },
+    ],
+  });
+  assert.throws(() => redeDoPanorama({ panorama: { contrato: 'outro', projetos: [] } }, [], 0), /fora do contrato/);
+  assert.throws(() => redeDoPanorama({ texto: 'x' }, [], 0), /fora do contrato/);
+  assert.deepEqual(redeComErro(r, 'falhou'), { ...r, erro: 'falhou' });
+  assert.deepEqual(redeComErro(null, 'falhou'), { lidoEm: null, linhas: [], maquinas: 0, lacunas: 0, erro: 'falhou' });
+});
+
+test('rede: a linha da faixa resume o quadro e a rede numa linha, com teto, e some sem quadro lido', () => {
+  const { textoDaFaixa, TETO_DO_TEXTO_DA_FAIXA } = carregar('hooks/rede.ts');
+  const { linhaDaThread } = carregar('hooks/painel.tsx');
+  const l = (thread: string, extra: Record<string, unknown>) => linhaDaThread(thread, retratoDe({ thread, fase: 'GO', modo: 'auto', ...extra }), { fonte: 'mcp', lidoEm: 0 });
+  const q = { linhas: [l('ork-e', { motivo: 'human.pending' }), l('ork-f', { pedidos: [{ id: 'p', texto: 't' }] }), l('ork-p', { motivo: 'tree.blocked' }),
+    l('ork-g', { conducao: 'conduzido agora' })], omitidas: 0, lidoEm: 0, erro: null };
+  assert.equal(textoDaFaixa(q, null), '4 threads abertas · 2 esperam você (ork-e) · 1 parada (ork-p: a árvore de destino do merge está ocupada)');
+  assert.equal(textoDaFaixa({ ...q, linhas: [l('ork-g', { conducao: 'conduzido agora' })] }, null), '1 thread aberta · 1 andando');
+  assert.equal(textoDaFaixa({ linhas: [], omitidas: 0, lidoEm: 0, erro: null }, null), 'nenhuma thread aberta nesta máquina');
+  assert.equal(textoDaFaixa({ linhas: [], omitidas: 0, lidoEm: null, erro: 'x' }, null), undefined);
+  const rede = { lidoEm: 1, linhas: [{ thread: 'ork-x', esperaVoce: true }, { thread: 'ork-y', esperaVoce: false }], maquinas: 1, lacunas: 0, erro: null };
+  assert.equal(textoDaFaixa({ linhas: [], omitidas: 0, lidoEm: 0, erro: null }, rede), 'nenhuma thread aberta nesta máquina · rede: 2 em outras máquinas, 1 espera você');
+  assert.equal(textoDaFaixa({ linhas: [], omitidas: 0, lidoEm: 0, erro: null }, { ...rede, lidoEm: null }), 'nenhuma thread aberta nesta máquina');
+  const longa = { ...q, linhas: [l(`ork-${'x'.repeat(70)}`, { motivo: 'tree.blocked' }), l(`ork-${'y'.repeat(70)}`, { motivo: 'human.pending' })] };
+  const texto = textoDaFaixa(longa, null) as string;
+  assert.equal(texto.length, TETO_DO_TEXTO_DA_FAIXA);
+  assert.ok(texto.endsWith('…') && !texto.includes('\n'));
+});
+
+test('painel: o placar da rede, a linha de outra maquina e a local que vence no desenho', () => {
+  const { placarDaRede, cabecalhoDaRede, linhasDaRedeVisiveis, desenharPainel, linhaDaThread } = carregar('hooks/painel.tsx');
+  const { redeDoPanorama, redeComErro } = carregar('hooks/rede.ts');
+  const rede = redeDoPanorama(PANORAMA, ['ork-a'], 0);
+  assert.equal(placarDaRede(null, 0), 'rede: não lida');
+  assert.equal(placarDaRede(redeComErro(null, 'sem servidor'), 0), 'rede: não lida (sem servidor)');
+  assert.equal(placarDaRede(rede, 120000), 'rede: 2 threads em 2 outras máquinas, lida há 2 min · 3 lacunas');
+  assert.equal(placarDaRede(redeComErro(rede, 'falhou'), 0), 'rede: 2 threads em 2 outras máquinas, lida há 0 s · 3 lacunas · a última leitura falhou: falhou');
+  assert.equal(placarDaRede({ lidoEm: 0, linhas: [], maquinas: 1, lacunas: 0, erro: null }, 0), 'rede: nenhuma thread ativa em 1 outra máquina, lida há 0 s');
+  assert.equal(cabecalhoDaRede(rede.linhas[0]), '!  ork-x  ●●●◉○○ CHECK  #Auto  @maquina-b, batida há 3 min');
+  assert.equal(cabecalhoDaRede({ ...rede.linhas[1], semBatida: true }), '~  ork-z  ●◉○○○○ PLAN  #Fast  @maquina-b, sem batida');
+  assert.equal(cabecalhoDaRede({ ...rede.linhas[1], idadeMin: null }), '~  ork-z  ●◉○○○○ PLAN  #Fast  @maquina-b, batida ilegível');
+  const local = linhaDaThread('ork-z', retratoDe({ thread: 'ork-z', fase: 'PLAN', modo: 'fast' }), { fonte: 'mcp', lidoEm: 0 });
+  const q = { linhas: [local], omitidas: 0, lidoEm: 0, erro: null };
+  assert.deepEqual(linhasDaRedeVisiveis(rede, q).map((x: { thread: string }) => x.thread), ['ork-x']);
+  const lidas: string[] = [];
+  const arvore = desenharPainel({ Box: 'Box', Text: 'Text', Button: 'Button' }, q, { agora: 0, rede, lerRede: () => lidas.push('rede') });
+  assert.deepEqual(textos(arvore).slice(1), [
+    'rede: 2 threads em 2 outras máquinas, lida há 0 s · 3 lacunas', 'Ler a rede',
+    '-  ork-z  ●◉○○○○ PLAN  #Fast', '  ninguém conduz agora',
+    '!  ork-x  ●●●◉○○ CHECK  #Auto  @maquina-b, batida há 3 min', '  espera você: Aprovar o merge',
+  ]);
+  (botao(arvore, 'ler-rede')?.props.onPress as () => void)();
+  assert.deepEqual(lidas, ['rede']);
 });
 
 /** As chamadas `x.noun.metodo(...)` de um fonte, com os argumentos literais de texto quando ha. */

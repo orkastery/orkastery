@@ -3,7 +3,7 @@
 // `$.ork.retrato`: o trilho das seis fases, o modo, quem conduz e desde quando, o bloqueio tipado numa frase,
 // os pedidos ao dono e as acoes que o nucleo declara disponiveis. Modulo puro: o `$` fica no register.tsx, e
 // o desenho recebe a tabela de elementos que a superficie resolveu.
-import type { TorreAcao, TorreEstado, TorreFase, TorreLinha, TorrePedido, TorreQuadro, TorreSessao } from '../types'
+import type { TorreAcao, TorreEstado, TorreFase, TorreLinha, TorreLinhaDaRede, TorrePedido, TorreQuadro, TorreRede, TorreSessao } from '../types'
 import { fraseDoMotivo, MOTIVOS_DO_DONO } from './frases'
 
 export const FASES: readonly TorreFase[] = ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER']
@@ -208,16 +208,45 @@ export function mostradosDoQuadro(q: TorreQuadro): Array<{ chave: string; thread
   return saida
 }
 
+/** A linha da rede no painel (D11): nao lida, lida com a idade e as lacunas, ou o erro da ultima tentativa. */
+export function placarDaRede(rede: TorreRede | null | undefined, agora: number): string {
+  if (!rede || rede.lidoEm === null) return rede?.erro ? `rede: não lida (${rede.erro})` : 'rede: não lida'
+  const n = rede.linhas.length
+  const maquinas = rede.maquinas === 1 ? '1 outra máquina' : `${rede.maquinas} outras máquinas`
+  const partes = [`rede: ${n === 0 ? 'nenhuma thread ativa' : n === 1 ? '1 thread' : `${n} threads`} em ${maquinas}, lida há ${idade(agora - rede.lidoEm)}`]
+  if (rede.lacunas) partes.push(rede.lacunas === 1 ? '1 lacuna' : `${rede.lacunas} lacunas`)
+  if (rede.erro) partes.push(`a última leitura falhou: ${rede.erro}`)
+  return partes.join(' · ')
+}
+
+/** As linhas da rede que nao sao threads abertas aqui: a local vence. */
+export function linhasDaRedeVisiveis(rede: TorreRede | null | undefined, q: TorreQuadro): TorreLinhaDaRede[] {
+  const locais = new Set(q.linhas.map(l => l.thread))
+  return (rede?.linhas ?? []).filter(l => !locais.has(l.thread))
+}
+
+/** A linha de uma thread de outra maquina: a marca, o id, o trilho, a fase, o modo, a maquina e a batida. */
+export function cabecalhoDaRede(l: TorreLinhaDaRede): string {
+  const batida = l.semBatida ? 'sem batida' : l.idadeMin === null ? 'batida ilegível' : `batida há ${l.idadeMin} min`
+  return [l.esperaVoce ? '!' : '~', l.thread, `${trilho(l.fase)} ${l.fase}`, l.modo, `@${l.maquina}, ${batida}`].filter(p => p !== '').join('  ')
+}
+
 /**
  * A arvore do painel com os elementos que a superficie resolveu (`$.ui.resolve(e)` no register.tsx). A
- * primeira linha de cada thread e um botao que abre o detalhe dela (T1.2).
+ * primeira linha de cada thread desta maquina e um botao que abre o detalhe dela (T1.2); as threads das
+ * outras maquinas vem depois, sem botao (T1.3).
  */
 export function desenharPainel(el: { Box: any; Text: any; Button: any }, q: TorreQuadro,
-  opcoes: { agora: number; abrir?: (thread: string) => void }) {
+  opcoes: { agora: number; abrir?: (thread: string) => void; rede?: TorreRede | null; lerRede?: () => void }) {
   const { Box, Text, Button } = el
+  const daRede = linhasDaRedeVisiveis(opcoes.rede, q)
   return (
     <Box flexDirection="column">
       <Text key="placar" bold wrap="truncate">{placar(q, opcoes.agora)}</Text>
+      <Box key="rede" flexDirection="row">
+        <Text key="placar-da-rede" dimColor wrap="truncate">{placarDaRede(opcoes.rede, opcoes.agora)}</Text>
+        <Button key="ler-rede" label="Ler a rede" onPress={() => opcoes.lerRede?.()} />
+      </Box>
       {q.linhas.map(l => (
         <Box key={`linha:${l.thread}`} flexDirection="column">
           <Button key={`abrir:${l.thread}`} plain onPress={() => opcoes.abrir?.(l.thread)}>{cabecalhoDaLinha(l)}</Button>
@@ -227,6 +256,12 @@ export function desenharPainel(el: { Box: any; Text: any; Button: any }, q: Torr
         </Box>
       ))}
       {q.omitidas > 0 && <Text key="omitidas" dimColor>{`+${q.omitidas} threads abertas além do teto de ${TETO_DE_THREADS}`}</Text>}
+      {daRede.map(l => (
+        <Box key={`rede:${l.thread}`} flexDirection="column">
+          <Text key={`rede-cabecalho:${l.thread}`} wrap="truncate">{cabecalhoDaRede(l)}</Text>
+          {l.esperaVoce && <Text key={`rede-pergunta:${l.thread}`} dimColor wrap="truncate">{`  espera você: ${l.pergunta ?? 'pausa humana valendo'}`}</Text>}
+        </Box>
+      ))}
     </Box>
   )
 }

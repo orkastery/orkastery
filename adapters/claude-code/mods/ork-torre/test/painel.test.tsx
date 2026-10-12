@@ -24,8 +24,8 @@ test('na sessao do dono, o /torre abre o painel com o placar e uma linha por thr
   expect([...mundo.maestro].sort()).toEqual(['ork-a', 'ork-b', 'ork-c', 'ork-d'])
   for (const surface of ['terminal', 'desktop'] as const) {
     const textos = await textosDoPainel($, surface)
-    expect(textos[0]).toBe('4 threads abertas · 1 espera você · 1 parada · 1 andando · lido há 0 s')
-    expect(textos.filter(t => !t.startsWith('  ')).slice(1)).toEqual([
+    expect(textos.slice(0, 3)).toEqual(['4 threads abertas · 1 espera você · 1 parada · 1 andando · lido há 0 s', 'rede: não lida', 'Ler a rede'])
+    expect(textos.filter(t => !t.startsWith('  ')).slice(3)).toEqual([
       '!  ork-a  ●●●●◉○ SHIP  #Classic',
       'x  ork-b  ●●●◉○○ CHECK  #Auto',
       '>  ork-c  ●●◉○○○ GO  #Auto',

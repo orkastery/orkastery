@@ -61,11 +61,37 @@ export type TorreDetalhe = {
   leituras: Record<string, TorreLeitura>
 }
 
+/** Uma thread ativa de outra maquina, como o panorama da rede (`ork.network-roadmap/v1`) a mostra. */
+export type TorreLinhaDaRede = {
+  thread: string
+  maquina: string
+  fase: string
+  /** A #TAG do modo, como o retrato da maquina a escreve. */
+  modo: string
+  esperaVoce: boolean
+  pergunta: string | null
+  /** Minutos desde a batida da maquina, na hora em que a rede foi lida; null quando a batida e ilegivel. */
+  idadeMin: number | null
+  semBatida: boolean
+}
+
+/** A ultima leitura da rede: as threads das outras maquinas, quantas maquinas e lacunas, e o erro da ultima tentativa. */
+export type TorreRede = {
+  /** Quando a rede foi lida com sucesso pela ultima vez; null se nunca foi. */
+  lidoEm: number | null
+  linhas: TorreLinhaDaRede[]
+  maquinas: number
+  lacunas: number
+  erro: string | null
+}
+
 declare module 'claude-code' {
   interface PluginState {
     'ork-torre': {
       /** O quadro que o painel desenha. */
       quadro: TorreQuadro
+      /** A ultima leitura da rede, ou null antes da primeira. */
+      rede: TorreRede | null
       /** A thread com o detalhe aberto no painel, ou null para a lista. */
       aberta: string | null
       /** O que o detalhe leu, por thread. */

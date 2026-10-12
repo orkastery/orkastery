@@ -5,7 +5,7 @@
 // sempre escritas como `x.noun.metodo(...)`, como o validador exige.
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
-import type { TorreDetalhe, TorreLeitura, TorreLinha, TorreQuadro } from '../types'
+import type { TorreDetalhe, TorreLeitura, TorreLinha, TorreQuadro, TorreRede } from '../types'
 import { escolher, ESPERA_DO_LOTE_MS, marcaDoArquivo, PERIODO_DO_TIQUE_MS, vencidas } from './agenda'
 import type { Dono } from './detalhe'
 import {
@@ -13,6 +13,7 @@ import {
   linhasDoGit, linhasDosEventos,
 } from './detalhe'
 import { abertasDaLista, desenharPainel, linhaDaThread, mostradosDoQuadro, ordenarLinhas } from './painel'
+import { PERIODO_DA_REDE_MS, redeComErro, redeDoPanorama, textoDaFaixa } from './rede'
 
 const MOD = 'ork-torre'
 const PAINEL = 'torre'
@@ -22,6 +23,7 @@ const quadro = atom({ plugin: 'ork-torre', key: 'quadro' } as const, QUADRO_VAZI
 const aberta = atom({ plugin: 'ork-torre', key: 'aberta' } as const, null as string | null)
 const detalhes = atom({ plugin: 'ork-torre', key: 'detalhes' } as const, {} as Record<string, TorreDetalhe>)
 const donos = atom({ plugin: 'ork-torre', key: 'donos' } as const, {} as Record<string, string>)
+const rede = atom({ plugin: 'ork-torre', key: 'rede' } as const, null as TorreRede | null)
 const DETALHE_VAZIO: TorreDetalhe = { eventos: null, claims: null, leituras: {} }
 /** O servidor do nucleo pode conectar depois do inicio da sessao: o papel e conferido de novo nestas esperas. */
 const ESPERAS_DO_PAPEL_MS = [3000, 10000, 30000]
@@ -41,6 +43,10 @@ let listaLidaEm: number | null = null
 const marcadas = new Set<string>()
 const threadLidaEm: Record<string, number> = {}
 const jaMostrado = new Set<string>()
+/** A ultima tentativa de ler a rede (comeca na ativacao: nunca no inicio da sessao, D11). */
+let redeTentadaEm = 0
+/** O ultimo texto publicado na faixa; null antes da primeira publicacao. */
+let ultimaFaixa: string | undefined | null = null
 
 function mensagem(erro: unknown): string {
   return (erro instanceof Error ? erro.message : String(erro)).replace(/\s+/g, ' ').trim().slice(0, 200)
@@ -59,6 +65,7 @@ async function papelDaSessao($: EngineInterface): Promise<string | null> {
 async function ativar($: EngineInterface): Promise<void> {
   if (ativa) return
   ativa = true
+  redeTentadaEm = await $.clock.now()
   await $.command.register({ name: 'torre', description: 'Abre a Torre de Controle: a fábrica do Orkastery num painel', immediate: true })
   ciclo?.cancel()
   ciclo = $.clock.every(PERIODO_DO_TIQUE_MS, () => { void tique($) })
@@ -95,6 +102,41 @@ async function tique($: EngineInterface): Promise<void> {
   listaPedida = true
   for (const t of vencidas((await read($, quadro)).linhas.map(l => l.thread), threadLidaEm, agora)) marcadas.add(t)
   await atualizar($)
+  if (agora - redeTentadaEm >= PERIODO_DA_REDE_MS && await painelAVista($)) await lerRede($)
+}
+
+/** A rede pelo panorama do nucleo (D11): pelo botao, ou no tique com o painel a vista, no maximo a cada 10 min. */
+async function lerRede($: EngineInterface): Promise<void> {
+  const agora = await $.clock.now()
+  redeTentadaEm = agora
+  const locais = (await read($, quadro)).linhas.map(l => l.thread)
+  try {
+    const nova = redeDoPanorama(jsonDoMcp(await $.mcp.call('orkastery', 'ork_network_roadmap', {})), locais, agora)
+    await update($, rede, () => nova)
+  } catch (erro) {
+    const motivo = mensagem(erro)
+    await update($, rede, anterior => redeComErro(anterior, motivo))
+  }
+  await publicarFaixa($)
+}
+
+/** A linha da faixa pela ponte (D9), so quando o texto muda; sem quadro lido, a linha sai da faixa. */
+async function publicarFaixa($: EngineInterface): Promise<void> {
+  const texto = textoDaFaixa(await read($, quadro), await read($, rede))
+  if (texto === ultimaFaixa) return
+  try {
+    if (texto === undefined) await $.ork.faixa({ mod: MOD })
+    else await $.ork.faixa({ mod: MOD, texto })
+    ultimaFaixa = texto
+  } catch {
+    // A ponte recusou ou falhou: a proxima leitura tenta de novo.
+  }
+}
+
+/** O painel da Torre esta posto e a vista do dono. */
+async function painelAVista($: EngineInterface): Promise<boolean> {
+  const paineis = await $.ui.panes().catch(() => [])
+  return paineis.some(p => p.id === PAINEL && p.isPlaced && p.isShown)
 }
 
 /** Uma leitura por vez; pedido que chega no meio volta a rodar logo depois, e quem pediu espera as duas. */
@@ -166,6 +208,7 @@ async function lerUmaVez($: EngineInterface): Promise<void> {
     return { linhas: ordenarLinhas(linhas), omitidas, lidoEm, erro }
   })
   if (escolha.proximaEm !== null) agendar($, escolha.proximaEm - agora)
+  await publicarFaixa($)
   await registrarMostrados($)
 }
 
@@ -174,8 +217,7 @@ async function lerUmaVez($: EngineInterface): Promise<void> {
  * vez por chave e texto: o Telegram nao repete o que o dono ja viu no terminal.
  */
 async function registrarMostrados($: EngineInterface): Promise<void> {
-  const paineis = await $.ui.panes().catch(() => [])
-  if (!paineis.some(p => p.id === PAINEL && p.isPlaced && p.isShown)) return
+  if (!await painelAVista($)) return
   for (const m of mostradosDoQuadro(await read($, quadro))) {
     const vista = `${m.chave}|${m.texto}`
     if (jaMostrado.has(vista)) continue
@@ -313,6 +355,8 @@ export const register: Register = on => {
         abrirMod: dono => abrirMod($, linha.thread, dono),
       })
     }
-    return desenharPainel({ Box, Text, Button }, q, { agora, abrir: thread => abrir($, thread) })
+    return desenharPainel({ Box, Text, Button }, q, {
+      agora, abrir: thread => abrir($, thread), rede: await read($, rede), lerRede: () => lerRede($),
+    })
   })
 }
