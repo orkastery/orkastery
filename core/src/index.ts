@@ -140,7 +140,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, comLocale, ligarRemontagem, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
 import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
@@ -355,11 +355,13 @@ function localeDaAjuda(projeto?: string): Locale {
 function comandoThread(args: Args): number {
   if (args.posicionais[1] === 'close' || args.posicionais[1] === 'entrega') {
     const raiz = exigirManifesto().raiz, id = args.posicionais[2];
-    if (!id) throw new Error('informe o id da thread');
+    if (!id) throw new ErroDoCatalogo((m) => m.thread.informeOId);
     const por = texto(args.opcoes.por) ?? '';
-    const r = args.posicionais[1] === 'close'
+    // RM-061 (F3b, D3): o fechamento e a entrega gravam (ledger, thread.json, a soltura do que a thread segurava) no
+    // escopo pt-BR; a recusa vem do catalogo e a entrada do CLI a remonta no locale do comando. O resultado e JSON.
+    const r = comLocale('pt-BR', () => args.posicionais[1] === 'close'
       ? fecharAdministrativamente(raiz, id, { motivo: texto(args.opcoes.motivo) ?? '', por, justificativa: texto(args.opcoes.justificativa) ?? '' })
-      : registrarArtefato(raiz, id, texto(args.opcoes.arquivo) ?? '', texto(args.opcoes.sha256) ?? '', por);
+      : registrarArtefato(raiz, id, texto(args.opcoes.arquivo) ?? '', texto(args.opcoes.sha256) ?? '', por));
     console.log(JSON.stringify(r, null, 2));
     return 0;
   }

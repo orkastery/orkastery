@@ -760,22 +760,21 @@ export function threadsDaListagem(raiz: string, opcoes: OpcoesListagem = {}): Li
 /** Tabela de `ork thread list`. */
 export function tabelaDeThreads(raiz: string, opcoes: OpcoesListagem = {}): string {
   const linhas = threadsDaListagem(raiz, opcoes);
+  // RM-061 (F3b): o texto pelo catalogo; o status (dado do `--json`) so se traduz na impressao, pelo id.
+  const mt = msg().thread;
   if (linhas.length === 0) {
     // A divida paga aqui: a mensagem sugeria `--modo default`, um modo que
     // `parseModo` recusa, e e a origem provavel das 3 threads com `modo: default`
     // gravadas em disco. A sugestao agora e um modo que existe.
-    const vazio = opcoes.todas === true
-      ? 'Nenhuma thread em .orkastery/threads.'
-      : 'Nenhuma thread aberta ou pausada (use --todas para ver as fechadas).';
-    return `${vazio} Crie uma com: ork thread new "<nome>" --modo ${ORDEM_DOS_MODOS[0]}`;
+    return mt.listaVazia(opcoes.todas === true, ORDEM_DOS_MODOS[0]);
   }
   const corpo = linhas.map((l) => [
-    l.id, l.slug, l.tag, l.fase, l.status, String(l.pausas), String(l.sessoes),
+    l.id, l.slug, l.tag, l.fase, mt.status(l.status), String(l.pausas), String(l.sessoes),
   ]);
-  const t = tabela(['ID', 'SLUG', 'MODO', 'FASE', 'STATUS', 'PAUSAS', 'SESSOES'], corpo);
+  const t = tabela([...mt.colunasDaLista], corpo);
   if (opcoes.todas === true) return t;
   const fechadas = listarIds(raiz).length - linhas.length;
-  return fechadas > 0 ? `${t}\n\n  ${fechadas} fechada(s) omitida(s). Use --todas para ver todas.` : t;
+  return fechadas > 0 ? `${t}\n\n${mt.fechadasOmitidas(fechadas)}` : t;
 }
 
 /** Fase valida e pertencente ao ciclo da thread. */

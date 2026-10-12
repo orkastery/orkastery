@@ -157,6 +157,22 @@ export const THREAD_PT_BR = {
   sessoesDespachadas: '  sessoes despachadas (estado real conferido em `ork sessions`)',
   sessao: (verificada: boolean, canal: string) => `verificada no runtime: ${verificada ? 'sim' : 'nao'}  canal: ${canal}`,
   pausasDoModo: (n: number) => `  pausas humanas do modo: ${n}`,
+  // F3b (D1): ork thread list, close e entrega
+  colunasDaLista: ['ID', 'SLUG', 'MODO', 'FASE', 'STATUS', 'PAUSAS', 'SESSOES'],
+  listaVazia: (todas: boolean, modo: string) => `${todas ? 'Nenhuma thread em .orkastery/threads.'
+    : 'Nenhuma thread aberta ou pausada (use --todas para ver as fechadas).'} Crie uma com: ork thread new "<nome>" --modo ${modo}`,
+  fechadasOmitidas: (n: number) => `  ${n} fechada(s) omitida(s). Use --todas para ver todas.`,
+  informeOId: 'informe o id da thread',
+  /** D14: as recusas de `thread close` e `thread entrega` (`thread-close.ts`), por `ErroDoCatalogo`. */
+  sha256Invalido: 'sha256 inválido',
+  artefatoForaDoProjeto: 'artefato deve estar dentro do projeto',
+  artefatoNaoRegular: 'artefato deve ser arquivo regular',
+  artefatoDiverge: 'hash do artefato diverge',
+  artefatoExige: 'artefato exige thread aberta e autoria explícita',
+  motivoDoFechamento: 'motivo deve ser orfa, engano ou superada',
+  fechamentoExige: 'fechamento exige autoria e justificativa',
+  encerradaPorOutroMotivo: 'thread já encerrada por outro motivo',
+  entregueExigeMaster: 'thread entregue ou pontuada exige MASTER, não fechamento administrativo',
 };
 
 export const THREAD_EN: typeof THREAD_PT_BR = {
@@ -289,4 +305,18 @@ export const THREAD_EN: typeof THREAD_PT_BR = {
   sessoesDespachadas: '  dispatched sessions (real state checked in `ork sessions`)',
   sessao: (verificada, canal) => `verified in the runtime: ${verificada ? 'yes' : 'no'}  channel: ${canal}`,
   pausasDoModo: (n) => `  planned human pauses in this mode: ${n}`,
+  colunasDaLista: ['ID', 'SLUG', 'MODE', 'PHASE', 'STATUS', 'PAUSES', 'SESSIONS'],
+  listaVazia: (todas, modo) => `${todas ? 'No thread in `.orkastery/threads`.'
+    : 'No open or paused thread (use `--todas` to see the closed ones).'} Create one with \`ork thread new "<name>" --modo ${modo}\`.`,
+  fechadasOmitidas: (n) => `  ${n} closed thread(s) hidden. Use \`--todas\` to see all.`,
+  informeOId: 'pass the thread id',
+  sha256Invalido: 'invalid sha256',
+  artefatoForaDoProjeto: 'the artifact must be inside the project',
+  artefatoNaoRegular: 'the artifact must be a regular file',
+  artefatoDiverge: 'the artifact hash does not match',
+  artefatoExige: 'an artifact needs an open thread and an explicit author',
+  motivoDoFechamento: 'the reason must be `orfa`, `engano` or `superada`',
+  fechamentoExige: 'closing needs an author and a justification',
+  encerradaPorOutroMotivo: 'the thread was already closed for another reason',
+  entregueExigeMaster: 'a delivered or scored thread needs MASTER, not an administrative close',
 };

@@ -77,7 +77,9 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
   'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
-  'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status', 'docs init'];
+  'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status', 'docs init',
+  // F3b (D1): o resto do CLI, na ordem do pedido.
+  'thread list', 'thread close', 'thread entrega'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
