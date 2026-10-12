@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T13:15:30.410Z",
+  "publicadoEm": "2026-10-12T13:23:56.317Z",
   "threads": [
     {
       "id": "ork-rm058n1",
@@ -84,9 +84,9 @@
       "branch": "ork/ork-sitedelta055-go",
       "atualizadaEm": "2026-10-12T13:15:29.995Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
+      "esperaVoce": true,
+      "pergunta": "autorizacao da retomada",
+      "paradaDesde": "2026-10-12T13:23:23.840Z",
       "runtime": "claude-bg",
       "modelo": "sonnet",
       "esforco": "high"
@@ -117,10 +117,10 @@
       "roadmap": null,
       "branch": "ork/ork-versao055-go",
       "atualizadaEm": "2026-10-12T13:10:57.559Z",
-      "entregue": null,
-      "esperaVoce": true,
-      "pergunta": "autorizacao da retomada",
-      "paradaDesde": "2026-10-12T13:10:27.593Z",
+      "entregue": "583a0c40",
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "sonnet",
       "esforco": "high"
