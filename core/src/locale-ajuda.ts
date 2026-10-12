@@ -245,6 +245,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   conducao status <thread-id> [--json]      Quem conduz a thread agora (canal, sessao, fase, desde)
   conducao assumir <thread-id> --por Q --motivo M
                                             Handoff: encerra a conducao atual pelo runtime e registra quem assumiu
+  conducao sentinela status|bater|desligar [--sessao S] [--json]
+                                            Sentinela do Condutor: presenca nesta maquina e o passo de cada thread
 
   master propor <id> --score N --justificativa J --por <agente>
   master batch --aceitar <thread:assinatura,...> --por <humano>
@@ -614,6 +616,8 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   conducao status <thread-id> [--json]      Who conducts the thread now (channel, session, phase, since)
   conducao assumir <thread-id> --por Q --motivo M
                                             Handoff: ends the current conduction through the runtime and records who took over
+  conducao sentinela status|bater|desligar [--sessao S] [--json]
+                                            Conductor Sentinel: presence on this machine and the step of each thread
 
   master propor <id> --score N --justificativa J --por <agent>
   master batch --aceitar <thread:signature,...> --por <human>

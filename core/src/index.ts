@@ -195,6 +195,7 @@ import {
   assumirConducao, canalDoProcesso, conducaoDaThread, ErroDeConducao, ESPERA_PADRAO_MS, esperarConducaoLivre, liberarSeOrfa,
   textoDoPedidoRepetido, textoDoStatusDaConducao,
 } from './conducao';
+import { baterSentinela, desligarSentinela, statusDaSentinela, textoDoStatusDaSentinela } from './conducao-sentinela';
 import { descreverSlug, hashDoPrompt, montarPrompt, rodarFase, tabelaDoLedger, valoresDoPrompt } from './phase';
 import {
   carregarTemplates,
@@ -1434,10 +1435,43 @@ function comandoVerify(args: Args): number {
  * `ork conducao status|assumir` (I-36, T15): quem conduz a thread agora, e o handoff explicito. O
  * status tambem libera, com prova no ledger, a conducao que ficou sem dono (T16).
  */
+/**
+ * RM-059 (F6, T6.4; DD5 do plano dos mods): `ork conducao sentinela status|bater|desligar`. A presenca da
+ * Sentinela do Condutor nesta maquina e o passo do condutor em cada thread aberta; o condutor externo le o
+ * `status --json` para ceder o despacho enquanto a presenca vale. Nada aqui despacha.
+ */
+function comandoSentinela(carregado: ManifestoCarregado, args: Args): number {
+  const acao = args.posicionais[2] ?? 'status';
+  const json = args.opcoes.json === true;
+  if (acao === 'status') {
+    const s = statusDaSentinela(carregado);
+    console.log(json ? JSON.stringify(s, null, 2) : textoDoStatusDaSentinela(s));
+    return 0;
+  }
+  if (acao !== 'bater' && acao !== 'desligar') throw new Error('uso: ork conducao sentinela status|bater|desligar [--sessao <id>] [--json]');
+  const sessao = texto(args.opcoes.sessao);
+  if (!sessao) throw new Error(`uso: ork conducao sentinela ${acao} --sessao <id> [--json]`);
+  if (acao === 'bater') {
+    const r = baterSentinela(carregado.raiz, { sessao });
+    const curta = r.presenca.sessao.slice(0, 8);
+    console.log(json ? JSON.stringify(r, null, 2) : r.ok
+      ? `Sentinela ${r.ligou ? 'ligada' : 'renovada'} na maquina ${r.presenca.maquina} pela sessao ${curta}; vale 3 min sem batida.`
+      : `Outra sessao (${curta}) conduz pela Sentinela na maquina ${r.presenca.maquina}; esta fica so olhando.`);
+    return r.ok ? 0 : 3;
+  }
+  const motivo = texto(args.opcoes.motivo);
+  const r = desligarSentinela(carregado.raiz, { sessao, ...(motivo ? { motivo } : {}) });
+  console.log(json ? JSON.stringify(r, null, 2) : r.desligada
+    ? 'Sentinela desligada nesta maquina; o condutor externo volta a conduzir.'
+    : 'Nada a desligar: a presenca nesta maquina nao e desta sessao.');
+  return 0;
+}
+
 function comandoConducao(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
   const id = args.posicionais[2];
+  if (sub === 'sentinela') return comandoSentinela(carregado, args);
   if (sub === 'status') {
     if (!id) throw new Error('uso: ork conducao status <thread-id> [--json]');
     lerThread(carregado.raiz, id);
@@ -1453,7 +1487,7 @@ function comandoConducao(args: Args): number {
     console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : `${r.ok ? 'Conducao assumida.' : 'Handoff recusado.'} ${r.detalhe}`);
     return r.ok ? 0 : 3;
   }
-  throw new Error('uso: ork conducao status|assumir <thread-id>');
+  throw new Error('uso: ork conducao status|assumir <thread-id> | ork conducao sentinela status|bater|desligar');
 }
 
 /** RM-048 (D1): o gate aberto no contrato curto, com o codigo estavel e o "desde" do ledger. */

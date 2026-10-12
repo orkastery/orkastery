@@ -135,6 +135,9 @@ export const TIPOS_DE_EVENTO = {
   // RM-037 (rm037defeito, A-1 do CHECK 3): o despacho recusado antes da sessao devolveu o lease que a tomada consumiu.
   conducaoDevolvida: 'conducao_devolvida',
   conducaoRenovada: 'conducao_renovada',
+  // RM-059 (F6, T6.4): a Sentinela do Condutor ligou ou desligou nesta maquina (ledger do projeto, so na troca).
+  sentinelaLigada: 'sentinela_ligada',
+  sentinelaDesligada: 'sentinela_desligada',
 } as const;
 
 /**
