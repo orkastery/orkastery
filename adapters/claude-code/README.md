@@ -224,8 +224,9 @@ O primeiro mod de papel `fase`. Na sessão de fase, depois de cada lote de ferra
   quando o lote mexeu fora dos `touch_paths` do plano;
 - pede ao núcleo, em segundo plano, a conferência dessas claims com
   `ork claims conferir <thread> --claims ... --json`, no sandbox do verify, uma rodada por vez;
-- devolve ao modelo, no lote seguinte, o que quebrou: o id da claim, o comando e o fim da saída. Lote
-  sem claim afetada passa sem texto, e a linha de status mostra as claims em risco.
+- devolve ao modelo, no lote seguinte do laço principal, o que quebrou: o id da claim, o comando e o
+  fim da saída. Lote sem claim afetada passa sem texto, e a linha de status mostra as claims em risco.
+  O lote de um subagente conta os arquivos tocados, mas não leva a entrega nem o aviso.
 
 O Freio nunca roda o comando de uma claim, nunca grava estado de claim e nunca para o laço: quem
 verifica de verdade continua sendo o `ork verify`. Ele lê o papel e a thread pelo `$.ork` da ponte, e
@@ -234,7 +235,9 @@ disco em `.orkastery/`. Precisa de um `ork` com `ork claims conferir` no `PATH` 
 sem o sandbox do verify, avisa uma vez que a conferência está indisponível e segue. Teste que cria
 processo pode reprovar no sandbox e passar no `ork verify`, e o aviso diz isso junto da falha. O
 resultado chega no lote seguinte: se a sessão terminar antes dele, a última conferência fica sem
-entrega.
+entrega. Falha de claim cujo arquivo foi tocado de novo durante a conferência não é entregue, porque
+uma conferência nova já foi pedida. Um `Edit` que falhou também conta como toque e pode pedir uma
+conferência a mais.
 
 ## A #TAG de conducao
 

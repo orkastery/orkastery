@@ -20,7 +20,8 @@ const ID_DE_CLAIM = /^C\d+$/
 const ID_DE_THREAD = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/
 /** O rotulo de `touch_paths` de uma tarefa nos formatos em uso nos planos; o grupo 1 e o resto da linha. */
 const ROTULO_DE_TOUCH_PATHS = /^\s*(?:[-*+]\s+)?(?:\*\*touch_paths:?\*\*\s*:?|`touch_paths`\s*:|touch_paths\s*:)\s*(.*)$/i
-const ITEM_DE_LISTA = /^\s*[-*+]\s/
+/** Linha que abre outro item de lista, cabecalho ou cerca de codigo (a mesma regra do verify da tarefa no nucleo). */
+const ABRE_BLOCO = /^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|```|~~~)/
 const TRECHO = /`([^`]+)`/g
 
 export class ErroDeCarga extends Error {}
@@ -82,8 +83,10 @@ function ehCaminho(texto: string): boolean {
 }
 
 /**
- * A uniao dos `touch_paths` de todas as tarefas do plano (D9): os trechos entre crases da linha do rotulo e
- * dos itens de lista mais recuados logo abaixo dela. `null` sem plano ou sem nenhum caminho.
+ * A uniao dos `touch_paths` de todas as tarefas do plano (D9): os trechos entre crases do item do rotulo inteiro,
+ * como o Markdown o junta e como o nucleo le o verify da tarefa: a linha do rotulo, as linhas mais recuadas que
+ * ela (sub-itens e continuacao quebrada) e a continuacao logo abaixo que nao abre outro bloco. `null` sem plano
+ * ou sem nenhum caminho.
  */
 export function touchPathsDoPlano(conteudo: string | null): string[] | null {
   if (typeof conteudo !== 'string') return null
@@ -95,19 +98,21 @@ export function touchPathsDoPlano(conteudo: string | null): string[] | null {
     }
   }
   let recuoDoRotulo = -1
+  let depoisDeBranco = false
   for (const linha of conteudo.replace(/\r\n/g, '\n').split('\n')) {
     const recuo = linha.length - linha.trimStart().length
     const rotulo = ROTULO_DE_TOUCH_PATHS.exec(linha)
     if (rotulo) {
       juntar(rotulo[1] as string)
       recuoDoRotulo = recuo
+      depoisDeBranco = false
       continue
     }
-    if (recuoDoRotulo >= 0 && recuo > recuoDoRotulo && ITEM_DE_LISTA.test(linha)) {
-      juntar(linha)
-      continue
-    }
-    recuoDoRotulo = -1
+    if (recuoDoRotulo < 0) continue
+    if (linha.trim() === '') { depoisDeBranco = true; continue }
+    if (recuo <= recuoDoRotulo && (depoisDeBranco || ABRE_BLOCO.test(linha))) { recuoDoRotulo = -1; continue }
+    juntar(linha)
+    depoisDeBranco = false
   }
   return achados.size > 0 ? [...achados].sort() : null
 }

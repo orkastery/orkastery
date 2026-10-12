@@ -17,7 +17,7 @@ async function preparar($, on, opcoes: { claims?: unknown[]; sujos?: Record<stri
   ambiente(on, { papel: opcoes.papel, status: opcoes.status })
   comInicio(on)
   comLote(on)
-  const nuc = { claims: opcoes.claims ?? CLAIMS, plano: opcoes.plano }
+  const nuc = { claims: opcoes.claims ?? CLAIMS, plano: opcoes.plano as string | null | undefined }
   const pedidos = nucleo(on, nuc)
   const d = disco(on, { sujos: opcoes.sujos })
   await iniciar($)
@@ -139,4 +139,53 @@ test('fora da sessao de fase o lote passa intocado, sem git status', { plugins: 
   expect(await lote($, editar('src/lote.ts'))).toEqual({})
   expect(d.status).toBe(0)
   expect(await estado($, 'vigia')).toBeNull()
+})
+
+// Regressoes da revisao independente do CHECK (sondas H4 e H8 do revisor e as mutacoes que sobreviviam).
+
+test('o arquivo intocado que passa a borda do teto de stat nao vira tocado', { plugins: PLUGINS }, async ($, on) => {
+  const sujos: Record<string, Sujo> = {}
+  for (let i = 0; i < 299; i++) sujos[`m${String(i).padStart(3, '0')}.txt`] = { xy: '??', size: 1, mtimeMs: 1 }
+  sujos['zz-borda.ts'] = { xy: '.M', size: 7, mtimeMs: 7 }
+  const { d } = await preparar($, on, { plano: null, claims: [claim('C9', 'zz-borda.ts', 'test -s zz-borda.ts')], sujos })
+  // Um arquivo novo que o git lista antes dos outros empurra a borda para alem do teto, sem `stat`.
+  d.sujos = { 'a-novo.txt': { xy: '??', size: 1, mtimeMs: 1 }, ...d.sujos }
+  await lote($, bash('touch a-novo.txt'))
+  expect(await fila($)).toEqual([])
+})
+
+test('a claim registrada num lote sem edicao entra na lista na hora: a edicao seguinte a acha', { plugins: PLUGINS }, async ($, on) => {
+  const { d, nuc, relogio } = await preparar($, on, { plano: null, claims: [] })
+  nuc.claims = [claim('C7', 'src/novo.ts', 'test -f src/novo.ts')]
+  await lote($, { tool_name: 'mcp__orkastery__ork_claim_add', tool_input: { threadId: 'ork-exemplo' }, tool_use_id: 'a1' })
+  expect((await estado($, 'carga')).claims.map(c => c.id)).toEqual(['C7'])
+  await relogio.advance(10000)
+  d.sujos['src/novo.ts'] = { xy: '??', size: 1, mtimeMs: 1 }
+  await lote($, editar('src/novo.ts'))
+  expect(await fila($)).toEqual([{ id: 'C7', forca: 3, caminhos: ['src/novo.ts'] }])
+})
+
+test('o lote que regrava o plano rele os touch_paths: o caminho novo do plano nao gera aviso falso', { plugins: PLUGINS }, async ($, on) => {
+  const { d, nuc } = await preparar($, on)
+  nuc.plano = ['### T1 Uma', '', '- **touch_paths:** `src/a.ts`, `src/novo.ts`'].join('\n')
+  d.sujos['src/novo.ts'] = { xy: '??', size: 1, mtimeMs: 1 }
+  const r = await lote($, { tool_name: 'mcp__orkastery__ork_artifact_write', tool_input: { threadId: 'ork-exemplo', tipo: 'plan' }, tool_use_id: 'w1' }, editar('src/novo.ts'))
+  expect(r.additionalContext).toBeUndefined()
+  expect((await estado($, 'carga')).touchPaths).toEqual(['src/a.ts', 'src/novo.ts'])
+})
+
+test('o git status do Freio roda sem lock opcional, para nunca segurar o index.lock de um commit', { plugins: PLUGINS }, async ($, on) => {
+  const { d } = await preparar($, on, { plano: null })
+  d.sujos['src/b.ts'] = { xy: '.M', size: 5, mtimeMs: 3000 }
+  await lote($, bash('touch src/b.ts'))
+  expect(d.env.length).toBe(2)
+  expect(d.env.every(env => (env as { GIT_OPTIONAL_LOCKS?: string } | undefined)?.GIT_OPTIONAL_LOCKS === '0')).toBe(true)
+})
+
+test('claim sem comando de verificacao nao entra na fila: a conferencia so diria que ela nao se verifica', { plugins: PLUGINS }, async ($, on) => {
+  const semComando = { ...claim('C8', 'src/b.ts', 'x'), verificar: [] }
+  const { d } = await preparar($, on, { plano: null, claims: [semComando, claim('C5', 'src/b.ts', 'test -s src/b.ts')] })
+  d.sujos['src/b.ts'] = { xy: '.M', size: 5, mtimeMs: 3000 }
+  await lote($, editar('src/b.ts'))
+  expect((await fila($)).map(p => p.id)).toEqual(['C5'])
 })

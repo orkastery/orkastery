@@ -22,8 +22,10 @@ export const FERRAMENTAS_DE_LEITURA: readonly string[] = [
   'mcp__orkastery__ork_observe',
 ]
 const EXTENSOES_DE_CODIGO = new Set(['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'mts', 'cts'])
-/** O CLI de claims dentro de um comando do `Bash`: o lote mexeu nas claims. */
-const CLI_DE_CLAIMS = /\bork\s+claims\s+(?:add|retirar|verificar)\b/
+/** O CLI de claims dentro de um comando do `Bash` (pelo `ork` ou pelo `index.js` do CLI): o lote mexeu nas claims. */
+const CLI_DE_CLAIMS = /(?:\bork|\bindex\.js)\s+claims\s+(?:add|retirar|verificar)\b/
+/** Caminhos fora dos `touch_paths` citados por extenso num aviso; o resto vai pela contagem (D8). */
+export const TETO_DE_CAMINHOS_NO_AVISO = 20
 
 /** Uma chamada do lote como o `classic.PostToolBatch` a entrega. */
 export type Chamada = { tool_name?: unknown; tool_input?: unknown }
@@ -66,13 +68,25 @@ export function assinatura(xy: string, stat: { size?: unknown; mtimeMs?: unknown
 }
 
 /**
+ * Duas assinaturas do mesmo caminho dizem mudanca. A que ficou so com o XY (acima do teto de `stat`) nao se
+ * compara pelo `stat` da outra: o caminho que passa a borda do teto sem mudar nao vira tocado.
+ */
+export function mudou(antes: string | undefined, agora: string): boolean {
+  if (antes === undefined) return true
+  if (antes === agora) return false
+  const [xyAntes, ...statAntes] = antes.split('|')
+  const [xyAgora, ...statAgora] = agora.split('|')
+  return xyAntes !== xyAgora || (statAntes.length > 0 && statAgora.length > 0)
+}
+
+/**
  * Os caminhos que mudaram entre duas fotos (D4): novo na lista, com assinatura diferente, ou que saiu da lista
  * com o HEAD parado (reversao). Saida da lista com HEAD novo foi commit e nao conta. Sem foto anterior, nada.
  */
 export function diferenca(antes: FreioFoto | null, agora: FreioFoto): string[] {
   if (!antes) return []
   const tocados = new Set<string>()
-  for (const [caminho, sig] of Object.entries(agora.caminhos)) if (antes.caminhos[caminho] !== sig) tocados.add(caminho)
+  for (const [caminho, sig] of Object.entries(agora.caminhos)) if (mudou(antes.caminhos[caminho], sig)) tocados.add(caminho)
   if (antes.head === agora.head) for (const caminho of Object.keys(antes.caminhos)) if (!(caminho in agora.caminhos)) tocados.add(caminho)
   return [...tocados].sort()
 }
@@ -164,10 +178,14 @@ function ordenar(pedidos: FreioPedido[]): FreioPedido[] {
   return pedidos.sort((a, b) => b.forca - a.forca || numero(b.id) - numero(a.id))
 }
 
-/** As claims que os caminhos tocados afetam, com a forca e os caminhos de cada uma (D5). */
+/**
+ * As claims que os caminhos tocados afetam, com a forca e os caminhos de cada uma (D5). Claim sem comando fica de
+ * fora: a conferencia so diria que ela nao tem como ser verificada.
+ */
 export function claimsAfetadas(claims: readonly FreioClaim[], tocados: readonly string[]): FreioPedido[] {
   const afetadas: FreioPedido[] = []
   for (const c of claims) {
+    if (c.comandos.length === 0) continue
     let forca = 0
     const caminhos: string[] = []
     for (const t of tocados) {
@@ -214,10 +232,13 @@ export function foraDosTouchPaths(tocados: readonly string[], touchPaths: readon
 
 /** A vigia de uma thread antes da primeira foto. */
 export function vigiaVazia(thread: string): FreioVigia {
-  return { thread, foto: null, seq: 0, toques: {}, fila: [], avisadosFora: [] }
+  return { thread, foto: null, seq: 0, toques: {}, fila: [], avisadosFora: [], foraPendentes: [] }
 }
 
-/** O que um lote faz na vigia: foto nova, toques, claims afetadas na fila e `touch_paths` avisados uma vez. */
+/**
+ * O que um lote faz na vigia: foto nova, toques, claims afetadas na fila e os caminhos novos fora dos `touch_paths`,
+ * guardados uma vez cada para o aviso do laco principal (o lote de subagente toca, mas nao recebe o aviso).
+ */
 export function aplicarLote(v: FreioVigia, lote: { foto: FreioFoto | null; doLote: readonly string[]; claims: readonly FreioClaim[] | null; touchPaths: readonly string[] | null }):
   { vigia: FreioVigia; tocados: string[]; afetadas: FreioPedido[]; fora: string[] } {
   const tocados = [...new Set([...lote.doLote, ...(lote.foto ? diferenca(v.foto, lote.foto) : [])])].sort()
@@ -227,12 +248,23 @@ export function aplicarLote(v: FreioVigia, lote: { foto: FreioFoto | null; doLot
   const afetadas = lote.claims ? claimsAfetadas(lote.claims, tocados) : []
   const fora = foraDosTouchPaths(tocados, lote.touchPaths).filter(c => !v.avisadosFora.includes(c))
   return {
-    vigia: { ...v, foto: lote.foto ?? v.foto, seq, toques, fila: enfileirar(v.fila, afetadas), avisadosFora: [...v.avisadosFora, ...fora] },
+    vigia: {
+      ...v, foto: lote.foto ?? v.foto, seq, toques, fila: enfileirar(v.fila, afetadas),
+      avisadosFora: [...v.avisadosFora, ...fora], foraPendentes: [...(v.foraPendentes ?? []), ...fora],
+    },
     tocados, afetadas, fora,
   }
 }
 
-/** O aviso de `touch_paths` para o modelo; sem caminho novo fora do plano, nenhum texto. */
+/** Tira os caminhos fora dos `touch_paths` ainda nao avisados, para o lote do laco principal devolver. */
+export function tomarFora(v: FreioVigia): { vigia: FreioVigia; fora: string[] } {
+  return { vigia: { ...v, foraPendentes: [] }, fora: v.foraPendentes ?? [] }
+}
+
+/** O aviso de `touch_paths` para o modelo, com teto de caminhos; sem caminho novo fora do plano, nenhum texto. */
 export function textoDoFora(fora: readonly string[]): string {
-  return fora.length > 0 ? `Freio de Lote: o lote mexeu fora dos touch_paths do plano: ${fora.join(', ')}.` : ''
+  if (fora.length === 0) return ''
+  const citados = fora.slice(0, TETO_DE_CAMINHOS_NO_AVISO).join(', ')
+  const resto = fora.length > TETO_DE_CAMINHOS_NO_AVISO ? ` e mais ${fora.length - TETO_DE_CAMINHOS_NO_AVISO}` : ''
+  return `Freio de Lote: o lote mexeu fora dos touch_paths do plano: ${citados}${resto}.`
 }

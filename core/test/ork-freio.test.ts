@@ -280,7 +280,7 @@ test('lote: nome-base de fonte TS ou JS citado com extensao de codigo, e nada pa
 test('lote: claims afetadas pela forca maior, mais nova antes na mesma forca, e a fila sem repeticao', () => {
   const { claimsAfetadas, enfileirar } = carregar('hooks/lote.ts');
   const claims = [
-    { id: 'C1', arquivo: 'src/a.ts', comandos: [] },
+    { id: 'C1', arquivo: 'src/a.ts', comandos: ['true'] },
     { id: 'C2', arquivo: null, comandos: ['grep -c x src/a.ts'] },
     { id: 'C9', arquivo: null, comandos: ['grep -c x src/a.ts'] },
     { id: 'C3', arquivo: 'outro', comandos: ['node dist/bbb.js'] },
@@ -319,7 +319,7 @@ test('lote: touch_paths por caminho exato, pasta com e sem barra, * sem barra, *
 test('lote: aplicar o lote na vigia marca os toques, enfileira, avisa o fora uma vez e guarda a foto nova', () => {
   const { aplicarLote, vigiaVazia, textoDoFora } = carregar('hooks/lote.ts');
   const v0 = { ...vigiaVazia('ork-a'), foto: { head: 'h', caminhos: {} } };
-  const claims = [{ id: 'C1', arquivo: 'src/a.ts', comandos: [] }];
+  const claims = [{ id: 'C1', arquivo: 'src/a.ts', comandos: ['true'] }];
   const r1 = aplicarLote(v0, { foto: { head: 'h', caminhos: { 'src/a.ts': '.M|1|1', 'src/z.ts': '??|1|1' } }, doLote: ['src/a.ts'], claims, touchPaths: ['src/a.ts'] });
   assert.deepEqual(r1.tocados, ['src/a.ts', 'src/z.ts']);
   assert.deepEqual(r1.fora, ['src/z.ts']);
@@ -375,14 +375,14 @@ test('conferencia: a rodada sai da fila ate o teto, nao abre com pausa nem com o
   const fila = [1, 2, 3].map((n) => ({ id: `C${n}`, forca: 3, caminhos: [`a${n}.ts`] }));
   const v = { ...vigiaVazia('ork-a'), seq: 7, fila };
   const r = iniciarRodada(v, 0, 2);
-  assert.deepEqual(r.rodada, { ids: ['C1', 'C2'], caminhos: { C1: ['a1.ts'], C2: ['a2.ts'] }, inicio: 7 });
+  assert.deepEqual(r.rodada, { ids: ['C1', 'C2'], caminhos: { C1: ['a1.ts'], C2: ['a2.ts'] }, forcas: { C1: 3, C2: 3 }, inicio: 7 });
   assert.deepEqual(r.fila.map((p: { id: string }) => p.id), ['C3']);
   assert.deepEqual(iniciarRodada(r, 0, 2).rodada, r.rodada);
   assert.equal(iniciarRodada({ ...v, pausaAte: 10 }, 9, 2).rodada, null);
   assert.deepEqual(iniciarRodada({ ...v, pausaAte: 10 }, 10, 2).rodada.ids, ['C1', 'C2']);
   assert.equal(iniciarRodada({ ...v, fila: [] }, 0).rodada, null);
   assert.deepEqual(Object.keys(comConferencia(vigiaVazia('ork-a'))).sort(),
-    ['avisadosFora', 'avisouIndisponivel', 'emRisco', 'entrega', 'fila', 'foto', 'indisponivel', 'pausaAte', 'rodada', 'seq', 'thread', 'toques']);
+    ['avisadosFora', 'avisouIndisponivel', 'emRisco', 'entrega', 'fila', 'foraPendentes', 'foto', 'indisponivel', 'pausaAte', 'rodada', 'seq', 'thread', 'toques']);
 });
 
 test('conferencia: fechar a rodada separa quebra, sem veredito, recuperada e resultado velho', () => {
@@ -471,4 +471,128 @@ test('conferencia: a linha de status diz indisponivel so na pausa, a rodada em c
   assert.equal(textoDoStatus({ ...v, rodada: { ids: ['C1', 'C2'], caminhos: {}, inicio: 0 } }, 0), 'freio: conferindo C1, C2');
   assert.equal(textoDoStatus({ ...v, emRisco: ['C3'] }, 0), 'freio: 1 claim em risco (C3)');
   assert.equal(textoDoStatus({ ...v, emRisco: ['C1', 'C2', 'C3', 'C4', 'C5', 'C6'] }, 0), 'freio: 6 claims em risco (C1, C2, C3, C4, C5, ...)');
+});
+
+// Regressoes da revisao independente do CHECK: os achados 1 a 7 e 10 a 13 do revisor, nos modulos puros.
+
+test('carga: touch_paths com a continuacao quebrada na linha de baixo, como nos planos reais', () => {
+  const { touchPathsDoPlano } = carregar('hooks/carga.ts');
+  const quebrado = ['**T1.2 Canais**', '', '- touch_paths: `core/src/canais.ts`, `core/test/canais.test.ts`,',
+    '  `core/test/matriz.test.ts`', '- o que faz: transporte `http-callback` (D2), com `fora.ts` citado'].join('\n');
+  assert.deepEqual(touchPathsDoPlano(quebrado), ['core/src/canais.ts', 'core/test/canais.test.ts', 'core/test/matriz.test.ts']);
+  const tres = ['### T5: docs', '', '- touch_paths: `docs/a.md`, `docs/b.md`,', '  `docs/README.md` (se mexer), `CHANGELOG.md`, `README.md`,',
+    '  `docs/c.md`', '- O que: secao nova com `nao.md`'].join('\n');
+  assert.deepEqual(touchPathsDoPlano(tres), ['CHANGELOG.md', 'README.md', 'docs/README.md', 'docs/a.md', 'docs/b.md', 'docs/c.md']);
+  const preguicoso = ['### T1 (GO)', 'touch_paths: `docs/ROADMAP.md` e', '`docs/guardrails/G.md` (via merge). Um commit.', '', 'Texto com `fora.md`.'].join('\n');
+  assert.deepEqual(touchPathsDoPlano(preguicoso), ['docs/ROADMAP.md', 'docs/guardrails/G.md']);
+});
+
+test('lote: a assinatura sem stat (acima do teto) nao se compara pelo stat da outra; o XY diferente sempre muda', () => {
+  const { mudou, diferenca } = carregar('hooks/lote.ts');
+  assert.equal(mudou(undefined, '.M'), true);
+  assert.equal(mudou('.M|1|1', '.M|1|1'), false);
+  assert.equal(mudou('.M|1|1', '.M'), false);
+  assert.equal(mudou('.M', '.M|1|1'), false);
+  assert.equal(mudou('.M|1|1', '.M|1|2'), true);
+  assert.equal(mudou('.M|1|1', 'MM'), true);
+  assert.deepEqual(diferenca({ head: 'h', caminhos: { 'a.ts': '.M|1|1' } }, { head: 'h', caminhos: { 'a.ts': '.M' } }), []);
+});
+
+test('lote: o CLI de claims pelo index.js tambem marca o lote; claim sem comando fica fora das afetadas', () => {
+  const { mexeuNasClaims, claimsAfetadas } = carregar('hooks/lote.ts');
+  assert.equal(mexeuNasClaims([{ tool_name: 'Bash', tool_input: { command: 'node core/dist/index.js claims retirar ork-a C2 --motivo x' } }]), true);
+  assert.equal(mexeuNasClaims([{ tool_name: 'Bash', tool_input: { command: 'node core/dist/index.js claims list ork-a' } }]), false);
+  assert.deepEqual(claimsAfetadas([{ id: 'C1', arquivo: 'a.ts', comandos: [] }, { id: 'C2', arquivo: 'a.ts', comandos: ['true'] }], ['a.ts']),
+    [{ id: 'C2', forca: 3, caminhos: ['a.ts'] }]);
+});
+
+test('lote: os caminhos fora ficam pendentes ate o laco principal tomar, e o aviso tem teto de caminhos', () => {
+  const { aplicarLote, tomarFora, textoDoFora, vigiaVazia, TETO_DE_CAMINHOS_NO_AVISO } = carregar('hooks/lote.ts');
+  const r = aplicarLote({ ...vigiaVazia('ork-a'), foto: { head: 'h', caminhos: {} } }, { foto: null, doLote: ['z.ts'], claims: [], touchPaths: ['a.ts'] });
+  assert.deepEqual(r.vigia.foraPendentes, ['z.ts']);
+  const r2 = aplicarLote(r.vigia, { foto: null, doLote: ['z.ts'], claims: [], touchPaths: ['a.ts'] });
+  assert.deepEqual(r2.vigia.foraPendentes, ['z.ts']);
+  const t = tomarFora(r2.vigia);
+  assert.deepEqual(t.fora, ['z.ts']);
+  assert.deepEqual(t.vigia.foraPendentes, []);
+  const muitos = Array.from({ length: 25 }, (_, i) => `p${i}.ts`);
+  const texto = textoDoFora(muitos);
+  assert.equal(TETO_DE_CAMINHOS_NO_AVISO, 20);
+  assert.match(texto, /p19\.ts e mais 5\.$/);
+  assert.doesNotMatch(texto, /p20\.ts/);
+});
+
+test('conferencia: a recusa de uma claim so e a conducao alheia (saida 3) nao viram indisponivel', () => {
+  const { lerConferencia } = carregar('hooks/conferencia.ts');
+  const recusa = (erro: string) => JSON.stringify({ formato: 'ork.claims-conferencia/v1', ok: false, erro });
+  assert.deepEqual(lerConferencia(recusa('claims.conferir.retirada: C2 foi retirada (x)'), 2, ''), { tipo: 'recusada', id: 'C2', motivo: 'claims.conferir.retirada: C2 foi retirada (x)' });
+  assert.deepEqual(lerConferencia(recusa('claims.conferir.desconhecida: C9 nao existe na thread ork-a'), 2, ''), { tipo: 'recusada', id: 'C9', motivo: 'claims.conferir.desconhecida: C9 nao existe na thread ork-a' });
+  assert.deepEqual(lerConferencia(JSON.stringify({ contrato: 'ork.conducao-recusa/v1' }), 3, ''), { tipo: 'ocupada', motivo: 'saiu com codigo 3' });
+  assert.equal(lerConferencia(recusa('claims.conferir.sandbox-indisponivel: x'), 2, '').tipo, 'indisponivel');
+});
+
+test('conferencia: a rodada leva so claims ativas e guarda a forca de cada uma', () => {
+  const { iniciarRodada } = carregar('hooks/conferencia.ts');
+  const { vigiaVazia } = carregar('hooks/lote.ts');
+  const fila = [{ id: 'C3', forca: 3, caminhos: ['c.ts'] }, { id: 'C2', forca: 2, caminhos: ['b.ts'] }, { id: 'C1', forca: 1, caminhos: ['a.ts'] }];
+  const r = iniciarRodada({ ...vigiaVazia('ork-a'), seq: 2, fila }, 0, 6, ['C1', 'C3']);
+  assert.deepEqual(r.rodada, { ids: ['C3', 'C1'], caminhos: { C3: ['c.ts'], C1: ['a.ts'] }, forcas: { C3: 3, C1: 1 }, inicio: 2 });
+  assert.deepEqual(r.fila, []);
+  const soDesconhecidas = iniciarRodada({ ...vigiaVazia('ork-a'), fila }, 0, 6, []);
+  assert.equal(soDesconhecidas.rodada, null);
+  assert.deepEqual(soDesconhecidas.fila, []);
+});
+
+test('conferencia: a claim que voltou para a fila durante a rodada tem resultado velho, por qualquer caminho', () => {
+  const { fecharRodada } = carregar('hooks/conferencia.ts');
+  const { vigiaVazia } = carregar('hooks/lote.ts');
+  const rodada = { ids: ['C1'], caminhos: { C1: ['a.ts'] }, forcas: { C1: 3 }, inicio: 1 };
+  const falha = { id: 'C1', alegacao: 'a', arquivo: 'a.ts', verificado: false, motivo: 'claims.failed', comando: 'grep -c x b.ts', codigo: 1, fim: 'velho' };
+  const v = { ...vigiaVazia('ork-a'), seq: 2, toques: { 'a.ts': 1, 'b.ts': 2 }, rodada, fila: [{ id: 'C1', forca: 2, caminhos: ['b.ts'] }] };
+  const r = fecharRodada(v, { tipo: 'resultado', itens: [falha] }, 0);
+  assert.deepEqual(r.entrega.falhas, []);
+  assert.deepEqual(r.emRisco, []);
+  assert.deepEqual(r.fila.map((p: { id: string }) => p.id), ['C1']);
+});
+
+test('conferencia: so volta como recuperada a claim cuja falha o modelo ja recebeu', () => {
+  const { fecharRodada } = carregar('hooks/conferencia.ts');
+  const { vigiaVazia } = carregar('hooks/lote.ts');
+  const rodada = { ids: ['C1'], caminhos: { C1: ['a.ts'] }, forcas: { C1: 3 }, inicio: 5 };
+  const passou = { id: 'C1', alegacao: 'a', arquivo: null, verificado: true, motivo: null, comando: 'x', codigo: 0, fim: '' };
+  const falha = { id: 'C1', alegacao: 'a', arquivo: null, comando: 'x', codigo: 1, fim: '' };
+  const naoEntregue = fecharRodada({ ...vigiaVazia('ork-a'), seq: 5, rodada, emRisco: ['C1'], entrega: { falhas: [falha], semVeredito: [], recuperadas: [], indisponivel: null } },
+    { tipo: 'resultado', itens: [passou] }, 0);
+  assert.deepEqual(naoEntregue.entrega, { falhas: [], semVeredito: [], recuperadas: [], indisponivel: null });
+  assert.deepEqual(naoEntregue.emRisco, []);
+  const entregue = fecharRodada({ ...vigiaVazia('ork-a'), seq: 5, rodada, emRisco: ['C1'] }, { tipo: 'resultado', itens: [passou] }, 0);
+  assert.deepEqual(entregue.entrega.recuperadas, ['C1']);
+});
+
+test('conferencia: a recusa por claim devolve as outras a fila sem pausa; a conducao alheia devolve todas com pausa curta', () => {
+  const { fecharRodada, PAUSA_DE_CONDUCAO_MS } = carregar('hooks/conferencia.ts');
+  const { vigiaVazia } = carregar('hooks/lote.ts');
+  const rodada = { ids: ['C3', 'C2'], caminhos: { C3: ['c.ts'], C2: ['b.ts'] }, forcas: { C3: 3, C2: 2 }, inicio: 1 };
+  const v = { ...vigiaVazia('ork-a'), seq: 1, rodada, emRisco: ['C2'], fila: [{ id: 'C9', forca: 1, caminhos: ['z.ts'] }] };
+  const recusada = fecharRodada(v, { tipo: 'recusada', id: 'C2', motivo: 'claims.conferir.retirada: C2' }, 100);
+  assert.equal(recusada.rodada, null);
+  assert.deepEqual(recusada.fila, [{ id: 'C3', forca: 3, caminhos: ['c.ts'] }, { id: 'C9', forca: 1, caminhos: ['z.ts'] }]);
+  assert.deepEqual(recusada.emRisco, []);
+  assert.equal(recusada.pausaAte, 0);
+  assert.equal(recusada.avisouIndisponivel, false);
+  const ocupada = fecharRodada(v, { tipo: 'ocupada', motivo: 'saiu com codigo 3' }, 100);
+  assert.deepEqual(ocupada.fila.map((p: { id: string }) => p.id), ['C3', 'C2', 'C9']);
+  assert.equal(ocupada.pausaAte, 100 + PAUSA_DE_CONDUCAO_MS);
+  assert.equal(ocupada.entrega.indisponivel, null);
+});
+
+test('conferencia: o laco tem trabalho com fila ou com rodada aberta (a de um laco que morreu com o worker)', () => {
+  const { precisaDeLaco, limitarTexto, TETO_DO_TEXTO, ESPERA_DO_FIM_MS } = carregar('hooks/conferencia.ts');
+  const { vigiaVazia } = carregar('hooks/lote.ts');
+  assert.equal(precisaDeLaco(vigiaVazia('ork-a')), false);
+  assert.equal(precisaDeLaco({ ...vigiaVazia('ork-a'), fila: [{ id: 'C1', forca: 3, caminhos: [] }] }), true);
+  assert.equal(precisaDeLaco({ ...vigiaVazia('ork-a'), rodada: { ids: ['C1'], caminhos: {}, inicio: 0 } }), true);
+  assert.equal(limitarTexto('curto'), 'curto');
+  assert.ok(limitarTexto('x'.repeat(TETO_DO_TEXTO + 10)).length <= TETO_DO_TEXTO);
+  assert.equal(ESPERA_DO_FIM_MS, 30000);
 });

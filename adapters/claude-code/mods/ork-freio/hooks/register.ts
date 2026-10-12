@@ -11,12 +11,12 @@ import {
 } from './carga'
 import {
   aplicarLote, ARGV_DO_STATUS, assinatura, caminhosDoLote, diferenca, juntar, lerStatus, mexeuNasClaims, mexeuNoPlano,
-  soLeitura, TETO_DE_STAT, TETO_DO_STATUS_MS, textoDoFora, vigiaVazia,
+  soLeitura, TETO_DE_STAT, TETO_DO_STATUS_MS, textoDoFora, tomarFora, vigiaVazia,
 } from './lote'
 import type { Chamada } from './lote'
 import {
-  acumular, argvDaConferencia, fecharRodada, iniciarRodada, lerConferencia, textoDaEntrega, textoDoStatus, tomarEntrega,
-  VIGIA_DA_CONFERENCIA_MS,
+  acumular, argvDaConferencia, ESPERA_DO_FIM_MS, fecharRodada, iniciarRodada, lerConferencia, limitarTexto, precisaDeLaco,
+  TETO_POR_RODADA, textoDaEntrega, textoDoStatus, tomarEntrega, VIGIA_DA_CONFERENCIA_MS,
 } from './conferencia'
 import type { Leitura } from './conferencia'
 
@@ -105,7 +105,8 @@ async function carregar($: EngineInterface, ctx: ContextoDeFase, partes: { retra
 async function fotografar($: EngineInterface, raiz: string): Promise<FreioFoto | null> {
   let r
   try {
-    r = await $.process.run(ARGV_DO_STATUS, { cwd: raiz, timeoutMs: TETO_DO_STATUS_MS })
+    // Sem lock opcional: o `git status` do Freio nunca segura o `index.lock` que um commit do modelo precisa.
+    r = await $.process.run(ARGV_DO_STATUS, { cwd: raiz, timeoutMs: TETO_DO_STATUS_MS, env: { GIT_OPTIONAL_LOCKS: '0' } })
   } catch { return null }
   if (r.exitCode !== 0) return null
   const lido = lerStatus(r.stdout)
@@ -147,7 +148,9 @@ async function rodarConferencia($: EngineInterface, ctx: ContextoDeFase, ids: re
     const vencido = new Promise<'vencido'>(resolver => { vigia = $.clock.after(VIGIA_DA_CONFERENCIA_MS, () => resolver('vencido')) })
     const fim = await Promise.race([lido, vencido])
     if (fim === 'vencido') {
+      // Encerra o processo e espera ele fechar (com teto), para a rodada seguinte nao correr junto com ele.
       void fluxo.return(undefined as never).catch(() => undefined)
+      await Promise.race([lido.catch(() => undefined), new Promise(resolver => { $.clock.after(ESPERA_DO_FIM_MS, () => resolver(undefined)) })])
       return { tipo: 'prazo' }
     }
     return lerConferencia(stdout, fim.code, stderr)
@@ -158,21 +161,32 @@ async function rodarConferencia($: EngineInterface, ctx: ContextoDeFase, ids: re
   }
 }
 
-/** O laco de fundo (T2.3): uma rodada por vez, ate a fila acabar, a pausa chegar ou a conferencia faltar. */
+/** As claims ativas da carga, para a rodada nao levar claim retirada ou desconhecida; `null` sem lista lida. */
+async function claimsAtivas($: EngineInterface, ctx: ContextoDeFase): Promise<string[] | null> {
+  const carga = (await $.state.get(CARGA)).value
+  return carga && carga.thread === ctx.thread && carga.claims ? carga.claims.map(c => c.id) : null
+}
+
+/**
+ * O laco de fundo (T2.3): uma rodada por vez, ate a fila acabar, a pausa chegar ou a conferencia faltar. A recusa
+ * de uma claim so rele as claims e segue com as outras; a conducao alheia pausa um minuto.
+ */
 async function conferirEmLaco($: EngineInterface, ctx: ContextoDeFase): Promise<void> {
   if (rodando) return
   rodando = true
   try {
     for (;;) {
       const agora = await $.clock.now()
-      const { vigia } = await atualizarVigia($, ctx.thread, v => ({ vigia: iniciarRodada(v, agora), extra: null }))
+      const ativas = await claimsAtivas($, ctx)
+      const { vigia } = await atualizarVigia($, ctx.thread, v => ({ vigia: iniciarRodada(v, agora, TETO_POR_RODADA, ativas), extra: null }))
       if (!vigia.rodada) break
       $.ui.status(textoDoStatus(vigia, agora))
       const leitura = await rodarConferencia($, ctx, vigia.rodada.ids)
       const depois = await $.clock.now()
       const fechada = await atualizarVigia($, ctx.thread, v => ({ vigia: fecharRodada(v, leitura, depois), extra: null }))
       $.ui.status(textoDoStatus(fechada.vigia, depois))
-      if (leitura.tipo === 'indisponivel') break
+      if (leitura.tipo === 'recusada') await carregar($, ctx, { retrato: false, claims: true, plano: false })
+      if (leitura.tipo === 'indisponivel' || leitura.tipo === 'ocupada') break
     }
   } finally {
     rodando = false
@@ -206,7 +220,8 @@ export const register: Register = on => {
 
   // O lote (T2.2 e T2.3): devolve o que a conferencia apurou desde o lote anterior, acha os arquivos tocados e as
   // claims afetadas, pede a conferencia ao nucleo e avisa os `touch_paths`. Responde so com `additionalContext` e
-  // nunca para o laco: na sessao de fundo nao ha quem o retome. Falha deixa o lote passar.
+  // nunca para o laco: na sessao de fundo nao ha quem o retome. Falha deixa o lote passar. O lote de subagente
+  // (`agent_id`) conta os toques, mas a entrega e o aviso ficam para o lote do laco principal, que e quem os le.
   on('classic.PostToolBatch', async ($, e, next) => {
     const resultado = await next(e)
     const ctx = await contextoDeFase($)
@@ -214,30 +229,36 @@ export const register: Register = on => {
     let carga = (await $.state.get(CARGA)).value
     if (carga && carga.thread === ctx.thread && !threadAtiva(carga.statusDaThread)) return resultado
     const chamadas: Chamada[] = Array.isArray(e.tool_calls) ? e.tool_calls : []
+    const doSubagente = typeof e.agent_id === 'string' && e.agent_id !== ''
     const doLote = caminhosDoLote(chamadas, ctx.raiz)
     const foto = soLeitura(chamadas) ? null : await fotografar($, ctx.raiz)
     const mexeu = doLote.length > 0 || foto !== null
-    // Claims e plano so sao relidos quando ha caminho tocado para casar com eles.
+    // O lote que mexeu nas claims ou no plano rele na hora; a lista velha so e relida quando ha caminho para casar.
     const lida = (await $.state.get(VIGIA)).value
     const anterior = lida && lida.thread === ctx.thread ? lida.foto : null
     const previstos = doLote.length + (foto ? diferenca(anterior, foto).length : 0)
-    if (previstos > 0) {
+    const nasClaims = mexeuNasClaims(chamadas)
+    const noPlano = mexeuNoPlano(chamadas)
+    if (previstos > 0 || nasClaims || noPlano) {
       const agora = await $.clock.now()
       const atual = carga && carga.thread === ctx.thread ? carga : cargaVazia(ctx.thread)
-      const relerClaims = claimsVelhas(atual, agora, mexeuNasClaims(chamadas))
-      const relerPlano = planoVelho(atual, agora, mexeuNoPlano(chamadas))
+      const relerClaims = nasClaims || (previstos > 0 && claimsVelhas(atual, agora, false))
+      const relerPlano = noPlano || (previstos > 0 && planoVelho(atual, agora, false))
       if (relerClaims || relerPlano) carga = await carregar($, ctx, { retrato: false, claims: relerClaims, plano: relerPlano })
     }
     const lote = { foto, doLote, claims: carga?.thread === ctx.thread ? carga.claims : null, touchPaths: carga?.thread === ctx.thread ? carga.touchPaths : null }
     const { vigia, extra } = await atualizarVigia($, ctx.thread, v => {
-      const r = mexeu ? aplicarLote(v, lote) : { vigia: v, fora: [] as string[] }
-      const t = tomarEntrega(r.vigia)
-      return { vigia: t.vigia, extra: { fora: r.fora, entrega: t.entrega } }
+      const aplicada = mexeu ? aplicarLote(v, lote).vigia : v
+      if (doSubagente) return { vigia: aplicada, extra: { entrega: null, fora: [] as string[] } }
+      const f = tomarFora(aplicada)
+      const t = tomarEntrega(f.vigia)
+      return { vigia: t.vigia, extra: { entrega: t.entrega, fora: f.fora } }
     })
     // A rodada que ficou aberta no estado (o laco morreu com o worker) e retomada como a fila.
-    if (vigia.fila.length > 0 || vigia.rodada) pedirConferencia($, ctx)
+    if (precisaDeLaco(vigia)) pedirConferencia($, ctx)
     $.ui.status(textoDoStatus(vigia, await $.clock.now()))
-    const texto = [textoDaEntrega(extra.entrega), textoDoFora(extra.fora)].filter(t => t !== '').join('\n')
+    const partes = [extra.entrega ? textoDaEntrega(extra.entrega) : '', textoDoFora(extra.fora)].filter(t => t !== '')
+    const texto = limitarTexto(partes.join('\n'))
     return texto ? { ...resultado, additionalContext: [...(resultado.additionalContext ?? []), texto] } : resultado
   }).catch(($, e, next) => next(e))
 }

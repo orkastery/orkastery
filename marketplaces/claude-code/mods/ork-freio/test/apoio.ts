@@ -107,9 +107,13 @@ export type Sujo = { xy: string; size?: number; mtimeMs?: number }
  * entre os lotes como uma edicao (ou um commit) mudaria o disco. Conta as chamadas de cada um.
  */
 export function disco(on, inicial: { head?: string; sujos?: Record<string, Sujo> } = {}) {
-  const estado = { head: inicial.head ?? 'a'.repeat(40), sujos: { ...(inicial.sujos ?? {}) } as Record<string, Sujo>, status: 0, stats: 0, argv: [] as string[][] }
+  const estado = {
+    head: inicial.head ?? 'a'.repeat(40), sujos: { ...(inicial.sujos ?? {}) } as Record<string, Sujo>, status: 0, stats: 0,
+    argv: [] as string[][], env: [] as unknown[],
+  }
   on('process.run', ($, e) => {
     estado.argv.push([...e.argv])
+    estado.env.push(e.init?.env)
     if (e.argv[0] !== 'git' || e.argv[1] !== 'status') throw new Error(`processo fora do teste: ${e.argv.join(' ')}`)
     estado.status++
     const registros = [`# branch.oid ${estado.head}`, '# branch.head ork/ork-exemplo-full']

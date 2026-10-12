@@ -71,12 +71,16 @@ export type FreioVigia = {
   indisponivel?: string | null
   /** O modelo ja foi avisado da conferencia indisponivel nesta sessao. */
   avisouIndisponivel?: boolean
+  /** Caminhos fora dos `touch_paths` que o laco principal ainda nao recebeu (lote de subagente nao recebe aviso). */
+  foraPendentes?: string[]
 }
 
 /** Uma rodada de conferencia: as claims, os caminhos que afetaram cada uma e o lote em que ela comecou (T2.3). */
 export type FreioRodada = {
   ids: string[]
   caminhos: Record<string, string[]>
+  /** A forca de cada claim, para ela voltar a fila no mesmo lugar (recusa por claim, conducao alheia). */
+  forcas?: Record<string, number>
   /** O numero do lote no inicio; toque mais novo deixa o resultado da claim velho (D6). */
   inicio: number
 }
