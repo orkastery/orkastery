@@ -23,6 +23,9 @@
     "description": "Six-phase threads (GOAL, PLAN, GO, CHECK, SHIP, MASTER) run by the local ork CLI: each claim is re-run against the repository before it counts, and you get short decisions only when they matter.",
     "category": "development"
   },
+  "mods": {
+    "category": "development"
+  },
   "codex": {
     "description": "Six-phase threads (GOAL, PLAN, GO, CHECK, SHIP, MASTER) run by the local ork CLI: each claim is re-run against the repository before it counts, and you get short decisions only when they matter.",
     "interface": {

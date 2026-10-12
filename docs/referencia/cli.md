@@ -152,6 +152,7 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | ↳ opções | `[--slug S] [--assunto A] [--worktree auto\|DIR] [--sem-worktree] [--ciclo C] [--dry-run]` |
 | ↳ worktree | Com `worktree.por_thread: true`, o que o `ork init` grava, a thread nasce com a worktree e a branch `ork/<slug>` sem flag; com a chave `false` ou ausente, só com `--worktree auto`. `--worktree DIR` reusa um diretório que já existe; `--sem-worktree` cria sem ela e avisa o que acontece no `ork ship` (na branch base, `push_direto_na_base: block`, o padrão do `ork init`, barra a entrega); `--dry-run` mostra a worktree que seria criada, ou por que a criação a recusaria. A pasta é a da árvore principal, mesmo com o comando rodando de dentro de outra worktree |
 | `ork thread new <nome> --modo <MODO> --roadmap RM-NNN` | Reserva o item do roadmap para esta máquina **antes** de criar a thread; outra máquina com o mesmo item recebe `roadmap.reservado` e não cria nada (I-47) |
+| `ork thread new <nome> --modo <MODO> --pedido "<texto>"` | Guarda o pedido do builder em `pedido.md`, na pasta da thread, com o sha256 no `thread.json` e no `thread_created`; o `ork prompt render` usa esse pedido quando falta `--pedido`. Vazio ou acima de 64 KiB recusa antes de gravar (RM-059) |
 | `ork roadmap status [--json]` | Status report único do roadmap no formato aprovado: grupos com ícones, `#HITL` no que espera o dono e o fecho com o que precisa dele e o que vem a seguir. Quando uma thread fora do roadmap espera o dono, o fecho ganha a linha `• Fora do roadmap: N thread(s) esperam você (ork pulse).` e o `--json`, o campo opcional `foraDoRoadmap` (`{ threads: [...] }`); sem ela, a saída não muda (R3 da RM-049). Leitura pura; os canais transportam o texto (RM-048) |
 | `ork roadmap reservas [--json] [--remoto R] [--soltar-orfas]` | Com quem está cada item do roadmap, lido da branch `ork/roadmap-reservas` do remoto; marca a reserva órfã (desta máquina, de thread já fechada) e, com `--soltar-orfas`, a solta ou a passa para outra thread aberta do mesmo item, com registro (RM-037) |
 | `ork roadmap pegar RM-NNN [--thread T] [--nota N] [--por Q] [--maquina M]` | Reserva o item por push atômico: o primeiro vence. A máquina é `--maquina`, `ORK_MAQUINA` ou o hostname. `--forcar --motivo M` toma a reserva de uma máquina parada, e o motivo fica registrado |
@@ -260,6 +261,8 @@ há, `1` quando o runtime não respondeu).
 | `ork claims add <thread> <arquivo> --claim "<alegacao>"` | Registra alegação verificável; o lint avisa na hora sobre comando que roda a suíte inteira, fixa SHA intermediário ou compara contagem de commits (I-53) |
 | ↳ opções | `[--verificar "<comando>"] [--fase F]` |
 | `ork claims list <thread>` | As claims e o estado de cada uma |
+| `ork claims conferir <thread> --claims C1,C2` | Reexecuta só essas claims no sandbox do `ork_verify`, na worktree da thread registrada no git (como o `ork_verify`, thread sem worktree própria recusa), sob a condução da thread e sem gravar recibo: nem `verify_run`, nem estado de claim; só a condução pode registrar a própria recusa ou a liberação de um lease órfão. Quem verifica de verdade continua sendo o `ork verify`, que não roda confinado: no sandbox, processo filho do node falha, e a claim de teste que cria processo pode reprovar aqui e passar lá. Sai 1 quando alguma não passa, 2 sem sandbox ou com pedido inválido e 3 quando outra sessão conduz (RM-059) |
+| ↳ opções | `--tarefa T1` (no lugar de `--claims`: o verify da tarefa no `docs/plan.md` da thread, que precisa ser um comando só entre crases; linha com dois trechos ou com texto além do comando recusa), `--prazo S` (de 10 a 600 segundos; padrão 180), `--json` (`ork.claims-conferencia/v1`) |
 | `ork claims verificar <thread> <claim-id> --comando "<cmd>"` | Anexa o comando que comprova uma claim já feita |
 | `ork claims retirar <thread> <claim-id> --motivo "<motivo>"` | Retira a alegação. **O histórico fica no `claims.jsonl`** |
 | `ork claims ausente <thread> --paths A,B --motivo "<motivo>" [--commit SHA]` | Ciclo sem CHECK: declara no ledger o que ficou sem prova (o `#Fast` usa, ver [modos.md](../guias/modos.md)) |
@@ -561,7 +564,7 @@ do projeto quando o limite de sessões está cheio.
 | --- | --- |
 | `ork prompt list` | Os templates de prompt (embutidos e os do projeto) |
 | `ork prompt lint [--template ID]` | **Reprova template quebrado antes de ele virar despacho** |
-| `ork prompt render <thread> --fase F [--pedido "<texto>"] [--template ID]` | O prompt exato, com o sha256 que vai ao ledger |
+| `ork prompt render <thread> --fase F [--pedido "<texto>"] [--template ID]` | O prompt exato, com o sha256 que vai ao ledger. Sem `--pedido`, usa o pedido guardado na criação da thread, conferido pelo sha256 (`thread.pedido.divergente` quando o arquivo foi editado fora do núcleo); thread sem pedido guardado segue com o texto de exemplo (RM-059) |
 | `ork prompt render --exemplo --fase F --modo M` | Renderiza sem thread nenhuma, para revisar o texto |
 | `ork adapter list` | Os adaptadores de host (Camada 1) e o destino de cada um |
 | `ork adapter show <host>` | Os 3 pitfalls de instalação do host |

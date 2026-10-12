@@ -304,6 +304,11 @@ export interface ResultadoInstalacao {
   avisoOrk?: string;
   pitfalls: Pitfall[];
   experiencia?: { ativa: boolean; arquivos: string[]; skill: string; aviso?: string };
+  /**
+   * RM-059 (T0.7, A1 do CHECK): arquivos de `mods/` que o recibo anterior instalou, ninguem editou e sairam
+   * do catalogo. Saem da copia (no `--dry-run`, so a lista): fora do recibo novo, o despacho recusaria o mod.
+   */
+  removidos?: string[];
 }
 
 export interface OpcoesInstalacao {
@@ -532,6 +537,8 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     });
   }
 
+  const removidos = sobrasDeMods(destino, recibo, arquivos);
+
   const conflitos = arquivos.filter((a) => a.estado === 'sobrescrito');
   /**
    * I-43 (D5): a divergencia continua sendo DETECTADA; ela deixa de BARRAR quando e
@@ -571,6 +578,7 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     ...(preferencias || avisoExperiencia ? { experiencia: { ativa: host !== 'openclaw' && !!preferencias?.experience && !avisoExperiencia,
       arquivos: planoExperiencia?.mudancas.map(m => path.relative(planoExperiencia!.projeto, m.arquivo)) ?? [], skill: preferencias?.skill ?? '',
       ...(avisoExperiencia ? { aviso: avisoExperiencia } : {}) } } : {}),
+    ...(removidos.length ? { removidos } : {}),
   };
   if (opcoes.dryRun === true || barrado) return resultado;
 
@@ -587,6 +595,17 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     fs.mkdirSync(path.dirname(arquivo.destino), { recursive: true });
     fs.writeFileSync(arquivo.destino, conteudo);
     if (arquivo.executavel) fs.chmodSync(arquivo.destino, 0o755);
+  }
+
+  // RM-059 (T0.7, A1 do CHECK): o que saiu do catalogo em `mods/` sai da copia, com a pasta que ficar vazia.
+  for (const relativo of removidos) {
+    const alvo = path.join(destino, relativo);
+    fs.unlinkSync(alvo);
+    const raizDoMod = path.join(destino, ...relativo.split('/').slice(0, 2));
+    for (let dir = path.dirname(alvo); dir.startsWith(raizDoMod); dir = path.dirname(dir)) {
+      if (fs.readdirSync(dir).length) break;
+      fs.rmdirSync(dir);
+    }
   }
 
   // O recibo: com ele da para saber, depois, se alguem editou a copia instalada em vez do
@@ -616,6 +635,28 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
 
   if (planoExperiencia) aplicarExperiencia(planoExperiencia);
   return resultado;
+}
+
+/**
+ * RM-059 (T0.7, A1 do CHECK): os arquivos de `mods/` do recibo anterior que nao estao mais no catalogo e que a
+ * copia guarda como foram instalados (sha256 do recibo), os de cada mod e os comuns da raiz de `mods/` (N2 da
+ * rodada 2). Arquivo editado, link ou caminho fora do destino fica: o despacho continua recusando com o motivo,
+ * e a decisao e de quem editou.
+ */
+function sobrasDeMods(destino: string, recibo: ReciboDeInstalacao | null, arquivos: ArquivoInstalado[]): string[] {
+  if (!recibo) return [];
+  const novos = new Set(arquivos.map((a) => a.relativo));
+  let base: string;
+  try { base = fs.realpathSync(destino); } catch { return []; }
+  return recibo.arquivos.flatMap((a) => {
+    const rel = typeof a.arquivo === 'string' ? a.arquivo : '';
+    if (!/^mods\/[^/]+(?:$|\/.)/.test(rel) || novos.has(rel) || path.isAbsolute(rel) || rel.split('/').includes('..')) return [];
+    const alvo = path.join(destino, rel);
+    const st = fs.lstatSync(alvo, { throwIfNoEntry: false });
+    if (!st || !st.isFile() || st.nlink !== 1) return [];
+    try { if (!fs.realpathSync(path.dirname(alvo)).startsWith(base + path.sep)) return []; } catch { return []; }
+    return sha256(fs.readFileSync(alvo)) === a.sha256 ? [rel] : [];
+  });
 }
 
 /** Caminho real do maior ancestral existente, com o resto como está: o destino pode não existir ainda. */
@@ -714,6 +755,8 @@ export function textoDaInstalacao(r: ResultadoInstalacao): string {
     const porque = a.divergencia ? `  (${a.divergencia})` : '';
     linhas.push(`    ${marca} ${a.relativo}${porque}`);
   }
+  // RM-059 (T0.7): arquivo de mod que saiu do catalogo sai da copia, para o despacho nao recusar o mod.
+  for (const rel of r.removidos ?? []) linhas.push(`    - ${rel}  (saiu do catalogo${r.dryRun ? ', seria removido' : ', removido'})`);
 
   // I-43 (D5): o `--dir` na raiz avisa, em vez de reportar "tudo novo" com saida 0.
   if (r.reciboVizinho) {

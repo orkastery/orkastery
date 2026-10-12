@@ -14,8 +14,9 @@ Submeter e publicar são atos do dono. Nada aqui é enviado a portal nenhum por 
 | [`PRIVACY.md`](PRIVACY.md) | A nota de privacidade que os dois portais pedem |
 | [`formularios.md`](formularios.md) | O valor de cada campo dos dois portais, os casos de teste e as respostas de tratamento de dados |
 | `../.claude-plugin/marketplace.json` e `../.agents/plugins/marketplace.json` | Os marketplaces próprios, na raiz do repositório |
+| `claude-code/mods/<mod>/` | A cópia de cada mod de `adapters/claude-code/mods/`, com os arquivos comuns da raiz dessa pasta dentro dela; só existe com mod e só entra no marketplace próprio, nunca no diretório da Anthropic (RM-059) |
 
-As duas pastas `orkastery/` são **geradas**. Não edite a cópia: edite o catálogo ou a fonte e rode:
+As duas pastas `orkastery/` e as cópias dos mods são **geradas**. Não edite a cópia: edite o catálogo ou a fonte e rode:
 
 ```bash
 npm --prefix core run build
