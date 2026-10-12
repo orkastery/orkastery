@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T05:43:56.558Z",
+  "publicadoEm": "2026-10-12T05:45:02.583Z",
   "threads": [
     {
       "id": "ork-rm059clima",
@@ -107,23 +107,6 @@
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max"
-    },
-    {
-      "id": "ork-verifyteto",
-      "nome": "verifyteto",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-verifyteto-go",
-      "atualizadaEm": "2026-10-12T05:11:50.009Z",
-      "entregue": "84114aa6",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
     }
   ]
 }
