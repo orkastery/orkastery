@@ -56,6 +56,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   captura do Brain grava; o id do Brain confere só pela forma até a fatia 2. A pasta segue a fronteira da RM-047: fica
   dentro da raiz pelo caminho real, link não é seguido e nada é executado. Ainda sem CLI pública nem tools MCP (fatias
   2 e 3); projeto sem o bloco segue igual.
+- **Conhecimento escrito, fatia 2: o comando e as tools MCP** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
+  `ork conhecimento listar [--colecao C]|mostrar <doc-id>|colecoes|verificar`, todos com `--json`, e as tools
+  `ork_conhecimento_listar`, `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar` no
+  `ork mcp serve`, só leitura, respondem o mesmo JSON do contrato `ork.conhecimento/v1`
+  ([contrato](docs/referencia/contratos/conhecimento-rm026.md)). O `mostrar` traz o corpo, a versão (sha256), a fonte e
+  as referências, com cada id do Brain conferido por `get` no Company Brain: o id que o Brain não tem, o que ele retém e
+  o Brain fora do ar viram lacunas distintas (`referencia.brain-inexistente`, `referencia.brain-retido` e
+  `referencia.brain-indisponivel`), nunca resposta. `listar` e `colecoes` não chamam o Brain, e `verificar` confere a
+  pasta inteira e sai 1 com qualquer lacuna. O texto sai em pt-BR e em inglês pelo catálogo, e o `--json` é o mesmo nas
+  duas línguas. Os hosts OpenClaw e Hermes chegam na fatia 3.
 
 ## [0.5.5] - 2026-10-12
 
