@@ -64,7 +64,7 @@ function preparar(texto: string): LinhaUtil[] {
   return linhas;
 }
 
-function parseBloco(linhas: LinhaUtil[], inicio: number, indent: number): [ValorYaml, number] {
+function parseBloco(linhas: LinhaUtil[], inicio: number, indent: number, estrito: boolean): [ValorYaml, number] {
   let i = inicio;
   if (i >= linhas.length) return [null, i];
 
@@ -86,6 +86,9 @@ function parseBloco(linhas: LinhaUtil[], inicio: number, indent: number): [Valor
       throw new Error(`YAML invalido na linha ${linha.numero}: esperado "chave: valor"`);
     }
     const chave = linha.conteudo.slice(0, sep).trim().replace(/^["']|["']$/g, '');
+    if (estrito && (chave === '__proto__' || Object.hasOwn(mapa, chave))) {
+      throw new Error(`YAML invalido na linha ${linha.numero}: chave ${chave === '__proto__' ? 'reservada' : 'repetida'}`);
+    }
     const resto = linha.conteudo.slice(sep + 1).trim();
     i++;
     if (resto !== '') {
@@ -93,7 +96,7 @@ function parseBloco(linhas: LinhaUtil[], inicio: number, indent: number): [Valor
       continue;
     }
     if (i < linhas.length && linhas[i].indent > indent) {
-      const [filho, proximo] = parseBloco(linhas, i, linhas[i].indent);
+      const [filho, proximo] = parseBloco(linhas, i, linhas[i].indent, estrito);
       mapa[chave] = filho;
       i = proximo;
     } else {
@@ -103,10 +106,20 @@ function parseBloco(linhas: LinhaUtil[], inicio: number, indent: number): [Valor
   return [mapa, i];
 }
 
-/** Le um documento YAML do subconjunto suportado. */
-export function lerYaml(texto: string): ValorYaml {
+/**
+ * Le um documento YAML do subconjunto suportado.
+ *
+ * RM-026 K7 (D9): `estrito` serve a quem le texto que nao e do `ork` (o frontmatter do conhecimento). Chave
+ * repetida no mesmo mapa e `__proto__` recusam, e linha que sobra (indentacao fora do bloco) tambem, em vez de
+ * sumir calada como no modo padrao, que o `orkastery.yaml` e as paginas de docs seguem usando.
+ */
+export function lerYaml(texto: string, opcoes: { estrito?: boolean } = {}): ValorYaml {
   const linhas = preparar(texto);
   if (linhas.length === 0) return {};
-  const [valor] = parseBloco(linhas, 0, linhas[0].indent);
+  const estrito = opcoes.estrito === true;
+  const [valor, proximo] = parseBloco(linhas, 0, linhas[0].indent, estrito);
+  if (estrito && proximo < linhas.length) {
+    throw new Error(`YAML invalido na linha ${linhas[proximo].numero}: indentacao fora do bloco`);
+  }
   return valor;
 }
