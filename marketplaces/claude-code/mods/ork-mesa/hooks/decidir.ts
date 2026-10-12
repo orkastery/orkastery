@@ -83,8 +83,8 @@ export function resultadoDoDecidir(resposta: unknown, agora: number): MesaDecidi
   const r = (resposta && typeof resposta === 'object' ? resposta : {}) as { ok?: unknown; estado?: unknown; repetida?: unknown }
   const estado = typeof r.estado === 'string' ? r.estado : ''
   if (r.ok === true) {
-    const ja = r.repetida === true ? ' (já estava respondido)' : ''
-    return { estado: 'respondido', texto: `respondido pelo diálogo: ${estado || 'registrado'}${ja}`, em: agora }
+    if (r.repetida === true) return { estado: 'respondido', texto: `o pedido já estava respondido no núcleo: ${estado || 'registrado'}`, em: agora }
+    return { estado: 'respondido', texto: `respondido pelo diálogo: ${estado || 'registrado'}`, em: agora }
   }
   return { estado: 'sem-resposta', texto: 'o diálogo fechou sem resposta; o pedido segue aberto', em: agora }
 }

@@ -41,8 +41,10 @@ export type MesaPergunta = {
   prazo: string | null
   prazoLocal: string | null
   desdeEm: string | null
-  /** O estado do pedido no nucleo (`aberto`, `esperar`, `escalar`, `seguir-recomendada`). */
+  /** O estado do pedido no nucleo (`aberto`, `esperar`, `escalar`, `seguir-recomendada`); `desconhecido` sem conferir. */
   estado: string
+  /** O pedido foi conferido agora no `ork_hitl_pending`; sem isso a Mesa nao decide nem oferece o Decidir. */
+  conferida: boolean
   canalClaudeCode: MesaCanal
   /** O que o dono digita pelo Telegram ou no terminal, quando o dialogo nao serve. */
   reserva: string | null
@@ -73,7 +75,11 @@ export type MesaDecisao = {
   custoAgora: string
   custoDepois: string
   quemDecidiu: string
-  /** Ainda nao mostrada ao dono pela Mesa (registro do mostrado da ponte). */
+  /** A decisao que esta desfaz, quando desfaz uma. */
+  reverte: string | null
+  /** A decisao posterior que desfez esta, quando ha. */
+  revertidaPor: string | null
+  /** Ainda nao mostrada ao dono pela Mesa (registro do mostrado da ponte), das ultimas 24 h e nao revertida. */
   nova: boolean
 }
 
@@ -96,9 +102,13 @@ export type MesaDecidindo = {
   em: number
 }
 
-/** A decisao obvia que a Mesa registrou pelo nucleo, ou a recusa dele. */
+/**
+ * A decisao obvia que a Mesa pediu ao nucleo: `registrada` quando ele aceitou ou o pulse a mostra; `incerta` quando a
+ * chamada falhou ou passou do prazo e a escrita pode ter chegado (a proxima leitura do pulse decide); `recusada` quando
+ * a leitura seguinte nao a mostra.
+ */
 export type MesaObvia = {
-  estado: 'registrada' | 'recusada'
+  estado: 'registrada' | 'incerta' | 'recusada'
   texto: string
   em: number
 }

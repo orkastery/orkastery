@@ -127,6 +127,11 @@ test('fila: o pedido vira pergunta com a recomendada, a decisao informada nao e 
   assert.equal(p.canalClaudeCode, 'disponivel');
   assert.equal(p.prazoLocal, '12/10 14:46 (horário de Brasília)');
   assert.equal(p.reserva, 'K7Q2 c');
+  assert.equal(p.conferida, true);
+  assert.equal(p.estado, 'aberto');
+  const doPulse = f.perguntaDoPedido(a.PEDIDO_4, { desdeEm: null, reserva: null });
+  assert.equal(doPulse.conferida, false, 'so o ork_hitl_pending confere o pedido');
+  assert.equal(doPulse.estado, 'desconhecido', 'o estado nunca e inventado: sem conferir, desconhecido');
   assert.equal(perguntaDe(a.PEDIDO_4, 'indisponivel').canalClaudeCode, 'indisponivel');
   assert.equal(f.perguntaDoPedido({ ...a.PEDIDO_4, classe: 'decidido' }), null);
   assert.equal(f.perguntaDoPedido({ ...a.PEDIDO_4, thread: '../fora' }), null);
@@ -150,6 +155,25 @@ test('fila do pulse: perguntas, paradas, decisoes novas so das ultimas 24 h e na
   assert.deepEqual(r.decisoes.map((d: { id: string; nova: boolean }) => [d.id, d.nova]), [['d2', true], ['d1', false], ['d3', false]]);
   assert.equal(r.totalDeDecisoes, 3);
   assert.deepEqual([...f.decisoesVistas({ itens: [{ mod: 'ork-mesa', chave: 'decisao:d9' }, { mod: 'ork-torre', chave: 'decisao:d8' }] })], ['d9']);
+  assert.deepEqual([...f.pedidosNotificados({ itens: [{ mod: 'ork-mesa', canal: 'notificacao', chave: 'hitl:p1' },
+    { mod: 'ork-mesa', canal: 'painel', chave: 'hitl:p2' }, { mod: 'ork-torre', canal: 'notificacao', chave: 'hitl:p3' }] })], ['p1']);
+});
+
+test('fila do pulse: a decisao desfeita por outra fica marcada e nunca conta como nova', () => {
+  const f = fila();
+  const a = apoio();
+  const desfeita = a.decisaoDe({ id: 'd1', thread: 'ork-a', minutos: 30 });
+  const desfaz = { ...a.decisaoDe({ id: 'd2', thread: 'ork-a', minutos: 10, decidido: 'Volta a T3 ao lote' }), reverte: 'd1' };
+  const r = f.filaDoPulse(a.pulseCom({ decisoes: [desfeita, desfaz] }), new Set(), EPOCA);
+  const porId = Object.fromEntries(r.decisoes.map((d: { id: string }) => [d.id, d]));
+  assert.equal(porId.d1.revertidaPor, 'd2');
+  assert.equal(porId.d1.nova, false);
+  assert.equal(porId.d2.reverte, 'd1');
+  assert.equal(porId.d2.nova, true);
+  const linhas = cartoes().linhasDaDecisao(porId.d1, EPOCA).map((l: { texto: string }) => l.texto);
+  assert.ok(linhas[0].startsWith('↺ ork-a · GO') && linhas[0].endsWith(' · revertida'), linhas[0]);
+  assert.ok(linhas.includes('  desfeita pela decisão d2'));
+  assert.ok(cartoes().linhasDaDecisao(porId.d2, EPOCA).some((l: { texto: string }) => l.texto === '  desfaz a decisão d1'));
 });
 
 test('retrato: a assinatura muda quando um pedido abre ou muda de estado, e so por isso', () => {
@@ -174,10 +198,11 @@ test('faixa: quem espera (com a thread), paradas e decisoes novas; sem nada a li
   assert.equal(f.textoDaFaixa({ ...base, lidoEm: null }, {}), undefined);
   assert.equal(f.textoDaFaixa({ ...base, perguntas: [] }, {}), undefined);
   assert.equal(f.textoDaFaixa(base, { [p.pedidoId]: { estado: 'registrada', texto: '', em: 0 } }), undefined);
+  assert.equal(f.textoDaFaixa(base, { [p.pedidoId]: { estado: 'incerta', texto: '', em: 0 } }), undefined, 'a incerta nao chama o dono');
   assert.equal(f.textoDaFaixa(base, { [p.pedidoId]: { estado: 'recusada', texto: '', em: 0 } }), 'mesa: 1 espera você (ork-a)');
   const decisao = { id: 'd', thread: 'ork-a', fase: 'GO', em: '', decidido: '', porque: '', comoMudar: '', custoAgora: '', custoDepois: '', quemDecidiu: '', nova: true };
   assert.equal(f.textoDaFaixa({ ...base, perguntas: [p, { ...p, pedidoId: 'outro' }], outros: [{}], decisoes: [decisao, decisao] }, {}),
-    'mesa: 2 esperam você (ork-a) · 1 parada · 2 decididas por você');
+    'mesa: 2 esperam você (ork-a) · 1 parada · 2 decididas sem te chamar');
 });
 
 test('jsonDoMcp: o JSON do primeiro texto, o erro do nucleo com o motivo, e texto que nao e JSON vira erro', () => {
@@ -195,11 +220,13 @@ test('obvia: o pedido que declara seguir-recomendada passa nas quatro; cada port
   const r = o.testeDaObvia(certa, EPOCA);
   assert.equal(r.obvia, true);
   assert.equal(r.alternativa.chave, 'a');
-  assert.equal(r.referencia, 'ork pulse --json: o pedido B2X9 da ork-b declara acaoPadraoAoExpirar seguir-recomendada, sem ato irreversível');
+  assert.equal(r.referencia, '.orkastery/threads/ork-b/ledger.jsonl: o hitl_requested do pedido ob000000-0000-4000-8000-000000000002 declara acaoPadraoAoExpirar seguir-recomendada, sem ato irreversível');
   const casos: Array<[string, Record<string, unknown>]> = [
     ['irreversivel', { irreversivel: true, ato: 'push-base-protegida' }],
     ['dinheiro', { motivo: 'cost.violation' }],
     ['escopo', { motivo: 'policy.violation' }],
+    ['escopo', { fase: 'GOAL' }],
+    ['escopo', { fase: 'PLAN' }],
     ['criterio', { acaoAoExpirar: 'esperar' }],
     ['criterio', { contrato: 'ork.hitl/v1' }],
     ['alternativas', { alternativas: certa.alternativas.map((x: Record<string, unknown>) => ({ ...x, recomendada: true })) }],
@@ -212,6 +239,8 @@ test('obvia: o pedido que declara seguir-recomendada passa nas quatro; cada port
     ['barato', { motivo: 'hitl.credencial' }],
     ['barato', { estado: 'esperar' }],
     ['barato', { prazo: new Date(EPOCA - 1000).toISOString() }],
+    ['barato', { conferida: false }],
+    ['barato', { estado: 'desconhecido' }],
   ];
   for (const [condicao, mudanca] of casos) {
     const t = o.testeDaObvia({ ...certa, ...mudanca }, EPOCA);
@@ -228,7 +257,7 @@ test('obvia: a classe sai igual a do classificarDecisao do nucleo para os mesmos
   const certa = perguntaDe(a.PEDIDO_OBVIO);
   const variacoes: Array<Record<string, unknown>> = [{}, { irreversivel: true }, { ato: 'dinheiro' }, { motivo: 'cost.violation' },
     { motivo: 'policy.violation' }, { acaoAoExpirar: 'esperar' }, { fase: 'SHIP' }, { alvo: 'session' }, { estado: 'escalar' },
-    { prazo: null }, { alternativas: [] }];
+    { prazo: null }, { alternativas: [] }, { fase: 'PLAN' }, { fase: 'GOAL' }, { conferida: false }];
   for (const v of variacoes) {
     const p = { ...certa, ...v };
     const doNucleo = classificarDecisao(o.sinaisDaPergunta(p, EPOCA));
@@ -247,7 +276,8 @@ test('Decidir: os argumentos sao so threadId e pedidoId; a marca do pedido acha 
   assert.equal(d.jaDecidida([decisao], da), true);
   assert.equal(d.jaDecidida([{ ...decisao, quemDecidiu: 'sessão de fase' }], da), false, 'so a decisao da propria Mesa conta');
   assert.equal(d.jaDecidida([{ ...decisao, thread: 'ork-x' }], da), false);
-  assert.deepEqual(d.resultadoDoDecidir({ ok: true, estado: 'aprovado', repetida: true }, 5), { estado: 'respondido', texto: 'respondido pelo diálogo: aprovado (já estava respondido)', em: 5 });
+  assert.deepEqual(d.resultadoDoDecidir({ ok: true, estado: 'aprovado', repetida: true }, 5), { estado: 'respondido', texto: 'o pedido já estava respondido no núcleo: aprovado', em: 5 });
+  assert.deepEqual(d.resultadoDoDecidir({ ok: true, estado: 'aguardando', repetida: false }, 5), { estado: 'respondido', texto: 'respondido pelo diálogo: aguardando', em: 5 });
   assert.equal(d.resultadoDoDecidir({ ok: false, estado: 'pendente' }, 5).estado, 'sem-resposta');
 });
 
@@ -316,12 +346,16 @@ test('cartoes: a recomendada vem primeiro, com o porque; a obvia registrada diz 
   const comObvia = { ...vazio, obvias: { [p.pedidoId]: { estado: 'registrada', texto: '', em: 0 } } };
   const decidida = c.linhasDaPergunta(p, comObvia, EPOCA).map((l: { texto: string }) => l.texto);
   assert.ok(decidida[0].startsWith('✓ '));
-  assert.ok(decidida.includes('  decidido por você: segue a recomendada no prazo, sem te chamar; para mudar, Decidir'));
+  assert.ok(decidida.includes('  decidido sem te chamar: segue a recomendada no prazo; para mudar, Decidir antes do prazo'));
+  const semCanal = c.linhasDaPergunta({ ...p, canalClaudeCode: 'indisponivel' }, comObvia, EPOCA).map((l: { texto: string }) => l.texto);
+  assert.ok(semCanal.includes('  decidido sem te chamar: segue a recomendada no prazo; para mudar, use a reserva antes do prazo'));
+  const vencida = c.linhasDaPergunta({ ...p, prazo: new Date(EPOCA - 60000).toISOString() }, comObvia, EPOCA).map((l: { texto: string }) => l.texto);
+  assert.ok(vencida.includes('  decidido sem te chamar: segue a recomendada no prazo; o prazo passou e a recomendada seguiu'));
   const abrindo = { ...vazio, decidindo: { [p.pedidoId]: { estado: 'abrindo', texto: '', em: 0 } } };
   assert.ok(!c.linhasDaPergunta(p, abrindo, EPOCA).some((l: { tipo: string }) => l.tipo === 'decidir'), 'um Decidir por vez');
   const arvore = c.desenharMesa({ Box: 'Box', Text: 'Text', Button: 'Button' }, c.linhasDaMesa(vazio, { agora: EPOCA }), {});
   const desenhados = textos(arvore);
-  assert.equal(desenhados[0], '1 espera você (a mais antiga há 14 min) · 0 decididas por você · 0 paradas · lido há 0 s');
+  assert.equal(desenhados[0], '1 espera você (a mais antiga há 14 min) · 0 decididas sem te chamar · 0 paradas · lido há 0 s');
   assert.ok(desenhados.includes('Atualizar') && desenhados.includes('Decidir'));
 });
 

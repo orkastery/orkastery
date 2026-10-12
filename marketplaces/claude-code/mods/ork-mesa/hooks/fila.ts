@@ -106,20 +106,30 @@ export function perguntaDoPedido(pedido: unknown, extra: { desdeEm?: string | nu
     respostaAceita: objeto(pedido.respostaAceita) ? textoOuNulo(pedido.respostaAceita.tipo) : null,
     dependenciaTecnica: pedido.dependenciaTecnica !== undefined, acaoAoExpirar: textoOuNulo(pedido.acaoPadraoAoExpirar),
     prazo: textoOuNulo(pedido.prazo), prazoLocal: null, desdeEm: extra.desdeEm ?? textoOuNulo(pedido.criadoEm),
-    estado: 'aberto', canalClaudeCode: 'desconhecido',
+    estado: 'desconhecido', conferida: false, canalClaudeCode: 'desconhecido',
     reserva: extra.reserva ?? (codigo && recomendada ? `${codigo} ${recomendada.chave}` : null),
   }
 }
 
-/** Os ids das decisoes que a Mesa ja mostrou ao dono, pelo registro do mostrado da ponte. */
-export function decisoesVistas(registro: unknown): Set<string> {
+/** As chaves que a Mesa ja registrou na ponte por um canal (`decisao:` no painel, `hitl:` na notificacao), sem o prefixo. */
+function chavesDaMesa(registro: unknown, prefixo: string, canal?: string): Set<string> {
   const itens = objeto(registro) && Array.isArray(registro.itens) ? registro.itens.filter(objeto) : []
-  const vistas = new Set<string>()
+  const chaves = new Set<string>()
   for (const i of itens) {
     const chave = texto(i.chave)
-    if (i.mod === 'ork-mesa' && chave.startsWith('decisao:')) vistas.add(chave.slice('decisao:'.length))
+    if (i.mod === 'ork-mesa' && chave.startsWith(prefixo) && (canal === undefined || i.canal === canal)) chaves.add(chave.slice(prefixo.length))
   }
-  return vistas
+  return chaves
+}
+
+/** Os ids das decisoes que a Mesa ja mostrou ao dono, pelo registro do mostrado da ponte. */
+export function decisoesVistas(registro: unknown): Set<string> {
+  return chavesDaMesa(registro, 'decisao:')
+}
+
+/** Os pedidos que a Mesa ja levou ao dono por notificacao, pelo registro da ponte: valem depois de uma recarga do modulo. */
+export function pedidosNotificados(registro: unknown): Set<string> {
+  return chavesDaMesa(registro, 'hitl:', 'notificacao')
 }
 
 /** A ordem das perguntas: o prazo mais perto primeiro, depois a mais antiga; sem prazo vai para o fim. */
@@ -161,16 +171,21 @@ export function filaDoPulse(pulse: unknown, vistas: ReadonlySet<string>, agora: 
     })
   }
   const brutas = Array.isArray(p.decisoes) ? p.decisoes.filter(objeto) : []
+  // A decisao que outra desfez continua na janela, marcada como revertida, e nunca conta como nova.
+  const revertidaPor = new Map<string, string>()
+  for (const d of brutas) if (typeof d.reverte === 'string' && ID.test(d.reverte)) revertidaPor.set(d.reverte, texto(d.id))
   const decisoes: MesaDecisao[] = brutas.flatMap(d => {
     const id = texto(d.id)
     if (!ID.test(id)) return []
     const custo = objeto(d.custoDeReverter) ? d.custoDeReverter : {}
     const em = texto(d.em)
     const recente = Number.isFinite(Date.parse(em)) && agora - Date.parse(em) <= JANELA_DE_NOVAS_MS
+    const desfeita = revertidaPor.get(id) ?? null
     return [{
       id, thread: texto(d.thread), fase: texto(d.fase), em, decidido: umaLinha(d.decidido), porque: umaLinha(d.porque),
       comoMudar: umaLinha(d.comoMudar), custoAgora: umaLinha(custo.agora, 140), custoDepois: umaLinha(custo.depois, 140),
-      quemDecidiu: umaLinha(d.quemDecidiu, 120), nova: recente && !vistas.has(id),
+      quemDecidiu: umaLinha(d.quemDecidiu, 120), reverte: typeof d.reverte === 'string' && ID.test(d.reverte) ? d.reverte : null,
+      revertidaPor: desfeita, nova: recente && desfeita === null && !vistas.has(id),
     }]
   })
   decisoes.sort((a, b) => Number(b.nova) - Number(a.nova) || b.em.localeCompare(a.em))
@@ -201,7 +216,8 @@ export function conferirNoNucleo(pergunta: MesaPergunta, resposta: unknown): Mes
   const canais = Array.isArray(achada.canais) ? achada.canais.filter(objeto) : []
   const claudeCode = canais.find(c => c.canal === 'claude-code')
   const canal: MesaCanal = claudeCode?.estado === 'disponivel' ? 'disponivel' : 'indisponivel'
-  return { ...fresca, estado: textoOuNulo(achada.estado) ?? 'aberto', prazoLocal: textoOuNulo(achada.prazoLocal), canalClaudeCode: canal }
+  return { ...fresca, estado: textoOuNulo(achada.estado) ?? 'desconhecido', conferida: true, prazoLocal: textoOuNulo(achada.prazoLocal),
+    canalClaudeCode: canal }
 }
 
 /** As threads que tem pergunta na fila, sem repetir, na ordem da fila. */
@@ -209,9 +225,15 @@ export function threadsComPergunta(perguntas: readonly MesaPergunta[]): string[]
   return [...new Set(perguntas.map(p => p.thread))]
 }
 
-/** O que espera o dono de fato: a pergunta que a Mesa decidiu pelo nucleo nao conta. */
+/**
+ * O que espera o dono de fato: a pergunta que a Mesa decidiu pelo nucleo nao conta, nem a que ainda confere no nucleo
+ * se a decisao chegou (ela volta a esperar o dono se a leitura seguinte nao a mostrar).
+ */
 export function esperamODono(fila: MesaFila, obvias: Readonly<Record<string, MesaObvia>>): MesaPergunta[] {
-  return fila.perguntas.filter(p => obvias[p.pedidoId]?.estado !== 'registrada')
+  return fila.perguntas.filter(p => {
+    const estado = obvias[p.pedidoId]?.estado
+    return estado !== 'registrada' && estado !== 'incerta'
+  })
 }
 
 /**
@@ -225,7 +247,7 @@ export function textoDaFaixa(fila: MesaFila, obvias: Readonly<Record<string, Mes
   if (esperam.length) partes.push(`${esperam.length} ${esperam.length === 1 ? 'espera' : 'esperam'} você (${esperam[0]?.thread})`)
   if (fila.outros.length) partes.push(`${fila.outros.length} ${fila.outros.length === 1 ? 'parada' : 'paradas'}`)
   const novas = fila.decisoes.filter(d => d.nova).length
-  if (novas) partes.push(`${novas} ${novas === 1 ? 'decidida' : 'decididas'} por você`)
+  if (novas) partes.push(`${novas} ${novas === 1 ? 'decidida' : 'decididas'} sem te chamar`)
   if (!partes.length) return undefined
   return umaLinha(`mesa: ${partes.join(' · ')}`, TETO_DA_FAIXA)
 }

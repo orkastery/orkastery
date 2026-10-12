@@ -25,9 +25,8 @@ test('na sessao do dono, o /mesa abre o painel e o cartao traz a recomendada pri
     const textos = await textosDoPainel($, surface)
     const i = textos.indexOf('? ork-a · CHECK · código K7Q2 · prazo 12/10 14:46 (horário de Brasília)')
     expect(i).toBeGreaterThan(0)
-    expect(textos.slice(i + 1, i + 10)).toEqual([
+    expect(textos.slice(i + 1, i + 9)).toEqual([
       '  Qual é o veredito sobre as evidências do CHECK?',
-      '  pergunta: não há critério escrito que a Mesa leia pelo núcleo',
       '  Recomendada: c) Pedir o GO-FIX das claims velhas',
       '    porque: duas claims velhas reprovaram no HEAD',
       '    se escolher: consequência de c',
@@ -36,8 +35,10 @@ test('na sessao do dono, o /mesa abre o painel e o cartao traz a recomendada pri
       '  d) Continuar esperando: consequência de d',
       'Decidir',
     ])
-    expect(textos[i + 10]).toBe('  reserva: K7Q2 c pelo Telegram')
-    expect(textos[0]).toBe('1 espera você (a mais antiga há 14 min) · 0 decididas por você · 0 paradas · lido há 0 s')
+    expect(textos[i + 9]).toBe('  reserva: K7Q2 c pelo Telegram')
+    // Sem criterio escrito e o caso de todo gate que espera o dono: a regra nao se repete em cada cartao.
+    expect(textos.some(t => t.startsWith('  pergunta:'))).toBe(false)
+    expect(textos[0]).toBe('1 espera você (a mais antiga há 14 min) · 0 decididas sem te chamar · 0 paradas · lido há 0 s')
   }
 })
 
@@ -72,7 +73,7 @@ test('decididas por voce: o que, o porque, como mudar e o custo, a nova primeiro
   await iniciar($)
   await mesa($)
   const textos = await textosDoPainel($, 'desktop')
-  expect(textos[0]).toBe('0 esperam você · 9 decididas por você (1 nova) · 0 paradas · lido há 0 s')
+  expect(textos[0]).toBe('0 esperam você · 9 decididas sem te chamar (1 nova) · 0 paradas · lido há 0 s')
   const i = textos.indexOf('✓ ork-c · GO · há 1 h · nova')
   expect(i).toBeGreaterThan(0)
   expect(textos.slice(i + 1, i + 6)).toEqual([
@@ -107,7 +108,7 @@ test('a faixa sai pela ponte so quando o texto muda, e a linha sai quando nada e
     pendentes: { 'ork-a': pendentesDe('ork-a', [PEDIDO_4]) } })
   await iniciar($)
   await drenar()
-  expect(mundo.faixas).toEqual([{ mod: 'ork-mesa', texto: 'mesa: 1 espera você (ork-a) · 1 parada · 2 decididas por você' }])
+  expect(mundo.faixas).toEqual([{ mod: 'ork-mesa', texto: 'mesa: 1 espera você (ork-a) · 1 parada · 2 decididas sem te chamar' }])
   await mesa($)
   expect(mundo.faixas.length).toBe(1)
   mundo.pulse = pulseCom({})
@@ -176,12 +177,87 @@ test('o registro do mostrado leva so o que estava na janela do painel a vista, u
     'decisao:d1000000-0000-4000-8000-000000000001',
     'decisao:d2000000-0000-4000-8000-000000000002',
   ])
-  // Com o painel escondido, o desenho anotado e descartado.
+  // Com o painel escondido, o desenho anotado e descartado: a decisao nova desenhada ali nao entra no registro.
   mundo.paineis = []
+  mundo.pulse = pulseCom({ pedidos: [PEDIDO_4], decisoes: [...DECISOES, decisaoDe({ id: 'd3000000-0000-4000-8000-000000000003', thread: 'ork-a', minutos: 5 })] })
+  await mesa($)
   ui = await montarPainel($, 'terminal')
+  expect(await textosDe(ui)).toContain('✓ ork-a · GO · há 6 min · nova')
   await ui.unmount()
   await relogio.advance(120000)
   expect(doPainel().length).toBe(3)
+  // De novo a vista, o proximo desenho anota e registra.
+  mundo.paineis = A_VISTA
+  ui = await montarPainel($, 'terminal')
+  await ui.unmount()
+  await relogio.advance(30000)
+  expect(doPainel().map(m => m.chave)).toContain('decisao:d3000000-0000-4000-8000-000000000003')
+})
+
+test('escondido, o retrato sai a cada 2 min e o pulse so passados 15 min sem mudanca; a vista, a cada tique e 5 min', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', pulse: pulseCom({}), retrato: retratoHitl([]) })
+  await iniciar($)
+  await drenar()
+  const pulses = () => mundo.ler.filter(l => l.consulta === 'pulse').length
+  expect(pulses()).toBe(1)
+  await relogio.advance(90000)
+  expect(mundo.maestro).toBe(0)
+  await relogio.advance(30000)
+  expect(mundo.maestro).toBe(1)
+  await relogio.advance(12 * 60000)
+  expect(pulses()).toBe(1)
+  await relogio.advance(3 * 60000)
+  await drenar()
+  expect(pulses()).toBe(2)
+  const antes = mundo.maestro
+  mundo.paineis = A_VISTA
+  await relogio.advance(60000)
+  expect(mundo.maestro - antes).toBe(2)
+})
+
+test('o pulse que falha volta com recuo, e o aviso diz o que faltou; volta ao normal quando le de novo', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', pulse: pulseCom({ pedidos: [PEDIDO_4] }), pendentes: { 'ork-a': pendentesDe('ork-a', [PEDIDO_4]) },
+    paineis: A_VISTA })
+  await iniciar($)
+  await drenar()
+  const pulses = () => mundo.ler.filter(l => l.consulta === 'pulse').length
+  mundo.pulseFalha = true
+  await relogio.advance(5 * 60000)
+  await drenar()
+  const depoisDaFalha = pulses()
+  // Dez tiques a vista com o pulse fora do ar: o recuo (30 s, 60 s, 120 s, ...) segura as tentativas.
+  await relogio.advance(5 * 60000)
+  await drenar()
+  expect(pulses() - depoisDaFalha).toBeLessThanOrEqual(3)
+  const textos = await textosDoPainel($, 'terminal')
+  expect(textos).toContain('não reli a fila: ork-ponte: ler recusado')
+  mundo.pulseFalha = false
+  await mesa($)
+  expect((await textosDoPainel($, 'terminal')).some(t => t.startsWith('não reli a fila'))).toBe(false)
+})
+
+test('a fila que encolhe com o lote 2 aberto: Anteriores volta ao lote que existe', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  mock.clock(on, { now: EPOCA })
+  const pedidos = Array.from({ length: 11 }, (_, n) => ({ ...PEDIDO_4, id: `p70000${String(n).padStart(2, '0')}-0000-4000-8000-0000000000${String(n).padStart(2, '0')}`,
+    codigo: `R${n}R${n}`, prazo: new Date(EPOCA + (10 + n) * 60000).toISOString() }))
+  const mundo = montar(on, { papel: 'dono', pulse: pulseCom({ pedidos }), pendentes: { 'ork-a': pendentesDe('ork-a', pedidos) } })
+  await iniciar($)
+  await mesa($)
+  const ui = await montarPainel($, 'desktop')
+  await ui.press({ key: 'proximas' })
+  await ui.press({ key: 'proximas' })
+  expect(await textosDe(ui)).toContain('lote 3 de 3')
+  const poucos = pedidos.slice(0, 7)
+  mundo.pulse = pulseCom({ pedidos: poucos })
+  mundo.pendentes['ork-a'] = pendentesDe('ork-a', poucos)
+  await ui.press({ key: 'atualizar' })
+  await drenar()
+  expect(await textosDe(ui)).toContain('lote 2 de 2')
+  await ui.press({ key: 'anteriores' })
+  expect(await textosDe(ui)).toContain('lote 1 de 2')
+  await ui.unmount()
 })
 
 test('na sessao de fase a Mesa nao registra comando, nao le o nucleo nem notifica', { plugins: [PONTE_FALSA] }, async ($, on) => {
@@ -206,6 +282,20 @@ test('dormente, a Mesa confere o papel de novo e liga quando o servidor do nucle
   opcoes.papel = 'dono'
   await relogio.advance(3000)
   expect(mundo.comandos).toEqual(['mesa'])
+})
+
+test('falha em segundo plano vira aviso no painel, e nunca rejeicao sem tratamento', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const opcoes = { papel: 'dormente', pulse: pulseCom({}) }
+  const mundo = montar(on, opcoes)
+  mundo.registroFalha = true
+  await iniciar($)
+  // A conferencia atrasada do papel liga a Mesa, e o registro do /mesa falha no meio dela.
+  opcoes.papel = 'dono'
+  await relogio.advance(3000)
+  await drenar()
+  const textos = await textosDoPainel($, 'terminal')
+  expect(textos.some(t => t.startsWith('a conferência do papel parou: '))).toBe(true)
 })
 
 test('fora de sessao interativa (-p ou SDK) a Mesa nao confere o papel nem liga', { plugins: [PONTE_FALSA] }, async ($, on) => {

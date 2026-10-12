@@ -16,7 +16,7 @@ export const CONDICOES: readonly Condicao[] = ['irreversivel', 'dinheiro', 'esco
 export const FALHA_DA_CONDICAO: Readonly<Record<Condicao, string>> = {
   irreversivel: 'o ato é irreversível',
   dinheiro: 'o ato gasta dinheiro',
-  escopo: 'o ato muda escopo ou produto',
+  escopo: 'é decisão de escopo ou produto (GOAL, PLAN ou política)',
   criterio: 'não há critério escrito que a Mesa leia pelo núcleo',
   alternativas: 'as alternativas não são estritamente piores pelo critério',
   reversivel: 'não dá para desfazer antes da entrega',
@@ -25,6 +25,11 @@ export const FALHA_DA_CONDICAO: Readonly<Record<Condicao, string>> = {
 
 /** As fases antes da entrega: depois do CHECK, o que se decide vai para a `main`. */
 export const FASES_ANTES_DA_ENTREGA: readonly string[] = ['GOAL', 'PLAN', 'GO', 'CHECK']
+/**
+ * GOAL e PLAN decidem objetivo, premissa e plano: o que se pergunta ali muda escopo ou produto, e e sempre do dono
+ * (M4). Por isso o nucleo abre esses pedidos em profundidade `profunda` (`profundidadeDoPedido`).
+ */
+export const FASES_DE_ESCOPO: readonly string[] = ['GOAL', 'PLAN']
 /** Credencial so o dono entrega; o erro de decidir por ele nao e barato. */
 export const MOTIVOS_SO_DO_DONO: readonly string[] = ['hitl.credencial']
 
@@ -43,9 +48,9 @@ export type ResultadoDaObvia =
   | { obvia: true; alternativa: MesaAlternativa; referencia: string }
   | { obvia: false; falhou: Condicao[] }
 
-/** A referencia do criterio que a Mesa cita: o comando que mostra o fato e o fato lido. */
+/** A referencia do criterio que a Mesa cita: onde o fato fica escrito para sempre (o pedido no ledger) e o fato. */
 export function referenciaDoCriterio(p: MesaPergunta): string {
-  return `ork pulse --json: o pedido ${p.codigo ?? p.pedidoId} da ${p.thread} declara acaoPadraoAoExpirar seguir-recomendada, sem ato irreversível`
+  return `.orkastery/threads/${p.thread}/ledger.jsonl: o hitl_requested do pedido ${p.pedidoId} declara acaoPadraoAoExpirar seguir-recomendada, sem ato irreversível`
 }
 
 /** Os sinais a partir do pedido servido pelo nucleo e do instante da leitura, em ms. */
@@ -59,13 +64,14 @@ export function sinaisDaPergunta(p: MesaPergunta, agora: number): SinaisDaObvia 
     alternativasEstritamentePiores: p.alternativas.length >= 2 && recomendadas === 1,
     // Desfaz antes da entrega: a fase ainda nao entrega (o ato sem volta ja fecha a porta antes).
     reversivelAntesDaEntrega: FASES_ANTES_DA_ENTREGA.includes(p.fase ?? ''),
-    // Barato e detectavel: gate (responder sessao e falar pelo dono), escolha objetiva, nada que so o dono resolve, o
-    // pedido ainda aberto e o prazo por vir, para o dono poder mudar antes.
-    erroBaratoEDetectavel: p.alvo === 'gate' && p.tipoDeResposta === 'objetiva' && p.respostaAceita === 'opcao' && !p.dependenciaTecnica &&
-      !MOTIVOS_SO_DO_DONO.includes(p.motivo) && p.estado === 'aberto' && Number.isFinite(prazo) && prazo > agora,
+    // Barato e detectavel: o pedido conferido agora no nucleo (sem isso a evidencia seria inventada), gate (responder
+    // sessao e falar pelo dono), escolha objetiva, nada que so o dono resolve, o pedido ainda aberto e o prazo por vir,
+    // para o dono poder mudar antes.
+    erroBaratoEDetectavel: p.conferida && p.alvo === 'gate' && p.tipoDeResposta === 'objetiva' && p.respostaAceita === 'opcao' &&
+      !p.dependenciaTecnica && !MOTIVOS_SO_DO_DONO.includes(p.motivo) && p.estado === 'aberto' && Number.isFinite(prazo) && prazo > agora,
     irreversivel: p.irreversivel || p.ato !== null,
     gastaDinheiro: p.ato === 'dinheiro' || p.motivo === 'cost.violation',
-    mudaEscopoOuProduto: p.motivo === 'policy.violation',
+    mudaEscopoOuProduto: p.motivo === 'policy.violation' || FASES_DE_ESCOPO.includes(p.fase ?? ''),
   }
 }
 

@@ -58,12 +58,16 @@ export function linhasDaPergunta(p: MesaPergunta, e: EstadoDaMesa, agora: number
   }]
   linhas.push({ tipo: 'texto', chave: k('pergunta'), texto: `  ${p.pergunta}` })
   if (decidida) {
-    linhas.push({ tipo: 'texto', chave: k('obvia'), texto: '  decidido por você: segue a recomendada no prazo, sem te chamar; para mudar, Decidir' })
+    linhas.push({ tipo: 'texto', chave: k('obvia'), texto: `  decidido sem te chamar: segue a recomendada no prazo; ${comoMudarDaObvia(p, agora)}` })
+  } else if (obvia?.estado === 'incerta') {
+    linhas.push({ tipo: 'dim', chave: k('obvia'), texto: '  a Mesa pediu ao núcleo a decisão óbvia e confere na próxima leitura se ela foi gravada' })
   } else if (obvia?.estado === 'recusada') {
     linhas.push({ tipo: 'aviso', chave: k('obvia'), texto: `  a Mesa não decidiu: ${obvia.texto}` })
   } else {
+    // Sem criterio escrito e o caso de todo gate que espera o dono: dizer isso em cada cartao so repetiria a regra.
     const teste = testeDaObvia(p, agora)
-    if (!teste.obvia) linhas.push({ tipo: 'dim', chave: k('porque-pergunta'), texto: `  pergunta: ${FALHA_DA_CONDICAO[teste.falhou[0] ?? 'criterio']}` })
+    const motivo = teste.obvia ? undefined : teste.falhou[0]
+    if (motivo && motivo !== 'criterio') linhas.push({ tipo: 'dim', chave: k('porque-pergunta'), texto: `  pergunta: ${FALHA_DA_CONDICAO[motivo]}` })
   }
   const recomendada = p.alternativas.find(a => a.recomendada)
   if (recomendada) {
@@ -91,15 +95,25 @@ export function linhasDaPergunta(p: MesaPergunta, e: EstadoDaMesa, agora: number
   return linhas
 }
 
-/** O cartao de uma decisao que a fabrica (ou a Mesa) tomou pelo dono. */
+/** Como o dono muda a decisao obvia que a Mesa registrou: o Decidir ou a reserva antes do prazo; depois dele, nada. */
+function comoMudarDaObvia(p: MesaPergunta, agora: number): string {
+  const prazo = Date.parse(p.prazo ?? '')
+  if (Number.isFinite(prazo) && prazo <= agora) return 'o prazo passou e a recomendada seguiu'
+  return p.canalClaudeCode === 'disponivel' ? 'para mudar, Decidir antes do prazo' : 'para mudar, use a reserva antes do prazo'
+}
+
+/** O cartao de uma decisao que a fabrica (ou a Mesa) tomou sem chamar o dono. */
 export function linhasDaDecisao(d: MesaDecisao, agora: number): LinhaDaMesa[] {
   const k = (s: string) => `${d.id}:${s}`
   const em = Date.parse(d.em)
   const quando = Number.isFinite(em) ? ` · há ${duracao(agora - em)}` : ''
+  const marca = d.revertidaPor ? ' · revertida' : d.nova ? ' · nova' : ''
   return [
-    { tipo: 'cabecalho', chave: k('cabecalho'), texto: `✓ ${d.thread} · ${d.fase}${quando}${d.nova ? ' · nova' : ''}`,
-      mostrado: { chave: `decisao:${d.id}`, thread: d.thread || null, texto: `${d.thread}: decidido por você: ${d.decidido}` } },
+    { tipo: 'cabecalho', chave: k('cabecalho'), texto: `${d.revertidaPor ? '↺' : '✓'} ${d.thread} · ${d.fase}${quando}${marca}`,
+      mostrado: { chave: `decisao:${d.id}`, thread: d.thread || null, texto: `${d.thread}: decidido sem te chamar: ${d.decidido}` } },
     { tipo: 'texto', chave: k('decidido'), texto: `  ${d.decidido}` },
+    ...(d.revertidaPor ? [{ tipo: 'aviso' as const, chave: k('revertida'), texto: `  desfeita pela decisão ${d.revertidaPor.slice(0, 8)}` }] : []),
+    ...(d.reverte ? [{ tipo: 'dim' as const, chave: k('reverte'), texto: `  desfaz a decisão ${d.reverte.slice(0, 8)}` }] : []),
     { tipo: 'dim', chave: k('porque'), texto: `  porque: ${d.porque}` },
     { tipo: 'dim', chave: k('como-mudar'), texto: `  como mudar: ${d.comoMudar}` },
     { tipo: 'dim', chave: k('custo'), texto: `  reverter: agora, ${d.custoAgora}; depois, ${d.custoDepois}` },
@@ -136,7 +150,7 @@ export function linhasDaMesa(e: EstadoDaMesa, opcoes: { agora: number }): LinhaD
   const novas = decisoes.filter(d => d.nova).length
   const placar = [
     `${plural(esperam.length, 'espera', 'esperam')} você${desde.length ? ` (a mais antiga há ${duracao(agora - Math.min(...desde))})` : ''}`,
-    `${plural(decisoes.length, 'decidida', 'decididas')} por você${novas ? ` (${plural(novas, 'nova', 'novas')})` : ''}`,
+    `${plural(decisoes.length, 'decidida', 'decididas')} sem te chamar${novas ? ` (${plural(novas, 'nova', 'novas')})` : ''}`,
     plural(outros.length, 'parada', 'paradas'),
     fila.lidoEm === null ? 'ainda não li a fila' : `lido há ${duracao(agora - fila.lidoEm)}`,
   ]
@@ -151,8 +165,8 @@ export function linhasDaMesa(e: EstadoDaMesa, opcoes: { agora: number }): LinhaD
   for (const p of perguntas.slice(pagina * TAMANHO_DO_LOTE, (pagina + 1) * TAMANHO_DO_LOTE)) linhas.push(...linhasDaPergunta(p, e, agora))
   if (paginas > 1) linhas.push({ tipo: 'nav', chave: 'nav', texto: `lote ${pagina + 1} de ${paginas}` })
 
-  linhas.push({ tipo: 'secao', chave: 'secao-decisoes', texto: 'Decididas por você' })
-  if (!decisoes.length) linhas.push({ tipo: 'dim', chave: 'sem-decisoes', texto: '  nenhuma decisão tomada por você na janela do pulse' })
+  linhas.push({ tipo: 'secao', chave: 'secao-decisoes', texto: 'Decididas sem te chamar' })
+  if (!decisoes.length) linhas.push({ tipo: 'dim', chave: 'sem-decisoes', texto: '  nenhuma decisão tomada sem te chamar na janela do pulse' })
   for (const d of decisoes.slice(0, MAXIMO_DE_DECISOES)) linhas.push(...linhasDaDecisao(d, agora))
   if (decisoes.length > MAXIMO_DE_DECISOES) {
     linhas.push({ tipo: 'dim', chave: 'mais-decisoes', texto: `  e mais ${decisoes.length - MAXIMO_DE_DECISOES} na janela do pulse (7 dias)` })

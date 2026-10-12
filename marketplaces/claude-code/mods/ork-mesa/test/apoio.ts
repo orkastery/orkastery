@@ -81,6 +81,13 @@ export function decisaoDe(t: { id: string; thread: string; minutos: number; deci
   }
 }
 
+/** A decisao obvia que a Mesa grava para um pedido, como o pulse a traz depois (a marca do pedido no texto). */
+export function decisaoDaMesaPara(pedido: { id: string; thread: string; codigo: string }, minutos = 0) {
+  return decisaoDe({ id: `dm${pedido.id.slice(2)}`, thread: pedido.thread, minutos,
+    decidido: `Sem te chamar: o pedido ${pedido.codigo} (${pedido.id.slice(0, 8)}) da ${pedido.thread} segue a recomendada a`,
+    quem: 'mod ork-mesa na sessão do dono, pelo teste das quatro condições' })
+}
+
 /** O pulse (`ork.pulse/v1`) so com o que a Mesa le. */
 export function pulseCom(t: { pedidos?: unknown[]; decisoes?: unknown[]; outros?: unknown[] }) {
   const humanos = (t.pedidos ?? []).map((p: any) => ({
@@ -135,18 +142,23 @@ export function montar(on, opcoes) {
   const mundo = {
     pulse: opcoes.pulse, retrato: opcoes.retrato ?? retratoHitl([]), pendentes: { ...(opcoes.pendentes ?? {}) }, paineis: opcoes.paineis ?? [],
     respostaDecidir: opcoes.respostaDecidir ?? null, erroDecidir: null, recusarDecisao: opcoes.recusarDecisao ?? null,
-    registro: [...(opcoes.registro ?? [])],
+    registro: [...(opcoes.registro ?? [])], relogio: opcoes.relogio ?? null, pulseFalha: false,
+    // Atrasos do nucleo: pelo relogio do teste (`relogio.sleep`) ou em tempo real (para o fim do teste chegar antes).
+    atrasoDaDecisaoMs: 0, atrasoDoDecidirMs: 0, atrasoRealDoDecidirMs: 0,
+    // O pulse que o nucleo passa a servir depois que a decisao obvia e gravada.
+    pulseDepoisDaDecisao: opcoes.pulseDepoisDaDecisao ?? null,
+    notificacaoSai: true, registroFalha: false,
     ler: [], maestro: 0, hitlPending: [], decidir: [], decisoes: [], outrasMcp: [], faixas: [], mostrados: [], notificacoes: [],
     comandos: [], abertos: [], toasts: [], proibidas: [],
   }
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('env.get', ($, e) => ({ value: e.name === 'PONTE_FALSA_PAPEL' ? opcoes.papel : undefined }))
-  on('mcp.call', ($, e) => {
+  on('mcp.call', async ($, e) => {
     if (e.server === 'orkastery' && e.tool === 'ork_maestro') { mundo.maestro++; return ok(mundo.retrato) }
     if (e.server === 'ponte-falsa') {
       if (e.tool === 'ler') {
         mundo.ler.push(e.args)
-        return e.args.consulta === 'pulse' && mundo.pulse ? ok(mundo.pulse) : falha('pulse fora do ar')
+        return e.args.consulta === 'pulse' && mundo.pulse && !mundo.pulseFalha ? ok(mundo.pulse) : falha('pulse fora do ar')
       }
       if (e.tool === 'faixa') { mundo.faixas.push(e.args); return ok({ publicada: e.args.texto !== undefined }) }
       if (e.tool === 'mostrado') {
@@ -164,21 +176,33 @@ export function montar(on, opcoes) {
     }
     if (e.server === 'orkastery' && e.tool === 'ork_request_decision') {
       mundo.decidir.push(e.args)
+      if (mundo.atrasoDoDecidirMs) await mundo.relogio.sleep(mundo.atrasoDoDecidirMs)
+      if (mundo.atrasoRealDoDecidirMs) await new Promise(r => setTimeout(r, mundo.atrasoRealDoDecidirMs))
       if (mundo.erroDecidir) return falha(mundo.erroDecidir)
       return ok(mundo.respostaDecidir ?? { ok: true, pedidoId: e.args.pedidoId, estado: 'aguardando', repetida: false })
     }
     if (e.server === 'orkastery' && e.tool === 'ork_decision_record') {
       mundo.decisoes.push(e.args)
-      return mundo.recusarDecisao ? falha(mundo.recusarDecisao) : ok({ ok: true, pedidoId: 'decisao-1', eventId: 'evento-1', fase: 'GO', reciboOficial: false })
+      if (mundo.recusarDecisao) return falha(mundo.recusarDecisao)
+      if (mundo.atrasoDaDecisaoMs) await mundo.relogio.sleep(mundo.atrasoDaDecisaoMs)
+      if (mundo.pulseDepoisDaDecisao) mundo.pulse = mundo.pulseDepoisDaDecisao
+      return ok({ ok: true, pedidoId: 'decisao-1', eventId: 'evento-1', fase: 'GO', reciboOficial: false })
     }
     mundo.outrasMcp.push({ server: e.server, tool: e.tool, args: e.args })
     return falha('ferramenta fora da lista')
   })
-  on('command.register', ($, e) => { mundo.comandos.push(e.name); return { value: { command: e.name } } })
+  on('command.register', ($, e) => {
+    if (mundo.registroFalha) throw new Error('registro recusado')
+    mundo.comandos.push(e.name)
+    return { value: { command: e.name } }
+  })
   on('ui.open', ($, e) => { mundo.abertos.push(e.id); return { value: { isPlaced: true } } })
   on('ui.panes', () => ({ value: mundo.paineis }))
   on('ui.toast', ($, e) => { mundo.toasts.push(e.text); return { value: undefined } })
-  on('ui.notify', ($, e) => { mundo.notificacoes.push({ text: e.text, title: e.title }); return { value: { isSent: true, channel: 'iterm2' } } })
+  on('ui.notify', ($, e) => {
+    mundo.notificacoes.push({ text: e.text, title: e.title })
+    return { value: mundo.notificacaoSai ? { isSent: true, channel: 'iterm2' } : { isSent: false, reason: 'disabled' } }
+  })
   on('process.run', ($, e) => { mundo.proibidas.push({ evento: 'process.run', argv: e.argv }); return { value: { exitCode: 1, stdout: '', stderr: '' } } })
   on('prompt.submit', ($, e) => { mundo.proibidas.push({ evento: 'prompt.submit' }); return { drop: 'teste' } })
   on('session.append', ($, e) => { mundo.proibidas.push({ evento: 'session.append' }); return { deny: 'teste' } })

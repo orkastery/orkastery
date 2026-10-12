@@ -12,7 +12,7 @@ import { desenharMesa, linhasDaMesa, mostradosVisiveis, paginaDoLote } from './c
 import { argsDaDecisaoObvia, argsDoDecidir, jaDecidida, resultadoDoDecidir } from './decidir'
 import {
   assinaturaDoRetrato, conferirNoNucleo, decisoesVistas, esperamODono, FILA_VAZIA, filaDoPulse, jsonDoMcp, ordenarPerguntas,
-  textoDaFaixa, threadsComPergunta, umaLinha,
+  pedidosNotificados, textoDaFaixa, threadsComPergunta, umaLinha,
 } from './fila'
 import { testeDaObvia } from './obvia'
 
@@ -34,10 +34,17 @@ const IDADE_DO_PULSE_ESCONDIDO_MS = 15 * 60000
 /** Teto de cada leitura do nucleo; o Decidir espera o dialogo, que o ingresso local fecha em ate 300 s. */
 const PRAZO_DA_LEITURA_MS = 20000
 const PRAZO_DO_DECIDIR_MS = 310000
+/** A gravacao da decisao obvia e local e rapida; passado este teto ela fica incerta, nunca recusada de cara. */
+const PRAZO_DA_DECISAO_MS = 60000
+/** A decisao incerta que o pulse nao mostra nesse tempo vira recusada, e a pergunta volta a esperar o dono. */
+const INCERTEZA_MAXIMA_MS = 10 * 60000
 /** O servidor do nucleo pode conectar depois do inicio da sessao: o papel e conferido de novo nestas esperas. */
 const ESPERAS_DO_PAPEL_MS = [3000, 10000, 30000]
 const ESPERA_LONGA_DO_PAPEL_MS = 300000
 const MAXIMO_DE_AVISOS = 5
+/** O pulse que falha volta com recuo: 30 s, depois o dobro, ate 5 min (o retrato que muda nao fura o recuo). */
+const RECUO_INICIAL_MS = 30000
+const RECUO_MAXIMO_MS = 300000
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/
 
 // O que o modulo guarda entre ganchos e nao desenha. Uma recarga do modulo zera tudo, e o `session.start` dispara
@@ -48,6 +55,9 @@ let ciclo: { cancel: () => void } | undefined
 let tiques = 0
 let assinatura: string | null = null
 let pulseLidoEm: number | null = null
+/** A ultima falha do pulse e o recuo ate a proxima tentativa automatica. */
+let pulseFalhouEm: number | null = null
+let recuoMs = 0
 let lendo: Promise<void> | undefined
 let pendente = false
 /** Pedidos que esta sessao ja levou ao dono por notificacao. */
@@ -114,6 +124,9 @@ async function ativar($: EngineInterface): Promise<void> {
   if (ativa) return
   ativa = true
   await $.command.register({ name: 'mesa', description: 'Abre a Mesa do Dono: o que espera você no Orkastery, com a recomendação na frente', immediate: true })
+  // Depois de uma recarga do modulo, nenhum Decidir esta em curso: o que ficou "abrindo" no estado volta a ter botao.
+  await update($, decidindo, d => Object.fromEntries(Object.entries(d).map(([id, v]) => [id, v.estado === 'abrindo'
+    ? { estado: 'sem-resposta' as const, texto: 'o diálogo ficou sem resposta (a Mesa recarregou); o pedido segue aberto', em: v.em } : v])))
   ciclo?.cancel()
   ciclo = $.clock.every(PERIODO_DO_TIQUE_MS, () => { emSegundoPlano($, tique($), 'o tique da Mesa') })
   emSegundoPlano($, atualizar($), 'a primeira leitura da fila')
@@ -161,7 +174,10 @@ async function conferirMudanca($: EngineInterface, aVista: boolean): Promise<voi
     await anotarAviso($, `não li o retrato do núcleo: ${mensagem(erro)}`)
   }
   const idade = pulseLidoEm === null ? Number.POSITIVE_INFINITY : agora - pulseLidoEm
-  if (mudou || idade >= (aVista ? IDADE_DO_PULSE_A_VISTA_MS : IDADE_DO_PULSE_ESCONDIDO_MS)) await atualizar($)
+  const noRecuo = pulseFalhouEm !== null && agora - pulseFalhouEm < recuoMs
+  // Decisao obvia incerta: o pulse e relido a cada conferencia ate ela aparecer ou vencer a incerteza.
+  const incerta = Object.values(await read($, obvias)).some(o => o.estado === 'incerta')
+  if (!noRecuo && (mudou || incerta || idade >= (aVista ? IDADE_DO_PULSE_A_VISTA_MS : IDADE_DO_PULSE_ESCONDIDO_MS))) await atualizar($)
 }
 
 /** Uma leitura por vez; pedido que chega no meio volta a rodar logo depois, e quem pediu espera as duas. */
@@ -192,15 +208,22 @@ async function lerUmaVez($: EngineInterface): Promise<void> {
     pulse = await comPrazo($, $.ork.ler({ consulta: 'pulse' }))
   } catch (erro) {
     const motivo = mensagem(erro)
+    pulseFalhouEm = agora
+    recuoMs = Math.min(recuoMs ? recuoMs * 2 : RECUO_INICIAL_MS, RECUO_MAXIMO_MS)
     await update($, fila, anterior => ({ ...anterior, erro: motivo }))
     await publicarFaixa($)
     return
   }
   pulseLidoEm = agora
+  pulseFalhouEm = null
+  recuoMs = 0
   const avisos: string[] = []
   let vistas = new Set<string>()
+  let jaNotificados = new Set<string>()
   try {
-    vistas = decisoesVistas(await comPrazo($, $.ork.mostrados()))
+    const registro = await comPrazo($, $.ork.mostrados())
+    vistas = decisoesVistas(registro)
+    jaNotificados = pedidosNotificados(registro)
   } catch (erro) {
     avisos.push(`não li o registro do que a Mesa já mostrou: ${mensagem(erro)}`)
   }
@@ -222,23 +245,34 @@ async function lerUmaVez($: EngineInterface): Promise<void> {
   const nova: MesaFila = { ...base, perguntas: ordenarPerguntas(perguntas), lidoEm: agora, erro: null, avisos }
   await update($, fila, () => nova)
   const registrou = await registrarObvias($, nova, agora)
-  await notificarNovas($, nova)
+  await notificarNovas($, nova, jaNotificados)
   await publicarFaixa($)
   await registrarMostrados($)
-  // A decisao registrada agora chega no lote seguinte: o pulse e relido logo depois.
+  // A decisao pedida agora chega no lote seguinte: o pulse e relido logo depois (e a incerta se resolve nele).
   if (registrou) pendente = true
 }
 
 /**
- * A decisao obvia (D5 e D6): para cada pergunta que passa no teste das quatro condicoes e que a Mesa ainda nao
- * decidiu (nesta sessao, nem na janela do pulse), uma chamada de `ork_decision_record`. Nunca responde o pedido e
- * nunca abre o dialogo. A recusa do nucleo deixa a pergunta como pergunta, com o motivo no cartao.
+ * A decisao obvia (D5 e D6): para cada pergunta conferida no nucleo que passa no teste das quatro condicoes e que a
+ * Mesa ainda nao decidiu (nesta sessao, nem na janela do pulse), uma chamada de `ork_decision_record`. Nunca responde
+ * o pedido e nunca abre o dialogo. Chamada que falha ou passa do prazo fica `incerta`, porque a escrita pode ter
+ * chegado ao nucleo: o pulse e relido ate ela aparecer (`registrada`) ou vencer a incerteza (`recusada`: a pergunta
+ * volta a esperar o dono, com o motivo no cartao). Decisao que aparece no pulse depois sempre vira `registrada`.
  */
 async function registrarObvias($: EngineInterface, f: MesaFila, agora: number): Promise<boolean> {
-  let registrou = false
+  let pediu = false
   const ja = await read($, obvias)
   for (const p of f.perguntas) {
-    if (ja[p.pedidoId] || registrando.has(p.pedidoId)) continue
+    const anterior = ja[p.pedidoId]
+    if (anterior) {
+      if (anterior.estado !== 'registrada' && jaDecidida(f.decisoes, p)) {
+        await update($, obvias, o => ({ ...o, [p.pedidoId]: { estado: 'registrada', texto: 'registrada no núcleo (conferida no pulse)', em: agora } }))
+      } else if (anterior.estado === 'incerta' && agora - anterior.em >= INCERTEZA_MAXIMA_MS) {
+        await update($, obvias, o => ({ ...o, [p.pedidoId]: { estado: 'recusada', texto: anterior.texto, em: agora } }))
+      }
+      continue
+    }
+    if (registrando.has(p.pedidoId) || !p.conferida) continue
     const teste = testeDaObvia(p, agora)
     if (!teste.obvia) continue
     if (jaDecidida(f.decisoes, p)) {
@@ -246,38 +280,64 @@ async function registrarObvias($: EngineInterface, f: MesaFila, agora: number): 
       continue
     }
     registrando.add(p.pedidoId)
+    let obvia: MesaObvia
     try {
       const args = argsDaDecisaoObvia(p, teste.alternativa, teste.referencia, new Date(agora).toISOString())
-      jsonDoMcp(await comPrazo($, $.mcp.call('orkastery', 'ork_decision_record', args)))
-      await update($, obvias, o => ({ ...o, [p.pedidoId]: { estado: 'registrada', texto: 'registrada no núcleo', em: agora } }))
-      registrou = true
-    } catch (erro) {
-      const motivo = mensagem(erro)
-      await update($, obvias, o => ({ ...o, [p.pedidoId]: { estado: 'recusada', texto: motivo, em: agora } }))
+      let resposta: unknown
+      try {
+        resposta = await comPrazo($, $.mcp.call('orkastery', 'ork_decision_record', args), PRAZO_DA_DECISAO_MS)
+      } catch (erro) {
+        // Sem resposta do nucleo (prazo ou transporte): a escrita pode ter chegado.
+        resposta = undefined
+        obvia = { estado: 'incerta', texto: mensagem(erro), em: agora }
+      }
+      if (resposta !== undefined) {
+        try {
+          jsonDoMcp(resposta)
+          obvia = { estado: 'registrada', texto: 'registrada no núcleo', em: agora }
+        } catch (erro) {
+          // O nucleo respondeu com recusa: nada foi gravado.
+          obvia = { estado: 'recusada', texto: mensagem(erro), em: agora }
+        }
+      }
     } finally {
       registrando.delete(p.pedidoId)
     }
+    const final = obvia!
+    await update($, obvias, o => ({ ...o, [p.pedidoId]: final }))
+    pediu = true
   }
-  return registrou
+  return pediu
 }
 
 /**
- * A pergunta nova que espera o dono (nao obvia, ainda nao notificada nesta sessao) vira uma notificacao do sistema,
- * uma so por leitura, e entra no registro do mostrado da ponte com o canal `notificacao` (D8).
+ * A pergunta nova que espera o dono (nao obvia, ainda nao notificada nesta sessao nem no registro da ponte) vira uma
+ * notificacao do sistema, uma so por leitura. So a que saiu de fato conta como notificada e entra no registro do
+ * mostrado com o canal `notificacao` (D8 e M5): a que nao saiu fica no aviso do painel e volta na leitura seguinte.
  */
-async function notificarNovas($: EngineInterface, f: MesaFila): Promise<void> {
-  const novas = esperamODono(f, await read($, obvias)).filter(p => !notificados.has(p.pedidoId))
+async function notificarNovas($: EngineInterface, f: MesaFila, jaNotificados: ReadonlySet<string>): Promise<void> {
+  const novas = esperamODono(f, await read($, obvias)).filter(p => !notificados.has(p.pedidoId) && !jaNotificados.has(p.pedidoId))
   if (!novas.length) return
-  for (const p of novas) notificados.add(p.pedidoId)
   const primeira = novas[0] as MesaPergunta
   const texto = novas.length === 1
     ? umaLinha(`${primeira.thread} espera você: ${primeira.pergunta}`)
     : umaLinha(`${novas.length} pedidos esperam você: ${[...new Set(novas.map(p => p.thread))].join(', ')}`)
+  let motivo: string | null
   try {
-    await $.ui.notify(texto, { title: TITULO })
+    const enviada = await $.ui.notify(texto, { title: TITULO })
+    motivo = enviada.isSent ? null : `a notificação do sistema não saiu (${String(enviada.reason)})`
+  } catch (erro) {
+    motivo = mensagem(erro)
+  }
+  if (motivo !== null) {
+    await anotarAviso($, `não avisei o dono do pedido novo: ${motivo}; a faixa e o painel seguem`)
+    return
+  }
+  for (const p of novas) notificados.add(p.pedidoId)
+  try {
     for (const p of novas) await $.ork.mostrado({ mod: MOD, canal: 'notificacao', chave: `hitl:${p.pedidoId}`, thread: p.thread, texto })
   } catch (erro) {
-    await anotarAviso($, `não avisei o dono do pedido novo: ${mensagem(erro)}`)
+    await anotarAviso($, `não registrei a notificação na ponte: ${mensagem(erro)}`)
   }
 }
 
@@ -330,18 +390,31 @@ async function registrarMostrados($: EngineInterface): Promise<void> {
  */
 async function decidir($: EngineInterface, pedidoId: string): Promise<void> {
   if (!ID.test(pedidoId) || emDialogo.has(pedidoId)) return
-  const p = (await read($, fila)).perguntas.find(x => x.pedidoId === pedidoId)
-  if (!p || p.canalClaudeCode !== 'disponivel') return
+  // Marcado antes de qualquer espera: dois toques ao mesmo tempo abrem um dialogo so.
   emDialogo.add(pedidoId)
-  const pedidoEm = await $.clock.now()
-  await update($, decidindo, d => ({ ...d, [pedidoId]: { estado: 'abrindo', texto: 'diálogo pedido', em: pedidoEm } }))
+  let emCurso = false
+  try {
+    const p = (await read($, fila)).perguntas.find(x => x.pedidoId === pedidoId)
+    if (!p || p.canalClaudeCode !== 'disponivel') return
+    const pedidoEm = await $.clock.now()
+    await update($, decidindo, d => ({ ...d, [pedidoId]: { estado: 'abrindo', texto: 'diálogo pedido', em: pedidoEm } }))
+    emCurso = true
+    pedirDialogo($, p)
+  } finally {
+    if (!emCurso) emDialogo.delete(pedidoId)
+  }
+}
+
+/** O pedido do dialogo ao nucleo, em segundo plano; quem libera o pedido para outro Decidir e o fim desta espera. */
+function pedirDialogo($: EngineInterface, p: MesaPergunta): void {
+  const pedidoId = p.pedidoId
   emSegundoPlano($, (async () => {
     let r: MesaDecidindo
     try {
       const resposta = jsonDoMcp(await comPrazo($, $.mcp.call('orkastery', 'ork_request_decision', argsDoDecidir(p)), PRAZO_DO_DECIDIR_MS))
       r = resultadoDoDecidir(resposta, await $.clock.now())
     } catch (erro) {
-      r = { estado: 'erro', texto: `o diálogo não abriu: ${mensagem(erro)}; use a reserva`, em: await $.clock.now() }
+      r = { estado: 'erro', texto: `o Decidir falhou: ${mensagem(erro)}; use a reserva`, em: await $.clock.now() }
     } finally {
       emDialogo.delete(pedidoId)
     }
@@ -388,8 +461,9 @@ export const register: Register = on => {
       decidir: pedidoId => { emSegundoPlano($, decidir($, pedidoId), 'o Decidir') },
       atualizar: () => { emSegundoPlano($, atualizar($), 'a releitura da fila') },
       verTodas: () => { emSegundoPlano($, update($, foco, () => null), 'o Ver todas') },
-      anteriores: () => { emSegundoPlano($, update($, pagina, n => paginaDoLote(total, n - 1).pagina), 'o lote anterior') },
-      proximas: () => { emSegundoPlano($, update($, pagina, n => paginaDoLote(total, n + 1).pagina), 'o lote seguinte') },
+      // A pagina guardada pode passar do fim depois que a fila encolhe: o passo parte da pagina que esta na tela.
+      anteriores: () => { emSegundoPlano($, update($, pagina, n => paginaDoLote(total, paginaDoLote(total, n).pagina - 1).pagina), 'o lote anterior') },
+      proximas: () => { emSegundoPlano($, update($, pagina, n => paginaDoLote(total, paginaDoLote(total, n).pagina + 1).pagina), 'o lote seguinte') },
     })
   })
 }
