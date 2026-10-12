@@ -14,6 +14,9 @@ import { cenario, EN, ork, PT } from './locale-apoio';
 
 type Arvore = Record<string, unknown>;
 
+/** RM-061 (F3b): as familias que a fatia acrescenta ao catalogo, na ordem em que entram. */
+const FAMILIAS_DA_F3B: readonly string[] = [];
+
 /** Cada folha do catalogo: o caminho, o tipo (`string`, `function`, `number`) e o valor. */
 function folhas(o: Arvore, pre = ''): Array<{ k: string; tipo: string; v: unknown }> {
   return Object.entries(o).flatMap(([k, v]) =>
@@ -23,7 +26,9 @@ function folhas(o: Arvore, pre = ''): Array<{ k: string; tipo: string; v: unknow
 test('locale F2a catalogo: o ingles tem as mesmas chaves e os mesmos tipos de folha do pt-BR em todas as familias', () => {
   const pt = folhas(msg('pt-BR') as unknown as Arvore), en = folhas(msg('en') as unknown as Arvore);
   assert.deepEqual(en.map(({ k, tipo }) => [k, tipo]), pt.map(({ k, tipo }) => [k, tipo]));
-  for (const familia of ['cli', 'horario', 'doctor', 'init', 'onboarding', 'thread', 'phase', 'ajuda', 'verify', 'ship', 'retry', 'master', 'pulse', 'roadmap', 'gerados']) {
+  for (const familia of ['cli', 'horario', 'doctor', 'init', 'onboarding', 'thread', 'phase', 'ajuda', 'verify', 'ship', 'retry', 'master', 'pulse', 'roadmap', 'gerados',
+    // F3b
+    ...FAMILIAS_DA_F3B]) {
     assert.ok(pt.some(({ k }) => k.startsWith(`${familia}.`)), familia);
   }
 });
@@ -37,7 +42,9 @@ test('locale F2a catalogo: nenhuma mensagem vazia nem igual ao pt-BR por descuid
     'thread.operacoes.fix.reverify', 'thread.operacoes.mcp.verify',
     // F2b: o mesmo rotulo nas duas linguas, e a correcao que e so um comando.
     'verify.comandoOk', 'retry.politica.runtime.silencio.correcao', 'retry.politica.human.pending.correcao',
-    'master.colunas.0', 'master.colunas.1', 'master.colunas.4', 'master.colunasAceitas.0']);
+    'master.colunas.0', 'master.colunas.1', 'master.colunas.4', 'master.colunasAceitas.0',
+    // F3b: os rotulos de tabela que sao a mesma palavra nas duas linguas.
+    'thread.colunasDaLista.0', 'thread.colunasDaLista.1', 'thread.colunasDaLista.4']);
   en.forEach(({ k, tipo, v }, i) => {
     if (tipo !== 'string') return;
     assert.ok((v as string).trim(), `${k} vazia`);
