@@ -48,6 +48,44 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Segurança
 
+- **Postura de sandbox e procedência do estado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md),
+  P1 a P5 da [fronteira de confiança](docs/referencia/fronteira-de-confianca.md)). Patch de segurança, por decisão do
+  dono (S1 a, 11/10/2026).
+  - **Muda para quem já usa** (uma vez em cada máquina): com `runtime.sandbox: danger-full-access`, rode
+    `ork setup sandbox confirmar danger-full-access`; com `.orkastery/` versionado, `git rm -r --cached .orkastery`;
+    com `worktree.dir` fora da raiz, `ork setup worktree confirmar`; com a fábrica ligada só pelo manifesto,
+    `ork fabrica entrar`; com o `ork` instalado rodando `ork eval` num checkout do Orkastery, `node core/dist/index.js eval`.
+    Quem usa `.claude/worktrees`, `workspace-write`, estado fora do índice e `ork fabrica entrar` não percebe mudança.
+  - o `runtime.sandbox` que afrouxa o sandbox do agente (`danger-full-access`) só despacha pelo Codex depois de a
+    máquina confirmá-lo com `ork setup sandbox confirmar <postura>`, gravado em `.orkastery/private/postura-local.json`
+    (0600, fora do git, só para este checkout). Sem isso, `ork phase run` e `ork retry run` recusam com
+    `runtime.sandbox-nao-confirmado`, e o `ork doctor` acusa. **Muda para quem já usa `danger-full-access`:** rode o
+    comando uma vez em cada máquina;
+  - estado de `.orkastery/` rastreado pelo git não escolhe cwd, worktree nem executável (`estado.rastreado`), e o cwd
+    de git e agente vindo do `thread.json`, do ledger ou da fila só vale na raiz do projeto ou numa worktree do
+    `git worktree list` do repositório (`estado.worktree-nao-registrada`). Vale para despacho, retomada, verify, claims,
+    GO-FIX, prova do GO, handoff, liveness, `ci prepare` e `ork worktree audit|release`. **Muda para quem versiona o
+    `.orkastery/`:** tire o estado do índice (`git rm -r --cached .orkastery`);
+  - o transporte do pulse e do digest só vale do `pulse-host.json` e do `master-host.json` locais, arquivos comuns
+    fora do índice do git (`transporte.rastreado`);
+  - os ponteiros do `ork recall`, do `ork handoff recall` e do `ork handoff export` (o `location` do `handoff.json`,
+    o arquivo de uma claim, o prompt de uma sessão, o handoff e a lição vindos da memória) só leem arquivo que, pelo
+    caminho real, fica na raiz do projeto ou na worktree registrada da thread. O recall recusa com
+    `ponteiro.fora-da-raiz`, e o export deixa de apontar para fora;
+  - o `worktree.dir` do manifesto que leva para fora da raiz pelo caminho real (`..`, caminho absoluto, link no
+    caminho ou `.git`) só cria worktree depois de a máquina confirmar a pasta com `ork setup worktree confirmar`,
+    gravado em `.orkastery/private/worktree-local.json` (0600, fora do git, só para este checkout e esta pasta). Sem
+    isso, a criação recusa com `worktree.dir-fora-da-raiz`, e o `ork doctor` acusa. **Muda para quem já usa worktree
+    fora da raiz:** rode o comando uma vez em cada máquina; as worktrees que já existem seguem valendo;
+  - o `ork eval` só executa o catálogo (canários, hooks e `core/dist`) do pacote que está rodando. Um diretório com
+    `skills/`, `references/` e `eval/` achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio`.
+    **Muda para quem roda o `ork` instalado dentro de um checkout do Orkastery:** use o `ork` do checkout
+    (`node core/dist/index.js eval`), como o CI já faz;
+  - o `fabrica.compartilhada: true` do manifesto não liga mais a publicação do retrato desta máquina (threads, nome,
+    host) no remoto do clone, nem a leitura das outras máquinas: só a adesão da máquina liga (`ork fabrica entrar`,
+    em `~/.orkastery/maquina.json`, ou `ORK_FABRICA_COMPARTILHADA=1`). Com o pedido no manifesto e sem a adesão, o
+    `ork doctor` e o `ork fabrica` avisam com `fabrica.nao-confirmada`. **Muda para o time que ligava a fábrica só
+    pelo manifesto:** rode `ork fabrica entrar` uma vez em cada máquina.
 - **Fronteira de confiança do repositório clonado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
   auditoria de cada chamada de processo e de cada caminho montado com dado do clone em `core/src`, com a matriz em
   [docs/referencia/fronteira-de-confianca.md](docs/referencia/fronteira-de-confianca.md). Corrigido:

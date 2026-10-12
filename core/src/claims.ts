@@ -175,7 +175,9 @@ function conferirProvaLocal(raiz: string, thread: ReturnType<typeof lerThread>, 
   const carregado = carregarManifesto(raiz);
   if (!carregado || claim.verificar.length === 0 || !policyDeProvaLocal(carregado.manifesto)) return [];
   const prazoMs = carregado.manifesto.verify.timeout_ms ?? TIMEOUT_VERIFY_MS;
-  const cwd = cwdDaThread(raiz, thread);
+  // RM-047 (P2): worktree apagada nao passa pela procedencia, porque nada roda nela; vira o aviso abaixo.
+  const apagada = thread.worktree && !fs.existsSync(thread.worktree) ? thread.worktree : undefined;
+  const cwd = apagada ?? cwdDaThread(raiz, thread);
   let reprovada: { comando: string; code: number; estourou: boolean; semDiretorio?: string } | undefined;
   // Suspeitas da revisao de 03/10: sem a worktree (apagada), nada roda e o aviso diz por que, sem culpar a claim.
   if (!fs.existsSync(cwd)) reprovada = { comando: claim.verificar[0], code: -1, estourou: false, semDiretorio: cwd };
