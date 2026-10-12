@@ -17,6 +17,7 @@ import { ehEnsaio } from './ledger';
 import { formatarDataHoraRotulada } from './horario';
 import { conducaoDosDados, nomeDaConducao } from './conducao';
 import { linhaDeConducao } from './conducao-texto';
+import { calcularIndice } from './indice';
 
 /** Valida todos os campos consumidos antes de deduplicar, filtrar ou publicar a fila. */
 const retryView = z.object({
@@ -120,14 +121,28 @@ export function operationalSources(reader: MaestroReader, threads: Thread[], nat
           {pushVerified:proven,mergeSha:done?.mergeSha??null,receiptAt:ship.data.ts,receiptAtLocal:local(ship.data.ts)}));
       }
     }
+    // RM-059 (T8.2a, D2 da thread ork-rm059ritual): o que o Ritual do MASTER le para saber quais entregas esperam a nota
+    // do dono e mostrar a prova: o regime e as classes do MASTER log, o indice derivado dos eventos ja lidos (sem git),
+    // as reprovacoes tipadas e a entrega. Os eventos de ensaio ja ficaram de fora acima; recibo de ship invalido (GO-FIX7)
+    // tambem nao entra, nem na entrega nem no indice.
+    const validos=events.filter(e=>!['ship_done','ship_started','ship_blocked'].includes(e.tipo)||shipView.safeParse(e).success);
+    const entrega=validos.filter(e=>e.tipo==='ship_done').at(-1);
+    const deliveredAt=typeof entrega?.ts==='string'&&Number.isFinite(Date.parse(entrega.ts))?entrega.ts:null;
+    const indice=calcularIndice(validos);
+    const daEntrega={index:indice.valor,indexDetail:safeText(indice.parcelas.map(x=>`${x.evento} x${x.ocorrencias}`).join(', ')),
+      reprovals:events.filter(e=>e.tipo==='gate_blocked').length,deliveredAt,deliveredAtLocal:deliveredAt?local(deliveredAt):null,
+      deliveredSha:typeof entrega?.mergeSha==='string'&&/^[a-f0-9]{40}$/.test(entrega.mergeSha)?entrega.mergeSha:null};
     try {
       const receipt=reader.json<Record<string,unknown>>(`.orkastery/threads/${t.id}/master-log.json`);
       if(receipt) {
         const pending = receipt.contrato === CONTRATO_MASTER_PENDENTE;
         if((pending ? validarMasterPendente(receipt) : validarMasterLog(receipt)).length||receipt.thread!==t.id)throw Error('invalid');
+        const classes=Array.isArray(receipt.classesDeFalha)?safeText(receipt.classesDeFalha.filter(c=>typeof c==='string').join(', ')):null;
         sections.master.items.push(item(`master:${t.id}`,pending?'Ratificação humana pendente':'MASTER',pending?'ratificacao-pendente':'recorded',refs,
-          {score:pending?null:typeof receipt.score==='number'?receipt.score:null}));
-      } else if(lastShip || t.faseAtual==='MASTER')sections.master.items.push(item(`master:${t.id}`,'Score humano pendente','pending',refs,{score:null}));
+          {score:pending?null:typeof receipt.score==='number'?receipt.score:null,
+            regime:!pending&&typeof receipt.regime==='string'?safeText(receipt.regime):null,classes,...daEntrega}));
+      } else if(lastShip || t.faseAtual==='MASTER')sections.master.items.push(item(`master:${t.id}`,'Score humano pendente','pending',refs,
+        {score:null,regime:null,classes:null,...daEntrega}));
     } catch {sections.master.gaps.push(`master.invalid:${t.id}`);}
   }
   try {
