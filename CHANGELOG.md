@@ -60,6 +60,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   carregado, ou aparece como o comando do `ork` para o dono rodar. As threads das outras máquinas entram quando a rede
   é lida, a linha da faixa sai pela ponte e o que o painel mostrou na tela entra no registro da ponte, para o Telegram
   não repetir.
+- **Radar de Colisão no Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md), fatia F3):
+  o mod `ork-radar` (`adapters/claude-code/mods/ork-radar`), sobre a ponte, calcula na sessão do dono, a cada 10 min e
+  no `/radar`, o merge de cada thread aberta contra a `origin/main` local e entre as threads, antes do SHIP, sem
+  worktree e sem gravar objeto no repositório: os SHAs saem do `git ls-remote` e cada par roda
+  `git merge-tree --write-tree` com os objetos novos num temporário e os do repositório como alternativo. O `fetch`
+  continua com o núcleo; a base diferente do remoto aparece com os dois SHAs. O painel mostra o mapa de calor (`Raster`
+  no terminal, tabela nas outras superfícies), os arquivos em conflito, o lease `path:` que cobre cada um e o comando
+  `ork worktree sync <thread> --dry-run` que resolve, como texto. A colisão nova vira uma linha na faixa pela ponte, e
+  o que o dono viu entra no registro da ponte, para o Telegram não repetir.
 - **CLI em inglês e pt-BR** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): nova página do
   roadmap, em desenvolvimento, com a decisão do dono de 12/10/2026 de que o CLI fala inglês e pt-BR. A
   língua vem de `owner.language` e, sem ela, de `LC_ALL`, `LC_MESSAGES` e `LANG`; o pt-BR fica idêntico
