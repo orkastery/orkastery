@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T03:04:11.652Z",
+  "publicadoEm": "2026-10-12T03:04:14.369Z",
   "threads": [
     {
       "id": "ork-rm050guia3",
@@ -58,6 +58,23 @@
       "esforco": null
     },
     {
+      "id": "ork-rm059nucleo",
+      "nome": "rm059nucleo",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm059nucleo-full",
+      "atualizadaEm": "2026-10-12T03:04:12.627Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
       "id": "ork-rm059ponte",
       "nome": "rm059ponte",
       "modo": "#Auto",
@@ -66,6 +83,23 @@
       "roadmap": null,
       "branch": "ork/ork-rm059ponte-full",
       "atualizadaEm": "2026-10-12T03:04:11.365Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm060orkmind",
+      "nome": "rm060orkmind",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm060orkmind-full",
+      "atualizadaEm": "2026-10-12T03:04:14.093Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
