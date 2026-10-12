@@ -33,7 +33,8 @@ test('locale F2a infra: cobreLocale so com a entrada na lista, nunca com --json 
   assert.equal(cobreLocale(['init'], { json: true }), false);
   assert.equal(cobreLocale(['thread', 'new', 'x'], { 'from-finding': 'A1' }), false);
   assert.equal(cobreLocale(['thread', 'new', 'x'], { 'do-achado': 'A1' }), false);
-  for (const fora of [['verify', 'x'], ['ship', 'x'], ['pulse'], ['master'], ['retry', 'list'], ['roadmap', 'status'], ['thread', 'list'],
+  // A F2b (G3) cobre `verify` e as demais rotas na ordem das familias; aqui ficam so as que seguem em pt-BR.
+  for (const fora of [['ship', 'x'], ['pulse'], ['master'], ['retry', 'list'], ['roadmap', 'status'], ['thread', 'list'],
     ['thread', 'close', 'x'], ['onboarding', 'sync'], ['experiencia', 'uninstall', 'codex'], ['projetos'], ['modos']]) {
     assert.equal(cobreLocale(fora, {}), false, fora.join(' '));
   }

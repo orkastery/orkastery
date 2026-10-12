@@ -140,7 +140,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, comLocale, Locale, localeAtivo, mensagemDoErro, msg, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, comLocale, ligarRemontagem, Locale, localeAtivo, mensagemDoErro, msg, resolverLocale } from './locale';
 import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
@@ -1401,30 +1401,31 @@ function comandoClaims(args: Args): number {
 function comandoVerify(args: Args): number {
   const carregado = exigirManifesto();
   const id = args.posicionais[1];
+  const m = msg().verify;
   if (!id) {
-    console.error('uso: ork verify <thread-id> [--baseline] [--so-claims] [--canal C] [--esperar [min]]');
+    console.error(m.uso);
     return 2;
   }
   const conducao = conducaoDoCli(args);
   if (args.opcoes.baseline === true) {
-    const b = gravarBaseline(carregado, id, undefined, conducao);
-    console.log(`Baseline gravada para a thread ${id}.`);
-    console.log(`  commit ${b.commit}`);
+    // RM-061 (F2b, G2): a baseline e o ledger sao gravados em pt-BR; so a impressao segue o locale.
+    const b = comLocale('pt-BR', () => gravarBaseline(carregado, id, undefined, conducao));
+    console.log(m.baselineGravada(id));
+    console.log(m.baselineCommit(b.commit));
     for (const c of b.comandos) {
-      console.log(`  ${c.nome.padEnd(10)} ${c.ok ? 'passava' : `ja falhava (codigo ${c.code})`}  ${c.comando}`);
+      console.log(m.baselineComando(c.nome, c.ok, c.code, c.comando));
     }
     if (b.comandos.some((c) => !c.ok)) {
       // Ensaio de 03/10 (R7): "ja falhava" sem dizer onde ver a saida do comando.
-      console.log(`  saida de quem falhou: as ultimas linhas em ${caminhoThread(carregado.raiz, id)}, campo baseline.comandos ` +
-        `(resumo e trecho); o evento baseline_recorded esta em ork phase list ${id}`);
+      console.log(m.baselineSaida(caminhoThread(carregado.raiz, id), id));
     }
     if (b.comandos.length === 0) {
       // Fatia 2 do ensaio da 0.5.0 (R5): a baseline foi gravada; o que falta e comando, nao baseline.
-      console.log('  (nenhum comando em verify: no manifesto: a baseline guarda so o commit, e o verify nao tem como separar regressao de divida)');
+      console.log(m.baselineSemComandos);
     }
     return 0;
   }
-  const r = verificar(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao });
+  const r = comLocale('pt-BR', () => verificar(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao }));
   console.log(textoDoVerify(r));
   return r.ok ? 0 : 1;
 }
@@ -3892,6 +3893,8 @@ export function main(argvBruto: string[]): number {
   fixarProjetoAlvo(null);
   // Prova de conceito do CLI por locale: cada chamada comeca em pt-BR; so os comandos cobertos trocam.
   ativarLocale(undefined);
+  // RM-061 (F2b, D1): e sem o registro dos textos remontaveis, que so os comandos cobertos ligam.
+  ligarRemontagem(false);
   iniciarDeclaracaoDoProjeto();
   try { return executarComando(argvBruto); }
   finally {
@@ -3965,6 +3968,7 @@ function executarComando(argvBruto: string[]): number {
   // da F2a (`doctor --modo`, `thread new --from-finding` e os subcomandos fora da lista) ficam em pt-BR.
   if (cobreLocale(args.posicionais, args.opcoes)) {
     ativarLocale(resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale);
+    ligarRemontagem(true);
   }
 
   switch (comando) {

@@ -33,6 +33,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { agora, COMMIT_DESCONHECIDO, exec, shaCurto } from './util';
 import { formatarDataHoraRotulada } from './horario';
+import { msg, remontar, textoDoCatalogo } from './locale';
 import { falhasDeTeste, redigirSaida, testesQueCairam } from './redacao-saida';
 import { abrirJanela, FONTE_STEAL, LeitorProcStat, LIMIAR_STEAL_PCT, lerProcStat, reprovacaoSoDeRelogio, stealAlto,
   TestesDeRelogio } from './steal';
@@ -368,9 +369,7 @@ export function verificarClaim(claim: ResultadoDeClaim['claim'], cwd: string, ex
       verificado: false,
       // Alegacao negativa sem comando e reprovacao (caso EvoJ6); positiva e aviso.
       motivo: negativa ? 'claims.failed' : 'claims.unverifiable',
-      detalhe: negativa
-        ? 'alegacao negativa/absoluta sem comando de verificacao: nao ha como comprova-la'
-        : 'sem comando de verificacao declarado',
+      detalhe: textoDoCatalogo((m) => negativa ? m.verify.claimNegativaSemComando : m.verify.claimSemComando),
       execucoes: [],
     };
   }
@@ -382,7 +381,7 @@ export function verificarClaim(claim: ResultadoDeClaim['claim'], cwd: string, ex
       claim,
       verificado: false,
       motivo: 'verify.sem-veredito',
-      detalhe: `comando "${redigirCredenciaisUrl(naoRodou.comando)}" nao foi executado: ${naoRodou.resumo}`,
+      detalhe: textoDoCatalogo((m) => m.verify.claimNaoExecutada(redigirCredenciaisUrl(naoRodou.comando), naoRodou.resumo)),
       execucoes,
     };
   }
@@ -394,14 +393,14 @@ export function verificarClaim(claim: ResultadoDeClaim['claim'], cwd: string, ex
     claim,
     verificado: !falhou,
     motivo: falhou ? (estourou ? 'verify.timeout' : 'claims.failed') : null,
-    detalhe: falhou
+    detalhe: textoDoCatalogo((m) => falhou
       ? estourou
         ? falhou.causa === 'timeout'
-          ? `comando "${falhou.comando}" estourou o prazo de ${Math.round((falhou.prazoMs ?? 0) / 1000)} s sem terminar`
-          : `comando "${redigirCredenciaisUrl(falhou.comando)}" reprovou so em teste com relogio sob steal de ` +
-            `${falhou.stealPct}% (acima de ${LIMIAR_STEAL_PCT}%): ${falhou.relogioSobSteal!.join(', ')}`
-        : `comando "${redigirCredenciaisUrl(falhou.comando)}" saiu com codigo ${falhou.code}`
-      : `${execucoes.length} comando(s) reexecutado(s) com sucesso`,
+          ? m.verify.claimEstourou(falhou.comando, Math.round((falhou.prazoMs ?? 0) / 1000))
+          : m.verify.claimRelogio(redigirCredenciaisUrl(falhou.comando), falhou.stealPct, LIMIAR_STEAL_PCT,
+            falhou.relogioSobSteal!.join(', '))
+        : m.verify.claimSaiu(redigirCredenciaisUrl(falhou.comando), falhou.code)
+      : m.verify.claimOk(execucoes.length)),
     execucoes,
   };
 }
@@ -614,81 +613,65 @@ function verificarSobConducao(
 
 /** `FALHOU (codigo 1)`, ou `ESTOUROU O PRAZO (600 s, rodou 612 s)`: a causa e dita pelo nome. */
 function situacaoDoComando(c: ResultadoDeComando): string {
+  const m = msg().verify;
   const s = (ms?: number) => `${Math.round((ms ?? 0) / 1000)} s`;
-  if (c.causa === 'timeout') return `ESTOUROU O PRAZO (${s(c.prazoMs)}, rodou ${s(c.duracaoMs)})`;
-  if (c.relogioSobSteal?.length) return `RELOGIO SOB STEAL (${c.stealPct}% de steal, acima de ${LIMIAR_STEAL_PCT}%)`;
-  if (c.causa === 'nao-encontrado') return `NAO EXECUTOU (comando nao encontrado, codigo ${c.code})`;
-  if (c.causa === 'sinal') return `MORTO POR SINAL (codigo ${c.code})`;
-  return `FALHOU (codigo ${c.code})`;
+  if (c.causa === 'timeout') return m.estourou(s(c.prazoMs), s(c.duracaoMs));
+  if (c.relogioSobSteal?.length) return m.relogioSobSteal(c.stealPct, LIMIAR_STEAL_PCT);
+  if (c.causa === 'nao-encontrado') return m.naoExecutou(c.code);
+  if (c.causa === 'sinal') return m.mortoPorSinal(c.code);
+  return m.falhou(c.code);
 }
 
-/** Texto de `ork verify`. */
+/** Texto de `ork verify`. O detalhe da claim veio do catalogo em pt-BR e sai remontado no locale ativo. */
 export function textoDoVerify(r: ResultadoVerify): string {
+  const m = msg().verify;
   const linhas: string[] = [];
-  linhas.push(`ork verify da thread ${r.thread}`);
-  linhas.push(`  HEAD real   ${r.commit}`);
-  linhas.push(`  diretorio   ${r.cwd}`);
-  linhas.push(
-    `  baseline    ${r.baseline ? `${shaCurto(r.baseline.commit)} de ${formatarDataHoraRotulada(r.baseline.gravadaEm)}` : '(nao gravada: falha nao pode ser chamada de regressao)'}`
-  );
+  linhas.push(m.titulo(r.thread));
+  linhas.push(m.head(r.commit));
+  linhas.push(m.diretorio(r.cwd));
+  linhas.push(r.baseline ? m.baseline(shaCurto(r.baseline.commit), formatarDataHoraRotulada(r.baseline.gravadaEm)) : m.semBaseline);
   if (r.preparo) {
     const p = r.preparo;
-    linhas.push(`  preparo     ${p.resultado.ok ? 'ok' : situacaoDoComando(p.resultado)} em ` +
-      `${Math.round((p.resultado.duracaoMs ?? 0) / 1000)} s, uma vez para a rodada; produto ` +
-      `${p.produtoAlterado ? 'MUDOU no meio da rodada: nenhum veredito vale' : 'conferido do preparo ao fim'}`);
+    linhas.push(m.preparo(p.resultado.ok ? m.comandoOk : situacaoDoComando(p.resultado),
+      Math.round((p.resultado.duracaoMs ?? 0) / 1000), p.produtoAlterado));
   }
-  linhas.push(`  steal       ${r.steal.medido
-    ? `${r.steal.rodadaPct}% na rodada (${r.steal.fonte}; acima de ${r.steal.limiarPct}%, teste com relogio que reprova fica sem veredito)`
-    : `nao medido (sem ${r.steal.fonte} nesta maquina): nenhuma reprovacao e atenuada`}`);
+  linhas.push(r.steal.medido ? m.stealMedido(r.steal.rodadaPct, r.steal.fonte, r.steal.limiarPct) : m.stealNaoMedido(r.steal.fonte));
   if (r.instabilidade.erros.length > 0) {
-    linhas.push(`  instabilidade ${r.instabilidade.arquivo} FORA DO CONTRATO, nenhuma entrada vale: ${r.instabilidade.erros.join('; ')}`);
+    linhas.push(m.instabilidadeForaDoContrato(r.instabilidade.arquivo, r.instabilidade.erros.join('; ')));
   } else if (r.instabilidade.vencidas.length > 0) {
-    linhas.push(`  instabilidade ${r.instabilidade.vencidas.length} entrada(s) vencida(s), sem valor ate nova medida: ` +
-      r.instabilidade.vencidas.map((e) => e.teste).join(', '));
+    linhas.push(m.instabilidadeVencidas(r.instabilidade.vencidas.length, r.instabilidade.vencidas.map((e) => e.teste).join(', ')));
   }
   linhas.push('');
-  linhas.push('Claims reexecutadas no HEAD real:');
+  linhas.push(m.claimsReexecutadas);
   if (r.claims.length === 0) {
-    linhas.push('  (nenhuma claim registrada nesta thread)');
+    linhas.push(m.nenhumaClaim);
   }
   for (const c of r.claims) {
-    linhas.push(
-      `  ${c.claim.id}  verificado: ${c.verificado ? 'sim' : 'NAO'}  ${c.claim.alegacao}`
-    );
-    linhas.push(`      arquivo: ${c.claim.arquivo}`);
-    linhas.push(
-      `      ${c.claim.verificar.length > 0 ? `comando(s): ${c.claim.verificar.join(' && ')}` : 'sem comando de verificacao'}`
-    );
-    if (!c.verificado) linhas.push(`      motivo tipado: ${c.motivo} (${c.detalhe})`);
+    linhas.push(m.claim(c.claim.id, c.verificado, c.claim.alegacao));
+    linhas.push(m.arquivo(c.claim.arquivo));
+    linhas.push(c.claim.verificar.length > 0 ? m.comandos(c.claim.verificar.join(' && ')) : m.semComando);
+    if (!c.verificado) linhas.push(m.motivoTipado(String(c.motivo), remontar(c.detalhe)));
   }
   if (r.comandos.length > 0) {
     linhas.push('');
-    linhas.push('Comandos de verify do manifesto:');
+    linhas.push(m.comandosDoManifesto);
     for (const c of r.comandos) {
-      linhas.push(`  ${c.nome.padEnd(10)} ${c.ok ? 'ok' : situacaoDoComando(c)}  ${c.comando}`);
-      if (!c.ok && c.testeQueCaiu?.length) linhas.push(`             teste(s) que caiu(ram): ${c.testeQueCaiu.join('; ')}`);
+      linhas.push(m.comando(c.nome, c.ok ? m.comandoOk : situacaoDoComando(c), c.comando));
+      if (!c.ok && c.testeQueCaiu?.length) linhas.push(m.testesQueCairam(c.testeQueCaiu.join('; ')));
     }
   }
   if (r.estouros.length > 0) {
     linhas.push('');
-    linhas.push(`Sem veredito por tempo (nao e reprovacao: prazo estourado ou relogio sob steal): ${r.estouros.map((c) => c.nome).join(', ')}`);
+    linhas.push(m.semVeredito(r.estouros.map((c) => c.nome).join(', ')));
   }
   if (r.regressoes.length > 0 || r.preExistentes.length > 0 || r.falhasSemBaseline.length > 0) {
     linhas.push('');
-    linhas.push(
-      `Classificacao: ${r.regressoes.length} regressao(oes), ` +
-        `${r.preExistentes.length} pre-existente(s), ` +
-        `${r.falhasSemBaseline.length} falha(s) sem baseline`
-    );
-    for (const c of r.regressoes) linhas.push(`  regressao      ${c.nome}: ${c.comando}`);
-    for (const c of r.preExistentes) linhas.push(`  pre-existente  ${c.nome}: ${c.comando}`);
-    for (const c of r.falhasSemBaseline) linhas.push(`  sem baseline   ${c.nome}: ${c.comando}`);
+    linhas.push(m.classificacao(r.regressoes.length, r.preExistentes.length, r.falhasSemBaseline.length));
+    for (const c of r.regressoes) linhas.push(m.regressao(c.nome, c.comando));
+    for (const c of r.preExistentes) linhas.push(m.preExistente(c.nome, c.comando));
+    for (const c of r.falhasSemBaseline) linhas.push(m.falhaSemBaseline(c.nome, c.comando));
   }
   linhas.push('');
-  linhas.push(
-    r.ok
-      ? 'Veredito: VERDADE SUSTENTADA (nenhum motivo bloqueante).'
-      : `Veredito: REPROVADO. Motivos tipados: ${r.motivos.join(', ')}`
-  );
+  linhas.push(r.ok ? m.verdade : m.reprovado(r.motivos.join(', ')));
   return linhas.join('\n');
 }

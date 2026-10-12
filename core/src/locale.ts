@@ -27,6 +27,13 @@
  * memoria e o erro de estado durante a gravacao. O cabecalho `Projeto consultado:` e `Não lido:` e
  * contrato do RM-052 com os hosts e fica igual nas duas linguas.
  *
+ * F2b (G2 e D1 da thread ork-rm061f2b): o texto que o proprio comando monta e que tambem vai ao ledger ou
+ * ao `--json` (o detalhe de uma claim reexecutada, o bloqueio do ship, a razao do retry) nasce em pt-BR por
+ * `textoDoCatalogo`, dentro do escopo da gravacao, e a impressao o remonta no locale ativo por `remontar`.
+ * O registro dos montadores so existe nos comandos cobertos (`ligarRemontagem`); o servidor MCP e o cron
+ * nunca o ligam. O que outro processo gravou, a policy avaliada e a saida de ferramenta externa saem como
+ * vieram.
+ *
  * Ingles (D8): curto, no imperativo onde e instrucao, com os mesmos termos em todo o CLI (`thread`,
  * `phase`, `claim`, `verify`, `ship`, `pulse`, `lease`, `ledger`, `worktree`, `slug`). Comando, flag
  * e identificador dentro de frase vao entre crases; valor que e so um comando (a linha `fix:`) fica nu.
@@ -36,6 +43,7 @@ import { ONBOARDING_EN, ONBOARDING_PT_BR } from './locale-onboarding';
 import { THREAD_EN, THREAD_PT_BR } from './locale-thread';
 import { PHASE_EN, PHASE_PT_BR } from './locale-phase';
 import { AJUDA_EN, AJUDA_PT_BR } from './locale-ajuda';
+import { VERIFY_EN, VERIFY_PT_BR } from './locale-verify';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -43,11 +51,11 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
  * Comandos cujo texto ja sai pelo catalogo, por `comando` ou por `comando subcomando`; `comando ?` e o
  * subcomando desconhecido (o erro de uso e do proprio comando). Os demais seguem em pt-BR. Ficam de
  * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync`,
- * `experiencia uninstall` e `thread list|close|entrega`.
+ * `experiencia uninstall` e `thread list|close|entrega`. A F2b (G3) acrescenta `verify` (com `--baseline`).
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
-  'phase list', 'phase run', 'phase ?'];
+  'phase list', 'phase run', 'phase ?', 'verify'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -334,6 +342,7 @@ const PT_BR = {
   thread: THREAD_PT_BR,
   phase: PHASE_PT_BR,
   ajuda: AJUDA_PT_BR,
+  verify: VERIFY_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -582,6 +591,7 @@ const EN: Mensagens = {
   thread: THREAD_EN,
   phase: PHASE_EN,
   ajuda: AJUDA_EN,
+  verify: VERIFY_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',
@@ -621,6 +631,36 @@ export class ErroDoCatalogo extends Error {
 /** A mensagem de um erro para a pessoa: a do catalogo no locale ativo; as demais como vieram. */
 export function mensagemDoErro(e: unknown): string {
   return e instanceof ErroDoCatalogo ? e.montar(msg()) : e instanceof Error ? e.message : String(e);
+}
+
+/** Monta um texto do catalogo a partir das mensagens de um locale. */
+export type Montador = (m: Mensagens) => string;
+
+/** G2 e D1 da F2b: os montadores dos textos que o comando coberto guardou num resultado, pelo texto. */
+let remontagem: Map<string, Montador> | null = null;
+
+/**
+ * Liga o registro dos montadores (o CLI, nos comandos cobertos) ou o desliga (o `main`, no comeco de cada
+ * chamada). Desligado, nada se guarda: o servidor MCP e o cron nao acumulam texto.
+ */
+export function ligarRemontagem(ligada: boolean): void {
+  remontagem = ligada ? new Map() : null;
+}
+
+/**
+ * O texto no locale ativo. No escopo da gravacao ele sai em pt-BR, como o ledger e o `--json` o guardam;
+ * com o registro ligado, o montador fica guardado para a impressao remonta-lo no locale do comando.
+ */
+export function textoDoCatalogo(montar: Montador): string {
+  const texto = montar(msg());
+  remontagem?.set(texto, montar);
+  return texto;
+}
+
+/** O texto como a pessoa o le no locale ativo: o que veio do catalogo e remontado; o resto sai como veio. */
+export function remontar(texto: string): string {
+  const montar = remontagem?.get(texto);
+  return montar ? montar(msg()) : texto;
 }
 
 /** Nome de check como o texto o mostra no locale ativo. */

@@ -23,7 +23,7 @@ function folhas(o: Arvore, pre = ''): Array<{ k: string; tipo: string; v: unknow
 test('locale F2a catalogo: o ingles tem as mesmas chaves e os mesmos tipos de folha do pt-BR em todas as familias', () => {
   const pt = folhas(msg('pt-BR') as unknown as Arvore), en = folhas(msg('en') as unknown as Arvore);
   assert.deepEqual(en.map(({ k, tipo }) => [k, tipo]), pt.map(({ k, tipo }) => [k, tipo]));
-  for (const familia of ['cli', 'horario', 'doctor', 'init', 'onboarding', 'thread', 'phase', 'ajuda']) {
+  for (const familia of ['cli', 'horario', 'doctor', 'init', 'onboarding', 'thread', 'phase', 'ajuda', 'verify']) {
     assert.ok(pt.some(({ k }) => k.startsWith(`${familia}.`)), familia);
   }
 });
@@ -34,7 +34,9 @@ test('locale F2a catalogo: nenhuma mensagem vazia nem igual ao pt-BR por descuid
   const iguaisPermitidos = new Set(['thread.rotulos.id', 'thread.rotulos.slug', 'thread.rotulos.status', 'thread.rotulos.base',
     'thread.rotulos.worktree', 'thread.rotulos.score', 'phase.rotulos.prompt', 'phase.rotulos.sha256', 'phase.rotulos.runtime',
     'phase.rotulos.sessionId', 'doctor.rodeInit', 'thread.operacoes.verify', 'thread.operacoes.baseline', 'thread.operacoes.fix.open',
-    'thread.operacoes.fix.reverify', 'thread.operacoes.mcp.verify']);
+    'thread.operacoes.fix.reverify', 'thread.operacoes.mcp.verify',
+    // F2b: o mesmo rotulo nas duas linguas.
+    'verify.comandoOk']);
   en.forEach(({ k, tipo, v }, i) => {
     if (tipo !== 'string') return;
     assert.ok((v as string).trim(), `${k} vazia`);
