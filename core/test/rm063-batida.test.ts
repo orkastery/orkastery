@@ -181,6 +181,89 @@ test('F1: o diretorio do transporte so entra no PATH da linha pelo pulse-host.js
   } finally { p.limpar(); }
 });
 
+test('F1 (GO-FIX): instalar nao toca a varredura de outro projeto pela linha de ambiente, nem o .sh.bak', () => {
+  const p = projetoComVarredura('rm063-batida-ambiente');
+  try {
+    const script = path.join(p.dir, 'monitor', 'varredura-pulse.sh');
+    // O template abaixo de ORK_PULSE_PROJECT=/srv/projB varre o projB, mesmo rodando o script deste checkout.
+    const doOutro = `ORK_PULSE_PROJECT=/srv/projB\n*/15 * * * * ${script}\n`;
+    const backup = `@reboot ${script}.bak --restaurar\n`;
+    const cron = crontabFalso(`${doOutro}${backup}`);
+    const r = instalarBatida(p.dir, { executor: cron });
+    assert.deepEqual(r.retiradas, []);
+    assert.equal(cron.texto(), `${doOutro}${backup}${r.linha}\n`);
+  } finally { p.limpar(); }
+});
+
+test('F1 (GO-FIX): aspas duplas, ~ e $HOME no ORK_PULSE_PROJECT valem como o sh as le; a linha manual assim vira a do ork', () => {
+  const p = projetoComVarredura('rm063-batida-aspas');
+  try {
+    const casa = path.dirname(p.dir), nome = path.basename(p.dir);
+    for (const forma of [`"${p.dir}"`, `~/${nome}`, `$HOME/${nome}`, `"\${HOME}/${nome}"`]) {
+      const anterior = process.env.HOME;
+      process.env.HOME = casa;
+      try {
+        const manual = `*/15 * * * * ORK_PULSE_PROJECT=${forma} /opt/ork/monitor/varredura-pulse.sh`;
+        const comAbertura = checarCronDoPulse(path.join(p.dir, '.orkastery', 'monitor'), p.dir, () => ({ ok: true, texto: `${manual}\n` }),
+          null, 1);
+        assert.equal(comAbertura?.nivel, 'ok', `${forma}: ${JSON.stringify(comAbertura)}`);
+        const cron = crontabFalso(`${manual}\n`);
+        const r = instalarBatida(p.dir, { executor: cron });
+        assert.deepEqual(r.retiradas, [manual], forma);
+        assert.equal(cron.texto(), `${r.linha}\n`, 'uma batida so');
+      } finally { if (anterior === undefined) delete process.env.HOME; else process.env.HOME = anterior; }
+    }
+  } finally { p.limpar(); }
+});
+
+test('F1 (GO-FIX): com thread aberta, o template de OUTRO checkout nao e a batida deste projeto', () => {
+  const p = projetoComVarredura('rm063-batida-outro-checkout');
+  try {
+    const monitor = path.join(p.dir, '.orkastery', 'monitor');
+    const outro = '*/15 * * * * /home/alguem/orkastery/monitor/varredura-pulse.sh\n';
+    assert.equal(checarCronDoPulse(monitor, p.dir, () => ({ ok: true, texto: outro }), null, 1)?.nivel, 'fail');
+    // Sem thread aberta, o aviso de cadencia da RM-039 continua aceitando a linha antiga sem projeto.
+    fs.mkdirSync(monitor, { recursive: true });
+    fs.writeFileSync(path.join(monitor, 'pulse-host.json'), JSON.stringify({ executavel: '/bin/true', argumentos: ['{{mensagem}}'] }));
+    assert.equal(checarCronDoPulse(monitor, p.dir, () => ({ ok: true, texto: outro }), null, 0)?.nivel, 'ok');
+  } finally { p.limpar(); }
+});
+
+test('F1 (GO-FIX): sem linha no crontab, a rodada recente no hitl.log prova a batida de outro agendador; a velha nao', () => {
+  const p = projetoComVarredura('rm063-batida-outro-agendador');
+  try {
+    const monitor = path.join(p.dir, '.orkastery', 'monitor');
+    fs.mkdirSync(monitor, { recursive: true });
+    const rodada = (minutos: number) => fs.writeFileSync(path.join(monitor, 'hitl.log'), JSON.stringify({ ts: new Date(Date.now() -
+      minutos * 60000).toISOString(), tipo: 'pulse_scan', code: 0, novas: 0, enviadas: 0, detalhe: 'sem novidade' }) + '\n');
+    const vazio = (): LeituraDoCrontab => ({ ok: true, texto: '' }), semCrontab = (): LeituraDoCrontab => ({ ok: false, motivo: 'comando crontab ausente nesta maquina' });
+    rodada(10);
+    const c = checarCronDoPulse(monitor, p.dir, vazio, null, 1);
+    assert.equal(c?.nivel, 'ok');
+    assert.match(c!.detalhe, /a varredura rodou ha 10 min \(hitl\.log\): a batida vem de outro agendador/);
+    assert.equal(checarCronDoPulse(monitor, p.dir, semCrontab, null, 1)?.nivel, 'ok', 'timer do systemd numa maquina sem crontab');
+    rodada(45);
+    assert.equal(checarCronDoPulse(monitor, p.dir, vazio, null, 1)?.nivel, 'fail', 'a rodada de 45 min atras nao prova batida');
+  } finally { p.limpar(); }
+});
+
+test('F1 (GO-FIX): o registro de adocao nao e thread a vigiar; o crontab que muda durante o instalar nao e sobrescrito', () => {
+  const p = projetoComVarredura('rm063-batida-adocao');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'adotada', modo: 'auto' });
+    const t = lerThread(p.dir, thread.id); (t as { origem?: string }).origem = 'adocao'; gravarThread(p.dir, t);
+    assert.equal(checar(p.dir, [], () => ({ ok: true, texto: '' })).find((x) => x.nome === NOME), undefined);
+
+    let leituras = 0, gravacoes = 0;
+    const mudando: ExecutorDoCrontab = {
+      ler: () => ({ ok: true, texto: leituras++ === 0 ? OUTRAS : `${OUTRAS}# alguem editou agora\n` }),
+      gravar: () => { gravacoes++; return { ok: true }; },
+    };
+    assert.throws(() => instalarBatida(p.dir, { executor: mudando }), /fabrica\.batida\.concorrencia/);
+    assert.equal(gravacoes, 0);
+  } finally { p.limpar(); }
+});
+
 test('F1: caminho que nao cabe numa linha do cron e recusado antes de ler o crontab', () => {
   assert.throws(() => linhaDaBatida('/srv/projeto%novo', { scriptDoOrk: '/opt/ork/monitor/varredura-pulse.sh' }),
     /fabrica\.batida\.caminho-invalido/);

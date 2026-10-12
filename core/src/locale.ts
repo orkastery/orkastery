@@ -352,6 +352,8 @@ const PT_BR = {
     batidaSemLeitura: (motivo: string) => `sem crontab para ler (${motivo})`,
     batidaSemLinha: (script: string) => `nenhuma linha do crontab roda ${script} para este projeto`,
     batidaInstale: (comando: string) => `${comando} (instala a linha do template monitor/pulse.cron no crontab desta maquina)`,
+    batidaPeloLog: (minutos: number) =>
+      `nenhuma linha no crontab, mas a varredura rodou ha ${minutos} min (hitl.log): a batida vem de outro agendador`,
     redeSaiu: 'fora da rede (saiu com ork network sair)',
     redeMembroHerdado: 'membro herdado da fabrica',
     redeMembro: 'membro',
@@ -620,6 +622,7 @@ const EN: Mensagens = {
     batidaSemLeitura: (motivo) => `no crontab to read (${motivo})`,
     batidaSemLinha: (script) => `no crontab line runs ${script} for this project`,
     batidaInstale: (comando) => `\`${comando}\` (installs the \`monitor/pulse.cron\` template line in this machine's crontab)`,
+    batidaPeloLog: (minutos) => `no crontab line, but the scan ran ${minutos} min ago (hitl.log): the beat comes from another scheduler`,
     redeSaiu: 'outside the network (left with `ork network sair`)',
     redeMembroHerdado: 'member inherited from the factory',
     redeMembro: 'member',

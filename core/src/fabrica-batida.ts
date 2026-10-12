@@ -19,9 +19,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
-  BATIDA_DO_TEMPLATE, citarNoShell, intervaloEmMinutos, LeituraDoCrontab, lerCrontabDoSistema, mesmoCaminho, projetoDaLinha,
-  SCRIPT_DA_VARREDURA, scriptDaVarreduraDoOrk,
+  ATRASO_DA_BATIDA_MIN, BATIDA_DO_TEMPLATE, citarNoShell, entradaDoProjeto, entradasDaVarredura, intervaloEmMinutos, LeituraDoCrontab,
+  lerCrontabDoSistema, RodadaDaVarredura, SCRIPT_DA_VARREDURA, scriptDaVarreduraDoOrk, ultimaRodadaDaVarredura,
 } from './doctor-pulse-cron';
+
+export { ATRASO_DA_BATIDA_MIN, ultimaRodadaDaVarredura } from './doctor-pulse-cron';
 import { raizDoEstado } from './estado-thread';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { nomeDaMaquina, pastaDoUsuario } from './maquina';
@@ -132,60 +134,9 @@ export function linhaDaBatida(raiz: string, opcoes: OpcoesDaLinha = {}): string 
     `${citarNoShell(script)} ${MARCA_DA_BATIDA}`;
 }
 
-/** Linha ativa do crontab (nao comentario, nao variavel) que roda a varredura do pulse. */
-function linhaDaVarredura(linha: string): boolean {
-  const t = linha.trim();
-  return !!t && !t.startsWith('#') && !/^[A-Za-z_][A-Za-z0-9_]*\s*=/.test(t) && t.includes(SCRIPT_DA_VARREDURA);
-}
-
-/** Os scripts da varredura citados na linha, sem as aspas. */
-function scriptsDaLinha(linha: string): string[] {
-  const achados: string[] = [];
-  const re = new RegExp(`'((?:[^']|'\\\\'')*${SCRIPT_DA_VARREDURA.replace(/\./g, '\\.')})'|(\\S*${SCRIPT_DA_VARREDURA.replace(/\./g, '\\.')})`, 'g');
-  for (let m = re.exec(linha); m; m = re.exec(linha)) achados.push(m[1] !== undefined ? m[1].replace(/'\\''/g, `'`) : m[2]);
-  return achados;
-}
-
 /** A linha foi instalada pelo `ork fabrica batida instalar` (traz a marca no fim)? */
 export function linhaGerenciada(linha: string): boolean {
-  return linhaDaVarredura(linha) && linha.trimEnd().endsWith(MARCA_DA_BATIDA);
-}
-
-/**
- * A linha roda, com certeza, a varredura DESTE projeto: diz `ORK_PULSE_PROJECT=<raiz>`, ou nao diz projeto
- * nenhum e roda o script do proprio checkout (que entao e o alvo, como no template).
- */
-export function linhaDoProjeto(linha: string, raiz: string): boolean {
-  if (!linhaDaVarredura(linha)) return false;
-  const alvo = projetoDaLinha(linha);
-  if (alvo !== null) return mesmoCaminho(alvo, raiz);
-  const doCheckout = path.join(raiz, 'monitor', SCRIPT_DA_VARREDURA);
-  return scriptsDaLinha(linha).some((s) => mesmoCaminho(s, doCheckout));
-}
-
-/** A ultima rodada da varredura, lida do `hitl.log` que ela mesma escreve a cada batida. */
-export interface RodadaDaVarredura { em: string; code: number | null; detalhe: string }
-
-export function ultimaRodadaDaVarredura(dirMonitor: string): RodadaDaVarredura | null {
-  const arquivo = path.join(dirMonitor, 'hitl.log');
-  let texto: string;
-  try {
-    const fd = fs.openSync(arquivo, 'r');
-    try {
-      const tamanho = fs.fstatSync(fd).size, lido = Math.min(tamanho, 64 * 1024);
-      const buffer = Buffer.alloc(lido);
-      fs.readSync(fd, buffer, 0, lido, tamanho - lido);
-      texto = buffer.toString('utf8');
-    } finally { fs.closeSync(fd); }
-  } catch { return null; }
-  for (const linha of texto.split('\n').reverse()) {
-    try {
-      const e = JSON.parse(linha) as { ts?: unknown; tipo?: unknown; code?: unknown; detalhe?: unknown };
-      if (e.tipo !== 'pulse_scan' || typeof e.ts !== 'string' || !Number.isFinite(Date.parse(e.ts))) continue;
-      return { em: e.ts, code: typeof e.code === 'number' ? e.code : null, detalhe: typeof e.detalhe === 'string' ? e.detalhe : '' };
-    } catch { /* linha cortada no inicio do trecho, ou ilegivel */ }
-  }
-  return null;
+  return linha.trimEnd().endsWith(MARCA_DA_BATIDA);
 }
 
 export interface EstadoDaBatida {
@@ -203,12 +154,13 @@ export interface EstadoDaBatida {
   ultimaRodada: (RodadaDaVarredura & { haMin: number }) | null;
 }
 
+/**
+ * As entradas da varredura DESTE projeto, separadas pela marca. O projeto efetivo considera a linha de ambiente do
+ * crontab acima da entrada: o template abaixo de `ORK_PULSE_PROJECT=/outro` e a batida do outro, e fica.
+ */
 function separar(texto: string, raiz: string): { gerenciadas: string[]; manuais: string[] } {
-  const linhas = texto.split('\n');
-  return {
-    gerenciadas: linhas.filter((l) => linhaGerenciada(l) && linhaDoProjeto(l, raiz)),
-    manuais: linhas.filter((l) => !linhaGerenciada(l) && linhaDoProjeto(l, raiz)),
-  };
+  const doProjeto = entradasDaVarredura(texto).filter((e) => entradaDoProjeto(e, raiz)).map((e) => e.linha);
+  return { gerenciadas: doProjeto.filter(linhaGerenciada), manuais: doProjeto.filter((l) => !linhaGerenciada(l)) };
 }
 
 function ritmoDa(linha: string): number | null {
@@ -255,7 +207,12 @@ function lerParaEditar(executor: ExecutorDoCrontab): string {
   return leitura.texto;
 }
 
-function gravarEConferir(executor: ExecutorDoCrontab, texto: string, confere: (relido: string) => boolean): void {
+function gravarEConferir(executor: ExecutorDoCrontab, lido: string, texto: string, confere: (relido: string) => boolean): void {
+  // O crontab que mudou entre a leitura e a gravacao (um `crontab -e`, outro `instalar`) nao e sobrescrito.
+  const antes = executor.ler();
+  if (!antes.ok || antes.texto !== lido) {
+    throw new Error('fabrica.batida.concorrencia: o crontab mudou durante a operacao; nada foi gravado, rode de novo');
+  }
   const gravacao = executor.gravar(texto);
   if (!gravacao.ok) throw new Error(`fabrica.batida.sem-gravacao: ${gravacao.motivo}`);
   const relido = executor.ler();
@@ -292,7 +249,7 @@ export function instalarBatida(raizDoProjeto: string, opcoes: OpcoesDaLinha & { 
   }
   const retiradas = [...gerenciadas, ...manuais];
   const base = semAsLinhas(texto, new Set(retiradas));
-  gravarEConferir(executor, `${base}${linha}\n`, (relido) => relido.split('\n').some((l) => l.trim() === linha));
+  gravarEConferir(executor, texto, `${base}${linha}\n`, (relido) => relido.split('\n').some((l) => l.trim() === linha));
   const eventId = noLedgerDaMaquina(TIPOS_DE_EVENTO.batidaInstalada, {
     projeto: raiz, linha, retiradas: retiradas.map((l) => l.trim()), por: opcoes.por ?? null,
     evidencia: 'crontab -l relido depois da gravacao traz a linha',
@@ -309,16 +266,13 @@ export function removerBatida(raizDoProjeto: string, opcoes: { executor?: Execut
   const ficam = manuais.map((l) => l.trim());
   if (gerenciadas.length === 0) return { acao: 'nao-instalada', projeto: raiz, linha: null, retiradas: [], manuais: ficam, eventId: null };
   const sair = new Set(gerenciadas);
-  gravarEConferir(executor, semAsLinhas(texto, sair), (relido) => !relido.split('\n').some((l) => linhaGerenciada(l) && linhaDoProjeto(l, raiz)));
+  gravarEConferir(executor, texto, semAsLinhas(texto, sair), (relido) => separar(relido, raiz).gerenciadas.length === 0);
   const eventId = noLedgerDaMaquina(TIPOS_DE_EVENTO.batidaRemovida, {
     projeto: raiz, retiradas: gerenciadas.map((l) => l.trim()), manuaisQueFicaram: ficam, por: opcoes.por ?? null,
     evidencia: 'crontab -l relido depois da gravacao nao traz a linha do ork',
   });
   return { acao: 'removeu', projeto: raiz, linha: null, retiradas: gerenciadas.map((l) => l.trim()), manuais: ficam, eventId };
 }
-
-/** Acima disto sem rodada nova, a batida instalada esta atrasada: duas batidas do template perdidas. */
-export const ATRASO_DA_BATIDA_MIN = 30;
 
 export function textoDoEstadoDaBatida(e: EstadoDaBatida, quando: string = new Date().toISOString()): string {
   const linhas = [`Batida da fábrica em ${e.maquina}, projeto ${e.projeto}`];
