@@ -12,7 +12,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | vps | ork-rm059radar | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 06:00 |
 | vps | ork-rm060previa | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 06:00 |
 | vps | ork-rm060release | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 06:00 |
-| vps | ork-rm061f2a | #Auto | GOAL | claude-bg opus/max | RM-061 | — | 12/10 06:00 |
 | vps | ork-rm061f2b | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 06:00 |
 | vps | ork-siteorkaste2 | #Auto | GO | claude-bg opus/max | — | — | 12/10 06:00 |
 
