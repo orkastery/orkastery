@@ -1,6 +1,7 @@
 /**
  * RM-061, fatia F3b: a familia `estado` do catalogo de mensagens, os erros de estado e de procedencia
- * (`estado-thread.ts`, `procedencia.ts`) e a conferencia do estado unico que o `ork worktree audit` mostra. O pt-BR e a
+ * (`estado-thread.ts`, `procedencia.ts`, `manifest.ts` e a postura local) e a conferencia do estado unico que o `ork worktree
+ * audit` mostra. O pt-BR e a
  * fonte; o ingles e tipado por ele. Sem import do nucleo.
  *
  * Os erros nascem por `ErroDoCatalogo` no locale ativo: no escopo pt-BR da gravacao, no servidor MCP e no cron, em pt-BR
@@ -44,6 +45,11 @@ export const ESTADO_PT_BR = {
   ponteiroForaDaRaiz: (origem: string) => `ponteiro.fora-da-raiz: ${origem} aponta para fora da raiz do ` +
     'projeto e da worktree registrada da thread (também por link simbólico). Um ponteiro guardado no estado só lê ' +
     'arquivo de dentro do projeto. Exporte o handoff de novo (ork handoff export) ou copie o arquivo para dentro do projeto.',
+  // manifest.ts (o diretorio de estado da raiz) e postura-local.ts (a pasta privada da confirmacao local)
+  dirEstadoLink: (dir: string) => `estado.link: ${dir} é link simbólico; o estado do ork fica numa pasta de verdade dentro da raiz. Remova o link.`,
+  posturaEstadoLink: 'estado.link: .orkastery precisa ser pasta de verdade',
+  posturaPrivadaLink: 'estado.link: .orkastery/private precisa ser pasta de verdade',
+  posturaRastreada: (nome: string) => `estado.rastreado: ${nome} está versionado no git; tire-o do índice (git rm --cached) antes de confirmar`,
 };
 
 export type MensagensDeEstado = typeof ESTADO_PT_BR;
@@ -79,4 +85,8 @@ export const ESTADO_EN: MensagensDeEstado = {
   ponteiroForaDaRaiz: (origem) => `ponteiro.fora-da-raiz: ${origem} points outside the project root and the thread's registered ` +
     'worktree (also through a symbolic link). A pointer kept in the state only reads files inside the project. ' +
     'Export the handoff again (`ork handoff export`) or copy the file into the project.',
+  dirEstadoLink: (dir) => `estado.link: ${dir} is a symbolic link; ork state lives in a real folder inside the root. Remove the link.`,
+  posturaEstadoLink: 'estado.link: .orkastery must be a real folder',
+  posturaPrivadaLink: 'estado.link: .orkastery/private must be a real folder',
+  posturaRastreada: (nome) => `estado.rastreado: ${nome} is versioned in git; take it out of the index (\`git rm --cached\`) before confirming`,
 };
