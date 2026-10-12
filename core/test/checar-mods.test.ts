@@ -122,6 +122,27 @@ test('a ponte precisa registrar os ganchos da guarda, cada um com .catch; apoio 
   });
 });
 
+test('texto de tela e palavra solta nao sao linha de comando; argv dentro deles continua conferido (revisao 1)', () => {
+  comPasta((base) => {
+    const limpo = criarMod(base, 'ork-tela', [
+      "  on('turn.complete', async ($, e, next) => {",
+      "    $.ui.toast('gh indisponivel agora')",
+      "    $.ui.status(`git tag ${'v1'} pendente`)",
+      "    await $.ork.faixa({ mod: 'ork-tela', texto: 'git tag pendente na ork-a' })",
+      "    const ops = { op: 'set', modo: 'env' }",
+      '    return next(e)',
+      '  })',
+    ].join('\n'));
+    assert.deepEqual(regrasDe(limpo), []);
+    const aninhado = criarMod(base, 'ork-aninhado', "  on('turn.complete', async ($, e, next) => { $.ui.toast(String(await $.process.run(['sh', '-c', 'gh api']))); return next(e) })");
+    assert.ok(regrasDe(aninhado).includes('gh'));
+    const caminho = criarMod(base, 'ork-caminho', "  const arquivo = '/srv/x/.hermes/.env'");
+    assert.ok(regrasDe(caminho).includes('hermes-env'));
+    const despejo = criarMod(base, 'ork-despejo', "  const argv = ['printenv']");
+    assert.ok(regrasDe(despejo).includes('hitl-env'));
+  });
+});
+
 test('linha de sistema no transcript e gancho comum passam', () => {
   comPasta((base) => {
     const dir = criarMod(base, 'ork-aviso', [

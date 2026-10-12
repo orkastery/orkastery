@@ -135,13 +135,18 @@ const OPCOES_GLOBAIS_DO_GIT = ['-C', '-c', '--git-dir', '--work-tree', '--namesp
 const ENTRADA_DO_ORK = /(^|\/)(ork|ork\.c?js|ork\.mjs|index\.c?js|cli\.c?js)$/
 const MAX_PROFUNDIDADE = 4
 
-/** Tira o que so embrulha o comando (`env A=1`, `nohup`, `timeout 10`, `sudo -u x`) e devolve o comando de fato. */
-function semEmbrulho(tokens: readonly string[]): { tokens: string[]; scriptDoEnv?: string } {
+/**
+ * Tira o que so embrulha o comando (`env A=1`, `nohup`, `timeout 10`, `sudo -u x`) e devolve o comando de fato.
+ * `env` sem comando imprime o ambiente inteiro: `despejo` avisa isso.
+ */
+function semEmbrulho(tokens: readonly string[]): { tokens: string[]; scriptDoEnv?: string; despejo?: boolean } {
   let t = [...tokens]
+  let ultimo = ''
   for (let voltas = 0; voltas < 8 && t.length > 0; voltas++) {
     while (t.length > 0 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(t[0] as string)) t = t.slice(1)
     const base = nomeBase(t[0] ?? '')
     if (!WRAPPERS.has(base)) break
+    ultimo = base
     t = t.slice(1)
     const comValor = OPCOES_COM_VALOR[base] ?? []
     while (t.length > 0) {
@@ -153,7 +158,38 @@ function semEmbrulho(tokens: readonly string[]): { tokens: string[]; scriptDoEnv
       break
     }
   }
-  return { tokens: t }
+  return { tokens: t, ...(t.length === 0 && ultimo === 'env' ? { despejo: true } : {}) }
+}
+
+/**
+ * O comando expoe o ambiente inteiro do processo (onde mora `ORK_HITL_*` quando o host o exporta):
+ * `printenv` sem nome, `export -p`, `declare -x`, `set` sem argumento, `compgen -e` ou `/proc/<pid>/environ`.
+ */
+function despejaOAmbiente(tokens: readonly string[]): boolean {
+  const base = nomeBase(tokens[0] ?? '')
+  const args = tokens.slice(1)
+  if (base === 'printenv') return args.every(t => t.startsWith('-'))
+  if (base === 'export') return args.length === 0 || args.includes('-p')
+  if (base === 'declare' || base === 'typeset') return args.some(t => /^-[A-Za-z]*[xp]/.test(t))
+  if (base === 'set') return args.length === 0
+  if (base === 'compgen') return args.includes('-e')
+  return tokens.some(t => /^\/proc\/[^/]+\/environ$/.test(t.replace(/\/{2,}/g, '/')))
+}
+
+/** Uma variavel da lista citada no texto (`echo $ORK_HITL_TOKEN`, `printenv ORK_HITL_TOKEN`). */
+function citaAmbienteProibido(a: Autoridade, texto: string): Achado | null {
+  const r = a.ambienteProibido.find(p => texto.includes(p.prefixo))
+  return r ? { regra: r.id, porque: r.porque } : null
+}
+
+/** Um texto que cita caminho ou variavel da lista, seja ou nao linha de comando (a varredura estatica usa). */
+export function avaliarCitacao(a: Autoridade, texto: unknown): Achado | null {
+  return typeof texto === 'string' ? avaliarCaminho(a, texto) ?? citaAmbienteProibido(a, texto) : null
+}
+
+function despejo(a: Autoridade): Achado | null {
+  const r = a.ambienteProibido[0]
+  return r ? { regra: r.id, porque: `${r.porque} (o comando imprime o ambiente inteiro)` } : null
 }
 
 /** O resto do argv quando ele chama o CLI do ork (por `ork`, `node .../index.js` ou `npx ork`); `null` se nao chama. */
@@ -200,8 +236,9 @@ function avaliarPrograma(a: Autoridade, tokens: readonly string[]): Achado | nul
 /** Um caminho lido ou citado que esta na lista (`.hermes/.env`), com as barras normalizadas. */
 export function avaliarCaminho(a: Autoridade, caminho: unknown): Achado | null {
   if (typeof caminho !== 'string') return null
-  const normal = caminho.replace(/\\/g, '/').replace(/\/(\.\/)+/g, '/').replace(/\/{2,}/g, '/')
-  const r = a.caminhosProibidos.find(c => normal.includes(c.trecho))
+  // Grafia normalizada e sem diferenca de maiusculas: num sistema que as ignora, `.HERMES/.env` e o mesmo arquivo.
+  const normal = caminho.replace(/\\/g, '/').replace(/\/(\.\/)+/g, '/').replace(/\/{2,}/g, '/').toLowerCase()
+  const r = a.caminhosProibidos.find(c => normal.includes(c.trecho.toLowerCase()))
   return r ? { regra: r.id, porque: r.porque } : null
 }
 
@@ -259,7 +296,7 @@ function avaliarCodigoSolto(a: Autoridade, codigo: string): Achado | null {
 
 /** Um texto de shell: cada comando dele passa pela regra de argv. */
 export function avaliarTexto(a: Autoridade, textoDoShell: string, profundidade = 0): Achado | null {
-  const direto = avaliarCaminho(a, textoDoShell)
+  const direto = avaliarCaminho(a, textoDoShell) ?? citaAmbienteProibido(a, textoDoShell)
   if (direto) return direto
   for (const comando of comandosDoTexto(textoDoShell)) {
     const achado = avaliarArgv(a, comando, undefined, profundidade + 1)
@@ -276,11 +313,16 @@ export function avaliarArgv(a: Autoridade, argv: readonly unknown[], stdin?: unk
   if (profundidade > MAX_PROFUNDIDADE) return { regra: 'profundidade', porque: 'comando aninhado demais para a guarda conferir' }
   const brutos = argv.map(t => String(t))
   for (const t of brutos) {
-    const caminho = avaliarCaminho(a, t)
-    if (caminho) return caminho
+    const achado = avaliarCaminho(a, t) ?? citaAmbienteProibido(a, t)
+    if (achado) return achado
   }
-  const { tokens, scriptDoEnv } = semEmbrulho(brutos)
+  if (typeof stdin === 'string') {
+    const noStdin = citaAmbienteProibido(a, stdin)
+    if (noStdin) return noStdin
+  }
+  const { tokens, scriptDoEnv, despejo: soEnv } = semEmbrulho(brutos)
   if (scriptDoEnv !== undefined) return avaliarTexto(a, scriptDoEnv, profundidade)
+  if (soEnv || despejaOAmbiente(tokens)) return despejo(a)
   if (tokens.length === 0) return null
   const base = nomeBase(tokens[0] as string)
   if (base === 'eval') return avaliarTexto(a, tokens.slice(1).join(' '), profundidade)
@@ -304,14 +346,16 @@ export function avaliarArgv(a: Autoridade, argv: readonly unknown[], stdin?: unk
     return avaliarArgv(a, tokens.slice(i), undefined, profundidade + 1)
   }
   if (['npm', 'pnpm', 'yarn', 'bun'].includes(base)) {
-    const i = tokens.findIndex((t, j) => j > 0 && (t === 'exec' || t === 'x' || t === 'dlx'))
-    if (i > 0) {
-      let j = i + 1
-      while (j < tokens.length && (tokens[j] as string).startsWith('-')) j++
-      const alvo = tokens[j] ?? ''
-      if (alvo === 'ork' || alvo.startsWith('@orkastery/')) return avaliarOrk(a, tokens.slice(j + 1))
-      return avaliarArgv(a, tokens.slice(j), undefined, profundidade + 1)
+    // `npm exec`, `pnpm dlx`, `yarn run` e tambem `yarn <bin>` e `pnpm <bin>`, que rodam o binario sem subcomando, e
+    // opcao com valor no meio (`yarn --cwd x ork ...`): cada posicao depois do gerenciador e tentada como comando.
+    for (let i = 1; i < tokens.length && i <= 12; i++) {
+      const alvo = tokens[i] as string
+      if (alvo.startsWith('-')) continue
+      const achado = alvo === 'ork' || alvo.startsWith('@orkastery/') ? avaliarOrk(a, tokens.slice(i + 1))
+        : avaliarArgv(a, tokens.slice(i), undefined, profundidade + 1)
+      if (achado) return achado
     }
+    return null
   }
   const programa = avaliarPrograma(a, tokens)
   if (programa) return programa

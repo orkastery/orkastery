@@ -35,6 +35,8 @@ const FORMATO = 'ork.checar-mods/v1';
 const FONTE = /\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/;
 /** Teste do mod (nome `*.test.*` ou pasta `test`, `tests`, `__tests__`): nao carrega na sessao e nao entra. */
 const DE_TESTE = /(\.test\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$)|(^|\/)(test|tests|__tests__)\//;
+/** Chamadas cujo texto so vai para a tela do dono: o texto delas nao e lido como linha de comando. */
+const EXIBICAO = ['ui.toast', 'ui.status', 'ui.notify', 'ui.log', 'ui.notice', 'ork.faixa', 'ork.mostrado'];
 /** T0.6: os ganchos da guarda em tempo de execucao que a ponte registra, cada um com `.catch` que fecha. */
 const GUARDA_DA_PONTE = ['process.run', 'process.spawn', 'plugin.register', 'prompt.submit', 'session.append', 'env.get', 'fs.read'];
 const PAPEIS = ['dono', 'fase'];
@@ -141,7 +143,7 @@ function varrerFonte(ctx, arquivo, texto, ehPonte) {
   const ganchos = [];
   const decisoes = [];
   const comCatch = [];
-  const visitar = (no) => {
+  const visitar = (no, exibicao) => {
     if (ts.isCallExpression(no)) {
       if (ts.isIdentifier(no.expression) && no.expression.text === 'on' && no.arguments.length >= 2) {
         const evento = textoDe(no.arguments[0]);
@@ -164,11 +166,14 @@ function varrerFonte(ctx, arquivo, texto, ehPonte) {
         if (a) achar(no, a);
       }
     }
-    if (ts.isStringLiteral(no) || ts.isNoSubstitutionTemplateLiteral(no)) {
-      const a = guarda.avaliarTexto(autoridade, no.text);
+    // Texto que so vai para a tela do dono (toast, status, faixa) nao e linha de comando; array continua conferido.
+    // Caminho e variavel da lista contam em qualquer literal; leitura como linha de comando, so com mais de uma
+    // palavra (palavra solta como `'env'` ou `'set'` e codigo, nao comando).
+    if ((ts.isStringLiteral(no) || ts.isNoSubstitutionTemplateLiteral(no)) && !exibicao) {
+      const a = guarda.avaliarCitacao(autoridade, no.text) ?? (/\s/.test(no.text.trim()) ? guarda.avaliarTexto(autoridade, no.text) : null);
       if (a) achar(no, a);
     }
-    if (ts.isTemplateExpression(no)) {
+    if (ts.isTemplateExpression(no) && !exibicao) {
       const montado = no.head.text + no.templateSpans.map((s) => ` X ${s.literal.text}`).join('');
       const a = guarda.avaliarTexto(autoridade, montado);
       if (a) achar(no, a);
@@ -182,9 +187,16 @@ function varrerFonte(ctx, arquivo, texto, ehPonte) {
       if (nome === 'watchPaths') achar(no, SO_A_PONTE.watchPaths);
     }
     if (ts.isPropertyAssignment(no) && nomeDe(no) !== undefined) decisoes.push(no);
-    ts.forEachChild(no, visitar);
+    if (ts.isCallExpression(no)) {
+      // Os argumentos de uma chamada de exibicao sao texto de tela; qualquer outra chamada volta a ser conferida.
+      const deExibicao = EXIBICAO.includes(cadeia(no.expression).slice(-2).join('.'));
+      visitar(no.expression, false);
+      for (const arg of no.arguments) visitar(arg, deExibicao);
+      return;
+    }
+    ts.forEachChild(no, (filho) => visitar(filho, exibicao));
   };
-  visitar(fonte);
+  visitar(fonte, false);
   for (const g of ganchos) {
     const a = guarda.avaliarEventos(autoridade, [g.evento], ehPonte);
     if (a) achar(g.no, a);

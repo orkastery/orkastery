@@ -1,6 +1,6 @@
 {
   "formato": "ork.mods-autoridade/v1",
-  "regra": "Nenhum mod aprova gate, permissão, nota do MASTER, push ou tag pelo dono, nem fala como o dono (D5 do plano dos mods, com o nome que o dono deu em 11/10/2026). A decisão autônoma registrada pelo núcleo não entra nesta lista: está em permitidos.",
+  "regra": "Nenhum mod aprova gate, permissão, nota do MASTER, push ou tag pelo dono, nem fala como o dono (D5 do plano dos mods, com o nome que o dono deu a ela). A decisão autônoma registrada pelo núcleo não entra nesta lista: está em permitidos.",
   "leitores": [
     "core/scripts/checar-mods.cjs",
     "adapters/claude-code/mods/ork-ponte/hooks/register.ts"

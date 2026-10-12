@@ -1,7 +1,9 @@
 // Contrato do noun `$.ork`, que a ponte acrescenta ao `$` no `engine.create` (RM-059, onda 0).
 // Um mod do Orkastery lista `ork-ponte` em `dependencies` no proprio plugin.json e recebe estes tipos
 // em `.claude-plugin/types/ork-ponte/`. Todo metodo recebe um objeto so: o host recusa noun com mais
-// de um argumento. Sem import nem referencia, como o motor exige de um contrato.
+// de um argumento. Sem import nem referencia, como o motor exige de um contrato. O noun e servico aberto
+// a qualquer plugin carregado: o campo `mod` e o nome que quem chama declara, nao uma identidade; a
+// autoridade de cada mod fica com a guarda da ponte, que olha a origem real de cada chamada de `$`.
 
 /**
  * O papel da sessao: `dono` na sessao interativa do dono (servidor `orkastery` sem thread),

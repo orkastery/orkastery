@@ -288,6 +288,38 @@ test('guarda: argv da lista real, com embrulho, shell, stdin, interpretador e en
   for (const [argv, esperado, stdin] of casos) assert.equal(regra(argv, stdin), esperado, JSON.stringify(argv));
 });
 
+test('guarda: gerenciador de pacotes sem exec, ambiente por processo filho e caminho em maiusculas (revisao 1)', () => {
+  const guarda = carregar('hooks/guarda.ts');
+  const a = guarda.lerAutoridade(fs.readFileSync(AUTORIDADE, 'utf8'));
+  const regra = (argv: string[], stdin?: string) => guarda.avaliarArgv(a, argv, stdin)?.regra ?? null;
+  const casos: Array<[string[], string | null, string?]> = [
+    [['yarn', 'ork', 'gate', 'answer', 'ork-a', 'p1'], 'gate-answer'],
+    [['yarn', 'run', 'ork', 'gate', 'answer'], 'gate-answer'],
+    [['pnpm', 'ork', 'gate', 'answer'], 'gate-answer'],
+    [['bun', 'ork', 'gate', 'answer'], 'gate-answer'],
+    [['yarn', '--cwd', 'x', 'ork', 'master', 'ork-a', '--score', '3'], 'master-nota'],
+    [['yarn', 'gh', 'pr', 'merge'], 'gh'],
+    [['npm', '--prefix', 'core', 'run', 'build'], null],
+    [['yarn', 'install'], null],
+    [['printenv', 'ORK_HITL_TOKEN'], 'hitl-env'],
+    [['sh', '-c', 'echo $ORK_HITL_TOKEN'], 'hitl-env'],
+    [['bash'], 'hitl-env', 'echo $ORK_HITL_X'],
+    [['printenv'], 'hitl-env'],
+    [['env'], 'hitl-env'],
+    [['env', '-i'], 'hitl-env'],
+    [['sh', '-c', 'export -p'], 'hitl-env'],
+    [['bash', '-c', 'declare -x'], 'hitl-env'],
+    [['cat', '/proc/self/environ'], 'hitl-env'],
+    [['printenv', 'HOME'], null],
+    [['env', 'A=1', 'node', 'x.js'], null],
+    [['cat', '/srv/.HERMES/.Env'], 'hermes-env'],
+  ];
+  for (const [argv, esperado, stdin] of casos) assert.equal(regra(argv, stdin), esperado, JSON.stringify(argv));
+  assert.equal(guarda.avaliarCitacao(a, '/srv/x/.hermes/.env')?.regra, 'hermes-env');
+  assert.equal(guarda.avaliarCitacao(a, 'ORK_HITL_TOKEN')?.regra, 'hitl-env');
+  assert.equal(guarda.avaliarCitacao(a, 'gh pr merge 1'), null);
+});
+
 test('guarda: separar argumentos como o parseArgs do CLI e cortar comandos de shell', () => {
   const guarda = carregar('hooks/guarda.ts');
   const s = guarda.separarArgs(['--projeto', 'x', 'gate', '--y=1', 'answer', '--flag']);
