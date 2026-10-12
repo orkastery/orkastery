@@ -9,13 +9,13 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 import type { RadarMapa, RadarThread } from '../types'
 import {
-  AMBIENTE_DO_GIT, ambienteDoMerge, argvDeApagar, argvDoLsRemoteLocal, argvDoLsRemoteRemoto, argvDoMergeTree, argvDoTemporario,
-  baseDoMapa, celulaDoPar, chaveDoPar, colisoesDoMapa, gitdirDoArquivo, guardarNoCache, juntar, leasesDoRetrato, lerLsRemote,
-  lerMergeTree, objetosDoComum, ORCAMENTO_DO_MERGE_MS, paresComColisaoNova, paresDaRodada, PERIODO_DA_RODADA_MS, PRAZO_DO_MERGE_MS,
-  PRAZO_DO_REMOTO_MS, PRAZO_LOCAL_MS, REF_DA_BASE, REF_REMOTA, refDaThread, refDoStatus, resumoDoMapa, rotuloDe, temporarioValido,
-  threadsDaLista,
+  AMBIENTE_DO_GIT, ambienteDoMerge, anterioresDoMapa, argvDeApagar, argvDoLsRemoteLocal, argvDoLsRemoteRemoto, argvDoMergeTree,
+  argvDoTemporario, baseDoMapa, branchCanonica, celulaDoPar, chaveDoPar, colisoesDoMapa, contar, gitdirDoArquivo, guardarNoCache, juntar,
+  LEITURAS_EM_PARALELO, lerLsRemote, lerMergeTree, objetosDoComum, ORCAMENTO_DO_MERGE_MS, paginaDosLeases, paresComColisaoNova,
+  paresDaRodada, PERIODO_DA_RODADA_MS, PRAZO_DO_MERGE_MS, PRAZO_DO_REMOTO_MS, PRAZO_LOCAL_MS, REF_DA_BASE, REF_REMOTA, refDoStatus,
+  resumoDoMapa, rotuloDe, temporarioValido, TETO_DE_PAGINAS_DE_LEASES, threadsDaLista,
 } from './colisao'
-import type { LeaseDePath, Par, Resultado } from './colisao'
+import type { LeaseDePath, Par, Resultado, ThreadDaLista } from './colisao'
 import { desenharPainel, linhasDoPainel, mostradosDoMapa, mostradosVisiveis, novasDepoisDaRodada, textoDaFaixa } from './mapa'
 import type { ElementosDoPainel, RadarMostrado } from './mapa'
 
@@ -40,7 +40,7 @@ const ESPERA_DA_PRIMEIRA_MS = 1000
 const PERIODO_DO_REGISTRO_MS = 60000
 
 // O que o módulo guarda entre ganchos e não desenha. Uma recarga do módulo zera tudo, e o `session.start`
-// dispara de novo nela; o mapa em `$.state` fica.
+// dispara de novo nela; o mapa, as colisões novas e a linha da faixa (na ponte) ficam em `$.state`.
 let ativa = false
 let desistiu = false
 let ciclo: { cancel: () => void } | undefined
@@ -49,18 +49,21 @@ let rodando: Promise<void> | undefined
 let pendente = false
 /** O resultado de cada par de SHAs já calculado nesta carga (D12): par que não andou não roda de novo. */
 const cache = new Map<string, Resultado>()
-/** A branch que o `thread.status` deu à thread cuja `ork/<slug>` não existe, lida uma vez por carga. */
+/** A branch de cada thread pelo `base.branch` do `thread.status` (null: vale a `ork/<slug>`), lida uma vez por carga. */
 const branchDoStatus = new Map<string, string | null>()
 /** O diretório de objetos do repositório, achado uma vez por carga. */
 let objetos: string | undefined
-/** As colisões (par e arquivo) da rodada anterior desta carga; null antes da primeira (D6). */
+/** As colisões (par e arquivo) da rodada anterior; null até a primeira rodada desta carga ler o mapa guardado (D6). */
 let anteriores: Set<string> | null = null
-/** A última linha publicada na faixa; undefined enquanto nada foi publicado. */
-let ultimaFaixa: string | undefined
+/**
+ * A última linha publicada na faixa. `null` é "não sei": uma carga nova não sabe o que a anterior deixou na faixa
+ * da ponte, então a primeira publicação sempre acontece, inclusive a que tira a linha.
+ */
+let ultimaFaixa: string | undefined | null = null
 /** O que o desenho pôs na janela de rolagem e ainda não foi ao registro da ponte. */
 const vistosNoDesenho = new Map<string, RadarMostrado>()
-/** O que já foi ao registro nesta carga, por chave e texto; sai quando o conflito some do mapa. */
-const jaMostrado = new Set<string>()
+/** O que já foi ao registro nesta carga, por chave e texto, com a chave do par; sai quando o conflito some do mapa. */
+const jaMostrado = new Map<string, string>()
 
 function mensagem(erro: unknown): string {
   return (erro instanceof Error ? erro.message : String(erro)).replace(/\s+/g, ' ').trim().slice(0, 200)
@@ -90,7 +93,7 @@ async function papelDaSessao($: EngineInterface): Promise<string | null> {
   }
 }
 
-/** Liga o Radar na sessão do dono: o `/radar`, a rodada de 10 min e a primeira rodada. */
+/** Liga o Radar na sessão do dono: o `/radar`, a rodada de 10 min, o registro do mostrado e a primeira rodada. */
 async function ativar($: EngineInterface): Promise<void> {
   if (ativa) return
   ativa = true
@@ -99,10 +102,10 @@ async function ativar($: EngineInterface): Promise<void> {
     immediate: true,
   })
   ciclo?.cancel()
-  ciclo = $.clock.every(PERIODO_DA_RODADA_MS, () => { void rodar($) })
+  ciclo = $.clock.every(PERIODO_DA_RODADA_MS, () => { void pedirRodada($) })
   registro?.cancel()
   registro = $.clock.every(PERIODO_DO_REGISTRO_MS, () => { void registrarMostrados($) })
-  $.clock.after(ESPERA_DA_PRIMEIRA_MS, () => { void rodar($) })
+  $.clock.after(ESPERA_DA_PRIMEIRA_MS, () => { void pedirRodada($) })
 }
 
 /** Confere o papel: liga no dono, desiste na fase ou sem a ponte, e tenta de novo enquanto dormente. */
@@ -119,14 +122,18 @@ async function conferirPapel($: EngineInterface, tentativa: number): Promise<voi
   $.clock.after(espera, () => { void conferirPapel($, tentativa + 1) })
 }
 
-/** Uma rodada por vez; pedido que chega no meio roda logo depois, e quem pediu espera as duas. */
-async function rodar($: EngineInterface): Promise<void> {
-  if (!ativa) return
+/**
+ * Uma rodada por vez. Com uma rodada em andamento, o pedido só marca que outra deve rodar logo depois e volta sem
+ * nada para esperar: quem pediu (o `/radar`, o botão, o relógio) nunca espera a rodada de outro despacho, cuja
+ * espera contaria no orçamento do gancho do host. Devolve a rodada só a quem a começou.
+ */
+function pedirRodada($: EngineInterface): Promise<void> | undefined {
+  if (!ativa) return undefined
   if (rodando) {
     pendente = true
-    return rodando
+    return undefined
   }
-  rodando = (async () => {
+  const esta = (async () => {
     try {
       do {
         pendente = false
@@ -136,7 +143,8 @@ async function rodar($: EngineInterface): Promise<void> {
       rodando = undefined
     }
   })()
-  return rodando
+  rodando = esta
+  return esta
 }
 
 /** A rodada parou antes do mapa: o mapa anterior fica, com o motivo. */
@@ -161,6 +169,44 @@ async function lerRemoto($: EngineInterface, raiz: string): Promise<{ sha: strin
   } catch (erro) {
     return { sha: null, erro: mensagem(erro) }
   }
+}
+
+/**
+ * A branch canônica de cada thread, como o núcleo a decide (`branchDaWorktree`): o `base.branch` do `thread.status`
+ * quando começa com `ork/`, senão `ork/<slug>`. O status de cada thread é lido uma vez por carga, algumas por vez;
+ * leitura que falha usa a `ork/<slug>` nesta rodada, vira lacuna e é tentada de novo na seguinte.
+ */
+async function branchesDasThreads($: EngineInterface, threads: readonly ThreadDaLista[], lacunas: string[]): Promise<Map<string, string>> {
+  const faltam = threads.filter(t => !branchDoStatus.has(t.id))
+  for (let i = 0; i < faltam.length; i += LEITURAS_EM_PARALELO) {
+    await Promise.all(faltam.slice(i, i + LEITURAS_EM_PARALELO).map(async t => {
+      try {
+        branchDoStatus.set(t.id, refDoStatus(await comPrazo($, $.ork.ler({ consulta: 'thread.status', thread: t.id }))))
+      } catch (erro) {
+        lacunas.push(`status de ${t.id} não lido; vale a ork/<slug> nesta rodada (${mensagem(erro)})`)
+      }
+    }))
+  }
+  return new Map(threads.map(t => [t.id, branchCanonica(branchDoStatus.get(t.id) ?? null, t.slug)]))
+}
+
+/** Os leases `path:` ativos de todas as páginas da seção `leases` do retrato, até o teto de páginas (D1 e D10). */
+async function lerLeases($: EngineInterface, lacunas: string[]): Promise<LeaseDePath[]> {
+  const leases: LeaseDePath[] = []
+  let offset = 0
+  try {
+    for (let pagina = 0; pagina < TETO_DE_PAGINAS_DE_LEASES; pagina++) {
+      const p = paginaDosLeases((await comPrazo($, $.ork.retrato({ secao: 'leases', offset }))).retrato)
+      leases.push(...p.leases)
+      if (p.lacuna) lacunas.push(p.lacuna)
+      if (p.proximo === null || p.proximo <= offset) return leases
+      offset = p.proximo
+    }
+    lacunas.push(`leases além de ${TETO_DE_PAGINAS_DE_LEASES} páginas não lidos`)
+  } catch (erro) {
+    lacunas.push(`leases não lidos (${mensagem(erro)})`)
+  }
+  return leases
 }
 
 /** Os objetos do repositório pelo `.git` da raiz: pasta, ou arquivo de worktree vinculada com `commondir` (D2). */
@@ -249,41 +295,13 @@ async function rodadaUmaVez($: EngineInterface): Promise<void> {
   } catch (erro) {
     return gravarErro($, `a lista das threads abertas falhou (${mensagem(erro)})`)
   }
-  let leases: LeaseDePath[] = []
-  try {
-    leases = leasesDoRetrato((await comPrazo($, $.ork.retrato({ secao: 'leases' }))).retrato)
-  } catch (erro) {
-    lacunas.push(`leases não lidos (${mensagem(erro)})`)
-  }
-  const refs = new Map(escolha.threads.map(t => [t.id, branchDoStatus.get(t.id) ?? refDaThread(t.slug)]))
+  const leases = await lerLeases($, lacunas)
+  const refs = await branchesDasThreads($, escolha.threads, lacunas)
   let shas: Record<string, string>
   try {
     shas = await lerShas($, raiz, [...new Set(refs.values())])
   } catch (erro) {
     return gravarErro($, `o ls-remote do repositório falhou (${mensagem(erro)})`)
-  }
-  // A thread cuja branch não tem o nome do slug: o `base.branch` dela pela ponte, uma vez por carga.
-  const outras: string[] = []
-  for (const t of escolha.threads.filter(x => shas[refs.get(x.id) as string] === undefined && !branchDoStatus.has(x.id))) {
-    let ref: string | null
-    try {
-      ref = refDoStatus(await comPrazo($, $.ork.ler({ consulta: 'thread.status', thread: t.id })))
-    } catch (erro) {
-      lacunas.push(`branch de ${t.id} não lida (${mensagem(erro)})`)
-      continue
-    }
-    branchDoStatus.set(t.id, ref)
-    if (ref !== null && ref !== refs.get(t.id)) {
-      refs.set(t.id, ref)
-      outras.push(ref)
-    }
-  }
-  if (outras.length > 0) {
-    try {
-      Object.assign(shas, await lerShas($, raiz, outras))
-    } catch (erro) {
-      lacunas.push(`ls-remote das branches pelo status falhou (${mensagem(erro)})`)
-    }
   }
   const threads: RadarThread[] = escolha.threads.map((t, i) => {
     const branch = refs.get(t.id) as string
@@ -312,8 +330,10 @@ async function rodadaUmaVez($: EngineInterface): Promise<void> {
   const novo: RadarMapa = {
     threads, base: baseDoMapa(shaDaBase, remoto), celulas, omitidas: escolha.omitidas, lacunas, lidoEm: await $.clock.now(), erro: null,
   }
+  // D6: nova é a colisão que não estava na rodada anterior desta sessão. Depois de uma recarga do módulo, a rodada
+  // anterior é a do mapa guardado em `$.state`, lido antes de o mapa novo ir por cima dele.
+  if (anteriores === null) anteriores = anterioresDoMapa(await read($, mapa))
   await update($, mapa, () => novo)
-  // D6: nova é a colisão que não estava na rodada anterior; a que o dono ainda não viu continua nova.
   const novosPares = paresComColisaoNova(anteriores, novo)
   anteriores = new Set(colisoesDoMapa(novo))
   await update($, novas, antigas => novasDepoisDaRodada(antigas, novosPares, novo))
@@ -362,7 +382,7 @@ async function registrar($: EngineInterface, canal: 'painel' | 'transcript', vis
     if (jaMostrado.has(chave)) continue
     try {
       await $.ork.mostrado({ mod: MOD, canal, chave: v.chave, thread: v.thread, texto: v.texto })
-      jaMostrado.add(chave)
+      jaMostrado.set(chave, v.chave)
     } catch {
       falharam.push(v)
     }
@@ -375,9 +395,10 @@ async function registrar($: EngineInterface, canal: 'painel' | 'transcript', vis
  * do desenho: o Telegram não repete o que o dono já viu no terminal, e nada que não estava na tela entra.
  */
 async function registrarMostrados($: EngineInterface): Promise<void> {
-  const existentes = new Set(mostradosDoMapa(await read($, mapa)).map(v => `${v.chave}|${v.texto}`))
-  for (const chave of [...jaMostrado]) if (!existentes.has(chave)) jaMostrado.delete(chave)
-  for (const chave of [...vistosNoDesenho.keys()]) if (!existentes.has(chave)) vistosNoDesenho.delete(chave)
+  // A poda é pela chave do par: o texto anotado pode ser o pedaço que coube na largura do painel.
+  const emConflito = new Set(mostradosDoMapa(await read($, mapa)).map(v => v.chave))
+  for (const [chave, par] of [...jaMostrado]) if (!emConflito.has(par)) jaMostrado.delete(chave)
+  for (const [chave, v] of [...vistosNoDesenho]) if (!emConflito.has(v.chave)) vistosNoDesenho.delete(chave)
   if (vistosNoDesenho.size === 0) return
   // Com o painel escondido, o que foi anotado é descartado: o próximo desenho à vista anota de novo.
   if (!await painelAVista($)) { vistosNoDesenho.clear(); return }
@@ -392,11 +413,6 @@ function anotarVistos(vistos: readonly RadarMostrado[]): void {
   for (const v of vistos) vistosNoDesenho.set(`${v.chave}|${v.texto}`, v)
 }
 
-/** O botão Atualizar do painel: uma rodada agora, pelo laço único. */
-async function atualizarPeloBotao($: EngineInterface): Promise<void> {
-  await rodar($)
-}
-
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     if (e.isInteractive) await conferirPapel($, 0)
@@ -404,29 +420,34 @@ export const register: Register = on => {
   })
 
   // `/radar` abre o painel, roda uma rodada agora e responde o resumo, que o dono lê ali mesmo: os conflitos do
-  // resumo entram no registro da ponte e deixam de ser novos. O painel não abre sozinho (D6). O comando só existe
-  // com o Radar ligado; a conferência do papel aqui só cobre o caso raro de o comando ter sobrado de outra carga.
+  // resumo entram no registro da ponte e deixam de ser novos. Com uma rodada de outro despacho em andamento, não a
+  // espera: responde o mapa que há e a rodada pedida roda logo depois. O painel não abre sozinho (D6). O comando só
+  // existe com o Radar ligado; a conferência do papel aqui só cobre o caso raro de o comando ter sobrado de outra carga.
   on('command.run', { command: 'radar' }, async $ => {
     if (!ativa && !desistiu) await conferirPapel($, ESPERAS_DO_PAPEL_MS.length)
     if (!ativa) return { text: 'O Radar de Colisão só roda na sessão do dono de um projeto do Orkastery.' }
     const aberto = await $.ui.open({ id: PAINEL, title: TITULO }).catch(() => null)
-    await rodar($)
+    const propria = pedirRodada($)
+    if (propria) await propria
     const m = await read($, mapa)
     const vistos = mostradosDoMapa(m)
     const falharam = await registrar($, 'transcript', vistos)
-    if (falharam.length > 0) await anotarLacuna($, `${falharam.length} conflitos não foram ao registro do mostrado da ponte`)
+    if (falharam.length > 0) {
+      await anotarLacuna($, `${contar(falharam.length, 'conflito não foi', 'conflitos não foram')} ao registro do mostrado da ponte`)
+    }
     await marcarVistos($, vistos)
+    const andamento = propria ? '' : '\nUma rodada já estava em andamento: o painel mostra a conta nova quando ela terminar.'
     const espera = aberto && !aberto.isPlaced ? `\nO painel espera lugar: ${aberto.reason}` : ''
-    return { text: resumoDoMapa(m) + espera }
+    return { text: resumoDoMapa(m) + andamento + espera }
   })
 
   // O painel: a matriz (Raster no terminal, tabela fora dele), a lista de conflitos e o botão Atualizar. O desenho
-  // nunca escreve: só anota o que pôs na janela de rolagem, para o registro do mostrado.
+  // nunca escreve: só anota o que pôs na janela de rolagem, cortado na largura do painel, para o registro do mostrado.
   on('ui.render', { component: 'Pane', requestId: PAINEL }, async ($, e) => {
     const el = $.ui.resolve(e) as unknown as ElementosDoPainel
     const m = await read($, mapa)
     const linhas = linhasDoPainel(m, await read($, novas), await $.clock.now())
-    anotarVistos(mostradosVisiveis(linhas, e.props.scroll))
-    return desenharPainel(el, m, linhas, { terminal: e.surface === 'terminal', atualizar: () => atualizarPeloBotao($) })
+    anotarVistos(mostradosVisiveis(linhas, e.props.scroll, e.props.bodyColumns))
+    return desenharPainel(el, m, linhas, { terminal: e.surface === 'terminal', atualizar: () => { void pedirRodada($) } })
   })
 }

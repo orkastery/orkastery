@@ -121,6 +121,9 @@ test('colisao: branch pelo slug ou pelo base.branch, argv do ls-remote e leitura
   assert.equal(c.refDoStatus({ base: { branch: 'ork/ork-a-outra' } }), 'refs/heads/ork/ork-a-outra');
   for (const ruim of ['main', 'ork/../main', 'ork//x', 'ork/x/', 'ork/x.lock', 'ork/-x', '']) assert.equal(c.refDoStatus({ base: { branch: ruim } }), null, ruim);
   assert.equal(c.refDoStatus(null), null);
+  // A regra do núcleo (`branchDaWorktree`): o `base.branch` com `ork/` vence a `ork/<slug>`.
+  assert.equal(c.branchCanonica('refs/heads/ork/ork-a-outra', 'ork-a-full'), 'refs/heads/ork/ork-a-outra');
+  assert.equal(c.branchCanonica(null, 'ork-a-full'), 'refs/heads/ork/ork-a-full');
   assert.deepEqual(c.argvDoLsRemoteLocal(['refs/heads/ork/a']), ['git', 'ls-remote', '.', 'refs/remotes/origin/main', 'refs/heads/ork/a']);
   assert.deepEqual(c.argvDoLsRemoteRemoto(), ['git', 'ls-remote', 'origin', 'refs/heads/main']);
   assert.deepEqual({ ...c.AMBIENTE_DO_GIT }, { GIT_TERMINAL_PROMPT: '0' });
@@ -132,13 +135,13 @@ test('colisao (D5): o temporario so no /tmp com o nome do Radar e 8 caracteres, 
   const c = carregar('hooks/colisao.ts');
   assert.deepEqual(c.argvDoTemporario(), ['mktemp', '-d', '/tmp/ork-radar.XXXXXXXX']);
   assert.equal(c.temporarioValido('/tmp/ork-radar.Ab12Cd34\n'), '/tmp/ork-radar.Ab12Cd34');
-  for (const ruim of ['/tmp/ork-radar.Ab12Cd3', '/tmp/ork-radar.Ab12Cd345', '/tmp/ork-radar.Ab12Cd3/', '/tmp/../home/ork-radar.Ab12Cd34',
+  for (const ruim of ['/tmp/ork-radar.Ab12Cd3', '/tmp/ork-radar.Ab12Cd345', '/tmp/ork-radar.Ab12Cd3/', '/tmp/../srv/ork-radar.Ab12Cd34',
     'tmp/ork-radar.Ab12Cd34', '/var/tmp/ork-radar.Ab12Cd34', '/tmp/ork-radar.Ab-2Cd34', '/tmp/x/ork-radar.Ab12Cd34', '', 3]) {
     assert.equal(c.temporarioValido(ruim), null, String(ruim));
   }
   assert.deepEqual(c.argvDeApagar('/tmp/ork-radar.Ab12Cd34'), ['rm', '-rf', '--', '/tmp/ork-radar.Ab12Cd34']);
-  assert.throws(() => c.argvDeApagar('/home/alguem'), /proprio temporario/);
-  assert.throws(() => c.argvDeApagar('/tmp/ork-radar.Ab12Cd34\n'), /proprio temporario/);
+  assert.throws(() => c.argvDeApagar('/srv/projeto'), /próprio temporário/);
+  assert.throws(() => c.argvDeApagar('/tmp/ork-radar.Ab12Cd34\n'), /próprio temporário/);
 });
 
 test('colisao: os objetos do repositorio pelo .git em pasta ou pelo gitdir e commondir da worktree vinculada', () => {
@@ -157,9 +160,14 @@ test('colisao: merge-tree so com SHA, e a leitura separa limpo, conflito e erro 
   const c = carregar('hooks/colisao.ts');
   assert.deepEqual(c.argvDoMergeTree(sha('a'), sha('b')), ['git', 'merge-tree', '--write-tree', '--name-only', '-z', '--no-messages', sha('a'), sha('b')]);
   assert.deepEqual(c.argvDoMergeTree('a'.repeat(64), sha('b')).slice(-2), ['a'.repeat(64), sha('b')]);
-  for (const ruim of ['main', 'HEAD', sha('g'), 'a'.repeat(39), '--output=x']) assert.throws(() => c.argvDoMergeTree(ruim, sha('b')), /so recebe SHA/, ruim);
-  assert.deepEqual(c.ambienteDoMerge('/tmp/ork-radar.Ab12Cd34', '/p/.git/objects'),
-    { GIT_TERMINAL_PROMPT: '0', GIT_OBJECT_DIRECTORY: '/tmp/ork-radar.Ab12Cd34', GIT_ALTERNATE_OBJECT_DIRECTORIES: '/p/.git/objects' });
+  for (const ruim of ['main', 'HEAD', sha('g'), 'a'.repeat(39), '--output=x']) assert.throws(() => c.argvDoMergeTree(ruim, sha('b')), /só recebe SHA/, ruim);
+  assert.deepEqual(c.ambienteDoMerge('/tmp/ork-radar.Ab12Cd34', '/p/.git/objects'), { GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1',
+    GIT_OBJECT_DIRECTORY: '/tmp/ork-radar.Ab12Cd34', GIT_ALTERNATE_OBJECT_DIRECTORIES: '/p/.git/objects' });
+  // A lista do alternativo é separada por `:`: caminho com `:`, aspas, barra invertida ou quebra vai entre aspas no estilo C.
+  assert.equal(c.caminhoDoAlternativo('/p/.git/objects'), '/p/.git/objects');
+  assert.equal(c.caminhoDoAlternativo('/x/dois:pontos/.git/objects'), '"/x/dois:pontos/.git/objects"');
+  assert.equal(c.caminhoDoAlternativo('/x/a"b\\c/objects'), '"/x/a\\"b\\\\c/objects"');
+  assert.equal(c.caminhoDoAlternativo('/x/a\nb'), '"/x/a\\nb"');
   const arvore = sha('e');
   assert.deepEqual(c.lerMergeTree({ exitCode: 0, stdout: arvore + NUL, stderr: '' }), { estado: 'limpa' });
   assert.deepEqual(c.lerMergeTree({ exitCode: 1, stdout: [arvore, 'b.ts', 'a.ts', 'b.ts', ''].join(NUL), stderr: '' }), { estado: 'conflito', arquivos: ['a.ts', 'b.ts'] });
@@ -199,7 +207,17 @@ test('colisao (D10): so os leases path ativos, e o glob casa o arquivo com a mes
     item('exec:ork-c', 'ork-c'), item('path:', 'ork-d'), { id: 'path:x', status: 'active', refs: [] }, null, item('path:CHANGELOG.md', 'ork-e')] } } };
   const leases = c.leasesDoRetrato(retrato);
   assert.deepEqual(leases, [{ glob: 'core/src/**', thread: 'ork-a' }, { glob: 'CHANGELOG.md', thread: 'ork-e' }]);
-  assert.throws(() => c.leasesDoRetrato({ sections: {} }), /sem a secao leases/);
+  assert.throws(() => c.leasesDoRetrato({ sections: {} }), /sem a seção leases/);
+  // Paginação da seção (até 50 itens por página) e a seção indisponível, que vira lacuna sem lease.
+  const pagina = (extra: Record<string, unknown>) => ({ sections: { leases: { state: 'available', items: [item('path:a/**', 'ork-a')], gaps: [], ...extra } } });
+  assert.deepEqual(c.paginaDosLeases(pagina({ coverage: { nextOffset: 50 } })), { leases: [{ glob: 'a/**', thread: 'ork-a' }], proximo: 50, lacuna: null });
+  assert.deepEqual(c.paginaDosLeases(pagina({ coverage: { nextOffset: null } })).proximo, null);
+  assert.deepEqual(c.paginaDosLeases(pagina({ coverage: { nextOffset: -1 } })).proximo, null);
+  assert.equal(c.paginaDosLeases(pagina({ gaps: ['leases.parcial'] })).lacuna, 'a seção leases veio com lacunas (leases.parcial)');
+  assert.deepEqual(c.paginaDosLeases(pagina({ state: 'unavailable', items: [], gaps: ['leases.unavailable'] })),
+    { leases: [], proximo: null, lacuna: 'a seção leases veio indisponível (leases.unavailable)' });
+  assert.throws(() => c.paginaDosLeases({ sections: {} }), /sem a seção leases/);
+  assert.deepEqual([c.LEITURAS_EM_PARALELO, c.TETO_DE_PAGINAS_DE_LEASES], [4, 10]);
   assert.deepEqual(c.leasesDoArquivo('core/src/a/b.ts', leases), [{ lease: 'path:core/src/**', thread: 'ork-a' }]);
   assert.deepEqual(c.leasesDoArquivo('CHANGELOG.md', leases), [{ lease: 'path:CHANGELOG.md', thread: 'ork-e' }]);
   assert.deepEqual(c.leasesDoArquivo('core/test/x.ts', leases), []);
@@ -244,6 +262,18 @@ test('colisao: a celula do par, a base, as colisoes novas da sessao, o comando q
     'Lacuna: leases não lidos (x).',
   ]);
   assert.equal(c.resumoDoMapa({ ...mapa, lidoEm: null, erro: 'a lista falhou' }), 'Radar de Colisão: ainda sem rodada (a lista falhou).');
+  // "Nenhuma colisão" sozinho só quando todo par foi calculado.
+  const pendente = c.celulaDoPar({ a: 'ork-b', b: 'ork-x' }, null, []);
+  const comErro = c.celulaDoPar({ a: 'ork-b', b: 'ork-y' }, { estado: 'erro', erro: 'x' }, []);
+  assert.equal(c.textoSemColisao({ celulas: [] }), 'Nenhum par para calcular');
+  assert.equal(c.textoSemColisao({ celulas: [limpa, limpa] }), 'Nenhuma colisão: 2 pares limpos');
+  assert.equal(c.textoSemColisao({ celulas: [limpa] }), 'Nenhuma colisão: 1 par limpo');
+  assert.equal(c.textoSemColisao({ celulas: [limpa, pendente, comErro] }), 'Nenhuma colisão entre os pares calculados (1 de 3)');
+  assert.equal(c.textoSemColisao({ celulas: [pendente, comErro] }), 'Nenhum par calculado nesta rodada');
+  assert.ok(c.resumoDoMapa({ ...mapa, celulas: [pendente, comErro] }).includes('Nenhum par calculado nesta rodada.'));
+  // D6 depois de uma recarga: a rodada anterior é a do mapa guardado.
+  assert.equal(c.anterioresDoMapa({ ...mapa, lidoEm: null }), null);
+  assert.deepEqual([...c.anterioresDoMapa(mapa)], c.colisoesDoMapa(mapa));
 });
 
 type Chamada = { cadeia: string[]; no: ts.CallExpression; linha: number };
@@ -345,8 +375,9 @@ test('D3: o argv e o ambiente do Radar num repositorio de verdade acham o confli
   const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-radar-git-'));
   try {
     const rodar = rodador(raiz);
-    const repo = path.join(raiz, 'repo');
-    fs.mkdirSync(repo);
+    // Um `:` no caminho do repositório: o alternativo precisa ir entre aspas (`caminhoDoAlternativo`).
+    const repo = path.join(raiz, 'dois:pontos', 'repo');
+    fs.mkdirSync(repo, { recursive: true });
     const git = (...args: string[]) => {
       const r = rodar(repo, ['git', ...args]);
       assert.equal(r.exitCode, 0, `git ${args.join(' ')}: ${r.stderr}`);
@@ -398,6 +429,8 @@ test('D3: o argv e o ambiente do Radar num repositorio de verdade acham o confli
     const antes = estado();
     const temporario = fs.mkdtempSync(path.join(raiz, 'objetos-'));
     const ambiente = c.ambienteDoMerge(temporario, objetos);
+    assert.ok(ambiente.GIT_ALTERNATE_OBJECT_DIRECTORIES.startsWith('"'), 'o alternativo com dois-pontos vai entre aspas');
+    assert.equal(ambiente.GIT_NO_LAZY_FETCH, '1');
     const merge = (x: string, y: string) => c.lerMergeTree(rodar(repo, c.argvDoMergeTree(x, y), ambiente));
     assert.deepEqual(merge(shaA, shaBase), { estado: 'limpa' });
     assert.deepEqual(merge(shaB, shaBase), { estado: 'limpa' });
@@ -491,11 +524,11 @@ test('mapa: as linhas do painel, a janela do registro do mostrado e o texto de c
   const mapa = mapaDeTeste(c);
   const linhas = m.linhasDoPainel(mapa, ['ork-a|ork-b'], 61000);
   assert.deepEqual(linhas.map((l: any) => (l.tipo === 'matriz' ? `matriz:${l.altura}` : `${l.tipo}:${l.texto}`)), [
-    'titulo:Radar de Colisão · 4 threads · 3 pares em conflito (1 nova) · lido há 1 min',
+    'titulo:Radar de Colisão · 4 threads · 3 pares em conflito (1 novo) · lido há 1 min',
     'base:base: origin/main 0000000, igual ao remoto',
     'botao:Atualizar',
     'matriz:5',
-    'legenda:m = origin/main · número = arquivos em conflito · . limpo · ! erro do git · ? não calculado',
+    'legenda:m = origin/main · número = arquivos em conflito (+ = 10 ou mais) · . limpo · ! erro do git · ? não calculado · - a própria thread · vazio = sem branch local',
     'conflito:ork-a × origin/main: CHANGELOG.md (lease path:CHANGELOG.md de ork-c)',
     'resolve:  resolve: ork worktree sync ork-a --dry-run',
     'conflito:nova: ork-a × ork-b: a, b, c, d, e e mais 5',
@@ -520,6 +553,13 @@ test('mapa: as linhas do painel, a janela do registro do mostrado e o texto de c
   assert.deepEqual(m.linhasDoPainel({ ...mapa, threads: [], celulas: [] }, [], 1000).map((l: any) => l.texto).slice(-1), ['nenhuma thread aberta para cruzar']);
   assert.ok(m.linhasDoPainel({ ...mapa, erro: 'x' }, [], 1000).some((l: any) => l.texto === 'a última rodada parou: x; o mapa é o da rodada anterior'));
   assert.deepEqual([m.idade(0), m.idade(59400), m.idade(61000), m.idade(3 * 3600000)], ['0 s', '59 s', '1 min', '3 h']);
+  // A linha cortada na largura do painel: o registro leva só o que coube (a reticência ocupa a última coluna).
+  const nova = linhas.find((l: any) => l.tipo === 'conflito' && l.nova);
+  assert.deepEqual(m.mostradoNaLargura(nova, 200), nova.mostrado);
+  assert.deepEqual(m.mostradoNaLargura(nova, undefined), nova.mostrado);
+  assert.equal(m.mostradoNaLargura(nova, 20).texto, 'ork-a × ork-b');
+  assert.equal(m.mostradoNaLargura(nova, 7), null);
+  assert.deepEqual(m.mostradosVisiveis(linhas, { offset: 11, bodyRows: 1 }, 20).map((v: any) => v.texto), ['ork-a × ork-b']);
 });
 
 test('mapa (D6): as colisoes novas depois da rodada e a linha da faixa, que sai sem nova', () => {
@@ -528,8 +568,9 @@ test('mapa (D6): as colisoes novas depois da rodada e a linha da faixa, que sai 
   const mapa = mapaDeTeste(c);
   assert.deepEqual(m.novasDepoisDaRodada([], ['ork-b|ork-c', '@main|ork-a'], mapa), ['@main|ork-a', 'ork-b|ork-c']);
   assert.deepEqual(m.novasDepoisDaRodada(['ork-a|ork-b', '@main|ork-sumiu'], [], mapa), ['ork-a|ork-b']);
-  assert.equal(m.textoDaFaixa(mapa, ['@main|ork-a', 'ork-b|ork-c']), 'radar: colisão nova entre ork-a e origin/main (1 arquivo) e mais 1; /radar abre o mapa');
-  assert.equal(m.textoDaFaixa(mapa, ['ork-b|ork-c']), 'radar: colisão nova entre ork-b e ork-c (2 arquivos); /radar abre o mapa');
+  // A ponte já escreve o nome do mod antes da linha (`radar: `): o texto não o repete.
+  assert.equal(m.textoDaFaixa(mapa, ['@main|ork-a', 'ork-b|ork-c']), 'colisão nova entre ork-a e origin/main (1 arquivo) e mais 1; /radar abre o mapa');
+  assert.equal(m.textoDaFaixa(mapa, ['ork-b|ork-c']), 'colisão nova entre ork-b e ork-c (2 arquivos); /radar abre o mapa');
   assert.equal(m.textoDaFaixa(mapa, []), undefined);
   assert.equal(m.textoDaFaixa(mapa, ['@main|ork-b']), undefined);
 });
@@ -557,4 +598,31 @@ test('mapa: o desenho decide pela superficie: Raster no terminal, tabela de Box 
   assert.equal(celulas.length, 9);
   assert.deepEqual(celulas.filter((t) => textoDoNo(t) === ' 1 ').map((t) => t.props.backgroundColor), ['#f9a825']);
   assert.deepEqual(celulas.filter((t) => textoDoNo(t) === ' + ').map((t) => t.props.backgroundColor), ['#c62828', '#c62828']);
+});
+
+test('D5: o mktemp e o rm de verdade, pelo argv do Radar: o temporario nasce com a forma esperada e o rm apaga so ele', () => {
+  const c = carregar('hooks/colisao.ts');
+  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-radar-tmp-'));
+  try {
+    const rodar = rodador(raiz);
+    const criado = rodar(raiz, c.argvDoTemporario());
+    assert.equal(criado.exitCode, 0, criado.stderr);
+    const temporario = c.temporarioValido(criado.stdout);
+    assert.ok(temporario && fs.statSync(temporario).isDirectory(), criado.stdout);
+    fs.mkdirSync(path.join(temporario, 'objetos', 'ab'), { recursive: true });
+    fs.writeFileSync(path.join(temporario, 'objetos', 'ab', 'cdef'), 'objeto');
+    const vizinho = `${temporario}-vizinho`;
+    fs.mkdirSync(vizinho);
+    try {
+      const apagado = rodar(raiz, c.argvDeApagar(temporario));
+      assert.equal(apagado.exitCode, 0, apagado.stderr);
+      assert.equal(fs.existsSync(temporario), false);
+      assert.equal(fs.existsSync(vizinho), true);
+      assert.throws(() => c.argvDeApagar(vizinho), /próprio temporário/);
+    } finally {
+      fs.rmSync(vizinho, { recursive: true, force: true });
+    }
+  } finally {
+    fs.rmSync(raiz, { recursive: true, force: true });
+  }
 });

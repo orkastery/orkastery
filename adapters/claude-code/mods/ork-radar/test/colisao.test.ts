@@ -1,5 +1,5 @@
 import { test, expect, mock } from 'claude-code/testing'
-import { argvs, BASE, chave, conflito, EPOCA, iniciar, lease, montar, NUL, PONTE_FALSA, radar, sha, TEMPORARIO } from './apoio'
+import { argvs, BASE, chave, conflito, EPOCA, iniciar, lease, montar, montarPainel, PONTE_FALSA, radar, sha, TEMPORARIO, textosDe } from './apoio'
 
 // O cálculo do Radar na sessão do dono (T3.1): as threads e os leases pela ponte falsa, os SHAs e os merges pelo
 // fundo `process.run`, com saída fixa de `merge-tree` com conflito num arquivo, como a ficha M10 pede. O kit não
@@ -21,8 +21,11 @@ const REFS = {
 }
 const MERGES = { [chave(A, M)]: conflito('CHANGELOG.md'), [chave(A, B)]: conflito('core/src/x.ts') }
 const LEASES = [lease('path:CHANGELOG.md', 'ork-c'), lease('path:docs/**', 'ork-b', 'expired'), lease('exec:ork-a', 'ork-a')]
-const AMBIENTE_DO_MERGE = { GIT_TERMINAL_PROMPT: '0', GIT_OBJECT_DIRECTORY: TEMPORARIO, GIT_ALTERNATE_OBJECT_DIRECTORIES: '/p/.git/objects' }
+const AMBIENTE_DO_MERGE = {
+  GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1', GIT_OBJECT_DIRECTORY: TEMPORARIO, GIT_ALTERNATE_OBJECT_DIRECTORIES: '/p/.git/objects',
+}
 const mergeTree = (a: string, b: string) => `git merge-tree --write-tree --name-only -z --no-messages ${a} ${b}`
+const merges = mundo => argvs(mundo).filter(l => l.startsWith('git merge-tree'))
 
 function opcoes(extra = {}) {
   return { papel: 'dono', abertas: ABERTAS, refs: REFS, merges: MERGES, leases: LEASES, ...extra }
@@ -34,7 +37,8 @@ test('na sessao do dono, o /radar calcula cada thread contra a origin/main e cad
   await iniciar($)
   expect(mundo.comandos).toEqual(['radar'])
   const r = await radar($)
-  expect(mundo.ler).toEqual([{ consulta: 'thread.list' }])
+  expect(mundo.ler[0]).toEqual({ consulta: 'thread.list' })
+  expect(mundo.ler.slice(1).map(l => `${l.consulta} ${l.thread}`).sort()).toEqual(['thread.status ork-a', 'thread.status ork-b', 'thread.status ork-c'])
   expect(mundo.maestro).toEqual([{ section: 'leases', offset: 0 }])
   expect(argvs(mundo)).toEqual([
     `git ls-remote . ${BASE} refs/heads/ork/ork-a-full refs/heads/ork/ork-b-full refs/heads/ork/ork-c-full`,
@@ -56,21 +60,23 @@ test('na sessao do dono, o /radar calcula cada thread contra a origin/main e cad
   ])
 })
 
-test('o relogio roda a primeira rodada logo depois da ativacao e as seguintes a cada 10 min, sem recalcular par parado', { plugins: [PONTE_FALSA] }, async ($, on) => {
+test('o relogio, sem o /radar, roda a primeira rodada 1 s depois da ativacao e as seguintes a cada 10 min, sem recalcular par parado', { plugins: [PONTE_FALSA] }, async ($, on) => {
   const relogio = mock.clock(on, { now: EPOCA })
   const mundo = montar(on, opcoes())
   await iniciar($)
+  await relogio.advance(999)
   expect(mundo.processos).toEqual([])
-  await relogio.advance(1000)
-  await radar($)
-  const primeira = argvs(mundo).filter(l => l.startsWith('git merge-tree')).length
-  expect(primeira).toBe(6)
+  await relogio.advance(1)
+  expect(merges(mundo).length).toBe(6)
   mundo.processos.length = 0
-  await relogio.advance(600000)
-  await radar($)
-  // Nenhum SHA andou: as duas rodadas depois da primeira so leem os SHAs e o remoto, sem temporario nem merge.
-  expect(argvs(mundo).every(l => l.startsWith('git ls-remote'))).toBe(true)
-  expect(argvs(mundo).filter(l => l.startsWith('git ls-remote .')).length).toBeGreaterThanOrEqual(1)
+  await relogio.advance(599000 - 1)
+  expect(mundo.processos).toEqual([])
+  await relogio.advance(1)
+  // Nenhum SHA andou: a rodada do relógio só lê os SHAs e o remoto, sem temporário nem merge.
+  expect(argvs(mundo)).toEqual([
+    `git ls-remote . ${BASE} refs/heads/ork/ork-a-full refs/heads/ork/ork-b-full refs/heads/ork/ork-c-full`,
+    'git ls-remote origin refs/heads/main',
+  ])
 })
 
 test('so o par em que um lado andou roda merge-tree de novo; o resto sai do cache', { plugins: [PONTE_FALSA] }, async ($, on) => {
@@ -83,31 +89,57 @@ test('so o par em que um lado andou roda merge-tree de novo; o resto sai do cach
   mundo.merges[chave(B2, M)] = conflito('README.md', 'CHANGELOG.md')
   mundo.processos.length = 0
   const r = await radar($)
-  expect(argvs(mundo).filter(l => l.startsWith('git merge-tree'))).toEqual([mergeTree(B2, M), mergeTree(A, B2), mergeTree(B2, C)])
+  expect(merges(mundo)).toEqual([mergeTree(B2, M), mergeTree(A, B2), mergeTree(B2, C)])
   expect(r.text).toContain('- ork-b × origin/main: CHANGELOG.md (lease path:CHANGELOG.md de ork-c), README.md; resolve: ork worktree sync ork-b --dry-run')
-  // O par a × b nao tem mais conflito com a branch nova de b.
   expect(r.text).not.toContain('ork-a × ork-b')
 })
 
-test('branch fora do nome do slug sai do base.branch da thread; sem branch local, a thread fica sem merge-tree', { plugins: [PONTE_FALSA] }, async ($, on) => {
+test('a branch e a do base.branch do status quando comeca com ork/, como no nucleo, mesmo com a ork/<slug> existindo', { plugins: [PONTE_FALSA] }, async ($, on) => {
   mock.clock(on, { now: EPOCA })
   const D = sha('f')
+  const VELHA = sha('9')
   const abertas = [...ABERTAS, { id: 'ork-d', slug: 'ork-d-full', fase: 'GO', status: 'aberta' }, { id: 'ork-e', slug: 'ork-e-full', fase: 'PLAN', status: 'aberta' }]
   const mundo = montar(on, opcoes({
-    abertas, refs: { ...REFS, 'refs/heads/ork/ork-d-outra': D },
+    abertas, refs: { ...REFS, 'refs/heads/ork/ork-d-outra': D, 'refs/heads/ork/ork-d-full': VELHA },
     status: { 'ork-d': { id: 'ork-d', base: { branch: 'ork/ork-d-outra', commit: D } }, 'ork-e': { id: 'ork-e', base: { branch: 'main', commit: M } } },
   }))
   await iniciar($)
   const r = await radar($)
-  expect(mundo.ler).toEqual([{ consulta: 'thread.list' }, { consulta: 'thread.status', thread: 'ork-d' }, { consulta: 'thread.status', thread: 'ork-e' }])
-  expect(argvs(mundo)[1]).toBe(`git ls-remote . ${BASE} refs/heads/ork/ork-d-outra`)
-  const merges = argvs(mundo).filter(l => l.startsWith('git merge-tree'))
-  expect(merges).toContain(mergeTree(D, M))
-  expect(merges.length).toBe(4 + 6)
+  expect(argvs(mundo)[0]).toBe(`git ls-remote . ${BASE} refs/heads/ork/ork-a-full refs/heads/ork/ork-b-full refs/heads/ork/ork-d-outra refs/heads/ork/ork-e-full refs/heads/ork/ork-c-full`)
+  expect(merges(mundo)).toContain(mergeTree(D, M))
+  expect(merges(mundo).some(l => l.includes(VELHA))).toBe(false)
+  expect(merges(mundo).length).toBe(4 + 6)
   expect(r.text).toContain('Sem branch local: ork-e.')
-  // Na rodada seguinte, o status de cada thread nao e lido de novo.
+  // O status de cada thread é lido uma vez por carga.
   await radar($)
-  expect(mundo.ler.filter(l => l.consulta === 'thread.status').length).toBe(2)
+  expect(mundo.ler.filter(l => l.consulta === 'thread.status').length).toBe(5)
+})
+
+test('o status que falha usa a ork/<slug> nesta rodada, vira lacuna e e lido de novo na seguinte', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, opcoes({ statusFalha: ['ork-a'] }))
+  await iniciar($)
+  const r = await radar($)
+  expect(merges(mundo)).toContain(mergeTree(A, M))
+  expect(r.text).toContain('Lacuna: status de ork-a não lido; vale a ork/<slug> nesta rodada (ork-ponte: ler recusado).')
+  mundo.statusFalha.clear()
+  const r2 = await radar($)
+  expect(mundo.ler.filter(l => l.consulta === 'thread.status' && l.thread === 'ork-a').length).toBe(2)
+  expect(r2.text).not.toContain('Lacuna: status')
+})
+
+test('os leases saem de todas as paginas da secao, e a secao indisponivel vira lacuna', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  mock.clock(on, { now: EPOCA })
+  const leases = [lease('exec:ork-a', 'ork-a'), lease('main-tree', 'ork-b'), lease('path:CHANGELOG.md', 'ork-c')]
+  const mundo = montar(on, opcoes({ leases, tamanhoDaPagina: 1 }))
+  await iniciar($)
+  const r = await radar($)
+  expect(mundo.maestro.map(m => m.offset)).toEqual([0, 1, 2])
+  expect(r.text).toContain('- ork-a × origin/main: CHANGELOG.md (lease path:CHANGELOG.md de ork-c); resolve: ork worktree sync ork-a --dry-run')
+  mundo.leasesIndisponiveis = true
+  const r2 = await radar($)
+  expect(r2.text).toContain('- ork-a × origin/main: CHANGELOG.md; resolve: ork worktree sync ork-a --dry-run')
+  expect(r2.text).toContain('Lacuna: a seção leases veio indisponível (leases.unavailable).')
 })
 
 test('saida 1 do merge-tree sem a arvore e erro do git, nao conflito, e volta a ser calculada na rodada seguinte', { plugins: [PONTE_FALSA] }, async ($, on) => {
@@ -116,21 +148,62 @@ test('saida 1 do merge-tree sem a arvore e erro do git, nao conflito, e volta a 
   await iniciar($)
   const r = await radar($)
   expect(r.text).toContain('Erro em ork-a × origin/main: merge-tree: aaaaaaa - not something we can merge')
-  expect(r.text).toContain('Nenhuma colisão: 5 pares limpos.')
+  expect(r.text).toContain('Nenhuma colisão entre os pares calculados (5 de 6).')
   mundo.processos.length = 0
   await radar($)
-  expect(argvs(mundo).filter(l => l.startsWith('git merge-tree'))).toEqual([mergeTree(A, M)])
+  expect(merges(mundo)).toEqual([mergeTree(A, M)])
 })
 
-test('temporario fora da forma do Radar: nenhum merge-tree roda e nada e apagado', { plugins: [PONTE_FALSA] }, async ($, on) => {
+test('temporario fora da forma do Radar: nenhum merge-tree roda, nada e apagado e nao diz que nao ha colisao', { plugins: [PONTE_FALSA] }, async ($, on) => {
   mock.clock(on, { now: EPOCA })
-  const mundo = montar(on, opcoes({ temporario: '/home/alguem/projeto' }))
+  const mundo = montar(on, opcoes({ temporario: '/srv/projeto' }))
   await iniciar($)
   const r = await radar($)
   expect(argvs(mundo).some(l => l.startsWith('git merge-tree'))).toBe(false)
   expect(argvs(mundo).some(l => l.startsWith('rm'))).toBe(false)
+  expect(r.text).toContain('Nenhum par calculado nesta rodada.')
   expect(r.text).toContain('6 pares ficaram para a próxima rodada.')
-  expect(r.text).toContain('Lacuna: temporário recusado (o mktemp devolveu "/home/alguem/projeto").')
+  expect(r.text).toContain('Lacuna: temporário recusado (o mktemp devolveu "/srv/projeto").')
+})
+
+test('D12: o orcamento de 60 s de merge-tree por rodada deixa o resto para a proxima', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, opcoes({ relogio, atrasoDoMerge: 25000 }))
+  await iniciar($)
+  await relogio.advance(1000)
+  await relogio.advance(25000)
+  await relogio.advance(25000)
+  await relogio.advance(25000)
+  // Cada merge-tree leva 25 s: o 3º começa aos 50 s e volta aos 75 s; os outros 3 ficam para a próxima rodada.
+  expect(merges(mundo).length).toBe(3)
+  const ui = await montarPainel($, 'desktop')
+  expect(await textosDe(ui)).toContain('3 pares ficaram para a próxima rodada')
+  await ui.unmount()
+})
+
+test('o /radar nao espera a rodada de outro despacho em andamento: responde o mapa que ha e pede outra', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, opcoes({ relogio, atrasoDoMerge: 25000 }))
+  await iniciar($)
+  await relogio.advance(1000)
+  expect(merges(mundo).length).toBe(1)
+  let pronto = false
+  const p = radar($).then(r => { pronto = true; return r })
+  await relogio.settle()
+  expect(pronto).toBe(true)
+  const r = await p
+  expect(r.text).toContain('Uma rodada já estava em andamento: o painel mostra a conta nova quando ela terminar.')
+  expect(mundo.abertos).toEqual(['radar'])
+})
+
+test('a primeira rodada da carga sempre concilia a faixa: sem colisao nova, tira a linha que uma carga anterior deixou', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, opcoes({ merges: {} }))
+  await iniciar($)
+  await relogio.advance(1000)
+  expect(mundo.faixas).toEqual([{ mod: 'ork-radar' }])
+  await relogio.advance(600000)
+  expect(mundo.faixas.length).toBe(1)
 })
 
 test('a base diferente do remoto aparece com os dois SHAs, e o remoto que falha fica nao conferido', { plugins: [PONTE_FALSA] }, async ($, on) => {
@@ -162,6 +235,7 @@ test('teto de 12 threads por rodada, na ordem das fases, com a fase MASTER fora'
   const r = await radar($)
   expect(r.text.split('\n')[0]).toBe('Radar de Colisão: 12 threads abertas (mais 1 fora do teto); base origin/main 0000000, igual ao remoto.')
   expect(argvs(mundo)[0]).toBe(`git ls-remote . ${BASE} ${['04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '01', '02'].map(n => `refs/heads/ork/ork-t${Number(n)}-full`).join(' ')}`)
+  expect(r.text).toContain('Nenhum par para calcular.')
 })
 
 test('na sessao de fase o Radar nao registra comando, nao roda processo e o /radar so explica', { plugins: [PONTE_FALSA] }, async ($, on) => {
@@ -219,5 +293,4 @@ test('a lista das threads que falha deixa o mapa anterior e diz o motivo', { plu
   const r = await radar($)
   expect(mundo.processos).toEqual([])
   expect(r.text).toContain('A rodada parou: a lista das threads abertas falhou (ork-ponte: ler recusado).')
-  expect(NUL.length).toBe(1)
 })

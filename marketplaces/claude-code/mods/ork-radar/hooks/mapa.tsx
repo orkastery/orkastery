@@ -3,7 +3,7 @@
 // painel com o que entra no registro do mostrado, a linha da faixa e as colisões novas que o dono ainda não viu.
 // Nenhum `$` passa por aqui; o register.tsx resolve os elementos da superfície e os passa ao desenho.
 import type { RadarCelula, RadarMapa, RadarThread } from '../types'
-import { BASE, chaveDoPar, comandoQueResolve, contar, nomeDoLado, NOME_DA_BASE, textoDaBase, textoDosArquivos } from './colisao'
+import { BASE, chaveDoPar, comandoQueResolve, contar, nomeDoLado, NOME_DA_BASE, textoDaBase, textoDosArquivos, textoSemColisao } from './colisao'
 
 /** Largura de cada célula da matriz, em colunas do terminal. */
 export const LARGURA_DA_CELULA = 3
@@ -139,6 +139,9 @@ export type LinhaDoPainel =
   | { tipo: 'matriz'; altura: number }
   | { tipo: 'conflito'; texto: string; nova: boolean; mostrado: RadarMostrado }
 
+/** A legenda da matriz: cada símbolo que a célula pode ter. */
+export const LEGENDA = `m = ${NOME_DA_BASE} · número = arquivos em conflito (+ = 10 ou mais) · . limpo · ! erro do git · ? não calculado · - a própria thread · vazio = sem branch local`
+
 /** A idade da leitura, curta. */
 export function idade(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000))
@@ -170,7 +173,7 @@ export function linhasDoPainel(m: RadarMapa, novas: readonly string[], agora: nu
     return linhas
   }
   const omitidas = m.omitidas > 0 ? ` (mais ${m.omitidas} fora do teto)` : ''
-  const comNovas = novas.length > 0 ? ` (${novas.length} ${novas.length === 1 ? 'nova' : 'novas'})` : ''
+  const comNovas = novas.length > 0 ? ` (${contar(novas.length, 'novo', 'novos')})` : ''
   const linhas: LinhaDoPainel[] = [
     { tipo: 'titulo', texto: `Radar de Colisão · ${contar(m.threads.length, 'thread', 'threads')}${omitidas} · ${contar(conflitos.length, 'par em conflito', 'pares em conflito')}${comNovas} · lido há ${idade(agora - m.lidoEm)}` },
     { tipo: 'base', texto: `base: ${textoDaBase(m.base)}` },
@@ -182,14 +185,14 @@ export function linhasDoPainel(m: RadarMapa, novas: readonly string[], agora: nu
     return linhas
   }
   linhas.push({ tipo: 'matriz', altura: m.threads.length + 1 })
-  linhas.push({ tipo: 'legenda', texto: `m = ${NOME_DA_BASE} · número = arquivos em conflito · . limpo · ! erro do git · ? não calculado` })
+  linhas.push({ tipo: 'legenda', texto: LEGENDA })
   for (const c of conflitos) {
     const texto = textoDoConflito(c)
     const nova = novas.includes(c.par)
     linhas.push({ tipo: 'conflito', texto: nova ? `nova: ${texto}` : texto, nova, mostrado: { chave: `radar:${c.par}`, thread: threadDoPar(c), texto } })
     linhas.push({ tipo: 'resolve', texto: `  resolve: ${comandoQueResolve(c)}` })
   }
-  if (conflitos.length === 0) linhas.push({ tipo: 'nota', texto: `nenhuma colisão: ${contar(m.celulas.filter(c => c.estado === 'limpa').length, 'par limpo', 'pares limpos')}` })
+  if (conflitos.length === 0) linhas.push({ tipo: 'nota', texto: textoSemColisao(m).replace(/^N/, 'n') })
   for (const c of m.celulas.filter(x => x.estado === 'erro')) linhas.push({ tipo: 'nota', texto: `erro em ${nomeDoLado(c.a)} × ${nomeDoLado(c.b)}: ${c.erro}` })
   const pendentes = m.celulas.filter(c => c.estado === 'pendente').length
   if (pendentes > 0) linhas.push({ tipo: 'nota', texto: `${pendentes === 1 ? '1 par ficou' : `${pendentes} pares ficaram`} para a próxima rodada` })
@@ -205,17 +208,33 @@ export function mostradosDoMapa(m: RadarMapa): RadarMostrado[] {
 }
 
 /**
- * O que está dentro da janela de rolagem: as linhas da tela de `offset` até `offset + bodyRows`. Sem janela,
- * nada conta como visto, porque o registro nunca diz que o dono viu o que talvez não estivesse na tela.
+ * O pedaço da linha do conflito que coube na largura do painel: a linha é cortada (`wrap="truncate"`, com a
+ * reticência na última coluna), e o registro leva só o que apareceu; null quando nada do conflito apareceu.
  */
-export function mostradosVisiveis(linhas: readonly LinhaDoPainel[], janela: { offset: number; bodyRows: number } | undefined): RadarMostrado[] {
+export function mostradoNaLargura(l: Extract<LinhaDoPainel, { tipo: 'conflito' }>, colunas: number | undefined): RadarMostrado | null {
+  if (colunas === undefined || !(colunas > 0) || l.texto.length <= colunas) return l.mostrado
+  const prefixo = l.texto.length - l.mostrado.texto.length
+  const texto = l.mostrado.texto.slice(0, Math.max(0, colunas - 1 - prefixo))
+  return texto.trim() === '' ? null : { ...l.mostrado, texto }
+}
+
+/**
+ * O que está dentro da janela de rolagem: as linhas da tela de `offset` até `offset + bodyRows`, cada conflito
+ * só com o que coube na largura. Sem janela, nada conta como visto, porque o registro nunca diz que o dono viu
+ * o que talvez não estivesse na tela.
+ */
+export function mostradosVisiveis(linhas: readonly LinhaDoPainel[], janela: { offset: number; bodyRows: number } | undefined,
+  colunas?: number): RadarMostrado[] {
   if (!janela || !(janela.bodyRows > 0)) return []
   const fim = janela.offset + janela.bodyRows
   const vistos: RadarMostrado[] = []
   let linha = 0
   for (const l of linhas) {
     const altura = l.tipo === 'matriz' ? l.altura : 1
-    if (l.tipo === 'conflito' && linha >= janela.offset && linha < fim) vistos.push(l.mostrado)
+    if (l.tipo === 'conflito' && linha >= janela.offset && linha < fim) {
+      const visto = mostradoNaLargura(l, colunas)
+      if (visto) vistos.push(visto)
+    }
     linha += altura
   }
   return vistos
@@ -237,7 +256,8 @@ export function textoDaFaixa(m: RadarMapa, novas: readonly string[]): string | u
   if (!primeira) return undefined
   const n = primeira.arquivos.length
   const resto = novas.length > 1 ? ` e mais ${novas.length - 1}` : ''
-  return `radar: colisão nova entre ${nomeDoLado(primeira.a)} e ${nomeDoLado(primeira.b)} (${n} ${n === 1 ? 'arquivo' : 'arquivos'})${resto}; /radar abre o mapa`
+  // A ponte já põe o nome do mod antes da linha (`radar: `).
+  return `colisão nova entre ${nomeDoLado(primeira.a)} e ${nomeDoLado(primeira.b)} (${contar(n, 'arquivo', 'arquivos')})${resto}; /radar abre o mapa`
 }
 
 export type ElementosDoPainel = { Box: any; Text: any; Button: any; Raster?: any }

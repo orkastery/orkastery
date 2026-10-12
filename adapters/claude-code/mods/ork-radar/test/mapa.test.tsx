@@ -1,6 +1,6 @@
 import { test, expect, mock } from 'claude-code/testing'
 import {
-  A_VISTA, BASE, celulaDoRaster, chave, conflito, EPOCA, iniciar, lease, montar, montarPainel, PONTE_FALSA, radar, sha, textosDe,
+  A_VISTA, BASE, celulaDoRaster, chave, conflito, EPOCA, iniciar, lease, limpo, montar, montarPainel, PONTE_FALSA, radar, sha, textosDe,
 } from './apoio'
 
 // O painel do Radar (T3.2): a matriz como Raster no terminal e como tabela no desktop, a lista dos conflitos com o
@@ -77,7 +77,7 @@ test('o painel traz a base, a legenda e cada conflito com os arquivos, o lease e
       'Radar de Colisão · 3 threads · 2 pares em conflito · lido há 0 s',
       'base: origin/main 0000000, igual ao remoto',
       'Atualizar',
-      'm = origin/main · número = arquivos em conflito · . limpo · ! erro do git · ? não calculado',
+      'm = origin/main · número = arquivos em conflito (+ = 10 ou mais) · . limpo · ! erro do git · ? não calculado · - a própria thread · vazio = sem branch local',
       CONFLITO_COM_A_BASE,
       '  resolve: ork worktree sync ork-a --dry-run',
       CONFLITO_ENTRE_THREADS,
@@ -92,7 +92,7 @@ test('colisao nova publica a linha da faixa pela ponte, a rodada sem novidade na
   const mundo = montar(on, opcoes())
   await iniciar($)
   await relogio.advance(1000)
-  expect(mundo.faixas).toEqual([{ mod: 'ork-radar', texto: 'radar: colisão nova entre ork-a e origin/main (1 arquivo) e mais 1; /radar abre o mapa' }])
+  expect(mundo.faixas).toEqual([{ mod: 'ork-radar', texto: 'colisão nova entre ork-a e origin/main (1 arquivo) e mais 1; /radar abre o mapa' }])
   await relogio.advance(600000)
   expect(mundo.faixas.length).toBe(1)
   // A ork-c anda e passa a colidir com a base: a linha conta as três ainda não vistas.
@@ -100,7 +100,7 @@ test('colisao nova publica a linha da faixa pela ponte, a rodada sem novidade na
   mundo.refs['refs/heads/ork/ork-c-full'] = C2
   mundo.merges[chave(C2, M)] = conflito('README.md', 'CHANGELOG.md')
   await relogio.advance(600000)
-  expect(mundo.faixas[1]).toEqual({ mod: 'ork-radar', texto: 'radar: colisão nova entre ork-a e origin/main (1 arquivo) e mais 2; /radar abre o mapa' })
+  expect(mundo.faixas[1]).toEqual({ mod: 'ork-radar', texto: 'colisão nova entre ork-a e origin/main (1 arquivo) e mais 2; /radar abre o mapa' })
   // O /radar mostra o resumo ao dono: os conflitos dele vão ao registro e a linha sai da faixa.
   await radar($)
   expect(mundo.faixas.length).toBe(3)
@@ -124,7 +124,7 @@ test('o registro do mostrado leva so o conflito que estava na janela do painel p
   expect((await textosDe(ui)).filter(t => t.startsWith('nova: ')).length).toBe(2)
   await relogio.advance(60000)
   expect(mundo.mostrados).toEqual([{ mod: 'ork-radar', canal: 'painel', chave: 'radar:@main|ork-a', thread: 'ork-a', texto: CONFLITO_COM_A_BASE }])
-  expect(mundo.faixas[1]).toEqual({ mod: 'ork-radar', texto: 'radar: colisão nova entre ork-a e ork-b (1 arquivo); /radar abre o mapa' })
+  expect(mundo.faixas[1]).toEqual({ mod: 'ork-radar', texto: 'colisão nova entre ork-a e ork-b (1 arquivo); /radar abre o mapa' })
   await ui.unmount()
   // Com o painel escondido, o que o desenho anotou não vai ao registro.
   mundo.paineis = []
@@ -135,15 +135,73 @@ test('o registro do mostrado leva so o conflito que estava na janela do painel p
   await escondido.unmount()
 })
 
-test('o botao Atualizar do painel roda uma rodada agora', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  mock.clock(on, { now: EPOCA })
+test('o botao Atualizar do painel roda uma rodada agora e o painel mostra a conta nova', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
   const mundo = montar(on, opcoes())
   await iniciar($)
   await radar($)
   const ui = await montarPainel($, 'terminal')
+  expect(await textosDe(ui)).toContain(CONFLITO_ENTRE_THREADS)
+  // A ork-b anda e deixa de colidir com a ork-a.
+  const B2 = sha('d')
+  mundo.refs['refs/heads/ork/ork-b-full'] = B2
+  mundo.merges[chave(A, B2)] = limpo()
   mundo.processos.length = 0
   await ui.press({ key: 'atualizar' })
+  await relogio.settle()
   expect(mundo.processos.map(p => p.argv.slice(0, 3).join(' '))).toContain('git ls-remote .')
+  await ui.unmount()
+  const depois = await montarPainel($, 'terminal')
+  expect(await textosDe(depois)).not.toContain(CONFLITO_ENTRE_THREADS)
+  expect(await textosDe(depois)).toContain(CONFLITO_COM_A_BASE)
+  await depois.unmount()
+})
+
+test('cada conflito vai ao registro uma vez por chave e texto, mesmo desenhado de novo', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, opcoes({ paineis: A_VISTA }))
+  await iniciar($)
+  await relogio.advance(1000)
+  const ui = await montarPainel($, 'terminal')
+  await relogio.advance(60000)
+  expect(mundo.mostrados.map(m => m.chave)).toEqual(['radar:@main|ork-a', 'radar:ork-a|ork-b'])
+  await ui.unmount()
+  const outra = await montarPainel($, 'terminal')
+  await relogio.advance(60000)
+  expect(mundo.mostrados.length).toBe(2)
+  await outra.unmount()
+})
+
+test('painel posto mas escondido nao conta como visto, e conflito que some do mapa antes do registro nao entra', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, opcoes({ paineis: [{ id: 'radar', title: 'Radar', isShown: false, isFocused: false, isPlaced: true }] }))
+  await iniciar($)
+  await relogio.advance(1000)
+  const escondido = await montarPainel($, 'terminal')
+  await relogio.advance(60000)
+  expect(mundo.mostrados).toEqual([])
+  await escondido.unmount()
+  // À vista, o desenho anota os dois conflitos; antes do registro, a rodada do botão os tira do mapa.
+  mundo.paineis = A_VISTA
+  const ui = await montarPainel($, 'terminal')
+  mundo.refs['refs/heads/ork/ork-a-full'] = sha('7')
+  await ui.press({ key: 'atualizar' })
+  await relogio.settle()
+  await relogio.advance(60000)
+  expect(mundo.mostrados).toEqual([])
+  await ui.unmount()
+})
+
+test('no painel estreito, o registro leva so o pedaco do conflito que coube na largura', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, opcoes({ paineis: A_VISTA }))
+  await iniciar($)
+  await relogio.advance(1000)
+  const ui = await $.ui.mount({ plugin: 'ork-radar', surface: 'terminal', component: 'Pane', requestId: 'radar',
+    props: { title: 'Radar', isFocused: false, bodyColumns: 30, placement: 'dock', scroll: { offset: 8, bodyRows: 1 }, view: {} } })
+  await relogio.advance(60000)
+  // A linha 8 é o primeiro conflito, com o prefixo da colisão nova: cabem 30 colunas, com a reticência na última.
+  expect(mundo.mostrados.map(m => m.texto)).toEqual([CONFLITO_COM_A_BASE.slice(0, 30 - 1 - 'nova: '.length)])
   await ui.unmount()
 })
 

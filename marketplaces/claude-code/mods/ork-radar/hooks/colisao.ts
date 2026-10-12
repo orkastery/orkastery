@@ -23,6 +23,9 @@ export const PRAZO_DO_REMOTO_MS = 15000
 export const PRAZO_DO_MERGE_MS = 20000
 export const ORCAMENTO_DO_MERGE_MS = 60000
 export const TETO_DO_CACHE = 256
+/** Quantas leituras de `thread.status` saem ao mesmo tempo, e até quantas páginas da seção `leases` a rodada lê. */
+export const LEITURAS_EM_PARALELO = 4
+export const TETO_DE_PAGINAS_DE_LEASES = 10
 /** D5: o temporário fica no `/tmp`, com o nome do Radar e 8 caracteres do `mktemp`. */
 export const MODELO_DO_TEMPORARIO = '/tmp/ork-radar.XXXXXXXX'
 /** Quantos arquivos de um par a linha do conflito mostra antes de resumir. */
@@ -84,6 +87,14 @@ export function refDoStatus(json: unknown): string | null {
   return `refs/heads/${b}`
 }
 
+/**
+ * A branch canônica da thread, com a regra do núcleo (`branchDaWorktree` de `core/src/worktree.ts`): a ref do
+ * `base.branch` quando ele começa com `ork/` (`refDoStatus`), senão `ork/<slug>`.
+ */
+export function branchCanonica(refPeloStatus: string | null, slug: string): string {
+  return refPeloStatus ?? refDaThread(slug)
+}
+
 /** O `ls-remote` no próprio repositório: o SHA da base e o de cada branch pedida, sem escrever nada. */
 export function argvDoLsRemoteLocal(refs: readonly string[]): string[] {
   return ['git', 'ls-remote', '.', REF_DA_BASE, ...refs]
@@ -118,7 +129,7 @@ export function temporarioValido(saida: unknown): string | null {
 
 /** O `rm` do temporário da rodada; recusa qualquer outro caminho. */
 export function argvDeApagar(temporario: string): string[] {
-  if (temporarioValido(temporario) !== temporario) throw new Error('o Radar so apaga o proprio temporario')
+  if (temporarioValido(temporario) !== temporario) throw new Error('o Radar só apaga o próprio temporário')
   return ['rm', '-rf', '--', temporario]
 }
 
@@ -155,13 +166,28 @@ export function objetosDoComum(gitdir: string, commondir: string | null): string
 
 /** O `merge-tree` de um par, só com SHAs: sem worktree e com os arquivos em conflito pelo nome. */
 export function argvDoMergeTree(a: string, b: string): string[] {
-  if (!SHA.test(a) || !SHA.test(b)) throw new Error('o merge-tree do Radar so recebe SHA')
+  if (!SHA.test(a) || !SHA.test(b)) throw new Error('o merge-tree do Radar só recebe SHA')
   return ['git', 'merge-tree', '--write-tree', '--name-only', '-z', '--no-messages', a, b]
 }
 
-/** O ambiente do `merge-tree`: objetos novos no temporário, os do repositório só como alternativo (D2 e D3). */
+/**
+ * Um caminho na lista do `GIT_ALTERNATE_OBJECT_DIRECTORIES`, que o git separa por `:`: com `:`, aspas, barra
+ * invertida ou quebra de linha, vai entre aspas no estilo C, que o git desfaz (entrada que começa com aspas).
+ */
+export function caminhoDoAlternativo(caminho: string): string {
+  if (!/[:"\\\n]/.test(caminho)) return caminho
+  return '"' + caminho.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n') + '"'
+}
+
+/**
+ * O ambiente do `merge-tree`: objetos novos no temporário, os do repositório só como alternativo (D2 e D3), e
+ * nenhum fetch preguiçoso de clone parcial (`GIT_NO_LAZY_FETCH`): o `fetch` fica com o núcleo.
+ */
 export function ambienteDoMerge(temporario: string, objetos: string): Record<string, string> {
-  return { ...AMBIENTE_DO_GIT, GIT_OBJECT_DIRECTORY: temporario, GIT_ALTERNATE_OBJECT_DIRECTORIES: objetos }
+  return {
+    ...AMBIENTE_DO_GIT, GIT_NO_LAZY_FETCH: '1', GIT_OBJECT_DIRECTORY: temporario,
+    GIT_ALTERNATE_OBJECT_DIRECTORIES: caminhoDoAlternativo(objetos),
+  }
 }
 
 export type Resultado = { estado: 'limpa' } | { estado: 'conflito'; arquivos: string[] } | { estado: 'erro'; erro: string }
@@ -222,7 +248,7 @@ export type LeaseDePath = { glob: string; thread: string }
 /** Os leases `path:<glob>` ativos da seção `leases` do retrato, com a thread que segura cada um (D1 e D10). */
 export function leasesDoRetrato(retrato: unknown): LeaseDePath[] {
   const itens = (retrato as { sections?: { leases?: { items?: unknown } } } | null)?.sections?.leases?.items
-  if (!Array.isArray(itens)) throw new Error('o retrato veio sem a secao leases')
+  if (!Array.isArray(itens)) throw new Error('o retrato veio sem a seção leases')
   const leases: LeaseDePath[] = []
   for (const bruto of itens) {
     const x = (bruto ?? {}) as { id?: unknown; status?: unknown; refs?: unknown }
@@ -233,6 +259,24 @@ export function leasesDoRetrato(retrato: unknown): LeaseDePath[] {
     if (typeof thread === 'string' && glob !== '') leases.push({ glob, thread })
   }
   return leases
+}
+
+export type PaginaDeLeases = { leases: LeaseDePath[]; proximo: number | null; lacuna: string | null }
+
+/**
+ * Uma página da seção `leases` do retrato (até 50 itens): os leases `path:` ativos, o offset da página seguinte
+ * (`coverage.nextOffset`) e o que veio faltando. Seção indisponível não traz lease nenhum, e isso vira lacuna.
+ */
+export function paginaDosLeases(retrato: unknown): PaginaDeLeases {
+  type Secao = { state?: unknown; gaps?: unknown; coverage?: { nextOffset?: unknown } }
+  const secao = (retrato as { sections?: { leases?: Secao } } | null)?.sections?.leases
+  if (!secao || typeof secao !== 'object') throw new Error('o retrato veio sem a seção leases')
+  const faltas = Array.isArray(secao.gaps) ? secao.gaps.filter((g): g is string => typeof g === 'string') : []
+  const detalhe = faltas.length > 0 ? ` (${faltas.join(', ')})` : ''
+  if (secao.state === 'unavailable') return { leases: [], proximo: null, lacuna: `a seção leases veio indisponível${detalhe}` }
+  const seguinte = secao.coverage?.nextOffset
+  const proximo = typeof seguinte === 'number' && Number.isInteger(seguinte) && seguinte > 0 ? seguinte : null
+  return { leases: leasesDoRetrato(retrato), proximo, lacuna: faltas.length > 0 ? `a seção leases veio com lacunas${detalhe}` : null }
 }
 
 /** O glob de um lease `path:` como regex, com a mesma regra do núcleo (`globParaRegex` de `core/src/leases.ts`). */
@@ -276,6 +320,11 @@ export function baseDoMapa(shaLocal: string | null, remoto: { sha: string | null
 /** As colisões de um mapa, uma por par e arquivo. */
 export function colisoesDoMapa(m: RadarMapa): string[] {
   return m.celulas.flatMap(c => (c.estado === 'conflito' ? c.arquivos.map(a => `${c.par}|${a.caminho}`) : []))
+}
+
+/** As colisões da rodada anterior pelo mapa guardado (depois de uma recarga do módulo); null sem rodada anterior. */
+export function anterioresDoMapa(m: RadarMapa): Set<string> | null {
+  return m.lidoEm === null ? null : new Set(colisoesDoMapa(m))
 }
 
 /**
@@ -334,6 +383,19 @@ export function textoDaBase(b: RadarBase): string {
   return `${NOME_DA_BASE} ${curto(b.sha)}, remoto não conferido${b.erroRemoto ? ` (${b.erroRemoto})` : ''}`
 }
 
+/**
+ * A linha de quando nenhum par está em conflito: "nenhuma colisão" sozinho só quando todo par foi calculado; com
+ * par em erro ou que ficou para a próxima rodada, diz quantos foram calculados.
+ */
+export function textoSemColisao(m: Pick<RadarMapa, 'celulas'>): string {
+  const total = m.celulas.length
+  const limpas = m.celulas.filter(c => c.estado === 'limpa').length
+  if (total === 0) return 'Nenhum par para calcular'
+  if (limpas === total) return `Nenhuma colisão: ${contar(limpas, 'par limpo', 'pares limpos')}`
+  if (limpas === 0) return 'Nenhum par calculado nesta rodada'
+  return `Nenhuma colisão entre os pares calculados (${limpas} de ${total})`
+}
+
 /** O resumo do mapa que o `/radar` devolve: base, colisões com arquivos e comando, e o que ficou de fora. */
 export function resumoDoMapa(m: RadarMapa): string {
   if (m.lidoEm === null) return `Radar de Colisão: ainda sem rodada${m.erro ? ` (${m.erro})` : ''}.`
@@ -346,7 +408,7 @@ export function resumoDoMapa(m: RadarMapa): string {
     linhas.push(`- ${nomeDoLado(c.a)} × ${nomeDoLado(c.b)}: ${textoDosArquivos(c)}; resolve: ${comandoQueResolve(c)}`)
   }
   const limpas = m.celulas.filter(c => c.estado === 'limpa').length
-  if (conflitos.length === 0 && !m.erro) linhas.push(`Nenhuma colisão: ${contar(limpas, 'par limpo', 'pares limpos')}.`)
+  if (conflitos.length === 0 && !m.erro) linhas.push(`${textoSemColisao(m)}.`)
   else if (!m.erro) linhas.push(`${contar(conflitos.length, 'par em conflito', 'pares em conflito')} e ${contar(limpas, 'limpo', 'limpos')}.`)
   for (const c of m.celulas.filter(x => x.estado === 'erro')) linhas.push(`Erro em ${nomeDoLado(c.a)} × ${nomeDoLado(c.b)}: ${c.erro}`)
   const pendentes = m.celulas.filter(c => c.estado === 'pendente').length
