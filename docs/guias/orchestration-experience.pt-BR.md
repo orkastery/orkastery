@@ -26,6 +26,8 @@ A pauta oferece ativar com os valores detectados, configurar ou desativar. O exe
 
 `show --json` informa valores efetivos, origem e skill selecionada. Locales portugueses usam a variante pt-BR; demais locales usam a inglesa, mantendo o idioma de resposta configurado. Entrada inválida é recusada antes de gravar a entrevista. Valor inválido editado à mão no manifesto gera aviso e vale o padrão até ser corrigido pelo mesmo `onboarding set`; enquanto isso, `adapter install` pula o pacote (um `experience: "false"` não ativa nada) e `experiencia show` mostra o aviso. Configuração explícita prevalece sobre a detecção; repetir a mesma resposta volta a aplicá-la ao manifesto.
 
+O bloco de instruções que o `adapter install` grava no `CLAUDE.md` ou no `AGENTS.md` segue a regra de língua da CLI: inglês só quando `owner.language` (ou, sem ela, o locale do sistema) pede `en`, português nos demais casos. Um dono `es-ES` recebe o bloco em português, apontando a skill inglesa.
+
 ## Instalar e conferir descoberta
 
 ⌨️ No terminal, no mesmo projeto:
