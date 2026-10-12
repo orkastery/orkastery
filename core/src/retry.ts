@@ -74,7 +74,7 @@ import {
 } from './conducao';
 import { linhaDeConducao } from './conducao-texto';
 import { CanalDeConducao } from './types';
-import { cwdLocalOuNulo, diretorioDaThread, exigirCwdLocal } from './procedencia';
+import { caminhoContidoOuNulo, cwdLocalOuNulo, diretorioDaThread, exigirCwdLocal } from './procedencia';
 import { comandoDeConfirmacao, posturaAfrouxada, recusaDePostura } from './postura-local';
 import { Mensagens, msg, remontar, textoDoCatalogo } from './locale';
 import { RETRY_PT_BR } from './locale-retry';
@@ -558,18 +558,30 @@ export function redespachar(carregado: ManifestoCarregado, thread: Thread, fase:
  * da worktree, ele sai `../../../.orkastery/threads/...` (a K7 de 12/10/2026), e lido do checkout principal aponta
  * para fora do projeto. O arquivo certo e o que tem o MESMO sha256: absoluto, relativo a raiz de codigo, a raiz do
  * estado ou a pasta de prompts da thread. Sem nenhum com o sha, vale o primeiro que existe (a recusa diz que o prompt
- * mudou), senao o caminho de antes (a recusa diz que sumiu).
+ * mudou); sem nenhum arquivo comum dentro do projeto, `null` (a recusa diz que sumiu).
  */
-export function localizarPromptGravado(raiz: string, threadId: string, promptPath: string, sha: string): string {
+export function localizarPromptGravado(raiz: string, threadId: string, promptPath: string, sha: string): string | null {
   const candidatos = path.isAbsolute(promptPath) ? [promptPath] : [path.join(raiz, promptPath)];
   try { candidatos.push(path.join(raizDoEstado(raiz), promptPath)); } catch { /* raiz sem estado legivel */ }
   candidatos.push(path.join(dirThread(raiz, threadId), 'prompts', path.basename(promptPath)));
-  const existentes = [...new Set(candidatos.map((c) => path.resolve(c)))].filter((c) => fs.existsSync(c));
+  let thread: { id: string; worktree: string | null } | null = null;
+  try { const t = lerThread(raiz, threadId); thread = { id: t.id, worktree: t.worktree }; } catch { thread = null; }
+  // O ponteiro vem do estado: so arquivo comum, de tamanho de prompt, dentro do projeto ou da worktree da thread (RM-047).
+  const legivel = (c: string): boolean => {
+    try {
+      const st = fs.lstatSync(c);
+      return st.isFile() && st.size <= TETO_DO_PROMPT_GRAVADO && caminhoContidoOuNulo(raiz, thread, c) !== null;
+    } catch { return false; }
+  };
+  const existentes = [...new Set(candidatos.map((c) => path.resolve(c)))].filter(legivel);
   for (const c of existentes) {
     try { if (hashDoPrompt(fs.readFileSync(c, 'utf8')) === sha) return c; } catch { /* ilegivel: tenta o proximo */ }
   }
-  return existentes[0] ?? candidatos[0];
+  return existentes[0] ?? null;
 }
+
+/** Um prompt de fase tem dezenas de KB; acima disto o ponteiro do estado nao e um prompt gravado pelo ork. */
+export const TETO_DO_PROMPT_GRAVADO = 4 * 1024 * 1024;
 
 /**
  * RM-063 (F3): o despacho cujo prompt o `reexecutar` devolve ao runtime. Primeiro o despacho da sessao do gate (a
@@ -606,13 +618,14 @@ function redespacharSobLock(
   tomadaPrevia?: ConducaoTomada
 ): ResultadoDoRedespacho {
   const { raiz, manifesto } = carregado;
-  const absoluto = localizarPromptGravado(raiz, thread.id, promptRelativo, sha);
+  const achado = localizarPromptGravado(raiz, thread.id, promptRelativo, sha);
+  const absoluto = achado ?? '';
   const slug = opcoes.slug ?? slugDaSessao(thread, fase);
   const vazio = { slug, sessionId: null, verificada: false, sinal: null, comando: [] as string[] };
   const erroDeEstado = estadoParaDespacho(raiz, thread, opcoes.dryRun);
   if (erroDeEstado) return { ...vazio, ok: false, motivo: 'tree.blocked', detalhe: erroDeEstado, dryRun: opcoes.dryRun === true };
 
-  if (!fs.existsSync(absoluto)) {
+  if (!achado) {
     return {
       ...vazio,
       ok: false,

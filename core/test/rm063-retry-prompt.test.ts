@@ -15,7 +15,7 @@ import { strict as assert } from 'node:assert';
 import { mock, test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { projetoTemporario, runtimeFalso } from './apoio';
+import { dirTemporario, projetoTemporario, runtimeFalso } from './apoio';
 import { hashDoPrompt, rodarFase } from '../src/phase';
 import { despachoParaRedespachar, executarRetry, localizarPromptGravado, planejarRetry, redespachar } from '../src/retry';
 import { RUNTIMES } from '../src/runtimes';
@@ -45,6 +45,7 @@ test('F3: phase run grava o prompt e o sha256 no ledger ANTES de chamar o adapta
   const sha = String(noDespacho!.promptSha256);
   assert.equal(noDespacho!.fase, 'GO');
   const arquivo = localizarPromptGravado(p.dir, thread.id, String(noDespacho!.promptPath), sha);
+  assert.ok(arquivo, 'o prompt gravado esta no disco, dentro do projeto');
   assert.equal(hashDoPrompt(fs.readFileSync(arquivo, 'utf8')), sha, 'e o arquivo no disco tem o mesmo sha256');
 
   const eventos = lerLedger(dir);
@@ -119,7 +120,7 @@ test('F3: a sessao que morre depois do despacho (a K7) volta pelo prompt do desp
   assert.equal(depois[0].promptSha256, r.promptSha256);
 });
 
-test('F3: o prompt e achado pelo sha256; o arquivo que mudou depois do despacho e recusado, nunca redespachado', (t) => {
+test('F3: o prompt e achado pelo sha256, so dentro do projeto; o arquivo que mudou depois do despacho e recusado, nunca redespachado', (t) => {
   const p = projetoTemporario('rm062-f3-sha');
   t.after(() => p.limpar());
   const { thread } = novaThread(p.carregado, { nome: 'f3 sha', modo: 'auto' });
@@ -147,6 +148,17 @@ test('F3: o prompt e achado pelo sha256; o arquivo que mudou depois do despacho 
   assert.equal(recusa.ok, false);
   assert.equal(recusa.motivo, 'artifact.missing');
   assert.match(recusa.detalhe, /mudou desde o despacho original/);
+
+  // O ponteiro do estado so le arquivo comum de dentro do projeto (RM-047): o de fora, mesmo com o sha256 certo, e o
+  // dispositivo (um /dev/zero travaria a leitura) nao sao lidos, e o redespacho recusa como prompt que sumiu.
+  const fora = path.join(dirTemporario('rm063-f3-fora'), 'prompt.md');
+  fs.writeFileSync(fora, PEDIDO);
+  assert.equal(localizarPromptGravado(p.dir, thread.id, fora, sha), null);
+  assert.equal(localizarPromptGravado(p.dir, thread.id, '/dev/zero', sha), null);
+  const semLer = redespachar(p.carregado, lerThread(p.dir, thread.id), 'GO', '/dev/zero', sha);
+  assert.equal(semLer.motivo, 'artifact.missing');
+  assert.match(semLer.detalhe, /sumiu do disco: \/dev\/zero/);
+  fs.rmSync(path.dirname(fora), { recursive: true, force: true });
 });
 
 test('F3: CLI: ork retry run redespacha sem --prompt depois da falha do despacho', (t) => {
