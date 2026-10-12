@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T08:44:40.245Z",
+  "publicadoEm": "2026-10-12T08:46:38.135Z",
   "threads": [
     {
       "id": "ork-rm059clima",
@@ -107,6 +107,23 @@
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max"
+    },
+    {
+      "id": "ork-rm061f2b",
+      "nome": "rm061f2b",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm061f2b-full",
+      "atualizadaEm": "2026-10-12T08:46:37.879Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     },
     {
       "id": "ork-siteorkaste2",
