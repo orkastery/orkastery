@@ -93,6 +93,7 @@ import {
 } from './divida';
 import { definicaoDaVariante, parseVariante, tabelaDeVariantes, VARIANTES } from './ciclos';
 import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './claims';
+import { conferirClaims, ErroDeConferencia, FORMATO_DA_CONFERENCIA, idsDeClaims, textoDaConferencia } from './claims-conferir';
 import { exigirCatalogo } from './catalogo';
 import { doctor } from './doctor';
 import { endurecerUmask, preflight, textoPreflight } from './preflight';
@@ -410,6 +411,10 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"] [--fase F]
                                             Registra alegacao verificavel da thread
   claims list <thread-id>                   Claims da thread e o estado de cada uma
+  claims conferir <thread-id> --claims C1,C2|--tarefa T1 [--prazo S] [--json]
+                                            Reexecuta so essas claims, ou o verify da tarefa do plano, no
+                                            sandbox do verify, sem gravar recibo (RM-059); sai 3 se outra
+                                            sessao conduz e 2 sem sandbox
   decisao registrar <thread-id> --decidido D --porque P --como-mudar C --custo-agora A --custo-depois B
         --criterio manifesto:CHAVE|ledger:REF|medicao:COMANDO --quem Q --evidencia E [--razao R] [--reverte ID]
                                             Decisao tomada sem perguntar: chega ao dono no resumo
@@ -1553,6 +1558,36 @@ function comandoClaims(args: Args): number {
       console.log(`AVISO: ${linhaDoLintDeClaim(claim.id, a)}${a.regra === 'suite-inteira' ? '. O `ci prepare` recusa esta claim.' : ''}`);
     }
     return 0;
+  }
+  if (sub === 'conferir') {
+    // RM-059 (T0.10): so o que foi pedido, no sandbox do verify, sob a conducao da thread, sem recibo.
+    const id = args.posicionais[2];
+    const json = args.opcoes.json === true;
+    const claims = texto(args.opcoes.claims);
+    const tarefa = texto(args.opcoes.tarefa);
+    const prazo = texto(args.opcoes.prazo);
+    const semValor = ['claims', 'tarefa', 'prazo'].some((o) => args.opcoes[o] === true);
+    if (!id || semValor || (claims === undefined) === (tarefa === undefined)) {
+      console.error('uso: ork claims conferir <thread-id> --claims C1,C2 | --tarefa T1 [--prazo S] [--json]');
+      return 2;
+    }
+    const conducao = conducaoDoCli(args);
+    try {
+      const r = conferirClaims(carregado, id, {
+        claims: claims !== undefined ? idsDeClaims(claims) : undefined,
+        tarefa,
+        prazoMs: prazo !== undefined ? Number(prazo) * 1000 : undefined,
+        canal: conducao.canal,
+        correlacao: conducao.correlacao,
+      });
+      console.log(json ? JSON.stringify(r, null, 2) : textoDaConferencia(r));
+      return r.ok ? 0 : 1;
+    } catch (e) {
+      if (!(e instanceof ErroDeConferencia)) throw e;
+      if (json) console.log(JSON.stringify({ formato: FORMATO_DA_CONFERENCIA, thread: id, ok: false, erro: e.message }, null, 2));
+      else console.error(e.message);
+      return 2;
+    }
   }
   if (sub === 'verificar') {
     const id = args.posicionais[2];
