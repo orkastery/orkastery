@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.4",
-  "publicadoEm": "2026-10-12T12:25:38.110Z",
+  "publicadoEm": "2026-10-12T12:27:10.808Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -39,6 +39,23 @@
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max"
+    },
+    {
+      "id": "ork-rm062fabrica",
+      "nome": "RM-062 Fabrica que nao para: batida, liveness e conducao autonoma",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm062fabrica-full",
+      "atualizadaEm": "2026-10-12T12:27:10.653Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     }
   ]
 }
