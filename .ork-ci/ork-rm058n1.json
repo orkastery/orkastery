@@ -1,0 +1,132 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm058n1",
+  "branch": "ork/ork-rm058n1-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C5",
+      "thread": "ork-rm058n1",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-local-receipt.ts",
+      "alegacao": "T2: o recibo local do HITL só ganha o export de chaveLocal (uma linha de comentário e a palavra export), sem mudar comportamento.",
+      "negativa": false,
+      "verificar": [
+        "git diff --numstat \"$(git merge-base origin/main HEAD)\" HEAD -- core/src/hitl-local-receipt.ts | awk '$1==2 && $2==1 {ok=1} END{exit !ok}' && grep -qE \"^export function chaveLocal\\(raiz: string, criar: boolean\\): Buffer \\{\" core/src/hitl-local-receipt.ts"
+      ],
+      "criadoEm": "2026-10-12T11:45:45.135Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm058n1",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "T3: o índice gerado por ork docs sincronizar mostra a RM-058 em desenvolvimento; markdownlint sem erro.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^\\| \\[RM-058\\]\\(RM-058-modo-noctum.md\\) \\| .* \\| Em desenvolvimento \\|\" docs/roadmap/README.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-12T11:49:17.601Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm058n1",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T3: a mudança de comportamento da N1 tem linha em \"Não publicado\" do CHANGELOG, conferida pelo checador do CI contra a origin/main; markdownlint sem erro.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -qF \"#Noctum, fatia N1: envelope e estado do arco\" CHANGELOG.md && core/node_modules/.bin/markdownlint-cli2 --no-globs CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T11:49:19.592Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm058n1",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-envelope.ts",
+      "alegacao": "T1 e GO-FIX 1: o contrato ork.noctum-envelope/v1 recusa pedido sem os valores do dono (lista cada campo que falta), teto ilimitado em toda forma (inclusive acima do inteiro seguro), subteto acima do teto do arco, unidade fora da lista, janela fora de 6 a 12 h, fuso que não é IANA, base ou branch que não é nome curto (ref completa, tags/, HEAD), push na base em qualquer caixa, ação excluída e exclusões declaradas pelo pedido; a busca de exclusão não cai no protótipo; o hash é canônico; #Noctum segue fora dos modos. Os testes E1 a E12 passam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-envelope.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - E[0-9]+:/{p++} END{exit !(p>=12 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T12:25:21.671Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm058n1",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-envelope.test.ts",
+      "alegacao": "T1 e GO-FIX 1: os aceites do contrato são os testes E1 a E12, com as recusas tipadas de valor ausente, teto ilimitado, ação excluída e ref de tag como branch, e o caso de #Noctum fora dos modos.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('E[0-9]+:\" core/test/noctum-envelope.test.ts)\" -ge 12 && grep -qF \"noctum.envelope.teto-ilimitado\" core/test/noctum-envelope.test.ts && grep -qF \"noctum.envelope.valores-ausentes\" core/test/noctum-envelope.test.ts && grep -qF \"noctum.envelope.acao-excluida\" core/test/noctum-envelope.test.ts && grep -qF \"extrairTagDoPedido('#Noctum\" core/test/noctum-envelope.test.ts && grep -qF \"'refs/tags/v1.0.0'\" core/test/noctum-envelope.test.ts"
+      ],
+      "criadoEm": "2026-10-12T12:25:24.983Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm058n1",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-arco.ts",
+      "alegacao": "T2 e GO-FIX 1: o estado do arco só aceita autorização e revogação com prova de origem do dono (envelope assinado do Telegram ou do callback nativo via autenticarResposta no endereço noctum / arco:<arco>, com recibo durável do canal e .public; ou diálogo nativo do host por callback de elicitação); antes de cada efeito relê o disco e recusa ação excluída, cauda incompleta ou linha adulterada, revogação, falta de autorização, recibo do canal que não confere ou que não pode ser reconferido, hash antigo, janela e destino; escrita curta é desfeita e acusada; a revogação grava mesmo depois de cauda rasgada; emenda não prorroga nem reabre; restart mantém limites, janela e fila pendente sem resposta. Os testes A1 a A20 passam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-arco.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - A[0-9]+:/{p++} END{exit !(p>=20 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T12:25:28.866Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm058n1",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-arco.test.ts",
+      "alegacao": "T2 e GO-FIX 1: os aceites da N1 são os testes A1 a A20: origem sem prova, ação excluída, hash antigo, revogação e expiração imediatamente antes do efeito, estado adulterado, cauda incompleta e escrita curta, recibo do canal reconferido (com verificador público) e não forjável com a chave local, emenda sem prorrogação e restart por processo filho.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('A[0-9]+:\" core/test/noctum-arco.test.ts)\" -ge 20 && grep -qF \"noctum.origem.sem-prova\" core/test/noctum-arco.test.ts && grep -qF \"noctum.efeito.hash-antigo\" core/test/noctum-arco.test.ts && grep -qF \"noctum.efeito.revogado\" core/test/noctum-arco.test.ts && grep -qF \"noctum.efeito.expirado\" core/test/noctum-arco.test.ts && grep -qF \"noctum.efeito.acao-excluida\" core/test/noctum-arco.test.ts && grep -qF \"noctum.estado.adulterado\" core/test/noctum-arco.test.ts && grep -qF \"spawnSync(process.execPath\" core/test/noctum-arco.test.ts && grep -qF \"publicHitlVerifiers(process.env)\" core/test/noctum-arco.test.ts"
+      ],
+      "criadoEm": "2026-10-12T12:25:32.961Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm058n1",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "T3, GO-FIX 1 e GO-FIX 2: a página da RM-058 tem a seção \"N1: envelope e estado do arco\" com contrato, ingresso, recibo do canal, recusas tipadas, o que fica para depois e os limites reais (com a chave local, uma linha que se diga do diálogo passa na conferência; fronteira da conta do sistema); o frontmatter aponta a thread ork-rm058n1 com a evidência E1 a E12 e A1 a A26; continua dizendo que prioridade final, horário e canal do relatório e valores do teto são do dono; markdownlint sem erro.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^### N1: envelope e estado do arco$\" docs/roadmap/RM-058-modo-noctum.md && grep -qF \"noctum.efeito.hash-antigo\" docs/roadmap/RM-058-modo-noctum.md && grep -qE \"^  thread: ork-rm058n1$\" docs/roadmap/RM-058-modo-noctum.md && grep -qF \"seguem pendentes a prioridade final, o horário e o canal do relatório da manhã e os valores do teto\" docs/roadmap/RM-058-modo-noctum.md && grep -qF \"core/test/noctum-arco.test.ts (A1 a A26)\" docs/roadmap/RM-058-modo-noctum.md && grep -qF \"uma linha nova que se diga do diálogo passa na conferência\" docs/roadmap/RM-058-modo-noctum.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/roadmap/RM-058-modo-noctum.md"
+      ],
+      "criadoEm": "2026-10-12T12:53:21.234Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C15",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
