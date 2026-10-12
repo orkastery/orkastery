@@ -23,7 +23,8 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
 import { definirFusoDoDono } from '../src/horario';
 import { painelDaFabricaEmMarkdown, retratoDaMaquina, textoDaFabrica } from '../src/fabrica-estado';
-import { LeituraDoRuntime, paradaDesde, vidaDoRetrato } from '../src/vida-da-thread';
+import { LeituraDoRuntime, paradaDesde, VALIDADE_DA_VIDA_NO_RETRATO_MS, vidaDaThread, vidaDoRetrato } from '../src/vida-da-thread';
+import { EventoLedger, Thread } from '../src/types';
 import { main } from '../src/index';
 import { ativarLocale } from '../src/locale';
 
@@ -214,4 +215,48 @@ test('F2: na visao da rede, so a sessao viva publicada pela outra maquina vira "
     assert.equal(linha(undefined), '• RM-010: ork-na-outra na fase GO (pc-b), sem sessão verificada no runtime.');
     assert.equal(linha({ viva: 'sim' }), '• RM-010: ork-na-outra na fase GO (pc-b), sem sessão verificada no runtime.', 'campo fora do formato nao vale');
   } finally { p.limpar(); }
+});
+
+test('F2 (GO-FIX): falha superada nao derruba; conta que nao respondeu nao vira "nao aparece"; codex parado diz ha quanto tempo', () => {
+  const t = { id: 'ork-x', faseAtual: 'GO', sessoes: [], atualizadaEm: '2026-10-12T08:00:00.000Z', criadaEm: '2026-10-12T07:00:00.000Z' } as unknown as Thread;
+  const S = 'aaaaaaaa-1111-2222-3333-444444444444';
+  const ev = (ts: string, tipo: string, extra: Record<string, unknown> = {}): EventoLedger =>
+    ({ ts: `2026-10-12T${ts}:00.000Z`, thread: 'ork-x', tipo, eventId: `${tipo}-${ts}`, ...extra });
+  const despacho = ev('08:30', 'phase_dispatch', { fase: 'GO', runtime: 'claude-bg', sessionId: S });
+  const leitura = (sessoes: LeituraDoRuntime['sessoes'], responderam = ['claude-bg', 'claude-bg:']): () => LeituraDoRuntime =>
+    () => ({ responderam, falhas: responderam.length > 1 ? [] : ['claude agents (perfil p1): sem resposta (simulado)'], sessoes });
+  const encerrada = [{ sessionId: S, runtime: 'claude-bg', viva: false, fantasma: false, estado: 'done' }];
+
+  // O silencio que voltou (gate liberado) e a fase que terminou bem nao sao "caiu".
+  const superada = vidaDaThread(t, [despacho, ev('08:40', 'gate_blocked', { fase: 'GO', motivo: 'runtime.silencio', sessionId: S }),
+    ev('08:50', 'gate_passed', { fase: 'GO', motivo: 'runtime.silencio', sessionId: S }), ev('09:10', 'phase_result', { fase: 'GO', sessionId: S, ok: true })],
+    leitura(encerrada));
+  assert.deepEqual([superada.viva, superada.motivo], [false, 'sessão aaaaaaaa encerrada (done)']);
+
+  // O despacho saiu pelo perfil p1, cuja conta nao respondeu (a do processo respondeu): nao verificada, nao "nao aparece".
+  const pelaConta = vidaDaThread(t, [{ ...despacho, perfil: { id: 'p1', runtime: 'claude-bg' } }], leitura([], ['claude-bg', 'claude-bg:']));
+  assert.match(String(pelaConta.motivo), /^runtime claude-bg sem resposta/);
+  const contaRespondeu = vidaDaThread(t, [{ ...despacho, perfil: { id: 'p1', runtime: 'claude-bg' } }], leitura([], ['claude-bg', 'claude-bg:p1']));
+  assert.equal(contaRespondeu.motivo, 'sessão aaaaaaaa não aparece no runtime');
+
+  // O codex sem atividade recente no rollout e sem estado final: ha quanto tempo esta parado, nao "encerrada (unknown)".
+  const agora = Date.parse('2026-10-12T10:00:00.000Z');
+  const codex = vidaDaThread(t, [{ ...despacho, runtime: 'codex' }], leitura([{ sessionId: S, runtime: 'codex', viva: false, fantasma: false,
+    estado: 'unknown', atividadeEm: agora - 45 * 60000 }], ['codex', 'codex:']), agora);
+  assert.deepEqual([codex.motivo, codex.desdeEm], ['sessão aaaaaaaa sem atividade no rollout há 45 min', '2026-10-12T09:15:00.000Z']);
+
+  // O "desde" e o ultimo sinal da sessao, nao o evento que o proprio ork gravou depois sobre ela.
+  const fantasma = [{ sessionId: S, runtime: 'claude-bg', viva: false, fantasma: true, estado: 'blocked' }];
+  const desde = vidaDaThread(t, [despacho, ev('08:45', 'session_stop', { sessionId: S }), ev('09:30', 'despacho_idempotente', { sessionId: S }),
+    ev('09:31', 'conducao_renovada', { sessionId: S })], leitura(fantasma));
+  assert.equal(desde.desdeEm, '2026-10-12T08:45:00.000Z');
+});
+
+test('F2 (GO-FIX): a sessao viva de um retrato velho da outra maquina nao vira "sigo"', () => {
+  const publicado = '2026-10-12T08:00:00.000Z';
+  const viva = { viva: true, desdeEm: null, motivo: null };
+  assert.equal(vidaDoRetrato(viva, publicado, new Date(Date.parse(publicado) + 30 * 60000).toISOString()).viva, true, 'recente vale');
+  const velho = vidaDoRetrato(viva, publicado, new Date(Date.parse(publicado) + VALIDADE_DA_VIDA_NO_RETRATO_MS + 60000).toISOString());
+  assert.deepEqual([velho.viva, velho.desdeEm, velho.motivo], [false, publicado,
+    'retrato da máquina sem atualização há 76 min; a sessão não foi reverificada']);
 });

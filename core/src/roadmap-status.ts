@@ -302,7 +302,7 @@ export function fatosLocais(raiz: string, quando: string, fuso?: string,
       entrega: () => (t.status === 'fechada' ? undefined : entrega(t.id)),
       vida: () => {
         if (t.status === 'fechada') return undefined;
-        try { return vidaDaThread(t, lerLedger(dirThread(raiz, t.id)), lerUmaVez); }
+        try { return vidaDaThread(t, lerLedger(dirThread(raiz, t.id)), lerUmaVez, Date.parse(quando)); }
         catch (e) {
           const causa = { tipo: 'naoLida' as const, detalhe: (e as Error).message.slice(0, 80) };
           return { viva: false, sessionId: null, desdeEm: null, motivo: motivoDaCausa(causa), causa };

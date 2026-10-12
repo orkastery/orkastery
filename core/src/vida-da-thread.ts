@@ -12,19 +12,31 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { consultarContas } from './sessoes-contas';
+import { consultarContas, contasDeSessoes } from './sessoes-contas';
 import { raizDoEstado } from './estado-thread';
 import { TIPOS_DE_EVENTO } from './ledger';
 import { formatarHora } from './horario';
 import { ROADMAP_PT_BR } from './locale-roadmap';
 import { EventoLedger, Thread } from './types';
 
-/** Uma sessao como o runtime a ve agora. */
-export interface SessaoNoRuntime { sessionId: string; runtime: string; viva: boolean; fantasma: boolean; estado: string }
+/** Uma sessao como o runtime a ve agora. `atividadeEm`: a ultima escrita no rollout (so codex), em ms. */
+export interface SessaoNoRuntime {
+  sessionId: string; runtime: string; viva: boolean; fantasma: boolean; estado: string;
+  perfil?: string | null; atividadeEm?: number | null;
+}
+
+/** O prazo do `claude agents` na leitura da vida: o status nao espera um daemon travado por minutos. */
+export const PRAZO_DA_LEITURA_MS = 20_000;
+
+/** A chave de uma conta que respondeu: o runtime, e o perfil quando a conta e de um perfil do store. */
+export const chaveDaConta = (runtime: string, perfil: string | null | undefined): string => `${runtime}:${perfil ?? ''}`;
 
 /** A leitura do runtime que a vida das threads usa, feita uma vez por relatorio. */
 export interface LeituraDoRuntime {
-  /** Os runtimes com alguma conta que respondeu: so neles a falta da sessao prova alguma coisa. */
+  /**
+   * O que respondeu: o runtime (`claude-bg`, `codex`) e cada conta (`claude-bg:<perfil>`, `claude-bg:` para a do
+   * processo). So onde a conta respondeu a falta da sessao prova alguma coisa.
+   */
   responderam: string[];
   /** O que falhou na consulta, para a linha dizer por que nao verificou. */
   falhas: string[];
@@ -33,6 +45,8 @@ export interface LeituraDoRuntime {
 
 /** Por que a thread parou, pelo tipo: e o que o texto de cada lingua monta (`motivoDaParada` do catalogo `roadmap`). */
 export type CausaDaParada =
+  | { tipo: 'semAtividade'; sessao: string; minutos: number }
+  | { tipo: 'retratoVelho'; minutos: number }
   | { tipo: 'nenhumaSessao'; fase: string }
   | { tipo: 'despachoFalhou'; fase: string | null; detalhe: string }
   | { tipo: 'sessaoCaiu'; sessao: string; motivo: string }
@@ -53,6 +67,8 @@ export function motivoDaCausa(c: CausaDaParada, m: typeof ROADMAP_PT_BR.motivoDa
     case 'fantasma': return m.fantasma(c.sessao);
     case 'encerrada': return m.encerrada(c.sessao, c.estado);
     case 'naoLida': return m.naoLida(c.detalhe);
+    case 'semAtividade': return m.semAtividade(c.sessao, c.minutos);
+    case 'retratoVelho': return m.retratoVelho(c.minutos);
   }
 }
 
@@ -76,22 +92,32 @@ const curto = (texto: unknown, teto = 100): string => {
   return limpo.length > teto ? `${limpo.slice(0, teto - 3)}...` : limpo;
 };
 
-/** `claude agents` e os rollouts do codex de todas as contas desta maquina. Falha vira falha, nunca "sem sessao". */
-export function lerRuntime(raiz: string): LeituraDoRuntime {
+/**
+ * `claude agents` e os rollouts do codex de cada conta desta maquina (a do processo e cada perfil do store), conta a
+ * conta: o que uma conta nao respondeu nao vira "a sessao nao aparece". Falha vira falha, nunca "sem sessao".
+ */
+export function lerRuntime(raiz: string, prazoMs: number = PRAZO_DA_LEITURA_MS): LeituraDoRuntime {
+  const responderam = new Set<string>(), falhas: string[] = [], sessoes: SessaoNoRuntime[] = [];
   try {
-    const r = consultarContas(raizDoEstado(raiz), { todas: true });
-    const responderam = new Set<string>(), falhas: string[] = [];
-    for (const f of r.fontes) {
-      if (f.origem.startsWith('perfis de conta')) { if (!f.ok) falhas.push(curto(f.detalhe, 120)); continue; }
-      const runtime = f.origem.startsWith('claude agents') ? 'claude-bg' : 'codex';
-      if (f.ok) responderam.add(runtime);
-      else falhas.push(`${f.origem}: ${curto(f.detalhe, 120)}`);
+    const canonica = raizDoEstado(raiz);
+    const { contas, fontes } = contasDeSessoes(canonica);
+    for (const f of fontes) if (!f.ok) falhas.push(curto(f.detalhe, 120));
+    for (const conta of contas) {
+      const r = consultarContas(canonica, { todas: true, contas: [conta], prazoMs });
+      if (r.fontes.some((f) => f.ok)) {
+        responderam.add(conta.runtime);
+        responderam.add(chaveDaConta(conta.runtime, conta.perfil?.id ?? null));
+      } else falhas.push(...r.fontes.filter((f) => !f.ok).map((f) => `${f.origem}: ${curto(f.detalhe, 120)}`));
+      for (const s of r.sessoes) {
+        sessoes.push({ sessionId: s.sessionId, runtime: s.runtime, viva: s.viva, fantasma: s.fantasma,
+          estado: String(s.state ?? s.status ?? '').trim().toLowerCase(), perfil: s.perfil,
+          atividadeEm: typeof s.atividadeEm === 'number' ? s.atividadeEm : null });
+      }
     }
-    return { responderam: [...responderam], falhas, sessoes: r.sessoes.map((s) => ({ sessionId: s.sessionId, runtime: s.runtime,
-      viva: s.viva, fantasma: s.fantasma, estado: String(s.state ?? s.status ?? '').trim().toLowerCase() })) };
   } catch (e) {
-    return { responderam: [], falhas: [curto((e as Error).message, 160)], sessoes: [] };
+    falhas.push(curto((e as Error).message, 160));
   }
+  return { responderam: [...responderam], falhas, sessoes };
 }
 
 /** O motivo tipado com o detalhe, sem repetir o motivo quando o detalhe ja comeca por ele. */
@@ -106,12 +132,16 @@ function causaDaFalha(e: EventoLedger, sessionId: string | null): CausaDaParada 
   return { tipo: 'despachoFalhou', fase: typeof e.fase === 'string' && e.fase ? e.fase : null, detalhe: curto(motivoComDetalhe(e), 90) };
 }
 
+/** Eventos que o proprio `ork` grava sobre a sessao: nao sao sinal de vida dela. */
+const SO_DO_ORK = /^(conducao_|retry_|despacho_idempotente$)/;
+
 /**
  * A vida da thread: a sessao do despacho mais recente, de qualquer fase (o despacho de GO que falha deixa a thread
  * em GOAL), e a falha do runtime depois dele. `leitura` so e chamada quando ha sessao a conferir: thread sem
  * despacho nao custa consulta ao runtime.
  */
-export function vidaDaThread(t: Thread, eventos: readonly EventoLedger[], leitura: () => LeituraDoRuntime): VidaDaThread {
+export function vidaDaThread(t: Thread, eventos: readonly EventoLedger[], leitura: () => LeituraDoRuntime,
+  agoraMs: number = Date.now()): VidaDaThread {
   const fase = t.faseAtual;
   const parada = (desdeEm: string | null | undefined, causa: CausaDaParada, sessionId: string | null = null): VidaDaThread =>
     ({ viva: false, sessionId, desdeEm: desdeEm ?? null, motivo: motivoDaCausa(causa), causa });
@@ -125,9 +155,16 @@ export function vidaDaThread(t: Thread, eventos: readonly EventoLedger[], leitur
   const registrada = (t.sessoes ?? []).at(-1) ?? null;
   const sessionId = despacho ? String(despacho.sessionId) : registrada?.sessionId ?? null;
   const runtime = (typeof despacho?.runtime === 'string' && despacho.runtime) || registrada?.runtime || 'claude-bg';
-  // A falha que vale e a de depois do despacho corrente: a de antes ja foi superada por ele.
-  const falha = eventos.slice(iDespacho + 1).reverse().find((e) => e.tipo === TIPOS_DE_EVENTO.despachoFalhou ||
-    (e.tipo === TIPOS_DE_EVENTO.gateBloqueado && typeof e.motivo === 'string' && e.motivo.startsWith('runtime.'))) ?? null;
+  const perfilDoDespacho = (despacho?.perfil as { id?: unknown } | undefined)?.id ??
+    (registrada as { perfil?: { id?: unknown } } | null)?.perfil?.id;
+  const perfil = typeof perfilDoDespacho === 'string' && perfilDoDespacho ? perfilDoDespacho : null;
+  // A falha que vale e a de depois do despacho corrente (a de antes ja foi superada por ele), e que nada superou depois:
+  // o gate liberado do mesmo motivo ou da mesma sessao, ou a fase que terminou bem.
+  const depois = eventos.slice(iDespacho + 1);
+  const falha = [...depois.entries()].reverse().find(([k, e]) => (e.tipo === TIPOS_DE_EVENTO.despachoFalhou ||
+    (e.tipo === TIPOS_DE_EVENTO.gateBloqueado && typeof e.motivo === 'string' && e.motivo.startsWith('runtime.'))) &&
+    !depois.slice(k + 1).some((p) => (p.tipo === TIPOS_DE_EVENTO.gateLiberado && (p.motivo === e.motivo ||
+      (!!e.sessionId && p.sessionId === e.sessionId))) || (p.tipo === 'phase_result' && p.ok === true)))?.[1] ?? null;
   if (!sessionId) {
     return falha ? parada(falha.ts, causaDaFalha(falha, null)) : parada(ultimoSinal, { tipo: 'nenhumaSessao', fase });
   }
@@ -136,12 +173,18 @@ export function vidaDaThread(t: Thread, eventos: readonly EventoLedger[], leitur
   if (s?.viva) return { viva: true, sessionId, desdeEm: null, motivo: null };
   if (falha) return parada(falha.ts, causaDaFalha(falha, sessionId), sessionId);
   const id = sessionId.slice(0, 8);
-  const daSessao = [...eventos].reverse().find((e) => e.sessionId === sessionId)?.ts ?? despacho?.ts ?? ultimoSinal;
-  if (!l.responderam.includes(runtime)) {
+  const daSessao = [...eventos].reverse().find((e) => e.sessionId === sessionId && !SO_DO_ORK.test(e.tipo))?.ts ?? despacho?.ts ?? ultimoSinal;
+  // A conta do despacho precisa ter respondido: a do perfil, ou qualquer uma do runtime quando o despacho nao teve perfil.
+  if (!l.responderam.includes(perfil ? chaveDaConta(runtime, perfil) : runtime)) {
     return parada(daSessao, { tipo: 'runtimeSemResposta', runtime, detalhe: l.falhas.length ? curto(l.falhas[0], 80) : null, sessao: id }, sessionId);
   }
   if (!s) return parada(daSessao, { tipo: 'naoAparece', sessao: id }, sessionId);
   if (s.fantasma) return parada(daSessao, { tipo: 'fantasma', sessao: id }, sessionId);
+  // O codex so conta como vivo com atividade recente no rollout: sem ela e sem estado final, e silencio, nao fim.
+  if (s.runtime === 'codex' && s.estado !== 'completed' && typeof s.atividadeEm === 'number') {
+    return parada(new Date(s.atividadeEm).toISOString(),
+      { tipo: 'semAtividade', sessao: id, minutos: Math.max(0, Math.floor((agoraMs - s.atividadeEm) / 60000)) }, sessionId);
+  }
   return parada(daSessao, { tipo: 'encerrada', sessao: id, estado: s.estado || 'sem estado' }, sessionId);
 }
 
@@ -164,7 +207,7 @@ export function textoDaParada(thread: string, v: Pick<VidaDaThread, 'desdeEm' | 
  * runtime nao respondeu: sem prova, nada e redespachado.
  */
 export function sessaoVivaNaThread(raiz: string, thread: Pick<Thread, 'worktree'>, ids: readonly string[],
-  consultar: () => ReturnType<typeof consultarContas> = () => consultarContas(raizDoEstado(raiz), { todas: false })):
+  consultar: () => ReturnType<typeof consultarContas> = () => consultarContas(raizDoEstado(raiz), { todas: false, prazoMs: PRAZO_DA_LEITURA_MS })):
   { respondeu: boolean; sessionId: string | null; detalhe: string | null } {
   let r: ReturnType<typeof consultarContas>;
   try { r = consultar(); } catch (e) { return { respondeu: false, sessionId: null, detalhe: curto((e as Error).message, 120) }; }
@@ -187,12 +230,24 @@ export const VIDA_NAO_VERIFICADA: VidaDaThread = Object.freeze({ viva: false, se
  * A vida que vem no retrato de outra maquina (`ork/fabrica-estado`): so vale com os tipos certos. Retrato
  * antigo, sem o campo, ou com o campo fora do formato, vira "nao verificada", e a linha nao diz "sigo".
  */
-export function vidaDoRetrato(bruto: unknown): VidaDaThread {
+export function vidaDoRetrato(bruto: unknown, publicadoEm?: string, quando?: string): VidaDaThread {
   if (!bruto || typeof bruto !== 'object') return VIDA_NAO_VERIFICADA;
   const v = bruto as Record<string, unknown>;
   const textoOuNulo = (x: unknown): x is string | null => x === null || typeof x === 'string';
   if (typeof v.viva !== 'boolean' || !textoOuNulo(v.desdeEm) || !textoOuNulo(v.motivo)) return VIDA_NAO_VERIFICADA;
+  // A sessao viva de um retrato velho nao e "sigo": a maquina que morreu depois de publicar seguiria "viva" para sempre.
+  const idadeMs = publicadoEm && quando ? Date.parse(quando) - Date.parse(publicadoEm) : NaN;
+  if (v.viva && Number.isFinite(idadeMs) && idadeMs > VALIDADE_DA_VIDA_NO_RETRATO_MS) {
+    const causa: CausaDaParada = { tipo: 'retratoVelho', minutos: Math.floor(idadeMs / 60000) };
+    return { viva: false, sessionId: null, desdeEm: publicadoEm ?? null, motivo: motivoDaCausa(causa), causa };
+  }
   // Parada sem motivo publicado nao vira "nao verificada": a outra maquina disse que a sessao nao esta viva.
   const motivo = v.motivo === null ? (v.viva ? null : 'sem sessão viva') : curto(v.motivo, 120);
   return { viva: v.viva, sessionId: null, desdeEm: v.desdeEm, motivo };
 }
+
+/**
+ * Ate quando a sessao viva de um retrato publicado vale: o retrato igual so volta ao remoto de hora em hora
+ * (`PULSACAO_MS` da fabrica), mais uma batida do pulse de folga.
+ */
+export const VALIDADE_DA_VIDA_NO_RETRATO_MS = 75 * 60 * 1000;

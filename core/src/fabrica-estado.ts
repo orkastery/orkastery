@@ -189,7 +189,7 @@ export function retratoDaMaquina(carregado: ManifestoCarregado,
     // RM-063 (F2): a fabrica so mostra a thread como andando com a sessao viva verificada no runtime.
     let sessao: ThreadNaFabrica['sessao'] = null;
     if (!entregue) {
-      try { const v = vidaDaThread(t, eventos, lerUmaVez); sessao = { viva: v.viva, desdeEm: v.desdeEm, motivo: v.motivo }; }
+      try { const v = vidaDaThread(t, eventos, lerUmaVez, Date.parse(quando)); sessao = { viva: v.viva, desdeEm: v.desdeEm, motivo: v.motivo }; }
       catch { sessao = null; }
     }
     const pausas = (linhas.get(t.id)?.pausas ?? []).filter((p) => !(espera && p.motivo === 'human.pending' && p.fonte === 'ledger' &&
