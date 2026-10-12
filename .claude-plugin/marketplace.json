@@ -43,6 +43,13 @@
       "homepage": "https://orkastery.com/"
     },
     {
+      "name": "ork-sentinela",
+      "source": "./marketplaces/claude-code/mods/ork-sentinela",
+      "description": "Sentinela do Condutor do Orkastery no Claude Code: na sessão do dono, despacha a fase seguinte das threads #Auto só pelo núcleo, sem duplicar o condutor externo, que cede enquanto ela conduz; o que só o dono resolve vira aviso com o próximo passo do núcleo.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
       "name": "ork-torre",
       "source": "./marketplaces/claude-code/mods/ork-torre",
       "description": "Torre de Controle do Orkastery no Claude Code: a fábrica num painel, cada thread aberta numa linha com a fase, quem conduz, o bloqueio e a ação que o estado dela pede. Só lê; ação com efeito vai ao mod dono dela ou aparece como o comando do ork.",

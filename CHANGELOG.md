@@ -8,6 +8,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Sentinela do Condutor, mod de papel `dono`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `adapters/claude-code/mods/ork-sentinela` liga só na sessão do dono, mantém pelo núcleo a presença dela nesta
+  máquina (`ork conducao sentinela bater` a cada 60 s; sai no fim da sessão e no `/sentinela pausar`), relê o passo do
+  condutor de cada thread aberta quando um ledger muda e a cada batida, e publica pela ponte a linha da faixa (threads
+  andando, paradas em degraus de tempo, pausada). `/sentinela` mostra o passo de cada thread e o diário.
 - **Condução pela Sentinela no núcleo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `ork conducao sentinela status --json` (`ork.conducao-sentinela/v1`) diz se a Sentinela do Condutor está ligada nesta
   máquina (canal `claude-code`, sessão, batida e prazo de 3 min) e dá o passo do condutor em cada thread aberta, com as
