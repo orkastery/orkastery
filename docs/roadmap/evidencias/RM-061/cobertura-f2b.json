@@ -84,12 +84,12 @@
     "cobertura": 0.1122
   },
   "depois": {
-    "arvore": "9fe77ee5",
-    "descricao": "F2b com o GO-FIX da revisao: verify, ship, ship registrar-pr, pulse (inclusive as paradas do monitor, o estado e a recomendacao do radar, a consulta do runtime, a descricao de cada motivo, as alternativas do impedimento e a correcao das vagas do escalonador), master (indice, aceite por omissao, pedir), retry plan e run, roadmap status (inclusive o motivo da fabrica nao lida)",
+    "arvore": "5ec8387e",
+    "descricao": "F2b com o GO-FIX da revisao: verify, ship, ship registrar-pr, pulse (inclusive as paradas do monitor, o estado e a recomendacao do radar, a consulta do runtime, a descricao de cada motivo, as alternativas do impedimento, a correcao das vagas do escalonador e a classe do item), master (indice, aceite por omissao, pedir), retry plan e run, roadmap status (inclusive o motivo da fabrica nao lida)",
     "schema": "ork.locale-cobertura/v1",
     "arquivos": 223,
-    "literaisComTexto": 4702,
-    "emPosicaoDeSaida": 2801,
+    "literaisComTexto": 4696,
+    "emPosicaoDeSaida": 2795,
     "arquivosComSaida": 156,
     "maiores": [
       {
@@ -251,10 +251,6 @@
         "saida": 28
       },
       {
-        "arquivo": "hitl.ts",
-        "saida": 27
-      },
-      {
         "arquivo": "parado-no-condutor.ts",
         "saida": 27
       },
@@ -289,6 +285,10 @@
       {
         "arquivo": "phase.ts",
         "saida": 22
+      },
+      {
+        "arquivo": "hitl.ts",
+        "saida": 21
       },
       {
         "arquivo": "indice-vetorial.ts",
@@ -760,7 +760,7 @@
       }
     ],
     "catalogo": {
-      "entradas": 825,
+      "entradas": 835,
       "arquivos": [
         {
           "arquivo": "locale-ajuda.ts",
@@ -780,7 +780,7 @@
         },
         {
           "arquivo": "locale-pulse.ts",
-          "entradas": 84
+          "entradas": 94
         },
         {
           "arquivo": "locale-retry.ts",
@@ -808,11 +808,11 @@
         }
       ]
     },
-    "cobertura": 0.2275
+    "cobertura": 0.23
   },
   "familiasNovas": {
     "locale-master.ts": 47,
-    "locale-pulse.ts": 84,
+    "locale-pulse.ts": 94,
     "locale-retry.ts": 115,
     "locale-roadmap.ts": 29,
     "locale-ship.ts": 112,

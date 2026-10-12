@@ -159,13 +159,13 @@ Fica fora da F2a, por decisão da thread (D1 e D14), o texto que já é dado gra
 
 A F2b mede no mesmo contador, com o recibo em [`cobertura-f2b.json`](evidencias/RM-061/cobertura-f2b.json):
 
-| Medida | F2a na `main` (`17bbdea6`) | F2b (`9fe77ee5`) |
+| Medida | F2a na `main` (`17bbdea6`) | F2b (`5ec8387e`) |
 | --- | --- | --- |
-| Entradas do catálogo | 389 | 825 |
-| Literais de saída fora do catálogo | 3.077 | 2.801 |
-| Cobertura | 11,2% | 22,8% |
+| Entradas do catálogo | 389 | 835 |
+| Literais de saída fora do catálogo | 3.077 | 2.795 |
+| Cobertura | 11,2% | 23,0% |
 
-As famílias novas são `verify` (46 entradas), `ship` (112), `retry` (115, com a política dos 26 motivos), `master` (47), `pulse` (84, com a descrição dos 26 motivos de gate) e `roadmap` (29). O texto que o comando monta e também grava, ou devolve no `--json` (o detalhe da claim, o bloqueio do ship, a razão do retry), nasce em pt-BR e só a impressão o remonta no locale. O que o próprio `pulse` monta ao ler o estado (as paradas do monitor, o estado e a recomendação do radar, a consulta do runtime, a descrição de cada motivo, as alternativas do impedimento do despacho e a correção das vagas do escalonador) também passa pelo catálogo. Seguem como o módulo dono escreve, além da fronteira da F2a: o próximo passo e o estado da entrega de uma thread parada no condutor (família de entregas) e o que outro processo gravou no ledger. Em inglês, a impressão traduz alguns valores de estado (a ação do `registrar-pr`, o tipo da autorização do `ship`, o veredito e a cobertura do CHECK-REVERIFY e o status da thread); motivo tipado, código e o `--json` saem iguais nas duas línguas. Os adaptadores do Hermes e do OpenClaw transportam o texto do comando: com `owner.language` ou o locale do host em `en`, o dono o recebe em inglês.
+As famílias novas são `verify` (46 entradas), `ship` (112), `retry` (115, com a política dos 26 motivos), `master` (47), `pulse` (94, com a descrição dos 26 motivos de gate) e `roadmap` (29). O texto que o comando monta e também grava, ou devolve no `--json` (o detalhe da claim, o bloqueio do ship, a razão do retry), nasce em pt-BR e só a impressão o remonta no locale. O que o próprio `pulse` monta ao ler o estado (as paradas do monitor, o estado e a recomendação do radar, a consulta do runtime, a descrição de cada motivo, as alternativas do impedimento do despacho e a correção das vagas do escalonador) também passa pelo catálogo. Seguem como o módulo dono escreve, além da fronteira da F2a: o próximo passo e o estado da entrega de uma thread parada no condutor (família de entregas), o que outro processo gravou no ledger e, pela D14 da F2a, a recusa `ship.remoto-invalido` do `--remoto` inválido. Em inglês, a impressão traduz alguns valores de estado (a ação do `registrar-pr`, o tipo da autorização do `ship`, o veredito e a cobertura do CHECK-REVERIFY, o status da thread e a classe do item do `pulse`); motivo tipado, código e o `--json` saem iguais nas duas línguas. Os adaptadores do Hermes e do OpenClaw transportam o texto do comando: com `owner.language` ou o locale do host em `en`, o dono o recebe em inglês.
 
 ## Responsabilidades e histórico
 
