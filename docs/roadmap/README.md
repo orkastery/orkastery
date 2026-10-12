@@ -86,7 +86,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-059](RM-059-conducao-dentro-do-claude-code.md) | Condução dentro do Claude Code: dez mods para ver, decidir, destravar, entregar e pontuar sem sair do terminal | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
 | [RM-060](RM-060-site-como-produto.md) | Site como produto: os dois sites públicos com o mesmo rigor do núcleo | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
 | [RM-061](RM-061-cli-em-ingles-e-pt-br.md) | CLI em inglês e pt-BR | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-12 |
-| [RM-062](RM-062-repositorio-publico-sem-dado-privado.md) | Repositório público sem dado privado | Em desenvolvimento | Branch criada | Não iniciados | Não implantado | 2026-10-12 |
+| [RM-062](RM-062-repositorio-publico-sem-dado-privado.md) | Repositório público sem dado privado | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
