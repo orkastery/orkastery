@@ -1,9 +1,10 @@
 // O Portão de Tarefas (RM-059, fatia F10). Na sessão de fase do GO, o quadro de tarefas do Claude Code é o do
 // plano: a tarefa nativa só entra apontando uma tarefa do plano com `touch_paths` e verify que o núcleo confere
-// (T10.1), e só fecha com essa conferência aprovada (T10.2). O Portão lê o núcleo pelo `$.ork` da ponte e pela
-// ferramenta de leitura do plano, nunca o estado interno do disco; age só por comando do `ork`; nunca roda o verify
-// por conta própria e nunca fala pelo dono. A lógica fica nos módulos puros ao lado; aqui só as chamadas ao `$`,
-// sempre escritas como `x.noun.metodo(...)`, como o validador exige.
+// (T10.1), só fecha com essa conferência aprovada (T10.2) e, com agent teams no piloto do núcleo, vai ao teammate
+// ocioso quando a região dela está livre (T10.3). O Portão lê o núcleo pelo `$.ork` da ponte e pela ferramenta de
+// leitura do plano, nunca o estado interno do disco; age só por comando do `ork`; nunca roda o verify por conta
+// própria e nunca fala pelo dono. A lógica fica nos módulos puros ao lado; aqui só as chamadas ao `$`, sempre
+// escritas como `x.noun.metodo(...)`, como o validador exige.
 import type { EngineInterface, Register } from 'claude-code'
 import type { PortaoQuadro, PortaoTarefa } from '../types'
 import {
@@ -15,6 +16,11 @@ import {
   VIGIA_DA_CONFERENCIA_MS,
 } from './verify'
 import type { Leitura } from './verify'
+import {
+  argvDoLease, escolherTarefa, leasesDoRetrato, nomeDoTeammate, PRAZO_DO_LEASE_MS, recusaDoTeammate,
+  TENTATIVAS_DE_TAREFA, tetosDoAmbiente, TETO_DO_LEASE_MS, textoDaEntrega, VIVOS,
+} from './lease'
+import type { LeaseAtivo } from './lease'
 
 const QUADRO = { plugin: 'ork-portao', key: 'quadro' } as const
 
@@ -39,7 +45,7 @@ type Ativo = { ctx: ContextoDeFase; tarefas: PortaoTarefa[] }
 const mensagem = (erro: unknown) => (erro instanceof Error ? erro.message : String(erro)).slice(0, 300)
 
 function quadroVazio(thread: string): PortaoQuadro {
-  return { thread, tarefas: {}, concluidas: [], repeticoes: {}, ultimaFalha: null }
+  return { thread, tarefas: {}, concluidas: [], repeticoes: {}, atribuicoes: {}, devolvidas: [], leases: {}, ultimaFalha: null }
 }
 
 async function contextoDeFase($: EngineInterface): Promise<ContextoDeFase | null> {
@@ -137,6 +143,29 @@ async function rodarConferencia($: EngineInterface, ctx: ContextoDeFase, tarefa:
   }
 }
 
+/** Os tetos do piloto de agent teams que o núcleo passou no ambiente da sessão (D10); `null` sem eles. */
+async function lerTetos($: EngineInterface): Promise<{ teammates: number; custoUsd: number } | null> {
+  // O validador pede o nome literal; o teste do núcleo confere que ele é o de ENV_TEAMMATES e ENV_CUSTO.
+  return tetosDoAmbiente(await $.env.get('ORK_AGENT_TEAMS_TEAMMATES'), await $.env.get('ORK_AGENT_TEAMS_CUSTO_USD'))
+}
+
+/** O custo da sessão como o `/cost` soma; `null` quando ele não vem. */
+async function custoDaSessao($: EngineInterface): Promise<number | null> {
+  const uso = await $.session.usage()
+  return typeof uso.cost?.usd === 'number' ? uso.cost.usd : null
+}
+
+/** Um `ork lease` (D8) por `$.process.run`, na raiz da sessão: só a saída 0 conta como feito. */
+async function lease($: EngineInterface, ctx: ContextoDeFase, argv: string[]): Promise<boolean> {
+  try {
+    const r = await $.process.run(argv, { cwd: ctx.raiz, timeoutMs: TETO_DO_LEASE_MS })
+    return r.exitCode === 0
+  } catch (erro) {
+    await anotarFalha($, 'ork lease', erro, ctx.thread)
+    return false
+  }
+}
+
 export const register: Register = on => {
   // A criação (T10.1): a tarefa nativa só entra apontando uma tarefa do plano que serve ao quadro (D2, D3). A recusa
   // volta ao modelo pelo `block`, com o motivo e as tarefas que servem; a que passa fica registrada pelo id nativo.
@@ -194,5 +223,84 @@ export const register: Register = on => {
     const tarefa = quadro ? tarefaDoEvento(e.task_subject, String(e.task_id), quadro, plano?.tarefas ?? []) : null
     if (!tarefa) return next(e)
     return { block: textoDoBloqueio(tarefa, { tipo: 'indisponivel', motivo: `o Portão falhou ao conferir: ${motivo}` }) }
+  })
+
+  // O teammate ocioso (T10.3): com os tetos do piloto na sessão, quem ficou ocioso sem concluir devolve a tarefa, e a
+  // próxima tarefa livre do plano (D7) vai a ele pelo `block`, com os leases `path:` tomados pelo `ork lease acquire`
+  // (D8). Lease que outra thread toma no meio solta o que o Portão tomou na tentativa e passa para a seguinte. No teto
+  // de custo, ou sem tarefa livre, o teammate fica ocioso.
+  on('classic.TeammateIdle', async ($, e, next) => {
+    const ativo = await portaoAtivo($)
+    if (!ativo) return next(e)
+    const tetos = await lerTetos($)
+    const teammate = nomeDoTeammate(e.teammate_name)
+    if (!tetos || !teammate) return next(e)
+    const { ctx } = ativo
+    let q = await lerQuadro($, ctx.thread)
+    const tinha = q.atribuicoes[teammate]
+    if (tinha) {
+      const atribuicoes = { ...q.atribuicoes }
+      delete atribuicoes[teammate]
+      const devolvida = !q.concluidas.includes(tinha) && !q.devolvidas.includes(tinha)
+      q = { ...q, atribuicoes, devolvidas: devolvida ? [...q.devolvidas, tinha] : q.devolvidas }
+      await gravarQuadro($, q)
+    }
+    const custo = await custoDaSessao($)
+    if (custo === null || custo >= tetos.custoUsd) {
+      $.ui.status(custo === null ? 'portão: custo da sessão ilegível; nenhuma tarefa nova ao time' : `portão: teto de custo do piloto (US$ ${tetos.custoUsd}) atingido`)
+      return next(e)
+    }
+    let leases: LeaseAtivo[] | null
+    try {
+      leases = leasesDoRetrato((await $.ork.retrato({ secao: 'leases' })).retrato)
+    } catch {
+      leases = null
+    }
+    const agora = await $.clock.now()
+    const pular: string[] = []
+    for (let tentativa = 0; tentativa < TENTATIVAS_DE_TAREFA; tentativa++) {
+      const escolha = escolherTarefa({ tarefas: ativo.tarefas, quadro: q, teammate, thread: ctx.thread, leases, agora, pular })
+      if (!escolha) break
+      const tomados: string[] = []
+      for (const nome of escolha.tomar) {
+        if (!await lease($, ctx, argvDoLease('acquire', nome, ctx.thread, `ork-portao: ${escolha.tarefa.id} com ${teammate}`))) break
+        tomados.push(nome)
+      }
+      if (tomados.length < escolha.tomar.length) {
+        for (const nome of tomados) await lease($, ctx, argvDoLease('release', nome, ctx.thread))
+        pular.push(escolha.tarefa.id)
+        continue
+      }
+      const vence = agora + PRAZO_DO_LEASE_MS
+      q = { ...q, atribuicoes: { ...q.atribuicoes, [teammate]: escolha.tarefa.id }, leases: { ...q.leases, ...Object.fromEntries(tomados.map(n => [n, vence])) } }
+      await gravarQuadro($, q)
+      $.ui.status(`portão: ${escolha.tarefa.id} com ${teammate}`)
+      return { block: textoDaEntrega(escolha.tarefa, teammate) }
+    }
+    return next(e)
+  }).catch(async ($, e, next) => {
+    if (next.error && next.error.kind !== 're-entry') await anotarFalha($, 'teammate ocioso', next.error.message ?? next.error.kind)
+    return next(e)
+  })
+
+  // Os tetos do piloto (D10): na sessão de fase, o teammate só nasce com os tetos do núcleo, abaixo do teto de
+  // teammates vivos e do teto de custo. Subagente que não é teammate passa.
+  on('agent.spawn', async ($, e, next) => {
+    if (!e.isTeammate) return next(e)
+    const ctx = await contextoDeFase($)
+    if (!ctx) return next(e)
+    const tetos = await lerTetos($)
+    const vivos = (await $.agent.list()).filter(a => a.teammateId && VIVOS.includes(a.status)).length
+    const recusa = recusaDoTeammate(tetos, vivos, tetos ? await custoDaSessao($) : null)
+    if (recusa) {
+      $.ui.status('portão: teammate recusado pelo teto do piloto')
+      return { deny: recusa }
+    }
+    return next(e)
+  }).catch(async ($, e, next) => {
+    if (!next.error || next.error.kind === 're-entry' || !e.isTeammate || next.called) return next(e)
+    const motivo = next.error.message ?? next.error.kind
+    await anotarFalha($, 'teto de teammates', motivo)
+    return { deny: `Portão de Tarefas: teammate recusado. O Portão não conseguiu conferir os tetos do piloto (${motivo}).` }
   })
 }

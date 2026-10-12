@@ -39,6 +39,12 @@ export type PortaoQuadro = {
   concluidas: string[]
   /** A repetição de bloqueios da conclusão, por tarefa do plano. */
   repeticoes: Record<string, PortaoRepeticao>
+  /** A tarefa do plano que o Portão entregou a cada teammate ocioso (T10.3), pelo nome do teammate. */
+  atribuicoes: Record<string, string>
+  /** As tarefas que um teammate devolveu ao ficar ocioso sem concluí-las: saem da distribuição automática. */
+  devolvidas: string[]
+  /** Os leases `path:` que o Portão tomou nesta sessão, com quando o prazo do núcleo vence (ms desde a época). */
+  leases: Record<string, number>
   /** A última falha do Portão, para a linha de status e o log. */
   ultimaFalha: PortaoFalha | null
 }

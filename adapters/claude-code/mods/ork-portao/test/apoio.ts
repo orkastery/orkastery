@@ -200,18 +200,55 @@ export function recusa(erro: string, code = 2) {
 export type RespostaDoProcesso = { stdout?: string; stderr?: string; code?: number; espera?: number; naoAbre?: string }
 
 /**
- * O fundo do `process.run` para o `ork claims conferir`: cada conferência pedida tira a próxima resposta da lista e
- * fica anotada com o argv, o cwd e o vigia. `espera` segura a resposta até o relógio falso andar.
+ * O fundo do `process.run` do Portão. `ork claims conferir` tira a próxima resposta da lista (`espera` segura a resposta
+ * até o relógio falso andar); `ork lease acquire` sai com o código de `leases[nome]` (padrão 0) e `release` sai 0. Cada
+ * chamada fica anotada com o argv, o cwd e o vigia; qualquer outro processo derruba o teste.
  */
-export function nucleoDeConferencia(on, relogio, respostas: RespostaDoProcesso[]) {
-  const pedidos: Array<{ argv: string[]; cwd: unknown; timeoutMs: unknown }> = []
+export function processos(on, relogio, opcoes: { conferencias?: RespostaDoProcesso[]; leases?: Record<string, number> } = {}) {
+  const conferencias: Array<{ argv: string[]; cwd: unknown; timeoutMs: unknown }> = []
+  const leases: Array<{ argv: string[]; cwd: unknown; timeoutMs: unknown }> = []
+  const respostas = opcoes.conferencias ?? []
   on('process.run', async ($, e) => {
+    const pedido = { argv: [...e.argv], cwd: e.init?.cwd, timeoutMs: e.init?.timeoutMs }
+    const saida = (exitCode: number, stdout = '', stderr = '') => ({ value: { exitCode, stdout, stderr, isStdoutTruncated: false, isStderrTruncated: false } })
+    if (e.argv[0] === 'ork' && e.argv[1] === 'lease' && (e.argv[2] === 'acquire' || e.argv[2] === 'release')) {
+      leases.push(pedido)
+      const code = e.argv[2] === 'acquire' ? (opcoes.leases?.[e.argv[3]] ?? 0) : 0
+      return saida(code, code === 0 ? `Lease ${e.argv[3]} [path] adquirido.` : '', code === 0 ? '' : `Lease ${e.argv[3]} NAO adquirido.`)
+    }
     if (e.argv[0] !== 'ork' || e.argv[1] !== 'claims' || e.argv[2] !== 'conferir') throw new Error(`processo fora do teste: ${e.argv.join(' ')}`)
-    pedidos.push({ argv: [...e.argv], cwd: e.init?.cwd, timeoutMs: e.init?.timeoutMs })
+    conferencias.push(pedido)
     const r: RespostaDoProcesso = respostas.shift() ?? recusa('claims.conferir.uso: sem resposta preparada no teste')
     if (r.espera) await relogio.sleep(r.espera)
     if (r.naoAbre) throw new Error(r.naoAbre)
-    return { value: { exitCode: r.code ?? 0, stdout: r.stdout ?? '', stderr: r.stderr ?? '', isStdoutTruncated: false, isStderrTruncated: false } }
+    return saida(r.code ?? 0, r.stdout ?? '', r.stderr ?? '')
   })
-  return pedidos
+  return { conferencias, leases }
+}
+
+/** Só as conferências do `ork claims conferir`, para os testes da conclusão. */
+export function nucleoDeConferencia(on, relogio, respostas: RespostaDoProcesso[]) {
+  return processos(on, relogio, { conferencias: respostas }).conferencias
+}
+
+/** Os tetos do piloto de agent teams no ambiente da sessão, como o núcleo os passa (D10). */
+export const TETOS = { ORK_AGENT_TEAMS_TEAMMATES: '2', ORK_AGENT_TEAMS_CUSTO_USD: '10' }
+
+/** Os fundos do time: os agentes da sessão, o custo do `/cost` e o nascimento de um agente. */
+export function time(on, opcoes: { agentes?: Array<{ id: string; teammateId?: string; status: string }>; custo?: number | null } = {}) {
+  const nascidos: string[] = []
+  on('agent.list', () => ({ value: (opcoes.agentes ?? []).map(a => ({ description: 'x', type: a.teammateId ? 'teammate' : 'general-purpose', ...a })) }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 0 }, rateLimits: [], ...(opcoes.custo === null ? {} : { cost: { usd: opcoes.custo ?? 0 } }) } }))
+  on('agent.spawn', ($, e) => { nascidos.push(String(e.name)); return { model: 'opus', agentId: `ag-${nascidos.length}`, ...(e.isTeammate ? { teammateId: `${e.name}@time` } : {}) } })
+  return nascidos
+}
+
+/** O teammate que vai ficar ocioso, como o motor levanta o evento. */
+export function ocioso($, teammate: string) {
+  return $.classic.TeammateIdle({ ...base, hook_event_name: 'TeammateIdle', teammate_name: teammate, team_name: 'time' })
+}
+
+/** O nascimento de um agente pelo Agent tool: teammate (com nome no time) ou subagente comum. */
+export function nascer($, nome: string, teammate = true) {
+  return $.agent.spawn({ prompt: 'trabalhe na tarefa', description: 'ajudante', name: nome, ...(teammate ? { isTeammate: true } : {}) })
 }
