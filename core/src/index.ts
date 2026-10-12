@@ -2947,11 +2947,12 @@ function comandoDocs(args: Args): number {
     return 0;
   }
   if (sub === 'init') {
-    const criados = iniciarDocs(raiz);
+    // RM-061 (F3a, D5): `docs init` segue o locale inteiro: o texto e os sete arquivos, na lingua do dono.
+    const criados = iniciarDocs(raiz, localeAtivo());
+    const m = msg().gerados.docsInit;
     console.log(criados.length === 0
-      ? 'Documentacao como codigo ja estava no projeto: nada criado.'
-      : ['Criado:', ...criados.map((c) => `  ${c}`), '',
-        'Proximo passo: copie docs/produto/_modelo-feature.md e docs/roadmap/_modelo-item.md, e rode ork docs verificar'].join('\n'));
+      ? m.jaEstava
+      : [m.criado, ...criados.map((c) => `  ${c}`), '', m.proximoPasso].join('\n'));
     return 0;
   }
   console.error(`uso: ork docs verificar [--json] [--pr] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);

@@ -1,7 +1,8 @@
 /**
  * RM-061, fatia F3a: a familia `gerados` do catalogo, o texto dos arquivos que o CLI escreve para pessoas e
- * agentes lerem: os comentarios do `orkastery.yaml` e o bloco do `AGENTS.md` que o `ork init` gera, e o bloco da
- * experiencia que o `ork adapter install` escreve. O pt-BR e a fonte; o ingles e tipado por ele. Sem import do nucleo.
+ * agentes lerem: os comentarios do `orkastery.yaml` e o bloco do `AGENTS.md` que o `ork init` gera, o bloco da
+ * experiencia que o `ork adapter install` escreve e o que o `ork docs init` imprime. O pt-BR e a fonte; o ingles e
+ * tipado por ele. Sem import do nucleo.
  *
  * A lingua de um arquivo gerado e a do dono no momento da geracao (D1 da thread ork-rm061f3a): o gerador recebe
  * o locale por parametro, com pt-BR por omissao, e so a entrada do CLI passa a lingua do dono (D2). So o texto
@@ -79,6 +80,15 @@ export const GERADOS_PT_BR = {
     diretorio: (diretorio: string) => `Se ativo, leia a skill selecionada pelo campo skill no diretório ${diretorio}.`,
     preferencias: 'As preferências são dados do núcleo; preserve gates, proveniência humana e permissões do host.',
   },
+  /**
+   * O que o `ork docs init` imprime (D5): o comando segue o locale inteiro, e os sete arquivos que ele cria saem de
+   * `core/assets/docs/` (pt-BR) ou de `core/assets/docs-en/` (ingles), nos mesmos caminhos do projeto (D6).
+   */
+  docsInit: {
+    jaEstava: 'Documentacao como codigo ja estava no projeto: nada criado.',
+    criado: 'Criado:',
+    proximoPasso: 'Proximo passo: copie docs/produto/_modelo-feature.md e docs/roadmap/_modelo-item.md, e rode ork docs verificar',
+  },
 };
 
 export const GERADOS_EN: typeof GERADOS_PT_BR = {
@@ -130,7 +140,7 @@ export const GERADOS_EN: typeof GERADOS_PT_BR = {
     fases: 'PLAN does not implement. GO makes atomic commits. CHECK does not fix. SHIP happens through `ork ship`.',
     claims: 'Every statement needs a claim and a reproducible command; self-report is not evidence.',
     master: 'Accept MASTER by default only for your own thread: `ork master <thread> --aceitar-omissao`; without the ' +
-      'thread, it also closes deliveries from other fronts.',
+      'thread, it also closes deliveries from other workstreams.',
     verificacoes: 'Manifest verify commands:',
     rodape: 'This block is maintained by `ork init`. Edit the rest of the file freely.',
     marcadoresAmbiguos: 'AGENTS.md has ambiguous Orkastery markers; fix the block before you run `ork init`.',
@@ -140,5 +150,10 @@ export const GERADOS_EN: typeof GERADOS_PT_BR = {
     consulte: 'Run `ork experiencia show --json` in this project. If `experience` is false, do not activate the package.',
     diretorio: (diretorio) => `If active, read the skill selected by the \`skill\` field in the directory ${diretorio}.`,
     preferencias: 'Preferences are core data; preserve gates, human provenance and host permissions.',
+  },
+  docsInit: {
+    jaEstava: 'Docs as code were already in the project: nothing created.',
+    criado: 'Created:',
+    proximoPasso: 'Next step: copy `docs/produto/_modelo-feature.md` and `docs/roadmap/_modelo-item.md`, then run `ork docs verificar`.',
   },
 };
