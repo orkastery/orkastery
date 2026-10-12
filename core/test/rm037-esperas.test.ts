@@ -28,18 +28,26 @@ function linhasComARegra(arquivo: string): number {
 const SKILLS_DO_CATALOGO = ['skills/core/orkastery-bootstrap/SKILL.md', 'skills/phases/go-implementation/SKILL.md',
   'skills/phases/check-quality/SKILL.md'];
 
+/** Os seis agentes de fase do Claude Code: a secao "Regras que valem em toda fase" e a mesma neles (D10). */
+const AGENTES = ['ork-goal', 'ork-plan', 'ork-go', 'ork-check', 'ork-ship', 'ork-master'].map((a) => `agents/${a}.md`);
+
 /** Os guias dos adaptadores que a sessao de fase le (D4, D10), com a copia de cada um no marketplace do host. */
 const GUIAS_DOS_ADAPTADORES: Record<string, string> = {
   'adapters/codex/skills/ork/SKILL.md': 'marketplaces/codex/orkastery/skills/ork/SKILL.md',
-  'adapters/claude-code/agents/ork-go.md': 'marketplaces/claude-code/orkastery/agents/ork-go.md',
-  'adapters/claude-code/agents/ork-check.md': 'marketplaces/claude-code/orkastery/agents/ork-check.md',
+  ...Object.fromEntries(AGENTES.map((a) => [`adapters/claude-code/${a}`, `marketplaces/claude-code/orkastery/${a}`])),
 };
 
 /** O que a instalacao real de cada host de fase precisa levar com a regra, relativo ao destino da instalacao. */
 const INSTALADOS: Record<'claude-code' | 'codex', string[]> = {
-  'claude-code': [...SKILLS_DO_CATALOGO, 'agents/ork-go.md', 'agents/ork-check.md'],
+  'claude-code': [...SKILLS_DO_CATALOGO, ...AGENTES],
   codex: ['skills/ork/SKILL.md', ...SKILLS_DO_CATALOGO],
 };
+
+/** A secao comum dos agentes, do titulo ao fim do arquivo. */
+function secaoComum(arquivo: string): string {
+  const texto = fs.readFileSync(arquivo, 'utf8');
+  return texto.slice(texto.indexOf('## Regras que valem em toda fase'));
+}
 
 test('R1: o prompt de toda fase, em todo modo, traz a regra das esperas numa linha so, uma vez, no lugar da linha da N2', () => {
   // Os tres pontos do pedido, um a um, numa linha so.
@@ -90,6 +98,10 @@ test('R3: os guias dos adaptadores trazem a regra numa linha, uma vez, e o ork a
     assert.equal(linhasComARegra(path.join(RAIZ, fonte)), 1, fonte);
     assert.equal(linhasComARegra(path.join(RAIZ, copia)), 1, copia);
   }
+  // A secao que vale em toda fase continua a mesma nos seis agentes, agora com a regra.
+  const secoes = AGENTES.map((a) => secaoComum(path.join(RAIZ, 'adapters/claude-code', a)));
+  assert.equal(new Set(secoes).size, 1, 'a secao comum dos agentes divergiu');
+  assert.ok(secoes[0].includes(`- ${REGRA_DAS_ESPERAS}`));
   // A instalacao real num projeto temporario, nos dois hosts que rodam sessao de fase.
   for (const host of ['claude-code', 'codex'] as const) {
     const projeto = fs.mkdtempSync(path.join(os.tmpdir(), `ork-rm037-inst-${host}-`));
