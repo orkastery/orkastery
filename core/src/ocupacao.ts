@@ -129,7 +129,8 @@ function ultimaAtividadeEm(eventos: EventoLedger[]): string | null {
  * `human.pending` sem destravamento, ou sessao bloqueada no runtime), e a que o pulse declarou em silencio
  * (`runtime.silencio`). A pausa PREVISTA ao fim do bloco nao entra: ela e gravada no proprio
  * despacho e a sessao roda ate o fim do bloco. O impedimento de verify tambem nao: a sessao corrige e
- * verifica de novo. RM-058 N2 (D8): a quarta e a sessao com o turno encerrado pelo ledger (`turno-encerrado`).
+ * verifica de novo. RM-058 N2 (D8): a quarta e a sessao com o turno encerrado pelo ledger (`turno-encerrado`), passada
+ * a carencia.
  * Somente leitura.
  */
 export function sessaoLivreDaVaga(doLedger: EventoLedger[], desde: string, agora: string, staleMin: number,
@@ -153,23 +154,32 @@ export function sessaoLivreDaVaga(doLedger: EventoLedger[], desde: string, agora
   const bloqueio = depois.filter((e) => (e.tipo === 'sessao_bloqueada' || e.tipo === 'sessao_destravada') &&
     (!sessionId || e.sessionId === sessionId)).at(-1);
   if (bloqueio?.tipo === 'sessao_bloqueada') return 'human.pending';
-  if (sessionId && turnoEncerrado(eventos, sessionId, desde)) return 'turno-encerrado';
+  if (sessionId && turnoEncerrado(eventos, sessionId, desde, agora)) return 'turno-encerrado';
   return null;
 }
 
 /**
- * RM-058 N2 (D8 da ork-rm058n2): a sessao cujo turno o ledger prova encerrado (o Stop correlacionado e nenhuma
- * atividade dela depois) nao trabalha mais, mesmo com o lease de pe: e a mesma leitura do pulse (P7). Em 12/10/2026
- * o `runtime_stop` sem `phase_result` (sessao parada com `claude stop` antes do resultado) prendia a vaga ate a thread
- * fechar. A sessao que volta a trabalhar tem atividade depois do Stop e volta a ocupar.
+ * RM-058 N2 (A8 do CHECK da ork-rm058n2): a carencia do turno encerrado. O Stop do Claude Code dispara a cada fim de
+ * turno, e a sessao que espera uma tarefa em segundo plano volta sozinha quando ela acaba; nesse intervalo a vaga
+ * continua dela. Sem atividade da sessao por toda a carencia, o turno acabou de vez e a vaga sai.
  */
-function turnoEncerrado(eventos: EventoLedger[], sessionId: string, desde: string): boolean {
+export const CARENCIA_DO_TURNO_ENCERRADO_MIN = 15;
+
+/**
+ * RM-058 N2 (D8 da ork-rm058n2): a sessao cujo turno o ledger prova encerrado (o Stop correlacionado e nenhuma
+ * atividade dela depois, ha pelo menos `CARENCIA_DO_TURNO_ENCERRADO_MIN`) nao trabalha mais, mesmo com o lease de pe:
+ * e a mesma leitura do pulse (P7). Em 12/10/2026 o `runtime_stop` sem `phase_result` (sessao parada com `claude stop`
+ * antes do resultado) prendia a vaga ate a thread fechar. A sessao que volta a trabalhar tem atividade depois do Stop
+ * e volta a ocupar.
+ */
+function turnoEncerrado(eventos: EventoLedger[], sessionId: string, desde: string, agora: string): boolean {
   const despacho = [...eventos].reverse().find((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada && e.sessionId === sessionId);
   if (!despacho) return false;
   // Carregado na hora: `parado-no-condutor` importa este modulo, e o import no topo fecharia um ciclo de modulos.
   const { fimDoTurno } = require('./parado-no-condutor') as typeof import('./parado-no-condutor');
   const fim = fimDoTurno(eventos, despacho);
-  return !!fim && fim.tipo !== 'outro' && fim.sessionId === sessionId && Date.parse(fim.em) >= Date.parse(desde);
+  return !!fim && fim.tipo !== 'outro' && fim.sessionId === sessionId && Date.parse(fim.em) >= Date.parse(desde) &&
+    minutos(fim.em, agora) >= CARENCIA_DO_TURNO_ENCERRADO_MIN;
 }
 
 /** A thread tem pausa humana ABERTA? Mesmas tres fontes do monitor, resumidas. */

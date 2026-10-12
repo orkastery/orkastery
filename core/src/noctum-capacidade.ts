@@ -4,8 +4,9 @@
  * Ocupação são as sessões que trabalham agora: as conduções `exec:<thread>` de sessão desta raiz de estado, pela mesma
  * regra de vaga do `ork phase run` (`sessaoLivreDaVaga`), mais os despachos em curso, unidas às sessões vivas do runtime
  * em todas as contas que o `ork` conhece (inclusive de outros projetos desta máquina), sem repetir sessão. A sessão que
- * o runtime prova encerrada na própria conta sai da conta, mesmo com o lease de pé (aprendizado 2 de 12/10). Fonte que
- * falha não vira zero: vira lacuna, e com lacuna nada é admitido.
+ * o runtime prova encerrada na própria conta sai da conta, mesmo com o lease de pé (aprendizado 2 de 12/10); a que o
+ * runtime mostra trabalhando conta, mesmo quando o ledger já a soltou da vaga. Fonte que falha não vira zero: vira
+ * lacuna, e com lacuna nada é admitido.
  *
  * `admitir` é puro: o projeto (o mesmo portão de vaga do `phase run`), a máquina, a conta, o runtime e a margem de
  * revisão do envelope ao mesmo tempo. Nada aqui despacha nem grava.
@@ -54,6 +55,8 @@ export type Admissao = { ok: true } | { ok: false; motivo: MotivoDaCapacidade; d
 export interface LeituraDeSessoes { sessoes: SessaoDaConta[]; fontes: FonteDeSessoes[]; contas: Pick<ContaDeSessoes, 'runtime' | 'perfil'>[] }
 
 const TERMINAIS = ['done', 'completed', 'exited', 'stopped', 'failed'];
+/** O runtime mostra a sessão trabalhando agora: o claude-bg diz `running` ou `busy` (o watcher chama de `working`). */
+const TRABALHANDO = ['running', 'busy', 'working'];
 const estadoDe = (s: SessaoDaConta): string => String(s.state ?? s.status ?? '').trim().toLowerCase();
 
 /**
@@ -84,7 +87,8 @@ export function fatosDeCapacidade(carregado: ManifestoCarregado, opcoes: { quand
   const ocupantes: SessaoOcupante[] = [];
   const encerradasPeloRuntime: string[] = [];
   const contadas = new Set<string>();
-  // A sessão que a regra da vaga solta (turno encerrado, espera do dono, parada) não volta pela lista do runtime.
+  // A sessão que a regra da vaga solta (turno encerrado, espera do dono, parada) não volta pela lista do runtime,
+  // a não ser que o runtime a mostre trabalhando agora (A8 do CHECK): a regra da vaga lê só o ledger.
   const soltas = new Set<string>();
   for (const id of listarIds(raiz)) {
     let atual: ReturnType<typeof conducaoDaThread> = null;
@@ -96,14 +100,17 @@ export function fatosDeCapacidade(carregado: ManifestoCarregado, opcoes: { quand
     }
     if (atual.dono.tipo !== 'sessao') continue;
     const dono = atual.dono;
+    const vista = porSessao.get(dono.sessionId);
     try {
-      if (sessaoLivreDaVaga(lerLedger(dirThread(raiz, id)), atual.desde, quando, staleMin, dono.sessionId)) { soltas.add(dono.sessionId); continue; }
+      if (sessaoLivreDaVaga(lerLedger(dirThread(raiz, id)), atual.desde, quando, staleMin, dono.sessionId) &&
+          !(vista?.viva && TRABALHANDO.includes(estadoDe(vista)))) { soltas.add(dono.sessionId); continue; }
     }
     catch { /* ledger ilegível: a condução viva continua contando, como no portão do phase run */ }
     if (encerradaPeloRuntime(dono, leitura, porSessao, lacunas.length === 0)) { encerradasPeloRuntime.push(dono.sessionId); continue; }
     contadas.add(dono.sessionId);
-    ocupantes.push({ sessionId: dono.sessionId, thread: id, runtime: dono.runtime, conta: dono.perfil, revisao: atual.fase === 'CHECK',
-      origem: 'conducao' });
+    // A5 do CHECK: o despacho sem `--perfil` grava o lease sem conta; a conta é a que o runtime atribui à sessão.
+    ocupantes.push({ sessionId: dono.sessionId, thread: id, runtime: dono.runtime, conta: dono.perfil ?? vista?.perfil ?? null,
+      revisao: atual.fase === 'CHECK', origem: 'conducao' });
   }
   for (const s of leitura.sessoes) {
     if (!s.viva || contadas.has(s.sessionId) || soltas.has(s.sessionId) || encerradasPeloRuntime.includes(s.sessionId)) continue;

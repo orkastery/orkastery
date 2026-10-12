@@ -11,6 +11,7 @@ import { vagaDoDespacho } from '../src/board';
 import { conducaoDaThread, registrarConducaoDaSessao, tomarConducao } from '../src/conducao';
 import { admitir, escolherConta, FatosDeCapacidade, fatosDeCapacidade, LeituraDeSessoes, SessaoOcupante } from '../src/noctum-capacidade';
 import { Capacidade } from '../src/noctum-envelope';
+import { CARENCIA_DO_TURNO_ENCERRADO_MIN } from '../src/ocupacao';
 import { SessaoDaConta } from '../src/sessoes-contas';
 import { registrar } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
@@ -40,6 +41,9 @@ function doHook(s: Despachada, tipo: string, dados: Record<string, unknown>): vo
 const stopDoTurno = (s: Despachada, k: number) =>
   doHook(s, 'runtime_stop', { sensor: 'stop', sensorEventId: createHash('sha256').update(`stop-${k}`).digest('hex') });
 
+/** O instante passada a carência do turno encerrado (mais um minuto), contado de agora. */
+const depoisDaCarencia = () => new Date(Date.now() + (CARENCIA_DO_TURNO_ENCERRADO_MIN + 1) * 60_000).toISOString();
+
 test('C1: a sessão com o Stop e sem resultado (parada antes do phase_result) deixa a vaga do phase run', () => {
   const p = projetoTemporario('noctum-c1');
   try {
@@ -48,9 +52,12 @@ test('C1: a sessão com o Stop e sem resultado (parada antes do phase_result) de
     const quemPede = novaThread(p.carregado, { nome: 'quem pede', modo: 'auto' }).thread;
     // Antes do Stop, a sessão trabalha e ocupa a única vaga.
     assert.deepEqual(vagaDoDespacho(p.carregado, quemPede.id)?.ocupam.map(o => o.thread), [parada.id]);
-    // O padrão de 12/10: runtime_stop e nada depois, nem phase_result. A vaga volta para quem pede.
+    // O padrão de 12/10: runtime_stop e nada depois, nem phase_result. A vaga volta para quem pede, passada a carência.
     stopDoTurno(parada, 1);
-    assert.equal(vagaDoDespacho(p.carregado, quemPede.id), null);
+    assert.equal(CARENCIA_DO_TURNO_ENCERRADO_MIN, 15);
+    assert.deepEqual(vagaDoDespacho(p.carregado, quemPede.id)?.ocupam.map(o => o.thread), [parada.id],
+      'logo depois do Stop, a sessão pode estar só esperando uma tarefa em segundo plano');
+    assert.equal(vagaDoDespacho(p.carregado, quemPede.id, depoisDaCarencia()), null);
     // A condução da parada continua de pé: quem a solta é a tomada da própria thread, com a prova do runtime.
     assert.equal(conducaoDaThread(p.dir, parada.id)?.sessao, parada.sessionId);
   } finally { p.limpar(); }
@@ -63,17 +70,18 @@ test('C2: a sessão que volta a trabalhar depois do Stop volta a ocupar; Stop de
     const viva = sessaoDespachada(p, 'retomada', 2);
     const quemPede = novaThread(p.carregado, { nome: 'quem pede', modo: 'auto' }).thread;
     stopDoTurno(viva, 1);
-    assert.equal(vagaDoDespacho(p.carregado, quemPede.id), null, 'turno encerrado');
+    assert.equal(vagaDoDespacho(p.carregado, quemPede.id, depoisDaCarencia()), null, 'turno encerrado');
     // O dono respondeu na tela e a sessão voltou a trabalhar: há atividade dela depois do Stop.
     doHook(viva, 'runtime_event', { sensor: 'pre_tool_use' });
-    assert.deepEqual(vagaDoDespacho(p.carregado, quemPede.id)?.ocupam.map(o => o.thread), [viva.id], 'retomada ocupa de novo');
+    assert.deepEqual(vagaDoDespacho(p.carregado, quemPede.id, depoisDaCarencia())?.ocupam.map(o => o.thread), [viva.id],
+      'retomada ocupa de novo');
     // O Stop de uma sessão que não é a dona do lease não prova o fim desta.
     const outra = sessaoDespachada(p, 'outra', 3);
     p.carregado.manifesto.concurrency.max_parallel_threads = 2;
     registrar(outra.dir, outra.id, 'runtime_stop', { fase: 'GOAL', sessionId: '00000000-0000-4000-8000-000000000099', runtime: 'claude-bg',
       despachoEm: outra.despachoEm, fonte: 'ork sessions event', sensor: 'stop',
       sensorEventId: createHash('sha256').update('stop-alheio').digest('hex') });
-    assert.deepEqual(vagaDoDespacho(p.carregado, quemPede.id)?.ocupam.map(o => o.thread).sort(), [viva.id, outra.id].sort());
+    assert.deepEqual(vagaDoDespacho(p.carregado, quemPede.id, depoisDaCarencia())?.ocupam.map(o => o.thread).sort(), [viva.id, outra.id].sort());
   } finally { p.limpar(); }
 });
 
@@ -171,9 +179,16 @@ test('C7: a sessão com o turno encerrado e o despacho em curso seguem a regra d
     const tomada = tomarConducao(p.dir, t.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 60_000 });
     assert.equal(tomada.ok, true);
     try {
-      const r = fatosDeCapacidade(p.carregado, { consultar: () => leitura([{ sessionId: encerrada.sessionId, state: 'idle' }]) });
-      assert.equal(r.ocupantes.some(o => o.sessionId === encerrada.sessionId), false, 'turno encerrado no ledger não ocupa');
+      const quando = depoisDaCarencia();
+      const r = fatosDeCapacidade(p.carregado, { quando, consultar: () => leitura([{ sessionId: encerrada.sessionId, state: 'idle' }]) });
+      assert.equal(r.ocupantes.some(o => o.sessionId === encerrada.sessionId), false, 'turno encerrado no ledger e parada no runtime não ocupa');
       assert.deepEqual(r.ocupantes.filter(o => o.origem === 'despacho').map(o => o.thread), [t.id], 'o despacho em curso ocupa a máquina');
+      // A8 do CHECK: o runtime que mostra a sessão trabalhando (voltou de uma tarefa em segundo plano) vence o ledger.
+      const trabalhando = fatosDeCapacidade(p.carregado, { quando, consultar: () => leitura([{ sessionId: encerrada.sessionId, state: 'running' }]) });
+      assert.equal(trabalhando.ocupantes.find(o => o.sessionId === encerrada.sessionId)?.origem, 'conducao');
+      // Dentro da carência, a sessão ainda ocupa pelo lease, sem precisar do runtime.
+      const naCarencia = fatosDeCapacidade(p.carregado, { consultar: () => leitura([{ sessionId: encerrada.sessionId, state: 'idle' }]) });
+      assert.equal(naCarencia.ocupantes.find(o => o.sessionId === encerrada.sessionId)?.origem, 'conducao');
     } finally { if (tomada.ok) tomada.liberar(); }
   } finally { p.limpar(); }
 });
@@ -199,5 +214,19 @@ test('C9: a ocupação é relida a cada chamada: a sessão que dá o resultado s
     assert.equal(depois.ocupantes.find(o => o.sessionId === s.sessionId)?.origem, 'runtime');
     const semRuntime = fatosDeCapacidade(p.carregado, { consultar: () => leitura([{ sessionId: s.sessionId, state: 'done', viva: false }]) });
     assert.deepEqual(semRuntime.ocupantes, [], 'concluída no ledger e done no runtime: nada ocupa');
+  } finally { p.limpar(); }
+});
+
+test('C10: a sessão sem perfil no lease conta na conta que o runtime atribui a ela', () => {
+  const p = projetoTemporario('noctum-c10');
+  try {
+    // O despacho sem `--perfil` grava o lease com a conta do processo (perfil null); o runtime vê a sessão pelo perfil
+    // do store que aponta para a mesma pasta.
+    const s = sessaoDespachada(p, 'sem perfil no lease', 41);
+    const r = fatosDeCapacidade(p.carregado, { consultar: () => leitura([{ sessionId: s.sessionId, perfil: 'perfil-a' }]) });
+    assert.equal(r.ocupantes.find(o => o.sessionId === s.sessionId)?.conta, 'perfil-a');
+    const umaPorConta: Capacidade = { ...limites(), porConta: [{ conta: 'perfil-a', sessoes: 1 }, { conta: 'perfil-b', sessoes: 2 }] };
+    const pedido = admitir({ runtime: 'claude-bg', conta: 'perfil-a', revisao: false }, umaPorConta, r, null);
+    assert.equal(pedido.ok === false && pedido.motivo, 'capacidade.conta', 'a sessão já roda na perfil-a, que só tem uma vaga');
   } finally { p.limpar(); }
 });
