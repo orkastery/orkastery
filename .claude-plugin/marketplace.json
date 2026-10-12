@@ -15,6 +15,13 @@
       "homepage": "https://orkastery.com/"
     },
     {
+      "name": "ork-clima",
+      "source": "./marketplaces/claude-code/mods/ork-clima",
+      "description": "Clima de Cota do Orkastery no Claude Code: prevê quando a cota da conta acaba no ritmo atual, avisa na faixa antes de a fase morrer no meio e diz qual retomada não cabe. Só lê e avisa.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
       "name": "ork-ponte",
       "source": "./marketplaces/claude-code/mods/ork-ponte",
       "description": "Ponte dos mods do Orkastery no Claude Code: o papel da sessão, a leitura do núcleo, a faixa e os caminhos vigiados com dono único, e a guarda de autoridade que nenhum mod passa.",
