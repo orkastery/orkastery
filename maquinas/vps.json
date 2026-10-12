@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T02:50:50.333Z",
+  "publicadoEm": "2026-10-12T03:00:04.018Z",
   "threads": [
     {
       "id": "ork-modsorquestr",
@@ -16,23 +16,6 @@
       "branch": "ork/ork-modsorquestr-full",
       "atualizadaEm": "2026-10-11T03:23:03.101Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
-    },
-    {
-      "id": "ork-rm031grafo3",
-      "nome": "rm031grafo3",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-rm031grafo3-full",
-      "atualizadaEm": "2026-10-10T20:49:41.741Z",
-      "entregue": "f720fad1",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
