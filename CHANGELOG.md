@@ -8,6 +8,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Item novo de roadmap, RM-062: repositório público sem dado privado** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)):
+  nada privado do dono entra em repositório público, nem em linha, nem em nome de arquivo, nem em JSON de evidência.
+  Quatro fatias: barreira no CI do núcleo e dos sites (padrões genéricos mais uma lista local fora do git), a mesma
+  barreira no `ork verify` e no `ork ci prepare`, nome genérico de máquina na evidência de rede e o relatório honesto de
+  quando algo escapou. Só a página e o registro no índice; o código das fatias vem depois.
 - **Freio de Lote, o primeiro mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `adapters/claude-code/mods/ork-freio` acha, a cada lote de ferramentas da sessão de fase, os arquivos que o lote
   mexeu (inclusive por `Bash`, pela diferença do `git status`) e as claims da thread que os citam, pede ao núcleo a
@@ -113,6 +118,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
+- **Requisito de linguagem simples no HITL por alternativas** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md)):
+  todo passo que depende do dono chega como pergunta com 3 alternativas e uma recomendada, em linguagem simples, sem lista
+  de comandos crus e sem termo técnico sem explicação (o caso: o comando de uma tag mandado sem dizer o que é uma tag).
+  A recomendada, quando possível, é a que o dono responde com uma palavra e a fábrica executa o resto com a autorização dele.
 - **Teto do `test` no verify deste repositório** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
   o `orkastery.yaml` do projeto passa a dar 40 min ao comando `test` (`verify.timeout_ms_por_comando.test`),
   porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba CPU. O `build` e os
@@ -188,6 +197,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `core/scripts/prova-mods-sessao-de-fase.cjs` abre a sessão de sonda com `--strict-mcp-config`, como o despacho de fase;
   sem a flag, a sessão parava na aprovação do MCP do projeto e a prova saía inconclusiva. Veredito da T0.1: o mod carrega
   numa sessão `claude --bg` e recebe `classic.PostToolBatch`.
+- **Nome de máquina do dono fora do repositório público** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)):
+  o arquivo de evidência da RM-040 foi renomeado para `docs/roadmap/evidencias/RM-040/maquina-b-2026-10-03.json`, e o
+  hostname de uma máquina do dono, que aparecia em recibos, páginas do roadmap, contratos, comentários e bundles de
+  claims, virou `maquina-b`; caminhos de home de exemplo passaram a `/home/usuario`. O nome antigo continua nos commits
+  anteriores, porque o histórico não é reescrito.
 
 ## [0.5.4] - 2026-10-12
 
