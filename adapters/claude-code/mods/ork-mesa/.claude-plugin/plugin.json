@@ -1,0 +1,14 @@
+{
+  "name": "ork-mesa",
+  "version": "0.1.0",
+  "description": "Mesa do Dono do Orkastery no Claude Code: tudo que espera o dono num painel, um cartão por pedido com a recomendação na frente e a decisão pelo diálogo nativo do host. Só decide pelo dono pela decisão autônoma do núcleo, quando a decisão é óbvia, e nunca responde um pedido.",
+  "author": {
+    "name": "Orkastery contributors",
+    "url": "https://github.com/orkastery"
+  },
+  "homepage": "https://orkastery.com/",
+  "repository": "https://github.com/orkastery/orkastery",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "dependencies": ["ork-ponte"]
+}
