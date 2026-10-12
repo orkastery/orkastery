@@ -1,0 +1,566 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm059sentin",
+  "branch": "ork/ork-rm059sentin-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "core/src/conducao-sentinela.ts",
+      "alegacao": "T6.4: o núcleo guarda a presença da Sentinela por máquina (batida, renovação, recusa da segunda sessão, vencimento e desligamento, com eventos só na troca), calcula o passo do condutor por thread aberta (no #Auto a fase seguinte não sai quando a sessão do bloco já a fez) e dois condutores pedindo a mesma fase em processos paralelos geram um único phase_dispatch.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conducao-sentinela.test.js"
+      ],
+      "criadoEm": "2026-10-12T12:23:05.440Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "core/test/conducao-sentinela.test.ts",
+      "alegacao": "T6.4: o teste do núcleo cobre a presença (S1), o CLI (S2), a regra do passo no #Auto com a guarda de fase já feita (S3 e S4), o bloqueio e os outros modos (S5) e os dois condutores ao mesmo tempo (S6).",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"test('S1 presenca\" core/test/conducao-sentinela.test.ts && grep -F \"test('S6 dois condutores ao mesmo tempo\" core/test/conducao-sentinela.test.ts && grep -F 'orkEmParalelo' core/test/conducao-sentinela.test.ts"
+      ],
+      "criadoEm": "2026-10-12T12:23:08.293Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "core/src/conducao.ts",
+      "alegacao": "T6.4: as constantes da condução pela Sentinela moram em conducao.ts: contrato ork.conducao-sentinela/v1, canal claude-code, prazo da presença de 3 min e batida de 60 s.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"CONTRATO_DA_SENTINELA = 'ork.conducao-sentinela/v1'\" core/src/conducao.ts && grep -F \"PRAZO_DA_PRESENCA_MS = 3 * 60 * 1000\" core/src/conducao.ts && grep -F \"BATIDA_DA_SENTINELA_MS = 60 * 1000\" core/src/conducao.ts"
+      ],
+      "criadoEm": "2026-10-12T12:23:10.686Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "core/src/ledger.ts",
+      "alegacao": "T6.4: sentinela_ligada e sentinela_desligada entram no catálogo TIPOS_DE_EVENTO do ledger.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"sentinelaLigada: 'sentinela_ligada'\" core/src/ledger.ts && grep -F \"sentinelaDesligada: 'sentinela_desligada'\" core/src/ledger.ts"
+      ],
+      "criadoEm": "2026-10-12T12:23:12.504Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T6.4: o CLI despacha ork conducao sentinela status, bater e desligar; a batida recusada por outra sessão viva sai 3 (o comportamento é provado pelo S2 do teste do núcleo).",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"if (sub === 'sentinela') return comandoSentinela(carregado, args);\" core/src/index.ts && grep -F \"return r.ok ? 0 : 3;\" core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T12:23:14.390Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "T6.4: a ajuda do CLI declara ork conducao sentinela em pt-BR e em inglês, com as mesmas colunas, e a referência do CLI e o snapshot da ajuda batem com ela.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-ajuda.test.js core/dist-test/test/rm044-paridade-cli-md.test.js core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-12T12:23:16.809Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "T6.4: o snapshot pt-BR da ajuda foi regerado por gerarCasos e só ganhou as duas linhas de ork conducao sentinela.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"conducao sentinela status|bater|desligar [--sessao S] [--json]\" core/test/fixtures/locale-f2a-pt-BR.json"
+      ],
+      "criadoEm": "2026-10-12T12:23:18.711Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "T6.4: a referência do CLI documenta ork conducao sentinela status, bater e desligar.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"ork conducao sentinela bater --sessao S [--json]\" docs/referencia/cli.md && grep -F \"ork conducao sentinela desligar --sessao S [--json]\" docs/referencia/cli.md && grep -F \"ork conducao sentinela status [--json]\" docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-12T12:23:20.555Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/conducao-pela-sentinela.md",
+      "alegacao": "T6.4: o guia diz ao condutor externo como ler a presença e ceder o despacho e o retry enquanto a Sentinela conduz, e passa no markdownlint.",
+      "negativa": false,
+      "verificar": [
+        "test -s docs/guias/conducao-pela-sentinela.md && grep -F \"jq -e '.presenca.ativa == true'\" docs/guias/conducao-pela-sentinela.md && core/node_modules/.bin/markdownlint-cli2 docs/guias/conducao-pela-sentinela.md"
+      ],
+      "criadoEm": "2026-10-12T12:23:22.258Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "docs/README.md",
+      "alegacao": "T6.4: o índice das docs aponta o guia da condução pela Sentinela.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"(guias/conducao-pela-sentinela.md)\" docs/README.md"
+      ],
+      "criadoEm": "2026-10-12T12:23:24.094Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T6.4: o CHANGELOG tem a entrada da condução pela Sentinela no núcleo em Não publicado, e a conferência do CHANGELOG contra a origin/main passa.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -F \"ork conducao sentinela status --json\" CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T12:23:24.861Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/.claude-plugin/plugin.json",
+      "alegacao": "T6.1: o manifesto da Sentinela tem o nome da pasta, o contrato de tipos e a dependência da ponte ork-ponte.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const m=require('./adapters/claude-code/mods/ork-sentinela/.claude-plugin/plugin.json'); process.exit(m.name==='ork-sentinela'&&m.types==='./types/index.d.ts'&&m.dependencies.length===1&&m.dependencies[0]==='ork-ponte'?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T12:33:00.613Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/orkastery-mod.json",
+      "alegacao": "T6.1: a Sentinela declara a convenção ork.mod/v1 com o papel dono e o Claude Code 2.1.287 como mínimo.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const a=require('./adapters/claude-code/mods/ork-sentinela/orkastery-mod.json'); process.exit(a.formato==='ork.mod/v1'&&a.papeis.length===1&&a.papeis[0]==='dono'&&a.claudeCodeMinimo==='2.1.287'?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T12:33:02.547Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/hooks/hooks.json",
+      "alegacao": "T6.1: o hooks.json da Sentinela carrega um módulo só, o register.ts.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const h=require('./adapters/claude-code/mods/ork-sentinela/hooks/hooks.json'); process.exit(h.modules.length===1&&h.modules[0]==='./register.ts'?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T12:33:04.192Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/hooks/register.ts",
+      "alegacao": "T6.1: a guarda estática dos mods aprova a Sentinela: nenhum gancho proibido ou reservado à ponte, nenhum argv da lista de autoridade, faixa só pela ponte.",
+      "negativa": true,
+      "verificar": [
+        "node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-sentinela"
+      ],
+      "criadoEm": "2026-10-12T12:33:05.937Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/hooks/vigia.ts",
+      "alegacao": "T6.1: o módulo puro da vigia monta o argv do status, da batida e do desligar, lê o contrato ork.conducao-sentinela/v1 (casado com o CLI de verdade) e compõe a faixa em degraus de tempo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-sentinela.test.js"
+      ],
+      "criadoEm": "2026-10-12T12:33:07.837Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/types/index.d.ts",
+      "alegacao": "T6.1: o contrato declara o estado da Sentinela em PluginState: diário, pausa, chaves despachadas, retomadas e avisadas, e o resumo.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"'ork-sentinela': {\" adapters/claude-code/mods/ork-sentinela/types/index.d.ts && grep -F 'resumo: SentinelaResumo' adapters/claude-code/mods/ork-sentinela/types/index.d.ts && grep -F 'despachados: string[]' adapters/claude-code/mods/ork-sentinela/types/index.d.ts"
+      ],
+      "criadoEm": "2026-10-12T12:33:10.192Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/test/apoio.ts",
+      "alegacao": "T6.1: o apoio do kit traz uma ponte falsa autocontida e o núcleo falso pelo process.run.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"name: 'ork-ponte'\" adapters/claude-code/mods/ork-sentinela/test/apoio.ts && grep -F \"on('engine.create'\" adapters/claude-code/mods/ork-sentinela/test/apoio.ts && grep -F 'export function montar' adapters/claude-code/mods/ork-sentinela/test/apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T12:33:12.335Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/test/vigia.test.ts",
+      "alegacao": "T6.1: os testes do kit cobrem o papel dono, fase e dormente, a batida, o ledger que muda, a pausa e a faixa no terminal e no desktop.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-sentinela/test/vigia.test.ts) -ge 7 && grep -F \"for (const surface of ['terminal', 'desktop'] as const)\" adapters/claude-code/mods/ork-sentinela/test/vigia.test.ts"
+      ],
+      "criadoEm": "2026-10-12T12:33:14.502Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-sentinela.test.ts",
+      "alegacao": "T6.1: o teste do núcleo do mod transpila os módulos puros, confere a lista fechada de chamadas ao $ e os construtores de argv pela AST, e nenhum literal forma o handoff.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-sentinela.test.js"
+      ],
+      "criadoEm": "2026-10-12T12:33:16.228Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T6.1: o CHANGELOG tem a entrada do mod ork-sentinela em Não publicado, e a conferência contra a origin/main passa.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -F 'adapters/claude-code/mods/ork-sentinela' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T12:33:17.842Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": ".claude-plugin/marketplace.json",
+      "alegacao": "T6.1: o marketplace do repositório lista a Sentinela com a fonte na cópia gerada, em dia com o gerador.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const m=require('./.claude-plugin/marketplace.json');const e=m.plugins.find(p=>p.name==='ork-sentinela');process.exit(e&&e.source==='./marketplaces/claude-code/mods/ork-sentinela'?0:1)\" && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T12:33:19.716Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/autoridade.json",
+      "alegacao": "T6.1: a cópia do marketplace leva a lista de autoridade comum, em dia com o gerador.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/autoridade.json marketplaces/claude-code/mods/ork-sentinela/autoridade.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T12:33:25.603Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/.claude-plugin/plugin.json",
+      "alegacao": "T6.1: a cópia do manifesto no marketplace bate com o mod.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-sentinela/.claude-plugin/plugin.json marketplaces/claude-code/mods/ork-sentinela/.claude-plugin/plugin.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T12:33:28.082Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/orkastery-mod.json",
+      "alegacao": "T6.1: a cópia da declaração do papel no marketplace bate com o mod.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-sentinela/orkastery-mod.json marketplaces/claude-code/mods/ork-sentinela/orkastery-mod.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T12:33:29.216Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/hooks/hooks.json",
+      "alegacao": "T6.1: a cópia do hooks.json no marketplace bate com o mod.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-sentinela/hooks/hooks.json marketplaces/claude-code/mods/ork-sentinela/hooks/hooks.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T12:33:31.686Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/hooks/register.ts",
+      "alegacao": "T6.1: a cópia do register.ts no marketplace bate com o mod.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-sentinela/hooks/register.ts marketplaces/claude-code/mods/ork-sentinela/hooks/register.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T12:33:33.562Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/hooks/vigia.ts",
+      "alegacao": "T6.1: a cópia do vigia.ts no marketplace bate com o mod.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-sentinela/hooks/vigia.ts marketplaces/claude-code/mods/ork-sentinela/hooks/vigia.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T12:33:35.419Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/types/index.d.ts",
+      "alegacao": "T6.1: a cópia do contrato de tipos no marketplace bate com o mod.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-sentinela/types/index.d.ts marketplaces/claude-code/mods/ork-sentinela/types/index.d.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T12:33:37.225Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/test/apoio.ts",
+      "alegacao": "T6.1: a cópia do apoio dos testes no marketplace bate com o mod.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-sentinela/test/apoio.ts marketplaces/claude-code/mods/ork-sentinela/test/apoio.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T12:33:39.035Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/test/vigia.test.ts",
+      "alegacao": "T6.1: a cópia do teste da vigia no marketplace bate com o mod.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-sentinela/test/vigia.test.ts marketplaces/claude-code/mods/ork-sentinela/test/vigia.test.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T12:33:39.937Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/hooks/despacho.ts",
+      "alegacao": "T6.2: o módulo puro do despacho escolhe só o passo despachar do #Auto sem condução e com turno novo, monta o render, o phase run com canal claude-code e correlação sentinela e o retry run sem --por, e lê os resultados como o CLI de verdade os imprime (despachada, repetida, ocupada).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-sentinela.test.js"
+      ],
+      "criadoEm": "2026-10-12T12:59:08.968Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/hooks/despacho.ts",
+      "alegacao": "T6.2: a cópia do despacho.ts no marketplace bate com o mod.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-sentinela/hooks/despacho.ts marketplaces/claude-code/mods/ork-sentinela/hooks/despacho.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T12:59:13.243Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/test/despacho.test.ts",
+      "alegacao": "T6.2: a cópia do teste do despacho no marketplace bate com o mod.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-sentinela/test/despacho.test.ts marketplaces/claude-code/mods/ork-sentinela/test/despacho.test.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T12:59:14.526Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/test/despacho.test.ts",
+      "alegacao": "T6.2: os testes do kit do despacho cobrem um despacho só por turno, outro condutor (saída 3 e trava do kernel), pedido repetido, falha, sem pedido guardado, pedido aberto ao dono, presença de outra sessão, pausa e a retomada só automática com o canal claude-code.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-sentinela/test/despacho.test.ts) -ge 6 && grep -F \"['--canal', 'claude-code', '--correlacao'\" adapters/claude-code/mods/ork-sentinela/test/despacho.test.ts && grep -F 'HITL ocupado' adapters/claude-code/mods/ork-sentinela/test/despacho.test.ts"
+      ],
+      "criadoEm": "2026-10-12T12:59:32.157Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/hooks/alertas.ts",
+      "alegacao": "T6.3: o módulo puro dos avisos tira do pulse o que só o dono resolve e o parado que ninguém faz sozinho, com o próximo passo do núcleo, nunca manda pedir gate em #Auto, marca cada aviso por texto e casa com o pulse de verdade.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-sentinela.test.js"
+      ],
+      "criadoEm": "2026-10-12T13:03:37.728Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/test/alertas.test.ts",
+      "alegacao": "T6.3: os testes do kit dos avisos cobrem a notificação uma vez por texto com o registro do mostrado, os casos parados que ninguém faz sozinho, o pedido de gate tirado em #Auto, o despacho que falha e a pausa sem aviso.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-sentinela/test/alertas.test.ts) -ge 5 && grep -F \"canal: 'notificacao'\" adapters/claude-code/mods/ork-sentinela/test/alertas.test.ts && grep -F 'em #Auto o núcleo não abre gate' adapters/claude-code/mods/ork-sentinela/test/alertas.test.ts"
+      ],
+      "criadoEm": "2026-10-12T13:03:40.656Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/hooks/alertas.ts",
+      "alegacao": "T6.3: a cópia do alertas.ts no marketplace bate com o mod.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-sentinela/hooks/alertas.ts marketplaces/claude-code/mods/ork-sentinela/hooks/alertas.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T13:03:42.389Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm059sentin",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/test/alertas.test.ts",
+      "alegacao": "T6.3: a cópia do teste dos avisos no marketplace bate com o mod.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-sentinela/test/alertas.test.ts marketplaces/claude-code/mods/ork-sentinela/test/alertas.test.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T13:03:43.682Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C41",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
