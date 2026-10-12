@@ -8,6 +8,18 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **#Noctum, fatia N2: fila local e capacidade** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): o contrato
+  `ork.noctum-envelope/v2` traz a lista fechada de trabalhos do arco (prioridade e dependências do dono, thread que já
+  existe ou pedido para abrir uma) e os limites de sessões ao mesmo tempo (máquina, conta, runtime e slots de revisão).
+  `core/src/noctum-fila.ts` escolhe de forma determinística (dependências entregues, item reservado por esta máquina,
+  prioridade, prova mais adiantada da Sentinela, posição e id) e diz quando esperar e quando encerrar, sem chamar lacuna
+  de fila vazia; `core/src/noctum-capacidade.ts` admite um despacho só com projeto, máquina, revisão, conta e runtime ao
+  mesmo tempo; `core/src/noctum-execucao.ts` despacha no máximo um trabalho por passo, sob a trava do kernel, com o
+  envelope conferido e a sessão reservada no orçamento imediatamente antes, só pelo `ork phase run`. Muda para todos:
+  `ork verify` e a baseline esperam a vez na fila de recursos pesados (`concurrency.max_parallel_heavy`, padrão 1, 0
+  desliga) e, sem ela no prazo, recusam com `fila-pesada.ocupada` e saem com 3; a sessão com o turno encerrado sem
+  resultado deixa a vaga do `ork phase run`; e o prompt de fase pede verify, build e suíte em primeiro plano, nunca com
+  `&`. O modo continua desligado: `#Noctum` não é aceito e nenhum comando abre ou executa arco.
 - **#Noctum, fatia N1: envelope e estado do arco** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
   `core/src/noctum-envelope.ts` define o contrato `ork.noctum-envelope/v1` (janela de 6 a 12 h com fuso, destinos com
   `push`, `pr` e `merge`, teto do arco e subtetos por conta e por runtime com unidade, horário e canal do relatório da
