@@ -1,0 +1,622 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm061f3a",
+  "branch": "ork/ork-rm061f3a-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3a-snapshot.test.ts",
+      "alegacao": "C1 da F3a: os arquivos que o CLI gera em pt-BR (orkastery.yaml e bloco do AGENTS.md do ork init, bloco da experiência do CLAUDE.md e do AGENTS.md, os sete arquivos do ork docs init) e o texto impresso por ork init e ork docs init ficam iguais byte a byte à fixture gerada sobre a base.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f3a-snapshot.test.js > \"$l\" 2>&1; grep -qx '# pass 1' \"$l\" && grep -qx '# fail 0' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T13:58:31.447Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3a-pt-BR.json",
+      "alegacao": "C2 da F3a (A/B na base): a fixture do snapshot pt-BR saiu do código da base; o mesmo teste passa numa cópia git archive do merge-base com a origin/main, sem nada da F3a além dos casos, do teste e da fixture.",
+      "negativa": false,
+      "verificar": [
+        "d=$(mktemp -d) && l=$(mktemp) && git archive \"$(git merge-base HEAD origin/main)\" | tar -x -C \"$d\" && ln -s \"$PWD/core/node_modules\" \"$d/core/node_modules\" && cp core/test/locale-f3a-casos.ts core/test/locale-f3a-snapshot.test.ts \"$d/core/test/\" && mkdir -p \"$d/core/test/fixtures\" && cp core/test/fixtures/locale-f3a-pt-BR.json \"$d/core/test/fixtures/\" && (cd \"$d/core\" && npm run build >/dev/null && npm run build:test >/dev/null; node --test --test-reporter=tap dist-test/test/locale-f3a-snapshot.test.js > \"$l\" 2>&1); rm -rf \"$d\"; grep -qx '# pass 1' \"$l\" && grep -qx '# fail 0' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T13:58:35.290Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3a-casos.ts",
+      "alegacao": "C1 da F3a: a fixture cobre o YAML, o bloco do AGENTS.md, o bloco da experiência nos dois hosts, ork init e os sete arquivos de ork docs init, com pelo menos 38 casos e nenhum caminho de máquina.",
+      "negativa": true,
+      "verificar": [
+        "node -e 'const c=require(\"./core/test/fixtures/locale-f3a-pt-BR.json\"); const k=Object.keys(c); const f=[\"yaml:\",\"agents.md:\",\"experiencia claude-code:\",\"experiencia codex:\",\"cli: ork init\",\"cli: ork docs init\"]; process.exit(k.length>=38 && f.every(x=>k.some(n=>n.startsWith(x))) && k.filter(n=>n.startsWith(\"cli: ork docs init, \")).length===7 ? 0 : 1)' && ! grep -qE '/hom[e]/|/Use[r]s/|/tm[p]/' core/test/fixtures/locale-f3a-pt-BR.json"
+      ],
+      "criadoEm": "2026-10-12T13:58:38.388Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-gerados.ts",
+      "alegacao": "D1 a D3 da F3a: a família gerados do catálogo tem os comentários do orkastery.yaml e o bloco do AGENTS.md nas duas línguas (cabeçalho Orkastery manifest em inglês, Manifesto do Orkastery em pt-BR; o exemplo comentado de owner.language mostra a língua do arquivo).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").gerados, pt=msg(\"pt-BR\").gerados; process.exit(en.manifesto.cabecalho.startsWith(\"Orkastery manifest (v1, block B0)\") && pt.manifesto.cabecalho.startsWith(\"Manifesto do Orkastery (v1, bloco B0)\") && en.agents.rodape===\"This block is maintained by `ork init`. Edit the rest of the file freely.\" && pt.agents.rodape===\"Este bloco é mantido por `ork init`. Edite livremente o restante do arquivo.\" && en.manifesto.exemploDeIdioma===\"en-US\" && pt.manifesto.exemploDeIdioma===\"pt-BR\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T14:07:19.397Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "A família gerados entra no catálogo nas duas línguas (PT_BR e EN), importada de locale-gerados.ts.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'gerados: GERADOS_PT_BR,' core/src/locale.ts && grep -qF 'gerados: GERADOS_EN,' core/src/locale.ts && grep -qF \"import { GERADOS_EN, GERADOS_PT_BR } from './locale-gerados';\" core/src/locale.ts"
+      ],
+      "criadoEm": "2026-10-12T14:07:21.467Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/init.ts",
+      "alegacao": "D2 e D3 da F3a no init: manifestoYaml recebe o locale com pt-BR por omissão e tira os comentários da família gerados; init grava no locale pedido; nenhum comentário em pt-BR ficou literal no init.ts.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'export function manifestoYaml(d: Deteccao, locale: Locale = LOCALE_PADRAO): string {' core/src/init.ts && grep -qF 'const c = msg(locale).gerados.manifesto;' core/src/init.ts && grep -qF 'gravar(caminho, manifestoYaml(deteccao, opcoes.locale));' core/src/init.ts && ! grep -qE 'Runtimes homologados|Fonte unica da configuracao|nao detectado' core/src/init.ts"
+      ],
+      "criadoEm": "2026-10-12T14:07:24.275Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/agents-md.ts",
+      "alegacao": "D2 da F3a no AGENTS.md: blocoAgentsMd e atualizarAgentsMd recebem o locale com pt-BR por omissão, o texto do bloco vem da família gerados e a recusa de marcadores ambíguos é ErroDoCatalogo (sai no locale do comando).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function blocoAgentsMd(manifesto: Manifesto, locale: Locale = LOCALE_PADRAO): string {' core/src/agents-md.ts && grep -qF 'throw new ErroDoCatalogo((m) => m.gerados.agents.marcadoresAmbiguos);' core/src/agents-md.ts && ! grep -qE 'Este bloco é mantido|Comece com' core/src/agents-md.ts"
+      ],
+      "criadoEm": "2026-10-12T14:07:26.976Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3a-init.test.ts",
+      "alegacao": "C3 da F3a (família init em inglês): com LANG en ou owner.language en-US (init --force), o orkastery.yaml sai com os comentários em inglês e o mesmo dado do pt-BR, abaixo de 16 KB, e o AGENTS.md em inglês; negativo: C.UTF-8, es_ES.UTF-8 e owner.language pt-BR com LANG en saem iguais ao snapshot pt-BR, e o gerador em processo segue pt-BR com o locale ativo em inglês.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f3a-init.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=5 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T14:07:32.519Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-dado.test.ts",
+      "alegacao": "C7 da F3a: o teste do catálogo inteiro cobre a família gerados (mesmas chaves e tipos nas duas línguas, nenhuma vazia, nenhuma igual ao pt-BR, nenhum U+2014).",
+      "negativa": true,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-dado.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=3 && f==0)}' \"$l\" && grep -qF \"'roadmap', 'gerados']\" core/test/locale-dado.test.ts"
+      ],
+      "criadoEm": "2026-10-12T14:07:35.186Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-cli.test.ts",
+      "alegacao": "D1 da F3a no teste da F1 (EN7): ork init de novo regrava o bloco do AGENTS.md na língua escolhida no onboarding (updated, depois unchanged; atualizado, depois inalterado), e o resto do teste segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-cli.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=14 && f==0)}' \"$l\" && grep -qF \"INIT_EN_DE_NOVO.replace('AGENTS.md unchanged', 'AGENTS.md updated')\" core/test/locale-cli.test.ts"
+      ],
+      "criadoEm": "2026-10-12T14:07:38.001Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-gerados.ts",
+      "alegacao": "D1 e D8 da F3a: a família gerados tem o bloco da experiência nas duas línguas (Orchestration experience e Experiência de orquestração), com a linha do diretório montada por função, de onde o reconhecimento tira o texto antes e depois do diretório.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").gerados.experiencia, pt=msg(\"pt-BR\").gerados.experiencia; process.exit(en.titulo===\"Orchestration experience\" && pt.titulo===\"Experiência de orquestração\" && en.diretorio(\"\\\"d\\\"\")===\"If active, read the skill selected by the `skill` field in the directory \\\"d\\\".\" && pt.diretorio(\"\\\"d\\\"\")===\"Se ativo, leia a skill selecionada pelo campo skill no diretório \\\"d\\\".\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T14:14:55.559Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/experiencia-instalacao.ts",
+      "alegacao": "D2 e D8 da F3a no bloco da experiência: nucleoDoBloco e planejarExperiencia recebem o locale (pt-BR por omissão), o texto vem do catálogo, e o reconhecimento sem recibo tenta as duas línguas, sem a regex pt-BR antiga da linha do diretório.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'function nucleoDoBloco(skill: string, eol: string, locale: Locale): Buffer {' core/src/experiencia-instalacao.ts && grep -qF \"const LOCALES_DO_BLOCO: readonly Locale[] = ['pt-BR', 'en'];\" core/src/experiencia-instalacao.ts && grep -qF 'locale: Locale = LOCALE_PADRAO): PlanoExperiencia {' core/src/experiencia-instalacao.ts && ! grep -qE 'LINHA_DO_DIRETORIO|Experiência de orquestração|leia a skill selecionada' core/src/experiencia-instalacao.ts"
+      ],
+      "criadoEm": "2026-10-12T14:14:58.958Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/hosts.ts",
+      "alegacao": "D2 da F3a na instalação do adaptador: OpcoesInstalacao ganha locale (sem ele, pt-BR) e o passa ao planejamento do bloco da experiência.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'planejarExperiencia(projeto, host, preferencias.experience ? diretorioExperiencia : null, opcoes.locale);' core/src/hosts.ts && grep -qF '  locale?: Locale;' core/src/hosts.ts"
+      ],
+      "criadoEm": "2026-10-12T14:15:01.222Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "D1 e D9 da F3a no CLI: ork adapter install passa a língua do dono (owner.language, senão o locale do ambiente) ao bloco da experiência; o texto impresso segue em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'locale: resolverLocale(carregado?.manifesto.owner?.language).locale,' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T14:15:03.780Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3a-experiencia.test.ts",
+      "alegacao": "C4 da F3a (família do bloco da experiência em inglês): com dono en-US, ork adapter install claude-code e codex escrevem o bloco em inglês; reinstalar não muda nada; trocar a língua atualiza no lugar; sem recibo o bloco é adotado nas duas línguas; ork experiencia uninstall remove o bloco inglês; negativo: bloco inglês editado é conflito sem escrita, dono pt-BR ou sem língua recebe o pt-BR, e instalarAdaptador sem locale segue em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f3a-experiencia.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=6 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T14:15:06.017Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3a-referencia.test.ts",
+      "alegacao": "C6 da F3a (referência em inglês): cli.en.md anda junto com cli.md seção por seção (mesmas invocações ork, linhas de tabela, blocos de código e títulos), as duas têm a linha de troca de língua, o índice de docs e o README inglês apontam a versão em inglês, os links relativos existem e o texto está em inglês sem travessão; negativo: comando faltando, linha de tabela a mais e código mudado reprovam.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f3a-referencia.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=4 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T14:24:52.204Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "D4 da F3a: a referência do CLI em inglês existe em docs/referencia/cli.en.md, com o título em inglês, a linha de troca de língua no padrão do README e o Markdown limpo no lint do repositório.",
+      "negativa": false,
+      "verificar": [
+        "head -3 docs/referencia/cli.en.md | grep -qxF '**English** · [Português](cli.md)' && head -1 docs/referencia/cli.en.md | grep -qxF '# `ork` CLI reference' && npx --prefix core markdownlint-cli2 docs/referencia/cli.en.md >/dev/null 2>&1"
+      ],
+      "criadoEm": "2026-10-12T14:24:54.598Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "D4 da F3a: a referência em pt-BR ganha a linha de troca de língua para a versão em inglês e segue passando na paridade do RM-044 com o parser e a ajuda.",
+      "negativa": false,
+      "verificar": [
+        "head -3 docs/referencia/cli.md | grep -qxF '[English](cli.en.md) · **Português**' && l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/rm044-paridade-cli-md.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=2 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T14:24:57.347Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "docs/README.md",
+      "alegacao": "D4 da F3a: o índice de docs aponta a referência do CLI nas duas línguas, como já faz com a experiência de orquestração.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '| [CLI](referencia/cli.md) / [English](referencia/cli.en.md) |' docs/README.md"
+      ],
+      "criadoEm": "2026-10-12T14:24:58.960Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "CONTRIBUTING.md",
+      "alegacao": "D1 e D4 da F3a no CONTRIBUTING: os arquivos gerados seguem o locale e a referência do CLI tem versão em inglês; a lista da F2b segue igual.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'the CLI reference has an [English version](docs/referencia/cli.en.md)' CONTRIBUTING.md && grep -qF '`ork retry run`, `ork roadmap status` and the help' CONTRIBUTING.md"
+      ],
+      "criadoEm": "2026-10-12T14:25:05.693Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/assets/docs-en/produto/_modelo-feature.md",
+      "alegacao": "D3 e D7 da F3a: o modelo de feature em inglês mantém o contrato do ork docs verificar (seções Comportamento, Dados e contratos, Operação e controle e Histórico, a linha Em uma frase, tipo feature e estado proposto) e usa o título FEAT-000: Feature name, sem travessão.",
+      "negativa": false,
+      "verificar": [
+        "f=core/assets/docs-en/produto/_modelo-feature.md; grep -qx '## Comportamento' $f && grep -qx '## Dados e contratos' $f && grep -qx '## Operação e controle' $f && grep -qx '## Histórico' $f && grep -q '^> \\*\\*Em uma frase:\\*\\* \\[what this feature does' $f && grep -qx 'tipo: feature' $f && grep -qx 'estado: proposto' $f && grep -qx '# FEAT-000: Feature name' $f"
+      ],
+      "criadoEm": "2026-10-12T14:38:44.024Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/assets/docs-en/roadmap/_modelo-item.md",
+      "alegacao": "D3 da F3a: o modelo de item de roadmap em inglês mantém as cinco seções do contrato, os valores de estado em pt-BR e os marcadores das tabelas geradas.",
+      "negativa": false,
+      "verificar": [
+        "f=core/assets/docs-en/roadmap/_modelo-item.md; for s in 'Problema e resultado' 'Escopo e validação' 'Plano e decisões' 'Estado com evidências' 'Responsabilidades e histórico'; do grep -qx \"## $s\" $f || exit 1; done; grep -qx '  codigo: Não iniciado' $f && grep -qx '<!-- ork-docs:estado:inicio -->' $f && grep -qx '<!-- ork-docs:relance:fim -->' $f && grep -qx '# RM-000: Intended result' $f"
+      ],
+      "criadoEm": "2026-10-12T14:38:47.070Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/assets/docs-en/produto/README.md",
+      "alegacao": "D6 da F3a: o índice de produto em inglês tem o título em inglês e os marcadores do índice gerado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qx '# Product documentation' core/assets/docs-en/produto/README.md && grep -qx '<!-- ork-docs:indice:inicio -->' core/assets/docs-en/produto/README.md"
+      ],
+      "criadoEm": "2026-10-12T14:38:48.866Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/assets/docs-en/roadmap/README.md",
+      "alegacao": "D6 da F3a: o índice do roadmap em inglês abre com In one sentence e tem os marcadores do índice gerado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qx '# Roadmap' core/assets/docs-en/roadmap/README.md && grep -q '^> \\*\\*In one sentence:\\*\\*' core/assets/docs-en/roadmap/README.md && grep -qx '<!-- ork-docs:indice:fim -->' core/assets/docs-en/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-12T14:38:51.069Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/assets/docs-en/markdownlint-cli2.jsonc",
+      "alegacao": "D3 da F3a: a configuração do markdownlint em inglês só muda os comentários; o dado (globs e regras) é o mesmo da de pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const f=require(\"fs\"); const j=(p)=>JSON.parse(f.readFileSync(p,\"utf8\").replace(/^\\s*\\/\\/.*$/gm,\"\")); require(\"assert\").deepStrictEqual(j(\"core/assets/docs-en/markdownlint-cli2.jsonc\"), j(\"core/assets/docs/markdownlint-cli2.jsonc\"))'"
+      ],
+      "criadoEm": "2026-10-12T14:38:53.516Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/assets/docs-en/padroes/documentacao-de-produto.md",
+      "alegacao": "D3 da F3a: o padrão de documentação em inglês diz que chaves e valores do frontmatter, títulos das seções e a linha Em uma frase seguem em pt-BR, e tem a seção 6 que o padrão de roadmap aponta.",
+      "negativa": false,
+      "verificar": [
+        "grep -qx '# Software product documentation standard' core/assets/docs-en/padroes/documentacao-de-produto.md && grep -qx '## 6. Three readers and SDLC facts (Orkastery adaptation)' core/assets/docs-en/padroes/documentacao-de-produto.md && grep -qF 'stay in Portuguese in every language, because they are the contract that `ork docs verificar` reads' core/assets/docs-en/padroes/documentacao-de-produto.md"
+      ],
+      "criadoEm": "2026-10-12T14:38:56.372Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/assets/docs-en/padroes/roadmap-de-produto.md",
+      "alegacao": "D3 da F3a: o padrão de roadmap em inglês aponta a âncora em inglês da seção 6 do outro padrão e mantém os valores de estado do contrato com a tradução ao lado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qx '# Software product roadmap standard' core/assets/docs-en/padroes/roadmap-de-produto.md && grep -qF '(documentacao-de-produto.md#6-three-readers-and-sdlc-facts-orkastery-adaptation)' core/assets/docs-en/padroes/roadmap-de-produto.md && grep -qF '`Refinamento` (refinement)' core/assets/docs-en/padroes/roadmap-de-produto.md"
+      ],
+      "criadoEm": "2026-10-12T14:38:59.067Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/docs.ts",
+      "alegacao": "D2 e D6 da F3a no docs: dirDosModelos e iniciarDocs recebem o locale, com pt-BR por omissão, e o inglês sai de assets/docs-en.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function dirDosModelos(locale: Locale = LOCALE_PADRAO): string {' core/src/docs.ts && grep -qF \"const pasta = locale === 'en' ? 'docs-en' : 'docs';\" core/src/docs.ts && grep -qF 'export function iniciarDocs(raiz: string, locale: Locale = LOCALE_PADRAO): string[] {' core/src/docs.ts"
+      ],
+      "criadoEm": "2026-10-12T14:39:01.595Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "D5 da F3a: docs init segue o locale (nunca com --json); docs, docs verificar, docs sincronizar e o subcomando desconhecido ficam em pt-BR.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const c=(a)=>L.cobreLocale(a,{}); process.exit(c([\"docs\",\"init\"]) && !c([\"docs\"]) && !c([\"docs\",\"verificar\"]) && !c([\"docs\",\"sincronizar\"]) && !c([\"docs\",\"x\"]) && !L.cobreLocale([\"docs\",\"init\"],{json:true}) && L.COMANDOS_COM_LOCALE.includes(\"docs init\") ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T14:39:04.328Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3a-docs.test.ts",
+      "alegacao": "C5 da F3a (família docs init em inglês): com LANG en ou owner.language en-US, ork docs init cria os sete arquivos dos modelos em inglês e imprime em inglês; página e item feitos dos modelos em inglês, preenchidos, passam no verificador sem erro; negativo: em pt-BR os arquivos são os de core/assets/docs, docs verificar segue em pt-BR e iniciarDocs sem locale segue em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f3a-docs.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=4 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T14:39:12.164Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f2a-infra.test.ts",
+      "alegacao": "D5 da F3a no teste de infra: docs init entra na lista coberta e docs, docs verificar, docs sincronizar e o desconhecido seguem fora.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f2a-infra.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=4 && f==0)}' \"$l\" && grep -qF \"['docs'], ['docs', 'verificar'], ['docs', 'sincronizar'], ['docs', 'x']\" core/test/locale-f2a-infra.test.ts"
+      ],
+      "criadoEm": "2026-10-12T14:39:14.755Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/evidencias/RM-061/cobertura-f3a.json",
+      "alegacao": "C8 da F3a: o recibo da cobertura é coerente (de 835 para 877 entradas, cobertura = entradas / (entradas + literais de saída) nas duas medidas, 42 entradas da família gerados) e confere com o contador no HEAD (a família gerados tem as mesmas entradas e o total não é menor).",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && node core/scripts/contar-mensagens-de-saida.cjs --json core/src > \"$l\" && node -e 'const e=require(\"./docs/roadmap/evidencias/RM-061/cobertura-f3a.json\"); const h=JSON.parse(require(\"fs\").readFileSync(process.argv[1],\"utf8\")); const c=(m)=>Number((m.catalogo.entradas/(m.catalogo.entradas+m.emPosicaoDeSaida)).toFixed(4)); const g=(m)=>m.catalogo.arquivos.find(a=>a.arquivo===\"locale-gerados.ts\"); process.exit(e.fatia===\"F3a\" && e.antes.catalogo.entradas===835 && e.depois.catalogo.entradas===877 && c(e.antes)===e.antes.cobertura && c(e.depois)===e.depois.cobertura && g(e.depois).entradas===42 && e.familiasNovas[\"locale-gerados.ts\"]===42 && g(h) && g(h).entradas===g(e.depois).entradas && h.catalogo.entradas>=e.depois.catalogo.entradas ? 0 : 1)' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T14:41:31.824Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "C8 da F3a: a página da RM-061 traz a tabela da F3a (835 para 877 entradas, 23,0% para 23,9%) ligada ao recibo, a divisão da F3 em F3a e F3b no histórico, e o ork docs verificar no modo de PR passa.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md; grep -qF '| Entradas do catálogo | 835 | 877 |' $f && grep -qF '| Cobertura | 23,0% | 23,9% |' $f && grep -qF '(evidencias/RM-061/cobertura-f3a.json)' $f && grep -qF 'F3 dividida em F3a e F3b' $f && npm --prefix core run build >/dev/null && env -u ORK_PROJETO node core/dist/index.js docs verificar --pr >/dev/null"
+      ],
+      "criadoEm": "2026-10-12T14:41:34.964Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "C9 da F3a: uma entrada da F3a em Não publicado, e o checador do CHANGELOG passa contra a origin/main.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -qF 'CLI em inglês e pt-BR, fatia F3a' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T14:41:36.401Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3a-snapshot.test.ts",
+      "alegacao": "C10 da F3a (T6): os testes que geram e leem o orkastery.yaml, o AGENTS.md, o bloco da experiência e os modelos do docs init passam também com LANG=en_US.UTF-8, e o snapshot pt-BR segue igual nesse ambiente; a suíte inteira com LANG=en_US.UTF-8 deu 3.793 testes e 0 falha, sem teste a ajustar.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && (cd core && env -u LC_ALL -u LC_MESSAGES LANG=en_US.UTF-8 node --test --test-reporter=tap dist-test/test/init.test.js dist-test/test/agents-md.test.js dist-test/test/docs.test.js dist-test/test/experiencia-instalacao.test.js dist-test/test/adapter-experiencia.test.js dist-test/test/experiencia-hosts.test.js dist-test/test/locale-cli.test.js dist-test/test/locale-f3a-snapshot.test.js > \"$l\" 2>&1); awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=60 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T14:42:39.374Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "C11 da F3a: nenhuma linha acrescentada pela thread (do merge-base com a origin/main ao HEAD) traz caminho de máquina nem e-mail pessoal.",
+      "negativa": true,
+      "verificar": [
+        "! git diff \"$(git merge-base origin/main HEAD)\" HEAD | grep -E '^\\+' | grep -qE '/hom[e]/|/Use[r]s/|@gmai[l]'"
+      ],
+      "criadoEm": "2026-10-12T14:42:59.005Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "D1 e D2 da F3a no CLI do init (GO-FIX W3): ork init resolve a língua dos arquivos pelo manifesto lido antes do --force (resolverLocale), também com --json, e passa a mesma ao YAML e ao AGENTS.md.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const localeDosArquivos = resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale;' core/src/index.ts && grep -qF 'atualizarAgentsMd(r.deteccao.raiz, carregado.manifesto, localeDosArquivos);' core/src/index.ts && grep -qF 'locale: localeDosArquivos,' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T15:27:43.203Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "D1 e D5 da F3a no CLI do docs init (GO-FIX W3): os sete arquivos nascem na língua resolvida pelo manifesto (também com --json) e o texto impresso sai pela família gerados, sem literal pt-BR no index.ts.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const criados = iniciarDocs(raiz, resolverLocale(carregado?.manifesto.owner?.language).locale);' core/src/index.ts && grep -qF 'const m = msg().gerados.docsInit;' core/src/index.ts && ! grep -qF \"'Documentacao como codigo ja estava no projeto: nada criado.'\" core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T15:27:45.160Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "README.md",
+      "alegacao": "D1 e D4 da F3a no README em inglês (GO-FIX W1 e S2): aponta a referência do CLI em inglês (três links), diz exatamente o que segue a língua (ork docs init, os comentários do orkastery.yaml, os blocos do AGENTS.md e do CLAUDE.md e os modelos do docs init) e manda fixar owner.language quando máquinas com locales diferentes conduzem o projeto; a lista da F2b segue igual.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c '](docs/referencia/cli.en.md)' README.md)\" -ge 3 && grep -qF 'so do `ork docs init`, the `orkastery.yaml` comments, the `AGENTS.md` and `CLAUDE.md` blocks and the `ork docs init` templates' README.md && grep -qF 'set it when machines with different locales conduct the same project' README.md && test \"$(grep -c '`ork retry run`, `ork roadmap status` and the help' README.md)\" -ge 2"
+      ],
+      "criadoEm": "2026-10-12T15:33:11.084Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "README.pt-BR.md",
+      "alegacao": "D1 e D4 da F3a no espelho em português (GO-FIX W1): a referência do CLI tem versão em inglês, e seguem a língua o ork docs init, os comentários do orkastery.yaml, os blocos do AGENTS.md e do CLAUDE.md e os modelos do docs init.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'a [referência do CLI](docs/referencia/cli.en.md) também em inglês' README.pt-BR.md && grep -qF '`ork docs init` também, assim como os comentários do `orkastery.yaml`, os blocos do `AGENTS.md` e do `CLAUDE.md` e os modelos do `ork docs init`' README.pt-BR.md"
+      ],
+      "criadoEm": "2026-10-12T15:33:13.788Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-gerados.ts",
+      "alegacao": "D5 da F3a (GO-FIX S7): o texto que o ork docs init imprime está na família gerados nas duas línguas (Created: e Criado:; Docs as code is already set up in this project).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").gerados.docsInit, pt=msg(\"pt-BR\").gerados.docsInit; process.exit(en.criado===\"Created:\" && pt.criado===\"Criado:\" && en.jaEstava===\"Docs as code is already set up in this project: nothing created.\" && pt.jaEstava===\"Documentacao como codigo ja estava no projeto: nada criado.\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T15:33:16.419Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/orchestration-experience.md",
+      "alegacao": "D1 da F3a no guia da experiência em inglês (GO-FIX S4): o bloco que o adapter install grava segue a regra de língua da CLI, e o caso es-ES (bloco em português apontando a skill inglesa) está dito.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'follows the CLI language rule instead' docs/guias/orchestration-experience.md && grep -qF 'An `es-ES` owner gets the block in Portuguese' docs/guias/orchestration-experience.md"
+      ],
+      "criadoEm": "2026-10-12T15:33:18.760Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm061f3a",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/orchestration-experience.pt-BR.md",
+      "alegacao": "D1 da F3a no guia da experiência em português (GO-FIX S4): o bloco que o adapter install grava segue a regra de língua da CLI, e o caso es-ES está dito.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'segue a regra de língua da CLI' docs/guias/orchestration-experience.pt-BR.md && grep -qF 'Um dono `es-ES` recebe o bloco em português' docs/guias/orchestration-experience.pt-BR.md"
+      ],
+      "criadoEm": "2026-10-12T15:33:20.677Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C49",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
