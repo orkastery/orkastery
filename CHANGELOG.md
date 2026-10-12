@@ -27,6 +27,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   mede pelo `gh api` os PRs de fora desde a publicação do guia, a conclusão da primeira execução do CI de cada um e o
   critério de dois PRs mesclados sem ajuda; lacuna da coleta reprova em vez de virar zero. O guia de documentação passa
   a explicar o catálogo dos dois sites, e a triagem, a medida.
+- **Roadmap: condução dentro do Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  página nova do item que leva a condução da fábrica para a sessão do Claude Code com dez mods (Freio de Lote,
+  Sentinela do Condutor, Torre de Controle, Mesa do Dono, Portão de Tarefas, Clima de Cota, Pista de Entrega,
+  Ritual do MASTER, Mensageiro de Sessões e Radar de Colisão), em quatro ondas, com as decisões do dono, os
+  riscos e as métricas pelo ledger. Só documentação: nenhum mod existe ainda.
+- **Roadmap: site como produto** ([RM-060](docs/roadmap/RM-060-site-como-produto.md)): página nova do item que
+  trata os dois sites públicos como produto, com seis fatias (código que não quebra, quickstart, mesma regra
+  no site do OrkMind, docs e home por versão, CI e prévia de PR) e a regra de que nada é mesclado nem
+  publicado sem a aprovação do dono. Só documentação.
 - **Diagnóstico na prova da busca por significado** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
   `core/scripts/prova-busca-semantica.sh` mostra, por par, a posição e a similaridade de cada alvo no
   ranking vetorial e quantas entradas da busca têm vetor coerente no índice, na mesma consulta
@@ -44,6 +53,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   bytes por resposta; na pergunta cortada pelo teto, 34 arestas em vez de 41. A flag `grafo.mcp`
   continua desligada.
 - **Planejamento do modo #Noctum** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): proposta no roadmap de arcos autônomos de 6 a 12 horas, com envelope de autorização, muitas threads e máquinas, resiliência, qualidade, custo e relatório; modo ainda não implementado.
+- **CLI em inglês e pt-BR, fatia 1 da RM-061** (achados EN1, EN6 e EN7 do
+  [recibo do ensaio em inglês](docs/roadmap/evidencias/RM-049/ensaio-2026-10-03-en.json)): o texto de `ork doctor` e
+  `ork init` sai em inglês quando `owner.language` (a escolha do onboarding) ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou
+  `LANG` pedem `en`; com `en`, as datas desses comandos saem em ISO (`2026-10-03 06:30`). O padrão segue pt-BR, igual
+  byte a byte; os demais comandos, o `--json` e o `ork doctor --modo` não mudam. Sem dependência nova
+  (`core/src/locale.ts`).
 - **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   arestas `cites` ligam caminhos literais em Markdown e strings de testes/scripts a arquivos existentes
   no índice, com evidência de linha, sem duplicar links ou imports resolvidos, inclusive código inline

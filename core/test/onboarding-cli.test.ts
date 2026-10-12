@@ -10,7 +10,9 @@ import { projetoTemporario } from './apoio';
 
 const cli = path.resolve(__dirname, '../../dist/index.js');
 function executar(cwd: string, ...args: string[]) {
-  return spawnSync(process.execPath, [cli, ...args], { cwd, encoding: 'utf8', timeout: 10000 });
+  // O texto destes testes e o pt-BR: o locale fica fixo, sem herdar o LANG de quem roda (CLI por locale).
+  return spawnSync(process.execPath, [cli, ...args], { cwd, encoding: 'utf8', timeout: 10000,
+    env: { ...process.env, LANG: 'C.UTF-8', LC_ALL: '', LC_MESSAGES: '' } });
 }
 
 test('CLI onboarding show/set/reset e alias --reset produzem JSON puro e autoria explícita/default', () => {

@@ -24,7 +24,7 @@ Não há formatador automático: siga o estilo do arquivo que você edita.
 ## Estilo de código
 
 - Siga o arquivo vizinho: nomes em português, comentário curto que explica o porquê.
-- Mensagens do CLI, rótulos e documentação em pt-BR.
+- Mensagens do CLI, rótulos e documentação em pt-BR. O inglês dos comandos que seguem o locale vem do catálogo de `core/src/locale.ts`, tipado pelo pt-BR.
 - Sem travessão longo (U+2014) em código, comentário, mensagem ou doc. O teste `catalogo.test.ts` reprova no catálogo e nos adaptadores.
 - Sem número inventado: onde a medida não existe, escreva `unavailable`, nunca zero ou estimativa não declarada.
 
