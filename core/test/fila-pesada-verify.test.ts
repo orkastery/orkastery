@@ -22,6 +22,9 @@ import { lerLedger } from '../src/ledger';
 import { exigirManifesto } from '../src/manifest';
 import { ship } from '../src/ship';
 import { dirThread, novaThread } from '../src/thread';
+import { rodarFase } from '../src/phase';
+import { controllerSimulado } from './controller-simulado';
+import { exec } from '../src/util';
 
 const MODULO = path.resolve(__dirname, '../src/fila-pesada');
 const ORK = path.resolve(__dirname, '../../dist/index.js');
@@ -224,5 +227,75 @@ test('V9: o ship espera a fila só o prazo que recebe e recusa tipado, sem verif
     assert.equal(lerLedger(dirThread(p.dir, thread.id)).some(e => e.tipo === 'verify_run'), false);
     assert.equal(lerLease(p.dir, LEASE_MAIN_TREE), null);
     assert.equal(conducaoDaThread(p.dir, thread.id), null, 'a recusa devolve a condução da thread');
+  } finally { await encerrar(outro.filho); p.limpar(); }
+});
+
+/** Roda o CLI com a vez da fila pesada ocupada; devolve saída, código e tempo. */
+function cliNaFila(dir: string, args: string[]): { codigo: number; saida: string; erro: string; levouMs: number } {
+  const inicio = Date.now();
+  try {
+    const saida = execFileSync(process.execPath, [ORK, ...args], { cwd: dir, encoding: 'utf8', stdio: 'pipe', env: envPtBr(), timeout: 30000 });
+    return { codigo: 0, saida, erro: '', levouMs: Date.now() - inicio };
+  } catch (e) {
+    const x = e as { status?: number; stdout?: string; stderr?: string };
+    return { codigo: x.status ?? -1, saida: x.stdout ?? '', erro: x.stderr ?? '', levouMs: Date.now() - inicio };
+  }
+}
+
+test('V10: o ork ship do CLI leva o --esperar à fila pesada, avisa no stderr e sugere o comando com mais espera', { skip: semKernel }, async () => {
+  const p = projetoTemporario('fila-pesada-v10', true);
+  const outro = outroVerify(p.dir, 60000);
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'ship pelo cli', modo: 'auto', criarWorktree: true });
+    commitar(thread.worktree as string, 'entrega.md', 'entrega\n', 'feat: entrega');
+    await outro.dentro;
+    const mainAntes = shaDaBranch(p.dir, 'main');
+    // `--esperar 0.02` é pouco mais de um segundo, bem menos que os 30 s do padrão de quem verifica por dentro.
+    const r = cliNaFila(p.dir, ['ship', thread.id, '--para', 'main', '--esperar', '0.02']);
+    assert.equal(r.codigo, 3, `${r.saida}${r.erro}`);
+    assert.ok(r.levouMs < 20000, `levou ${r.levouMs} ms`);
+    assert.match(r.erro, /Esperando a vez na fila de recursos pesados/);
+    assert.match(r.saida, new RegExp(`ork ship ${thread.id} --para main --esperar 30`));
+    assert.equal(shaDaBranch(p.dir, 'main'), mainAntes, 'nada foi mergeado');
+  } finally { await encerrar(outro.filho); p.limpar(); }
+});
+
+test('V11: a baseline que o phase run grava espera a fila com o prazo e o aviso dele, e recusa sem despachar', { skip: semKernel }, async () => {
+  const p = projetoTemporario('fila-pesada-v11');
+  const f = controllerSimulado(p.dir);
+  const outro = outroVerify(p.dir, 60000);
+  try {
+    fs.writeFileSync(path.join(p.dir, '.gitignore'), 'fake-bin/\nruntime/\n');
+    exec('git', ['add', '-A'], p.dir);
+    exec('git', ['commit', '-m', 'base do teste com os stubs ignorados'], p.dir);
+    p.carregado.manifesto.runtime.sandbox = 'workspace-write';
+    const t = novaThread(p.carregado, { nome: 'baseline do despacho na fila', modo: 'auto' }).thread;
+    await outro.dentro;
+    const avisos: OcupanteDaFila[][] = [];
+    const inicio = Date.now();
+    assert.throws(() => rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'bloco SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO',
+      filaPesada: { esperarMs: 600, aoEsperar: (o) => avisos.push(o), comandoDeEsperar: `ork verify ${t.id} --baseline --esperar 120` } }),
+      (e: unknown) => e instanceof ErroDaFilaPesada && e.recusa.operacao === 'baseline' &&
+        new RegExp(`ork verify ${t.id} --baseline --esperar 120`).test(e.recusa.texto));
+    assert.ok(Date.now() - inicio < 15000, `levou ${Date.now() - inicio} ms`);
+    assert.equal(avisos.length, 1, 'avisa uma vez quem ocupa');
+    const eventos = lerLedger(dirThread(p.dir, t.id));
+    assert.equal(eventos.some(e => e.tipo === 'phase_dispatch' || e.tipo === 'baseline_recorded'), false, 'nem baseline nem despacho');
+    assert.equal(conducaoDaThread(p.dir, t.id), null, 'a recusa devolve a condução retida');
+  } finally { await encerrar(outro.filho); f.restaurar(); p.limpar(); }
+});
+
+test('V12: o ork fix do CLI leva o --esperar à fila pesada da verificação dele e sugere o comando com mais espera', { skip: semKernel }, async () => {
+  const p = projetoTemporario('fila-pesada-v12');
+  const outro = outroVerify(p.dir, 60000);
+  try {
+    const t = novaThread(p.carregado, { nome: 'fix na fila', modo: 'auto' }).thread;
+    await outro.dentro;
+    const r = cliNaFila(p.dir, ['fix', 'open', t.id, '--so-claims', '--esperar', '0.02']);
+    assert.equal(r.codigo, 3, `${r.saida}${r.erro}`);
+    assert.ok(r.levouMs < 20000, `levou ${r.levouMs} ms`);
+    assert.match(r.erro, /Esperando a vez na fila de recursos pesados/);
+    assert.match(r.saida, new RegExp(`ork fix open ${t.id} --esperar 30`));
+    assert.equal(lerLedger(dirThread(p.dir, t.id)).some(e => e.tipo === 'verify_run'), false);
   } finally { await encerrar(outro.filho); p.limpar(); }
 });

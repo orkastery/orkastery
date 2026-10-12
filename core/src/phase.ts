@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { esperarVaga, vagaDoDespacho, VagaRecusada } from './board';
-import { gravarBaseline } from './verify';
+import { ConducaoDoVerify, gravarBaseline } from './verify';
 import { iniciarWatcher, validarFonteWatcher } from './session-watcher';
 import { fonteClaudeDoDespacho, headDaWorktree } from './session-watcher-claude';
 import { ManifestoCarregado, exigirManifesto } from './manifest';
@@ -661,6 +661,11 @@ export interface OpcoesRun {
   /** I-36 (D2): espera a vez ate este prazo em vez de recusar na hora. */
   esperarMs?: number;
   /**
+   * RM-058 N2 (A1 da rodada 2 do CHECK): a espera da baseline do despacho na fila de recursos pesados, com o aviso de
+   * quem espera; sem ela, o `esperarMs` e depois o padrao curto do verify.
+   */
+  filaPesada?: ConducaoDoVerify['filaPesada'];
+  /**
    * RM-037 (defeito 1, achado A3 do CHECK): `false` no MCP, que executa confinado e com prazo. O despacho
    * que precisaria da baseline recusa com `baseline.pendente` e o comando do CLI, em vez de rodar a suite.
    */
@@ -734,7 +739,8 @@ export function garantirBaselineDoDespacho(carregado: ManifestoCarregado, thread
   if (!baselineDoDespachoNecessaria(carregado, threadId, opcoes)) return;
   try {
     gravarBaseline(carregado, threadId, undefined,
-      { canal: opcoes.canal ?? canalDoProcesso(), correlacao: opcoes.correlacao ?? null, ...(identidade ? { identidade } : {}) }, 'phase.run');
+      { canal: opcoes.canal ?? canalDoProcesso(), correlacao: opcoes.correlacao ?? null, ...(identidade ? { identidade } : {}),
+        filaPesada: { esperarMs: opcoes.esperarMs, ...opcoes.filaPesada } }, 'phase.run');
   } catch (e) { if (!(e instanceof ErroDeConducao)) throw e; }
 }
 

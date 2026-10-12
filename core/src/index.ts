@@ -301,6 +301,18 @@ function texto(v: string | boolean | undefined): string | undefined {
  * I-36 (D2, D6): o que o CLI declara sobre a conducao. `--canal` (sem ele, o que a borda exporta),
  * `--correlacao` (conversa ou mensagem de origem) e `--esperar [minutos]` (sem valor, 30).
  */
+/**
+ * RM-058 N2 (A1 da rodada 2 do CHECK): a fila de recursos pesados de um comando que verifica por dentro, pelo `--esperar`
+ * dele, com o aviso no stderr e o comando que a recusa sugere. Sem `--esperar`, vale o padrão curto do verify.
+ */
+function filaPesadaDoCli(args: Args, operacao: 'verify' | 'baseline', comandoDeEsperar: string):
+  { esperarMs: number | undefined; aoEsperar: (ocupantes: OcupanteDaFila[]) => void; comandoDeEsperar: string } {
+  const m = msg().verify;
+  return { esperarMs: conducaoDoCli(args).esperarMs, comandoDeEsperar,
+    aoEsperar: (ocupantes) => console.error(m.filaPesadaEsperando(operacao,
+      ocupantes.map((o) => m.filaPesadaOcupante(o.operacao, o.thread, formatarDataHora(o.desde))).join('; '))) };
+}
+
 function conducaoDoCli(args: Args): { canal: ReturnType<typeof canalDoProcesso>; correlacao: string | null; esperarMs: number | undefined } {
   if (args.opcoes.canal === true) throw new Error(msg().phase.canalUso);
   const bruto = args.opcoes.esperar;
@@ -946,6 +958,8 @@ function comandoPhase(args: Args): number {
       canal: conducao.canal,
       ...(conducao.correlacao ? { correlacao: conducao.correlacao } : {}),
       ...(conducao.esperarMs ? { esperarMs: conducao.esperarMs } : {}),
+      // A baseline que o despacho grava espera a fila pesada com aviso; a recusa sugere gravá-la antes, com mais espera.
+      filaPesada: filaPesadaDoCli(args, 'baseline', `ork verify ${id} --baseline --esperar 120`),
     }));
     // I-36 (T12, T14): pedido repetido e segundo pedido tem resposta propria, antes dos outros gates.
     if (r.idempotente && r.conducao) {
@@ -1773,7 +1787,7 @@ function comandoFix(args: Args): number {
       console.error('uso: ork fix open <thread-id> [--so-claims] [--reverify]');
       return 2;
     }
-    const conducao = conducaoDoCli(args);
+    const conducao = { ...conducaoDoCli(args), filaPesada: filaPesadaDoCli(args, 'verify', `ork fix open ${id} --esperar 30`) };
     const rodada = abrirRodada(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao });
     const reverify =
       args.opcoes.reverify === true && rodada.correcoes.length > 0
@@ -1834,7 +1848,7 @@ function comandoFix(args: Args): number {
     }
     const rodadaBruta = texto(args.opcoes.rodada);
     const r = reverificar(carregado, id, {
-      conducao: conducaoDoCli(args),
+      conducao: { ...conducaoDoCli(args), filaPesada: filaPesadaDoCli(args, 'verify', `ork fix reverify ${id} --esperar 30`) },
       rodada: rodadaBruta ? Number(rodadaBruta) : undefined,
       parcial: args.opcoes.parcial === true,
     });
@@ -1961,6 +1975,9 @@ function comandoShip(args: Args): number {
     dryRun: args.opcoes['dry-run'] === true,
     autorizarPush: typeof autorizar === 'string' ? autorizar : undefined,
     semPush: args.opcoes['sem-push'] === true,
+    // RM-058 N2 (A1 da rodada 2 do CHECK): o `--esperar` chega à fila pesada da verificação do ship, com aviso.
+    ...((f) => ({ esperarFilaPesadaMs: f.esperarMs, avisoDaFilaPesada: { aoEsperar: f.aoEsperar, comandoDeEsperar: f.comandoDeEsperar } }))(
+      filaPesadaDoCli(args, 'verify', `ork ship ${id} --para ${para} --esperar 30`)),
   }));
   console.log(textoDoShip(r));
   return r.ok ? 0 : 1;
