@@ -2,30 +2,18 @@ import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as ts from 'typescript';
 import { SECTION_NAMES } from '../src/maestro-contract';
 
 // RM-059 (onda 0): a ponte `ork-ponte` testada sem o Claude Code. O sandbox do `ork verify` e o runner
 // do CI nao tem o `claude`, entao a claim hermetica transpila os modulos puros da ponte com o compilador
-// do `core` e os roda num escopo proprio. Modulo puro so importa tipos: nenhum `require` acontece.
+// do `core` (pelo carregador do `checar-mods.cjs`, o mesmo da guarda estatica) e os roda num escopo
+// proprio. Modulo puro so importa tipos: nenhum `require` acontece.
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const PONTE = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-ponte');
-const MODULOS_PUROS = ['hooks/papel.ts', 'hooks/nucleo.ts', 'hooks/faixa.tsx', 'hooks/vigia.ts', 'hooks/mostrado.ts'];
-
-function carregar(rel: string): any {
-  const arquivo = path.join(PONTE, rel);
-  const saida = ts.transpileModule(fs.readFileSync(arquivo, 'utf8'), {
-    fileName: arquivo,
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
-      jsx: ts.JsxEmit.React, jsxFactory: 'h', jsxFragmentFactory: 'Fragment',
-    },
-  });
-  const modulo = { exports: {} as Record<string, unknown> };
-  const exigir = (id: string) => { throw new Error(`modulo puro da ponte nao importa valor: ${id}`); };
-  new Function('exports', 'require', 'module', saida.outputText)(modulo.exports, exigir, modulo);
-  return modulo.exports;
-}
+const AUTORIDADE = path.join(raizDoRepo, 'adapters/claude-code/mods/autoridade.json');
+const MODULOS_PUROS = ['hooks/papel.ts', 'hooks/nucleo.ts', 'hooks/faixa.tsx', 'hooks/vigia.ts', 'hooks/mostrado.ts', 'hooks/guarda.ts'];
+const { carregarModuloDoMod } = require(path.join(raizDoRepo, 'core/scripts/checar-mods.cjs'));
+const carregar = (rel: string) => carregarModuloDoMod(path.join(PONTE, rel));
 
 const lerJson = (rel: string) => JSON.parse(fs.readFileSync(path.join(PONTE, rel), 'utf8'));
 
@@ -255,4 +243,84 @@ test('mostrado: o que o mod declara e conferido', () => {
   assert.throws(() => conferirMostrado({ mod: 'ork-mesa', canal: 'painel', texto: ' ' }), /vazio/);
   assert.throws(() => conferirMostrado({ mod: 'ork-mesa', canal: 'painel', texto: 'x', thread: '../a' }), /thread invalido/);
   assert.throws(() => conferirMostrado(undefined), /nome de mod invalido/);
+});
+
+test('guarda: argv da lista real, com embrulho, shell, stdin, interpretador e entradas do ork', () => {
+  const guarda = carregar('hooks/guarda.ts');
+  const a = guarda.lerAutoridade(fs.readFileSync(AUTORIDADE, 'utf8'));
+  const regra = (argv: string[], stdin?: string) => guarda.avaliarArgv(a, argv, stdin)?.regra ?? null;
+  const casos: Array<[string[], string | null, string?]> = [
+    [['git', 'push', 'origin', 'x'], 'git-push'],
+    [['/usr/bin/git', '-C', '/r', '-c', 'k=v', 'push'], 'git-push'],
+    [['git', '--git-dir=/r/.git', 'tag', '-l'], 'git-tag'],
+    [['git', 'status', '--porcelain'], null],
+    [['git', 'log', '--grep', 'push'], null],
+    [['git', 'merge-tree', '--write-tree', 'a', 'b'], null],
+    [['gh', 'pr', 'create'], 'gh'],
+    [['/usr/local/bin/gh'], 'gh'],
+    [['env', 'A=1', '-u', 'B', 'git', 'push'], 'git-push'],
+    [['timeout', '-k', '5', '30', 'git', 'push'], 'git-push'],
+    [['nohup', 'sudo', '-u', 'x', 'gh', 'auth'], 'gh'],
+    [['bash', '-lc', 'cd /r && git push origin'], 'git-push'],
+    [['sh', '-c', 'echo ok | xargs -n 1 gh'], 'gh'],
+    [['bash'], 'git-tag', 'git tag v2'],
+    [['bash', '-s'], 'gh', 'gh api user'],
+    [['bash', 'script.sh'], null, 'gh api user'],
+    [['eval', 'git push'], 'git-push'],
+    [['env', '-S', 'git push'], 'git-push'],
+    [['node', '-e', "require('child_process').execSync('gh pr merge 1')"], 'gh'],
+    [['python3', '-c', 'import os; os.system("git push")'], 'git-push'],
+    [['node', 'core/dist/index.js', 'gate', 'answer', 'ork-a', 'p1'], 'gate-answer'],
+    [['npx', '@orkastery/cli', 'ship', 'ork-a', '--autorizar-push', 'x'], 'ship-autorizar-push'],
+    [['npm', 'exec', '--', 'ork', 'pulse', 'responder'], 'pulse-responder'],
+    [['ork', '--projeto', 'x', 'gate', 'answer'], 'gate-answer'],
+    [['ork', 'decisao', 'registrar', 'ork-a', '--decidido', 'gate', '--porque', 'answer'], null],
+    [['ork', 'retry', 'run', 'ork-a'], null],
+    [['ork', 'retry', 'run', 'ork-a', '--por', 'x'], 'retry-run-por'],
+    [['ork', 'master', 'ork-a', '--aceitar-omissao'], null],
+    [['ork', 'master', 'ork-a', '--score', '4'], 'master-nota'],
+    [['ork', 'ship', 'registrar-pr', 'ork-a'], null],
+    [['ork', 'maestro', '--json'], null],
+    [['cat', '/srv/u/.hermes//.env'], 'hermes-env'],
+    [['cat', '~/.hermes/./.env'], 'hermes-env'],
+    [['eval', 'eval eval eval eval eval eval true'], 'profundidade'],
+  ];
+  for (const [argv, esperado, stdin] of casos) assert.equal(regra(argv, stdin), esperado, JSON.stringify(argv));
+});
+
+test('guarda: separar argumentos como o parseArgs do CLI e cortar comandos de shell', () => {
+  const guarda = carregar('hooks/guarda.ts');
+  const s = guarda.separarArgs(['--projeto', 'x', 'gate', '--y=1', 'answer', '--flag']);
+  assert.deepEqual(s.posicionais, ['gate', 'answer']);
+  assert.deepEqual([...s.opcoes].sort(), ['flag', 'projeto', 'y']);
+  assert.deepEqual(guarda.comandosDoTexto("a 'b c' && d \"e;f\" | g $(h i) `j`"), [['a', 'b c'], ['d', 'e;f'], ['g'], ['h', 'i'], ['j']]);
+});
+
+test('guarda: ganchos proibidos, reservados a ponte e o que o motor escaneou no registro', () => {
+  const guarda = carregar('hooks/guarda.ts');
+  const a = guarda.lerAutoridade(fs.readFileSync(AUTORIDADE, 'utf8'));
+  const { sobrepoe } = guarda;
+  assert.equal(sobrepoe('*', 'classic.Elicitation'), true);
+  assert.equal(sobrepoe('classic.*', 'classic.PermissionRequest'), true);
+  assert.equal(sobrepoe('classic.Stop', 'classic.Elicitation'), false);
+  assert.equal(sobrepoe('fs.read', 'fs.*'), true);
+  assert.equal(sobrepoe('fs.*', 'fs.read'), true);
+  assert.equal(sobrepoe('!fs.read', 'fs.*'), false);
+  assert.equal(sobrepoe('session.start', 'session.root'), false);
+  assert.equal(sobrepoe('session.*', 'session.root'), true);
+  assert.equal(sobrepoe('telemetry.*', 'process.*'), false);
+  const evento = (eventos: string[], ehPonte = false) => guarda.avaliarEventos(a, eventos, ehPonte)?.regra ?? null;
+  assert.equal(evento(['session.start', 'ui.render', 'classic.PostToolBatch', 'command.run']), null);
+  assert.equal(evento(['process.run']), 'processos');
+  assert.equal(evento(['process.run'], true), null);
+  assert.equal(evento(['classic.Elicitation'], true), 'elicitation');
+  const uses = (u: Record<string, unknown>) => guarda.avaliarUses(a, u)?.regra ?? null;
+  assert.equal(uses({ events: ['session.start'], calls: ['prompt.submit'] }), 'prompt-submit');
+  assert.equal(uses({ events: ['session.start'], env: { reads: ['ORK_HITL_TOKEN'], writes: [] } }), 'hitl-env');
+  assert.equal(uses({ events: ['turn.complete'], calls: ['session.append', 'ui.toast'] }), null);
+  assert.equal(guarda.ehModDoOrkastery('ork-torre'), true);
+  assert.equal(guarda.ehModDoOrkastery('meu-mod'), false);
+  assert.equal(guarda.ehModDoOrkastery('meu-mod', new Set(['meu-mod'])), true);
+  assert.equal(guarda.avaliarAmbiente(a, 'ORK_DISPATCH_ID'), null);
+  assert.equal(guarda.avaliarCaminho(a, '/srv/projeto/orkastery.yaml'), null);
 });

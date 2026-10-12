@@ -1,0 +1,56 @@
+{
+  "formato": "ork.mods-autoridade/v1",
+  "regra": "Nenhum mod aprova gate, permissão, nota do MASTER, push ou tag pelo dono, nem fala como o dono (D5 do plano dos mods, com o nome que o dono deu em 11/10/2026). A decisão autônoma registrada pelo núcleo não entra nesta lista: está em permitidos.",
+  "leitores": [
+    "core/scripts/checar-mods.cjs",
+    "adapters/claude-code/mods/ork-ponte/hooks/register.ts"
+  ],
+  "ganchosProibidos": [
+    { "id": "elicitation", "evento": "classic.Elicitation", "porque": "responderia o diálogo nativo do MCP no lugar do dono" },
+    { "id": "elicitation-result", "evento": "classic.ElicitationResult", "porque": "trocaria a resposta que o dono deu no diálogo nativo" },
+    { "id": "permission-request", "evento": "classic.PermissionRequest", "porque": "aprovaria permissão pelo dono" },
+    { "id": "ask-user-question", "evento": "ui.render", "componente": "AskUserQuestion", "porque": "redesenharia a pergunta feita ao dono" }
+  ],
+  "decisoesProibidas": [
+    { "id": "tool-check-allow", "evento": "tool.check", "decisao": "allow", "porque": "aprovaria uma chamada de ferramenta pelo dono" }
+  ],
+  "chamadasProibidas": [
+    { "id": "prompt-submit", "chamada": "prompt.submit", "porque": "manda texto como se fosse o dono" },
+    { "id": "session-append-usuario", "chamada": "session.append", "tipo": "user", "porque": "grava linha de usuário que o modelo lê como palavra do dono" }
+  ],
+  "argvProibido": [
+    { "id": "gate-answer", "sequencia": ["gate", "answer"], "porque": "responde gate pelo dono" },
+    { "id": "sessions-answer", "sequencia": ["sessions", "answer"], "porque": "entrega resposta a uma sessão como se fosse do dono" },
+    { "id": "pulse-responder", "sequencia": ["pulse", "responder"], "porque": "responde o resumo pelo dono" },
+    { "id": "master-nota", "sequencia": ["master"], "opcao": "--score", "porque": "dá ou propõe a nota do MASTER" },
+    { "id": "master-batch", "sequencia": ["master", "batch"], "porque": "aceita MASTER em lote pelo dono" },
+    { "id": "master-digest-responder", "sequencia": ["master", "digest", "responder"], "porque": "responde o digest pelo dono" },
+    { "id": "retry-run-por", "sequencia": ["retry", "run"], "opcao": "--por", "porque": "autoriza o retry quando o modo pausa" },
+    { "id": "ship-autorizar-push", "sequencia": ["ship"], "opcao": "--autorizar-push", "porque": "autoriza push pelo dono" },
+    { "id": "git-push", "programa": "git", "subcomando": "push", "porque": "publica sem a prova do núcleo" },
+    { "id": "git-tag", "programa": "git", "subcomando": "tag", "porque": "tag é ato do dono; listar tags sai por outro comando de leitura" },
+    { "id": "gh", "programa": "gh", "porque": "PR, merge e release ficam com o núcleo e o dono" }
+  ],
+  "ambienteProibido": [
+    { "id": "hitl-env", "prefixo": "ORK_HITL_", "porque": "credenciais e verificadores do ingresso humano" }
+  ],
+  "caminhosProibidos": [
+    { "id": "hermes-env", "trecho": ".hermes/.env", "porque": "segredos do canal do dono" }
+  ],
+  "reservadosAPonte": [
+    { "id": "processos", "evento": "process.*", "porque": "a guarda da ponte vigia os processos" },
+    { "id": "ambiente", "evento": "env.*", "porque": "a guarda vigia o ambiente, e o papel da sessão sai dele" },
+    { "id": "arquivos", "evento": "fs.*", "porque": "a guarda vigia leituras, e a lista de autoridade sai do disco" },
+    { "id": "mcp", "evento": "mcp.*", "porque": "o retrato do núcleo sai do MCP" },
+    { "id": "store", "evento": "store.*", "porque": "o registro do que foi mostrado ao dono fica no store da ponte" },
+    { "id": "estado", "evento": "state.*", "porque": "a faixa, os caminhos vigiados e o cache ficam no estado da ponte" },
+    { "id": "ferramentas", "evento": "tool.list", "porque": "o papel dono sai da lista de ferramentas" },
+    { "id": "raiz", "evento": "session.root", "porque": "o papel e a raiz do estado saem da raiz da sessão" },
+    { "id": "registro", "evento": "plugin.register", "porque": "só a ponte confere os mods que carregam" },
+    { "id": "prompt", "evento": "prompt.submit", "porque": "só a ponte decide sobre texto enviado por mod" },
+    { "id": "transcript", "evento": "session.append", "porque": "só a ponte decide sobre linha anexada por mod" }
+  ],
+  "permitidos": [
+    { "id": "decisao-autonoma", "sequencia": ["decisao", "registrar"], "porque": "decisão autônoma registrada pelo núcleo, com critério e evidência, que vai ao dono no lote seguinte com o custo de reverter (M4)" }
+  ]
+}
