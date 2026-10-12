@@ -15,7 +15,7 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | vps | ork-rm060release | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 13:28 |
 | vps | ork-sitedelta055 | #Fast | GO | claude-bg sonnet/high | — | sim: autorizacao da retomada | 12/10 13:28 |
 | vps | ork-sitedesign | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 13:28 |
-| vps | ork-sitedesignom | #Auto | GOAL | sem despacho | — | — | 12/10 13:28 |
+| vps | ork-sitedesignom | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 13:28 |
 | vps | ork-siteorkaste2 | #Auto | GO | claude-bg opus/max | — | — | 12/10 13:28 |
 
 Horários de Brasília.

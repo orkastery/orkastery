@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T16:28:46.569Z",
+  "publicadoEm": "2026-10-12T16:28:52.605Z",
   "threads": [
     {
       "id": "ork-rm058n2",
@@ -92,23 +92,6 @@
       "esforco": "max"
     },
     {
-      "id": "ork-rm061f3a",
-      "nome": "rm061f3a",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-rm061f3a-full",
-      "atualizadaEm": "2026-10-12T16:28:46.321Z",
-      "entregue": "eb9598bf",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
-    },
-    {
       "id": "ork-sitedelta055",
       "nome": "sitedelta055",
       "modo": "#Fast",
@@ -150,14 +133,14 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-sitedesignom-full",
-      "atualizadaEm": "2026-10-12T16:15:33.474Z",
+      "atualizadaEm": "2026-10-12T16:28:52.363Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "max"
     },
     {
       "id": "ork-siteorkaste2",
