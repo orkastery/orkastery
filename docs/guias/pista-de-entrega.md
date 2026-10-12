@@ -23,6 +23,19 @@ Cada etapa que não está feita traz o texto do núcleo. Embaixo, o próximo pas
 
 A Torre de Controle abre a Pista pelo botão Entregar de uma thread: `/pista <thread>` põe a thread em foco no alto do painel.
 
+## Os botões
+
+Botão só aparece quando o núcleo declara a ação disponível no próximo passo da pista, e só para dois comandos:
+
+| Botão | Aparece quando | O que roda |
+| --- | --- | --- |
+| Publicar | `acao: publicar` com `disponivel`, numa thread #Auto ou #Maestro | `ork ship publicar <thread> --json` |
+| Registrar a entrega | `acao: registrar` com `disponivel` (o PR foi mesclado e falta o `ship_done`) | `ork ship registrar-pr <thread> --json` |
+
+O clique relê a pista daquela thread antes de valer: se, entre o desenho e o clique, o núcleo deixou de declarar a ação (outra sessão passou a conduzir, um commit novo tirou o verify do HEAD), nada roda e a linha da pista diz o que mudou. Um clique por vez por thread: com o primeiro rodando, o botão some e a linha diz que está rodando. O resultado fica na pista: publicada com o PR e a prova do `ls-remote`, recusada com o motivo tipado e a correção do núcleo, ou a falha (o `ork` do PATH sem o comando, a ponte que recusou). Fora de #Auto e #Maestro não há botão de publicar: o próximo passo traz o comando para você rodar no seu terminal.
+
+O argv sai sempre do mod, nunca do texto do JSON, e a ponte confere cada um contra a lista de autoridade dos mods.
+
 ## O que a Pista nunca faz
 
 - Merge, tag ou promoção de site. O merge do PR verde continua com você ou com o condutor externo, e o `ship_done` vem do `ork ship registrar-pr`.

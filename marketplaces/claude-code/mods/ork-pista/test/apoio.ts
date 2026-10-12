@@ -97,6 +97,8 @@ export function montar(on, opcoes: { papel: string; pista?: unknown; paineis?: u
     paineis: opcoes.paineis ?? [], pistaSaida: null as null | { exitCode: number; stdout: string; stderr: string },
     processos: [] as string[][], faixas: [] as unknown[], mostrados: [] as unknown[], comandos: [] as string[], abertos: [] as string[],
     toasts: [] as string[], maestro: 0, respostas: {} as Record<string, unknown>,
+    /** Uma espera antes de responder o comando (as quatro primeiras palavras do argv), para o teste segurar o nucleo. */
+    atrasos: {} as Record<string, () => Promise<void>>,
   }
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('classic.FileChanged', () => ({}))
@@ -109,9 +111,11 @@ export function montar(on, opcoes: { papel: string; pista?: unknown; paineis?: u
     }
     return falha()
   })
-  on('process.run', ($, e) => {
+  on('process.run', async ($, e) => {
     const argv = e.argv as string[]
     mundo.processos.push(argv)
+    const atraso = mundo.atrasos[argv.slice(0, 4).join(' ')]
+    if (atraso) await atraso()
     if (argv[0] === 'ork' && argv[1] === 'ship' && argv[2] === 'pista') {
       if (mundo.pistaSaida) return { value: { ...mundo.pistaSaida, isStdoutTruncated: false, isStderrTruncated: false } }
       const p = mundo.pista as { pistas: Array<{ thread: string }> }

@@ -19,14 +19,14 @@ import { commitar, envPtBr, projetoTemporario, ProjetoDeTeste } from './apoio';
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const PISTA = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-pista');
 const CLI = path.resolve(__dirname, '../../dist/index.js');
-const MODULOS_PUROS = ['hooks/pista.tsx'];
+const MODULOS_PUROS = ['hooks/pista.tsx', 'hooks/acoes.ts'];
 /** D8: tudo que a Pista chama direto no `$`. */
 const CHAMADAS_PERMITIDAS = ['ork.papel', 'ork.faixa', 'ork.retrato', 'ork.mostrado', 'command.register', 'clock.now', 'clock.after',
   'clock.every', 'process.run', 'state.get', 'state.set', 'ui.open', 'ui.panes', 'ui.resolve', 'ui.toast'];
 /** D8: nada de disco, de MCP proprio, de ambiente, de texto como o dono, de agente ou de ferramenta. */
 const NOUNS_PROIBIDOS = ['mcp', 'store', 'env', 'fs', 'prompt', 'agent', 'tool', 'session'];
 /** D6: os unicos construtores de argv da Pista, nos modulos puros. */
-const CONSTRUTORES_DE_ARGV = ['argvDaPista'];
+const CONSTRUTORES_DE_ARGV = ['argvDaPista', 'argvDoPublicar', 'argvDoRegistro'];
 
 type No = { tipo: string; props: Record<string, unknown>; filhos: unknown[] };
 (globalThis as unknown as { h: unknown }).h = (tipo: string, props: Record<string, unknown> | null, ...filhos: unknown[]): No =>
@@ -161,9 +161,14 @@ test('pista: a ordem, a marca, a faixa e as linhas do painel com o que fica a vi
   assert.equal(p.assinaturaDoRetrato(null), null);
   assert.equal(p.assinaturaDoRetrato(retrato([])), '');
   assert.notEqual(p.assinaturaDoRetrato(retrato([{ id: 'ship:ork-a', status: 'delivered', facts: { receiptAt: 'x' } }])), p.assinaturaDoRetrato(retrato([])));
-  const arvore = p.desenharPista({ Box: 'Box', Text: 'Text', Button: 'Button' }, q, { agora: 0 }) as No;
-  const botoes = (arvore.filhos as No[]).flatMap((n) => (n.tipo === 'Button' ? [n] : (n.filhos as No[]).filter((x) => x?.tipo === 'Button')));
-  assert.deepEqual(botoes.map((b) => b.props.label), ['Atualizar'], 'a T7.2 so tem o botao de releitura');
+  const botoesDe = (arvore: No) => (arvore.filhos as No[]).flatMap((n) => (n.tipo === 'Button' ? [n] : (n.filhos as No[]).filter((x) => x?.tipo === 'Button')));
+  assert.deepEqual(botoesDe(p.desenharPista({ Box: 'Box', Text: 'Text', Button: 'Button' }, q, { agora: 0 }) as No).map((b) => b.props.label), ['Atualizar'],
+    'sem botoes decididos, so o de releitura');
+  const comBotoes = p.desenharPista({ Box: 'Box', Text: 'Text', Button: 'Button' }, q,
+    { agora: 0, botoes: { 'ork-z': { acao: 'publicar', rotulo: 'Publicar' }, 'ork-u': { acao: 'registrar', rotulo: 'Registrar a entrega' } },
+      acoes: { 'ork-u': { acao: 'registrar', estado: 'rodando', texto: '', em: 0 } } }) as No;
+  assert.deepEqual(botoesDe(comBotoes).map((b) => `${String(b.props.key ?? '')}|${String(b.props.label)}`), ['atualizar|Atualizar', 'publicar:ork-z|Publicar'],
+    'o botao da thread com clique rodando some ate o resultado');
 });
 
 /** Uma thread pronta para publicar num projeto temporario: produto, verify verde, bundle e CHECK com PASSOU. */
@@ -207,6 +212,74 @@ test('pista: a leitura da Pista casa com o ork ship pista --json de verdade', (t
   assert.equal(l.proximo.disponivel, true);
   assert.match(q.avisos.join(' '), /os PRs não foram lidos/, 'o remoto do teste e um bare local, sem forja');
   assert.deepEqual(pm.lerPista(rodar(pm.argvDaPista(e.id)), 1).linhas.map((x: { thread: string }) => x.thread), [e.id]);
+});
+
+test('acoes: o botao so com a acao declarada, o argv dos dois comandos e a autoridade da ponte', () => {
+  const a = carregar('hooks/acoes.ts');
+  const p = carregar('hooks/pista.tsx');
+  const linha = (extra: Record<string, unknown>) => p.linhaDaPista(pista('ork-a', extra));
+  assert.equal(a.botaoDaPista(linha({})), 'publicar');
+  assert.equal(a.botaoDaPista(linha({ publicavel: false })), null, 'fora de #Auto e #Maestro, nenhum botao de publicar');
+  assert.equal(a.botaoDaPista(linha({ proximo: { acao: 'publicar', disponivel: false, texto: 'x', comando: null } })), null);
+  assert.equal(a.botaoDaPista(linha({ proximo: { acao: 'registrar', disponivel: true, texto: 'x', comando: null } })), 'registrar');
+  assert.equal(a.botaoDaPista(linha({ proximo: { acao: null, disponivel: false, texto: 'x', comando: 'ork verify ork-a' } })), null);
+  assert.deepEqual(a.argvDoPublicar('ork-a'), ['ork', 'ship', 'publicar', 'ork-a', '--json']);
+  assert.deepEqual(a.argvDoRegistro('ork-a'), ['ork', 'ship', 'registrar-pr', 'ork-a', '--json']);
+  for (const ruim of ['../x', '--autorizar-push', '', 'a b']) {
+    assert.throws(() => a.argvDoPublicar(ruim), /id de thread invalido/, ruim);
+    assert.throws(() => a.argvDoRegistro(ruim), /id de thread invalido/, ruim);
+  }
+  // A guarda da ponte (a mesma lista que ela aplica em tempo de execucao) deixa passar os dois, e barra a autorizacao.
+  const { carregarModuloDoMod } = require(path.join(raizDoRepo, 'core/scripts/checar-mods.cjs'));
+  const guarda = carregarModuloDoMod(path.join(raizDoRepo, 'adapters/claude-code/mods/ork-ponte/hooks/guarda.ts'), raizDoRepo);
+  const autoridade = guarda.lerAutoridade(fs.readFileSync(path.join(raizDoRepo, 'adapters/claude-code/mods/autoridade.json'), 'utf8'));
+  for (const argv of [p.argvDaPista(), p.argvDaPista('ork-a'), a.argvDoPublicar('ork-a'), a.argvDoRegistro('ork-a')]) {
+    assert.equal(guarda.avaliarArgv(autoridade, argv), null, argv.join(' '));
+  }
+  assert.notEqual(guarda.avaliarArgv(autoridade, [...a.argvDoPublicar('ork-a'), ['--autorizar', 'push'].join('-'), 'eu']), null);
+});
+
+test('acoes: a leitura do publicar e do registro, com a recusa, o CLI sem o comando e a saida fora do contrato', () => {
+  const a = carregar('hooks/acoes.ts');
+  const base = { contrato: 'ork.ship-publicar/v1', thread: 'ork-a', head: SHA, motivo: null, detalhe: 'd', correcao: '', pr: { numero: 9, criado: true } };
+  assert.deepEqual(a.lerPublicacao(saida(0, { ...base, acao: 'publicou' })),
+    { estado: 'feita', texto: 'publicada no HEAD aaaaaaa, push provado pelo ls-remote; PR #9 aberto agora' });
+  assert.deepEqual(a.lerPublicacao(saida(0, { ...base, acao: 'ja-publicada', pr: { numero: 9, criado: false }, correcao: 'registre a entrega' })),
+    { estado: 'feita', texto: 'já estava publicada no HEAD aaaaaaa; PR #9; registre a entrega' });
+  assert.deepEqual(a.lerPublicacao(saida(1, { ...base, acao: 'recusada', motivo: 'human.pending', detalhe: 'o modo pede o dono', correcao: 'publique do terminal' })),
+    { estado: 'recusada', texto: 'recusada (human.pending): o modo pede o dono; publique do terminal' });
+  assert.equal(a.lerPublicacao(saida(0, { ...base, acao: 'publicaria' })).estado, 'falhou', 'o botao nunca roda o ensaio');
+  assert.equal(a.lerPublicacao(saida(0, { contrato: 'outro' })).estado, 'falhou');
+  assert.throws(() => a.lerPublicacao(saida(2, '', 'subcomando desconhecido: ship publicar')), /o ork deste PATH não tem ork ship publicar/);
+  const item = (acao: string) => [{ thread: 'ork-a', acao, motivo: `motivo de ${acao}` }, { thread: 'ork-b', acao: 'registrou', motivo: 'outra' }];
+  assert.deepEqual(a.lerRegistro(saida(0, item('registrou')), 'ork-a'), { estado: 'feita', texto: 'ship_done registrado: motivo de registrou' });
+  assert.equal(a.lerRegistro(saida(0, item('ja-registrada')), 'ork-a').estado, 'feita');
+  assert.deepEqual(a.lerRegistro(saida(0, item('sem-merge')), 'ork-a'), { estado: 'recusada', texto: 'sem-merge: motivo de sem-merge' });
+  assert.equal(a.lerRegistro(saida(1, item('recusada')), 'ork-a').estado, 'recusada');
+  assert.equal(a.lerRegistro(saida(0, item('registrou')), 'ork-c').estado, 'falhou');
+  assert.equal(a.lerRegistro(saida(0, item('registraria')), 'ork-a').estado, 'falhou');
+});
+
+test('acoes: a leitura casa com o ork ship publicar e o ork ship registrar-pr de verdade, sem push quando o nucleo recusa', (t) => {
+  const a = carregar('hooks/acoes.ts');
+  const p = projetoTemporario('ork-pista-acoes', true);
+  t.after(() => p.limpar());
+  const env = envPtBr();
+  for (const nome of ['ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'ORK_CANAL', 'CLAUDECODE', 'ORK_PROJETO', 'ORK_PROJETO_EXPLICITO']) delete env[nome];
+  const rodar = (argv: string[]) => {
+    assert.equal(argv[0], 'ork');
+    const r = spawnSync(process.execPath, [CLI, ...argv.slice(1)], { cwd: p.dir, encoding: 'utf8', env });
+    return { exitCode: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
+  };
+  const auto = prontaParaPublicar(p, 'pronta');
+  // O remoto do teste e um bare local: sem GitHub, o nucleo recusa antes do push, e a Pista mostra o motivo.
+  const r = a.lerPublicacao(rodar(a.argvDoPublicar(auto.id)));
+  assert.equal(r.estado, 'recusada');
+  assert.match(r.texto, /^recusada \(runtime\.unavailable\): o remoto origin não é um repositório do GitHub/);
+  assert.equal(exec('git', ['ls-remote', 'origin', `refs/heads/${auto.branch}`], p.dir).stdout.trim(), '', 'nada foi empurrado');
+  const reg = a.lerRegistro(rodar(a.argvDoRegistro(auto.id)), auto.id);
+  assert.equal(reg.estado, 'recusada');
+  assert.match(reg.texto, /^sem-merge: nenhum merge ship\(/);
 });
 
 type Chamada = { cadeia: string[]; no: ts.CallExpression; linha: number };

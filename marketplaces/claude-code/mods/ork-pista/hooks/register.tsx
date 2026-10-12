@@ -5,7 +5,10 @@
 // logica fica nos modulos puros ao lado; aqui so os ganchos e as chamadas ao `$`, sempre escritas como
 // `x.noun.metodo(...)`, como o validador exige.
 import type { EngineInterface, Register } from 'claude-code'
-import type { PistaMostrado, PistaQuadro } from '../types'
+import type { PistaAcao, PistaLinha, PistaMostrado, PistaQuadro } from '../types'
+import type { AcaoDoBotao } from './acoes'
+import { argvDoPublicar, argvDoRegistro, botaoDaPista, lerPublicacao, lerRegistro, ROTULO_DO_BOTAO } from './acoes'
+import type { BotaoDaPista } from './pista'
 import {
   argvDaPista, assinaturaDoRetrato, desenharPista, exigirThread, lerPista, linhasDoPainel, mostradosVisiveis, textoDaFaixa,
   threadDoLedger, umaLinha,
@@ -16,6 +19,7 @@ const PAINEL = 'pista'
 const TITULO = 'Pista de Entrega'
 const QUADRO = { plugin: 'ork-pista', key: 'quadro' } as const
 const FOCO = { plugin: 'ork-pista', key: 'foco' } as const
+const ACOES = { plugin: 'ork-pista', key: 'acoes' } as const
 const QUADRO_VAZIO: PistaQuadro = { linhas: [], lidoEm: null, erro: null, avisos: [] }
 /** O tique: idade da pista, assinatura do retrato e registro do mostrado. */
 const PERIODO_DO_TIQUE_MS = 60000
@@ -28,6 +32,9 @@ const INTERVALO_MINIMO_MS = 30000
 const ESPERA_DO_LOTE_MS = 5000
 /** Teto do `ork ship pista`: um `ls-remote` e a lista de PRs. */
 const PRAZO_DA_PISTA_MS = 120000
+/** Teto do `ork ship publicar` (push, prova e PR) e do `ork ship registrar-pr` (fetch, prova e CI), abaixo dos 10 min do motor. */
+const PRAZO_DO_PUBLICAR_MS = 300000
+const PRAZO_DO_REGISTRO_MS = 180000
 /** O servidor do nucleo pode conectar depois do inicio da sessao: o papel e conferido de novo nestas esperas. */
 const ESPERAS_DO_PAPEL_MS = [3000, 10000, 30000]
 const ESPERA_LONGA_DO_PAPEL_MS = 300000
@@ -44,6 +51,9 @@ let lendo: Promise<void> | undefined
 let pendente = false
 let quadro: PistaQuadro = QUADRO_VAZIO
 let foco: string | null = null
+/** O ultimo botao de cada thread, como o estado o guarda; e as threads com um clique rodando no nucleo agora. */
+let acoes: Record<string, PistaAcao> = {}
+const emCurso = new Set<string>()
 /** A ultima tentativa de leitura (ms), lida ou nao: segura o intervalo minimo. */
 let tentadaEm = 0
 let assinatura: string | null = null
@@ -106,6 +116,11 @@ async function ativar($: EngineInterface): Promise<void> {
   }
   quadro = (await $.state.get(QUADRO)).value ?? QUADRO_VAZIO
   foco = (await $.state.get(FOCO)).value ?? null
+  // Depois de uma recarga do modulo, nenhum clique esta rodando: o que ficou "rodando" no estado vira falha.
+  const guardadas = (await $.state.get(ACOES)).value ?? {}
+  acoes = Object.fromEntries(Object.entries(guardadas).map(([t, a]) =>
+    [t, a.estado === 'rodando' ? { ...a, estado: 'falhou' as const, texto: 'o clique anterior foi interrompido por uma recarga' } : a]))
+  await $.state.set(ACOES, acoes)
   ciclo?.cancel()
   ciclo = $.clock.every(PERIODO_DO_TIQUE_MS, () => { emSegundoPlano($, tique($), 'o tique da Pista') })
   agendar($, 1)
@@ -217,7 +232,7 @@ async function publicarFaixa($: EngineInterface): Promise<void> {
  * vez por chave e texto enquanto o texto existir na pista: o Telegram nao repete o que o dono ja viu no terminal.
  */
 async function registrarMostrados($: EngineInterface): Promise<void> {
-  const existentes = new Set(linhasDoPainel(quadro, { agora: 0, foco }).flatMap(l => (l.mostrado ? [`${l.mostrado.chave}|${l.mostrado.texto}`] : [])))
+  const existentes = new Set(linhasDoPainel(quadro, { agora: 0, foco, acoes }).flatMap(l => (l.mostrado ? [`${l.mostrado.chave}|${l.mostrado.texto}`] : [])))
   for (const vista of [...jaMostrado]) if (!existentes.has(vista)) jaMostrado.delete(vista)
   for (const vista of [...vistosNoDesenho.keys()]) if (!existentes.has(vista)) vistosNoDesenho.delete(vista)
   if (vistosNoDesenho.size === 0) return
@@ -233,6 +248,59 @@ async function registrarMostrados($: EngineInterface): Promise<void> {
       // A ponte recusou ou falhou: volta para a proxima vez.
       vistosNoDesenho.set(vista, m)
     }
+  }
+}
+
+/** Os botoes que o nucleo declara agora, um por pista (D6). */
+function botoesDo(q: PistaQuadro): Record<string, BotaoDaPista> {
+  const saida: Record<string, BotaoDaPista> = {}
+  for (const l of q.linhas) {
+    const acao = botaoDaPista(l)
+    if (acao) saida[l.thread] = { acao, rotulo: ROTULO_DO_BOTAO[acao] }
+  }
+  return saida
+}
+
+async function gravarAcao($: EngineInterface, thread: string, a: PistaAcao): Promise<void> {
+  acoes = { ...acoes, [thread]: a }
+  await $.state.set(ACOES, acoes)
+}
+
+/**
+ * O clique num botao (D6). Primeiro relê so a pista da thread: o clique vale contra o que o nucleo declara agora, e
+ * nao contra o desenho de antes. Se a acao continua disponivel, roda o comando do nucleo pelo construtor de argv deste
+ * mod (nunca `git` nem `gh`, nunca texto vindo do JSON) e guarda o resultado na linha da pista. Um clique por vez por
+ * thread; o painel e relido no fim.
+ */
+async function acionar($: EngineInterface, thread: string, acao: AcaoDoBotao): Promise<void> {
+  if (emCurso.has(thread)) return
+  emCurso.add(thread)
+  try {
+    await gravarAcao($, thread, { acao, estado: 'rodando', texto: '', em: await $.clock.now() })
+    let atual: PistaLinha | undefined
+    try {
+      const relida = lerPista(await $.process.run(argvDaPista(thread), { timeoutMs: PRAZO_DA_PISTA_MS }), await $.clock.now())
+      atual = relida.linhas.find(l => l.thread === thread)
+    } catch (erro) {
+      await gravarAcao($, thread, { acao, estado: 'falhou', texto: `a releitura da pista falhou: ${mensagem(erro)}`, em: await $.clock.now() })
+      return
+    }
+    if (!atual || botaoDaPista(atual) !== acao) {
+      const agora = atual ? atual.proximo.texto : 'a thread saiu da pista'
+      await gravarAcao($, thread, { acao, estado: 'mudou', texto: `o núcleo não declara mais esta ação: ${agora}`, em: await $.clock.now() })
+      return
+    }
+    try {
+      const r = acao === 'publicar'
+        ? lerPublicacao(await $.process.run(argvDoPublicar(thread), { timeoutMs: PRAZO_DO_PUBLICAR_MS }))
+        : lerRegistro(await $.process.run(argvDoRegistro(thread), { timeoutMs: PRAZO_DO_REGISTRO_MS }), thread)
+      await gravarAcao($, thread, { acao, estado: r.estado, texto: r.texto, em: await $.clock.now() })
+    } catch (erro) {
+      await gravarAcao($, thread, { acao, estado: 'falhou', texto: mensagem(erro), em: await $.clock.now() })
+    }
+  } finally {
+    emCurso.delete(thread)
+    await atualizar($, true)
   }
 }
 
@@ -282,11 +350,16 @@ export const register: Register = on => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const q = (await $.state.get(QUADRO)).value ?? QUADRO_VAZIO
     const emFoco = (await $.state.get(FOCO)).value ?? null
+    const ultimas = (await $.state.get(ACOES)).value ?? {}
     const agora = await $.clock.now()
     const comProblema: PistaQuadro = problemaSemAviso ? { ...q, avisos: [...q.avisos, problemaSemAviso] } : q
-    anotarVistos(mostradosVisiveis(linhasDoPainel(comProblema, { agora, foco: emFoco }), e.props.scroll))
+    const botoes = botoesDo(comProblema)
+    anotarVistos(mostradosVisiveis(linhasDoPainel(comProblema, { agora, foco: emFoco, acoes: ultimas, botoes }), e.props.scroll))
     return desenharPista({ Box, Text, Button }, comProblema, {
-      agora, foco: emFoco, atualizar: () => { emSegundoPlano($, atualizar($, true), 'a leitura da pista') },
+      agora, foco: emFoco, acoes: ultimas, botoes,
+      atualizar: () => { emSegundoPlano($, atualizar($, true), 'a leitura da pista') },
+      publicar: thread => { emSegundoPlano($, acionar($, thread, 'publicar'), 'o botão Publicar') },
+      registrar: thread => { emSegundoPlano($, acionar($, thread, 'registrar'), 'o botão Registrar') },
     })
   })
 }

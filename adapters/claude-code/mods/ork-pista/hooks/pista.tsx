@@ -188,11 +188,16 @@ export function haQuanto(desde: number | null, agora: number): string {
 
 /** Uma linha do painel, com o tipo que decide o elemento e o que ela mostra ao dono (para o registro da ponte). */
 export type LinhaDoPainel = {
-  tipo: 'placar' | 'aviso' | 'vazio' | 'cabecalho' | 'etapas' | 'etapa' | 'proximo' | 'comando' | 'resultado'
+  tipo: 'placar' | 'aviso' | 'vazio' | 'cabecalho' | 'etapas' | 'etapa' | 'proximo' | 'botao' | 'comando' | 'resultado'
   texto: string
   thread?: string
+  /** So na linha do botao: o comando do nucleo que ele chama (T7.3). */
+  acao?: 'publicar' | 'registrar'
   mostrado?: PistaMostrado
 }
+
+/** O botao que o register.tsx decidiu para uma pista (o nucleo o declara disponivel), com o rotulo. */
+export type BotaoDaPista = { acao: 'publicar' | 'registrar'; rotulo: string }
 
 const linhaDasEtapas = (l: PistaLinha) => l.etapas.map(e => {
   const nome = e.id === 'pr' && l.pr ? `PR #${l.pr.numero}` : NOME_DA_ETAPA[e.id]
@@ -212,7 +217,8 @@ export function textoDaAcao(a: PistaAcao | undefined): string | null {
  * cabecalho, as oito etapas numa linha, o texto de cada etapa que nao esta feita, o proximo passo do nucleo, o
  * comando (para o dono, quando o modo pede o push dele) e o resultado do ultimo botao.
  */
-export function linhasDoPainel(q: PistaQuadro, opcoes: { agora: number; foco?: string | null; acoes?: Readonly<Record<string, PistaAcao>> }): LinhaDoPainel[] {
+export function linhasDoPainel(q: PistaQuadro, opcoes: { agora: number; foco?: string | null; acoes?: Readonly<Record<string, PistaAcao>>;
+  botoes?: Readonly<Record<string, BotaoDaPista>> }): LinhaDoPainel[] {
   const saida: LinhaDoPainel[] = []
   const prontas = q.linhas.filter(l => l.proximo.disponivel).length
   saida.push({ tipo: 'placar', texto: `Pista de Entrega · ${plural(q.linhas.length, 'entrega', 'entregas')}` +
@@ -236,6 +242,9 @@ export function linhasDoPainel(q: PistaQuadro, opcoes: { agora: number; foco?: s
     const proximo = `  próximo: ${l.proximo.texto}`
     saida.push({ tipo: 'proximo', thread: l.thread, texto: proximo,
       mostrado: { chave: `pista:${l.thread}`, thread: l.thread, texto: `${l.thread}: ${l.proximo.texto}` } })
+    // O botao so aparece com a acao declarada e sem outro clique da mesma thread rodando no nucleo.
+    const botao = opcoes.botoes?.[l.thread]
+    if (botao && opcoes.acoes?.[l.thread]?.estado !== 'rodando') saida.push({ tipo: 'botao', thread: l.thread, acao: botao.acao, texto: botao.rotulo })
     if (l.proximo.comando && !l.proximo.disponivel) {
       const quem = l.proximo.acao === 'publicar' ? 'no seu terminal' : 'comando do núcleo'
       saida.push({ tipo: 'comando', thread: l.thread, texto: `  ${quem}: ${l.proximo.comando}` })
@@ -266,7 +275,7 @@ export type Gestos = {
  * tela por elemento: so `Box`, `Text` e `Button`, no terminal e no desktop.
  */
 export function desenharPista(el: { Box: any; Text: any; Button: any }, q: PistaQuadro,
-  opcoes: { agora: number; foco?: string | null; acoes?: Readonly<Record<string, PistaAcao>> } & Gestos) {
+  opcoes: { agora: number; foco?: string | null; acoes?: Readonly<Record<string, PistaAcao>>; botoes?: Readonly<Record<string, BotaoDaPista>> } & Gestos) {
   const { Box, Text, Button } = el
   return (
     <Box flexDirection="column">
@@ -280,6 +289,11 @@ export function desenharPista(el: { Box: any; Text: any; Button: any }, q: Pista
           )
         }
         if (l.tipo === 'cabecalho') return <Text key={`cabecalho:${l.thread}`} bold wrap="truncate">{l.texto}</Text>
+        if (l.tipo === 'botao' && l.thread && l.acao) {
+          const thread = l.thread
+          const apertar = l.acao === 'publicar' ? opcoes.publicar : opcoes.registrar
+          return <Button key={`${l.acao}:${thread}`} label={l.texto} onPress={() => apertar?.(thread)} />
+        }
         if (l.tipo === 'comando') return <Text key={`comando:${l.thread}`} wrap="wrap">{l.texto}</Text>
         if (l.tipo === 'proximo') return <Text key={`proximo:${l.thread}`} wrap="wrap">{l.texto}</Text>
         return <Text key={`${l.tipo}:${l.thread ?? ''}:${i}`} dimColor wrap="truncate">{l.texto}</Text>

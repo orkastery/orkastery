@@ -54,8 +54,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   PR, CI, conflito e `ship_done`), o texto do núcleo em cada uma que falta e o próximo passo com o comando dele, no
   terminal e no desktop. Relê a pista fora do desenho, uma leitura por vez, quando um ledger muda, quando o retrato da
   ponte diz que uma entrega andou e por idade; publica na faixa só o que pede o dono e registra pela ponte o que o
-  painel à vista mostrou, para o Telegram não repetir. O guia `docs/guias/pista-de-entrega.md` diz ao condutor externo
-  como trocar a publicação crua pelo `ork ship publicar`.
+  painel à vista mostrou, para o Telegram não repetir. Botão só com a ação que o núcleo declara disponível: Publicar
+  (`ork ship publicar`, só em #Auto e #Maestro) e Registrar a entrega (`ork ship registrar-pr`); o clique relê a pista
+  da thread antes de valer, roda o argv do próprio mod (nunca `git` nem `gh`) e deixa o resultado na pista. Fora de
+  #Auto e #Maestro, só o comando para o dono. O guia `docs/guias/pista-de-entrega.md` diz ao condutor externo como
+  trocar a publicação crua pelo `ork ship publicar`.
 
 ## [0.5.5] - 2026-10-12
 
