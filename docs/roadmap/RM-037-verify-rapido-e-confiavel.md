@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-004, FEAT-014]
 owner: Julio
-atualizado_em: 2026-10-03T00:30:00-03:00
+atualizado_em: 2026-10-12T19:30:00-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -25,10 +25,10 @@ evidencias:
   deploy:
     release: "v0.5.0 (PR #28 e #34) e v0.4.3 (PR #18), @orkastery/cli no npm"
 sdlc:
-  thread: ork-rm037noite
+  thread: ork-rm037esperas
   modo: "#Auto"
-  fase: MASTER
-  status: fechada
+  fase: GOAL
+  status: aberta
 ---
 
 # RM-037 — Verify rápido e confiável
@@ -44,7 +44,7 @@ sdlc:
 <!-- ork-docs:relance:fim -->
 
 - **Features:** [FEAT-004](../produto/FEAT-004-claims-e-verify.md), [FEAT-014](../produto/FEAT-014-monitor-board-e-pulse.md)
-- **Thread:** `ork-rm037fatia6r` (a mais recente); antes, `ork-rm037fatia5p`, `ork-rm037fatia4t`, `ork-rm037fatia3d`, `ork-rm037noite`, `ork-rm037defeito`, `ork-defeitosdeco`, `ork-i54compilaca` e `ork-verifytimeou`
+- **Thread:** `ork-rm037esperas` (a mais recente); antes, `ork-rm037fatia6r`, `ork-rm037fatia5p`, `ork-rm037fatia4t`, `ork-rm037fatia3d`, `ork-rm037noite`, `ork-rm037defeito`, `ork-defeitosdeco`, `ork-i54compilaca` e `ork-verifytimeou`
 
 ## Problema e resultado
 
@@ -79,6 +79,11 @@ sdlc:
   - o `ork verify` (CLI, MCP e CHECK-REVERIFY) mede o steal do `/proc/stat` na rodada e na janela de cada comando e grava a medida no `verify_run` (`steal` e `stealPct`); a reprovação só de teste com relógio (assinatura de prazo do `node --test` ou entrada vigente do registro) sob steal acima de 40% vira `verify.timeout`, que o retry reexecuta, nunca regressão; asserção comum continua regressão, sem `/proc/stat` nada é atenuado e o `ork ci run` não atenua;
   - o `testeQueCaiu` do ledger passa a ler a seção "failing tests" do reporter `spec`, o padrão do `node --test` 24 fora de TTY, que antes saía vazio;
   - o PLAN da `ork-verifytimeou` não existe mais no repositório, nas branches nem no `.orkastery` (saiu no corte de 27/09): a T15 seguiu o texto da recomendada, decisão no ledger.
+- **As esperas que nunca terminam (thread `ork-rm037esperas`, 12/10/2026):** em 12/10, cinco sessões de fase ficaram presas esperando algo que já tinha terminado ou morrido, e a condutora assumiu o fecho de cada uma. Os testes `core/test/rm037-esperas.test.ts` (R1 a R3 e V1 a V7) e o teste novo de `core/test/locale-pulse.test.ts` reprovam o código anterior:
+  - verify ou suíte mandados para segundo plano com `&` dentro do comando, cujo processo morreu com a chamada, e laços `until ! pgrep -f "<texto>"` que acham a si mesmos, porque o próprio laço traz o texto procurado (um ficou quase 2 h vivo): a regra das esperas (`REGRA_DAS_ESPERAS` em `core/src/phase.ts`), uma linha só, entra no prompt de toda fase, no lugar da linha da N2 da RM-058, e com o mesmo texto na skill de entrada das duas instalações (`orkastery-bootstrap`), nas skills de GO e CHECK, na skill `ork` do Codex e nos seis agentes de fase do Claude Code. O teste confere o prompt renderizado de todo modo, as fontes, as cópias dos marketplaces e a instalação real do `ork adapter install`;
+  - o teste do `ork pulse --json` nas duas línguas caía quando o minuto virava entre as leituras ("libera em 633079h03" contra "h04") e derrubou o Node 22 do CI de um PR sem relação: a comparação tira a falta relativa da fila, e um teste novo força a virada com o relógio do processo filho fixo (`core/test/relogio-fixo.ts`, por `NODE_OPTIONS`), com o controle de que a comparação de antes reprova nela;
+  - a sessão parada com `claude stop` antes do `phase_result` contava no `concurrency.max_parallel_threads` até a thread fechar e bloqueava despacho novo: no limite, o portão de vaga do `ork phase run` lê as sessões de todas as contas com `claude agents --json --all` (a sessão parada só aparece nessa lista) e tira da conta a que o runtime mostra encerrada (`stopped`, `done`, `failed`, `completed`, `exited`) ou fantasma. Ausente da lista ou com a leitura falhando, ela segue contando; abaixo do limite, nada é consultado; a espera do `--esperar` lê o runtime uma vez a cada 30 s. A leitura "o runtime mostra a sessão encerrada" mora em `encerradaNaLista` (`core/src/sessoes-contas.ts`), que a capacidade do #Noctum também usa;
+  - decisões D1 a D10 no ledger da thread; o que ficou para depois está em "Plano e decisões".
 - **Incluído:** causa tipada do estouro (T3), `verify.timeout` (T4), prazo do manifesto (T6), compilação única.
 - **P2, compilação única (27/09/2026, thread `ork-i54compilaca`):** `verify.preparo` roda uma vez antes das claims; o produto é conferido do preparo ao fim da rodada; `executado` entrou no contrato e comando que não rodou nunca vira verificado (`verify.sem-veredito`). O `incremental` dos dois tsconfig já estava ligado.
 - **P6, lint do comando de claim (27/09/2026, thread `ork-i53lintdocom`):** a suíte inteira do npm é recusada no `ci prepare` para a claim nascida sob a regra; SHA intermediário e contagem de commits só avisam; claim antiga só avisa. A lista das integrações locais passou a ter uma fonte só.
@@ -90,6 +95,12 @@ sdlc:
 ## Plano e decisões
 
 - **Ordem acordada em 20/09/2026:** terceiro, depois de #Fast.
+- **Fica para depois da fatia das esperas (thread `ork-rm037esperas`, D6):** o mínimo que resolveu foi o portão de vaga ouvir o runtime; o resto, descrito aqui:
+  - marcar no `ork sessions hitl` ou no pulse a sessão cuja última ferramenta é uma espera sem processo vivo correspondente: exige ler o último `tool_use` da transcrição do Claude Code, que nenhum código lê hoje, e reconhecer a espera (`sleep`, `until`, `while`, `pgrep`, `tail --pid`) e o processo que ela espera;
+  - recusar no `ork guard` o verify com `&` e o `pgrep -f` cujo padrão casa com o próprio comando: o guard lê o texto inteiro do comando e recusaria o heredoc ou a documentação que só cita a regra;
+  - o observador da sessão desiste sem `phase_result` depois de 600 s em `done` sem Stop, estado desconhecido ou consulta falhando, e não volta (`core/src/session-watcher-claude.ts`): o portão de vaga agora solta essa sessão quando o runtime a mostra encerrada, mas o ledger segue sem o resultado;
+  - a prova de fim da sessão da própria thread (`provaDeFimDaSessao`, `core/src/conducao.ts`) consulta só a conta do processo: a sessão despachada por perfil nunca é provada encerrada ali;
+  - o bloco do `AGENTS.md` que o `ork init` escreve e o bloco da experiência do `CLAUDE.md` não levam a regra: o primeiro pede o snapshot de locale, e o segundo é reconhecido sem recibo pelo texto exato.
 
 ## Estado com evidências
 
@@ -105,6 +116,7 @@ sdlc:
 - Fatia 6 (thread `ork-rm037fatia6r`, 03/10/2026): o registro de instabilidade do P6 e o verify ciente do steal, na forma recomendada abaixo, com decisões no ledger e testes `rm037-fatia6-*`; PR a abrir. O contrato é classe 2: a ratificação do dono foi relatada à thread pelo condutor da sessão em 03/10/2026 e não chegou por ingresso autenticado, então o merge fica com o dono.
 - Antes da fatia 6, faltavam o registro de instabilidade do P6 e o verify ciente do steal; nenhum código de steal existia em `core/src`. Ficaram fora da fatia 4 por decisão registrada em 02/10/2026: o registro é contrato público versionado (classe 2) e pede a ratificação do dono. Recomendada: thread própria com a T15 do PLAN da `ork-verifytimeou` (`core/instabilidade.json` no schema `ork.instabilidade/v1`, que nasce vazio e só aceita entrada com taxa medida e revalidação em até 30 dias) e um verify que mede o steal de `/proc/stat` durante a rodada, grava a medida no `verify_run` e trata a reprovação de teste com relógio sob steal acima de 40% como `verify.timeout` (reexecuta), nunca como regressão.
 - Fatia 5 (thread `ork-rm037fatia5p`, 02/10/2026): A1, A3 e A5 da rodada 5 do CHECK da fatia 4 e o rodízio no limite de gasto entraram com decisões no ledger e testes `rm037-fatia5-*`; PR a abrir.
+- Fatia das esperas (thread `ork-rm037esperas`, 12/10/2026): a regra das esperas no prompt, na skill e nos guias, o teste do pulse sem o relógio e o portão de vaga que ouve o runtime, com decisões D1 a D10 no ledger e testes `rm037-esperas`; PR a abrir pela condutora.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -112,13 +124,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-10-03 | Julio |
-| Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `36def09` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-10-03 | Julio |
-| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-10-03 | Julio |
-| Deploy | Produção | release: v0.5.0 (PR #28 e #34) e v0.4.3 (PR #18), @orkastery/cli no npm | 2026-10-03 | Julio |
-| Exposição | Parcial | — | 2026-10-03 | Julio |
-| Habilitação | Em andamento | — | 2026-10-03 | Julio |
+| Ciclo do item | Piloto | — | 2026-10-12 | Julio |
+| Documentação | Em revisão | — | 2026-10-12 | Julio |
+| Código | Mesclado | commit `36def09` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-10-12 | Julio |
+| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-10-12 | Julio |
+| Deploy | Produção | release: v0.5.0 (PR #28 e #34) e v0.4.3 (PR #18), @orkastery/cli no npm | 2026-10-12 | Julio |
+| Exposição | Parcial | — | 2026-10-12 | Julio |
+| Habilitação | Em andamento | — | 2026-10-12 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -147,4 +159,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-02 | fatia 4: trabalho parado no condutor no pulse e status do roadmap com o estado real da entrega e a batida da fábrica; registro de instabilidade e steal ficam pendentes com a recomendada | thread `ork-rm037fatia4t`, decisões no ledger, testes `rm037-fatia4-*`, PR a abrir | Julio |
 | 2026-10-03 | fatia 6: registro de instabilidade `ork.instabilidade/v1` e verify que mede o steal de `/proc/stat` e não chama de regressão o teste com relógio sob steal acima de 40% | thread `ork-rm037fatia6r`, decisões no ledger, testes `rm037-fatia6-*`, PR a abrir | Julio |
 | 2026-10-02 | fatia 5: `mergeSha` do merge que incorporou a branch (A1), CHECK sem veredito no condutor no #Auto (A3), forja sem leitura de PR dita uma vez e GitHub Enterprise (A5), e a cota vista ao vivo com o perfil fora do rodízio até a hora da mensagem | thread `ork-rm037fatia5p`, decisões no ledger, testes `rm037-fatia5-*`, PR a abrir | Julio |
+| 2026-10-12 | fatia das esperas: regra das esperas no prompt, na skill e nos guias; o teste do pulse sem o relógio; o portão de vaga do `ork phase run` ouve o runtime | thread `ork-rm037esperas`, decisões D1 a D10 no ledger, testes `rm037-esperas` e o novo de `locale-pulse`, PR a abrir | Julio |
 | 2026-10-03 | teste instável do lease da sucessora (B-1 de `rm037-baseline-no-despacho`, run 37096532937 no Node 22): corrida com o watcher destacado, reproduzida com atraso injetado e consertada lendo a identidade no lease depois do fim da sessão; 50 rodadas seguidas sob carga na claim | thread `ork-rm037testede`, decisões e claims no ledger | Julio |

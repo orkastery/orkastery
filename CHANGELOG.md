@@ -6,6 +6,20 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **As esperas que nunca terminam** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o prompt de toda
+  fase, a skill de entrada das duas instalações (`orkastery-bootstrap`), as skills de GO e CHECK, a skill `ork` do
+  Codex e os seis agentes de fase do Claude Code dizem, numa linha só, que verify, build e suíte nunca saem com `&`
+  dentro do comando, que o `ork verify` roda em primeiro plano com `timeout` (ou pela execução em segundo plano do
+  host, que avisa quando termina) e que a espera nunca usa `pgrep -f` com o padrão no próprio comando (espera-se pelo
+  arquivo de saída com prazo, ou pelo PID guardado). O `ork phase run` deixa de contar no
+  `concurrency.max_parallel_threads` a sessão que o runtime mostra parada (`stopped`, `done`, `failed`) ou fantasma,
+  lida com `claude agents --json --all` só quando o limite recusaria; ausente da lista ou com a leitura falhando, ela
+  segue contando. O teste do `ork pulse --json` nas duas línguas não cai mais quando o minuto vira entre as leituras.
+  Em 12/10/2026, cinco sessões de fase esperaram por processo morto ou por laço que achava a si mesmo, e uma sessão
+  parada com `claude stop` prendia a vaga até a thread fechar.
+
 ## [0.5.6] - 2026-10-12
 
 ### Adicionado
