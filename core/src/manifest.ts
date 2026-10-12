@@ -158,6 +158,26 @@ function lerGrafo(v: ValorYaml | undefined, avisos: string[]): Manifesto['grafo'
   return { mcp: false };
 }
 
+/**
+ * RM-026 K7 (D1): `conhecimento.dir`, a pasta dos documentos `ork.conhecimento/v1`. Sem o bloco, o projeto nao
+ * declarou conhecimento. Bloco que nao e mapa, `dir` vazio e chave desconhecida so avisam: ler a pasta nao
+ * executa nada, e a regra do caminho mora no leitor (`conhecimento.ts`), que recusa com lacuna tipada.
+ */
+function lerBlocoConhecimento(v: ValorYaml | undefined, avisos: string[]): Manifesto['conhecimento'] {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    avisos.push('conhecimento deve ser um mapa com dir: <pasta dentro da raiz>; o bloco foi ignorado');
+    return undefined;
+  }
+  for (const chave of Object.keys(v)) if (chave !== 'dir') avisos.push(`conhecimento.${chave} desconhecida; o bloco conhecimento so tem dir`);
+  const dir = texto(v.dir, '').trim();
+  if (!dir) {
+    avisos.push('conhecimento.dir deve ser uma pasta dentro da raiz, como docs/conhecimento; o bloco foi ignorado');
+    return undefined;
+  }
+  return { dir };
+}
+
 /** Mesmo contrato na leitura do YAML e nos consumidores de manifesto em memoria. */
 export function validarOptInPlaybook(valor: unknown): boolean {
   if (valor === undefined) return false;
@@ -460,6 +480,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   if (achado.legado) {
     avisos.push(`lendo ${NOME_MANIFESTO_LEGADO} como fallback; migre para ${NOME_MANIFESTO}`);
   }
+  const conhecimento = lerBlocoConhecimento(dados.conhecimento, avisos);
 
   const manifesto: Manifesto = {
     project: {
@@ -561,6 +582,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     },
     // RM-031 KG5 (D2): expor as tools do grafo no MCP e opt-in do dono.
     grafo: lerGrafo(dados.grafo, avisos),
+    ...(conhecimento ? { conhecimento } : {}),
     policies: Object.fromEntries(
       Object.entries(mapa(dados.policies)).map(([k, v]) => [k, texto(v, '')])
     ),
