@@ -8,14 +8,14 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | srvjcp86 | ork-ciactionsfor | #Auto | GOAL | sem despacho | — | — | 12/10 12:30 |
 | srvjcp86 | ork-rm026k7conhe | #Auto | GO | claude-bg opus/max | RM-026 | — | 12/10 12:30 |
 | srvjcp86 | ork-rm062fabrica | #Auto | GO | claude-bg opus/max | — | — | 12/10 12:30 |
-| vps | ork-rm058n2 | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 12:45 |
-| vps | ork-rm059pista | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 12:45 |
-| vps | ork-rm059portao | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 12:45 |
-| vps | ork-rm060previa | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 12:45 |
-| vps | ork-rm060release | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 12:45 |
-| vps | ork-rm061f3a | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 12:45 |
-| vps | ork-sitedelta055 | #Fast | GO | claude-bg sonnet/high | — | sim: autorizacao da retomada | 12/10 12:45 |
-| vps | ork-sitedesign | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 12:45 |
-| vps | ork-siteorkaste2 | #Auto | GO | claude-bg opus/max | — | — | 12/10 12:45 |
+| vps | ork-rm058n2 | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 13:00 |
+| vps | ork-rm059pista | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 13:00 |
+| vps | ork-rm059portao | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 13:00 |
+| vps | ork-rm060previa | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 13:00 |
+| vps | ork-rm060release | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 13:00 |
+| vps | ork-rm061f3a | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 13:00 |
+| vps | ork-sitedelta055 | #Fast | GO | claude-bg sonnet/high | — | sim: autorizacao da retomada | 12/10 13:00 |
+| vps | ork-sitedesign | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 13:00 |
+| vps | ork-siteorkaste2 | #Auto | GO | claude-bg opus/max | — | — | 12/10 13:00 |
 
 Horários de Brasília.
