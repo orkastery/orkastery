@@ -229,6 +229,7 @@ test('publicar: repetido responde ja-publicada sem outro PR; commit novo empurra
     assert.equal(segundo.acao, 'ja-publicada', segundo.detalhe);
     assert.equal(segundo.pr?.numero, primeiro.pr?.numero);
     assert.equal(segundo.pr?.criado, false);
+    assert.equal(segundo.pr?.head, primeiro.head, 'o head do PR aberto tambem no ja-publicada (S12)');
     assert.equal(gh.criacoes(), 1, 'um PR so');
     assert.equal(publicados(p, e.id).length, 1, 'sem efeito, sem evento');
 
@@ -832,6 +833,17 @@ test('pista: so a thread na entrega vai a conferencia uma a uma, e a lista corta
     // A thread que so entra pela lista, com o PR fechado: a lista cortada pode esconder um aberto, e o PR fica nao lido.
     assert.deepEqual(de(fechada).etapas.filter((y) => ['pr', 'ci', 'conflito'].includes(y.id)).map((y) => y.estado), ['nao-lida', 'nao-lida', 'nao-lida']);
     assert.match(de(fechada).etapas.find((y) => y.id === 'pr')?.texto ?? '', /cortada nos 200 mais novos/);
+
+    // A16 (rodada 3): a candidata que ficou sem conferir (aqui, a conferencia pelo --head falhou) fica com o PR nao lido,
+    // e o proximo passo e reler a pista, sem Publicar.
+    const semConferir = prepararEntrega(p, 'sem conferir', 'auto');
+    assert.equal(exec('git', ['push', '-q', 'origin', `${semConferir.branch}:refs/heads/${semConferir.branch}`], p.dir).ok, true);
+    const falhaNaConferencia: ExecutorDoGh = (args, prazo) => (args.includes(`--head=${semConferir.branch}`)
+      ? { status: 1, stdout: '', stderr: 'HTTP 502: gateway' } : gh.executor(args, prazo));
+    const x = pistaDeEntrega(p.carregado, { executorGh: falhaNaConferencia, forja: FORJA, thread: semConferir.id }).pistas[0];
+    assert.deepEqual(x.etapas.filter((y) => ['pr', 'ci', 'conflito'].includes(y.id)).map((y) => y.estado), ['nao-lida', 'nao-lida', 'nao-lida']);
+    assert.match(x.etapas.find((y) => y.id === 'pr')?.texto ?? '', /ficou sem conferir nesta leitura da forja/);
+    assert.deepEqual([x.proximo.acao, x.proximo.comando], [null, `ork ship pista ${semConferir.id}`]);
   } finally { p.limpar(); }
 });
 
@@ -907,4 +919,50 @@ test('publicar: a saida de texto so mostra a linha do push quando ha push a prov
   assert.ok(publicada.includes('  push          PROVADO pelo ls-remote (mesmo sha do HEAD)'), publicada.join('\n'));
   const outraPonta = comLocale('pt-BR', () => linhasDaPublicacao({ ...mesclada, remota: 'b'.repeat(40) }));
   assert.ok(outraPonta.includes('  push          sem prova'), outraPonta.join('\n'));
+});
+
+test('publicar: o verify e o bundle valem pelo manifesto do HEAD da branch, e nao pelo de quem chama o publicar (A15)', () => {
+  const p = projetoTemporario('publicar-manifesto-da-branch', true);
+  const manifesto = path.join(p.dir, 'orkastery.yaml');
+  const original = fs.readFileSync(manifesto, 'utf8');
+  try {
+    // A branch versiona o manifesto com o build; quem chama (o checkout, aqui p.carregado) nao tem build nenhum.
+    const { thread } = novaThread(p.carregado, { nome: 'manifesto da branch', modo: 'auto' });
+    const branch = branchDaWorktree(thread);
+    exec('git', ['checkout', '-q', '-b', branch, 'main'], p.dir);
+    const comBuild = original.replace(/^verify:\n/m, 'verify:\n  build: "true"\n');
+    assert.notEqual(comBuild, original);
+    fs.writeFileSync(manifesto, comBuild);
+    commitar(p.dir, 'orkastery.yaml', comBuild, `feat(${thread.id}): o build no manifesto`);
+    const produto = commitar(p.dir, 'produto.txt', 'feito\n', `feat(${thread.id}): produto`);
+    const daWorktree: ManifestoCarregado = { ...p.carregado,
+      manifesto: { ...p.carregado.manifesto, verify: { ...p.carregado.manifesto.verify, build: 'true' } } };
+    // O verify da worktree rodou o build, e o ci prepare dela gerou o bundle com ele.
+    registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, { commit: produto, veredito: 'verdade sustentada',
+      motivos: [], comandos: [{ nome: 'build', ok: true, code: 0 }] });
+    const bundle = path.relative(p.dir, prepararBundleCi(daWorktree, thread.id));
+    exec('git', ['add', '--', bundle], p.dir);
+    exec('git', ['commit', '-q', '-m', `ci(${thread.id}): bundle`], p.dir);
+    exec('git', ['checkout', '-q', 'main'], p.dir);
+    // O checkout volta para a main, que nao versiona o manifesto: o git o tirou da arvore, e o teste o devolve como era.
+    fs.writeFileSync(manifesto, original);
+    escreverCheck(p, thread.id, 'PASSOU');
+    const r = publicarEntrega(p.carregado, thread.id, { executorGh: ghFalso(p).executor, forja: FORJA, dryRun: true });
+    assert.equal(r.acao, 'publicaria', `${r.detalhe} ${r.correcao}`);
+
+    // O bundle gerado sem o build que o manifesto da branch pede nao vale, mesmo que quem chama tambem nao tenha o build.
+    fs.rmSync(manifesto);
+    assert.equal(exec('git', ['checkout', '-q', branch], p.dir).ok, true);
+    const semBuild = path.relative(p.dir, prepararBundleCi(p.carregado, thread.id));
+    exec('git', ['add', '--', semBuild], p.dir);
+    exec('git', ['commit', '-q', '-m', `ci(${thread.id}): bundle sem o build`], p.dir);
+    exec('git', ['checkout', '-q', 'main'], p.dir);
+    fs.writeFileSync(manifesto, original);
+    const rs = publicarEntrega(p.carregado, thread.id, { executorGh: ghFalso(p).executor, forja: FORJA, dryRun: true });
+    assert.equal(rs.motivo, 'artifact.missing', rs.detalhe);
+    assert.match(rs.detalhe, /os comandos de verify do manifesto mudaram depois dele/);
+  } finally {
+    fs.writeFileSync(manifesto, original);
+    p.limpar();
+  }
 });

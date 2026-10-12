@@ -29,7 +29,7 @@ import { BundleCi, comandosDoBundle } from './ci';
 import { redigirSegredos } from './hitl';
 import { lerClaims } from './claims';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
-import { ManifestoCarregado } from './manifest';
+import { comandosDoTextoDoManifesto, ManifestoCarregado, NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
 import { tagDoModo } from './modos';
 import {
   conducaoAgora, ExecutorDoGh, ghPadrao, githubDoRemoto, LIMITE_DE_PRS, lerPrsDaForja, PrDaForja, prDaForja, refsLocais,
@@ -220,21 +220,42 @@ function conferirBundle(raiz: string, t: Thread, branch: string, head: string | 
   return etapa('bundle', 'feita', textoDoCatalogo((m) => m.ship.publicar.bundleFeito(ativas.length)));
 }
 
+/**
+ * O manifesto que vale para o verify e o bundle de uma branch: o do HEAD dela (A15 da revisao, rodada 3). O `ork verify`
+ * e o `ork ci prepare` rodam na worktree, com o `orkastery.yaml` da branch, e o runner do CI roda o codigo dela; quem
+ * chama o publicar (a Pista, o condutor) pode estar noutro checkout, com outro manifesto. Sem manifesto versionado no
+ * HEAD, ou ilegivel, vale o de quem chama.
+ */
+function manifestoDaBranch(carregado: ManifestoCarregado, head: string | null): ManifestoCarregado {
+  if (!head) return carregado;
+  for (const nome of [NOME_MANIFESTO, NOME_MANIFESTO_LEGADO]) {
+    const r = git(carregado.raiz, ['show', `${head}:./${nome}`]);
+    if (!r.ok) continue;
+    const doHead = comandosDoTextoDoManifesto(r.stdout);
+    if (!doHead) return carregado;
+    return { ...carregado, manifesto: { ...carregado.manifesto,
+      verify: { ...carregado.manifesto.verify, typecheck: doHead.typecheck, build: doHead.build, test: doHead.test },
+      ci: { ...carregado.manifesto.ci, command: doHead.ciCommand } } };
+  }
+  return carregado;
+}
+
 function fatosDaThread(carregado: ManifestoCarregado, t: Thread, refs: Map<string, string>, baseRef: string | null,
   quando: string): FatosDaThread {
   const raiz = carregado.raiz;
-  const esperados = comandosDoManifesto(carregado.manifesto).length;
   let eventos: EventoLedger[] = [];
   try { eventos = lerLedger(dirThread(raiz, t.id)); } catch { /* ledger ilegivel: sem verify nem conducao provada */ }
   const branch = branchDaWorktree(t);
   const head = branchValida(branch) ? refs.get(`refs/heads/${branch}`) ?? null : null;
+  const daBranch = manifestoDaBranch(carregado, head);
+  const esperados = comandosDoManifesto(daBranch.manifesto).length;
   const contagem = head && baseRef ? git(raiz, ['rev-list', '--count', `${baseRef}..${head}`]) : null;
   const comProduto = !!contagem?.ok && Number(contagem.stdout.trim()) > 0;
   const check = conferirCheck(raiz, t, baseRef, head);
   return {
     t, eventos, branch, head, comProduto, conducao: conducaoAgora(raiz, t, eventos, quando),
     check: check.etapa, checkPassou: check.passou, verify: conferirVerify(raiz, eventos, head, esperados),
-    bundle: conferirBundle(raiz, t, branch, head, comandosDoBundle(carregado)),
+    bundle: conferirBundle(raiz, t, branch, head, comandosDoBundle(daBranch)),
   };
 }
 

@@ -12,7 +12,7 @@ Com o mod `ork-pista` ligado na sua sessão (papel `dono`), `/pista` abre um pai
 | --- | --- |
 | CHECK | o `docs/check.md` tem exatamente um veredito, PASSOU, gravado depois do último commit de produto (merge e commit que só muda o bundle em `.ork-ci/` não contam) |
 | verify | o último `ork verify` da thread passou, com o build e o test do manifesto, no HEAD ou num ancestral dele com só o bundle depois |
-| bundle | o `.ork-ci/<thread>.json` está no HEAD, é desta branch e lista exatamente as claims ativas, com o comando de cada uma como está agora e os comandos do manifesto |
+| bundle | o `.ork-ci/<thread>.json` está no HEAD, é desta branch e lista exatamente as claims ativas, com o comando de cada uma como está agora e os comandos do manifesto da branch |
 | branch | o `git ls-remote` do remoto devolve o HEAD da branch; um commit do remoto que esta cópia não tem é divergência |
 | PR | há PR aberto da branch, ou o PR dela foi mesclado no HEAD; o mesclado de uma entrega anterior não conta |
 | CI | o check `ork-verify` está verde no head do PR |
