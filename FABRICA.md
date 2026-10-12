@@ -7,13 +7,12 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | srvjcp86 | ork-ciactionsfor | #Auto | GOAL | sem despacho | — | — | 12/10 03:50 |
 | srvjcp86 | ork-rm026k7conhe | #Auto | GO | claude-bg opus/max | RM-026 | — | 12/10 03:50 |
-| vps | ork-rm059clima | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 04:00 |
-| vps | ork-rm059freio | #Auto | GOAL | sem despacho | — | — | 12/10 04:00 |
-| vps | ork-rm059nucleo | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 04:00 |
-| vps | ork-rm059torre | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 04:00 |
-| vps | ork-rm060previa | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 04:00 |
-| vps | ork-rm061f2a | #Auto | GOAL | claude-bg opus/max | RM-061 | — | 12/10 04:00 |
-| vps | ork-siteorkaste2 | #Auto | GO | claude-bg opus/max | — | — | 12/10 04:00 |
-| vps | ork-t01veredito | #Fast | GO | sem despacho | — | — | 12/10 04:00 |
+| vps | ork-rm059clima | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 04:13 |
+| vps | ork-rm059freio | #Auto | GOAL | sem despacho | — | — | 12/10 04:13 |
+| vps | ork-rm059torre | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 04:13 |
+| vps | ork-rm060previa | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 04:13 |
+| vps | ork-rm061f2a | #Auto | GOAL | claude-bg opus/max | RM-061 | — | 12/10 04:13 |
+| vps | ork-siteorkaste2 | #Auto | GO | claude-bg opus/max | — | — | 12/10 04:13 |
+| vps | ork-t01veredito | #Fast | GO | sem despacho | — | — | 12/10 04:13 |
 
 Horários de Brasília.
