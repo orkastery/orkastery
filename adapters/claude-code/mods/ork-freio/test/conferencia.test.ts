@@ -161,12 +161,14 @@ test('o vigia de 240 s: a conferencia muda fica sem veredito e nenhuma rodada no
   await lote($, editar('src/b.ts'))
   await relogio.advance(240000)
   await relogio.advance(30000)
-  await relogio.advance(30000)
+  // Uma espera so depois do vigia: aos 270 s a conferencia ja esta indisponivel.
+  expect((await estado($, 'vigia')).indisponivel).toBe('o processo anterior do ork claims conferir nao fechou depois do vigia')
   expect(marca).toEqual({ abriu: 1, encerrou: 0 })
   const texto = (await lote($, ler('src/a.ts'))).additionalContext[0]
   expect(texto).toContain('Freio de Lote: a conferencia de C1 terminou sem veredito (prazo do Freio); o ork verify decide.')
   expect(texto).toContain('indisponivel nesta sessao (o processo anterior do ork claims conferir nao fechou depois do vigia)')
-  await relogio.advance(100000)
+  // O processo mudo fecha aos 400 s de vida.
+  await relogio.advance(130000)
   expect(marca).toEqual({ abriu: 1, encerrou: 1 })
   await relogio.advance(600000)
   d.sujos['src/b.ts'] = { xy: '.M', size: 2, mtimeMs: 2 }

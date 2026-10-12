@@ -159,9 +159,9 @@ async function rodarConferencia($: EngineInterface, ctx: ContextoDeFase, ids: re
     const vencido = new Promise<'vencido'>(resolver => { vigia = $.clock.after(VIGIA_DA_CONFERENCIA_MS, () => resolver('vencido')) })
     const fim = await Promise.race([lido, vencido])
     if (fim === 'vencido') {
-      // Encerra o processo e espera ele fechar (com teto); se ele seguir aberto, o laco nao abre rodada nova.
+      // Pede o fim do processo; a volta seguinte do laco espera ele fechar (uma espera so, com teto) antes de abrir
+      // rodada nova, e com ele aberto a conferencia fica indisponivel.
       void fluxo.return(undefined as never).catch(() => undefined)
-      await Promise.race([lido.catch(() => undefined), new Promise(resolver => { $.clock.after(ESPERA_DO_FIM_MS, () => resolver(undefined)) })])
       return { tipo: 'prazo' }
     }
     return lerConferencia(stdout, fim.code, stderr)
