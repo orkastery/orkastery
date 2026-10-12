@@ -24,10 +24,10 @@ npm --prefix core run test:ci
 2. **A behavior change needs a test** that fails before your change and passes after it. A text change needs `node core/dist/index.js docs verificar` and markdownlint green.
 3. **The PR template** asks for the problem, the change, the proof (the real output, pasted), the baseline (what already failed before) and the risk. An empty section sends the PR back.
 4. **Required checks:** `documentacao (markdownlint e paridade)`; `nucleo ork (build, testes, canarios)`, one per Node version; and `ork-verify`. A PR that changes `core/`, `adapters/` or `marketplaces/` needs a new line under "Não publicado" (unreleased) in the `CHANGELOG.md`, or `documentacao` fails with `changelog.linha-ausente`. Never change `version` in `core/package.json`.
-5. **Language:** the guides ask for the PR title, the commit messages and the CHANGELOG line in pt-BR. English is accepted, as the paragraph above says.
+5. **Language:** the PR title, the commit messages and the CHANGELOG line can be in pt-BR or in English. Keep the CHANGELOG group names (Adicionado, Mudado, Corrigido, Removido) as they are.
 6. **Security issues** never go in a public issue: see [SECURITY.md](SECURITY.md).
 
-The CLI prints Portuguese; the README has a [glossary of what it prints](README.md#reading-the-cli-in-english).
+The CLI prints Portuguese, except `ork doctor` and `ork init`, which print English when `owner.language` or the locale (`LC_ALL`, `LC_MESSAGES`, `LANG`) asks for `en`; the README has a [glossary of what it prints](README.md#reading-the-cli-in-english).
 
 > **Nada entra sem evidência executável.** Toda mudança de comportamento vem com o comando que a
 > comprova, e o comando roda nesta árvore. Vale para quem contribui como vale para os agentes que o
