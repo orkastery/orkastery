@@ -36,7 +36,9 @@ import { textoDoCatalogo } from './locale';
 import { ManifestoCarregado } from './manifest';
 import { nomeDaMaquina } from './maquina';
 import { adquirirLockMonitor } from './monitor-lock';
-import { ExecutorDoGh, ghPadrao, githubDoRemoto } from './parado-no-condutor';
+import { citarNoShell } from './doctor-pulse-cron';
+import { ExecutorDoGh, ghPadrao, githubDoRemoto, pendenciaDoDono } from './parado-no-condutor';
+import { conferirCheck } from './ship-publicar';
 import { rodarFase } from './phase';
 import { executarRetry, planejarRetry } from './retry';
 import { dirThread, lerThread, listarIds, pedidoDaThread } from './thread';
@@ -50,6 +52,8 @@ export const CONTRATO_DA_BATIDA = 'ork.conducao-batida/v1' as const;
 export const ARQUIVO_DA_BATIDA = 'conducao-batida.json';
 /** O retrato da ultima batida vale para o pulse por tres batidas do template (`*\/15`); depois, nada se afirma dele. */
 export const VALIDADE_DO_RETRATO_MS = 45 * 60 * 1000;
+/** A espera da batida (check pendente, estado do merge desconhecido) que passa disto vira item do dono. */
+export const ESPERA_LONGA_MS = 2 * 60 * 60 * 1000;
 /** Os modos em que a #TAG ja autoriza o push (`MODOS_QUE_AUTORIZAM_PUSH`, `ship.ts`): so neles a batida mescla e despacha. */
 const MODOS_QUE_ANDAM_SOZINHOS: readonly string[] = ['auto', 'maestro'];
 const PRAZO_DO_GH_MS = 30000;
@@ -178,8 +182,9 @@ export function assuntoDoMerge(thread: string, pr: Pick<PrAberto, 'numero' | 'ti
 
 /** O comando do merge que o dono roda (e que a batida roda com a autorizacao). */
 export function comandoDoMerge(forja: { host: string; repositorio: string }, thread: string, pr: PrAberto): string {
+  // O titulo do PR vem do agente que o abriu: entre aspas simples, `$(...)` e crase colados no terminal nao rodam.
   return `gh pr merge ${pr.numero} --repo ${forja.host}/${forja.repositorio} --merge --match-head-commit ${pr.head} ` +
-    `--subject ${JSON.stringify(assuntoDoMerge(thread, pr))}`;
+    `--subject ${citarNoShell(assuntoDoMerge(thread, pr))}`;
 }
 
 /**
@@ -215,10 +220,11 @@ export function avaliarPr(pr: PrAberto, checks: readonly CheckObrigatorio[]):
 
 /** As recusas de uma tentativa da batida: so elas (e o que ela fez) vao ao ledger; sem autorizacao ou com bloqueio, so a fila. */
 const TENTATIVAS_RECUSADAS: readonly string[] = ['merge-recusado', 'atualizacao-recusada', 'despacho-recusado', 'retomada-recusada',
-  'conflito-em-codigo'];
+  'conflito-em-codigo', 'merge-sem-prova'];
 
 function registrarAcao(raiz: string, item: ItemDaBatida, leitura: LeituraDaAutorizacao): void {
-  if (item.resultado === 'espera' || (item.resultado === 'dono' && !TENTATIVAS_RECUSADAS.includes(item.motivo ?? ''))) return;
+  // O `gh pr merge` que respondeu sem a prova na base (fila de merge, merge automatico) e uma tentativa: vai ao ledger.
+  if (item.resultado !== 'feita' && !TENTATIVAS_RECUSADAS.includes(item.motivo ?? '')) return;
   const referencia = referenciaDaAutorizacao(leitura);
   const resultado = item.resultado === 'feita' ? 'feita' : 'recusada';
   const detalhe = item.detalhe.slice(0, 400);
@@ -259,16 +265,29 @@ function threadsAbertas(raiz: string): Thread[] {
   return saida;
 }
 
-/** Commits da branch local que o PR nao tem: o merge levaria a entrega sem eles. `null` quando o git nao responde. */
-function commitsForaDoPr(raiz: string, remoto: string, branch: string, head: string): number | null {
-  if (!exec('git', ['rev-parse', '--verify', '-q', `refs/heads/${branch}`], raiz, 30000).ok) return 0;
+/**
+ * A branch local da thread contra o head do PR. `igual`; `atras` (o PR tem commits que a local nao tem: o "Update branch"
+ * do GitHub ou um push de outra maquina); `merges-da-base` (a local so tem, alem do PR, merges da base, como os que a
+ * batida faz e ainda nao empurrou); `fora-do-pr` (a local tem trabalho que o PR nao tem: o merge levaria a entrega sem
+ * ele, e a atualizacao o empurraria sem CHECK); `sem-resposta` (o git nao respondeu, ou o head do PR nao chegou aqui).
+ */
+export function alinhamentoDaBranch(raiz: string, remoto: string, branch: string, head: string, baseRef: string):
+  { estado: 'igual' | 'atras' | 'merges-da-base' | 'fora-do-pr' | 'sem-resposta'; fora: number } {
+  const local = exec('git', ['rev-parse', '--verify', '-q', `refs/heads/${branch}^{commit}`], raiz, 30000);
+  if (!local.ok) return { estado: 'igual', fora: 0 };
+  if (local.stdout.trim() === head) return { estado: 'igual', fora: 0 };
   if (!exec('git', ['cat-file', '-e', `${head}^{commit}`], raiz, 30000).ok) {
     const env = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND ?? 'ssh -o BatchMode=yes' };
     exec('git', ['fetch', '-q', '--no-tags', '--', remoto, `+refs/heads/${branch}:refs/remotes/${remoto}/${branch}`], raiz, 60000, env);
-    if (!exec('git', ['cat-file', '-e', `${head}^{commit}`], raiz, 30000).ok) return null;
+    if (!exec('git', ['cat-file', '-e', `${head}^{commit}`], raiz, 30000).ok) return { estado: 'sem-resposta', fora: 0 };
   }
-  const r = exec('git', ['rev-list', '--count', `${head}..refs/heads/${branch}`], raiz, 30000);
-  return r.ok ? Number(r.stdout.trim()) : null;
+  // So o que a local tem alem do PR e da base: os commits que o merge da base trouxe sao da base, nao trabalho da thread.
+  const r = exec('git', ['rev-list', '--parents', `${head}..refs/heads/${branch}`, '--not', baseRef], raiz, 30000);
+  if (!r.ok) return { estado: 'sem-resposta', fora: 0 };
+  const fora = r.stdout.split('\n').map((l) => l.trim().split(/\s+/)).filter((l) => l[0]);
+  if (!fora.length) return { estado: 'atras', fora: 0 };
+  const daBase = (c: string[]) => c.length === 3 && exec('git', ['merge-base', '--is-ancestor', c[2], baseRef], raiz, 30000).ok;
+  return fora.every(daBase) ? { estado: 'merges-da-base', fora: fora.length } : { estado: 'fora-do-pr', fora: fora.filter((c) => !daBase(c)).length };
 }
 
 interface ContextoDaBatida {
@@ -313,7 +332,8 @@ function mesclarProntos(ctx: ContextoDaBatida, threads: Thread[], opcoes: Opcoes
     const avaliacao = avaliarPr(pr, checks.checks);
     if (avaliacao.estado === 'espera') { anotar(ctx, item('espera', avaliacao.motivo, avaliacao.detalhe)); continue; }
     if (avaliacao.estado === 'dono') { anotar(ctx, item('dono', avaliacao.motivo, avaliacao.detalhe)); continue; }
-    // Pronto ou para atualizar: so com a autorizacao do dono, e nunca por cima de quem trabalha na thread.
+    // Pronto ou para atualizar: so com a autorizacao do dono, e nunca por cima de quem trabalha na thread nem do que
+    // espera o dono (pausa, pergunta, escalacao).
     const atualizar = avaliacao.estado === 'atualizar';
     const oQue = atualizar ? textoDoCatalogo((m) => m.pulse.varredura.oQue.atualizar(pr.numero, branch, `${remoto}/${base}`)) : undefined;
     const comando = atualizar ? `ork conducao atualizar ${t.id} --enviar` : undefined;
@@ -324,11 +344,27 @@ function mesclarProntos(ctx: ContextoDaBatida, threads: Thread[], opcoes: Opcoes
     }
     const trabalho = trabalhoNaWorktree(raiz, t, ctx.quando, ctx.vivas);
     if (trabalho) { anotar(ctx, item('dono', trabalho.motivo, trabalho.texto, oQue, comando)); continue; }
-    if (atualizar) { anotar(ctx, atualizacaoDoPr(ctx, t, pr, oQue as string, comando as string)); continue; }
-    const naoPublicados = commitsForaDoPr(raiz, remoto, branch, pr.head);
-    if (naoPublicados === null || naoPublicados > 0) {
-      anotar(ctx, item('dono', naoPublicados === null ? 'git-sem-resposta' : 'branch-nao-publicada', naoPublicados === null
-        ? 'o git não respondeu sobre a branch' : `a branch local tem ${naoPublicados} commit(s) que o PR #${pr.numero} não tem`));
+    let eventos: ReturnType<typeof lerLedger> = [];
+    try { eventos = lerLedger(dirThread(raiz, t.id)); } catch { eventos = []; }
+    const doDono = pendenciaDoDono(t, eventos, ctx.quando);
+    if (doDono) { anotar(ctx, item('dono', 'pendencia-do-dono', doDono, oQue, `ork thread status ${t.id}`)); continue; }
+    // A branch local nao pode ter trabalho que o PR nao tem: o merge o deixaria de fora, e a atualizacao o empurraria
+    // para o PR sem CHECK. Os merges da base que a batida fez e nao empurrou nao contam.
+    const alinhada = alinhamentoDaBranch(raiz, remoto, branch, pr.head, `refs/remotes/${remoto}/${base}`);
+    if (alinhada.estado === 'fora-do-pr' || alinhada.estado === 'sem-resposta') {
+      anotar(ctx, item('dono', alinhada.estado === 'sem-resposta' ? 'git-sem-resposta' : 'branch-nao-publicada', alinhada.estado === 'sem-resposta'
+        ? 'o git não respondeu sobre a branch' : `a branch local tem ${alinhada.fora} commit(s) que o PR #${pr.numero} não tem`, oQue,
+        `ork thread status ${t.id}`));
+      continue;
+    }
+    if (atualizar) {
+      anotar(ctx, atualizacaoDoPr(ctx, t, pr, oQue as string, comando as string, alinhada.estado === 'atras' ? pr.head : null));
+      continue;
+    }
+    // O merge so leva o que passou pelo CHECK: o veredito PASSOU gravado depois do ultimo commit de produto do PR.
+    const check = conferirCheck(raiz, t, `refs/remotes/${remoto}/${base}`, pr.head);
+    if (check.etapa.estado !== 'feita' && check.etapa.estado !== 'nao-se-aplica') {
+      anotar(ctx, item('dono', 'check-pendente', check.etapa.texto, undefined, `ork thread status ${t.id}`));
       continue;
     }
     const r = executor(['pr', 'merge', String(pr.numero), `--repo=${forja.host}/${forja.repositorio}`, '--merge',
@@ -352,18 +388,26 @@ function mesclarProntos(ctx: ContextoDaBatida, threads: Thread[], opcoes: Opcoes
 }
 
 /** O PR para tras ou em conflito: o merge da base na branch, com o CHANGELOG reconciliado, e a branch empurrada. */
-function atualizacaoDoPr(ctx: ContextoDaBatida, t: Thread, pr: PrAberto, oQue: string, comando: string): ItemDaBatida {
+function atualizacaoDoPr(ctx: ContextoDaBatida, t: Thread, pr: PrAberto, oQue: string, comando: string,
+  alinharCom: string | null): ItemDaBatida {
   const base: Omit<ItemDaBatida, 'resultado' | 'motivo' | 'detalhe'> = { acao: 'merge', thread: t.id, fase: t.faseAtual, oQue, comando,
     evidencia: `gh pr view ${pr.numero}: ${pr.estado}, mergeable ${pr.mergeable}`, desdeEm: null, pr: pr.numero };
   let r: ResultadoDaAtualizacao;
-  try { r = atualizarBranchDaThread(ctx.carregado, t.id, { buscar: false, enviar: true, canal: ctx.canal, correlacao: ctx.correlacao }); }
-  catch (e) { return { ...base, resultado: 'dono', motivo: 'atualizacao-recusada', detalhe: (e as Error).message.slice(0, 300) }; }
+  try {
+    r = atualizarBranchDaThread(ctx.carregado, t.id, { buscar: false, enviar: true, canal: ctx.canal, correlacao: ctx.correlacao,
+      ...(alinharCom ? { alinharCom } : {}) });
+  } catch (e) { return { ...base, resultado: 'dono', motivo: 'atualizacao-recusada', detalhe: (e as Error).message.slice(0, 300) }; }
   switch (r.acao) {
     case 'mesclada':
       return { ...base, resultado: 'feita', motivo: 'branch-atualizada', detalhe: `${r.base} mesclada na ${r.branch} (${r.sha.slice(0, 8)})` +
         (r.changelog?.devolvidos ? `, ${r.changelog.devolvidos} item(ns) da thread de volta a "Não publicado"` : '') +
         `; o PR #${pr.numero} espera o CI do novo head` };
     case 'ja-atualizada':
+      // O merge da base que ja estava na branch local e nao tinha chegado ao PR (push falho) foi empurrado agora.
+      if (r.enviada) {
+        return { ...base, resultado: 'feita', motivo: 'branch-atualizada', detalhe: `a ${r.branch} com ${r.base} foi empurrada (${r.sha.slice(0, 8)}); ` +
+          `o PR #${pr.numero} espera o CI do novo head` };
+      }
       return { ...base, resultado: 'espera', motivo: 'estado-desconhecido', detalhe: `a branch já contém ${r.base}; o GitHub ainda não recalculou o PR` };
     case 'conflito-em-codigo':
       return { ...base, resultado: 'dono', motivo: 'conflito-em-codigo', detalhe: `o merge de ${r.base} conflita em: ${r.arquivos.join(', ').slice(0, 200)}`,
@@ -392,6 +436,9 @@ function despacharPassos(ctx: ContextoDaBatida, passos: PassoDoCondutor[], opcoe
       continue;
     }
     const fora = semAutorizacao(ctx.leitura, 'despachar');
+    // A retomada sem autorizacao nao vira item: o pulse ja leva o bloqueio da thread com o `ork retry run` (ou o
+    // `retry plan`), e um segundo item da mesma parada seria ruido no resumo do dono.
+    if (fora && p.acao === 'retomar') continue;
     if (fora) { anotar(ctx, item('dono', fora, p.porque)); continue; }
     if (p.acao === 'despachar' && fase) {
       let pedido: { texto: string } | null = null;
@@ -408,7 +455,8 @@ function despacharPassos(ctx: ContextoDaBatida, passos: PassoDoCondutor[], opcoe
     }
     const retomar = opcoes.retomar ?? retomadaPeloNucleo;
     const r = retomar(carregado, p.thread);
-    if (!r.automatica) { anotar(ctx, item('dono', 'retomada-recusada', r.detalhe)); continue; }
+    // O plano que nao e automatico ja e item do dono no pulse (o bloqueio, com o `retry plan`): a batida so o deixa.
+    if (!r.automatica) continue;
     anotar(ctx, r.ok ? item('feita', null, r.detalhe) : item('dono', 'retomada-recusada', r.detalhe));
   }
 }
@@ -506,6 +554,19 @@ export function lerRetratoDaBatida(raiz: string): BatidaDaConducao | null {
   } catch { return null; }
 }
 
+/**
+ * Sem a leitura dos PRs nesta rodada (o `gh` fora, a rede caida), os merges pendentes da rodada anterior continuam
+ * pendentes, com o `desdeEm` deles: a falha passageira nao apaga a fila do dono e nao reabre a mesma noticia depois.
+ */
+function comMergesDaRodadaAnterior(nova: BatidaDaConducao, anterior: BatidaDaConducao | null, raiz: string): BatidaDaConducao {
+  if (!anterior || !nova.forja || nova.forja.ok) return nova;
+  const jaTem = new Set(nova.pendentes.filter((i) => i.acao === 'merge').map((i) => i.thread));
+  const herdados = anterior.pendentes.filter((i) => i.acao === 'merge' && !jaTem.has(i.thread)).filter((i) => {
+    try { return lerThread(raiz, i.thread).status !== 'fechada'; } catch { return false; }
+  });
+  return herdados.length ? { ...nova, pendentes: [...nova.pendentes, ...herdados] } : nova;
+}
+
 /** O `desdeEm` de cada pendente fica o da primeira batida que o viu: o resumo ao dono nao repete a mesma noticia. */
 function comDesdeEstavel(nova: BatidaDaConducao, anterior: BatidaDaConducao | null): BatidaDaConducao {
   const chave = (i: ItemDaBatida) => [i.acao, i.thread, i.motivo, i.pr ?? ''].join('|');
@@ -544,7 +605,8 @@ export function baterConducao(carregado: ManifestoCarregado, opcoes: OpcoesDaBat
   if (!trava.ok) { log({ ocupada: true, detalhe: trava.detalhe }); return { ocupada: true, detalhe: trava.detalhe }; }
   let r: BatidaDaConducao;
   try {
-    r = comDesdeEstavel(conduzirBatida(carregado, { ...opcoes, quando }), lerRetratoDaBatida(raiz));
+    const anterior = lerRetratoDaBatida(raiz);
+    r = comDesdeEstavel(comMergesDaRodadaAnterior(conduzirBatida(carregado, { ...opcoes, quando }), anterior, raiz), anterior);
     try { gravarRetrato(raiz, r); } catch { /* sem retrato, o pulse so nao mostra os pendentes do merge e do despacho */ }
   } catch (e) {
     log({ erro: (e as Error).message.slice(0, 300) });
@@ -567,10 +629,13 @@ export function pendentesDaUltimaBatida(raiz: string, quando: string): AcaoPende
   for (const i of r.pendentes) {
     if (i.acao !== 'merge' && i.acao !== 'despachar') continue;
     try { if (lerThread(raizDoEstado(raiz), i.thread).status === 'fechada') continue; } catch { continue; }
-    const bloqueio = ehBloqueio(i.motivo) ? textoDoCatalogo((m) => m.pulse.varredura.bloqueios[i.motivo as MotivoDoBloqueio]) : null;
+    // A espera que passa de 2 h (check obrigatorio parado, o GitHub sem o estado do merge) vira item do dono.
+    const longa = i.resultado === 'espera' && !!i.desdeEm && Date.parse(quando) - Date.parse(i.desdeEm) > ESPERA_LONGA_MS;
+    const motivo = longa ? 'espera-longa' : i.motivo;
+    const bloqueio = ehBloqueio(motivo) ? textoDoCatalogo((m) => m.pulse.varredura.bloqueios[motivo as MotivoDoBloqueio]) : null;
     const recusa = i.motivo && /-recusad[oa]$/.test(i.motivo) ? { em: r.consultadoEm, detalhe: i.detalhe } : null;
     saida.push({ acao: i.acao, thread: i.thread, fase: i.fase, sessionId: null, desdeEm: i.desdeEm, comando: i.comando, oQue: i.oQue,
-      evidencia: i.evidencia, bloqueio, motivoDoBloqueio: bloqueio ? (i.motivo as MotivoDoBloqueio) : null, recusa });
+      evidencia: i.evidencia, bloqueio, motivoDoBloqueio: bloqueio ? (motivo as MotivoDoBloqueio) : null, recusa });
   }
   return saida;
 }

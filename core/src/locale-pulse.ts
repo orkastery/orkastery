@@ -137,6 +137,9 @@ export const PULSE_PT_BR = {
       'conflito-em-codigo': 'o merge da base na branch conflita em código, e conflito em código nunca é resolvido sozinho',
       'branch-nao-publicada': 'a branch local tem commits que o PR ainda não tem',
       'sem-prompt-gravado': 'a thread não tem o pedido guardado na criação (ork thread new --pedido), e sem ele não há prompt',
+      'check-pendente': 'o CHECK da thread não passou (veredito PASSOU) depois do último commit de produto do PR',
+      'pendencia-do-dono': 'a thread espera você (pausada, pausa prevista, pergunta ou escalação aberta)',
+      'espera-longa': 'a batida espera há mais de 2 h (check obrigatório pendente ou o GitHub sem o estado do merge)',
     },
     comBloqueio: (oQue: string, bloqueio: string) => `${oQue}. A varredura não faz isso sozinha agora: ${bloqueio}`,
     comBloqueioRecomendacao: (thread: string, comando: string) =>
@@ -288,6 +291,9 @@ export const PULSE_EN: typeof PULSE_PT_BR = {
       'conflito-em-codigo': 'merging the base into the branch conflicts in code, and a code conflict is never resolved on its own',
       'branch-nao-publicada': 'the local branch has commits the PR does not have yet',
       'sem-prompt-gravado': 'the thread has no request stored at creation (ork thread new --pedido), and without it there is no prompt',
+      'check-pendente': 'the thread CHECK did not pass (verdict PASSOU) after the last product commit of the PR',
+      'pendencia-do-dono': 'the thread waits for you (paused, planned pause, open question or escalation)',
+      'espera-longa': 'the beat has been waiting for more than 2 h (a required check pending, or GitHub without the merge state)',
     },
     comBloqueio: (oQue, bloqueio) => `${oQue}. The sweep does not do this on its own now: ${bloqueio}`,
     comBloqueioRecomendacao: (thread, comando) =>

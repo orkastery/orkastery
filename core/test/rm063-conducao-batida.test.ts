@@ -14,13 +14,15 @@ import { spawnSync } from 'node:child_process';
 import { commitar, dirTemporario, projetoTemporario, ProjetoDeTeste, runtimeFalso } from './apoio';
 import { despachar as despacharNoLedger, concluirFase } from './noctum-apoio';
 import { caminhoDaAutorizacao, CONTRATO_DA_AUTORIZACAO } from '../src/autorizacao-duravel';
-import { assuntoDoMerge, avaliarPr, baterConducao, conduzirBatida, OpcoesDaBatida, PrAberto } from '../src/conducao-batida';
+import { assuntoDoMerge, avaliarPr, baterConducao, comandoDoMerge, conduzirBatida, OpcoesDaBatida, pendentesDaUltimaBatida, PrAberto,
+  ARQUIVO_DA_BATIDA } from '../src/conducao-batida';
+import { atualizarBranchDaThread } from '../src/atualizar-branch';
 import { baterSentinela } from '../src/conducao-sentinela';
-import { lerLedger, TIPOS_DE_EVENTO } from '../src/ledger';
+import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { nomeDaMaquina } from '../src/maquina';
 import { ExecutorDoGh } from '../src/parado-no-condutor';
 import { montarPulse } from '../src/pulse';
-import { dirThread, lerThread, novaThread } from '../src/thread';
+import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { garantirWorktree, branchDaWorktree } from '../src/worktree';
 import { exec } from '../src/util';
 
@@ -102,6 +104,13 @@ function cenario(nome: string, opcoes: { pedido?: string; semProduto?: boolean }
   return { p, thread: thread.id, wt, branch, gh: ghFalso(p) };
 }
 
+/** O parecer do CHECK com o veredito PASSOU, gravado agora (depois do ultimo commit de produto do cenario). */
+function checkPassou(p: ProjetoDeTeste, thread: string): void {
+  const docs = path.join(dirThread(p.dir, thread), 'docs');
+  fs.mkdirSync(docs, { recursive: true });
+  fs.writeFileSync(path.join(docs, 'check.md'), '# CHECK simulado\n\nVeredito: PASSOU\n');
+}
+
 const opcoesDe = (gh: ReturnType<typeof ghFalso>, extra: OpcoesDaBatida = {}): OpcoesDaBatida =>
   ({ executorGh: gh.executor, forja: FORJA, ...SEM_SESSOES, despachar: () => ({ ok: false, detalhe: 'sem despacho neste teste', sessionId: null }),
     retomar: () => ({ automatica: false, ok: false, detalhe: 'sem retomada neste teste' }), ...extra });
@@ -134,6 +143,11 @@ test('F7: com a autorizacao, o PR pronto entra pela batida e a entrega e registr
     autorizar(p, ['merge', 'registrar', 'master']);
     const pr = gh.abrir(153, branch, { title: `ship(${thread}): fatia simulada` });
     gh.checks.set(153, [{ name: 'ork-verify', bucket: 'pass' }, { name: 'nucleo', bucket: 'pass' }]);
+    // Sem o CHECK depois do ultimo commit de produto, nada entra na base (GO-FIX, achado 1 da revisao).
+    const semCheck = conduzirBatida(p.carregado, opcoesDe(gh));
+    assert.deepEqual(semCheck.pendentes.filter((x) => x.acao === 'merge').map((x) => [x.resultado, x.motivo]), [['dono', 'check-pendente']]);
+    assert.equal(merges(gh).length, 0);
+    checkPassou(p, thread);
     const r = conduzirBatida(p.carregado, opcoesDe(gh));
     assert.deepEqual(r.feitas.map((f) => [f.acao, f.thread, f.pr]), [['merge', thread, 153], ['registrar', thread, null]], JSON.stringify(r, null, 1));
     const chamada = merges(gh)[0];
@@ -268,6 +282,28 @@ test('F7: despacha a fase seguinte so com o prompt gravado e a autorizacao; com 
   } finally { p.limpar(); }
 });
 
+test('F7: a retomada so roda com a autorizacao e o plano automatico; sem eles, nao duplica o item de retry do pulse', () => {
+  const { p, thread } = cenario('rm063-f7-retomar', { pedido: 'implemente a fatia simulada', semProduto: true });
+  try {
+    // O despacho da fase falhou antes de abrir sessao: o passo do nucleo e a retomada pelo retry.
+    const d = despacharNoLedger(p.dir, thread, 'GOAL', 4, false);
+    registrar(dirThread(p.dir, thread), thread, TIPOS_DE_EVENTO.despachoFalhou, { fase: 'GOAL', motivo: 'runtime.unavailable',
+      sessionId: d.sessionId });
+    const retomadas: string[] = [];
+    const automatica = (ok: boolean) => (_c: unknown, t: string) => { retomadas.push(t); return { automatica: true, ok, detalhe: ok ? 'redespachada' : 'o runtime segue fora' }; };
+    autorizar(p, ['registrar']);
+    const sem = conduzirBatida(p.carregado, opcoesDe(ghFalso(p), { retomar: automatica(true) }));
+    assert.deepEqual([retomadas, sem.pendentes.filter((x) => x.thread === thread && x.acao === 'despachar')], [[], []]);
+    autorizar(p, ['despachar']);
+    const naoAutomatica = conduzirBatida(p.carregado, opcoesDe(ghFalso(p), { retomar: () => ({ automatica: false, ok: false, detalhe: 'o plano pede o dono' }) }));
+    assert.deepEqual(naoAutomatica.pendentes.filter((x) => x.thread === thread), [], 'o plano do dono ja e item do pulse');
+    const feita = conduzirBatida(p.carregado, opcoesDe(ghFalso(p), { retomar: automatica(true) }));
+    assert.deepEqual([retomadas, feita.feitas.filter((f) => f.thread === thread).map((f) => f.detalhe)], [[thread], ['redespachada']]);
+    const falhou = conduzirBatida(p.carregado, opcoesDe(ghFalso(p), { retomar: automatica(false) }));
+    assert.deepEqual(falhou.pendentes.filter((x) => x.thread === thread).map((x) => x.motivo), ['retomada-recusada']);
+  } finally { p.limpar(); }
+});
+
 test('F7: o despacho pelo nucleo abre a sessao de fundo com o runtime falso, nunca por cron LLM', (t) => {
   const { p, thread } = cenario('rm063-f7-despacho-real', { pedido: 'implemente a fatia simulada', semProduto: true });
   const runtime = runtimeFalso('rm063-f7-despacho-real');
@@ -297,5 +333,137 @@ test('F7: ork conducao batida pelo CLI, sem autorizacao: nada sozinho, e o texto
     assert.match(texto.stdout, /Nada voltou a andar nesta batida\./);
     const log = fs.readFileSync(path.join(p.dir, '.orkastery', 'monitor', 'hitl.log'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
     assert.equal(log.filter((l) => l.tipo === 'varredura_acoes').length, 2, 'cada rodada vai ao hitl.log');
+  } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// GO-FIX da revisao independente da fatia 3.
+// ---------------------------------------------------------------------------
+
+/** A main andou no "GitHub" com um arquivo novo (sem conflito com a thread). */
+function mainAnda(p: ProjetoDeTeste, arquivo = 'docs/outra.md'): void {
+  const outro = dirTemporario('rm063-f7-main-anda');
+  exec('git', ['clone', '-q', p.remoto as string, outro]);
+  for (const [k, v] of [['user.email', 'o@o'], ['user.name', 'Outra Maquina'], ['commit.gpgsign', 'false']]) exec('git', ['config', k, v], outro);
+  commitar(outro, arquivo, `${arquivo}\n`, `docs: ${arquivo}`);
+  exec('git', ['push', '-q', 'origin', 'main'], outro);
+  fs.rmSync(outro, { recursive: true, force: true });
+}
+const remotaDe = (p: ProjetoDeTeste, branch: string) => exec('git', ['ls-remote', p.remoto as string, `refs/heads/${branch}`]).stdout.split(/\s+/)[0];
+
+test('GO-FIX 1: o PR para tras com trabalho local que ele nao tem nao e atualizado nem empurrado', () => {
+  const { p, wt, branch, gh } = cenario('rm063-gofix-wip');
+  try {
+    autorizar(p, ['merge']);
+    gh.abrir(201, branch, { mergeStateStatus: 'BEHIND' });
+    gh.checks.set(201, [{ name: 'ork-verify', bucket: 'pass' }]);
+    mainAnda(p);
+    const antes = remotaDe(p, branch);
+    commitar(wt, 'src/wip.ts', 'export const wip = "nao publicado";\n', 'wip: ainda nao publicado');
+    const r = conduzirBatida(p.carregado, opcoesDe(gh));
+    assert.deepEqual(r.pendentes.filter((x) => x.acao === 'merge').map((x) => [x.resultado, x.motivo]), [['dono', 'branch-nao-publicada']]);
+    assert.equal(remotaDe(p, branch), antes, 'o trabalho local nao foi empurrado para o PR');
+  } finally { p.limpar(); }
+});
+
+test('GO-FIX 1: a branch local atras do PR (Update branch do GitHub) avanca por fast-forward antes do merge da base', () => {
+  const { p, wt, branch, gh } = cenario('rm063-gofix-atras');
+  try {
+    autorizar(p, ['merge']);
+    // Outro lugar empurrou um commit no PR: a local fica atras do head dele.
+    const outro = dirTemporario('rm063-gofix-outro');
+    exec('git', ['clone', '-q', '--branch', branch, p.remoto as string, outro]);
+    for (const [k, v] of [['user.email', 'o@o'], ['user.name', 'Outra Maquina'], ['commit.gpgsign', 'false']]) exec('git', ['config', k, v], outro);
+    commitar(outro, 'src/do-pr.ts', 'export const doPr = 1;\n', 'feat: commit no PR');
+    exec('git', ['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], outro);
+    fs.rmSync(outro, { recursive: true, force: true });
+    mainAnda(p);
+    gh.abrir(202, branch, { mergeStateStatus: 'BEHIND' });
+    gh.checks.set(202, [{ name: 'ork-verify', bucket: 'pass' }]);
+    const r = conduzirBatida(p.carregado, opcoesDe(gh));
+    assert.deepEqual(r.feitas.map((f) => [f.acao, f.motivo]), [['merge', 'branch-atualizada']], JSON.stringify(r.pendentes));
+    assert.ok(fs.existsSync(path.join(wt, 'src', 'do-pr.ts')), 'a local avancou ate o head do PR');
+    assert.equal(remotaDe(p, branch), exec('git', ['rev-parse', 'HEAD'], wt).stdout.trim());
+  } finally { p.limpar(); }
+});
+
+test('GO-FIX 2: a thread que espera o dono (pausada) nao tem o PR mesclado nem atualizado', () => {
+  const { p, thread, branch, gh } = cenario('rm063-gofix-dono');
+  try {
+    autorizar(p, ['merge']);
+    checkPassou(p, thread);
+    gh.abrir(203, branch);
+    gh.checks.set(203, [{ name: 'ork-verify', bucket: 'pass' }]);
+    const t = lerThread(p.dir, thread);
+    gravarThread(p.dir, { ...t, status: 'pausada' });
+    const r = conduzirBatida(p.carregado, opcoesDe(gh));
+    const pendente = r.pendentes.find((x) => x.acao === 'merge');
+    assert.deepEqual([pendente?.motivo, pendente?.detalhe, pendente?.comando], ['pendencia-do-dono', 'thread pausada', `ork thread status ${thread}`]);
+    assert.equal(merges(gh).length, 0);
+  } finally { p.limpar(); }
+});
+
+test('GO-FIX 5: o merge da base que ficou so nesta maquina (sem --enviar, ou push falho) e empurrado na batida seguinte', () => {
+  const { p, thread, wt, branch, gh } = cenario('rm063-gofix-push');
+  try {
+    autorizar(p, ['merge']);
+    mainAnda(p);
+    const local = atualizarBranchDaThread(p.carregado, thread);
+    assert.deepEqual([local.acao, local.acao === 'mesclada' && local.enviada], ['mesclada', false]);
+    gh.abrir(204, branch, { mergeStateStatus: 'BEHIND' });
+    gh.checks.set(204, [{ name: 'ork-verify', bucket: 'pass' }]);
+    const r = conduzirBatida(p.carregado, opcoesDe(gh));
+    assert.deepEqual(r.feitas.map((f) => [f.acao, f.motivo]), [['merge', 'branch-atualizada']], JSON.stringify(r.pendentes));
+    assert.equal(remotaDe(p, branch), exec('git', ['rev-parse', 'HEAD'], wt).stdout.trim(), 'o merge local chegou ao PR');
+  } finally { p.limpar(); }
+});
+
+test('GO-FIX 6: o comando do merge dado ao dono nunca executa o titulo do PR', () => {
+  const pr: PrAberto = { numero: 9, titulo: 'fatia $(id) `whoami` "x"', branch: 'ork/x', head: 'b'.repeat(40), base: 'main', rascunho: false,
+    mergeable: 'MERGEABLE', estado: 'CLEAN', url: null };
+  const cmd = comandoDoMerge(FORJA, 'ork-x', pr);
+  assert.match(cmd, /--subject 'ship\(ork-x\): fatia \$\(id\) `whoami` "x" \(#9\)'$/);
+  const eco = spawnSync('sh', ['-c', `printf '%s' ${cmd.slice(cmd.indexOf('--subject ') + 10)}`], { encoding: 'utf8' });
+  assert.equal(eco.stdout, 'ship(ork-x): fatia $(id) `whoami` "x" (#9)', 'o shell recebe o titulo como texto');
+});
+
+test('GO-FIX 8 e 9: a falha passageira do gh nao apaga o merge pendente, e a espera de mais de 2 h vira item do dono', () => {
+  const { p, thread, branch, gh } = cenario('rm063-gofix-espera');
+  try {
+    autorizar(p, ['merge']);
+    gh.abrir(205, branch, { mergeStateStatus: 'BLOCKED' });
+    gh.checks.set(205, [{ name: 'ork-verify', bucket: 'pending' }]);
+    const primeira = baterConducao(p.carregado, opcoesDe(gh));
+    const desde = primeira.ocupada ? null : primeira.pendentes.find((x) => x.acao === 'merge')?.desdeEm;
+    assert.ok(desde);
+    const quebrado: ExecutorDoGh = (args) => args[1] === 'list' ? { status: 1, stdout: '', stderr: 'gh: connection reset' } : gh.executor(args, 1000);
+    const segunda = baterConducao(p.carregado, opcoesDe(gh, { executorGh: quebrado }));
+    assert.deepEqual(segunda.ocupada ? null : segunda.pendentes.filter((x) => x.acao === 'merge').map((x) => [x.thread, x.desdeEm]), [[thread, desde]]);
+    // A espera envelhece: com o desde de 3 h atras, o pulse a leva ao dono.
+    const arquivo = path.join(p.dir, '.orkastery', 'monitor', ARQUIVO_DA_BATIDA);
+    const retrato = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
+    retrato.pendentes = retrato.pendentes.map((x: { desdeEm: string }) => ({ ...x, desdeEm: new Date(Date.now() - 3 * HORA).toISOString() }));
+    fs.writeFileSync(arquivo, JSON.stringify(retrato));
+    const pendentes = pendentesDaUltimaBatida(p.dir, new Date().toISOString());
+    assert.deepEqual(pendentes.map((x) => [x.acao, x.motivoDoBloqueio]), [['merge', 'espera-longa']]);
+    const item = montarPulse(p.carregado, { fontes: () => ({}), consulta: { ok: true, sessoes: [], detalhe: '' } }).precisaDeHumanoAgora
+      .find((i) => i.id === `varredura:merge:${thread}`);
+    assert.match(String(item?.pergunta), /a batida espera há mais de 2 h/);
+  } finally { p.limpar(); }
+});
+
+test('GO-FIX 10: o gh pr merge que responde sem a prova na base vai ao ledger como tentativa', () => {
+  const { p, thread, branch, gh } = cenario('rm063-gofix-fila');
+  try {
+    autorizar(p, ['merge']);
+    checkPassou(p, thread);
+    gh.abrir(206, branch);
+    gh.checks.set(206, [{ name: 'ork-verify', bucket: 'pass' }]);
+    // A fila de merge do GitHub: o merge responde 0 e so entra depois.
+    const enfileirado: ExecutorDoGh = (args, prazo) => args[1] === 'merge' ? { status: 0, stdout: 'enfileirado', stderr: '' } : gh.executor(args, prazo);
+    const r = conduzirBatida(p.carregado, opcoesDe(gh, { executorGh: enfileirado }));
+    assert.deepEqual(r.pendentes.filter((x) => x.acao === 'merge').map((x) => [x.resultado, x.motivo]), [['espera', 'merge-sem-prova']]);
+    const tentativa = lerLedger(dirThread(p.dir, thread)).filter((e) => e.acao === 'merge');
+    assert.deepEqual(tentativa.map((e) => [e.resultado, e.motivo]), [['recusada', 'merge-sem-prova']]);
   } finally { p.limpar(); }
 });

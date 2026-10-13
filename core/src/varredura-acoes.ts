@@ -55,7 +55,8 @@ export type AcaoDaVarredura = typeof ACOES_DA_VARREDURA[number];
  */
 export const MOTIVOS_DO_BLOQUEIO = ['conduzida', 'sessao-viva', 'sessoes-sem-leitura', 'worktree-suja', 'branch-com-commits',
   'trabalho-novo', 'git-sem-resposta', 'pr-rascunho', 'checks-vermelhos', 'sem-checks-obrigatorios', 'pr-bloqueado',
-  'pr-instavel', 'conflito-em-codigo', 'branch-nao-publicada', 'sem-prompt-gravado'] as const;
+  'pr-instavel', 'conflito-em-codigo', 'branch-nao-publicada', 'sem-prompt-gravado', 'check-pendente', 'pendencia-do-dono',
+  'espera-longa'] as const;
 export type MotivoDoBloqueio = typeof MOTIVOS_DO_BLOQUEIO[number];
 
 export interface AcaoPendente {
