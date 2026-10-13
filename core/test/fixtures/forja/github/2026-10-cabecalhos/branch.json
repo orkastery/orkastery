@@ -1,0 +1,142 @@
+{
+  "caso": "branch",
+  "forja": "github",
+  "host": "github.com",
+  "comando": [
+    "gh",
+    "api",
+    "-i",
+    "--hostname",
+    "github.com",
+    "repos/orkastery/orkastery/branches/ork%2Fork-f3bvariantes-go"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "access-control-allow-origin": "*",
+    "access-control-expose-headers": "ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning",
+    "cache-control": "private, max-age=60, s-maxage=60",
+    "content-security-policy": "default-src 'none'",
+    "content-type": "application/json; charset=utf-8",
+    "date": "Tue, 13 Oct 2026 23:22:02 GMT",
+    "etag": "W/\"4f779610e5060eb00896c8a1a0263197ed84e035c03797319d1fdccdd3258fab\"",
+    "referrer-policy": "origin-when-cross-origin, strict-origin-when-cross-origin",
+    "server": "github.com",
+    "strict-transport-security": "max-age=31536000; includeSubdomains; preload",
+    "vary": "Accept, Authorization, Cookie, X-GitHub-OTP,Accept-Encoding, Accept, X-Requested-With",
+    "x-accepted-oauth-scopes": "",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "deny",
+    "x-github-api-version-selected": "2022-11-28",
+    "x-github-edge-region": "brazilsouth",
+    "x-github-media-type": "github.v3; format=json",
+    "x-github-request-id": "C171:6CA29:15CC44:23D711:6ACEBD1A",
+    "x-oauth-client-id": "178c6fc778ccc68e1d6a",
+    "x-oauth-scopes": "gist, read:org, repo, workflow",
+    "x-ratelimit-limit": "5000",
+    "x-ratelimit-remaining": "4975",
+    "x-ratelimit-reset": "1791933886",
+    "x-ratelimit-resource": "core",
+    "x-ratelimit-used": "25",
+    "x-xss-protection": "0"
+  },
+  "corpo": {
+    "name": "ork/ork-f3bvariantes-go",
+    "commit": {
+      "sha": "9436d3e076e66353e8e47f39c4457ed1d9bc3dc8",
+      "node_id": "C_kwDOUvQwr9oAKDk0MzZkM2UwNzZlNjYzNTNlOGU0N2YzOWM0NDU3ZWQxZDliYzNkYzg",
+      "commit": {
+        "author": {
+          "name": "Julio Pessoa",
+          "email": "2924130+juliopessoa@users.noreply.github.com",
+          "date": "2026-10-13T03:33:47Z"
+        },
+        "committer": {
+          "name": "Julio Pessoa",
+          "email": "2924130+juliopessoa@users.noreply.github.com",
+          "date": "2026-10-13T03:33:47Z"
+        },
+        "message": "docs(ork-f3bvariantes): a linha do CHANGELOG da correção das variantes do Hermes\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>",
+        "tree": {
+          "sha": "a4b99eb8434948b3d4b0ac90715d2e218f9bc857",
+          "url": "https://api.github.com/repos/orkastery/orkastery/git/trees/a4b99eb8434948b3d4b0ac90715d2e218f9bc857"
+        },
+        "url": "https://api.github.com/repos/orkastery/orkastery/git/commits/9436d3e076e66353e8e47f39c4457ed1d9bc3dc8",
+        "comment_count": 0,
+        "verification": {
+          "verified": false,
+          "reason": "unsigned",
+          "signature": null,
+          "payload": null,
+          "verified_at": null
+        }
+      },
+      "url": "https://api.github.com/repos/orkastery/orkastery/commits/9436d3e076e66353e8e47f39c4457ed1d9bc3dc8",
+      "html_url": "https://github.com/orkastery/orkastery/commit/9436d3e076e66353e8e47f39c4457ed1d9bc3dc8",
+      "comments_url": "https://api.github.com/repos/orkastery/orkastery/commits/9436d3e076e66353e8e47f39c4457ed1d9bc3dc8/comments",
+      "author": {
+        "login": "juliopessoa",
+        "id": 2924130,
+        "node_id": "MDQ6VXNlcjI5MjQxMzA=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2924130?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/juliopessoa",
+        "html_url": "https://github.com/juliopessoa",
+        "followers_url": "https://api.github.com/users/juliopessoa/followers",
+        "following_url": "https://api.github.com/users/juliopessoa/following{/other_user}",
+        "gists_url": "https://api.github.com/users/juliopessoa/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/juliopessoa/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/juliopessoa/subscriptions",
+        "organizations_url": "https://api.github.com/users/juliopessoa/orgs",
+        "repos_url": "https://api.github.com/users/juliopessoa/repos",
+        "events_url": "https://api.github.com/users/juliopessoa/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/juliopessoa/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "committer": {
+        "login": "juliopessoa",
+        "id": 2924130,
+        "node_id": "MDQ6VXNlcjI5MjQxMzA=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2924130?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/juliopessoa",
+        "html_url": "https://github.com/juliopessoa",
+        "followers_url": "https://api.github.com/users/juliopessoa/followers",
+        "following_url": "https://api.github.com/users/juliopessoa/following{/other_user}",
+        "gists_url": "https://api.github.com/users/juliopessoa/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/juliopessoa/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/juliopessoa/subscriptions",
+        "organizations_url": "https://api.github.com/users/juliopessoa/orgs",
+        "repos_url": "https://api.github.com/users/juliopessoa/repos",
+        "events_url": "https://api.github.com/users/juliopessoa/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/juliopessoa/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "parents": [
+        {
+          "sha": "4bb6a570276deea68142bf8bfb2e661668e3cf55",
+          "url": "https://api.github.com/repos/orkastery/orkastery/commits/4bb6a570276deea68142bf8bfb2e661668e3cf55",
+          "html_url": "https://github.com/orkastery/orkastery/commit/4bb6a570276deea68142bf8bfb2e661668e3cf55"
+        }
+      ]
+    },
+    "_links": {
+      "self": "https://api.github.com/repos/orkastery/orkastery/branches/ork/ork-f3bvariantes-go",
+      "html": "https://github.com/orkastery/orkastery/tree/ork/ork-f3bvariantes-go"
+    },
+    "protected": false,
+    "protection": {
+      "enabled": false,
+      "required_status_checks": {
+        "enforcement_level": "off",
+        "contexts": [],
+        "checks": []
+      }
+    },
+    "protection_url": "https://api.github.com/repos/orkastery/orkastery/branches/ork/ork-f3bvariantes-go/protection"
+  }
+}
