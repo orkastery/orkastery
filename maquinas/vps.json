@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-13T00:15:02.213Z",
+  "publicadoEm": "2026-10-13T00:22:38.725Z",
   "threads": [
     {
       "id": "ork-rm037esperas",
@@ -26,6 +26,28 @@
         "viva": false,
         "desdeEm": "2026-10-13T00:03:14.518Z",
         "motivo": "sessão a1dd7d61 encerrada (done)"
+      }
+    },
+    {
+      "id": "ork-rm058n3",
+      "nome": "rm058n3",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm058n3-full",
+      "atualizadaEm": "2026-10-13T00:22:38.378Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-13T00:22:38.396Z",
+        "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
     {
