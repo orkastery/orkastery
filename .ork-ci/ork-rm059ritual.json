@@ -645,7 +645,7 @@
         "grep -qF 'if (!autoriaHumana(log.avaliadoPor)) erros.push(' core/src/master.ts && ! grep -qF 'identidadeDoIngressoLocal' core/src/master.ts && grep -qF 'const aceite = comLockInspecionavel(dir, ' core/src/master.ts && grep -qF 'notaHumanaRegistrada(thread) && masterRatificado(raiz, id)' core/src/master.ts && grep -qF 'export function gravarMaster(' core/src/master.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js core/dist-test/test/master.test.js core/dist-test/test/master-omissao.test.js core/dist-test/test/master-omissao-alvo.test.js core/dist-test/test/master-pulse.test.js core/dist-test/test/master-prova-canal.test.js core/dist-test/test/master-audit.test.js core/dist-test/test/rm056-fantasma-ao-fechar.test.js core/dist-test/test/rm056-fechamento-com-falha.test.js"
       ],
       "criadoEm": "2026-10-13T00:02:39.942Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -659,7 +659,7 @@
         "grep -qF 'export const ESPERA_DA_TRAVA_MS = 60000;' core/src/master-nota-local.ts && grep -qF 'master.nota.trava-ocupada' core/src/master-nota-local.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js"
       ],
       "criadoEm": "2026-10-13T00:02:42.294Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -673,7 +673,7 @@
         "grep -qF 'nota local: a nota de nome humano sem master_done que a confirme a listagem trata como pendente, e o aceite também' core/test/master-nota-local.test.ts && grep -qF 'nota local: com a trava da thread tomada por outro processo, a gravação espera e grava quando ela solta' core/test/master-nota-local.test.ts && grep -qF 'nota local: a trava ocupada além da espera recusa com master.nota.trava-ocupada' core/test/master-nota-local.test.ts && grep -qF 'nota local: a nota pelo diálogo fecha a thread e solta o que ela segurava, depois da trava' core/test/master-nota-local.test.ts && grep -qF 'outra origem' core/test/master-nota-local.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js"
       ],
       "criadoEm": "2026-10-13T00:02:45.932Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -687,7 +687,7 @@
         "grep -qF 'Nenhuma das entregas que o retrato leu espera a sua nota' adapters/claude-code/mods/ork-ritual/hooks/replay.tsx && grep -qF ' da proposta' adapters/claude-code/mods/ork-ritual/hooks/replay.tsx && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
       ],
       "criadoEm": "2026-10-13T00:02:48.581Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -701,7 +701,7 @@
         "grep -qF 'sem entrega visivel e com threads que o retrato nao leu, a faixa nao some' adapters/claude-code/mods/ork-ritual/test/replay.test.tsx && grep -qF 'o retrato não leu 5 threads: ork master lista as entregas que esperam a sua nota' adapters/claude-code/mods/ork-ritual/test/replay.test.tsx"
       ],
       "criadoEm": "2026-10-13T00:02:53.264Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -715,7 +715,7 @@
         "grep -qF 'trava-ocupada' adapters/claude-code/mods/ork-ritual/hooks/nota.ts && grep -qF 'export const PRAZO_DA_NOTA_MS = 430000' adapters/claude-code/mods/ork-ritual/hooks/nota.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
       ],
       "criadoEm": "2026-10-13T00:25:59.727Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -729,7 +729,7 @@
         "grep -qF 'nota local: o aceite por omissão solta o que a thread segurava com a trava da thread já solta' core/test/master-nota-local.test.ts && grep -qF 'e rodou com a trava da thread já solta' core/test/master-nota-local.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js"
       ],
       "criadoEm": "2026-10-13T00:26:02.477Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -743,7 +743,7 @@
         "grep -qF 'lista as mesmas 36 tools' core/test/mcp-grafo.test.ts && grep -qF 'com.length, 36 + TOOLS_DO_GRAFO.length' core/test/mcp-grafo.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-13T00:39:13.020Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -757,7 +757,7 @@
         "grep -qF \"'ork_request_master_note']) assert.ok(tools.some\" core/test/projeto-alvo-mcp.test.ts && grep -qF 'assert.equal(tools.length, 36' core/test/projeto-alvo-mcp.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/projeto-alvo-mcp.test.js"
       ],
       "criadoEm": "2026-10-13T00:39:15.424Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -771,7 +771,7 @@
         "grep -qF 'Sem a flag, nada muda: as mesmas tools do servidor sem a flag' docs/referencia/contratos/consumo-grafo-kg5.md && grep -qF '(31 no KG5)' docs/referencia/contratos/consumo-grafo-kg5.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/consumo-grafo-kg5.md"
       ],
       "criadoEm": "2026-10-13T00:39:17.778Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
