@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { projetoTemporario } from './apoio';
-import { abrirArco, prepararIngressoSimulado, threadDoTrabalho, TrabalhoSimulado } from './noctum-apoio';
+import { abrirArco, passar, prepararIngressoSimulado, threadDoTrabalho, TrabalhoSimulado } from './noctum-apoio';
 import { assinar, instancia, linhasDoLog, regravarLog, storeCom } from './noctum-supervisao-apoio';
 import { registrar } from '../src/ledger';
 import { reservarDespacho } from '../src/noctum-arco';
@@ -364,5 +364,31 @@ test('S14: a gravação que deixaria o log ilegível é recusada antes de ir ao 
     assert.equal(assumirConducao(p.carregado, 'arco-s14', instancia('condutor', 1), () => 'SIMULADO'), 1);
     assert.equal(assumirConducao(p.carregado, 'arco-s14', instancia('vigia', 2), (g) => `depois da ${g?.numero}`), 2);
     assert.equal(lerSupervisao(p.dir, 'arco-s14').geracao?.prova, 'depois da 1');
+  } finally { p.limpar(); }
+});
+
+test('S15: só a falha do despacho do arco depois da autorização conta, a mais nova decide, e a decisão do arco que venceu não segura a do store', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-s15');
+  try {
+    const t = threadDoTrabalho(p.carregado, 'ordem', 'RM-901', 'Pedido SIMULADO da ordem.');
+    // A falha de antes da autorização do arco não é dele.
+    falhaDoDespacho(p.dir, t.id, 'arco-s15', 'perfil-b', { motivo: 'runtime.auth-missing',
+      falhaDeConta: { motivo: 'runtime.auth-missing', resetEm: null, fonte: 'sem-horario', trecho: 'SIMULADO de antes do arco' } });
+    passar(5);
+    abrirArco(p.dir, 'arco-s15', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], thread: t.id }], contas: DUAS });
+    const r1 = new Date(Date.now() + 3600_000).toISOString(), r2 = new Date(Date.now() + 5 * 3600_000).toISOString();
+    falhaDoDespacho(p.dir, t.id, 'arco-s15', 'perfil-a', { motivo: 'runtime.quota-exhausted',
+      falhaDeConta: { motivo: 'runtime.quota-exhausted', resetEm: r1, fonte: 'relogio', trecho: 'SIMULADO 1' } });
+    passar(5);
+    falhaDoDespacho(p.dir, t.id, 'arco-s15', 'perfil-a', { motivo: 'runtime.quota-exhausted',
+      falhaDeConta: { motivo: 'runtime.quota-exhausted', resetEm: r2, fonte: 'relogio', trecho: 'SIMULADO 2' } });
+    const o = observarEGravar(p, 'arco-s15', storeCom([{ id: 'perfil-a' }, { id: 'perfil-b' }]));
+    assert.deepEqual(o.eventos.map(e => e.tipo === 'conta_fora' ? `${e.conta}:${e.motivo}:${e.ate}` : e.tipo), [`perfil-a:cota:${r2}`],
+      'a conta B não sai pela falha de antes do arco, e a falha mais nova de A decide');
+    // Passado o reset dito, o store marca A de novo com um prazo estimado: a decisão vencida do arco não segura a do store.
+    const tarde = new Date(Date.parse(r2) + 10 * 60_000).toISOString();
+    const store = storeCom([{ id: 'perfil-a', estado: 'esgotado', esgotadoAte: new Date(Date.parse(r2) + 3600_000).toISOString() }, { id: 'perfil-b' }]);
+    const o2 = observarContas(p.dir, 'arco-s15', conteudo(p, 'arco-s15'), lerArco(p.dir, 'arco-s15', tarde)!, lerSupervisao(p.dir, 'arco-s15'), store, tarde);
+    assert.deepEqual(o2.eventos.map(e => e.tipo === 'conta_fora' ? `${e.conta}:${e.motivo}:${e.ate}` : e.tipo), ['perfil-a:cota-sem-reset:null']);
   } finally { p.limpar(); }
 });

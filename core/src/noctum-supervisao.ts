@@ -133,7 +133,9 @@ export type EventoDaSupervisao =
   | { tipo: 'tique_concluido'; quem: Instancia; resumo: string }
   | { tipo: 'vigia_interrompido'; interrompido: string; prova: string }
   | { tipo: 'retomada_autorizada'; trabalho: string; thread: string; fase: Fase; tentativa: number; motivo: MotivoDaRetomada;
-    sessao: string | null; prova: string }
+    sessao: string | null; prova: string;
+    /** NA1 da rodada 2: o último `seq` de reserva do arco quando a autorização foi gravada; só reserva de `seq` maior a atende. */
+    aposReserva?: number }
   | { tipo: 'sessao_parada'; trabalho: string; thread: string; sessionId: string; motivo: MotivoDaRetomada; confirmada: boolean; prova: string }
   | { tipo: 'conta_fora'; conta: string; runtime: string; motivo: MotivoDaConta; ate: string | null; prova: string }
   | { tipo: 'isolado'; trabalho: string; thread: string | null; motivo: MotivoDoIsolamento; detalhe: string }
@@ -159,6 +161,8 @@ interface DadosDaLinha {
 
 export interface RetomadaAutorizada {
   trabalho: string; thread: string; fase: Fase; tentativa: number; motivo: MotivoDaRetomada; sessao: string | null; prova: string; em: string;
+  /** O último `seq` de reserva do arco na autorização; `null` na linha que não o traz (aí vale o instante). */
+  aposReserva: number | null;
 }
 export interface ContaFora { conta: string; runtime: string; motivo: MotivoDaConta; ate: string | null; prova: string; em: string }
 export interface Isolamento { trabalho: string; thread: string | null; motivo: MotivoDoIsolamento; detalhe: string; em: string }
@@ -405,7 +409,7 @@ function derivar(arco: string, linhas: readonly DadosDaLinha[]): EstadoDaSupervi
         break;
       case 'retomada_autorizada':
         s.retomadas.push({ trabalho: e.trabalho, thread: e.thread, fase: e.fase, tentativa: e.tentativa, motivo: e.motivo, sessao: e.sessao,
-          prova: e.prova, em });
+          prova: e.prova, em, aposReserva: typeof e.aposReserva === 'number' && Number.isSafeInteger(e.aposReserva) ? e.aposReserva : null });
         break;
       case 'sessao_parada':
         s.sessoesParadas.push({ trabalho: e.trabalho, thread: e.thread, sessionId: e.sessionId, motivo: e.motivo, confirmada: e.confirmada === true,
@@ -637,10 +641,13 @@ export function observarContas(raiz: string, arco: string, conteudo: ConteudoV2,
       }
     });
   }
-  // A1 do CHECK: o que só o store sabe, sem decisão do arco valendo agora.
+  // A1 do CHECK: o que só o store sabe, sem decisão do arco valendo agora. A decisão do arco que já venceu (a cota com o
+  // reset dito no passado) não segura a do store (NS4 da rodada 2): senão a janela estimada do store voltaria a valer.
+  const valendo = (d: { evento: Extract<EventoDaSupervisao, { tipo: 'conta_fora' }> } | undefined): boolean =>
+    !!d && (d.evento.ate === null || Date.parse(d.evento.ate) > agora);
   for (const { conta } of conteudo.capacidade.porConta) {
     const p = store?.perfis.find(x => x.id === conta);
-    if (!p || decisoes.has(conta) || contaForaAgora(sup, conta, quando)) continue;
+    if (!p || valendo(decisoes.get(conta)) || contaForaAgora(sup, conta, quando)) continue;
     if (p.estado === 'esgotado' && p.esgotadoAte !== null && Date.parse(p.esgotadoAte) > agora) {
       decisoes.set(conta, { em: agora, evento: { tipo: 'conta_fora', conta, runtime: p.runtime, motivo: 'cota-sem-reset', ate: null,
         prova: `o store de perfis dá a conta como esgotada até ${formatarDataHora(p.esgotadoAte)}, prazo que pode ser estimado: sem a prova do arco, ` +

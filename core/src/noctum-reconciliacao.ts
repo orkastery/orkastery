@@ -19,6 +19,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
+import { bloqueioDepoisDoDespacho } from './conducao-sentinela';
 import { formatarDataHora } from './horario';
 import { lerLedger } from './ledger';
 import { ManifestoCarregado } from './manifest';
@@ -92,16 +93,29 @@ function sessoesDaThread(leitura: LeituraDeSessoes, t: Thread, slug: string | nu
 }
 
 /**
- * B1 do CHECK: a retomada autorizada que nenhuma reserva do arco atendeu ainda (a mais nova do trabalho). Uma reserva
- * do trabalho depois da autorização a atende, tenha o lançamento dado certo ou não (concluída ou pendente); só a recusa
- * de antes do lançamento (nada abriu) deixa a autorização de pé. Assim cada tentativa conta no teto.
+ * A reserva que lançou: concluída ou pendente, ou devolvida pela reconciliação sem sessão depois do prompt gravado (NA2 da
+ * rodada 2: o runtime foi chamado e não abriu nada). A recusa de antes do lançamento e a devolução sem lançamento não.
+ */
+export const reservaQueLancou = (d: DespachoDoArco): boolean =>
+  d.desfecho !== 'recusado' || (d.motivo ?? '').startsWith('noctum.reconciliacao.sem-sessao');
+
+/**
+ * B1 do CHECK: a retomada autorizada que nenhuma reserva do arco atendeu ainda (a mais nova do trabalho). Uma reserva do
+ * trabalho depois da autorização que lançou a atende, tenha o lançamento dado certo ou não; só a recusa de antes do
+ * lançamento (nada abriu) deixa a autorização de pé. Assim cada tentativa conta no teto. O "depois" é a ordem do log do
+ * arco (NA1 da rodada 2: o `seq` de reserva gravado na autorização), e não o relógio de dois processos; a linha sem ele
+ * fica com o instante.
  */
 export function retomadaPendente(sup: EstadoDaSupervisao, estado: EstadoDoArco, trabalho: string): EstadoDaSupervisao['retomadas'][number] | null {
   const r = sup.retomadas.filter(x => x.trabalho === trabalho).at(-1);
   if (!r) return null;
-  const atendida = estado.despachos.some(d => d.trabalho === trabalho && d.desfecho !== 'recusado' && Date.parse(d.reservadoEm) >= Date.parse(r.em));
+  const depois = (d: DespachoDoArco): boolean => r.aposReserva !== null ? d.seq > r.aposReserva : Date.parse(d.reservadoEm) >= Date.parse(r.em);
+  const atendida = estado.despachos.some(d => d.trabalho === trabalho && reservaQueLancou(d) && depois(d));
   return atendida ? null : r;
 }
+
+/** O último `seq` de reserva do arco: o que a autorização grava para ser atendida só pelas reservas de depois dela. */
+export const ultimaReservaDoArco = (estado: EstadoDoArco): number => Math.max(0, ...estado.despachos.map(d => d.seq));
 
 const depoisDe = (e: EventoLedger, desde: number): boolean => Date.parse(e.ts) >= desde;
 const perfilDe = (e: EventoLedger | undefined): string | null => {
@@ -276,6 +290,8 @@ export interface ParadaDeSessao { sessionId: string; runtime: string; perfil: st
 /** O que o vigia faz numa thread do arco, com a prova. */
 export type DecisaoDeSessao =
   | { acao: 'retomar'; trabalho: string; thread: string; fase: Fase; tentativa: number; motivo: MotivoDaRetomada; sessao: string | null;
+    /** O último `seq` de reserva do arco na decisão (NA1 da rodada 2): vai à autorização. */
+    aposReserva: number;
     /** A sessão a encerrar antes (pelo controle do runtime, com confirmação), quando ela ainda está viva e parada. */
     parar: ParadaDeSessao | null;
     /** A sessão que o runtime provou morta, a registrar como `sessao_morta`. */
@@ -298,14 +314,20 @@ function ultimoAvanco(raiz: string, thread: string, eventos: readonly EventoLedg
   return ultimo;
 }
 
+/** A recusa do núcleo ou do runtime (o portão, a conta), e não a do próprio arco (`noctum.*`) nem a baseline pendente. */
+const recusaDoNucleo = (motivo: string | null): boolean => !!motivo && !motivo.startsWith('noctum.') && motivo !== 'baseline.pendente';
+
 /**
- * D10 a D12 e D16: o que fazer em cada thread do arco. Despacho de fora isola. O último lançamento do arco na thread (o
- * `phase_dispatch`, ou a falha do despacho, B2 do CHECK) decide: a falha que disse o id põe essa sessão sob vigia, como um
- * despacho; a falha sem id numa thread já despachada vira a retomada da mesma fase (a conta que falhou já está fora). A
- * sessão morta sem resultado (depois da carência desde a última atividade dela, B5), o fim de turno sem resultado depois
- * da carência, a sessão sem avanço e a sem primeiro turno viram retomada (com a parada pelo runtime antes, quando a sessão
- * está viva), até o teto; no teto, isolamento. Trabalho isolado, entregue, fechado, esperando o dono, com reserva pendente
- * ou com retomada autorizada e ainda não atendida (B1) fica de fora.
+ * D10 a D12 e D16: o que fazer em cada thread do arco. Despacho de fora isola, mesmo com retomada pendente (NB1 da rodada
+ * 2). A recusa do núcleo depois do último lançamento numa thread já despachada (o portão: a árvore, a policy, a
+ * autoconferência, o contexto, a conta) vira a retomada da fase recusada (NA3 da rodada 2): a Sentinela a pede, e a fila
+ * da N2 não a despacha sozinha. O último lançamento do arco na thread (o `phase_dispatch`, ou a falha do despacho, B2 do
+ * CHECK) decide o resto: a falha que disse o id põe essa sessão sob vigia, como um despacho; a falha sem id numa thread já
+ * despachada vira a retomada da mesma fase (a conta que falhou já está fora). A sessão morta sem resultado (depois da
+ * carência desde a última atividade dela, B5), o fim de turno sem resultado depois da carência, a sessão sem avanço e a
+ * sem primeiro turno viram retomada (com a parada pelo runtime antes, quando a sessão está viva), até o teto; no teto,
+ * isolamento. Trabalho isolado, entregue, fechado, esperando o dono, com reserva pendente ou com retomada autorizada e
+ * ainda não atendida (B1) fica de fora.
  */
 export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2, estado: EstadoDoArco, sup: EstadoDaSupervisao,
   leitura: LeituraDoRuntime, quando: string): DecisaoDeSessao[] {
@@ -316,8 +338,9 @@ export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2,
   const autorizadoEm = Date.parse(estado.autorizadoPor?.recebidoEm ?? conteudo.janela.inicio);
   const pendentes = new Set(estado.despachos.filter((d: DespachoDoArco) => d.desfecho === 'pendente').map(d => d.trabalho));
   const decisoes: DecisaoDeSessao[] = [];
+  const aposReserva = ultimaReservaDoArco(estado);
   for (const [trabalho, thread] of threadsDoArco(raiz, conteudo, estado)) {
-    if (sup.isolados.has(trabalho) || pendentes.has(trabalho) || retomadaPendente(sup, estado, trabalho)) continue;
+    if (sup.isolados.has(trabalho) || pendentes.has(trabalho)) continue;
     let t: Thread, eventos: EventoLedger[];
     try { t = lerThread(raiz, thread); eventos = lerLedger(dirThread(raiz, thread)); } catch { continue; }
     if (t.status === 'fechada' || eventos.some(e => e.tipo === 'ship_done')) continue;
@@ -329,7 +352,7 @@ export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2,
           `origem ${String(deFora.origem ?? 'desconhecida')}): o arco não conduz junto com outro condutor` });
       continue;
     }
-    if (pendenciaDoDono(t, eventos, quando)) continue;
+    if (pendenciaDoDono(t, eventos, quando) || retomadaPendente(sup, estado, trabalho)) continue;
     const retomar = (fase: Fase | null, motivo: MotivoDaRetomada, sessao: { sessionId: string; runtime: string; perfil: string | null } | null,
       prova: string, viva: boolean): DecisaoDeSessao => {
       const parar = sessao && viva ? { ...sessao, thread } : null;
@@ -347,8 +370,19 @@ export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2,
         return { acao: 'isolar', trabalho, thread, motivo: 'retomadas-esgotadas', parar,
           detalhe: `${prova}; ${feitas} retomada(s) da fase ${fase} já autorizadas, e o teto é ${parametros.tetoDeRetomadas}` };
       }
-      return { acao: 'retomar', trabalho, thread, fase, tentativa: feitas + 1, motivo, sessao: sessao?.sessionId ?? null, parar, morta, prova };
+      return { acao: 'retomar', trabalho, thread, fase, tentativa: feitas + 1, motivo, sessao: sessao?.sessionId ?? null, aposReserva, parar, morta, prova };
     };
+    // NA3 da rodada 2: a última reserva do trabalho recusada pelo núcleo, com o bloqueio do despacho no ledger depois do
+    // último despacho, numa thread que o arco já despachou. A retomada é contada; a recusa repetida isola no teto (B4) e a
+    // de ambiente para o arco (D15).
+    const ultimaReserva = estado.despachos.filter(x => x.trabalho === trabalho).sort((a, b) => b.seq - a.seq)[0];
+    const bloqueio = bloqueioDepoisDoDespacho(eventos);
+    if (ultimaReserva?.desfecho === 'recusado' && recusaDoNucleo(ultimaReserva.motivo) && bloqueio?.deDespacho &&
+        eventos.some(e => e.tipo === 'phase_dispatch' && e.correlacao === correlacao)) {
+      decisoes.push(retomar(ultimaReserva.fase, 'despacho-falho', null,
+        `o despacho do ${ultimaReserva.fase} foi recusado pelo núcleo (${ultimaReserva.motivo}) depois do último lançamento`, false));
+      continue;
+    }
     // B2 do CHECK: o último lançamento do arco, despacho ou falha do despacho.
     const lancamentos = eventos.filter(e => (e.tipo === 'phase_dispatch' || e.tipo === 'phase_dispatch_failed') && e.correlacao === correlacao);
     const d = lancamentos.at(-1);

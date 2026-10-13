@@ -10,17 +10,17 @@ import { abrirArco, despachar, gravarArtefato, passar, prepararIngressoSimulado,
 import { runtimeCom, runtimeSemLeitura } from './noctum-supervisao-apoio';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { registrar } from '../src/ledger';
-import { concluirDespacho, lerArco, reservarDespacho } from '../src/noctum-arco';
+import { concluirDespacho, EstadoDoArco, lerArco, reservarDespacho } from '../src/noctum-arco';
 import { envelopeComTrabalhos } from '../src/noctum-envelope';
 import { decidirPedidos, decidirReservas, decidirSessoes, DecisaoDeSessao, efeitosAbertos, faseDaRetomada, LeituraDoRuntime, lerRemotoPadrao,
-  paradaPorAmbiente, provaDaSessao, reconciliarEfeito, recusaDeAmbiente, registrarEfeitoIncerto } from '../src/noctum-reconciliacao';
+  paradaPorAmbiente, provaDaSessao, reconciliarEfeito, recusaDeAmbiente, registrarEfeitoIncerto, retomadaPendente } from '../src/noctum-reconciliacao';
 import { exec } from '../src/util';
 import { caminhoDaFila, enfileirar, lerFilaDeRetomada, PedidoComPerfil } from '../src/ratelimit';
 import { retomarPorId } from '../src/retry';
 import { rodarFase } from '../src/phase';
 import { lerLedger } from '../src/ledger';
 import { revogarArco } from './noctum-apoio';
-import { ConteudoV2, correlacaoDoArco, gravarNaSupervisao, lerSupervisao, parametrosDoArco } from '../src/noctum-supervisao';
+import { ConteudoV2, correlacaoDoArco, EstadoDaSupervisao, gravarNaSupervisao, lerSupervisao, parametrosDoArco } from '../src/noctum-supervisao';
 import { caminhoThread, dirThread, gravarThread, lerThread } from '../src/thread';
 import { Fase } from '../src/types';
 
@@ -236,6 +236,10 @@ test('R7: a sessão que trabalha sem evento de produto além do prazo é parada 
     const ds = decisoesDeSessao(p, 'arco-r7', trabalhando, depois(95));
     assert.deepEqual(resumo(ds), ['retomar:GO:sem-avanco:1:parar:-']);
     assert.ok(ds[0].acao === 'retomar' && ds[0].parar?.sessionId === d.sessionId && ds[0].parar.perfil === 'perfil-a');
+    // Um heartbeat da sessão uma hora depois do despacho (instante gravado à mão na fixture) não é avanço: o prazo segue do despacho.
+    fs.appendFileSync(caminhoLedger(p.dir, t.id), JSON.stringify({ ts: depois(60), thread: t.id, tipo: 'runtime_event', fase: 'GO',
+      sessionId: d.sessionId, sensor: 'heartbeat', fonte: 'ork sessions event', eventId: 'heartbeat-r7-SIMULADO' }) + '\n');
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r7', trabalhando, depois(95))), ['retomar:GO:sem-avanco:1:parar:-'], 'heartbeat não é avanço');
     // Um commit da sessão uma hora depois do despacho (instante gravado à mão na fixture): o prazo conta dele, e a retomada
     // de quem só começou o GO é o próprio GO (produto prova o PLAN, não o GO).
     fs.appendFileSync(caminhoLedger(p.dir, t.id), JSON.stringify({ ts: depois(60), thread: t.id, tipo: 'mcp_git_committed',
@@ -355,9 +359,12 @@ test('R12: o pedido aguardando do arco não vira despacho por fora: sai da fila 
     assert.deepEqual(decidir(), [], 'aguardando, sem despacho do arco depois: a retomada sai pelo passo do arco (decidirSessoes)');
     passar(5);
     despachoDoArco(p.dir, t.id, 'arco-r12', 'GO', 121);
-    const [d] = decidir();
+    const ds = decidir();
+    assert.equal(ds.length, 1, 'só o pedido com a correlação do arco');
+    const [d] = ds;
     assert.ok(d.acao === 'cancelar' && d.pedido === doArco.id && /retomado pelo arco arco-r12/.test(d.motivo), JSON.stringify(d));
     revogarArco(p.dir, 'arco-r12');
+    assert.equal(decidir().length, 1, 'com o arco encerrado, também só o dele');
     const [encerrado] = decidir();
     assert.ok(encerrado.acao === 'cancelar' && /terminou \(revogado\)/.test(encerrado.motivo), JSON.stringify(encerrado));
   } finally { p.limpar(); }
@@ -638,5 +645,91 @@ test('R27: a sessao_morta já provada no ledger vale sem leitura do runtime e se
     registrar(dirThread(p.dir, t.id), t.id, 'sessao_morta', { fase: 'GO', sessionId: d.sessionId, origem: 'noctum.vigia', evidencia: 'SIMULADO' });
     assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r27', runtimeSemLeitura())), ['retomar:GO:sessao-morta:1:-:-'],
       'a morte provada não se registra de novo, e a retomada sai sem parar nada');
+  } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// GO-FIX 3: o bloqueador e os avisos da segunda rodada de revisão do GO.
+// ---------------------------------------------------------------------------
+
+test('R28: com uma retomada pendente, o despacho de fora do arco isola o trabalho do mesmo jeito', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r28');
+  try {
+    const { t } = arcoComThread(p, 'arco-r28');
+    const d = despachoDoArco(p.dir, t.id, 'arco-r28', 'GO', 281);
+    gravarNaSupervisao(p.carregado, 'arco-r28', [{ tipo: 'retomada_autorizada', trabalho: 'a', thread: t.id, fase: 'GO', tentativa: 1,
+      motivo: 'sessao-morta', sessao: d.sessionId, prova: 'SIMULADO', aposReserva: 0 }]);
+    const morta = runtimeCom([{ sessionId: d.sessionId, state: 'failed', viva: false }]);
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r28', morta, depois(16)), [], 'a retomada pendente espera a reserva do arco');
+    passar(5);
+    // O condutor de fora (o que relê a última linha do ledger) despacha o GO por cima.
+    despachar(p.dir, t.id, 'GO', 282, false);
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r28', runtimeCom([{ sessionId: sid(282), state: 'busy' }]))), ['isolar:condutor-externo']);
+  } finally { p.limpar(); }
+});
+
+test('R29: a retomada é atendida pela ordem das reservas no log do arco (o seq gravado na autorização), e não pelo relógio de outro processo', () => {
+  const T = (min: number) => new Date(Date.parse('2026-01-01T03:00:00.000Z') + min * MIN).toISOString();
+  const reserva = (seq: number, reservadoEm: string, desfecho: string, motivo: string | null = null) => ({ seq, trabalho: 'a', reservadoEm, desfecho, motivo });
+  const sup = (aposReserva: number | null) => ({ retomadas: [{ trabalho: 'a', em: T(10), aposReserva, fase: 'GO', tentativa: 1 }] }) as unknown as EstadoDaSupervisao;
+  const estado = (...despachos: ReturnType<typeof reserva>[]) => ({ despachos }) as unknown as EstadoDoArco;
+  // O passo tomou o relógio antes da autorização e reservou depois dela, sob a trava: o instante é anterior, o seq é maior.
+  assert.equal(retomadaPendente(sup(1), estado(reserva(1, T(0), 'concluido'), reserva(2, T(9), 'concluido')), 'a'), null);
+  assert.ok(retomadaPendente(sup(1), estado(reserva(1, T(0), 'concluido')), 'a'), 'a reserva de antes da autorização não a atende');
+  assert.ok(retomadaPendente(sup(1), estado(reserva(1, T(0), 'concluido'), reserva(2, T(11), 'recusado', 'concurrency.limite')), 'a'),
+    'a recusa de antes do lançamento não a atende');
+  // NA2: a devolução da reconciliação depois do prompt gravado (o runtime foi chamado e não abriu nada) atende; a sem lançamento, não.
+  assert.equal(retomadaPendente(sup(1), estado(reserva(1, T(0), 'concluido'), reserva(2, T(11), 'recusado', 'noctum.reconciliacao.sem-sessao: SIMULADO')), 'a'), null);
+  assert.ok(retomadaPendente(sup(1), estado(reserva(1, T(0), 'concluido'), reserva(2, T(11), 'recusado', 'noctum.reconciliacao.sem-lancamento: SIMULADO')), 'a'));
+  // A linha sem o seq fica com o instante.
+  assert.ok(retomadaPendente(sup(null), estado(reserva(1, T(0), 'concluido'), reserva(2, T(9), 'concluido')), 'a'));
+  assert.equal(retomadaPendente(sup(null), estado(reserva(1, T(0), 'concluido'), reserva(2, T(11), 'concluido')), 'a'), null);
+});
+
+test('R30: a falha seca depois do prompt, devolvida sem sessão, atende a retomada, e a seguinte é a tentativa 2', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r30');
+  try {
+    const { t, h } = arcoComThread(p, 'arco-r30');
+    const d = atender(p, 'arco-r30', h, t.id, 'GO', 301);
+    registrar(dirThread(p.dir, t.id), t.id, 'sessao_morta', { fase: 'GO', sessionId: d.sessionId, origem: 'noctum.vigia', evidencia: 'SIMULADO' });
+    gravarNaSupervisao(p.carregado, 'arco-r30', [{ tipo: 'retomada_autorizada', trabalho: 'a', thread: t.id, fase: 'GO', tentativa: 1,
+      motivo: 'sessao-morta', sessao: d.sessionId, prova: 'SIMULADO', aposReserva: 1 }]);
+    passar(5);
+    const r = reservarDespacho(p.dir, { arco: 'arco-r30', envelopeSha256: h, trabalho: 'a', thread: t.id, fase: 'GO', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    passar(5);
+    promptDoArco(p.dir, t.id, 'arco-r30', 'GO');
+    falhaDoArco(p.dir, t.id, 'arco-r30', 'GO', 'runtime.unavailable: SIMULADO sem id');
+    const [dev] = decidirReservas(p.dir, 'arco-r30', conteudo(p, 'arco-r30'), lerArco(p.dir, 'arco-r30')!, runtimeCom([]),
+      lerSupervisao(p.dir, 'arco-r30').parametros!, depois(16));
+    assert.deepEqual([dev.seq, dev.acao], [r.seq, 'devolver']);
+    assert.match(String(dev.motivo), /^noctum\.reconciliacao\.sem-sessao/);
+    concluirDespacho(p.dir, 'arco-r30', r.seq, { motivo: dev.motivo! });
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r30', runtimeCom([]), depois(16))), ['retomar:GO:despacho-falho:2:-:-'],
+      'a tentativa lançada conta no teto');
+  } finally { p.limpar(); }
+});
+
+test('R31: a recusa do núcleo depois do último lançamento numa thread já despachada vira a retomada da fase recusada; a baseline pendente não', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r31');
+  try {
+    const { t, h } = arcoComThread(p, 'arco-r31');
+    const d = atender(p, 'arco-r31', h, t.id, 'GOAL', 311);
+    registrar(dirThread(p.dir, t.id), t.id, 'phase_result', { fase: 'GOAL', sessionId: d.sessionId, classificacao: 'fase_concluida', ok: true });
+    passar(5);
+    const recusar = (motivo: string) => {
+      const r = reservarDespacho(p.dir, { arco: 'arco-r31', envelopeSha256: h, trabalho: 'a', thread: t.id, fase: 'PLAN', runtime: 'claude-bg',
+        conta: 'perfil-a', revisao: false });
+      registrar(dirThread(p.dir, t.id), t.id, 'gate_blocked', { gate: 'phase.dispatch', fase: 'PLAN', motivo, origem: 'phase.run' });
+      concluirDespacho(p.dir, 'arco-r31', r.seq, { motivo });
+      passar(5);
+    };
+    const encerrada = runtimeCom([{ sessionId: d.sessionId, state: 'done', viva: false }]);
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r31', encerrada), [], 'GOAL concluído: nada a retomar');
+    recusar('baseline.pendente');
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r31', encerrada), [], 'a baseline pendente é do passo da N2');
+    recusar('tree.blocked');
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r31', encerrada)), ['retomar:PLAN:despacho-falho:1:-:-'],
+      'a Sentinela pede a retomada, e quem a autoriza é a N4');
   } finally { p.limpar(); }
 });

@@ -11,7 +11,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { projetoTemporario } from './apoio';
 import { abrirArco, prepararIngressoSimulado, revogarArco, threadDoTrabalho, TrabalhoSimulado } from './noctum-apoio';
-import { instancia, opcoesSimuladas, parametrosDoTeste, runtimeSimulado, storeCom } from './noctum-supervisao-apoio';
+import { instancia, linhasDoLog, opcoesSimuladas, parametrosDoTeste, runtimeSimulado, storeCom } from './noctum-supervisao-apoio';
 import { kernelDisponivel, tentarTravaExclusiva } from '../src/fila-pesada';
 import { lerLedger, registrar } from '../src/ledger';
 import { EstadoDoArco, lerArco, reservarDespacho } from '../src/noctum-arco';
@@ -172,6 +172,11 @@ test('G4: tiques do vigia interrompidos em série, no limite, param o arco; para
     gravarNaSupervisao(p.carregado, 'arco-g4', [{ tipo: 'conducao_assumida', geracao: 1, quem: condutor, prova: 'SIMULADO' }]);
     assert.equal(passoConduzido(p.carregado, 'arco-g4', condutor, opcoesSimuladas(p.dir, ITENS, registro)).acao, 'parado');
     assert.equal(registro.length, 0);
+    // S6: o tique aberto de uma instância de mesmo nome também é de um vigia que morreu (a trava do vigia estava livre).
+    assert.throws(() => vigiarArco(p.carregado, 'arco-g4', { ...opcoesSimuladas(p.dir, ITENS), instancia: 'vigia-mesma', depoisDeIniciar: cai }), /queda SIMULADA/);
+    assert.equal(tique(vigiarArco(p.carregado, 'arco-g4', { ...opcoesSimuladas(p.dir, ITENS), instancia: 'vigia-mesma' })).interrompido, 'vigia-mesma');
+    assert.equal(linhasDoLog(p.dir, 'arco-g4').map(l => JSON.parse(l).dados.evento)
+      .filter(e => e.tipo === 'vigia_interrompido' && e.interrompido === 'vigia-mesma').length, 1, 'a interrupção vai ao log');
   } finally { p.limpar(); }
 });
 
@@ -350,7 +355,9 @@ test('G10: a retomada autorizada é atendida pela reserva do arco mesmo quando o
     const r3 = tique(vigiarArco(p.carregado, 'arco-g10', opcoes()));
     assert.deepEqual([r3.reservas, r3.retomadas], [1, 1], 'a reserva se resolve pela sessão dita na falha, e a morte dela é a tentativa 2');
     assert.ok(r3.passo?.acao === 'despachou', JSON.stringify(r3.passo));
-    assert.deepEqual(lerSupervisao(p.dir, 'arco-g10').retomadas.map(x => `${x.fase}:${x.tentativa}:${x.motivo}`), ['GOAL:1:sessao-morta', 'GOAL:2:despacho-falho']);
+    const seqs = lerArco(p.dir, 'arco-g10')!.despachos.map(d => d.seq);
+    assert.deepEqual(lerSupervisao(p.dir, 'arco-g10').retomadas.map(x => `${x.fase}:${x.tentativa}:${x.motivo}:${x.aposReserva}`),
+      [`GOAL:1:sessao-morta:${seqs[0]}`, `GOAL:2:despacho-falho:${seqs[1]}`], 'cada autorização guarda a última reserva do arco, e só as de depois a atendem');
     assert.equal(lerArco(p.dir, 'arco-g10')!.despachos.length, 3, 'nenhum despacho repetido da mesma autorização');
     assert.equal(registro.length, 3);
   } finally { p.limpar(); }
@@ -407,6 +414,8 @@ test('G12: depois de uma recusa o condutor espera a pausa; o trabalho recusado s
     assert.equal(r.isolados, 1);
     assert.equal(lerSupervisao(p.dir, 'arco-g12').isolados.get('a')?.motivo, 'recusas-repetidas');
     assert.equal(registro.length, teto, 'depois do isolamento, nenhum despacho novo');
+    tique(vigiarArco(p.carregado, 'arco-g12', opcoesSimuladas(p.dir, ITENS, registro, {}, arvore as never)));
+    assert.equal(linhasDoLog(p.dir, 'arco-g12').filter(l => JSON.parse(l).dados.evento.tipo === 'isolado').length, 1, 'o isolamento se grava uma vez');
     // A recusa que depende da conta, da vaga ou da condução passa: não conta para isolar.
     const estado = (motivos: string[]) => ({ despachos: motivos.map((motivo, i) => ({ seq: i + 1, trabalho: 'a', desfecho: 'recusado', motivo })) }) as unknown as EstadoDoArco;
     assert.deepEqual(recusasSeguidas(estado(['tree.blocked', 'tree.blocked']), 'a'), { n: 2, motivo: 'tree.blocked' });
@@ -534,5 +543,92 @@ test('G17: o passo conduzido leva as contas e os alvos do arco (com a conta clau
     assert.ok(parado.acao === 'parado' && parado.motivo === 'teto-do-arco', JSON.stringify(parado));
     assert.equal(lerSupervisao(p.dir, 'arco-g17').parada?.motivo, 'teto-do-arco');
     assert.equal(registro.length, 1);
+  } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// GO-FIX 3: o bloqueador e os avisos da segunda rodada de revisão do GO, pelo vigia.
+// ---------------------------------------------------------------------------
+
+/** O portão do núcleo que recusa o despacho do PLAN antes de lançar, como o `phase run` grava (só o `gate_blocked`). */
+const portaoDoPlan = (motivo: string, erro: string): Falha => (raiz, threadId, o) => {
+  if (o.fase !== 'PLAN') return null;
+  registrar(dirThread(raiz, threadId), threadId, 'gate_blocked', { gate: 'phase.dispatch', fase: o.fase, motivo, origem: 'phase.run' });
+  return { sessionId: null, bloqueado: true, motivo, erro } as unknown as ResultadoRun;
+};
+
+/** O primeiro tique despacha o GOAL do trabalho, e o GOAL conclui. */
+function goalConcluido(p: Projeto, arco: string, opcoes: () => ReturnType<typeof opcoesSimuladas>): string {
+  const r1 = tique(vigiarArco(p.carregado, arco, opcoes()));
+  assert.ok(r1.passo?.acao === 'despachou' && r1.passo.fase === 'GOAL', JSON.stringify(r1.passo));
+  registrar(dirThread(p.dir, r1.passo.thread), r1.passo.thread, 'phase_result', { fase: 'GOAL', sessionId: r1.passo.sessionId,
+    classificacao: 'fase_concluida', ok: true });
+  runtimeSimulado(p.dir).estado(String(r1.passo.sessionId), 'done');
+  return r1.passo.thread;
+}
+
+test('G18: a recusa do portão do núcleo depois de uma fase concluída é retomada pelo vigia e, repetida, isola o trabalho no teto', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-g18');
+  try {
+    abrirArco(p.dir, 'arco-g18', { trabalhos: [AC[0]], contas: DUAS });
+    const registro: string[] = [];
+    const opcoes = () => opcoesSimuladas(p.dir, ITENS, registro, {}, portaoDoPlan('tree.blocked', 'a árvore da worktree está suja (SIMULADO)') as never);
+    goalConcluido(p, 'arco-g18', opcoes);
+    const teto = lerSupervisao(p.dir, 'arco-g18').parametros!.tetoDeRetomadas;
+    for (let i = 0; i < teto + 2; i++) tique(vigiarArco(p.carregado, 'arco-g18', opcoes()));
+    const sup = lerSupervisao(p.dir, 'arco-g18');
+    assert.equal(sup.isolados.get('a')?.motivo, 'recusas-repetidas', 'sem a retomada, a fila deixava o trabalho preso sem resposta');
+    assert.deepEqual(sup.retomadas.map(x => `${x.fase}:${x.tentativa}:${x.motivo}`), ['PLAN:1:despacho-falho'], 'uma autorização, que nenhuma recusa atende');
+    assert.equal(registro.filter(x => x.endsWith(':falhou')).length, teto, 'no teto, nada mais é tentado');
+  } finally { p.limpar(); }
+});
+
+test('G19: com um trabalho só, a recusa de ambiente se repete pela retomada, e a segunda para o arco', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-g19');
+  try {
+    abrirArco(p.dir, 'arco-g19', { trabalhos: [AC[0]], contas: DUAS });
+    const registro: string[] = [];
+    const opcoes = () => opcoesSimuladas(p.dir, ITENS, registro, {},
+      portaoDoPlan('runtime.unavailable', 'runtime.context.conflict: MCP Orkastery divergente, outro node no PATH (SIMULADO)') as never);
+    goalConcluido(p, 'arco-g19', opcoes);
+    for (let i = 0; i < 3; i++) tique(vigiarArco(p.carregado, 'arco-g19', opcoes()));
+    assert.equal(lerSupervisao(p.dir, 'arco-g19').parada?.motivo, 'ambiente-do-despacho');
+    assert.equal(registro.filter(x => x.endsWith(':falhou')).length, 2, 'parado, nada mais é tentado');
+  } finally { p.limpar(); }
+});
+
+test('G20: a sessão que some da listagem completa morre pelo caminho do vigia, com o instante da leitura', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-g20');
+  try {
+    abrirArco(p.dir, 'arco-g20', { trabalhos: [AC[0]], contas: DUAS });
+    parametrosDoTeste(p.carregado, 'arco-g20', { carenciaMs: 0, ausenciaMinimaMs: 0 });
+    const registro: string[] = [];
+    const r1 = tique(vigiarArco(p.carregado, 'arco-g20', opcoesSimuladas(p.dir, ITENS, registro)));
+    assert.ok(r1.passo?.acao === 'despachou', JSON.stringify(r1.passo));
+    runtimeSimulado(p.dir).remover(String(r1.passo.sessionId));
+    const r2 = tique(vigiarArco(p.carregado, 'arco-g20', opcoesSimuladas(p.dir, ITENS, registro)));
+    assert.equal(r2.retomadas, 1, 'ausente da listagem completa, a sessão despachada antes da leitura acabou');
+    assert.match(lerSupervisao(p.dir, 'arco-g20').retomadas[0].prova, /listagem completa do claude-bg/);
+  } finally { p.limpar(); }
+});
+
+test('G21: a morte já registrada no ledger não se registra de novo quando a reconciliação da reserva a prova outra vez', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-g21');
+  try {
+    const t = threadDoTrabalho(p.carregado, 'fatia a', 'RM-901', AC[0].pedido!);
+    const h = abrirArco(p.dir, 'arco-g21', { trabalhos: [AC[0]], contas: DUAS });
+    parametrosDoArco(p.carregado, 'arco-g21');
+    const dita = '00000000-0000-4000-9000-000000000211';
+    reservarDespacho(p.dir, { arco: 'arco-g21', envelopeSha256: h, trabalho: 'a', thread: t.id, fase: 'GOAL', runtime: 'claude-bg', conta: 'perfil-a', revisao: false });
+    registrar(dirThread(p.dir, t.id), t.id, 'phase_dispatch_failed', { fase: 'GOAL', runtime: 'claude-bg', correlacao: correlacaoDoArco('arco-g21'),
+      perfil: { id: 'perfil-a', runtime: 'claude-bg' }, sessionId: dita, erro: 'runtime.unavailable: SIMULADO depois do id' });
+    // O tique anterior provou a morte e caiu antes de concluir a reserva.
+    registrar(dirThread(p.dir, t.id), t.id, 'sessao_morta', { fase: 'GOAL', sessionId: dita, origem: 'noctum.vigia', evidencia: 'SIMULADO' });
+    const runtime = runtimeSimulado(p.dir);
+    runtime.registrar(dita, 'perfil-a');
+    runtime.estado(dita, 'failed');
+    const r = tique(vigiarArco(p.carregado, 'arco-g21', opcoesSimuladas(p.dir, ITENS)));
+    assert.equal(r.reservas, 1);
+    assert.equal(lerLedger(dirThread(p.dir, t.id)).filter(e => e.tipo === 'sessao_morta' && e.sessionId === dita).length, 1);
   } finally { p.limpar(); }
 });

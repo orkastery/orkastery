@@ -92,10 +92,13 @@ export function storeCom(perfis: Array<{ id: string; runtime?: 'claude-bg' | 'co
  */
 export function runtimeSimulado(dir: string, perfis: string[] = ['perfil-a', 'perfil-b']) {
   const arquivo = path.join(dir, '.simulado-sessoes.tsv');
+  const REMOVIDA = '-removida-';
   return {
     arquivo,
     registrar: (sessionId: string, perfil: string | null) => fs.appendFileSync(arquivo, `${sessionId}\t${perfil ?? ''}\tworking\n`),
     estado: (sessionId: string, state: string) => fs.appendFileSync(arquivo, `${sessionId}\t\t${state}\n`),
+    /** A sessão some da listagem (o runtime não a mantém mais). */
+    remover: (sessionId: string) => fs.appendFileSync(arquivo, `${sessionId}\t\t${REMOVIDA}\n`),
     leitura: (): LeituraDeSessoes => {
       const porSessao = new Map<string, { perfil: string | null; state: string }>();
       const texto = fs.existsSync(arquivo) ? fs.readFileSync(arquivo, 'utf8') : '';
@@ -104,7 +107,7 @@ export function runtimeSimulado(dir: string, perfis: string[] = ['perfil-a', 'pe
         const atual = porSessao.get(sessionId);
         porSessao.set(sessionId, { perfil: perfil || atual?.perfil || null, state });
       }
-      return runtimeCom([...porSessao].map(([sessionId, s]) => ({ sessionId, perfil: s.perfil, state: s.state,
+      return runtimeCom([...porSessao].filter(([, s]) => s.state !== REMOVIDA).map(([sessionId, s]) => ({ sessionId, perfil: s.perfil, state: s.state,
         viva: !['done', 'completed', 'exited', 'stopped', 'failed'].includes(s.state) })), perfis);
     },
   };

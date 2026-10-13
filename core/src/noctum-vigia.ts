@@ -399,7 +399,8 @@ function aplicarSessoes(carregado: ManifestoCarregado, arco: string, conteudo: C
   /** Para a sessão e confere numa listagem nova: a prova, ou `null` quando o runtime não confirmou. */
   const pararEConferir = (p: ParadaDeSessao, motivo: MotivoDaRetomada, trabalho: string): string | null => {
     const pedido = parar(p);
-    const listagem: LeituraDoRuntime = { ...consultar(), lidaEm: new Date(Date.parse(quando) + parametros.ausenciaMinimaMs).toISOString() };
+    // A listagem nova depois do pedido: aqui a sessão já existia antes, e a ausência na listagem completa prova o fim.
+    const listagem: LeituraDoRuntime = consultar();
     const depois = listagemCompleta(listagem) || listagem.sessoes.some(x => x.sessionId === p.sessionId)
       ? provaDaSessao(listagem, p.sessionId, p.perfil, p.runtime) : { estado: 'desconhecida' as const, detalhe: 'a listagem depois da parada não veio completa' };
     const confirmada = pedido.ok && depois.estado === 'morta';
@@ -429,7 +430,8 @@ function aplicarSessoes(carregado: ManifestoCarregado, arco: string, conteudo: C
     }
     if (d.morta) registrarMorte(raiz, d.thread, d.morta, d.prova);
     gravarNaSupervisao(carregado, arco, [{ tipo: 'retomada_autorizada', trabalho: d.trabalho, thread: d.thread, fase: d.fase, tentativa: d.tentativa,
-      motivo: d.motivo, sessao: d.sessao, prova: (prova ? `${d.prova}; parada confirmada: ${prova}` : d.prova).slice(0, 400) }], quando);
+      motivo: d.motivo, sessao: d.sessao, prova: (prova ? `${d.prova}; parada confirmada: ${prova}` : d.prova).slice(0, 400),
+      aposReserva: d.aposReserva }], quando);
     contagem.retomadas += 1;
   }
 }
