@@ -56,6 +56,9 @@ test('GW2: o teste do ingresso do Hermes para o /ork noctum passa pelo unittest'
 test('GW3: o teste do ingresso do OpenClaw para o /ork noctum passa', () => {
   const env = { ...process.env };
   delete env.FORCE_COLOR;
+  // Sob `node --test` com vários arquivos, o runner pai marca o filho com NODE_TEST_CONTEXT e o neto falaria o
+  // protocolo binário do runner em vez do TAP pedido; sem a marca, o neto relata em TAP como roda sozinho.
+  delete env.NODE_TEST_CONTEXT;
   const r = spawnSync(process.execPath, ['--test-reporter=tap', path.join(RAIZ, 'adapters/openclaw/test/hitl-noctum.test.mjs')],
     { encoding: 'utf8', timeout: 120_000, env });
   assert.equal(r.status, 0, r.stdout + r.stderr);
