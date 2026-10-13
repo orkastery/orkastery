@@ -16,7 +16,7 @@ import * as path from 'node:path';
 import { ContextoRuntime, ModDeFase, validarContextoRuntime } from '../runtime-context';
 import { ambienteComPerfil, diretorioEfetivo, PerfilDeDespacho } from '../runtime-profiles';
 import { TOOLS_DO_GRAFO } from '../mcp-grafo';
-import { textoDoCatalogo } from '../locale';
+import { textoDoCatalogo, textoDoErro } from '../locale';
 
 function exec(cmd: string, args: string[], cwd?: string, timeoutMs?: number, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()) {
   return executar(cmd, args, cwd, timeoutMs, ambiente);
@@ -786,7 +786,8 @@ const campoDeAuth = (v: unknown): string => typeof v === 'string' ? v.replace(/[
  */
 export function conferirAuth(perfil?: PerfilDeDespacho | null): StatusDeAuth {
   let ambiente: NodeJS.ProcessEnv;
-  try { ambiente = ambienteDoPerfil(perfil); } catch (e) { return { ok: false, detalhe: (e as Error).message }; }
+  // RM-061 (F3b, GO-FIX 1): o erro do catalogo fica registrado, e a impressao o remonta.
+  try { ambiente = ambienteDoPerfil(perfil); } catch (e) { return { ok: false, detalhe: textoDoErro(e) }; }
   const r = exec('claude', ['auth', 'status', '--json'], undefined, 30000, ambiente);
   // A14: sem codigo de saida (timeout, sinal ou binario ausente) ou sem JSON, a conferencia e inconclusiva.
   if (r.code === -1) return { ok: false, transitorio: true, detalhe: 'claude auth status sem resposta (timeout, sinal ou binario ausente)' };

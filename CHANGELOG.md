@@ -8,6 +8,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **CLI em inglês e pt-BR, fatia F3b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): seguem também o
+  locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`,
+  `ork accounts`, `ork network` (fora `network roadmap`), `ork roadmap reservas`, `pegar`, `soltar` e `feat`,
+  `ork docs verificar` e `docs sincronizar`, `ork adapter` e os erros de estado. Com o dono em inglês, o
+  `ork adapter install` copia as skills, as checklists, os comandos e os subagentes em inglês (variantes em
+  `core/assets/*-en/`) para o mesmo destino, e trocar a língua troca no lugar a cópia intacta. O `--json`, o ledger, o
+  `claims.jsonl`, o recibo `INSTALADO.json` e o que o `ork docs verificar` lê nas páginas não mudam; o pt-BR segue igual
+  byte a byte. Ficam em pt-BR, para a F3c, `decisao registrar`, `network roadmap`, `thread new --from-finding` e os
+  prompts de fase. O catálogo vai de 1.020 para 1.653 entradas (cobertura de 25,3% para 39,7%).
+
 - **Ritual do MASTER, mod de papel `dono`, e a nota pelo diálogo nativo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   a ferramenta MCP `ork_request_master_note`, só no servidor do dono, recebe só o `threadId`, pede ao host um formulário
   com a nota de 0 a 5 e o porquê e grava o MASTER com `avaliadoPor` `dono (dialogo nativo)`, o canal do host e o recibo

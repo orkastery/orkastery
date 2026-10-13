@@ -17,6 +17,16 @@ const arquivos = execFileSync('git', ['ls-files', '--cached', '--others', '--exc
   { cwd: raiz, encoding: 'utf8' }).split('\n').filter(Boolean);
 const LINK = /\[[^\]]*\]\(([^)\s]+)\)/g;
 const quebrados = [];
+/**
+ * RM-061 (F3b): a variante inglesa de um arquivo do catalogo mora em `core/assets/*-en/`, mas e instalada no lugar do
+ * original e tem os mesmos alvos de link (o teste `locale-skills` confere): o link dela vale a partir do original.
+ */
+const VARIANTES = [['core/assets/skills-en/', 'skills/'], ['core/assets/references-en/', 'references/'],
+  ['core/assets/adapters-en/', 'adapters/']];
+const lugarDoLink = (rel) => {
+  for (const [de, para] of VARIANTES) if (rel.startsWith(de)) return para + rel.slice(de.length);
+  return rel;
+};
 
 for (const rel of arquivos) {
   const absoluto = path.join(raiz, rel);
@@ -26,7 +36,7 @@ for (const rel of arquivos) {
     if (/^[a-z][a-z0-9+.-]*:/i.test(alvo) || alvo.startsWith('#') || alvo.startsWith('/')) continue;
     const caminho = decodeURIComponent(alvo.split('#')[0]);
     if (!caminho) continue;
-    if (!fs.existsSync(path.resolve(path.dirname(absoluto), caminho))) quebrados.push(`${rel}: ${alvo}`);
+    if (!fs.existsSync(path.resolve(path.dirname(path.join(raiz, lugarDoLink(rel))), caminho))) quebrados.push(`${rel}: ${alvo}`);
   }
 }
 

@@ -8,7 +8,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { commitar, projetoTemporario } from './apoio';
+import { commitar, envPtBr, projetoTemporario } from './apoio';
 import { listarReservas, pegarItem, PRAZO_DO_FECHAMENTO_MS, redeDoFechamento, reservasOrfas, soltarItem, soltarReservaDaThread, soltarReservasOrfas } from '../src/roadmap-reservas';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
@@ -82,7 +82,7 @@ test('defeito 3: sem rede o fechamento segue, a pendencia vai ao ledger e o --so
     const orfas = reservasOrfas(p.dir, listarReservas(p.dir).reservas);
     assert.deepEqual(orfas.map((o) => [o.reserva.item, o.reserva.thread, o.sucessora]), [['RM-001', t.id, null]]);
     const texto = spawnSync(process.execPath, [CLI, 'roadmap', 'reservas'],
-      { cwd: p.dir, encoding: 'utf8', env: { ...process.env, ORK_FABRICA_PUBLICAR: '0' } });
+      { cwd: p.dir, encoding: 'utf8', env: envPtBr({ ...process.env, ORK_FABRICA_PUBLICAR: '0' }) });
     assert.equal(texto.status, 0, texto.stderr);
     assert.match(texto.stdout, /RM-001 .* ÓRFÃ: thread fechada/);
     assert.match(texto.stdout, /Para soltar: ork roadmap reservas --soltar-orfas/);
@@ -106,7 +106,7 @@ test('defeito 3: a orfa de antes (thread ja fechada, reserva viva) aparece e sai
     const orfas = reservasOrfas(p.dir, listarReservas(p.dir).reservas);
     assert.deepEqual(orfas.map((o) => o.reserva.item), ['RM-001'], 'a reserva de outra maquina nao e desta');
     const cli = spawnSync(process.execPath, [CLI, 'roadmap', 'reservas', '--soltar-orfas', '--json'],
-      { cwd: p.dir, encoding: 'utf8', env: { ...process.env, ORK_FABRICA_PUBLICAR: '0' } });
+      { cwd: p.dir, encoding: 'utf8', env: envPtBr({ ...process.env, ORK_FABRICA_PUBLICAR: '0' }) });
     assert.equal(cli.status, 0, cli.stderr);
     assert.deepEqual(JSON.parse(cli.stdout).map((s: { item: string; acao: string }) => [s.item, s.acao]), [['RM-001', 'solta']]);
     assert.deepEqual(itens(p.dir), [['RM-002', alheia.id]]);

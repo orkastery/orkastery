@@ -1,0 +1,2498 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm061f3b",
+  "branch": "ork/ork-rm061f3b-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3b-snapshot.test.ts",
+      "alegacao": "C1 da F3b: o texto pt-BR de thread list/close/entrega, worktree, claims, decisao, accounts, network, roadmap reservas/pegar/soltar/feat, docs verificar/sincronizar, adapter, dos erros de estado, das skills que o adapter install copia e do prompt de fase (e o que esses comandos gravam no ledger e no claims.jsonl) fica igual byte a byte a fixture gerada na base.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f3b-snapshot.test.js > \"$l\" 2>&1; grep -qx '# pass 1' \"$l\" && grep -qx '# fail 0' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T20:59:29.867Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "C2 da F3b (A/B na base): a fixture do snapshot pt-BR saiu do codigo da base; o mesmo teste passa numa copia git archive do merge-base com a origin/main, sem nada da F3b.",
+      "negativa": false,
+      "verificar": [
+        "d=$(mktemp -d) && l=$(mktemp) && git archive \"$(git merge-base HEAD origin/main)\" | tar -x -C \"$d\" && ln -s \"$PWD/core/node_modules\" \"$d/core/node_modules\" && cp core/test/locale-f3b-casos.ts core/test/locale-f3b-snapshot.test.ts \"$d/core/test/\" && mkdir -p \"$d/core/test/fixtures\" && cp core/test/fixtures/locale-f3b-pt-BR.json \"$d/core/test/fixtures/\" && npm --prefix \"$d/core\" run build >/dev/null && npm --prefix \"$d/core\" run build:test >/dev/null && node --test --test-reporter=tap \"$d/core/dist-test/test/locale-f3b-snapshot.test.js\" > \"$l\" 2>&1; grep -qx '# pass 1' \"$l\" && grep -qx '# fail 0' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T20:59:33.570Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3b-casos.ts",
+      "alegacao": "C1 da F3b: a fixture cobre as familias da fatia (thread, worktree, claims, decisao, accounts, network, roadmap, docs, adapter, prompt e os erros de estado) com pelo menos 150 casos, so os 4 casos de erro de estado em ERRO e nenhum caminho de maquina.",
+      "negativa": true,
+      "verificar": [
+        "node -e 'const c=require(\"./core/test/fixtures/locale-f3b-pt-BR.json\"); const k=Object.keys(c); const f=[\"cli thread\",\"cli worktree\",\"cli claims\",\"cli decisao\",\"cli accounts\",\"cli network\",\"cli roadmap\",\"cli docs\",\"cli adapter\",\"cli prompt\",\"estado:\",\"worktree:\",\"claims:\",\"accounts:\",\"network:\",\"reservas:\",\"docs:\",\"adapter:\"]; const e=k.filter(n=>c[n].startsWith(\"ERRO\")); process.exit(k.length>=150 && f.every(x=>k.some(n=>n.startsWith(x))) && e.length===4 && e.every(n=>n.startsWith(\"estado:\")) && !/[/]hom[e][/]/.test(JSON.stringify(c)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T20:59:37.498Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-thread-f3b.test.ts",
+      "alegacao": "T2 da F3b: thread list, close e entrega saem em ingles (LANG en_US e owner.language en-US), com o status pelo id e as recusas pelo catalogo; o --json, o resultado JSON e o ledger do fechamento sao iguais nas duas linguas; negativo: thread new --from-finding segue em pt-BR byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-thread-f3b.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b thread/{p++} /^not ok/{f++} END{exit !(p>=3 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T21:06:45.377Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-thread.ts",
+      "alegacao": "T2 da F3b: a familia thread do catalogo ganha a lista, o vazio, as fechadas omitidas e as recusas de close e entrega, com o pt-BR igual ao texto de antes e o ingles tipado por ele.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").thread, pt=msg(\"pt-BR\").thread; process.exit(en.fechadasOmitidas(2).startsWith(\"  2 closed thread(s) hidden. Use \") && pt.fechadasOmitidas(2)===\"  2 fechada(s) omitida(s). Use --todas para ver todas.\" && en.colunasDaLista.join(\" \")===\"ID SLUG MODE PHASE STATUS PAUSES SESSIONS\" && pt.colunasDaLista.join(\" \")===\"ID SLUG MODO FASE STATUS PAUSAS SESSOES\" && en.artefatoExige===\"an artifact needs an open thread and an explicit author\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:06:49.022Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/thread.ts",
+      "alegacao": "T2 da F3b: tabelaDeThreads monta a tabela, o vazio e as omitidas pelo catalogo e traduz o status so na impressao; nenhum texto pt-BR literal sobra nela.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'mt.listaVazia(' core/src/thread.ts && grep -qF 'mt.status(l.status)' core/src/thread.ts && grep -qF 'mt.colunasDaLista' core/src/thread.ts && ! grep -qF 'Crie uma com' core/src/thread.ts"
+      ],
+      "criadoEm": "2026-10-12T21:06:51.417Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/thread-close.ts",
+      "alegacao": "T2 da F3b: as nove recusas de thread close e thread entrega nascem do catalogo por ErroDoCatalogo; nenhum new Error com texto literal sobra no modulo.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -c 'ErroDoCatalogo((m) => m.thread.' core/src/thread-close.ts)\" -ge 9 && ! grep -qF \"new Error('\" core/src/thread-close.ts"
+      ],
+      "criadoEm": "2026-10-12T21:06:53.472Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T2 da F3b: no CLI, thread close e thread entrega gravam no escopo pt-BR (comLocale) e a falta do id vem do catalogo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => args.posicionais[1] === 'close'\" core/src/index.ts && grep -qF 'ErroDoCatalogo((m) => m.thread.informeOId)' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T21:06:55.418Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T2 da F3b (D1): thread list, thread close e thread entrega entram em COMANDOS_COM_LOCALE; thread sem subcomando e thread list; thread new --from-finding segue fora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const k=[\"thread list\",\"thread close\",\"thread entrega\"]; process.exit(k.every(x=>L.COMANDOS_COM_LOCALE.includes(x)) && L.chaveDoLocale([\"thread\"],{})===\"thread list\" && !L.cobreLocale([\"thread\",\"new\",\"x\"],{\"from-finding\":\"A1\"}) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:06:58.077Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f2a-infra.test.ts",
+      "alegacao": "T2 da F3b: o teste de infraestrutura da F2a deixa de listar thread list e thread close como negativos e segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f2a-infra.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=4 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T21:07:00.348Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-erros.test.ts",
+      "alegacao": "T2 da F3b: o exemplo de comando fora da lista no teste de erros passa de thread list (agora coberto) para board, e o teste segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-erros.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=3 && f==0)}' \"$l\" && grep -qF \"ork(fora, EN, false, 'board')\" core/test/locale-erros.test.ts"
+      ],
+      "criadoEm": "2026-10-12T21:07:02.982Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-thread.test.ts",
+      "alegacao": "T2 da F3b: o negativo da F2a para a familia thread fica so com thread new --from-finding (thread list foi ao catalogo) e o teste segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-thread.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=5 && f==0)}' \"$l\" && grep -qF 'thread new --from-finding segue em pt-BR' core/test/locale-thread.test.ts"
+      ],
+      "criadoEm": "2026-10-12T21:07:05.670Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-dado.test.ts",
+      "alegacao": "C4 e C5 da F3b: o teste do catalogo inteiro (mesmas chaves e tipos de folha nas duas linguas, nenhuma entrada vazia ou igual por descuido, nenhum U+2014 nos arquivos do catalogo, --json igual) passa com as familias da F3b.",
+      "negativa": true,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-dado.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=3 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T21:09:04.933Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-worktree.test.ts",
+      "alegacao": "T3 da F3b: ork worktree ensure, sync, audit e release saem em ingles (LANG e owner.language), com o ledger igual ao gravado em pt-BR (detalhe e nome de check em pt-BR); os erros de estado nascem do catalogo com o motivo tipado igual.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-worktree.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b worktree/{p++} /^not ok/{f++} END{exit !(p>=3 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T21:18:11.081Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-worktree.ts",
+      "alegacao": "T3 da F3b: a familia worktree do catalogo tem o pt-BR de antes e o ingles tipado por ele, com o nome do check traduzido so na impressao.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").worktree, pt=msg(\"pt-BR\").worktree; process.exit(en.syncRebase(\"desnecessario\")===\"  rebase     not needed\" && pt.syncRebase(\"desnecessario\")===\"  rebase     desnecessario\" && pt.jaIncorporada(\"main\")===\"a base main ja esta incorporada: nada a sincronizar\" && en.jaIncorporada(\"main\")===\"the base main is already merged in: nothing to sync\" && en.nomeDoCheck(\"estado-unico\")===\"single-state\" && pt.nomeDoCheck(\"registro\")===\"registro\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:18:14.274Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-estado.ts",
+      "alegacao": "T3 da F3b (item 10): a familia estado do catalogo traz os erros de estado e de procedencia em pt-BR igual ao de antes e em ingles, com o motivo tipado do comeco igual nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").estado, pt=msg(\"pt-BR\").estado; process.exit(en.idInvalido===\"invalid thread id\" && pt.idInvalido===\"id de thread inválido\" && pt.link(\"x\").startsWith(\"estado.link: x é link simbólico\") && en.link(\"x\").startsWith(\"estado.link: x is a symbolic link\") && en.rastreado(\"a\").startsWith(\"estado.rastreado: a \") ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:18:17.264Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/worktree.ts",
+      "alegacao": "T3 da F3b: o detalhe e a correcao dos quatro subcomandos de worktree nascem pelo catalogo (registrados para a remontagem), o que so vai ao ledger sai em pt-BR, e o texto do audit traduz o nome do check e remonta o detalhe.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'tw((m) =>' core/src/worktree.ts)\" -ge 30 && grep -qF 'remontar(c.detalhe)' core/src/worktree.ts && grep -qF 'm.nomeDoCheck(c.nome)' core/src/worktree.ts && ! grep -qF 'divergencia(s) encontrada(s)' core/src/worktree.ts"
+      ],
+      "criadoEm": "2026-10-12T21:18:19.854Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/estado-thread.ts",
+      "alegacao": "T3 da F3b (item 10): os erros de estado de estado-thread.ts nascem por ErroDoCatalogo e o check estado-unico do audit monta o detalhe pelo catalogo; nenhum new Error literal sobra.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -c 'new ErroDoCatalogo((m) => m.estado.' core/src/estado-thread.ts)\" -ge 14 && ! grep -qF 'new Error(' core/src/estado-thread.ts && grep -qF 'm.estado.estadoUnico(' core/src/estado-thread.ts"
+      ],
+      "criadoEm": "2026-10-12T21:18:22.191Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/procedencia.ts",
+      "alegacao": "T3 da F3b (item 10): as recusas de procedencia (estado.rastreado, estado.worktree-nao-registrada, transporte.rastreado, ponteiro.fora-da-raiz) nascem por ErroDoCatalogo; nenhum new Error literal sobra.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -c 'new ErroDoCatalogo((m) => m.estado.' core/src/procedencia.ts)\" -ge 5 && ! grep -qF 'new Error(' core/src/procedencia.ts"
+      ],
+      "criadoEm": "2026-10-12T21:18:24.336Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "T3 da F3b: o retry remonta o detalhe da sincronizacao da worktree dentro do proprio texto, entao o retry run em ingles mostra a worktree em ingles e o ledger segue em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'm.retry.sincronizacaoFalhou(remontar(sync.detalhe))' core/src/retry.ts"
+      ],
+      "criadoEm": "2026-10-12T21:18:26.394Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T3 da F3b: no CLI, os quatro subcomandos de worktree gravam no escopo pt-BR e imprimem pelo catalogo (uso, moldura e bloqueios).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => garantirWorktree(carregado, id))\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => sincronizarWorktree(carregado, id,\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => auditarWorktree(carregado, id))\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => liberarWorktree(carregado, id,\" core/src/index.ts && grep -qF 'console.error(m.uso);' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T21:18:29.131Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T3 da F3b (D1): os subcomandos de worktree (e o desconhecido) entram em COMANDOS_COM_LOCALE, e textoDoErro registra o erro do catalogo guardado num resultado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const k=[\"worktree ensure\",\"worktree sync\",\"worktree audit\",\"worktree release\",\"worktree ?\"]; process.exit(k.every(x=>L.COMANDOS_COM_LOCALE.includes(x)) && L.chaveDoLocale([\"worktree\"],{})===\"worktree ?\" && L.chaveDoLocale([\"worktree\",\"sync\",\"x\"],{})===\"worktree sync\" && typeof L.textoDoErro===\"function\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:18:32.080Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-claims.test.ts",
+      "alegacao": "T4 da F3b: ork claims add, conferir, verificar, retirar, ausente e list saem em ingles (LANG e owner.language), com o estado da claim e a regra do lint traduzidos so na impressao; claims.jsonl e ledger iguais nas duas linguas; o --json do conferir leva a recusa em pt-BR nas duas; negativo: o lint do ci prepare segue em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-claims.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b claims/{p++} /^not ok/{f++} END{exit !(p>=3 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T21:28:36.801Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-claims.ts",
+      "alegacao": "T4 da F3b: a familia claims do catalogo tem o pt-BR de antes e o ingles tipado por ele, com o motivo tipado da conferencia igual nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").claims, pt=msg(\"pt-BR\").claims; process.exit(en.estado(\"retirada\")===\"withdrawn\" && pt.estado(\"retirada\")===\"retirada\" && pt.registrada(\"C1\",\"t\")===\"Claim C1 registrada na thread t.\" && en.registrada(\"C1\",\"t\")===\"Claim C1 recorded in thread t.\" && pt.recusa(\"uso\",\"x\")===\"claims.conferir.uso: x\" && en.recusa(\"uso\",\"x\")===\"claims.conferir.uso: x\" && en.colunas.length===pt.colunas.length ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:28:40.167Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "T4 da F3b: a claim que nao existe nasce por ErroDoCatalogo e a tabela de claims sai pelo catalogo, com o estado traduzido so na impressao.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'new ErroDoCatalogo((m) => m.claims.naoExiste(claimId, threadId))' core/src/claims.ts && grep -qF 'm.estado(c.estado)' core/src/claims.ts && ! grep -qF 'Nenhuma claim na thread' core/src/claims.ts"
+      ],
+      "criadoEm": "2026-10-12T21:28:42.351Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/claims-conferir.ts",
+      "alegacao": "T4 da F3b: as recusas da conferencia pontual nascem do catalogo (ErroDeConferencia passa a ser ErroDoCatalogo) e o texto da conferencia sai pelo catalogo, com o detalhe de cada claim remontado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'class ErroDeConferencia extends ErroDoCatalogo' core/src/claims-conferir.ts && test \"$(grep -c \"recusa('[a-z-]*', (m) =>\" core/src/claims-conferir.ts)\" -ge 20 && grep -qF 'remontar(i.detalhe)' core/src/claims-conferir.ts && ! grep -qF 'Conferencia pontual da thread' core/src/claims-conferir.ts"
+      ],
+      "criadoEm": "2026-10-12T21:28:45.062Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/claim-lint.ts",
+      "alegacao": "T4 da F3b: a correcao do lint gravada no claims.jsonl sai sempre do pt-BR do catalogo, e a linha do lint usa nome e correcao pela regra, no locale ativo.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"msg('pt-BR').claims.correcoesDoLint['suite-inteira']\" core/src/claim-lint.ts && grep -qF 'm.nomesDoLint[a.regra]' core/src/claim-lint.ts"
+      ],
+      "criadoEm": "2026-10-12T21:28:47.292Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/prova-minima.ts",
+      "alegacao": "T4 da F3b: as quatro recusas da prova minima (claims.custo e prova.ausente) nascem por ErroDoCatalogo; nenhum new Error literal sobra.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -c 'new ErroDoCatalogo((m) => m.claims.' core/src/prova-minima.ts)\" -eq 4 && ! grep -qF 'new Error(' core/src/prova-minima.ts"
+      ],
+      "criadoEm": "2026-10-12T21:28:49.272Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T4 da F3b: no CLI, os subcomandos de claims gravam no escopo pt-BR (comLocale) e a recusa da conferencia sai remontada no texto e como nasceu no --json.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => adicionarClaim(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => conferirClaims(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => anexarComando(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => retirarClaim(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => registrarProvaAusente(\" core/src/index.ts && grep -qF 'else console.error(mensagemDoErro(e));' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T21:28:52.357Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T4 da F3b (D1): os subcomandos de claims (e o desconhecido) entram em COMANDOS_COM_LOCALE; claims sem subcomando e claims list; o --json nunca ativa o locale.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const k=[\"add\",\"conferir\",\"verificar\",\"retirar\",\"ausente\",\"list\",\"?\"].map(s=>\"claims \"+s); process.exit(k.every(x=>L.COMANDOS_COM_LOCALE.includes(x)) && L.chaveDoLocale([\"claims\"],{})===\"claims list\" && !L.cobreLocale([\"claims\",\"conferir\",\"x\"],{json:true}) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:28:55.260Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-phase.test.ts",
+      "alegacao": "T4 da F3b: o negativo da F2a para phase deixa de usar claims list (agora coberto) e segue verde com retry list e retry policy.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-phase.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=3 && f==0)}' \"$l\" && grep -qF \"for (const args of [['retry', 'list'], ['retry', 'policy']])\" core/test/locale-phase.test.ts"
+      ],
+      "criadoEm": "2026-10-12T21:28:57.969Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-doctor.test.ts",
+      "alegacao": "T4 da F3b: o caso negativo do doctor passa de claims list (agora coberto) para lease release, que segue em pt-BR, e o teste segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-doctor.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=3 && f==0)}' \"$l\" && grep -qF \"ork(c, EN, false, 'lease', 'release', 'x', 'loc-nada')\" core/test/locale-doctor.test.ts"
+      ],
+      "criadoEm": "2026-10-12T21:29:00.760Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-decisao.test.ts",
+      "alegacao": "T5 da F3b: ork decisao placar e o uso de ork decisao saem em ingles (LANG e owner.language), com o --json do placar igual; negativo (G5): decisao registrar segue em pt-BR byte a byte com LANG ingles.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-decisao.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b decisao/{p++} /^not ok/{f++} END{exit !(p>=2 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T21:33:26.591Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-decisao.ts",
+      "alegacao": "T5 da F3b: a familia decisao do catalogo traz o placar e o uso em pt-BR igual ao de antes e em ingles.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").decisao, pt=msg(\"pt-BR\").decisao; process.exit(pt.taxaDeReversao(null).endsWith(\"sem decisão informada ainda\") && en.taxaDeReversao(0.5).endsWith(\"reversal rate of informed decisions: 50%\") && pt.acimaDoLimiar(13)===\"acima de 13: revisar\" && en.acimaDoLimiar(13)===\"above 13: review\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:33:29.379Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T5 da F3b: no CLI, o placar das decisoes e o uso de ork decisao saem pelo catalogo; nenhum texto pt-BR literal do placar sobra no comando.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'tabela([...md.colunasDoPlacar],' core/src/index.ts && grep -qF 'throw new ErroDoCatalogo((m) => m.decisao.uso);' core/src/index.ts && ! grep -qF 'taxa de reversão das decisões informadas' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T21:33:31.674Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T5 da F3b (D1 e G5): decisao placar e decisao sem subcomando entram em COMANDOS_COM_LOCALE; decisao registrar fica fora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); process.exit(L.COMANDOS_COM_LOCALE.includes(\"decisao placar\") && L.COMANDOS_COM_LOCALE.includes(\"decisao ?\") && !L.cobreLocale([\"decisao\",\"registrar\",\"x\"],{}) && L.chaveDoLocale([\"decisao\"],{})===\"decisao ?\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:33:34.236Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-accounts.test.ts",
+      "alegacao": "T6 da F3b: ork accounts list, add, remove, check e esgotamentos saem em ingles (LANG e owner.language), com o estado do perfil traduzido so na impressao e as recusas runtime.profiles pelo catalogo; o --json (store e limite) igual nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-accounts.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b accounts/{p++} /^not ok/{f++} END{exit !(p>=2 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T21:40:35.362Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-accounts.ts",
+      "alegacao": "T6 da F3b: a familia accounts do catalogo tem o pt-BR de antes e o ingles tipado por ele, com o codigo runtime.profiles igual nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").accounts, pt=msg(\"pt-BR\").accounts; process.exit(en.estado(\"sem-auth\")===\"no-auth\" && pt.estado(\"sem-auth\")===\"sem-auth\" && pt.desativado(\"p\")===\"Perfil p desativado: o diretorio e o login do CLI ficam onde estao.\" && en.perfilNaoExiste(\"p\").startsWith(\"runtime.profiles.unknown: profile \") && pt.perfilNaoExiste(\"p\").startsWith(\"runtime.profiles.unknown: perfil \") && en.colunas.length===pt.colunas.length ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:40:38.647Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-profiles.ts",
+      "alegacao": "T6 da F3b: as recusas do registro de perfis nascem por ErroDoCatalogo, o que o store grava sai do pt-BR do catalogo e a tabela traduz o estado so na impressao; nenhum new Error literal sobra.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -c 'new ErroDoCatalogo((m) => m.accounts.' core/src/runtime-profiles.ts)\" -ge 38 && ! grep -qF 'new Error(' core/src/runtime-profiles.ts && grep -qF \"msg('pt-BR').accounts.inconclusiva(detalhe)\" core/src/runtime-profiles.ts && grep -qF 'm.estado(p.estado)' core/src/runtime-profiles.ts"
+      ],
+      "criadoEm": "2026-10-12T21:40:41.263Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/esgotamentos.ts",
+      "alegacao": "T6 da F3b: o relatorio de esgotamentos sai pelo catalogo, e o limite que o --json leva segue em pt-BR, mostrado no locale do comando na impressao.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"export const LIMITE_DO_RELATORIO = msg('pt-BR').accounts.limiteDoRelatorio;\" core/src/esgotamentos.ts && grep -qF 't.limite(r.limite === LIMITE_DO_RELATORIO ? t.limiteDoRelatorio : r.limite)' core/src/esgotamentos.ts && ! grep -qF 'marcas vivas no registro' core/src/esgotamentos.ts"
+      ],
+      "criadoEm": "2026-10-12T21:40:43.758Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T6 da F3b: no CLI, accounts grava no escopo pt-BR e imprime pelo catalogo, inclusive a recusa do perfil e o subcomando desconhecido.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => adicionarPerfil(raiz, { id, runtime, dir }))\" core/src/index.ts && grep -qF 'console.error(ma.recusado(mensagemDoErro(e)))' core/src/index.ts && grep -qF 'console.error(ma.desconhecido(sub))' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T21:40:46.038Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T6 da F3b (D1): os subcomandos de accounts (e o desconhecido) entram em COMANDOS_COM_LOCALE; accounts sem subcomando e accounts list.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const k=[\"list\",\"add\",\"remove\",\"check\",\"esgotamentos\",\"?\"].map(s=>\"accounts \"+s); process.exit(k.every(x=>L.COMANDOS_COM_LOCALE.includes(x)) && L.chaveDoLocale([\"accounts\"],{})===\"accounts list\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:40:48.539Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-network.test.ts",
+      "alegacao": "T7 da F3b: ork network entrar, status, publicar e sair saem em ingles com a forja falsa da RM-053, com as lacunas remontadas no texto e em pt-BR no --json; negativo (G6): network roadmap segue em pt-BR byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-network.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b network/{p++} /^not ok/{f++} END{exit !(p>=3 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T21:53:25.129Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-network.ts",
+      "alegacao": "T7 da F3b: a familia network do catalogo tem o pt-BR de antes e o ingles tipado por ele, com o motivo tipado rede.* igual nas duas linguas e o que nao foi consultado traduzido so na impressao.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").network, pt=msg(\"pt-BR\").network; process.exit(en.itemNaoConsultado(\"reservas\")===\"reservations\" && pt.itemNaoConsultado(\"reservas\")===\"reservas\" && pt.semLacunas===\"Lacunas: nenhuma.\" && en.semLacunas===\"Gaps: none.\" && pt.foraDaRede.startsWith(\"rede.fora: \") && en.foraDaRede.startsWith(\"rede.fora: \") && pt.semLogin([\"gh\",\"glab\"])===\"gh e glab sem login nesta maquina (gh auth login ou glab auth login)\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:53:28.624Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "T7 da F3b: as recusas da rede nascem por ErroDoCatalogo, o motivo da casa pelo catalogo, e o erro que embute um texto ja montado guarda o montador dele (montadorDe); nenhum throw new Error literal sobra.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -c 'new ErroDoCatalogo(' core/src/rede.ts)\" -ge 20 && ! grep -qF 'throw new Error(' core/src/rede.ts && grep -qF 'montadorDe(r.motivo.detalhe)' core/src/rede.ts"
+      ],
+      "criadoEm": "2026-10-12T21:53:31.117Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-adesao.ts",
+      "alegacao": "T7 da F3b: as recusas da adesao (rede.config e rede.id) nascem por ErroDoCatalogo.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'new ErroDoCatalogo((m) => m.network.' core/src/rede-adesao.ts)\" -ge 4 && ! grep -qE 'new Error.{1,3}rede[.]' core/src/rede-adesao.ts"
+      ],
+      "criadoEm": "2026-10-12T21:53:35.445Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-forja.ts",
+      "alegacao": "T7 da F3b: a falha da API da forja e a falha de login lido nascem pelo catalogo, com o texto de dentro guardado pelo montador.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'm.network.apiFalhou(cli, rota, montarLinha(m))' core/src/rede-forja.ts && grep -qF 'm.network.respostaSemLogin(cli)' core/src/rede-forja.ts && ! grep -qF \"throw new Error('rede.forja\" core/src/rede-forja.ts"
+      ],
+      "criadoEm": "2026-10-12T21:53:37.724Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T7 da F3b: no CLI, network entrar, sair, publicar e status leem e gravam no escopo pt-BR (inclusive o rede.log do publicar silencioso) e imprimem pelo catalogo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => entrarNaRede(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => sairDaRede(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => publicarRede(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => lerRede(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => registrarNaRede(\" core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T21:53:40.475Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T7 da F3b (D1 e G6): network status, entrar, sair, publicar e o desconhecido entram em COMANDOS_COM_LOCALE; network roadmap fica fora; montadorDe devolve o montador registrado ou o texto como veio.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const k=[\"status\",\"entrar\",\"sair\",\"publicar\",\"?\"].map(s=>\"network \"+s); process.exit(k.every(x=>L.COMANDOS_COM_LOCALE.includes(x)) && L.chaveDoLocale([\"network\"],{})===\"network status\" && !L.cobreLocale([\"network\",\"roadmap\"],{}) && typeof L.montadorDe===\"function\" && L.montadorDe(\"x\")(L.msg())===\"x\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:53:43.620Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-reservas.test.ts",
+      "alegacao": "T8 da F3b: ork roadmap reservas, pegar, soltar e feat saem em ingles com um remoto bare local (LANG e owner.language), com o bloco do RM-052 igual, o --json igual e o painel em Markdown da branch em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-reservas.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b reservas/{p++} /^not ok/{f++} END{exit !(p>=2 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T21:59:52.152Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-reservas.ts",
+      "alegacao": "T8 da F3b: a familia reservas do catalogo tem o pt-BR de antes e o ingles tipado por ele, com o cabecalho do painel na mesma largura e o codigo roadmap.* igual.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").reservas, pt=msg(\"pt-BR\").reservas; process.exit(pt.acao(\"tomou\")===\"reserva TOMADA de outra maquina\" && en.acao(\"tomou\")===\"reservation TAKEN from another machine\" && pt.cabecalho.length===en.cabecalho.length && pt.nenhumaOrfa===\"Nenhuma reserva órfã desta máquina.\" && en.forcarSemMotivo.startsWith(\"roadmap.forcar: \") ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T21:59:55.382Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/roadmap-reservas.ts",
+      "alegacao": "T8 da F3b: as recusas roadmap.* nascem por ErroDoCatalogo, o detalhe da soltura nasce pelo catalogo (pt-BR no ledger e no --json) e o painel no terminal sai pelo catalogo; nenhum throw new Error literal sobra.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -c 'new ErroDoCatalogo((m) => m.reservas.' core/src/roadmap-reservas.ts)\" -ge 10 && ! grep -qF 'throw new Error(' core/src/roadmap-reservas.ts && grep -qF 'm.reservas.passouPara(item, sucessora)' core/src/roadmap-reservas.ts && grep -qF 'linhas.push(m.cabecalho)' core/src/roadmap-reservas.ts"
+      ],
+      "criadoEm": "2026-10-12T21:59:58.229Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T8 da F3b: no CLI, reservas, pegar, soltar e feat gravam no escopo pt-BR e imprimem pelo catalogo, com a soltura das orfas remontada.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => soltarReservasOrfas(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => reservarFeat(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => sub === 'pegar' ? pegarItem(\" core/src/index.ts && grep -qF 'mr.soltura(s.item, remontar(s.detalhe), s.thread)' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T22:00:01.083Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T8 da F3b (D1): roadmap reservas, pegar, soltar, feat e o desconhecido entram em COMANDOS_COM_LOCALE; roadmap sem subcomando e roadmap reservas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const k=[\"reservas\",\"pegar\",\"soltar\",\"feat\",\"?\"].map(s=>\"roadmap \"+s); process.exit(k.every(x=>L.COMANDOS_COM_LOCALE.includes(x)) && L.chaveDoLocale([\"roadmap\"],{})===\"roadmap reservas\" && L.chaveDoLocale([\"roadmap\",\"voar\"],{})===\"roadmap ?\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:00:05.360Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-roadmap.test.ts",
+      "alegacao": "T8 da F3b: o teste do roadmap status da F2b deixa de exigir roadmap reservas em pt-BR (agora coberto), mantendo o bloco do RM-052 igual nas duas linguas, e segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-roadmap.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=2 && f==0)}' \"$l\" && grep -qF 'Roadmap reservations: project loc has no remote origin' core/test/locale-roadmap.test.ts"
+      ],
+      "criadoEm": "2026-10-12T22:00:07.769Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-docs-f3b.test.ts",
+      "alegacao": "T9 da F3b: ork docs verificar e sincronizar saem em ingles (LANG e owner.language), com o resumo, os achados, o escopo, as mudancas e o uso pelo catalogo; o --json leva os achados em pt-BR igual nas duas linguas; negativo: o contrato das paginas (secao cobrada) nao muda com a lingua.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-docs-f3b.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b docs/{p++} /^not ok/{f++} END{exit !(p>=4 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T22:16:25.574Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-docs.ts",
+      "alegacao": "T9 da F3b: a familia docs do catalogo tem o pt-BR de antes (o travessao como escape, nunca literal) e o ingles tipado por ele, com o campo e os valores da mudanca traduzidos so na impressao.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").docs, pt=msg(\"pt-BR\").docs; const t=String.fromCharCode(8212), s=String.fromCharCode(8594); process.exit(pt.resumo(3,1,1,1)===\"Documentação: 3 páginas \"+t+\" 1 features, 1 itens de roadmap, 1 de contexto\" && en.resumo(3,1,1,1)===\"Documentation: 3 pages (1 feature(s), 1 roadmap item(s), 1 context page(s))\" && pt.faltaChaveCorrecao.startsWith(\"copie a chave do modelo; lacuna é \") && pt.faltaChaveCorrecao.includes(\"A definir \"+t+\" responsável, prazo\") && en.linhaDaMudanca(\"RM-001\",\"tabelas de estado\",\"desatualizadas\",\"regeradas\",\"frontmatter\")===\"  RM-001  state tables: outdated \"+s+\" regenerated  (frontmatter)\" && pt.linhaDaMudanca(\"RM-001\",\"estado.codigo\",\"\",\"Mesclado\",\"git log main\")===\"  RM-001  estado.codigo: \"+t+\" \"+s+\" Mesclado  (git log main)\" && !require(\"fs\").readFileSync(\"core/src/locale-docs.ts\",\"utf8\").includes(t) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:16:30.615Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/docs.ts",
+      "alegacao": "T9 da F3b: a mensagem e a correcao de cada achado do docs verificar nascem pelo catalogo (registradas para a remontagem), e o texto da verificacao e da sincronizacao sai pelo catalogo, remontando os achados; nenhum texto pt-BR literal de achado sobra no modulo.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cF '(m) => m.' core/src/docs.ts)\" -ge 50 && grep -qF 'remontar(a.mensagem)' core/src/docs.ts && grep -qF 'remontar(a.correcao)' core/src/docs.ts && grep -qF 'm.linhaDaMudanca(x.id, x.campo, x.de, x.para, x.fonte)' core/src/docs.ts && ! grep -qF 'falta a chave' core/src/docs.ts && ! grep -qF 'Nada foi gravado' core/src/docs.ts"
+      ],
+      "criadoEm": "2026-10-12T22:16:33.565Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T9 da F3b: no CLI, docs verificar e docs sincronizar rodam no escopo pt-BR (o --json leva os achados em pt-BR) e o escopo, o uso e as recusas do --so saem pelo catalogo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA, pr: args.opcoes.pr === true }))\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => sincronizarDocs(raiz, { baseBranch, escrever, itens }))\" core/src/index.ts && grep -qF 'console.error(md.uso);' core/src/index.ts && ! grep -qF 'faltou o item depois de --so' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T22:16:36.367Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T9 da F3b (D1): docs verificar, docs sincronizar e o desconhecido entram em COMANDOS_COM_LOCALE; docs sem subcomando e docs verificar; o --json nunca ativa o locale.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const k=[\"verificar\",\"sincronizar\",\"?\"].map(s=>\"docs \"+s); process.exit(k.every(x=>L.COMANDOS_COM_LOCALE.includes(x)) && L.chaveDoLocale([\"docs\"],{})===\"docs verificar\" && L.cobreLocale([\"docs\",\"voar\"],{}) && !L.cobreLocale([\"docs\",\"verificar\"],{json:true}) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:16:39.120Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3a-docs.test.ts",
+      "alegacao": "T9 da F3b: o negativo da F3a para docs verificar vira positivo (o texto segue o locale; o --json e o codigo de saida nao), e o teste segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f3a-docs.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=5 && f==0)}' \"$l\" && grep -qF 'o --json do ork docs verificar nao muda com a lingua' core/test/locale-f3a-docs.test.ts"
+      ],
+      "criadoEm": "2026-10-12T22:16:41.721Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f2a-infra.test.ts",
+      "alegacao": "T9 da F3b: o teste de infraestrutura deixa de listar docs, docs verificar, docs sincronizar e o desconhecido como rotas em pt-BR, e segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f2a-infra.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=4 && f==0)}' \"$l\" && ! grep -qF \"['docs', 'verificar']\" core/test/locale-f2a-infra.test.ts"
+      ],
+      "criadoEm": "2026-10-12T22:16:44.264Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-adapter.test.ts",
+      "alegacao": "T10 da F3b: ork adapter list, show e install (simulado, feito e barrado) saem em ingles (LANG e owner.language), com o aviso do pacote de experiencia remontado; negativo: o recibo INSTALADO.json e o motivo da divergencia nao mudam com a lingua e o HOSTS segue em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-adapter.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b adapter/{p++} /^not ok/{f++} END{exit !(p>=4 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T22:28:34.906Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-adapter.ts",
+      "alegacao": "T10 da F3b: a familia adapter do catalogo tem o pt-BR de antes (incluindo a descricao e os 3 pitfalls de cada host) e o ingles tipado por ele, com o codigo experiencia.path.unsafe igual nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").adapter, pt=msg(\"pt-BR\").adapter; process.exit(pt.titulo===\"Adaptadores de host (Camada 1, o podio)\" && en.titulo===\"Host adapters (Layer 1, the podium)\" && pt.arquivos(3,1,1,1)===\"  arquivos: 3 (1 novo(s), 1 ja identico(s), 1 divergente(s))\" && en.arquivos(3,1,1,1)===\"  files: 3 (1 new, 1 already identical, 1 divergent)\" && [\"claude-code\",\"codex\",\"hermes\",\"openclaw\"].every(h=>pt.hosts[h].pitfalls.length===3 && en.hosts[h].pitfalls.length===3) && en.destinoInseguro.startsWith(\"experiencia.path.unsafe: \") && pt.destinoInseguro===\"experiencia.path.unsafe: destino do adaptador\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:28:39.023Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/hosts.ts",
+      "alegacao": "T10 da F3b: o HOSTS le a descricao e os pitfalls do pt-BR do catalogo, os avisos da instalacao nascem pelo catalogo e o texto os remonta, as recusas nascem por ErroDoCatalogo; nenhum texto pt-BR literal da instalacao nem throw Error sobra no modulo.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'const DO_CATALOGO = ADAPTER_PT_BR.hosts;' core/src/hosts.ts && grep -qF 'm.hosts[host].pitfalls.forEach' core/src/hosts.ts && grep -qF 'm.aviso(remontar(r.experiencia.aviso))' core/src/hosts.ts && grep -qF 'm.avisoOrk(remontar(r.avisoOrk))' core/src/hosts.ts && grep -qF 'throw new ErroDoCatalogo((m) => m.adapter.destinoInseguro);' core/src/hosts.ts && ! grep -qF 'Simulacao (--dry-run)' core/src/hosts.ts && ! grep -qF 'Pacote de experiência pulado' core/src/hosts.ts && ! grep -qE 'throw (new )?Error' core/src/hosts.ts"
+      ],
+      "criadoEm": "2026-10-12T22:28:42.852Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/catalogo.ts",
+      "alegacao": "T10 da F3b (item 10): o catalogo nao encontrado do adapter install nasce por ErroDoCatalogo; o do ork eval (fora da fatia) segue como era.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'throw new ErroDoCatalogo((m) => m.adapter.catalogoNaoEncontrado);' core/src/catalogo.ts && test \"$(grep -cF 'catalogo do Orkastery nao encontrado' core/src/catalogo.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:28:44.963Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T10 da F3b: no CLI, adapter install instala no escopo pt-BR e adapter list, show, install e os erros de uso imprimem pelo catalogo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => instalarAdaptador(host, {\" core/src/index.ts && grep -qF 'console.error(ma.subcomandoDesconhecido(sub));' core/src/index.ts && grep -qF 'console.log(ma.adaptador(host));' core/src/index.ts && ! grep -qF 'host desconhecido: \"' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T22:28:47.294Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T10 da F3b (D1): adapter list, show, install e o desconhecido entram em COMANDOS_COM_LOCALE; adapter sem subcomando e adapter list.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const k=[\"list\",\"show\",\"install\",\"?\"].map(s=>\"adapter \"+s); process.exit(k.every(x=>L.COMANDOS_COM_LOCALE.includes(x)) && L.chaveDoLocale([\"adapter\"],{})===\"adapter list\" && L.chaveDoLocale([\"adapter\",\"voar\"],{})===\"adapter ?\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:28:49.891Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-dado.test.ts",
+      "alegacao": "T10 da F3b: o teste do catalogo inteiro cobre a familia adapter, com so as provas que sao um comando sem comentario iguais nas duas linguas, e segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-dado.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=3 && f==0)}' \"$l\" && grep -qF \"'reservas', 'docs', 'adapter']\" core/test/locale-dado.test.ts"
+      ],
+      "criadoEm": "2026-10-12T22:28:52.655Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3a-experiencia.test.ts",
+      "alegacao": "T10 da F3b: o negativo da F3a com o dono en-US passa a esperar o aviso do bloco editado em ingles (o texto da instalacao segue o locale), e o teste segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f3a-experiencia.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=6 && f==0)}' \"$l\" && grep -qF 'Experience package skipped: the instructions block' core/test/locale-f3a-experiencia.test.ts"
+      ],
+      "criadoEm": "2026-10-12T22:28:55.324Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C73",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-estado.test.ts",
+      "alegacao": "T11 da F3b (item 10): o diretorio de estado como link sai em ingles nos comandos cobertos e as recusas da pasta privada nascem do catalogo, com o motivo tipado igual; negativo: num comando fora da lista (lease list) o erro segue em pt-BR com LANG ingles.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-estado.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b estado/{p++} /^not ok/{f++} END{exit !(p>=3 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T22:33:31.438Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-estado.ts",
+      "alegacao": "T11 da F3b (item 10): a familia estado ganha o link do diretorio de estado (manifest.ts) e as tres recusas da pasta privada (postura-local.ts), com o pt-BR de antes e o motivo tipado igual no ingles.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").estado, pt=msg(\"pt-BR\").estado; process.exit(pt.dirEstadoLink(\".orkastery\")===\"estado.link: .orkastery é link simbólico; o estado do ork fica numa pasta de verdade dentro da raiz. Remova o link.\" && en.dirEstadoLink(\".orkastery\").startsWith(\"estado.link: .orkastery is a symbolic link\") && pt.posturaEstadoLink===\"estado.link: .orkastery precisa ser pasta de verdade\" && en.posturaPrivadaLink===\"estado.link: .orkastery/private must be a real folder\" && en.posturaRastreada(\"x\").startsWith(\"estado.rastreado: x \") ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:33:35.290Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C75",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "T11 da F3b (item 10): o diretorio de estado como link (dirEstado) nasce por ErroDoCatalogo, entao sai no locale do comando coberto e em pt-BR nos demais.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'throw new ErroDoCatalogo((m) => m.estado.dirEstadoLink(DIR_ESTADO));' core/src/manifest.ts && ! grep -qF 'o estado do ork fica numa pasta de verdade' core/src/manifest.ts"
+      ],
+      "criadoEm": "2026-10-12T22:33:37.461Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C76",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/postura-local.ts",
+      "alegacao": "T11 da F3b (item 10): as tres recusas da pasta privada da confirmacao local (estado.link duas vezes e estado.rastreado) nascem por ErroDoCatalogo.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF 'new ErroDoCatalogo((m) => m.estado.postura' core/src/postura-local.ts)\" -eq 3 && ! grep -qF 'precisa ser pasta de verdade' core/src/postura-local.ts"
+      ],
+      "criadoEm": "2026-10-12T22:33:39.218Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C77",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-skills.test.ts",
+      "alegacao": "T12 da F3b (item 11, D4 e D5): cada variante inglesa tem a estrutura do original e veio da versao atual dele; todo .md instalavel dos hosts com catalogo e a skill do Hermes tem variante; com o dono em ingles o install copia a variante, reinstalar nao muda e trocar a lingua troca no lugar; negativo: sem lingua ou com o dono em pt-BR, o recibo e os arquivos sao os do catalogo.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-skills.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b skills/{p++} /^not ok/{f++} END{exit !(p>=4 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T22:44:43.014Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C78",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en",
+      "alegacao": "T12 da F3b: as 18 skills do catalogo (fora o par bilingue da experiencia) tem variante inglesa, com as ancoras das racionalizacoes e das bandeiras vermelhas preservadas e nenhum caminho de maquina ou e-mail.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(find core/assets/skills-en -name SKILL.md | wc -l)\" -eq 18 && test \"$(find skills -name SKILL.md | wc -l)\" -eq 20 && test ! -e core/assets/skills-en/core/orchestration-experience && test \"$(grep -rlF '## Racionalizacoes comuns (Common rationalizations)' core/assets/skills-en | wc -l)\" -ge 16 && ! grep -rqE '/hom[e]/|@gmai[l]' core/assets/skills-en"
+      ],
+      "criadoEm": "2026-10-12T22:44:45.668Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C79",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/references-en",
+      "alegacao": "T12 da F3b: toda checklist de references/ tem variante inglesa, sem caminho de maquina ou e-mail.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(find core/assets/references-en -name '*.md' | wc -l)\" -eq \"$(find references -maxdepth 1 -name '*.md' | wc -l)\" && ! grep -rqE '/hom[e]/|@gmai[l]' core/assets/references-en"
+      ],
+      "criadoEm": "2026-10-12T22:44:47.573Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C80",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en",
+      "alegacao": "T12 da F3b: os 19 .md dos adaptadores (comandos, subagentes, README e ACTIVATION do claude-code, a skill ork do codex, a skill e o README do Hermes) tem variante inglesa, sem caminho de maquina ou e-mail.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(find core/assets/adapters-en -name '*.md' | wc -l)\" -eq 19 && test -f core/assets/adapters-en/codex/skills/ork/SKILL.md && test -f core/assets/adapters-en/hermes/skills/orkastery-devmaster/SKILL.md && ! grep -rqE '/hom[e]/|@gmai[l]' core/assets/adapters-en"
+      ],
+      "criadoEm": "2026-10-12T22:44:49.967Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C81",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/hosts.ts",
+      "alegacao": "T12 da F3b (D4): com o dono em ingles, o adapter install troca a origem de cada arquivo com variante (skills-en, references-en, adapters-en, ao lado do catalogo) e copia para o mesmo destino; sem variante, o arquivo sai em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function varianteEmIngles(catalogo: string, origem: string): string | null {' core/src/hosts.ts && grep -qF \"for (const fonte of fontes) fonte.origem = varianteEmIngles(catalogo, fonte.origem) ?? fonte.origem;\" core/src/hosts.ts && grep -qF \"if (opcoes.locale === 'en') {\" core/src/hosts.ts"
+      ],
+      "criadoEm": "2026-10-12T22:44:52.777Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C82",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/package.json",
+      "alegacao": "T12 da F3b: o pacote deixa de fora a variante inglesa do ACTIVATION.md do claude-code, como ja deixa o original; o resto de assets/ vai no pacote.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const p=require(\"./core/package.json\"); process.exit(p.files.includes(\"!assets/adapters-en/claude-code/ACTIVATION.md\") && p.files.includes(\"!adapters/claude-code/ACTIVATION.md\") && p.files.includes(\"assets/\") ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:44:55.018Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/variantes-en.json",
+      "alegacao": "T12 da F3b: o manifesto registra, para cada uma das 43 variantes, o sha256 do original pt-BR de que ela foi traduzida (o teste acusa variante desatualizada).",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const m=require(\"./core/test/fixtures/variantes-en.json\"); const k=Object.keys(m); process.exit(k.length===43 && k.every(x=>/^(skills|references|adapters)-en[/].+[.]md$/.test(x) && /^[0-9a-f]{64}$/.test(m[x])) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:44:57.189Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/ACTIVATION.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/ACTIVATION.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/ACTIVATION.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/ACTIVATION.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/ACTIVATION.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:02.780Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C85",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/README.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/README.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/README.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/README.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/README.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:05.647Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C86",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-check.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/agents/ork-check.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/agents/ork-check.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/agents/ork-check.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/agents/ork-check.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:08.808Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C87",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-go.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/agents/ork-go.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/agents/ork-go.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/agents/ork-go.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/agents/ork-go.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:11.948Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C88",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-goal.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/agents/ork-goal.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/agents/ork-goal.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/agents/ork-goal.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/agents/ork-goal.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:15.101Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C89",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-master.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/agents/ork-master.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/agents/ork-master.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/agents/ork-master.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/agents/ork-master.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:18.305Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C90",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-plan.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/agents/ork-plan.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/agents/ork-plan.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/agents/ork-plan.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/agents/ork-plan.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:21.448Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C91",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-ship.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/agents/ork-ship.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/agents/ork-ship.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/agents/ork-ship.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/agents/ork-ship.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:24.648Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C92",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/commands/check.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/commands/check.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/commands/check.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/commands/check.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/commands/check.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:27.739Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C93",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/commands/go.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/commands/go.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/commands/go.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/commands/go.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/commands/go.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:30.825Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C94",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/commands/goal.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/commands/goal.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/commands/goal.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/commands/goal.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/commands/goal.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:33.737Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C95",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/commands/master.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/commands/master.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/commands/master.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/commands/master.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/commands/master.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:38.689Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C96",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/commands/onboarding.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/commands/onboarding.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/commands/onboarding.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/commands/onboarding.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/commands/onboarding.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:41.833Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C97",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/commands/ork.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/commands/ork.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/commands/ork.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/commands/ork.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/commands/ork.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:44.934Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C98",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/commands/plan.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/commands/plan.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/commands/plan.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/commands/plan.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/commands/plan.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:48.032Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C99",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/commands/ship.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/claude-code/commands/ship.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/claude-code/commands/ship.md\"), b=fs.readFileSync(\"core/assets/adapters-en/claude-code/commands/ship.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/claude-code/commands/ship.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:51.135Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C100",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/codex/skills/ork/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/codex/skills/ork/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/codex/skills/ork/SKILL.md\"), b=fs.readFileSync(\"core/assets/adapters-en/codex/skills/ork/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/codex/skills/ork/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:54.328Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C101",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/hermes/README.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/hermes/README.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/hermes/README.md\"), b=fs.readFileSync(\"core/assets/adapters-en/hermes/README.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/hermes/README.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:46:57.310Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C102",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/hermes/skills/orkastery-devmaster/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de adapters/hermes/skills/orkastery-devmaster/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"adapters/hermes/skills/orkastery-devmaster/SKILL.md\"), b=fs.readFileSync(\"core/assets/adapters-en/hermes/skills/orkastery-devmaster/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"adapters-en/hermes/skills/orkastery-devmaster/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:00.699Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C103",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/references-en/README.md",
+      "alegacao": "T12 da F3b: a variante inglesa de references/README.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"references/README.md\"), b=fs.readFileSync(\"core/assets/references-en/README.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"references-en/README.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:03.490Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C104",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/references-en/code-review-axes.md",
+      "alegacao": "T12 da F3b: a variante inglesa de references/code-review-axes.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"references/code-review-axes.md\"), b=fs.readFileSync(\"core/assets/references-en/code-review-axes.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"references-en/code-review-axes.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:06.386Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C105",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/references-en/definition-of-done.md",
+      "alegacao": "T12 da F3b: a variante inglesa de references/definition-of-done.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"references/definition-of-done.md\"), b=fs.readFileSync(\"core/assets/references-en/definition-of-done.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"references-en/definition-of-done.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:09.170Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C106",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/references-en/performance-checklist.md",
+      "alegacao": "T12 da F3b: a variante inglesa de references/performance-checklist.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"references/performance-checklist.md\"), b=fs.readFileSync(\"core/assets/references-en/performance-checklist.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"references-en/performance-checklist.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:13.998Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C107",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/references-en/security-checklist.md",
+      "alegacao": "T12 da F3b: a variante inglesa de references/security-checklist.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"references/security-checklist.md\"), b=fs.readFileSync(\"core/assets/references-en/security-checklist.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"references-en/security-checklist.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:16.849Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C108",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/references-en/testing-patterns.md",
+      "alegacao": "T12 da F3b: a variante inglesa de references/testing-patterns.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"references/testing-patterns.md\"), b=fs.readFileSync(\"core/assets/references-en/testing-patterns.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"references-en/testing-patterns.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:19.803Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C109",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/core/onboarding/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/core/onboarding/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/core/onboarding/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/core/onboarding/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/core/onboarding/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:22.900Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C110",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/core/orkastery-bootstrap/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/core/orkastery-bootstrap/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/core/orkastery-bootstrap/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/core/orkastery-bootstrap/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:26.153Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C111",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/core/thread-state/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/core/thread-state/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/core/thread-state/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/core/thread-state/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/core/thread-state/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:29.250Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C112",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/governance/decision-triage/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/governance/decision-triage/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/governance/decision-triage/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/governance/decision-triage/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/governance/decision-triage/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:32.366Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C113",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/governance/narrative-guardian/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/governance/narrative-guardian/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/governance/narrative-guardian/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/governance/narrative-guardian/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/governance/narrative-guardian/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:35.648Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C114",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/governance/roadmap-keeper/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/governance/roadmap-keeper/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/governance/roadmap-keeper/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/governance/roadmap-keeper/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/governance/roadmap-keeper/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:38.906Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C115",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/governance/scope-check-capability-map/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/governance/scope-check-capability-map/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/governance/scope-check-capability-map/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/governance/scope-check-capability-map/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/governance/scope-check-capability-map/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:42.197Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C116",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/observability/thread-tracing/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/observability/thread-tracing/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/observability/thread-tracing/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/observability/thread-tracing/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/observability/thread-tracing/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:45.231Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C117",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/phases/check-quality/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/phases/check-quality/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/phases/check-quality/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/phases/check-quality/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/phases/check-quality/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:50.324Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C118",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/phases/go-implementation/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/phases/go-implementation/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/phases/go-implementation/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/phases/go-implementation/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/phases/go-implementation/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:53.466Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C119",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/phases/goal-definition/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/phases/goal-definition/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/phases/goal-definition/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/phases/goal-definition/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/phases/goal-definition/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:56.688Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C120",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/phases/master-metrics/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/phases/master-metrics/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/phases/master-metrics/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/phases/master-metrics/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/phases/master-metrics/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:47:59.841Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C121",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/phases/plan-specification/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/phases/plan-specification/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/phases/plan-specification/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/phases/plan-specification/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/phases/plan-specification/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:48:03.038Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C122",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/phases/ship-release/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/phases/ship-release/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/phases/ship-release/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/phases/ship-release/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/phases/ship-release/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:48:06.173Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C123",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/reviewers/code-reviewer/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/reviewers/code-reviewer/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/reviewers/code-reviewer/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/reviewers/code-reviewer/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/reviewers/code-reviewer/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:48:09.433Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C124",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/reviewers/security-auditor/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/reviewers/security-auditor/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/reviewers/security-auditor/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/reviewers/security-auditor/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/reviewers/security-auditor/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:48:12.682Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C125",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/reviewers/test-engineer/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/reviewers/test-engineer/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/reviewers/test-engineer/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/reviewers/test-engineer/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/reviewers/test-engineer/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:48:15.922Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C126",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/reviewers/web-performance-auditor/SKILL.md",
+      "alegacao": "T12 da F3b: a variante inglesa de skills/reviewers/web-performance-auditor/SKILL.md tem as mesmas linhas do original, foi traduzida da versao atual dele (sha256 do manifesto) e nao tem travessao.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),c=require(\"crypto\"),m=require(\"./core/test/fixtures/variantes-en.json\"),n=String.fromCharCode(10); const a=fs.readFileSync(\"skills/reviewers/web-performance-auditor/SKILL.md\"), b=fs.readFileSync(\"core/assets/skills-en/reviewers/web-performance-auditor/SKILL.md\",\"utf8\"); process.exit(a.toString().split(n).length===b.split(n).length && c.createHash(\"sha256\").update(a).digest(\"hex\")===m[\"skills-en/reviewers/web-performance-auditor/SKILL.md\"] && !b.includes(String.fromCharCode(8212)) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T22:48:19.055Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C127",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/rede.test.ts",
+      "alegacao": "T14 da F3b: os 16 arquivos de teste que liam texto de comando agora coberto passam com LANG=en_US.UTF-8, com o pt-BR fixado no filho (envPtBr) ou no main em processo (comAmbientePtBr).",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && LANG=en_US.UTF-8 LC_ALL= LC_MESSAGES= node --test --test-reporter=tap core/dist-test/test/accounts-p3.test.js core/dist-test/test/adapter-ork-em-execucao.test.js core/dist-test/test/auth-transitoria.test.js core/dist-test/test/branch-de-estado-remoto.test.js core/dist-test/test/claim-lint.test.js core/dist-test/test/cli-b4.test.js core/dist-test/test/decisao-autonoma.test.js core/dist-test/test/network-roadmap.test.js core/dist-test/test/perfil-pago.test.js core/dist-test/test/projeto-alvo-reservas.test.js core/dist-test/test/rede.test.js core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js core/dist-test/test/rm037-noite-docs-so-do-item.test.js core/dist-test/test/rm037-noite-reserva-orfa.test.js core/dist-test/test/rm040-esgotamentos.test.js core/dist-test/test/setup-fallback.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=160 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T23:11:38.068Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C128",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/accounts-p3.test.ts",
+      "alegacao": "T14 da F3b: accounts-p3.test.ts le o texto do accounts com o pt-BR fixado no filho (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"const ENV = envPtBr({ ...process.env, PATH:\" core/test/accounts-p3.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:11:39.880Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C129",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/adapter-ork-em-execucao.test.ts",
+      "alegacao": "T14 da F3b: adapter-ork-em-execucao.test.ts le o aviso do adapter install com o pt-BR fixado no filho (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"env: envPtBr({ ...process.env, PATH:\" core/test/adapter-ork-em-execucao.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:11:41.649Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C130",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/auth-transitoria.test.ts",
+      "alegacao": "T14 da F3b: auth-transitoria.test.ts le o texto do accounts check com o pt-BR fixado no filho (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"stdio: 'pipe', env: envPtBr() });\" core/test/auth-transitoria.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:11:43.463Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C131",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/branch-de-estado-remoto.test.ts",
+      "alegacao": "T14 da F3b: branch-de-estado-remoto.test.ts le a recusa do remoto com o pt-BR fixado no filho (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"env: envPtBr({ ...process.env, ...env }), timeout: 60000\" core/test/branch-de-estado-remoto.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:11:45.308Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C132",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/claim-lint.test.ts",
+      "alegacao": "T14 da F3b: claim-lint.test.ts le o aviso do claims add com o pt-BR fixado no filho (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"timeout: 60000, env: envPtBr() });\" core/test/claim-lint.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:11:46.961Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C133",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/cli-b4.test.ts",
+      "alegacao": "T14 da F3b: cli-b4.test.ts le o texto do adapter list e show com o pt-BR fixado no filho (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"        env: envPtBr(),\" core/test/cli-b4.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:11:48.662Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C134",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/decisao-autonoma.test.ts",
+      "alegacao": "T14 da F3b: decisao-autonoma.test.ts le o texto do decisao placar com o pt-BR fixado no filho (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"'placar', t.id], { cwd: p.dir, encoding: 'utf8', env: envPtBr() });\" core/test/decisao-autonoma.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:11:50.616Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C135",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/network-roadmap.test.ts",
+      "alegacao": "T14 da F3b: network-roadmap.test.ts chama o main no proprio processo com o pt-BR fixado (comAmbientePtBr), e o locale nao vaza para os testes seguintes.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"return comAmbientePtBr(() => main(args));\" core/test/network-roadmap.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:11:52.353Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C136",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/perfil-pago.test.ts",
+      "alegacao": "T14 da F3b: perfil-pago.test.ts le o texto do accounts com o pt-BR fixado no filho (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"{ cwd, env: envPtBr(env), encoding: 'utf8', stdio: 'pipe' }\" core/test/perfil-pago.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:11:56.331Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C137",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/projeto-alvo-reservas.test.ts",
+      "alegacao": "T14 da F3b: projeto-alvo-reservas.test.ts le o texto do roadmap reservas com o pt-BR fixado no filho (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"env: envPtBr({ ...process.env, ...env }) });\" core/test/projeto-alvo-reservas.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:11:58.181Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C138",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-fatia5-cota-ao-vivo.test.ts",
+      "alegacao": "T14 da F3b: rm037-fatia5-cota-ao-vivo.test.ts le o texto do accounts list com o pt-BR fixado no filho (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"env: envPtBr({ ...process.env, TZ: FUSO_DE_BRASILIA })\" core/test/rm037-fatia5-cota-ao-vivo.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:12:00.438Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C139",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-noite-docs-so-do-item.test.ts",
+      "alegacao": "T14 da F3b: rm037-noite-docs-so-do-item.test.ts le o escopo do docs sincronizar com o pt-BR fixado no filho (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"env: envPtBr({ ...process.env, ORK_FABRICA_PUBLICAR: '0' })\" core/test/rm037-noite-docs-so-do-item.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:12:02.527Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C140",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-noite-reserva-orfa.test.ts",
+      "alegacao": "T14 da F3b: rm037-noite-reserva-orfa.test.ts le o painel das reservas com o pt-BR fixado nos dois filhos (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"env: envPtBr({ ...process.env, ORK_FABRICA_PUBLICAR: '0' })\" core/test/rm037-noite-reserva-orfa.test.ts)\" -eq 2"
+      ],
+      "criadoEm": "2026-10-12T23:12:04.453Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C141",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm040-esgotamentos.test.ts",
+      "alegacao": "T14 da F3b: rm040-esgotamentos.test.ts le o relatorio de esgotamentos com o pt-BR fixado nos filhos (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"encoding: 'utf8', env: envPtBr(), timeout: 60000\" core/test/rm040-esgotamentos.test.ts)\" -eq 3"
+      ],
+      "criadoEm": "2026-10-12T23:12:06.232Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C142",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/setup-fallback.test.ts",
+      "alegacao": "T14 da F3b: setup-fallback.test.ts le o texto do accounts com o pt-BR fixado no filho (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF -- \"{ cwd, env: envPtBr(env), encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }\" core/test/setup-fallback.test.ts)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T23:12:08.031Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C143",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/branch-de-estado.ts",
+      "alegacao": "T14 da F3b: a recusa <prefixo>.remoto-invalido do exigirRemoto nasce por ErroDoCatalogo, entao roadmap reservas e ship a mostram no locale do comando e os comandos fora da lista seguem em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'throw new ErroDoCatalogo((m) => m.estado.remotoInvalido(prefixo, redigido));' core/src/branch-de-estado.ts && ! grep -qF 'nome de remoto do git' core/src/branch-de-estado.ts"
+      ],
+      "criadoEm": "2026-10-12T23:12:10.555Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C144",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-estado.ts",
+      "alegacao": "T14 da F3b: a familia estado traz a recusa do remoto invalido com o pt-BR de antes e o codigo igual no ingles.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const pt=msg(\"pt-BR\").estado.remotoInvalido(\"ship\",\"x\"), en=msg(\"en\").estado.remotoInvalido(\"ship\",\"x\"); process.exit(pt.startsWith(\"ship.remoto-invalido: o remoto x não é nome de remoto do git \") && pt.endsWith(\"Corrija fabrica.remoto no orkastery.yaml ou --remoto (padrão: origin).\") && en.startsWith(\"ship.remoto-invalido: remote x is not a git remote name \") ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T23:12:13.759Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C145",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T14 da F3b: o comentario de cabecalho do catalogo registra que a recusa do remoto invalido, deixada em pt-BR pela F2b, vai ao catalogo na F3b.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'que a F2b deixou em pt-BR, vai ao catalogo na F3b.' core/src/locale.ts"
+      ],
+      "criadoEm": "2026-10-12T23:12:15.583Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C148",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "README.md",
+      "alegacao": "T15 da F3b: o README lista os comandos que seguem o locale depois da F3b e diz que o adapter install copia as skills, checklists, comandos e subagentes na lingua do dono.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ork decisao placar' README.md && grep -qF 'except ' README.md && grep -qF 'the skills, checklists, commands and subagents that' README.md && grep -qF 'Many commands still print Brazilian Portuguese' README.md"
+      ],
+      "criadoEm": "2026-10-12T23:36:34.771Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C149",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "README.pt-BR.md",
+      "alegacao": "T15 da F3b: o README em pt-BR espelha a lista nova dos comandos que seguem o locale e as skills na lingua do dono.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ork decisao placar' README.pt-BR.md && grep -qF 'as skills, checklists, comandos e subagentes que o' README.pt-BR.md"
+      ],
+      "criadoEm": "2026-10-12T23:36:36.503Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C150",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "CONTRIBUTING.md",
+      "alegacao": "T15 da F3b: o CONTRIBUTING lista os comandos que seguem o locale depois da F3b e as skills na lingua do dono.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ork decisao placar' CONTRIBUTING.md && grep -qF 'the skills, checklists, commands and subagents that' CONTRIBUTING.md"
+      ],
+      "criadoEm": "2026-10-12T23:36:38.152Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C151",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/checar-links.cjs",
+      "alegacao": "T15 da F3b: o verificador de links confere o link de uma variante inglesa a partir do lugar do original (onde ela e instalada), e todos os links do repositorio resolvem.",
+      "negativa": true,
+      "verificar": [
+        "node core/scripts/checar-links.cjs >/dev/null && grep -qF \"['core/assets/skills-en/', 'skills/']\" core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-10-12T23:36:40.009Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C152",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T15 da F3b: os comentarios do catalogo descrevem a F3b (o que segue o locale, o dado que nasce em pt-BR, as variantes do adapter install e o que fica para a F3c).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'F3b (G4 e D1 a D5 da thread ork-rm061f3b)' core/src/locale.ts && grep -qF 'F3b (D1), o resto da lista do dono' core/src/locale.ts"
+      ],
+      "criadoEm": "2026-10-12T23:36:41.937Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C153",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-skills.test.ts",
+      "alegacao": "T15 da F3b: a paridade das variantes exige tambem os mesmos alvos de link linha a linha (o link da variante vale a partir do original), e o teste segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-skills.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b skills/{p++} /^not ok/{f++} END{exit !(p>=4 && f==0)}' \"$l\" && grep -qF 'alvos de link diferentes' core/test/locale-skills.test.ts"
+      ],
+      "criadoEm": "2026-10-12T23:36:44.401Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C158",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-reservas.test.ts",
+      "alegacao": "T14 da F3b: o teste das reservas em ingles cobre a recusa do remoto invalido, em ingles e em pt-BR com o mesmo codigo, e segue verde (substitui a C146, cujo grep procurava o texto sem a barra da regex).",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-reservas.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b reservas/{p++} /^not ok/{f++} END{exit !(p>=2 && f==0)}' \"$l\" && grep -qF 'remotoInvalido(EN).stderr' core/test/locale-reservas.test.ts && grep -qF 'remotoInvalido(PT).stderr' core/test/locale-reservas.test.ts"
+      ],
+      "criadoEm": "2026-10-13T00:23:39.619Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C159",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/worktree-local.ts",
+      "alegacao": "GO-FIX 1 da F3b (aviso 1 do CHECK): a recusa worktree.dir-fora-da-raiz nasce pelo catalogo; o texto que o doctor e o setup leem segue em pt-BR, e o erro lancado e ErroDoCatalogo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'if (montar) throw new ErroDoCatalogo(montar);' core/src/worktree-local.ts && grep -qF 'return montar ? montar(msg(' core/src/worktree-local.ts && ! grep -qF 'Nenhuma worktree foi criada' core/src/worktree-local.ts"
+      ],
+      "criadoEm": "2026-10-13T00:46:46.396Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C160",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/thread.ts",
+      "alegacao": "GO-FIX 1 da F3b (aviso 1 do CHECK): as tres falhas de criarWorktree nascem por ErroDoCatalogo, com o pt-BR de antes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'throw new ErroDoCatalogo((m) => m.worktree.worktreeJaExisteEm(dir));' core/src/thread.ts && grep -qF 'throw new ErroDoCatalogo((m) => m.worktree.worktreeAddFalhou(saida));' core/src/thread.ts && grep -qF 'throw new ErroDoCatalogo((m) => m.worktree.worktreeNaoApareceu(dir));' core/src/thread.ts"
+      ],
+      "criadoEm": "2026-10-13T00:46:48.807Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C161",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-status.ts",
+      "alegacao": "GO-FIX 1 da F3b (aviso 2 do CHECK): a lacuna que nasce de erro guarda o montador do erro (o do catalogo, sem o codigo) e a do retrato invalido remonta o motivo, entao o network status em ingles nao mistura pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'function montadorDoErro(e: unknown)' core/src/rede-status.ts && grep -qF 'm.network.retratoInvalido(inv.arquivo, motivo(m))' core/src/rede-status.ts && test \"$(grep -cF 'm.network.comErro(' core/src/rede-status.ts)\" -eq 2"
+      ],
+      "criadoEm": "2026-10-13T00:46:51.391Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C162",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "GO-FIX 1 da F3b (aviso 2 do CHECK): os seis motivos do retrato invalido nascem pelo catalogo (pt-BR no --json).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF 'motivo: textoDoCatalogo((m) => m.network.retrato' core/src/rede.ts)\" -eq 6 && ! grep -qF 'JSON ilegivel' core/src/rede.ts"
+      ],
+      "criadoEm": "2026-10-13T00:46:53.309Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C163",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/branch-de-estado.ts",
+      "alegacao": "GO-FIX 1 da F3b (sugestao 8 do CHECK): as recusas prefixo.git e prefixo.sem-remoto do push nascem por ErroDoCatalogo, com o codigo igual.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'm.estado.gitFalhou(prefixo, comando, saida)' core/src/branch-de-estado.ts && grep -qF 'm.estado.pushFalhou(prefixo, remoto, saida)' core/src/branch-de-estado.ts && ! grep -qF 'falhou: $' core/src/branch-de-estado.ts"
+      ],
+      "criadoEm": "2026-10-13T00:46:55.622Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C164",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "GO-FIX 1 da F3b (aviso 3 do CHECK): o erro do catalogo no ambiente do perfil fica registrado no detalhe da conferencia de login, e a impressao o remonta.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'catch (e) { return { ok: false, detalhe: textoDoErro(e) }; }' core/src/adapters/claude-bg.ts"
+      ],
+      "criadoEm": "2026-10-13T00:46:57.504Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C165",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/codex.ts",
+      "alegacao": "GO-FIX 1 da F3b (aviso 3 do CHECK): o erro do catalogo no ambiente do despacho fica registrado no detalhe da conferencia de login, e a impressao o remonta.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'catch (e) { return { ok: false, detalhe: textoDoErro(e) }; }' core/src/adapters/codex.ts"
+      ],
+      "criadoEm": "2026-10-13T00:46:59.364Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C166",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "GO-FIX 1 da F3b (aviso 3 do CHECK): accounts add e check conferem o login no escopo pt-BR (o detalhe vai ao store) e imprimem o detalhe traduzido pela frase exata.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => p.runtime === 'claude-bg' ? conferirAuthClaude(p) : conferirAuthCodex(p))\" core/src/index.ts && grep -qF 'ma.detalheDoLogin(remontar(auth.detalhe))' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-13T00:47:01.644Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C167",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/claims-conferir.ts",
+      "alegacao": "GO-FIX 1 da F3b (aviso 4 do CHECK): a alegacao sintetica do conferir --tarefa nasce pelo catalogo e o texto a remonta; o erro do sandbox sai traduzido pela frase exata, e o do catalogo pelo montador.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'm.claims.verifyDaTarefa(tarefa)' core/src/claims-conferir.ts && grep -qF 'remontar(i.alegacao)' core/src/claims-conferir.ts && grep -qF 'm.claims.erroDoSandbox((e as Error).message)' core/src/claims-conferir.ts"
+      ],
+      "criadoEm": "2026-10-13T00:47:03.939Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C168",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "GO-FIX 1 da F3b (sugestao 8 do CHECK): o retry guarda o erro do cwd local pelo textoDoErro, entao o retry run em ingles o remonta.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"detalhe: textoDoErro(e), dryRun: opcoes.dryRun === true\" core/src/retry.ts"
+      ],
+      "criadoEm": "2026-10-13T00:47:05.432Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C169",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-worktree.ts",
+      "alegacao": "GO-FIX 1 da F3b: a familia worktree ganha a recusa da pasta fora da raiz (pt-BR de antes; no ingles, o motivo da confirmacao traduzido pela frase exata) e as falhas de criarWorktree, e as correcoes inglesas citam o comando entre crases.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const pt=msg(\"pt-BR\").worktree, en=msg(\"en\").worktree, c=String.fromCharCode(96); const p=pt.dirForaDaRaiz(\"X\",\"/d\",null,null,\"cmd\"); process.exit(p.startsWith(\"worktree.dir-fora-da-raiz: o orkastery.yaml pede worktree.dir: X, que leva a /d, fora da raiz do projeto (pelo caminho real), e esta máquina não confirmou essa pasta (sem confirmação local). Nenhuma worktree foi criada.\") && en.dirForaDaRaiz(\"X\",\"/d\",null,\"a confirmação local é de outro checkout\",\"cmd\").includes(\"(the local confirmation belongs to another checkout). No worktree was created.\") && pt.worktreeAddFalhou(\"s\")===\"git worktree add falhou: s\" && en.worktreeAddFalhou(\"s\")===\"git worktree add failed: s\" && en.reconcilieOEstado(\"t\").endsWith(c+\"ork worktree sync t\"+c) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-13T00:47:12.671Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C170",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-network.ts",
+      "alegacao": "GO-FIX 1 da F3b: a familia network ganha os seis motivos do retrato invalido e a linha da lacuna retrato.invalido, com o pt-BR de antes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const pt=msg(\"pt-BR\").network, en=msg(\"en\").network, q=String.fromCharCode(34); process.exit(pt.retratoIlegivel===\"JSON ilegivel\" && en.retratoIlegivel===\"unreadable JSON\" && pt.retratoInvalido(\"a\",\"b\")===\"a: b\" && pt.retratoDeOutraMaquina(\"m\")===\"diz ser a maquina \"+q+\"m\"+q+\", que nao e a dona deste arquivo\" && en.retratoComSegredo(\"p\",\"o\").startsWith(\"pattern \"+q+\"p\"+q+\" in o\") ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-13T00:47:15.870Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C171",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-estado.ts",
+      "alegacao": "GO-FIX 1 da F3b: a familia estado ganha as recusas prefixo.git e prefixo.sem-remoto do push, com o pt-BR de antes e o codigo igual no ingles.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const pt=msg(\"pt-BR\").estado, en=msg(\"en\").estado; process.exit(pt.gitFalhou(\"roadmap\",\"fetch\",\"x\")===\"roadmap.git: git fetch falhou: x\" && en.gitFalhou(\"roadmap\",\"fetch\",\"x\")===\"roadmap.git: git fetch failed: x\" && pt.pushFalhou(\"roadmap\",\"origin\",\"x\")===\"roadmap.sem-remoto: o push para origin falhou: x\" && en.pushFalhou(\"roadmap\",\"origin\",\"x\").startsWith(\"roadmap.sem-remoto: the push to origin failed\") ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-13T00:47:19.279Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C172",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-accounts.ts",
+      "alegacao": "GO-FIX 1 da F3b: a familia accounts traduz na impressao o detalhe do login que o ork escreve (pt-BR igual no store) e diz disabled on.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const pt=msg(\"pt-BR\").accounts, en=msg(\"en\").accounts; const d=\"claude auth status: provider pago (authMethod console); so a assinatura claude.ai despacha\"; process.exit(pt.detalheDoLogin(d)===d && en.detalheDoLogin(d)===\"claude auth status: paid provider (authMethod console); only the claude.ai subscription dispatches\" && en.detalheDoLogin(\"codex login status saiu 1: x\")===\"codex login status exited 1: x\" && en.jaExiste(\"p\",\"2026\").includes(\"(disabled on 2026;\") ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-13T00:47:22.567Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C173",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-claims.ts",
+      "alegacao": "GO-FIX 1 da F3b: a familia claims ganha a alegacao sintetica da conferencia por tarefa e a traducao, pela frase exata, do erro do executor do sandbox.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const pt=msg(\"pt-BR\").claims, en=msg(\"en\").claims; process.exit(pt.verifyDaTarefa(\"T1\")===\"verify da tarefa T1 do plano\" && en.verifyDaTarefa(\"T1\")===\"the plan verify of task T1\" && pt.erroDoSandbox(\"worktree inválida\")===\"worktree inválida\" && en.erroDoSandbox(\"executor VERIFY sandbox disponível somente em Linux\")===\"the VERIFY sandbox executor is only available on Linux\" && en.erroDoSandbox(\"supervisor saiu 3\")===\"supervisor exited 3\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-13T00:47:26.055Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C174",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-docs.ts",
+      "alegacao": "GO-FIX 1 da F3b: na familia docs, as correcoes inglesas citam o comando entre crases e o estado.codigo vazio sai como empty em ingles (vazio em pt-BR, como antes).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").docs, pt=msg(\"pt-BR\").docs, c=String.fromCharCode(96), q=String.fromCharCode(34); process.exit(en.nadaGravado===\"Nothing was written. To write: \"+c+\"ork docs sincronizar --escrever\"+c && en.mergeDaThread(\"t\",\"main\",\"abc\",\"\",false).includes(\"says \"+q+\"empty\"+q) && pt.mergeDaThread(\"t\",\"main\",\"abc\",\"\",false).includes(\"diz \"+q+\"vazio\"+q) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-13T00:47:29.483Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C175",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-reservas.ts",
+      "alegacao": "GO-FIX 1 da F3b: na familia reservas, a descricao inglesa diz has been with ... since; o pt-BR segue igual.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").reservas, pt=msg(\"pt-BR\").reservas; process.exit(en.descricao(\"RM-1\",\"P\",\"m\",\"d\",null)===\"RM-1 has been with P on m since d\" && pt.descricao(\"RM-1\",\"P\",\"m\",\"d\",null)===\"RM-1 esta com P em m desde d\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-13T00:47:32.137Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C176",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-worktree.test.ts",
+      "alegacao": "GO-FIX 1 da F3b: o teste da worktree em ingles cobre a pasta das worktrees fora da raiz (ingles, codigo igual e o pt-BR de antes) e segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-worktree.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b worktree/{p++} /^not ok/{f++} END{exit !(p>=4 && f==0)}' \"$l\" && grep -qF 'GO-FIX 1' core/test/locale-worktree.test.ts"
+      ],
+      "criadoEm": "2026-10-13T00:47:34.933Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C177",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-network.test.ts",
+      "alegacao": "GO-FIX 1 da F3b: o teste da rede em ingles cobre a lacuna que nasce de erro da forja (ingles no texto, pt-BR no --json) e segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-network.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b network/{p++} /^not ok/{f++} END{exit !(p>=4 && f==0)}' \"$l\" && grep -qF 'GO-FIX 1' core/test/locale-network.test.ts"
+      ],
+      "criadoEm": "2026-10-13T00:47:37.475Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C178",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-accounts.test.ts",
+      "alegacao": "GO-FIX 1 da F3b: o teste de accounts em ingles cobre o provider pago (detalhe traduzido na impressao, pt-BR no store) e segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-accounts.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b accounts/{p++} /^not ok/{f++} END{exit !(p>=3 && f==0)}' \"$l\" && grep -qF 'GO-FIX 1' core/test/locale-accounts.test.ts"
+      ],
+      "criadoEm": "2026-10-13T00:47:40.098Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C179",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-claims.test.ts",
+      "alegacao": "GO-FIX 1 da F3b: o teste de claims em ingles cobre o conferir --tarefa (alegacao sintetica e sandbox indisponivel em ingles, pt-BR no --json) e segue verde.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-claims.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b claims/{p++} /^not ok/{f++} END{exit !(p>=4 && f==0)}' \"$l\" && grep -qF 'GO-FIX 1' core/test/locale-claims.test.ts"
+      ],
+      "criadoEm": "2026-10-13T00:47:42.528Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C180",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-status.ts",
+      "alegacao": "T7 da F3b, refeita no GO-FIX 1: o detalhe de cada lacuna nasce pelo catalogo (pt-BR no --json), inclusive as que trazem um erro ou o motivo de um retrato invalido, e o texto do status sai pelo catalogo, remontando a lacuna (substitui a C46).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'lacunaDoCatalogo(' core/src/rede-status.ts)\" -ge 12 && test \"$(grep -cF 'textoDoCatalogo((m) => m.network.' core/src/rede-status.ts)\" -ge 3 && grep -qF 'remontar(status.lacunas[i].detalhe)' core/src/rede-status.ts && ! grep -qF 'Lacunas: nenhuma.' core/src/rede-status.ts"
+      ],
+      "criadoEm": "2026-10-13T00:48:08.102Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C181",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T15 da F3b, refeita depois do GO-FIX 1: a linha da F3b esta em Nao publicado, com a cobertura final (1.020 para 1.653 entradas, 25,3% para 39,7%); substitui a C147.",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## [[]/{exit} /CLI em inglês e pt-BR, fatia F3b/{f=1} END{exit !f}' CHANGELOG.md && grep -qF 'O catálogo vai de 1.020 para 1.653 entradas (cobertura de 25,3% para 39,7%).' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-13T01:00:18.902Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C182",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "T15 da F3b, refeita depois do GO-FIX 1: a pagina da RM-061 traz a cobertura final da F3b (a32cfdb6) e passa no docs verificar do PR; substitui a C154.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node core/dist/index.js docs verificar --pr >/dev/null && grep -qF 'A F3b mede no mesmo contador' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qF '| Cobertura | 25,3% | 39,7% |' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
+      ],
+      "criadoEm": "2026-10-13T01:00:21.492Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C183",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/evidencias/RM-061/cobertura-f3b.json",
+      "alegacao": "T15 da F3b (C9), refeita depois do GO-FIX 1: o recibo reproduz a medida do contador na arvore que ele nomeia, ancestral do HEAD (1.653 entradas e 2.514 literais fora, contra 1.020 e 3.019 na base), sem caminho de maquina; substitui a C157.",
+      "negativa": false,
+      "verificar": [
+        "a=$(node -p 'require(\"./docs/roadmap/evidencias/RM-061/cobertura-f3b.json\").depois.arvore') && git merge-base --is-ancestor \"$a\" HEAD && d=$(mktemp -d) && git archive \"$a\" core/src | tar -x -C \"$d\" && node core/scripts/contar-mensagens-de-saida.cjs --json \"$d/core/src\" > \"$d/medida.json\" && node -e 'const r=require(\"./docs/roadmap/evidencias/RM-061/cobertura-f3b.json\"), m=require(process.argv[1]); process.exit(r.fatia===\"F3b\" && r.antes.catalogo.entradas===1020 && r.antes.emPosicaoDeSaida===3019 && r.depois.catalogo.entradas===m.catalogo.entradas && r.depois.emPosicaoDeSaida===m.emPosicaoDeSaida && r.depois.cobertura===m.cobertura && m.catalogo.entradas===1653 ? 0 : 1)' \"$d/medida.json\" && ! grep -qE '/hom[e]/|@gmai[l]' docs/roadmap/evidencias/RM-061/cobertura-f3b.json"
+      ],
+      "criadoEm": "2026-10-13T01:00:25.964Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C184",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-frases.test.ts",
+      "alegacao": "CHECK 2 da F3b (sugestao 2): as tres tabelas que traduzem pela frase exata cobrem toda frase que a origem escreve; as do sandbox saem do proprio fonte (frase nova acusa), e as do login e da confirmacao local conferem o trecho fixo no fonte.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-frases.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F3b frases/{p++} /^not ok/{f++} END{exit !(p>=3 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-13T01:34:20.675Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C185",
+      "thread": "ork-rm061f3b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-claims.ts",
+      "alegacao": "CHECK 2 da F3b (sugestao 2): a tabela do erro do sandbox cobre tambem o scratch fora da worktree e as falhas do fechamento e do isolamento do executor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").claims; process.exit(en.erroDoSandbox(\"scratch VERIFY deve ficar fora da worktree\")===\"the VERIFY scratch must stay outside the worktree\" && en.erroDoSandbox(\"identidade mudou\")===\"the identity changed\" && en.erroDoSandbox(\"cleanup incompleto: isolamento substituído; preservado\")===\"incomplete cleanup: isolation replaced; kept\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-13T01:34:23.574Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C186",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

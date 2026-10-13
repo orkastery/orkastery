@@ -18,6 +18,7 @@ import * as path from 'node:path';
 import { lerConfigDaMaquina, pastaDoUsuario } from './maquina';
 import { adquirirLockMonitor } from './monitor-lock';
 import { agora as agoraIso } from './util';
+import { ErroDoCatalogo } from './locale';
 
 export const CONTRATO_DA_ADESAO = 'ork.rede/v1' as const;
 export const REPOSITORIO_PADRAO = 'orkastery-network';
@@ -81,9 +82,9 @@ export function gravarConfigDaRede(mudanca: Partial<Omit<ConfigDaRede, 'contrato
     repositorio: mudanca.repositorio !== undefined ? mudanca.repositorio : atual?.repositorio ?? null,
     atualizadoEm: new Date().toISOString(),
   };
-  if (config.host !== null && !HOST.test(config.host)) throw new Error(`rede.config: host invalido ("${config.host}")`);
+  if (config.host !== null && !HOST.test(config.host)) { const host = config.host; throw new ErroDoCatalogo((m) => m.network.hostInvalido(host)); }
   for (const [campo, valor] of [['dono', config.dono], ['repositorio', config.repositorio]] as const) {
-    if (valor !== null && !IDENTIFICADOR.test(valor)) throw new Error(`rede.config: ${campo} invalido ("${valor}")`);
+    if (valor !== null && !IDENTIFICADOR.test(valor)) throw new ErroDoCatalogo((m) => m.network.campoInvalido(campo, valor));
   }
   const dir = pastaDoUsuario();
   fs.mkdirSync(dir, { recursive: true });
@@ -140,7 +141,7 @@ export function idDaMaquina(): string {
     else criarId(arquivo);
   }
   const persistido = lerId(arquivo);
-  if (!persistido) throw new Error(`rede.id: nao consegui gravar nem ler ${arquivo}`);
+  if (!persistido) throw new ErroDoCatalogo((m) => m.network.idNaoGravou(arquivo));
   return persistido;
 }
 
@@ -222,7 +223,7 @@ function trocarIdInvalido(arquivo: string, st: fs.BigIntStats): void {
     } finally { fs.closeSync(fd); }
     if (ID.test(conteudo.toString('utf8').trim())) return;
   } else {
-    throw new Error(`rede.id: ${arquivo} nao e um arquivo; apague-o e rode de novo`);
+    throw new ErroDoCatalogo((m) => m.network.idNaoArquivo(arquivo));
   }
   // X6 do CHECK 6: a reserva da troca e chaveada pelo que todo host ve igual do arquivo ruim (conteudo,
   // tamanho e hora); `dev` e local a cada host e fica so no id derivado, o caminho de quando a reserva falha.

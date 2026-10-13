@@ -17,7 +17,7 @@ import { registrar } from '../src/ledger';
 import { registrarProjeto } from '../src/projeto-alvo';
 import { adicionarPerfil, caminhoRealDoPerfil, marcarFalhaDePerfil, perfilDeDespacho, lerPerfis } from '../src/runtime-profiles';
 import { dirThread, novaThread } from '../src/thread';
-import { ajustarManifesto, dirTemporario, projetoTemporario } from './apoio';
+import { ajustarManifesto, dirTemporario, envPtBr, projetoTemporario } from './apoio';
 
 const MIN = 60 * 1000;
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -79,7 +79,7 @@ test('a saida --json da CLI nao tem diretorio de conta, so o id do perfil e a co
   try {
     c.despachar(c.b, 'da-b', c.marcadaEm + 5 * MIN);
     const r = spawnSync(process.execPath, [CLI, 'accounts', 'esgotamentos', '--desde', '7d', '--json'],
-      { cwd: c.a.dir, encoding: 'utf8', env: process.env, timeout: 60000 });
+      { cwd: c.a.dir, encoding: 'utf8', env: envPtBr(), timeout: 60000 });
     assert.equal(r.status, 0, r.stderr);
     const saida = JSON.parse(r.stdout);
     assert.equal(saida.contrato, CONTRATO_ESGOTAMENTOS);
@@ -88,7 +88,7 @@ test('a saida --json da CLI nao tem diretorio de conta, so o id do perfil e a co
     for (const proibido of [c.conta, caminhoRealDoPerfil(c.conta), path.basename(c.conta)])
       assert.equal(r.stdout.includes(proibido), false, `a saida vazou ${proibido}`);
 
-    const texto = spawnSync(process.execPath, [CLI, 'accounts', 'esgotamentos'], { cwd: c.a.dir, encoding: 'utf8', env: process.env, timeout: 60000 });
+    const texto = spawnSync(process.execPath, [CLI, 'accounts', 'esgotamentos'], { cwd: c.a.dir, encoding: 'utf8', env: envPtBr(), timeout: 60000 });
     assert.equal(texto.status, 0, texto.stderr);
     assert.match(texto.stdout, /despachos em conta marcada por outro projeto: 1/);
     assert.equal(texto.stdout.includes(c.conta), false);
@@ -99,12 +99,12 @@ test('sem marca no registro o total e 0 e o periodo invertido e recusado', () =>
   const p = projetoTemporario('esg-vazio');
   try {
     const r = spawnSync(process.execPath, [CLI, 'accounts', 'esgotamentos', '--json', '--desde', '1h'],
-      { cwd: p.dir, encoding: 'utf8', env: { ...process.env, ORK_CONTAS_DIR: path.join(dirTemporario('esg-vazio-contas'), 'private') }, timeout: 60000 });
+      { cwd: p.dir, encoding: 'utf8', env: envPtBr({ ...process.env, ORK_CONTAS_DIR: path.join(dirTemporario('esg-vazio-contas'), 'private') }), timeout: 60000 });
     assert.equal(r.status, 0, r.stderr);
     assert.equal(JSON.parse(r.stdout).total, 0);
     assert.deepEqual(JSON.parse(r.stdout).marcas, []);
     const ruim = spawnSync(process.execPath, [CLI, 'accounts', 'esgotamentos', '--desde', 'ontem-a-noite'],
-      { cwd: p.dir, encoding: 'utf8', env: process.env, timeout: 60000 });
+      { cwd: p.dir, encoding: 'utf8', env: envPtBr(), timeout: 60000 });
     assert.equal(ruim.status, 2);
     assert.match(ruim.stderr, /ledger\.period\.invalid/);
   } finally { p.limpar(); }

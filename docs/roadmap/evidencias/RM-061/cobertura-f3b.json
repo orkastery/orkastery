@@ -1,0 +1,889 @@
+{
+  "schema": "ork.locale-cobertura-evidencia/v1",
+  "item": "RM-061",
+  "fatia": "F3b",
+  "thread": "ork-rm061f3b",
+  "contador": "core/scripts/contar-mensagens-de-saida.cjs",
+  "metodo": "o mesmo da F2a, da F2b e da F3a (D3 da ork-rm061f2a), reimplementacao do metodo do PR #113: literais com texto de pessoa em posicao de saida, fora do catalogo, e folhas do catalogo ingles; cobertura = entradas / (entradas + literais de saida)",
+  "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json <core/src da arvore>",
+  "antes": {
+    "arvore": "1f3d73ff",
+    "descricao": "base da F3b na main: F1, F2a, F2b e F3a mescladas, com as frentes da noite",
+    "schema": "ork.locale-cobertura/v1",
+    "arquivos": 235,
+    "literaisComTexto": 5095,
+    "emPosicaoDeSaida": 3019,
+    "arquivosComSaida": 165,
+    "maiores": [
+      {
+        "arquivo": "index.ts",
+        "saida": 406
+      },
+      {
+        "arquivo": "network-roadmap.ts",
+        "saida": 95
+      },
+      {
+        "arquivo": "docs.ts",
+        "saida": 90
+      },
+      {
+        "arquivo": "noctum-envelope.ts",
+        "saida": 81
+      },
+      {
+        "arquivo": "auditrun.ts",
+        "saida": 73
+      },
+      {
+        "arquivo": "hosts.ts",
+        "saida": 68
+      },
+      {
+        "arquivo": "worktree.ts",
+        "saida": 67
+      },
+      {
+        "arquivo": "pulse-resposta.ts",
+        "saida": 63
+      },
+      {
+        "arquivo": "manifest.ts",
+        "saida": 59
+      },
+      {
+        "arquivo": "hitl-contract.ts",
+        "saida": 56
+      }
+    ],
+    "catalogo": {
+      "entradas": 1020,
+      "arquivos": [
+        {
+          "arquivo": "locale-ajuda.ts",
+          "entradas": 2
+        },
+        {
+          "arquivo": "locale-gerados.ts",
+          "entradas": 42
+        },
+        {
+          "arquivo": "locale-master.ts",
+          "entradas": 47
+        },
+        {
+          "arquivo": "locale-onboarding.ts",
+          "entradas": 29
+        },
+        {
+          "arquivo": "locale-phase.ts",
+          "entradas": 70
+        },
+        {
+          "arquivo": "locale-pulse.ts",
+          "entradas": 94
+        },
+        {
+          "arquivo": "locale-retry.ts",
+          "entradas": 117
+        },
+        {
+          "arquivo": "locale-roadmap.ts",
+          "entradas": 44
+        },
+        {
+          "arquivo": "locale-ship.ts",
+          "entradas": 231
+        },
+        {
+          "arquivo": "locale-thread.ts",
+          "entradas": 96
+        },
+        {
+          "arquivo": "locale-verify.ts",
+          "entradas": 48
+        },
+        {
+          "arquivo": "locale.ts",
+          "entradas": 200
+        }
+      ]
+    },
+    "cobertura": 0.2525
+  },
+  "depois": {
+    "arvore": "a32cfdb6",
+    "descricao": "F3b: thread list, close e entrega, worktree, claims, decisao placar, accounts, network (fora network roadmap), roadmap reservas, pegar, soltar e feat, docs verificar e sincronizar, adapter e os erros de estado pelo catalogo; as skills, checklists, comandos e subagentes na lingua do dono; com o GO-FIX 1 do CHECK (worktree fora da raiz, lacunas de erro da rede, detalhe do login, conferencia por tarefa e as recusas da branch de estado)",
+    "schema": "ork.locale-cobertura/v1",
+    "arquivos": 244,
+    "literaisComTexto": 4460,
+    "emPosicaoDeSaida": 2514,
+    "arquivosComSaida": 155,
+    "maiores": [
+      {
+        "arquivo": "index.ts",
+        "saida": 316
+      },
+      {
+        "arquivo": "network-roadmap.ts",
+        "saida": 95
+      },
+      {
+        "arquivo": "noctum-envelope.ts",
+        "saida": 81
+      },
+      {
+        "arquivo": "auditrun.ts",
+        "saida": 73
+      },
+      {
+        "arquivo": "pulse-resposta.ts",
+        "saida": 63
+      },
+      {
+        "arquivo": "manifest.ts",
+        "saida": 58
+      },
+      {
+        "arquivo": "hitl-contract.ts",
+        "saida": 56
+      },
+      {
+        "arquivo": "memoria.ts",
+        "saida": 54
+      },
+      {
+        "arquivo": "setup.ts",
+        "saida": 51
+      },
+      {
+        "arquivo": "superficie.ts",
+        "saida": 51
+      }
+    ],
+    "porArquivo": [
+      {
+        "arquivo": "index.ts",
+        "saida": 316
+      },
+      {
+        "arquivo": "network-roadmap.ts",
+        "saida": 95
+      },
+      {
+        "arquivo": "noctum-envelope.ts",
+        "saida": 81
+      },
+      {
+        "arquivo": "auditrun.ts",
+        "saida": 73
+      },
+      {
+        "arquivo": "pulse-resposta.ts",
+        "saida": 63
+      },
+      {
+        "arquivo": "manifest.ts",
+        "saida": 58
+      },
+      {
+        "arquivo": "hitl-contract.ts",
+        "saida": 56
+      },
+      {
+        "arquivo": "memoria.ts",
+        "saida": 54
+      },
+      {
+        "arquivo": "setup.ts",
+        "saida": 51
+      },
+      {
+        "arquivo": "superficie.ts",
+        "saida": 51
+      },
+      {
+        "arquivo": "session-watcher.ts",
+        "saida": 43
+      },
+      {
+        "arquivo": "hitl-sessions.ts",
+        "saida": 41
+      },
+      {
+        "arquivo": "leases.ts",
+        "saida": 41
+      },
+      {
+        "arquivo": "runtime-context.ts",
+        "saida": 40
+      },
+      {
+        "arquivo": "conducao.ts",
+        "saida": 39
+      },
+      {
+        "arquivo": "conhecimento.ts",
+        "saida": 38
+      },
+      {
+        "arquivo": "fix.ts",
+        "saida": 38
+      },
+      {
+        "arquivo": "orkmind.ts",
+        "saida": 38
+      },
+      {
+        "arquivo": "policies.ts",
+        "saida": 35
+      },
+      {
+        "arquivo": "hitl-gates.ts",
+        "saida": 34
+      },
+      {
+        "arquivo": "master.ts",
+        "saida": 34
+      },
+      {
+        "arquivo": "board.ts",
+        "saida": 33
+      },
+      {
+        "arquivo": "session-watcher-claude.ts",
+        "saida": 32
+      },
+      {
+        "arquivo": "objective.ts",
+        "saida": 28
+      },
+      {
+        "arquivo": "retry.ts",
+        "saida": 28
+      },
+      {
+        "arquivo": "parado-no-condutor.ts",
+        "saida": 27
+      },
+      {
+        "arquivo": "noctum-fila.ts",
+        "saida": 26
+      },
+      {
+        "arquivo": "auditoria.ts",
+        "saida": 24
+      },
+      {
+        "arquivo": "evalrunner.ts",
+        "saida": 24
+      },
+      {
+        "arquivo": "adapters/claude-bg.ts",
+        "saida": 23
+      },
+      {
+        "arquivo": "fabrica-batida.ts",
+        "saida": 23
+      },
+      {
+        "arquivo": "preflight.ts",
+        "saida": 23
+      },
+      {
+        "arquivo": "adapters/codex-controller-worker.ts",
+        "saida": 22
+      },
+      {
+        "arquivo": "orquestracao.ts",
+        "saida": 22
+      },
+      {
+        "arquivo": "phase.ts",
+        "saida": 22
+      },
+      {
+        "arquivo": "hitl.ts",
+        "saida": 21
+      },
+      {
+        "arquivo": "indice-vetorial.ts",
+        "saida": 21
+      },
+      {
+        "arquivo": "divida.ts",
+        "saida": 20
+      },
+      {
+        "arquivo": "handoff.ts",
+        "saida": 20
+      },
+      {
+        "arquivo": "intelligence-graph-cli.ts",
+        "saida": 19
+      },
+      {
+        "arquivo": "mcp-grafo.ts",
+        "saida": 19
+      },
+      {
+        "arquivo": "mcp-install.ts",
+        "saida": 19
+      },
+      {
+        "arquivo": "portfolio.ts",
+        "saida": 18
+      },
+      {
+        "arquivo": "session-events.ts",
+        "saida": 18
+      },
+      {
+        "arquivo": "instabilidade.ts",
+        "saida": 17
+      },
+      {
+        "arquivo": "conducao-sentinela.ts",
+        "saida": 16
+      },
+      {
+        "arquivo": "ledger-stats.ts",
+        "saida": 16
+      },
+      {
+        "arquivo": "verify-sandbox.ts",
+        "saida": 16
+      },
+      {
+        "arquivo": "tokens.ts",
+        "saida": 15
+      },
+      {
+        "arquivo": "adapters/codex.ts",
+        "saida": 14
+      },
+      {
+        "arquivo": "recall.ts",
+        "saida": 14
+      },
+      {
+        "arquivo": "creation-operation.ts",
+        "saida": 13
+      },
+      {
+        "arquivo": "hitl-curto.ts",
+        "saida": 13
+      },
+      {
+        "arquivo": "hitl-resumo.ts",
+        "saida": 13
+      },
+      {
+        "arquivo": "ocupacao.ts",
+        "saida": 13
+      },
+      {
+        "arquivo": "pulse-delivery.ts",
+        "saida": 13
+      },
+      {
+        "arquivo": "mcp-server.ts",
+        "saida": 12
+      },
+      {
+        "arquivo": "worktree.ts",
+        "saida": 12
+      },
+      {
+        "arquivo": "adapters/codex-controller.ts",
+        "saida": 11
+      },
+      {
+        "arquivo": "creation-operation-store.ts",
+        "saida": 11
+      },
+      {
+        "arquivo": "forja.ts",
+        "saida": 11
+      },
+      {
+        "arquivo": "hitl-ingress-receipt.ts",
+        "saida": 11
+      },
+      {
+        "arquivo": "master-digest.ts",
+        "saida": 11
+      },
+      {
+        "arquivo": "prompts.ts",
+        "saida": 11
+      },
+      {
+        "arquivo": "thread.ts",
+        "saida": 11
+      },
+      {
+        "arquivo": "ci.ts",
+        "saida": 10
+      },
+      {
+        "arquivo": "ciclos.ts",
+        "saida": 10
+      },
+      {
+        "arquivo": "intelligence-graph-parsers.ts",
+        "saida": 10
+      },
+      {
+        "arquivo": "fabrica-estado.ts",
+        "saida": 9
+      },
+      {
+        "arquivo": "hitl-lote.ts",
+        "saida": 9
+      },
+      {
+        "arquivo": "projeto-alvo.ts",
+        "saida": 9
+      },
+      {
+        "arquivo": "pulse-consentimento.ts",
+        "saida": 9
+      },
+      {
+        "arquivo": "sessoes.ts",
+        "saida": 9
+      },
+      {
+        "arquivo": "licoes.ts",
+        "saida": 8
+      },
+      {
+        "arquivo": "mcp-artifacts.ts",
+        "saida": 8
+      },
+      {
+        "arquivo": "modos.ts",
+        "saida": 8
+      },
+      {
+        "arquivo": "noctum-capacidade.ts",
+        "saida": 8
+      },
+      {
+        "arquivo": "sessoes-adopt.ts",
+        "saida": 8
+      },
+      {
+        "arquivo": "ship-publicar.ts",
+        "saida": 8
+      },
+      {
+        "arquivo": "verify.ts",
+        "saida": 8
+      },
+      {
+        "arquivo": "delegation.ts",
+        "saida": 7
+      },
+      {
+        "arquivo": "maestro-cli.ts",
+        "saida": 7
+      },
+      {
+        "arquivo": "master-migracao.ts",
+        "saida": 7
+      },
+      {
+        "arquivo": "noctum-execucao.ts",
+        "saida": 7
+      },
+      {
+        "arquivo": "sessoes-inventario.ts",
+        "saida": 7
+      },
+      {
+        "arquivo": "hitl-lock.ts",
+        "saida": 6
+      },
+      {
+        "arquivo": "hosts.ts",
+        "saida": 6
+      },
+      {
+        "arquivo": "master-nota.ts",
+        "saida": 6
+      },
+      {
+        "arquivo": "mcp-git.ts",
+        "saida": 6
+      },
+      {
+        "arquivo": "mcp-grafo-worker.ts",
+        "saida": 6
+      },
+      {
+        "arquivo": "onboarding.ts",
+        "saida": 6
+      },
+      {
+        "arquivo": "pulse-cadencia.ts",
+        "saida": 6
+      },
+      {
+        "arquivo": "rede.ts",
+        "saida": 6
+      },
+      {
+        "arquivo": "adapters/codex-question.ts",
+        "saida": 5
+      },
+      {
+        "arquivo": "experiencia.ts",
+        "saida": 5
+      },
+      {
+        "arquivo": "horario.ts",
+        "saida": 5
+      },
+      {
+        "arquivo": "intelligence-graph-query.ts",
+        "saida": 5
+      },
+      {
+        "arquivo": "liveness.ts",
+        "saida": 5
+      },
+      {
+        "arquivo": "mcp-verify.ts",
+        "saida": 5
+      },
+      {
+        "arquivo": "monitor-lock.ts",
+        "saida": 5
+      },
+      {
+        "arquivo": "postura-local.ts",
+        "saida": 5
+      },
+      {
+        "arquivo": "ship.ts",
+        "saida": 5
+      },
+      {
+        "arquivo": "adapters/codex-controller-sensor.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "canarios-sensores.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "catalogo.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "decisao-autonoma.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "docs.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "fila-pesada.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "hitl-presentation.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "maestro-runtime.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "modos-migracao.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "pulse.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "ratelimit.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "roadmap-status.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "sessoes-contas.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "slug.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "yaml.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "busca-semantica.ts",
+        "saida": 3
+      },
+      {
+        "arquivo": "hitl-canais.ts",
+        "saida": 3
+      },
+      {
+        "arquivo": "hitl-estado.ts",
+        "saida": 3
+      },
+      {
+        "arquivo": "impedimento.ts",
+        "saida": 3
+      },
+      {
+        "arquivo": "intelligence-graph-index.ts",
+        "saida": 3
+      },
+      {
+        "arquivo": "maquina.ts",
+        "saida": 3
+      },
+      {
+        "arquivo": "mcp-ship.ts",
+        "saida": 3
+      },
+      {
+        "arquivo": "noctum-arco.ts",
+        "saida": 3
+      },
+      {
+        "arquivo": "roadmap-reservas.ts",
+        "saida": 3
+      },
+      {
+        "arquivo": "canarios-i43.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "canarios-rm057.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "demo.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "doctor.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "fechamento.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "gates.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "hitl-classificacao.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "indice.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "init.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "maestro-authority.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "master-batch.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "playbook-capabilities.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "portfolio-context.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "worktree-local.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "canarios-hitl.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "entrega-pr.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "experiencia-instalacao.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "hitl-local.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "hitl-tempo-parado.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "intelligence-graph-repo.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "ledger.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "master-audit.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "prova-minima.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "redacao-saida.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "redacao-url.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "rede-forja.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "runtimes.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "util.ts",
+        "saida": 1
+      },
+      {
+        "arquivo": "write-activation.ts",
+        "saida": 1
+      }
+    ],
+    "catalogo": {
+      "entradas": 1653,
+      "arquivos": [
+        {
+          "arquivo": "locale-accounts.ts",
+          "entradas": 88
+        },
+        {
+          "arquivo": "locale-adapter.ts",
+          "entradas": 62
+        },
+        {
+          "arquivo": "locale-ajuda.ts",
+          "entradas": 2
+        },
+        {
+          "arquivo": "locale-claims.ts",
+          "entradas": 85
+        },
+        {
+          "arquivo": "locale-decisao.ts",
+          "entradas": 12
+        },
+        {
+          "arquivo": "locale-docs.ts",
+          "entradas": 104
+        },
+        {
+          "arquivo": "locale-estado.ts",
+          "entradas": 29
+        },
+        {
+          "arquivo": "locale-gerados.ts",
+          "entradas": 42
+        },
+        {
+          "arquivo": "locale-master.ts",
+          "entradas": 47
+        },
+        {
+          "arquivo": "locale-network.ts",
+          "entradas": 108
+        },
+        {
+          "arquivo": "locale-onboarding.ts",
+          "entradas": 29
+        },
+        {
+          "arquivo": "locale-phase.ts",
+          "entradas": 70
+        },
+        {
+          "arquivo": "locale-pulse.ts",
+          "entradas": 94
+        },
+        {
+          "arquivo": "locale-reservas.ts",
+          "entradas": 31
+        },
+        {
+          "arquivo": "locale-retry.ts",
+          "entradas": 117
+        },
+        {
+          "arquivo": "locale-roadmap.ts",
+          "entradas": 44
+        },
+        {
+          "arquivo": "locale-ship.ts",
+          "entradas": 231
+        },
+        {
+          "arquivo": "locale-thread.ts",
+          "entradas": 115
+        },
+        {
+          "arquivo": "locale-verify.ts",
+          "entradas": 48
+        },
+        {
+          "arquivo": "locale-worktree.ts",
+          "entradas": 95
+        },
+        {
+          "arquivo": "locale.ts",
+          "entradas": 200
+        }
+      ]
+    },
+    "cobertura": 0.3967
+  },
+  "familiasNovas": {
+    "locale-accounts.ts": 88,
+    "locale-adapter.ts": 62,
+    "locale-claims.ts": 85,
+    "locale-decisao.ts": 12,
+    "locale-docs.ts": 104,
+    "locale-estado.ts": 29,
+    "locale-network.ts": 108,
+    "locale-reservas.ts": 31,
+    "locale-worktree.ts": 95
+  },
+  "nota": "cresceram: locale-thread.ts 96 para 115; as 43 variantes inglesas das skills, checklists, comandos e subagentes moram em core/assets/skills-en, references-en e adapters-en e ficam fora do metodo, como os modelos do docs init; seguem em pt-BR, para a F3c, decisao registrar, network roadmap, thread new --from-finding e os prompts de fase"
+}
