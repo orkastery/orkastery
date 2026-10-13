@@ -2,8 +2,9 @@
 // core/scripts/forja-contrato.cjs
 /**
  * Spec do suporte a GitLab, fatia 0: grava as respostas reais de uma forja para o contrato gravado dos testes.
- * Usa a CLI ja logada (`gh`, `glab`): nenhum token e lido, passado ou gravado. O corpo passa pelo redator antes
- * do disco. So consulta: nenhum caso escreve na forja.
+ * Usa a CLI ja logada (`gh`, `glab`): nenhum token e lido, passado ou gravado. O registro inteiro passa pelo
+ * redator antes do disco (o corpo e lido como JSON e redigido valor a valor). So consulta: nenhum caso escreve
+ * na forja.
  */
 'use strict';
 const { spawnSync } = require('node:child_process');
@@ -11,13 +12,31 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PADROES = [
-  /\b(?:glpat|gldt|glrt|glptt|glcbt|gloas|glft)-[A-Za-z0-9_-]{16,}\b/g,
+  // GitLab: o token pode ter ponto (formato roteavel: glpat-xxxx.01.yyyy); nada de \b no fim, que cortaria o ponto.
+  /\b(?:glpat|gldt|glrt|glptt|glcbt|gloas|glft|glimt|glsoat)-[A-Za-z0-9_.-]{16,}/g,
   /\bgh[pousr]_[A-Za-z0-9]{30,}\b/g,
   /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
-  /(https?:\/\/)[^\s/@:]+:[^\s/@]+@/g,
+  // Credencial embutida em URL. As classes excluem aspas e barra invertida: nunca atravessa o limite de uma string JSON.
+  /(https?:\/\/)[^\s/@:"\\,]+:[^\s/@"\\,]+@/g,
 ];
-const redigir = (t) => PADROES.reduce((s, p) => s.replace(p, (m, g1) => (typeof g1 === 'string' && g1.startsWith('http') ? `${g1}[redigido]@` : '[redigido]')), t);
+
+/** Redige um texto livre (stderr, mensagem de erro). */
+function redigirTexto(t) {
+  return PADROES.reduce((s, p) => s.replace(p, (m, g1) => (typeof g1 === 'string' && g1.startsWith('http') ? `${g1}[redigido]@` : '[redigido]')), t);
+}
+
+/** Redige um valor JSON: strings (e chaves) um a um, recursivamente. Numeros, booleanos e null passam. */
+function redigirValor(v) {
+  if (typeof v === 'string') return redigirTexto(v);
+  if (Array.isArray(v)) return v.map(redigirValor);
+  if (v && typeof v === 'object') {
+    const out = {};
+    for (const [k, x] of Object.entries(v)) out[redigirTexto(k)] = redigirValor(x);
+    return out;
+  }
+  return v;
+}
 
 function opcoes(argv) {
   const o = {};
@@ -68,12 +87,16 @@ function principal() {
       env: { ...process.env, GH_PROMPT_DISABLED: '1', GLAB_CHECK_UPDATE: 'false', NO_COLOR: '1' } });
     let corpo = null, erro = null;
     if (r.status === 0) {
-      try { corpo = JSON.parse(redigir(r.stdout)); } catch { erro = 'resposta nao e JSON'; }
-    } else erro = redigir((r.stderr || r.stdout || String(r.error ?? '')).trim()).slice(0, 400);
+      try { corpo = redigirValor(JSON.parse(r.stdout)); } catch { erro = 'resposta nao e JSON'; }
+    } else {
+      erro = redigirTexto((r.stderr || r.stdout || String(r.error ?? '')).trim()).slice(0, 400);
+    }
     if (erro) falhas++;
+    // O registro inteiro (comando e host incluidos) passa pelo redator antes do disco.
+    const registro = redigirValor({ caso, forja: o.forja, host: o.host, comando: [plano.cli, ...args],
+      status: r.status, corpo, ...(erro ? { erro } : {}) });
     const arquivo = path.join(o.saida, `${caso}.json`);
-    fs.writeFileSync(arquivo, JSON.stringify({ caso, forja: o.forja, host: o.host, comando: [plano.cli, ...args],
-      status: r.status, corpo, ...(erro ? { erro } : {}) }, null, 2) + '\n', { mode: 0o600 });
+    fs.writeFileSync(arquivo, JSON.stringify(registro, null, 2) + '\n', { mode: 0o600 });
     fs.chmodSync(arquivo, 0o600);
   }
   return falhas ? 1 : 0;
