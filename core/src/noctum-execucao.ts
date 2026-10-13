@@ -28,9 +28,10 @@ import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
 import { ErroDaFilaPesada, kernelDisponivel, tentarTravaExclusiva } from './fila-pesada';
 import { ManifestoCarregado } from './manifest';
-import { concluirDespacho, reservarDespacho } from './noctum-arco';
+import { ConsumoMedidoDoDespacho, concluirDespacho, reservarDespacho } from './noctum-arco';
 import { admitir, Admissao, escolherConta, fatosDeCapacidade, LeituraDeSessoes } from './noctum-capacidade';
 import { envelopeComTrabalhos, RecusaDoArco } from './noctum-envelope';
+import { medidoParaReserva, medirArco, MedicaoDoArco, precisaMedir } from './noctum-medicao';
 import { DecisaoDaFila, FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila, MOTIVO_DO_ERRO_NO_DESPACHO } from './noctum-fila';
 import { OpcoesRun, resolverDespacho, ResultadoRun, rodarFase } from './phase';
 import { lerPerfis, perfilDisponivel } from './runtime-profiles';
@@ -57,6 +58,11 @@ export interface OpcoesDoPasso {
   gravarBaseline?: (carregado: ManifestoCarregado, threadId: string, conducao: ConducaoDoVerify) => void;
   /** A reserva no log do arco; em produção, `reservarDespacho`. */
   reservar?: typeof reservarDespacho;
+  /**
+   * RM-058 N6 (D5 da ork-rm058n6): a medição do consumo do arco, uma vez por passo, só quando algum teto não está em
+   * `sessoes`; em produção, `medirArco` sobre o disco.
+   */
+  medir?: (raiz: string, estado: NonNullable<FatosDaFila['estado']>, quando: string) => MedicaoDoArco;
 }
 
 export type ResultadoDoPasso =
@@ -154,6 +160,9 @@ export function passoDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
     }
     const capacidade = fatosDeCapacidade(carregado, { quando, consultar: opcoes.consultarSessoes });
     const perfis = (opcoes.perfis ?? (() => perfisDisponiveis(raiz, Date.parse(quando))))();
+    // N6 (D5): fora da trava do arco e sob a de despacho; a reserva confere o medido de cada teto sob o lock do arco.
+    const medicao = precisaMedir(conteudo) && fatos.estado
+      ? (opcoes.medir ?? ((r, e, q) => medirArco(r, e, { quando: q })))(raiz, fatos.estado, quando) : null;
     let recusa: Extract<Admissao, { ok: false }> | null = null;
     let doCandidato: Recusado | null = null;
     for (const candidato of fila.candidatos) {
@@ -184,7 +193,8 @@ export function passoDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
         continue;
       }
       const r = despacharCandidato(carregado, arco, fila, { trabalho: candidato.id, thread, item: candidato.item, fase, runtime,
-        conta: conta!, quando, pedido: conteudo.trabalhos.find(t => t.id === candidato.id)?.pedido ?? null }, opcoes);
+        conta: conta!, quando, pedido: conteudo.trabalhos.find(t => t.id === candidato.id)?.pedido ?? null,
+        medido: medicao ? medidoParaReserva(medicao, conteudo, conta!, runtime) : undefined }, opcoes);
       if (r.acao === 'baseline') { pendente = r; break; }
       if ('seguir' in r) {
         const { seguir: _seguir, ...recusado } = r;
@@ -224,13 +234,16 @@ function baselineForaDaTrava(carregado: ManifestoCarregado, arco: string, p: Bas
 function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: FilaDoArco,
   c: { trabalho: string; thread: Thread | null; item: string; fase: Fase; runtime: string; conta: string; quando: string;
     /** O pedido do dono, para a thread que o arco abre; `null` no trabalho que já é uma thread. */
-    pedido: string | null },
+    pedido: string | null;
+    /** RM-058 N6: o consumo medido dos tetos fora de `sessoes`. */
+    medido?: ConsumoMedidoDoDespacho },
   opcoes: OpcoesDoPasso): ResultadoDoPasso | BaselinePendente | RecusaDoCandidato {
   const { raiz } = carregado;
   let reserva: number;
   try {
     reserva = (opcoes.reservar ?? reservarDespacho)(raiz, { arco, envelopeSha256: fila.envelopeSha256 ?? '', trabalho: c.trabalho,
-      thread: c.thread?.id ?? null, fase: c.fase, runtime: c.runtime, conta: c.conta, revisao: c.fase === 'CHECK' }, c.quando).seq;
+      thread: c.thread?.id ?? null, fase: c.fase, runtime: c.runtime, conta: c.conta, revisao: c.fase === 'CHECK',
+      ...(c.medido ? { medido: c.medido } : {}) }, c.quando).seq;
   } catch (e) {
     if (!(e instanceof RecusaDoArco)) throw e;
     const r: Recusado = { acao: 'recusado', trabalho: c.trabalho, thread: c.thread?.id ?? null, fase: c.fase, motivo: e.motivo,

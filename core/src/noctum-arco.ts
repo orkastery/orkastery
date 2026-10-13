@@ -135,7 +135,7 @@ export interface DespachoDoArco extends ReservaDeDespacho {
   concluidoEm: string | null;
 }
 
-/** Sessões consumidas (reservadas e não recusadas), no arco e por conta e runtime. A N2 só mede `sessoes`. */
+/** Sessões consumidas (reservadas e não recusadas), no arco e por conta e runtime. As outras unidades: `noctum-medicao.ts` (N6). */
 export interface ConsumoDoArco { arco: number; porConta: Record<string, number>; porRuntime: Record<string, number> }
 
 /**
@@ -886,6 +886,11 @@ function vigenteConferido(raiz: string, arco: string, envelopeSha256: unknown, l
   return { d, vigente };
 }
 
+/** RM-058 N6 (D5 da ork-rm058n6): o consumo medido de um teto, na unidade dele, ou a lacuna que impede medir. */
+export type ValorMedido = { unidade: Teto['unidade']; valor: number } | { unidade: Teto['unidade']; lacuna: string };
+/** O consumo medido dos três tetos de um despacho, lido fora do lock do arco (`medidoParaReserva`, em `noctum-medicao.ts`). */
+export interface ConsumoMedidoDoDespacho { arco?: ValorMedido; conta?: ValorMedido; runtime?: ValorMedido }
+
 /** O que o executor do arco pede para despachar, imediatamente antes do efeito (RM-058 N2). */
 export interface PedidoDeDespacho {
   arco: string;
@@ -897,6 +902,8 @@ export interface PedidoDeDespacho {
   runtime: string;
   conta: string;
   revisao: boolean;
+  /** RM-058 N6: o consumo medido dos tetos que não estão em `sessoes`. Sem ele, esses tetos recusam (`sem-medicao`). */
+  medido?: ConsumoMedidoDoDespacho;
 }
 
 export interface DespachoReservado {
@@ -936,8 +943,9 @@ function threadsDoTrabalho(raiz: string, item: string, texto: string): string[] 
 /**
  * D11 e D12 da ork-rm058n2: confere o envelope e reserva o despacho, as duas coisas sob o lock do arco, imediatamente
  * antes do efeito. A cadeia da N1 (`vigenteConferido`) mais a janela, o trabalho na lista `v2`, a conta e o runtime do
- * envelope e o orçamento: cada despacho reserva uma sessão no teto do arco e nos subtetos da conta e do runtime, e teto
- * em outra unidade recusa, porque a N2 não mede consumo nela. O trabalho de pedido só despacha a thread que o arco abriu
+ * envelope e o orçamento: cada despacho reserva uma sessão no teto do arco e nos subtetos da conta e do runtime; teto em
+ * outra unidade confere o consumo medido que o passo traz (`pedido.medido`, D5 da ork-rm058n6) e, sem ele ou com lacuna,
+ * recusa (`sem-medicao`). O trabalho de pedido só despacha a thread que o arco abriu
  * para ele, e só abre uma pelo GOAL quando nenhuma casa ainda; SHIP e MASTER nunca saem do arco da N2. A revogação usa o
  * mesmo lock: ou ela vem antes e nada é reservado, ou vem depois e vale para o despacho seguinte.
  */
@@ -975,13 +983,22 @@ export function reservarDespacho(raiz: string, pedido: PedidoDeDespacho, quando 
       throw fora(`a conta ${String(pedido.conta)} não está no envelope`);
     }
     const consumo = consumoDe(d);
-    const tetos: Array<[string, Teto, number]> = [['do arco', c.orcamento.arco, consumo.arco],
-      [`da conta ${pedido.conta}`, tetoDaConta, consumo.porConta[pedido.conta] ?? 0],
-      [`do runtime ${pedido.runtime}`, tetoDoRuntime, consumo.porRuntime[pedido.runtime] ?? 0]];
-    for (const [nome, teto, usado] of tetos) {
+    const tetos: Array<[string, Teto, number, keyof ConsumoMedidoDoDespacho]> = [['do arco', c.orcamento.arco, consumo.arco, 'arco'],
+      [`da conta ${pedido.conta}`, tetoDaConta, consumo.porConta[pedido.conta] ?? 0, 'conta'],
+      [`do runtime ${pedido.runtime}`, tetoDoRuntime, consumo.porRuntime[pedido.runtime] ?? 0, 'runtime']];
+    for (const [nome, teto, usado, chave] of tetos) {
       if (teto.unidade !== 'sessoes') {
-        throw new RecusaDoArco('noctum.orcamento.sem-medicao', `o teto ${nome} está em ${teto.unidade}, e a N2 só mede sessoes: ` +
-          'sem medir o consumo, o teto não é garantido, e consumo desconhecido nunca vale zero');
+        // RM-058 N6 (D5): fora de `sessoes`, o consumo medido fora do lock decide; sem medida, ou com lacuna, recusa.
+        const medido = pedido.medido?.[chave];
+        if (!medido || medido.unidade !== teto.unidade || 'lacuna' in medido) {
+          throw new RecusaDoArco('noctum.orcamento.sem-medicao', `o teto ${nome} está em ${teto.unidade}, e o consumo nessa unidade não foi ` +
+            `medido para esta reserva${medido && 'lacuna' in medido ? ` (${medido.lacuna})` : ''}: sem medir, o teto não é garantido, e ` +
+            'consumo desconhecido nunca vale zero');
+        }
+        if (medido.valor >= teto.valor) {
+          throw new RecusaDoArco('noctum.orcamento.esgotado', `o teto ${nome} é de ${teto.valor} ${teto.unidade} e o consumo medido é ${medido.valor}`);
+        }
+        continue;
       }
       if (usado + 1 > teto.valor) {
         throw new RecusaDoArco('noctum.orcamento.esgotado', `o teto ${nome} é de ${teto.valor} sessoes e ${usado} já foram reservadas`);

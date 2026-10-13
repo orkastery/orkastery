@@ -665,8 +665,9 @@ test('A28: o orçamento só em sessoes: teto esgotado recusa, e teto em outra un
   concluirDespacho(raiz, 'arco-a', r.seq, { motivo: 'runtime.quota-exhausted' }, DENTRO);
   assert.equal(reservarDespacho(raiz, despacho('arco-a', h), DENTRO).consumo.arco, 2);
   const t = abrirV2(raiz, 'arco-b', { unidadeDaConta: 'tokens' });
+  // RM-058 N6: sem o consumo medido que o passo traz, o teto em outra unidade continua recusando (noctum-medicao.test.ts).
   assert.match(recusa(() => reservarDespacho(raiz, despacho('arco-b', t), DENTRO), 'noctum.orcamento.sem-medicao'),
-    /o teto da conta perfil-a está em tokens, e a N2 só mede sessoes/);
+    /o teto da conta perfil-a está em tokens, e o consumo nessa unidade não foi medido/);
   assert.equal(lerArco(raiz, 'arco-b', DENTRO)!.despachos.length, 0, 'nada foi reservado');
 }));
 
