@@ -48,7 +48,9 @@ class ConhecimentoHermesTest(unittest.TestCase):
             'import json, os, sys\n'
             'with open(os.environ["SINK"], "a", encoding="utf-8") as f:\n'
             '    f.write(json.dumps({"argv": sys.argv[1:], "explicito": os.environ.get("ORK_PROJETO_EXPLICITO"),\n'
-            '                        "canal": os.environ.get("ORK_CANAL")}) + "\\n")\n'
+            '                        "canal": os.environ.get("ORK_CANAL"),\n'
+            '                        "hitl": sorted(k for k in os.environ\n'
+            '                                       if k.startswith("ORK_HITL_") or k == "ORK_RECEIPT_VERIFIERS")}) + "\\n")\n'
             'if os.environ.get("RESPOSTA"):\n'
             '    sys.stdout.write(open(os.environ["RESPOSTA"], encoding="utf-8").read())\n'
             'sys.exit(int(os.environ.get("SAIDA", "0")))\n', encoding='utf-8')
@@ -116,6 +118,17 @@ class ConhecimentoHermesTest(unittest.TestCase):
         self.assertFalse((self.dir / 'INJETADO').exists(), 'sem shell no meio')
         self.assertEqual((segunda['explicito'], segunda['canal']), ('0', 'outro'))
         self.assertEqual(terceira['argv'], ['conhecimento', 'colecoes', '--json'])
+
+    def test_a_autoridade_do_hitl_nao_chega_ao_ork(self):
+        # Como o rodarOrk do OpenClaw: a chave da callback humana e os verificadores ficam fora da tool do modelo, e o
+        # memory.cli que o manifesto escolhe (P6) nunca as recebe pelo database_url_env.
+        segredos = dict(ORK_HITL_INGRESS_KEY_HERMES='chave-hmac-secreta', ORK_HITL_NATIVE_KEY_HERMES='outra-chave',
+                        ORK_HITL_TELEGRAM_USERS='42', ORK_RECEIPT_VERIFIERS='{"schema":"ork.hitl-verifiers/v1"}')
+        for consulta in CONSULTAS:
+            r = self.rodar(consulta, *(['doc-abc'] if consulta == 'mostrar' else []), **segredos)
+            self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual([c['hitl'] for c in self.chamadas()], [[]] * len(CONSULTAS))
+        self.assertEqual([c['canal'] for c in self.chamadas()], ['hermes'] * len(CONSULTAS))
 
     def test_o_json_do_nucleo_volta_como_vem_tambem_na_saida_1(self):
         consulta = {

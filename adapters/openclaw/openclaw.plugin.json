@@ -50,26 +50,22 @@
   "toolMetadata": {
     "ork_conhecimento_listar": {
       "profiles": [
-        "coding",
-        "messaging"
+        "coding"
       ]
     },
     "ork_conhecimento_mostrar": {
       "profiles": [
-        "coding",
-        "messaging"
+        "coding"
       ]
     },
     "ork_conhecimento_colecoes": {
       "profiles": [
-        "coding",
-        "messaging"
+        "coding"
       ]
     },
     "ork_conhecimento_verificar": {
       "profiles": [
-        "coding",
-        "messaging"
+        "coding"
       ]
     },
     "ork_network_roadmap": {
