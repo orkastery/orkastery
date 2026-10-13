@@ -427,42 +427,78 @@ test('nota local: com a trava da thread tomada por outro processo, a gravação 
   } finally { p.limpar(); }
 });
 
-test('nota local: a nota pelo diálogo fecha a thread e solta o que ela segurava, depois da trava', async () => {
-  const p = projetoTemporario('nota-local-soltura');
-  const bin = dirTemporario('nota-local-soltura-bin');
+/**
+ * O runtime falso do fechamento: a sessao da thread aparece parada (fantasma), e o `claude agents` que a soltura consulta
+ * anota se a trava de HITL da thread estava livre naquele instante. A soltura so marca a sessao, nunca para nem remove.
+ */
+async function comRuntimeFalso(p: ProjetoDeTeste, id: string, corpo: () => Promise<void>): Promise<{ mortes: unknown[][]; trava: string }> {
+  const bin = dirTemporario(`${id}-bin`);
   const conta = path.join(p.dir, 'contas', 'processo');
   const codex = path.join(p.dir, 'contas', 'codex');
   const sessao = '5959fec0-0000-4000-8000-000000000001';
   fs.mkdirSync(conta, { recursive: true });
   fs.mkdirSync(codex, { recursive: true });
-  // O runtime falso: a sessão da thread aparece parada (fantasma); o fechamento só a marca, nunca para nem remove.
-  fs.writeFileSync(path.join(bin, 'claude'), '#!/bin/sh\nif [ "$1" = "agents" ]; then cat "$CLAUDE_CONFIG_DIR/agents.json"; fi\nexit 0\n', { mode: 0o755 });
+  fs.writeFileSync(path.join(bin, 'claude'), [
+    '#!/bin/sh',
+    'if [ "$1" = "agents" ]; then',
+    '  if /usr/bin/flock --exclusive --nonblock "$TRAVA_DO_TESTE" true; then echo livre >> "$CLAUDE_CONFIG_DIR/trava"; else echo ocupada >> "$CLAUDE_CONFIG_DIR/trava"; fi',
+    '  cat "$CLAUDE_CONFIG_DIR/agents.json"',
+    'fi',
+    'exit 0',
+    '',
+  ].join('\n'), { mode: 0o755 });
   fs.writeFileSync(path.join(conta, 'agents.json'), JSON.stringify([{ sessionId: sessao, cwd: '/srv/x', state: 'blocked' }]));
-  const anterior = { PATH: process.env.PATH, CLAUDE: process.env.CLAUDE_CONFIG_DIR, CODEX: process.env.CODEX_HOME };
+  const anterior = { PATH: process.env.PATH, CLAUDE: process.env.CLAUDE_CONFIG_DIR, CODEX: process.env.CODEX_HOME, TRAVA: process.env.TRAVA_DO_TESTE };
   const volta = (k: string, v: string | undefined) => { if (v === undefined) delete process.env[k]; else process.env[k] = v; };
   process.env.PATH = `${bin}:${anterior.PATH ?? ''}`;
   process.env.CLAUDE_CONFIG_DIR = conta;
   process.env.CODEX_HOME = codex;
+  process.env.TRAVA_DO_TESTE = path.join(dirThread(p.dir, id), '.hitl.lock');
   try {
-    const t = entregue(p, 'soltura', false);
-    const th = lerThread(p.dir, t.id);
+    const th = lerThread(p.dir, id);
     th.sessoes.push({ sessionId: sessao, runtime: 'claude-bg', slug: th.slug, fase: 'GOAL', bloco: 'full', verificada: true,
       origem: 'adocao', adotadaEm: th.criadaEm, cwdOrigem: p.dir });
     gravarThread(p.dir, th);
-    registrar(dirThread(p.dir, t.id), t.id, TIPOS_DE_EVENTO.faseDespachada, { fase: 'GOAL', slug: th.slug, sessionId: sessao });
-    const { ingresso, soltar } = dialogoControlado(p, 'conexao-soltura');
-    const aberta = ingresso.solicitar(t.id);
-    await new Promise((r) => setTimeout(r, 30));
-    soltar({ action: 'accept', content: { nota: '4', porque: PORQUE } });
-    assert.equal((await aberta).estado, 'registrada');
-    assert.equal(lerThread(p.dir, t.id).status, 'fechada');
-    const mortes = lerLedger(dirThread(p.dir, t.id)).filter((e) => e.tipo === 'sessao_morta');
-    assert.deepEqual(mortes.map((e) => [e.sessionId, e.origem]), [[sessao, 'fechamento']], 'a soltura do fechamento rodou');
+    registrar(dirThread(p.dir, id), id, TIPOS_DE_EVENTO.faseDespachada, { fase: 'GOAL', slug: th.slug, sessionId: sessao });
+    await corpo();
+    const arquivoDaTrava = path.join(conta, 'trava');
+    return {
+      mortes: lerLedger(dirThread(p.dir, id)).filter((e) => e.tipo === 'sessao_morta').map((e) => [e.sessionId, e.origem]),
+      trava: fs.existsSync(arquivoDaTrava) ? fs.readFileSync(arquivoDaTrava, 'utf8') : '',
+    };
   } finally {
-    volta('PATH', anterior.PATH); volta('CLAUDE_CONFIG_DIR', anterior.CLAUDE); volta('CODEX_HOME', anterior.CODEX);
+    volta('PATH', anterior.PATH); volta('CLAUDE_CONFIG_DIR', anterior.CLAUDE); volta('CODEX_HOME', anterior.CODEX); volta('TRAVA_DO_TESTE', anterior.TRAVA);
     fs.rmSync(bin, { recursive: true, force: true });
-    p.limpar();
   }
+}
+
+test('nota local: a nota pelo diálogo fecha a thread e solta o que ela segurava, depois da trava', async () => {
+  const p = projetoTemporario('nota-local-soltura');
+  try {
+    const t = entregue(p, 'soltura', false);
+    const r = await comRuntimeFalso(p, t.id, async () => {
+      const { ingresso, soltar } = dialogoControlado(p, 'conexao-soltura');
+      const aberta = ingresso.solicitar(t.id);
+      await new Promise((res) => setTimeout(res, 30));
+      soltar({ action: 'accept', content: { nota: '4', porque: PORQUE } });
+      assert.equal((await aberta).estado, 'registrada');
+    });
+    assert.equal(lerThread(p.dir, t.id).status, 'fechada');
+    assert.deepEqual(r.mortes, [['5959fec0-0000-4000-8000-000000000001', 'fechamento']], 'a soltura do fechamento rodou');
+    assert.equal(r.trava, 'livre\n', 'e rodou com a trava da thread já solta');
+  } finally { p.limpar(); }
+});
+
+test('nota local: o aceite por omissão solta o que a thread segurava com a trava da thread já solta', async () => {
+  const p = projetoTemporario('nota-local-soltura-omissao');
+  try {
+    const t = entregue(p, 'soltura omissao', false);
+    const r = await comRuntimeFalso(p, t.id, async () => {
+      assert.deepEqual(aceitarPendentesPorOmissao(p.dir, { thread: t.id }).map((a) => a.thread), [t.id]);
+    });
+    assert.deepEqual(r.mortes, [['5959fec0-0000-4000-8000-000000000001', 'fechamento']], 'a soltura do fechamento rodou');
+    assert.equal(r.trava, 'livre\n', 'e rodou com a trava da thread já solta');
+  } finally { p.limpar(); }
 });
 
 test('nota local: a trava ocupada além da espera recusa com master.nota.trava-ocupada e nada da nota é gravado', async () => {

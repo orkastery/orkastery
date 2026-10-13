@@ -10,8 +10,11 @@ import type { RitualNota, RitualReserva } from '../types'
 import { exigirThread, umaLinha } from './ritual'
 
 export const FERRAMENTA_DA_NOTA = 'ork_request_master_note'
-/** O dialogo do nucleo fecha em ate 300 s e a gravacao espera a trava da thread por ate 60 s; o botao passa um pouco disso. */
-export const PRAZO_DA_NOTA_MS = 370000
+/**
+ * O dialogo do nucleo fecha em ate 300 s, a gravacao espera a trava da thread por ate 60 s e a resposta sai depois da
+ * soltura ao fechar (o git das reservas e o runtime); o botao espera tudo isso, com folga.
+ */
+export const PRAZO_DA_NOTA_MS = 430000
 /** O pedido pelo Telegram so grava o pedido de nota e devolve o codigo. */
 export const PRAZO_DA_RESERVA_MS = 60000
 
