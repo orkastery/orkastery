@@ -112,13 +112,13 @@
     "cobertura": 0.2525
   },
   "depois": {
-    "arvore": "7e78835a",
-    "descricao": "F3b: thread list, close e entrega, worktree, claims, decisao placar, accounts, network (fora network roadmap), roadmap reservas, pegar, soltar e feat, docs verificar e sincronizar, adapter e os erros de estado pelo catalogo; as skills, checklists, comandos e subagentes na lingua do dono",
+    "arvore": "a32cfdb6",
+    "descricao": "F3b: thread list, close e entrega, worktree, claims, decisao placar, accounts, network (fora network roadmap), roadmap reservas, pegar, soltar e feat, docs verificar e sincronizar, adapter e os erros de estado pelo catalogo; as skills, checklists, comandos e subagentes na lingua do dono; com o GO-FIX 1 do CHECK (worktree fora da raiz, lacunas de erro da rede, detalhe do login, conferencia por tarefa e as recusas da branch de estado)",
     "schema": "ork.locale-cobertura/v1",
     "arquivos": 244,
-    "literaisComTexto": 4478,
-    "emPosicaoDeSaida": 2523,
-    "arquivosComSaida": 156,
+    "literaisComTexto": 4460,
+    "emPosicaoDeSaida": 2514,
+    "arquivosComSaida": 155,
     "maiores": [
       {
         "arquivo": "index.ts",
@@ -367,10 +367,6 @@
         "saida": 14
       },
       {
-        "arquivo": "thread.ts",
-        "saida": 14
-      },
-      {
         "arquivo": "creation-operation.ts",
         "saida": 13
       },
@@ -420,6 +416,10 @@
       },
       {
         "arquivo": "prompts.ts",
+        "saida": 11
+      },
+      {
+        "arquivo": "thread.ts",
         "saida": 11
       },
       {
@@ -532,10 +532,6 @@
       },
       {
         "arquivo": "rede.ts",
-        "saida": 6
-      },
-      {
-        "arquivo": "worktree-local.ts",
         "saida": 6
       },
       {
@@ -671,10 +667,6 @@
         "saida": 3
       },
       {
-        "arquivo": "branch-de-estado.ts",
-        "saida": 2
-      },
-      {
         "arquivo": "canarios-i43.ts",
         "saida": 2
       },
@@ -724,6 +716,10 @@
       },
       {
         "arquivo": "portfolio-context.ts",
+        "saida": 2
+      },
+      {
+        "arquivo": "worktree-local.ts",
         "saida": 2
       },
       {
@@ -788,11 +784,11 @@
       }
     ],
     "catalogo": {
-      "entradas": 1637,
+      "entradas": 1653,
       "arquivos": [
         {
           "arquivo": "locale-accounts.ts",
-          "entradas": 87
+          "entradas": 88
         },
         {
           "arquivo": "locale-adapter.ts",
@@ -804,7 +800,7 @@
         },
         {
           "arquivo": "locale-claims.ts",
-          "entradas": 83
+          "entradas": 85
         },
         {
           "arquivo": "locale-decisao.ts",
@@ -816,7 +812,7 @@
         },
         {
           "arquivo": "locale-estado.ts",
-          "entradas": 27
+          "entradas": 29
         },
         {
           "arquivo": "locale-gerados.ts",
@@ -828,7 +824,7 @@
         },
         {
           "arquivo": "locale-network.ts",
-          "entradas": 101
+          "entradas": 108
         },
         {
           "arquivo": "locale-onboarding.ts",
@@ -868,7 +864,7 @@
         },
         {
           "arquivo": "locale-worktree.ts",
-          "entradas": 91
+          "entradas": 95
         },
         {
           "arquivo": "locale.ts",
@@ -876,18 +872,18 @@
         }
       ]
     },
-    "cobertura": 0.3935
+    "cobertura": 0.3967
   },
   "familiasNovas": {
-    "locale-worktree.ts": 91,
-    "locale-estado.ts": 27,
-    "locale-claims.ts": 83,
+    "locale-accounts.ts": 88,
+    "locale-adapter.ts": 62,
+    "locale-claims.ts": 85,
     "locale-decisao.ts": 12,
-    "locale-accounts.ts": 87,
-    "locale-network.ts": 101,
-    "locale-reservas.ts": 31,
     "locale-docs.ts": 104,
-    "locale-adapter.ts": 62
+    "locale-estado.ts": 29,
+    "locale-network.ts": 108,
+    "locale-reservas.ts": 31,
+    "locale-worktree.ts": 95
   },
-  "nota": "a familia thread cresce de 96 para 115 entradas (thread list, close e entrega); as 43 variantes inglesas das skills, checklists, comandos e subagentes moram em core/assets/skills-en, references-en e adapters-en e ficam fora do metodo, como os modelos do docs init; seguem em pt-BR, para a F3c, decisao registrar, network roadmap, thread new --from-finding e os prompts de fase"
+  "nota": "cresceram: locale-thread.ts 96 para 115; as 43 variantes inglesas das skills, checklists, comandos e subagentes moram em core/assets/skills-en, references-en e adapters-en e ficam fora do metodo, como os modelos do docs init; seguem em pt-BR, para a F3c, decisao registrar, network roadmap, thread new --from-finding e os prompts de fase"
 }

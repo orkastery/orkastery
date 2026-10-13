@@ -188,11 +188,11 @@ A F3a mede no mesmo contador, com o recibo em [`cobertura-f3a.json`](evidencias/
 
 A F3b mede no mesmo contador, com o recibo em [`cobertura-f3b.json`](evidencias/RM-061/cobertura-f3b.json):
 
-| Medida | Base da F3b na `main` (`1f3d73ff`) | F3b (`7e78835a`) |
+| Medida | Base da F3b na `main` (`1f3d73ff`) | F3b (`a32cfdb6`) |
 | --- | --- | --- |
-| Entradas do catálogo | 1.020 | 1.637 |
-| Literais de saída fora do catálogo | 3.019 | 2.523 |
-| Cobertura | 25,3% | 39,4% |
+| Entradas do catálogo | 1.020 | 1.653 |
+| Literais de saída fora do catálogo | 3.019 | 2.514 |
+| Cobertura | 25,3% | 39,7% |
 
 - **O que mudou:** seguem o locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`, `ork accounts`, `ork network` (fora `network roadmap`), `ork roadmap reservas`, `pegar`, `soltar` e `feat`, `ork docs verificar` e `docs sincronizar`, `ork adapter` e os erros de estado (`estado.*`, `transporte.rastreado`, `ponteiro.fora-da-raiz`). As famílias novas do catálogo são `worktree`, `estado`, `claims`, `decisao`, `accounts`, `network`, `reservas`, `docs` e `adapter`.
 - **O dado não muda:** o texto que vai ao ledger, ao `claims.jsonl` ou ao `--json` (o detalhe de um check da worktree, o achado do `docs verificar`, a lacuna da rede, a soltura de uma reserva órfã) nasce em pt-BR e só a impressão o remonta; motivo tipado, código, estado da claim e do perfil saem iguais no `--json` e só a impressão os traduz. O que o `ork docs verificar` lê nas páginas (chaves, valores, seções e a linha `Em uma frase`) segue em pt-BR em qualquer língua.

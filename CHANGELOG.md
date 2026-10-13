@@ -16,7 +16,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `core/assets/*-en/`) para o mesmo destino, e trocar a língua troca no lugar a cópia intacta. O `--json`, o ledger, o
   `claims.jsonl`, o recibo `INSTALADO.json` e o que o `ork docs verificar` lê nas páginas não mudam; o pt-BR segue igual
   byte a byte. Ficam em pt-BR, para a F3c, `decisao registrar`, `network roadmap`, `thread new --from-finding` e os
-  prompts de fase. O catálogo vai de 1.020 para 1.637 entradas (cobertura de 25,3% para 39,4%).
+  prompts de fase. O catálogo vai de 1.020 para 1.653 entradas (cobertura de 25,3% para 39,7%).
 
 - **Conhecimento escrito, fatia 2: o comando e as tools MCP** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
   `ork conhecimento listar [--colecao C]|mostrar <doc-id>|colecoes|verificar`, todos com `--json`, e as tools
