@@ -29,6 +29,7 @@ import { abrirPedidoGate, autenticarResposta, comLockHitl, contextoHitlDosEvento
 import { alvoDoPedido, AtoIrreversivel, chaveDaEscolha, ehV2, escolhasDoPedido, estadoDoPedido, motivoDoPedido,
   PedidoHitlQualquer, PerguntaAoDono, prazoDoPedido, validarPedidoHitl } from './hitl-contract';
 import { comLockDaConversa } from './monitor-lock';
+import { redigirSegredos } from './hitl';
 import { LETRAS, montarLote, perguntaDoPedido, PerguntaDoLote, TETO_DA_MENSAGEM, TETO_DE_PERGUNTAS_POR_LOTE, textoDoLote } from './hitl-lote';
 import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 import { FORMAS_DO_TEXTO_LIVRE, JANELA_DO_TEXTO_LIVRE_MIN, lerLista, lerSolta, lerTrecho, resolverTrecho, TETO_DA_FORMA, TrechoLivre } from './hitl-texto-livre';
@@ -76,11 +77,15 @@ export const GRAMATICA_DO_PULSE = Object.freeze({
   // RM-048 (item 8): o teclado do digest semanal ("ratificar <thread> <assinatura> <classe>" e
   // "ratificar-lote <semana> <assinatura>") passa pelo mesmo endereco assinado, e nao pelo agente.
   ratificacao: '^[ \\t]*ratificar(?:-lote)?(?:[ \\t]+[A-Za-z0-9._-]{1,80}){2,3}[ \\t]*$',
+  // RM-063 (fatia 3, H2): os comandos de conducao do canal, sozinhos na mensagem: `#OrkRetomar` roda a batida da
+  // conducao e responde o que voltou a andar; `#OrkFabrica` responde o `ork fabrica`. Comecam por `#`, como a cadencia.
+  conducao: '^[ \\t]*#Ork(?:Retomar|Fabrica)[ \\t]*[.!]?[ \\t]*$',
 });
 const RATIFICACAO = new RegExp(GRAMATICA_DO_PULSE.ratificacao, 'i');
 const CONSENTIMENTO = new RegExp(GRAMATICA_DO_PULSE.consentimento, 'i');
 const LOTE = new RegExp(GRAMATICA_DO_PULSE.lote);
 const CADENCIA = new RegExp(GRAMATICA_DO_PULSE.cadencia, 'i');
+const CONDUCAO = new RegExp(GRAMATICA_DO_PULSE.conducao, 'i');
 
 export type RespostaInterpretada =
   | { forma: 'consentimento'; codigo: string }
@@ -89,6 +94,7 @@ export type RespostaInterpretada =
   | { forma: 'livre'; trecho: TrechoLivre }
   | { forma: 'cadencia'; tag: TagDoPulse }
   | { forma: 'ratificacao'; texto: string }
+  | { forma: 'conducao'; comando: 'retomar' | 'fabrica' }
   | { forma: 'desconhecida' };
 
 /** O que o dono quis dizer, pela forma. Nada aqui le intencao: ou a forma bate, ou nao. */
@@ -108,6 +114,7 @@ export function interpretarRespostaDoPulse(texto: unknown): RespostaInterpretada
   if (CONSENTIMENTO.test(texto)) return { forma: 'consentimento', codigo: texto.trim().slice(0, 4).toUpperCase() };
   const tag = CADENCIA.test(texto) ? extrairTagDoPulse(texto) : null;
   if (tag) return { forma: 'cadencia', tag };
+  if (CONDUCAO.test(texto)) return { forma: 'conducao', comando: /#OrkRetomar/i.test(texto) ? 'retomar' : 'fabrica' };
   const solta = lerSolta(texto);
   if (solta) return { forma: 'livre', trecho: solta };
   return { forma: 'desconhecida' };
@@ -934,7 +941,7 @@ export interface RegistroDaResposta {
 export interface ResultadoDaRespostaDoPulse {
   contrato: typeof CONTRATO_RESPOSTA_DO_PULSE;
   ok: true;
-  tipo: 'consentimento' | 'lote' | 'cadencia' | 'codigo' | 'nota' | 'nao-entendida';
+  tipo: 'consentimento' | 'lote' | 'cadencia' | 'codigo' | 'nota' | 'nao-entendida' | 'retomar' | 'fabrica';
   resposta?: 'sim' | 'nao';
   /** I-50: a cadencia gravada, quando a mensagem era a tag. */
   cadencia?: TagDoPulse;
@@ -963,6 +970,10 @@ function resultado(tipo: ResultadoDaRespostaDoPulse['tipo'], mensagem: string,
  */
 export function responderPeloPulse(raiz: string, envelope: RespostaHumana, opcoes: {
   quando?: string; canal?: 'telegram' | 'terminal'; estadoDir?: string;
+  /** RM-063 (H2): quem dispara a batida da conducao em segundo plano; os testes trocam. */
+  retomar?: (raiz: string, canal: string | null) => void;
+  /** RM-063 (H2): o texto do `ork fabrica` desta maquina; os testes trocam. */
+  fabrica?: (raiz: string) => string;
 } = {}): ResultadoDaRespostaDoPulse {
   const quando = opcoes.quando ?? new Date().toISOString();
   const canal = opcoes.canal ?? 'telegram';
@@ -977,6 +988,7 @@ export function responderPeloPulse(raiz: string, envelope: RespostaHumana, opcoe
     gravarCadencia(raiz, lido.tag, { por: envelope.por, canal: envelope.canal ?? envelope.origem, em: quando }, opcoes.estadoDir);
     return resultado('cadencia', textoDaCadencia(CADENCIAS[lido.tag], quando), { cadencia: lido.tag, repetida });
   }
+  if (lido.forma === 'conducao') return responderConducao(raiz, envelope, lido.comando, opcoes);
   // A conversa do pulse tem dois escritores (a varredura e este receptor): um de cada vez.
   const estadoDir = opcoes.estadoDir ?? path.join(raizDoEstado(raiz), '.orkastery', 'monitor');
   return comLockDaConversa(estadoDir, () => {
@@ -1176,4 +1188,56 @@ function responderAsPerguntas(raiz: string, envelope: RespostaHumana, escolhas: 
   ].join('\n');
   return resultado('lote', texto, { registradas, recusas: [...(opcoes.avisos ?? []).map(motivo => ({ motivo })), ...recusas],
     repetida: registradas.length > 0 && recusas.length === 0 && registradas.every(r => r.repetida) });
+}
+
+// ---------------------------------------------------------------------------
+// RM-063 (fatia 3, H2): `#OrkRetomar` e `#OrkFabrica` no canal do dono.
+// ---------------------------------------------------------------------------
+
+/** Os canais de conducao que o envelope pode declarar; o resto fica com o que o adaptador ja exporta. */
+const CANAIS_DO_HOST = ['hermes', 'openclaw', 'claude-code', 'codex', 'cli'];
+
+/**
+ * A batida da conducao em segundo plano: o ingresso do host espera ate 10 s, e a batida traz a base, le os PRs e pode
+ * despachar uma fase. O processo filho entrega o que voltou a andar pelo transporte do pulse (`--entregar`).
+ */
+function retomarEmSegundoPlano(raiz: string, canal: string | null): void {
+  const { spawn } = require('node:child_process') as typeof import('node:child_process');
+  const env = { ...process.env, ...(canal && CANAIS_DO_HOST.includes(canal) ? { ORK_CANAL: canal } : {}) };
+  const filho = spawn(process.execPath, [path.join(__dirname, 'index.js'), 'conducao', 'batida', '--entregar'],
+    { cwd: raizDoEstado(raiz), detached: true, stdio: 'ignore', env });
+  filho.unref();
+}
+
+/** O `ork fabrica` desta maquina, da ultima copia local da branch da fabrica (sem rede: o ingresso tem prazo curto). */
+function fabricaDestaMaquina(raiz: string): string {
+  const { exigirManifesto } = require('./manifest') as typeof import('./manifest');
+  const { lerFabrica, textoDaFabrica } = require('./fabrica-estado') as typeof import('./fabrica-estado');
+  const { nomeDaMaquina } = require('./maquina') as typeof import('./maquina');
+  const carregado = exigirManifesto(raizDoEstado(raiz));
+  const painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto, semRemoto: true });
+  return textoDaFabrica(painel, nomeDaMaquina());
+}
+
+function responderConducao(raiz: string, envelope: RespostaHumana, comando: 'retomar' | 'fabrica',
+  opcoes: { retomar?: (raiz: string, canal: string | null) => void; fabrica?: (raiz: string) => string }): ResultadoDaRespostaDoPulse {
+  if (comando === 'fabrica') {
+    let texto: string;
+    try { texto = (opcoes.fabrica ?? fabricaDestaMaquina)(raiz); }
+    catch (e) {
+      console.error(`pulse responder: fabrica: ${(e as Error).message}`);
+      return resultado('fabrica', 'Não consegui ler a fábrica agora. Confira com ork fabrica no terminal.', { recusas: [{ motivo: 'erro-interno' }] });
+    }
+    const limpo = redigirSegredos(texto).trim();
+    return resultado('fabrica', limpo.length > TETO_DA_MENSAGEM ? `${limpo.slice(0, TETO_DA_MENSAGEM - 40)}\n… (cortado; ork fabrica)` : limpo);
+  }
+  const canal = typeof envelope.canal === 'string' && envelope.canal ? envelope.canal : null;
+  try { (opcoes.retomar ?? retomarEmSegundoPlano)(raiz, canal); }
+  catch (e) {
+    console.error(`pulse responder: retomar: ${(e as Error).message}`);
+    return resultado('retomar', 'Não consegui disparar a batida da condução agora. Rode ork conducao batida no terminal.',
+      { recusas: [{ motivo: 'erro-interno' }] });
+  }
+  return resultado('retomar', 'Retomando: a batida da condução está rodando nesta máquina agora (merge do PR pronto, registro da ' +
+    'entrega, MASTER por omissão e a fase seguinte, dentro da sua autorização durável). O que voltou a andar chega em seguida, por este canal.');
 }

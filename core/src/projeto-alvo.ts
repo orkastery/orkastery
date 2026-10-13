@@ -285,12 +285,44 @@ export function registrarProjeto(caminho: string, fonte: FonteDoRegistro,
   }, opcoes.esperaMs);
 }
 
+/** As pastas efemeras desta maquina: a temporaria do sistema e as que o `/tmp` costuma ter. */
+function pastasTemporarias(): string[] {
+  const raizes = [os.tmpdir(), '/tmp', '/var/tmp', '/dev/shm'];
+  const job = (process.env.CLAUDE_JOB_DIR ?? '').trim();
+  if (job && path.isAbsolute(job)) raizes.push(job);
+  return [...new Set(raizes.flatMap((r) => { try { return [path.resolve(r), fs.realpathSync(r)]; } catch { return [path.resolve(r)]; } }))];
+}
+
+/**
+ * RM-063 (fatia 3, achado b): o caminho esta numa pasta que some sozinha? A temporaria do sistema (`/tmp`, `TMPDIR`,
+ * `/var/tmp`, `/dev/shm`) e a pasta de um job de fundo do Claude Code (`~/.claude*\/jobs/<id>/`, ou `CLAUDE_JOB_DIR`).
+ */
+export function diretorioEfemero(caminho: string): boolean {
+  let real = path.resolve(caminho);
+  try { real = fs.realpathSync(real); } catch { /* o caminho que ja sumiu vale como foi escrito */ }
+  if (/\/\.claude[^/]*\/jobs\/[^/]+(\/|$)/.test(real)) return true;
+  return pastasTemporarias().some((r) => real === r || real.startsWith(r.endsWith(path.sep) ? r : r + path.sep));
+}
+
 /**
  * D7: o registro nunca derruba o comando que o alimenta. Devolve o aviso para o terminal, ou `null`.
+ *
+ * RM-063 (fatia 3, achado b): provas e testes que rodam o `ork` em projetos de `/tmp` e da pasta dos jobs do Claude
+ * Code encheram o `~/.orkastery/projetos.json` real de projetos que somem. O registro automatico (init, thread new,
+ * fabrica entrar) nao grava projeto efemero num registro duravel: o projeto de `/tmp` so entra no registro que tambem
+ * e efemero (o `ORKASTERY_HOME` temporario dos testes). `ork projetos registrar`, pedido explicito, continua valendo.
  */
-export function registrarProjetoEmSilencio(raiz: string, fonte: FonteDoRegistro): string | null {
-  try { registrarProjeto(raiz, fonte); return null; }
-  catch (e) { return `aviso: projeto não registrado em ${caminhoDoRegistro()} (${(e as Error).message})`; }
+export function registrarProjetoEmSilencio(raiz: string, fonte: FonteDoRegistro,
+    opcoes: { efemero?: (caminho: string) => boolean } = {}): string | null {
+  const efemero = opcoes.efemero ?? diretorioEfemero;
+  try {
+    if (efemero(raiz) && !efemero(pastaDoUsuario())) {
+      return `aviso: projeto em pasta temporária (${raizParaExibir(path.resolve(raiz))}) não entra no registro desta máquina ` +
+        `(${caminhoDoRegistro()}); para registrá-lo mesmo assim: ork projetos registrar ${raizParaExibir(path.resolve(raiz))}`;
+    }
+    registrarProjeto(raiz, fonte);
+    return null;
+  } catch (e) { return `aviso: projeto não registrado em ${caminhoDoRegistro()} (${(e as Error).message})`; }
 }
 
 /** Tira do registro por nome, abbrev ou caminho. Nada casou e recusa, com os registrados. */

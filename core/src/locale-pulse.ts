@@ -75,7 +75,9 @@ export const PULSE_PT_BR = {
   sessao: { blocked: 'sessao parada esperando acao humana (prompt, permissao ou credencial)',
     failed: 'sessao terminou em erro: alguem decide entre retomar, corrigir ou abandonar',
     working: 'sessao em execucao', done: 'sessao concluiu', stopped: 'sessao parada por decisao humana (`claude stop`)',
-    idle: 'sessao interativa ociosa, conduzida por um humano no terminal' } as Record<string, string>,
+    idle: 'sessao interativa ociosa, conduzida por um humano no terminal',
+    // RM-063 (fatia 3, achado a): `busy` e `running` sao a sessao trabalhando num turno, como o observador ja os le.
+    busy: 'sessao ocupada, executando um turno', running: 'sessao em execucao' } as Record<string, string>,
   sessaoSemEstado: 'runtime nao informou estado desta sessao: tratada como possivel parada',
   sessaoEstadoForaDoCatalogo: (estado: string) => `estado "${estado}" nao esta no catalogo do ork: tratado como possivel parada`,
   // a consulta do runtime (claude-bg.ts e hitl.ts): o detalhe do pulse quando ela falha
@@ -111,6 +113,13 @@ export const PULSE_PT_BR = {
         `está em ${base}, e o ledger não tem o ship_done`,
       master: 'fechar a thread pelo MASTER por omissão: a entrega está registrada, ninguém deu nota e nada anda nela; o índice ' +
         'do ledger vira a nota, e a sua nota, quando vier, vale',
+      // RM-063 (F7): a batida da conducao (`conducao-batida.ts`).
+      merge: (pr: number, branch: string, base: string) => `mesclar o PR #${pr} (${branch}) em ${base}, com os checks obrigatórios ` +
+        'verdes e o PR limpo',
+      atualizar: (pr: number, branch: string, base: string) => `trazer ${base} para a branch ${branch} do PR #${pr}, que ficou para trás ` +
+        'ou em conflito só no CHANGELOG',
+      despachar: (fase: string) => `despachar a fase ${fase} com o pedido guardado na criação da thread`,
+      retomar: (fase: string) => `retomar a fase ${fase} pelo retry, com o mesmo prompt gravado`,
     },
     bloqueios: {
       'conduzida': 'alguém conduz a thread agora',
@@ -120,6 +129,17 @@ export const PULSE_PT_BR = {
       'branch-com-commits': 'a branch tem commits depois do head do PR mesclado',
       'trabalho-novo': 'a thread recebeu trabalho novo depois do PR, e a ação mudaria a fase dela',
       'git-sem-resposta': 'o git não respondeu sobre a branch',
+      'pr-rascunho': 'o PR está em rascunho',
+      'checks-vermelhos': 'um check obrigatório do PR falhou',
+      'sem-checks-obrigatorios': 'a base não exige check nenhum, e merge sem check obrigatório verde fica com você',
+      'pr-bloqueado': 'o GitHub bloqueia o merge mesmo com os checks obrigatórios verdes (revisão ou regra da base)',
+      'pr-instavel': 'há check não obrigatório vermelho, e o PR não está limpo',
+      'conflito-em-codigo': 'o merge da base na branch conflita em código, e conflito em código nunca é resolvido sozinho',
+      'branch-nao-publicada': 'a branch local tem commits que o PR ainda não tem',
+      'sem-prompt-gravado': 'a thread não tem o pedido guardado na criação (ork thread new --pedido), e sem ele não há prompt',
+      'check-pendente': 'o CHECK da thread não passou (veredito PASSOU) depois do último commit de produto do PR',
+      'pendencia-do-dono': 'a thread espera você (pausada, pausa prevista, pergunta ou escalação aberta)',
+      'espera-longa': 'a batida espera há mais de 2 h (check obrigatório pendente ou o GitHub sem o estado do merge)',
     },
     comBloqueio: (oQue: string, bloqueio: string) => `${oQue}. A varredura não faz isso sozinha agora: ${bloqueio}`,
     comBloqueioRecomendacao: (thread: string, comando: string) =>
@@ -220,7 +240,8 @@ export const PULSE_EN: typeof PULSE_PT_BR = {
   sessao: { blocked: 'session stopped waiting for human action (prompt, permission or credential)',
     failed: 'session ended in an error: someone decides whether to resume, fix or drop it',
     working: 'session running', done: 'session finished', stopped: 'session stopped by a human decision (`claude stop`)',
-    idle: 'idle interactive session, driven by a human in the terminal' },
+    idle: 'idle interactive session, driven by a human in the terminal',
+    busy: 'session busy, running a turn', running: 'session running' },
   sessaoSemEstado: 'the runtime did not report a state for this session: treated as possibly stopped',
   sessaoEstadoForaDoCatalogo: (estado) => `state "${estado}" is not in the ork catalog: treated as possibly stopped`,
   adapterIndisponivel: 'runtime adapter unavailable on this machine (`claude` not on PATH)',
@@ -248,6 +269,11 @@ export const PULSE_EN: typeof PULSE_PT_BR = {
         'ledger has no ship_done',
       master: 'close the thread through MASTER by default: the delivery is recorded, nobody scored it and nothing runs on it; the ' +
         'ledger index becomes the score, and your score, when it comes, wins',
+      merge: (pr, branch, base) => `merge PR #${pr} (${branch}) into ${base}, with the required checks green and the PR clean`,
+      atualizar: (pr, branch, base) => `bring ${base} into branch ${branch} of PR #${pr}, which fell behind or conflicts only in ` +
+        'the CHANGELOG',
+      despachar: (fase) => `dispatch phase ${fase} with the request stored when the thread was created`,
+      retomar: (fase) => `resume phase ${fase} through the retry, with the same recorded prompt`,
     },
     bloqueios: {
       'conduzida': 'someone conducts the thread now',
@@ -257,6 +283,17 @@ export const PULSE_EN: typeof PULSE_PT_BR = {
       'branch-com-commits': 'the branch has commits after the head of the merged PR',
       'trabalho-novo': 'the thread got new work after the PR, and the action would change its phase',
       'git-sem-resposta': 'git did not answer about the branch',
+      'pr-rascunho': 'the PR is a draft',
+      'checks-vermelhos': 'a required check of the PR failed',
+      'sem-checks-obrigatorios': 'the base requires no check at all, and a merge without a green required check stays with you',
+      'pr-bloqueado': 'GitHub blocks the merge even with the required checks green (review or base rule)',
+      'pr-instavel': 'a non-required check is red, and the PR is not clean',
+      'conflito-em-codigo': 'merging the base into the branch conflicts in code, and a code conflict is never resolved on its own',
+      'branch-nao-publicada': 'the local branch has commits the PR does not have yet',
+      'sem-prompt-gravado': 'the thread has no request stored at creation (ork thread new --pedido), and without it there is no prompt',
+      'check-pendente': 'the thread CHECK did not pass (verdict PASSOU) after the last product commit of the PR',
+      'pendencia-do-dono': 'the thread waits for you (paused, planned pause, open question or escalation)',
+      'espera-longa': 'the beat has been waiting for more than 2 h (a required check pending, or GitHub without the merge state)',
     },
     comBloqueio: (oQue, bloqueio) => `${oQue}. The sweep does not do this on its own now: ${bloqueio}`,
     comBloqueioRecomendacao: (thread, comando) =>

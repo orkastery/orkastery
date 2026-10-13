@@ -493,6 +493,18 @@ export interface EventoLedger {
   [chave: string]: unknown;
 }
 
+/**
+ * RM-063 (fatia 3, achado a): os estados crus do runtime que sao trabalho em curso. O `claude agents --json` diz
+ * `working` para a sessao de fundo, e `busy` ou `running` para a interativa que executa um turno: nenhum dos tres e
+ * parada, com ou sem thread.
+ */
+export const ESTADOS_DE_TRABALHO: readonly string[] = ['working', 'busy', 'running'];
+
+/** O estado cru e trabalho em curso? */
+export function estadoDeTrabalho(estado: string | null | undefined): boolean {
+  return typeof estado === 'string' && ESTADOS_DE_TRABALHO.includes(estado.trim().toLowerCase());
+}
+
 /** Sessao viva reportada pelo runtime (`claude agents --json`). */
 export interface SessaoRuntime {
   id?: string;
@@ -710,7 +722,9 @@ export type CanalDeConducao = 'claude-code' | 'hermes' | 'openclaw' | 'codex' | 
 
 /** I-36: a operacao que segura o lease de execucao. */
 export type OperacaoDeConducao =
-  | 'phase.run' | 'retry.run' | 'verify' | 'baseline' | 'fix.open' | 'fix.reverify' | 'mcp.verify' | 'handoff';
+  | 'phase.run' | 'retry.run' | 'verify' | 'baseline' | 'fix.open' | 'fix.reverify' | 'mcp.verify' | 'handoff'
+  // RM-063 (F7): o merge da base remota na branch da thread, com a reconciliacao do CHANGELOG (`atualizar-branch.ts`).
+  | 'branch.atualizar';
 
 /**
  * I-36 (D7): quem segura a conducao. Processo local prova vida pelo flock do kernel; sessao de
