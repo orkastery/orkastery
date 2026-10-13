@@ -22,13 +22,21 @@ import { fabricaCompartilhada, nomeDaMaquina } from './maquina';
 import { publicarRedeNaBatida } from './rede';
 import { registrarNaRede } from './rede-adesao';
 import { lerCadencia, janelaAberta, lerUltimoResumo, gravarUltimoResumo } from './pulse-cadencia';
-import { agirNaVarredura, OpcoesDaVarreduraQueAge, VarreduraQueAge } from './varredura-acoes';
+import { baterConducao, BatidaDaConducao, OpcoesDaBatida } from './conducao-batida';
+import { ARQUIVO_DO_TRANSPORTE, TentativaDoTransporte } from './doctor-pulse-cron';
+import { hostDoTransporte, TransportePulse, transporteValido } from './transporte-do-canal';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 
 // O lock dos monitores mudou de modulo (I-41, GO-FIX 1); quem o importava daqui continua importando.
 export { adquirirLockMonitor } from './monitor-lock';
 
-export interface TransportePulse { executavel: string; argumentos: string[] }
+/**
+ * O transporte do pulse (`.orkastery/monitor/pulse-host.json`, local, fora do git): o executavel do host e os argumentos,
+ * com `{{mensagem}}` num deles. RM-063 (fatia 3, H3 e H4): `host` e `destino` dizem de quem ele e (gravados pelo
+ * onboarding junto com o canal do dono, `transporte-do-canal.ts`), e `alternativos` sao os outros hosts configurados,
+ * tentados na ordem quando o principal falha.
+ */
+export type { TransportePulse } from './transporte-do-canal';
 /** RM-037 (fatia 4): por quanto tempo a parada ja informada continua sabida depois de sumir de uma batida. */
 export const RETEM_PARADO_MS = 6 * 60 * 60 * 1000;
 /**
@@ -81,6 +89,41 @@ export function mensagemPulse(i: ItemPulse, agora?: string): string {
 }
 function gravarCache(file:string,vistas:Record<string,string>): void {
   const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify({versao:1,vistas})+'\n',{mode:0o600});fs.renameSync(tmp,file);
+}
+
+export interface EntregaPeloTransporte { ok: boolean; host: string | null; tentativas: TentativaDoTransporte[] }
+
+/**
+ * RM-063 (fatia 3, H4): entrega a mensagem pelo transporte do pulse e, quando ele falha, pelos outros hosts configurados
+ * (`alternativos`), na ordem. Cada entrega vai ao `transporte.log` (`transporte_entrega`, com cada tentativa), que o
+ * `ork doctor` le: a falha do principal aparece la mesmo quando o outro host entregou. A mensagem entra como texto:
+ * `$&` e `$'` nela nao sao padrao de substituicao (CHECK da RM-037, fatia 4).
+ */
+export function entregarPeloTransporte(raiz: string, mensagem: string,
+  opcoes: { dir?: string; oQue: string; quando?: string; config?: TransportePulse }): EntregaPeloTransporte {
+  const dir = opcoes.dir ?? path.join(raizDoEstado(raiz), '.orkastery', 'monitor');
+  // RM-047 (P2): o executavel do transporte so sai do arquivo local, nunca de um versionado no git.
+  if (!opcoes.config) exigirHostLocal(raiz, path.join(dir, 'pulse-host.json'));
+  const config = opcoes.config ?? JSON.parse(fs.readFileSync(path.join(dir, 'pulse-host.json'), 'utf8')) as TransportePulse;
+  if (!transporteValido(config)) throw new Error('transporte requer executavel e argumentos com {{mensagem}}');
+  const todos = [config, ...(Array.isArray(config.alternativos) ? config.alternativos.filter(transporteValido) : [])];
+  const tentativas: TentativaDoTransporte[] = [];
+  let entregue: string | null = null;
+  for (const t of todos) {
+    const host = hostDoTransporte(t);
+    const r = spawnSync(t.executavel, t.argumentos.map((a) => a.replaceAll('{{mensagem}}', () => mensagem)),
+      { cwd: raiz, encoding: 'utf8', input: mensagem, timeout: 30000, maxBuffer: 1024 * 1024 });
+    const ok = r.status === 0;
+    tentativas.push({ host, ok, codigo: r.status, detalhe: ok ? '' : redigirSegredos(`${r.error ? r.error.message : ''} ${r.stderr ?? ''}`)
+      .replace(/\s+/g, ' ').trim().slice(0, 200) });
+    if (ok) { entregue = host; break; }
+  }
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(path.join(dir, ARQUIVO_DO_TRANSPORTE), JSON.stringify({ ts: opcoes.quando ?? new Date().toISOString(),
+      tipo: 'transporte_entrega', oQue: opcoes.oQue, ok: entregue !== null, host: entregue, tentativas }) + '\n', { mode: 0o600 });
+  } catch { /* o log e do doctor; a entrega vale sem ele */ }
+  return { ok: entregue !== null, host: entregue, tentativas };
 }
 
 /**
@@ -207,21 +250,8 @@ export function varrerPulse(opcoes: {
     for(const i of itens) if(jaServida(i)) vistas[i.id]=assinaturaPulse(i);
 
     const entregar=(mensagem:string,oQue:string):void=>{
-      let entregue:boolean;
-      if(opcoes.enviar) entregue=opcoes.enviar(mensagem);
-      else {
-        // RM-047 (P2): o executavel do transporte so sai do arquivo local, nunca de um versionado no git.
-        if(!opcoes.transporte) exigirHostLocal(raiz,path.join(dir,'pulse-host.json'));
-        const config=opcoes.transporte??JSON.parse(fs.readFileSync(path.join(dir,'pulse-host.json'),'utf8')) as TransportePulse;
-        if(typeof config.executavel!=='string'||!config.executavel||!Array.isArray(config.argumentos)||
-          !config.argumentos.every(a=>typeof a==='string')||!config.argumentos.some(a=>a.includes('{{mensagem}}'))) {
-          throw new Error('transporte requer executavel e argumentos com {{mensagem}}');
-        }
-        // A mensagem entra como texto: `$&` e `$'` nela nao sao padrao de substituicao (CHECK da RM-037, fatia 4).
-        const r=spawnSync(config.executavel,config.argumentos.map(a=>a.replaceAll('{{mensagem}}',()=>mensagem)),
-          {cwd:raiz,encoding:'utf8',input:mensagem,timeout:30000,maxBuffer:1024*1024});
-        entregue=r.status===0;
-      }
+      const entregue=opcoes.enviar?opcoes.enviar(mensagem)
+        :entregarPeloTransporte(raiz,mensagem,{dir,oQue,quando,...(opcoes.transporte?{config:opcoes.transporte}:{})}).ok;
       if(!entregue) throw new Error(`transporte não confirmou ${oQue}; novidade preservada`);
       enviadas++;
     };
@@ -293,32 +323,16 @@ export function varrerPulse(opcoes: {
 }
 
 /**
- * RM-063 (F5): a parte que age da batida, depois da entrega ao dono (a busca da base e o registro do PR nao atrasam o
- * resumo), com o registro de cada rodada no `hitl.log` (`varredura_acoes`): o estado da autorizacao, a busca da base, o
- * que foi feito e o que ficou para o dono. Uma batida por vez (`varredura-acoes.lock`): a que chega com outra agindo so
- * registra a vez perdida. Nunca lanca.
+ * RM-063 (F5 e F7): a parte que age da batida, depois da entrega ao dono (a busca da base, o merge e o registro do PR nao
+ * atrasam o resumo): a batida da conducao (`ork conducao batida`), com o merge dos PRs prontos, a varredura da F5 e o
+ * despacho da fase seguinte, cada rodada no `hitl.log` (`varredura_acoes`). Uma batida por vez (`varredura-acoes.lock`):
+ * a que chega com outra agindo so registra a vez perdida. Nunca lanca.
  */
-export function agirDepoisDaEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaVarreduraQueAge = {}): VarreduraQueAge | null {
-  const dir=path.join(raizDoEstado(carregado.raiz),'.orkastery','monitor');
-  const quando=opcoes.quando??new Date().toISOString();
-  const log=(linha:Record<string,unknown>)=>{
-    try {
-      fs.mkdirSync(dir,{recursive:true});
-      fs.appendFileSync(path.join(dir,'hitl.log'),JSON.stringify({ts:quando,tipo:'varredura_acoes',...linha})+'\n',{mode:0o600});
-    } catch { /* o log e da batida; sem ele, o ledger da thread ainda guarda cada acao */ }
-  };
-  let trava: ReturnType<typeof adquirirLockMonitor>;
-  try { fs.mkdirSync(dir,{recursive:true}); trava=adquirirLockMonitor(path.join(dir,'varredura-acoes.lock')); }
-  catch(e) { log({erro:(e as Error).message.slice(0,300)}); return null; }
-  if(!trava.ok) { log({ocupada:true,detalhe:trava.detalhe}); return null; }
-  let r:VarreduraQueAge|null=null, erro:string|null=null;
-  try { r=agirNaVarredura(carregado,{...opcoes,quando}); } catch(e) { erro=(e as Error).message.slice(0,300); }
-  finally { trava.liberar(); }
-  log({autorizacao:r?(r.autorizacao.valida?'valida':r.autorizacao.motivo):null,busca:r?.busca??null,
-    feitas:r?.feitas.map(f=>({acao:f.acao,thread:f.thread,resultado:f.resultado}))??[],
-    pendentes:r?.pendentes.map(p=>({acao:p.acao,thread:p.thread,...(p.motivoDoBloqueio?{bloqueio:p.motivoDoBloqueio}:{})}))??[],
-    ...(erro?{erro}:{})});
-  return r;
+export function agirDepoisDaEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaBatida = {}): BatidaDaConducao | null {
+  try {
+    const r=baterConducao(carregado,opcoes);
+    return r.ocupada?null:r;
+  } catch { return null; }
 }
 
 /**
@@ -357,9 +371,10 @@ if(require.main===module) {
     // RM-053 (D9): depois da entrega ao dono, a mesma batida publica o retrato desta maquina na rede da
     // pessoa (so membro, uma tentativa a cada 14 min, retrato igual so de hora em hora).
     const r=varrerEDepoisPublicarNaRede(()=>varrerPulse({raiz,escopo,comCadencia:true,outrasMaquinas}),()=>{
-      // RM-063 (F5): a varredura que age vem depois da entrega ao dono e antes da rede: com a autorizacao duravel do
-      // dono, limpa as sessoes fantasmas, registra a entrega do PR ja mesclado e fecha pelo MASTER por omissao; o resumo
-      // seguinte diz o que ela fez, e o que ficou sem autorizacao ja esta na fila do dono. Ela nunca lanca.
+      // RM-063 (F5 e F7): a batida da conducao vem depois da entrega ao dono e antes da rede: com a autorizacao duravel
+      // do dono, mescla o PR pronto, limpa as sessoes fantasmas, registra a entrega do PR ja mesclado, fecha pelo MASTER
+      // por omissao e despacha a fase seguinte; o resumo seguinte diz o que ela fez, e o que ficou sem autorizacao ja
+      // esta na fila do dono. Ela nunca lanca.
       try { agirDepoisDaEntrega(carregado); }
       finally {
         try { const rede=publicarRedeNaBatida({diretorio:carregado.raiz}); if(rede) registrarNaRede({...rede,origem:'pulse'}); }

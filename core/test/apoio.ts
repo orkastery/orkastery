@@ -36,6 +36,9 @@ if (!process.env.ORK_USUARIO_DIR) {
   process.env.ORK_USUARIO_DIR = base;
   process.once('exit', () => fs.rmSync(base, { recursive: true, force: true }));
 }
+// RM-063 (fatia 3, achado b): a casa do ork (`ORKASTERY_HOME`: o registro das sessoes, os projetos, a rede) tambem e
+// propria, inclusive no teste rodado sozinho por uma claim (`node --test <arquivo>`), fora do `npm test`.
+if (!process.env.ORKASTERY_HOME) process.env.ORKASTERY_HOME = process.env.ORK_USUARIO_DIR;
 
 /**
  * I-35 (GO-FIX 1): zera a autoridade HITL herdada do shell de quem roda a suite.

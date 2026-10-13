@@ -402,6 +402,17 @@ const PT_BR = {
     batidaInstale: (comando: string) => `${comando} (instala a linha do template monitor/pulse.cron no crontab desta maquina)`,
     batidaPeloLog: (minutos: number) =>
       `nenhuma linha no crontab, mas a varredura rodou ha ${minutos} min (hitl.log): a batida vem de outro agendador`,
+    // RM-063 (fatia 3, H1): a linha instalada nao prova a batida; a ultima rodada velha reprova.
+    batidaAtrasada: (minutos: number, linhas: number) =>
+      `a varredura esta no crontab (${linhas} linha(s)), mas a ultima rodada foi ha ${minutos} min (hitl.log): a batida parou`,
+    batidaAtrasadaCorrecao: 'ork fabrica batida status (a ultima rodada diz o codigo e o detalhe; confira o cron, o script e o PATH da linha)',
+    // RM-063 (fatia 3, H4): a falha do transporte do pulse, lida do transporte.log.
+    transporteOk: (host: string, quando: string) => `ultima entrega pelo ${host} em ${quando}`,
+    transporteDesvio: (falhou: string, host: string, quando: string) =>
+      `o transporte ${falhou} falhou em ${quando}, e o resumo saiu pelo ${host} (o outro host configurado)`,
+    transporteFalhou: (quando: string, tentativas: string) =>
+      `o resumo de ${quando} nao saiu por nenhum transporte configurado (${tentativas}): a novidade fica guardada para a proxima batida`,
+    transporteCorrecao: 'confira o executavel e o destino em .orkastery/monitor/pulse-host.json (o adaptador do host: openclaw message send ou o ork-pulse-enviar.py do Hermes)',
     redeSaiu: 'fora da rede (saiu com ork network sair)',
     redeMembroHerdado: 'membro herdado da fabrica',
     redeMembro: 'membro',
@@ -525,6 +536,7 @@ const EN: Mensagens = {
       'permissoes do estado': 'state permissions',
       'pasta privada': 'private folder',
       'cadencia do pulse no cron': 'pulse cron cadence',
+      'transporte do pulse': 'pulse transport',
       'fabrica compartilhada': 'shared factory',
       'pasta das worktrees': 'worktree folder',
     },
@@ -682,6 +694,15 @@ const EN: Mensagens = {
     batidaSemLinha: (script) => `no crontab line runs ${script} for this project`,
     batidaInstale: (comando) => `\`${comando}\` (installs the \`monitor/pulse.cron\` template line in this machine's crontab)`,
     batidaPeloLog: (minutos) => `no crontab line, but the scan ran ${minutos} min ago (hitl.log): the beat comes from another scheduler`,
+    batidaAtrasada: (minutos, linhas) =>
+      `the scan is in the crontab (${linhas} line(s)), but the last round was ${minutos} min ago (hitl.log): the beat stopped`,
+    batidaAtrasadaCorrecao: '`ork fabrica batida status` (the last round tells the code and the detail; check the cron, the script and the line PATH)',
+    transporteOk: (host, quando) => `last delivery through ${host} at ${quando}`,
+    transporteDesvio: (falhou, host, quando) =>
+      `transport ${falhou} failed at ${quando}, and the summary went out through ${host} (the other configured host)`,
+    transporteFalhou: (quando, tentativas) =>
+      `the summary of ${quando} went out through no configured transport (${tentativas}): the news stays kept for the next beat`,
+    transporteCorrecao: 'check the executable and the target in `.orkastery/monitor/pulse-host.json` (the host adapter: `openclaw message send` or the Hermes `ork-pulse-enviar.py`)',
     redeSaiu: 'outside the network (left with `ork network sair`)',
     redeMembroHerdado: 'member inherited from the factory',
     redeMembro: 'member',

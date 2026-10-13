@@ -134,8 +134,11 @@ function ultimoCommitDeProduto(raiz: string, baseRef: string | null, head: strin
   return null;
 }
 
-/** O CHECK: exatamente um veredito, PASSOU, gravado depois do ultimo commit de produto. */
-function conferirCheck(raiz: string, t: Thread, baseRef: string | null, head: string | null): { etapa: EtapaDaPista; passou: boolean } {
+/**
+ * O CHECK: exatamente um veredito, PASSOU, gravado depois do ultimo commit de produto. RM-063 (F7): a batida da conducao
+ * tambem o le antes do merge do PR, para nada entrar na base sem ter passado pelo CHECK.
+ */
+export function conferirCheck(raiz: string, t: Thread, baseRef: string | null, head: string | null): { etapa: EtapaDaPista; passou: boolean } {
   if (!(t.fases ?? []).includes('CHECK')) {
     return { etapa: etapa('check', 'nao-se-aplica', textoDoCatalogo((m) => m.ship.publicar.checkSemCiclo(tagDoModo(t.modo)))), passou: true };
   }

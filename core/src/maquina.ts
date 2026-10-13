@@ -28,9 +28,14 @@ export interface ConfigDaMaquina {
   atualizadoEm: string;
 }
 
-/** A pasta do usuario (`~/.orkastery`). `ORK_USUARIO_DIR` isola testes e `ork eval`. */
+/**
+ * A pasta do usuario (`~/.orkastery`). `ORK_USUARIO_DIR` isola testes e `ork eval`; `ORKASTERY_HOME` e a casa do ork
+ * que o registro das sessoes (`hitl-estado.ts`) ja seguia. RM-063 (fatia 3, achado b): a suite inteira roda com
+ * `ORKASTERY_HOME` temporario, e o registro de projetos, a maquina e a rede passam a segui-lo tambem.
+ */
 export function pastaDoUsuario(): string {
-  return (process.env.ORK_USUARIO_DIR ?? '').trim() || path.join(os.homedir(), '.orkastery');
+  return (process.env.ORK_USUARIO_DIR ?? '').trim() || (process.env.ORKASTERY_HOME ?? '').trim() ||
+    path.join(os.homedir(), '.orkastery');
 }
 
 export function lerConfigDaMaquina(): ConfigDaMaquina | null {

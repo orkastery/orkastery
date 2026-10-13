@@ -169,6 +169,21 @@ function desvioDoFuso(ms: number, fuso: string): number {
 }
 
 /**
+ * RM-063 (F7): o instante em ISO com o deslocamento do fuso escrito (`2026-10-18T23:59:00-03:00`, ou `Z` no UTC). O
+ * prazo da autorização durável é gravado assim: quem o lê em outro fuso chega ao mesmo instante.
+ */
+export function isoComFuso(quando: string | number | Date, fuso: string = fusoDoDono().fuso): string {
+  const ms = instante(quando);
+  if (!Number.isFinite(ms)) throw new Error('data inválida');
+  const p = partesLocais(ms, fuso);
+  const desvio = Math.round(desvioDoFuso(ms, fuso) / 60000);
+  const abs = Math.abs(desvio);
+  const deslocamento = desvio === 0 ? 'Z'
+    : `${desvio < 0 ? '-' : '+'}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`;
+  return `${p.ano}-${p.mes}-${p.dia}T${p.hora}:${p.minuto}:${p.segundo}${deslocamento}`;
+}
+
+/**
  * RM-037 (fatia 5): o instante de um relógio num fuso IANA (mês de 1 a 12). O runtime diz a hora de
  * volta da cota no fuso dele (`resets 4:40am (<fuso>)`), e lê-la no relógio desta máquina errava o
  * prazo em quem roda noutro fuso. Fuso que o Intl recusa e data que não existe voltam NaN, sem chute.

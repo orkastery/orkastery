@@ -5,6 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { dirEstado, exigirManifesto, LIMITE_MANIFESTO_BYTES } from './manifest';
 import { projectState, stateFile } from './project-state';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
+import { CanalDoDono, canalValido, gravarTransporteDoCanal, transporteDoCanal } from './transporte-do-canal';
 import { procurarSegredos } from './policies';
 import { ConteudoOnboarding, EtapaOnboarding, Onboarding, RespostaOnboarding } from './types';
 import { CHAVE_DO_FUSO, FUSO_DE_BRASILIA, normalizarFuso } from './horario';
@@ -79,6 +80,8 @@ export function validarConteudo(etapa: EtapaOnboarding, conteudo: unknown): asse
     if (!objeto(conteudo.owner) || Object.keys(conteudo.owner).some(k => !['language', 'timezone', 'depth', 'experience'].includes(k))) invalido();
     try { validarPreferencias(conteudo.owner); } catch { invalido(); }
   }
+  // RM-063 (fatia 3, H3): o canal do dono, com o host e o chat autorizado; o transporte pronto sai dele.
+  if (etapa === 'maestro' && objeto(conteudo) && Object.hasOwn(conteudo, 'canal') && !canalValido(conteudo.canal)) invalido();
   // Etapas sensíveis usam um formato fechado: não há espaço para texto de credenciais.
   if (etapa === 'credenciais' || etapa === 'bancos') {
     if (!objeto(conteudo)) invalido();
@@ -244,16 +247,22 @@ export function gravarEtapa(raiz: string, nome: string, conteudo: unknown, por =
   const etapa = exigirEtapa(nome);
   exigirAutor(por);
   validarConteudo(etapa, conteudo);
+  // RM-063 (fatia 3, H3): o transporte pronto do host do canal, resolvido nesta maquina antes de qualquer gravacao.
+  const transporte = etapa === 'maestro' && objeto(conteudo) && canalValido(conteudo.canal)
+    ? transporteDoCanal(raiz, conteudo.canal as CanalDoDono) : null;
   return comTrava(raiz, () => {
     const solicitadas = conteudo;
     const { estado } = lerParaMutacao(raiz), anterior = estado.etapas[etapa];
-    // Configurar preferências não apaga objetivos ou outras respostas da etapa maestro.
-    if (etapa === 'maestro' && objeto(conteudo) && objeto(conteudo.owner) && anterior && objeto(anterior.conteudo)) {
-      conteudo = { ...anterior.conteudo, ...conteudo, owner: {
+    // Configurar preferências (ou o canal, RM-063) não apaga objetivos ou outras respostas da etapa maestro.
+    if (etapa === 'maestro' && objeto(conteudo) && (objeto(conteudo.owner) || objeto(conteudo.canal)) && anterior && objeto(anterior.conteudo)) {
+      conteudo = { ...anterior.conteudo, ...conteudo, ...(objeto(conteudo.owner) ? { owner: {
         ...(objeto(anterior.conteudo.owner) ? anterior.conteudo.owner : {}), ...conteudo.owner,
-      } };
+      } } : {}) };
       validarConteudo(etapa, conteudo);
     }
+    // RM-063 (fatia 3, H3): o transporte do pulse sai junto com o canal do dono, e antes da resposta: sem o host nesta
+    // maquina, nada e gravado. A mesma resposta de novo regrava o transporte (a maquina nunca fica sem ele).
+    if (transporte) gravarTransporteDoCanal(raiz, transporte);
     validarConteudo(etapa, conteudo);
     // Persistir só chaves deste pedido: uma resposta antiga não vence edição explícita do manifesto.
     validarConteudo(etapa, solicitadas);
