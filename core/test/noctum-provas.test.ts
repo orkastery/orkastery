@@ -451,3 +451,28 @@ test('QP11: guardas da revisão e da recomputação: autor despachado depois do 
     assert.match(c15.detalhe, /não é de conteúdo/);
   } finally { q.limpar(); }
 });
+
+test('QP12: o segredo que um commit acrescenta e o seguinte tira, e o da mensagem de um commit, recusam: o push levaria a história', () => {
+  const p = projetoDaEntrega('noctum-qp12');
+  try {
+    // A chave falsa é montada por partes: o próprio teste não carrega o padrão que ele procura.
+    const chave = ['AKIA', 'SIMULADA00000000'].join('');
+    const e = entregaPronta(p, 'qp12');
+    const pos = commitarNaWorktree(e.t, { 'core/src/qp12-config.ts': `export const id = '${chave}';\n` }, 'feat: a config com a chave por engano');
+    commitarNaWorktree(e.t, { 'core/src/qp12-config.ts': "export const id = process.env.ID ?? '';\n" }, 'fix: tira a chave');
+    assert.equal(git(e.t.worktree!, 'diff', `${e.fonte}..HEAD`).stdout.includes(chave), false, 'o diff final não tem mais a chave');
+    const r = provas(p, e.t.id);
+    const s = r.provas.find(x => x.id === 'segredo')!;
+    assert.equal(s.motivo, 'noctum.entrega.segredo', s.detalhe);
+    assert.match(s.detalhe, new RegExp(`core/src/qp12-config\\.ts:1 \\(commit ${pos.slice(0, 12)}\\)`));
+    assert.ok(!JSON.stringify(r).includes(chave), 'o segredo não aparece em lugar nenhum das provas');
+    // A mensagem de um commit também vai ao remoto no push e no merge.
+    const f = entregaPronta(p, 'qp12b');
+    const nota = commitarNaWorktree(f.t, { 'docs/qp12b.md': '# nota\n' }, `docs: nota com ${chave} colada por engano`);
+    const rb = provas(p, f.t.id);
+    const sb = rb.provas.find(x => x.id === 'segredo')!;
+    assert.equal(sb.motivo, 'noctum.entrega.segredo', sb.detalhe);
+    assert.match(sb.detalhe, new RegExp(`mensagem do commit:1 \\(commit ${nota.slice(0, 12)}\\)`));
+    assert.ok(!JSON.stringify(rb).includes(chave), 'o segredo não aparece em lugar nenhum das provas');
+  } finally { p.limpar(); }
+});

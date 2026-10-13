@@ -60,6 +60,9 @@ export const MOTIVOS_DA_ENTREGA = [
   'noctum.entrega.git-sem-leitura', 'noctum.entrega.sem-produto', 'noctum.entrega.push-recusado', 'noctum.entrega.fora-do-envelope',
   'noctum.entrega.agendado', 'noctum.entrega.sem-trava-do-kernel', 'noctum.entrega.despacho-em-curso', 'noctum.entrega.pedido-ausente',
   'noctum.entrega.despacho-recusado', 'noctum.entrega.despacho-incerto',
+  // GO-FIX da rodada 2 do CHECK: a supervisão da N4 (o trabalho isolado, o arco parado, o log que não se leu), e o git que
+  // falha sem conflito nem recusa do remoto (a trava do índice, a rede do push), que espera a cadência (R2-B1, R2-A2, R2-A3).
+  'noctum.entrega.isolado', 'noctum.entrega.arco-parado', 'noctum.entrega.supervisao-sem-leitura', 'noctum.entrega.git-falhou',
 ] as const;
 export type MotivoDaEntrega = typeof MOTIVOS_DA_ENTREGA[number];
 
@@ -133,9 +136,14 @@ export interface FatosDaEntrega {
   ciExigido: boolean;
   ci: ResultadoCi | null;
   arquivos: string[];
-  /** O diff de três pontos (os arquivos e as linhas) saiu inteiro; sem ele, segredo, mutantes e CHANGELOG não se provam. */
+  /**
+   * O diff de três pontos (os arquivos) e a história da base até a fonte (as linhas de cada commit e as mensagens) saíram
+   * inteiros; sem eles, segredo, mutantes e CHANGELOG não se provam.
+   */
   diffLido: boolean;
-  segredos: Array<{ nome: string; arquivo: string; linha: number }>;
+  segredos: AchadoDeSegredo[];
+  /** Os commits da base até a fonte que a varredura de segredo leu (R2-B2 da rodada 2). */
+  commitsVarridos: number;
   /** `null` quando o CHANGELOG da fonte ou do ancestral comum não se leu (lacuna). */
   changelog: ConferenciaDoChangelog | null;
   /** `lido: false` quando o bundle da fonte existe e o git não o leu (lacuna, e não bundle velho). */
@@ -206,11 +214,14 @@ function provaDaIntegracao(f: FatosDaEntrega): ProvaDaEntrega {
 }
 
 function provaDoSegredo(f: FatosDaEntrega): ProvaDaEntrega {
-  if (!f.diffLido) return prova('segredo', LACUNA, 'o diff da base até a fonte não saiu inteiro: nada se prova sobre ele');
-  if (!f.segredos.length) return prova('segredo', null, `nenhum padrão de segredo nas linhas acrescentadas (${f.arquivos.length} arquivo(s))`);
-  const lista = f.segredos.slice(0, 10).map(s => `${s.nome} em ${s.arquivo}:${s.linha}`);
-  // Só o nome do padrão, o arquivo e a linha: a prova que imprime o segredo vaza de novo.
-  return prova('segredo', 'noctum.entrega.segredo', `segredo nas linhas que a thread acrescenta: ${lista.join('; ')}`,
+  if (!f.diffLido) return prova('segredo', LACUNA, 'a história da base até a fonte não saiu inteira: nada se prova sobre ela');
+  if (!f.segredos.length) {
+    return prova('segredo', null, `nenhum padrão de segredo nas linhas que os ${f.commitsVarridos} commit(s) da thread acrescentam nem ` +
+      `nas mensagens deles (${f.arquivos.length} arquivo(s) no diff final)`);
+  }
+  const lista = f.segredos.slice(0, 10).map(s => `${s.nome} em ${s.arquivo}:${s.linha}${s.commit ? ` (commit ${s.commit})` : ''}`);
+  // Só o nome do padrão, o arquivo, a linha e o commit: a prova que imprime o segredo vaza de novo.
+  return prova('segredo', 'noctum.entrega.segredo', `segredo na história que a thread empurraria: ${lista.join('; ')}`,
     { achados: f.segredos.slice(0, 50) });
 }
 
@@ -554,29 +565,44 @@ export function cadeiaDaFonte(raiz: string, fonte: string, base: string): Commit
   return r.stdout.split('\n').map(l => l.trim()).filter(l => SHA.test(l)).map(sha => classificarComMemoria(raiz, sha, base));
 }
 
+/** Um padrão de segredo achado: o nome do padrão, o arquivo (ou a mensagem do commit), a linha e o commit; nunca o trecho. */
+export interface AchadoDeSegredo { nome: string; arquivo: string; linha: number; commit?: string }
+
 /**
- * As linhas acrescentadas do diff de três pontos, com o arquivo e o número da linha nova, e os padrões de segredo nelas. O
- * arquivo que o git acha binário entra como texto (`--text`, A6 da rodada 1): um byte nulo não esconde a chave. `lido` é falso
- * quando o diff não saiu inteiro, e então a prova não diz "nenhum segredo".
+ * R2-B2 da rodada 2: os padrões de segredo na história que a thread empurraria. O push da branch e o merge levam todos os
+ * commits de `base..fonte`, e a chave posta num commit e tirada no seguinte some do diff final, mas não do remoto. Por isso
+ * a varredura lê as linhas que cada commit acrescenta (no merge, só as que a resolução trouxe: `--diff-merges=remerge`) e
+ * as mensagens dos commits. O arquivo que o git acha binário entra como texto (`--text`, A6 da rodada 1): um byte nulo não
+ * esconde a chave. `lido` é falso quando a história não saiu inteira, e então a prova não diz "nenhum segredo".
  */
-export function segredosDoDiff(raiz: string, base: string, fonte: string): { lido: boolean; achados: Array<{ nome: string; arquivo: string; linha: number }> } {
-  const r = git(raiz, ['-c', 'core.quotePath=false', 'diff', '--text', '--no-color', '--no-ext-diff', '--unified=0', '--no-renames',
-    `${base}...${fonte}`], 300000);
-  const achados: Array<{ nome: string; arquivo: string; linha: number }> = [];
-  if (!r.ok) return { lido: false, achados };
-  let arquivo = '', nova = 0, cabecalho = false;
+export function segredosDaHistoria(raiz: string, base: string, fonte: string): { lido: boolean; commits: number; achados: AchadoDeSegredo[] } {
+  const r = git(raiz, ['-c', 'core.quotePath=false', 'log', '--format=%x00%H', '-p', '--text', '--no-color', '--no-ext-diff', '--unified=0',
+    '--no-renames', '--diff-merges=remerge', `${base}..${fonte}`], 300000);
+  const mensagens = git(raiz, ['log', '--format=%x00%H%n%B', `${base}..${fonte}`]);
+  const achados: AchadoDeSegredo[] = [];
+  if (!r.ok || !mensagens.ok) return { lido: false, commits: 0, achados };
+  let commit = '', arquivo = '', nova = 0, cabecalho = false;
   for (const l of r.stdout.split('\n')) {
+    // A linha do formato abre cada commit; dentro do diff, toda linha começa por espaço, "+", "-" ou "\".
+    if (l.startsWith('\0')) { commit = l.slice(1, 13); cabecalho = false; arquivo = ''; continue; }
     if (l.startsWith('diff --git ')) { cabecalho = true; arquivo = ''; continue; }
     // O `+++` só é o nome do arquivo no cabeçalho; dentro do hunk, é uma linha acrescentada que começa por "++".
     if (cabecalho && l.startsWith('+++ ')) { arquivo = l.slice(4).replace(/^b\//, ''); continue; }
     const h = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(l);
     if (h) { nova = Number(h[1]); cabecalho = false; continue; }
     if (!cabecalho && l.startsWith('+') && arquivo) {
-      for (const a of procurarSegredos(l.slice(1))) achados.push({ nome: a.nome, arquivo, linha: nova });
+      for (const a of procurarSegredos(l.slice(1))) achados.push({ nome: a.nome, arquivo, linha: nova, commit });
       nova += 1;
     }
   }
-  return { lido: true, achados };
+  const blocos = mensagens.stdout.split('\0').filter(Boolean);
+  for (const bloco of blocos) {
+    const [sha, ...linhas] = bloco.split('\n');
+    linhas.forEach((linha, i) => {
+      for (const a of procurarSegredos(linha)) achados.push({ nome: a.nome, arquivo: 'mensagem do commit', linha: i + 1, commit: sha.slice(0, 12) });
+    });
+  }
+  return { lido: true, commits: blocos.length, achados };
 }
 
 /** Os autores do candidato: as sessões de GO, as que começaram antes do GO num bloco com GO, e as que commitaram. */
@@ -708,7 +734,7 @@ export function lerFatosDaEntrega(carregado: ManifestoCarregado, threadId: strin
     comandosEsperados: comandosDoManifesto(daBranch.manifesto).length,
     // A2 da rodada 1: a claim de mutante sem comando não executa nada e nunca prova a guarda; ela não conta como mutante.
     claims: claimsAtivas.map(c => ({ id: c.id, mutante: ALEGACAO_DE_MUTANTE.test(c.alegacao) && c.verificar.length > 0 })),
-    ciExigido: manifesto.ci.required_for_ship === true, ci: null, arquivos: [], diffLido: false, segredos: [], changelog: null,
+    ciExigido: manifesto.ci.required_for_ship === true, ci: null, arquivos: [], diffLido: false, segredos: [], commitsVarridos: 0, changelog: null,
     bundle: { ok: false, texto: 'a fonte não se lê' },
   };
   if (!fonte) return fatos;
@@ -733,8 +759,9 @@ export function lerFatosDaEntrega(carregado: ManifestoCarregado, threadId: strin
   fatos.cadeiaLida = cadeia !== null;
   const mudados = git(raiz, ['diff', '--name-only', '-z', '--no-renames', `${base.sha}...${fonte}`]);
   fatos.arquivos = mudados.ok ? mudados.stdout.split('\0').filter(Boolean) : [];
-  const varridos = segredosDoDiff(raiz, base.sha, fonte);
+  const varridos = segredosDaHistoria(raiz, base.sha, fonte);
   fatos.segredos = varridos.achados;
+  fatos.commitsVarridos = varridos.commits;
   fatos.diffLido = mudados.ok && varridos.lido;
   // O CHANGELOG do ancestral comum e o da fonte; a leitura que falha deixa `changelog` nulo, e a prova dele é lacuna.
   const ancestral = git(raiz, ['merge-base', base.sha, fonte]);
