@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-002, FEAT-026, FEAT-031, FEAT-032]
 owner: Julio
-atualizado_em: 2026-10-12T14:42:00-03:00
+atualizado_em: 2026-10-12T22:55:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -22,8 +22,9 @@ evidencias:
   testes:
     n1: core/test/noctum-envelope.test.ts (E1 a E12) e core/test/noctum-arco.test.ts (A1 a A26)
     n2: core/test/noctum-fila.test.ts (F1 a F17), noctum-capacidade.test.ts (C1 a C10), fila-pesada.test.ts (P1 a P11), fila-pesada-verify.test.ts (V1 a V12) e noctum-execucao.test.ts (X1 a X15)
+    n3: core/test/noctum-envelope-v3.test.ts (EV1 a EV7), noctum-transporte.test.ts (T1 a T8), noctum-coordenacao.test.ts (K1 a K10), noctum-integracao.test.ts (I1 a I7), noctum-maquinas.test.ts (M1 a M7) e o ensaio noctum-ensaio.test.ts (R1 a R7)
 sdlc:
-  thread: ork-rm058n2
+  thread: ork-rm058n3
   modo: "#Auto"
   fase: GOAL
   status: aberta
@@ -41,9 +42,9 @@ sdlc:
 
 <!-- ork-docs:relance:fim -->
 
-**Em desenvolvimento, com as quatro decisões de produto tomadas e as fatias N1 e N2 implementadas nas threads `ork-rm058n1` e `ork-rm058n2`.** Esta página planeja o #Noctum; o modo ainda não está habilitado e `#Noctum` não é aceito como modo.
+**Em desenvolvimento, com as quatro decisões de produto tomadas e as fatias N1, N2 e N3 implementadas nas threads `ork-rm058n1`, `ork-rm058n2` e `ork-rm058n3`.** Esta página planeja o #Noctum; o modo ainda não está habilitado e `#Noctum` não é aceito como modo.
 
-- Fora da [N1](#n1-envelope-e-estado-do-arco) e da [N2](#n2-fila-local-e-capacidade), as regras abaixo são requisitos futuros. A duração vem do pedido do dono, não de um ensaio de autonomia já aprovado.
+- Fora da [N1](#n1-envelope-e-estado-do-arco), da [N2](#n2-fila-local-e-capacidade) e da [N3](#n3-coordenação-entre-máquinas), as regras abaixo são requisitos futuros. A duração vem do pedido do dono, não de um ensaio de autonomia já aprovado.
 - Em 12/10/2026 o dono decidiu D1 a D4 (veja [Decisões do dono](#decisões-do-dono)); seguem pendentes a prioridade final, o horário e o canal do relatório da manhã e os valores do teto, que o dono preenche antes do primeiro piloto.
 - O primeiro piloto continua dependendo da autorização do dono.
 
@@ -71,7 +72,7 @@ O #Noctum não reduzirá checks nem converterá `policy: block`, autenticação 
 
 **Incluído:** envelope anterior ao arco, fila persistente de itens autorizados, distribuição com reservas, supervisão, recuperação limitada, revisão independente, fila de operações pesadas, entrega com provas, controle de custo e relatório multicanal.
 
-**Entregável desta etapa:** apenas o planejamento, sua posição proposta no [índice](README.md#prioridade-para-a-comunidade-de-product-builders) e a entrada documental no [CHANGELOG](../../CHANGELOG.md). A implementação tem as seis fatias abaixo; a N1 está na thread `ork-rm058n1` e a N2 na `ork-rm058n2`, registrada no bloco `sdlc`, e o modo segue sem habilitação.
+**Entregável desta etapa:** apenas o planejamento, sua posição proposta no [índice](README.md#prioridade-para-a-comunidade-de-product-builders) e a entrada documental no [CHANGELOG](../../CHANGELOG.md). A implementação tem as seis fatias abaixo; a N1 está na thread `ork-rm058n1`, a N2 na `ork-rm058n2` e a N3 na `ork-rm058n3`, registrada no bloco `sdlc`, e o modo segue sem habilitação.
 
 **Validação documental:** `node core/dist/index.js docs sincronizar --escrever`, `ork docs verificar` e `core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-058-modo-noctum.md docs/roadmap/README.md CHANGELOG.md`. A aprovação desses comandos confere documentação; não prova um arco Noctum.
 
@@ -128,6 +129,26 @@ Implementada na thread `ork-rm058n2` (modo #Auto), sem ligar o modo: nenhum coma
 
 Evidência: `core/test/noctum-envelope.test.ts` (E13 a E18), `core/test/noctum-fila.test.ts` (F1 a F17), `core/test/noctum-capacidade.test.ts` (C1 a C10), `core/test/fila-pesada.test.ts` (P1 a P11), `core/test/fila-pesada-verify.test.ts` (V1 a V12), `core/test/noctum-arco.test.ts` (A27 a A31), `core/test/noctum-execucao.test.ts` (X1 a X15) e o teste do `ork_ship` com a fila ocupada em `core/test/mcp-ship.test.ts`, que rodam em `npm --prefix core test`.
 
+### N3: coordenação entre máquinas
+
+Implementada na thread `ork-rm058n3` (modo #Auto), sem ligar o modo: nenhum comando, ferramenta ou gateway abre arco nem grava no ramo de coordenação, ninguém chama o passo novo (o vigia é da N4) e `#Noctum` segue recusado como modo.
+
+- **Contrato `ork.noctum-envelope/v3`** (`core/src/noctum-envelope.ts`): a `v2` mais `maquinas` (de 1 a 8, cada uma com o nome e a chave pública Ed25519 em SPKI DER base64, na forma canônica, sem repetir nome nem chave), `capacidadeGlobal.porConta` (toda conta do orçamento, de 1 até a soma dos limites locais da conta, nenhuma fora) e a `maquina` de um trabalho, obrigatória no trabalho de `thread`. O mesmo item preso a duas máquinas é recusado, porque a reserva da RM-047 é de uma máquina só. O resumo que o dono autoriza mostra a impressão de cada chave e os limites globais. A `v1` e a `v2` ficam como estavam. A chave de cada máquina sai de `identidadeDaMaquina`, derivada da chave local do núcleo; levá-la ao envelope do dono é do transporte que liga o modo.
+- **Transporte** (`core/src/noctum-transporte.ts`): o meio é o ramo `ork/noctum-coordenacao` no remoto do projeto (`fabrica.remoto`), gravado como as reservas da RM-047, por commit em cima da ponta lida e push sem força. Quem perde a corrida relê e roda a regra de novo, até 5 vezes (`noctum.coordenacao.concorrencia`). Cada registro, em `arcos/<arco>/`, é assinado pela máquina que o tipo exige e conferido com a chave que o dono autorizou no envelope desta máquina, na versão que o registro diz. Assinatura que não confere, caminho que não bate com os dados, versão que esta máquina não autorizou, máquina fora do envelope, registro apagado ou alterado (só a batida é regravada) e história que não desce da última ponta vista por esta máquina recusam a leitura inteira, com `noctum.coordenacao.adulterado`. Sem leitura nova do remoto, nada é decidido (`noctum.coordenacao.sem-remoto`). O retrato da rede (RM-053) e o da fábrica (RM-047) não entram: são descoberta. No ramo vão só nomes de máquina e ids de arco, trabalho, ordem e vaga; a conta vai pela posição dela na lista do envelope, nunca pelo nome.
+- **Autoridade por geração** (`core/src/noctum-coordenacao.ts`): a primeira máquina que assume fica com a geração 1. A troca vem por cessão assinada da autoridade vigente ou por tomada forçada, com motivo, quando a batida dela passou de 15 min (três cadências do vigia) ou ela saiu do envelope. A autoridade antiga que volta não emite ordem nem cancelamento (`noctum.coordenacao.geracao-vencida`), e as ordens que ela emitiu antes continuam valendo.
+- **Ordens, recibos e cancelamento:** só a autoridade vigente emite, com uma ordem viva por trabalho, para uma máquina do envelope com batida recente, respeitando a máquina presa e, no mesmo item, a máquina que já o tem. A política distribui na ordem do dono para a máquina com menos ordens vivas, até as vagas de execução dela, e não repete a ordem para a máquina que já a recusou. O executor só aceita a ordem dele, com o hash do envelope vigente nele e, no trabalho de `thread`, a thread daqui, do item e em #Auto; nenhum efeito vem antes do aceite gravado no remoto. Os recibos são `aceita`, `recusada`, `concluida` (pela thread local, entregue ou fechada) e `encerrada` (o fim confirmado, só sem sessão viva da ordem nesta máquina). A ordem de uma versão anterior do envelope vence com a emenda: o executor a encerra e a autoridade emite de novo.
+- **Transferência só com prova:** cancelada antes do aceite (o aceite e o cancelamento disputam a mesma troca atômica), recusada, concluída ou encerrada pelo executor, a ordem libera o trabalho para outra máquina. Aceita e cancelada sem o fim confirmado, o trabalho fica isolado, e os outros seguem. Falta de batida nunca solta ordem, vaga, vez nem reserva.
+- **Um vencedor por item:** o executor da ordem aceita toma a reserva da RM-047 (`pegarItem`, nunca `--forcar`, nota `noctum:<arco>`) e a revalida com leitura nova. A reserva com outra máquina ou pessoa encerra a ordem que nunca despachou (`noctum.reserva.de-outra-maquina`), e a reserva do arco sem ordem viva desta máquina é solta na reconciliação.
+- **Vagas e orçamento somando as máquinas:** cada despacho toma uma vaga global (`V-<máquina>-<seq da reserva local>`) no gancho `reservar` do passo da N2, depois da reserva local. Ela nunca passa de `capacidadeGlobal.porConta` (`noctum.coordenacao.vaga-global`), e os tetos do arco, da conta e do runtime passam a contar as sessões de todas as máquinas (`noctum.orcamento.esgotado`). A recusa de uma devolve a outra: a sessão só começa se a máquina e a soma das máquinas admitirem. A vaga sai pelo desfecho local do despacho (recusado, sem consumo; concluído, com consumo, quando a sessão não ocupa mais), e a pendente e a de uma máquina que caiu continuam contando.
+- **Um integrador por destino** (`core/src/noctum-integracao.ts`): a vez por arco e destino (repositório e base com `merge` no envelope) é tomada por troca atômica com o candidato (a branch, a fonte, a base e o sha256 das provas), e o outro integrador recebe `noctum.integracao.ocupada`. Com a vez, a base e a branch são relidas do remoto: base ou fonte diferente invalidam o candidato (`noctum.integracao.base-mudou`, `noctum.integracao.fonte-mudou`), soltam a vez e pedem provas novas. Logo antes do efeito vêm a conferência da N1 com `merge` e a ordem relida. O merge é de quem chama (a N5 pluga o SHIP); o núcleo o confere no remoto e grava a entrega e o fim da vez juntos, com uma entrega por trabalho (`noctum.integracao.ja-entregue`). Sem essa prova, `noctum.integracao.nao-provada`, e a vez fica até a reconciliação.
+- **Queda, partição e retorno** (`core/src/noctum-maquinas.ts`): a máquina partida não decide nem grava. Na volta, e a cada passo, a reconciliação trata primeiro a vez de integrar (o merge que já está na base vira entrega, sem integrar de novo; fora dela, a vez é solta), depois as ordens (rejeita a vencida com o recibo de fim, ou espera a sessão viva) e as vagas, e por fim as reservas do arco.
+- **Passo da máquina** (`passoDaMaquina`): com o envelope `v3`, sob a trava `.orkastery/noctum/maquina.lock`, reconcilia, assume a autoridade vaga, bate, distribui as ordens quando é a autoridade, responde as próprias, toma as reservas e chama o passo da N2 só com os trabalhos das ordens aceitas, a reserva revalidada e a vaga global. Com `v1` ou `v2`, é o passo da N2 como está. Na N2 mudou só isto: a fila bloqueia com `sem-ordem` o trabalho sem ordem desta máquina e conta a entrega feita em outra máquina nas dependências, e o `passoDoArco` com o envelope `v3` só despacha pelo passo da máquina (`noctum.coordenacao.exige-passo-da-maquina`).
+- **Interface para a retomada em outra máquina (N4):** `cancelarOrdem` e esperar o recibo do executor antigo (`encerrarOrdem` ou `concluirOrdem`), ou o cancelamento antes do aceite; `situacaoDoTrabalho` diz se o trabalho pode mudar de máquina (só `livre`); `emitirOrdem` para a outra máquina; `assumirAutoridade` com `forcar` e motivo quando a batida da autoridade venceu; e `reconciliarMaquina` na volta de quem caiu. A N4 decide quando cancelar e para a sessão viva em checkpoint seguro; nunca transfere por falta de batida.
+- **Limites ditos:** a chave da máquina deriva da chave local, legível pelo mesmo usuário do sistema: quem roda como ela assina como ela, a fronteira da N1. Quem tem push no remoto pode apagar ou reescrever o ramo: a máquina que já viu o registro recusa tudo depois, a que nunca o viu não percebe, e a segurança contra duplicidade vem da transferência só com prova. A batida vencida compara o relógio desta máquina com o da outra, então os relógios acertados são premissa. A vez de integrar é por arco: dois arcos no mesmo destino ao mesmo tempo não se veem por ela. Sessões que outra máquina abriu fora do arco não entram no limite global (cada máquina as conta no limite local dela, pela N2). A raiz de estado perdida reinicia a última ponta vista e os `seq` locais. Efeito fora do ramo (o push da branch de trabalho, o merge) tem uma janela entre conferir e agir, e a duplicidade é impedida pela transferência só com prova, não pelo tamanho da janela. A revalidação da integração lê a base no mesmo remoto do ramo de coordenação, o do projeto.
+- **Fica para depois:** o vigia que chama o passo e a retomada (N4), a integração pelo SHIP com as provas no SHA exato (N5), o fechamento e o relatório (N6) e o transporte que liga o modo, inclusive o que leva a chave de cada máquina ao envelope do dono.
+
+Evidência: `core/test/noctum-envelope-v3.test.ts` (EV1 a EV7), `core/test/noctum-transporte.test.ts` (T1 a T8), `core/test/noctum-coordenacao.test.ts` (K1 a K10), `core/test/noctum-integracao.test.ts` (I1 a I7), `core/test/noctum-maquinas.test.ts` (M1 a M7) e o ensaio da tabela, `core/test/noctum-ensaio.test.ts` (R1 a R7), com duas raízes de estado e processos filhos sobre um remoto bare de fixture, que rodam em `npm --prefix core test`.
+
 ### Sem HITL no meio, com decisões registradas
 
 Dentro do envelope, uma dúvida delegável deverá virar decisão autônoma registrada por `ork decisao registrar <thread>` ou pela ferramenta correspondente do núcleo. O registro levará quem decidiu, alternativas, uma recomendada, razão, evidência, critério, como mudar e custo de reverter agora e depois. A recomendação escolhida dentro do envelope terá autoria do agente, nunca do dono.
@@ -147,7 +168,7 @@ O agendador retirará apenas o trabalho inelegível da fila executável e contin
 
 ### Multimáquina
 
-O [Orkastery Network, RM-053](RM-053-orkastery-network.md), fornecerá descoberta, identidade de instalação, capacidades e frescor. A RM-054 fornecerá o panorama e suas lacunas. Esses retratos não são um executor remoto: o transporte autenticado de ordens, recibos e cancelamento terá de ser implementado e testado na N3.
+O [Orkastery Network, RM-053](RM-053-orkastery-network.md), fornecerá descoberta, identidade de instalação, capacidades e frescor. A RM-054 fornecerá o panorama e suas lacunas. Esses retratos não são um executor remoto: o transporte autenticado de ordens, recibos e cancelamento foi implementado e testado na [N3](#n3-coordenação-entre-máquinas), que também cobre a autoridade, as reservas, as vagas compartilhadas, a vez de integrar e o retorno descritos abaixo.
 
 Haverá uma autoridade ativa para a fila do arco, com geração verificável e substituição controlada. Cada máquina conduzirá a thread na própria worktree. A reserva atômica por item impedirá duas máquinas de começar o mesmo trabalho; uma segunda thread do mesmo item aguardará liberação ou transferência registrada. Slots de conta compartilhada também precisarão de coordenação entre máquinas, além dos limites locais.
 
@@ -213,12 +234,12 @@ O fechamento deverá deixar fila ordenada, envelope encerrado, decisões e evid�
 ## Plano e decisões
 
 - **Prioridade proposta:** posição 5, após RM-047 e antes de RM-037; aproxima a autonomia prolongada de sua base multimáquina, preservando as quatro primeiras posições. Método: dependências e impacto no trabalho sem supervisão; sem pontuação numérica inventada. Proposta de 2026-10-03, posição final de Julio.
-- **Horizonte e confiança:** desenvolvimento, com a N1 e a N2 implementadas e sem previsão de lançamento. Confiança depende dos ensaios e da ratificação do envelope; marcos N1 a N6 abaixo.
+- **Horizonte e confiança:** desenvolvimento, com a N1, a N2 e a N3 implementadas e sem previsão de lançamento. Confiança depende dos ensaios e da ratificação do envelope; marcos N1 a N6 abaixo.
 - **Dependências e responsáveis:** RM-047 (reservas), RM-053 (rede), RM-054 (panorama), RM-048/RM-057 (decisões e status), [RM-037](RM-037-verify-rapido-e-confiavel.md) (verify), [RM-040](RM-040-estado-de-conta-compartilhado.md) e [RM-056](RM-056-perfil-por-thread-e-carga.md) (contas/capacidade), [RM-036](RM-036-maestro-multicanal.md) (condução). Owner de integração: Julio; executor a designar por fatia. Próxima revisão: antes de admitir N3, conferindo evidência de cada dependência, sem presumir conclusão pelo número do item.
 
 ### Fatias propostas
 
-Os aceites da N1 e da N2 já são testes (veja a [N1](#n1-envelope-e-estado-do-arco) e a [N2](#n2-fila-local-e-capacidade)); os das demais fatias são testes a construir, não provas já executadas. A ordem respeitará dependências e a aprovação das escolhas de produto.
+Os aceites da N1, da N2 e da N3 já são testes (veja a [N1](#n1-envelope-e-estado-do-arco), a [N2](#n2-fila-local-e-capacidade) e a [N3](#n3-coordenação-entre-máquinas), cujo aceite é o ensaio com dois executores); os das demais fatias são testes a construir, não provas já executadas. A ordem respeitará dependências e a aprovação das escolhas de produto.
 
 | Fatia | Resultado | Critério de aceite verificável | Dependências |
 | --- | --- | --- | --- |
@@ -273,7 +294,7 @@ Como mudar: registrar a nova escolha do dono por ingresso autenticado e atualiza
 
 ## Estado com evidências
 
-O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`. Código e testes referem-se ao modo proposto, não à existência desta página. A thread `ork-rm058planeja` preparou o planejamento, a `ork-rm058n1` implementou a [N1](#n1-envelope-e-estado-do-arco) e a `ork-rm058n2` implementa a [N2](#n2-fila-local-e-capacidade); nenhum ensaio Noctum ou entrega do modo é alegado aqui.
+O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`. Código e testes referem-se ao modo proposto, não à existência desta página. A thread `ork-rm058planeja` preparou o planejamento, a `ork-rm058n1` implementou a [N1](#n1-envelope-e-estado-do-arco), a `ork-rm058n2` a [N2](#n2-fila-local-e-capacidade) e a `ork-rm058n3` implementa a [N3](#n3-coordenação-entre-máquinas); o ensaio da N3 roda com fixtures, e nenhum arco Noctum de verdade ou entrega do modo é alegado aqui.
 
 <!-- ork-docs:estado:inicio -->
 
@@ -282,7 +303,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
 | Documentação | Em revisão | — | 2026-10-12 | Julio |
 | Código | Mesclado | commit `5551300` | 2026-10-12 | Julio |
-| Testes | Em execução | n1: core/test/noctum-envelope.test.ts (E1 a E12) e core/test/noctum-arco.test.ts (A1 a A26) · n2: core/test/noctum-fila.test.ts (F1 a F17), noctum-capacidade.test.ts (C1 a C10), fila-pesada.test.ts (P1 a P11), fila-pesada-verify.test.ts (V1 a V12) e noctum-execucao.test.ts (X1 a X15) | 2026-10-12 | Julio |
+| Testes | Em execução | n1: core/test/noctum-envelope.test.ts (E1 a E12) e core/test/noctum-arco.test.ts (A1 a A26) · n2: core/test/noctum-fila.test.ts (F1 a F17), noctum-capacidade.test.ts (C1 a C10), fila-pesada.test.ts (P1 a P11), fila-pesada-verify.test.ts (V1 a V12) e noctum-execucao.test.ts (X1 a X15) · n3: core/test/noctum-envelope-v3.test.ts (EV1 a EV7), noctum-transporte.test.ts (T1 a T8), noctum-coordenacao.test.ts (K1 a K10), noctum-integracao.test.ts (I1 a I7), noctum-maquinas.test.ts (M1 a M7) e o ensaio noctum-ensaio.test.ts (R1 a R7) | 2026-10-12 | Julio |
 | Deploy | Não implantado | — | 2026-10-12 | Julio |
 | Exposição | Flag desligada | — | 2026-10-12 | Julio |
 | Habilitação | Pendente | — | 2026-10-12 | Julio |
@@ -292,8 +313,8 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 ## Responsabilidades e histórico
 
 - **RACI:** R: fábrica Orkastery na elaboração e nas futuras fatias; A: Julio; C: revisores independentes designados por fatia; I: dono pelo canal autorizado.
-- **Agentes envolvidos, atuação e autonomia:** agente Codex redigiu a proposta em #Auto, restrita à documentação; agente Claude Code implementou a N1 e a N2 em #Auto, nas threads `ork-rm058n1` e `ork-rm058n2`. Revisão independente e ratificação de produto não são presumidas; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** Julio define a prioridade final, o horário e o canal do relatório e os valores do teto, e autoriza o primeiro piloto; D1–D4 já estão decididas; a N1 e a N2 estão implementadas e a próxima fatia é a N3 (coordenação entre máquinas), sem data de lançamento definida.
+- **Agentes envolvidos, atuação e autonomia:** agente Codex redigiu a proposta em #Auto, restrita à documentação; agente Claude Code implementou a N1, a N2 e a N3 em #Auto, nas threads `ork-rm058n1`, `ork-rm058n2` e `ork-rm058n3`. Revisão independente e ratificação de produto não são presumidas; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** Julio define a prioridade final, o horário e o canal do relatório e os valores do teto, e autoriza o primeiro piloto; D1–D4 já estão decididas; a N1, a N2 e a N3 estão implementadas, a N4 (supervisão e recuperação) corre em paralelo e a N5 vem depois, sem data de lançamento definida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -301,3 +322,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-12 | D1 a D4 decididas (C, B, C, B); prioridade final, horário e canal do relatório e valores do teto seguem pendentes; ciclo continua em Refinamento | Decisão do dono de 12/10/2026, registrada na seção Decisões do dono | Julio |
 | 2026-10-12 | N1 implementada: contrato do envelope, estado do arco, ingresso com prova de origem e recusas antes do efeito, com testes; ciclo passa a Em desenvolvimento; valores do teto, horário e canal do relatório seguem pendentes | Thread `ork-rm058n1`, testes E1 a E12 e A1 a A26 | Fábrica Orkastery em #Auto; Julio decide valores e piloto |
 | 2026-10-12 | N2 implementada: contrato `v2` com trabalhos e capacidade, fila do arco, capacidade de sessões, fila de recursos pesados no `ork verify`, passo do arco pelo núcleo e os três aprendizados da madrugada, com testes; o modo segue desligado | Thread `ork-rm058n2`, testes E13 a E17, F1 a F10, C1 a C9, P1 a P9, V1 a V7, A27 a A31 e X1 a X8 | Fábrica Orkastery em #Auto; Julio decide valores e piloto |
+| 2026-10-12 | N3 implementada: contrato `v3` com as máquinas, transporte assinado no ramo de coordenação, autoridade por geração, ordens com recibo e cancelamento, transferência só com prova, reserva do item revalidada, vagas e orçamento somando as máquinas, um integrador por destino e a reconciliação de quem volta, com o ensaio de dois executores; o modo segue desligado | Thread `ork-rm058n3`, testes EV1 a EV7, T1 a T8, K1 a K10, I1 a I7, M1 a M7 e R1 a R7 | Fábrica Orkastery em #Auto; Julio decide valores e piloto |
