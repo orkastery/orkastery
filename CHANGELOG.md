@@ -25,6 +25,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   ensaia o piloto local em repositórios descartáveis, com relógio controlado e runtime e canal simulados. O primeiro
   piloto espera os valores e a autorização do dono.
 
+- **Conta esgotada não para a fase** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)): nova
+  página do roadmap, em refinamento, pedida pelo dono em 13/10/2026. Quando a cota de uma conta acaba no meio
+  das fases, o ork vai tratar o fim como evento da conta, mover sozinho todas as threads dela para outra conta
+  ou para o fallback do bloco e retomar do ponto onde pararam, com o trabalho da sessão guardado na thread.
+  Frentes T1 a T7. Só documentação.
+
 - **CLI em inglês e pt-BR, fatia F3b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): seguem também o
   locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`,
   `ork accounts`, `ork network` (fora `network roadmap`), `ork roadmap reservas`, `pegar`, `soltar` e `feat`,
