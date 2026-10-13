@@ -397,7 +397,8 @@ test('recepcao: o que o .catch do receptor deixa passar quando o gancho falha', 
   assert.deepEqual(r.decisaoNaFalha({ ...base, texto: mensagemDaEntrega(a.PEDIDO, a.ENVIO, 'aprove o gate'), emVoo: new Map([[msg, fixo]]) }), { acao: 'consome' });
   assert.deepEqual(r.decisaoNaFalha({ ...base, texto: 42, emVoo: new Map([[msg, fixo]]) }), { acao: 'consome' });
   // O texto que o modelo le: o envelope fixo e a mensagem conferida, sem nada do remetente.
-  assert.equal(fixo, `<cross-session-message from="ork-mensageiro">\n${msg}\n</cross-session-message>`);
+  // O from-plugin vai no proprio envelope: sem ele, o motor acrescentaria o plugin que o remetente declara.
+  assert.equal(fixo, `<cross-session-message from="ork-mensageiro" from-plugin="ork-mensageiro">\n${msg}\n</cross-session-message>`);
   assert.deepEqual(lerMensagemDaEntrega(fixo), { pedidoId: a.PEDIDO, envioId: a.ENVIO, corpo: a.RESPOSTA });
 });
 
@@ -474,7 +475,7 @@ test('os testes do kit cobrem terminal e desktop e os casos do lado do dono e do
   for (const titulo of ['sem a marca e consumida sem chamar o nucleo, mesmo com plugin ork-mensageiro',
     'Remote Control, notificacao, agendamento, canal, agentes e teammates verificados passam intocados e sem chamada ao nucleo',
     'a mensagem com a marca que o nucleo confirma entra na conversa no envelope do Mensageiro, so com o corpo conferido',
-    'os rotulos que o remetente escolhe no envelope nunca chegam ao modelo',
+    'os rotulos que o remetente escolhe no envelope nao passam do gancho',
     'a recusa do nucleo, a falha da conferencia, o prazo vencido e a resposta fora do contrato consomem',
     'na sessao do dono o Mensageiro nao filtra', 'na sessao dormente o Mensageiro nao filtra', 'sem a ponte, a mensagem de outra sessao e consumida']) {
     assert.ok(receber.includes(titulo), titulo);

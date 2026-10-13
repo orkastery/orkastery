@@ -167,11 +167,13 @@ export const REMETENTE_DO_MENSAGEIRO = 'ork-mensageiro'
 
 /**
  * O texto que a sessao de fase le (D23): a mensagem que o nucleo conferiu, no envelope fixo do Mensageiro. O envelope
- * que chegou sai inteiro, com os rotulos que o remetente escolhe (o nome da sessao, o plugin, o endereco): nada que o
- * nucleo nao compos chega ao modelo, e o enquadramento de mensagem de outra sessao fica.
+ * que chegou sai inteiro, com os rotulos que o remetente escolhe (o nome da sessao, o plugin, o endereco), e o
+ * enquadramento de mensagem de outra sessao fica. O `from-plugin` vai no proprio envelope: sem ele, o motor
+ * acrescentaria o plugin que o remetente declara na apresentacao. Do remetente, nada passa deste gancho; o anexo de
+ * arquivo do `SendFile`, que o motor poe no envelope depois dos ganchos, e limite dito no guia.
  */
 export function textoParaOModelo(mensagem: string): string {
-  return `<cross-session-message from="${REMETENTE_DO_MENSAGEIRO}">\n${mensagem}\n</cross-session-message>`
+  return `<cross-session-message from="${REMETENTE_DO_MENSAGEIRO}" from-plugin="${REMETENTE_DO_MENSAGEIRO}">\n${mensagem}\n</cross-session-message>`
 }
 
 export type DecisaoNaFalha = { acao: 'passa' } | { acao: 'conferida'; texto: string } | { acao: 'consome' }
