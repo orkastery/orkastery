@@ -149,10 +149,15 @@ export const mesmaForja = (a: IdentidadeDaForja | null, b: IdentidadeDaForja | n
 // Erros
 // ---------------------------------------------------------------------------
 
-/** O texto inteiro sem segredo: o redator comum, mais os tokens do GitLab e o PAT fino do GitHub. */
+/**
+ * O texto inteiro sem segredo. Os tokens do GitLab podem ter ponto (formato roteavel, `glpat-xxxx.01.yyyy`), por isso a
+ * classe inclui o ponto e nao ha `\b` no fim, que cortaria no ponto e deixaria o sufixo; o token de registro de runner
+ * legado tem o prefixo fixo `GR1348941`.
+ */
 function redigirDaForja(texto: string): string {
   return redigirSegredos(texto)
-    .replace(/\b(?:glpat|gldt|glrt|glptt|glcbt)-[A-Za-z0-9_-]{16,}\b/g, '[redigido]')
+    .replace(/\b(?:glpat|gldt|glrt|glptt|glcbt|gloas|glft|glimt|glsoat)-[A-Za-z0-9_.-]{16,}/g, '[redigido]')
+    .replace(/\bGR1348941[A-Za-z0-9_-]{20,}/g, '[redigido]')
     .replace(/\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, '[redigido]');
 }
 
