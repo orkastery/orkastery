@@ -10,6 +10,12 @@ import { LeituraDeSessoes } from '../src/noctum-capacidade';
 import { CONTRATO_SUPERVISAO, dirDaSupervisao, Instancia } from '../src/noctum-supervisao';
 import { CONTRATO_PERFIS, EstadoDePerfil, PerfilDeDespacho, StoreDePerfis } from '../src/runtime-profiles';
 import { SessaoDaConta } from '../src/sessoes-contas';
+import { registrarConducaoDaSessao } from '../src/conducao';
+import { registrar } from '../src/ledger';
+import { OpcoesDoPasso } from '../src/noctum-execucao';
+import { OpcoesDoVigia } from '../src/noctum-vigia';
+import { OpcoesRun, ResultadoRun } from '../src/phase';
+import { dirThread, novaThread } from '../src/thread';
 
 export const MAQUINA = 'maquina-simulada';
 
@@ -65,4 +71,69 @@ export function storeCom(perfis: Array<{ id: string; runtime?: 'claude-bg' | 'co
   return { contrato: CONTRATO_PERFIS, perfis: perfis.map(p => ({ id: p.id, runtime: p.runtime ?? 'claude-bg',
     ...(p.runtime === 'codex' ? { codexHome: `/contas/${p.id}` } : { configDir: `/contas/${p.id}` }),
     estado: p.estado ?? 'ativo', esgotadoAte: p.esgotadoAte ?? null, ultimaFalha: null, ultimoUso: null, criadoEm: '2026-01-01T00:00:00.000Z' })) };
+}
+
+/**
+ * O runtime SIMULADO do arco, num arquivo que o processo do teste e os filhos dividem: cada despacho simulado registra a
+ * sessão (com o perfil), e a leitura devolve o último estado de cada uma, nas contas dadas, com todas as fontes lidas.
+ */
+export function runtimeSimulado(dir: string, perfis: string[] = ['perfil-a', 'perfil-b']) {
+  const arquivo = path.join(dir, '.simulado-sessoes.tsv');
+  return {
+    arquivo,
+    registrar: (sessionId: string, perfil: string | null) => fs.appendFileSync(arquivo, `${sessionId}\t${perfil ?? ''}\tworking\n`),
+    estado: (sessionId: string, state: string) => fs.appendFileSync(arquivo, `${sessionId}\t\t${state}\n`),
+    leitura: (): LeituraDeSessoes => {
+      const porSessao = new Map<string, { perfil: string | null; state: string }>();
+      const texto = fs.existsSync(arquivo) ? fs.readFileSync(arquivo, 'utf8') : '';
+      for (const linha of texto.split('\n').filter(Boolean)) {
+        const [sessionId, perfil, state] = linha.split('\t');
+        const atual = porSessao.get(sessionId);
+        porSessao.set(sessionId, { perfil: perfil || atual?.perfil || null, state });
+      }
+      return runtimeCom([...porSessao].map(([sessionId, s]) => ({ sessionId, perfil: s.perfil, state: s.state,
+        viva: !['done', 'completed', 'exited', 'stopped', 'failed'].includes(s.state) })), perfis);
+    },
+  };
+}
+
+let sessoesSimuladas = 0;
+/**
+ * O despacho simulado do arco: o que o `phase run` real deixa quando abre a sessão (o lease de sessão e o `phase_dispatch`
+ * com a correlação e o perfil), e a sessão no runtime simulado. `falha`, quando devolve um resultado, faz o papel do
+ * núcleo que recusou ou do runtime que falhou (a cota, o login), sem abrir sessão.
+ */
+export function despachoSimuladoDoArco(dir: string, registro: string[] = [],
+  falha?: (raiz: string, threadId: string, o: OpcoesRun) => ResultadoRun | null): NonNullable<OpcoesDoPasso['despachar']> {
+  const runtime = runtimeSimulado(dir);
+  return (carregado, threadId, o) => {
+    const recusa = falha?.(carregado.raiz, threadId, o);
+    if (recusa) { registro.push(`${threadId}:${o.fase}:${o.perfil}:falhou`); return recusa; }
+    sessoesSimuladas += 1;
+    const sessionId = `00000000-0000-4000-9000-${String(process.pid * 1000 + sessoesSimuladas).padStart(12, '0')}`;
+    registrarConducaoDaSessao(carregado.raiz, threadId, { canal: 'cli', operacao: 'phase.run', fase: o.fase, prazoMs: 3600_000 },
+      { sessionId, runtime: o.runtime ?? 'claude-bg', perfil: o.perfil ?? null });
+    registrar(dirThread(carregado.raiz, threadId), threadId, 'phase_dispatch', { fase: o.fase, sessionId, runtime: o.runtime ?? 'claude-bg',
+      pausaAoFim: false, correlacao: o.correlacao, ...(o.perfil ? { perfil: { id: o.perfil, runtime: o.runtime ?? 'claude-bg' } } : {}) });
+    runtime.registrar(sessionId, o.perfil ?? null);
+    registro.push(`${threadId}:${o.fase}:${o.perfil}`);
+    return { sessionId, verificada: true, bloqueado: false, motivo: null } as unknown as ResultadoRun;
+  };
+}
+
+/** As dependências SIMULADAS do vigia e do condutor: o runtime e o store simulados, e o despacho do arco simulado. */
+export function opcoesSimuladas(dir: string, itens: string[], registro: string[] = [], extra: Partial<OpcoesDoVigia> = {},
+  falha?: Parameters<typeof despachoSimuladoDoArco>[2]): OpcoesDoVigia {
+  const runtime = runtimeSimulado(dir);
+  return {
+    maquina: MAQUINA,
+    consultarRuntime: runtime.leitura,
+    lerStore: () => storeCom([{ id: 'perfil-a' }, { id: 'perfil-b' }]),
+    pararSessao: (s) => { runtime.estado(s.sessionId, 'stopped'); return { ok: true, detalhe: 'claude stop SIMULADO' }; },
+    lerRemoto: () => ({ ok: true, sha: null }),
+    ...extra,
+    passo: { maquina: MAQUINA, consultarSessoes: runtime.leitura, despachar: despachoSimuladoDoArco(dir, registro, falha),
+      lerReservas: () => ({ leitura: 'copia-local' as const, reservas: itens.map(item => ({ item, maquina: MAQUINA, thread: null })) }),
+      abrirThread: (k, o) => novaThread(k, { ...o, criarWorktree: false }).thread, ...extra.passo },
+  };
 }

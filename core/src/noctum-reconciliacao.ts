@@ -373,18 +373,6 @@ export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2,
   return decisoes;
 }
 
-/** As linhas da supervisão de uma decisão de sessão, depois que a parada (quando havia) foi confirmada. */
-export function eventosDaDecisao(d: Extract<DecisaoDeSessao, { acao: 'retomar' }>, provaDaParada: string | null): EventoDaSupervisao[] {
-  const linhas: EventoDaSupervisao[] = [];
-  if (d.parar) {
-    linhas.push({ tipo: 'sessao_parada', trabalho: d.trabalho, thread: d.thread, sessionId: d.parar.sessionId, motivo: d.motivo, confirmada: true,
-      prova: provaDaParada ?? d.prova });
-  }
-  linhas.push({ tipo: 'retomada_autorizada', trabalho: d.trabalho, thread: d.thread, fase: d.fase, tentativa: d.tentativa, motivo: d.motivo,
-    sessao: d.sessao, prova: d.prova });
-  return linhas;
-}
-
 /** D15: as recusas de ambiente seguidas desde o último despacho concluído do arco, e se elas param o arco. */
 export function paradaPorAmbiente(sup: EstadoDaSupervisao, estado: EstadoDoArco): { motivo: 'ambiente-do-despacho'; detalhe: string } | null {
   const parametros = sup.parametros;
