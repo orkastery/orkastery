@@ -182,6 +182,8 @@ test('F7: check pendente espera a proxima batida, na faixa automatica do pulse; 
 test('F7: autorizacao vencida, acao fora da lista e trabalho na thread recusam com motivo tipado e viram item do dono', () => {
   const { p, thread, wt, branch, gh } = cenario('rm063-f7-recusas');
   try {
+    // O PR esta pronto de verdade (CHECK aprovado): o que fica com o dono e a autorizacao ou o trabalho na thread.
+    checkPassou(p, thread);
     gh.abrir(155, branch);
     gh.checks.set(155, [{ name: 'ork-verify', bucket: 'pass' }]);
     const motivoDoMerge = (extra: OpcoesDaBatida = {}) => {
@@ -350,6 +352,19 @@ function mainAnda(p: ProjetoDeTeste, arquivo = 'docs/outra.md'): void {
   fs.rmSync(outro, { recursive: true, force: true });
 }
 const remotaDe = (p: ProjetoDeTeste, branch: string) => exec('git', ['ls-remote', p.remoto as string, `refs/heads/${branch}`]).stdout.split(/\s+/)[0];
+
+test('GO-FIX: sem autorizacao, o PR sem CHECK chega ao dono como check-pendente, nunca como pronto', () => {
+  const { p, thread, branch, gh } = cenario('rm063-gofix-ordem');
+  try {
+    gh.abrir(207, branch);
+    gh.checks.set(207, [{ name: 'ork-verify', bucket: 'pass' }]);
+    const semCheck = conduzirBatida(p.carregado, opcoesDe(gh));
+    assert.deepEqual(semCheck.pendentes.filter((x) => x.acao === 'merge').map((x) => x.motivo), ['check-pendente']);
+    checkPassou(p, thread);
+    const pronto = conduzirBatida(p.carregado, opcoesDe(gh));
+    assert.deepEqual(pronto.pendentes.filter((x) => x.acao === 'merge').map((x) => [x.motivo, x.detalhe]), [['autorizacao.ausente', 'o PR #207 está pronto']]);
+  } finally { p.limpar(); }
+});
 
 test('GO-FIX 1: o PR para tras com trabalho local que ele nao tem nao e atualizado nem empurrado', () => {
   const { p, wt, branch, gh } = cenario('rm063-gofix-wip');

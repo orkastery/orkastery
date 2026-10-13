@@ -332,18 +332,13 @@ function mesclarProntos(ctx: ContextoDaBatida, threads: Thread[], opcoes: Opcoes
     const avaliacao = avaliarPr(pr, checks.checks);
     if (avaliacao.estado === 'espera') { anotar(ctx, item('espera', avaliacao.motivo, avaliacao.detalhe)); continue; }
     if (avaliacao.estado === 'dono') { anotar(ctx, item('dono', avaliacao.motivo, avaliacao.detalhe)); continue; }
-    // Pronto ou para atualizar: so com a autorizacao do dono, e nunca por cima de quem trabalha na thread nem do que
-    // espera o dono (pausa, pergunta, escalacao).
+    // Pronto ou para atualizar: primeiro o estado (quem trabalha na thread, o que espera o dono, a branch local e o
+    // CHECK), e so depois a autorizacao: o dono so recebe "pronto" do PR que esta pronto de verdade.
     const atualizar = avaliacao.estado === 'atualizar';
     const oQue = atualizar ? textoDoCatalogo((m) => m.pulse.varredura.oQue.atualizar(pr.numero, branch, `${remoto}/${base}`)) : undefined;
     const comando = atualizar ? `ork conducao atualizar ${t.id} --enviar` : undefined;
-    const fora = semAutorizacao(ctx.leitura, 'merge');
-    if (fora) {
-      anotar(ctx, item('dono', fora, atualizar ? `o PR #${pr.numero} precisa da base (${pr.estado})` : `o PR #${pr.numero} está pronto`, oQue, comando));
-      continue;
-    }
     const trabalho = trabalhoNaWorktree(raiz, t, ctx.quando, ctx.vivas);
-    if (trabalho) { anotar(ctx, item('dono', trabalho.motivo, trabalho.texto, oQue, comando)); continue; }
+    if (trabalho) { anotar(ctx, item('dono', trabalho.motivo, trabalho.texto, oQue, `ork thread status ${t.id}`)); continue; }
     let eventos: ReturnType<typeof lerLedger> = [];
     try { eventos = lerLedger(dirThread(raiz, t.id)); } catch { eventos = []; }
     const doDono = pendenciaDoDono(t, eventos, ctx.quando);
@@ -357,14 +352,21 @@ function mesclarProntos(ctx: ContextoDaBatida, threads: Thread[], opcoes: Opcoes
         `ork thread status ${t.id}`));
       continue;
     }
-    if (atualizar) {
-      anotar(ctx, atualizacaoDoPr(ctx, t, pr, oQue as string, comando as string, alinhada.estado === 'atras' ? pr.head : null));
+    // O merge so leva o que passou pelo CHECK: o veredito PASSOU gravado depois do ultimo commit de produto do PR.
+    if (!atualizar) {
+      const check = conferirCheck(raiz, t, `refs/remotes/${remoto}/${base}`, pr.head);
+      if (check.etapa.estado !== 'feita' && check.etapa.estado !== 'nao-se-aplica') {
+        anotar(ctx, item('dono', 'check-pendente', check.etapa.texto, undefined, `ork thread status ${t.id}`));
+        continue;
+      }
+    }
+    const fora = semAutorizacao(ctx.leitura, 'merge');
+    if (fora) {
+      anotar(ctx, item('dono', fora, atualizar ? `o PR #${pr.numero} precisa da base (${pr.estado})` : `o PR #${pr.numero} está pronto`, oQue, comando));
       continue;
     }
-    // O merge so leva o que passou pelo CHECK: o veredito PASSOU gravado depois do ultimo commit de produto do PR.
-    const check = conferirCheck(raiz, t, `refs/remotes/${remoto}/${base}`, pr.head);
-    if (check.etapa.estado !== 'feita' && check.etapa.estado !== 'nao-se-aplica') {
-      anotar(ctx, item('dono', 'check-pendente', check.etapa.texto, undefined, `ork thread status ${t.id}`));
+    if (atualizar) {
+      anotar(ctx, atualizacaoDoPr(ctx, t, pr, oQue as string, comando as string, alinhada.estado === 'atras' ? pr.head : null));
       continue;
     }
     const r = executor(['pr', 'merge', String(pr.numero), `--repo=${forja.host}/${forja.repositorio}`, '--merge',
