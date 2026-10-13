@@ -979,3 +979,22 @@ export function concluirDespacho(raiz: string, arco: string, seq: number,
     return confirmado(raiz, arco, quando, e => e.despachos.some(x => x.seq === seq && x.desfecho !== 'pendente'), 'conclusão do despacho');
   }, true);
 }
+
+/**
+ * RM-058 N3 (D6 da ork-rm058n3): as versões do envelope que o dono autorizou neste arco, na ordem do log. O ramo de
+ * coordenação guarda registros assinados sob versões anteriores (a vaga tomada antes de uma emenda continua contando), e a
+ * leitura confere cada um com as máquinas da versão que ele diz. A vigente é a última; o recibo do dono continua conferido
+ * por `vigenteConferido`, antes de cada efeito.
+ */
+export function versoesAutorizadas(raiz: string, arco: string): Array<{ versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope }> {
+  const log = lerLog(raiz, arco), d = derivar(log.linhas);
+  const vistas = new Set<number>();
+  const versoes: Array<{ versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope }> = [];
+  for (const { evento: e } of log.linhas) {
+    if (e.tipo !== 'autorizado' || vistas.has(e.versao)) continue;
+    vistas.add(e.versao);
+    const p = d.propostas.get(e.versao)!;
+    versoes.push({ versao: p.versao, envelopeSha256: p.envelopeSha256, conteudo: p.conteudo });
+  }
+  return versoes;
+}

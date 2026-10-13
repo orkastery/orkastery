@@ -141,10 +141,11 @@ test('A2: ingresso sem prova não autoriza, por nenhuma das portas', () => comRa
 
 test('A3: o módulo não exporta escritor de autorização sem prova; o diálogo confia no callback do servidor, como criarIngressoLocal', () => {
   // RM-058 N2: reservarDespacho e concluirDespacho gravam despacho, nunca autorização (A30 prova que sem ela nada passa).
+  // RM-058 N3: versoesAutorizadas só lê o log, para a coordenação conferir registros de versões anteriores.
   assert.deepEqual(Object.keys(arcoMod).sort(), ['ALVO_DO_NOCTUM', 'CONTRATO_ARCO', 'PRAZO_PARA_AUTORIZAR_MIN',
     'TEXTO_DE_REVOGACAO', 'autorizarPeloIngresso', 'concluirDespacho', 'conferirAntesDoEfeito', 'contextoDoArco', 'criarDialogoDoArco',
     'enderecoDoArco', 'enfileirarDecisao', 'hashDaRevogacao', 'idDaDecisao', 'lerArco', 'proporEnvelope',
-    'reservarDespacho', 'revogarPeloIngresso', 'textoDeAutorizacao']);
+    'reservarDespacho', 'revogarPeloIngresso', 'textoDeAutorizacao', 'versoesAutorizadas']);
 });
 
 test('A4: autorização com prova vale dentro da janela e registra quem e por qual ingresso', () => comRaiz('autoriza', raiz => {

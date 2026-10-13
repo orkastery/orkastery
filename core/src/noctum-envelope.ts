@@ -14,14 +14,22 @@
  * RM-058, fatia N2 (D1 da ork-rm058n2): a `v2` acrescenta o que a `v1` deixou para uma versão nova, a lista
  * fechada de trabalhos do arco e os limites de concorrência. A `v1` segue valendo como estava, byte a byte, e
  * um arco autorizado nela não despacha nada.
+ *
+ * RM-058, fatia N3 (D2 da ork-rm058n3): a `v3` acrescenta as máquinas do arco, cada uma com a chave pública que assina
+ * no ramo de coordenação, o limite de sessões por conta somando as máquinas e a máquina presa de um trabalho. É o que
+ * o dono autoriza que faz uma máquina confiar na outra: o retrato da rede é descoberta, nunca autorização.
  */
-import { createHash } from 'node:crypto';
+import { createHash, createPublicKey } from 'node:crypto';
 import { FUSO_DE_BRASILIA, normalizarFuso } from './horario';
 import { RUNTIMES_COM_PERFIL } from './runtime-profiles';
 
 export const CONTRATO_ENVELOPE = 'ork.noctum-envelope/v1' as const;
 export const CONTRATO_ENVELOPE_V2 = 'ork.noctum-envelope/v2' as const;
-export type ContratoDoEnvelope = typeof CONTRATO_ENVELOPE | typeof CONTRATO_ENVELOPE_V2;
+export const CONTRATO_ENVELOPE_V3 = 'ork.noctum-envelope/v3' as const;
+export type ContratoDoEnvelope = typeof CONTRATO_ENVELOPE | typeof CONTRATO_ENVELOPE_V2 | typeof CONTRATO_ENVELOPE_V3;
+
+/** D2 da ork-rm058n3: as máquinas de um arco são poucas e todas do dono. */
+export const MAXIMO_DE_MAQUINAS = 8;
 
 /**
  * D1 da ork-rm058n2: a lista do arco é fechada e curta. O dono lê cada pedido inteiro no resumo que autoriza (A7 do
@@ -90,6 +98,13 @@ export const MOTIVOS_DE_RECUSA = [
   'noctum.estado.adulterado',
   // RM-058 N2 (D11 e D12 da ork-rm058n2): o despacho fora da lista, conta ou runtime do envelope, e o orçamento.
   'noctum.despacho.fora-do-envelope', 'noctum.orcamento.esgotado', 'noctum.orcamento.sem-medicao',
+  // RM-058 N3 (ork-rm058n3): a coordenação entre máquinas, a reserva do item e a vez de integrar.
+  'noctum.coordenacao.sem-remoto', 'noctum.coordenacao.adulterado', 'noctum.coordenacao.fora-do-envelope',
+  'noctum.coordenacao.autoridade-ativa', 'noctum.coordenacao.geracao-vencida', 'noctum.coordenacao.ordem-viva',
+  'noctum.coordenacao.ordem-vencida', 'noctum.coordenacao.maquina-sem-batida', 'noctum.coordenacao.vaga-global',
+  'noctum.coordenacao.concorrencia', 'noctum.coordenacao.exige-passo-da-maquina', 'noctum.reserva.de-outra-maquina',
+  'noctum.integracao.ocupada', 'noctum.integracao.base-mudou', 'noctum.integracao.fonte-mudou',
+  'noctum.integracao.ja-entregue', 'noctum.integracao.nao-provada',
 ] as const;
 export type MotivoDeRecusaDoArco = typeof MOTIVOS_DE_RECUSA[number];
 
@@ -123,7 +138,15 @@ export interface Trabalho {
   dependeDe: string[];
   thread?: string;
   pedido?: string;
+  /** Só na `v3`: a máquina que conduz o trabalho. Obrigatória com `thread`, que mora na raiz de estado de uma máquina. */
+  maquina?: string;
 }
+
+/** Uma máquina do arco `v3`: o nome dela e a chave pública Ed25519 (SPKI DER em base64) com que assina. */
+export interface MaquinaDoArco { nome: string; chave: string }
+
+/** O limite de sessões ao mesmo tempo por conta, somando todas as máquinas do arco. */
+export interface CapacidadeGlobal { porConta: Array<{ conta: string; sessoes: number }> }
 
 /** Limites de sessões ao mesmo tempo. `revisao` são os slots da máquina que só o CHECK usa. */
 export interface Capacidade {
@@ -141,10 +164,14 @@ export interface PedidoDeAbertura {
   destinos: Destino[];
   orcamento: Orcamento;
   relatorio: Relatorio;
-  /** Só na `v2`. */
+  /** Na `v2` e na `v3`. */
   trabalhos?: Trabalho[];
-  /** Só na `v2`. */
+  /** Na `v2` e na `v3`: os limites de cada máquina. */
   capacidade?: Capacidade;
+  /** Só na `v3`. */
+  maquinas?: MaquinaDoArco[];
+  /** Só na `v3`. */
+  capacidadeGlobal?: CapacidadeGlobal;
 }
 
 /** O que o dono autoriza: o pedido normalizado mais as exclusões fixas, guardadas para o registro. */
@@ -401,11 +428,109 @@ function caractereQueEsconde(texto: string): number | null {
 
 const codigoDoCaractere = (cp: number): string => `U+${cp.toString(16).toUpperCase().padStart(4, '0')}`;
 
+/** O nome de uma máquina, a mesma regra do `maquina.json` (`gravarConfigDaMaquina`). */
+const NOME_DE_MAQUINA = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const BASE64 = /^[A-Za-z0-9+/]{1,200}={0,2}$/;
+
+/**
+ * D2 da ork-rm058n3: a chave pública Ed25519 em SPKI DER base64, só na forma canônica que o Node exporta, ou nada. Duas
+ * escritas da mesma chave dariam dois hashes para o mesmo envelope e driblariam a regra da chave repetida.
+ */
+export function chavePublicaValida(v: unknown): string | undefined {
+  if (typeof v !== 'string' || !BASE64.test(v)) return undefined;
+  try {
+    const k = createPublicKey({ key: Buffer.from(v, 'base64'), format: 'der', type: 'spki' });
+    if (k.asymmetricKeyType !== 'ed25519') return undefined;
+    return k.export({ format: 'der', type: 'spki' }).toString('base64') === v ? v : undefined;
+  } catch { return undefined; }
+}
+
+/** O que o resumo mostra da chave de uma máquina: o começo do sha256 dos bytes dela, para o dono conferir. */
+export function impressaoDaChave(chave: string): string {
+  return createHash('sha256').update(Buffer.from(chave, 'base64')).digest('hex').slice(0, 16);
+}
+
+/** D2 da ork-rm058n3: as máquinas do arco, na ordem do dono (desempata a distribuição), sem nome nem chave repetidos. */
+function lerMaquinas(v: unknown, p: Problemas): MaquinaDoArco[] | undefined {
+  if (ausente(v) || (Array.isArray(v) && v.length === 0)) {
+    p.faltas.push('maquinas (cada máquina do arco: nome e chave pública)');
+    return undefined;
+  }
+  if (!Array.isArray(v)) { p.invalidos.push('maquinas: precisa ser lista'); return undefined; }
+  if (v.length > MAXIMO_DE_MAQUINAS) { p.invalidos.push(`maquinas: até ${MAXIMO_DE_MAQUINAS} por arco`); return undefined; }
+  const lidas: MaquinaDoArco[] = [];
+  const nomes = new Set<string>(), chaves = new Set<string>();
+  v.forEach((m, i) => {
+    const onde = `maquinas[${i}]`;
+    if (!objeto(m)) { p.invalidos.push(`${onde}: precisa ser { nome, chave }`); return; }
+    chavesConhecidas(m, ['nome', 'chave'], onde, p);
+    let ok = true;
+    if (ausente(m.nome)) { p.faltas.push(`${onde}.nome`); ok = false; }
+    else if (typeof m.nome !== 'string' || !NOME_DE_MAQUINA.test(m.nome)) {
+      p.invalidos.push(`${onde}.nome: letras, dígitos, ponto, _ ou -, até 64`); ok = false;
+    } else if (nomes.has(m.nome.toLowerCase())) { p.invalidos.push(`${onde}.nome: repetido`); ok = false; }
+    else nomes.add(m.nome.toLowerCase());
+    if (ausente(m.chave)) { p.faltas.push(`${onde}.chave (a chave pública da máquina)`); ok = false; }
+    else if (chavePublicaValida(m.chave) === undefined) {
+      p.invalidos.push(`${onde}.chave: chave pública Ed25519 em SPKI DER base64, na forma canônica`); ok = false;
+    } else if (chaves.has(m.chave as string)) { p.invalidos.push(`${onde}.chave: a mesma chave em duas máquinas`); ok = false; }
+    else chaves.add(m.chave as string);
+    if (ok) lidas.push({ nome: m.nome as string, chave: m.chave as string });
+  });
+  return lidas.length === v.length ? lidas : undefined;
+}
+
+/**
+ * D2 da ork-rm058n3: o limite de cada conta somando as máquinas. Toda conta do orçamento tem o seu e nenhuma outra entra;
+ * acima da soma dos limites locais ele não limita nada, como o subteto acima do teto.
+ */
+function lerCapacidadeGlobal(v: unknown, orcamento: Orcamento | undefined, capacidade: Capacidade | undefined,
+  quantasMaquinas: number | undefined, p: Problemas): CapacidadeGlobal | undefined {
+  const falta = 'capacidadeGlobal.porConta (sessões ao mesmo tempo por conta, somando as máquinas)';
+  if (ausente(v)) { p.faltas.push(falta); return undefined; }
+  if (!objeto(v)) { p.invalidos.push('capacidadeGlobal: precisa ser { porConta }'); return undefined; }
+  chavesConhecidas(v, ['porConta'], 'capacidadeGlobal', p);
+  const bruto = v.porConta;
+  if (ausente(bruto) || (Array.isArray(bruto) && bruto.length === 0)) { p.faltas.push(falta); return undefined; }
+  if (!Array.isArray(bruto)) { p.invalidos.push('capacidadeGlobal.porConta: precisa ser lista'); return undefined; }
+  const doOrcamento = orcamento?.porConta.map(s => s.conta);
+  const itens: Array<{ conta: string; sessoes: number }> = [];
+  const vistos = new Set<string>();
+  bruto.forEach((s, i) => {
+    const aqui = `capacidadeGlobal.porConta[${i}]`;
+    if (!objeto(s)) { p.invalidos.push(`${aqui}: precisa ser { conta, sessoes }`); return; }
+    chavesConhecidas(s, ['conta', 'sessoes'], aqui, p);
+    let ok = true;
+    if (ausente(s.conta)) { p.faltas.push(`${aqui}.conta`); ok = false; }
+    else if (typeof s.conta !== 'string') { p.invalidos.push(`${aqui}.conta: texto`); ok = false; }
+    else if (vistos.has(s.conta.toLowerCase())) { p.invalidos.push(`${aqui}.conta: repetida`); ok = false; }
+    else if (doOrcamento && !doOrcamento.includes(s.conta)) {
+      p.invalidos.push(`${aqui}.conta: ${s.conta} não está no orçamento, e só entra aqui quem tem teto`); ok = false;
+    } else vistos.add(s.conta.toLowerCase());
+    const local = typeof s.conta === 'string' ? capacidade?.porConta.find(x => x.conta === s.conta)?.sessoes : undefined;
+    const soma = local !== undefined && quantasMaquinas !== undefined ? local * quantasMaquinas : MAXIMO_DE_SESSOES_DA_MAQUINA * MAXIMO_DE_MAQUINAS;
+    if (ausente(s.sessoes)) { p.faltas.push(`${aqui}.sessoes`); ok = false; }
+    else if (typeof s.sessoes !== 'number' || !Number.isSafeInteger(s.sessoes) || s.sessoes < 1) {
+      p.invalidos.push(`${aqui}.sessoes: inteiro a partir de 1`); ok = false;
+    } else if (s.sessoes > soma) {
+      p.invalidos.push(`${aqui}.sessoes: passa da soma dos limites locais da conta (${soma}) e não limita nada`); ok = false;
+    }
+    if (ok) itens.push({ conta: s.conta as string, sessoes: s.sessoes as number });
+  });
+  for (const conta of (doOrcamento ?? []).filter(n => !vistos.has(n.toLowerCase()))) {
+    p.faltas.push(`capacidadeGlobal.porConta (${conta}, que está no orçamento)`);
+  }
+  return itens.length === bruto.length ? { porConta: itens.sort((a, b) => a.conta.localeCompare(b.conta, 'en')) } : undefined;
+}
+
 /**
  * D1 e D2 da ork-rm058n2: a lista fechada de trabalhos. A ordem da lista é do dono e entra no hash, porque a
  * posição desempata a fila (D3); a ordem dentro de `dependeDe` não muda nada e é normalizada.
+ *
+ * D2 da ork-rm058n3: na `v3`, `v3.maquinas` traz os nomes do envelope (ou `null`, quando eles não se leram) e o trabalho
+ * pode prender uma máquina; o de `thread` precisa dela, e o mesmo item preso a duas máquinas é recusado.
  */
-function lerTrabalhos(v: unknown, p: Problemas): Trabalho[] | undefined {
+function lerTrabalhos(v: unknown, p: Problemas, v3: { maquinas: ReadonlySet<string> | null } | null = null): Trabalho[] | undefined {
   if (ausente(v) || (Array.isArray(v) && v.length === 0)) {
     p.faltas.push('trabalhos (a lista fechada do arco: id, item, prioridade, dependeDe e thread ou pedido)');
     return undefined;
@@ -417,7 +542,7 @@ function lerTrabalhos(v: unknown, p: Problemas): Trabalho[] | undefined {
   v.forEach((t, i) => {
     const onde = `trabalhos[${i}]`;
     if (!objeto(t)) { p.invalidos.push(`${onde}: precisa ser { id, item, prioridade, dependeDe, thread ou pedido }`); return; }
-    chavesConhecidas(t, ['id', 'item', 'prioridade', 'dependeDe', 'thread', 'pedido'], onde, p);
+    chavesConhecidas(t, ['id', 'item', 'prioridade', 'dependeDe', 'thread', 'pedido', ...(v3 ? ['maquina'] : [])], onde, p);
     let ok = true;
     if (ausente(t.id)) { p.faltas.push(`${onde}.id`); ok = false; }
     else if (typeof t.id !== 'string' || !ID_DO_TRABALHO.test(t.id)) { p.invalidos.push(`${onde}.id: letras minúsculas, dígitos e hífen, até 32`); ok = false; }
@@ -451,13 +576,32 @@ function lerTrabalhos(v: unknown, p: Problemas): Trabalho[] | undefined {
       // O vínculo da thread aberta é o item mais o sha256 do pedido: dois trabalhos iguais seriam a mesma thread.
       p.invalidos.push(`${onde}.pedido: o mesmo item e o mesmo pedido em dois trabalhos`); ok = false;
     } else if (typeof t.item === 'string') pedidos.add(`${t.item}|${shaDoPedido(t.pedido)}`);
+    let maquina: string | undefined;
+    if (v3) {
+      if (ausente(t.maquina)) {
+        if (comThread) { p.faltas.push(`${onde}.maquina (a máquina em que a thread mora)`); ok = false; }
+      } else if (typeof t.maquina !== 'string' || !NOME_DE_MAQUINA.test(t.maquina)) {
+        p.invalidos.push(`${onde}.maquina: nome de uma das máquinas do arco`); ok = false;
+      } else if (v3.maquinas && !v3.maquinas.has(t.maquina)) {
+        p.invalidos.push(`${onde}.maquina: ${t.maquina} não está em maquinas`); ok = false;
+      } else maquina = t.maquina;
+    }
     if (ok) {
       lidos.push({ id: t.id as string, item: t.item as string, prioridade: t.prioridade as number,
         dependeDe: [...(t.dependeDe as string[])].sort(),
-        ...(comThread ? { thread: t.thread as string } : { pedido: (t.pedido as string).trim() }) });
+        ...(comThread ? { thread: t.thread as string } : { pedido: (t.pedido as string).trim() }),
+        ...(maquina ? { maquina } : {}) });
     }
   });
   if (lidos.length !== v.length) return undefined;
+  if (v3) {
+    // A reserva da RM-047 é do item numa máquina só: o mesmo item preso a duas máquinas nunca andaria nas duas.
+    const presas = new Map<string, Set<string>>();
+    for (const t of lidos) if (t.maquina) presas.set(t.item, (presas.get(t.item) ?? new Set<string>()).add(t.maquina));
+    for (const [item, maquinas] of presas) {
+      if (maquinas.size > 1) p.invalidos.push(`trabalhos: o item ${item} está preso a ${[...maquinas].join(' e ')}; a reserva do item é de uma máquina só`);
+    }
+  }
   const somaDosPedidos = lidos.reduce((n, t) => n + (t.pedido ? Buffer.byteLength(t.pedido, 'utf8') : 0), 0);
   if (somaDosPedidos > TETO_DOS_PEDIDOS_DO_ARCO) {
     p.invalidos.push(`trabalhos: os pedidos somam ${somaDosPedidos} bytes; até ${TETO_DOS_PEDIDOS_DO_ARCO} por arco`);
@@ -543,9 +687,15 @@ function lerCapacidade(v: unknown, orcamento: Orcamento | undefined, p: Problema
   return maquina !== undefined && revisao !== undefined && porConta && porRuntime ? { maquina, porConta, porRuntime, revisao } : undefined;
 }
 
-/** O conteúdo traz a lista e os limites da `v2`? Só ele despacha (D1 da ork-rm058n2). */
+/** O conteúdo traz a lista e os limites da `v2` (ou da `v3`, que os mantém)? Só ele despacha (D1 da ork-rm058n2). */
 export function envelopeComTrabalhos(c: ConteudoDoEnvelope): c is ConteudoDoEnvelope & { trabalhos: Trabalho[]; capacidade: Capacidade } {
-  return c.contrato === CONTRATO_ENVELOPE_V2 && Array.isArray(c.trabalhos) && !!c.capacidade;
+  return (c.contrato === CONTRATO_ENVELOPE_V2 || c.contrato === CONTRATO_ENVELOPE_V3) && Array.isArray(c.trabalhos) && !!c.capacidade;
+}
+
+/** RM-058 N3: o conteúdo é de um arco entre máquinas (`v3`, com as máquinas e o limite global)? */
+export function envelopeMultimaquina(c: ConteudoDoEnvelope): c is ConteudoDoEnvelope & { trabalhos: Trabalho[]; capacidade: Capacidade;
+  maquinas: MaquinaDoArco[]; capacidadeGlobal: CapacidadeGlobal } {
+  return c.contrato === CONTRATO_ENVELOPE_V3 && envelopeComTrabalhos(c) && Array.isArray(c.maquinas) && !!c.capacidadeGlobal;
 }
 
 /**
@@ -558,11 +708,14 @@ export function envelopeComTrabalhos(c: ConteudoDoEnvelope): c is ConteudoDoEnve
 export function validarPedidoDeAbertura(v: unknown): ConteudoDoEnvelope {
   const p: Problemas = { faltas: [], ilimitados: [], excluidas: [], invalidos: [] };
   if (!objeto(v)) throw new RecusaDoArco('noctum.envelope.invalido', 'o pedido de abertura precisa ser um objeto');
-  // Na `v1`, `trabalhos` e `capacidade` continuam campo desconhecido, como antes da N2.
-  const v2 = v.contrato === CONTRATO_ENVELOPE_V2;
-  chavesConhecidas(v, ['contrato', 'arco', 'janela', 'destinos', 'orcamento', 'relatorio', ...(v2 ? ['trabalhos', 'capacidade'] : [])],
-    'pedido', p);
-  if (v.contrato !== CONTRATO_ENVELOPE && !v2) p.invalidos.push(`contrato: precisa ser ${CONTRATO_ENVELOPE} ou ${CONTRATO_ENVELOPE_V2}`);
+  // Na `v1`, `trabalhos` e `capacidade` continuam campo desconhecido, como antes da N2; fora da `v3`, as máquinas também.
+  const v3 = v.contrato === CONTRATO_ENVELOPE_V3;
+  const v2 = v.contrato === CONTRATO_ENVELOPE_V2 || v3;
+  chavesConhecidas(v, ['contrato', 'arco', 'janela', 'destinos', 'orcamento', 'relatorio', ...(v2 ? ['trabalhos', 'capacidade'] : []),
+    ...(v3 ? ['maquinas', 'capacidadeGlobal'] : [])], 'pedido', p);
+  if (v.contrato !== CONTRATO_ENVELOPE && !v2) {
+    p.invalidos.push(`contrato: precisa ser ${CONTRATO_ENVELOPE}, ${CONTRATO_ENVELOPE_V2} ou ${CONTRATO_ENVELOPE_V3}`);
+  }
   let arco: string | undefined;
   if (ausente(v.arco)) p.faltas.push('arco (identificador do arco)');
   else if (typeof v.arco !== 'string' || !ID_DO_ARCO.test(v.arco)) p.invalidos.push('arco: letras minúsculas, dígitos e hífen, até 63');
@@ -571,8 +724,10 @@ export function validarPedidoDeAbertura(v: unknown): ConteudoDoEnvelope {
   const destinos = lerDestinos(v.destinos, p);
   const orcamento = lerOrcamento(v.orcamento, p);
   const relatorio = lerRelatorio(v.relatorio, p);
-  const trabalhos = v2 ? lerTrabalhos(v.trabalhos, p) : undefined;
+  const maquinas = v3 ? lerMaquinas(v.maquinas, p) : undefined;
+  const trabalhos = v2 ? lerTrabalhos(v.trabalhos, p, v3 ? { maquinas: maquinas ? new Set(maquinas.map(m => m.nome)) : null } : null) : undefined;
   const capacidade = v2 ? lerCapacidade(v.capacidade, orcamento, p) : undefined;
+  const capacidadeGlobal = v3 ? lerCapacidadeGlobal(v.capacidadeGlobal, orcamento, capacidade, maquinas?.length, p) : undefined;
   const partes = [
     p.excluidas.length ? `ação excluída: ${p.excluidas.join('; ')}` : '',
     p.ilimitados.length ? `teto ilimitado não é aceito: ${p.ilimitados.join('; ')}` : '',
@@ -585,9 +740,10 @@ export function validarPedidoDeAbertura(v: unknown): ConteudoDoEnvelope {
         : p.faltas.length ? 'noctum.envelope.valores-ausentes' : 'noctum.envelope.invalido';
     throw new RecusaDoArco(motivo, `${partes.join(' | ')}. Nenhum valor do dono é presumido.`);
   }
-  return { contrato: v2 ? CONTRATO_ENVELOPE_V2 : CONTRATO_ENVELOPE, arco: arco!, janela: janela!, destinos: destinos!,
-    orcamento: orcamento!, relatorio: relatorio!, exclusoes: [...EXCLUSOES_FIXAS],
-    ...(v2 ? { trabalhos: trabalhos!, capacidade: capacidade! } : {}) };
+  return { contrato: v3 ? CONTRATO_ENVELOPE_V3 : v2 ? CONTRATO_ENVELOPE_V2 : CONTRATO_ENVELOPE, arco: arco!, janela: janela!,
+    destinos: destinos!, orcamento: orcamento!, relatorio: relatorio!, exclusoes: [...EXCLUSOES_FIXAS],
+    ...(v2 ? { trabalhos: trabalhos!, capacidade: capacidade! } : {}),
+    ...(v3 ? { maquinas: maquinas!, capacidadeGlobal: capacidadeGlobal! } : {}) };
 }
 
 /** JSON com as chaves em ordem: o mesmo conteúdo dá o mesmo hash, qualquer que seja a ordem de entrada. */
@@ -661,6 +817,7 @@ export function resumoDoEnvelope(conteudo: ConteudoDoEnvelope, envelopeSha256: s
     ...conteudo.orcamento.porRuntime.map(s => `Subteto do runtime ${s.runtime}: ${teto(s.teto)}`),
     `Relatório da manhã: ${conteudo.relatorio.horario} (${conteudo.janela.fuso}) por ${conteudo.relatorio.canal}`,
     ...(envelopeComTrabalhos(conteudo) ? linhasDaV2(conteudo) : []),
+    ...(envelopeMultimaquina(conteudo) ? linhasDaV3(conteudo) : []),
     `Nunca entram: ${conteudo.exclusoes.join(', ')}`,
     `Hash do envelope: ${envelopeSha256}`,
   ];
@@ -674,7 +831,7 @@ function linhasDaV2(c: ConteudoDoEnvelope & { trabalhos: Trabalho[]; capacidade:
   return [
     ...c.trabalhos.flatMap(t => {
       const cabeca = `Trabalho ${t.id} (${t.item}), prioridade ${t.prioridade}` +
-        `${t.dependeDe.length ? `, depois de ${t.dependeDe.join(', ')}` : ''}: `;
+        `${t.dependeDe.length ? `, depois de ${t.dependeDe.join(', ')}` : ''}${t.maquina ? `, na máquina ${t.maquina}` : ''}: `;
       if (t.thread) return [`${cabeca}thread ${t.thread}`];
       const linhas = t.pedido!.split('\n');
       return [`${cabeca}abre uma thread com o pedido abaixo (${linhas.length} linha(s), sha256 ${shaDoPedido(t.pedido!).slice(0, 12)})`,
@@ -683,5 +840,13 @@ function linhasDaV2(c: ConteudoDoEnvelope & { trabalhos: Trabalho[]; capacidade:
     `Sessões ao mesmo tempo: ${c.capacidade.maquina} na máquina, ${c.capacidade.revisao} delas só para revisão`,
     ...c.capacidade.porConta.map(s => `Sessões ao mesmo tempo na conta ${s.conta}: ${s.sessoes}`),
     ...c.capacidade.porRuntime.map(s => `Sessões ao mesmo tempo no runtime ${s.runtime}: ${s.sessoes}`),
+  ];
+}
+
+/** O que a `v3` acrescenta: cada máquina com a impressão da chave, para o dono conferir, e o limite global de cada conta. */
+function linhasDaV3(c: ConteudoDoEnvelope & { maquinas: MaquinaDoArco[]; capacidadeGlobal: CapacidadeGlobal }): string[] {
+  return [
+    ...c.maquinas.map(m => `Máquina ${m.nome}: chave ${impressaoDaChave(m.chave)}`),
+    ...c.capacidadeGlobal.porConta.map(s => `Sessões ao mesmo tempo na conta ${s.conta}, somando as máquinas: ${s.sessoes}`),
   ];
 }
