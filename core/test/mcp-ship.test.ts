@@ -11,6 +11,8 @@ import {adquirirRegiao,lerLease,liberar,caminhoLease} from '../src/leases';
 import {exec} from '../src/util';
 import {criarPerfilShipMcp,shipMcp,PedidoShipMcp,PerfilShipMcp} from '../src/mcp-ship';
 import { semCodexSandbox } from './ambiente-de-teste';
+import { spawn } from 'node:child_process';
+import { kernelDisponivel } from '../src/fila-pesada';
 async function fixture(fn:(f:{raiz:string;wt:string;remoto:string;id:string;pedido:PedidoShipMcp;git:(args:string[],cwd?:string)=>string})=>Promise<void>) {
   const home=dirTemporario('mcp-ship-home'),antes=process.env.HOME,xdg=process.env.XDG_CONFIG_HOME;
   process.env.HOME=home;process.env.XDG_CONFIG_HOME=path.join(home,'xdg');const p=projetoTemporario('mcp-ship',true);
@@ -154,3 +156,26 @@ for(const depois of [false,true]) {
     } finally {fs.rmSync(segundo,{recursive:true,force:true});}
   }));
 }
+
+// RM-058 N2 (B1 do CHECK da ork-rm058n2): com a fila de recursos pesados ocupada, o worker espera só o que cabe no
+// prazo dele e recusa tipado; o finally roda e as leases voltam, em vez de o supervisor matar o worker esperando.
+test('SHIP MCP: fila pesada ocupada recusa dentro do prazo do worker e devolve as leases', { skip: !kernelDisponivel() },async()=>fixture(async f=>{
+  const pronto=path.join(f.raiz,'.pronto-fila'),modulo=path.resolve(__dirname,'../src/fila-pesada');
+  const dono=spawn(process.execPath,['-e',`
+    const fs=require('node:fs');const {comRecursoPesado}=require(${JSON.stringify(modulo)});
+    comRecursoPesado(${JSON.stringify(f.raiz)},{artefato:${JSON.stringify(path.join(f.raiz,'outra-worktree'))},operacao:'verify',
+      thread:'ork-outra',slots:1,esperarMs:60000},()=>{fs.writeFileSync(${JSON.stringify(pronto)},'ok');
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,120000);});
+  `],{stdio:'ignore'});
+  try {
+    const fim=Date.now()+20000;while(!fs.existsSync(pronto)){if(Date.now()>fim)assert.fail('o dono não pegou a vez');await new Promise(r=>setTimeout(r,25));}
+    const inicio=Date.now();const r=await shipMcp(criarPerfilShipMcp(f.raiz,'bare-local'),f.pedido);const levou=Date.now()-inicio;
+    assert.equal(r.ok,false);assert.match(r.erro??'',/^fila-pesada\.ocupada: .*Quem ocupa: verify da thread ork-outra/s);
+    assert.ok(levou<60000,`levou ${levou} ms`);
+    // O worker pede à fila o menor entre 20 s e o que sobra do prazo dele; o padrão da biblioteca seria 30 s.
+    const esperou=Number(/esperou (\d+) s/.exec(r.erro??'')?.[1]);assert.ok(esperou>=19 && esperou<=25,`esperou ${esperou} s`);
+    for(const nome of ['main-tree',`worktree-write:${f.id}`,`path:.orkastery/threads/${f.id}`])assert.equal(lerLease(f.raiz,nome),null);
+    assert.equal(lerLedger(dirThread(f.raiz,f.id)).some(e=>e.tipo==='verify_run'),false);
+    assert.equal(f.git(['rev-parse','main']).trim(),f.pedido.expectedDestination);
+  } finally {if(dono.exitCode===null && dono.signalCode===null){dono.kill('SIGKILL');await new Promise(r=>dono.once('exit',r));}}
+}));

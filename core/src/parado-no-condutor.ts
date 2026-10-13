@@ -39,7 +39,7 @@ import { tagDoModo } from './modos';
 import { ehAprovacaoHumana, EVENTOS_QUE_DESTRAVAM } from './ocupacao';
 import { stopCorrelacionado } from './session-watcher-claude';
 import { dirThread, lerThread, listarIds } from './thread';
-import { EventoLedger, SessaoNoRadar, Thread } from './types';
+import { ConducaoAtual, EventoLedger, SessaoNoRadar, Thread } from './types';
 import { exec } from './util';
 import { branchDaWorktree } from './worktree';
 
@@ -59,7 +59,8 @@ const PRAZO_DO_GH_MS = 30000;
 /** A leitura inteira da forja numa batida: cabe com folga nos 240 s que a varredura da ao subprocesso do pulse. */
 const ORCAMENTO_DA_LEITURA_MS = 60000;
 const CAMPOS_DOS_RECENTES = 'number,state,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository,url,createdAt,mergedAt';
-const CAMPOS_DO_GH = `${CAMPOS_DOS_RECENTES},statusCheckRollup`;
+/** RM-059 (F7, D11 da ork-rm059pista): o estado de merge do PR aberto, que a pista de entrega mostra como conflito. */
+const CAMPOS_DO_GH = `${CAMPOS_DOS_RECENTES},statusCheckRollup,mergeable`;
 /** Quantas branches candidatas a "sem PR" sao conferidas uma a uma por batida; o resto fica "PR nao lido". */
 const LIMITE_DE_CANDIDATAS = 10;
 /** A conferencia de uma candidata so comeca com este tempo de sobra no orcamento; com menos, a branch fica sem conferir. */
@@ -90,6 +91,11 @@ export interface PrDaForja {
   mescladoEm: string | null;
   /** So dos PRs abertos, um por nome (o mais novo); o mesclado e o fechado nao precisam deles. */
   checks: CheckDoPr[];
+  /**
+   * RM-059 (F7): o PR aberto conflita com a base (`mergeable` CONFLICTING), nao conflita (MERGEABLE) ou o GitHub ainda
+   * nao calculou (`null`). So vem da leitura que pede o campo; o retrato gravado nao o guarda.
+   */
+  conflito?: boolean | null;
 }
 
 /** O que o pulse leu da forja, guardado em `.orkastery/monitor/prs.json` para quem nao le a rede. */
@@ -129,7 +135,7 @@ function ambienteDoGh(): NodeJS.ProcessEnv {
   return env;
 }
 
-const ghPadrao: ExecutorDoGh = (args, timeoutMs) => {
+export const ghPadrao: ExecutorDoGh = (args, timeoutMs) => {
   const r = spawnSync('gh', [...args], { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, env: ambienteDoGh() });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.error ? r.error.message : (r.stderr ?? '') };
 };
@@ -197,7 +203,7 @@ function checkDaForja(c: unknown): { check: CheckDoPr; chave: string; inicio: st
  * Um PR da resposta do `gh`, ou `null` quando nao e de thread nenhuma daqui (fork, outra base, branch que
  * nao e nome de branch de thread). Formato errado lanca: a leitura inteira vira "nao lido".
  */
-function prDaForja(bruto: unknown, base: string): PrDaForja | null {
+export function prDaForja(bruto: unknown, base: string): PrDaForja | null {
   if (!bruto || typeof bruto !== 'object') throw new Error('PR fora do formato');
   const p = bruto as Record<string, unknown>;
   const numero = p.number, head = p.headRefOid;
@@ -220,15 +226,19 @@ function prDaForja(bruto: unknown, base: string): PrDaForja | null {
     }
   }
   const url = typeof p.url === 'string' && /^https:\/\/[^\s]+$/.test(p.url) ? curto(p.url, 300) : null;
+  // RM-059 (F7): o estado de merge so vale do PR aberto, e so quando a leitura pediu o campo.
+  const conflito = estado !== 'aberto' || p.mergeable === undefined ? undefined
+    : p.mergeable === 'CONFLICTING' ? true : p.mergeable === 'MERGEABLE' ? false : null;
   return { numero: numero as number, branch: p.headRefName, head, estado, rascunho: p.isDraft as boolean, url,
-    criadoEm: instante(p.createdAt), mescladoEm: instante(p.mergedAt), checks: [...porChave.values()].map((x) => x.check) };
+    criadoEm: instante(p.createdAt), mescladoEm: instante(p.mergedAt), checks: [...porChave.values()].map((x) => x.check),
+    ...(conflito !== undefined ? { conflito } : {}) };
 }
 
 /**
  * RM-037 (fatia 5, A5): o host e o `dono/nome` do remoto quando ele pode ser um GitHub (o github.com ou um host
  * proprio), so pelo git local, sem rede nem `gh`. O GitLab fica de fora.
  */
-function githubDoRemoto(raiz: string, remoto: string): { host: string; repositorio: string } | null {
+export function githubDoRemoto(raiz: string, remoto: string): { host: string; repositorio: string } | null {
   // RM-047: o remoto vem do manifesto versionado; so nome de remoto chega ao git, e depois do `--`.
   if (!remotoValido(remoto)) return null;
   const url = git(raiz, ['remote', 'get-url', '--', remoto]);
@@ -297,14 +307,17 @@ function forjaDosPrs(raiz: string, remoto: string, executor: ExecutorDoGh, prazo
  * vai no `--repo`; forja sem leitura de PR nao chama o `gh pr list`.
  */
 export function lerPrsDaForja(carregado: ManifestoCarregado,
-  opcoes: { quando?: string; executor?: ExecutorDoGh; remoto?: string; candidatas?: readonly string[]; orcamentoMs?: number } = {}): LeituraDePrs {
+  opcoes: { quando?: string; executor?: ExecutorDoGh; remoto?: string; candidatas?: readonly string[]; orcamentoMs?: number;
+    /** RM-059 (F7): o GitHub do remoto ja conhecido; os testes o fixam, porque o remoto deles e um repositorio bare local. */
+    forja?: { host: string; repositorio: string } } = {}): LeituraDePrs {
   const lidoEm = opcoes.quando ?? new Date().toISOString();
   const remoto = opcoes.remoto ?? carregado.manifesto.fabrica.remoto;
   const base = carregado.manifesto.worktree.base_branch;
   const orcamento = opcoes.orcamentoMs ?? ORCAMENTO_DA_LEITURA_MS, fimDaLeitura = Date.now() + orcamento;
   const resta = () => fimDaLeitura - Date.now();
   const executor = opcoes.executor ?? ghPadrao;
-  const forja = forjaDosPrs(carregado.raiz, remoto, executor, Math.min(PRAZO_DO_GH_MS, Math.max(1, resta())));
+  const forja: ForjaDosPrs = opcoes.forja ? { leitura: true, ...opcoes.forja }
+    : forjaDosPrs(carregado.raiz, remoto, executor, Math.min(PRAZO_DO_GH_MS, Math.max(1, resta())));
   if (!forja.leitura) return { ok: false, lidoEm, erro: forja.motivo, ...(forja.semLeitura ? { semLeitura: { remoto, host: forja.host } } : {}) };
   const { host, repositorio } = forja;
   const pedir = (args: string[]): unknown[] | string => {
@@ -678,6 +691,19 @@ export function pendenciaDoDono(t: Thread, eventos: readonly EventoLedger[], qua
   return null;
 }
 
+/**
+ * Quem conduz a thread agora, ou `null`. P7: a sessao que ja encerrou o turno nao conduz mais nada, mesmo com o lease
+ * de pe. RM-059 (F7): a mesma regra do pulse decide se o `ork ship publicar` pode publicar a branch.
+ */
+export function conducaoAgora(raiz: string, t: Thread, eventos: readonly EventoLedger[], quando: string): ConducaoAtual | null {
+  const conducao = conducaoDaThread(raiz, t.id, { agora: new Date(quando) });
+  if (!conducao) return null;
+  const despacho = ultimoDespacho(eventos);
+  const fim = despacho ? fimDoTurno(eventos, despacho, t.modo) : null;
+  const terminou = !!fim && fim.tipo !== 'outro';
+  return conducao.dono.tipo === 'sessao' && terminou && conducao.dono.sessionId === fim!.sessionId ? null : conducao;
+}
+
 /** A espera que e do condutor: o turno do ultimo despacho acabou, sem pausa ao fim e sem nada do dono. */
 export interface EsperaDoCondutor {
   thread: string;
@@ -789,7 +815,7 @@ const minutosDesde = (desde: string, quando: string): number =>
 const curtoDaSessao = (sid: string | null): string => (sid ?? '').slice(0, 8);
 
 /** Os refs locais de uma vez: `refs/heads/...` e a copia do remoto, sem rede. */
-function refsLocais(raiz: string, remoto: string): Map<string, string> {
+export function refsLocais(raiz: string, remoto: string): Map<string, string> {
   const r = git(raiz, ['for-each-ref', '--format=%(refname)%09%(objectname)', 'refs/heads/', `refs/remotes/${remoto}/`]);
   const mapa = new Map<string, string>();
   if (!r.ok) return mapa;
@@ -939,9 +965,9 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
       doCondutor.gates.add(`${t.id}|${espera.fase ?? t.faseAtual}`);
       if (espera.sessionId) { doCondutor.sessoes.add(espera.sessionId); doCondutor.turnosEncerrados.add(espera.sessionId); }
     }
-    const conducao = conducaoDaThread(raiz, t.id, { agora: new Date(quando) });
-    // P7: a sessao que ja encerrou o turno nao conduz mais nada, mesmo com o lease de pe.
-    const conduzidaAgora = !!conducao && !(conducao.dono.tipo === 'sessao' && terminou && conducao.dono.sessionId === fim!.sessionId);
+    // A mesma regra do `ork ship publicar` (RM-059): quem conduz agora, ou ninguem.
+    const conducao = conducaoAgora(raiz, t, eventos, quando);
+    const conduzidaAgora = conducao !== null;
     const doDono = pendenciaDoDono(t, eventos, quando);
     // A2 do CHECK (rodada 3): depois do veredito do dono, o tempo do condutor conta a partir dele.
     const aprovacao = despacho ? eventos.slice(eventos.lastIndexOf(despacho) + 1).filter(ehAprovacaoHumana).at(-1) : undefined;

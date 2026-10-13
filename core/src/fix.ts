@@ -271,7 +271,8 @@ function abrirRodadaSobConducao(
 ): RodadaDeFix {
   const { raiz } = carregado;
   const thread = lerThread(raiz, threadId);
-  const resultado = verificar(carregado, threadId, { soClaims: opcoes.soClaims });
+  // RM-058 N2 (A1 da rodada 2 do CHECK): a espera da fila pesada que o `--esperar` do CLI pediu.
+  const resultado = verificar(carregado, threadId, { soClaims: opcoes.soClaims, conducao: { filaPesada: opcoes.conducao?.filaPesada } });
   const rodada = ultimaRodada(raiz, threadId) + 1;
 
   if (resultado.ok && resultado.motivos.length === 0) {
@@ -409,7 +410,7 @@ function reverificarSobConducao(
     };
   });
 
-  const verify = cobertura === 'completa' ? verificar(carregado, threadId) : null;
+  const verify = cobertura === 'completa' ? verificar(carregado, threadId, { conducao: { filaPesada: opcoes.conducao?.filaPesada } }) : null;
 
   for (const v of vereditos) {
     // Correcao sem comando proprio herda o veredito do verify completo, e so quando ele

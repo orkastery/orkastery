@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { esperarVaga, vagaDoDespacho, VagaRecusada } from './board';
-import { gravarBaseline } from './verify';
+import { ConducaoDoVerify, gravarBaseline } from './verify';
 import { iniciarWatcher, validarFonteWatcher } from './session-watcher';
 import { fonteClaudeDoDespacho, headDaWorktree } from './session-watcher-claude';
 import { ManifestoCarregado, exigirManifesto } from './manifest';
@@ -260,6 +260,10 @@ export const REGRAS_DE_EVIDENCIA: readonly string[] = [
   'Nada de self-report: toda alegacao vem com o comando que a comprova e a saida real.',
   'Trabalhe apenas no diretorio de trabalho indicado acima.',
   'Passos irreversiveis (push, merge, delecao) so acontecem quando o modo autoriza.',
+  // RM-058 N2 (D13 da ork-rm058n2): tres sessoes de 12/10/2026 mandaram verify ou suite para segundo plano com `&`,
+  // perderam o processo e esperaram para sempre.
+  'Verify, build e suite rodam em primeiro plano, com timeout, nunca com `&` no comando: o processo em segundo plano ' +
+    'se perde e a sessao espera para sempre. O `ork verify` espera a vez na fila de recursos pesados.',
 ];
 
 /**
@@ -657,6 +661,11 @@ export interface OpcoesRun {
   /** I-36 (D2): espera a vez ate este prazo em vez de recusar na hora. */
   esperarMs?: number;
   /**
+   * RM-058 N2 (A1 da rodada 2 do CHECK): a espera da baseline do despacho na fila de recursos pesados, com o aviso de
+   * quem espera; sem ela, o `esperarMs` e depois o padrao curto do verify.
+   */
+  filaPesada?: ConducaoDoVerify['filaPesada'];
+  /**
    * RM-037 (defeito 1, achado A3 do CHECK): `false` no MCP, que executa confinado e com prazo. O despacho
    * que precisaria da baseline recusa com `baseline.pendente` e o comando do CLI, em vez de rodar a suite.
    */
@@ -730,7 +739,8 @@ export function garantirBaselineDoDespacho(carregado: ManifestoCarregado, thread
   if (!baselineDoDespachoNecessaria(carregado, threadId, opcoes)) return;
   try {
     gravarBaseline(carregado, threadId, undefined,
-      { canal: opcoes.canal ?? canalDoProcesso(), correlacao: opcoes.correlacao ?? null, ...(identidade ? { identidade } : {}) }, 'phase.run');
+      { canal: opcoes.canal ?? canalDoProcesso(), correlacao: opcoes.correlacao ?? null, ...(identidade ? { identidade } : {}),
+        filaPesada: { esperarMs: opcoes.esperarMs, ...opcoes.filaPesada } }, 'phase.run');
   } catch (e) { if (!(e instanceof ErroDeConducao)) throw e; }
 }
 

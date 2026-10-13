@@ -193,7 +193,8 @@ export function arquivoDoBundle(threadId: string): string {
   return `${threadId}.json`;
 }
 
-function comandosDoBundle(carregado: ManifestoCarregado): { name: string; command: string }[] {
+/** Os comandos que o bundle leva ao runner; o `ork ship publicar` confere os do bundle no HEAD contra estes. */
+export function comandosDoBundle(carregado: ManifestoCarregado): { name: string; command: string }[] {
   return carregado.manifesto.ci.command
     ? [{ name: 'ci', command: carregado.manifesto.ci.command }]
     : comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando }));
