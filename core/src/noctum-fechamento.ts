@@ -23,6 +23,7 @@
  * Interfaces para as fatias que correm em paralelo (D6): a parada (`parar`) e a listagem das sessões (`listarSessoes`)
  * são injetáveis; a N4 pluga o controle dela aí. Nada aqui despacha.
  */
+import { formatarDataHora } from './horario';
 import { lerLedger } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { encerrarArco, EncerramentoDoArco, EstadoDoArco, lerArco, MotivoDeEncerramento } from './noctum-arco';
@@ -136,7 +137,10 @@ export function condicaoDeFechamento(estado: EstadoDoArco | null, fila: FilaDoAr
   if (estado.encerramento) return { motivo: estado.encerramento.motivo, detalhe: estado.encerramento.detalhe };
   if (estado.situacao === 'revogado') return { motivo: 'revogado', detalhe: 'o dono revogou o arco pelo ingresso autenticado' };
   const fim = estado.conteudo.janela.fim;
-  if (Date.parse(quando) >= Date.parse(fim)) return { motivo: 'hora', detalhe: `o fim do envelope chegou (${fim}); nada o prorroga` };
+  if (Date.parse(quando) >= Date.parse(fim)) {
+    return { motivo: 'hora', detalhe: `o fim do envelope chegou (${formatarDataHora(fim, { fuso: estado.conteudo.janela.fuso, locale: 'pt-BR' })}, ` +
+      `${estado.conteudo.janela.fuso}); nada o prorroga` };
+  }
   const teto = estado.conteudo.orcamento.arco;
   if (teto.unidade === 'sessoes') {
     if (estado.consumo.arco >= teto.valor) {

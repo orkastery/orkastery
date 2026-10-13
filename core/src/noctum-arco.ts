@@ -866,7 +866,7 @@ function vigenteConferido(raiz: string, arco: string, envelopeSha256: unknown, l
   if (!d.autorizacao) throw new RecusaDoArco('noctum.efeito.sem-autorizacao', `arco ${arco} sem envelope autorizado`);
   // RM-058 N6 (D2): encerrado é terminal como o revogado; reserva devolvida depois do teto não o reabre.
   if (d.encerramento) {
-    throw new RecusaDoArco('noctum.efeito.encerrado', `arco ${arco} encerrado (${d.encerramento.motivo}) em ${d.encerramento.em}; ` +
+    throw new RecusaDoArco('noctum.efeito.encerrado', `arco ${arco} encerrado (${d.encerramento.motivo}) em ${formatarDataHora(d.encerramento.em)}; ` +
       'nenhum despacho ou efeito novo passa, e o arco não reabre');
   }
   // A prova do dono é reconferida aqui, pelo recibo do canal, e não lida da linha do log (FX2 no gate).
