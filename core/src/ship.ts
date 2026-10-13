@@ -30,6 +30,7 @@ import { Lease, MotivoGate, Thread } from './types';
 import { agora, exec, shaCurto } from './util';
 import { comandoNoLedger, ConducaoDoVerify, ExecutorVerify, ResultadoVerify, verificar } from './verify';
 import { consultarCi, ExecutorCi, ResultadoCi } from './ci';
+import { detalheSeguro } from './forja';
 import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
 import { formatarDataHora, legendaDoFuso, localizarTexto } from './horario';
@@ -769,7 +770,7 @@ export function ship(
       passos.push(`git ${argsPush.join(' ')}`);
       if (!push.ok) {
         r.passos = passos;
-        const erro = (push.stderr || push.stdout).trim().slice(0, 400);
+        const erro = detalheSeguro(push.stderr || push.stdout);
         return bloquear(
           'runtime.unavailable',
           textoDoCatalogo((m) => m.ship.pushFalhou(remoto, para, erro)),

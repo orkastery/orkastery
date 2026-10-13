@@ -352,3 +352,16 @@ test('o #Fast nao entrega contrato publico; o mesmo diff numa thread #Auto entre
     projeto.limpar();
   }
 });
+
+test('push recusado com token no stderr: o detalhe sai redigido', () => {
+  const projeto = projetoTemporario('ship-redacao', true);
+  const hook = path.join(projeto.remoto as string, 'hooks', 'pre-receive');
+  fs.writeFileSync(hook, `#!/bin/sh\necho "recusado: ghp_${'a'.repeat(36)}" >&2\nexit 1\n`, { mode: 0o755 });
+  const { thread } = threadComEntrega(projeto, 'entrega redigida', 'auto');
+  const r = ship(projeto.carregado, thread.id, { para: 'main' });
+  assert.equal(r.bloqueado, true);
+  assert.doesNotMatch(r.detalhe ?? '', /a{36}/);
+  // `detalheSeguro` guarda só as duas últimas linhas: a do hook (que traz o token) sai do detalhe, e o push segue recusado.
+  assert.match(r.detalhe ?? '', /push para origin\/main falhou/);
+  projeto.limpar();
+});

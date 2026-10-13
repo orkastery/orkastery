@@ -1,6 +1,6 @@
 /** GitHub CI como CHECK independente (I-12). */
 import { hostComPorta, lerEnderecoDoRemoto } from './forja/endereco';
-import { tipoDoHost } from './forja';
+import { detalheSeguro, tipoDoHost } from './forja';
 import { exigirRemoto } from './branch-de-estado';
 import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
@@ -176,7 +176,7 @@ export function consultarCiDoRepositorio(repository: string, sha: string, contex
     return { ...base, ok: false, state: 'unavailable', url: null, detail: textoDoCatalogo((m) => lido.erro.detalhe === 'incompleto'
       ? m.ship.ciIncompleto(context) : m.ship.ciRespostaInvalida) };
   }
-  if (!lido.ok) return { ...base, ok: false, state: 'unavailable', url: null, detail: (lido.erro.detalhe || textoDoCatalogo((m) => m.ship.ciConsultaFalhou)).trim().slice(0, 400) };
+  if (!lido.ok) return { ...base, ok: false, state: 'unavailable', url: null, detail: detalheSeguro(lido.erro.detalhe || textoDoCatalogo((m) => m.ship.ciConsultaFalhou)) };
   if (!lido.valor.length) return { ...base, ok: false, state: 'missing', url: null, detail: textoDoCatalogo((m) => m.ship.ciSemCheck(context)) };
   const escolhidos = maisNovoPorProdutor(lido.valor);
   // Commit status so endurece o gate: vermelho ou pendente bloqueia, mas verde sozinho nao basta. Qualquer um com
