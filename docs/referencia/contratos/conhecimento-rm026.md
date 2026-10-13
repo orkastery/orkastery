@@ -1,12 +1,14 @@
 # Conhecimento escrito (RM-026 K7)
 
-Contrato `ork.conhecimento/v1`, definido em `core/src/conhecimento.ts`. É o K7 da
+Contrato `ork.conhecimento/v1`, definido em `core/src/conhecimento.ts` (o leitor) e
+`core/src/conhecimento-consulta.ts` (as consultas). É o K7 da
 [RM-026](../../roadmap/RM-026-workspace-empresarial.md), na alternativa (a) que o dono escolheu em 11/10/2026:
 o conhecimento da empresa (política, especificação, guia) fica em Markdown versionado no repositório, e o
 contrato mora do lado do ork. Escrever um documento é um commit numa thread, com PR, como todo o resto.
 
-A fatia 1 entrega o schema, a leitura da pasta e a validação, com as lacunas tipadas. A CLI pública e as tools
-MCP chegam na fatia 2, e os hosts OpenClaw e Hermes na fatia 3; até lá, o leitor é interno ao núcleo.
+A fatia 1 entregou o schema, a leitura da pasta e a validação, com as lacunas tipadas. A fatia 2 entrega a porta
+pública: o comando `ork conhecimento` e as tools MCP `ork_conhecimento_*`, com cada id do Brain conferido por `get`.
+Os hosts OpenClaw e Hermes chegam na fatia 3.
 
 ## A pasta declarada
 
@@ -43,7 +45,7 @@ id: doc-politica-de-ferias
 titulo: Política de férias
 colecoes: [rh, politicas]
 referencias:
-  brain: [proj-portal-rh]
+  brain: [proj-portal-rh, proj-portal-antigo]
   decisoes:
     - ork-rm026k7conhe#14
 ---
@@ -71,65 +73,121 @@ O documento vale inteiro ou vira lacuna. A referência vale sozinha: a que não 
 documento segue na resposta sem ela.
 
 - **Decisão:** confere no ledger canônico da thread, o da árvore principal, também quando o leitor roda de
-  dentro de uma worktree. O ledger é lido como a captura do Brain o lê: só linhas completas, em UTF-8 exato, como
+  dentro de uma worktree. Só confere onde a resposta mostra a referência (o `mostrar` e o `verificar`): o `listar` e o
+  `colecoes` não leem ledger, e o `mostrar` lê só os do documento pedido. O ledger é lido como a captura do Brain o lê: só linhas completas, em UTF-8 exato, como
   estavam quando ele foi aberto, mesmo que ele cresça durante a leitura. A linha citada precisa ser um evento da
   própria thread do tipo `autonomous_decision`, `hitl_requested` ou `human_gate`; `human_decision` é relato sem
   recibo e não conta, como no dossiê. A citação devolvida traz `fonte` (`threads/<thread>/ledger.jsonl#L<linha>`)
-  e o `sha256` da linha, o mesmo `source_ref` e `source_hash` que a captura grava para ela no Brain.
-- **Id do Brain:** nesta fatia, confere só pela forma. A conferência por `get`, com o transporte do Brain,
-  chega com a CLI e o MCP na fatia 2.
+  e o `sha256` da linha, o mesmo `source_ref` e `source_hash` que a captura grava para ela no Brain. Cada ledger é
+  lido uma vez, até a maior linha citada, e os ledgers de uma consulta têm um teto de bytes somados: o que não cabe
+  vira `referencia.decisao-ausente`.
+- **Id do Brain:** a forma é a dos ids do portfólio (`prod-`, `proj-`, `init-`), conferida pelo leitor. Na consulta
+  que mostra referência (o `mostrar`, as do documento pedido, e o `verificar`, as de todos), cada id distinto confere
+  por `get` no Company Brain da [RM-025](../../roadmap/RM-025-company-brain-fundacao.md), pelo transporte do
+  `ork brain get`: o `memory.cli` do manifesto, com a configuração de memória da árvore principal e o tenant dela. A
+  resposta `ok` vale só no contrato `orkmind.company-brain-entity/v1`, com o id e o tenant pedidos, e vira a referência
+  com o tipo, o título, a versão, a fonte (`source_ref`) e o `sha256` (`source_hash`) da entidade no Brain. `unknown` e
+  `empty` viram `referencia.brain-inexistente`, como no dossiê; `withheld` vira `referencia.brain-retido`; o resto vira
+  `referencia.brain-indisponivel`. A falha do Brain para a conferência: `unavailable` (fora do ar, sem configuração ou
+  com o transporte quebrado), `forbidden`, `conflict` e a configuração de memória que não abre. Depois dela, nenhum
+  `get` sai, e as referências que faltavam levam o mesmo detalhe; o teto de `get` e o prazo da consulta param do mesmo
+  jeito. A resposta fora do contrato (`ok` com a entidade que não confere, estado desconhecido) vale só para o id dela,
+  e a conferência segue. `listar` e `colecoes` não abrem o Brain nem mostram referência. O executável é o `memory.cli`
+  que o manifesto escolhe, como no `ork brain`; a [fronteira de confiança](../fronteira-de-confianca.md) registra esse
+  pendente do dono (P6).
 
-## A resposta
+## As consultas
 
-`lerConhecimento` devolve tudo em ordem estável: documentos por id, coleções por nome, lacunas por arquivo,
-código e referência. A versão de um documento é o `sha256` dos bytes do arquivo, com o caminho real dele.
+O leitor (`lerConhecimento`) é interno ao núcleo. A resposta pública é a da consulta (`consultarConhecimento`), a
+mesma no `ork conhecimento ... --json` e nas tools MCP. Toda consulta traz `contrato`, `consulta`, `dir` e `lacunas`,
+em ordem estável: documentos por id, coleções por nome, lacunas por arquivo, código e referência.
+
+| Consulta | Além de `contrato`, `consulta`, `dir` e `lacunas` | Lacunas |
+| --- | --- | --- |
+| `listar` | `colecao` (o filtro pedido, ou `null`) e `documentos`, sem referências: `id`, `titulo`, `colecoes`, `arquivo`, `bytes` e `sha256` | As da pasta e as dos documentos; as de referência ficam com o `mostrar` e o `verificar` |
+| `colecoes` | `colecoes`, cada uma com o `nome` e os ids dos `documentos` | As mesmas do `listar` |
+| `mostrar` | `id` (o pedido) e `documento`, com as referências conferidas e o `corpo`, ou `null` | As do documento pedido e das referências dele, ou as da pasta; o id que nenhum documento válido tem vira `documento.inexistente` |
+| `verificar` | `documentos`, com as referências conferidas, e `colecoes` | Todas |
+
+A versão de um documento é o `sha256` dos bytes do arquivo, com o caminho real dele. O `corpo` é o Markdown depois do
+frontmatter, decodificado do UTF-8 sem o BOM e com cada `\r\n` trocado por `\n` (um `\r` sozinho fica).
 
 ```json
 {
   "contrato": "ork.conhecimento/v1",
+  "consulta": "mostrar",
   "dir": "docs/conhecimento",
-  "documentos": [
-    {
-      "id": "doc-politica-de-ferias",
-      "titulo": "Política de férias",
-      "colecoes": ["politicas", "rh"],
-      "referencias": {
-        "brain": ["proj-portal-rh"],
-        "decisoes": [
-          {
-            "ref": "ork-rm026k7conhe#14",
-            "thread": "ork-rm026k7conhe",
-            "linha": 14,
-            "tipo": "autonomous_decision",
-            "fonte": "threads/ork-rm026k7conhe/ledger.jsonl#L14",
-            "sha256": "5f0c…"
-          }
-        ]
-      },
-      "arquivo": "docs/conhecimento/rh/ferias.md",
-      "bytes": 1834,
-      "sha256": "9a41…"
-    }
-  ],
-  "colecoes": [
-    { "nome": "politicas", "documentos": ["doc-politica-de-ferias"] },
-    { "nome": "rh", "documentos": ["doc-politica-de-ferias"] }
-  ],
+  "id": "doc-politica-de-ferias",
+  "documento": {
+    "id": "doc-politica-de-ferias",
+    "titulo": "Política de férias",
+    "colecoes": ["politicas", "rh"],
+    "referencias": {
+      "brain": [
+        {
+          "id": "proj-portal-rh",
+          "kind": "proj",
+          "titulo": "Portal de RH",
+          "versao": 3,
+          "fonte": "portfolio.json#proj-portal-rh",
+          "sha256": "c7d2…"
+        }
+      ],
+      "decisoes": [
+        {
+          "ref": "ork-rm026k7conhe#14",
+          "thread": "ork-rm026k7conhe",
+          "linha": 14,
+          "tipo": "autonomous_decision",
+          "fonte": "threads/ork-rm026k7conhe/ledger.jsonl#L14",
+          "sha256": "5f0c…"
+        }
+      ]
+    },
+    "arquivo": "docs/conhecimento/rh/ferias.md",
+    "bytes": 1834,
+    "sha256": "9a41…",
+    "corpo": "\n# Política de férias\n\nO texto do documento segue em Markdown.\n"
+  },
   "lacunas": [
     {
-      "codigo": "referencia.decisao-ausente",
+      "codigo": "referencia.brain-inexistente",
       "arquivo": "docs/conhecimento/rh/ferias.md",
       "documento": "doc-politica-de-ferias",
-      "referencia": "ork-rm026k7conhe#900",
-      "detalhe": "o ledger da thread ork-rm026k7conhe tem 52 linha(s) completa(s)"
+      "referencia": "proj-portal-antigo",
+      "detalhe": "o Company Brain não tem este id (o get respondeu unknown)"
     }
   ]
 }
 ```
 
 Toda lacuna tem `codigo`, `arquivo` (relativo à raiz, `null` nas da pasta), `documento` (o id, quando ele já
-valia), `referencia` (nas de referência) e `detalhe`, texto para gente. O contrato é o código. Texto vindo do
-repositório chega à resposta numa linha e sem caractere invisível, pela regra do `saida-segura.ts`.
+valia, e o pedido no `documento.inexistente`), `referencia` (nas de referência) e `detalhe`, texto para gente. O
+contrato é o código. O detalhe nasce em pt-BR, o do `--json` e do MCP, e a CLI o imprime na língua do dono. Texto
+vindo do repositório chega à resposta numa linha e sem caractere invisível, pela regra do `saida-segura.ts`, salvo o
+corpo, que vem com o texto do arquivo: no `--json` e no MCP o caractere invisível sai escrito como `\uXXXX`, o mesmo
+valor, e no texto da CLI o corpo sai linha a linha, sem ele.
+
+## CLI e tools MCP
+
+| CLI | Tool MCP | Parâmetros da tool |
+| --- | --- | --- |
+| `ork conhecimento listar [--colecao C] [--json]`, e `ork conhecimento` sozinho | `ork_conhecimento_listar` | `colecao`, opcional |
+| `ork conhecimento mostrar <doc-id> [--json]` | `ork_conhecimento_mostrar` | `id`, o `doc-...` |
+| `ork conhecimento colecoes [--json]` | `ork_conhecimento_colecoes` | nenhum |
+| `ork conhecimento verificar [--json]` | `ork_conhecimento_verificar` | nenhum |
+
+As tools são de leitura (`readOnlyHint`), com schema fechado, e aceitam `projeto`, que só confere o projeto servido,
+como as outras tools do servidor. Não pedem `threadId`: o conhecimento é do projeto fixado no servidor, também na
+sessão filha vinculada a uma thread. A resposta é o JSON da consulta, compacto. Argumento fora do schema (id ou
+coleção fora da forma, campo a mais) recusa antes de ler qualquer arquivo.
+
+A CLI sai 1, e a tool vem com `isError`, quando a consulta não responde: `listar` e `colecoes` sem a pasta lida,
+`mostrar` sem documento e `verificar` com qualquer lacuna. Uso errado na CLI sai 2, com o uso do comando, para o gate
+de CI separar o erro de digitação da lacuna. A tool roda no processo do servidor: a conferência do Brain o ocupa até
+o prazo da consulta. O texto
+da CLI segue a língua do dono ([RM-061](../../roadmap/RM-061-cli-em-ingles-e-pt-br.md)); o `--json` é o mesmo nas duas
+línguas. No despacho `claude-bg`, as tools ainda não entram na allowlist da sessão filha, como o `ork_brain_dossie`.
 
 ## Lacunas
 
@@ -154,8 +212,12 @@ repositório chega à resposta numa linha e sem caractere invisível, pela regra
 | `documento.colecoes-invalidas` | Sem coleção, mais de 16, nome fora da forma, repetido, nulo ou booleano | O documento |
 | `documento.referencias-invalidas` | `referencias` que não é mapa, com chave fora de `brain` e `decisoes`, ou lista longa demais ou com item nulo, booleano ou decimal | O documento |
 | `referencia.invalida` | Id do Brain ou citação de decisão fora da forma | A referência |
-| `referencia.decisao-ausente` | A thread não tem ledger, a pasta dela é link ou não é pasta, o ledger não abre, passa do teto ou não é UTF-8, ou a linha não está entre as completas | A referência |
+| `referencia.decisao-ausente` | A thread não tem ledger, a pasta dela é link ou não é pasta, o ledger não abre, passa do teto ou não é UTF-8, a linha não está entre as completas, ou os ledgers da consulta passam do teto somado | A referência |
 | `referencia.nao-e-decisao` | A linha não é evento JSON, é de outra thread ou não é de um tipo de decisão | A referência |
+| `documento.inexistente` | No `mostrar`, nenhum documento válido tem o id pedido, e nenhuma outra lacuna fala dele | O documento |
+| `referencia.brain-inexistente` | O `get` respondeu `unknown` (ou `empty`): o Brain não tem o id | A referência |
+| `referencia.brain-retido` | O `get` respondeu `withheld`: o Brain tem o id e o retém para esta leitura | A referência |
+| `referencia.brain-indisponivel` | O Brain fora do ar, sem configuração, recusando ou em conflito, a resposta fora do contrato da entidade, ou o teto de `get` ou o prazo da consulta | A referência |
 
 ## Tetos
 
@@ -167,10 +229,10 @@ repositório chega à resposta numa linha e sem caractere invisível, pela regra
 | Bytes de um documento | 1 MiB | `documento.grande-demais` |
 | Bytes do frontmatter | 16 KiB | `documento.frontmatter-invalido` |
 | Bytes do ledger citado | 16 MiB | `referencia.decisao-ausente` |
+| Bytes dos ledgers lidos numa consulta, somados | 64 MiB | `referencia.decisao-ausente` |
+| Ids do Brain conferidos por `get` numa consulta | 100 | `referencia.brain-indisponivel` |
+| Prazo da conferência do Brain numa consulta (cada `get` tem o `memory.timeout_ms`, até 15 s) | 60 s | `referencia.brain-indisponivel` |
 
 ## Próximas fatias
 
-- **Fatia 2:** `ork conhecimento colecoes|listar|ler|referencias` e as tools `ork_conhecimento_*`, só leitura,
-  com cada id do Brain conferido por `get` e a versão de cada resposta. A conferência pelo Brain pode acrescentar
-  códigos de lacuna; os desta fatia não mudam.
 - **Fatia 3:** os hosts OpenClaw e Hermes chegam às mesmas tools, e o item ganha a página de produto.

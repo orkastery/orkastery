@@ -188,6 +188,10 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   brain status|inventory|get|query|receipts|context|dossie|sync|reconcile|apply|rollback|bind
   brain dossie --thread T [--decisao ID]    Dossie de decisao: vinculo, contexto citavel, alternativas,
                                             quem decidiu e evidencia, com os ids do Brain (so leitura)
+  conhecimento listar [--colecao C] [--json]  Documentos validos da pasta conhecimento.dir (RM-026 K7), com versao e lacunas
+  conhecimento mostrar <doc-id> [--json]    O documento com corpo, versao, fonte e referencias conferidas (Brain por get)
+  conhecimento colecoes [--json]            As colecoes e os documentos de cada uma
+  conhecimento verificar [--json]           Confere a pasta inteira, ids do Brain por get; sai != 0 com lacuna
   memory status [--json] [--sondar]         Regime efetivo (files|orkmind), tenant, degradacao e embeddings
                                             (--sondar: uma chamada real de embedding, com a latencia)
   memory sync [<thread-id>] [--json]        Publica decisoes, policies, handoff, licao e roadmap
@@ -565,6 +569,10 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   brain status|inventory|get|query|receipts|context|dossie|sync|reconcile|apply|rollback|bind
   brain dossie --thread T [--decisao ID]    Decision dossier: link, citable context, alternatives,
                                             who decided and evidence, with the Brain ids (read only)
+  conhecimento listar [--colecao C] [--json]  Valid documents of the conhecimento.dir folder (RM-026 K7), with version and gaps
+  conhecimento mostrar <doc-id> [--json]    The document with body, version, source and checked references (Brain by get)
+  conhecimento colecoes [--json]            The collections and the documents of each one
+  conhecimento verificar [--json]           Checks the whole folder, Brain ids by get; exits != 0 with a gap
   memory status [--json] [--sondar]         Effective regime (files|orkmind), tenant, degradation and embeddings
                                             (--sondar: one real embedding call, with the latency)
   memory sync [<thread-id>] [--json]        Publishes decisions, policies, handoff, lesson and roadmap
