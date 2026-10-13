@@ -22,7 +22,7 @@ import { fabricaCompartilhada, nomeDaMaquina } from './maquina';
 import { publicarRedeNaBatida } from './rede';
 import { registrarNaRede } from './rede-adesao';
 import { lerCadencia, janelaAberta, lerUltimoResumo, gravarUltimoResumo } from './pulse-cadencia';
-import { agirNaVarredura, OpcoesDaVarreduraQueAge, VarreduraQueAge } from './varredura-acoes';
+import { baterConducao, BatidaDaConducao, OpcoesDaBatida } from './conducao-batida';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 
 // O lock dos monitores mudou de modulo (I-41, GO-FIX 1); quem o importava daqui continua importando.
@@ -293,32 +293,16 @@ export function varrerPulse(opcoes: {
 }
 
 /**
- * RM-063 (F5): a parte que age da batida, depois da entrega ao dono (a busca da base e o registro do PR nao atrasam o
- * resumo), com o registro de cada rodada no `hitl.log` (`varredura_acoes`): o estado da autorizacao, a busca da base, o
- * que foi feito e o que ficou para o dono. Uma batida por vez (`varredura-acoes.lock`): a que chega com outra agindo so
- * registra a vez perdida. Nunca lanca.
+ * RM-063 (F5 e F7): a parte que age da batida, depois da entrega ao dono (a busca da base, o merge e o registro do PR nao
+ * atrasam o resumo): a batida da conducao (`ork conducao batida`), com o merge dos PRs prontos, a varredura da F5 e o
+ * despacho da fase seguinte, cada rodada no `hitl.log` (`varredura_acoes`). Uma batida por vez (`varredura-acoes.lock`):
+ * a que chega com outra agindo so registra a vez perdida. Nunca lanca.
  */
-export function agirDepoisDaEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaVarreduraQueAge = {}): VarreduraQueAge | null {
-  const dir=path.join(raizDoEstado(carregado.raiz),'.orkastery','monitor');
-  const quando=opcoes.quando??new Date().toISOString();
-  const log=(linha:Record<string,unknown>)=>{
-    try {
-      fs.mkdirSync(dir,{recursive:true});
-      fs.appendFileSync(path.join(dir,'hitl.log'),JSON.stringify({ts:quando,tipo:'varredura_acoes',...linha})+'\n',{mode:0o600});
-    } catch { /* o log e da batida; sem ele, o ledger da thread ainda guarda cada acao */ }
-  };
-  let trava: ReturnType<typeof adquirirLockMonitor>;
-  try { fs.mkdirSync(dir,{recursive:true}); trava=adquirirLockMonitor(path.join(dir,'varredura-acoes.lock')); }
-  catch(e) { log({erro:(e as Error).message.slice(0,300)}); return null; }
-  if(!trava.ok) { log({ocupada:true,detalhe:trava.detalhe}); return null; }
-  let r:VarreduraQueAge|null=null, erro:string|null=null;
-  try { r=agirNaVarredura(carregado,{...opcoes,quando}); } catch(e) { erro=(e as Error).message.slice(0,300); }
-  finally { trava.liberar(); }
-  log({autorizacao:r?(r.autorizacao.valida?'valida':r.autorizacao.motivo):null,busca:r?.busca??null,
-    feitas:r?.feitas.map(f=>({acao:f.acao,thread:f.thread,resultado:f.resultado}))??[],
-    pendentes:r?.pendentes.map(p=>({acao:p.acao,thread:p.thread,...(p.motivoDoBloqueio?{bloqueio:p.motivoDoBloqueio}:{})}))??[],
-    ...(erro?{erro}:{})});
-  return r;
+export function agirDepoisDaEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaBatida = {}): BatidaDaConducao | null {
+  try {
+    const r=baterConducao(carregado,opcoes);
+    return r.ocupada?null:r;
+  } catch { return null; }
 }
 
 /**
@@ -357,9 +341,10 @@ if(require.main===module) {
     // RM-053 (D9): depois da entrega ao dono, a mesma batida publica o retrato desta maquina na rede da
     // pessoa (so membro, uma tentativa a cada 14 min, retrato igual so de hora em hora).
     const r=varrerEDepoisPublicarNaRede(()=>varrerPulse({raiz,escopo,comCadencia:true,outrasMaquinas}),()=>{
-      // RM-063 (F5): a varredura que age vem depois da entrega ao dono e antes da rede: com a autorizacao duravel do
-      // dono, limpa as sessoes fantasmas, registra a entrega do PR ja mesclado e fecha pelo MASTER por omissao; o resumo
-      // seguinte diz o que ela fez, e o que ficou sem autorizacao ja esta na fila do dono. Ela nunca lanca.
+      // RM-063 (F5 e F7): a batida da conducao vem depois da entrega ao dono e antes da rede: com a autorizacao duravel
+      // do dono, mescla o PR pronto, limpa as sessoes fantasmas, registra a entrega do PR ja mesclado, fecha pelo MASTER
+      // por omissao e despacha a fase seguinte; o resumo seguinte diz o que ela fez, e o que ficou sem autorizacao ja
+      // esta na fila do dono. Ela nunca lanca.
       try { agirDepoisDaEntrega(carregado); }
       finally {
         try { const rede=publicarRedeNaBatida({diretorio:carregado.raiz}); if(rede) registrarNaRede({...rede,origem:'pulse'}); }

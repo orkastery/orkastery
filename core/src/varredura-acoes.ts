@@ -41,12 +41,21 @@ import { exec } from './util';
 import { PRAZO_DA_LEITURA_MS } from './vida-da-thread';
 import { branchDaWorktree } from './worktree';
 
-export const ACOES_DA_VARREDURA = ['limpar', 'registrar', 'master'] as const;
+/**
+ * As acoes da varredura. `limpar`, `registrar` e `master` sao da F5 (este modulo); `merge` e `despachar` sao da batida da
+ * conducao (F7, `conducao-batida.ts`), que grava o mesmo `varredura_acao` e entra no mesmo "feitas" do pulse.
+ */
+export const ACOES_DA_VARREDURA = ['limpar', 'registrar', 'master', 'merge', 'despachar'] as const;
 export type AcaoDaVarredura = typeof ACOES_DA_VARREDURA[number];
 
-/** Por que nem a autorizacao faz a acao sozinha agora. */
+/**
+ * Por que nem a autorizacao faz a acao sozinha agora. Os sete primeiros sao o trabalho na thread (F5); os seguintes sao
+ * do merge e do despacho da batida da conducao (F7): o PR que ainda nao esta pronto, o conflito em codigo e a fase sem o
+ * prompt gravado.
+ */
 export const MOTIVOS_DO_BLOQUEIO = ['conduzida', 'sessao-viva', 'sessoes-sem-leitura', 'worktree-suja', 'branch-com-commits',
-  'trabalho-novo', 'git-sem-resposta'] as const;
+  'trabalho-novo', 'git-sem-resposta', 'pr-rascunho', 'checks-vermelhos', 'sem-checks-obrigatorios', 'pr-bloqueado',
+  'pr-instavel', 'conflito-em-codigo', 'branch-nao-publicada', 'sem-prompt-gravado'] as const;
 export type MotivoDoBloqueio = typeof MOTIVOS_DO_BLOQUEIO[number];
 
 export interface AcaoPendente {
@@ -131,7 +140,7 @@ const comMotivo = (motivo: MotivoDoBloqueio): { motivo: MotivoDoBloqueio; texto:
  * O trabalho em curso na worktree da thread, que nenhuma acao automatica atropela: alguem conduzindo, sessao viva nela
  * (ou o runtime que nao respondeu, sem a prova), ou alteracao nao commitada.
  */
-function trabalhoNaWorktree(raiz: string, t: Thread, quando: string, vivas: readonly SessaoViva[] | null):
+export function trabalhoNaWorktree(raiz: string, t: Thread, quando: string, vivas: readonly SessaoViva[] | null):
   { motivo: MotivoDoBloqueio; texto: string } | null {
   if (conduzida(raiz, t.id, quando)) return comMotivo('conduzida');
   if (vivas === null) return comMotivo('sessoes-sem-leitura');
@@ -276,7 +285,7 @@ function pendentesDeMaster(carregado: ManifestoCarregado, threads: Thread[], qua
  * As fantasmas e as sessoes vivas numa leitura so do inventario de todas as contas, com o prazo curto da leitura da vida
  * (20 s por conta): o pulse e o status nao esperam um daemon travado. Conta que nao respondeu deixa as vivas sem prova.
  */
-function lerSessoes(raiz: string, opcoes: OpcoesDaDeteccao): { fantasmas: FantasmaTratado[] | null; vivas: readonly SessaoViva[] | null } {
+export function lerSessoes(raiz: string, opcoes: OpcoesDaDeteccao): { fantasmas: FantasmaTratado[] | null; vivas: readonly SessaoViva[] | null } {
   if (opcoes.fantasmas || opcoes.vivas) {
     let fantasmas: FantasmaTratado[] | null = null, vivas: readonly SessaoViva[] | null = null;
     try { fantasmas = opcoes.fantasmas ? opcoes.fantasmas() : null; } catch { fantasmas = null; }

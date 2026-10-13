@@ -200,6 +200,7 @@ import {
 import { baterSentinela, desligarSentinela, statusDaSentinela, textoDoStatusDaSentinela } from './conducao-sentinela';
 import { gravarAutorizacao, lerAutorizacao, linhaDaAutorizacao, textoDaAutorizacao } from './autorizacao-duravel';
 import { atualizarBranchDaThread, textoDaAtualizacao } from './atualizar-branch';
+import { baterConducao, textoDaBatida } from './conducao-batida';
 import { descreverSlug, hashDoPrompt, montarPrompt, rodarFase, tabelaDoLedger, valoresDoPrompt } from './phase';
 import {
   carregarTemplates,
@@ -1531,6 +1532,13 @@ function comandoConducao(args: Args): number {
   const id = args.posicionais[2];
   if (sub === 'sentinela') return comandoSentinela(carregado, args);
   if (sub === 'autorizar' || sub === 'autorizacao') return comandoAutorizacao(carregado, args, sub);
+  if (sub === 'batida') {
+    // RM-063 (F7): o passo deterministico da conducao, o mesmo que a varredura do cron roda depois do resumo.
+    if (args.posicionais.length > 2) throw new Error('uso: ork conducao batida [--json]');
+    const r = baterConducao(carregado, { canal: conducaoDoCli(args).canal });
+    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaBatida(r));
+    return r.ocupada ? 3 : 0;
+  }
   if (sub === 'atualizar') {
     // RM-063 (F7): o merge da base remota na branch da thread, com a reconciliacao do CHANGELOG; conflito em codigo aborta.
     if (!id || args.posicionais.length > 3) throw new Error('uso: ork conducao atualizar <thread-id> [--enviar] [--esperar [min]] [--json]');
@@ -1556,7 +1564,7 @@ function comandoConducao(args: Args): number {
     console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : `${r.ok ? 'Conducao assumida.' : 'Handoff recusado.'} ${r.detalhe}`);
     return r.ok ? 0 : 3;
   }
-  throw new Error('uso: ork conducao status|assumir|atualizar <thread-id> | ork conducao autorizar|autorizacao | ' +
+  throw new Error('uso: ork conducao status|assumir|atualizar <thread-id> | ork conducao autorizar|autorizacao|batida | ' +
     'ork conducao sentinela status|bater|desligar');
 }
 
