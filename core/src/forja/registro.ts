@@ -1,9 +1,11 @@
 import type { AdaptadorDeForja, NomeDaCapacidade } from './adaptador';
 import type { TipoDeForja } from './contrato';
 import { checksNoCommitGithub } from './github/ci';
+import { branchPadraoGithub, compararGithub, pedidoMescladoGithub, pontaDaBranchGithub } from './github/pedidos';
 
 const ADAPTADORES: Record<TipoDeForja, AdaptadorDeForja> = {
-  github: { tipo: 'github', checksNoCommit: checksNoCommitGithub },
+  github: { tipo: 'github', checksNoCommit: checksNoCommitGithub,
+    pedidoMesclado: pedidoMescladoGithub, branchPadrao: branchPadraoGithub, pontaDaBranch: pontaDaBranchGithub, comparar: compararGithub },
   gitlab: { tipo: 'gitlab' },
 };
 

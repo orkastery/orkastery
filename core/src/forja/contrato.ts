@@ -26,3 +26,9 @@ export interface CheckNoCommit {
   url: string | null; concluidoEm: string | null; ordem: number;
 }
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: ErroDaForja };
+
+/** Um pedido de mesclagem (PR/MR) lido da forja, na forma neutra. `null` nos campos que a resposta não trouxe válidos. */
+export interface PedidoMesclado {
+  numero: number; mesclado: boolean; mergeSha: string | null; headSha: string | null; base: string | null;
+  branch: string | null; titulo: string | null; corpo: string | null; url: string | null;
+}

@@ -20,6 +20,7 @@ import { tagDoModo } from './modos';
 import { dirThread, gravarThread, lerThread, listarIds } from './thread';
 import { exec } from './util';
 import { rodarCli } from './forja/executor';
+import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { ErroDoCatalogo, remontar, textoDoCatalogo } from './locale';
 
 export interface EntregaPorPr {
@@ -142,11 +143,6 @@ const ghApi: ExecutorGitHub = (caminho) => {
   return { ok: r.status === 0, code: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 };
 
-function lerJson<T>(r: ReturnType<ExecutorGitHub>): T | null {
-  if (!r.ok) return null;
-  try { return JSON.parse(r.stdout) as T; } catch { return null; }
-}
-
 export interface OpcoesDaEntregaExterna {
   /** `dono/nome` declarado em `ci.external_repositories`. */
   repositorio: string;
@@ -180,37 +176,34 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
     return resultado(threadId, 'ja-registrada', textoDoCatalogo((m) => m.ship.prExternoJaTem(n, repo)));
   }
 
-  const pr = lerJson<{ merged?: boolean; merge_commit_sha?: string | null; html_url?: string; title?: string | null; body?: string | null;
-    base?: { ref?: string }; head?: { sha?: string; ref?: string } }>(gh(`repos/${repo}/pulls/${n}`));
+  const forja = adaptadorDaForja('github');
+  const pr = exigirCapacidade(forja, 'pedidoMesclado')({ repo, numero: n, executor: gh });
   if (!pr) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prConsultaFalhou(n, repo)));
-  const mergeSha = typeof pr.merge_commit_sha === 'string' && /^[0-9a-f]{40}$/.test(pr.merge_commit_sha) ? pr.merge_commit_sha : null;
-  const headSha = typeof pr.head?.sha === 'string' && /^[0-9a-f]{40}$/.test(pr.head.sha) ? pr.head.sha : null;
-  const base = typeof pr.base?.ref === 'string' && /^[A-Za-z0-9._/-]{1,200}$/.test(pr.base.ref) ? pr.base.ref : null;
-  if (pr.merged !== true || !mergeSha || !headSha || !base) {
+  const { mergeSha, headSha, base } = pr;
+  if (!pr.mesclado || !mergeSha || !headSha || !base) {
     return resultado(threadId, 'sem-merge', textoDoCatalogo((m) => m.ship.prNaoMesclado(n, repo)));
   }
   // Achado A4 do CHECK: o PR precisa ser DESTA thread e ter entrado na branch padrao do repositorio. Sem o
   // vinculo, qualquer PR mesclado do repositorio viraria entrega de qualquer thread; sem a base, um PR
   // empilhado numa branch de feature contaria como entrega.
-  const vinculo = [pr.title, pr.body, pr.head?.ref].filter((x): x is string => typeof x === 'string')
+  const vinculo = [pr.titulo, pr.corpo, pr.branch].filter((x): x is string => typeof x === 'string')
     // N4 do CHECK 2: a branch do proprio ork e `ork/<thread>-<variante>`, entao o hifen depois do id vale;
     // letra ou digito colado nao (outro id). Sem diferenciar maiusculas.
     .some((x) => new RegExp(`(^|[^a-z0-9-])${threadId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9])`, 'i').test(x));
   if (!vinculo) {
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prNaoCitaThread(n, repo, threadId)), { mergeSha, headSha });
   }
-  const repositorio = lerJson<{ default_branch?: string }>(gh(`repos/${repo}`));
-  if (!repositorio) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prRepoFalhou(repo)), { mergeSha, headSha });
-  if (repositorio.default_branch !== base) {
-    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prOutraBase(n, base, repo, repositorio.default_branch)),
+  const branchPadrao = exigirCapacidade(forja, 'branchPadrao')({ repo, executor: gh });
+  if (branchPadrao === null) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prRepoFalhou(repo)), { mergeSha, headSha });
+  if (branchPadrao !== base) {
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prOutraBase(n, base, repo, branchPadrao || undefined)),
       { mergeSha, headSha });
   }
 
   // A ponta da base AGORA, e o merge dentro dela: o push provado, pela mesma pergunta do ls-remote.
-  const ramo = lerJson<{ commit?: { sha?: string } }>(gh(`repos/${repo}/branches/${encodeURIComponent(base)}`));
-  const ponta = typeof ramo?.commit?.sha === 'string' && /^[0-9a-f]{40}$/.test(ramo.commit.sha) ? ramo.commit.sha : '';
-  const comparacao = ponta ? lerJson<{ status?: string }>(gh(`repos/${repo}/compare/${mergeSha}...${ponta}`)) : null;
-  if (!ponta || !comparacao || !['ahead', 'identical'].includes(String(comparacao.status))) {
+  const ponta = exigirCapacidade(forja, 'pontaDaBranch')({ repo, branch: base, executor: gh }) ?? '';
+  const comparacao = ponta ? exigirCapacidade(forja, 'comparar')({ repo, de: mergeSha, ate: ponta, executor: gh }) : null;
+  if (!ponta || comparacao === null || !['ahead', 'identical'].includes(comparacao)) {
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prExternoForaDaPonta(mergeSha.slice(0, 7), repo, base)), { mergeSha, headSha });
   }
 
@@ -229,7 +222,7 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
     para: `${repo}:${base}`,
     repositorio: repo,
     pr: n,
-    url: pr.html_url ?? `https://github.com/${repo}/pull/${n}`,
+    url: pr.url ?? `https://github.com/${repo}/pull/${n}`,
     shaDe: headSha,
     mergeSha,
     // RM-037 (fatia 5, A1; aviso da rodada 1 do CHECK): a ponta conferida vai em campo proprio, como no PR local; a
@@ -239,7 +232,7 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
     remoto: `github:${repo}`,
     shaRemoto: ponta,
     pushVerificado: true,
-    fonteDaProva: `gh api repos/${repo}/compare/${mergeSha}...${ponta} (status ${String(comparacao.status)}; ponta de ${base} por gh api repos/${repo}/branches/${base})`,
+    fonteDaProva: `gh api repos/${repo}/compare/${mergeSha}...${ponta} (status ${comparacao}; ponta de ${base} por gh api repos/${repo}/branches/${base})`,
     autorizadoPor: ci ? 'merge de PR com o CI independente verde no SHA exato' : 'merge de PR em repositorio externo declarado sem CI no manifesto',
     tipoDeAutorizacao: 'pr-externo',
     modo: thread.modo,
