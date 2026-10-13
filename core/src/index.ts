@@ -97,7 +97,7 @@ import { definicaoDaVariante, parseVariante, tabelaDeVariantes, VARIANTES } from
 import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './claims';
 import { conferirClaims, ErroDeConferencia, FORMATO_DA_CONFERENCIA, idsDeClaims, textoDaConferencia } from './claims-conferir';
 import { exigirCatalogoDoPacote } from './catalogo';
-import { doctor } from './doctor';
+import { doctor, doctorJson } from './doctor';
 import { endurecerUmask, preflight, textoPreflight } from './preflight';
 import { rodarEval, textoDoEval } from './evalrunner';
 import { aprovarGateHumano } from './gates';
@@ -198,6 +198,10 @@ import {
   textoDoPedidoRepetido, textoDoStatusDaConducao,
 } from './conducao';
 import { baterSentinela, desligarSentinela, statusDaSentinela, textoDoStatusDaSentinela } from './conducao-sentinela';
+import { gravarAutorizacao, lerAutorizacao, linhaDaAutorizacao, textoDaAutorizacao } from './autorizacao-duravel';
+import { atualizarBranchDaThread, textoDaAtualizacao } from './atualizar-branch';
+import { baterConducao, textoDaBatida } from './conducao-batida';
+import { entregarPeloTransporte } from './pulse-delivery';
 import { descreverSlug, hashDoPrompt, montarPrompt, rodarFase, tabelaDoLedger, valoresDoPrompt } from './phase';
 import {
   carregarTemplates,
@@ -1506,11 +1510,70 @@ function comandoSentinela(carregado: ManifestoCarregado, args: Args): number {
   return 0;
 }
 
+/**
+ * RM-063 (F7): `ork conducao autorizar|autorizacao`. A autorizacao duravel do dono nesta maquina
+ * (`ork.autorizacao-duravel/v1`, fora do git): o que a batida da conducao pode fazer sozinha e ate quando.
+ */
+function comandoAutorizacao(carregado: ManifestoCarregado, args: Args, sub: 'autorizar' | 'autorizacao'): number {
+  const json = args.opcoes.json === true;
+  const projeto = carregado.manifesto.project.name;
+  if (sub === 'autorizacao') {
+    if (args.posicionais.length > 2) throw new Error('uso: ork conducao autorizacao [--json]');
+    const leitura = lerAutorizacao(carregado.raiz, { projeto });
+    console.log(json ? JSON.stringify(leitura, null, 2) : textoDaAutorizacao(leitura));
+    return 0;
+  }
+  const ate = texto(args.opcoes.ate), pode = texto(args.opcoes.pode);
+  if (!ate || !pode || args.posicionais.length > 2) {
+    throw new Error('uso: ork conducao autorizar --ate <data> --pode merge,registrar,master,despachar [--por Q] [--nota N] [--json]');
+  }
+  const r = gravarAutorizacao(carregado.raiz, { ate, pode, por: texto(args.opcoes.por), nota: texto(args.opcoes.nota), projeto,
+    fuso: fusoDoManifesto(carregado).fuso, canal: conducaoDoCli(args).canal });
+  if (!r.ok) {
+    console.log(json ? JSON.stringify(r, null, 2) : `Autorização recusada (${r.motivo}): ${r.detalhe}`);
+    return 1;
+  }
+  const a = r.anterior;
+  console.log(json ? JSON.stringify({ ok: true, leitura: r.leitura, anterior: a }, null, 2) : [
+    `Autorização gravada. ${linhaDaAutorizacao(r.leitura)}.`,
+    ...(a ? [`  substitui a de ${a.por} até ${formatarDataHoraRotulada(a.ate)} (${a.pode.join(', ')})`] : []),
+    `  arquivo ${r.leitura.arquivo}, fora do git; para revogar, apague o arquivo.`].join('\n'));
+  return 0;
+}
+
 function comandoConducao(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
   const id = args.posicionais[2];
   if (sub === 'sentinela') return comandoSentinela(carregado, args);
+  if (sub === 'autorizar' || sub === 'autorizacao') return comandoAutorizacao(carregado, args, sub);
+  if (sub === 'batida') {
+    // RM-063 (F7): o passo deterministico da conducao, o mesmo que a varredura do cron roda depois do resumo.
+    if (args.posicionais.length > 2) throw new Error('uso: ork conducao batida [--entregar] [--json]');
+    const r = baterConducao(carregado, { canal: conducaoDoCli(args).canal });
+    const textoDaRodada = textoDaBatida(r);
+    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaRodada);
+    // RM-063 (H2): o `#OrkRetomar` do canal roda esta batida em segundo plano; o que voltou a andar volta ao dono pelo
+    // transporte do pulse (com o outro host configurado, se o primeiro falhar).
+    if (args.opcoes.entregar === true) {
+      const mensagem = `🔁 Orkastery, retomada em ${nomeDaMaquina()}:\n${textoDaRodada}`.slice(0, 3900);
+      try {
+        const e = entregarPeloTransporte(carregado.raiz, mensagem, { oQue: 'a retomada' });
+        if (!e.ok) console.error('aviso: o transporte do pulse não confirmou a retomada (veja ork doctor)');
+      } catch (e) { console.error(`aviso: retomada sem transporte do pulse (${(e as Error).message})`); }
+    }
+    return r.ocupada ? 3 : 0;
+  }
+  if (sub === 'atualizar') {
+    // RM-063 (F7): o merge da base remota na branch da thread, com a reconciliacao do CHANGELOG; conflito em codigo aborta.
+    if (!id || args.posicionais.length > 3) throw new Error('uso: ork conducao atualizar <thread-id> [--enviar] [--esperar [min]] [--json]');
+    lerThread(carregado.raiz, id);
+    const doCli = conducaoDoCli(args);
+    const r = atualizarBranchDaThread(carregado, id, { enviar: args.opcoes.enviar === true, canal: doCli.canal, correlacao: doCli.correlacao,
+      ...(doCli.esperarMs ? { esperarMs: doCli.esperarMs } : {}) });
+    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaAtualizacao(r));
+    return r.acao === 'mesclada' || r.acao === 'ja-atualizada' ? 0 : r.acao === 'recusada' && r.motivo === 'conduzida' ? 3 : 1;
+  }
   if (sub === 'status') {
     if (!id) throw new Error('uso: ork conducao status <thread-id> [--json]');
     lerThread(carregado.raiz, id);
@@ -1526,7 +1589,8 @@ function comandoConducao(args: Args): number {
     console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : `${r.ok ? 'Conducao assumida.' : 'Handoff recusado.'} ${r.detalhe}`);
     return r.ok ? 0 : 3;
   }
-  throw new Error('uso: ork conducao status|assumir <thread-id> | ork conducao sentinela status|bater|desligar');
+  throw new Error('uso: ork conducao status|assumir|atualizar <thread-id> | ork conducao autorizar|autorizacao|batida | ' +
+    'ork conducao sentinela status|bater|desligar');
 }
 
 /** RM-048 (D1): o gate aberto no contrato curto, com o codigo estavel e o "desde" do ledger. */
@@ -4216,7 +4280,14 @@ function executarComando(argvBruto: string[]): number {
       }
       // RM-031: o check dos analisadores do grafo entra por aqui, a porta da familia do grafo (fronteira do KG1).
       // RM-061 (F2a): a redacao do check vem do catalogo, no locale do comando (a familia do grafo nao o importa).
-      const r = doctor(diretorioDoProjeto(), nomesHerdados, () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK, undefined, undefined, msg().doctor.grafo));
+      const analisadores = () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK, undefined, undefined, msg().doctor.grafo);
+      // RM-063 (fatia 3, H1): `--json` e o contrato `ork.doctor/v1` que a batida do host le, com a idade da batida.
+      if (args.opcoes.json === true) {
+        const j = doctorJson(diretorioDoProjeto(), nomesHerdados, analisadores);
+        console.log(JSON.stringify(j.json, null, 2));
+        return j.codigo;
+      }
+      const r = doctor(diretorioDoProjeto(), nomesHerdados, analisadores);
       console.log(r.texto);
       return r.codigo;
     }

@@ -193,10 +193,29 @@ export function nomeDaConducao(threadId: string): string {
 /** Estados em que o runtime ja deu a sessao por encerrada. */
 const TERMINAIS = ['done', 'completed', 'exited', 'stopped', 'failed'];
 
+/** Os eventos que sao contabilidade do proprio ork, e nao sinal de que a sessao voltou a trabalhar. */
+const SO_DA_CONTABILIDADE = /^(conducao_|retry_|session_watcher_|despacho_idempotente$|varredura_acao$)/;
+
+/**
+ * RM-063 (fatia 3, achado c): o observador viu a sessao num estado terminal do runtime (`done`, `failed`, `stopped`) e
+ * encerrou sem inferir a conclusao da fase (`session_watcher_error` com `estadoNativo`). A fase pode nao estar provada,
+ * mas a sessao nao executa mais nada: o lease dela cai. Vale o ultimo desses vistos, se nenhum evento da mesma sessao
+ * depois dele mostra trabalho (a sessao retomada por alguem).
+ */
+function terminalVistoPeloObservador(eventos: readonly EventoLedger[], sessionId: string, desde: number): EventoLedger | null {
+  let visto: EventoLedger | null = null;
+  for (const e of eventos) {
+    if (e.sessionId !== sessionId || Date.parse(e.ts) < desde) continue;
+    if (e.tipo === 'session_watcher_error' && typeof e.estadoNativo === 'string' && TERMINAIS.includes(e.estadoNativo)) visto = e;
+    else if (visto && !SO_DA_CONTABILIDADE.test(e.tipo)) visto = null;
+  }
+  return visto;
+}
+
 /**
  * O evento que prova que a sessao dona do lease acabou: o resultado da fase dela (a prova da I-34
- * que o observador grava), a morte registrada, a superacao, ou a thread fechada. So conta evento
- * posterior ao inicio da conducao.
+ * que o observador grava), a morte registrada, a superacao, o estado terminal que o observador viu
+ * no runtime (RM-063), ou a thread fechada. So conta evento posterior ao inicio da conducao.
  */
 export function fimDaSessao(eventos: readonly EventoLedger[], lease: Lease): EventoLedger | null {
   const dono = lease.conducao?.dono;
@@ -204,7 +223,7 @@ export function fimDaSessao(eventos: readonly EventoLedger[], lease: Lease): Eve
   const desde = Date.parse(lease.adquiridoEm);
   return eventos.find((e) => Date.parse(e.ts) >= desde && (
     (['phase_result', 'sessao_morta', 'session_superseded'].includes(e.tipo) && e.sessionId === dono.sessionId) ||
-    ['thread_closed_admin', 'master_done'].includes(e.tipo))) ?? null;
+    ['thread_closed_admin', 'master_done'].includes(e.tipo))) ?? terminalVistoPeloObservador(eventos, dono.sessionId, desde);
 }
 
 export type VidaDoDono = 'vivo' | 'morto' | 'desconhecido';
@@ -318,9 +337,12 @@ export interface PedidoDeConducao {
   consultarSessao?: ConsultaDeSessao;
 }
 
-/** Resposta de uma consulta ao runtime sobre UMA sessao. */
+/**
+ * Resposta de uma consulta ao runtime sobre UMA sessao. `naConta`: a consulta foi feita na conta da sessao (a do perfil
+ * dela); so assim a ausencia na lista prova que ela acabou.
+ */
 export type ConsultaDeSessao = (dono: Extract<DonoDaConducao, { tipo: 'sessao' }>, raiz: string, threadId: string) =>
-  { ok: boolean; estado: string | null; detalhe: string };
+  { ok: boolean; estado: string | null; detalhe: string; naConta?: boolean };
 
 export interface ConducaoTomada {
   ok: true;
@@ -376,15 +398,43 @@ function chave(raiz: string, threadId: string): string {
   return `${caminhoLease(raiz, nomeDaConducao(threadId))}`;
 }
 
+/**
+ * RM-063 (fatia 3, achado c): a consulta do claude-bg na conta do perfil da sessao (`CLAUDE_CONFIG_DIR` dele). A conta do
+ * processo nao lista a sessao de outro perfil, e a ausencia la nao prova nada; na conta dela, prova. `null` quando o
+ * perfil nao esta mais no store desta maquina (vale a consulta de sempre).
+ */
+function consultaNaContaDoPerfil(dono: Extract<DonoDaConducao, { tipo: 'sessao' }>, raiz: string):
+  { ok: boolean; estado: string | null; detalhe: string; naConta: true } | null {
+  if (dono.runtime !== 'claude-bg' || !dono.perfil) return null;
+  // Carregados na hora, como o controle nativo: a leitura da conducao nao puxa o adapter inteiro.
+  const { lerPerfis, perfilDeDespacho } = require('./runtime-profiles') as typeof import('./runtime-profiles');
+  const { ambienteDoPerfil, consultarSessoes } = require('./adapters/claude-bg') as typeof import('./adapters/claude-bg');
+  let perfil: ReturnType<typeof perfilDeDespacho> | null = null;
+  try {
+    const p = lerPerfis(raiz).perfis.find((x) => x.id === dono.perfil && x.runtime === 'claude-bg');
+    perfil = p ? perfilDeDespacho(p) : null;
+  } catch { return null; }
+  if (!perfil?.configDir) return null;
+  const r = consultarSessoes(undefined, true, ambienteDoPerfil(perfil));
+  if (!r.ok) return { ok: false, estado: null, detalhe: `o runtime nao respondeu a consulta na conta do perfil ${dono.perfil}`, naConta: true };
+  const achada = r.sessoes.find((x) => x.sessionId === dono.sessionId);
+  const estado = achada ? String(achada.state ?? achada.status ?? '') : null;
+  return { ok: true, estado, detalhe: achada ? `estado ${estado} na conta do perfil ${dono.perfil}` : `sessao ausente da conta do perfil ${dono.perfil}`,
+    naConta: true };
+}
+
 /** A consulta padrao: o controle nativo do runtime (claude-bg ou o controller do codex). */
 const consultaNativa: ConsultaDeSessao = (dono, raiz, threadId) => {
   try {
+    const naConta = consultaNaContaDoPerfil(dono, raiz);
+    if (naConta) return naConta;
     // Carregado na hora: o modulo de sessoes puxa o HITL inteiro, que nao pertence a leitura.
     const { controleNativo } = require('./hitl-sessions') as typeof import('./hitl-sessions');
     const r = controleNativo(dono.runtime, raiz, threadId, dono.sessionId).consultar();
     if (!r.ok) return { ok: false, estado: null, detalhe: 'o runtime nao respondeu a consulta' };
     const achadas = r.sessoes.filter((s) => s.sessionId === dono.sessionId);
-    return { ok: true, estado: achadas[0]?.estado ?? null, detalhe: achadas.length ? `estado ${achadas[0].estado}` : 'sessao ausente' };
+    return { ok: true, estado: achadas[0]?.estado ?? null, detalhe: achadas.length ? `estado ${achadas[0].estado}` : 'sessao ausente',
+      naConta: !dono.perfil };
   } catch (e) { return { ok: false, estado: null, detalhe: (e as Error).message }; }
 };
 
@@ -416,7 +466,9 @@ function provaDeFimDaSessao(raiz: string, threadId: string, lease: Lease, pedido
   if (!r.ok) return null;
   anotarEstado(r.estado);
   if (r.estado && TERMINAIS.includes(r.estado)) return { motivo: 'sessao-orfa', prova: `runtime ${dono.runtime}: ${r.detalhe}` };
-  if (r.estado === null && !dono.perfil) return { motivo: 'sessao-orfa', prova: `runtime ${dono.runtime}: ${r.detalhe}` };
+  // A ausencia so prova o fim quando a consulta foi feita na conta da sessao: sem perfil, a do processo; com perfil, a
+  // dele (RM-063, fatia 3, achado c).
+  if (r.estado === null && (!dono.perfil || r.naConta === true)) return { motivo: 'sessao-orfa', prova: `runtime ${dono.runtime}: ${r.detalhe}` };
   return null;
 }
 
@@ -604,8 +656,9 @@ function sucessaoAindaVale(raiz: string, threadId: string, estado: EmCurso): boo
   const r = (estado.consultarSessao ?? consultaNativa)(dono, raiz, threadId);
   // Sem resposta do runtime nao ha prova de que ela segue parada: a sucessao nao vale.
   if (!r.ok) return false;
-  // S1 do CHECK 6: a sessao que sumiu do runtime, sem perfil, acabou; a mesma prova de `provaDeFimDaSessao`.
-  if (r.estado === null) return !dono.perfil;
+  // S1 do CHECK 6: a sessao que sumiu do runtime, sem perfil (ou da conta do perfil dela), acabou; a mesma prova de
+  // `provaDeFimDaSessao`.
+  if (r.estado === null) return !dono.perfil || r.naConta === true;
   return r.estado === 'blocked' || TERMINAIS.includes(r.estado);
 }
 
@@ -705,6 +758,7 @@ export function comandoDeEsperar(threadId: string, pedido: Pick<PedidoDeConducao
     case 'baseline': return `ork verify ${threadId} --baseline --esperar 30`;
     case 'fix.open': return `ork fix open ${threadId} --esperar 30`;
     case 'fix.reverify': return `ork fix reverify ${threadId} --esperar 30`;
+    case 'branch.atualizar': return `ork conducao atualizar ${threadId} --esperar 30`;
     default: return `ork verify ${threadId} --esperar 30`;
   }
 }

@@ -24,6 +24,11 @@ const PULSE_CONSENT = new RegExp("^[ \\t]*(?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0
 const PULSE_LOTE = new RegExp("^[ \\t]*[0-9]{1,2}[ \\t]*[a-zA-Z](?:[ \\t,;]*[0-9]{1,2}[ \\t]*[a-zA-Z])*[ \\t]*[.!]?[ \\t]*$");
 /** I-50 (RM-039): the pulse cadence tag, alone in the message. It starts with '#', so it never reads as the other two. */
 const PULSE_CADENCIA = new RegExp("^[ \\t]*#OrkPulse(?:On(?:-(?:15|30|60)m)?|Off)[ \\t]*[.!]?[ \\t]*$", 'i');
+/**
+ * RM-063 (slice 3, H2): the channel conduction commands, alone in the message. #OrkRetomar runs the conduction beat and
+ * what moved again comes back through the pulse transport; #OrkFabrica answers with `ork fabrica`. The core decides.
+ */
+const PULSE_CONDUCAO = new RegExp("^[ \\t]*#Ork(?:Retomar|Fabrica)[ \\t]*[.!]?[ \\t]*$", 'i');
 /** The pulse address inside the signed body: neither a thread nor a request. The core translates. */
 const PULSE_ALVO = 'pulse', PULSE_ENDERECO = 'resposta';
 /**
@@ -53,7 +58,7 @@ export function listeningOpen(root: string | undefined, now = Date.now()): boole
 export function isPulseAnswer(text: string, root: string | undefined = process.env.ORK_HITL_ROOT): boolean {
   if (text.includes('\0') || text.length > PULSE_TETO) return false;
   if (PULSE_CONSENT.test(text) || PULSE_LOTE.test(text) || PULSE_CADENCIA.test(text) || PULSE_LISTA.test(text) ||
-      PULSE_RATIFICACAO.test(text)) return true;
+      PULSE_RATIFICACAO.test(text) || PULSE_CONDUCAO.test(text)) return true;
   return PULSE_LIVRE.test(text) && listeningOpen(root);
 }
 

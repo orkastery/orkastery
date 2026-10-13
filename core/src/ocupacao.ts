@@ -22,7 +22,7 @@
 
 import { ehEnsaio, TIPOS_DE_EVENTO } from './ledger';
 import { ehEsperaDoDono, ehImpedimentoDoDono } from './impedimento';
-import { EventoLedger, Fase, MotivoGate, Thread } from './types';
+import { estadoDeTrabalho, EventoLedger, Fase, MotivoGate, Thread } from './types';
 import { ehRegistroDeAdocao } from './sessoes-adopt';
 
 /** Estado que o `ork phase run` grava quando o bloco despachado pausa ao fim. */
@@ -296,7 +296,8 @@ export function avaliarOcupacao(
   }
 
   const registro = ehRegistroDeAdocao(thread);
-  if (!registro && (sessaoEstado === 'working' || (sessaoEstado === '' && sessionId !== null))) {
+  // RM-063 (fatia 3, achado a): `busy` e `running` tambem sao a sessao trabalhando.
+  if (!registro && (estadoDeTrabalho(sessaoEstado) || (sessaoEstado === '' && sessionId !== null))) {
     return {
       ...base,
       classe: 'ativa',

@@ -214,7 +214,10 @@ test('locale en F2a doctor (index.ts): doctor --modo e doctor --json seguem em p
   try {
     for (const args of [['doctor', '--modo', 'fast'], ['doctor', '--json']]) {
       const pt = ork(c, PT, false, ...args), en = ork(c, EN, false, ...args);
-      assert.equal(en.stdout, pt.stdout, args.join(' '));
+      // RM-063 (fatia 3, H1): o `--json` e o contrato `ork.doctor/v1`; so o instante da consulta muda entre as duas.
+      const semInstante = (saida: string) => args.includes('--json')
+        ? JSON.stringify({ ...JSON.parse(saida), consultadoEm: null }) : saida;
+      assert.equal(semInstante(en.stdout), semInstante(pt.stdout), args.join(' '));
     }
   } finally { c.limpar(); }
 });

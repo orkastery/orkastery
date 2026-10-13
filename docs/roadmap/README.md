@@ -87,7 +87,8 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-060](RM-060-site-como-produto.md) | Site como produto: os dois sites públicos com o mesmo rigor do núcleo | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
 | [RM-061](RM-061-cli-em-ingles-e-pt-br.md) | CLI em inglês e pt-BR | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-12 |
 | [RM-062](RM-062-repositorio-publico-sem-dado-privado.md) | Repositório público sem dado privado | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
-| [RM-063](RM-063-fabrica-que-nao-para.md) | Fábrica que não para | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-12 |
+| [RM-063](RM-063-fabrica-que-nao-para.md) | Fábrica que não para | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-13 |
+| [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md) | Conta esgotada não para a fase | Refinamento | Não iniciado | Não iniciados | Não implantado | 2026-10-13 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->

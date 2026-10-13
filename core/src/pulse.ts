@@ -12,6 +12,7 @@ import { pedidoCurtoDoImpedimento } from './impedimento';
 import { pedidoCurtoDaEscada } from './runtime-escada';
 import { autorizada, LeituraDaAutorizacao, lerAutorizacao } from './autorizacao-duravel';
 import { AcaoPendente, acoesFeitasDesde, acoesPendentes } from './varredura-acoes';
+import { pendentesDaUltimaBatida } from './conducao-batida';
 import type { FantasmaTratado } from './sessoes';
 import { maquinaOciosa, MaquinaOciosa } from './maquina-ociosa';
 import { dirThread, lerThread } from './thread';
@@ -432,6 +433,9 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
       vivas: () => consultada.ok ? consultada.sessoes.filter((s) => typeof s.cwd === 'string' && !TERMINAIS_DA_CONSULTA.includes(estadoBruto(s)))
         .map((s) => ({ sessionId: s.sessionId, cwd: s.cwd as string })) : null,
     } : {}) });
+    // RM-063 (F7): o merge e o despacho que a ultima batida da conducao deixou pendentes (check pendente, sem autorizacao,
+    // conflito em codigo, PR em rascunho, fase sem prompt gravado), do retrato dela, enquanto ele vale.
+    pendentes.push(...pendentesDaUltimaBatida(carregado.raiz, quando));
     const feitas = acoesFeitasDesde(carregado.raiz, new Date(Date.parse(quando) - JANELA_DAS_DECISOES_MS).toISOString());
     varredura = varreduraDoPulse(leitura, pendentes, feitas);
   } catch (e) { diagnosticos.push(`varredura.indisponivel: ${(e as Error).message.slice(0, 120)}`); }

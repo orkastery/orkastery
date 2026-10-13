@@ -19,6 +19,10 @@
  *
  * A revogação nunca espera um despacho: ela usa o lock do arco, e a trava de despacho é outra. Quem chama decide quando
  * chamar de novo (o vigia é da N4); a decisão da fila diz até quando esperar. Nada aqui liga o modo.
+ *
+ * RM-058, fatia N4 (D8, D14 e D21 da ork-rm058n4): o passo aceita as decisões da supervisão, que vão à fila (isolados e
+ * retomadas), e os alvos de runtime da fase, em ordem: o primeiro com conta do envelope disponível e com folga leva o
+ * despacho, com o modelo e o esforço dele. Sem essas entradas, o passo é o da N2.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -31,7 +35,7 @@ import { ManifestoCarregado } from './manifest';
 import { concluirDespacho, reservarDespacho } from './noctum-arco';
 import { admitir, Admissao, escolherConta, fatosDeCapacidade, LeituraDeSessoes } from './noctum-capacidade';
 import { envelopeComTrabalhos, envelopeMultimaquina, RecusaDoArco } from './noctum-envelope';
-import { CoordenacaoDaFila, DecisaoDaFila, FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila,
+import { CoordenacaoDaFila, DecisaoDaFila, DecisoesDaSupervisao, FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila,
   MOTIVO_DO_ERRO_NO_DESPACHO } from './noctum-fila';
 import { OpcoesRun, resolverDespacho, ResultadoRun, rodarFase } from './phase';
 import { lerPerfis, perfilDisponivel } from './runtime-profiles';
@@ -43,6 +47,9 @@ import { ConducaoDoVerify, gravarBaseline } from './verify';
 /** Quanto o passo espera a vez de despachar antes de devolver `aguardar`: o despacho de outro arco leva segundos. */
 export const ESPERA_DA_VEZ_DE_DESPACHAR_MS = 30_000;
 const PAUSA_MS = 200;
+
+/** RM-058 N4 (D14): um runtime em que a fase pode sair, com o modelo e o esforço dele quando não é o do bloco. */
+export interface AlvoDoPasso { runtime: string; model?: string; effort?: string }
 
 export interface OpcoesDoPasso {
   quando?: string;
@@ -64,6 +71,10 @@ export interface OpcoesDoPasso {
    * máquinas (envelope `v3`) não despacha daqui.
    */
   coordenacao?: CoordenacaoDaFila & { reservar: typeof reservarDespacho };
+  /** RM-058 N4: as decisões da supervisão do arco (isolados e retomadas), repassadas à fila. */
+  supervisao?: DecisoesDaSupervisao;
+  /** RM-058 N4 (D14): os runtimes da fase, em ordem; sem eles, só o do bloco, como na N2. */
+  alvos?: (fase: Fase, runtimeDoBloco: string, modo: Thread['modo']) => AlvoDoPasso[];
 }
 
 export type ResultadoDoPasso =
@@ -145,7 +156,10 @@ export function passoDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
   let pendente: BaselinePendente | null = null;
   try {
     let fatos: FatosDaFila;
-    try { fatos = fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, coordenacao: opcoes.coordenacao }); }
+    try {
+      fatos = fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, coordenacao: opcoes.coordenacao,
+        supervisao: opcoes.supervisao });
+    }
     catch (e) {
       // S6 do CHECK: a recusa tipada do arco (o log adulterado, por exemplo) volta como resultado, e não como exceção.
       if (!(e instanceof RecusaDoArco)) throw e;
@@ -180,23 +194,33 @@ export function passoDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
           detalhe: mensagem(e), reserva: null, fila };
         continue;
       }
-      const doRuntime = perfis.filter(p => p.runtime === runtime).map(p => p.id);
-      // A conta com mais folga; sem folga em nenhuma, a primeira do envelope no runtime, para `admitir` dizer o motivo na
-      // ordem dele (a máquina cheia antes da conta).
-      const conta = escolherConta(conteudo.capacidade, capacidade, doRuntime)
-        ?? conteudo.capacidade.porConta.find(c => doRuntime.includes(c.conta))?.conta ?? null;
+      // RM-058 N4 (D14): os alvos da fase, em ordem; sem eles, só o runtime do bloco, como na N2.
+      const alvos: AlvoDoPasso[] = opcoes.alvos ? opcoes.alvos(fase, runtime, thread?.modo ?? 'auto') : [{ runtime }];
+      const doRuntime = (r: string) => perfis.filter(p => p.runtime === r).map(p => p.id);
+      // A conta com mais folga no primeiro alvo que tem uma; sem folga em nenhum, a primeira do envelope no primeiro alvo com
+      // perfil, para `admitir` dizer o motivo na ordem dele (a máquina cheia antes da conta).
+      let alvo: AlvoDoPasso = alvos[0] ?? { runtime }, conta: string | null = null;
+      for (const a of alvos) {
+        const c = escolherConta(conteudo.capacidade, capacidade, doRuntime(a.runtime));
+        if (c) { alvo = a; conta = c; break; }
+      }
+      for (const a of conta === null ? alvos : []) {
+        const c = conteudo.capacidade.porConta.find(x => doRuntime(a.runtime).includes(x.conta))?.conta;
+        if (c) { alvo = a; conta = c; break; }
+      }
       const vaga = vagaDoDespacho(carregado, thread?.id ?? '', quando);
       const admissao = conta === null
         ? { ok: false as const, motivo: 'capacidade.conta-nao-autorizada' as const,
-          detalhe: `nenhuma conta do envelope é perfil disponível do runtime ${runtime}` }
-        : admitir({ runtime, conta, revisao: fase === 'CHECK' }, conteudo.capacidade, capacidade, vaga);
+          detalhe: `nenhuma conta do envelope é perfil disponível do runtime ${alvos.map(a => a.runtime).join(' ou ') || runtime}` }
+        : admitir({ runtime: alvo.runtime, conta, revisao: fase === 'CHECK' }, conteudo.capacidade, capacidade, vaga);
       if (!admissao.ok) {
         recusa = admissao;
         if (MOTIVOS_DE_MAQUINA.includes(admissao.motivo)) break;
         continue;
       }
-      const r = despacharCandidato(carregado, arco, fila, { trabalho: candidato.id, thread, item: candidato.item, fase, runtime,
-        conta: conta!, quando, pedido: conteudo.trabalhos.find(t => t.id === candidato.id)?.pedido ?? null }, opcoes);
+      const r = despacharCandidato(carregado, arco, fila, { trabalho: candidato.id, thread, item: candidato.item, fase, runtime: alvo.runtime,
+        conta: conta!, quando, pedido: conteudo.trabalhos.find(t => t.id === candidato.id)?.pedido ?? null,
+        trio: alvo.runtime === runtime ? null : alvo }, opcoes);
       if (r.acao === 'baseline') { pendente = r; break; }
       if ('seguir' in r) {
         const { seguir: _seguir, ...recusado } = r;
@@ -236,7 +260,9 @@ function baselineForaDaTrava(carregado: ManifestoCarregado, arco: string, p: Bas
 function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: FilaDoArco,
   c: { trabalho: string; thread: Thread | null; item: string; fase: Fase; runtime: string; conta: string; quando: string;
     /** O pedido do dono, para a thread que o arco abre; `null` no trabalho que já é uma thread. */
-    pedido: string | null },
+    pedido: string | null;
+    /** RM-058 N4 (D14): o alvo de fallback, com modelo e esforço; `null` no runtime do bloco. */
+    trio?: AlvoDoPasso | null },
   opcoes: OpcoesDoPasso): ResultadoDoPasso | BaselinePendente | RecusaDoCandidato {
   const { raiz } = carregado;
   let reserva: number;
@@ -269,8 +295,9 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
   if (!pedido) return { ...recusar('noctum.despacho.pedido-ausente', `a thread ${thread.id} não guardou o pedido`, thread.id), seguir: true };
   // S5 do CHECK: a falha de dentro do núcleo pode ter aberto a sessão; ela sobe, e a reserva fica pendente e conta.
   const antes = eventosDaThread(raiz, thread.id)?.length ?? 0;
+  const trio = c.trio ? { runtime: c.trio.runtime, ...(c.trio.model ? { model: c.trio.model } : {}), ...(c.trio.effort ? { effort: c.trio.effort } : {}) } : {};
   const r = (opcoes.despachar ?? rodarFase)(carregado, thread.id, { fase: c.fase, prompt: pedido.texto, perfil: c.conta,
-    canal: canalDoProcesso(), correlacao: `noctum:${arco}`, baselinePeloDespacho: false });
+    canal: canalDoProcesso(), correlacao: `noctum:${arco}`, baselinePeloDespacho: false, ...trio });
   if (r.motivo === 'baseline.pendente') {
     concluirDespacho(raiz, arco, reserva, { motivo: 'baseline.pendente' });
     return { acao: 'baseline', thread: thread.id, fila };

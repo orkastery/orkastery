@@ -29,7 +29,24 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   processos separados, sobre um remoto de fixture, prova o aceite da tabela, inclusive o vencedor por item pela
   reserva e a disputa da última vaga global. O modo continua desligado: `#Noctum` não é aceito, e nenhum comando abre
   arco nem grava no ramo.
-
+- **#Noctum, fatia N4: supervisão e recuperação** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
+  `core/src/noctum-supervisao.ts` guarda os checkpoints da supervisão do arco num log próprio, encadeado e assinado
+  (`ork.noctum-supervisao/v1`), com os parâmetros na primeira linha: reiniciar o condutor ou o vigia, trocar de conta ou
+  de runtime não zera tentativas nem renova o envelope. `core/src/noctum-vigia.ts` traz o condutor (`conduzirArco`) e o
+  vigia (`vigiarArco`, um tique a cada 5 min), que provam a vida pela trava do kernel: o vigia assume com geração nova
+  quando o condutor morre, e sem vigia o condutor não despacha nada novo. `core/src/noctum-reconciliacao.ts` resolve
+  com prova o que a N2 deixou no meio (a reserva pendente de passo morto, a sessão do id dito antes da falha, o fim de
+  turno sem resultado), percebe a sessão sem avanço, a sem primeiro turno e o despacho de fora do arco, e reconcilia
+  pelo remoto o push de resultado incerto; toda retomada sai pelo passo do arco, até o teto, e depois o trabalho é
+  isolado. O rodízio fica dentro do envelope: conta esgotada sai até o reset dito, reset desconhecido é lacuna pelo
+  resto do arco, login perdido tira a conta, e o teto do arco ou a recusa por custo param o arco. Muda para todos: o
+  `ork retry resume` não redespacha o pedido do limite de uso de um despacho de arco, que o vigia retoma pelo arco. O
+  modo continua desligado: nenhum comando abre, executa ou vigia arco.
+- **Conta esgotada não para a fase** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)): nova
+  página do roadmap, em refinamento, pedida pelo dono em 13/10/2026. Quando a cota de uma conta acaba no meio
+  das fases, o ork vai tratar o fim como evento da conta, mover sozinho todas as threads dela para outra conta
+  ou para o fallback do bloco e retomar do ponto onde pararam, com o trabalho da sessão guardado na thread.
+  Frentes T1 a T7. Só documentação.
 - **CLI em inglês e pt-BR, fatia F3b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): seguem também o
   locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`,
   `ork accounts`, `ork network` (fora `network roadmap`), `ork roadmap reservas`, `pegar`, `soltar` e `feat`,
@@ -121,9 +138,40 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   trabalha, o `ork pulse` traz `maquinaOciosa` com as próximas threads sugeridas, até o número de vagas livres, cada
   uma com o passo e o comando, e a varredura avisa o dono na hora, uma vez por episódio, com o aviso no ledger do
   projeto (`maquina_ociosa_avisada`).
+- **Condutor autônomo dentro da autorização durável** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F7): `ork
+  conducao autorizar --ate <data> --pode merge,registrar,master,despachar [--por Q]` grava a autorização do dono nesta
+  máquina, fora do git, no contrato
+  [`ork.autorizacao-duravel/v1`](docs/referencia/contratos/autorizacao-duravel-rm063.md) (o prazo sempre com o fuso
+  escrito e até 31 dias; a data sozinha vale até 23:59 no fuso do dono), e `ork conducao autorizacao` mostra a vigente;
+  nenhum agente se autoriza (a sessão despachada pelo `ork` e o pedido de dentro do Claude Code, do Codex, do Hermes ou
+  do OpenClaw são recusados), e tag e publicação nunca entram. `ork conducao batida` é o passo determinístico que a
+  varredura do cron roda depois do resumo: mescla o PR de branch `ork/*` de thread #Auto ou #Maestro com todos os checks
+  obrigatórios verdes, o PR limpo e o CHECK aprovado depois do último commit de produto (`gh pr merge --merge
+  --match-head-commit`, com o assunto `ship(<thread>)`, provado na cópia da base), registra a entrega e fecha pelo
+  MASTER por omissão na mesma rodada, e despacha a fase seguinte só com o pedido guardado na criação da thread, como
+  sessão de fundo, nunca por cron LLM; com a Sentinela ligada, cede o despacho. Autorização vencida ou sem a ação, check
+  pendente ou vermelho, PR em rascunho, trabalho na thread, pendência do dono e branch local com trabalho fora do PR
+  recusam com motivo tipado e viram item da fila do pulse, com o comando. Em 12 e 13/10/2026 os PRs #153 e #154
+  esperaram de 5 a 6 horas pelo condutor.
+- **CHANGELOG reconciliado no merge da main** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F7): `ork conducao
+  atualizar <thread> [--enviar]`, e a batida no PR que ficou para trás ou em conflito, faz o merge da base na branch da
+  thread sob a condução dela (a sessão despachada que conduz a thread reentra pela identidade de despacho, como no
+  `ork verify`); os itens da thread voltam a "## Não publicado", no mesmo grupo, quando o merge os joga numa versão
+  publicada ou conflita só no CHANGELOG, e conflito em código aborta e fica com o dono. A regra foi conferida contra os
+  25 merges reais mais recentes do repositório.
+- **A batida dos hosts e a retomada pelo canal** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), H1 a H4): `ork
+  doctor --json` (`ork.doctor/v1`) traz a batida da fábrica com a idade da última rodada e o aviso pronto, e o heartbeat
+  do OpenClaw (automação de comando, sem modelo) e o do Hermes rodam `bin/ork-vigia-batida` e avisam o dono quando a
+  batida passou de 30 min. `#OrkRetomar` no Telegram autorizado roda a batida da condução e o que voltou a andar chega
+  pelo transporte do pulse; `#OrkFabrica` responde o `ork fabrica`. A etapa `maestro` do onboarding grava o canal do
+  dono e, junto, o `pulse-host.json` pronto do host; com os dois hosts configurados, a falha do transporte tenta o outro
+  e aparece no `ork doctor` ("transporte do pulse"). O doctor também reprova a batida parada com a linha no crontab.
 
 ### Corrigido
 
+- **O install não leva o cache do Python** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md)): o `ork adapter
+  install` a partir de um checkout copiava, e punha no recibo, o `__pycache__` e os `*.pyc` que o Python deixa nas pastas
+  do adaptador depois de rodar os testes dele; agora eles ficam de fora, como já ficavam no hash do runtime.
 - **A skill e o README do Hermes em inglês com o conhecimento escrito** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)):
   com o dono em inglês, o `ork adapter install hermes` copiava a skill `orkastery-devmaster` e o README sem as linhas do
   conhecimento escrito (RM-026 K7, fatia 3), que entraram no original em pt-BR no mesmo dia. As duas variantes inglesas
@@ -144,6 +192,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 - **Prazo de cada chamada ao Company Brain** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
   `memory.timeout_ms` fora da faixa (0, negativo ou fração) passa a valer o padrão de 15 s no transporte do Brain, em
   vez de esperar sem prazo (0) ou falhar com erro (negativo ou fração). Visto na revisão da fatia 2 do K7.
+- **Sessão ocupada não é parada, o lease solta com a sessão terminada e nenhum projeto temporário no registro**
+  ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md)): o `ork pulse` e o "O que precisa de você" tratavam a sessão
+  interativa do Claude Code em `busy` (ou `running`) como possível parada; agora é trabalho, como já era para o
+  observador. O lease de condução ficava preso depois que a sessão terminava no runtime, e o condutor precisava do `ork
+  conducao assumir`: o `done` que o observador viu e a ausência na conta do perfil da sessão soltam o lease. O registro
+  automático deixou de gravar no `~/.orkastery/projetos.json` projetos de `/tmp` e da pasta dos jobs do Claude Code, a
+  casa do ork segue `ORKASTERY_HOME`, e a suíte roda com uma casa temporária.
 
 ## [0.5.6] - 2026-10-12
 

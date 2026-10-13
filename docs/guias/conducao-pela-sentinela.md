@@ -44,6 +44,11 @@ A Sentinela não publica branch, não abre nem mergeia PR e não manda mensagem 
 
 Sem presença viva, o condutor externo conduz como antes, nas horas sem a sessão do dono.
 
+O condutor externo do próprio `ork` é a batida da condução (`ork conducao batida`, RM-063), que a varredura do cron roda
+depois do resumo: ela já lê a presença e cede o despacho e o retry enquanto a Sentinela conduz, e segue com o merge do
+PR verde, o registro da entrega e o MASTER por omissão, dentro da autorização durável do dono. Com ela no cron, o script
+de fora deixa de ser necessário.
+
 ## Por que não há despacho duplicado
 
 Os dois condutores despacham só pelo núcleo. O `ork phase run` toma a condução da thread (`exec:<thread>`) sob uma trava do kernel:
