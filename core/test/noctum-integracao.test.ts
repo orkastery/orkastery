@@ -442,3 +442,30 @@ test('I12: a reconciliação grava o commit do merge provado, não a ponta da ba
     assert.equal(mainNoRemoto(m2), ca.fonte, 'nada foi integrado de novo');
   } finally { m2.limpar(); }
 });
+
+test('I13: a forja que leva a fonte à base fora da cerca, com a vez ainda da máquina, termina a vez sem prova; a ordem cancelada espera a inspeção', () => {
+  const m = cenario('noctum-i13');
+  try {
+    // B-R2A-1 da rodada 2, com a vez viva: um commit de fora entra na main durante o efeito, e a forja da B faz o merge sobre
+    // a main de agora. Nada vira entrega, a vez termina sem-prova e o destino volta a andar.
+    const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    const motivo = recusa(() => integrarComVez(m.b.carregado, m.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, (c) => {
+      const deFora = branchDeTrabalho(m.a.dir, 'hotfix', 'h.txt', 'H SIMULADO\n');
+      assert.ok(exec('git', ['push', '-q', 'origin', `${deFora.fonte}:refs/heads/main`], m.a.dir).ok);
+      return forja(m.b.dir)(c);
+    }, op(m.b)), 'noctum.integracao.base-nao-provada');
+    assert.match(motivo, /nada foi registrado como entrega, e o trabalho espera a inspeção do dono, sem ser refeito/);
+    let estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
+    assert.deepEqual([...estado.vezes.values()].flat().map(v => [v.n, v.fim?.desfecho]), [[1, 'sem-prova']]);
+    assert.deepEqual([estado.entregas.size, situacaoDoTrabalho(estado, 'b')!.estado], [0, 'em-execucao']);
+    // A autoridade cancela a ordem; sem prova, a reconciliação da B não a encerra, e o trabalho não muda de máquina.
+    cancelarOrdem(m.a.carregado, m.arco, 'O-b-1', 'SIMULADO: inspeção', op(m.a));
+    const plano = planejarReconciliacao(lerCoordenacao(m.b.carregado, m.arco, op(m.b)), 'maquina-b', { arcoVigente: true, sessoesVivas: new Set(),
+      threads: new Map(), despachos: new Map() });
+    assert.deepEqual(plano.encerradas, []);
+    assert.match(plano.aguardando.find(x => x.ordem === 'O-b-1')!.porque, /fora da base provada, e o trabalho espera a inspeção/);
+    estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
+    assert.equal(situacaoDoTrabalho(estado, 'b')!.estado, 'isolado');
+    recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'b', maquina: 'maquina-a' }, op(m.a)), 'noctum.coordenacao.ordem-viva');
+  } finally { m.limpar(); }
+});
