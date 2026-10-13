@@ -459,9 +459,10 @@ export function exigirAutoriaHumana(por: unknown): asserts por is string {
  * Na leitura ele fica como a prova do caminho (`conferirReciboLocalNota`), sem decidir se a nota vale.
  */
 export const AUTOR_DA_NOTA_NATIVA = IDENTIDADE_DA_NOTA_NATIVA;
-/** A identidade reservada, com qualquer caixa, acento ou espaco: um `--por "Dono (Diálogo Nativo)"` tambem e ela. */
+/** A identidade reservada com qualquer caixa, acento, espaco ou pontuacao: `--por "Dono(Diálogo Nativo)."` tambem e ela. */
+const soLetras = (v: string): string => semAcento(v.toLowerCase()).replace(/[^a-z0-9]+/g, '');
 export function identidadeDaNotaNativa(por: unknown): boolean {
-  return typeof por === 'string' && semAcento(por.trim().toLowerCase()).replace(/\s+/g, ' ') === AUTOR_DA_NOTA_NATIVA;
+  return typeof por === 'string' && soLetras(por) === soLetras(AUTOR_DA_NOTA_NATIVA);
 }
 function exigirReciboDaNotaNativa(raiz: string, id: string, opcoes: OpcoesMaster): void {
   if (opcoes.por !== AUTOR_DA_NOTA_NATIVA || !opcoes.prova || !conferirReciboLocalNota(raiz, id, { ...opcoes.prova,
@@ -498,6 +499,18 @@ export function preflightMaster(raiz: string, id: string, opcoes: OpcoesMaster):
 }
 
 export function registrarMaster(raiz: string, id: string, opcoes: OpcoesMaster): ResultadoMaster {
+  const r = gravarMaster(raiz, id, opcoes);
+  // RM-037 (rm037noite): a thread fechada solta o que segurava, com registro no ledger dela.
+  liberarAoFechar(raiz, id);
+  return r;
+}
+
+/**
+ * RM-059 (D17 da thread ork-rm059ritual): o MASTER sem soltar o que a thread segurava. Quem grava sob a trava de HITL
+ * (o aceite por omissao e a nota pelo dialogo nativo) chama `liberarAoFechar` depois de solta-la: a soltura consulta o
+ * runtime e o git das reservas, e a trava nao espera por isso.
+ */
+export function gravarMaster(raiz: string, id: string, opcoes: OpcoesMaster): ResultadoMaster {
   const r = preflightMaster(raiz, id, opcoes);
   const { thread, postmortem, masterLog } = r;
   gravarJson(r.caminhoPostmortem, postmortem);
@@ -521,8 +534,6 @@ export function registrarMaster(raiz: string, id: string, opcoes: OpcoesMaster):
     masterLogSha256: hashDocumento(r.caminhoMasterLog), postmortemSha256: hashDocumento(r.caminhoPostmortem),
     ...(opcoes.prova ? { prova: 'ingresso-autenticado', ...opcoes.prova } : {}),
   });
-  // RM-037 (rm037noite): a thread fechada solta o que segurava, com registro no ledger dela.
-  liberarAoFechar(raiz, id);
   return r;
 }
 
@@ -698,11 +709,13 @@ export function aceitarPorOmissao(raiz: string, id: string): AceitePorOmissao {
   const indice = indiceDaThread(raiz, id);
   const aceitoEm = agora();
 
-  // RM-059 (T8.1, D13): o aceite grava sob a mesma trava da nota pelo Telegram e pelo dialogo nativo, e rele a thread
-  // dentro dela. A nota humana que chegou depois da listagem (ou do indice, que pergunta ao git) fica como esta.
-  return comLockInspecionavel(dir, 'thread-dispatch-ou-hitl', (): AceitePorOmissao => {
+  // RM-059 (T8.1, D13 e D17): o aceite grava sob a mesma trava da nota pelo Telegram e pelo dialogo nativo, e rele a
+  // thread dentro dela. A nota humana ratificada que chegou depois da listagem (ou do indice, que pergunta ao git) fica
+  // como esta; a de nome humano sem `master_done` que a confirme a listagem ja trata como pendente, e o aceite tambem.
+  // O que a thread segurava e solto depois da trava.
+  const aceite = comLockInspecionavel(dir, 'thread-dispatch-ou-hitl', (): AceitePorOmissao => {
     const thread = lerThread(raiz, id);
-    if (notaHumanaRegistrada(thread)) {
+    if (notaHumanaRegistrada(thread) && masterRatificado(raiz, id)) {
       return { thread: id, indice, decididoPor: AUTOR_DA_OMISSAO, aceitoEm, scoreGravado: thread.score!.valor, preservada: true };
     }
 
@@ -716,7 +729,7 @@ export function aceitarPorOmissao(raiz: string, id: string): AceitePorOmissao {
       razao: 'entrega aceita por default: ninguem pontuou. Nota humana posterior sobrescreve, e este evento permanece',
     });
 
-    registrarMaster(raiz, id, {
+    gravarMaster(raiz, id, {
       score: Math.round(indice.valor),
       justificativa:
         `Aceita por omissao: ninguem pontuou esta entrega. Indice derivado do ledger = ` +
@@ -732,6 +745,8 @@ export function aceitarPorOmissao(raiz: string, id: string): AceitePorOmissao {
 
     return { thread: id, indice, decididoPor: AUTOR_DA_OMISSAO, aceitoEm };
   });
+  if (!aceite.preservada) liberarAoFechar(raiz, id);
+  return aceite;
 }
 
 /** As entregas aceitas por omissao: o que passou sem o dono olhar. */

@@ -16,7 +16,8 @@
  * sem entrega, a recusa do nucleo; sem formulario no cliente, `master.nota.sem-dialogo` ANTES de qualquer escrita
  * (nem o pedido de nota nasce); so entao o pedido de nota do `ork master pedir` (o mesmo codigo do Telegram) e o
  * dialogo. A gravacao roda sob a trava da thread, como a resposta do Telegram (`responderNota`) e o aceite por omissao:
- * a nota humana que chegou no meio, por qualquer caminho, vence, e a omissao nunca troca a nota gravada aqui.
+ * a nota humana que chegou no meio, por qualquer caminho, vence, e a omissao nunca troca a nota gravada aqui. A trava
+ * ocupada e esperada por ate um minuto (D17), e a soltura do que a thread segurava roda depois dela.
  *
  * LIMITE DITO: o recibo prova o caminho (esta conexao MCP, esta solicitacao, esta nota), nao a pessoa. A chave local e
  * legivel pelo mesmo usuario do sistema, entao quem ja roda como ele forja o recibo; e a mesma fronteira do gate pelo
@@ -28,7 +29,8 @@ import { comLockHitl } from './hitl-gates';
 import { exigirEntrega, provaDeEntrega } from './thread-close';
 import { lerClaims } from './claims';
 import { formatarDataHoraRotulada } from './horario';
-import { AUTOR_DA_NOTA_NATIVA, indiceDaThread, notaHumanaRegistrada, registrarMaster } from './master';
+import { AUTOR_DA_NOTA_NATIVA, gravarMaster, indiceDaThread, notaHumanaRegistrada } from './master';
+import { liberarAoFechar } from './fechamento';
 import { CONTRATO_PEDIDO_DE_NOTA, pedirNota, PedidoDeNota } from './master-nota';
 import { codigosEmUso } from './pulse-resposta';
 import { CONTRATO_RECIBO_DA_NOTA, gravarEvidenciaLocalNota } from './hitl-local-receipt';
@@ -40,6 +42,12 @@ export const PORQUE_MINIMO = 3;
 export const PORQUE_MAXIMO = 1000;
 /** O mesmo teto do dialogo do gate pelo ingresso local. */
 export const PRAZO_DO_DIALOGO_MS = 300000;
+/**
+ * D17: com a nota respondida, a gravacao espera ate isto pela trava da thread (um aceite por omissao, uma resposta pelo
+ * Telegram ou um despacho a seguram por pouco), para o porque que o dono escreveu nao se perder num instante ocupado.
+ */
+export const ESPERA_DA_TRAVA_MS = 60000;
+const PASSO_DA_TRAVA_MS = 250;
 
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/;
 const sha = (v: string): string => createHash('sha256').update(v).digest('hex');
@@ -126,11 +134,29 @@ export function criarIngressoDaNota(
   origem: { host: 'claude-code' | 'codex'; connectionId: string },
   elicitar: (apresentacao: ApresentacaoDaNota, signal: AbortSignal) => Promise<RespostaDaNota>,
   temFormulario: () => boolean,
+  opcoes: { esperaDaTravaMs?: number } = {},
 ): { solicitar: (threadId: string, signal?: AbortSignal) => Promise<ResultadoDaNotaLocal>; fechar: () => void } {
   if (!['claude-code', 'codex'].includes(origem.host) || !ID.test(origem.connectionId)) throw new Error('master.nota.origem-invalida');
   const conexao = { ...origem }, ativos = new Map<string, AbortController>();
   let fechada = false;
   const pendente = (threadId: string): ResultadoDaNotaLocal => ({ ok: false, threadId, estado: 'pendente', repetida: false });
+  const esperaDaTrava = opcoes.esperaDaTravaMs ?? ESPERA_DA_TRAVA_MS;
+  /** A trava da thread, esperada em passos curtos: ocupada alem da espera, a recusa diz que a nota nao foi gravada. */
+  const comTrava = async <T>(threadId: string, executar: () => T): Promise<T> => {
+    const ate = Date.now() + esperaDaTrava;
+    for (;;) {
+      try {
+        return comLockHitl(raiz, threadId, executar);
+      } catch (e) {
+        if (!/^HITL ocupado/.test((e as Error).message)) throw e;
+        if (Date.now() >= ate) {
+          throw new Error(`master.nota.trava-ocupada: a thread ${threadId} seguiu ocupada por ${Math.round(esperaDaTrava / 1000)} s; ` +
+            'a nota não foi gravada, dê de novo');
+        }
+      }
+      await new Promise((r) => setTimeout(r, PASSO_DA_TRAVA_MS));
+    }
+  };
   return {
     fechar() { fechada = true; for (const c of ativos.values()) c.abort(); },
     async solicitar(threadId, signal) {
@@ -159,12 +185,12 @@ export function criarIngressoDaNota(
         if (fechada || controller.signal.aborted || resposta?.action !== 'accept') return pendente(threadId);
         const nota = lerRespostaDaNota(resposta.content);
         const recebidoEm = new Date().toISOString();
-        return comLockHitl(raiz, threadId, (): ResultadoDaNotaLocal => {
+        const gravada = await comTrava(threadId, (): ResultadoDaNotaLocal => {
           const atual = lerThread(raiz, threadId);
           if (notaHumanaRegistrada(atual)) return { ok: true, threadId, estado: 'registrada', repetida: true, score: atual.score!.valor };
           const recibo = gravarEvidenciaLocalNota(raiz, { thread: threadId, pedidoId: pedido.pedidoId, host: conexao.host,
             connectionId: conexao.connectionId, requestId, recebidoEm, score: nota.score, justificativaSha256: sha(nota.justificativa) });
-          registrarMaster(raiz, threadId, {
+          gravarMaster(raiz, threadId, {
             score: nota.score, justificativa: nota.justificativa, por: AUTOR_DA_NOTA_NATIVA, refazer: !!atual.score,
             prova: {
               origem: 'mcp-local', canal: conexao.host, contratoResposta: CONTRATO_RECIBO_DA_NOTA, conexao: conexao.connectionId,
@@ -174,6 +200,9 @@ export function criarIngressoDaNota(
           });
           return { ok: true, threadId, estado: 'registrada', repetida: false, score: nota.score };
         });
+        // D17: a thread fechada solta o que segurava depois da trava, como no `registrarMaster`.
+        if (!gravada.repetida) liberarAoFechar(raiz, threadId);
+        return gravada;
       } finally {
         clearTimeout(timer);
         signal?.removeEventListener('abort', abortar);

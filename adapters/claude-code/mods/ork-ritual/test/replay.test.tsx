@@ -106,6 +106,22 @@ test('as paginas da secao master: segue o nextOffset ate o fim; o corte por byte
   ])
 })
 
+test('sem entrega visivel e com threads que o retrato nao leu, a faixa nao some: aponta o ork master, e o painel diz o mesmo', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', paginas: {
+    0: retratoMaster([itemMaster('ork-c', { regime: 'batch', score: 5, dias: 1 })], { lacunas: ['ledger.unavailable:ork-x', 'maestro.messages.omitted:4'] }),
+  } })
+  await iniciar($)
+  await relogio.advance(1)
+  await esperar(() => mundo.faixas.length > 0)
+  expect(mundo.faixas.at(-1)).toEqual({ mod: 'ork-ritual', texto: 'o retrato não leu 5 threads: ork master lista as entregas que esperam a sua nota · /nota' })
+  const textos = await textosDoPainel($, 'terminal')
+  expect(textos[0]).toBe('Ritual do MASTER · o retrato não leu 5 threads · lido há 0 s')
+  expect(textos).toContain('o retrato não leu 5 threads (ork-x e +4): a lista pode estar incompleta; ork master lista todas')
+  expect(textos).toContain('Nenhuma das entregas que o retrato leu espera a sua nota nos últimos 7 dias; ork master lista as das threads que ele não leu.')
+  expect(textos).not.toContain('Nada espera a sua nota nos últimos 7 dias.')
+})
+
 test('o replay: Ver a prova le as claims so com o threadId, uma por vez, o ultimo registro de cada id e as retiradas fora', { plugins: [PONTE_FALSA] }, async ($, on) => {
   const relogio = mock.clock(on, { now: EPOCA })
   const mundo = montar(on, { papel: 'dono', paginas: PAGINAS, claims: { 'ork-a': CLAIMS_A } })

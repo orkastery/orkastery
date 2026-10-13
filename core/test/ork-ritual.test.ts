@@ -13,6 +13,7 @@ import { adicionarClaim, retirarClaim } from '../src/claims';
 import { listarClaimsMcp } from '../src/mcp-artifacts';
 import { registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { aceitarPorOmissao, registrarMaster } from '../src/master';
+import { ESPERA_DA_TRAVA_MS, PRAZO_DO_DIALOGO_MS } from '../src/master-nota-local';
 import { discoverMaestro } from '../src/maestro-discovery';
 import { maestroSnapshot } from '../src/maestro-snapshot';
 import { dirThread, novaThread } from '../src/thread';
@@ -171,6 +172,11 @@ test('faixa, lacunas, paginas, json do MCP, ledger e numero', () => {
   assert.equal(r.textoDaFaixa(quadro([])), undefined);
   assert.equal(r.textoDaFaixa(quadro(['ork-a'], null)), undefined);
   assert.equal(r.textoDaFaixa({ ...quadro(['ork-a', 'ork-b']), semLeitura: 3 }), 'pelo menos 2 entregas esperam a sua nota: ork-a, ork-b · /nota');
+  // Sem entrega visivel e com thread sem leitura, a faixa nao some: aponta o ork master.
+  assert.equal(r.textoDaFaixa({ ...quadro([]), semLeitura: 5 }), 'o retrato não leu 5 threads: ork master lista as entregas que esperam a sua nota · /nota');
+  const vazioSemLeitura = replay().linhasDoPainel({ ...quadro([]), semLeitura: 5 }, { agora: EPOCA }).map((l: { texto: string }) => l.texto);
+  assert.deepEqual(vazioSemLeitura, ['Ritual do MASTER · o retrato não leu 5 threads · lido há 0 s',
+    'Nenhuma das entregas que o retrato leu espera a sua nota nos últimos 7 dias; ork master lista as das threads que ele não leu.']);
   assert.deepEqual(r.avisosDasLacunas([]), []);
   assert.deepEqual(r.avisosDasLacunas(['a', 'b', 'a', 'c', 'd']), ['o retrato do MASTER veio incompleto: 4 lacunas (a, b, c, ...)']);
   // O corte da pagina por bytes nao falta nada; as threads sem leitura somam as nomeadas e as omitidas (de todas as paginas).
@@ -322,7 +328,7 @@ test('nota: os argumentos do botao so com o threadId, o argv da reserva, a leitu
     assert.throws(() => n.argvDaReserva(ruim), /id de thread invalido/, ruim);
   }
   assert.equal(n.FERRAMENTA_DA_NOTA, 'ork_request_master_note');
-  assert.ok(n.PRAZO_DA_NOTA_MS > 300000, 'o botao espera mais que o dialogo do nucleo');
+  assert.ok(n.PRAZO_DA_NOTA_MS > PRAZO_DO_DIALOGO_MS + ESPERA_DA_TRAVA_MS, 'o botao espera mais que o dialogo e a trava do nucleo');
   assert.deepEqual(n.resultadoDaNota({ ok: true, estado: 'registrada', repetida: false, score: 3 }, 'ork-a', 7),
     { estado: 'registrada', texto: 'nota 3/5 da ork-a registrada pelo diálogo nativo', em: 7 });
   assert.equal(n.resultadoDaNota({ ok: true, estado: 'registrada', repetida: true, score: 5 }, 'ork-a', 7).estado, 'repetida');
@@ -331,6 +337,9 @@ test('nota: os argumentos do botao so com o threadId, o argv da reserva, a leitu
   assert.equal(n.notaDoErro(new Error('master.nota.sem-dialogo: x'), 1).estado, 'sem-dialogo');
   assert.equal(n.notaDoErro(new Error('mcp.tool.unknown'), 1).estado, 'sem-dialogo');
   assert.equal(n.notaDoErro(new Error('hitl.local.chave-invalida'), 1).estado, 'erro');
+  // A thread que seguiu ocupada depois da resposta volta a ter o botao, sem reserva.
+  assert.deepEqual(n.notaDoErro(new Error('master.nota.trava-ocupada: a thread ork-a seguiu ocupada por 60 s'), 1),
+    { estado: 'pendente', texto: 'a thread seguiu ocupada e a nota não foi gravada; dê de novo', em: 1 });
   assert.equal(n.pedeReserva({ estado: 'sem-dialogo' }), true);
   assert.equal(n.pedeReserva({ estado: 'erro' }), true);
   for (const estado of ['abrindo', 'registrada', 'repetida', 'pendente']) assert.equal(n.pedeReserva({ estado }), false, estado);

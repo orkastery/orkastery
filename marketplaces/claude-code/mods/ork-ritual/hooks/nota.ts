@@ -10,8 +10,8 @@ import type { RitualNota, RitualReserva } from '../types'
 import { exigirThread, umaLinha } from './ritual'
 
 export const FERRAMENTA_DA_NOTA = 'ork_request_master_note'
-/** O dialogo do nucleo fecha em ate 300 s; a espera do botao passa um pouco disso. */
-export const PRAZO_DA_NOTA_MS = 310000
+/** O dialogo do nucleo fecha em ate 300 s e a gravacao espera a trava da thread por ate 60 s; o botao passa um pouco disso. */
+export const PRAZO_DA_NOTA_MS = 370000
 /** O pedido pelo Telegram so grava o pedido de nota e devolve o codigo. */
 export const PRAZO_DA_RESERVA_MS = 60000
 
@@ -37,9 +37,15 @@ export function resultadoDaNota(resposta: unknown, thread: string, agora: number
   return { estado: 'pendente', texto: 'o diálogo fechou sem nota; a entrega segue esperando', em: agora }
 }
 
-/** O que o cartao diz quando o "Dar a nota" falhou: sem dialogo nativo (ou sem a ferramenta) a reserva aparece. */
+/**
+ * O que o cartao diz quando o "Dar a nota" falhou: sem dialogo nativo (ou sem a ferramenta) a reserva aparece; a thread
+ * que seguiu ocupada depois da resposta volta a ter o botao, sem reserva.
+ */
 export function notaDoErro(erro: unknown, agora: number): RitualNota {
   const motivo = umaLinha(erro)
+  if (/master\.nota\.trava-ocupada/.test(motivo)) {
+    return { estado: 'pendente', texto: 'a thread seguiu ocupada e a nota não foi gravada; dê de novo', em: agora }
+  }
   if (/master\.nota\.sem-dialogo/.test(motivo)) {
     return { estado: 'sem-dialogo', texto: 'o diálogo nativo não abriu: este cliente MCP não abre formulário; peça a nota pelo Telegram', em: agora }
   }

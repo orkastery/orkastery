@@ -129,8 +129,9 @@ export function linhasDoPainel(q: RitualQuadro, opcoes: { agora: number; foco?: 
   const foco = opcoes.foco ?? null
   const notas = opcoes.notas ?? {}
   const reservas = opcoes.reservas ?? {}
-  saida.push({ tipo: 'placar', texto: foco ? `Ritual do MASTER · prova da ${foco}`
-    : `Ritual do MASTER · ${q.semLeitura ? 'pelo menos ' : ''}${plural(q.entregas.length, 'entrega espera', 'entregas esperam')} a sua nota · ${haQuanto(q.lidoEm, opcoes.agora)}` })
+  const quantas = q.semLeitura && !q.entregas.length ? `o retrato não leu ${plural(q.semLeitura, 'thread', 'threads')}`
+    : `${q.semLeitura ? 'pelo menos ' : ''}${plural(q.entregas.length, 'entrega espera', 'entregas esperam')} a sua nota`
+  saida.push({ tipo: 'placar', texto: foco ? `Ritual do MASTER · prova da ${foco}` : `Ritual do MASTER · ${quantas} · ${haQuanto(q.lidoEm, opcoes.agora)}` })
   if (q.erro) saida.push({ tipo: 'aviso', texto: `a última leitura falhou: ${q.erro}` })
   for (const aviso of q.avisos) saida.push({ tipo: 'aviso', texto: aviso })
   saida.push(...notasFeitas(q, notas))
@@ -145,7 +146,9 @@ export function linhasDoPainel(q: RitualQuadro, opcoes: { agora: number; foco?: 
     saida.push({ tipo: 'aviso', texto: `${plural(q.foraDaJanela, 'entrega sem a sua nota ficou', 'entregas sem a sua nota ficaram')} fora da janela de ${JANELA_DIAS} dias (ork master)` })
   }
   if (!q.entregas.length) {
-    saida.push({ tipo: 'vazio', texto: q.lidoEm === null ? 'lendo as entregas no núcleo...' : `Nada espera a sua nota nos últimos ${JANELA_DIAS} dias.` })
+    saida.push({ tipo: 'vazio', texto: q.lidoEm === null ? 'lendo as entregas no núcleo...'
+      : q.semLeitura ? `Nenhuma das entregas que o retrato leu espera a sua nota nos últimos ${JANELA_DIAS} dias; ork master lista as das threads que ele não leu.`
+        : `Nada espera a sua nota nos últimos ${JANELA_DIAS} dias.` })
     return saida
   }
   for (const e of q.entregas) {

@@ -14,10 +14,11 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { projetoTemporario, ProjetoDeTeste } from './apoio';
+import { dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
 import { ambienteDoIngresso, dizer } from './apoio-pulse';
 import { criarServidorMcp } from '../src/mcp-server';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
@@ -89,6 +90,18 @@ function dialogoControlado(p: ProjetoDeTeste, conexao: string) {
   const ingresso = criarIngressoDaNota(p.dir, { host: 'claude-code', connectionId: conexao },
     () => new Promise<RespostaDaNota>((resolve) => { soltar = resolve; }), () => true);
   return { ingresso, soltar: (r: RespostaDaNota) => soltar(r) };
+}
+
+/**
+ * Segura a trava de HITL da thread como outro processo seguraria (um aceite por omissao, um despacho): o flock fica no
+ * descritor aberto aqui ate o prazo. O arquivo nasce pela propria trava do nucleo, privado e no contrato dela.
+ */
+function segurarTrava(p: ProjetoDeTeste, id: string, ms: number): Promise<void> {
+  comLockHitl(p.dir, id, () => undefined);
+  const fd = fs.openSync(path.join(dirThread(p.dir, id), '.hitl.lock'), fs.constants.O_RDWR);
+  const r = spawnSync('/usr/bin/flock', ['--exclusive', '--nonblock', '3'], { stdio: ['ignore', 'pipe', 'pipe', fd] });
+  assert.equal(r.status, 0, 'a trava de teste foi tomada');
+  return new Promise((resolve) => setTimeout(() => { fs.closeSync(fd); resolve(); }, ms));
 }
 
 /** O `master_done` sem os campos que o ledger carimba, para regravar uma variante dele. */
@@ -271,6 +284,7 @@ test('nota local: o recibo confere a nota do diálogo; adulterado, apagado, forj
     assert.equal(conferirReciboLocalNota(p.dir, t.id, { ...feito, score: 5 }), false, 'outra nota');
     assert.equal(conferirReciboLocalNota(p.dir, t.id, { ...feito, canal: 'codex' }), false, 'outro host');
     assert.equal(conferirReciboLocalNota(p.dir, t.id, { ...feito, por: 'mcp-local:claude-code' }), false, 'outra identidade');
+    assert.equal(conferirReciboLocalNota(p.dir, t.id, { ...feito, origem: 'telegram' }), false, 'outra origem');
     assert.equal(conferirReciboLocalNota(p.dir, t.id, { ...feito, justificativa: `${PORQUE}!` }), false, 'outro porquê');
     const editada = lerThread(p.dir, t.id);
     editada.score = { ...editada.score!, valor: 5 };
@@ -378,6 +392,98 @@ test('nota local: com nota humana pelo Telegram antes, a ferramenta devolve repe
   } finally { restaurar(); p.limpar(); }
 });
 
+test('nota local: a nota de nome humano sem master_done que a confirme a listagem trata como pendente, e o aceite também', () => {
+  const p = projetoTemporario('nota-local-limbo');
+  try {
+    const t = entregue(p, 'limbo', false);
+    // A gravação interrompida entre o thread.json e o ledger (o registrarMaster fecha a thread antes dos eventos):
+    // score de nome humano, thread fechada, nenhum master_done.
+    const th = lerThread(p.dir, t.id);
+    th.score = { valor: 1, justificativa: 'nota antiga sem master_done', avaliadoPor: 'Dono Simulado', avaliadoEm: QUANDO, regime: 'batch' };
+    th.status = 'fechada';
+    gravarThread(p.dir, th);
+    assert.equal(masterRatificado(p.dir, t.id), false);
+    assert.deepEqual(entregasParaOmissao(p.dir, t.id).map((x) => x.thread.id), [t.id], 'a listagem a trata como pendente');
+    assert.deepEqual(aceitarPendentesPorOmissao(p.dir, { thread: t.id }).map((a) => a.thread), [t.id], 'e o aceite também, como na base');
+    assert.equal(lerThread(p.dir, t.id).score!.regime, 'omissao');
+    assert.deepEqual(entregasParaOmissao(p.dir, t.id), [], 'a lista e o aceite concordam');
+  } finally { p.limpar(); }
+});
+
+test('nota local: com a trava da thread tomada por outro processo, a gravação espera e grava quando ela solta', async () => {
+  const p = projetoTemporario('nota-local-trava-espera');
+  try {
+    const t = entregue(p, 'trava espera');
+    const { ingresso, soltar } = dialogoControlado(p, 'conexao-trava-espera');
+    const aberta = ingresso.solicitar(t.id);
+    await new Promise((r) => setTimeout(r, 30));
+    const solta = segurarTrava(p, t.id, 600);
+    const inicio = Date.now();
+    soltar({ action: 'accept', content: { nota: '3', porque: PORQUE } });
+    assert.deepEqual(await aberta, { ok: true, threadId: t.id, estado: 'registrada', repetida: false, score: 3 });
+    assert.ok(Date.now() - inicio >= 400, 'esperou a trava');
+    await solta;
+    assert.equal(lerThread(p.dir, t.id).score!.avaliadoPor, AUTOR_DA_NOTA_NATIVA);
+  } finally { p.limpar(); }
+});
+
+test('nota local: a nota pelo diálogo fecha a thread e solta o que ela segurava, depois da trava', async () => {
+  const p = projetoTemporario('nota-local-soltura');
+  const bin = dirTemporario('nota-local-soltura-bin');
+  const conta = path.join(p.dir, 'contas', 'processo');
+  const codex = path.join(p.dir, 'contas', 'codex');
+  const sessao = '5959fec0-0000-4000-8000-000000000001';
+  fs.mkdirSync(conta, { recursive: true });
+  fs.mkdirSync(codex, { recursive: true });
+  // O runtime falso: a sessão da thread aparece parada (fantasma); o fechamento só a marca, nunca para nem remove.
+  fs.writeFileSync(path.join(bin, 'claude'), '#!/bin/sh\nif [ "$1" = "agents" ]; then cat "$CLAUDE_CONFIG_DIR/agents.json"; fi\nexit 0\n', { mode: 0o755 });
+  fs.writeFileSync(path.join(conta, 'agents.json'), JSON.stringify([{ sessionId: sessao, cwd: '/srv/x', state: 'blocked' }]));
+  const anterior = { PATH: process.env.PATH, CLAUDE: process.env.CLAUDE_CONFIG_DIR, CODEX: process.env.CODEX_HOME };
+  const volta = (k: string, v: string | undefined) => { if (v === undefined) delete process.env[k]; else process.env[k] = v; };
+  process.env.PATH = `${bin}:${anterior.PATH ?? ''}`;
+  process.env.CLAUDE_CONFIG_DIR = conta;
+  process.env.CODEX_HOME = codex;
+  try {
+    const t = entregue(p, 'soltura', false);
+    const th = lerThread(p.dir, t.id);
+    th.sessoes.push({ sessionId: sessao, runtime: 'claude-bg', slug: th.slug, fase: 'GOAL', bloco: 'full', verificada: true,
+      origem: 'adocao', adotadaEm: th.criadaEm, cwdOrigem: p.dir });
+    gravarThread(p.dir, th);
+    registrar(dirThread(p.dir, t.id), t.id, TIPOS_DE_EVENTO.faseDespachada, { fase: 'GOAL', slug: th.slug, sessionId: sessao });
+    const { ingresso, soltar } = dialogoControlado(p, 'conexao-soltura');
+    const aberta = ingresso.solicitar(t.id);
+    await new Promise((r) => setTimeout(r, 30));
+    soltar({ action: 'accept', content: { nota: '4', porque: PORQUE } });
+    assert.equal((await aberta).estado, 'registrada');
+    assert.equal(lerThread(p.dir, t.id).status, 'fechada');
+    const mortes = lerLedger(dirThread(p.dir, t.id)).filter((e) => e.tipo === 'sessao_morta');
+    assert.deepEqual(mortes.map((e) => [e.sessionId, e.origem]), [[sessao, 'fechamento']], 'a soltura do fechamento rodou');
+  } finally {
+    volta('PATH', anterior.PATH); volta('CLAUDE_CONFIG_DIR', anterior.CLAUDE); volta('CODEX_HOME', anterior.CODEX);
+    fs.rmSync(bin, { recursive: true, force: true });
+    p.limpar();
+  }
+});
+
+test('nota local: a trava ocupada além da espera recusa com master.nota.trava-ocupada e nada da nota é gravado', async () => {
+  const p = projetoTemporario('nota-local-trava-ocupada');
+  try {
+    const t = entregue(p, 'trava ocupada');
+    let soltar: (r: RespostaDaNota) => void = () => undefined;
+    const ingresso = criarIngressoDaNota(p.dir, { host: 'claude-code', connectionId: 'conexao-trava-ocupada' },
+      () => new Promise<RespostaDaNota>((resolve) => { soltar = resolve; }), () => true, { esperaDaTravaMs: 300 });
+    const aberta = ingresso.solicitar(t.id);
+    await new Promise((r) => setTimeout(r, 30));
+    const antes = retrato(p, t.id);
+    const solta = segurarTrava(p, t.id, 1200);
+    soltar({ action: 'accept', content: { nota: '1', porque: PORQUE } });
+    await assert.rejects(aberta, /master\.nota\.trava-ocupada/);
+    await solta;
+    assert.deepEqual(retrato(p, t.id), antes, 'nem o MASTER nem o recibo');
+    assert.equal(lerThread(p.dir, t.id).score!.regime, 'omissao');
+  } finally { p.limpar(); }
+});
+
 test('nota local: a identidade da nota nativa não se digita no --por, com qualquer grafia, nem com uma prova inventada', () => {
   const p = projetoTemporario('nota-local-por');
   try {
@@ -386,7 +492,8 @@ test('nota local: a identidade da nota nativa não se digita no --por, com qualq
     const inventada = { origem: 'mcp-local', canal: 'claude-code', contratoResposta: 'ork.hitl-local-master-note/v1', conexao: 'c1',
       solicitacao: 'r1', recebidoEm: QUANDO, recibo: 'a'.repeat(64), evidencia: `.orkastery/threads/${t.id}/hitl-ingress-local/x.json`,
       evidenciaSha256: 'b'.repeat(64), notaPedida: { pedidoId: 'p1' } };
-    for (const por of [AUTOR_DA_NOTA_NATIVA, 'Dono (Diálogo Nativo)', '  dono   (dialogo  nativo) ']) {
+    for (const por of [AUTOR_DA_NOTA_NATIVA, 'Dono (Diálogo Nativo)', '  dono   (dialogo  nativo) ', 'dono(dialogo nativo)', 'dono (dialogo nativo).',
+      'DONO - DIÁLOGO NATIVO']) {
       assert.throws(() => registrarMaster(p.dir, t.id, { score: 4, justificativa: 'x y z', por, refazer: true }), /não se digita no --por/, por);
       assert.throws(() => registrarMaster(p.dir, t.id, { score: 4, justificativa: 'x y z', por, refazer: true, prova: inventada }),
         /não se digita no --por/, por);

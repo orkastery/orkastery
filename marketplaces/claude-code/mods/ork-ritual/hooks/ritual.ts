@@ -170,10 +170,13 @@ export function semNotaDada(entregas: readonly RitualEntrega[], notas: Readonly<
 
 /**
  * A linha da faixa: quantas entregas esperam a nota e quais; sem nenhuma (ou antes da primeira leitura), sem linha. Com
- * thread que o retrato nao leu, a contagem e "pelo menos".
+ * thread que o retrato nao leu, a contagem e "pelo menos", e sem entrega visivel a linha aponta o `ork master`.
  */
 export function textoDaFaixa(q: RitualQuadro): string | undefined {
-  if (q.lidoEm === null || !q.entregas.length) return undefined
+  if (q.lidoEm === null) return undefined
+  if (!q.entregas.length) {
+    return q.semLeitura ? `o retrato não leu ${plural(q.semLeitura, 'thread', 'threads')}: ork master lista as entregas que esperam a sua nota · /nota` : undefined
+  }
   const nomes = q.entregas.slice(0, 3).map(e => e.thread)
   const resto = q.entregas.length - nomes.length
   return `${q.semLeitura ? 'pelo menos ' : ''}${plural(q.entregas.length, 'entrega espera', 'entregas esperam')} a sua nota: ${nomes.join(', ')}${resto > 0 ? ` e +${resto}` : ''} · /nota`
