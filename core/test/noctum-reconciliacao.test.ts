@@ -5,15 +5,16 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
-import { projetoTemporario, runtimeFalso } from './apoio';
+import { commitar, projetoTemporario, runtimeFalso, shaDaBranch } from './apoio';
 import { abrirArco, despachar, gravarArtefato, passar, prepararIngressoSimulado, stopSemResultado, threadDoTrabalho } from './noctum-apoio';
 import { runtimeCom, runtimeSemLeitura } from './noctum-supervisao-apoio';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { registrar } from '../src/ledger';
 import { concluirDespacho, lerArco, reservarDespacho } from '../src/noctum-arco';
 import { envelopeComTrabalhos } from '../src/noctum-envelope';
-import { decidirPedidos, decidirReservas, decidirSessoes, DecisaoDeSessao, faseDaRetomada, paradaPorAmbiente, provaDaSessao,
-  recusaDeAmbiente } from '../src/noctum-reconciliacao';
+import { decidirPedidos, decidirReservas, decidirSessoes, DecisaoDeSessao, efeitosAbertos, faseDaRetomada, paradaPorAmbiente, provaDaSessao,
+  reconciliarEfeito, recusaDeAmbiente, registrarEfeitoIncerto } from '../src/noctum-reconciliacao';
+import { exec } from '../src/util';
 import { caminhoDaFila, enfileirar, lerFilaDeRetomada, PedidoComPerfil } from '../src/ratelimit';
 import { retomarPorId } from '../src/retry';
 import { rodarFase } from '../src/phase';
@@ -345,5 +346,80 @@ test('R12: o pedido aguardando do arco vira a retomada da fase uma vez; depois d
     revogarArco(p.dir, 'arco-r12');
     const [encerrado] = decidir();
     assert.ok(encerrado.acao === 'cancelar' && /terminou \(revogado\)/.test(encerrado.motivo), JSON.stringify(encerrado));
+  } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// D18: o efeito externo de resultado incerto (o push), com um remoto bare local.
+// ---------------------------------------------------------------------------
+
+/** Um commit numa branch de trabalho do projeto de teste, publicado ou não no remoto bare. */
+function commitNaBranch(p: Projeto, branch: string, publicar: boolean): string {
+  exec('git', ['checkout', '-q', '-b', branch], p.dir);
+  commitar(p.dir, `${branch.replace(/\//g, '-')}.md`, `# ${branch} SIMULADO\n`, `trabalho SIMULADO em ${branch}`);
+  const sha = shaDaBranch(p.dir, branch);
+  if (publicar) assert.equal(exec('git', ['push', '-q', 'origin', branch], p.dir).ok, true);
+  exec('git', ['checkout', '-q', 'main'], p.dir);
+  return sha;
+}
+
+const efeito = (sha: string, branch: string, remoto = 'origin') =>
+  ({ acao: 'push' as const, repositorio: 'exemplo/produto', remoto, branch, sha, trabalho: 'a', thread: null, detalhe: 'o push estourou o prazo (SIMULADO)' });
+
+test('R13: o push incerto que o remoto tem confirma, e nada se repete; o envelope não muda', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r13', true);
+  try {
+    arcoComThread(p, 'arco-r13');
+    const envelope = lerArco(p.dir, 'arco-r13')!;
+    const sha = commitNaBranch(p, 'ork/trabalho-r13', true);
+    const id = registrarEfeitoIncerto(p.carregado, 'arco-r13', efeito(sha, 'ork/trabalho-r13'));
+    assert.deepEqual(efeitosAbertos(lerSupervisao(p.dir, 'arco-r13')), [id]);
+    const r = reconciliarEfeito(p.carregado, 'arco-r13', id);
+    assert.deepEqual([r.desfecho, r.podeRepetir, r.isolado], ['confirmado', false, false]);
+    assert.deepEqual(efeitosAbertos(lerSupervisao(p.dir, 'arco-r13')), []);
+    const linhas = lerSupervisao(p.dir, 'arco-r13').linhas;
+    assert.equal(reconciliarEfeito(p.carregado, 'arco-r13', id).desfecho, 'confirmado');
+    assert.equal(lerSupervisao(p.dir, 'arco-r13').linhas, linhas, 'o desfecho final não é relido nem regravado');
+    const depois = lerArco(p.dir, 'arco-r13')!;
+    assert.deepEqual([depois.versao, depois.envelopeSha256, depois.conteudo!.janela.fim], [envelope.versao, envelope.envelopeSha256, envelope.conteudo!.janela.fim]);
+  } finally { p.limpar(); }
+});
+
+test('R14: o push incerto que o remoto não tem permite repetir com teto; outro sha na branch isola o trabalho', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r14', true);
+  try {
+    arcoComThread(p, 'arco-r14');
+    const sha = commitNaBranch(p, 'ork/trabalho-r14', false);
+    const primeiro = reconciliarEfeito(p.carregado, 'arco-r14', registrarEfeitoIncerto(p.carregado, 'arco-r14', efeito(sha, 'ork/trabalho-r14')));
+    assert.deepEqual([primeiro.desfecho, primeiro.podeRepetir, primeiro.isolado], ['ausente', true, false]);
+    passar(5);
+    // A repetição também ficou incerta: um efeito novo do mesmo push, e o teto (2) chegou.
+    const segundo = reconciliarEfeito(p.carregado, 'arco-r14', registrarEfeitoIncerto(p.carregado, 'arco-r14', efeito(sha, 'ork/trabalho-r14')));
+    assert.deepEqual([segundo.desfecho, segundo.podeRepetir, segundo.isolado], ['ausente', false, true]);
+    assert.equal(lerSupervisao(p.dir, 'arco-r14').isolados.get('a')?.motivo, 'efeito-esgotado');
+    // Outro arco: a branch existe no remoto com outro commit.
+    arcoComThread(p, 'arco-r14b', 'RM-902');
+    const publicado = commitNaBranch(p, 'ork/trabalho-r14b', true);
+    const r = reconciliarEfeito(p.carregado, 'arco-r14b', registrarEfeitoIncerto(p.carregado, 'arco-r14b', efeito(sha, 'ork/trabalho-r14b')));
+    assert.deepEqual([r.desfecho, r.podeRepetir, r.isolado], ['divergente', false, true]);
+    assert.match(r.prova, new RegExp(publicado));
+    assert.equal(lerSupervisao(p.dir, 'arco-r14b').isolados.get('a')?.motivo, 'efeito-divergente');
+  } finally { p.limpar(); }
+});
+
+test('R15: o remoto sem leitura é lacuna: o efeito fica aberto, é lido de novo e isola no teto; sem sha completo, recusa', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r15', true);
+  try {
+    arcoComThread(p, 'arco-r15');
+    const sha = commitNaBranch(p, 'ork/trabalho-r15', true);
+    const id = registrarEfeitoIncerto(p.carregado, 'arco-r15', efeito(sha, 'ork/trabalho-r15', 'remoto-que-nao-existe-SIMULADO'));
+    const r1 = reconciliarEfeito(p.carregado, 'arco-r15', id);
+    assert.deepEqual([r1.desfecho, r1.podeRepetir, r1.isolado], ['sem-leitura', false, false]);
+    assert.deepEqual(efeitosAbertos(lerSupervisao(p.dir, 'arco-r15')), [id], 'a lacuna segue aberta para o tique seguinte');
+    const r2 = reconciliarEfeito(p.carregado, 'arco-r15', id);
+    assert.deepEqual([r2.desfecho, r2.isolado], ['sem-leitura', true]);
+    assert.equal(lerSupervisao(p.dir, 'arco-r15').isolados.get('a')?.motivo, 'efeito-sem-leitura');
+    assert.deepEqual(efeitosAbertos(lerSupervisao(p.dir, 'arco-r15')), []);
+    assert.throws(() => registrarEfeitoIncerto(p.carregado, 'arco-r15', efeito('abc123', 'ork/trabalho-r15')), /sha completo/);
   } finally { p.limpar(); }
 });

@@ -18,16 +18,19 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { createHash } from 'node:crypto';
 import { lerLedger } from './ledger';
+import { ManifestoCarregado } from './manifest';
 import { DespachoDoArco, EstadoDoArco } from './noctum-arco';
 import { LeituraDeSessoes } from './noctum-capacidade';
-import { ConteudoV2, correlacaoDoArco, EstadoDaSupervisao, EventoDaSupervisao, MotivoDaRetomada, ParametrosDaSupervisao,
-  retomadasDe, threadsDoArco } from './noctum-supervisao';
+import { ConteudoV2, correlacaoDoArco, DesfechoDoEfeito, EfeitoIncerto, EstadoDaSupervisao, EventoDaSupervisao, gravarNaSupervisao,
+  lerSupervisao, MotivoDaRetomada, ParametrosDaSupervisao, RecusaDaSupervisao, retomadasDe, threadsDoArco } from './noctum-supervisao';
 import { esperaDoCondutor, pendenciaDoDono } from './parado-no-condutor';
 import { lerFilaDeRetomada, PedidoComPerfil } from './ratelimit';
 import { SessaoDaConta } from './sessoes-contas';
 import { dirThread, lerThread, listarIds } from './thread';
 import { EventoLedger, Fase, Thread } from './types';
+import { exec } from './util';
 
 const TERMINAIS = ['done', 'completed', 'exited', 'stopped', 'failed'];
 /** O runtime mostra a sessão trabalhando agora (o claude-bg diz `running` ou `busy`; o watcher, `working`). */
@@ -440,4 +443,85 @@ export function decidirPedidos(raiz: string, arco: string, conteudo: ConteudoV2,
       prova: `pedido ${p.id} da fila durável (libera em ${p.liberaEm}${p.janelaEstimada ? ', janela estimada' : ', hora dita pelo runtime'})` });
   }
   return decisoes;
+}
+
+// ---------------------------------------------------------------------------
+// D18: o efeito externo de resultado incerto (o push).
+// ---------------------------------------------------------------------------
+
+/** A leitura do remoto: o sha da branch, `null` sem a branch, ou a falta de leitura. */
+export type LeituraDoRemoto = { ok: true; sha: string | null } | { ok: false; detalhe: string };
+export type LeitorDoRemoto = (remoto: string, branch: string, cwd: string) => LeituraDoRemoto;
+
+/** O `git ls-remote` da branch exata, com prazo e sem pedir credencial no terminal. */
+export const lerRemotoPadrao: LeitorDoRemoto = (remoto, branch, cwd) => {
+  const r = exec('git', ['ls-remote', '--heads', remoto, `refs/heads/${branch}`], cwd, 30_000, { ...process.env, GIT_TERMINAL_PROMPT: '0' });
+  if (!r.ok) return { ok: false, detalhe: `git ls-remote saiu ${r.code}: ${(r.stderr.trim().split('\n')[0] ?? '').slice(0, 160)}` };
+  const linha = r.stdout.split('\n').find(l => l.endsWith(`\trefs/heads/${branch}`));
+  const sha = linha?.split('\t')[0] ?? null;
+  return { ok: true, sha: sha && /^[0-9a-f]{40}$/.test(sha) ? sha : null };
+};
+
+export interface ReconciliacaoDoEfeito {
+  id: string;
+  desfecho: DesfechoDoEfeito;
+  /** Quem chama pode repetir o efeito, conferindo o envelope de novo antes (`conferirAntesDoEfeito`); nunca às cegas. */
+  podeRepetir: boolean;
+  /** O trabalho foi isolado: remoto divergente, sem leitura no teto ou tentativas esgotadas. */
+  isolado: boolean;
+  prova: string;
+}
+
+const chaveDoEfeito = (e: EfeitoIncerto): string => JSON.stringify([e.acao, e.repositorio, e.remoto, e.branch, e.sha, e.trabalho]);
+
+/** D18: registra o efeito de resultado incerto (o push que estourou o prazo ou caiu sem resposta) e devolve o id dele. */
+export function registrarEfeitoIncerto(carregado: ManifestoCarregado, arco: string, efeito: EfeitoIncerto, quando = new Date().toISOString()): string {
+  if (!/^[0-9a-f]{40}$/.test(efeito.sha) || !efeito.branch || !efeito.remoto) {
+    throw new RecusaDaSupervisao('noctum.supervisao.invalida', 'efeito incerto exige o sha completo, a branch e o remoto');
+  }
+  const id = 'E-' + createHash('sha256').update(JSON.stringify([arco, chaveDoEfeito(efeito), quando])).digest('hex').slice(0, 12);
+  gravarNaSupervisao(carregado, arco, [{ tipo: 'efeito_incerto', id, efeito: { ...efeito, detalhe: efeito.detalhe.slice(0, 200) } }], quando);
+  return id;
+}
+
+/**
+ * D18: o remoto decide o efeito incerto, e o desfecho vai ao log. Igual ao sha: confirmado, e nunca se repete. Branch
+ * ausente: a repetição é permitida enquanto os efeitos do mesmo push não passam do teto, e quem repete confere o envelope
+ * de novo; no teto, o trabalho é isolado. Outro sha na branch: divergente, isolado (alguém escreveu ali). Sem leitura:
+ * lacuna, lida de novo no tique seguinte, e isolada no teto. Desfecho final não é relido.
+ */
+export function reconciliarEfeito(carregado: ManifestoCarregado, arco: string, id: string,
+  opcoes: { lerRemoto?: LeitorDoRemoto; cwd?: string; quando?: string } = {}): ReconciliacaoDoEfeito {
+  const quando = opcoes.quando ?? new Date().toISOString();
+  const sup = lerSupervisao(carregado.raiz, arco);
+  const ef = sup.efeitos.get(id);
+  if (!ef) throw new RecusaDaSupervisao('noctum.supervisao.invalida', `efeito ${id} sem registro neste arco`);
+  const teto = sup.parametros?.leiturasDoEfeito ?? 2;
+  const ultimo = ef.desfechos.at(-1);
+  if (ultimo && ultimo.desfecho !== 'sem-leitura') {
+    return { id, desfecho: ultimo.desfecho, podeRepetir: false, isolado: sup.isolados.has(ef.efeito.trabalho), prova: ultimo.prova };
+  }
+  const r = (opcoes.lerRemoto ?? lerRemotoPadrao)(ef.efeito.remoto, ef.efeito.branch, opcoes.cwd ?? carregado.raiz);
+  const desfecho: DesfechoDoEfeito = !r.ok ? 'sem-leitura' : r.sha === ef.efeito.sha ? 'confirmado' : r.sha === null ? 'ausente' : 'divergente';
+  const prova = !r.ok ? r.detalhe : r.sha === null ? `a branch ${ef.efeito.branch} não existe no remoto ${ef.efeito.remoto}`
+    : `o remoto ${ef.efeito.remoto} tem ${r.sha} na branch ${ef.efeito.branch}`;
+  // As tentativas do mesmo push (a mesma chave) contam juntas: um efeito novo não zera o teto.
+  const mesmas = [...sup.efeitos.values()].filter(x => chaveDoEfeito(x.efeito) === chaveDoEfeito(ef.efeito)).length;
+  const leituras = ef.desfechos.filter(d => d.desfecho === 'sem-leitura').length + 1;
+  const podeRepetir = desfecho === 'ausente' && mesmas < teto;
+  const motivo = desfecho === 'divergente' ? 'efeito-divergente' as const : desfecho === 'sem-leitura' && leituras >= teto ? 'efeito-sem-leitura' as const
+    : desfecho === 'ausente' && !podeRepetir ? 'efeito-esgotado' as const : null;
+  const linhas: EventoDaSupervisao[] = [{ tipo: 'efeito_reconciliado', id, desfecho, prova: prova.slice(0, 300) }];
+  if (motivo) linhas.push({ tipo: 'isolado', trabalho: ef.efeito.trabalho, thread: ef.efeito.thread, motivo,
+    detalhe: `${ef.efeito.acao} de ${ef.efeito.sha.slice(0, 12)} em ${ef.efeito.branch}: ${prova}`.slice(0, 300) });
+  gravarNaSupervisao(carregado, arco, linhas, quando);
+  return { id, desfecho, podeRepetir, isolado: motivo !== null || sup.isolados.has(ef.efeito.trabalho), prova };
+}
+
+/** Os efeitos incertos ainda sem desfecho final: o vigia os relê a cada tique. */
+export function efeitosAbertos(sup: EstadoDaSupervisao): string[] {
+  return [...sup.efeitos.values()].filter(e => {
+    const ultimo = e.desfechos.at(-1);
+    return (!ultimo || ultimo.desfecho === 'sem-leitura') && !sup.isolados.has(e.efeito.trabalho);
+  }).map(e => e.id);
 }
