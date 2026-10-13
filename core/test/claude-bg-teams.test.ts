@@ -3,7 +3,8 @@
  * `runtime.agent_teams` (`ligado`, `teammates`, `custo_usd`), desligado por padrão; o contexto validado leva os tetos
  * só com o GO no bloco da fase atual; e o `montarComando` do `claude-bg` só os põe no `--settings` (com a variável do
  * Claude Code e `teammateMode` `in-process`) quando o Portão de Tarefas vai à sessão, porque é ele quem aplica os tetos.
- * Com o catálogo real deste repositório, sem rede e sem `claude` (a versão vai no pedido).
+ * Com o catálogo real deste repositório, sem rede e sem `claude` (a versão vai no pedido). RM-059 (T9.4): o Mensageiro
+ * de Sessões também vai à sessão despachada, e o mesmo `--settings` leva `crossSessionInbound: accept` junto.
  */
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
@@ -55,11 +56,11 @@ function preparar(nome: string, opcoes: { modo?: 'auto' | 'classic'; teams?: str
 
 const LIGADO = ['ligado: true', 'teammates: 2', 'custo_usd: 10'];
 
-test('A1 sem runtime.agent_teams o despacho do GO sai como hoje: o --settings só com o env do despacho', () => {
+test('A1 sem runtime.agent_teams o despacho do GO sai como hoje: o --settings só com o env do despacho e a entrada do Mensageiro', () => {
   const f = preparar('teams-sem-chave');
   try {
     const args = f.comando('2.1.296 (Claude Code)');
-    assert.deepEqual(settings(args), { env: DO_DESPACHO });
+    assert.deepEqual(settings(args), { env: DO_DESPACHO, crossSessionInbound: 'accept' });
     assert.ok(args.includes(path.join(f.validado.instalacao, 'mods', MOD_DOS_TETOS)), 'o Portão vai à sessão de fase');
     assert.equal(f.validado.agentTeams, null);
   } finally { f.p.limpar(); }
@@ -72,6 +73,7 @@ test('A2 ligado, com tetos válidos, GO no bloco e o Portão na sessão: a vari�
     assert.deepEqual(settings(args), {
       env: { ...DO_DESPACHO, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1', ORK_AGENT_TEAMS_TEAMMATES: '2', ORK_AGENT_TEAMS_CUSTO_USD: '10' },
       teammateMode: 'in-process',
+      crossSessionInbound: 'accept',
     });
     assert.ok(args.indexOf('--settings') < args.indexOf('--plugin-dir'), 'o --settings segue antes dos plugins, como antes');
     assert.deepEqual(f.validado.agentTeams, { teammates: 2, custo_usd: 10 });
@@ -81,12 +83,12 @@ test('A2 ligado, com tetos válidos, GO no bloco e o Portão na sessão: a vari�
 test('A3 sem o GO no bloco da fase atual (#Classic no GOAL), agent teams fica desligado', () => {
   const f = preparar('teams-sem-go', { modo: 'classic', teams: LIGADO });
   try {
-    assert.deepEqual(settings(f.comando('2.1.296 (Claude Code)')), { env: DO_DESPACHO });
+    assert.deepEqual(settings(f.comando('2.1.296 (Claude Code)')), { env: DO_DESPACHO, crossSessionInbound: 'accept' });
     assert.equal(f.validado.agentTeams, null);
   } finally { f.p.limpar(); }
 });
 
-test('A4 com um claude abaixo da API de mods ou ilegível, o Portão fica fora e agent teams também', () => {
+test('A4 com um claude abaixo da API de mods ou ilegível, o Portão fica fora e agent teams também (e o Mensageiro e a entrada dele)', () => {
   const f = preparar('teams-claude-velho', { teams: LIGADO });
   try {
     for (const versao of ['2.1.286 (Claude Code)', null]) assert.deepEqual(settings(f.comando(versao)), { env: DO_DESPACHO });

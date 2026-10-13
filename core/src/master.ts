@@ -41,6 +41,8 @@ import { calcularIndice, Indice } from './indice';
 import { registrarReversaoDaEntrega } from './ship';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { liberarAoFechar } from './fechamento';
+import { conferirReciboLocalNota, IDENTIDADE_DA_NOTA_NATIVA } from './hitl-local-receipt';
+import { comLockInspecionavel } from './hitl-lock';
 
 /** Identificador do contrato congelado do MASTER log. */
 export const CONTRATO_MASTER_LOG = 'ork.master-log/v1';
@@ -449,6 +451,35 @@ export function exigirAutoriaHumana(por: unknown): asserts por is string {
   if (!autoriaHumana(por)) throw new Error('ratificação exige --por humano explícito (ex.: --por "seu-nome"); agente ou autoria pendente não pode pontuar');
 }
 
+/**
+ * RM-059 (T8.1; D12 da thread ork-rm059ritual, que reve a D3): quem da a nota pelo dialogo nativo do host
+ * (`ork_request_master_note`). E uma identidade que o `autoriaHumana` de qualquer versao aceita: o contrato congelado
+ * do MASTER log nao muda, e um `ork` antigo, uma chave local trocada ou um recibo apagado nunca deixam a omissao trocar
+ * a nota do dono. O recibo assinado do ingresso local e conferido na ESCRITA: no `--por` esta identidade nao se digita.
+ * Na leitura ele fica como a prova do caminho (`conferirReciboLocalNota`), sem decidir se a nota vale.
+ */
+export const AUTOR_DA_NOTA_NATIVA = IDENTIDADE_DA_NOTA_NATIVA;
+/** A identidade reservada com qualquer caixa, acento, espaco ou pontuacao: `--por "Dono(Diálogo Nativo)."` tambem e ela. */
+const soLetras = (v: string): string => semAcento(v.toLowerCase()).replace(/[^a-z0-9]+/g, '');
+export function identidadeDaNotaNativa(por: unknown): boolean {
+  return typeof por === 'string' && soLetras(por) === soLetras(AUTOR_DA_NOTA_NATIVA);
+}
+function exigirReciboDaNotaNativa(raiz: string, id: string, opcoes: OpcoesMaster): void {
+  if (opcoes.por !== AUTOR_DA_NOTA_NATIVA || !opcoes.prova || !conferirReciboLocalNota(raiz, id, { ...opcoes.prova,
+    por: opcoes.por, score: opcoes.score, justificativa: opcoes.justificativa.trim() })) {
+    throw new Error(`a identidade ${AUTOR_DA_NOTA_NATIVA} é da nota pelo diálogo nativo e só se grava com o recibo dele ` +
+      '(ork_request_master_note); ela não se digita no --por');
+  }
+}
+
+/**
+ * A thread tem nota humana, e nao a aceita por omissao. E o mesmo criterio da resposta pelo Telegram
+ * (`responderNota`): a nota humana que ja esta gravada nao se troca, nem pela omissao.
+ */
+export function notaHumanaRegistrada(t: Thread): boolean {
+  return !!t.score && t.score.regime !== 'omissao' && autoriaHumana(t.score.avaliadoPor);
+}
+
 export function masterRatificado(raiz: string, id: string): boolean {
   const t = lerThread(raiz, id);
   if (!t.score || !autoriaHumana(t.score.avaliadoPor) || t.fechamentoAdmin) return false;
@@ -460,13 +491,26 @@ export function masterRatificado(raiz: string, id: string): boolean {
 export function preflightMaster(raiz: string, id: string, opcoes: OpcoesMaster): ResultadoMaster {
   // Mantém erros de valor e duplicação anteriores ao erro de autoria.
   const r = prepararDocumentos(raiz, id, opcoes);
-  exigirAutoriaHumana(opcoes.por);
+  if (identidadeDaNotaNativa(opcoes.por)) exigirReciboDaNotaNativa(raiz, id, opcoes);
+  else exigirAutoriaHumana(opcoes.por);
   const erros = validarMasterLog(r.masterLog);
   if (erros.length) throw new Error(erros.join('; '));
   return r;
 }
 
 export function registrarMaster(raiz: string, id: string, opcoes: OpcoesMaster): ResultadoMaster {
+  const r = gravarMaster(raiz, id, opcoes);
+  // RM-037 (rm037noite): a thread fechada solta o que segurava, com registro no ledger dela.
+  liberarAoFechar(raiz, id);
+  return r;
+}
+
+/**
+ * RM-059 (D17 da thread ork-rm059ritual): o MASTER sem soltar o que a thread segurava. Quem grava sob a trava de HITL
+ * (o aceite por omissao e a nota pelo dialogo nativo) chama `liberarAoFechar` depois de solta-la: a soltura consulta o
+ * runtime e o git das reservas, e a trava nao espera por isso.
+ */
+export function gravarMaster(raiz: string, id: string, opcoes: OpcoesMaster): ResultadoMaster {
   const r = preflightMaster(raiz, id, opcoes);
   const { thread, postmortem, masterLog } = r;
   gravarJson(r.caminhoPostmortem, postmortem);
@@ -490,8 +534,6 @@ export function registrarMaster(raiz: string, id: string, opcoes: OpcoesMaster):
     masterLogSha256: hashDocumento(r.caminhoMasterLog), postmortemSha256: hashDocumento(r.caminhoPostmortem),
     ...(opcoes.prova ? { prova: 'ingresso-autenticado', ...opcoes.prova } : {}),
   });
-  // RM-037 (rm037noite): a thread fechada solta o que segurava, com registro no ledger dela.
-  liberarAoFechar(raiz, id);
   return r;
 }
 
@@ -633,6 +675,8 @@ export interface AceitePorOmissao {
   aceitoEm: string;
   /** O score que ficou gravado no aceite, para a divergencia com o indice ao vivo aparecer. */
   scoreGravado?: number | null;
+  /** RM-059 (D13): a nota humana chegou antes da trava do aceite; nada foi gravado e ela ficou. */
+  preservada?: true;
 }
 
 /** Quem decide quando ninguem decide. Literal unico, para o leitor reconhecer. */
@@ -659,38 +703,50 @@ export const AUTOR_DA_OMISSAO = 'nucleo ork (omissao)';
  * entrega passou sem revisao continua sendo verdade.
  */
 export function aceitarPorOmissao(raiz: string, id: string): AceitePorOmissao {
-  const thread = lerThread(raiz, id);
   const dir = dirThread(raiz, id);
   // A1: aceitar por default so pode carimbar nota depois de perguntar ao git se a
   // entrega ainda esta de pe. Era aqui que uma entrega revertida virava score 5.
   const indice = indiceDaThread(raiz, id);
   const aceitoEm = agora();
 
-  registrar(dir, id, TIPOS_DE_EVENTO.aceitePorOmissao, {
-    fase: 'MASTER',
-    indice: indice.valor,
-    base: indice.base,
-    // Os INSUMOS vao junto: um numero sem origem no ledger e um numero inventado.
-    insumos: indice.parcelas.map((p) => ({ evento: p.evento, ocorrencias: p.ocorrencias, desconto: p.desconto })),
-    decididoPor: AUTOR_DA_OMISSAO,
-    razao: 'entrega aceita por default: ninguem pontuou. Nota humana posterior sobrescreve, e este evento permanece',
-  });
+  // RM-059 (T8.1, D13 e D17): o aceite grava sob a mesma trava da nota pelo Telegram e pelo dialogo nativo, e rele a
+  // thread dentro dela. A nota humana ratificada que chegou depois da listagem (ou do indice, que pergunta ao git) fica
+  // como esta; a de nome humano sem `master_done` que a confirme a listagem ja trata como pendente, e o aceite tambem.
+  // O que a thread segurava e solto depois da trava.
+  const aceite = comLockInspecionavel(dir, 'thread-dispatch-ou-hitl', (): AceitePorOmissao => {
+    const thread = lerThread(raiz, id);
+    if (notaHumanaRegistrada(thread) && masterRatificado(raiz, id)) {
+      return { thread: id, indice, decididoPor: AUTOR_DA_OMISSAO, aceitoEm, scoreGravado: thread.score!.valor, preservada: true };
+    }
 
-  registrarMaster(raiz, id, {
-    score: Math.round(indice.valor),
-    justificativa:
-      `Aceita por omissao: ninguem pontuou esta entrega. Indice derivado do ledger = ` +
-      `${indice.valor} de ${indice.base}` +
-      (indice.parcelas.length === 0
-        ? ', sem reversao, GO-FIX, CHECK refeito nem ship barrado.'
-        : `, descontando ${indice.parcelas.map((p) => `${p.evento} x${p.ocorrencias}`).join(', ')}.`) +
-      ' O dono pode pontuar quando quiser; a nota humana sobrescreve e o registro da omissao permanece.',
-    por: AUTOR_DA_OMISSAO,
-    regime: 'omissao',
-    refazer: thread.status === 'fechada',
-  });
+    registrar(dir, id, TIPOS_DE_EVENTO.aceitePorOmissao, {
+      fase: 'MASTER',
+      indice: indice.valor,
+      base: indice.base,
+      // Os INSUMOS vao junto: um numero sem origem no ledger e um numero inventado.
+      insumos: indice.parcelas.map((p) => ({ evento: p.evento, ocorrencias: p.ocorrencias, desconto: p.desconto })),
+      decididoPor: AUTOR_DA_OMISSAO,
+      razao: 'entrega aceita por default: ninguem pontuou. Nota humana posterior sobrescreve, e este evento permanece',
+    });
 
-  return { thread: id, indice, decididoPor: AUTOR_DA_OMISSAO, aceitoEm };
+    gravarMaster(raiz, id, {
+      score: Math.round(indice.valor),
+      justificativa:
+        `Aceita por omissao: ninguem pontuou esta entrega. Indice derivado do ledger = ` +
+        `${indice.valor} de ${indice.base}` +
+        (indice.parcelas.length === 0
+          ? ', sem reversao, GO-FIX, CHECK refeito nem ship barrado.'
+          : `, descontando ${indice.parcelas.map((p) => `${p.evento} x${p.ocorrencias}`).join(', ')}.`) +
+        ' O dono pode pontuar quando quiser; a nota humana sobrescreve e o registro da omissao permanece.',
+      por: AUTOR_DA_OMISSAO,
+      regime: 'omissao',
+      refazer: thread.status === 'fechada',
+    });
+
+    return { thread: id, indice, decididoPor: AUTOR_DA_OMISSAO, aceitoEm };
+  });
+  if (!aceite.preservada) liberarAoFechar(raiz, id);
+  return aceite;
 }
 
 /** As entregas aceitas por omissao: o que passou sem o dono olhar. */
@@ -818,7 +874,16 @@ export function tabelaDeEntregas(raiz: string, todas = false): string {
  * aceita-la seria inventar um fato.
  */
 export function aceitarPendentesPorOmissao(raiz: string, opcoes: { thread?: string } = {}): AceitePorOmissao[] {
-  return entregasParaOmissao(raiz, opcoes.thread).map((p) => aceitarPorOmissao(raiz, p.thread.id));
+  const aceitos: AceitePorOmissao[] = [];
+  for (const p of entregasParaOmissao(raiz, opcoes.thread)) {
+    let aceite: AceitePorOmissao;
+    // RM-059 (D13): sem thread indicada, a entrega com a trava de HITL tomada (uma nota sendo gravada agora) fica para
+    // o proximo aceite, e as outras seguem. Com a thread indicada, o erro chega a quem pediu.
+    try { aceite = aceitarPorOmissao(raiz, p.thread.id); }
+    catch (e) { if (opcoes.thread === undefined && /^HITL ocupado/.test((e as Error).message)) continue; throw e; }
+    if (!aceite.preservada) aceitos.push(aceite);
+  }
+  return aceitos;
 }
 
 /**

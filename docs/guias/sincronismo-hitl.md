@@ -757,11 +757,45 @@ mudou o que o núcleo traduz depois dela.
   `ork master` com `--por` vindo de processo de host recebe `master.prova-de-canal`, e `ORK_CANAL=cli`
   não absolve sessão despachada (`ORK_DISPATCH_ID`), Claude Code (`CLAUDECODE`) nem Codex
   (`CODEX_SANDBOX`).
+- **Nota do MASTER pelo diálogo nativo (RM-059, fatia F8):** na sessão do dono, a ferramenta MCP
+  `ork_request_master_note` recebe só o `threadId`, pede ao host um formulário com a nota de 0 a 5 e o
+  porquê e grava o `master_done` com `autorizadoPor` `dono (dialogo nativo)`, o canal `claude-code`, o
+  pedido de nota do `ork master pedir` e o recibo assinado em `hitl-ingress-local/`. Sem formulário no
+  cliente, recusa com `master.nota.sem-dialogo` sem gravar nada. O núcleo confere o recibo ao gravar (essa
+  identidade não se digita no `--por`), e a nota vale como nota humana em qualquer versão do `ork`: nem
+  o aceite por omissão nem a resposta pelo Telegram a trocam. O botão Dar a nota do
+  [Ritual do MASTER](ritual-do-master.md) chama essa ferramenta.
 - **O que isto NÃO prova:** o canal do processo é declarado pelo ambiente e só serve para recusar;
   quem apaga as variáveis do próprio host passa como terminal, e o Codex interativo que não exporta
-  `CODEX_SANDBOX` não é reconhecido. A nota dada do terminal e a aceita por omissão não tomam o lock
-  da thread; só a nota pelo canal toma. O diálogo MCP de nota para Claude Code e Codex fica para
-  depois.
+  `CODEX_SANDBOX` não é reconhecido. A nota dada do terminal não toma o lock da thread; a nota pelo
+  canal, a nota pelo diálogo nativo e o aceite por omissão tomam. O recibo do diálogo nativo prova o
+  caminho, não a pessoa: a chave local é legível pelo mesmo usuário do sistema, e um `ork` anterior a
+  esta versão aceita a identidade `dono (dialogo nativo)` no `--por` como qualquer nome.
+
+## M. Resposta de sessão `claude-bg` pelo Mensageiro (RM-059, fatia F9)
+
+Até aqui, a sessão de fase `claude-bg` que parava com uma pergunta não tinha pedido de sessão: o núcleo não sabia prender
+o pedido ao turno que parou nem entregar a resposta, e o caminho era o `claude attach`. O
+[Mensageiro de Sessões](mensageiro-de-sessoes.md) fecha esse caminho com o núcleo nas duas pontas.
+
+- **O vínculo:** o pedido de sessão `claude-bg` sai da transcrição que o próprio Claude Code grava: as últimas linhas do
+  assistente da conversa principal, sem linha do usuário depois, com texto e sem ferramenta. O `bloqueio` é o `uuid` da
+  última delas, e a pergunta nativa é a projeção do texto. Sem turno, ou com texto que não projeta, o pedido não abre e o
+  motivo vem com o código (`turno.ausente`, `pergunta.longa`, `pergunta.invalida`).
+- **A entrega assíncrona:** o controle de resposta `claude-bg` declara `assincrono`. O `session_answer_sending` leva o
+  recibo do ingresso, e, sem o recibo do receptor, a entrega devolve `aguardando-receptor` em vez de falhar; o
+  `session_answered` sai da reconciliação de sempre quando o receptor grava o recibo.
+- **A recusa antes de tudo:** sem caixa de saída no processo, ou sem Mensageiro que a consultou nos últimos 120 s, o
+  ingresso local recusa antes do diálogo, a entrega recusa antes de reservar e o Telegram recusa antes de gravar o
+  ingresso, sempre com `runtime.unavailable` e a correção.
+- **O receptor:** o `ork_session_inbox` só existe no servidor preso a uma thread e a um despacho. Ele tira a sessão do
+  `phase_dispatch` do despacho, nunca de argumento, aceita o envelope do Claude Code só na forma que o motor escreve,
+  confere a entrega, o sha256 e o turno, e reserva uma vez, só antes do prazo (`ate`) que o Mensageiro dá à conferência
+  (`entrega.prazo` depois dele; sem prazo, recusa). A pasta `.orkastery/threads/<thread>/entregas-de-sessao/` guarda a
+  reserva e o recibo, só com ids e o sha256. O Mensageiro entrega ao modelo só o corpo conferido, num envelope fixo
+  dele, sem os rótulos que a sessão remetente declara.
+- **O que isto NÃO prova:** a entrega numa sessão `claude --bg` de verdade, que esta fatia não abriu. O guia diz os
+  passos da prova e o que acontece se o formato no destino for outro: a entrega falha fechada.
 
 ## D. Rollback
 

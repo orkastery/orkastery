@@ -281,8 +281,11 @@ function textoDoErroDeApi(e: Record<string, unknown>): string {
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
-/** A transcricao da sessao no diretorio do perfil (ou no implicito, sem perfil); `null` com sessao que nao e uuid. */
-function arquivoDaTranscricao(perfil: PerfilDeDespacho | null, cwd: string, sessionId: string): string | null {
+/**
+ * A transcricao da sessao no diretorio do perfil (ou no implicito, sem perfil); `null` com sessao que nao e uuid.
+ * RM-059 (F9): o Mensageiro de Sessoes (`entrega-por-mod.ts`) acha nela o turno em que a sessao parou.
+ */
+export function arquivoDaTranscricao(perfil: PerfilDeDespacho | null, cwd: string, sessionId: string): string | null {
   if (!UUID.test(sessionId)) return null;
   return path.join(diretorioEfetivo('claude-bg', perfil), 'projects', path.resolve(cwd).replace(/[^a-zA-Z0-9-]/g, '-'),
     `${sessionId}.jsonl`);

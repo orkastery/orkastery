@@ -64,7 +64,7 @@ test('MCP filho fixa thread e omite criacao, redespacho e decisao do dono',async
   try {
     await server.connect(st);await client.connect(ct);
     const names=(await client.listTools()).tools.map(t=>t.name);
-    for(const name of ['ork_thread_new','ork_phase_run','ork_request_decision','ork_preflight']) {
+    for(const name of ['ork_thread_new','ork_phase_run','ork_request_decision','ork_request_master_note','ork_preflight']) {
       assert.ok(!names.includes(name));assert.equal((await call(client,name,{})).error,true);
     }
     assert.equal((await call(client,'ork_thread_status',{threadId:propria.id})).error,false);
@@ -94,8 +94,9 @@ test('MCP filho fixa thread e omite criacao, redespacho e decisao do dono',async
 test('MCP schemas fechados recusam shell, raiz, traversal e resposta gerada pelo modelo sem efeito',()=>fixture(async(p,c)=>{
   const {t,q}=pedido(p),before=fs.readFileSync(path.join(dirThread(p.dir,t.id),'ledger.jsonl'));
   const tools=(await c.listTools()).tools;
-  // RM-026 K7 (fatia 2): as quatro ork_conhecimento_*, de leitura, levam o catalogo de 31 a 35.
-  assert.equal(tools.length,35);assert.ok(tools.some(t=>t.name==='ork_network_status'));assert.ok(tools.some(t=>t.name==='ork_conhecimento_verificar'));assert.ok(tools.some(t=>t.name==='ork_network_roadmap'));assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
+  // RM-026 K7 (fatia 2): as quatro ork_conhecimento_*, de leitura, levam o catalogo de 31 a 35; a RM-059 (fatia F8) soma a
+  // ork_request_master_note: 36.
+  assert.equal(tools.length,36);assert.ok(tools.some(t=>t.name==='ork_network_status'));assert.ok(tools.some(t=>t.name==='ork_conhecimento_verificar'));assert.ok(tools.some(t=>t.name==='ork_request_master_note'));assert.ok(tools.some(t=>t.name==='ork_network_roadmap'));assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
   assert.ok(tools.some(t=>t.name==='ork_roadmap_reservas'));assert.ok(tools.some(t=>t.name==='ork_fabrica'));assert.ok(!tools.some(t=>/shell|answer/.test(t.name)));
   assert.equal(tools.find(t=>t.name==='ork_brain_context')?.annotations?.readOnlyHint,true);
   for(const tool of tools) assert.equal(tool.inputSchema.additionalProperties,false);
@@ -210,7 +211,7 @@ test('CLI mcp serve negocia stdio real sem banner e sem configuracao global',asy
   const transport=new StdioClientTransport({command:process.execPath,
     args:[path.resolve(__dirname,'../src/index.js'),'mcp','serve','--project',p.dir,'--host','codex'],
     cwd:p.dir,env:{PATH:process.env.PATH??'',HOME:p.dir},stderr:'pipe'});
-  try {await c.connect(transport);assert.equal((await c.listTools()).tools.length,35);}
+  try {await c.connect(transport);assert.equal((await c.listTools()).tools.length,36);}
   finally {await c.close();await transport.close();p.limpar();}
 });
 
@@ -299,8 +300,10 @@ test('MCP elicitation usa timeout cinco minutos e signal do ingresso, sem aceita
 
 test('D12: elicitation de pergunta aberta nao vira menu, e gate oferece opções com rótulos',()=>fixture(async(p,c)=>{
   const {t,q}=pedido(p);
+  // RM-059 (F9, D4): a sessao claude-bg so recebe pelo Mensageiro, e este servidor (codex) nao tem caixa de saida, entao
+  // o dialogo dela nem abre; o formulario da pergunta aberta e o mesmo para qualquer runtime, e aqui ele e o do codex.
   const sessao:PedidoHitl={...q,id:'q-mcp-sessao',
-    alvo:{tipo:'session',sessionId:'00000000-0000-0000-0000-000000000042',runtime:'claude-bg'},
+    alvo:{tipo:'session',sessionId:'00000000-0000-0000-0000-000000000042',runtime:'codex'},
     motivo:'hitl.pergunta',pergunta:'Qual e o diretorio correto?',
     opcoes:[],recomendacao:'Esta pergunta aceita texto livre.',
     criadoEm:new Date().toISOString(),prazo:new Date(Date.now()+60000).toISOString(),

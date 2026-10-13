@@ -11,7 +11,7 @@
 import { SessaoRuntime, SinalDeFalhaDeConta, SinalDeRateLimit } from '../types';
 import { instanteNoFuso, normalizarFuso, partesLocais } from '../horario';
 import { exec as executar, noPath } from '../util';
-import { ambienteDeAssinatura } from '../runtime-ambiente';
+import { ambienteDeAssinatura, ENV_IDENTIDADE_DE_DESPACHO } from '../runtime-ambiente';
 import * as path from 'node:path';
 import { ContextoRuntime, ModDeFase, validarContextoRuntime } from '../runtime-context';
 import { ambienteComPerfil, diretorioEfetivo, PerfilDeDespacho } from '../runtime-profiles';
@@ -190,6 +190,23 @@ export function agentTeamsDoDespacho(tetos: { teammates: number; custo_usd: numb
   };
 }
 
+/** RM-059 (fatia F9): o mod que confere, na sessao de fase, a resposta do dono que chega de outra sessao. */
+export const MOD_DA_ENTREGA = 'ork-mensageiro';
+
+/**
+ * RM-059 (T9.4, D14 da thread ork-rm059mensag): o que o despacho acrescenta ao `--settings` para a sessao de fase
+ * receber a resposta do dono pelo Mensageiro de Sessoes. `crossSessionInbound: accept` entrega a mensagem de outra
+ * sessao do mesmo usuario sem a paridade de modo, que numa sessao sem pessoa vence o prazo e descarta; por isso so
+ * vai com o Mensageiro entre os mods que vao de fato a sessao (sem ele, ninguem confere o que chega) e so na sessao
+ * despachada (`ORK_DISPATCH_ID` no env do despacho). Sem um dos dois, o `--settings` sai como antes.
+ */
+export function entradaDoDespacho(mods: readonly ModDeFase[], env: Readonly<Record<string, string>> | undefined):
+  { crossSessionInbound: 'accept' } | null {
+  if (!mods.some((m) => m.nome === MOD_DA_ENTREGA)) return null;
+  const despacho = env?.[ENV_IDENTIDADE_DE_DESPACHO];
+  return typeof despacho === 'string' && despacho.trim() !== '' ? { crossSessionInbound: 'accept' } : null;
+}
+
 /** Monta a linha de comando exata do despacho (usada tambem pelo `--dry-run`). */
 export function montarComando(pedido: DespachoPedido): string[] {
   const args = ['--bg', pedido.prompt, '--name', pedido.nome];
@@ -209,9 +226,11 @@ export function montarComando(pedido: DespachoPedido): string[] {
     : modsParaOClaude(contexto.modsDeFase, pedido.versaoClaude !== undefined ? pedido.versaoClaude : versao());
   // RM-059 (T10.4): agent teams so no piloto, com os tetos no env e o Portao na sessao; sem eles, o --settings de antes.
   const teams = agentTeamsDoDespacho(contexto?.agentTeams, mods);
+  // RM-059 (T9.4): a resposta do dono pelo Mensageiro so na sessao despachada e com ele na sessao.
+  const entrada = entradaDoDespacho(mods, pedido.ambienteExtra);
   const doDespacho = { ...(pedido.ambienteExtra ?? {}), ...(teams ? teams.env : {}) };
   if (Object.keys(doDespacho).length) {
-    args.push('--settings', JSON.stringify(teams ? { env: doDespacho, teammateMode: teams.teammateMode } : { env: doDespacho }));
+    args.push('--settings', JSON.stringify({ env: doDespacho, ...(teams ? { teammateMode: teams.teammateMode } : {}), ...(entrada ?? {}) }));
   }
   if (contexto) {
     const consultas = [...CONSULTAS_MCP, ...(contexto.grafoMcp ? consultasDoGrafoMcp() : [])];
