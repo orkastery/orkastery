@@ -11,7 +11,7 @@
  * head do PR. Sem CI verde, nao registra: merge sem prova independente nao e entrega.
  */
 import { exigirRemoto } from './branch-de-estado';
-import { consultarCi, consultarCiDoRepositorio, ExecutorCi, ResultadoCi } from './ci';
+import { ciNaoExigida, consultarCi, consultarCiDoRepositorio, ExecutorCi, ResultadoCi } from './ci';
 import { DocPendente, docsPendentesDoMerge } from './docs';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
@@ -90,8 +90,10 @@ export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: s
   }
   const encontrado = mergeDaEntrega(raiz, threadId, remoto, base);
   if (!encontrado) return resultado(threadId, 'sem-merge', textoDoCatalogo((m) => m.ship.prSemMerge(threadId, remoto, base)));
-  // Squash ou rebase: sem segundo pai o merge nao se liga ao head que a CI verificou. A CI do commit da base nao prova o head.
-  if (encontrado.headSha === null) {
+  // Squash ou rebase: sem segundo pai o merge nao se liga ao head que a CI verificou. Com a CI exigida, a CI do commit
+  // da base nao prova o head, e a entrega e recusada antes de qualquer consulta. Sem CI exigida, registra como sempre.
+  const exigeCi = carregado.manifesto.ci.required_for_ship;
+  if (encontrado.headSha === null && exigeCi) {
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemVinculo(threadId, encontrado.mergeSha.slice(0, 7))),
       { mergeSha: encontrado.mergeSha, codigo: 'entrega.sem-vinculo' });
   }
@@ -109,7 +111,10 @@ export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: s
   if (!ponta || !exec('git', ['merge-base', '--is-ancestor', merge.mergeSha, ponta], raiz).ok) {
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prForaDaPonta(merge.mergeSha.slice(0, 7), remoto, base)), merge);
   }
-  const ci = consultarCi(carregado, encontrado.headSha, remoto, opcoes.executorCi);
+  // A CI so e consultada no head do PR; sem head (squash ou rebase), so chega aqui sem CI exigida, e nada e consultado.
+  const ci = encontrado.headSha !== null
+    ? consultarCi(carregado, encontrado.headSha, remoto, opcoes.executorCi)
+    : ciNaoExigida(carregado, encontrado.mergeSha);
   if (ci.required && !ci.ok) {
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemCiVerde(remontar(ci.detail))), { ...merge, ci });
   }

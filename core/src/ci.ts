@@ -150,12 +150,18 @@ function alvoDaCi(url: string): { repository: string; host: string } | null {
   return { repository: e.caminho, host };
 }
 
+/** O resultado da CI quando o projeto nao a exige (`ci.required_for_ship: false`): nada e consultado na forja. */
+export function ciNaoExigida(carregado: ManifestoCarregado, sha: string): ResultadoCi {
+  const context = carregado.manifesto.ci.context || 'ork-verify';
+  return { schema: 'ork.ci-status/v1', required: false, ok: true, provider: 'github', repository: null, sha, context, state: 'disabled', url: null, detail: textoDoCatalogo((m) => m.ship.ciNaoExigidoDetalhe) };
+}
+
 export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto = 'origin', executor: ExecutorCi = executorPadrao,
   loginNoHost: (host: string) => boolean = loginPadrao): ResultadoCi {
   const { ci } = carregado.manifesto;
   const context = ci.context || 'ork-verify';
   const falha = (detalhe: string): ResultadoCi => ({ schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: null, sha, context, state: 'unavailable', url: null, detail: detalhe });
-  if (!ci.required_for_ship) return { schema: 'ork.ci-status/v1', required: false, ok: true, provider: 'github', repository: null, sha, context, state: 'disabled', url: null, detail: textoDoCatalogo((m) => m.ship.ciNaoExigidoDetalhe) };
+  if (!ci.required_for_ship) return ciNaoExigida(carregado, sha);
   // RM-047: o `--remoto` do `ork ci status` vem da linha de comando; so nome de remoto chega ao git.
   const remote = exec('git', ['remote', 'get-url', '--', exigirRemoto(remoto, 'ci')], carregado.raiz);
   const alvo = remote.ok ? alvoDaCi(remote.stdout) : null;
