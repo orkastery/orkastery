@@ -24,15 +24,16 @@ test('consulta exige sucesso do contexto e do SHA exatos', () => {
   // O remoto só é consultado para obter owner/repo; o executor injetado não usa rede.
   exec('git', ['remote', 'add', 'origin', remote], original);
   const sha = shaDaBranch(original, 'main');
-  const success = consultarCi(p.carregado, sha, 'origin', ({ repository, sha: got, context }) => {
+  const success = consultarCi(p.carregado, sha, 'origin', ({ repository, sha: got, context, caminho }) => {
     assert.equal(repository, 'Orkastery/orkastery');
     assert.equal(got, sha);
     assert.equal(context, 'ork-verify');
+    if (caminho?.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' };
     return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'success', html_url: 'https://example.test/run/1' }] }) };
   });
   assert.equal(success.ok, true);
   assert.equal(success.state, 'success');
-  const missing = consultarCi(p.carregado, sha, 'origin', () => ({ ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'outro-check', status: 'completed', conclusion: 'success' }] }) }));
+  const missing = consultarCi(p.carregado, sha, 'origin', (e) => ({ ok: true, code: 0, stderr: '', stdout: e.caminho?.includes('/statuses') ? '[]' : JSON.stringify({ check_runs: [{ name: 'outro-check', status: 'completed', conclusion: 'success' }] }) }));
   assert.equal(missing.ok, false);
   assert.equal(missing.state, 'missing');
   p.limpar();
@@ -176,8 +177,8 @@ test('ork-verify pulado não passa o gate e o detalhe diz bloqueado', () => {
   p.carregado.manifesto.ci.required_for_ship = true;
   exec('git', ['remote', 'add', 'origin', 'https://github.com/Orkastery/orkastery.git'], p.carregado.raiz);
   const sha = shaDaBranch(p.carregado.raiz, 'main');
-  const r = consultarCi(p.carregado, sha, 'origin', () => ({ ok: true, code: 0, stderr: '',
-    stdout: JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'skipped' }] }) }));
+  const r = consultarCi(p.carregado, sha, 'origin', (e) => ({ ok: true, code: 0, stderr: '',
+    stdout: e.caminho?.includes('/statuses') ? '[]' : JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'skipped' }] }) }));
   assert.equal(r.ok, false);
   assert.equal(r.state, 'failure');
   assert.match(r.detail, /bloqueado \(skipped\)/);

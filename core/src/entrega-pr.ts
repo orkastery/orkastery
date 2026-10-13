@@ -139,7 +139,7 @@ export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: s
 export type ExecutorGitHub = (caminho: string) => { ok: boolean; stdout: string; stderr: string; code: number };
 const ghApi: ExecutorGitHub = (caminho) => {
   const r = rodarCli({ cmd: 'gh', args: ['api', '--hostname', 'github.com', caminho, '-H', 'Accept: application/vnd.github+json'], prazoMs: 120000,
-    maxBuffer: 1024 * 1024, procurarBinario: false });
+    maxBuffer: 32 * 1024 * 1024 });
   return { ok: r.status === 0, code: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 };
 

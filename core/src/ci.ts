@@ -6,6 +6,7 @@ import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
 import { rodarCli } from './forja/executor';
 import { estadoDoCheck } from './forja/estado';
+import type { CheckNoCommit } from './forja/contrato';
 import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { branchDaWorktree } from './worktree';
 import { cwdLocalOuNulo } from './procedencia';
@@ -36,7 +37,7 @@ export interface ResultadoCi {
   detail: string;
 }
 
-export type ExecutorCi = (input: { repository: string; sha: string; context: string; host?: string }) =>
+export type ExecutorCi = (input: { repository: string; sha: string; context: string; host?: string; caminho?: string }) =>
   { ok: boolean; stdout: string; stderr: string; code: number };
 
 export interface BundleCi {
@@ -124,9 +125,11 @@ export function repositorioGitHub(url: string): string | null {
   return e && (e.host === 'github.com' || e.host === 'ssh.github.com') && e.caminho.split('/').length === 2 ? e.caminho : null;
 }
 
-function executorPadrao(input: { repository: string; sha: string; context: string; host?: string }) {
-  const r = rodarCli({ cmd: 'gh', args: ['api', '--hostname', input.host ?? 'github.com', `repos/${input.repository}/commits/${input.sha}/check-runs`,
-    '-H', 'Accept: application/vnd.github+json'], prazoMs: 120000, maxBuffer: 1024 * 1024, procurarBinario: false });
+function executorPadrao(input: { repository: string; sha: string; context: string; host?: string; caminho?: string }) {
+  // 32 MiB, o teto do `forja.ts`: uma pagina de 100 check-runs passa de 1 MiB com facilidade.
+  const r = rodarCli({ cmd: 'gh', args: ['api', '--hostname', input.host ?? 'github.com',
+    input.caminho ?? `repos/${input.repository}/commits/${input.sha}/check-runs`,
+    '-H', 'Accept: application/vnd.github+json'], prazoMs: 120000, maxBuffer: 32 * 1024 * 1024 });
   return { ok: r.status === 0, code: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
@@ -170,16 +173,63 @@ export function consultarCiDoRepositorio(repository: string, sha: string, contex
   const base = { schema: 'ork.ci-status/v1' as const, required: true, provider: 'github' as const, repository, sha, context };
   const lido = exigirCapacidade(adaptadorDaForja('github'), 'checksNoCommit')({ repository, sha, context, executor, host });
   if (!lido.ok && lido.erro.codigo === 'forja.resposta-invalida') {
-    return { ...base, ok: false, state: 'unavailable', url: null, detail: textoDoCatalogo((m) => m.ship.ciRespostaInvalida) };
+    return { ...base, ok: false, state: 'unavailable', url: null, detail: textoDoCatalogo((m) => lido.erro.detalhe === 'incompleto'
+      ? m.ship.ciIncompleto(context) : m.ship.ciRespostaInvalida) };
   }
   if (!lido.ok) return { ...base, ok: false, state: 'unavailable', url: null, detail: (lido.erro.detalhe || textoDoCatalogo((m) => m.ship.ciConsultaFalhou)).trim().slice(0, 400) };
   if (!lido.valor.length) return { ...base, ok: false, state: 'missing', url: null, detail: textoDoCatalogo((m) => m.ship.ciSemCheck(context)) };
-  const check = lido.valor.at(-1)!; // a mesma escolha de antes da porta: o ultimo da lista
-  const status = check.status;
-  const conclusion = check.conclusao ?? '';
-  const estado = estadoDoCheck(check.fonte, status, check.conclusao);
-  const state: EstadoCi = estado === 'verde' ? 'success' : estado === 'pendente' ? 'pending' : 'failure';
-  return { ...base, ok: state === 'success', state, url: check.url || null, detail: textoDoCatalogo((m) => state === 'success' ? m.ship.ciVerde : estado === 'bloqueado' ? m.ship.ciBloqueado(context, conclusion) : m.ship.ciEstado(context, String(status), conclusion)) };
+  const escolhidos = maisNovoPorProdutor(lido.valor);
+  // Commit status so endurece o gate: vermelho ou pendente bloqueia, mas verde sozinho nao basta. Qualquer um com
+  // escrita de status no repositorio publica `ork-verify: success` sem rodar o verify; enquanto nao houver lista de
+  // produtores confiaveis (`ci.produtor`), so check-run verde aprova.
+  const semCheckRunVerde = !escolhidos.some((c) => c.fonte === 'check-run' && estadoDoCheck(c.fonte, c.status, c.conclusao) === 'verde');
+  const statusSemProdutorConfiavel = (): ResultadoCi =>
+    ({ ...base, ok: false, state: 'missing', url: null, detail: textoDoCatalogo((m) => m.ship.ciStatusSemProdutorConfiavel(context)) });
+  if (escolhidos.length === 1) {
+    const check = escolhidos[0];
+    const status = check.status;
+    const conclusion = check.conclusao ?? '';
+    const estado = estadoDoCheck(check.fonte, status, check.conclusao);
+    const state = estadoNoGate(estado);
+    if (state === 'success' && semCheckRunVerde) return statusSemProdutorConfiavel();
+    return { ...base, ok: state === 'success', state, url: check.url || null, detail: textoDoCatalogo((m) => state === 'success' ? m.ship.ciVerde : estado === 'bloqueado' ? m.ship.ciBloqueado(context, conclusion) : m.ship.ciEstado(context, String(status), conclusion)) };
+  }
+  // Varios produtores: a combinacao e conservadora. Vermelho ou bloqueado de qualquer um reprova; senao, pendente
+  // de qualquer um espera; so todos verdes passam.
+  const lidos = escolhidos.map((check) => ({ check, state: estadoNoGate(estadoDoCheck(check.fonte, check.status, check.conclusao)) }));
+  const state: EstadoCi = lidos.some((l) => l.state === 'failure') ? 'failure' : lidos.some((l) => l.state === 'pending') ? 'pending' : 'success';
+  if (state === 'success' && semCheckRunVerde) return statusSemProdutorConfiavel();
+  const decisivo = lidos.find((l) => l.state === state)!;
+  const produtores = lidos.map((l) => `${nomeDoProdutor(l.check)} ${l.state}`).join(', ');
+  return { ...base, ok: state === 'success', state, url: decisivo.check.url || null, detail: textoDoCatalogo((m) => m.ship.ciProdutores(context, produtores)) };
+}
+
+function estadoNoGate(estado: ReturnType<typeof estadoDoCheck>): EstadoCi {
+  return estado === 'verde' ? 'success' : estado === 'pendente' ? 'pending' : 'failure';
+}
+
+/** O produtor como aparece no detalhe; check-run e commit status do mesmo nome sao produtores distintos. */
+function nomeDoProdutor(check: CheckNoCommit): string {
+  return `${check.produtor ?? '?'}${check.fonte === 'commit-status' ? ' (status)' : ''}`;
+}
+
+/**
+ * O check mais novo de cada produtor: maior `concluidoEm`, depois maior `ordem`. Sem `concluidoEm` (ainda rodando) e
+ * o mais novo; data ilegivel e a mais velha. Saida ordenada pelo nome do produtor, para o detalhe ser estavel.
+ */
+function maisNovoPorProdutor(checks: readonly CheckNoCommit[]): CheckNoCommit[] {
+  const quando = (c: CheckNoCommit): number => {
+    if (c.concluidoEm === null) return Number.POSITIVE_INFINITY;
+    const t = Date.parse(c.concluidoEm);
+    return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
+  };
+  const porProdutor = new Map<string, CheckNoCommit>();
+  for (const c of checks) {
+    const chave = nomeDoProdutor(c);
+    const atual = porProdutor.get(chave);
+    if (!atual || quando(c) > quando(atual) || (quando(c) === quando(atual) && c.ordem > atual.ordem)) porProdutor.set(chave, c);
+  }
+  return [...porProdutor.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, c]) => c);
 }
 
 export function executarCi(carregado: ManifestoCarregado, threadId: string): { status: ResultadoCi; verify: ResultadoVerify } {

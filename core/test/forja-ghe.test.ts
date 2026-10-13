@@ -13,7 +13,7 @@ function consultar(url: string) {
   exec('git', ['remote', 'add', 'origin', url], p.carregado.raiz);
   const sha = shaDaBranch(p.carregado.raiz, 'main');
   let host: string | undefined;
-  const r = consultarCi(p.carregado, sha, 'origin', (e) => { host = e.host; return { ok: true, code: 0, stderr: '', stdout: verde }; }, () => true);
+  const r = consultarCi(p.carregado, sha, 'origin', (e) => { if (e.caminho?.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' }; host = e.host; return { ok: true, code: 0, stderr: '', stdout: verde }; }, () => true);
   p.limpar();
   return { host, r };
 }
@@ -38,7 +38,7 @@ function consultarComLogin(url: string, login: (h: string) => boolean) {
   const sha = shaDaBranch(p.carregado.raiz, 'main');
   const hosts: Array<string | undefined> = [];
   const perguntados: string[] = [];
-  const r = consultarCi(p.carregado, sha, 'origin', (e) => { hosts.push(e.host); return { ok: true, code: 0, stderr: '', stdout: verde }; },
+  const r = consultarCi(p.carregado, sha, 'origin', (e) => { if (e.caminho?.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' }; hosts.push(e.host); return { ok: true, code: 0, stderr: '', stdout: verde }; },
     (h) => { perguntados.push(h); return login(h); });
   p.limpar();
   return { hosts, perguntados, r };
