@@ -657,9 +657,13 @@ export function observarContas(raiz: string, arco: string, conteudo: ConteudoV2,
         prova: 'o store de perfis dá a conta sem login: só o dono refaz o login' } });
     }
   }
-  const eventos = [...decisoes.values()].map(d => d.evento).filter(d => {
-    const atual = sup.contasFora.get(d.conta);
-    return !atual || atual.motivo !== d.motivo || atual.ate !== d.ate || atual.prova !== d.prova;
-  });
+  // RA1 da rodada 3: a decisão que já venceu (a cota com o reset dito no passado) não se grava: senão ela trocaria, tique
+  // sim, tique não, a decisão do store gravada depois dela.
+  const eventos = [...decisoes.values()].map(d => d.evento)
+    .filter(d => d.ate === null || Date.parse(d.ate) > agora)
+    .filter(d => {
+      const atual = sup.contasFora.get(d.conta);
+      return !atual || atual.motivo !== d.motivo || atual.ate !== d.ate || atual.prova !== d.prova;
+    });
   return { eventos, parada };
 }

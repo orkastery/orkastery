@@ -201,7 +201,8 @@ test('S7: o limite semanal com o reset dito tira a conta até o reset, e a sele�
     const reset = new Date(Date.now() + 5 * 24 * 3600_000).toISOString();
     falhaDoDespacho(p.dir, t.id, 'arco-s7', 'perfil-a', { motivo: 'runtime.quota-exhausted',
       falhaDeConta: { motivo: 'runtime.quota-exhausted', resetEm: reset, fonte: 'relogio', trecho: 'weekly limit SIMULADO' } });
-    const o = observarEGravar(p, 'arco-s7');
+    // O store também marcou A pela mesma falha: a decisão do arco, com o reset dito, vale sobre a do store.
+    const o = observarEGravar(p, 'arco-s7', storeCom([{ id: 'perfil-a', estado: 'esgotado', esgotadoAte: reset }, { id: 'perfil-b' }]));
     assert.deepEqual(o.eventos.map(e => e.tipo === 'conta_fora' ? `${e.conta}:${e.motivo}:${e.ate}` : e.tipo), [`perfil-a:cota:${reset}`]);
     assert.equal(observarContas(p.dir, 'arco-s7', conteudo(p, 'arco-s7'), lerArco(p.dir, 'arco-s7')!, lerSupervisao(p.dir, 'arco-s7'), null,
       new Date().toISOString()).eventos.length, 0, 'a mesma decisão não se grava duas vezes');
@@ -388,7 +389,20 @@ test('S15: só a falha do despacho do arco depois da autorização conta, a mais
     // Passado o reset dito, o store marca A de novo com um prazo estimado: a decisão vencida do arco não segura a do store.
     const tarde = new Date(Date.parse(r2) + 10 * 60_000).toISOString();
     const store = storeCom([{ id: 'perfil-a', estado: 'esgotado', esgotadoAte: new Date(Date.parse(r2) + 3600_000).toISOString() }, { id: 'perfil-b' }]);
-    const o2 = observarContas(p.dir, 'arco-s15', conteudo(p, 'arco-s15'), lerArco(p.dir, 'arco-s15', tarde)!, lerSupervisao(p.dir, 'arco-s15'), store, tarde);
-    assert.deepEqual(o2.eventos.map(e => e.tipo === 'conta_fora' ? `${e.conta}:${e.motivo}:${e.ate}` : e.tipo), ['perfil-a:cota-sem-reset:null']);
+    const tiqueEm = (quando: string, s: ReturnType<typeof storeCom>) => {
+      const o = observarContas(p.dir, 'arco-s15', conteudo(p, 'arco-s15'), lerArco(p.dir, 'arco-s15', quando)!, lerSupervisao(p.dir, 'arco-s15'), s, quando);
+      if (o.eventos.length) gravarNaSupervisao(p.carregado, 'arco-s15', o.eventos, quando);
+      return o.eventos.map(e => e.tipo === 'conta_fora' ? `${e.conta}:${e.motivo}:${e.ate}` : e.tipo);
+    };
+    assert.deepEqual(tiqueEm(tarde, store), ['perfil-a:cota-sem-reset:null']);
+    // Tiques seguidos não trocam a decisão gravada (a vencida não se grava), nem depois que o store devolve a conta.
+    const maisTarde = new Date(Date.parse(tarde) + 5 * 60_000).toISOString();
+    assert.deepEqual(tiqueEm(maisTarde, store), []);
+    assert.deepEqual(tiqueEm(new Date(Date.parse(tarde) + 10 * 60_000).toISOString(), store), []);
+    const devolvida = storeCom([{ id: 'perfil-a' }, { id: 'perfil-b' }]);
+    const bemDepois = new Date(Date.parse(r2) + 2 * 3600_000).toISOString();
+    assert.deepEqual(tiqueEm(bemDepois, devolvida), []);
+    assert.equal(lerSupervisao(p.dir, 'arco-s15').contasFora.get('perfil-a')?.motivo, 'cota-sem-reset', 'fora pelo resto do arco');
+    assert.deepEqual(visao(p, 'arco-s15', devolvida, bemDepois).perfis.map(x => x.id), ['perfil-b']);
   } finally { p.limpar(); }
 });

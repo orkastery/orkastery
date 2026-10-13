@@ -373,12 +373,13 @@ export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2,
       return { acao: 'retomar', trabalho, thread, fase, tentativa: feitas + 1, motivo, sessao: sessao?.sessionId ?? null, aposReserva, parar, morta, prova };
     };
     // NA3 da rodada 2: a última reserva do trabalho recusada pelo núcleo, com o bloqueio do despacho no ledger depois do
-    // último despacho, numa thread que o arco já despachou. A retomada é contada; a recusa repetida isola no teto (B4) e a
-    // de ambiente para o arco (D15).
+    // último despacho, numa thread já despachada. A retomada é contada; a recusa repetida isola no teto (B4) e a de ambiente
+    // da máquina para o arco (D15); a que passa (a conta, a vaga, a condução) se repete na cadência do arco.
     const ultimaReserva = estado.despachos.filter(x => x.trabalho === trabalho).sort((a, b) => b.seq - a.seq)[0];
     const bloqueio = bloqueioDepoisDoDespacho(eventos);
+    // NA3b da rodada 3: qualquer despacho vale (a thread que o dono despachou antes do arco também), como na B2.
     if (ultimaReserva?.desfecho === 'recusado' && recusaDoNucleo(ultimaReserva.motivo) && bloqueio?.deDespacho &&
-        eventos.some(e => e.tipo === 'phase_dispatch' && e.correlacao === correlacao)) {
+        eventos.some(e => e.tipo === 'phase_dispatch')) {
       decisoes.push(retomar(ultimaReserva.fase, 'despacho-falho', null,
         `o despacho do ${ultimaReserva.fase} foi recusado pelo núcleo (${ultimaReserva.motivo}) depois do último lançamento`, false));
       continue;
@@ -462,9 +463,13 @@ export function paradaPorAmbiente(sup: EstadoDaSupervisao, estado: EstadoDoArco)
     `(${seguidas.at(-1)!.detalhe.slice(0, 160)}): o dono confere o ambiente (o node no PATH, a instalação do MCP) antes de outro arco` };
 }
 
-/** A recusa do núcleo que vem do ambiente de quem despacha, e não do trabalho (o MCP divergente com outro `node` no PATH). */
+/**
+ * A recusa do núcleo que vem do ambiente da máquina de quem despacha, e não do trabalho: o MCP divergente com outro `node`
+ * no PATH, a instalação do MCP, o projeto sem o perfil do instalador. Os erros de contexto da thread (o escopo, a worktree,
+ * a identidade) contam como recusa do trabalho, que isola no teto (RA2 da rodada 3).
+ */
 export function recusaDeAmbiente(detalhe: string): boolean {
-  return /runtime\.context\.conflict/.test(detalhe);
+  return /runtime\.context\.(conflict|installation|missing)/.test(detalhe);
 }
 
 // ---------------------------------------------------------------------------

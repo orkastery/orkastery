@@ -421,6 +421,8 @@ test('G12: depois de uma recusa o condutor espera a pausa; o trabalho recusado s
     assert.deepEqual(recusasSeguidas(estado(['tree.blocked', 'tree.blocked']), 'a'), { n: 2, motivo: 'tree.blocked' });
     assert.deepEqual(recusasSeguidas(estado(['tree.blocked', 'tree.blocked', 'concurrency.limite']), 'a'), { n: 0, motivo: null });
     assert.deepEqual(recusasSeguidas(estado(['runtime.quota-exhausted', 'tree.blocked']), 'a'), { n: 1, motivo: 'tree.blocked' });
+    assert.deepEqual(recusasSeguidas(estado(['runtime.unavailable', 'runtime.unavailable']), 'a'), { n: 2, motivo: 'runtime.unavailable' },
+      'o runtime indisponível no portão não passa sozinho');
   } finally { p.limpar(); }
 });
 
@@ -630,5 +632,28 @@ test('G21: a morte já registrada no ledger não se registra de novo quando a re
     const r = tique(vigiarArco(p.carregado, 'arco-g21', opcoesSimuladas(p.dir, ITENS)));
     assert.equal(r.reservas, 1);
     assert.equal(lerLedger(dirThread(p.dir, t.id)).filter(e => e.tipo === 'sessao_morta' && e.sessionId === dita).length, 1);
+  } finally { p.limpar(); }
+});
+
+test('G22: a recusa do runtime indisponível no portão, repetida, isola o trabalho no teto; a que passa faz o condutor esperar a cadência', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-g22');
+  try {
+    abrirArco(p.dir, 'arco-g22', { trabalhos: [AC[0]], contas: DUAS });
+    const registro: string[] = [];
+    const opcoes = () => opcoesSimuladas(p.dir, ITENS, registro, {}, portaoDoPlan('runtime.unavailable', 'o runtime não está disponível (SIMULADO)') as never);
+    goalConcluido(p, 'arco-g22', opcoes);
+    const teto = lerSupervisao(p.dir, 'arco-g22').parametros!.tetoDeRetomadas;
+    for (let i = 0; i < teto + 2; i++) tique(vigiarArco(p.carregado, 'arco-g22', opcoes()));
+    assert.equal(lerSupervisao(p.dir, 'arco-g22').isolados.get('a')?.motivo, 'recusas-repetidas');
+    assert.equal(registro.filter(x => x.endsWith(':falhou')).length, teto);
+    // Outro arco: a vaga cheia passa, e o condutor espera a cadência (o vigia relê contas e vagas nela), não a pausa curta.
+    abrirArco(p.dir, 'arco-g22b', { trabalhos: [AC[1]], contas: DUAS });
+    gravarNaSupervisao(p.carregado, 'arco-g22b', [{ tipo: 'tique_iniciado', quem: instancia('vigia', 9) },
+      { tipo: 'tique_concluido', quem: instancia('vigia', 9), resumo: 'SIMULADO' }]);
+    const vaga: Falha = () => ({ sessionId: null, bloqueado: true, motivo: 'concurrency.limite', erro: 'a máquina está cheia (SIMULADO)' }) as unknown as ResultadoRun;
+    const dormiu: number[] = [];
+    const c = conduzirArco(p.carregado, 'arco-g22b', { ...opcoesSimuladas(p.dir, ITENS, [], {}, vaga as never), maxPassos: 1, dormir: (ms) => { dormiu.push(ms); } });
+    assert.ok(c.acao === 'saiu' && c.ultimo?.acao === 'recusado' && c.ultimo.motivo === 'concurrency.limite', JSON.stringify(c));
+    assert.deepEqual(dormiu, [lerSupervisao(p.dir, 'arco-g22b').parametros!.cadenciaMs]);
   } finally { p.limpar(); }
 });

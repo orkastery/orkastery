@@ -148,11 +148,12 @@ export const PAUSA_DEPOIS_DA_RECUSA_MS = 60_000;
 
 /**
  * As recusas do núcleo que dependem da conta, da vaga, da condução ou da baseline, ou que o próprio vigia gravou: passam, e
- * não contam para isolar o trabalho. As outras (a árvore bloqueada, a policy, o erro antes de lançar) contam.
+ * não contam para isolar o trabalho. As outras (a árvore bloqueada, a policy, o runtime indisponível no portão, o erro de
+ * contexto da thread, o erro antes de lançar) contam (RA2 da rodada 3: o runtime indisponível não passa sozinho).
  */
 const RECUSAS_PASSAGEIRAS = ['runtime.quota-exhausted', 'runtime.auth-missing', 'runtime.rate-limited', 'concurrency.limite',
-  'conducao.em-andamento', 'baseline.pendente', 'runtime.unavailable', 'noctum.orcamento.esgotado'];
-const passageira = (motivo: string | null): boolean => !motivo || RECUSAS_PASSAGEIRAS.includes(motivo) || motivo.startsWith('noctum.reconciliacao.');
+  'conducao.em-andamento', 'baseline.pendente', 'noctum.orcamento.esgotado'];
+export const passageira = (motivo: string | null): boolean => !motivo || RECUSAS_PASSAGEIRAS.includes(motivo) || motivo.startsWith('noctum.reconciliacao.');
 
 /** As recusas seguidas do trabalho, das mais novas para trás, que não passam (B4 do CHECK). */
 export function recusasSeguidas(estado: EstadoDoArco, trabalho: string): { n: number; motivo: string | null } {
@@ -443,7 +444,7 @@ export type ResultadoDoCondutor =
 /**
  * O condutor do arco (D4 e D6): segura a trava do condutor pela vida inteira, grava a geração nova (lida sob a trava do
  * log) com a prova, bate a cada passo e chama o passo supervisionado na cadência que a fila pede, nunca além da cadência;
- * depois de uma recusa, espera `PAUSA_DEPOIS_DA_RECUSA_MS` (B4 do CHECK). Sai quando o arco encerra ou para, quando perde
+ * depois de uma recusa, espera `PAUSA_DEPOIS_DA_RECUSA_MS` (B4 do CHECK), ou a cadência inteira na recusa que passa. Sai quando o arco encerra ou para, quando perde
  * a geração, ou no fim dos passos que lhe deram (os testes). `dormir` é dependência.
  */
 export function conduzirArco(carregado: ManifestoCarregado, arco: string,
@@ -467,8 +468,11 @@ export function conduzirArco(carregado: ManifestoCarregado, arco: string,
       gravarNaSupervisao(carregado, arco, [{ tipo: 'batida', quem, geracao }], quando);
       ultimo = passoConduzido(carregado, arco, quem, { ...opcoes, quando });
       if (ultimo.acao === 'encerrar' || ultimo.acao === 'parado' || ultimo.acao === 'geracao-vencida') { passos += 1; break; }
+      // A recusa que passa (a conta, a vaga, a condução) espera a cadência, que é quando o vigia relê as contas; a que conta
+      // (a árvore, a policy) volta depois da pausa, e repetida isola o trabalho (RA2 da rodada 3).
       const ate = ultimo.acao === 'aguardar' ? Date.parse(ultimo.ate)
-        : ultimo.acao === 'recusado' ? Date.parse(quando) + PAUSA_DEPOIS_DA_RECUSA_MS : Date.parse(quando);
+        : ultimo.acao === 'recusado' ? Date.parse(quando) + (passageira(ultimo.motivo) ? parametros.cadenciaMs : PAUSA_DEPOIS_DA_RECUSA_MS)
+        : Date.parse(quando);
       dormir(Math.max(0, Math.min(ate - Date.parse(quando), parametros.cadenciaMs)));
     }
     return { acao: 'saiu', instancia: quem.instancia, geracao, passos, ultimo };

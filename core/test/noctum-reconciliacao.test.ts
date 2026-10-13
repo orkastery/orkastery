@@ -294,6 +294,9 @@ test('R10: recusas de ambiente seguidas no limite param o arco; um despacho conc
     const { t, h } = arcoComThread(p, 'arco-r10');
     assert.equal(recusaDeAmbiente('runtime.unavailable: runtime.context.conflict: MCP Orkastery divergente (SIMULADO)'), true);
     assert.equal(recusaDeAmbiente('runtime.unavailable: o adaptador lançou (SIMULADO)'), false);
+    assert.equal(recusaDeAmbiente('runtime.context.installation: MCP não instalado (SIMULADO)'), true, 'o ambiente da máquina');
+    assert.equal(recusaDeAmbiente('runtime.context.missing: projeto nao preparado pelo instalador MCP (SIMULADO)'), true);
+    assert.equal(recusaDeAmbiente('runtime.context.scope: cwd divergente (SIMULADO)'), false, 'o contexto da thread conta como recusa do trabalho');
     const ambiente = { tipo: 'recusa_de_ambiente' as const, trabalho: 'a', thread: null, detalhe: 'runtime.context.conflict: SIMULADO' };
     gravarNaSupervisao(p.carregado, 'arco-r10', [ambiente]);
     assert.equal(paradaPorAmbiente(lerSupervisao(p.dir, 'arco-r10'), lerArco(p.dir, 'arco-r10')!), null);
@@ -728,8 +731,29 @@ test('R31: a recusa do núcleo depois do último lançamento numa thread já des
     assert.deepEqual(decisoesDeSessao(p, 'arco-r31', encerrada), [], 'GOAL concluído: nada a retomar');
     recusar('baseline.pendente');
     assert.deepEqual(decisoesDeSessao(p, 'arco-r31', encerrada), [], 'a baseline pendente é do passo da N2');
+    recusar('noctum.despacho.erro');
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r31', encerrada), [], 'a recusa do próprio arco é da fila da N2 (erro repetido)');
     recusar('tree.blocked');
     assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r31', encerrada)), ['retomar:PLAN:despacho-falho:1:-:-'],
       'a Sentinela pede a retomada, e quem a autoriza é a N4');
+  } finally { p.limpar(); }
+});
+
+test('R32: a thread que o dono despachou antes do arco, com a primeira tentativa do arco recusada pelo portão, também é retomada', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r32');
+  try {
+    const t = threadDoTrabalho(p.carregado, 'antes do arco', 'RM-901', 'Pedido SIMULADO r32.');
+    const d = despachar(p.dir, t.id, 'GOAL', 321, false);
+    registrar(dirThread(p.dir, t.id), t.id, 'phase_result', { fase: 'GOAL', sessionId: d.sessionId, classificacao: 'fase_concluida', ok: true });
+    passar(5);
+    const h = abrirArco(p.dir, 'arco-r32', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], thread: t.id }],
+      contas: [{ conta: 'perfil-a', sessoes: 2 }] });
+    parametrosDoArco(p.carregado, 'arco-r32');
+    const r = reservarDespacho(p.dir, { arco: 'arco-r32', envelopeSha256: h, trabalho: 'a', thread: t.id, fase: 'PLAN', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    registrar(dirThread(p.dir, t.id), t.id, 'gate_blocked', { gate: 'phase.dispatch', fase: 'PLAN', motivo: 'tree.blocked', origem: 'phase.run' });
+    concluirDespacho(p.dir, 'arco-r32', r.seq, { motivo: 'tree.blocked' });
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r32', runtimeCom([{ sessionId: d.sessionId, state: 'done', viva: false }]))),
+      ['retomar:PLAN:despacho-falho:1:-:-']);
   } finally { p.limpar(); }
 });
