@@ -759,6 +759,20 @@
       "criadoEm": "2026-10-13T02:56:31.258Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/hosts.ts",
+      "alegacao": "Integracao com a F3b: o ork adapter install deixa de fora o __pycache__ e os .pyc que o Python deixa nas pastas do adaptador, e o snapshot pt-BR do install do Hermes passa com um __pycache__ presente no checkout",
+      "negativa": false,
+      "verificar": [
+        "d=adapters/hermes/test/__pycache__; mkdir -p $d && touch $d/sonda.cpython-0.pyc && node --test core/dist-test/test/locale-f3b-snapshot.test.js; r=$?; rm -f $d/sonda.cpython-0.pyc; exit $r"
+      ],
+      "criadoEm": "2026-10-13T18:39:06.022Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
