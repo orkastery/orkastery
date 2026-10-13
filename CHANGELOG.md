@@ -8,6 +8,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Conta esgotada não para a fase** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)): nova
+  página do roadmap, em refinamento, pedida pelo dono em 13/10/2026. Quando a cota de uma conta acaba no meio
+  das fases, o ork vai tratar o fim como evento da conta, mover sozinho todas as threads dela para outra conta
+  ou para o fallback do bloco e retomar do ponto onde pararam, com o trabalho da sessão guardado na thread.
+  Frentes T1 a T7. Só documentação.
 - **Entrega dentro do arco #Noctum, fatia N5 da RM-058** ([RM-058](docs/roadmap/RM-058-modo-noctum.md#n5-qualidade-e-entrega)):
   o passo da entrega do arco (`passoDaEntrega`, ainda sem quem o chame) leva a thread que a fila deixou na entrega do
   CHECK ao MASTER, um efeito por chamada, e só integra com todas as provas no SHA fonte exato e na base lida no remoto: a
