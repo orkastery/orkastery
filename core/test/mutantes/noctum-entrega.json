@@ -1,0 +1,132 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-058 N5: os mutantes das guardas da entrega do arco #Noctum. Cada claim Mutante roda um deles pelo core/scripts/mutante.cjs.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "revisor que é autor passa como independente",
+      "modulo": "noctum-provas",
+      "de": "if (f.autores.includes(r.sessionId))",
+      "para": "if (false)",
+      "teste": "noctum-provas",
+      "nome": "^QP1:"
+    },
+    {
+      "id": "M2",
+      "descricao": "commit de produto depois do verify vira neutro",
+      "modulo": "noctum-provas",
+      "de": "const NEUTROS_DO_VERIFY = ['bundle'];",
+      "para": "const NEUTROS_DO_VERIFY = ['bundle', 'produto'];",
+      "teste": "noctum-provas",
+      "nome": "^QP2:"
+    },
+    {
+      "id": "M3",
+      "descricao": "CI vermelho vira verde",
+      "modulo": "noctum-provas",
+      "de": "case 'failure': return prova('ci', 'noctum.entrega.ci-vermelho'",
+      "para": "case 'failure': return prova('ci', null",
+      "teste": "noctum-provas",
+      "nome": "^QP3:"
+    },
+    {
+      "id": "M4",
+      "descricao": "as linhas acrescentadas não passam pelo detector de segredo",
+      "modulo": "noctum-provas",
+      "de": "for (const a of (0, policies_1.procurarSegredos)(l.slice(1)))",
+      "para": "for (const a of (0, policies_1.procurarSegredos)(''))",
+      "teste": "noctum-provas",
+      "nome": "^QP4:"
+    },
+    {
+      "id": "M5",
+      "descricao": "o mutante reprovado não conta como sobrevivente",
+      "modulo": "noctum-provas",
+      "de": "noVerify.get(id)?.motivo === 'claims.failed'",
+      "para": "noVerify.get(id)?.motivo === 'nunca'",
+      "teste": "noctum-provas",
+      "nome": "^QP5:"
+    },
+    {
+      "id": "M6",
+      "descricao": "a reprovação anterior do verify some da prova",
+      "modulo": "noctum-provas",
+      "de": "const falhas = daFonte.filter(v => !v.ok)",
+      "para": "const falhas = daFonte.filter(v => false)",
+      "teste": "noctum-provas",
+      "nome": "^QP6:"
+    },
+    {
+      "id": "M7",
+      "descricao": "o merge com conflito de código resolvido vira mecânico",
+      "modulo": "noctum-provas",
+      "de": "return deCodigo.length",
+      "para": "return 0",
+      "teste": "noctum-provas",
+      "nome": "^QP2c:"
+    },
+    {
+      "id": "M8",
+      "descricao": "o push para a base vai com força",
+      "modulo": "noctum-entrega",
+      "de": "['push', '--', remoto, `${alvo}:refs/heads/${destino.base}`]",
+      "para": "['push', '--force', '--', remoto, `${alvo}:refs/heads/${destino.base}`]",
+      "teste": "noctum-integracao-entrega",
+      "nome": "^QI2:"
+    },
+    {
+      "id": "M9",
+      "descricao": "o merge sai sem a conferência do envelope",
+      "modulo": "noctum-entrega",
+      "de": "(0, noctum_arco_1.conferirAntesDoEfeito)(raiz, { arco, envelopeSha256, acao: 'merge'",
+      "para": "(() => null)(raiz, { arco, envelopeSha256, acao: 'merge'",
+      "teste": "noctum-integracao-entrega",
+      "nome": "^QI3:"
+    },
+    {
+      "id": "M10",
+      "descricao": "a atualização recusada se repete na mesma base",
+      "modulo": "noctum-entrega",
+      "de": "e.tipo === exports.EVENTO_DA_ATUALIZACAO_RECUSADA && e.base === ponta.sha",
+      "para": "e.tipo === exports.EVENTO_DA_ATUALIZACAO_RECUSADA && false",
+      "teste": "noctum-entrega",
+      "nome": "^QE4:"
+    },
+    {
+      "id": "M11",
+      "descricao": "a página do item vai sem o estado derivado",
+      "modulo": "noctum-entrega",
+      "de": "if (!itens.length)",
+      "para": "if (true)",
+      "teste": "noctum-integracao-entrega",
+      "nome": "^QI5:"
+    },
+    {
+      "id": "M12",
+      "descricao": "a entrada da thread fica na versão",
+      "modulo": "noctum-changelog",
+      "de": "if (fora === undefined)",
+      "para": "if (true)",
+      "teste": "noctum-changelog",
+      "nome": "^QC3:"
+    },
+    {
+      "id": "M13",
+      "descricao": "a união do conflito perde o lado da base",
+      "modulo": "noctum-changelog",
+      "de": "return [...segundo, ...primeiro];",
+      "para": "return [...primeiro];",
+      "teste": "noctum-changelog",
+      "nome": "^QC2:"
+    },
+    {
+      "id": "M14",
+      "descricao": "o push sai sem a conferência de quem publica por cima",
+      "modulo": "ship-publicar",
+      "de": "const conferido = opcoes.antesDoEfeito?.('push') ?? null;",
+      "para": "const conferido = null;",
+      "teste": "ship-publicar",
+      "nome": "^QS1:"
+    }
+  ]
+}
