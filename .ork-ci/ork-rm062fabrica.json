@@ -745,6 +745,20 @@
       "criadoEm": "2026-10-13T02:36:23.614Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/atualizar-branch.ts",
+      "alegacao": "F7: a sessao despachada que conduz a thread reentra no ork conducao atualizar pela identidade de despacho e o merge da base entra; de fora ou com outra identidade, recusa conduzida e nada muda na worktree",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F7 com git: a sessao despachada\" core/dist-test/test/rm063-changelog-reconciliacao.test.js"
+      ],
+      "criadoEm": "2026-10-13T02:56:31.258Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
