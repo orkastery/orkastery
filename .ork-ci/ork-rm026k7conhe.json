@@ -215,7 +215,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/mcp-conhecimento.test.js core/dist-test/test/projeto-alvo-mcp.test.js core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-12T18:27:54.751Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
