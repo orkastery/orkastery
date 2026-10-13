@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-13T23:45:02.578Z",
+  "publicadoEm": "2026-10-13T23:45:16.578Z",
   "threads": [
-    {
-      "id": "ork-hermeshome",
-      "nome": "hermeshome",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-hermeshome-go",
-      "atualizadaEm": "2026-10-13T23:04:32.818Z",
-      "entregue": "3ee5bc7e",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
-      "sessao": null
-    },
     {
       "id": "ork-rm058n3",
       "nome": "rm058n3",
