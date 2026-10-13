@@ -42,8 +42,8 @@ import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, pe
 import { ContextoRuntime, contextoDoProjeto, novaIdentidadeDeDespacho } from './runtime-context';
 import { proximaRotacao } from './slug';
 import { avaliarPolicies, bloqueantes, motivoDominante } from './policies';
-import { aguardando, enfileirar, exigirPedido, gravarPedido, janelaPadraoMs, lerFilaDeRetomada, marcarContaDaFalha, PedidoComPerfil,
-  vencidos } from './ratelimit';
+import { aguardando, arcoDoPedido, enfileirar, exigirPedido, gravarPedido, janelaPadraoMs, lerFilaDeRetomada, marcarContaDaFalha,
+  PedidoComPerfil, vencidos } from './ratelimit';
 import { eventosDoIntervalo, fonteRegistrada, headDaWorktree, saidaDoArtefato } from './session-watcher-claude';
 import {
   lerPerfis, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDoRegistro, perfisDoRuntime, PoliticaDeRotacao, politicaDeRotacao,
@@ -966,6 +966,15 @@ export function retomarPedido(
 ): ResultadoDaRetomada {
   const { raiz } = carregado;
   const quando = opcoes.quando ?? agora();
+  // RM-058 N4 (D17 da ork-rm058n4): o pedido do despacho de um arco #Noctum é retomado pelo vigia do arco, pelo passo dele
+  // (conferência do envelope e reserva). Aqui ele não é redespachado nem regravado, e o ledger da thread não muda.
+  const arco = arcoDoPedido(pedidoOriginal);
+  if (arco) {
+    return { pedido: pedidoOriginal, playbook: 'mesma-sessao', slug: pedidoOriginal.slug, despachada: false, sessionId: null, verificada: false,
+      motivo: null, dryRun: opcoes.dryRun === true,
+      detalhe: `o pedido ${pedidoOriginal.id} é do arco ${arco}: quem o retoma é o vigia do arco, com a conferência do envelope e a reserva; ` +
+        `nada foi despachado (sem o vigia, o dono tira o pedido da fila com ork retry cancel ${pedidoOriginal.id} --motivo "..." e retoma a fase à mão)` };
+  }
   const thread = lerThread(raiz, pedidoOriginal.thread);
   const dir = dirThread(raiz, thread.id);
   let pedido = pedidoOriginal;

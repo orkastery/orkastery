@@ -9,7 +9,8 @@ import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dirTemporario, projetoTemporario, runtimePorConta } from './apoio';
-import { abrirArco, concluirFase, entregar, gravarArtefato, prepararIngressoSimulado, revogarArco, TrabalhoSimulado } from './noctum-apoio';
+import { abrirArco, concluirFase, despachar as despacharNaThread, entregar, gravarArtefato, prepararIngressoSimulado, revogarArco, stopSemResultado,
+  TrabalhoSimulado } from './noctum-apoio';
 import { passoDoArco, OpcoesDoPasso, ResultadoDoPasso } from '../src/noctum-execucao';
 import { lerArco, reservarDespacho } from '../src/noctum-arco';
 import { RecusaDoArco } from '../src/noctum-envelope';
@@ -441,5 +442,71 @@ test('X15: a reserva que abre a thread de um trabalho de pedido é só pelo GOAL
     fs.writeFileSync(caminhoThread(p.dir, t.id), '{ ilegível');
     recusa('GOAL', /há thread ilegível no projeto, e ela pode ser a do trabalho a/);
     assert.equal(lerArco(p.dir, 'arco-x15')!.despachos.length, 0);
+  } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// RM-058 N4 (D8, D14 e D21 da ork-rm058n4): o passo com as decisões da supervisão e os alvos de runtime do envelope.
+// ---------------------------------------------------------------------------
+
+/** O despacho simulado que guarda o runtime, o modelo, o esforço, o perfil e a correlação que o passo mandou ao núcleo. */
+function despachoQueGuarda(opcoes: OpcoesRun[]): NonNullable<OpcoesDoPasso['despachar']> {
+  const simulado = despachoSimulado();
+  return (carregado, threadId, o) => { opcoes.push(o); return simulado(carregado, threadId, o); };
+}
+
+test('X16: com os alvos da supervisão, a fase sai pelo runtime de fallback que o envelope admite, com o modelo dele; sem eles, não sai', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-x16');
+  try {
+    abrirArco(p.dir, 'arco-x16', { trabalhos: [AC[0]], maquina: 2, contas: [{ conta: 'perfil-a', sessoes: 1 }, { conta: 'perfil-c', sessoes: 1 }],
+      runtimes: [{ runtime: 'claude-bg', sessoes: 1 }, { runtime: 'codex', sessoes: 1 }] });
+    // A conta do runtime do bloco saiu da seleção (a supervisão a tirou): só a do codex sobra.
+    const perfis = () => [{ id: 'perfil-c', runtime: 'codex' }];
+    const opcoes: OpcoesRun[] = [];
+    const semAlvos = passo(p, 'arco-x16', { perfis, despachar: despachoQueGuarda(opcoes) });
+    assert.ok(semAlvos.acao === 'aguardar' && semAlvos.motivo === 'capacidade.conta-nao-autorizada', JSON.stringify(semAlvos.acao));
+    assert.equal(opcoes.length, 0);
+    const vistos: string[] = [];
+    const comAlvos = passo(p, 'arco-x16', { perfis, despachar: despachoQueGuarda(opcoes), alvos: (fase, doBloco) => {
+      vistos.push(`${fase}:${doBloco}`);
+      return [{ runtime: doBloco }, { runtime: 'codex', model: 'modelo-SIMULADO', effort: 'medium' }];
+    } });
+    assert.ok(comAlvos.acao === 'despachou' && comAlvos.runtime === 'codex' && comAlvos.conta === 'perfil-c', JSON.stringify(comAlvos.acao));
+    assert.deepEqual(vistos, ['GOAL:claude-bg'], 'o passo pergunta os alvos com o runtime do bloco');
+    assert.deepEqual([opcoes[0].runtime, opcoes[0].model, opcoes[0].effort, opcoes[0].perfil, opcoes[0].correlacao],
+      ['codex', 'modelo-SIMULADO', 'medium', 'perfil-c', 'noctum:arco-x16']);
+    assert.deepEqual(lerArco(p.dir, 'arco-x16')!.despachos.map(d => `${d.runtime}:${d.conta}:${d.desfecho}`), ['codex:perfil-c:concluido']);
+  } finally { p.limpar(); }
+});
+
+test('X17: a retomada autorizada sai pelo passo, com a reserva e a correlação do arco; sem ela, o trabalho espera a N4', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-x17');
+  try {
+    const t = novaThread(p.carregado, { nome: 'parou', modo: 'auto', roadmap: 'RM-901', pedido: PEDIDO.a }).thread;
+    abrirArco(p.dir, 'arco-x17', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], thread: t.id }] });
+    stopSemResultado(p.dir, t.id, 'GO', despacharNaThread(p.dir, t.id, 'GO', 171));
+    const opcoes: OpcoesRun[] = [];
+    const sem = passo(p, 'arco-x17', { despachar: despachoQueGuarda(opcoes) });
+    assert.ok(sem.acao === 'aguardar', JSON.stringify(sem.acao));
+    assert.equal(sem.acao === 'aguardar' && sem.fila?.trabalhos[0].motivo, 'fim-de-turno-sem-resultado');
+    const com = passo(p, 'arco-x17', { despachar: despachoQueGuarda(opcoes),
+      supervisao: { isolados: new Map(), retomadas: new Map([['a', { fase: 'GO' as const, tentativa: 1, motivo: 'fim-de-turno-sem-resultado' }]]) } });
+    assert.ok(com.acao === 'despachou' && com.trabalho === 'a' && com.fase === 'GO', JSON.stringify(com.acao));
+    assert.deepEqual([opcoes.length, opcoes[0].fase, opcoes[0].correlacao], [1, 'GO', 'noctum:arco-x17']);
+    assert.deepEqual(lerArco(p.dir, 'arco-x17')!.despachos.map(d => `${d.trabalho}:${d.fase}:${d.desfecho}`), ['a:GO:concluido']);
+  } finally { p.limpar(); }
+});
+
+test('X18: o trabalho isolado não é despachado, e o passo segue para o próximo candidato', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-x18');
+  try {
+    abrirArco(p.dir, 'arco-x18', { trabalhos: AC, maquina: 2, contas: [{ conta: 'perfil-a', sessoes: 2 }] });
+    const registro: string[] = [];
+    const r = passo(p, 'arco-x18', { despachar: despachoSimulado(registro),
+      supervisao: { isolados: new Map([['a', 'retomadas esgotadas (SIMULADO)']]), retomadas: new Map() } });
+    assert.ok(r.acao === 'despachou' && r.trabalho === 'c', JSON.stringify(r.acao));
+    assert.equal(r.acao === 'despachou' && r.fila.trabalhos.find(t => t.id === 'a')?.motivo, 'isolado');
+    assert.equal(threadsDoItem(p, 'RM-901').length, 0, 'o isolado não abriu thread');
+    assert.equal(registro.length, 1);
   } finally { p.limpar(); }
 });

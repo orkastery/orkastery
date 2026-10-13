@@ -8,6 +8,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **#Noctum, fatia N4: supervisão e recuperação** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
+  `core/src/noctum-supervisao.ts` guarda os checkpoints da supervisão do arco num log próprio, encadeado e assinado
+  (`ork.noctum-supervisao/v1`), com os parâmetros na primeira linha: reiniciar o condutor ou o vigia, trocar de conta ou
+  de runtime não zera tentativas nem renova o envelope. `core/src/noctum-vigia.ts` traz o condutor (`conduzirArco`) e o
+  vigia (`vigiarArco`, um tique a cada 5 min), que provam a vida pela trava do kernel: o vigia assume com geração nova
+  quando o condutor morre, e sem vigia o condutor não despacha nada novo. `core/src/noctum-reconciliacao.ts` resolve
+  com prova o que a N2 deixou no meio (a reserva pendente de passo morto, a sessão do id dito antes da falha, o fim de
+  turno sem resultado), percebe a sessão sem avanço, a sem primeiro turno e o despacho de fora do arco, e reconcilia
+  pelo remoto o push de resultado incerto; toda retomada sai pelo passo do arco, até o teto, e depois o trabalho é
+  isolado. O rodízio fica dentro do envelope: conta esgotada sai até o reset dito, reset desconhecido é lacuna pelo
+  resto do arco, login perdido tira a conta, e o teto do arco ou a recusa por custo param o arco. Muda para todos: o
+  `ork retry resume` não redespacha o pedido do limite de uso de um despacho de arco, que o vigia retoma pelo arco. O
+  modo continua desligado: nenhum comando abre, executa ou vigia arco.
 - **Conta esgotada não para a fase** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)): nova
   página do roadmap, em refinamento, pedida pelo dono em 13/10/2026. Quando a cota de uma conta acaba no meio
   das fases, o ork vai tratar o fim como evento da conta, mover sozinho todas as threads dela para outra conta
