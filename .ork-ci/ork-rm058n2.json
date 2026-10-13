@@ -1,0 +1,1074 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm058n2",
+  "branch": "ork/ork-rm058n2-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-envelope.ts",
+      "alegacao": "T1: o contrato ork.noctum-envelope/v2 traz a lista fechada de trabalhos (id, item, prioridade, dependeDe e thread ou pedido) e a capacidade (máquina, por conta, por runtime e revisão); recusa a falta de qualquer valor do dono listando tudo, dependência fora da lista ou em ciclo e limite que não limita; a v1 fica como estava (E1 a E17).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-envelope.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - E[0-9]+:/{p++} END{exit !(p>=17 && f==0)}'",
+        "grep -qE \"^export const CONTRATO_ENVELOPE_V2 = 'ork.noctum-envelope/v2' as const;$\" core/src/noctum-envelope.ts && grep -qE \"^export const CONTRATO_ENVELOPE = 'ork.noctum-envelope/v1' as const;$\" core/src/noctum-envelope.ts"
+      ],
+      "criadoEm": "2026-10-12T15:30:34.569Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-envelope.test.ts",
+      "alegacao": "T1: os aceites do contrato v2 são os testes E13 a E17 (conteúdo na ordem do dono, faltas listadas, dependência fora da lista e em ciclo, capacidade que não limita, e a v1 com o hash medido na base 0eeecdf7).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('E[0-9]+:\" core/test/noctum-envelope.test.ts)\" -ge 17 && grep -qF \"CONTRATO_ENVELOPE_V2\" core/test/noctum-envelope.test.ts && grep -qF \"fb975c42bc9d7cd9cb5595cd2fa63dc441eb8dd317b9c784f1a1b721be857ef3\" core/test/noctum-envelope.test.ts && grep -qF \"dependência em ciclo\" core/test/noctum-envelope.test.ts && grep -qF \"ao menos um slot da máquina para a execução\" core/test/noctum-envelope.test.ts"
+      ],
+      "criadoEm": "2026-10-12T15:30:37.724Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/fila-pesada.ts",
+      "alegacao": "T2: a fila de recursos pesados usa só trava do kernel (flock) na raiz de estado: senha de chegada, trava do artefato e uma das vagas; processos concorrentes nunca passam das vagas nem escrevem juntos no mesmo artefato, processo morto por SIGKILL solta vaga e senha, quem chega antes passa antes, e sem a vez no prazo a recusa é tipada (fila-pesada.ocupada) sem rodar nada (P1 a P9).",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/fila-pesada.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - P[0-9]+:/{p++} END{exit !(p>=9 && f==0)}'",
+        "grep -qE \"^export function comRecursoPesado<T>\\(\" core/src/fila-pesada.ts && grep -qF \"'--exclusive', '--nonblock', '3'\" core/src/fila-pesada.ts"
+      ],
+      "criadoEm": "2026-10-12T15:36:52.495Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/fila-pesada.test.ts",
+      "alegacao": "T2: os aceites da fila pesada são os testes P1 a P9, com processos filhos reais disputando vaga e artefato, SIGKILL do dono, ordem de chegada, reentrada, recusa no prazo, fila desligada e senha anterior viva ou morta.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('P[0-9]+:\" core/test/fila-pesada.test.ts)\" -ge 9 && grep -qF \"kill('SIGKILL')\" core/test/fila-pesada.test.ts && grep -qF \"quem chega antes passa antes\" core/test/fila-pesada.test.ts && grep -qF \"a senha anterior viva segura a vez\" core/test/fila-pesada.test.ts"
+      ],
+      "criadoEm": "2026-10-12T15:36:55.195Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "T3: ork verify e a baseline seguram a vez da fila de recursos pesados pela rodada inteira, depois da condução; o verify de outra thread na mesma raiz espera e roda depois, sem a vez no prazo a recusa é tipada sem rodar comando nem gravar verify_run, max_parallel_heavy 0 desliga, e o verify_run diz se a rodada esperou (V1 a V7).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/fila-pesada-verify.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - V[0-9]+:/{p++} END{exit !(p>=7 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T15:46:03.770Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/fila-pesada-verify.test.ts",
+      "alegacao": "T3: os aceites do verify na fila pesada são os testes V1 a V7 (espera e roda depois, recusa sem comando e sem ledger, fila desligada, baseline na fila, CLI com saída 3, MCP com teto curto e parse do manifesto).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('V[0-9]+:\" core/test/fila-pesada-verify.test.ts)\" -ge 7 && grep -qF \"o CLI espera em primeiro plano, avisa no stderr e recusa com 3\" core/test/fila-pesada-verify.test.ts && grep -qF \"nenhum comando roda, nada vai ao ledger\" core/test/fila-pesada-verify.test.ts"
+      ],
+      "criadoEm": "2026-10-12T15:46:06.574Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-verify.ts",
+      "alegacao": "T3: o ork_verify do MCP espera a fila de recursos pesados no máximo 20 s, dentro do prazo total dele.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"export const ESPERA_DA_FILA_PESADA_MCP_MS = 20_000;\" core/src/mcp-verify.ts && grep -qF \"filaPesada: { esperarMs: Math.min(ESPERA_DA_FILA_PESADA_MCP_MS\" core/src/mcp-verify.ts"
+      ],
+      "criadoEm": "2026-10-12T15:46:08.588Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T3: o CLI avisa uma vez no stderr enquanto o verify espera a fila pesada e imprime a recusa fila-pesada.ocupada como a da condução, com saída 3.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"} else if (e instanceof ErroDaFilaPesada) {\" core/src/index.ts && grep -qF \"m.filaPesadaEsperando(\" core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T15:46:10.441Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "T3: concurrency.max_parallel_heavy entra no manifesto com padrão 1, 0 desliga, teto 64 e valor sem sentido de volta a 1.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"max_parallel_heavy: vagasPesadas(numero(concurrency.max_parallel_heavy, 1)),\" core/src/manifest.ts"
+      ],
+      "criadoEm": "2026-10-12T15:46:12.232Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "T3: o tipo do manifesto ganha concurrency.max_parallel_heavy.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^    max_parallel_heavy: number;$\" core/src/types.ts"
+      ],
+      "criadoEm": "2026-10-12T15:46:13.611Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-verify.ts",
+      "alegacao": "T3: o aviso de espera da fila pesada mora no catálogo do verify, em pt-BR e em inglês.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"Esperando a vez na fila de recursos pesados (concurrency.max_parallel_heavy)\" core/src/locale-verify.ts && grep -qF \"Waiting for a turn in the heavy-work queue\" core/src/locale-verify.ts"
+      ],
+      "criadoEm": "2026-10-12T15:46:15.379Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/board.test.ts",
+      "alegacao": "T3: os dois manifestos montados à mão no teste do board ganham max_parallel_heavy, e o teste segue passando.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF \"max_parallel_heavy: 1 };\" core/test/board.test.ts)\" -eq 2 && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/board.test.js"
+      ],
+      "criadoEm": "2026-10-12T15:46:17.284Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f2b-apoio.ts",
+      "alegacao": "T3: esperouMs (tempo de espera da fila pesada no verify_run) é volátil como duracaoMs na comparação do ledger entre línguas, e o teste do locale do verify segue passando.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'duracaoMs', 'esperouMs',\" core/test/locale-f2b-apoio.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-verify.test.js"
+      ],
+      "criadoEm": "2026-10-12T15:46:19.549Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "T3: a referência do CLI diz que ork verify e a baseline esperam a fila de recursos pesados (concurrency.max_parallel_heavy) e recusam com fila-pesada.ocupada e saída 3.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"esperam a vez na fila de recursos pesados\" docs/referencia/cli.md && grep -qF \"fila-pesada.ocupada\" docs/referencia/cli.md && grep -qF \"concurrency.max_parallel_heavy\" docs/referencia/cli.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-12T15:46:21.675Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-capacidade.test.ts",
+      "alegacao": "T4: o padrão de 12/10 (runtime_stop sem phase_result) vira os testes C1 e C2: a vaga volta, a sessão retomada ocupa de novo e o Stop de outra sessão não solta nada.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('C[0-9]+:\" core/test/noctum-capacidade.test.ts)\" -ge 2 && grep -qF \"parada antes do phase_result\" core/test/noctum-capacidade.test.ts"
+      ],
+      "criadoEm": "2026-10-12T15:49:38.605Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "T4: a referência do ork phase run diz que a sessão com o turno encerrado sem resultado não ocupa vaga.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"com o turno encerrado sem resultado\" docs/referencia/cli.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-12T15:49:40.313Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/prompts.test.ts",
+      "alegacao": "T5: o teste N2 confere a regra contra o segundo plano no prompt renderizado de cada fase.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"N2: o prompt de toda fase traz a regra contra\" core/test/prompts.test.ts"
+      ],
+      "criadoEm": "2026-10-12T15:51:38.383Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "T5 (aprendizado 1): as regras do prompt de fase ganham a de rodar verify, build e suíte em primeiro plano, com timeout e nunca com o e comercial de segundo plano no comando, e o prompt de toda fase a traz.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/prompts.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - N2:/{p++} END{exit !(p>=1 && f==0)}'",
+        "grep -qF \"nunca com\" core/src/phase.ts && grep -qF \"o processo em segundo plano\" core/src/phase.ts && grep -qF \"se perde e a sessao espera para sempre. O\" core/src/phase.ts"
+      ],
+      "criadoEm": "2026-10-12T15:51:50.320Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-capacidade.ts",
+      "alegacao": "T6: a capacidade do arco une as conduções da raiz (com a regra de vaga do phase run) às sessões vivas do runtime em todas as contas, sem repetir; tira a sessão que o runtime prova encerrada; com fonte sem leitura não admite; admite só com projeto, máquina, margem de revisão, conta e runtime ao mesmo tempo, e escolhe a conta com mais folga (C3 a C9).",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-capacidade.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - C[0-9]+:/{p++} END{exit !(p>=9 && f==0)}'",
+        "grep -qE '^export function admitir\\(' core/src/noctum-capacidade.ts && grep -qE '^export function fatosDeCapacidade\\(' core/src/noctum-capacidade.ts && grep -qF \"'capacidade.fonte-indisponivel'\" core/src/noctum-capacidade.ts"
+      ],
+      "criadoEm": "2026-10-12T15:55:55.452Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-capacidade.test.ts",
+      "alegacao": "T6: os aceites da capacidade são os testes C3 a C9 (cada limite com o motivo dele, margem de revisão, lacuna, portão do projeto, união de leases e runtime, sessão encerrada pelo runtime, regra de vaga e escolha da conta).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('C[0-9]+:\" core/test/noctum-capacidade.test.ts)\" -ge 9 && grep -qF 'a execução nunca usa os slots do CHECK' core/test/noctum-capacidade.test.ts && grep -qF 'stopped no runtime não conta' core/test/noctum-capacidade.test.ts"
+      ],
+      "criadoEm": "2026-10-12T15:55:58.091Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-arco.ts",
+      "alegacao": "T8: reservarDespacho confere, sob o lock do arco e imediatamente antes do despacho, a cadeia da N1 (cauda, revogação, autorização, recibo do dono, hash), a janela, o trabalho na lista v2, a conta e o runtime do envelope e o orçamento em sessoes, e só então grava a reserva; concluirDespacho grava o desfecho uma vez só, e a recusa devolve a sessão; teto em outra unidade recusa por falta de medida (A27 a A31, A1 a A26 seguem passando).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-arco.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - A[0-9]+:/{p++} END{exit !(p>=31 && f==0)}'",
+        "grep -qE '^export function reservarDespacho\\(' core/src/noctum-arco.ts && grep -qE '^export function concluirDespacho\\(' core/src/noctum-arco.ts && grep -qF \"'noctum.orcamento.sem-medicao'\" core/src/noctum-arco.ts"
+      ],
+      "criadoEm": "2026-10-12T16:00:34.957Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-arco.test.ts",
+      "alegacao": "T8: os aceites da conferência antes do despacho são os testes A27 a A31; o A3 lista os dois escritores novos de despacho, que nunca autorizam.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('A[0-9]+:\" core/test/noctum-arco.test.ts)\" -ge 31 && grep -qF 'reservarDespacho e concluirDespacho gravam despacho, nunca autorização' core/test/noctum-arco.test.ts && grep -qF 'o teto do arco é de 2 sessoes e 2 já foram reservadas' core/test/noctum-arco.test.ts"
+      ],
+      "criadoEm": "2026-10-12T16:00:37.572Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-envelope.ts",
+      "alegacao": "T8: o tipo fechado de recusas ganha noctum.despacho.fora-do-envelope, noctum.orcamento.esgotado e noctum.orcamento.sem-medicao, e a janela vira avaliarJanela, a mesma do efeito (E1 a E17 seguem passando).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'noctum.despacho.fora-do-envelope', 'noctum.orcamento.esgotado', 'noctum.orcamento.sem-medicao',\" core/src/noctum-envelope.ts && grep -qE '^export function avaliarJanela\\(' core/src/noctum-envelope.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-envelope.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - E[0-9]+:/{p++} END{exit !(p>=17 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T16:00:40.844Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fila.ts",
+      "alegacao": "T7: a fila do arco escolhe de forma determinística, pelos fatos do disco: só trabalho com dependências entregues e o item reservado por esta máquina, na ordem prioridade, prova mais adiantada (a regra da Sentinela, sem repetir fase de bloco inteiro), posição e id; diz em-curso, bloqueada, fonte-indisponivel ou vazia, espera com backoff limitado ao fim da janela e encerra cedo só com a fila vazia, nunca por lacuna (F1 a F10).",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-fila.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - F[0-9]+:/{p++} END{exit !(p>=10 && f==0)}'",
+        "grep -qE '^export function montarFila\\(' core/src/noctum-fila.ts && grep -qE '^export function fatosDaFila\\(' core/src/noctum-fila.ts && grep -qF \"const FASES_DA_ENTREGA: readonly Fase[] = ['SHIP', 'MASTER'];\" core/src/noctum-fila.ts"
+      ],
+      "criadoEm": "2026-10-12T16:07:43.759Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-fila.test.ts",
+      "alegacao": "T7: o aceite da tabela de fatias vira os testes F1 a F10, com a fixture de trabalhos independentes, dependência bloqueada e fila vazia (ordem, progresso possível e encerramento) e o bloco inteiro que não volta ao PLAN.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('F[0-9]+:\" core/test/noctum-fila.test.ts)\" -ge 10 && grep -qF 'independentes, dependência bloqueada e fila vazia' core/test/noctum-fila.test.ts && grep -qF 'nunca um PLAN repetido' core/test/noctum-fila.test.ts"
+      ],
+      "criadoEm": "2026-10-12T16:07:46.501Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-apoio.ts",
+      "alegacao": "T7: o apoio comum dos testes da N2 abre o arco v2 pelo ingresso assinado simulado, com a janela relativa ao relógio real, e monta as threads, despachos, resultados e entregas dos trabalhos.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE '^export function abrirArco\\(' core/test/noctum-apoio.ts && grep -qF 'SIMULADA-somente-nos-testes' core/test/noctum-apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T16:07:48.503Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-execucao.test.ts",
+      "alegacao": "T9: os aceites do passo do arco são os testes X1 a X8, com o phase run real de ponta a ponta e a disputa entre dois processos de verdade.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('X[0-9]+:\" core/test/noctum-execucao.test.ts)\" -ge 8 && grep -qF 'dois processos concorrentes com capacidade 1 despacham uma vez só' core/test/noctum-execucao.test.ts && grep -qF 'de ponta a ponta pelo phase run real' core/test/noctum-execucao.test.ts"
+      ],
+      "criadoEm": "2026-10-12T16:13:36.131Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-apoio.ts",
+      "alegacao": "T9: no apoio dos testes da N2, o limite padrão do runtime nunca passa do limite da máquina, como o envelope exige.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'Math.min(3, o.maquina ?? 3)' core/test/noctum-apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T16:13:37.829Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T10: a mudança de comportamento da N2 tem linha em \"Não publicado\" do CHANGELOG, conferida pelo checar-changelog contra a origin/main, e o markdownlint passa.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -qF \"#Noctum, fatia N2: fila local e capacidade\" CHANGELOG.md && core/node_modules/.bin/markdownlint-cli2 --no-globs CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T16:16:35.067Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/fila-pesada.ts",
+      "alegacao": "GO-FIX 1 (B2 do CHECK): o dono da vez passa aos comandos que roda a marca da posse (ORK_FILA_PESADA_DONO); o pedido de um descendente dele entra como reentrada, e a marca de vaga solta, de vaga sem a trava do dono ou de dono que não é ancestral não pula a fila (P10). P1 a P3 disputam com largada comum e posse até um sinal, e a trava do artefato vale mesmo com vagas livres.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/fila-pesada.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - P[0-9]+:/{p++} /^ok [0-9]+ - P10:/{d++} END{exit !(p>=10 && d==1 && f==0)}'",
+        "grep -qF \"export const ENV_DONO_DA_FILA = 'ORK_FILA_PESADA_DONO';\" core/src/fila-pesada.ts && grep -qF 'if (inicioDoProcesso(pid) !== marca.inicio || !ancestral(pid)) return null;' core/src/fila-pesada.ts"
+      ],
+      "criadoEm": "2026-10-12T17:27:50.484Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/fila-pesada.test.ts",
+      "alegacao": "GO-FIX 1: P1 a P3 dão a largada a todos juntos e seguram a vez até um sinal, provando por várias pausas da fila que ninguém a mais entra; o P10 cobre a marca do dono (neto pelo shell, vaga solta, vaga sem trava e dono que não é ancestral).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'async function largar(' core/test/fila-pesada.test.ts && grep -qF 'function pedidoAvulso(' core/test/fila-pesada.test.ts && test \"$(grep -cE \"^test\\('P[0-9]+:\" core/test/fila-pesada.test.ts)\" -ge 10"
+      ],
+      "criadoEm": "2026-10-12T17:27:52.819Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "GO-FIX 1 (B1 e A9 do CHECK): quem verifica por dentro de outro comando (ship, fix, retry, ci prepare, a baseline do despacho) espera a fila pesada no máximo 30 s (ESPERA_PADRAO_DA_FILA_PESADA_MS), e a recusa da biblioteca não inventa comando para repetir (V2 e V4).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export const ESPERA_PADRAO_DA_FILA_PESADA_MS = 30_000;' core/src/verify.ts && grep -qF 'conducao.filaPesada?.esperarMs ?? conducao.esperarMs ?? ESPERA_PADRAO_DA_FILA_PESADA_MS' core/src/verify.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/fila-pesada-verify.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - V[0-9]+:/{p++} END{exit !(p>=9 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T17:27:56.078Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "GO-FIX 1: o ork verify do CLI espera a fila pesada até o --esperar ou 60 min, e a recusa sugere repetir com --esperar 120 (V5, que mede o prazo curto).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'esperarMs: doCli.esperarMs ?? ESPERA_DA_FILA_PESADA_MS' core/src/index.ts && grep -qF -- '--esperar 120' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T17:27:57.920Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/mcp-ship.test.ts",
+      "alegacao": "GO-FIX 1: o teste SHIP MCP com a fila pesada ocupada mede a espera do worker (19 a 25 s, e não os 30 s do padrão) e confere que nenhuma lease, verify_run ou merge fica.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"test('SHIP MCP: fila pesada ocupada recusa dentro do prazo do worker e devolve as leases'\" core/test/mcp-ship.test.ts && grep -qF 'esperou>=19 && esperou<=25' core/test/mcp-ship.test.ts"
+      ],
+      "criadoEm": "2026-10-12T17:28:05.783Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "GO-FIX 1 (A6 do CHECK): o ork_verify do MCP devolve a recusa tipada da fila pesada (contrato ork.fila-pesada-recusa/v1, ocupantes e texto), como o CLI, em vez de erro genérico (V6).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'if(e instanceof ErroDaFilaPesada) return {...resposta(e.recusa),isError:true};' core/src/mcp-server.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/fila-pesada-verify.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - V6:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T17:28:08.325Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "GO-FIX 1 (S3 do CHECK): valor fracionário de concurrency.max_parallel_heavy nunca desliga a fila: 0.5 e 0.99 viram 1, e 2.7 vira 2 (V7).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'return v === 0 ? 0 : Math.min(64, Math.max(1, Math.trunc(v)));' core/src/manifest.ts"
+      ],
+      "criadoEm": "2026-10-12T17:28:10.130Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/fila-pesada-verify.test.ts",
+      "alegacao": "GO-FIX 1: V5 mede o prazo curto do CLI e a sugestão --esperar 120; V6 passa pelo servidor MCP de verdade e mede o teto de 20 s; V8 roda o verify de outra thread numa claim de quem segura a vez; V9 prova o ship com espera limitada.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('V[0-9]+:\" core/test/fila-pesada-verify.test.ts)\" -ge 9 && grep -qF 'o verify aninhado na claim de quem segura a vez entra como reentrada' core/test/fila-pesada-verify.test.ts && grep -qF 'levou >= 19_000 && levou < 29_000' core/test/fila-pesada-verify.test.ts"
+      ],
+      "criadoEm": "2026-10-12T17:28:12.534Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/ocupacao.ts",
+      "alegacao": "GO-FIX 1 (A8 do CHECK): o turno encerrado só solta a vaga do ork phase run passados 15 min sem atividade da sessão (CARENCIA_DO_TURNO_ENCERRADO_MIN); dentro da carência a sessão ainda ocupa (C1, C2 e C7).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export const CARENCIA_DO_TURNO_ENCERRADO_MIN = 15;' core/src/ocupacao.ts && grep -qF 'minutos(fim.em, agora) >= CARENCIA_DO_TURNO_ENCERRADO_MIN;' core/src/ocupacao.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-capacidade.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - C(1|2|7):/{p++} END{exit !(p==3 && f==0)}' && node --test core/dist-test/test/rm037-limite-de-sessoes.test.js core/dist-test/test/board.test.js"
+      ],
+      "criadoEm": "2026-10-12T17:38:59.165Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-capacidade.ts",
+      "alegacao": "GO-FIX 1 (A8 e A5 do CHECK): na capacidade do arco, a sessão que a regra da vaga soltou ainda conta se o runtime a mostra trabalhando (running ou busy), e a sessão sem perfil no lease conta na conta que o runtime atribui a ela (C7 e C10).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"const TRABALHANDO = ['running', 'busy', 'working'];\" core/src/noctum-capacidade.ts && grep -qF 'conta: dono.perfil ?? vista?.perfil ?? null,' core/src/noctum-capacidade.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-capacidade.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - C[0-9]+:/{p++} END{exit !(p>=10 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T17:39:02.393Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-capacidade.test.ts",
+      "alegacao": "GO-FIX 1: C1, C2 e C7 medem a carência de 15 min do turno encerrado, C7 prova que o runtime trabalhando vence a leitura do ledger e C10 conta a sessão na conta que o runtime atribui.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const depoisDaCarencia = ()' core/test/noctum-capacidade.test.ts && grep -qF \"test('C10: a sessão sem perfil no lease conta na conta que o runtime atribui a ela'\" core/test/noctum-capacidade.test.ts && test \"$(grep -cE \"^test\\('C[0-9]+:\" core/test/noctum-capacidade.test.ts)\" -ge 10"
+      ],
+      "criadoEm": "2026-10-12T17:39:04.974Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-envelope.ts",
+      "alegacao": "GO-FIX 1 (A7 do CHECK): o resumo que o dono autoriza traz cada pedido inteiro, linha por linha; o pedido com controle (fora tab e quebra de linha), marca de direção ou separador de linha do Unicode é recusado, cada pedido tem até 4096 bytes e todos juntos até 16384 (E15 e E18).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'export const TETO_DO_PEDIDO_DO_TRABALHO = 4 * 1024;' core/src/noctum-envelope.ts && grep -qF 'export const TETO_DOS_PEDIDOS_DO_ARCO = 16 * 1024;' core/src/noctum-envelope.ts && grep -qF 'function caractereQueEsconde(texto: string): number | null {' core/src/noctum-envelope.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-envelope.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - E[0-9]+:/{p++} /^ok [0-9]+ - E18:/{d++} END{exit !(p>=18 && d==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T17:39:08.678Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-envelope.test.ts",
+      "alegacao": "GO-FIX 1: o E15 recusa o retorno de carro com o apagador de linha, o ESC, a marca U+202E, o separador U+2028 e a soma dos pedidos acima do teto; o E18 confere o pedido inteiro no resumo, com tab e quebra de linha.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'o caractere U\\+202E esconde' core/test/noctum-envelope.test.ts && grep -qF 'os pedidos somam 20005 bytes' core/test/noctum-envelope.test.ts && grep -qF \"test('E18: o resumo que o dono autoriza traz o pedido inteiro\" core/test/noctum-envelope.test.ts"
+      ],
+      "criadoEm": "2026-10-12T17:39:11.233Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-arco.ts",
+      "alegacao": "GO-FIX 1 (A2 do CHECK): a reserva de um trabalho de pedido só aceita a thread que o arco abriu para ele (o item mais o sha256 do pedido guardado na criação) e recusa SHIP e MASTER com noctum.despacho.fora-do-envelope (A29).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"const FASES_DA_ENTREGA: readonly Fase[] = ['SHIP', 'MASTER'];\" core/src/noctum-arco.ts && grep -qF 'function threadDoPedido(raiz: string, id: string, item: string, texto: string): boolean {' core/src/noctum-arco.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-arco.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - A[0-9]+:/{p++} END{exit !(p>=31 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T17:39:14.416Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-arco.test.ts",
+      "alegacao": "GO-FIX 1: o A29 recusa a thread alheia num trabalho de pedido e as fases SHIP e MASTER antes de reservar.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'a thread ork-alheia não é a do trabalho a: o vínculo é o item RM-901' core/test/noctum-arco.test.ts && grep -qF 'a fase SHIP é entrega' core/test/noctum-arco.test.ts && grep -qF 'a fase MASTER é entrega' core/test/noctum-arco.test.ts"
+      ],
+      "criadoEm": "2026-10-12T17:39:16.567Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fila.ts",
+      "alegacao": "GO-FIX 1 (A3, A4 e S7 do CHECK): três falhas seguidas do núcleo no despacho bloqueiam o trabalho (erro-repetido); sem auto em conduction.allowed_modes o arco não abre thread; a dependência que fechou sem entrega, de qualquer distância, não segura o arco aberto; thread ilegível só é lacuna quando pode ser a de um trabalho; e a entrega nunca sai da fila (F11 a F15).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'export const ERROS_SEGUIDOS_QUE_BLOQUEIAM = 3;' core/src/noctum-fila.ts && grep -qF \"export const MOTIVO_DO_ERRO_NO_DESPACHO = 'noctum.despacho.erro';\" core/src/noctum-fila.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-fila.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - F[0-9]+:/{p++} END{exit !(p>=15 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T17:39:20.269Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-fila.test.ts",
+      "alegacao": "GO-FIX 1: F11 (CHECK sozinho aguardando a entrega), F12 (thread ilegível), F13 (dependência encerrada), F14 (erro repetido) e F15 (modo sem #Auto) cobrem as guardas novas e as que sobreviveram às mutações da rodada 1.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('F[0-9]+:\" core/test/noctum-fila.test.ts)\" -ge 15 && grep -qF 'o CHECK despachado sozinho e concluído fica aguardando a entrega' core/test/noctum-fila.test.ts && grep -qF 'três falhas seguidas do núcleo no despacho bloqueiam o trabalho' core/test/noctum-fila.test.ts"
+      ],
+      "criadoEm": "2026-10-12T17:39:23.224Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "GO-FIX 1 (A1, A4, S5 e S6 do CHECK): o despacho do arco nunca roda a baseline entre a reserva e o lançamento (baselinePeloDespacho false); a baseline pedida é gravada depois de soltar a trava de despacho e o passo seguinte confere de novo; a falha de um candidato antes de lançar devolve a reserva e o passo segue; a falha de dentro do núcleo deixa a reserva pendente e sobe; a recusa tipada do arco volta como resultado (X5, X6 e X9 a X12).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'baselinePeloDespacho: false });' core/src/noctum-execucao.ts && grep -qF 'function baselineForaDaTrava(' core/src/noctum-execucao.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-execucao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - X[0-9]+:/{p++} END{exit !(p>=12 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T17:39:26.718Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-execucao.test.ts",
+      "alegacao": "GO-FIX 1: X5 (núcleo sem sessão), X6 (reserva pendente na queda do núcleo), X9 (vaga do projeto), X10 (baseline fora da trava), X11 (erro de candidato e erro repetido) e X12 (log adulterado).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('X[0-9]+:\" core/test/noctum-execucao.test.ts)\" -ge 12 && grep -qF 'a baseline que o despacho pede roda fora da trava de despacho' core/test/noctum-execucao.test.ts && grep -qF 'o log do arco adulterado volta como recusa tipada do passo' core/test/noctum-execucao.test.ts"
+      ],
+      "criadoEm": "2026-10-12T17:39:29.324Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "T11 (A10 do CHECK): a referência do CLI em inglês, que chegou pela origin/main, espelha as duas linhas da N2: o ork verify com a fila de recursos pesados (esperas por chamador e o verify aninhado) e o ork phase run com o turno encerrado depois de 15 min; a paridade da F3a e o markdownlint passam.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'wait for their turn in the heavy-work queue (`concurrency.max_parallel_heavy`, default 1, 0 turns it off)' docs/referencia/cli.en.md && grep -qF 'with its turn ended without a result (the Stop with no activity at all for 15 min' docs/referencia/cli.en.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/referencia/cli.en.md",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3a-referencia.test.js"
+      ],
+      "criadoEm": "2026-10-12T17:44:08.686Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/ocupacao.ts",
+      "alegacao": "T4 com o GO-FIX 1 (aprendizado 2): a sessão com o Stop correlacionado e nenhuma atividade por 15 min depois, sem phase_result, deixa de ocupar a vaga do ork phase run (turno-encerrado em sessaoLivreDaVaga, pela mesma leitura fimDoTurno do pulse); a que volta a trabalhar volta a ocupar (C1 e C2).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"if (sessionId && turnoEncerrado(eventos, sessionId, desde, agora)) return 'turno-encerrado';\" core/src/ocupacao.ts && grep -qF \"require('./parado-no-condutor')\" core/src/ocupacao.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-capacidade.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - C(1|2):/{p++} END{exit !(p==2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T17:45:47.448Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "T9 com os GO-FIX: o passo do arco despacha no máximo um trabalho por chamada e só pelo núcleo: sob a trava do kernel de despacho da raiz, relê fila e capacidade, reserva com a conferência do envelope sob o lock do arco, abre a thread pelo novaThread quando o trabalho é novo e despacha pelo rodarFase; dois processos concorrentes com capacidade 1 despacham uma vez só (X1 a X15).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-execucao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - X[0-9]+:/{p++} END{exit !(p>=15 && f==0)}'",
+        "grep -qE '^export function passoDoArco\\(' core/src/noctum-execucao.ts && grep -qF \"tentarTravaExclusiva(path.join(dir, 'despacho.lock'))\" core/src/noctum-execucao.ts && grep -qF '(opcoes.reservar ?? reservarDespacho)(raiz, {' core/src/noctum-execucao.ts"
+      ],
+      "criadoEm": "2026-10-12T18:27:28.376Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "GO-FIX 1 e 2 (B1 da rodada 1, A1 da rodada 2): o ship passa à verificação o prazo da fila pesada (esperarFilaPesadaMs; sem ele, 30 s), o aviso de quem espera e o comando que a recusa sugere, e sem a vez recusa tipado com fila-pesada.ocupada antes de verify_run, merge ou lease (V9 e V10).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'conducao: { filaPesada: { ...opcoes.avisoDaFilaPesada, esperarMs: opcoes.esperarFilaPesadaMs } } });' core/src/ship.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/fila-pesada-verify.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - V(9|10):/{p++} END{exit !(p==2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T18:27:31.526Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "T10 com os GO-FIX: a página da RM-058 tem a seção \"N2: fila local e capacidade\" (contrato v2 com o pedido inteiro e sem caractere invisível, fila e ordem, retomada da thread com despacho falho, capacidade, fila de recursos pesados com as esperas por comando e a marca do dono, execução pelo núcleo com a reserva pendente quando a sessão pode ter aberto, orçamento em sessoes, os três aprendizados e os limites); a evidência aponta X1 a X15, e o markdownlint passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^### N2: fila local e capacidade$\" docs/roadmap/RM-058-modo-noctum.md && grep -qE \"^  thread: ork-rm058n2$\" docs/roadmap/RM-058-modo-noctum.md && grep -qF \"noctum.orcamento.sem-medicao\" docs/roadmap/RM-058-modo-noctum.md && grep -qF \"fila-pesada.ocupada\" docs/roadmap/RM-058-modo-noctum.md && grep -qF \"(X1 a X15)\" docs/roadmap/RM-058-modo-noctum.md && grep -qF \"sem atividade nenhuma por 15 min\" docs/roadmap/RM-058-modo-noctum.md && grep -qF \"ORK_FILA_PESADA_DONO\" docs/roadmap/RM-058-modo-noctum.md && grep -qF \"vai para a retomada da N4\" docs/roadmap/RM-058-modo-noctum.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/roadmap/RM-058-modo-noctum.md"
+      ],
+      "criadoEm": "2026-10-12T18:27:36.664Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 1 e 2: a linha da N2 em Não publicado diz as esperas da fila pesada por comando (o --esperar de ork verify, ork ship, ork fix e da baseline do ork phase run), a marca do dono para o verify aninhado e a carência de 15 min do turno encerrado; o checar-changelog e o markdownlint passam.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -qF 'depois de 15 min sem atividade' CHANGELOG.md && grep -qF '`ork verify` aninhado nele não espera a vaga do próprio pai' CHANGELOG.md && grep -qF 'até o `--esperar` deles ou 30 s, com aviso no' CHANGELOG.md && core/node_modules/.bin/markdownlint-cli2 --no-globs CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T18:27:39.621Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "GO-FIX 1 e 2: a referência do ork verify diz as esperas do MCP e o --esperar de ork ship, ork fix e da baseline do ork phase run na fila pesada, e o verify aninhado numa claim; a do ork phase run diz a carência de 15 min do turno encerrado; o parágrafo das opções de condução diz que o --esperar vale para a fila; o markdownlint passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'o Stop sem atividade nenhuma por 15 min' docs/referencia/cli.md && grep -qF 'e a baseline do `ork phase run` esperam até o `--esperar` deles' docs/referencia/cli.md && grep -qF 'o mesmo `--esperar` vale para a fila de' docs/referencia/cli.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-12T18:27:42.446Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-envelope.ts",
+      "alegacao": "GO-FIX 2 (A2 da rodada 2): o pedido recusa caractere de formato (marcas de direção, largura zero, BOM, hífen suave e as tags do Unicode, que carregam texto que a tela não mostra), de uso privado, letras e marcas que não desenham nada, seletor de variação suplementar e seletores seguidos; o emoji com um seletor depois do caractere passa (E15 e E18).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'const FORMATO_OU_PRIVADO = /[\\p{Cf}\\p{Co}]/u;' core/src/noctum-envelope.ts && grep -qF 'const SEM_DESENHO: ReadonlySet<number> = new Set([0x115f, 0x1160, 0x3164, 0xffa0, 0x34f, 0x17b4, 0x17b5]);' core/src/noctum-envelope.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-envelope.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - E(15|18):/{p++} END{exit !(p==2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T18:27:49.923Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/fila-pesada.ts",
+      "alegacao": "GO-FIX 2 (S1 e S2 da rodada 2): a marca do dono leva o identificador da posse, gravado também na vaga; a marca de uma vez anterior do mesmo dono, a de outro início do processo, a de outra raiz e a que copia a posse de uma vaga de outro dono não pulam a fila (P11).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'if (gravado.pid !== pid || gravado.posse !== marca.posse) return null;' core/src/fila-pesada.ts && grep -qF 'interface Posse { fdArtefato: number; fdVaga: number; slot: number; id: string }' core/src/fila-pesada.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/fila-pesada.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - P[0-9]+:/{p++} /^ok [0-9]+ - P11:/{d++} END{exit !(p>=11 && d==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T18:27:56.074Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/fila-pesada.test.ts",
+      "alegacao": "GO-FIX 2: o P11 forja a marca do dono com outro início, outra raiz, a posse de uma vez anterior e a posse copiada da vaga de outro dono, e o P10 grava na vaga o nome e a posse do dono sem a trava dele.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('P[0-9]+:\" core/test/fila-pesada.test.ts)\" -ge 11 && grep -qF \"test('P11: marca com outro início, outra raiz, posse de uma vez anterior ou vaga de outro dono não pula a fila'\" core/test/fila-pesada.test.ts && grep -qF 'O arquivo da vaga com o nome e a posse do dono' core/test/fila-pesada.test.ts"
+      ],
+      "criadoEm": "2026-10-12T18:27:59.075Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "GO-FIX 2 (B1 da rodada 2): sem sessão no resultado do núcleo, só a recusa de antes do lançamento devolve a reserva (os portões; a conta, o limite de uso e o impedimento sem id de sessão na falha); a falha seca do runtime, o id dito antes da falha e o núcleo mudo deixam a reserva pendente e contada (X5 e X13); a recusa da reserva que é só do candidato deixa o passo seguir, e a do arco para tudo (X14).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"if (!idDaFalha && r.motivo && r.motivo !== 'runtime.unavailable') return recusar(\" core/src/noctum-execucao.ts && grep -qF \"const RECUSAS_DO_CANDIDATO: readonly string[] = ['noctum.despacho.fora-do-envelope', 'noctum.orcamento.esgotado'];\" core/src/noctum-execucao.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-execucao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - X(5|13|14|15):/{p++} END{exit !(p==4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T18:28:03.323Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-execucao.test.ts",
+      "alegacao": "GO-FIX 2: X13 (o stub que diz o id e sai com erro abre uma sessão só, a reserva fica pendente e a thread vai para a retomada), X14 (recusa da reserva por candidato e do arco inteiro), X15 (a reserva que abre a thread só pelo GOAL e sem thread que case) e X5 com o núcleo mudo e o limite de uso com e sem id.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('X[0-9]+:\" core/test/noctum-execucao.test.ts)\" -ge 15 && grep -qF 'o claude --bg que diz o id e sai com erro deixa a reserva pendente e contada' core/test/noctum-execucao.test.ts && grep -qF 'a recusa da reserva que é só do candidato deixa o passo seguir' core/test/noctum-execucao.test.ts"
+      ],
+      "criadoEm": "2026-10-12T18:28:06.509Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-arco.ts",
+      "alegacao": "GO-FIX 2 (S3 e S4 da rodada 2): a reserva que abre a thread de um trabalho de pedido só sai pelo GOAL e quando nenhuma thread casa com ele, nem pode casar por estar ilegível; o comentário da reserva fica junto dela e cita as guardas (A29 e X15).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'function threadsDoTrabalho(raiz: string, item: string, texto: string): string[] | null {' core/src/noctum-arco.ts && grep -qF 'abre a thread pelo GOAL, não pelo' core/src/noctum-arco.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-arco.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - A[0-9]+:/{p++} END{exit !(p>=31 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T18:28:15.660Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C75",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-arco.test.ts",
+      "alegacao": "GO-FIX 2: o A29 recusa a reserva que abre a thread de um trabalho de pedido por outra fase que não o GOAL.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'o trabalho a abre a thread pelo GOAL, não pelo PLAN' core/test/noctum-arco.test.ts"
+      ],
+      "criadoEm": "2026-10-12T18:28:17.414Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C76",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "GO-FIX 2 (A1 da rodada 2): o --esperar de ork ship, ork fix open, ork fix reverify e ork phase run chega à fila pesada (filaPesadaDoCli), com o aviso no stderr e o comando que repete com mais espera (V10, V11 e V12).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'function filaPesadaDoCli(args: Args, operacao:' core/src/index.ts && grep -qF '`ork ship ${id} --para ${para} --esperar 30`' core/src/index.ts && grep -qF '`ork fix open ${id} --esperar 30`' core/src/index.ts && grep -qF '`ork verify ${id} --baseline --esperar 120`' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T18:28:20.038Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C77",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/fix.ts",
+      "alegacao": "GO-FIX 2 (A1 da rodada 2): o ork fix open e o ork fix reverify levam à verificação deles a espera da fila pesada que o --esperar do CLI pediu (V12).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF 'conducao: { filaPesada: opcoes.conducao?.filaPesada }' core/src/fix.ts)\" -eq 2",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/fila-pesada-verify.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - V12:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T18:28:22.510Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C78",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "GO-FIX 2 (A1 da rodada 2): a baseline que o ork phase run grava no despacho espera a fila pesada com o prazo e o aviso do despacho, e sem a vez recusa sem despachar e devolve a condução retida (V11).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'filaPesada: { esperarMs: opcoes.esperarMs, ...opcoes.filaPesada } }, ' core/src/phase.ts && grep -qF \"filaPesada?: ConducaoDoVerify['filaPesada'];\" core/src/phase.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/fila-pesada-verify.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - V11:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T18:28:25.810Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C79",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/fila-pesada-verify.test.ts",
+      "alegacao": "GO-FIX 2: V10 (ork ship pelo CLI com --esperar), V11 (a baseline do phase run na fila) e V12 (ork fix pelo CLI com --esperar) medem a recusa em menos de 20 s, o aviso e o comando sugerido.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('V[0-9]+:\" core/test/fila-pesada-verify.test.ts)\" -ge 12 && grep -qF 'o ork ship do CLI leva o --esperar à fila pesada' core/test/fila-pesada-verify.test.ts && grep -qF 'a baseline que o phase run grava espera a fila' core/test/fila-pesada-verify.test.ts && grep -qF 'o ork fix do CLI leva o --esperar à fila pesada' core/test/fila-pesada-verify.test.ts"
+      ],
+      "criadoEm": "2026-10-12T18:28:28.974Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C80",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "GO-FIX 2: a referência em inglês espelha o --esperar de ork ship, ork fix e da baseline do ork phase run na fila pesada, no ork verify e no parágrafo das opções de condução; o markdownlint passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'and the `ork phase run` baseline wait up to their `--esperar`' docs/referencia/cli.en.md && grep -qF 'the same `--esperar` applies to the heavy-work queue' docs/referencia/cli.en.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/referencia/cli.en.md"
+      ],
+      "criadoEm": "2026-10-12T18:28:31.144Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C81",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-envelope.test.ts",
+      "alegacao": "GO-FIX 2 e 3: o E15 recusa as tags do Unicode, a largura zero, o BOM, o hífen suave, o uso privado, o preenchedor do Hangul, o seletor suplementar, dois seletores seguidos, o seletor depois de uma letra e o seletor que não é o de texto nem o de emoji; o E18 aceita o emoji com um seletor e a tecla com seletor.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'o caractere U\\+E0020 esconde' core/test/noctum-envelope.test.ts && grep -qF 'o caractere U\\+FE0E esconde' core/test/noctum-envelope.test.ts && grep -qF 'o caractere U\\+FE01 esconde' core/test/noctum-envelope.test.ts && grep -qF 'String.fromCodePoint(0x31, 0xfe0f, 0x20e3)' core/test/noctum-envelope.test.ts"
+      ],
+      "criadoEm": "2026-10-12T19:02:38.202Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C82",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fila.ts",
+      "alegacao": "GO-FIX 2 e 3 (B1 da rodada 2, A1 da rodada 3): vai para a retomada da N4 só o trabalho que pode ter uma sessão aberta: reserva pendente no log do arco, ou thread nunca despachada cuja falha disse o id da sessão; a falha que não abriu nada (sem id) deixa o trabalho na fila, e o despacho seguinte sai por outra conta (F16 e F17, X6 e X13).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"eventos.some(e => e.tipo === TIPOS_DE_EVENTO.despachoFalhou && typeof e.sessionId === 'string'),\" core/src/noctum-fila.ts && grep -qF \"if (estado.despachos.some(d => d.trabalho === t.id && d.desfecho === 'pendente')) {\" core/src/noctum-fila.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-fila.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - F[0-9]+:/{p++} /^ok [0-9]+ - F1[67]:/{d++} END{exit !(p>=17 && d==2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T19:02:42.382Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-fila.test.ts",
+      "alegacao": "GO-FIX 2 e 3: o F16 manda para a retomada a thread cuja falha disse o id da sessão, e o F17 segura na retomada o trabalho com reserva pendente e deixa seguir o que falhou sem id (a conta sem cota).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'a thread nunca despachada com o despacho falho no runtime vai para a retomada' core/test/noctum-fila.test.ts && grep -qF 'a reserva pendente segura o trabalho na retomada e conta no teto; a falha sem id que não abriu nada deixa seguir' core/test/noctum-fila.test.ts"
+      ],
+      "criadoEm": "2026-10-12T19:02:45.114Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-envelope.ts",
+      "alegacao": "GO-FIX 3 (S2 da rodada 3): o seletor de variação só passa sozinho, o de texto ou o de emoji (U+FE0E, U+FE0F), logo depois de um pictograma ou da base da tecla; seletores em série, que carregariam 4 bits cada, são recusados (E15 e E18).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const BASE_DE_EMOJI = /^[\\p{Extended_Pictographic}0-9#*]$/u;' core/src/noctum-envelope.ts && grep -qF '(seletorDeVariacao(cp) && !((cp === 0xfe0e || cp === 0xfe0f) && BASE_DE_EMOJI.test(anterior)))) return cp;' core/src/noctum-envelope.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-envelope.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - E(15|18):/{p++} END{exit !(p==2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T19:02:48.502Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C85",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-execucao.test.ts",
+      "alegacao": "GO-FIX 3 (A2 da rodada 3): o X5 é uma tabela com um arco por caso: o portão do núcleo e o limite de uso sem id devolvem a sessão; o núcleo mudo, a falha seca do runtime sem id e o limite de uso com o id dito deixam a reserva pendente e contada. O X6 prova que o trabalho com a reserva pendente não é despachado de novo e o passo segue para o outro.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'a falha seca do runtime, sem id (o prazo estourou antes)'\" core/test/noctum-execucao.test.ts && grep -qF 'o passo seguinte não despacha o mesmo trabalho de novo' core/test/noctum-execucao.test.ts && grep -qF \"['a:pendente', 'c:concluido']\" core/test/noctum-execucao.test.ts"
+      ],
+      "criadoEm": "2026-10-12T19:02:51.713Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C86",
+      "thread": "ork-rm058n2",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "GO-FIX 3: a página diz a retomada só para quem pode ter sessão aberta (reserva pendente ou id dito na falha), a falha sem id que segue por outra conta, o seletor de variação permitido e os limites S4 (phase run --esperar pode esperar quase o dobro) e S5 (retomada do limite de uso fora do arco); o markdownlint passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'a falha que não abriu nada (a conta sem cota, sem id) deixa o trabalho na fila' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'pode esperar quase o dobro' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'sem a conferência do envelope nem a reserva' docs/roadmap/RM-058-modo-noctum.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/roadmap/RM-058-modo-noctum.md"
+      ],
+      "criadoEm": "2026-10-12T19:02:55.200Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C39",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C88",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

@@ -219,6 +219,11 @@ export interface Manifesto {
      * uma thread despachada deixa de ocupar vaga do escalonador (`vaga.stale`).
      */
     stale_after_min: number;
+    /**
+     * RM-058 N2 (D9 da ork-rm058n2): quantas operacoes pesadas (verify e baseline) rodam ao mesmo tempo nesta
+     * raiz de estado, na fila com trava do kernel. 0 desliga a fila.
+     */
+    max_parallel_heavy: number;
   };
   handoff: {
     rotate_above: number;

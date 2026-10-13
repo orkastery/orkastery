@@ -36,6 +36,13 @@
       "homepage": "https://orkastery.com/"
     },
     {
+      "name": "ork-pista",
+      "source": "./marketplaces/claude-code/mods/ork-pista",
+      "description": "Pista de Entrega do Orkastery no Claude Code: do CHECK verde ao merge, cada entrega numa pista com a prova de cada etapa (bundle, branch publicada, PR, CI ork-verify, conflito com a base e ship_done) e o próximo passo que o núcleo declara. Publica só pelo ork ship publicar, no modo que já autoriza o push; nunca faz merge nem tag.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
       "name": "ork-ponte",
       "source": "./marketplaces/claude-code/mods/ork-ponte",
       "description": "Ponte dos mods do Orkastery no Claude Code: o papel da sessão, a leitura do núcleo, a faixa e os caminhos vigiados com dono único, e a guarda de autoridade que nenhum mod passa.",

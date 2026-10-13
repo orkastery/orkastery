@@ -37,6 +37,8 @@ export const TIPOS_DE_EVENTO = {
   shipIniciado: 'ship_started',
   shipConcluido: 'ship_done',
   shipBloqueado: 'ship_blocked',
+  // RM-059 (F7, T7.1): o `ork ship publicar` publicou a branch ou abriu o PR, com a prova do `ls-remote`.
+  shipPublicado: 'ship_published',
   /**
    * I-43 (D3): a entrega foi revertida na base depois do ship.
    *

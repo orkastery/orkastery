@@ -69,6 +69,12 @@ export const VERIFY_PT_BR = {
     `comando "${comando}" reprovou so em teste com relogio sob steal de ${pct}% (acima de ${limiar}%): ${testes}`,
   claimSaiu: (comando: string, code: number) => `comando "${comando}" saiu com codigo ${code}`,
   claimOk: (n: number) => `${n} comando(s) reexecutado(s) com sucesso`,
+  // RM-058 N2: a espera pela fila de recursos pesados, dita uma vez no stderr enquanto o verify espera.
+  filaPesadaOcupante: (operacao: string, thread: string | null, desde: string) =>
+    `${operacao}${thread ? ` da thread ${thread}` : ''} desde ${desde}`,
+  filaPesadaEsperando: (operacao: string, ocupantes: string) =>
+    `Esperando a vez na fila de recursos pesados (concurrency.max_parallel_heavy) para o ${operacao}: ` +
+    `ocupada por ${ocupantes || 'um pedido que chegou antes'}.`,
 };
 
 export const VERIFY_EN: typeof VERIFY_PT_BR = {
@@ -123,4 +129,8 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
     `command "${comando}" failed only in clock-bound tests under ${pct}% steal (above ${limiar}%): ${testes}`,
   claimSaiu: (comando, code) => `command "${comando}" exited with code ${code}`,
   claimOk: (n) => `${n} command(s) rerun successfully`,
+  filaPesadaOcupante: (operacao, thread, desde) => `${operacao}${thread ? ` of thread ${thread}` : ''} since ${desde}`,
+  filaPesadaEsperando: (operacao, ocupantes) =>
+    `Waiting for a turn in the heavy-work queue (\`concurrency.max_parallel_heavy\`) for the ${operacao}: ` +
+    `held by ${ocupantes || 'a request that arrived earlier'}.`,
 };

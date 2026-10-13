@@ -28,7 +28,7 @@ import { avaliarPolicies, avisos, bloqueantes, linhasDeAviso, ViolacaoDePolicy }
 import { dirThread, gravarThread, lerThread } from './thread';
 import { Lease, MotivoGate, Thread } from './types';
 import { agora, exec, shaCurto } from './util';
-import { comandoNoLedger, ExecutorVerify, ResultadoVerify, verificar } from './verify';
+import { comandoNoLedger, ConducaoDoVerify, ExecutorVerify, ResultadoVerify, verificar } from './verify';
 import { consultarCi, ExecutorCi, ResultadoCi } from './ci';
 import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
@@ -43,6 +43,16 @@ export interface OpcoesShip {
   revalidarGit?: (etapa: 'preparar' | 'merge' | 'push', arvore?: string) => void;
   /** Executor interno confiável; não é uma opção de CLI nem argumento MCP. */
   executorVerify?: ExecutorVerify;
+  /**
+   * RM-058 N2 (GO-FIX 1, B1 do CHECK): quanto a verificação do ship espera a fila de recursos pesados. O worker do
+   * `ork_ship` passa o que cabe no prazo dele; sem valor, vale o padrão curto do verify.
+   */
+  esperarFilaPesadaMs?: number;
+  /**
+   * RM-058 N2 (A1 da rodada 2 do CHECK): o aviso de quem espera a fila pesada e o comando que a recusa sugere. O CLI
+   * passa os dois, com o `--esperar` em `esperarFilaPesadaMs`.
+   */
+  avisoDaFilaPesada?: Pick<NonNullable<ConducaoDoVerify['filaPesada']>, 'aoEsperar' | 'comandoDeEsperar'>;
   /** Executor interno confiável da consulta ao provedor de CI. */
   executorCi?: ExecutorCi;
   /** Branch de destino (`--para main`). */
@@ -143,8 +153,8 @@ function contratosDaEntrega(raiz: string, shaPara: string, shaDe: string): strin
   return diff.ok ? contratosTocados(diff.stdout.split('\n').map((l) => l.trim()).filter(Boolean)) : [];
 }
 
-/** Modos em que a propria #TAG do pedido autoriza o push antecipadamente. */
-const MODOS_QUE_AUTORIZAM_PUSH: readonly Thread['modo'][] = ['maestro', 'auto'];
+/** Modos em que a propria #TAG do pedido autoriza o push antecipadamente (o `ork ship publicar` usa a mesma lista). */
+export const MODOS_QUE_AUTORIZAM_PUSH: readonly Thread['modo'][] = ['maestro', 'auto'];
 
 /**
  * Quem autoriza o push desta thread.
@@ -288,9 +298,9 @@ export function shaNoRemoto(dir: string, remoto: string, branch: string): string
   // RM-047: so nome de remoto chega ao git, e depois do `--` (nunca vira opcao nem transporte).
   const r = exec('git', ['ls-remote', '--', exigirRemoto(remoto, 'ship'), `refs/heads/${branch}`], dir, 120000);
   if (!r.ok) return null;
-  const linha = r.stdout.split('\n').find((l) => l.trim() !== '');
-  if (!linha) return null;
-  const sha = linha.split(/\s+/)[0];
+  // RM-059 (S1 da revisao da ork-rm059pista): o padrao do ls-remote casa por sufixo; vale so a linha da ref exata.
+  const linha = r.stdout.split('\n').map((l) => l.trim().split(/\s+/)).find((partes) => partes[1] === `refs/heads/${branch}`);
+  const sha = linha?.[0] ?? '';
   return /^[0-9a-f]{40}$/.test(sha) ? sha : null;
 }
 
@@ -531,7 +541,8 @@ export function ship(
   }
 
   // 3. Verificacao independente: reexecuta claims e comandos no HEAD real da thread.
-  const verificacao = verificar(carregado, threadId, { executor: opcoes.executorVerify });
+  const verificacao = verificar(carregado, threadId, { executor: opcoes.executorVerify,
+    conducao: { filaPesada: { ...opcoes.avisoDaFilaPesada, esperarMs: opcoes.esperarFilaPesadaMs } } });
   r.verificacao = verificacao;
   if (!verificacao.ok) {
     const motivo = verificacao.motivos.find((m) => m !== 'claims.unverifiable') as MotivoGate;

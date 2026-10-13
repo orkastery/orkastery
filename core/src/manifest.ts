@@ -81,6 +81,15 @@ function numero(v: ValorYaml, padrao: number): number {
 }
 
 /**
+ * RM-058 N2: as vagas da fila pesada, inteiras de 0 a 64. So o 0 escrito desliga a fila; fracao positiva sobe para 1 e
+ * valor sem sentido volta ao padrao 1, nunca a "sem fila".
+ */
+function vagasPesadas(v: number): number {
+  if (!Number.isFinite(v) || v < 0) return 1;
+  return v === 0 ? 0 : Math.min(64, Math.max(1, Math.trunc(v)));
+}
+
+/**
  * I-37 (D2): `verify.timeout_ms` e `verify.timeout_ms_por_comando`. Prazo so vale inteiro
  * positivo em milissegundos, entre 1 s e 24 h; o resto e erro do manifesto, porque um prazo
  * mal escrito que caisse no default em silencio mudaria o veredito sem ninguem saber.
@@ -573,6 +582,8 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     concurrency: {
       max_parallel_threads: numero(concurrency.max_parallel_threads, 3),
       stale_after_min: Math.max(1, Math.trunc(numero(concurrency.stale_after_min, 240))),
+      // RM-058 N2 (D9): uma operacao pesada por vez nesta raiz, por padrao; 0 desliga a fila.
+      max_parallel_heavy: vagasPesadas(numero(concurrency.max_parallel_heavy, 1)),
     },
     liveness: { silencio_max_min: silencioMaxMin },
     handoff: {
@@ -639,6 +650,30 @@ export function cliDaMemoriaValido(cli: string): boolean {
   if (cli === '' || /[\x00-\x1f\x7f]/.test(cli)) return false;
   if (/^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$/.test(cli)) return true;
   return path.isAbsolute(cli) && path.normalize(cli) === cli;
+}
+
+/** Os comandos de verify e o comando do CI de um manifesto. */
+export interface ComandosDoManifesto {
+  typecheck: string | undefined;
+  build: string | undefined;
+  test: string | undefined;
+  ciCommand: string | undefined;
+}
+
+/**
+ * RM-059 (A15 da revisao da ork-rm059pista): os comandos de verify e o do CI de um `orkastery.yaml` lido como texto (o
+ * do HEAD de uma branch, pelo `git show`), com as mesmas regras do `carregarManifesto`. `null` quando o texto nao abre.
+ */
+export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto | null {
+  let dados: Record<string, ValorYaml>;
+  try {
+    dados = mapa(lerYaml(bruto));
+  } catch {
+    return null;
+  }
+  const verify = mapa(dados.verify), ci = mapa(dados.ci);
+  const opcional = (v: ValorYaml | undefined): string | undefined => (v === null || v === undefined ? undefined : texto(v, ''));
+  return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test), ciCommand: opcional(ci.command) };
 }
 
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */

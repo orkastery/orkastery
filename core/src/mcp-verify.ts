@@ -12,6 +12,9 @@ import { criarExecutorSandbox } from './verify-sandbox';
 import { ResultadoDeComando } from './types';
 import { branchDaWorktree, worktreesDoGit } from './worktree';
 
+/** RM-058 N2 (D10 da ork-rm058n2): a espera maxima do MCP pela fila de recursos pesados, dentro do prazo total. */
+export const ESPERA_DA_FILA_PESADA_MCP_MS = 20_000;
+
 const PRAZO_TOTAL_MS = 180_000;
 const RESERVA_MS = 10_000;
 // I-37 (D4): o teto por comando cabe o `test:ci` medido (196 s); quem limita e o prazo total.
@@ -105,7 +108,9 @@ export function verificarMcp(raizEntrada: string, threadId: string, conducao: Co
       finally { confinado.fechar(); }
     };
     // I-36 (T8): o MESMO lease de execucao do CLI; a sessao filha reentra pela identidade do despacho.
-    const r = verificar(carregado, threadId, { executor, operacao: 'mcp.verify', conducao });
+    // RM-058 N2 (D10): o MCP tem prazo total curto; espera a fila pesada no maximo ESPERA_DA_FILA_PESADA_MCP_MS.
+    const r = verificar(carregado, threadId, { executor, operacao: 'mcp.verify',
+      conducao: { ...conducao, filaPesada: { esperarMs: Math.min(ESPERA_DA_FILA_PESADA_MCP_MS, conducao.filaPesada?.esperarMs ?? ESPERA_DA_FILA_PESADA_MCP_MS) } } });
     const execucoes = r.claims.flatMap(c => c.execucoes).concat(r.comandos);
     return {
       threadId, ok: r.ok, commit: r.commit, motivos: r.motivos,

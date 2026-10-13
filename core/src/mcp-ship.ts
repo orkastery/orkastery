@@ -214,7 +214,9 @@ function executar(f:Fixacao,p:PedidoShipMcp):ResultadoShip {
       const sandbox=criarExecutorSandbox({worktree:wt,timeoutMs:Math.min(60000,restante)});
       try{return sandbox.executar(nomeComando,comando,cwd);}finally{sandbox.fechar();}
     };
+    // RM-058 N2 (B1 do CHECK): a fila pesada espera so o que cabe no prazo do worker, para o finally soltar as leases.
     return ship(c,t.id,{de,para,remoto:'origin',executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
+      esperarFilaPesadaMs:Math.max(0,Math.min(20000,deadline-Date.now()-RESERVA)),
       revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}});
   } finally {for(const l of proprias.reverse())if(JSON.stringify(lerLease(raiz,l.nome))===JSON.stringify(l))liberar(raiz,l.nome,t.id);}
 }
@@ -244,5 +246,5 @@ export async function shipMcp(perfil:PerfilShipMcp,pedido:PedidoShipMcp,signal?:
 if(require.main===module && process.argv[2]==='--worker') {
   try {const raw=fs.readFileSync(0,'utf8');if(Buffer.byteLength(raw)>LIMITE)erro('request.invalid');const {f,pedido}=JSON.parse(raw);
     const resultado=executar(f,pedido);process.stdout.write(JSON.stringify({ok:resultado.ok,resultado}));}
-  catch(e){const m=(e as Error).message;process.stdout.write(JSON.stringify({ok:false,erro:m.startsWith('mcp.')?m:'mcp.ship.operation.failed: conferir estado antes de repetir'}));}
+  catch(e){const m=(e as Error).message;process.stdout.write(JSON.stringify({ok:false,erro:m.startsWith('mcp.')||m.startsWith('fila-pesada.')?m:'mcp.ship.operation.failed: conferir estado antes de repetir'}));}
 }
