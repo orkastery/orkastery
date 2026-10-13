@@ -172,10 +172,40 @@ export function vagaDoDespacho(carregado: ManifestoCarregado, threadId: string, 
   desdeProprio?: string,
   /** RM-037 (ork-rm037esperas, D6): a leitura do runtime no limite; sem ela, a de todas as contas com `--all`. */
   lerRuntime?: LeituraDoRuntime): VagaRecusada | null {
+  const limite = Math.max(1, carregado.manifesto.concurrency.max_parallel_threads);
+  let ocupam = sessoesQueOcupam(carregado, { exceto: threadId, quando, desdeProprio });
+  if (ocupam.length < limite) return null;
+  // RM-037 (ork-rm037esperas, D6): no limite, a sessao que o runtime mostra encerrada (estado terminal ou fantasma) nao
+  // trabalha mais, mesmo com o lease de pe, e sai da conta: em 12/10/2026, uma sessao parada com `claude stop` antes do
+  // `phase_result` prendia a vaga ate a thread fechar. So no limite, para o despacho comum nao pagar a consulta; a
+  // sessao ausente da lista e a leitura que falha continuam contando.
+  if (ocupam.some((o) => o.sessao !== null)) {
+    const encerradas = encerradasNoRuntime(lerRuntime ?? leituraDoRuntime(carregado));
+    ocupam = ocupam.filter((o) => o.sessao === null || !encerradas.has(o.sessao));
+    if (ocupam.length < limite) return null;
+  }
+  return {
+    limite,
+    ocupam,
+    detalhe: `concurrency.limite: o projeto ja tem ${ocupam.length} sessao(oes) viva(s) em outras threads e o limite e ${limite} ` +
+      `(concurrency.max_parallel_threads): ${ocupam.map((o) => `${o.thread} ${o.fase ?? '-'} ` +
+        (o.sessao ? `${o.runtime} ${o.sessao.slice(0, 8)}` : 'despacho em curso')).join('; ')}`,
+    correcao: 'espere uma sessao terminar e repita com --esperar <min>; sessao que morreu sem evento sai com ' +
+      'ork conducao status <thread>; ou suba concurrency.max_parallel_threads no orkastery.yaml',
+  };
+}
+
+/**
+ * As vagas do projeto ocupadas agora, pela regra do portao de vaga do despacho (`vagaDoDespacho`): a conducao de uma
+ * sessao viva (salvo a parada ou escalada) e o despacho em curso. RM-063 (F6): a maquina ociosa conta por aqui. `exceto`
+ * tira a propria thread; `desdeProprio` desempata dois despachos pela ultima vaga. Somente leitura, mais antiga primeiro.
+ */
+export function sessoesQueOcupam(carregado: ManifestoCarregado, opcoes: { exceto?: string; quando?: string; desdeProprio?: string } = {}):
+  SessaoQueOcupa[] {
   const { raiz, manifesto } = carregado;
-  const limite = Math.max(1, manifesto.concurrency.max_parallel_threads);
+  const quando = opcoes.quando ?? agora(), desdeProprio = opcoes.desdeProprio, threadId = opcoes.exceto ?? '';
   const staleMin = manifesto.concurrency.stale_after_min;
-  let ocupam: SessaoQueOcupa[] = [];
+  const ocupam: SessaoQueOcupa[] = [];
   for (const id of listarIds(raiz)) {
     if (id === threadId) continue;
     let atual: ReturnType<typeof conducaoDaThread> = null;
@@ -193,26 +223,7 @@ export function vagaDoDespacho(carregado: ManifestoCarregado, threadId: string, 
       sessao: atual.dono.tipo === 'sessao' ? atual.dono.sessionId : null,
       runtime: atual.dono.tipo === 'sessao' ? atual.dono.runtime : null });
   }
-  if (ocupam.length < limite) return null;
-  // RM-037 (ork-rm037esperas, D6): no limite, a sessao que o runtime mostra encerrada (estado terminal ou fantasma) nao
-  // trabalha mais, mesmo com o lease de pe, e sai da conta: em 12/10/2026, uma sessao parada com `claude stop` antes do
-  // `phase_result` prendia a vaga ate a thread fechar. So no limite, para o despacho comum nao pagar a consulta; a
-  // sessao ausente da lista e a leitura que falha continuam contando.
-  if (ocupam.some((o) => o.sessao !== null)) {
-    const encerradas = encerradasNoRuntime(lerRuntime ?? leituraDoRuntime(carregado));
-    ocupam = ocupam.filter((o) => o.sessao === null || !encerradas.has(o.sessao));
-    if (ocupam.length < limite) return null;
-  }
-  ocupam.sort((a, b) => a.desde.localeCompare(b.desde));
-  return {
-    limite,
-    ocupam,
-    detalhe: `concurrency.limite: o projeto ja tem ${ocupam.length} sessao(oes) viva(s) em outras threads e o limite e ${limite} ` +
-      `(concurrency.max_parallel_threads): ${ocupam.map((o) => `${o.thread} ${o.fase ?? '-'} ` +
-        (o.sessao ? `${o.runtime} ${o.sessao.slice(0, 8)}` : 'despacho em curso')).join('; ')}`,
-    correcao: 'espere uma sessao terminar e repita com --esperar <min>; sessao que morreu sem evento sai com ' +
-      'ork conducao status <thread>; ou suba concurrency.max_parallel_threads no orkastery.yaml',
-  };
+  return ocupam.sort((a, b) => a.desde.localeCompare(b.desde));
 }
 
 /** `--esperar`: espera a vaga do projeto ate o prazo. Devolve true quando ha vaga. */

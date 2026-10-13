@@ -146,6 +146,15 @@ export const TIPOS_DE_EVENTO = {
   // o crontab e do usuario na maquina, nao de uma thread. Escritor: `fabrica-batida.ts`.
   batidaInstalada: 'batida_instalada',
   batidaRemovida: 'batida_removida',
+  // RM-063 (F4): um degrau da escada de recuperacao do runtime (reerguer o daemon, o fallback do bloco, outro
+  // perfil), feito, pulado ou falho, com o destino e o mesmo sha256 do prompt. Escritor: `runtime-escada.ts`.
+  recuperacaoDoRuntime: 'runtime_recuperacao',
+  // RM-063 (F5): uma acao da varredura (limpar sessao fantasma, registrar a entrega de PR mesclado, MASTER por omissao),
+  // feita ou recusada, com a autorizacao duravel do dono que a permitiu. Escritor: `varredura-acoes.ts`.
+  acaoDaVarredura: 'varredura_acao',
+  // RM-063 (F6): o dono foi avisado de que a maquina esta ociosa (vaga livre e item reservado para ela sem ninguem
+  // trabalhando), uma linha por episodio, no ledger do projeto. Escritor: a varredura (`pulse-delivery.ts`).
+  maquinaOciosaAvisada: 'maquina_ociosa_avisada',
   // RM-059 (F6, T6.4): a Sentinela do Condutor ligou ou desligou nesta maquina (ledger do projeto, so na troca).
   sentinelaLigada: 'sentinela_ligada',
   sentinelaDesligada: 'sentinela_desligada',
