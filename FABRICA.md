@@ -5,9 +5,9 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| srvjcp86 | ork-ciactionsfor | #Auto | GOAL | sem despacho | — | — | 12/10 23:15 | parada desde 03/10 00:13: nenhuma sessão despachada na fase GOAL |
-| vps | ork-rm058n3 | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 23:15 | viva |
-| vps | ork-rm058n4 | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 23:15 | viva |
-| vps | ork-rm061f3b | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 23:15 | viva |
+| srvjcp86 | ork-ciactionsfor | #Auto | GOAL | sem despacho | — | — | 13/10 02:45 | parada desde 03/10 03:13: nenhuma sessão despachada na fase GOAL |
+| vps | ork-rm058n3 | #Auto | GOAL | claude-bg opus/max | — | — | 13/10 02:15 | viva |
+| vps | ork-rm058n4 | #Auto | GOAL | claude-bg opus/max | — | — | 13/10 02:15 | viva |
+| vps | ork-rm061f3b | #Auto | GOAL | claude-bg opus/max | — | — | 13/10 02:15 | viva |
 
-Horários de Brasília.
+Horários em UTC.
