@@ -201,6 +201,7 @@ import { baterSentinela, desligarSentinela, statusDaSentinela, textoDoStatusDaSe
 import { gravarAutorizacao, lerAutorizacao, linhaDaAutorizacao, textoDaAutorizacao } from './autorizacao-duravel';
 import { atualizarBranchDaThread, textoDaAtualizacao } from './atualizar-branch';
 import { baterConducao, textoDaBatida } from './conducao-batida';
+import { entregarPeloTransporte } from './pulse-delivery';
 import { descreverSlug, hashDoPrompt, montarPrompt, rodarFase, tabelaDoLedger, valoresDoPrompt } from './phase';
 import {
   carregarTemplates,
@@ -1534,9 +1535,19 @@ function comandoConducao(args: Args): number {
   if (sub === 'autorizar' || sub === 'autorizacao') return comandoAutorizacao(carregado, args, sub);
   if (sub === 'batida') {
     // RM-063 (F7): o passo deterministico da conducao, o mesmo que a varredura do cron roda depois do resumo.
-    if (args.posicionais.length > 2) throw new Error('uso: ork conducao batida [--json]');
+    if (args.posicionais.length > 2) throw new Error('uso: ork conducao batida [--entregar] [--json]');
     const r = baterConducao(carregado, { canal: conducaoDoCli(args).canal });
-    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaBatida(r));
+    const textoDaRodada = textoDaBatida(r);
+    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaRodada);
+    // RM-063 (H2): o `#OrkRetomar` do canal roda esta batida em segundo plano; o que voltou a andar volta ao dono pelo
+    // transporte do pulse (com o outro host configurado, se o primeiro falhar).
+    if (args.opcoes.entregar === true) {
+      const mensagem = `🔁 Orkastery, retomada em ${nomeDaMaquina()}:\n${textoDaRodada}`.slice(0, 3900);
+      try {
+        const e = entregarPeloTransporte(carregado.raiz, mensagem, { oQue: 'a retomada' });
+        if (!e.ok) console.error('aviso: o transporte do pulse não confirmou a retomada (veja ork doctor)');
+      } catch (e) { console.error(`aviso: retomada sem transporte do pulse (${(e as Error).message})`); }
+    }
     return r.ocupada ? 3 : 0;
   }
   if (sub === 'atualizar') {

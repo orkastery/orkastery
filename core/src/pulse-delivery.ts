@@ -24,6 +24,7 @@ import { registrarNaRede } from './rede-adesao';
 import { lerCadencia, janelaAberta, lerUltimoResumo, gravarUltimoResumo } from './pulse-cadencia';
 import { baterConducao, BatidaDaConducao, OpcoesDaBatida } from './conducao-batida';
 import { ARQUIVO_DO_TRANSPORTE, TentativaDoTransporte } from './doctor-pulse-cron';
+import { hostDoTransporte, TransportePulse, transporteValido } from './transporte-do-canal';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 
 // O lock dos monitores mudou de modulo (I-41, GO-FIX 1); quem o importava daqui continua importando.
@@ -32,11 +33,10 @@ export { adquirirLockMonitor } from './monitor-lock';
 /**
  * O transporte do pulse (`.orkastery/monitor/pulse-host.json`, local, fora do git): o executavel do host e os argumentos,
  * com `{{mensagem}}` num deles. RM-063 (fatia 3, H3 e H4): `host` e `destino` dizem de quem ele e (gravados pelo
- * onboarding junto com o canal do dono), e `alternativos` sao os outros hosts configurados, tentados na ordem quando o
- * principal falha.
+ * onboarding junto com o canal do dono, `transporte-do-canal.ts`), e `alternativos` sao os outros hosts configurados,
+ * tentados na ordem quando o principal falha.
  */
-export interface TransportePulse { executavel: string; argumentos: string[]; host?: string; destino?: string;
-  alternativos?: { executavel: string; argumentos: string[]; host?: string; destino?: string }[] }
+export type { TransportePulse } from './transporte-do-canal';
 /** RM-037 (fatia 4): por quanto tempo a parada ja informada continua sabida depois de sumir de uma batida. */
 export const RETEM_PARADO_MS = 6 * 60 * 60 * 1000;
 /**
@@ -89,20 +89,6 @@ export function mensagemPulse(i: ItemPulse, agora?: string): string {
 }
 function gravarCache(file:string,vistas:Record<string,string>): void {
   const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify({versao:1,vistas})+'\n',{mode:0o600});fs.renameSync(tmp,file);
-}
-
-/** Um transporte valido: executavel e argumentos de texto, com `{{mensagem}}` em algum. */
-function transporteValido(t: unknown): t is { executavel: string; argumentos: string[]; host?: string } {
-  const c = t as { executavel?: unknown; argumentos?: unknown } | null;
-  return !!c && typeof c.executavel === 'string' && !!c.executavel && Array.isArray(c.argumentos) &&
-    c.argumentos.every((a) => typeof a === 'string') && c.argumentos.some((a) => (a as string).includes('{{mensagem}}'));
-}
-
-/** O nome do host de um transporte: o declarado, ou o do executavel. */
-function hostDoTransporte(t: { executavel: string; argumentos: string[]; host?: string }): string {
-  if (typeof t.host === 'string' && /^[a-z0-9][a-z0-9._-]{0,39}$/i.test(t.host)) return t.host;
-  const nomes = [t.executavel, ...t.argumentos].map((a) => path.basename(a)).join(' ');
-  return /openclaw/i.test(nomes) ? 'openclaw' : /hermes|ork-pulse-enviar/i.test(nomes) ? 'hermes' : path.basename(t.executavel).slice(0, 40);
 }
 
 export interface EntregaPeloTransporte { ok: boolean; host: string | null; tentativas: TentativaDoTransporte[] }
