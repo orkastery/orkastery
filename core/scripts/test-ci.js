@@ -19,5 +19,10 @@ process.stderr.write(`CI hermético: ${hermetic.length} arquivos; ${LOCAL_INTEGR
 // RM-037: nenhum teste com o skip tipado pula no CI. Com a variavel ligada, um teste que usasse o skip
 // tipado de test/ambiente-de-teste.ts roda e reprova pela falta real, em vez de sumir do CI.
 const env = { ...process.env, ORK_TESTE_EXIGE_AMBIENTE: '1' };
+// RM-063 (fatia 3, achado b): a suite nunca escreve no `~/.orkastery` de quem a roda: a casa do ork e temporaria.
+const os = require('node:os');
+let casa = null;
+if (!env.ORKASTERY_HOME) { casa = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-casa-')); env.ORKASTERY_HOME = casa; }
 const result = spawnSync(process.execPath, ['--test', ...hermetic], { stdio: 'inherit', env });
+if (casa) fs.rmSync(casa, { recursive: true, force: true });
 process.exit(result.status ?? 1);

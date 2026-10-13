@@ -18,6 +18,8 @@ import * as path from 'node:path';
 import { Check } from './types';
 import { exec } from './util';
 import { msg } from './locale';
+import { formatarDataHoraRotulada } from './horario';
+import { pastaDoUsuario } from './maquina';
 
 /** A batida do template `monitor/pulse.cron` (I-50): a menor cadencia das tags. */
 export const BATIDA_DO_TEMPLATE = '*/15 * * * *';
@@ -291,9 +293,127 @@ export function checarCronDoPulse(dirMonitor: string, raizDoCheckout: string,
     if (intervalo === null || intervalo > 15) lentas.push({ linha, comando: partes?.comando ?? comandoSugerido, intervalo });
   }
   if (lentas.length < linhas.length) {
+    // RM-063 (fatia 3, H1): a linha no crontab nao prova que a batida roda (cron parado, script que cai antes do log).
+    // Com thread aberta, a ultima rodada mais velha que o atraso reprova; sem rodada nenhuma ainda, ou com a batida
+    // instalada ha menos de 30 min depois da ultima rodada, a linha recem-instalada vale.
+    if (abertas > 0 && haMin !== null && haMin > ATRASO_DA_BATIDA_MIN && !recemInstalada(raizDoCheckout, rodada?.em ?? null)) {
+      return { nome, nivel: 'fail', detalhe: msg().doctor.batidaAtrasada(haMin, linhas.length), correcao: msg().doctor.batidaAtrasadaCorrecao };
+    }
     return { nome, nivel: 'ok', detalhe: msg().doctor.cronOk(linhas.length) };
   }
   const l = lentas[0];
   return { nome, nivel: 'warn', detalhe: msg().doctor.cronLento(msg().doctor.cronRitmo(l.intervalo), l.linha),
     correcao: msg().doctor.cronTroque(linhaNova(l.comando)) };
+}
+
+/**
+ * A batida deste projeto foi instalada (`batida_instalada` no ledger da maquina) depois da ultima rodada e ha menos de
+ * 30 min: o `hitl.log` velho de antes da instalacao nao e atraso, a primeira rodada ainda vem.
+ */
+function recemInstalada(raizDoCheckout: string, ultimaRodadaEm: string | null, agora: number = Date.now()): boolean {
+  let eventos: { ts?: unknown; tipo?: unknown; projeto?: unknown }[] = [];
+  try {
+    eventos = fs.readFileSync(path.join(pastaDoUsuario(), 'ledger.jsonl'), 'utf8').split('\n').filter(Boolean)
+      .map((l) => { try { return JSON.parse(l) as { ts?: unknown }; } catch { return {}; } });
+  } catch { return false; }
+  const instalada = eventos.filter((e) => e.tipo === 'batida_instalada' && typeof e.projeto === 'string' &&
+    mesmoCaminho(e.projeto, raizDoCheckout) && typeof e.ts === 'string').map((e) => Date.parse(e.ts as string)).filter(Number.isFinite).at(-1);
+  if (instalada === undefined) return false;
+  const rodada = ultimaRodadaEm ? Date.parse(ultimaRodadaEm) : Number.NEGATIVE_INFINITY;
+  return instalada > rodada && agora - instalada <= ATRASO_DA_BATIDA_MIN * 60000;
+}
+
+// ---------------------------------------------------------------------------
+// RM-063 (fatia 3, H1): a batida como o host a le, no `ork doctor --json`.
+// ---------------------------------------------------------------------------
+
+/** O estado da batida para a segunda linha do host: a idade da ultima rodada e o aviso pronto para o dono. */
+export interface BatidaNoDoctor {
+  threadsAbertas: number;
+  /** A linha da varredura deste projeto esta no crontab? `null` quando o crontab nao pode ser lido. */
+  instalada: boolean | null;
+  ultimaRodadaEm: string | null;
+  /** O codigo de saida da ultima rodada (`pulse_scan` do `hitl.log`). */
+  codigo: number | null;
+  haMin: number | null;
+  limiteMin: number;
+  /** Com thread aberta: a ultima rodada passou do limite, ou nunca houve rodada e a batida nao esta instalada. */
+  atrasada: boolean;
+  /** O texto que o host manda ao dono quando `atrasada`; `null` quando nao ha o que avisar. */
+  aviso: string | null;
+}
+
+export function batidaNoDoctor(dirMonitor: string, raizDoCheckout: string, opcoes: { projeto: string; maquina: string;
+  ler?: LeitorDoCrontab; agora?: number; abertas?: number }): BatidaNoDoctor {
+  const abertas = opcoes.abertas ?? threadsAbertasNoEstado(path.dirname(dirMonitor));
+  const rodada = ultimaRodadaDaVarredura(dirMonitor);
+  const agora = opcoes.agora ?? Date.now();
+  const haMin = rodada ? Math.max(0, Math.floor((agora - Date.parse(rodada.em)) / 60000)) : null;
+  const leitura = (opcoes.ler ?? lerCrontabDoSistema)();
+  const instalada = leitura.ok ? entradasDaVarredura(leitura.texto).some((e) => entradaDoProjeto(e, raizDoCheckout)) : null;
+  const atrasada = abertas > 0 && (haMin !== null ? haMin > ATRASO_DA_BATIDA_MIN && !recemInstalada(raizDoCheckout, rodada?.em ?? null, agora)
+    : instalada !== true);
+  const quando = rodada ? formatarDataHoraRotulada(rodada.em, { agora: new Date(agora).toISOString() }) : null;
+  const aviso = !atrasada ? null : haMin !== null
+    ? `Orkastery: a fabrica ${opcoes.projeto} na maquina ${opcoes.maquina} esta sem batida ha ${haMin} min (ultima rodada em ${quando}` +
+      `${rodada?.code ? `, codigo ${rodada.code}` : ''}), com ${abertas} thread(s) aberta(s). Confira com: ork fabrica batida status`
+    : `Orkastery: a fabrica ${opcoes.projeto} na maquina ${opcoes.maquina} nao tem batida (nenhuma rodada da varredura e a linha nao ` +
+      `esta no crontab), com ${abertas} thread(s) aberta(s). Instale com: ork fabrica batida instalar`;
+  return { threadsAbertas: abertas, instalada, ultimaRodadaEm: rodada?.em ?? null, codigo: rodada?.code ?? null, haMin,
+    limiteMin: ATRASO_DA_BATIDA_MIN, atrasada, aviso };
+}
+
+// ---------------------------------------------------------------------------
+// RM-063 (fatia 3, H4): a falha do transporte do pulse, que a entrega grava em `transporte.log`.
+// ---------------------------------------------------------------------------
+
+export const ARQUIVO_DO_TRANSPORTE = 'transporte.log';
+/** A entrega mais velha que isto nao e mais noticia: o doctor nao acusa a falha de ontem. */
+const VALIDADE_DA_FALHA_MS = 24 * 60 * 60 * 1000;
+
+export interface TentativaDoTransporte { host: string; ok: boolean; codigo: number | null; detalhe: string }
+export interface EntregaRegistrada { ts: string; oQue: string; ok: boolean; host: string | null; tentativas: TentativaDoTransporte[] }
+
+/** A ultima entrega registrada no `transporte.log` (lida do fim, com teto). */
+export function ultimaEntrega(dirMonitor: string): EntregaRegistrada | null {
+  let texto: string;
+  try {
+    const fd = fs.openSync(path.join(dirMonitor, ARQUIVO_DO_TRANSPORTE), 'r');
+    try {
+      const tamanho = fs.fstatSync(fd).size, lido = Math.min(tamanho, 64 * 1024);
+      const buffer = Buffer.alloc(lido);
+      fs.readSync(fd, buffer, 0, lido, tamanho - lido);
+      texto = buffer.toString('utf8');
+    } finally { fs.closeSync(fd); }
+  } catch { return null; }
+  for (const linha of texto.split('\n').reverse()) {
+    try {
+      const e = JSON.parse(linha) as Partial<EntregaRegistrada> & { tipo?: unknown };
+      if (e.tipo !== 'transporte_entrega' || typeof e.ts !== 'string' || !Array.isArray(e.tentativas)) continue;
+      return { ts: e.ts, oQue: String(e.oQue ?? ''), ok: e.ok === true, host: typeof e.host === 'string' ? e.host : null, tentativas: e.tentativas };
+    } catch { /* linha cortada */ }
+  }
+  return null;
+}
+
+/**
+ * Check "transporte do pulse": a ultima entrega do resumo. Saiu pelo primeiro transporte, ok; saiu pelo outro host
+ * configurado, aviso; nao saiu por nenhum, falha. `null` sem `pulse-host.json`, ou sem entrega nas ultimas 24 h.
+ */
+export function checarTransporteDoPulse(dirMonitor: string, agora: number = Date.now()): Check | null {
+  if (!fs.existsSync(path.join(dirMonitor, 'pulse-host.json'))) return null;
+  const e = ultimaEntrega(dirMonitor);
+  if (!e || !(agora - Date.parse(e.ts) <= VALIDADE_DA_FALHA_MS)) return null;
+  const nome = 'transporte do pulse';
+  const quando = formatarDataHoraRotulada(e.ts, { agora: new Date(agora).toISOString() });
+  if (!e.ok) {
+    const tentativas = e.tentativas.map((t) => `${t.host}: ${t.codigo ?? 'sem código'}`).join('; ');
+    return { nome, nivel: 'fail', detalhe: msg().doctor.transporteFalhou(quando, tentativas), correcao: msg().doctor.transporteCorrecao };
+  }
+  const falhas = e.tentativas.filter((t) => !t.ok);
+  if (falhas.length) {
+    return { nome, nivel: 'warn', detalhe: msg().doctor.transporteDesvio(falhas.map((t) => t.host).join(', '), e.host ?? '?', quando),
+      correcao: msg().doctor.transporteCorrecao };
+  }
+  return { nome, nivel: 'ok', detalhe: msg().doctor.transporteOk(e.host ?? '?', quando) };
 }

@@ -406,3 +406,94 @@ test('F17: a reserva pendente segura o trabalho na retomada e conta no teto; a f
     assert.equal(lerArco(p.dir, 'arco-f17')!.consumo.arco, 1, 'a pendente conta no teto');
   } finally { p.limpar(); }
 });
+
+// ---------------------------------------------------------------------------
+// RM-058 N4 (D8, D16 e D21 da ork-rm058n4): a fila respeita as decisões da supervisão, quando elas vêm.
+// ---------------------------------------------------------------------------
+
+type Supervisao = NonNullable<NonNullable<Parameters<typeof fatosDaFila>[2]>['supervisao']>;
+const semDecisoes = (): Supervisao => ({ isolados: new Map(), retomadas: new Map() });
+
+function filaSupervisionada(p: Projeto, arco: string, supervisao: Supervisao, itens = ['RM-901', 'RM-902', 'RM-903']): FilaDoArco {
+  return montarFila(fatosDaFila(p.carregado, arco, { maquina: MAQUINA, lerReservas: reservadas(itens), supervisao }));
+}
+
+test('F18: o trabalho isolado pela supervisão fica bloqueado com o porquê, sem virar lacuna nem candidato, e não encerra a fila', () => {
+  const p = projetoTemporario('noctum-f18');
+  try {
+    abrirArco(p.dir, 'arco-f18', { trabalhos: [TRES[0], TRES[2]] });
+    const supervisao: Supervisao = { ...semDecisoes(), isolados: new Map([['a', 'despacho de fora do arco na thread (SIMULADO)']]) };
+    const f = filaSupervisionada(p, 'arco-f18', supervisao);
+    assert.equal(resumo(porId(f).get('a')), 'bloqueado:isolado');
+    assert.match(porId(f).get('a')!.detalhe, /despacho de fora/);
+    assert.deepEqual(f.candidatos.map(t => t.id), ['c']);
+    assert.deepEqual(f.lacunas, []);
+    assert.equal(resumo(porId(fila(p, 'arco-f18')).get('a')), 'abrir:GOAL', 'sem a supervisão, a fila é a da N2');
+    // Só o isolado sobra: a fila espera (o dono decide na manhã), e não encerra como vazia.
+    entregar(p.dir, threadDoTrabalho(p.carregado, 'fatia c', 'RM-903', PEDIDO.c).id);
+    const so = filaSupervisionada(p, 'arco-f18', supervisao);
+    assert.equal(so.situacao, 'bloqueada');
+    assert.equal(so.decisao.acao, 'aguardar');
+  } finally { p.limpar(); }
+});
+
+test('F19: a retomada autorizada devolve à fila, na fase dela, o fim de turno sem resultado, a falha com id e o que ficou sem passo', () => {
+  const p = projetoTemporario('noctum-f19');
+  try {
+    const parou = threadDoTrabalho(p.carregado, 'parou', 'RM-901', 'Pedido SIMULADO parou.');
+    const falhou = threadDoTrabalho(p.carregado, 'falhou', 'RM-902', 'Pedido SIMULADO falhou.');
+    const morreu = threadDoTrabalho(p.carregado, 'morreu', 'RM-903', 'Pedido SIMULADO morreu.');
+    abrirArco(p.dir, 'arco-f19', { trabalhos: [
+      { id: 'parou', item: 'RM-901', prioridade: 1, dependeDe: [], thread: parou.id },
+      { id: 'falhou', item: 'RM-902', prioridade: 1, dependeDe: [], thread: falhou.id },
+      { id: 'morreu', item: 'RM-903', prioridade: 1, dependeDe: [], thread: morreu.id },
+    ] });
+    const d = despachar(p.dir, parou.id, 'GO', 91);
+    stopSemResultado(p.dir, parou.id, 'GO', d);
+    registrar(dirThread(p.dir, falhou.id), falhou.id, 'phase_dispatch_failed', { fase: 'GOAL', erro: 'runtime.unavailable: SIMULADO',
+      sessionId: '99999999-0000-4000-8000-000000000091' });
+    const m = despachar(p.dir, morreu.id, 'PLAN', 92);
+    registrar(dirThread(p.dir, morreu.id), morreu.id, 'sessao_morta', { fase: 'PLAN', sessionId: m.sessionId, origem: 'noctum.vigia',
+      evidencia: 'SIMULADO: o runtime lista a sessão como stopped' });
+    const antes = filaSupervisionada(p, 'arco-f19', semDecisoes());
+    assert.deepEqual(['parou', 'falhou', 'morreu'].map(id => resumo(porId(antes).get(id))),
+      ['bloqueado:fim-de-turno-sem-resultado', 'bloqueado:retomada', 'bloqueado:sem-passo']);
+    const retomadas = new Map([
+      ['parou', { fase: 'GO' as const, tentativa: 1, motivo: 'fim-de-turno-sem-resultado' }],
+      ['falhou', { fase: 'GOAL' as const, tentativa: 1, motivo: 'despacho-falho' }],
+      ['morreu', { fase: 'PLAN' as const, tentativa: 2, motivo: 'sessao-morta' }],
+    ]);
+    const depois = filaSupervisionada(p, 'arco-f19', { ...semDecisoes(), retomadas });
+    assert.deepEqual(['parou', 'falhou', 'morreu'].map(id => resumo(porId(depois).get(id))),
+      ['despachavel:GO', 'despachavel:GOAL', 'despachavel:PLAN']);
+    assert.match(porId(depois).get('morreu')!.detalhe, /tentativa 2, sessao-morta/);
+    assert.equal(depois.decisao.acao, 'despachar');
+  } finally { p.limpar(); }
+});
+
+test('F20: a retomada autorizada nunca passa por cima da reserva pendente, do erro repetido, do dono nem da sessão em curso', () => {
+  const p = projetoTemporario('noctum-f20');
+  try {
+    const pausada = threadDoTrabalho(p.carregado, 'pausada', 'RM-902', 'Pedido SIMULADO pausada.');
+    const curso = threadDoTrabalho(p.carregado, 'curso', 'RM-904', 'Pedido SIMULADO curso.');
+    const h = abrirArco(p.dir, 'arco-f20', { trabalhos: [TRES[0],
+      { id: 'pausada', item: 'RM-902', prioridade: 1, dependeDe: [], thread: pausada.id },
+      { id: 'erros', item: 'RM-903', prioridade: 1, dependeDe: [], pedido: 'Pedido SIMULADO erros.' },
+      { id: 'curso', item: 'RM-904', prioridade: 1, dependeDe: [], thread: curso.id },
+    ] });
+    reservarDespacho(p.dir, { arco: 'arco-f20', envelopeSha256: h, trabalho: 'a', thread: null, fase: 'GOAL', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    gravarThread(p.dir, { ...lerThread(p.dir, pausada.id), status: 'pausada' });
+    for (let i = 0; i < ERROS_SEGUIDOS_QUE_BLOQUEIAM; i++) {
+      const r = reservarDespacho(p.dir, { arco: 'arco-f20', envelopeSha256: h, trabalho: 'erros', thread: null, fase: 'GOAL', runtime: 'claude-bg',
+        conta: 'perfil-a', revisao: false });
+      concluirDespacho(p.dir, 'arco-f20', r.seq, { motivo: MOTIVO_DO_ERRO_NO_DESPACHO });
+    }
+    despachar(p.dir, curso.id, 'GO', 93);
+    const todas = new Map(['a', 'pausada', 'erros', 'curso'].map(id => [id, { fase: 'GOAL' as const, tentativa: 1, motivo: 'SIMULADO' }]));
+    const f = filaSupervisionada(p, 'arco-f20', { ...semDecisoes(), retomadas: todas }, ['RM-901', 'RM-902', 'RM-903', 'RM-904']);
+    assert.deepEqual(['a', 'pausada', 'erros', 'curso'].map(id => resumo(porId(f).get(id))),
+      ['bloqueado:retomada', 'bloqueado:dono', 'bloqueado:erro-repetido', 'em-curso']);
+    assert.deepEqual(f.candidatos, []);
+  } finally { p.limpar(); }
+});

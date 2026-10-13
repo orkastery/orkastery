@@ -98,6 +98,11 @@ const REGRA_POR_ESTADO: Record<string, Regra> = {
     detalhe: PULSE_PT_BR.sessao.failed,
   },
   working: { classe: 'trabalhando', precisaDeHumano: false, detalhe: PULSE_PT_BR.sessao.working },
+  // RM-063 (fatia 3, achado a): a sessao interativa do Claude Code aparece `busy` enquanto executa um turno, e o
+  // runtime tambem diz `running`. Fora do catalogo elas viravam "possivel parada" no pulse e em "O que precisa de
+  // voce": e trabalho, como o observador (`session-watcher-claude.ts`) e a capacidade do #Noctum ja as liam.
+  busy: { classe: 'trabalhando', precisaDeHumano: false, detalhe: PULSE_PT_BR.sessao.busy },
+  running: { classe: 'trabalhando', precisaDeHumano: false, detalhe: PULSE_PT_BR.sessao.running },
   done: { classe: 'concluida', precisaDeHumano: false, detalhe: PULSE_PT_BR.sessao.done },
   stopped: {
     classe: 'interrompida',

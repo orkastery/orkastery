@@ -55,3 +55,12 @@ Usabilidade HITL é prioridade máxima: recomendação, opções claras e canal 
 associado ao pedido. MCP local conserva elicitation; Telegram segue disponível
 quando configurado. Ingresso nativo Hermes/Discord e OpenClaw depende de callback
 autenticado e binding privado; terminal Hermes/ACP não está homologado.
+
+## Batida do host e canal (RM-063)
+
+Os dois hosts de canal ganham a mesma segunda linha da fábrica: `bin/ork-vigia-batida.js` numa
+automação de comando do OpenClaw e `bin/ork-vigia-batida.py` no cron do Hermes leem o
+`ork doctor --json` a cada 30 min e avisam o dono quando a batida passou de 30 min, sem chamada de
+modelo. `#OrkRetomar` e `#OrkFabrica` entram pelo mesmo ingresso assinado do pulse nos dois, e o
+`ork onboarding` grava o `pulse-host.json` do host escolhido. `conducao-canal.test.mjs` e
+`conducao_canal_test.py` provam os dois lados com `ork` e host SIMULADOS.
