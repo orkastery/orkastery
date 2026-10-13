@@ -20,7 +20,8 @@ import { BRANCH_DE_COORDENACAO } from '../src/noctum-transporte';
 import { RecusaDoArco } from '../src/noctum-envelope';
 import * as reservasDoRoadmap from '../src/roadmap-reservas';
 import { pegarItem, soltarItem } from '../src/roadmap-reservas';
-import { passoDoArco } from '../src/noctum-execucao';
+import { OpcoesDoPasso, passoDoArco } from '../src/noctum-execucao';
+import { ResultadoRun } from '../src/phase';
 import { passoDaMaquina, ResultadoDoPassoDaMaquina } from '../src/noctum-maquinas';
 import { dirThread, lerThread, listarIds } from '../src/thread';
 import { registrar } from '../src/ledger';
@@ -406,4 +407,22 @@ test('M15: sem a leitura das reservas a autoridade não distribui; antes de a ja
     assert.ok(depois.acao !== 'uma-maquina' && depois.relatorio.respostas.some(x => x.ordem === 'O-t1-1' && x.recibo === 'aceita'),
       JSON.stringify(depois.acao !== 'uma-maquina' ? depois.relatorio.respostas : depois.acao));
   } finally { m2.limpar(); }
+});
+
+test('M16: o despacho idempotente, com a fase já correndo, solta a vaga global com consumo no passo seguinte, sem esperar sessão', { skip: semKernel }, () => {
+  const m = cenario('noctum-m16');
+  // A2 da rodada 2: o núcleo devolve idempotente, sem sessão nova; o desfecho local leva isso aos fatos da máquina.
+  const idempotente = (() => ({ sessionId: null, idempotente: true, verificada: true, bloqueado: false, motivo: null }) as unknown as ResultadoRun) as
+    NonNullable<OpcoesDoPasso['despachar']>;
+  const passoIdempotente = (q: MaquinaDeTeste) => passoDaMaquina(q.carregado, m.arco, { maquina: q.nome, n2: { ...n2Simulada(registro), despachar: idempotente } });
+  try {
+    const r1 = passoIdempotente(m.a);
+    const d1 = despachou(r1);
+    assert.ok(d1 && d1.trabalho === 'a' && d1.idempotente === true, JSON.stringify(r1.acao === 'passo' ? r1.passo : r1));
+    const vaga = `V-maquina-a-${d1.reserva}`;
+    assert.equal(lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' }).vagas.find(v => v.vaga === vaga)!.solta, null);
+    const r2 = passoIdempotente(m.a);
+    assert.ok(r2.acao === 'passo' && r2.relatorio.reconciliacao!.soltas.includes(vaga), JSON.stringify(r2.acao === 'passo' ? r2.relatorio.reconciliacao : r2));
+    assert.equal(lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' }).vagas.find(v => v.vaga === vaga)!.solta!.consumiu, true);
+  } finally { m.limpar(); }
 });
