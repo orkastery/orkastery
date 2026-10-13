@@ -11,16 +11,21 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 - **#Noctum, fatia N3: coordenação entre máquinas** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): o contrato
   `ork.noctum-envelope/v3` traz as máquinas do arco, cada uma com a chave pública Ed25519 com que assina, o limite de
   sessões por conta somando as máquinas e a máquina presa de um trabalho. `core/src/noctum-transporte.ts` grava ordens,
-  recibos e cancelamento assinados no ramo `ork/noctum-coordenacao` do remoto do projeto, por push sem força, e só
-  decide com leitura nova e conferida (assinatura, caminho, versão, só acréscimo e história que desce da última
-  vista); o retrato da rede é descoberta, nunca autorização. `core/src/noctum-coordenacao.ts` dá a autoridade por
-  geração (a antiga que volta não emite), uma ordem viva por trabalho, a transferência só com prova (sem ela, o item
-  fica isolado e os outros seguem) e a vaga global, que soma as máquinas no limite da conta e nos tetos do arco; a
-  reserva do item é a da RM-047, revalidada depois de tomar. `core/src/noctum-integracao.ts` deixa um integrador por
-  destino entre máquinas e invalida o candidato quando a base ou a fonte mudam; `core/src/noctum-maquinas.ts`
-  reconcilia a máquina que volta, sem entrega em duplicidade, e chama o passo da N2 só com o que tem ordem dela. Um
-  ensaio com dois executores em processos separados, sobre um remoto de fixture, prova o aceite da tabela. O modo
-  continua desligado: `#Noctum` não é aceito, e nenhum comando abre arco nem grava no ramo.
+  recibos e cancelamento assinados no ramo `ork/noctum-coordenacao` do remoto do projeto, por push sem força e com a
+  identidade da máquina nos commits, e só decide com leitura nova e conferida (assinatura, caminho, só acréscimo, batida
+  que não volta no tempo e história que desce da última vista, que só avança depois da leitura inteira conferir); a
+  emenda que esta máquina ainda não autorizou é espera, e o retrato da rede é descoberta, nunca autorização.
+  `core/src/noctum-coordenacao.ts` dá a autoridade por geração, com cada geração nova selando os registros da anterior
+  (o que a vencida gravar depois reprova a leitura), uma ordem viva por trabalho, a transferência só com prova (sem
+  ela, o item fica isolado e os outros seguem), a revogação do dono numa máquina valendo em todas e a vaga global, que
+  soma as máquinas no limite da conta e nos tetos do arco; a reserva do item é a da RM-047, revalidada depois de tomar,
+  e decide para qual máquina a ordem vai, ou se ela espera a reserva de fora ser solta, sem levar ao ramo quem
+  reservou. `core/src/noctum-integracao.ts` deixa um integrador por destino entre máquinas, invalida o candidato quando
+  a base ou a fonte mudam e faz a autoridade abandonar a vez de quem não dá sinal; `core/src/noctum-maquinas.ts`
+  reconcilia a máquina que volta, sem entrega em duplicidade, fecha o que é da máquina que uma emenda tirou do arco e
+  chama o passo da N2 só com o que tem ordem dela. Um ensaio com dois executores em processos separados, sobre um
+  remoto de fixture, prova o aceite da tabela, inclusive o vencedor por item pela reserva e a disputa da última vaga
+  global. O modo continua desligado: `#Noctum` não é aceito, e nenhum comando abre arco nem grava no ramo.
 - **Conhecimento escrito, fatia 2: o comando e as tools MCP** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
   `ork conhecimento listar [--colecao C]|mostrar <doc-id>|colecoes|verificar`, todos com `--json`, e as tools
   `ork_conhecimento_listar`, `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar` no
