@@ -1,0 +1,679 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm058n4",
+  "branch": "ork/ork-rm058n4-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-supervisao.ts",
+      "alegacao": "RM-058 N4 T1: o log de supervisão do arco (supervisao.jsonl, ork.noctum-supervisao/v1) é encadeado e assinado com subchave própria, recusa linha trocada, fora da cadeia, com MAC errado, aberta a outros ou com segunda linha de parâmetros, descarta a cauda incompleta, guarda os parâmetros na primeira linha e é relido por um processo novo sem zerar gerações, tentativas nem contas fora (S1 a S6)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-supervisao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - S[0-9]+:/{p++} END{exit !(p>=6 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:05:12.880Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-supervisao.test.ts",
+      "alegacao": "RM-058 N4 T1: os casos S1 a S6 da supervisão do arco existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('S[1-6]:\" core/test/noctum-supervisao.test.ts | awk '{exit !($1>=6)}'"
+      ],
+      "criadoEm": "2026-10-13T01:05:14.564Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-supervisao-apoio.ts",
+      "alegacao": "RM-058 N4 T1: o apoio de testes da N4 assina linhas no domínio da supervisão ou noutro domínio, para provar que a subchave é própria",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"export function assinar(\" core/test/noctum-supervisao-apoio.ts"
+      ],
+      "criadoEm": "2026-10-13T01:05:15.880Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fila.ts",
+      "alegacao": "RM-058 N4 T2: a fila do arco respeita as decisões da supervisão quando elas vêm: o trabalho isolado fica bloqueado com o porquê, sem virar lacuna nem candidato; o trabalho bloqueado para a N4 (falha com id, passo de retomar, fim de turno sem resultado, sem passo) volta na fase da retomada autorizada; a reserva pendente, o erro repetido, o dono e a sessão em curso nunca são sobrepostos; sem a supervisão, F1 a F17 seguem iguais (F1 a F20)",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-fila.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - F[0-9]+:/{p++} END{exit !(p>=20 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:06:22.970Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "RM-058 N4 T2: o passo do arco repassa as decisões da supervisão à fila e aceita os alvos de runtime da fase: a fase sai pelo primeiro alvo com conta do envelope disponível, com o runtime, o modelo e o esforço dele na reserva e no rodarFase; a retomada autorizada sai pelo passo com a reserva e a correlação do arco; o isolado não é despachado; sem as entradas novas, X1 a X15 seguem iguais (X1 a X18)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-execucao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - X[0-9]+:/{p++} END{exit !(p>=18 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:06:25.825Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-fila.test.ts",
+      "alegacao": "RM-058 N4 T2: os casos F18 a F20 da fila com a supervisão existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('F(18|19|20):\" core/test/noctum-fila.test.ts | awk '{exit !($1>=3)}'"
+      ],
+      "criadoEm": "2026-10-13T01:06:27.435Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-execucao.test.ts",
+      "alegacao": "RM-058 N4 T2: os casos X16 a X18 do passo com a supervisão e os alvos existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('X(16|17|18):\" core/test/noctum-execucao.test.ts | awk '{exit !($1>=3)}'"
+      ],
+      "criadoEm": "2026-10-13T01:06:29.128Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-supervisao.ts",
+      "alegacao": "RM-058 N4 T3: a seleção de contas do arco só tem contas do envelope disponíveis no store e não tiradas pelo arco: o limite semanal com reset dito tira a conta até o reset, a cota sem reset dito tira a conta pelo resto do arco (lacuna, mesmo depois da janela estimada do store), a falha de autenticação tira a conta sem prazo, o subteto tira só a conta, o teto do arco e a recusa por custo param o arco, e os alvos da fase são o runtime do bloco e a ordem de fallback dele só dentro do envelope e com subteto aberto (S7 a S12)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-supervisao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - S[0-9]+:/{p++} END{exit !(p>=12 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:07:18.268Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-supervisao.test.ts",
+      "alegacao": "RM-058 N4 T3: os casos S7 a S12 das contas e dos runtimes do arco existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('S(7|8|9|10|11|12):\" core/test/noctum-supervisao.test.ts | awk '{exit !($1>=6)}'"
+      ],
+      "criadoEm": "2026-10-13T01:07:20.054Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-supervisao-apoio.ts",
+      "alegacao": "RM-058 N4 T3: o apoio de testes monta o store de perfis SIMULADO na mão",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"export function storeCom(\" core/test/noctum-supervisao-apoio.ts"
+      ],
+      "criadoEm": "2026-10-13T01:07:21.536Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-reconciliacao.ts",
+      "alegacao": "RM-058 N4 T4: a reconciliação decide com prova o que ficou no meio: a reserva pendente cujo despacho o ledger prova conclui, a sem nada lançado volta ao orçamento, a do id dito vai ao runtime (viva conclui, morta conclui e retoma, sem leitura espera e isola depois da carência), o prompt sem despacho acha a sessão pela thread; o fim de turno sem resultado, a sessão morta, a sessão sem avanço e a sem primeiro turno viram retomada da fase seguinte à prova mais adiantada, com parada pelo runtime quando a sessão está viva, até o teto, e depois isolamento; o despacho de fora isola; recusas de ambiente seguidas param o arco (R1 a R10)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-reconciliacao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R[0-9]+:/{p++} END{exit !(p>=10 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:11:30.535Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-reconciliacao.test.ts",
+      "alegacao": "RM-058 N4 T4: os casos R1 a R10 da reconciliação existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('R([1-9]|10):\" core/test/noctum-reconciliacao.test.ts | awk '{exit !($1>=10)}'"
+      ],
+      "criadoEm": "2026-10-13T01:11:32.158Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "RM-058 N4 T5: o despacho do arco que cai no limite de uso deixa na fila durável o pedido com a correlação noctum do arco (R11)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-reconciliacao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R11:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:15:14.561Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/ratelimit.ts",
+      "alegacao": "RM-058 N4 T5: o pedido da fila durável guarda a correlação do despacho e arcoDoPedido diz o arco do pedido; a fila do rate limit segue como antes para o pedido comum",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"export function arcoDoPedido(\" core/src/ratelimit.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ratelimit.test.js"
+      ],
+      "criadoEm": "2026-10-13T01:15:16.598Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "RM-058 N4 T5: o ork retry resume não redespacha o pedido de um arco: devolve o resultado sem despacho, sem regravar o pedido nem tocar o ledger; o pedido comum segue no retry de antes (R11 e as suítes do retry)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-reconciliacao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R1[12]:/{p++} END{exit !(p==2 && f==0)}' && node --test core/dist-test/test/retry.test.js"
+      ],
+      "criadoEm": "2026-10-13T01:15:19.354Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-reconciliacao.ts",
+      "alegacao": "RM-058 N4 T6: o push de resultado incerto é registrado e reconciliado pelo remoto (git ls-remote): com o commit lá, confirma e nada se repete; sem a branch, a repetição só é permitida abaixo do teto do mesmo push; outro sha isola o trabalho; remoto sem leitura é lacuna e isola no teto; o envelope não muda (R13 a R15, com remoto bare local)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-reconciliacao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R1[345]:/{p++} END{exit !(p==3 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:17:51.419Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-reconciliacao.test.ts",
+      "alegacao": "RM-058 N4 T5 e T6: os casos R11 a R15 (pedido do limite de uso do arco e push de resultado incerto) existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('R1[1-5]:\" core/test/noctum-reconciliacao.test.ts | awk '{exit !($1>=5)}'"
+      ],
+      "criadoEm": "2026-10-13T01:17:53.111Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "RM-058 N4 T7: o vigia e o condutor do arco provam a vida pela trava do kernel: o condutor vivo não é substituído; morto por SIGKILL, o tique do vigia assume com geração nova e segue o arco sem renovar o envelope; o vigia morto no meio do tique é registrado pelo seguinte, com os contadores de antes; tiques interrompidos em série param o arco; sem vigia, o condutor não despacha; quem perde a geração sai; a sessão morta é retomada pelo passo do arco no mesmo tique; o limite semanal leva o despacho à outra conta do envelope; o arco revogado só fecha a contabilidade (G1 a G8)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-vigia.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - G[0-9]+:/{p++} END{exit !(p>=8 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:25:58.521Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-vigia.test.ts",
+      "alegacao": "RM-058 N4 T7: os casos G1 a G8 do vigia e do condutor existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('G[1-8]:\" core/test/noctum-vigia.test.ts | awk '{exit !($1>=8)}'"
+      ],
+      "criadoEm": "2026-10-13T01:26:00.169Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-supervisao-apoio.ts",
+      "alegacao": "RM-058 N4 T7: o apoio de testes tem o runtime e o despacho simulados do arco, divididos com os processos filhos",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"export function opcoesSimuladas(\" core/test/noctum-supervisao-apoio.ts",
+        "grep -F \"export function runtimeSimulado(\" core/test/noctum-supervisao-apoio.ts"
+      ],
+      "criadoEm": "2026-10-13T01:26:02.265Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-058 N4 T8: o CHANGELOG tem a linha da N4 em Não publicado, e o checar-changelog contra a origin/main passa",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"#Noctum, fatia N4: supervisão e recuperação\" CHANGELOG.md",
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-13T01:28:19.509Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "RM-058 N4: os textos para pessoa da supervisão (vigia e reconciliação) passam o horário pelo formatador do dono, e o lint de ISO cru da I-35 passa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/horario-lint.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - lint/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:30:17.244Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-reconciliacao.ts",
+      "alegacao": "RM-058 N4 GO-FIX 1: a sessão viva parada num diálogo antes do primeiro turno (não só a que trabalha) é parada e retomada; o fim de turno que o observador viu com a sessão parada também vira retomada depois da carência; o efeito incerto só aceita remoto e branch no formato seguro, e a leitura padrão recusa os outros sem chamar o git (R16 a R18)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-reconciliacao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R1[678]:/{p++} END{exit !(p==3 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:46:19.155Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-vigia.test.ts",
+      "alegacao": "RM-058 N4 GO-FIX 1: o G9 prova pelo vigia que a cota sem reset dito deixa a conta fora pelo resto do arco, mesmo depois da janela estimada do store, e o despacho sai pela outra conta do envelope",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-vigia.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - G9:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:46:21.438Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-reconciliacao.test.ts",
+      "alegacao": "RM-058 N4 GO-FIX 1: os casos R16 a R18 existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('R1[678]:\" core/test/noctum-reconciliacao.test.ts | awk '{exit !($1>=3)}'"
+      ],
+      "criadoEm": "2026-10-13T01:46:23.005Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-reconciliacao.ts",
+      "alegacao": "RM-058 N4 GO-FIX 2: a retomada autorizada só é atendida por uma reserva do arco feita depois dela (concluída ou pendente; a recusada antes do lançamento não atende), e cada tentativa conta no teto; a sessão morta só vira retomada depois da carência desde a última atividade dela, salvo a sessao_morta já provada; a falha sem id do despacho numa thread já despachada vira a retomada da mesma fase, e a falha com id põe a sessão sob vigia; a ausência na listagem só prova a morte da sessão despachada antes da leitura, com a ausência mínima; a fonte ausente e o codex não provam ausência; a sessão antiga da mesma worktree não é deste lançamento; só o despacho com a correlação e a fase da reserva a conclui; o trabalho com reserva pendente ou esperando o dono fica de fora; o pedido do limite de uso do arco só sai da fila (R3, R6, R8, R12, R19 a R26)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-reconciliacao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R[0-9]+:/{p++} END{exit !(p>=26 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T02:39:02.097Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-reconciliacao.test.ts",
+      "alegacao": "RM-058 N4 GO-FIX 2: os casos R19 a R26 da reconciliação existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('R(19|2[0-6]):\" core/test/noctum-reconciliacao.test.ts | awk '{exit !($1>=8)}'"
+      ],
+      "criadoEm": "2026-10-13T02:39:03.820Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "RM-058 N4 GO-FIX 2: o vigia reconcilia com a trava de despacho na mão e lê o runtime sob ela (ocupada, lacuna e nada reconciliado); com o arco revogado não para sessão nem autoriza retomada; a retomada é atendida pela reserva do arco mesmo quando o lançamento falha depois do id, e a morte seguinte é a tentativa seguinte; a falha sem id do despacho da fase seguinte vira a retomada pela outra conta; o condutor espera a pausa depois de uma recusa, e o trabalho recusado seguidas vezes pelo núcleo é isolado; o vigia não roda a baseline no tique; a parada sem confirmação do runtime não autoriza retomada e, no teto, isola; recusas de ambiente seguidas param o arco; o passo conduzido leva as contas e os alvos do arco e para no teto do arco (G6, G8, G10 a G17)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-vigia.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - G[0-9]+:/{p++} END{exit !(p>=17 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T02:39:05.774Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-vigia.test.ts",
+      "alegacao": "RM-058 N4 GO-FIX 2: os casos G10 a G17 do vigia e do condutor existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('G1[0-7]:\" core/test/noctum-vigia.test.ts | awk '{exit !($1>=8)}'"
+      ],
+      "criadoEm": "2026-10-13T02:39:07.395Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-supervisao.ts",
+      "alegacao": "RM-058 N4 GO-FIX 2: a cota vista no meio do turno de uma sessão do arco e o que só o store sabe (esgotada, sem o reset provado pelo arco, ou sem login) tiram a conta do arco; a conta do envelope que virou provider pago para o arco; a gravação que deixaria o log ilegível é recusada antes de ir ao disco, e a geração seguinte é lida sob a trava (S13 e S14, com S1 a S12)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-supervisao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - S[0-9]+:/{p++} END{exit !(p>=14 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T02:39:10.210Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-supervisao.test.ts",
+      "alegacao": "RM-058 N4 GO-FIX 2: os casos S13 e S14 da supervisão existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('S1[34]:\" core/test/noctum-supervisao.test.ts | awk '{exit !($1>=2)}'"
+      ],
+      "criadoEm": "2026-10-13T02:39:11.757Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-supervisao-apoio.ts",
+      "alegacao": "RM-058 N4 GO-FIX 2: o apoio de testes fixa os parâmetros do arco na primeira linha do log (prazos curtos sem deslocar o relógio)",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"export function parametrosDoTeste(\" core/test/noctum-supervisao-apoio.ts"
+      ],
+      "criadoEm": "2026-10-13T02:39:13.420Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "RM-058 N4 GO-FIX 2: o ork retry resume do pedido de um arco diz ao dono como tirar o pedido da fila sem o vigia (ork retry cancel) e retomar a fase à mão, sem despachar nada (R11)",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"o dono tira o pedido da fila com ork retry cancel\" core/src/retry.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-reconciliacao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R11:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T02:39:15.690Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-reconciliacao.test.ts",
+      "alegacao": "RM-058 N4 GO-FIX 2: a sessao_morta já provada no ledger vale sem leitura do runtime e sem esperar a carência, e a carência da morte conta da última atividade da sessão (R27 e R22), na suíte da reconciliação inteira verde",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('R27:\" core/test/noctum-reconciliacao.test.ts | awk '{exit !($1==1)}'",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-reconciliacao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R(22|27):/{p++} END{exit !(p==2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T02:52:21.659Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-reconciliacao.ts",
+      "alegacao": "RM-058 N4 GO-FIX 3: o despacho de fora isola o trabalho mesmo com uma retomada pendente (NB1); a retomada é atendida pela ordem das reservas no log do arco (o seq gravado na autorização), não pelo relógio de outro processo (NA1); a devolução sem sessão depois do prompt gravado atende a retomada e a seguinte é a tentativa 2 (NA2); a recusa do núcleo depois do último lançamento numa thread já despachada vira a retomada da fase recusada, e a baseline pendente não (NA3); o pedido de outra thread não é tocado (R7, R12, R28 a R31)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-reconciliacao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R[0-9]+:/{p++} END{exit !(p>=31 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T03:50:30.125Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-reconciliacao.test.ts",
+      "alegacao": "RM-058 N4 GO-FIX 3: os casos R28 a R31 da reconciliação existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('R(2[89]|3[01]):\" core/test/noctum-reconciliacao.test.ts | awk '{exit !($1>=4)}'"
+      ],
+      "criadoEm": "2026-10-13T03:50:31.904Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "RM-058 N4 GO-FIX 3: o vigia grava na autorização a última reserva do arco; a recusa do portão do núcleo depois de uma fase concluída é retomada e, repetida, isola o trabalho no teto; com um trabalho só, a segunda recusa de ambiente para o arco; a sessão que some da listagem completa morre pelo caminho do vigia, com o instante da leitura; a morte já registrada não se registra de novo; o isolamento se grava uma vez; o tique aberto da mesma instância conta como interrompido (G4, G10, G12, G18 a G21)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-vigia.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - G[0-9]+:/{p++} END{exit !(p>=21 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T03:50:34.945Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-vigia.test.ts",
+      "alegacao": "RM-058 N4 GO-FIX 3: os casos G18 a G21 do vigia existem no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('G(1[89]|2[01]):\" core/test/noctum-vigia.test.ts | awk '{exit !($1>=4)}'"
+      ],
+      "criadoEm": "2026-10-13T03:50:36.744Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-supervisao.ts",
+      "alegacao": "RM-058 N4 GO-FIX 3: só a falha do despacho do arco depois da autorização conta, a mais nova decide, e a decisão do arco que já venceu não segura a do store (a conta esgotada de novo só no store fica fora como cota-sem-reset); a autorização de retomada guarda a última reserva do arco (S15)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-supervisao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - S[0-9]+:/{p++} END{exit !(p>=15 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T03:50:39.406Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-supervisao.test.ts",
+      "alegacao": "RM-058 N4 GO-FIX 3: o caso S15 da supervisão existe no arquivo de teste",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^test\\('S15:\" core/test/noctum-supervisao.test.ts | awk '{exit !($1==1)}'"
+      ],
+      "criadoEm": "2026-10-13T03:50:41.110Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-supervisao-apoio.ts",
+      "alegacao": "RM-058 N4 GO-FIX 3: o runtime simulado do apoio de testes tira uma sessão da listagem (o runtime que não a mantém mais)",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"remover: (sessionId: string) =>\" core/test/noctum-supervisao-apoio.ts"
+      ],
+      "criadoEm": "2026-10-13T03:50:42.953Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "RM-058 N4 (com os GO-FIX 2 e 3): a página da RM-058 tem a seção da N4 com a interface da retomada em outra máquina para a N3, as regras de atendimento da retomada (a ordem do log do arco, a devolução sem sessão que conta, a recusa do núcleo que vira retomada), o despacho de fora mesmo com retomada pendente e os limites ditos (a baseline que fica para o condutor), a evidência de testes S, R e G da N4 no frontmatter, a próxima ação com a N4 implementada, e passa no markdownlint",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"### N4: supervisão e recuperação\" docs/roadmap/RM-058-modo-noctum.md",
+        "grep -F \"Retomada em outra máquina (interface para a N3)\" docs/roadmap/RM-058-modo-noctum.md",
+        "grep -E \"n4: core/test/noctum-supervisao.test.ts \\(S1 a S[0-9]+\\), noctum-reconciliacao.test.ts \\(R1 a R[0-9]+\\), noctum-vigia.test.ts \\(G1 a G[0-9]+\\)\" docs/roadmap/RM-058-modo-noctum.md",
+        "grep -F \"na ordem do log do arco\" docs/roadmap/RM-058-modo-noctum.md",
+        "grep -F \"mesmo com uma retomada pendente\" docs/roadmap/RM-058-modo-noctum.md",
+        "grep -F \"o vigia não a roda\" docs/roadmap/RM-058-modo-noctum.md",
+        "grep -F \"a N1, a N2 e a N4 estão implementadas\" docs/roadmap/RM-058-modo-noctum.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-058-modo-noctum.md docs/roadmap/README.md CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-13T03:50:48.342Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-supervisao.ts",
+      "alegacao": "RM-058 N4 GO-FIX 4: a decisão de conta que já venceu não se grava, então tiques seguidos não trocam a decisão do store gravada depois dela, e a conta esgotada de novo só no store fica fora pelo resto do arco; o store que marca a conta pela mesma falha não troca a decisão do arco com o reset dito (S7 e S15)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-supervisao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - S(7|15):/{p++} END{exit !(p==2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:19:13.891Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-reconciliacao.ts",
+      "alegacao": "RM-058 N4 GO-FIX 4: a thread que o dono despachou antes do arco, com a primeira tentativa do arco recusada pelo portão, também é retomada; a recusa do próprio arco não vira retomada; só o ambiente da máquina (o MCP divergente, a instalação do MCP, o projeto sem o perfil do instalador) é recusa de ambiente, e o contexto da thread conta como recusa do trabalho (R10, R31 e R32)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-reconciliacao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R(10|31|32):/{p++} END{exit !(p==3 && f==0)}'",
+        "grep -cE \"^test\\('R32:\" core/test/noctum-reconciliacao.test.ts | awk '{exit !($1==1)}'"
+      ],
+      "criadoEm": "2026-10-13T04:19:14.360Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "RM-058 N4 GO-FIX 4: a recusa do runtime indisponível no portão não passa sozinha: repetida, isola o trabalho no teto; a recusa que passa (a vaga, a conta, a condução) faz o condutor esperar a cadência inteira, e não a pausa curta (G12 e G22)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-vigia.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - G(12|22):/{p++} END{exit !(p==2 && f==0)}'",
+        "grep -cE \"^test\\('G22:\" core/test/noctum-vigia.test.ts | awk '{exit !($1==1)}'"
+      ],
+      "criadoEm": "2026-10-13T04:19:16.368Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm058n4",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "RM-058 N4 GO-FIX 5: o trabalho recusado seguidas vezes pelo núcleo no teto só é isolado quando a série dura uma cadência desde a primeira recusa (o soluço mais curto, como a conferência de login inconclusiva, não isola); o erro antes de lançar que a fila da N2 bloqueia depois de três seguidos é isolado uma cadência depois (G12, G18, G22 e G23)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-vigia.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - G(12|18|22|23):/{p++} END{exit !(p==4 && f==0)}'",
+        "grep -cE \"^test\\('G23:\" core/test/noctum-vigia.test.ts | awk '{exit !($1==1)}'"
+      ],
+      "criadoEm": "2026-10-13T04:40:32.205Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C50",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
