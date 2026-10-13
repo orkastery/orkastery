@@ -76,6 +76,14 @@ export function orkEm(c: Cenario, dir: string, locale: Record<string, string>, c
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 
+/**
+ * RM-037 (ork-rm037esperas, D2): o ambiente que fixa o relogio do processo filho no instante pedido
+ * (`relogio-fixo.ts`, carregado por `NODE_OPTIONS`). Vai junto do locale: `ork(c, { ...EN, ...relogioFixo(iso) }, ...)`.
+ */
+export function relogioFixo(instante: string): Record<string, string> {
+  return { NODE_OPTIONS: `--require "${path.resolve(__dirname, 'relogio-fixo.js')}"`, ORK_TESTE_AGORA: instante };
+}
+
 /** Encerra os watchers que um despacho real abriu (identidade gravada no ledger). */
 export function encerrarWatchers(repo: string): void {
   const threads = path.join(repo, '.orkastery', 'threads');

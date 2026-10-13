@@ -47,6 +47,7 @@ import { consultaDoProjeto, ErroDeProjeto, FORA_DA_CONSULTA, PADRAO_DO_NOME_DE_P
   remotoDoProjeto } from './projeto-alvo';
 import { registrarConsultasExperiencia } from './mcp-experiencia';
 import { grafoLigado, registrarConsultasDoGrafo } from './mcp-grafo';
+import { registrarConsultasDoConhecimento } from './mcp-conhecimento';
 
 const identidade = z.string().min(1).max(80).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 const daThread = z.object({ threadId: identidade }).strict();
@@ -320,6 +321,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   server.onclose = () => { ingresso.fechar(); ingressoDaNota.fechar(); };
   registerBrainTools(registrarTool,carregar,thread,opcoes.brainWrites??[]);
   registrarConsultasExperiencia(registrarTool, { raiz, carregar, transporte: opcoes.transporteShip ?? 'github-ssh' });
+  // RM-026 K7 (fatia 2): o conhecimento escrito, só leitura, do projeto fixado; também na sessão filha vinculada.
+  registrarConsultasDoConhecimento(registrarTool, carregar);
   registerMaestro(registrarTool,{root:raiz,threadId:opcoes.threadId,load:carregar,checkThread:thread,tools:()=>[...ferramentas.keys()]});
   registrarTool('ork_preflight',{description:'Preflight contextual por modo e bloco, sem inventário global/modelos. Não autoriza despacho nem comprova entrega.',
     inputSchema:z.object({modo:modoDeConducao}).strict(),annotations:{readOnlyHint:true}},async({modo})=>{

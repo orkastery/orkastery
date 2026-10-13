@@ -26,6 +26,36 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `ork master pedir`. A prova do diálogo pedido por mod fica com o dono (`core/scripts/prova-ritual-nota-nativa.cjs`), e
   o guia é o [Ritual do MASTER](docs/guias/ritual-do-master.md).
 
+- **Conhecimento escrito, fatia 2: o comando e as tools MCP** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
+  `ork conhecimento listar [--colecao C]|mostrar <doc-id>|colecoes|verificar`, todos com `--json`, e as tools
+  `ork_conhecimento_listar`, `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar` no
+  `ork mcp serve`, só leitura, respondem o mesmo JSON do contrato `ork.conhecimento/v1`
+  ([contrato](docs/referencia/contratos/conhecimento-rm026.md)). O `mostrar` traz o corpo, a versão (sha256), a fonte e
+  as referências, com cada id do Brain conferido por `get` no Company Brain: o id que o Brain não tem, o que ele retém e
+  o Brain fora do ar viram lacunas distintas (`referencia.brain-inexistente`, `referencia.brain-retido` e
+  `referencia.brain-indisponivel`), nunca resposta. `listar` e `colecoes` não chamam o Brain nem leem ledger, e
+  `verificar` confere a pasta inteira e sai 1 com qualquer lacuna (uso errado sai 2). A conferência tem teto de 100
+  `get`, prazo de 60 s e teto de 64 MiB de ledger por consulta. O texto sai em pt-BR e em inglês pelo catálogo, e o
+  `--json` é o mesmo nas duas línguas. Os hosts OpenClaw e Hermes chegam na fatia 3.
+
+### Corrigido
+
+- **As esperas que nunca terminam** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o prompt de toda
+  fase, a skill de entrada das duas instalações (`orkastery-bootstrap`), as skills de GO e CHECK, a skill `ork` do
+  Codex e os seis agentes de fase do Claude Code dizem, numa linha só, que verify, build e suíte nunca saem com `&`
+  dentro do comando, que o `ork verify` roda em primeiro plano com `timeout` (ou pela execução em segundo plano do
+  host, que avisa quando termina) e que a espera nunca usa `pgrep -f` com o padrão no próprio comando (espera-se pelo
+  arquivo de saída com prazo, ou pelo PID guardado). O `ork phase run` deixa de contar no
+  `concurrency.max_parallel_threads` a sessão que o runtime mostra parada (`stopped`, `done`, `failed`) ou fantasma no
+  `claude agents --json --all`, consultado só quando o limite recusaria; ausente da lista ou com a leitura falhando, ela
+  segue contando. O teste do `ork pulse --json` nas duas línguas não cai mais quando o minuto vira entre as leituras.
+  Em 12/10/2026, cinco sessões de fase esperaram por processo morto ou por laço que achava a si mesmo, e uma sessão
+  parada com `claude stop` prendia a vaga até a thread fechar.
+
+- **Prazo de cada chamada ao Company Brain** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
+  `memory.timeout_ms` fora da faixa (0, negativo ou fração) passa a valer o padrão de 15 s no transporte do Brain, em
+  vez de esperar sem prazo (0) ou falhar com erro (negativo ou fração). Visto na revisão da fatia 2 do K7.
+
 ## [0.5.6] - 2026-10-12
 
 ### Adicionado

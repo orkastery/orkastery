@@ -23,7 +23,7 @@ import {
   threadDeExemplo,
   variaveisUsadas,
 } from '../src/prompts';
-import { CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, valoresDoPrompt } from '../src/phase';
+import { CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, REGRA_DAS_ESPERAS, valoresDoPrompt } from '../src/phase';
 import { FASES } from '../src/types';
 import { projetoTemporario } from './apoio';
 import { novaThread } from '../src/thread';
@@ -171,9 +171,11 @@ test('I-42: o bloco unico e parcial descreve so as proprias fases; os outros cic
 });
 
 test('N2: o prompt de toda fase traz a regra contra & em verify, build e suite (aprendizado 1 da RM-058)', () => {
+  // RM-037 (ork-rm037esperas, D3): a linha da N2 virou a regra das esperas, que guarda os dois pontos dela.
   for (const fase of FASES) {
     const prompt = renderizar(templateDaFase(fase), valoresDoPrompt(threadDeExemplo('auto', fase), fase, 'pedido do builder'));
-    assert.match(prompt, /- Verify, build e suite rodam em primeiro plano, com timeout, nunca com `&` no comando: o processo em segundo plano se perde e a sessao espera para sempre\./, fase);
-    assert.match(prompt, /O `ork verify` espera a vez na fila de recursos pesados\./, fase);
+    assert.ok(prompt.split('\n').includes(`- ${REGRA_DAS_ESPERAS}`), fase);
+    assert.ok(prompt.includes('nunca dispare verify, build ou suite com `&` dentro do comando'), fase);
+    assert.ok(prompt.includes('rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de recursos pesados)'), fase);
   }
 });

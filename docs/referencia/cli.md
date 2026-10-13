@@ -176,7 +176,7 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | `ork thread new <nome> --from-finding <ID>` | Abre a thread a partir de um achado de auditoria. Evidência, claim e proposta viajam junto; a worktree segue a mesma regra do `ork thread new`, com `--worktree auto` e `--sem-worktree` |
 | `ork thread list [--todas] [--json]` | As threads NAO fechadas do projeto; `--todas` inclui as fechadas, `--json` devolve JSON |
 | `ork thread status <thread-id> [--json]` | O estado da thread, cruzado com o runtime; `--json` devolve o thread.json |
-| `ork phase run <thread> <FASE> --prompt "<texto>"` | Despacha a fase como background agent. Com `concurrency.max_parallel_threads` sessões vivas em outras threads do projeto (condução `exec:<thread>` de sessão, de qualquer runtime ou conta), recusa com `concurrency.limite`, diz quem ocupa, grava `slot_refused` e sai com 3 (espera, como a condução); sessão parada (sem trabalho há `concurrency.stale_after_min`), escalada ao dono, bloqueada no runtime, em silêncio pelo pulse ou com o turno encerrado sem resultado (o Stop sem atividade nenhuma por 15 min, como depois de um `claude stop`; RM-058) não ocupa, e a que segue rodando depois de uma pausa prevista ou de um verify reprovado ocupa; com `--esperar`, espera a vaga. No codex, bloco com GO sem baseline sai com a baseline gravada pelo despacho, também no redespacho do `ork retry`; pelo MCP (`ork_phase_run`), que não roda a suíte, a falta dela volta como `baseline.pendente` com o comando do CLI (RM-037). Com `--perfil <id>` (e `perfil` no `ork_phase_run`), o despacho sai pela conta pedida, ou recusa com motivo tipado sem trocar de perfil (RM-056). Antes de chamar o adaptador, grava o prompt e o evento `phase_prompt_recorded` (prompt e sha256); a falha seca do adaptador e a exceção dele viram `gate_blocked runtime.unavailable` com eles (RM-063, F3) |
+| `ork phase run <thread> <FASE> --prompt "<texto>"` | Despacha a fase como background agent. Com `concurrency.max_parallel_threads` sessões vivas em outras threads do projeto (condução `exec:<thread>` de sessão, de qualquer runtime ou conta), recusa com `concurrency.limite`, diz quem ocupa, grava `slot_refused` e sai com 3 (espera, como a condução); sessão parada (sem trabalho há `concurrency.stale_after_min`), escalada ao dono, bloqueada no runtime, em silêncio pelo pulse ou com o turno encerrado sem resultado (o Stop sem atividade nenhuma por 15 min; RM-058) não ocupa, nem, no limite, a que o runtime mostra encerrada (`stopped`, `done`, `failed`, `completed`, `exited`) ou fantasma no `claude agents --json --all` e nos rollouts do Codex de cada conta, como a parada com `claude stop` antes do resultado (ausente da lista ou com a leitura falhando, ela segue contando; RM-037), e a que segue rodando depois de uma pausa prevista ou de um verify reprovado ocupa; com `--esperar`, espera a vaga, relendo o runtime a cada 30 s. No codex, bloco com GO sem baseline sai com a baseline gravada pelo despacho, também no redespacho do `ork retry`; pelo MCP (`ork_phase_run`), que não roda a suíte, a falta dela volta como `baseline.pendente` com o comando do CLI (RM-037). Com `--perfil <id>` (e `perfil` no `ork_phase_run`), o despacho sai pela conta pedida, ou recusa com motivo tipado sem trocar de perfil (RM-056). Antes de chamar o adaptador, grava o prompt e o evento `phase_prompt_recorded` (prompt e sha256); a falha seca do adaptador e a exceção dele viram `gate_blocked runtime.unavailable` com eles (RM-063, F3) |
 | ↳ opções | `[--runtime R] [--model M] [--effort E] [--dry-run] [--canal C] [--correlacao ID] [--esperar [min]] [--perfil ID]` |
 | `ork phase list <thread>` | O histórico do ledger, **com o modelo e o esforço reais de cada fase** |
 | `ork ledger stats --desde 7d [--ate ISO] [--thread T] [--modo M] [--runtime R] [--json]` | Telemetria econômica do ledger no intervalo `[desde, ate)` ([FEAT-019](../produto/FEAT-019-telemetria-do-ledger.md)) |
@@ -404,6 +404,36 @@ existe só na operação `embed`, com a chave declarada em `memory.embedding.api
 DSN; embedding ausente é motivo `embeddings.*`, nunca queda do regime.
 Veja [os contratos de governança e migração](../guias/memoria-e-handoff.md) e a
 [busca por significado](../guias/memoria-e-handoff.md#busca-por-significado-embeddings).
+
+---
+
+## Conhecimento escrito (RM-026 K7)
+
+Os documentos da empresa (política, especificação, guia), em Markdown versionado na pasta que o `orkastery.yaml`
+declara em `conhecimento.dir`, no [contrato `ork.conhecimento/v1`](contratos/conhecimento-rm026.md). Só leitura:
+escrever um documento é um commit numa thread, com PR.
+
+| Comando | O que faz |
+| --- | --- |
+| `ork conhecimento listar [--colecao C] [--json]` | Os documentos válidos, com título, coleções, arquivo e versão (o sha256 do arquivo); `ork conhecimento` sozinho é o mesmo. Não abre o Brain nem mostra referência |
+| `ork conhecimento mostrar <doc-id> [--json]` | O documento com o corpo, a versão, a fonte e as referências: as decisões conferidas no ledger e cada id do Brain conferido por `get` no Company Brain |
+| `ork conhecimento colecoes [--json]` | As coleções e os documentos de cada uma |
+| `ork conhecimento verificar [--json]` | Confere a pasta inteira, com os ids do Brain por `get`, e sai 1 com qualquer lacuna |
+
+Documento inválido e referência que não confere saem como lacuna tipada, nunca como resposta: o id que o Brain não
+tem (`referencia.brain-inexistente`), o que ele retém (`referencia.brain-retido`) e o Brain fora do ar ou sem
+configuração (`referencia.brain-indisponivel`) são lacunas distintas. `listar` e `colecoes` saem 1 só quando a pasta
+não foi lida, e `mostrar`, quando o id não tem documento válido (`documento.inexistente`); uso errado sai 2. Só o
+`mostrar` e o `verificar` chamam o Brain e leem os ledgers das decisões, com teto de `get`, de prazo e de bytes por
+consulta ([contrato](contratos/conhecimento-rm026.md#tetos)). O texto segue a língua do dono; o `--json` é o mesmo nas duas línguas e o mesmo das tools MCP `ork_conhecimento_listar`,
+`ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar`.
+
+```bash
+ork conhecimento colecoes
+ork conhecimento listar --colecao rh
+ork conhecimento mostrar doc-politica-de-ferias --json
+ork conhecimento verificar
+```
 
 ---
 
