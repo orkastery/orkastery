@@ -195,11 +195,17 @@ test('SIMULADO: recibo atrasado após expiração e novo despacho só confirma o
 test('SIMULADO: pedido exige UUID/despacho corrente e CLI recusa runtime sem controller de resposta', () => {
   for (const runtime of ['codex', 'claude-bg']) {
     const instante = new Date().toISOString(), f = fixture(runtime, instante);
+    // RM-059 (F9): o claude-bg ganhou o controle por mod do Mensageiro de Sessoes, entao o CLI so recusa porque a
+    // sessao nao aparece parada no `claude agents`; um `claude` falso que nao lista nada deixa isso sem rede e sem
+    // depender do `claude` da maquina. A resposta pelo CLI (o Telegram) recusa antes do ingresso, sem caixa de saida.
+    const bin = fs.mkdtempSync(path.join(f.p.dir, 'bin-'));
+    fs.writeFileSync(path.join(bin, 'claude'), '#!/bin/sh\necho "[]"\n', { mode: 0o755 });
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ''}` };
     try {
       assert.throws(() => f.abrir({ consultar: f.ctl.consultar, parar: f.ctl.parar }), /runtime.unavailable/);
       const cli = path.resolve(__dirname, '../src/index.js');
       const req = spawnSync(process.execPath, [cli, 'sessions', 'request', f.t.id, sid,
-        '--fase', 'GO', '--runtime', runtime, '--pergunta', 'Pergunta SIMULADA'], { cwd: f.p.dir, encoding: 'utf8', timeout: 5000 });
+        '--fase', 'GO', '--runtime', runtime, '--pergunta', 'Pergunta SIMULADA'], { cwd: f.p.dir, encoding: 'utf8', timeout: 5000, env });
       assert.notEqual(req.status, 0);
       assert.match(req.stderr, /runtime.unavailable/);
       assert.ok(!lerLedger(f.dir).some(e => e.tipo === 'hitl_requested'));
@@ -207,7 +213,7 @@ test('SIMULADO: pedido exige UUID/despacho corrente e CLI recusa runtime sem con
       const resposta = f.resposta(pedido.id);
       const answer = spawnSync(process.execPath, [cli, 'sessions', 'answer', f.t.id, pedido.id,
         '--stdin', '--origem', resposta.origem, '--por', resposta.por, '--mensagem', resposta.mensagem],
-        { cwd: f.p.dir, encoding: 'utf8', timeout: 5000, input: JSON.stringify(resposta) });
+        { cwd: f.p.dir, encoding: 'utf8', timeout: 5000, input: JSON.stringify(resposta), env });
       assert.notEqual(answer.status, 0);
       assert.match(answer.stderr, /runtime.unavailable/);
       assert.ok(!answer.stderr.includes(conteudo));

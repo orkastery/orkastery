@@ -8,6 +8,37 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Ritual do MASTER, mod de papel `dono`, e a nota pelo diálogo nativo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a ferramenta MCP `ork_request_master_note`, só no servidor do dono, recebe só o `threadId`, pede ao host um formulário
+  com a nota de 0 a 5 e o porquê e grava o MASTER com `avaliadoPor` `dono (dialogo nativo)`, o canal do host e o recibo
+  assinado do ingresso local (`ork.hitl-local-master-note/v1`); sem formulário no cliente, recusa com
+  `master.nota.sem-dialogo` sem gravar nada, e a gravação espera até um minuto pela trava da thread. O contrato
+  `ork.master-log/v1` não muda: a nota vale como nota humana em qualquer versão do `ork`, o núcleo confere o recibo ao
+  gravá-la e essa identidade não se digita no `--por`. O aceite por omissão (`ork master --aceitar-omissao`) passa a
+  gravar sob a trava de HITL da thread e não troca a nota humana que chegou depois da listagem; sem thread indicada, a
+  entrega com a trava tomada fica para o próximo aceite. O recibo prova o caminho, não a pessoa: a chave local é legível
+  pelo mesmo usuário do sistema. A seção `master` do retrato do Maestro passa a trazer o regime, o índice derivado do
+  ledger com as parcelas, as reprovações tipadas, as classes e a entrega, inclusive a entrega por artefato
+  (`deliveredArtifact`).
+  `adapters/claude-code/mods/ork-ritual` mostra na sessão do dono as entregas dos últimos 7 dias que esperam a nota
+  (inclusive as aceitas por omissão), a prova de cada uma (o índice, o POSTMORTEM e as claims com comando e estado, uma
+  por vez) e o botão Dar a nota, que chama só a ferramenta da nota; sem diálogo, Pelo Telegram mostra o código do
+  `ork master pedir`. A prova do diálogo pedido por mod fica com o dono (`core/scripts/prova-ritual-nota-nativa.cjs`), e
+  o guia é o [Ritual do MASTER](docs/guias/ritual-do-master.md).
+
+- **Mensageiro de Sessões, mod de papéis `dono` e `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a resposta que o dono dá pelo diálogo nativo da sessão do Claude Code chega à sessão de fase `claude-bg` que parou
+  esperando por ela. O núcleo abre o pedido de sessão `claude-bg` preso ao turno que parou (a transcrição do próprio
+  Claude Code), compõe a mensagem no contrato `ork.session-delivery/v1` e a guarda numa caixa de saída só na memória do
+  servidor MCP do dono (`ork_session_outbox`); o ledger guarda só o sha256. Na sessão do dono,
+  `adapters/claude-code/mods/ork-mensageiro` leva a mensagem por `$.session.send`, com reenvio pela D10 e o painel
+  `/mensageiro`; na sessão de fase, só entra na conversa a mensagem de outra sessão que o núcleo confirma pelo
+  `ork_session_inbox` (o envelope do Claude Code só na forma do motor, reserva uma vez e antes do prazo, mesmo turno,
+  mesmo sha256), só com o corpo conferido e num envelope fixo do Mensageiro, e o resto é consumido antes do modelo.
+  Muda para todos: o despacho `claude-bg` acrescenta `crossSessionInbound: accept` ao `--settings` só com o Mensageiro na
+  sessão e o `ORK_DISPATCH_ID`; a resposta a uma sessão `claude-bg` pelo Telegram, ou sem um Mensageiro vivo na sessão do
+  dono, recusa com `runtime.unavailable` antes de gravar nada. O guia é o `docs/guias/mensageiro-de-sessoes.md`.
+
 - **Conhecimento escrito, fatia 2: o comando e as tools MCP** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
   `ork conhecimento listar [--colecao C]|mostrar <doc-id>|colecoes|verificar`, todos com `--json`, e as tools
   `ork_conhecimento_listar`, `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar` no
