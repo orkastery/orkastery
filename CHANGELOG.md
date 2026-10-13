@@ -51,14 +51,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   conducao autorizar --ate <data> --pode merge,registrar,master,despachar [--por Q]` grava a autorização do dono nesta
   máquina, fora do git, no contrato
   [`ork.autorizacao-duravel/v1`](docs/referencia/contratos/autorizacao-duravel-rm063.md) (o prazo sempre com o fuso
-  escrito; a data sozinha vale até 23:59 no fuso do dono), e `ork conducao autorizacao` mostra a vigente; a sessão
-  despachada pelo `ork` não autoriza, e tag e publicação nunca entram. `ork conducao batida` é o passo determinístico
-  que a varredura do cron roda depois do resumo: mescla o PR de branch `ork/*` de thread #Auto ou #Maestro com todos os
-  checks obrigatórios verdes e o PR limpo (`gh pr merge --merge --match-head-commit`, com o assunto `ship(<thread>)`,
-  provado na cópia da base), registra a entrega e fecha pelo MASTER por omissão na mesma rodada, e despacha a fase
-  seguinte só com o pedido guardado na criação da thread, como sessão de fundo, nunca por cron LLM; com a Sentinela
-  ligada, cede o despacho. Autorização vencida ou sem a ação, check pendente ou vermelho, PR em rascunho e trabalho na
-  thread recusam com motivo tipado e viram item da fila do pulse, com o comando. Em 12 e 13/10/2026 os PRs #153 e #154
+  escrito e até 31 dias; a data sozinha vale até 23:59 no fuso do dono), e `ork conducao autorizacao` mostra a vigente;
+  nenhum agente se autoriza (a sessão despachada pelo `ork` e o pedido de dentro do Claude Code, do Codex, do Hermes ou
+  do OpenClaw são recusados), e tag e publicação nunca entram. `ork conducao batida` é o passo determinístico que a
+  varredura do cron roda depois do resumo: mescla o PR de branch `ork/*` de thread #Auto ou #Maestro com todos os checks
+  obrigatórios verdes, o PR limpo e o CHECK aprovado depois do último commit de produto (`gh pr merge --merge
+  --match-head-commit`, com o assunto `ship(<thread>)`, provado na cópia da base), registra a entrega e fecha pelo
+  MASTER por omissão na mesma rodada, e despacha a fase seguinte só com o pedido guardado na criação da thread, como
+  sessão de fundo, nunca por cron LLM; com a Sentinela ligada, cede o despacho. Autorização vencida ou sem a ação, check
+  pendente ou vermelho, PR em rascunho, trabalho na thread, pendência do dono e branch local com trabalho fora do PR
+  recusam com motivo tipado e viram item da fila do pulse, com o comando. Em 12 e 13/10/2026 os PRs #153 e #154
   esperaram de 5 a 6 horas pelo condutor.
 - **CHANGELOG reconciliado no merge da main** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F7): `ork conducao
   atualizar <thread> [--enviar]`, e a batida no PR que ficou para trás ou em conflito, faz o merge da base na branch da

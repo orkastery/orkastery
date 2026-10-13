@@ -41,7 +41,7 @@ git, ou link, ele não vale. O dono o grava com o `ork conducao autorizar` (ou �
 | `limpar` | Solta do `ork` a sessão fantasma (sem pid e sem processo) presa a uma thread deste projeto e sem sinal de vida há pelo menos 30 min (a recém-despachada pode não ter pid ainda): `sessao_morta` no ledger, sem tocar o runtime | `ork sessions limpar-fantasmas` | F5 |
 | `registrar` | Registra a entrega do PR já mesclado: o merge `ship(<thread>)` na base remota sem `ship_done`, com o CI verde quando o manifesto o exige, e a thread parada (veja os bloqueios abaixo) | `ork ship registrar-pr <thread>` | F5 |
 | `master` | Fecha pelo MASTER por omissão a thread entregue e quieta: 30 min depois do `ship_done`, nada despachado depois dele e a thread parada | `ork master <thread> --aceitar-omissao` | F5 |
-| `merge` | Mescla o PR aberto de branch `ork/*` de thread #Auto ou #Maestro com todos os checks obrigatórios verdes e o PR limpo, provado na cópia da base; o PR para trás ou em conflito só no CHANGELOG ganha antes o merge da base na branch | `gh pr merge <n> --merge --match-head-commit <sha> --subject "ship(<thread>): ..."` | F7 |
+| `merge` | Mescla o PR aberto de branch `ork/*` de thread #Auto ou #Maestro com todos os checks obrigatórios verdes, o PR limpo e o CHECK da thread com veredito PASSOU depois do último commit de produto do PR, provado na cópia da base; o PR para trás ou em conflito só no CHANGELOG ganha antes o merge da base na branch | `gh pr merge <n> --merge --match-head-commit <sha> --subject "ship(<thread>): ..."` | F7 |
 | `despachar` | Despacha a fase seguinte que o núcleo calcula (o passo da Sentinela), só com o pedido guardado na criação da thread, e retoma pelo retry com o prompt gravado quando o plano é automático; com a Sentinela ligada nesta máquina, cede | `ork phase run <thread> <FASE> --prompt "$(ork prompt render <thread> <FASE>)"` | F7 |
 
 A varredura nunca registra a entrega nem fecha a thread por cima de quem trabalha nela. Nesses casos a ação fica com o
@@ -62,8 +62,11 @@ dono, com o motivo tipado (`motivoDoBloqueio`):
 | `pr-bloqueado` | O GitHub bloqueia o merge com os checks obrigatórios verdes: revisão ou regra da base (`merge`) |
 | `pr-instavel` | Há check não obrigatório vermelho, e o PR não está limpo (`merge`) |
 | `conflito-em-codigo` | O merge da base na branch conflita fora do CHANGELOG: nunca é resolvido sozinho (`merge`) |
-| `branch-nao-publicada` | A branch local tem commits que o PR ainda não tem (`merge`) |
+| `branch-nao-publicada` | A branch local tem commits que o PR ainda não tem, fora os merges da base que a própria batida fez (`merge`) |
 | `sem-prompt-gravado` | A thread não tem o pedido guardado na criação (`ork thread new --pedido`) (`despachar`) |
+| `check-pendente` | O CHECK da thread não passou (veredito PASSOU) depois do último commit de produto do PR (`merge`) |
+| `pendencia-do-dono` | A thread espera o dono: pausada, pausa prevista do bloco, pergunta ou escalação aberta (`merge`) |
+| `espera-longa` | A batida espera há mais de 2 h: check obrigatório pendente ou o GitHub sem o estado do merge (`merge`) |
 
 Com bloqueio de trabalho na thread, o comando que o pulse e o resumo dão ao dono é `ork thread status <thread>`, e a
 recomendação diz o comando da ação para quando o trabalho parar. Tag, publicação e merge fora da lista nunca entram por
@@ -112,7 +115,9 @@ quando, o que pode, o sha256 do arquivo e a autorização que ela substituiu. Re
 | Motivo | Quando |
 | --- | --- |
 | `autorizacao.sessao-despachada` | O pedido veio de uma sessão despachada pelo `ork` (a identidade de despacho no ambiente) |
-| `autorizacao.ate-invalido` / `autorizacao.ate-passado` | O `--ate` não é prazo, ou já passou |
+| `autorizacao.host` | O pedido veio de um host de agente (Claude Code, Codex, Hermes, OpenClaw): o dono autoriza no próprio terminal, como a nota do MASTER em nome de pessoa |
+| `autorizacao.ate-invalido` / `autorizacao.ate-passado` | O `--ate` não é prazo (inclusive a data fora do calendário), ou já passou |
+| `autorizacao.ate-longe` | O prazo vai além de 31 dias: o dono autoriza por menos e renova quando quiser |
 | `autorizacao.pode-vazio` / `autorizacao.pode-repetido` | O `--pode` sem ação, ou com ação repetida |
 | `autorizacao.acao-proibida` | Tag ou publicação, com qualquer nome (`tag`, `publicar`, `release`, `npm`, `versao`) |
 | `autorizacao.acao-desconhecida` | Ação fora do contrato |
@@ -134,7 +139,9 @@ próxima batida tenta de novo, `dono` quando só ele destrava), o motivo tipado 
 falhou, vai ao ledger da thread como `varredura_acao` (origem `conducao.batida`); sem autorização ou com bloqueio, só o
 item da fila. O retrato da última rodada fica em `.orkastery/monitor/conducao-batida.json`, e por 45 min o pulse leva os
 pendentes do merge e do despacho para a fila: com a ação autorizada e sem bloqueio (o check pendente, por exemplo), na
-faixa automática; senão, com o dono.
+faixa automática, até 2 h de espera (depois, `espera-longa`, com o dono); senão, com o dono. Quando o `gh` não lê os PRs
+numa rodada, os merges pendentes da anterior seguem, com o mesmo `desdeEm`. A branch empurrada pela atualização nunca
+leva tag (`--no-follow-tags`), e o merge da base que ficou só nesta máquina é empurrado na rodada seguinte.
 
 ## Para quem consome
 
