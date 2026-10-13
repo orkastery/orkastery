@@ -189,8 +189,8 @@ export interface EntregaPronta {
  * concluiu com PASSOU depois de verificar a fonte.
  */
 export function entregaPronta(p: ProjetoDeTeste, nome: string,
-  o: { semMutante?: boolean; arquivos?: Record<string, string> | ((t: Thread) => Record<string, string>) } = {}): EntregaPronta {
-  const t = threadComWorktree(p, nome);
+  o: { semMutante?: boolean; arquivos?: Record<string, string> | ((t: Thread) => Record<string, string>); item?: string } = {}): EntregaPronta {
+  const t = threadComWorktree(p, nome, o.item);
   const autor = sessaoDespachada(p, t.id, 'GOAL');
   const changelog = fs.readFileSync(path.join(t.worktree!, 'CHANGELOG.md'), 'utf8')
     .replace('### Adicionado\n\n', `### Adicionado\n\n${ENTRADA_DA_THREAD(nome)}\n\n`);

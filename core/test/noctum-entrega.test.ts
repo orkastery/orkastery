@@ -8,16 +8,17 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ProjetoDeTeste } from './apoio';
-import { autorizarPedido, pedidoV2, prepararIngressoSimulado, revogarArco } from './noctum-apoio';
-import { avancarBase, CAB, ciFalso, claimDe, commitarBundle, commitarNaWorktree, commitDaSessao, concluirBloco, concluirRevisao,
-  despachoDoCheck, ENTRADA_DA_THREAD, entregaPronta, EstadoDoCheck, FORJA, ghFalso, git, head, projetoDaEntrega, SessaoSimulada,
-  sessaoDespachada, threadComWorktree, verifyDoPasso } from './noctum-entrega-apoio';
+import { autorizarPedido, passar, pedidoV2, prepararIngressoSimulado, revogarArco } from './noctum-apoio';
+import { avancarBase, CAB, CHANGELOG_DA_BASE, ciFalso, claimDe, commitarBundle, commitarNaWorktree, commitDaSessao, concluirBloco,
+  concluirRevisao, despachoDoCheck, ENTRADA_DA_THREAD, entregaPronta, EstadoDoCheck, FORJA, ghFalso, git, head, projetoDaEntrega,
+  SessaoSimulada, sessaoDespachada, threadComWorktree, verifyDoPasso } from './noctum-entrega-apoio';
+import { ExecutorCi } from '../src/ci';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { lerLedger, TIPOS_DE_EVENTO } from '../src/ledger';
 import { blocosNaoPublicados, linhasDaBasePerdidas } from '../src/noctum-changelog';
-import { lerArco } from '../src/noctum-arco';
-import { decidirEntrega, EntradaDaDecisao, EVENTO_DA_ATUALIZACAO_RECUSADA, LIMITE_DE_REVISOES, OpcoesDaEntrega, passoDaEntrega,
-  ResultadoDaEntrega } from '../src/noctum-entrega';
+import { concluirDespacho, lerArco, reservarDespacho } from '../src/noctum-arco';
+import { decidirEntrega, EntradaDaDecisao, EVENTO_DA_ATUALIZACAO_RECUSADA, EVENTO_DO_PUSH_RECUSADO, LIMITE_DE_REVISOES, OpcoesDaEntrega,
+  passoDaEntrega, ResultadoDaEntrega } from '../src/noctum-entrega';
 import { classificarCommit, ProvasDaEntrega } from '../src/noctum-provas';
 import { dirThread, lerThread } from '../src/thread';
 import { branchDaWorktree } from '../src/worktree';
@@ -26,11 +27,30 @@ prepararIngressoSimulado();
 const semKernel = !kernelDisponivel();
 const MAQUINA = 'maquina-simulada';
 
-function arco(p: ProjetoDeTeste, nome: string, threadId: string): void {
+const DESTINO_COM_MERGE = { repositorio: FORJA.repositorio, base: 'main', permissoes: ['push', 'pr', 'merge'] };
+
+/** O arco com o trabalho da thread e o destino com push, PR e merge; devolve o hash vigente do envelope. */
+function arco(p: ProjetoDeTeste, nome: string, threadId: string, extra: (pedido: Record<string, unknown>) => void = () => {}): string {
   const pedido = pedidoV2(nome, { trabalhos: [{ id: 'a', item: 'RM-958', prioridade: 1, dependeDe: [], thread: threadId }], revisao: 1 });
-  pedido.destinos = [{ repositorio: FORJA.repositorio, base: 'main', permissoes: ['push', 'pr', 'merge'] }];
-  autorizarPedido(p.dir, nome, pedido);
+  pedido.destinos = [DESTINO_COM_MERGE];
+  extra(pedido);
+  return autorizarPedido(p.dir, nome, pedido);
 }
+
+/** As reservas desta máquina para os itens dados. */
+const reservas = (...itens: string[]): OpcoesDaEntrega['lerReservas'] =>
+  () => ({ leitura: 'copia-local', reservas: itens.map(item => ({ item, maquina: MAQUINA, thread: null })) });
+
+/** Grava bytes na árvore e os põe no índice. */
+function gravarBytes(dir: string, arquivo: string, bytes: Buffer): void {
+  fs.mkdirSync(path.dirname(path.join(dir, arquivo)), { recursive: true });
+  fs.writeFileSync(path.join(dir, arquivo), bytes);
+  git(dir, 'add', '--', arquivo);
+}
+
+const publicarBranch = (t: { worktree?: string | null } & Parameters<typeof branchDaWorktree>[0]): void => {
+  assert.equal(git(t.worktree!, 'push', '-q', 'origin', `HEAD:refs/heads/${branchDaWorktree(t)}`).ok, true);
+};
 
 interface Mundo { p: ProjetoDeTeste; gh: ReturnType<typeof ghFalso>; ci: Record<string, EstadoDoCheck>; abertas: SessaoSimulada[]; verifies: string[] }
 
@@ -221,13 +241,21 @@ function provasCom(falhas: Record<string, string>): ProvasDaEntrega {
 
 test('QE8: a ordem da decisão: entregue, destino, base, provas estáticas, falhas que não se repetem, revisão, verify, CI e integração', () => {
   const entrada = (falhas: Record<string, string>, extra: Partial<EntradaDaDecisao> = {}): EntradaDaDecisao => ({ entregue: false, masterPendente: false,
-    incorporada: false, destino: { ok: true, podeMerge: true }, provas: provasCom(falhas), atualizacaoRecusada: false, revisoesDespachadas: 0,
-    publicacao: { acao: 'ja-publicada', detalhe: '' }, ...extra });
+    semProduto: false, incorporada: false, destino: { ok: true, podeMerge: true }, provas: provasCom(falhas), atualizacaoRecusada: false,
+    pushRecusado: false, revisoesDespachadas: 0, publicacao: { acao: 'ja-publicada', detalhe: '' }, ...extra });
   const acao = (d: ReturnType<typeof decidirEntrega>) => `${d.acao}${'motivo' in d ? `:${d.motivo}` : ''}`;
   assert.equal(acao(decidirEntrega(entrada({}, { entregue: true, masterPendente: true }))), 'master');
   assert.equal(acao(decidirEntrega(entrada({}, { entregue: true }))), 'nada');
   assert.equal(acao(decidirEntrega(entrada({}, { destino: { ok: false, motivo: 'noctum.entrega.fora-do-destino', detalhe: 'x' } }))), 'bloqueado:noctum.entrega.fora-do-destino');
+  // B4 da rodada 1: a branch sem commit próprio não se entrega, nem por reconciliação.
+  assert.equal(acao(decidirEntrega(entrada({}, { semProduto: true, incorporada: true }))), 'bloqueado:noctum.entrega.sem-produto');
   assert.equal(acao(decidirEntrega(entrada({}, { incorporada: true }))), 'reconciliar');
+  // B1 da rodada 1: a leitura do git que falhou espera, antes de atualizar, revisar, verificar, publicar ou integrar.
+  assert.equal(acao(decidirEntrega(entrada({ integracao: 'noctum.entrega.base-mudou', segredo: 'noctum.entrega.git-sem-leitura' }))),
+    'aguardar:noctum.entrega.git-sem-leitura');
+  assert.equal(acao(decidirEntrega(entrada({ verify: 'noctum.entrega.git-sem-leitura', revisao: 'noctum.entrega.git-sem-leitura' }))),
+    'aguardar:noctum.entrega.git-sem-leitura');
+  assert.equal(acao(decidirEntrega(entrada({ verify: 'noctum.entrega.verify-esgotado' }))), 'bloqueado:noctum.entrega.verify-esgotado');
   assert.equal(acao(decidirEntrega(entrada({ integracao: 'noctum.entrega.base-mudou', revisao: 'noctum.entrega.revisao-ausente' }))), 'atualizar');
   assert.equal(acao(decidirEntrega(entrada({ integracao: 'noctum.entrega.base-mudou' }, { atualizacaoRecusada: true }))), 'bloqueado:noctum.entrega.conflito-nao-aditivo');
   assert.equal(acao(decidirEntrega(entrada({ integracao: 'noctum.entrega.base-sem-leitura' }))), 'aguardar:noctum.entrega.base-sem-leitura');
@@ -250,5 +278,191 @@ test('QE8: a ordem da decisão: entregue, destino, base, provas estáticas, falh
   assert.equal(acao(decidirEntrega(entrada({ ci: 'noctum.entrega.ci-pendente' }, { publicacao: { acao: 'publicaria', detalhe: '' } }))), 'publicar');
   assert.equal(acao(decidirEntrega(entrada({ ci: 'noctum.entrega.ci-pendente' }))), 'aguardar:noctum.entrega.ci-pendente');
   assert.equal(acao(decidirEntrega(entrada({}, { destino: { ok: true, podeMerge: false } }))), 'bloqueado:noctum.entrega.fora-do-destino');
+  // A4 da rodada 1: o push que o remoto recusou com a base parada não se repete.
+  assert.equal(acao(decidirEntrega(entrada({}, { pushRecusado: true }))), 'bloqueado:noctum.entrega.push-recusado');
   assert.equal(acao(decidirEntrega(entrada({}))), 'integrar');
+});
+
+test('QE9: o trabalho que recusa antes de qualquer efeito não prende a fila: o seguinte integra no mesmo passo', { skip: semKernel }, () => {
+  const m = mundo('noctum-qe9');
+  m.gh = ghFalso(m.p);
+  try {
+    // O trabalho a tem tudo provado, mas a branch dele nunca foi ao remoto: a integração recusa antes do push (fonte-mudou).
+    const a = entregaPronta(m.p, 'qe9a');
+    const b = entregaPronta(m.p, 'qe9b', { item: 'RM-957' });
+    publicarBranch(b.t);
+    const pedido = pedidoV2('arco-qe9', { trabalhos: [{ id: 'a', item: 'RM-958', prioridade: 1, dependeDe: [], thread: a.t.id },
+      { id: 'b', item: 'RM-957', prioridade: 2, dependeDe: [], thread: b.t.id }], revisao: 1 });
+    pedido.destinos = [DESTINO_COM_MERGE];
+    autorizarPedido(m.p.dir, 'arco-qe9', pedido);
+    m.ci[a.fonte] = 'success';
+    m.ci[b.fonte] = 'success';
+    const r = passo(m, 'arco-qe9', { lerReservas: reservas('RM-958', 'RM-957') });
+    assert.deepEqual([r.acao, 'thread' in r ? r.thread : null], ['integrou', b.t.id], resumo(r));
+    assert.equal(lsRemote(m.p, `refs/heads/${branchDaWorktree(a.t)}`), '', 'nada da thread a foi ao remoto');
+    const entregas = (id: string) => lerLedger(dirThread(m.p.dir, id)).filter(x => x.tipo === TIPOS_DE_EVENTO.shipConcluido).length;
+    assert.deepEqual([entregas(a.t.id), entregas(b.t.id)], [0, 1]);
+  } finally { m.p.limpar(); }
+});
+
+test('QE10: a thread sem commit próprio não se entrega nem se reconcilia: bloqueia, sem ship_done e sem MASTER', { skip: semKernel }, () => {
+  const m = mundo('noctum-qe10');
+  try {
+    const t = threadComWorktree(m.p, 'qe10');
+    const autor = sessaoDespachada(m.p, t.id, 'GOAL');
+    // O bloco inteiro concluiu pela prova do GOAL, sem commit nenhum: a branch é a própria base, e a base a "contém".
+    concluirBloco(m.p, t.id, autor, head(t.worktree!));
+    arco(m.p, 'arco-qe10', t.id);
+    for (let i = 0; i < 2; i++) {
+      const r = passo(m, 'arco-qe10');
+      assert.deepEqual([r.acao, r.acao === 'bloqueado' && r.motivo], ['bloqueado', 'noctum.entrega.sem-produto'], resumo(r));
+    }
+    assert.equal(lerLedger(dirThread(m.p.dir, t.id)).filter(x => x.tipo === TIPOS_DE_EVENTO.shipConcluido).length, 0);
+    assert.notEqual(lerThread(m.p.dir, t.id).status, 'fechada');
+  } finally { m.p.limpar(); }
+});
+
+test('QE11: o push que a proteção do remoto recusa com a base parada não vira "base andou": bloqueia e não se repete', { skip: semKernel }, () => {
+  const m = mundo('noctum-qe11');
+  m.gh = ghFalso(m.p);
+  try {
+    const e = entregaPronta(m.p, 'qe11');
+    arco(m.p, 'arco-qe11', e.t.id);
+    assert.equal(passo(m, 'arco-qe11').acao, 'publicou');
+    // A proteção da main no remoto: um gancho SIMULADO que recusa todo push nela e conta as tentativas.
+    const tentativas = path.join(m.p.remoto!, 'tentativas-na-main');
+    const gancho = path.join(m.p.remoto!, 'hooks', 'pre-receive');
+    fs.writeFileSync(gancho, `#!/bin/sh\nwhile read velho novo ref; do\n  if [ "$ref" = refs/heads/main ]; then echo x >> '${tentativas}'; ` +
+      `echo 'main protegida' >&2; exit 1; fi\ndone\nexit 0\n`);
+    fs.chmodSync(gancho, 0o755);
+    const base = lsRemote(m.p, 'refs/heads/main');
+    m.ci[e.fonte] = 'success';
+    for (let i = 0; i < 2; i++) {
+      const r = passo(m, 'arco-qe11');
+      assert.deepEqual([r.acao, r.acao === 'bloqueado' && r.motivo], ['bloqueado', 'noctum.entrega.push-recusado'], resumo(r));
+    }
+    assert.equal(fs.readFileSync(tentativas, 'utf8').trim().split('\n').length, 1, 'o segundo passo não empurra de novo');
+    assert.equal(lsRemote(m.p, 'refs/heads/main'), base);
+    const recusas = lerLedger(dirThread(m.p.dir, e.t.id)).filter(x => x.tipo === EVENTO_DO_PUSH_RECUSADO);
+    assert.deepEqual(recusas.map(x => [x.base, x.fonte]), [[base, e.fonte]]);
+  } finally { m.p.limpar(); }
+});
+
+test('QE12: a janela que fecha no meio do passo não deixa o merge sair: a conferência usa o relógio da hora do push', { skip: semKernel }, () => {
+  const m = mundo('noctum-qe12');
+  m.gh = ghFalso(m.p);
+  try {
+    const e = entregaPronta(m.p, 'qe12');
+    publicarBranch(e.t);
+    // A janela (6 h, o mínimo do envelope) fecha logo depois de o passo começar, e a leitura do CI só volta depois do fim
+    // (rede lenta, fila cheia).
+    const fim = Date.now() + 6000;
+    arco(m.p, 'arco-qe12', e.t.id, pedido => {
+      pedido.janela = { inicio: new Date(fim - 6 * 3600_000).toISOString(), fim: new Date(fim).toISOString(), fuso: 'America/Sao_Paulo' };
+    });
+    const base = lsRemote(m.p, 'refs/heads/main');
+    const ci = ciFalso({ [e.fonte]: 'success' });
+    const lento: ExecutorCi = (x) => { while (Date.now() <= fim + 200) passar(50); return ci(x); };
+    const r = passo(m, 'arco-qe12', { executorCi: lento });
+    assert.deepEqual([r.acao, r.acao === 'bloqueado' && r.motivo], ['bloqueado', 'noctum.efeito.expirado'], resumo(r));
+    assert.equal(lsRemote(m.p, 'refs/heads/main'), base, 'nenhum merge depois do fim da janela');
+    assert.equal(lerLedger(dirThread(m.p.dir, e.t.id)).filter(x => x.tipo === TIPOS_DE_EVENTO.shipConcluido).length, 0);
+  } finally { m.p.limpar(); }
+});
+
+test('QE13: conflito em arquivo fora de UTF-8 ou binário não é só aditivo: o merge aborta e os bytes da thread ficam como estavam', { skip: semKernel }, () => {
+  const casos: Array<[string, string, Buffer, Buffer, Buffer]> = [
+    // O git mescla o Latin-1 como texto e marca o conflito; ler como UTF-8 e gravar trocaria os bytes acentuados.
+    ['latin', 'docs/latin-qe13.txt', Buffer.from('linha um\nação\nfim\n', 'latin1'), Buffer.from('linha um\nação\nda thread\nfim\n', 'latin1'),
+      Buffer.from('linha um\nação\nda base\nfim\n', 'latin1')],
+    // O binário conflita sem marcador: o git deixa o lado da thread inteiro no lugar.
+    ['binario', 'docs/marca-qe13.bin', Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01, 0x0a]), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x02, 0x0a]),
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x03, 0x0a])],
+  ];
+  for (const [nome, arquivo, inicial, daThread, daBase] of casos) {
+    const m = mundo(`noctum-qe13-${nome}`);
+    try {
+      gravarBytes(m.p.dir, arquivo, inicial);
+      git(m.p.dir, 'commit', '-q', '-m', `docs: ${arquivo}`);
+      git(m.p.dir, 'push', '-q', 'origin', 'main');
+      const e = entregaPronta(m.p, `qe13${nome}`);
+      gravarBytes(e.t.worktree!, arquivo, daThread);
+      git(e.t.worktree!, 'commit', '-q', '-m', `feat: a thread muda ${arquivo}`);
+      const fonte = head(e.t.worktree!);
+      arco(m.p, `arco-qe13-${nome}`, e.t.id);
+      gravarBytes(m.p.dir, arquivo, daBase);
+      git(m.p.dir, 'commit', '-q', '-m', `feat: a base muda ${arquivo}`);
+      git(m.p.dir, 'push', '-q', 'origin', 'main');
+      const r = passo(m, `arco-qe13-${nome}`);
+      assert.deepEqual([r.acao, r.acao === 'bloqueado' && r.motivo], ['bloqueado', 'noctum.entrega.conflito-nao-aditivo'], `${nome}: ${resumo(r)}`);
+      assert.match(r.acao === 'bloqueado' ? r.detalhe : '', /não é texto UTF-8/, nome);
+      assert.equal(head(e.t.worktree!), fonte, `${nome}: nenhum commit novo`);
+      assert.equal(git(e.t.worktree!, 'status', '--porcelain').stdout.trim(), '', `${nome}: a worktree limpa`);
+      assert.ok(fs.readFileSync(path.join(e.t.worktree!, arquivo)).equals(daThread), `${nome}: os bytes da thread ficam como estavam`);
+    } finally { m.p.limpar(); }
+  }
+});
+
+test('QE14: a thread que corrigiu uma linha antiga do CHANGELOG se atualiza com a base: a correção não é perda da base', { skip: semKernel }, () => {
+  const m = mundo('noctum-qe14');
+  try {
+    const comEntrada = CHANGELOG_DA_BASE.replace('### Adicionado\n\n', `### Adicionado\n\n${ENTRADA_DA_THREAD('qe14')}\n\n`);
+    const e = entregaPronta(m.p, 'qe14', { arquivos: () => ({ 'CHANGELOG.md': comEntrada.replace('- v1\n', '- v1, com a data certa\n') }) });
+    arco(m.p, 'arco-qe14', e.t.id);
+    const outra = '- **Outra SIMULADA** (RM-959): da base.';
+    avancarBase(m.p, { 'CHANGELOG.md': CHANGELOG_DA_BASE.replace('### Adicionado\n\n', `### Adicionado\n\n${outra}\n\n`) }, 'docs: a linha da outra');
+    const r = passo(m, 'arco-qe14');
+    assert.equal(r.acao, 'atualizou', resumo(r));
+    const final = fs.readFileSync(path.join(e.t.worktree!, 'CHANGELOG.md'), 'utf8');
+    assert.ok(final.includes('- v1, com a data certa\n') && !final.includes('- v1\n'), 'a correção da thread fica');
+    assert.ok(final.includes(outra) && final.includes(ENTRADA_DA_THREAD('qe14')), 'a linha da base e a da thread ficam');
+  } finally { m.p.limpar(); }
+});
+
+test('QE15: o arquivo que a thread muda e a base apaga conflita sem conteúdo dos dois lados: a atualização recusa, sem escolher', { skip: semKernel }, () => {
+  const m = mundo('noctum-qe16');
+  try {
+    avancarBase(m.p, { 'core/src/apagavel.ts': 'export const a = 1;\n' }, 'feat: apagável');
+    const e = entregaPronta(m.p, 'qe16', { arquivos: () => ({ 'core/src/apagavel.ts': 'export const a = 2;\n' }) });
+    arco(m.p, 'arco-qe16', e.t.id);
+    git(m.p.dir, 'rm', '-q', '--', 'core/src/apagavel.ts');
+    git(m.p.dir, 'commit', '-q', '-m', 'feat: a base apaga o apagável');
+    git(m.p.dir, 'push', '-q', 'origin', 'main');
+    const r = passo(m, 'arco-qe16');
+    assert.deepEqual([r.acao, r.acao === 'bloqueado' && r.motivo], ['bloqueado', 'noctum.entrega.conflito-nao-aditivo'], resumo(r));
+    assert.match(r.acao === 'bloqueado' ? r.detalhe : '', /não é de conteúdo/);
+    assert.equal(head(e.t.worktree!), e.fonte);
+    assert.equal(git(e.t.worktree!, 'status', '--porcelain').stdout.trim(), '');
+  } finally { m.p.limpar(); }
+});
+
+test('QE16: o despacho do CHECK relê o arco sob a trava: a revisão que outro passo despachou enquanto este esperava não sai de novo', { skip: semKernel }, () => {
+  const m = mundo('noctum-qe17');
+  try {
+    const t = threadComWorktree(m.p, 'qe17');
+    const autor = sessaoDespachada(m.p, t.id, 'GOAL');
+    const changelog = fs.readFileSync(path.join(t.worktree!, 'CHANGELOG.md'), 'utf8').replace('### Adicionado\n\n', `### Adicionado\n\n${ENTRADA_DA_THREAD('qe17')}\n\n`);
+    const produto = commitarNaWorktree(t, { 'core/src/qe17.ts': 'export const qe17 = 1;\n', 'CHANGELOG.md': changelog }, 'feat: qe17');
+    commitDaSessao(m.p, t.id, autor, produto);
+    claimDe(m.p, t.id, 'core/src/qe17.ts', 'Mutante M1: a guarda de qe17 cai');
+    const fonte = commitarBundle(m.p, t);
+    concluirBloco(m.p, t.id, autor, fonte);
+    const envelope = arco(m.p, 'arco-qe17', t.id);
+    // Enquanto este passo lê as provas, outro passo da máquina reserva e conclui o CHECK de revisão do mesmo trabalho.
+    let corrida = false;
+    const ci = ciFalso({});
+    const comCorrida: ExecutorCi = (x) => {
+      if (!corrida) {
+        corrida = true;
+        const agora = new Date().toISOString();
+        const seq = reservarDespacho(m.p.dir, { arco: 'arco-qe17', envelopeSha256: envelope, trabalho: 'a', thread: t.id, fase: 'CHECK',
+          runtime: 'claude-bg', conta: 'perfil-a', revisao: true }, agora).seq;
+        concluirDespacho(m.p.dir, 'arco-qe17', seq, { thread: t.id, sessionId: '00000000-0000-4000-8005-999999999999', idempotente: false });
+      }
+      return ci(x);
+    };
+    const r = passo(m, 'arco-qe17', { executorCi: comCorrida });
+    assert.deepEqual([r.acao, r.acao === 'aguardar' && r.motivo], ['aguardar', 'noctum.entrega.revisao-em-curso'], resumo(r));
+    assert.equal(m.abertas.length, 0, 'nenhum CHECK novo');
+  } finally { m.p.limpar(); }
 });

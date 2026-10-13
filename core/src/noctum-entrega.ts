@@ -11,11 +11,15 @@
  *   de revisão e pela trava de despacho, até `LIMITE_DE_REVISOES` vezes por trabalho;
  * - `verificar`: o verify no SHA, na fila pesada, até três rodadas por SHA;
  * - `publicar`: push e PR pelo `publicarEntrega`, com o envelope conferido imediatamente antes de cada um;
- * - `integrar`: sob a trava do kernel do destino, as provas relidas do zero, a conferência da N1 com `merge`, o merge da
- *   fonte sobre a base conferida, a página do item com o estado derivado (quando ela deixaria a `main` vermelha), o push sem
- *   força para a base (a base que andou recusa) e a prova pelo `ls-remote`; o `ship_done` leva a evidência das provas;
+ * - `integrar`: sob a trava do kernel do destino, as provas relidas do zero, o merge da fonte sobre a base conferida, a
+ *   página do item com o estado derivado (quando ela deixaria a `main` vermelha), a conferência da N1 com `merge` e, logo
+ *   depois, o push amarrado à ponta conferida (a base que andou recusa) e a prova pelo `ls-remote`; o `ship_done` leva a
+ *   evidência das provas;
  * - `reconciliar`: a fonte já está na base (o push que ficou incerto chegou): o `ship_done` sai sem integrar de novo;
  * - `master`: o MASTER por omissão da thread entregue, com o índice derivado do ledger.
+ *
+ * A recusa que vem antes de qualquer efeito (a leitura que falhou, a trava ocupada, a prova que mudou sob a trava) não
+ * encerra o passo: o trabalho seguinte da fila tem a vez, e um trabalho travado não prende os outros.
  *
  * Só o envelope `v2` integra por aqui; com outro contrato, a integração é da vez entre máquinas da N3, e `integradorDaEntrega`
  * dá a função de merge no formato que ela recebe. Nada aqui liga o modo: ninguém chama o passo ainda (o vigia é da N4).
@@ -36,12 +40,13 @@ import { ManifestoCarregado } from './manifest';
 import { aceitarPorOmissao, masterRatificado } from './master';
 import { tagDoModo } from './modos';
 import { concluirDespacho, conferirAntesDoEfeito, EstadoDoArco, lerArco, reservarDespacho } from './noctum-arco';
-import { admitir, escolherConta, fatosDeCapacidade, LeituraDeSessoes } from './noctum-capacidade';
-import { ARQUIVO_DO_CHANGELOG, entradasDaThread, linhasDaBasePerdidas, posicionarEntradas, resolverConflitosAditivos } from './noctum-changelog';
-import { CONTRATO_ENVELOPE_V2, Destino, envelopeComTrabalhos, RecusaDoArco } from './noctum-envelope';
+import { admitir, escolherConta, fatosDeCapacidade, LeituraDeSessoes, MotivoDaCapacidade } from './noctum-capacidade';
+import { ARQUIVO_DO_CHANGELOG, entradasDaThread, linhasDaBasePerdidas, linhasRemovidas, posicionarEntradas,
+  resolverConflitosAditivos } from './noctum-changelog';
+import { CONTRATO_ENVELOPE_V2, Destino, envelopeComTrabalhos, MotivoDeRecusaDoArco, RecusaDoArco } from './noctum-envelope';
 import { fatosDaFila, LeitorDeReservas, montarFila, TrabalhoNaFila } from './noctum-fila';
-import { blobEm, garantirObjetos, MotivoDaEntrega, OpcoesDasProvas, pontaDaBaseNoRemoto, ProvasDaEntrega, provasDaEntrega,
-  RecusaDaEntrega } from './noctum-provas';
+import { blobEm, garantirObjetos, gitDaEntrega, MotivoDaEntrega, OpcoesDasProvas, pontaDaBaseNoRemoto, ProvasDaEntrega, provasDaEntrega,
+  RecusaDaEntrega, textoDe } from './noctum-provas';
 import { ExecutorDoGh } from './parado-no-condutor';
 import { OpcoesRun, resolverDespacho, ResultadoRun, rodarFase } from './phase';
 import { lerPerfis, perfilDisponivel } from './runtime-profiles';
@@ -49,8 +54,7 @@ import { configDoBloco, lerSetup } from './setup';
 import { commitQueIncorporou } from './ship';
 import { Forja, manifestoDaBranch, Publicacao, publicarEntrega } from './ship-publicar';
 import { dirThread, gravarThread, lerThread, pedidoDaThread } from './thread';
-import { Fase, Thread } from './types';
-import { exec } from './util';
+import { Fase, MotivoGate, Thread } from './types';
 import { ConducaoDoVerify, verificar } from './verify';
 import { branchDaWorktree } from './worktree';
 
@@ -63,14 +67,27 @@ export const ESPERA_DO_CI_MS = 5 * 60_000;
 export const EVENTO_DA_ATUALIZACAO_RECUSADA = 'noctum_atualizacao_recusada';
 /** O evento do ledger da thread que guarda o push para a base de resultado incerto. */
 export const EVENTO_DO_PUSH_INCERTO = 'noctum_push_incerto';
+/** A4 da rodada 1: o evento do ledger da thread que guarda o push que o remoto recusou com a base parada (proteção, gancho). */
+export const EVENTO_DO_PUSH_RECUSADO = 'noctum_push_recusado';
+
+/**
+ * A8 da rodada 1: o motivo de espera e de bloqueio do passo, tipado pela origem: os da entrega (`noctum.entrega.*`), os do
+ * envelope (`noctum.efeito.*`, `noctum.despacho.*`, `noctum.orcamento.*`), os da capacidade (`capacidade.*`), os da
+ * publicação (`publicar.*`, com o motivo do `publicarEntrega`) e os do despacho do núcleo (o `motivo` do `rodarFase`).
+ */
+export type MotivoDoPasso = MotivoDaEntrega | MotivoDeRecusaDoArco | MotivoDaCapacidade | `publicar.${MotivoGate | 'recusada'}`
+  | NonNullable<ResultadoRun['motivo']>;
 
 const SHA = /^[0-9a-f]{40}$/;
 const curto = (s: string | null | undefined): string => (s ? s.slice(0, 12) : '-');
 const mensagem = (e: unknown): string => (e instanceof Error ? e.message : String(e)).split('\n')[0].slice(0, 300);
+const primeira = (s: string): string => s.trim().split('\n')[0].slice(0, 200);
 
-function git(raiz: string, args: string[], prazoMs = 120000) {
-  return exec('git', args, raiz, prazoMs, { ...process.env, GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0' });
-}
+/** B1 da rodada 1: o git da entrega, com o buffer grande e `ok` só com saída 0 (o mesmo das provas). */
+const git = gitDaEntrega;
+
+/** A leitura do git que falhou num efeito: lacuna tipada, que espera e não grava recusa nenhuma. */
+const lacuna = (detalhe: string): RecusaDaEntrega => new RecusaDaEntrega('noctum.entrega.git-sem-leitura', detalhe);
 
 // ---------------------------------------------------------------------------
 // A decisão, pura.
@@ -80,8 +97,8 @@ export type AcaoDaEntrega = 'master' | 'reconciliar' | 'atualizar' | 'revisar' |
 
 export type DecisaoDaEntrega =
   | { acao: AcaoDaEntrega; porque: string }
-  | { acao: 'aguardar'; motivo: string; porque: string }
-  | { acao: 'bloqueado'; motivo: string; porque: string }
+  | { acao: 'aguardar'; motivo: MotivoDaEntrega; porque: string }
+  | { acao: 'bloqueado'; motivo: MotivoDaEntrega; porque: string }
   | { acao: 'nada'; porque: string };
 
 /** O que a decisão de um trabalho precisa saber. */
@@ -89,6 +106,8 @@ export interface EntradaDaDecisao {
   /** Já tem `ship_done`. */
   entregue: boolean;
   masterPendente: boolean;
+  /** B4 da rodada 1: a branch não tem commit próprio (fora os merges) desde o commit de partida da thread. */
+  semProduto: boolean;
   /** A fonte já está na base remota, sem `ship_done`: a integração aconteceu e falta o registro. */
   incorporada: boolean;
   /** O destino do envelope para o repositório da thread, ou o motivo de não haver um. */
@@ -96,6 +115,8 @@ export interface EntradaDaDecisao {
   provas: ProvasDaEntrega | null;
   /** A atualização da base atual já foi recusada (conflito que não é só aditivo). */
   atualizacaoRecusada: boolean;
+  /** A4 da rodada 1: o remoto já recusou o push desta fonte sobre esta base, com a base parada. */
+  pushRecusado: boolean;
   revisoesDespachadas: number;
   /** A publicação como o `publicarEntrega` em ensaio a vê: `ja-publicada`, `publicaria` ou a recusa dele. */
   publicacao: { acao: Publicacao['acao']; detalhe: string } | null;
@@ -104,18 +125,24 @@ export interface EntradaDaDecisao {
 const motivoDe = (p: ProvasDaEntrega, id: string) => p.provas.find(x => x.id === id) ?? null;
 
 /**
- * A ordem do plano da N5: entregue (MASTER), destino, integração com a base, provas estáticas, falhas que não se repetem,
- * revisão, verify, CI com a publicação e, por fim, a integração.
+ * A ordem do plano da N5: entregue (MASTER), destino, produto, integração com a base, leituras que faltaram, provas
+ * estáticas, falhas que não se repetem, revisão, verify, CI com a publicação e, por fim, a integração.
  */
 export function decidirEntrega(e: EntradaDaDecisao): DecisaoDaEntrega {
   if (e.entregue) return e.masterPendente ? { acao: 'master', porque: 'entregue: falta o MASTER' } : { acao: 'nada', porque: 'entregue e com MASTER' };
   if (!e.destino.ok) return { acao: 'bloqueado', motivo: e.destino.motivo, porque: e.destino.detalhe };
+  if (e.semProduto) {
+    return { acao: 'bloqueado', motivo: 'noctum.entrega.sem-produto', porque: 'a branch não tem commit próprio desde o commit de partida da thread: não há o que entregar' };
+  }
   if (e.incorporada) return { acao: 'reconciliar', porque: 'a fonte já está na base remota e falta o ship_done' };
   if (!e.provas) return { acao: 'bloqueado', motivo: 'noctum.entrega.fonte-ausente', porque: 'as provas não se leram' };
   const p = e.provas;
   const integracao = motivoDe(p, 'integracao')!;
   if (integracao.motivo === 'noctum.entrega.fonte-ausente') return { acao: 'bloqueado', motivo: integracao.motivo, porque: integracao.detalhe };
   if (integracao.motivo === 'noctum.entrega.base-sem-leitura') return { acao: 'aguardar', motivo: integracao.motivo, porque: integracao.detalhe };
+  // B1 da rodada 1: a leitura do git que falhou não vira "nada mudou"; nenhuma decisão sai de fatos pela metade.
+  const semLeitura = p.provas.find(x => x.motivo === 'noctum.entrega.git-sem-leitura');
+  if (semLeitura) return { acao: 'aguardar', motivo: 'noctum.entrega.git-sem-leitura', porque: `${semLeitura.id}: ${semLeitura.detalhe}` };
   if (integracao.motivo === 'noctum.entrega.base-mudou') {
     return e.atualizacaoRecusada
       ? { acao: 'bloqueado', motivo: 'noctum.entrega.conflito-nao-aditivo', porque: 'a atualização sobre esta base já foi recusada por conflito que não é só aditivo' }
@@ -150,6 +177,10 @@ export function decidirEntrega(e: EntradaDaDecisao): DecisaoDaEntrega {
     return { acao: 'aguardar', motivo: ci.motivo, porque: ci.detalhe };
   }
   if (!e.destino.podeMerge) return { acao: 'bloqueado', motivo: 'noctum.entrega.fora-do-destino', porque: 'o envelope não autoriza merge neste destino' };
+  if (e.pushRecusado) {
+    return { acao: 'bloqueado', motivo: 'noctum.entrega.push-recusado',
+      porque: 'o remoto já recusou o push desta fonte sobre esta base, com a base parada: a proteção da branch ou um gancho decide, e não o arco' };
+  }
   return { acao: 'integrar', porque: 'todas as provas valem no SHA fonte e na base vigente' };
 }
 
@@ -158,6 +189,7 @@ export function decidirEntrega(e: EntradaDaDecisao): DecisaoDaEntrega {
 // ---------------------------------------------------------------------------
 
 export interface OpcoesDaEntrega {
+  /** O instante dos testes; sem ele (o executor), cada leitura e cada conferência usa o relógio do processo na hora dela. */
   quando?: string;
   maquina?: string;
   /** O remoto do projeto; padrão `origin`. */
@@ -185,23 +217,28 @@ export type ResultadoDaEntrega =
   | { acao: 'integrou'; trabalho: string; thread: string; mergeSha: string; pontaDaBase: string; docs: string | null; provas: string }
   | { acao: 'reconciliou'; trabalho: string; thread: string; mergeSha: string; pontaDaBase: string }
   | { acao: 'master'; trabalho: string; thread: string; indice: number }
-  | { acao: 'aguardar'; trabalho: string | null; thread: string | null; motivo: string; detalhe: string; ate: string }
-  | { acao: 'bloqueado'; trabalho: string; thread: string; motivo: string; detalhe: string; outros: Array<{ trabalho: string; motivo: string }> }
+  | { acao: 'aguardar'; trabalho: string | null; thread: string | null; motivo: MotivoDoPasso; detalhe: string; ate: string }
+  | { acao: 'bloqueado'; trabalho: string; thread: string; motivo: MotivoDoPasso; detalhe: string; outros: Array<{ trabalho: string; motivo: MotivoDoPasso }> }
   | { acao: 'nada'; motivo: 'sem-entrega' | 'arco-encerrado' | 'sem-autorizacao' | 'sem-trabalhos'; detalhe: string };
 
 const depoisDe = (quando: string, ms: number): string => new Date(Date.parse(quando) + ms).toISOString();
 
-/** O destino do envelope para o repositório da thread: o mesmo repositório, a base do manifesto, `push` e `pr`. */
+/**
+ * O destino do envelope para o repositório da thread: o mesmo repositório com a base do projeto (S9 da rodada 1: entre os
+ * destinos do repositório, o da base, e não o primeiro da lista), com `push` e `pr`.
+ */
 function destinoDoTrabalho(carregado: ManifestoCarregado, destinos: readonly Destino[], remoto: string, forja?: Forja):
   { ok: true; destino: Destino; podeMerge: boolean } | { ok: false; motivo: MotivoDaEntrega; detalhe: string } {
   const url = git(carregado.raiz, ['remote', 'get-url', '--', remoto]);
   const repositorio = forja?.repositorio ?? (url.ok ? repositorioGitHub(url.stdout.trim()) : null);
   if (!repositorio) return { ok: false, motivo: 'noctum.entrega.fora-do-destino', detalhe: `o remoto ${remoto} não é um repositório do GitHub` };
-  const destino = destinos.find(d => d.repositorio.toLowerCase() === repositorio.toLowerCase());
-  if (!destino) return { ok: false, motivo: 'noctum.entrega.fora-do-destino', detalhe: `o repositório ${repositorio} não está no envelope` };
+  const doRepositorio = destinos.filter(d => d.repositorio.toLowerCase() === repositorio.toLowerCase());
+  if (!doRepositorio.length) return { ok: false, motivo: 'noctum.entrega.fora-do-destino', detalhe: `o repositório ${repositorio} não está no envelope` };
   const base = carregado.manifesto.worktree.base_branch;
-  if (destino.base !== base) {
-    return { ok: false, motivo: 'noctum.entrega.fora-do-destino', detalhe: `a base do envelope (${destino.base}) não é a do projeto (${base})` };
+  const destino = doRepositorio.find(d => d.base === base);
+  if (!destino) {
+    return { ok: false, motivo: 'noctum.entrega.fora-do-destino',
+      detalhe: `nenhum destino do envelope em ${repositorio} tem a base do projeto (${base}); o envelope tem ${doRepositorio.map(d => d.base).join(', ')}` };
   }
   if (!destino.permissoes.includes('push') || !destino.permissoes.includes('pr')) {
     return { ok: false, motivo: 'noctum.entrega.fora-do-destino', detalhe: `o envelope não autoriza push e PR em ${destino.repositorio}` };
@@ -209,40 +246,74 @@ function destinoDoTrabalho(carregado: ManifestoCarregado, destinos: readonly Des
   return { ok: true, destino, podeMerge: destino.permissoes.includes('merge') };
 }
 
-/** O que o passo lê de um trabalho na entrega, agora. */
+/**
+ * B4 da rodada 1: a branch tem produto quando tem ao menos um commit que não é merge desde o commit de partida da thread.
+ * A branch que nunca divergiu da base (ou só recebeu merges dela) não entrega nada, nem por reconciliação. `null` é lacuna.
+ */
+function temProduto(raiz: string, t: Thread, fonte: string): boolean | null {
+  const partida = t.base?.commit;
+  if (!partida || !SHA.test(partida)) return false;
+  const r = git(raiz, ['rev-list', '--count', '--no-merges', `${partida}..${fonte}`]);
+  if (!r.ok) return null;
+  return Number(r.stdout.trim()) > 0;
+}
+
+/** A9 da rodada 1: a ponta de cada base é lida uma vez por passo (por remoto e base), e não uma vez por trabalho. */
+type LeiturasDoPasso = Map<string, { sha: string | null; erro: string | null }>;
+
+/** O que o passo lê de um trabalho na entrega, agora. A leitura que falha lança a lacuna tipada, e o trabalho espera. */
 function entradaDoTrabalho(carregado: ManifestoCarregado, estado: EstadoDoArco, trabalho: TrabalhoNaFila, opcoes: OpcoesDaEntrega,
-  remoto: string): { t: Thread; entrada: EntradaDaDecisao; destino: Destino | null; base: string | null } {
+  remoto: string, leituras: LeiturasDoPasso): { t: Thread; entrada: EntradaDaDecisao; destino: Destino | null; base: string | null } {
   const { raiz } = carregado;
   const t = lerThread(raiz, trabalho.thread!);
   const eventos = lerLedger(dirThread(raiz, t.id));
   const entregue = eventos.some(e => e.tipo === TIPOS_DE_EVENTO.shipConcluido);
   const masterPendente = entregue && t.status !== 'fechada' && !masterRatificado(raiz, t.id);
-  const revisoesDespachadas = estado.despachos.filter(d => d.trabalho === trabalho.id && d.fase === 'CHECK' && d.revisao && d.desfecho !== 'recusado').length;
+  const revisoesDespachadas = revisoesDoTrabalho(estado, trabalho.id);
   const d = destinoDoTrabalho(carregado, estado.conteudo!.destinos, remoto, opcoes.forja);
-  const vazia: EntradaDaDecisao = { entregue, masterPendente, incorporada: false, destino: d.ok ? { ok: true, podeMerge: d.podeMerge } : d,
-    provas: null, atualizacaoRecusada: false, revisoesDespachadas, publicacao: null };
+  const vazia: EntradaDaDecisao = { entregue, masterPendente, semProduto: false, incorporada: false,
+    destino: d.ok ? { ok: true, podeMerge: d.podeMerge } : d, provas: null, atualizacaoRecusada: false, pushRecusado: false,
+    revisoesDespachadas, publicacao: null };
   if (entregue || !d.ok) return { t, entrada: vazia, destino: d.ok ? d.destino : null, base: null };
-  const ponta = pontaDaBaseNoRemoto(raiz, remoto, d.destino.base);
+  const chave = `${remoto}\n${d.destino.base}`;
+  const ponta = leituras.get(chave) ?? pontaDaBaseNoRemoto(raiz, remoto, d.destino.base);
+  leituras.set(chave, ponta);
   if (ponta.sha) garantirObjetos(raiz, remoto, d.destino.base, ponta.sha);
-  const ref = git(raiz, ['rev-parse', '--verify', '--quiet', `refs/heads/${branchDaWorktree(t)}^{commit}`]);
-  const fonte = ref.ok ? ref.stdout.trim() : null;
-  const incorporada = !!ponta.sha && !!fonte && SHA.test(fonte) && git(raiz, ['merge-base', '--is-ancestor', fonte, ponta.sha]).ok;
-  if (incorporada) return { t, entrada: { ...vazia, incorporada }, destino: d.destino, base: ponta.sha };
+  const branch = branchDaWorktree(t);
+  const ref = git(raiz, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}^{commit}`]);
+  const fonte = ref.ok && SHA.test(ref.stdout.trim()) ? ref.stdout.trim() : null;
+  if (fonte) {
+    const produto = temProduto(raiz, t, fonte);
+    if (produto === null) throw lacuna(`não se leu se a branch ${branch} tem commit próprio desde a partida da thread`);
+    if (!produto) return { t, entrada: { ...vazia, semProduto: true }, destino: d.destino, base: ponta.sha };
+  }
+  if (ponta.sha && fonte) {
+    const contida = git(raiz, ['merge-base', '--is-ancestor', fonte, ponta.sha]);
+    if (contida.code !== 0 && contida.code !== 1) throw lacuna(`não se leu se a fonte ${curto(fonte)} já está na base`);
+    if (contida.code === 0) return { t, entrada: { ...vazia, incorporada: true }, destino: d.destino, base: ponta.sha };
+  }
   const opcoesDasProvas: OpcoesDasProvas = { remoto, base: d.destino.base, forja: opcoes.forja, executorCi: opcoes.executorCi, pontaDaBase: ponta };
   const provas = provasDaEntrega(carregado, t.id, opcoesDasProvas);
   const atualizacaoRecusada = !!ponta.sha && eventos.some(e => e.tipo === EVENTO_DA_ATUALIZACAO_RECUSADA && e.base === ponta.sha);
+  const pushRecusado = !!ponta.sha && !!provas.fonte &&
+    eventos.some(e => e.tipo === EVENTO_DO_PUSH_RECUSADO && e.base === ponta.sha && e.fonte === provas.fonte);
   // A publicação só importa com o CI pendente: o ensaio do `publicarEntrega` lê o remoto e a forja sem efeito nenhum.
   const ciPendente = provas.provas.find(x => x.id === 'ci')?.motivo === 'noctum.entrega.ci-pendente';
   const publicacao = ciPendente ? (() => {
     const r = publicarEntrega(carregado, t.id, { remoto, forja: opcoes.forja, executorGh: opcoes.executorGh, dryRun: true, quando: opcoes.quando });
     return { acao: r.acao, detalhe: r.detalhe };
   })() : null;
-  return { t, entrada: { ...vazia, provas, atualizacaoRecusada, publicacao }, destino: d.destino, base: ponta.sha };
+  return { t, entrada: { ...vazia, provas, atualizacaoRecusada, pushRecusado, publicacao }, destino: d.destino, base: ponta.sha };
+}
+
+/** Os CHECKs de revisão que o arco já despachou para o trabalho (a reserva não recusada). */
+function revisoesDoTrabalho(estado: EstadoDoArco, trabalho: string): number {
+  return estado.despachos.filter(d => d.trabalho === trabalho && d.fase === 'CHECK' && d.revisao && d.desfecho !== 'recusado').length;
 }
 
 /**
  * Um passo da entrega do arco: no máximo um efeito, nos trabalhos que a fila da N2 mostra na entrega (`aguardando-entrega`)
- * ou entregues sem MASTER, na ordem da fila. Lança só o erro que não é recusa (disco, git); toda recusa volta como resultado.
+ * ou entregues sem MASTER, na ordem da fila. Lança só o erro que não é recusa (disco); toda recusa volta como resultado.
  */
 export function passoDaEntrega(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDaEntrega = {}): ResultadoDaEntrega {
   const quando = opcoes.quando ?? new Date().toISOString();
@@ -255,7 +326,8 @@ export function passoDaEntrega(carregado: ManifestoCarregado, arco: string, opco
   }
   if (!estado || !estado.conteudo || estado.situacao === 'proposto') return { acao: 'nada', motivo: 'sem-autorizacao', detalhe: 'o arco não tem envelope autorizado' };
   if (estado.situacao === 'agendado') {
-    return { acao: 'aguardar', trabalho: null, thread: null, motivo: 'agendado', detalhe: 'a janela do arco ainda não começou', ate: estado.conteudo.janela.inicio };
+    return { acao: 'aguardar', trabalho: null, thread: null, motivo: 'noctum.entrega.agendado', detalhe: 'a janela do arco ainda não começou',
+      ate: estado.conteudo.janela.inicio };
   }
   if (estado.situacao !== 'vigente') return { acao: 'nada', motivo: 'arco-encerrado', detalhe: `o arco está ${estado.situacao}: nenhum efeito novo` };
   const conteudo = estado.conteudo;
@@ -265,7 +337,8 @@ export function passoDaEntrega(carregado: ManifestoCarregado, arco: string, opco
     .sort((a, b) => a.prioridade - b.prioridade || a.posicao - b.posicao);
   if (!naEntrega.length) return { acao: 'nada', motivo: 'sem-entrega', detalhe: 'nenhum trabalho do arco está na entrega' };
   let espera: Extract<ResultadoDaEntrega, { acao: 'aguardar' }> | null = null;
-  const bloqueios: Array<{ trabalho: string; thread: string; motivo: string; detalhe: string }> = [];
+  const bloqueios: Array<{ trabalho: string; thread: string; motivo: MotivoDoPasso; detalhe: string }> = [];
+  const leituras: LeiturasDoPasso = new Map();
   for (const trabalho of naEntrega) {
     // D9: com outro contrato (a v3 da N3), a integração é da vez entre máquinas; aqui nada se decide por ela.
     if (conteudo.contrato !== CONTRATO_ENVELOPE_V2) {
@@ -273,23 +346,29 @@ export function passoDaEntrega(carregado: ManifestoCarregado, arco: string, opco
         detalhe: `o envelope ${conteudo.contrato} integra pela vez entre máquinas (integrarComVez da N3), com integradorDaEntrega` });
       continue;
     }
-    const lido = entradaDoTrabalho(carregado, estado, trabalho, opcoes, remoto);
-    const decisao = decidirEntrega(lido.entrada);
-    const base = { trabalho: trabalho.id, thread: lido.t.id };
-    if (decisao.acao === 'nada') continue;
-    if (decisao.acao === 'aguardar') {
-      espera ??= { acao: 'aguardar', ...base, motivo: decisao.motivo, detalhe: decisao.porque, ate: depoisDe(quando, ESPERA_DO_CI_MS) };
+    let lido: Lido;
+    try { lido = entradaDoTrabalho(carregado, estado, trabalho, opcoes, remoto, leituras); }
+    catch (e) {
+      // A leitura que falhou neste trabalho: ele espera, e os outros seguem.
+      if (!(e instanceof RecusaDaEntrega)) throw e;
+      espera ??= { acao: 'aguardar', trabalho: trabalho.id, thread: trabalho.thread, motivo: e.motivo, detalhe: e.message, ate: depoisDe(quando, ESPERA_DO_CI_MS) };
       continue;
     }
-    if (decisao.acao === 'bloqueado') { bloqueios.push({ ...base, motivo: decisao.motivo, detalhe: decisao.porque }); continue; }
-    const r = executar(carregado, arco, estado, trabalho, lido, decisao.acao, opcoes, remoto, quando);
-    // Um efeito por chamada: depois de tentar, o passo volta, qualquer que seja o desfecho. Só a recusa da publicação e da
-    // atualização deixa seguir para o próximo trabalho: a primeira vem antes do efeito (a do envelope depois do push para o
-    // arco inteiro), e a segunda é local e desfeita (o merge abortado).
-    const seguir = decisao.acao === 'publicar' || decisao.acao === 'atualizar';
-    if (seguir && r.acao === 'aguardar') { espera ??= r; continue; }
-    if (seguir && r.acao === 'bloqueado') { bloqueios.push({ trabalho: r.trabalho, thread: r.thread, motivo: r.motivo, detalhe: r.detalhe }); continue; }
-    return r;
+    const decisao = decidirEntrega(lido.entrada);
+    const ids = { trabalho: trabalho.id, thread: lido.t.id };
+    if (decisao.acao === 'nada') continue;
+    if (decisao.acao === 'aguardar') {
+      espera ??= { acao: 'aguardar', ...ids, motivo: decisao.motivo, detalhe: decisao.porque, ate: depoisDe(quando, ESPERA_DO_CI_MS) };
+      continue;
+    }
+    if (decisao.acao === 'bloqueado') { bloqueios.push({ ...ids, motivo: decisao.motivo, detalhe: decisao.porque }); continue; }
+    const { resultado, efeito } = executar(carregado, arco, estado, trabalho, lido, decisao.acao, opcoes, remoto, quando);
+    // Um efeito por chamada (A1 da rodada 1): o efeito feito, ou de resultado incerto, encerra o passo; a recusa de antes de
+    // qualquer efeito deixa o trabalho seguinte tentar, e o trabalho travado não prende a fila.
+    if (efeito) return resultado;
+    if (resultado.acao === 'aguardar') { espera ??= resultado; continue; }
+    if (resultado.acao === 'bloqueado') { bloqueios.push({ trabalho: resultado.trabalho, thread: resultado.thread, motivo: resultado.motivo, detalhe: resultado.detalhe }); continue; }
+    return resultado;
   }
   if (espera) return espera;
   if (bloqueios.length) {
@@ -301,42 +380,57 @@ export function passoDaEntrega(carregado: ManifestoCarregado, arco: string, opco
 
 type Lido = ReturnType<typeof entradaDoTrabalho>;
 
+/** Se o efeito já passou do ponto sem volta: quem o executa marca, e a recusa depois dele encerra o passo. */
+interface Rastro { efeito: boolean }
+
+/** As recusas que esperam a cadência, em vez de bloquear: a trava, a leitura e o push que ninguém sabe se chegou. */
+const RECUSAS_QUE_ESPERAM: readonly MotivoDaEntrega[] = ['noctum.entrega.integracao-ocupada', 'noctum.entrega.base-sem-leitura',
+  'noctum.entrega.push-incerto', 'noctum.entrega.git-sem-leitura', 'noctum.entrega.ocupada'];
+
 function executar(carregado: ManifestoCarregado, arco: string, estado: EstadoDoArco, trabalho: TrabalhoNaFila, lido: Lido, acao: AcaoDaEntrega,
-  opcoes: OpcoesDaEntrega, remoto: string, quando: string): ResultadoDaEntrega {
+  opcoes: OpcoesDaEntrega, remoto: string, quando: string): { resultado: ResultadoDaEntrega; efeito: boolean } {
   const ids = { trabalho: trabalho.id, thread: lido.t.id };
-  const recusa = (motivo: string, detalhe: string, aguardar = false): ResultadoDaEntrega => aguardar
+  const recusa = (motivo: MotivoDoPasso, detalhe: string, aguardar = false): ResultadoDaEntrega => aguardar
     ? { acao: 'aguardar', ...ids, motivo, detalhe, ate: depoisDe(quando, ESPERA_DO_CI_MS) }
     : { acao: 'bloqueado', ...ids, motivo, detalhe, outros: [] };
+  const rastro: Rastro = { efeito: false };
   try {
     switch (acao) {
       case 'master': {
         const a = aceitarPorOmissao(carregado.raiz, lido.t.id);
-        return { acao: 'master', ...ids, indice: a.indice.valor };
+        return { resultado: { acao: 'master', ...ids, indice: a.indice.valor }, efeito: true };
       }
       case 'reconciliar': {
         const r = reconciliarEntrega(carregado, arco, estado, lido.t.id, remoto, lido.destino!, lido.base!);
-        return { acao: 'reconciliou', ...ids, mergeSha: r.mergeSha, pontaDaBase: r.pontaDaBase };
+        return { resultado: { acao: 'reconciliou', ...ids, mergeSha: r.mergeSha, pontaDaBase: r.pontaDaBase }, efeito: true };
       }
-      case 'atualizar': return atualizarCandidato(carregado, arco, trabalho, lido.t, lido.base!, opcoes);
-      case 'revisar': return despacharRevisao(carregado, arco, estado, trabalho, lido.t, opcoes, quando);
+      case 'atualizar': return { resultado: atualizarCandidato(carregado, arco, trabalho, lido.t, lido.base!, opcoes, rastro), efeito: true };
+      case 'revisar': {
+        const resultado = despacharRevisao(carregado, arco, trabalho, lido.t, lido.entrada.revisoesDespachadas, opcoes, rastro);
+        return { resultado, efeito: rastro.efeito };
+      }
       case 'verificar': {
         const r = verificarAFonte(carregado, arco, lido.t.id, opcoes);
-        return { acao: 'verificou', ...ids, commit: lido.entrada.provas?.fonte ?? '', ok: r.ok };
+        return { resultado: { acao: 'verificou', ...ids, commit: lido.entrada.provas?.fonte ?? '', ok: r.ok }, efeito: true };
       }
-      case 'publicar': return publicar(carregado, arco, estado, trabalho, lido, opcoes, remoto);
+      case 'publicar': {
+        const resultado = publicar(carregado, arco, estado, trabalho, lido, opcoes, remoto, rastro);
+        return { resultado, efeito: rastro.efeito };
+      }
       case 'integrar': {
-        const r = integrarNoDestino(carregado, arco, lido.t.id, { ...opcoes, remoto, quando });
-        return { acao: 'integrou', ...ids, mergeSha: r.mergeSha, pontaDaBase: r.pontaDaBase, docs: r.docs.commit, provas: r.provas };
+        // B2 da rodada 1: sem o instante deste passo; a integração confere o envelope com o relógio da hora do push.
+        const r = integrarNoDestino(carregado, arco, lido.t.id, { ...opcoes, remoto });
+        return { resultado: { acao: 'integrou', ...ids, mergeSha: r.mergeSha, pontaDaBase: r.pontaDaBase, docs: r.docs.commit, provas: r.provas }, efeito: true };
       }
     }
   } catch (e) {
-    if (e instanceof RecusaDaEntrega) {
-      const esperar = ['noctum.entrega.integracao-ocupada', 'noctum.entrega.base-sem-leitura', 'noctum.entrega.push-incerto'].includes(e.motivo);
-      return recusa(e.motivo, e.message, esperar);
-    }
-    if (e instanceof RecusaDoArco) return recusa(e.motivo, e.message);
-    if (e instanceof ErroDeConducao || e instanceof ErroDaFilaPesada) return recusa('noctum.entrega.ocupada', mensagem(e), true);
-    if (e instanceof Error && /^HITL ocupado/.test(e.message)) return recusa('noctum.entrega.ocupada', mensagem(e), true);
+    // Só o push de resultado incerto, ou o que o executor marcou, é efeito: as outras recusas vêm antes de qualquer um (a
+    // atualização recusada desfaz o merge local).
+    const efeito = rastro.efeito || (e instanceof RecusaDaEntrega && e.motivo === 'noctum.entrega.push-incerto');
+    if (e instanceof RecusaDaEntrega) return { resultado: recusa(e.motivo, e.message, RECUSAS_QUE_ESPERAM.includes(e.motivo)), efeito };
+    if (e instanceof RecusaDoArco) return { resultado: recusa(e.motivo, e.message), efeito };
+    if (e instanceof ErroDeConducao || e instanceof ErroDaFilaPesada) return { resultado: recusa('noctum.entrega.ocupada', mensagem(e), true), efeito };
+    if (e instanceof Error && /^HITL ocupado/.test(e.message)) return { resultado: recusa('noctum.entrega.ocupada', mensagem(e), true), efeito };
     throw e;
   }
 }
@@ -345,9 +439,10 @@ function executar(carregado: ManifestoCarregado, arco: string, estado: EstadoDoA
 // Os efeitos.
 // ---------------------------------------------------------------------------
 
-/** D4: as entradas do índice com conflito e os estágios de cada uma (`git ls-files -u`). */
+/** D4: as entradas do índice com conflito e os estágios de cada uma (`git ls-files -u`); a leitura que falha é lacuna. */
 function conflitosDoIndice(wt: string): Map<string, Set<string>> {
   const r = git(wt, ['ls-files', '-u', '-z']);
+  if (!r.ok) throw lacuna(`os conflitos do índice não se leram: ${primeira(r.stderr) || `código ${r.code}`}`);
   const mapa = new Map<string, Set<string>>();
   for (const entrada of r.stdout.split('\0').filter(Boolean)) {
     const m = /^\d+ [0-9a-f]+ ([123])\t(.+)$/s.exec(entrada);
@@ -356,13 +451,33 @@ function conflitosDoIndice(wt: string): Map<string, Set<string>> {
   return mapa;
 }
 
+/** S7 da rodada 1: o arquivo comum da worktree, sem seguir link simbólico; `null` quando falta ou não é arquivo comum. */
+function lerArquivoDaWorktree(wt: string, arquivo: string): Buffer | null {
+  let fd: number;
+  try { fd = fs.openSync(path.join(wt, arquivo), fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
+  catch (e) {
+    const codigo = (e as NodeJS.ErrnoException).code;
+    if (codigo === 'ENOENT' || codigo === 'ELOOP') return null;
+    throw e;
+  }
+  try { return fs.fstatSync(fd).isFile() ? fs.readFileSync(fd) : null; }
+  finally { fs.closeSync(fd); }
+}
+
+/** S7 da rodada 1: grava o arquivo comum da worktree sem seguir link simbólico. */
+function gravarArquivoDaWorktree(wt: string, arquivo: string, texto: string): void {
+  const fd = fs.openSync(path.join(wt, arquivo), fs.constants.O_WRONLY | fs.constants.O_TRUNC | fs.constants.O_NOFOLLOW);
+  try { fs.writeFileSync(fd, texto); } finally { fs.closeSync(fd); }
+}
+
 /**
  * D4: atualiza o candidato contra a base lida no remoto, na worktree limpa da thread e sob a condução do verify: merge
  * diff3, conflito só aditivo pela regra do núcleo, a entrada da thread em "Não publicado", nenhuma linha da base perdida, o
- * bundle regravado e o verify logo depois. A recusa aborta o merge, grava a base recusada e bloqueia.
+ * bundle regravado e o verify logo depois. A recusa aborta o merge, grava a base recusada e bloqueia; a leitura que falha
+ * aborta e espera, sem gravar recusa.
  */
 function atualizarCandidato(carregado: ManifestoCarregado, arco: string, trabalho: TrabalhoNaFila, t: Thread, base: string,
-  opcoes: OpcoesDaEntrega): ResultadoDaEntrega {
+  opcoes: OpcoesDaEntrega, rastro: Rastro): ResultadoDaEntrega {
   const ids = { trabalho: trabalho.id, thread: t.id };
   const wt = t.worktree;
   if (!wt || !fs.existsSync(wt)) throw new RecusaDaEntrega('noctum.entrega.fonte-ausente', `a thread ${t.id} não tem a worktree dela`);
@@ -370,69 +485,103 @@ function atualizarCandidato(carregado: ManifestoCarregado, arco: string, trabalh
   const pedido = { canal: conducao.canal!, correlacao: conducao.correlacao, operacao: 'verify' as const, prazoMs: 30 * 60_000 };
   return comConducao(carregado.raiz, t.id, pedido, () => {
     const branch = branchDaWorktree(t);
-    if (git(wt, ['symbolic-ref', '--quiet', '--short', 'HEAD']).stdout.trim() !== branch) {
+    const ler = (args: string[], oQue: string): string => {
+      const r = git(wt, args);
+      if (!r.ok) throw lacuna(`${oQue} não se leu: ${primeira(r.stderr) || `código ${r.code}`}`);
+      return r.stdout;
+    };
+    const ref = git(wt, ['symbolic-ref', '--quiet', '--short', 'HEAD']);
+    if (!ref.ok || ref.stdout.trim() !== branch) {
       throw new RecusaDaEntrega('noctum.entrega.worktree-suja', `a worktree da thread não está na branch ${branch}`);
     }
-    if (git(wt, ['status', '--porcelain']).stdout.trim()) {
+    if (ler(['status', '--porcelain'], 'o estado da worktree').trim()) {
       throw new RecusaDaEntrega('noctum.entrega.worktree-suja', 'a worktree da thread tem mudança que não foi commitada');
     }
-    const antes = git(wt, ['rev-parse', 'HEAD']).stdout.trim();
+    const antes = ler(['rev-parse', 'HEAD'], 'o HEAD da worktree').trim();
+    const contida = git(wt, ['merge-base', '--is-ancestor', base, antes]);
+    if (contida.code !== 0 && contida.code !== 1) throw lacuna(`não se leu se a base ${curto(base)} já está na branch`);
     let conflitos: string[] = [];
-    if (!git(wt, ['merge-base', '--is-ancestor', base, antes]).ok) conflitos = mesclarABase(carregado, t, wt, branch, antes, base, arco);
-    const daBranch = manifestoDaBranch(carregado, git(wt, ['rev-parse', 'HEAD']).stdout.trim());
+    if (contida.code === 1) {
+      conflitos = mesclarABase(carregado, t, wt, branch, antes, base, arco);
+      rastro.efeito = true;
+    }
+    const daBranch = manifestoDaBranch(carregado, ler(['rev-parse', 'HEAD'], 'o HEAD depois do merge').trim());
     const arquivo = prepararBundleCi(daBranch, t.id);
     const relativo = path.relative(wt, arquivo);
-    const bundleMudou = git(wt, ['status', '--porcelain', '--', relativo]).stdout.trim() !== '';
+    const bundleMudou = ler(['status', '--porcelain', '--', relativo], 'o estado do bundle').trim() !== '';
     if (bundleMudou) {
-      git(wt, ['add', '--', relativo]);
+      if (!git(wt, ['add', '--', relativo]).ok) throw new Error(`o git add do bundle ${relativo} falhou`);
       const c = git(wt, ['commit', '-q', '-m', `ci(${t.id}): bundle regravado na atualização do arco ${arco}`]);
-      if (!c.ok) throw new Error(`o commit do bundle falhou: ${c.stderr.trim().slice(0, 300)}`);
+      if (!c.ok) throw new Error(`o commit do bundle falhou: ${primeira(c.stderr)}`);
+      rastro.efeito = true;
     }
-    const depois = git(wt, ['rev-parse', 'HEAD']).stdout.trim();
-    const v = (opcoes.verificar ?? ((k, id, c) => verificar(k, id, { conducao: c })))(carregado, t.id, conducao);
-    return { acao: 'atualizou', ...ids, de: antes, para: depois, conflitos, bundle: bundleMudou, verify: v.ok };
+    const depois = ler(['rev-parse', 'HEAD'], 'o HEAD depois do bundle').trim();
+    // O verify que não teve a vez na fila pesada não desfaz a atualização: ele fica para o passo seguinte (`verify: null`).
+    let verify: boolean | null = null;
+    try { verify = (opcoes.verificar ?? ((k, id, c) => verificar(k, id, { conducao: c })))(carregado, t.id, conducao).ok; }
+    catch (e) { if (!(e instanceof ErroDaFilaPesada || e instanceof ErroDeConducao)) throw e; }
+    return { acao: 'atualizou', ...ids, de: antes, para: depois, conflitos, bundle: bundleMudou, verify };
   });
 }
 
-/** O merge da base na branch, com a regra do núcleo; devolve os arquivos que conflitaram. Recusa aborta e grava a base. */
+/**
+ * O merge da base na branch, com a regra do núcleo; devolve os arquivos que conflitaram. O conflito que a regra não
+ * resolve aborta e grava a base recusada; qualquer outra saída antes do commit (a lacuna, o erro de disco) só aborta.
+ */
 function mesclarABase(carregado: ManifestoCarregado, t: Thread, wt: string, branch: string, antes: string, base: string, arco: string): string[] {
   const msg = `Merge da base (${curto(base)}) na ${branch}: atualização do arco ${arco}`;
   const m = git(wt, ['-c', 'merge.conflictStyle=diff3', 'merge', '--no-ff', '--no-commit', '-m', msg, base], 300000);
+  const abortar = (): void => { git(wt, ['merge', '--abort']); };
   const recusar = (detalhe: string, arquivos: string[]): never => {
-    git(wt, ['merge', '--abort']);
+    abortar();
     registrar(dirThread(carregado.raiz, t.id), t.id, EVENTO_DA_ATUALIZACAO_RECUSADA, { arco, base, de: antes, arquivos: arquivos.slice(0, 50),
       motivo: detalhe.slice(0, 300) });
     throw new RecusaDaEntrega('noctum.entrega.conflito-nao-aditivo', detalhe);
   };
-  const estagios = conflitosDoIndice(wt);
-  const conflitos = [...estagios.keys()];
-  if (!m.ok && !conflitos.length) recusar(`o merge da base falhou sem conflito de conteúdo: ${(m.stderr || m.stdout).trim().split('\n')[0]}`, []);
-  const semConteudo = conflitos.find(a => estagios.get(a)!.size !== 3);
-  if (semConteudo) recusar(`${semConteudo}: conflito que não é de conteúdo (apagado, renomeado ou criado dos dois lados)`, conflitos);
-  for (const arquivo of conflitos) {
-    const resolvido = resolverConflitosAditivos(fs.readFileSync(path.join(wt, arquivo), 'utf8'));
-    if (!resolvido.ok) recusar(`${arquivo}: ${resolvido.recusa}`, conflitos);
-    else fs.writeFileSync(path.join(wt, arquivo), resolvido.texto);
+  try {
+    const estagios = conflitosDoIndice(wt);
+    const conflitos = [...estagios.keys()];
+    if (!m.ok && !conflitos.length) recusar(`o merge da base falhou sem conflito de conteúdo: ${primeira(m.stderr || m.stdout)}`, []);
+    const semConteudo = conflitos.find(a => estagios.get(a)!.size !== 3);
+    if (semConteudo) recusar(`${semConteudo}: conflito que não é de conteúdo (apagado, renomeado ou criado dos dois lados)`, conflitos);
+    for (const arquivo of conflitos) {
+      const bytes = lerArquivoDaWorktree(wt, arquivo);
+      if (bytes === null) recusar(`${arquivo}: o conflito não está num arquivo comum (link simbólico ou outro tipo)`, conflitos);
+      // B3 da rodada 1: binário ou fora de UTF-8 não tem a regra do núcleo; ler como texto e gravar trocaria os bytes.
+      const texto = textoDe(bytes!);
+      if (texto === null) recusar(`${arquivo}: conflito em arquivo que não é texto UTF-8 (binário): o núcleo não escolhe um dos lados`, conflitos);
+      const resolvido = resolverConflitosAditivos(texto!);
+      if (!resolvido.ok) recusar(`${arquivo}: ${resolvido.recusa}`, conflitos);
+      else if (resolvido.conflitos === 0) recusar(`${arquivo}: o git marcou conflito sem marcador de texto`, conflitos);
+      else gravarArquivoDaWorktree(wt, arquivo, resolvido.texto);
+    }
+    // D5: a entrada da thread em "Não publicado", com ou sem conflito no CHANGELOG.
+    const atualBytes = lerArquivoDaWorktree(wt, ARQUIVO_DO_CHANGELOG);
+    if (atualBytes !== null) {
+      const atual = textoDe(atualBytes);
+      if (atual === null) recusar('o CHANGELOG depois do merge não é texto UTF-8', conflitos);
+      const ancestral = git(carregado.raiz, ['merge-base', antes, base]);
+      if (!ancestral.ok) throw lacuna('o ancestral comum da branch e da base não se leu');
+      const noAncestral = blobEm(carregado.raiz, ancestral.stdout.trim(), ARQUIVO_DO_CHANGELOG) ?? '';
+      const naThread = blobEm(carregado.raiz, antes, ARQUIVO_DO_CHANGELOG) ?? '';
+      const daBase = blobEm(carregado.raiz, base, ARQUIVO_DO_CHANGELOG) ?? '';
+      const pos = posicionarEntradas(atual!, entradasDaThread(noAncestral, naThread), daBase);
+      if (pos.perdidas) recusar(`${pos.perdidas} entrada(s) da thread sumiram do CHANGELOG no merge`, conflitos);
+      // A3 da rodada 1: a linha antiga que a própria thread corrigiu desde o ancestral comum não é perda da base.
+      const perdidas = linhasDaBasePerdidas(daBase, pos.texto, linhasRemovidas(noAncestral, naThread));
+      if (perdidas.length) recusar(`${perdidas.length} linha(s) do CHANGELOG da base sumiriam no merge`, conflitos);
+      if (pos.texto !== atual) gravarArquivoDaWorktree(wt, ARQUIVO_DO_CHANGELOG, pos.texto);
+    }
+    const aAdicionar = [...new Set([...conflitos, ...(atualBytes !== null ? [ARQUIVO_DO_CHANGELOG] : [])])];
+    if (aAdicionar.length && !git(wt, ['add', '--', ...aAdicionar]).ok) throw new Error('o git add da resolução falhou');
+    const c = git(wt, ['commit', '-q', '--no-edit']);
+    if (!c.ok) recusar(`o commit do merge falhou: ${primeira(c.stderr)}`, conflitos);
+    return conflitos;
+  } catch (e) {
+    // A recusa já abortou e gravou a base; o resto aborta aqui, sem marcar a base como recusada.
+    if (!(e instanceof RecusaDaEntrega && e.motivo === 'noctum.entrega.conflito-nao-aditivo')) abortar();
+    throw e;
   }
-  // D5: a entrada da thread em "Não publicado", com ou sem conflito no CHANGELOG.
-  const caminho = path.join(wt, ARQUIVO_DO_CHANGELOG);
-  if (fs.existsSync(caminho)) {
-    const ancestral = git(carregado.raiz, ['merge-base', antes, base]).stdout.trim();
-    const entradas = entradasDaThread(ancestral ? blobEm(carregado.raiz, ancestral, ARQUIVO_DO_CHANGELOG) ?? '' : '',
-      blobEm(carregado.raiz, antes, ARQUIVO_DO_CHANGELOG) ?? '');
-    const daBase = blobEm(carregado.raiz, base, ARQUIVO_DO_CHANGELOG) ?? '';
-    const atual = fs.readFileSync(caminho, 'utf8');
-    const pos = posicionarEntradas(atual, entradas, daBase);
-    if (pos.perdidas) recusar(`${pos.perdidas} entrada(s) da thread sumiram do CHANGELOG no merge`, conflitos);
-    const perdidas = linhasDaBasePerdidas(daBase, pos.texto);
-    if (perdidas.length) recusar(`${perdidas.length} linha(s) do CHANGELOG da base sumiriam no merge`, conflitos);
-    if (pos.texto !== atual) fs.writeFileSync(caminho, pos.texto);
-  }
-  const aAdicionar = [...new Set([...conflitos, ...(fs.existsSync(caminho) ? [ARQUIVO_DO_CHANGELOG] : [])])];
-  if (aAdicionar.length) git(wt, ['add', '--', ...aAdicionar]);
-  const c = git(wt, ['commit', '-q', '--no-edit']);
-  if (!c.ok) recusar(`o commit do merge falhou: ${c.stderr.trim().split('\n')[0]}`, conflitos);
-  return conflitos;
 }
 
 /** O verify da fonte, na fila pesada e sob a condução da thread. */
@@ -441,13 +590,18 @@ function verificarAFonte(carregado: ManifestoCarregado, arco: string, threadId: 
   return (opcoes.verificar ?? ((k, id, c) => verificar(k, id, { conducao: c })))(carregado, threadId, conducao);
 }
 
-/** A conferência da N1 de um efeito, na forma que o `publicarEntrega` recebe; guarda o motivo da recusa do envelope. */
-function conferirParaPublicar(raiz: string, arco: string, estado: EstadoDoArco, destino: Destino, branch: string, quando?: string) {
-  const recusado: { motivo: string | null } = { motivo: null };
+/**
+ * A conferência da N1 de um efeito, na forma que o `publicarEntrega` recebe; guarda o motivo da recusa do envelope e marca
+ * o rastro quando a conferência passa (o efeito vem logo depois dela).
+ */
+function conferirParaPublicar(raiz: string, arco: string, estado: EstadoDoArco, destino: Destino, branch: string, quando: string | undefined,
+  rastro: Rastro) {
+  const recusado: { motivo: MotivoDeRecusaDoArco | null } = { motivo: null };
   const conferir = (efeito: 'push' | 'pr') => {
     try {
       conferirAntesDoEfeito(raiz, { arco, envelopeSha256: estado.envelopeSha256 ?? '', acao: efeito, repositorio: destino.repositorio,
         branch: efeito === 'push' ? branch : destino.base }, quando);
+      rastro.efeito = true;
       return null;
     } catch (e) {
       if (!(e instanceof RecusaDoArco)) throw e;
@@ -459,16 +613,16 @@ function conferirParaPublicar(raiz: string, arco: string, estado: EstadoDoArco, 
 }
 
 function publicar(carregado: ManifestoCarregado, arco: string, estado: EstadoDoArco, trabalho: TrabalhoNaFila, lido: Lido,
-  opcoes: OpcoesDaEntrega, remoto: string): ResultadoDaEntrega {
+  opcoes: OpcoesDaEntrega, remoto: string, rastro: Rastro): ResultadoDaEntrega {
   const ids = { trabalho: trabalho.id, thread: lido.t.id };
-  const envelope = conferirParaPublicar(carregado.raiz, arco, estado, lido.destino!, branchDaWorktree(lido.t), opcoes.quando);
+  const envelope = conferirParaPublicar(carregado.raiz, arco, estado, lido.destino!, branchDaWorktree(lido.t), opcoes.quando, rastro);
   const r = publicarEntrega(carregado, lido.t.id, { remoto, forja: opcoes.forja, executorGh: opcoes.executorGh, antesDoEfeito: envelope.conferir });
   if (r.acao === 'publicou') return { acao: 'publicou', ...ids, pr: r.pr?.numero ?? null, head: r.head };
   if (r.acao === 'ja-publicada') {
     return { acao: 'aguardar', ...ids, motivo: 'noctum.entrega.ci-pendente', detalhe: r.detalhe, ate: depoisDe(opcoes.quando ?? new Date().toISOString(), ESPERA_DO_CI_MS) };
   }
   // A recusa do envelope sai com o motivo dele (revogado, expirado, fora do destino); a do publicar, com o dele.
-  const motivo = envelope.recusado.motivo ?? `publicar.${r.motivo ?? 'recusada'}`;
+  const motivo: MotivoDoPasso = envelope.recusado.motivo ?? (`publicar.${r.motivo ?? 'recusada'}` as const);
   return { acao: 'bloqueado', ...ids, motivo, detalhe: `${r.detalhe}${r.correcao ? ` (${r.correcao})` : ''}`, outros: [] };
 }
 
@@ -495,18 +649,35 @@ function perfisDisponiveis(raiz: string, agoraMs: number): Array<{ id: string; r
   catch { return []; }
 }
 
-function despacharRevisao(carregado: ManifestoCarregado, arco: string, estado: EstadoDoArco, trabalho: TrabalhoNaFila, t: Thread,
-  opcoes: OpcoesDaEntrega, quando: string): ResultadoDaEntrega {
+/**
+ * O CHECK numa sessão nova, pela reserva de revisão do arco. Tudo o que decide sai sob a trava de despacho (A10 da rodada
+ * 1): o arco relido do disco, a contagem de revisões do trabalho e o relógio de agora (B2: a espera pela vez pode passar do
+ * fim da janela). O rastro marca o efeito quando o despacho chega ao núcleo, e volta a falso quando ele recusa antes de lançar.
+ */
+function despacharRevisao(carregado: ManifestoCarregado, arco: string, trabalho: TrabalhoNaFila, t: Thread, revisoesNaDecisao: number,
+  opcoes: OpcoesDaEntrega, rastro: Rastro): ResultadoDaEntrega {
   const { raiz } = carregado;
   const ids = { trabalho: trabalho.id, thread: t.id };
-  const aguardar = (motivo: string, detalhe: string): ResultadoDaEntrega =>
-    ({ acao: 'aguardar', ...ids, motivo, detalhe, ate: depoisDe(quando, ESPERA_DO_CI_MS) });
-  if (!kernelDisponivel()) return aguardar('sem-trava-do-kernel', 'o arco só despacha com /usr/bin/flock');
-  const conteudo = estado.conteudo!;
-  if (!envelopeComTrabalhos(conteudo)) return aguardar('fonte-indisponivel', 'o envelope vigente não tem a capacidade da v2');
+  const agora = (): string => opcoes.quando ?? new Date().toISOString();
+  const aguardar = (motivo: MotivoDoPasso, detalhe: string): ResultadoDaEntrega =>
+    ({ acao: 'aguardar', ...ids, motivo, detalhe, ate: depoisDe(agora(), ESPERA_DO_CI_MS) });
+  const bloquear = (motivo: MotivoDoPasso, detalhe: string): ResultadoDaEntrega => ({ acao: 'bloqueado', ...ids, motivo, detalhe, outros: [] });
+  if (!kernelDisponivel()) return aguardar('noctum.entrega.sem-trava-do-kernel', 'o arco só despacha com /usr/bin/flock');
   const fd = vezDeDespachar(raiz, opcoes.esperarMs ?? 30_000);
-  if (fd === null) return aguardar('despacho-em-curso', 'outro passo de arco desta máquina segura a vez de despachar');
+  if (fd === null) return aguardar('noctum.entrega.despacho-em-curso', 'outro passo de arco desta máquina segura a vez de despachar');
   try {
+    const quando = agora();
+    let estado: EstadoDoArco | null;
+    try { estado = lerArco(raiz, arco, quando); }
+    catch (e) {
+      if (!(e instanceof RecusaDoArco)) throw e;
+      return bloquear(e.motivo, e.message);
+    }
+    const conteudo = estado?.conteudo;
+    if (!estado || !conteudo || !envelopeComTrabalhos(conteudo)) return bloquear('noctum.entrega.fora-do-envelope', 'o arco relido sob a trava não tem envelope v2');
+    if (revisoesDoTrabalho(estado, trabalho.id) !== revisoesNaDecisao) {
+      return aguardar('noctum.entrega.revisao-em-curso', 'outro passo despachou o CHECK deste trabalho enquanto este esperava a vez');
+    }
     const fase: Fase = 'CHECK';
     const runtime = resolverDespacho(carregado.manifesto, {}, configDoBloco(lerSetup(raiz), t.modo, fase)).runtime;
     const capacidade = fatosDeCapacidade(carregado, { quando, consultar: opcoes.consultarSessoes });
@@ -523,19 +694,21 @@ function despacharRevisao(carregado: ManifestoCarregado, arco: string, estado: E
         runtime, conta, revisao: true }, quando).seq;
     } catch (e) {
       if (!(e instanceof RecusaDoArco)) throw e;
-      return { acao: 'bloqueado', ...ids, motivo: e.motivo, detalhe: e.message, outros: [] };
+      return bloquear(e.motivo, e.message);
     }
-    const devolver = (motivo: string, detalhe: string, bloquear: boolean): ResultadoDaEntrega => {
+    const devolver = (motivo: MotivoDoPasso, detalhe: string, bloqueia: boolean): ResultadoDaEntrega => {
       concluirDespacho(raiz, arco, reserva, { motivo });
-      return bloquear ? { acao: 'bloqueado', ...ids, motivo, detalhe, outros: [] } : aguardar(motivo, detalhe);
+      rastro.efeito = false;
+      return bloqueia ? bloquear(motivo, detalhe) : aguardar(motivo, detalhe);
     };
     const pedido = pedidoDaThread(raiz, t);
-    if (!pedido) return devolver('noctum.despacho.pedido-ausente', `a thread ${t.id} não guardou o pedido`, true);
+    if (!pedido) return devolver('noctum.entrega.pedido-ausente', `a thread ${t.id} não guardou o pedido`, true);
     const antes = lerLedger(dirThread(raiz, t.id)).length;
+    rastro.efeito = true;
     const r = (opcoes.despachar ?? rodarFase)(carregado, t.id, { fase, prompt: pedido.texto, perfil: conta, canal: canalDoProcesso(),
       correlacao: `noctum:${arco}`, baselinePeloDespacho: false });
     if (r.motivo === 'baseline.pendente') return devolver('noctum.entrega.baseline-ausente', 'o despacho do CHECK pediu a baseline', true);
-    if (r.bloqueado) return devolver(String(r.motivo ?? 'despacho.bloqueado'), r.erro ?? 'o núcleo recusou o despacho do CHECK', false);
+    if (r.bloqueado) return devolver(r.motivo ?? 'noctum.entrega.despacho-recusado', r.erro ?? 'o núcleo recusou o despacho do CHECK', false);
     if (r.sessionId || r.idempotente) {
       concluirDespacho(raiz, arco, reserva, { thread: t.id, sessionId: r.sessionId, idempotente: r.idempotente === true });
       return { acao: 'revisao-pedida', ...ids, sessionId: r.sessionId, reserva, conta, runtime };
@@ -543,8 +716,8 @@ function despacharRevisao(carregado: ManifestoCarregado, arco: string, estado: E
     // Como na N2: sem id e com motivo de antes do lançamento, a sessão volta ao orçamento; o resto fica pendente para a N4.
     const novos = lerLedger(dirThread(raiz, t.id)).slice(antes);
     const idDaFalha = novos.filter(e => e.tipo === TIPOS_DE_EVENTO.despachoFalhou && typeof e.sessionId === 'string').at(-1)?.sessionId ?? null;
-    if (!idDaFalha && r.motivo && r.motivo !== 'runtime.unavailable') return devolver(String(r.motivo), r.erro ?? 'o runtime recusou o despacho', false);
-    return aguardar(String(r.motivo ?? 'despacho.sem-sessao'), `${r.erro ?? 'o núcleo não abriu sessão'}; a reserva fica pendente para a N4 reconciliar`);
+    if (!idDaFalha && r.motivo && r.motivo !== 'runtime.unavailable') return devolver(r.motivo, r.erro ?? 'o runtime recusou o despacho', false);
+    return aguardar('noctum.entrega.despacho-incerto', `${r.erro ?? 'o núcleo não abriu sessão'}; a reserva fica pendente para a N4 reconciliar`);
   } finally { fs.closeSync(fd); }
 }
 
@@ -562,8 +735,11 @@ export interface IntegracaoDaEntrega {
 }
 
 export interface OpcoesDaIntegracao extends OpcoesDaEntrega {
-  /** O candidato que a N3 recebeu: a fonte, a base e o sha256 das provas que a vez tomou. */
-  esperado?: { fonte: string; base: string; provas: string };
+  /**
+   * O candidato que a N3 recebeu: a fonte, a base e o sha256 das provas que a vez tomou, e o repositório do destino dela
+   * (S5 da rodada 1: o destino de outro repositório recusa).
+   */
+  esperado?: { fonte: string; base: string; provas: string; repositorio?: string };
 }
 
 /** O arquivo da trava do kernel do destino nesta máquina: um integrador por repositório e base, entre todos os arcos. */
@@ -599,14 +775,17 @@ function docsDerivados(raiz: string, threadId: string, merge: string, arco: stri
   const ramo = `noctum-entrega-${randomUUID().slice(0, 8)}`;
   try {
     if (!git(raiz, ['worktree', 'add', '--detach', tmp, merge]).ok) throw new RecusaDaEntrega('noctum.entrega.docs-vermelhos', 'a worktree temporária dos docs não nasceu');
-    git(raiz, ['branch', ramo, merge]);
+    if (!git(raiz, ['branch', ramo, merge]).ok) throw new RecusaDaEntrega('noctum.entrega.docs-vermelhos', 'a branch temporária dos docs não nasceu');
     sincronizarDocs(tmp, { baseBranch: ramo, itens, escrever: true });
-    const mudados = git(tmp, ['status', '--porcelain', '-z']).stdout.split('\0').filter(Boolean).map(l => l.slice(3));
+    const estado = git(tmp, ['status', '--porcelain', '-z']);
+    if (!estado.ok) throw lacuna(`o estado da worktree dos docs derivados não se leu: ${primeira(estado.stderr)}`);
+    const mudados = estado.stdout.split('\0').filter(Boolean).map(l => l.slice(3));
     if (!mudados.length) return { commit: null, itens };
-    git(tmp, ['add', '--', ...mudados]);
+    if (!git(tmp, ['add', '--', ...mudados]).ok) throw new RecusaDaEntrega('noctum.entrega.docs-vermelhos', 'o git add dos docs derivados falhou');
     const c = git(tmp, ['commit', '-q', '-m', `docs(${threadId}): ${itens.join(', ')} com o estado depois do merge (arco ${arco})`]);
-    if (!c.ok) throw new RecusaDaEntrega('noctum.entrega.docs-vermelhos', `o commit dos docs derivados falhou: ${c.stderr.trim().split('\n')[0]}`);
+    if (!c.ok) throw new RecusaDaEntrega('noctum.entrega.docs-vermelhos', `o commit dos docs derivados falhou: ${primeira(c.stderr)}`);
     const commit = git(tmp, ['rev-parse', 'HEAD']).stdout.trim();
+    if (!SHA.test(commit)) throw lacuna('o commit dos docs derivados não se leu');
     git(raiz, ['branch', '-f', ramo, commit]);
     const ruins = verificarDocs(tmp, { baseBranch: ramo }).achados
       .filter(a => a.gravidade === 'erro' && ((a.id !== undefined && itens.includes(a.id)) || a.regra === 'docs.paridade.indice'));
@@ -624,11 +803,13 @@ function docsDerivados(raiz: string, threadId: string, merge: string, arco: stri
 
 /**
  * D9: a integração amarrada ao SHA, sob a trava do destino. Relê o envelope, a base pelo `ls-remote`, a fonte pela ref
- * local e pela remota, e todas as provas; confere a N1 com `merge` logo antes do push; o merge tem a árvore da fonte e os
- * pais base e fonte; o push vai sem força, então a base que andou recusa; o `ls-remote` prova. Lança a recusa tipada.
+ * local e pela remota, e todas as provas; o merge tem a árvore da fonte e os pais base e fonte; a conferência da N1 com
+ * `merge` vem depois do merge e dos docs derivados, imediatamente antes do push; o push vai amarrado à ponta conferida, então
+ * a base que andou recusa; o `ls-remote` prova. Lança a recusa tipada.
  */
 export function integrarNoDestino(carregado: ManifestoCarregado, arco: string, threadId: string, opcoes: OpcoesDaIntegracao = {}): IntegracaoDaEntrega {
   const { raiz } = carregado;
+  // B2 da rodada 1: sem instante dado (o executor), cada conferência usa o relógio do processo na hora dela.
   const quando = opcoes.quando;
   const remoto = opcoes.remoto ?? 'origin';
   const estado = lerArco(raiz, arco, quando);
@@ -636,10 +817,19 @@ export function integrarNoDestino(carregado: ManifestoCarregado, arco: string, t
   if (estado.conteudo.contrato !== CONTRATO_ENVELOPE_V2 && !opcoes.esperado) {
     throw new RecusaDaEntrega('noctum.entrega.exige-vez-da-n3', 'fora da v2, a integração é da vez entre máquinas (N3)');
   }
+  // S5 da rodada 1: só integra a thread que é trabalho do envelope (o item dela na lista, e a própria thread quando o
+  // trabalho fixa uma).
+  const daThread = lerThread(raiz, threadId);
+  if (!estado.conteudo.trabalhos.some(w => w.item === daThread.roadmap && (w.thread === undefined || w.thread === threadId))) {
+    throw new RecusaDaEntrega('noctum.entrega.fora-do-envelope', `a thread ${threadId} (item ${daThread.roadmap ?? 'nenhum'}) não é trabalho do envelope do arco ${arco}`);
+  }
   const d = destinoDoTrabalho(carregado, estado.conteudo.destinos, remoto, opcoes.forja);
   if (!d.ok) throw new RecusaDaEntrega(d.motivo, d.detalhe);
   if (!d.podeMerge) throw new RecusaDaEntrega('noctum.entrega.fora-do-destino', 'o envelope não autoriza merge neste destino');
   const destino = d.destino;
+  if (opcoes.esperado?.repositorio !== undefined && opcoes.esperado.repositorio.toLowerCase() !== destino.repositorio.toLowerCase()) {
+    throw new RecusaDaEntrega('noctum.entrega.fora-do-destino', `o candidato é do repositório ${opcoes.esperado.repositorio}, e o destino é ${destino.repositorio}`);
+  }
   if (!kernelDisponivel()) throw new RecusaDaEntrega('noctum.entrega.integracao-ocupada', 'sem /usr/bin/flock, nenhuma integração passa');
   const trava = travaDoDestino(raiz, destino);
   if (trava === null) throw new RecusaDaEntrega('noctum.entrega.integracao-ocupada', `outro processo desta máquina integra em ${destino.repositorio}, base ${destino.base}`);
@@ -658,37 +848,48 @@ export function integrarNoDestino(carregado: ManifestoCarregado, arco: string, t
       if (opcoes.esperado.provas !== provas.sha256) throw new RecusaDaEntrega('noctum.entrega.nao-provada', 'as provas de agora não são as do candidato');
     }
     // O CI rodou no PR da branch: a branch no remoto precisa ser a fonte.
-    const remota = git(raiz, ['ls-remote', '--', remoto, `refs/heads/${branch}`]).stdout.split('\n').map(l => l.trim().split(/\s+/))
-      .find(p => p[1] === `refs/heads/${branch}`)?.[0] ?? null;
+    const lida = git(raiz, ['ls-remote', '--', remoto, `refs/heads/${branch}`]);
+    if (!lida.ok) throw new RecusaDaEntrega('noctum.entrega.base-sem-leitura', `a branch ${branch} não se leu no remoto: ${primeira(lida.stderr)}`);
+    const remota = lida.stdout.split('\n').map(l => l.trim().split(/\s+/)).find(p => p[1] === `refs/heads/${branch}`)?.[0] ?? null;
     if (remota !== fonte) throw new RecusaDaEntrega('noctum.entrega.fonte-mudou', `a branch ${branch} no remoto está em ${curto(remota)}, e a fonte provada é ${curto(fonte)}`);
     const passos: string[] = [`git ls-remote ${remoto} refs/heads/${destino.base}`, `git ls-remote ${remoto} refs/heads/${branch}`];
     const envelopeSha256 = estado.envelopeSha256 ?? '';
-    // A N1 imediatamente antes do efeito.
-    conferirAntesDoEfeito(raiz, { arco, envelopeSha256, acao: 'merge', repositorio: destino.repositorio, branch: destino.base }, quando);
     const assunto = `ship(${threadId}): merge de ${branch} em ${destino.base}`;
     const corpo = [`thread: ${t.id} (${t.slug})`, `modo: ${tagDoModo(t.modo)}`, `arco: ${arco} (envelope ${envelopeSha256.slice(0, 12)})`,
       `provas: ${provas.sha256}`, `verificado em: ${fonte}`].join('\n');
     const merge = git(raiz, ['commit-tree', `${fonte}^{tree}`, '-p', ponta.sha, '-p', fonte, '-m', assunto, '-m', corpo]);
     const mergeSha = merge.stdout.trim();
-    if (!merge.ok || !SHA.test(mergeSha)) throw new RecusaDaEntrega('noctum.entrega.nao-provada', `o commit do merge falhou: ${merge.stderr.trim().split('\n')[0]}`);
+    if (!merge.ok || !SHA.test(mergeSha)) throw new RecusaDaEntrega('noctum.entrega.nao-provada', `o commit do merge falhou: ${primeira(merge.stderr)}`);
     passos.push(`git commit-tree ${curto(fonte)}^{tree} -p ${curto(ponta.sha)} -p ${curto(fonte)}`);
     const docs = docsDerivados(raiz, threadId, mergeSha, arco);
     if (docs.commit) passos.push(`ork docs sincronizar --escrever --so ${docs.itens.join(',')} (commit ${curto(docs.commit)})`);
     const alvo = docs.commit ?? mergeSha;
-    const push = git(raiz, ['push', '--', remoto, `${alvo}:refs/heads/${destino.base}`], 180000);
-    passos.push(`git push -- ${remoto} ${curto(alvo)}:refs/heads/${destino.base}`);
+    // B2 da rodada 1: a N1 imediatamente antes do push, depois do merge e dos docs derivados, com o relógio desta hora.
+    conferirAntesDoEfeito(raiz, { arco, envelopeSha256, acao: 'merge', repositorio: destino.repositorio, branch: destino.base }, quando);
+    // S3 da rodada 1: o lease amarra o push à ponta conferida. O alvo descende dela (o merge a tem como primeiro pai), então o
+    // push é sempre de avanço; a base que andou, ou que foi forçada para trás, recusa.
+    const lease = `--force-with-lease=refs/heads/${destino.base}:${ponta.sha}`;
+    const push = git(raiz, ['push', lease, '--', remoto, `${alvo}:refs/heads/${destino.base}`], 180000);
+    passos.push(`git push --force-with-lease=refs/heads/${destino.base}:${curto(ponta.sha)} -- ${remoto} ${curto(alvo)}:refs/heads/${destino.base}`);
     const depois = pontaDaBaseNoRemoto(raiz, remoto, destino.base);
     passos.push(`git ls-remote ${remoto} refs/heads/${destino.base}`);
+    const incerto = (detalhe: string): never => {
+      registrar(dirThread(raiz, threadId), threadId, EVENTO_DO_PUSH_INCERTO, { arco, base: destino.base, alvo, mergeSha, fonte, remoto,
+        lido: depois.sha, provas: provas.sha256, falhasRegistradas: provas.falhasRegistradas,
+        erro: primeira(push.stderr || depois.erro || '') });
+      throw new RecusaDaEntrega('noctum.entrega.push-incerto', detalhe);
+    };
     if (depois.sha !== alvo) {
-      const recusado = /rejected|non-fast-forward|fetch first|stale info|failed to update ref/i.test(`${push.stderr}${push.stdout}`);
-      if (recusado || (push.ok && depois.sha)) {
+      // O push que o git deu por feito sem a ponta no remoto, ou o remoto que não se leu: ninguém sabe se chegou.
+      if (push.ok || !depois.sha) incerto('o push para a base não se provou; o passo seguinte relê o remoto antes de qualquer coisa');
+      if (depois.sha !== ponta.sha) {
         throw new RecusaDaEntrega('noctum.entrega.base-mudou', `a base andou antes do push (${curto(depois.sha)}): o candidato se refaz sobre a base nova`);
       }
-      registrar(dirThread(raiz, threadId), threadId, EVENTO_DO_PUSH_INCERTO, { arco, base: destino.base, alvo, mergeSha, fonte,
-        remoto, lido: depois.sha, erro: (push.stderr || depois.erro || '').trim().split('\n')[0].slice(0, 200) });
-      throw new RecusaDaEntrega('noctum.entrega.push-incerto', 'o push para a base não se provou; o passo seguinte relê o remoto antes de qualquer coisa');
+      // A4 da rodada 1: a base parada e o push recusado (a proteção da branch, um gancho do remoto): repetir não muda nada.
+      registrar(dirThread(raiz, threadId), threadId, EVENTO_DO_PUSH_RECUSADO, { arco, base: ponta.sha, fonte, alvo, remoto, erro: primeira(push.stderr) });
+      throw new RecusaDaEntrega('noctum.entrega.push-recusado', `o remoto recusou o push para ${destino.base} com a base parada em ${curto(ponta.sha)}: ${primeira(push.stderr)}`);
     }
-    if (!git(raiz, ['merge-base', '--is-ancestor', fonte, alvo]).ok) throw new RecusaDaEntrega('noctum.entrega.nao-provada', 'a ponta da base não contém a fonte');
+    if (!git(raiz, ['merge-base', '--is-ancestor', fonte, alvo]).ok) incerto('a ponta da base não mostrou a fonte depois do push');
     const ci = provas.provas.find(p => p.id === 'ci')!.evidencia;
     registrar(dirThread(raiz, threadId), threadId, TIPOS_DE_EVENTO.shipConcluido, {
       de: branch, para: destino.base, shaDe: fonte, shaParaAntes: ponta.sha, mergeSha, pontaDaBase: alvo, jaIncorporado: false,
@@ -706,23 +907,28 @@ export function integrarNoDestino(carregado: ManifestoCarregado, arco: string, t
 
 /**
  * A fonte que já está na base remota sem `ship_done` (o push incerto que chegou, ou o merge feito por outro caminho): o
- * registro sai com o commit que a incorporou e a ponta provada pelo `ls-remote`, sem integrar de novo.
+ * registro sai com o commit que a incorporou e a ponta provada pelo `ls-remote`, sem integrar de novo. O push incerto da
+ * mesma fonte, quando há, empresta ao registro as provas e as falhas que ele guardou (S6 da rodada 1).
  */
 function reconciliarEntrega(carregado: ManifestoCarregado, arco: string, estado: EstadoDoArco, threadId: string, remoto: string,
   destino: Destino, ponta: string): { mergeSha: string; pontaDaBase: string } {
   const { raiz } = carregado;
   const t = lerThread(raiz, threadId);
   const branch = branchDaWorktree(t);
-  const fonte = git(raiz, ['rev-parse', '--verify', `refs/heads/${branch}^{commit}`]).stdout.trim();
+  const ref = git(raiz, ['rev-parse', '--verify', `refs/heads/${branch}^{commit}`]);
+  const fonte = ref.stdout.trim();
+  if (!ref.ok || !SHA.test(fonte)) throw lacuna(`a ponta da branch ${branch} não se leu`);
   const mergeSha = commitQueIncorporou(raiz, fonte, ponta);
   if (!mergeSha) throw new RecusaDaEntrega('noctum.entrega.nao-provada', 'o commit que incorporou a fonte na base não se achou');
-  const incerto = lerLedger(dirThread(raiz, threadId)).filter(e => e.tipo === EVENTO_DO_PUSH_INCERTO).at(-1) ?? null;
+  const incerto = lerLedger(dirThread(raiz, threadId)).filter(e => e.tipo === EVENTO_DO_PUSH_INCERTO && e.fonte === fonte).at(-1) ?? null;
   registrar(dirThread(raiz, threadId), threadId, TIPOS_DE_EVENTO.shipConcluido, {
     de: branch, para: destino.base, shaDe: fonte, mergeSha, pontaDaBase: ponta, jaIncorporado: true, remoto, shaRemoto: ponta,
     pushVerificado: true, fonteDaProva: `git merge-base --is-ancestor ${fonte} ${ponta} (ls-remote ${remoto} refs/heads/${destino.base})`,
     autorizadoPor: `envelope ${(estado.envelopeSha256 ?? '').slice(0, 12)} do arco ${arco} (#Noctum), reconciliado`, tipoDeAutorizacao: 'noctum',
     modo: t.modo, tag: tagDoModo(t.modo),
-    evidencia: { arco, reconciliado: true, pushIncerto: incerto ? { eventId: incerto.eventId, alvo: incerto.alvo } : null },
+    evidencia: { arco, reconciliado: true,
+      pushIncerto: incerto ? { eventId: incerto.eventId, alvo: incerto.alvo, provas: incerto.provas ?? null } : null,
+      falhasRegistradas: Array.isArray(incerto?.falhasRegistradas) ? incerto!.falhasRegistradas : [] },
   });
   avancarParaShip(raiz, threadId);
   publicarEmSegundoPlano(raiz);
@@ -736,7 +942,8 @@ export function candidatoDaEntrega(provas: ProvasDaEntrega): { branch: string; f
 
 /**
  * D9: a mesma integração na forma do `Integrador` da N3 (`integrarComVez`): recebe o remoto, o destino e o candidato já
- * revalidados pela vez, confere que a fonte, a base e as provas são as do candidato e devolve o commit para onde a base aponta.
+ * revalidados pela vez, confere que o repositório, a base, a fonte e as provas são as do candidato e devolve o commit para
+ * onde a base aponta.
  */
 export function integradorDaEntrega(carregado: ManifestoCarregado, arco: string, threadId: string, opcoes: OpcoesDaEntrega = {}):
   (c: { remoto: string; destino: { repositorio: string; base: string }; candidato: { branch: string; fonte: string; base: string; provas: string } }) =>
@@ -748,7 +955,7 @@ export function integradorDaEntrega(carregado: ManifestoCarregado, arco: string,
       throw new RecusaDaEntrega('noctum.entrega.fora-do-destino', `a base ${c.destino.base} não é a do projeto`);
     }
     const r = integrarNoDestino(carregado, arco, threadId, { ...opcoes, remoto: c.remoto,
-      esperado: { fonte: c.candidato.fonte, base: c.candidato.base, provas: c.candidato.provas } });
+      esperado: { fonte: c.candidato.fonte, base: c.candidato.base, provas: c.candidato.provas, repositorio: c.destino.repositorio } });
     return { merge: r.merge };
   };
 }

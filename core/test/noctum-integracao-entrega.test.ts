@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dirTemporario, ProjetoDeTeste } from './apoio';
 import { autorizarPedido, pedidoV2, prepararIngressoSimulado, revogarArco } from './noctum-apoio';
-import { ciFalso, EntregaPronta, entregaPronta, EstadoDoCheck, FORJA, git, head, projetoDaEntrega } from './noctum-entrega-apoio';
+import { avancarBase, ciFalso, EntregaPronta, entregaPronta, EstadoDoCheck, FORJA, git, head, projetoDaEntrega } from './noctum-entrega-apoio';
 import { renderizarEstado, renderizarRelance, separarFrontmatter, verificarDocs, Documento } from '../src/docs';
 import { kernelDisponivel, tentarTravaExclusiva } from '../src/fila-pesada';
 import { lerLedger, TIPOS_DE_EVENTO } from '../src/ledger';
@@ -142,7 +142,8 @@ test('QI4: um integrador por destino nesta máquina; as provas que não valem re
       (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.ci-vermelho');
     // A branch no remoto atrás da fonte: o CI não rodou nela.
     exec('git', ['commit', '-q', '--allow-empty', '-m', 'feat: commit que não foi ao remoto'], e.t.worktree!);
-    assert.throws(() => integrar(p, 'arco-qi4', e.t.id, { [head(e.t.worktree!)]: 'success' }), (x: unknown) => x instanceof RecusaDaEntrega);
+    assert.throws(() => integrar(p, 'arco-qi4', e.t.id, { [head(e.t.worktree!)]: 'success' }),
+      (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.fonte-mudou');
     assert.equal(lsRemote(p, 'refs/heads/main'), base);
   } finally { p.limpar(); }
 });
@@ -238,6 +239,13 @@ test('QI6: a integração na forma do Integrador da N3 confere o candidato: font
       (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.fonte-mudou');
     assert.throws(() => integrador({ remoto: 'origin', destino, candidato: { ...candidato!, branch: 'ork/outra-full' } }),
       (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.fonte-mudou');
+    // X8: o candidato tomado sobre uma base mais velha (que a fonte também contém) não integra sobre a base de agora.
+    const anterior = git(p.dir, 'rev-parse', `${candidato!.base}^`).stdout.trim();
+    assert.throws(() => integrador({ remoto: 'origin', destino, candidato: { ...candidato!, base: anterior } }),
+      (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.base-mudou');
+    // S5 da rodada 1: o destino de outro repositório recusa.
+    assert.throws(() => integrador({ remoto: 'origin', destino: { ...destino, repositorio: 'exemplo/outro' }, candidato: candidato! }),
+      (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.fora-do-destino');
     const r = integrador({ remoto: 'origin', destino, candidato: candidato! });
     assert.equal(r.merge, lsRemote(p, 'refs/heads/main'), 'devolve o commit para onde a base aponta, que a N3 confere no remoto');
   } finally { p.limpar(); }
@@ -260,5 +268,47 @@ test('QI7: a fonte que já está na base sem ship_done é reconciliada pelo pass
     assert.equal(lsRemote(p, 'refs/heads/main'), ponta, 'nada foi empurrado de novo');
     const ship = lerLedger(dirThread(p.dir, e.t.id)).filter(x => x.tipo === TIPOS_DE_EVENTO.shipConcluido);
     assert.deepEqual([ship.length, ship[0]?.jaIncorporado], [1, true]);
+  } finally { p.limpar(); }
+});
+
+test('QI8: a base forçada para trás entre as provas e o push recusa: o lease amarra o push à ponta conferida', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi8');
+  try {
+    const anterior = lsRemote(p, 'refs/heads/main');
+    // A base ganha um commit que a fonte vai conter; depois, alguém o tira da base à força.
+    avancarBase(p, { 'docs/tirado.md': '# um commit que a base vai tirar\n' }, 'docs: commit que sai da base');
+    const e = entregaPronta(p, 'qi8');
+    publicarBranch(e);
+    arcoDaEntrega(p, 'arco-qi8', e.t.id);
+    let forcada = false;
+    const ci = ciFalso({ [e.fonte]: 'success' });
+    const comForca = (x: Parameters<typeof ci>[0]) => {
+      if (!forcada) {
+        forcada = true;
+        assert.equal(git(p.dir, 'push', '-q', '--force', 'origin', `${anterior}:refs/heads/main`).ok, true);
+      }
+      return ci(x);
+    };
+    // Sem o lease, o push seria de avanço sobre a base de agora e devolveria o commit que alguém tirou.
+    assert.throws(() => integrarNoDestino(p.carregado, 'arco-qi8', e.t.id, { forja: FORJA, executorCi: comForca }),
+      (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.base-mudou');
+    assert.equal(lsRemote(p, 'refs/heads/main'), anterior, 'a base fica onde foi posta');
+    assert.equal(lerLedger(dirThread(p.dir, e.t.id)).filter(x => x.tipo === TIPOS_DE_EVENTO.shipConcluido).length, 0);
+  } finally { p.limpar(); }
+});
+
+test('QI9: só a thread que é trabalho do envelope integra; a de outro item recusa antes de qualquer efeito', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi9');
+  try {
+    const e = entregaPronta(p, 'qi9');
+    publicarBranch(e);
+    const pedido = pedidoV2('arco-qi9', { trabalhos: [{ id: 'a', item: 'RM-111', prioridade: 1, dependeDe: [], pedido: 'Pedido SIMULADO de outro item.' }],
+      revisao: 1 });
+    pedido.destinos = [{ repositorio: FORJA.repositorio, base: 'main', permissoes: ['push', 'pr', 'merge'] }];
+    autorizarPedido(p.dir, 'arco-qi9', pedido);
+    const base = lsRemote(p, 'refs/heads/main');
+    assert.throws(() => integrar(p, 'arco-qi9', e.t.id, { [e.fonte]: 'success' }),
+      (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.fora-do-envelope');
+    assert.equal(lsRemote(p, 'refs/heads/main'), base);
   } finally { p.limpar(); }
 });
