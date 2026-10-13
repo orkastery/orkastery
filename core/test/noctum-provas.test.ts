@@ -1,0 +1,302 @@
+/**
+ * RM-058 (N5, D2, D3, D6, D7, D8 e D11 da ork-rm058n5): as provas da entrega no SHA exato. O aceite da tabela de fatias vira
+ * teste: as provas negativas recusam revisor sem vínculo, SHA alterado, CI vermelho ou ausente, segredo e mutante relevante
+ * sobrevivente, e as falhas de build concorrente continuam registradas. O remoto é um bare de verdade; sessões, pareceres,
+ * verifies e o CI são SIMULADOS.
+ */
+import { strict as assert } from 'node:assert';
+import { test } from 'node:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { ajustarManifesto, ProjetoDeTeste } from './apoio';
+import { avancarBase, ciFalso, claimDe, commitarBundle, commitarNaWorktree, commitDaSessao, concluirRevisao, ENTRADA_DA_THREAD,
+  EntregaPronta, entregaPronta, EstadoDoCheck, FORJA, git, head, projetoDaEntrega, sessaoDespachada, threadComWorktree,
+  verifyNoLedger } from './noctum-entrega-apoio';
+import { avaliarProvas, classificarCommit, lerFatosDaEntrega, provasDaEntrega, ProvasDaEntrega } from '../src/noctum-provas';
+import { resolverConflitosAditivos } from '../src/noctum-changelog';
+import { registrar } from '../src/ledger';
+import { dirThread, gravarThread, lerThread } from '../src/thread';
+
+const provas = (p: ProjetoDeTeste, id: string, estados: Record<string, EstadoDoCheck> = {}): ProvasDaEntrega =>
+  provasDaEntrega(p.carregado, id, { forja: FORJA, executorCi: ciFalso(estados) });
+const motivo = (r: ProvasDaEntrega, id: string) => r.provas.find(x => x.id === id)?.motivo ?? null;
+const falhas = (r: ProvasDaEntrega) => r.provas.filter(x => !x.ok).map(x => `${x.id}:${x.motivo}`);
+const verde = (e: EntregaPronta): Record<string, EstadoDoCheck> => ({ [e.fonte]: 'success' });
+
+test('QP0: com revisão independente vinculada, verify, mutante, CHANGELOG, bundle, base e CI no SHA, todas as provas valem', () => {
+  const p = projetoDaEntrega('noctum-qp0');
+  try {
+    const e = entregaPronta(p, 'qp0');
+    const r = provas(p, e.t.id, verde(e));
+    assert.deepEqual(falhas(r), []);
+    assert.equal(r.ok, true);
+    assert.equal(r.fonte, e.fonte);
+    assert.match(r.sha256, /^[0-9a-f]{64}$/);
+    assert.deepEqual(r.falhasRegistradas, []);
+    assert.equal(r.provas.find(x => x.id === 'revisao')?.evidencia.sessionId, e.revisor.sessionId);
+  } finally { p.limpar(); }
+});
+
+test('QP1: revisor sem vínculo recusa: sem CHECK do núcleo, sessão não verificada, prompt trocado, sem verificação e sem resultado', () => {
+  const p = projetoDaEntrega('noctum-qp1');
+  try {
+    // A sessão do bloco grava o próprio parecer dizendo-se revisora independente: nome de papel não conta.
+    const t = threadComWorktree(p, 'qp1');
+    const autor = sessaoDespachada(p, t.id, 'GOAL');
+    const changelog = fs.readFileSync(path.join(t.worktree!, 'CHANGELOG.md'), 'utf8').replace('### Adicionado\n\n', `### Adicionado\n\n${ENTRADA_DA_THREAD('qp1')}\n\n`);
+    const produto = commitarNaWorktree(t, { 'core/src/qp1.ts': 'export const a = 1;\n', 'CHANGELOG.md': changelog }, 'feat: qp1');
+    commitDaSessao(p, t.id, autor, produto);
+    claimDe(p, t.id, 'core/src/qp1.ts', 'Mutante M1: a guarda de qp1 cai no teste');
+    const fonte = commitarBundle(p, t);
+    concluirRevisao(p, t.id, autor, 'PASSOU', fonte, { semResultado: true });
+    fs.appendFileSync(path.join(dirThread(p.dir, t.id), 'docs', 'check.md'), '\nRevisor independente: sim (papel no prompt)\n');
+    assert.equal(motivo(provas(p, t.id, { [fonte]: 'success' }), 'revisao'), 'noctum.entrega.revisao-ausente');
+
+    const casos: Array<[string, () => void, string]> = [
+      ['não verificada', () => { const s = sessaoDespachada(p, t.id, 'CHECK', { verificada: false }); concluirRevisao(p, t.id, s, 'PASSOU', fonte); },
+        'noctum.entrega.revisao-sem-vinculo'],
+      ['prompt trocado', () => {
+        const s = sessaoDespachada(p, t.id, 'CHECK');
+        const sessao = lerThread(p.dir, t.id).sessoes.find(x => x.sessionId === s.sessionId)!;
+        fs.appendFileSync(path.join(p.dir, sessao.promptPath!), 'texto acrescentado depois do despacho\n');
+        concluirRevisao(p, t.id, s, 'PASSOU', fonte);
+      }, 'noctum.entrega.revisao-sem-vinculo'],
+      ['sem phase_dispatch_verified', () => { const s = sessaoDespachada(p, t.id, 'CHECK', { semVerificacao: true }); concluirRevisao(p, t.id, s, 'PASSOU', fonte); },
+        'noctum.entrega.revisao-sem-vinculo'],
+      ['resultado de fora do observador', () => { const s = sessaoDespachada(p, t.id, 'CHECK'); concluirRevisao(p, t.id, s, 'PASSOU', fonte, { origem: 'manual' }); },
+        'noctum.entrega.revisao-em-curso'],
+      ['sem resultado', () => { const s = sessaoDespachada(p, t.id, 'CHECK'); concluirRevisao(p, t.id, s, 'PASSOU', fonte, { semResultado: true }); },
+        'noctum.entrega.revisao-em-curso'],
+      ['mesmo id da autora', () => { const s = sessaoDespachada(p, t.id, 'CHECK', { sessionId: autor.sessionId }); concluirRevisao(p, t.id, s, 'PASSOU', fonte); },
+        'noctum.entrega.revisor-autor'],
+      ['revisor que commitou', () => { const s = sessaoDespachada(p, t.id, 'CHECK'); commitDaSessao(p, t.id, s, fonte); concluirRevisao(p, t.id, s, 'PASSOU', fonte); },
+        'noctum.entrega.revisor-autor'],
+      ['CHECK que pede mudança', () => { const s = sessaoDespachada(p, t.id, 'CHECK'); concluirRevisao(p, t.id, s, 'PRECISA DE MUDANÇA', fonte); },
+        'noctum.entrega.revisao-reprovada'],
+      ['CHECK sem verify no intervalo', () => { const s = sessaoDespachada(p, t.id, 'CHECK'); concluirRevisao(p, t.id, s, 'PASSOU', null); },
+        'noctum.entrega.revisao-sem-sha'],
+    ];
+    for (const [nome, preparar, esperado] of casos) {
+      preparar();
+      assert.equal(motivo(provas(p, t.id, { [fonte]: 'success' }), 'revisao'), esperado, nome);
+    }
+    // Uma sessão de CHECK distinta, vinculada, com PASSOU no SHA: passa.
+    const boa = sessaoDespachada(p, t.id, 'CHECK');
+    concluirRevisao(p, t.id, boa, 'PASSOU', fonte);
+    assert.equal(motivo(provas(p, t.id, { [fonte]: 'success' }), 'revisao'), null);
+  } finally { p.limpar(); }
+});
+
+test('QP2: SHA alterado recusa: commit de produto depois da revisão invalida revisão, verify e CI; só o bundle é neutro para o verify', () => {
+  const p = projetoDaEntrega('noctum-qp2');
+  try {
+    const e = entregaPronta(p, 'qp2');
+    const depois = commitarNaWorktree(e.t, { 'core/src/qp2.ts': 'export const qp2 = 2;\n' }, 'feat: mudança depois do CHECK');
+    const r = provas(p, e.t.id, verde(e));
+    assert.equal(r.fonte, depois);
+    assert.equal(motivo(r, 'revisao'), 'noctum.entrega.revisao-antiga');
+    assert.equal(motivo(r, 'verify'), 'noctum.entrega.verify-ausente');
+    assert.equal(motivo(r, 'ci'), 'noctum.entrega.ci-pendente', 'o verde de outro SHA não vale');
+    assert.equal(r.ok, false);
+
+    // Revisão e verify no produto, e só o bundle depois: os dois valem; o CI, só no SHA exato.
+    const q = projetoDaEntrega('noctum-qp2b');
+    try {
+      const t = threadComWorktree(q, 'qp2b');
+      const autor = sessaoDespachada(q, t.id, 'GOAL');
+      const changelog = fs.readFileSync(path.join(t.worktree!, 'CHANGELOG.md'), 'utf8').replace('### Adicionado\n\n', `### Adicionado\n\n${ENTRADA_DA_THREAD('qp2b')}\n\n`);
+      const produto = commitarNaWorktree(t, { 'core/src/qp2b.ts': 'export const b = 1;\n', 'CHANGELOG.md': changelog }, 'feat: qp2b');
+      commitDaSessao(q, t.id, autor, produto);
+      claimDe(q, t.id, 'core/src/qp2b.ts', 'Mutante M1: a guarda de qp2b cai');
+      const revisor = sessaoDespachada(q, t.id, 'CHECK');
+      concluirRevisao(q, t.id, revisor, 'PASSOU', produto);
+      const bundle = commitarBundle(q, t);
+      const rb = provas(q, t.id, { [produto]: 'success' });
+      assert.deepEqual([motivo(rb, 'revisao'), motivo(rb, 'verify'), motivo(rb, 'ci')], [null, null, 'noctum.entrega.ci-pendente']);
+      assert.deepEqual(falhas(provas(q, t.id, { [bundle]: 'success' })), []);
+    } finally { q.limpar(); }
+  } finally { p.limpar(); }
+});
+
+test('QP2c: merge da base depois da revisão: o limpo e o só de CHANGELOG pela regra são neutros; código, ajuste e branch de fora não', () => {
+  const p = projetoDaEntrega('noctum-qp2c');
+  try {
+    // A base tem um arquivo que a thread e a base vão mexer no mesmo lugar.
+    avancarBase(p, { 'core/src/comum.ts': 'export const lista = [\n  1,\n];\n' }, 'feat: comum');
+    const e = entregaPronta(p, 'qp2c');
+    const wt = e.t.worktree!;
+    const mesclar = (alvo: string, msg: string) => git(wt, '-c', 'merge.conflictStyle=diff3', 'merge', '--no-ff', '--no-commit', '-m', msg, alvo);
+    // 1. Merge limpo da base: neutro para a revisão, não para o verify.
+    const b1 = avancarBase(p, { 'docs/outra.md': '# outra\n' }, 'docs: outra entrega');
+    assert.equal(mesclar(b1, 'Merge da base limpa').ok, true);
+    git(wt, 'commit', '-q', '--no-edit');
+    const limpo = head(wt);
+    assert.equal(classificarCommit(p.dir, limpo, b1).tipo, 'merge-mecanico');
+    let r = provas(p, e.t.id, { [limpo]: 'success' });
+    assert.deepEqual([motivo(r, 'revisao'), motivo(r, 'verify')], [null, 'noctum.entrega.verify-ausente']);
+    // 2. Conflito só no CHANGELOG, resolvido pela regra do núcleo: ainda neutro.
+    const changelogDaBase = fs.readFileSync(path.join(p.dir, 'CHANGELOG.md'), 'utf8')
+      .replace('### Adicionado\n\n', '### Adicionado\n\n- **Outra SIMULADA** (RM-959): da base.\n\n');
+    const b2 = avancarBase(p, { 'CHANGELOG.md': changelogDaBase }, 'docs: changelog da outra');
+    assert.equal(mesclar(b2, 'Merge da base com CHANGELOG').ok, false, 'conflito no CHANGELOG');
+    const comMarcas = fs.readFileSync(path.join(wt, 'CHANGELOG.md'), 'utf8');
+    const resolvido = resolverConflitosAditivos(comMarcas);
+    assert.ok(resolvido.ok);
+    fs.writeFileSync(path.join(wt, 'CHANGELOG.md'), resolvido.ok ? resolvido.texto : '');
+    git(wt, 'add', '--', 'CHANGELOG.md');
+    git(wt, 'commit', '-q', '--no-edit');
+    const soChangelog = head(wt);
+    const c2 = classificarCommit(p.dir, soChangelog, b2);
+    assert.deepEqual([c2.tipo, c2.conflitos], ['merge-mecanico', ['CHANGELOG.md']], c2.detalhe);
+    r = provas(p, e.t.id, { [soChangelog]: 'success' });
+    assert.equal(motivo(r, 'revisao'), null);
+    // 3. Conflito de código resolvido pela regra: pede revisão nova.
+    commitarNaWorktree(e.t, { 'core/src/comum.ts': 'export const lista = [\n  1,\n  2,\n];\n' }, 'feat: a thread acrescenta 2');
+    const b3 = avancarBase(p, { 'core/src/comum.ts': 'export const lista = [\n  1,\n  3,\n];\n' }, 'feat: a base acrescenta 3');
+    assert.equal(mesclar(b3, 'Merge da base com código').ok, false);
+    const codigo = resolverConflitosAditivos(fs.readFileSync(path.join(wt, 'core/src/comum.ts'), 'utf8'));
+    assert.ok(codigo.ok);
+    fs.writeFileSync(path.join(wt, 'core/src/comum.ts'), codigo.ok ? codigo.texto : '');
+    git(wt, 'add', '--', 'core/src/comum.ts');
+    git(wt, 'commit', '-q', '--no-edit');
+    const deCodigo = head(wt);
+    assert.equal(classificarCommit(p.dir, deCodigo, b3).tipo, 'merge-de-codigo');
+    assert.equal(fs.readFileSync(path.join(wt, 'core/src/comum.ts'), 'utf8'), 'export const lista = [\n  1,\n  3,\n  2,\n];\n', 'a base primeiro');
+    // 4. Merge limpo com uma mudança a mais no commit de merge: ajuste.
+    const b4 = avancarBase(p, { 'docs/mais.md': '# mais\n' }, 'docs: mais');
+    assert.equal(mesclar(b4, 'Merge com ajuste').ok, true);
+    fs.writeFileSync(path.join(wt, 'core/src/qp2c.ts'), 'export const qp2c = 99;\n');
+    git(wt, 'add', '--', 'core/src/qp2c.ts');
+    git(wt, 'commit', '-q', '--no-edit');
+    assert.equal(classificarCommit(p.dir, head(wt), b4).tipo, 'merge-com-ajuste');
+    // 5. Merge de uma branch que não está na base.
+    git(p.dir, 'checkout', '-q', '-b', 'lateral', b4);
+    fs.writeFileSync(path.join(p.dir, 'lateral.txt'), 'de fora\n');
+    git(p.dir, 'add', '--', 'lateral.txt');
+    git(p.dir, 'commit', '-q', '-m', 'feat: lateral');
+    const lateral = head(p.dir);
+    git(p.dir, 'checkout', '-q', 'main');
+    assert.equal(mesclar(lateral, 'Merge de fora').ok, true);
+    git(wt, 'commit', '-q', '--no-edit');
+    assert.equal(classificarCommit(p.dir, head(wt), b4).tipo, 'merge-de-fora');
+    r = provas(p, e.t.id, { [head(wt)]: 'success' });
+    assert.equal(motivo(r, 'revisao'), 'noctum.entrega.revisao-antiga');
+  } finally { p.limpar(); }
+});
+
+test('QP3: CI vermelho recusa; pendente, sem check ou de outro SHA espera; consulta que falha é lacuna; sem CI obrigatório recusa', () => {
+  const p = projetoDaEntrega('noctum-qp3');
+  try {
+    const e = entregaPronta(p, 'qp3');
+    const casos: Array<[EstadoDoCheck, string]> = [['failure', 'noctum.entrega.ci-vermelho'], ['pending', 'noctum.entrega.ci-pendente'],
+      ['missing', 'noctum.entrega.ci-pendente'], ['erro', 'noctum.entrega.ci-sem-leitura']];
+    for (const [estado, esperado] of casos) assert.equal(motivo(provas(p, e.t.id, { [e.fonte]: estado }), 'ci'), esperado, estado);
+    assert.equal(motivo(provas(p, e.t.id, { [e.produto]: 'success' }), 'ci'), 'noctum.entrega.ci-pendente', 'verde de outro SHA');
+    ajustarManifesto(p, 'required_for_ship: true', 'required_for_ship: false');
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'ci'), 'noctum.entrega.ci-ausente');
+  } finally { p.limpar(); }
+});
+
+test('QP4: segredo nas linhas acrescentadas recusa, com o nome do padrão, o arquivo e a linha, sem o trecho', () => {
+  const p = projetoDaEntrega('noctum-qp4');
+  try {
+    // A chave falsa é montada por partes: o próprio teste não carrega o padrão que ele procura.
+    const chave = ['sk', 'ant', 'SIMULADA0000000000000000000000'].join('-');
+    const e = entregaPronta(p, 'qp4');
+    commitarNaWorktree(e.t, { 'core/src/config-qp4.ts': `// configuração\nexport const usar = '${chave}';\n` }, 'feat: config');
+    const r = provas(p, e.t.id);
+    const s = r.provas.find(x => x.id === 'segredo')!;
+    assert.equal(s.motivo, 'noctum.entrega.segredo');
+    assert.match(s.detalhe, /chave da Anthropic em core\/src\/config-qp4\.ts:2/);
+    assert.ok(!JSON.stringify(r).includes(chave), 'o segredo não aparece em lugar nenhum das provas');
+  } finally { p.limpar(); }
+});
+
+test('QP5: mutante sobrevivente recusa; código sem claim de mutante recusa; só docs dispensa; mutante sem veredito roda de novo', () => {
+  const p = projetoDaEntrega('noctum-qp5');
+  try {
+    const e = entregaPronta(p, 'qp5');
+    const ativas = (sobrevive: string | null, motivoDela = 'claims.failed') => [e.mutante!, 'C1'].filter(Boolean).map(id =>
+      ({ id, verificado: id !== sobrevive, motivo: id === sobrevive ? motivoDela : null }));
+    verifyNoLedger(p, e.t.id, e.fonte, { ok: false, motivos: ['claims.failed'], claims: ativas(e.mutante) });
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'mutantes'), 'noctum.entrega.mutante-sobrevivente');
+    verifyNoLedger(p, e.t.id, e.fonte, { ok: false, motivos: ['verify.timeout'], claims: ativas(e.mutante, 'verify.timeout') });
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'mutantes'), 'noctum.entrega.mutante-nao-executado');
+
+    const q = projetoDaEntrega('noctum-qp5b');
+    try {
+      const sem = entregaPronta(q, 'qp5b', { semMutante: true });
+      const r = provas(q, sem.t.id, verde(sem));
+      assert.equal(motivo(r, 'mutantes'), 'noctum.entrega.mutantes-ausentes');
+      assert.match(r.provas.find(x => x.id === 'mutantes')!.detalhe, /core\/src\/qp5b\.ts/);
+      // Só documentação: o mutante não se aplica, e a evidência diz os arquivos.
+      const docs = entregaPronta(q, 'qp5c', { semMutante: true, arquivos: { 'docs/guia-qp5c.md': '# Guia SIMULADO\n' } });
+      const rd = provas(q, docs.t.id, verde(docs));
+      assert.equal(motivo(rd, 'mutantes'), null);
+      assert.deepEqual(rd.provas.find(x => x.id === 'mutantes')!.evidencia.arquivos, ['.ork-ci/' + docs.t.id + '.json', 'docs/guia-qp5c.md']);
+    } finally { q.limpar(); }
+  } finally { p.limpar(); }
+});
+
+test('QP6: falha de build concorrente fica registrada; duas reprovações no SHA bloqueiam; verify sem baseline recusa', () => {
+  const p = projetoDaEntrega('noctum-qp6');
+  try {
+    const e = entregaPronta(p, 'qp6');
+    // O verify do CHECK passou; a rodada seguinte, com build concorrente, reprovou: ela entra na prova, e uma rodada isolada decide.
+    const primeira = verifyNoLedger(p, e.t.id, e.fonte, { ok: false, motivos: ['verify.regression'] });
+    let r = provas(p, e.t.id, verde(e));
+    assert.equal(motivo(r, 'verify'), 'noctum.entrega.verify-reprovado');
+    const isolada = verifyNoLedger(p, e.t.id, e.fonte);
+    r = provas(p, e.t.id, verde(e));
+    assert.equal(motivo(r, 'verify'), null);
+    assert.deepEqual(r.falhasRegistradas.map(f => f.eventId), [primeira], 'a falha anterior continua registrada');
+    assert.equal(r.provas.find(x => x.id === 'verify')!.evidencia.ultimo, isolada);
+    // Duas reprovações seguidas no mesmo SHA: falha consistente.
+    verifyNoLedger(p, e.t.id, e.fonte, { ok: false, motivos: ['claims.failed'] });
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'verify'), 'noctum.entrega.verify-falha-consistente');
+    // Verde sem baseline não vale.
+    verifyNoLedger(p, e.t.id, e.fonte, { baseline: false });
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'verify'), 'noctum.entrega.baseline-ausente');
+    // A claim cadastrada depois do verify não rodou nele.
+    verifyNoLedger(p, e.t.id, e.fonte);
+    claimDe(p, e.t.id, 'core/src/qp6.ts', 'claim nova depois do verify');
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'verify'), 'noctum.entrega.verify-ausente');
+  } finally { p.limpar(); }
+});
+
+test('QP7: a base que andou invalida o candidato; o CHANGELOG sem linha e o bundle velho também recusam', () => {
+  const p = projetoDaEntrega('noctum-qp7');
+  try {
+    const e = entregaPronta(p, 'qp7');
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'integracao'), null);
+    const nova = avancarBase(p, { 'docs/x.md': '# x\n' }, 'docs: a base anda');
+    const r = provas(p, e.t.id, verde(e));
+    assert.equal(motivo(r, 'integracao'), 'noctum.entrega.base-mudou');
+    assert.equal(r.base.sha, nova);
+    // O CHANGELOG sem a linha da thread.
+    const q = projetoDaEntrega('noctum-qp7b');
+    try {
+      const sem = entregaPronta(q, 'qp7b', { arquivos: { 'core/src/qp7b.ts': 'export const x = 1;\n' } });
+      assert.equal(motivo(provas(q, sem.t.id, verde(sem)), 'changelog'), 'noctum.entrega.changelog');
+      // O bundle que não tem a claim nova.
+      claimDe(q, sem.t.id, 'core/src/qp7b.ts', 'outra claim');
+      assert.equal(motivo(provas(q, sem.t.id, verde(sem)), 'bundle'), 'noctum.entrega.bundle-velho');
+    } finally { q.limpar(); }
+  } finally { p.limpar(); }
+});
+
+test('QP8: o sha256 das provas é o mesmo para os mesmos fatos e muda quando uma prova muda', () => {
+  const p = projetoDaEntrega('noctum-qp8');
+  try {
+    const e = entregaPronta(p, 'qp8');
+    const fatos = lerFatosDaEntrega(p.carregado, e.t.id, { forja: FORJA, executorCi: ciFalso(verde(e)) });
+    assert.equal(avaliarProvas(fatos).sha256, avaliarProvas(JSON.parse(JSON.stringify(fatos))).sha256);
+    assert.equal(avaliarProvas(fatos).sha256, provas(p, e.t.id, verde(e)).sha256);
+    assert.notEqual(provas(p, e.t.id, { [e.fonte]: 'pending' }).sha256, provas(p, e.t.id, verde(e)).sha256);
+    // A sessão de CHECK que some do thread.json leva a prova junto.
+    const t = lerThread(p.dir, e.t.id);
+    gravarThread(p.dir, { ...t, sessoes: t.sessoes.filter(s => s.sessionId !== e.revisor.sessionId) });
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'revisao'), 'noctum.entrega.revisao-ausente');
+    registrar(dirThread(p.dir, e.t.id), e.t.id, 'nota', { texto: 'sem efeito nas provas' });
+  } finally { p.limpar(); }
+});
