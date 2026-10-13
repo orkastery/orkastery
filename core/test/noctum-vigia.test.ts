@@ -460,11 +460,11 @@ test('G15: a parada sem confirmação do runtime não autoriza retomada; confirm
     parametrosDoTeste(p.carregado, 'arco-g15', { primeiroTurnoMs: 0 });
     const runtime = runtimeSimulado(p.dir);
     const paradas: string[] = [];
-    let aceita = false;
+    let aceita = false, finge = false;
     const parar = (s: ParadaDeSessao) => {
       paradas.push(s.sessionId);
       if (aceita) runtime.estado(s.sessionId, 'stopped');
-      return { ok: aceita, detalhe: aceita ? 'claude stop SIMULADO' : 'SIMULADO: claude stop saiu 1' };
+      return { ok: aceita || finge, detalhe: aceita || finge ? 'claude stop SIMULADO' : 'SIMULADO: claude stop saiu 1' };
     };
     const registro: string[] = [];
     const opcoes = () => opcoesSimuladas(p.dir, ITENS, registro, { pararSessao: parar });
@@ -475,10 +475,14 @@ test('G15: a parada sem confirmação do runtime não autoriza retomada; confirm
     assert.deepEqual([r2.retomadas, paradas], [0, [sessao]]);
     assert.ok(r2.lacunas.some(l => /não foi confirmada/.test(l)), JSON.stringify(r2.lacunas));
     assert.equal(lerLedger(dirThread(p.dir, thread)).some(e => e.tipo === 'sessao_morta'), false, 'sem confirmação, a sessão não é dada por morta');
+    // O runtime aceita o pedido e a sessão segue na listagem: o aceite sozinho não confirma.
+    finge = true;
+    assert.equal(tique(vigiarArco(p.carregado, 'arco-g15', opcoes())).retomadas, 0);
+    finge = false;
     aceita = true;
     const r3 = tique(vigiarArco(p.carregado, 'arco-g15', opcoes()));
     assert.equal(r3.retomadas, 1);
-    assert.deepEqual(lerSupervisao(p.dir, 'arco-g15').sessoesParadas.map(x => x.confirmada), [false, true]);
+    assert.deepEqual(lerSupervisao(p.dir, 'arco-g15').sessoesParadas.map(x => x.confirmada), [false, false, true]);
     assert.ok(lerLedger(dirThread(p.dir, thread)).some(e => e.tipo === 'sessao_morta' && e.sessionId === sessao));
     // Outro arco: o runtime nunca confirma a parada, e no teto o trabalho sai do arco.
     abrirArco(p.dir, 'arco-g15b', { trabalhos: [AC[1]], contas: DUAS });

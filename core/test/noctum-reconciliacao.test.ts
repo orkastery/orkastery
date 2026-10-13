@@ -343,6 +343,9 @@ test('R12: o pedido aguardando do arco não vira despacho por fora: sai da fila 
   const p = projetoTemporario('noctum-r12');
   try {
     const { t } = arcoComThread(p, 'arco-r12');
+    // O despacho do arco de antes do pedido (o GOAL que correu bem) não conta como a retomada dele.
+    despachoDoArco(p.dir, t.id, 'arco-r12', 'GOAL', 120, false);
+    passar(5);
     const sinal = { resetEm: depois(90), fonte: 'epoch' as const, trecho: 'usage limit SIMULADO' };
     const novo = (correlacao?: string) => enfileirar(p.carregado, { thread: t.id, fase: 'GO', slug: `${t.id}-go`, promptPath: 'prompt-SIMULADO.md',
       promptSha256: '0'.repeat(64), cwd: p.dir, model: null, effort: null, sinal, detalhe: 'SIMULADO', ...(correlacao ? { correlacao } : {}) });
@@ -551,8 +554,13 @@ test('R22: a sessão que o runtime já mostra encerrada logo depois do Stop espe
     const encerrada = runtimeCom([{ sessionId: d.sessionId, state: 'done', viva: false }]);
     assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r22', encerrada, depois(1))), ['aguardar'], 'o done chega antes do resultado que o observador grava');
     assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r22', encerrada, depois(16))), ['retomar:GOAL:sessao-morta:1:-:morta']);
+    // A carência conta da última atividade da sessão (o evento de 20 min depois, gravado à mão na fixture), não do despacho.
+    fs.appendFileSync(caminhoLedger(p.dir, t.id), JSON.stringify({ ts: depois(20), thread: t.id, tipo: 'runtime_event', fase: 'GOAL',
+      sessionId: d.sessionId, sensor: 'stop', fonte: 'ork sessions event', eventId: 'evento-r22-SIMULADO' }) + '\n');
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r22', encerrada, depois(25))), ['aguardar'], '5 min depois da última atividade, ainda na carência');
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r22', encerrada, depois(36))), ['retomar:GOAL:sessao-morta:1:-:morta']);
     registrar(dirThread(p.dir, t.id), t.id, 'phase_result', { fase: 'GOAL', sessionId: d.sessionId, classificacao: 'fase_concluida', ok: true });
-    assert.deepEqual(decisoesDeSessao(p, 'arco-r22', encerrada, depois(16)), [], 'com o resultado, nada a retomar');
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r22', encerrada, depois(36)), [], 'com o resultado, nada a retomar');
   } finally { p.limpar(); }
 });
 
@@ -617,5 +625,18 @@ test('R26: o trabalho com reserva pendente fica de fora da decisão das sessões
     assert.deepEqual(decisoesDeSessao(p, 'arco-r26', morta, depois(16)), [], 'o passo do meio é da reconciliação das reservas');
     concluirDespacho(p.dir, 'arco-r26', r.seq, { motivo: 'concurrency.limite' });
     assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r26', morta, depois(16))), ['retomar:GO:sessao-morta:1:-:morta']);
+  } finally { p.limpar(); }
+});
+
+test('R27: a sessao_morta já provada no ledger vale sem leitura do runtime e sem esperar a carência', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r27');
+  try {
+    const { t } = arcoComThread(p, 'arco-r27');
+    const d = despachoDoArco(p.dir, t.id, 'arco-r27', 'GO', 271);
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r27', runtimeSemLeitura())), ['aguardar'], 'sem prova nenhuma, espera');
+    passar(5);
+    registrar(dirThread(p.dir, t.id), t.id, 'sessao_morta', { fase: 'GO', sessionId: d.sessionId, origem: 'noctum.vigia', evidencia: 'SIMULADO' });
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r27', runtimeSemLeitura())), ['retomar:GO:sessao-morta:1:-:-'],
+      'a morte provada não se registra de novo, e a retomada sai sem parar nada');
   } finally { p.limpar(); }
 });
