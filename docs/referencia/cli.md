@@ -598,6 +598,20 @@ recursos pesados, com aviso no stderr enquanto espera (RM-058).
 
 ---
 
+## Modo #Noctum (RM-058)
+
+O `#Noctum` conduz um arco de muitas threads `#Auto` dentro do envelope que o dono autorizou, e só vale com um envelope vigente: sem ele, `ork modos --do-pedido` recusa a tag com `noctum.modo.sem-envelope`, e `ork thread new --modo noctum` nunca cria thread. Nenhum comando autoriza pelo terminal: a autorização e a revogação vêm só por ingresso autenticado (o gateway assinado ou o diálogo nativo do host pelo MCP).
+
+| Comando | O que faz |
+| --- | --- |
+| `ork noctum propor --arquivo <envelope.json> [--json]` | Grava a proposta do envelope e mostra o resumo, o hash e como autorizar; não autoriza nada |
+| `ork noctum responder <arco> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]` | O ingresso dos gateways: a autorização (`autorizar <sha256>`) ou a revogação (`revogar`) assinada, conferida no endereço do arco, com o recibo tipado `ork.noctum-ingresso/v1` |
+| `ork noctum status [<arco>] [--json]` | O retrato do arco: situação, janela, consumo medido por unidade com as lacunas, a fila, o fechamento e as paradas, e o relatório com os recibos e as lacunas; sem arco, a lista dos arcos |
+| `ork noctum tique <arco> [--json]` | O fechamento (hora, custo e fila vazia), o passo e o relatório, nessa ordem: o que o cron do dono chama no piloto |
+| `ork noctum relatorio <arco> [--json] [--reenviar telegram\|openclaw]` | O relatório da manhã no terminal (o recibo do canal `terminal` só vem em terminal interativo), ou o reenvio que o dono pede das páginas sem recibo |
+
+---
+
 ## Prompts e adaptadores
 
 | Comando | O que faz |

@@ -183,6 +183,9 @@ import {
 } from './retry';
 import { registrarProvaAusente } from './prova-minima';
 import { VERSAO_DO_ORK } from './versao';
+import { comandoNoctum } from './noctum-cli';
+import { RecusaDoArco } from './noctum-envelope';
+import { aceitarModoNoctum, ehModoNoctum, recusaDoModoNaThread, tagNoctumNoPedido } from './noctum-modo';
 import { exigirModoVivo, extrairTagAposentadaDoPedido, extrairTagDoPedido, MODOS, ORDEM_DOS_MODOS,
   parseModo, pausasDoModo, recusaDeModoAposentado, tabelaDeModos } from './modos';
 import { migrarModosAposentados, textoDaMigracaoModos } from './modos-migracao';
@@ -375,6 +378,8 @@ function comandoThread(args: Args): number {
     if (doAchado) {
       const brutoModoAchado = texto(args.opcoes.modo) ?? texto(args.opcoes.mode);
       let modoAchado: Modo | undefined;
+      // RM-058 N6 (D1): thread em modo #Noctum não existe; a recusa diz se falta o envelope ou se a lista do arco é fechada.
+      if (brutoModoAchado !== undefined && ehModoNoctum(brutoModoAchado)) { console.error(recusaDoModoNaThread(carregado.raiz).message); return 2; }
       if (brutoModoAchado !== undefined) {
         try { modoAchado = exigirModoVivo(brutoModoAchado); }
         catch (e) { console.error((e as Error).message); return 2; }
@@ -466,6 +471,8 @@ function comandoThread(args: Args): number {
     const avisoRoadmap = avisoRoadmapSemAssociacao(nome, texto(args.opcoes.roadmap));
     if (avisoRoadmap) console.error(avisoRoadmap);
     const brutoModo = texto(args.opcoes.modo) ?? texto(args.opcoes.mode);
+    // RM-058 N6 (D1): thread em modo #Noctum não existe; a recusa diz se falta o envelope ou se a lista do arco é fechada.
+    if (brutoModo !== undefined && ehModoNoctum(brutoModo)) { console.error(recusaDoModoNaThread(carregado.raiz).message); return 2; }
     let modo: Modo;
     try {
       modo = brutoModo !== undefined
@@ -4268,6 +4275,15 @@ function executarComando(argvBruto: string[]): number {
         const carregado = carregarManifesto();
         // I-43: `#Look` no pedido nao pode cair no default em silencio. O adaptador
         // recebe a recusa tipada e saida != 0, e quem escreveu a #TAG fica sabendo.
+        // RM-058 N6 (D1): `#Noctum` é o modo do arco e só vale com envelope vigente; sem ele, recusa tipada, nunca o padrão.
+        if (tagNoctumNoPedido(pedido)) {
+          let arcos: ReturnType<typeof aceitarModoNoctum>;
+          try { arcos = aceitarModoNoctum(carregado?.raiz ?? null); }
+          catch (e) { if (e instanceof RecusaDoArco) { console.error(e.message); return 2; } throw e; }
+          console.log(args.opcoes.json === true ? JSON.stringify({ modo: 'noctum', tag: '#Noctum', daTag: true, origem: 'tag no pedido',
+            arcos, modoDasThreads: 'auto' }) : 'noctum');
+          return 0;
+        }
         const aposentado = extrairTagAposentadaDoPedido(pedido);
         if (aposentado) { console.error(recusaDeModoAposentado(aposentado)); return 2; }
         const extraido = extrairTagDoPedido(pedido);
@@ -4336,6 +4352,9 @@ function executarComando(argvBruto: string[]): number {
       return comandoLedger(args);
     case 'sessions':
       return comandoSessions(args);
+    case 'noctum':
+      // RM-058 N6: a porta do CLI para o arco #Noctum (propor, responder, status, tique e relatorio).
+      return comandoNoctum(args);
     case 'pulse': {
       if (args.posicionais[1] === 'responder') {
         // I-41 (GO-FIX 1, B1 e B2): o caminho de volta do resumo. So o ingresso autenticado chama;

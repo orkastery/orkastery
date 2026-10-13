@@ -125,6 +125,14 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--atencao N] [--sem-logs]              classifica o estado de cada sessao do runtime,
         [--so-da-raiz] [--exigir-limpo]         le a pergunta que a sessao trava e diz o que
                                                 destrava (pega HITL de sessao SEM thread)
+  noctum propor --arquivo <envelope.json>   Propõe o envelope de um arco #Noctum (RM-058); não autoriza nada:
+                                            o dono autoriza por ingresso autenticado (gateway ou diálogo do host)
+  noctum responder <arco> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
+                                            Recebe a autorização ou a revogação assinada pelo gateway
+  noctum status [<arco>] [--json]           Retrato do arco: situação, consumo medido, fila, fechamento e lacunas
+  noctum tique <arco> [--json]              Fechamento, passo e relatório do arco, nessa ordem (o cron do dono chama)
+  noctum relatorio <arco> [--json]          O relatório da manhã no terminal (recibo só em terminal interativo)
+        [--reenviar telegram|openclaw]          reenvia as páginas sem recibo, inclusive a de envio incerto
 
   claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"] [--fase F]
                                             Registra alegacao verificavel da thread
@@ -506,6 +514,14 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
         [--atencao N] [--sem-logs]              classifies the state of each runtime session,
         [--so-da-raiz] [--exigir-limpo]         reads the question the session is stuck on and says what
                                                 unblocks it (catches HITL of sessions WITHOUT a thread)
+  noctum propor --arquivo <envelope.json>   Proposes the envelope of a #Noctum arc (RM-058); it authorizes nothing:
+                                            the owner authorizes through authenticated ingress (gateway or host dialog)
+  noctum responder <arc> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
+                                            Receives the authorization or revocation signed by the gateway
+  noctum status [<arc>] [--json]            Arc snapshot: situation, measured usage, queue, closing and gaps
+  noctum tique <arc> [--json]               Closing, step and report of the arc, in that order (the owner cron calls it)
+  noctum relatorio <arc> [--json]           The morning report in the terminal (receipt only in an interactive terminal)
+        [--reenviar telegram|openclaw]          resends the pages without a receipt, even an uncertain one
 
   claims add <thread-id> <file> --claim "<claim>" [--verificar "<command>"] [--fase F]
                                             Records a verifiable claim of the thread
