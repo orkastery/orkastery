@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // core/scripts/forja-contrato.cjs
 /**
- * Spec do suporte a GitLab, fatia 0: grava as respostas reais de uma forja para o contrato gravado dos testes.
+ * Grava as respostas reais de uma forja para o contrato gravado dos testes.
  * Usa a CLI ja logada (`gh`, `glab`): nenhum token e lido, passado ou gravado. O registro inteiro passa pelo
  * redator antes do disco (o corpo e lido como JSON e redigido valor a valor). So consulta: nenhum caso escreve
  * na forja.
