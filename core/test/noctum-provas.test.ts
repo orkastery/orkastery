@@ -8,6 +8,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { createHash } from 'node:crypto';
 import { ajustarManifesto, ProjetoDeTeste } from './apoio';
 import { avancarBase, ciFalso, claimDe, commitarBundle, commitarNaWorktree, commitDaSessao, concluirRevisao, ENTRADA_DA_THREAD,
   EntregaPronta, entregaPronta, EstadoDoCheck, FORJA, git, head, projetoDaEntrega, sessaoDespachada, threadComWorktree,
@@ -474,5 +475,29 @@ test('QP12: o segredo que um commit acrescenta e o seguinte tira, e o da mensage
     assert.equal(sb.motivo, 'noctum.entrega.segredo', sb.detalhe);
     assert.match(sb.detalhe, new RegExp(`mensagem do commit:1 \\(commit ${nota.slice(0, 12)}\\)`));
     assert.ok(!JSON.stringify(rb).includes(chave), 'o segredo não aparece em lugar nenhum das provas');
+  } finally { p.limpar(); }
+});
+
+test('QP13: o vínculo do revisor recusa o prompt de outro despacho e o prompt fora da pasta da thread, mesmo com o sha do arquivo certo', () => {
+  const p = projetoDaEntrega('noctum-qp13');
+  try {
+    const e = entregaPronta(p, 'qp13');
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'revisao'), null, 'a revisão vale antes da troca');
+    const t = lerThread(p.dir, e.t.id);
+    const s = t.sessoes.find(x => x.sessionId === e.revisor.sessionId)!;
+    const original = fs.readFileSync(path.resolve(p.dir, s.promptPath!));
+    const trocar = (mudanca: { promptPath: string; promptSha256: string }) =>
+      gravarThread(p.dir, { ...t, sessoes: t.sessoes.map(x => x.sessionId === s.sessionId ? { ...x, ...mudanca } as typeof x : x) });
+    // O prompt de outro despacho, na pasta da thread e com o sha dele: o phase_dispatch da sessão diz outro sha.
+    const outro = path.join(dirThread(p.dir, e.t.id), 'prompts', 'outro-check-simulado.md');
+    fs.mkdirSync(path.dirname(outro), { recursive: true });
+    fs.writeFileSync(outro, 'outro pedido de CHECK SIMULADO\n');
+    trocar({ promptPath: path.relative(p.dir, outro), promptSha256: createHash('sha256').update(fs.readFileSync(outro)).digest('hex') });
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'revisao'), 'noctum.entrega.revisao-sem-vinculo');
+    // O mesmo prompt fora da pasta da thread: o sha bate com o do despacho, e a pasta não.
+    const fora = path.join(path.dirname(dirThread(p.dir, e.t.id)), 'prompt-de-fora-simulado.md');
+    fs.writeFileSync(fora, original);
+    trocar({ promptPath: path.relative(p.dir, fora), promptSha256: s.promptSha256! });
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'revisao'), 'noctum.entrega.revisao-sem-vinculo');
   } finally { p.limpar(); }
 });

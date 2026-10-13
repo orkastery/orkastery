@@ -460,6 +460,24 @@
       "para": "const relogio = () => opcoes.quando;",
       "teste": "noctum-entrega",
       "nome": "^QE20:"
+    },
+    {
+      "id": "M52",
+      "descricao": "o revisor vale com o phase_dispatch de outro prompt",
+      "modulo": "noctum-provas",
+      "de": "despacho.promptSha256 !== s.promptSha256)",
+      "para": "false)",
+      "teste": "noctum-provas",
+      "nome": "^QP13:"
+    },
+    {
+      "id": "M53",
+      "descricao": "o revisor vale com o prompt fora da pasta da thread",
+      "modulo": "noctum-provas",
+      "de": "if (!prompt.startsWith(escopo))",
+      "para": "if (false)",
+      "teste": "noctum-provas",
+      "nome": "^QP13:"
     }
   ]
 }
