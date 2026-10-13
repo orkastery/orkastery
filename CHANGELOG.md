@@ -8,6 +8,23 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **#Noctum, fatia N6: fechamento, relatório da manhã e o transporte que liga o modo** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
+  o arco fecha sozinho pela hora final, pelo teto do arco ou pela fila vazia (`core/src/noctum-fechamento.ts`): grava o
+  `encerrado` no log do arco antes de tudo (nenhuma reserva nem efeito passa depois, nem por outra conta, e nada o
+  reabre), pede a parada de cada sessão em voo uma vez, confirma no tique seguinte e deixa o estado de retomada. A
+  medição (`core/src/noctum-medicao.ts`) cobre `minutos-de-sessao`, `tokens` e `percentual-da-cota`, com o consumo
+  desconhecido como lacuna, nunca zero, e a reserva com teto nessas unidades admite só abaixo do medido. O relatório da
+  manhã (`core/src/noctum-relatorio.ts`) vence no primeiro `HH:MM` do fuso do envelope, traz os sete grupos da página a
+  partir dos fatos do núcleo (entregue só com a prova do push) e sai pelo transporte local
+  `.orkastery/monitor/noctum-host.json`, com recibo por página, reenvio limitado sem duplicação e a correção explícita
+  numa versão nova; sem recibo, a lacuna aparece no `ork noctum status`. O modo passa a ser ligado pelo transporte:
+  `ork noctum propor`, `responder`, `status`, `tique` e `relatorio`, as ferramentas `ork_noctum_propor`,
+  `ork_noctum_autorizar`, `ork_noctum_revogar` e `ork_noctum_status` do MCP (autorizar e revogar só pelo diálogo nativo
+  do host) e `/ork noctum <arco> autorizar <sha256>` ou `revogar` no Telegram do Hermes e do OpenClaw; `#Noctum` só vale
+  com um envelope vigente e, sem ele, segue recusado com `noctum.modo.sem-envelope`. `core/scripts/ensaio-noctum.cjs`
+  ensaia o piloto local em repositórios descartáveis, com relógio controlado e runtime e canal simulados. O primeiro
+  piloto espera os valores e a autorização do dono.
+
 - **CLI em inglês e pt-BR, fatia F3b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): seguem também o
   locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`,
   `ork accounts`, `ork network` (fora `network roadmap`), `ork roadmap reservas`, `pegar`, `soltar` e `feat`,
