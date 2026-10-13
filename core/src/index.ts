@@ -97,7 +97,7 @@ import { definicaoDaVariante, parseVariante, tabelaDeVariantes, VARIANTES } from
 import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './claims';
 import { conferirClaims, ErroDeConferencia, FORMATO_DA_CONFERENCIA, idsDeClaims, textoDaConferencia } from './claims-conferir';
 import { exigirCatalogoDoPacote } from './catalogo';
-import { doctor } from './doctor';
+import { doctor, doctorJson } from './doctor';
 import { endurecerUmask, preflight, textoPreflight } from './preflight';
 import { rodarEval, textoDoEval } from './evalrunner';
 import { aprovarGateHumano } from './gates';
@@ -4260,7 +4260,14 @@ function executarComando(argvBruto: string[]): number {
       }
       // RM-031: o check dos analisadores do grafo entra por aqui, a porta da familia do grafo (fronteira do KG1).
       // RM-061 (F2a): a redacao do check vem do catalogo, no locale do comando (a familia do grafo nao o importa).
-      const r = doctor(diretorioDoProjeto(), nomesHerdados, () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK, undefined, undefined, msg().doctor.grafo));
+      const analisadores = () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK, undefined, undefined, msg().doctor.grafo);
+      // RM-063 (fatia 3, H1): `--json` e o contrato `ork.doctor/v1` que a batida do host le, com a idade da batida.
+      if (args.opcoes.json === true) {
+        const j = doctorJson(diretorioDoProjeto(), nomesHerdados, analisadores);
+        console.log(JSON.stringify(j.json, null, 2));
+        return j.codigo;
+      }
+      const r = doctor(diretorioDoProjeto(), nomesHerdados, analisadores);
       console.log(r.texto);
       return r.codigo;
     }

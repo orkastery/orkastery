@@ -72,13 +72,15 @@ function diretorioAceito(dir: string): boolean {
  * O executavel do transporte, so do `pulse-host.json` local desta maquina (RM-047, P2): o versionado no git, ou o link,
  * nao poe diretorio nenhum no PATH da batida.
  */
-function transporteDoProjeto(raiz: string, dirMonitor: string): string | null {
+function transporteDoProjeto(raiz: string, dirMonitor: string): string[] {
   const arquivo = path.join(dirMonitor, 'pulse-host.json');
   try {
     exigirHostLocal(raiz, arquivo);
-    const config = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as { executavel?: unknown };
-    return typeof config.executavel === 'string' && config.executavel.trim() ? config.executavel.trim() : null;
-  } catch { return null; }
+    const config = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as { executavel?: unknown; alternativos?: unknown };
+    // RM-063 (fatia 3, H4): o outro host configurado tambem precisa estar no PATH da batida.
+    const todos = [config, ...(Array.isArray(config.alternativos) ? config.alternativos as { executavel?: unknown }[] : [])];
+    return todos.map((t) => (typeof t?.executavel === 'string' ? t.executavel.trim() : '')).filter(Boolean);
+  } catch { return []; }
 }
 
 /**
@@ -86,7 +88,7 @@ function transporteDoProjeto(raiz: string, dirMonitor: string): string | null {
  * agora, o do executavel do transporte (`pulse-host.json`) e o PATH minimo do sistema. O cron nao carrega o
  * perfil do shell; sem isto a varredura nao acha o runtime nem o transporte (o template avisa).
  */
-export function caminhoDaBatida(opcoes: { node?: string; transporte?: string | null; achar?: (bin: string) => string | null } = {}): string {
+export function caminhoDaBatida(opcoes: { node?: string; transporte?: string | readonly string[] | null; achar?: (bin: string) => string | null } = {}): string {
   const achar = opcoes.achar ?? ((bin: string) => noPath(bin));
   const dirs: string[] = [];
   const somar = (arquivo: string | null | undefined): void => {
@@ -96,7 +98,9 @@ export function caminhoDaBatida(opcoes: { node?: string; transporte?: string | n
   };
   somar(opcoes.node ?? process.execPath);
   for (const bin of BINARIOS_DA_VARREDURA) somar(achar(bin));
-  if (opcoes.transporte) somar(path.isAbsolute(opcoes.transporte) ? opcoes.transporte : achar(opcoes.transporte));
+  for (const t of typeof opcoes.transporte === 'string' ? [opcoes.transporte] : opcoes.transporte ?? []) {
+    somar(path.isAbsolute(t) ? t : achar(t));
+  }
   for (const dir of PATH_DO_SISTEMA) if (!dirs.includes(dir)) dirs.push(dir);
   return dirs.join(':');
 }
