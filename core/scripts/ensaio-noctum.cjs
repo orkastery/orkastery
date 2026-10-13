@@ -51,6 +51,15 @@ const SEM_ESTES = ['ORK_PROJETO', 'ORK_PROJETO_EXPLICITO', 'ORK_DISPATCH_ID', 'O
   'ORK_RECEIPT_VERIFIERS', 'LC_ALL', 'LC_MESSAGES'];
 /** As publicações em segundo plano (fábrica e rede da pessoa) nunca levam a cópia do ensaio. */
 const SEM_PUBLICAR = { ORK_FABRICA_PUBLICAR: '0', ORK_REDE_PUBLICAR: '0' };
+/**
+ * As variáveis que levariam o git do ensaio para outro repositório (um hook do git exporta GIT_DIR) ou para outra
+ * configuração, a mesma lista que o núcleo limpa em `rede-forja.ts`, mais as da configuração por ambiente.
+ */
+const GIT_FORA_DA_PASTA = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_NAMESPACE', 'GIT_QUARANTINE_PATH', 'GIT_PREFIX', 'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_COUNT',
+  'GIT_CONFIG_PARAMETERS'];
+/** Os executáveis que o ensaio nunca pode chamar: o runtime, a forja e os gateways de verdade. */
+const SENTINELAS = ['claude', 'codex', 'gh', 'glab', 'openclaw', 'hermes'];
 
 /** O canal simulado: confere que a mensagem veio igual pela entrada e pelo argumento, e grava ou falha pelo modo. */
 const CANAL_SIMULADO = `'use strict';
@@ -109,8 +118,20 @@ function isolarAmbiente(raiz) {
   for (const d of ['.claude', '.codex/sessions', '.orkastery', '.config', '.cache', '.local/state', '.local/share']) {
     fs.mkdirSync(path.join(casa, d), { recursive: true, mode: 0o700 });
   }
-  for (const nome of Object.keys(process.env)) if (nome.startsWith('ORK_HITL_') || SEM_ESTES.includes(nome)) delete process.env[nome];
+  for (const nome of Object.keys(process.env)) {
+    if (nome.startsWith('ORK_HITL_') || SEM_ESTES.includes(nome) || GIT_FORA_DA_PASTA.includes(nome) || /^GIT_CONFIG_(KEY|VALUE)_\d+$/.test(nome)) {
+      delete process.env[nome];
+    }
+  }
+  // Sentinelas à frente do PATH: se algo do núcleo chamar o runtime, a forja ou um gateway, a chamada fica registrada.
+  const sentinelas = path.join(raiz, 'sentinelas');
+  fs.mkdirSync(sentinelas, { mode: 0o700 });
+  for (const nome of SENTINELAS) {
+    fs.writeFileSync(path.join(sentinelas, nome), `#!/bin/sh\necho "${nome} $*" >> "${path.join(raiz, 'chamadas-proibidas.log')}"\nexit 1\n`,
+      { mode: 0o700 });
+  }
   Object.assign(process.env, SEM_PUBLICAR, {
+    PATH: `${sentinelas}${path.delimiter}${process.env.PATH ?? ''}`,
     HOME: casa, CLAUDE_CONFIG_DIR: path.join(casa, '.claude'), CODEX_HOME: path.join(casa, '.codex'),
     ORK_USUARIO_DIR: path.join(casa, '.orkastery'), ORKASTERY_HOME: path.join(casa, '.orkastery'),
     XDG_CONFIG_HOME: path.join(casa, '.config'), XDG_CACHE_HOME: path.join(casa, '.cache'),
@@ -477,8 +498,8 @@ function cenarioArcoCurto(c, a, n) {
   c.esperar('cada página chegou ao canal uma vez só, e o tique seguinte não manda nada de novo',
     canal.doArco('arco-curto').length === paginas.length && new Set(paginas).size === paginas.length && rDepois.relatorio.enviadas === 0 &&
       rDepois.relatorio.acao === 'entregue', `${canal.doArco('arco-curto').length} mensagens`);
-  c.esperar('nenhuma baseline foi gravada e nenhum runtime de verdade foi chamado: todo despacho passou pelo runtime simulado',
-    rt.baselines === 0 && rt.despachos.length === 4, JSON.stringify(rt.despachos));
+  c.esperar('todo despacho do arco passou pelo runtime simulado (quatro, um por trabalho), e nenhuma baseline foi pedida',
+    rt.baselines === 0 && rt.despachos.length === 4 && new Set(rt.despachos.map((d) => d.thread)).size === 4, JSON.stringify(rt.despachos));
 }
 
 /** O prazo e o fuso: o relatório vence no primeiro HH:MM do fuso, nada antes, e o fechamento cedo não antecipa. */
@@ -656,8 +677,9 @@ function cenarioSemReciboEReenvio(c, a, n) {
   const forcado = n.relatorio.reenviarRelatorio(proj.carregado, 'arco-recibo', 'telegram', { quando: depois(v, 9 * MIN) });
   c.esperar('nem o tique seguinte nem o reenvio do dono repetem a página que já tem recibo', canal.doArco('arco-recibo').length === 1 &&
     forcado.enviadas === 0 && forcado.acao === 'entregue', JSON.stringify(forcado));
-  c.esperar('o canal recebeu a mensagem igual pela entrada e pelo argumento do transporte, como o piloto configura',
-    canal.doArco('arco-recibo').every((m) => m.startsWith('Arco arco-recibo, relatório v1, página 1/')), canal.doArco('arco-recibo')[0]?.slice(0, 80));
+  c.esperar('o canal recebeu a mensagem igual pela entrada e pelo argumento do transporte (o canal simulado recusa a diferença), com o cabeçalho do arco',
+    canal.doArco('arco-recibo').length === 1 && canal.doArco('arco-recibo').every((m) => m.startsWith('Arco arco-recibo, relatório v1, página 1/')),
+    canal.doArco('arco-recibo')[0]?.slice(0, 80));
   // O transporte que morre no meio: a mensagem pode ter chegado, e o envio nunca se repete às cegas.
   const arcoB = a.abrirArco(proj, a.pedido('arco-incerto', { trabalhos: [{ id: 't1', item: 'RM-902', prioridade: 1, dependeDe: [], thread: tb.id }],
     relatorioEm: vence }));
@@ -757,11 +779,16 @@ function rodar(args) {
       fs.mkdirSync(pasta);
       const c = { nome: def.nome, titulo: def.titulo, ok: false, expectativas: [],
         esperar(texto, ok, detalhe) { this.expectativas.push(ok ? { texto, ok: true } : { texto, ok: false, detalhe: String(detalhe ?? '').slice(0, 1500) }); } };
+      const proibidas = path.join(raiz, 'chamadas-proibidas.log');
+      fs.rmSync(proibidas, { force: true });
       try { def.fn(c, montarApoio(pasta, n, args.sabotar), n); }
       catch (e) {
         if (e instanceof ErroDeUso) throw e;
         c.esperar('o cenário roda até o fim, sem exceção', false, (e && e.stack) || String(e));
       }
+      const chamadas = fs.existsSync(proibidas) ? fs.readFileSync(proibidas, 'utf8').trim() : '';
+      c.esperar(`nenhum runtime, forja ou gateway de verdade foi chamado (sentinelas ${SENTINELAS.join(', ')} paradas no PATH)`,
+        chamadas === '', chamadas);
       c.ok = c.expectativas.length > 0 && c.expectativas.every((x) => x.ok);
       resultado.cenarios.push(c);
     }

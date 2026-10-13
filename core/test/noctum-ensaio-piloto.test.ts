@@ -58,7 +58,9 @@ test('EP1: o ensaio inteiro sai 0 com todas as expectativas dos sete cenários, 
     'sem-recibo-e-reenvio', 'correcao-explicita']);
   for (const c of json.cenarios) {
     assert.equal(c.ok, true, c.nome);
-    assert.ok(c.expectativas.length >= 6, `${c.nome}: ${c.expectativas.length} expectativas`);
+    assert.ok(c.expectativas.length >= 7, `${c.nome}: ${c.expectativas.length} expectativas`);
+    // Cada cenário prova que nada de verdade rodou: as sentinelas do runtime, da forja e dos gateways ficaram paradas.
+    provada(c, /^nenhum runtime, forja ou gateway de verdade foi chamado \(sentinelas claude, codex, gh/);
   }
   assert.ok(json.cenarios.reduce((s, c) => s + c.expectativas.length, 0) >= 70);
   assert.equal(json.mantida, false);
@@ -126,9 +128,9 @@ test('EP5: a alegação que deixou de valer volta corrigida, explícita e sem ap
 test('EP6: cada cenário roda isolado, pela escolha no argumento, e o resumo diz o total', { skip: semKernel }, () => {
   const r = ensaio(['--cenario', 'correcao-explicita', '--resumo']);
   assert.equal(r.status, 0, r.stdout + r.stderr);
-  assert.match(r.stdout, /^\[ok\] correcao-explicita: .+ \(6 de 6\)$/m);
+  assert.match(r.stdout, /^\[ok\] correcao-explicita: .+ \(7 de 7\)$/m);
   assert.doesNotMatch(r.stdout, /prazo-e-fuso|arco-curto/);
-  assert.match(r.stdout, /^Ensaio aprovado: 1 cenário\(s\), 6 de 6 expectativas\./m);
+  assert.match(r.stdout, /^Ensaio aprovado: 1 cenário\(s\), 7 de 7 expectativas\./m);
 });
 
 test('EP7: o ensaio reprova quando o canal duplica (sabotagem), e o uso errado sai 2 sem rodar nada', { skip: semKernel }, () => {
@@ -138,7 +140,8 @@ test('EP7: o ensaio reprova quando o canal duplica (sabotagem), e o uso errado s
   assert.deepEqual([j.ok, j.sabotagem], [false, 'duplicar-envio']);
   const falhas = j.cenarios[0].expectativas.filter(e => !e.ok).map(e => e.texto);
   assert.ok(falhas.some(t => /chegou ao canal uma vez só/.test(t)), falhas.join('\n'));
-  assert.ok(falhas.every(t => /uma vez|repetem|duplica/.test(t)), `só as expectativas de entrega única caem: ${falhas.join('\n')}`);
+  // Só caem as expectativas que contam as mensagens no canal: a entrega única e a mensagem igual na entrada e no argumento.
+  assert.ok(falhas.every(t => /uma vez|repetem|duplica|igual pela entrada/.test(t)), `só as expectativas de entrega única caem: ${falhas.join('\n')}`);
   const desconhecido = ensaio(['--cenario', 'inexistente']);
   assert.equal(desconhecido.status, 2);
   assert.match(desconhecido.stderr, /cenário desconhecido: inexistente/);
