@@ -26,13 +26,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { branchValida, exigirRemoto } from './branch-de-estado';
 import { BundleCi, comandosDoBundle } from './ci';
-import { redigirSegredos } from './hitl';
+import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
+import { deFora, umaLinha } from './forja/texto';
 import { lerClaims } from './claims';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { comandosDoTextoDoManifesto, ManifestoCarregado, NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
 import { tagDoModo } from './modos';
 import {
-  conducaoAgora, ExecutorDoGh, ghPadrao, githubDoRemoto, LIMITE_DE_PRS, lerPrsDaForja, PrDaForja, prDaForja, refsLocais,
+  conducaoAgora, ExecutorDoGh, ghPadrao, githubDoRemoto, LIMITE_DE_PRS, lerPrsDaForja, PrDaForja, refsLocais,
 } from './parado-no-condutor';
 import { mergeDaEntrega } from './entrega-pr';
 import { MODOS_QUE_AUTORIZAM_PUSH } from './ship';
@@ -60,8 +61,6 @@ const TETO_DO_CORPO = 64 * 1024;
 const PRAZO_DO_GH_MS = 45000;
 const PRAZO_DO_PUSH_MS = 180000;
 const PRAZO_DO_LS_REMOTE_MS = 60000;
-/** Os campos do `gh pr list` de uma branch: os do `prDaForja`, com o estado de merge do PR aberto. */
-const CAMPOS_DA_BRANCH = 'number,state,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository,url,createdAt,mergedAt,mergeable';
 
 /** Git local sem rede escondida nem pergunta de credencial no terminal. */
 function git(raiz: string, args: string[], prazoMs = 60000) {
@@ -69,16 +68,6 @@ function git(raiz: string, args: string[], prazoMs = 60000) {
 }
 
 const curto = (sha: string | null | undefined): string => (sha ? sha.slice(0, 7) : '-');
-
-/** Texto curto: uma linha, sem controle, com teto. */
-function umaLinha(texto: string, teto = 200): string {
-  return Array.from(texto.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim()).slice(0, teto).join('') || '-';
-}
-
-/** Texto de fora (stderr do git ou do gh): sem segredo, numa linha e com teto, antes de ir ao `--json` e ao ledger. */
-function deFora(texto: string, teto = 200): string {
-  return umaLinha(redigirSegredos(texto), teto);
-}
 
 // ---------------------------------------------------------------------------
 // As etapas e os fatos de uma thread.
@@ -310,17 +299,7 @@ export interface Forja { host: string; repositorio: string }
 
 /** Os PRs de uma branch, da base do projeto, do mais novo para o mais velho. */
 function prsDaBranch(executor: ExecutorDoGh, forja: Forja, base: string, branch: string): { prs: PrDaForja[]; erro: string | null } {
-  const r = executor(['pr', 'list', `--repo=${forja.host}/${forja.repositorio}`, `--head=${branch}`, '--state=all', '--limit=10',
-    `--json=${CAMPOS_DA_BRANCH}`], PRAZO_DO_GH_MS);
-  if (r.status !== 0) return { prs: [], erro: deFora(r.stderr || r.stdout || `codigo ${r.status ?? '-'}`) };
-  try {
-    const lista = JSON.parse(r.stdout) as unknown;
-    if (!Array.isArray(lista)) throw new Error('a resposta nao e uma lista');
-    const prs = lista.map((p) => prDaForja(p, base)).filter((p): p is PrDaForja => !!p && p.branch === branch);
-    return { prs: prs.sort((a, b) => b.numero - a.numero), erro: null };
-  } catch (e) {
-    return { prs: [], erro: deFora((e as Error).message) };
-  }
+  return exigirCapacidade(adaptadorDaForja('github'), 'pedidosDaBranch')({ ...forja, base, branch, executor, prazoMs: PRAZO_DO_GH_MS });
 }
 
 // ---------------------------------------------------------------------------
@@ -585,9 +564,8 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   let pr: PrDaPublicacao | null = aberto ? { numero: aberto.numero, url: aberto.url, criado: false, head: aberto.head } : null;
   let erroDoPr: string | null = null;
   if (!pr) {
-    const argv = ['pr', 'create', `--repo=${forja.host}/${forja.repositorio}`, `--base=${base}`, `--head=${f.branch}`, `--title=${titulo}`,
-      `--body=${textoDoCorpo}`];
-    const criado = executor(argv, PRAZO_DO_GH_MS);
+    const criado = exigirCapacidade(adaptadorDaForja('github'), 'abrirPedido')({ ...forja, base, branch: f.branch, titulo,
+      corpo: textoDoCorpo, executor, prazoMs: PRAZO_DO_GH_MS });
     r.passos.push(`gh pr create --base ${base} --head ${f.branch}`);
     const relidos = prsDaBranch(executor, forja, base, f.branch);
     r.passos.push(`gh pr list --head ${f.branch} --state all   (prova do PR)`);

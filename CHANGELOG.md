@@ -26,6 +26,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   das fases, o ork vai tratar o fim como evento da conta, mover sozinho todas as threads dela para outra conta
   ou para o fallback do bloco e retomar do ponto onde pararam, com o trabalho da sessão guardado na thread.
   Frentes T1 a T7. Só documentação.
+- A forja vira porta (core/src/forja/): o GitHub passa por um adaptador com capacidades, sem mudança de comportamento. Base para o GitLab.
 - **Respostas gravadas do GitHub e do GitLab para o contrato da forja**: `core/scripts/forja-contrato.cjs` grava, só
   por consulta, as respostas reais de uma forja (`--forja github|gitlab --host H --repo CAMINHO --sha SHA [--pr N]
   [--branch B] --saida DIR`) pela CLI já logada (`gh`, `glab`), sem ler nem passar token, e cada registro passa pelo

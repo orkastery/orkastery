@@ -1,8 +1,9 @@
 import type { ExecutorCi } from '../ci';
 import type { ExecutorGitHub } from '../entrega-pr';
+import type { ExecutorDoGh, PrDaForja } from '../parado-no-condutor';
 import type { CheckNoCommit, PedidoMesclado, Resultado, TipoDeForja } from './contrato';
 
-export type NomeDaCapacidade = 'checksNoCommit' | 'pedidoMesclado' | 'branchPadrao' | 'pontaDaBranch' | 'comparar';
+export type NomeDaCapacidade = 'checksNoCommit' | 'pedidoMesclado' | 'branchPadrao' | 'pontaDaBranch' | 'comparar' | 'pedidosDaBranch' | 'abrirPedido';
 export interface AdaptadorDeForja {
   tipo: TipoDeForja;
   /** Os checks com esse nome no commit. Na fatia 1, só check-runs, numa página, como hoje. */
@@ -15,4 +16,10 @@ export interface AdaptadorDeForja {
   pontaDaBranch?(e: { repo: string; branch: string; executor: ExecutorGitHub }): string | null;
   /** O status da comparação (`ahead`, `identical`, `behind`, `diverged`); `null` quando a consulta falha. */
   comparar?(e: { repo: string; de: string; ate: string; executor: ExecutorGitHub }): string | null;
+  /** Os pedidos da branch na base, do mais novo para o mais velho; `erro` não nulo quando a leitura falha. */
+  pedidosDaBranch?(e: { host: string; repositorio: string; base: string; branch: string; executor: ExecutorDoGh; prazoMs: number }):
+    { prs: PrDaForja[]; erro: string | null };
+  /** Abre o pedido da branch; devolve a saída crua da CLI. */
+  abrirPedido?(e: { host: string; repositorio: string; base: string; branch: string; titulo: string; corpo: string;
+    executor: ExecutorDoGh; prazoMs: number }): { status: number | null; stdout: string; stderr: string };
 }
