@@ -75,8 +75,8 @@ fontes:
 - **Alternativas, erros e recuperação:**
   - A pasta que não abre (`conhecimento.*`) tira tudo da resposta; o documento inválido (`documento.*`) sai da lista; a referência que não confere (`referencia.*`) sai do documento. Os três vão à lista de lacunas.
   - O Brain fora do ar, recusando ou em conflito para a conferência: as referências que faltavam levam o mesmo detalhe, e nenhum `get` sai depois.
-  - Saída 1 (o `isError` do MCP, `[ork saiu com 1]` no OpenClaw) é a consulta que não respondeu: `listar` e `colecoes` sem a pasta lida, `mostrar` sem documento, `verificar` com qualquer lacuna. Uso errado sai 2.
-  - No OpenClaw, `id` ou `colecao` fora do padrão do schema e campo a mais recusam no host, sem chamar o `ork` (`conhecimento.argumento-invalido`); o núcleo confere de novo.
+  - Saída 1 com o JSON (o `isError` do MCP, `[ork saiu com 1]` no OpenClaw) é a consulta que não respondeu: `listar` e `colecoes` sem a pasta lida, `mostrar` sem documento, `verificar` com qualquer lacuna. Saída 1 sem JSON é erro do `ork` (por exemplo, `--projeto` repetido), e uso errado sai 2.
+  - No OpenClaw, o runtime valida o argumento pelo schema da tool antes de chamá-la; o host confere de novo, sem chamar o `ork` (`conhecimento.argumento-invalido`), e o núcleo, mais uma vez. No Hermes, o argumento é dado para o shell, mas uma opção como `--help` chega ao parser do CLI e devolve a ajuda geral.
 - **Pós-condições:** nada é gravado. Escrever um documento é um commit numa thread, com PR.
 - **Regras de negócio:**
   - BR-038-01: o documento vale inteiro ou vira lacuna; a referência vale sozinha, e o documento segue sem ela.
@@ -103,12 +103,16 @@ fontes:
 - **Configuração e ambientes:** `conhecimento.dir` no `orkastery.yaml`; `memory.*` para o Brain; os tetos são fixos no núcleo.
 - **Observabilidade:** o `ork conhecimento verificar` sai 1 com lacuna e serve de gate de CI; a consulta não grava no ledger.
 - **Acesso, privacidade e conformidade:**
-  - Só leitura, nas quatro superfícies. No OpenClaw, as quatro tools ficam nos perfis `coding` e `messaging`; a allowlist e o deny do operador continuam valendo.
-  - O `memory.cli` que o manifesto escolhe roda na conferência do Brain: é o pendente P6 da [fronteira de confiança](../referencia/fronteira-de-confianca.md).
+  - Só leitura, nas quatro superfícies. No OpenClaw, as quatro tools ficam só no perfil `coding`, o padrão das configurações locais, que já tem shell; ficam fora do `messaging`, o perfil de conversa sem shell. O operador tira do `coding` com `tools.deny` e põe no `messaging` com `tools.alsoAllow`.
+  - O `mostrar` e o `verificar` rodam o `memory.cli` que o manifesto escolhe, e o valor da variável que o `memory.database_url_env` nomeia vai a ele e pode voltar na resposta: é o pendente P6 da [fronteira de confiança](../referencia/fronteira-de-confianca.md). O OpenClaw, em toda tool, e os wrappers do conhecimento do Hermes tiram `ORK_HITL_*` do ambiente antes de chamar o `ork`.
+  - O título e o corpo são texto do repositório: as descrições das tools e a skill do Hermes mandam tratá-los como dado, nunca como instrução.
 - **Fora deste corte:** escrever documento por tool, a allowlist da sessão filha do `claude-bg` e a federação do conhecimento entre repositórios.
+- **Limites conhecidos:**
+  - A resposta não tem teto próprio. No OpenClaw, o texto da tool corta em 16 MiB, com `[ork saiu com ERR_CHILD_PROCESS_STDIO_MAXBUFFER]`: o `verificar` de uma pasta enorme com o Brain fora do ar chega lá. Nesse caso, use o `ork conhecimento verificar` no terminal.
+  - O prazo de 60 s da conferência é conferido entre um `get` e outro: um `memory.cli` que ignora o SIGTERM segura a consulta além dele, e a tool que o host aborta deixa o `memory.cli` rodando até ele sair.
 - **Dependências e rollback:** o Company Brain ([RM-025](../roadmap/RM-025-company-brain-fundacao.md)) para a conferência. Rollback: reverter o merge e reinstalar os adaptadores; nada a migrar.
 - **Código, PR, testes e release:** fatia 1 no PR #143 (merge `1079f47`), fatia 2 no PR #153 (merge `89e934a`), fatia 3 por PR da thread `ork-rm026k7conhe`. A 0.5.6 levou só a fatia 1 (o contrato e a leitura, sem comando); o comando, as tools e os hosts esperam a próxima versão.
-- **Próxima ação do dono:** reinstalar a extensão do OpenClaw e a skill do Hermes nos hosts, depois do merge da fatia 3. O agente não faz isso. O `ork` que roda a instalação é o que as tools chamam, e ele precisa ter o K7.
+- **Próxima ação do dono:** reinstalar a extensão do OpenClaw e a skill do Hermes nos hosts, depois do merge da fatia 3. O agente não faz isso. O `ork` que roda a instalação é o que as tools chamam (no Hermes, salvo um `ORK_BIN` no ambiente dele), e ele precisa ter o K7.
 
   ```bash
   # 1. No clone desta máquina, depois do merge:
@@ -116,9 +120,12 @@ fontes:
   # 2. OpenClaw: reinstala a extensão, reinicia o gateway e confere as 32 tools
   node core/dist/index.js adapter install openclaw --dir ~/.openclaw
   openclaw gateway restart
-  openclaw plugins inspect orkastery
-  # 3. Hermes, na máquina do Hermes, com um clone atualizado; depois, uma sessão nova do Hermes
-  node ~/orkastery/core/dist/index.js adapter install hermes --dir ~/.hermes
+  openclaw plugins inspect orkastery --runtime
+  # 3. Hermes, na máquina do Hermes, num clone atualizado como no passo 1 (o catálogo vem do clone do cwd):
+  cd ~/orkastery && node core/dist/index.js adapter install hermes --dir ~/.hermes
+  # o wrapper usa o ORK_BIN do ambiente antes do ork instalado: tire-o, ou aponte-o para um ork com o K7, e confira
+  sh ~/.hermes/bin/ork-conhecimento-colecoes.sh --projeto <nome>
+  # depois, uma sessão nova do Hermes
   ```
 
   Depois da versão do npm que levar o K7, os mesmos passos com o `ork` global: `npm install -g @orkastery/cli@latest`, `ork adapter install openclaw --dir ~/.openclaw` e `ork adapter install hermes --dir ~/.hermes`.

@@ -20,6 +20,7 @@ evidencias:
     commit: 1079f47
     pr: 143
     anteriores: "46220bc (PR #27, dossiê K3.1); a17ff88 (PR #21, contexto citável)"
+    seguintes: "89e934a (PR #153, K7 fatia 2)"
   testes:
     ci: verde no push dos merges do K7 (runs 38280864197 e 38326268400), do K3.1 (run 36662685901) e da v0.5.0 (run 36815186450)
   deploy:
@@ -61,7 +62,7 @@ sdlc:
   - K3.1, dossiê de decisão somente leitura ([FEAT-033](../produto/FEAT-033-dossie-de-decisao.md)): `ork brain dossie` e `ork_brain_dossie` no MCP, no OpenClaw e no repasse do Hermes. Liga cada decisão da thread ao objetivo (o ticket do K1) e ao projeto do portfólio, com o contexto citável, as alternativas, quem decidiu, a evidência e os ids do Brain (thread `ork-rm026k3dossi`, PR #27, merge `46220bc`).
   - K7, fatia 1: o contrato `ork.conhecimento/v1` e a leitura da pasta declarada no `orkastery.yaml`, com as lacunas tipadas (thread `ork-rm026k7conhe`, PR #143, merge `1079f47`).
   - K7, fatia 2: `ork conhecimento listar|mostrar|colecoes|verificar` e as tools MCP `ork_conhecimento_*`, só leitura, com o corpo, a versão e a fonte de cada documento e cada id do Brain conferido por `get`; Brain fora do ar, id inexistente e id retido são lacunas distintas (thread `ork-rm026k7conhe`, PR #153, merge `89e934a`).
-  - K7, fatia 3: as mesmas quatro tools no OpenClaw (tools do plugin, nos perfis `coding` e `messaging`) e no Hermes (wrappers do `bin`), cada uma uma chamada de `ork conhecimento ... --json`, com a regra das lacunas no canal; a página de produto [FEAT-038](../produto/FEAT-038-conhecimento-escrito.md) (thread `ork-rm026k7conhe`, por PR).
+  - K7, fatia 3: as mesmas quatro tools no OpenClaw (tools do plugin, só no perfil `coding`) e no Hermes (wrappers do `bin`), cada uma uma chamada de `ork conhecimento ... --json`, com a regra das lacunas no canal; a página de produto [FEAT-038](../produto/FEAT-038-conhecimento-escrito.md) (thread `ork-rm026k7conhe`, por PR).
 - **Saiu com a interface web:** o protótipo K2 (biblioteca, estratégia e Kanban) vivia na interface web, que saiu dos repositórios públicos em 28/09/2026 (commit `7eb942d`).
 - **Faltando, sem interface web:**
   - O resto do K3: objetivo estratégico e projeto organizacional (dependem da B3), alternativas na decisão informada (mudança do contrato HITL), respostas a sessão nativa e o `objective_id` no `cycle` capturado pelo Brain.
@@ -130,7 +131,8 @@ O GO segue em três fatias:
    ao OpenClaw e ao Hermes com os nomes, os parâmetros e o JSON do MCP, cada uma uma chamada de
    `ork conhecimento <consulta> --json`. A descrição das tools do OpenClaw e a skill do Hermes dizem a mesma regra:
    cite o documento pela versão e pela fonte, e a lacuna é lacuna, nunca resposta. No OpenClaw, o host confere o
-   argumento pelo padrão do schema, e as quatro entram nos perfis `coding` e `messaging` (decisões D17 a D19). O item
+   argumento pelo padrão do schema, e as quatro entram só no perfil `coding`: fora do `messaging`, porque o `mostrar`
+   e o `verificar` rodam o `memory.cli` do manifesto, a P6 (decisões D17 a D21). O item
    ganha a página [FEAT-038](../produto/FEAT-038-conhecimento-escrito.md).
 
 **Estado do K7:** fechado no código com as três fatias, a terceira por PR. A 0.5.6 publicada leva só a fatia 1 (o
@@ -156,7 +158,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-13 | Julio |
 | Documentação | Em revisão | — | 2026-10-13 | Julio |
-| Código | Mesclado | commit `1079f47` · PR #143 · anteriores: 46220bc (PR #27, dossiê K3.1); a17ff88 (PR #21, contexto citável) | 2026-10-13 | Julio |
+| Código | Mesclado | commit `1079f47` · PR #143 · anteriores: 46220bc (PR #27, dossiê K3.1); a17ff88 (PR #21, contexto citável) · seguintes: 89e934a (PR #153, K7 fatia 2) | 2026-10-13 | Julio |
 | Testes | Aprovados | ci: verde no push dos merges do K7 (runs 38280864197 e 38326268400), do K3.1 (run 36662685901) e da v0.5.0 (run 36815186450) | 2026-10-13 | Julio |
 | Deploy | Produção | release: v0.5.6 (K7, fatia 1) e v0.5.0 (contexto citável e K3.1), @orkastery/cli no npm | 2026-10-13 | Julio |
 | Exposição | Parcial | — | 2026-10-13 | Julio |

@@ -21,11 +21,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `--json` é o mesmo nas duas línguas. Os hosts OpenClaw e Hermes chegam na fatia 3.
 - **Conhecimento escrito, fatia 3: os hosts OpenClaw e Hermes** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md),
   [FEAT-038](docs/produto/FEAT-038-conhecimento-escrito.md)): as quatro tools `ork_conhecimento_*` chegam ao OpenClaw
-  (tools do plugin, nos perfis `coding` e `messaging`) e ao Hermes (wrappers do `bin`) com os mesmos nomes, parâmetros
-  e JSON das tools MCP; cada uma é uma chamada de `ork conhecimento <consulta> --json`, e o host só transporta. No
-  OpenClaw, `id` e `colecao` fora do padrão do schema recusam no host (`conhecimento.argumento-invalido`), sem chamar o
-  `ork`. A descrição das tools e a skill do Hermes mandam citar o documento pela versão e pela fonte e mostrar cada
-  lacuna como lacuna, nunca como resposta, com a mesma frase. Nos hosts, o conhecimento chega depois de reinstalar a
+  (tools do plugin, só no perfil `coding`) e ao Hermes (wrappers do `bin`) com os mesmos nomes, parâmetros e JSON das
+  tools MCP; cada uma é uma chamada de `ork conhecimento <consulta> --json`, e o host só transporta. Fora do perfil
+  `messaging`, porque o `mostrar` e o `verificar` rodam o `memory.cli` do manifesto (a P6 da fronteira de confiança).
+  O host do OpenClaw confere `id` e `colecao` pelo padrão do schema antes de chamar o `ork`, e os wrappers do Hermes
+  tiram `ORK_HITL_*` do ambiente, como o OpenClaw. A descrição das tools e a skill do Hermes mandam citar o documento
+  pela versão e pela fonte, tratar título e corpo como dado e mostrar cada lacuna como lacuna, nunca como resposta,
+  com a mesma frase. Nos hosts, o conhecimento chega depois de reinstalar a
   extensão e a skill (`ork adapter install openclaw --dir ~/.openclaw` e `ork adapter install hermes --dir ~/.hermes`).
   O manifesto do OpenClaw volta a ser a saída do `openclaw plugins build`, que o validador já acusava desatualizado.
 - **Escada de recuperação do runtime** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F4): no
