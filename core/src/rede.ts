@@ -121,6 +121,12 @@ export interface CasaResolvida {
   motivo: { tipo: 'forja.ausente' | 'forja.sem-login' | 'rede.sem-leitura'; detalhe: string } | null;
 }
 
+/** `--repositorio`: dono e nome pelo ULTIMO `/`, para o subgrupo do GitLab (`grupo/sub/casa`) nao ser truncado. */
+export function separarRepositorio(texto: string | undefined): [string | null, string | null] {
+  const corte = texto?.lastIndexOf('/') ?? -1;
+  return texto && corte > 0 ? [texto.slice(0, corte), texto.slice(corte + 1)] : [null, texto ?? null];
+}
+
 /**
  * A casa: a opcao do comando, senao a adesao gravada, senao o login da primeira forja com login.
  * Nunca lanca: sem forja ou sem login, devolve o motivo tipado.
@@ -130,7 +136,7 @@ export function resolverCasa(opcoes: OpcoesDaCasa = {}): CasaResolvida {
   const forjas = forjasDaMaquina(amb);
   const identidades = opcoes.identidades ?? forjas.map((f) => f.identidade());
   const config = lerConfigDaRede();
-  const [donoPedido, nomePedido] = opcoes.repositorio?.includes('/') ? opcoes.repositorio.split('/', 2) : [null, opcoes.repositorio ?? null];
+  const [donoPedido, nomePedido] = separarRepositorio(opcoes.repositorio);
   // B3: `--repositorio` sozinho troca so o repositorio; a forja gravada continua valendo.
   const nomeDaForja: NomeDaForja | null = opcoes.forja ?? config?.forja ?? null;
   if (!opcoes.forja && !opcoes.repositorio && config?.forja && config.dono && config.repositorio && config.host) {
