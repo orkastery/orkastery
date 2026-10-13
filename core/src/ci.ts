@@ -3,6 +3,7 @@ import { exigirRemoto } from './branch-de-estado';
 import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
 import { rodarCli } from './forja/executor';
+import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { branchDaWorktree } from './worktree';
 import { cwdLocalOuNulo } from './procedencia';
 import { verificar, ResultadoVerify } from './verify';
@@ -142,22 +143,18 @@ export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto =
  * RM-037 (rm037defeito, defeito 5), um repositorio externo declarado em `ci.external_repositories`.
  */
 export function consultarCiDoRepositorio(repository: string, sha: string, context: string, executor: ExecutorCi = executorPadrao): ResultadoCi {
-  const result = executor({ repository, sha, context });
-  if (!result.ok) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'unavailable', url: null, detail: (result.stderr || result.stdout || textoDoCatalogo((m) => m.ship.ciConsultaFalhou)).trim().slice(0, 400) };
-  let payload: { check_runs?: Array<{ name?: string; status?: string; conclusion?: string | null; html_url?: string }> };
-  try {
-    payload = JSON.parse(result.stdout) as typeof payload;
-  } catch {
-    return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'unavailable', url: null, detail: textoDoCatalogo((m) => m.ship.ciRespostaInvalida) };
+  const base = { schema: 'ork.ci-status/v1' as const, required: true, provider: 'github' as const, repository, sha, context };
+  const lido = exigirCapacidade(adaptadorDaForja('github'), 'checksNoCommit')({ repository, sha, context, executor });
+  if (!lido.ok && lido.erro.codigo === 'forja.resposta-invalida') {
+    return { ...base, ok: false, state: 'unavailable', url: null, detail: textoDoCatalogo((m) => m.ship.ciRespostaInvalida) };
   }
-  const checks = (payload.check_runs ?? []).filter((check) => check.name === context);
-  if (!checks.length) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'missing', url: null, detail: textoDoCatalogo((m) => m.ship.ciSemCheck(context)) };
-  const check = checks.at(-1)!;
-  const status = check.status ?? 'unknown';
-  const conclusion = check.conclusion ?? '';
-  const url = check.html_url ?? '';
+  if (!lido.ok) return { ...base, ok: false, state: 'unavailable', url: null, detail: (lido.erro.detalhe || textoDoCatalogo((m) => m.ship.ciConsultaFalhou)).trim().slice(0, 400) };
+  if (!lido.valor.length) return { ...base, ok: false, state: 'missing', url: null, detail: textoDoCatalogo((m) => m.ship.ciSemCheck(context)) };
+  const check = lido.valor.at(-1)!; // fatia 1: a mesma escolha de hoje; a fatia 2 ordena
+  const status = check.status;
+  const conclusion = check.conclusao ?? '';
   const state: EstadoCi = status !== 'completed' ? 'pending' : conclusion === 'success' ? 'success' : 'failure';
-  return { schema: 'ork.ci-status/v1', required: true, ok: state === 'success', provider: 'github', repository, sha, context, state, url: url || null, detail: textoDoCatalogo((m) => state === 'success' ? m.ship.ciVerde : m.ship.ciEstado(context, String(status), conclusion)) };
+  return { ...base, ok: state === 'success', state, url: check.url || null, detail: textoDoCatalogo((m) => state === 'success' ? m.ship.ciVerde : m.ship.ciEstado(context, String(status), conclusion)) };
 }
 
 export function executarCi(carregado: ManifestoCarregado, threadId: string): { status: ResultadoCi; verify: ResultadoVerify } {
