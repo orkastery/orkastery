@@ -1,0 +1,482 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm058n3",
+  "branch": "ork/ork-rm058n3-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-envelope.ts",
+      "alegacao": "T1 (D2): o contrato ork.noctum-envelope/v3 existe ao lado da v1 e da v2, com as máquinas do arco (nome e chave Ed25519 canônica), o limite global por conta e a máquina presa do trabalho; envelopeMultimaquina distingue o arco entre máquinas, e os motivos de recusa da N3 entram no tipo fechado MotivoDeRecusaDoArco.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"export const CONTRATO_ENVELOPE_V3 = 'ork.noctum-envelope/v3' as const;\" core/src/noctum-envelope.ts && grep -qF 'export function envelopeMultimaquina(' core/src/noctum-envelope.ts && grep -qF 'export function chavePublicaValida(' core/src/noctum-envelope.ts && grep -qF \"'noctum.coordenacao.adulterado'\" core/src/noctum-envelope.ts && grep -qF \"'noctum.integracao.base-mudou'\" core/src/noctum-envelope.ts"
+      ],
+      "criadoEm": "2026-10-13T01:44:45.424Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-arco.ts",
+      "alegacao": "T1 (D6): versoesAutorizadas lê o log do arco e devolve as versões do envelope que o dono autorizou nesta máquina, na ordem; é só leitura, e o teste A3 continua fixando que o módulo não exporta escritor de autorização sem prova.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function versoesAutorizadas(raiz: string, arco: string)' core/src/noctum-arco.ts"
+      ],
+      "criadoEm": "2026-10-13T01:44:47.434Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-envelope-v3.test.ts",
+      "alegacao": "T1: os casos EV1 a EV7 passam: a v3 completa vira conteúdo com as máquinas na ordem do dono; o que falta é listado de uma vez; chave que não é Ed25519 canônica, nome ou chave repetidos e mais de 8 máquinas são recusados; máquina presa fora da lista e o mesmo item preso a duas máquinas são recusados; o limite global cobre toda conta do orçamento e não passa da soma dos limites locais; o resumo mostra a impressão da chave; e as versões autorizadas saem na ordem do log.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-envelope-v3.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - EV[0-9]+:/{p++} END{exit !(p>=7 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:44:50.707Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-envelope.test.ts",
+      "alegacao": "T1: E1 a E18 seguem passando; o único ajuste é o caso de contrato desconhecido do E17, que trocou a v3 (agora conhecida) pela v9 e lê as três versões na mensagem.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"contrato: 'ork.noctum-envelope/v9'\" core/test/noctum-envelope.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-envelope.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - E[0-9]+:/{p++} END{exit !(p>=18 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:44:53.406Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-arco.test.ts",
+      "alegacao": "T1: A1 a A31 seguem passando; o A3 acrescenta versoesAutorizadas à lista fechada do que o módulo exporta, como leitura.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'textoDeAutorizacao', 'versoesAutorizadas']);\" core/test/noctum-arco.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-arco.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - A[0-9]+:/{p++} END{exit !(p>=31 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T01:44:55.964Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-maquinas-apoio.ts",
+      "alegacao": "T1: o apoio dos testes entre máquinas gera a chave Ed25519 SIMULADA e estável e o pedido de abertura v3 sobre o v2 do apoio da N2, com valores só de teste.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function pedidoV3(arco: string, o: OpcoesDoArcoV3)' core/test/noctum-maquinas-apoio.ts && grep -qF 'chave-SIMULADA-do-teste' core/test/noctum-maquinas-apoio.ts"
+      ],
+      "criadoEm": "2026-10-13T01:44:58.084Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-transporte.ts",
+      "alegacao": "T2 (D1, D5, D6, D7): o transporte da N3 grava registros assinados com a chave Ed25519 da máquina (derivada da chave local pelo domínio ork.noctum-maquina/v1) no ramo ork/noctum-coordenacao, por push sem força e com novas tentativas; a leitura é nova do remoto, confere assinatura, caminho, versão autorizada e máquina do envelope, e exige que a ponta desça da última vista e que só haja acréscimo, senão recusa inteira.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"export const BRANCH_DE_COORDENACAO = 'ork/noctum-coordenacao';\" core/src/noctum-transporte.ts && grep -qF \"const DOMINIO_DA_CHAVE = 'ork.noctum-maquina/v1';\" core/src/noctum-transporte.ts && grep -qF 'export function lerRamo(' core/src/noctum-transporte.ts && grep -qF 'export function gravarNoRamo<T>(' core/src/noctum-transporte.ts && grep -qF \"'merge-base', '--is-ancestor'\" core/src/noctum-transporte.ts"
+      ],
+      "criadoEm": "2026-10-13T01:45:52.289Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-maquinas-apoio.ts",
+      "alegacao": "T2: o apoio monta as duas máquinas do ensaio (dois clones do mesmo remoto bare de fixture, cada um com a raiz de estado dele e o mesmo envelope v3 autorizado pelo ingresso simulado) e a escrita à mão no ramo, que os testes de adulteração usam.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function duasMaquinas(nome: string' core/test/noctum-maquinas-apoio.ts && grep -qF 'export function gravarCru(' core/test/noctum-maquinas-apoio.ts"
+      ],
+      "criadoEm": "2026-10-13T01:45:57.662Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-coordenacao.ts",
+      "alegacao": "T3 (D3, D4, D8 a D12): a coordenação deriva do ramo a autoridade por geração, as ordens com recibos e cancelamento, as vagas e o consumo somando as máquinas, as vezes de integrar e as batidas, conferindo quem assina cada tipo e a coerência entre eles; a ordem aceita e cancelada sem fim confirmado fica isolada e não transfere; a batida vence em 15 min (três cadências); e o plano de reconciliação só encerra a ordem vencida sem sessão viva nem vez ativa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export const BATIDA_VENCIDA_MS = 3 * CADENCIA_MS;' core/src/noctum-coordenacao.ts && grep -qF 'export function derivarCoordenacao(' core/src/noctum-coordenacao.ts && grep -qF 'export function distribuirOrdens(' core/src/noctum-coordenacao.ts && grep -qF 'export function tomarVagaGlobal(' core/src/noctum-coordenacao.ts && grep -qF 'export function planejarReconciliacao(' core/src/noctum-coordenacao.ts && grep -qF \"ultima.estado === 'aceita' ? 'em-execucao' : 'isolado'\" core/src/noctum-coordenacao.ts"
+      ],
+      "criadoEm": "2026-10-13T01:46:56.710Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-integracao.ts",
+      "alegacao": "T4 (D13): a vez de integrar por arco e destino é tomada por troca atômica com o candidato; depois de tomá-la, a base e a branch são relidas do remoto, e base ou fonte diferente invalidam o candidato e soltam a vez; logo antes do efeito vêm a conferência da N1 com merge e a ordem relida; o merge é conferido no remoto e a entrega e o fim da vez vão juntos; e a reconciliação registra o merge que já estava na base sem integrar de novo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function integrarComVez(' core/src/noctum-integracao.ts && grep -qF 'export function reconciliarIntegracao(' core/src/noctum-integracao.ts && grep -qF \"throw recusa('noctum.integracao.base-mudou'\" core/src/noctum-integracao.ts && grep -qF \"acao: 'merge'\" core/src/noctum-integracao.ts"
+      ],
+      "criadoEm": "2026-10-13T01:47:55.516Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-maquinas-apoio.ts",
+      "alegacao": "T4: o apoio cria branches de trabalho SIMULADAS em cima da main do remoto de fixture, atualiza a branch com a base nova e integra por avanço sem forçar, para os testes da vez de integrar.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function branchDeTrabalho(' core/test/noctum-maquinas-apoio.ts && grep -qF 'export function integradorPorAvanco(' core/test/noctum-maquinas-apoio.ts"
+      ],
+      "criadoEm": "2026-10-13T01:48:01.235Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fila.ts",
+      "alegacao": "T5 (D14): a fila da N2 ganha só a coordenação opcional do arco entre máquinas: o trabalho sem ordem aceita desta máquina fica bloqueado com sem-ordem, e o entregue em outra máquina conta como entregue aqui, também nas dependências; sem ela, a fila é a da N2 como estava.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export interface CoordenacaoDaFila { trabalhos: ReadonlySet<string>; entregues: ReadonlyMap<string, string> }' core/src/noctum-fila.ts && grep -qF \"return bloqueado('sem-ordem',\" core/src/noctum-fila.ts"
+      ],
+      "criadoEm": "2026-10-13T01:49:22.144Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "T5 (D14): o passo da N2 repassa a coordenação à fila e, com o envelope v3, só despacha chamado pelo passo da máquina; sem a coordenação, espera com noctum.coordenacao.exige-passo-da-maquina.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"motivo: 'noctum.coordenacao.exige-passo-da-maquina'\" core/src/noctum-execucao.ts && grep -qF 'coordenacao: opcoes.coordenacao' core/src/noctum-execucao.ts"
+      ],
+      "criadoEm": "2026-10-13T01:49:24.497Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-maquinas-apoio.ts",
+      "alegacao": "T5: o apoio simula o passo da N2 sem runtime (sessões, perfil, despacho com o id da sessão levando o pid e thread sem worktree) e a entrega da thread pela sessão do bloco, para os testes do passo da máquina e do ensaio.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function n2Simulada(' core/test/noctum-maquinas-apoio.ts && grep -qF 'export function entregarThread(' core/test/noctum-maquinas-apoio.ts"
+      ],
+      "criadoEm": "2026-10-13T01:49:31.784Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T7: o CHANGELOG traz, em Não publicado, a linha da fatia N3 do #Noctum (contrato v3, transporte assinado, autoridade por geração, transferência só com prova, vaga global, um integrador por destino, reconciliação e o ensaio com dois executores), e passa no markdownlint e no checar-changelog contra a origin/main.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF -- '- **#Noctum, fatia N3: coordenação entre máquinas** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): o contrato' CHANGELOG.md && core/node_modules/.bin/markdownlint-cli2 --no-globs CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-13T01:54:51.566Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-maquinas.ts",
+      "alegacao": "Critério 13 do GOAL: nada fora dos módulos do #Noctum usa o transporte, a coordenação, a integração ou o passo da máquina da N3 (nenhum comando do CLI, ferramenta do MCP ou gateway grava no ramo de coordenação), e #Noctum segue fora dos modos aceitos (E9, na claim C4).",
+      "negativa": true,
+      "verificar": [
+        "test -z \"$(grep -rlE 'noctum-(maquinas|coordenacao|transporte|integracao)' core/src | grep -vE '^core/src/noctum-')\""
+      ],
+      "criadoEm": "2026-10-13T01:56:23.843Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-maquinas.ts",
+      "alegacao": "Autorrevisão do GO: a conta sem vaga global agora sai da escolha de perfil do passo da N2, para o despacho sair por outra conta que tenha; sem nenhuma, o passo da máquina espera com noctum.coordenacao.vaga-global sem reservar nada; e as reservas são lidas antes das respostas, para recusar de saída o item de outra máquina.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'perfis: () => perfisDaN2().filter(p => !semVaga.has(p.id)),' core/src/noctum-maquinas.ts && grep -qF \"'nenhuma conta do envelope tem vaga somando as máquinas agora'\" core/src/noctum-maquinas.ts"
+      ],
+      "criadoEm": "2026-10-13T02:35:20.247Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-transporte.ts",
+      "alegacao": "GO-FIX 1 (D16, D17, D18, D22, D24): a leitura confere a coerência de quem chama antes de avançar a última ponta vista; o registro de uma emenda que esta máquina ainda não autorizou é noctum.coordenacao.versao-nao-autorizada, espera e não adulteração; o fim do que é da máquina sai sob a última versão em que ela estava; a batida não volta no tempo; e o commit leva a identidade da máquina, não a do git de quem a usa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'conferir?.(leitura);' core/src/noctum-transporte.ts && grep -qF \"new RecusaDoArco('noctum.coordenacao.versao-nao-autorizada'\" core/src/noctum-transporte.ts && grep -qF 'function versaoParaAssinar(' core/src/noctum-transporte.ts && grep -qF 'voltou no tempo depois de vista' core/src/noctum-transporte.ts && grep -qF \"email: 'ork-noctum@noctum.invalid'\" core/src/noctum-transporte.ts"
+      ],
+      "criadoEm": "2026-10-13T04:21:03.500Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-transporte.test.ts",
+      "alegacao": "Os casos T1 a T11 passam com dois clones de um remoto bare de fixture: além dos oito do T2, a emenda que esta máquina não autorizou é espera e não grava nem lê (T8), a batida não volta no tempo nem para quem grava nem para quem lê (T9), a última ponta vista só avança depois da coerência de quem chama e o reparo do ramo para a ponta boa volta a ler (T10), e o commit do ramo leva a identidade da máquina (T11).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-transporte.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - T[0-9]+:/{p++} END{exit !(p>=11 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:21:09.121Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-coordenacao.ts",
+      "alegacao": "GO-FIX 1 (D15, D19, D20, D21, D22): a geração nova da autoridade sela os registros da anterior, e o que a vencida grava depois reprova a leitura; a reserva da RM-047 lida agora decide para qual máquina a ordem vai ou se ela espera, com o motivo tipado só com o item; a autoridade abandona a vez de integrar de quem não dá sinal; a revogação do dono numa máquina vai ao ramo e vale em todas; e o sinal de vida é o registro mais novo da máquina.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'export function seloDaGeracao(' core/src/noctum-coordenacao.ts && grep -qF 'a autoridade vencida gravou depois de perder a vez' core/src/noctum-coordenacao.ts && grep -qF 'function recusouPelaReserva(' core/src/noctum-coordenacao.ts && grep -qF 'export function registrosDosAbandonos(' core/src/noctum-coordenacao.ts && grep -qF 'export function revogarNaRede(' core/src/noctum-coordenacao.ts && grep -qF 'const em = estado.sinais.get(maquina);' core/src/noctum-coordenacao.ts && grep -qF 'export const motivoDaReservaDeFora' core/src/noctum-coordenacao.ts"
+      ],
+      "criadoEm": "2026-10-13T04:21:15.438Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-coordenacao.test.ts",
+      "alegacao": "Os casos K1 a K16 passam: além dos dez do T3 (com os motivos próprios da dependência e da recusa, o sinal da autoridade recém-assumida, o hash na resposta pura e a reserva que decide a ordem), a geração vencida não grava mais nem ordem, nem cancelamento, nem abandono (K11); cancelamento, recibo e entrega de quem não pode assinar reprovam a leitura (K12); a revogação numa máquina vale em todas (K13); a recusa pela reserva espera a reserva mudar, e outra recusa ou o item inválido excluem a máquina (K14); só a autoridade abandona a vez de quem não dá sinal, e a vez ativa ou abandonada segura o fim da ordem (K15); e a máquina tirada por emenda fecha o que é dela (K16).",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-coordenacao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - K[0-9]+:/{p++} END{exit !(p>=16 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:21:22.062Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-integracao.ts",
+      "alegacao": "GO-FIX 1 (D20, D21, D23): a conferência da N1 com merge vem antes de tomar a vez de integrar e de novo logo antes do efeito; a revogação gravada no ramo impede a vez; e a reconciliação registra a entrega da vez abandonada cuja fonte chegou à base, e só libera a ordem dela depois de ler a base sem a fonte.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'function conferirMerge(' core/src/noctum-integracao.ts && grep -c 'conferirMerge(carregado, arco' core/src/noctum-integracao.ts | grep -qx 2 && grep -qF 'abandonadasConferidas' core/src/noctum-integracao.ts && grep -qF 'noctum.coordenacao.revogada' core/src/noctum-integracao.ts"
+      ],
+      "criadoEm": "2026-10-13T04:21:27.190Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-integracao.test.ts",
+      "alegacao": "Os casos I1 a I9 passam com branches de trabalho reais num remoto bare de fixture: além dos sete do T4, a revogação que chega entre a vez e o merge segura o efeito pela N1, a máquina com o arco revogado nem toma a vez de novo, e a revogação no ramo impede a vez da outra máquina (I8); e a vez de quem não dá sinal é abandonada pela autoridade, o destino volta a andar, a volta registra o merge que chegou sem integrar de novo, e a vez abandonada sem merge é conferida na base (I9).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-integracao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - I[0-9]+:/{p++} END{exit !(p>=9 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:21:32.469Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-maquinas.ts",
+      "alegacao": "T5 e GO-FIX 1: o passo da máquina reconcilia; fora do envelope vigente, com o arco revogado aqui (levando a revogação ao ramo) ou revogado na rede, espera; a autoridade grava numa vez a batida, os abandonos de vez e as ordens, com as reservas lidas agora; a reserva perdida ou o item inválido encerram a ordem que nunca despachou, com o motivo tipado; e o passo da N2 recebe a coordenação com os trabalhos permitidos, os entregues na rede e o gancho reservar da vaga global.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'export function passoDaMaquina(' core/src/noctum-maquinas.ts && grep -qF 'coordenacao: { trabalhos: permitidos, entregues: entreguesNaRede(estado), reservar } });' core/src/noctum-maquinas.ts && grep -qF 'revogarNaRede(carregado, arco, op);' core/src/noctum-maquinas.ts && grep -qF 'registrosDosAbandonos(e, eu, quando)' core/src/noctum-maquinas.ts && grep -qF \"'noctum.coordenacao.fora-do-envelope'\" core/src/noctum-maquinas.ts"
+      ],
+      "criadoEm": "2026-10-13T04:21:39.573Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-maquinas.test.ts",
+      "alegacao": "Os casos M1 a M14 passam: além dos dez anteriores (o M6 agora também recusa a coordenação sem o gancho reservar, e o M8 mostra a reserva levando a ordem para a máquina do arco que a tem e segurando a de fora), o M11 despacha o trabalho com ordem atrás de outro do mesmo item sem ordem, o M12 encerra a ordem que perdeu a reserva sem o nome de quem reservou no ramo e a emite de novo depois da soltura, o M13 faz a revogação numa máquina valer na outra e a máquina tirada por emenda fechar o que é dela, e o M14 leva o trabalho do item inválido para a outra máquina; os testes da N2 F1 a F17, X1 a X15 e C1 a C10 seguem passando.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-maquinas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - M[0-9]+:/{p++} END{exit !(p>=14 && f==0)}' && node --test-reporter=tap core/dist-test/test/noctum-fila.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - F[0-9]+:/{p++} END{exit !(p>=17 && f==0)}' && node --test-reporter=tap core/dist-test/test/noctum-execucao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - X[0-9]+:/{p++} END{exit !(p>=15 && f==0)}' && node --test-reporter=tap core/dist-test/test/noctum-capacidade.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - C[0-9]+:/{p++} END{exit !(p>=10 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:21:47.447Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "GO-FIX 1 (D23): o passo da N2 com o envelope v3 só despacha com a coordenação dada pelo passo da máquina e o gancho reservar dela, que vence o reservar de fora; sem o gancho, espera com noctum.coordenacao.exige-passo-da-maquina.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"typeof opcoes.coordenacao?.reservar !== 'function'\" core/src/noctum-execucao.ts && grep -qF '(opcoes.coordenacao?.reservar ?? opcoes.reservar ?? reservarDespacho)' core/src/noctum-execucao.ts && grep -qF 'coordenacao?: CoordenacaoDaFila & { reservar: typeof reservarDespacho };' core/src/noctum-execucao.ts"
+      ],
+      "criadoEm": "2026-10-13T04:21:52.702Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-envelope.ts",
+      "alegacao": "GO-FIX 1: os motivos novos da N3 (versão ainda não autorizada, arco revogado na rede, dependência pendente, máquina que recusou e item que o roadmap não tem) entram no tipo fechado MotivoDeRecusaDoArco.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'noctum.coordenacao.versao-nao-autorizada', 'noctum.coordenacao.revogada', 'noctum.coordenacao.dependencia-pendente',\" core/src/noctum-envelope.ts && grep -qF \"'noctum.coordenacao.maquina-recusou', 'noctum.reserva.item-invalido',\" core/src/noctum-envelope.ts"
+      ],
+      "criadoEm": "2026-10-13T04:21:57.533Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/branch-de-estado.ts",
+      "alegacao": "GO-FIX 1 (D24): gravarNaBranch aceita a identidade do commit por parâmetro opcional, usada só pelo ramo de coordenação da N3; sem ela, o commit sai como antes, e os testes da branch de estado e das reservas da RM-047 seguem passando.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'autor?: { nome: string; email: string }): string | false {' core/src/branch-de-estado.ts && grep -qF 'GIT_COMMITTER_EMAIL: autor.email' core/src/branch-de-estado.ts && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/branch-de-estado-remoto.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - /{p++} END{exit !(p>=7 && f==0)}' && node --test-reporter=tap core/dist-test/test/roadmap-reservas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - /{p++} END{exit !(p>=7 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:22:03.348Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-ensaio.test.ts",
+      "alegacao": "O aceite da tabela para a N3: os casos R1 a R9 passam com duas raízes de estado e processos filhos sobre um remoto bare de fixture. Além dos sete do T6, o R2 roda com o limite global em 1 e sessões que vivem dois passos, nunca passa de uma vaga ativa refazendo o ramo commit a commit e mostra a espera pela vaga; o R8 prova o vencedor por item pela reserva (quem é de fora e pega antes impede o despacho, e na corrida de dois processos só um fica com o item, e o arco despacha se e só se ficou com ele); e o R9 põe dois processos na última vaga global, pela troca atômica e pelo passo inteiro, com um vencedor e a reserva local do outro devolvida.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-ensaio.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R[0-9]+:/{p++} END{exit !(p>=9 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:22:09.585Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-ensaio-executor.ts",
+      "alegacao": "GO-FIX 1: o executor do ensaio, rodado como processo filho, ganha os modos um-passo, pegar (alguém de fora do arco reserva o item pela RM-047) e vaga (a vaga global de uma ordem aceita), e no modo passos cada sessão vive os passos pedidos; os dois modos que caem por SIGKILL ficam como estavam.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"modo: 'assumir' | 'passos' | 'um-passo' | 'pegar' | 'vaga' | 'integrar' | 'despachar-e-cair' | 'integrar-e-cair';\" core/test/noctum-ensaio-executor.ts && grep -qF \"process.kill(process.pid, 'SIGKILL');\" core/test/noctum-ensaio-executor.ts && grep -qF 'if (++s.idade >= (pedido.vida ?? 1))' core/test/noctum-ensaio-executor.ts"
+      ],
+      "criadoEm": "2026-10-13T04:22:15.779Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-maquinas-apoio.ts",
+      "alegacao": "GO-FIX 1: o apoio das duas máquinas aceita itens do envelope sem página no roadmap do remoto (semPagina), para o teste do item que só o checkout de uma das máquinas tem.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'semPagina?: string[] }): DuasMaquinas {' core/test/noctum-maquinas-apoio.ts"
+      ],
+      "criadoEm": "2026-10-13T04:22:17.577Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 1: a linha da fatia N3 em Não publicado diz também o selo da geração, a revogação do dono valendo em todas as máquinas, a reserva decidindo para qual máquina a ordem vai sem levar ao ramo quem reservou, o abandono da vez de quem não dá sinal e a identidade da máquina nos commits; o CHANGELOG passa no markdownlint e no checar-changelog contra a origin/main.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'com cada geração nova selando os registros da anterior' CHANGELOG.md && grep -qF 'a revogação do dono numa máquina valendo em todas' CHANGELOG.md && grep -qF 'sem levar ao ramo quem' CHANGELOG.md && core/node_modules/.bin/markdownlint-cli2 --no-globs CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-13T04:22:25.352Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "T7 e GO-FIX 1: a seção N3 da página da RM-058 traz o contrato, o transporte (com a emenda não autorizada como espera, a vista depois da coerência e a identidade da máquina nos commits), a autoridade com o selo da geração, as ordens com a reserva decidindo para onde vão, a revogação em todas as máquinas, o vencedor por item, as vagas, a vez de integrar com o abandono pela autoridade, o passo da máquina, a interface para a N4 e os limites ditos; a evidência e o histórico citam os testes até R9, e a página passa no markdownlint.",
+      "negativa": true,
+      "verificar": [
+        "grep -qxF '### N3: coordenação entre máquinas' docs/roadmap/RM-058-modo-noctum.md && grep -qxF '  thread: ork-rm058n3' docs/roadmap/RM-058-modo-noctum.md && grep -qF '**Revogação em todas as máquinas:**' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'noctum.coordenacao.versao-nao-autorizada' docs/roadmap/RM-058-modo-noctum.md && grep -qF '**Interface para a retomada em outra máquina (N4):**' docs/roadmap/RM-058-modo-noctum.md && grep -qF '(R1 a R9), com duas raízes de estado e processos filhos' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'M1 a M14 e R1 a R9 | Fábrica Orkastery' docs/roadmap/RM-058-modo-noctum.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/roadmap/RM-058-modo-noctum.md"
+      ],
+      "criadoEm": "2026-10-13T04:22:45.384Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C45",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
