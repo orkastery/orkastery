@@ -1,3 +1,6 @@
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type { ExecutorGitHub } from '../../entrega-pr';
 import type { ExecutorDoGh, PrDaForja } from '../../parado-no-condutor';
 import type { PedidoMesclado } from '../contrato';
@@ -64,6 +67,14 @@ export function pedidosDaBranchGithub(e: { host: string; repositorio: string; ba
 /** Abre o PR da branch na base. */
 export function abrirPedidoGithub(e: { host: string; repositorio: string; base: string; branch: string; titulo: string; corpo: string;
   executor: ExecutorDoGh; prazoMs: number }): { status: number | null; stdout: string; stderr: string } {
-  return e.executor(['pr', 'create', `--repo=${e.host}/${e.repositorio}`, `--base=${e.base}`, `--head=${e.branch}`, `--title=${e.titulo}`,
-    `--body=${e.corpo}`], e.prazoMs);
+  // O corpo vai por arquivo 600 num diretorio proprio: texto que parece flag (`--repo=outro/repo`) ou de 64 KiB nao toca o argv.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-pr-'));
+  try {
+    const arquivo = path.join(dir, 'corpo.md');
+    fs.writeFileSync(arquivo, e.corpo, { mode: 0o600 });
+    return e.executor(['pr', 'create', `--repo=${e.host}/${e.repositorio}`, `--base=${e.base}`, `--head=${e.branch}`, `--title=${e.titulo}`,
+      '--body-file', arquivo], e.prazoMs);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }

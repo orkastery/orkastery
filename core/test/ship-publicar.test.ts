@@ -44,6 +44,8 @@ interface PrFalso {
 function ghFalso(p: ProjetoDeTeste, opcoes: { listaFalha?: boolean; criaMasFalha?: boolean } = {}) {
   const prs: PrFalso[] = [];
   const chamadas: string[][] = [];
+  // O corpo do PR vai por `--body-file` e o arquivo some depois da chamada: guarda o texto lido na hora.
+  const corpos: string[] = [];
   const opcao = (args: readonly string[], nome: string) => args.find((a) => a.startsWith(`--${nome}=`))?.slice(nome.length + 3);
   const executor: ExecutorDoGh = (args) => {
     chamadas.push([...args]);
@@ -58,6 +60,8 @@ function ghFalso(p: ProjetoDeTeste, opcoes: { listaFalha?: boolean; criaMasFalha
       return { status: 0, stdout: JSON.stringify(lista), stderr: '' };
     }
     if (args[0] === 'pr' && args[1] === 'create') {
+      const arquivoDoCorpo = args[args.indexOf('--body-file') + 1];
+      if (args.includes('--body-file') && fs.existsSync(arquivoDoCorpo)) corpos.push(fs.readFileSync(arquivoDoCorpo, 'utf8'));
       const head = opcao(args, 'head') ?? '', base = opcao(args, 'base') ?? '';
       if (prs.some((x) => x.headRefName === head && x.state === 'OPEN')) {
         return { status: 1, stdout: '', stderr: `a pull request for branch "${head}" into branch "${base}" already exists` };
@@ -71,7 +75,7 @@ function ghFalso(p: ProjetoDeTeste, opcoes: { listaFalha?: boolean; criaMasFalha
     return { status: 1, stdout: '', stderr: `gh falso: ${args.join(' ')}` };
   };
   const criacoes = () => chamadas.filter((c) => c[0] === 'pr' && c[1] === 'create').length;
-  return { prs, chamadas, executor, criacoes };
+  return { prs, chamadas, corpos, executor, criacoes };
 }
 
 interface Entrega { id: string; branch: string }
@@ -186,7 +190,7 @@ test('publicar: em #Auto e #Maestro publica a branch, prova pelo ls-remote, abre
       const criacao = gh.chamadas.find((c) => c[1] === 'create')!;
       assert.ok(criacao.includes(`--head=${e.branch}`) && criacao.includes('--base=main'), criacao.join(' '));
       assert.ok(criacao.some((a) => a.startsWith(`--title=ship(${e.id}): `)), 'o titulo comeca por ship(<thread>)');
-      assert.ok(criacao.some((a) => a.startsWith('--body=')), 'sem pr-body.md, o corpo padrao');
+      assert.ok(criacao.includes('--body-file') && gh.corpos.length === 1 && gh.corpos[0].length > 0, 'sem pr-body.md, o corpo padrao, por arquivo');
       const ev = publicados(p, e.id);
       assert.equal(ev.length, 1);
       assert.equal(ev[0].pushVerificado, true);
@@ -400,7 +404,7 @@ test('publicar: a criacao que falha mas deixa o PR aberto e reaproveitada pela r
   } finally { p.limpar(); }
 });
 
-test('publicar: o titulo do PR vem do primeiro cabecalho do pr-body.md, e o corpo vai como o texto lido, nunca por arquivo', () => {
+test('publicar: o titulo do PR vem do primeiro cabecalho do pr-body.md, e o corpo vai como o texto lido, por arquivo temporario', () => {
   assert.equal(tituloDoPr({ id: 'ork-x', nome: 'x' }, '## RM-1, a coisa\n\ntexto'), 'ship(ork-x): RM-1, a coisa');
   assert.equal(tituloDoPr({ id: 'ork-x', nome: 'nome da thread' }, 'texto sem cabecalho\n# depois'), 'ship(ork-x): nome da thread');
   assert.equal(tituloDoPr({ id: 'ork-x', nome: 'x' }, '# ship(ork-x): ja pronto'), 'ship(ork-x): ja pronto');
@@ -423,8 +427,8 @@ test('publicar: o titulo do PR vem do primeiro cabecalho do pr-body.md, e o corp
     assert.equal(r.corpo, 'pr-body.md');
     const criacao = gh.chamadas.find((c) => c[1] === 'create')!;
     assert.ok(criacao.includes(`--title=ship(${e.id}): RM-059, a pista`), criacao.join(' '));
-    assert.ok(criacao.includes('--body=## RM-059, a pista\n\nCorpo do PR.\n'), criacao.join(' '));
-    assert.ok(!criacao.some((a) => a.startsWith('--body-file') || a.includes('TOKEN-DE-MENTIRA')), criacao.join(' '));
+    assert.deepEqual(gh.corpos, ['## RM-059, a pista\n\nCorpo do PR.\n']);
+    assert.ok(!criacao.some((a) => a.startsWith('--body=') || a.includes('TOKEN-DE-MENTIRA')), criacao.join(' '));
     // O corpo com NUL nao passa como argumento: vale o corpo padrao, e o titulo vem do nome da thread.
     const nul = prepararEntrega(p, 'corpo com nul', 'auto');
     fs.writeFileSync(path.join(dirThread(p.dir, nul.id), 'pr-body.md'), '## titulo\n\ncom NUL \0 no meio\n');

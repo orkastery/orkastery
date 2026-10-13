@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import * as fs from 'node:fs';
 import { adaptadorDaForja, exigirCapacidade } from '../src/forja/registro';
 
 const PR = { number: 9, state: 'OPEN', headRefName: 'ork/ork-x', headRefOid: 'a'.repeat(40), baseRefName: 'main', isDraft: false,
@@ -15,9 +16,17 @@ test('pedidosDaBranch chama o mesmo gh pr list de hoje e filtra a branch', () =>
   assert.deepEqual(chamadas[0].slice(0, 4), ['pr', 'list', '--repo=github.com/o/r', '--head=ork/ork-x']);
 });
 
-test('abrirPedido chama o mesmo gh pr create de hoje', () => {
-  const chamadas: string[][] = [];
+test('abrirPedido passa o corpo por arquivo 600 e não pelo argv', () => {
+  const corpo = '--repo=outro/repo\n' + 'x'.repeat(64 * 1024);
+  let visto: { modo: number; texto: string } | null = null;
   exigirCapacidade(adaptadorDaForja('github'), 'abrirPedido')({ host: 'github.com', repositorio: 'o/r', base: 'main', branch: 'ork/ork-x',
-    titulo: 't', corpo: 'c', prazoMs: 1000, executor: (args) => { chamadas.push([...args]); return { status: 0, stdout: '', stderr: '' }; } });
-  assert.deepEqual(chamadas[0], ['pr', 'create', '--repo=github.com/o/r', '--base=main', '--head=ork/ork-x', '--title=t', '--body=c']);
+    titulo: 't', corpo, prazoMs: 1000, executor: (args) => {
+      assert.ok(!args.some((a) => a.includes('outro/repo')));
+      const i = args.indexOf('--body-file');
+      assert.ok(i > 0);
+      const f = args[i + 1];
+      visto = { modo: fs.statSync(f).mode & 0o777, texto: fs.readFileSync(f, 'utf8') };
+      return { status: 0, stdout: '', stderr: '' };
+    } });
+  assert.deepEqual(visto, { modo: 0o600, texto: corpo });
 });
