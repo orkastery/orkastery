@@ -887,7 +887,7 @@ function vigenteConferido(raiz: string, arco: string, envelopeSha256: unknown, l
 }
 
 /** RM-058 N6 (D5 da ork-rm058n6): o consumo medido de um teto, na unidade dele, ou a lacuna que impede medir. */
-export type ValorMedido = { unidade: Teto['unidade']; valor: number } | { unidade: Teto['unidade']; lacuna: string };
+export type ValorMedido = { unidade: Teto['unidade']; valor: number; tetoSuperior?: boolean } | { unidade: Teto['unidade']; lacuna: string };
 /** O consumo medido dos três tetos de um despacho, lido fora do lock do arco (`medidoParaReserva`, em `noctum-medicao.ts`). */
 export interface ConsumoMedidoDoDespacho { arco?: ValorMedido; conta?: ValorMedido; runtime?: ValorMedido }
 
@@ -990,13 +990,15 @@ export function reservarDespacho(raiz: string, pedido: PedidoDeDespacho, quando 
       if (teto.unidade !== 'sessoes') {
         // RM-058 N6 (D5): fora de `sessoes`, o consumo medido fora do lock decide; sem medida, ou com lacuna, recusa.
         const medido = pedido.medido?.[chave];
-        if (!medido || medido.unidade !== teto.unidade || 'lacuna' in medido) {
+        if (!medido || medido.unidade !== teto.unidade || 'lacuna' in medido || !Number.isFinite(medido.valor)) {
           throw new RecusaDoArco('noctum.orcamento.sem-medicao', `o teto ${nome} está em ${teto.unidade}, e o consumo nessa unidade não foi ` +
             `medido para esta reserva${medido && 'lacuna' in medido ? ` (${medido.lacuna})` : ''}: sem medir, o teto não é garantido, e ` +
             'consumo desconhecido nunca vale zero');
         }
         if (medido.valor >= teto.valor) {
-          throw new RecusaDoArco('noctum.orcamento.esgotado', `o teto ${nome} é de ${teto.valor} ${teto.unidade} e o consumo medido é ${medido.valor}`);
+          const valor = teto.unidade === 'percentual-da-cota' ? `${Math.round(medido.valor * 10) / 10}%` : String(medido.valor);
+          throw new RecusaDoArco('noctum.orcamento.esgotado', `o teto ${nome} é de ${teto.valor} ${teto.unidade} e o consumo medido é ` +
+            (medido.tetoSuperior ? `até ${valor} (teto superior: inclui uso de fora do arco)` : valor));
         }
         continue;
       }

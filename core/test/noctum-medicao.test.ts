@@ -280,3 +280,56 @@ test('ME12: o texto do consumo diz valor, parcial, teto superior e lacuna, sem n
   assert.equal(textoDoConsumo(c({ valor: null, lacunas: ['reserva pendente'] })), 'lacuna (reserva pendente)');
   assert.equal(textoDoConsumo(c({ unidade: 'percentual-da-cota' as never, valor: 42.25, tetoSuperior: true })), 'até 42.3% (teto superior)');
 });
+
+/** O pedido v2 com o teto do arco na unidade dada (os subtetos seguem em sessões). */
+function pedidoComTeto(arco: string, unidade: string, valor: number, trabalhos: Parameters<typeof pedidoV2>[1]['trabalhos']): Record<string, unknown> {
+  const p = pedidoV2(arco, { trabalhos });
+  return { ...p, orcamento: { ...(p.orcamento as Record<string, unknown>), arco: { valor, unidade } } };
+}
+
+test('ME13: teto em percentual da cota nunca admite o claude-bg, nem com o zero provado de um escopo sem sessão; o codex com zero provado passa', () => {
+  // Achado do CHECK: o primeiro despacho do claude-bg passava com "consumo 0" e, dali em diante, tudo virava lacuna até o fim.
+  const conteudo = validarPedidoDeAbertura(pedidoComTeto('arco-me13', 'percentual-da-cota', 50,
+    [{ id: 't1', item: 'RM-901', prioridade: 1, dependeDe: [], thread: 'ork-simulada' }]));
+  const vazio = medirArco('/nao-usado', estado([]), { quando: T0, fontes: fontes({}) });
+  assert.equal(consumoDoEscopoNaUnidade(vazio, 'arco', 'percentual-da-cota').valor, 0, 'sem sessão, o escopo mede zero provado');
+  const claude = medidoParaReserva(vazio, conteudo, 'perfil-a', 'claude-bg');
+  assert.ok(claude.arco && 'lacuna' in claude.arco && /só mostra a cota dentro da sessão/.test(claude.arco.lacuna), JSON.stringify(claude));
+  const codex = medidoParaReserva(vazio, conteudo, 'perfil-a', 'codex');
+  assert.deepEqual(codex.arco, { unidade: 'percentual-da-cota', valor: 0 });
+});
+
+test('ME14: instante que não é data vira lacuna, NaN nunca passa na reserva e o teto superior sai como teto superior na recusa', { skip: semKernel }, () => {
+  const e = estado([{ threadDespachada: 'th-a', sessionId: uuid(1) }]);
+  const m = medirArco('/nao-usado', e, { quando: T0, fontes: fontes({ eventos: { 'th-a': [ev('phase_dispatch', 'não é data', uuid(1))] } }) });
+  assert.equal(m.doArco['minutos-de-sessao'].valor, null);
+  assert.match(m.doArco['minutos-de-sessao'].lacunas.join(), /instante ilegível no ledger da thread th-a/);
+  const raiz = dirTemporario('noctum-me14');
+  fs.mkdirSync(path.join(raiz, '.orkastery'));
+  try {
+    const trabalhos = [{ id: 't1', item: 'RM-901', prioridade: 1, dependeDe: [], thread: 'ork-simulada-t1' }];
+    const shaMin = autorizarPedido(raiz, 'arco-me14', pedidoComTeto('arco-me14', 'minutos-de-sessao', 60, trabalhos));
+    const shaCota = autorizarPedido(raiz, 'arco-me14b', pedidoComTeto('arco-me14b', 'percentual-da-cota', 50, trabalhos));
+    const pedido = (arco: string, sha256: string, medido: PedidoDeDespacho['medido']): PedidoDeDespacho => ({ arco, envelopeSha256: sha256,
+      trabalho: 't1', thread: 'ork-simulada-t1', fase: 'GO', runtime: 'claude-bg', conta: 'perfil-a', revisao: false, medido });
+    const motivo = (fn: () => unknown): string => { try { fn(); } catch (x) { assert.ok(x instanceof RecusaDoArco); return `${x.motivo}|${x.message}`; } return 'passou'; };
+    assert.match(motivo(() => reservarDespacho(raiz, pedido('arco-me14', shaMin, { arco: { unidade: 'minutos-de-sessao', valor: Number.NaN } }))),
+      /^noctum\.orcamento\.sem-medicao\|/);
+    assert.match(motivo(() => reservarDespacho(raiz, pedido('arco-me14b', shaCota,
+      { arco: { unidade: 'percentual-da-cota', valor: 63.00000000000001, tetoSuperior: true } }))),
+      /^noctum\.orcamento\.esgotado\|.*consumo medido é até 63% \(teto superior: inclui uso de fora do arco\)/);
+  } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
+});
+
+test('ME15: o ledger de cada thread é lido uma vez por medição, e as transcrições vêm uma de cada vez', () => {
+  const e = estado([{ threadDespachada: 'th-a', sessionId: uuid(1) }, { threadDespachada: 'th-a', sessionId: uuid(2), trabalho: 't9' }]);
+  let leituras = 0;
+  const base = fontes({ eventos: { 'th-a': [ev('phase_dispatch', T0, uuid(1)), ev('phase_dispatch', T0, uuid(2))] } });
+  medirArco('/nao-usado', e, { quando: depois(T0, 10 * MIN), fontes: { ...base, eventos: (t) => { leituras += 1; return base.eventos!(t); } } });
+  assert.equal(leituras, 1, 'duas sessões da mesma thread, uma leitura do ledger');
+  const lidos: string[] = [];
+  const gerador = function* () { for (const t of [uso('m1', 1, 0, 0, 1), uso('m1', 1, 0, 0, 1), uso('m2', 2, 0, 0, 2)]) { lidos.push(t); yield Buffer.from(t); } };
+  const t = tokensDasTranscricoes(gerador());
+  assert.ok('valor' in t && t.valor === 6, JSON.stringify(t));
+  assert.equal(lidos.length, 3);
+});

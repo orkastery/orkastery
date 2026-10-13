@@ -164,7 +164,7 @@ function linhasJson(bruto: Buffer): { linhas: unknown[]; ilegivel: number } | nu
  * Os tokens das transcrições do Claude Code: um uso por `message.id`, somando entrada, criação de cache, leitura de
  * cache e saída. Linha ilegível no meio (não a cauda em gravação) é lacuna: ela poderia esconder uso.
  */
-export function tokensDasTranscricoes(conteudos: Buffer[]): Medida {
+export function tokensDasTranscricoes(conteudos: Iterable<Buffer>): Medida {
   const vistos = new Set<string>();
   let total = 0;
   for (const bruto of conteudos) {
@@ -255,8 +255,11 @@ function medirSessao(d: EstadoDoArco['despachos'][number], quando: string, fonte
   const inicio = eventos.find(e => e.tipo === TIPOS_DE_EVENTO.faseDespachada && e.sessionId === sessionId)?.ts ?? null;
   const fim = inicio ? eventos.find(e => FIM_DA_SESSAO.includes(e.tipo) && e.sessionId === sessionId && e.ts >= inicio)?.ts ?? null : null;
   const emVoo = fim === null;
+  const duracao = inicio ? Math.ceil((Date.parse(fim ?? quando) - Date.parse(inicio)) / 60_000) : Number.NaN;
   const minutos: Medida = !inicio ? { lacuna: `sem o phase_dispatch da sessão ${sessionId} no ledger da thread ${thread}` }
-    : { valor: Math.max(0, Math.ceil((Date.parse(fim ?? quando) - Date.parse(inicio)) / 60_000)), parcial: emVoo, tetoSuperior: false,
+    // Instante que não é data (linha emendada à mão) não vira NaN abaixo do teto: é lacuna.
+    : !Number.isFinite(duracao) ? { lacuna: `instante ilegível no ledger da thread ${thread} para a sessão ${sessionId}` }
+    : { valor: Math.max(0, duracao), parcial: emVoo, tetoSuperior: false,
       fonte: emVoo ? 'do phase_dispatch até a leitura (sessão em voo)' : 'do phase_dispatch ao resultado gravado no ledger' };
   const perfil = fontes.perfil(d.conta);
   let tokens: Medida;
@@ -271,8 +274,13 @@ function medirSessao(d: EstadoDoArco['despachos'][number], quando: string, fonte
     if (!cwd) tokens = { lacuna: `a thread ${thread} não diz onde a sessão rodou` };
     else if (!arquivos) tokens = { lacuna: `sem a transcrição da sessão ${sessionId}` };
     else {
-      const conteudos = arquivos.map(a => fontes.ler(a));
-      tokens = conteudos.some(c => c === null) ? { lacuna: 'transcrição que não se lê' } : tokensDasTranscricoes(conteudos as Buffer[]);
+      // Um arquivo por vez na memória: a sessão com muitos subagentes não junta todas as transcrições de uma vez.
+      let ilegivel = false;
+      const lidas = function* (): Generator<Buffer> {
+        for (const a of arquivos) { const c = fontes.ler(a); if (c === null) { ilegivel = true; return; } yield c; }
+      };
+      const medida = tokensDasTranscricoes(lidas());
+      tokens = ilegivel ? { lacuna: 'transcrição que não se lê' } : medida;
     }
   } else if (d.runtime === 'codex') {
     const arquivo = fontes.rollout(perfil, sessionId);
@@ -299,7 +307,11 @@ function vazio(unidade: Unidade): ConsumoNaUnidade {
 
 function somar(alvo: ConsumoNaUnidade, m: Medida, origem: string): void {
   alvo.sessoes += 1;
-  if ('lacuna' in m) { alvo.lacunas.push(`${origem}: ${m.lacuna}`); alvo.valor = null; return; }
+  if ('lacuna' in m || !Number.isFinite(m.valor)) {
+    alvo.lacunas.push(`${origem}: ${'lacuna' in m ? m.lacuna : 'medida que não é número'}`);
+    alvo.valor = null;
+    return;
+  }
   if (alvo.valor !== null) alvo.valor += m.valor;
   alvo.parcial = alvo.parcial || m.parcial;
   alvo.tetoSuperior = alvo.tetoSuperior || m.tetoSuperior;
@@ -329,7 +341,13 @@ function consumoDoEscopo(sessoes: MedicaoDeSessao[], sessoesNaUnidade: number): 
 /** Mede o consumo do arco no instante dado. Sem gravar nada; a sessão repetida (o mesmo id) conta uma vez. */
 export function medirArco(raiz: string, estado: EstadoDoArco, opcoes: { quando?: string; fontes?: Partial<FontesDeMedicao> } = {}): MedicaoDoArco {
   const quando = opcoes.quando ?? new Date().toISOString();
-  const fontes: FontesDeMedicao = { ...fontesDoDisco(raiz), ...opcoes.fontes };
+  const base: FontesDeMedicao = { ...fontesDoDisco(raiz), ...opcoes.fontes };
+  // O ledger de cada thread é lido uma vez por medição, e não uma vez por sessão.
+  const ledgers = new Map<string, EventoLedger[] | null>();
+  const fontes: FontesDeMedicao = { ...base, eventos: (thread) => {
+    if (!ledgers.has(thread)) ledgers.set(thread, base.eventos(thread));
+    return ledgers.get(thread)!;
+  } };
   const vistas = new Set<string>();
   const sessoes: MedicaoDeSessao[] = [];
   for (const d of estado.despachos) {
@@ -364,16 +382,22 @@ export function precisaMedir(conteudo: ConteudoDoEnvelope): boolean {
 
 
 const valorMedido = (c: ConsumoNaUnidade): ValorMedido => c.valor === null
-  ? { unidade: c.unidade, lacuna: c.lacunas.join('; ') || 'consumo desconhecido' } : { unidade: c.unidade, valor: c.valor };
+  ? { unidade: c.unidade, lacuna: c.lacunas.join('; ') || 'consumo desconhecido' }
+  : { unidade: c.unidade, valor: c.valor, ...(c.tetoSuperior ? { tetoSuperior: true } : {}) };
 
 /** O consumo medido dos três tetos de um despacho (arco, conta e runtime), cada um na unidade dele. */
 export function medidoParaReserva(medicao: MedicaoDoArco, conteudo: ConteudoDoEnvelope, conta: string, runtime: string): ConsumoMedidoDoDespacho {
   const o = conteudo.orcamento;
   const daConta = o.porConta.find(s => s.conta === conta)?.teto, doRuntime = o.porRuntime.find(s => s.runtime === runtime)?.teto;
+  // A sessão do claude-bg nunca terá a cota medida fora dela: o teto em percentual não se garante para ela, nem com o
+  // zero provado de um escopo ainda sem sessão (runtime sem medição suficiente não é elegível para o regime).
+  const medido = (c: ConsumoNaUnidade): ValorMedido => c.unidade === 'percentual-da-cota' && runtime === 'claude-bg'
+    ? { unidade: c.unidade, lacuna: 'o Claude Code só mostra a cota dentro da sessão, e o teto em percentual não se garante para ele' }
+    : valorMedido(c);
   return {
-    arco: valorMedido(consumoDoEscopoNaUnidade(medicao, 'arco', o.arco.unidade)),
-    ...(daConta ? { conta: valorMedido(consumoDoEscopoNaUnidade(medicao, { conta }, daConta.unidade)) } : {}),
-    ...(doRuntime ? { runtime: valorMedido(consumoDoEscopoNaUnidade(medicao, { runtime }, doRuntime.unidade)) } : {}),
+    arco: medido(consumoDoEscopoNaUnidade(medicao, 'arco', o.arco.unidade)),
+    ...(daConta ? { conta: medido(consumoDoEscopoNaUnidade(medicao, { conta }, daConta.unidade)) } : {}),
+    ...(doRuntime ? { runtime: medido(consumoDoEscopoNaUnidade(medicao, { runtime }, doRuntime.unidade)) } : {}),
   };
 }
 
