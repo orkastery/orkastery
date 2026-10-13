@@ -18,8 +18,10 @@ import { kernelDisponivel } from '../src/fila-pesada';
 import { registrar } from '../src/ledger';
 import { lerArco } from '../src/noctum-arco';
 import {
-  assumirAutoridade, BATIDA_VENCIDA_MS, cancelarOrdem, emitirOrdem, lerCoordenacao, reservaDestaMaquina, responderOrdem, situacaoDoTrabalho,
+  assumirAutoridade, bater, BATIDA_VENCIDA_MS, cancelarOrdem, emitirOrdem, lerCoordenacao, motivoDaReservaDeFora, reservaDoItem, responderOrdem,
+  situacaoDoTrabalho,
 } from '../src/noctum-coordenacao';
+import { listarReservas } from '../src/roadmap-reservas';
 import { integrarComVez } from '../src/noctum-integracao';
 import { passoDaMaquina } from '../src/noctum-maquinas';
 import { BRANCH_DE_COORDENACAO } from '../src/noctum-transporte';
@@ -108,12 +110,13 @@ test('R1: dois processos disputam a autoridade do arco: um fica com a geração 
 });
 
 test('R2: dois executores ao mesmo tempo entregam tudo, com uma máquina por item e nunca acima do limite global da conta', { skip: semKernel }, async () => {
-  const m = cenario('noctum-r2', { n: 4, global: 2 });
+  // B3 da revisão: o limite global é 1 e cada sessão vive dois passos, então a outra máquina precisa esperar a vaga.
+  const m = cenario('noctum-r2', { n: 4, global: 1 });
   try {
     assumirAutoridade(m.a.carregado, m.arco, op(m, 'a'));
     // A B bate antes, para a primeira distribuição já contar com ela.
     passoDaMaquina(m.b.carregado, m.arco, { ...op(m, 'b'), n2: n2Simulada() });
-    const [a, b] = await juntos(m, { ...base(m, 'a'), modo: 'passos', passos: 25 }, { ...base(m, 'b'), modo: 'passos', passos: 25 });
+    const [a, b] = await juntos(m, { ...base(m, 'a'), modo: 'passos', passos: 60, vida: 2 }, { ...base(m, 'b'), modo: 'passos', passos: 60, vida: 2 });
     assert.ok(a.codigo === 0 && b.codigo === 0, `${a.erro}\n${b.erro}`);
     const estado = lerCoordenacao(m.a.carregado, m.arco, op(m, 'a'));
     assert.deepEqual([...estado.trabalhos.values()].map(t => t.estado), ['entregue', 'entregue', 'entregue', 'entregue'],
@@ -127,9 +130,12 @@ test('R2: dois executores ao mesmo tempo entregam tudo, com uma máquina por ite
     const despachosB = lerArco(m.b.dir, m.arco)!.despachos.filter(d => d.desfecho === 'concluido').map(d => d.trabalho);
     assert.deepEqual([...despachosA, ...despachosB].sort(), ['t1', 't2', 't3', 't4'], 'cada trabalho despachou uma vez, numa máquina');
     assert.ok(despachosA.length >= 1 && despachosB.length >= 1, `as duas máquinas trabalharam: A ${despachosA} e B ${despachosB}`);
-    // O limite global da conta, refazendo o ramo commit a commit: nunca mais de 2 vagas ativas, somando as máquinas.
-    const pico = picoDeVagas(m);
-    assert.ok(pico >= 1 && pico <= 2, `pico de ${pico} vagas`);
+    // O limite global da conta, refazendo o ramo commit a commit: nunca mais de 1 vaga ativa, somando as máquinas, e ele
+    // mordeu: alguma máquina esperou a vaga (no passo ou na troca atômica do gancho).
+    assert.equal(picoDeVagas(m), 1);
+    const resultados = [...(a.json!.resultados as string[]), ...(b.json!.resultados as string[])];
+    assert.ok(resultados.some(r => r === 'aguardar:noctum.coordenacao.vaga-global' || r === 'recusado:noctum.coordenacao.vaga-global'),
+      JSON.stringify(resultados));
     assert.equal(estado.consumo.arco, 4, 'quatro sessões consumidas no teto do arco, somando as máquinas');
     // E cada ordem que viveu terminou com prova: nenhuma ficou viva nem isolada.
     assert.ok([...estado.ordens.values()].every(o => o.estado === 'concluida'), JSON.stringify([...estado.ordens.values()].map(o => [o.ordem, o.estado])));
@@ -207,7 +213,7 @@ test('R4: o executor cai com a sessão de pé: o item fica isolado e os outros s
     const rb = passoDaMaquina(m.b.carregado, m.arco, { ...op(m, 'b'), n2: n2Simulada() });
     assert.ok(rb.acao === 'passo' && rb.relatorio.reconciliacao!.encerradas.includes('O-t1-1'), JSON.stringify(rb.acao === 'passo' ? rb.relatorio : rb));
     assert.equal(lerArco(m.b.dir, m.arco)!.despachos.length, despachosAntes, 'a B não despachou de novo o que lhe tiraram');
-    assert.equal(reservaDestaMaquina(m.b.carregado, 'RM-931', op(m, 'b'))!.com, null, 'a reserva voltou');
+    assert.equal(reservaDoItem(m.b.carregado, m.arco, 'RM-931', op(m, 'b'))!.livre, true, 'a reserva voltou');
     estado = lerCoordenacao(m.a.carregado, m.arco, op(m, 'a'));
     assert.equal(situacaoDoTrabalho(estado, 't1')!.estado, 'livre', 'com a prova, o t1 pode mudar de máquina');
   } finally { m.limpar(); }
@@ -302,4 +308,81 @@ test('R7: a autoridade antiga, partida, perde a vez para a tomada forçada e na 
     recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 't2', maquina: 'maquina-a' }, op(m, 'a', tarde)), 'noctum.coordenacao.geracao-vencida');
     assert.equal(lerCoordenacao(m.b.carregado, m.arco, op(m, 'b', tarde)).ordens.size, ordensAntes, 'a antiga não emitiu nada');
   } finally { m.limpar(); }
+});
+
+test('R8: a reserva decide o item: quem é de fora e pega antes impede o despacho; na corrida, um vencedor só', { skip: semKernel }, async () => {
+  const lista: Trabalho[] = [1, 2, 3].map(i => ({ id: `t${i}`, item: `RM-95${i}`, prioridade: i, dependeDe: [], pedido: `Fatia ${i} SIMULADA.` }));
+  const m = duasMaquinas('noctum-r8', { trabalhos: lista.map(t => ({ ...t })), maquina: 3, revisao: 0, contas: [{ conta: 'perfil-a', sessoes: 3 }],
+    runtimes: [{ runtime: 'claude-bg', sessoes: 3 }], global: [{ conta: 'perfil-a', sessoes: 3 }] });
+  const DE_FORA = { maquina: 'maquina-c', por: 'Pessoa SIMULADA' };
+  try {
+    // A B é a autoridade e só emite pelo teste; a A executa a ordem aceita de cada rodada no passo dela.
+    assumirAutoridade(m.b.carregado, m.arco, op(m, 'b'));
+    bater(m.a.carregado, m.arco, op(m, 'a'));
+    const rodada = async (t: Trabalho, corrida: boolean): Promise<'arco' | 'fora'> => {
+      emitirOrdem(m.b.carregado, m.arco, { trabalho: t.id, maquina: 'maquina-a' }, op(m, 'b'));
+      responderOrdem(m.a.carregado, m.arco, `O-${t.id}-1`, 'aceita', 'SIMULADO', op(m, 'a'));
+      const pegar = { ...base(m, 'b'), modo: 'pegar', pegar: { item: t.item, ...DE_FORA } };
+      let fora: Saida, passo: Saida;
+      if (corrida) [passo, fora] = await juntos(m, { ...base(m, 'a'), modo: 'um-passo' }, pegar);
+      else { fora = await rodar(pegar); passo = await rodar({ ...base(m, 'a'), modo: 'um-passo' }); }
+      assert.ok(passo.codigo === 0 && fora.codigo === 0, `${passo.erro}\n${fora.erro}`);
+      const dono = listarReservas(m.a.dir).reservas.find(r => r.item === t.item);
+      const despachou = lerArco(m.a.dir, m.arco)!.despachos.some(d => d.trabalho === t.id && d.desfecho === 'concluido');
+      const ordem = lerCoordenacao(m.a.carregado, m.arco, op(m, 'a')).ordens.get(`O-${t.id}-1`)!;
+      // Um vencedor só: o arco despacha se e só se a reserva ficou com ele; quem perdeu não força nem despacha.
+      if (dono?.maquina === 'maquina-a') {
+        assert.ok(despachou && ordem.estado === 'aceita' && /^roadmap\.reservado/.test(String(fora.json?.erro)), JSON.stringify({ passo: passo.json, fora: fora.json }));
+        return 'arco';
+      }
+      assert.equal(dono?.maquina, 'maquina-c', JSON.stringify({ dono, passo: passo.json, fora: fora.json }));
+      assert.ok(!despachou && fora.json?.acao === 'pegou', JSON.stringify({ passo: passo.json, fora: fora.json }));
+      assert.equal(ordem.estado, 'encerrada');
+      assert.equal(ordem.recibos.encerrada!.motivo, motivoDaReservaDeFora(t.item));
+      return 'fora';
+    };
+    // Quem é de fora pegou antes do passo: a reserva impede o despacho seguinte, e a ordem que nunca despachou termina.
+    assert.equal(await rodada(lista[0], false), 'fora');
+    // Duas corridas de verdade, dois processos ao mesmo tempo: qualquer que seja o vencedor, um só.
+    for (const t of lista.slice(1)) await rodada(t, true);
+    assert.equal(threadsDoItem(m.a.dir, 'RM-951').length, 0, 'nenhuma thread do item que ficou de fora');
+  } finally { m.limpar(); }
+});
+
+test('R9: dois processos disputam a última vaga global: um vencedor, e a reserva local do outro volta', { skip: semKernel }, async () => {
+  const lista = trabalhos(2).map((t, i) => ({ ...t, maquina: i === 0 ? 'maquina-a' : 'maquina-b' }));
+  const aceitas = (nome: string) => {
+    const m = cenario(nome, { lista, global: 1 });
+    assumirAutoridade(m.a.carregado, m.arco, op(m, 'a'));
+    bater(m.b.carregado, m.arco, op(m, 'b'));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 't1', maquina: 'maquina-a' }, op(m, 'a'));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 't2', maquina: 'maquina-b' }, op(m, 'a'));
+    responderOrdem(m.a.carregado, m.arco, 'O-t1-1', 'aceita', 'SIMULADO', op(m, 'a'));
+    responderOrdem(m.b.carregado, m.arco, 'O-t2-1', 'aceita', 'SIMULADO', op(m, 'b'));
+    return m;
+  };
+  // A troca atômica sozinha: as duas tomam a vaga ao mesmo tempo, e a que perdeu relê e recebe a recusa.
+  const m = aceitas('noctum-r9');
+  try {
+    const vaga = (ordem: string) => ({ ordem, conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 });
+    const [a, b] = await juntos(m, { ...base(m, 'a'), modo: 'vaga', vaga: vaga('O-t1-1') }, { ...base(m, 'b'), modo: 'vaga', vaga: vaga('O-t2-1') });
+    const saidas = [a.json, b.json].map(j => j?.vaga ? 'vaga' : String(j?.recusa)).sort();
+    assert.deepEqual(saidas, ['noctum.coordenacao.vaga-global', 'vaga'], JSON.stringify([a, b]));
+    assert.equal(lerCoordenacao(m.a.carregado, m.arco, op(m, 'a')).vagas.length, 1);
+  } finally { m.limpar(); }
+  // O passo inteiro das duas máquinas ao mesmo tempo: um despacho só, e a reserva local da que perdeu não fica pendente.
+  const m2 = aceitas('noctum-r9b');
+  try {
+    const [a, b] = await juntos(m2, { ...base(m2, 'a'), modo: 'um-passo' }, { ...base(m2, 'b'), modo: 'um-passo' });
+    const resultados = [String(a.json?.resultado), String(b.json?.resultado)];
+    assert.equal(resultados.filter(r => r.startsWith('despachou:')).length, 1, JSON.stringify(resultados));
+    const perdeu = resultados[0].startsWith('despachou:') ? 'b' : 'a';
+    assert.ok(['aguardar:noctum.coordenacao.vaga-global', 'recusado:noctum.coordenacao.vaga-global'].includes(resultados[perdeu === 'a' ? 0 : 1]),
+      JSON.stringify(resultados));
+    const local = lerArco(m2[perdeu].dir, m2.arco)!;
+    assert.ok(local.despachos.every(d => d.desfecho === 'recusado'), JSON.stringify(local.despachos));
+    assert.equal(local.consumo.arco, 0, 'a reserva local de quem perdeu voltou');
+    const estado = lerCoordenacao(m2.a.carregado, m2.arco, op(m2, 'a'));
+    assert.deepEqual([estado.vagas.filter(v => !v.solta).length, picoDeVagas(m2)], [1, 1]);
+  } finally { m2.limpar(); }
 });

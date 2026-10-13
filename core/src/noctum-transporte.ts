@@ -7,10 +7,16 @@
  * com a chave Ed25519 derivada da chave local do núcleo (D5), e conferido com a chave que o dono autorizou no envelope
  * `v3` desta máquina. O retrato da rede (RM-053) e o da fábrica (RM-047) são descoberta: nada deles entra aqui.
  *
- * A leitura reprova inteira (D6): assinatura, caminho, versão do envelope ou máquina que não conferem, arquivo apagado ou
- * alterado (só a batida é regravada) e história que não desce da última ponta vista por esta máquina recusam a decisão com
- * `noctum.coordenacao.adulterado`, sem usar a parte que conferiu. Sem leitura nova do remoto nada é decidido (D7,
- * `noctum.coordenacao.sem-remoto`): a cópia local do ramo nunca vira fato.
+ * A leitura reprova inteira (D6): assinatura, caminho ou máquina que não conferem, arquivo apagado ou alterado (só a
+ * batida é regravada, e nunca para trás no tempo) e história que não desce da última ponta vista por esta máquina recusam
+ * a decisão com `noctum.coordenacao.adulterado`, sem usar a parte que conferiu. O registro de uma versão do envelope que
+ * esta máquina ainda não autorizou é espera, não adulteração (`noctum.coordenacao.versao-nao-autorizada`). A última ponta
+ * vista só avança depois que a leitura inteira conferiu, inclusive a coerência de quem chama. Sem leitura nova do remoto
+ * nada é decidido (D7, `noctum.coordenacao.sem-remoto`): a cópia local do ramo nunca vira fato.
+ *
+ * Cada registro sai assinado sob a versão vigente aqui; o fim do que é desta máquina (recibo de fim, vaga solta, fim da
+ * vez, entrega, revogação) sai também sob a última versão em que ela estava, depois de uma emenda que a tirou do arco. O
+ * commit leva a identidade da máquina, nunca a do git de quem a usa.
  *
  * Limites ditos na página: a chave da máquina é legível pelo mesmo usuário do sistema, como a chave local da N1; quem tem
  * push no remoto pode apagar ou reescrever o ramo, e só a máquina que já viu o registro percebe.
@@ -38,7 +44,7 @@ const DOMINIO_DA_CHAVE = 'ork.noctum-maquina/v1';
 const PKCS8_ED25519 = Buffer.from('302e020100300506032b657004220420', 'hex');
 
 export const TIPOS_DE_REGISTRO = ['autoridade', 'cessao', 'ordem', 'cancelamento', 'recibo', 'vaga', 'vaga-solta', 'vez', 'vez-fim',
-  'entrega', 'batida'] as const;
+  'entrega', 'batida', 'revogacao'] as const;
 export type TipoDeRegistro = typeof TIPOS_DE_REGISTRO[number];
 export const RECIBOS = ['aceita', 'recusada', 'concluida', 'encerrada'] as const;
 export type TipoDeRecibo = typeof RECIBOS[number];
@@ -163,6 +169,9 @@ export function caminhoDoRegistro(d: DadosDoRegistro): string {
     case 'batida':
       if (typeof d.por !== 'string' || !NOME_DE_MAQUINA.test(d.por)) throw adulterado('batida com máquina inválida');
       return `${base}/batidas/${d.por}.json`;
+    case 'revogacao':
+      if (typeof d.por !== 'string' || !NOME_DE_MAQUINA.test(d.por)) throw adulterado('revogação com máquina inválida');
+      return `${base}/revogacoes/${d.por}.json`;
     default: throw adulterado(`registro de tipo desconhecido (${String(d.tipo)})`);
   }
 }
@@ -279,34 +288,51 @@ function comTravaDaVista<T>(dir: string, executar: () => T): T {
 const ancestral = (raiz: string, antigo: string, novo: string): boolean =>
   gitBruto(raiz, ['merge-base', '--is-ancestor', antigo, novo]).ok;
 
+/** O `em` de um registro numa ponta, para comparar a batida antiga com a nova. */
+function emDoRegistro(raiz: string, ponta: string, caminho: string): number {
+  const r = gitBruto(raiz, ['show', `${ponta}:${caminho}`]);
+  try { return Date.parse(String((JSON.parse(r.saida.toString('utf8')) as { dados: { em: string } }).dados.em)); } catch { return NaN; }
+}
+
 /**
- * Confere a ponta lida contra a última vista e avança a vista. Devolve `atras` quando outro processo desta máquina já viu
- * uma ponta mais nova: a leitura ficou velha, não adulterada.
+ * Confere a ponta lida contra a última vista, sem gravar nada: `atras` quando outro processo desta máquina já viu uma ponta
+ * mais nova (a leitura ficou velha, não adulterada). Entre as duas, só acréscimo, salvo a batida, que nunca volta no tempo:
+ * quem grava não regride a própria (D6 e S3 da revisão).
  */
-function conferirHistoria(raiz: string, dir: string, remoto: string, arco: string, ponta: string | null, quando: string): 'ok' | 'atras' {
-  return comTravaDaVista(dir, () => {
+function relacaoComAVista(raiz: string, dir: string, remoto: string, arco: string, ponta: string | null): 'ok' | 'atras' {
+  const antiga = lerVista(dir)[remoto]?.ponta ?? null;
+  if (antiga === null) return 'ok';
+  if (ponta === null) throw adulterado(`o ramo ${BRANCH_DE_COORDENACAO} sumiu do remoto ${remoto} depois de visto`);
+  if (ponta === antiga) return 'ok';
+  if (!ancestral(raiz, antiga, ponta)) {
+    if (ancestral(raiz, ponta, antiga)) return 'atras';
+    throw adulterado(`a história do ramo foi reescrita: a ponta ${ponta.slice(0, 12)} não desce da última vista ${antiga.slice(0, 12)}`);
+  }
+  const diff = gitBruto(raiz, ['diff', '--name-status', '--no-renames', '-z', antiga, ponta, '--', `arcos/${arco}/`]);
+  if (!diff.ok) throw adulterado('o diff entre a última ponta vista e a nova não se lê');
+  const partes = diff.saida.toString('utf8').split('\0').filter(Boolean);
+  for (let i = 0; i + 1 < partes.length; i += 2) {
+    const [status, caminho] = [partes[i], partes[i + 1]];
+    if (status === 'A') continue;
+    if (status === 'M' && regravavel(arco, caminho)) {
+      if (!(emDoRegistro(raiz, ponta, caminho) >= emDoRegistro(raiz, antiga, caminho))) {
+        throw adulterado(`a batida ${caminho} voltou no tempo depois de vista`);
+      }
+      continue;
+    }
+    throw adulterado(`o registro ${caminho} foi ${status === 'D' ? 'apagado' : 'alterado'} depois de visto`);
+  }
+  return 'ok';
+}
+
+/** Avança a última ponta vista para a nova, só se ela desce da vista agora (outro processo pode ter visto uma mais nova). */
+function avancarVista(raiz: string, dir: string, remoto: string, ponta: string | null, quando: string): void {
+  if (!ponta) return;
+  comTravaDaVista(dir, () => {
     const vista = lerVista(dir);
     const antiga = vista[remoto]?.ponta ?? null;
-    if (antiga === null) {
-      if (ponta) gravarVista(dir, { ...vista, [remoto]: { ponta, vistoEm: quando } });
-      return 'ok';
-    }
-    if (ponta === null) throw adulterado(`o ramo ${BRANCH_DE_COORDENACAO} sumiu do remoto ${remoto} depois de visto`);
-    if (ponta === antiga) return 'ok';
-    if (!ancestral(raiz, antiga, ponta)) {
-      if (ancestral(raiz, ponta, antiga)) return 'atras';
-      throw adulterado(`a história do ramo foi reescrita: a ponta ${ponta.slice(0, 12)} não desce da última vista ${antiga.slice(0, 12)}`);
-    }
-    const diff = gitBruto(raiz, ['diff', '--name-status', '--no-renames', '-z', antiga, ponta, '--', `arcos/${arco}/`]);
-    if (!diff.ok) throw adulterado('o diff entre a última ponta vista e a nova não se lê');
-    const partes = diff.saida.toString('utf8').split('\0').filter(Boolean);
-    for (let i = 0; i + 1 < partes.length; i += 2) {
-      const [status, caminho] = [partes[i], partes[i + 1]];
-      if (status === 'A' || (status === 'M' && regravavel(arco, caminho))) continue;
-      throw adulterado(`o registro ${caminho} foi ${status === 'D' ? 'apagado' : 'alterado'} depois de visto`);
-    }
+    if (antiga === ponta || (antiga !== null && !ancestral(raiz, antiga, ponta))) return;
     gravarVista(dir, { ...vista, [remoto]: { ponta, vistoEm: quando } });
-    return 'ok';
   });
 }
 
@@ -330,7 +356,8 @@ function chavesPorVersao(versoes: readonly VersaoDoEnvelope[]): Map<string, Map<
   return porHash;
 }
 
-function lerUmaVez(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoTransporte): LeituraDoRamo | 'atras' {
+function lerUmaVez(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoTransporte,
+  conferir?: (leitura: LeituraDoRamo) => void): LeituraDoRamo | 'atras' {
   const { raiz } = carregado;
   const quando = opcoes.quando ?? new Date().toISOString();
   const remoto = remotoDe(carregado, opcoes);
@@ -359,7 +386,11 @@ function lerUmaVez(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDo
         throw adulterado(`${caminho} fora do contrato`);
       }
       const daVersao = typeof d.envelopeSha256 === 'string' ? chaves.get(d.envelopeSha256) : undefined;
-      if (!daVersao) throw adulterado(`${caminho} é de uma versão do envelope que esta máquina não autorizou`);
+      // A3 da revisão: a emenda que a outra máquina já autorizou e esta ainda não é espera, não adulteração.
+      if (!daVersao) {
+        throw new RecusaDoArco('noctum.coordenacao.versao-nao-autorizada', `${caminho} é de uma versão do envelope que esta máquina ` +
+          'ainda não autorizou: autorize a emenda aqui; até lá, esta máquina não decide nem grava no ramo');
+      }
       const chave = typeof d.por === 'string' ? daVersao.get(d.por) : undefined;
       if (!chave) throw adulterado(`${caminho} assinado por uma máquina fora do envelope (${String(d.por).slice(0, 64)})`);
       if (!assinaturaConfere(chave, d, bruto.assinatura)) throw adulterado(`${caminho} com assinatura que não confere`);
@@ -367,8 +398,12 @@ function lerUmaVez(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDo
       registros.push({ caminho, dados: d });
     }
   }
-  if (conferirHistoria(raiz, dir, remoto, arco, lida.ponta, quando) === 'atras') return 'atras';
-  return { arco, remoto, ponta: lida.ponta, registros, versoes, lidoEm: quando };
+  if (comTravaDaVista(dir, () => relacaoComAVista(raiz, dir, remoto, arco, lida.ponta)) === 'atras') return 'atras';
+  const leitura: LeituraDoRamo = { arco, remoto, ponta: lida.ponta, registros, versoes, lidoEm: quando };
+  // A2 da revisão: a vista só avança depois que a leitura inteira conferiu, inclusive a coerência de quem chama.
+  conferir?.(leitura);
+  avancarVista(raiz, dir, remoto, lida.ponta, quando);
+  return leitura;
 }
 
 /**
@@ -376,9 +411,10 @@ function lerUmaVez(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDo
  * parcial. Outro processo desta máquina que já viu uma ponta mais nova faz esta ler de novo; a ponta que continua atrás da
  * última vista depois de três leituras é o ramo que voltou atrás (push forçado para um commit antigo), e reprova.
  */
-export function lerRamo(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoTransporte = {}): LeituraDoRamo {
+export function lerRamo(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoTransporte = {},
+  conferir?: (leitura: LeituraDoRamo) => void): LeituraDoRamo {
   for (let tentativa = 1; tentativa <= 3; tentativa++) {
-    const lida = lerUmaVez(carregado, arco, opcoes);
+    const lida = lerUmaVez(carregado, arco, opcoes, conferir);
     if (lida !== 'atras') return lida;
   }
   throw adulterado('a história do ramo foi reescrita: a ponta do remoto voltou para trás da última vista por esta máquina');
@@ -398,6 +434,31 @@ export function euNaVersaoVigente(raiz: string, leitura: LeituraDoRamo, opcoes: 
   return { eu, vigente };
 }
 
+/** Os registros com que uma máquina fecha o que é dela; só eles saem sob uma versão anterior do envelope (A4 da revisão). */
+const ehFechamento = (c: CamposDoRegistro): boolean => c.tipo === 'vaga-solta' || c.tipo === 'vez-fim' || c.tipo === 'entrega' ||
+  c.tipo === 'revogacao' || (c.tipo === 'recibo' && (c.recibo === 'concluida' || c.recibo === 'encerrada'));
+
+/**
+ * A versão sob a qual esta máquina assina: a vigente; ou, quando uma emenda a tirou do arco, a última versão autorizada em
+ * que ela está com a mesma chave, e só para fechar o que é dela (fim de ordem, vaga, vez e entrega). O leitor confere cada
+ * registro com as chaves da versão que ele diz.
+ */
+function versaoParaAssinar(raiz: string, leitura: LeituraDoRamo, opcoes: OpcoesDoTransporte, novos: readonly CamposDoRegistro[]):
+  { eu: { nome: string; chave: string }; vigente: VersaoDoEnvelope } {
+  try { return euNaVersaoVigente(raiz, leitura, opcoes); }
+  catch (e) {
+    if (!(e instanceof RecusaDoArco) || e.motivo !== 'noctum.coordenacao.fora-do-envelope' || !novos.every(ehFechamento)) throw e;
+    const eu = identidadeDaMaquina(raiz, opcoes.maquina);
+    const antiga = [...leitura.versoes].reverse().find(v => envelopeMultimaquina(v.conteudo) &&
+      v.conteudo.maquinas.some(m => m.nome === eu.nome && m.chave === eu.chave));
+    if (!antiga) throw e;
+    return { eu, vigente: antiga };
+  }
+}
+
+/** A identidade dos commits do ramo de coordenação: a máquina, num domínio reservado que não entrega e-mail. */
+export const identidadeDoCommit = (maquina: string): { nome: string; email: string } => ({ nome: `ork-noctum ${maquina}`, email: 'ork-noctum@noctum.invalid' });
+
 export interface ResultadoDaGravacao<T> {
   resultado: T;
   /** O commit novo do ramo, ou `null` quando a regra não tinha nada a gravar. */
@@ -414,20 +475,23 @@ export interface ResultadoDaGravacao<T> {
  * recusa tipada e deve ser idempotente, porque um push de resultado incerto é repetido sobre a leitura seguinte.
  */
 export function gravarNoRamo<T>(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoTransporte,
-  regra: (leitura: LeituraDoRamo) => { novos: CamposDoRegistro[]; resultado: T }): ResultadoDaGravacao<T> {
+  regra: (leitura: LeituraDoRamo) => { novos: CamposDoRegistro[]; resultado: T }, conferir?: (leitura: LeituraDoRamo) => void): ResultadoDaGravacao<T> {
   const { raiz } = carregado;
   const quando = opcoes.quando ?? new Date().toISOString();
   for (let tentativa = 1; tentativa <= TENTATIVAS_DE_GRAVAR; tentativa++) {
-    const leitura = lerRamo(carregado, arco, { ...opcoes, quando });
+    const leitura = lerRamo(carregado, arco, { ...opcoes, quando }, conferir);
     const { novos, resultado } = regra(leitura);
     if (!novos.length) return { resultado, commit: null, gravados: [], leitura };
-    const { eu, vigente } = euNaVersaoVigente(raiz, leitura, opcoes);
+    const { eu, vigente } = versaoParaAssinar(raiz, leitura, opcoes, novos);
     const existentes = new Set(leitura.registros.map(r => r.caminho));
     const mudancas: Array<{ caminho: string; conteudo: string }> = [];
     const gravados: DadosDoRegistro[] = [];
     for (const campos of novos) {
       const dados = { ...campos, contrato: CONTRATO_COORDENACAO, arco, envelopeSha256: vigente.envelopeSha256, por: eu.nome, em: quando } as DadosDoRegistro;
       const caminho = caminhoDoRegistro(dados);
+      // S3 da revisão: a batida desta máquina nunca volta no tempo, nem quando o relógio daqui volta.
+      const anterior = dados.tipo === 'batida' ? leitura.registros.find(r => r.caminho === caminho)?.dados.em : undefined;
+      if (anterior && Date.parse(anterior) > Date.parse(quando)) dados.em = anterior;
       if ((existentes.has(caminho) && !regravavel(arco, caminho)) || mudancas.some(m => m.caminho === caminho)) {
         throw new RecusaDoArco('noctum.coordenacao.concorrencia', `o registro ${caminho} já existe; a regra não é idempotente nele`);
       }
@@ -439,11 +503,12 @@ export function gravarNoRamo<T>(carregado: ManifestoCarregado, arco: string, opc
     const tipos = [...new Set(gravados.map(g => g.tipo))].join(', ');
     let commit: string | false;
     try {
+      // S6 da revisão: o commit leva o nome da máquina, nunca o nome e o e-mail do git de quem a usa.
       commit = gravarNaBranch(raiz, leitura.remoto, BRANCH_DE_COORDENACAO, leitura.ponta, mudancas,
-        `noctum: ${arco}, ${tipos} por ${eu.nome}`, PREFIXO, redeDe(raiz, opcoes));
+        `noctum: ${arco}, ${tipos} por ${eu.nome}`, PREFIXO, redeDe(raiz, opcoes), identidadeDoCommit(eu.nome));
     } catch (e) { throw semRemoto(primeiraLinha(e)); }
     if (commit) {
-      conferirHistoria(raiz, dirDoArcoLocal(raiz, arco), leitura.remoto, arco, commit, quando);
+      avancarVista(raiz, dirDoArcoLocal(raiz, arco), leitura.remoto, commit, quando);
       return { resultado, commit, gravados, leitura };
     }
   }

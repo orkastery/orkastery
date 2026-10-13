@@ -6,13 +6,16 @@
  *
  * 1. reconcilia o que é dela: primeiro a vez de integrar (o merge que chegou à base vira entrega, sem integrar de novo),
  *    depois as ordens (conclui pela thread local, encerra a vencida sem sessão viva) e as vagas (pelo desfecho local do
- *    despacho), e solta a reserva do arco nos itens sem ordem viva dela;
+ *    despacho), e solta a reserva do arco nos itens sem ordem viva dela. Fora do envelope vigente (uma emenda a tirou), o
+ *    passo para aqui: ela só fecha o que é dela. Com o arco revogado aqui, a revogação vai ao ramo e vale em todas;
  * 2. assume a autoridade quando o arco ainda não tem uma (a primeira vence pela troca atômica), bate e, sendo a
- *    autoridade, distribui as ordens dos trabalhos livres;
+ *    autoridade, abandona a vez de integrar de quem não dá sinal e distribui as ordens dos trabalhos livres, com as
+ *    reservas lidas agora (o item reservado fora do arco espera);
  * 3. responde as ordens emitidas para ela (aceita ou recusa, com o motivo) e toma a reserva da RM-047 de cada ordem aceita,
- *    revalidada com leitura nova; reserva de outra máquina encerra a ordem que nunca despachou;
+ *    revalidada com leitura nova; reserva de fora, ou item que o roadmap daqui não tem, encerra a ordem que nunca despachou;
  * 4. chama o passo da N2 só com os trabalhos das ordens aceitas e vivas, a reserva revalidada agora e a vaga global tomada
- *    no gancho `reservar`, depois da reserva local: a sessão só começa se a máquina e a soma das máquinas admitirem.
+ *    no gancho `reservar` da coordenação, depois da reserva local: a sessão só começa se a máquina e a soma das máquinas
+ *    admitirem.
  *
  * Sem leitura nova do ramo, nada disso acontece e o passo espera (D7). Ninguém chama este passo ainda: o vigia é da N4,
  * que usa a mesma interface para a retomada em outra máquina.
@@ -27,14 +30,15 @@ import { nomeDaMaquina } from './maquina';
 import { concluirDespacho, lerArco, reservarDespacho } from './noctum-arco';
 import { fatosDeCapacidade, LeituraDeSessoes } from './noctum-capacidade';
 import {
-  assumirAutoridade, AutoridadeDerivada, encerrarOrdem, entreguesNaRede, EstadoDaCoordenacao, FatosLocaisDaMaquina, lerCoordenacao,
-  notaDaReserva, OpcoesDaCoordenacao, PlanoDeReconciliacao, reconciliarCoordenacao, registrosDaDistribuicao, registrosDasRespostas,
-  soltarReservaDoArco, tomarReservaDoTrabalho, tomarVagaGlobal, derivarCoordenacao,
+  assumirAutoridade, AutoridadeDerivada, contasSemVagaGlobal, derivarCoordenacao, encerrarOrdem, entreguesNaRede, EstadoDaCoordenacao,
+  FatosLocaisDaMaquina, gravarNaCoordenacao, lerCoordenacao, motivoDaReservaDeFora, notaDaReserva, OpcoesDaCoordenacao, PlanoDeReconciliacao,
+  reconciliarCoordenacao, registrosDaDistribuicao, registrosDasRespostas, registrosDosAbandonos, revogarNaRede, soltarReservaDoArco,
+  tomarReservaDoTrabalho, tomarVagaGlobal, vistasDasReservas,
 } from './noctum-coordenacao';
 import { envelopeMultimaquina, RecusaDoArco, shaDoPedido, Trabalho } from './noctum-envelope';
 import { OpcoesDoPasso, passoDoArco, ResultadoDoPasso } from './noctum-execucao';
 import { reconciliarIntegracao, ReconciliacaoDaIntegracao } from './noctum-integracao';
-import { gravarNoRamo } from './noctum-transporte';
+import { identidadeDaMaquina } from './noctum-transporte';
 import { listarReservas, quemSouEu } from './roadmap-reservas';
 import { lerPerfis, perfilDisponivel } from './runtime-profiles';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -48,7 +52,7 @@ export interface OpcoesDoPassoDaMaquina extends OpcoesDaCoordenacao {
    * As opções do passo da N2: dependências dos testes e a espera da vez de despachar. Com o envelope `v3`, a leitura das
    * reservas e a reserva do despacho são as da coordenação, e as daqui não valem.
    */
-  n2?: Omit<OpcoesDoPasso, 'coordenacao' | 'quando' | 'maquina'>;
+  n2?: Omit<OpcoesDoPasso, 'coordenacao' | 'quando' | 'maquina' | 'reservar'>;
   /** A leitura das sessões, para a reconciliação das vagas; em produção, a mesma do passo da N2. */
   consultarSessoes?: () => LeituraDeSessoes;
 }
@@ -60,6 +64,8 @@ export interface RelatorioDaMaquina {
   reconciliacao: PlanoDeReconciliacao | null;
   reservasSoltas: string[];
   ordensEmitidas: string[];
+  /** As vezes de integrar de outras máquinas que esta, sendo a autoridade, abandonou agora (`chave/n`). */
+  vezesAbandonadas: string[];
   respostas: Array<{ ordem: string; recibo: string; motivo: string }>;
   reservas: Array<{ ordem: string; item: string; ok: boolean; motivo: string | null }>;
   /** Os trabalhos que o passo da N2 pode despachar daqui: ordem aceita e viva, e a reserva do item revalidada agora. */
@@ -121,7 +127,10 @@ export function fatosLocaisDaMaquina(carregado: ManifestoCarregado, arco: string
     sessoesVivas = cap.lacunas.length ? null : new Set(cap.ocupantes.map(o => o.sessionId).filter((x): x is string => !!x));
   } catch { sessoesVivas = null; }
   const threads = new Map<string, { id: string; entregue: boolean; fechada: boolean }>();
-  for (const t of estado.vigente.conteudo.trabalhos ?? []) {
+  // Os trabalhos de todas as versões autorizadas: a ordem de uma versão anterior também conclui pela thread local (A4).
+  const trabalhos = new Map<string, Trabalho>();
+  for (const v of estado.versoes) for (const t of v.conteudo.trabalhos ?? []) trabalhos.set(t.id, t);
+  for (const t of trabalhos.values()) {
     const th = threadDoTrabalho(raiz, t);
     if (!th) continue;
     let entregue = false;
@@ -142,7 +151,8 @@ export function reconciliarMaquina(carregado: ManifestoCarregado, arco: string, 
   const quando = opcoes.quando ?? new Date().toISOString();
   const integracao = reconciliarIntegracao(carregado, arco, opcoes);
   const estado = lerCoordenacao(carregado, arco, opcoes);
-  const fatos = fatosLocaisDaMaquina(carregado, arco, estado, quando, opcoes.consultarSessoes);
+  const fatos = { ...fatosLocaisDaMaquina(carregado, arco, estado, quando, opcoes.consultarSessoes),
+    vezesConferidas: new Set(integracao.abandonadasConferidas) };
   const reconciliacao = reconciliarCoordenacao(carregado, arco, fatos, opcoes);
   const reservasSoltas: string[] = [];
   const eu = quemSouEu(carregado.raiz, { maquina: opcoes.maquina });
@@ -175,40 +185,58 @@ export function passoDaMaquina(carregado: ManifestoCarregado, arco: string, opco
   }
   const eu = nomeDaMaquina(opcoes.maquina);
   const relatorio: RelatorioDaMaquina = { maquina: eu, autoridade: null, integracao: null, reconciliacao: null, reservasSoltas: [],
-    ordensEmitidas: [], respostas: [], reservas: [], trabalhos: [] };
+    ordensEmitidas: [], vezesAbandonadas: [], respostas: [], reservas: [], trabalhos: [] };
   if (!kernelDisponivel()) return aguardar('sem-trava-do-kernel', 'o arco entre máquinas só anda com /usr/bin/flock', relatorio);
   const trava = vezDaMaquina(raiz, ESPERA_DA_VEZ_DA_MAQUINA_MS);
   if (trava === null) return aguardar('noctum.coordenacao.concorrencia', 'outro passo desta máquina está em curso', relatorio);
   const op: OpcoesDaCoordenacao = { remoto: opcoes.remoto, maquina: opcoes.maquina, quando, rede: opcoes.rede };
   try {
-    // 1. A reconciliação do que é desta máquina.
+    // 1. A reconciliação do que é desta máquina; vale até fora do envelope vigente e com o arco revogado.
     const rec = reconciliarMaquina(carregado, arco, { ...op, consultarSessoes: opcoes.consultarSessoes ?? opcoes.n2?.consultarSessoes });
     Object.assign(relatorio, { integracao: rec.integracao, reconciliacao: rec.reconciliacao, reservasSoltas: rec.reservasSoltas });
-    // 2. A autoridade vaga, a batida e a distribuição.
     let estado = lerCoordenacao(carregado, arco, op);
+    relatorio.autoridade = estado.autoridade;
+    const c = estado.vigente.conteudo;
+    const chave = identidadeDaMaquina(raiz, opcoes.maquina).chave;
+    if (!envelopeMultimaquina(c) || !c.maquinas.some(m => m.nome === eu && m.chave === chave)) {
+      return aguardar('noctum.coordenacao.fora-do-envelope', `a máquina ${eu} não está no envelope vigente do arco; ela só fecha o que é dela`, relatorio);
+    }
+    if (local.situacao === 'revogado') {
+      revogarNaRede(carregado, arco, op);
+      return aguardar('noctum.efeito.revogado', `o arco ${arco} foi revogado pelo dono nesta máquina; a revogação foi ao ramo e vale nas outras`, relatorio);
+    }
+    if (estado.revogada) {
+      return aguardar('noctum.coordenacao.revogada', `o arco ${arco} foi revogado na máquina ${estado.revogada.por}; esta só fecha o que é dela`, relatorio);
+    }
+    // 2. A autoridade vaga, a batida, o abandono da vez de quem não dá sinal e a distribuição, com as reservas lidas agora.
     if (!estado.autoridade && local.situacao === 'vigente') {
       try { assumirAutoridade(carregado, arco, op); }
       catch (e) { if (!(e instanceof RecusaDoArco) || e.motivo !== 'noctum.coordenacao.autoridade-ativa') throw e; }
-    }
-    const distribuicao = gravarNoRamo(carregado, arco, op, (leitura) => {
-      const e = derivarCoordenacao(leitura);
-      const ordens = local.situacao === 'vigente' ? registrosDaDistribuicao(e, eu, quando) : [];
-      return { novos: [{ tipo: 'batida' }, ...ordens], resultado: ordens.map(o => String(o.ordem)) };
-    });
-    relatorio.ordensEmitidas = distribuicao.resultado;
-    // 3. As respostas às ordens desta máquina e as reservas das aceitas. Uma leitura nova das reservas por passo: o item que
-    // outra máquina ou pessoa já tem é recusado de saída, e a reserva que já é desta máquina está revalidada por ela.
-    const threadsLocais = new Map<string, { roadmap: string | null; modo: string }>();
-    for (const id of listarIds(raiz)) {
-      try { const th = lerThread(raiz, id); threadsLocais.set(id, { roadmap: th.roadmap ?? null, modo: th.modo }); } catch { /* ilegível não é aceita */ }
     }
     const quem = quemSouEu(raiz, { maquina: opcoes.maquina });
     let painel;
     try { painel = listarReservas(raiz, { remoto: op.remoto ?? carregado.manifesto.fabrica.remoto, rede: op.rede }); }
     catch { painel = null; }
+    const vistas = painel?.atualizado ? vistasDasReservas(painel.reservas) : null;
+    const distribuicao = gravarNaCoordenacao(carregado, arco, op, (leitura) => {
+      const e = derivarCoordenacao(leitura);
+      // Sem a leitura das reservas, nenhuma ordem sai: o item reservado fora do arco iria e voltaria.
+      const ordens = local.situacao === 'vigente' && vistas ? registrosDaDistribuicao(e, eu, quando, vistas) : [];
+      const abandonos = registrosDosAbandonos(e, eu, quando);
+      return { novos: [{ tipo: 'batida' }, ...abandonos, ...ordens],
+        resultado: { ordens: ordens.map(o => String(o.ordem)), abandonos: abandonos.map(x => `${String(x.chave)}/${String(x.n)}`) } };
+    });
+    relatorio.ordensEmitidas = distribuicao.resultado.ordens;
+    relatorio.vezesAbandonadas = distribuicao.resultado.abandonos;
+    // 3. As respostas às ordens desta máquina e as reservas das aceitas: o item que outra máquina ou pessoa reservou é
+    // recusado de saída, e a reserva que já é desta máquina está revalidada pela leitura de agora.
+    const threadsLocais = new Map<string, { roadmap: string | null; modo: string }>();
+    for (const id of listarIds(raiz)) {
+      try { const th = lerThread(raiz, id); threadsLocais.set(id, { roadmap: th.roadmap ?? null, modo: th.modo }); } catch { /* ilegível não é aceita */ }
+    }
     const itensDeOutros = painel?.atualizado
       ? new Set(painel.reservas.filter(r => r.maquina !== quem.maquina || r.por !== quem.por).map(r => r.item)) : undefined;
-    const respostas = gravarNoRamo(carregado, arco, op, (leitura) => {
+    const respostas = gravarNaCoordenacao(carregado, arco, op, (leitura) => {
       const novos = registrosDasRespostas(derivarCoordenacao(leitura), eu, { arcoVigente: local.situacao === 'vigente', threadsLocais, itensDeOutros });
       return { novos, resultado: novos.map(r => ({ ordem: String(r.ordem), recibo: String(r.recibo), motivo: String(r.motivo) })) };
     });
@@ -232,22 +260,24 @@ export function passoDaMaquina(carregado: ManifestoCarregado, arco: string, opco
         if (!reservadas.some(x => x.item === o.item)) reservadas.push({ item: o.item, thread });
         continue;
       }
-      // A reserva com outra máquina ou pessoa: a ordem que nunca despachou acaba aqui, com o motivo; a que tem vaga fica.
-      if (r.motivo === 'noctum.reserva.de-outra-maquina' && !estado.vagas.some(v => v.ordem === o.ordem)) {
-        encerrarOrdem(carregado, arco, o.ordem, { motivo: `${r.motivo}: ${r.detalhe}`, checkpoint: { thread, vagasSoltas: [] } }, op);
+      // A reserva de outra máquina ou pessoa, ou o item que o roadmap daqui não tem: a ordem que nunca despachou acaba aqui,
+      // com o motivo tipado e só o item (o nome de quem reservou nunca vai ao ramo); a que tem vaga fica.
+      if (r.motivo !== 'noctum.coordenacao.sem-remoto' && !estado.vagas.some(v => v.ordem === o.ordem)) {
+        const motivo = r.motivo === 'noctum.reserva.item-invalido'
+          ? `noctum.reserva.item-invalido: o item ${o.item} não está no roadmap desta máquina` : motivoDaReservaDeFora(o.item);
+        encerrarOrdem(carregado, arco, o.ordem, { motivo, checkpoint: { thread, vagasSoltas: [] } }, op);
       }
     }
     relatorio.trabalhos = [...permitidos].sort();
     // A conta sem vaga global agora não entra na escolha da N2, para o despacho sair por outra que tenha (a vaga do gancho
     // continua sendo a conferência de verdade). Sem nenhuma, o passo espera a vaga em vez de despachar para ouvir a recusa.
-    const c = estado.vigente.conteudo;
-    const semVaga = new Set(envelopeMultimaquina(c) ? c.capacidadeGlobal.porConta
-      .filter(x => estado.vagas.filter(v => !v.solta && v.conta === x.conta).length >= x.sessoes).map(x => x.conta) : []);
-    if (permitidos.size && envelopeMultimaquina(c) && c.capacidadeGlobal.porConta.every(x => semVaga.has(x.conta))) {
+    const semVaga = contasSemVagaGlobal(estado);
+    const cv = estado.vigente.conteudo;
+    if (permitidos.size && envelopeMultimaquina(cv) && cv.capacidadeGlobal.porConta.every(x => semVaga.has(x.conta))) {
       return aguardar('noctum.coordenacao.vaga-global', 'nenhuma conta do envelope tem vaga somando as máquinas agora', relatorio);
     }
     const perfisDaN2 = opcoes.n2?.perfis ?? (() => perfisDoStore(raiz, Date.parse(quando)));
-    // 4. O passo da N2, só com o que o ramo deu a esta máquina, e a vaga global no gancho da reserva.
+    // 4. O passo da N2, só com o que o ramo deu a esta máquina, e a vaga global no gancho da reserva da coordenação.
     const ordemDoTrabalho = new Map(minhas.filter(o => permitidos.has(o.trabalho)).map(o => [o.trabalho, o.ordem]));
     const reservar: typeof reservarDespacho = (raizDoPasso, pedido, q) => {
       const ordem = ordemDoTrabalho.get(pedido.trabalho);
@@ -261,14 +291,13 @@ export function passoDaMaquina(carregado: ManifestoCarregado, arco: string, opco
       }
       return r;
     };
-    const passo = passoDoArco(carregado, arco, { ...opcoes.n2, quando, maquina: opcoes.maquina, reservar,
+    const passo = passoDoArco(carregado, arco, { ...opcoes.n2, quando, maquina: opcoes.maquina,
       perfis: () => perfisDaN2().filter(p => !semVaga.has(p.id)),
       lerReservas: () => ({ leitura: 'copia-local', reservas: reservadas.map(x => ({ item: x.item, maquina: eu, thread: x.thread })) }),
-      coordenacao: { trabalhos: permitidos, entregues: entreguesNaRede(estado) } });
+      coordenacao: { trabalhos: permitidos, entregues: entreguesNaRede(estado), reservar } });
     return { acao: 'passo', passo, relatorio };
   } catch (e) {
     if (!(e instanceof RecusaDoArco)) throw e;
     return aguardar(e.motivo, e.message, relatorio);
   } finally { fs.closeSync(trava); }
 }
-

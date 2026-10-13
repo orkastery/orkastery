@@ -13,7 +13,7 @@ import { cloneDoRemoto, duasMaquinas, DuasMaquinas, gravarCru, registroCru } fro
 import { chavePublicaValida, RecusaDoArco } from '../src/noctum-envelope';
 import { exigirManifesto } from '../src/manifest';
 import {
-  assinarDados, BRANCH_DE_COORDENACAO, CONTRATO_COORDENACAO, DadosDoRegistro, gravarNoRamo, identidadeDaMaquina, lerRamo,
+  assinarDados, BRANCH_DE_COORDENACAO, CONTRATO_COORDENACAO, DadosDoRegistro, gravarNoRamo, identidadeDaMaquina, LeituraDoRamo, lerRamo,
 } from '../src/noctum-transporte';
 
 prepararIngressoSimulado();
@@ -215,7 +215,10 @@ test('T8: registro de versão que esta máquina não autorizou, máquina fora do
     const nova = autorizarPedido(m.a.dir, m.arco, emenda);
     assert.notEqual(nova, m.hash);
     entrega(m, 'a', 'da-emenda');
-    assert.match(recusa(() => lerRamo(m.b.carregado, m.arco), 'noctum.coordenacao.adulterado'), /versão do envelope que esta máquina não autorizou/);
+    // A3 da revisão: é espera, não adulteração; nada se lê nem se grava até o dono autorizar a emenda aqui.
+    assert.match(recusa(() => lerRamo(m.b.carregado, m.arco), 'noctum.coordenacao.versao-nao-autorizada'),
+      /versão do envelope que esta máquina ainda não autorizou: autorize a emenda aqui/);
+    recusa(() => entrega(m, 'b', 'antes-da-emenda'), 'noctum.coordenacao.versao-nao-autorizada');
     assert.equal(autorizarPedido(m.b.dir, m.arco, emenda), nova);
     assert.equal(lerRamo(m.b.carregado, m.arco).registros.length, 1, 'autorizada aqui também, a leitura confere');
     // A raiz de B dizendo ser A: a chave não bate.
@@ -230,5 +233,55 @@ test('T8: registro de versão que esta máquina não autorizou, máquina fora do
     assert.equal(lerRamo(m.a.carregado, 'arco-v2').registros.length, 0);
     assert.match(recusa(() => gravarNoRamo(m.a.carregado, 'arco-v2', { maquina: 'maquina-a' }, () => ({ novos: [{ tipo: 'batida' }], resultado: null })),
       'noctum.coordenacao.fora-do-envelope'), /só a v3 coordena/);
+  } finally { m.limpar(); }
+});
+
+test('T9: a batida nunca volta no tempo: quem grava não regride a própria, e a regressão assinada recusa a leitura de quem viu', () => {
+  const m = cenario('noctum-t9');
+  try {
+    const bater = (quando: string) => gravarNoRamo(m.a.carregado, m.arco, { maquina: 'maquina-a', quando }, () => ({ novos: [{ tipo: 'batida' }], resultado: null }));
+    const agora = Date.now();
+    const caminho = `arcos/${m.arco}/batidas/maquina-a.json`;
+    bater(new Date(agora).toISOString());
+    // O relógio daqui voltou um minuto: a batida nova fica com o instante da anterior.
+    bater(new Date(agora - 60_000).toISOString());
+    assert.equal(lerRamo(m.b.carregado, m.arco).registros.find(r => r.caminho === caminho)!.dados.em, new Date(agora).toISOString());
+    // A batida mais velha, assinada pela própria A e gravada à mão: a B, que viu a nova, recusa.
+    gravarCru(m.a.dir, [{ caminho, conteudo: assinado(m.a.dir, dados(m, { tipo: 'batida', em: new Date(agora - 120_000).toISOString() })) }]);
+    assert.match(recusa(() => lerRamo(m.b.carregado, m.arco), 'noctum.coordenacao.adulterado'), /a batida .*maquina-a\.json voltou no tempo depois de vista/);
+  } finally { m.limpar(); }
+});
+
+test('T10: a última ponta vista só avança depois que a leitura inteira confere; o reparo do ramo volta a ler', () => {
+  const m = cenario('noctum-t10');
+  try {
+    const boa = entrega(m, 'a', 'boa')!;
+    lerRamo(m.b.carregado, m.arco);
+    entrega(m, 'a', 'incoerente');
+    // A coerência de quem chama reprova a ponta nova: a última ponta vista da B fica na boa.
+    const conferir = (l: LeituraDoRamo) => {
+      if (l.registros.some(r => r.dados.trabalho === 'incoerente')) throw new RecusaDoArco('noctum.coordenacao.adulterado', 'SIMULADO: registro incoerente');
+    };
+    recusa(() => lerRamo(m.b.carregado, m.arco, {}, conferir), 'noctum.coordenacao.adulterado');
+    const vista = JSON.parse(fs.readFileSync(path.join(m.b.dir, '.orkastery', 'noctum', 'arcos', m.arco, 'coordenacao.json'), 'utf8'));
+    assert.equal(vista.remotos.origin.ponta, boa);
+    // O reparo (o ramo de volta à ponta boa) não é história reescrita para quem nunca aceitou a incoerente.
+    exec('git', ['push', '-q', '--force', 'origin', `${boa}:refs/heads/${BRANCH_DE_COORDENACAO}`], m.a.dir);
+    assert.deepEqual(lerRamo(m.b.carregado, m.arco, {}, conferir).registros.map(r => r.dados.trabalho), ['boa']);
+    // Quem gravou a incoerente a viu, e para ela o reparo é reescrita.
+    assert.match(recusa(() => lerRamo(m.a.carregado, m.arco), 'noctum.coordenacao.adulterado'), /a história do ramo foi reescrita/);
+  } finally { m.limpar(); }
+});
+
+test('T11: o commit do ramo leva a identidade da máquina, nunca o nome e o e-mail do git de quem a usa', () => {
+  const m = cenario('noctum-t11');
+  try {
+    entrega(m, 'a', 'x');
+    entrega(m, 'b', 'y');
+    lerRamo(m.a.carregado, m.arco);
+    const log = exec('git', ['log', '--format=%an <%ae> %cn <%ce>', `refs/remotes/origin/${BRANCH_DE_COORDENACAO}`], m.a.dir).stdout.trim().split('\n');
+    assert.deepEqual(log.sort(), ['ork-noctum maquina-a <ork-noctum@noctum.invalid> ork-noctum maquina-a <ork-noctum@noctum.invalid>',
+      'ork-noctum maquina-b <ork-noctum@noctum.invalid> ork-noctum maquina-b <ork-noctum@noctum.invalid>']);
+    assert.ok(!log.join('\n').includes('Builder B'), 'a identidade do git da B não foi ao remoto');
   } finally { m.limpar(); }
 });

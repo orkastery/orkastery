@@ -7,14 +7,17 @@ import { test } from 'node:test';
 import { autorizarPedido, prepararIngressoSimulado } from './noctum-apoio';
 import { duasMaquinas, DuasMaquinas, MaquinaDeTeste } from './noctum-maquinas-apoio';
 import { RecusaDoArco } from '../src/noctum-envelope';
-import { pegarItem } from '../src/roadmap-reservas';
+import * as reservasDoRoadmap from '../src/roadmap-reservas';
+import { pegarItem, soltarItem } from '../src/roadmap-reservas';
 import { gravarNoRamo } from '../src/noctum-transporte';
 import {
   assumirAutoridade, bater, BATIDA_VENCIDA_MS, cancelarOrdem, cederAutoridade, concluirOrdem, distribuirOrdens, emitirOrdem,
-  encerrarOrdem, entreguesNaRede, FatosLocaisDaMaquina, lerCoordenacao, planejarReconciliacao, reconciliarCoordenacao,
-  reservaDestaMaquina, respostaAOrdem, responderOrdem, situacaoDoTrabalho, soltarReservaDoArco, soltarVagaGlobal, tomarReservaDoTrabalho,
-  tomarVagaGlobal,
+  encerrarOrdem, entreguesNaRede, FatosLocaisDaMaquina, gravarNaCoordenacao, lerCoordenacao, motivoDaReservaDeFora, planejarReconciliacao,
+  reconciliarCoordenacao, registrosDosAbandonos, reservaDoItem, respostaAOrdem, responderOrdem, revogarNaRede, situacaoDoTrabalho,
+  soltarReservaDoArco, soltarVagaGlobal, tomarReservaDoTrabalho, tomarVagaGlobal,
 } from '../src/noctum-coordenacao';
+import { passar, revogarArco } from './noctum-apoio';
+import { chaveDoDestino } from '../src/noctum-coordenacao';
 
 prepararIngressoSimulado();
 
@@ -45,6 +48,8 @@ function recusa(fn: () => unknown, motivo: string): string {
 }
 
 const depois = (ms: number) => new Date(Date.now() + ms).toISOString();
+/** Nenhuma reserva lida: o item que não está no mapa está livre. */
+const LIVRES = new Map();
 
 test('K1: a primeira máquina fica com a geração 1; a troca só vem por cessão ou tomada forçada com a batida vencida', () => {
   const m = cenario('noctum-k1');
@@ -56,9 +61,12 @@ test('K1: a primeira máquina fica com a geração 1; a troca só vem por cessã
     assert.equal(lerCoordenacao(m.a.carregado, m.arco, op(m.a)).ponta, ponta, 'e não grava nada');
     assert.match(recusa(() => assumirAutoridade(m.b.carregado, m.arco, op(m.b)), 'noctum.coordenacao.autoridade-ativa'),
       /a autoridade vigente é maquina-a, geração 1; troca só por cessão dela ou tomada forçada/);
+    // S2 da revisão: a autoridade que acabou de assumir e nunca bateu deu sinal ao assumir; não cai à força logo depois.
+    assert.match(recusa(() => assumirAutoridade(m.b.carregado, m.arco, { ...op(m.b), forcar: { motivo: 'SIMULADO: a autoridade parou' } }),
+      'noctum.coordenacao.autoridade-ativa'), /deu sinal há menos de 15 min/);
     bater(m.a.carregado, m.arco, op(m.a));
     assert.match(recusa(() => assumirAutoridade(m.b.carregado, m.arco, { ...op(m.b), forcar: { motivo: 'SIMULADO: a autoridade parou' } }),
-      'noctum.coordenacao.autoridade-ativa'), /bateu há menos de 15 min/);
+      'noctum.coordenacao.autoridade-ativa'), /deu sinal há menos de 15 min/);
     // Dezesseis minutos depois, sem batida nova da A: a tomada forçada passa, com o motivo e a última batida vista.
     const tarde = depois(BATIDA_VENCIDA_MS + 60_000);
     const g2 = assumirAutoridade(m.b.carregado, m.arco, { ...op(m.b, tarde), forcar: { motivo: 'SIMULADO: a autoridade parou' } });
@@ -87,12 +95,12 @@ test('K2: só a autoridade emite; uma ordem viva por trabalho, máquina presa, b
     assumirAutoridade(m.a.carregado, m.arco, op(m.a));
     recusa(() => emitirOrdem(m.b.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.b)), 'noctum.coordenacao.autoridade-ativa');
     assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a)), 'noctum.coordenacao.maquina-sem-batida'),
-      /maquina-b não bate há mais de 15 min/);
+      /maquina-b não dá sinal há mais de 15 min/);
     bater(m.b.carregado, m.arco, op(m.b));
     assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a)), 'O-a-1');
     assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-a' }, op(m.a)), 'noctum.coordenacao.ordem-viva'),
       /o trabalho a está ordenado \(ordem O-a-1\)/);
-    assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'b', maquina: 'maquina-a' }, op(m.a)), 'noctum.coordenacao.ordem-viva'),
+    assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'b', maquina: 'maquina-a' }, op(m.a)), 'noctum.coordenacao.dependencia-pendente'),
       /depende de a, ainda não entregue/);
     assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'c', maquina: 'maquina-a' }, op(m.a)), 'noctum.coordenacao.fora-do-envelope'),
       /preso à máquina maquina-b/);
@@ -119,12 +127,16 @@ test('K3: a política distribui na ordem do dono, para a máquina com menos orde
     assumirAutoridade(m.a.carregado, m.arco, op(m.a));
     const quando = new Date().toISOString();
     // Sem a batida da B, só a própria autoridade recebe, e uma ordem só (2 slots, 1 de revisão).
-    assert.deepEqual(distribuirOrdens(lerCoordenacao(m.a.carregado, m.arco, op(m.a)), 'maquina-a', quando), [{ trabalho: 'p1', maquina: 'maquina-a' }]);
+    assert.deepEqual(distribuirOrdens(lerCoordenacao(m.a.carregado, m.arco, op(m.a)), 'maquina-a', quando, LIVRES), [{ trabalho: 'p1', maquina: 'maquina-a' }]);
     bater(m.b.carregado, m.arco, op(m.b));
     const estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
-    assert.deepEqual(distribuirOrdens(estado, 'maquina-a', quando),
+    assert.deepEqual(distribuirOrdens(estado, 'maquina-a', quando, LIVRES),
       [{ trabalho: 'p1', maquina: 'maquina-a' }, { trabalho: 'p2', maquina: 'maquina-b' }], 'p3 espera uma vaga; p4 espera a p1');
-    assert.deepEqual(distribuirOrdens(estado, 'maquina-b', quando), [], 'quem não é a autoridade não distribui');
+    assert.deepEqual(distribuirOrdens(estado, 'maquina-b', quando, LIVRES), [], 'quem não é a autoridade não distribui');
+    // A reserva lida agora decide: o item da p1 reservado pela B leva a p1 para ela; o da p2 reservado fora do arco segura a p2.
+    const reservas = new Map([['RM-911', { maquina: 'maquina-b', atualizadaEm: quando }], ['RM-912', { maquina: 'maquina-c', atualizadaEm: quando }]]);
+    assert.deepEqual(distribuirOrdens(estado, 'maquina-a', quando, reservas),
+      [{ trabalho: 'p1', maquina: 'maquina-b' }, { trabalho: 'p3', maquina: 'maquina-a' }]);
   } finally { m.limpar(); }
 });
 
@@ -157,9 +169,9 @@ test('K4: o executor só responde a própria ordem; cancelada antes do aceite li
     responderOrdem(m.b.carregado, m.arco, 'O-d-1', 'recusada', 'SIMULADO: sem a thread aqui', op(m.b));
     const estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
     assert.equal(situacaoDoTrabalho(estado, 'd')!.estado, 'livre');
-    assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'd', maquina: 'maquina-b' }, op(m.a)), 'noctum.coordenacao.ordem-viva'),
+    assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'd', maquina: 'maquina-b' }, op(m.a)), 'noctum.coordenacao.maquina-recusou'),
       /maquina-b já recusou o trabalho d/);
-    assert.ok(!distribuirOrdens(estado, 'maquina-a', new Date().toISOString()).some(x => x.trabalho === 'd' && x.maquina === 'maquina-b'));
+    assert.ok(!distribuirOrdens(estado, 'maquina-a', new Date().toISOString(), LIVRES).some(x => x.trabalho === 'd' && x.maquina === 'maquina-b'));
     // Conclusão com entrega: o trabalho fica entregue na rede, e a dependência destrava.
     responderOrdem(m.a.carregado, m.arco, 'O-a-3', 'aceita', 'SIMULADO', op(m.a));
     concluirOrdem(m.a.carregado, m.arco, 'O-a-3', { resultado: 'entregue', thread: 'ork-simulada-a' }, op(m.a));
@@ -179,6 +191,10 @@ test('K5: ordem de outra versão do envelope é recusada pelo executor; o aceite
     // A B autoriza uma emenda que a A ainda não autorizou: a ordem que a A emitiu é da versão anterior para a B.
     const emenda = { ...m.pedido, relatorio: { horario: '08:00', canal: 'telegram' } };
     autorizarPedido(m.b.dir, m.arco, emenda);
+    // S7 da revisão: a resposta que o passo grava confere o hash antes de tudo, até com a thread e o arco em ordem.
+    const daB = lerCoordenacao(m.b.carregado, m.arco, op(m.b));
+    assert.deepEqual(respostaAOrdem(daB, daB.ordens.get('O-a-1')!, 'maquina-b', { arcoVigente: true, threadsLocais: new Map() }),
+      { recibo: 'recusada', motivo: 'noctum.efeito.hash-antigo: a ordem é de outra versão do envelope' });
     assert.match(recusa(() => responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m.b)), 'noctum.efeito.hash-antigo'),
       /é de outra versão do envelope/);
     responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'recusada', 'noctum.efeito.hash-antigo: a ordem é de outra versão do envelope', op(m.b));
@@ -189,8 +205,9 @@ test('K5: ordem de outra versão do envelope é recusada pelo executor; o aceite
   } finally { m.limpar(); }
 });
 
-test('K6: a reserva do item é tomada pelo executor da ordem aceita, revalidada, e nunca forçada sobre outra máquina', () => {
-  const m = cenario('noctum-k6');
+test('K6: a reserva do item é tomada pelo executor da ordem aceita, revalidada, e nunca forçada; ela decide para onde a ordem vai', () => {
+  const m = cenario('noctum-k6', { trabalhos: [...SIMPLES, { id: 'f', item: 'RM-906', prioridade: 6, dependeDe: [], pedido: 'Fatia F SIMULADA.' },
+    { id: 'g', item: 'RM-907', prioridade: 7, dependeDe: [], pedido: 'Fatia G SIMULADA.' }] });
   try {
     assumirAutoridade(m.a.carregado, m.arco, op(m.a));
     bater(m.b.carregado, m.arco, op(m.b));
@@ -198,20 +215,47 @@ test('K6: a reserva do item é tomada pelo executor da ordem aceita, revalidada,
     recusa(() => tomarReservaDoTrabalho(m.b.carregado, m.arco, 'O-a-1', null, op(m.b)), 'noctum.coordenacao.ordem-vencida');
     responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m.b));
     assert.deepEqual(tomarReservaDoTrabalho(m.b.carregado, m.arco, 'O-a-1', null, op(m.b)), { ok: true, acao: 'pegou' });
-    assert.deepEqual(reservaDestaMaquina(m.b.carregado, 'RM-901', op(m.b)), { minha: true, com: 'Builder B em maquina-b', nota: `noctum:${m.arco}` });
-    assert.equal(reservaDestaMaquina(m.a.carregado, 'RM-901', op(m.a))!.minha, false);
-    // O dono da A pegou o RM-903 à mão: a B, com a ordem dele, não força.
-    pegarItem(m.a.dir, 'RM-903', { maquina: 'maquina-a', nota: 'à mão, SIMULADO' });
-    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'c', maquina: 'maquina-b' }, op(m.a));
-    responderOrdem(m.b.carregado, m.arco, 'O-c-1', 'aceita', 'SIMULADO', op(m.b));
-    const r = tomarReservaDoTrabalho(m.b.carregado, m.arco, 'O-c-1', null, op(m.b));
-    assert.ok(!r.ok && r.motivo === 'noctum.reserva.de-outra-maquina' && /RM-903 esta com Teste Orkastery em maquina-a/.test(r.detalhe), JSON.stringify(r));
+    assert.deepEqual(reservaDoItem(m.b.carregado, m.arco, 'RM-901', op(m.b)), { livre: false, minha: true, doArco: true });
+    assert.equal(reservaDoItem(m.a.carregado, m.arco, 'RM-901', op(m.a))!.minha, false);
+    assert.deepEqual(tomarReservaDoTrabalho(m.b.carregado, m.arco, 'O-a-1', null, op(m.b)), { ok: true, acao: 'revalidada' });
+    // Aceita a ordem do d, o dono da A pega o RM-904 à mão antes da B: a B não força, e o detalhe não leva quem reservou.
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'd', maquina: 'maquina-b' }, op(m.a));
+    responderOrdem(m.b.carregado, m.arco, 'O-d-1', 'aceita', 'SIMULADO', op(m.b));
+    pegarItem(m.a.dir, 'RM-904', { maquina: 'maquina-a', nota: 'à mão, SIMULADO' });
+    const r = tomarReservaDoTrabalho(m.b.carregado, m.arco, 'O-d-1', null, op(m.b));
+    assert.deepEqual(r, { ok: false, motivo: 'noctum.reserva.de-outra-maquina', detalhe: 'o item RM-904 está com outra máquina ou pessoa' });
+    // A reserva de fora do arco segura a ordem; a de uma máquina do arco a leva só para ela.
+    pegarItem(m.a.dir, 'RM-906', { maquina: 'maquina-c', por: 'Pessoa SIMULADA', nota: 'SIMULADO' });
+    assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'f', maquina: 'maquina-a' }, op(m.a)), 'noctum.reserva.de-outra-maquina'),
+      /o item RM-906 está reservado fora do arco; a ordem espera a reserva ser solta/);
+    pegarItem(m.a.dir, 'RM-907', { maquina: 'maquina-a', nota: 'à mão, SIMULADO' });
+    assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'g', maquina: 'maquina-b' }, op(m.a)), 'noctum.reserva.de-outra-maquina'),
+      /reservado pela máquina maquina-a do arco; a ordem vai para ela/);
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'g', maquina: 'maquina-a' }, op(m.a)), 'O-g-1');
+    responderOrdem(m.a.carregado, m.arco, 'O-g-1', 'aceita', 'SIMULADO', op(m.a));
+    // A reserva que o dono tomou à mão nesta máquina vale para o arco daqui, como na N2, e o arco nunca a solta.
+    assert.deepEqual(tomarReservaDoTrabalho(m.a.carregado, m.arco, 'O-g-1', null, op(m.a)), { ok: true, acao: 'revalidada' });
+    assert.equal(soltarReservaDoArco(m.a.carregado, m.arco, 'RM-907', op(m.a)), false, 'a do dono tem outra nota');
     // Só a reserva do arco, desta máquina, é solta.
-    assert.equal(soltarReservaDoArco(m.a.carregado, m.arco, 'RM-903', op(m.a)), false, 'a da A tem outra nota');
     assert.equal(soltarReservaDoArco(m.a.carregado, m.arco, 'RM-901', op(m.a)), false, 'a do RM-901 é da B');
     assert.equal(soltarReservaDoArco(m.b.carregado, m.arco, 'RM-901', op(m.b)), true);
-    assert.equal(reservaDestaMaquina(m.b.carregado, 'RM-901', op(m.b))!.com, null);
+    assert.equal(reservaDoItem(m.b.carregado, m.arco, 'RM-901', op(m.b))!.livre, true);
   } finally { m.limpar(); }
+  // A revalidação com leitura nova depois de tomar: o pegar disse que tomou, mas outra pessoa ficou com o item.
+  const m2 = cenario('noctum-k6b');
+  const original = reservasDoRoadmap.pegarItem;
+  try {
+    assumirAutoridade(m2.a.carregado, m2.arco, op(m2.a));
+    bater(m2.b.carregado, m2.arco, op(m2.b));
+    emitirOrdem(m2.a.carregado, m2.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m2.a));
+    responderOrdem(m2.b.carregado, m2.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m2.b));
+    (reservasDoRoadmap as { pegarItem: typeof original }).pegarItem = (raiz, item) => {
+      original(raiz, item, { maquina: 'maquina-c', por: 'Pessoa SIMULADA', nota: 'SIMULADO' });
+      return { acao: 'pegou', item, reserva: null, commit: null, tentativas: 1 };
+    };
+    assert.deepEqual(tomarReservaDoTrabalho(m2.b.carregado, m2.arco, 'O-a-1', null, op(m2.b)),
+      { ok: false, motivo: 'noctum.reserva.de-outra-maquina', detalhe: 'o item RM-901 está com outra máquina ou pessoa depois de tomar' });
+  } finally { (reservasDoRoadmap as { pegarItem: typeof original }).pegarItem = original; m2.limpar(); }
 });
 
 test('K7: a vaga global soma as máquinas, no limite da conta e nos tetos do arco; a recusa antes do lançamento devolve', () => {
@@ -333,5 +377,231 @@ test('K10: vaga de ordem não aceita reprova a leitura; o aceite do trabalho de 
     gravarNoRamo(m.b.carregado, m.arco, op(m.b), () => ({ novos: [{ tipo: 'vaga', vaga: 'V-maquina-b-9', conta: 0, runtime: 'claude-bg',
       ordem: 'O-h-1', trabalho: 'h', reserva: 9 }], resultado: null }));
     assert.match(recusa(() => lerCoordenacao(m.a.carregado, m.arco, op(m.a)), 'noctum.coordenacao.adulterado'), /de uma ordem que ele não aceitou/);
+  } finally { m.limpar(); }
+});
+
+test('K11: a geração vencida não grava mais: o que a autoridade antiga grava depois da tomada reprova a leitura de todas', () => {
+  const m = cenario('noctum-k11');
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-a' }, op(m.a));
+    const tarde = depois(BATIDA_VENCIDA_MS + 60_000);
+    assert.equal(assumirAutoridade(m.b.carregado, m.arco, { ...op(m.b, tarde), forcar: { motivo: 'SIMULADO: a A sumiu' } }).geracao, 2);
+    emitirOrdem(m.b.carregado, m.arco, { trabalho: 'd', maquina: 'maquina-b' }, op(m.b, tarde));
+    responderOrdem(m.b.carregado, m.arco, 'O-d-1', 'aceita', 'SIMULADO', op(m.b, tarde));
+    recusa(() => cancelarOrdem(m.a.carregado, m.arco, 'O-d-1', 'SIMULADO', op(m.a, tarde)), 'noctum.coordenacao.geracao-vencida');
+    // A A volta com um núcleo divergente e grava direto no ramo, com a geração 1 que já venceu.
+    gravarNoRamo(m.a.carregado, m.arco, op(m.a, tarde), () => ({ novos: [{ tipo: 'cancelamento', ordem: 'O-d-1',
+      motivo: 'SIMULADO: a autoridade vencida cancela', geracao: 1 }], resultado: null }));
+    for (const quem of [m.a, m.b]) {
+      assert.match(recusa(() => lerCoordenacao(quem.carregado, m.arco, op(quem, tarde)), 'noctum.coordenacao.adulterado'),
+        /a geração 1 tem 2 registro\(s\) da autoridade, e a geração 2 selou 1: a autoridade vencida gravou depois de perder a vez/);
+    }
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-k11b');
+  try {
+    assumirAutoridade(m2.a.carregado, m2.arco, op(m2.a));
+    const tarde = depois(BATIDA_VENCIDA_MS + 60_000);
+    assumirAutoridade(m2.b.carregado, m2.arco, { ...op(m2.b, tarde), forcar: { motivo: 'SIMULADO: a A sumiu' } });
+    gravarNoRamo(m2.a.carregado, m2.arco, op(m2.a, tarde), () => ({ novos: [{ tipo: 'ordem', ordem: 'O-d-1', trabalho: 'd', item: 'RM-904',
+      maquina: 'maquina-a', geracao: 1, n: 1 }], resultado: null }));
+    assert.match(recusa(() => lerCoordenacao(m2.b.carregado, m2.arco, op(m2.b, tarde)), 'noctum.coordenacao.adulterado'),
+      /a geração 1 tem 1 registro\(s\) da autoridade, e a geração 2 selou 0/);
+  } finally { m2.limpar(); }
+  const m3 = cenario('noctum-k11c');
+  try {
+    // O abandono da vez também é da geração: a autoridade vencida não solta a vez de ninguém.
+    assumirAutoridade(m3.a.carregado, m3.arco, op(m3.a));
+    bater(m3.b.carregado, m3.arco, op(m3.b));
+    emitirOrdem(m3.a.carregado, m3.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m3.a));
+    responderOrdem(m3.b.carregado, m3.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m3.b));
+    const DESTINO = { repositorio: 'exemplo/produto', base: 'main' };
+    gravarNaCoordenacao(m3.b.carregado, m3.arco, op(m3.b), () => ({ novos: [{ tipo: 'vez', chave: chaveDoDestino(DESTINO), n: 1, destino: DESTINO,
+      ordem: 'O-a-1', trabalho: 'a', candidato: { branch: 'trabalho-a', fonte: '1'.repeat(40), base: '2'.repeat(40), provas: 'a'.repeat(64) } }], resultado: null }));
+    const tarde = depois(BATIDA_VENCIDA_MS + 60_000);
+    assumirAutoridade(m3.b.carregado, m3.arco, { ...op(m3.b, tarde), forcar: { motivo: 'SIMULADO: a A sumiu' } });
+    gravarNoRamo(m3.a.carregado, m3.arco, op(m3.a, tarde), () => ({ novos: [{ tipo: 'vez-fim', chave: chaveDoDestino(DESTINO), n: 1,
+      desfecho: 'abandonada', geracao: 1, sinalDoDono: null, motivo: 'SIMULADO: a vencida abandona' }], resultado: null }));
+    assert.match(recusa(() => lerCoordenacao(m3.b.carregado, m3.arco, op(m3.b, tarde)), 'noctum.coordenacao.adulterado'),
+      /a geração 1 tem 2 registro\(s\) da autoridade, e a geração 2 selou 1/);
+  } finally { m3.limpar(); }
+});
+
+test('K12: cancelamento, recibo e entrega assinados por quem não pode assiná-los reprovam a leitura', () => {
+  const comOrdem = (nome: string, aceita: boolean) => {
+    const m = cenario(nome);
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a));
+    if (aceita) responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m.b));
+    return m;
+  };
+  const m = comOrdem('noctum-k12', true);
+  try {
+    gravarNoRamo(m.b.carregado, m.arco, op(m.b), () => ({ novos: [{ tipo: 'cancelamento', ordem: 'O-a-1', motivo: 'SIMULADO', geracao: 1 }], resultado: null }));
+    assert.match(recusa(() => lerCoordenacao(m.a.carregado, m.arco, op(m.a)), 'noctum.coordenacao.adulterado'),
+      /cancelamentos\/O-a-1\.json assinado por quem não era a autoridade da geração 1/);
+  } finally { m.limpar(); }
+  const m2 = comOrdem('noctum-k12b', false);
+  try {
+    gravarNoRamo(m2.a.carregado, m2.arco, op(m2.a), () => ({ novos: [{ tipo: 'recibo', ordem: 'O-a-1', recibo: 'aceita', motivo: 'SIMULADO' }], resultado: null }));
+    assert.match(recusa(() => lerCoordenacao(m2.b.carregado, m2.arco, op(m2.b)), 'noctum.coordenacao.adulterado'),
+      /recibos\/O-a-1\/aceita\.json assinado por quem não é o executor da ordem/);
+  } finally { m2.limpar(); }
+  const m3 = comOrdem('noctum-k12c', true);
+  try {
+    gravarNoRamo(m3.a.carregado, m3.arco, op(m3.a), () => ({ novos: [{ tipo: 'entrega', trabalho: 'a', ordem: 'O-a-1',
+      destino: { repositorio: 'exemplo/produto', base: 'main' }, fonte: '1'.repeat(40), base: '2'.repeat(40), merge: '3'.repeat(40) }], resultado: null }));
+    assert.match(recusa(() => lerCoordenacao(m3.b.carregado, m3.arco, op(m3.b)), 'noctum.coordenacao.adulterado'),
+      /entregas\/a\.json de outra máquina, de outro trabalho ou de uma ordem que ela não aceitou/);
+  } finally { m3.limpar(); }
+});
+
+test('K13: a revogação do dono numa máquina vai ao ramo e vale em todas: nada novo começa, e cada uma só fecha o que é dela', () => {
+  const m = cenario('noctum-k13');
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a));
+    responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m.b));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'd', maquina: 'maquina-a' }, op(m.a));
+    responderOrdem(m.a.carregado, m.arco, 'O-d-1', 'aceita', 'SIMULADO', op(m.a));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'e', maquina: 'maquina-a' }, op(m.a));
+    // Só a máquina em que o dono revogou grava a revogação no ramo, uma vez.
+    recusa(() => revogarNaRede(m.b.carregado, m.arco, op(m.b)), 'noctum.envelope.invalido');
+    revogarArco(m.b.dir, m.arco);
+    assert.equal(revogarNaRede(m.b.carregado, m.arco, op(m.b)), true);
+    assert.equal(revogarNaRede(m.b.carregado, m.arco, op(m.b)), false);
+    const estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
+    assert.equal(estado.revogada!.por, 'maquina-b');
+    // Na A, onde o arco segue vigente, nada novo sai: ordem, distribuição, aceite e vaga.
+    assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'b', maquina: 'maquina-a' }, op(m.a)), 'noctum.coordenacao.revogada'),
+      /foi revogado na máquina maquina-b/);
+    assert.deepEqual(distribuirOrdens(estado, 'maquina-a', new Date().toISOString(), LIVRES), []);
+    assert.deepEqual(respostaAOrdem(estado, estado.ordens.get('O-e-1')!, 'maquina-a', { arcoVigente: true, threadsLocais: new Map() }),
+      { recibo: 'recusada', motivo: 'noctum.coordenacao.revogada: o arco foi revogado na máquina maquina-b' });
+    recusa(() => responderOrdem(m.a.carregado, m.arco, 'O-e-1', 'aceita', 'SIMULADO', op(m.a)), 'noctum.coordenacao.revogada');
+    recusa(() => tomarVagaGlobal(m.a.carregado, m.arco, { ordem: 'O-d-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, op(m.a)),
+      'noctum.coordenacao.revogada');
+    // Fechar continua: o cancelamento e o fim da ordem aceita sem sessão viva, com o motivo da revogação.
+    assert.equal(cancelarOrdem(m.a.carregado, m.arco, 'O-e-1', 'SIMULADO: o arco foi revogado', op(m.a)), 'cancelada-antes');
+    const plano = reconciliarCoordenacao(m.a.carregado, m.arco, { arcoVigente: true, sessoesVivas: new Set(), despachos: new Map(), threads: new Map() }, op(m.a));
+    assert.deepEqual(plano.encerradas, ['O-d-1']);
+    assert.match(String(lerCoordenacao(m.b.carregado, m.arco, op(m.b)).ordens.get('O-d-1')!.recibos.encerrada!.motivo), /o arco foi revogado na máquina maquina-b/);
+  } finally { m.limpar(); }
+});
+
+test('K14: a recusa pela reserva espera a reserva mudar; outra recusa e o item que o roadmap não tem excluem a máquina nesta versão', () => {
+  const m = cenario('noctum-k14');
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    // A B recusou o d pela reserva de fora, que já foi solta: o d sai de novo para ela.
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'd', maquina: 'maquina-b' }, op(m.a));
+    responderOrdem(m.b.carregado, m.arco, 'O-d-1', 'recusada', motivoDaReservaDeFora('RM-904'), op(m.b));
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'd', maquina: 'maquina-b' }, op(m.a)), 'O-d-2');
+    // A reserva está na B, mas com outra pessoa: a B recusa, e a mesma reserva não recebe a ordem de novo.
+    pegarItem(m.b.dir, 'RM-901', { maquina: 'maquina-b', por: 'Outra Pessoa SIMULADA', nota: 'SIMULADO' });
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a)), 'O-a-1');
+    responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'recusada', motivoDaReservaDeFora('RM-901'), op(m.b));
+    assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a)), 'noctum.reserva.de-outra-maquina'),
+      /a máquina maquina-b não pôde usar a reserva do item RM-901; a ordem espera a reserva mudar/);
+    assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-a' }, op(m.a)), 'noctum.reserva.de-outra-maquina'),
+      /reservado pela máquina maquina-b do arco; a ordem vai para ela/);
+    // A reserva mudou (solta e pega de novo): a ordem volta a sair.
+    soltarItem(m.b.dir, 'RM-901', { maquina: 'maquina-b', por: 'Outra Pessoa SIMULADA' });
+    passar(5);
+    pegarItem(m.b.dir, 'RM-901', { maquina: 'maquina-b', por: 'Outra Pessoa SIMULADA', nota: 'SIMULADO' });
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a)), 'O-a-2');
+    // A recusa por outro motivo exclui a máquina nesta versão.
+    responderOrdem(m.b.carregado, m.arco, 'O-a-2', 'recusada', 'SIMULADO: sem a thread aqui', op(m.b));
+    soltarItem(m.b.dir, 'RM-901', { maquina: 'maquina-b', por: 'Outra Pessoa SIMULADA' });
+    recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a)), 'noctum.coordenacao.maquina-recusou');
+    // O item que o roadmap da B não tem: o fim com item-invalido também exclui.
+    responderOrdem(m.b.carregado, m.arco, 'O-d-2', 'aceita', 'SIMULADO', op(m.b));
+    encerrarOrdem(m.b.carregado, m.arco, 'O-d-2', { motivo: 'noctum.reserva.item-invalido: o item RM-904 não está no roadmap desta máquina',
+      checkpoint: { thread: null, vagasSoltas: [] } }, op(m.b));
+    recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'd', maquina: 'maquina-b' }, op(m.a)), 'noctum.coordenacao.maquina-recusou');
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'd', maquina: 'maquina-a' }, op(m.a)), 'O-d-3', 'a outra máquina recebe');
+  } finally { m.limpar(); }
+});
+
+test('K15: só a autoridade abandona a vez de outra máquina sem sinal; a ordem com vez abandonada espera a base ser conferida', () => {
+  const DESTINO = { repositorio: 'exemplo/produto', base: 'main' };
+  const vez = (ordem: string, trabalho: string) => ({ tipo: 'vez' as const, chave: chaveDoDestino(DESTINO), n: 1, destino: DESTINO, ordem, trabalho,
+    candidato: { branch: `trabalho-${trabalho}`, fonte: '1'.repeat(40), base: '2'.repeat(40), provas: 'a'.repeat(64) } });
+  const m = cenario('noctum-k15');
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a));
+    responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m.b));
+    gravarNaCoordenacao(m.b.carregado, m.arco, op(m.b), () => ({ novos: [vez('O-a-1', 'a')], resultado: null }));
+    const agora = new Date().toISOString(), tarde = depois(BATIDA_VENCIDA_MS + 60_000);
+    const fatos = (conferidas: string[]): FatosLocaisDaMaquina => ({ arcoVigente: true, sessoesVivas: new Set(), despachos: new Map(),
+      threads: new Map(), vezesConferidas: new Set(conferidas) });
+    // Cancelada com a vez de integrar ativa, a ordem espera: o merge pode ter chegado à base.
+    cancelarOrdem(m.a.carregado, m.arco, 'O-a-1', 'SIMULADO: a B sumiu', op(m.a));
+    let estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
+    assert.match(planejarReconciliacao(estado, 'maquina-b', fatos([])).aguardando[0].porque, /a vez de integrar dela está ativa/);
+    assert.deepEqual(registrosDosAbandonos(estado, 'maquina-a', agora), [], 'a B deu sinal agora, com a vez');
+    assert.deepEqual(registrosDosAbandonos(estado, 'maquina-b', tarde), [], 'quem não é a autoridade não abandona');
+    const abandonos = registrosDosAbandonos(estado, 'maquina-a', tarde);
+    assert.equal(abandonos.length, 1);
+    gravarNaCoordenacao(m.a.carregado, m.arco, op(m.a, tarde), () => ({ novos: abandonos, resultado: null }));
+    estado = lerCoordenacao(m.b.carregado, m.arco, op(m.b, tarde));
+    const v = [...estado.vezes.values()].flat()[0];
+    assert.deepEqual([v.fim!.desfecho, v.fim!.por], ['abandonada', 'maquina-a']);
+    assert.equal(situacaoDoTrabalho(estado, 'a')!.estado, 'isolado', 'o trabalho não muda de máquina');
+    assert.match(planejarReconciliacao(estado, 'maquina-b', fatos([])).aguardando[0].porque, /foi abandonada pela autoridade, e o merge pode ter chegado à base/);
+    assert.deepEqual(planejarReconciliacao(estado, 'maquina-b', fatos([`${v.chave}/1`])).encerradas, ['O-a-1']);
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-k15b');
+  try {
+    assumirAutoridade(m2.a.carregado, m2.arco, op(m2.a));
+    bater(m2.b.carregado, m2.arco, op(m2.b));
+    emitirOrdem(m2.a.carregado, m2.arco, { trabalho: 'a', maquina: 'maquina-a' }, op(m2.a));
+    responderOrdem(m2.a.carregado, m2.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m2.a));
+    gravarNaCoordenacao(m2.a.carregado, m2.arco, op(m2.a), () => ({ novos: [vez('O-a-1', 'a')], resultado: null }));
+    // A B, que não é a autoridade, abandona a vez da A à mão.
+    gravarNoRamo(m2.b.carregado, m2.arco, op(m2.b), () => ({ novos: [{ tipo: 'vez-fim', chave: chaveDoDestino(DESTINO), n: 1, desfecho: 'abandonada',
+      geracao: 1, sinalDoDono: null, motivo: 'SIMULADO' }], resultado: null }));
+    assert.match(recusa(() => lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a)), 'noctum.coordenacao.adulterado'),
+      /0001\.fim\.json assinado por quem não era a autoridade da geração 1/);
+  } finally { m2.limpar(); }
+  const m3 = cenario('noctum-k15c');
+  try {
+    assumirAutoridade(m3.a.carregado, m3.arco, op(m3.a));
+    emitirOrdem(m3.a.carregado, m3.arco, { trabalho: 'a', maquina: 'maquina-a' }, op(m3.a));
+    responderOrdem(m3.a.carregado, m3.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m3.a));
+    gravarNaCoordenacao(m3.a.carregado, m3.arco, op(m3.a), () => ({ novos: [vez('O-a-1', 'a')], resultado: null }));
+    // A autoridade abandona a própria vez: o abandono é só da vez de outra máquina.
+    gravarNoRamo(m3.a.carregado, m3.arco, op(m3.a), () => ({ novos: [{ tipo: 'vez-fim', chave: chaveDoDestino(DESTINO), n: 1, desfecho: 'abandonada',
+      geracao: 1, sinalDoDono: null, motivo: 'SIMULADO' }], resultado: null }));
+    assert.match(recusa(() => lerCoordenacao(m3.b.carregado, m3.arco, op(m3.b)), 'noctum.coordenacao.adulterado'),
+      /o abandono é da vez de outra máquina, sem merge/);
+  } finally { m3.limpar(); }
+});
+
+test('K16: a máquina que uma emenda tirou do arco ainda fecha o que é dela, e a reserva do item tirado do envelope é solta', () => {
+  const m = cenario('noctum-k16');
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'd', maquina: 'maquina-b' }, op(m.a));
+    responderOrdem(m.b.carregado, m.arco, 'O-d-1', 'aceita', 'SIMULADO', op(m.b));
+    // O dono tira a B e os trabalhos c, d e e do arco, e autoriza a emenda nas duas máquinas.
+    const emenda = { ...m.pedido, maquinas: (m.pedido.maquinas as Array<{ nome: string }>).filter(x => x.nome === 'maquina-a'),
+      trabalhos: (m.pedido.trabalhos as Array<{ id: string }>).filter(t => t.id === 'a' || t.id === 'b') };
+    autorizarPedido(m.a.dir, m.arco, emenda);
+    autorizarPedido(m.b.dir, m.arco, emenda);
+    recusa(() => bater(m.b.carregado, m.arco, op(m.b)), 'noctum.coordenacao.fora-do-envelope');
+    // A ordem da versão anterior termina com o recibo da B, assinado sob a versão em que ela estava.
+    const plano = reconciliarCoordenacao(m.b.carregado, m.arco, { arcoVigente: true, sessoesVivas: new Set(), despachos: new Map(), threads: new Map() }, op(m.b));
+    assert.deepEqual(plano.encerradas, ['O-d-1']);
+    assert.ok(plano.itensSemOrdemViva.includes('RM-904'), 'o item tirado do envelope entra na soltura');
+    const estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
+    assert.equal(estado.ordens.get('O-d-1')!.estado, 'encerrada');
+    assert.notEqual(estado.ordens.get('O-d-1')!.recibos.encerrada!.envelopeSha256, estado.vigente.envelopeSha256);
   } finally { m.limpar(); }
 });

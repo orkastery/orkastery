@@ -14,7 +14,9 @@
  * `noctum.integracao.nao-provada`, e a vez fica até a reconciliação, que acha o merge na base (e registra a entrega sem
  * integrar de novo) ou solta a vez. Um registro de entrega por trabalho: a segunda tentativa recebe `ja-entregue`.
  *
- * A vez é por arco: dois arcos no mesmo destino ao mesmo tempo não se veem por ela (limite dito na página).
+ * A vez é por arco: dois arcos no mesmo destino ao mesmo tempo não se veem por ela (limite dito na página). A vez da
+ * máquina que não dá sinal há mais de 15 min é abandonada pela autoridade (A7 da revisão), e o destino volta a andar; na
+ * volta, a reconciliação dela registra a entrega se o merge tiver chegado à base, e o trabalho não muda de máquina sem prova.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -25,10 +27,11 @@ import { ManifestoCarregado } from './manifest';
 import { nomeDaMaquina } from './maquina';
 import { conferirAntesDoEfeito } from './noctum-arco';
 import {
-  CandidatoDeIntegracao, chaveDoDestino, derivarCoordenacao, EstadoDaCoordenacao, lerCoordenacao, OpcoesDaCoordenacao, VezDerivada,
+  CandidatoDeIntegracao, chaveDoDestino, derivarCoordenacao, EstadoDaCoordenacao, gravarNaCoordenacao, lerCoordenacao, OpcoesDaCoordenacao,
+  VezDerivada,
 } from './noctum-coordenacao';
 import { ID_DO_ARCO, RecusaDoArco } from './noctum-envelope';
-import { cabecasNoRemoto, euNaVersaoVigente, gravarNoRamo } from './noctum-transporte';
+import { cabecasNoRemoto, euNaVersaoVigente } from './noctum-transporte';
 
 export interface PedidoDeIntegracao {
   /** A ordem aceita desta máquina para o trabalho que vai ser integrado. */
@@ -69,7 +72,7 @@ function conferirCandidato(c: CandidatoDeIntegracao): void {
 /** Grava o fim da vez desta máquina; idempotente. Falha de rede aqui não esconde a recusa que veio antes. */
 function encerrarVez(carregado: ManifestoCarregado, arco: string, chave: string, n: number,
   fim: { desfecho: 'invalidado' | 'desistiu'; motivo: string }, opcoes: OpcoesDaCoordenacao): void {
-  gravarNoRamo(carregado, arco, opcoes, (leitura) => {
+  gravarNaCoordenacao(carregado, arco, opcoes, (leitura) => {
     const vez = derivarCoordenacao(leitura).vezes.get(chave)?.find(v => v.n === n);
     if (!vez || vez.fim) return { novos: [], resultado: null };
     return { novos: [{ tipo: 'vez-fim', chave, n, desfecho: fim.desfecho, motivo: fim.motivo.slice(0, 300).replace(/[\r\n]+/g, ' '), merge: null }], resultado: null };
@@ -81,10 +84,23 @@ function encerrarSemEsconder(carregado: ManifestoCarregado, arco: string, chave:
   try { encerrarVez(carregado, arco, chave, n, fim, opcoes); } catch { /* a vez fica ativa até a reconciliação; a recusa original sobe */ }
 }
 
+/** A conferência da N1 do merge no destino, com o hash vigente: a janela, a revogação e a permissão (S4 da revisão). */
+function conferirMerge(carregado: ManifestoCarregado, arco: string, envelopeSha256: string, destino: { repositorio: string; base: string },
+  quando: string | undefined): void {
+  conferirAntesDoEfeito(carregado.raiz, { arco, envelopeSha256, acao: 'merge', repositorio: destino.repositorio, branch: destino.base }, quando);
+}
+
+/** A revogação gravada no ramo por outra máquina do arco também segura o merge (A8 da revisão). */
+function exigirNaoRevogada(estado: EstadoDaCoordenacao): void {
+  if (estado.revogada) {
+    throw recusa('noctum.coordenacao.revogada', `o arco foi revogado na máquina ${estado.revogada.por}; nenhuma vez nova de integrar sai`);
+  }
+}
+
 /**
- * Integra o candidato no destino com a vez do arco: toma a vez (troca atômica), relê a base e a fonte do remoto, confere o
- * envelope (N1, `merge`) e a ordem logo antes do efeito, chama `integrar`, prova o merge no remoto e grava a entrega e o fim
- * da vez juntos. Lança a recusa tipada; a vez é solta em toda recusa de antes do efeito.
+ * Integra o candidato no destino com a vez do arco: confere o envelope (N1, `merge`), toma a vez (troca atômica), relê a
+ * base e a fonte do remoto, confere a N1 e a ordem de novo logo antes do efeito, chama `integrar`, prova o merge no remoto e
+ * grava a entrega e o fim da vez juntos. Lança a recusa tipada; a vez é solta em toda recusa de antes do efeito.
  */
 export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedido: PedidoDeIntegracao, integrar: Integrador,
   opcoes: OpcoesDaCoordenacao = {}): IntegracaoFeita {
@@ -94,10 +110,12 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
   if (trava === null) throw recusa('noctum.integracao.ocupada', 'outro processo desta máquina integra neste arco agora');
   try {
     const chave = chaveDoDestino(pedido.destino);
-    // 1. A vez, por troca atômica sobre a leitura nova.
-    const tomada = gravarNoRamo(carregado, arco, opcoes, (leitura) => {
+    // 1. A vez, por troca atômica sobre a leitura nova, depois da conferência da N1 (a janela e a revogação antes de tudo).
+    const tomada = gravarNaCoordenacao(carregado, arco, opcoes, (leitura) => {
       const estado = derivarCoordenacao(leitura);
       const { eu, vigente } = euNaVersaoVigente(carregado.raiz, leitura, opcoes);
+      conferirMerge(carregado, arco, vigente.envelopeSha256, pedido.destino, opcoes.quando);
+      exigirNaoRevogada(estado);
       const o = estado.ordens.get(pedido.ordem);
       if (!o || o.maquina !== eu.nome || o.estado !== 'aceita') {
         throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${pedido.ordem} não é uma ordem aceita e viva desta máquina`);
@@ -142,10 +160,10 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
       throw recusa('noctum.integracao.fonte-mudou', `${motivo}: o candidato foi invalidado; as provas se repetem no SHA novo`);
     }
     // 3. A conferência da N1 e a ordem, logo antes do efeito.
-    const estado = lerCoordenacao(carregado, arco, opcoes);
     try {
-      conferirAntesDoEfeito(carregado.raiz, { arco, envelopeSha256: estado.vigente.envelopeSha256, acao: 'merge',
-        repositorio: pedido.destino.repositorio, branch: pedido.destino.base }, opcoes.quando);
+      const estado = lerCoordenacao(carregado, arco, opcoes);
+      conferirMerge(carregado, arco, estado.vigente.envelopeSha256, pedido.destino, opcoes.quando);
+      exigirNaoRevogada(estado);
       const o = estado.ordens.get(pedido.ordem);
       const vez = ativaDo(estado, chave);
       if (!o || o.estado !== 'aceita') throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${pedido.ordem} deixou de valer (${o?.estado ?? 'sumiu'}) antes do merge`);
@@ -183,7 +201,7 @@ function mergeNaBase(carregado: ManifestoCarregado, remoto: string, base: string
 /** A entrega e o fim da vez no mesmo commit. Vale também com a ordem cancelada depois do merge: é a conta do que já foi feito. */
 function registrarEntrega(carregado: ManifestoCarregado, arco: string, e: { chave: string; n: number; trabalho: string; ordem: string;
   destino: { repositorio: string; base: string }; fonte: string; base: string; merge: string }, opcoes: OpcoesDaCoordenacao): void {
-  gravarNoRamo(carregado, arco, opcoes, (leitura) => {
+  gravarNaCoordenacao(carregado, arco, opcoes, (leitura) => {
     const estado = derivarCoordenacao(leitura);
     const vez = estado.vezes.get(e.chave)?.find(v => v.n === e.n);
     const ja = estado.entregas.get(e.trabalho);
@@ -201,23 +219,32 @@ export interface ReconciliacaoDaIntegracao {
   soltas: string[];
   /** As vezes que um processo desta máquina ainda segura. */
   emCurso: string[];
+  /**
+   * As vezes desta máquina abandonadas pela autoridade, sem entrega, cuja base se leu agora sem a fonte (`chave/n`): só a
+   * ordem com todas elas conferidas pode terminar (A7 da revisão). Sem essa leitura, o merge pode ter chegado à base.
+   */
+  abandonadasConferidas: string[];
 }
 
 /**
  * A reconciliação das vezes desta máquina que ninguém daqui segura: a fonte na base vira entrega registrada (sem integrar
- * de novo); fora dela, a vez é solta e o candidato terá de ser provado de novo. Sem leitura da base, a vez fica.
+ * de novo); fora dela, a vez é solta e o candidato terá de ser provado de novo. Sem leitura da base, a vez fica. A vez que a
+ * autoridade abandonou passa pela mesma conferência: a fonte na base vira a entrega que faltava.
  */
 export function reconciliarIntegracao(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDaCoordenacao = {}): ReconciliacaoDaIntegracao {
-  const r: ReconciliacaoDaIntegracao = { registradas: [], soltas: [], emCurso: [] };
+  const r: ReconciliacaoDaIntegracao = { registradas: [], soltas: [], emCurso: [], abandonadasConferidas: [] };
   const eu = nomeDaMaquina(opcoes.maquina);
   const estado = lerCoordenacao(carregado, arco, opcoes);
-  const minhas = [...estado.vezes.values()].flat().filter(v => v.maquina === eu && !v.fim);
-  if (!minhas.length) return r;
+  const todas = [...estado.vezes.values()].flat().filter(v => v.maquina === eu);
+  const minhas = todas.filter(v => !v.fim);
+  const abandonadas = todas.filter(v => v.fim?.desfecho === 'abandonada' && !estado.entregas.has(v.trabalho) &&
+    ['aceita', 'isolada'].includes(estado.ordens.get(v.ordem)?.estado ?? ''));
+  if (!minhas.length && !abandonadas.length) return r;
   const trava = travaDaIntegracao(carregado.raiz, arco);
-  if (trava === null) { r.emCurso.push(...minhas.map(v => `${v.chave}/${v.n}`)); return r; }
+  if (trava === null) { r.emCurso.push(...[...minhas, ...abandonadas].map(v => `${v.chave}/${v.n}`)); return r; }
   try {
     const remoto = opcoes.remoto ?? carregado.manifesto.fabrica.remoto;
-    for (const v of minhas) {
+    for (const v of [...minhas, ...abandonadas]) {
       const naBase = mergeNaBase(carregado, remoto, v.destino.base, v.candidato.fonte, opcoes);
       if (naBase) {
         registrarEntrega(carregado, arco, { chave: v.chave, n: v.n, trabalho: v.trabalho, ordem: v.ordem, destino: v.destino,
@@ -226,6 +253,7 @@ export function reconciliarIntegracao(carregado: ManifestoCarregado, arco: strin
         continue;
       }
       if (!cabecaDaBaseLida(carregado, remoto, v.destino.base, opcoes)) continue;
+      if (v.fim) { r.abandonadasConferidas.push(`${v.chave}/${v.n}`); continue; }
       encerrarVez(carregado, arco, v.chave, v.n, { desfecho: 'desistiu', motivo: 'reconciliação: a fonte não está na base; o candidato será provado de novo' }, opcoes);
       r.soltas.push(`${v.chave}/${v.n}`);
     }

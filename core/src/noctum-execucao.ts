@@ -59,10 +59,11 @@ export interface OpcoesDoPasso {
   /** A reserva no log do arco; em produção, `reservarDespacho`. */
   reservar?: typeof reservarDespacho;
   /**
-   * RM-058 N3: o que o ramo de coordenação diz a esta máquina, dado só pelo passo da máquina (`noctum-maquinas.ts`). Sem
-   * isso, o arco entre máquinas (envelope `v3`) não despacha daqui.
+   * RM-058 N3: o que o ramo de coordenação diz a esta máquina, dado só pelo passo da máquina (`noctum-maquinas.ts`), com a
+   * reserva do despacho que toma a vaga global (S5 da revisão: ela vence a `reservar` daqui). Sem isso, o arco entre
+   * máquinas (envelope `v3`) não despacha daqui.
    */
-  coordenacao?: CoordenacaoDaFila;
+  coordenacao?: CoordenacaoDaFila & { reservar: typeof reservarDespacho };
 }
 
 export type ResultadoDoPasso =
@@ -151,7 +152,7 @@ export function passoDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
       return { acao: 'aguardar', ate: cadencia, motivo: e.motivo, detalhe: e.message, fila: null };
     }
     // N3: o arco entre máquinas só despacha pelo passo da máquina, que confere ordem, reserva e vaga global antes.
-    if (fatos.estado?.conteudo && envelopeMultimaquina(fatos.estado.conteudo) && !opcoes.coordenacao) {
+    if (fatos.estado?.conteudo && envelopeMultimaquina(fatos.estado.conteudo) && typeof opcoes.coordenacao?.reservar !== 'function') {
       return { acao: 'aguardar', ate: cadencia, motivo: 'noctum.coordenacao.exige-passo-da-maquina', fila: null,
         detalhe: 'o envelope vigente é de várias máquinas: o despacho passa pelo passo da máquina, com a ordem, a reserva e a vaga global' };
     }
@@ -240,7 +241,7 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
   const { raiz } = carregado;
   let reserva: number;
   try {
-    reserva = (opcoes.reservar ?? reservarDespacho)(raiz, { arco, envelopeSha256: fila.envelopeSha256 ?? '', trabalho: c.trabalho,
+    reserva = (opcoes.coordenacao?.reservar ?? opcoes.reservar ?? reservarDespacho)(raiz, { arco, envelopeSha256: fila.envelopeSha256 ?? '', trabalho: c.trabalho,
       thread: c.thread?.id ?? null, fase: c.fase, runtime: c.runtime, conta: c.conta, revisao: c.fase === 'CHECK' }, c.quando).seq;
   } catch (e) {
     if (!(e instanceof RecusaDoArco)) throw e;

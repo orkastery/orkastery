@@ -82,9 +82,10 @@ export function cloneDoRemoto(remoto: string, nome: string, usuario: string): st
  * O projeto com os itens do roadmap no remoto, a máquina A (o clone que criou) e a máquina B (outro clone), e o mesmo
  * envelope `v3` autorizado pelo ingresso simulado nas duas raízes. Nada sai da pasta temporária.
  */
-export function duasMaquinas(nome: string, o: Omit<OpcoesDoArcoV3, 'maquinas'> & { arco?: string }): DuasMaquinas {
+export function duasMaquinas(nome: string, o: Omit<OpcoesDoArcoV3, 'maquinas'> & { arco?: string; semPagina?: string[] }): DuasMaquinas {
   const p = projetoTemporario(nome, true);
-  const itens = [...new Set(o.trabalhos.map(t => t.item))];
+  // `semPagina`: itens do envelope sem página no roadmap do remoto (o teste a põe só no clone que deve tê-la).
+  const itens = [...new Set(o.trabalhos.map(t => t.item))].filter(i => !(o.semPagina ?? []).includes(i));
   for (const item of itens) commitar(p.dir, `docs/roadmap/${item}-simulado.md`, `# ${item} SIMULADO\n`, `roadmap: ${item}`);
   // O manifesto vai junto: a outra máquina clona um projeto do ork.
   const versionados = ['orkastery.yaml', 'AGENTS.md'].filter(f => fs.existsSync(path.join(p.dir, f)));

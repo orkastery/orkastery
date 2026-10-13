@@ -5,14 +5,15 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { exec } from '../src/util';
-import { prepararIngressoSimulado } from './noctum-apoio';
+import { prepararIngressoSimulado, revogarArco } from './noctum-apoio';
 import {
   atualizarBranch, branchDeTrabalho, duasMaquinas, DuasMaquinas, integradorPorAvanco, MaquinaDeTeste, maisUmCommit, provasSimuladas,
 } from './noctum-maquinas-apoio';
 import { RecusaDoArco } from '../src/noctum-envelope';
 import * as transporte from '../src/noctum-transporte';
 import {
-  assumirAutoridade, bater, cancelarOrdem, emitirOrdem, lerCoordenacao, responderOrdem, situacaoDoTrabalho,
+  assumirAutoridade, bater, BATIDA_VENCIDA_MS, cancelarOrdem, derivarCoordenacao, emitirOrdem, gravarNaCoordenacao, lerCoordenacao,
+  registrosDosAbandonos, responderOrdem, revogarNaRede, situacaoDoTrabalho,
 } from '../src/noctum-coordenacao';
 import { integrarComVez, reconciliarIntegracao } from '../src/noctum-integracao';
 
@@ -35,7 +36,7 @@ function cenario(nome: string, permissoes?: string[]): DuasMaquinas {
   return m;
 }
 
-const op = (m: MaquinaDeTeste) => ({ maquina: m.nome });
+const op = (m: MaquinaDeTeste, quando?: string) => ({ maquina: m.nome, ...(quando ? { quando } : {}) });
 const mainNoRemoto = (m: DuasMaquinas) => exec('git', ['ls-remote', m.remoto, 'refs/heads/main'], m.a.dir).stdout.split(/\s+/)[0];
 
 function recusa(fn: () => unknown, motivo: string): string {
@@ -192,5 +193,84 @@ test('I7: destino sem merge no envelope não integra; o push que não se prova s
     const estado = lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a));
     assert.equal([...estado.vezes.values()].flat()[0].fim!.desfecho, 'desistiu');
     assert.equal(situacaoDoTrabalho(estado, 'a')!.estado, 'em-execucao', 'nada foi entregue');
+  } finally { m2.limpar(); }
+});
+
+test('I8: a revogação que chega entre a vez e o merge segura o efeito pela N1; a revogação no ramo nem deixa tomar a vez', () => {
+  const m = cenario('noctum-i8');
+  const original = transporte.cabecasNoRemoto;
+  try {
+    const ca = candidato(branchDeTrabalho(m.a.dir, 'trabalho-a', 'a.txt', 'A SIMULADO\n'), 'a');
+    // O dono revoga o arco na A entre a vez tomada e a conferência logo antes do merge.
+    (transporte as { cabecasNoRemoto: typeof original }).cabecasNoRemoto = (...args) => {
+      revogarArco(m.a.dir, m.arco);
+      (transporte as { cabecasNoRemoto: typeof original }).cabecasNoRemoto = original;
+      return original(...args);
+    };
+    let chamou = false;
+    recusa(() => integrarComVez(m.a.carregado, m.arco, { ordem: 'O-a-1', destino: DESTINO, candidato: ca }, () => { chamou = true; return { merge: ca.fonte }; },
+      op(m.a)), 'noctum.efeito.revogado');
+    assert.equal(chamou, false, 'o efeito não aconteceu');
+    assert.equal(mainNoRemoto(m), ca.base);
+    assert.equal([...lerCoordenacao(m.b.carregado, m.arco, op(m.b)).vezes.values()].flat()[0].fim!.desfecho, 'desistiu');
+    // S4 da revisão: com o arco revogado aqui, a A nem toma a vez de novo; a conferência da N1 vem antes.
+    const vezesAntes = [...lerCoordenacao(m.a.carregado, m.arco, op(m.a)).vezes.values()].flat().length;
+    recusa(() => integrarComVez(m.a.carregado, m.arco, { ordem: 'O-a-1', destino: DESTINO, candidato: ca }, integradorPorAvanco(m.a.dir), op(m.a)),
+      'noctum.efeito.revogado');
+    assert.equal([...lerCoordenacao(m.a.carregado, m.arco, op(m.a)).vezes.values()].flat().length, vezesAntes);
+    // A revogação vai ao ramo: a B, com o arco vigente aqui, não toma a vez.
+    revogarNaRede(m.a.carregado, m.arco, op(m.a));
+    const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    recusa(() => integrarComVez(m.b.carregado, m.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, integradorPorAvanco(m.b.dir), op(m.b)),
+      'noctum.coordenacao.revogada');
+    assert.equal([...lerCoordenacao(m.b.carregado, m.arco, op(m.b)).vezes.values()].flat().length, 1, 'a B nem tomou a vez');
+  } finally { (transporte as { cabecasNoRemoto: typeof original }).cabecasNoRemoto = original; m.limpar(); }
+});
+
+test('I9: a vez de quem não dá sinal é abandonada pela autoridade; o destino volta a andar, e a volta registra o merge que chegou', () => {
+  const m = cenario('noctum-i9');
+  try {
+    // A B toma a vez, o merge chega à base e ela cai antes de registrar.
+    const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    recusa(() => integrarComVez(m.b.carregado, m.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, (c) => {
+      integradorPorAvanco(m.b.dir)(c);
+      throw new Error('SIMULADO: a B caiu logo depois do push');
+    }, op(m.b)), 'noctum.integracao.nao-provada');
+    const ca = candidato(branchDeTrabalho(m.a.dir, 'trabalho-a', 'a.txt', 'A SIMULADO\n'), 'a');
+    recusa(() => integrarComVez(m.a.carregado, m.arco, { ordem: 'O-a-1', destino: DESTINO, candidato: ca }, integradorPorAvanco(m.a.dir), op(m.a)),
+      'noctum.integracao.ocupada');
+    // Dezesseis minutos sem sinal da B: a autoridade abandona a vez, e o trabalho dela não muda de máquina.
+    const tarde = new Date(Date.now() + BATIDA_VENCIDA_MS + 60_000).toISOString();
+    const abandono = gravarNaCoordenacao(m.a.carregado, m.arco, op(m.a, tarde), (l) => {
+      const novos = registrosDosAbandonos(derivarCoordenacao(l), 'maquina-a', tarde);
+      return { novos, resultado: novos.length };
+    }).resultado;
+    assert.equal(abandono, 1);
+    let estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a, tarde));
+    assert.equal(situacaoDoTrabalho(estado, 'b')!.estado, 'em-execucao');
+    // O destino volta a andar: a A integra sobre a base nova, que já tem o merge da B.
+    const feito = integrarComVez(m.a.carregado, m.arco, { ordem: 'O-a-1', destino: DESTINO, candidato: ca }, integradorPorAvanco(m.a.dir), op(m.a, tarde));
+    assert.equal(mainNoRemoto(m), feito.merge);
+    // A B volta: a reconciliação registra a entrega do merge que chegou, sem integrar de novo e sem regravar o fim da vez.
+    const r = reconciliarIntegracao(m.b.carregado, m.arco, op(m.b, tarde));
+    assert.deepEqual(r.registradas.map(x => x.trabalho), ['b']);
+    assert.equal(mainNoRemoto(m), feito.merge, 'nada foi integrado de novo');
+    estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a, tarde));
+    assert.deepEqual([situacaoDoTrabalho(estado, 'a')!.estado, situacaoDoTrabalho(estado, 'b')!.estado], ['entregue', 'entregue']);
+    assert.deepEqual([...estado.vezes.values()].flat().map(v => [v.maquina, v.fim?.desfecho, v.fim?.por]),
+      [['maquina-b', 'abandonada', 'maquina-a'], ['maquina-a', 'entregue', 'maquina-a']]);
+    assert.deepEqual(reconciliarIntegracao(m.b.carregado, m.arco, op(m.b, tarde)).registradas, [], 'a segunda reconciliação não registra de novo');
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-i9b');
+  try {
+    // A vez abandonada sem merge na base: conferida a base, a ordem dela pode terminar.
+    const cb = candidato(branchDeTrabalho(m2.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    recusa(() => integrarComVez(m2.b.carregado, m2.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, () => {
+      throw new Error('SIMULADO: a B caiu antes do push');
+    }, op(m2.b)), 'noctum.integracao.nao-provada');
+    const tarde = new Date(Date.now() + BATIDA_VENCIDA_MS + 60_000).toISOString();
+    gravarNaCoordenacao(m2.a.carregado, m2.arco, op(m2.a, tarde), (l) => ({ novos: registrosDosAbandonos(derivarCoordenacao(l), 'maquina-a', tarde), resultado: null }));
+    const r = reconciliarIntegracao(m2.b.carregado, m2.arco, op(m2.b, tarde));
+    assert.deepEqual([r.registradas, r.abandonadasConferidas.length], [[], 1]);
   } finally { m2.limpar(); }
 });
