@@ -605,3 +605,60 @@ test('K16: a máquina que uma emenda tirou do arco ainda fecha o que é dela, e 
     assert.notEqual(estado.ordens.get('O-d-1')!.recibos.encerrada!.envelopeSha256, estado.vigente.envelopeSha256);
   } finally { m.limpar(); }
 });
+
+test('K17: quem grava confere com a régua de quem lê; checkpoint fechado, ordem e vaga idempotentes e a vaga do despacho idempotente solta', () => {
+  const m = cenario('noctum-k17', { global: 2 });
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    // S3 da rodada 2: repetir a mesma ordem para a mesma máquina devolve a que entrou, sem gravar de novo.
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a)), 'O-a-1');
+    const ponta = lerCoordenacao(m.a.carregado, m.arco, op(m.a)).ponta;
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a)), 'O-a-1');
+    assert.equal(lerCoordenacao(m.a.carregado, m.arco, op(m.a)).ponta, ponta, 'a repetição não gravou');
+    responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m.b));
+    // B1 da rodada 2: o checkpoint fora do esquema, a thread longa e o registro que o leitor reprovaria ficam aqui.
+    const antes = lerCoordenacao(m.b.carregado, m.arco, op(m.b)).ponta;
+    assert.match(recusa(() => encerrarOrdem(m.b.carregado, m.arco, 'O-a-1', { motivo: 'SIMULADO',
+      checkpoint: { thread: null, sessionId: 'sessao-SIMULADA' } as never }, op(m.b)), 'noctum.envelope.invalido'), /sessão, caminho e texto livre não vão ao ramo/);
+    recusa(() => encerrarOrdem(m.b.carregado, m.arco, 'O-a-1', { motivo: 'SIMULADO',
+      checkpoint: { thread: null, vagasSoltas: Array.from({ length: 65 }, (_, i) => `V-maquina-b-${i + 1}`) } }, op(m.b)), 'noctum.envelope.invalido');
+    recusa(() => concluirOrdem(m.b.carregado, m.arco, 'O-a-1', { resultado: 'entregue', thread: 'x'.repeat(81) }, op(m.b)), 'noctum.envelope.invalido');
+    assert.match(recusa(() => gravarNaCoordenacao(m.b.carregado, m.arco, op(m.b), () => ({ novos: [{ tipo: 'entrega', trabalho: 'a', ordem: 'O-a-1',
+      destino: { repositorio: 'exemplo/produto', base: 'main', permissoes: ['merge'] }, fonte: 'a'.repeat(40), base: 'b'.repeat(40), merge: 'c'.repeat(40) }],
+      resultado: null })), 'noctum.envelope.invalido'), /as máquinas reprovariam .*destino fora do formato.*nada foi ao ramo/);
+    assert.equal(lerCoordenacao(m.a.carregado, m.arco, op(m.a)).ponta, antes, 'nada foi ao ramo');
+    // S2 da rodada 2: a vaga já solta com o mesmo seq local não volta como tomada.
+    tomarVagaGlobal(m.b.carregado, m.arco, { ordem: 'O-a-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, op(m.b));
+    soltarVagaGlobal(m.b.carregado, m.arco, 'V-maquina-b-1', { consumiu: false, motivo: 'SIMULADO' }, op(m.b));
+    assert.match(recusa(() => tomarVagaGlobal(m.b.carregado, m.arco, { ordem: 'O-a-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, op(m.b)),
+      'noctum.coordenacao.concorrencia'), /já foi tomada e solta; o seq local 1 se repetiu/);
+    // A2 da rodada 2: o despacho idempotente não abriu sessão; a vaga dele é solta com consumo, e a cancelada encerra.
+    tomarVagaGlobal(m.b.carregado, m.arco, { ordem: 'O-a-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 2 }, op(m.b));
+    cancelarOrdem(m.a.carregado, m.arco, 'O-a-1', 'SIMULADO: a B parou', op(m.a));
+    const fatos = (idempotente: boolean): FatosLocaisDaMaquina => ({ arcoVigente: true, sessoesVivas: new Set(), threads: new Map(),
+      despachos: new Map([[1, { desfecho: 'recusado', sessionId: null }], [2, { desfecho: 'concluido', sessionId: null, idempotente }]]) });
+    const estado = lerCoordenacao(m.b.carregado, m.arco, op(m.b));
+    assert.equal(planejarReconciliacao(estado, 'maquina-b', fatos(false)).aguardando.length, 1, 'sem sessão conhecida e sem ser idempotente, incerta é viva');
+    const plano = reconciliarCoordenacao(m.b.carregado, m.arco, fatos(true), op(m.b));
+    assert.deepEqual([plano.encerradas, plano.soltas], [['O-a-1'], ['V-maquina-b-2']]);
+    const depoisDela = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
+    assert.equal(situacaoDoTrabalho(depoisDela, 'a')!.estado, 'livre');
+    assert.equal(depoisDela.vagas.find(v => v.vaga === 'V-maquina-b-2')!.solta!.consumiu, true);
+    assert.deepEqual(depoisDela.ordens.get('O-a-1')!.recibos.encerrada!.checkpoint, { thread: null, vagasSoltas: ['V-maquina-b-2'] });
+  } finally { m.limpar(); }
+});
+
+test('K18: sem a leitura das reservas agora, nenhuma ordem sai', () => {
+  const m = cenario('noctum-k18');
+  const original = reservasDoRoadmap.listarReservas;
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    (reservasDoRoadmap as { listarReservas: typeof original }).listarReservas = () => { throw new Error('SIMULADO: o remoto das reservas não respondeu'); };
+    assert.match(recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a)), 'noctum.coordenacao.sem-remoto'),
+      /as reservas não se leram agora; sem elas, nenhuma ordem sai/);
+    (reservasDoRoadmap as { listarReservas: typeof original }).listarReservas = original;
+    assert.equal(lerCoordenacao(m.a.carregado, m.arco, op(m.a)).ordens.size, 0);
+  } finally { (reservasDoRoadmap as { listarReservas: typeof original }).listarReservas = original; m.limpar(); }
+});

@@ -109,6 +109,8 @@ export const MOTIVOS_DE_RECUSA = [
   // da ordem com motivo próprio, e o item que o roadmap não reconhece.
   'noctum.coordenacao.versao-nao-autorizada', 'noctum.coordenacao.revogada', 'noctum.coordenacao.dependencia-pendente',
   'noctum.coordenacao.maquina-recusou', 'noctum.reserva.item-invalido',
+  // Rodada 2 da revisão da ork-rm058n3: a fonte que chegou à base por um merge fora da base provada.
+  'noctum.integracao.base-nao-provada',
 ] as const;
 export type MotivoDeRecusaDoArco = typeof MOTIVOS_DE_RECUSA[number];
 

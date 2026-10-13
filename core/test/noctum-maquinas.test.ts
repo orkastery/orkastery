@@ -18,6 +18,7 @@ import {
 } from '../src/noctum-coordenacao';
 import { BRANCH_DE_COORDENACAO } from '../src/noctum-transporte';
 import { RecusaDoArco } from '../src/noctum-envelope';
+import * as reservasDoRoadmap from '../src/roadmap-reservas';
 import { pegarItem, soltarItem } from '../src/roadmap-reservas';
 import { passoDoArco } from '../src/noctum-execucao';
 import { passoDaMaquina, ResultadoDoPassoDaMaquina } from '../src/noctum-maquinas';
@@ -345,6 +346,13 @@ test('M13: a revogação numa máquina vale na outra; a máquina tirada do arco 
     assert.ok(rb.relatorio.reservasSoltas.includes('RM-903'));
     assert.equal(reservaDoItem(m2.b.carregado, m2.arco, 'RM-903', { maquina: 'maquina-b' })!.livre, true);
     assert.equal(lerCoordenacao(m2.a.carregado, m2.arco, { maquina: 'maquina-a' }).vagas.find(v => v.ordem === 'O-c-1')!.solta!.consumiu, true);
+    // S1 da rodada 2: o dono revoga o arco na B, que a emenda tirou; a revogação vai ao ramo mesmo assim e vale na A.
+    revogarArco(m2.b.dir, m2.arco);
+    rb = passo(m2.b);
+    assert.ok(rb.acao === 'aguardar' && rb.motivo === 'noctum.efeito.revogado', JSON.stringify(rb.acao === 'aguardar' ? rb.motivo : rb.acao));
+    assert.equal(lerCoordenacao(m2.a.carregado, m2.arco, { maquina: 'maquina-a' }).revogada?.por, 'maquina-b');
+    const ra = passo(m2.a);
+    assert.ok(ra.acao === 'aguardar' && ra.motivo === 'noctum.coordenacao.revogada', JSON.stringify(ra.acao === 'aguardar' ? ra.motivo : ra.acao));
   } finally { m2.limpar(); }
 });
 
@@ -367,4 +375,35 @@ test('M14: o item que o roadmap de uma máquina não tem encerra a ordem dela se
     assert.equal(estado.ordens.get('O-k-2')!.maquina, 'maquina-b');
     assert.equal(despachou(passo(m.b))?.trabalho, 'k');
   } finally { m.limpar(); }
+});
+
+test('M15: sem a leitura das reservas a autoridade não distribui; antes de a janela abrir aqui, a máquina não responde a ordem', { skip: semKernel }, () => {
+  const m = cenario('noctum-m15');
+  const original = reservasDoRoadmap.listarReservas;
+  try {
+    passo(m.b);
+    (reservasDoRoadmap as { listarReservas: typeof original }).listarReservas = () => { throw new Error('SIMULADO: o remoto das reservas não respondeu'); };
+    const r = passo(m.a);
+    assert.ok(r.acao !== 'uma-maquina' && r.relatorio.ordensEmitidas.length === 0, JSON.stringify(r.acao !== 'uma-maquina' ? r.relatorio.ordensEmitidas : r.acao));
+    (reservasDoRoadmap as { listarReservas: typeof original }).listarReservas = original;
+    assert.equal(lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' }).ordens.size, 0);
+  } finally { (reservasDoRoadmap as { listarReservas: typeof original }).listarReservas = original; m.limpar(); }
+  // A-R2A-3 da rodada 2: na borda da janela, o relógio da B atrás do da autoridade. A ordem do trabalho preso à B fica
+  // emitida até a janela abrir lá, em vez de virar uma recusa que a exclui nesta versão do envelope.
+  const m2 = duasMaquinas('noctum-m15b', { trabalhos: [{ id: 't1', item: 'RM-971', prioridade: 1, dependeDe: [], pedido: 'Fatia 1 SIMULADA.', maquina: 'maquina-b' }],
+    maquina: 2, revisao: 0, contas: [{ conta: 'perfil-a', sessoes: 2 }], runtimes: [{ runtime: 'claude-bg', sessoes: 2 }], global: [{ conta: 'perfil-a', sessoes: 2 }] });
+  try {
+    const inicio = Date.parse((m2.pedido.janela as { inicio: string }).inicio);
+    const em = (q: number) => new Date(inicio + q).toISOString();
+    const de = (quem: MaquinaDeTeste, q: number) => passoDaMaquina(quem.carregado, m2.arco, { maquina: quem.nome, quando: em(q), n2: n2Simulada(registro) });
+    coordenacao.bater(m2.b.carregado, m2.arco, { maquina: 'maquina-b', quando: em(-3000) });
+    const ra = de(m2.a, 2000);
+    assert.ok(ra.acao !== 'uma-maquina' && ra.relatorio.ordensEmitidas.includes('O-t1-1'));
+    const antes = de(m2.b, -1000);
+    assert.ok(antes.acao !== 'uma-maquina' && antes.relatorio.respostas.length === 0, JSON.stringify(antes.acao !== 'uma-maquina' ? antes.relatorio.respostas : antes.acao));
+    assert.equal(lerCoordenacao(m2.a.carregado, m2.arco, { maquina: 'maquina-a', quando: em(3000) }).ordens.get('O-t1-1')!.estado, 'emitida');
+    const depois = de(m2.b, 61_000);
+    assert.ok(depois.acao !== 'uma-maquina' && depois.relatorio.respostas.some(x => x.ordem === 'O-t1-1' && x.recibo === 'aceita'),
+      JSON.stringify(depois.acao !== 'uma-maquina' ? depois.relatorio.respostas : depois.acao));
+  } finally { m2.limpar(); }
 });

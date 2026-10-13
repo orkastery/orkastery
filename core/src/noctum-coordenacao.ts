@@ -44,8 +44,9 @@ export type ModoDaAutoridade = 'primeira' | 'cessao' | 'forcada';
 export type EstadoDaOrdem = 'emitida' | 'aceita' | 'isolada' | 'cancelada-antes' | 'recusada' | 'concluida' | 'encerrada';
 export type ResultadoDaConclusao = 'entregue' | 'encerrado-sem-entrega';
 export type EstadoDoTrabalhoNaRede = 'livre' | 'ordenado' | 'em-execucao' | 'isolado' | 'entregue' | 'encerrado';
-export type DesfechoDaVez = 'entregue' | 'invalidado' | 'desistiu' | 'abandonada';
-const DESFECHOS: readonly DesfechoDaVez[] = ['entregue', 'invalidado', 'desistiu', 'abandonada'];
+/** `sem-prova`: a fonte chegou à base por um merge fora da base provada (B-R2A-1 da rodada 2); o trabalho espera a inspeção. */
+export type DesfechoDaVez = 'entregue' | 'invalidado' | 'desistiu' | 'abandonada' | 'sem-prova';
+const DESFECHOS: readonly DesfechoDaVez[] = ['entregue', 'invalidado', 'desistiu', 'abandonada', 'sem-prova'];
 
 const VIVAS: readonly EstadoDaOrdem[] = ['emitida', 'aceita', 'isolada'];
 export const ordemViva = (o: { estado: EstadoDaOrdem }): boolean => VIVAS.includes(o.estado);
@@ -176,6 +177,14 @@ export function seloDaGeracao(ids: readonly string[]): { registros: number; sha2
 const seloValido = (v: unknown): boolean => objeto(v) && Object.keys(v).sort().join(',') === 'registros,sha256' &&
   inteiro(v.registros, 0) && typeof v.sha256 === 'string' && /^[0-9a-f]{64}$/.test(v.sha256);
 
+/** O checkpoint do recibo de fim: só a thread local e as vagas que o fim soltou (B1 da rodada 2), nunca sessão nem texto livre. */
+export interface CheckpointDoFim { thread?: string | null; vagasSoltas?: string[] }
+export const TETO_DE_VAGAS_NO_CHECKPOINT = 64;
+const checkpointValido = (v: unknown): v is CheckpointDoFim => objeto(v) && Object.keys(v).every(k => k === 'thread' || k === 'vagasSoltas') &&
+  (v.thread === undefined || v.thread === null || linha(v.thread, 80)) &&
+  (v.vagasSoltas === undefined || (Array.isArray(v.vagasSoltas) && v.vagasSoltas.length <= TETO_DE_VAGAS_NO_CHECKPOINT &&
+    v.vagasSoltas.every(x => typeof x === 'string' && ID_DA_VAGA.test(x))));
+
 /**
  * O estado da coordenação, derivado da leitura conferida. Confere o contrato de cada tipo e a coerência entre eles (quem
  * assina o quê, gerações contíguas e seladas, uma ordem viva por trabalho, uma vez ativa por destino, recibos que não se
@@ -262,7 +271,7 @@ function derivar(leitura: LeituraDoRamo): EstadoDaCoordenacao {
   for (const { caminho, dados: d } of porTipo('recibo')) {
     campos(d, caminho, { ordem: v => typeof v === 'string' && ID_DA_ORDEM.test(v), recibo: v => (RECIBOS as readonly unknown[]).includes(v),
       motivo: v => linha(v) }, { resultado: v => v === 'entregue' || v === 'encerrado-sem-entrega', thread: v => v === null || linha(v, 80),
-      checkpoint: v => objeto(v) && JSON.stringify(v).length <= 2048 });
+      checkpoint: v => checkpointValido(v) });
     const o = ordens.get(d.ordem as string);
     if (!o) throw adulterado(`${caminho} de uma ordem que não existe`);
     if (o.maquina !== d.por) throw adulterado(`${caminho} assinado por quem não é o executor da ordem`);
@@ -669,6 +678,13 @@ export function emitirOrdem(carregado: ManifestoCarregado, arco: string, pedido:
     const estado = derivarCoordenacao(leitura);
     const { eu } = euNaVersaoVigente(carregado.raiz, leitura, opcoes);
     const a = exigirAutoridade(estado, eu.nome);
+    // S3 da rodada 2: a ordem viva deste trabalho para a mesma máquina, emitida por esta geração e não cancelada, é a mesma
+    // ordem: repetir depois de um push de resultado incerto devolve o id dela, sem gravar de novo.
+    const ja = estado.trabalhos.get(pedido.trabalho)?.ordem;
+    if (ja && (ja.estado === 'emitida' || ja.estado === 'aceita') && ja.maquina === pedido.maquina && ja.geracao === a.geracao &&
+        ja.envelopeSha256 === estado.vigente.envelopeSha256) {
+      return { novos: [], resultado: ja.ordem };
+    }
     const reservas = reservasDoArco(carregado, opcoes);
     if (!reservas) throw recusa('noctum.coordenacao.sem-remoto', 'as reservas não se leram agora; sem elas, nenhuma ordem sai');
     const nao = porQueNaoOrdenar(estado, pedido.trabalho, pedido.maquina, eu.nome, quando, reservas);
@@ -809,6 +825,10 @@ export function responderOrdem(carregado: ManifestoCarregado, arco: string, orde
  */
 export function concluirOrdem(carregado: ManifestoCarregado, arco: string, ordem: string,
   conclusao: { resultado: ResultadoDaConclusao; thread: string | null }, opcoes: OpcoesDaCoordenacao = {}): void {
+  if (conclusao.resultado !== 'entregue' && conclusao.resultado !== 'encerrado-sem-entrega') {
+    throw recusa('noctum.envelope.invalido', 'a conclusão é entregue ou encerrado-sem-entrega');
+  }
+  if (conclusao.thread !== null && !linha(conclusao.thread, 80)) throw recusa('noctum.envelope.invalido', 'a thread da conclusão vai em uma linha de até 80 caracteres');
   gravarNaCoordenacao(carregado, arco, opcoes, (leitura) => {
     const estado = derivarCoordenacao(leitura);
     const eu = nomeDe(opcoes);
@@ -827,7 +847,12 @@ export function concluirOrdem(carregado: ManifestoCarregado, arco: string, ordem
  * que o executor antigo parou.
  */
 export function encerrarOrdem(carregado: ManifestoCarregado, arco: string, ordem: string,
-  fim: { motivo: string; checkpoint: Record<string, unknown> }, opcoes: OpcoesDaCoordenacao = {}): void {
+  fim: { motivo: string; checkpoint: CheckpointDoFim }, opcoes: OpcoesDaCoordenacao = {}): void {
+  if (!checkpointValido(fim.checkpoint)) {
+    throw recusa('noctum.envelope.invalido', `o checkpoint do fim leva só a thread (uma linha de até 80 caracteres) e as vagas soltas (até ${TETO_DE_VAGAS_NO_CHECKPOINT}); ` +
+      'sessão, caminho e texto livre não vão ao ramo');
+  }
+  const checkpoint = { thread: fim.checkpoint.thread ?? null, vagasSoltas: fim.checkpoint.vagasSoltas ?? [] };
   gravarNaCoordenacao(carregado, arco, opcoes, (leitura) => {
     const estado = derivarCoordenacao(leitura);
     const eu = nomeDe(opcoes);
@@ -836,7 +861,7 @@ export function encerrarOrdem(carregado: ManifestoCarregado, arco: string, ordem
     if (o.estado === 'encerrada') return { novos: [], resultado: null };
     if (o.estado !== 'aceita' && o.estado !== 'isolada') throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} está ${o.estado}`);
     return { novos: [{ tipo: 'recibo', ordem, recibo: 'encerrada', motivo: fim.motivo.slice(0, 300).replace(/[\r\n]+/g, ' '),
-      checkpoint: fim.checkpoint }], resultado: null };
+      checkpoint }], resultado: null };
   });
 }
 
@@ -916,6 +941,8 @@ export function tomarVagaGlobal(carregado: ManifestoCarregado, arco: string, p: 
       if (ja.ordem !== p.ordem || ja.conta !== p.conta || ja.runtime !== p.runtime) {
         throw recusa('noctum.coordenacao.concorrencia', `a vaga ${vaga} já existe para outro despacho`);
       }
+      // S2 da rodada 2: a vaga já solta com o mesmo `seq` é um `seq` local repetido (raiz de estado nova), não esta reserva.
+      if (ja.solta) throw recusa('noctum.coordenacao.concorrencia', `a vaga ${vaga} já foi tomada e solta; o seq local ${p.reserva} se repetiu`);
       return { novos: [], resultado: vaga };
     }
     exigirNaoRevogada(estado);
@@ -1024,7 +1051,7 @@ export function soltarReservaDoArco(carregado: ManifestoCarregado, arco: string,
 export interface FatosLocaisDaMaquina {
   arcoVigente: boolean;
   /** O desfecho local de cada reserva de despacho do arco, pelo `seq`. */
-  despachos: ReadonlyMap<number, { desfecho: 'pendente' | 'concluido' | 'recusado'; sessionId: string | null }>;
+  despachos: ReadonlyMap<number, { desfecho: 'pendente' | 'concluido' | 'recusado'; sessionId: string | null; idempotente?: boolean }>;
   /** As sessões que ocupam agora (a leitura de capacidade da N2); `null` quando ela teve lacuna. */
   sessoesVivas: ReadonlySet<string> | null;
   /** A thread local de cada trabalho, quando há uma só: se foi entregue ou fechou. */
@@ -1034,6 +1061,8 @@ export interface FatosLocaisDaMaquina {
    * sem a fonte (`chave/n`). A ordem com vez abandonada fora daqui espera: o merge pode ter chegado à base (A7 da revisão).
    */
   vezesConferidas?: ReadonlySet<string>;
+  /** As vezes desta máquina cuja fonte a reconciliação achou na base por um merge fora da base provada (`chave/n`). */
+  vezesSemProva?: ReadonlySet<string>;
 }
 
 export interface PlanoDeReconciliacao {
@@ -1054,6 +1083,9 @@ function vagaViva(v: VagaDerivada, fatos: FatosLocaisDaMaquina): boolean {
   const d = fatos.despachos.get(v.reserva);
   if (!d || d.desfecho === 'pendente') return true;
   if (d.desfecho === 'recusado') return false;
+  // A2 da rodada 2: o despacho idempotente não abriu sessão (a fase já corria); a vaga dele não espera sessão nenhuma e é
+  // solta com consumo, como a N2 conta a reserva concluída.
+  if (d.idempotente) return false;
   return fatos.sessoesVivas === null || d.sessionId === null || fatos.sessoesVivas.has(d.sessionId);
 }
 
@@ -1091,6 +1123,12 @@ export function planejarReconciliacao(estado: EstadoDaCoordenacao, eu: string, f
       plano.aguardando.push({ ordem: o.ordem, porque: `${porque}; a vez de integrar dela está ativa, e o merge pode ter chegado à base` });
       continue;
     }
+    // B-R2A-1 da rodada 2: a fonte que chegou à base sem prova sobre a base provada não é refeita em outra máquina: a ordem
+    // fica, e o trabalho espera a inspeção do dono.
+    if (!estado.entregas.has(o.trabalho) && dasVezes.some(v => v.fim?.desfecho === 'sem-prova' || fatos.vezesSemProva?.has(`${v.chave}/${v.n}`))) {
+      plano.aguardando.push({ ordem: o.ordem, porque: `${porque}; a fonte dela chegou à base por um merge fora da base provada, e o trabalho espera a inspeção` });
+      continue;
+    }
     if (!estado.entregas.has(o.trabalho) &&
         dasVezes.some(v => v.fim?.desfecho === 'abandonada' && !fatos.vezesConferidas?.has(`${v.chave}/${v.n}`))) {
       plano.aguardando.push({ ordem: o.ordem, porque: `${porque}; a vez de integrar dela foi abandonada pela autoridade, e o merge pode ter chegado à base` });
@@ -1104,7 +1142,7 @@ export function planejarReconciliacao(estado: EstadoDaCoordenacao, eu: string, f
     }
     for (const v of dela) soltar(v, 'fim da ordem');
     plano.novos.push({ tipo: 'recibo', ordem: o.ordem, recibo: 'encerrada', motivo: porque.slice(0, 300),
-      checkpoint: { thread: th?.id ?? null, vagasSoltas: dela.map(v => v.vaga) } });
+      checkpoint: { thread: th?.id ?? null, vagasSoltas: dela.map(v => v.vaga).slice(0, TETO_DE_VAGAS_NO_CHECKPOINT) } });
     plano.encerradas.push(o.ordem);
   }
   for (const v of minhas) {

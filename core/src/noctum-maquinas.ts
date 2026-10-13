@@ -4,15 +4,17 @@
  * Com o envelope `v1` ou `v2`, o passo é o da N2, como está. Com a `v3`, sob a trava `.orkastery/noctum/maquina.lock` (um
  * passo de máquina por raiz de estado), a máquina:
  *
- * 1. reconcilia o que é dela: primeiro a vez de integrar (o merge que chegou à base vira entrega, sem integrar de novo),
- *    depois as ordens (conclui pela thread local, encerra a vencida sem sessão viva) e as vagas (pelo desfecho local do
- *    despacho), e solta a reserva do arco nos itens sem ordem viva dela. Fora do envelope vigente (uma emenda a tirou), o
- *    passo para aqui: ela só fecha o que é dela. Com o arco revogado aqui, a revogação vai ao ramo e vale em todas;
+ * 1. reconcilia o que é dela: primeiro a vez de integrar (o merge provado que chegou à base vira entrega, sem integrar de
+ *    novo; o que chegou fora da base provada espera a inspeção), depois as ordens (conclui pela thread local, encerra a
+ *    vencida sem sessão viva) e as vagas (pelo desfecho local do despacho), e solta a reserva do arco nos itens sem ordem
+ *    viva dela. Com o arco revogado aqui, a revogação vai ao ramo e vale em todas; fora do envelope vigente (uma emenda a
+ *    tirou), o passo para aqui: ela só fecha o que é dela;
  * 2. assume a autoridade quando o arco ainda não tem uma (a primeira vence pela troca atômica), bate e, sendo a
  *    autoridade, abandona a vez de integrar de quem não dá sinal e distribui as ordens dos trabalhos livres, com as
  *    reservas lidas agora (o item reservado fora do arco espera);
- * 3. responde as ordens emitidas para ela (aceita ou recusa, com o motivo) e toma a reserva da RM-047 de cada ordem aceita,
- *    revalidada com leitura nova; reserva de fora, ou item que o roadmap daqui não tem, encerra a ordem que nunca despachou;
+ * 3. com o arco vigente nela, responde as ordens emitidas para ela (aceita ou recusa, com o motivo; antes de a janela
+ *    abrir aqui, a ordem fica emitida) e toma a reserva da RM-047 de cada ordem aceita, revalidada com leitura nova;
+ *    reserva de fora, ou item que o roadmap daqui não tem, encerra a ordem que nunca despachou;
  * 4. chama o passo da N2 só com os trabalhos das ordens aceitas e vivas, a reserva revalidada agora e a vaga global tomada
  *    no gancho `reservar` da coordenação, depois da reserva local: a sessão só começa se a máquina e a soma das máquinas
  *    admitirem.
@@ -138,7 +140,7 @@ export function fatosLocaisDaMaquina(carregado: ManifestoCarregado, arco: string
     threads.set(t.id, { id: th.id, entregue, fechada: th.status === 'fechada' });
   }
   return { arcoVigente: local?.situacao === 'vigente', sessoesVivas, threads,
-    despachos: new Map((local?.despachos ?? []).map(d => [d.seq, { desfecho: d.desfecho, sessionId: d.sessionId }])) };
+    despachos: new Map((local?.despachos ?? []).map(d => [d.seq, { desfecho: d.desfecho, sessionId: d.sessionId, idempotente: d.idempotente }])) };
 }
 
 /**
@@ -152,7 +154,7 @@ export function reconciliarMaquina(carregado: ManifestoCarregado, arco: string, 
   const integracao = reconciliarIntegracao(carregado, arco, opcoes);
   const estado = lerCoordenacao(carregado, arco, opcoes);
   const fatos = { ...fatosLocaisDaMaquina(carregado, arco, estado, quando, opcoes.consultarSessoes),
-    vezesConferidas: new Set(integracao.abandonadasConferidas) };
+    vezesConferidas: new Set(integracao.abandonadasConferidas), vezesSemProva: new Set(integracao.semProva) };
   const reconciliacao = reconciliarCoordenacao(carregado, arco, fatos, opcoes);
   const reservasSoltas: string[] = [];
   const eu = quemSouEu(carregado.raiz, { maquina: opcoes.maquina });
@@ -198,12 +200,14 @@ export function passoDaMaquina(carregado: ManifestoCarregado, arco: string, opco
     relatorio.autoridade = estado.autoridade;
     const c = estado.vigente.conteudo;
     const chave = identidadeDaMaquina(raiz, opcoes.maquina).chave;
-    if (!envelopeMultimaquina(c) || !c.maquinas.some(m => m.nome === eu && m.chave === chave)) {
-      return aguardar('noctum.coordenacao.fora-do-envelope', `a máquina ${eu} não está no envelope vigente do arco; ela só fecha o que é dela`, relatorio);
-    }
+    // S1 da rodada 2: a revogação do dono vai ao ramo antes de tudo, também da máquina que uma emenda tirou do arco (ela
+    // assina sob a última versão em que estava, como o resto do que fecha).
     if (local.situacao === 'revogado') {
       revogarNaRede(carregado, arco, op);
       return aguardar('noctum.efeito.revogado', `o arco ${arco} foi revogado pelo dono nesta máquina; a revogação foi ao ramo e vale nas outras`, relatorio);
+    }
+    if (!envelopeMultimaquina(c) || !c.maquinas.some(m => m.nome === eu && m.chave === chave)) {
+      return aguardar('noctum.coordenacao.fora-do-envelope', `a máquina ${eu} não está no envelope vigente do arco; ela só fecha o que é dela`, relatorio);
     }
     if (estado.revogada) {
       return aguardar('noctum.coordenacao.revogada', `o arco ${arco} foi revogado na máquina ${estado.revogada.por}; esta só fecha o que é dela`, relatorio);
@@ -236,8 +240,11 @@ export function passoDaMaquina(carregado: ManifestoCarregado, arco: string, opco
     }
     const itensDeOutros = painel?.atualizado
       ? new Set(painel.reservas.filter(r => r.maquina !== quem.maquina || r.por !== quem.por).map(r => r.item)) : undefined;
+    // A-R2A-3 da rodada 2: com o arco ainda não vigente aqui (o relógio daqui atrás do da autoridade, na borda da janela), a
+    // máquina não responde: a ordem fica emitida até a janela abrir, em vez de virar recusa que a exclui nesta versão.
     const respostas = gravarNaCoordenacao(carregado, arco, op, (leitura) => {
-      const novos = registrosDasRespostas(derivarCoordenacao(leitura), eu, { arcoVigente: local.situacao === 'vigente', threadsLocais, itensDeOutros });
+      const novos = local.situacao === 'vigente'
+        ? registrosDasRespostas(derivarCoordenacao(leitura), eu, { arcoVigente: true, threadsLocais, itensDeOutros }) : [];
       return { novos, resultado: novos.map(r => ({ ordem: String(r.ordem), recibo: String(r.recibo), motivo: String(r.motivo) })) };
     });
     relatorio.respostas = respostas.resultado;

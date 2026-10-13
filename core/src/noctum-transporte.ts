@@ -188,16 +188,20 @@ function gitBruto(raiz: string, args: string[], entrada?: string): { ok: boolean
   return { ok: r.status === 0 && !r.error, saida: r.stdout ?? Buffer.alloc(0), erro: (r.stderr ?? Buffer.alloc(0)).toString('utf8') };
 }
 
-/** Os arquivos do arco na ponta: modo, objeto e caminho. Só blob comum; link, executável ou submódulo reprovam. */
+/**
+ * Os arquivos do arco na ponta: modo, objeto, tamanho e caminho. Só blob comum; link, executável ou submódulo reprovam, e o
+ * tamanho confere antes de ler qualquer conteúdo (S5 da rodada 2: um blob enorme nunca entra na memória).
+ */
 function arquivosDaPonta(raiz: string, ponta: string, arco: string): Array<{ oid: string; caminho: string }> {
-  const r = gitBruto(raiz, ['ls-tree', '-r', '-z', '--full-tree', ponta, '--', `arcos/${arco}/`]);
+  const r = gitBruto(raiz, ['ls-tree', '-r', '-l', '-z', '--full-tree', ponta, '--', `arcos/${arco}/`]);
   if (!r.ok) throw semRemoto(`git ls-tree falhou: ${r.erro.trim().split('\n').pop() ?? ''}`);
   const entradas = r.saida.toString('utf8').split('\0').filter(Boolean);
   if (entradas.length > TETO_DE_REGISTROS) throw adulterado(`o arco tem ${entradas.length} registros, acima de ${TETO_DE_REGISTROS}`);
   return entradas.map((e) => {
-    const m = /^(\d{6}) (\w+) ([0-9a-f]{40,64})\t(.+)$/s.exec(e);
+    const m = /^(\d{6}) (\w+) ([0-9a-f]{40,64}) +(\d+|-)\t(.+)$/s.exec(e);
     if (!m || m[1] !== '100644' || m[2] !== 'blob') throw adulterado(`entrada que não é arquivo comum no ramo (${e.slice(0, 80)})`);
-    return { oid: m[3], caminho: m[4] };
+    if (Number(m[4]) > TETO_DO_REGISTRO) throw adulterado(`${m[5]} tem ${m[4]} bytes, acima de ${TETO_DO_REGISTRO}`);
+    return { oid: m[3], caminho: m[5] };
   });
 }
 
@@ -234,7 +238,11 @@ function dirDoArcoLocal(raiz: string, arco: string): string {
   return dir;
 }
 
-type Vista = Record<string, { ponta: string; vistoEm: string }>;
+/**
+ * A última ponta vista por remoto e, quando esta máquina já viu o ramo adulterado, a marca (A-R2A-1 da rodada 2): a
+ * detecção dura, e só a inspeção do dono a tira, apagando a última ponta vista.
+ */
+type Vista = Record<string, { ponta: string; vistoEm: string; adulterado?: { em: string; detalhe: string } }>;
 
 function lerVista(dir: string): Vista {
   const arquivo = path.join(dir, 'coordenacao.json');
@@ -256,10 +264,12 @@ function lerVista(dir: string): Vista {
   if (!objeto(v) || v.contrato !== CONTRATO_DA_VISTA || !objeto(v.remotos)) throw adulterado('a última ponta vista fora do formato');
   const vista: Vista = {};
   for (const [remoto, x] of Object.entries(v.remotos)) {
-    if (!objeto(x) || typeof x.ponta !== 'string' || !/^[0-9a-f]{40,64}$/.test(x.ponta) || typeof x.vistoEm !== 'string') {
+    if (!objeto(x) || typeof x.ponta !== 'string' || !/^[0-9a-f]{40,64}$/.test(x.ponta) || typeof x.vistoEm !== 'string' ||
+        (x.adulterado !== undefined && (!objeto(x.adulterado) || typeof x.adulterado.em !== 'string' || typeof x.adulterado.detalhe !== 'string'))) {
       throw adulterado('a última ponta vista fora do formato');
     }
-    vista[remoto] = { ponta: x.ponta, vistoEm: x.vistoEm };
+    vista[remoto] = { ponta: x.ponta, vistoEm: x.vistoEm,
+      ...(x.adulterado ? { adulterado: { em: x.adulterado.em as string, detalhe: x.adulterado.detalhe as string } } : {}) };
   }
   return vista;
 }
@@ -295,44 +305,71 @@ function emDoRegistro(raiz: string, ponta: string, caminho: string): number {
 }
 
 /**
- * Confere a ponta lida contra a última vista, sem gravar nada: `atras` quando outro processo desta máquina já viu uma ponta
- * mais nova (a leitura ficou velha, não adulterada). Entre as duas, só acréscimo, salvo a batida, que nunca volta no tempo:
- * quem grava não regride a própria (D6 e S3 da revisão).
+ * Entre duas pontas da história, só acréscimo, salvo a batida, que nunca volta no tempo (D6 e S3 da revisão). Devolve a
+ * violação que achou, `null` quando só houve acréscimo, ou `ilegivel` quando o diff não se leu.
  */
-function relacaoComAVista(raiz: string, dir: string, remoto: string, arco: string, ponta: string | null): 'ok' | 'atras' {
-  const antiga = lerVista(dir)[remoto]?.ponta ?? null;
-  if (antiga === null) return 'ok';
-  if (ponta === null) throw adulterado(`o ramo ${BRANCH_DE_COORDENACAO} sumiu do remoto ${remoto} depois de visto`);
-  if (ponta === antiga) return 'ok';
-  if (!ancestral(raiz, antiga, ponta)) {
-    if (ancestral(raiz, ponta, antiga)) return 'atras';
-    throw adulterado(`a história do ramo foi reescrita: a ponta ${ponta.slice(0, 12)} não desce da última vista ${antiga.slice(0, 12)}`);
-  }
-  const diff = gitBruto(raiz, ['diff', '--name-status', '--no-renames', '-z', antiga, ponta, '--', `arcos/${arco}/`]);
-  if (!diff.ok) throw adulterado('o diff entre a última ponta vista e a nova não se lê');
+function violacaoDeAcrescimo(raiz: string, arco: string, de: string, para: string): string | null | 'ilegivel' {
+  const diff = gitBruto(raiz, ['diff', '--name-status', '--no-renames', '-z', de, para, '--', `arcos/${arco}/`]);
+  if (!diff.ok) return 'ilegivel';
   const partes = diff.saida.toString('utf8').split('\0').filter(Boolean);
   for (let i = 0; i + 1 < partes.length; i += 2) {
     const [status, caminho] = [partes[i], partes[i + 1]];
     if (status === 'A') continue;
     if (status === 'M' && regravavel(arco, caminho)) {
-      if (!(emDoRegistro(raiz, ponta, caminho) >= emDoRegistro(raiz, antiga, caminho))) {
-        throw adulterado(`a batida ${caminho} voltou no tempo depois de vista`);
-      }
+      if (!(emDoRegistro(raiz, para, caminho) >= emDoRegistro(raiz, de, caminho))) return `a batida ${caminho} voltou no tempo depois de vista`;
       continue;
     }
-    throw adulterado(`o registro ${caminho} foi ${status === 'D' ? 'apagado' : 'alterado'} depois de visto`);
+    return `o registro ${caminho} foi ${status === 'D' ? 'apagado' : 'alterado'} depois de visto`;
   }
-  return 'ok';
+  return null;
 }
 
-/** Avança a última ponta vista para a nova, só se ela desce da vista agora (outro processo pode ter visto uma mais nova). */
-function avancarVista(raiz: string, dir: string, remoto: string, ponta: string | null, quando: string): void {
+/**
+ * Confere a ponta lida contra a última vista, com a trava da vista nas mãos de quem chama: `atras` quando outro processo
+ * desta máquina já viu uma ponta mais nova e, entre as duas, só houve acréscimo (a leitura ficou velha, não adulterada).
+ * Nos dois sentidos, o apagamento, a alteração e a história reescrita reprovam e marcam a vista (A-R2A-1 da rodada 2): o
+ * que um processo desta máquina viu, nenhum outro faz esquecer.
+ */
+function relacaoComAVista(raiz: string, dir: string, remoto: string, arco: string, ponta: string | null, quando: string): 'ok' | 'atras' {
+  const vista = lerVista(dir);
+  const atual = vista[remoto];
+  if (atual?.adulterado) {
+    throw adulterado(`esta máquina já viu o ramo adulterado em ${atual.adulterado.em} (${atual.adulterado.detalhe}); a última ponta vista ` +
+      'fica marcada até a inspeção');
+  }
+  const antiga = atual?.ponta ?? null;
+  if (antiga === null) return 'ok';
+  const reprovar = (detalhe: string): never => {
+    gravarVista(dir, { ...vista, [remoto]: { ...atual!, adulterado: { em: quando, detalhe: detalhe.slice(0, 300) } } });
+    throw adulterado(detalhe);
+  };
+  const conferir = (de: string, para: string): void => {
+    const v = violacaoDeAcrescimo(raiz, arco, de, para);
+    if (v === 'ilegivel') throw adulterado('o diff entre a última ponta vista e a nova não se lê');
+    if (v) reprovar(v);
+  };
+  if (ponta === null) return reprovar(`o ramo ${BRANCH_DE_COORDENACAO} sumiu do remoto ${remoto} depois de visto`);
+  if (ponta === antiga) return 'ok';
+  if (ancestral(raiz, antiga, ponta)) { conferir(antiga, ponta); return 'ok'; }
+  if (ancestral(raiz, ponta, antiga)) { conferir(ponta, antiga); return 'atras'; }
+  return reprovar(`a história do ramo foi reescrita: a ponta ${ponta.slice(0, 12)} não desce da última vista ${antiga.slice(0, 12)}`);
+}
+
+/** Grava a ponta como a última vista; só com a trava da vista e depois de `relacaoComAVista` dizer `ok`. */
+function gravarPonta(dir: string, remoto: string, ponta: string | null, quando: string): void {
   if (!ponta) return;
+  const vista = lerVista(dir);
+  if (vista[remoto]?.ponta === ponta) return;
+  gravarVista(dir, { ...vista, [remoto]: { ponta, vistoEm: quando } });
+}
+
+/**
+ * Avança a última ponta vista para o commit que esta máquina acabou de gravar, conferido nos dois sentidos contra a vista
+ * de agora (outro processo pode ter visto uma ponta mais nova, e o registro gravado aqui não pode ter sumido dela).
+ */
+function avancarVista(raiz: string, dir: string, remoto: string, arco: string, ponta: string, quando: string): void {
   comTravaDaVista(dir, () => {
-    const vista = lerVista(dir);
-    const antiga = vista[remoto]?.ponta ?? null;
-    if (antiga === ponta || (antiga !== null && !ancestral(raiz, antiga, ponta))) return;
-    gravarVista(dir, { ...vista, [remoto]: { ponta, vistoEm: quando } });
+    if (relacaoComAVista(raiz, dir, remoto, arco, ponta, quando) === 'ok') gravarPonta(dir, remoto, ponta, quando);
   });
 }
 
@@ -389,7 +426,8 @@ function lerUmaVez(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDo
       // A3 da revisão: a emenda que a outra máquina já autorizou e esta ainda não é espera, não adulteração.
       if (!daVersao) {
         throw new RecusaDoArco('noctum.coordenacao.versao-nao-autorizada', `${caminho} é de uma versão do envelope que esta máquina ` +
-          'ainda não autorizou: autorize a emenda aqui; até lá, esta máquina não decide nem grava no ramo');
+          'ainda não autorizou: se o dono autorizou uma emenda em outra máquina, autorize-a aqui; se não houve emenda, o ramo exige ' +
+          'inspeção. Até lá, esta máquina não decide nem grava no ramo');
       }
       const chave = typeof d.por === 'string' ? daVersao.get(d.por) : undefined;
       if (!chave) throw adulterado(`${caminho} assinado por uma máquina fora do envelope (${String(d.por).slice(0, 64)})`);
@@ -398,12 +436,15 @@ function lerUmaVez(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDo
       registros.push({ caminho, dados: d });
     }
   }
-  if (comTravaDaVista(dir, () => relacaoComAVista(raiz, dir, remoto, arco, lida.ponta)) === 'atras') return 'atras';
   const leitura: LeituraDoRamo = { arco, remoto, ponta: lida.ponta, registros, versoes, lidoEm: quando };
-  // A2 da revisão: a vista só avança depois que a leitura inteira conferiu, inclusive a coerência de quem chama.
-  conferir?.(leitura);
-  avancarVista(raiz, dir, remoto, lida.ponta, quando);
-  return leitura;
+  // A2 da revisão e A-R2A-1 da rodada 2: a história, a coerência de quem chama e o avanço da vista numa seção crítica só.
+  // Nenhum outro processo desta máquina avança a vista entre conferir e gravar, e a vista só anda depois da coerência.
+  return comTravaDaVista(dir, () => {
+    if (relacaoComAVista(raiz, dir, remoto, arco, lida.ponta, quando) === 'atras') return 'atras' as const;
+    conferir?.(leitura);
+    gravarPonta(dir, remoto, lida.ponta, quando);
+    return leitura;
+  });
 }
 
 /**
@@ -487,7 +528,9 @@ export function gravarNoRamo<T>(carregado: ManifestoCarregado, arco: string, opc
     const mudancas: Array<{ caminho: string; conteudo: string }> = [];
     const gravados: DadosDoRegistro[] = [];
     for (const campos of novos) {
-      const dados = { ...campos, contrato: CONTRATO_COORDENACAO, arco, envelopeSha256: vigente.envelopeSha256, por: eu.nome, em: quando } as DadosDoRegistro;
+      // B1 da rodada 2: o que se assina é o que o leitor vai ler, sem campo `undefined` nem objeto que o JSON transforma.
+      const dados = JSON.parse(JSON.stringify({ ...campos, contrato: CONTRATO_COORDENACAO, arco, envelopeSha256: vigente.envelopeSha256,
+        por: eu.nome, em: quando })) as DadosDoRegistro;
       const caminho = caminhoDoRegistro(dados);
       // S3 da revisão: a batida desta máquina nunca volta no tempo, nem quando o relógio daqui volta.
       const anterior = dados.tipo === 'batida' ? leitura.registros.find(r => r.caminho === caminho)?.dados.em : undefined;
@@ -500,6 +543,19 @@ export function gravarNoRamo<T>(carregado: ManifestoCarregado, arco: string, opc
       mudancas.push({ caminho, conteudo });
       gravados.push(dados);
     }
+    // B1 da rodada 2: quem grava confere com a régua de quem lê, em memória e antes do push. O registro que as máquinas
+    // reprovariam (e que travaria o arco em todas) fica aqui, como pedido inválido, e nada vai ao ramo.
+    if (conferir) {
+      const trocados = new Set(mudancas.map(m => m.caminho));
+      const projetada: LeituraDoRamo = { ...leitura, registros: [...leitura.registros.filter(r => !trocados.has(r.caminho)),
+        ...gravados.map((dados, i) => ({ caminho: mudancas[i].caminho, dados }))] };
+      try { conferir(projetada); }
+      catch (e) {
+        if (!(e instanceof RecusaDoArco) || e.motivo !== 'noctum.coordenacao.adulterado') throw e;
+        const porque = e.message.slice(`${e.motivo}: `.length).replace(/; o ramo de coordenação exige inspeção$/, '');
+        throw new RecusaDoArco('noctum.envelope.invalido', `as máquinas reprovariam o que esta gravação pede (${porque}); nada foi ao ramo`);
+      }
+    }
     const tipos = [...new Set(gravados.map(g => g.tipo))].join(', ');
     let commit: string | false;
     try {
@@ -508,7 +564,7 @@ export function gravarNoRamo<T>(carregado: ManifestoCarregado, arco: string, opc
         `noctum: ${arco}, ${tipos} por ${eu.nome}`, PREFIXO, redeDe(raiz, opcoes), identidadeDoCommit(eu.nome));
     } catch (e) { throw semRemoto(primeiraLinha(e)); }
     if (commit) {
-      avancarVista(raiz, dirDoArcoLocal(raiz, arco), leitura.remoto, commit, quando);
+      avancarVista(raiz, dirDoArcoLocal(raiz, arco), leitura.remoto, arco, commit, quando);
       return { resultado, commit, gravados, leitura };
     }
   }

@@ -8,6 +8,8 @@ import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { exec } from '../src/util';
+import * as branchDeEstado from '../src/branch-de-estado';
+import { tentarTravaExclusiva } from '../src/fila-pesada';
 import { autorizarPedido, pedidoV2, prepararIngressoSimulado } from './noctum-apoio';
 import { cloneDoRemoto, duasMaquinas, DuasMaquinas, gravarCru, registroCru } from './noctum-maquinas-apoio';
 import { chavePublicaValida, RecusaDoArco } from '../src/noctum-envelope';
@@ -217,7 +219,7 @@ test('T8: registro de versão que esta máquina não autorizou, máquina fora do
     entrega(m, 'a', 'da-emenda');
     // A3 da revisão: é espera, não adulteração; nada se lê nem se grava até o dono autorizar a emenda aqui.
     assert.match(recusa(() => lerRamo(m.b.carregado, m.arco), 'noctum.coordenacao.versao-nao-autorizada'),
-      /versão do envelope que esta máquina ainda não autorizou: autorize a emenda aqui/);
+      /versão do envelope que esta máquina ainda não autorizou: se o dono autorizou uma emenda em outra máquina, autorize-a aqui/);
     recusa(() => entrega(m, 'b', 'antes-da-emenda'), 'noctum.coordenacao.versao-nao-autorizada');
     assert.equal(autorizarPedido(m.b.dir, m.arco, emenda), nova);
     assert.equal(lerRamo(m.b.carregado, m.arco).registros.length, 1, 'autorizada aqui também, a leitura confere');
@@ -284,4 +286,85 @@ test('T11: o commit do ramo leva a identidade da máquina, nunca o nome e o e-ma
       'ork-noctum maquina-b <ork-noctum@noctum.invalid> ork-noctum maquina-b <ork-noctum@noctum.invalid>']);
     assert.ok(!log.join('\n').includes('Builder B'), 'a identidade do git da B não foi ao remoto');
   } finally { m.limpar(); }
+});
+
+test('T12: quem grava confere com a régua de quem lê antes do push; o tamanho do registro confere antes de ler o conteúdo', () => {
+  const m = cenario('noctum-t12');
+  try {
+    const boa = entrega(m, 'a', 'boa')!;
+    // B1 da rodada 2: o que a conferência das máquinas reprovaria fica aqui, como pedido inválido, e a vista não anda.
+    const conferir = (l: LeituraDoRamo) => {
+      if (l.registros.some(r => r.dados.trabalho === 'ruim')) throw new RecusaDoArco('noctum.coordenacao.adulterado', 'SIMULADO: registro fora das regras');
+    };
+    assert.match(recusa(() => gravarNoRamo(m.a.carregado, m.arco, { maquina: 'maquina-a' }, () => ({
+      novos: [{ tipo: 'entrega', trabalho: 'ruim', ordem: 'O-ruim-1' }], resultado: null }), conferir), 'noctum.envelope.invalido'),
+    /as máquinas reprovariam o que esta gravação pede \(SIMULADO: registro fora das regras\); nada foi ao ramo/);
+    assert.equal(exec('git', ['ls-remote', m.remoto, `refs/heads/${BRANCH_DE_COORDENACAO}`], m.a.dir).stdout.split(/\s+/)[0], boa);
+    const vista = JSON.parse(fs.readFileSync(path.join(m.a.dir, '.orkastery', 'noctum', 'arcos', m.arco, 'coordenacao.json'), 'utf8'));
+    assert.equal(vista.remotos.origin.ponta, boa);
+    // O que se assina é o que o leitor lê: o campo que o JSON transforma não quebra a assinatura na outra máquina.
+    gravarNoRamo(m.a.carregado, m.arco, { maquina: 'maquina-a' }, () => ({
+      novos: [{ tipo: 'entrega', trabalho: 'data', ordem: 'O-data-1', quando: new Date(0), vazio: undefined }], resultado: null }), conferir);
+    const lida = lerRamo(m.b.carregado, m.arco).registros.find(r => r.dados.trabalho === 'data')!;
+    assert.deepEqual([lida.dados.quando, 'vazio' in lida.dados], ['1970-01-01T00:00:00.000Z', false]);
+    // S5 da rodada 2: o registro acima do teto reprova pelo tamanho que a árvore diz, antes de o conteúdo ser lido.
+    gravarCru(m.a.dir, [{ caminho: `arcos/${m.arco}/entregas/grande.json`, conteudo: 'x'.repeat(9000) }]);
+    assert.match(recusa(() => lerRamo(m.b.carregado, m.arco), 'noctum.coordenacao.adulterado'), /entregas\/grande\.json tem 9000 bytes, acima de 8192/);
+  } finally { m.limpar(); }
+});
+
+test('T13: a história, a coerência e o avanço da vista são uma seção crítica só; o que esta máquina viu e sumiu reprova para sempre', () => {
+  const m = cenario('noctum-t13');
+  try {
+    const dirDaVista = path.join(m.b.dir, '.orkastery', 'noctum', 'arcos', m.arco);
+    entrega(m, 'a', 'p0');
+    lerRamo(m.b.carregado, m.arco);
+    entrega(m, 'a', 'f');
+    // A-R2A-1 da rodada 2: enquanto a B confere a coerência da ponta com f, f é apagado no remoto. Nenhum outro processo da
+    // B pega a trava da vista no meio, e a leitura seguinte da B reprova o apagamento, de novo e de novo.
+    let ocupada: boolean | null = null;
+    const lida = lerRamo(m.b.carregado, m.arco, {}, () => {
+      if (ocupada !== null) return;
+      gravarCru(m.a.dir, [{ caminho: `arcos/${m.arco}/entregas/f.json`, conteudo: null }], 'SIMULADO: apaga o registro f');
+      const fd = tentarTravaExclusiva(path.join(dirDaVista, 'coordenacao.lock'));
+      ocupada = fd === null;
+      if (fd !== null) fs.closeSync(fd);
+    });
+    assert.equal(ocupada, true, 'a trava da vista cobre a coerência de quem chama');
+    assert.deepEqual(lida.registros.map(r => r.dados.trabalho).sort(), ['f', 'p0']);
+    assert.match(recusa(() => lerRamo(m.b.carregado, m.arco), 'noctum.coordenacao.adulterado'), /entregas\/f\.json foi apagado depois de visto/);
+    assert.match(recusa(() => lerRamo(m.b.carregado, m.arco), 'noctum.coordenacao.adulterado'), /esta máquina já viu o ramo adulterado .*f\.json foi apagado/);
+    const marcada = JSON.parse(fs.readFileSync(path.join(dirDaVista, 'coordenacao.json'), 'utf8')).remotos.origin;
+    assert.match(marcada.adulterado.detalhe, /f\.json foi apagado depois de visto/);
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-t13b');
+  const original = branchDeEstado.gravarNaBranch;
+  const trocar = (f: typeof original) => { (branchDeEstado as { gravarNaBranch: typeof original }).gravarNaBranch = f; };
+  try {
+    const vista = () => JSON.parse(fs.readFileSync(path.join(m2.b.dir, '.orkastery', 'noctum', 'arcos', m2.arco, 'coordenacao.json'), 'utf8')).remotos.origin;
+    entrega(m2, 'a', 'p0');
+    lerRamo(m2.b.carregado, m2.arco);
+    // A janela do push: logo depois de a B gravar g, a A grava h e outro processo da B vê a ponta mais nova. A vista da B
+    // nunca volta para o commit dela.
+    let maisNova = '';
+    trocar((...args) => {
+      const commit = original(...args);
+      trocar(original);
+      maisNova = entrega(m2, 'a', 'h')!;
+      lerRamo(m2.b.carregado, m2.arco);
+      return commit;
+    });
+    entrega(m2, 'b', 'g');
+    assert.equal(vista().ponta, maisNova, 'a vista não volta para trás');
+    // O registro que a B acabou de gravar, apagado antes de ela avançar a vista: a gravação reprova e a vista fica marcada.
+    trocar((...args) => {
+      const commit = original(...args);
+      trocar(original);
+      gravarCru(m2.a.dir, [{ caminho: `arcos/${m2.arco}/entregas/k.json`, conteudo: null }], 'SIMULADO: apaga o registro k');
+      lerRamo(m2.b.carregado, m2.arco);
+      return commit;
+    });
+    assert.match(recusa(() => entrega(m2, 'b', 'k'), 'noctum.coordenacao.adulterado'), /entregas\/k\.json foi apagado depois de visto/);
+    assert.match(recusa(() => lerRamo(m2.b.carregado, m2.arco), 'noctum.coordenacao.adulterado'), /esta máquina já viu o ramo adulterado/);
+  } finally { trocar(original); m2.limpar(); }
 });
