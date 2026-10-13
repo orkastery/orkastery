@@ -305,6 +305,8 @@ function listarArquivos(dir: string, prefixo = ''): { origem: string; relativo: 
   for (const entrada of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     const origem = path.join(dir, entrada.name);
     const relativo = path.posix.join(prefixo, entrada.name);
+    // O cache de bytecode que o Python deixa no checkout nao e do catalogo: nao se instala nem entra no recibo.
+    if (entrada.name === '__pycache__' || entrada.name.endsWith('.pyc')) continue;
     if (entrada.isDirectory()) {
       achados.push(...listarArquivos(origem, relativo));
     } else if (entrada.isFile()) {

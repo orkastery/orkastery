@@ -135,6 +135,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **O install não leva o cache do Python** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md)): o `ork adapter
+  install` a partir de um checkout copiava, e punha no recibo, o `__pycache__` e os `*.pyc` que o Python deixa nas pastas
+  do adaptador depois de rodar os testes dele; agora eles ficam de fora, como já ficavam no hash do runtime.
 - **A skill e o README do Hermes em inglês com o conhecimento escrito** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)):
   com o dono em inglês, o `ork adapter install hermes` copiava a skill `orkastery-devmaster` e o README sem as linhas do
   conhecimento escrito (RM-026 K7, fatia 3), que entraram no original em pt-BR no mesmo dia. As duas variantes inglesas
