@@ -7,7 +7,8 @@ import * as path from 'node:path';
 import { createHmac } from 'node:crypto';
 import { chaveLocal } from '../src/hitl-local-receipt';
 import { LeituraDeSessoes } from '../src/noctum-capacidade';
-import { CONTRATO_SUPERVISAO, dirDaSupervisao, Instancia } from '../src/noctum-supervisao';
+import { CONTRATO_SUPERVISAO, dirDaSupervisao, Instancia, ParametrosDaSupervisao, parametrosPadrao } from '../src/noctum-supervisao';
+import { ManifestoCarregado } from '../src/manifest';
 import { CONTRATO_PERFIS, EstadoDePerfil, PerfilDeDespacho, StoreDePerfis } from '../src/runtime-profiles';
 import { SessaoDaConta } from '../src/sessoes-contas';
 import { registrarConducaoDaSessao } from '../src/conducao';
@@ -54,6 +55,18 @@ export function runtimeCom(sessoes: Array<Partial<SessaoDaConta> & { sessionId: 
     fontes: perfis.map(p => fonte(true, p)),
     contas: perfis.map(p => ({ runtime: 'claude-bg' as const, perfil: perfilDe(p) })),
   };
+}
+
+/**
+ * Fixa os parâmetros do arco na primeira linha do log, com os valores dados por cima dos de partida: os prazos curtos dos
+ * testes do vigia, sem deslocar o relógio (o ledger das threads grava a hora de agora). Só no log ainda vazio.
+ */
+export function parametrosDoTeste(carregado: ManifestoCarregado, arco: string, parcial: Partial<ParametrosDaSupervisao>): ParametrosDaSupervisao {
+  if (fs.existsSync(arquivo(carregado.raiz, arco))) throw new Error('parametrosDoTeste: o log da supervisão já tem a primeira linha');
+  const parametros = { ...parametrosPadrao(carregado.manifesto), ...parcial };
+  regravarLog(carregado.raiz, arco, [assinar(carregado.raiz, { contrato: CONTRATO_SUPERVISAO, arco, seq: 1, anterior: '0'.repeat(64),
+    em: new Date().toISOString(), evento: { tipo: 'parametros', parametros } })]);
+  return parametros;
 }
 
 /** O runtime que não respondeu: a leitura tem lacuna e nada é provado. */

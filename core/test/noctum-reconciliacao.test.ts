@@ -12,8 +12,8 @@ import { kernelDisponivel } from '../src/fila-pesada';
 import { registrar } from '../src/ledger';
 import { concluirDespacho, lerArco, reservarDespacho } from '../src/noctum-arco';
 import { envelopeComTrabalhos } from '../src/noctum-envelope';
-import { decidirPedidos, decidirReservas, decidirSessoes, DecisaoDeSessao, efeitosAbertos, faseDaRetomada, lerRemotoPadrao, paradaPorAmbiente,
-  provaDaSessao, reconciliarEfeito, recusaDeAmbiente, registrarEfeitoIncerto } from '../src/noctum-reconciliacao';
+import { decidirPedidos, decidirReservas, decidirSessoes, DecisaoDeSessao, efeitosAbertos, faseDaRetomada, LeituraDoRuntime, lerRemotoPadrao,
+  paradaPorAmbiente, provaDaSessao, reconciliarEfeito, recusaDeAmbiente, registrarEfeitoIncerto } from '../src/noctum-reconciliacao';
 import { exec } from '../src/util';
 import { caminhoDaFila, enfileirar, lerFilaDeRetomada, PedidoComPerfil } from '../src/ratelimit';
 import { retomarPorId } from '../src/retry';
@@ -21,7 +21,7 @@ import { rodarFase } from '../src/phase';
 import { lerLedger } from '../src/ledger';
 import { revogarArco } from './noctum-apoio';
 import { ConteudoV2, correlacaoDoArco, gravarNaSupervisao, lerSupervisao, parametrosDoArco } from '../src/noctum-supervisao';
-import { caminhoThread, dirThread, lerThread } from '../src/thread';
+import { caminhoThread, dirThread, gravarThread, lerThread } from '../src/thread';
 import { Fase } from '../src/types';
 
 prepararIngressoSimulado();
@@ -64,6 +64,16 @@ function despachoDoArco(raiz: string, thread: string, arco: string, fase: Fase, 
   return d;
 }
 const caminhoLedger = (raiz: string, thread: string) => `${dirThread(raiz, thread)}/ledger.jsonl`;
+
+/** O passo do arco atendendo um despacho: a reserva, o despacho com a correlação e o desfecho concluído. */
+function atender(p: Projeto, arco: string, h: string, thread: string, fase: Fase, n: number): { sessionId: string; despachoEm: string } {
+  const r = reservarDespacho(p.dir, { arco, envelopeSha256: h, trabalho: 'a', thread, fase, runtime: 'claude-bg', conta: 'perfil-a', revisao: false });
+  passar(2);
+  const d = despachoDoArco(p.dir, thread, arco, fase, n);
+  concluirDespacho(p.dir, arco, r.seq, { thread, sessionId: d.sessionId, idempotente: false });
+  return d;
+}
+const com = (leitura: LeituraDoRuntime, min: number): LeituraDoRuntime => ({ ...leitura, lidaEm: depois(min) });
 
 const decisoesDeSessao = (p: Projeto, arco: string, leitura = runtimeCom([]), quando = new Date().toISOString()) =>
   decidirSessoes(p.dir, arco, conteudo(p, arco), lerArco(p.dir, arco, quando)!, lerSupervisao(p.dir, arco), leitura, quando);
@@ -116,7 +126,7 @@ test('R2: a reserva sem nada lançado volta ao orçamento; com thread ilegível 
   } finally { p.limpar(); }
 });
 
-test('R3: com o id dito na falha, o runtime decide: viva conclui, morta conclui e retoma, sem leitura espera e isola depois da carência', { skip: semKernel }, () => {
+test('R3: com o id dito na falha, o runtime decide: viva conclui, morta conclui (e a morte vai ao ledger), sem leitura espera e isola depois da carência', { skip: semKernel }, () => {
   const p = projetoTemporario('noctum-r3');
   try {
     const { t, h } = arcoComThread(p, 'arco-r3');
@@ -125,14 +135,15 @@ test('R3: com o id dito na falha, o runtime decide: viva conclui, morta conclui 
     promptDoArco(p.dir, t.id, 'arco-r3', 'GOAL');
     registrar(dirThread(p.dir, t.id), t.id, 'phase_dispatch_failed', { fase: 'GOAL', runtime: 'claude-bg', correlacao: correlacaoDoArco('arco-r3'),
       perfil: { id: 'perfil-a', runtime: 'claude-bg' }, sessionId: sid(31), erro: 'runtime.unavailable: SIMULADO depois do id' });
-    const decidir = (leitura: ReturnType<typeof runtimeCom>, quando = new Date().toISOString()) => decidirReservas(p.dir, 'arco-r3', conteudo(p, 'arco-r3'),
+    const decidir = (leitura: LeituraDoRuntime, quando = new Date().toISOString()) => decidirReservas(p.dir, 'arco-r3', conteudo(p, 'arco-r3'),
       lerArco(p.dir, 'arco-r3')!, leitura, lerSupervisao(p.dir, 'arco-r3').parametros!, quando)[0];
     const viva = decidir(runtimeCom([{ sessionId: sid(31), state: 'working' }]));
     assert.deepEqual([viva.acao, viva.sessionId, viva.morta], ['concluir', sid(31), null]);
     const morta = decidir(runtimeCom([{ sessionId: sid(31), state: 'failed', viva: false }]));
     assert.deepEqual([morta.acao, morta.sessionId, morta.morta?.sessionId, morta.morta?.fase], ['concluir', sid(31), sid(31), 'GOAL']);
-    const ausente = decidir(runtimeCom([]));
-    assert.deepEqual([ausente.acao, ausente.morta?.sessionId], ['concluir', sid(31)], 'ausente da listagem completa da conta dela: acabou');
+    assert.equal(decidir(com(runtimeCom([]), 0)).acao, 'aguardar', 'ausente logo depois da falha: a listagem pode ainda não a ter');
+    const ausente = decidir(com(runtimeCom([]), 6), depois(6));
+    assert.deepEqual([ausente.acao, ausente.morta?.sessionId], ['concluir', sid(31)], 'ausente da listagem completa da conta dela, depois da ausência mínima: acabou');
     assert.equal(decidir(runtimeSemLeitura()).acao, 'aguardar');
     const vencida = decidir(runtimeSemLeitura(), depois(16));
     assert.deepEqual([vencida.acao, vencida.isolamento?.motivo], ['isolar', 'reserva-incerta']);
@@ -179,34 +190,37 @@ test('R5: o fim de turno sem resultado vira, depois da carência e com a sessão
   } finally { p.limpar(); }
 });
 
-test('R6: o teto de retomadas por trabalho e fase isola o trabalho, e a retomada autorizada e ainda não atendida não se repete', { skip: semKernel }, () => {
+test('R6: o teto de retomadas por trabalho e fase isola o trabalho; a retomada autorizada só é atendida por uma reserva do arco que lançou', { skip: semKernel }, () => {
   const p = projetoTemporario('noctum-r6');
   try {
-    const { t } = arcoComThread(p, 'arco-r6');
-    const d = despachoDoArco(p.dir, t.id, 'arco-r6', 'GO', 61);
-    const morta = runtimeCom([{ sessionId: d.sessionId, state: 'failed', viva: false }]);
-    const [primeira] = decisoesDeSessao(p, 'arco-r6', morta);
-    assert.equal(resumo([primeira])[0], 'retomar:GO:sessao-morta:1:-:morta');
-    gravarNaSupervisao(p.carregado, 'arco-r6', [{ tipo: 'retomada_autorizada', trabalho: 'a', thread: t.id, fase: 'GO', tentativa: 1,
-      motivo: 'sessao-morta', sessao: d.sessionId, prova: 'SIMULADO' }]);
-    assert.deepEqual(decisoesDeSessao(p, 'arco-r6', morta), [], 'a retomada autorizada espera o passo atendê-la');
+    const { t, h } = arcoComThread(p, 'arco-r6');
+    let d = atender(p, 'arco-r6', h, t.id, 'GO', 61);
+    const morta = (id: string) => runtimeCom([{ sessionId: id, state: 'failed', viva: false }]);
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r6', morta(d.sessionId))), ['aguardar'], 'na carência desde a última atividade da sessão, espera');
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r6', morta(d.sessionId), depois(16))), ['retomar:GO:sessao-morta:1:-:morta']);
+    const autorizar = (k: number, sessao: string) => gravarNaSupervisao(p.carregado, 'arco-r6', [{ tipo: 'retomada_autorizada', trabalho: 'a',
+      thread: t.id, fase: 'GO', tentativa: k, motivo: 'sessao-morta', sessao, prova: 'SIMULADO' }]);
+    autorizar(1, d.sessionId);
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r6', morta(d.sessionId), depois(16)), [], 'a retomada autorizada espera uma reserva do arco');
+    // A reserva recusada antes do lançamento (nada abriu) não atende a retomada.
+    const recusada = reservarDespacho(p.dir, { arco: 'arco-r6', envelopeSha256: h, trabalho: 'a', thread: t.id, fase: 'GO', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    concluirDespacho(p.dir, 'arco-r6', recusada.seq, { motivo: 'concurrency.limite' });
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r6', morta(d.sessionId), depois(16)), [], 'ainda pendente');
     const teto = lerSupervisao(p.dir, 'arco-r6').parametros!.tetoDeRetomadas;
-    let anterior = d.sessionId;
     const morreu = (id: string) => registrar(dirThread(p.dir, t.id), t.id, 'sessao_morta', { fase: 'GO', sessionId: id, origem: 'noctum.vigia',
       evidencia: 'SIMULADO' });
     for (let k = 2; k <= teto; k++) {
-      morreu(anterior);
+      morreu(d.sessionId);
       passar(5);
-      const novo = despachoDoArco(p.dir, t.id, 'arco-r6', 'GO', 61 + k);
-      anterior = novo.sessionId;
-      gravarNaSupervisao(p.carregado, 'arco-r6', [{ tipo: 'retomada_autorizada', trabalho: 'a', thread: t.id, fase: 'GO', tentativa: k,
-        motivo: 'sessao-morta', sessao: novo.sessionId, prova: 'SIMULADO' }]);
+      d = atender(p, 'arco-r6', h, t.id, 'GO', 61 + k);
+      assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r6', morta(d.sessionId), depois(16))), [`retomar:GO:sessao-morta:${k}:-:morta`]);
+      autorizar(k, d.sessionId);
     }
-    morreu(anterior);
+    morreu(d.sessionId);
     passar(5);
-    const ultimo = despachoDoArco(p.dir, t.id, 'arco-r6', 'GO', 69);
-    const ds = decisoesDeSessao(p, 'arco-r6', runtimeCom([{ sessionId: ultimo.sessionId, state: 'failed', viva: false }]));
-    assert.deepEqual(resumo(ds), ['isolar:retomadas-esgotadas']);
+    d = atender(p, 'arco-r6', h, t.id, 'GO', 69);
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r6', morta(d.sessionId), depois(16))), ['isolar:retomadas-esgotadas']);
   } finally { p.limpar(); }
 });
 
@@ -236,8 +250,8 @@ test('R7: a sessão que trabalha sem evento de produto além do prazo é parada 
 test('R8: a sessão sem primeiro turno é parada e retomada uma vez; na segunda, o trabalho é isolado com o motivo de ambiente', { skip: semKernel }, () => {
   const p = projetoTemporario('noctum-r8');
   try {
-    const { t } = arcoComThread(p, 'arco-r8');
-    const d = despachoDoArco(p.dir, t.id, 'arco-r8', 'GOAL', 81);
+    const { t, h } = arcoComThread(p, 'arco-r8');
+    const d = atender(p, 'arco-r8', h, t.id, 'GOAL', 81);
     const presa = runtimeCom([{ sessionId: d.sessionId, state: 'busy' }]);
     assert.deepEqual(decisoesDeSessao(p, 'arco-r8', presa, depois(10)), []);
     assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r8', presa, depois(16))), ['retomar:GOAL:sem-primeiro-turno:1:parar:-']);
@@ -245,7 +259,7 @@ test('R8: a sessão sem primeiro turno é parada e retomada uma vez; na segunda,
       motivo: 'sem-primeiro-turno', sessao: d.sessionId, prova: 'SIMULADO' }]);
     registrar(dirThread(p.dir, t.id), t.id, 'sessao_morta', { fase: 'GOAL', sessionId: d.sessionId, origem: 'noctum.vigia', evidencia: 'SIMULADO' });
     passar(5);
-    const d2 = despachoDoArco(p.dir, t.id, 'arco-r8', 'GOAL', 82);
+    const d2 = atender(p, 'arco-r8', h, t.id, 'GOAL', 82);
     const ds = decisoesDeSessao(p, 'arco-r8', runtimeCom([{ sessionId: d2.sessionId, state: 'busy' }]), depois(16));
     assert.deepEqual(resumo(ds), ['isolar:sem-primeiro-turno']);
     assert.ok(ds[0].acao === 'isolar' && ds[0].parar?.sessionId === d2.sessionId, 'a sessão presa é parada também ao isolar, para soltar a vaga');
@@ -325,7 +339,7 @@ test('R11: o despacho do arco que cai no limite de uso deixa o pedido com a corr
   assert.ok(lerLedger(dirThread(p.dir, outra.id)).some(e => e.tipo === 'retry_attempt'), 'o pedido comum segue no retry');
 });
 
-test('R12: o pedido aguardando do arco vira a retomada da fase uma vez; depois do despacho do arco, ou com o arco encerrado, sai da fila', { skip: semKernel }, () => {
+test('R12: o pedido aguardando do arco não vira despacho por fora: sai da fila depois do despacho do arco, ou com o arco encerrado', { skip: semKernel }, () => {
   const p = projetoTemporario('noctum-r12');
   try {
     const { t } = arcoComThread(p, 'arco-r12');
@@ -334,15 +348,12 @@ test('R12: o pedido aguardando do arco vira a retomada da fase uma vez; depois d
       promptSha256: '0'.repeat(64), cwd: p.dir, model: null, effort: null, sinal, detalhe: 'SIMULADO', ...(correlacao ? { correlacao } : {}) });
     const doArco = novo(correlacaoDoArco('arco-r12'));
     novo();
-    const decidir = () => decidirPedidos(p.dir, 'arco-r12', conteudo(p, 'arco-r12'), lerArco(p.dir, 'arco-r12')!, lerSupervisao(p.dir, 'arco-r12'));
-    assert.deepEqual(decidir().map(d => `${d.acao}:${d.pedido}${d.acao === 'retomar' ? `:${d.fase}:${d.tentativa}` : ''}`), [`retomar:${doArco.id}:GO:1`],
-      'só o pedido do arco, e a fase dele');
-    gravarNaSupervisao(p.carregado, 'arco-r12', [{ tipo: 'pedido_tratado', pedido: doArco.id, thread: t.id, acao: 'retomada-autorizada', motivo: 'SIMULADO' }]);
-    assert.deepEqual(decidir(), [], 'autorizada uma vez só');
+    const decidir = () => decidirPedidos(p.dir, 'arco-r12', lerArco(p.dir, 'arco-r12')!);
+    assert.deepEqual(decidir(), [], 'aguardando, sem despacho do arco depois: a retomada sai pelo passo do arco (decidirSessoes)');
     passar(5);
     despachoDoArco(p.dir, t.id, 'arco-r12', 'GO', 121);
     const [d] = decidir();
-    assert.ok(d.acao === 'cancelar' && /retomado pelo arco arco-r12/.test(d.motivo), JSON.stringify(d));
+    assert.ok(d.acao === 'cancelar' && d.pedido === doArco.id && /retomado pelo arco arco-r12/.test(d.motivo), JSON.stringify(d));
     revogarArco(p.dir, 'arco-r12');
     const [encerrado] = decidir();
     assert.ok(encerrado.acao === 'cancelar' && /terminou \(revogado\)/.test(encerrado.motivo), JSON.stringify(encerrado));
@@ -464,5 +475,147 @@ test('R18: o efeito incerto só aceita remoto e branch no formato seguro, e a le
     assert.throws(() => registrarEfeitoIncerto(p.carregado, 'arco-r18', { ...base, branch: '-x' }), /formato seguro/);
     assert.deepEqual(lerRemotoPadrao('--upload-pack=touch SIMULADO', 'ork/ok', p.dir), { ok: false, detalhe: 'remoto ou branch fora do formato seguro' });
     assert.equal(registrarEfeitoIncerto(p.carregado, 'arco-r18', base).startsWith('E-'), true);
+  } finally { p.limpar(); }
+});
+
+test('R19: a thread que espera o dono (pausada) não é retomada pelo vigia, mesmo com a sessão morta', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r19');
+  try {
+    const { t } = arcoComThread(p, 'arco-r19');
+    const d = despachoDoArco(p.dir, t.id, 'arco-r19', 'GO', 191);
+    const morta = runtimeCom([{ sessionId: d.sessionId, state: 'failed', viva: false }]);
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r19', morta, depois(16))), ['retomar:GO:sessao-morta:1:-:morta'], 'sem o dono no meio, retoma');
+    gravarThread(p.dir, { ...lerThread(p.dir, t.id), status: 'pausada' });
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r19', morta, depois(16)), [], 'a pausa é do dono: nada sai sozinho');
+  } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// GO-FIX 2: os bloqueadores e avisos da primeira rodada de revisão do GO.
+// ---------------------------------------------------------------------------
+
+/** A falha do despacho do arco como o `phase run` grava (a cota, o login, o limite de uso), com ou sem o id da sessão. */
+function falhaDoArco(raiz: string, thread: string, arco: string, fase: Fase, erro: string, sessionId?: string): void {
+  registrar(dirThread(raiz, thread), thread, 'phase_dispatch_failed', { fase, runtime: 'claude-bg', correlacao: correlacaoDoArco(arco),
+    perfil: { id: 'perfil-a', runtime: 'claude-bg' }, erro, ...(sessionId ? { sessionId } : {}) });
+}
+
+test('R20: a falha do despacho sem id numa thread já despachada vira a retomada da mesma fase; a falha com id põe a sessão sob vigia', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r20');
+  try {
+    const { t } = arcoComThread(p, 'arco-r20');
+    // A thread que nunca teve despacho: a fila da N2 a despacha de novo, sem retomada.
+    falhaDoArco(p.dir, t.id, 'arco-r20', 'GOAL', 'runtime.auth-missing: SIMULADO');
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r20', runtimeCom([]), depois(16)), [], 'sem despacho anterior, o passo da N2 despacha de novo');
+    passar(5);
+    const d = despachoDoArco(p.dir, t.id, 'arco-r20', 'GOAL', 201);
+    registrar(dirThread(p.dir, t.id), t.id, 'phase_result', { fase: 'GOAL', sessionId: d.sessionId, classificacao: 'fase_concluida', ok: true });
+    passar(5);
+    falhaDoArco(p.dir, t.id, 'arco-r20', 'PLAN', 'runtime.quota-exhausted: SIMULADO');
+    const encerrada = runtimeCom([{ sessionId: d.sessionId, state: 'done', viva: false }]);
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r20', encerrada)), ['retomar:PLAN:despacho-falho:1:-:-'],
+      'a falha sem id do PLAN depois do GOAL concluído não fica parada: a retomada sai pelo passo, com a conta que falhou fora');
+    passar(5);
+    falhaDoArco(p.dir, t.id, 'arco-r20', 'PLAN', 'runtime.unavailable: SIMULADO depois do id', sid(202));
+    const morta = runtimeCom([{ sessionId: sid(202), state: 'failed', viva: false }]);
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r20', morta)), ['aguardar'], 'a sessão dita na falha é vigiada como a de um despacho');
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r20', morta, depois(16))), ['retomar:PLAN:despacho-falho:1:-:morta']);
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r20', runtimeCom([{ sessionId: sid(202), state: 'busy' }]), depois(16))),
+      ['retomar:PLAN:sem-primeiro-turno:1:parar:-'], 'viva e sem sinal além do prazo do primeiro turno: parada e retomada');
+  } finally { p.limpar(); }
+});
+
+test('R21: a ausência na listagem só prova a morte da sessão despachada antes da leitura, com a ausência mínima', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r21');
+  try {
+    const { t } = arcoComThread(p, 'arco-r21');
+    const d = despachoDoArco(p.dir, t.id, 'arco-r21', 'GOAL', 211);
+    const minima = lerSupervisao(p.dir, 'arco-r21').parametros!.ausenciaMinimaMs;
+    assert.equal(provaDaSessao(com(runtimeCom([]), 0), d.sessionId, 'perfil-a', 'claude-bg', d.despachoEm, minima).estado, 'desconhecida',
+      'a listagem feita junto do despacho pode não ter a sessão ainda');
+    assert.equal(provaDaSessao(runtimeCom([]), d.sessionId, 'perfil-a', 'claude-bg', d.despachoEm, minima).estado, 'desconhecida',
+      'sem o instante da leitura, a ausência não prova');
+    assert.equal(provaDaSessao(com(runtimeCom([]), 6), d.sessionId, 'perfil-a', 'claude-bg', d.despachoEm, minima).estado, 'morta');
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r21', runtimeCom([]), depois(16))), ['aguardar'], 'a leitura velha não mata ninguém');
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r21', com(runtimeCom([]), 16), depois(16))), ['retomar:GOAL:sessao-morta:1:-:morta']);
+  } finally { p.limpar(); }
+});
+
+test('R22: a sessão que o runtime já mostra encerrada logo depois do Stop espera o resultado da fase pela carência', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r22');
+  try {
+    const { t } = arcoComThread(p, 'arco-r22');
+    const d = despachoDoArco(p.dir, t.id, 'arco-r22', 'GOAL', 221);
+    passar(5);
+    stopSemResultado(p.dir, t.id, 'GOAL', d);
+    const encerrada = runtimeCom([{ sessionId: d.sessionId, state: 'done', viva: false }]);
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r22', encerrada, depois(1))), ['aguardar'], 'o done chega antes do resultado que o observador grava');
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r22', encerrada, depois(16))), ['retomar:GOAL:sessao-morta:1:-:morta']);
+    registrar(dirThread(p.dir, t.id), t.id, 'phase_result', { fase: 'GOAL', sessionId: d.sessionId, classificacao: 'fase_concluida', ok: true });
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r22', encerrada, depois(16)), [], 'com o resultado, nada a retomar');
+  } finally { p.limpar(); }
+});
+
+test('R23: a fonte ausente (sem o claude no PATH) e a ausência no codex não provam a morte de ninguém', () => {
+  const ausente: LeituraDoRuntime = { ...runtimeCom([]), fontes: [{ origem: 'claude agents --json --all (perfil perfil-a, SIMULADO)', ok: true,
+    ausente: true, detalhe: 'SIMULADO: claude ausente', correcao: 'SIMULADO' }], lidaEm: depois(60) };
+  const p1 = provaDaSessao(ausente, sid(231), 'perfil-a', 'claude-bg', new Date().toISOString(), 0);
+  assert.equal(p1.estado, 'desconhecida');
+  assert.match(p1.detalhe, /claude não está no PATH/);
+  const codex: LeituraDoRuntime = { sessoes: [], fontes: [{ origem: 'codex (perfil perfil-c, SIMULADO)', ok: true, detalhe: '' }],
+    contas: [{ runtime: 'codex', perfil: { id: 'perfil-c', runtime: 'codex', codexHome: '/contas/perfil-c' } }], lidaEm: depois(60) };
+  const p2 = provaDaSessao(codex, sid(232), 'perfil-c', 'codex', new Date().toISOString(), 0);
+  assert.equal(p2.estado, 'desconhecida', 'a conta codex consultada, e mesmo assim a ausência não prova');
+  assert.match(p2.detalhe, /ausência no codex não prova/);
+});
+
+test('R24: a sessão antiga da mesma worktree não é deste lançamento; a que nasceu depois da reserva é', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r24');
+  try {
+    const { t, h } = arcoComThread(p, 'arco-r24');
+    const pasta = `${p.dir}/worktree-r24-SIMULADA`;
+    gravarThread(p.dir, { ...lerThread(p.dir, t.id), worktree: pasta });
+    reservarDespacho(p.dir, { arco: 'arco-r24', envelopeSha256: h, trabalho: 'a', thread: t.id, fase: 'GOAL', runtime: 'claude-bg', conta: 'perfil-a', revisao: false });
+    passar(5);
+    promptDoArco(p.dir, t.id, 'arco-r24', 'GOAL', 'slug-r24');
+    const decidir = (leitura: LeituraDoRuntime) => decidirReservas(p.dir, 'arco-r24', conteudo(p, 'arco-r24'), lerArco(p.dir, 'arco-r24')!, leitura,
+      lerSupervisao(p.dir, 'arco-r24').parametros!, depois(16))[0];
+    const antiga = decidir(runtimeCom([{ sessionId: sid(241), name: 'outra-SIMULADA', cwd: pasta, startedAt: Date.now() - 120 * MIN, state: 'working' }]));
+    assert.equal(antiga.acao, 'devolver', 'a sessão de duas horas atrás na mesma worktree não prova o lançamento');
+    const nova = decidir(runtimeCom([{ sessionId: sid(242), name: 'outra-SIMULADA', cwd: pasta, startedAt: Date.now(), state: 'working' }]));
+    assert.deepEqual([nova.acao, nova.sessionId, nova.isolamento?.motivo], ['concluir', sid(242), 'sessao-fora-do-registro']);
+  } finally { p.limpar(); }
+});
+
+test('R25: só o despacho com a correlação do arco e a fase da reserva conclui a reserva', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r25');
+  try {
+    const { t, h } = arcoComThread(p, 'arco-r25');
+    reservarDespacho(p.dir, { arco: 'arco-r25', envelopeSha256: h, trabalho: 'a', thread: t.id, fase: 'GOAL', runtime: 'claude-bg', conta: 'perfil-a', revisao: false });
+    passar(5);
+    const decidir = () => decidirReservas(p.dir, 'arco-r25', conteudo(p, 'arco-r25'), lerArco(p.dir, 'arco-r25')!, runtimeCom([]),
+      lerSupervisao(p.dir, 'arco-r25').parametros!, new Date().toISOString())[0];
+    despachar(p.dir, t.id, 'GOAL', 251, false);
+    assert.equal(decidir().acao, 'devolver', 'o despacho sem a correlação é de outro condutor');
+    passar(5);
+    despachoDoArco(p.dir, t.id, 'arco-r25', 'PLAN', 252, false);
+    assert.equal(decidir().acao, 'devolver', 'o despacho do arco de outra fase não é o desta reserva');
+    passar(5);
+    const d = despachoDoArco(p.dir, t.id, 'arco-r25', 'GOAL', 253, false);
+    assert.deepEqual([decidir().acao, decidir().sessionId], ['concluir', d.sessionId]);
+  } finally { p.limpar(); }
+});
+
+test('R26: o trabalho com reserva pendente fica de fora da decisão das sessões até a reserva ter desfecho', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r26');
+  try {
+    const { t, h } = arcoComThread(p, 'arco-r26');
+    const d = despachoDoArco(p.dir, t.id, 'arco-r26', 'GO', 261);
+    const morta = runtimeCom([{ sessionId: d.sessionId, state: 'failed', viva: false }]);
+    passar(5);
+    const r = reservarDespacho(p.dir, { arco: 'arco-r26', envelopeSha256: h, trabalho: 'a', thread: t.id, fase: 'GO', runtime: 'claude-bg', conta: 'perfil-a', revisao: false });
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r26', morta, depois(16)), [], 'o passo do meio é da reconciliação das reservas');
+    concluirDespacho(p.dir, 'arco-r26', r.seq, { motivo: 'concurrency.limite' });
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r26', morta, depois(16))), ['retomar:GO:sessao-morta:1:-:morta']);
   } finally { p.limpar(); }
 });

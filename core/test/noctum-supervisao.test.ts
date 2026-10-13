@@ -19,8 +19,8 @@ import { dirThread } from '../src/thread';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { lerArco } from '../src/noctum-arco';
 import { CONTRATO_ARCO } from '../src/noctum-arco';
-import { alvosDaFase, ConteudoV2, contasDoArco, correlacaoDoArco, dirDaSupervisao, gravarNaSupervisao, lerSupervisao, observarContas,
-  parametrosDoArco, RecusaDaSupervisao, retomadasDe } from '../src/noctum-supervisao';
+import { alvosDaFase, assumirConducao, ConteudoV2, contasDoArco, correlacaoDoArco, dirDaSupervisao, gravarNaSupervisao, lerSupervisao,
+  observarContas, parametrosDoArco, RecusaDaSupervisao, retomadasDe } from '../src/noctum-supervisao';
 
 prepararIngressoSimulado();
 const semKernel = !kernelDisponivel();
@@ -45,6 +45,11 @@ test('S1: o log da supervisão é encadeado e assinado: linha trocada, removida 
     assert.throws(() => lerSupervisao(p.dir, 'arco-s1'), (e: unknown) => adulterada(e) && /MAC/.test(String(e)));
     regravarLog(p.dir, 'arco-s1', original.filter((_, i) => i !== 1));
     assert.throws(() => lerSupervisao(p.dir, 'arco-s1'), (e: unknown) => adulterada(e) && /fora da cadeia/.test(String(e)));
+    // Uma linha do meio re-assinada com a chave (quem a tem forja o MAC): a linha seguinte não aponta mais para ela.
+    const meio = JSON.parse(original[2]) as { dados: Record<string, unknown> };
+    regravarLog(p.dir, 'arco-s1', original.map((l, i) => i === 2 ? assinar(p.dir, { ...meio.dados, evento: { tipo: 'isolado', trabalho: 'a', thread: null,
+      motivo: 'erro-repetido', detalhe: 'forjada' } }) : l));
+    assert.throws(() => lerSupervisao(p.dir, 'arco-s1'), (e: unknown) => adulterada(e) && /linha 4 fora da cadeia/.test(String(e)));
     const semMac = original.map((l, i) => i === 3 ? l.replace(/"mac":"[0-9a-f]{4}/, '"mac":"0000') : l);
     regravarLog(p.dir, 'arco-s1', semMac);
     assert.throws(() => lerSupervisao(p.dir, 'arco-s1'), adulterada);
@@ -71,14 +76,14 @@ test('S2: arquivo aberto a outros, link no lugar do log e segunda linha de parâ
     regravarLog(p.dir, 'arco-s2', [...linhas, assinar(p.dir, dados)]);
     assert.throws(() => lerSupervisao(p.dir, 'arco-s2'), (e: unknown) => adulterada(e) && /primeira linha/.test(String(e)));
     regravarLog(p.dir, 'arco-s2', linhas);
-    fs.renameSync(log, `${log}.real`);
-    fs.symlinkSync(`${log}.real`, log);
-    assert.throws(() => lerSupervisao(p.dir, 'arco-s2'), adulterada);
     // Gravar parâmetros por fora, ou num arco que não existe, é recusa tipada.
     assert.throws(() => gravarNaSupervisao(p.carregado, 'arco-s2', [{ tipo: 'parametros', parametros: lerArco(p.dir, 'arco-s2') as never }]),
       (e: unknown) => e instanceof RecusaDaSupervisao && e.motivo === 'noctum.supervisao.invalida');
     assert.throws(() => gravarNaSupervisao(p.carregado, 'arco-que-nao-existe', [{ tipo: 'batida', quem: instancia('vigia'), geracao: null }]),
       (e: unknown) => e instanceof RecusaDaSupervisao && e.motivo === 'noctum.supervisao.invalida');
+    fs.renameSync(log, `${log}.real`);
+    fs.symlinkSync(`${log}.real`, log);
+    assert.throws(() => lerSupervisao(p.dir, 'arco-s2'), adulterada);
   } finally { p.limpar(); }
 });
 
@@ -182,8 +187,8 @@ function falhaDoDespacho(raiz: string, thread: string, arco: string, conta: stri
 const visao = (p: ReturnType<typeof projetoTemporario>, arco: string, store: ReturnType<typeof storeCom>, quando = new Date().toISOString()) =>
   contasDoArco(conteudo(p, arco), lerArco(p.dir, arco, quando)!, lerSupervisao(p.dir, arco), store, quando);
 
-function observarEGravar(p: ReturnType<typeof projetoTemporario>, arco: string) {
-  const o = observarContas(p.dir, arco, conteudo(p, arco), lerArco(p.dir, arco)!, lerSupervisao(p.dir, arco));
+function observarEGravar(p: ReturnType<typeof projetoTemporario>, arco: string, store: ReturnType<typeof storeCom> | null = null) {
+  const o = observarContas(p.dir, arco, conteudo(p, arco), lerArco(p.dir, arco)!, lerSupervisao(p.dir, arco), store, new Date().toISOString());
   if (o.eventos.length) gravarNaSupervisao(p.carregado, arco, o.eventos);
   return o;
 }
@@ -198,8 +203,8 @@ test('S7: o limite semanal com o reset dito tira a conta até o reset, e a sele�
       falhaDeConta: { motivo: 'runtime.quota-exhausted', resetEm: reset, fonte: 'relogio', trecho: 'weekly limit SIMULADO' } });
     const o = observarEGravar(p, 'arco-s7');
     assert.deepEqual(o.eventos.map(e => e.tipo === 'conta_fora' ? `${e.conta}:${e.motivo}:${e.ate}` : e.tipo), [`perfil-a:cota:${reset}`]);
-    assert.equal(observarContas(p.dir, 'arco-s7', conteudo(p, 'arco-s7'), lerArco(p.dir, 'arco-s7')!, lerSupervisao(p.dir, 'arco-s7')).eventos.length, 0,
-      'a mesma decisão não se grava duas vezes');
+    assert.equal(observarContas(p.dir, 'arco-s7', conteudo(p, 'arco-s7'), lerArco(p.dir, 'arco-s7')!, lerSupervisao(p.dir, 'arco-s7'), null,
+      new Date().toISOString()).eventos.length, 0, 'a mesma decisão não se grava duas vezes');
     const store = storeCom([{ id: 'perfil-a' }, { id: 'perfil-b' }]);
     const v = visao(p, 'arco-s7', store);
     assert.deepEqual(v.perfis, [{ id: 'perfil-b', runtime: 'claude-bg' }]);
@@ -227,10 +232,15 @@ test('S8: a cota sem reset dito é lacuna: a conta fica fora pelo resto do arco,
     assert.equal(v.contas.find(c => c.conta === 'perfil-a')?.motivo, 'cota-sem-reset');
     assert.equal(v.contas.find(c => c.conta === 'perfil-a')?.ate, null);
     assert.ok(v.lacunas.some(l => /perfil-a: reset desconhecido/.test(l)), JSON.stringify(v.lacunas));
-    // Sem prova do arco, só o store: a conta fica fora enquanto o prazo do store vale, e volta depois dele.
+    // Sem prova do arco, só o store (A1 do CHECK): o reset é desconhecido também. O vigia grava a conta fora do arco, e
+    // ela segue fora depois que o store a devolve.
     const outro = storeCom([{ id: 'perfil-a' }, { id: 'perfil-b', estado: 'esgotado', esgotadoAte: estimada }]);
     assert.deepEqual(visao(p, 'arco-s8', outro).perfis.map(x => x.id), []);
-    assert.deepEqual(visao(p, 'arco-s8', outro, tarde).perfis.map(x => x.id), ['perfil-b']);
+    assert.equal(visao(p, 'arco-s8', outro).contas.find(c => c.conta === 'perfil-b')?.motivo, 'cota-sem-reset');
+    observarEGravar(p, 'arco-s8', outro);
+    assert.equal(lerSupervisao(p.dir, 'arco-s8').contasFora.get('perfil-b')?.motivo, 'cota-sem-reset');
+    assert.deepEqual(visao(p, 'arco-s8', storeCom([{ id: 'perfil-a' }, { id: 'perfil-b' }]), tarde).perfis.map(x => x.id), [],
+      'o store devolveu B; o arco, não');
   } finally { p.limpar(); }
 });
 
@@ -253,7 +263,7 @@ test('S9: a falha de autenticação tira a conta do arco, sem prazo; sem conta, 
   } finally { p.limpar(); }
 });
 
-test('S10: o subteto esgotado de uma conta só tira a conta; perfil ausente, desativado e provider pago também ficam fora', { skip: semKernel }, () => {
+test('S10: o subteto esgotado de uma conta só tira a conta; perfil ausente, desativado e sem login ficam fora; provider pago e teto do arco param o arco', { skip: semKernel }, () => {
   const p = projetoTemporario('noctum-s10');
   try {
     const h = abrirArco(p.dir, 'arco-s10', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'Pedido SIMULADO.' }],
@@ -261,11 +271,15 @@ test('S10: o subteto esgotado de uma conta só tira a conta; perfil ausente, des
     // O subteto de cada conta é o menor entre 20 e o teto do arco (5): cinco reservas na conta A esgotam a conta e o arco.
     for (let i = 0; i < 4; i++) reservarDespacho(p.dir, { arco: 'arco-s10', envelopeSha256: h, trabalho: 'a', thread: null, fase: 'GOAL',
       runtime: 'claude-bg', conta: 'perfil-a', revisao: false });
-    const store = storeCom([{ id: 'perfil-a' }, { id: 'perfil-b', estado: 'desativado' }, { id: 'perfil-c', estado: 'provider-pago' }]);
+    const store = storeCom([{ id: 'perfil-a' }, { id: 'perfil-b', estado: 'desativado' }, { id: 'perfil-c', estado: 'sem-auth' }]);
     const v = visao(p, 'arco-s10', store);
     assert.deepEqual(v.contas.map(c => `${c.conta}:${c.disponivel ? 'ok' : c.motivo}`),
-      ['perfil-a:ok', 'perfil-b:desativado', 'perfil-c:provider-pago', 'perfil-d:perfil-ausente']);
+      ['perfil-a:ok', 'perfil-b:desativado', 'perfil-c:sem-auth', 'perfil-d:perfil-ausente']);
     assert.equal(v.parada, null);
+    // D15 (A2 do CHECK): uma conta do envelope com credencial de provider pago para o arco.
+    const pago = visao(p, 'arco-s10', storeCom([{ id: 'perfil-a' }, { id: 'perfil-c', estado: 'provider-pago' }]));
+    assert.equal(pago.parada?.motivo, 'violacao-de-custo');
+    assert.match(pago.parada!.detalhe, /perfil-c/);
     reservarDespacho(p.dir, { arco: 'arco-s10', envelopeSha256: h, trabalho: 'a', thread: null, fase: 'GOAL', runtime: 'claude-bg',
       conta: 'perfil-a', revisao: false });
     const cheio = visao(p, 'arco-s10', store);
@@ -306,5 +320,49 @@ test('S12: os alvos da fase são o runtime do bloco e a ordem de fallback dele, 
     for (let i = 0; i < 4; i++) reservarDespacho(p.dir, { arco: 'arco-s12b', envelopeSha256: h, trabalho: 'a', thread: null, fase: 'GOAL',
       runtime: 'claude-bg', conta: 'perfil-a', revisao: false });
     assert.deepEqual(alvos().map(a => a.runtime), ['codex']);
+  } finally { p.limpar(); }
+});
+
+test('S13: a cota vista no meio do turno de uma sessão do arco e o que só o store sabe (esgotada ou sem login) tiram a conta do arco', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-s13');
+  try {
+    const t = threadDoTrabalho(p.carregado, 'meio do turno', 'RM-901', 'Pedido SIMULADO do meio do turno.');
+    abrirArco(p.dir, 'arco-s13', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], thread: t.id }],
+      contas: [...DUAS, { conta: 'perfil-c', sessoes: 1 }] });
+    const sessionId = '00000000-0000-4000-8000-000000000131';
+    registrar(dirThread(p.dir, t.id), t.id, 'phase_dispatch', { fase: 'GO', sessionId, runtime: 'claude-bg', correlacao: correlacaoDoArco('arco-s13'),
+      perfil: { id: 'perfil-a', runtime: 'claude-bg' } });
+    const reset = new Date(Date.now() + 3 * 3600_000).toISOString();
+    registrar(dirThread(p.dir, t.id), t.id, 'runtime_quota_detected', { fase: 'GO', sessionId, runtime: 'claude-bg', motivo: 'runtime.quota-exhausted',
+      resetEm: reset, perfil: { id: 'perfil-a', runtime: 'claude-bg' }, origem: 'sessions.watch' });
+    // A cota vista numa sessão que não é do arco não conta.
+    registrar(dirThread(p.dir, t.id), t.id, 'runtime_quota_detected', { fase: 'GO', sessionId: '00000000-0000-4000-8000-000000000999',
+      runtime: 'claude-bg', motivo: 'runtime.quota-exhausted', resetEm: null, perfil: { id: 'perfil-c', runtime: 'claude-bg' }, origem: 'sessions.watch' });
+    const store = storeCom([{ id: 'perfil-a' }, { id: 'perfil-b', estado: 'sem-auth' }, { id: 'perfil-c' }]);
+    const o = observarEGravar(p, 'arco-s13', store);
+    assert.deepEqual(o.eventos.map(e => e.tipo === 'conta_fora' ? `${e.conta}:${e.motivo}:${e.ate}` : e.tipo).sort(),
+      [`perfil-a:cota:${reset}`, 'perfil-b:auth:null']);
+    // O dono refaz o login de B (o store diz ativo): no arco, B segue fora, porque só o dono responde por ela.
+    const v = visao(p, 'arco-s13', storeCom([{ id: 'perfil-a' }, { id: 'perfil-b' }, { id: 'perfil-c' }]));
+    assert.deepEqual(v.perfis.map(x => x.id), ['perfil-c']);
+  } finally { p.limpar(); }
+});
+
+test('S14: a gravação que deixaria o log ilegível é recusada antes de ir ao disco, e a geração seguinte é lida sob a trava', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-s14');
+  try {
+    abrirArco(p.dir, 'arco-s14', { trabalhos: UM });
+    const efeito = { acao: 'push' as const, repositorio: 'exemplo/produto', remoto: 'origin', branch: 'ork/x', sha: 'a'.repeat(40), trabalho: 'a',
+      thread: null, detalhe: 'SIMULADO' };
+    gravarNaSupervisao(p.carregado, 'arco-s14', [{ tipo: 'efeito_incerto', id: 'E-repetido', efeito }]);
+    const linhas = lerSupervisao(p.dir, 'arco-s14').linhas;
+    assert.throws(() => gravarNaSupervisao(p.carregado, 'arco-s14', [{ tipo: 'efeito_incerto', id: 'E-repetido', efeito }]),
+      (e: unknown) => e instanceof RecusaDaSupervisao && e.motivo === 'noctum.supervisao.invalida');
+    assert.throws(() => gravarNaSupervisao(p.carregado, 'arco-s14', [{ tipo: 'conducao_assumida', geracao: 5, quem: instancia('condutor'), prova: 'SIMULADO' }]),
+      (e: unknown) => e instanceof RecusaDaSupervisao && e.motivo === 'noctum.supervisao.invalida');
+    assert.equal(lerSupervisao(p.dir, 'arco-s14').linhas, linhas, 'nada foi gravado, e o log segue legível');
+    assert.equal(assumirConducao(p.carregado, 'arco-s14', instancia('condutor', 1), () => 'SIMULADO'), 1);
+    assert.equal(assumirConducao(p.carregado, 'arco-s14', instancia('vigia', 2), (g) => `depois da ${g?.numero}`), 2);
+    assert.equal(lerSupervisao(p.dir, 'arco-s14').geracao?.prova, 'depois da 1');
   } finally { p.limpar(); }
 });

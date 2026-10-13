@@ -22,6 +22,7 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
 import { kernelDisponivel, tentarTravaExclusiva } from './fila-pesada';
 import { chaveLocal } from './hitl-local-receipt';
+import { formatarDataHora } from './horario';
 import { lerLedger } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { EstadoDoArco } from './noctum-arco';
@@ -72,6 +73,11 @@ export interface ParametrosDaSupervisao {
   carenciaDaReservaMs: number;
   /** Leituras do remoto de um efeito incerto antes de isolar. */
   leiturasDoEfeito: number;
+  /**
+   * A ausência na listagem do runtime só prova o fim de uma sessão despachada há pelo menos isto antes da leitura: a sessão
+   * que acabou de nascer pode ainda não aparecer.
+   */
+  ausenciaMinimaMs: number;
 }
 
 /** Os valores de partida; o teto de retomadas vem do `retry.max_tentativas` do manifesto no instante da gravação. */
@@ -88,6 +94,7 @@ export function parametrosPadrao(manifesto: ManifestoCarregado['manifesto']): Pa
     recusasDeAmbienteQueParam: 2,
     carenciaDaReservaMs: CARENCIA_DO_TURNO_ENCERRADO_MIN * 60_000,
     leiturasDoEfeito: 2,
+    ausenciaMinimaMs: CADENCIA_MS,
   };
 }
 
@@ -101,7 +108,7 @@ export type MotivoDaRetomada = 'sessao-morta' | 'fim-de-turno-sem-resultado' | '
 /** As contas que o arco tira da seleção (D13). Subteto, perfil ausente e desativado são relidos a cada passo, sem linha. */
 export type MotivoDaConta = 'cota' | 'cota-sem-reset' | 'limite-de-uso' | 'auth';
 export type MotivoDoIsolamento = 'reserva-incerta' | 'retomadas-esgotadas' | 'sem-primeiro-turno' | 'sessao-presa' | 'condutor-externo' |
-  'sessao-fora-do-registro' | 'efeito-divergente' | 'efeito-sem-leitura' | 'efeito-esgotado' | 'erro-repetido';
+  'sessao-fora-do-registro' | 'efeito-divergente' | 'efeito-sem-leitura' | 'efeito-esgotado' | 'erro-repetido' | 'recusas-repetidas';
 export type MotivoDaParada = 'supervisor-falhou' | 'teto-do-arco' | 'violacao-de-custo' | 'ambiente-do-despacho';
 export type DesfechoDoEfeito = 'confirmado' | 'ausente' | 'divergente' | 'sem-leitura';
 
@@ -312,16 +319,48 @@ function comTrava<T>(raiz: string, arco: string, executar: () => T): T {
  */
 export function gravarNaSupervisao(carregado: ManifestoCarregado, arco: string, eventos: readonly EventoDaSupervisao[],
   quando = new Date().toISOString()): EstadoDaSupervisao {
+  return gravarComEstado(carregado, arco, () => eventos, quando);
+}
+
+/**
+ * A gravação que decide o que gravar a partir do estado lido sob a trava (a geração seguinte, o que ainda não foi
+ * gravado). O que seria gravado é conferido antes, com o estado inteiro (A4 do CHECK): uma linha que tornaria o log
+ * ilegível (uma geração fora de ordem, um efeito repetido) é recusada como inválida e não vai ao disco.
+ */
+export function gravarComEstado(carregado: ManifestoCarregado, arco: string, montar: (s: EstadoDaSupervisao) => readonly EventoDaSupervisao[],
+  quando = new Date().toISOString()): EstadoDaSupervisao {
   const { raiz } = carregado;
-  if (eventos.some(e => e.tipo === 'parametros')) throw new RecusaDaSupervisao('noctum.supervisao.invalida', 'os parâmetros só a primeira gravação escreve');
   return comTrava(raiz, arco, () => {
     let log = lerLog(raiz, arco);
-    if (!log.linhas.length) log = anexar(raiz, arco, log, { tipo: 'parametros', parametros: parametrosPadrao(carregado.manifesto) }, quando);
-    for (const e of eventos) log = anexar(raiz, arco, log, e, quando);
+    const eventos = montar(derivar(arco, log.linhas));
+    if (eventos.some(e => e.tipo === 'parametros')) throw new RecusaDaSupervisao('noctum.supervisao.invalida', 'os parâmetros só a primeira gravação escreve');
+    const primeira: EventoDaSupervisao[] = log.linhas.length ? [] : [{ tipo: 'parametros', parametros: parametrosPadrao(carregado.manifesto) }];
+    const novas = [...primeira, ...eventos].map((evento, i): DadosDaLinha => ({ contrato: CONTRATO_SUPERVISAO, arco,
+      seq: log.linhas.length + 1 + i, anterior: '', em: quando, evento }));
+    try { derivar(arco, [...log.linhas, ...novas]); }
+    catch (e) {
+      if (!(e instanceof RecusaDaSupervisao)) throw e;
+      throw new RecusaDaSupervisao('noctum.supervisao.invalida', `a gravação deixaria o log ilegível (${e.message}); nada foi gravado`);
+    }
+    for (const e of [...primeira, ...eventos]) log = anexar(raiz, arco, log, e, quando);
     const relido = lerLog(raiz, arco);
     if (relido.linhas.length !== log.linhas.length || !relido.terminaEmQuebra) throw adulterado('a gravação não ficou inteira no log');
     return derivar(arco, relido.linhas);
   });
+}
+
+/**
+ * D4 e A4 do CHECK: assume a condução com a geração seguinte, lida sob a trava do log (nunca de uma leitura de antes).
+ * Devolve o número da geração gravada.
+ */
+export function assumirConducao(carregado: ManifestoCarregado, arco: string, quem: Instancia, prova: (anterior: EstadoDaSupervisao['geracao']) => string,
+  quando = new Date().toISOString()): number {
+  let numero = 0;
+  gravarComEstado(carregado, arco, (s) => {
+    numero = (s.geracao?.numero ?? 0) + 1;
+    return [{ tipo: 'conducao_assumida', geracao: numero, quem, prova: prova(s.geracao) }];
+  }, quando);
+  return numero;
 }
 
 /** Garante a linha dos parâmetros e devolve os que valem no arco. */
@@ -473,6 +512,7 @@ export function contasDoArco(conteudo: ConteudoV2, estado: EstadoDoArco, sup: Es
   const parada = tetoDoArco.unidade === 'sessoes' && estado.consumo.arco >= tetoDoArco.valor
     ? { motivo: 'teto-do-arco' as const, detalhe: `o teto do arco é de ${tetoDoArco.valor} sessoes e ${estado.consumo.arco} já foram reservadas` }
     : null;
+  let provider: string | null = null;
   const contas: ContaDoArco[] = conteudo.capacidade.porConta.map(({ conta }) => {
     const p = store?.perfis.find(x => x.id === conta) ?? null;
     const fora = (motivo: string, ate: string | null = null): ContaDoArco => ({ conta, runtime: p?.runtime ?? null, disponivel: false, motivo, ate });
@@ -486,14 +526,23 @@ export function contasDoArco(conteudo: ConteudoV2, estado: EstadoDoArco, sup: Es
     const teto = conteudo.orcamento.porConta.find(x => x.conta === conta)?.teto;
     if (teto?.unidade === 'sessoes' && (estado.consumo.porConta[conta] ?? 0) >= teto.valor) return fora('subteto');
     if (p.estado === 'ativo') return { conta, runtime: p.runtime, disponivel: true, motivo: null, ate: null };
-    if (p.estado === 'esgotado' && p.esgotadoAte !== null) {
-      // O prazo do store pode ter sido estimado (janela padrão): ele só vale enquanto não passa, e a prova do arco manda.
-      if (Date.parse(p.esgotadoAte) <= agora) return { conta, runtime: p.runtime, disponivel: true, motivo: null, ate: null };
-      return fora('esgotado-no-store', p.esgotadoAte);
+    if (p.estado === 'esgotado' && p.esgotadoAte !== null && Date.parse(p.esgotadoAte) <= agora) {
+      return { conta, runtime: p.runtime, disponivel: true, motivo: null, ate: null };
     }
+    if (p.estado === 'esgotado') {
+      // D13 (A1 do CHECK): o prazo do store pode ter sido estimado (a janela padrão), e sem a prova do arco o reset é
+      // desconhecido: lacuna. O vigia grava a conta fora do arco (`observarContas`), para valer depois que o store a devolver.
+      lacunas.push(`conta ${conta}: esgotada no store sem prova do arco do reset, fora do arco como lacuna`);
+      return fora('cota-sem-reset', null);
+    }
+    if (p.estado === 'provider-pago') provider = conta;
     return fora(p.estado);
   });
-  return { perfis: contas.filter(c => c.disponivel && c.runtime).map(c => ({ id: c.conta, runtime: c.runtime! })), contas, lacunas, parada };
+  // D15 (A2 do CHECK): uma conta do envelope que virou provider pago para o arco, como a recusa por custo.
+  const porCusto = provider ? { motivo: 'violacao-de-custo' as const,
+    detalhe: `a conta ${provider} do envelope está com credencial de provider pago no store: o arco para, sem retry nem troca de conta` } : null;
+  return { perfis: contas.filter(c => c.disponivel && c.runtime).map(c => ({ id: c.conta, runtime: c.runtime! })), contas, lacunas,
+    parada: parada ?? porCusto };
 }
 
 /**
@@ -525,23 +574,40 @@ function perfilDoEvento(e: EventoLedger): string | null {
 }
 
 /**
- * D13 e D15: o que os despachos do arco provaram sobre as contas, desde a autorização: cota esgotada com o reset dito,
- * cota sem reset dito, login perdido e limite de uso (até o `liberaEm` do pedido da fila durável). Devolve as linhas
- * `conta_fora` novas (a mesma decisão já gravada não se repete) e a parada por violação de custo, quando o núcleo recusou
- * um despacho do arco por provider pago. Só a prova do próprio arco entra: o store é relido a cada passo.
+ * D13 e D15: o que o arco sabe das contas, desde a autorização. Dos despachos do arco: a cota esgotada com o reset dito
+ * (fora até ele), a cota sem reset dito (fora pelo resto do arco), o login perdido e o limite de uso transitório (até o
+ * `liberaEm` do pedido da fila durável, dito ou estimado, como a fila B3). Da sessão do arco que viu a cota no meio do
+ * turno (`runtime_quota_detected`), o mesmo. Do store (A1 do CHECK): a conta esgotada sem a prova do arco do reset, e a
+ * sem login, ficam fora do arco, porque o reset é desconhecido e o login só o dono refaz. Devolve as linhas `conta_fora`
+ * novas (a decisão já gravada não se repete) e a parada por violação de custo, quando o núcleo recusou um despacho do
+ * arco por provider pago.
  */
-export function observarContas(raiz: string, arco: string, conteudo: ConteudoV2, estado: EstadoDoArco, sup: EstadoDaSupervisao):
-  { eventos: EventoDaSupervisao[]; parada: { motivo: MotivoDaParada; detalhe: string } | null } {
+export function observarContas(raiz: string, arco: string, conteudo: ConteudoV2, estado: EstadoDoArco, sup: EstadoDaSupervisao,
+  store: StoreDePerfis | null, quando: string): { eventos: EventoDaSupervisao[]; parada: { motivo: MotivoDaParada; detalhe: string } | null } {
   const desde = Date.parse(estado.autorizadoPor?.recebidoEm ?? conteudo.janela.inicio);
+  const agora = Date.parse(quando);
   const correlacao = correlacaoDoArco(arco);
   // A falha mais nova de cada conta decide, entre todas as threads do arco.
   const decisoes = new Map<string, { evento: Extract<EventoDaSupervisao, { tipo: 'conta_fora' }>; em: number }>();
+  const decidir = (conta: string, evento: Extract<EventoDaSupervisao, { tipo: 'conta_fora' }>, em: number) => {
+    if (!((decisoes.get(conta)?.em ?? -Infinity) > em)) decisoes.set(conta, { evento, em });
+  };
   let parada: { motivo: MotivoDaParada; detalhe: string } | null = null;
   for (const thread of new Set(threadsDoArco(raiz, conteudo, estado).values())) {
     let eventos: EventoLedger[];
     try { eventos = lerLedger(dirThread(raiz, thread)); } catch { continue; }
+    const sessoesDoArco = new Set(eventos.filter(e => e.tipo === 'phase_dispatch' && e.correlacao === correlacao).map(e => e.sessionId));
     eventos.forEach((e, i) => {
-      if (e.tipo !== 'phase_dispatch_failed' || e.correlacao !== correlacao || !(Date.parse(e.ts) >= desde)) return;
+      if (!(Date.parse(e.ts) >= desde)) return;
+      if (e.tipo === 'runtime_quota_detected' && typeof e.sessionId === 'string' && sessoesDoArco.has(e.sessionId)) {
+        const conta = perfilDoEvento(e);
+        if (!conta) return;
+        const reset = typeof e.resetEm === 'string' && Date.parse(e.resetEm) > Date.parse(e.ts) ? e.resetEm : null;
+        decidir(conta, { tipo: 'conta_fora', conta, runtime: typeof e.runtime === 'string' ? e.runtime : '', motivo: reset ? 'cota' : 'cota-sem-reset',
+          ate: reset, prova: `${thread}: runtime_quota_detected ${String(e.eventId ?? '')} da sessão ${e.sessionId}` }, Date.parse(e.ts));
+        return;
+      }
+      if (e.tipo !== 'phase_dispatch_failed' || e.correlacao !== correlacao) return;
       const conta = perfilDoEvento(e);
       const runtime = typeof e.runtime === 'string' ? e.runtime : '';
       // O que o núcleo gravou logo depois desta falha, até o próximo despacho: o gate tipado e o pedido da fila durável.
@@ -559,19 +625,30 @@ export function observarContas(raiz: string, arco: string, conteudo: ConteudoV2,
       }
       if (!conta) return;
       const fila = depois.find(x => x.tipo === 'rate_limit_queued');
-      let decisao: Extract<EventoDaSupervisao, { tipo: 'conta_fora' }> | null = null;
+      const em = Date.parse(e.ts);
       if (falha?.motivo === 'runtime.quota-exhausted') {
         const reset = typeof falha.resetEm === 'string' && Date.parse(falha.resetEm) > Date.parse(e.ts) ? falha.resetEm : null;
-        decisao = { tipo: 'conta_fora', conta, runtime, motivo: reset ? 'cota' : 'cota-sem-reset', ate: reset, prova };
+        decidir(conta, { tipo: 'conta_fora', conta, runtime, motivo: reset ? 'cota' : 'cota-sem-reset', ate: reset, prova }, em);
       } else if (falha?.motivo === 'runtime.auth-missing') {
-        decisao = { tipo: 'conta_fora', conta, runtime, motivo: 'auth', ate: null, prova };
+        decidir(conta, { tipo: 'conta_fora', conta, runtime, motivo: 'auth', ate: null, prova }, em);
       } else if (fila && typeof fila.liberaEm === 'string') {
-        decisao = { tipo: 'conta_fora', conta, runtime, motivo: 'limite-de-uso', ate: fila.liberaEm,
-          prova: `${thread}: rate_limit_queued ${String(fila.pedido ?? '')} (${fila.janelaEstimada === true ? 'janela estimada' : 'hora dita pelo runtime'})` };
+        decidir(conta, { tipo: 'conta_fora', conta, runtime, motivo: 'limite-de-uso', ate: fila.liberaEm,
+          prova: `${thread}: rate_limit_queued ${String(fila.pedido ?? '')} (${fila.janelaEstimada === true ? 'janela estimada' : 'hora dita pelo runtime'})` }, em);
       }
-      const em = Date.parse(e.ts);
-      if (decisao && !((decisoes.get(conta)?.em ?? -Infinity) > em)) decisoes.set(conta, { evento: decisao, em });
     });
+  }
+  // A1 do CHECK: o que só o store sabe, sem decisão do arco valendo agora.
+  for (const { conta } of conteudo.capacidade.porConta) {
+    const p = store?.perfis.find(x => x.id === conta);
+    if (!p || decisoes.has(conta) || contaForaAgora(sup, conta, quando)) continue;
+    if (p.estado === 'esgotado' && p.esgotadoAte !== null && Date.parse(p.esgotadoAte) > agora) {
+      decisoes.set(conta, { em: agora, evento: { tipo: 'conta_fora', conta, runtime: p.runtime, motivo: 'cota-sem-reset', ate: null,
+        prova: `o store de perfis dá a conta como esgotada até ${formatarDataHora(p.esgotadoAte)}, prazo que pode ser estimado: sem a prova do arco, ` +
+          'o reset é desconhecido' } });
+    } else if (p.estado === 'sem-auth') {
+      decisoes.set(conta, { em: agora, evento: { tipo: 'conta_fora', conta, runtime: p.runtime, motivo: 'auth', ate: null,
+        prova: 'o store de perfis dá a conta sem login: só o dono refaz o login' } });
+    }
   }
   const eventos = [...decisoes.values()].map(d => d.evento).filter(d => {
     const atual = sup.contasFora.get(d.conta);

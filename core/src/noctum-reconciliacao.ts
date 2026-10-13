@@ -43,12 +43,23 @@ const texto = (v: unknown): string | null => typeof v === 'string' && v ? v : nu
 /** O que o runtime prova sobre uma sessão: viva (com o estado), morta (com a prova) ou desconhecida (lacuna). */
 export type ProvaDaSessao = { estado: 'viva'; trabalhando: boolean; detalhe: string } | { estado: 'morta' | 'desconhecida'; detalhe: string };
 
+/** A leitura do runtime com o instante em que ela começou: ausência só prova o fim de quem já existia antes dela (B3). */
+export type LeituraDoRuntime = LeituraDeSessoes & { lidaEm?: string };
+
+/**
+ * A listagem que prova ausência: todas as fontes lidas, nenhuma ausente (B6 do CHECK: sem o `claude` no PATH, a fonte
+ * diz `ausente` e não lista nada, o que não prova que não há sessão).
+ */
+export const listagemCompleta = (leitura: LeituraDeSessoes): boolean => leitura.fontes.every(f => f.ok && !f.ausente);
+
 /**
  * D10: a prova do runtime. Vista com estado terminal ou fantasma (sem processo), morta; vista em outro estado, viva.
- * Ausente, só o claude-bg prova a morte, e só com todas as fontes lidas e a conta da sessão entre as consultadas (a
- * listagem com `--all` traz as paradas); o codex lista só rollouts recentes, e ausência lá não prova nada.
+ * Ausente, só o claude-bg prova a morte, e só com a listagem completa (`--all`, todas as fontes lidas e nenhuma ausente),
+ * a conta da sessão entre as consultadas e a sessão despachada pelo menos `ausenciaMinimaMs` antes da leitura (B3: a
+ * sessão que nasceu durante a leitura ainda não aparece nela). O codex lista só rollouts recentes: ausência lá não prova.
  */
-export function provaDaSessao(leitura: LeituraDeSessoes, sessionId: string, conta: string | null, runtime: string): ProvaDaSessao {
+export function provaDaSessao(leitura: LeituraDoRuntime, sessionId: string, conta: string | null, runtime: string,
+  despachadaEm?: string, ausenciaMinimaMs = 0): ProvaDaSessao {
   const vista = leitura.sessoes.find(s => s.sessionId === sessionId);
   if (vista) {
     if (vista.fantasma) return { estado: 'morta', detalhe: `o runtime ${runtime} lista a sessão sem processo (fantasma)` };
@@ -56,19 +67,40 @@ export function provaDaSessao(leitura: LeituraDeSessoes, sessionId: string, cont
     if (TERMINAIS.includes(estado)) return { estado: 'morta', detalhe: `o runtime ${runtime} lista a sessão em ${estado}` };
     return { estado: 'viva', trabalhando: TRABALHANDO.includes(estado), detalhe: `o runtime ${runtime} lista a sessão em ${estado || 'estado sem nome'}` };
   }
-  const completa = leitura.fontes.every(f => f.ok);
+  const completa = listagemCompleta(leitura);
   const consultada = leitura.contas.some(c => c.runtime === runtime && (c.perfil?.id ?? null) === conta);
-  if (runtime === 'claude-bg' && completa && consultada) {
+  const lidaEm = Date.parse(leitura.lidaEm ?? '');
+  const recente = despachadaEm !== undefined && (!Number.isFinite(lidaEm) || lidaEm - Date.parse(despachadaEm) < ausenciaMinimaMs);
+  if (runtime === 'claude-bg' && completa && consultada && !recente) {
     return { estado: 'morta', detalhe: `a listagem completa do claude-bg na conta ${conta ?? 'do processo'} não tem a sessão` };
   }
-  return { estado: 'desconhecida', detalhe: !completa ? 'o runtime não respondeu em todas as contas' : runtime !== 'claude-bg'
-    ? `ausência no ${runtime} não prova o fim da sessão` : `a conta ${conta ?? 'do processo'} não foi consultada` };
+  return { estado: 'desconhecida', detalhe: !completa ? 'o runtime não respondeu em todas as contas, ou o claude não está no PATH'
+    : runtime !== 'claude-bg' ? `ausência no ${runtime} não prova o fim da sessão`
+    : !consultada ? `a conta ${conta ?? 'do processo'} não foi consultada`
+    : 'a sessão foi despachada há pouco e a listagem pode ainda não a ter' };
 }
 
-/** As sessões da thread no runtime: pela pasta da worktree ou pelo nome do despacho (o slug). */
-function sessoesDaThread(leitura: LeituraDeSessoes, t: Thread, slug: string | null): SessaoDaConta[] {
+/**
+ * As sessões da thread no runtime que podem ser do lançamento: pelo nome do despacho (o slug), ou pela pasta da worktree
+ * com o início depois da reserva (A3 do CHECK: uma sessão antiga da mesma worktree não é deste lançamento).
+ */
+function sessoesDaThread(leitura: LeituraDeSessoes, t: Thread, slug: string | null, desde: number): SessaoDaConta[] {
   const pasta = t.worktree ? path.resolve(t.worktree) : null;
-  return leitura.sessoes.filter(s => (pasta && s.cwd && path.resolve(s.cwd) === pasta) || (slug && s.name === slug));
+  const inicio = (s: SessaoDaConta): number => typeof s.startedAt === 'number' ? (s.startedAt < 1e12 ? s.startedAt * 1000 : s.startedAt) : NaN;
+  return leitura.sessoes.filter(s => (slug && s.name === slug) ||
+    (pasta && s.cwd && path.resolve(s.cwd) === pasta && inicio(s) >= desde - 60_000));
+}
+
+/**
+ * B1 do CHECK: a retomada autorizada que nenhuma reserva do arco atendeu ainda (a mais nova do trabalho). Uma reserva
+ * do trabalho depois da autorização a atende, tenha o lançamento dado certo ou não (concluída ou pendente); só a recusa
+ * de antes do lançamento (nada abriu) deixa a autorização de pé. Assim cada tentativa conta no teto.
+ */
+export function retomadaPendente(sup: EstadoDaSupervisao, estado: EstadoDoArco, trabalho: string): EstadoDaSupervisao['retomadas'][number] | null {
+  const r = sup.retomadas.filter(x => x.trabalho === trabalho).at(-1);
+  if (!r) return null;
+  const atendida = estado.despachos.some(d => d.trabalho === trabalho && d.desfecho !== 'recusado' && Date.parse(d.reservadoEm) >= Date.parse(r.em));
+  return atendida ? null : r;
 }
 
 const depoisDe = (e: EventoLedger, desde: number): boolean => Date.parse(e.ts) >= desde;
@@ -140,7 +172,7 @@ export interface DecisaoDaReserva {
  * D7: o que fazer com cada reserva pendente. Só vale com a trava de despacho na mão de quem chama (nenhum passo no meio).
  * Os eventos que contam são os da thread depois da reserva e antes da reserva seguinte do mesmo trabalho.
  */
-export function decidirReservas(raiz: string, arco: string, conteudo: ConteudoV2, estado: EstadoDoArco, leitura: LeituraDeSessoes,
+export function decidirReservas(raiz: string, arco: string, conteudo: ConteudoV2, estado: EstadoDoArco, leitura: LeituraDoRuntime,
   parametros: ParametrosDaSupervisao, quando: string): DecisaoDaReserva[] {
   const correlacao = correlacaoDoArco(arco);
   const threads = threadsDoArco(raiz, conteudo, estado);
@@ -192,7 +224,7 @@ export function decidirReservas(raiz: string, arco: string, conteudo: ConteudoV2
     const runtime = texto(falha?.runtime) ?? texto(prompt?.runtime) ?? d.runtime;
     const idDaFalha = texto(falha?.sessionId);
     if (idDaFalha) {
-      const p = provaDaSessao(leitura, idDaFalha, conta, runtime);
+      const p = provaDaSessao(leitura, idDaFalha, conta, runtime, falha!.ts, parametros.ausenciaMinimaMs);
       if (p.estado === 'viva') {
         decisoes.push({ ...base, thread, acao: 'concluir', sessionId: idDaFalha, prova: `a sessão ${idDaFalha} dita na falha está viva: ${p.detalhe}` });
       } else if (p.estado === 'morta') {
@@ -206,7 +238,7 @@ export function decidirReservas(raiz: string, arco: string, conteudo: ConteudoV2
       continue;
     }
     // Prompt gravado sem despacho nem id: o runtime pode ter aberto a sessão sem que o núcleo soubesse dela.
-    const achadas = sessoesDaThread(leitura, t, texto(prompt?.slug) ?? texto(falha?.slug));
+    const achadas = sessoesDaThread(leitura, t, texto(prompt?.slug) ?? texto(falha?.slug), desde);
     const viva = achadas.find(s => !s.fantasma && !TERMINAIS.includes(estadoDe(s)));
     if (viva) {
       decisoes.push({ ...base, thread, acao: 'concluir', sessionId: viva.sessionId,
@@ -220,7 +252,7 @@ export function decidirReservas(raiz: string, arco: string, conteudo: ConteudoV2
         morta: { sessionId: morta.sessionId, fase: d.fase, runtime, perfil: conta }, prova: `a sessão ${morta.sessionId} da thread acabou no runtime` });
       continue;
     }
-    const completa = leitura.fontes.every(f => f.ok) && leitura.contas.some(c => c.runtime === runtime && (c.perfil?.id ?? null) === conta);
+    const completa = listagemCompleta(leitura) && leitura.contas.some(c => c.runtime === runtime && (c.perfil?.id ?? null) === conta);
     if (runtime === 'claude-bg' && completa && vencida) {
       decisoes.push({ ...base, thread, acao: 'devolver',
         motivo: 'noctum.reconciliacao.sem-sessao: a listagem completa do claude-bg não tem sessão da thread depois da carência',
@@ -267,13 +299,16 @@ function ultimoAvanco(raiz: string, thread: string, eventos: readonly EventoLedg
 }
 
 /**
- * D10 a D12 e D16: o que fazer em cada thread do arco. Despacho de fora isola; sessão morta sem resultado, fim de turno
- * sem resultado depois da carência, sessão sem avanço e sessão sem primeiro turno viram retomada (com a parada pelo
- * runtime antes, quando a sessão está viva), até o teto; no teto, isolamento. Trabalho isolado, entregue, fechado,
- * esperando o dono ou com reserva pendente fica de fora. A retomada já autorizada e ainda não atendida não se repete.
+ * D10 a D12 e D16: o que fazer em cada thread do arco. Despacho de fora isola. O último lançamento do arco na thread (o
+ * `phase_dispatch`, ou a falha do despacho, B2 do CHECK) decide: a falha que disse o id põe essa sessão sob vigia, como um
+ * despacho; a falha sem id numa thread já despachada vira a retomada da mesma fase (a conta que falhou já está fora). A
+ * sessão morta sem resultado (depois da carência desde a última atividade dela, B5), o fim de turno sem resultado depois
+ * da carência, a sessão sem avanço e a sem primeiro turno viram retomada (com a parada pelo runtime antes, quando a sessão
+ * está viva), até o teto; no teto, isolamento. Trabalho isolado, entregue, fechado, esperando o dono, com reserva pendente
+ * ou com retomada autorizada e ainda não atendida (B1) fica de fora.
  */
 export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2, estado: EstadoDoArco, sup: EstadoDaSupervisao,
-  leitura: LeituraDeSessoes, quando: string): DecisaoDeSessao[] {
+  leitura: LeituraDoRuntime, quando: string): DecisaoDeSessao[] {
   const parametros = sup.parametros;
   if (!parametros) return [];
   const agora = Date.parse(quando);
@@ -282,7 +317,7 @@ export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2,
   const pendentes = new Set(estado.despachos.filter((d: DespachoDoArco) => d.desfecho === 'pendente').map(d => d.trabalho));
   const decisoes: DecisaoDeSessao[] = [];
   for (const [trabalho, thread] of threadsDoArco(raiz, conteudo, estado)) {
-    if (sup.isolados.has(trabalho) || pendentes.has(trabalho)) continue;
+    if (sup.isolados.has(trabalho) || pendentes.has(trabalho) || retomadaPendente(sup, estado, trabalho)) continue;
     let t: Thread, eventos: EventoLedger[];
     try { t = lerThread(raiz, thread); eventos = lerLedger(dirThread(raiz, thread)); } catch { continue; }
     if (t.status === 'fechada' || eventos.some(e => e.tipo === 'ship_done')) continue;
@@ -295,11 +330,6 @@ export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2,
       continue;
     }
     if (pendenciaDoDono(t, eventos, quando)) continue;
-    const despachos = eventos.filter(e => e.tipo === 'phase_dispatch' && e.correlacao === correlacao);
-    const d = despachos.at(-1);
-    // A retomada já autorizada depois do último despacho espera o passo da N2 atendê-la.
-    const ultimoDespachoEm = Math.max(...eventos.filter(e => e.tipo === 'phase_dispatch').map(e => Date.parse(e.ts)), -Infinity);
-    if (sup.retomadas.some(r => r.trabalho === trabalho && Date.parse(r.em) > ultimoDespachoEm)) continue;
     const retomar = (fase: Fase | null, motivo: MotivoDaRetomada, sessao: { sessionId: string; runtime: string; perfil: string | null } | null,
       prova: string, viva: boolean): DecisaoDeSessao => {
       const parar = sessao && viva ? { ...sessao, thread } : null;
@@ -319,31 +349,39 @@ export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2,
       }
       return { acao: 'retomar', trabalho, thread, fase, tentativa: feitas + 1, motivo, sessao: sessao?.sessionId ?? null, parar, morta, prova };
     };
-    if (!d) {
-      // Nunca despachada pelo arco: a falha que disse o id (o `claude --bg` que diz o id e sai com erro) e a sessão dela.
-      const falha = eventos.filter(e => e.tipo === 'phase_dispatch_failed' && e.correlacao === correlacao && texto(e.sessionId)).at(-1);
-      if (!falha || eventos.some(e => e.tipo === 'phase_dispatch')) continue;
-      const sid = texto(falha.sessionId)!, runtime = texto(falha.runtime) ?? 'claude-bg', conta = perfilDe(falha);
-      const p = provaDaSessao(leitura, sid, conta, runtime);
-      if (p.estado !== 'morta') continue;
-      const fase = (texto(falha.fase) ?? t.faseAtual) as Fase;
-      decisoes.push(retomar(faseDaRetomada(raiz, t, eventos, fase, falha.ts), 'despacho-falho', { sessionId: sid, runtime, perfil: conta },
-        `a sessão ${sid} dita na falha do despacho acabou: ${p.detalhe}`, false));
+    // B2 do CHECK: o último lançamento do arco, despacho ou falha do despacho.
+    const lancamentos = eventos.filter(e => (e.tipo === 'phase_dispatch' || e.tipo === 'phase_dispatch_failed') && e.correlacao === correlacao);
+    const d = lancamentos.at(-1);
+    if (!d) continue;
+    const fase = (texto(d.fase) ?? t.faseAtual) as Fase;
+    const runtime = texto(d.runtime) ?? 'claude-bg', conta = perfilDe(d);
+    const sid = texto(d.sessionId);
+    if (!sid) {
+      // A falha sem id não abriu nada (a conta, o limite de uso) ou já foi reconciliada como sem lançamento. Na thread que
+      // nunca teve despacho a fila da N2 a despacha de novo; na já despachada, a Sentinela pede retomar, e quem autoriza é aqui.
+      if (d.tipo !== 'phase_dispatch_failed' || !eventos.some(e => e.tipo === 'phase_dispatch')) continue;
+      decisoes.push(retomar(fase, 'despacho-falho', null, `o despacho do ${fase} falhou sem abrir sessão: ${String(d.erro ?? 'sem detalhe').slice(0, 160)}`, false));
       continue;
     }
-    const sid = texto(d.sessionId);
-    const runtime = texto(d.runtime) ?? 'claude-bg', conta = perfilDe(d), fase = (texto(d.fase) ?? t.faseAtual) as Fase;
-    if (!sid) continue;
     const desde = Date.parse(d.ts);
-    const fim = eventos.some(e => e.tipo === 'sessao_morta' && e.sessionId === sid && Date.parse(e.ts) >= desde);
-    const espera = esperaDoCondutor(t, eventos, quando);
-    const p = provaDaSessao(leitura, sid, conta, runtime);
     const sessao = { sessionId: sid, runtime, perfil: conta };
+    const fim = eventos.some(e => e.tipo === 'sessao_morta' && e.sessionId === sid && Date.parse(e.ts) >= desde);
+    // A espera do condutor é a do último `phase_dispatch`: vale só quando ele é o último lançamento.
+    const espera = d.tipo === 'phase_dispatch' ? esperaDoCondutor(t, eventos, quando) : null;
+    if (espera?.tipo === 'concluida' || eventos.some(e => e.tipo === 'phase_result' && e.sessionId === sid && Date.parse(e.ts) >= desde &&
+        (e.classificacao === 'fase_concluida' || (e.classificacao === undefined && e.ok === true)))) continue;
+    const p = provaDaSessao(leitura, sid, conta, runtime, d.ts, parametros.ausenciaMinimaMs);
+    // A última atividade da própria sessão (ou o lançamento): a carência conta dela.
+    const ultimaAtividade = Math.max(desde, ...eventos.filter(e => e.sessionId === sid).map(e => Date.parse(e.ts)).filter(Number.isFinite));
     if (fim || p.estado === 'morta') {
-      // Sessão morta sem resultado (D10): o resultado de fase concluída ou a espera do dono não chegam aqui.
-      if (espera?.tipo === 'concluida' || eventos.some(e => e.tipo === 'phase_result' && e.sessionId === sid && Date.parse(e.ts) >= desde)) continue;
-      decisoes.push(retomar(faseDaRetomada(raiz, t, eventos, fase, d.ts), 'sessao-morta', fim ? null : sessao,
-        fim ? `a sessão ${sid} já tem sessao_morta no ledger` : `a sessão ${sid} acabou sem resultado: ${p.detalhe}`, false));
+      // B5 do CHECK: o estado `done` vem antes do resultado que o observador grava; sem `sessao_morta` provada antes, a
+      // morte só vira retomada depois da carência desde a última atividade da sessão.
+      if (!fim && agora - ultimaAtividade < parametros.carenciaMs) {
+        decisoes.push({ acao: 'aguardar', trabalho, thread, detalhe: `a sessão ${sid} acabou há pouco (${p.detalhe}): o resultado da fase pode ainda chegar` });
+        continue;
+      }
+      decisoes.push(retomar(faseDaRetomada(raiz, t, eventos, fase, d.ts), d.tipo === 'phase_dispatch_failed' ? 'despacho-falho' : 'sessao-morta',
+        fim ? null : sessao, fim ? `a sessão ${sid} já tem sessao_morta no ledger` : `a sessão ${sid} acabou sem resultado: ${p.detalhe}`, false));
       continue;
     }
     if (p.estado === 'desconhecida') {
@@ -360,7 +398,7 @@ export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2,
       }
       continue;
     }
-    // A fase concluída e o CHECK sem veredito são do passo da N2 (a Sentinela diz a fase seguinte).
+    // O CHECK sem veredito é do passo da N2 (a Sentinela pede o CHECK de novo).
     if (espera) continue;
     // D12: no turno, a sessão viva (trabalhando ou parada num diálogo antes de começar) é presa sem nenhuma atividade desde o
     // despacho além do prazo do primeiro turno, ou sem evento de produto além do prazo da fase.
@@ -399,19 +437,16 @@ export function recusaDeAmbiente(detalhe: string): boolean {
 // D17: o pedido da fila durável do despacho do arco que caiu no limite de uso.
 // ---------------------------------------------------------------------------
 
-export type DecisaoDePedido =
-  | { acao: 'retomar'; pedido: string; trabalho: string; thread: string; fase: Fase; tentativa: number; prova: string }
-  | { acao: 'cancelar'; pedido: string; thread: string; motivo: string };
+export type DecisaoDePedido = { acao: 'cancelar'; pedido: string; thread: string; motivo: string };
 
 /**
- * D17: o que fazer com cada pedido aguardando na fila durável que é do arco (a correlação dele). Com o arco encerrado, o
- * pedido sai da fila com o motivo (retomar exige o dono); com um despacho do arco na thread depois do pedido, ele sai
- * como retomado; senão, a retomada da fase é autorizada uma vez, e o passo do arco a despacha quando houver conta do
- * envelope (a conta do limite de uso fica fora até o `liberaEm`, D13). O `ork retry resume` nunca redespacha esse pedido.
+ * D17: o pedido aguardando na fila durável que é do arco (a correlação dele) nunca é redespachado pelo `ork retry resume`.
+ * A retomada da fase sai pelo passo do arco, autorizada como qualquer despacho que falhou sem abrir sessão (B2 do CHECK,
+ * `decidirSessoes`), com a conta do limite de uso fora até o `liberaEm`. Aqui o pedido só sai da fila: depois de um
+ * despacho do arco na thread, como retomado; com o arco encerrado, com o motivo (retomar exige o dono).
  */
-export function decidirPedidos(raiz: string, arco: string, conteudo: ConteudoV2, estado: EstadoDoArco, sup: EstadoDaSupervisao): DecisaoDePedido[] {
+export function decidirPedidos(raiz: string, arco: string, estado: EstadoDoArco): DecisaoDePedido[] {
   const correlacao = correlacaoDoArco(arco);
-  const porThread = new Map([...threadsDoArco(raiz, conteudo, estado)].map(([trabalho, thread]) => [thread, trabalho] as const));
   const ultimos = new Map<string, PedidoComPerfil>();
   for (const p of lerFilaDeRetomada(raiz)) ultimos.set(p.id, p as PedidoComPerfil);
   const encerrado = estado.situacao === 'revogado' || estado.situacao === 'expirado';
@@ -429,12 +464,7 @@ export function decidirPedidos(raiz: string, arco: string, conteudo: ConteudoV2,
     if (retomado) {
       decisoes.push({ acao: 'cancelar', pedido: p.id, thread: p.thread,
         motivo: `retomado pelo arco ${arco} no despacho ${String(retomado.eventId ?? formatarDataHora(retomado.ts))} (${String(retomado.fase)})` });
-      continue;
     }
-    const trabalho = porThread.get(p.thread);
-    if (!trabalho || sup.pedidos.has(p.id)) continue;
-    decisoes.push({ acao: 'retomar', pedido: p.id, trabalho, thread: p.thread, fase: p.fase, tentativa: retomadasDe(sup, trabalho, p.fase) + 1,
-      prova: `pedido ${p.id} da fila durável (libera em ${formatarDataHora(p.liberaEm)}${p.janelaEstimada ? ', janela estimada' : ', hora dita pelo runtime'})` });
   }
   return decisoes;
 }

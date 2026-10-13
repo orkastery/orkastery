@@ -971,7 +971,8 @@ export function retomarPedido(
   if (arco) {
     return { pedido: pedidoOriginal, playbook: 'mesma-sessao', slug: pedidoOriginal.slug, despachada: false, sessionId: null, verificada: false,
       motivo: null, dryRun: opcoes.dryRun === true,
-      detalhe: `o pedido ${pedidoOriginal.id} é do arco ${arco}: quem o retoma é o vigia do arco, com a conferência do envelope e a reserva; nada foi despachado` };
+      detalhe: `o pedido ${pedidoOriginal.id} é do arco ${arco}: quem o retoma é o vigia do arco, com a conferência do envelope e a reserva; ` +
+        `nada foi despachado (sem o vigia, o dono tira o pedido da fila com ork retry cancel ${pedidoOriginal.id} --motivo "..." e retoma a fase à mão)` };
   }
   const thread = lerThread(raiz, pedidoOriginal.thread);
   const dir = dirThread(raiz, thread.id);
