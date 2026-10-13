@@ -31,6 +31,8 @@ export interface EntregaPorPr {
   headSha: string | null;
   ci: ResultadoCi | null;
   motivo: string;
+  /** Fatia 2: o porque estavel das recusas de entrega sem prova (so nelas). */
+  codigo?: 'entrega.sem-vinculo' | 'entrega.sem-leitura' | 'entrega.sem-head';
   /**
    * RM-044 (A3): as paginas do roadmap desta thread que o push da base vai reprovar em
    * `docs.paridade.merge` (merge ship(<thread>) na base com o `estado.codigo` fora de `Mesclado`).
@@ -80,9 +82,19 @@ export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: s
   const base = carregado.manifesto.worktree.base_branch;
   const thread = lerThread(raiz, threadId);
   if (thread.status === 'fechada') return resultado(threadId, 'ja-registrada', textoDoCatalogo((m) => m.ship.prThreadFechada));
-  if (opcoes.buscar !== false) exec('git', ['fetch', '-q', '--', remoto, `+refs/heads/${base}:refs/remotes/${remoto}/${base}`], raiz);
+  if (opcoes.buscar !== false) {
+    const busca = exec('git', ['fetch', '-q', '--', remoto, `+refs/heads/${base}:refs/remotes/${remoto}/${base}`], raiz);
+    if (!busca.ok) {
+      return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemLeitura(remoto, base)), { codigo: 'entrega.sem-leitura' });
+    }
+  }
   const encontrado = mergeDaEntrega(raiz, threadId, remoto, base);
   if (!encontrado) return resultado(threadId, 'sem-merge', textoDoCatalogo((m) => m.ship.prSemMerge(threadId, remoto, base)));
+  // Squash ou rebase: sem segundo pai o merge nao se liga ao head que a CI verificou. A CI do commit da base nao prova o head.
+  if (encontrado.headSha === null) {
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemVinculo(threadId, encontrado.mergeSha.slice(0, 7))),
+      { mergeSha: encontrado.mergeSha, codigo: 'entrega.sem-vinculo' });
+  }
   // RM-044 (A3): o condutor roda o registrar-pr logo depois do merge; e aqui que ele fica sabendo da pagina que
   // vai deixar o push da base vermelho, lida da base remota que o fetch acabou de trazer.
   const merge = { ...encontrado, docsPendentes: docsPendentesDoMerge(raiz, threadId, `refs/remotes/${remoto}/${base}`) };
@@ -97,7 +109,7 @@ export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: s
   if (!ponta || !exec('git', ['merge-base', '--is-ancestor', merge.mergeSha, ponta], raiz).ok) {
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prForaDaPonta(merge.mergeSha.slice(0, 7), remoto, base)), merge);
   }
-  const ci = consultarCi(carregado, merge.headSha ?? merge.mergeSha, remoto, opcoes.executorCi);
+  const ci = consultarCi(carregado, encontrado.headSha, remoto, opcoes.executorCi);
   if (ci.required && !ci.ok) {
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemCiVerde(remontar(ci.detail))), { ...merge, ci });
   }
@@ -180,6 +192,9 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
   const pr = exigirCapacidade(forja, 'pedidoMesclado')({ repo, numero: n, executor: gh });
   if (!pr) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prConsultaFalhou(n, repo)));
   const { mergeSha, headSha, base } = pr;
+  if (pr.mesclado && mergeSha && base && !headSha) {
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemHead(n, repo)), { mergeSha, codigo: 'entrega.sem-head' });
+  }
   if (!pr.mesclado || !mergeSha || !headSha || !base) {
     return resultado(threadId, 'sem-merge', textoDoCatalogo((m) => m.ship.prNaoMesclado(n, repo)));
   }
@@ -249,9 +264,13 @@ export function registrarEntregasPorPr(carregado: ManifestoCarregado,
   opcoes: { remoto?: string; executorCi?: ExecutorCi; dryRun?: boolean } = {}): EntregaPorPr[] {
   const remoto = exigirRemoto(opcoes.remoto ?? 'origin', 'ship');
   const base = carregado.manifesto.worktree.base_branch;
-  exec('git', ['fetch', '-q', '--', remoto, `+refs/heads/${base}:refs/remotes/${remoto}/${base}`], carregado.raiz);
-  const r = listarIds(carregado.raiz)
-    .filter((id) => lerThread(carregado.raiz, id).status !== 'fechada')
+  const busca = exec('git', ['fetch', '-q', '--', remoto, `+refs/heads/${base}:refs/remotes/${remoto}/${base}`], carregado.raiz);
+  const abertas = listarIds(carregado.raiz).filter((id) => lerThread(carregado.raiz, id).status !== 'fechada');
+  // Sem leitura do remoto nao ha como saber quais threads tem merge: uma recusa por thread aberta, nunca lista vazia.
+  if (!busca.ok) {
+    return abertas.map((id) => resultado(id, 'recusada', textoDoCatalogo((m) => m.ship.prSemLeitura(remoto, base)), { codigo: 'entrega.sem-leitura' }));
+  }
+  const r = abertas
     .filter((id) => mergeDaEntrega(carregado.raiz, id, remoto, base) !== null)
     .map((id) => {
       try { return registrarEntregaPorPr(carregado, id, { ...opcoes, buscar: false, publicar: false }); }
