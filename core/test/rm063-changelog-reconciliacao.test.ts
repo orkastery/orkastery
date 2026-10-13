@@ -14,9 +14,12 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { commitar, dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
+import { commitar, dirTemporario, projetoTemporario, ProjetoDeTeste, runtimeFalso } from './apoio';
 import { reconciliarChangelog, temMarcadorDeConflito } from '../src/changelog-reconciliacao';
 import { atualizarBranchDaThread } from '../src/atualizar-branch';
+import { nomeDaConducao } from '../src/conducao';
+import { lerLease } from '../src/leases';
+import { rodarFase } from '../src/phase';
 import { lerThread, novaThread } from '../src/thread';
 import { garantirWorktree } from '../src/worktree';
 import { exec } from '../src/util';
@@ -195,6 +198,39 @@ test('F7 com git: worktree suja e thread conduzida recusam antes de tocar em nad
     const conduzida = atualizarBranchDaThread(p.carregado, thread, { canal: 'cli' });
     assert.deepEqual(conduzida.acao === 'recusada' ? conduzida.motivo : conduzida, 'conduzida');
   } finally { p.limpar(); }
+});
+
+test('F7 com git: a sessao despachada que conduz a thread reentra no merge da base pela identidade de despacho; outra identidade e recusada', (t) => {
+  // Prova ao vivo de 13/10/2026: o `ork conducao atualizar` de dentro da sessao do GO batia na conducao dela mesma.
+  const { p, thread, wt } = cenario('rm063-f7-reentrada', doc(secao('## Não publicado', { Adicionado: [item('antes')] }), ANTIGO));
+  const runtime = runtimeFalso('rm063-f7-reentrada');
+  const ambiente = { ORK_DISPATCH_ID: process.env.ORK_DISPATCH_ID, ORK_DISPATCH_THREAD: process.env.ORK_DISPATCH_THREAD,
+    CLAUDE_CODE_SESSION_ID: process.env.CLAUDE_CODE_SESSION_ID };
+  const comAmbiente = (valores: Partial<Record<keyof typeof ambiente, string>>): void => {
+    for (const k of Object.keys(ambiente) as (keyof typeof ambiente)[]) {
+      if (valores[k] === undefined) delete process.env[k]; else process.env[k] = valores[k];
+    }
+  };
+  t.after(() => { comAmbiente(ambiente); runtime.restaurar(); p.limpar(); });
+  mainAvanca(p, { 'outro.txt': 'x\n' }, 'feat: outro');
+  const r = rodarFase(p.carregado, thread, { fase: 'GO', prompt: 'implemente', canal: 'hermes' });
+  assert.equal(r.sessionId, runtime.sessionId);
+  const identidade = lerLease(p.dir, nomeDaConducao(thread))!.conducao!.identidade;
+
+  comAmbiente({});
+  const deFora = atualizarBranchDaThread(p.carregado, thread, { canal: 'cli' });
+  assert.deepEqual(deFora.acao === 'recusada' ? deFora.motivo : deFora, 'conduzida', 'sem identidade, quem conduz segue sozinho');
+  comAmbiente({ ORK_DISPATCH_ID: '11111111-2222-4333-8444-555555555555', ORK_DISPATCH_THREAD: thread });
+  const outra = atualizarBranchDaThread(p.carregado, thread, { canal: 'cli' });
+  assert.deepEqual(outra.acao === 'recusada' ? outra.motivo : outra, 'conduzida', 'outra identidade nao entra');
+  assert.equal(fs.existsSync(path.join(wt, 'outro.txt')), false, 'nada mudou na worktree');
+
+  // De dentro da sessao que conduz: o par do despacho e o UUID da sessao que o Claude Code poe no ambiente.
+  comAmbiente({ ORK_DISPATCH_ID: identidade, ORK_DISPATCH_THREAD: thread, CLAUDE_CODE_SESSION_ID: runtime.sessionId });
+  const propria = atualizarBranchDaThread(p.carregado, thread);
+  assert.equal(propria.acao, 'mesclada', JSON.stringify(propria));
+  assert.equal(fs.existsSync(path.join(wt, 'outro.txt')), true, 'a base veio para a worktree');
+  assert.equal(lerLease(p.dir, nomeDaConducao(thread))?.conducao?.identidade, identidade, 'a conducao segue com a sessao');
 });
 
 // ---------------------------------------------------------------------------
