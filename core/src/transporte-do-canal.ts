@@ -17,7 +17,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { raizDoEstado } from './estado-thread';
-import { exigirHostLocal } from './procedencia';
+import { exigirHostLocal, rastreadoPeloGit } from './procedencia';
 import { noPath } from './util';
 
 export const HOSTS_DO_CANAL = ['openclaw', 'hermes'] as const;
@@ -88,6 +88,7 @@ export function transporteDoCanal(raiz: string, canal: CanalDoDono, env: NodeJS.
     if (!bin || !path.isAbsolute(bin) || !executavel(bin)) {
       return falta('o openclaw não está no PATH desta máquina; informe canal.executavel com o caminho absoluto dele');
     }
+    if (rastreadoPeloGit(raiz, bin)) return falta(`${bin} está versionado no git: o transporte só vale de um arquivo local desta máquina`);
     const chat = DESTINO_DO_CANAL.exec(canal.destino)![1];
     return { host: 'openclaw', destino: canal.destino, executavel: bin,
       argumentos: ['message', 'send', '--channel', 'telegram', '--target', chat, '--message', MARCA, '--json'] };
@@ -100,6 +101,10 @@ export function transporteDoCanal(raiz: string, canal: CanalDoDono, env: NodeJS.
     .find((s) => fs.existsSync(s));
   if (!script || !fs.existsSync(script)) {
     return falta('o ork-pulse-enviar.py do adaptador Hermes não foi achado (ork adapter install hermes); informe canal.script');
+  }
+  // RM-047: o que a entrega executa so vale do arquivo local desta maquina; versionado no git, veio com o repositorio.
+  for (const arquivo of [python, script]) {
+    if (rastreadoPeloGit(raiz, arquivo)) return falta(`${arquivo} está versionado no git: o transporte só vale de um arquivo local desta máquina`);
   }
   return { host: 'hermes', destino: canal.destino, executavel: python, argumentos: [script, '--target', canal.destino, '--message', MARCA] };
 }

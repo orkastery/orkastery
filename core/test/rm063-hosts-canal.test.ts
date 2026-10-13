@@ -152,3 +152,18 @@ test('H3: sem o executavel do host nesta maquina, nada e gravado e o motivo diz 
       /onboarding\.input\.invalid/);
   } finally { p.limpar(); }
 });
+
+test('GO-FIX: o script do transporte do Hermes versionado no git nao vale (RM-047)', () => {
+  const p = projetoTemporario('rm063-gofix-script-git');
+  try {
+    const bins = dirTemporario('rm063-gofix-script-bins');
+    const python = executavel(bins, 'python3');
+    const script = path.join(p.dir, '.hermes', 'bin', 'ork-pulse-enviar.py');
+    fs.mkdirSync(path.dirname(script), { recursive: true });
+    fs.writeFileSync(script, '# veio com o repositorio\n');
+    assert.equal(spawnSync('git', ['add', '-f', '--', script], { cwd: p.dir }).status, 0);
+    assert.throws(() => gravarEtapa(p.dir, 'maestro', { canal: { host: 'hermes', destino: 'telegram:-7', executavel: python } }, 'Dona Simulada'),
+      /onboarding\.canal\.transporte: .*ork-pulse-enviar\.py está versionado no git/);
+    assert.equal(fs.existsSync(caminhoDoPulseHost(p.dir)), false);
+  } finally { p.limpar(); }
+});

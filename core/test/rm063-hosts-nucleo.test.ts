@@ -20,6 +20,7 @@ import { caminhoDaBatida } from '../src/fabrica-batida';
 import { novaThread } from '../src/thread';
 import { ItemPulse, Pulse } from '../src/pulse';
 import { varrerPulse } from '../src/pulse-delivery';
+import { pastaDoUsuario } from '../src/maquina';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const MIN = 60_000;
@@ -149,5 +150,21 @@ test('H4: sem pulse-host.json ou sem entrega nas ultimas 24 h, o doctor nao fala
     fs.writeFileSync(path.join(monitor, 'transporte.log'), JSON.stringify({ ts: new Date(Date.now() - 30 * 3600_000).toISOString(),
       tipo: 'transporte_entrega', oQue: 'o resumo', ok: false, host: null, tentativas: [{ host: 'openclaw', ok: false, codigo: 1, detalhe: '' }] }) + '\n');
     assert.equal(checarTransporteDoPulse(monitor), null, 'a falha de ontem nao e noticia de hoje');
+  } finally { p.limpar(); }
+});
+
+test('GO-FIX: logo depois do batida instalar, o hitl.log velho de antes da instalacao nao e atraso', () => {
+  const { p, monitor } = comThreadEBatida('rm063-gofix-recem', 45);
+  try {
+    const ledger = path.join(pastaDoUsuario(), 'ledger.jsonl');
+    fs.mkdirSync(path.dirname(ledger), { recursive: true });
+    const instalada = (haMin: number) => JSON.stringify({ ts: new Date(Date.now() - haMin * MIN).toISOString(), thread: 'maquina',
+      tipo: 'batida_instalada', projeto: p.dir }) + '\n';
+    fs.appendFileSync(ledger, instalada(5));
+    assert.equal(checarCronDoPulse(monitor, p.dir, crontabCom(p.dir), null, 1)?.nivel, 'ok');
+    assert.equal(batidaNoDoctor(monitor, p.dir, { projeto: 'x', maquina: 'm', ler: crontabCom(p.dir), abertas: 1 }).atrasada, false);
+    // Instalada ha 40 min e ainda sem rodada nova: agora e atraso.
+    fs.appendFileSync(ledger, instalada(40));
+    assert.equal(checarCronDoPulse(monitor, p.dir, crontabCom(p.dir), null, 1)?.nivel, 'fail');
   } finally { p.limpar(); }
 });

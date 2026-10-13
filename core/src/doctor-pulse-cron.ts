@@ -19,6 +19,7 @@ import { Check } from './types';
 import { exec } from './util';
 import { msg } from './locale';
 import { formatarDataHoraRotulada } from './horario';
+import { pastaDoUsuario } from './maquina';
 
 /** A batida do template `monitor/pulse.cron` (I-50): a menor cadencia das tags. */
 export const BATIDA_DO_TEMPLATE = '*/15 * * * *';
@@ -293,8 +294,9 @@ export function checarCronDoPulse(dirMonitor: string, raizDoCheckout: string,
   }
   if (lentas.length < linhas.length) {
     // RM-063 (fatia 3, H1): a linha no crontab nao prova que a batida roda (cron parado, script que cai antes do log).
-    // Com thread aberta, a ultima rodada mais velha que o atraso reprova; sem rodada nenhuma ainda, a linha recem-instalada vale.
-    if (abertas > 0 && haMin !== null && haMin > ATRASO_DA_BATIDA_MIN) {
+    // Com thread aberta, a ultima rodada mais velha que o atraso reprova; sem rodada nenhuma ainda, ou com a batida
+    // instalada ha menos de 30 min depois da ultima rodada, a linha recem-instalada vale.
+    if (abertas > 0 && haMin !== null && haMin > ATRASO_DA_BATIDA_MIN && !recemInstalada(raizDoCheckout, rodada?.em ?? null)) {
       return { nome, nivel: 'fail', detalhe: msg().doctor.batidaAtrasada(haMin, linhas.length), correcao: msg().doctor.batidaAtrasadaCorrecao };
     }
     return { nome, nivel: 'ok', detalhe: msg().doctor.cronOk(linhas.length) };
@@ -302,6 +304,23 @@ export function checarCronDoPulse(dirMonitor: string, raizDoCheckout: string,
   const l = lentas[0];
   return { nome, nivel: 'warn', detalhe: msg().doctor.cronLento(msg().doctor.cronRitmo(l.intervalo), l.linha),
     correcao: msg().doctor.cronTroque(linhaNova(l.comando)) };
+}
+
+/**
+ * A batida deste projeto foi instalada (`batida_instalada` no ledger da maquina) depois da ultima rodada e ha menos de
+ * 30 min: o `hitl.log` velho de antes da instalacao nao e atraso, a primeira rodada ainda vem.
+ */
+function recemInstalada(raizDoCheckout: string, ultimaRodadaEm: string | null, agora: number = Date.now()): boolean {
+  let eventos: { ts?: unknown; tipo?: unknown; projeto?: unknown }[] = [];
+  try {
+    eventos = fs.readFileSync(path.join(pastaDoUsuario(), 'ledger.jsonl'), 'utf8').split('\n').filter(Boolean)
+      .map((l) => { try { return JSON.parse(l) as { ts?: unknown }; } catch { return {}; } });
+  } catch { return false; }
+  const instalada = eventos.filter((e) => e.tipo === 'batida_instalada' && typeof e.projeto === 'string' &&
+    mesmoCaminho(e.projeto, raizDoCheckout) && typeof e.ts === 'string').map((e) => Date.parse(e.ts as string)).filter(Number.isFinite).at(-1);
+  if (instalada === undefined) return false;
+  const rodada = ultimaRodadaEm ? Date.parse(ultimaRodadaEm) : Number.NEGATIVE_INFINITY;
+  return instalada > rodada && agora - instalada <= ATRASO_DA_BATIDA_MIN * 60000;
 }
 
 // ---------------------------------------------------------------------------
@@ -332,7 +351,8 @@ export function batidaNoDoctor(dirMonitor: string, raizDoCheckout: string, opcoe
   const haMin = rodada ? Math.max(0, Math.floor((agora - Date.parse(rodada.em)) / 60000)) : null;
   const leitura = (opcoes.ler ?? lerCrontabDoSistema)();
   const instalada = leitura.ok ? entradasDaVarredura(leitura.texto).some((e) => entradaDoProjeto(e, raizDoCheckout)) : null;
-  const atrasada = abertas > 0 && (haMin !== null ? haMin > ATRASO_DA_BATIDA_MIN : instalada !== true);
+  const atrasada = abertas > 0 && (haMin !== null ? haMin > ATRASO_DA_BATIDA_MIN && !recemInstalada(raizDoCheckout, rodada?.em ?? null, agora)
+    : instalada !== true);
   const quando = rodada ? formatarDataHoraRotulada(rodada.em, { agora: new Date(agora).toISOString() }) : null;
   const aviso = !atrasada ? null : haMin !== null
     ? `Orkastery: a fabrica ${opcoes.projeto} na maquina ${opcoes.maquina} esta sem batida ha ${haMin} min (ultima rodada em ${quando}` +
