@@ -14,9 +14,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   recibos e cancelamento assinados no ramo `ork/noctum-coordenacao` do remoto do projeto, por push sem força e com a
   identidade da máquina nos commits, e só decide com leitura nova e conferida (assinatura, caminho, tamanho, só
   acréscimo, batida que não volta no tempo e história que desce da última vista, que só avança depois da leitura inteira
-  conferir); quem grava confere com a mesma régua antes do push, o ramo adulterado que a máquina viu uma vez deixa a
-  vista marcada até a inspeção do dono, a emenda que esta máquina ainda não autorizou é espera, e o retrato da rede é
-  descoberta, nunca autorização. `core/src/noctum-coordenacao.ts` dá a autoridade por geração,
+  conferir); quem grava confere com a mesma régua antes do push, o motivo de quem chama só vai ao ramo sem caminho,
+  e-mail, id de sessão ou segredo, o ramo adulterado que a máquina viu uma vez deixa a vista marcada até a inspeção do
+  dono, a emenda que esta máquina ainda não autorizou é espera, e o retrato da rede é descoberta, nunca autorização. `core/src/noctum-coordenacao.ts` dá a autoridade por geração,
   com cada geração nova selando os registros da anterior (o que a vencida gravar depois reprova a leitura), uma ordem
   viva por trabalho, a transferência só com prova (sem ela, o item fica isolado e os outros seguem),
   a revogação do dono numa máquina valendo em todas, o abandono da vez de integrar de quem não dá sinal e a vaga
@@ -25,7 +25,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   sem levar ao ramo quem reservou. `core/src/noctum-integracao.ts` deixa um integrador por destino entre máquinas, invalida o
   candidato quando a base ou a fonte mudam e só registra a entrega do merge feito sobre a base provada;
   `core/src/noctum-maquinas.ts` reconcilia a máquina que volta, sem entrega em duplicidade, fecha o que é da máquina
-  que uma emenda tirou do arco e chama o passo da N2 só com o que tem ordem dela. Um ensaio com dois executores em
+  que uma emenda tirou do arco e chama o passo da N2 só com o que tem ordem dela, com a entrega e o fim sem entrega das
+  outras máquinas valendo antes da thread local. Um ensaio com dois executores em
   processos separados, sobre um remoto de fixture, prova o aceite da tabela, inclusive o vencedor por item pela
   reserva e a disputa da última vaga global. O modo continua desligado: `#Noctum` não é aceito, e nenhum comando abre
   arco nem grava no ramo.
