@@ -4,9 +4,9 @@ tipo: roadmap
 titulo: Workspace empresarial e Maestro
 categoria: iniciativa
 pai: null
-features: [FEAT-024, FEAT-033]
+features: [FEAT-024, FEAT-033, FEAT-038]
 owner: Julio
-atualizado_em: 2026-10-12T17:37:16+00:00
+atualizado_em: 2026-10-13T01:32:41+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: 46220bc
-    pr: 27
-    anteriores: "a17ff88 (PR #21, contexto citável)"
+    commit: 1079f47
+    pr: 143
+    anteriores: "46220bc (PR #27, dossiê K3.1); a17ff88 (PR #21, contexto citável)"
   testes:
-    ci: verde no push do merge (run 36662685901) e no da v0.5.0 (run 36815186450)
+    ci: verde no push dos merges do K7 (runs 38280864197 e 38326268400), do K3.1 (run 36662685901) e da v0.5.0 (run 36815186450)
   deploy:
-    release: v0.5.0, @orkastery/cli 0.5.0 no npm
+    release: v0.5.6 (K7, fatia 1) e v0.5.0 (contexto citável e K3.1), @orkastery/cli no npm
 sdlc:
   thread: ork-rm026k7conhe
   modo: "#Auto"
@@ -43,8 +43,8 @@ sdlc:
 
 <!-- ork-docs:relance:fim -->
 
-- **Features:** [FEAT-024](../produto/FEAT-024-company-brain-no-cli.md), [FEAT-033](../produto/FEAT-033-dossie-de-decisao.md)
-- **Thread:** `ork-rm026k7conhe` (K7: GOAL, PLAN e as fatias 1 e 2 do GO); antes, `ork-rm026k3dossi` (K3.1) e `ork-companybrai3`
+- **Features:** [FEAT-024](../produto/FEAT-024-company-brain-no-cli.md), [FEAT-033](../produto/FEAT-033-dossie-de-decisao.md), [FEAT-038](../produto/FEAT-038-conhecimento-escrito.md)
+- **Thread:** `ork-rm026k7conhe` (K7: GOAL, PLAN e as três fatias do GO); antes, `ork-rm026k3dossi` (K3.1) e `ork-companybrai3`
 
 ## Problema e resultado
 
@@ -60,14 +60,14 @@ sdlc:
   - Investigar: o pacote de contexto citável da [RM-025](RM-025-company-brain-fundacao.md) (B4.1) chega aos quatro hosts (thread `ork-companybrai3`, PR #21, merge `a17ff88`).
   - K3.1, dossiê de decisão somente leitura ([FEAT-033](../produto/FEAT-033-dossie-de-decisao.md)): `ork brain dossie` e `ork_brain_dossie` no MCP, no OpenClaw e no repasse do Hermes. Liga cada decisão da thread ao objetivo (o ticket do K1) e ao projeto do portfólio, com o contexto citável, as alternativas, quem decidiu, a evidência e os ids do Brain (thread `ork-rm026k3dossi`, PR #27, merge `46220bc`).
   - K7, fatia 1: o contrato `ork.conhecimento/v1` e a leitura da pasta declarada no `orkastery.yaml`, com as lacunas tipadas (thread `ork-rm026k7conhe`, PR #143, merge `1079f47`).
-  - K7, fatia 2: `ork conhecimento listar|mostrar|colecoes|verificar` e as tools MCP `ork_conhecimento_*`, só leitura, com o corpo, a versão e a fonte de cada documento e cada id do Brain conferido por `get`; Brain fora do ar, id inexistente e id retido são lacunas distintas (thread `ork-rm026k7conhe`, por PR).
+  - K7, fatia 2: `ork conhecimento listar|mostrar|colecoes|verificar` e as tools MCP `ork_conhecimento_*`, só leitura, com o corpo, a versão e a fonte de cada documento e cada id do Brain conferido por `get`; Brain fora do ar, id inexistente e id retido são lacunas distintas (thread `ork-rm026k7conhe`, PR #153, merge `89e934a`).
+  - K7, fatia 3: as mesmas quatro tools no OpenClaw (tools do plugin, nos perfis `coding` e `messaging`) e no Hermes (wrappers do `bin`), cada uma uma chamada de `ork conhecimento ... --json`, com a regra das lacunas no canal; a página de produto [FEAT-038](../produto/FEAT-038-conhecimento-escrito.md) (thread `ork-rm026k7conhe`, por PR).
 - **Saiu com a interface web:** o protótipo K2 (biblioteca, estratégia e Kanban) vivia na interface web, que saiu dos repositórios públicos em 28/09/2026 (commit `7eb942d`).
 - **Faltando, sem interface web:**
   - O resto do K3: objetivo estratégico e projeto organizacional (dependem da B3), alternativas na decisão informada (mudança do contrato HITL), respostas a sessão nativa e o `objective_id` no `cycle` capturado pelo Brain.
   - K4, Maestro com contexto citado nos quatro hosts.
   - K5, roadmap, decisões e indicadores.
   - K6, aceite da jornada por tarefas nos hosts, no lugar do aceite de interface.
-  - K7, conhecimento escrito: os hosts OpenClaw e Hermes com a página de produto (fatia 3).
 
 ## Plano e decisões
 
@@ -122,11 +122,23 @@ O GO segue em três fatias:
    (12/10/2026, PR #143, merge `1079f47`): o bloco `conhecimento: { dir }` do `orkastery.yaml`, o leitor `core/src/conhecimento.ts` e o
    [contrato `ork.conhecimento/v1`](../referencia/contratos/conhecimento-rm026.md). A decisão `thread#linha`
    confere no ledger canônico, com a citação que a captura do Brain grava; o id do Brain, só pela forma.
-2. **CLI e tools MCP, com as referências conferidas.** Entregue pela thread `ork-rm026k7conhe` (12/10/2026, por PR):
+2. **CLI e tools MCP, com as referências conferidas.** Entregue pela thread `ork-rm026k7conhe` (12/10/2026, PR #153, merge `89e934a`):
    `ork conhecimento listar|mostrar|colecoes|verificar` e as tools `ork_conhecimento_*`, com o mesmo JSON e cada id do
    Brain conferido por `get`. Os nomes `ler` e `referencias` do plano viraram o `mostrar`, que traz o corpo e as
    referências, e o `verificar`, que confere a pasta inteira e sai diferente de 0 com lacuna (decisões D11 a D14).
-3. **Hosts e página de produto:** OpenClaw e Hermes chegam às mesmas tools, e o item ganha a página de produto.
+3. **Hosts e página de produto.** Entregue pela thread `ork-rm026k7conhe` (12/10/2026, por PR): as quatro tools chegam
+   ao OpenClaw e ao Hermes com os nomes, os parâmetros e o JSON do MCP, cada uma uma chamada de
+   `ork conhecimento <consulta> --json`. A descrição das tools do OpenClaw e a skill do Hermes dizem a mesma regra:
+   cite o documento pela versão e pela fonte, e a lacuna é lacuna, nunca resposta. No OpenClaw, o host confere o
+   argumento pelo padrão do schema, e as quatro entram nos perfis `coding` e `messaging` (decisões D17 a D19). O item
+   ganha a página [FEAT-038](../produto/FEAT-038-conhecimento-escrito.md).
+
+**Estado do K7:** fechado no código com as três fatias, a terceira por PR. A 0.5.6 publicada leva só a fatia 1 (o
+contrato e a leitura); o comando, as tools e os hosts saem na próxima versão. No OpenClaw e no Hermes do dono, o
+conhecimento chega depois de reinstalar a extensão e a skill, ato do dono, com os comandos na
+[FEAT-038](../produto/FEAT-038-conhecimento-escrito.md). Fica de fora: escrever documento por tool (é commit numa
+thread, com PR), a allowlist da sessão filha do `claude-bg` e a P6 da
+[fronteira de confiança](../referencia/fronteira-de-confianca.md), pendente do dono.
 
 ## Estado com evidências
 
@@ -134,6 +146,7 @@ O GO segue em três fatias:
 - Contexto citável na `main` pelo PR #21 (merge `a17ff88`), com o CI verde no push do merge (run 36563382672).
 - Dossiê de decisão (K3.1) na `main` pelo PR #27 (merge `46220bc`), com o CI verde no push do merge (run 36662685901).
 - Os dois em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450).
+- K7 na `main`: a fatia 1 pelo PR #143 (merge `1079f47`, CI verde no push, run 38280864197), publicada na 0.5.6 (tag `v0.5.6`, `@orkastery/cli` 0.5.6 no npm); a fatia 2 pelo PR #153 (merge `89e934a`, run 38326268400); a fatia 3 por PR.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -141,13 +154,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
-| Documentação | Em revisão | — | 2026-10-12 | Julio |
-| Código | Mesclado | commit `46220bc` · PR #27 · anteriores: a17ff88 (PR #21, contexto citável) | 2026-10-12 | Julio |
-| Testes | Aprovados | ci: verde no push do merge (run 36662685901) e no da v0.5.0 (run 36815186450) | 2026-10-12 | Julio |
-| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-12 | Julio |
-| Exposição | Parcial | — | 2026-10-12 | Julio |
-| Habilitação | Em andamento | — | 2026-10-12 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-13 | Julio |
+| Documentação | Em revisão | — | 2026-10-13 | Julio |
+| Código | Mesclado | commit `1079f47` · PR #143 · anteriores: 46220bc (PR #27, dossiê K3.1); a17ff88 (PR #21, contexto citável) | 2026-10-13 | Julio |
+| Testes | Aprovados | ci: verde no push dos merges do K7 (runs 38280864197 e 38326268400), do K3.1 (run 36662685901) e da v0.5.0 (run 36815186450) | 2026-10-13 | Julio |
+| Deploy | Produção | release: v0.5.6 (K7, fatia 1) e v0.5.0 (contexto citável e K3.1), @orkastery/cli no npm | 2026-10-13 | Julio |
+| Exposição | Parcial | — | 2026-10-13 | Julio |
+| Habilitação | Em andamento | — | 2026-10-13 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -155,6 +168,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI:** R: agentes do Orkastery (Claude, Codex) · A: Julio · C: — · I: —
 - **Agentes e autonomia:** execução por agente dentro do modo da thread; revisão e decisão final: Julio.
+- **Próxima ação, responsável e prazo:** depois do merge da fatia 3, Julio reinstala a extensão do OpenClaw e a skill do Hermes nos hosts (os comandos estão na [FEAT-038](../produto/FEAT-038-conhecimento-escrito.md)), e a thread fecha o K7 com o `ork ship registrar-pr` e o MASTER; sem data definida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -169,3 +183,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-11 | K7: alternativa (a), conhecimento em Markdown versionado no repositório, no contrato `ork.conhecimento/v1` do lado do ork | decisão do dono (3.a) | Julio |
 | 2026-10-12 | K7, fatia 1: o contrato, a leitura da pasta declarada e a validação, com as lacunas tipadas | thread `ork-rm026k7conhe`, por PR, decisões D1 a D9 no ledger | thread `ork-rm026k7conhe` (#Auto) |
 | 2026-10-12 | K7, fatia 2: a CLI `ork conhecimento` e as tools MCP `ork_conhecimento_*`, com os ids do Brain conferidos por `get` | thread `ork-rm026k7conhe`, por PR, decisões D11 a D14 no ledger | thread `ork-rm026k7conhe` (#Auto) |
+| 2026-10-12 | K7, fatias 1 e 2 mescladas na `main`; a fatia 1 em produção na 0.5.6 | PR #143 (merge `1079f47`), PR #153 (merge `89e934a`), tag `v0.5.6` | Julio |
+| 2026-10-12 | K7, fatia 3: as tools do conhecimento no OpenClaw e no Hermes, e a página de produto FEAT-038 | thread `ork-rm026k7conhe`, por PR, decisões D17 a D19 no ledger | thread `ork-rm026k7conhe` (#Auto) |

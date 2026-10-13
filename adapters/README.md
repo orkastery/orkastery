@@ -42,6 +42,15 @@ nos perfis `coding` e `messaging` (`toolMetadata`): sem isso, no perfil `coding`
 plugin chega ao modelo. `ork_network_status` espera a RM-053 na `main`. `network-roadmap-hosts.test.ts` prova a rota de cada host e o aceite do incidente de 29/09
 pela extensão do OpenClaw com o `ork` real.
 
+## Paridade do conhecimento escrito
+
+O conhecimento escrito ([RM-026](../docs/roadmap/RM-026-workspace-empresarial.md) K7) chega aos quatro hosts pelas
+mesmas quatro tools `ork_conhecimento_*`: tools do MCP no Claude Code e no Codex, tool argv no OpenClaw (nos perfis
+`coding` e `messaging`) e wrapper no Hermes, cada uma uma chamada de `ork conhecimento <consulta> --json`. A descrição
+das tools do OpenClaw e a skill do Hermes dizem a mesma regra: a lacuna tipada é lacuna, nunca resposta.
+`conhecimento-hosts.test.ts` confere os nomes, o schema e a frase e, com o `ork` real, o mesmo JSON nas três
+superfícies.
+
 Usabilidade HITL é prioridade máxima: recomendação, opções claras e canal disponível
 associado ao pedido. MCP local conserva elicitation; Telegram segue disponível
 quando configurado. Ingresso nativo Hermes/Discord e OpenClaw depende de callback
