@@ -17,7 +17,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ARQUIVO_DO_CHANGELOG, ItemDevolvido, reconciliarChangelog, temMarcadorDeConflito } from './changelog-reconciliacao';
-import { comConducao, ErroDeConducao } from './conducao';
+import { comConducao, ErroDeConducao, identidadeDoAmbiente } from './conducao';
 import { raizDoEstado } from './estado-thread';
 import { ManifestoCarregado } from './manifest';
 import { diretorioDaThread } from './procedencia';
@@ -92,8 +92,10 @@ export function atualizarBranchDaThread(carregado: ManifestoCarregado, threadId:
   try { dir = diretorioDaThread(raiz, t); } catch (e) { return recusa('worktree-ausente', (e as Error).message); }
   if (!t.worktree || !fs.existsSync(dir)) return recusa('worktree-ausente', `a thread ${t.id} não tem worktree nesta máquina`);
   try {
+    // A sessao despachada que conduz a thread reentra pela identidade de despacho dela, como o `ork verify` (R3).
     return comConducao(raiz, t.id, { canal: opcoes.canal ?? 'cli', correlacao: opcoes.correlacao ?? null, operacao: 'branch.atualizar',
-      fase: null, promptSha256: null, prazoMs: PRAZO_DA_ATUALIZACAO_MS, ...(opcoes.esperarMs ? { esperarMs: opcoes.esperarMs } : {}) },
+      fase: null, promptSha256: null, prazoMs: PRAZO_DA_ATUALIZACAO_MS, identidade: identidadeDoAmbiente(t.id, process.env, raiz),
+      ...(opcoes.esperarMs ? { esperarMs: opcoes.esperarMs } : {}) },
     () => mesclar(dir, branch, remoto, base, opcoes, cabeca, recusa));
   } catch (e) {
     if (e instanceof ErroDeConducao) return recusa('conduzida', e.recusa.texto.split('\n').slice(0, 2).join(' '));
