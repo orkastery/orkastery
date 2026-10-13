@@ -203,6 +203,42 @@ const REGRA_HITL_DE_CONDUCAO =
   'e a thread segue. Texto só quando a fábrica não consegue seguir sozinha e o dono precisa rodar um comando no terminal: ' +
   'mostre o comando exato.';
 
+/**
+ * RM-026 K7 (fatia 3, D17): a regra do conhecimento escrito no canal, a mesma frase da skill do Hermes. O nucleo
+ * devolve as lacunas tipadas; quem pode transforma-las em resposta e o modelo que escreve ao dono.
+ */
+const REGRA_DAS_LACUNAS =
+  'Conhecimento escrito (RM-026 K7): a resposta é o JSON do núcleo, o mesmo das tools MCP. Cite o documento pelo titulo, ' +
+  'pela versão (sha256) e pela fonte (arquivo). Cada item de lacunas é uma lacuna tipada: mostre ao dono o codigo, o ' +
+  'arquivo ou a referência e o detalhe, como lacuna, separada da resposta, nunca como resposta: documento que virou lacuna ' +
+  'não é documento inexistente, referência que não conferiu não é referência e pasta não lida não é conhecimento vazio. ' +
+  'Saída 1 é a consulta que não respondeu: as lacunas dizem por quê.';
+
+/**
+ * RM-026 K7 (fatia 3, D17): os parametros das tools do conhecimento, com o padrao do schema da tool MCP
+ * (`ID_DE_DOCUMENTO` e `NOME_DE_COLECAO` em core/src/conhecimento.ts; o teste de paridade do nucleo confere).
+ */
+const ID_DO_DOCUMENTO = {
+  type: 'string', pattern: '^doc-[a-z0-9][a-z0-9-]{2,47}$',
+  description: 'O id do documento (doc-...), como em ork_conhecimento_listar',
+};
+const NOME_DA_COLECAO = {
+  type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,47}$',
+  description: 'Filtra pela coleção (um nome de ork_conhecimento_colecoes); omita para todos os documentos',
+};
+
+/**
+ * D17: o host confere o argumento contra o padrao que o schema declara antes de chamar o `ork`, como faz com
+ * `projeto`: um valor que comeca com `--` viraria opcao do CLI (o `--help` devolveria a ajuda geral como resposta).
+ * Chave fora do schema tambem recusa, como na tool MCP. O nucleo confere de novo.
+ */
+function conferirConhecimento(p: Record<string, unknown>, propriedades: Record<string, { pattern: string }>,
+  exigidos: readonly string[] = []): void {
+  const valido = Object.entries(p).every(([k, v]) => Object.hasOwn(propriedades, k) && typeof v === 'string' &&
+    new RegExp(propriedades[k].pattern).test(v)) && exigidos.every((k) => typeof p[k] === 'string');
+  if (!valido) throw new Error('conhecimento.argumento-invalido');
+}
+
 /** Catálogo em paridade nome a nome com o manifesto; aprovação genérica legada aposentada. */
 interface FerramentaOrk {
   name: string;
@@ -375,6 +411,58 @@ const FERRAMENTAS: FerramentaOrk[] = [
     },
     argv: (p) => ['brain', 'dossie', '--thread', texto(p, 'thread'), ...(p.decisao === undefined ? [] : ['--decisao', texto(p, 'decisao')])],
   },
+  // RM-026 K7 (fatia 3, D17 e D18): as tools MCP do conhecimento, cada uma uma chamada de `ork conhecimento ... --json`.
+  // A descricao e a da tool MCP, com a regra das lacunas e a do HITL de conducao (as quatro aparecem no perfil coding).
+  {
+    name: 'ork_conhecimento_listar',
+    description:
+      'Conhecimento escrito do projeto (RM-026 K7), só leitura: os documentos válidos da pasta conhecimento.dir, com ' +
+      'título, coleções, arquivo e versão (sha256), e as lacunas tipadas; documento inválido nunca vem como resposta. colecao ' +
+      'filtra por coleção. Não consulta o Company Brain nem mostra referência (para isso, ork_conhecimento_mostrar). ' +
+      REGRA_DAS_LACUNAS + ' ' + REGRA_HITL_DE_CONDUCAO,
+    parameters: { type: 'object', additionalProperties: false, properties: { colecao: NOME_DA_COLECAO } },
+    argv: (p) => {
+      conferirConhecimento(p, { colecao: NOME_DA_COLECAO });
+      return ['conhecimento', 'listar', ...(p.colecao === undefined ? [] : ['--colecao', texto(p, 'colecao')]), '--json'];
+    },
+  },
+  {
+    name: 'ork_conhecimento_mostrar',
+    description:
+      'Lê um documento do conhecimento escrito pelo id (doc-...), só leitura: o corpo Markdown, a versão (sha256), a ' +
+      'fonte (arquivo) e as referências, com as decisões conferidas no ledger e cada id do Brain conferido por get no Company ' +
+      'Brain. Referência que não confere e id sem documento válido vêm como lacuna tipada, nunca como resposta: o id que o ' +
+      'Brain não tem, o retido e o Brain fora do ar são lacunas distintas. Cite pela versão e pela fonte. ' +
+      REGRA_DAS_LACUNAS + ' ' + REGRA_HITL_DE_CONDUCAO,
+    parameters: schema({ id: ID_DO_DOCUMENTO }),
+    argv: (p) => {
+      conferirConhecimento(p, { id: ID_DO_DOCUMENTO }, ['id']);
+      return ['conhecimento', 'mostrar', texto(p, 'id'), '--json'];
+    },
+  },
+  {
+    name: 'ork_conhecimento_colecoes',
+    description:
+      'As coleções do conhecimento escrito do projeto e os documentos de cada uma, só leitura, com as lacunas tipadas. ' +
+      REGRA_DAS_LACUNAS + ' ' + REGRA_HITL_DE_CONDUCAO,
+    parameters: schema({}),
+    argv: (p) => {
+      conferirConhecimento(p, {});
+      return ['conhecimento', 'colecoes', '--json'];
+    },
+  },
+  {
+    name: 'ork_conhecimento_verificar',
+    description:
+      'Confere o conhecimento escrito inteiro, só leitura, com cada id do Brain por get, e devolve os documentos ' +
+      'conferidos e todas as lacunas tipadas; isError quando há lacuna, como a saída 1 de ork conhecimento verificar. ' +
+      REGRA_DAS_LACUNAS + ' ' + REGRA_HITL_DE_CONDUCAO,
+    parameters: schema({}),
+    argv: (p) => {
+      conferirConhecimento(p, {});
+      return ['conhecimento', 'verificar', '--json'];
+    },
+  },
   {
     name: 'ork_claims_add',
     description:
@@ -545,6 +633,10 @@ const plugin = defineToolPlugin({
           catch (e) {
             if ((e as Error).message === 'projeto.invalido') {
               return `[ork recusou] projeto.invalido: ${f.semProjeto ? 'esta tool é da rede da pessoa e não recebe projeto; chame sem projeto' : (f.projeto ?? PROJETO_DA_RM052).recusa}`;
+            }
+            if ((e as Error).message === 'conhecimento.argumento-invalido') {
+              return '[ork recusou] conhecimento.argumento-invalido: id é um doc-... de ork_conhecimento_listar, colecao é um ' +
+                'nome de ork_conhecimento_colecoes, e a tool não recebe outro campo além de projeto';
             }
             return '[ork recusou] resposta humana não confirmada; confira origem e correlação do pedido';
           }

@@ -136,7 +136,8 @@ test('hermes e openclaw instalam o roteador e as tools, sem placeholder sobrando
     assert.ok(!bruto.includes('{{'), 'sobrou placeholder no manifesto do OpenClaw');
     const manifesto = JSON.parse(bruto) as { id: string; contracts: { tools: string[] } };
     assert.equal(manifesto.id, 'orkastery');
-    assert.equal(manifesto.contracts.tools.length, 28, 'catálogo onboarding, portfólio, tickets, HITL, Company Brain, dossiê, Maestro, roadmap e status da rede instalado');
+    assert.equal(manifesto.contracts.tools.length, 32, 'catálogo onboarding, portfólio, tickets, HITL, Company Brain, dossiê, Maestro, roadmap e status da rede e conhecimento escrito instalado');
+    assert.ok(manifesto.contracts.tools.includes('ork_conhecimento_mostrar'), 'RM-026 K7 (fatia 3): o conhecimento escrito');
     assert.ok(manifesto.contracts.tools.includes('ork_network_roadmap'), 'RM-054 (fatia 2): o roadmap da rede');
     assert.ok(manifesto.contracts.tools.includes('ork_maestro'));
     assert.ok(manifesto.contracts.tools.includes('ork_onboarding'));
