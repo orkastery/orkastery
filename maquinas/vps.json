@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-13T00:34:47.575Z",
+  "publicadoEm": "2026-10-13T00:45:01.942Z",
   "threads": [
-    {
-      "id": "ork-rm037esperas",
-      "nome": "rm037esperas",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-rm037esperas-full",
-      "atualizadaEm": "2026-10-13T00:34:47.273Z",
-      "entregue": "08cbd5ff",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max",
-      "sessao": null
-    },
     {
       "id": "ork-rm058n3",
       "nome": "rm058n3",
@@ -85,9 +67,9 @@
       "modelo": "opus",
       "esforco": "max",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-13T00:44:35.372Z",
+        "motivo": "sessão 1b335fa1 encerrada (done)"
       }
     },
     {
@@ -98,7 +80,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm059ritual-full",
-      "atualizadaEm": "2026-10-13T00:26:02.477Z",
+      "atualizadaEm": "2026-10-13T00:39:17.779Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
