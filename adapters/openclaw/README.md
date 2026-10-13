@@ -195,6 +195,10 @@ sob os termos do provedor, e nunca acontece no rate limit comum, que espera a ja
 O gateway autenticado é a fronteira de confiança: conteúdo de conversa ou JSON criado por agente não comprova resposta humana. `ork_gate_approve` foi retirado do catálogo; migre o host para os comandos de resposta. Expiração nunca aprova, e delegação não pode aprovar push nem score. O núcleo fornece a profundidade da apresentação.
 
 Verificação: `sh adapters/openclaw/construir.sh && node --test adapters/openclaw/test/hitl-answer.test.mjs`.
+
+O ingresso do Telegram recebe também `/ork noctum <arco> autorizar <sha256>` e `/ork noctum <arco> revogar` (RM-058), com as mesmas conferências do `/ork gate` e a conta autorizada (`ORK_HITL_OPENCLAW_ACCOUNT`) dentro do corpo assinado no endereço `noctum` / `arco:<arco>`. O envelope vai pela entrada a `ork noctum responder <arco>`, e só o recibo tipado `ork.noctum-ingresso/v1` do mesmo arco vira resposta ao dono; o ato que já valia não ganha segunda confirmação. A gramática mora no núcleo (`GRAMATICA_DO_NOCTUM`), e o teste `noctum-gateways` do núcleo confere a fonte e o `dist`.
+
+Verificação: `sh adapters/openclaw/construir.sh && node --test adapters/openclaw/test/hitl-noctum.test.mjs`.
 # Entrada Maestro
 
 O callback `inbound_claim` possui ingresso adicional `native` sem Telegram quando
