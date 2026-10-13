@@ -48,6 +48,18 @@ ork adapter install hermes --dry-run             # lista o que seria escrito
 | `bin/ork-roadmap-status.sh` | `ork_roadmap_status`: the roadmap status report for this machine only (`ork roadmap status`) |
 | `bin/ork-network-roadmap.sh` | `ork_network_roadmap`: the network roadmap (`ork network roadmap`), with the threads of all machines, source, time and gaps; the source for the roadmap status and for the overview of the `orkastery maestro` phrase with no project (RM-054) |
 | `bin/ork-network-status.sh` | `ork_network_status`: the person's machines in the Orkastery Network (`ork network status`), with the heartbeat, the forges, the runtimes, the hosts, the source and the gaps; no project (RM-054, slice 3) |
+| `bin/ork-conhecimento-listar.sh`, `-mostrar.sh`, `-colecoes.sh` and `-verificar.sh` | `ork_conhecimento_listar`, `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` and `ork_conhecimento_verificar`: the project's written knowledge (`ork conhecimento <consulta> --json`), the same tools as the MCP and OpenClaw (RM-026 K7, slice 3) |
+
+## Written knowledge (RM-026 K7)
+
+The four `bin/ork-conhecimento-*.sh` wrappers are the written-knowledge MCP tools with the same names in the
+manifest: each one calls `ork conhecimento <consulta> "$@" --json`, with `ORK_PROJETO_EXPLICITO=1` and
+`ORK_CANAL=hermes`, and returns the core's JSON and its exit code as they come (exit 1 is the query that did not answer, with the
+gaps saying why). The `--json` goes at the end, after the `<doc-id>` of `mostrar`. The skill says to cite the document
+by version and source and to show each gap as a gap, never as the answer, with the same sentence as the OpenClaw
+descriptions ([contract](../../docs/referencia/contratos/conhecimento-rm026.md)).
+
+Verification: `python3 -m unittest discover -s adapters/hermes/test -p conhecimento_test.py -v`.
 
 ## Retired `obj-*` tickets
 
