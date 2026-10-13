@@ -1,6 +1,7 @@
 /**
- * O unico ponto que roda a CLI da forja. Sem shell e sem token: a CLI usa a autenticacao que ja tem. Cada
- * consumidor mantem o prazo, o teto e o ambiente que tinha antes da porta.
+ * O unico ponto que roda a CLI da forja. Sem shell e sem token: a CLI usa a autenticacao que ja tem. Cada consumidor
+ * diz o prazo, o teto de saida e o ambiente; a CI e a entrega externa usam 32 MiB, como a leitura da forja, e o gh
+ * e achado pelo `acharBinario` salvo nos consumidores que pedem `procurarBinario: false`.
  */
 import { spawnSync } from 'node:child_process';
 import { acharBinario } from '../rede-forja';
@@ -8,7 +9,7 @@ import type { SaidaDoExecutor } from './contrato';
 
 export interface ChamadaDaCli {
   cmd: 'gh' | 'glab'; args: readonly string[]; entrada?: string; prazoMs: number;
-  /** O teto de saida, o mesmo que cada consumidor ja usava. */
+  /** O teto de saida do processo (`maxBuffer` do spawn); a CI, a entrega externa e a leitura da forja usam 32 MiB. */
   maxBuffer: number;
   /** Variaveis apagadas do ambiente herdado (o pulse apaga GH_HOST, GH_REPO e GH_FORCE_TTY). */
   apagar?: readonly string[];

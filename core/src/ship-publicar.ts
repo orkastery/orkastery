@@ -313,7 +313,7 @@ function corpoDaThread(raiz: string, threadId: string): { arquivo: string; texto
     const st = fs.lstatSync(arquivo);
     if (!st.isFile() || st.size === 0 || st.size > TETO_DO_CORPO) return null;
     const texto = fs.readFileSync(arquivo, 'utf8');
-    // O corpo vai ao gh como argumento (A5 da revisao): com NUL ele nao passa, e vale o corpo padrao.
+    // O corpo vai ao gh por um arquivo temporario 600, nunca pelo argv; com NUL ele nao e texto de PR, e vale o corpo padrao.
     return texto.includes('\0') ? null : { arquivo, texto };
   } catch { return null; }
 }
@@ -511,7 +511,8 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   }
   r.corpo = corpo ? 'pr-body.md' : 'padrao';
   const titulo = tituloDoPr(t, corpo?.texto ?? null);
-  // A5 da revisao: o corpo vai ao gh como texto, o mesmo que foi lido agora; o gh nunca reabre o arquivo.
+  // A5 da revisao: o corpo e o texto lido agora, gravado num arquivo temporario 600 so para o `gh pr create`
+  // (`--body-file`); o gh nunca reabre o `pr-body.md`.
   const textoDoCorpo = corpo?.texto ?? textoDoCatalogo((m) => p(m).corpoPadrao(tagDoModo(t.modo), f.branch, curto(head),
     carregado.manifesto.ci.context || 'ork-verify'));
   // B1 da revisao: o push leva o sha conferido, e nao a ref: o commit que chegue a branch depois das conferencias fica
@@ -522,7 +523,7 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
     const passos = [...r.passos];
     if (!noRemoto) passos.push(`git push -- ${remoto} ${refspec}`, provaDoPush);
     passos.push(aberto ? textoDoCatalogo((m) => p(m).passoReaproveita(aberto.numero))
-      : `gh pr create --base ${base} --head ${f.branch} --title "${titulo}" --body <${corpo ? 'pr-body.md' : 'padrao'}>`);
+      : `gh pr create --base ${base} --head ${f.branch} --title "${titulo}" --body-file <${corpo ? 'pr-body.md' : 'padrao'}>`);
     return { ...r, acao: 'publicaria', passos, pr: aberto ? { numero: aberto.numero, url: aberto.url, criado: false, head: aberto.head } : null,
       detalhe: textoDoCatalogo((m) => p(m).publicaria(curto(head), aberto?.numero ?? null)) };
   }
