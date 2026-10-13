@@ -21,6 +21,7 @@ Distinguish the context before acting:
 - **Conductor session:** receives the owner's request, identifies or opens the thread, dispatches through `ork` and tracks the result; never writes product code in place of the dispatched session.
 - **Already dispatched phase session:** has received the thread, phase, prompt and worktree from `ork`.
   Work within that scope through the phase skill. Do not open another thread or redispatch your own phase to do the work already assigned to you.
+  - Waits: never start verify, build or the suite with `&` inside the command, because the process gets lost and the session waits for a notice that never comes; run `ork verify` in the foreground, with `timeout` (it waits its turn in the heavy-resource queue), or use the host's background execution, which tells you when it finishes; never wait with `pgrep -f` whose pattern shows up in the command itself, because the loop finds itself and never ends: wait for the output file with a deadline, or for the saved PID.
 
 ## Start or resume
 
@@ -89,8 +90,7 @@ a current human pending item, identified by a gate, request or event of the thre
 A new thread, with no phase executed and no open request, is not yet waiting for a verdict.
 If evidence of the pending item is missing, state the uncertainty and check the source; do not invent the wait.
 
-Present the result first: what has already been proven, what is happening, who needs to act and the next step. In long-running work, report a relevant change, a blocker or a milestone.
-Do not promise notifications or background execution that the host cannot sustain.
+Present the result first: what has already been proven, what is happening, who needs to act and the next step. In long-running work, report a relevant change, a blocker or a milestone. Do not promise notifications or background execution that the host cannot sustain.
 
 ## Decisions in the session itself
 

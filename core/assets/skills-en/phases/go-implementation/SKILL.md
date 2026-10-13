@@ -24,6 +24,8 @@ ork claims add <thread> <arquivo> --claim "<...>" --verificar "<comando>" --fase
 ork verify <thread>                           # reexecuta no HEAD real
 ```
 
+- Waits: never start verify, build or the suite with `&` inside the command, because the process gets lost and the session waits for a notice that never comes; run `ork verify` in the foreground, with `timeout` (it waits its turn in the heavy-resource queue), or use the host's background execution, which tells you when it finishes; never wait with `pgrep -f` whose pattern shows up in the command itself, because the loop finds itself and never ends: wait for the output file with a deadline, or for the saved PID.
+
 ## What GO delivers
 
 1. **One atomic commit per task**, with the thread and the task in the message, at most five files.
