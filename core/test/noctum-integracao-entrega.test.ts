@@ -338,3 +338,43 @@ test('QI10: a vez da N3 sobre outra base do projeto recusa, e o trabalho que a s
     assert.equal(lerLedger(dirThread(p.dir, e.t.id)).filter(x => x.tipo === TIPOS_DE_EVENTO.shipConcluido).length, 0);
   } finally { p.limpar(); }
 });
+
+test('QI11: o isolamento que a supervisão grava no meio da integração, depois da primeira conferência, recusa o push na base', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi11');
+  try {
+    const e = entregaPronta(p, 'qi11');
+    publicarBranch(e);
+    arcoDaEntrega(p, 'arco-qi11', e.t.id);
+    const base = lsRemote(p, 'refs/heads/main');
+    let isolou = false;
+    const ci = ciFalso({ [e.fonte]: 'success' });
+    // As provas relidas sob a trava leem o CI: o isolamento chega aí, depois da conferência do começo da integração.
+    const executorCi: ReturnType<typeof ciFalso> = (x) => {
+      if (!isolou) {
+        isolou = true;
+        gravarNaSupervisao(p.carregado, 'arco-qi11', [{ tipo: 'isolado', trabalho: 'a', thread: e.t.id, motivo: 'efeito-divergente',
+          detalhe: 'SIMULADO: outro sha na branch' }]);
+      }
+      return ci(x);
+    };
+    assert.throws(() => integrarNoDestino(p.carregado, 'arco-qi11', e.t.id, { forja: FORJA, executorCi }),
+      (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.isolado');
+    assert.equal(isolou, true);
+    assert.equal(lsRemote(p, 'refs/heads/main'), base, 'a base não mudou');
+  } finally { p.limpar(); }
+});
+
+test('QI12: o trabalho que fixa a thread de outro item não integra, como a fila (item-divergente)', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi12');
+  try {
+    const e = entregaPronta(p, 'qi12');
+    publicarBranch(e);
+    const pedido = pedidoV2('arco-qi12', { trabalhos: [{ id: 'a', item: 'RM-111', prioridade: 1, dependeDe: [], thread: e.t.id }], revisao: 1 });
+    pedido.destinos = [{ repositorio: FORJA.repositorio, base: 'main', permissoes: ['push', 'pr', 'merge'] }];
+    autorizarPedido(p.dir, 'arco-qi12', pedido);
+    const base = lsRemote(p, 'refs/heads/main');
+    assert.throws(() => integrar(p, 'arco-qi12', e.t.id, { [e.fonte]: 'success' }),
+      (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.fora-do-envelope');
+    assert.equal(lsRemote(p, 'refs/heads/main'), base, 'a base não mudou');
+  } finally { p.limpar(); }
+});

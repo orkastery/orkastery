@@ -71,8 +71,21 @@ export const EVENTO_DA_ATUALIZACAO_RECUSADA = 'noctum_atualizacao_recusada';
 export const EVENTO_DO_PUSH_INCERTO = 'noctum_push_incerto';
 /** A4 da rodada 1: o evento do ledger da thread que guarda o push que o remoto recusou com a base parada (proteção, gancho). */
 export const EVENTO_DO_PUSH_RECUSADO = 'noctum_push_recusado';
-/** R2-A3 da rodada 2: o que o git escreve quando o remoto recusa o push (a proteção da branch, um gancho), e não a rede. */
-const RECUSA_DO_REMOTO = /\[remote rejected\]|\[rejected\]|hook declined|protected branch|GH00\d/i;
+/**
+ * R2-A3 da rodada 2 e R3-S1 da rodada 3: a linha em que o remoto recusa o push de vez (a proteção da branch, um gancho, a
+ * permissão), e não a rede nem a falha passageira do servidor (a trava da ref, o desempacotamento), que esperam. O código do
+ * GitHub só vale na linha `remote: error: GH0..`, nunca no endereço do remoto; no `[remote rejected]`, decide o motivo entre
+ * parênteses.
+ */
+function recusaDoRemoto(stderr: string): string | null {
+  for (const bruta of stderr.split('\n')) {
+    const linha = bruta.trim();
+    if (/^remote: error: GH0\d\d\b/.test(linha) || /\bhook declined\b/i.test(linha) || /^!? *\[rejected\] /.test(linha)) return linha.slice(0, 300);
+    const remota = /^!? *\[remote rejected\] [^(]*\((.*)\)$/.exec(linha);
+    if (remota && /protected|\bden(?:y|ied)\b|permission/i.test(remota[1])) return linha.slice(0, 300);
+  }
+  return null;
+}
 
 /**
  * A8 da rodada 1: o motivo de espera e de bloqueio do passo, tipado pela origem: os da entrega (`noctum.entrega.*`), os do
@@ -120,8 +133,9 @@ function conferirSupervisao(raiz: string, arco: string, trabalhos: readonly stri
 
 /** R2-S3 da rodada 2: os trabalhos do envelope que são da thread, pela regra da fila: a thread fixada, ou o item com o pedido. */
 function trabalhosDaThread(conteudo: ConteudoDoEnvelope & { trabalhos: Trabalho[] }, t: Thread): Trabalho[] {
-  return conteudo.trabalhos.filter(w => w.thread !== undefined ? w.thread === t.id
-    : w.item === t.roadmap && !!w.pedido && t.pedido?.sha256 === shaDoPedido(w.pedido));
+  // R3-S3 da rodada 3: a thread fixada de outro item é `item-divergente` na fila, e não integra aqui.
+  return conteudo.trabalhos.filter(w => w.item === t.roadmap && (w.thread !== undefined ? w.thread === t.id
+    : !!w.pedido && t.pedido?.sha256 === shaDoPedido(w.pedido)));
 }
 
 // ---------------------------------------------------------------------------
@@ -393,6 +407,14 @@ export function passoDaEntrega(carregado: ManifestoCarregado, arco: string, opco
   const bloqueios: Array<{ trabalho: string; thread: string; motivo: MotivoDoPasso; detalhe: string }> = [];
   const leituras: LeiturasDoPasso = new Map();
   for (const trabalho of naEntrega) {
+    // R3-S4 da rodada 3: o trabalho entregue que a supervisão isolou depois não recebe o MASTER do arco (a fila o mostra
+    // entregue antes de olhar o isolamento).
+    const isoladoDepois = trabalho.estado === 'entregue' ? sup.isolados.get(trabalho.id) : undefined;
+    if (isoladoDepois) {
+      bloqueios.push({ trabalho: trabalho.id, thread: trabalho.thread!, motivo: 'noctum.entrega.isolado',
+        detalhe: `o trabalho ${trabalho.id} foi isolado pela supervisão (${isoladoDepois.motivo}): ${isoladoDepois.detalhe}` });
+      continue;
+    }
     // D9: com outro contrato (a v3 da N3), a integração é da vez entre máquinas; aqui nada se decide por ela.
     if (conteudo.contrato !== CONTRATO_ENVELOPE_V2) {
       bloqueios.push({ trabalho: trabalho.id, thread: trabalho.thread!, motivo: 'noctum.entrega.exige-vez-da-n3',
@@ -564,9 +586,24 @@ function atualizarCandidato(carregado: ManifestoCarregado, arco: string, trabalh
     const relativo = path.relative(wt, arquivo);
     const bundleMudou = ler(['status', '--porcelain', '--', relativo], 'o estado do bundle').trim() !== '';
     if (bundleMudou) {
-      if (!git(wt, ['add', '--', relativo]).ok) throw new Error(`o git add do bundle ${relativo} falhou`);
+      // R3-A4 da rodada 3: o bundle que não commita (um gancho, a trava do índice) volta ao que a branch tinha, e o passo
+      // espera, como no commit do merge (R2-A2), sem deixar a worktree suja para o passo seguinte.
+      const desfazerBundle = (): void => {
+        git(wt, ['reset', '-q', '--', relativo]);
+        const naBranch = git(wt, ['cat-file', '-p', `HEAD:${relativo}`]);
+        if (naBranch.ok) fs.writeFileSync(path.join(wt, relativo), naBranch.stdout);
+        else fs.rmSync(path.join(wt, relativo), { force: true });
+      };
+      const a = git(wt, ['add', '--', relativo]);
+      if (!a.ok) {
+        desfazerBundle();
+        throw new RecusaDaEntrega('noctum.entrega.git-falhou', `o git add do bundle ${relativo} falhou: ${primeira(a.stderr)}`);
+      }
       const c = git(wt, ['commit', '-q', '-m', `ci(${t.id}): bundle regravado na atualização do arco ${arco}`]);
-      if (!c.ok) throw new Error(`o commit do bundle falhou: ${primeira(c.stderr)}`);
+      if (!c.ok) {
+        desfazerBundle();
+        throw new RecusaDaEntrega('noctum.entrega.git-falhou', `o commit do bundle falhou: ${primeira(c.stderr)}`);
+      }
       rastro.efeito = true;
     }
     const depois = ler(['rev-parse', 'HEAD'], 'o HEAD depois do bundle').trim();
@@ -962,7 +999,7 @@ export function integrarNoDestino(carregado: ManifestoCarregado, arco: string, t
     const alvo = docs.commit ?? mergeSha;
     // B2 da rodada 1: a supervisão e a N1 imediatamente antes do push, depois do merge e dos docs derivados, com o relógio
     // desta hora.
-    conferirSupervisao(raiz, arco, trabalhosDoEnvelope);
+    conferirSupervisao(raiz, arco, [...trabalhosDoEnvelope]);
     conferirAntesDoEfeito(raiz, { arco, envelopeSha256, acao: 'merge', repositorio: destino.repositorio, branch: destino.base }, relogio());
     // S3 da rodada 1: o lease amarra o push à ponta conferida. O alvo descende dela (o merge a tem como primeiro pai), então o
     // push é sempre de avanço; a base que andou, ou que foi forçada para trás, recusa.
@@ -985,13 +1022,14 @@ export function integrarNoDestino(carregado: ManifestoCarregado, arco: string, t
       }
       // R2-A3 da rodada 2: só a recusa do remoto bloqueia sem repetir; a falha do transporte (a rede, o endereço, o prazo)
       // espera e tenta de novo na cadência, com as provas e a conferência refeitas.
-      if (!RECUSA_DO_REMOTO.test(push.stderr)) {
+      const linhaDaRecusa = recusaDoRemoto(push.stderr);
+      if (!linhaDaRecusa) {
         throw new RecusaDaEntrega('noctum.entrega.git-falhou',
           `o push para ${destino.base} falhou sem recusa do remoto, com a base parada em ${curto(ponta.sha)}: ${primeira(push.stderr) || `código ${push.code}`}`);
       }
       // A4 da rodada 1: a base parada e o push recusado (a proteção da branch, um gancho do remoto): repetir não muda nada.
-      registrar(dirThread(raiz, threadId), threadId, EVENTO_DO_PUSH_RECUSADO, { arco, base: ponta.sha, fonte, alvo, remoto, erro: primeira(push.stderr) });
-      throw new RecusaDaEntrega('noctum.entrega.push-recusado', `o remoto recusou o push para ${destino.base} com a base parada em ${curto(ponta.sha)}: ${primeira(push.stderr)}`);
+      registrar(dirThread(raiz, threadId), threadId, EVENTO_DO_PUSH_RECUSADO, { arco, base: ponta.sha, fonte, alvo, remoto, erro: linhaDaRecusa });
+      throw new RecusaDaEntrega('noctum.entrega.push-recusado', `o remoto recusou o push para ${destino.base} com a base parada em ${curto(ponta.sha)}: ${linhaDaRecusa}`);
     }
     if (!git(raiz, ['merge-base', '--is-ancestor', fonte, alvo]).ok) incerto('a ponta da base não mostrou a fonte depois do push');
     const ci = provas.provas.find(p => p.id === 'ci')!.evidencia;
@@ -1025,15 +1063,18 @@ function reconciliarEntrega(carregado: ManifestoCarregado, arco: string, estado:
   const mergeSha = commitQueIncorporou(raiz, fonte, ponta);
   if (!mergeSha) throw new RecusaDaEntrega('noctum.entrega.nao-provada', 'o commit que incorporou a fonte na base não se achou');
   const incerto = lerLedger(dirThread(raiz, threadId)).filter(e => e.tipo === EVENTO_DO_PUSH_INCERTO && e.fonte === fonte).at(-1) ?? null;
-  // R2-S4 da rodada 2: sem o push incerto do arco para esta fonte, quem incorporou foi outro caminho (o dono, a batida da
-  // RM-063, um merge à mão); o registro diz isso, e não que o arco integrou.
+  // R2-S4 da rodada 2 e R3-S2 da rodada 3: quem incorporou se lê no commit que incorporou. O merge do arco leva
+  // `arco: <arco> (envelope ...)` no corpo; sem isso, foi outro caminho (o dono, a batida da RM-063, um merge à mão), mesmo
+  // com um push incerto do arco que não chegou.
+  const corpoDoMerge = git(raiz, ['log', '-1', '--format=%B', mergeSha]);
+  const doArco = corpoDoMerge.ok && corpoDoMerge.stdout.includes(`\narco: ${arco} (envelope `);
   const envelope = `envelope ${(estado.envelopeSha256 ?? '').slice(0, 12)} do arco ${arco} (#Noctum)`;
   registrar(dirThread(raiz, threadId), threadId, TIPOS_DE_EVENTO.shipConcluido, {
     de: branch, para: destino.base, shaDe: fonte, mergeSha, pontaDaBase: ponta, jaIncorporado: true, remoto, shaRemoto: ponta,
     pushVerificado: true, fonteDaProva: `git merge-base --is-ancestor ${fonte} ${ponta} (ls-remote ${remoto} refs/heads/${destino.base})`,
-    autorizadoPor: incerto ? `${envelope}, reconciliado` : `merge ${curto(mergeSha)} de fora do arco, registrado pelo ${envelope}`,
+    autorizadoPor: doArco ? `${envelope}, reconciliado` : `merge ${curto(mergeSha)} de fora do arco, registrado pelo ${envelope}`,
     tipoDeAutorizacao: 'noctum', modo: t.modo, tag: tagDoModo(t.modo),
-    evidencia: { arco, reconciliado: true, incorporadaPor: incerto ? 'arco' : 'outro-caminho',
+    evidencia: { arco, reconciliado: true, incorporadaPor: doArco ? 'arco' : 'outro-caminho',
       pushIncerto: incerto ? { eventId: incerto.eventId, alvo: incerto.alvo, provas: incerto.provas ?? null } : null,
       falhasRegistradas: Array.isArray(incerto?.falhasRegistradas) ? incerto!.falhasRegistradas : [] },
   });
