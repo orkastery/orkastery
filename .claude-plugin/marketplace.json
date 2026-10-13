@@ -29,6 +29,13 @@
       "homepage": "https://orkastery.com/"
     },
     {
+      "name": "ork-mensageiro",
+      "source": "./marketplaces/claude-code/mods/ork-mensageiro",
+      "description": "Mensageiro de Sessões do Orkastery no Claude Code: leva a resposta que o dono deu pelo diálogo nativo à sessão de fase claude-bg que parou esperando por ele, como mensagem entre sessões, e na sessão de fase só deixa chegar ao modelo a mensagem que o núcleo confirmou como aquela resposta. Nunca responde nem aprova pelo dono.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
       "name": "ork-mesa",
       "source": "./marketplaces/claude-code/mods/ork-mesa",
       "description": "Mesa do Dono do Orkastery no Claude Code: tudo que espera o dono num painel, um cartão por pedido com a recomendação na frente e a decisão pelo diálogo nativo do host. Só decide pelo dono pela decisão autônoma do núcleo, quando a decisão é óbvia, e nunca responde um pedido.",

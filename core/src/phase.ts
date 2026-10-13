@@ -255,15 +255,28 @@ export const CONTRATO_DAS_FASES: Readonly<Record<Fase, string>> = {
     'MASTER (F6): MASTER log com postmortem tipado, licoes e o score humano de 0 a 5. Uma entrega sem MASTER log nao aconteceu.',
 };
 
+/**
+ * RM-037 (ork-rm037esperas, D3): a regra das esperas, uma linha so, a mesma no prompt de toda fase e na skill e nos
+ * guias que o adaptador instala (`core/test/rm037-esperas.test.ts` confere os arquivos). Em 12/10/2026, sessoes de
+ * fase esperaram para sempre por verify ou suite mandados para segundo plano com `&`, cujo processo morreu com a
+ * chamada, e por lacos de espera com `pgrep -f` que acham a si mesmos, porque o proprio laco traz o texto procurado.
+ */
+export const REGRA_DAS_ESPERAS =
+  'Esperas: nunca dispare verify, build ou suite com `&` dentro do comando, porque o processo se perde e a sessao ' +
+  'espera um aviso que nunca vem; rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de ' +
+  'recursos pesados), ou use a execucao em segundo plano do host, que avisa quando termina; nunca espere com ' +
+  '`pgrep -f` cujo padrao aparece no proprio comando, porque o laco acha a si mesmo e nao termina: espere pelo ' +
+  'arquivo de saida com prazo, ou pelo PID guardado.';
+
 /** As regras de evidencia que valem em toda fase, em todo modo. */
 export const REGRAS_DE_EVIDENCIA: readonly string[] = [
   'Nada de self-report: toda alegacao vem com o comando que a comprova e a saida real.',
   'Trabalhe apenas no diretorio de trabalho indicado acima.',
   'Passos irreversiveis (push, merge, delecao) so acontecem quando o modo autoriza.',
   // RM-058 N2 (D13 da ork-rm058n2): tres sessoes de 12/10/2026 mandaram verify ou suite para segundo plano com `&`,
-  // perderam o processo e esperaram para sempre.
-  'Verify, build e suite rodam em primeiro plano, com timeout, nunca com `&` no comando: o processo em segundo plano ' +
-    'se perde e a sessao espera para sempre. O `ork verify` espera a vez na fila de recursos pesados.',
+  // perderam o processo e esperaram para sempre. RM-037 (ork-rm037esperas, D3): a linha da N2 virou a regra das
+  // esperas, que tambem traz a execucao em segundo plano do host e a espera por `pgrep -f`.
+  REGRA_DAS_ESPERAS,
 ];
 
 /**

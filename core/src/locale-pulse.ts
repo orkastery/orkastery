@@ -14,11 +14,15 @@
 const CLASSES_EN: Readonly<Record<string, string>> = {
   abandonada: 'abandoned', falha: 'failed', trabalhando: 'working', concluida: 'done', interrompida: 'stopped',
   interativa: 'interactive', desconhecida: 'unknown', fase_orfa: 'orphan phase', score_pendente: 'pending score',
+  // RM-063 (F5): o item de uma acao da varredura.
+  varredura: 'sweep',
 };
 
 /** As alternativas do pedido curto do impedimento do despacho (`impedimento.ts`), pelo texto que ele grava. */
 const ALTERNATIVAS_DO_IMPEDIMENTO_EN: Readonly<Record<string, string>> = {
   'Rodei o comando': 'I ran the command', 'Trocar o runtime do bloco': 'Switch the block runtime', 'Deixar parada': 'Leave it stopped',
+  // RM-063 (F4): a alternativa recomendada da escada de recuperacao que acabou.
+  'Conferir o runtime e despachar de novo com o mesmo pedido': 'Check the runtime and dispatch again with the same request',
 };
 
 export const PULSE_PT_BR = {
@@ -95,6 +99,53 @@ export const PULSE_PT_BR = {
   // board.ts: a correcao das vagas que o escalonador devolve e o pulse mostra nas acoes automaticas
   vagaStaleCorrecao: (thread: string, fase: string) => `redespache com ork phase run ${thread} --fase ${fase}, ou feche com ork master ${thread}`,
   limiteCorrecao: 'espere uma thread liberar, ou suba concurrency.max_parallel_threads no orkastery.yaml',
+  /**
+   * RM-063 (F5): as acoes da varredura que age (`varredura-acoes.ts`) e a autorizacao duravel. O que vai ao `--json` nasce
+   * em pt-BR; a impressao remonta no locale.
+   */
+  varredura: {
+    oQue: {
+      limpar: (sessao: string) => `soltar a sessão ${sessao}, que não tem mais processo (fantasma) e ainda segura a condução ` +
+        'e a vaga da thread; o runtime não é tocado',
+      registrar: (merge: string, branch: string, base: string) => `registrar a entrega: o merge ${merge} da branch ${branch} já ` +
+        `está em ${base}, e o ledger não tem o ship_done`,
+      master: 'fechar a thread pelo MASTER por omissão: a entrega está registrada, ninguém deu nota e nada anda nela; o índice ' +
+        'do ledger vira a nota, e a sua nota, quando vier, vale',
+    },
+    bloqueios: {
+      'conduzida': 'alguém conduz a thread agora',
+      'sessao-viva': 'há sessão viva trabalhando na worktree da thread',
+      'sessoes-sem-leitura': 'sem a leitura das sessões vivas do runtime agora, não dá para provar a worktree parada',
+      'worktree-suja': 'a worktree da thread tem alteração não commitada',
+      'branch-com-commits': 'a branch tem commits depois do head do PR mesclado',
+      'trabalho-novo': 'a thread recebeu trabalho novo depois do PR, e a ação mudaria a fase dela',
+      'git-sem-resposta': 'o git não respondeu sobre a branch',
+    },
+    comBloqueio: (oQue: string, bloqueio: string) => `${oQue}. A varredura não faz isso sozinha agora: ${bloqueio}`,
+    comBloqueioRecomendacao: (thread: string, comando: string) =>
+      `veja a thread antes (ork thread status ${thread}); quando o trabalho nela parar, o comando é ${comando}`,
+    comRecusa: (oQue: string, detalhe: string) => `${oQue}. A varredura tentou e não fez: ${detalhe}`,
+    daVarredura: (por: string, ate: string) => `a varredura faz isso na próxima batida, pela autorização durável de ${por} até ${ate}`,
+    doDono: (acao: string) => `rode o comando; para a varredura fazer isso sozinha, autorize a ação ${acao} na autorização ` +
+      'durável desta máquina (ork.autorizacao-duravel/v1)',
+    autorizacaoValida: (por: string, ate: string, pode: string) => `Varredura: autorização durável de ${por} até ${ate} (pode: ${pode})`,
+    autorizacaoAusente: 'Varredura: sem autorização durável; as ações dela ficam na fila do dono, com o comando pronto',
+    autorizacaoInvalida: (motivo: string, detalhe: string) =>
+      `Varredura: autorização durável sem valor (${motivo}: ${detalhe}); as ações dela ficam na fila do dono`,
+    feitas: (n: number) => `A varredura fez sozinha nos últimos 7 dias: ${n}`,
+    feita: (thread: string, acao: string, detalhe: string) => `  ${thread}: ${acao}; ${detalhe}`,
+  },
+  /** RM-063 (F6): a maquina ociosa (`maquina-ociosa.ts`): o passo de cada sugestao e as linhas do pulse. */
+  ociosa: {
+    despachar: (fase: string) => `despachar a fase ${fase} com o pedido guardado da thread`,
+    retomar: 'retomar a fase pelo retry, com o mesmo prompt',
+    verAThread: (fase: string) => `ver por que a thread parou na fase ${fase}`,
+    abrir: 'abrir a thread do item, que ainda não tem uma',
+    linha: (maquina: string, livres: number, limite: number, reservados: number) => `Máquina ociosa: ${maquina} com ${livres} de ` +
+      `${limite} vagas livres e ${reservados} item(ns) do roadmap reservado(s) para ela sem ninguém trabalhando`,
+    sugerida: (item: string, onde: string, passo: string, comando: string) => `  ${item} (${onde}): ${passo}; ${comando}`,
+    semThread: 'sem thread',
+  },
   /** A descricao de cada motivo tipado: a fonte de `DESCRICAO_DO_MOTIVO` (reserva do detalhe da parada). */
   motivos: {
     'artifact.missing': 'artefato exigido pela fase nao existe no disco',
@@ -189,6 +240,47 @@ export const PULSE_EN: typeof PULSE_PT_BR = {
   alternativaDoImpedimento: (texto) => ALTERNATIVAS_DO_IMPEDIMENTO_EN[texto] ?? texto,
   vagaStaleCorrecao: (thread, fase) => `re-dispatch with \`ork phase run ${thread} --fase ${fase}\`, or close it with \`ork master ${thread}\``,
   limiteCorrecao: 'wait for a thread to free its slot, or raise `concurrency.max_parallel_threads` in `orkastery.yaml`',
+  varredura: {
+    oQue: {
+      limpar: (sessao) => `release session ${sessao}, which has no process anymore (a ghost) and still holds the thread ` +
+        'conduction and slot; the runtime is not touched',
+      registrar: (merge, branch, base) => `record the delivery: merge ${merge} of branch ${branch} is already in ${base}, and the ` +
+        'ledger has no ship_done',
+      master: 'close the thread through MASTER by default: the delivery is recorded, nobody scored it and nothing runs on it; the ' +
+        'ledger index becomes the score, and your score, when it comes, wins',
+    },
+    bloqueios: {
+      'conduzida': 'someone conducts the thread now',
+      'sessao-viva': 'a live session works in the thread worktree',
+      'sessoes-sem-leitura': 'without a reading of the runtime live sessions now, the worktree cannot be proven idle',
+      'worktree-suja': 'the thread worktree has uncommitted changes',
+      'branch-com-commits': 'the branch has commits after the head of the merged PR',
+      'trabalho-novo': 'the thread got new work after the PR, and the action would change its phase',
+      'git-sem-resposta': 'git did not answer about the branch',
+    },
+    comBloqueio: (oQue, bloqueio) => `${oQue}. The sweep does not do this on its own now: ${bloqueio}`,
+    comBloqueioRecomendacao: (thread, comando) =>
+      `look at the thread first (ork thread status ${thread}); once the work in it stops, the command is ${comando}`,
+    comRecusa: (oQue, detalhe) => `${oQue}. The sweep tried and did not do it: ${detalhe}`,
+    daVarredura: (por, ate) => `the sweep does this at the next beat, under the durable authorization of ${por} until ${ate}`,
+    doDono: (acao) => `run the command; for the sweep to do this on its own, authorize the action ${acao} in this machine's ` +
+      'durable authorization (ork.autorizacao-duravel/v1)',
+    autorizacaoValida: (por, ate, pode) => `Sweep: durable authorization of ${por} until ${ate} (may: ${pode})`,
+    autorizacaoAusente: 'Sweep: no durable authorization; its actions stay in the owner queue, with the command ready',
+    autorizacaoInvalida: (motivo, detalhe) => `Sweep: durable authorization without effect (${motivo}: ${detalhe}); its actions stay in the owner queue`,
+    feitas: (n) => `The sweep did on its own in the last 7 days: ${n}`,
+    feita: (thread, acao, detalhe) => `  ${thread}: ${acao}; ${detalhe}`,
+  },
+  ociosa: {
+    despachar: (fase) => `dispatch phase ${fase} with the thread's stored request`,
+    retomar: 'resume the phase through the retry, with the same prompt',
+    verAThread: (fase) => `see why the thread stopped in phase ${fase}`,
+    abrir: 'open the thread of the item, which has none yet',
+    linha: (maquina, livres, limite, reservados) => `Idle machine: ${maquina} with ${livres} of ${limite} free slots and ` +
+      `${reservados} roadmap item(s) reserved for it with nobody working`,
+    sugerida: (item, onde, passo, comando) => `  ${item} (${onde}): ${passo}; ${comando}`,
+    semThread: 'no thread',
+  },
   motivos: {
     'artifact.missing': 'an artifact the phase requires does not exist on disk',
     'claims.failed': 'a verifiable claim failed when rerun on the real HEAD',

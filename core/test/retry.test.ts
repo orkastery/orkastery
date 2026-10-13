@@ -232,7 +232,7 @@ test('a escada de esforco sobe um degrau por tentativa e para no topo', () => {
   assert.equal(escalarEsforco('high', 5), 'xhigh');
 });
 
-test('runtime indisponivel reexecuta o MESMO prompt e escala o esforco na 2a tentativa', (t) => {
+test('runtime indisponivel reexecuta o MESMO prompt e, na 2a tentativa, sobe a escada sem escalar o esforco', (t) => {
   const p = projetoTemporario('b3-reexecutar');
   const runtime = runtimeFalso('b3-reexecutar');
   t.after(() => {
@@ -262,12 +262,13 @@ test('runtime indisponivel reexecuta o MESMO prompt e escala o esforco na 2a ten
   assert.equal(depois.sessoes.length, 1);
   assert.equal(depois.sessoes[0].promptSha256, morta.promptSha256, 'o MESMO prompt voltou ao runtime');
 
-  // Segunda tentativa pelo mesmo motivo: o esforco sobe um degrau.
+  // Segunda tentativa pelo mesmo motivo. RM-063 (F4): runtime fora nao e prompt fraco; a escada troca o destino (o
+  // fallback do bloco, depois outro perfil) e o esforco fica o do despacho.
   const segundo = planejarRetry(p.carregado, thread.id, { motivo: 'runtime.unavailable', fase: 'GO' });
   assert.equal(segundo.tentativas, 1);
-  assert.equal(segundo.acao, 'escalar-esforco');
-  assert.equal(segundo.effort, proximoEsforco(p.carregado.manifesto.runtime.effort));
-  assert.equal(segundo.effortAnterior, p.carregado.manifesto.runtime.effort);
+  assert.equal(segundo.acao, 'reexecutar');
+  assert.equal(segundo.effort, p.carregado.manifesto.runtime.effort);
+  assert.deepEqual([segundo.escada?.degrau, segundo.escada?.tipo], [2, 'fallback-do-bloco']);
 });
 
 test('thread sem reprovacao pendente nao inventa retry', (t) => {
