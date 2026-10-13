@@ -16,6 +16,7 @@ import * as path from 'node:path';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
 import { Thread } from './types';
+import { ErroDoCatalogo } from './locale';
 
 /** Teto de comandos por claim num ciclo sem CHECK (degrau 2). */
 export const LIMITE_DE_COMANDOS_SEM_CHECK = 2;
@@ -50,13 +51,11 @@ export function comandoDoTesteFocado(teste: string): string {
  */
 export function validarProvaSemCheck(verificar: readonly string[], comandoDeTesteDoManifesto?: string): void {
   if (verificar.length > LIMITE_DE_COMANDOS_SEM_CHECK) {
-    throw new Error(`claims.custo: ciclo sem CHECK aceita ate ${LIMITE_DE_COMANDOS_SEM_CHECK} comandos por claim ` +
-      `(recebidos ${verificar.length}); use o teste focado ou declare a ausencia com ork claims ausente`);
+    throw new ErroDoCatalogo((m) => m.claims.custoDeComandos(LIMITE_DE_COMANDOS_SEM_CHECK, verificar.length));
   }
   const suite = comandoDeTesteDoManifesto?.trim();
   if (suite && verificar.some((c) => c.includes(suite))) {
-    throw new Error(`claims.custo: ciclo sem CHECK nao roda a suite inteira ("${suite}"); ` +
-      'use o teste focado do arquivo que mudou');
+    throw new ErroDoCatalogo((m) => m.claims.custoDaSuite(suite));
   }
 }
 
@@ -70,8 +69,8 @@ export interface AusenciaDeProva {
 export function registrarProvaAusente(raiz: string, threadId: string, ausencia: AusenciaDeProva): void {
   lerThread(raiz, threadId); // a thread tem de existir
   const motivo = ausencia.motivo.trim();
-  if (!motivo) throw new Error('prova.ausente: o motivo e obrigatorio (uma linha)');
-  if (ausencia.paths.length === 0) throw new Error('prova.ausente: informe os caminhos que ficaram sem prova');
+  if (!motivo) throw new ErroDoCatalogo((m) => m.claims.ausenteSemMotivo);
+  if (ausencia.paths.length === 0) throw new ErroDoCatalogo((m) => m.claims.ausenteSemCaminhos);
   registrar(dirThread(raiz, threadId), threadId, TIPOS_DE_EVENTO.provaAusente, {
     paths: ausencia.paths,
     motivo,

@@ -18,14 +18,15 @@ import { exigirManifesto } from '../src/manifest';
 import { registrarProjeto } from '../src/projeto-alvo';
 import { listarReservas, pegarItem } from '../src/roadmap-reservas';
 import { exec } from '../src/util';
-import { commitar, dirTemporario, projetoTemporario } from './apoio';
+import { commitar, dirTemporario, envPtBr, projetoTemporario } from './apoio';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 const NADA_LIDO = /nada foi lido/;
 const NENHUM = /Nenhum item do roadmap reservado/;
 
 function ork(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}) {
-  const r = spawnSync(process.execPath, [ORK, ...args], { cwd, encoding: 'utf8', timeout: 60_000, env: { ...process.env, ...env } });
+  // RM-061 (F3b): `roadmap reservas` segue o locale; o teste le o texto em pt-BR.
+  const r = spawnSync(process.execPath, [ORK, ...args], { cwd, encoding: 'utf8', timeout: 60_000, env: envPtBr({ ...process.env, ...env }) });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 

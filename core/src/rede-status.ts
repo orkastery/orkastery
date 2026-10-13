@@ -15,7 +15,7 @@ import * as path from 'node:path';
 import { buscarBranch, git, pontaLocal, remotoRedigido, remotoValido } from './branch-de-estado';
 import { BRANCH_DA_FABRICA, lerFabrica } from './fabrica-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
-import { msg } from './locale';
+import { ErroDoCatalogo, Mensagens, montadorDe, msg, remontar, textoDoCatalogo } from './locale';
 import { carregarManifesto } from './manifest';
 import { nomeDaMaquina } from './maquina';
 import { arquivoDoRetrato, BRANCH_DA_REDE, cachePronto, CasaDaRede, dirDoCache, ForjaNoRetrato, HostNoRetrato, idNoArquivo, lerMarcaDaRede, nomeSeguro,
@@ -90,6 +90,19 @@ export interface OpcoesDaLeitura {
 }
 
 const mensagem = (e: unknown) => (e as Error).message.replace(/^[a-z.-]+: /, '');
+/**
+ * RM-061 (F3b, G4): o detalhe da lacuna vai ao `--json` em pt-BR e nasce pelo catalogo; o erro de dentro (do catalogo
+ * ou nao) e remontado com ela.
+ */
+const lacunaDoCatalogo = (montar: (m: Mensagens['network']) => string): string => textoDoCatalogo((m) => montar(m.network));
+/**
+ * RM-061 (F3b, GO-FIX 1 do CHECK): o montador do texto de um erro, sem o codigo do comeco. O erro do catalogo guarda o
+ * proprio montador (o texto dele nao fica no registro); o resto sai como veio, ou pelo montador do texto embutido.
+ */
+function montadorDoErro(e: unknown): (m: Mensagens) => string {
+  if (e instanceof ErroDoCatalogo) return (m) => e.montar(m).replace(/^[a-z.-]+: /, '');
+  return montadorDe(mensagem(e));
+}
 
 /** Sem rede, a casa vem da adesao gravada ou da ultima publicacao desta maquina. */
 function casaSemRede(): StatusDaRede['casa'] {
@@ -126,7 +139,7 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   let semHttps = false;
   if (o.semRemoto) {
     casa = casaSemRede();
-    if (!casa) lacunas.push({ tipo: 'rede.sem-leitura', detalhe: 'sem rede e sem casa conhecida nesta maquina: rode sem --sem-remoto' });
+    if (!casa) lacunas.push({ tipo: 'rede.sem-leitura', detalhe: lacunaDoCatalogo((m) => m.semRedeSemCasa) });
   } else {
     const r = resolverCasa({ amb: o.amb });
     casa = r.casa;
@@ -136,18 +149,21 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
         const repo = r.forja.repositorio(r.casa.dono, r.casa.repositorio);
         if (!repo.existe) {
           ler = false;
-          lacunas.push({ tipo: 'rede.sem-repositorio', detalhe: `${refDaCasa(r.casa)} ainda nao existe: nenhuma maquina rodou ork network entrar` });
+          const ref = refDaCasa(r.casa);
+          lacunas.push({ tipo: 'rede.sem-repositorio', detalhe: lacunaDoCatalogo((m) => m.casaNaoExiste(ref)) });
         } else {
-          if (repo.privado !== true) lacunas.push({ tipo: 'rede.repositorio-publico', detalhe: `${refDaCasa(r.casa)} nao e privado: nenhuma maquina publica nele` });
+          const ref = refDaCasa(r.casa);
+          if (repo.privado !== true) lacunas.push({ tipo: 'rede.repositorio-publico', detalhe: lacunaDoCatalogo((m) => m.casaPublica(ref)) });
           if (repo.url && urlDaCasaAceita(repo.url)) prepararCache(r.casa, repo.url, r.forja.helperDeCredencial(), eu);
           else if (repo.url) {
             // W10 da revisao 5: sem https nao ha leitura nova; o cache fica com a URL antiga e so a copia local vale.
             semHttps = true;
-            lacunas.push({ tipo: 'rede.sem-leitura', detalhe: `${refDaCasa(r.casa)}: a forja devolveu uma URL sem https; a rede so fala por https (vale a ultima copia local, quando ha)` });
+            lacunas.push({ tipo: 'rede.sem-leitura', detalhe: lacunaDoCatalogo((m) => m.casaSemHttps(ref)) });
           }
         }
       } catch (e) {
-        lacunas.push({ tipo: 'rede.sem-leitura', detalhe: `${refDaCasa(r.casa)}: ${mensagem(e)}` });
+        const ref = refDaCasa(r.casa), erro = montadorDoErro(e);
+        lacunas.push({ tipo: 'rede.sem-leitura', detalhe: textoDoCatalogo((m) => m.network.comErro(ref, erro(m))) });
       }
     }
   }
@@ -164,14 +180,19 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
         : buscarBranch(cache, 'origin', BRANCH_DA_REDE, 'rede', o.timeoutMs ?? 30000));
       fontes.push({ fonte: 'rede', ref: `${refDaCasa(casa)}#${BRANCH_DA_REDE}`, ponta, atualizado });
       if (!atualizado && !soLocal) {
-        lacunas.push({ tipo: 'rede.sem-leitura', detalhe: `${refDaCasa(casa)} sem leitura nova: ${ponta ? 'mostrando a ultima copia local' : 'nenhuma copia local'}` });
+        const ref = refDaCasa(casa);
+        lacunas.push({ tipo: 'rede.sem-leitura', detalhe: lacunaDoCatalogo((m) => m.semLeituraNova(ref, !!ponta)) });
       }
       const lidos = retratosDaPonta(cache, ponta);
       lida = { cache, ponta };
       retratos = lidos.retratos;
-      for (const inv of lidos.invalidos) lacunas.push({ tipo: 'retrato.invalido', detalhe: `${inv.arquivo}: ${inv.motivo}` });
+      for (const inv of lidos.invalidos) {
+        const motivo = montadorDe(inv.motivo);
+        lacunas.push({ tipo: 'retrato.invalido', detalhe: textoDoCatalogo((m) => m.network.retratoInvalido(inv.arquivo, motivo(m))) });
+      }
     } else if (!lacunas.some((l) => l.tipo === 'rede.sem-leitura')) {
-      lacunas.push({ tipo: 'rede.sem-leitura', detalhe: `${refDaCasa(casa)} nunca foi lida nesta maquina` });
+      const ref = refDaCasa(casa);
+      lacunas.push({ tipo: 'rede.sem-leitura', detalhe: lacunaDoCatalogo((m) => m.nuncaLida(ref)) });
     }
   }
   for (const r of retratos) membros.set(r.maquina, membroDoRetrato(r, agoraMs));
@@ -184,7 +205,7 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   const projetos = o.soRaiz === undefined ? conhecidos : conhecidos.filter((p) => raizDe(p.caminho) === raizDe(o.soRaiz!));
   for (const p of projetos) {
     if (!p.presente) {
-      lacunas.push({ tipo: 'projeto.sem-clone', projeto: p.nome, detalhe: `${p.nome}: ${p.caminho} nao tem mais o projeto nesta maquina` });
+      lacunas.push({ tipo: 'projeto.sem-clone', projeto: p.nome, detalhe: lacunaDoCatalogo((m) => m.semClone(p.nome, p.caminho)) });
       continue;
     }
     let remoto = 'origin';
@@ -193,11 +214,11 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
     // e o valor recusado sai redigido, sem a credencial de uma URL, no texto e no JSON.
     if (!remotoValido(remoto)) {
       lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome,
-        detalhe: `${p.nome}: fabrica.remoto ${remotoRedigido(remoto)} nao e nome de remoto do git; nada foi lido pelo git` });
+        detalhe: lacunaDoCatalogo((m) => m.remotoInvalido(p.nome, remotoRedigido(remoto))) });
       continue;
     }
     if (!comGitIsolado(() => git(p.caminho, ['remote', 'get-url', '--', remoto]).ok)) {
-      lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: `${p.nome}: sem o remoto ${remoto}, nao ha fabrica compartilhada para ler` });
+      lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: lacunaDoCatalogo((m) => m.semRemoto(p.nome, remoto)) });
       continue;
     }
     try {
@@ -208,7 +229,7 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
         undefined, { ssh: sshProprio ? 'herdado' : 'lote' });
       fontes.push({ fonte: 'fabrica-estado', projeto: p.nome, ref: BRANCH_DA_FABRICA, ponta: painel.ponta, atualizado: painel.atualizado });
       if (!painel.atualizado && !o.semRemoto) {
-        lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: `${p.nome}: ${BRANCH_DA_FABRICA} sem leitura nova; usei a ultima copia local` });
+        lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: lacunaDoCatalogo((m) => m.fabricaSemLeituraNova(p.nome, BRANCH_DA_FABRICA)) });
       }
       for (const bruto of painel.maquinas) {
         // U4 da revisao 3: a fabrica guarda o nome cru, a rede o saneado; casam pelo saneado.
@@ -229,7 +250,8 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
           projetos: [{ nome: m.projeto, remoto: null, caminho: null }], versaoOrk: m.versaoOrk ?? null });
       }
     } catch (e) {
-      lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: `${p.nome}: ${mensagem(e)}` });
+      const erro = montadorDoErro(e);
+      lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: textoDoCatalogo((m) => m.network.comErro(p.nome, erro(m))) });
     }
   }
 
@@ -244,16 +266,18 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   // e o `publicarRede` recusa com `rede.nome-em-uso`; o status diz o mesmo, em vez de chamar de "esta maquina".
   const nomeEmUso = !!idNaCasa && idNaCasa !== meuId;
   if (nomeEmUso) {
-    lacunas.push({ tipo: 'maquina.nome-em-uso', maquina: eu, detalhe: `o retrato "${eu}" na casa e de outra instalacao: esta maquina nao ` +
-      'publica ate trocar de nome (ork network entrar --maquina NOME) ou retomar este (ork network entrar --forcar)' });
+    lacunas.push({ tipo: 'maquina.nome-em-uso', maquina: eu, detalhe: lacunaDoCatalogo((m) => m.nomeEmUsoNaCasa(eu)) });
   }
 
   // 4. O frescor de cada maquina (D15).
   const lista = [...membros.values()].sort((a, b) => a.maquina.localeCompare(b.maquina));
   for (const m of lista) {
     // X5 da revisao 6: batida ilegivel (a fabrica legada aceita qualquer texto) nao passa por fresca.
-    if (!Number.isFinite(m.idadeMs)) lacunas.push({ tipo: 'maquina.sem-batida', maquina: m.maquina, detalhe: `${m.maquina}: batida ilegivel` });
-    else if (m.idadeMs > SEM_BATIDA_MS) lacunas.push({ tipo: 'maquina.sem-batida', maquina: m.maquina, detalhe: `${m.maquina}: sem batida ha ${duracao(m.idadeMs)}` });
+    if (!Number.isFinite(m.idadeMs)) lacunas.push({ tipo: 'maquina.sem-batida', maquina: m.maquina, detalhe: lacunaDoCatalogo((t) => t.batidaIlegivel(m.maquina)) });
+    else if (m.idadeMs > SEM_BATIDA_MS) {
+      const idadeMs = m.idadeMs;
+      lacunas.push({ tipo: 'maquina.sem-batida', maquina: m.maquina, detalhe: lacunaDoCatalogo((t) => t.semBatidaHa(m.maquina, duracao(idadeMs))) });
+    }
   }
   return {
     contrato: CONTRATO_DO_STATUS, consultadoEm, casa: casa ? { ...casa } : null,
@@ -277,48 +301,44 @@ export function textoDaRede(status: StatusDaRede): string {
   // escrevem. Cada VALOR vai numa linha so e sem nada que o terminal execute ou que ninguem ve, antes de
   // entrar no texto: um `\n` num valor nao abre uma linha que parece do `ork`.
   // X5 da revisao 6: um mapa que so troca texto (a ida e volta em JSON trocava `NaN` por `null`).
+  // RM-061 (F3b): a moldura pelo catalogo; o detalhe da lacuna (pt-BR no --json) e remontado e limpo do mesmo jeito.
   const s = valoresEmUmaLinha(status);
+  const t = msg().network;
   const linhas: string[] = [];
   const rede = s.fontes.find((f) => f.fonte === 'rede');
-  const estadoDaCasa = rede ? (rede.atualizado ? 'lida agora' : 'última cópia local') : 'não lida';
-  linhas.push(s.casa
-    ? `Orkastery Network de ${s.casa.dono} · ${s.casa.forja}: ${refDaCasa(s.casa)} · ${estadoDaCasa}`
-    : 'Orkastery Network · sem casa: nenhuma forja com login nesta máquina');
+  const estadoDaCasa = rede ? (rede.atualizado ? t.casaLidaAgora : t.casaUltimaCopia) : t.casaNaoLida;
+  linhas.push(s.casa ? t.cabecalhoComCasa(s.casa.dono, s.casa.forja, refDaCasa(s.casa), estadoDaCasa) : t.semCasa);
   const consultado = [
-    ...(rede ? [`repositório da rede (${rede.ponta ? rede.ponta.slice(0, 7) : 'vazio'})`] : []),
-    ...s.fontes.filter((f) => f.fonte === 'fabrica-estado')
-      .map((f) => `fábrica de ${f.projeto} (${f.ref}, ${f.atualizado ? 'lida agora' : 'última cópia'})`),
+    ...(rede ? [t.repositorioDaRede(rede.ponta ? rede.ponta.slice(0, 7) : null)] : []),
+    ...s.fontes.filter((f) => f.fonte === 'fabrica-estado').map((f) => t.fabricaDe(String(f.projeto), f.ref, f.atualizado)),
   ];
-  linhas.push(`Consultado: ${consultado.length ? consultado.join('; ') : 'nada (veja as lacunas)'}.`);
-  linhas.push(`Não consultado: ${s.naoConsultado.join(', ')}. O roadmap de um projeto sai do ork roadmap status nele.`);
+  linhas.push(t.consultado(consultado.length ? consultado.join('; ') : null));
+  linhas.push(t.naoConsultado(s.naoConsultado.map(t.itemNaoConsultado).join(', ')));
   linhas.push('');
-  if (s.membros.length === 0) linhas.push('Nenhuma máquina lida. Isso não quer dizer que não há máquinas: veja as lacunas.');
+  if (s.membros.length === 0) linhas.push(t.nenhumaMaquina);
   for (const m of s.membros) {
     const esta = m.maquina !== s.estaMaquina.maquina ? ''
-      : m.origem === 'rede' && s.estaMaquina.nomeEmUso ? ' (outra instalação com o nome desta máquina)' : ' (esta máquina)';
-    const origem = m.origem === 'rede' ? `rede${m.adesao === 'fabrica' ? ', adesão herdada da fábrica' : ''}`
-      : `vista só na fábrica de ${m.projetos.map((p) => p.nome).join(', ')}; sem retrato na rede`;
-    linhas.push(`${m.maquina}${esta} · ${origem} · batida ${formatarDataHora(m.publicadoEm)} (há ${duracao(m.idadeMs)})`);
-    const ficha = [m.hostname ? `hostname ${m.hostname}` : null, m.versaoOrk ? `ork ${m.versaoOrk}` : null,
-      ...m.forjas.map((f) => `${f.forja}: ${f.usuario ?? 'sem login'}`), m.pessoa ? `pessoa ${m.pessoa}` : null].filter(Boolean);
+      : m.origem === 'rede' && s.estaMaquina.nomeEmUso ? t.outraInstalacao : t.estaMaquina;
+    const origem = m.origem === 'rede' ? t.origemRede(m.adesao === 'fabrica') : t.origemFabrica(m.projetos.map((p) => p.nome).join(', '));
+    linhas.push(t.membro(m.maquina, esta, origem, formatarDataHora(m.publicadoEm), duracao(m.idadeMs)));
+    const ficha = [m.hostname ? t.fichaHostname(m.hostname) : null, m.versaoOrk ? t.fichaOrk(m.versaoOrk) : null,
+      ...m.forjas.map((f) => t.fichaForja(f.forja, f.usuario ?? null)), m.pessoa ? t.fichaPessoa(m.pessoa) : null].filter(Boolean);
     if (ficha.length) linhas.push(`  ${ficha.join(' · ')}`);
-    if (m.runtimes.length) linhas.push(`  runtimes: ${m.runtimes.map((r) => `${r.runtime} ${r.versao ?? '?'}`).join(', ')}`);
+    if (m.runtimes.length) linhas.push(t.runtimes(m.runtimes.map((r) => `${r.runtime} ${r.versao ?? '?'}`).join(', ')));
     if (m.hosts.length) {
-      linhas.push(`  hosts: ${m.hosts.map((h) => `${h.host} ${h.versao ?? '?'}${h.adaptador ? ` (adaptador ${h.adaptador})` : ''}`).join(', ')}`);
+      linhas.push(t.hosts(m.hosts.map((h) => `${h.host} ${h.versao ?? '?'}${h.adaptador ? t.hostAdaptador(h.adaptador) : ''}`).join(', ')));
     }
     if (m.projetos.length) {
-      linhas.push(`  projetos: ${m.projetos.map((p) => `${p.nome}${p.remoto ? ` (${p.remoto})` : ''}${p.caminho ? ` em ${p.caminho}` : ''}`).join('; ')}`);
+      linhas.push(t.projetos(m.projetos.map((p) => `${p.nome}${p.remoto ? ` (${p.remoto})` : ''}${p.caminho ? t.projetoEm(p.caminho) : ''}`).join('; ')));
     }
   }
   linhas.push('');
   const aqui = s.estaMaquina;
-  linhas.push(aqui.membro
-    ? `Esta máquina (${aqui.maquina}) é membro${aqui.adesao === 'fabrica' ? ', herdado da fábrica' : ''}${aqui.publicada ? '.' : '; o retrato dela ainda não está na casa.'}`
-    : `Esta máquina (${aqui.maquina}) não está na rede: ork network entrar.`);
-  if (s.lacunas.length === 0) linhas.push('Lacunas: nenhuma.');
+  linhas.push(aqui.membro ? t.estaEMembro(aqui.maquina, aqui.adesao === 'fabrica', aqui.publicada) : t.foraDaRedeLinha(aqui.maquina));
+  if (s.lacunas.length === 0) linhas.push(t.semLacunas);
   else {
-    linhas.push(`Lacunas (${s.lacunas.length}), o que faltou ler:`);
-    for (const l of s.lacunas) linhas.push(`  • ${l.tipo}: ${l.detalhe}`);
+    linhas.push(t.lacunas(s.lacunas.length));
+    s.lacunas.forEach((l, i) => linhas.push(t.lacuna(l.tipo, valoresEmUmaLinha(remontar(status.lacunas[i].detalhe)))));
   }
   linhas.push(legendaDoFuso());
   return linhas.join('\n');

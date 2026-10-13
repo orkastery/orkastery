@@ -16,6 +16,7 @@ import { raizDoEstado } from './estado-thread';
 import { gravarArquivoPrivado, lerArquivoPrivado, raizRealDoEstado, revogarArquivoPrivado } from './postura-local';
 import { Manifesto } from './types';
 import { agora } from './util';
+import { ErroDoCatalogo, Mensagens, msg } from './locale';
 
 export const CONTRATO_WORKTREE_LOCAL = 'ork.worktree-local/v1';
 export const ARQUIVO_WORKTREE_LOCAL = 'worktree-local.json';
@@ -79,22 +80,24 @@ export const COMANDO_CONFIRMAR_WORKTREE = 'ork setup worktree confirmar';
  * a máquina confirmou exatamente essa pasta; senão o erro tipado com o comando que confirma.
  */
 export function recusaDePastaDasWorktrees(raiz: string, manifesto: Pick<Manifesto, 'worktree'>): string | null {
+  const montar = montadorDaRecusa(raiz, manifesto);
+  return montar ? montar(msg('pt-BR')) : null;
+}
+
+/** RM-061 (F3b): a recusa pelo catalogo, com o que ela cita lido antes; `null` quando a pasta vale. */
+function montadorDaRecusa(raiz: string, manifesto: Pick<Manifesto, 'worktree'>): ((m: Mensagens) => string) | null {
   const { dir, dentro } = pastaDasWorktreesPedida(raiz, manifesto);
   if (dentro) return null;
   const { local, motivo } = lerWorktreeLocal(raiz);
   if (local && local.dir === dir) return null;
-  const porque = local ? `a máquina confirmou ${local.dir}` : motivo ?? 'sem confirmação local';
-  return `worktree.dir-fora-da-raiz: o orkastery.yaml pede worktree.dir: ${JSON.stringify(manifesto.worktree.dir).slice(0, 200)}, ` +
-    `que leva a ${dir}, fora da raiz do projeto (pelo caminho real), e esta máquina não confirmou essa pasta (${porque}). ` +
-    'Nenhuma worktree foi criada. O manifesto vem com o repositório; quem decide criar checkout fora da raiz é a ' +
-    `máquina. Para aceitar nesta máquina: ${COMANDO_CONFIRMAR_WORKTREE} (ou volte worktree.dir para dentro do projeto, ` +
-    'como .claude/worktrees).';
+  const pedido = JSON.stringify(manifesto.worktree.dir).slice(0, 200);
+  return (m) => m.worktree.dirForaDaRaiz(pedido, dir, local ? local.dir : null, motivo, COMANDO_CONFIRMAR_WORKTREE);
 }
 
-/** Lança a recusa, quando houver. */
+/** Lança a recusa, quando houver, pelo catalogo: o CLI a remonta no locale do comando. */
 export function exigirPastaDasWorktrees(raiz: string, manifesto: Pick<Manifesto, 'worktree'>): void {
-  const recusa = recusaDePastaDasWorktrees(raiz, manifesto);
-  if (recusa) throw new Error(recusa);
+  const montar = montadorDaRecusa(raiz, manifesto);
+  if (montar) throw new ErroDoCatalogo(montar);
 }
 
 /**

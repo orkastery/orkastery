@@ -93,9 +93,12 @@ test('catalogo: ork_network_roadmap no manifesto, em paridade com o entry, e as 
     assert.ok(manifesto.contracts.tools.includes('ork_network_roadmap'));
     assert.deepEqual(tools.map(t => t.name).sort(), [...manifesto.contracts.tools].sort());
     // RM-054 (fatia 2): com o perfil coding (padrao do OpenClaw), tool de plugin so chega ao modelo
-    // declarada no perfil; so as leituras da rede sao declaradas (o status entra na fatia 3), e as outras seguem sob o operador.
-    assert.deepEqual(manifesto.toolMetadata, { ork_network_roadmap: { profiles: ['coding', 'messaging'] },
-      ork_network_status: { profiles: ['coding', 'messaging'] } });
+    // declarada no perfil; so as leituras sao declaradas: as da rede (o status entra na fatia 3) nos perfis coding e
+    // messaging, e as do conhecimento (RM-026 K7, fatia 3, D18 revista) so no coding; as outras seguem sob o operador.
+    const leitura = { profiles: ['coding', 'messaging'] }, doCoding = { profiles: ['coding'] };
+    assert.deepEqual(manifesto.toolMetadata, { ork_network_roadmap: leitura, ork_network_status: leitura,
+      ork_conhecimento_listar: doCoding, ork_conhecimento_mostrar: doCoding, ork_conhecimento_colecoes: doCoding,
+      ork_conhecimento_verificar: doCoding });
     const pacote = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
     assert.match(pacote.description, new RegExp(`: ${tools.length} tools ork_\\*`), 'a contagem do pacote e a do entry');
     for (const t of tools.filter(x => x.name !== 'ork_network_roadmap' && x.name !== 'ork_network_status')) {

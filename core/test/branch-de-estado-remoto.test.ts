@@ -21,12 +21,13 @@ import { exigirManifesto } from '../src/manifest';
 import { remotoDoProjeto } from '../src/projeto-alvo';
 import { listarReservas, pegarItem } from '../src/roadmap-reservas';
 import { exec } from '../src/util';
-import { commitar, dirTemporario, projetoTemporario } from './apoio';
+import { commitar, dirTemporario, envPtBr, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 
 function ork(dir: string, args: string[], env: NodeJS.ProcessEnv = {}) {
-  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, ...env }, timeout: 60000 });
+  // RM-061 (F3b): `roadmap reservas` e companhia seguem o locale; o teste le a recusa em pt-BR.
+  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8', env: envPtBr({ ...process.env, ...env }), timeout: 60000 });
 }
 
 /** Projeto com remoto bare, um item no roadmap e uma pasta para a marca e para o usuario. */

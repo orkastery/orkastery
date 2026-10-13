@@ -10,6 +10,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { ErroDoCatalogo } from './locale';
 
 /** O que precisa existir para um diretorio ser a raiz do catalogo. */
 const MARCAS = ['skills', 'references', 'eval'];
@@ -42,9 +43,7 @@ export function raizDoCatalogo(inicial?: string): string | null {
 export function exigirCatalogo(inicial?: string): string {
   const raiz = raizDoCatalogo(inicial);
   if (!raiz) {
-    throw new Error(
-      'catalogo do Orkastery nao encontrado (esperado um diretorio com skills/, references/ e eval/)'
-    );
+    throw new ErroDoCatalogo((m) => m.adapter.catalogoNaoEncontrado);
   }
   return raiz;
 }

@@ -104,7 +104,7 @@ import { aprovarGateHumano } from './gates';
 import { abrirPedidoGate, contextoDoPedidoNativo, lerRespostaStdin, responderGate } from './hitl-gates';
 import { exportarHandoff, recall, textoDoHandoff } from './handoff';
 import {
-  HOSTS,
+  destinoPadraoDe,
   instalarAdaptador,
   ORDEM_DOS_HOSTS,
   parseHost,
@@ -142,7 +142,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, comLocale, ligarRemontagem, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
 import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
@@ -191,7 +191,7 @@ import { exigirModoVivo, extrairTagAposentadaDoPedido, extrairTagDoPedido, MODOS
 import { migrarModosAposentados, textoDaMigracaoModos } from './modos-migracao';
 import { editarBloco, lerSetup, resetarSetup, textoDaEntrevista, textoDoSetup, versionarSetup } from './setup';
 import {
-  adicionarPerfil, COLUNAS_DE_PERFIS, desativarPerfil, lerPerfis, lerPerfisComContas, linhasDePerfis, marcarFalhaDePerfil, perfilDeDespacho, PerfilDeDespacho,
+  adicionarPerfil, desativarPerfil, lerPerfis, lerPerfisComContas, linhasDePerfis, marcarFalhaDePerfil, perfilDeDespacho, PerfilDeDespacho,
   perfisComHorario, prepararDiretorioDoPerfil, reativarPerfil, registrarConferenciaInconclusiva, VARIAVEL_DO_PERFIL,
 } from './runtime-profiles';
 import { ambienteDoPerfil as ambienteDoPerfilClaude, conferirAuth as conferirAuthClaude } from './adapters/claude-bg';
@@ -360,11 +360,13 @@ function localeDaAjuda(projeto?: string): Locale {
 function comandoThread(args: Args): number {
   if (args.posicionais[1] === 'close' || args.posicionais[1] === 'entrega') {
     const raiz = exigirManifesto().raiz, id = args.posicionais[2];
-    if (!id) throw new Error('informe o id da thread');
+    if (!id) throw new ErroDoCatalogo((m) => m.thread.informeOId);
     const por = texto(args.opcoes.por) ?? '';
-    const r = args.posicionais[1] === 'close'
+    // RM-061 (F3b, D3): o fechamento e a entrega gravam (ledger, thread.json, a soltura do que a thread segurava) no
+    // escopo pt-BR; a recusa vem do catalogo e a entrada do CLI a remonta no locale do comando. O resultado e JSON.
+    const r = comLocale('pt-BR', () => args.posicionais[1] === 'close'
       ? fecharAdministrativamente(raiz, id, { motivo: texto(args.opcoes.motivo) ?? '', por, justificativa: texto(args.opcoes.justificativa) ?? '' })
-      : registrarArtefato(raiz, id, texto(args.opcoes.arquivo) ?? '', texto(args.opcoes.sha256) ?? '', por);
+      : registrarArtefato(raiz, id, texto(args.opcoes.arquivo) ?? '', texto(args.opcoes.sha256) ?? '', por));
     console.log(JSON.stringify(r, null, 2));
     return 0;
   }
@@ -709,14 +711,18 @@ function comandoAccounts(args: Args): number {
   avisarChavesDePerfis(carregado);
   const raiz = carregado.raiz;
   const sub = args.posicionais[1] ?? 'list';
-  const conferir = (p: PerfilDeDespacho) => p.runtime === 'claude-bg' ? conferirAuthClaude(p) : conferirAuthCodex(p);
+  // RM-061 (F3b, GO-FIX 1): a conferencia roda no escopo pt-BR (o detalhe vai ao store), e a impressao o traduz.
+  const conferir = (p: PerfilDeDespacho) => comLocale('pt-BR', () => p.runtime === 'claude-bg' ? conferirAuthClaude(p) : conferirAuthCodex(p));
+  const detalhe = (auth: { detalhe: string }) => ma.detalheDoLogin(remontar(auth.detalhe));
+  // RM-061 (F3b, D3): o texto pelo catalogo; o que se grava (store de perfis, registro de contas) roda no escopo pt-BR,
+  // e o id, o runtime, o diretorio, o motivo tipado e o detalhe que o CLI do runtime devolve saem como vieram.
+  const ma = msg().accounts;
   const imprimir = () => {
     const store = lerPerfis(raiz);
     if (args.opcoes.json === true) { console.log(JSON.stringify(store, null, 2)); return; }
     // I-49: a tabela mostra o que o despacho enxerga, com o que outra fabrica viu na mesma conta.
     const visto = lerPerfisComContas(raiz);
-    console.log(visto.perfis.length === 0 ? 'Nenhum perfil configurado: cada runtime despacha pelo ambiente do processo.'
-      : tabela(COLUNAS_DE_PERFIS, linhasDePerfis(visto)));
+    console.log(visto.perfis.length === 0 ? ma.semPerfis : tabela([...ma.colunas], linhasDePerfis(visto)));
     // I-35: a tabela mostra horario do dono; o fuso sai uma vez, no fim da mensagem.
     if (perfisComHorario(store)) console.log(legendaDoFuso());
   };
@@ -724,7 +730,7 @@ function comandoAccounts(args: Args): number {
   if (sub === 'add') {
     const id = args.posicionais[2], runtime = texto(args.opcoes.runtime), dirBruto = texto(args.opcoes.dir);
     if (!id || !runtime || !dirBruto) {
-      console.error('uso: ork accounts add <id> --runtime claude-bg|codex --dir <diretorio> [--sem-login]');
+      console.error(ma.usoAdd);
       return 2;
     }
     const dir = path.resolve(dirBruto);
@@ -733,9 +739,9 @@ function comandoAccounts(args: Args): number {
       // A7: diretorio inacessivel ou de outro usuario e recusado antes de qualquer gravacao no store.
       prepararDiretorioDoPerfil(dir);
       const desativado = lerPerfis(raiz).perfis.some(p => p.id === id && p.estado === 'desativado');
-      perfil = adicionarPerfil(raiz, { id, runtime, dir });
-      if (desativado) console.log(`Perfil ${id} reativado: mesmo id, runtime e diretorio do perfil desativado.`);
-    } catch (e) { console.error(`perfil recusado: ${(e as Error).message}`); return 1; }
+      perfil = comLocale('pt-BR', () => adicionarPerfil(raiz, { id, runtime, dir }));
+      if (desativado) console.log(ma.reativado(id));
+    } catch (e) { console.error(ma.recusado(mensagemDoErro(e))); return 1; }
     const despacho = perfilDeDespacho(perfil);
     const variavel = VARIAVEL_DO_PERFIL[perfil.runtime];
     // D13: o login do claude e fixado na assinatura (`--claudeai`), nunca no Console de API.
@@ -745,43 +751,45 @@ function comandoAccounts(args: Args): number {
       const env = perfil.runtime === 'claude-bg' ? ambienteDoPerfilClaude(despacho) : ambienteDoDespachoCodex(process.env, despacho);
       spawnSync(comando[0], comando.slice(1), { stdio: 'inherit', env });
     } else {
-      console.log(`Login pendente: rode ${variavel}=${aspasDeShell(dir)} ${comando.join(' ')} e depois ork accounts check ${id}`);
+      console.log(ma.loginPendente(variavel, aspasDeShell(dir), comando.join(' '), id));
     }
     const auth = conferir(despacho);
     // A14: conferencia inconclusiva nao marca sem-auth; o preflight do proximo despacho confere de novo.
-    if (!auth.ok && !auth.transitorio) marcarFalhaDePerfil(raiz, id, auth.pago
+    if (!auth.ok && !auth.transitorio) comLocale('pt-BR', () => marcarFalhaDePerfil(raiz, id, auth.pago
       ? { estado: 'provider-pago', esgotadoAte: null, motivo: 'cost.violation', detalhe: auth.detalhe }
-      : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe });
-    console.log(`Perfil ${id} (${perfil.runtime}) em ${dir}: ${auth.ok ? 'login de assinatura conferido'
-      : auth.transitorio ? `conferencia de login inconclusiva (${auth.detalhe}); o proximo despacho confere de novo`
-      : auth.pago ? `provider pago (${auth.detalhe}); nunca recebe despacho` : `sem login (${auth.detalhe}); fora do rodizio`}`);
+      : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe }));
+    console.log(ma.resultadoAdd(id, perfil.runtime, dir, auth.ok ? ma.conferido
+      : auth.transitorio ? ma.inconclusivaAdd(detalhe(auth))
+      : auth.pago ? ma.pagoAdd(detalhe(auth)) : ma.semLoginAdd(detalhe(auth))));
     return 0;
   }
   if (sub === 'remove') {
     const id = args.posicionais[2];
-    if (!id) { console.error('uso: ork accounts remove <id>'); return 2; }
-    try { desativarPerfil(raiz, id); } catch (e) { console.error((e as Error).message); return 1; }
-    console.log(`Perfil ${id} desativado: o diretorio e o login do CLI ficam onde estao.`);
+    if (!id) { console.error(ma.usoRemove); return 2; }
+    try { comLocale('pt-BR', () => desativarPerfil(raiz, id)); } catch (e) { console.error(mensagemDoErro(e)); return 1; }
+    console.log(ma.desativado(id));
     return 0;
   }
   if (sub === 'check') {
     const alvo = args.posicionais[2];
     const perfis = lerPerfis(raiz).perfis.filter(p => p.estado !== 'desativado' && (alvo === undefined || p.id === alvo));
-    if (alvo !== undefined && perfis.length === 0) { console.error(`perfil ativo "${alvo}" nao existe (veja: ork accounts list)`); return 1; }
+    if (alvo !== undefined && perfis.length === 0) { console.error(ma.perfilAtivoNaoExiste(alvo)); return 1; }
     let falhas = 0;
     for (const p of perfis) {
       const auth = conferir(perfilDeDespacho(p));
-      if (auth.ok && (p.estado === 'sem-auth' || p.estado === 'provider-pago')) reativarPerfil(raiz, p.id);
+      comLocale('pt-BR', () => {
+        if (auth.ok && (p.estado === 'sem-auth' || p.estado === 'provider-pago')) reativarPerfil(raiz, p.id);
+        if (!auth.ok && auth.transitorio) registrarConferenciaInconclusiva(raiz, p.id, auth.detalhe);
+        else if (!auth.ok) {
+          marcarFalhaDePerfil(raiz, p.id, auth.pago
+            ? { estado: 'provider-pago', esgotadoAte: null, motivo: 'cost.violation', detalhe: auth.detalhe }
+            : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe });
+        }
+      });
       if (!auth.ok) falhas++;
-      if (!auth.ok && auth.transitorio) registrarConferenciaInconclusiva(raiz, p.id, auth.detalhe);
-      else if (!auth.ok) {
-        marcarFalhaDePerfil(raiz, p.id, auth.pago
-          ? { estado: 'provider-pago', esgotadoAte: null, motivo: 'cost.violation', detalhe: auth.detalhe }
-          : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe });
-      }
-      console.log(`${p.id} (${p.runtime}): ${auth.ok ? 'login de assinatura conferido'
-        : auth.transitorio ? `conferencia de login inconclusiva, estado mantido (${auth.detalhe})`
-        : auth.pago ? `provider pago, nunca despacha (${auth.detalhe})` : `sem login (${auth.detalhe})`}`);
+      console.log(ma.resultadoCheck(p.id, p.runtime, auth.ok ? ma.conferido
+        : auth.transitorio ? ma.inconclusivaCheck(detalhe(auth))
+        : auth.pago ? ma.pagoCheck(detalhe(auth)) : ma.semLoginCheck(detalhe(auth))));
     }
     console.log('');
     imprimir();
@@ -791,11 +799,11 @@ function comandoAccounts(args: Args): number {
     // RM-040 (B7): so leitura do registro de contas e dos ledgers dos projetos registrados.
     let relatorio;
     try { relatorio = relatorioDeEsgotamentos({ desde: texto(args.opcoes.desde) ?? '7d' }); }
-    catch (e) { console.error(`${(e as Error).message} (use --desde 7d, 24h, 30m ou uma data ISO)`); return 2; }
+    catch (e) { console.error(ma.periodoInvalido((e as Error).message)); return 2; }
     console.log(args.opcoes.json === true ? JSON.stringify(relatorio, null, 2) : textoDosEsgotamentos(relatorio));
     return 0;
   }
-  console.error(`subcomando desconhecido: accounts ${sub} (use list, add, remove, check ou esgotamentos)`);
+  console.error(ma.desconhecido(sub));
   return 2;
 }
 
@@ -1251,7 +1259,9 @@ function comandoDecisao(args: Args): number {
     return 0;
   }
   if (sub === 'placar') {
-    if (!id) throw new Error('uso: ork decisao placar <thread-id> [--json]');
+    // RM-061 (F3b): o placar pelo catalogo; o `--json` e a fase de cada linha sao dado e nao mudam.
+    const md = msg().decisao;
+    if (!id) throw new ErroDoCatalogo((m) => m.decisao.usoPlacar);
     lerThread(carregado.raiz, id);
     const placar = placarDaThread(lerLedger(dirThread(carregado.raiz, id)));
     const taxa = taxaDeReversao(placar);
@@ -1259,13 +1269,13 @@ function comandoDecisao(args: Args): number {
       console.log(JSON.stringify({ thread: id, limiar: LIMIAR_DE_DECISOES_POR_FASE, taxaDeReversao: taxa, fases: placar }, null, 2));
       return 0;
     }
-    console.log(tabela(['FASE', 'DECIDIDAS', 'INFORMADAS', 'PERGUNTAS', 'REVERTIDAS', 'SEM RASTRO', 'LIMIAR'],
+    console.log(tabela([...md.colunasDoPlacar],
       placar.map(f => [f.fase, String(f.decididas), String(f.informadas), String(f.perguntas), String(f.revertidas),
-        String(f.semRastro), f.acimaDoLimiar ? `acima de ${LIMIAR_DE_DECISOES_POR_FASE}: revisar` : 'ok'])));
-    console.log(`\ntaxa de reversão das decisões informadas: ${taxa === null ? 'sem decisão informada ainda' : `${Math.round(taxa * 100)}%`}`);
+        String(f.semRastro), f.acimaDoLimiar ? md.acimaDoLimiar(LIMIAR_DE_DECISOES_POR_FASE) : md.dentroDoLimiar])));
+    console.log(md.taxaDeReversao(taxa));
     return 0;
   }
-  throw new Error('uso: ork decisao registrar|placar <thread-id>');
+  throw new ErroDoCatalogo((m) => m.decisao.uso);
 }
 
 /**
@@ -1301,32 +1311,35 @@ function comandoCadenciaDoPulse(args: Args): number {
 function comandoClaims(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  // RM-061 (F3b, D3): o texto pelo catalogo; o que se grava (claims.jsonl, ledger) roda no escopo pt-BR, e a alegacao,
+  // o arquivo, o comando e o motivo digitado saem como vieram. O estado da claim so se traduz na impressao.
+  const mc = msg().claims;
   if (sub === 'add') {
     const id = args.posicionais[2];
     const arquivo = args.posicionais[3];
     const alegacao = texto(args.opcoes.claim) ?? texto(args.opcoes.alegacao);
     if (!id || !arquivo || !alegacao) {
-      console.error('uso: ork claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"]');
+      console.error(mc.usoAdd);
       return 2;
     }
     const comando = texto(args.opcoes.verificar) ?? texto(args.opcoes.verify);
     const faseBruta = texto(args.opcoes.fase);
     const thread = lerThread(carregado.raiz, id);
-    const claim = adicionarClaim(carregado.raiz, id, {
+    const claim = comLocale('pt-BR', () => adicionarClaim(carregado.raiz, id, {
       arquivo,
       alegacao,
       verificar: comando ? [comando] : [],
       fase: faseBruta ? exigirFase(thread, faseBruta) : undefined,
-    });
-    console.log(`Claim ${claim.id} registrada na thread ${id}.`);
-    console.log(`  arquivo    ${claim.arquivo}`);
-    console.log(`  alegacao   ${claim.alegacao}`);
-    console.log(`  negativa   ${claim.negativa ? 'sim (exige comando de verificacao)' : 'nao'}`);
-    console.log(`  verificar  ${claim.verificar.join(' && ') || '(nenhum comando declarado)'}`);
-    console.log(`  estado     ${claim.estado}`);
+    }));
+    console.log(mc.registrada(claim.id, id));
+    console.log(mc.campoArquivo(claim.arquivo));
+    console.log(mc.campoAlegacao(claim.alegacao));
+    console.log(mc.campoNegativa(claim.negativa));
+    console.log(mc.campoVerificar(claim.verificar.join(' && ')));
+    console.log(mc.campoEstado(mc.estado(claim.estado)));
     if (claim.negativa && claim.verificar.length === 0) {
       console.log('');
-      console.log('AVISO: alegacao negativa sem comando de verificacao reprova em `ork verify`.');
+      console.log(mc.avisoNegativa);
     }
     // RM-008 (B8): a conferencia local da policy claim_sem_prova_local avisa e segue.
     const linhasDePolicy = linhasDeAviso(claim.avisosDePolicy ?? []);
@@ -1334,7 +1347,7 @@ function comandoClaims(args: Args): number {
     // I-53 (RM-037, P6): o lint avisa aqui; a suite inteira e recusada no `ci prepare`.
     for (const a of claim.lint ?? []) {
       console.log('');
-      console.log(`AVISO: ${linhaDoLintDeClaim(claim.id, a)}${a.regra === 'suite-inteira' ? '. O `ci prepare` recusa esta claim.' : ''}`);
+      console.log(mc.avisoDoLint(linhaDoLintDeClaim(claim.id, a), a.regra === 'suite-inteira'));
     }
     return 0;
   }
@@ -1347,24 +1360,25 @@ function comandoClaims(args: Args): number {
     const prazo = texto(args.opcoes.prazo);
     const semValor = ['claims', 'tarefa', 'prazo'].some((o) => args.opcoes[o] === true);
     if (!id || semValor || (claims === undefined) === (tarefa === undefined)) {
-      console.error('uso: ork claims conferir <thread-id> --claims C1,C2 | --tarefa T1 [--prazo S] [--json]');
+      console.error(mc.usoConferir);
       return 2;
     }
     const conducao = conducaoDoCli(args);
     try {
-      const r = conferirClaims(carregado, id, {
+      // O resultado e as recusas nascem em pt-BR, como o --json os leva; o texto os remonta no locale do comando.
+      const r = comLocale('pt-BR', () => conferirClaims(carregado, id, {
         claims: claims !== undefined ? idsDeClaims(claims) : undefined,
         tarefa,
         prazoMs: prazo !== undefined ? Number(prazo) * 1000 : undefined,
         canal: conducao.canal,
         correlacao: conducao.correlacao,
-      });
+      }));
       console.log(json ? JSON.stringify(r, null, 2) : textoDaConferencia(r));
       return r.ok ? 0 : 1;
     } catch (e) {
       if (!(e instanceof ErroDeConferencia)) throw e;
       if (json) console.log(JSON.stringify({ formato: FORMATO_DA_CONFERENCIA, thread: id, ok: false, erro: e.message }, null, 2));
-      else console.error(e.message);
+      else console.error(mensagemDoErro(e));
       return 2;
     }
   }
@@ -1373,15 +1387,15 @@ function comandoClaims(args: Args): number {
     const claimId = args.posicionais[3];
     const comando = texto(args.opcoes.comando) ?? texto(args.opcoes.verificar);
     if (!id || !claimId || !comando) {
-      console.error('uso: ork claims verificar <thread-id> <claim-id> --comando "<comando>"');
+      console.error(mc.usoVerificar);
       return 2;
     }
-    const claim = anexarComando(carregado.raiz, id, claimId, comando);
-    console.log(`Claim ${claim.id} agora tem comando de verificacao.`);
-    console.log(`  verificar  ${claim.verificar.join(' && ')}`);
-    console.log(`  estado     ${claim.estado}`);
+    const claim = comLocale('pt-BR', () => anexarComando(carregado.raiz, id, claimId, comando));
+    console.log(mc.comandoAnexado(claim.id));
+    console.log(mc.campoVerificar(claim.verificar.join(' && ')));
+    console.log(mc.campoEstado(mc.estado(claim.estado)));
     console.log('');
-    console.log(`Prove agora: ork verify ${id}`);
+    console.log(mc.proveAgora(id));
     return 0;
   }
   if (sub === 'retirar') {
@@ -1389,14 +1403,14 @@ function comandoClaims(args: Args): number {
     const claimId = args.posicionais[3];
     const motivo = texto(args.opcoes.motivo);
     if (!id || !claimId || !motivo) {
-      console.error('uso: ork claims retirar <thread-id> <claim-id> --motivo "<motivo>"');
+      console.error(mc.usoRetirar);
       return 2;
     }
-    const claim = retirarClaim(carregado.raiz, id, claimId, motivo);
-    console.log(`Claim ${claim.id} retirada da thread ${id}.`);
-    console.log(`  alegacao   ${claim.alegacao}`);
-    console.log(`  motivo     ${motivo}`);
-    console.log('  o historico da alegacao continua no claims.jsonl e no ledger.');
+    const claim = comLocale('pt-BR', () => retirarClaim(carregado.raiz, id, claimId, motivo));
+    console.log(mc.retirada(claim.id, id));
+    console.log(mc.campoAlegacao(claim.alegacao));
+    console.log(mc.campoMotivo(motivo));
+    console.log(mc.historicoContinua);
     return 0;
   }
   if (sub === 'ausente') {
@@ -1404,24 +1418,24 @@ function comandoClaims(args: Args): number {
     const paths = (texto(args.opcoes.paths) ?? '').split(',').map((p) => p.trim()).filter(Boolean);
     const motivo = texto(args.opcoes.motivo);
     if (!id || paths.length === 0 || !motivo) {
-      console.error('uso: ork claims ausente <thread-id> --paths A,B --motivo "<motivo>" [--commit SHA]');
+      console.error(mc.usoAusente);
       return 2;
     }
-    registrarProvaAusente(carregado.raiz, id, { paths, motivo, commit: texto(args.opcoes.commit) });
-    console.log(`Ausencia de prova registrada na thread ${id}: ${paths.join(', ')}.`);
-    console.log(`  motivo     ${motivo}`);
+    comLocale('pt-BR', () => registrarProvaAusente(carregado.raiz, id, { paths, motivo, commit: texto(args.opcoes.commit) }));
+    console.log(mc.ausenciaRegistrada(id, paths.join(', ')));
+    console.log(mc.campoMotivo(motivo));
     return 0;
   }
   if (sub === 'list' || sub === undefined) {
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork claims list <thread-id>');
+      console.error(mc.usoList);
       return 2;
     }
     console.log(tabelaDeClaims(carregado.raiz, id));
     return 0;
   }
-  console.error(`subcomando desconhecido: claims ${sub}`);
+  console.error(msg().cli.subcomandoDesconhecido('claims', sub));
   return 2;
 }
 
@@ -2480,73 +2494,64 @@ function comandoDaBatida(carregado: ManifestoCarregado, args: Args): number {
  */
 function comandoNetwork(args: Args): number {
   const sub = args.posicionais[1];
-  // RM-054: `network roadmap` tem o proprio --projeto e o proprio uso.
+  // RM-054: `network roadmap` tem o proprio --projeto e o proprio uso (e segue em pt-BR, G6 da RM-061 F3b).
   if (sub === 'roadmap') return comandoNetworkRoadmap(args);
   const diretorio = process.cwd();
-  const uso = 'uso: ork network [status] [--json] [--sem-remoto] | network entrar [--maquina NOME] [--forja github|gitlab] ' +
-    '[--repositorio [DONO/]NOME] [--forcar] | network publicar [--forcar] [--json] | network sair | ' +
-    'network roadmap [--projeto P] [--json] [--sem-remoto]';
+  // RM-061 (F3b, D3): o texto pelo catalogo; o que se grava (adesao, retrato, casa) roda no escopo pt-BR, e o nome da
+  // maquina, a casa, a forja e o commit saem como vieram.
+  const mn = msg().network;
   const forja = texto(args.opcoes.forja), repositorio = texto(args.opcoes.repositorio);
   if ((args.opcoes.forja !== undefined && !ehNomeDeForja(forja)) || args.opcoes.repositorio === true ||
       (repositorio !== undefined && !/^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/)?[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repositorio))) {
-    console.error(uso);
+    console.error(mn.uso);
     return 2;
   }
   if (sub === 'entrar') {
-    const r = entrarNaRede({ maquina: texto(args.opcoes.maquina), forja: ehNomeDeForja(forja) ? forja : undefined, repositorio, diretorio,
-      tomarNome: args.opcoes.forcar === true });
-    console.log(`Rede: ${r.publicacao.maquina} entrou na Orkastery Network de ${r.casa.dono} (${r.casa.forja}: ${refDaCasa(r.casa)}, ` +
-      `privado${r.criado ? ', criado agora' : ''}).`);
-    console.log(`  Primeiro retrato publicado (${r.publicacao.commit?.slice(0, 7)}). Depois, esta maquina publica sozinha na batida do pulse`);
-    if (r.publicacao.tomouNome) console.log(`  Tomou o nome "${r.publicacao.maquina}" de outra instalacao; o commit registra.`);
-    console.log('  e ao criar thread, despachar fase, entregar e fechar. De qualquer maquina desta pessoa: ork network status');
-    for (const d of r.publicacao.descartados) {
-      console.log(`  AVISO: um projeto ficou fora do retrato: padrao "${d.padrao}" em ${d.campo} (valor omitido de proposito).`);
-    }
+    const r = comLocale('pt-BR', () => entrarNaRede({ maquina: texto(args.opcoes.maquina), forja: ehNomeDeForja(forja) ? forja : undefined,
+      repositorio, diretorio, tomarNome: args.opcoes.forcar === true }));
+    console.log(mn.entrou(r.publicacao.maquina, r.casa.dono, r.casa.forja, refDaCasa(r.casa), r.criado));
+    console.log(mn.primeiroRetrato(String(r.publicacao.commit?.slice(0, 7))));
+    if (r.publicacao.tomouNome) console.log(mn.tomouNome(r.publicacao.maquina));
+    console.log(mn.eAoCriar);
+    for (const d of r.publicacao.descartados) console.log(mn.avisoDescartado(d.padrao, d.campo));
     if (process.env.ORK_MAQUINA && process.env.ORK_MAQUINA.trim() !== r.publicacao.maquina) {
-      console.log(`  AVISO: ORK_MAQUINA=${process.env.ORK_MAQUINA} neste shell vence o nome gravado; alinhe os dois.`);
+      console.log(mn.avisoOrkMaquina(process.env.ORK_MAQUINA));
     }
     return 0;
   }
   if (sub === 'sair') {
-    const r = sairDaRede({ forja: ehNomeDeForja(forja) ? forja : undefined, repositorio });
-    console.log(`Rede: ${r.maquina} saiu; nada mais e publicado daqui.` + (r.commit
-      ? ` Retrato removido de ${r.casa} (${r.commit.slice(0, 7)}).`
-      : r.alheio
-        ? ` O retrato "${r.maquina}" em ${r.casa} e de outra instalacao com o mesmo nome; nada foi removido.` +
-          (r.mesmoHostname ? ' Ele tem o hostname desta maquina: se ~/.orkastery foi apagada, retome o nome com ork network entrar --forcar.' : '')
-        : ` Nao havia retrato desta maquina${r.casa ? ` em ${r.casa}` : ' numa casa alcancavel'}.`));
-    if (lerConfigDaMaquina()?.fabricaCompartilhada) {
-      console.log('  A fabrica compartilhada dos projetos continua publicando daqui (ork/fabrica-estado); ork fabrica sair em cada um para parar.');
-    }
+    const r = comLocale('pt-BR', () => sairDaRede({ forja: ehNomeDeForja(forja) ? forja : undefined, repositorio }));
+    console.log(mn.saiu(r.maquina, r.commit ? mn.retratoRemovido(r.casa, r.commit.slice(0, 7))
+      : r.alheio ? mn.retratoDeOutraInstalacao(r.maquina, r.casa, r.mesmoHostname === true)
+        : mn.semRetrato(r.casa)));
+    if (lerConfigDaMaquina()?.fabricaCompartilhada) console.log(mn.fabricaContinua);
     return 0;
   }
   if (sub === 'publicar') {
     if (args.opcoes.silencioso === true) {
       // O filho do evento de thread: quem disparou ja tomou a vez (teto de 14 min) e nao espera.
-      try { registrarNaRede({ ...publicarRede({ diretorio }), origem: 'evento' }); return 0; }
-      catch (e) { registrarNaRede({ acao: 'falhou', origem: 'evento', erro: (e as Error).message }); return 1; }
+      // RM-061 (F3b): o rede.log guarda o que aconteceu em pt-BR, com qualquer lingua no ambiente.
+      try { comLocale('pt-BR', () => registrarNaRede({ ...publicarRede({ diretorio }), origem: 'evento' })); return 0; }
+      catch (e) { comLocale('pt-BR', () => registrarNaRede({ acao: 'falhou', origem: 'evento', erro: (e as Error).message })); return 1; }
     }
-    const r = publicarRede({ diretorio, forcar: args.opcoes.forcar === true, forja: ehNomeDeForja(forja) ? forja : undefined, repositorio });
+    const r = comLocale('pt-BR', () => publicarRede({ diretorio, forcar: args.opcoes.forcar === true,
+      forja: ehNomeDeForja(forja) ? forja : undefined, repositorio }));
     if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
-    else console.log(r.acao === 'publicou'
-      ? `Rede: ${r.maquina} publicou o retrato em ${r.casa} (${r.commit?.slice(0, 7)}, ${r.tentativas} tentativa(s)).`
-      : r.acao === 'ocupado'
-        ? 'Rede: outra publicacao desta maquina esta em andamento; tente de novo em instantes.'
-        : `Rede: retrato de ${r.maquina} igual ao ultimo publicado em ${r.casa}; nada a enviar (use --forcar para publicar mesmo assim).`);
+    else console.log(r.acao === 'publicou' ? mn.publicou(r.maquina, r.casa, r.commit?.slice(0, 7), r.tentativas)
+      : r.acao === 'ocupado' ? mn.ocupado : mn.igual(r.maquina, r.casa));
     if (args.opcoes.json !== true) {
-      for (const d of r.descartados) console.log(`  AVISO: um projeto ficou fora do retrato: padrao "${d.padrao}" em ${d.campo} (valor omitido de proposito).`);
+      for (const d of r.descartados) console.log(mn.avisoDescartado(d.padrao, d.campo));
     }
     return 0;
   }
   if (sub !== undefined && sub !== 'status') {
-    console.error(`subcomando desconhecido: network ${sub}`);
-    console.error(uso);
+    console.error(msg().cli.subcomandoDesconhecido('network', sub));
+    console.error(mn.uso);
     return 2;
   }
   // RM-054 (fatia 3): o host sem cwd de projeto (RM-052, D3) nao faz do diretorio do gateway um projeto lido.
   const doHost = (process.env[ENV_PROJETO_EXPLICITO] ?? '').trim() === '1';
-  const status = lerRede({ semRemoto: args.opcoes['sem-remoto'] === true, diretorio: doHost ? null : diretorio });
+  const status = comLocale('pt-BR', () => lerRede({ semRemoto: args.opcoes['sem-remoto'] === true, diretorio: doHost ? null : diretorio }));
   console.log(args.opcoes.json === true ? jsonDaRede(status) : textoDaRede(status));
   return 0;
 }
@@ -2642,69 +2647,69 @@ function comandoWorktree(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
   const id = args.posicionais[2];
+  // RM-061 (F3b, D3): a moldura pelo catalogo; o que os quatro subcomandos gravam (ledger, thread.json, a soltura dos
+  // leases) roda no escopo pt-BR, e o detalhe e a correcao do resultado sao remontados no locale do comando.
+  const m = msg().worktree;
   if (!sub || !id) {
-    console.error('uso: ork worktree <ensure|sync|audit|release> <thread-id>');
+    console.error(m.uso);
     return 2;
   }
+  const bloqueio = (titulo: string, r: { motivo: string | null; detalhe: string; correcao: string }) => {
+    console.error(titulo);
+    console.error(m.motivoTipado(r.motivo));
+    console.error(m.detalhe(remontar(r.detalhe)));
+    console.error(m.correcao(remontar(r.correcao)));
+  };
   if (sub === 'ensure') {
-    const r = garantirWorktree(carregado, id);
+    const r = comLocale('pt-BR', () => garantirWorktree(carregado, id));
     if (!r.ok) {
-      console.error(`Worktree da thread ${id} NAO garantida.`);
-      console.error(`  motivo tipado: ${r.motivo}`);
-      console.error(`  detalhe: ${r.detalhe}`);
-      console.error(`  correcao: ${r.correcao}`);
+      bloqueio(m.naoGarantida(id), r);
       return 1;
     }
-    console.log(r.criada ? `Worktree criada para a thread ${id}.` : `Worktree ja existia para a thread ${id}.`);
-    console.log(`  dir     ${r.dir}`);
-    console.log(`  branch  ${r.branch}`);
-    console.log(`  base    ${r.base} (resolvida pelo ork, nao pelo executor)`);
-    console.log(`  ${r.detalhe}`);
+    console.log(r.criada ? m.criada(id) : m.jaExistia(id));
+    console.log(m.linhaDir(r.dir));
+    console.log(m.linhaBranch(r.branch));
+    console.log(m.linhaBase(r.base));
+    console.log(`  ${remontar(r.detalhe)}`);
     return 0;
   }
   if (sub === 'sync') {
-    const r = sincronizarWorktree(carregado, id, { dryRun: args.opcoes['dry-run'] === true });
+    const r = comLocale('pt-BR', () => sincronizarWorktree(carregado, id, { dryRun: args.opcoes['dry-run'] === true }));
     if (!r.ok) {
-      console.error(`Sync da worktree da thread ${id} BLOQUEADO.`);
-      console.error(`  motivo tipado: ${r.motivo}`);
-      console.error(`  detalhe: ${r.detalhe}`);
-      console.error(`  correcao: ${r.correcao}`);
+      bloqueio(m.syncBloqueado(id), r);
       return 1;
     }
-    console.log(r.dryRun ? `Sync (--dry-run) da thread ${id}: nada foi executado.` : `Sync da thread ${id}.`);
-    console.log(`  base       ${r.base} @ ${r.shaBase.slice(0, 8)}`);
-    console.log(`  branch     ${r.branch} @ ${r.shaAntes.slice(0, 8)} -> ${r.shaDepois.slice(0, 8)}`);
-    console.log(`  rebase     ${r.rebaseFeito ? 'feito' : r.jaAtualizada ? 'desnecessario' : 'seria feito'}`);
-    console.log(`  ${r.detalhe}`);
+    console.log(r.dryRun ? m.syncEnsaio(id) : m.syncFeito(id));
+    console.log(m.syncBase(r.base, r.shaBase.slice(0, 8)));
+    console.log(m.syncBranch(r.branch, r.shaAntes.slice(0, 8), r.shaDepois.slice(0, 8)));
+    console.log(m.syncRebase(r.rebaseFeito ? 'feito' : r.jaAtualizada ? 'desnecessario' : 'seria feito'));
+    console.log(`  ${remontar(r.detalhe)}`);
     if (r.passos.length > 0) {
       console.log('');
-      console.log('  Comandos reais, na ordem:');
-      for (const passo of r.passos) console.log(`    ${passo}`);
+      console.log(m.comandosReais);
+      for (const passo of r.passos) console.log(`    ${remontar(passo)}`);
     }
     return 0;
   }
   if (sub === 'audit') {
-    const r = auditarWorktree(carregado, id);
+    const r = comLocale('pt-BR', () => auditarWorktree(carregado, id));
     console.log(textoDoAudit(id, r));
     return r.ok ? 0 : 1;
   }
   if (sub === 'release') {
-    const r = liberarWorktree(carregado, id, { forcar: args.opcoes.forcar === true });
+    const r = comLocale('pt-BR', () => liberarWorktree(carregado, id, { forcar: args.opcoes.forcar === true }));
     if (!r.ok) {
-      console.error(`Release da worktree da thread ${id} BLOQUEADO.`);
-      console.error(`  motivo tipado: ${r.motivo}`);
-      console.error(`  detalhe: ${r.detalhe}`);
-      console.error(`  correcao: ${r.correcao}`);
+      bloqueio(m.releaseBloqueado(id), r);
       return 1;
     }
-    console.log(`Worktree da thread ${id} liberada.`);
-    console.log(`  dir      ${r.dir}`);
-    console.log(`  removida ${r.removida ? 'sim' : 'nao (o diretorio ja nao existia)'}`);
-    console.log(`  leases   ${r.leasesLiberados.join(', ') || '(nenhum lease de escrita para soltar)'}`);
-    console.log(`  ${r.detalhe}`);
+    console.log(m.liberada(id));
+    console.log(m.releaseDir(r.dir));
+    console.log(m.releaseRemovida(r.removida));
+    console.log(m.releaseLeases(r.leasesLiberados.join(', ')));
+    console.log(`  ${remontar(r.detalhe)}`);
     return 0;
   }
-  console.error(`subcomando desconhecido: worktree ${sub}`);
+  console.error(msg().cli.subcomandoDesconhecido('worktree', sub));
   return 2;
 }
 
@@ -2948,10 +2953,12 @@ function comandoRoadmap(args: Args): number {
   if (sub === 'reservas') {
     // RM-037 (rm037noite, defeito 3): a reserva de thread ja fechada aparece como orfa e sai com registro.
     if (args.opcoes['soltar-orfas'] === true) {
-      const soltas = soltarReservasOrfas(carregado.raiz, { remoto });
+      // RM-061 (F3b, D3): a soltura grava no escopo pt-BR (ledger, branch de reservas); o detalhe e remontado no texto.
+      const soltas = comLocale('pt-BR', () => soltarReservasOrfas(carregado.raiz, { remoto }));
+      const mr = msg().reservas;
       if (args.opcoes.json === true) console.log(JSON.stringify(soltas, null, 2));
-      else console.log(soltas.length === 0 ? 'Nenhuma reserva órfã desta máquina.'
-        : soltas.map((s) => `${s.item}: ${s.detalhe} (thread fechada ${s.thread})`).join('\n'));
+      else console.log(soltas.length === 0 ? mr.nenhumaOrfa
+        : soltas.map((s) => mr.soltura(s.item, remontar(s.detalhe), s.thread)).join('\n'));
       return 0;
     }
     // RM-052 (fatia 2, D4): as reservas moram no remoto do projeto. Sem ele, nada e lido; com ele mudo e
@@ -2992,20 +2999,20 @@ function comandoRoadmap(args: Args): number {
   }
   // RM-037 (rm037noite, defeito 6): o numero da FEAT nova sai da mesma branch de reservas.
   if (sub === 'feat') {
-    const r = reservarFeat(carregado.raiz, { remoto, por: texto(args.opcoes.por), maquina: texto(args.opcoes.maquina),
-      thread: texto(args.opcoes.thread) ?? null, nota: texto(args.opcoes.nota) ?? null });
+    const r = comLocale('pt-BR', () => reservarFeat(carregado.raiz, { remoto, por: texto(args.opcoes.por), maquina: texto(args.opcoes.maquina),
+      thread: texto(args.opcoes.thread) ?? null, nota: texto(args.opcoes.nota) ?? null }));
+    const mr = msg().reservas;
     if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
     else {
-      console.log(`${r.feat}: reservado para esta maquina${r.reserva.thread ? `, thread ${r.reserva.thread}` : ''}.`);
-      console.log(`  crie docs/produto/${r.feat}-<assunto>.md; o numero nao volta, mesmo que a feature nao saia`);
-      console.log(`  branch ork/roadmap-reservas em ${r.commit.slice(0, 7)}`);
+      console.log(mr.feat(r.feat, r.reserva.thread ?? null));
+      console.log(mr.crieAPagina(r.feat));
+      console.log(mr.branch(r.commit.slice(0, 7)));
     }
     return 0;
   }
   const item = args.posicionais[2];
   if ((sub !== 'pegar' && sub !== 'soltar') || !item) {
-    console.error('uso: ork roadmap status [--json] | reservas [--soltar-orfas] | pegar <RM-NNN> [--thread T] [--nota N] | ' +
-      'soltar <RM-NNN> [--forcar --motivo M] | feat [--thread T] [--nota N]');
+    console.error(msg().reservas.uso);
     return 2;
   }
   const opcoes = {
@@ -3017,16 +3024,15 @@ function comandoRoadmap(args: Args): number {
     forcar: args.opcoes.forcar === true,
     motivo: texto(args.opcoes.motivo),
   };
-  const r = sub === 'pegar' ? pegarItem(carregado.raiz, item, opcoes) : soltarItem(carregado.raiz, item, opcoes);
+  const r = comLocale('pt-BR', () => sub === 'pegar' ? pegarItem(carregado.raiz, item, opcoes) : soltarItem(carregado.raiz, item, opcoes));
   if (args.opcoes.json === true) {
     console.log(JSON.stringify(r, null, 2));
     return 0;
   }
-  const verbo = { pegou: 'reservado para esta maquina', renovou: 'reserva renovada', tomou: 'reserva TOMADA de outra maquina',
-    soltou: 'devolvido', nada: 'ja estava livre' }[r.acao];
-  console.log(`${r.item}: ${verbo}.`);
-  if (r.reserva && r.acao !== 'soltou') console.log(`  com ${r.reserva.por} em ${r.reserva.maquina}${r.reserva.thread ? `, thread ${r.reserva.thread}` : ''}`);
-  if (r.commit) console.log(`  branch ork/roadmap-reservas em ${r.commit.slice(0, 7)}`);
+  const mr = msg().reservas;
+  console.log(mr.itemAcao(r.item, mr.acao(r.acao)));
+  if (r.reserva && r.acao !== 'soltou') console.log(mr.com(r.reserva.por, r.reserva.maquina, r.reserva.thread ?? null));
+  if (r.commit) console.log(mr.branch(r.commit.slice(0, 7)));
   return 0;
 }
 
@@ -3086,9 +3092,11 @@ function comandoDocs(args: Args): number {
   const raiz = carregado?.raiz ?? diretorioDoProjeto();
   const baseBranch = carregado?.manifesto.worktree?.base_branch ?? 'main';
 
+  const md = msg().docs;
   if (sub === 'verificar') {
     // RM-037 (fatia 3, GO-FIX 2): o CI passa --pr no pull_request; no push da main as duas regras novas reprovam.
-    const { docs, achados } = verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA, pr: args.opcoes.pr === true });
+    // RM-061 (F3b, G4): verifica no escopo pt-BR, como o `--json` leva os achados; o texto os remonta no locale do comando.
+    const { docs, achados } = comLocale('pt-BR', () => verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA, pr: args.opcoes.pr === true }));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ paginas: docs.length, erros: achados.filter((a) => a.gravidade === 'erro').length,
         achados }, null, 2));
@@ -3104,30 +3112,30 @@ function comandoDocs(args: Args): number {
     // Sugestao 4 do CHECK 1 (e 8 do CHECK 2, `--so=`): `--so` sem item e erro de uso, nunca o escopo
     // padrao em silencio.
     if (args.opcoes.so === true || (typeof args.opcoes.so === 'string' && !args.opcoes.so.trim())) {
-      console.error('uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (faltou o item depois de --so)');
+      console.error(md.usoSoSemItem);
       return 2;
     }
     const so = texto(args.opcoes.so);
     let itens: string[] | undefined;
-    let escopo = 'todo item do roadmap';
+    let escopo = md.escopoTodos;
     if (so) {
       itens = so.split(',').map((i) => i.trim().toUpperCase()).filter(Boolean);
       const fora = itens.filter((i) => !/^RM-\d{3}$/.test(i));
       if (fora.length || itens.length === 0) {
-        console.error(`uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (recebido: ${so})`);
+        console.error(md.usoSoInvalido(so));
         return 2;
       }
-      escopo = `so ${itens.join(', ')} (--so)`;
+      escopo = md.escopoSo(itens.join(', '));
     } else if (args.opcoes.todos !== true) {
       const padrao = escopoPadraoDoSync(raiz);
       if (padrao.itens) {
         itens = padrao.itens;
-        escopo = `so ${itens.join(', ')}, o item da thread ${padrao.thread} desta worktree (--todos para todo item)`;
+        escopo = md.escopoDaThread(itens.join(', '), String(padrao.thread));
       }
     }
-    const r = sincronizarDocs(raiz, { baseBranch, escrever, itens });
+    const r = comLocale('pt-BR', () => sincronizarDocs(raiz, { baseBranch, escrever, itens }));
     console.log(args.opcoes.json === true ? JSON.stringify({ ...r, escopo: itens ?? null }, null, 2)
-      : `Escopo: ${escopo}.\n${textoDaSincronizacao(r, escrever)}`);
+      : `${md.escopo(escopo)}\n${textoDaSincronizacao(r, escrever)}`);
     return 0;
   }
   if (sub === 'init') {
@@ -3140,7 +3148,7 @@ function comandoDocs(args: Args): number {
       : [m.criado, ...criados.map((c) => `  ${c}`), '', m.proximoPasso].join('\n'));
     return 0;
   }
-  console.error(`uso: ork docs verificar [--json] [--pr] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);
+  console.error(md.uso);
   return 2;
 }
 
@@ -3239,6 +3247,7 @@ function orkEmExecucao(): string | undefined {
 
 function comandoAdapter(args: Args): number {
   const sub = args.posicionais[1] ?? 'list';
+  const ma = msg().adapter;
 
   if (sub === 'list') {
     console.log(tabelaDeHosts());
@@ -3248,13 +3257,12 @@ function comandoAdapter(args: Args): number {
   if (sub === 'show') {
     const host = parseHost(args.posicionais[2]);
     if (!host) {
-      console.error(`host desconhecido: "${args.posicionais[2] ?? ''}". Use: ${ORDEM_DOS_HOSTS.join(' | ')}`);
+      console.error(ma.hostDesconhecido(args.posicionais[2] ?? '', ORDEM_DOS_HOSTS.join(' | ')));
       return 2;
     }
-    const def = HOSTS[host];
-    console.log(`Adaptador ${host}`);
-    console.log(`  ${def.descricao}`);
-    console.log(`  destino padrao: <projeto>/${def.destinoPadrao}${def.subdir ? '/' + def.subdir : ''}`);
+    console.log(ma.adaptador(host));
+    console.log(`  ${ma.hosts[host].descricao}`);
+    console.log(`  ${ma.destinoPadrao(destinoPadraoDe(host))}`);
     console.log('');
     console.log(textoDosPitfalls(host));
     return 0;
@@ -3263,11 +3271,12 @@ function comandoAdapter(args: Args): number {
   if (sub === 'install') {
     const host = parseHost(args.posicionais[2]);
     if (!host) {
-      console.error(`host desconhecido: "${args.posicionais[2] ?? ''}". Use: ${ORDEM_DOS_HOSTS.join(' | ')}`);
+      console.error(ma.hostDesconhecido(args.posicionais[2] ?? '', ORDEM_DOS_HOSTS.join(' | ')));
       return 2;
     }
     const carregado = carregarManifesto();
-    const r = instalarAdaptador(host, {
+    // RM-061 (F3b, G4): instala no escopo pt-BR; os avisos nascem pelo catalogo e o texto os remonta no locale do comando.
+    const r = comLocale('pt-BR', () => instalarAdaptador(host, {
       projeto: carregado?.raiz ?? diretorioDoProjeto(),
       dir: texto(args.opcoes.dir),
       dryRun: args.opcoes['dry-run'] === true,
@@ -3280,14 +3289,14 @@ function comandoAdapter(args: Args): number {
       // unico caminho de saida. `;` separa varios, como o resto do CLI ja faz.
       aceitarCatalogo: (texto(args.opcoes['aceitar-catalogo']) ?? '').split(';').map(x => x.trim()).filter(Boolean),
       manterCopia: (texto(args.opcoes['manter-copia']) ?? '').split(';').map(x => x.trim()).filter(Boolean),
-      // RM-061 (F3a, D1 e D9): o bloco da experiência nasce na língua do dono; o texto impresso segue em pt-BR (F3b).
+      // RM-061 (F3a, D1 e D9): o bloco da experiência nasce na língua do dono; na F3b, o texto impresso segue o locale.
       locale: resolverLocale(carregado?.manifesto.owner?.language).locale,
-    });
+    }));
     console.log(textoDaInstalacao(r));
     return r.ok ? 0 : 2;
   }
 
-  console.error(`subcomando desconhecido: adapter ${sub}`);
+  console.error(ma.subcomandoDesconhecido(sub));
   return 2;
 }
 

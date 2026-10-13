@@ -23,7 +23,7 @@ import { pegarItem } from '../src/roadmap-reservas';
 import { montarStatusDoRoadmap } from '../src/roadmap-status';
 import { dirThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
-import { dirTemporario, projetoTemporario } from './apoio';
+import { comAmbientePtBr, dirTemporario, projetoTemporario } from './apoio';
 
 const QUANDO = '2026-09-29T23:10:00.000Z'; // 29/09 20:10 em Brasilia
 const antes = (min: number): string => new Date(Date.parse(QUANDO) - min * 60000).toISOString();
@@ -386,7 +386,9 @@ test('rede: CLI network roadmap imprime o panorama e --json devolve o contrato',
   const rodar = (dir: string, args: string[]): number => {
     saida = '';
     process.chdir(dir);
-    return main(args);
+    // RM-061 (F3b): `network status` e o uso de `network` seguem o locale; o teste le o texto em pt-BR, e o locale
+    // ativado pelo `main` no proprio processo nao vaza para os testes seguintes.
+    return comAmbientePtBr(() => main(args));
   };
   try {
     process.env.ORK_MAQUINA = 'pc-a';

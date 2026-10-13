@@ -39,7 +39,9 @@ import { VERSAO_DO_ORK } from './versao';
 import { carregarManifesto } from './manifest';
 import { resolverExperiencia } from './experiencia';
 import { aplicarExperiencia, planejarExperiencia, HostComBloco } from './experiencia-instalacao';
+import { ErroDoCatalogo, Mensagens, msg, remontar, textoDoCatalogo } from './locale';
 import type { Locale } from './locale';
+import { ADAPTER_PT_BR } from './locale-adapter';
 
 export type Host = 'claude-code' | 'codex' | 'hermes' | 'openclaw';
 
@@ -63,114 +65,41 @@ export interface DefinicaoDeHost {
   pitfalls: Pitfall[];
 }
 
+/** RM-061 (F3b): a descricao e os pitfalls de cada host moram no catalogo (`locale-adapter.ts`), com o pt-BR como fonte. */
+const DO_CATALOGO = ADAPTER_PT_BR.hosts;
+
 export const HOSTS: Readonly<Record<Host, DefinicaoDeHost>> = {
   'claude-code': {
     host: 'claude-code',
-    descricao:
-      'Plugin com as skills do catalogo, subagentes de fase, entrada /orkastery:ork e hooks do Orkastery',
+    descricao: DO_CATALOGO['claude-code'].descricao,
     destinoPadrao: '.claude',
     subdir: path.join('plugins', 'orkastery'),
     levaCatalogo: true,
-    pitfalls: [
-      {
-        titulo: 'manifesto sem os caminhos das skills instala limpo e nao expoe nada',
-        detalhe:
-          'o plugin auto-descobre skills/<nome>/SKILL.md e para ai: ele nao desce nos buckets (core/, phases/, reviewers/, ...) que este catalogo usa, entao o plugin.json declara cada caminho de skill, um a um',
-        prova: 'claude plugin details orkastery   # Skills (N) soma as skills do plugin.json e os comandos de commands/',
-      },
-      {
-        titulo: 'duas copias do catalogo divergem',
-        detalhe:
-          'a fonte unica e skills/ na raiz do produto; o INSTALADO.json guarda a origem e o sha256 de cada arquivo, e reinstalar CLASSIFICA cada divergencia por ele: o que so mudou no catalogo ressincroniza sozinho, o que voce editou barra e pede decisao por arquivo (--aceitar-catalogo ou --manter-copia). Editar a copia instalada e bandeira vermelha',
-        prova: 'ork adapter install claude-code --dry-run   # mostra o que divergiu do catalogo',
-      },
-      {
-        titulo: 'hook com caminho relativo nao roda, e o guard vira decoracao',
-        detalhe:
-          'o hooks.json chama node "${CLAUDE_PLUGIN_ROOT}/hooks/ork-guard.js", nunca um caminho relativo ao diretorio de trabalho, que muda a cada worktree de thread',
-        prova:
-          'echo \'{"tool_name":"Bash","tool_input":{"command":"git add -A"}}\' | node <destino>/hooks/ork-guard.js ; echo "codigo: $?"   # 2 = guard vivo',
-      },
-    ],
+    pitfalls: DO_CATALOGO['claude-code'].pitfalls,
   },
   codex: {
     host: 'codex',
-    descricao: 'Entrada $ork e catalogo de conducao em skills locais do projeto, sem configuracao global',
+    descricao: DO_CATALOGO.codex.descricao,
     destinoPadrao: '.agents',
     subdir: path.join('skills', 'orkastery'),
     levaCatalogo: true,
-    pitfalls: [
-      {
-        titulo: 'skills instaladas fora do projeto da sessao',
-        detalhe: 'Codex descobre .agents/skills a partir do diretorio da sessao ate a raiz do repositorio; outra worktree precisa da sua propria instalacao e comprovacao de descoberta',
-        prova: 'No Codex aberto no projeto instalado: $ork',
-      },
-      {
-        titulo: 'copia instalada diferente do catalogo',
-        detalhe: 'o recibo INSTALADO.json registra os arquivos e hashes dentro da pasta propria orkastery; uma edicao divergente barra a reinstalacao sem substituir arquivos de outras skills',
-        prova: 'ork adapter install codex --dry-run',
-      },
-      {
-        titulo: 'skill confundida com autorizacao de runtime',
-        detalhe: 'instalar instrucoes nao habilita permissoes, hooks ou sandbox; em projeto configurado, AGENTS.md recebe apenas o bloco reversível da experiência. Gates e preflight continuam no nucleo, e descoberta nao prova a jornada conversacional',
-        prova: 'ork doctor',
-      },
-    ],
+    pitfalls: DO_CATALOGO.codex.pitfalls,
   },
   hermes: {
     host: 'hermes',
-    descricao: 'Skill roteadora fina, plugin que a declara e script de abertura de thread',
+    descricao: DO_CATALOGO.hermes.descricao,
     destinoPadrao: '.hermes',
     subdir: '',
     levaCatalogo: false,
-    pitfalls: [
-      {
-        titulo: 'ork fora do PATH do host',
-        detalhe:
-          'o host roda com ambiente mais enxuto que o terminal do builder e ~/.local/bin pode nao estar la; o plugin grava o caminho absoluto e o script honra ORK_BIN',
-        prova: 'ORK_BIN=$(command -v ork) ; "$ORK_BIN" doctor',
-      },
-      {
-        titulo: 'reimplementar o parse da #TAG no host',
-        detalhe:
-          'duas implementacoes divergem na primeira tag nova, e a divergencia aparece como thread aberta no modo errado, o que ninguem percebe ate a pausa que nao veio',
-        prova: 'ork modos --do-pedido "teste #Maestro"   # a unica fonte do modo',
-      },
-      {
-        titulo: 'validar allowed_modes no host',
-        detalhe:
-          'um host que recusa o modo antes de chamar o ork recusa com a regra que ele tem em cache, nao com a do manifesto do projeto; deixe o ork thread new recusar, com erro tipado',
-        prova: 'ork thread new "teste" --mode look --dry-run',
-      },
-    ],
+    pitfalls: DO_CATALOGO.hermes.pitfalls,
   },
   openclaw: {
     host: 'openclaw',
-    descricao:
-      'extensao do OpenClaw 2026.7.1 (package.json + dist/index.js) com as tools ork_*, cada uma uma chamada de CLI',
+    descricao: DO_CATALOGO.openclaw.descricao,
     destinoPadrao: '.openclaw',
     subdir: 'extensions/orkastery',
     levaCatalogo: false,
-    pitfalls: [
-      {
-        titulo: 'placeholder {{ork_bin}} que fica no arquivo',
-        detalhe:
-          'o entry executa o binario como ele esta: um placeholder nao renderizado cai no fallback (ORK_BIN ou o ork do PATH), e sem o fallback vira "comando nao encontrado" em toda tool, que a sessao so descobre depois de ja ter aberto thread na cabeca do agente',
-        prova: 'grep -c "{{" <destino>/extensions/orkastery/dist/index.js   # precisa devolver 0',
-      },
-      {
-        titulo: 'argumento com espaco quebrado em varios argumentos',
-        detalhe:
-          'cada tool monta o comando como VETOR de argv, nunca como string de shell, para o pedido do builder chegar inteiro em --prompt; string de shell aqui vira injecao de comando com o texto do builder dentro',
-        prova: 'ork_phase_run com um prompt de varias linhas, conferido em ork phase list <thread>',
-      },
-      {
-        titulo: 'tool que reimplementa regra do nucleo',
-        detalhe:
-          'toda tool deste plugin e uma chamada de CLI e nada mais; tool nova que precisa de logica e sinal de que a logica pertence ao ork, com teste',
-        prova: 'ork eval   # o corpus reprova host com regra de negocio duplicada',
-      },
-    ],
+    pitfalls: DO_CATALOGO.openclaw.pitfalls,
   },
 };
 
@@ -342,9 +271,29 @@ export interface OpcoesInstalacao {
   manterCopia?: string[];
   /**
    * RM-061 (F3a, D1 e D2): a língua do bloco da experiência no `CLAUDE.md` ou no `AGENTS.md`. Sem ela, pt-BR; o
-   * `ork adapter install` passa a língua do dono (`owner.language`, senão o locale do ambiente).
+   * `ork adapter install` passa a língua do dono (`owner.language`, senão o locale do ambiente). Na F3b (D4), também a
+   * língua das skills, das checklists, dos comandos e dos subagentes que têm variante inglesa (`varianteEmIngles`).
    */
   locale?: Locale;
+}
+
+/** RM-061 (F3b, D4): as pastas das variantes inglesas, ao lado do catálogo (`core/assets` no repositório, `assets` no pacote). */
+const PASTAS_DAS_VARIANTES: Readonly<Record<string, string>> = { skills: 'skills-en', references: 'references-en', adapters: 'adapters-en' };
+
+/**
+ * RM-061 (F3b, D4): a variante inglesa de um arquivo `.md` do catálogo (`skills/<bucket>/<nome>/SKILL.md`,
+ * `references/<arquivo>.md`, `adapters/<host>/<relativo>.md`), quando existe; sem ela, `null` e o arquivo sai em pt-BR.
+ * A variante mora com o catálogo de onde o arquivo sai, nunca no pacote de outro: um catálogo sem `assets` instala em pt-BR.
+ * O par `orchestration-experience` e `orchestration-experience-pt-br` já é bilíngue e não tem variante.
+ */
+export function varianteEmIngles(catalogo: string, origem: string): string | null {
+  const m = /^(skills|references|adapters)\/(.+\.md)$/.exec(path.relative(catalogo, origem).split(path.sep).join('/'));
+  if (!m) return null;
+  for (const assets of [path.join(catalogo, 'core', 'assets'), path.join(catalogo, 'assets')]) {
+    const candidato = path.join(assets, PASTAS_DAS_VARIANTES[m[1]], ...m[2].split('/'));
+    if (fs.existsSync(candidato)) return candidato;
+  }
+  return null;
 }
 
 function sha256(conteudo: Buffer | string): string {
@@ -376,13 +325,13 @@ function mesmoArquivo(a: string, b: string): boolean {
 export function avisoDoOrkNoPath(emExecucao: string, versao: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
   const doPath = noPath('ork', env);
   if (!doPath || mesmoArquivo(doPath, emExecucao)) return undefined;
-  let outra = 'versão desconhecida';
+  let outra: string | undefined;
   try {
     const saida = execFileSync(doPath, ['--version'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'], env });
-    outra = saida.trim().split('\n')[0]?.trim() || outra;
+    outra = saida.trim().split('\n')[0]?.trim() || undefined;
   } catch { /* o aviso sai mesmo sem a versão */ }
-  return `o ork do PATH (${doPath}, ${outra}) não é o que roda este install (${emExecucao}, ${versao}). ` +
-    `A extensão chama ${emExecucao}; para outro binário, passe --ork <caminho>.`;
+  // RM-061 (F3b): o aviso nasce pelo catalogo e o texto da instalacao o remonta no locale do comando.
+  return textoDoCatalogo((m) => m.adapter.orkNoPath(doPath, outra ?? m.adapter.versaoDesconhecida, emExecucao, versao));
 }
 
 /** Substitui os tres placeholders. Nao ha template engine aqui de proposito. */
@@ -417,7 +366,7 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
 
   const dirDoHost = path.join(catalogo, 'adapters', host);
   if (!fs.existsSync(dirDoHost)) {
-    throw new Error(`adaptador do host ${host} nao existe em ${dirDoHost}`);
+    throw new ErroDoCatalogo((m) => m.adapter.adaptadorNaoExiste(host, dirDoHost));
   }
 
   const fontes = listarArquivos(dirDoHost).map(fonte => host === 'hermes' && fonte.relativo.startsWith('hitl-ingress/')
@@ -438,19 +387,28 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
       fontes.push({ origem: skill.caminho, relativo: path.posix.join('skills', skill.nome, 'SKILL.md') });
     }
   }
+  // RM-061 (F3b, D4): com o dono em inglês, o arquivo com variante sai dela, no mesmo destino; o recibo guarda a origem
+  // real, e reinstalar na outra língua troca no lugar a cópia intacta (`catalogo-andou`).
+  if (opcoes.locale === 'en') {
+    for (const fonte of fontes) fonte.origem = varianteEmIngles(catalogo, fonte.origem) ?? fonte.origem;
+  }
 
   // A experiência é opcional: manifesto com erro, bloco alheio ou caminho inadequado pulam só a
-  // ativação, com aviso, e o adaptador segue instalado como antes da RM-051.
-  const segue = 'O restante da instalação do adaptador segue normalmente.';
+  // ativação, com aviso, e o adaptador segue instalado como antes da RM-051. RM-061 (F3b): o aviso nasce
+  // pelo catalogo e o texto da instalacao o remonta.
+  const pulado = (montar: (m: Mensagens['adapter'], segue: string) => string) => textoDoCatalogo((m) => montar(m.adapter, m.adapter.segue));
   const carregado = carregarManifesto(projeto);
   let avisoExperiencia: string | undefined;
   if (carregado?.raiz === projeto && carregado.erros.length) {
-    avisoExperiencia = `Pacote de experiência pulado: o manifesto tem erros (${carregado.erros[0]}). ${segue}`;
+    const erro = carregado.erros[0];
+    avisoExperiencia = pulado((a, segue) => a.puladoManifesto(erro, segue));
   }
   // Preferência inválida (ex.: experience: "false") não ativa nem remove nada: quem escreveu pode ter
   // tentado desligar o pacote. Corrigir com ork onboarding set maestro volta a instalar.
   const invalida = carregado?.raiz === projeto ? carregado.avisos.find(a => a.startsWith('experiencia.config.invalid')) : undefined;
-  if (!avisoExperiencia && invalida) avisoExperiencia = `Pacote de experiência pulado: ${invalida}. ${segue}`;
+  if (!avisoExperiencia && invalida) {
+    avisoExperiencia = textoDoCatalogo((m) => m.adapter.puladoInvalida(m.onboarding.avisoDaPreferencia(invalida), m.adapter.segue));
+  }
   const preferencias = carregado?.raiz === projeto && !avisoExperiencia ? resolverExperiencia(carregado.manifesto.owner) : null;
   const hostComBloco = host === 'codex' || host === 'claude-code';
   // O bloco aponta o diretório relativo ao projeto: CLAUDE.md e AGENTS.md costumam ir ao repositório.
@@ -459,12 +417,13 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
   if (preferencias?.experience && host !== 'openclaw') {
     const skillRelativa = host === 'hermes' ? `skills/${preferencias.skill}/SKILL.md`
       : `skills/core/${preferencias.skill}/SKILL.md`;
+    const skill = preferencias.skill;
     if (!fontes.some(f => f.relativo === skillRelativa)) {
-      avisoExperiencia = `Pacote de experiência pulado: a skill ${preferencias.skill} não está no catálogo. ${segue}`;
+      avisoExperiencia = pulado((a, segue) => a.puladoSemSkill(skill, segue));
     } else if (hostComBloco && (diretorioExperiencia.startsWith('../') || path.isAbsolute(diretorioExperiencia))) {
-      avisoExperiencia = `Pacote de experiência pulado: o adaptador fica fora do projeto e o bloco de instruções só aponta caminhos do projeto. ${segue}`;
+      avisoExperiencia = pulado((a, segue) => a.puladoForaDoProjeto(segue));
     } else if (hostComBloco && /[\r\n`]/.test(diretorioExperiencia)) {
-      avisoExperiencia = `Pacote de experiência pulado: o caminho das skills contém quebra de linha ou crase, incompatível com o bloco de instruções. ${segue}`;
+      avisoExperiencia = pulado((a, segue) => a.puladoCaminho(segue));
     }
   }
   let planoExperiencia: ReturnType<typeof planejarExperiencia> | null = null;
@@ -474,7 +433,7 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     } catch (e) {
       const motivo = (e as Error).message;
       if (!/^experiencia\.(bloco\.conflict|path\.unsafe)/.test(motivo)) throw e;
-      avisoExperiencia = `Pacote de experiência pulado: ${motivo.startsWith('experiencia.path') ? 'o arquivo de instruções é link ou não é arquivo comum' : `o bloco de instruções ou o recibo .orkastery/experiencia/${host}.json foi editado ou está duplicado`}; nada foi escrito. Revise os dois à mão. ${segue}`;
+      avisoExperiencia = pulado((a, segue) => a.puladoBloco(motivo.startsWith('experiencia.path'), host, segue));
     }
   }
 
@@ -484,7 +443,7 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     for (let atual = alvo; atual !== path.dirname(destino) && atual !== path.dirname(atual); atual = path.dirname(atual)) {
       const stat = fs.lstatSync(atual, { throwIfNoEntry: false });
       if (stat && (stat.isSymbolicLink() || (atual === alvo ? !stat.isFile() || stat.nlink !== 1 : !stat.isDirectory()))) {
-        throw Error('experiencia.path.unsafe: destino do adaptador');
+        throw new ErroDoCatalogo((m) => m.adapter.destinoInseguro);
       }
     }
   }
@@ -679,107 +638,101 @@ export function desinstalarExperiencia(projeto: string, host: HostComBloco, dryR
   return { host, dryRun, arquivos: plano.mudancas.map(m => path.relative(plano.projeto, m.arquivo)) };
 }
 
-/** Texto de `ork adapter list`. */
+/** O destino padrao de um host, relativo a raiz do projeto (`.claude/plugins/orkastery`). */
+export function destinoPadraoDe(host: Host): string {
+  const def = HOSTS[host];
+  return `${def.destinoPadrao}${def.subdir ? '/' + def.subdir : ''}`;
+}
+
+/** Texto de `ork adapter list`, no locale ativo; a descricao de cada host vem do catalogo. */
 export function tabelaDeHosts(): string {
-  const linhas: string[] = ['Adaptadores de host (Camada 1, o podio)', ''];
+  const m = msg().adapter;
+  const linhas: string[] = [m.titulo, ''];
   for (const host of ORDEM_DOS_HOSTS) {
-    const def = HOSTS[host];
-    linhas.push(`  ${host.padEnd(13)} ${def.descricao}`);
-    linhas.push(`  ${' '.repeat(13)} destino padrao: <projeto>/${def.destinoPadrao}${def.subdir ? '/' + def.subdir : ''}`);
-    linhas.push(`  ${' '.repeat(13)} catalogo de skills junto: ${def.levaCatalogo ? 'sim' : 'nao'}`);
+    linhas.push(`  ${host.padEnd(13)} ${m.hosts[host].descricao}`);
+    linhas.push(`  ${' '.repeat(13)} ${m.destinoPadrao(destinoPadraoDe(host))}`);
+    linhas.push(`  ${' '.repeat(13)} ${m.catalogoJunto(HOSTS[host].levaCatalogo)}`);
   }
   linhas.push('');
-  linhas.push('Instale com: ork adapter install <host> [--dir DIR] [--dry-run] [--force]');
-  linhas.push('Zero regra de negocio no host: a #TAG vira `--mode` e a validacao e do nucleo.');
+  linhas.push(m.instaleCom);
+  linhas.push(m.zeroRegra);
   return linhas.join('\n');
 }
 
-/** Texto dos pitfalls de um host, impresso no fim de toda instalacao. */
+/** Texto dos pitfalls de um host, impresso no fim de toda instalacao, no locale ativo. */
 export function textoDosPitfalls(host: Host): string {
-  const def = HOSTS[host];
-  const linhas: string[] = [`Os 3 pitfalls de instalacao do ${host} (confira, nao suponha):`, ''];
-  def.pitfalls.forEach((p, i) => {
+  const m = msg().adapter;
+  const linhas: string[] = [m.tituloDosPitfalls(host), ''];
+  m.hosts[host].pitfalls.forEach((p, i) => {
     linhas.push(`  ${i + 1}. ${p.titulo}`);
     linhas.push(`     ${p.detalhe}`);
-    linhas.push(`     prova: ${p.prova}`);
+    linhas.push(`     ${m.prova(p.prova)}`);
     linhas.push('');
   });
   return linhas.join('\n').replace(/\n$/, '');
 }
 
-/** Texto de `ork adapter install`. */
+/** Texto de `ork adapter install`, no locale ativo; os avisos que a instalacao montou sao remontados. */
 export function textoDaInstalacao(r: ResultadoInstalacao): string {
+  const m = msg().adapter;
   const linhas: string[] = [];
   // Ensaio da 0.5.0: com o pacote ativo e pulado por aviso (catalogo fora do projeto), a linha dizia
   // "desativada"; o aviso logo abaixo diz o motivo.
-  if (r.experiencia) linhas.push(`Experiência: ${r.experiencia.ativa ? 'ativação preparada'
-    : r.experiencia.aviso ? 'pacote pulado nesta instalação, veja o aviso abaixo' : 'desativada ou sem integração de skills'}` +
-    `${r.experiencia.skill ? ` (${r.experiencia.skill})` : ''}.`);
-  if (r.experiencia?.aviso) linhas.push(`Aviso: ${r.experiencia.aviso}`);
-  linhas.push(
-    r.dryRun
-      ? `Simulacao (--dry-run) da instalacao do adaptador ${r.host}: nada foi escrito.`
-      : r.ok
-        ? `Arquivos do adaptador ${r.host} preparados.`
-        : `Instalacao do adaptador ${r.host} BARRADA: ha arquivo diferente no destino.`
-  );
+  if (r.experiencia) {
+    linhas.push(m.experiencia(r.experiencia.ativa ? 'ativa' : r.experiencia.aviso ? 'pulada' : 'desativada', r.experiencia.skill));
+  }
+  if (r.experiencia?.aviso) linhas.push(m.aviso(remontar(r.experiencia.aviso)));
+  linhas.push(r.dryRun ? m.simulacao(r.host) : r.ok ? m.preparados(r.host) : m.barrada(r.host));
   // Ensaio de 03/10 (R6): a ativacao sai no comeco e de novo no fim, depois da lista de arquivos e dos
   // pitfalls, para que o fim da saida diga o proximo passo.
   const ativacao: string[] = [];
   if (r.ok && !r.dryRun && r.host === 'claude-code') {
     const destino = "'" + r.destino.replace(/'/g, "'\"'\"'") + "'";
-    linhas.push('Uso no Claude Code ainda nao verificado por esta copia.');
-    linhas.push('No diretorio deste projeto, valide e ative o plugin:');
+    linhas.push(m.claudeNaoVerificado);
+    linhas.push(m.claudeValide);
     ativacao.push(`  claude plugin validate ${destino}`);
     ativacao.push(`  claude plugin marketplace add ${destino} --scope project`);
     ativacao.push('  claude plugin install orkastery@orkastery --scope project');
     ativacao.push('  claude plugin list --json');
-    ativacao.push('Depois, na sessao deste projeto: /orkastery:ork');
+    ativacao.push(m.claudeDepois);
   } else if (r.ok && !r.dryRun && r.host === 'codex') {
-    ativacao.push('Abra o Codex neste projeto e use $ork.');
-    ativacao.push('Descoberta e uso nativo ainda nao verificados por esta copia.');
+    ativacao.push(m.codexAbra);
+    ativacao.push(m.codexNaoVerificado);
   }
   if(r.ok && !r.dryRun && (r.host==='codex' || r.host==='claude-code')) {
     const projeto="'"+r.projeto.replace(/'/g,"'\"'\"'")+"'";
-    ativacao.push(`Prepare tambem as ferramentas do projeto: ork mcp install --project ${projeto} --host ${r.host}`);
+    ativacao.push(m.prepareMcp(projeto, r.host));
   }
   linhas.push(...ativacao);
-  if (ativacao.length) linhas.push('A configuracao MCP exige descoberta e consentimento no cliente; a copia nao concede aprovacoes.');
-  linhas.push(`  catalogo: ${r.catalogo}`);
-  linhas.push(`  destino:  ${r.destino}`);
-  linhas.push(`  ork:      ${r.orkBin}`);
-  if (r.avisoOrk) linhas.push(`  Aviso: ${r.avisoOrk}`);
+  if (ativacao.length) linhas.push(m.consentimento);
+  linhas.push(m.catalogo(r.catalogo));
+  linhas.push(m.destino(r.destino));
+  linhas.push(m.ork(r.orkBin));
+  if (r.avisoOrk) linhas.push(m.avisoOrk(remontar(r.avisoOrk)));
   linhas.push('');
   const novos = r.arquivos.filter((a) => a.estado === 'novo').length;
   const iguais = r.arquivos.filter((a) => a.estado === 'igual').length;
   const catalogoAndou = r.conflitos.filter((a) => a.divergencia === 'catalogo-andou').length;
-  linhas.push(
-    `  arquivos: ${r.arquivos.length} (${novos} novo(s), ${iguais} ja identico(s), ${r.conflitos.length} divergente(s))`
-  );
+  linhas.push(m.arquivos(r.arquivos.length, novos, iguais, r.conflitos.length));
   for (const a of r.arquivos) {
     const marca = a.estado === 'novo' ? '+' : a.estado === 'igual' ? '=' : '!';
     const porque = a.divergencia ? `  (${a.divergencia})` : '';
     linhas.push(`    ${marca} ${a.relativo}${porque}`);
   }
   // RM-059 (T0.7): arquivo de mod que saiu do catalogo sai da copia, para o despacho nao recusar o mod.
-  for (const rel of r.removidos ?? []) linhas.push(`    - ${rel}  (saiu do catalogo${r.dryRun ? ', seria removido' : ', removido'})`);
+  for (const rel of r.removidos ?? []) linhas.push(m.removido(rel, r.dryRun));
 
   // I-43 (D5): o `--dir` na raiz avisa, em vez de reportar "tudo novo" com saida 0.
   if (r.reciboVizinho) {
     linhas.push('');
-    linhas.push(`  ATENCAO: nao ha recibo em ${r.destino}, mas ha um em`);
-    linhas.push(`    ${r.reciboVizinho}`);
-    linhas.push('  `--dir` e o destino COMPLETO, nao a raiz do projeto. Do jeito que esta, esta');
-    linhas.push('  instalacao criaria uma copia nova ao lado da que ja existe, e a que existe');
-    linhas.push('  ficaria sem conferencia nenhuma.');
+    linhas.push(...m.reciboVizinho(r.destino, r.reciboVizinho));
   }
 
   // I-43 (D5): o que o recibo garante seguro se resolve sozinho, e sai como uma linha
   // de resumo em vez de virar decisao do operador.
   if (catalogoAndou > 0) {
     linhas.push('');
-    linhas.push(`  ${catalogoAndou} divergente(s) sao "catalogo-andou": a copia esta como foi instalada`);
-    linhas.push('  e quem mudou foi o catalogo. Sobrescrever nao perde trabalho de ninguem.');
+    linhas.push(...m.catalogoAndou(catalogoAndou));
   }
 
   if (!r.ok) {
@@ -790,13 +743,13 @@ export function textoDaInstalacao(r: ResultadoInstalacao): string {
       ? r.destino.slice(r.projeto.length + 1)
       : r.destino;
     linhas.push('');
-    linhas.push(`  ${r.precisamDeDecisao.length} arquivo(s) precisam de uma decisao sua:`);
+    linhas.push(m.precisamDeDecisao(r.precisamDeDecisao.length));
     for (const a of r.precisamDeDecisao) {
       linhas.push(`    ${a.relativo}  (${a.divergencia})`);
       linhas.push(`      $ diff -u ${a.origem} ${a.destino}`);
     }
     linhas.push('');
-    linhas.push('  Resolva em UM comando, por arquivo:');
+    linhas.push(m.resolva);
     const exemplo = r.precisamDeDecisao[0]?.relativo ?? '<arquivo>';
     linhas.push(`    ork adapter install ${r.host} --dir ${dirEmUso} --aceitar-catalogo ${exemplo}`);
     linhas.push(`    ork adapter install ${r.host} --dir ${dirEmUso} --manter-copia ${exemplo}`);
@@ -805,7 +758,7 @@ export function textoDaInstalacao(r: ResultadoInstalacao): string {
   linhas.push(textoDosPitfalls(r.host));
   if (ativacao.length) {
     linhas.push('');
-    linhas.push(r.host === 'claude-code' ? 'Proximo passo, no diretorio deste projeto (o mesmo do comeco):' : 'Proximo passo (o mesmo do comeco):');
+    linhas.push(r.host === 'claude-code' ? m.proximoPassoClaude : m.proximoPasso);
     linhas.push(...ativacao);
   }
   return linhas.join('\n');

@@ -10,6 +10,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dirTemporario } from '../src/sandbox';
+import { envPtBr } from './apoio';
 import { VERSAO_DO_ORK } from '../src/versao';
 
 const CLI = path.resolve(__dirname, '../src/index.js');
@@ -28,7 +29,8 @@ function cenario(corpo: (c: { projeto: string; bin: string; falso: string; desti
 function instalar(projeto: string, bin: string, ...extra: string[]) {
   const r = spawnSync(process.execPath, [CLI, 'adapter', 'install', 'openclaw', '--dir', path.join(projeto, 'oc'), '--force', ...extra], {
     cwd: projeto, encoding: 'utf8', timeout: 30000,
-    env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}` },
+    // RM-061 (F3b): o teste le o aviso em pt-BR; o `adapter install` agora segue o locale.
+    env: envPtBr({ ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}` }),
   });
   assert.equal(r.status, 0, `install saiu com ${r.status}: ${r.stderr}`);
   return r.stdout;
