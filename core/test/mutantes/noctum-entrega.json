@@ -259,7 +259,7 @@
       "descricao": "a integração confere o envelope com o instante do começo do passo",
       "modulo": "noctum-entrega",
       "de": "integrarNoDestino(carregado, arco, lido.t.id, { ...opcoes, remoto })",
-      "para": "integrarNoDestino(carregado, arco, lido.t.id, { ...opcoes, remoto, quando })",
+      "para": "integrarNoDestino(carregado, arco, lido.t.id, { ...opcoes, remoto, relogio: () => quando })",
       "teste": "noctum-entrega",
       "nome": "^QE12:"
     },
@@ -285,8 +285,8 @@
       "id": "M32",
       "descricao": "a thread que não é trabalho do envelope integra",
       "modulo": "noctum-entrega",
-      "de": "if (!estado.conteudo.trabalhos.some(w => w.item === daThread.roadmap",
-      "para": "if (false && !estado.conteudo.trabalhos.some(w => w.item === daThread.roadmap",
+      "de": "if (!trabalhosDoEnvelope.length)",
+      "para": "if (false)",
       "teste": "noctum-integracao-entrega",
       "nome": "^QI9:"
     },
@@ -325,6 +325,141 @@
       "para": "if (false)",
       "teste": "noctum-provas",
       "nome": "^QP9:"
+    },
+    {
+      "id": "M37",
+      "descricao": "a fila da entrega ignora o isolamento que a supervisão da N4 decidiu",
+      "modulo": "noctum-entrega",
+      "de": "supervisao: decisoesDaEntrega(sup)",
+      "para": "supervisao: undefined",
+      "teste": "noctum-entrega",
+      "nome": "^QE17:"
+    },
+    {
+      "id": "M38",
+      "descricao": "a conferência da supervisão deixa passar o trabalho isolado",
+      "modulo": "noctum-entrega",
+      "de": "throw new noctum_provas_1.RecusaDaEntrega('noctum.entrega.isolado',",
+      "para": "void ('noctum.entrega.isolado',",
+      "teste": "noctum-integracao-entrega",
+      "nome": "^QI10:"
+    },
+    {
+      "id": "M39",
+      "descricao": "a varredura de segredo pula as mensagens dos commits",
+      "modulo": "noctum-provas",
+      "de": "for (const a of (0, policies_1.procurarSegredos)(linha))",
+      "para": "for (const a of (0, policies_1.procurarSegredos)(''))",
+      "teste": "noctum-provas",
+      "nome": "^QP12:"
+    },
+    {
+      "id": "M40",
+      "descricao": "a varredura de segredo lê só o último commit da thread",
+      "modulo": "noctum-provas",
+      "de": "'log', '--format=%x00%H', '-p',",
+      "para": "'log', '-1', '--format=%x00%H', '-p',",
+      "teste": "noctum-provas",
+      "nome": "^QP12:"
+    },
+    {
+      "id": "M41",
+      "descricao": "o merge da base que falha sem conflito grava a base como recusada",
+      "modulo": "noctum-entrega",
+      "de": "if (!m.ok && !conflitos.length) {",
+      "para": "if (!m.ok && !conflitos.length) { recusar('o merge da base falhou', []);",
+      "teste": "noctum-entrega",
+      "nome": "^QE18:"
+    },
+    {
+      "id": "M42",
+      "descricao": "a falha de transporte do push vira recusa do remoto",
+      "modulo": "noctum-entrega",
+      "de": "if (!RECUSA_DO_REMOTO.test(push.stderr)) {",
+      "para": "if (false) {",
+      "teste": "noctum-entrega",
+      "nome": "^QE19:"
+    },
+    {
+      "id": "M43",
+      "descricao": "o push sem prova na base não vira incerto",
+      "modulo": "noctum-entrega",
+      "de": "if (push.ok || !depois.sha)",
+      "para": "if (false)",
+      "teste": "noctum-entrega",
+      "nome": "^QE21:"
+    },
+    {
+      "id": "M44",
+      "descricao": "a reconciliação perde as falhas que o push incerto guardou",
+      "modulo": "noctum-entrega",
+      "de": "falhasRegistradas: Array.isArray(incerto?.falhasRegistradas) ? incerto.falhasRegistradas : [] },",
+      "para": "falhasRegistradas: [] },",
+      "teste": "noctum-entrega",
+      "nome": "^QE21:"
+    },
+    {
+      "id": "M45",
+      "descricao": "o push incerto não guarda as provas nem as falhas",
+      "modulo": "noctum-entrega",
+      "de": "lido: depois.sha, provas: provas.sha256, falhasRegistradas: provas.falhasRegistradas,",
+      "para": "lido: depois.sha,",
+      "teste": "noctum-entrega",
+      "nome": "^QE21:"
+    },
+    {
+      "id": "M46",
+      "descricao": "o conflito sem marcador de texto grava o lado da thread",
+      "modulo": "noctum-entrega",
+      "de": "else if (resolvido.conflitos === 0)",
+      "para": "else if (false)",
+      "teste": "noctum-entrega",
+      "nome": "^QE22:"
+    },
+    {
+      "id": "M47",
+      "descricao": "o arquivo com byte nulo passa por texto",
+      "modulo": "noctum-provas",
+      "de": "if (bytes.includes(0))",
+      "para": "if (false)",
+      "teste": "noctum-entrega",
+      "nome": "^QE22:"
+    },
+    {
+      "id": "M48",
+      "descricao": "a vez da N3 integra sobre outra base do projeto",
+      "modulo": "noctum-entrega",
+      "de": "if (c.destino.base !== carregado.manifesto.worktree.base_branch)",
+      "para": "if (false)",
+      "teste": "noctum-integracao-entrega",
+      "nome": "^QI10:"
+    },
+    {
+      "id": "M49",
+      "descricao": "a publicação empurra a ponta que andou depois das provas",
+      "modulo": "noctum-entrega",
+      "de": "if (!fonte || ponta !== fonte) {",
+      "para": "if (false) {",
+      "teste": "noctum-entrega",
+      "nome": "^QE23:"
+    },
+    {
+      "id": "M50",
+      "descricao": "o despacho do CHECK usa a conta que o arco tirou",
+      "modulo": "noctum-entrega",
+      "de": ".filter(p => !(0, noctum_supervisao_1.contaForaAgora)(sup, p.id, quando));",
+      "para": ".filter(p => !!p);",
+      "teste": "noctum-entrega",
+      "nome": "^QE24:"
+    },
+    {
+      "id": "M51",
+      "descricao": "a integração confere o envelope com o instante de quem chamou o passo",
+      "modulo": "noctum-entrega",
+      "de": "const relogio = () => opcoes.relogio?.();",
+      "para": "const relogio = () => opcoes.quando;",
+      "teste": "noctum-entrega",
+      "nome": "^QE20:"
     }
   ]
 }
