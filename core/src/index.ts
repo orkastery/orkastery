@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { runBrain } from './company-brain-cli';
+import { ID_DE_DOCUMENTO, NOME_DE_COLECAO } from './conhecimento';
+import { CONSULTAS_DO_CONHECIMENTO, consultaRespondeu, consultarConhecimento, PedidoDoConhecimento, textoDoConhecimento } from './conhecimento-consulta';
 import { raizDoEstado } from './estado-thread';
 import { checarAnalisadoresDoGrafo, executarGrafo } from './intelligence-graph-cli';
 import { lerEntradaDaThread } from './mcp-grafo';
@@ -3051,6 +3053,32 @@ function comandoNetworkRoadmap(args: Args): number {
   }
 }
 
+/**
+ * RM-026 K7 (fatia 2, D11 e D13): o conhecimento escrito, so leitura. O JSON e o das tools `ork_conhecimento_*`,
+ * em pt-BR nas duas linguas; so o texto segue o locale. Sai 1 quando a consulta nao responde e 2 com uso errado
+ * (D13 revista no CHECK: o gate de CI separa o erro de digitacao da lacuna).
+ */
+function comandoConhecimento(args: Args): number {
+  const [, sub = 'listar', id, ...resto] = args.posicionais;
+  const colecao = args.opcoes.colecao;
+  const valido = (CONSULTAS_DO_CONHECIMENTO as readonly string[]).includes(sub) && !resto.length &&
+    (args.opcoes.json === undefined || args.opcoes.json === true) &&
+    Object.keys(args.opcoes).every((k) => k === 'json' || (k === 'colecao' && sub === 'listar')) &&
+    (colecao === undefined || (typeof colecao === 'string' && NOME_DE_COLECAO.test(colecao))) &&
+    (sub === 'mostrar' ? typeof id === 'string' && ID_DE_DOCUMENTO.test(id) : id === undefined);
+  if (!valido) {
+    console.error(msg().cli.erro(msg().conhecimento.uso));
+    return 2;
+  }
+  const pedido: PedidoDoConhecimento = sub === 'mostrar' ? { consulta: 'mostrar', id }
+    : sub === 'listar' ? { consulta: 'listar', ...(typeof colecao === 'string' ? { colecao } : {}) }
+      : { consulta: sub as 'colecoes' | 'verificar' };
+  const carregado = exigirManifesto();
+  const r = consultarConhecimento(carregado, pedido);
+  console.log(args.opcoes.json === true ? jsonSemInvisivel(r) : textoDoConhecimento(r));
+  return consultaRespondeu(r) ? 0 : 1;
+}
+
 function comandoDocs(args: Args): number {
   const sub = args.posicionais[1] ?? 'verificar';
   const carregado = carregarManifesto();
@@ -4365,6 +4393,8 @@ function executarComando(argvBruto: string[]): number {
       console.log(JSON.stringify(result, null, 2));
       return ['ok','empty','unknown','withheld','applied','rolled-back'].includes(result.state) ? 0 : 1;
     }
+    case 'conhecimento':
+      return comandoConhecimento(args);
     case 'memory':
       return comandoMemory(args);
     case 'grafo': {
