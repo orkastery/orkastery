@@ -113,3 +113,58 @@ export function registroCru(dir: string, caminho: string): string {
   buscarBranch(dir, 'origin', BRANCH_DE_COORDENACAO, 'teste');
   return exec('git', ['show', `refs/remotes/origin/${BRANCH_DE_COORDENACAO}:${caminho}`], dir).stdout;
 }
+
+// ---------------------------------------------------------------------------
+// Branches de trabalho e a integração por avanço, no remoto de fixture.
+// ---------------------------------------------------------------------------
+
+/** Uma branch de trabalho em cima da `main` do remoto, com um arquivo, publicada no remoto. Devolve a fonte e a base. */
+export function branchDeTrabalho(dir: string, branch: string, arquivo: string, conteudo: string): { branch: string; fonte: string; base: string } {
+  assert.ok(exec('git', ['fetch', '-q', 'origin', '+refs/heads/main:refs/remotes/origin/main'], dir).ok);
+  assert.ok(exec('git', ['checkout', '-q', '-B', branch, 'refs/remotes/origin/main'], dir).ok);
+  fs.mkdirSync(path.dirname(path.join(dir, arquivo)), { recursive: true });
+  fs.writeFileSync(path.join(dir, arquivo), conteudo);
+  assert.ok(exec('git', ['add', '--', arquivo], dir).ok);
+  assert.ok(exec('git', ['commit', '-q', '-m', `trabalho SIMULADO: ${arquivo}`], dir).ok);
+  assert.ok(exec('git', ['push', '-q', 'origin', `${branch}:refs/heads/${branch}`], dir).ok);
+  const fonte = exec('git', ['rev-parse', 'HEAD'], dir).stdout.trim();
+  const base = exec('git', ['rev-parse', 'refs/remotes/origin/main'], dir).stdout.trim();
+  assert.ok(exec('git', ['checkout', '-q', 'main'], dir).ok);
+  return { branch, fonte, base };
+}
+
+/** Mais um commit em cima da branch de trabalho, publicado: a fonte muda depois das provas. */
+export function maisUmCommit(dir: string, branch: string, arquivo: string, conteudo: string): string {
+  assert.ok(exec('git', ['checkout', '-q', branch], dir).ok);
+  fs.writeFileSync(path.join(dir, arquivo), conteudo);
+  assert.ok(exec('git', ['add', '--', arquivo], dir).ok);
+  assert.ok(exec('git', ['commit', '-q', '-m', `mais trabalho SIMULADO: ${arquivo}`], dir).ok);
+  assert.ok(exec('git', ['push', '-q', 'origin', `${branch}:refs/heads/${branch}`], dir).ok);
+  const fonte = exec('git', ['rev-parse', 'HEAD'], dir).stdout.trim();
+  assert.ok(exec('git', ['checkout', '-q', 'main'], dir).ok);
+  return fonte;
+}
+
+/** Atualiza a branch de trabalho com a `main` nova do remoto (merge sem conflito) e publica: o candidato novo. */
+export function atualizarBranch(dir: string, branch: string): { branch: string; fonte: string; base: string } {
+  assert.ok(exec('git', ['fetch', '-q', 'origin', '+refs/heads/main:refs/remotes/origin/main'], dir).ok);
+  assert.ok(exec('git', ['checkout', '-q', branch], dir).ok);
+  assert.ok(exec('git', ['merge', '-q', '--no-edit', 'refs/remotes/origin/main'], dir).ok);
+  assert.ok(exec('git', ['push', '-q', 'origin', `${branch}:refs/heads/${branch}`], dir).ok);
+  const fonte = exec('git', ['rev-parse', 'HEAD'], dir).stdout.trim();
+  const base = exec('git', ['rev-parse', 'refs/remotes/origin/main'], dir).stdout.trim();
+  assert.ok(exec('git', ['checkout', '-q', 'main'], dir).ok);
+  return { branch, fonte, base };
+}
+
+/** O integrador do teste: avança a base do remoto até a fonte, sem forçar (só passa se a base for ancestral dela). */
+export function integradorPorAvanco(dir: string): (c: { remoto: string; destino: { base: string }; candidato: { fonte: string } }) => { merge: string } {
+  return ({ remoto, destino, candidato }) => {
+    const r = exec('git', ['push', '-q', remoto, `${candidato.fonte}:refs/heads/${destino.base}`], dir);
+    if (!r.ok) throw new Error(`push recusado: ${r.stderr.trim().split('\n').pop() ?? ''}`);
+    return { merge: candidato.fonte };
+  };
+}
+
+/** O sha256 SIMULADO das provas de um candidato. */
+export const provasSimuladas = (rotulo: string): string => createHash('sha256').update(`provas SIMULADAS ${rotulo}`).digest('hex');
