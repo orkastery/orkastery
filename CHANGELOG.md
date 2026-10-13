@@ -95,9 +95,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   esperaram de 5 a 6 horas pelo condutor.
 - **CHANGELOG reconciliado no merge da main** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F7): `ork conducao
   atualizar <thread> [--enviar]`, e a batida no PR que ficou para trás ou em conflito, faz o merge da base na branch da
-  thread sob a condução dela; os itens da thread voltam a "## Não publicado", no mesmo grupo, quando o merge os joga
-  numa versão publicada ou conflita só no CHANGELOG, e conflito em código aborta e fica com o dono. A regra foi
-  conferida contra os 25 merges reais mais recentes do repositório.
+  thread sob a condução dela (a sessão despachada que conduz a thread reentra pela identidade de despacho, como no
+  `ork verify`); os itens da thread voltam a "## Não publicado", no mesmo grupo, quando o merge os joga numa versão
+  publicada ou conflita só no CHANGELOG, e conflito em código aborta e fica com o dono. A regra foi conferida contra os
+  25 merges reais mais recentes do repositório.
 - **A batida dos hosts e a retomada pelo canal** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), H1 a H4): `ork
   doctor --json` (`ork.doctor/v1`) traz a batida da fábrica com a idade da última rodada e o aviso pronto, e o heartbeat
   do OpenClaw (automação de comando, sem modelo) e o do Hermes rodam `bin/ork-vigia-batida` e avisam o dono quando a
