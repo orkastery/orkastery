@@ -18,6 +18,13 @@ import { fecharAdministrativamente } from '../src/thread-close';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 
+/**
+ * RM-037 (ork-rm037esperas, A2 do CHECK): no limite, o portao de vaga le o runtime; aqui o assunto e a regra do
+ * lease e do ledger, e a leitura injetada (nenhuma sessao na lista) tira o `claude` e o codex desta maquina do teste.
+ */
+const vagaSemRuntime = (c: Parameters<typeof vagaDoDespacho>[0], id: string, quando?: string, desde?: string) =>
+  vagaDoDespacho(c, id, quando, desde, () => ({ sessoes: [] }));
+
 /** Uma thread com sessao viva: a conducao do despacho convertida em sessao, como o `phase run` deixa. */
 function threadComSessaoViva(p: ReturnType<typeof projetoTemporario>, nome: string, runtime: string, n: number) {
   const t = novaThread(p.carregado, { nome, modo: 'auto' }).thread;
@@ -57,7 +64,7 @@ test('defeito 3: no limite, o phase run recusa com concurrency.limite, diz quem 
 
     // A sessao viva que terminou devolve a vaga: o mesmo pedido agora sai.
     registrar(dirThread(p.dir, vivas[0].id), vivas[0].id, 'phase_result', { fase: 'GO', sessionId: vivas[0].sessionId });
-    assert.equal(vagaDoDespacho(p.carregado, nova.id), null);
+    assert.equal(vagaSemRuntime(p.carregado, nova.id), null);
     const depois = rodarFase(p.carregado, nova.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO' });
     assert.equal(depois.verificada, true, depois.erro);
   } finally { p.limpar(); claude.restaurar(); }
@@ -68,22 +75,22 @@ test('defeito 3: a propria thread e thread fechada nao contam; abaixo do limite 
   try {
     p.carregado.manifesto.concurrency.max_parallel_threads = 1;
     const propria = threadComSessaoViva(p, 'propria', 'codex', 7);
-    assert.equal(vagaDoDespacho(p.carregado, propria.id), null, 'a conducao da propria thread tem portao proprio');
+    assert.equal(vagaSemRuntime(p.carregado, propria.id), null, 'a conducao da propria thread tem portao proprio');
     // S1 do CHECK final: a sessao de thread fechada sai da conta, mesmo com o lease da conducao ainda gravado.
     // Dois caminhos: o fechamento administrativo (evento e status) e o status sem evento, como a migracao do MASTER.
     const peloAdmin = threadComSessaoViva(p, 'fechada pelo admin', 'claude-bg', 8);
     const peloStatus = threadComSessaoViva(p, 'fechada pelo status', 'codex', 9);
-    assert.deepEqual(vagaDoDespacho(p.carregado, propria.id)?.ocupam.map(o => o.thread).sort(),
+    assert.deepEqual(vagaSemRuntime(p.carregado, propria.id)?.ocupam.map(o => o.thread).sort(),
       [peloAdmin.id, peloStatus.id].sort(), 'abertas, elas ocupam');
     fecharAdministrativamente(p.dir, peloAdmin.id, { motivo: 'superada', por: 'teste', justificativa: 'thread SIMULADA superada' });
     const t = lerThread(p.dir, peloStatus.id);
     t.status = 'fechada';
     gravarThread(p.dir, t);
-    assert.equal(vagaDoDespacho(p.carregado, propria.id), null, 'fechadas, as sessoes delas nao contam');
+    assert.equal(vagaSemRuntime(p.carregado, propria.id), null, 'fechadas, as sessoes delas nao contam');
     const outra = novaThread(p.carregado, { nome: 'outra', modo: 'auto' }).thread;
-    assert.deepEqual(vagaDoDespacho(p.carregado, outra.id)?.ocupam.map(o => o.thread), [propria.id]);
+    assert.deepEqual(vagaSemRuntime(p.carregado, outra.id)?.ocupam.map(o => o.thread), [propria.id]);
     p.carregado.manifesto.concurrency.max_parallel_threads = 2;
-    assert.equal(vagaDoDespacho(p.carregado, outra.id), null);
+    assert.equal(vagaSemRuntime(p.carregado, outra.id), null);
   } finally { p.limpar(); }
 });
 
@@ -136,7 +143,7 @@ test('defeito 3 (A1, N1): sessao viva em pausa prevista ou com verify reprovado 
   try {
     p.carregado.manifesto.concurrency.max_parallel_threads = 1;
     const nova = novaThread(p.carregado, { nome: 'quem pede', modo: 'auto' }).thread;
-    const conta = (id: string) => vagaDoDespacho(p.carregado, nova.id)?.ocupam.some(o => o.thread === id) ?? false;
+    const conta = (id: string) => vagaSemRuntime(p.carregado, nova.id)?.ocupam.some(o => o.thread === id) ?? false;
     // #Classic: o despacho grava a pausa prevista ao fim do bloco e a sessao segue rodando.
     const classica = novaThread(p.carregado, { nome: 'classica', modo: 'classic' }).thread;
     assert.equal(registrarConducaoDaSessao(p.dir, classica.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 3600_000 },
@@ -161,7 +168,7 @@ test('defeito 3 (A1, N1): sessao viva em pausa prevista ou com verify reprovado 
     fs.appendFileSync(path.join(dirThread(p.dir, parada.id), 'ledger.jsonl'),
       JSON.stringify({ ts: antigo, thread: parada.id, tipo: 'phase_dispatch', fase: 'GO', sessionId: parada.sessionId, eventId: 'e-antigo' }) + '\n');
     assert.equal(conta(parada.id), false);
-    assert.equal(vagaDoDespacho(p.carregado, nova.id), null, 'so as duas que nao ocupam restaram');
+    assert.equal(vagaSemRuntime(p.carregado, nova.id), null, 'so as duas que nao ocupam restaram');
   } finally { p.limpar(); }
 });
 
@@ -174,11 +181,11 @@ test('defeito 3 (S1, S3): o despacho em curso de outra thread ocupa; a thread qu
     const tomada = tomarConducao(p.dir, outra.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 60_000 });
     assert.equal(tomada.ok, true);
     try {
-      const recusa = vagaDoDespacho(p.carregado, nova.id);
+      const recusa = vagaSemRuntime(p.carregado, nova.id);
       assert.deepEqual(recusa?.ocupam.map(o => [o.thread, o.sessao]), [[outra.id, null]]);
       assert.match(recusa!.detalhe, /despacho em curso/);
     } finally { if (tomada.ok) tomada.liberar(); }
-    assert.equal(vagaDoDespacho(p.carregado, nova.id), null);
+    assert.equal(vagaSemRuntime(p.carregado, nova.id), null);
 
     // Projeto cheio e a thread ja conduz: o pedido repetido nao vira concurrency.limite.
     threadComSessaoViva(p, 'cheia', 'codex', 31);
@@ -250,7 +257,7 @@ test('defeito 3 (A-2, S-7): silencio do pulse e sessao bloqueada no runtime libe
   try {
     p.carregado.manifesto.concurrency.max_parallel_threads = 1;
     const nova = novaThread(p.carregado, { nome: 'quem pede', modo: 'auto' }).thread;
-    const conta = () => (vagaDoDespacho(p.carregado, nova.id)?.ocupam.length ?? 0) > 0;
+    const conta = () => (vagaSemRuntime(p.carregado, nova.id)?.ocupam.length ?? 0) > 0;
     const muda = threadComSessaoViva(p, 'muda', 'codex', 81);
     const dirMuda = dirThread(p.dir, muda.id);
     assert.equal(conta(), true);
@@ -276,8 +283,8 @@ test('defeito 3 (S-5): dois despachos na ultima vaga, fica quem tomou antes', ()
     try {
       const desdeA = conducaoDaThread(p.dir, a.id)!.desde;
       const depois = new Date(Date.parse(desdeA) + 1000).toISOString(), antes = new Date(Date.parse(desdeA) - 1000).toISOString();
-      assert.deepEqual(vagaDoDespacho(p.carregado, b.id, undefined, depois)?.ocupam.map(o => o.thread), [a.id], 'b tomou depois: a fica');
-      assert.equal(vagaDoDespacho(p.carregado, b.id, undefined, antes), null, 'b tomou antes: a nao o recusa');
+      assert.deepEqual(vagaSemRuntime(p.carregado, b.id, undefined, depois)?.ocupam.map(o => o.thread), [a.id], 'b tomou depois: a fica');
+      assert.equal(vagaSemRuntime(p.carregado, b.id, undefined, antes), null, 'b tomou antes: a nao o recusa');
     } finally { if (tomada.ok) tomada.liberar(); }
   } finally { p.limpar(); }
 });
@@ -290,7 +297,7 @@ test('defeito 3 (A-3): o bloqueio de OUTRA sessao da thread nao libera a vaga da
     const viva = threadComSessaoViva(p, 'sucessora', 'codex', 101);
     // A sessao sucedida (S1) continua blocked no runtime e o pulse carimba o bloqueio dela depois.
     registrar(dirThread(p.dir, viva.id), viva.id, 'sessao_bloqueada', { fase: 'GO', sessionId: '00000000-0000-4000-8000-000000000100' });
-    assert.deepEqual(vagaDoDespacho(p.carregado, nova.id)?.ocupam.map(o => o.thread), [viva.id]);
+    assert.deepEqual(vagaSemRuntime(p.carregado, nova.id)?.ocupam.map(o => o.thread), [viva.id]);
   } finally { p.limpar(); }
 });
 
