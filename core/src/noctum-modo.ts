@@ -193,11 +193,12 @@ export function retratoDoArco(carregado: ManifestoCarregado, arco: string, opcoe
 /** O retrato em texto para pessoa, em pt-BR, com os horários no fuso da janela. */
 export function textoDoRetrato(r: RetratoDoArco): string {
   const fuso = r.janela?.fuso;
-  const dh = (iso: string) => formatarDataHora(iso, { fuso, agora: r.quando, locale: 'pt-BR' });
+  // O nome com `formatar` deixa o lint do horário (horario-lint) ver que o campo ISO passa pelo formatador.
+  const formatarNoFuso = (iso: string) => formatarDataHora(iso, { fuso, agora: r.quando, locale: 'pt-BR' });
   const l = [`Arco ${r.arco}: ${r.situacao}${r.versao !== null ? `, versão ${r.versao}` : ''}${r.envelopeSha256 ? `, hash ${r.envelopeSha256.slice(0, 12)}` : ''}`];
-  if (r.janela) l.push(`Janela de ${dh(r.janela.inicio)} a ${dh(r.janela.fim)} (${r.janela.fuso})`);
+  if (r.janela) l.push(`Janela de ${formatarNoFuso(r.janela.inicio)} a ${formatarNoFuso(r.janela.fim)} (${r.janela.fuso})`);
   if (r.propostaPendente) {
-    l.push(`Proposta ${r.propostaPendente.versao} esperando o dono até ${dh(r.propostaPendente.prazo)}: hash ${r.propostaPendente.envelopeSha256}`);
+    l.push(`Proposta ${r.propostaPendente.versao} esperando o dono até ${formatarNoFuso(r.propostaPendente.prazo)}: hash ${r.propostaPendente.envelopeSha256}`);
   }
   if (r.consumo.length) l.push('Consumo medido:', ...r.consumo.map(c => `  • teto ${c.escopo}: ${c.texto} de ${c.teto} ${c.unidade}`));
   if (r.fila) {
@@ -205,11 +206,11 @@ export function textoDoRetrato(r: RetratoDoArco): string {
       `${t.thread ? `, thread ${t.thread}` : ''}${t.motivo ? ` (${t.motivo})` : ''}`));
   }
   if (r.fechamento) {
-    l.push(`Fechamento: ${r.fechamento.motivo} em ${dh(r.fechamento.em)}: ${r.fechamento.detalhe}`, ...r.fechamento.paradas.map(p => `  • ${p}`));
+    l.push(`Fechamento: ${r.fechamento.motivo} em ${formatarNoFuso(r.fechamento.em)}: ${r.fechamento.detalhe}`, ...r.fechamento.paradas.map(p => `  • ${p}`));
   } else if (r.situacao === 'vigente') l.push('Fechamento: o arco segue');
   const rel = r.relatorio;
   if (rel.vencimentoEm) {
-    l.push(`Relatório da manhã: vence ${dh(rel.vencimentoEm)} pelo canal ${rel.canal}` +
+    l.push(`Relatório da manhã: vence ${formatarNoFuso(rel.vencimentoEm)} pelo canal ${rel.canal}` +
       (rel.versoes.length ? `; ${rel.versoes.map(v => `versão ${v.versao} ${v.entregue ? 'entregue' : 'sem recibo'}`).join(', ')}` : '; nenhuma versão ainda'));
   }
   if (r.decisoesPendentes) l.push(`Decisões do dono no lote: ${r.decisoesPendentes} (ork noctum relatorio ${r.arco})`);
