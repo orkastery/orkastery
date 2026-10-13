@@ -11,7 +11,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 - **#Noctum, fatia N6: fechamento, relatório da manhã e o transporte que liga o modo** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
   o arco fecha sozinho pela hora final, pelo teto do arco ou pela fila vazia (`core/src/noctum-fechamento.ts`): grava o
   `encerrado` no log do arco antes de tudo (nenhuma reserva nem efeito passa depois, nem por outra conta, e nada o
-  reabre), pede a parada de cada sessão em voo uma vez, confirma no tique seguinte e deixa o estado de retomada. A
+  reabre), pede a parada de cada sessão em voo uma vez (no teto em sessões, as já contadas terminam e o arco fecha
+  quando a última acaba), confirma no tique seguinte e deixa o estado de retomada. A
   medição (`core/src/noctum-medicao.ts`) cobre `minutos-de-sessao`, `tokens` e `percentual-da-cota`, com o consumo
   desconhecido como lacuna, nunca zero, e a reserva com teto nessas unidades admite só abaixo do medido. O relatório da
   manhã (`core/src/noctum-relatorio.ts`) vence no primeiro `HH:MM` do fuso do envelope, traz os sete grupos da página a
