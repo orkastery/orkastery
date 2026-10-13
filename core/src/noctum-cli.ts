@@ -100,9 +100,11 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
         console.log([`Tique do arco ${arco}:`,
           `  fechamento: ${r.fechamento.fechado ? `${r.fechamento.motivo}${r.fechamento.agora ? ' (agora)' : ''}` : r.fechamento.detalhe}`,
           `  passo: ${r.passo ? `${r.passo.acao}${'motivo' in r.passo && r.passo.motivo ? ` (${r.passo.motivo})` : ''}` : 'nenhum'}`,
-          `  relatório: ${r.relatorio.acao}: ${r.relatorio.detalhe}`].join('\n'));
+          `  relatório: ${r.relatorio.acao}: ${r.relatorio.detalhe}`,
+          ...r.falhas.map(f => `  falha no ${f.etapa}: ${f.detalhe}`)].join('\n'));
       }
-      return 0;
+      // A falha de uma etapa não segura o relatório, mas o cron do dono a vê pela saída.
+      return r.falhas.length ? 1 : 0;
     }
     if (sub === 'relatorio') {
       const arco = args.posicionais[2];

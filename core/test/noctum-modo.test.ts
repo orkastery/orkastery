@@ -9,16 +9,19 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { projetoTemporario } from './apoio';
-import { abrirArco, entregar, pedidoV2, prepararIngressoSimulado, revogarArco, TrabalhoSimulado } from './noctum-apoio';
+import { abrirArco, autorizarPedido, entregar, pedidoV2, prepararIngressoSimulado, revogarArco, TrabalhoSimulado } from './noctum-apoio';
 import { assinadoPara, depois, HORA, MIN } from './noctum-n6-apoio';
 import { assinaturaDaResposta } from '../src/hitl-gates';
 import { kernelDisponivel } from '../src/fila-pesada';
+import { partesLocais } from '../src/horario';
 import { extrairTagDoPedido, parseModo } from '../src/modos';
 import { encerrarArco, lerArco, proporEnvelope, textoDeAutorizacao } from '../src/noctum-arco';
 import { RecusaDoArco } from '../src/noctum-envelope';
 import { ResultadoDoPasso } from '../src/noctum-execucao';
 import { aceitarModoNoctum, CONTRATO_INGRESSO_DO_ARCO, ehModoNoctum, responderAoArco, retratoDoArco, tagNoctumNoPedido, textoDoRetrato,
   tiqueDoArco } from '../src/noctum-modo';
+import { vencimentoDoRelatorio } from '../src/noctum-relatorio';
+import { pastaDoArco } from '../src/noctum-registro';
 import { novaThread } from '../src/thread';
 
 prepararIngressoSimulado();
@@ -232,5 +235,33 @@ test('MO10: nenhum comando do terminal autoriza o arco', { skip: semKernel }, ()
       assert.equal(r.status, 2, args.join(' '));
     }
     assert.equal(lerArco(p.dir, 'arco-mo10')!.situacao, 'proposto');
+  } finally { p.limpar(); }
+});
+
+test('MO11: o registro do fechamento adulterado vira falha do tique, e o relatório da manhã sai assim mesmo', { skip: semKernel }, () => {
+  // Achado do CHECK: a recusa do registro subia do fechamento e o tique morria antes do relatório, em todo tique.
+  const p = projetoTemporario('noctum-mo11');
+  try {
+    const { trabalhos } = threads(p, 1);
+    const daqui8h = partesLocais(Date.now() + 8 * HORA, 'America/Sao_Paulo');
+    autorizarPedido(p.dir, 'arco-mo11', { ...pedidoV2('arco-mo11', { trabalhos }), relatorio: { horario: `${daqui8h.hora}:${daqui8h.minuto}`, canal: 'telegram' } });
+    const conteudo = lerArco(p.dir, 'arco-mo11')!.conteudo!;
+    const enviadas: string[] = [];
+    const simuladas = { parar: () => ({ ok: true, detalhe: '' }), listarSessoes: () => ({ lidas: true, vivas: new Set<string>() }), git: () => null,
+      lerReservas: () => ({ leitura: 'copia-local' as const, reservas: [] }),
+      enviar: (_c: string, texto: string) => { enviadas.push(texto); return { estado: 'confirmado' as const, referencia: null }; } };
+    const fechou = tiqueDoArco(p.carregado, 'arco-mo11', { ...simuladas, quando: conteudo.janela.fim,
+      passo: () => assert.fail('o passo não roda no arco que fecha') });
+    assert.deepEqual([fechou.fechamento.motivo, fechou.falhas], ['hora', []]);
+    // O registro do fechamento deixa de ser privado do núcleo: toda leitura dele recusa como adulterado.
+    fs.chmodSync(path.join(pastaDoArco(p.dir, 'arco-mo11'), 'fechamento.jsonl'), 0o644);
+    const r = tiqueDoArco(p.carregado, 'arco-mo11', { ...simuladas, quando: vencimentoDoRelatorio(conteudo) });
+    assert.deepEqual(r.falhas.map(f => [f.etapa, f.motivo]), [['fechamento', 'noctum.registro.adulterado']]);
+    assert.equal(r.fechamento.fechado, true, 'o arco segue encerrado: o encerrado mora no log do arco, que se lê');
+    assert.deepEqual([r.relatorio.acao, enviadas.length], ['entregue', 1]);
+    assert.match(enviadas[0], /Não lido: .*o registro do fechamento não se lê \(noctum\.registro\.adulterado\)/);
+    const cliTique = cli(p.dir, ['noctum', 'tique', 'arco-mo11']);
+    assert.equal(cliTique.status, 1, 'o cron do dono vê a falha pela saída');
+    assert.match(cliTique.stdout, /falha no fechamento: noctum\.registro\.adulterado/);
   } finally { p.limpar(); }
 });

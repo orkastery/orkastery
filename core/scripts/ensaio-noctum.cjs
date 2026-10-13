@@ -545,7 +545,10 @@ function cenarioPrazoEFuso(c, a, n) {
     texto.includes(`Horários em ${fuso}.`) && texto.includes(`O arco fechou às ${horaLocal} (fila vazia)`), texto.slice(0, 300));
 }
 
-/** O teto do arco com sessões em voo: para tudo, sem retry nem troca de conta, e deixa o estado para retomar. */
+/**
+ * O teto do arco com sessões em voo, em `sessoes`: nenhuma reserva nova passa, em conta nenhuma; as sessões já contadas
+ * terminam (pará-las não protege o teto) e o arco fecha por custo quando a última acaba; a hora final para a que passar do fim.
+ */
 function cenarioTetoComSessoesEmVoo(c, a, n) {
   const proj = a.projeto('teto-com-sessoes');
   a.canal(proj);
@@ -555,35 +558,50 @@ function cenarioTetoComSessoesEmVoo(c, a, n) {
   const trabalhos = th.map((x, i) => ({ id: `t${i + 1}`, item: itens[i], prioridade: i + 1, dependeDe: [], thread: x.id }));
   const arco = a.abrirArco(proj, a.pedido('arco-teto', { trabalhos, teto: { valor: 2, unidade: 'sessoes' } }));
   const t0 = iso(minutoCheio(Date.now()) + MIN);
-  const tq = (min) => a.tique(proj, 'arco-teto', rt, depois(t0, min * MIN), itens);
+  const em = (min) => depois(t0, min * MIN);
+  const tq = (min) => a.tique(proj, 'arco-teto', rt, em(min), itens);
   tq(0);
   tq(1);
-  const e1 = n.arco.lerArco(proj.dir, 'arco-teto', depois(t0, MIN));
-  const contas = [...new Set(e1.despachos.map((d) => d.conta))];
+  const e1 = n.arco.lerArco(proj.dir, 'arco-teto', em(1));
   c.esperar('dois despachos alcançam o teto do arco (2 sessões), com as duas sessões em voo', e1.consumo.arco === 2 && rt.vivas.size === 2,
     JSON.stringify(e1.consumo));
   const r2 = tq(2);
-  const e2 = n.arco.lerArco(proj.dir, 'arco-teto', depois(t0, 2 * MIN));
-  c.esperar('o tique seguinte fecha por custo antes de qualquer despacho novo: o t3 não ganha reserva',
-    r2.fechamento.agora && r2.fechamento.motivo === 'custo' && r2.passo === null && e2.despachos.length === 2 &&
-      /teto do arco é de 2 sessoes e 2 foram reservadas/.test(r2.fechamento.detalhe), r2.fechamento.detalhe);
-  c.esperar('cada sessão em voo recebeu exatamente um pedido de parada, pelo controle da conta dela', rt.paradas.length === 2 &&
-    new Set(rt.paradas).size === 2 && r2.fechamento.paradas.every((p) => p.resultado === 'pedida'), JSON.stringify(rt.paradas));
-  const recusas = ['perfil-a', 'perfil-b'].map((conta) => a.recusaDe(() => n.arco.reservarDespacho(proj.dir, { arco: 'arco-teto', envelopeSha256: arco.sha,
-    trabalho: 't3', thread: th[2].id, fase: 'GOAL', runtime: 'claude-bg', conta, revisao: false }, depois(t0, 3 * MIN))));
-  c.esperar(`sem troca de conta para contornar: nem ${contas.length > 1 ? 'as duas contas' : 'outra conta'} reservam depois do teto (noctum.efeito.encerrado)`,
-    recusas.every((x) => x === 'noctum.efeito.encerrado'), JSON.stringify(recusas));
-  const r7 = tq(7);
-  c.esperar('sem retry: o tique seguinte confirma as paradas e não pede nada de novo, nem despacha', r7.fechamento.conferencias.length === 2 &&
-    r7.fechamento.conferencias.every((x) => x.confirmada) && rt.paradas.length === 2 && rt.despachos.length === 2,
-    JSON.stringify(r7.fechamento.conferencias));
+  c.esperar('com o teto alcançado, nenhuma reserva nova passa: o t3 é recusado (noctum.orcamento.esgotado) e nada é despachado',
+    !r2.fechamento.fechado && r2.passo?.acao === 'recusado' && r2.passo.motivo === 'noctum.orcamento.esgotado' && rt.despachos.length === 2 &&
+      n.arco.lerArco(proj.dir, 'arco-teto', em(2)).despachos.length === 2, JSON.stringify({ f: r2.fechamento.detalhe, passo: r2.passo }));
+  c.esperar('as sessões já contadas no teto seguem: nenhuma é parada, porque pará-las não protege o teto', rt.paradas.length === 0 &&
+    rt.vivas.size === 2, JSON.stringify(rt.paradas));
+  const reservar = (conta, min) => a.recusaDe(() => n.arco.reservarDespacho(proj.dir, { arco: 'arco-teto', envelopeSha256: arco.sha, trabalho: 't3',
+    thread: th[2].id, fase: 'GOAL', runtime: 'claude-bg', conta, revisao: false }, em(min)));
+  const noTeto = ['perfil-a', 'perfil-b'].map((conta) => reservar(conta, 3));
+  c.esperar('sem troca de conta para contornar: nenhuma das duas contas reserva com o teto alcançado (noctum.orcamento.esgotado)',
+    noTeto.every((x) => x === 'noctum.orcamento.esgotado'), JSON.stringify(noTeto));
+  const e3 = n.arco.lerArco(proj.dir, 'arco-teto', em(3));
+  e3.despachos.forEach((d, i) => { a.concluirSessao(proj, d.thread, d.sessionId, 'GOAL', em(30 + 10 * i)); rt.vivas.delete(d.sessionId); });
+  const r41 = tq(41);
+  c.esperar('quando a última sessão admitida acaba, o arco fecha por custo, sem nada a parar', r41.fechamento.agora &&
+    r41.fechamento.motivo === 'custo' && /teto do arco é de 2 sessoes e 2 foram reservadas; nenhuma segue em voo/.test(r41.fechamento.detalhe) &&
+    r41.passo === null && rt.paradas.length === 0 && r41.fechamento.paradas.length === 0, r41.fechamento.detalhe);
+  const depoisDoTeto = ['perfil-a', 'perfil-b'].map((conta) => reservar(conta, 42));
+  c.esperar('depois do fechamento nada reserva, em conta nenhuma (noctum.efeito.encerrado), e o arco fica encerrado',
+    depoisDoTeto.every((x) => x === 'noctum.efeito.encerrado') && n.arco.lerArco(proj.dir, 'arco-teto', em(43)).situacao === 'encerrado',
+    JSON.stringify(depoisDoTeto));
   const retrato = n.fechamento.lerFechamento(proj.dir, 'arco-teto').retrato ?? {};
-  c.esperar('o estado deixado para retomar identifica o consumo, as sessões em voo a reconciliar e o trabalho que sobrou',
-    retrato.motivo === 'custo' && (retrato.retomada?.reconciliacaoPendente ?? []).filter((x) => /em voo no fechamento/.test(x)).length === 2 &&
+  c.esperar('o estado deixado para retomar identifica o consumo, o trabalho que sobrou e a instrução de abrir um arco novo',
+    retrato.motivo === 'custo' && retrato.consumo?.sessoes?.valor === 2 &&
       (retrato.retomada?.trabalhos ?? []).some((x) => x.id === 't3' && x.estado !== 'entregue') &&
       (retrato.retomada?.instrucao ?? []).some((x) => /não reabre/.test(x)), JSON.stringify(retrato.retomada));
-  const situacao = n.arco.lerArco(proj.dir, 'arco-teto', depois(t0, 8 * MIN)).situacao;
-  c.esperar('o arco fica encerrado: nada o reabre dentro da janela', situacao === 'encerrado', situacao);
+  // A hora final ainda vale com o teto alcançado: a sessão admitida que passa do fim é parada.
+  const rt2 = a.runtime();
+  const th2 = a.threadDoTrabalho(proj, 9, 'RM-909');
+  const arco2 = a.abrirArco(proj, a.pedido('arco-teto-hora', { trabalhos: [{ id: 'h1', item: 'RM-909', prioridade: 1, dependeDe: [], thread: th2.id }],
+    teto: { valor: 1, unidade: 'sessoes' } }));
+  a.tique(proj, 'arco-teto-hora', rt2, t0, ['RM-909']);
+  const antes = a.tique(proj, 'arco-teto-hora', rt2, depois(arco2.fim, -MIN), ['RM-909']);
+  const hora = a.tique(proj, 'arco-teto-hora', rt2, arco2.fim, ['RM-909']);
+  c.esperar('com o teto alcançado e a sessão passando do fim, a hora final fecha o arco e pede a parada dela, uma vez',
+    rt2.despachos.length === 1 && !antes.fechamento.fechado && hora.fechamento.motivo === 'hora' && rt2.paradas.length === 1,
+    JSON.stringify({ antes: antes.fechamento.detalhe, hora: hora.fechamento.motivo, paradas: rt2.paradas }));
 }
 
 /** A medição: teto em minutos medidos, que fecha com as sessões em voo, e teto em tokens com lacuna, que nunca vale zero. */
@@ -746,7 +764,8 @@ const CENARIOS = [
   { nome: 'ligar-o-modo', titulo: 'o transporte que liga o modo: proposta, ingresso assinado e #Noctum só com envelope vigente', fn: cenarioLigarOModo },
   { nome: 'arco-curto', titulo: 'o arco curto com falhas injetadas, do primeiro despacho ao relatório da manhã', fn: cenarioArcoCurto },
   { nome: 'prazo-e-fuso', titulo: 'o relatório no horário e no fuso do envelope, sem antecipar', fn: cenarioPrazoEFuso },
-  { nome: 'teto-com-sessoes-em-voo', titulo: 'o teto do arco com sessões em voo: parada global, sem retry nem troca de conta', fn: cenarioTetoComSessoesEmVoo },
+  { nome: 'teto-com-sessoes-em-voo', titulo: 'o teto do arco com sessões em voo: nada novo passa, sem retry nem troca de conta, e as contadas terminam',
+    fn: cenarioTetoComSessoesEmVoo },
   { nome: 'teto-medido', titulo: 'a medição: minutos medidos que fecham o arco e tokens que viram lacuna, nunca zero', fn: cenarioTetoMedido },
   { nome: 'sem-recibo-e-reenvio', titulo: 'a falta de recibo no retrato e o reenvio sem duplicação', fn: cenarioSemReciboEReenvio },
   { nome: 'correcao-explicita', titulo: 'a entrega informada e revertida, corrigida numa versão nova', fn: cenarioCorrecaoExplicita },

@@ -225,6 +225,9 @@ export interface OpcoesDoTique extends OpcoesDoFechamento, Omit<OpcoesDoRelatori
   opcoesDoPasso?: OpcoesDoPasso;
 }
 
+/** A recusa tipada de uma etapa do tique: fica no resultado, e o relatório sai assim mesmo. */
+export interface FalhaDoTique { etapa: 'fechamento' | 'passo'; motivo: string; detalhe: string }
+
 export interface ResultadoDoTique {
   contrato: typeof CONTRATO_TIQUE;
   arco: string;
@@ -232,11 +235,14 @@ export interface ResultadoDoTique {
   fechamento: ResultadoDoFechamento;
   passo: ResultadoDoPasso | null;
   relatorio: ResultadoDaEntrega;
+  falhas: FalhaDoTique[];
 }
 
 /**
  * D13: um tique do arco: o fechamento, o passo (só com o arco vigente e não encerrado) e o relatório, nessa ordem. Se o
  * passo encerra pela fila vazia, o fechamento roda de novo no mesmo tique. Arco nunca autorizado recusa: o modo não vale.
+ * Cada etapa é isolada: a recusa tipada do fechamento ou do passo (o registro do fechamento adulterado ou ocupado, por
+ * exemplo) vira falha do tique, e o relatório da manhã sai assim mesmo; o erro que não é recusa sobe depois do relatório.
  */
 export function tiqueDoArco(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoTique = {}): ResultadoDoTique {
   const quando = opcoes.quando ?? new Date().toISOString();
@@ -247,14 +253,34 @@ export function tiqueDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
   }
   const deFechamento: OpcoesDoFechamento = { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, medir: opcoes.medir,
     parar: opcoes.parar, listarSessoes: opcoes.listarSessoes, git: opcoes.git };
-  let fechamento = fecharSeDevido(carregado, arco, deFechamento);
+  const falhas: FalhaDoTique[] = [];
+  let erro: unknown = null;
+  const isolada = <T>(etapa: FalhaDoTique['etapa'], fn: () => T): T | null => {
+    try { return fn(); }
+    catch (e) {
+      if (e instanceof RecusaDoArco || e instanceof RecusaDoRegistro) falhas.push({ etapa, motivo: e.motivo, detalhe: e.message.slice(0, 300) });
+      else erro ??= e;
+      return null;
+    }
+  };
+  const queFalhou = (): ResultadoDoFechamento => {
+    let e: EstadoDoArco | null = null;
+    try { e = lerArco(raiz, arco, quando); } catch { e = null; }
+    return { fechado: !!e?.encerramento, agora: false, motivo: e?.encerramento?.motivo ?? null, retrato: null, paradas: [], conferencias: [],
+      detalhe: 'o fechamento não terminou neste tique; veja as falhas' };
+  };
+  let fechamento = isolada('fechamento', () => fecharSeDevido(carregado, arco, deFechamento)) ?? queFalhou();
   let passo: ResultadoDoPasso | null = null;
-  if (!fechamento.fechado && lerArco(raiz, arco, quando)?.situacao === 'vigente') {
-    passo = (opcoes.passo ?? ((k, a, q) => passoDoArco(k, a, { maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, ...opcoes.opcoesDoPasso,
-      quando: q })))(carregado, arco, quando);
-    if (passo.acao === 'encerrar') fechamento = fecharSeDevido(carregado, arco, deFechamento);
+  if (!fechamento.fechado && erro === null && falhas.length === 0 && lerArco(raiz, arco, quando)?.situacao === 'vigente') {
+    passo = isolada('passo', () => (opcoes.passo ?? ((k, a, q) => passoDoArco(k, a, { maquina: opcoes.maquina, lerReservas: opcoes.lerReservas,
+      ...opcoes.opcoesDoPasso, quando: q })))(carregado, arco, quando));
+    if (passo?.acao === 'encerrar') fechamento = isolada('fechamento', () => fecharSeDevido(carregado, arco, deFechamento)) ?? queFalhou();
   }
-  const relatorio = entregarRelatorioSeDevido(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas,
-    medir: opcoes.medir, supervisao: opcoes.supervisao, enviar: opcoes.enviar });
-  return { contrato: CONTRATO_TIQUE, arco, quando, fechamento, passo, relatorio };
+  let relatorio: ResultadoDaEntrega;
+  try {
+    relatorio = entregarRelatorioSeDevido(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas,
+      medir: opcoes.medir, supervisao: opcoes.supervisao, enviar: opcoes.enviar });
+  } catch (e) { throw erro ?? e; }
+  if (erro !== null) throw erro;
+  return { contrato: CONTRATO_TIQUE, arco, quando, fechamento, passo, relatorio, falhas };
 }

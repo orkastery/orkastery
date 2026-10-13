@@ -84,14 +84,16 @@ test('EP2: o relógio controlado prova prazo e fuso: vence no primeiro HH:MM do 
   provada(curto, /^no tique seguinte a lista do runtime confirma a parada/);
 });
 
-test('EP3: o teto com sessões em voo para tudo, sem retry nem troca de conta, e o teto medido fecha sem chamar lacuna de zero', { skip: semKernel }, () => {
+test('EP3: o teto com sessões em voo não admite mais nada, sem retry nem troca de conta, e as sessões contadas terminam; o teto medido fecha sem chamar lacuna de zero', { skip: semKernel }, () => {
   const c = cenario('teto-com-sessoes-em-voo');
   provada(c, /^dois despachos alcançam o teto do arco \(2 sessões\), com as duas sessões em voo/);
-  provada(c, /^o tique seguinte fecha por custo antes de qualquer despacho novo/);
-  provada(c, /^cada sessão em voo recebeu exatamente um pedido de parada/);
-  provada(c, /^sem troca de conta para contornar/);
-  provada(c, /^sem retry: o tique seguinte confirma as paradas/);
+  provada(c, /^com o teto alcançado, nenhuma reserva nova passa: o t3 é recusado \(noctum\.orcamento\.esgotado\)/);
+  provada(c, /^as sessões já contadas no teto seguem: nenhuma é parada/);
+  provada(c, /^sem troca de conta para contornar: nenhuma das duas contas reserva/);
+  provada(c, /^quando a última sessão admitida acaba, o arco fecha por custo, sem nada a parar/);
+  provada(c, /^depois do fechamento nada reserva, em conta nenhuma/);
   provada(c, /^o estado deixado para retomar identifica o consumo/);
+  provada(c, /^com o teto alcançado e a sessão passando do fim, a hora final fecha o arco e pede a parada dela/);
   const m = cenario('teto-medido');
   provada(m, /^com 33 de 30 minutos medidos, o arco fecha por custo com as três sessões em voo/);
   provada(m, /^sem transcrição legível, tokens ficam como lacuna/);

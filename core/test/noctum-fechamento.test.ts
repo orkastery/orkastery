@@ -9,11 +9,12 @@ import { abrirArco, autorizarPedido, entregar, pedidoV2, prepararIngressoSimulad
 import { depois, MIN } from './noctum-n6-apoio';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { registrar } from '../src/ledger';
-import { concluirDespacho, EstadoDoArco, lerArco, reservarDespacho } from '../src/noctum-arco';
+import { concluirDespacho, encerrarArco, EstadoDoArco, lerArco, reservarDespacho } from '../src/noctum-arco';
 import { RecusaDoArco } from '../src/noctum-envelope';
 import { condicaoDeFechamento, fecharSeDevido, lerFechamento, OpcoesDoFechamento, SessaoEmVoo, textoDaParada } from '../src/noctum-fechamento';
 import { FilaDoArco } from '../src/noctum-fila';
 import { MedicaoDoArco } from '../src/noctum-medicao';
+import { lerRegistro } from '../src/noctum-registro';
 import { dirThread, novaThread } from '../src/thread';
 
 prepararIngressoSimulado();
@@ -87,31 +88,39 @@ test('FE1: no fim do envelope o arco fecha por hora, pede a parada de cada sess�
   } finally { p.limpar(); }
 });
 
-test('FE2: o teto do arco em sessões fecha por custo com sessões em voo; reserva devolvida depois não reabre nem redespacha', { skip: semKernel }, () => {
+test('FE2: o teto do arco em sessões não admite mais nada; as sessões já contadas terminam, e o arco fecha por custo quando a última acaba', { skip: semKernel }, () => {
   const p = projetoTemporario('noctum-fe2');
   try {
     const { trabalhos, ids } = threads(p);
-    const sha = abrirArco(p.dir, 'arco-fe2', { trabalhos, tetoDoArco: 2 });
+    const sha = abrirArco(p.dir, 'arco-fe2', { trabalhos, tetoDoArco: 2, contas: [{ conta: 'perfil-a', sessoes: 2 }, { conta: 'perfil-b', sessoes: 2 }] });
     sessao(p, 'arco-fe2', sha, 't1', ids[0], 11);
-    // A segunda reserva fica pendente: o núcleo ainda não disse se a sessão abriu.
-    const s2 = reservarDespacho(p.dir, { arco: 'arco-fe2', envelopeSha256: sha, trabalho: 't2', thread: ids[1], fase: 'GO',
-      runtime: 'claude-bg', conta: 'perfil-a', revisao: false }).seq;
+    sessao(p, 'arco-fe2', sha, 't2', ids[1], 12, 'claude-bg', 'perfil-b');
     const paradas: SessaoEmVoo[] = [];
+    const comVoo = fecharSeDevido(p.carregado, 'arco-fe2', simuladas(paradas));
+    assert.equal(comVoo.fechado, false, 'com sessões admitidas em voo, o arco espera elas acabarem');
+    assert.equal(paradas.length, 0, 'nenhuma sessão já contada no teto é parada: pará-la não protege o teto');
+    for (const conta of ['perfil-a', 'perfil-b']) {
+      recusa(() => reservarDespacho(p.dir, { arco: 'arco-fe2', envelopeSha256: sha, trabalho: 't1', thread: ids[0], fase: 'GO', runtime: 'claude-bg',
+        conta, revisao: false }), 'noctum.orcamento.esgotado');
+    }
+    registrar(dirThread(p.dir, ids[0]), ids[0], 'phase_result', { fase: 'GO', sessionId: uuid(11), classificacao: 'fase_concluida', ok: true });
+    assert.equal(fecharSeDevido(p.carregado, 'arco-fe2', simuladas(paradas)).fechado, false, 'a do t2 ainda corre');
+    registrar(dirThread(p.dir, ids[1]), ids[1], 'phase_result', { fase: 'GO', sessionId: uuid(12), classificacao: 'fase_concluida', ok: true });
     const r = fecharSeDevido(p.carregado, 'arco-fe2', simuladas(paradas));
-    assert.deepEqual([r.fechado, r.motivo], [true, 'custo']);
-    assert.match(r.detalhe, /teto do arco é de 2 sessoes e 2 foram reservadas/);
-    assert.deepEqual(paradas.map(s => s.sessionId), [uuid(11)], 'parada global: a sessão em voo com id');
-    assert.deepEqual(r.paradas.map(x => x.resultado).sort(), ['pedida', 'sem-id']);
-    const antes = lerArco(p.dir, 'arco-fe2')!.despachos.length;
-    concluirDespacho(p.dir, 'arco-fe2', s2, { motivo: 'runtime.quota-exhausted' });
-    assert.equal(lerArco(p.dir, 'arco-fe2')!.consumo.arco, 1, 'a reserva voltou ao orçamento');
-    assert.equal(lerArco(p.dir, 'arco-fe2')!.situacao, 'encerrado', 'e o arco continua encerrado');
-    recusa(() => reservarDespacho(p.dir, { arco: 'arco-fe2', envelopeSha256: sha, trabalho: 't1', thread: ids[0], fase: 'GO',
-      runtime: 'claude-bg', conta: 'perfil-a', revisao: false }), 'noctum.efeito.encerrado');
-    const segundo = fecharSeDevido(p.carregado, 'arco-fe2', simuladas(paradas));
-    assert.equal(segundo.agora, false);
-    assert.equal(lerArco(p.dir, 'arco-fe2')!.despachos.length, antes, 'nenhum despacho novo depois do fechamento');
-    assert.equal(paradas.length, 1, 'nenhuma parada repetida');
+    assert.deepEqual([r.fechado, r.agora, r.motivo], [true, true, 'custo']);
+    assert.match(r.detalhe, /teto do arco é de 2 sessoes e 2 foram reservadas; nenhuma segue em voo/);
+    assert.deepEqual([paradas.length, r.paradas.length], [0, 0], 'nada a parar: as sessões contadas acabaram');
+    recusa(() => reservarDespacho(p.dir, { arco: 'arco-fe2', envelopeSha256: sha, trabalho: 't1', thread: ids[0], fase: 'GO', runtime: 'claude-bg',
+      conta: 'perfil-b', revisao: false }), 'noctum.efeito.encerrado');
+    // A reserva pendente também conta como em voo: o runtime pode ter aberto a sessão, e o teto não fecha por cima dela.
+    const q = threads(p, 1);
+    const sha2 = abrirArco(p.dir, 'arco-fe2b', { trabalhos: q.trabalhos, tetoDoArco: 1 });
+    reservarDespacho(p.dir, { arco: 'arco-fe2b', envelopeSha256: sha2, trabalho: 't1', thread: q.ids[0], fase: 'GO', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    assert.equal(fecharSeDevido(p.carregado, 'arco-fe2b', simuladas([])).fechado, false);
+    const fim = lerArco(p.dir, 'arco-fe2b')!.conteudo!.janela.fim;
+    const hora = fecharSeDevido(p.carregado, 'arco-fe2b', simuladas([], { quando: fim }));
+    assert.deepEqual([hora.motivo, hora.paradas.map(x => x.resultado)], ['hora', ['sem-id']], 'a hora final fecha e diz o que não tem id');
   } finally { p.limpar(); }
 });
 
@@ -186,12 +195,16 @@ test('FE7: fechar de novo devolve o mesmo retrato, com um só fechado e nenhuma 
     const { trabalhos, ids } = threads(p, 1);
     const sha = abrirArco(p.dir, 'arco-fe7', { trabalhos, tetoDoArco: 1 });
     sessao(p, 'arco-fe7', sha, 't1', ids[0], 31);
+    const fim = lerArco(p.dir, 'arco-fe7')!.conteudo!.janela.fim;
     const paradas: SessaoEmVoo[] = [];
-    const a = fecharSeDevido(p.carregado, 'arco-fe7', simuladas(paradas));
-    const b = fecharSeDevido(p.carregado, 'arco-fe7', simuladas(paradas, { listarSessoes: () => ({ lidas: false, vivas: new Set() }) }));
+    const a = fecharSeDevido(p.carregado, 'arco-fe7', simuladas(paradas, { quando: fim }));
+    assert.equal(a.motivo, 'hora');
+    const b = fecharSeDevido(p.carregado, 'arco-fe7', simuladas(paradas, { quando: fim,
+      listarSessoes: () => ({ lidas: false, vivas: new Set() }) }));
     assert.deepEqual(b.retrato, a.retrato);
     assert.equal(b.conferencias.length, 0, 'sem a listagem completa, a parada fica sem conferência, nunca confirmada por presunção');
-    const c = fecharSeDevido(p.carregado, 'arco-fe7', simuladas(paradas, { listarSessoes: () => ({ lidas: true, vivas: new Set([uuid(31)]) }) }));
+    const c = fecharSeDevido(p.carregado, 'arco-fe7', simuladas(paradas, { quando: fim,
+      listarSessoes: () => ({ lidas: true, vivas: new Set([uuid(31)]) }) }));
     assert.deepEqual(c.conferencias.map(x => x.confirmada), [false], 'a sessão viva depois do pedido fica não confirmada');
     assert.match(textoDaParada(c.paradas[0], c.conferencias), /parada não confirmada/);
     assert.equal(paradas.length, 1);
@@ -291,4 +304,81 @@ test('FE12: a parada sem id, sem controle ou que falhou vem em palavras, e a fil
   const detalhe = condicaoDeFechamento(estado, vazia, null, '2026-10-13T12:00:00.000Z')!.detalhe;
   assert.match(detalhe, /^todo trabalho do envelope tem a entrega registrada \(ship_done\), fechou sem entrega/);
   assert.doesNotMatch(detalhe, /está entregue/, 'o ship_done sem a prova do push não é entrega provada: quem diz qual tem prova é o relatório');
+});
+
+test('FE13: a reserva pendente para pela sessão que a falha do runtime disse, também na thread que o arco abriu para o pedido', { skip: semKernel }, () => {
+  // Achado do CHECK: o claude --bg que diz o id e sai com erro deixa a sessão aberta, e a reserva fica pendente sem o id no log.
+  const p = projetoTemporario('noctum-fe13');
+  try {
+    const { trabalhos, ids } = threads(p, 1);
+    const pedido = 'Fatia SIMULADA que o arco abre no fechamento.';
+    const sha = abrirArco(p.dir, 'arco-fe13', { trabalhos: [...trabalhos, { id: 'n1', item: 'RM-913', prioridade: 2, dependeDe: [], pedido }] });
+    const r1 = reservarDespacho(p.dir, { arco: 'arco-fe13', envelopeSha256: sha, trabalho: 't1', thread: ids[0], fase: 'GO', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    registrar(dirThread(p.dir, ids[0]), ids[0], 'phase_dispatch_failed', { fase: 'GO', sessionId: uuid(61), motivo: 'runtime.unavailable' });
+    const r2 = reservarDespacho(p.dir, { arco: 'arco-fe13', envelopeSha256: sha, trabalho: 'n1', thread: null, fase: 'GOAL', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    const aberta = novaThread(p.carregado, { nome: 'rm-913 n1', modo: 'auto', roadmap: 'RM-913', pedido, criarWorktree: false }).thread.id;
+    registrar(dirThread(p.dir, aberta), aberta, 'phase_dispatch_failed', { fase: 'GOAL', sessionId: uuid(62), motivo: 'runtime.unavailable' });
+    const fim = lerArco(p.dir, 'arco-fe13')!.conteudo!.janela.fim;
+    const paradas: SessaoEmVoo[] = [];
+    const r = fecharSeDevido(p.carregado, 'arco-fe13', simuladas(paradas, { quando: fim }));
+    assert.equal(r.motivo, 'hora');
+    assert.deepEqual(paradas.map(x => [x.seq, x.sessionId, x.thread]).sort(), [[r1.seq, uuid(61), ids[0]], [r2.seq, uuid(62), aberta]].sort());
+    assert.deepEqual(r.paradas.map(x => x.resultado), ['pedida', 'pedida']);
+    const pendentes = r.retrato!.retomada.reconciliacaoPendente.join('\n');
+    assert.match(pendentes, new RegExp(`reserva ${r1.seq} \\(t1\\): pendente, com a sessão ${uuid(61)} dita na falha do runtime`));
+    assert.match(pendentes, new RegExp(`reserva ${r2.seq} \\(n1\\): pendente, com a sessão ${uuid(62)} dita na falha do runtime`));
+  } finally { p.limpar(); }
+});
+
+test('FE14: o encerrado sem o retrato (o processo caiu no meio) ganha o retrato no tique seguinte, uma vez só', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-fe14');
+  try {
+    const { trabalhos, ids } = threads(p, 1);
+    abrirArco(p.dir, 'arco-fe14', { trabalhos });
+    entregar(p.dir, ids[0]);
+    encerrarArco(p.dir, 'arco-fe14', { motivo: 'fila-vazia', detalhe: 'simulado: o processo caiu antes do registro' });
+    assert.equal(lerFechamento(p.dir, 'arco-fe14').retrato, null);
+    const r = fecharSeDevido(p.carregado, 'arco-fe14', simuladas([]));
+    assert.deepEqual([r.fechado, r.agora, r.motivo], [true, false, 'fila-vazia']);
+    assert.equal(r.retrato?.detalhe, 'simulado: o processo caiu antes do registro');
+    assert.deepEqual(r.retrato?.retomada.trabalhos.map(t => [t.id, t.estado]), [['t1', 'entregue']]);
+    fecharSeDevido(p.carregado, 'arco-fe14', simuladas([]));
+    const linhas = lerRegistro<{ tipo: string }>(p.dir, 'arco-fe14', 'fechamento').filter(l => l.evento.tipo === 'fechado');
+    assert.equal(linhas.length, 1);
+  } finally { p.limpar(); }
+});
+
+test('FE15: a hora fecha mesmo com a medição falhando; medida que não é número não prova o teto; teto superior sai como teto superior', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-fe15');
+  try {
+    const { trabalhos } = threads(p, 1);
+    const comTeto = (arco: string, unidade: 'minutos-de-sessao' | 'percentual-da-cota', valor: number) => {
+      const pedido = pedidoV2(arco, { trabalhos });
+      autorizarPedido(p.dir, arco, { ...pedido, orcamento: { ...(pedido.orcamento as Record<string, unknown>), arco: { valor, unidade } } });
+      return lerArco(p.dir, arco)!.conteudo!.janela.fim;
+    };
+    const quebra = () => { throw new Error('transcrição SIMULADA ilegível'); };
+    const fim = comTeto('arco-fe15', 'minutos-de-sessao', 60);
+    const antes = fecharSeDevido(p.carregado, 'arco-fe15', simuladas([], { medir: quebra }));
+    assert.equal(antes.fechado, false);
+    assert.match(antes.detalhe, /a medição falhou \(transcrição SIMULADA ilegível\)/);
+    const hora = fecharSeDevido(p.carregado, 'arco-fe15', simuladas([], { quando: fim, medir: quebra }));
+    assert.deepEqual([hora.fechado, hora.motivo], [true, 'hora'], 'a hora final não depende da medição');
+    assert.equal(hora.retrato?.consumo['minutos-de-sessao'].valor, null);
+    assert.match(hora.retrato!.consumo.tokens.lacunas.join(' '), /a medição falhou no fechamento/);
+    comTeto('arco-fe15b', 'minutos-de-sessao', 60);
+    const nan = fecharSeDevido(p.carregado, 'arco-fe15b', simuladas([], { medir: (_r, e, q) => medicaoVazia(e.arco, q, Number.NaN) }));
+    assert.equal(nan.fechado, false, 'NaN nunca é maior ou igual ao teto, e não vira custo alcançado');
+    comTeto('arco-fe15c', 'percentual-da-cota', 50);
+    const cota = (_r: string, e: EstadoDoArco, q: string): MedicaoDoArco => {
+      const m = medicaoVazia(e.arco, q);
+      m.doArco['percentual-da-cota'] = { unidade: 'percentual-da-cota', valor: 95, lacunas: [], parcial: false, tetoSuperior: true, sessoes: 1 };
+      return m;
+    };
+    const teto = fecharSeDevido(p.carregado, 'arco-fe15c', simuladas([], { medir: cota }));
+    assert.equal(teto.motivo, 'custo');
+    assert.match(teto.detalhe, /teto do arco é de 50 percentual-da-cota e o consumo medido é até 95% \(teto superior\)/);
+  } finally { p.limpar(); }
 });
