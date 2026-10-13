@@ -665,3 +665,56 @@ test('K18: sem a leitura das reservas agora, nenhuma ordem sai', () => {
     assert.equal(lerCoordenacao(m.a.carregado, m.arco, op(m.a)).ordens.size, 0);
   } finally { (reservasDoRoadmap as { listarReservas: typeof original }).listarReservas = original; m.limpar(); }
 });
+
+test('K19: a distribuição automática não devolve o trabalho à máquina cuja ordem dele a autoridade cancelou; a emissão explícita escolhe', () => {
+  const m = cenario('noctum-k19', { trabalhos: [{ id: 'x', item: 'RM-981', prioridade: 1, dependeDe: [], pedido: 'Fatia X SIMULADA.' }] });
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    assert.deepEqual(distribuirOrdens(lerCoordenacao(m.a.carregado, m.arco, op(m.a)), 'maquina-a', depois(0), LIVRES), [{ trabalho: 'x', maquina: 'maquina-a' }]);
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'x', maquina: 'maquina-a' }, op(m.a));
+    responderOrdem(m.a.carregado, m.arco, 'O-x-1', 'aceita', 'SIMULADO', op(m.a));
+    // A2 da rodada 3: a N4 tira o x da A pela interface: cancela, a sessão para, e a A confirma o fim.
+    cancelarOrdem(m.a.carregado, m.arco, 'O-x-1', 'SIMULADO: retomada em outra máquina', op(m.a));
+    encerrarOrdem(m.a.carregado, m.arco, 'O-x-1', { motivo: 'SIMULADO: a sessão parou', checkpoint: { thread: null, vagasSoltas: [] } }, op(m.a));
+    const estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
+    assert.equal(situacaoDoTrabalho(estado, 'x')!.estado, 'livre');
+    assert.deepEqual(distribuirOrdens(estado, 'maquina-a', depois(0), LIVRES), [{ trabalho: 'x', maquina: 'maquina-b' }], 'a retomada vai para a outra máquina');
+    // A emissão explícita, a da N4, escolhe a máquina, inclusive a mesma.
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'x', maquina: 'maquina-a' }, op(m.a)), 'O-x-2');
+  } finally { m.limpar(); }
+});
+
+test('K20: o motivo de quem chama a interface vai ao ramo, que pode ser público, só sem caminho, e-mail, id de sessão ou segredo', () => {
+  const m = cenario('noctum-k20');
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a)), 'O-a-1');
+    const antes = lerCoordenacao(m.a.carregado, m.arco, op(m.a)).ponta;
+    // A3 da rodada 3: o caminho, o e-mail, o id de sessão e o segredo nomeado ficam aqui, sem eco na mensagem.
+    for (const s of ['/home/fulano/projeto/.env', 'falar com fulano@exemplo.com', 'sessao 11111111-2222-4333-8444-555555555555',
+      'TOKEN=SIMULADO-abc123', 'senha: SIMULADA', '~/segredos/chave.pem']) {
+      const motivo = `SIMULADO: ${s}`;
+      const chamadas: Array<() => unknown> = [
+        () => cancelarOrdem(m.a.carregado, m.arco, 'O-a-1', motivo, op(m.a)),
+        () => responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'recusada', motivo, op(m.b)),
+        () => cederAutoridade(m.a.carregado, m.arco, 'maquina-b', motivo, op(m.a)),
+        () => assumirAutoridade(m.b.carregado, m.arco, { ...op(m.b), forcar: { motivo } }),
+        () => encerrarOrdem(m.b.carregado, m.arco, 'O-a-1', { motivo, checkpoint: { thread: null, vagasSoltas: [] } }, op(m.b)),
+        () => soltarVagaGlobal(m.b.carregado, m.arco, 'V-maquina-b-1', { consumiu: false, motivo }, op(m.b)),
+      ];
+      for (const chamar of chamadas) {
+        const msg = recusa(chamar, 'noctum.envelope.invalido');
+        assert.match(msg, /o motivo vai ao ramo de coordenação, que pode ser público, e traz um /);
+        assert.ok(!/fulano|abc123|11111111|SIMULADA|segredos/.test(msg), msg);
+      }
+    }
+    assert.equal(lerCoordenacao(m.a.carregado, m.arco, op(m.a)).ponta, antes, 'nada foi ao ramo');
+    // O motivo tipado, só com ids e o nome do repositório, passa.
+    assert.equal(cancelarOrdem(m.a.carregado, m.arco, 'O-a-1', 'noctum.efeito.fora-do-destino: merge em exemplo/produto, base main', op(m.a)),
+      'cancelada-antes');
+    assert.equal(lerCoordenacao(m.b.carregado, m.arco, op(m.b)).ordens.get('O-a-1')!.cancelada!.motivo,
+      'noctum.efeito.fora-do-destino: merge em exemplo/produto, base main');
+  } finally { m.limpar(); }
+});

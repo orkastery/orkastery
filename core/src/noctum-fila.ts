@@ -115,9 +115,10 @@ export interface FatosDoTrabalho {
 
 /**
  * RM-058 N3 (D14 da ork-rm058n3): o que o ramo de coordenação diz a esta máquina num arco entre máquinas. Os trabalhos
- * com ordem aceita dela são os únicos que ela despacha, e os entregues em qualquer máquina contam como entregues aqui.
+ * com ordem aceita dela são os únicos que ela despacha, os entregues em qualquer máquina contam como entregues aqui, e os
+ * encerrados sem entrega em outra máquina, como encerrados aqui (B1 e S1 da rodada 3).
  */
-export interface CoordenacaoDaFila { trabalhos: ReadonlySet<string>; entregues: ReadonlyMap<string, string> }
+export interface CoordenacaoDaFila { trabalhos: ReadonlySet<string>; entregues: ReadonlyMap<string, string>; encerrados?: ReadonlySet<string> }
 
 /** RM-058 N4 (D8 e D16 da ork-rm058n4): o que a supervisão do arco decidiu e a fila respeita. */
 export interface DecisoesDaSupervisao {
@@ -180,6 +181,9 @@ function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefine
   // N3: a entrega em outra máquina do arco vale aqui, até sem thread nesta raiz.
   const naRede = fatos.coordenacao?.entregues.get(t.id);
   if (naRede) return { ...base, thread: f?.threads[0]?.id ?? null, estado: 'entregue', entregueEm: naRede, detalhe: 'entregue em outra máquina do arco' };
+  if (fatos.coordenacao?.encerrados?.has(t.id)) {
+    return { ...base, thread: f?.threads[0]?.id ?? null, estado: 'encerrado-sem-entrega', detalhe: 'encerrado sem entrega em outra máquina do arco' };
+  }
   if (!f) return bloqueado('thread-ilegivel', 'o trabalho não foi lido');
   if (f.ilegivel) return bloqueado('thread-ilegivel', `a thread ${f.ilegivel} não pôde ser lida`);
   if (f.threads.length > 1) {
@@ -283,8 +287,12 @@ export function montarFila(fatos: FatosDaFila): FilaDoArco {
     const f = fatos.porTrabalho.get(t.id);
     return fatos.coordenacao?.entregues.has(t.id) || (!!f && f.threads.length === 1 && !!f.entregueEm && f.threads[0].roadmap === t.item);
   }).map(t => t.id));
-  // S7 do CHECK: quem fechou sem entrega nunca mais entrega neste arco, nem quem depende dele, de qualquer distância.
+  // S7 do CHECK: quem fechou sem entrega nunca mais entrega neste arco, nem quem depende dele, de qualquer distância. No arco
+  // entre máquinas (B1 e S1 da rodada 3 da ork-rm058n3), a rede decide antes da thread local: o entregue lá nunca fica sem
+  // saída por uma thread antiga fechada aqui, e o encerrado lá fica sem saída aqui também.
   const semSaida = new Set(conteudo.trabalhos.filter(t => {
+    if (fatos.coordenacao?.entregues.has(t.id)) return false;
+    if (fatos.coordenacao?.encerrados?.has(t.id)) return true;
     const f = fatos.porTrabalho.get(t.id);
     return !!f && f.threads.length === 1 && !f.entregueEm && f.threads[0].status === 'fechada' && f.threads[0].roadmap === t.item;
   }).map(t => t.id));

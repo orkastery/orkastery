@@ -147,6 +147,29 @@ const objeto = (v: unknown): v is Record<string, unknown> => typeof v === 'objec
 const inteiro = (v: unknown, minimo = 1): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= minimo;
 const linha = (v: unknown, teto = 300): v is string => typeof v === 'string' && v.length <= teto && !/[\r\n]/.test(v);
 const sha = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{40,64}$/.test(v);
+
+/**
+ * A3 da rodada 3: o motivo de quem chama a interface vai ao ramo de coordenação, que mora no remoto do projeto e pode ser
+ * público. Ele vai numa linha de até 300 caracteres e sem caminho absoluto, e-mail, id de sessão nem segredo nomeado; quem
+ * chama manda um motivo tipado, como os que a N3 grava (`noctum.*` e um detalhe só com ids).
+ */
+const FORA_DO_RAMO: ReadonlyArray<readonly [RegExp, string]> = [
+  [/(^|[\s"'(=:,;])~?\/[\w.-]/, 'um caminho absoluto'],
+  [/[\w.+-]+@[\w-]+\.[\w.-]+/, 'um e-mail'],
+  [/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i, 'um id de sessão'],
+  [/\b(token|secret|senha|password|passwd|api[_-]?key)\b\s*[=:]|\bbearer\s+\S{8,}/i, 'um segredo'],
+];
+
+export function motivoPublico(motivo: unknown, oQue: string): string {
+  const m = String(motivo ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 300);
+  if (!m) throw recusa('noctum.envelope.invalido', `${oQue} exige motivo`);
+  const fora = FORA_DO_RAMO.find(([re]) => re.test(m));
+  if (fora) {
+    throw recusa('noctum.envelope.invalido', `${oQue}: o motivo vai ao ramo de coordenação, que pode ser público, e traz ${fora[1]}; ` +
+      'mande um motivo tipado, só com ids');
+  }
+  return m;
+}
 const COMUNS = ['contrato', 'tipo', 'arco', 'envelopeSha256', 'por', 'em'];
 
 /** A chave do destino de integração no ramo: o repositório sem caixa e a base. */
@@ -451,6 +474,11 @@ export function entreguesNaRede(estado: EstadoDaCoordenacao): Map<string, string
   return new Map([...estado.trabalhos.values()].filter(s => s.estado === 'entregue').map(s => [s.trabalho, s.entregueEm!]));
 }
 
+/** Os trabalhos encerrados sem entrega em alguma máquina do arco (S1 da rodada 3): terminais em todas, como os entregues. */
+export function encerradosNaRede(estado: EstadoDaCoordenacao): Set<string> {
+  return new Set([...estado.trabalhos.values()].filter(s => s.estado === 'encerrado').map(s => s.trabalho));
+}
+
 /**
  * A máquina deu sinal de vida há pouco, no instante dado? O sinal é o registro mais novo que ela assinou, inclusive a
  * autoridade que ela acabou de assumir e a vez que ela tomou (S2 da revisão). A própria máquina, rodando agora, sempre deu.
@@ -513,6 +541,7 @@ const nomeDe = (opcoes: OpcoesDaCoordenacao): string => nomeDaMaquina(opcoes.maq
 export function assumirAutoridade(carregado: ManifestoCarregado, arco: string,
   opcoes: OpcoesDaCoordenacao & { forcar?: { motivo: string } } = {}): AutoridadeDerivada {
   const quando = opcoes.quando ?? new Date().toISOString();
+  const motivoForcado = opcoes.forcar ? motivoPublico(opcoes.forcar.motivo, 'a tomada forçada da autoridade') : null;
   exigirArcoVigente(carregado, arco, quando);
   const r = gravarNaCoordenacao<AutoridadeDerivada>(carregado, arco, { ...opcoes, quando }, (leitura) => {
     const estado = derivarCoordenacao(leitura);
@@ -530,9 +559,8 @@ export function assumirAutoridade(carregado: ManifestoCarregado, arco: string,
       const motivo = estado.cessoes.get(a.geracao)!.motivo;
       return { novos: [{ tipo: 'autoridade', geracao: a.geracao + 1, modo: 'cessao', motivo, anterior, selo }], resultado: nova(a.geracao + 1, 'cessao', motivo) };
     }
-    if (opcoes.forcar) {
-      const motivo = String(opcoes.forcar.motivo ?? '').trim();
-      if (!linha(motivo) || !motivo) throw recusa('noctum.envelope.invalido', 'a tomada forçada da autoridade exige motivo em uma linha');
+    if (motivoForcado) {
+      const motivo = motivoForcado;
       const fora = !envelopeMultimaquina(vigente.conteudo) || !vigente.conteudo.maquinas.some(m => m.nome === a.maquina);
       if (!fora && batidaRecente(estado, a.maquina, eu.nome, quando)) {
         throw recusa('noctum.coordenacao.autoridade-ativa', `a autoridade ${a.maquina} deu sinal há menos de ${BATIDA_VENCIDA_MS / 60000} min; tomar à força exige o sinal vencido`);
@@ -547,6 +575,7 @@ export function assumirAutoridade(carregado: ManifestoCarregado, arco: string,
 
 /** A autoridade vigente cede a vez a outra máquina do envelope; a outra assume com `assumirAutoridade`. */
 export function cederAutoridade(carregado: ManifestoCarregado, arco: string, para: string, motivo: string, opcoes: OpcoesDaCoordenacao = {}): void {
+  const doCedente = motivoPublico(motivo, 'a cessão');
   gravarNaCoordenacao(carregado, arco, opcoes, (leitura) => {
     const estado = derivarCoordenacao(leitura);
     const { eu, vigente } = euNaVersaoVigente(carregado.raiz, leitura, opcoes);
@@ -554,10 +583,9 @@ export function cederAutoridade(carregado: ManifestoCarregado, arco: string, par
     if (para === eu.nome || !maquinasDe(vigente.conteudo).some(m => m.nome === para)) {
       throw recusa('noctum.coordenacao.fora-do-envelope', `a cessão vai a outra máquina do envelope vigente, não a ${para}`);
     }
-    if (!linha(motivo) || !motivo.trim()) throw recusa('noctum.envelope.invalido', 'a cessão exige motivo em uma linha');
     if (estado.cessoes.get(a.geracao)?.para === para) return { novos: [], resultado: null };
     if (estado.cessoes.has(a.geracao)) throw recusa('noctum.coordenacao.concorrencia', `a geração ${a.geracao} já foi cedida`);
-    return { novos: [{ tipo: 'cessao', geracao: a.geracao, para, motivo: motivo.trim() }], resultado: null };
+    return { novos: [{ tipo: 'cessao', geracao: a.geracao, para, motivo: doCedente }], resultado: null };
   });
 }
 
@@ -607,6 +635,15 @@ function recusou(estado: EstadoDaCoordenacao, trabalho: string, maquina: string)
     o.envelopeSha256 === estado.vigente.envelopeSha256 &&
     ((o.estado === 'recusada' && !comMotivo(o.recibos.recusada, 'noctum.reserva.de-outra-maquina')) ||
       (o.estado === 'encerrada' && comMotivo(o.recibos.encerrada, 'noctum.reserva.item-invalido'))));
+}
+
+/**
+ * A2 da rodada 3: a autoridade cancelou a ordem deste trabalho nesta máquina, nesta versão do envelope? A distribuição
+ * automática não a devolve à mesma máquina (a retomada é em outra); a emissão explícita (`emitirOrdem`, da N4) escolhe.
+ */
+function canceladaNela(estado: EstadoDaCoordenacao, trabalho: string, maquina: string): boolean {
+  return [...estado.ordens.values()].some(o => o.trabalho === trabalho && o.maquina === maquina && !!o.cancelada &&
+    o.envelopeSha256 === estado.vigente.envelopeSha256);
 }
 
 /**
@@ -716,7 +753,8 @@ export function distribuirOrdens(estado: EstadoDaCoordenacao, eu: string, quando
       .find(o => o.item === t.item)?.maquina;
     const candidatas = t.maquina ? [t.maquina] : doItem ? [doItem]
       : c.maquinas.map(m => m.nome).sort((x, y) => vivas.get(x)! - vivas.get(y)! || c.maquinas.findIndex(m => m.nome === x) - c.maquinas.findIndex(m => m.nome === y));
-    const alvo = candidatas.find(m => (vivas.get(m) ?? limite) < limite && porQueNaoOrdenar(estado, t.id, m, eu, quando, reservas, emitidas) === null);
+    const alvo = candidatas.find(m => !canceladaNela(estado, t.id, m) && (vivas.get(m) ?? limite) < limite &&
+      porQueNaoOrdenar(estado, t.id, m, eu, quando, reservas, emitidas) === null);
     if (!alvo) continue;
     emitidas.push({ trabalho: t.id, item: t.item, maquina: alvo });
     vivas.set(alvo, vivas.get(alvo)! + 1);
@@ -746,6 +784,7 @@ export function registrosDosAbandonos(estado: EstadoDaCoordenacao, eu: string, q
 
 /** Cancela uma ordem viva; só a autoridade vigente. Antes do aceite, o trabalho fica livre na hora; depois, isolado. */
 export function cancelarOrdem(carregado: ManifestoCarregado, arco: string, ordem: string, motivo: string, opcoes: OpcoesDaCoordenacao = {}): EstadoDaOrdem {
+  const doCancelamento = motivoPublico(motivo, 'o cancelamento');
   return gravarNaCoordenacao<EstadoDaOrdem>(carregado, arco, opcoes, (leitura) => {
     const estado = derivarCoordenacao(leitura);
     const { eu } = euNaVersaoVigente(carregado.raiz, leitura, opcoes);
@@ -753,8 +792,7 @@ export function cancelarOrdem(carregado: ManifestoCarregado, arco: string, ordem
     const o = exigirOrdem(estado, ordem);
     if (o.cancelada) return { novos: [], resultado: o.estado };
     if (!ordemViva(o)) throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} já terminou (${o.estado})`);
-    if (!linha(motivo) || !motivo.trim()) throw recusa('noctum.envelope.invalido', 'o cancelamento exige motivo em uma linha');
-    return { novos: [{ tipo: 'cancelamento', ordem, motivo: motivo.trim(), geracao: a.geracao }],
+    return { novos: [{ tipo: 'cancelamento', ordem, motivo: doCancelamento, geracao: a.geracao }],
       resultado: o.estado === 'emitida' ? 'cancelada-antes' : 'isolada' };
   }).resultado;
 }
@@ -802,6 +840,7 @@ export function registrosDasRespostas(estado: EstadoDaCoordenacao, eu: string, f
 export function responderOrdem(carregado: ManifestoCarregado, arco: string, ordem: string, resposta: 'aceita' | 'recusada', motivo: string,
   opcoes: OpcoesDaCoordenacao = {}): EstadoDaOrdem {
   const quando = opcoes.quando ?? new Date().toISOString();
+  const doRecibo = motivo ? motivoPublico(motivo, 'o recibo') : '';
   if (resposta === 'aceita') exigirArcoVigente(carregado, arco, quando);
   return gravarNaCoordenacao<EstadoDaOrdem>(carregado, arco, { ...opcoes, quando }, (leitura) => {
     const estado = derivarCoordenacao(leitura);
@@ -814,8 +853,7 @@ export function responderOrdem(carregado: ManifestoCarregado, arco: string, orde
       throw recusa('noctum.efeito.hash-antigo', `a ordem ${ordem} é de outra versão do envelope`);
     }
     if (resposta === 'aceita') exigirNaoRevogada(estado);
-    if (!linha(motivo)) throw recusa('noctum.envelope.invalido', 'o motivo do recibo vai em uma linha');
-    return { novos: [{ tipo: 'recibo', ordem, recibo: resposta, motivo }], resultado: resposta === 'aceita' ? 'aceita' : 'recusada' };
+    return { novos: [{ tipo: 'recibo', ordem, recibo: resposta, motivo: doRecibo }], resultado: resposta === 'aceita' ? 'aceita' : 'recusada' };
   }).resultado;
 }
 
@@ -853,6 +891,7 @@ export function encerrarOrdem(carregado: ManifestoCarregado, arco: string, ordem
       'sessão, caminho e texto livre não vão ao ramo');
   }
   const checkpoint = { thread: fim.checkpoint.thread ?? null, vagasSoltas: fim.checkpoint.vagasSoltas ?? [] };
+  const doFim = motivoPublico(fim.motivo, 'o fim da ordem');
   gravarNaCoordenacao(carregado, arco, opcoes, (leitura) => {
     const estado = derivarCoordenacao(leitura);
     const eu = nomeDe(opcoes);
@@ -860,8 +899,7 @@ export function encerrarOrdem(carregado: ManifestoCarregado, arco: string, ordem
     if (o.maquina !== eu) throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} é da máquina ${o.maquina}`);
     if (o.estado === 'encerrada') return { novos: [], resultado: null };
     if (o.estado !== 'aceita' && o.estado !== 'isolada') throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} está ${o.estado}`);
-    return { novos: [{ tipo: 'recibo', ordem, recibo: 'encerrada', motivo: fim.motivo.slice(0, 300).replace(/[\r\n]+/g, ' '),
-      checkpoint }], resultado: null };
+    return { novos: [{ tipo: 'recibo', ordem, recibo: 'encerrada', motivo: doFim, checkpoint }], resultado: null };
   });
 }
 
@@ -962,13 +1000,14 @@ export function tomarVagaGlobal(carregado: ManifestoCarregado, arco: string, p: 
 /** Solta a vaga global desta máquina, dizendo se a sessão consumiu (a recusa antes do lançamento não consome). */
 export function soltarVagaGlobal(carregado: ManifestoCarregado, arco: string, vaga: string, soltura: { consumiu: boolean; motivo: string },
   opcoes: OpcoesDaCoordenacao = {}): void {
+  const daSoltura = motivoPublico(soltura.motivo, 'a soltura da vaga');
   gravarNaCoordenacao(carregado, arco, opcoes, (leitura) => {
     const estado = derivarCoordenacao(leitura);
     const eu = nomeDe(opcoes);
     const v = estado.vagas.find(x => x.vaga === vaga);
     if (!v || v.maquina !== eu) throw recusa('noctum.coordenacao.ordem-vencida', `a vaga ${vaga} não é desta máquina`);
     if (v.solta) return { novos: [], resultado: null };
-    return { novos: [{ tipo: 'vaga-solta', vaga, consumiu: soltura.consumiu, motivo: soltura.motivo.slice(0, 300).replace(/[\r\n]+/g, ' ') }], resultado: null };
+    return { novos: [{ tipo: 'vaga-solta', vaga, consumiu: soltura.consumiu, motivo: daSoltura }], resultado: null };
   });
 }
 

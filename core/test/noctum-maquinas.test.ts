@@ -23,7 +23,9 @@ import { pegarItem, soltarItem } from '../src/roadmap-reservas';
 import { OpcoesDoPasso, passoDoArco } from '../src/noctum-execucao';
 import { ResultadoRun } from '../src/phase';
 import { passoDaMaquina, ResultadoDoPassoDaMaquina } from '../src/noctum-maquinas';
-import { dirThread, lerThread, listarIds } from '../src/thread';
+import { dirThread, gravarThread, lerThread, listarIds } from '../src/thread';
+import { FatosDaFila, montarFila } from '../src/noctum-fila';
+import { passageira } from '../src/noctum-vigia';
 import { registrar } from '../src/ledger';
 
 prepararIngressoSimulado();
@@ -425,4 +427,51 @@ test('M16: o despacho idempotente, com a fase já correndo, solta a vaga global 
     assert.ok(r2.acao === 'passo' && r2.relatorio.reconciliacao!.soltas.includes(vaga), JSON.stringify(r2.acao === 'passo' ? r2.relatorio.reconciliacao : r2));
     assert.equal(lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' }).vagas.find(v => v.vaga === vaga)!.solta!.consumiu, true);
   } finally { m.limpar(); }
+});
+
+test('M17: a fila conta a entrega e o fim sem entrega de outra máquina antes da thread local; o dependente não fica preso', { skip: semKernel }, () => {
+  // B1 da rodada 3, na fila pura: o x foi entregue na B; a thread antiga do x, nesta máquina, foi fechada como superada.
+  const quando = new Date().toISOString();
+  const conteudo = { contrato: 'ork.noctum-envelope/v3', arco: 'arco-m17', janela: { inicio: quando, fim: new Date(Date.now() + 8 * 3600_000).toISOString(),
+    fuso: 'America/Sao_Paulo' }, destinos: [], orcamento: { arco: { valor: 10, unidade: 'sessoes' }, porConta: [], porRuntime: [] }, relatorio: {},
+  exclusoes: [], capacidade: { maquina: 2, revisao: 0, porConta: [], porRuntime: [] }, maquinas: [], capacidadeGlobal: { porConta: [] },
+  trabalhos: [{ id: 'x', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'Fatia X SIMULADA.' },
+    { id: 'y', item: 'RM-902', prioridade: 1, dependeDe: ['x'], pedido: 'Fatia Y SIMULADA, depois da X.' }] };
+  const vazio = { threads: [], ilegivel: null, entregueEm: null, despachada: false, despachoFalho: false, pedidoGuardado: false, passo: null, espera: null, doDono: null };
+  const fechada = { ...vazio, threads: [{ id: 'ork-rm901x', roadmap: 'RM-901', status: 'fechada', modo: 'auto', faseAtual: 'GO' }], pedidoGuardado: true, despachada: true };
+  const fila = (x: object, coordenacao: object) => montarFila({ arco: 'arco-m17', quando, maquina: 'maquina-a',
+    estado: { situacao: 'vigente', conteudo, envelopeSha256: 'e'.repeat(64), decisoes: [], despachos: [], autorizadoPor: { recebidoEm: quando } },
+    reservas: { leitura: 'copia-local', porItem: new Map([['RM-902', { maquina: 'maquina-a', thread: null }]]) },
+    porTrabalho: new Map([['x', x], ['y', vazio]]), threadsIlegiveis: [], modosPermitidos: ['auto'], coordenacao } as unknown as FatosDaFila);
+  const entregue = fila(fechada, { trabalhos: new Set(['y']), entregues: new Map([['x', quando]]) });
+  assert.deepEqual(entregue.trabalhos.map(t => [t.id, t.estado, t.motivo]), [['x', 'entregue', null], ['y', 'abrir', null]]);
+  assert.deepEqual(entregue.decisao, { acao: 'despachar' });
+  // S1 da rodada 3: o x encerrado sem entrega em outra máquina é terminal aqui, e o dependente também; a fila diz encerrar.
+  const encerrado = fila(vazio, { trabalhos: new Set(['y']), entregues: new Map(), encerrados: new Set(['x']) });
+  assert.deepEqual(encerrado.trabalhos.map(t => [t.id, t.estado, t.motivo]), [['x', 'encerrado-sem-entrega', null], ['y', 'bloqueado', 'dependencia-encerrada']]);
+  assert.deepEqual(encerrado.decisao, { acao: 'encerrar', motivo: 'fila-vazia' });
+  // Ponta a ponta: o x, preso à B, fecha sem entrega lá; o passo da A leva o encerrado da rede à fila e encerra.
+  const m = cenario('noctum-m17', 2, [{ id: 'x', item: 'RM-971', prioridade: 1, dependeDe: [], pedido: 'Fatia X SIMULADA.', maquina: 'maquina-b' },
+    { id: 'y', item: 'RM-972', prioridade: 2, dependeDe: ['x'], pedido: 'Fatia Y SIMULADA, depois da X.' }]);
+  try {
+    passo(m.b);
+    const ra = passo(m.a);
+    assert.ok(ra.acao === 'passo' && ra.relatorio.ordensEmitidas.includes('O-x-1'), JSON.stringify(ra.acao === 'passo' ? ra.relatorio.ordensEmitidas : ra.acao));
+    assert.equal(despachou(passo(m.b))?.trabalho, 'x');
+    const tx = listarIds(m.b.dir).map(id => lerThread(m.b.dir, id)).find(t => t.roadmap === 'RM-971')!;
+    gravarThread(m.b.dir, { ...tx, status: 'fechada' });
+    const rb = passo(m.b);
+    assert.ok(rb.acao === 'passo' && rb.relatorio.reconciliacao!.concluidas.includes('O-x-1'), JSON.stringify(rb.acao === 'passo' ? rb.relatorio.reconciliacao : rb));
+    assert.equal(situacaoDoTrabalho(lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' }), 'x')!.estado, 'encerrado');
+    const ra2 = passo(m.a);
+    assert.ok(ra2.acao === 'passo' && ra2.passo.acao === 'encerrar', JSON.stringify(ra2.acao === 'passo' ? ra2.passo.acao : ra2));
+  } finally { m.limpar(); }
+});
+
+test('M18: no vigia da N4, a vaga global ocupada, o ramo sem leitura e a corrida perdida passam, como a vaga local', () => {
+  // A1 da rodada 3: três recusas dessas, gravadas pelo gancho da vaga global, não isolam o trabalho do arco entre máquinas.
+  for (const motivo of ['noctum.coordenacao.vaga-global', 'noctum.coordenacao.sem-remoto', 'noctum.coordenacao.concorrencia', 'concurrency.limite']) {
+    assert.equal(passageira(motivo), true, motivo);
+  }
+  for (const motivo of ['noctum.coordenacao.revogada', 'noctum.orcamento.sem-medicao']) assert.equal(passageira(motivo), false, motivo);
 });

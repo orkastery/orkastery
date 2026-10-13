@@ -32,7 +32,7 @@ import { nomeDaMaquina } from './maquina';
 import { concluirDespacho, lerArco, reservarDespacho } from './noctum-arco';
 import { fatosDeCapacidade, LeituraDeSessoes } from './noctum-capacidade';
 import {
-  assumirAutoridade, AutoridadeDerivada, contasSemVagaGlobal, derivarCoordenacao, encerrarOrdem, entreguesNaRede, EstadoDaCoordenacao,
+  assumirAutoridade, AutoridadeDerivada, contasSemVagaGlobal, derivarCoordenacao, encerradosNaRede, encerrarOrdem, entreguesNaRede, EstadoDaCoordenacao,
   FatosLocaisDaMaquina, gravarNaCoordenacao, lerCoordenacao, motivoDaReservaDeFora, notaDaReserva, OpcoesDaCoordenacao, PlanoDeReconciliacao,
   reconciliarCoordenacao, registrosDaDistribuicao, registrosDasRespostas, registrosDosAbandonos, revogarNaRede, soltarReservaDoArco,
   tomarReservaDoTrabalho, tomarVagaGlobal, vistasDasReservas,
@@ -301,7 +301,7 @@ export function passoDaMaquina(carregado: ManifestoCarregado, arco: string, opco
     const passo = passoDoArco(carregado, arco, { ...opcoes.n2, quando, maquina: opcoes.maquina,
       perfis: () => perfisDaN2().filter(p => !semVaga.has(p.id)),
       lerReservas: () => ({ leitura: 'copia-local', reservas: reservadas.map(x => ({ item: x.item, maquina: eu, thread: x.thread })) }),
-      coordenacao: { trabalhos: permitidos, entregues: entreguesNaRede(estado), reservar } });
+      coordenacao: { trabalhos: permitidos, entregues: entreguesNaRede(estado), encerrados: encerradosNaRede(estado), reservar } });
     return { acao: 'passo', passo, relatorio };
   } catch (e) {
     if (!(e instanceof RecusaDoArco)) throw e;
