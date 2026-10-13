@@ -722,7 +722,9 @@ export type CanalDeConducao = 'claude-code' | 'hermes' | 'openclaw' | 'codex' | 
 
 /** I-36: a operacao que segura o lease de execucao. */
 export type OperacaoDeConducao =
-  | 'phase.run' | 'retry.run' | 'verify' | 'baseline' | 'fix.open' | 'fix.reverify' | 'mcp.verify' | 'handoff';
+  | 'phase.run' | 'retry.run' | 'verify' | 'baseline' | 'fix.open' | 'fix.reverify' | 'mcp.verify' | 'handoff'
+  // RM-063 (F7): o merge da base remota na branch da thread, com a reconciliacao do CHANGELOG (`atualizar-branch.ts`).
+  | 'branch.atualizar';
 
 /**
  * I-36 (D7): quem segura a conducao. Processo local prova vida pelo flock do kernel; sessao de

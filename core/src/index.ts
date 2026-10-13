@@ -199,6 +199,7 @@ import {
 } from './conducao';
 import { baterSentinela, desligarSentinela, statusDaSentinela, textoDoStatusDaSentinela } from './conducao-sentinela';
 import { gravarAutorizacao, lerAutorizacao, linhaDaAutorizacao, textoDaAutorizacao } from './autorizacao-duravel';
+import { atualizarBranchDaThread, textoDaAtualizacao } from './atualizar-branch';
 import { descreverSlug, hashDoPrompt, montarPrompt, rodarFase, tabelaDoLedger, valoresDoPrompt } from './phase';
 import {
   carregarTemplates,
@@ -1530,6 +1531,16 @@ function comandoConducao(args: Args): number {
   const id = args.posicionais[2];
   if (sub === 'sentinela') return comandoSentinela(carregado, args);
   if (sub === 'autorizar' || sub === 'autorizacao') return comandoAutorizacao(carregado, args, sub);
+  if (sub === 'atualizar') {
+    // RM-063 (F7): o merge da base remota na branch da thread, com a reconciliacao do CHANGELOG; conflito em codigo aborta.
+    if (!id || args.posicionais.length > 3) throw new Error('uso: ork conducao atualizar <thread-id> [--enviar] [--esperar [min]] [--json]');
+    lerThread(carregado.raiz, id);
+    const doCli = conducaoDoCli(args);
+    const r = atualizarBranchDaThread(carregado, id, { enviar: args.opcoes.enviar === true, canal: doCli.canal, correlacao: doCli.correlacao,
+      ...(doCli.esperarMs ? { esperarMs: doCli.esperarMs } : {}) });
+    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaAtualizacao(r));
+    return r.acao === 'mesclada' || r.acao === 'ja-atualizada' ? 0 : r.acao === 'recusada' && r.motivo === 'conduzida' ? 3 : 1;
+  }
   if (sub === 'status') {
     if (!id) throw new Error('uso: ork conducao status <thread-id> [--json]');
     lerThread(carregado.raiz, id);
@@ -1545,7 +1556,7 @@ function comandoConducao(args: Args): number {
     console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : `${r.ok ? 'Conducao assumida.' : 'Handoff recusado.'} ${r.detalhe}`);
     return r.ok ? 0 : 3;
   }
-  throw new Error('uso: ork conducao status|assumir <thread-id> | ork conducao autorizar|autorizacao | ' +
+  throw new Error('uso: ork conducao status|assumir|atualizar <thread-id> | ork conducao autorizar|autorizacao | ' +
     'ork conducao sentinela status|bater|desligar');
 }
 

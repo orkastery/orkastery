@@ -758,6 +758,7 @@ export function comandoDeEsperar(threadId: string, pedido: Pick<PedidoDeConducao
     case 'baseline': return `ork verify ${threadId} --baseline --esperar 30`;
     case 'fix.open': return `ork fix open ${threadId} --esperar 30`;
     case 'fix.reverify': return `ork fix reverify ${threadId} --esperar 30`;
+    case 'branch.atualizar': return `ork conducao atualizar ${threadId} --esperar 30`;
     default: return `ork verify ${threadId} --esperar 30`;
   }
 }

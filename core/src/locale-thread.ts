@@ -55,6 +55,7 @@ export const THREAD_PT_BR = {
     'fix.reverify': 'ork fix reverify',
     'mcp.verify': 'ork_verify (MCP)',
     handoff: 'reserva de quem assumiu',
+    'branch.atualizar': 'merge da base na branch',
   } as Record<string, string>,
   // ork thread new
   criada: 'Thread criada.',
@@ -190,6 +191,7 @@ export const THREAD_EN: typeof THREAD_PT_BR = {
     'fix.reverify': 'ork fix reverify',
     'mcp.verify': 'ork_verify (MCP)',
     handoff: 'reservation of whoever took over',
+    'branch.atualizar': 'merge of the base into the branch',
   },
   criada: 'Thread created.',
   simulacao: 'Dry run (--dry-run): nothing was written.',
