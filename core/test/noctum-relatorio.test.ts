@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { projetoTemporario } from './apoio';
-import { autorizarPedido, despachar, pedidoV2, prepararIngressoSimulado, TrabalhoSimulado } from './noctum-apoio';
+import { autorizarPedido, despachar, passar, pedidoV2, prepararIngressoSimulado, TrabalhoSimulado } from './noctum-apoio';
 import { depois, HORA, MIN } from './noctum-n6-apoio';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { partesLocais } from '../src/horario';
@@ -21,7 +21,7 @@ import { CanalComTransporte, entregarRelatorioSeDevido, enviarPeloTransporte, fa
   reenviarRelatorio, relatorioNoTerminal, ResultadoDoEnvio, retratoDoRelatorio, TETO_DA_PAGINA, transporteDoCanal,
   vencimentoDoRelatorio } from '../src/noctum-relatorio';
 import { comRegistro, lerRegistro } from '../src/noctum-registro';
-import { dirThread, novaThread } from '../src/thread';
+import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 
 prepararIngressoSimulado();
 const semKernel = !kernelDisponivel();
@@ -388,5 +388,78 @@ test('RL15: no arco fechado, o trabalho em curso não diz que segue conduzido, e
     assert.ok(texto.includes(`• no fechamento, ${sessionId} (t1, claude-bg): parada confirmada`), texto);
     assert.ok(texto.includes(`• no fechamento, reserva ${pendente.seq} (t2, claude-bg): reserva pendente sem id de sessão, nada a parar`), texto);
     assert.doesNotMatch(texto, /: sem-id\b/, 'nenhum código cru no relatório');
+  } finally { p.limpar(); }
+});
+
+test('RL16: o transporte que nem sobe (E2BIG) é falha explícita, que se repete, e não envio incerto', () => {
+  // Achado do CHECK: o processo que não sobe caía em incerto e nunca se repetia, embora a mensagem certamente não tenha saído.
+  const p = projetoTemporario('noctum-rl16');
+  try {
+    const r = enviarPeloTransporte(p.dir, { executavel: process.execPath, argumentos: ['-e', '', '{{mensagem}}'] }, 'x'.repeat(256 * 1024));
+    assert.equal(r.estado, 'falhou', JSON.stringify(r));
+    assert.match((r as { motivo: string }).motivo, /o transporte não subiu \(E2BIG\)/);
+  } finally { p.limpar(); }
+});
+
+test('RL17: a lacuna depois da versão entregue nunca vira correção; só a entrega revertida vira', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-rl17');
+  try {
+    const { trabalhos, ids } = threads(p, 1);
+    const a = abrir(p, 'arco-rl17', trabalhos, 'telegram', ids);
+    entregaProvada(p, ids[0]);
+    const t = transporte(['confirmado']);
+    assert.equal(entregarRelatorioSeDevido(p.carregado, 'arco-rl17', { ...base, quando: a.vencimento, enviar: t.enviar }).versao, 1);
+    const ledger = path.join(dirThread(p.dir, ids[0]), 'ledger.jsonl');
+    const modo = fs.statSync(ledger).mode & 0o777;
+    fs.chmodSync(ledger, 0o000);
+    try {
+      const r = entregarRelatorioSeDevido(p.carregado, 'arco-rl17', { ...base, quando: depois(a.vencimento, 10 * MIN), enviar: t.enviar });
+      assert.deepEqual([r.versao, t.envios.length], [1, 1], 'o ledger que não se lê é lacuna, não fato confirmado agora');
+    } finally { fs.chmodSync(ledger, modo); }
+    registrar(dirThread(p.dir, ids[0]), ids[0], 'rollback_done', { simulado: true });
+    const r2 = entregarRelatorioSeDevido(p.carregado, 'arco-rl17', { ...base, quando: depois(a.vencimento, 20 * MIN), enviar: t.enviar });
+    assert.deepEqual([r2.versao, t.envios.length], [2, 2]);
+    assert.match(t.envios[1], /Fato confirmado agora: entrega revertida na base/);
+  } finally { p.limpar(); }
+});
+
+test('RL18: a emenda que troca o canal não reenvia a versão entregue; a decisão de antes da emenda segue no relatório; pendente não conta como sessão aberta', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-rl18');
+  try {
+    const { trabalhos, ids } = threads(p, 2);
+    const a = abrir(p, 'arco-rl18', trabalhos, 'telegram', ids);
+    reservarDespacho(p.dir, { arco: 'arco-rl18', envelopeSha256: a.sha, trabalho: 't1', thread: ids[0], fase: 'GO', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    passar(20);
+    registrar(dirThread(p.dir, ids[0]), ids[0], 'autonomous_decision', { fase: 'GO', quemDecidiu: 'agente SIMULADO', evidencia: 'teste SIMULADO',
+      razao: 'razão SIMULADA', pedido: { classe: 'decidido', decidido: 'Seguir com a fila local', porque: 'é a fatia pedida', comoMudar: 'trocar a fonte' } });
+    const t = transporte(['confirmado']);
+    const v1 = entregarRelatorioSeDevido(p.carregado, 'arco-rl18', { ...base, quando: a.vencimento, enviar: t.enviar });
+    assert.deepEqual([v1.acao, v1.canal, t.envios.length], ['entregue', 'telegram', 1]);
+    assert.match(t.envios[0], /• Sessões abertas pelo arco: 0; reservas pendentes: 1 \(o runtime pode ter aberto a sessão/);
+    passar(20);
+    const c = lerArco(p.dir, 'arco-rl18')!.conteudo!;
+    autorizarPedido(p.dir, 'arco-rl18', { ...pedidoV2('arco-rl18', { trabalhos }), janela: c.janela, relatorio: { ...c.relatorio, canal: 'openclaw' } });
+    assert.equal(lerArco(p.dir, 'arco-rl18')!.conteudo!.relatorio.canal, 'openclaw', 'a emenda trocou o canal');
+    const depoisDaEmenda = entregarRelatorioSeDevido(p.carregado, 'arco-rl18', { ...base, quando: depois(a.vencimento, 10 * MIN), enviar: t.enviar });
+    assert.deepEqual([depoisDaEmenda.acao, depoisDaEmenda.canal, depoisDaEmenda.enviadas, t.envios.length], ['entregue', 'telegram', 0, 1]);
+    const fatos = fatosDoRelatorio(p.carregado, 'arco-rl18', { ...base, quando: depois(a.vencimento, 11 * MIN) })!;
+    assert.deepEqual(fatos.decisoes.map(d => d.decidido), ['Seguir com a fila local'], 'a autorização nova não apaga a decisão da versão anterior');
+  } finally { p.limpar(); }
+});
+
+test('RL19: a pendência do dono fora do lote vai ao grupo dele sem #HITL, e o #HITL fica só com o id estável do lote', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-rl19');
+  try {
+    const { trabalhos, ids } = threads(p, 1);
+    const a = abrir(p, 'arco-rl19', trabalhos, 'telegram', ids);
+    const th = lerThread(p.dir, ids[0]);
+    th.status = 'pausada';
+    gravarThread(p.dir, th);
+    const texto = linhasDoRelatorio(fatosDoRelatorio(p.carregado, 'arco-rl19', { ...base, quando: a.vencimento })!, 1).join('\n');
+    assert.match(texto, /⏸️ Impedido\n• t1 \(RM-901\): dono \(.*thread pausada.*\); alcance: trabalho; tentativas: nenhum despacho\n/);
+    assert.doesNotMatch(texto, /#HITL/, 'sem id do lote, nada de #HITL');
+    assert.ok(texto.includes(`👤 O que precisa de você\n• t1 (thread ${ids[0]}) espera o dono fora do lote do arco: `), texto);
+    assert.match(texto, /A resposta vai pela pendência da própria thread\./);
   } finally { p.limpar(); }
 });

@@ -29,8 +29,9 @@ import { ID_DO_ARCO, RecusaDoArco, Unidade } from './noctum-envelope';
 import { OpcoesDoPasso, passoDoArco, ResultadoDoPasso } from './noctum-execucao';
 import { fecharSeDevido, lerFechamento, OpcoesDoFechamento, ResultadoDoFechamento, textoDaParada, trabalhosDoArco } from './noctum-fechamento';
 import { fatosDaFila, LeitorDeReservas } from './noctum-fila';
-import { consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco, textoDoConsumo } from './noctum-medicao';
-import { entregarRelatorioSeDevido, OpcoesDoRelatorio, ResultadoDaEntrega, retratoDoRelatorio, RetratoDoRelatorio } from './noctum-relatorio';
+import { consumoDoEscopoNaUnidade, MedicaoDoArco, textoDoConsumo } from './noctum-medicao';
+import { entregarRelatorioSeDevido, medidorDoRelatorio, OpcoesDoRelatorio, ResultadoDaEntrega, retratoDoRelatorio,
+  RetratoDoRelatorio } from './noctum-relatorio';
 import { RecusaDoRegistro } from './noctum-registro';
 
 export const CONTRATO_INGRESSO_DO_ARCO = 'ork.noctum-ingresso/v1' as const;
@@ -161,7 +162,8 @@ export function retratoDoArco(carregado: ManifestoCarregado, arco: string, opcoe
   let consumo: RetratoDoArco['consumo'] = [];
   let fila: RetratoDoArco['fila'] = null;
   if (conteudo && estado.autorizadoPor) {
-    const medicao = (opcoes.medir ?? ((r, e, q) => medirArco(r, e, { quando: q })))(raiz, estado, quando);
+    // As unidades dos tetos só: com todos em sessões, nenhuma transcrição nem rollout é lido para o retrato.
+    const medicao = medidorDoRelatorio(opcoes, conteudo)(raiz, estado, quando);
     const o = conteudo.orcamento;
     const linha = (escopo: string, unidade: Unidade, teto: number, c: ReturnType<typeof consumoDoEscopoNaUnidade>) =>
       ({ escopo, unidade, teto, texto: textoDoConsumo(c), valor: c.valor });

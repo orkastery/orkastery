@@ -43,7 +43,7 @@ import { AlternativaDoLote, EstadoDoArco, lerArco, SituacaoDoArco } from './noct
 import { CanalDoRelatorio, ConteudoDoEnvelope, RecusaDoArco, Unidade } from './noctum-envelope';
 import { lerFechamento, textoDaParada, trabalhosDoArco } from './noctum-fechamento';
 import { fatosDaFila, FilaDoArco, LeitorDeReservas } from './noctum-fila';
-import { ConsumoNaUnidade, consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco, textoDoConsumo } from './noctum-medicao';
+import { ConsumoNaUnidade, consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco, precisaMedir, textoDoConsumo } from './noctum-medicao';
 import { comRegistro, lerRegistro, LinhaDoRegistro, RecusaDoRegistro } from './noctum-registro';
 import { exigirHostLocal } from './procedencia';
 import { dirThread } from './thread';
@@ -90,11 +90,16 @@ export interface FatosDoRelatorio {
   impedidos: ItemImpedido[];
   decisoes: DecisaoNoEnvelope[];
   custo: LinhaDeCusto[];
+  /** Sessões que o arco abriu (o despacho concluído com sessão nova). */
   sessoesDespachadas: number;
+  /** Reservas pendentes: o runtime pode ter aberto a sessão, e o consumo fica desconhecido até a reconciliação. */
+  reservasPendentes: number;
   paradas: string[];
   contasFora: string[];
   correcoes: Correcao[];
   precisaDeVoce: PedidoAoDono[];
+  /** O trabalho que espera o dono fora do lote do arco (a pendência da própria thread): sem id do lote, sem `#HITL`. */
+  foraDoLote: Array<{ trabalho: string; thread: string; detalhe: string }>;
   proximo: string | null;
   /** Fontes que não foram lidas: o relatório diz o que não sabe, em vez de chamar de vazio. */
   lacunas: string[];
@@ -133,6 +138,11 @@ const sha = (s: string): string => createHash('sha256').update(s).digest('hex');
 const frase = (s: string): string => `${s.trim().replace(/[.\s]+$/u, '')}.`;
 const MOTIVO_EM_TEXTO: Readonly<Record<string, string>> = Object.freeze({ revogado: 'revogação do dono', hora: 'hora final',
   custo: 'teto do arco', 'fila-vazia': 'fila vazia' });
+/** Os dois fatos que desmentem uma entrega já informada; o resto (lacuna, thread ilegível) nunca vira correção. */
+const CAUSA_REVERTIDA = 'entrega revertida na base';
+const CHECKPOINT_SEM_PROVA = 'entrega registrada sem a prova do push no remoto';
+/** Os bloqueios que valem para o arco inteiro nesta máquina, e não só para o trabalho. */
+const BLOQUEIOS_DO_ARCO: readonly string[] = ['reserva-sem-leitura'];
 
 /** D10: o primeiro `HH:MM` do fuso da janela no instante do início ou depois. */
 export function vencimentoDoRelatorio(conteudo: Pick<ConteudoDoEnvelope, 'janela' | 'relatorio'>): string {
@@ -179,8 +189,35 @@ function tentativasDo(trabalho: string, estado: EstadoDoArco): string {
   return `${ds.length} despacho(s)${recusados.length ? `, ${recusados.length} recusado(s) (${motivos.join(', ')})` : ''}`;
 }
 
-/** Os fatos do relatório no instante dado, relidos do disco. `null` sem envelope autorizado. */
-export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoRelatorio = {}): FatosDoRelatorio | null {
+/**
+ * A medição do relatório e do retrato: o relatório só mostra as unidades dos tetos, e com todos em `sessoes` nenhuma
+ * transcrição nem rollout precisa ser lido (as sessões vêm do log do arco).
+ */
+export function medidorDoRelatorio(opcoes: Pick<OpcoesDoRelatorio, 'medir'>, conteudo: ConteudoDoEnvelope):
+  (raiz: string, estado: EstadoDoArco, quando: string) => MedicaoDoArco {
+  if (opcoes.medir) return opcoes.medir;
+  if (precisaMedir(conteudo)) return (r, e, q) => medirArco(r, e, { quando: q });
+  return (r, e, q) => medirArco(r, e, { quando: q, fontes: { transcricoes: () => null, rollout: () => null } });
+}
+
+/** As linhas de custo: o teto do arco, de cada conta e de cada runtime, contra o consumo medido na unidade de cada um. */
+function linhasDeCusto(conteudo: ConteudoDoEnvelope, medicao: MedicaoDoArco): LinhaDeCusto[] {
+  const o = conteudo.orcamento;
+  return [
+    { escopo: 'do arco', unidade: o.arco.unidade, teto: o.arco.valor, consumo: consumoDoEscopoNaUnidade(medicao, 'arco', o.arco.unidade) },
+    ...o.porConta.map(s => ({ escopo: `da conta ${s.conta}`, unidade: s.teto.unidade, teto: s.teto.valor,
+      consumo: consumoDoEscopoNaUnidade(medicao, { conta: s.conta }, s.teto.unidade) })),
+    ...o.porRuntime.map(s => ({ escopo: `do runtime ${s.runtime}`, unidade: s.teto.unidade, teto: s.teto.valor,
+      consumo: consumoDoEscopoNaUnidade(medicao, { runtime: s.runtime }, s.teto.unidade) })),
+  ];
+}
+
+/**
+ * Os fatos do relatório no instante dado, relidos do disco. `null` sem envelope autorizado. Com `semCusto`, o custo fica
+ * vazio e nada é medido: quem compõe mede depois, só quando uma versão vai mesmo ser composta.
+ */
+export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoRelatorio = {},
+  modo: { semCusto?: boolean } = {}): FatosDoRelatorio | null {
   const quando = opcoes.quando ?? new Date().toISOString();
   const { raiz } = carregado;
   let estado: EstadoDoArco | null;
@@ -193,7 +230,6 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
   try { fila = trabalhosDoArco(fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas })); }
   catch (e) { if (!(e instanceof RecusaDoArco)) throw e; lacunas.push(`a fila do arco não pôde ser lida (${e.motivo})`); }
   if (fila) lacunas.push(...fila.lacunas);
-  const medicao = (opcoes.medir ?? ((r, e, q) => medirArco(r, e, { quando: q })))(raiz, estado, quando);
   let fechamento: ReturnType<typeof lerFechamento> | null = null;
   try { fechamento = lerFechamento(raiz, arco); } catch (e) {
     if (!(e instanceof RecusaDoRegistro)) throw e;
@@ -205,6 +241,7 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
   const cache = new Map<string, EventoLedger[] | null>();
   const fechado = estado.encerramento !== null || ['revogado', 'expirado', 'encerrado'].includes(estado.situacao);
   const entregues: ItemEntregue[] = [], emCurso: ItemEmCurso[] = [], impedidos: ItemImpedido[] = [];
+  const foraDoLote: FatosDoRelatorio['foraDoLote'] = [];
   for (const t of fila?.trabalhos ?? []) {
     const eventos = t.thread ? eventosDe(raiz, t.thread, cache) : null;
     if (t.thread && eventos === null) lacunas.push(`o ledger da thread ${t.thread} (${t.id}) não se lê`);
@@ -222,20 +259,22 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
         continue;
       }
       if (e.revertida) {
-        impedidos.push({ ...base, causa: 'entrega revertida na base', alcance: 'trabalho', tentativas: tentativasDo(t.id, estado), hitl: null,
+        impedidos.push({ ...base, causa: CAUSA_REVERTIDA, alcance: 'trabalho', tentativas: tentativasDo(t.id, estado), hitl: null,
           detalhe: `rollback_done às ${formatarHora(e.revertida.ts, { fuso, agora: quando, locale: 'pt-BR' })}, depois do ship_done` });
         continue;
       }
-      emCurso.push({ ...base, estado: t.estado, checkpoint: 'entrega registrada sem a prova do push no remoto',
+      emCurso.push({ ...base, estado: t.estado, checkpoint: CHECKPOINT_SEM_PROVA,
         retomada: 'a entrega (N5), com a prova no SHA exato', proximo: 'provar o push e o merge', reserva: null });
       continue;
     }
     if (isolado || t.estado === 'bloqueado' || t.estado === 'encerrado-sem-entrega') {
       const doDono = t.motivo === 'decisao-no-lote' || t.motivo === 'dono';
       const lote = doDono && t.thread ? estado.decisoes.find(d => d.thread === t.thread || d.dependentes.includes(t.thread!))?.id ?? null : null;
+      // `#HITL` só com o id estável do lote; a pendência da própria thread vai ao grupo do dono sem ele.
+      if (doDono && !lote && t.thread) foraDoLote.push({ trabalho: t.id, thread: t.thread, detalhe: t.detalhe });
       impedidos.push({ ...base, causa: isolado ? 'isolado pela supervisão' : t.estado === 'encerrado-sem-entrega' ? 'fechou sem entrega' : String(t.motivo),
-        detalhe: isolado ? isolado.motivo : t.detalhe, alcance: 'trabalho', tentativas: tentativasDo(t.id, estado),
-        hitl: doDono ? lote ?? 'espera o dono' : null });
+        detalhe: isolado ? isolado.motivo : t.detalhe, alcance: !isolado && t.motivo && BLOQUEIOS_DO_ARCO.includes(t.motivo) ? 'arco' : 'trabalho',
+        tentativas: tentativasDo(t.id, estado), hitl: lote });
       continue;
     }
     const concluida = eventos ? ultimaFaseConcluida(eventos) : null;
@@ -248,7 +287,11 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
       retomada: t.estado === 'aguardando-entrega' ? 'a entrega (N5, com a condutora)' : fechado ? 'um arco novo, com envelope vigente' : 'o passo do arco',
       proximo, reserva: pendente ? `reserva ${pendente.seq} pendente` : null });
   }
-  const autorizadoEm = estado.autorizadoPor.recebidoEm;
+  // O piso das decisões: a primeira reserva do arco ou a autorização vigente, a mais antiga. A emenda troca a
+  // autorização vigente, e as decisões da versão anterior continuam do envelope.
+  const autorizadoEm = [estado.autorizadoPor.recebidoEm, estado.despachos[0]?.reservadoEm]
+    .filter((x): x is string => typeof x === 'string' && Number.isFinite(Date.parse(x)))
+    .reduce((a, b) => (Date.parse(b) < Date.parse(a) ? b : a));
   const decisoes: DecisaoNoEnvelope[] = [];
   for (const thread of [...new Set((fila?.trabalhos ?? []).map(t => t.thread).filter((x): x is string => !!x))]) {
     for (const e of eventosDe(raiz, thread, cache) ?? []) {
@@ -259,25 +302,19 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
     }
   }
   decisoes.sort((a, b) => a.em.localeCompare(b.em));
-  const o = conteudo.orcamento;
-  const custo: LinhaDeCusto[] = [
-    { escopo: 'do arco', unidade: o.arco.unidade, teto: o.arco.valor, consumo: consumoDoEscopoNaUnidade(medicao, 'arco', o.arco.unidade) },
-    ...o.porConta.map(s => ({ escopo: `da conta ${s.conta}`, unidade: s.teto.unidade, teto: s.teto.valor,
-      consumo: consumoDoEscopoNaUnidade(medicao, { conta: s.conta }, s.teto.unidade) })),
-    ...o.porRuntime.map(s => ({ escopo: `do runtime ${s.runtime}`, unidade: s.teto.unidade, teto: s.teto.valor,
-      consumo: consumoDoEscopoNaUnidade(medicao, { runtime: s.runtime }, s.teto.unidade) })),
-  ];
+  const custo = modo.semCusto ? [] : linhasDeCusto(conteudo, medidorDoRelatorio(opcoes, conteudo)(raiz, estado, quando));
   const candidato = fila?.candidatos[0];
   return {
     arco, quando, fuso, vencimentoEm: vencimentoDoRelatorio(conteudo), janela: { inicio: conteudo.janela.inicio, fim: conteudo.janela.fim },
     situacao: estado.situacao, envelopeSha256: estado.envelopeSha256,
     encerramento: estado.encerramento ? { motivo: estado.encerramento.motivo, detalhe: estado.encerramento.detalhe, em: estado.encerramento.em } : null,
     entregues, emCurso, impedidos, decisoes, custo,
-    sessoesDespachadas: estado.despachos.filter(d => d.desfecho !== 'recusado').length,
+    sessoesDespachadas: estado.despachos.filter(d => d.desfecho === 'concluido' && !d.idempotente).length,
+    reservasPendentes: estado.despachos.filter(d => d.desfecho === 'pendente').length,
     paradas: (fechamento?.paradas ?? []).map(p => textoDaParada(p, fechamento!.conferencias)),
     contasFora: (supervisao?.contasFora ?? []).map(c => `a conta ${c.conta} saiu do arco: ${c.motivo}`),
     correcoes: [],
-    precisaDeVoce: estado.decisoes.map(d => ({ id: d.id, thread: d.thread, pergunta: d.pergunta, alternativas: d.alternativas })),
+    precisaDeVoce: estado.decisoes.map(d => ({ id: d.id, thread: d.thread, pergunta: d.pergunta, alternativas: d.alternativas })), foraDoLote,
     proximo: candidato ? `${candidato.id} (${candidato.item}), ${candidato.estado === 'abrir' ? 'abre a thread pelo GOAL' : `fase ${candidato.fase}`}` +
       (fechado ? ', num arco novo' : '') : null,
     lacunas,
@@ -306,15 +343,18 @@ export function linhasDoRelatorio(f: FatosDoRelatorio, versao: number): string[]
     `Como reverter: ${frase(d.comoMudar)} Evidência: ${frase(d.evidencia)}`), ...(f.decisoes.length > decisoes.length
       ? [`• e mais ${f.decisoes.length - decisoes.length}, no ledger de cada thread (ork decisao placar)`] : [])] : nada));
   l.push('', '💰 Custo e duração', ...f.custo.map(c => `• Teto ${c.escopo}: ${textoDoConsumo(c.consumo)} de ${c.teto} ${c.unidade}`),
-    `• Sessões despachadas pelo arco: ${f.sessoesDespachadas}`,
+    `• Sessões abertas pelo arco: ${f.sessoesDespachadas}` +
+      (f.reservasPendentes ? `; reservas pendentes: ${f.reservasPendentes} (o runtime pode ter aberto a sessão, e o consumo dela fica desconhecido)` : ''),
     `• Janela de ${hora(f.janela.inicio)} a ${hora(f.janela.fim)}` +
       (f.encerramento ? `; fechou às ${hora(f.encerramento.em)} (${MOTIVO_EM_TEXTO[f.encerramento.motivo] ?? f.encerramento.motivo})` : ''),
     ...f.contasFora.map(c => `• ${c}`),
     '• Assinatura não é uso ilimitado: o teto vale também para a conta de assinatura.');
   l.push('', '📝 Correções', ...(f.correcoes.length ? f.correcoes.map(c => `• Foi informado: ${c.informado}. Fato confirmado agora: ` +
     `${c.confirmado}. Fonte: ${c.fonte}. Impacto: ${c.impacto}.`) : nada));
-  l.push('', '👤 O que precisa de você', ...(f.precisaDeVoce.length ? f.precisaDeVoce.flatMap(p => [`• ${p.id} (${p.thread}): ${p.pergunta} #HITL`,
-    ...p.alternativas.map(a => `  ${a.letra}) ${a.texto}: ${a.consequencia}${a.recomendada ? ` (Recomendação: ${a.porque})` : ''}`)]) : nada),
+  const doDono = [...f.precisaDeVoce.flatMap(p => [`• ${p.id} (${p.thread}): ${p.pergunta} #HITL`,
+    ...p.alternativas.map(a => `  ${a.letra}) ${a.texto}: ${a.consequencia}${a.recomendada ? ` (Recomendação: ${a.porque})` : ''}`)]),
+    ...f.foraDoLote.map(x => `• ${x.trabalho} (thread ${x.thread}) espera o dono fora do lote do arco: ${frase(x.detalhe)} A resposta vai pela pendência da própria thread.`)];
+  l.push('', '👤 O que precisa de você', ...(doDono.length ? doDono : nada),
     ...(f.proximo ? [`• Próximo trabalho elegível: ${f.proximo}`] : []));
   return l.map(x => redigirSegredos(x));
 }
@@ -357,6 +397,8 @@ export function enviarPeloTransporte(raiz: string, t: TransporteDoCanal, texto: 
     { cwd: raizDoEstado(raiz), encoding: 'utf8', input: texto, timeout: PRAZO_DO_TRANSPORTE_MS, maxBuffer: 1024 * 1024 });
   const codigo = (r.error as NodeJS.ErrnoException | undefined)?.code;
   if (codigo === 'ENOENT' || codigo === 'EACCES') return { estado: 'falhou', motivo: `o executável do transporte não roda (${codigo})` };
+  // O processo que nem subiu (EAGAIN, ENOMEM, E2BIG) não entregou nada: é falha explícita, que se repete, e não incerto.
+  if (r.error && !r.pid) return { estado: 'falhou', motivo: `o transporte não subiu (${codigo ?? 'sem código'})` };
   if (r.status === 0) {
     let referencia: string | null = null;
     try {
@@ -420,9 +462,12 @@ export function correcoesDoRelatorio(linhas: readonly Linha[], fatos: FatosDoRel
   }
   for (const [trabalho, dita] of entregaDita) {
     if (fatos.entregues.some(e => e.trabalho === trabalho)) continue;
-    const agora = fatos.impedidos.find(i => i.trabalho === trabalho) ?? fatos.emCurso.find(i => i.trabalho === trabalho);
-    const confirmado = !agora ? 'o trabalho não aparece mais como entregue'
-      : 'causa' in agora ? `${agora.causa} (${agora.detalhe})` : `em curso: ${agora.checkpoint}`;
+    // Só o fato que desmente a entrega vira correção: a entrega revertida, ou a que passou a não ter a prova do push.
+    // Lacuna (thread ilegível ou ambígua, ledger que não se lê, trabalho fora da lista) fica no cabeçalho do não lido.
+    const agora = fatos.impedidos.find(i => i.trabalho === trabalho && i.causa === CAUSA_REVERTIDA) ??
+      fatos.emCurso.find(i => i.trabalho === trabalho && i.checkpoint === CHECKPOINT_SEM_PROVA);
+    if (!agora) continue;
+    const confirmado = 'causa' in agora ? `${agora.causa} (${agora.detalhe})` : `em curso: ${agora.checkpoint}`;
     correcoes.push({ trabalho, informado: `${trabalho} entregue (versão ${dita.versao}, ${dita.canal}, ${hora(dita.em)})`, confirmado,
       fonte: 'o ledger da thread do trabalho (ship_done e rollback_done)',
       impacto: 'o trabalho não conta como entregue, e nada foi entregue de novo; ele volta para um arco novo' });
@@ -469,25 +514,31 @@ export function entregarRelatorioSeDevido(carregado: ManifestoCarregado, arco: s
     return sem('fora-da-janela', 'a janela de entrega de 24 h depois do vencimento acabou; o que ficou sem recibo segue no retrato do arco',
       { vencimentoEm, canal });
   }
-  const fatos = fatosDoRelatorio(carregado, arco, { ...opcoes, quando });
+  // Os fatos sem o custo: medir (transcrições e rollouts) só quando uma versão vai mesmo ser composta, nunca a cada tique.
+  const fatos = fatosDoRelatorio(carregado, arco, { ...opcoes, quando }, { semCusto: true });
   if (!fatos) return sem('sem-relatorio', `o arco ${arco} não tem envelope autorizado`);
+  const comCusto = (f: FatosDoRelatorio): FatosDoRelatorio =>
+    ({ ...f, custo: linhasDeCusto(conteudo, medidorDoRelatorio(opcoes, conteudo)(raiz, estado!, quando)) });
   try {
     return comRegistro<EventoDoRelatorio, ResultadoDaEntrega>(raiz, arco, 'relatorio', (linhas, anexar) => {
       const todas: Linha[] = [...linhas];
       const gravar = (e: EventoDoRelatorio) => { todas.push(anexar(e, quando)); };
       const versoes = versoesDe(todas);
-      if (!versoes.length) gravar(compor(fatos, 1, 'horario', canal, []));
+      if (!versoes.length) gravar(compor(comCusto(fatos), 1, 'horario', canal, []));
       else {
         const correcoes = correcoesDoRelatorio(todas, fatos);
         const jaCorrigidos = new Set(versoes.flatMap(v => v.informados.corrigidos));
         const novas = correcoes.filter(c => c.trabalho && !jaCorrigidos.has(c.trabalho));
         if (novas.length && versoes.length < MAXIMO_DE_VERSOES) {
-          gravar(compor({ ...fatos, correcoes }, versoes.length + 1, 'correcao', canal, novas.map(c => c.trabalho!)));
+          gravar(compor({ ...comCusto(fatos), correcoes }, versoes.length + 1, 'correcao', canal, novas.map(c => c.trabalho!)));
         }
       }
       const atual = versoesDe(todas).at(-1)!;
-      if (canal === 'terminal') {
-        return { acao: versaoEntregue(todas, atual) ? 'entregue' : 'pendente', vencimentoEm, versao: atual.versao, canal, enviadas: 0,
+      // O canal é o da versão: a emenda que troca o canal compõe a versão seguinte nele, e a já composta segue no dela,
+      // com os recibos dela (nunca mandada de novo por outro canal).
+      const doCanal = atual.canal;
+      if (doCanal === 'terminal') {
+        return { acao: versaoEntregue(todas, atual) ? 'entregue' : 'pendente', vencimentoEm, versao: atual.versao, canal: doCanal, enviadas: 0,
           detalhe: 'o relatório fica para consulta no terminal; o recibo vem quando o ork noctum relatorio o mostra num terminal interativo' };
       }
       const enviar = opcoes.enviar ?? ((c: CanalComTransporte, texto: string): ResultadoDoEnvio => {
@@ -495,28 +546,35 @@ export function entregarRelatorioSeDevido(carregado: ManifestoCarregado, arco: s
         return 'ausente' in t ? { estado: 'falhou', motivo: `transporte.ausente: ${t.ausente}` } : enviarPeloTransporte(raiz, t, texto);
       });
       if (!opcoes.enviar) {
-        const t = transporteDoCanal(raiz, canal);
+        const t = transporteDoCanal(raiz, doCanal);
         // Sem transporte, nada é tentado nem contado: a lacuna fica no retrato até o dono configurar o canal.
-        if ('ausente' in t) return { acao: 'pendente', vencimentoEm, versao: atual.versao, canal, enviadas: 0, detalhe: t.ausente };
+        if ('ausente' in t) return { acao: 'pendente', vencimentoEm, versao: atual.versao, canal: doCanal, enviadas: 0, detalhe: t.ausente };
       }
       let enviadas = 0;
       for (const [i, texto] of atual.paginas.entries()) {
         const pagina = i + 1;
-        const st = estadoDaPagina(todas, atual.versao, pagina, canal);
+        const st = estadoDaPagina(todas, atual.versao, pagina, doCanal);
         if (st.confirmada) continue;
         if (st.incerta || st.falhas >= MAXIMO_DE_TENTATIVAS) break;
         if (st.ultimaFalhaEm && Date.parse(quando) - Date.parse(st.ultimaFalhaEm) < INTERVALO_ENTRE_TENTATIVAS_MS) break;
-        gravar({ tipo: 'envio_tentado', versao: atual.versao, pagina, canal, tentativa: st.tentativas + 1, forcado: false });
+        gravar({ tipo: 'envio_tentado', versao: atual.versao, pagina, canal: doCanal, tentativa: st.tentativas + 1, forcado: false });
         let r: ResultadoDoEnvio;
-        try { r = enviar(canal, texto); } catch (e) { r = { estado: 'incerto', motivo: (e as Error).message.slice(0, 200) }; }
-        if (r.estado === 'confirmado') { gravar({ tipo: 'envio_confirmado', versao: atual.versao, pagina, canal, referencia: r.referencia }); enviadas += 1; continue; }
-        gravar(r.estado === 'falhou' ? { tipo: 'envio_falhou', versao: atual.versao, pagina, canal, motivo: r.motivo.slice(0, 300) }
-          : { tipo: 'envio_incerto', versao: atual.versao, pagina, canal, motivo: r.motivo.slice(0, 300) });
+        try { r = enviar(doCanal, texto); } catch (e) { r = { estado: 'incerto', motivo: (e as Error).message.slice(0, 200) }; }
+        if (r.estado === 'confirmado') {
+          gravar({ tipo: 'envio_confirmado', versao: atual.versao, pagina, canal: doCanal, referencia: r.referencia });
+          enviadas += 1;
+          continue;
+        }
+        gravar(r.estado === 'falhou' ? { tipo: 'envio_falhou', versao: atual.versao, pagina, canal: doCanal, motivo: r.motivo.slice(0, 300) }
+          : { tipo: 'envio_incerto', versao: atual.versao, pagina, canal: doCanal, motivo: r.motivo.slice(0, 300) });
         break;
       }
       const entregue = versaoEntregue(todas, atual);
-      return { acao: entregue ? 'entregue' : 'pendente', vencimentoEm, versao: atual.versao, canal, enviadas,
-        detalhe: entregue ? `versão ${atual.versao} com recibo de todas as páginas no canal ${canal}` : 'há página sem recibo; veja o retrato do arco' };
+      const todasComRecibo = atual.paginas.every((_p, i) => estadoDaPagina(todas, atual.versao, i + 1, doCanal).confirmada);
+      return { acao: entregue ? 'entregue' : 'pendente', vencimentoEm, versao: atual.versao, canal: doCanal, enviadas,
+        detalhe: !entregue ? 'há página sem recibo; veja o retrato do arco'
+          : todasComRecibo ? `versão ${atual.versao} com recibo de todas as páginas no canal ${doCanal}`
+          : `versão ${atual.versao} mostrada num terminal interativo; o canal ${doCanal} ainda não tem recibo de todas as páginas` };
     });
   } catch (e) {
     if (e instanceof RecusaDoRegistro && e.motivo === 'noctum.registro.ocupado') {
@@ -583,11 +641,14 @@ export function relatorioNoTerminal(carregado: ManifestoCarregado, arco: string,
       ...linhasDoRelatorio(fatos, 0)]) };
   }
   if (opcoes.interativo) {
-    comRegistro<EventoDoRelatorio, void>(raiz, arco, 'relatorio', (linhas, anexar) => {
-      if (!linhas.some(l => l.evento.tipo === 'exibido_no_terminal' && l.evento.versao === atual.versao)) {
-        anexar({ tipo: 'exibido_no_terminal', versao: atual.versao }, quando);
-      }
-    }, { esperarMs: 10_000 });
+    // Com a trava ocupada (o tique enviando), o dono vê as páginas assim mesmo; o recibo do terminal fica para a vez seguinte.
+    try {
+      comRegistro<EventoDoRelatorio, void>(raiz, arco, 'relatorio', (linhas, anexar) => {
+        if (!linhas.some(l => l.evento.tipo === 'exibido_no_terminal' && l.evento.versao === atual.versao)) {
+          anexar({ tipo: 'exibido_no_terminal', versao: atual.versao }, quando);
+        }
+      }, { esperarMs: 10_000 });
+    } catch (e) { if (!(e instanceof RecusaDoRegistro && e.motivo === 'noctum.registro.ocupado')) throw e; }
   }
   return { versao: atual.versao, previa: false, paginas: atual.paginas };
 }
