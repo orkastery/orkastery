@@ -5,34 +5,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-rm059ritual",
-      "fase": "GOAL",
-      "arquivo": "core/src/master-nota-local.ts",
-      "alegacao": "A ferramenta ork_request_master_note recebe só o threadId, pede a nota de 0 a 5 e o porquê pelo diálogo nativo (elicitation em formulário) e grava o MASTER com avaliadoPor mcp-local e o recibo assinado do ingresso local; sem elicitation em formulário no cliente ela recusa com master.nota.sem-dialogo e o estado fica igual; recusa, cancelamento e resposta fora do formulário não gravam nota (S1 a S5 do GOAL).",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js"
-      ],
-      "criadoEm": "2026-10-12T20:42:17.652Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C2",
-      "thread": "ork-rm059ritual",
-      "fase": "GOAL",
-      "arquivo": "core/src/master.ts",
-      "alegacao": "A nota do diálogo nativo vale como nota humana só com o recibo íntegro; o aceite por omissão e a resposta pelo Telegram não a trocam, e a identidade mcp-local não se digita no --por do terminal (S6 a S8 do GOAL), sem regressão nos testes do MASTER.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js core/dist-test/test/master.test.js core/dist-test/test/master-omissao.test.js core/dist-test/test/master-pulse.test.js core/dist-test/test/master-prova-canal.test.js core/dist-test/test/master-audit.test.js"
-      ],
-      "criadoEm": "2026-10-12T20:42:20.082Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C4",
       "thread": "ork-rm059ritual",
       "fase": "GOAL",
@@ -127,20 +99,6 @@
         "grep -F 'RM-059 (fatia F8, T8.1): a sessao de host ganhou o caminho com recibo que faltava' core/src/master-nota.ts && grep -F 'roda como o mesmo usuario do sistema le a chave local e forja o recibo' core/src/master-nota.ts && ! grep -F 'que fica fora desta entrega' core/src/master-nota.ts"
       ],
       "criadoEm": "2026-10-12T21:00:20.459Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C12",
-      "thread": "ork-rm059ritual",
-      "fase": "GOAL",
-      "arquivo": "core/src/pulse-resposta.ts",
-      "alegacao": "A resposta da nota pelo Telegram não troca a nota humana dada pelo diálogo nativo: responderNota usa notaHumanaRegistrada, e os testes do pulse e da prova de canal seguem verdes.",
-      "negativa": false,
-      "verificar": [
-        "grep -F 'if (notaHumanaRegistrada(raiz, t)) return t.score!.valor;' core/src/pulse-resposta.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js core/dist-test/test/pulse-resposta.test.js core/dist-test/test/master-prova-canal.test.js"
-      ],
-      "criadoEm": "2026-10-12T21:00:22.854Z",
       "estado": "verificado",
       "lint": []
     },
@@ -591,6 +549,216 @@
       "criadoEm": "2026-10-12T21:52:43.246Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm059ritual.json",
+      "alegacao": "O bundle do CI da thread leva as claims ativas da ork-rm059ritual, na branch dela, para o check ork-verify; as diferidas são só as de integração local (as que rodam o teste do servidor MCP) e, no máximo uma, a do próprio bundle enquanto ele não está versionado.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const b=require(\"./.ork-ci/ork-rm059ritual.json\");const d=b.deferredClaims||[];const a=d.filter(x=>x.reason===\"artifact-not-in-checkout\");process.exit(b.schema===\"ork.ci-bundle/v1\"&&b.thread===\"ork-rm059ritual\"&&b.branch===\"ork/ork-rm059ritual-full\"&&b.claims.length+d.length>=46&&a.length<=1&&d.every(x=>x.reason===\"artifact-not-in-checkout\"||x.reason===\"local-integration-required\")?0:1)'"
+      ],
+      "criadoEm": "2026-10-12T22:08:03.290Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/src/master-nota-local.ts",
+      "alegacao": "A ferramenta ork_request_master_note recebe só o threadId, pede a nota de 0 a 5 e o porquê pelo diálogo nativo (elicitation em formulário) e grava o MASTER com avaliadoPor dono (dialogo nativo), o canal do host e o recibo assinado do ingresso local; sem elicitation em formulário no cliente ela recusa com master.nota.sem-dialogo e o estado fica igual; recusa, cancelamento e resposta fora do formulário não gravam nota; a nota humana que chega durante o diálogo vence pela releitura sob a trava (S1 a S5 do GOAL, D12).",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'por: AUTOR_DA_NOTA_NATIVA, refazer: !!atual.score,' core/src/master-nota-local.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js"
+      ],
+      "criadoEm": "2026-10-12T23:10:11.026Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse-resposta.ts",
+      "alegacao": "A resposta da nota pelo Telegram segue a regra da base (D12): a nota humana gravada, inclusive a do diálogo nativo com dono (dialogo nativo), não se troca; os testes da nota local, do pulse e da prova de canal seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'if (t.score && t.score.regime !== ' core/src/pulse-resposta.ts && ! grep -qF 'notaHumanaRegistrada' core/src/pulse-resposta.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js core/dist-test/test/pulse-resposta.test.js core/dist-test/test/master-prova-canal.test.js"
+      ],
+      "criadoEm": "2026-10-12T23:10:20.272Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/src/maestro-runtime.ts",
+      "alegacao": "A seção master do retrato traz a entrega por artefato (artifact_delivered, sem ship_done): deliveredAt e deliveredAtLocal do artefato, deliveredSha nulo e deliveredArtifact com o arquivo, no item pendente sem MASTER e no aceito por omissão; com ship_done o fato do artefato não aparece.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'retrato do MASTER: a entrega por artefato tem a hora do artefato' core/test/maestro-master-ritual.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/maestro-master-ritual.test.js core/dist-test/test/maestro-runtime.test.js"
+      ],
+      "criadoEm": "2026-10-12T23:10:22.762Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/hooks/ritual.ts",
+      "alegacao": "O módulo puro do Ritual não conta o corte da página por bytes como lacuna, soma as threads que o retrato não leu (as nomeadas em ledger.unavailable e master.invalid e as omitidas em maestro.messages.omitted) e a faixa passa a dizer pelo menos; a entrega com a nota registrada ou repetida nesta sessão sai da lista e a entrega mais nova que a nota volta; a entrega por artefato entra com o arquivo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function semNotaDada(' adapters/claude-code/mods/ork-ritual/hooks/ritual.ts && grep -qF 'maestro.page.byte_limit' adapters/claude-code/mods/ork-ritual/hooks/ritual.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-12T23:10:25.715Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/test/nota.test.ts",
+      "alegacao": "Os testes do kit da nota cobrem a nota que sai da lista e da faixa com a página velha da ponte e com a releitura que falha, os dois toques seguidos antes do redesenho no Dar a nota e no Pelo Telegram e a recarga que devolve o botão ao diálogo e ao pedido que ficaram em curso; o claude plugin test deles roda no host e no job mods do CI.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-ritual/test/nota.test.ts) -ge 11 && grep -qF 'mesmo com a pagina velha que a ponte ainda guarda' adapters/claude-code/mods/ork-ritual/test/nota.test.ts && grep -qF 'mesmo quando a releitura logo depois falha' adapters/claude-code/mods/ork-ritual/test/nota.test.ts && grep -qF 'dois toques seguidos no Dar a nota, antes do redesenho' adapters/claude-code/mods/ork-ritual/test/nota.test.ts && grep -qF 'dois toques seguidos no Pelo Telegram, antes do redesenho' adapters/claude-code/mods/ork-ritual/test/nota.test.ts && grep -qF 'depois de uma recarga, o dialogo e o pedido que ficaram em curso voltam a ter o botao' adapters/claude-code/mods/ork-ritual/test/nota.test.ts"
+      ],
+      "criadoEm": "2026-10-12T23:10:29.819Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/test/replay.test.tsx",
+      "alegacao": "Os testes do kit do replay cobrem o painel escondido desde o início, que não vai ao registro do mostrado nem depois do tique, e o corte da página por bytes, que não vira lacuna, com a thread sem leitura que faz a faixa dizer pelo menos.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'o desenho com o painel escondido desde o inicio nao vai ao registro do mostrado' adapters/claude-code/mods/ork-ritual/test/replay.test.tsx && grep -qF 'pelo menos 2 entregas esperam a sua nota: ork-b, ork-a' adapters/claude-code/mods/ork-ritual/test/replay.test.tsx && grep -qF 'maestro.page.byte_limit' adapters/claude-code/mods/ork-ritual/test/replay.test.tsx"
+      ],
+      "criadoEm": "2026-10-12T23:10:32.597Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/test/master-nota-local.test.ts",
+      "alegacao": "Os testes da nota local cobrem a nota do Telegram que chega durante o diálogo (releitura sob a trava), o aceite por omissão que listou antes da nota e a trava tomada, o recibo forjado sem a chave, a chave trocada sem trocar a nota e a identidade no --por com qualquer grafia.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'nota local: a nota pelo Telegram que chega durante o diálogo vence, pela releitura sob a trava' core/test/master-nota-local.test.ts && grep -qF 'nota local: o aceite por omissão que listou antes da nota grava sob a trava e não a troca' core/test/master-nota-local.test.ts && grep -qF 'nota local: o aceite por omissão toma a trava da thread' core/test/master-nota-local.test.ts && grep -qF 'assinatura que a chave local não produziu' core/test/master-nota-local.test.ts && grep -qF 'Dono (Diálogo Nativo)' core/test/master-nota-local.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js"
+      ],
+      "criadoEm": "2026-10-12T23:10:35.987Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/ritual-do-master.md",
+      "alegacao": "O guia do Ritual diz a identidade dono (dialogo nativo) com o canal do host, que o recibo é conferido ao gravar, que o aceite por omissão não troca a nota nem numa versão anterior, a contagem pelo menos com as threads que o retrato não leu, a entrega por artefato e o comando do retrato com --offset 0.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ork maestro --json --section master --offset 0' docs/guias/ritual-do-master.md && grep -qF 'dono (dialogo nativo)' docs/guias/ritual-do-master.md && grep -qF 'pelo menos' docs/guias/ritual-do-master.md && grep -qF 'deliveredArtifact' docs/guias/ritual-do-master.md && ! grep -qF 'mcp-local:claude-code' docs/guias/ritual-do-master.md && core/node_modules/.bin/markdownlint-cli2 docs/guias/ritual-do-master.md"
+      ],
+      "criadoEm": "2026-10-12T23:10:38.766Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/src/master.ts",
+      "alegacao": "O validador do contrato ork.master-log/v1 e o masterRatificado são os da base (D12): a nota do diálogo nativo grava dono (dialogo nativo), que o autoriaHumana de qualquer versão aceita; essa identidade não se digita no --por, com qualquer caixa, acento, espaço ou pontuação, sem o recibo; o aceite por omissão grava sob a trava de HITL da thread, relê a thread nela e preserva só a nota humana ratificada, como a listagem (D13, D17); a soltura ao fechar roda depois da trava; sem regressão nos testes do MASTER e do fechamento.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'if (!autoriaHumana(log.avaliadoPor)) erros.push(' core/src/master.ts && ! grep -qF 'identidadeDoIngressoLocal' core/src/master.ts && grep -qF 'const aceite = comLockInspecionavel(dir, ' core/src/master.ts && grep -qF 'notaHumanaRegistrada(thread) && masterRatificado(raiz, id)' core/src/master.ts && grep -qF 'export function gravarMaster(' core/src/master.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js core/dist-test/test/master.test.js core/dist-test/test/master-omissao.test.js core/dist-test/test/master-omissao-alvo.test.js core/dist-test/test/master-pulse.test.js core/dist-test/test/master-prova-canal.test.js core/dist-test/test/master-audit.test.js core/dist-test/test/rm056-fantasma-ao-fechar.test.js core/dist-test/test/rm056-fechamento-com-falha.test.js"
+      ],
+      "criadoEm": "2026-10-13T00:02:39.942Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/src/master-nota-local.ts",
+      "alegacao": "Com a nota respondida, a gravação espera a trava ocupada da thread até 60 s e, ocupada além disso, recusa com master.nota.trava-ocupada sem gravar MASTER nem recibo; a soltura do que a thread segurava roda depois da trava (D17).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export const ESPERA_DA_TRAVA_MS = 60000;' core/src/master-nota-local.ts && grep -qF 'master.nota.trava-ocupada' core/src/master-nota-local.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js"
+      ],
+      "criadoEm": "2026-10-13T00:02:42.294Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/test/master-nota-local.test.ts",
+      "alegacao": "Os testes da nota local cobrem a nota de nome humano sem master_done, que a listagem e o aceite tratam como pendente, a trava esperada e a trava ocupada além da espera, a soltura ao fechar depois da trava e a origem adulterada no recibo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'nota local: a nota de nome humano sem master_done que a confirme a listagem trata como pendente, e o aceite também' core/test/master-nota-local.test.ts && grep -qF 'nota local: com a trava da thread tomada por outro processo, a gravação espera e grava quando ela solta' core/test/master-nota-local.test.ts && grep -qF 'nota local: a trava ocupada além da espera recusa com master.nota.trava-ocupada' core/test/master-nota-local.test.ts && grep -qF 'nota local: a nota pelo diálogo fecha a thread e solta o que ela segurava, depois da trava' core/test/master-nota-local.test.ts && grep -qF 'outra origem' core/test/master-nota-local.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js"
+      ],
+      "criadoEm": "2026-10-13T00:02:45.932Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/hooks/replay.tsx",
+      "alegacao": "Sem entrega visível e com threads que o retrato não leu, o placar diz quantas threads ele não leu e a linha vazia diz que só as entregas lidas estão em dia, apontando o ork master (D18); o cartão da proposta diz POSTMORTEM da proposta (D14).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'Nenhuma das entregas que o retrato leu espera a sua nota' adapters/claude-code/mods/ork-ritual/hooks/replay.tsx && grep -qF ' da proposta' adapters/claude-code/mods/ork-ritual/hooks/replay.tsx && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-13T00:02:48.581Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/hooks/nota.ts",
+      "alegacao": "A thread que seguiu ocupada depois da resposta (master.nota.trava-ocupada) volta a ter o botão Dar a nota, sem a reserva, e o botão espera mais que o diálogo e a trava do núcleo juntos.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'trava-ocupada' adapters/claude-code/mods/ork-ritual/hooks/nota.ts && grep -qF 'export const PRAZO_DA_NOTA_MS = 370000' adapters/claude-code/mods/ork-ritual/hooks/nota.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-13T00:02:51.049Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/test/replay.test.tsx",
+      "alegacao": "O teste do kit sem entrega visível e com threads que o retrato não leu confere a faixa que aponta o ork master, o placar e a linha vazia do painel; o claude plugin test dele roda no host e no job mods do CI.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'sem entrega visivel e com threads que o retrato nao leu, a faixa nao some' adapters/claude-code/mods/ork-ritual/test/replay.test.tsx && grep -qF 'o retrato não leu 5 threads: ork master lista as entregas que esperam a sua nota' adapters/claude-code/mods/ork-ritual/test/replay.test.tsx"
+      ],
+      "criadoEm": "2026-10-13T00:02:53.264Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
   "deferredClaims": [
@@ -599,16 +767,12 @@
       "reason": "local-integration-required"
     },
     {
-      "id": "C10",
-      "reason": "local-integration-required"
-    },
-    {
       "id": "C14",
       "reason": "local-integration-required"
     },
     {
-      "id": "C47",
-      "reason": "artifact-not-in-checkout"
+      "id": "C50",
+      "reason": "local-integration-required"
     }
   ],
   "commands": [
