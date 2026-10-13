@@ -5,8 +5,8 @@ type CheckRun = { id?: number; name?: string; status?: string; conclusion?: stri
   completed_at?: string | null; app?: { slug?: string } };
 
 /** Fatia 1: a mesma chamada de hoje (uma página de check-runs), na forma neutra. */
-export function checksNoCommitGithub(e: { repository: string; sha: string; context: string; executor: ExecutorCi }): Resultado<CheckNoCommit[]> {
-  const r = e.executor({ repository: e.repository, sha: e.sha, context: e.context });
+export function checksNoCommitGithub(e: { repository: string; sha: string; context: string; executor: ExecutorCi; host?: string }): Resultado<CheckNoCommit[]> {
+  const r = e.executor({ repository: e.repository, sha: e.sha, context: e.context, host: e.host });
   // Sem trim aqui: quem formata o detalhe (ci.ts) apara e corta, como sempre fez.
   if (!r.ok) return { ok: false, erro: { codigo: 'forja.inacessivel', detalhe: r.stderr || r.stdout } };
   let payload: { check_runs?: CheckRun[] };

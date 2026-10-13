@@ -7,7 +7,7 @@ export type NomeDaCapacidade = 'checksNoCommit' | 'pedidoMesclado' | 'branchPadr
 export interface AdaptadorDeForja {
   tipo: TipoDeForja;
   /** Os checks com esse nome no commit. No GitHub, só check-runs, numa página, como antes da porta. */
-  checksNoCommit?(e: { repository: string; sha: string; context: string; executor: ExecutorCi }): Resultado<CheckNoCommit[]>;
+  checksNoCommit?(e: { repository: string; sha: string; context: string; executor: ExecutorCi; host?: string }): Resultado<CheckNoCommit[]>;
   /** O PR da entrega externa; `null` quando a consulta falha. */
   pedidoMesclado?(e: { repo: string; numero: number; executor: ExecutorGitHub }): PedidoMesclado | null;
   /** A branch padrão do repositório; `''` se a resposta não a traz; `null` quando a consulta falha. */

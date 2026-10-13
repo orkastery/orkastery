@@ -1,5 +1,6 @@
 /** GitHub CI como CHECK independente (I-12). */
-import { lerEnderecoDoRemoto } from './forja/endereco';
+import { hostComPorta, lerEnderecoDoRemoto } from './forja/endereco';
+import { repositorioGithubNoHost } from './forja';
 import { exigirRemoto } from './branch-de-estado';
 import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
@@ -34,7 +35,7 @@ export interface ResultadoCi {
   detail: string;
 }
 
-export type ExecutorCi = (input: { repository: string; sha: string; context: string }) =>
+export type ExecutorCi = (input: { repository: string; sha: string; context: string; host?: string }) =>
   { ok: boolean; stdout: string; stderr: string; code: number };
 
 export interface BundleCi {
@@ -122,8 +123,8 @@ export function repositorioGitHub(url: string): string | null {
   return e && (e.host === 'github.com' || e.host === 'ssh.github.com') && e.caminho.split('/').length === 2 ? e.caminho : null;
 }
 
-function executorPadrao(input: { repository: string; sha: string; context: string }) {
-  const r = rodarCli({ cmd: 'gh', args: ['api', `repos/${input.repository}/commits/${input.sha}/check-runs`,
+function executorPadrao(input: { repository: string; sha: string; context: string; host?: string }) {
+  const r = rodarCli({ cmd: 'gh', args: ['api', '--hostname', input.host ?? 'github.com', `repos/${input.repository}/commits/${input.sha}/check-runs`,
     '-H', 'Accept: application/vnd.github+json'], prazoMs: 120000, maxBuffer: 1024 * 1024, procurarBinario: false });
   return { ok: r.status === 0, code: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
@@ -134,18 +135,29 @@ export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto =
   if (!ci.required_for_ship) return { schema: 'ork.ci-status/v1', required: false, ok: true, provider: 'github', repository: null, sha, context, state: 'disabled', url: null, detail: textoDoCatalogo((m) => m.ship.ciNaoExigidoDetalhe) };
   // RM-047: o `--remoto` do `ork ci status` vem da linha de comando; so nome de remoto chega ao git.
   const remote = exec('git', ['remote', 'get-url', '--', exigirRemoto(remoto, 'ci')], carregado.raiz);
-  const repository = remote.ok ? repositorioGitHub(remote.stdout) : null;
+  const identidade = remote.ok ? repositorioGithubNoHost(remote.stdout) : null;
+  const repository = identidade?.repo ?? null;
   if (!repository) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: null, sha, context, state: 'unavailable', url: null, detail: textoDoCatalogo((m) => m.ship.ciRemotoNaoGithub(remoto)) };
-  return consultarCiDoRepositorio(repository, sha, context, executor);
+  return consultarCiDoRepositorio(repository, sha, context, executor, hostDaApi(remote.stdout));
+}
+
+/**
+ * O `--hostname` do `gh api` para o remoto: `host` ou `host:porta` do GitHub Enterprise. O `ssh.github.com`
+ * (SSH pela 443) e o servico do github.com, e a porta de um remoto SSH nao e a da API.
+ */
+function hostDaApi(url: string): string {
+  const e = lerEnderecoDoRemoto(url);
+  if (!e || e.host === 'ssh.github.com') return 'github.com';
+  return e.protocolo === 'https' || e.protocolo === 'http' ? hostComPorta(e) : e.host;
 }
 
 /**
  * O check `context` no `sha` de um repositorio GitHub ja resolvido: o do remoto do projeto ou, desde a
  * RM-037 (rm037defeito, defeito 5), um repositorio externo declarado em `ci.external_repositories`.
  */
-export function consultarCiDoRepositorio(repository: string, sha: string, context: string, executor: ExecutorCi = executorPadrao): ResultadoCi {
+export function consultarCiDoRepositorio(repository: string, sha: string, context: string, executor: ExecutorCi = executorPadrao, host = 'github.com'): ResultadoCi {
   const base = { schema: 'ork.ci-status/v1' as const, required: true, provider: 'github' as const, repository, sha, context };
-  const lido = exigirCapacidade(adaptadorDaForja('github'), 'checksNoCommit')({ repository, sha, context, executor });
+  const lido = exigirCapacidade(adaptadorDaForja('github'), 'checksNoCommit')({ repository, sha, context, executor, host });
   if (!lido.ok && lido.erro.codigo === 'forja.resposta-invalida') {
     return { ...base, ok: false, state: 'unavailable', url: null, detail: textoDoCatalogo((m) => m.ship.ciRespostaInvalida) };
   }
