@@ -11,11 +11,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { projetoTemporario } from './apoio';
 import { abrirArco, prepararIngressoSimulado, revogarArco, threadDoTrabalho, TrabalhoSimulado } from './noctum-apoio';
-import { instancia, opcoesSimuladas, runtimeSimulado } from './noctum-supervisao-apoio';
+import { instancia, opcoesSimuladas, runtimeSimulado, storeCom } from './noctum-supervisao-apoio';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { lerLedger, registrar } from '../src/ledger';
 import { lerArco, reservarDespacho } from '../src/noctum-arco';
-import { correlacaoDoArco, gravarNaSupervisao, lerSupervisao, parametrosDoArco, retomadasDe } from '../src/noctum-supervisao';
+import { ConteudoV2, contasDoArco, correlacaoDoArco, gravarNaSupervisao, lerSupervisao, parametrosDoArco, retomadasDe } from '../src/noctum-supervisao';
 import { conduzirArco, passoConduzido, ResultadoDoTique, vigiarArco } from '../src/noctum-vigia';
 import { ResultadoRun } from '../src/phase';
 import { enfileirar, lerFilaDeRetomada } from '../src/ratelimit';
@@ -220,7 +220,7 @@ test('G6: a sessão morta sem resultado é retomada no mesmo tique: sessao_morta
   } finally { p.limpar(); }
 });
 
-test('G7: o limite semanal tira a conta até o reset e o despacho seguinte vai à outra conta; reset desconhecido e login perdido deixam a conta fora', { skip: semKernel }, () => {
+test('G7: o limite semanal tira a conta até o reset e o despacho seguinte vai à outra conta; com o login perdido na outra, nada sai, nem sem perfil', { skip: semKernel }, () => {
   const p = projetoTemporario('noctum-g7');
   try {
     abrirArco(p.dir, 'arco-g7', { trabalhos: AC, contas: DUAS, maquina: 2 });
@@ -269,5 +269,32 @@ test('G8: com o arco revogado, o tique só fecha a contabilidade do que estava e
     assert.equal(lerFilaDeRetomada(p.dir).filter(x => x.id === pedido.id).at(-1)!.estado, 'cancelado');
     assert.equal(registro.length, 0);
     assert.equal(listarIds(p.dir).length, 1, 'nenhuma thread aberta depois da revogação');
+  } finally { p.limpar(); }
+});
+
+test('G9: a cota sem reset dito, vista num despacho do arco, deixa a conta fora pelo resto do arco: depois da janela estimada do store, ela segue fora', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-g9');
+  try {
+    abrirArco(p.dir, 'arco-g9', { trabalhos: AC, contas: DUAS, maquina: 2 });
+    const falha = (raiz: string, threadId: string, o: { perfil?: string; fase: string; correlacao?: string }) => {
+      if (o.perfil !== 'perfil-a') return null;
+      registrar(dirThread(raiz, threadId), threadId, 'phase_dispatch_failed', { fase: o.fase, runtime: 'claude-bg', correlacao: o.correlacao,
+        perfil: { id: 'perfil-a', runtime: 'claude-bg' }, erro: 'runtime.quota-exhausted: limit SIMULADO sem hora' });
+      registrar(dirThread(raiz, threadId), threadId, 'gate_blocked', { gate: 'phase.dispatch', fase: o.fase, motivo: 'runtime.quota-exhausted',
+        origem: 'phase.run', falhaDeConta: { motivo: 'runtime.quota-exhausted', resetEm: null, fonte: 'sem-horario', trecho: 'limit SIMULADO' } });
+      return { sessionId: null, bloqueado: false, motivo: 'runtime.quota-exhausted', erro: 'SIMULADO' } as unknown as ResultadoRun;
+    };
+    const registro: string[] = [];
+    tique(vigiarArco(p.carregado, 'arco-g9', opcoesSimuladas(p.dir, ITENS, registro, {}, falha as never)));
+    const r2 = tique(vigiarArco(p.carregado, 'arco-g9', opcoesSimuladas(p.dir, ITENS, registro, {}, falha as never)));
+    assert.ok(r2.passo?.acao === 'despachou' && r2.passo.conta === 'perfil-b', JSON.stringify(r2.passo));
+    const fora = lerSupervisao(p.dir, 'arco-g9').contasFora.get('perfil-a');
+    assert.deepEqual([fora?.motivo, fora?.ate], ['cota-sem-reset', null]);
+    // Duas horas depois: o store já devolveu a conta A (a janela estimada venceu), e o arco não.
+    const tarde = new Date(Date.now() + 2 * 3600_000).toISOString();
+    const estado = lerArco(p.dir, 'arco-g9', tarde)!;
+    const visao = contasDoArco(estado.conteudo as ConteudoV2, estado, lerSupervisao(p.dir, 'arco-g9'), storeCom([{ id: 'perfil-a' }, { id: 'perfil-b' }]), tarde);
+    assert.deepEqual(visao.perfis.map(x => x.id), ['perfil-b']);
+    assert.ok(visao.lacunas.some(l => /perfil-a: reset desconhecido/.test(l)), JSON.stringify(visao.lacunas));
   } finally { p.limpar(); }
 });

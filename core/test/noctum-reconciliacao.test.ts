@@ -12,8 +12,8 @@ import { kernelDisponivel } from '../src/fila-pesada';
 import { registrar } from '../src/ledger';
 import { concluirDespacho, lerArco, reservarDespacho } from '../src/noctum-arco';
 import { envelopeComTrabalhos } from '../src/noctum-envelope';
-import { decidirPedidos, decidirReservas, decidirSessoes, DecisaoDeSessao, efeitosAbertos, faseDaRetomada, paradaPorAmbiente, provaDaSessao,
-  reconciliarEfeito, recusaDeAmbiente, registrarEfeitoIncerto } from '../src/noctum-reconciliacao';
+import { decidirPedidos, decidirReservas, decidirSessoes, DecisaoDeSessao, efeitosAbertos, faseDaRetomada, lerRemotoPadrao, paradaPorAmbiente,
+  provaDaSessao, reconciliarEfeito, recusaDeAmbiente, registrarEfeitoIncerto } from '../src/noctum-reconciliacao';
 import { exec } from '../src/util';
 import { caminhoDaFila, enfileirar, lerFilaDeRetomada, PedidoComPerfil } from '../src/ratelimit';
 import { retomarPorId } from '../src/retry';
@@ -421,5 +421,48 @@ test('R15: o remoto sem leitura é lacuna: o efeito fica aberto, é lido de novo
     assert.equal(lerSupervisao(p.dir, 'arco-r15').isolados.get('a')?.motivo, 'efeito-sem-leitura');
     assert.deepEqual(efeitosAbertos(lerSupervisao(p.dir, 'arco-r15')), []);
     assert.throws(() => registrarEfeitoIncerto(p.carregado, 'arco-r15', efeito('abc123', 'ork/trabalho-r15')), /sha completo/);
+  } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// GO-FIX 1: a sessão parada antes do primeiro turno, o fim de turno que o observador viu e o remoto seguro.
+// ---------------------------------------------------------------------------
+
+test('R16: a sessão viva parada num diálogo antes do primeiro turno (não só a que trabalha) é parada e retomada', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r16');
+  try {
+    const { t } = arcoComThread(p, 'arco-r16');
+    const d = despachoDoArco(p.dir, t.id, 'arco-r16', 'GOAL', 161);
+    const dialogo = runtimeCom([{ sessionId: d.sessionId, state: 'blocked' }]);
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r16', dialogo, depois(10)), [], 'dentro do prazo do primeiro turno, nada');
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r16', dialogo, depois(16))), ['retomar:GOAL:sem-primeiro-turno:1:parar:-']);
+  } finally { p.limpar(); }
+});
+
+test('R17: o fim de turno que o observador viu com a sessão parada (sem pergunta ao dono) também vira retomada depois da carência', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r17');
+  try {
+    const { t } = arcoComThread(p, 'arco-r17');
+    const d = despachoDoArco(p.dir, t.id, 'arco-r17', 'GO', 171);
+    passar(5);
+    registrar(dirThread(p.dir, t.id), t.id, 'phase_result', { fase: 'GO', sessionId: d.sessionId, ok: false, motivo: 'human.pending',
+      origem: 'sessions.watch', estadoNativo: 'blocked', stop: { ts: new Date().toISOString() } });
+    const parada = runtimeCom([{ sessionId: d.sessionId, state: 'blocked' }]);
+    assert.deepEqual(decisoesDeSessao(p, 'arco-r17', parada), [], 'na carência, nada');
+    assert.deepEqual(resumo(decisoesDeSessao(p, 'arco-r17', parada, depois(16))), ['retomar:GO:fim-de-turno-sem-resultado:1:parar:-']);
+  } finally { p.limpar(); }
+});
+
+test('R18: o efeito incerto só aceita remoto e branch no formato seguro, e a leitura padrão recusa os outros sem chamar o git', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r18');
+  try {
+    arcoComThread(p, 'arco-r18');
+    const sha = 'a'.repeat(40);
+    const base = { acao: 'push' as const, repositorio: 'exemplo/produto', remoto: 'origin', branch: 'ork/ok', sha, trabalho: 'a', thread: null, detalhe: 'SIMULADO' };
+    assert.throws(() => registrarEfeitoIncerto(p.carregado, 'arco-r18', { ...base, remoto: '--upload-pack=touch SIMULADO' }), /formato seguro/);
+    assert.throws(() => registrarEfeitoIncerto(p.carregado, 'arco-r18', { ...base, branch: 'refs/heads/x' }), /formato seguro/);
+    assert.throws(() => registrarEfeitoIncerto(p.carregado, 'arco-r18', { ...base, branch: '-x' }), /formato seguro/);
+    assert.deepEqual(lerRemotoPadrao('--upload-pack=touch SIMULADO', 'ork/ok', p.dir), { ok: false, detalhe: 'remoto ou branch fora do formato seguro' });
+    assert.equal(registrarEfeitoIncerto(p.carregado, 'arco-r18', base).startsWith('E-'), true);
   } finally { p.limpar(); }
 });

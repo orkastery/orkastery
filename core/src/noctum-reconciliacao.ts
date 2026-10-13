@@ -24,6 +24,7 @@ import { lerLedger } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { DespachoDoArco, EstadoDoArco } from './noctum-arco';
 import { LeituraDeSessoes } from './noctum-capacidade';
+import { nomeDaBranch } from './noctum-envelope';
 import { ConteudoV2, correlacaoDoArco, DesfechoDoEfeito, EfeitoIncerto, EstadoDaSupervisao, EventoDaSupervisao, gravarNaSupervisao,
   lerSupervisao, MotivoDaRetomada, ParametrosDaSupervisao, RecusaDaSupervisao, retomadasDe, threadsDoArco } from './noctum-supervisao';
 import { esperaDoCondutor, pendenciaDoDono } from './parado-no-condutor';
@@ -350,25 +351,29 @@ export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2,
       continue;
     }
     const trabalhando = p.estado === 'viva' && p.trabalhando;
-    if (trabalhando && espera?.tipo !== 'stop-sem-resultado') {
-      // D12: a sessão que trabalha só é presa sem avanço nenhum além do prazo, ou sem nenhuma atividade desde o despacho.
-      const ativa = eventos.some(e => Date.parse(e.ts) > desde && ((ATIVIDADE.includes(e.tipo) && e.sessionId === sid) || EVENTOS_DE_AVANCO.includes(e.tipo)));
-      if (!ativa && agora - desde >= parametros.primeiroTurnoMs) {
-        decisoes.push(retomar(fase, 'sem-primeiro-turno', sessao,
-          `a sessão ${sid} não deu sinal nenhum em ${Math.round((agora - desde) / 60000)} min depois do despacho`, true));
-        continue;
-      }
-      const parado = agora - ultimoAvanco(raiz, thread, eventos, desde);
-      if (ativa && parado >= parametros.semAvancoMs) {
-        decisoes.push(retomar(faseDaRetomada(raiz, t, eventos, fase, d.ts), 'sem-avanco', sessao,
-          `a sessão ${sid} trabalha sem evento de produto há ${Math.round(parado / 60000)} min (prazo ${Math.round(parametros.semAvancoMs / 60000)} min)`, true));
+    // D11: o fim de turno sem resultado (o Stop sem `phase_result`, ou o fim de turno que o observador viu com a sessão
+    // parada), depois da carência e com a sessão sem trabalhar no runtime; a que voltou a trabalhar segue.
+    if (espera?.tipo === 'stop-sem-resultado' || espera?.tipo === 'espera-do-observador') {
+      if (agora - Date.parse(espera.fimDoTurnoEm) >= parametros.carenciaMs && !trabalhando) {
+        decisoes.push(retomar(faseDaRetomada(raiz, t, eventos, fase, d.ts), 'fim-de-turno-sem-resultado', sessao,
+          `o turno da sessão ${sid} acabou sem resultado em ${formatarDataHora(espera.fimDoTurnoEm)} e ela não trabalha: ${p.detalhe}`, true));
       }
       continue;
     }
-    // D11: o fim de turno sem resultado, depois da carência, com a sessão parada no runtime.
-    if (espera?.tipo === 'stop-sem-resultado' && agora - Date.parse(espera.fimDoTurnoEm) >= parametros.carenciaMs && !trabalhando) {
-      decisoes.push(retomar(faseDaRetomada(raiz, t, eventos, fase, d.ts), 'fim-de-turno-sem-resultado', sessao,
-        `o turno da sessão ${sid} acabou sem resultado em ${formatarDataHora(espera.fimDoTurnoEm)} e ela não trabalha: ${p.detalhe}`, true));
+    // A fase concluída e o CHECK sem veredito são do passo da N2 (a Sentinela diz a fase seguinte).
+    if (espera) continue;
+    // D12: no turno, a sessão viva (trabalhando ou parada num diálogo antes de começar) é presa sem nenhuma atividade desde o
+    // despacho além do prazo do primeiro turno, ou sem evento de produto além do prazo da fase.
+    const ativa = eventos.some(e => Date.parse(e.ts) > desde && ((ATIVIDADE.includes(e.tipo) && e.sessionId === sid) || EVENTOS_DE_AVANCO.includes(e.tipo)));
+    if (!ativa && agora - desde >= parametros.primeiroTurnoMs) {
+      decisoes.push(retomar(fase, 'sem-primeiro-turno', sessao,
+        `a sessão ${sid} não deu sinal nenhum em ${Math.round((agora - desde) / 60000)} min depois do despacho (${p.detalhe})`, true));
+      continue;
+    }
+    const parado = agora - ultimoAvanco(raiz, thread, eventos, desde);
+    if (ativa && parado >= parametros.semAvancoMs) {
+      decisoes.push(retomar(faseDaRetomada(raiz, t, eventos, fase, d.ts), 'sem-avanco', sessao,
+        `a sessão ${sid} segue sem evento de produto há ${Math.round(parado / 60000)} min (prazo ${Math.round(parametros.semAvancoMs / 60000)} min; ${p.detalhe})`, true));
     }
   }
   return decisoes;
@@ -442,8 +447,15 @@ export function decidirPedidos(raiz: string, arco: string, conteudo: ConteudoV2,
 export type LeituraDoRemoto = { ok: true; sha: string | null } | { ok: false; detalhe: string };
 export type LeitorDoRemoto = (remoto: string, branch: string, cwd: string) => LeituraDoRemoto;
 
+/**
+ * O remoto que o `git ls-remote` aceita do log: nome ou endereço sem espaço, que nunca começa com `-` (senão viraria opção
+ * do git, como `--upload-pack`).
+ */
+const REMOTO_SEGURO = /^[A-Za-z0-9_][A-Za-z0-9._/:@~+-]{0,299}$/;
+
 /** O `git ls-remote` da branch exata, com prazo e sem pedir credencial no terminal. */
 export const lerRemotoPadrao: LeitorDoRemoto = (remoto, branch, cwd) => {
+  if (!REMOTO_SEGURO.test(remoto) || nomeDaBranch(branch) === undefined) return { ok: false, detalhe: 'remoto ou branch fora do formato seguro' };
   const r = exec('git', ['ls-remote', '--heads', remoto, `refs/heads/${branch}`], cwd, 30_000, { ...process.env, GIT_TERMINAL_PROMPT: '0' });
   if (!r.ok) return { ok: false, detalhe: `git ls-remote saiu ${r.code}: ${(r.stderr.trim().split('\n')[0] ?? '').slice(0, 160)}` };
   const linha = r.stdout.split('\n').find(l => l.endsWith(`\trefs/heads/${branch}`));
@@ -465,8 +477,8 @@ const chaveDoEfeito = (e: EfeitoIncerto): string => JSON.stringify([e.acao, e.re
 
 /** D18: registra o efeito de resultado incerto (o push que estourou o prazo ou caiu sem resposta) e devolve o id dele. */
 export function registrarEfeitoIncerto(carregado: ManifestoCarregado, arco: string, efeito: EfeitoIncerto, quando = new Date().toISOString()): string {
-  if (!/^[0-9a-f]{40}$/.test(efeito.sha) || !efeito.branch || !efeito.remoto) {
-    throw new RecusaDaSupervisao('noctum.supervisao.invalida', 'efeito incerto exige o sha completo, a branch e o remoto');
+  if (!/^[0-9a-f]{40}$/.test(efeito.sha) || nomeDaBranch(efeito.branch) === undefined || !REMOTO_SEGURO.test(efeito.remoto)) {
+    throw new RecusaDaSupervisao('noctum.supervisao.invalida', 'efeito incerto exige o sha completo, a branch e o remoto, no formato seguro');
   }
   const id = 'E-' + createHash('sha256').update(JSON.stringify([arco, chaveDoEfeito(efeito), quando])).digest('hex').slice(0, 12);
   gravarNaSupervisao(carregado, arco, [{ tipo: 'efeito_incerto', id, efeito: { ...efeito, detalhe: efeito.detalhe.slice(0, 200) } }], quando);

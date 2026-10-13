@@ -88,6 +88,7 @@ export interface ResultadoDoTique {
 export type ResultadoDoVigia = ResultadoDoTique | { acao: 'sem-kernel' | 'outro-vigia' | 'sem-arco'; detalhe: string };
 
 const ARQUIVO_DO_CONDUTOR = 'condutor.lock';
+const ID_DE_SESSAO = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const ARQUIVO_DO_VIGIA = 'vigia.lock';
 
 function quemSou(papel: Instancia['papel'], opcoes: OpcoesDoVigia): Instancia {
@@ -110,6 +111,8 @@ function storePadrao(raiz: string): () => StoreDePerfis | null {
 function pararPadrao(raiz: string): (s: ParadaDeSessao) => { ok: boolean; detalhe: string } {
   return (s) => {
     if (s.runtime !== 'claude-bg') return { ok: false, detalhe: `o vigia só para sessão claude-bg; ${s.runtime} exige o controller vinculado` };
+    // O id vem do ledger: só um UUID vai à linha de comando do runtime.
+    if (!ID_DE_SESSAO.test(s.sessionId)) return { ok: false, detalhe: 'id de sessão fora do formato: nada foi parado' };
     try {
       const p = s.perfil ? lerPerfis(raiz).perfis.find(x => x.id === s.perfil) : undefined;
       if (s.perfil && !p) return { ok: false, detalhe: `o perfil ${s.perfil} não está no store` };
