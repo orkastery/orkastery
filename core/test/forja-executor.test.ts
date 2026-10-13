@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import { rodarCli } from '../src/forja/executor';
 import * as antigo from '../src/forja';
 import * as contrato from '../src/forja/contrato';
+import { ghPadrao } from '../src/parado-no-condutor';
 
 /** Um `gh` falso que devolve o proprio ambiente e o stdin, para o teste ver o que chegou ao processo. */
 function ghEspiao(): string {
@@ -37,4 +38,26 @@ test('forja.ts reexporta os tipos de forja/contrato sem mudar o nome', () => {
   const mesmo: antigo.TipoDeForja = tipo;
   assert.equal(mesmo, 'github');
   assert.equal(typeof antigo.executorPadrao, 'function');
+});
+
+test('procurarBinario:false nao acha binario so de ORK_BINARIOS_EXTRA; o padrao acha', () => {
+  const dir = ghEspiao();
+  const base = { cmd: 'gh' as const, args: [], prazoMs: 5000, maxBuffer: 1024 };
+  const amb = { PATH: '/nao/existe', ORK_BINARIOS_EXTRA: dir };
+  assert.equal(rodarCli({ ...base, acrescentar: amb, procurarBinario: false }).erro, 'ENOENT');
+  assert.equal(rodarCli({ ...base, acrescentar: amb }).erro, undefined);
+});
+
+test('ghPadrao mapeia erro de spawn para stderr com a mensagem do erro', () => {
+  const antes = process.env.PATH, extra = process.env.ORK_BINARIOS_EXTRA;
+  process.env.PATH = '/nao/existe'; process.env.ORK_BINARIOS_EXTRA = '';
+  try {
+    const r = ghPadrao(['--version'], 5000);
+    assert.equal(r.status, null);
+    assert.match(r.stderr, /ENOENT/);
+    assert.notEqual(r.stderr, 'ENOENT');
+  } finally {
+    process.env.PATH = antes;
+    if (extra === undefined) delete process.env.ORK_BINARIOS_EXTRA; else process.env.ORK_BINARIOS_EXTRA = extra;
+  }
 });

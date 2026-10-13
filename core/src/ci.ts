@@ -122,7 +122,7 @@ export function repositorioGitHub(url: string): string | null {
 
 function executorPadrao(input: { repository: string; sha: string; context: string }) {
   const r = rodarCli({ cmd: 'gh', args: ['api', `repos/${input.repository}/commits/${input.sha}/check-runs`,
-    '-H', 'Accept: application/vnd.github+json'], prazoMs: 120000, maxBuffer: 1024 * 1024 });
+    '-H', 'Accept: application/vnd.github+json'], prazoMs: 120000, maxBuffer: 1024 * 1024, procurarBinario: false });
   return { ok: r.status === 0, code: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 

@@ -129,7 +129,7 @@ export const FORJA_SEM_LEITURA = 'forja sem leitura de PR';
 export type ExecutorDoGh = (args: readonly string[], timeoutMs: number) => { status: number | null; stdout: string; stderr: string };
 
 export const ghPadrao: ExecutorDoGh = (args, timeoutMs) => {
-  const r = rodarCli({ cmd: 'gh', args, prazoMs: timeoutMs, maxBuffer: 16 * 1024 * 1024,
+  const r = rodarCli({ cmd: 'gh', args, prazoMs: timeoutMs, maxBuffer: 16 * 1024 * 1024, procurarBinario: false,
     acrescentar: { GH_PROMPT_DISABLED: '1', NO_COLOR: '1', CLICOLOR: '0', CLICOLOR_FORCE: '0' },
     apagar: ['GH_HOST', 'GH_REPO', 'GH_FORCE_TTY'] });
   return { status: r.status, stdout: r.stdout, stderr: r.mensagemDoErro ?? r.stderr };
