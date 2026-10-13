@@ -739,7 +739,7 @@
         "grep -F 'const ENVELOPE_DO_MOTOR = new RegExp' core/src/entrega-por-mod.ts"
       ],
       "criadoEm": "2026-10-12T23:14:29.444Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -754,7 +754,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-sessions-mod.test.js | awk '/^ok [0-9]+ - receptor: o envelope so na forma do motor/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'"
       ],
       "criadoEm": "2026-10-12T23:14:31.674Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -770,7 +770,7 @@
         "grep -F \"motivo: 'entrega.prazo'\" core/test/hitl-sessions-mod.test.ts"
       ],
       "criadoEm": "2026-10-12T23:14:34.063Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -786,7 +786,7 @@
         "grep -F 'ESPERA_DO_RECIBO_MS = 5 * 60000' adapters/claude-code/mods/ork-mensageiro/hooks/caixa.ts"
       ],
       "criadoEm": "2026-10-12T23:14:41.022Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -801,7 +801,7 @@
         "grep -F 'impressao: string | null' adapters/claude-code/mods/ork-mensageiro/types/index.d.ts"
       ],
       "criadoEm": "2026-10-12T23:14:46.106Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -817,7 +817,7 @@
         "grep -F \"{ kind: 'unclassified' })\" adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts"
       ],
       "criadoEm": "2026-10-12T23:14:51.886Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -832,7 +832,7 @@
         "grep -F 'a reserva sem recibo por 5 min deixa de ser confirmando' adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts"
       ],
       "criadoEm": "2026-10-12T23:14:54.037Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -847,7 +847,7 @@
         "grep -F 'sem retorno, responda pelo claude attach' adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx"
       ],
       "criadoEm": "2026-10-12T23:14:56.086Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -861,7 +861,7 @@
         "grep -F \"origin: Record<string, unknown> = { kind: 'peer' }\" adapters/claude-code/mods/ork-mensageiro/test/apoio.ts"
       ],
       "criadoEm": "2026-10-12T23:14:57.851Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -875,7 +875,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^# pass /{p=$3} /^# fail /{f=$3} END{exit !(p>=18 && f==0)}'"
       ],
       "criadoEm": "2026-10-12T23:15:00.091Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -892,7 +892,7 @@
         "core/node_modules/.bin/markdownlint-cli2 docs/guias/mensageiro-de-sessoes.md"
       ],
       "criadoEm": "2026-10-12T23:15:02.937Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -907,7 +907,7 @@
         "core/node_modules/.bin/markdownlint-cli2 docs/guias/sincronismo-hitl.md"
       ],
       "criadoEm": "2026-10-12T23:15:05.435Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -922,7 +922,7 @@
         "node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-10-12T23:15:06.494Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -940,7 +940,7 @@
         "node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-mensageiro"
       ],
       "criadoEm": "2026-10-12T23:39:36.111Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -957,7 +957,7 @@
         "grep -F \"const EXTERNAS = ['bridge', 'task-notification', 'scheduled-trigger', 'slack-ping']\" adapters/claude-code/mods/ork-mensageiro/hooks/recepcao.ts"
       ],
       "criadoEm": "2026-10-12T23:39:40.295Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -972,7 +972,7 @@
         "grep -F 'entrega incerta fora desta sessão: noutra sessão do dono, noutro canal ou perdida' adapters/claude-code/mods/ork-mensageiro/hooks/painel.tsx"
       ],
       "criadoEm": "2026-10-12T23:39:43.160Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -989,7 +989,7 @@
         "grep -F 'ficou sem recibo; confira pelo claude attach' adapters/claude-code/mods/ork-mensageiro/hooks/caixa.ts"
       ],
       "criadoEm": "2026-10-12T23:39:47.015Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1004,7 +1004,7 @@
         "grep -F \"const prazo = typeof ate === 'string' ? Date.parse(ate) : NaN;\" core/src/entrega-por-mod.ts"
       ],
       "criadoEm": "2026-10-12T23:39:49.595Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1019,7 +1019,7 @@
         "grep -F 'Sem prazo (uma copia velha do mod) recusa' core/test/hitl-sessions-mod.test.ts"
       ],
       "criadoEm": "2026-10-12T23:39:51.595Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1033,7 +1033,7 @@
         "grep -F 'ficou sem recibo; confira pelo claude attach' adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts"
       ],
       "criadoEm": "2026-10-12T23:39:55.948Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1047,7 +1047,7 @@
         "grep -F 'entrega incerta fora desta sessão: noutra sessão do dono, noutro canal ou perdida' adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx"
       ],
       "criadoEm": "2026-10-12T23:40:02.376Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1063,7 +1063,7 @@
         "grep -F 'r.decisaoNaFalha({ ...base, emVoo: new Map([[msg, fixo]]) })' core/test/ork-mensageiro.test.ts"
       ],
       "criadoEm": "2026-10-12T23:40:05.776Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1080,7 +1080,7 @@
         "core/node_modules/.bin/markdownlint-cli2 docs/guias/mensageiro-de-sessoes.md"
       ],
       "criadoEm": "2026-10-12T23:40:08.550Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1094,7 +1094,7 @@
         "grep -F 'O Mensageiro entrega ao modelo só o corpo conferido' docs/guias/sincronismo-hitl.md"
       ],
       "criadoEm": "2026-10-12T23:40:10.301Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1109,7 +1109,7 @@
         "node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-10-12T23:40:11.828Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1125,7 +1125,7 @@
         "test $(grep -c '^test(' adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts) -ge 12"
       ],
       "criadoEm": "2026-10-13T00:00:44.813Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1140,7 +1140,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - recepcao: o que o .catch do receptor deixa passar/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'"
       ],
       "criadoEm": "2026-10-13T00:00:47.556Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1156,7 +1156,7 @@
         "core/node_modules/.bin/markdownlint-cli2 docs/guias/mensageiro-de-sessoes.md"
       ],
       "criadoEm": "2026-10-13T00:00:49.702Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1170,7 +1170,7 @@
         "node -e 'const b=require(\"./.ork-ci/ork-rm059mensag.json\");const d=b.deferredClaims||[];const ok=x=>x.reason===\"artifact-not-in-checkout\"||x.reason===\"local-integration-required\";process.exit(b.schema===\"ork.ci-bundle/v1\"&&b.thread===\"ork-rm059mensag\"&&b.branch===\"ork/ork-rm059mensag-full\"&&b.claims.length+d.length>=78&&d.length<=2&&d.filter(x=>x.reason===\"artifact-not-in-checkout\").length<=1&&d.every(ok)?0:1)'"
       ],
       "criadoEm": "2026-10-13T00:03:23.047Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
