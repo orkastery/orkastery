@@ -74,7 +74,7 @@ test('as duas chamadas vão ao host pedido, e mais de 10 páginas cita o teto', 
   assert.deepEqual(hosts, ['ghe.empresa.com:8443', 'ghe.empresa.com:8443']);
   const cheia = Array.from({ length: 100 }, (_, i) => run(i + 1, 'success'));
   const muitas = forja(Array.from({ length: 11 }, () => cheia));
-  assert.match(consultarCiDoRepositorio('o/r', SHA, 'ork-verify', muitas.executor).detail, /1000/);
+  assert.match(consultarCiDoRepositorio('o/r', SHA, 'ork-verify', muitas.executor).detail, /veio incompleta/);
 });
 
 test('fora de ordem: vale o mais novo do mesmo produtor', () => {
@@ -137,7 +137,7 @@ test('mais de 10 páginas de statuses é incompleto', () => {
     : { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ total_count: 1, check_runs: [run(2, 'success')] }) };
   const r = consultarCiDoRepositorio('o/r', SHA, 'ork-verify', executor);
   assert.equal(r.state, 'unavailable');
-  assert.match(r.detail, /1000/);
+  assert.match(r.detail, /veio incompleta/);
 });
 
 test('total_count baixo não encerra a lista: a página cheia pede a próxima', () => {
