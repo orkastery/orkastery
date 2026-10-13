@@ -150,7 +150,7 @@ export function consultarCiDoRepositorio(repository: string, sha: string, contex
   }
   if (!lido.ok) return { ...base, ok: false, state: 'unavailable', url: null, detail: (lido.erro.detalhe || textoDoCatalogo((m) => m.ship.ciConsultaFalhou)).trim().slice(0, 400) };
   if (!lido.valor.length) return { ...base, ok: false, state: 'missing', url: null, detail: textoDoCatalogo((m) => m.ship.ciSemCheck(context)) };
-  const check = lido.valor.at(-1)!; // fatia 1: a mesma escolha de hoje; a fatia 2 ordena
+  const check = lido.valor.at(-1)!; // a mesma escolha de antes da porta: o ultimo da lista
   const status = check.status;
   const conclusion = check.conclusao ?? '';
   const state: EstadoCi = status !== 'completed' ? 'pending' : conclusion === 'success' ? 'success' : 'failure';

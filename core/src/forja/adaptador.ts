@@ -6,7 +6,7 @@ import type { CheckNoCommit, PedidoMesclado, Resultado, TipoDeForja } from './co
 export type NomeDaCapacidade = 'checksNoCommit' | 'pedidoMesclado' | 'branchPadrao' | 'pontaDaBranch' | 'comparar' | 'pedidosDaBranch' | 'abrirPedido';
 export interface AdaptadorDeForja {
   tipo: TipoDeForja;
-  /** Os checks com esse nome no commit. Na fatia 1, só check-runs, numa página, como hoje. */
+  /** Os checks com esse nome no commit. No GitHub, só check-runs, numa página, como antes da porta. */
   checksNoCommit?(e: { repository: string; sha: string; context: string; executor: ExecutorCi }): Resultado<CheckNoCommit[]>;
   /** O PR da entrega externa; `null` quando a consulta falha. */
   pedidoMesclado?(e: { repo: string; numero: number; executor: ExecutorGitHub }): PedidoMesclado | null;

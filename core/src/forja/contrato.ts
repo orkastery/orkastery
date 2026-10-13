@@ -1,5 +1,5 @@
 /**
- * Spec do suporte a GitLab, secao 9.1: o contrato neutro da forja. Os tipos abaixo moram aqui e `forja.ts` os
+ * O contrato neutro da forja. Os tipos abaixo moram aqui e `forja.ts` os
  * reexporta com o mesmo nome; nenhum depende de `gh` ou `glab`.
  */
 
