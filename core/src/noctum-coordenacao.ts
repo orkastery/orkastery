@@ -469,10 +469,14 @@ export function cederAutoridade(carregado: ManifestoCarregado, arco: string, par
 /** As vagas de execução de uma máquina: as da máquina menos as que só o CHECK usa. */
 const vagasDeExecucao = (c: ConteudoDoEnvelope): number => (c.capacidade?.maquina ?? 0) - (c.capacidade?.revisao ?? 0);
 
-/** A máquina já recusou este trabalho nesta versão do envelope? Ela não recebe a mesma ordem de novo. */
+/**
+ * A máquina já recusou este trabalho nesta versão do envelope, ou o encerrou porque a reserva do item está com outra
+ * máquina ou pessoa? Ela não recebe a mesma ordem de novo: sem isso, a ordem iria e voltaria a cada passo.
+ */
 function recusou(estado: EstadoDaCoordenacao, trabalho: string, maquina: string): boolean {
-  return [...estado.ordens.values()].some(o => o.trabalho === trabalho && o.maquina === maquina && o.estado === 'recusada' &&
-    o.envelopeSha256 === estado.vigente.envelopeSha256);
+  return [...estado.ordens.values()].some(o => o.trabalho === trabalho && o.maquina === maquina &&
+    o.envelopeSha256 === estado.vigente.envelopeSha256 && (o.estado === 'recusada' ||
+      (o.estado === 'encerrada' && String(o.recibos.encerrada?.motivo ?? '').startsWith('noctum.reserva.de-outra-maquina'))));
 }
 
 /** Por que a ordem do trabalho para a máquina não sai agora; `null` quando ela pode sair. */
@@ -572,8 +576,15 @@ export function cancelarOrdem(carregado: ManifestoCarregado, arco: string, ordem
   }).resultado;
 }
 
-/** O que esta máquina sabe de si para responder uma ordem: a janela do arco e as threads desta raiz, com o item e o modo. */
-export interface FatosDaResposta { arcoVigente: boolean; threadsLocais: ReadonlyMap<string, { roadmap: string | null; modo: string }> }
+/**
+ * O que esta máquina sabe de si para responder uma ordem: a janela do arco, as threads desta raiz (com o item e o modo) e,
+ * quando a leitura das reservas veio, os itens que outra máquina ou pessoa já reservou.
+ */
+export interface FatosDaResposta {
+  arcoVigente: boolean;
+  threadsLocais: ReadonlyMap<string, { roadmap: string | null; modo: string }>;
+  itensDeOutros?: ReadonlySet<string>;
+}
 
 /** A resposta desta máquina a uma ordem emitida para ela: aceita ou recusada com o motivo (D10). */
 export function respostaAOrdem(estado: EstadoDaCoordenacao, o: OrdemDerivada, eu: string, fatos: FatosDaResposta):
@@ -583,6 +594,9 @@ export function respostaAOrdem(estado: EstadoDaCoordenacao, o: OrdemDerivada, eu
   const t = trabalhoDe(estado.vigente.conteudo, o.trabalho);
   if (!t) return { recibo: 'recusada', motivo: 'noctum.despacho.fora-do-envelope: o trabalho não está no envelope vigente' };
   if (t.maquina && t.maquina !== eu) return { recibo: 'recusada', motivo: `noctum.coordenacao.fora-do-envelope: o trabalho está preso à máquina ${t.maquina}` };
+  if (fatos.itensDeOutros?.has(t.item)) {
+    return { recibo: 'recusada', motivo: `noctum.reserva.de-outra-maquina: o item ${t.item} está reservado por outra máquina ou pessoa` };
+  }
   if (t.thread) {
     // A thread que o trabalho nomeia precisa morar aqui, ser do item dele e de #Auto: senão a fila da N2 nunca a despacharia.
     const th = fatos.threadsLocais.get(t.thread);

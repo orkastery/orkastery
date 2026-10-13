@@ -193,7 +193,9 @@ test('R4: o executor cai com a sessão de pé: o item fica isolado e os outros s
     assert.equal(estado.vagas.filter(v => !v.solta && v.maquina === 'maquina-b').length, 1, 'a vaga da máquina caída continua contando');
     // O outro item segue na A, e o t1 não vai para lá.
     const ra = passoDaMaquina(m.a.carregado, m.arco, { ...op(m, 'a'), n2: n2Simulada() });
-    assert.ok(ra.acao === 'passo' && !ra.relatorio.ordensEmitidas.length, 'nenhuma ordem nova para o t1');
+    // As duas vagas da conta, somando as máquinas, estão com a sessão do t2 e a da B que caiu: a A espera a vaga, sem ordem nova.
+    assert.ok(ra.acao !== 'uma-maquina' && !ra.relatorio.ordensEmitidas.length, 'nenhuma ordem nova para o t1');
+    assert.ok(ra.acao === 'aguardar' && ra.motivo === 'noctum.coordenacao.vaga-global', JSON.stringify(ra.acao));
     assert.equal(threadsDoItem(m.a.dir, 'RM-932').length, 1, 'o t2 andou na A');
     assert.ok(lerArco(m.a.dir, m.arco)!.despachos.some(d => d.trabalho === 't2' && d.desfecho === 'concluido'));
     assert.equal(threadsDoItem(m.a.dir, 'RM-931').length, 0, 'o t1 não foi para a A');

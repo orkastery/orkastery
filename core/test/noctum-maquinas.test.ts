@@ -11,7 +11,10 @@ import { abrirArco, prepararIngressoSimulado, TrabalhoSimulado } from './noctum-
 import { duasMaquinas, DuasMaquinas, entregarThread, MaquinaDeTeste, n2Simulada } from './noctum-maquinas-apoio';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { lerArco } from '../src/noctum-arco';
-import { assumirAutoridade, cancelarOrdem, emitirOrdem, lerCoordenacao, reservaDestaMaquina, situacaoDoTrabalho } from '../src/noctum-coordenacao';
+import * as coordenacao from '../src/noctum-coordenacao';
+import { assumirAutoridade, cancelarOrdem, emitirOrdem, lerCoordenacao, reservaDestaMaquina, responderOrdem, situacaoDoTrabalho } from '../src/noctum-coordenacao';
+import { RecusaDoArco } from '../src/noctum-envelope';
+import { pegarItem } from '../src/roadmap-reservas';
 import { passoDoArco } from '../src/noctum-execucao';
 import { passoDaMaquina, ResultadoDoPassoDaMaquina } from '../src/noctum-maquinas';
 import { dirThread, lerThread, listarIds } from '../src/thread';
@@ -92,8 +95,9 @@ test('M3: a autoridade distribui, a máquina aceita, toma a reserva e a vaga glo
   } finally { m.limpar(); }
 });
 
-test('M4: a vaga global que não cabe recusa o despacho e devolve a reserva local', { skip: semKernel }, () => {
+test('M4: sem vaga global a máquina espera sem reservar; a vaga que outra máquina leva no meio recusa e devolve a reserva local', { skip: semKernel }, () => {
   const m = cenario('noctum-m4', 1);
+  const original = coordenacao.tomarVagaGlobal;
   try {
     passo(m.b);
     // Com a batida da B, a distribuição dá o a à A (empate, a primeira do envelope) e o c à B; a A despacha o a.
@@ -101,15 +105,24 @@ test('M4: a vaga global que não cabe recusa o despacho e devolve a reserva loca
     assert.equal(despachou(r)?.trabalho, 'a');
     assert.ok(r.acao === 'passo' && r.relatorio.ordensEmitidas.join() === 'O-a-1,O-c-1', JSON.stringify(r.acao === 'passo' && r.relatorio.ordensEmitidas));
     assert.equal(lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' }).ordens.get('O-c-1')!.maquina, 'maquina-b');
-    // A única vaga da conta, somando as máquinas, está com a A.
+    // A única vaga da conta, somando as máquinas, está com a A: a B nem reserva.
     const rb = passo(m.b);
-    assert.ok(rb.acao === 'passo' && rb.passo.acao === 'recusado' && rb.passo.motivo === 'noctum.coordenacao.vaga-global',
-      JSON.stringify(rb.acao === 'passo' ? [rb.passo.acao, 'motivo' in rb.passo ? rb.passo.motivo : null] : rb));
+    assert.ok(rb.acao === 'aguardar' && rb.motivo === 'noctum.coordenacao.vaga-global', JSON.stringify(rb.acao === 'aguardar' ? rb.motivo : rb.acao));
+    assert.equal(lerArco(m.b.dir, m.arco)!.despachos.length, 0);
+    // A vaga solta; no meio do despacho da B, outra máquina a leva (a troca atômica recusa a B): a reserva local volta.
+    const vagaA = lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' }).vagas[0].vaga;
+    coordenacao.soltarVagaGlobal(m.a.carregado, m.arco, vagaA, { consumiu: true, motivo: 'SIMULADO' }, { maquina: 'maquina-a' });
+    (coordenacao as { tomarVagaGlobal: typeof original }).tomarVagaGlobal = () => {
+      throw new RecusaDoArco('noctum.coordenacao.vaga-global', 'SIMULADO: a outra máquina levou a última vaga no meio');
+    };
+    const rb2 = passo(m.b);
+    assert.ok(rb2.acao === 'passo' && rb2.passo.acao === 'recusado' && rb2.passo.motivo === 'noctum.coordenacao.vaga-global',
+      JSON.stringify(rb2.acao === 'passo' ? [rb2.passo.acao, 'motivo' in rb2.passo ? rb2.passo.motivo : null] : rb2));
     assert.deepEqual(lerArco(m.b.dir, m.arco)!.despachos.map(d => [d.trabalho, d.desfecho, d.motivo]), [['c', 'recusado', 'noctum.coordenacao.vaga-global']]);
     assert.equal(lerArco(m.b.dir, m.arco)!.consumo.arco, 0, 'a reserva local voltou');
     const vagas = lerCoordenacao(m.b.carregado, m.arco, { maquina: 'maquina-b' }).vagas;
     assert.deepEqual(vagas.map(v => v.maquina), ['maquina-a'], 'nenhuma vaga global da B');
-  } finally { m.limpar(); }
+  } finally { (coordenacao as { tomarVagaGlobal: typeof original }).tomarVagaGlobal = original; m.limpar(); }
 });
 
 test('M5: a entrega numa máquina destrava a dependência na outra, sem thread dela ali', { skip: semKernel }, () => {
@@ -168,5 +181,75 @@ test('M7: a ordem cancelada com a sessão acabada vira fim confirmado, solta a v
     assert.equal(estado.vagas.find(v => v.ordem === 'O-c-1')!.solta!.consumiu, true);
     // Com a prova, o trabalho muda de máquina.
     assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'c', maquina: 'maquina-a' }, { maquina: 'maquina-a' }), 'O-c-2');
+  } finally { m.limpar(); }
+});
+
+test('M8: o item que outra máquina ou pessoa reservou é recusado de saída, e a ordem não volta para quem recusou', { skip: semKernel }, () => {
+  const m = cenario('noctum-m8', 2, [{ id: 'z', item: 'RM-909', prioridade: 1, dependeDe: [], pedido: 'Fatia Z SIMULADA.' }]);
+  try {
+    // O dono da A reservou o RM-909 à mão, e a autoridade dá a ordem do z à B (direto, pelo teste).
+    pegarItem(m.a.dir, 'RM-909', { maquina: 'maquina-a', nota: 'à mão, SIMULADO' });
+    passo(m.b);
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'z', maquina: 'maquina-b' }, { maquina: 'maquina-a' });
+    const rb = passo(m.b);
+    assert.ok(rb.acao === 'passo' && rb.relatorio.respostas.some(x => x.ordem === 'O-z-1' && x.recibo === 'recusada' &&
+      /^noctum.reserva.de-outra-maquina/.test(x.motivo)), JSON.stringify(rb.acao === 'passo' ? rb.relatorio.respostas : rb));
+    assert.equal(lerArco(m.b.dir, m.arco)!.despachos.length, 0);
+    // A autoridade não devolve a ordem para a B; a A, que tem a reserva, aceita e despacha.
+    const ra = passo(m.a);
+    assert.ok(ra.acao === 'passo' && ra.relatorio.ordensEmitidas.join() === 'O-z-2', JSON.stringify(ra.acao === 'passo' && ra.relatorio.ordensEmitidas));
+    const estado = lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' });
+    assert.equal(estado.ordens.get('O-z-2')!.maquina, 'maquina-a');
+    assert.equal(despachou(ra)?.trabalho, 'z');
+  } finally { m.limpar(); }
+});
+
+test('M9: a conta sem vaga global sai da escolha da N2, e o despacho sai pela outra conta do envelope', { skip: semKernel }, () => {
+  const m = duasMaquinas('noctum-m9', { trabalhos: [
+    { id: 'p', item: 'RM-951', prioridade: 1, dependeDe: [], pedido: 'Fatia P SIMULADA.', maquina: 'maquina-a' },
+    { id: 'q', item: 'RM-952', prioridade: 1, dependeDe: [], pedido: 'Fatia Q SIMULADA.', maquina: 'maquina-b' },
+  ], maquina: 2, revisao: 0, contas: [{ conta: 'perfil-a', sessoes: 2 }, { conta: 'perfil-b', sessoes: 2 }],
+  runtimes: [{ runtime: 'claude-bg', sessoes: 2 }], global: [{ conta: 'perfil-a', sessoes: 1 }, { conta: 'perfil-b', sessoes: 1 }] });
+  const duas = () => [{ id: 'perfil-a', runtime: 'claude-bg' }, { id: 'perfil-b', runtime: 'claude-bg' }];
+  const passoCom = (q: MaquinaDeTeste) => passoDaMaquina(q.carregado, m.arco, { maquina: q.nome, n2: { ...n2Simulada(registro), perfis: duas } });
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, { maquina: 'maquina-a' });
+    passoCom(m.b);
+    // A A despacha o p pela perfil-a, a primeira do envelope com a mesma folga, e leva a única vaga global dela.
+    const ra = passoCom(m.a);
+    assert.ok(despachou(ra)?.trabalho === 'p' && despachou(ra)?.conta === 'perfil-a', JSON.stringify(ra.acao === 'passo' ? ra.passo : ra));
+    // A B não insiste na perfil-a, que não tem vaga somando as máquinas: sai pela perfil-b.
+    const rb = passoCom(m.b);
+    assert.ok(despachou(rb)?.trabalho === 'q' && despachou(rb)?.conta === 'perfil-b', JSON.stringify(rb.acao === 'passo' ? rb.passo : rb));
+    assert.deepEqual(lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' }).vagas.map(v => [v.maquina, v.conta]).sort(),
+      [['maquina-a', 'perfil-a'], ['maquina-b', 'perfil-b']]);
+  } finally { m.limpar(); }
+});
+
+test('M10: a ordem encerrada porque o item estava com outra pessoa não volta para a mesma máquina, mesmo com menos ordens vivas', { skip: semKernel }, () => {
+  const m = cenario('noctum-m10', 2, [
+    { id: 'w', item: 'RM-910', prioridade: 1, dependeDe: [], pedido: 'Fatia W SIMULADA, da A.', maquina: 'maquina-a' },
+    { id: 'z', item: 'RM-909', prioridade: 2, dependeDe: [], pedido: 'Fatia Z SIMULADA.' },
+  ]);
+  try {
+    passo(m.b);
+    // A A fica com o w; o z vai para a B, que tem menos ordens vivas.
+    const ra = passo(m.a);
+    assert.ok(ra.acao === 'passo' && ra.relatorio.ordensEmitidas.join() === 'O-w-1,O-z-1', JSON.stringify(ra.acao === 'passo' && ra.relatorio.ordensEmitidas));
+    // A B aceita o z (um passo dela que caiu logo depois do aceite), e o dono da A pega o RM-909 à mão nesse meio tempo.
+    responderOrdem(m.b.carregado, m.arco, 'O-z-1', 'aceita', 'SIMULADO', { maquina: 'maquina-b' });
+    pegarItem(m.a.dir, 'RM-909', { maquina: 'maquina-a', nota: 'à mão, SIMULADO' });
+    // No passo seguinte, a B não consegue a reserva e encerra a ordem que nunca despachou.
+    const rb = passo(m.b);
+    assert.ok(rb.acao === 'passo' && rb.relatorio.reservas.some(x => x.ordem === 'O-z-1' && !x.ok && x.motivo === 'noctum.reserva.de-outra-maquina'),
+      JSON.stringify(rb.acao === 'passo' ? rb.relatorio.reservas : rb));
+    let estado = lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' });
+    assert.equal(estado.ordens.get('O-z-1')!.estado, 'encerrada');
+    assert.equal(lerArco(m.b.dir, m.arco)!.despachos.length, 0);
+    // A B tem menos ordens vivas, mas o z não volta para ela: vai para a A, que tem a reserva.
+    const ra2 = passo(m.a);
+    assert.ok(ra2.acao === 'passo' && ra2.relatorio.ordensEmitidas.join() === 'O-z-2', JSON.stringify(ra2.acao === 'passo' && ra2.relatorio.ordensEmitidas));
+    estado = lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' });
+    assert.equal(estado.ordens.get('O-z-2')!.maquina, 'maquina-a');
   } finally { m.limpar(); }
 });
