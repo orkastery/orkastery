@@ -12,14 +12,17 @@ import { dirTemporario } from './apoio';
 
 const SCRIPT = path.resolve(__dirname, '../../scripts/mutante.cjs');
 
-function rodar(mutantes: Array<Record<string, string>>, id: string, contrato = 'ork.mutantes/v1') {
+function rodar(mutantes: Array<Record<string, string>>, id: string, contrato = 'ork.mutantes/v1', env: NodeJS.ProcessEnv = process.env) {
   const dir = dirTemporario('noctum-qm');
   try {
     const arquivo = path.join(dir, 'mutantes.json');
     fs.writeFileSync(arquivo, JSON.stringify({ contrato, mutantes }));
-    return spawnSync(process.execPath, [SCRIPT, arquivo, id], { encoding: 'utf8', timeout: 300000 });
+    return spawnSync(process.execPath, [SCRIPT, arquivo, id], { encoding: 'utf8', timeout: 300000, env });
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }
+
+/** O ambiente SIMULADO que faz o teste de apoio cair sem mutante nenhum (o controle do QM4). */
+const QUEDA_SIMULADA = 'ORK_MUTANTE_QUEDA_SIMULADA';
 
 const ORDEM = { id: 'M1', descricao: 'a união põe a thread antes da base', modulo: 'noctum-changelog',
   de: 'return [...segundo, ...primeiro];', para: 'return [...primeiro, ...segundo];', teste: 'noctum-changelog', nome: '^QC2:' };
@@ -51,4 +54,16 @@ test('QM3: especificação que não se aplica sai 2: trecho ausente ou repetido,
     const r = rodar(mutantes, id, contrato);
     assert.equal(r.status, 2, `${JSON.stringify(mutantes[0])}: ${r.stdout}\n${r.stderr}`);
   }
+});
+
+test('QM-apoio: passa, a não ser que o ambiente SIMULADO peça a queda (o controle que o QM4 usa)', () => {
+  assert.notEqual(process.env[QUEDA_SIMULADA], '1');
+});
+
+test('QM4: o teste que já cai sem a troca não mata o mutante: o controle cai, e a saída é 2', () => {
+  const r = rodar([{ ...ORDEM, id: 'M4', teste: 'noctum-mutante', nome: '^QM-apoio:' }], 'M4', 'ork.mutantes/v1', { ...process.env, [QUEDA_SIMULADA]: '1' });
+  assert.equal(r.status, 2, `${r.stdout}\n${r.stderr}`);
+  assert.match(r.stderr, /o controle sem a troca já cai/);
+  // Sem a queda, o mesmo mutante (que o teste de apoio não pega) sobrevive.
+  assert.equal(rodar([{ ...ORDEM, id: 'M4', teste: 'noctum-mutante', nome: '^QM-apoio:' }], 'M4').status, 1);
 });

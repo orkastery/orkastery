@@ -67,10 +67,10 @@
     },
     {
       "id": "M8",
-      "descricao": "o push para a base vai com força",
+      "descricao": "o push para a base vai com força, por cima de quem andou",
       "modulo": "noctum-entrega",
-      "de": "['push', '--', remoto, `${alvo}:refs/heads/${destino.base}`]",
-      "para": "['push', '--force', '--', remoto, `${alvo}:refs/heads/${destino.base}`]",
+      "de": "['push', lease, '--', remoto,",
+      "para": "['push', '--force', '--', remoto,",
       "teste": "noctum-integracao-entrega",
       "nome": "^QI2:"
     },
@@ -127,6 +127,204 @@
       "para": "const conferido = null;",
       "teste": "ship-publicar",
       "nome": "^QS1:"
+    },
+    {
+      "id": "M15",
+      "descricao": "o CHECK despachado antes do último despacho de autor vale",
+      "modulo": "noctum-provas",
+      "de": "if (f.ultimoDespachoDeAutor && !(Date.parse(r.despachadaEm) > Date.parse(f.ultimoDespachoDeAutor)))",
+      "para": "if (false)",
+      "teste": "noctum-provas",
+      "nome": "^QP11:"
+    },
+    {
+      "id": "M16",
+      "descricao": "o commit que mexe no bundle e no código vira bundle",
+      "modulo": "noctum-provas",
+      "de": "return arquivos.every(a => a.startsWith('.ork-ci/'))",
+      "para": "return arquivos.some(a => a.startsWith('.ork-ci/'))",
+      "teste": "noctum-provas",
+      "nome": "^QP11:"
+    },
+    {
+      "id": "M17",
+      "descricao": "o merge recomputado não é comparado byte a byte",
+      "modulo": "noctum-provas",
+      "de": "if (noMerge.bytes === null || !noMerge.bytes.equals(Buffer.from(esperado, 'utf8')))",
+      "para": "if (noMerge.bytes === null)",
+      "teste": "noctum-provas",
+      "nome": "^QP11:"
+    },
+    {
+      "id": "M18",
+      "descricao": "o conflito sem conteúdo dos dois lados passa pela regra na recomputação",
+      "modulo": "noctum-provas",
+      "de": "if (semConteudo)\n        return { sha, tipo:",
+      "para": "if (false)\n        return { sha, tipo:",
+      "teste": "noctum-provas",
+      "nome": "^QP11:"
+    },
+    {
+      "id": "M19",
+      "descricao": "o conflito sem conteúdo dos dois lados passa pela regra na atualização",
+      "modulo": "noctum-entrega",
+      "de": "if (semConteudo)\n            recusar(",
+      "para": "if (false)\n            recusar(",
+      "teste": "noctum-entrega",
+      "nome": "^QE15:"
+    },
+    {
+      "id": "M20",
+      "descricao": "o candidato da N3 tomado sobre outra base integra",
+      "modulo": "noctum-entrega",
+      "de": "if (opcoes.esperado.base !== ponta.sha)",
+      "para": "if (false)",
+      "teste": "noctum-integracao-entrega",
+      "nome": "^QI6:"
+    },
+    {
+      "id": "M21",
+      "descricao": "a linha acrescentada que começa por ++ vira cabeçalho de arquivo",
+      "modulo": "noctum-provas",
+      "de": "if (cabecalho && l.startsWith('+++ '))",
+      "para": "if (l.startsWith('+++ '))",
+      "teste": "noctum-provas",
+      "nome": "^QP9:"
+    },
+    {
+      "id": "M22",
+      "descricao": "a sessão de CHECK que o runtime não confirmou tem vínculo",
+      "modulo": "noctum-provas",
+      "de": "if (!s.verificada)",
+      "para": "if (false)",
+      "teste": "noctum-provas",
+      "nome": "^QP1:"
+    },
+    {
+      "id": "M23",
+      "descricao": "o git da entrega volta ao teto de 1 MiB do spawnSync",
+      "modulo": "noctum-provas",
+      "de": "encoding: 'utf8', timeout: prazoMs, maxBuffer: 256 * 1024 * 1024",
+      "para": "encoding: 'utf8', timeout: prazoMs, maxBuffer: 1024 * 1024",
+      "teste": "noctum-provas",
+      "nome": "^QP9:"
+    },
+    {
+      "id": "M24",
+      "descricao": "o conflito fora de UTF-8 é lido como texto e regravado",
+      "modulo": "noctum-entrega",
+      "de": "const texto = (0, noctum_provas_1.textoDe)(bytes);",
+      "para": "const texto = bytes.toString('utf8');",
+      "teste": "noctum-entrega",
+      "nome": "^QE13:"
+    },
+    {
+      "id": "M25",
+      "descricao": "a recusa de antes de qualquer efeito encerra o passo e prende a fila",
+      "modulo": "noctum-entrega",
+      "de": "if (efeito)",
+      "para": "if (true)",
+      "teste": "noctum-entrega",
+      "nome": "^QE9:"
+    },
+    {
+      "id": "M26",
+      "descricao": "a branch sem commit próprio segue para a reconciliação",
+      "modulo": "noctum-entrega",
+      "de": "if (e.semProduto) {",
+      "para": "if (false) {",
+      "teste": "noctum-entrega",
+      "nome": "^QE10:"
+    },
+    {
+      "id": "M27",
+      "descricao": "o push que o remoto recusou com a base parada se repete",
+      "modulo": "noctum-entrega",
+      "de": "if (e.pushRecusado) {",
+      "para": "if (false) {",
+      "teste": "noctum-entrega",
+      "nome": "^QE11:"
+    },
+    {
+      "id": "M28",
+      "descricao": "o push para a base sai sem o lease da ponta conferida",
+      "modulo": "noctum-entrega",
+      "de": "['push', lease, '--', remoto,",
+      "para": "['push', '--', remoto,",
+      "teste": "noctum-integracao-entrega",
+      "nome": "^QI8:"
+    },
+    {
+      "id": "M29",
+      "descricao": "a integração confere o envelope com o instante do começo do passo",
+      "modulo": "noctum-entrega",
+      "de": "integrarNoDestino(carregado, arco, lido.t.id, { ...opcoes, remoto })",
+      "para": "integrarNoDestino(carregado, arco, lido.t.id, { ...opcoes, remoto, quando })",
+      "teste": "noctum-entrega",
+      "nome": "^QE12:"
+    },
+    {
+      "id": "M30",
+      "descricao": "a linha antiga que a thread corrigiu conta como perda da base",
+      "modulo": "noctum-entrega",
+      "de": "linhasDaBasePerdidas)(daBase, pos.texto, (0, noctum_changelog_1.linhasRemovidas)(noAncestral, naThread))",
+      "para": "linhasDaBasePerdidas)(daBase, pos.texto)",
+      "teste": "noctum-entrega",
+      "nome": "^QE14:"
+    },
+    {
+      "id": "M31",
+      "descricao": "o teto de rodadas por SHA só vale para a reprovação",
+      "modulo": "noctum-provas",
+      "de": "fim(daFonte.length >= exports.RODADAS_POR_SHA",
+      "para": "fim(false",
+      "teste": "noctum-provas",
+      "nome": "^QP10:"
+    },
+    {
+      "id": "M32",
+      "descricao": "a thread que não é trabalho do envelope integra",
+      "modulo": "noctum-entrega",
+      "de": "if (!estado.conteudo.trabalhos.some(w => w.item === daThread.roadmap",
+      "para": "if (false && !estado.conteudo.trabalhos.some(w => w.item === daThread.roadmap",
+      "teste": "noctum-integracao-entrega",
+      "nome": "^QI9:"
+    },
+    {
+      "id": "M33",
+      "descricao": "o despacho do CHECK não relê as revisões sob a trava",
+      "modulo": "noctum-entrega",
+      "de": "if (revisoesDoTrabalho(estado, trabalho.id) !== revisoesNaDecisao)",
+      "para": "if (false)",
+      "teste": "noctum-entrega",
+      "nome": "^QE16:"
+    },
+    {
+      "id": "M34",
+      "descricao": "o parecer do codex reescrito depois do resultado vale",
+      "modulo": "noctum-provas",
+      "de": "Math.floor(parecer.mtimeMs) > Date.parse(resultado.ts)",
+      "para": "false",
+      "teste": "noctum-provas",
+      "nome": "^QP1:"
+    },
+    {
+      "id": "M35",
+      "descricao": "a leitura do git que falhou não segura a decisão",
+      "modulo": "noctum-entrega",
+      "de": "if (semLeitura)",
+      "para": "if (false)",
+      "teste": "noctum-entrega",
+      "nome": "^QE8:"
+    },
+    {
+      "id": "M36",
+      "descricao": "a cadeia que não se leu vira cadeia vazia",
+      "modulo": "noctum-provas",
+      "de": "if (!f.cadeiaLida)",
+      "para": "if (false)",
+      "teste": "noctum-provas",
+      "nome": "^QP9:"
     }
   ]
 }
