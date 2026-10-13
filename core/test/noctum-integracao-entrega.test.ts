@@ -16,6 +16,7 @@ import { lerLedger, TIPOS_DE_EVENTO } from '../src/ledger';
 import { RecusaDoArco } from '../src/noctum-envelope';
 import { candidatoDaEntrega, caminhoDaTravaDoDestino, integradorDaEntrega, integrarNoDestino, passoDaEntrega } from '../src/noctum-entrega';
 import { provasDaEntrega, RecusaDaEntrega } from '../src/noctum-provas';
+import { gravarNaSupervisao } from '../src/noctum-supervisao';
 import { dirThread, lerThread } from '../src/thread';
 import { exec } from '../src/util';
 import { branchDaWorktree } from '../src/worktree';
@@ -39,8 +40,9 @@ function publicarBranch(e: EntregaPronta): void {
 const lsRemote = (p: ProjetoDeTeste, ref: string): string =>
   git(p.dir, 'ls-remote', 'origin', ref).stdout.split(/\s+/)[0] ?? '';
 
+// R2-A4 da rodada 2: o instante dado aqui é o relógio da conferência (o `quando` de quem chama não vale para ela).
 const integrar = (p: ProjetoDeTeste, arco: string, id: string, ci: Record<string, EstadoDoCheck>, quando?: string) =>
-  integrarNoDestino(p.carregado, arco, id, { forja: FORJA, executorCi: ciFalso(ci), quando });
+  integrarNoDestino(p.carregado, arco, id, { forja: FORJA, executorCi: ciFalso(ci), ...(quando ? { relogio: () => quando } : {}) });
 
 test('QI1: o merge tem a base e a fonte conferidas como pais e a árvore da fonte; o ls-remote prova; o ship_done leva as provas', { skip: semKernel }, () => {
   const p = projetoDaEntrega('noctum-qi1');
@@ -175,7 +177,7 @@ sdlc:
   thread: ${threadId}
   modo: "#Auto"`;
   const doc = { dados: lerYaml(fm) as Record<string, never> } as unknown as Documento;
-  return `---\n${fm.trim()}\n---\n\n# RM-958 — Entrega SIMULADA\n\n> **Em uma frase:** a página que ficaria vermelha depois do merge.\n\n` +
+  return `---\n${fm.trim()}\n---\n\n# RM-958: Entrega SIMULADA\n\n> **Em uma frase:** a página que ficaria vermelha depois do merge.\n\n` +
     `<!-- ork-docs:relance:inicio -->\n${renderizarRelance(doc)}\n<!-- ork-docs:relance:fim -->\n\n## Problema e resultado\n\n` +
     '- **Problema:** o estado envelhece no merge.\n\n## Escopo e validação\n\n- **Incluído:** a entrega.\n\n## Plano e decisões\n\n' +
     '- **Prioridade:** alta.\n\n## Estado com evidências\n\n' +
@@ -310,5 +312,29 @@ test('QI9: só a thread que é trabalho do envelope integra; a de outro item rec
     assert.throws(() => integrar(p, 'arco-qi9', e.t.id, { [e.fonte]: 'success' }),
       (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.fora-do-envelope');
     assert.equal(lsRemote(p, 'refs/heads/main'), base);
+  } finally { p.limpar(); }
+});
+
+test('QI10: a vez da N3 sobre outra base do projeto recusa, e o trabalho que a supervisão isolou não integra nem pela vez da N3', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi10');
+  try {
+    const e = entregaPronta(p, 'qi10');
+    publicarBranch(e);
+    arcoDaEntrega(p, 'arco-qi10', e.t.id);
+    const opcoes = { forja: FORJA, executorCi: ciFalso({ [e.fonte]: 'success' }) };
+    const candidato = candidatoDaEntrega(provasDaEntrega(p.carregado, e.t.id, opcoes));
+    assert.ok(candidato, 'as provas valem, e o candidato sai');
+    const base = lsRemote(p, 'refs/heads/main');
+    const integrador = integradorDaEntrega(p.carregado, 'arco-qi10', e.t.id, opcoes);
+    // R2-A6 da rodada 2: a vez da N3 numa base que não é a do projeto recusa antes de qualquer efeito.
+    assert.throws(() => integrador({ remoto: 'origin', destino: { repositorio: FORJA.repositorio, base: 'outra' }, candidato: candidato! }),
+      (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.fora-do-destino');
+    // R2-B1 da rodada 2: o trabalho isolado pela supervisão da N4 não integra, nem pela vez da N3.
+    gravarNaSupervisao(p.carregado, 'arco-qi10', [{ tipo: 'isolado', trabalho: 'a', thread: e.t.id, motivo: 'efeito-divergente',
+      detalhe: 'SIMULADO: outro sha na branch' }]);
+    assert.throws(() => integrador({ remoto: 'origin', destino: { repositorio: FORJA.repositorio, base: 'main' }, candidato: candidato! }),
+      (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.isolado');
+    assert.equal(lsRemote(p, 'refs/heads/main'), base, 'a base não mudou');
+    assert.equal(lerLedger(dirThread(p.dir, e.t.id)).filter(x => x.tipo === TIPOS_DE_EVENTO.shipConcluido).length, 0);
   } finally { p.limpar(); }
 });
