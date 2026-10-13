@@ -178,7 +178,7 @@ On hosts, the roadmap status comes from the network overview (RM-054, slice 2): 
 | `ork thread new <nome> --from-finding <ID>` | Opens the thread from an audit finding. Evidence, claim and proposal travel together; the worktree follows the same rule as `ork thread new`, with `--worktree auto` and `--sem-worktree` |
 | `ork thread list [--todas] [--json]` | The project's threads that are NOT closed; `--todas` includes the closed ones, `--json` returns JSON |
 | `ork thread status <thread-id> [--json]` | The thread's state, cross-referenced with the runtime; `--json` returns the thread.json |
-| `ork phase run <thread> <FASE> --prompt "<texto>"` | Dispatches the phase as a background agent. With `concurrency.max_parallel_threads` live sessions in other threads of the project (a session's `exec:<thread>` conduction, from any runtime or account), it refuses with `concurrency.limite`, says who occupies the slots, records `slot_refused` and exits with 3 (wait, as with the conduction); a stopped session (no work for `concurrency.stale_after_min`), one escalated to the owner, blocked in the runtime, flagged as silent by the pulse or with its turn ended without a result (the Stop with no activity at all for 15 min, as after a `claude stop`; RM-058) does not occupy a slot, and one that keeps running after a planned pause or a failed verify does; with `--esperar`, it waits for the slot. On codex, a block with GO and no baseline goes out with the baseline recorded by the dispatch, also on the `ork retry` redispatch; through MCP (`ork_phase_run`), which does not run the suite, the missing baseline comes back as `baseline.pendente` with the CLI command (RM-037). With `--perfil <id>` (and `perfil` in `ork_phase_run`), the dispatch goes out through the requested account, or is refused with a typed reason without switching profiles (RM-056). Before calling the adapter, it records the prompt and the `phase_prompt_recorded` event (prompt and sha256); the adapter's dry failure and its exception become `gate_blocked runtime.unavailable` with them (RM-063, F3) |
+| `ork phase run <thread> <FASE> --prompt "<texto>"` | Dispatches the phase as a background agent. With `concurrency.max_parallel_threads` live sessions in other threads of the project (a session's `exec:<thread>` conduction, from any runtime or account), it refuses with `concurrency.limite`, says who occupies the slots, records `slot_refused` and exits with 3 (wait, as with the conduction); a stopped session (no work for `concurrency.stale_after_min`), one escalated to the owner, blocked in the runtime, flagged as silent by the pulse or with its turn ended without a result (the Stop with no activity at all for 15 min; RM-058) does not occupy a slot, nor, at the limit, does one the runtime shows ended (`stopped`, `done`, `failed`, `completed`, `exited`) or ghost in each account's `claude agents --json --all` and Codex rollouts, such as one stopped with `claude stop` before its result (absent from the list or with a failed read, it keeps counting; RM-037), and one that keeps running after a planned pause or a failed verify does; with `--esperar`, it waits for the slot, reading the runtime again every 30 s. On codex, a block with GO and no baseline goes out with the baseline recorded by the dispatch, also on the `ork retry` redispatch; through MCP (`ork_phase_run`), which does not run the suite, the missing baseline comes back as `baseline.pendente` with the CLI command (RM-037). With `--perfil <id>` (and `perfil` in `ork_phase_run`), the dispatch goes out through the requested account, or is refused with a typed reason without switching profiles (RM-056). Before calling the adapter, it records the prompt and the `phase_prompt_recorded` event (prompt and sha256); the adapter's dry failure and its exception become `gate_blocked runtime.unavailable` with them (RM-063, F3) |
 | ↳ options | `[--runtime R] [--model M] [--effort E] [--dry-run] [--canal C] [--correlacao ID] [--esperar [min]] [--perfil ID]` |
 | `ork phase list <thread>` | The ledger history, **with the actual model and effort of each phase** |
 | `ork ledger stats --desde 7d [--ate ISO] [--thread T] [--modo M] [--runtime R] [--json]` | Economic telemetry of the ledger in the interval `[desde, ate)` ([FEAT-019](../produto/FEAT-019-telemetria-do-ledger.md)) |
@@ -406,6 +406,36 @@ exists only in the `embed` operation, with the key declared in `memory.embedding
 DSN; a missing embedding is an `embeddings.*` reason, never a regime drop.
 See [the governance and migration contracts](../guias/memoria-e-handoff.md) and
 [search by meaning](../guias/memoria-e-handoff.md#busca-por-significado-embeddings).
+
+---
+
+## Written knowledge (RM-026 K7)
+
+The company's documents (policy, specification, guide), in versioned Markdown in the folder that `orkastery.yaml`
+declares in `conhecimento.dir`, under the [`ork.conhecimento/v1` contract](contratos/conhecimento-rm026.md). Read-only:
+writing a document is a commit in a thread, with a PR.
+
+| Command | What it does |
+| --- | --- |
+| `ork conhecimento listar [--colecao C] [--json]` | The valid documents, with title, collections, file and version (the file's sha256); `ork conhecimento` alone is the same. It does not open the Brain or show references |
+| `ork conhecimento mostrar <doc-id> [--json]` | The document with its body, version, source and references: the decisions checked in the ledger and each Brain id checked by `get` in the Company Brain |
+| `ork conhecimento colecoes [--json]` | The collections and the documents of each one |
+| `ork conhecimento verificar [--json]` | Checks the whole folder, with the Brain ids by `get`, and exits 1 on any gap |
+
+An invalid document and a reference that does not check out come back as a typed gap, never as an answer: the id the
+Brain does not have (`referencia.brain-inexistente`), the one it withholds (`referencia.brain-retido`) and the Brain
+down or not configured (`referencia.brain-indisponivel`) are distinct gaps. `listar` and `colecoes` exit 1 only when
+the folder was not read, and `mostrar`, when the id has no valid document (`documento.inexistente`); wrong usage exits
+2. Only `mostrar` and `verificar` call the Brain and read the decisions' ledgers, with limits on `get` calls, time and
+bytes per query ([contract](contratos/conhecimento-rm026.md#tetos)). The text follows the owner's language; `--json` is the same in both languages and the same as the MCP tools `ork_conhecimento_listar`,
+`ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` and `ork_conhecimento_verificar`.
+
+```bash
+ork conhecimento colecoes
+ork conhecimento listar --colecao rh
+ork conhecimento mostrar doc-politica-de-ferias --json
+ork conhecimento verificar
+```
 
 ---
 

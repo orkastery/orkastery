@@ -51,8 +51,9 @@ export function valoresEmUmaLinha<T>(valor: T): T {
 /**
  * O JSON para a tela: o mesmo valor, com os caracteres invisiveis escritos como `\uXXXX` (quem le o
  * JSON recebe o mesmo texto; so o terminal deixa de executa-lo). A quebra de linha da indentacao fica.
+ * Com `indentacao` 0, o JSON sai compacto (a resposta de uma tool MCP, RM-026 K7).
  */
-export function jsonSemInvisivel(valor: unknown): string {
-  return JSON.stringify(valor, null, 2).replace(INVISIVEIS, (c) => c === '\n' ? c
+export function jsonSemInvisivel(valor: unknown, indentacao = 2): string {
+  return JSON.stringify(valor, null, indentacao).replace(INVISIVEIS, (c) => c === '\n' ? c
     : Array.from({ length: c.length }, (_, i) => `\\u${c.charCodeAt(i).toString(16).padStart(4, '0')}`).join(''));
 }

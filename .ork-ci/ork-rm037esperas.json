@@ -1,0 +1,654 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm037esperas",
+  "branch": "ork/ork-rm037esperas-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-pulse.test.ts",
+      "alegacao": "T1 (S1): os seis testes de locale-pulse passam, inclusive o novo que força a virada do minuto entre a leitura em inglês e a em pt-BR com o relógio do processo filho fixo; ele tem o controle (a falta do pedido R1 muda entre as leituras e a comparação de antes, só com ISO e paradaHaMin, reprova) e passa com a comparação sem o trecho que varia.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/locale-pulse.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - locale en F2b pulse:/{p++} END{exit !(p>=6 && f==0)}'",
+        "grep -qF \"assert.notEqual(deAntes(en.stdout), deAntes(pt.stdout));\" core/test/locale-pulse.test.ts && grep -qF \"relogioFixo(antes)\" core/test/locale-pulse.test.ts && grep -qF \"relogioFixo(depois)\" core/test/locale-pulse.test.ts"
+      ],
+      "criadoEm": "2026-10-12T21:51:54.169Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/test/relogio-fixo.ts",
+      "alegacao": "T1 (S1): o módulo de teste relogio-fixo, carregado por --require, fixa Date.now() e o new Date() sem argumento no instante de ORK_TESTE_AGORA, sem mudar as datas com argumento; sem a variável, o relógio é o real.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && env -u ORK_TESTE_AGORA ORK_TESTE_AGORA=2030-01-01T00:00:00.000Z node --require ./core/dist-test/test/relogio-fixo.js -e \"process.exit(Date.now()===Date.parse('2030-01-01T00:00:00.000Z') && new Date().toISOString()==='2030-01-01T00:00:00.000Z' && new Date(0).getTime()===0 && new Date(2031, 0, 2).getFullYear()===2031 ? 0 : 1)\"",
+        "env -u ORK_TESTE_AGORA node --require ./core/dist-test/test/relogio-fixo.js -e \"process.exit(Math.abs(Date.now()-new Date().getTime())<1000 && Date.now()>Date.parse('2026-01-01T00:00:00Z') ? 0 : 1)\""
+      ],
+      "criadoEm": "2026-10-12T21:51:58.087Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-apoio.ts",
+      "alegacao": "T1 (S1): relogioFixo(instante) devolve o ambiente que liga o relogio-fixo no processo filho do CLI (NODE_OPTIONS com --require e ORK_TESTE_AGORA), espalhado junto do locale.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"export function relogioFixo(instante: string)\" core/test/locale-apoio.ts && grep -qF \"relogio-fixo.js\" core/test/locale-apoio.ts && grep -qF \"ORK_TESTE_AGORA: instante\" core/test/locale-apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T21:52:00.194Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "T2a (S2): REGRA_DAS_ESPERAS é uma linha só com os três pontos (nunca & em verify, build ou suíte; ork verify em primeiro plano com timeout ou a execução em segundo plano do host, que avisa quando termina; nunca pgrep -f com o padrão no próprio comando, e sim o arquivo de saída com prazo ou o PID guardado) e substitui a linha da N2 nas regras de evidência: o prompt de toda fase, em todo modo, a traz exatamente uma vez, e o ork prompt render a mostra (R1).",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R1:/{p++} END{exit !(p==1 && f==0)}'",
+        "grep -qE \"^export const REGRA_DAS_ESPERAS =\" core/src/phase.ts && env -u ORK_PROJETO node core/dist/index.js prompt render --exemplo --fase GO --modo auto | grep -qF -e 'nunca espere com `pgrep -f` cujo padrao aparece no proprio comando'"
+      ],
+      "criadoEm": "2026-10-12T21:55:24.184Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-esperas.test.ts",
+      "alegacao": "T2a (S2): o teste R1 confere a regra das esperas no prompt renderizado de todo modo e toda fase (uma vez, numa linha, sem a linha da N2) e no ork prompt render pelo CLI, fora de qualquer projeto.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"test('R1: o prompt de toda fase, em todo modo, traz a regra das esperas\" core/test/rm037-esperas.test.ts && grep -qF \"'prompt', 'render', '--exemplo'\" core/test/rm037-esperas.test.ts"
+      ],
+      "criadoEm": "2026-10-12T21:55:29.115Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/test/prompts.test.ts",
+      "alegacao": "T2a (S2): o teste N2 de prompts confere em toda fase a linha da regra das esperas, que guarda os dois pontos da N2 (nunca & e o ork verify em primeiro plano, na fila de recursos pesados); a suíte de prompts segue verde.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/prompts.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - N2:/{p++} END{exit !(p==1 && f==0)}'",
+        "grep -qF 'includes(`- ${REGRA_DAS_ESPERAS}`)' core/test/prompts.test.ts"
+      ],
+      "criadoEm": "2026-10-12T21:55:42.505Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "skills/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "T2b (S3, S5): a skill de entrada das duas instalações traz a regra das esperas numa linha, uma vez, sob \"Sessão de fase já despachada\", e segue em até 120 linhas (as linhas 92 e 93 do mesmo parágrafo viraram uma, D5); o teto do catálogo e as âncoras do eval continuam verdes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R2:/{p++} END{exit !(p==1 && f==0)}'",
+        "test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' skills/core/orkastery-bootstrap/SKILL.md)\" -eq 1 && node --test-reporter=tap core/dist-test/test/catalogo.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T21:57:49.777Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "skills/phases/go-implementation/SKILL.md",
+      "alegacao": "T2b (S3): a skill da fase GO traz a regra das esperas numa linha, uma vez, logo depois dos comandos de verify em \"Como rotear\".",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R2:/{p++} END{exit !(p==1 && f==0)}'",
+        "test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' skills/phases/go-implementation/SKILL.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T21:57:52.221Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "skills/phases/check-quality/SKILL.md",
+      "alegacao": "T2b (S3): a skill da fase CHECK traz a regra das esperas numa linha, uma vez, logo depois dos comandos de verify em \"Como rotear\".",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R2:/{p++} END{exit !(p==1 && f==0)}'",
+        "test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' skills/phases/check-quality/SKILL.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T21:57:54.716Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/skills/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "T2b (S3): a cópia do bootstrap no marketplace do Claude Code é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/claude-code/orkastery/skills/core/orkastery-bootstrap/SKILL.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T21:57:56.875Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/skills/phases/check-quality/SKILL.md",
+      "alegacao": "T2b (S3): a cópia da skill de CHECK no marketplace do Claude Code é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/claude-code/orkastery/skills/phases/check-quality/SKILL.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T21:57:59.033Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/skills/phases/go-implementation/SKILL.md",
+      "alegacao": "T2b (S3): a cópia da skill de GO no marketplace do Claude Code é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/claude-code/orkastery/skills/phases/go-implementation/SKILL.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T21:58:01.144Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/codex/orkastery/skills/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "T2b (S3): a cópia do bootstrap no marketplace do Codex é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/codex/orkastery/skills/core/orkastery-bootstrap/SKILL.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T21:58:03.232Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/codex/orkastery/skills/phases/check-quality/SKILL.md",
+      "alegacao": "T2b (S3): a cópia da skill de CHECK no marketplace do Codex é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/codex/orkastery/skills/phases/check-quality/SKILL.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T21:58:05.271Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/codex/orkastery/skills/phases/go-implementation/SKILL.md",
+      "alegacao": "T2b (S3): a cópia da skill de GO no marketplace do Codex é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/codex/orkastery/skills/phases/go-implementation/SKILL.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T21:58:07.324Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-esperas.test.ts",
+      "alegacao": "T2b (S3): o teste R2 confere a regra das esperas, uma vez, nas três skills do catálogo que a sessão de fase lê e nas cópias dos dois marketplaces, e o bootstrap em até 120 linhas; sem a linha numa cópia, R2 reprova.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"test('R2: as skills do catalogo que a sessao de fase le trazem a regra numa linha\" core/test/rm037-esperas.test.ts && grep -qF \"'skills/phases/check-quality/SKILL.md'\" core/test/rm037-esperas.test.ts"
+      ],
+      "criadoEm": "2026-10-12T21:58:09.615Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "adapters/codex/skills/ork/SKILL.md",
+      "alegacao": "T2c (S3): a skill de entrada do Codex traz a regra das esperas numa linha, uma vez, logo depois do parágrafo da fase recebida, e a instalação real do codex a leva (R3).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R3:/{p++} END{exit !(p==1 && f==0)}'",
+        "test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' adapters/codex/skills/ork/SKILL.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:00:44.870Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/agents/ork-go.md",
+      "alegacao": "T2c (S3): o agente de GO do Claude Code traz a regra das esperas numa linha, uma vez, em \"Regras que valem em toda fase\", e a instalação real do claude-code o leva (R3).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R3:/{p++} END{exit !(p==1 && f==0)}'",
+        "test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' adapters/claude-code/agents/ork-go.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:00:47.405Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/agents/ork-check.md",
+      "alegacao": "T2c (S3): o agente de CHECK do Claude Code traz a regra das esperas numa linha, uma vez, em \"Regras que valem em toda fase\", e a instalação real do claude-code o leva (R3).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R3:/{p++} END{exit !(p==1 && f==0)}'",
+        "test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' adapters/claude-code/agents/ork-check.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:00:49.953Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/codex/orkastery/skills/ork/SKILL.md",
+      "alegacao": "T2c (S3): a cópia da skill ork no marketplace do Codex é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/codex/orkastery/skills/ork/SKILL.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:00:51.967Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-go.md",
+      "alegacao": "T2c (S3): a cópia do agente ork-go no marketplace do Claude Code é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/claude-code/orkastery/agents/ork-go.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:00:54.010Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-check.md",
+      "alegacao": "T2c (S3): a cópia do agente ork-check no marketplace do Claude Code é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/claude-code/orkastery/agents/ork-check.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:00:57.018Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-esperas.test.ts",
+      "alegacao": "T2c (S3): o teste R3 confere a regra das esperas, uma vez, na skill ork do Codex e nos agentes de GO e CHECK (fontes e cópias) e, pela instalação real do ork adapter install num projeto temporário, no que o claude-code e o codex instalam; sem a linha na skill do Codex, R3 reprova.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"test('R3: os guias dos adaptadores trazem a regra numa linha, uma vez, e o ork adapter install a leva\" core/test/rm037-esperas.test.ts && grep -qF \"instalarAdaptador(host, { projeto, catalogo: RAIZ\" core/test/rm037-esperas.test.ts"
+      ],
+      "criadoEm": "2026-10-12T22:00:59.376Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/agents/ork-goal.md",
+      "alegacao": "T2d (S3, D10): o agente de GOAL do Claude Code traz a regra das esperas numa linha, uma vez, na seção \"Regras que valem em toda fase\", que segue idêntica nos seis agentes (R3).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R3:/{p++} END{exit !(p==1 && f==0)}'",
+        "test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' adapters/claude-code/agents/ork-goal.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:02:30.669Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/agents/ork-plan.md",
+      "alegacao": "T2d (S3, D10): o agente de PLAN do Claude Code traz a regra das esperas numa linha, uma vez, na seção \"Regras que valem em toda fase\", que segue idêntica nos seis agentes (R3).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R3:/{p++} END{exit !(p==1 && f==0)}'",
+        "test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' adapters/claude-code/agents/ork-plan.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:02:33.231Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/agents/ork-ship.md",
+      "alegacao": "T2d (S3, D10): o agente de SHIP do Claude Code traz a regra das esperas numa linha, uma vez, na seção \"Regras que valem em toda fase\", que segue idêntica nos seis agentes (R3).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R3:/{p++} END{exit !(p==1 && f==0)}'",
+        "test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' adapters/claude-code/agents/ork-ship.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:02:35.830Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/agents/ork-master.md",
+      "alegacao": "T2d (S3, D10): o agente de MASTER do Claude Code traz a regra das esperas numa linha, uma vez, na seção \"Regras que valem em toda fase\", que segue idêntica nos seis agentes (R3).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - R3:/{p++} END{exit !(p==1 && f==0)}'",
+        "test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' adapters/claude-code/agents/ork-master.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:02:38.387Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-goal.md",
+      "alegacao": "T2d (S3): a cópia do agente ork-goal no marketplace do Claude Code é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/claude-code/orkastery/agents/ork-goal.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:02:40.437Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-plan.md",
+      "alegacao": "T2d (S3): a cópia do agente ork-plan no marketplace do Claude Code é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/claude-code/orkastery/agents/ork-plan.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:02:42.423Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-ship.md",
+      "alegacao": "T2d (S3): a cópia do agente ork-ship no marketplace do Claude Code é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/claude-code/orkastery/agents/ork-ship.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:02:44.471Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-master.md",
+      "alegacao": "T2d (S3): a cópia do agente ork-master no marketplace do Claude Code é a gerada pelo catálogo e traz a regra das esperas uma vez.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && test \"$(grep -c 'cujo padrao aparece no proprio comando, porque o laco acha a si mesmo' marketplaces/claude-code/orkastery/agents/ork-master.md)\" -eq 1"
+      ],
+      "criadoEm": "2026-10-12T22:02:46.426Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-esperas.test.ts",
+      "alegacao": "T2d (S3, D10): o R3 cobre os seis agentes de fase (fontes, cópias e instalação real) e confere que a seção \"Regras que valem em toda fase\" segue idêntica neles, com a regra; sem a linha em ork-plan, R3 reprova.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"['ork-goal', 'ork-plan', 'ork-go', 'ork-check', 'ork-ship', 'ork-master']\" core/test/rm037-esperas.test.ts && grep -qF \"a secao comum dos agentes divergiu\" core/test/rm037-esperas.test.ts"
+      ],
+      "criadoEm": "2026-10-12T22:02:48.687Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/src/sessoes-contas.ts",
+      "alegacao": "T3 (S4, D7): encerradaNaLista é o domicílio único de \"o runtime mostra a sessão encerrada\": estado terminal (done, completed, exited, stopped, failed, sem diferença de caixa, pelo state ou pelo status) ou fantasma (V2).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - V2:/{p++} END{exit !(p==1 && f==0)}'",
+        "grep -qE \"^export function encerradaNaLista\\(s: SessaoDaConta\\): boolean\" core/src/sessoes-contas.ts && grep -qF \"return s.fantasma || TERMINAIS.includes(estadoDe(s));\" core/src/sessoes-contas.ts"
+      ],
+      "criadoEm": "2026-10-12T22:12:35.020Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-capacidade.ts",
+      "alegacao": "T3 (S4, D7): a capacidade do #Noctum usa encerradaNaLista no ramo da sessão vista, sem cópia local dos estados terminais, e os testes C1 a C10 dela seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"if (vista) return encerradaNaLista(vista);\" core/src/noctum-capacidade.ts && test \"$(grep -c TERMINAIS core/src/noctum-capacidade.ts)\" -eq 0",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-capacidade.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - C[0-9]+:/{p++} END{exit !(p>=10 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T22:12:37.967Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T4 (S6): \"Não publicado\" do CHANGELOG traz a linha das esperas que nunca terminam (a regra no prompt, na skill e nos guias, o portão de vaga que ouve o runtime e o teste do pulse sem o relógio), e o checador do CI aceita o PR contra a origin/main.",
+      "negativa": true,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main",
+        "awk '/^## Não publicado/{s=1;next} /^## /{s=0} s && /As esperas que nunca terminam/{f=1} END{exit !f}' CHANGELOG.md && awk '/^## Não publicado/{s=1;next} /^## /{s=0} s && /pgrep -f/{f=1} END{exit !f}' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T22:15:04.232Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+      "alegacao": "T4 (S6): a página da RM-037 traz a fatia das esperas (o que aconteceu em 12/10, o que entrou, os testes e as decisões D1 a D10), o resto descrito em \"Plano e decisões\" (espera órfã pelo último tool_use, recusa no guard, observador que desiste, prova de fim só na conta do processo, blocos do AGENTS.md e da experiência), a thread na lista e no sdlc, a linha no histórico e a forma do Markdown aprovada.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF -e '- **As esperas que nunca terminam (thread `ork-rm037esperas`, 12/10/2026):**' docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -qF -e '- **Fica para depois da fatia das esperas (thread `ork-rm037esperas`, D6):**' docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -qF 'thread: ork-rm037esperas' docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -qF 'reconhecer a espera (`sleep`, `until`, `while`, `pgrep`, `tail --pid`)' docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-037-verify-rapido-e-confiavel.md CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T22:15:08.682Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "T4 (S6): o índice do roadmap, gerado por ork docs sincronizar --so RM-037, traz a RM-037 com a data da atualização da fatia das esperas.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '| [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-10-12 |' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-12T22:15:10.533Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/src/board.ts",
+      "alegacao": "T3 e GO-FIX (S4): no limite, o portão de vaga do ork phase run (vagaDoDespacho) lê as sessões de todas as contas com --all e não conta a sessão que o runtime mostra encerrada (stopped, done, failed, completed, exited) ou fantasma; trabalhando, blocked com processo vivo, ausente da lista ou com leitura que lança, conta; o despacho em curso de outra thread segue contando (V8); abaixo do limite o runtime não é lido; ensaio, espera e CLI seguem o runtime; a espera do --esperar lê o runtime uma vez por janela de 30 s (V1 a V8).",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-esperas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - V[0-9]+:/{p++} END{exit !(p>=8 && f==0)}'",
+        "grep -qE \"^export function vagaDoDespacho\" core/src/board.ts && grep -qF \"{ todas: true, staleMin: carregado.manifesto.concurrency.stale_after_min, prazoMs: PRAZO_DA_CONSULTA_MS }\" core/src/board.ts && grep -qF \"const lerRuntime = leituraReaproveitada(ler, 30_000);\" core/src/board.ts"
+      ],
+      "criadoEm": "2026-10-12T23:06:49.229Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-esperas.test.ts",
+      "alegacao": "T3 e GO-FIX (S4): os testes V1 a V8 cobrem o portão de vaga com o runtime, inclusive o despacho em curso de outra thread que segue contando quando a sessão parada sai (V8, A1 do CHECK); sem o ramo do despacho em curso, V8 reprova.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('V[0-9]+:\" core/test/rm037-esperas.test.ts)\" -ge 8 && grep -qF \"sem --all a parada some\" core/test/rm037-esperas.test.ts && grep -qF \"a parada saiu, o despacho ficou\" core/test/rm037-esperas.test.ts"
+      ],
+      "criadoEm": "2026-10-12T23:06:51.909Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-limite-de-sessoes.test.ts",
+      "alegacao": "GO-FIX (A2 do CHECK): as chamadas diretas ao portão de vaga nos testes do limite de sessões passam a leitura do runtime injetada (nenhuma sessão na lista), sem o claude e o codex da máquina; os 14 testes seguem verdes e passam a reprovar quem trate ausência como prova.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-limite-de-sessoes.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=14 && f==0)}'",
+        "test \"$(grep -c 'vagaDoDespacho(p.carregado' core/test/rm037-limite-de-sessoes.test.ts)\" -eq 0 && grep -qF 'vagaDoDespacho(c, id, quando, desde, () => ({ sessoes: [] }))' core/test/rm037-limite-de-sessoes.test.ts"
+      ],
+      "criadoEm": "2026-10-12T23:06:55.292Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-capacidade.test.ts",
+      "alegacao": "GO-FIX (A2 do CHECK): as chamadas diretas ao portão de vaga nos testes da capacidade do #Noctum passam a leitura do runtime injetada (nenhuma sessão na lista); C1 a C10 seguem verdes.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-capacidade.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - C[0-9]+:/{p++} END{exit !(p>=10 && f==0)}'",
+        "test \"$(grep -c 'vagaDoDespacho(p.carregado' core/test/noctum-capacidade.test.ts)\" -eq 0 && grep -qF 'vagaDoDespacho(c, id, quando, desde, () => ({ sessoes: [] }))' core/test/noctum-capacidade.test.ts"
+      ],
+      "criadoEm": "2026-10-12T23:06:58.093Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "GO-FIX (A3 da rodada 1 e sugestão da rodada 2): a referência do CLI em pt-BR diz que, no limite, o ork phase run não conta a sessão que o runtime mostra encerrada ou fantasma no claude agents --json --all e nos rollouts do Codex de cada conta (ausente ou com a leitura falhando, conta) e que o --esperar relê o runtime a cada 30 s; segue em paridade com o parser e com a versão em inglês.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'nem, no limite, a que o runtime mostra encerrada (`stopped`, `done`, `failed`, `completed`, `exited`) ou fantasma no `claude agents --json --all` e nos rollouts do Codex de cada conta' docs/referencia/cli.md",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/locale-f3a-referencia.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=4 && f==0)}' && node --test-reporter=tap core/dist-test/test/rm044-paridade-cli-md.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T23:26:48.870Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "GO-FIX (A3 da rodada 1 e sugestão da rodada 2): a referência do CLI em inglês diz o mesmo que a de pt-BR sobre o portão de vaga do ork phase run, que no limite lê o claude agents --json --all e os rollouts do Codex de cada conta, e segue em paridade com ela seção por seção.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '`claude agents --json --all` and Codex rollouts, such as one stopped with `claude stop` before its result' docs/referencia/cli.en.md",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/locale-f3a-referencia.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T23:27:03.521Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm037esperas",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm037esperas.json",
+      "alegacao": "Fecho do GO: o bundle de CI da thread segue o contrato ork.ci-bundle/v1, é da thread e da branch dela com base main, leva as claims ativas e só adia a do próprio bundle (enquanto ele não está versionado); não tem caminho de máquina nem travessão.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs');const t=fs.readFileSync('.ork-ci/ork-rm037esperas.json','utf8');const b=JSON.parse(t);const d=b.deferredClaims||[];const ok=b.schema==='ork.ci-bundle/v1'&&b.thread==='ork-rm037esperas'&&b.branch==='ork/ork-rm037esperas-full'&&b.base==='main'&&b.claims.length+d.length>=44&&b.claims.every(c=>c.thread==='ork-rm037esperas')&&d.length<=1&&d.every(x=>x.id==='C51'&&x.reason==='artifact-not-in-checkout')&&!t.includes('/hom'+'e/')&&!t.includes(String.fromCharCode(0x2014));if(!ok){console.error('bundle fora do contrato');process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-12T23:30:00.826Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

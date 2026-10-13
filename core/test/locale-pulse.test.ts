@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Cenario, cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
+import { Cenario, cenario, EN, linhasEmPortugues, ork, PT, relogioFixo } from './locale-apoio';
 import { ativarLocale, ligarRemontagem, remontar, textoDoCatalogo } from '../src/locale';
 import { recomendarPara } from '../src/hitl';
 import { planejar } from '../src/board';
@@ -27,6 +27,31 @@ function entregue(c: Cenario): void {
   assert.equal(ork(c, PT, false, 'thread', 'entrega', 'loc-entregue', '--arquivo', 'README.md', '--sha256', sha256, '--por', 'teste').status, 0);
 }
 
+/**
+ * O que muda com o relogio no `--json` do pulse: o ISO, os minutos parados e a falta relativa do pedido da fila de
+ * rate limit ("libera em 633079h03", de `faltaPara`), que muda quando o minuto vira entre as duas leituras. RM-037
+ * (ork-rm037esperas): a comparacao que so tirava o ISO e o `paradaHaMin` derrubou o Node 22 do CI num PR sem relacao.
+ */
+const ISO = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g;
+const semRelogio = (t: string) => t.replace(ISO, '<ISO>').replace(/"paradaHaMin": \d+/g, '')
+  .replace(/libera (?:em \d+(?:h\d{2}| min)|ja liberou)/g, 'libera <FALTA>');
+
+/** As paradas do cenario: a pausa prevista ao fim do bloco, a thread pausada, o gate sem detalhe e a fila de rate limit. */
+function paradasComFila(c: Cenario): void {
+  for (const nome of ['Classica', 'Pausada', 'Aberta']) {
+    assert.equal(ork(c, PT, false, 'thread', 'new', nome, '--modo', 'classic', '--sem-worktree').status, 0);
+  }
+  registrar(path.join(c.dir, '.orkastery', 'threads', 'loc-classica'), 'loc-classica', 'human_gate',
+    { fase: 'GOAL', slug: 'loc-classica-goal', sessionId: '11111111-2222-3333-4444-555555555555', previstaSobre: 'objetivo',
+      estado: 'prevista ao fim do bloco' });
+  gravarThread(c.dir, { ...lerThread(c.dir, 'loc-pausada'), status: 'pausada' });
+  registrar(path.join(c.dir, '.orkastery', 'threads', 'loc-aberta'), 'loc-aberta', 'gate_blocked',
+    { gate: 'verify', motivo: 'verify.failed', fase: 'GO', modo: 'classic' });
+  enfileirar(exigirManifesto(c.dir), { thread: 'loc-aberta', fase: 'GO', slug: 'loc-aberta-full', promptPath: 'prompt.md',
+    promptSha256: '0'.repeat(64), cwd: c.dir, model: null, effort: null,
+    sinal: { resetEm: '2099-01-01T00:00:00.000Z', fonte: 'epoch', trecho: 'SIMULADO' }, detalhe: 'rate limit SIMULADO' });
+}
+
 test('locale en F2b pulse: o pulse do CLI sai em ingles e o --json nao muda', () => {
   const c = cenario('pulse-en');
   try {
@@ -38,9 +63,8 @@ test('locale en F2b pulse: o pulse do CLI sai em ingles e o --json nao muda', ()
     assert.deepEqual(l.slice(1), ['Needs a human now: 0', '1 delivery(ies) without a score, accepted by default with a record',
       '[incomplete query] runtime not queried because of `--sem-runtime`', '', 'Pending automatic actions: 1',
       'loc-entregue: master.score-pendente; ork master --aceitar-omissao', '']);
-    const semData = (t: string) => t.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>').replace(/"paradaHaMin": \d+/g, '');
     const pt = ork(c, PT, false, 'pulse', '--sem-runtime', '--json'), en = ork(c, EN, false, 'pulse', '--sem-runtime', '--json');
-    assert.equal(semData(en.stdout), semData(pt.stdout));
+    assert.equal(semRelogio(en.stdout), semRelogio(pt.stdout));
     assert.match(en.stdout, /"detalhe": "runtime não consultado por --sem-runtime"/);
     // pulse cadencia segue pt-BR.
     const cpt = ork(c, PT, false, 'pulse', 'cadencia'), cen = ork(c, EN, false, 'pulse', 'cadencia');
@@ -96,19 +120,8 @@ test('locale en F2b pulse: a pausa #Classic, a thread pausada, a fila, o gate se
     const semClaude = ork(c, EN, false, 'pulse');
     assert.equal(semClaude.status, 1, semClaude.stderr);
     assert.equal(semClaude.stdout.split('\n')[3], '[incomplete query] `claude` binary not on PATH');
-    for (const nome of ['Classica', 'Pausada', 'Aberta']) {
-      assert.equal(ork(c, PT, false, 'thread', 'new', nome, '--modo', 'classic', '--sem-worktree').status, 0);
-    }
     // A pausa prevista ao fim do bloco, a thread carimbada como pausada, o gate sem detalhe e a fila de rate limit.
-    registrar(path.join(c.dir, '.orkastery', 'threads', 'loc-classica'), 'loc-classica', 'human_gate',
-      { fase: 'GOAL', slug: 'loc-classica-goal', sessionId: '11111111-2222-3333-4444-555555555555', previstaSobre: 'objetivo',
-        estado: 'prevista ao fim do bloco' });
-    gravarThread(c.dir, { ...lerThread(c.dir, 'loc-pausada'), status: 'pausada' });
-    registrar(path.join(c.dir, '.orkastery', 'threads', 'loc-aberta'), 'loc-aberta', 'gate_blocked',
-      { gate: 'verify', motivo: 'verify.failed', fase: 'GO', modo: 'classic' });
-    enfileirar(exigirManifesto(c.dir), { thread: 'loc-aberta', fase: 'GO', slug: 'loc-aberta-full', promptPath: 'prompt.md',
-      promptSha256: '0'.repeat(64), cwd: c.dir, model: null, effort: null,
-      sinal: { resetEm: '2099-01-01T00:00:00.000Z', fonte: 'epoch', trecho: 'SIMULADO' }, detalhe: 'rate limit SIMULADO' });
+    paradasComFila(c);
     const r = ork(c, EN, false, 'pulse', '--sem-runtime');
     assert.equal(r.status, 0, r.stderr);
     assert.equal(r.stdout.split('\n')[1], 'Needs a human now: 3');
@@ -120,9 +133,34 @@ test('locale en F2b pulse: a pausa #Classic, a thread pausada, a fila, o gate se
     assert.deepEqual(linhasEmPortugues(r.stdout), []);
     // Controle do detector: o mesmo pulse em pt-BR e acusado; o --json nao muda.
     assert.ok(linhasEmPortugues(ork(c, PT, false, 'pulse', '--sem-runtime').stdout).length >= 3, 'o detector acha o pt-BR');
-    const semData = (t: string) => t.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>').replace(/"paradaHaMin": \d+/g, '');
-    assert.equal(semData(ork(c, EN, false, 'pulse', '--sem-runtime', '--json').stdout),
-      semData(ork(c, PT, false, 'pulse', '--sem-runtime', '--json').stdout));
+    assert.equal(semRelogio(ork(c, EN, false, 'pulse', '--sem-runtime', '--json').stdout),
+      semRelogio(ork(c, PT, false, 'pulse', '--sem-runtime', '--json').stdout));
+  } finally { c.limpar(); }
+});
+
+test('locale en F2b pulse: o --json nao muda com a lingua nem quando o minuto vira entre as duas leituras (RM-037)', () => {
+  const c = cenario('pulse-virada-en');
+  try {
+    paradasComFila(c);
+    // A proxima virada de minuto, sempre depois do cenario montado: o ingles le 100 ms antes e o pt-BR 100 ms depois,
+    // cada um com o relogio do processo filho fixo (`relogio-fixo.ts`). Sem esperar o relogio de verdade.
+    const virada = Math.ceil(Date.now() / 60_000) * 60_000 + 60_000;
+    const antes = new Date(virada - 100).toISOString(), depois = new Date(virada + 100).toISOString();
+    const en = ork(c, { ...EN, ...relogioFixo(antes) }, false, 'pulse', '--sem-runtime', '--json');
+    const pt = ork(c, { ...PT, ...relogioFixo(depois) }, false, 'pulse', '--sem-runtime', '--json');
+    assert.equal(en.status, 0, en.stderr);
+    assert.equal(pt.status, 0, pt.stderr);
+    assert.ok(en.stdout.includes(`"consultadoEm": "${antes}"`), 'o relogio do filho ficou fixo');
+    assert.ok(pt.stdout.includes(`"consultadoEm": "${depois}"`), 'o relogio do filho ficou fixo');
+    // Controle: a falta do pedido R1 mudou de minuto entre as leituras, e a comparacao de antes, que so tirava o ISO
+    // e o `paradaHaMin`, reprova, como no CI.
+    const falta = (t: string) => /libera em (\d+h\d{2})/.exec(t)?.[1] ?? null;
+    assert.ok(falta(en.stdout) !== null && falta(pt.stdout) !== null, en.stdout);
+    assert.notEqual(falta(en.stdout), falta(pt.stdout));
+    const deAntes = (t: string) => t.replace(ISO, '<ISO>').replace(/"paradaHaMin": \d+/g, '');
+    assert.notEqual(deAntes(en.stdout), deAntes(pt.stdout));
+    // A comparacao sem o trecho que varia passa.
+    assert.equal(semRelogio(en.stdout), semRelogio(pt.stdout));
   } finally { c.limpar(); }
 });
 

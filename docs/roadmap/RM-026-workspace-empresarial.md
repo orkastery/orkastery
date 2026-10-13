@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-024, FEAT-033]
 owner: Julio
-atualizado_em: 2026-10-12T13:00:25+00:00
+atualizado_em: 2026-10-12T17:37:16+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -44,7 +44,7 @@ sdlc:
 <!-- ork-docs:relance:fim -->
 
 - **Features:** [FEAT-024](../produto/FEAT-024-company-brain-no-cli.md), [FEAT-033](../produto/FEAT-033-dossie-de-decisao.md)
-- **Thread:** `ork-rm026k7conhe` (K7: GOAL, PLAN e a fatia 1 do GO); antes, `ork-rm026k3dossi` (K3.1) e `ork-companybrai3`
+- **Thread:** `ork-rm026k7conhe` (K7: GOAL, PLAN e as fatias 1 e 2 do GO); antes, `ork-rm026k3dossi` (K3.1) e `ork-companybrai3`
 
 ## Problema e resultado
 
@@ -59,14 +59,15 @@ sdlc:
   - K1, cartões, estados e criação: identidade, estado e criação recuperável no núcleo (merge `580abb9`).
   - Investigar: o pacote de contexto citável da [RM-025](RM-025-company-brain-fundacao.md) (B4.1) chega aos quatro hosts (thread `ork-companybrai3`, PR #21, merge `a17ff88`).
   - K3.1, dossiê de decisão somente leitura ([FEAT-033](../produto/FEAT-033-dossie-de-decisao.md)): `ork brain dossie` e `ork_brain_dossie` no MCP, no OpenClaw e no repasse do Hermes. Liga cada decisão da thread ao objetivo (o ticket do K1) e ao projeto do portfólio, com o contexto citável, as alternativas, quem decidiu, a evidência e os ids do Brain (thread `ork-rm026k3dossi`, PR #27, merge `46220bc`).
-  - K7, fatia 1: o contrato `ork.conhecimento/v1` e a leitura da pasta declarada no `orkastery.yaml`, com as lacunas tipadas, ainda sem CLI pública nem MCP (thread `ork-rm026k7conhe`, por PR).
+  - K7, fatia 1: o contrato `ork.conhecimento/v1` e a leitura da pasta declarada no `orkastery.yaml`, com as lacunas tipadas (thread `ork-rm026k7conhe`, PR #143, merge `1079f47`).
+  - K7, fatia 2: `ork conhecimento listar|mostrar|colecoes|verificar` e as tools MCP `ork_conhecimento_*`, só leitura, com o corpo, a versão e a fonte de cada documento e cada id do Brain conferido por `get`; Brain fora do ar, id inexistente e id retido são lacunas distintas (thread `ork-rm026k7conhe`, por PR).
 - **Saiu com a interface web:** o protótipo K2 (biblioteca, estratégia e Kanban) vivia na interface web, que saiu dos repositórios públicos em 28/09/2026 (commit `7eb942d`).
 - **Faltando, sem interface web:**
   - O resto do K3: objetivo estratégico e projeto organizacional (dependem da B3), alternativas na decisão informada (mudança do contrato HITL), respostas a sessão nativa e o `objective_id` no `cycle` capturado pelo Brain.
   - K4, Maestro com contexto citado nos quatro hosts.
   - K5, roadmap, decisões e indicadores.
   - K6, aceite da jornada por tarefas nos hosts, no lugar do aceite de interface.
-  - K7, conhecimento escrito: a CLI e as tools MCP, com os ids do Brain conferidos por `get` (fatia 2), e os hosts OpenClaw e Hermes com a página de produto (fatia 3).
+  - K7, conhecimento escrito: os hosts OpenClaw e Hermes com a página de produto (fatia 3).
 
 ## Plano e decisões
 
@@ -118,11 +119,13 @@ Alternativas que o dono avaliou (escolhida: a):
 O GO segue em três fatias:
 
 1. **Schema, leitura e validação, com as lacunas tipadas.** Entregue pela thread `ork-rm026k7conhe`
-   (12/10/2026): o bloco `conhecimento: { dir }` do `orkastery.yaml`, o leitor `core/src/conhecimento.ts` e o
+   (12/10/2026, PR #143, merge `1079f47`): o bloco `conhecimento: { dir }` do `orkastery.yaml`, o leitor `core/src/conhecimento.ts` e o
    [contrato `ork.conhecimento/v1`](../referencia/contratos/conhecimento-rm026.md). A decisão `thread#linha`
    confere no ledger canônico, com a citação que a captura do Brain grava; o id do Brain, só pela forma.
-2. **CLI e tools MCP, com as referências conferidas:** `ork conhecimento colecoes|listar|ler|referencias` e as
-   tools `ork_conhecimento_*`, com cada id do Brain conferido por `get`.
+2. **CLI e tools MCP, com as referências conferidas.** Entregue pela thread `ork-rm026k7conhe` (12/10/2026, por PR):
+   `ork conhecimento listar|mostrar|colecoes|verificar` e as tools `ork_conhecimento_*`, com o mesmo JSON e cada id do
+   Brain conferido por `get`. Os nomes `ler` e `referencias` do plano viraram o `mostrar`, que traz o corpo e as
+   referências, e o `verificar`, que confere a pasta inteira e sai diferente de 0 com lacuna (decisões D11 a D14).
 3. **Hosts e página de produto:** OpenClaw e Hermes chegam às mesmas tools, e o item ganha a página de produto.
 
 ## Estado com evidências
@@ -165,3 +168,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-03 | K7: GOAL e PLAN com quatro alternativas; o código espera a escolha do dono, porque o K7 é contrato público novo (classe 2) | thread `ork-rm026k7conhe`, decisões no ledger | thread `ork-rm026k7conhe` (#Auto) |
 | 2026-10-11 | K7: alternativa (a), conhecimento em Markdown versionado no repositório, no contrato `ork.conhecimento/v1` do lado do ork | decisão do dono (3.a) | Julio |
 | 2026-10-12 | K7, fatia 1: o contrato, a leitura da pasta declarada e a validação, com as lacunas tipadas | thread `ork-rm026k7conhe`, por PR, decisões D1 a D9 no ledger | thread `ork-rm026k7conhe` (#Auto) |
+| 2026-10-12 | K7, fatia 2: a CLI `ork conhecimento` e as tools MCP `ork_conhecimento_*`, com os ids do Brain conferidos por `get` | thread `ork-rm026k7conhe`, por PR, decisões D11 a D14 no ledger | thread `ork-rm026k7conhe` (#Auto) |

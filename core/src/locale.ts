@@ -62,6 +62,7 @@ import { MASTER_EN, MASTER_PT_BR } from './locale-master';
 import { PULSE_EN, PULSE_PT_BR } from './locale-pulse';
 import { ROADMAP_EN, ROADMAP_PT_BR } from './locale-roadmap';
 import { GERADOS_EN, GERADOS_PT_BR } from './locale-gerados';
+import { CONHECIMENTO_EN, CONHECIMENTO_PT_BR } from './locale-conhecimento';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -72,12 +73,14 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
  * `experiencia uninstall` e `thread list|close|entrega`. A F2b (G3) acrescenta `verify` (com `--baseline`),
  * `ship`, `ship registrar-pr`, `retry plan`, `retry run`, `master` (o indice), `master aceitar-omissao` e
  * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`. A F3a (D5) acrescenta `docs init`;
- * `docs verificar` e `docs sincronizar` seguem em pt-BR.
+ * `docs verificar` e `docs sincronizar` seguem em pt-BR. O conhecimento escrito (RM-026 K7, fatia 2) nasce coberto:
+ * `conhecimento listar|mostrar|colecoes|verificar` e o uso errado dele.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
   'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
-  'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status', 'docs init'];
+  'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status', 'docs init',
+  'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -88,6 +91,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['retry', { padrao: null, conhecidos: ['plan', 'run', 'policy', 'parse', 'list', 'resume', 'cancel'] }],
   ['roadmap', { padrao: 'reservas', conhecidos: ['reservas', 'status', 'feat', 'pegar', 'soltar'] }],
   ['docs', { padrao: 'verificar', conhecidos: ['verificar', 'sincronizar', 'init'] }],
+  ['conhecimento', { padrao: 'listar', conhecidos: ['listar', 'mostrar', 'colecoes', 'verificar'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
@@ -407,6 +411,7 @@ const PT_BR = {
   pulse: PULSE_PT_BR,
   roadmap: ROADMAP_PT_BR,
   gerados: GERADOS_PT_BR,
+  conhecimento: CONHECIMENTO_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -671,6 +676,7 @@ const EN: Mensagens = {
   pulse: PULSE_EN,
   roadmap: ROADMAP_EN,
   gerados: GERADOS_EN,
+  conhecimento: CONHECIMENTO_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',
