@@ -125,7 +125,7 @@ JSON vem inteiro tambem nela.
 O host so confere `id` e `colecao` contra o padrao que o schema declara, o mesmo da tool MCP, e recusa campo a
 mais, antes de chamar o `ork` (`conhecimento.argumento-invalido`), como faz com `projeto`: um valor que comeca com
 `--` viraria opcao do CLI. O nucleo confere de novo. A descricao de cada tool e a da tool MCP, com a regra das
-lacunas no canal e a do HITL de conducao: cite o documento pela versao e pela
+lacunas no canal (a mesma frase da skill do Hermes) e a do HITL de conducao: cite o documento pela versao e pela
 fonte, e mostre cada lacuna como lacuna, nunca como resposta. As quatro aparecem nos perfis `coding` e
 `messaging`, para o conhecimento chegar ao dono no perfil padrao.
 
