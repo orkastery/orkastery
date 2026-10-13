@@ -188,6 +188,28 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   automático deixou de gravar no `~/.orkastery/projetos.json` projetos de `/tmp` e da pasta dos jobs do Claude Code, a
   casa do ork segue `ORKASTERY_HOME`, e a suíte roda com uma casa temporária.
 
+- **Remoto, CI e entrega do GitHub com a porta da forja**: o endereço do remoto (`https`, `ssh`, `git://`, com porta e
+  subgrupos) passa por um parser só, e o host e o `dono/nome` da consulta saem do mesmo parse, sem host de reserva. Um
+  remoto do GitHub Enterprise é consultado com `--hostname` no host dele (inclusive com porta) e exige login do `gh`
+  nesse host; só o `github.com` dispensa a pergunta.
+- **Gate de CI: lista completa, produtor claro e commit status só endurece**: a CI lê todas as páginas dos
+  check-runs e dos commit statuses, em ordem estável, e o detalhe diz o produtor que bloqueou. Um commit status sozinho
+  deixa de aprovar o gate: status vermelho ou pendente bloqueia, e o verde precisa de um check-run verde. As chamadas ao
+  `gh` da CI e da entrega externa passam a usar um buffer de 32 MiB e a achar o `gh` como o executor da forja.
+- **`ork ship registrar-pr` sem vínculo com o head**: a entrega sem vínculo com o head do PR, ou sem leitura do remoto,
+  é recusada (um merge por squash na base nunca aprova pela CI do commit da base). `registrar-pr --todas` com a busca
+  do remoto falha agora recusa por thread aberta, com saída 1.
+- **Stderr da forja e do push redigido**: o stderr da CLI da forja e do `git push` passa pelo redator de segredos
+  (`ghp_`, `github_pat_`, `glpat-`, `https://usuario:senha@host`) antes de ir ao detalhe da CI, ao erro do push, ao
+  `--json`, ao ledger e ao terminal. O detalhe guarda as duas últimas linhas, no máximo 240 caracteres.
+- **Corpo do PR por arquivo, fora do argv**: o `gh pr create` recebe o corpo por `--body-file`, num arquivo 600 em
+  diretório temporário apagado ao fim, em vez de `--body=<texto>`. Um `pr-body.md` que parece flag
+  (`--repo=outro/repo`) ou de 64 KiB não toca mais a linha de comando.
+- **`ork network --repositorio` com subgrupos do GitLab**: o dono e o nome se separam pelo último `/`, e
+  `grupo/sub/casa` deixa de ser cortado em `grupo/sub`. No GitHub, `dono/nome` sai igual.
+- **`ork-verify` no head exato do PR**: o job `ork-verify` do GitHub Actions faz o checkout do commit head do PR, não do
+  commit de merge temporário (`refs/pull/N/merge`), então o check que o `ork` lê no head é a prova daquele head.
+
 ## [0.5.6] - 2026-10-12
 
 ### Adicionado
