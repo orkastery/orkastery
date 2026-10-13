@@ -5,11 +5,11 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| srvjcp86 | ork-ciactionsfor | #Auto | GOAL | sem despacho | — | — | 13/10 14:30 | parada desde 03/10 00:13: nenhuma sessão despachada na fase GOAL |
-| vps | ork-rm058n3 | #Auto | GOAL | claude-bg opus/max | — | — | 13/10 15:04 | viva |
-| vps | ork-rm058n4 | #Auto | GOAL | claude-bg opus/max | — | — | 13/10 15:04 | viva |
-| vps | ork-rm058n5 | #Auto | GOAL | claude-bg opus/max | — | — | 13/10 15:04 | viva |
-| vps | ork-rm058n6 | #Auto | GOAL | claude-bg opus/max | — | — | 13/10 15:04 | viva |
-| vps | ork-rm064pagina | #Fast | GO | sem despacho | — | — | 13/10 15:04 | parada desde 15:05: nenhuma sessão despachada na fase GO |
+| srvjcp86 | ork-ciactionsfor | #Auto | GOAL | sem despacho | — | — | 13/10 18:15 | parada desde 18:08: nenhuma sessão despachada na fase GOAL |
+| vps | ork-rm058n3 | #Auto | GOAL | claude-bg opus/max | — | — | 13/10 18:04 | viva |
+| vps | ork-rm058n4 | #Auto | GOAL | claude-bg opus/max | — | — | 13/10 18:04 | viva |
+| vps | ork-rm058n5 | #Auto | GOAL | claude-bg opus/max | — | — | 13/10 18:04 | viva |
+| vps | ork-rm058n6 | #Auto | GOAL | claude-bg opus/max | — | — | 13/10 18:04 | viva |
+| vps | ork-rm064pagina | #Fast | GO | sem despacho | — | — | 13/10 18:04 | parada desde 18:05: nenhuma sessão despachada na fase GO |
 
-Horários de Brasília.
+Horários em UTC.
