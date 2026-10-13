@@ -10,7 +10,7 @@ const SHA = 'a'.repeat(40);
 const GH_TOKEN = 'ghp_' + 'a'.repeat(36);
 
 /** Regra da CLI falsa: o trecho `padrao` casa em "$*" (os argumentos da chamada). */
-type Regra = { padrao: string; corpo?: unknown; stderr?: string; codigo?: number };
+type Regra = { padrao: string; corpo?: unknown; bruto?: string; stderr?: string; codigo?: number };
 
 /**
  * CLI falsa no PATH. Escolhe a resposta pelo caminho da API ("$*"): cada regra vira um `case`.
@@ -27,7 +27,7 @@ function cliFalso(bin: string, cli: string, regras: Regra[]): void {
       linhas.push(`  *${r.padrao}*) cat '${f}' >&2; exit ${r.codigo ?? 1} ;;`);
     } else {
       const f = path.join(dados, `${i}.json`);
-      fs.writeFileSync(f, JSON.stringify(r.corpo ?? {}));
+      fs.writeFileSync(f, r.bruto ?? JSON.stringify(r.corpo ?? {}));
       linhas.push(`  *${r.padrao}*) cat '${f}'; exit ${r.codigo ?? 0} ;;`);
     }
   });
@@ -171,4 +171,53 @@ test('GitLab: redige runners_token (chave *_token) e token de runner glrt- em qu
   assert.equal(corpo.id, 7);
   assert.equal(corpo.expires_at, '2026-10-14');
   assert.equal(corpo.ativo, true);
+});
+
+test('--incluir-cabecalhos: passa -i, grava status_http, cabecalhos e corpo, e redige os cabecalhos sensiveis', () => {
+  const { bin, saida } = sandbox();
+  const bruto = ['HTTP/2.0 200 OK', 'Content-Type: application/json', 'X-Gitlab-Feature-Category: team_planning',
+    'Authorization: Bearer segredo-um', 'PRIVATE-TOKEN: segredo-dois', 'Set-Cookie: _gitlab_session=segredo-tres; path=/',
+    `X-Vazou: valor ${GH_TOKEN}`, 'Etag: W/"abc"', '', JSON.stringify({ version: '19.4.2', corpo_token: GH_TOKEN })].join('\r\n');
+  cliFalso(bin, 'glab', [{ padrao: 'metadata', bruto }, { padrao: 'hostname', bruto }]);
+  const r = rodar(bin, [...argsGitlab(saida), '--incluir-cabecalhos']);
+  assert.equal(r.status, 0, r.stderr);
+  const arquivo = path.join(saida, 'metadata.json');
+  const gravado = fs.readFileSync(arquivo, 'utf8');
+  for (const segredo of ['segredo-um', 'segredo-dois', 'segredo-tres', 'ghp_a']) {
+    assert.doesNotMatch(gravado, new RegExp(segredo), `vazou: ${segredo}`);
+  }
+  const caso = JSON.parse(gravado);
+  assert.equal(caso.comando[1], 'api');
+  assert.ok(caso.comando.includes('-i'));
+  assert.equal(caso.status_http, 200);
+  assert.equal(caso.cabecalhos['content-type'], 'application/json');
+  assert.equal(caso.cabecalhos['x-gitlab-feature-category'], 'team_planning');
+  assert.equal(caso.cabecalhos['authorization'], '[redigido]');
+  assert.equal(caso.cabecalhos['private-token'], '[redigido]');
+  assert.equal(caso.cabecalhos['set-cookie'], '[redigido]');
+  assert.equal(caso.cabecalhos['x-vazou'], 'valor [redigido]');
+  assert.equal(caso.corpo.version, '19.4.2');
+  assert.equal((fs.statSync(arquivo).mode & 0o777), 0o600);
+});
+
+test('--incluir-cabecalhos: resposta HTTP de erro (4xx) grava status_http e cabecalhos mesmo com a CLI saindo com erro', () => {
+  const { bin, saida } = sandbox();
+  const bruto = ['HTTP/2.0 404 Not Found', 'Content-Type: application/json', '', '{"message":"404 Not found"}'].join('\r\n');
+  cliFalso(bin, 'gh', [{ padrao: 'check-runs', bruto, codigo: 1 }]);
+  const r = rodar(bin, [...argsGithub(saida), '--incluir-cabecalhos']);
+  assert.equal(r.status, 1, r.stderr);
+  const caso = JSON.parse(fs.readFileSync(path.join(saida, 'check-runs.json'), 'utf8'));
+  assert.equal(caso.status_http, 404);
+  assert.equal(caso.cabecalhos['content-type'], 'application/json');
+  assert.equal(caso.corpo.message, '404 Not found');
+});
+
+test('sem --incluir-cabecalhos nada muda: sem -i e sem status_http', () => {
+  const { bin, saida } = sandbox();
+  cliFalso(bin, 'gh', [{ padrao: 'check-runs', corpo: { ok: true } }]);
+  const r = rodar(bin, argsGithub(saida));
+  assert.equal(r.status, 0, r.stderr);
+  const caso = JSON.parse(fs.readFileSync(path.join(saida, 'check-runs.json'), 'utf8'));
+  assert.ok(!caso.comando.includes('-i'));
+  assert.equal(caso.status_http, undefined);
 });
