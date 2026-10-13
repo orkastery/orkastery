@@ -357,8 +357,8 @@
       "id": "M40",
       "descricao": "a varredura de segredo lê só o último commit da thread",
       "modulo": "noctum-provas",
-      "de": "'log', '--format=%x00%H', '-p',",
-      "para": "'log', '-1', '--format=%x00%H', '-p',",
+      "de": "'log', '--format=%x00%H %P', '-p',",
+      "para": "'log', '-1', '--format=%x00%H %P', '-p',",
       "teste": "noctum-provas",
       "nome": "^QP12:"
     },
@@ -375,7 +375,7 @@
       "id": "M42",
       "descricao": "a falha de transporte do push vira recusa do remoto",
       "modulo": "noctum-entrega",
-      "de": "if (!RECUSA_DO_REMOTO.test(push.stderr)) {",
+      "de": "if (!linhaDaRecusa) {",
       "para": "if (false) {",
       "teste": "noctum-entrega",
       "nome": "^QE19:"
@@ -478,6 +478,141 @@
       "para": "if (false)",
       "teste": "noctum-provas",
       "nome": "^QP13:"
+    },
+    {
+      "id": "M54",
+      "descricao": "o merge polvo sem segredo achado passa como lido",
+      "modulo": "noctum-provas",
+      "de": "if (!f.segredos.length && f.polvos.length) {",
+      "para": "if (false) {",
+      "teste": "noctum-provas",
+      "nome": "^QP14:"
+    },
+    {
+      "id": "M55",
+      "descricao": "a linha da base que o merge do arco mostra como acrescentada vira segredo da thread",
+      "modulo": "noctum-provas",
+      "de": "if (s.pais.length === 2 && s.pais.some(pai => linhasDoPai(pai, s.arquivo)?.includes(s.texto)))",
+      "para": "if (false)",
+      "teste": "noctum-entrega",
+      "nome": "^QE25:"
+    },
+    {
+      "id": "M56",
+      "descricao": "a publicação não relê a supervisão antes do push",
+      "modulo": "noctum-entrega",
+      "de": "conferirSupervisao(raiz, arco, [trabalho]);",
+      "para": "void 0;",
+      "teste": "noctum-entrega",
+      "nome": "^QE26:"
+    },
+    {
+      "id": "M57",
+      "descricao": "a integração não relê a supervisão imediatamente antes do push na base",
+      "modulo": "noctum-entrega",
+      "de": "conferirSupervisao(raiz, arco, [...trabalhosDoEnvelope]);",
+      "para": "void 0;",
+      "teste": "noctum-integracao-entrega",
+      "nome": "^QI11:"
+    },
+    {
+      "id": "M58",
+      "descricao": "o despacho do CHECK sai com o arco parado",
+      "modulo": "noctum-entrega",
+      "de": "return bloquear('noctum.entrega.arco-parado',",
+      "para": "void ('noctum.entrega.arco-parado',",
+      "teste": "noctum-entrega",
+      "nome": "^QE27:"
+    },
+    {
+      "id": "M59",
+      "descricao": "o despacho do CHECK sai com o trabalho isolado",
+      "modulo": "noctum-entrega",
+      "de": "return bloquear('noctum.entrega.isolado',",
+      "para": "void ('noctum.entrega.isolado',",
+      "teste": "noctum-entrega",
+      "nome": "^QE27:"
+    },
+    {
+      "id": "M60",
+      "descricao": "o log de supervisão que não se lê vale como vazio",
+      "modulo": "noctum-entrega",
+      "de": "throw new noctum_provas_1.RecusaDaEntrega('noctum.entrega.supervisao-sem-leitura',",
+      "para": "return { isolados: new Map(), contasFora: new Map(), parada: null }; void ('noctum.entrega.supervisao-sem-leitura',",
+      "teste": "noctum-entrega",
+      "nome": "^QE28:"
+    },
+    {
+      "id": "M61",
+      "descricao": "a reconciliação diz que o arco incorporou o merge de outro caminho",
+      "modulo": "noctum-entrega",
+      "de": "const doArco = corpoDoMerge.ok && corpoDoMerge.stdout.includes(",
+      "para": "const doArco = true || corpoDoMerge.stdout.includes(",
+      "teste": "noctum-entrega",
+      "nome": "^QE30:"
+    },
+    {
+      "id": "M62",
+      "descricao": "a falha passageira do servidor no push vira recusa definitiva",
+      "modulo": "noctum-entrega",
+      "de": "if (remota && /protected|\\bden(?:y|ied)\\b|permission/i.test(remota[1]))",
+      "para": "if (remota)",
+      "teste": "noctum-entrega",
+      "nome": "^QE29:"
+    },
+    {
+      "id": "M63",
+      "descricao": "o commit do bundle que falha sai do passo como exceção",
+      "modulo": "noctum-entrega",
+      "de": "throw new noctum_provas_1.RecusaDaEntrega('noctum.entrega.git-falhou', `o commit do bundle falhou:",
+      "para": "throw new Error(`o commit do bundle falhou:",
+      "teste": "noctum-entrega",
+      "nome": "^QE31:"
+    },
+    {
+      "id": "M64",
+      "descricao": "o trabalho entregue e isolado recebe o MASTER do arco",
+      "modulo": "noctum-entrega",
+      "de": "const isoladoDepois = trabalho.estado === 'entregue' ? sup.isolados.get(trabalho.id) : undefined;",
+      "para": "const isoladoDepois = undefined;",
+      "teste": "noctum-entrega",
+      "nome": "^QE32:"
+    },
+    {
+      "id": "M65",
+      "descricao": "a publicação confere o envelope com o instante de quem chamou o passo",
+      "modulo": "noctum-entrega",
+      "de": "lido.entrada.provas?.fonte ?? null, opcoes.relogio, rastro);",
+      "para": "lido.entrada.provas?.fonte ?? null, () => opcoes.quando, rastro);",
+      "teste": "noctum-entrega",
+      "nome": "^QE33:"
+    },
+    {
+      "id": "M66",
+      "descricao": "o despacho do CHECK confere a janela com o instante de quem chamou o passo",
+      "modulo": "noctum-entrega",
+      "de": "const agora = () => opcoes.relogio?.() ?? new Date().toISOString();",
+      "para": "const agora = () => opcoes.quando ?? new Date().toISOString();",
+      "teste": "noctum-entrega",
+      "nome": "^QE34:"
+    },
+    {
+      "id": "M67",
+      "descricao": "a thread fixada de outro item integra",
+      "modulo": "noctum-entrega",
+      "de": "filter(w => w.item === t.roadmap && (w.thread !== undefined",
+      "para": "filter(w => (w.thread !== undefined",
+      "teste": "noctum-integracao-entrega",
+      "nome": "^QI12:"
+    },
+    {
+      "id": "M68",
+      "descricao": "o código do GitHub casa em qualquer lugar da saída do push",
+      "modulo": "noctum-entrega",
+      "de": "/^remote: error: GH0\\d\\d\\b/.test(linha)",
+      "para": "/GH0\\d/i.test(linha)",
+      "teste": "noctum-entrega",
+      "nome": "^QE35:"
     }
   ]
 }
