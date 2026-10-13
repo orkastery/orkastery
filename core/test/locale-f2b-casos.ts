@@ -354,6 +354,11 @@ function casosDoShip(casos: Record<string, string>): void {
     textosDoLedger(repo, 'shp-pausa', ['ship_blocked', 'gate_blocked']),
     textosDoLedger(repo, 'shp-entrega', ['ship_blocked', 'gate_blocked', 'ship_done', 'gate_passed']),
   ].join('\n'));
+  // O registrar-pr le a base do remoto: com um remoto legivel que nao tem o merge, a recusa segue "nenhum merge".
+  const remoto = dirTemp('ship-remoto', '<REMOTO>');
+  exec('git', ['init', '-q', '--bare', '-b', 'main', remoto], repo);
+  exec('git', ['remote', 'add', 'origin', remoto], repo);
+  exec('git', ['push', '-q', 'origin', `${exec('git', ['rev-list', '--max-parents=0', 'main'], repo).stdout.trim()}:refs/heads/main`], repo);
   caso(casos, 'ship cli: registrar-pr uso', () => texto(ork(repo, amb, 'ship', 'registrar-pr')));
   caso(casos, 'ship cli: registrar-pr uso com repo sem pr', () => texto(ork(repo, amb, 'ship', 'registrar-pr', 'shp-entrega', '--repo', 'a/b')));
   caso(casos, 'ship cli: registrar-pr todas em ensaio', () => texto(ork(repo, amb, 'ship', 'registrar-pr', '--todas', '--dry-run')));
@@ -362,6 +367,10 @@ function casosDoShip(casos: Record<string, string>): void {
   caso(casos, 'ship cli: registrar-pr de thread ja entregue', () => texto(ork(repo, amb, 'ship', 'registrar-pr', 'shp-entrega')));
   caso(casos, 'ship cli: registrar-pr de repositorio externo nao declarado', () =>
     texto(ork(repo, amb, 'ship', 'registrar-pr', 'shp-reprova', '--repo', 'dono/externo', '--pr', '7', '--dry-run')));
+  // Sem leitura do remoto (o fetch falha), a recusa e sem-leitura, nunca "nenhum merge".
+  exec('git', ['remote', 'set-url', 'origin', path.join(remoto, 'nao-existe.git')], repo);
+  caso(casos, 'ship cli: registrar-pr sem leitura do remoto', () =>
+    texto(ork(repo, amb, 'ship', 'registrar-pr', 'shp-reprova', '--dry-run')));
 }
 
 // ---------------------------------------------------------------------------
