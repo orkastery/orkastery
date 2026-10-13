@@ -21,6 +21,7 @@ Distinga o contexto antes de agir:
 - **Sessao condutora:** recebe o pedido do dono, identifica ou abre a thread, despacha pelo `ork` e acompanha o resultado; nunca escreve codigo de produto no lugar da sessao despachada.
 - **Sessao de fase ja despachada:** recebeu thread, fase, prompt e worktree do `ork`.
   Trabalhe nesse escopo pela skill da fase. Nao abra outra thread nem redespache a propria fase para fazer o trabalho que ja lhe foi atribuido.
+  - Esperas: nunca dispare verify, build ou suite com `&` dentro do comando, porque o processo se perde e a sessao espera um aviso que nunca vem; rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de recursos pesados), ou use a execucao em segundo plano do host, que avisa quando termina; nunca espere com `pgrep -f` cujo padrao aparece no proprio comando, porque o laco acha a si mesmo e nao termina: espere pelo arquivo de saida com prazo, ou pelo PID guardado.
 
 ## Comecar ou retomar
 
@@ -89,8 +90,7 @@ uma pendencia humana atual, identificada por gate, pedido ou evento da thread/se
 Uma thread nova, sem fase executada nem pedido aberto, ainda nao aguarda veredito.
 Se faltar evidencia da pendencia, informe a incerteza e consulte a fonte; nao invente a espera.
 
-Apresente o resultado primeiro: o que ja foi comprovado, o que esta acontecendo, quem precisa agir e o proximo passo. Em trabalho demorado, comunique mudanca relevante, bloqueio ou marco.
-Nao prometa notificacoes ou execucao em segundo plano que o host nao consegue sustentar.
+Apresente o resultado primeiro: o que ja foi comprovado, o que esta acontecendo, quem precisa agir e o proximo passo. Em trabalho demorado, comunique mudanca relevante, bloqueio ou marco. Nao prometa notificacoes ou execucao em segundo plano que o host nao consegue sustentar.
 
 ## Decisoes na propria sessao
 

@@ -17,7 +17,7 @@ import { lerLedger } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { Capacidade } from './noctum-envelope';
 import { sessaoLivreDaVaga } from './ocupacao';
-import { consultarContas, ContaDeSessoes, FonteDeSessoes, SessaoDaConta } from './sessoes-contas';
+import { consultarContas, ContaDeSessoes, encerradaNaLista, FonteDeSessoes, SessaoDaConta } from './sessoes-contas';
 import { dirThread, listarIds } from './thread';
 
 /** Quem trabalha agora, com o que a vaga de cada limite precisa saber. */
@@ -54,7 +54,6 @@ export type Admissao = { ok: true } | { ok: false; motivo: MotivoDaCapacidade; d
 /** O que a leitura do runtime devolve; os testes injetam a deles no lugar de `consultarContas`. */
 export interface LeituraDeSessoes { sessoes: SessaoDaConta[]; fontes: FonteDeSessoes[]; contas: Pick<ContaDeSessoes, 'runtime' | 'perfil'>[] }
 
-const TERMINAIS = ['done', 'completed', 'exited', 'stopped', 'failed'];
 /** O runtime mostra a sessão trabalhando agora: o claude-bg diz `running` ou `busy` (o watcher chama de `working`). */
 const TRABALHANDO = ['running', 'busy', 'working'];
 const estadoDe = (s: SessaoDaConta): string => String(s.state ?? s.status ?? '').trim().toLowerCase();
@@ -67,7 +66,7 @@ const estadoDe = (s: SessaoDaConta): string => String(s.state ?? s.status ?? '')
 function encerradaPeloRuntime(dono: { sessionId: string; runtime: string; perfil: string | null }, leitura: LeituraDeSessoes,
   porSessao: Map<string, SessaoDaConta>, semLacuna: boolean): boolean {
   const vista = porSessao.get(dono.sessionId);
-  if (vista) return vista.fantasma || TERMINAIS.includes(estadoDe(vista));
+  if (vista) return encerradaNaLista(vista);
   if (!semLacuna || dono.runtime !== 'claude-bg') return false;
   return leitura.contas.some(c => c.runtime === 'claude-bg' && (c.perfil?.id ?? null) === dono.perfil);
 }
