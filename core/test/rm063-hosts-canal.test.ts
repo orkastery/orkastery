@@ -155,6 +155,10 @@ test('H3: sem o executavel do host nesta maquina, nada e gravado e o motivo diz 
 
 test('GO-FIX: o script do transporte do Hermes versionado no git nao vale (RM-047)', () => {
   const p = projetoTemporario('rm063-gofix-script-git');
+  // A casa do Hermes vem antes do projeto na busca do script: na maquina com o adaptador instalado de verdade
+  // (`~/.hermes/bin/ork-pulse-enviar.py`), o teste acharia esse arquivo local, e nao o versionado. Casa vazia.
+  const casaAntes = process.env.HERMES_HOME;
+  process.env.HERMES_HOME = dirTemporario('rm063-gofix-casa-hermes');
   try {
     const bins = dirTemporario('rm063-gofix-script-bins');
     const python = executavel(bins, 'python3');
@@ -165,5 +169,9 @@ test('GO-FIX: o script do transporte do Hermes versionado no git nao vale (RM-04
     assert.throws(() => gravarEtapa(p.dir, 'maestro', { canal: { host: 'hermes', destino: 'telegram:-7', executavel: python } }, 'Dona Simulada'),
       /onboarding\.canal\.transporte: .*ork-pulse-enviar\.py está versionado no git/);
     assert.equal(fs.existsSync(caminhoDoPulseHost(p.dir)), false);
-  } finally { p.limpar(); }
+  } finally {
+    if (casaAntes === undefined) delete process.env.HERMES_HOME;
+    else process.env.HERMES_HOME = casaAntes;
+    p.limpar();
+  }
 });
