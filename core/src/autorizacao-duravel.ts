@@ -19,6 +19,7 @@ import { raizDoEstado } from './estado-thread';
 import { formatarDataHoraRotulada, instanteNoFuso, isoComFuso, normalizarFuso } from './horario';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { autoriaHumana } from './master';
+import { marcaDeHost } from './master-nota';
 import { nomeDaMaquina } from './maquina';
 import { rastreadoPeloGit } from './procedencia';
 import { ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO } from './runtime-ambiente';
@@ -67,9 +68,18 @@ export function caminhoDaAutorizacao(raiz: string): string {
   return path.join(raizDoEstado(raiz), '.orkastery', 'monitor', ARQUIVO_DA_AUTORIZACAO);
 }
 
+/** A data e a hora existem no calendario (o `Date.parse` aceitaria 30/02 e o levaria a marco, calado). */
+const noCalendario = (v: string): boolean => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(v);
+  if (!m) return false;
+  const [ano, mes, dia, hora, minuto] = m.slice(1).map(Number);
+  const d = new Date(Date.UTC(ano, mes - 1, dia));
+  return d.getUTCFullYear() === ano && d.getUTCMonth() === mes - 1 && d.getUTCDate() === dia && hora <= 23 && minuto <= 59;
+};
 /** O instante com o fuso explicito (`Z` ou `-03:00`): sem ele, o prazo dependeria do fuso de quem le. */
 const instante = (v: unknown): boolean => typeof v === 'string' &&
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})$/.test(v) && Number.isFinite(Date.parse(v));
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})$/.test(v) && noCalendario(v) &&
+  Number.isFinite(Date.parse(v));
 const textoCurto = (v: unknown, teto: number): v is string => typeof v === 'string' && v.trim() !== '' && v.length <= teto &&
   !/\p{Cc}/u.test(v);
 
@@ -167,8 +177,15 @@ export function linhaDaAutorizacao(leitura: LeituraDaAutorizacao, agora: string 
 /** O que nunca entra na autorizacao duravel, nem com o nome que o dono der: fica sempre com ele. */
 const ACOES_PROIBIDAS = ['tag', 'tags', 'publicar', 'publicacao', 'publicação', 'release', 'publish', 'npm', 'versao', 'versão'];
 
+/**
+ * O prazo mais longo que uma autorizacao pode ter: o dono renova quando quiser, e a permissao esquecida nao vale para
+ * sempre.
+ */
+export const PRAZO_MAXIMO_DIAS = 31;
+
 /** Por que o pedido de autorizacao foi recusado antes de gravar qualquer coisa. */
-export type MotivoDaGravacao = 'autorizacao.sessao-despachada' | 'autorizacao.ate-invalido' | 'autorizacao.ate-passado' |
+export type MotivoDaGravacao = 'autorizacao.sessao-despachada' | 'autorizacao.host' | 'autorizacao.ate-invalido' |
+  'autorizacao.ate-passado' | 'autorizacao.ate-longe' |
   'autorizacao.pode-vazio' | 'autorizacao.pode-repetido' | 'autorizacao.acao-desconhecida' | 'autorizacao.acao-proibida' |
   'autorizacao.por' | 'autorizacao.nota' | 'autorizacao.rastreada';
 
@@ -230,6 +247,13 @@ export function gravarAutorizacao(raiz: string, pedido: PedidoDeAutorizacao): Gr
     return recusa('autorizacao.sessao-despachada', 'a autorização durável é ato do dono: uma sessão despachada pelo ork não a concede ' +
       '(rode no terminal do dono, fora da sessão da fase)');
   }
+  // A mesma regra da nota do MASTER em nome de pessoa (D8): de dentro de um host de agente (Claude Code, Codex, Hermes,
+  // OpenClaw), quem escreve o --por e o agente. O dono autoriza no proprio terminal.
+  const host = marcaDeHost(ambiente);
+  if (host) {
+    return recusa('autorizacao.host', `a autorização durável é ato do dono no terminal dele: vinda de ${host}, ela não vale ` +
+      '(o agente não autoriza a si mesmo)');
+  }
   const agora = pedido.agora ?? new Date();
   const ate = prazoDoPedido(pedido.ate, pedido.fuso);
   if (!ate) {
@@ -238,6 +262,9 @@ export function gravarAutorizacao(raiz: string, pedido: PedidoDeAutorizacao): Gr
   }
   if (Date.parse(ate) <= agora.getTime()) {
     return recusa('autorizacao.ate-passado', `o prazo ${formatarDataHoraRotulada(ate, { agora: agora.toISOString() })} já passou`);
+  }
+  if (Date.parse(ate) - agora.getTime() > PRAZO_MAXIMO_DIAS * 24 * 60 * 60 * 1000) {
+    return recusa('autorizacao.ate-longe', `o prazo vai além de ${PRAZO_MAXIMO_DIAS} dias: autorize por menos e renove quando quiser`);
   }
   const pode = pedido.pode.split(',').map((a) => a.trim().toLowerCase()).filter(Boolean);
   if (!pode.length) return recusa('autorizacao.pode-vazio', `--pode precisa de pelo menos uma ação (${ACOES_DA_AUTORIZACAO.join(', ')})`);

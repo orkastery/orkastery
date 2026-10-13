@@ -107,11 +107,12 @@ test('F7: ork conducao autorizar e autorizacao pelo CLI; a sessao despachada nao
     const vazia = ork(['conducao', 'autorizacao', '--json']);
     assert.equal(vazia.status, 0, vazia.stderr);
     assert.equal((JSON.parse(vazia.stdout) as { motivo: string }).motivo, 'autorizacao.ausente');
-    const dentro = ork(['conducao', 'autorizar', '--ate', '2099-01-01', '--pode', 'merge,despachar', '--por', 'Dona Simulada'],
+    const ate = new Date(Date.now() + 7 * 24 * 3600_000).toISOString().slice(0, 10);
+    const dentro = ork(['conducao', 'autorizar', '--ate', ate, '--pode', 'merge,despachar', '--por', 'Dona Simulada'],
       { ...ambienteDoDono(), ORK_DISPATCH_ID: '9a8b7c6d-0000-4000-8000-000000000001' });
     assert.equal(dentro.status, 1);
     assert.match(dentro.stdout, /Autorização recusada \(autorizacao\.sessao-despachada\)/);
-    const r = ork(['conducao', 'autorizar', '--ate', '2099-01-01', '--pode', 'merge,despachar', '--por', 'Dona Simulada', '--nota', 'X1.a']);
+    const r = ork(['conducao', 'autorizar', '--ate', ate, '--pode', 'merge,despachar', '--por', 'Dona Simulada', '--nota', 'X1.a']);
     assert.equal(r.status, 0, r.stderr + r.stdout);
     assert.match(r.stdout, /^Autorização gravada\. autorização durável de Dona Simulada até .*: a varredura pode merge, despachar\./);
     const vigente = ork(['conducao', 'autorizacao']);
@@ -121,5 +122,26 @@ test('F7: ork conducao autorizar e autorizacao pelo CLI; a sessao despachada nao
     const uso = ork(['conducao', 'autorizar', '--pode', 'merge']);
     assert.notEqual(uso.status, 0);
     assert.match(uso.stderr, /uso: ork conducao autorizar --ate <data> --pode/);
+  } finally { p.limpar(); }
+});
+
+test('GO-FIX 3: de dentro de um host de agente ninguem se autoriza; o prazo tem teto e data de calendario', () => {
+  const p = projetoTemporario('rm063-gofix-autorizar');
+  try {
+    const projeto = p.carregado.manifesto.project.name;
+    for (const ambiente of [{ CLAUDECODE: '1' }, { HERMES_HOME: '/opt/hermes' }, { CODEX_SANDBOX: 'seatbelt' }, { ORK_CANAL: 'openclaw' }]) {
+      const r = gravarAutorizacao(p.dir, pedido(projeto, { ambiente }));
+      assert.deepEqual([r.ok, r.ok ? null : r.motivo], [false, 'autorizacao.host'], JSON.stringify(ambiente));
+    }
+    const longe = gravarAutorizacao(p.dir, pedido(projeto, { ate: '2026-12-31' }));
+    assert.deepEqual([longe.ok, longe.ok ? null : longe.motivo], [false, 'autorizacao.ate-longe']);
+    assert.equal(gravarAutorizacao(p.dir, pedido(projeto, { ate: '2026-11-12' })).ok, true, '30 dias ainda valem');
+    for (const ruim of ['2026-02-30T10:00Z', '2026-02-30T10:00:00-03:00', '2026-13-01T00:00Z']) assert.equal(prazoDoPedido(ruim, 'UTC'), null, ruim);
+    // A leitura tambem recusa o instante fora do calendario num arquivo escrito a mao.
+    const arquivo = caminhoDaAutorizacao(p.dir);
+    const gravada = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
+    fs.writeFileSync(arquivo, JSON.stringify({ ...gravada, ate: '2026-02-30T10:00:00-03:00' }));
+    const lida = lerAutorizacao(p.dir, { projeto, agora: AGORA });
+    assert.deepEqual([lida.valida, lida.valida ? null : lida.motivo], [false, 'autorizacao.campo']);
   } finally { p.limpar(); }
 });
