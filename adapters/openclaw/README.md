@@ -11,10 +11,11 @@ chamada de CLI do `ork`, sem regra de negocio no host.
 | Arquivo | Papel |
 |---|---|
 | `package.json` | `openclaw.extensions` aponta o entry; sem dependencia de runtime |
-| `dist/index.js` | Entry construido; unico arquivo com o placeholder `{{ork_bin}}` |
+| `dist/index.js` | Entry construido; o instalador renderiza nele o placeholder `{{ork_bin}}` |
 | `openclaw.plugin.json` | Manifesto GERADO por `openclaw plugins build` (nao editar na mao) |
 | `src/index.ts` | Fonte TS; `construir.sh` compila com o tsc do core |
 | `bin/ork-abrir-thread.sh` | Atalho de abertura de thread sem reimplementar o parse da #TAG |
+| `bin/ork-vigia-batida.js` | A batida do host (RM-063): le o `ork doctor --json` e avisa o dono; tambem recebe o `{{ork_bin}}` |
 
 O entry importa `openclaw/plugin-sdk/tool-plugin`, que o loader do OpenClaw resolve por
 alias: o pacote nao precisa de `node_modules` no destino. Os parametros das tools sao JSON
@@ -159,11 +160,12 @@ permite o modo.
 
 ## Os 3 pitfalls de instalacao
 
-1. **Placeholder `{{ork_bin}}` que fica no arquivo.** O unico placeholder renderizavel
-   vive no `dist/index.js`. Nao renderizado, o entry cai no fallback (`ORK_BIN` ou o `ork`
+1. **Placeholder `{{ork_bin}}` que fica no arquivo.** O placeholder renderizavel vive no
+   `dist/index.js` e em scripts de `bin/`. Nao renderizado, o entry cai no fallback (`ORK_BIN` ou o `ork`
    do PATH); sem fallback possivel, toda tool viraria "comando nao encontrado", e a sessao
    so descobriria depois de ja ter aberto thread na cabeca do agente. Confira com
-   `grep -c '{{' <destino>/extensions/orkastery/dist/index.js`, que precisa devolver `0`.
+   `grep -c '{{' <destino>/extensions/orkastery/dist/index.js`, que precisa devolver `0`
+   (o mesmo vale para `bin/ork-vigia-batida.js`).
 
 2. **Argumento com espaco quebrado em varios argumentos.** Cada tool monta o comando como
    **vetor de argv** e chama o `ork` sem shell, exatamente para que um pedido com espaco,
@@ -215,6 +217,39 @@ ligada por padrão desde a decisão do dono de 19/09/2026
 que o operador cadastrou e autenticou pelo CLI oficial, para contas que ele tem direito de usar
 sob os termos do provedor, e nunca acontece no rate limit comum, que espera a janela na fila
 (ver `SECURITY.md` e `docs/guias/verificacao.md` na raiz do repositório).
+
+## Batida do host e retomada pelo canal (RM-063)
+
+**H1, a batida do host.** A cada 30 min, `bin/ork-vigia-batida.js` roda `ork doctor --json`. Se a
+batida da fábrica passou de 30 min, imprime o aviso pronto do núcleo; sem nada a dizer, imprime
+`NO_REPLY`, que a automação não entrega; `ork` ausente ou com falha vira alerta. Sai sempre 0 e não
+escreve no stderr. É uma automação de comando, sem chamada de modelo:
+
+```bash
+openclaw automations create "*/30 * * * *" --name orkastery-batida \
+  --command-argv '["node","<extensions/orkastery>/bin/ork-vigia-batida.js","--projeto","<projeto>"]' \
+  --announce --channel telegram --to <chat>
+```
+
+`<extensions/orkastery>` é o caminho absoluto da extensão instalada (o `~` não expande no JSON).
+Nunca um cron LLM com `deliver=origin`. Sem `node` no PATH do gateway, use o caminho de `command -v node`.
+
+**H2, retomada pelo canal.** `#OrkRetomar` ou `#OrkFabrica`, sozinhos na mensagem do chat Telegram
+autorizado, passam pelo mesmo ingresso assinado do pulse (`inbound_claim`). `#OrkRetomar` responde na
+hora e roda a batida da condução nesta máquina; o que voltou a andar chega logo depois, pelo
+transporte do pulse. `#OrkFabrica` responde o `ork fabrica`. No meio de uma frase, a tag vai ao assistente.
+
+**H3, transporte gravado no onboarding.**
+`ork onboarding set maestro --conteudo '{"canal":{"host":"openclaw","destino":"telegram:<chat>"}}' --por <dono>`
+grava o canal do dono e o `.orkastery/monitor/pulse-host.json` pronto (`openclaw message send`), fora
+do git: a máquina nunca fica sem transporte. `executavel` (absoluto) aponta outro `openclaw`.
+
+**H4, o outro host.** Com o canal gravado para os dois hosts, o último vira o principal e o outro, o
+alternativo. Se a entrega falha, o transporte tenta o outro host; cada entrega vai ao
+`.orkastery/monitor/transporte.log`, e o `ork doctor` mostra o check "transporte do pulse": aviso
+quando caiu no alternativo, falha quando nenhum entregou.
+
+Verificação: `node --test adapters/openclaw/test/conducao-canal.test.mjs`.
 
 ## Respostas HITL
 

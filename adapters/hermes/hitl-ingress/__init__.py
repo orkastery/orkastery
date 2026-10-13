@@ -33,6 +33,9 @@ PULSE_LOTE = re.compile(r'^[ \t]*[0-9]{1,2}[ \t]*[a-zA-Z](?:[ \t,;]*[0-9]{1,2}[ 
 # I-50 (RM-039): a tag da cadencia do resumo, sozinha na mensagem. Comeca por '#': nunca se
 # confunde com as outras duas formas, e tag no meio de uma frase continua indo para o assistente.
 PULSE_CADENCIA = re.compile(r'^[ \t]*#OrkPulse(?:On(?:-(?:15|30|60)m)?|Off)[ \t]*[.!]?[ \t]*$', re.IGNORECASE)
+# RM-063 (fatia 3, H2): os comandos de conducao do canal, sozinhos na mensagem. #OrkRetomar roda a batida da conducao
+# e o que voltou a andar volta pelo transporte; #OrkFabrica responde o ork fabrica. O nucleo decide; aqui so a forma.
+PULSE_CONDUCAO = re.compile(r'^[ \t]*#Ork(?:Retomar|Fabrica)[ \t]*[.!]?[ \t]*$', re.IGNORECASE)
 # RM-048 (D2 e D3): as formas do texto livre, geradas no nucleo do vocabulario fechado. `lista`
 # ("1. B, 2. aprovo") e interceptada sempre; `livre` ("sim", "aprovo", "a") so enquanto a janela
 # de escuta do nucleo estiver aberta: fora dela, a palavra vai ao assistente, como sempre foi. A
@@ -94,7 +97,7 @@ def _is_pulse(text):
     if '\x00' in text or len(text) > PULSE_TETO:
         return False
     if (PULSE_CONSENT.fullmatch(text) or PULSE_LOTE.fullmatch(text) or PULSE_CADENCIA.fullmatch(text)
-            or PULSE_LISTA.fullmatch(text) or PULSE_RATIFICACAO.fullmatch(text)):
+            or PULSE_LISTA.fullmatch(text) or PULSE_RATIFICACAO.fullmatch(text) or PULSE_CONDUCAO.fullmatch(text)):
         return True
     return bool(PULSE_LIVRE.fullmatch(text)) and _escuta_aberta(os.environ.get('ORK_HITL_ROOT', ''))
 

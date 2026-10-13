@@ -262,6 +262,11 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                             Handoff: encerra a conducao atual pelo runtime e registra quem assumiu
   conducao sentinela status|bater|desligar [--sessao S] [--json]
                                             Sentinela do Condutor: presenca nesta maquina e o passo de cada thread
+  conducao autorizar --ate D --pode A[,B] [--por Q] [--nota N]
+                                            Grava a autorizacao duravel do dono nesta maquina (fora do git)
+  conducao autorizacao [--json]             A autorizacao duravel vigente nesta maquina, ou por que ela nao vale
+  conducao batida [--entregar] [--json]     Avanca as threads dentro da autorizacao: merge, registro, MASTER, despacho
+  conducao atualizar <thread-id> [--enviar] Merge da base na branch da thread, com o CHANGELOG reconciliado
 
   master propor <id> --score N --justificativa J --por <agente>
   master batch --aceitar <thread:assinatura,...> --por <humano>
@@ -651,6 +656,11 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
                                             Handoff: ends the current conduction through the runtime and records who took over
   conducao sentinela status|bater|desligar [--sessao S] [--json]
                                             Conductor Sentinel: presence on this machine and the step of each thread
+  conducao autorizar --ate D --pode A[,B] [--por Q] [--nota N]
+                                            Records the owner's durable authorization on this machine (outside git)
+  conducao autorizacao [--json]             The durable authorization in force on this machine, or why it does not hold
+  conducao batida [--entregar] [--json]     Moves the threads within the authorization: merge, record, MASTER, dispatch
+  conducao atualizar <thread-id> [--enviar] Merges the base into the thread branch, with the CHANGELOG reconciled
 
   master propor <id> --score N --justificativa J --por <agent>
   master batch --aceitar <thread:signature,...> --por <human>

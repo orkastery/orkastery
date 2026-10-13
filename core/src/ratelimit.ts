@@ -78,10 +78,18 @@ export interface PedidoNovo {
   perfil?: string | null;
   /** I-33: motivo que levou a fila (`runtime.rate-limited` quando ausente). */
   motivo?: MotivoGate;
+  /** RM-058 N4 (D17 da ork-rm058n4): a correlação do despacho; `noctum:<arco>` faz do pedido uma retomada do arco. */
+  correlacao?: string;
 }
 
-/** I-33 (R3): pedido da fila com os campos opcionais de perfil. */
-export type PedidoComPerfil = PedidoDeRetomada & { runtime?: string; perfil?: string | null; motivo?: MotivoGate };
+/** I-33 (R3): pedido da fila com os campos opcionais de perfil; RM-058 N4, com a correlação do despacho. */
+export type PedidoComPerfil = PedidoDeRetomada & { runtime?: string; perfil?: string | null; motivo?: MotivoGate; correlacao?: string };
+
+/** RM-058 N4 (D17): o arco #Noctum do pedido, quando o despacho que caiu no limite de uso era dele. */
+export function arcoDoPedido(pedido: PedidoDeRetomada): string | null {
+  const c = (pedido as PedidoComPerfil).correlacao;
+  return typeof c === 'string' && c.startsWith('noctum:') && c.length > 'noctum:'.length ? c.slice('noctum:'.length) : null;
+}
 
 /**
  * Enfileira a fase morta por rate limit.
@@ -121,6 +129,7 @@ export function enfileirar(
     ...(novo.runtime !== undefined ? { runtime: novo.runtime } : {}),
     ...(novo.perfil !== undefined ? { perfil: novo.perfil } : {}),
     ...(novo.motivo !== undefined ? { motivo: novo.motivo } : {}),
+    ...(novo.correlacao ? { correlacao: novo.correlacao } : {}),
   } as PedidoComPerfil;
   anexarJsonl(caminhoDaFila(raiz), pedido);
   return pedido;

@@ -20,7 +20,8 @@ venv do Hermes e um destino explícito `telegram:chat_id[:topic_id]`:
 }
 ```
 
-Grave a configuração em `.orkastery/monitor/pulse-host.json`. `HERMES_HOME` e
+Grave a configuração em `.orkastery/monitor/pulse-host.json` (o `ork onboarding` já a grava
+pronta; veja a RM-063 abaixo). `HERMES_HOME` e
 `HERMES_AGENT_DIR` permitem localizar outra instalação; por padrão usa `~/.hermes`.
 O adaptador carrega o ambiente do host internamente, sem imprimir credenciais. Marcadores
 `MEDIA:` presentes no texto do runtime são neutralizados para não anexar arquivos locais.
@@ -48,6 +49,7 @@ ork adapter install hermes --dry-run             # lista o que seria escrito
 | `bin/ork-roadmap-status.sh` | `ork_roadmap_status`: o status report do roadmap so desta maquina (`ork roadmap status`) |
 | `bin/ork-network-roadmap.sh` | `ork_network_roadmap`: o roadmap da rede (`ork network roadmap`), com as threads de todas as maquinas, fonte, hora e lacunas; a fonte do status do roadmap e o panorama da frase `orkastery maestro` sem projeto (RM-054) |
 | `bin/ork-network-status.sh` | `ork_network_status`: as maquinas da pessoa na Orkastery Network (`ork network status`), com a batida, as forjas, os runtimes, os hosts, a fonte e as lacunas; sem projeto (RM-054, fatia 3) |
+| `bin/ork-vigia-batida.py` | A batida do host (RM-063): roda `ork doctor --json` a cada 30 min e avisa o dono quando a batida da fabrica passou de 30 min, sem LLM |
 | `bin/ork-conhecimento-listar.sh`, `-mostrar.sh`, `-colecoes.sh` e `-verificar.sh` | `ork_conhecimento_listar`, `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar`: o conhecimento escrito do projeto (`ork conhecimento <consulta> --json`), as mesmas tools do MCP e do OpenClaw (RM-026 K7, fatia 3) |
 
 ## Conhecimento escrito (RM-026 K7)
@@ -134,6 +136,41 @@ não ratifica nada. Cada página oferece no máximo doze opções e cabe em 3.90
 
 Contrato do teclado: [Telegram ReplyKeyboardMarkup](https://core.telegram.org/bots/api#replykeyboardmarkup).
 Prova local: `python3 -m unittest discover -s adapters/hermes/test -p master_transport_test.py`.
+
+## Batida do host e retomada pelo canal (RM-063)
+
+**H1, a batida do host.** A cada 30 min, `bin/ork-vigia-batida.py` roda `ork doctor --json`. Se a
+batida da fábrica passou de 30 min, manda ao dono o aviso pronto do núcleo; `ork` ausente ou com
+falha vira alerta; o resto não manda nada. Com `--target`, envia pela mesma API do
+`ork-pulse-enviar.py` (sai 1 se a entrega falha); sem ele, só imprime. Rode pelo cron ou por um
+timer do systemd (ou pelo agendador do Hermes, num job que roda o script sem LLM):
+
+```text
+*/30 * * * * PATH=<dir do node>:/usr/bin:/bin ORK_BIN=<caminho do ork> <hermes-agent>/venv/bin/python3 <hermes>/bin/ork-vigia-batida.py --projeto <projeto> --target telegram:<chat>
+```
+
+Nunca um cron LLM com `deliver=origin`. O cron não carrega o perfil do shell: o `ORK_BIN` e o
+`PATH` com o `node` vão na própria linha.
+
+**H2, retomada pelo canal.** `#OrkRetomar` ou `#OrkFabrica`, sozinhos na mensagem do chat Telegram
+autorizado, passam pelo mesmo ingresso assinado do pulse (`pre_gateway_dispatch`). `#OrkRetomar`
+responde na hora e roda a batida da condução nesta máquina; o que voltou a andar chega logo depois,
+pelo transporte do pulse. `#OrkFabrica` responde o `ork fabrica`. No meio de uma frase, a tag vai ao assistente.
+
+**H3, transporte gravado no onboarding.**
+`ork onboarding set maestro --conteudo '{"canal":{"host":"hermes","destino":"telegram:<chat>"}}' --por <dono>`
+(ou `telegram:<chat>:<topico>`) grava o canal e o `.orkastery/monitor/pulse-host.json` pronto, fora
+do git: a máquina nunca fica sem transporte. O Python vem de `HERMES_AGENT_DIR` (ou
+`$HERMES_HOME/hermes-agent`) e o script, de `$HERMES_HOME/bin/ork-pulse-enviar.py`; `executavel` e
+`script` (absolutos) trocam os dois. O JSON de "Transporte determinístico do pulse" mostra, por
+dentro, o que é gravado.
+
+**H4, o outro host.** Com o canal gravado para os dois hosts, o último vira o principal e o outro, o
+alternativo. Se a entrega falha, o transporte tenta o outro host; cada entrega vai ao
+`.orkastery/monitor/transporte.log`, e o `ork doctor` mostra o check "transporte do pulse": aviso
+quando caiu no alternativo, falha quando nenhum entregou.
+
+Verificação: `python3 -m unittest discover -s adapters/hermes/test -p conducao_canal_test.py -v`.
 
 ## Respostas HITL no Telegram
 

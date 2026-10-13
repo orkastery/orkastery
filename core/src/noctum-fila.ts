@@ -17,6 +17,11 @@
  * id) deixa o trabalho na fila, e o despacho seguinte sai por outra conta. Fechar o arco e o relatório são da N6.
  *
  * `fatosDaFila` relê o disco a cada chamada; `montarFila` é pura sobre os fatos e o instante. Nada aqui despacha nem grava.
+ *
+ * RM-058, fatia N4 (D8 e D21 da ork-rm058n4): a fila respeita, quando vem, o que a supervisão do arco decidiu. O trabalho
+ * isolado não sai sozinho neste arco; o trabalho bloqueado para a N4 sem reserva pendente (a falha com id antes do primeiro
+ * despacho, o passo de retomar, o fim de turno sem resultado e o que ficou sem passo depois da sessão morta) volta à fila
+ * na fase da retomada que o vigia autorizou. A reserva pendente nunca é sobreposta. Sem a supervisão, nada muda.
  */
 import { BRANCH_DE_RESERVAS, REMOTO_PADRAO, reservasLocais } from './roadmap-reservas';
 import { pontaLocal } from './branch-de-estado';
@@ -41,7 +46,7 @@ export type EstadoDoTrabalho = 'entregue' | 'encerrado-sem-entrega' | 'em-curso'
 export type MotivoDoBloqueio =
   | 'dependencia' | 'reserva-ausente' | 'reserva-de-outra-maquina' | 'reserva-sem-leitura' | 'decisao-no-lote' | 'dono'
   | 'retomada' | 'fim-de-turno-sem-resultado' | 'sem-passo' | 'modo' | 'pedido-ausente' | 'thread-ausente' | 'thread-ambigua'
-  | 'thread-ilegivel' | 'item-divergente' | 'erro-repetido' | 'dependencia-encerrada';
+  | 'thread-ilegivel' | 'item-divergente' | 'erro-repetido' | 'dependencia-encerrada' | 'isolado';
 
 /** Quantas falhas seguidas do núcleo no despacho de um trabalho o bloqueiam (A4 do CHECK da ork-rm058n2). */
 export const ERROS_SEGUIDOS_QUE_BLOQUEIAM = 3;
@@ -108,6 +113,14 @@ export interface FatosDoTrabalho {
   doDono: string | null;
 }
 
+/** RM-058 N4 (D8 e D16 da ork-rm058n4): o que a supervisão do arco decidiu e a fila respeita. */
+export interface DecisoesDaSupervisao {
+  /** Trabalhos isolados, com o porquê: não saem da fila sozinhos neste arco. */
+  isolados: ReadonlyMap<string, string>;
+  /** Retomadas autorizadas e ainda não atendidas: o trabalho bloqueado para a N4 volta à fila nesta fase. */
+  retomadas: ReadonlyMap<string, { fase: Fase; tentativa: number; motivo: string }>;
+}
+
 /** A leitura das reservas: a última cópia local da branch de reservas, ou a falta dela. */
 export type LeitorDeReservas = () => { leitura: 'copia-local' | 'sem-copia'; reservas: Array<{ item: string; maquina: string; thread: string | null }> };
 
@@ -123,6 +136,8 @@ export interface FatosDaFila {
   threadsIlegiveis: string[];
   /** Os modos que o manifesto deixa criar (`conduction.allowed_modes`): sem `auto`, o arco não abre thread. */
   modosPermitidos: readonly string[];
+  /** RM-058 N4: as decisões da supervisão; ausente, a fila é a da N2. */
+  supervisao?: DecisoesDaSupervisao;
 }
 
 const adiante = (t: TrabalhoNaFila): number => t.estado === 'abrir' ? -1 : t.fase ? FASES.indexOf(t.fase) : -1;
@@ -165,6 +180,9 @@ function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefine
   if (th && th.roadmap !== t.item) return bloqueado('item-divergente', `a thread ${th.id} é do item ${th.roadmap ?? 'nenhum'}, não do ${t.item}`);
   if (th && f.entregueEm) return { ...base, estado: 'entregue', entregueEm: f.entregueEm, detalhe: `ship_done da thread ${th.id}` };
   if (th && th.status === 'fechada') return { ...base, estado: 'encerrado-sem-entrega', detalhe: `a thread ${th.id} fechou sem ship_done` };
+  // RM-058 N4 (D16): o trabalho isolado pela supervisão não sai sozinho neste arco, nem com uma sessão de fora rodando nele.
+  const isolado = fatos.supervisao?.isolados.get(t.id);
+  if (isolado !== undefined) return bloqueado('isolado', isolado);
   if (th && f.passo?.conduzida) return { ...base, estado: 'em-curso', detalhe: `a thread ${th.id} está sendo conduzida agora` };
   const mortas = t.dependeDe.filter(d => semSaida.has(d));
   if (mortas.length) {
@@ -187,6 +205,12 @@ function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefine
   if (erros >= ERROS_SEGUIDOS_QUE_BLOQUEIAM) {
     return bloqueado('erro-repetido', `os ${erros} últimos despachos falharam no núcleo antes de lançar; quem decide é a N4 ou o dono`);
   }
+  // RM-058 N4 (D8): o bloqueio que a N2 deixou para a N4 vira a retomada que o vigia autorizou, na fase dela.
+  const retomada = fatos.supervisao?.retomadas.get(t.id);
+  const paraAN4 = (motivo: MotivoDoBloqueio, detalhe: string): TrabalhoNaFila => retomada
+    ? { ...base, estado: 'despachavel', fase: retomada.fase,
+      detalhe: `retomada autorizada pela supervisão (tentativa ${retomada.tentativa}, ${retomada.motivo}) no lugar de: ${detalhe}` }
+    : bloqueado(motivo, detalhe);
   if (!th) {
     // A4 do CHECK: abrir a thread num projeto que não deixa criar #Auto falharia toda noite; o arco nem tenta.
     if (!fatos.modosPermitidos.includes('auto')) return bloqueado('modo', 'o projeto não deixa criar thread #Auto (conduction.allowed_modes)');
@@ -197,7 +221,7 @@ function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefine
   if (!f.pedidoGuardado) return bloqueado('pedido-ausente', `a thread ${th.id} não guardou o pedido na criação; o arco não inventa um`);
   if (!f.despachada) {
     // B1 da rodada 2: a falha disse o id da sessão, que pode estar aberta; despachar de novo abriria outra.
-    if (f.despachoFalho) return bloqueado('retomada', `o despacho da thread ${th.id} falhou depois de o runtime dizer o id da sessão; a retomada é da N4`);
+    if (f.despachoFalho) return paraAN4('retomada', `o despacho da thread ${th.id} falhou depois de o runtime dizer o id da sessão; a retomada é da N4`);
     return { ...base, estado: 'despachavel', fase: th.faseAtual, detalhe: `a thread ${th.id} nunca foi despachada` };
   }
   const passo = f.passo;
@@ -205,10 +229,10 @@ function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefine
     if (FASES_DA_ENTREGA.includes(passo.fase)) return { ...base, estado: 'aguardando-entrega', detalhe: `${passo.porque}; a entrega é da N5` };
     return { ...base, estado: 'despachavel', fase: passo.fase, detalhe: passo.porque };
   }
-  if (passo?.acao === 'retomar') return bloqueado('retomada', `${passo.porque}; a retomada é da N4`);
-  if (f.espera?.tipo === 'stop-sem-resultado') return bloqueado('fim-de-turno-sem-resultado', 'o turno acabou sem o resultado da fase; quem decide é a N4');
+  if (passo?.acao === 'retomar') return paraAN4('retomada', `${passo.porque}; a retomada é da N4`);
+  if (f.espera?.tipo === 'stop-sem-resultado') return paraAN4('fim-de-turno-sem-resultado', 'o turno acabou sem o resultado da fase; quem decide é a N4');
   if (f.espera?.tipo === 'concluida') return { ...base, estado: 'aguardando-entrega', detalhe: `${passo?.porque ?? 'fase concluída'}; a entrega é da N5` };
-  return bloqueado('sem-passo', passo?.porque ?? 'nenhum passo do condutor para a thread');
+  return paraAN4('sem-passo', passo?.porque ?? 'nenhum passo do condutor para a thread');
 }
 
 /** O último progresso do arco: a autorização, um despacho ou uma entrega. O backoff conta a partir dele. */
@@ -281,7 +305,7 @@ export function montarFila(fatos: FatosDaFila): FilaDoArco {
  * última cópia local (sem rede) e o lote. `lerReservas` é dependência dos testes.
  */
 export function fatosDaFila(carregado: ManifestoCarregado, arco: string, opcoes: { quando?: string; maquina?: string;
-  lerReservas?: LeitorDeReservas } = {}): FatosDaFila {
+  lerReservas?: LeitorDeReservas; supervisao?: DecisoesDaSupervisao } = {}): FatosDaFila {
   const quando = opcoes.quando ?? new Date().toISOString();
   const { raiz } = carregado;
   const estado = lerArco(raiz, arco, quando);
@@ -291,6 +315,7 @@ export function fatosDaFila(carregado: ManifestoCarregado, arco: string, opcoes:
     : { leitura: 'copia-local' as const, reservas: reservasLocais(raiz) }) as LeitorDeReservas)();
   const fatos: FatosDaFila = { arco, quando, maquina, estado, porTrabalho: new Map(), threadsIlegiveis: [],
     modosPermitidos: carregado.manifesto.conduction.allowed_modes,
+    ...(opcoes.supervisao ? { supervisao: opcoes.supervisao } : {}),
     reservas: { leitura: lidas.leitura, porItem: new Map(lidas.reservas.map(r => [r.item, { maquina: r.maquina, thread: r.thread }])) } };
   if (!estado?.conteudo || !envelopeComTrabalhos(estado.conteudo)) return fatos;
   const threads: Thread[] = [];

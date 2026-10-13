@@ -28,10 +28,10 @@ import { StatusDeAuth } from './adapters/claude-bg';
 import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, RUNTIMES_COM_PERFIL } from './runtime-profiles';
 import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
-import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
+import { batidaNoDoctor, BatidaNoDoctor, checarCronDoPulse, checarTransporteDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
 import { comandoDeConfirmacao, recusaDePostura } from './postura-local';
 import { COMANDO_CONFIRMAR_WORKTREE, recusaDePastaDasWorktrees } from './worktree-local';
-import { avisoDaFabricaPedida } from './maquina';
+import { avisoDaFabricaPedida, nomeDaMaquina } from './maquina';
 import { checarRede } from './doctor-rede';
 import { msg, nomeDoCheck } from './locale';
 
@@ -591,6 +591,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     // minutos; a instalacao antiga em `0 * * * *` vira aviso com a linha nova. Nunca edita o crontab.
     const cronDoPulse = checarCronDoPulse(path.join(dirEstadoProjeto, 'monitor'), raizDoEstado(carregado.raiz), lerCrontab);
     if (cronDoPulse) checks.push(cronDoPulse);
+    // RM-063 (fatia 3, H4): a falha do transporte do pulse (e o desvio para o outro host configurado) aparece aqui.
+    const transporte = checarTransporteDoPulse(path.join(dirEstadoProjeto, 'monitor'));
+    if (transporte) checks.push(transporte);
 
     checks.push(checarContas(carregado.raiz));
     // I-33 (D7): umask e permissoes do estado, na mesma regra do sensor (sem bits 0o022).
@@ -656,4 +659,43 @@ export function doctor(dirInicial: string = process.cwd(), nomesHerdados = nomes
   const checks = checar(dirInicial, nomesHerdados, undefined, undefined, analisadores);
   const falhas = checks.filter((c) => c.nivel === 'fail').length;
   return { texto: relatorio(checks), codigo: falhas > 0 ? 1 : 0 };
+}
+
+export const CONTRATO_DO_DOCTOR = 'ork.doctor/v1' as const;
+
+/**
+ * RM-063 (fatia 3, H1): o `ork doctor --json`, que a batida do host (o heartbeat do OpenClaw e do Hermes) le de forma
+ * deterministica. Os mesmos checks do texto, o veredito, e a batida da fabrica com a idade da ultima rodada e o aviso
+ * pronto para o dono quando ela passou de 30 min; sem projeto, a batida e `null`.
+ */
+export interface DoctorJson {
+  contrato: typeof CONTRATO_DO_DOCTOR;
+  consultadoEm: string;
+  veredito: 'pronto' | 'bloqueado';
+  falhas: number;
+  avisos: number;
+  projeto: string | null;
+  maquina: string;
+  checks: Check[];
+  batida: BatidaNoDoctor | null;
+}
+
+export function doctorJson(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
+  analisadores?: () => Check, lerCrontab: LeitorDoCrontab = lerCrontabDoSistema): { json: DoctorJson; codigo: number } {
+  const checks = checar(dirInicial, nomesHerdados, lerCrontab, undefined, analisadores);
+  const falhas = checks.filter((c) => c.nivel === 'fail').length;
+  const avisos = checks.filter((c) => c.nivel === 'warn').length;
+  let carregado: ManifestoCarregado | null = null;
+  try { carregado = carregarManifesto(dirInicial); } catch { carregado = null; }
+  let batida: BatidaNoDoctor | null = null;
+  if (carregado && !carregado.erros.length) {
+    const raiz = raizDoEstado(carregado.raiz);
+    try {
+      batida = batidaNoDoctor(path.join(raiz, DIR_ESTADO, 'monitor'), raiz, { projeto: carregado.manifesto.project.name,
+        maquina: nomeDaMaquina(), ler: lerCrontab });
+    } catch { batida = null; }
+  }
+  return { codigo: falhas > 0 ? 1 : 0, json: { contrato: CONTRATO_DO_DOCTOR, consultadoEm: new Date().toISOString(),
+    veredito: falhas > 0 ? 'bloqueado' : 'pronto', falhas, avisos, projeto: carregado?.manifesto.project.name ?? null,
+    maquina: nomeDaMaquina(), checks, batida } };
 }

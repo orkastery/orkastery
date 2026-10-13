@@ -14,7 +14,8 @@ utilizável como gate de pipeline.
 
 | Comando | O que faz |
 | --- | --- |
-| `ork doctor` | O que vale nesta máquina agora. **Sai diferente de zero se bloqueado**, nunca por um `warn`. Com thread aberta no projeto e nenhuma batida deste projeto no crontab, reprova com ou sem `pulse-host.json`, e a correção é `ork fabrica batida instalar`; uma rodada de até 30 min no `hitl.log` prova a batida de outro agendador (RM-063) |
+| `ork doctor` | O que vale nesta máquina agora. **Sai diferente de zero se bloqueado**, nunca por um `warn`. Com thread aberta no projeto e nenhuma batida deste projeto no crontab, reprova com ou sem `pulse-host.json`, e a correção é `ork fabrica batida instalar`; uma rodada de até 30 min no `hitl.log` prova a batida de outro agendador (RM-063). Com a linha no crontab, a última rodada há mais de 30 min também reprova: a batida parou. O check "transporte do pulse" diz a última entrega do resumo: pelo outro host configurado é aviso; por nenhum, falha |
+| `ork doctor --json` | Os mesmos checks no contrato `ork.doctor/v1` (veredito, falhas, avisos, projeto, máquina) e a batida da fábrica: threads abertas, linha no crontab, última rodada e a idade dela, `atrasada` e o `aviso` pronto para o dono. É o que a batida do host (OpenClaw e Hermes) lê de forma determinística (RM-063) |
 | `ork demo [--manter] [--dir D]` | A promessa em 30 s: num repositório temporário, a afirmação falsa do agente é reprovada pelo `ork verify` e a corrigida é aceita; offline, sem conta nem modelo (I-56) |
 | `ork init [--force] [--name N] [--abbrev A]` | Gera o `orkastery.yaml` do repositório |
 | `ork modos` | A tabela dos **4 modos vivos** de condução por #TAG |
@@ -275,7 +276,7 @@ há, `1` quando o runtime não respondeu).
 | `ork gate request <thread> [--motivo M]` | Abre o pedido correlacionado à pausa ou escalação atual |
 | `ork gate request <thread> --formato telegram\|terminal` | O mesmo pedido no contrato curto `ork.hitl-curto/v1`, com o código estável na última linha (RM-048) |
 | `ork gate answer <thread> <pedido> --resposta-stdin --origem telegram --por ID --mensagem REF [--canal hermes\|openclaw] [--conta ID]` | Recebe o envelope assinado do gateway e publica a decisão humana quando aprovada; `--conta` é a conta homologada do canal, obrigatória no `openclaw` |
-| `ork pulse responder --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]` | Recebe o que o dono digitou no canal do resumo (`P4EJ a` ao resumo, `1a 2c` ao lote, `#OrkPulseOn-15m` à cadência) e devolve o texto que o canal repassa a ele |
+| `ork pulse responder --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]` | Recebe o que o dono digitou no canal do resumo (`P4EJ a` ao resumo, `1a 2c` ao lote, `#OrkPulseOn-15m` à cadência, `#OrkRetomar` e `#OrkFabrica` à condução) e devolve o texto que o canal repassa a ele. `#OrkRetomar` dispara a batida da condução em segundo plano e o resultado chega pelo transporte; `#OrkFabrica` responde o `ork fabrica` desta máquina (RM-063) |
 | `ork pulse cadencia [<tag>] [--por P] [--json]` | Mostra a cadência do resumo em vigor, ou troca pela tag (`OrkPulseOn`, `OrkPulseOn-15m`, `-30m`, `-60m`, `OrkPulseOff`); pergunta nova ao dono sai na hora, qualquer que seja a tag |
 | `ork decisao registrar <thread> --decidido D --porque P --como-mudar C --custo-agora A --custo-depois B --criterio TIPO:REF --quem Q --evidencia E [--razao R] [--reverte ID]` | Registra a decisão tomada sem perguntar ao dono: chega a ele no próximo resumo. Cada campo é uma linha; `--decidido`, `--porque` e `--como-mudar` vão até 200 caracteres, os custos até 140, e a recusa diz o campo e o tamanho. Na sessão sem acesso ao ledger (codex), a ferramenta MCP `ork_decision_record` grava pelo mesmo contrato |
 | `ork decisao placar <thread> [--json]` | Decididas contra perguntas por fase, reversões, decisões sem rastro e o limiar de revisão (13 por fase) |
@@ -515,6 +516,10 @@ Node 20.19, 22.12 ou mais novo.
 | `ork conducao sentinela status [--json]` | A Sentinela do Condutor nesta máquina (canal `claude-code`, sessão, batida e prazo) e o passo do condutor em cada thread aberta, calculado pelo núcleo; o condutor externo lê para ceder o despacho (`ork.conducao-sentinela/v1`) |
 | `ork conducao sentinela bater --sessao S [--json]` | A batida da Sentinela: renova a presença da sessão por 3 min ou a toma quando não há outra viva; com outra sessão viva na máquina, sai 3 |
 | `ork conducao sentinela desligar --sessao S [--json]` | Tira a presença da própria sessão; o condutor externo volta a conduzir |
+| `ork conducao autorizar --ate D --pode A[,B] [--por Q] [--nota N] [--json]` | Grava a autorização durável do dono nesta máquina, fora do git (`ork.autorizacao-duravel/v1`): o que a batida da condução faz sozinha (`limpar`, `registrar`, `master`, `merge`, `despachar`) e até quando. `--ate` aceita a data (até 23:59 no fuso do dono), a data e hora, ou o instante com fuso. O prazo vai até 31 dias. Sem `--por`, vale o `user.name` do git, quando nomeia uma pessoa. Recusa a sessão despachada pelo `ork` e o pedido de dentro de um host de agente (Claude Code, Codex, Hermes, OpenClaw), tag e publicação, e ação fora do contrato, com motivo tipado (RM-063) |
+| `ork conducao autorizacao [--json]` | A autorização durável vigente nesta máquina, ou o motivo tipado de ela não valer |
+| `ork conducao batida [--entregar] [--json]` | O passo determinístico que a varredura do cron roda depois do resumo: o merge do PR de branch `ork/*` com os checks obrigatórios verdes, o PR limpo e o CHECK da thread aprovado depois do último commit de produto (`gh pr merge --match-head-commit`), o registro da entrega, o MASTER por omissão, a limpeza das fantasmas e o despacho da fase seguinte com o prompt gravado, só dentro da autorização. O que ela não faz fica na fila do pulse, com o motivo e o comando. `--entregar` manda o resultado ao dono pelo transporte do pulse (`#OrkRetomar`). Sai 3 com outra batida agindo (`ork.conducao-batida/v1`, RM-063) |
+| `ork conducao atualizar <thread> [--enviar] [--esperar [min]] [--json]` | O merge da base remota na branch da thread, sob a condução dela (a sessão despachada que conduz a thread reentra pela identidade de despacho, como no `ork verify`): os itens da thread voltam a "## Não publicado" do CHANGELOG, no mesmo grupo; conflito em código aborta e devolve os arquivos. `--enviar` empurra a branch sem força e prova pelo `git ls-remote` (RM-063) |
 
 Famílias: `main-tree`, `worktree-write:<thread>`, `path:<glob>`, `board:<card>`,
 `service:<porta>` e `exec:<thread>`. Todas as famílias e a fila por colisão moram no
@@ -694,7 +699,7 @@ Estas listas não são extensiveis pelo executor. Uma delas mudar é uma mudanç
 | Código | Significa |
 | --- | --- |
 | `0` | Passou |
-| `3` | Pedido recusado porque outra condução executa na thread (`conducao.em-andamento`), com quem conduz e as três ações; ou `ork phase run` recusado por vaga (`concurrency.limite`), com as sessões que ocupam (RM-037) |
+| `3` | Pedido recusado porque outra condução executa na thread (`conducao.em-andamento`), com quem conduz e as três ações; ou `ork phase run` recusado por vaga (`concurrency.limite`), com as sessões que ocupam (RM-037); ou `ork conducao batida` com outra batida agindo nesta máquina (RM-063) |
 | `4` | Projeto-alvo não resolvido (`projeto.escolha`, `projeto.ambiguo`, `projeto.desconhecido`, `projeto.sem-manifesto`, `projeto.nenhum`), com os candidatos; `--json` devolve o mesmo em objeto (RM-052) |
 | diferente de `0` | Reprovou, com o motivo tipado impresso |
 
