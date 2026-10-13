@@ -151,3 +151,24 @@ test('arquivo de caso existente com modo 644 fica com 600', () => {
   assert.equal((fs.statSync(arquivo).mode & 0o777), 0o600);
   assert.equal(JSON.parse(fs.readFileSync(arquivo, 'utf8')).corpo.ok, true);
 });
+
+test('GitLab: redige runners_token (chave *_token) e token de runner glrt- em qualquer chave', () => {
+  const { bin, saida } = sandbox();
+  const runner = 'GR1348941' + 'x'.repeat(20);
+  const novo = 'glrt-' + 'y'.repeat(24);
+  cliFalso(bin, 'glab', [{ padrao: 'projects/grupo%2Fproj', corpo: { id: 7, runners_token: runner, access_token: 'qualquer', nota: novo,
+    expires_at: '2026-10-14', ativo: true } }]);
+  const r = rodar(bin, argsGitlab(saida));
+  assert.equal(r.status, 0, r.stderr);
+  const gravado = fs.readFileSync(path.join(saida, 'projeto.json'), 'utf8');
+  assert.doesNotMatch(gravado, /GR1348941/);
+  assert.doesNotMatch(gravado, /glrt-/);
+  assert.doesNotMatch(gravado, /qualquer/);
+  const corpo = JSON.parse(gravado).corpo;
+  assert.equal(corpo.runners_token, '[redigido]');
+  assert.equal(corpo.access_token, '[redigido]');
+  assert.equal(corpo.nota, '[redigido]');
+  assert.equal(corpo.id, 7);
+  assert.equal(corpo.expires_at, '2026-10-14');
+  assert.equal(corpo.ativo, true);
+});

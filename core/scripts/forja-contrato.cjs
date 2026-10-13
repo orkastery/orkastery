@@ -14,6 +14,9 @@ const path = require('node:path');
 const PADROES = [
   // GitLab: o token pode ter ponto (formato roteavel: glpat-xxxx.01.yyyy); nada de \b no fim, que cortaria o ponto.
   /\b(?:glpat|gldt|glrt|glptt|glcbt|gloas|glft|glimt|glsoat)-[A-Za-z0-9_.-]{16,}/g,
+  // Token de registro de runner (legado, prefixo fixo GR1348941) e de runner novo (glrt-).
+  /\bGR1348941[A-Za-z0-9_-]{20,}/g,
+  /\bglrt-[A-Za-z0-9_-]{20,}/g,
   /\bgh[pousr]_[A-Za-z0-9]{30,}\b/g,
   /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
@@ -32,7 +35,8 @@ function redigirValor(v) {
   if (Array.isArray(v)) return v.map(redigirValor);
   if (v && typeof v === 'object') {
     const out = {};
-    for (const [k, x] of Object.entries(v)) out[redigirTexto(k)] = redigirValor(x);
+    // Chave que termina em `token` (runners_token, access_token, token): o texto inteiro some, qualquer que seja o formato.
+    for (const [k, x] of Object.entries(v)) out[redigirTexto(k)] = (/(^|_)token$/i.test(k) && typeof x === 'string') ? '[redigido]' : redigirValor(x);
     return out;
   }
   return v;
