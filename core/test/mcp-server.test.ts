@@ -95,8 +95,8 @@ test('MCP schemas fechados recusam shell, raiz, traversal e resposta gerada pelo
   const {t,q}=pedido(p),before=fs.readFileSync(path.join(dirThread(p.dir,t.id),'ledger.jsonl'));
   const tools=(await c.listTools()).tools;
   // RM-026 K7 (fatia 2): as quatro ork_conhecimento_*, de leitura, levam o catalogo de 31 a 35; a RM-059 (fatia F8) soma a
-  // ork_request_master_note: 36.
-  assert.equal(tools.length,36);assert.ok(tools.some(t=>t.name==='ork_network_status'));assert.ok(tools.some(t=>t.name==='ork_conhecimento_verificar'));assert.ok(tools.some(t=>t.name==='ork_request_master_note'));assert.ok(tools.some(t=>t.name==='ork_network_roadmap'));assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
+  // ork_request_master_note: 36; a RM-058 (N6) soma as quatro ork_noctum_*, fora da sessao de fase: 40.
+  assert.equal(tools.length,40);assert.ok(tools.some(t=>t.name==='ork_noctum_autorizar'));assert.ok(tools.some(t=>t.name==='ork_network_status'));assert.ok(tools.some(t=>t.name==='ork_conhecimento_verificar'));assert.ok(tools.some(t=>t.name==='ork_request_master_note'));assert.ok(tools.some(t=>t.name==='ork_network_roadmap'));assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
   assert.ok(tools.some(t=>t.name==='ork_roadmap_reservas'));assert.ok(tools.some(t=>t.name==='ork_fabrica'));assert.ok(!tools.some(t=>/shell|answer/.test(t.name)));
   assert.equal(tools.find(t=>t.name==='ork_brain_context')?.annotations?.readOnlyHint,true);
   for(const tool of tools) assert.equal(tool.inputSchema.additionalProperties,false);
@@ -211,7 +211,7 @@ test('CLI mcp serve negocia stdio real sem banner e sem configuracao global',asy
   const transport=new StdioClientTransport({command:process.execPath,
     args:[path.resolve(__dirname,'../src/index.js'),'mcp','serve','--project',p.dir,'--host','codex'],
     cwd:p.dir,env:{PATH:process.env.PATH??'',HOME:p.dir},stderr:'pipe'});
-  try {await c.connect(transport);assert.equal((await c.listTools()).tools.length,36);}
+  try {await c.connect(transport);assert.equal((await c.listTools()).tools.length,40);}
   finally {await c.close();await transport.close();p.limpar();}
 });
 
