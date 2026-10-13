@@ -5,14 +5,20 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
-import { projetoTemporario } from './apoio';
+import { projetoTemporario, runtimeFalso } from './apoio';
 import { abrirArco, despachar, gravarArtefato, passar, prepararIngressoSimulado, stopSemResultado, threadDoTrabalho } from './noctum-apoio';
 import { runtimeCom, runtimeSemLeitura } from './noctum-supervisao-apoio';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { registrar } from '../src/ledger';
 import { concluirDespacho, lerArco, reservarDespacho } from '../src/noctum-arco';
 import { envelopeComTrabalhos } from '../src/noctum-envelope';
-import { decidirReservas, decidirSessoes, DecisaoDeSessao, faseDaRetomada, paradaPorAmbiente, provaDaSessao, recusaDeAmbiente } from '../src/noctum-reconciliacao';
+import { decidirPedidos, decidirReservas, decidirSessoes, DecisaoDeSessao, faseDaRetomada, paradaPorAmbiente, provaDaSessao,
+  recusaDeAmbiente } from '../src/noctum-reconciliacao';
+import { caminhoDaFila, enfileirar, lerFilaDeRetomada, PedidoComPerfil } from '../src/ratelimit';
+import { retomarPorId } from '../src/retry';
+import { rodarFase } from '../src/phase';
+import { lerLedger } from '../src/ledger';
+import { revogarArco } from './noctum-apoio';
 import { ConteudoV2, correlacaoDoArco, gravarNaSupervisao, lerSupervisao, parametrosDoArco } from '../src/noctum-supervisao';
 import { caminhoThread, dirThread, lerThread } from '../src/thread';
 import { Fase } from '../src/types';
@@ -284,5 +290,60 @@ test('R10: recusas de ambiente seguidas no limite param o arco; um despacho conc
     assert.equal(provaDaSessao(runtimeCom([]), sid(1), 'perfil-a', 'codex').estado, 'desconhecida');
     assert.equal(provaDaSessao(runtimeCom([], ['perfil-b']), sid(1), 'perfil-a', 'claude-bg').estado, 'desconhecida');
     assert.equal(provaDaSessao(runtimeCom([{ sessionId: sid(1), state: 'busy', fantasma: true }]), sid(1), 'perfil-a', 'claude-bg').estado, 'morta');
+  } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// D17: o pedido do limite de uso do despacho do arco.
+// ---------------------------------------------------------------------------
+
+test('R11: o despacho do arco que cai no limite de uso deixa o pedido com a correlação, e o ork retry resume não o redespacha', { skip: semKernel }, (t) => {
+  const p = projetoTemporario('noctum-r11');
+  const runtime = runtimeFalso('noctum-r11');
+  t.after(() => { runtime.restaurar(); p.limpar(); });
+  const { t: th } = arcoComThread(p, 'arco-r11');
+  runtime.proximoDespachoMorreDeRateLimit('Claude AI usage limit reached|1757012400\n');
+  const r = rodarFase(p.carregado, th.id, { fase: 'GOAL', prompt: 'Pedido SIMULADO de arco-r11.', correlacao: correlacaoDoArco('arco-r11') });
+  assert.equal(r.motivo, 'runtime.rate-limited');
+  const pedido = r.naFila as PedidoComPerfil;
+  assert.equal(pedido.correlacao, 'noctum:arco-r11');
+  const linhas = fs.readFileSync(caminhoDaFila(p.dir), 'utf8');
+  const antes = lerLedger(dirThread(p.dir, th.id)).length;
+  const retomada = retomarPorId(p.carregado, pedido.id, { forcar: true });
+  assert.deepEqual([retomada.despachada, retomada.sessionId, retomada.motivo], [false, null, null]);
+  assert.match(retomada.detalhe, /é do arco arco-r11: quem o retoma é o vigia do arco/);
+  assert.equal(fs.readFileSync(caminhoDaFila(p.dir), 'utf8'), linhas, 'o pedido não foi regravado');
+  assert.equal(lerLedger(dirThread(p.dir, th.id)).length, antes, 'nenhum retry_attempt, nenhum despacho');
+  assert.equal(lerFilaDeRetomada(p.dir).filter(x => x.id === pedido.id).at(-1)!.estado, 'aguardando');
+  // O pedido fora do arco segue o caminho de antes: o ensaio do retry registra a tentativa.
+  const outra = threadDoTrabalho(p.carregado, 'fora do arco', 'RM-902', 'Pedido SIMULADO fora do arco.');
+  runtime.proximoDespachoMorreDeRateLimit('Claude AI usage limit reached|1757012400\n');
+  const fora = rodarFase(p.carregado, outra.id, { fase: 'GOAL', prompt: 'Pedido SIMULADO fora do arco.' });
+  assert.equal((fora.naFila as PedidoComPerfil).correlacao, undefined);
+  retomarPorId(p.carregado, fora.naFila!.id, { forcar: true, dryRun: true });
+  assert.ok(lerLedger(dirThread(p.dir, outra.id)).some(e => e.tipo === 'retry_attempt'), 'o pedido comum segue no retry');
+});
+
+test('R12: o pedido aguardando do arco vira a retomada da fase uma vez; depois do despacho do arco, ou com o arco encerrado, sai da fila', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-r12');
+  try {
+    const { t } = arcoComThread(p, 'arco-r12');
+    const sinal = { resetEm: depois(90), fonte: 'epoch' as const, trecho: 'usage limit SIMULADO' };
+    const novo = (correlacao?: string) => enfileirar(p.carregado, { thread: t.id, fase: 'GO', slug: `${t.id}-go`, promptPath: 'prompt-SIMULADO.md',
+      promptSha256: '0'.repeat(64), cwd: p.dir, model: null, effort: null, sinal, detalhe: 'SIMULADO', ...(correlacao ? { correlacao } : {}) });
+    const doArco = novo(correlacaoDoArco('arco-r12'));
+    novo();
+    const decidir = () => decidirPedidos(p.dir, 'arco-r12', conteudo(p, 'arco-r12'), lerArco(p.dir, 'arco-r12')!, lerSupervisao(p.dir, 'arco-r12'));
+    assert.deepEqual(decidir().map(d => `${d.acao}:${d.pedido}${d.acao === 'retomar' ? `:${d.fase}:${d.tentativa}` : ''}`), [`retomar:${doArco.id}:GO:1`],
+      'só o pedido do arco, e a fase dele');
+    gravarNaSupervisao(p.carregado, 'arco-r12', [{ tipo: 'pedido_tratado', pedido: doArco.id, thread: t.id, acao: 'retomada-autorizada', motivo: 'SIMULADO' }]);
+    assert.deepEqual(decidir(), [], 'autorizada uma vez só');
+    passar(5);
+    despachoDoArco(p.dir, t.id, 'arco-r12', 'GO', 121);
+    const [d] = decidir();
+    assert.ok(d.acao === 'cancelar' && /retomado pelo arco arco-r12/.test(d.motivo), JSON.stringify(d));
+    revogarArco(p.dir, 'arco-r12');
+    const [encerrado] = decidir();
+    assert.ok(encerrado.acao === 'cancelar' && /terminou \(revogado\)/.test(encerrado.motivo), JSON.stringify(encerrado));
   } finally { p.limpar(); }
 });

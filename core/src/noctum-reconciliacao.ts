@@ -24,6 +24,7 @@ import { LeituraDeSessoes } from './noctum-capacidade';
 import { ConteudoV2, correlacaoDoArco, EstadoDaSupervisao, EventoDaSupervisao, MotivoDaRetomada, ParametrosDaSupervisao,
   retomadasDe, threadsDoArco } from './noctum-supervisao';
 import { esperaDoCondutor, pendenciaDoDono } from './parado-no-condutor';
+import { lerFilaDeRetomada, PedidoComPerfil } from './ratelimit';
 import { SessaoDaConta } from './sessoes-contas';
 import { dirThread, lerThread, listarIds } from './thread';
 import { EventoLedger, Fase, Thread } from './types';
@@ -395,4 +396,48 @@ export function paradaPorAmbiente(sup: EstadoDaSupervisao, estado: EstadoDoArco)
 /** A recusa do núcleo que vem do ambiente de quem despacha, e não do trabalho (o MCP divergente com outro `node` no PATH). */
 export function recusaDeAmbiente(detalhe: string): boolean {
   return /runtime\.context\.conflict/.test(detalhe);
+}
+
+// ---------------------------------------------------------------------------
+// D17: o pedido da fila durável do despacho do arco que caiu no limite de uso.
+// ---------------------------------------------------------------------------
+
+export type DecisaoDePedido =
+  | { acao: 'retomar'; pedido: string; trabalho: string; thread: string; fase: Fase; tentativa: number; prova: string }
+  | { acao: 'cancelar'; pedido: string; thread: string; motivo: string };
+
+/**
+ * D17: o que fazer com cada pedido aguardando na fila durável que é do arco (a correlação dele). Com o arco encerrado, o
+ * pedido sai da fila com o motivo (retomar exige o dono); com um despacho do arco na thread depois do pedido, ele sai
+ * como retomado; senão, a retomada da fase é autorizada uma vez, e o passo do arco a despacha quando houver conta do
+ * envelope (a conta do limite de uso fica fora até o `liberaEm`, D13). O `ork retry resume` nunca redespacha esse pedido.
+ */
+export function decidirPedidos(raiz: string, arco: string, conteudo: ConteudoV2, estado: EstadoDoArco, sup: EstadoDaSupervisao): DecisaoDePedido[] {
+  const correlacao = correlacaoDoArco(arco);
+  const porThread = new Map([...threadsDoArco(raiz, conteudo, estado)].map(([trabalho, thread]) => [thread, trabalho] as const));
+  const ultimos = new Map<string, PedidoComPerfil>();
+  for (const p of lerFilaDeRetomada(raiz)) ultimos.set(p.id, p as PedidoComPerfil);
+  const encerrado = estado.situacao === 'revogado' || estado.situacao === 'expirado';
+  const decisoes: DecisaoDePedido[] = [];
+  for (const p of ultimos.values()) {
+    if (p.estado !== 'aguardando' || p.correlacao !== correlacao) continue;
+    if (encerrado) {
+      decisoes.push({ acao: 'cancelar', pedido: p.id, thread: p.thread,
+        motivo: `o arco ${arco} terminou (${estado.situacao}): retomar a fase ${p.fase} da thread ${p.thread} exige o dono` });
+      continue;
+    }
+    let eventos: EventoLedger[];
+    try { eventos = lerLedger(dirThread(raiz, p.thread)); } catch { continue; }
+    const retomado = eventos.find(e => e.tipo === 'phase_dispatch' && e.correlacao === correlacao && Date.parse(e.ts) > Date.parse(p.criadoEm));
+    if (retomado) {
+      decisoes.push({ acao: 'cancelar', pedido: p.id, thread: p.thread,
+        motivo: `retomado pelo arco ${arco} no despacho ${String(retomado.eventId ?? retomado.ts)} (${String(retomado.fase)})` });
+      continue;
+    }
+    const trabalho = porThread.get(p.thread);
+    if (!trabalho || sup.pedidos.has(p.id)) continue;
+    decisoes.push({ acao: 'retomar', pedido: p.id, trabalho, thread: p.thread, fase: p.fase, tentativa: retomadasDe(sup, trabalho, p.fase) + 1,
+      prova: `pedido ${p.id} da fila durável (libera em ${p.liberaEm}${p.janelaEstimada ? ', janela estimada' : ', hora dita pelo runtime'})` });
+  }
+  return decisoes;
 }
