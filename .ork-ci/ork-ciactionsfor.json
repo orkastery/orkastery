@@ -19,20 +19,6 @@
       "lint": []
     },
     {
-      "id": "C2",
-      "thread": "ork-ciactionsfor",
-      "fase": "GOAL",
-      "arquivo": ".github/workflows/ci.yml",
-      "alegacao": "Todo uses de checkout e setup-node está na v6, cujo action.yml declara using: node24",
-      "negativa": false,
-      "verificar": [
-        "test $(grep -c 'uses: actions/\\(checkout\\|setup-node\\)@v6$' .github/workflows/ci.yml) -eq 6 && test $(grep -c 'uses: actions/\\(checkout\\|setup-node\\)@v6$' .github/workflows/publicar.yml) -eq 2"
-      ],
-      "criadoEm": "2026-10-03T03:12:53.249Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C4",
       "thread": "ork-ciactionsfor",
       "fase": "GOAL",
@@ -43,6 +29,34 @@
         "! git diff -U0 \"$(git merge-base origin/main HEAD)\" HEAD -- .github/workflows | grep -E '^[-+] ' | grep -vE '^[-+] +- uses: actions/(checkout|setup-node)@v[46]$'"
       ],
       "criadoEm": "2026-10-03T03:13:01.525Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-ciactionsfor",
+      "fase": "GO",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "Todo uses de checkout e setup-node está na v6 (Node 24): 8 em ci.yml e 4 em publicar.yml, depois do merge da main que acrescentou os jobs novos",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c 'uses: actions/\\(checkout\\|setup-node\\)@v6$' .github/workflows/ci.yml) -eq 8 && test $(grep -c 'uses: actions/\\(checkout\\|setup-node\\)@v6$' .github/workflows/publicar.yml) -eq 4"
+      ],
+      "criadoEm": "2026-10-13T18:02:00.843Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-ciactionsfor",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-grafo-no-pacote.test.ts",
+      "alegacao": "O teste do grafo no pacote confere o checkout sem credencial do job nucleo e do job da prova na v6, a mesma versao dos workflows",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c 'actions\\\\/checkout@v6' core/test/rm031-grafo-no-pacote.test.ts) -eq 2 && ! grep -q 'actions\\\\/checkout@v4' core/test/rm031-grafo-no-pacote.test.ts"
+      ],
+      "criadoEm": "2026-10-13T18:05:35.261Z",
       "estado": "verificado",
       "lint": []
     }
