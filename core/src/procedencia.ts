@@ -18,6 +18,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { raizDoEstado } from './estado-thread';
+import { ErroDoCatalogo } from './locale';
 import { exec } from './util';
 
 /** Caminho relativo à árvore principal, com `/` (o formato do `git ls-files`). */
@@ -77,14 +78,12 @@ export function exigirCwdLocal(raiz: string, threadId: string, dir: string, orig
   if (alvo === real(raiz) || alvo === real(principal)) return dir;
   const arquivo = path.join(principal, ARQUIVO_DA_ORIGEM[origem](threadId));
   if (rastreadoPeloGit(principal, arquivo)) {
-    throw new Error(`estado.rastreado: ${path.relative(principal, arquivo)} está versionado no git, e estado versionado ` +
-      'não escolhe onde o ork roda (ele pode ter vindo de outro repositório). Tire o estado do índice ' +
-      '(git rm -r --cached .orkastery e .orkastery/ no .gitignore) e rode o comando de novo.');
+    const rel = path.relative(principal, arquivo);
+    throw new ErroDoCatalogo((m) => m.estado.rastreado(rel));
   }
   if (!path.isAbsolute(dir) || !fs.existsSync(dir) || !worktreesRegistradas(principal).includes(alvo)) {
-    throw new Error(`estado.worktree-nao-registrada: ${JSON.stringify(String(dir)).slice(0, 200)} não aparece em ` +
-      `git worktree list deste repositório, e o ork só roda git e agente na raiz do projeto ou numa worktree ` +
-      `registrada. Recrie a worktree da thread com ork worktree ensure ${threadId}.`);
+    const citado = JSON.stringify(String(dir)).slice(0, 200);
+    throw new ErroDoCatalogo((m) => m.estado.worktreeNaoRegistrada(citado, threadId));
   }
   return dir;
 }
@@ -108,14 +107,11 @@ export function diretorioDaThread(raiz: string, thread: { id: string; worktree: 
  */
 export function exigirHostLocal(raiz: string, arquivo: string): void {
   if (rastreadoPeloGit(raiz, arquivo)) {
-    throw new Error(`transporte.rastreado: ${path.basename(arquivo)} está versionado no git, e o transporte do ` +
-      'pulse e do digest só vale do arquivo local desta máquina. Tire-o do índice (git rm --cached) e grave-o ' +
-      'de novo nesta máquina.');
+    throw new ErroDoCatalogo((m) => m.estado.transporteRastreado(path.basename(arquivo)));
   }
   const st = fs.lstatSync(arquivo, { throwIfNoEntry: false });
   if (st && !st.isFile()) {
-    throw new Error(`transporte.rastreado: ${path.basename(arquivo)} precisa ser um arquivo comum desta máquina, ` +
-      'não link nem diretório.');
+    throw new ErroDoCatalogo((m) => m.estado.transporteNaoComum(path.basename(arquivo)));
   }
 }
 
@@ -153,7 +149,6 @@ export function exigirCaminhoContido(raiz: string, thread: { id: string; worktre
   caminho: string, origem: string): string {
   const contido = caminhoContidoOuNulo(raiz, thread, caminho);
   if (contido) return contido;
-  throw new Error(`ponteiro.fora-da-raiz: ${JSON.stringify(String(origem)).slice(0, 200)} aponta para fora da raiz do ` +
-    'projeto e da worktree registrada da thread (também por link simbólico). Um ponteiro guardado no estado só lê ' +
-    'arquivo de dentro do projeto. Exporte o handoff de novo (ork handoff export) ou copie o arquivo para dentro do projeto.');
+  const citado = JSON.stringify(String(origem)).slice(0, 200);
+  throw new ErroDoCatalogo((m) => m.estado.ponteiroForaDaRaiz(citado));
 }

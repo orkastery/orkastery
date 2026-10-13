@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { dirTemporario, projetoTemporario, runtimePorConta } from './apoio';
+import { dirTemporario, envPtBr, projetoTemporario, runtimePorConta } from './apoio';
 import { conferirAuth as authClaude } from '../src/adapters/claude-bg';
 import { conferirAuth as authCodex } from '../src/adapters/codex';
 import { lerLedger } from '../src/ledger';
@@ -86,7 +86,8 @@ test('A14 accounts check: conferencia inconclusiva sai diferente de zero e mante
     const contaA = claude.conta(p.dir, 'a');
     fs.writeFileSync(path.join(contaA, '.stub-auth-sinal'), '');
     let saida = '', codigo = 0;
-    try { saida = execFileSync(process.execPath, [CLI, 'accounts', 'check'], { cwd: p.dir, encoding: 'utf8', stdio: 'pipe' }); }
+    // RM-061 (F3b): o texto do `accounts check` agora segue o locale; o teste o le em pt-BR.
+    try { saida = execFileSync(process.execPath, [CLI, 'accounts', 'check'], { cwd: p.dir, encoding: 'utf8', stdio: 'pipe', env: envPtBr() }); }
     catch (e) { const x = e as { stdout?: string; status?: number }; saida = x.stdout ?? ''; codigo = x.status ?? 1; }
     assert.equal(codigo, 1, saida);
     assert.match(saida, /conferencia de login inconclusiva, estado mantido/);

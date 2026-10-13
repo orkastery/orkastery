@@ -1,0 +1,200 @@
+/**
+ * RM-061, fatia F3b: a familia `accounts` do catalogo de mensagens (`ork accounts list|add|remove|check|esgotamentos`),
+ * a tabela dos perfis, o relatorio dos esgotamentos e as recusas do registro de perfis (`runtime-profiles.ts`). O pt-BR e
+ * a fonte; o ingles e tipado por ele. Sem import do nucleo.
+ *
+ * O id, o runtime, o diretorio e o motivo tipado sao dado e saem iguais; o estado de um perfil (dado do store e do
+ * `--json`) so se traduz na impressao, pelo id. O que o store grava (`ultimaFalha.detalhe`) e o limite que o `--json`
+ * dos esgotamentos leva saem sempre do pt-BR. As recusas `runtime.profiles.*` nascem por `ErroDoCatalogo`, com o codigo
+ * tipado igual nas duas linguas.
+ */
+
+/**
+ * O detalhe da conferencia de login que o proprio ork escreve (`conferirAuth` do claude e do codex) e dado: vai ao store
+ * em pt-BR e so a impressao o traduz, pela frase exata. A saida do CLI que vem dentro dele (o trecho do `codex`) segue
+ * como veio.
+ */
+const DETALHES_DO_LOGIN_EN: ReadonlyArray<[RegExp, (...g: string[]) => string]> = [
+  [/^claude auth status sem resposta \(timeout, sinal ou binario ausente\)$/, () => 'claude auth status gave no answer (timeout, signal or missing binary)'],
+  [/^claude auth status sem JSON legivel \(codigo (.+)\)$/, (codigo) => `claude auth status gave no readable JSON (exit code ${codigo})`],
+  [/^claude auth status sem JSON legivel$/, () => 'claude auth status gave no readable JSON'],
+  [/^claude auth status respondeu por outro diretorio de configuracao; perfil nao aplicado$/,
+    () => 'claude auth status answered for another configuration directory; profile not applied'],
+  [/^claude auth status: provider pago \((.+)\); so a assinatura claude\.ai despacha$/,
+    (partes) => `claude auth status: paid provider (${partes}); only the claude.ai subscription dispatches`],
+  [/^codex login status sem resposta \(timeout, sinal ou binario ausente\)$/, () => 'codex login status gave no answer (timeout, signal or missing binary)'],
+  [/^codex login status saiu (-?\d+)(: [\s\S]*)?$/, (codigo, resto) => `codex login status exited ${codigo}${resto ?? ''}`],
+  [/^codex login status: login por API key \(provider pago\)$/, () => 'codex login status: API key login (paid provider)'],
+  [/^codex login status: login sem assinatura ChatGPT comprovada \(tratado como provider pago\)$/,
+    () => 'codex login status: login without a proven ChatGPT subscription (treated as a paid provider)'],
+];
+
+const ESTADOS_EN: Readonly<Record<string, string>> = {
+  ativo: 'active', esgotado: 'exhausted', 'sem-auth': 'no-auth', 'provider-pago': 'paid-provider', desativado: 'disabled',
+};
+
+export const ACCOUNTS_PT_BR = {
+  semPerfis: 'Nenhum perfil configurado: cada runtime despacha pelo ambiente do processo.',
+  colunas: ['PERFIL', 'RUNTIME', 'DIRETORIO', 'ESTADO', 'ESGOTADO ATE', 'ULTIMO USO', 'ULTIMA FALHA'],
+  /** O estado gravado no store, como o texto o mostra. */
+  estado: (estado: string) => estado,
+  falhaEm: (motivo: string, quando: string) => `${motivo} em ${quando}`,
+  usoAdd: 'uso: ork accounts add <id> --runtime claude-bg|codex --dir <diretorio> [--sem-login]',
+  reativado: (id: string) => `Perfil ${id} reativado: mesmo id, runtime e diretorio do perfil desativado.`,
+  recusado: (erro: string) => `perfil recusado: ${erro}`,
+  loginPendente: (variavel: string, dir: string, comando: string, id: string) =>
+    `Login pendente: rode ${variavel}=${dir} ${comando} e depois ork accounts check ${id}`,
+  resultadoAdd: (id: string, runtime: string, dir: string, situacao: string) => `Perfil ${id} (${runtime}) em ${dir}: ${situacao}`,
+  conferido: 'login de assinatura conferido',
+  /** O detalhe da conferencia de login (dado do store), como a impressao o mostra. */
+  detalheDoLogin: (detalhe: string) => detalhe,
+  inconclusivaAdd: (detalhe: string) => `conferencia de login inconclusiva (${detalhe}); o proximo despacho confere de novo`,
+  pagoAdd: (detalhe: string) => `provider pago (${detalhe}); nunca recebe despacho`,
+  semLoginAdd: (detalhe: string) => `sem login (${detalhe}); fora do rodizio`,
+  usoRemove: 'uso: ork accounts remove <id>',
+  desativado: (id: string) => `Perfil ${id} desativado: o diretorio e o login do CLI ficam onde estao.`,
+  perfilAtivoNaoExiste: (alvo: string) => `perfil ativo "${alvo}" nao existe (veja: ork accounts list)`,
+  resultadoCheck: (id: string, runtime: string, situacao: string) => `${id} (${runtime}): ${situacao}`,
+  inconclusivaCheck: (detalhe: string) => `conferencia de login inconclusiva, estado mantido (${detalhe})`,
+  pagoCheck: (detalhe: string) => `provider pago, nunca despacha (${detalhe})`,
+  semLoginCheck: (detalhe: string) => `sem login (${detalhe})`,
+  periodoInvalido: (erro: string) => `${erro} (use --desde 7d, 24h, 30m ou uma data ISO)`,
+  desconhecido: (sub: string) => `subcomando desconhecido: accounts ${sub} (use list, add, remove, check ou esgotamentos)`,
+  // ork accounts esgotamentos
+  esgotamentosTitulo: (desde: string, ate: string, intervalo: string) => `Esgotamentos de conta  ${desde} ate ${ate} ${intervalo}`,
+  marcasVivas: (n: number) => `  marcas vivas no registro: ${n}`,
+  marca: (conta: string, runtime: string, estado: string, desde: string, ate: string | null, projeto: string, motivo: string) =>
+    `    conta ${conta}  ${runtime}  ${estado} desde ${desde}, ${ate === null ? 'sem prazo' : `ate ${ate}`}  visto em ${projeto} (${motivo})`,
+  projetosLidos: (lista: string | null) => `  projetos lidos: ${lista ?? 'nenhum registrado'}`,
+  projetoLido: (nome: string, despachos: number | null) => `${nome} (${despachos === null ? 'fora do disco' : `${despachos} despacho(s) com perfil`})`,
+  despachosMarcados: (n: number) => `  despachos em conta marcada por outro projeto: ${n}`,
+  colunasDosDespachos: ['QUANDO', 'PROJETO', 'THREAD', 'FASE', 'PERFIL', 'CONTA', 'MARCADA POR'],
+  limite: (limite: string) => `  limite: ${limite}`,
+  /** O limite que o `--json` dos esgotamentos leva (dado, sempre em pt-BR); a impressao o mostra no locale do comando. */
+  limiteDoRelatorio: 'o registro guarda so as marcas vivas (uso bem sucedido, login reconferido e prazo vencido ' +
+    'apagam a marca): o total e um piso, valido enquanto a marca existe',
+  // O que o store grava (sempre em pt-BR).
+  inconclusiva: (detalhe: string) => `conferencia de login inconclusiva: ${detalhe}`,
+  vistoEmOutroProjeto: (detalhe: string) => `visto em outro projeto: ${detalhe}`,
+  // As recusas do registro de perfis (runtime-profiles.ts).
+  uidIndisponivel: 'runtime.profiles.invalid: uid do processo indisponivel',
+  diretorioNaoNormalizado: 'runtime.profiles.invalid: diretorio do perfil precisa ser caminho absoluto normalizado',
+  idInvalido: 'runtime.profiles.invalid: id do perfil aceita letras, digitos, ponto, hifen e sublinhado (ate 63)',
+  despachoAusente: 'runtime.profiles.invalid: perfil de despacho ausente',
+  runtimeDesconhecido: 'runtime.profiles.invalid: runtime do perfil desconhecido',
+  despachoComCampo: 'runtime.profiles.invalid: perfil de despacho com campo inesperado',
+  perfilDeOutroRuntime: 'runtime.profiles.invalid: perfil de outro runtime',
+  sensorDiverge: 'runtime.profiles.invalid: perfil do sensor diverge do despacho',
+  pastaPrivada: 'runtime.profiles.invalid: pasta privada precisa ser 0700 do proprio usuario',
+  diretorioDeEstado: 'runtime.profiles.invalid: diretorio de estado invalido',
+  dataInvalida: (campo: string) => `runtime.profiles.invalid: ${campo} invalido`,
+  perfilInvalido: 'runtime.profiles.invalid: perfil invalido',
+  campoInesperado: 'runtime.profiles.invalid: campo inesperado no perfil',
+  estadoDesconhecido: 'runtime.profiles.invalid: estado do perfil desconhecido',
+  ultimaFalhaInvalida: 'runtime.profiles.invalid: ultimaFalha invalida',
+  storeInvalido: 'runtime.profiles.invalid: store invalido',
+  contratoEsperado: (contrato: string) => `runtime.profiles.invalid: contrato ${contrato} esperado`,
+  idRepetido: 'runtime.profiles.invalid: id de perfil repetido',
+  mesmoDiretorio: 'runtime.profiles.invalid: dois perfis do mesmo runtime no mesmo diretorio',
+  arquivoIlegivel: 'runtime.profiles.invalid: arquivo de perfis ilegivel ou link simbolico',
+  arquivoSemPermissao: 'runtime.profiles.invalid: arquivo de perfis precisa ser 0600 do proprio usuario',
+  arquivoJson: 'runtime.profiles.invalid: arquivo de perfis com JSON invalido',
+  pastaTrocada: 'runtime.profiles.invalid: pasta privada trocada durante a gravacao',
+  storeOcupado: 'runtime.profiles.busy: store de perfis ocupado; tente novamente',
+  perfilNaoExiste: (id: string) => `runtime.profiles.unknown: perfil "${id}" nao existe (veja: ork accounts list)`,
+  diretorioInacessivel: (codigo: string) => `runtime.profiles.invalid: diretorio do perfil inacessivel (${codigo})`,
+  naoEDiretorio: 'runtime.profiles.invalid: o caminho do perfil nao e diretorio',
+  outroUsuario: 'runtime.profiles.invalid: diretorio do perfil pertence a outro usuario',
+  semLeituraEscrita: 'runtime.profiles.invalid: diretorio do perfil sem leitura e escrita para este usuario',
+  runtimeSemPerfil: (runtime: string) => `runtime.profiles.invalid: runtime "${runtime}" nao aceita perfil`,
+  jaExiste: (id: string, desativadoEm: string | null) => `runtime.profiles.invalid: perfil "${id}" ja existe` +
+    (desativadoEm !== null ? ` (desativado em ${desativadoEm}; reative com o mesmo --runtime e --dir)` : ''),
+  jaHaPerfil: (runtime: string, dir: string) => `runtime.profiles.invalid: ja ha perfil ${runtime} em ${dir}`,
+  mesmoDiretorioDoPerfil: (dir: string, id: string, real: string) => `runtime.profiles.invalid: ${dir} e o mesmo diretorio do perfil "${id}" (${real})`,
+  estaDesativado: (id: string) => `runtime.profiles.invalid: perfil "${id}" esta desativado`,
+  cotaExigePrazo: 'runtime.profiles.invalid: cota esgotada exige esgotadoAte',
+  registroInvalido: 'runtime.profiles.invalid: registro de contas invalido',
+  contaInvalida: 'runtime.profiles.invalid: conta compartilhada invalida',
+};
+
+export type MensagensDeAccounts = typeof ACCOUNTS_PT_BR;
+
+export const ACCOUNTS_EN: MensagensDeAccounts = {
+  semPerfis: 'No profile configured: each runtime dispatches with the process environment.',
+  colunas: ['PROFILE', 'RUNTIME', 'DIRECTORY', 'STATE', 'EXHAUSTED UNTIL', 'LAST USE', 'LAST FAILURE'],
+  estado: (estado) => ESTADOS_EN[estado] ?? estado,
+  falhaEm: (motivo, quando) => `${motivo} at ${quando}`,
+  usoAdd: 'usage: ork accounts add <id> --runtime claude-bg|codex --dir <directory> [--sem-login]',
+  reativado: (id) => `Profile ${id} reactivated: same id, runtime and directory as the disabled profile.`,
+  recusado: (erro) => `profile refused: ${erro}`,
+  loginPendente: (variavel, dir, comando, id) => `Login pending: run \`${variavel}=${dir} ${comando}\`, then \`ork accounts check ${id}\``,
+  resultadoAdd: (id, runtime, dir, situacao) => `Profile ${id} (${runtime}) in ${dir}: ${situacao}`,
+  conferido: 'subscription login checked',
+  detalheDoLogin: (detalhe) => {
+    const regra = DETALHES_DO_LOGIN_EN.find(([re]) => re.test(detalhe));
+    return regra ? regra[1](...(regra[0].exec(detalhe) ?? []).slice(1)) : detalhe;
+  },
+  inconclusivaAdd: (detalhe) => `login check inconclusive (${detalhe}); the next dispatch checks again`,
+  pagoAdd: (detalhe) => `paid provider (${detalhe}); never receives a dispatch`,
+  semLoginAdd: (detalhe) => `no login (${detalhe}); out of the rotation`,
+  usoRemove: 'usage: ork accounts remove <id>',
+  desativado: (id) => `Profile ${id} disabled: the directory and the CLI login stay where they are.`,
+  perfilAtivoNaoExiste: (alvo) => `active profile "${alvo}" does not exist (see: \`ork accounts list\`)`,
+  resultadoCheck: (id, runtime, situacao) => `${id} (${runtime}): ${situacao}`,
+  inconclusivaCheck: (detalhe) => `login check inconclusive, state kept (${detalhe})`,
+  pagoCheck: (detalhe) => `paid provider, never dispatches (${detalhe})`,
+  semLoginCheck: (detalhe) => `no login (${detalhe})`,
+  periodoInvalido: (erro) => `${erro} (use \`--desde\` 7d, 24h, 30m or an ISO date)`,
+  desconhecido: (sub) => `unknown subcommand: accounts ${sub} (use list, add, remove, check or esgotamentos)`,
+  esgotamentosTitulo: (desde, ate, intervalo) => `Account exhaustions  ${desde} to ${ate} ${intervalo}`,
+  marcasVivas: (n) => `  live marks in the registry: ${n}`,
+  marca: (conta, runtime, estado, desde, ate, projeto, motivo) =>
+    `    account ${conta}  ${runtime}  ${estado} since ${desde}, ${ate === null ? 'no deadline' : `until ${ate}`}  seen in ${projeto} (${motivo})`,
+  projetosLidos: (lista) => `  projects read: ${lista ?? 'none registered'}`,
+  projetoLido: (nome, despachos) => `${nome} (${despachos === null ? 'off disk' : `${despachos} dispatch(es) with a profile`})`,
+  despachosMarcados: (n) => `  dispatches on an account marked by another project: ${n}`,
+  colunasDosDespachos: ['WHEN', 'PROJECT', 'THREAD', 'PHASE', 'PROFILE', 'ACCOUNT', 'MARKED BY'],
+  limite: (limite) => `  limit: ${limite}`,
+  limiteDoRelatorio: 'the registry only keeps live marks (a successful use, a rechecked login and an expired deadline clear the ' +
+    'mark): the total is a floor, valid while the mark exists',
+  inconclusiva: (detalhe) => `login check inconclusive: ${detalhe}`,
+  vistoEmOutroProjeto: (detalhe) => `seen in another project: ${detalhe}`,
+  uidIndisponivel: 'runtime.profiles.invalid: process uid unavailable',
+  diretorioNaoNormalizado: 'runtime.profiles.invalid: the profile directory must be a normalized absolute path',
+  idInvalido: 'runtime.profiles.invalid: a profile id takes letters, digits, dot, hyphen and underscore (up to 63)',
+  despachoAusente: 'runtime.profiles.invalid: dispatch profile missing',
+  runtimeDesconhecido: 'runtime.profiles.invalid: unknown profile runtime',
+  despachoComCampo: 'runtime.profiles.invalid: dispatch profile with an unexpected field',
+  perfilDeOutroRuntime: 'runtime.profiles.invalid: profile of another runtime',
+  sensorDiverge: 'runtime.profiles.invalid: the sensor profile differs from the dispatch',
+  pastaPrivada: 'runtime.profiles.invalid: the private folder must be 0700 and owned by this user',
+  diretorioDeEstado: 'runtime.profiles.invalid: invalid state directory',
+  dataInvalida: (campo) => `runtime.profiles.invalid: invalid ${campo}`,
+  perfilInvalido: 'runtime.profiles.invalid: invalid profile',
+  campoInesperado: 'runtime.profiles.invalid: unexpected field in the profile',
+  estadoDesconhecido: 'runtime.profiles.invalid: unknown profile state',
+  ultimaFalhaInvalida: 'runtime.profiles.invalid: invalid `ultimaFalha`',
+  storeInvalido: 'runtime.profiles.invalid: invalid store',
+  contratoEsperado: (contrato) => `runtime.profiles.invalid: contract ${contrato} expected`,
+  idRepetido: 'runtime.profiles.invalid: repeated profile id',
+  mesmoDiretorio: 'runtime.profiles.invalid: two profiles of the same runtime in the same directory',
+  arquivoIlegivel: 'runtime.profiles.invalid: profiles file unreadable or a symbolic link',
+  arquivoSemPermissao: 'runtime.profiles.invalid: the profiles file must be 0600 and owned by this user',
+  arquivoJson: 'runtime.profiles.invalid: profiles file with invalid JSON',
+  pastaTrocada: 'runtime.profiles.invalid: private folder swapped during the write',
+  storeOcupado: 'runtime.profiles.busy: profile store busy; try again',
+  perfilNaoExiste: (id) => `runtime.profiles.unknown: profile "${id}" does not exist (see: \`ork accounts list\`)`,
+  diretorioInacessivel: (codigo) => `runtime.profiles.invalid: profile directory not accessible (${codigo})`,
+  naoEDiretorio: 'runtime.profiles.invalid: the profile path is not a directory',
+  outroUsuario: 'runtime.profiles.invalid: the profile directory belongs to another user',
+  semLeituraEscrita: 'runtime.profiles.invalid: the profile directory lacks read and write access for this user',
+  runtimeSemPerfil: (runtime) => `runtime.profiles.invalid: runtime "${runtime}" does not take a profile`,
+  jaExiste: (id, desativadoEm) => `runtime.profiles.invalid: profile "${id}" already exists` +
+    (desativadoEm !== null ? ` (disabled on ${desativadoEm}; reactivate it with the same \`--runtime\` and \`--dir\`)` : ''),
+  jaHaPerfil: (runtime, dir) => `runtime.profiles.invalid: there is already a ${runtime} profile in ${dir}`,
+  mesmoDiretorioDoPerfil: (dir, id, real) => `runtime.profiles.invalid: ${dir} is the same directory as profile "${id}" (${real})`,
+  estaDesativado: (id) => `runtime.profiles.invalid: profile "${id}" is disabled`,
+  cotaExigePrazo: 'runtime.profiles.invalid: an exhausted quota needs `esgotadoAte`',
+  registroInvalido: 'runtime.profiles.invalid: invalid account registry',
+  contaInvalida: 'runtime.profiles.invalid: invalid shared account',
+};
