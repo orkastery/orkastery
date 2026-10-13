@@ -23,7 +23,9 @@ export const ARQUIVO_DO_CHANGELOG = 'CHANGELOG.md';
 export const SECAO_NAO_PUBLICADA = '## Não publicado';
 /** A ordem dos grupos que o CHANGELOG ja usa; grupo fora dela vai para o fim da secao. */
 const ORDEM_DOS_GRUPOS = ['Adicionado', 'Alterado', 'Mudado', 'Corrigido', 'Removido', 'Segurança'];
-const MARCADOR_DE_CONFLITO = /^(<{7}|={7}|>{7}|\|{7})( |$)/m;
+/** As pontas do conflito do git; o `=======` sozinho tambem e o sublinhado de um titulo setext, e nao conta. */
+const INICIO_DO_CONFLITO = /^<{7}( |$)/m;
+const FIM_DO_CONFLITO = /^>{7}( |$)/m;
 
 interface ItemLocalizado {
   /** O titulo da secao `## ...` onde o item esta, ou `null` antes da primeira. */
@@ -45,6 +47,11 @@ export interface ItemDevolvido {
 
 export interface ReconciliacaoDoChangelog {
   texto: string;
+  /**
+   * As linhas que a thread acrescentou ao CHANGELOG e que o resultado nao tem (outra forma de item, edicao numa versao
+   * publicada, secao com outro nome): com alguma, quem chama aborta, e a resolucao fica com o dono.
+   */
+  perdidas: string[];
   /** Os itens da thread que ficaram em `## Não publicado` (os que estavam fora dela e os que ja estavam). */
   itens: ItemDevolvido[];
   /** Quantos deles estavam fora de `## Não publicado` (numa versao publicada) ou ausentes, e voltaram. */
@@ -115,14 +122,35 @@ function faixaDaSecao(linhas: readonly string[]): { titulo: number; inicio: numb
   return { titulo, inicio: titulo + 1, fim };
 }
 
-/** Junta as linhas em branco seguidas numa so (MD012) e tira as do inicio da secao que sobraram de uma remocao. */
+/** Junta as linhas em branco seguidas numa so (MD012), fora dos blocos de codigo cercados, que ficam como estao. */
 function semBrancosRepetidos(linhas: readonly string[]): string[] {
   const saida: string[] = [];
+  let cerca: string | null = null;
   for (const l of linhas) {
-    if (emBranco(l) && saida.length > 0 && emBranco(saida[saida.length - 1])) continue;
-    saida.push(emBranco(l) ? '' : l);
+    const marca = /^\s*(`{3,}|~{3,})/.exec(l)?.[1] ?? null;
+    if (marca && (cerca === null || marca[0] === cerca[0])) cerca = cerca === null ? marca : null;
+    if (cerca === null && !marca && emBranco(l) && saida.length > 0 && emBranco(saida[saida.length - 1])) continue;
+    saida.push(cerca === null && emBranco(l) ? '' : l);
   }
   return saida;
+}
+
+/** Quantas vezes cada linha nao vazia aparece (sem o espaco do fim). */
+function contagem(linhas: readonly string[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const l of linhas) { const k = l.trimEnd(); if (k.trim()) m.set(k, (m.get(k) ?? 0) + 1); }
+  return m;
+}
+
+/** As linhas que a thread acrescentou (do lado dela, alem das da base) e que o resultado nao tem tantas vezes. */
+function linhasPerdidas(base: readonly string[], nosso: readonly string[], resultado: readonly string[]): string[] {
+  const daBase = contagem(base), doResultado = contagem(resultado);
+  const perdidas: string[] = [];
+  for (const [linha, vezes] of contagem(nosso)) {
+    const acrescentadas = vezes - (daBase.get(linha) ?? 0);
+    if (acrescentadas > 0 && (doResultado.get(linha) ?? 0) < acrescentadas) perdidas.push(linha);
+  }
+  return perdidas;
 }
 
 /** Tira os grupos `### ...` que ficaram sem item nenhum por causa da remocao (os que ja eram vazios ficam). */
@@ -185,9 +213,9 @@ function inserirNoGrupo(linhas: string[], grupo: string | null, item: readonly s
   return [...linhas.slice(0, em), '', `### ${grupo}`, '', ...item, '', ...linhas.slice(em)];
 }
 
-/** O texto tem marcador de conflito do git? */
+/** O texto tem as duas pontas de um conflito do git? */
 export function temMarcadorDeConflito(texto: string): boolean {
-  return MARCADOR_DE_CONFLITO.test(texto);
+  return INICIO_DO_CONFLITO.test(texto) && FIM_DO_CONFLITO.test(texto);
 }
 
 /**
@@ -208,10 +236,16 @@ export function reconciliarChangelog(e: EntradaDaReconciliacao): ReconciliacaoDo
   const tiradas = new Set(daBase.filter((i) => i.secao === SECAO_NAO_PUBLICADA && !chavesDosNossos.has(i.chave)).map((i) => i.chave));
 
   const textoInicial = e.mesclado && !temMarcadorDeConflito(e.mesclado) ? e.mesclado : e.deles;
+  const crlf = textoInicial.includes('\r\n');
   const fimDeLinha = textoInicial.endsWith('\n');
   let linhas = linhasDe(textoInicial);
   if (fimDeLinha) linhas.pop();
   const original = chaveDe(linhas);
+  // A thread que nao acrescentou nem tirou item de "Não publicado" nao muda nada: o arquivo fica como o merge (ou a main)
+  // o deixou, sem normalizar o que nao e dela.
+  if (!daThread.length && !tiradas.size) {
+    return { texto: textoInicial, perdidas: linhasPerdidas(base, nosso, linhas), itens: [], devolvidos: 0, mudou: false };
+  }
 
   // 1. Tira os itens da thread de onde o merge os pos, e os tirados pela thread de `## Não publicado`. O item da thread
   // que o merge deixou em `## Não publicado`, no grupo dele, fica onde esta (a primeira vez); as outras copias saem.
@@ -253,9 +287,11 @@ export function reconciliarChangelog(e: EntradaDaReconciliacao): ReconciliacaoDo
   linhas = semBrancosRepetidos(linhas);
   while (linhas.length && emBranco(linhas[linhas.length - 1])) linhas.pop();
 
-  const texto = linhas.join('\n') + (fimDeLinha ? '\n' : '');
+  const quebra = crlf ? '\r\n' : '\n';
+  const texto = linhas.join(quebra) + (fimDeLinha ? quebra : '');
   return {
     texto,
+    perdidas: linhasPerdidas(base, nosso, linhas),
     itens: daThread.map((i) => ({ grupo: i.grupo, titulo: nosso[i.inicio].trim().slice(0, 200) })),
     devolvidos: aDevolver.length,
     mudou: chaveDe(linhas) !== original,

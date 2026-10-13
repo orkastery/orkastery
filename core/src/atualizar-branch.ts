@@ -31,7 +31,7 @@ export const CONTRATO_DA_ATUALIZACAO = 'ork.branch-atualizada/v1' as const;
 const PRAZO_DA_ATUALIZACAO_MS = 10 * 60 * 1000;
 
 export type MotivoDaRecusa = 'worktree-ausente' | 'branch-errada' | 'merge-em-curso' | 'worktree-suja' | 'base-ausente' |
-  'git-sem-resposta' | 'conduzida' | 'push-recusado';
+  'git-sem-resposta' | 'conduzida' | 'push-recusado' | 'branch-desalinhada';
 
 export type ResultadoDaAtualizacao = {
   contrato: typeof CONTRATO_DA_ATUALIZACAO;
@@ -39,7 +39,7 @@ export type ResultadoDaAtualizacao = {
   branch: string;
   base: string;
 } & (
-  | { acao: 'ja-atualizada'; sha: string }
+  | { acao: 'ja-atualizada'; sha: string; enviada: boolean }
   | { acao: 'mesclada'; sha: string; shaAntes: string; changelog: { devolvidos: number; itens: ItemDevolvido[] } | null;
     enviada: boolean }
   | { acao: 'conflito-em-codigo'; arquivos: string[] }
@@ -54,6 +54,11 @@ export interface OpcoesDaAtualizacao {
   canal?: CanalDeConducao;
   correlacao?: string | null;
   esperarMs?: number;
+  /**
+   * O head do PR com que a branch local tem de ficar alinhada antes do merge da base: a local atras dele (o "Update
+   * branch" do GitHub, o push de outra maquina) avanca por fast-forward; a que divergiu dele e recusada.
+   */
+  alinharCom?: string;
 }
 
 const AMBIENTE_DO_GIT = (): NodeJS.ProcessEnv => ({ ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_MERGE_AUTOEDIT: 'no',
@@ -115,8 +120,38 @@ function mesclar(dir: string, branch: string, remoto: string, base: string, opco
   const deles = `refs/remotes/${remoto}/${base}`;
   const ponta = git(['rev-parse', '--verify', '-q', `${deles}^{commit}`]);
   if (!ponta.ok) return recusa('base-ausente', `a cópia da base ${remoto}/${base} não existe neste repositório`);
+  if (opcoes.alinharCom && git(['rev-parse', 'HEAD']).stdout.trim() !== opcoes.alinharCom) {
+    if (!git(['merge-base', '--is-ancestor', 'HEAD', opcoes.alinharCom]).ok) {
+      return recusa('branch-desalinhada', `a branch local divergiu do head do PR (${opcoes.alinharCom.slice(0, 8)}): o merge não vai por cima`);
+    }
+    const ff = git(['merge', '--ff-only', '-q', opcoes.alinharCom], 120000);
+    if (!ff.ok) return recusa('git-sem-resposta', `git merge --ff-only saiu ${ff.code}: ${(ff.stderr || ff.stdout).trim().split('\n')[0]?.slice(0, 160) ?? ''}`);
+  }
   const shaAntes = git(['rev-parse', 'HEAD']).stdout.trim();
-  if (git(['merge-base', '--is-ancestor', deles, 'HEAD']).ok) return { ...cabeca, acao: 'ja-atualizada', sha: shaAntes };
+  // O push nunca leva tag (push.followTags do usuario poria a tag de versao no remoto e dispararia a publicacao) nem forca.
+  const empurrar = (sha: string): string | null => {
+    const p = git(['push', '-q', '--no-follow-tags', '--', remoto, `HEAD:refs/heads/${branch}`], 120000);
+    const remota = git(['ls-remote', '--', remoto, `refs/heads/${branch}`], 60000).stdout.split(/\s+/)[0] ?? '';
+    return p.ok && remota === sha ? null : `o merge ${sha.slice(0, 8)} ficou só nesta máquina: git push saiu ${p.code}` +
+      (remota ? `, e o remoto está em ${remota.slice(0, 8)}` : '');
+  };
+  if (git(['merge-base', '--is-ancestor', deles, 'HEAD']).ok) {
+    // Ja contem a base. Com `enviar`, a branch remota atras da local (o push que falhou na rodada anterior) e empurrada;
+    // a remota que andou para outro lado nao e sobrescrita.
+    let enviada = false;
+    if (opcoes.enviar) {
+      const remota = git(['ls-remote', '--', remoto, `refs/heads/${branch}`], 60000).stdout.split(/\s+/)[0] ?? '';
+      if (remota !== shaAntes) {
+        if (remota && !git(['merge-base', '--is-ancestor', remota, 'HEAD']).ok) {
+          return recusa('push-recusado', `o remoto da ${branch} está em ${remota.slice(0, 8)}, fora da história local: nada é empurrado por cima`);
+        }
+        const falha = empurrar(shaAntes);
+        if (falha) return recusa('push-recusado', falha);
+        enviada = true;
+      }
+    }
+    return { ...cabeca, acao: 'ja-atualizada', sha: shaAntes, enviada };
+  }
 
   const m = git(['merge', '--no-ff', '--no-commit', '--', deles], 120000);
   const conflitos = emConflito(dir);
@@ -140,7 +175,9 @@ function mesclar(dir: string, branch: string, remoto: string, base: string, opco
     const conflitou = conflitos.includes(ARQUIVO_DO_CHANGELOG);
     const mesclado = conflitou ? null : fs.readFileSync(arquivo, 'utf8');
     const r = reconciliarChangelog({ base: baseTexto, nosso, deles: delesTexto, mesclado });
-    if (temMarcadorDeConflito(r.texto)) {
+    // A reconciliacao so devolve itens de lista; a linha que a thread acrescentou e nao voltou (outra forma de item,
+    // edicao numa versao publicada) nunca some calada: o merge e abortado e fica com o dono.
+    if (temMarcadorDeConflito(r.texto) || r.perdidas.length) {
       git(['merge', '--abort']);
       return { ...cabeca, acao: 'conflito-em-codigo', arquivos: [ARQUIVO_DO_CHANGELOG] };
     }
@@ -163,12 +200,8 @@ function mesclar(dir: string, branch: string, remoto: string, base: string, opco
   const sha = git(['rev-parse', 'HEAD']).stdout.trim();
   let enviada = false;
   if (opcoes.enviar) {
-    const p = git(['push', '-q', '--', remoto, `HEAD:refs/heads/${branch}`], 120000);
-    const remota = git(['ls-remote', '--', remoto, `refs/heads/${branch}`], 60000).stdout.split(/\s+/)[0] ?? '';
-    if (!p.ok || remota !== sha) {
-      return recusa('push-recusado', `o merge ${sha.slice(0, 8)} ficou só nesta máquina: git push saiu ${p.code}` +
-        (remota ? `, e o remoto está em ${remota.slice(0, 8)}` : ''));
-    }
+    const falha = empurrar(sha);
+    if (falha) return recusa('push-recusado', falha);
     enviada = true;
   }
   return { ...cabeca, acao: 'mesclada', sha, shaAntes, changelog, enviada };
@@ -177,7 +210,7 @@ function mesclar(dir: string, branch: string, remoto: string, base: string, opco
 /** Uma linha para o terminal e para o resumo ao dono. */
 export function textoDaAtualizacao(r: ResultadoDaAtualizacao): string {
   switch (r.acao) {
-    case 'ja-atualizada': return `${r.branch} já contém ${r.base}: nada a mesclar.`;
+    case 'ja-atualizada': return `${r.branch} já contém ${r.base}: nada a mesclar` + (r.enviada ? '; a branch foi empurrada e conferida no remoto.' : '.');
     case 'mesclada': return `${r.base} mesclada na ${r.branch} (${r.sha.slice(0, 8)})` +
       (r.changelog?.devolvidos ? `; ${r.changelog.devolvidos} item(ns) da thread de volta a "## Não publicado" do CHANGELOG` : '') +
       (r.enviada ? '; branch empurrada e conferida no remoto' : '') + '.';

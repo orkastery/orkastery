@@ -196,3 +196,65 @@ test('F7 com git: worktree suja e thread conduzida recusam antes de tocar em nad
     assert.deepEqual(conduzida.acao === 'recusada' ? conduzida.motivo : conduzida, 'conduzida');
   } finally { p.limpar(); }
 });
+
+// ---------------------------------------------------------------------------
+// GO-FIX da revisao independente da fatia 3 (achados 4, 7 e 11).
+// ---------------------------------------------------------------------------
+
+test('GO-FIX 4: a linha da thread que a reconciliacao nao devolve aparece em perdidas, e o merge aborta', () => {
+  // Um projeto keep-a-changelog: a secao nao se chama "Não publicado", e o item da thread so voltaria por ela.
+  const doc2 = (...secoes: string[]) => '# Changelog\n\n' + secoes.join('\n\n') + '\n';
+  const base = doc2('## [Unreleased]\n\n### Added\n\n- antes');
+  const nosso = doc2('## [Unreleased]\n\n### Added\n\n- da thread\n- antes');
+  const deles = doc2('## [Unreleased]\n\n### Added\n\n- da outra maquina\n- antes');
+  const r = reconciliarChangelog({ base, nosso, deles });
+  assert.deepEqual(r.perdidas, ['- da thread']);
+  // O caso normal nao perde nada.
+  const ok = reconciliarChangelog({ base: doc(secao('## Não publicado', { Adicionado: [item('antes')] })),
+    nosso: doc(secao('## Não publicado', { Adicionado: [item('da thread', 2), item('antes')] })),
+    deles: doc(secao('## Não publicado', { Adicionado: [item('outra'), item('antes')] })) });
+  assert.deepEqual(ok.perdidas, []);
+});
+
+test('GO-FIX 4 com git: o conflito so no CHANGELOG que perderia a linha da thread aborta e fica com o dono', () => {
+  const inicial = '# Changelog\n\n## [Unreleased]\n\n### Added\n\n- antes\n';
+  const { p, thread, wt } = cenario('rm063-gofix-perdida', inicial);
+  try {
+    commitar(wt, 'CHANGELOG.md', '# Changelog\n\n## [Unreleased]\n\n### Added\n\n- da thread\n- antes\n', 'docs(thread): linha');
+    const antes = exec('git', ['rev-parse', 'HEAD'], wt).stdout.trim();
+    mainAvanca(p, { 'CHANGELOG.md': '# Changelog\n\n## [Unreleased]\n\n### Added\n\n- da outra maquina\n- antes\n' }, 'docs: outra');
+    const r = atualizarBranchDaThread(p.carregado, thread);
+    assert.deepEqual(r.acao === 'conflito-em-codigo' ? r.arquivos : r, ['CHANGELOG.md']);
+    assert.equal(exec('git', ['rev-parse', 'HEAD'], wt).stdout.trim(), antes);
+    assert.equal(exec('git', ['status', '--porcelain'], wt).stdout.trim(), '');
+  } finally { p.limpar(); }
+});
+
+test('GO-FIX 11: sem item da thread, o CHANGELOG fica como veio (CRLF, branco repetido no bloco de codigo); setext nao e conflito', () => {
+  const comCodigo = '# Changelog\r\n\r\n## Não publicado\r\n\r\n### Adicionado\r\n\r\n- **x** (RM-1): y\r\n\r\n```text\r\na\r\n\r\n\r\nb\r\n```\r\n';
+  const r = reconciliarChangelog({ base: comCodigo, nosso: comCodigo, deles: comCodigo, mesclado: comCodigo });
+  assert.deepEqual([r.mudou, r.texto === comCodigo, r.perdidas], [false, true, []]);
+  // Com item da thread, o CRLF e o bloco de codigo tambem ficam.
+  const nosso = comCodigo.replace('- **x** (RM-1): y\r\n', '- **x** (RM-1): y\r\n- **da thread** (RM-2): z\r\n');
+  const comItem = reconciliarChangelog({ base: comCodigo, nosso, deles: comCodigo });
+  assert.ok(comItem.texto.includes('- **da thread** (RM-2): z\r\n'), 'o item volta com CRLF');
+  assert.ok(comItem.texto.includes('a\r\n\r\n\r\nb'), 'o branco repetido do bloco de codigo fica');
+  assert.equal(temMarcadorDeConflito('Mudanças\n=======\n\n- item\n'), false, 'o sublinhado setext nao e conflito');
+  assert.equal(temMarcadorDeConflito('<<<<<<< HEAD\na\n=======\nb\n>>>>>>> main\n'), true);
+});
+
+test('GO-FIX 7: o push da atualizacao nunca leva tag, nem com push.followTags ligado', () => {
+  const { p, thread, wt } = cenario('rm063-gofix-tags', doc(secao('## Não publicado', { Adicionado: [item('antes')] })));
+  try {
+    const branch = exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], wt).stdout.trim();
+    exec('git', ['config', 'push.followTags', 'true'], p.dir);
+    mainAvanca(p, { 'outro.txt': 'x\n' }, 'feat: outro');
+    // Uma tag anotada de versao, so local, alcancavel pela main que o merge traz.
+    exec('git', ['fetch', '-q', 'origin', 'main'], p.dir);
+    assert.equal(exec('git', ['tag', '-a', 'v9.9.9', '-m', 'versao local', 'origin/main'], p.dir).ok, true);
+    const r = atualizarBranchDaThread(p.carregado, thread, { enviar: true });
+    assert.deepEqual([r.acao, r.acao === 'mesclada' && r.enviada], ['mesclada', true]);
+    assert.equal(exec('git', ['ls-remote', '--tags', p.remoto as string]).stdout.trim(), '', 'a tag nao foi ao remoto');
+    assert.ok(exec('git', ['ls-remote', p.remoto as string, `refs/heads/${branch}`]).stdout.startsWith(exec('git', ['rev-parse', 'HEAD'], wt).stdout.trim()));
+  } finally { p.limpar(); }
+});
