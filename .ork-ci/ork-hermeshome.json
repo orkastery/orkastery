@@ -1,0 +1,29 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-hermeshome",
+  "branch": "ork/ork-hermeshome-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-hermeshome",
+      "fase": "GO",
+      "arquivo": "core/test/rm063-hosts-canal.test.ts",
+      "alegacao": "O teste do script do transporte do Hermes versionado no git usa uma casa do Hermes vazia e passa com ou sem o adaptador instalado na máquina",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"rm063-gofix-casa-hermes\" core/test/rm063-hosts-canal.test.ts && node --test core/dist-test/test/rm063-hosts-canal.test.js"
+      ],
+      "criadoEm": "2026-10-13T23:04:32.817Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
