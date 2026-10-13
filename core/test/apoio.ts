@@ -221,6 +221,16 @@ export function shaNoRemotoDeTeste(dir: string, remoto: string, branch: string):
 const SCRIPT_DO_RUNTIME = `#!/bin/sh
 DIR="$ORK_STUB_DIR"
 if [ "$1" = "--version" ]; then echo "stub de teste 0.0.1"; exit 0; fi
+if [ "$1" = "daemon" ]; then
+  echo "daemon $2" >> "$DIR/daemon"
+  if [ "$2" = "status" ]; then
+    if [ -f "$DIR/daemon-preso" ]; then SOCK="unreachable (connect ECONNREFUSED /tmp/cc-daemon-stub/control.sock)"; else SOCK="reachable"; fi
+    printf 'pid:     4242\\nversion: stub\\n\\nbg sessions:\\n  control.sock: %s\\n' "$SOCK"
+    exit 0
+  fi
+  if [ "$2" = "stop" ]; then rm -f "$DIR/daemon-preso"; echo "daemon parado"; exit 0; fi
+  exit 0
+fi
 if [ "$1" = "agents" ]; then
   if [ -f "$DIR/sessao" ]; then
     ESTADO="working"
@@ -285,6 +295,10 @@ export interface RuntimeFalso {
   telaDaSessao: (texto: string | null) => void;
   /** Slugs (`--name`) que o runtime recebeu, em ordem. */
   chamadas: () => string[];
+  /** RM-063 (F4): o daemon da conta com o `control.sock` mudo (o `daemon stop` o solta). */
+  daemonPreso: (preso: boolean) => void;
+  /** RM-063 (F4): os subcomandos `claude daemon` que o stub recebeu, em ordem. */
+  chamadasDoDaemon: () => string[];
   restaurar: () => void;
 }
 
@@ -327,6 +341,14 @@ export function runtimeFalso(nome: string): RuntimeFalso {
       const arquivo = path.join(dir, 'chamadas');
       if (!fs.existsSync(arquivo)) return [];
       return fs.readFileSync(arquivo, 'utf8').split('\n').filter((l) => l.trim() !== '');
+    },
+    daemonPreso: (preso: boolean) => {
+      if (preso) fs.writeFileSync(path.join(dir, 'daemon-preso'), '1', 'utf8');
+      else fs.rmSync(path.join(dir, 'daemon-preso'), { force: true });
+    },
+    chamadasDoDaemon: () => {
+      const arquivo = path.join(dir, 'daemon');
+      return fs.existsSync(arquivo) ? fs.readFileSync(arquivo, 'utf8').split('\n').filter((l) => l.trim() !== '') : [];
     },
     restaurar: () => {
       process.env.PATH = pathAnterior;
@@ -378,6 +400,7 @@ export function ajustarManifesto(p: ProjetoDeTeste, de: RegExp | string, para: s
  */
 const SCRIPT_POR_CONTA = `#!/bin/sh
 DIR="$ORK_CONTA_STUB_DIR"
+if [ "$1" = "daemon" ]; then printf 'pid:     4242\\n  control.sock: reachable\\n'; exit 0; fi
 echo "$1 $CLAUDE_CONFIG_DIR" >> "$DIR/envs"
 if [ "$1" = "--version" ]; then echo "stub por conta 0.0.1"; exit 0; fi
 if [ "$1" = "auth" ]; then

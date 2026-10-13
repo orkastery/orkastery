@@ -23,7 +23,7 @@ import { lerYaml, ValorYaml } from './yaml';
 import { dirThread, lerThread, listarIds } from './thread';
 import { lerLedger } from './ledger';
 import { branchValida, shaValido } from './branch-de-estado';
-import { Locale, LOCALE_PADRAO } from './locale';
+import { Locale, LOCALE_PADRAO, Mensagens, msg, remontar, textoDoCatalogo } from './locale';
 
 export type TipoDoc = 'plataforma' | 'sistema' | 'modulo' | 'feature' | 'roadmap';
 
@@ -146,17 +146,17 @@ function paginas(raiz: string, dir: string): string[] {
 export function documentoDeTexto(arquivo: string, texto: string): { doc: Documento } | { achado: Achado } {
   const { bruto, corpo } = separarFrontmatter(texto);
   if (bruto === null) {
-    return { achado: erro(arquivo, undefined, 'docs.frontmatter.ausente', 'página sem frontmatter YAML',
-      'comece o arquivo com as chaves do modelo entre duas linhas ---') };
+    return { achado: erro(arquivo, undefined, 'docs.frontmatter.ausente', (m) => m.semFrontmatter, (m) => m.semFrontmatterCorrecao) };
   }
   let dados: ValorYaml;
   try {
     dados = lerYaml(bruto);
   } catch (e) {
-    return { achado: erro(arquivo, undefined, 'docs.frontmatter.invalido', `frontmatter inválido: ${(e as Error).message}`) };
+    const detalhe = (e as Error).message;
+    return { achado: erro(arquivo, undefined, 'docs.frontmatter.invalido', (m) => m.frontmatterInvalido(detalhe)) };
   }
   if (!ehMapa(dados)) {
-    return { achado: erro(arquivo, undefined, 'docs.frontmatter.invalido', 'o frontmatter precisa ser um mapa de chaves') };
+    return { achado: erro(arquivo, undefined, 'docs.frontmatter.invalido', (m) => m.frontmatterNaoMapa) };
   }
   return { doc: { arquivo, tipo: dados.tipo as TipoDoc, id: String(dados.id ?? ''), dados, corpo } };
 }
@@ -191,11 +191,22 @@ export interface OpcoesDeVerificacao {
   pr?: boolean;
 }
 
-function erro(arquivo: string, id: string | undefined, regra: string, mensagem: string, correcao?: string): Achado {
-  return { arquivo, ...(id ? { id } : {}), regra, gravidade: 'erro', mensagem, ...(correcao ? { correcao } : {}) };
+/**
+ * RM-061 (F3b, G4): a mensagem e a correcao de um achado nascem pelo catalogo, no locale de quem verifica. O CLI verifica
+ * no escopo pt-BR, entao o `--json` as leva em pt-BR, e so a impressao as remonta; a regra sai igual nas duas linguas.
+ */
+type TextoDeDocs = (m: Mensagens['docs']) => string;
+
+function achado(gravidade: Achado['gravidade'], arquivo: string, id: string | undefined, regra: string, mensagem: TextoDeDocs,
+  correcao?: TextoDeDocs): Achado {
+  const texto = (montar: TextoDeDocs) => textoDoCatalogo((m) => montar(m.docs));
+  return { arquivo, ...(id ? { id } : {}), regra, gravidade, mensagem: texto(mensagem), ...(correcao ? { correcao: texto(correcao) } : {}) };
 }
-function aviso(arquivo: string, id: string | undefined, regra: string, mensagem: string, correcao?: string): Achado {
-  return { arquivo, ...(id ? { id } : {}), regra, gravidade: 'aviso', mensagem, ...(correcao ? { correcao } : {}) };
+function erro(arquivo: string, id: string | undefined, regra: string, mensagem: TextoDeDocs, correcao?: TextoDeDocs): Achado {
+  return achado('erro', arquivo, id, regra, mensagem, correcao);
+}
+function aviso(arquivo: string, id: string | undefined, regra: string, mensagem: TextoDeDocs, correcao?: TextoDeDocs): Achado {
+  return achado('aviso', arquivo, id, regra, mensagem, correcao);
 }
 
 function git(raiz: string, args: string[]): { ok: boolean; saida: string } {
@@ -237,26 +248,24 @@ export function verificarDocs(raiz: string, opcoes: OpcoesDeVerificacao = {}): {
   for (const d of docs) {
     if (!TIPOS.includes(d.tipo)) {
       achados.push(erro(d.arquivo, d.id || undefined, 'docs.tipo',
-        `tipo "${String(d.dados.tipo)}" desconhecido`, `use um de: ${TIPOS.join(', ')}`));
+        (m) => m.tipoDesconhecido(String(d.dados.tipo)), (m) => m.useUmDe(TIPOS.join(', '))));
       continue;
     }
     if (!PADRAO_ID[d.tipo].test(d.id)) {
       achados.push(erro(d.arquivo, d.id || undefined, 'docs.id.formato',
-        `ID "${d.id}" fora do padrão de ${d.tipo}`, `formato esperado: ${PADRAO_ID[d.tipo].source.replace(/[\^$\\]/g, '')}`));
+        (m) => m.idForaDoPadrao(d.id, d.tipo), (m) => m.formatoEsperado(PADRAO_ID[d.tipo].source.replace(/[\^$\\]/g, ''))));
     }
     const nome = path.posix.basename(d.arquivo);
     if (!(nome === `${d.id}.md` || nome.startsWith(`${d.id}-`))) {
-      achados.push(erro(d.arquivo, d.id, 'docs.id.arquivo', 'o nome do arquivo não começa pelo ID',
-        `renomeie para ${d.id}-<assunto>.md`));
+      achados.push(erro(d.arquivo, d.id, 'docs.id.arquivo', (m) => m.arquivoSemId, (m) => m.renomeie(d.id)));
     }
     const pastaCerta = d.tipo === 'roadmap' ? DIR_ROADMAP : DIR_PRODUTO;
     if (path.posix.dirname(d.arquivo) !== pastaCerta) {
-      achados.push(erro(d.arquivo, d.id, 'docs.pasta', `${d.tipo} mora em ${pastaCerta}`));
+      achados.push(erro(d.arquivo, d.id, 'docs.pasta', (m) => m.pastaErrada(d.tipo, pastaCerta)));
     }
     const anterior = porId.get(d.id);
     if (anterior) {
-      achados.push(erro(d.arquivo, d.id, 'docs.id.duplicado', `ID repetido: também em ${anterior.arquivo}`,
-        'IDs são estáveis e únicos; renumere o novo, nunca o antigo'));
+      achados.push(erro(d.arquivo, d.id, 'docs.id.duplicado', (m) => m.idRepetido(anterior.arquivo), (m) => m.idRepetidoCorrecao));
     } else {
       porId.set(d.id, d);
     }
@@ -265,8 +274,7 @@ export function verificarDocs(raiz: string, opcoes: OpcoesDeVerificacao = {}): {
   const base = opcoes.semGit ? null : resolverBase(raiz, opcoes.baseBranch);
   if (!opcoes.semGit && !base) {
     achados.push(aviso('.', undefined, 'docs.git.base',
-      `branch base "${opcoes.baseBranch ?? 'main'}" não encontrada: a paridade com o git ficou de fora`,
-      'rode com o histórico do git disponível (fetch-depth: 0 no CI)'));
+      (m) => m.baseAusente(opcoes.baseBranch ?? 'main'), (m) => m.baseAusenteCorrecao));
   }
   const comandos = opcoes.ajudaDoCli ? comandosDaAjuda(opcoes.ajudaDoCli) : null;
 
@@ -289,55 +297,55 @@ export function verificarDocs(raiz: string, opcoes: OpcoesDeVerificacao = {}): {
 function verificarChaves(d: Documento, achados: Achado[]): void {
   for (const k of CHAVES[d.tipo]) {
     if (!(k in d.dados)) {
-      achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.chave', `falta a chave "${k}"`,
-        'copie a chave do modelo; lacuna é "A definir — responsável, prazo"'));
+      achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.chave', (m) => m.faltaChave(k), (m) => m.faltaChaveCorrecao));
     }
   }
   if (d.tipo !== 'roadmap' && 'estado' in d.dados) {
     const e = String(d.dados.estado);
     if (!(ESTADOS_DA_ESPECIFICACAO as readonly string[]).includes(e)) {
-      achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.valor', `estado "${e}" fora do padrão`,
-        `use um de: ${ESTADOS_DA_ESPECIFICACAO.join(', ')}`));
+      achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.valor', (m) => m.estadoForaDoPadrao(e),
+        (m) => m.useUmDe(ESTADOS_DA_ESPECIFICACAO.join(', '))));
     }
   }
   if (d.tipo === 'roadmap') {
     const cat = String(d.dados.categoria ?? '');
     if ('categoria' in d.dados && !(CATEGORIAS as readonly string[]).includes(cat)) {
-      achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.valor', `categoria "${cat}" fora do padrão`,
-        `use uma de: ${CATEGORIAS.join(', ')}`));
+      achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.valor', (m) => m.categoriaForaDoPadrao(cat),
+        (m) => m.useUmaDe(CATEGORIAS.join(', '))));
     }
     const estado = d.dados.estado;
     if ('estado' in d.dados && !ehMapa(estado)) {
-      achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.valor', 'estado do roadmap é um mapa de dimensões',
-        `dimensões: ${Object.keys(DIMENSOES).join(', ')}`));
+      achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.valor', (m) => m.estadoNaoMapa,
+        (m) => m.dimensoes(Object.keys(DIMENSOES).join(', '))));
     } else if (ehMapa(estado)) {
       for (const [dim, valores] of Object.entries(DIMENSOES)) {
         if (!(dim in estado)) {
-          achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.chave', `falta a dimensão estado.${dim}`,
-            'o padrão atualiza cada dimensão separadamente'));
+          achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.chave', (m) => m.faltaDimensao(dim), (m) => m.faltaDimensaoCorrecao));
         } else if (!valores.includes(String(estado[dim]))) {
-          achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.valor', `estado.${dim} "${String(estado[dim])}" fora do padrão`,
-            `use um de: ${valores.join(', ')}`));
+          const valor = String(estado[dim]);
+          achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.valor', (m) => m.dimensaoForaDoPadrao(dim, valor),
+            (m) => m.useUmDe(valores.join(', '))));
         }
       }
       for (const dim of Object.keys(estado)) {
         if (!(dim in DIMENSOES)) {
-          achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.chave', `dimensão desconhecida estado.${dim}`));
+          achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.chave', (m) => m.dimensaoDesconhecida(dim)));
         }
       }
     }
   }
   for (const k of ['verificado_em', 'atualizado_em']) {
     if (k in d.dados && !ISO_COM_FUSO.test(String(d.dados[k]))) {
-      achados.push(erro(d.arquivo, d.id, 'docs.data', `${k} "${String(d.dados[k])}" não é ISO 8601 com fuso`,
-        'exemplo: 2026-09-24T20:00:00-03:00'));
+      const valor = String(d.dados[k]);
+      achados.push(erro(d.arquivo, d.id, 'docs.data', (m) => m.dataSemFuso(k, valor), (m) => m.dataExemplo));
     }
   }
   // Valor de modelo esquecido no frontmatter: `<...>` ou ID zerado (FEAT-000, MOD-00, RM-000).
   const visitar = (v: ValorYaml | undefined, onde: string): void => {
     if (typeof v === 'string') {
       if (/^<[^>]*>$/.test(v.trim()) || /^(PLAT|SYS|MOD|FEAT|RM)-0+$/.test(v.trim()) || /@0{7}$/.test(v.trim())) {
-        achados.push(erro(d.arquivo, d.id, 'docs.modelo', `valor do modelo não preenchido em ${onde}: ${v}`));
+        const valor = v;
+        achados.push(erro(d.arquivo, d.id, 'docs.modelo', (m) => m.valorDoModelo(onde, valor)));
       }
     } else if (Array.isArray(v)) v.forEach((x, i) => visitar(x, `${onde}[${i}]`));
     else if (ehMapa(v)) for (const [k, x] of Object.entries(v)) visitar(x, onde ? `${onde}.${k}` : k);
@@ -409,16 +417,14 @@ function substituirBloco(corpo: string, ini: string, fim: string, conteudo: stri
 
 function verificarTabelasDeEstado(d: Documento, achados: Achado[]): void {
   for (const [ini, fim, render, nome] of [
-    [RELANCE_INI, RELANCE_FIM, renderizarRelance, 'a linha de relance'],
-    [ESTADO_INI, ESTADO_FIM, renderizarEstado, 'a tabela "Estado com evidências"'],
+    [RELANCE_INI, RELANCE_FIM, renderizarRelance, (m: Mensagens['docs']) => m.nomeDaRelance],
+    [ESTADO_INI, ESTADO_FIM, renderizarEstado, (m: Mensagens['docs']) => m.nomeDoEstado],
   ] as const) {
     const atual = blocoEntre(d.corpo, ini, fim);
     if (atual === null) {
-      achados.push(erro(d.arquivo, d.id, 'docs.paridade.estado', `falta ${nome} gerada do frontmatter`,
-        'copie os marcadores do modelo e rode ork docs sincronizar --escrever'));
+      achados.push(erro(d.arquivo, d.id, 'docs.paridade.estado', (m) => m.faltaTabela(nome(m)), (m) => m.faltaTabelaCorrecao));
     } else if (atual !== render(d)) {
-      achados.push(erro(d.arquivo, d.id, 'docs.paridade.estado', `${nome} diverge do frontmatter`,
-        'o estado se edita no frontmatter; rode ork docs sincronizar --escrever para regerar a tabela'));
+      achados.push(erro(d.arquivo, d.id, 'docs.paridade.estado', (m) => m.tabelaDiverge(nome(m)), (m) => m.tabelaDivergeCorrecao));
     }
   }
 }
@@ -429,12 +435,12 @@ function verificarReferencias(raiz: string, d: Documento, porId: Map<string, Doc
   if (esperadoDoPai && pai !== undefined && pai !== null) {
     const idPai = String(pai);
     if (!esperadoDoPai.test(idPai)) {
-      achados.push(erro(d.arquivo, d.id, 'docs.referencia', `pai "${idPai}" não é do nível acima de ${d.tipo}`));
+      achados.push(erro(d.arquivo, d.id, 'docs.referencia', (m) => m.paiDeOutroNivel(idPai, d.tipo)));
     } else if (!porId.has(idPai)) {
-      achados.push(erro(d.arquivo, d.id, 'docs.referencia', `pai ${idPai} não existe`, 'crie a página do pai ou corrija o ID'));
+      achados.push(erro(d.arquivo, d.id, 'docs.referencia', (m) => m.paiNaoExiste(idPai), (m) => m.paiNaoExisteCorrecao));
     }
   } else if (esperadoDoPai && d.tipo !== 'roadmap' && (pai === undefined || pai === null)) {
-    achados.push(erro(d.arquivo, d.id, 'docs.referencia', `${d.tipo} precisa de pai`));
+    achados.push(erro(d.arquivo, d.id, 'docs.referencia', (m) => m.precisaDePai(d.tipo)));
   }
   const cruzadas: Array<[string, TipoDoc, string]> = d.tipo === 'feature' ? [['roadmap', 'roadmap', 'features']]
     : d.tipo === 'roadmap' ? [['features', 'feature', 'roadmap']] : [];
@@ -442,10 +448,10 @@ function verificarReferencias(raiz: string, d: Documento, porId: Map<string, Doc
     for (const alvo of lista(d.dados[chave])) {
       const outro = porId.get(alvo);
       if (!outro || outro.tipo !== tipoAlvo) {
-        achados.push(erro(d.arquivo, d.id, 'docs.referencia', `${chave} cita ${alvo}, que não existe como ${tipoAlvo}`));
+        achados.push(erro(d.arquivo, d.id, 'docs.referencia', (m) => m.citaInexistente(chave, alvo, tipoAlvo)));
       } else if (!lista(outro.dados[chaveDeVolta]).includes(d.id)) {
-        achados.push(aviso(d.arquivo, d.id, 'docs.referencia.reciproca', `${alvo} não cita ${d.id} de volta`,
-          `acrescente ${d.id} em ${chaveDeVolta} de ${alvo}`));
+        achados.push(aviso(d.arquivo, d.id, 'docs.referencia.reciproca', (m) => m.naoCitaDeVolta(alvo, d.id),
+          (m) => m.naoCitaDeVoltaCorrecao(d.id, chaveDeVolta, alvo)));
       }
     }
   }
@@ -455,7 +461,7 @@ function verificarReferencias(raiz: string, d: Documento, porId: Map<string, Doc
     if (/^[a-z][a-z0-9+.-]*:/i.test(alvo)) continue;
     const abs = path.resolve(path.dirname(path.join(raiz, d.arquivo)), decodeURIComponent(alvo));
     if (!fs.existsSync(abs)) {
-      achados.push(erro(d.arquivo, d.id, 'docs.link', `link quebrado: ${alvo}`));
+      achados.push(erro(d.arquivo, d.id, 'docs.link', (m) => m.linkQuebrado(alvo)));
     }
   }
 }
@@ -469,39 +475,33 @@ function verificarLeitura(d: Documento, achados: Achado[]): void {
   const linhas = d.corpo.split('\n');
   const h1 = linhas.find((l) => l.startsWith('# '));
   if (!h1 || !h1.includes(d.id)) {
-    achados.push(erro(d.arquivo, d.id, 'docs.leitura.titulo', 'o título (#) não começa pelo ID',
-      `# ${d.id} — <nome>: humano e agente acham a página pelo mesmo nome`));
+    achados.push(erro(d.arquivo, d.id, 'docs.leitura.titulo', (m) => m.tituloSemId, (m) => m.tituloSemIdCorrecao(d.id)));
   }
   const frase = linhas.find((l) => /^>\s*\*\*Em uma frase:\*\*/.test(l));
   if (!frase) {
-    achados.push(erro(d.arquivo, d.id, 'docs.leitura.resumo', 'falta a linha "> **Em uma frase:**" logo abaixo do título',
-      'escreva o que a página responde, antes de qualquer detalhe'));
+    achados.push(erro(d.arquivo, d.id, 'docs.leitura.resumo', (m) => m.faltaFrase, (m) => m.faltaFraseCorrecao));
   } else {
     const n = frase.replace(/^>\s*\*\*Em uma frase:\*\*\s*/, '').trim().length;
-    if (n === 0) achados.push(erro(d.arquivo, d.id, 'docs.leitura.resumo', 'a frase de abertura está vazia'));
+    if (n === 0) achados.push(erro(d.arquivo, d.id, 'docs.leitura.resumo', (m) => m.fraseVazia));
     else if (n > LIMITE_DA_FRASE) {
-      achados.push(erro(d.arquivo, d.id, 'docs.leitura.resumo', `a frase de abertura tem ${n} caracteres (limite ${LIMITE_DA_FRASE})`,
-        'corte para uma ideia só; o resto vai em tópicos'));
+      achados.push(erro(d.arquivo, d.id, 'docs.leitura.resumo', (m) => m.fraseLonga(n, LIMITE_DA_FRASE), (m) => m.fraseLongaCorrecao));
     }
   }
   const h2 = new Set(linhas.filter((l) => l.startsWith('## ')).map((l) => l.slice(3).trim()));
   for (const s of SECOES[d.tipo]) {
     if (!h2.has(s)) {
-      achados.push(erro(d.arquivo, d.id, 'docs.secao', `falta a seção "## ${s}"`,
-        'se não se aplica, escreva dentro dela: Não aplicável — motivo'));
+      achados.push(erro(d.arquivo, d.id, 'docs.secao', (m) => m.faltaSecao(s), (m) => m.faltaSecaoCorrecao));
     }
   }
   const texto = semCodigo(d.corpo);
-  for (const m of texto.matchAll(/\[(\.\.\.|[^\]\n]{1,60})\](?!\()/g)) {
-    achados.push(erro(d.arquivo, d.id, 'docs.modelo', `campo do modelo não preenchido: [${m[1]}]`,
-      'preencha, ou escreva "A definir — responsável, prazo" / "Não aplicável — motivo"'));
+  for (const [, campo] of texto.matchAll(/\[(\.\.\.|[^\]\n]{1,60})\](?!\()/g)) {
+    achados.push(erro(d.arquivo, d.id, 'docs.modelo', (m) => m.campoDoModelo(campo), (m) => m.campoDoModeloCorrecao));
   }
   for (const p of texto.split(/\n\s*\n/)) {
     const bloco = p.trim();
     if (!bloco || /^(#|>|\||[-*+] |\d+\. |<!--)/.test(bloco)) continue;
     if (bloco.length > LIMITE_DO_PARAGRAFO) {
-      achados.push(aviso(d.arquivo, d.id, 'docs.leitura.paragrafo', `parágrafo com ${bloco.length} caracteres`,
-        'quebre em tópicos: uma ideia por linha'));
+      achados.push(aviso(d.arquivo, d.id, 'docs.leitura.paragrafo', (m) => m.paragrafoLongo(bloco.length), (m) => m.paragrafoLongoCorrecao));
     }
   }
 }
@@ -510,35 +510,33 @@ function verificarFontes(raiz: string, d: Documento, comandos: Set<string> | nul
   const f = d.dados.fontes;
   if (f === undefined || f === null) return;
   if (!ehMapa(f)) {
-    achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.valor', 'fontes é um mapa (codigo, testes, simbolos, contratos, comandos)'));
+    achados.push(erro(d.arquivo, d.id, 'docs.frontmatter.valor', (m) => m.fontesNaoMapa));
     return;
   }
   const existe = (p: string) => fs.existsSync(path.join(raiz, p));
   for (const chave of ['codigo', 'testes', 'docs']) {
     for (const p of lista(f[chave])) {
       if (path.isAbsolute(p) || p.split('/').includes('..')) {
-        achados.push(erro(d.arquivo, d.id, 'docs.paridade.fonte', `${p}: caminho fora do repositório`, 'use caminho relativo à raiz'));
+        achados.push(erro(d.arquivo, d.id, 'docs.paridade.fonte', (m) => m.caminhoFora(p), (m) => m.caminhoForaCorrecao));
       } else if (!existe(p)) {
-        achados.push(erro(d.arquivo, d.id, 'docs.paridade.fonte', `${p} não existe no repositório`,
-          'a doc descreve o código que existe: corrija o caminho ou a página'));
+        achados.push(erro(d.arquivo, d.id, 'docs.paridade.fonte', (m) => m.caminhoNaoExiste(p), (m) => m.caminhoNaoExisteCorrecao));
       }
     }
   }
   for (const s of lista(f.simbolos)) {
     const [arq, simbolo] = s.split('#');
     if (!arq || !simbolo) {
-      achados.push(erro(d.arquivo, d.id, 'docs.paridade.simbolo', `símbolo "${s}" fora do formato arquivo#nome`));
+      achados.push(erro(d.arquivo, d.id, 'docs.paridade.simbolo', (m) => m.simboloForaDoFormato(s)));
     } else if (!existe(arq)) {
-      achados.push(erro(d.arquivo, d.id, 'docs.paridade.simbolo', `${arq} não existe (símbolo ${simbolo})`));
+      achados.push(erro(d.arquivo, d.id, 'docs.paridade.simbolo', (m) => m.arquivoDoSimbolo(arq, simbolo)));
     } else if (!new RegExp(`\\b${escapar(simbolo)}\\b`).test(fs.readFileSync(path.join(raiz, arq), 'utf8'))) {
-      achados.push(erro(d.arquivo, d.id, 'docs.paridade.simbolo', `${simbolo} não aparece em ${arq}`,
-        'o código mudou de nome ou a página ficou para trás'));
+      achados.push(erro(d.arquivo, d.id, 'docs.paridade.simbolo', (m) => m.simboloAusente(simbolo, arq), (m) => m.simboloAusenteCorrecao));
     }
   }
   const codigo = lista(f.codigo).filter(existe).map((p) => fs.readFileSync(path.join(raiz, p), 'utf8'));
   for (const c of lista(f.contratos)) {
     if (!codigo.some((t) => t.includes(c))) {
-      achados.push(erro(d.arquivo, d.id, 'docs.paridade.contrato', `o contrato ${c} não aparece nos arquivos de fontes.codigo`));
+      achados.push(erro(d.arquivo, d.id, 'docs.paridade.contrato', (m) => m.contratoAusente(c)));
     }
   }
   if (comandos) {
@@ -549,8 +547,8 @@ function verificarFontes(raiz: string, d: Documento, comandos: Set<string> | nul
       const temSubcomandos = [...comandos].some((c) => c.startsWith(`${topo} `));
       const exigePar = temSubcomandos && /^[a-z][a-z-]*$/.test(sub);
       if (!comandos.has(topo) || (exigePar && !comandos.has(`${topo} ${sub}`))) {
-        achados.push(erro(d.arquivo, d.id, 'docs.paridade.comando', `o CLI não declara "${[programa, topo, sub].join(' ').trim()}"`,
-          'confira `ork --help`: a doc descreve o CLI que existe'));
+        const comando = [programa, topo, sub].join(' ').trim();
+        achados.push(erro(d.arquivo, d.id, 'docs.paridade.comando', (m) => m.comandoAusente(comando), (m) => m.comandoAusenteCorrecao));
       }
     }
   }
@@ -569,29 +567,27 @@ function verificarEstadoDoRoadmap(raiz: string, d: Documento, base: string | nul
 
   // Coerencia entre dimensoes (padrao 3.6): o status nao pode esconder o que falta.
   if (ciclo === 'Concluído' && codigo !== 'Mesclado') {
-    achados.push(erro(d.arquivo, d.id, 'docs.estado.coerencia', 'ciclo Concluído com código que não está Mesclado'));
+    achados.push(erro(d.arquivo, d.id, 'docs.estado.coerencia', (m) => m.concluidoSemMerge));
   }
   if (ciclo === 'Concluído' && testes !== 'Aprovados') {
-    achados.push(erro(d.arquivo, d.id, 'docs.estado.coerencia', 'ciclo Concluído com testes que não estão Aprovados'));
+    achados.push(erro(d.arquivo, d.id, 'docs.estado.coerencia', (m) => m.concluidoSemTestes));
   }
   if (deploy === 'Produção' && codigo !== 'Mesclado') {
-    achados.push(erro(d.arquivo, d.id, 'docs.estado.coerencia', 'deploy em Produção com código que não está Mesclado'));
+    achados.push(erro(d.arquivo, d.id, 'docs.estado.coerencia', (m) => m.producaoSemMerge));
   }
   if (ciclo === 'Bloqueado' && !ehMapa(d.dados.bloqueio)) {
-    achados.push(erro(d.arquivo, d.id, 'docs.estado.bloqueio', 'Bloqueado exige o mapa "bloqueio"',
-      'bloqueio: motivo, dependencia, responsavel, proxima_revisao'));
+    achados.push(erro(d.arquivo, d.id, 'docs.estado.bloqueio', (m) => m.bloqueadoSemMapa, (m) => m.bloqueadoSemMapaCorrecao));
   }
   if (codigo === 'Mesclado' && !commit) {
-    achados.push(erro(d.arquivo, d.id, 'docs.paridade.git', 'código Mesclado sem o commit do merge',
-      'preencha evidencias.codigo.commit (ork docs sincronizar faz isso a partir do ledger e do git)'));
+    achados.push(erro(d.arquivo, d.id, 'docs.paridade.git', (m) => m.mescladoSemCommit, (m) => m.mescladoSemCommitCorrecao));
   }
   if (commit && base) {
     // RM-047: o commit vem do frontmatter do clone; só sha hexadecimal vai ao git.
     if (!shaValido(commit) || !git(raiz, ['cat-file', '-e', `${commit}^{commit}`]).ok) {
-      achados.push(erro(d.arquivo, d.id, 'docs.paridade.git', `o commit ${commit} não existe neste repositório`));
+      achados.push(erro(d.arquivo, d.id, 'docs.paridade.git', (m) => m.commitInexistente(commit)));
     } else if (codigo === 'Mesclado' && !git(raiz, ['merge-base', '--is-ancestor', commit, base]).ok) {
-      achados.push(erro(d.arquivo, d.id, 'docs.paridade.git', `o commit ${commit} não está na ${base}: o merge não aconteceu`,
-        'volte o estado.codigo para "PR aberto" ou "Branch criada" até o merge'));
+      const naBase = base;
+      achados.push(erro(d.arquivo, d.id, 'docs.paridade.git', (m) => m.commitForaDaBase(commit, naBase), (m) => m.commitForaDaBaseCorrecao));
     }
   }
 }
@@ -608,10 +604,7 @@ function verificarMergeDaThread(raiz: string, d: Documento, base: string, achado
   if (!pendente) return;
   const { thread, merges, codigo } = pendente;
   achados.push((pr ? aviso : erro)(d.arquivo, d.id, 'docs.paridade.merge',
-    `a thread ${thread} entrou na ${base} pelo merge ${merges[0].slice(0, 7)} (ship(${thread})), e o estado.codigo diz "${codigo || 'vazio'}"` +
-      (pr ? ' (no PR, aviso: o push da main reprova)' : ''),
-    `abra um PR de docs sobre a ${base} atualizada com ork docs sincronizar --escrever --so ${d.id} (o item e os índices); ` +
-      `se o item tem outra fatia em curso, aponte sdlc.thread para a thread dela`));
+    (m) => m.mergeDaThread(thread, base, merges[0].slice(0, 7), codigo, pr), (m) => m.mergeDaThreadCorrecao(base, d.id)));
 }
 
 /**
@@ -686,13 +679,11 @@ function verificarIndices(raiz: string, docs: Documento[], achados: Achado[], pr
     if (atual === null) continue;
     if (atual === '') {
       if (docs.length > 0) {
-        achados.push(aviso(arquivo, undefined, 'docs.paridade.indice', 'o índice ainda não foi gerado',
-          'rode ork docs sincronizar --escrever'));
+        achados.push(aviso(arquivo, undefined, 'docs.paridade.indice', (m) => m.indiceNaoGerado, (m) => m.indiceNaoGeradoCorrecao));
       }
     } else if (atual !== gerar(docs)) {
       achados.push((pr ? aviso : erro)(arquivo, undefined, 'docs.paridade.indice',
-        `o índice diverge do frontmatter das páginas${pr ? ' (no PR, aviso: o push da main reprova)' : ''}`,
-        'o índice é gerado do frontmatter: rode ork docs sincronizar --escrever e commite o índice'));
+        (m) => m.indiceDiverge(pr), (m) => m.indiceDivergeCorrecao));
     }
   }
 }
@@ -700,22 +691,21 @@ function verificarIndices(raiz: string, docs: Documento[], achados: Achado[], pr
 // --------------------------------------------------------------------------------------------
 // Saida para humano (TDAH) e para agente
 
+/** O texto da verificacao, no locale ativo; a mensagem e a correcao de cada achado sao remontadas (G4 da F3b). */
 export function textoDaVerificacao(docs: Documento[], achados: Achado[]): string {
+  const m = msg().docs;
   const conta = (t: TipoDoc) => docs.filter((d) => d.tipo === t).length;
   const erros = achados.filter((a) => a.gravidade === 'erro');
   const avisos = achados.filter((a) => a.gravidade === 'aviso');
   const L: string[] = [];
-  L.push(`Documentação: ${docs.length} páginas — ${conta('feature')} features, ${conta('roadmap')} itens de roadmap, `
-    + `${conta('plataforma') + conta('sistema') + conta('modulo')} de contexto`);
-  L.push(erros.length === 0
-    ? `OK: nenhum erro de paridade${avisos.length ? ` · ${avisos.length} aviso(s) de leitura` : ''}`
-    : `REPROVADO: ${erros.length} erro(s)${avisos.length ? ` · ${avisos.length} aviso(s)` : ''}`);
-  for (const [titulo, grupo] of [['Erros', erros], ['Avisos', avisos]] as const) {
+  L.push(m.resumo(docs.length, conta('feature'), conta('roadmap'), conta('plataforma') + conta('sistema') + conta('modulo')));
+  L.push(erros.length === 0 ? m.semErro(avisos.length) : m.reprovado(erros.length, avisos.length));
+  for (const [titulo, grupo] of [[m.tituloErros, erros], [m.tituloAvisos, avisos]] as const) {
     if (grupo.length === 0) continue;
     L.push('', titulo);
     for (const a of grupo) {
-      L.push(`  ${(a.id ?? a.arquivo).padEnd(9)} ${a.mensagem}`);
-      if (a.correcao) L.push(`  ${''.padEnd(9)} → ${a.correcao}`);
+      L.push(`  ${(a.id ?? a.arquivo).padEnd(9)} ${remontar(a.mensagem)}`);
+      if (a.correcao) L.push(`  ${''.padEnd(9)} → ${remontar(a.correcao)}`);
     }
   }
   return L.join('\n');
@@ -976,15 +966,15 @@ export function tabelaDoProduto(docs: Documento[]): string {
   return L.join('\n');
 }
 
+/** O texto da sincronizacao, no locale ativo; o campo e os valores de cada mudanca sao dado e so a impressao os traduz. */
 export function textoDaSincronizacao(r: { mudancas: MudancaDeSync[]; indices: string[] }, escreveu: boolean): string {
+  const m = msg().docs;
   const L: string[] = [];
-  const ids = new Set(r.mudancas.map((m) => m.id));
-  L.push(r.mudancas.length === 0 && r.indices.length === 0
-    ? 'Sincronizado: a documentação já bate com o ledger e o git.'
-    : `${escreveu ? 'Atualizado' : 'A atualizar'}: ${ids.size} item(ns) de roadmap, ${r.indices.length} índice(s).`);
-  for (const m of r.mudancas) L.push(`  ${m.id.padEnd(7)} ${m.campo}: ${m.de || '—'} → ${m.para}  (${m.fonte})`);
-  for (const i of r.indices) L.push(`  índice  ${i}`);
-  if (!escreveu && (r.mudancas.length || r.indices.length)) L.push('', 'Nada foi gravado. Para gravar: ork docs sincronizar --escrever');
+  const ids = new Set(r.mudancas.map((x) => x.id));
+  L.push(r.mudancas.length === 0 && r.indices.length === 0 ? m.sincronizado : m.aAtualizar(escreveu, ids.size, r.indices.length));
+  for (const x of r.mudancas) L.push(m.linhaDaMudanca(x.id, x.campo, x.de, x.para, x.fonte));
+  for (const i of r.indices) L.push(m.indice(i));
+  if (!escreveu && (r.mudancas.length || r.indices.length)) L.push('', m.nadaGravado);
   return L.join('\n');
 }
 

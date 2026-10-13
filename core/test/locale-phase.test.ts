@@ -109,11 +109,12 @@ test('locale en F2a phase: o dado gravado pelo despacho (prompt, sha256, ledger,
   } finally { pt.limpar(); en.limpar(); }
 });
 
-test('locale en F2a phase: retry list e claims list seguem em pt-BR com LANG=en_US', () => {
+test('locale en F2a phase: retry list e retry policy seguem em pt-BR com LANG=en_US', () => {
   const c = cenario('phase-negativo');
   try {
     assert.equal(ork(c, PT, true, 'thread', 'new', 'Fora', '--modo', 'auto', '--sem-worktree').status, 0);
-    for (const args of [['retry', 'list'], ['claims', 'list', 'loc-fora'], ['retry', 'policy']]) {
+    // A F3b levou `claims list` ao catalogo (locale-claims); o retry fora da F2b segue em pt-BR.
+    for (const args of [['retry', 'list'], ['retry', 'policy']]) {
       const pt = ork(c, PT, true, ...args), en = ork(c, EN, true, ...args);
       assert.equal(en.stdout, pt.stdout, args.join(' '));
       assert.equal(en.stderr, pt.stderr, args.join(' '));

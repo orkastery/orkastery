@@ -195,6 +195,8 @@ test('L3: pela extensao OpenClaw real, toda tool de projeto nomeia o projeto que
     ork_claims_add: { thread: m.thread, arquivo: 'README.md', alegacao: 'o README existe', comando: 'test -f README.md' },
     ork_brain_query: { thread: m.thread, kinds: 'prod' }, ork_brain_get: { thread: m.thread, id: 'prod-x' },
     ork_brain_context: { thread: m.thread, ids: 'prod-x' },
+    // RM-026 K7 (fatia 3): o id e obrigatorio, e o host recusa sem ele antes de chamar o ork.
+    ork_conhecimento_mostrar: { id: 'doc-qualquer' },
   };
   await gateway(m.workspace.dir, async (tools) => {
     const conferidas: string[] = [];

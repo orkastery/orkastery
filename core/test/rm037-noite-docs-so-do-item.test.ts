@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { projetoTemporario } from './apoio';
+import { envPtBr, projetoTemporario } from './apoio';
 import { escopoPadraoDoSync, separarFrontmatter, sincronizarDocs } from '../src/docs';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { garantirWorktree } from '../src/worktree';
@@ -103,7 +103,7 @@ test('defeito 5: na worktree de uma thread com item, o padrao do CLI e o item de
     assert.deepEqual(escopoPadraoDoSync(p.dir), { itens: null, thread: null }, 'na raiz, todo item');
 
     const ork = (args: string[]) => spawnSync(process.execPath, [CLI, 'docs', 'sincronizar', ...args],
-      { cwd: wt, encoding: 'utf8', env: { ...process.env, ORK_FABRICA_PUBLICAR: '0' } });
+      { cwd: wt, encoding: 'utf8', env: envPtBr({ ...process.env, ORK_FABRICA_PUBLICAR: '0' }) });
     const padrao = ork(['--escrever']);
     assert.equal(padrao.status, 0, padrao.stderr);
     assert.match(padrao.stdout, new RegExp(`^Escopo: so RM-002, o item da thread ${thread.id} desta worktree`));

@@ -55,6 +55,15 @@ export function ehFantasma(runtime: RuntimeComPerfil, s: SessaoRuntime, vivo: (p
   return runtime === 'claude-bg' && !TERMINAIS.includes(estadoDe(s)) && !vivo(s.pid);
 }
 
+/**
+ * RM-037 (ork-rm037esperas, D7): o runtime mostra a sessao encerrada: estado terminal (`done`, `completed`, `exited`,
+ * `stopped`, `failed`) ou fantasma, registro sem processo que trabalhe por ele. Domicilio unico dessa leitura: o portao
+ * de vaga do `ork phase run` (`vagaDoDespacho`) e a capacidade do #Noctum a usam.
+ */
+export function encerradaNaLista(s: SessaoDaConta): boolean {
+  return s.fantasma || TERMINAIS.includes(estadoDe(s));
+}
+
 const real = (dir: string): string => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
 
 /**

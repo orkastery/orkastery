@@ -21,6 +21,7 @@ import { avaliarPolicies, avisos, policyDeProvaLocal, ViolacaoDePolicy } from '.
 import { cwdDaThread, executar, TIMEOUT_VERIFY_MS } from './verify';
 import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, tabela } from './util';
 import { analisarComandos } from './claim-lint';
+import { ErroDoCatalogo, msg } from './locale';
 
 /** Caminho do `claims.jsonl` da thread (append-only, como o ledger). */
 export function caminhoClaims(raiz: string, threadId: string): string {
@@ -241,7 +242,7 @@ export function registrarCriteriosDePronto(raiz: string, threadId: string): Clai
 export function exigirClaim(raiz: string, threadId: string, claimId: string): Claim {
   const claim = lerClaims(raiz, threadId).find((c) => c.id === claimId);
   if (!claim) {
-    throw new Error(`claim "${claimId}" nao existe na thread ${threadId}`);
+    throw new ErroDoCatalogo((m) => m.claims.naoExiste(claimId, threadId));
   }
   return claim;
 }
@@ -314,20 +315,17 @@ export function carimbarEstado(raiz: string, claim: Claim, estado: Claim['estado
 /** Tabela de `ork claims list`. */
 export function tabelaDeClaims(raiz: string, threadId: string): string {
   const claims = lerClaims(raiz, threadId);
-  if (claims.length === 0) {
-    return (
-      `Nenhuma claim na thread ${threadId}.\n` +
-      `Registre uma com: ork claims add ${threadId} <arquivo> --claim "<alegacao>" --verificar "<comando>"`
-    );
-  }
+  // RM-061 (F3b): o texto pelo catalogo; o estado (dado do `claims.jsonl`) so se traduz aqui, pelo id.
+  const m = msg().claims;
+  if (claims.length === 0) return m.listaVazia(threadId);
   const linhas = claims.map((c) => [
     c.id,
     c.fase ?? '-',
-    c.estado,
-    c.negativa ? 'sim' : 'nao',
+    m.estado(c.estado),
+    c.negativa ? m.sim : m.nao,
     c.arquivo,
-    c.verificar.join(' && ') || '(sem comando)',
+    c.verificar.join(' && ') || m.semComando,
     c.alegacao,
   ]);
-  return tabela(['ID', 'FASE', 'ESTADO', 'NEGATIVA', 'ARQUIVO', 'VERIFICAR', 'ALEGACAO'], linhas);
+  return tabela([...m.colunas], linhas);
 }

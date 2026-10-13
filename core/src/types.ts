@@ -1679,6 +1679,15 @@ export interface PlanoDeRetry {
   automatica: boolean;
   bloqueio: BloqueioDeRetry | null;
   razao: string;
+  /**
+   * RM-063 (F4): so em `runtime.unavailable`, a escada de recuperacao do episodio: o proximo degrau (`null` com os
+   * tres consumidos) e os degraus ja subidos desde o ultimo pedido novo da fase.
+   */
+  escada?: {
+    degrau: 1 | 2 | 3 | null;
+    tipo: 'reerguer-daemon' | 'fallback-do-bloco' | 'outro-perfil' | null;
+    consumidos: { degrau: 1 | 2 | 3; tipo: string; resultado: 'redespachada' | 'falhou' | 'pulado' | 'interrompido'; em: string }[];
+  };
 }
 
 /** Como o horario de reset do rate limit foi obtido do stderr do adapter. */
@@ -1877,6 +1886,16 @@ export interface ParadaDaThread {
    * `ork` faz depois. Ausente em qualquer outra parada.
    */
   impedimento?: { comando: string; depois: string; trecho: string };
+  /**
+   * RM-063 (F4): a escada de recuperacao do runtime que acabou sem sessao: os degraus, o comando que confere o runtime,
+   * o que retoma a fase com o mesmo prompt e as alternativas da RM-057 (uma recomendada).
+   */
+  escada?: {
+    degraus: { degrau: 1 | 2 | 3; tipo: string; resultado: string; motivo: string | null }[];
+    conferir: string;
+    retomar: string;
+    alternativas: { chave: string; texto: string; consequencia: string; recomendada?: { porque: string } }[];
+  };
 }
 
 /** Uma thread na visao do monitor, com tudo que a trava agora. */

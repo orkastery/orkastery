@@ -24,8 +24,8 @@
  * ausente, os erros de argumento de `thread new`, `--runtime` e o modelo ao trocar de runtime no `phase run`)
  * e remontado no locale do comando pela entrada do CLI. Seguem como o modulo dono escreve, ate a familia dele migrar: o validador
  * do manifesto (fora os avisos de preferencia da experiencia, traduzidos na impressao), o regime de
- * memoria, o erro de estado durante a gravacao e, na F2b, a recusa `ship.remoto-invalido` do `exigirRemoto`
- * (`branch-de-estado.ts`, modulo compartilhado com a fabrica e a rede). O cabecalho `Projeto consultado:` e `Não lido:` e
+ * memoria e o erro de estado durante a gravacao; a recusa `<prefixo>.remoto-invalido` do `exigirRemoto` (`branch-de-estado.ts`),
+ * que a F2b deixou em pt-BR, vai ao catalogo na F3b. O cabecalho `Projeto consultado:` e `Não lido:` e
  * contrato do RM-052 com os hosts e fica igual nas duas linguas.
  *
  * F2b (G2 e D1 da thread ork-rm061f2b): o texto que o proprio comando monta e que tambem vai ao ledger ou
@@ -46,6 +46,13 @@
  * O gerador recebe o locale por parametro, com pt-BR por omissao, e so a entrada do CLI passa a lingua do dono: o
  * locale ativo nunca escolhe a lingua de um arquivo. Chave, valor e marcador do arquivo nao mudam com a lingua.
  *
+ * F3b (G4 e D1 a D5 da thread ork-rm061f3b): o resto da lista do dono (`thread list|close|entrega`, `worktree`,
+ * `claims`, `decisao placar`, `accounts`, `network`, `roadmap reservas|pegar|soltar|feat`, `docs verificar|sincronizar`,
+ * `adapter` e os erros de estado) sai pelo catalogo, com o que vai ao ledger, ao `claims.jsonl` ou ao `--json` nascido em
+ * pt-BR e remontado na impressao. O `ork adapter install` copia, com o dono em ingles, as variantes de
+ * `core/assets/{skills,references,adapters}-en/`. Seguem em pt-BR, para a F3c: `decisao registrar` (G5), `network roadmap`
+ * (G6), `thread new --from-finding` e os prompts de fase (G7).
+ *
  * Ingles (D8): curto, no imperativo onde e instrucao, com os mesmos termos em todo o CLI (`thread`,
  * `phase`, `claim`, `verify`, `ship`, `pulse`, `lease`, `ledger`, `worktree`, `slug`). Comando, flag
  * e identificador dentro de frase vao entre crases; valor que e so um comando (a linha `fix:`) fica nu.
@@ -62,6 +69,15 @@ import { MASTER_EN, MASTER_PT_BR } from './locale-master';
 import { PULSE_EN, PULSE_PT_BR } from './locale-pulse';
 import { ROADMAP_EN, ROADMAP_PT_BR } from './locale-roadmap';
 import { GERADOS_EN, GERADOS_PT_BR } from './locale-gerados';
+import { WORKTREE_EN, WORKTREE_PT_BR } from './locale-worktree';
+import { ESTADO_EN, ESTADO_PT_BR } from './locale-estado';
+import { CLAIMS_EN, CLAIMS_PT_BR } from './locale-claims';
+import { DECISAO_EN, DECISAO_PT_BR } from './locale-decisao';
+import { ACCOUNTS_EN, ACCOUNTS_PT_BR } from './locale-accounts';
+import { NETWORK_EN, NETWORK_PT_BR } from './locale-network';
+import { RESERVAS_EN, RESERVAS_PT_BR } from './locale-reservas';
+import { DOCS_EN, DOCS_PT_BR } from './locale-docs';
+import { ADAPTER_EN, ADAPTER_PT_BR } from './locale-adapter';
 import { CONHECIMENTO_EN, CONHECIMENTO_PT_BR } from './locale-conhecimento';
 
 export type Locale = 'pt-BR' | 'en';
@@ -69,18 +85,31 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
 /**
  * Comandos cujo texto ja sai pelo catalogo, por `comando` ou por `comando subcomando`; `comando ?` e o
  * subcomando desconhecido (o erro de uso e do proprio comando). Os demais seguem em pt-BR. Ficam de
- * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync`,
- * `experiencia uninstall` e `thread list|close|entrega`. A F2b (G3) acrescenta `verify` (com `--baseline`),
+ * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync` e
+ * `experiencia uninstall`. A F2b (G3) acrescenta `verify` (com `--baseline`),
  * `ship`, `ship registrar-pr`, `retry plan`, `retry run`, `master` (o indice), `master aceitar-omissao` e
- * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`. A F3a (D5) acrescenta `docs init`;
- * `docs verificar` e `docs sincronizar` seguem em pt-BR. O conhecimento escrito (RM-026 K7, fatia 2) nasce coberto:
- * `conhecimento listar|mostrar|colecoes|verificar` e o uso errado dele.
+ * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`. A F3a (D5) acrescenta `docs init`, e a
+ * F3b (D1), o resto da lista do dono, fora `decisao registrar` (G5) e `network roadmap` (G6). O conhecimento escrito
+ * (RM-026 K7, fatia 2) nasce coberto: `conhecimento listar|mostrar|colecoes|verificar` e o uso errado dele.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
   'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
   'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status', 'docs init',
+  // F3b (D1): o resto do CLI, na ordem do pedido.
+  'thread list', 'thread close', 'thread entrega', 'worktree ensure', 'worktree sync', 'worktree audit', 'worktree release', 'worktree ?',
+  'claims add', 'claims conferir', 'claims verificar', 'claims retirar', 'claims ausente', 'claims list', 'claims ?',
+  // G5: `decisao registrar` segue em pt-BR (as recusas sao do contrato HITL v2).
+  'decisao placar', 'decisao ?',
+  'accounts list', 'accounts add', 'accounts remove', 'accounts check', 'accounts esgotamentos', 'accounts ?',
+  // G6: `network roadmap` segue em pt-BR (o texto e contrato com os hosts e com a prova de ativacao).
+  'network status', 'network entrar', 'network sair', 'network publicar', 'network ?',
+  'roadmap reservas', 'roadmap pegar', 'roadmap soltar', 'roadmap feat', 'roadmap ?',
+  // O contrato que o `docs verificar` le nas paginas (chaves, valores, secoes, marcadores) segue em pt-BR; so a mensagem muda.
+  'docs verificar', 'docs sincronizar', 'docs ?',
+  'adapter list', 'adapter show', 'adapter install', 'adapter ?',
   'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?'];
+
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -91,6 +120,12 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['retry', { padrao: null, conhecidos: ['plan', 'run', 'policy', 'parse', 'list', 'resume', 'cancel'] }],
   ['roadmap', { padrao: 'reservas', conhecidos: ['reservas', 'status', 'feat', 'pegar', 'soltar'] }],
   ['docs', { padrao: 'verificar', conhecidos: ['verificar', 'sincronizar', 'init'] }],
+  ['worktree', { padrao: null, conhecidos: ['ensure', 'sync', 'audit', 'release'] }],
+  ['claims', { padrao: 'list', conhecidos: ['add', 'conferir', 'verificar', 'retirar', 'ausente', 'list'] }],
+  ['decisao', { padrao: null, conhecidos: ['registrar', 'placar'] }],
+  ['accounts', { padrao: 'list', conhecidos: ['list', 'add', 'remove', 'check', 'esgotamentos'] }],
+  ['network', { padrao: 'status', conhecidos: ['status', 'entrar', 'sair', 'publicar', 'roadmap'] }],
+  ['adapter', { padrao: 'list', conhecidos: ['list', 'show', 'install'] }],
   ['conhecimento', { padrao: 'listar', conhecidos: ['listar', 'mostrar', 'colecoes', 'verificar'] }],
 ]);
 
@@ -411,6 +446,15 @@ const PT_BR = {
   pulse: PULSE_PT_BR,
   roadmap: ROADMAP_PT_BR,
   gerados: GERADOS_PT_BR,
+  worktree: WORKTREE_PT_BR,
+  estado: ESTADO_PT_BR,
+  claims: CLAIMS_PT_BR,
+  decisao: DECISAO_PT_BR,
+  accounts: ACCOUNTS_PT_BR,
+  network: NETWORK_PT_BR,
+  reservas: RESERVAS_PT_BR,
+  docs: DOCS_PT_BR,
+  adapter: ADAPTER_PT_BR,
   conhecimento: CONHECIMENTO_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
@@ -676,6 +720,15 @@ const EN: Mensagens = {
   pulse: PULSE_EN,
   roadmap: ROADMAP_EN,
   gerados: GERADOS_EN,
+  worktree: WORKTREE_EN,
+  estado: ESTADO_EN,
+  claims: CLAIMS_EN,
+  decisao: DECISAO_EN,
+  accounts: ACCOUNTS_EN,
+  network: NETWORK_EN,
+  reservas: RESERVAS_EN,
+  docs: DOCS_EN,
+  adapter: ADAPTER_EN,
   conhecimento: CONHECIMENTO_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
@@ -718,6 +771,14 @@ export function mensagemDoErro(e: unknown): string {
   return e instanceof ErroDoCatalogo ? e.montar(msg()) : e instanceof Error ? e.message : String(e);
 }
 
+/**
+ * F3b (D3): o texto de um erro para guardar num resultado que o comando coberto imprime depois. O do catalogo e
+ * registrado para a remontagem, como `textoDoCatalogo`; os demais saem como vieram.
+ */
+export function textoDoErro(e: unknown): string {
+  return e instanceof ErroDoCatalogo ? textoDoCatalogo(e.montar) : e instanceof Error ? e.message : String(e);
+}
+
 /** Monta um texto do catalogo a partir das mensagens de um locale. */
 export type Montador = (m: Mensagens) => string;
 
@@ -740,6 +801,15 @@ export function textoDoCatalogo(montar: Montador): string {
   const texto = montar(msg());
   remontagem?.set(texto, montar);
   return texto;
+}
+
+/**
+ * F3b: o montador registrado de um texto do catalogo, ou um que devolve o texto como veio. Serve ao erro que embute um
+ * texto ja montado: o `ErroDoCatalogo` e remontado na entrada do CLI depois que o registro foi desligado, entao ele
+ * guarda o montador do texto de dentro no momento em que nasce.
+ */
+export function montadorDe(texto: string): Montador {
+  return remontagem?.get(texto) ?? (() => texto);
 }
 
 /** O texto como a pessoa o le no locale ativo: o que veio do catalogo e remontado; o resto sai como veio. */

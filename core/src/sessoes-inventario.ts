@@ -54,10 +54,12 @@ function raizesDeRegistros(cwds: string[]): { raizes: string[]; ancestraisPenden
     ancestraisPendentes: [...ancestrais].filter(r => !raizes.has(r)).sort() };
 }
 
-export function inventariarSessoes(raiz: string, opcoes: { global?: boolean; todas?: boolean } = {}): InventarioDeSessoes {
+export function inventariarSessoes(raiz: string, opcoes: { global?: boolean; todas?: boolean;
+  /** RM-063 (F5): prazo do `claude agents` por conta; a leitura da varredura e do pulse nao espera um daemon travado. */
+  prazoMs?: number } = {}): InventarioDeSessoes {
   const canonica = raizDoEstado(raiz);
   // RM-056 (D4): a conta do processo e cada perfil do store, sem repetir diretorio.
-  const contas = consultarContas(canonica, { todas: opcoes.todas });
+  const contas = consultarContas(canonica, { todas: opcoes.todas, ...(opcoes.prazoMs ? { prazoMs: opcoes.prazoMs } : {}) });
   const fontes = contas.fontes;
   const todas: SessaoInventariada[] = contas.sessoes.map(s => ({ ...s, vinculos: [] as VinculoDeSessao[] }));
   // O cruzamento usa o universo global mesmo quando a apresentação é local.

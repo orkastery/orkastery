@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import * as path from 'node:path';
 import { exigirCatalogo } from '../src/catalogo';
+import { envPtBr } from './apoio';
 import { CANARIOS } from '../src/canarios';
 import { lerCasos } from '../src/evalrunner';
 
@@ -24,6 +25,8 @@ function ork(args: string[]): { saida: string; codigo: number } {
         cwd: RAIZ,
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        // RM-061 (F3b): `adapter list|show` seguem o locale; o teste le o texto em pt-BR.
+        env: envPtBr(),
       }),
       codigo: 0,
     };

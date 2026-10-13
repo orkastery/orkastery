@@ -18,6 +18,7 @@ import { randomUUID } from 'node:crypto';
 import { SANDBOX_PADRAO, SANDBOXES_DO_CODEX } from './adapters/codex';
 import { raizDoEstado } from './estado-thread';
 import { rastreadoPeloGit } from './procedencia';
+import { ErroDoCatalogo } from './locale';
 import { Manifesto } from './types';
 import { agora } from './util';
 
@@ -137,14 +138,14 @@ export function gravarArquivoPrivado(raiz: string, nome: string, objeto: object)
   const pasta = pastaPrivadaDaPostura(raiz), arquivo = path.join(pasta, nome);
   const estado = path.dirname(pasta);
   const stEstado = fs.lstatSync(estado, { throwIfNoEntry: false });
-  if (stEstado && (!stEstado.isDirectory() || stEstado.isSymbolicLink())) throw new Error('estado.link: .orkastery precisa ser pasta de verdade');
+  if (stEstado && (!stEstado.isDirectory() || stEstado.isSymbolicLink())) throw new ErroDoCatalogo((m) => m.estado.posturaEstadoLink);
   fs.mkdirSync(estado, { recursive: true });
   try { fs.mkdirSync(pasta, { mode: 0o700 }); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e; }
   const stPasta = fs.lstatSync(pasta);
-  if (!stPasta.isDirectory() || stPasta.isSymbolicLink()) throw new Error('estado.link: .orkastery/private precisa ser pasta de verdade');
+  if (!stPasta.isDirectory() || stPasta.isSymbolicLink()) throw new ErroDoCatalogo((m) => m.estado.posturaPrivadaLink);
   fs.chmodSync(pasta, 0o700);
   if (rastreadoPeloGit(raiz, arquivo)) {
-    throw new Error(`estado.rastreado: ${nome} está versionado no git; tire-o do índice (git rm --cached) antes de confirmar`);
+    throw new ErroDoCatalogo((m) => m.estado.posturaRastreada(nome));
   }
   const temp = path.join(pasta, `.${nome}.${randomUUID()}.tmp`);
   const fd = fs.openSync(temp, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);

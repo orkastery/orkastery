@@ -1,0 +1,5 @@
+{
+  "formato": "ork.mod/v1",
+  "papeis": ["dono", "fase"],
+  "claudeCodeMinimo": "2.1.287"
+}

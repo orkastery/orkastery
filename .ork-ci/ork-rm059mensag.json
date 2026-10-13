@@ -1,0 +1,1189 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm059mensag",
+  "branch": "ork/ork-rm059mensag-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/src/entrega-por-mod.ts",
+      "alegacao": "RM-059 T9.1: o contrato ork.session-delivery/v1 guarda a caixa de saída só na memória do servidor do dono, tira o vínculo do turno da transcrição, faz o controle claude-bg por mod gravar só o sha256 do corpo e deixa o receptor conferir, reservar uma vez e confirmar; os 12 casos do teste do núcleo passam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-sessions-mod.test.js | awk '/^# pass /{p=$3} /^# fail /{f=$3} END{exit !(p>=12 && f==0)}'",
+        "grep -E \"CONTRATO_DA_ENTREGA = 'ork.session-delivery/v1'\" core/src/entrega-por-mod.ts",
+        "grep -E 'JANELA_DO_MENSAGEIRO_MS = 120000' core/src/entrega-por-mod.ts"
+      ],
+      "criadoEm": "2026-10-12T21:25:41.503Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-sessions.ts",
+      "alegacao": "RM-059 T9.1: a resposta de sessão claude-bg usa o controle por mod do Mensageiro, o envio por mod devolve aguardando-receptor e a resposta sem quem a leve é recusada antes de reservar; os testes de sessão que já existiam (local, reconciliação, integral, protocolo e matriz de canais) seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap core/dist-test/test/hitl-sessao-local.test.js core/dist-test/test/hitl-reconciliacao.test.js core/dist-test/test/hitl-sessions.test.js core/dist-test/test/hitl-session-protocol.test.js core/dist-test/test/hitl-matriz-canais.test.js | awk '/^# pass /{p=$3} /^# fail /{f=$3} END{exit !(p>=25 && f==0)}'",
+        "grep -E 'aguardando-receptor' core/src/hitl-sessions.ts",
+        "grep -E 'controleClaudeBgPorMod' core/src/hitl-sessions.ts"
+      ],
+      "criadoEm": "2026-10-12T21:25:44.844Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-local.ts",
+      "alegacao": "RM-059 T9.1: o ingresso local recusa antes do diálogo a resposta a uma sessão claude-bg quando nenhum Mensageiro está vivo nesta sessão do dono, e nada é reservado.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-sessions-mod.test.js | awk '/^ok [0-9]+ - sem Mensageiro vivo o dialogo nem abre/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -E 'impedimentoDaEntrega' core/src/hitl-local.ts"
+      ],
+      "criadoEm": "2026-10-12T21:25:47.232Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "RM-059 T9.1: ork_session_outbox existe só no servidor do dono do Claude Code e ork_session_inbox só no servidor preso a um despacho; nenhuma das duas entra no --allowedTools da sessão de fase.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-sessions-mod.test.js | awk '/^ok [0-9]+ - as ferramentas por servidor/{p++} /^ok [0-9]+ - ciclo inteiro pelos dois servidores/{p++} /^not ok/{f++} END{exit !(p==2 && f==0)}'",
+        "grep -F \"registrarTool('ork_session_outbox'\" core/src/mcp-server.ts",
+        "grep -F \"registrarTool('ork_session_inbox'\" core/src/mcp-server.ts",
+        "! grep -E 'ork_session_(outbox|inbox)' core/src/adapters/claude-bg.ts"
+      ],
+      "criadoEm": "2026-10-12T21:25:50.325Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/src/ledger.ts",
+      "alegacao": "RM-059 T9.1: os três eventos da entrega por mod (na fila, enviada e reservada) estão no catálogo do ledger.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"entregaNaFila: 'session_delivery_queued'\" core/src/ledger.ts",
+        "grep -E \"entregaEnviada: 'session_delivery_sent'\" core/src/ledger.ts",
+        "grep -E \"entregaReservada: 'session_delivery_reserved'\" core/src/ledger.ts"
+      ],
+      "criadoEm": "2026-10-12T21:25:52.273Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-claude.ts",
+      "alegacao": "RM-059 T9.1: o caminho da transcrição da sessão claude-bg passa a ser exportado para o Mensageiro, e o observador segue com os mesmos testes verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -E '^export function arquivoDaTranscricao' core/src/session-watcher-claude.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap core/dist-test/test/session-watcher-claude.test.js | awk '/^# pass /{p=$3} /^# fail /{f=$3} END{exit !(p>=25 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T21:25:54.546Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/test/hitl-sessions-mod.test.ts",
+      "alegacao": "RM-059 T9.1: o teste do núcleo da entrega por mod cobre o turno que parou, a mensagem exata, a caixa de saída, o ciclo pelos dois servidores MCP, as recusas antes do diálogo e do ingresso e os casos negativos do receptor.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' core/test/hitl-sessions-mod.test.ts) -ge 12",
+        "grep -F 'ciclo inteiro pelos dois servidores' core/test/hitl-sessions-mod.test.ts",
+        "grep -F 'turno que mudou' core/test/hitl-sessions-mod.test.ts"
+      ],
+      "criadoEm": "2026-10-12T21:25:56.826Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/test/hitl-session-protocol.test.ts",
+      "alegacao": "RM-059 T9.1: o teste do protocolo de sessão põe um claude falso sem sessões na frente do PATH, para o CLI recusar o pedido claude-bg sem depender do claude da máquina, e segue verde.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'falso que nao lista nada' core/test/hitl-session-protocol.test.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap core/dist-test/test/hitl-session-protocol.test.js | awk '/^# pass /{p=$3} /^# fail /{f=$3} END{exit !(p>=9 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T21:26:01.415Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/.claude-plugin/plugin.json",
+      "alegacao": "RM-059 T9.2: o manifesto do Mensageiro tem o nome da pasta, os tipos do estado e só a ponte em dependencies, e o mod passa na guarda estática.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - manifesto do Mensageiro/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-mensageiro"
+      ],
+      "criadoEm": "2026-10-12T21:36:00.502Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/orkastery-mod.json",
+      "alegacao": "RM-059 T9.2: o Mensageiro declara ork.mod/v1 com os papéis dono e fase e o Claude Code mínimo da API de mods.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - manifesto do Mensageiro/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F '\"papeis\": [\"dono\", \"fase\"]' adapters/claude-code/mods/ork-mensageiro/orkastery-mod.json"
+      ],
+      "criadoEm": "2026-10-12T21:36:02.945Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/hooks/hooks.json",
+      "alegacao": "RM-059 T9.2: o módulo de ganchos do Mensageiro é o register.tsx, e a guarda estática passa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - manifesto do Mensageiro/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-mensageiro"
+      ],
+      "criadoEm": "2026-10-12T21:36:05.219Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/hooks/register.tsx",
+      "alegacao": "RM-059 T9.2: no papel dono, o Mensageiro lê a caixa de saída do núcleo, leva a mensagem por session.send sem mexer no texto, anota o envio e só chama no $ uma lista fechada; a guarda estática passa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - o Mensageiro so chama no /{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-mensageiro",
+        "grep -F 'session.send(argsDoEnvio(e))' adapters/claude-code/mods/ork-mensageiro/hooks/register.tsx"
+      ],
+      "criadoEm": "2026-10-12T21:36:08.129Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/hooks/caixa.ts",
+      "alegacao": "RM-059 T9.2: a lógica pura do lado do dono lê a caixa no contrato do núcleo, reenvia só o que ninguém reservou (30 s sem fila, 60 s sem reserva, até 10 envios) e diz na faixa o que não chegou, o que está a caminho e o que foi entregue.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - jsonDoMcp e deveEnviar/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - faixa: o que nao chegou vem primeiro/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F 'ESPERA_DA_RESERVA_MS = 60000' adapters/claude-code/mods/ork-mensageiro/hooks/caixa.ts"
+      ],
+      "criadoEm": "2026-10-12T21:36:11.729Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/hooks/painel.tsx",
+      "alegacao": "RM-059 T9.2: o painel do Mensageiro mostra cada entrega com glifo e rótulo, sem o texto da resposta, e só o que está na janela vai ao registro da ponte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - painel: glifo e rotulo em cada estado/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F 'color=\"error\"' adapters/claude-code/mods/ork-mensageiro/hooks/painel.tsx"
+      ],
+      "criadoEm": "2026-10-12T21:36:14.219Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/types/index.d.ts",
+      "alegacao": "RM-059 T9.2: o contrato do estado do Mensageiro declara a chave dono em PluginState, sem import, e nenhuma entrega guarda o texto da resposta.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - o contrato declara o estado sem import nem referencia/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T21:36:16.426Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/apoio.ts",
+      "alegacao": "RM-059 T9.2: o apoio do kit traz a ponte falsa autocontida, a mensagem no formato do núcleo e o fundo com a caixa, o envio e as chamadas proibidas.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'export const PONTE_FALSA' adapters/claude-code/mods/ork-mensageiro/test/apoio.ts",
+        "grep -F 'export function montar(on' adapters/claude-code/mods/ork-mensageiro/test/apoio.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - a marca e a mensagem do Mensageiro sao as do nucleo/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T21:36:19.080Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts",
+      "alegacao": "RM-059 T9.2: os testes do kit do lado do dono cobrem o envio pela caixa, o reenvio, a desistência, a entrega, o motivo, a falha da caixa, os papéis e o texto que não aparece.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts) -ge 9",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - os testes do kit cobrem terminal e desktop/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T21:36:24.766Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx",
+      "alegacao": "RM-059 T9.2: os testes do kit do painel cobrem terminal e desktop, o vazio, o botão Atualizar e o registro do mostrado.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx) -ge 4",
+        "grep -F \"for (const surface of ['terminal', 'desktop'] as const)\" adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx"
+      ],
+      "criadoEm": "2026-10-12T21:36:26.859Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-mensageiro.test.ts",
+      "alegacao": "RM-059 T9.2: o teste do núcleo do Mensageiro transpila os módulos puros, cruza a mensagem com a do núcleo, varre a AST pela lista fechada e roda a guarda; os 14 casos passam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^# pass /{p=$3} /^# fail /{f=$3} END{exit !(p>=14 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T21:36:28.958Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/.claude-plugin/plugin.json",
+      "alegacao": "RM-059 T9.2: a cópia do marketplace é igual à fonte do Mensageiro e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-mensageiro/.claude-plugin/plugin.json marketplaces/claude-code/mods/ork-mensageiro/.claude-plugin/plugin.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:36:30.932Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/orkastery-mod.json",
+      "alegacao": "RM-059 T9.2: a cópia do marketplace é igual à fonte do Mensageiro e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-mensageiro/orkastery-mod.json marketplaces/claude-code/mods/ork-mensageiro/orkastery-mod.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:36:32.858Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/hooks/hooks.json",
+      "alegacao": "RM-059 T9.2: a cópia do marketplace é igual à fonte do Mensageiro e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-mensageiro/hooks/hooks.json marketplaces/claude-code/mods/ork-mensageiro/hooks/hooks.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:36:34.810Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/hooks/register.tsx",
+      "alegacao": "RM-059 T9.2: a cópia do marketplace é igual à fonte do Mensageiro e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-mensageiro/hooks/register.tsx marketplaces/claude-code/mods/ork-mensageiro/hooks/register.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:36:36.708Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/hooks/caixa.ts",
+      "alegacao": "RM-059 T9.2: a cópia do marketplace é igual à fonte do Mensageiro e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-mensageiro/hooks/caixa.ts marketplaces/claude-code/mods/ork-mensageiro/hooks/caixa.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:36:38.495Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/hooks/painel.tsx",
+      "alegacao": "RM-059 T9.2: a cópia do marketplace é igual à fonte do Mensageiro e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-mensageiro/hooks/painel.tsx marketplaces/claude-code/mods/ork-mensageiro/hooks/painel.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:36:43.608Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/types/index.d.ts",
+      "alegacao": "RM-059 T9.2: a cópia do marketplace é igual à fonte do Mensageiro e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-mensageiro/types/index.d.ts marketplaces/claude-code/mods/ork-mensageiro/types/index.d.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:36:45.502Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/test/apoio.ts",
+      "alegacao": "RM-059 T9.2: a cópia do marketplace é igual à fonte do Mensageiro e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-mensageiro/test/apoio.ts marketplaces/claude-code/mods/ork-mensageiro/test/apoio.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:36:47.405Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/test/entrega.test.ts",
+      "alegacao": "RM-059 T9.2: a cópia do marketplace é igual à fonte do Mensageiro e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts marketplaces/claude-code/mods/ork-mensageiro/test/entrega.test.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:36:49.362Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/test/painel.test.tsx",
+      "alegacao": "RM-059 T9.2: a cópia do marketplace é igual à fonte do Mensageiro e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx marketplaces/claude-code/mods/ork-mensageiro/test/painel.test.tsx && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:36:51.325Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/autoridade.json",
+      "alegacao": "RM-059 T9.2: a cópia do marketplace leva a lista de autoridade comum, igual à da pasta dos mods.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/autoridade.json marketplaces/claude-code/mods/ork-mensageiro/autoridade.json && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T21:36:53.126Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": ".claude-plugin/marketplace.json",
+      "alegacao": "RM-059 T9.2: o marketplace do repositório lista o Mensageiro pela cópia gerada.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && grep -F './marketplaces/claude-code/mods/ork-mensageiro' .claude-plugin/marketplace.json"
+      ],
+      "criadoEm": "2026-10-12T21:36:54.520Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/hooks/recepcao.ts",
+      "alegacao": "RM-059 T9.3: a lógica pura do receptor classifica a origem (mailbox sem verificação e coordinator sem agente desta sessão contam como outra sessão), usa o cabeçalho, o rótulo e o teto do núcleo, lê a conferência e o recibo no contrato do núcleo e tem leitura para todo motivo do receptor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - recepcao: a origem de outra sessao/{p++} /^ok [0-9]+ - recepcao: a conferencia e o recibo do nucleo/{q++} /^not ok/{f++} END{exit !(p==1 && q==1 && f==0)}'",
+        "node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-mensageiro"
+      ],
+      "criadoEm": "2026-10-12T22:11:00.132Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/hooks/painel.tsx",
+      "alegacao": "RM-059 T9.3: o painel da sessão de fase mostra o que chegou de outras sessões com glifo e rótulo em cada estado, a origem e o motivo, sem o texto de nenhuma mensagem e sem botão.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - painel da fase: glifo e rotulo em cada estado/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F 'export function linhasDaFase(fase: MensageiroFase, agora: number)' adapters/claude-code/mods/ork-mensageiro/hooks/painel.tsx"
+      ],
+      "criadoEm": "2026-10-12T22:11:06.430Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/types/index.d.ts",
+      "alegacao": "RM-059 T9.3: o contrato do estado declara a chave fase (MensageiroFase e MensageiroRecebida), sem import e sem campo que guarde o texto da mensagem.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - o contrato declara o estado sem import nem referencia/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F 'fase: MensageiroFase' adapters/claude-code/mods/ork-mensageiro/types/index.d.ts"
+      ],
+      "criadoEm": "2026-10-12T22:11:08.944Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/apoio.ts",
+      "alegacao": "RM-059 T9.3: o apoio do kit traz a fila do modelo e a linha da mensagem como fundos, a conferência e o recibo do núcleo, um consumidor abaixo e a ordem do que aconteceu na sessão de fase.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'export async function receber(' adapters/claude-code/mods/ork-mensageiro/test/apoio.ts",
+        "grep -F 'export async function montarMensagem(' adapters/claude-code/mods/ork-mensageiro/test/apoio.ts",
+        "grep -E 'component: .UserMessage.' adapters/claude-code/mods/ork-mensageiro/test/apoio.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - a marca e a mensagem do Mensageiro sao as do nucleo/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T22:11:12.125Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts",
+      "alegacao": "RM-059 T9.3: os testes do kit do lado da fase cobrem a mensagem peer sem entrega consumida mesmo com plugin ork-mensageiro, o Remote Control e as outras origens intocados, a confirmada entregue como chegou e confirmada depois da fila, a recusa e a falha do núcleo, o rótulo só visual, o recibo que volta e os papéis dono e dormente sem filtro.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts) -ge 11",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - os testes do kit cobrem terminal e desktop/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T22:11:15.125Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx",
+      "alegacao": "RM-059 T9.3: o teste do kit do painel da fase cobre o que chegou nas duas superfícies, com glifo, rótulo, origem e motivo, sem o texto e sem botão.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx) -ge 5",
+        "grep -F 'na sessao de fase o painel mostra o que chegou' adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx"
+      ],
+      "criadoEm": "2026-10-12T22:11:17.283Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts",
+      "alegacao": "RM-059 T9.3: o teste do kit do lado do dono separa a sessão de fase (só o lado da fase liga, sem caixa, envio nem faixa) e a dormente (nada liga).",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts) -ge 10",
+        "grep -F 'na sessao dormente nada liga' adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts",
+        "grep -F 'na sessao de fase o lado do dono nao liga' adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts"
+      ],
+      "criadoEm": "2026-10-12T22:11:19.791Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-mensageiro.test.ts",
+      "alegacao": "RM-059 T9.3: o teste do núcleo do Mensageiro cobre a recepção (origem, marca, cabeçalho, rótulo, motivos e contrato da conferência), o painel da fase, a lista fechada com a ork_session_inbox e o next sem reescrita; os 17 casos passam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^# pass /{p=$3} /^# fail /{f=$3} END{exit !(p>=17 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T22:11:22.051Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/hooks/recepcao.ts",
+      "alegacao": "RM-059 T9.3: a cópia do marketplace é igual à fonte do Mensageiro e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-mensageiro/hooks/recepcao.ts marketplaces/claude-code/mods/ork-mensageiro/hooks/recepcao.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T22:11:23.980Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-mensageiro/test/receber.test.ts",
+      "alegacao": "RM-059 T9.3: a cópia do marketplace é igual à fonte do Mensageiro e o gerador não acha deriva.",
+      "negativa": false,
+      "verificar": [
+        "cmp -s adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts marketplaces/claude-code/mods/ork-mensageiro/test/receber.test.ts && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T22:11:25.726Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "RM-059 T9.4: o despacho claude-bg acrescenta crossSessionInbound accept ao --settings que já monta só com o Mensageiro entre os mods que vão à sessão e o ORK_DISPATCH_ID no env do despacho; sem um dos dois, o comando sai como antes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro-despacho.test.js | awk '/^ok [0-9]+ - M2 o despacho da sessão de fase leva a ponte e, depois dela, o Mensageiro/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro-despacho.test.js | awk '/^ok [0-9]+ - M5 a regra pura: só com o Mensageiro entre os mods/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F 'export function entradaDoDespacho(mods: readonly ModDeFase[]' core/src/adapters/claude-bg.ts"
+      ],
+      "criadoEm": "2026-10-12T22:20:15.406Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-mensageiro-despacho.test.ts",
+      "alegacao": "RM-059 T9.4: o teste do despacho do Mensageiro com o catálogo real cobre o recibo do adaptador, a ordem depois da ponte, o campo no --settings, o claude abaixo da API de mods, a sessão não despachada e a regra pura; os 6 casos passam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro-despacho.test.js | awk '/^# pass /{p=$3} /^# fail /{f=$3} END{exit !(p>=6 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T22:20:17.654Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/test/claude-bg-teams.test.ts",
+      "alegacao": "RM-059 T9.4: as expectativas de agent teams contam a entrada do Mensageiro no --settings da sessão despachada, e o claude abaixo da API de mods segue sem ela; os 7 casos passam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/claude-bg-teams.test.js | awk '/^# pass /{p=$3} /^# fail /{f=$3} END{exit !(p>=7 && f==0)}'",
+        "grep -F \"crossSessionInbound: 'accept'\" core/test/claude-bg-teams.test.ts"
+      ],
+      "criadoEm": "2026-10-12T22:20:19.831Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/mensageiro-de-sessoes.md",
+      "alegacao": "RM-059 T9.5: o guia do Mensageiro de Sessões diz o que muda para o dono, o caminho da resposta com os eventos do ledger, como ligar nas duas pontas, o que a sessão de fase deixa entrar, o painel, a prova, os limites ditos e a medida; passa no markdownlint e no docs verificar.",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/mensageiro-de-sessoes.md",
+        "npm --prefix core run build && env -u ORK_PROJETO node core/dist/index.js docs verificar --pr",
+        "grep -F '## Como ligar nas duas pontas' docs/guias/mensageiro-de-sessoes.md",
+        "grep -F '## Limites ditos' docs/guias/mensageiro-de-sessoes.md",
+        "grep -F '## A medida' docs/guias/mensageiro-de-sessoes.md",
+        "grep -F 'crossSessionInbound: accept' docs/guias/mensageiro-de-sessoes.md"
+      ],
+      "criadoEm": "2026-10-12T22:26:08.924Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "docs/README.md",
+      "alegacao": "RM-059 T9.5: o índice das docs lista o guia do Mensageiro de Sessões.",
+      "negativa": false,
+      "verificar": [
+        "grep -F '[Mensageiro de Sessões](guias/mensageiro-de-sessoes.md)' docs/README.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/README.md"
+      ],
+      "criadoEm": "2026-10-12T22:26:10.603Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/sincronismo-hitl.md",
+      "alegacao": "RM-059 T9.5: o guia de sincronismo do HITL ganha a seção M, a resposta de sessão claude-bg pelo Mensageiro, com o vínculo, a entrega assíncrona, a recusa antes de tudo, o receptor e o que não prova.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'pelo Mensageiro (RM-059, fatia F9)' docs/guias/sincronismo-hitl.md",
+        "grep -F '(mensageiro-de-sessoes.md)' docs/guias/sincronismo-hitl.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/sincronismo-hitl.md"
+      ],
+      "criadoEm": "2026-10-12T22:26:12.922Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-059 T9.5: a linha do Mensageiro de Sessões entra em Não publicado, e o PR não apaga nenhuma linha do CHANGELOG.",
+      "negativa": true,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main",
+        "grep -F 'Mensageiro de Sessões, mod de papéis' CHANGELOG.md",
+        "test \"$(git diff --numstat origin/main...HEAD -- CHANGELOG.md | cut -f2)\" = 0"
+      ],
+      "criadoEm": "2026-10-12T22:26:14.744Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/src/entrega-por-mod.ts",
+      "alegacao": "RM-059 GO-FIX 1: o receptor aceita o envelope do Claude Code só na forma que o motor escreve e só reserva antes do prazo ate da conferência (entrega.prazo depois dele); os 13 casos do teste da entrega passam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-sessions-mod.test.js | awk '/^# pass /{p=$3} /^# fail /{f=$3} END{exit !(p>=13 && f==0)}'",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-sessions-mod.test.js | awk '/^ok [0-9]+ - receptor: o envelope so na forma do motor/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F \"'entrega.prazo'\" core/src/entrega-por-mod.ts",
+        "grep -F 'const ENVELOPE_DO_MOTOR = new RegExp' core/src/entrega-por-mod.ts"
+      ],
+      "criadoEm": "2026-10-12T23:14:29.444Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "RM-059 GO-FIX 1: a ork_session_inbox aceita o prazo ate e o repassa ao receptor.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'conferirNoReceptor(raiz,threadId,despacho,texto,ate)' core/src/mcp-server.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-sessions-mod.test.js | awk '/^ok [0-9]+ - receptor: o envelope so na forma do motor/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T23:14:31.674Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/test/hitl-sessions-mod.test.ts",
+      "alegacao": "RM-059 GO-FIX 1: o teste da entrega cobre o texto posto dentro da tag do envelope, o atributo desconhecido e fora de ordem, o prazo vencido sem reserva e a reserva dentro do prazo.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' core/test/hitl-sessions-mod.test.ts) -ge 13",
+        "grep -F 'O DONO TAMBEM AUTORIZA' core/test/hitl-sessions-mod.test.ts",
+        "grep -F \"motivo: 'entrega.prazo'\" core/test/hitl-sessions-mod.test.ts"
+      ],
+      "criadoEm": "2026-10-12T23:14:34.063Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/hooks/caixa.ts",
+      "alegacao": "RM-059 GO-FIX 1: no lado do dono, a reserva sem recibo por 5 min vira sem-recibo e entra nas falhas da faixa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - entregas: o que sai da caixa/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - faixa: o que nao chegou vem primeiro/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F 'ESPERA_DO_RECIBO_MS = 5 * 60000' adapters/claude-code/mods/ork-mensageiro/hooks/caixa.ts"
+      ],
+      "criadoEm": "2026-10-12T23:14:41.022Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/types/index.d.ts",
+      "alegacao": "RM-059 GO-FIX 1: o contrato do estado ganha o sem-recibo do dono e a impressão da recebida, sem campo que guarde o texto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - o contrato declara o estado sem import nem referencia/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F 'impressao: string | null' adapters/claude-code/mods/ork-mensageiro/types/index.d.ts"
+      ],
+      "criadoEm": "2026-10-12T23:14:46.106Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts",
+      "alegacao": "RM-059 GO-FIX 1: o kit da fase cobre o tipo de origem desconhecido consumido, o prazo ate em toda conferência e o rótulo só com a mesma impressão e só na linha peer.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts) -ge 11",
+        "grep -F 'origem-nova-do-motor' adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts",
+        "grep -F \"{ kind: 'unclassified' })\" adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts"
+      ],
+      "criadoEm": "2026-10-12T23:14:51.886Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts",
+      "alegacao": "RM-059 GO-FIX 1: o kit do dono cobre a reserva sem recibo por 5 min, no painel das duas superfícies e na faixa.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts) -ge 11",
+        "grep -F 'a reserva sem recibo por 5 min deixa de ser confirmando' adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts"
+      ],
+      "criadoEm": "2026-10-12T23:14:54.037Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx",
+      "alegacao": "RM-059 GO-FIX 1: o kit do painel confere a seção Fora desta sessão e o limite dito da entrega incerta.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'Fora desta sessão' adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx",
+        "grep -F 'sem retorno, responda pelo claude attach' adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx"
+      ],
+      "criadoEm": "2026-10-12T23:14:56.086Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/apoio.ts",
+      "alegacao": "RM-059 GO-FIX 1: o apoio do kit desenha a linha da mensagem com a origem que o teste escolhe.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"origin: Record<string, unknown> = { kind: 'peer' }\" adapters/claude-code/mods/ork-mensageiro/test/apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T23:14:57.851Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-mensageiro.test.ts",
+      "alegacao": "RM-059 GO-FIX 1: o teste do núcleo do Mensageiro cobre a lista fechada de origens, o envelope cruzado com o do núcleo, a impressão, o .catch pela passaNaFalha e o sem-recibo; os 18 casos passam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^# pass /{p=$3} /^# fail /{f=$3} END{exit !(p>=18 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-12T23:15:00.091Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/mensageiro-de-sessoes.md",
+      "alegacao": "RM-059 GO-FIX 1: o guia diz o prazo da conferência, o envelope só na forma do motor, a ordem possível dos eventos, o --pergunta opcional, o limite da mensagem de agente para a conversa principal e o que não vai ao estado do Orkastery.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'de 15 s. O núcleo aceita o envelope' docs/guias/mensageiro-de-sessoes.md",
+        "grep -F 'Mensagem de um agente desta sessão para a conversa principal' docs/guias/mensageiro-de-sessoes.md",
+        "grep -F 'em qualquer ordem entre os dois' docs/guias/mensageiro-de-sessoes.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/mensageiro-de-sessoes.md"
+      ],
+      "criadoEm": "2026-10-12T23:15:02.937Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/sincronismo-hitl.md",
+      "alegacao": "RM-059 GO-FIX 1: a seção M do sincronismo diz o envelope só na forma do motor e o prazo da conferência.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'entrega.prazo' docs/guias/sincronismo-hitl.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/sincronismo-hitl.md"
+      ],
+      "criadoEm": "2026-10-12T23:15:05.435Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-059 GO-FIX 1: a linha do Mensageiro em Não publicado diz o envelope só na forma do motor e a reserva antes do prazo.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'o envelope do Claude Code só na forma do motor, reserva uma vez e antes do prazo' CHANGELOG.md",
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-12T23:15:06.494Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/hooks/register.tsx",
+      "alegacao": "RM-059 GO-FIX 2: no papel fase, a conferência leva o prazo ate do relógio da sessão, só o corpo conferido entra na conversa, no envelope fixo do Mensageiro (D23), o .catch decide pela decisaoNaFalha e só a linha peer com a mesma impressão ganha o rótulo; lista fechada no $ e no MCP.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - o Mensageiro so chama no /{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - recepcao: o que o .catch do receptor deixa passar/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F 'r = await next({ ...e, text: paraOModelo })' adapters/claude-code/mods/ork-mensageiro/hooks/register.tsx",
+        "grep -F 'argsDaConferencia(thread, e.text, agora)' adapters/claude-code/mods/ork-mensageiro/hooks/register.tsx",
+        "node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-mensageiro"
+      ],
+      "criadoEm": "2026-10-12T23:39:36.111Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/hooks/recepcao.ts",
+      "alegacao": "RM-059 GO-FIX 2: a lista de origens externas é fechada, a conferência leva o prazo ate, o texto para o modelo é o corpo conferido no envelope fixo do Mensageiro, e a decisaoNaFalha decide o .catch, com a conferida em voo também no envelope fixo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - recepcao: a origem de outra sessao/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - recepcao: o que o .catch do receptor deixa passar/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F 'export function textoParaOModelo(mensagem: string): string' adapters/claude-code/mods/ork-mensageiro/hooks/recepcao.ts",
+        "grep -F \"const EXTERNAS = ['bridge', 'task-notification', 'scheduled-trigger', 'slack-ping']\" adapters/claude-code/mods/ork-mensageiro/hooks/recepcao.ts"
+      ],
+      "criadoEm": "2026-10-12T23:39:40.295Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/hooks/painel.tsx",
+      "alegacao": "RM-059 GO-FIX 2: o painel do dono mostra o sem-recibo com glifo e rótulo, e a entrega incerta fora desta sessão diz que pode seguir noutra sessão do dono, noutro canal ou ter se perdido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - painel: glifo e rotulo em cada estado/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F 'entrega incerta fora desta sessão: noutra sessão do dono, noutro canal ou perdida' adapters/claude-code/mods/ork-mensageiro/hooks/painel.tsx"
+      ],
+      "criadoEm": "2026-10-12T23:39:43.160Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/hooks/caixa.ts",
+      "alegacao": "RM-059 GO-FIX 2: no lado do dono, o sem-recibo conta também da entrada na caixa quando o envio não foi anotado, e a faixa do sem-recibo pede para conferir, não para responder de novo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - entregas: o que sai da caixa/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - faixa: o que nao chegou vem primeiro/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F 'const desde = e.ultimoEnvio?.em ?? e.criadaEm' adapters/claude-code/mods/ork-mensageiro/hooks/caixa.ts",
+        "grep -F 'ficou sem recibo; confira pelo claude attach' adapters/claude-code/mods/ork-mensageiro/hooks/caixa.ts"
+      ],
+      "criadoEm": "2026-10-12T23:39:47.015Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C73",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/src/entrega-por-mod.ts",
+      "alegacao": "RM-059 GO-FIX 2: o prazo ate é obrigatório na conferência do receptor; sem ele, ilegível ou longe demais, recusa com entrega.formato, e o teste da entrega prova o caso sem prazo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-sessions-mod.test.js | awk '/^ok [0-9]+ - receptor: o envelope so na forma do motor/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F \"const prazo = typeof ate === 'string' ? Date.parse(ate) : NaN;\" core/src/entrega-por-mod.ts"
+      ],
+      "criadoEm": "2026-10-12T23:39:49.595Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/test/hitl-sessions-mod.test.ts",
+      "alegacao": "RM-059 GO-FIX 2: o teste da entrega manda o prazo ate em toda conferência e prova que a conferência sem prazo recusa.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'const ATE = () => new Date(Date.now() + 15000).toISOString();' core/test/hitl-sessions-mod.test.ts",
+        "grep -F 'Sem prazo (uma copia velha do mod) recusa' core/test/hitl-sessions-mod.test.ts"
+      ],
+      "criadoEm": "2026-10-12T23:39:51.595Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C76",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts",
+      "alegacao": "RM-059 GO-FIX 2: o kit do dono confere que a faixa do sem-recibo pede para conferir pelo claude attach.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'ficou sem recibo; confira pelo claude attach' adapters/claude-code/mods/ork-mensageiro/test/entrega.test.ts"
+      ],
+      "criadoEm": "2026-10-12T23:39:55.948Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C77",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx",
+      "alegacao": "RM-059 GO-FIX 2: o kit do painel confere a linha genérica da entrega incerta fora desta sessão.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'entrega incerta fora desta sessão: noutra sessão do dono, noutro canal ou perdida' adapters/claude-code/mods/ork-mensageiro/test/painel.test.tsx"
+      ],
+      "criadoEm": "2026-10-12T23:40:02.376Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C78",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-mensageiro.test.ts",
+      "alegacao": "RM-059 GO-FIX 2: o teste do núcleo do Mensageiro prova a decisaoNaFalha com a conferida em voo no envelope fixo, o texto para o modelo lido pelo núcleo, o sem-recibo pela criação e a faixa que pede conferir.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - recepcao: o que o .catch do receptor deixa passar/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - faixa: o que nao chegou vem primeiro/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'",
+        "grep -F 'r.decisaoNaFalha({ ...base, emVoo: new Map([[msg, fixo]]) })' core/test/ork-mensageiro.test.ts"
+      ],
+      "criadoEm": "2026-10-12T23:40:05.776Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C79",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/mensageiro-de-sessoes.md",
+      "alegacao": "RM-059 GO-FIX 2: o guia diz que só o corpo conferido entra no envelope fixo do Mensageiro, que a conferência sem prazo ou sem relógio é consumida, que a entrega incerta pode ser de outro canal, e os limites do rótulo visual.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'num envelope fixo do Mensageiro' docs/guias/mensageiro-de-sessoes.md",
+        "grep -F 'a falta do relógio da sessão' docs/guias/mensageiro-de-sessoes.md",
+        "grep -F 'O retrato não diz o runtime' docs/guias/mensageiro-de-sessoes.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/mensageiro-de-sessoes.md"
+      ],
+      "criadoEm": "2026-10-12T23:40:08.550Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C80",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/sincronismo-hitl.md",
+      "alegacao": "RM-059 GO-FIX 2: a seção M do sincronismo diz que o Mensageiro entrega ao modelo só o corpo conferido, num envelope fixo dele.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'O Mensageiro entrega ao modelo só o corpo conferido' docs/guias/sincronismo-hitl.md"
+      ],
+      "criadoEm": "2026-10-12T23:40:10.301Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C81",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-059 GO-FIX 2: a linha do Mensageiro diz que a confirmada entra só com o corpo conferido, num envelope fixo do Mensageiro.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'só com o corpo conferido e num envelope fixo do Mensageiro' CHANGELOG.md",
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-12T23:40:11.828Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C82",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts",
+      "alegacao": "RM-059 GO-FIX 3: o kit da fase prova que os rótulos que o remetente escolhe no envelope não passam do gancho e que a confirmada segue no envelope fixo do Mensageiro, com from e from-plugin próprios.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'os rotulos que o remetente escolhe no envelope nao passam do gancho' adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts",
+        "grep -F 'from-plugin=\"ork-mensageiro\"' adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts",
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-mensageiro/test/receber.test.ts) -ge 12"
+      ],
+      "criadoEm": "2026-10-13T00:00:44.813Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-mensageiro/hooks/recepcao.ts",
+      "alegacao": "RM-059 GO-FIX 3: o envelope fixo do Mensageiro leva o próprio from-plugin, para o motor não acrescentar na apresentação o plugin que o remetente declara.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'from-plugin=\"${REMETENTE_DO_MENSAGEIRO}\"' adapters/claude-code/mods/ork-mensageiro/hooks/recepcao.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/ork-mensageiro.test.js | awk '/^ok [0-9]+ - recepcao: o que o .catch do receptor deixa passar/{p++} /^not ok/{f++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T00:00:47.556Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/mensageiro-de-sessoes.md",
+      "alegacao": "RM-059 GO-FIX 3: o guia mostra o envelope fixo com from e from-plugin do Mensageiro e diz o limite do anexo de arquivo do SendFile, que o motor põe depois dos ganchos.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'from-plugin=\"ork-mensageiro\">' docs/guias/mensageiro-de-sessoes.md",
+        "grep -F 'Anexo de arquivo (' docs/guias/mensageiro-de-sessoes.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/mensageiro-de-sessoes.md"
+      ],
+      "criadoEm": "2026-10-13T00:00:49.702Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C85",
+      "thread": "ork-rm059mensag",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm059mensag.json",
+      "alegacao": "RM-059 fecho do CHECK: o bundle do CI é desta thread e desta branch e leva as 78 claims ativas, com no máximo a do próprio bundle adiada por artifact-not-in-checkout e a do servidor MCP por local-integration-required.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const b=require(\"./.ork-ci/ork-rm059mensag.json\");const d=b.deferredClaims||[];const ok=x=>x.reason===\"artifact-not-in-checkout\"||x.reason===\"local-integration-required\";process.exit(b.schema===\"ork.ci-bundle/v1\"&&b.thread===\"ork-rm059mensag\"&&b.branch===\"ork/ork-rm059mensag-full\"&&b.claims.length+d.length>=78&&d.length<=2&&d.filter(x=>x.reason===\"artifact-not-in-checkout\").length<=1&&d.every(ok)?0:1)'"
+      ],
+      "criadoEm": "2026-10-13T00:03:23.047Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C8",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

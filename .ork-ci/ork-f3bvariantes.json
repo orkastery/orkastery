@@ -1,0 +1,14 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-f3bvariantes",
+  "branch": "ork/ork-f3bvariantes-go",
+  "base": "main",
+  "claims": [],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
