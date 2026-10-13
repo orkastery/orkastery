@@ -1,4 +1,5 @@
 /** GitHub CI como CHECK independente (I-12). */
+import { lerEnderecoDoRemoto } from './forja/endereco';
 import { exigirRemoto } from './branch-de-estado';
 import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
@@ -117,8 +118,8 @@ export function motivoDiferimentoCi(
 }
 
 export function repositorioGitHub(url: string): string | null {
-  const match = url.trim().replace(/\.git$/, '').match(/(?:github\.com[/:])([^/]+\/[^/]+)$/i);
-  return match?.[1] ?? null;
+  const e = lerEnderecoDoRemoto(url);
+  return e && e.host === 'github.com' && e.caminho.split('/').length === 2 ? e.caminho : null;
 }
 
 function executorPadrao(input: { repository: string; sha: string; context: string }) {
