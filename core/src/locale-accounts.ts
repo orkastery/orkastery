@@ -9,6 +9,26 @@
  * tipado igual nas duas linguas.
  */
 
+/**
+ * O detalhe da conferencia de login que o proprio ork escreve (`conferirAuth` do claude e do codex) e dado: vai ao store
+ * em pt-BR e so a impressao o traduz, pela frase exata. A saida do CLI que vem dentro dele (o trecho do `codex`) segue
+ * como veio.
+ */
+const DETALHES_DO_LOGIN_EN: ReadonlyArray<[RegExp, (...g: string[]) => string]> = [
+  [/^claude auth status sem resposta \(timeout, sinal ou binario ausente\)$/, () => 'claude auth status gave no answer (timeout, signal or missing binary)'],
+  [/^claude auth status sem JSON legivel \(codigo (.+)\)$/, (codigo) => `claude auth status gave no readable JSON (exit code ${codigo})`],
+  [/^claude auth status sem JSON legivel$/, () => 'claude auth status gave no readable JSON'],
+  [/^claude auth status respondeu por outro diretorio de configuracao; perfil nao aplicado$/,
+    () => 'claude auth status answered for another configuration directory; profile not applied'],
+  [/^claude auth status: provider pago \((.+)\); so a assinatura claude\.ai despacha$/,
+    (partes) => `claude auth status: paid provider (${partes}); only the claude.ai subscription dispatches`],
+  [/^codex login status sem resposta \(timeout, sinal ou binario ausente\)$/, () => 'codex login status gave no answer (timeout, signal or missing binary)'],
+  [/^codex login status saiu (-?\d+)(: [\s\S]*)?$/, (codigo, resto) => `codex login status exited ${codigo}${resto ?? ''}`],
+  [/^codex login status: login por API key \(provider pago\)$/, () => 'codex login status: API key login (paid provider)'],
+  [/^codex login status: login sem assinatura ChatGPT comprovada \(tratado como provider pago\)$/,
+    () => 'codex login status: login without a proven ChatGPT subscription (treated as a paid provider)'],
+];
+
 const ESTADOS_EN: Readonly<Record<string, string>> = {
   ativo: 'active', esgotado: 'exhausted', 'sem-auth': 'no-auth', 'provider-pago': 'paid-provider', desativado: 'disabled',
 };
@@ -26,6 +46,8 @@ export const ACCOUNTS_PT_BR = {
     `Login pendente: rode ${variavel}=${dir} ${comando} e depois ork accounts check ${id}`,
   resultadoAdd: (id: string, runtime: string, dir: string, situacao: string) => `Perfil ${id} (${runtime}) em ${dir}: ${situacao}`,
   conferido: 'login de assinatura conferido',
+  /** O detalhe da conferencia de login (dado do store), como a impressao o mostra. */
+  detalheDoLogin: (detalhe: string) => detalhe,
   inconclusivaAdd: (detalhe: string) => `conferencia de login inconclusiva (${detalhe}); o proximo despacho confere de novo`,
   pagoAdd: (detalhe: string) => `provider pago (${detalhe}); nunca recebe despacho`,
   semLoginAdd: (detalhe: string) => `sem login (${detalhe}); fora do rodizio`,
@@ -108,6 +130,10 @@ export const ACCOUNTS_EN: MensagensDeAccounts = {
   loginPendente: (variavel, dir, comando, id) => `Login pending: run \`${variavel}=${dir} ${comando}\`, then \`ork accounts check ${id}\``,
   resultadoAdd: (id, runtime, dir, situacao) => `Profile ${id} (${runtime}) in ${dir}: ${situacao}`,
   conferido: 'subscription login checked',
+  detalheDoLogin: (detalhe) => {
+    const regra = DETALHES_DO_LOGIN_EN.find(([re]) => re.test(detalhe));
+    return regra ? regra[1](...(regra[0].exec(detalhe) ?? []).slice(1)) : detalhe;
+  },
   inconclusivaAdd: (detalhe) => `login check inconclusive (${detalhe}); the next dispatch checks again`,
   pagoAdd: (detalhe) => `paid provider (${detalhe}); never receives a dispatch`,
   semLoginAdd: (detalhe) => `no login (${detalhe}); out of the rotation`,
@@ -164,7 +190,7 @@ export const ACCOUNTS_EN: MensagensDeAccounts = {
   semLeituraEscrita: 'runtime.profiles.invalid: the profile directory lacks read and write access for this user',
   runtimeSemPerfil: (runtime) => `runtime.profiles.invalid: runtime "${runtime}" does not take a profile`,
   jaExiste: (id, desativadoEm) => `runtime.profiles.invalid: profile "${id}" already exists` +
-    (desativadoEm !== null ? ` (disabled in ${desativadoEm}; reactivate it with the same \`--runtime\` and \`--dir\`)` : ''),
+    (desativadoEm !== null ? ` (disabled on ${desativadoEm}; reactivate it with the same \`--runtime\` and \`--dir\`)` : ''),
   jaHaPerfil: (runtime, dir) => `runtime.profiles.invalid: there is already a ${runtime} profile in ${dir}`,
   mesmoDiretorioDoPerfil: (dir, id, real) => `runtime.profiles.invalid: ${dir} is the same directory as profile "${id}" (${real})`,
   estaDesativado: (id) => `runtime.profiles.invalid: profile "${id}" is disabled`,

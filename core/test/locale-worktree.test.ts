@@ -58,7 +58,7 @@ test('locale en F3b worktree: ensure, sync, audit e release saem em ingles, com 
     assert.match(en[4].stdout, /\n {2}\[ok\] {3}single-state same state: main=\d+ events, worktree=\d+ events; /);
     assert.match(en[4].stdout, /\n {2}worktree consistent: git confirms every item above\.\n$/);
     assert.match(en[5].stdout, /^Sync \(--dry-run\) of thread loc-locen: nothing was run\.\n[\s\S]* {2}rebase {5}not needed\n {2}the base main is already merged in: nothing to sync\n\n {2}Real commands, in order:\n/);
-    assert.match(en[7].stderr, /\n {2}detail: \S+ has uncommitted changes; rebasing a dirty tree loses work\n {2}fix: commit or stash the changes in \S+ and run again: ork worktree sync loc-locen\n$/);
+    assert.match(en[7].stderr, /\n {2}detail: \S+ has uncommitted changes; rebasing a dirty tree loses work\n {2}fix: commit or stash the changes in \S+ and run again: `ork worktree sync loc-locen`\n$/);
     assert.match(en[8].stderr, /^Worktree release for thread loc-locen BLOCKED\.\n {2}typed reason: tree\.blocked\n/);
     assert.match(en[9].stdout, /^Worktree of thread loc-locen released\.\n {2}dir {6}\S+\n {2}removed {2}yes\n {2}leases {3}\(no write lease to release\)\n {2}worktree removed; branch ork\/loc-locen-goal stays in the repository\n$/);
     assert.match(en[10].stdout, /\n {2}removed {2}no \(the directory no longer existed\)\n[\s\S]*\n {2}the directory no longer existed; record cleaned and `git worktree prune` run\n$/);
@@ -117,5 +117,20 @@ test('locale en F3b worktree: os erros de estado nascem do catalogo, com o motiv
       assert.equal(remontar(guardado), 'invalid thread id');
     } finally { ativarLocale(undefined); ligarRemontagem(false); }
     assert.equal(msg('pt-BR').estado.idInvalido, 'id de thread inválido');
+  } finally { c.limpar(); }
+});
+
+test('locale en F3b worktree: a pasta das worktrees fora da raiz recusa em ingles, com o codigo e o pt-BR iguais (GO-FIX 1)', () => {
+  const c = cenario('worktree-f3b-fora');
+  try {
+    const manifesto = path.join(c.dir, 'orkastery.yaml');
+    fs.writeFileSync(manifesto, fs.readFileSync(manifesto, 'utf8').replace('dir: ".claude/worktrees"', 'dir: "../fora-wt"'));
+    assert.equal(ork(c, PT, false, 'thread', 'new', 'fora', '--sem-worktree').status, 0);
+    const en = ork(c, EN, false, 'worktree', 'ensure', 'loc-fora');
+    assert.notEqual(en.status, 0);
+    assert.match(en.stderr, /^error: worktree\.dir-fora-da-raiz: `orkastery\.yaml` asks for worktree\.dir: "\.\.\/fora-wt", which leads to \S+, outside the project root \(by the real path\), and this machine did not confirm that folder \(no local confirmation\)\. No worktree was created\. /);
+    assert.deepEqual(linhasEmPortugues(en.stderr), []);
+    const pt = ork(c, PT, false, 'worktree', 'ensure', 'loc-fora');
+    assert.match(pt.stderr, /^erro: worktree\.dir-fora-da-raiz: o orkastery\.yaml pede worktree\.dir: "\.\.\/fora-wt", que leva a \S+, fora da raiz do projeto \(pelo caminho real\), e esta máquina não confirmou essa pasta \(sem confirmação local\)\. Nenhuma worktree foi criada\. /);
   } finally { c.limpar(); }
 });

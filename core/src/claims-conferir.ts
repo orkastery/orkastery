@@ -224,7 +224,11 @@ const fabricaPadrao: FabricaDeExecutor = (worktree, timeoutMs) => criarExecutorS
 /** Sandbox que nao abre vira recusa tipada: a conferencia nunca roda fora dele (D6). */
 function confinado(fabrica: FabricaDeExecutor, worktree: string, timeoutMs: number) {
   try { return fabrica(worktree, timeoutMs); }
-  catch (e) { const erro = (e as Error).message; throw recusa('sandbox-indisponivel', (m) => m.sandboxIndisponivel(erro)); }
+  catch (e) {
+    // RM-061 (F3b, GO-FIX 1): o erro do catalogo guarda o montador; o do executor sai traduzido pela frase exata.
+    const erro = e instanceof ErroDoCatalogo ? e.montar : (m: Mensagens) => m.claims.erroDoSandbox((e as Error).message);
+    throw new ErroDeConferencia((m) => m.claims.recusa('sandbox-indisponivel', m.claims.sandboxIndisponivel(erro(m))));
+  }
 }
 
 function conferida(r: ResultadoDeComando): ExecucaoConferida {
@@ -267,7 +271,8 @@ export function conferirClaims(carregado: ManifestoCarregado, threadId: string, 
     const plano = lerPlano(raiz, threadId);
     if (!plano) throw recusa('plano-ausente', (m) => m.planoAusente(threadId));
     const { tarefa, comando } = verifyDaTarefa(plano.conteudo, pedido.tarefa!);
-    selecionadas = [{ id: tarefa, thread: threadId, fase: null, arquivo: plano.arquivo, alegacao: `verify da tarefa ${tarefa} do plano`,
+    // RM-061 (F3b, GO-FIX 1): a alegacao sintetica nasce pelo catalogo (pt-BR no `--json`) e o texto a remonta.
+    selecionadas = [{ id: tarefa, thread: threadId, fase: null, arquivo: plano.arquivo, alegacao: textoDoCatalogo((m) => m.claims.verifyDaTarefa(tarefa)),
       negativa: false, verificar: [comando], criadoEm: '', estado: 'pendente' }];
     alvo = { tipo: 'tarefa', tarefa, plano: { arquivo: plano.arquivo, sha256: plano.sha256 }, comando };
   }
@@ -324,7 +329,7 @@ export function textoDaConferencia(r: ResultadoDaConferencia): string {
     : m.alvoTarefa(r.alvo.tarefa, r.alvo.plano.sha256.slice(0, 12), r.alvo.comando));
   linhas.push('');
   for (const i of r.itens) {
-    linhas.push(m.item(i.id, i.verificado, i.motivo, i.alegacao));
+    linhas.push(m.item(i.id, i.verificado, i.motivo, remontar(i.alegacao)));
     if (!i.verificado) {
       linhas.push(`      ${remontar(i.detalhe)}`);
       const falhou = i.execucoes.find((e) => !e.ok);

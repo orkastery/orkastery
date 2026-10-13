@@ -108,3 +108,16 @@ test('locale en F3b network (negativo): network roadmap segue em pt-BR, byte a b
     }
   } finally { r.limpar(); }
 });
+
+test('locale en F3b network: a lacuna que nasce de erro sai em ingles, e o --json a leva em pt-BR (GO-FIX 1)', () => {
+  const r = rede('erro');
+  try {
+    assert.equal(r.rodar('a', EN, 'network', 'entrar', '--maquina', 'pc-a').status, 0);
+    const comErro = { ...EN, FORJA_FAKE_ERRO: '1' };
+    const en = r.rodar('a', comErro, 'network', 'status');
+    assert.match(en.stdout, /\n {2}• rede\.sem-leitura: github\.com\/pessoa-teste\/orkastery-network: gh api \S+ failed: /);
+    assert.deepEqual(linhasEmPortugues(en.stdout.replace(/hostname \S+/g, 'hostname X')), []);
+    const json = JSON.parse(r.rodar('a', comErro, 'network', 'status', '--json').stdout) as { lacunas: { tipo: string; detalhe: string }[] };
+    assert.ok(json.lacunas.some((l) => l.tipo === 'rede.sem-leitura' && / falhou: /.test(l.detalhe)), JSON.stringify(json.lacunas));
+  } finally { r.limpar(); }
+});

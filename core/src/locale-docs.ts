@@ -141,7 +141,7 @@ export const DOCS_EN: MensagensDeDocs = {
     return `  ${id.padEnd(7)} ${v(campo)}: ${v(de) || '-'} \u2192 ${v(para)}  (${fonte})`;
   },
   indice: (arquivo) => `  index   ${arquivo}`,
-  nadaGravado: 'Nothing was written. To write: ork docs sincronizar --escrever',
+  nadaGravado: 'Nothing was written. To write: `ork docs sincronizar --escrever`',
   escopo: (escopo) => `Scope: ${escopo}.`,
   escopoTodos: 'every roadmap item',
   escopoSo: (itens) => `only ${itens} (\`--so\`)`,
@@ -179,9 +179,9 @@ export const DOCS_EN: MensagensDeDocs = {
   dataExemplo: 'example: 2026-09-24T20:00:00-03:00',
   valorDoModelo: (onde, valor) => `template value not filled in at ${onde}: ${valor}`,
   faltaTabela: (nome) => `missing ${nome} generated from the frontmatter`,
-  faltaTabelaCorrecao: 'copy the markers from the template and run ork docs sincronizar --escrever',
+  faltaTabelaCorrecao: 'copy the markers from the template and run `ork docs sincronizar --escrever`',
   tabelaDiverge: (nome) => `${nome} differs from the frontmatter`,
-  tabelaDivergeCorrecao: 'the state is edited in the frontmatter; run ork docs sincronizar --escrever to regenerate the table',
+  tabelaDivergeCorrecao: 'the state is edited in the frontmatter; run `ork docs sincronizar --escrever` to regenerate the table',
   nomeDaRelance: 'the summary row',
   nomeDoEstado: 'the "Estado com evidências" table',
   paiDeOutroNivel: (pai, tipo) => `parent "${pai}" is not from the level above ${tipo}`,
@@ -228,13 +228,13 @@ export const DOCS_EN: MensagensDeDocs = {
   commitForaDaBase: (commit, base) => `commit ${commit} is not in ${base}: the merge did not happen`,
   commitForaDaBaseCorrecao: 'set estado.codigo back to "PR aberto" or "Branch criada" until the merge',
   mergeDaThread: (thread, base, merge, codigo, pr) =>
-    `thread ${thread} entered ${base} through merge ${merge} (ship(${thread})), and estado.codigo says "${codigo || 'vazio'}"` +
+    `thread ${thread} entered ${base} through merge ${merge} (ship(${thread})), and estado.codigo says "${codigo || 'empty'}"` +
     (pr ? ' (in the PR, a warning: the push to main fails)' : ''),
   mergeDaThreadCorrecao: (base, id) =>
-    `open a docs PR on the updated ${base} with ork docs sincronizar --escrever --so ${id} (the item and the indexes); ` +
-    'if the item has another slice in progress, point sdlc.thread to its thread',
+    `open a docs PR on the updated ${base} with \`ork docs sincronizar --escrever --so ${id}\` (the item and the indexes); ` +
+    'if the item has another slice in progress, point `sdlc.thread` to its thread',
   indiceNaoGerado: 'the index was not generated yet',
-  indiceNaoGeradoCorrecao: 'run ork docs sincronizar --escrever',
+  indiceNaoGeradoCorrecao: 'run `ork docs sincronizar --escrever`',
   indiceDiverge: (pr) => `the index differs from the frontmatter of the pages${pr ? ' (in the PR, a warning: the push to main fails)' : ''}`,
-  indiceDivergeCorrecao: 'the index is generated from the frontmatter: run ork docs sincronizar --escrever and commit the index',
+  indiceDivergeCorrecao: 'the index is generated from the frontmatter: run `ork docs sincronizar --escrever` and commit the index',
 };

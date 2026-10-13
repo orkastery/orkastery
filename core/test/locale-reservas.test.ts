@@ -47,7 +47,7 @@ test('locale en F3b reservas: pegar, reservas, feat e soltar saem em ingles, e a
     // As recusas, em ingles, com o codigo igual.
     assert.equal(orkEm(c, c.dir, { ...EN, ORK_MAQUINA: 'pc-outro' }, false, 'roadmap', 'pegar', 'RM-002', '--thread', 'loc-x').status, 0);
     const reservado = ork(c, EN, false, 'roadmap', 'pegar', 'RM-002');
-    assert.match(reservado.stderr, /^error: roadmap\.reservado: RM-002 is with Teste Orkastery on pc-outro since \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(thread loc-x\)\. Pick another item or talk to whoever is on it\n$/);
+    assert.match(reservado.stderr, /^error: roadmap\.reservado: RM-002 has been with Teste Orkastery on pc-outro since \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(thread loc-x\)\. Pick another item or talk to whoever is on it\n$/);
     assert.equal(ork(c, EN, false, 'roadmap', 'soltar', 'RM-002', '--forcar').stderr,
       'error: roadmap.forcar: `--forcar` needs `--motivo` (taking another machine\'s reservation is a recorded decision)\n');
     assert.equal(ork(c, EN, false, 'roadmap', 'pegar', 'XX-1').stderr, 'error: roadmap.item: "XX-1" is not a roadmap item (expected RM-NNN)\n');

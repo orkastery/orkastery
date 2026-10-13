@@ -10,7 +10,10 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { cobreLocale, msg } from '../src/locale';
+import { cobreLocale, comLocale, ligarRemontagem, mensagemDoErro, msg } from '../src/locale';
+import { conferirClaims, FabricaDeExecutor, textoDaConferencia } from '../src/claims-conferir';
+import { dirThread, novaThread } from '../src/thread';
+import { projetoTemporario } from './apoio';
 import { analisarComando, linhaDoLintDeClaim } from '../src/claim-lint';
 import { cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 
@@ -101,4 +104,26 @@ test('locale en F3b claims (negativo): o lint grava a correcao em pt-BR e o ci p
   assert.equal(cobreLocale(['claims', 'conferir', 'x'], { json: true }), false);
   for (const sub of ['add', 'conferir', 'verificar', 'retirar', 'ausente', 'list']) assert.ok(cobreLocale(['claims', sub, 'x'], {}), sub);
   assert.ok(cobreLocale(['claims'], {}));
+});
+
+test('locale en F3b claims: o conferir --tarefa mostra a alegacao sintetica e o sandbox indisponivel em ingles, e o --json em pt-BR (GO-FIX 1)', () => {
+  const p = projetoTemporario('locale-conferir-tarefa');
+  ligarRemontagem(true);
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'conferir', modo: 'auto', criarWorktree: true });
+    fs.mkdirSync(path.join(dirThread(p.dir, thread.id), 'docs'), { recursive: true });
+    fs.writeFileSync(path.join(dirThread(p.dir, thread.id), 'docs', 'plan.md'), '# PLAN\n\n### T1: algo\n\n- **verify:** `true`\n');
+    const fabrica: FabricaDeExecutor = () => ({ executar: (nome, comando) => ({ nome, comando, ok: true, code: 0, resumo: 'ok' }), fechar: () => {} });
+    // Como o CLI: a conferencia no escopo pt-BR (o --json), o texto no locale do comando.
+    const r = comLocale('pt-BR', () => conferirClaims(p.carregado, thread.id, { tarefa: 'T1', fabrica }));
+    assert.equal(r.itens[0].alegacao, 'verify da tarefa T1 do plano');
+    assert.match(comLocale('en', () => textoDaConferencia(r)), /\n {2}T1 {2}passed {2}the plan verify of task T1\n/);
+    const semSandbox: FabricaDeExecutor = () => { throw new Error('executor VERIFY sandbox disponível somente em Linux'); };
+    let erro: unknown;
+    try { comLocale('pt-BR', () => conferirClaims(p.carregado, thread.id, { tarefa: 'T1', fabrica: semSandbox })); } catch (e) { erro = e; }
+    assert.equal(comLocale('en', () => mensagemDoErro(erro)),
+      'claims.conferir.sandbox-indisponivel: the VERIFY sandbox executor is only available on Linux; the spot check only runs confined, with no fallback');
+    assert.equal(mensagemDoErro(erro),
+      'claims.conferir.sandbox-indisponivel: executor VERIFY sandbox disponível somente em Linux; a conferencia so roda confinada, sem fallback');
+  } finally { ligarRemontagem(false); p.limpar(); }
 });

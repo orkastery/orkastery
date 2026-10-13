@@ -189,7 +189,7 @@ export function criarWorktree(
   const { dir, branch } = alvoDaWorktree(carregado, id, slug, opcoes);
 
   if (fs.existsSync(dir)) {
-    throw new Error(`worktree ja existe em ${dir}`);
+    throw new ErroDoCatalogo((m) => m.worktree.worktreeJaExisteEm(dir));
   }
   const base = opcoes.base ?? manifesto.worktree.base_branch;
   const commitBase = exec('git', ['rev-parse', '--verify', base], raiz);
@@ -204,13 +204,14 @@ export function criarWorktree(
     : ['worktree', 'add', '-b', branch, dir, ref];
   const r = exec('git', argumentos, raiz);
   if (!r.ok) {
-    throw new Error(`git worktree add falhou: ${(r.stderr || r.stdout).trim()}`);
+    const saida = (r.stderr || r.stdout).trim();
+    throw new ErroDoCatalogo((m) => m.worktree.worktreeAddFalhou(saida));
   }
   if (pastaNova) ignorarPastaNoGit(pastaDasWorktrees, raizDoEstado(raiz));
   const lista = exec('git', ['worktree', 'list', '--porcelain'], raiz);
   const criada = lista.ok && lista.stdout.split('\n').some((l) => l.trim() === `worktree ${dir}`);
   if (!criada) {
-    throw new Error(`worktree nao apareceu em \`git worktree list\` apos a criacao: ${dir}`);
+    throw new ErroDoCatalogo((m) => m.worktree.worktreeNaoApareceu(dir));
   }
   vincularEstado(raiz, id, dir);
   return { dir, branch };

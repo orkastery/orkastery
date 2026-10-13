@@ -30,7 +30,11 @@ export function git(raiz: string, args: string[], extra: OpcoesDeGit = {}): Said
 
 export function exigirGit(raiz: string, args: string[], prefixo: string, extra: OpcoesDeGit = {}): string {
   const r = git(raiz, args, extra);
-  if (!r.ok) throw new Error(`${prefixo}.git: git ${args[0]} falhou: ${r.stderr.trim().split('\n').pop() ?? ''}`);
+  if (!r.ok) {
+    // RM-061 (F3b, GO-FIX 1): pelo catalogo, com o codigo `<prefixo>.git` igual; a saida do git vai como veio.
+    const comando = args[0], saida = r.stderr.trim().split('\n').pop() ?? '';
+    throw new ErroDoCatalogo((m) => m.estado.gitFalhou(prefixo, comando, saida));
+  }
   return r.stdout;
 }
 
@@ -171,7 +175,8 @@ export function gravarNaBranch(raiz: string, remoto: string, branch: string, pon
       return commit;
     }
     if (/rejected|non-fast-forward|fetch first|stale info|failed to push/i.test(push.stderr)) return false;
-    throw new Error(`${prefixo}.sem-remoto: o push para ${remoto} falhou: ${push.stderr.trim().split('\n').pop() ?? ''}`);
+    const saida = push.stderr.trim().split('\n').pop() ?? '';
+    throw new ErroDoCatalogo((m) => m.estado.pushFalhou(prefixo, remoto, saida));
   } finally {
     fs.rmSync(path.dirname(indice), { recursive: true, force: true });
   }

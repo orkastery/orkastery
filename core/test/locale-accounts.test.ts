@@ -16,6 +16,7 @@ import { cenario, Cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio
 const CLAUDE = `#!/bin/sh
 if [ "$1" = "auth" ] && [ "$2" = "status" ]; then
   if [ -f "$CLAUDE_CONFIG_DIR/sem-login" ]; then echo '{"loggedIn":false}'; exit 1; fi
+  if [ -f "$CLAUDE_CONFIG_DIR/pago" ]; then echo '{"loggedIn":true,"authMethod":"console"}'; exit 0; fi
   echo '{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty","subscriptionType":"max"}'
   exit 0
 fi
@@ -86,4 +87,21 @@ test('locale en F3b accounts: owner.language en-US vence o LANG pt-BR, e o --jso
     for (const sub of ['list', 'add', 'remove', 'check', 'esgotamentos']) assert.ok(cobreLocale(['accounts', sub], {}), sub);
     assert.ok(cobreLocale(['accounts'], {}));
   } finally { c.limpar(); fs.rmSync(com, { recursive: true, force: true }); fs.rmSync(sem, { recursive: true, force: true }); }
+});
+
+test('locale en F3b accounts: o detalhe do login que o ork escreve sai traduzido, e o store o guarda em pt-BR (GO-FIX 1)', () => {
+  const { c } = comContas('accounts-f3b-pago');
+  const pago = fs.mkdtempSync(path.join(path.dirname(c.dir), 'ork-locale-accounts-pago-'));
+  try {
+    fs.writeFileSync(path.join(pago, 'pago'), '');
+    const add = ork(c, EN, true, 'accounts', 'add', 'p4', '--runtime', 'claude-bg', '--dir', pago, '--sem-login');
+    assert.equal(add.status, 0, add.stderr);
+    assert.match(add.stdout, /\nProfile p4 \(claude-bg\) in \S+: paid provider \(claude auth status: paid provider \(authMethod console\); only the claude\.ai subscription dispatches\); never receives a dispatch\n$/);
+    assert.match(ork(c, EN, true, 'accounts', 'check', 'p4').stdout,
+      /^p4 \(claude-bg\): paid provider, never dispatches \(claude auth status: paid provider \(authMethod console\); only the claude\.ai subscription dispatches\)\n/);
+    // O store guarda o detalhe como o ork o escreveu, em pt-BR, nas duas linguas.
+    const store = JSON.parse(ork(c, EN, true, 'accounts', 'list', '--json').stdout) as { perfis: Array<{ id: string; ultimaFalha: { detalhe: string } | null }> };
+    assert.equal(store.perfis.find((p) => p.id === 'p4')?.ultimaFalha?.detalhe,
+      'claude auth status: provider pago (authMethod console); so a assinatura claude.ai despacha');
+  } finally { c.limpar(); fs.rmSync(pago, { recursive: true, force: true }); }
 });

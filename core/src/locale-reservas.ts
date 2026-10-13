@@ -80,7 +80,7 @@ export const RESERVAS_EN: MensagensDeReservas = {
   com: (por, maquina, thread) => `  with ${por} on ${maquina}${thread ? `, thread ${thread}` : ''}`,
   uso: 'usage: ork roadmap status [--json] | reservas [--soltar-orfas] | pegar <RM-NNN> [--thread T] [--nota N] | ' +
     'soltar <RM-NNN> [--forcar --motivo M] | feat [--thread T] [--nota N]',
-  descricao: (item, por, maquina, desde, thread) => `${item} is with ${por} on ${maquina} since ${desde}${thread ? ` (thread ${thread})` : ''}`,
+  descricao: (item, por, maquina, desde, thread) => `${item} has been with ${por} on ${maquina} since ${desde}${thread ? ` (thread ${thread})` : ''}`,
   semRemotoParaReservar: (branch, remoto) => `roadmap.sem-remoto: could not read ${branch} in ${remoto}; reserving needs the network`,
   semRemotoParaSoltar: (branch, remoto) => `roadmap.sem-remoto: could not read ${branch} in ${remoto}; releasing needs the network`,
   semRemotoParaOrfas: (branch) => `roadmap.sem-remoto: could not read ${branch}; releasing needs the network`,

@@ -61,7 +61,7 @@ test('locale en F3b docs: sincronizar sai em ingles, com o escopo, as mudancas, 
     paginas(c);
     assert.equal(ork(c, EN, false, 'docs', 'sincronizar').stdout, ['Scope: every roadmap item.', 'To update: 1 roadmap item(s), 2 index(es).',
       '  RM-000  state tables: outdated → regenerated  (frontmatter)', '  index   docs/roadmap/README.md', '  index   docs/produto/README.md', '',
-      'Nothing was written. To write: ork docs sincronizar --escrever', ''].join('\n'));
+      'Nothing was written. To write: `ork docs sincronizar --escrever`', ''].join('\n'));
     assert.match(ork(c, EN, false, 'docs', 'sincronizar', '--so', 'RM-001').stdout, /^Scope: only RM-001 \(`--so`\)\.\nTo update: 0 roadmap item\(s\), 2 index\(es\)\.\n/);
     const semItem = ork(c, EN, false, 'docs', 'sincronizar', '--so');
     assert.equal(semItem.status, 2);

@@ -13,6 +13,17 @@ const NOMES_DOS_CHECKS_EN: Readonly<Record<string, string>> = {
   base: 'base', artefatos: 'artifacts', 'estado-unico': 'single-state',
 };
 
+/** O motivo de a confirmacao local nao valer (`lerArquivoPrivado`, `lerWorktreeLocal`), pela frase exata, em ingles. */
+const MOTIVOS_DA_CONFIRMACAO_EN: ReadonlyArray<[RegExp, (...g: string[]) => string]> = [
+  [/^sem confirmação local$/, () => 'no local confirmation'],
+  [/^\.orkastery\/private precisa ser pasta 0700 do próprio usuário$/, () => '.orkastery/private must be a 0700 folder owned by the user'],
+  [/^(.+) precisa ser arquivo 0600 do próprio usuário$/, (nome) => `${nome} must be a 0600 file owned by the user`],
+  [/^(.+) está versionado no git e não vale como confirmação local$/, (nome) => `${nome} is versioned in git and does not count as a local confirmation`],
+  [/^(.+) com JSON inválido$/, (nome) => `${nome} has invalid JSON`],
+  [/^(.+) fora do contrato (.+)$/, (nome, contrato) => `${nome} does not follow the ${contrato} contract`],
+  [/^a confirmação local é de outro checkout$/, () => 'the local confirmation belongs to another checkout'],
+];
+
 export const WORKTREE_PT_BR = {
   uso: 'uso: ork worktree <ensure|sync|audit|release> <thread-id>',
   // A moldura dos bloqueios: o mesmo bloco nos quatro subcomandos.
@@ -112,6 +123,17 @@ export const WORKTREE_PT_BR = {
   removeFalhouCorrecao: (dir: string) => `rode \`git worktree remove ${dir}\` na mao e confira \`git worktree list\``,
   continuaNaLista: (dir: string) => `${dir} continua em \`git worktree list\` depois do remove`,
   removida: (branch: string) => `worktree removida; a branch ${branch} continua no repositorio`,
+  // A pasta das worktrees e a criacao (`worktree-local.ts` e `criarWorktree`, em `thread.ts`)
+  dirForaDaRaiz: (pedido: string, dir: string, confirmada: string | null, motivo: string | null, comando: string) =>
+    `worktree.dir-fora-da-raiz: o orkastery.yaml pede worktree.dir: ${pedido}, ` +
+    `que leva a ${dir}, fora da raiz do projeto (pelo caminho real), e esta máquina não confirmou essa pasta ` +
+    `(${confirmada ? `a máquina confirmou ${confirmada}` : motivo ?? 'sem confirmação local'}). ` +
+    'Nenhuma worktree foi criada. O manifesto vem com o repositório; quem decide criar checkout fora da raiz é a ' +
+    `máquina. Para aceitar nesta máquina: ${comando} (ou volte worktree.dir para dentro do projeto, ` +
+    'como .claude/worktrees).',
+  worktreeJaExisteEm: (dir: string) => `worktree ja existe em ${dir}`,
+  worktreeAddFalhou: (saida: string) => `git worktree add falhou: ${saida}`,
+  worktreeNaoApareceu: (dir: string) => `worktree nao apareceu em \`git worktree list\` apos a criacao: ${dir}`,
 };
 
 export type MensagensDeWorktree = typeof WORKTREE_PT_BR;
@@ -131,7 +153,7 @@ export const WORKTREE_EN: MensagensDeWorktree = {
   linhaBase: (base) => `  base    ${base} (resolved by ork, not by the executor)`,
   naoRegistrada: (dir) => `${dir} exists but does not show up in \`git worktree list\``,
   naoRegistradaCorrecao: (id) => `remove the directory or register the worktree; then run: ork worktree ensure ${id}`,
-  reconcilieOEstado: (id) => `reconcile the state and run ork worktree sync ${id}`,
+  reconcilieOEstado: (id) => `reconcile the state and run \`ork worktree sync ${id}\``,
   jaExiste: 'the thread worktree already exists and git recognizes it',
   recriadaSobreBranch: (branch) => `worktree recreated on branch ${branch}, which already existed`,
   criadaAPartirDe: (base) => `worktree created from ${base}`,
@@ -145,7 +167,7 @@ export const WORKTREE_EN: MensagensDeWorktree = {
   semWorktreeCorrecao: (id) => `create the worktree with: ork worktree ensure ${id}`,
   semStatus: (dir) => `${dir} did not answer \`git status\``,
   arvoreSuja: (dir) => `${dir} has uncommitted changes; rebasing a dirty tree loses work`,
-  arvoreSujaCorrecao: (dir, id) => `commit or stash the changes in ${dir} and run again: ork worktree sync ${id}`,
+  arvoreSujaCorrecao: (dir, id) => `commit or stash the changes in ${dir} and run again: \`ork worktree sync ${id}\``,
   reconcilieAsCopias: 'reconcile the two copies without discarding evidence',
   baseInexistente: (base) => `the base ${base} from the manifest does not exist in this repository`,
   baseInexistenteCorrecao: (caminho) => `fix \`worktree.base_branch\` in ${caminho}`,
@@ -154,7 +176,7 @@ export const WORKTREE_EN: MensagensDeWorktree = {
   semCommitProprio: (branch, base) => `branch ${branch} has no commit of its own: the real sync would recreate it on the current base ${base}, without a rebase`,
   inspecioneAsCopias: 'inspect the preserved local copy and canonical source before repeating the sync',
   recriacaoFalhou: (branch, saida) => `recreating branch ${branch} on the base failed: ${saida}`,
-  confiraAWorktree: (dir, id) => `check the worktree ${dir} and run again: ork worktree sync ${id}`,
+  confiraAWorktree: (dir, id) => `check the worktree ${dir} and run again: \`ork worktree sync ${id}\``,
   recriada: (base, semAncestral) => `branch with no commit of its own recreated from the current base ${base}` +
     (semAncestral ? '; the base was rewritten and had no history in common with it' : ''),
   ondeComecou: '<commit where the thread branch started>',
@@ -204,4 +226,16 @@ export const WORKTREE_EN: MensagensDeWorktree = {
   removeFalhouCorrecao: (dir) => `run \`git worktree remove ${dir}\` by hand and check \`git worktree list\``,
   continuaNaLista: (dir) => `${dir} is still in \`git worktree list\` after the remove`,
   removida: (branch) => `worktree removed; branch ${branch} stays in the repository`,
+  dirForaDaRaiz: (pedido, dir, confirmada, motivo, comando) => {
+    const regra = motivo ? MOTIVOS_DA_CONFIRMACAO_EN.find(([re]) => re.test(motivo)) : undefined;
+    const porque = confirmada ? `the machine confirmed ${confirmada}`
+      : motivo ? (regra ? regra[1](...(regra[0].exec(motivo) ?? []).slice(1)) : motivo) : 'no local confirmation';
+    return `worktree.dir-fora-da-raiz: \`orkastery.yaml\` asks for worktree.dir: ${pedido}, which leads to ${dir}, outside the ` +
+      `project root (by the real path), and this machine did not confirm that folder (${porque}). No worktree was created. ` +
+      'The manifest comes with the repository; the machine decides whether to create a checkout outside the root. ' +
+      `To accept it on this machine: \`${comando}\` (or move worktree.dir back inside the project, such as .claude/worktrees).`;
+  },
+  worktreeJaExisteEm: (dir) => `a worktree already exists at ${dir}`,
+  worktreeAddFalhou: (saida) => `git worktree add failed: ${saida}`,
+  worktreeNaoApareceu: (dir) => `the worktree did not show up in \`git worktree list\` after it was created: ${dir}`,
 };

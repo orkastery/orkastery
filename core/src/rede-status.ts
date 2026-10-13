@@ -15,7 +15,7 @@ import * as path from 'node:path';
 import { buscarBranch, git, pontaLocal, remotoRedigido, remotoValido } from './branch-de-estado';
 import { BRANCH_DA_FABRICA, lerFabrica } from './fabrica-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
-import { Mensagens, msg, remontar, textoDoCatalogo } from './locale';
+import { ErroDoCatalogo, Mensagens, montadorDe, msg, remontar, textoDoCatalogo } from './locale';
 import { carregarManifesto } from './manifest';
 import { nomeDaMaquina } from './maquina';
 import { arquivoDoRetrato, BRANCH_DA_REDE, cachePronto, CasaDaRede, dirDoCache, ForjaNoRetrato, HostNoRetrato, idNoArquivo, lerMarcaDaRede, nomeSeguro,
@@ -95,6 +95,14 @@ const mensagem = (e: unknown) => (e as Error).message.replace(/^[a-z.-]+: /, '')
  * ou nao) e remontado com ela.
  */
 const lacunaDoCatalogo = (montar: (m: Mensagens['network']) => string): string => textoDoCatalogo((m) => montar(m.network));
+/**
+ * RM-061 (F3b, GO-FIX 1 do CHECK): o montador do texto de um erro, sem o codigo do comeco. O erro do catalogo guarda o
+ * proprio montador (o texto dele nao fica no registro); o resto sai como veio, ou pelo montador do texto embutido.
+ */
+function montadorDoErro(e: unknown): (m: Mensagens) => string {
+  if (e instanceof ErroDoCatalogo) return (m) => e.montar(m).replace(/^[a-z.-]+: /, '');
+  return montadorDe(mensagem(e));
+}
 
 /** Sem rede, a casa vem da adesao gravada ou da ultima publicacao desta maquina. */
 function casaSemRede(): StatusDaRede['casa'] {
@@ -154,8 +162,8 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
           }
         }
       } catch (e) {
-        const ref = refDaCasa(r.casa), erro = mensagem(e);
-        lacunas.push({ tipo: 'rede.sem-leitura', detalhe: lacunaDoCatalogo((m) => m.comErro(ref, remontar(erro))) });
+        const ref = refDaCasa(r.casa), erro = montadorDoErro(e);
+        lacunas.push({ tipo: 'rede.sem-leitura', detalhe: textoDoCatalogo((m) => m.network.comErro(ref, erro(m))) });
       }
     }
   }
@@ -178,7 +186,10 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
       const lidos = retratosDaPonta(cache, ponta);
       lida = { cache, ponta };
       retratos = lidos.retratos;
-      for (const inv of lidos.invalidos) lacunas.push({ tipo: 'retrato.invalido', detalhe: `${inv.arquivo}: ${inv.motivo}` });
+      for (const inv of lidos.invalidos) {
+        const motivo = montadorDe(inv.motivo);
+        lacunas.push({ tipo: 'retrato.invalido', detalhe: textoDoCatalogo((m) => m.network.retratoInvalido(inv.arquivo, motivo(m))) });
+      }
     } else if (!lacunas.some((l) => l.tipo === 'rede.sem-leitura')) {
       const ref = refDaCasa(casa);
       lacunas.push({ tipo: 'rede.sem-leitura', detalhe: lacunaDoCatalogo((m) => m.nuncaLida(ref)) });
@@ -239,8 +250,8 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
           projetos: [{ nome: m.projeto, remoto: null, caminho: null }], versaoOrk: m.versaoOrk ?? null });
       }
     } catch (e) {
-      const erro = mensagem(e);
-      lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: lacunaDoCatalogo((m) => m.comErro(p.nome, remontar(erro))) });
+      const erro = montadorDoErro(e);
+      lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: textoDoCatalogo((m) => m.network.comErro(p.nome, erro(m))) });
     }
   }
 

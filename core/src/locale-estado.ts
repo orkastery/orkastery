@@ -54,6 +54,8 @@ export const ESTADO_PT_BR = {
   remotoInvalido: (prefixo: string, remoto: string) => `${prefixo}.remoto-invalido: o remoto ${remoto} não é nome de remoto do git ` +
     '(letras, dígitos, ".", "_", "-" e "/" entre partes, cada parte começando por letra ou dígito, sem URL); nada foi passado ao git. ' +
     'Corrija fabrica.remoto no orkastery.yaml ou --remoto (padrão: origin).',
+  gitFalhou: (prefixo: string, comando: string, saida: string) => `${prefixo}.git: git ${comando} falhou: ${saida}`,
+  pushFalhou: (prefixo: string, remoto: string, saida: string) => `${prefixo}.sem-remoto: o push para ${remoto} falhou: ${saida}`,
 };
 
 export type MensagensDeEstado = typeof ESTADO_PT_BR;
@@ -96,4 +98,6 @@ export const ESTADO_EN: MensagensDeEstado = {
   remotoInvalido: (prefixo, remoto) => `${prefixo}.remoto-invalido: remote ${remoto} is not a git remote name ` +
     '(letters, digits, ".", "_", "-" and "/" between parts, each part starting with a letter or digit, no URL); nothing was passed to git. ' +
     'Fix `fabrica.remoto` in `orkastery.yaml` or `--remoto` (default: origin).',
+  gitFalhou: (prefixo, comando, saida) => `${prefixo}.git: git ${comando} failed: ${saida}`,
+  pushFalhou: (prefixo, remoto, saida) => `${prefixo}.sem-remoto: the push to ${remoto} failed: ${saida}`,
 };

@@ -9,6 +9,18 @@
  * pt-BR, porque o `--json` nunca ativa o locale) e o texto as remonta no locale do comando.
  */
 
+/** O erro do executor do sandbox (`verify-sandbox.ts`), pela frase exata: o que nao casa sai como veio. */
+const ERROS_DO_SANDBOX_EN: ReadonlyArray<[RegExp, (...g: string[]) => string]> = [
+  [/^executor VERIFY sandbox disponível somente em Linux$/, () => 'the VERIFY sandbox executor is only available on Linux'],
+  [/^worktree deve ser absoluta$/, () => 'the worktree must be an absolute path'],
+  [/^worktree inválida$/, () => 'invalid worktree'],
+  [/^timeout sandbox fora do limite$/, () => 'sandbox timeout out of bounds'],
+  [/^executor sandbox fechado$/, () => 'sandbox executor closed'],
+  [/^escopo\/binário do executor sandbox mudou$/, () => 'the sandbox executor scope or binary changed'],
+  [/^supervisor saiu (.+)$/, (status) => `supervisor exited ${status}`],
+  [/^resposta inválida$/, () => 'invalid answer'],
+];
+
 const ESTADOS_EN: Readonly<Record<string, string>> = {
   pendente: 'pending', verificado: 'verified', reprovado: 'failed', 'nao-verificavel': 'unverifiable', retirada: 'withdrawn',
 };
@@ -69,6 +81,10 @@ export const CLAIMS_PT_BR = {
   worktreeFora: (thread: string) => `a worktree da thread ${thread} fica fora do projeto`,
   worktreeNaoRegistrada: (thread: string, branch: string) => `a worktree da thread ${thread} nao esta registrada no git do projeto na branch ${branch}`,
   sandboxIndisponivel: (erro: string) => `${erro}; a conferencia so roda confinada, sem fallback`,
+  /** O erro do executor do sandbox, que o `verify-sandbox.ts` escreve em pt-BR, como a recusa o mostra. */
+  erroDoSandbox: (erro: string) => erro,
+  /** A alegacao que a conferencia por tarefa monta para o `verify` do plano (vai ao `--json` em pt-BR). */
+  verifyDaTarefa: (tarefa: string) => `verify da tarefa ${tarefa} do plano`,
   claimsOuTarefa: 'informe --claims C1,C2 ou --tarefa T1, um dos dois',
   prazo: (minimo: number, maximo: number) => `--prazo vai de ${minimo} a ${maximo} segundos`,
   threadAusente: (thread: string) => `a thread ${thread} nao existe neste projeto`,
@@ -155,6 +171,11 @@ export const CLAIMS_EN: MensagensDeClaims = {
   worktreeFora: (thread) => `the worktree of thread ${thread} is outside the project`,
   worktreeNaoRegistrada: (thread, branch) => `the worktree of thread ${thread} is not registered in the project git on branch ${branch}`,
   sandboxIndisponivel: (erro) => `${erro}; the spot check only runs confined, with no fallback`,
+  erroDoSandbox: (erro) => {
+    const regra = ERROS_DO_SANDBOX_EN.find(([re]) => re.test(erro));
+    return regra ? regra[1](...(regra[0].exec(erro) ?? []).slice(1)) : erro;
+  },
+  verifyDaTarefa: (tarefa) => `the plan verify of task ${tarefa}`,
   claimsOuTarefa: 'pass `--claims C1,C2` or `--tarefa T1`, one of the two',
   prazo: (minimo, maximo) => `\`--prazo\` goes from ${minimo} to ${maximo} seconds`,
   threadAusente: (thread) => `thread ${thread} does not exist in this project`,

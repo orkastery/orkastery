@@ -450,17 +450,19 @@ function lerRetratos(cache: string, ponta: string | null): { retratos: RetratoDa
   for (const arquivo of arquivos) {
     const visivel = JSON.stringify(arquivo).slice(1, -1).slice(0, 120);
     if (!/^maquinas\/[A-Za-z0-9._-]{1,64}\.json$/.test(arquivo)) {
-      invalidos.push({ arquivo: visivel, motivo: 'nome de arquivo fora do padrao maquinas/<maquina>.json' });
+      // RM-061 (F3b, GO-FIX 1): o motivo nasce pelo catalogo, e a lacuna do status o remonta.
+      invalidos.push({ arquivo: visivel, motivo: textoDoCatalogo((m) => m.network.retratoForaDoPadrao) });
       continue;
     }
     let bruto: unknown;
     try { bruto = JSON.parse(exigirGit(cache, ['show', `${ponta}:${arquivo}`], PREFIXO)); }
-    catch { invalidos.push({ arquivo, motivo: 'JSON ilegivel' }); continue; }
+    catch { invalidos.push({ arquivo, motivo: textoDoCatalogo((m) => m.network.retratoIlegivel) }); continue; }
     const retrato = normalizarRetrato(bruto);
-    if (!retrato) { invalidos.push({ arquivo, motivo: `fora do contrato ${CONTRATO_DO_RETRATO}` }); continue; }
+    if (!retrato) { invalidos.push({ arquivo, motivo: textoDoCatalogo((m) => m.network.retratoForaDoContrato(CONTRATO_DO_RETRATO)) }); continue; }
     let esperado: string | null = null;
     try { esperado = arquivoDoRetrato(retrato.maquina); } catch { /* nome impossivel */ }
-    if (esperado !== arquivo) { invalidos.push({ arquivo, motivo: `diz ser a maquina "${retrato.maquina}", que nao e a dona deste arquivo` }); continue; }
+    const diz = retrato.maquina;
+    if (esperado !== arquivo) { invalidos.push({ arquivo, motivo: textoDoCatalogo((m) => m.network.retratoDeOutraMaquina(diz)) }); continue; }
     // V9 da revisao 4: a mesma varredura do escritor; o que ela pega nao vai ao status nem ao REDE.md.
     // W3 da revisao 5: o projeto com cara de segredo sai sozinho (o escritor faz o mesmo); so campo do
     // nucleo com cara de segredo tira a maquina inteira.
@@ -468,11 +470,16 @@ function lerRetratos(cache: string, ponta: string | null): { retratos: RetratoDa
     const projetos = retrato.projetos.filter((_x, i) => !achados[i]);
     const primeiro = achados.find((x) => x !== null);
     if (primeiro) {
-      invalidos.push({ arquivo, motivo: `${retrato.projetos.length - projetos.length} projeto(s) fora da leitura: padrao "${primeiro.padrao}" (valor omitido de proposito)` });
+      const fora = retrato.projetos.length - projetos.length, padrao = primeiro.padrao;
+      invalidos.push({ arquivo, motivo: textoDoCatalogo((m) => m.network.retratoProjetosOmitidos(fora, padrao)) });
     }
     const lido = { ...retrato, projetos };
     const segredo = segredoNoRetrato(lido);
-    if (segredo) { invalidos.push({ arquivo, motivo: `padrao "${segredo.padrao}" em ${segredo.onde} (valor omitido de proposito)` }); continue; }
+    if (segredo) {
+      const { padrao, onde } = segredo;
+      invalidos.push({ arquivo, motivo: textoDoCatalogo((m) => m.network.retratoComSegredo(padrao, onde)) });
+      continue;
+    }
     retratos.push(lido);
   }
   retratos.sort((a, b) => a.maquina.localeCompare(b.maquina));

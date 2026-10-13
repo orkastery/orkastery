@@ -702,7 +702,9 @@ function comandoAccounts(args: Args): number {
   avisarChavesDePerfis(carregado);
   const raiz = carregado.raiz;
   const sub = args.posicionais[1] ?? 'list';
-  const conferir = (p: PerfilDeDespacho) => p.runtime === 'claude-bg' ? conferirAuthClaude(p) : conferirAuthCodex(p);
+  // RM-061 (F3b, GO-FIX 1): a conferencia roda no escopo pt-BR (o detalhe vai ao store), e a impressao o traduz.
+  const conferir = (p: PerfilDeDespacho) => comLocale('pt-BR', () => p.runtime === 'claude-bg' ? conferirAuthClaude(p) : conferirAuthCodex(p));
+  const detalhe = (auth: { detalhe: string }) => ma.detalheDoLogin(remontar(auth.detalhe));
   // RM-061 (F3b, D3): o texto pelo catalogo; o que se grava (store de perfis, registro de contas) roda no escopo pt-BR,
   // e o id, o runtime, o diretorio, o motivo tipado e o detalhe que o CLI do runtime devolve saem como vieram.
   const ma = msg().accounts;
@@ -748,8 +750,8 @@ function comandoAccounts(args: Args): number {
       ? { estado: 'provider-pago', esgotadoAte: null, motivo: 'cost.violation', detalhe: auth.detalhe }
       : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe }));
     console.log(ma.resultadoAdd(id, perfil.runtime, dir, auth.ok ? ma.conferido
-      : auth.transitorio ? ma.inconclusivaAdd(auth.detalhe)
-      : auth.pago ? ma.pagoAdd(auth.detalhe) : ma.semLoginAdd(auth.detalhe)));
+      : auth.transitorio ? ma.inconclusivaAdd(detalhe(auth))
+      : auth.pago ? ma.pagoAdd(detalhe(auth)) : ma.semLoginAdd(detalhe(auth))));
     return 0;
   }
   if (sub === 'remove') {
@@ -777,8 +779,8 @@ function comandoAccounts(args: Args): number {
       });
       if (!auth.ok) falhas++;
       console.log(ma.resultadoCheck(p.id, p.runtime, auth.ok ? ma.conferido
-        : auth.transitorio ? ma.inconclusivaCheck(auth.detalhe)
-        : auth.pago ? ma.pagoCheck(auth.detalhe) : ma.semLoginCheck(auth.detalhe)));
+        : auth.transitorio ? ma.inconclusivaCheck(detalhe(auth))
+        : auth.pago ? ma.pagoCheck(detalhe(auth)) : ma.semLoginCheck(detalhe(auth))));
     }
     console.log('');
     imprimir();
