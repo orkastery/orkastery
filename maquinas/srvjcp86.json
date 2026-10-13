@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-13T03:11:26.243Z",
+  "publicadoEm": "2026-10-13T03:15:01.872Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -27,24 +27,6 @@
         "desdeEm": "2026-10-03T03:13:45.108Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
-    },
-    {
-      "id": "ork-rm026k7conhe",
-      "nome": "RM-026 K7: conhecimento escrito por CLI e MCP",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-026",
-      "branch": "ork/ork-rm026k7conhe-full",
-      "atualizadaEm": "2026-10-13T03:11:25.862Z",
-      "entregue": "69dc0ff6",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max",
-      "sessao": null
     },
     {
       "id": "ork-rm062fabrica",
