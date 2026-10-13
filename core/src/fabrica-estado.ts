@@ -6,8 +6,9 @@
  * GitHub. `ork board`, `ork fabrica` e o resumo do pulse leem as outras maquinas dali. Cada
  * maquina so escreve o proprio arquivo: push recusado se resolve relendo a ponta.
  *
- * Publicar e empurrar para o remoto do projeto, entao so acontece sozinho com
- * `fabrica.compartilhada: true` no manifesto; `ork fabrica publicar` e o caminho explicito. Nada de
+ * Publicar e empurrar para o remoto do projeto, entao so acontece sozinho com a adesao da maquina
+ * (`ork fabrica entrar`); o `fabrica.compartilhada` do manifesto so pede (RM-047, P5), e
+ * `ork fabrica publicar` e o caminho explicito. Nada de
  * credencial, prompt, log ou caminho local sai daqui: so identificadores, fase, status e o assunto
  * da pausa que espera o dono.
  *
@@ -17,7 +18,7 @@
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { buscarBranch, git, gravarNaBranch, jsonsDaPonta, pontaLocal } from './branch-de-estado';
+import { buscarBranch, exigirRemoto, git, gravarNaBranch, jsonsDaPonta, pontaLocal } from './branch-de-estado';
 import { adquirirLockMonitor } from './monitor-lock';
 import { threadsDeTodosOsPerfis } from './board';
 import { raizDoEstado } from './estado-thread';
@@ -33,6 +34,9 @@ import { dirThread } from './thread';
 import { Thread } from './types';
 import { agora as agoraIso } from './util';
 import { VERSAO_DO_ORK } from './versao';
+import { valoresEmUmaLinha } from './saida-segura';
+import { LeituraDoRuntime, lerRuntime, paradaDesde, vidaDaThread, vidaDoRetrato } from './vida-da-thread';
+import { EventoLedger } from './types';
 
 export const CONTRATO_MAQUINA = 'ork.fabrica-maquina/v1' as const;
 export const BRANCH_DA_FABRICA = 'ork/fabrica-estado';
@@ -78,6 +82,11 @@ export interface ThreadNaFabrica {
   runtime?: string | null;
   modelo?: string | null;
   esforco?: string | null;
+  /**
+   * RM-063 (F2): a sessao da fase corrente verificada no runtime quando o retrato foi feito: viva, ou parada desde
+   * quando e por que. Opcional no contrato: retrato de antes nao tem, e `null` e thread entregue (nada a conferir).
+   */
+  sessao?: { viva: boolean; desdeEm: string | null; motivo: string | null } | null;
 }
 
 /** O trio do ultimo `phase_dispatch` do ledger da thread; tudo `null` quando nao ha despacho legivel. */
@@ -156,7 +165,9 @@ export function entregasNaBase(raiz: string, base: string, remoto = 'origin'): M
 
 /** O retrato desta maquina: as threads nao fechadas do projeto, com a verdade do git por cima. */
 export function retratoDaMaquina(carregado: ManifestoCarregado,
-  opcoes: { agora?: string; maquina?: string; por?: string; remoto?: string } = {}): EstadoDaMaquina {
+  opcoes: { agora?: string; maquina?: string; por?: string; remoto?: string;
+    /** RM-063 (F2): a leitura do runtime (padrao: `claude agents` e codex desta maquina, so quando preciso). */
+    runtime?: () => LeituraDoRuntime } = {}): EstadoDaMaquina {
   const quando = opcoes.agora ?? agoraIso();
   const raiz = carregado.raiz;
   const remoto = opcoes.remoto ?? carregado.manifesto.fabrica.remoto;
@@ -165,12 +176,22 @@ export function retratoDaMaquina(carregado: ManifestoCarregado,
   const linhas = new Map(monitor.linhas.map((l) => [l.thread, l]));
   const entregas = entregasNaBase(raiz, carregado.manifesto.worktree.base_branch, remoto);
   const itemDaThread = new Map(reservasLocais(raiz, remoto).filter((r) => r.thread).map((r) => [r.thread as string, r.item]));
+  let leitura: LeituraDoRuntime | undefined;
+  const lerUmaVez = (): LeituraDoRuntime => (leitura ??= (opcoes.runtime ?? (() => lerRuntime(raiz)))());
   const threads = itens.map(({ thread: t, raiz: raizDoPerfil }): ThreadNaFabrica => {
     const entregue = entregas.get(t.id) ?? null;
     // RM-037 (fatia 4): o fim de turno sem pergunta e do condutor, e as outras maquinas nao o leem como espera
     // do dono. Sai so a pausa que o observador abriu nele; outra pausa da thread continua contando.
     let espera: ReturnType<typeof esperaDoCondutor> = null;
-    try { espera = esperaDoCondutor(t, lerLedger(dirThread(raizDoPerfil, t.id)), quando); } catch { espera = null; }
+    let eventos: EventoLedger[] = [];
+    try { eventos = lerLedger(dirThread(raizDoPerfil, t.id)); } catch { eventos = []; }
+    try { espera = esperaDoCondutor(t, eventos, quando); } catch { espera = null; }
+    // RM-063 (F2): a fabrica so mostra a thread como andando com a sessao viva verificada no runtime.
+    let sessao: ThreadNaFabrica['sessao'] = null;
+    if (!entregue) {
+      try { const v = vidaDaThread(t, eventos, lerUmaVez, Date.parse(quando)); sessao = { viva: v.viva, desdeEm: v.desdeEm, motivo: v.motivo }; }
+      catch { sessao = null; }
+    }
     const pausas = (linhas.get(t.id)?.pausas ?? []).filter((p) => !(espera && p.motivo === 'human.pending' && p.fonte === 'ledger' &&
       p.fase === (espera.fase ?? t.faseAtual)));
     const pausa = pausas[0];
@@ -182,6 +203,7 @@ export function retratoDaMaquina(carregado: ManifestoCarregado,
       esperaVoce, pergunta: esperaVoce && pausa ? curto(pausa.pausaSobre || pausa.detalhe) : null,
       paradaDesde: esperaVoce && pausa ? pausa.desdeEm : null,
       ...despachoDaThread(dirThread(raizDoPerfil, t.id)),
+      sessao,
     };
   }).sort((a, b) => a.id.localeCompare(b.id));
   const eu = quemSouEu(raiz, { por: opcoes.por, maquina: opcoes.maquina });
@@ -240,7 +262,8 @@ function gravarMarca(raiz: string, marca: MarcaDePublicacao): void {
 export function publicarMaquina(carregado: ManifestoCarregado,
   opcoes: { remoto?: string; forcar?: boolean; agora?: string; maquina?: string; por?: string } = {}): ResultadoDaPublicacao {
   const raiz = carregado.raiz;
-  const remoto = opcoes.remoto ?? carregado.manifesto.fabrica.remoto;
+  // RM-047: antes do retrato e da marca, para o remoto invalido recusar mesmo sem mudanca a enviar.
+  const remoto = exigirRemoto(opcoes.remoto ?? carregado.manifesto.fabrica.remoto, PREFIXO);
   const estado = retratoDaMaquina(carregado, { ...opcoes, remoto });
   const assinatura = assinaturaDoRetrato(estado);
   const marca = lerMarca(raiz);
@@ -276,7 +299,7 @@ export function publicarMaquina(carregado: ManifestoCarregado,
 /** `ork fabrica sair`: tira o retrato desta maquina da branch. `null` quando nao havia retrato. */
 export function removerMaquina(carregado: ManifestoCarregado, opcoes: { remoto?: string; maquina?: string } = {}): string | null {
   const raiz = carregado.raiz;
-  const remoto = opcoes.remoto ?? carregado.manifesto.fabrica.remoto;
+  const remoto = exigirRemoto(opcoes.remoto ?? carregado.manifesto.fabrica.remoto, PREFIXO);
   const maquina = quemSouEu(raiz, { maquina: opcoes.maquina }).maquina;
   for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
     const { ponta, atualizado } = buscarBranch(raiz, remoto, BRANCH_DA_FABRICA, PREFIXO, 30000);
@@ -322,18 +345,30 @@ function tabela(cabecalho: string[], linhas: string[][]): string[] {
   return [linha(cabecalho), linha(largura.map((n) => '-'.repeat(n))), ...linhas.map(linha)];
 }
 
+/** RM-063 (F2): a coluna da sessao: `viva`, `parada desde HH:MM: <motivo>`, ou `-` no retrato que nao a traz. */
+function sessaoNaFabrica(t: ThreadNaFabrica, teto: number): string {
+  const v = vidaDoRetrato(t.sessao);
+  return v.viva ? 'viva' : v.motivo === null ? '-' : curto(paradaDesde(v), teto);
+}
+
 function blocoDaMaquina(m: EstadoDaMaquina, eu: string): string[] {
   const vivas = ativas(m), entregues = m.threads.length - vivas.length;
   const cabeca = `${m.maquina}${m.maquina === eu ? ' (esta maquina)' : ''}, ${m.por}, publicado ${formatarDataHora(m.publicadoEm)}: ` +
     `${vivas.length} thread(s) ativa(s)` + (entregues ? `, ${entregues} entregue(s) sem MASTER` : '');
   if (vivas.length === 0) return [cabeca];
-  return [cabeca, ...tabela(['THREAD', 'MODO', 'FASE', 'RUNTIME', 'ITEM', 'ESPERA VOCE'], vivas.map((t) => [
+  return [cabeca, ...tabela(['THREAD', 'MODO', 'FASE', 'RUNTIME', 'ITEM', 'ESPERA VOCE', 'SESSAO'], vivas.map((t) => [
     t.id, t.modo, t.fase, runtimeDaThread(t), t.roadmap ?? '-', t.esperaVoce ? `sim: ${curto(t.pergunta ?? 'veredito', 40)}` : '-',
+    sessaoNaFabrica(t, 70),
   ]))];
 }
 
-/** `ork fabrica`: todas as maquinas. */
-export function textoDaFabrica(p: PainelDaFabrica, eu: string): string {
+/**
+ * `ork fabrica`: todas as maquinas. RM-053 (fatia 2): o painel vem do remoto, onde outras pessoas
+ * escrevem; cada valor dele (o `por`, o `projeto`, a pergunta) chega a tela numa linha so, sem nada
+ * que o terminal execute.
+ */
+export function textoDaFabrica(painel: PainelDaFabrica, eu: string): string {
+  const p = valoresEmUmaLinha(painel);
   const linhas: string[] = [];
   if (!p.atualizado) linhas.push('AVISO: sem leitura nova do remoto; esta e a ultima copia lida nesta maquina.', '');
   if (p.maquinas.length === 0) {
@@ -345,8 +380,9 @@ export function textoDaFabrica(p: PainelDaFabrica, eu: string): string {
   return linhas.join('\n');
 }
 
-/** A secao de `ork board` com as outras maquinas. */
-export function textoDasOutrasMaquinas(p: PainelDaFabrica, eu: string): string {
+/** A secao de `ork board` com as outras maquinas, saneada como o `ork fabrica`. */
+export function textoDasOutrasMaquinas(painel: PainelDaFabrica, eu: string): string {
+  const p = valoresEmUmaLinha(painel);
   const outras = p.maquinas.filter((m) => m.maquina !== eu);
   const origem = p.atualizado ? 'lido agora' : 'ultima copia local';
   if (outras.length === 0) return `Outras maquinas (${BRANCH_DA_FABRICA}, ${origem}): nenhuma publicou ainda.`;
@@ -363,16 +399,17 @@ export function painelDaFabricaEmMarkdown(maquinas: readonly EstadoDaMaquina[]):
     'O que cada máquina está conduzindo agora. Gerado pelo `ork fabrica publicar`; não edite à mão.',
     'Antes de pegar um item do roadmap: `ork roadmap reservas`.',
     '',
-    '| Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
   const vivas = maquinas.flatMap((m) => ativas(m).map((t) => ({ m, t })));
-  if (vivas.length === 0) linhas.push('| — | nenhuma thread ativa | — | — |  | — | — | — |');
+  if (vivas.length === 0) linhas.push('| — | nenhuma thread ativa | — | — |  | — | — | — | — |');
   for (const { m, t } of vivas) {
     const pergunta = t.esperaVoce ? `sim: ${curto(t.pergunta ?? 'veredito', 60).replace(/\|/g, '/')}` : '—';
     // RM-037 (sugestao 6 do CHECK 1): a celula sem despacho diz isso, sem travessao novo.
     const runtime = t.runtime || t.modelo ? runtimeDaThread(t).replace(/\|/g, '/') : 'sem despacho';
-    linhas.push(`| ${m.maquina} | ${t.id} | ${t.modo} | ${t.fase} | ${runtime} | ${t.roadmap ?? '—'} | ${pergunta} | ${formatarDataHora(m.publicadoEm)} |`);
+    const sessao = sessaoNaFabrica(t, 80).replace(/\|/g, '/').replace(/^-$/, '—');
+    linhas.push(`| ${m.maquina} | ${t.id} | ${t.modo} | ${t.fase} | ${runtime} | ${t.roadmap ?? '—'} | ${pergunta} | ${formatarDataHora(m.publicadoEm)} | ${sessao} |`);
   }
   return [...linhas, '', legendaDoFuso(), ''].join('\n');
 }

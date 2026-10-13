@@ -23,7 +23,7 @@ import { gravarCadencia } from '../src/pulse-cadencia';
 import { varrerPulse } from '../src/pulse-delivery';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
-import { commitar, dirTemporario, projetoTemporario } from './apoio';
+import { commitar, dirTemporario, envPtBr, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const brt = (hhmm: string, dia = '2026-09-27') => new Date(`${dia}T${hhmm}:00-03:00`).toISOString();
@@ -53,7 +53,8 @@ function duasMaquinas(nome: string) {
 }
 
 function ork(dir: string, args: string[], env: NodeJS.ProcessEnv = {}) {
-  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, ...env }, timeout: 60000 });
+  // RM-061 (D13): os testes leem o texto de thread new em pt-BR; o locale de quem roda nao entra.
+  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8', env: envPtBr({ ...process.env, ...env }), timeout: 60000 });
 }
 
 test('duas maquinas: cada uma publica o seu retrato e ve o da outra, com a verdade do git por cima', () => {
@@ -159,9 +160,10 @@ test('thread nova guarda a maquina e o item do roadmap; a fabrica vem desligada 
     compartilhar(p.dir);
     const ligado = carregarManifesto(p.dir)!;
     assert.deepEqual(ligado.manifesto.fabrica, { compartilhada: true, remoto: 'origin' });
-    assert.equal(fabricaCompartilhada(ligado.manifesto), true, 'o time pode ligar no projeto');
+    // RM-047 (P5): o manifesto pede a fabrica, mas quem liga a publicacao e a maquina.
+    assert.equal(fabricaCompartilhada(ligado.manifesto), false, 'o manifesto do repositorio nao liga a maquina');
     assert.equal(process.env.ORK_FABRICA_PUBLICAR, '0');
-    assert.equal(publicarEmSegundoPlano(p.dir), false, 'ORK_FABRICA_PUBLICAR=0 vence o manifesto');
+    assert.equal(publicarEmSegundoPlano(p.dir), false, 'ORK_FABRICA_PUBLICAR=0 vence tudo');
   } finally {
     if (antes === undefined) delete process.env.ORK_MAQUINA; else process.env.ORK_MAQUINA = antes;
     p.limpar();
@@ -226,11 +228,12 @@ test('CLI: thread new --roadmap grava o item, fabrica publicar e board mostram a
     assert.equal(pub.status, 0, pub.stderr);
     assert.match(pub.stdout, /Fabrica: pc-b publicou 1 thread\(s\) em ork\/fabrica-estado/);
 
-    const board = ork(m.a, ['board'], { ORK_MAQUINA: 'pc-a' });
+    // RM-047 (P5): a maquina A le as outras porque entrou na fabrica, nao porque o manifesto pede.
+    const board = ork(m.a, ['board'], { ORK_MAQUINA: 'pc-a', ORK_FABRICA_COMPARTILHADA: '1' });
     assert.equal(board.status, 0, board.stderr);
     assert.match(board.stdout, /Outras maquinas \(ork\/fabrica-estado, lido agora\):/);
     assert.match(board.stdout, new RegExp(`${id}\\s+#Auto\\s+GOAL\\s+-\\s+RM-001`));
-    const offline = ork(m.a, ['board', '--sem-remoto'], { ORK_MAQUINA: 'pc-a' });
+    const offline = ork(m.a, ['board', '--sem-remoto'], { ORK_MAQUINA: 'pc-a', ORK_FABRICA_COMPARTILHADA: '1' });
     assert.match(offline.stdout, /ultima copia local/);
 
     const json = JSON.parse(ork(m.a, ['fabrica', '--json'], { ORK_MAQUINA: 'pc-a' }).stdout);

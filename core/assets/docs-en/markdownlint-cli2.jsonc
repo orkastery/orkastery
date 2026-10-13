@@ -1,0 +1,22 @@
+// Markdown style of the product documentation and of the roadmap (Orkastery, I-44).
+// Division of labor: this linter covers the FORM of the Markdown; `ork docs verificar` covers
+// the frontmatter, reading (ADHD), and parity with the code and with git.
+{
+  "globs": [
+    "docs/produto/**/*.md",
+    "docs/roadmap/**/*.md",
+    "docs/padroes/**/*.md",
+    "README.md"
+  ],
+  "config": {
+    "default": true,
+    // Prose does not wrap at 80 columns: one paragraph is one line.
+    "MD013": false,
+    // "Histórico" and "Comportamento" repeat across pages, never among siblings under the same title.
+    "MD024": { "siblings_only": true },
+    // The template uses the same ordered list style as the owner's standard.
+    "MD029": { "style": "one_or_ordered" },
+    // HTML only for images, badges and detail folds; HTML layout hides the answer in the first line.
+    "MD033": { "allowed_elements": ["img", "picture", "source", "br", "sub", "sup", "kbd", "details", "summary"] }
+  }
+}

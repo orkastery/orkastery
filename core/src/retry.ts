@@ -29,6 +29,13 @@ import { alvosDaOrdemDeFallback, AlvoDeFallback, configDoBloco, lerSetup, limite
 import { registrarGateBloqueado } from './gates';
 import { EventoLedger } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
+import { raizDoEstado } from './estado-thread';
+import { sessaoVivaNaThread } from './vida-da-thread';
+import {
+  ControleDoDaemon, DEGRAUS_DA_ESCADA, destinoDoEpisodio, escalarEscada, estadoDaEscada, inicioDoEpisodio, ProvaDeVida, reerguerDaemon,
+  resumoDosDegraus, subirAEscada,
+} from './runtime-escada';
+import { DAEMON_DO_CLAUDE } from './adapters/claude-bg';
 import { ManifestoCarregado } from './manifest';
 import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, perfilParaDespacho, resolverDespacho, slugDaSessao,
   baselineDoDespachoNecessaria, estadoParaDespacho, garantirBaselineDoDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
@@ -73,6 +80,13 @@ import {
 } from './conducao';
 import { linhaDeConducao } from './conducao-texto';
 import { CanalDeConducao } from './types';
+import { caminhoContidoOuNulo, cwdLocalOuNulo, diretorioDaThread, exigirCwdLocal } from './procedencia';
+import { comandoDeConfirmacao, posturaAfrouxada, recusaDePostura } from './postura-local';
+import { Mensagens, msg, remontar, textoDoCatalogo, textoDoErro } from './locale';
+import { RETRY_PT_BR } from './locale-retry';
+
+/** RM-061 (F2b, D3): `porque` e `correcao` de cada motivo tem a fonte no catalogo pt-BR; o `--json` nao muda. */
+const TEXTOS_DA_POLITICA = RETRY_PT_BR.politica;
 
 /**
  * Escada de esforco da 2a tentativa em diante.
@@ -100,33 +114,25 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     motivo: 'artifact.missing',
     acao: 'corrigir-dirigido',
     automatica: true,
-    porque:
-      'o artefato exigido pela fase nao existe: a fase precisa de spec dirigida do que gravar, nao de repeticao cega do mesmo prompt',
-    correcao: 'ork fix open <thread> abre a rodada com a spec exata',
+    ...TEXTOS_DA_POLITICA['artifact.missing'],
   },
   'claims.failed': {
     motivo: 'claims.failed',
     acao: 'corrigir-dirigido',
     automatica: true,
-    porque:
-      'a alegacao reprovou na reexecucao no HEAD real: reexecutar a fase igual reproduz a mesma mentira; o que resolve e GO-FIX com a claim e o comando exatos',
-    correcao: 'ork fix open <thread> e depois ork fix reverify <thread>',
+    ...TEXTOS_DA_POLITICA['claims.failed'],
   },
   'claims.unverifiable': {
     motivo: 'claims.unverifiable',
     acao: 'corrigir-dirigido',
     automatica: true,
-    porque:
-      'alegacao sem comando de verificacao vira correcao tipo A: anexar o comando (ou retirar a alegacao com motivo) e uma linha, nao um GO inteiro',
-    correcao: 'ork claims verificar <thread> <claim> --comando "<comando>"',
+    ...TEXTOS_DA_POLITICA['claims.unverifiable'],
   },
   'policy.violation': {
     motivo: 'policy.violation',
     acao: 'escalar-humano',
     automatica: false,
-    porque:
-      'policy com severidade block reprova em qualquer modo: reexecutar sozinho seria a maquina revogando a policy do manifesto',
-    correcao: 'corrija a violacao no pedido/manifesto; policy block nao se resolve por repeticao',
+    ...TEXTOS_DA_POLITICA['policy.violation'],
   },
   'runtime.autoconferencia': {
     motivo: 'runtime.autoconferencia',
@@ -136,89 +142,66 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     // decide em que runtime o CHECK roda e quem conduz a thread.
     acao: 'escalar-humano',
     automatica: false,
-    porque:
-      'repetir o despacho no MESMO runtime daria o mesmo resultado: o que falta nao e tentativa, e um validador que nao seja quem executou. Escolher o outro runtime e decisao de conducao, nao retry',
-    correcao:
-      'despache o CHECK em outro runtime (`ork phase run <thread> CHECK --runtime <outro>`), ou tire a exigencia de validacao cruzada da thread se ela nao se justifica',
+    ...TEXTOS_DA_POLITICA['runtime.autoconferencia'],
   },
   // RM-056 (D1): o perfil pedido nao existe ou e de outro runtime. Quem corrige e quem pediu.
   'runtime.profile-invalid': {
     motivo: 'runtime.profile-invalid',
     acao: 'escalar-humano',
     automatica: false,
-    porque:
-      'o perfil foi pedido pelo dono (--perfil) e nao existe no store ou e de outro runtime: repetir o pedido daria a mesma recusa, e trocar de perfil sozinho desobedeceria o pedido',
-    correcao: 'ork accounts list mostra os perfis de cada runtime; repita o despacho com um perfil do runtime certo ou sem --perfil',
+    ...TEXTOS_DA_POLITICA['runtime.profile-invalid'],
   },
   'cost.violation': {
     motivo: 'cost.violation',
     acao: 'sem-retry',
     automatica: false,
-    porque:
-      'violacao de CUSTO nunca recebe retry automatico: cada reexecucao gastaria de novo pelo provider pago (subscription-only e regra de codigo, nao lembrete)',
-    correcao:
-      'tire do ambiente a variavel que redireciona o despacho e rode a fase de novo a mao, com o gasto sob os olhos de um humano',
+    ...TEXTOS_DA_POLITICA['cost.violation'],
   },
   'verify.regression': {
     motivo: 'verify.regression',
     acao: 'corrigir-dirigido',
     automatica: true,
-    porque:
-      'o comando passava na baseline e falha agora: o defeito e desta thread e tem alvo conhecido, entao ele vira spec de GO-FIX tipo B',
-    correcao: 'ork fix open <thread> (a reexecucao seguinte e completa)',
+    ...TEXTOS_DA_POLITICA['verify.regression'],
   },
   'verify.failed': {
     motivo: 'verify.failed',
     acao: 'corrigir-dirigido',
     automatica: true,
-    porque:
-      'o comando falha sem baseline para separar regressao de divida: a correcao dirigida conserta ou grava a baseline, mas nao chuta de quem e a culpa',
-    correcao: 'ork fix open <thread>, ou ork verify <thread> --baseline antes do proximo GO',
+    ...TEXTOS_DA_POLITICA['verify.failed'],
   },
   'verify.timeout': {
     motivo: 'verify.timeout',
     acao: 'reexecutar',
     automatica: true,
-    porque:
-      'o prazo estourou antes de o comando terminar: a prova nao chegou ao fim, e carga de maquina nao e defeito. A reexecucao e completa, e o limite de escalacao do manifesto impede repetir para sempre',
-    correcao: 'ork verify <thread> de novo; se estourar sempre, suba verify.timeout_ms no manifesto ou divida o comando',
+    ...TEXTOS_DA_POLITICA['verify.timeout'],
   },
   'verify.sem-veredito': {
     motivo: 'verify.sem-veredito',
     acao: 'reexecutar',
     automatica: true,
-    porque:
-      'um comando nao chegou a rodar ou o produto mudou no meio da rodada: nao ha veredito sobre ele, e a prova certa e rodar de novo, inteira',
-    correcao: 'ork verify <thread> de novo, sem editar a worktree durante a rodada',
+    ...TEXTOS_DA_POLITICA['verify.sem-veredito'],
   },
   'ci.failed': {
     motivo: 'ci.failed',
     acao: 'escalar-humano',
     automatica: false,
-    porque:
-      'o recibo pertence ao provedor e ao SHA candidato: repetir uma fase não cria nem altera legitimamente esse resultado',
-    correcao: 'publique a candidata, aguarde o check obrigatório e repita o SHIP; se reprovou, corrija a causa registrada no runner',
+    ...TEXTOS_DA_POLITICA['ci.failed'],
   },
   'runtime.unavailable': {
     motivo: 'runtime.unavailable',
     acao: 'reexecutar',
     automatica: true,
-    porque:
-      'falha de infraestrutura no despacho nao e falha de conteudo: o MESMO prompt, com o mesmo sha256, e redespachado sem alterar uma virgula',
-    correcao: 'ork retry run <thread> redespacha o prompt ja gravado em disco',
+    ...TEXTOS_DA_POLITICA['runtime.unavailable'],
   },
   'runtime.silencio': {
     motivo: 'runtime.silencio', acao: 'reexecutar', automatica: true,
-    porque: 'fase sem heartbeat: retomar o despacho original com hash conferido e limite de tentativas',
-    correcao: 'ork retry run <thread> --motivo runtime.silencio',
+    ...TEXTOS_DA_POLITICA['runtime.silencio'],
   },
   'runtime.rate-limited': {
     motivo: 'runtime.rate-limited',
     acao: 'esperar-janela',
     automatica: true,
-    porque:
-      'o limite de uso tem HORA de volta: a fase entra na fila duravel e e retomada na janela seguinte, sem humano no meio e sem gastar por fora da assinatura',
-    correcao: 'ork retry list mostra a fila; ork retry resume retoma o que ja liberou',
+    ...TEXTOS_DA_POLITICA['runtime.rate-limited'],
   },
   // I-33 (D5, D11): a falha e da CONTA. O perfil sai do rodizio e o MESMO prompt vai ao proximo
   // perfil ativo, depois ao runtime de fallback do bloco, e so por ultimo a fila duravel. A
@@ -228,17 +211,13 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     motivo: 'runtime.quota-exhausted',
     acao: 'reexecutar',
     automatica: true,
-    porque:
-      'a cota ou os creditos da CONTA acabaram, nao a infraestrutura: o perfil sai do rodizio ate o prazo e o MESMO prompt, com o mesmo sha256, segue no proximo perfil, no runtime de fallback ou na fila ate o menor prazo',
-    correcao: 'ork accounts list mostra o perfil esgotado; ork retry run <thread> rotaciona o prompt ja gravado',
+    ...TEXTOS_DA_POLITICA['runtime.quota-exhausted'],
   },
   'runtime.auth-missing': {
     motivo: 'runtime.auth-missing',
     acao: 'reexecutar',
     automatica: true,
-    porque:
-      'a conta do runtime perdeu a autenticacao: o perfil nunca mais recebe despacho ate o login ser refeito pelo proprio CLI, e o MESMO prompt segue no proximo perfil ou no runtime de fallback',
-    correcao: 'ork accounts check confere o login de cada perfil; ork retry run <thread> rotaciona o prompt ja gravado',
+    ...TEXTOS_DA_POLITICA['runtime.auth-missing'],
   },
   // RM-037 (defeitosdeco D-6): o modelo e que falta, nao a conta. Repetir o mesmo modelo na mesma conta
   // so repete a recusa; o perfil continua no rodizio para os outros modelos.
@@ -246,9 +225,7 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     motivo: 'runtime.model-unavailable',
     acao: 'reexecutar',
     automatica: true,
-    porque:
-      'o modelo pedido nao existe ou a conta nao tem acesso a ele: o MESMO prompt, com o mesmo sha256, segue no proximo perfil do mesmo runtime com o mesmo modelo e depois no fallback do bloco, nunca de novo no par que ja recusou',
-    correcao: 'ork retry run <thread> troca o destino; sem destino, ork setup <modo> --bloco N --model <modelo acessivel> ou --fallback runtime:modelo',
+    ...TEXTOS_DA_POLITICA['runtime.model-unavailable'],
   },
   // RM-055: so o dono destrava, no terminal. O retry nao repete o despacho as cegas: confere antes se o
   // impedimento saiu (a confianca do diretorio tem prova local) e, sem prova, deixa o runtime decidir.
@@ -256,33 +233,31 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     motivo: 'runtime.workspace-untrusted',
     acao: 'reexecutar',
     automatica: true,
-    porque:
-      'o runtime recusou o diretorio da worktree antes de rodar qualquer coisa: depois que o dono aceita a confianca no terminal, o MESMO prompt, com o mesmo sha256, volta a mesma fase; enquanto a confianca nao aparece no .claude.json da conta, nada e despachado',
-    correcao: 'o dono roda o comando da pausa (cd <worktree> && claude, aceita a confianca); ork retry run <thread> re-despacha o prompt ja gravado',
+    ...TEXTOS_DA_POLITICA['runtime.workspace-untrusted'],
   },
   'runtime.consent-pending': {
     motivo: 'runtime.consent-pending',
     acao: 'reexecutar',
     automatica: true,
-    porque:
-      'o runtime espera o dono aceitar termos novos antes de rodar qualquer coisa: depois do aceite, o MESMO prompt, com o mesmo sha256, volta a mesma fase; se o runtime recusar de novo, a mesma pausa do dono volta',
-    correcao: 'o dono abre o CLI do runtime e aceita os termos; ork retry run <thread> re-despacha o prompt ja gravado',
+    ...TEXTOS_DA_POLITICA['runtime.consent-pending'],
   },
   'tree.blocked': {
     motivo: 'tree.blocked',
     acao: 'sincronizar-worktree',
     automatica: true,
-    porque:
-      'a arvore de destino andou por baixo da thread: rebasar a worktree contra a base e o passo que desbloqueia, e reexecutar antes disso so repete o conflito',
-    correcao: 'ork worktree sync <thread> e so entao repetir o passo',
+    ...TEXTOS_DA_POLITICA['tree.blocked'],
+  },
+  'lease.resume-unavailable': {
+    motivo: 'lease.resume-unavailable',
+    acao: 'escalar-humano',
+    automatica: false,
+    ...TEXTOS_DA_POLITICA['lease.resume-unavailable'],
   },
   'lease.busy': {
     motivo: 'lease.busy',
     acao: 'reexecutar',
     automatica: true,
-    porque:
-      'o lease e de outra thread e vai ser liberado: a fila ja serializa, entao a acao e tentar de novo quando chegar a vez, nunca furar a fila',
-    correcao: 'ork lease list mostra a fila; a vez chega sem ninguem forcar',
+    ...TEXTOS_DA_POLITICA['lease.busy'],
   },
   // I-36 (T6): a vez chega quando a conducao atual terminar. Redespachar agora so recebe a mesma recusa,
   // e passar na frente de quem conduz e exatamente o incidente de 19/09/2026.
@@ -290,9 +265,7 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     motivo: 'conducao.em-andamento',
     acao: 'esperar-janela',
     automatica: true,
-    porque:
-      'outra conducao executa na mesma worktree agora: a vez chega quando ela terminar, e furar a fila e o incidente de 19/09/2026',
-    correcao: 'ork conducao status <thread> mostra quem conduz; repita o pedido com --esperar <min> para seguir sozinho quando liberar',
+    ...TEXTOS_DA_POLITICA['conducao.em-andamento'],
   },
   // I-41 (D10): formato e defeito de quem escreveu o pedido, e a spec dirigida conserta.
   // Escalar isto para o dono seria pedir que ele revise a sintaxe do robo.
@@ -300,17 +273,13 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     motivo: 'hitl.formato',
     acao: 'corrigir-dirigido',
     automatica: true,
-    porque:
-      'o pedido HITL saiu fora do formato obrigatorio: quem errou foi o emissor, e a correcao e reemitir com alternativas rotuladas, consequencia por alternativa e exatamente uma recomendada com o porque',
-    correcao: 'ork fix open <thread> abre a rodada com a spec exata do formato',
+    ...TEXTOS_DA_POLITICA['hitl.formato'],
   },
   'human.pending': {
     motivo: 'human.pending',
     acao: 'escalar-humano',
     automatica: false,
-    porque:
-      'nao e reprovacao de verdade, e espera de autorizacao: automatizar a espera seria a maquina se autorizando',
-    correcao: 'ork gate request <thread>',
+    ...TEXTOS_DA_POLITICA['human.pending'],
   },
 };
 
@@ -361,8 +330,13 @@ export function ultimaReprovacao(raiz: string, threadId: string): EventoLedger |
  * planejou: planejar nao gasta janela nem toca no repositorio.
  */
 export function tentativasFeitas(raiz: string, threadId: string, fase: Fase, motivo: MotivoGate): number {
-  return lerLedger(dirThread(raiz, threadId)).filter(
-    (e) => e.tipo === TIPOS_DE_EVENTO.retryTentado && e.fase === fase && e.motivo === motivo
+  const eventos = lerLedger(dirThread(raiz, threadId));
+  // RM-063 (F4): a escada de `runtime.unavailable` vale por episodio, e as tentativas dela tambem: o pedido novo da fase
+  // (`ork phase run`) recomeca a contagem.
+  const desde = motivo === 'runtime.unavailable' ? inicioDoEpisodio(eventos, fase) : -1;
+  // RM-055 (continuacao, D2): a recusa pelo impedimento do dono fica no ledger com `conta: false` e nao conta.
+  return eventos.filter(
+    (e, i) => i > desde && e.tipo === TIPOS_DE_EVENTO.retryTentado && e.fase === fase && e.motivo === motivo && e.conta !== false
   ).length;
 }
 
@@ -409,7 +383,7 @@ export function planejarRetry(
       modo: thread.modo,
       fase: opcoes.fase ?? thread.faseAtual,
       motivo: null,
-      detalhe: 'nenhum gate reprovado no ledger desta thread',
+      detalhe: textoDoCatalogo((m) => m.retry.semReprovacao),
       politica: null,
       acao: 'sem-retry',
       tentativas: 0,
@@ -418,7 +392,7 @@ export function planejarRetry(
       effortAnterior: effortBase,
       automatica: false,
       bloqueio: 'gate.sem-reprovacao',
-      razao: 'nao ha o que repetir: o ledger da thread nao tem reprovacao tipada pendente',
+      razao: textoDoCatalogo((m) => m.retry.nadaARepetir),
     };
   }
 
@@ -443,7 +417,19 @@ export function planejarRetry(
       effortAnterior: effortBase,
       automatica: false,
       bloqueio: 'politica.nao-automatica',
-      razao: politica.porque,
+      razao: textoDoCatalogo((m) => m.retry.politica[motivo].porque),
+    };
+  }
+
+  // RM-063 (F4): a escada de `runtime.unavailable` diz o proximo degrau do episodio; sem degrau, o dono e chamado.
+  const escada = motivo === 'runtime.unavailable' ? estadoDaEscada(lerLedger(dirThread(raiz, threadId)), fase) : null;
+  const naEscada = escada ? { degrau: escada.proximo, tipo: escada.proximo ? DEGRAUS_DA_ESCADA[escada.proximo - 1] : null,
+    consumidos: escada.consumidos.map((d) => ({ degrau: d.degrau, tipo: d.tipo, resultado: d.resultado, em: d.em })) } : null;
+  if (escada && escada.proximo === null) {
+    return {
+      thread: threadId, modo: thread.modo, fase, motivo, detalhe, politica, acao: 'escalar-humano', tentativas, limite,
+      effort: effortBase, effortAnterior: effortBase, automatica: false, bloqueio: 'escalacao.limite',
+      razao: textoDoCatalogo((m) => m.retry.escada.esgotada(resumoDosDegraus(escada.consumidos))), escada: naEscada!,
     };
   }
 
@@ -463,16 +449,15 @@ export function planejarRetry(
       effortAnterior: effortBase,
       automatica: false,
       bloqueio: 'escalacao.limite',
-      razao:
-        `${tentativas} tentativa(s) automatica(s) por ${motivo} em ${fase}, no limite de ${limite} ` +
-        'do manifesto: escalacao tipada pausa qualquer modo, inclusive #Auto',
+      razao: textoDoCatalogo((m) => m.retry.limiteDeEscalacao(tentativas, motivo, fase, limite)),
     };
   }
 
   // Da 2a tentativa em diante o esforco sobe um degrau, quando o manifesto permite.
   // `tentativas` e quantas JA rodaram, entao a 1a tentativa (tentativas 0) sai no
   // esforco base do manifesto e so a partir da 2a a escada anda.
-  const escala = manifesto.retry.escalar_esforco && tentativas >= 1;
+  // RM-063 (F4): runtime fora nao e prompt fraco. A escada de `runtime.unavailable` troca o destino, nunca o esforco.
+  const escala = manifesto.retry.escalar_esforco && tentativas >= 1 && !escada;
   const effortAnterior = escalarEsforco(effortBase, Math.max(0, tentativas - 1));
   const effort = escala ? escalarEsforco(effortBase, tentativas) : effortBase;
   const acao: AcaoDeRetry = escala ? 'escalar-esforco' : politica.acao;
@@ -483,8 +468,14 @@ export function planejarRetry(
   const autorizado = delegacao.permitida || aprovacoesHumanas(raiz, threadId).some(e => e.fase === fase && e.autorizadoPor === opcoes.autorizadoPor);
   let bloqueio: BloqueioDeRetry | null = null;
   let automatica = politica.automatica;
-  let razao = politica.porque;
-  if (delegacao.permitida && politica.automatica) razao += `; ${delegacao.razao}; delegado ${delegacao.delegado}; evidência ${delegacao.evidencia}`;
+  let razao = textoDoCatalogo((m) => m.retry.politica[motivo].porque);
+  // RM-063 (F4): o plano de `runtime.unavailable` diz o degrau da escada que a execucao sobe.
+  const degrau = escada?.proximo ?? null;
+  if (degrau) razao = textoDoCatalogo((m) => m.retry.escada.proximo(degrau, m.retry.escada.degraus[DEGRAUS_DA_ESCADA[degrau - 1]]));
+  if (delegacao.permitida && politica.automatica) {
+    razao = textoDoCatalogo((m) => m.retry.comDelegacao(m.retry.politica[motivo].porque, delegacao.razao, String(delegacao.delegado),
+      String(delegacao.evidencia)));
+  }
 
   if (!politica.automatica) {
     automatica = false;
@@ -494,10 +485,8 @@ export function planejarRetry(
     // a acao fica planejada e nao executada. `#Maestro` e `#Auto` nao caem neste ramo.
     automatica = false;
     bloqueio = 'modo.bloco-pausa';
-    razao =
-      `o bloco ${blocoDaThread(thread, fase).fases.join('-')} pausa neste modo ` +
-      `(${blocoDaThread(thread, fase).pausaSobre}): a acao ${acao} espera autorizacao humana. ` +
-      'O modo afrouxa a pausa, nunca a verificacao.';
+    const bloco = blocoDaThread(thread, fase);
+    razao = textoDoCatalogo((m) => m.retry.blocoPausa(bloco.fases.join('-'), m.thread.pausaSobre(bloco.pausaSobre), acao));
   }
 
   if (motivo === 'runtime.silencio') {
@@ -506,12 +495,12 @@ export function planejarRetry(
     if (!prova || prova.sessionId !== despacho?.sessionId || !estadoTerminalDeRetry(prova.estado)) {
       automatica = false;
       bloqueio = 'politica.nao-automatica';
-      razao = 'runtime.silencio exige prova terminal atual da mesma sessao; ausencia ou silencio nao provam morte';
+      razao = textoDoCatalogo((m) => m.retry.silencioSemProva);
     }
   }
   return {
     thread: threadId, modo: thread.modo, fase, motivo, detalhe, politica, acao, tentativas,
-    limite, effort, effortAnterior, automatica, bloqueio, razao,
+    limite, effort, effortAnterior, automatica, bloqueio, razao, ...(naEscada ? { escada: naEscada } : {}),
   };
 }
 
@@ -590,6 +579,60 @@ export function redespachar(carregado: ManifestoCarregado, thread: Thread, fase:
   } finally { retida.devolver(); }
 }
 
+/**
+ * RM-063 (F3): onde esta o prompt gravado. O ledger guarda o caminho relativo a raiz de codigo de quem despachou:
+ * da worktree, ele sai `../../../.orkastery/threads/...` (a K7 de 12/10/2026), e lido do checkout principal aponta
+ * para fora do projeto. O arquivo certo e o que tem o MESMO sha256: absoluto, relativo a raiz de codigo, a raiz do
+ * estado ou a pasta de prompts da thread. Sem nenhum com o sha, vale o primeiro que existe (a recusa diz que o prompt
+ * mudou); sem nenhum arquivo comum dentro do projeto, `null` (a recusa diz que sumiu).
+ */
+export function localizarPromptGravado(raiz: string, threadId: string, promptPath: string, sha: string): string | null {
+  const candidatos = path.isAbsolute(promptPath) ? [promptPath] : [path.join(raiz, promptPath)];
+  try { candidatos.push(path.join(raizDoEstado(raiz), promptPath)); } catch { /* raiz sem estado legivel */ }
+  candidatos.push(path.join(dirThread(raiz, threadId), 'prompts', path.basename(promptPath)));
+  let thread: { id: string; worktree: string | null } | null = null;
+  try { const t = lerThread(raiz, threadId); thread = { id: t.id, worktree: t.worktree }; } catch { thread = null; }
+  // O ponteiro vem do estado: so arquivo comum, de tamanho de prompt, dentro do projeto ou da worktree da thread (RM-047).
+  const legivel = (c: string): boolean => {
+    try {
+      const st = fs.lstatSync(c);
+      return st.isFile() && st.size <= TETO_DO_PROMPT_GRAVADO && caminhoContidoOuNulo(raiz, thread, c) !== null;
+    } catch { return false; }
+  };
+  const existentes = [...new Set(candidatos.map((c) => path.resolve(c)))].filter(legivel);
+  for (const c of existentes) {
+    try { if (hashDoPrompt(fs.readFileSync(c, 'utf8')) === sha) return c; } catch { /* ilegivel: tenta o proximo */ }
+  }
+  return existentes[0] ?? null;
+}
+
+/** Um prompt de fase tem dezenas de KB; acima disto o ponteiro do estado nao e um prompt gravado pelo ork. */
+export const TETO_DO_PROMPT_GRAVADO = 4 * 1024 * 1024;
+
+/**
+ * RM-063 (F3): o despacho cujo prompt o `reexecutar` devolve ao runtime. Primeiro o despacho da sessao do gate (a
+ * sessao que morreu depois de despachada, como a K7 de 12/10/2026, nao deixa `phase_dispatch_failed`), depois o
+ * proprio gate quando ele carrega o prompt, e por fim a tentativa mais recente da fase com prompt gravado:
+ * `phase_dispatch_failed` ou `phase_prompt_recorded` (e o `phase_dispatch`, no silencio do runtime).
+ */
+export function despachoParaRedespachar(eventos: readonly EventoLedger[], fase: Fase, gate: EventoLedger | null,
+  silencio = false): EventoLedger | null {
+  const comPrompt = (e: EventoLedger | undefined | null): e is EventoLedger =>
+    !!e && typeof e.promptPath === 'string' && typeof e.promptSha256 === 'string';
+  if (gate && typeof gate.sessionId === 'string') {
+    const daSessao = eventos.filter((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada && e.sessionId === gate.sessionId).at(-1);
+    if (comPrompt(daSessao)) return daSessao;
+  }
+  if (comPrompt(gate)) return gate;
+  for (let i = eventos.length - 1; i >= 0; i--) {
+    const e = eventos[i];
+    if (e.fase !== fase || !comPrompt(e)) continue;
+    if (e.tipo === TIPOS_DE_EVENTO.despachoFalhou || e.tipo === TIPOS_DE_EVENTO.promptGravado ||
+        (silencio && e.tipo === TIPOS_DE_EVENTO.faseDespachada)) return e;
+  }
+  return null;
+}
+
 function redespacharSobLock(
   carregado: ManifestoCarregado,
   thread: Thread,
@@ -601,20 +644,19 @@ function redespacharSobLock(
   tomadaPrevia?: ConducaoTomada
 ): ResultadoDoRedespacho {
   const { raiz, manifesto } = carregado;
-  const absoluto = path.isAbsolute(promptRelativo)
-    ? promptRelativo
-    : path.join(raiz, promptRelativo);
+  const achado = localizarPromptGravado(raiz, thread.id, promptRelativo, sha);
+  const absoluto = achado ?? '';
   const slug = opcoes.slug ?? slugDaSessao(thread, fase);
   const vazio = { slug, sessionId: null, verificada: false, sinal: null, comando: [] as string[] };
   const erroDeEstado = estadoParaDespacho(raiz, thread, opcoes.dryRun);
   if (erroDeEstado) return { ...vazio, ok: false, motivo: 'tree.blocked', detalhe: erroDeEstado, dryRun: opcoes.dryRun === true };
 
-  if (!fs.existsSync(absoluto)) {
+  if (!achado) {
     return {
       ...vazio,
       ok: false,
       motivo: 'artifact.missing',
-      detalhe: `o prompt gravado sumiu do disco: ${promptRelativo}`,
+      detalhe: textoDoCatalogo((m) => m.retry.promptSumiu(promptRelativo)),
       dryRun: opcoes.dryRun === true,
     };
   }
@@ -625,9 +667,7 @@ function redespacharSobLock(
       ...vazio,
       ok: false,
       motivo: 'artifact.missing',
-      detalhe:
-        `o prompt em ${promptRelativo} mudou desde o despacho original ` +
-        `(sha256 ${shaAtual.slice(0, 12)} != ${sha.slice(0, 12)}): retomada e redespachar o MESMO texto`,
+      detalhe: textoDoCatalogo((m) => m.retry.promptMudou(promptRelativo, shaAtual.slice(0, 12), sha.slice(0, 12))),
       dryRun: opcoes.dryRun === true,
     };
   }
@@ -676,8 +716,9 @@ function redespacharSobLock(
         registrar(dirThread(raiz, thread.id), thread.id, TIPOS_DE_EVENTO.despachoIdempotente, { fase, promptSha256: sha, canal,
           sessionId: tomada.atual.sessao, origem: opcoes.origem ?? 'retry',
           razao: 'mesma fase e mesmo prompt de quem ja conduz: a sessao em andamento atende a retomada, sem sessao nova' });
+        const sessao = String(tomada.atual.sessao).slice(0, 8);
         return { ...vazio, ok: true, sessionId: tomada.atual.sessao, motivo: null, dryRun: false,
-          detalhe: `a sessao ${String(tomada.atual.sessao).slice(0, 8)} ja conduz a fase ${fase} com este prompt: nada foi redespachado` };
+          detalhe: textoDoCatalogo((m) => m.retry.jaConduz(sessao, fase)) };
       }
       const recusa = recusaDeConducao(thread.id, tomada.atual, pedidoDeConducao);
       registrarRecusa(raiz, recusa);
@@ -686,7 +727,11 @@ function redespacharSobLock(
     conducao = tomada;
   }
   try {
-    const cwd = opcoes.cwd ?? thread.worktree ?? raiz;
+    // RM-047 (P2): o cwd do pedido da fila ou da worktree da thread so vale como worktree registrada no git.
+    let cwd: string;
+    try { cwd = opcoes.cwd !== undefined ? exigirCwdLocal(raiz, thread.id, opcoes.cwd, 'fila') : diretorioDaThread(raiz, thread); }
+    // RM-061 (F3b, GO-FIX 1): o erro do catalogo fica registrado, e a impressao o remonta.
+    catch (e) { return { ...vazio, ok: false, motivo: 'tree.blocked', detalhe: textoDoErro(e), dryRun: opcoes.dryRun === true }; }
     // Mesma resolucao do `ork phase run`: a retomada carimba no ledger o trio que ela de
     // fato despachou, inclusive quando o pedido da fila trazia um modelo proprio. O setup
     // do bloco (feature #setup) vale aqui tambem: a fase retomada abre no MESMO runtime
@@ -702,11 +747,19 @@ function redespacharSobLock(
       doBloco
     );
     const rt = resolverRuntime(runtime);
+    // RM-047 (P1): a retomada recusa o sandbox afrouxado sem a confirmacao local, como o `ork phase run`.
+    const erroDePostura = recusaDePostura(raiz, manifesto, runtime);
+    if (erroDePostura) {
+      if (!opcoes.dryRun) registrarGateBloqueado(dirThread(raiz, thread.id), thread.id, { gate: 'phase.dispatch',
+        motivo: 'policy.violation', modo: thread.modo, detalhe: erroDePostura,
+        correcao: comandoDeConfirmacao(posturaAfrouxada(manifesto) ?? ''), fase, slug, origem: opcoes.origem ?? 'retry' });
+      return { ...vazio, ok: false, motivo: 'policy.violation', detalhe: erroDePostura, dryRun: opcoes.dryRun === true };
+    }
     if (!opcoes.dryRun && baselineDoDespachoNecessaria(carregado, thread.id, { fase, prompt: '', runtime, model, effort })) {
       // Na primeira passada a tomada fica retida para a baseline (o `finally` nao a solta); na repeticao, o
       // `finally` devolve o que a tomada consumiu (A-1 do CHECK 3).
       const pendente: ResultadoDoRedespacho = { ...vazio, ok: false, motivo: 'runtime.unavailable', dryRun: false,
-        detalhe: `baseline.pendente: o bloco com GO no ${runtime} precisa da baseline antes da retomada` };
+        detalhe: textoDoCatalogo((m) => m.retry.baselinePendente(runtime)) };
       if (!tomadaPrevia && conducao) { pendente.retida = conducao; conducao = null; }
       return pendente;
     }
@@ -717,8 +770,9 @@ function redespacharSobLock(
     if (runtime === 'claude-bg') {
       try { contextoRuntime = contextoDoProjeto(raiz, runtime, cwd, thread.id); }
       catch (e) {
+        const erro = (e as Error).message;
         return { ...vazio, ok: false, motivo: 'runtime.unavailable',
-          detalhe: `runtime.unavailable: ${(e as Error).message}`, dryRun: opcoes.dryRun === true };
+          detalhe: textoDoCatalogo((m) => m.retry.runtimeIndisponivel(erro)), dryRun: opcoes.dryRun === true };
       }
       if (contextoRuntime) contextoRuntime.identidade = identidade;
     }
@@ -760,7 +814,7 @@ function redespacharSobLock(
         sessionId: null,
         verificada: false,
         motivo: null,
-        detalhe: 'ensaio (--dry-run): comando montado, nada despachado',
+        detalhe: textoDoCatalogo((m) => m.retry.ensaioDoRedespacho),
         sinal: null,
         comando: resultado.comando,
         dryRun: true,
@@ -768,10 +822,14 @@ function redespacharSobLock(
     }
 
     if (!resultado.ok || !resultado.sessionId) {
+      // RM-063 (F4, GO-FIX): o `claude --bg` lento diz o id e estoura o prazo com a sessao aberta. A falha guarda a sessao,
+      // como no `ork phase run`: e por ela que o retry e a escada provam que ninguem trabalha na worktree antes de outro
+      // destino.
+      const daSessao = resultado.sessionId ? { sessionId: resultado.sessionId } : {};
       registrar(dirThread(raiz, thread.id), thread.id, 'phase_dispatch_failed', { fase, runtime, slug, cwd,
         promptPath: absoluto, promptSha256: sha, controlador: resultado.controlador, model, effort,
         erro: resultado.erro ?? 'runtime.unavailable: sem sessionId', stderr: (resultado.stderr ?? '').slice(0, 500),
-        origem: 'retry', ...(perfil ? { perfil } : {}) });
+        origem: 'retry', ...(perfil ? { perfil } : {}), ...daSessao });
       const sinal = resultado.rateLimit ?? null;
       // RM-055: o redespacho recusado pelo que so o dono resolve reabre a pausa dele, com o mesmo comando.
       const impedimento = !resultado.falhaDeConta && !sinal
@@ -790,11 +848,11 @@ function redespacharSobLock(
       return {
         ok: false,
         slug,
-        sessionId: null,
+        sessionId: resultado.sessionId ?? null,
         verificada: false,
         // I-33 (D11b): falha de conta reconhecida na saida e o motivo mais especifico.
         motivo: resultado.falhaDeConta?.motivo ?? (sinal ? 'runtime.rate-limited' : 'runtime.unavailable'),
-        detalhe: resultado.erro ?? 'sem sessionId na saida do runtime',
+        detalhe: resultado.erro ?? textoDoCatalogo((m) => m.retry.semSessionId),
         sinal,
         falhaDeConta: resultado.falhaDeConta ?? null,
         perfil: perfil ?? null,
@@ -831,8 +889,7 @@ function redespacharSobLock(
       sessionId: resultado.sessionId,
       verificada: resultado.verificada,
       motivo: null,
-      detalhe: `sessao ${resultado.sessionId} despachada com o mesmo prompt sha256 ${sha.slice(0, 12)}` +
-        (perfil ? ` no perfil ${perfil.id} (${runtime})` : ''),
+      detalhe: textoDoCatalogo((m) => m.retry.redespachada(String(resultado.sessionId), sha.slice(0, 12), perfil ? perfil.id : null, runtime)),
       sinal: null,
       perfil: perfil ?? null,
       comando: resultado.comando,
@@ -1241,7 +1298,10 @@ export function producaoNoIntervalo(raiz: string, thread: Thread,
     // pelo shell nao passa pelo ledger, entao so o HEAD o revela.
     const registro = eventos.filter(e => e.tipo === 'session_sensor_registered' && e.sessionId === sessao.sessionId &&
       e.despachoEm === sessao.despachadaEm).at(-1);
-    const cwd = typeof registro?.cwd === 'string' ? registro.cwd : typeof despacho?.cwd === 'string' ? despacho.cwd : thread.worktree ?? raiz;
+    const doLedger = typeof registro?.cwd === 'string' ? registro.cwd : typeof despacho?.cwd === 'string' ? despacho.cwd : null;
+    // RM-047 (P2): git so roda em worktree registrada; cwd que nao vale e duvida, e duvida conta como producao.
+    const cwd = doLedger !== null ? cwdLocalOuNulo(raiz, thread.id, doLedger, 'ledger') : cwdLocalOuNulo(raiz, thread.id, thread.worktree ?? raiz, 'thread');
+    if (cwd === null) return { produziu: true, evidencia: 'cwd do despacho fora das worktrees registradas; producao nao descartada' };
     const head = registro?.head;
     if (typeof head !== 'string' || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(head))
       return { produziu: true, evidencia: 'HEAD da worktree no despacho desconhecido; producao nao descartada' };
@@ -1325,10 +1385,31 @@ function ultimoDespachoFalho(raiz: string, threadId: string, fase: Fase, silenci
   return null;
 }
 
+/**
+ * RM-063 (F4, GO-FIX): quantas recusas seguidas, no episodio da fase, sairam porque o runtime nao respondeu a prova de
+ * vida (`semProva`). Uma tentativa que andou (contada, ou recusada com sessao viva) zera a conta.
+ */
+export function recusasSemProvaSeguidas(eventos: readonly EventoLedger[], fase: Fase): number {
+  const desde = inicioDoEpisodio(eventos, fase);
+  let seguidas = 0;
+  for (let i = eventos.length - 1; i > desde; i--) {
+    const e = eventos[i];
+    if (e.tipo !== TIPOS_DE_EVENTO.retryTentado || e.fase !== fase || e.motivo !== 'runtime.unavailable') continue;
+    if (e.semProva !== true) break;
+    seguidas += 1;
+  }
+  return seguidas;
+}
+
+/** Recusas seguidas sem resposta do runtime, no mesmo episodio, ate o dono ser chamado. */
+export const LIMITE_SEM_PROVA = 3;
+
 export interface OpcoesDeExecucao extends OpcoesDePlano {
   dryRun?: boolean;
   /** Encadeia o CHECK-REVERIFY logo apos abrir a rodada de GO-FIX. */
   reverify?: boolean;
+  /** RM-063 (F4): o daemon do runtime do degrau 1; sem ele, o `claude daemon` da conta (os testes injetam um falso). */
+  daemon?: ControleDoDaemon;
 }
 
 /**
@@ -1382,6 +1463,24 @@ export function executarRetry(
   });
 
   if (!plano.automatica || plano.motivo === null) {
+    // RM-063 (F4, GO-FIX, achado 9): a escada esgotada pelo plano (a sessao do ultimo degrau morreu depois) chama o dono
+    // pela escada, com as alternativas e o comando que retoma com o mesmo prompt; a escalada generica so repetia o retry.
+    if (plano.motivo === 'runtime.unavailable' && plano.escada && plano.escada.degrau === null && plano.fase && !opcoes.dryRun) {
+      const eventos = lerLedger(dir);
+      const ultimo = despachoParaRedespachar(eventos, plano.fase, null);
+      if (ultimo && typeof ultimo.promptPath === 'string' && typeof ultimo.promptSha256 === 'string') {
+        const origem = destinoDoEpisodio(eventos, plano.fase);
+        let perfil: PerfilDeDespacho | null = null;
+        try { perfil = perfilDoEvento(ultimo); } catch { perfil = null; }
+        const despacho = { promptPath: localizarPromptGravado(raiz, threadId, ultimo.promptPath, ultimo.promptSha256) ?? ultimo.promptPath,
+          promptSha256: ultimo.promptSha256, perfil: origem?.perfil ?? perfil,
+          runtime: origem?.runtime ?? (typeof ultimo.runtime === 'string' ? ultimo.runtime : carregado.manifesto.runtime.adapter),
+          model: origem?.model ?? null, effort: origem?.effort ?? null };
+        const detalhe = escalarEscada(carregado, thread, plano.fase, despacho, estadoDaEscada(eventos, plano.fase).consumidos,
+          plano.tentativas, plano.limite);
+        return { ...vazio, detalhe };
+      }
+    }
     // Escalacao e custo viram gate humano explicito no ledger, nao silencio.
     if (plano.bloqueio === 'escalacao.limite' || plano.acao === 'sem-retry') {
       registrarGateBloqueado(dir, threadId, {
@@ -1409,7 +1508,7 @@ export function executarRetry(
   }
 
   const acaoBase = plano.politica?.acao ?? plano.acao;
-  const registrarTentativa = (ok: boolean, detalhe: string): void => {
+  const registrarTentativa = (ok: boolean, detalhe: string, extra: Record<string, unknown> = {}): void => {
     registrar(dir, threadId, TIPOS_DE_EVENTO.retryTentado, {
       fase: plano.fase,
       motivo: plano.motivo,
@@ -1427,6 +1526,7 @@ export function executarRetry(
         : `politica de retry do bloco B3 (bloco sem pausa no modo ${thread.modo})`,
       ok,
       detalhe,
+      ...extra,
     });
   };
 
@@ -1434,9 +1534,7 @@ export function executarRetry(
   // quem conduz, e a vez chega quando essa conducao terminar.
   if (plano.motivo === 'conducao.em-andamento') {
     const atual = conducaoDaThread(raiz, threadId);
-    const detalhe = atual
-      ? `${linhaDeConducao(atual)}; nada foi redespachado, a vez chega quando essa conducao terminar`
-      : 'ninguem conduz a thread agora: o proximo pedido segue normalmente';
+    const detalhe = textoDoCatalogo((m) => atual ? m.retry.conduzidaAgora(linhaDeConducao(atual)) : m.retry.ninguemConduz);
     registrarTentativa(!atual, detalhe);
     return { ...vazio, executada: false, detalhe };
   }
@@ -1446,19 +1544,15 @@ export function executarRetry(
     const fila = lerFilaDeRetomada(raiz).filter(
       (p) => p.thread === threadId && p.estado === 'aguardando'
     );
-    const detalhe =
-      fila.length > 0
-        ? `${fila.length} pedido(s) na fila duravel; o proximo libera em ${fila[0].liberaEm}`
-        : 'nenhum pedido aguardando na fila para esta thread';
+    const detalhe = textoDoCatalogo((m) => fila.length > 0 ? m.retry.naFila(fila.length, fila[0].liberaEm) : m.retry.filaVazia);
     registrarTentativa(fila.length > 0, detalhe);
     return { ...vazio, executada: fila.length > 0, fila, detalhe };
   }
 
   if (acaoBase === 'sincronizar-worktree') {
     const sync = sincronizarWorktree(carregado, threadId, { dryRun: opcoes.dryRun });
-    const detalhe = sync.ok
-      ? `worktree sincronizada com a base (${sync.passos.join('; ')})`
-      : `sincronizacao nao concluiu: ${sync.detalhe}`;
+    // RM-061 (F3b): o detalhe da worktree tambem vem do catalogo; remontado aqui, ele segue o locale da impressao.
+    const detalhe = textoDoCatalogo((m) => sync.ok ? m.retry.sincronizada(sync.passos.join('; ')) : m.retry.sincronizacaoFalhou(remontar(sync.detalhe)));
     registrarTentativa(sync.ok, detalhe);
     return { ...vazio, executada: sync.ok, sync, detalhe };
   }
@@ -1469,11 +1563,8 @@ export function executarRetry(
       opcoes.reverify && rodada.correcoes.length > 0
         ? reverificar(carregado, threadId, { rodada: rodada.rodada })
         : null;
-    const detalhe =
-      rodada.correcoes.length === 0
-        ? 'o CHECK passou no HEAD real: nao ha correcao a dirigir'
-        : `${rodada.correcoes.length} correcao(oes) na rodada ${rodada.rodada}` +
-          (reverify ? `; CHECK-REVERIFY: ${reverify.veredito}` : '');
+    const detalhe = textoDoCatalogo((m) => rodada.correcoes.length === 0 ? m.retry.checkPassou
+      : m.retry.correcoesNaRodada(rodada.correcoes.length, rodada.rodada, reverify ? m.retry.vereditos[reverify.veredito] ?? reverify.veredito : null));
     registrarTentativa(rodada.correcoes.length > 0, detalhe);
     return { ...vazio, executada: rodada.correcoes.length > 0, rodada, reverify, detalhe };
   }
@@ -1485,12 +1576,15 @@ export function executarRetry(
     return trocarDestinoDoModelo(carregado, thread, plano, opcoes, vazio, registrarTentativa);
   }
 
-  // `reexecutar` e `escalar-esforco`: o MESMO prompt volta ao runtime.
-  const falho = ultimoDespachoFalho(raiz, threadId, plano.fase as Fase, plano.motivo === 'runtime.silencio');
+  // `reexecutar` e `escalar-esforco`: o MESMO prompt volta ao runtime. RM-063 (F3): o gate que o plano leu diz de que
+  // despacho e o prompt; sem ele, a tentativa mais recente da fase com prompt gravado.
+  const reprovacao = ultimaReprovacao(raiz, threadId);
+  const gateDoPlano = reprovacao && reprovacao.motivo === plano.motivo && faseDoEvento(reprovacao, thread) === plano.fase
+    ? reprovacao : null;
+  const falho = despachoParaRedespachar(lerLedger(dirThread(raiz, threadId)), plano.fase as Fase, gateDoPlano,
+    plano.motivo === 'runtime.silencio');
   if (!falho || typeof falho.promptPath !== 'string' || typeof falho.promptSha256 !== 'string') {
-    const detalhe =
-      `nao ha despacho falho registrado em ${plano.fase} com prompt gravado: ` +
-      `rode a fase de novo com \`ork phase run ${threadId} ${plano.fase} --prompt "..."\``;
+    const detalhe = textoDoCatalogo((m) => m.retry.semDespachoFalho(plano.fase, threadId));
     registrarTentativa(false, detalhe);
     return { ...vazio, detalhe };
   }
@@ -1501,10 +1595,72 @@ export function executarRetry(
     const resolvido = impedimentoResolvido(plano.motivo, { cwd: falho.cwd,
       runtime: typeof falho.runtime === 'string' ? falho.runtime : '', configDir: perfilFalho?.configDir ?? null });
     if (resolvido === false) {
-      const detalhe = `${plano.motivo}: o runtime ainda nao confia em ${falho.cwd}; nada foi despachado. ` +
-        `Rode \`cd ${falho.cwd} && claude\`, aceite a confianca e repita \`ork retry run ${threadId}\``;
+      const motivo = plano.motivo, cwd = falho.cwd;
+      const detalhe = textoDoCatalogo((m) => m.retry.semConfianca(motivo, cwd, threadId));
       return { ...vazio, detalhe };
     }
+  }
+  // RM-063 (F3, GO-FIX): antes de devolver o prompt ao runtime, a prova de que nenhuma sessao viva trabalha na thread. O
+  // despacho que falhou depois de abrir a sessao (o `claude --bg` lento) e o adaptador que lanca deixariam duas sessoes
+  // na mesma worktree. Sem a prova, nada e redespachado, e a tentativa nao conta.
+  const ids = [falho.sessionId, gateDoPlano?.sessionId].filter((x): x is string => typeof x === 'string' && !!x);
+  const provar: ProvaDeVida = (conhecidos) => sessaoVivaNaThread(raiz, thread, conhecidos);
+  let viva = provar(ids);
+  // RM-063 (F4): `runtime.unavailable` sobe a escada de recuperacao (reerguer o daemon, o fallback do bloco, outro perfil),
+  // sempre com o mesmo prompt e o mesmo sha256. Ate aqui o retry so sabia repetir o destino que tinha acabado de falhar.
+  if (plano.motivo === 'runtime.unavailable') {
+    let perfilFalho: PerfilDeDespacho | null = null;
+    try { perfilFalho = perfilDoEvento(falho); } catch { perfilFalho = null; }
+    // O destino de origem e o do pedido novo que abriu o episodio; o despacho do gate completa o que faltar.
+    const origem = destinoDoEpisodio(lerLedger(dir), plano.fase as Fase);
+    const sha = falho.promptSha256;
+    // GO-FIX (achado 10): o caminho do ledger e relativo a quem despachou; o absoluto e o que o dono roda de qualquer lugar.
+    const promptPath = localizarPromptGravado(raiz, threadId, falho.promptPath, sha) ?? falho.promptPath;
+    const despacho = { promptPath, promptSha256: sha, perfil: origem?.perfil ?? perfilFalho,
+      runtime: origem?.runtime ?? (typeof falho.runtime === 'string' ? falho.runtime : carregado.manifesto.runtime.adapter),
+      model: origem?.model ?? (typeof falho.model === 'string' ? falho.model : null),
+      effort: origem?.effort ?? (typeof falho.effort === 'string' ? falho.effort : plano.effort) };
+    // GO-FIX (a conferir da revisao): com o daemon travado, o proprio `claude agents` pode nao responder, e a prova de vida
+    // segurava a escada para sempre. No claude-bg, o degrau 1 reergue o daemon antes (o `--keep-workers` deixa as sessoes
+    // de pe) e a prova e refeita; sem resposta de novo, nada sai, e na terceira vez seguida no episodio o dono e chamado.
+    let daemonJaReerguido: ReturnType<typeof reerguerDaemon> | null = null;
+    if (!viva.respondeu && despacho.runtime === 'claude-bg' && !opcoes.dryRun) {
+      daemonJaReerguido = reerguerDaemon(opcoes.daemon ?? DAEMON_DO_CLAUDE, despacho.perfil);
+      viva = provar(ids);
+    }
+    if (!viva.respondeu || viva.sessionId) {
+      const { sessionId: sessao, detalhe: falhaDaConsulta } = viva;
+      const detalhe = sessao ? textoDoCatalogo((m) => m.retry.sessaoAindaViva(sessao.slice(0, 8), threadId))
+        : textoDoCatalogo((m) => m.retry.runtimeSemProva(falhaDaConsulta ?? '', threadId));
+      registrarTentativa(false, detalhe, { conta: false, ...(sessao ? {} : { semProva: true }),
+        ...(daemonJaReerguido ? { daemon: daemonJaReerguido } : {}) });
+      const seguidas = sessao ? 0 : recusasSemProvaSeguidas(lerLedger(dir), plano.fase as Fase);
+      if (seguidas >= LIMITE_SEM_PROVA && !opcoes.dryRun) {
+        const escada = estadoDaEscada(lerLedger(dir), plano.fase as Fase);
+        const motivo = textoDoCatalogo((m) => m.retry.escada.semResposta(seguidas, falhaDaConsulta ?? '-'));
+        return { ...vazio, detalhe: escalarEscada(carregado, thread, plano.fase as Fase, despacho, escada.consumidos, plano.tentativas,
+          plano.limite, motivo) };
+      }
+      return { ...vazio, detalhe };
+    }
+    const saida = subirAEscada({
+      carregado, thread, fase: plano.fase as Fase, despacho,
+      tentativas: plano.tentativas, limite: plano.limite, dryRun: opcoes.dryRun, daemon: opcoes.daemon, daemonJaReerguido,
+      idsConhecidos: ids, provaDeVida: provar,
+      redespachar: (d) => redespachar(carregado, thread, plano.fase as Fase, promptPath, sha, { runtime: d.runtime, perfil: d.perfil,
+        model: d.model, effort: d.effort, origem: 'retry.escada', dryRun: opcoes.dryRun }),
+      // RM-055 (D2): a recusa do runtime por um impedimento do dono nao gasta tentativa, tambem na escada.
+      registrarTentativa: (ok, detalhe, extra = {}) => registrarTentativa(ok, detalhe,
+        { ...extra, ...(ehImpedimentoDoDono(extra.motivoDoRedespacho) ? { conta: false } : {}) }),
+    });
+    return { ...vazio, executada: saida.executada, redespacho: saida.redespacho, detalhe: saida.detalhe };
+  }
+  if (!viva.respondeu || viva.sessionId) {
+    const { sessionId: sessao, detalhe: falhaDaConsulta } = viva;
+    const detalhe = sessao ? textoDoCatalogo((m) => m.retry.sessaoAindaViva(sessao.slice(0, 8), threadId))
+      : textoDoCatalogo((m) => m.retry.runtimeSemProva(falhaDaConsulta ?? '', threadId));
+    registrarTentativa(false, detalhe, { conta: false });
+    return { ...vazio, detalhe };
   }
   const redespacho = redespachar(
     carregado,
@@ -1520,7 +1676,11 @@ export function executarRetry(
       dryRun: opcoes.dryRun,
     }
   );
-  registrarTentativa(redespacho.ok, redespacho.detalhe);
+  // RM-055 (continuacao, D2): o runtime recusou o redespacho por um motivo que so o dono resolve. Nada rodou
+  // e a espera do dono voltou com o mesmo comando: a recusa fica no ledger, mas nao gasta tentativa nem sobe
+  // esforco. Contada, a quarta chamada escalava e o retry nunca mais re-despachava, nem depois do aceite.
+  const recusaDoDono = !redespacho.ok && ehImpedimentoDoDono(redespacho.motivo);
+  registrarTentativa(redespacho.ok, redespacho.detalhe, recusaDoDono ? { conta: false } : {});
   return {
     ...vazio,
     executada: redespacho.ok,
@@ -1555,7 +1715,7 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
     return { ...vazio, detalhe: diagnostico };
   };
   if (!despacho || typeof despacho.promptPath !== 'string' || typeof despacho.promptSha256 !== 'string') {
-    const detalhe = `nao ha despacho com prompt gravado para ${motivo} em ${fase}: rode a fase de novo com ork phase run`;
+    const detalhe = textoDoCatalogo((m) => m.retry.semDespachoComPrompt(motivo, fase));
     registrarTentativa(false, detalhe);
     return { ...vazio, detalhe };
   }
@@ -1565,15 +1725,17 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
     perfil = typeof gate?.sessionId === 'string'
       ? perfilDoRegistro(eventos, { sessionId: gate.sessionId, despachadaEm: typeof gate.despachoEm === 'string' ? gate.despachoEm : undefined })
       : perfilDoEvento(despacho);
-  } catch (e) { return escalar('perfil registrado invalido', `rotacao recusada: ${(e as Error).message}`); }
+  } catch (e) {
+    const erro = (e as Error).message;
+    return escalar('perfil registrado invalido', textoDoCatalogo((m) => m.retry.rotacaoRecusada(erro)));
+  }
 
   // D11 (c): sessao que morreu por cota depois de produzir nao e redespachada.
   if (typeof gate?.sessionId === 'string' && typeof gate.despachoEm === 'string') {
     const producao = producaoNoIntervalo(raiz, thread, { sessionId: gate.sessionId, fase, despachadaEm: gate.despachoEm }, eventos);
     if (producao.produziu) {
       return escalar('producao parcial sob falha da conta',
-        `producao parcial sob ${motivo === 'runtime.quota-exhausted' ? 'cota esgotada' : 'auth ausente'}: ${producao.evidencia}; ` +
-        'a sessao nao e redespachada sobre a worktree alterada e a fase nao conclui sem o humano');
+        textoDoCatalogo((m) => m.retry.producaoParcialConta(motivo === 'runtime.quota-exhausted', String(producao.evidencia))));
     }
   }
 
@@ -1622,8 +1784,8 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
     // fila) continua sendo a da conta; o modelo inacessivel tem troca propria (trocarDestinoDoModelo).
     if (ultimo.falhaDeConta?.motivo !== 'runtime.model-unavailable') falhaAtual = ultimo.falhaDeConta ?? falhaAtual;
     if (tentativas >= plano.limite) {
-      return escalar('limite de tentativas na rotacao', `${tentativas} tentativa(s) de rotacao por ${motivo} em ${fase}, no limite de ` +
-        `${plano.limite} do manifesto: escalacao tipada pausa qualquer modo`);
+      const feitas = tentativas;
+      return escalar('limite de tentativas na rotacao', textoDoCatalogo((m) => m.retry.limiteDaRotacao(feitas, motivo, fase, plano.limite)));
     }
   }
 
@@ -1634,12 +1796,11 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
   const prazo = prazoDaFila(lerPerfisComContas(raiz), runtimes, politica) ?? dito;
   if (!prazo && falhaAtual.motivo === 'runtime.auth-missing') {
     emitir(null, 'nenhum perfil com login em nenhum runtime da ordem de fallback');
-    return escalar('auth ausente sem alternativa', 'nenhum perfil com login conferido em nenhum runtime da ordem de fallback: ' +
-      'refaca o login com ork accounts add ou ork accounts check antes de retomar');
+    return escalar('auth ausente sem alternativa', textoDoCatalogo((m) => m.retry.semLogin));
   }
   const liberaEm = prazo ?? new Date(Date.now() + janelaPadraoMs(manifesto)).toISOString();
   emitir(null, `nenhum perfil ativo em ${runtimes.join(', ')}: fila duravel ate ${liberaEm}`);
-  if (opcoes.dryRun) return { ...vazio, detalhe: `ensaio: entraria na fila duravel ate ${liberaEm}` };
+  if (opcoes.dryRun) return { ...vazio, detalhe: textoDoCatalogo((m) => m.retry.entrariaNaFila(liberaEm)) };
   const pedido = enfileirar(carregado, { thread: thread.id, fase, slug: typeof despacho.slug === 'string' ? despacho.slug : slugDaSessao(thread, fase),
     promptPath: despacho.promptPath, promptSha256: despacho.promptSha256,
     cwd: typeof despacho.cwd === 'string' ? despacho.cwd : thread.worktree ?? raiz,
@@ -1650,7 +1811,7 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
     janelaEstimada: pedido.janelaEstimada, motivo: falhaAtual.motivo, promptSha256: despacho.promptSha256,
     correcao: `ork retry resume (ou aguarde ate ${pedido.liberaEm})` });
   registrarTentativa(true, `fila duravel: pedido ${pedido.id} libera em ${pedido.liberaEm}`);
-  return { ...vazio, executada: true, fila: [pedido], redespacho: ultimo, detalhe: `pedido ${pedido.id} na fila ate ${pedido.liberaEm}` };
+  return { ...vazio, executada: true, fila: [pedido], redespacho: ultimo, detalhe: textoDoCatalogo((m) => m.retry.pedidoAte(pedido.id, pedido.liberaEm)) };
 }
 
 /** RM-037 (defeitosdeco D-6): chave de um destino (runtime, perfil, modelo) que recusou o modelo. */
@@ -1713,10 +1874,10 @@ function proximoDestinoDoModelo(raiz: string, runtime: string, model: string | n
 }
 
 /** D-6: a correcao exata quando nenhum destino tem o modelo: o bloco do setup que conduz a fase. */
-function correcaoDoModelo(thread: Thread, fase: Fase): string {
+function correcaoDoModelo(thread: Thread, fase: Fase, m: Mensagens = msg()): string {
   const indice = MODOS[thread.modo as ModoLegado]?.blocos.findIndex(b => (b.fases as readonly string[]).includes(fase)) ?? -1;
   const bloco = indice >= 0 ? String(indice + 1) : 'N';
-  return `ork setup ${thread.modo} --bloco ${bloco} --model <modelo acessivel>, ou declare no mesmo bloco --fallback runtime:modelo`;
+  return m.retry.correcaoDoModelo(thread.modo, bloco);
 }
 
 /**
@@ -1745,24 +1906,26 @@ function trocarDestinoDoModelo(carregado: ManifestoCarregado, thread: Thread, pl
     return { ...vazio, detalhe: diagnostico };
   };
   if (!despacho || typeof despacho.promptPath !== 'string' || typeof despacho.promptSha256 !== 'string') {
-    const detalhe = `nao ha despacho com prompt gravado para ${motivo} em ${fase}: rode a fase de novo com ork phase run`;
+    const detalhe = textoDoCatalogo((m) => m.retry.semDespachoComPrompt(motivo, fase));
     registrarTentativa(false, detalhe);
     return { ...vazio, detalhe };
   }
   const runtime = typeof despacho.runtime === 'string' ? despacho.runtime : manifesto.runtime.adapter;
   const model = typeof despacho.model === 'string' ? despacho.model : null;
-  const rotulo = model ?? '(padrao do runtime)';
   let perfil: PerfilDeDespacho | null;
   try {
     perfil = typeof gate?.sessionId === 'string'
       ? perfilDoRegistro(eventos, { sessionId: gate.sessionId, despachadaEm: typeof gate.despachoEm === 'string' ? gate.despachoEm : undefined })
       : perfilDoEvento(despacho);
-  } catch (e) { return escalar('perfil registrado invalido', `troca de destino recusada: ${(e as Error).message}`); }
+  } catch (e) {
+    const erro = (e as Error).message;
+    return escalar('perfil registrado invalido', textoDoCatalogo((m) => m.retry.trocaRecusada(erro)));
+  }
   if (typeof gate?.sessionId === 'string' && typeof gate.despachoEm === 'string') {
     const producao = producaoNoIntervalo(raiz, thread, { sessionId: gate.sessionId, fase, despachadaEm: gate.despachoEm }, eventos);
     if (producao.produziu) {
-      return escalar('producao parcial com modelo inacessivel', `producao parcial com o modelo ${rotulo} inacessivel: ${producao.evidencia}; ` +
-        'a sessao nao e redespachada sobre a worktree alterada e a fase nao conclui sem o humano');
+      return escalar('producao parcial com modelo inacessivel',
+        textoDoCatalogo((m) => m.retry.producaoParcialModelo(model ?? m.retry.padraoDoRuntime, String(producao.evidencia))));
     }
   }
   const recusados = new Set([...destinosQueRecusaramOModelo(eventos, fase), chaveDoModelo(runtime, perfil?.id ?? null, model)]);
@@ -1785,8 +1948,8 @@ function trocarDestinoDoModelo(carregado: ManifestoCarregado, thread: Thread, pl
       effort: mudouRuntime ? alvo.effort ?? (typeof despacho.effort === 'string' ? despacho.effort : null) : plano.effort,
       origem: 'retry.modelo', dryRun: opcoes.dryRun,
     });
-    if (opcoes.dryRun) return { ...vazio, redespacho: r, detalhe: `ensaio: o mesmo prompt iria a ${alvo.runtime}` +
-      `${alvo.perfil ? ` (perfil ${alvo.perfil.id})` : ''} com o modelo ${alvo.model ?? '(padrao do runtime)'}; ${r.detalhe}` };
+    if (opcoes.dryRun) return { ...vazio, redespacho: r, detalhe: textoDoCatalogo((m) => m.retry.ensaioDoModelo(alvo.runtime,
+      alvo.perfil ? alvo.perfil.id : null, alvo.model ?? m.retry.padraoDoRuntime, remontar(r.detalhe))) };
     registrarTentativa(r.ok, r.detalhe);
     tentativas += 1;
     if (r.ok) return { ...vazio, executada: true, redespacho: r, detalhe: r.detalhe };
@@ -1795,60 +1958,64 @@ function trocarDestinoDoModelo(carregado: ManifestoCarregado, thread: Thread, pl
     recusados.add(chaveDoModelo(alvo.runtime, alvo.perfil?.id ?? null, alvo.model));
     atual = { runtime: alvo.runtime, perfil: alvo.perfil, model: alvo.model };
     if (tentativas >= plano.limite) {
-      return escalar('limite de tentativas na troca de modelo', `${tentativas} tentativa(s) de troca por ${motivo} em ${fase}, no limite de ` +
-        `${plano.limite} do manifesto: escalacao tipada pausa qualquer modo`);
+      const feitas = tentativas;
+      return escalar('limite de tentativas na troca de modelo', textoDoCatalogo((m) => m.retry.limiteDaTroca(feitas, motivo, fase, plano.limite)));
     }
   }
   const tentados = [...recusados].map(k => { const [rt, p, m] = k.split('|'); return `${rt}${p ? `/${p}` : ''}:${m || '(padrao)'}`; });
-  return escalar('modelo inacessivel sem outro destino', `o modelo ${rotulo} nao esta acessivel em ${tentados.join(', ')} e o bloco ` +
-    `nao tem outro destino: ${correcaoDoModelo(thread, fase)}`);
+  return escalar('modelo inacessivel sem outro destino', textoDoCatalogo((m) => m.retry.modeloSemDestino(model ?? m.retry.padraoDoRuntime,
+    tentados.join(', '), correcaoDoModelo(thread, fase, m))));
 }
 
 /** Texto de `ork retry plan`. */
 export function textoDoPlano(p: PlanoDeRetry): string {
+  // RM-061 (F2b, G2): a razao e o detalhe que este processo montou saem remontados no locale; o detalhe lido
+  // do ledger (gravado por outro processo) e a politica pelo motivo saem como o catalogo os traz.
+  const m = msg().retry;
   const linhas: string[] = [];
-  linhas.push(`Plano de retry da thread ${p.thread}`);
-  linhas.push(`  modo            ${p.modo}`);
-  linhas.push(`  fase            ${p.fase ?? '(nenhuma)'}`);
-  linhas.push(`  motivo tipado   ${p.motivo ?? '(nenhuma reprovacao pendente)'}`);
-  if (p.detalhe) linhas.push(`  detalhe         ${localizarTexto(p.detalhe)}`);
-  linhas.push(`  acao            ${p.acao}`);
-  linhas.push(`  tentativas      ${p.tentativas} de ${p.limite} antes da escalacao`);
-  linhas.push(
-    `  esforco         ${p.effort}${p.effort !== p.effortAnterior ? ` (escalado de ${p.effortAnterior})` : ''}`
-  );
-  linhas.push(`  automatica      ${p.automatica ? 'sim' : 'nao'}`);
-  if (p.bloqueio) linhas.push(`  bloqueio        ${p.bloqueio}`);
-  linhas.push(`  razao           ${p.razao}`);
-  if (p.politica && !p.automatica) linhas.push(`  correcao        ${p.politica.correcao}`);
-  if (p.detalhe && localizarTexto(p.detalhe) !== p.detalhe) linhas.push(legendaDoFuso());
+  linhas.push(m.titulo(p.thread));
+  linhas.push(m.modo(p.modo));
+  linhas.push(m.fase(p.fase));
+  linhas.push(m.motivo(p.motivo));
+  const detalhe = remontar(p.detalhe);
+  if (p.detalhe) linhas.push(m.detalhe(localizarTexto(detalhe)));
+  linhas.push(m.acao(p.acao));
+  linhas.push(m.tentativas(p.tentativas, p.limite));
+  linhas.push(m.esforco(p.effort, p.effort !== p.effortAnterior ? p.effortAnterior : null));
+  linhas.push(m.automatica(p.automatica));
+  // RM-063 (F4): o degrau da escada de `runtime.unavailable`, ou o fim dela.
+  const escada = p.escada;
+  if (escada) linhas.push(escada.degrau && escada.tipo ? m.escada.noPlano(escada.degrau, m.escada.degraus[escada.tipo]) : m.escada.noPlanoEsgotada);
+  if (p.bloqueio) linhas.push(m.bloqueio(p.bloqueio));
+  linhas.push(m.razao(remontar(p.razao)));
+  if (p.politica && !p.automatica) linhas.push(m.correcao(p.motivo ? m.politica[p.motivo].correcao : p.politica.correcao));
+  if (p.detalhe && localizarTexto(detalhe) !== detalhe) linhas.push(legendaDoFuso());
   return linhas.join('\n');
 }
 
 /** Texto de `ork retry run`. */
 export function textoDoRetry(r: ResultadoDeRetry): string {
+  const m = msg().retry;
   const plano = textoDoPlano(r.plano);
   const linhas: string[] = [plano, ''];
-  linhas.push(`Execucao: ${r.executada ? 'acao executada' : 'nada executado'}`);
-  linhas.push(`  ${localizarTexto(r.detalhe)}`);
+  const detalhe = remontar(r.detalhe);
+  linhas.push(m.execucao(r.executada));
+  linhas.push(m.linhaDoDetalhe(localizarTexto(detalhe)));
   if (r.rodada && r.rodada.correcoes.length > 0) {
     linhas.push('');
-    linhas.push(
-      `GO-FIX rodada ${r.rodada.rodada}: ` +
-        r.rodada.correcoes.map((c) => `${c.id} (tipo ${c.tipo}, ${c.origem})`).join(', ')
-    );
+    linhas.push(m.rodada(r.rodada.rodada, r.rodada.correcoes.map((c) => m.correcaoDaRodada(c.id, c.tipo, c.origem)).join(', ')));
   }
   if (r.reverify) {
-    linhas.push(`CHECK-REVERIFY: ${r.reverify.veredito} (cobertura ${r.reverify.cobertura})`);
+    linhas.push(m.reverify(m.vereditos[r.reverify.veredito] ?? r.reverify.veredito, m.coberturas[r.reverify.cobertura] ?? r.reverify.cobertura));
   }
   if (r.fila.length > 0) {
     linhas.push('');
-    linhas.push('Fila de rate limit desta thread:');
+    linhas.push(m.fila);
     for (const p of r.fila) {
-      linhas.push(`  ${p.id}  ${p.fase}  libera em ${formatarDataHora(p.liberaEm)}${p.janelaEstimada ? ' (janela estimada)' : ''}`);
+      linhas.push(m.pedidoNaFila(p.id, p.fase, formatarDataHora(p.liberaEm), p.janelaEstimada));
     }
   }
-  if ((r.fila.length > 0 || localizarTexto(r.detalhe) !== r.detalhe) && !plano.includes(legendaDoFuso())) {
+  if ((r.fila.length > 0 || localizarTexto(detalhe) !== detalhe) && !plano.includes(legendaDoFuso())) {
     linhas.push(legendaDoFuso());
   }
   return linhas.join('\n');

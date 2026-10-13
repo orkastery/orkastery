@@ -78,7 +78,8 @@ test('recorrencia vira PROPOSTA de policy, uma vez por janela, no ledger do proj
     // claims.failed em ork-a, ork-b e ork-c nos ultimos 30 dias; a de 60 dias atras nao conta.
     const propostas = propostasDePolicy(p.dir, AGORA);
     assert.deepEqual(propostas.map((x) => [x.chave, x.threads.length]), [['motivo:claims.failed', 3]]);
-    assert.match(propostas[0].sugestao, /policy `claims_failed` em warn: rode o comando da claim/);
+    // RM-008 (B8): claims_failed e alias de claim_sem_prova_local, e a proposta ja sai como executavel.
+    assert.match(propostas[0].sugestao, /policy `claims_failed` executavel: declare `claims_failed: warn`[\s\S]*rode o comando da claim/);
     const novas = registrarPropostasNovas(p.dir, AGORA);
     assert.deepEqual(novas.map((x) => x.chave), ['motivo:claims.failed']);
     assert.deepEqual(registrarPropostasNovas(p.dir, AGORA), [], 'rodar de novo nao duplica');

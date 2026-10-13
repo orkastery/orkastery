@@ -19,7 +19,7 @@ import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { exigirEntrega, provaDeEntrega } from './thread-close';
 import { raizDoEstado } from './estado-thread';
-import { ScoreProposto, MasterLogPendente, PostmortemPendente } from './types';
+import { EventoLedger, MotivoGate, ScoreProposto, MasterLogPendente, PostmortemPendente } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { tagDoModo } from './modos';
 import { dirThread, gravarThread, lerThread, listarIds, pausaNaThread } from './thread';
@@ -33,13 +33,16 @@ import {
   ScoreHumano,
   Thread,
 } from './types';
-import { agora, gravarJson, lerJson, tabela } from './util';
+import { agora, exec, gravarJson, lerJson, tabela } from './util';
+import { msg } from './locale';
 import * as fs from 'node:fs';
 import { formatarDataHora, formatarDataHoraRotulada, legendaDoFuso } from './horario';
 import { calcularIndice, Indice } from './indice';
 import { registrarReversaoDaEntrega } from './ship';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { liberarAoFechar } from './fechamento';
+import { conferirReciboLocalNota, IDENTIDADE_DA_NOTA_NATIVA } from './hitl-local-receipt';
+import { comLockInspecionavel } from './hitl-lock';
 
 /** Identificador do contrato congelado do MASTER log. */
 export const CONTRATO_MASTER_LOG = 'ork.master-log/v1';
@@ -59,6 +62,64 @@ export const CLASSES_DE_FALHA: Readonly<Record<ClasseDeFalha, string>> = {
   'scope-creep': 'a entrega cresceu alem do que o GOAL prometia',
   outra: 'nao cabe em nenhuma classe acima (descreva na justificativa)',
 };
+
+/**
+ * RM-008 (classe pelo gate): a classe que cada motivo tipado do gate sustenta quando ninguem informa
+ * `--classe`. Antes, todo gate virava "outra", a classe que o `ork licoes` ignora: 8 POSTMORTEMs de
+ * 03/10 fecharam assim por aceite por omissao. Motivo fora da tabela (prazo, falta de veredito,
+ * runtime, conta, custo, espera humana) nao cabe numa classe fixa e segue "outra".
+ */
+export const CLASSE_DO_MOTIVO: Readonly<Partial<Record<MotivoGate, ClasseDeFalha>>> = {
+  'artifact.missing': 'processo',
+  'claims.failed': 'processo',
+  'claims.unverifiable': 'processo',
+  'policy.violation': 'processo',
+  'runtime.autoconferencia': 'processo',
+  'verify.regression': 'processo',
+  'verify.failed': 'processo',
+  'ci.failed': 'processo',
+  'hitl.formato': 'processo',
+  'runtime.rate-limited': 'rate-limit',
+  'runtime.quota-exhausted': 'rate-limit',
+  'lease.busy': 'conflito',
+  'conducao.em-andamento': 'conflito',
+  'tree.blocked': 'conflito',
+};
+
+/** As classes que os motivos dos gates sustentam, na ordem canonica e sem repetir. */
+export function classesPelosGates(motivos: readonly string[]): ClasseDeFalha[] {
+  const achadas = new Set<ClasseDeFalha>();
+  for (const m of motivos) achadas.add(CLASSE_DO_MOTIVO[m as MotivoGate] ?? 'outra');
+  if (achadas.size === 0) achadas.add('sem-falha');
+  return ORDEM_DAS_CLASSES.filter((c) => achadas.has(c));
+}
+
+/** Teto de merges conferidos por entrega: a branch de 03/10 com mais sincronizacoes trouxe 16. */
+const TETO_DE_MERGES_POR_ENTREGA = 200;
+
+/**
+ * RM-008 (base-avancou): quantas vezes a thread precisou trazer a base para dentro da branch. Conta os
+ * `worktree_synced` do ledger e, em cada entrega com merge, os merges da branch (entre o primeiro e o
+ * segundo pai do merge) cujo pai trazido ja estava na base. Em 03/10/2026, 29 de 35 entregas trouxeram
+ * a `origin/main` antes do merge, e nenhuma fechou com `base-avancou`. Git sem resposta conta 0 e nunca
+ * derruba o MASTER.
+ */
+export function sincronizacoesComABase(raiz: string, eventos: readonly EventoLedger[], mergeShas: readonly string[]): number {
+  let total = eventos.filter((e) => e.tipo === TIPOS_DE_EVENTO.worktreeSincronizada).length;
+  for (const sha of new Set(mergeShas)) {
+    if (!/^[0-9a-f]{40}$/.test(sha)) continue;
+    const r = exec('git', ['rev-list', '--merges', '--parents', `--max-count=${TETO_DE_MERGES_POR_ENTREGA}`,
+      `${sha}^1..${sha}^2`], raiz, 30000);
+    if (!r.ok) continue;
+    for (const linha of r.stdout.split('\n')) {
+      const pais = linha.trim().split(/\s+/).slice(1);
+      // O pai trazido (o segundo em diante) ja estava na base: e a base entrando na branch.
+      if (pais.slice(1).some((p) => /^[0-9a-f]{40}$/.test(p) &&
+          exec('git', ['merge-base', '--is-ancestor', p, `${sha}^1`], raiz, 30000).ok)) total += 1;
+    }
+  }
+  return total;
+}
 
 /** Ordem canonica das classes na saida do CLI. */
 export const ORDEM_DAS_CLASSES: readonly ClasseDeFalha[] = [
@@ -98,6 +159,20 @@ export function caminhoMasterLog(raiz: string, id: string): string {
 }
 
 /**
+ * RM-008 (fases pelo tipo): a fase dos eventos que o nucleo grava sem o campo `fase`. O `verify_run`
+ * e o `ship_done` nunca trouxeram fase, e 34 dos 35 POSTMORTEM de 03/10 sairam sem o CHECK, e 33 sem o
+ * SHIP, embora o ledger os tivesse (`ork-rm037testesi`: 6 `verify_run`, 1 `ship_done`, "GOAL GO MASTER").
+ * So vale quando o evento nao traz `fase`: o campo explicito continua vencendo.
+ */
+export const FASE_DO_TIPO: Readonly<Record<string, Fase>> = {
+  [TIPOS_DE_EVENTO.verificacao]: 'CHECK',
+  [TIPOS_DE_EVENTO.reverifyConcluido]: 'CHECK',
+  [TIPOS_DE_EVENTO.shipIniciado]: 'SHIP',
+  [TIPOS_DE_EVENTO.shipConcluido]: 'SHIP',
+  [TIPOS_DE_EVENTO.shipBloqueado]: 'SHIP',
+};
+
+/**
  * As fases que a thread realmente percorreu, reconstruidas do LEDGER.
  *
  * Nao e o que o modo prometia nem o que a sessao disse ter feito: e o que ficou
@@ -107,7 +182,7 @@ export function fasesPercorridas(raiz: string, id: string): FasePercorrida[] {
   const eventos = lerLedger(dirThread(raiz, id));
   const porFase = new Map<Fase, FasePercorrida>();
   for (const e of eventos) {
-    const bruta = typeof e.fase === 'string' ? (e.fase.toUpperCase() as Fase) : null;
+    const bruta = typeof e.fase === 'string' ? (e.fase.toUpperCase() as Fase) : (FASE_DO_TIPO[e.tipo] ?? null);
     if (!bruta || !FASES.includes(bruta)) continue;
     const atual = porFase.get(bruta) ?? {
       fase: bruta,
@@ -249,7 +324,8 @@ function prepararDocumentos(
   sincronizarReversao(raiz, id);
   const eventos = lerLedger(dirThread(raiz, id));
   const gatesBloqueados = eventos
-    .filter((e) => e.tipo === TIPOS_DE_EVENTO.gateBloqueado)
+    // Ensaio de 03/10/2026 (RM-049): o gate barrado por um `ork ship --dry-run` e ensaio, nao reprovacao.
+    .filter((e) => e.tipo === TIPOS_DE_EVENTO.gateBloqueado && e.dryRun !== true)
     .map((e) => ({
       ts: e.ts,
       motivo: String(e.motivo ?? '(sem motivo)'),
@@ -270,12 +346,21 @@ function prepararDocumentos(
   let classes = opcoes.classes ?? [];
   if (classes.length === 0) {
     classesInferidas = true;
-    classes = gatesBloqueados.length > 0 ? ['outra'] : ['sem-falha'];
+    classes = classesPelosGates(gatesBloqueados.map((g) => g.motivo));
+    const motivos = [...new Set(gatesBloqueados.map((g) => g.motivo))];
+    const sincronizacoes = sincronizacoesComABase(raiz, eventos, entregas.map((e) => e.mergeSha));
+    if (sincronizacoes > 0) {
+      classes = ORDEM_DAS_CLASSES.filter((c) => c === 'base-avancou' || (c !== 'sem-falha' && classes.includes(c)));
+    }
+    const pelaBase = sincronizacoes > 0
+      ? ` A branch trouxe a base ${sincronizacoes} vez(es) antes da entrega: o \`ork\` juntou "base-avancou".` : '';
     avisos.push(
-      gatesBloqueados.length > 0
-        ? `a thread levou ${gatesBloqueados.length} reprovacao(oes) tipada(s) e nenhuma --classe foi ` +
-          'informada: o `ork` gravou "outra". Corrija com --classe <classe> --refazer.'
-        : 'nenhuma --classe informada e nenhum gate reprovou: o `ork` gravou "sem-falha".'
+      (gatesBloqueados.length > 0
+        ? `a thread levou ${gatesBloqueados.length} reprovacao(oes) tipada(s) (${motivos.join(', ')}) e nenhuma --classe foi ` +
+          `informada: o \`ork\` inferiu "${classes.join('", "')}" pelo motivo do gate.${pelaBase} Corrija com --classe <classe> --refazer.`
+        : sincronizacoes > 0
+          ? `nenhuma --classe informada e nenhum gate reprovou.${pelaBase} Corrija com --classe <classe> --refazer.`
+          : 'nenhuma --classe informada e nenhum gate reprovou: o `ork` gravou "sem-falha".')
     );
   }
 
@@ -363,7 +448,36 @@ export function autoriaHumana(por: unknown): por is string {
     !/(?:^|[^a-z0-9])(codex|claude|gpt(?:[0-9-]*)?|openai|agente?|agent|runtime|auto|ia|llm|bot|pendente|pending|batch)(?:$|[^a-z0-9])/i.test(semAcento(por));
 }
 export function exigirAutoriaHumana(por: unknown): asserts por is string {
-  if (!autoriaHumana(por)) throw new Error('ratificação exige --por humano explícito; agente ou autoria pendente não pode pontuar');
+  if (!autoriaHumana(por)) throw new Error('ratificação exige --por humano explícito (ex.: --por "seu-nome"); agente ou autoria pendente não pode pontuar');
+}
+
+/**
+ * RM-059 (T8.1; D12 da thread ork-rm059ritual, que reve a D3): quem da a nota pelo dialogo nativo do host
+ * (`ork_request_master_note`). E uma identidade que o `autoriaHumana` de qualquer versao aceita: o contrato congelado
+ * do MASTER log nao muda, e um `ork` antigo, uma chave local trocada ou um recibo apagado nunca deixam a omissao trocar
+ * a nota do dono. O recibo assinado do ingresso local e conferido na ESCRITA: no `--por` esta identidade nao se digita.
+ * Na leitura ele fica como a prova do caminho (`conferirReciboLocalNota`), sem decidir se a nota vale.
+ */
+export const AUTOR_DA_NOTA_NATIVA = IDENTIDADE_DA_NOTA_NATIVA;
+/** A identidade reservada com qualquer caixa, acento, espaco ou pontuacao: `--por "Dono(Diálogo Nativo)."` tambem e ela. */
+const soLetras = (v: string): string => semAcento(v.toLowerCase()).replace(/[^a-z0-9]+/g, '');
+export function identidadeDaNotaNativa(por: unknown): boolean {
+  return typeof por === 'string' && soLetras(por) === soLetras(AUTOR_DA_NOTA_NATIVA);
+}
+function exigirReciboDaNotaNativa(raiz: string, id: string, opcoes: OpcoesMaster): void {
+  if (opcoes.por !== AUTOR_DA_NOTA_NATIVA || !opcoes.prova || !conferirReciboLocalNota(raiz, id, { ...opcoes.prova,
+    por: opcoes.por, score: opcoes.score, justificativa: opcoes.justificativa.trim() })) {
+    throw new Error(`a identidade ${AUTOR_DA_NOTA_NATIVA} é da nota pelo diálogo nativo e só se grava com o recibo dele ` +
+      '(ork_request_master_note); ela não se digita no --por');
+  }
+}
+
+/**
+ * A thread tem nota humana, e nao a aceita por omissao. E o mesmo criterio da resposta pelo Telegram
+ * (`responderNota`): a nota humana que ja esta gravada nao se troca, nem pela omissao.
+ */
+export function notaHumanaRegistrada(t: Thread): boolean {
+  return !!t.score && t.score.regime !== 'omissao' && autoriaHumana(t.score.avaliadoPor);
 }
 
 export function masterRatificado(raiz: string, id: string): boolean {
@@ -377,13 +491,26 @@ export function masterRatificado(raiz: string, id: string): boolean {
 export function preflightMaster(raiz: string, id: string, opcoes: OpcoesMaster): ResultadoMaster {
   // Mantém erros de valor e duplicação anteriores ao erro de autoria.
   const r = prepararDocumentos(raiz, id, opcoes);
-  exigirAutoriaHumana(opcoes.por);
+  if (identidadeDaNotaNativa(opcoes.por)) exigirReciboDaNotaNativa(raiz, id, opcoes);
+  else exigirAutoriaHumana(opcoes.por);
   const erros = validarMasterLog(r.masterLog);
   if (erros.length) throw new Error(erros.join('; '));
   return r;
 }
 
 export function registrarMaster(raiz: string, id: string, opcoes: OpcoesMaster): ResultadoMaster {
+  const r = gravarMaster(raiz, id, opcoes);
+  // RM-037 (rm037noite): a thread fechada solta o que segurava, com registro no ledger dela.
+  liberarAoFechar(raiz, id);
+  return r;
+}
+
+/**
+ * RM-059 (D17 da thread ork-rm059ritual): o MASTER sem soltar o que a thread segurava. Quem grava sob a trava de HITL
+ * (o aceite por omissao e a nota pelo dialogo nativo) chama `liberarAoFechar` depois de solta-la: a soltura consulta o
+ * runtime e o git das reservas, e a trava nao espera por isso.
+ */
+export function gravarMaster(raiz: string, id: string, opcoes: OpcoesMaster): ResultadoMaster {
   const r = preflightMaster(raiz, id, opcoes);
   const { thread, postmortem, masterLog } = r;
   gravarJson(r.caminhoPostmortem, postmortem);
@@ -407,8 +534,6 @@ export function registrarMaster(raiz: string, id: string, opcoes: OpcoesMaster):
     masterLogSha256: hashDocumento(r.caminhoMasterLog), postmortemSha256: hashDocumento(r.caminhoPostmortem),
     ...(opcoes.prova ? { prova: 'ingresso-autenticado', ...opcoes.prova } : {}),
   });
-  // RM-037 (rm037noite): a thread fechada solta o que segurava, com registro no ledger dela.
-  liberarAoFechar(raiz, id);
   return r;
 }
 
@@ -550,6 +675,8 @@ export interface AceitePorOmissao {
   aceitoEm: string;
   /** O score que ficou gravado no aceite, para a divergencia com o indice ao vivo aparecer. */
   scoreGravado?: number | null;
+  /** RM-059 (D13): a nota humana chegou antes da trava do aceite; nada foi gravado e ela ficou. */
+  preservada?: true;
 }
 
 /** Quem decide quando ninguem decide. Literal unico, para o leitor reconhecer. */
@@ -576,38 +703,50 @@ export const AUTOR_DA_OMISSAO = 'nucleo ork (omissao)';
  * entrega passou sem revisao continua sendo verdade.
  */
 export function aceitarPorOmissao(raiz: string, id: string): AceitePorOmissao {
-  const thread = lerThread(raiz, id);
   const dir = dirThread(raiz, id);
   // A1: aceitar por default so pode carimbar nota depois de perguntar ao git se a
   // entrega ainda esta de pe. Era aqui que uma entrega revertida virava score 5.
   const indice = indiceDaThread(raiz, id);
   const aceitoEm = agora();
 
-  registrar(dir, id, TIPOS_DE_EVENTO.aceitePorOmissao, {
-    fase: 'MASTER',
-    indice: indice.valor,
-    base: indice.base,
-    // Os INSUMOS vao junto: um numero sem origem no ledger e um numero inventado.
-    insumos: indice.parcelas.map((p) => ({ evento: p.evento, ocorrencias: p.ocorrencias, desconto: p.desconto })),
-    decididoPor: AUTOR_DA_OMISSAO,
-    razao: 'entrega aceita por default: ninguem pontuou. Nota humana posterior sobrescreve, e este evento permanece',
-  });
+  // RM-059 (T8.1, D13 e D17): o aceite grava sob a mesma trava da nota pelo Telegram e pelo dialogo nativo, e rele a
+  // thread dentro dela. A nota humana ratificada que chegou depois da listagem (ou do indice, que pergunta ao git) fica
+  // como esta; a de nome humano sem `master_done` que a confirme a listagem ja trata como pendente, e o aceite tambem.
+  // O que a thread segurava e solto depois da trava.
+  const aceite = comLockInspecionavel(dir, 'thread-dispatch-ou-hitl', (): AceitePorOmissao => {
+    const thread = lerThread(raiz, id);
+    if (notaHumanaRegistrada(thread) && masterRatificado(raiz, id)) {
+      return { thread: id, indice, decididoPor: AUTOR_DA_OMISSAO, aceitoEm, scoreGravado: thread.score!.valor, preservada: true };
+    }
 
-  registrarMaster(raiz, id, {
-    score: Math.round(indice.valor),
-    justificativa:
-      `Aceita por omissao: ninguem pontuou esta entrega. Indice derivado do ledger = ` +
-      `${indice.valor} de ${indice.base}` +
-      (indice.parcelas.length === 0
-        ? ', sem reversao, GO-FIX, CHECK refeito nem ship barrado.'
-        : `, descontando ${indice.parcelas.map((p) => `${p.evento} x${p.ocorrencias}`).join(', ')}.`) +
-      ' O dono pode pontuar quando quiser; a nota humana sobrescreve e o registro da omissao permanece.',
-    por: AUTOR_DA_OMISSAO,
-    regime: 'omissao',
-    refazer: thread.status === 'fechada',
-  });
+    registrar(dir, id, TIPOS_DE_EVENTO.aceitePorOmissao, {
+      fase: 'MASTER',
+      indice: indice.valor,
+      base: indice.base,
+      // Os INSUMOS vao junto: um numero sem origem no ledger e um numero inventado.
+      insumos: indice.parcelas.map((p) => ({ evento: p.evento, ocorrencias: p.ocorrencias, desconto: p.desconto })),
+      decididoPor: AUTOR_DA_OMISSAO,
+      razao: 'entrega aceita por default: ninguem pontuou. Nota humana posterior sobrescreve, e este evento permanece',
+    });
 
-  return { thread: id, indice, decididoPor: AUTOR_DA_OMISSAO, aceitoEm };
+    gravarMaster(raiz, id, {
+      score: Math.round(indice.valor),
+      justificativa:
+        `Aceita por omissao: ninguem pontuou esta entrega. Indice derivado do ledger = ` +
+        `${indice.valor} de ${indice.base}` +
+        (indice.parcelas.length === 0
+          ? ', sem reversao, GO-FIX, CHECK refeito nem ship barrado.'
+          : `, descontando ${indice.parcelas.map((p) => `${p.evento} x${p.ocorrencias}`).join(', ')}.`) +
+        ' O dono pode pontuar quando quiser; a nota humana sobrescreve e o registro da omissao permanece.',
+      por: AUTOR_DA_OMISSAO,
+      regime: 'omissao',
+      refazer: thread.status === 'fechada',
+    });
+
+    return { thread: id, indice, decididoPor: AUTOR_DA_OMISSAO, aceitoEm };
+  });
+  if (!aceite.preservada) liberarAoFechar(raiz, id);
+  return aceite;
 }
 
 /** As entregas aceitas por omissao: o que passou sem o dono olhar. */
@@ -669,6 +808,7 @@ export function pendentesDeScore(raiz: string, todas = false): PendenteDeScore[]
  * inteiro, e a nota humana continua sobrescrevendo o indice quando o dono reclama.
  */
 export function tabelaDeEntregas(raiz: string, todas = false): string {
+  const m = msg().master;
   const pendentes = pendentesDeScore(raiz, todas);
   const omissoes = aceitosPorOmissao(raiz);
 
@@ -679,25 +819,20 @@ export function tabelaDeEntregas(raiz: string, todas = false): string {
   );
   const secaoOmissao = omissoes.length === 0
     ? []
-    : ['', `Aceitas por omissao (${omissoes.length}): o que passou sem voce olhar.`, '',
-       tabela(['ID', 'INDICE', 'SCORE GRAVADO', 'ACEITA EM'],
+    : ['', m.aceitasTitulo(omissoes.length), '',
+       tabela([...m.colunasAceitas],
          omissoes.map((o) => [o.thread, `${o.indice.valor}/${o.indice.base}`,
            typeof o.scoreGravado === 'number' ? `${o.scoreGravado}/5` : '-',
            formatarDataHora(o.aceitoEm)])),
        legendaDoFuso(),
        ...(caiuDepoisDeAceita.length === 0 ? [] : ['',
-         `ATENCAO: ${caiuDepoisDeAceita.length} entrega(s) cairam DEPOIS de aceitas: ` +
-           caiuDepoisDeAceita.map((o) => o.thread).join(', ') + '.',
-         '  O MASTER log e contrato congelado e nao se reescreve sozinho. Pontue para o',
-         '  registro humano alcancar o fato; o registro da omissao permanece no ledger.']),
-       '', 'Discordou de alguma? A nota humana sobrescreve, e o registro da omissao permanece:',
-       '  ork master <thread-id> --score <0-5> --justificativa "<por que>" --por <humano>'];
+         m.caiuDepois(caiuDepoisDeAceita.length, caiuDepoisDeAceita.map((o) => o.thread).join(', ')),
+         m.caiuDepoisLinha1, m.caiuDepoisLinha2]),
+       '', m.discordouDeAlguma, m.pontuar];
 
   if (pendentes.length === 0) {
     return [
-      todas
-        ? 'Nenhuma thread aberta sem score.'
-        : 'Nenhuma entrega esperando decisao. Para ver tambem as que ainda nao entregaram: ork master --todas',
+      todas ? m.semEntregaTodas : m.semEntrega,
       ...secaoOmissao,
     ].join('\n');
   }
@@ -709,23 +844,24 @@ export function tabelaDeEntregas(raiz: string, todas = false): string {
       p.thread.slug,
       tagDoModo(p.thread.modo),
       p.thread.faseAtual,
-      p.thread.status,
-      p.entregou ? 'sim' : 'nao',
+      msg().thread.status(p.thread.status),
+      m.simNao(p.entregou),
       `${indice.valor}/${indice.base}`,
-      indice.parcelas.length === 0 ? 'sem tropeco' : indice.parcelas.map((x) => `${x.evento} x${x.ocorrencias}`).join(', '),
+      indice.parcelas.length === 0 ? m.semTropeco : indice.parcelas.map((x) => `${x.evento} x${x.ocorrencias}`).join(', '),
     ];
   });
 
   return [
-    `Entregas (${pendentes.length}) com o indice ja derivado do ledger. O numero nao foi digitado por ninguem.`,
+    m.entregas(pendentes.length),
     '',
-    tabela(['ID', 'SLUG', 'MODO', 'FASE', 'STATUS', 'ENTREGOU', 'INDICE', 'DE ONDE VEIO'], linhas),
+    tabela([...m.colunas], linhas),
     '',
-    'ENTREGUE E ACEITO, a menos que voce diga o contrario.',
-    '  ork master --aceitar-omissao          aceita as entregues, com o indice e os insumos no ledger',
-    '  ork master <id> --score <0-5> --justificativa "<por que>" --por <humano>   se quiser reclamar',
+    m.entregueEAceito,
+    m.aceitarEsta,
+    m.aceitarTodas,
+    m.reclamar,
     '',
-    `Classes fixas: ${ORDEM_DAS_CLASSES.join(', ')}`,
+    m.classesFixas(ORDEM_DAS_CLASSES.join(', ')),
     ...secaoOmissao,
   ].join('\n');
 }
@@ -737,10 +873,50 @@ export function tabelaDeEntregas(raiz: string, todas = false): string {
  * ENTREGOU: uma thread que nunca chegou ao ship nao tem entrega para aceitar, e
  * aceita-la seria inventar um fato.
  */
-export function aceitarPendentesPorOmissao(raiz: string): AceitePorOmissao[] {
+export function aceitarPendentesPorOmissao(raiz: string, opcoes: { thread?: string } = {}): AceitePorOmissao[] {
+  const aceitos: AceitePorOmissao[] = [];
+  for (const p of entregasParaOmissao(raiz, opcoes.thread)) {
+    let aceite: AceitePorOmissao;
+    // RM-059 (D13): sem thread indicada, a entrega com a trava de HITL tomada (uma nota sendo gravada agora) fica para
+    // o proximo aceite, e as outras seguem. Com a thread indicada, o erro chega a quem pediu.
+    try { aceite = aceitarPorOmissao(raiz, p.thread.id); }
+    catch (e) { if (opcoes.thread === undefined && /^HITL ocupado/.test((e as Error).message)) continue; throw e; }
+    if (!aceite.preservada) aceitos.push(aceite);
+  }
+  return aceitos;
+}
+
+/**
+ * RM-008 (03/10/2026): o que `ork master --aceitar-omissao` fecharia, sem gravar nada.
+ *
+ * Na madrugada de 03/10, tres vezes, um condutor rodou `ork master --aceitar-omissao` para fechar
+ * a PROPRIA thread, e o comando fechou tambem as entregues de outras frentes paralelas. A CLI nao
+ * deixava indicar a thread. Com `thread`, o alvo e so ela; sem, continua sendo toda entrega que
+ * espera decisao (o padrao nao mudou). Thread inexistente recusa pelo `lerThread`.
+ */
+export function entregasParaOmissao(raiz: string, thread?: string): PendenteDeScore[] {
+  if (thread !== undefined) lerThread(raiz, thread);
   return pendentesDeScore(raiz)
     .filter((p) => p.entregou)
-    .map((p) => aceitarPorOmissao(raiz, p.thread.id));
+    .filter((p) => thread === undefined || p.thread.id === thread);
+}
+
+/**
+ * Por que a thread indicada nao entra no aceite por omissao, ou `null` quando entra.
+ * `ja-fechada` e idempotencia (nada a fazer); `fechamento-admin` e `sem-entrega` sao recusa.
+ */
+export function motivoForaDaOmissao(raiz: string, id: string): { motivo: 'ja-fechada' | 'fechamento-admin' | 'sem-entrega'; texto: string } | null {
+  const thread = lerThread(raiz, id);
+  if (thread.fechamentoAdmin) {
+    return { motivo: 'fechamento-admin', texto: msg().master.foraAdmin(id, thread.fechamentoAdmin.motivo) };
+  }
+  if (masterRatificado(raiz, id)) {
+    return { motivo: 'ja-fechada', texto: msg().master.foraJaFechada(id) };
+  }
+  if (!entregou(raiz, id)) {
+    return { motivo: 'sem-entrega', texto: msg().master.foraSemEntrega(id) };
+  }
+  return null;
 }
 
 /** Texto de `ork master <thread-id> --score`. */

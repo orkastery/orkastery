@@ -20,6 +20,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { buscarBranch, git, gravarNaBranch, jsonsDaPonta, OpcoesDeGit, pontaLocal } from './branch-de-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
+import { ErroDoCatalogo, Mensagens, msg, textoDoCatalogo } from './locale';
 import { registrarSeExiste, TIPOS_DE_EVENTO } from './ledger';
 import { nomeDaMaquina } from './maquina';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -104,14 +105,15 @@ const PREFIXO = 'roadmap';
 /** O item precisa existir no roadmap do projeto (`docs/roadmap/RM-NNN-*.md`). */
 export function exigirItem(raiz: string, item: string): string {
   const id = item.trim().toUpperCase();
-  if (!ITEM.test(id)) throw new Error(`roadmap.item: "${item}" nao e um item do roadmap (esperado RM-NNN)`);
+  // RM-061 (D14): `thread new --roadmap` chama isto no escopo pt-BR da reserva; a entrada do CLI remonta no locale dele.
+  if (!ITEM.test(id)) throw new ErroDoCatalogo((m) => m.thread.roadmapItemInvalido(item));
   const dir = path.join(raiz, 'docs', 'roadmap');
   const doItem = (f: string) => path.basename(f).startsWith(`${id}-`) && f.endsWith('.md');
   const naArvore = fs.existsSync(dir) && fs.readdirSync(dir).some(doItem);
   // O checkout pode estar numa branch antiga, sem o item: vale tambem o que a main ja tem.
   const naBase = !naArvore && ['main', 'origin/main'].some((ref) =>
     git(raiz, ['ls-tree', '--name-only', ref, '--', 'docs/roadmap/']).stdout.split('\n').some(doItem));
-  if (!naArvore && !naBase) throw new Error(`roadmap.item: ${id} nao existe em docs/roadmap`);
+  if (!naArvore && !naBase) throw new ErroDoCatalogo((m) => m.thread.roadmapItemInexistente(id));
   return id;
 }
 
@@ -215,10 +217,10 @@ export function reservarFeat(raiz: string, opcoes: OpcoesDeReserva = {}): Result
   const eu = quemSouEu(raiz, opcoes);
   for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
     const { ponta, atualizado } = buscar(raiz, remoto);
-    if (!atualizado) throw new Error(`roadmap.sem-remoto: nao consegui ler ${BRANCH_DE_RESERVAS} em ${remoto}; reservar exige rede`);
+    if (!atualizado) throw new ErroDoCatalogo((m) => m.reservas.semRemotoParaReservar(BRANCH_DE_RESERVAS, remoto));
     const feats = featsDaPonta(raiz, ponta);
     const proximo = Math.max(maiorFeatConhecida(raiz, remoto), ...feats.map((r) => numeroDaFeat(r.feat))) + 1;
-    if (proximo > 999) throw new Error('roadmap.feat: os numeros de FEAT de tres digitos acabaram');
+    if (proximo > 999) throw new ErroDoCatalogo((m) => m.reservas.featsAcabaram);
     const feat = `FEAT-${String(proximo).padStart(3, '0')}`;
     const reserva: ReservaDeFeat = { contrato: CONTRATO_FEAT, feat, por: eu.por, maquina: eu.maquina,
       thread: opcoes.thread ?? null, nota: opcoes.nota ?? null, em: opcoes.agora ?? agoraIso() };
@@ -228,7 +230,7 @@ export function reservarFeat(raiz: string, opcoes: OpcoesDeReserva = {}): Result
     ], `reserva: ${feat} para ${eu.por} em ${eu.maquina}${reserva.thread ? ` (thread ${reserva.thread})` : ''}`, PREFIXO);
     if (commit) return { feat, reserva, commit, tentativas: tentativa };
   }
-  throw new Error(`roadmap.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
+  throw new ErroDoCatalogo((m) => m.reservas.concorrencia(TENTATIVAS));
 }
 
 /** O `RESERVAS.md` da branch: a mesma lista, para quem abre o GitHub. */
@@ -265,14 +267,14 @@ function ehMinha(r: ReservaDeItem, eu: { por: string; maquina: string }): boolea
   return r.por === eu.por && r.maquina === eu.maquina;
 }
 
-function descrever(r: ReservaDeItem): string {
-  return `${r.item} esta com ${r.por} em ${r.maquina} desde ${formatarDataHora(r.desdeEm)}` +
-    (r.thread ? ` (thread ${r.thread})` : '');
+/** RM-061 (F3b): a descricao no locale de quem a monta; o erro e o ledger a montam pelo catalogo. */
+function descrever(r: ReservaDeItem, m: Mensagens['reservas'] = msg().reservas): string {
+  return m.descricao(r.item, r.por, r.maquina, formatarDataHora(r.desdeEm), r.thread ?? null);
 }
 
 function exigirMotivo(opcoes: OpcoesDeReserva): string {
   const motivo = (opcoes.motivo ?? '').trim();
-  if (!motivo) throw new Error('roadmap.forcar: --forcar exige --motivo (tomar a reserva de outra maquina e decisao registrada)');
+  if (!motivo) throw new ErroDoCatalogo((m) => m.reservas.forcarSemMotivo);
   return motivo;
 }
 
@@ -286,7 +288,7 @@ export function pegarItem(raiz: string, item: string, opcoes: OpcoesDeReserva = 
   const eu = quemSouEu(raiz, opcoes);
   for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
     const { ponta, atualizado } = buscar(raiz, remoto, opcoes.rede);
-    if (!atualizado) throw new Error(`roadmap.sem-remoto: nao consegui ler ${BRANCH_DE_RESERVAS} em ${remoto}; reservar exige rede`);
+    if (!atualizado) throw new ErroDoCatalogo((m) => m.reservas.semRemotoParaReservar(BRANCH_DE_RESERVAS, remoto));
     const todas = lerDaPonta(raiz, ponta);
     const atual = todas.find((r) => r.item === id) ?? null;
     if (opcoes.threadEsperada !== undefined && (atual?.thread ?? null) !== opcoes.threadEsperada) {
@@ -297,7 +299,7 @@ export function pegarItem(raiz: string, item: string, opcoes: OpcoesDeReserva = 
     let tomadaDe: ReservaDeItem['tomadaDe'];
     if (atual && ehMinha(atual, eu)) acao = 'renovou';
     else if (atual) {
-      if (!opcoes.forcar) throw new Error(`roadmap.reservado: ${descrever(atual)}. Escolha outro item ou combine com quem esta nele`);
+      if (!opcoes.forcar) throw new ErroDoCatalogo((m) => m.reservas.reservadoAoPegar(descrever(atual, m.reservas)));
       tomadaDe = { por: atual.por, maquina: atual.maquina, motivo: exigirMotivo(opcoes) };
       acao = 'tomou';
     }
@@ -316,7 +318,7 @@ export function pegarItem(raiz: string, item: string, opcoes: OpcoesDeReserva = 
     const commit = gravar(raiz, remoto, ponta, { item: id, reserva }, novas, mensagem, opcoes.rede);
     if (commit) return { acao, item: id, reserva, commit, tentativas: tentativa };
   }
-  throw new Error(`roadmap.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
+  throw new ErroDoCatalogo((m) => m.reservas.concorrencia(TENTATIVAS));
 }
 
 /** `ork roadmap soltar`: devolve o item. Soltar a reserva de outra maquina exige `--forcar --motivo`. */
@@ -326,7 +328,7 @@ export function soltarItem(raiz: string, item: string, opcoes: OpcoesDeReserva =
   const eu = quemSouEu(raiz, opcoes);
   for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
     const { ponta, atualizado } = buscar(raiz, remoto, opcoes.rede);
-    if (!atualizado) throw new Error(`roadmap.sem-remoto: nao consegui ler ${BRANCH_DE_RESERVAS} em ${remoto}; soltar exige rede`);
+    if (!atualizado) throw new ErroDoCatalogo((m) => m.reservas.semRemotoParaSoltar(BRANCH_DE_RESERVAS, remoto));
     const todas = lerDaPonta(raiz, ponta);
     const atual = todas.find((r) => r.item === id);
     if (!atual) return { acao: 'nada', item: id, reserva: null, commit: null, tentativas: tentativa };
@@ -335,7 +337,7 @@ export function soltarItem(raiz: string, item: string, opcoes: OpcoesDeReserva =
     }
     let motivo = '';
     if (!ehMinha(atual, eu)) {
-      if (!opcoes.forcar) throw new Error(`roadmap.reservado: ${descrever(atual)}; so quem pegou solta, ou --forcar --motivo`);
+      if (!opcoes.forcar) throw new ErroDoCatalogo((m) => m.reservas.reservadoAoSoltar(descrever(atual, m.reservas)));
       motivo = `: ${exigirMotivo(opcoes)}`;
     }
     const restantes = todas.filter((r) => r.item !== id);
@@ -343,7 +345,7 @@ export function soltarItem(raiz: string, item: string, opcoes: OpcoesDeReserva =
     const commit = gravar(raiz, remoto, ponta, { item: id, reserva: null }, restantes, mensagem, opcoes.rede);
     if (commit) return { acao: 'soltou', item: id, reserva: atual, commit, tentativas: tentativa };
   }
-  throw new Error(`roadmap.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
+  throw new ErroDoCatalogo((m) => m.reservas.concorrencia(TENTATIVAS));
 }
 
 // ---------------------------------------------------------------------------
@@ -405,10 +407,12 @@ function soltarOrfa(raiz: string, orfa: ReservaOrfa, origem: 'fechamento' | 'orf
   // A reserva mudou de dono no meio (ou ja tinha saido): nada foi gravado e nada vai ao ledger como soltura.
   if (r.acao === 'nada') {
     return { item, thread, acao: 'intocada', para: null, commit: null,
-      detalhe: `${item} mudou de dono entre a leitura e a gravacao; ficou como estava` };
+      detalhe: textoDoCatalogo((m) => m.reservas.mudouDeDono(item)) };
   }
   const acao = orfa.sucessora ? 'reapontada' : 'solta';
-  const detalhe = orfa.sucessora ? `${item} passou para a thread ${orfa.sucessora}, aberta no mesmo item` : `${item} devolvido`;
+  // RM-061 (F3b, G4): o detalhe vai ao ledger e ao --json em pt-BR; a impressao o remonta.
+  const sucessora = orfa.sucessora;
+  const detalhe = textoDoCatalogo((m) => sucessora ? m.reservas.passouPara(item, sucessora) : m.reservas.devolvido(item));
   // Sugestao 3 do CHECK 2: a soltura ja foi ao remoto; erro so no registro nao a transforma em pendencia.
   try {
     registrarSeExiste(dirThread(raiz, thread), thread, TIPOS_DE_EVENTO.reservaLiberada,
@@ -449,7 +453,7 @@ export function soltarReservaDaThread(raiz: string, threadId: string, opcoes: Op
   try { painel = listarReservas(raiz, { remoto, rede }); }
   catch (e) { return [pendenteDaThread(raiz, threadId, oItem, primeiraLinha(e))]; }
   if (!painel.atualizado) {
-    return [pendenteDaThread(raiz, threadId, oItem, `sem leitura de ${BRANCH_DE_RESERVAS} em ${remoto}; a reserva fica para depois`)];
+    return [pendenteDaThread(raiz, threadId, oItem, textoDoCatalogo((m) => m.reservas.semLeituraPendente(BRANCH_DE_RESERVAS, remoto)))];
   }
   const dela = painel.reservas.filter((r) => r.thread === threadId);
   let orfas: ReservaOrfa[];
@@ -459,7 +463,7 @@ export function soltarReservaDaThread(raiz: string, threadId: string, opcoes: Op
   const saida: ResultadoDaSoltura[] = [];
   // Sugestao 1 do CHECK 1: toda reserva da thread, nao so a primeira; a de outra maquina fica pendente.
   for (const r of dela.filter((x) => !orfas.some((o) => o.reserva.item === x.item))) {
-    saida.push(pendenteDaThread(raiz, threadId, r.item, `${descrever(r)}; so quem pegou solta, ou --forcar --motivo`));
+    saida.push(pendenteDaThread(raiz, threadId, r.item, textoDoCatalogo((m) => m.reservas.soQuemPegou(descrever(r, m.reservas)))));
   }
   for (const orfa of orfas) {
     try { saida.push(soltarOrfa(raiz, orfa, 'fechamento', comRede)); }
@@ -474,33 +478,52 @@ export function soltarReservaDaThread(raiz: string, threadId: string, opcoes: Op
  */
 export function soltarReservasOrfas(raiz: string, opcoes: OpcoesDeReserva = {}): ResultadoDaSoltura[] {
   const painel = listarReservas(raiz, { remoto: opcoes.remoto, rede: opcoes.rede });
-  if (!painel.atualizado) throw new Error(`roadmap.sem-remoto: nao consegui ler ${BRANCH_DE_RESERVAS}; soltar exige rede`);
+  if (!painel.atualizado) throw new ErroDoCatalogo((m) => m.reservas.semRemotoParaOrfas(BRANCH_DE_RESERVAS));
   return reservasOrfas(raiz, painel.reservas, opcoes).map((orfa) => {
     try { return soltarOrfa(raiz, orfa, 'orfas', opcoes); }
     catch (e) { return pendenteDaThread(raiz, orfa.reserva.thread as string, orfa.reserva.item, primeiraLinha(e)); }
   });
 }
 
+/**
+ * RM-052 (fatia 2, D4): de onde vieram as reservas que a resposta mostra. Sem o remoto, ou com o remoto
+ * mudo e sem copia local, nada foi lido; "nenhum item reservado" so vale depois de uma leitura. Foi essa
+ * troca, "nao li" por "nao tem", que fez 13 itens reservados virarem "roadmap vazio" em 29/09.
+ */
+export type LeituraDasReservas = 'lido-agora' | 'copia-local' | 'sem-copia' | 'sem-remoto';
+
+export function leituraDasReservas(p: PainelDeReservas, temRemoto: boolean): LeituraDasReservas {
+  if (!temRemoto) return 'sem-remoto';
+  return p.atualizado ? 'lido-agora' : p.ponta ? 'copia-local' : 'sem-copia';
+}
+
 /** O texto de `ork roadmap reservas` para o terminal, no fuso do dono. */
-export function textoDasReservas(p: PainelDeReservas, orfas: readonly ReservaOrfa[] = []): string {
+export function textoDasReservas(p: PainelDeReservas, orfas: readonly ReservaOrfa[] = [],
+    lida: { remoto?: string; projeto?: string; temRemoto?: boolean } = {}): string {
+  const remoto = lida.remoto ?? REMOTO_PADRAO;
+  const leitura = leituraDasReservas(p, lida.temRemoto !== false);
+  // RM-061 (F3b): o painel no terminal pelo catalogo; item, pessoa, maquina, thread e nota sao dado.
+  const m = msg().reservas;
+  if (leitura === 'sem-remoto') return m.semRemoto(lida.projeto ?? null, remoto, BRANCH_DE_RESERVAS);
+  if (leitura === 'sem-copia') return m.semCopia(remoto, BRANCH_DE_RESERVAS);
   const linhas: string[] = [];
-  if (!p.atualizado) linhas.push('AVISO: sem acesso ao remoto; esta e a ultima copia lida nesta maquina.', '');
+  if (!p.atualizado) linhas.push(m.copiaLocal, '');
   const feats = p.feats ?? [];
-  const numeros = feats.length === 0 ? [] : ['', `Números de FEAT reservados (${feats.length}), os últimos: ` +
-    feats.slice(-5).map((f) => `${f.feat} (${f.thread ?? f.maquina})`).join(', ') + '. O próximo sai de: ork roadmap feat'];
+  const numeros = feats.length === 0 ? [] : ['', m.numerosDeFeat(feats.length,
+    feats.slice(-5).map((f) => `${f.feat} (${f.thread ?? f.maquina})`).join(', '))];
   if (p.reservas.length === 0) {
-    linhas.push('Nenhum item do roadmap reservado.', ...numeros);
+    linhas.push(m.nenhuma, ...numeros);
     return linhas.join('\n');
   }
-  linhas.push('ITEM     COM QUEM            MAQUINA         THREAD             DESDE');
+  linhas.push(m.cabecalho);
   const orfaDoItem = new Map(orfas.map((o) => [o.reserva.item, o]));
   for (const r of p.reservas) {
     const orfa = orfaDoItem.get(r.item);
-    const marca = orfa ? `  ÓRFÃ: thread fechada${orfa.sucessora ? `, passa para ${orfa.sucessora}` : ''}` : '';
+    const marca = orfa ? m.orfa(orfa.sucessora) : '';
     linhas.push(`${r.item.padEnd(8)} ${r.por.slice(0, 19).padEnd(19)} ${r.maquina.slice(0, 15).padEnd(15)} ` +
       `${(r.thread ?? '-').slice(0, 18).padEnd(18)} ${formatarDataHora(r.desdeEm)}` + (r.nota ? `  ${r.nota}` : '') + marca);
   }
-  if (orfas.length > 0) linhas.push('', `${orfas.length} reserva(s) órfã(s) desta máquina. Para soltar: ork roadmap reservas --soltar-orfas`);
+  if (orfas.length > 0) linhas.push('', m.orfas(orfas.length));
   linhas.push(...numeros, '', legendaDoFuso());
   return linhas.join('\n');
 }

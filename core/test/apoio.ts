@@ -21,10 +21,15 @@ if (!process.env.ORK_CONTAS_DIR) {
 // I-51: nenhum teste publica o estado da fabrica em segundo plano; quem testa a publicacao chama
 // `publicarMaquina` direto, contra um remoto bare temporario.
 if (process.env.ORK_FABRICA_PUBLICAR === undefined) process.env.ORK_FABRICA_PUBLICAR = '0';
+// RM-053: nem a rede da pessoa; quem testa a publicacao chama `publicarRede` com a forja simulada.
+if (process.env.ORK_REDE_PUBLICAR === undefined) process.env.ORK_REDE_PUBLICAR = '0';
+// RM-054 (fatia 3): o panorama da rede nao le a casa de verdade; quem testa a leitura passa a rede dele.
+if (process.env.ORK_REDE_LER === undefined) process.env.ORK_REDE_LER = '0';
 // RM-052 (F3 do CHECK): o projeto-alvo de cada teste vem do cwd dele, nunca do shell de quem roda a
 // suite. Com `ORK_PROJETO` exportado, todo teste que chama o CLI miraria o projeto registrado.
 delete process.env.ORK_PROJETO;
 delete process.env.ORK_PROJETO_EXPLICITO;
+semManutencaoAutomaticaDoGit();
 // I-51: a configuracao da maquina (`~/.orkastery/maquina.json`) dos testes tambem e propria.
 if (!process.env.ORK_USUARIO_DIR) {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-usuario-'));
@@ -51,6 +56,63 @@ if (!process.env.ORK_USUARIO_DIR) {
 export function semAutoridadeHitlNoAmbiente(): void {
   for (const nome of Object.keys(process.env))
     if (nome.startsWith('ORK_HITL_') || nome === ENV_HITL_VERIFIERS) delete process.env[nome];
+}
+
+/**
+ * RM-037 (CI de 03/10, run 37106955227): depois de push, fetch e commit, o git solta
+ * `git maintenance run --auto --detach`, e o processo destacado continua escrevendo em `objects/`
+ * (lock, pack temporario, commit-graph) depois que o comando do teste ja voltou. Quando isso cai
+ * no meio do `rmSync` da limpeza, o diretorio ganha arquivo novo e a remocao sai com ENOTEMPTY; e o
+ * `git clone` local, que copia `objects/` do remoto, pode ler um repack pela metade.
+ *
+ * Repositorio de teste nao precisa de manutencao: ela fica desligada para todo git que o processo
+ * lanca, em dois lugares. `GIT_CONFIG_COUNT` vence qualquer configuracao do lado de quem roda o
+ * comando, mas o transporte local a limpa antes do `receive-pack` e do `upload-pack` do remoto
+ * bare. `GIT_CONFIG_SYSTEM` atravessa o transporte: aponta para um arquivo que inclui a
+ * configuracao de sistema de verdade e desliga a manutencao. Nenhum repositorio ganha chave nova
+ * (o SHIP do MCP recusa remoto bare com configuracao fora da lista passiva), e o git do MCP, que
+ * nao herda variavel GIT_, segue como era.
+ */
+export function semManutencaoAutomaticaDoGit(env: NodeJS.ProcessEnv = process.env): void {
+  const total = Number.parseInt(env.GIT_CONFIG_COUNT ?? '0', 10) || 0;
+  let presente = false;
+  for (let i = 0; i < total; i++) if (env[`GIT_CONFIG_KEY_${i}`] === 'maintenance.auto') presente = true;
+  if (!presente) {
+    env[`GIT_CONFIG_KEY_${total}`] = 'maintenance.auto';
+    env[`GIT_CONFIG_VALUE_${total}`] = 'false';
+    env.GIT_CONFIG_COUNT = String(total + 1);
+  }
+  const sistema = env.GIT_CONFIG_SYSTEM || exec('git', ['var', 'GIT_CONFIG_SYSTEM'], os.tmpdir()).stdout.trim() ||
+    '/etc/gitconfig';
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-git-sistema-'));
+  const arquivo = path.join(base, 'gitconfig');
+  const incluir = sistema && fs.existsSync(sistema) ? `[include]\n\tpath = ${sistema}\n` : '';
+  fs.writeFileSync(arquivo, `${incluir}[maintenance]\n\tauto = false\n`);
+  env.GIT_CONFIG_SYSTEM = arquivo;
+  process.once('exit', () => fs.rmSync(base, { recursive: true, force: true }));
+}
+
+/**
+ * RM-061 (F2a, D13): ambiente de um filho cujo texto o teste le em pt-BR. O texto dos comandos que
+ * seguem o locale vem de `LC_ALL`, `LC_MESSAGES` e `LANG`; quem le esse texto fixa o pt-BR em vez de
+ * herdar o locale de quem roda a suite (numa maquina com `LANG=en_US.UTF-8`, o texto sairia em ingles).
+ */
+export function envPtBr(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const r: NodeJS.ProcessEnv = { ...env, LANG: 'C.UTF-8' };
+  delete r.LC_ALL;
+  delete r.LC_MESSAGES;
+  return r;
+}
+
+/** RM-061 (D13): o mesmo para o teste que chama o `main` no proprio processo; o ambiente volta ao fim. */
+export function comAmbientePtBr<T>(fn: () => T): T {
+  const antes = { LANG: process.env.LANG, LC_ALL: process.env.LC_ALL, LC_MESSAGES: process.env.LC_MESSAGES };
+  process.env.LANG = 'C.UTF-8';
+  delete process.env.LC_ALL;
+  delete process.env.LC_MESSAGES;
+  try { return fn(); } finally {
+    for (const [k, v] of Object.entries(antes)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
 }
 
 /** Diretorio temporario com caminho real (o macOS e o /tmp do linux usam symlink). */
@@ -159,6 +221,16 @@ export function shaNoRemotoDeTeste(dir: string, remoto: string, branch: string):
 const SCRIPT_DO_RUNTIME = `#!/bin/sh
 DIR="$ORK_STUB_DIR"
 if [ "$1" = "--version" ]; then echo "stub de teste 0.0.1"; exit 0; fi
+if [ "$1" = "daemon" ]; then
+  echo "daemon $2" >> "$DIR/daemon"
+  if [ "$2" = "status" ]; then
+    if [ -f "$DIR/daemon-preso" ]; then SOCK="unreachable (connect ECONNREFUSED /tmp/cc-daemon-stub/control.sock)"; else SOCK="reachable"; fi
+    printf 'pid:     4242\\nversion: stub\\n\\nbg sessions:\\n  control.sock: %s\\n' "$SOCK"
+    exit 0
+  fi
+  if [ "$2" = "stop" ]; then rm -f "$DIR/daemon-preso"; echo "daemon parado"; exit 0; fi
+  exit 0
+fi
 if [ "$1" = "agents" ]; then
   if [ -f "$DIR/sessao" ]; then
     ESTADO="working"
@@ -223,6 +295,10 @@ export interface RuntimeFalso {
   telaDaSessao: (texto: string | null) => void;
   /** Slugs (`--name`) que o runtime recebeu, em ordem. */
   chamadas: () => string[];
+  /** RM-063 (F4): o daemon da conta com o `control.sock` mudo (o `daemon stop` o solta). */
+  daemonPreso: (preso: boolean) => void;
+  /** RM-063 (F4): os subcomandos `claude daemon` que o stub recebeu, em ordem. */
+  chamadasDoDaemon: () => string[];
   restaurar: () => void;
 }
 
@@ -265,6 +341,14 @@ export function runtimeFalso(nome: string): RuntimeFalso {
       const arquivo = path.join(dir, 'chamadas');
       if (!fs.existsSync(arquivo)) return [];
       return fs.readFileSync(arquivo, 'utf8').split('\n').filter((l) => l.trim() !== '');
+    },
+    daemonPreso: (preso: boolean) => {
+      if (preso) fs.writeFileSync(path.join(dir, 'daemon-preso'), '1', 'utf8');
+      else fs.rmSync(path.join(dir, 'daemon-preso'), { force: true });
+    },
+    chamadasDoDaemon: () => {
+      const arquivo = path.join(dir, 'daemon');
+      return fs.existsSync(arquivo) ? fs.readFileSync(arquivo, 'utf8').split('\n').filter((l) => l.trim() !== '') : [];
     },
     restaurar: () => {
       process.env.PATH = pathAnterior;
@@ -316,6 +400,7 @@ export function ajustarManifesto(p: ProjetoDeTeste, de: RegExp | string, para: s
  */
 const SCRIPT_POR_CONTA = `#!/bin/sh
 DIR="$ORK_CONTA_STUB_DIR"
+if [ "$1" = "daemon" ]; then printf 'pid:     4242\\n  control.sock: reachable\\n'; exit 0; fi
 echo "$1 $CLAUDE_CONFIG_DIR" >> "$DIR/envs"
 if [ "$1" = "--version" ]; then echo "stub por conta 0.0.1"; exit 0; fi
 if [ "$1" = "auth" ]; then

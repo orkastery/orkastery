@@ -20,6 +20,7 @@ import { lerLedger, registrarSeExiste, threadPresente, TIPOS_DE_EVENTO } from '.
 import { dirThread, pausaNaThread } from './thread';
 import { EventoLedger, MotivoGate, SinalDeFalhaDeConta, Thread } from './types';
 import { exec } from './util';
+import { cwdLocalOuNulo, diretorioDaThread, exigirCwdLocal } from './procedencia';
 import { redigirSegredos } from './hitl';
 
 /** Uma consulta nativa custa cerca de 0,3 s; cinco segundos mantém o custo abaixo de 10%. */
@@ -280,8 +281,11 @@ function textoDoErroDeApi(e: Record<string, unknown>): string {
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
-/** A transcricao da sessao no diretorio do perfil (ou no implicito, sem perfil); `null` com sessao que nao e uuid. */
-function arquivoDaTranscricao(perfil: PerfilDeDespacho | null, cwd: string, sessionId: string): string | null {
+/**
+ * A transcricao da sessao no diretorio do perfil (ou no implicito, sem perfil); `null` com sessao que nao e uuid.
+ * RM-059 (F9): o Mensageiro de Sessoes (`entrega-por-mod.ts`) acha nela o turno em que a sessao parou.
+ */
+export function arquivoDaTranscricao(perfil: PerfilDeDespacho | null, cwd: string, sessionId: string): string | null {
   if (!UUID.test(sessionId)) return null;
   return path.join(diretorioEfetivo('claude-bg', perfil), 'projects', path.resolve(cwd).replace(/[^a-zA-Z0-9-]/g, '-'),
     `${sessionId}.jsonl`);
@@ -529,6 +533,9 @@ export function provaDoOrk(raiz: string, threadId: string, sessao: Pick<SessaoDe
     const cwd = fonte?.cwd, headNoDespacho = fonte?.head;
     if (!cwd || typeof headNoDespacho !== 'string')
       return falta('HEAD da worktree no despacho não registrado; commit não conferível', { commits: [], recusados: registrados });
+    // RM-047 (P2): o git da prova só roda na worktree registrada; o cwd vem do ledger.
+    if (cwdLocalOuNulo(raiz, threadId, cwd, 'ledger') === null)
+      return falta('cwd do despacho fora das worktrees registradas no git; commit não conferível', { commits: [], recusados: registrados });
     const commits = registrados.filter(sha => commitConferido(cwd, sha, headNoDespacho));
     const recusados = registrados.filter(sha => !commits.includes(sha));
     if (!commits.length) return falta(`nenhum commit conferido no git da worktree: ${registrados.length} SHA(s) registrado(s) ` +
@@ -601,7 +608,9 @@ export function garantirFonteClaude(raiz: string, thread: Thread, sessao: Sessao
     const eventos = lerLedger(dir), atual = ultimoRegistro(eventos, sessao);
     if (atual) return atual;
     const despacho = eventos.filter(e => e.tipo === 'phase_dispatch' && e.sessionId === sessao.sessionId).at(-1);
-    const cwd = typeof despacho?.cwd === 'string' ? despacho.cwd : thread.worktree ?? raiz;
+    // RM-047 (P2): o cwd do ledger ou do thread.json so vale como worktree registrada no git.
+    const cwd = typeof despacho?.cwd === 'string' ? exigirCwdLocal(raiz, thread.id, despacho.cwd, 'ledger')
+      : diretorioDaThread(raiz, thread);
     const fonte: FonteClaude = { nativo: 'claude-agents', cwd, origem: 'sessions.watch' };
     validarFonteClaude(eventos, sessao.sessionId, fonte);
     if (!registrarSeExiste(dir, thread.id, 'session_sensor_registered', { fase: sessao.fase, sessionId: sessao.sessionId,

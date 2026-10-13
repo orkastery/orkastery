@@ -15,16 +15,16 @@ const { createHash, randomUUID } = require('node:crypto');
 const repo = path.resolve(__dirname, '../..');
 const CLI = path.join(repo, 'core/dist/index.js');
 const FRASE = 'orkastery maestro';
-const HOSTS = { 'claude-code': { bin: 'claude', modelo: 'sonnet' }, openclaw: { bin: 'openclaw', modelo: null } };
-const USO = 'uso: node core/scripts/prova-ativacao.cjs <claude-code|openclaw> [--saida ARQUIVO] [--modelo M] [--manter]';
+const HOSTS = { 'claude-code': { bin: 'claude', modelo: 'sonnet' }, openclaw: { bin: 'openclaw', modelo: null }, codex: { bin: 'codex', modelo: null } };
+const USO = 'uso: node core/scripts/prova-ativacao.cjs <claude-code|openclaw|codex> [--saida ARQUIVO] [--modelo M] [--manter]';
 // Saídas: 0 aprovada, 1 reprovada ou falha, 2 uso/host ausente, 3 pendente de ação humana.
 const SAIDA = { aprovada: 0, reprovada: 1, falha: 1, 'host-ausente': 2, 'pendente-humano': 3 };
 
 function argumentos(argv) {
   const [host, ...resto] = argv;
   if (!HOSTS[host]) {
-    process.stderr.write(`host.nao-suportado: ${host ?? '(vazio)'}; esta prova cobre ${Object.keys(HOSTS).join(' e ')} ` +
-      '(Hermes e Codex ficam pendentes no RM-032).\n' + USO + '\n');
+    process.stderr.write(`host.nao-suportado: ${host ?? '(vazio)'}; esta prova cobre ${Object.keys(HOSTS).join(', ')} ` +
+      '(Hermes fica pendente no RM-032).\n' + USO + '\n');
     process.exit(2);
   }
   const op = { host, saida: null, modelo: HOSTS[host].modelo, manter: false };
@@ -98,6 +98,8 @@ function listar(dir) {
 
 const home = os.homedir();
 const configClaude = process.env.CLAUDE_CONFIG_DIR || path.join(home, '.claude');
+// B11: o Codex usa o login nativo do CODEX_HOME de quem roda (um perfil de `ork accounts`, por exemplo).
+const codexHome = process.env.CODEX_HOME || path.join(home, '.codex');
 function alvosGlobais() {
   const alvos = { 'orkastery:projetos.json': () => hashArquivo(path.join(process.env.ORK_USUARIO_DIR || path.join(home, '.orkastery'), 'projetos.json')) };
   if (op.host === 'claude-code') {
@@ -105,6 +107,14 @@ function alvosGlobais() {
       alvos[`claude:${f}`] = () => hashArquivo(path.join(configClaude, f));
     }
     if (path.resolve(configClaude) !== path.join(home, '.claude')) alvos['claude:~/.claude/settings.json'] = () => hashArquivo(path.join(home, '.claude/settings.json'));
+  } else if (op.host === 'codex') {
+    alvos['codex:config.toml'] = () => hashArquivo(path.join(codexHome, 'config.toml'));
+    alvos['codex:skills'] = () => hashArvore(path.join(codexHome, 'skills'));
+    // O critério do B11: os arquivos do primeiro nível de ~/.codex, iguais antes e depois.
+    const padrao = path.join(home, '.codex');
+    for (const f of fs.existsSync(padrao) ? fs.readdirSync(padrao, { withFileTypes: true }) : []) {
+      if (f.isFile()) alvos[`codex:~/.codex/${f.name}`] = () => hashArquivo(path.join(padrao, f.name));
+    }
   } else {
     alvos['openclaw:openclaw.json'] = () => hashArquivo(path.join(home, '.openclaw/openclaw.json'));
     alvos['openclaw:extensions/orkastery'] = () => hashArvore(path.join(home, '.openclaw/extensions/orkastery'));
@@ -298,6 +308,82 @@ function provaOpenclaw(env) {
       porque: 'a frase sem projeto só precisa de ork_network_roadmap; ork_maestro com projeto nomeado e as demais dependem dessa escolha' });
   return 'conferida';
 }
+// ---------------------------------------------------------------- Codex (B11)
+function provaCodex(env) {
+  const { transcriptDoCodex, conferirProva } = require(path.join(repo, 'core/dist/prova-ativacao'));
+  const login = rodar('codex', ['login', 'status'], { env, timeout: 30000 });
+  if (login.status !== 0 || !/logged in/i.test(`${login.stdout}\n${login.stderr}`) || /not logged in/i.test(`${login.stdout}\n${login.stderr}`)) {
+    recibo.pendenciasHumanas.push({ passo: 'login do Codex no CODEX_HOME da prova', bloqueiaProva: true,
+      comando: `CODEX_HOME=${codexHome} codex login   # ou rode a prova com o CODEX_HOME de um perfil logado (ork accounts list)`,
+      porque: 'a prova usa o login nativo do CLI; nenhuma credencial é copiada' });
+    return 'pendente-humano';
+  }
+  const { dir: fixture, esperado } = prepararFixture(env);
+  exigir(rodar('ork', ['adapter', 'install', 'codex'], { cwd: fixture, env }), 'ork adapter install codex');
+  exigir(rodar('ork', ['mcp', 'install', '--project', fixture, '--host', 'codex'], { cwd: fixture, env }), 'ork mcp install');
+  // O servidor que o `ork mcp install` gravou no projeto vai à sessão por `-c`, como o `--mcp-config` do
+  // Claude (D2): o Codex só lê o .codex/config.toml de projeto confiável, e confiar é gravar na config global.
+  const { parse } = require('smol-toml');
+  const servidor = parse(fs.readFileSync(path.join(fixture, '.codex/config.toml'), 'utf8')).mcp_servers?.orkastery;
+  if (!servidor || typeof servidor.command !== 'string' || !Array.isArray(servidor.args)) throw new Error('codex.mcp: .codex/config.toml sem mcp_servers.orkastery');
+  const envDoServidor = Array.isArray(servidor.env_vars) ? servidor.env_vars : [];
+  recibo.mcp = { via: '-c a partir de .codex/config.toml do projeto (ork mcp install --host codex)', command: servidor.command,
+    args: servidor.args, envVars: envDoServidor, aprovadas: ['ork_maestro'] };
+  // O `codex exec --json` não lista as ferramentas expostas ao modelo: valem as do tools/list do mesmo servidor.
+  const pedidos = [
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'prova-ativacao', version: '1' } } },
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+    { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+  ].map(m => JSON.stringify(m)).join('\n') + '\n';
+  const lista = exigir(rodar(servidor.command, servidor.args, { cwd: fixture, env, timeout: 60000, guardar: false, entrada: pedidos }), 'tools/list do servidor orkastery');
+  const resposta = lista.stdout.split('\n').map(l => { try { return JSON.parse(l); } catch { return null; } }).find(m => m && m.id === 2);
+  const expostas = (resposta?.result?.tools ?? []).map(t => t?.name).filter(n => typeof n === 'string').map(n => `mcp__orkastery__${n}`);
+  recibo.comandos.at(-1).stdout = { ferramentas: expostas.length };
+  const antes = listar(path.join(fixture, '.orkastery'));
+  const sessoes = path.join(codexHome, 'sessions');
+  const sessoesAntes = listar(sessoes);
+  const c = (chave, valor) => ['-c', `${chave}=${JSON.stringify(valor)}`];
+  const sessao = rodar('codex', ['exec', '--json', '--ephemeral', '--ignore-user-config', '--ignore-rules', '-s', 'read-only', '-C', fixture,
+    ...c('approval_policy', 'never'), ...c('mcp_servers.orkastery.command', servidor.command), ...c('mcp_servers.orkastery.args', servidor.args),
+    ...c('mcp_servers.orkastery.env_vars', envDoServidor), ...c('mcp_servers.orkastery.tools.ork_maestro.approval_mode', 'approve'),
+    ...(op.modelo ? ['-m', op.modelo] : []), FRASE], { cwd: fixture, env, timeout: 300000, guardar: false });
+  if (op.manter) fs.writeFileSync(path.join(raiz, 'codex-eventos.jsonl'), sessao.stdout);
+  exigir(sessao, 'sessão codex exec');
+  const transcript = transcriptDoCodex(sessao.stdout, expostas);
+  recibo.transcript = resumoCodex(sessao.stdout, transcript);
+  const r = conferirProva('codex', transcript, esperado);
+  recibo.conferencias.push(...r.conferencias);
+  recibo.snapshot = r.snapshot;
+  conferirEstado(fixture, antes);
+  // `--ephemeral`: a sessão da prova não fica no histórico do perfil. Outra sessão viva da conta pode gravar
+  // ali ao mesmo tempo; reprova só arquivo novo que cite a raiz da prova.
+  const daProva = listar(sessoes).filter(f => !sessoesAntes.includes(f)).filter(f => {
+    try { return fs.readFileSync(path.join(sessoes, f), 'utf8').includes(raiz); } catch { return false; }
+  });
+  recibo.conferencias.push({ id: 'estado-do-cli.sessao-efemera', ok: daProva.length === 0,
+    detalhe: daProva.length ? `a sessão ficou em $CODEX_HOME/sessions: ${daProva.join(', ')}` : 'nenhuma sessão da prova em $CODEX_HOME/sessions' });
+  recibo.pendenciasHumanas.push(
+    { passo: 'confiar no projeto para o Codex ler o .codex/config.toml', bloqueiaProva: false,
+      comando: 'cd <projeto> && codex   # aceite a confiança na pasta; ela é gravada em $CODEX_HOME/config.toml',
+      porque: 'a prova não grava confiança na config global: o servidor vai à sessão por -c' },
+    { passo: 'aprovar a tool somente leitura na primeira chamada', bloqueiaProva: false,
+      comando: 'na sessão: orkastery maestro   # aprove ork_maestro quando o Codex pedir',
+      porque: 'a prova aprova só ork_maestro por -c, na própria sessão de prova' });
+  return 'conferida';
+}
+function resumoCodex(stdout, t) {
+  const eventos = stdout.split('\n').filter(l => l.startsWith('{')).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  const inicio = eventos.find(e => e.type === 'thread.started') ?? {};
+  const fim = [...eventos].reverse().find(e => e.type === 'turn.completed' || e.type === 'turn.failed') ?? {};
+  const tipos = {};
+  for (const e of eventos) { const k = e.type === 'item.completed' ? `item:${e.item?.type}` : e.type; tipos[k] = (tipos[k] ?? 0) + 1; }
+  return { threadId: inicio.thread_id ?? null, modelo: op.modelo ?? '(padrão do Codex)', eventos: tipos,
+    ferramentasExpostasOrk: (t.ferramentasExpostas ?? []).filter(n => n.startsWith('mcp__orkastery__')).length,
+    chamadas: t.chamadas.map(ch => ({ nome: ch.ferramenta, via: ch.via, entrada: ch.argumentos, erro: ch.erro })),
+    resultado: { tipo: fim.type ?? null, uso: fim.usage ?? null, erro: fim.error?.message ?? null },
+    respostaFinal: (t.respostaFinal ?? '').slice(0, 3000) };
+}
+
 function segredoLiteral(obj, prefixo = '') {
   const { redigir } = require(path.join(repo, 'core/dist/prova-ativacao'));
   for (const [k, v] of Object.entries(obj ?? {})) {
@@ -328,7 +414,7 @@ function principal() {
   const env = ambienteDaProva();
   let resultado;
   try {
-    resultado = op.host === 'claude-code' ? provaClaude(env) : provaOpenclaw(env);
+    resultado = op.host === 'claude-code' ? provaClaude(env) : op.host === 'codex' ? provaCodex(env) : provaOpenclaw(env);
   } finally {
     try {
       const depois = fotografar(alvos);

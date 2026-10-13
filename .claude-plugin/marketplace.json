@@ -13,6 +13,83 @@
       "description": "Six-phase threads (GOAL, PLAN, GO, CHECK, SHIP, MASTER) run by the local ork CLI: each claim is re-run against the repository before it counts, and you get short decisions only when they matter.",
       "category": "development",
       "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-clima",
+      "source": "./marketplaces/claude-code/mods/ork-clima",
+      "description": "Clima de Cota do Orkastery no Claude Code: prevê quando a cota da conta acaba no ritmo atual, avisa na faixa antes de a fase morrer no meio e diz qual retomada não cabe. Só lê e avisa.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-freio",
+      "source": "./marketplaces/claude-code/mods/ork-freio",
+      "description": "Freio de Lote do Orkastery no Claude Code: na sessão de fase, acha as claims que o lote de ferramentas mexeu, pede ao núcleo a conferência delas no sandbox do verify e devolve o que quebrou no lote seguinte.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-mensageiro",
+      "source": "./marketplaces/claude-code/mods/ork-mensageiro",
+      "description": "Mensageiro de Sessões do Orkastery no Claude Code: leva a resposta que o dono deu pelo diálogo nativo à sessão de fase claude-bg que parou esperando por ele, como mensagem entre sessões, e na sessão de fase só deixa chegar ao modelo a mensagem que o núcleo confirmou como aquela resposta. Nunca responde nem aprova pelo dono.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-mesa",
+      "source": "./marketplaces/claude-code/mods/ork-mesa",
+      "description": "Mesa do Dono do Orkastery no Claude Code: tudo que espera o dono num painel, um cartão por pedido com a recomendação na frente e a decisão pelo diálogo nativo do host. Só decide pelo dono pela decisão autônoma do núcleo, quando a decisão é óbvia, e nunca responde um pedido.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-pista",
+      "source": "./marketplaces/claude-code/mods/ork-pista",
+      "description": "Pista de Entrega do Orkastery no Claude Code: do CHECK verde ao merge, cada entrega numa pista com a prova de cada etapa (bundle, branch publicada, PR, CI ork-verify, conflito com a base e ship_done) e o próximo passo que o núcleo declara. Publica só pelo ork ship publicar, no modo que já autoriza o push; nunca faz merge nem tag.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-ponte",
+      "source": "./marketplaces/claude-code/mods/ork-ponte",
+      "description": "Ponte dos mods do Orkastery no Claude Code: o papel da sessão, a leitura do núcleo, a faixa e os caminhos vigiados com dono único, e a guarda de autoridade que nenhum mod passa.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-portao",
+      "source": "./marketplaces/claude-code/mods/ork-portao",
+      "description": "Portão de Tarefas do Orkastery no Claude Code: na sessão de fase do GO, cada tarefa do quadro é uma tarefa do plano com touch_paths e verify, só fecha com a conferência do núcleo aprovada e, com agent teams no piloto, vai ao teammate ocioso com lease livre.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-radar",
+      "source": "./marketplaces/claude-code/mods/ork-radar",
+      "description": "Radar de Colisão do Orkastery no Claude Code: o merge de cada thread aberta contra a origin/main e entre as threads, calculado sem worktree e sem gravar objeto no repositório, com os arquivos em conflito, os leases que os cobrem e o comando que resolve. Só lê.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-ritual",
+      "source": "./marketplaces/claude-code/mods/ork-ritual",
+      "description": "Ritual do MASTER do Orkastery no Claude Code: as entregas que esperam a sua nota, a prova de cada uma (o que foi entregue, o índice derivado do ledger e as claims com comando e estado, uma por vez) e a nota de 0 a 5 pelo diálogo nativo do host. O mod nunca dá a nota pelo dono.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-sentinela",
+      "source": "./marketplaces/claude-code/mods/ork-sentinela",
+      "description": "Sentinela do Condutor do Orkastery no Claude Code: na sessão do dono, despacha a fase seguinte das threads #Auto só pelo núcleo, sem duplicar o condutor externo, que cede enquanto ela conduz; o que só o dono resolve vira aviso com o próximo passo do núcleo.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-torre",
+      "source": "./marketplaces/claude-code/mods/ork-torre",
+      "description": "Torre de Controle do Orkastery no Claude Code: a fábrica num painel, cada thread aberta numa linha com a fase, quem conduz, o bloqueio e a ação que o estado dela pede. Só lê; ação com efeito vai ao mod dono dela ou aparece como o comando do ork.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
     }
   ]
 }

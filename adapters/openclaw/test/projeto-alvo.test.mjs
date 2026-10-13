@@ -35,11 +35,14 @@ async function comPlugin(corpo) {
   }
 }
 
-test('toda tool aceita projeto opcional, so nome (a rede da RM-054 tambem aceita a forja); o catalogo com 27 tools e os requisitos de antes', async () => {
+test('toda tool de projeto aceita projeto opcional, so nome (a rede da RM-054 tambem aceita a forja); o catalogo com 32 tools e os requisitos de antes', async () => {
   await comPlugin(async (tools) => {
-    assert.equal(tools.length, 27, 'as 25 da RM-052, ork_brain_dossie (RM-026) e ork_network_roadmap (RM-054, fatia 2)');
+    assert.equal(tools.length, 32, 'as 25 da RM-052, ork_brain_dossie (RM-026), ork_network_roadmap (RM-054, fatia 2), ' +
+      'ork_network_status (fatia 3) e as quatro ork_conhecimento_* (RM-026 K7, fatia 3)');
     for (const t of tools) {
       const p = t.parameters.properties.projeto;
+      // RM-054 (fatia 3): o status da rede e da pessoa, nao de um projeto: sem o parametro.
+      if (t.name === 'ork_network_status') { assert.equal(p, undefined, 'a rede da pessoa nao recebe projeto'); continue; }
       assert.ok(p, `${t.name} aceita projeto`);
       if (t.name === 'ork_network_roadmap') assert.match(p.pattern, /\(\?:github\|gitlab\):/, 'a rede aceita a forja');
       else assert.equal(p.pattern, '^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$');
@@ -68,7 +71,7 @@ test('projeto vai como --projeto no inicio do argv; sem ele o nucleo recebe o mo
 test('caminho, traversal ou tipo errado em projeto recusa no host, sem chamar o ork', async () => {
   await comPlugin(async (tools, chamadas) => {
     const roadmap = tools.find(t => t.name === 'ork_roadmap_status');
-    for (const projeto of ['/home/julio/.openclaw/workspace', '../orkastery', '~/orkastery', '', 42, 'a b']) {
+    for (const projeto of ['/home/usuario/.openclaw/workspace', '../orkastery', '~/orkastery', '', 42, 'a b']) {
       const r = await roadmap.execute({ projeto }, {}, {});
       assert.match(r, /^\[ork recusou\] projeto\.invalido: informe o NOME de um projeto/, `recusado: ${projeto}`);
     }

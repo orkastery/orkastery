@@ -13,6 +13,13 @@
  * diretorio, ele vale para a conta inteira da pessoa, e o guard barraria comando em qualquer
  * repositorio dela. Guard e sensores continuam no `ork adapter install claude-code`, por projeto.
  *
+ * RM-059 (T0.8): os mods do Claude Code entram so no marketplace proprio da raiz, um plugin por mod,
+ * descobertos por `adapters/claude-code/mods/<mod>/orkastery-mod.json` (convencao `ork.mod/v1`). A
+ * entrada aponta para uma copia gerada em `marketplaces/claude-code/mods/<mod>/`, que leva dentro dela os
+ * arquivos compartilhados da raiz de `adapters/claude-code/mods/` (a lista de autoridade da ponte, por
+ * exemplo): instalado pelo marketplace, o plugin e so a propria pasta (D4, revista na D13). A pasta do
+ * diretorio da Anthropic continua sem mods e sem hooks.
+ *
  * Este arquivo nao tem texto de listagem: descricao, prompts e URLs moram em
  * `marketplaces/fontes/listagem.json`, e os READMEs em `marketplaces/fontes/<host>/`.
  *
@@ -33,8 +40,13 @@ const DESTINOS = {
   codex: 'marketplaces/codex/orkastery',
   marketplaceClaude: '.claude-plugin/marketplace.json',
   marketplaceCodex: '.agents/plugins/marketplace.json',
+  // RM-059 (T0.8, D13): as copias dos mods para o marketplace proprio, uma pasta por mod.
+  mods: 'marketplaces/claude-code/mods',
 };
 const FONTES = 'marketplaces/fontes';
+/** RM-059 (T0.8): onde moram os mods, e o piso da API de mods do Claude Code. */
+const MODS = 'adapters/claude-code/mods';
+const CLAUDE_CODE_MINIMO_DOS_MODS = '2.1.287';
 /** Peca da marca -> caminho dentro da pasta do plugin. Link do README fonte para a peca e reescrito. */
 const MARCA = {
   readme: ['docs/assets/marca/png/assinatura-com-fundo-1200.png', 'assets/orkastery.png'],
@@ -114,6 +126,71 @@ function mdDe(raiz, dir) {
   return fs.readdirSync(path.join(raiz, dir)).filter((a) => a.endsWith('.md')).sort().map((a) => `${dir}/${a}`);
 }
 
+/** RM-059 (T0.8): as entradas da raiz de `adapters/claude-code/mods/`, em ordem; vazio quando a pasta nao existe. */
+function entradasDeMods(raiz) {
+  const dir = path.join(raiz, MODS);
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
+
+/** As pastas de mod (link nao conta: `conferirMods` o reprova). */
+function pastasDeMods(raiz) {
+  return entradasDeMods(raiz).filter((e) => e.isDirectory() && !e.isSymbolicLink()).map((e) => e.name);
+}
+
+/**
+ * RM-059 (T0.8, B1 do CHECK): os arquivos comuns da raiz de `adapters/claude-code/mods/`, compartilhados
+ * pelos mods (a lista de autoridade da ponte, D6 da thread dela). Arquivo oculto (`.gitkeep`) fica de fora.
+ */
+function compartilhadosDeMods(raiz) {
+  return entradasDeMods(raiz).filter((e) => e.isFile() && !e.name.startsWith('.')).map((e) => e.name);
+}
+
+/** Os tipos que o Claude Code escreve ao carregar o mod: nunca vao a copia (`conferirMods` os reprova no catalogo). */
+const ehTipoDoMotor = (rel) => rel === '.claude-plugin/types' || rel.startsWith('.claude-plugin/types/');
+
+/**
+ * Os mods que viram entrada do marketplace: pasta com `orkastery-mod.json` e manifesto que faz parse, com
+ * os arquivos que vao a copia. O que esta fora da convencao nao vira entrada; `conferirMods` diz o porque.
+ */
+function modsDoCatalogo(raiz) {
+  const achados = [];
+  for (const nome of pastasDeMods(raiz)) {
+    const rel = `${MODS}/${nome}`;
+    if (!fs.existsSync(path.join(raiz, rel, 'orkastery-mod.json')) || !fs.existsSync(path.join(raiz, rel, '.claude-plugin', 'plugin.json'))) continue;
+    try {
+      const plugin = lerJson(raiz, `${rel}/.claude-plugin/plugin.json`);
+      const arquivos = listar(path.join(raiz, rel)).filter((a) => !a.dir && !a.link && !ehTipoDoMotor(a.rel)).map((a) => a.rel).sort();
+      achados.push({ nome, rel, plugin, arquivos });
+    } catch { /* conferirMods reporta */ }
+  }
+  return achados;
+}
+
+/** `2.1.296` vira `[2, 1, 296]`, para comparar versoes sem dependencia. */
+function versaoNumerica(texto) {
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(texto);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+/** O problema da declaracao `ork.mod/v1` de um mod, ou null: a mesma regra que o despacho confere. */
+function problemaDaDeclaracao(texto) {
+  let d;
+  try { d = JSON.parse(texto); } catch { return 'orkastery-mod.json nao e JSON'; }
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return 'orkastery-mod.json precisa ser objeto';
+  if (d.formato !== 'ork.mod/v1') return 'formato precisa ser ork.mod/v1';
+  const papeis = d.papeis;
+  if (!Array.isArray(papeis) || papeis.length === 0 || papeis.some((p) => p !== 'dono' && p !== 'fase') || new Set(papeis).size !== papeis.length) {
+    return 'papeis precisa ser lista sem repeticao de dono e fase';
+  }
+  const versao = typeof d.claudeCodeMinimo === 'string' ? versaoNumerica(d.claudeCodeMinimo) : null;
+  if (!versao) return 'claudeCodeMinimo precisa ser versao X.Y.Z';
+  const piso = versaoNumerica(CLAUDE_CODE_MINIMO_DOS_MODS);
+  const i = versao.findIndex((parte, j) => parte !== piso[j]);
+  if (i >= 0 && versao[i] < piso[i]) return `claudeCodeMinimo abaixo de ${CLAUDE_CODE_MINIMO_DOS_MODS}, a versao da API de mods`;
+  return null;
+}
+
 /** Troca, no README fonte, o link para a peca da marca pelo caminho dentro da pasta do plugin. */
 function readme(raiz, rel) {
   const deFonte = path.posix.dirname(rel);
@@ -190,7 +267,26 @@ function gerar(raiz) {
   poe(`${X}/LICENSE`, ler(raiz, 'LICENSE'));
   for (const [origem, destino] of Object.values(MARCA)) poe(`${X}/${destino}`, ler(raiz, origem));
 
+  // RM-059 (T0.8, D13): a copia de cada mod, com os arquivos compartilhados da raiz de mods/ dentro dela.
+  // Arquivo do proprio mod com o mesmo nome vence; `conferirMods` aponta a colisao.
+  const compartilhados = compartilhadosDeMods(raiz);
+  const mods = modsDoCatalogo(raiz);
+  for (const m of mods) {
+    for (const arquivo of m.arquivos) poe(`${DESTINOS.mods}/${m.nome}/${arquivo}`, ler(raiz, `${m.rel}/${arquivo}`));
+    for (const nome of compartilhados) {
+      if (!m.arquivos.includes(nome)) poe(`${DESTINOS.mods}/${m.nome}/${nome}`, ler(raiz, `${MODS}/${nome}`));
+    }
+  }
+
   // Marketplaces proprios da raiz (H1 A): instalar sem esperar a revisao dos diretorios.
+  // RM-059 (T0.8): depois do plugin, uma entrada por mod, apontando para a copia gerada dele.
+  const entradasDosMods = mods.map((m) => ({
+    name: m.plugin.name,
+    source: `./${DESTINOS.mods}/${m.nome}`,
+    description: m.plugin.description,
+    category: (L.mods || {}).category,
+    homepage: L.homepage,
+  }));
   poe(DESTINOS.marketplaceClaude, emJson({
     $schema: 'https://anthropic.com/claude-code/marketplace.schema.json',
     name: L.marketplace.name,
@@ -202,7 +298,7 @@ function gerar(raiz) {
       description: L.claude.description,
       category: L.claude.category,
       homepage: L.homepage,
-    }],
+    }, ...entradasDosMods],
   }));
   poe(DESTINOS.marketplaceCodex, emJson({
     name: L.marketplace.name,
@@ -497,6 +593,18 @@ function conferirMarketplaces(raiz) {
     const manifesto = lerJson(raiz, `${DESTINOS.claude}/.claude-plugin/plugin.json`);
     if (pc.name !== manifesto.name) achados.push(achado('marketplace.claude', DESTINOS.marketplaceClaude, `entrada ${pc.name} diferente do manifesto ${manifesto.name}`));
   }
+  // RM-059 (T0.8): cada entrada depois do plugin e um mod, com source na copia gerada dele e o nome do manifesto dele.
+  for (const pm of (c.plugins || []).slice(1)) {
+    const pasta = typeof pm.source === 'string' && pm.source.startsWith(`./${DESTINOS.mods}/`) ? pm.source.slice(DESTINOS.mods.length + 3) : '';
+    if (!semSair(pm.source) || !NOME.test(pasta) || !fs.existsSync(path.join(raiz, MODS, pasta, 'orkastery-mod.json'))) {
+      achados.push(achado('marketplace.claude', DESTINOS.marketplaceClaude, `entrada ${pm.name}: source precisa ser ./${DESTINOS.mods}/<mod>, de um mod com orkastery-mod.json`));
+      continue;
+    }
+    const manifesto = path.join(raiz, DESTINOS.mods, pasta, '.claude-plugin', 'plugin.json');
+    let nome = null;
+    try { nome = JSON.parse(fs.readFileSync(manifesto, 'utf8')).name; } catch { /* conferirMods reporta */ }
+    if (pm.name !== nome) achados.push(achado('marketplace.claude', DESTINOS.marketplaceClaude, `entrada ${pm.name} diferente do manifesto do mod ${pasta}`));
+  }
   const x = lerJson(raiz, DESTINOS.marketplaceCodex);
   const px = x.plugins && x.plugins[0];
   if (!x.name || !x.interface || !x.interface.displayName) achados.push(achado('marketplace.codex', DESTINOS.marketplaceCodex, 'name ou interface.displayName ausente'));
@@ -507,6 +615,67 @@ function conferirMarketplaces(raiz) {
     if (px.name !== manifesto.name) achados.push(achado('marketplace.codex', DESTINOS.marketplaceCodex, `entrada ${px.name} diferente do manifesto ${manifesto.name}`));
     if (!px.policy || !INSTALACAO.has(px.policy.installation) || !AUTENTICACAO.has(px.policy.authentication)) achados.push(achado('marketplace.codex', DESTINOS.marketplaceCodex, 'policy.installation ou policy.authentication fora dos valores aceitos'));
     if (typeof px.category !== 'string' || !px.category.trim()) achados.push(achado('marketplace.codex', DESTINOS.marketplaceCodex, 'category ausente'));
+  }
+  return achados;
+}
+
+/**
+ * RM-059 (T0.8): cada pasta de `adapters/claude-code/mods/` contra a convencao `ork.mod/v1` e o minimo
+ * de um plugin de function hooks. Os tipos de `.claude-plugin/types/` sao escritos pelo Claude Code
+ * quando carrega o mod; no catalogo eles iriam ao recibo da instalacao e o despacho recusaria o mod
+ * no dia em que o motor os reescrevesse.
+ */
+function conferirMods(raiz) {
+  const achados = [];
+  // Na raiz de mods/: pasta e mod; arquivo comum e compartilhado (vai dentro de cada copia); link reprova.
+  for (const e of entradasDeMods(raiz)) {
+    if (e.isSymbolicLink()) achados.push(achado('arquivo.link', `${MODS}/${e.name}`, 'symlink nao entra no marketplace'));
+  }
+  const pastas = pastasDeMods(raiz);
+  const compartilhados = compartilhadosDeMods(raiz);
+  for (const nome of pastas) {
+    const rel = `${MODS}/${nome}`;
+    const dir = path.join(raiz, rel);
+    if (!NOME.test(nome)) achados.push(achado('mod.manifesto', rel, `nome da pasta fora de ${NOME}`));
+    for (const comum of compartilhados) {
+      if (fs.existsSync(path.join(dir, comum))) {
+        achados.push(achado('mod.compartilhado', `${rel}/${comum}`, `o mod tem ${comum} e a raiz de ${MODS} tambem: na copia do marketplace vale o do mod`));
+      }
+    }
+    const declaracao = path.join(dir, 'orkastery-mod.json');
+    if (!fs.existsSync(declaracao)) {
+      achados.push(achado('mod.declaracao', `${rel}/orkastery-mod.json`, 'ausente: todo mod declara o papel ({"formato":"ork.mod/v1","papeis":[...],"claudeCodeMinimo":"X.Y.Z"})'));
+    } else {
+      const problema = problemaDaDeclaracao(fs.readFileSync(declaracao, 'utf8'));
+      if (problema) achados.push(achado('mod.declaracao', `${rel}/orkastery-mod.json`, problema));
+    }
+    const manifesto = path.join(dir, '.claude-plugin', 'plugin.json');
+    let p = null;
+    if (!fs.existsSync(manifesto)) achados.push(achado('mod.manifesto', `${rel}/.claude-plugin/plugin.json`, 'manifesto ausente'));
+    else {
+      try { p = JSON.parse(fs.readFileSync(manifesto, 'utf8')); } catch { achados.push(achado('mod.manifesto', `${rel}/.claude-plugin/plugin.json`, 'manifesto nao e JSON')); }
+    }
+    if (p) {
+      if (p.name !== nome) achados.push(achado('mod.manifesto', `${rel}/.claude-plugin/plugin.json`, `name ${JSON.stringify(p.name)} diferente da pasta ${nome}`));
+      for (const campo of ['version', 'description']) {
+        if (typeof p[campo] !== 'string' || !p[campo].trim()) achados.push(achado('mod.manifesto', `${rel}/.claude-plugin/plugin.json`, `${campo} ausente`));
+      }
+    }
+    let hooks = null;
+    try { hooks = JSON.parse(fs.readFileSync(path.join(dir, 'hooks', 'hooks.json'), 'utf8')); } catch { /* ausente ou invalido */ }
+    if (!hooks || !Array.isArray(hooks.modules) || hooks.modules.length === 0) {
+      achados.push(achado('mod.manifesto', `${rel}/hooks/hooks.json`, 'hooks/hooks.json com modules ausente: mod e plugin de function hooks'));
+    }
+    for (const a of listar(dir)) {
+      if (a.link) achados.push(achado('arquivo.link', `${rel}/${a.rel}`, 'symlink nao entra no marketplace'));
+      if (a.dir && a.rel === '.claude-plugin/types') {
+        achados.push(achado('mod.tipos-do-motor', `${rel}/${a.rel}`, 'tipos escritos pelo Claude Code ao carregar o mod nao entram no catalogo'));
+      }
+    }
+  }
+  const L = lerJson(raiz, `${FONTES}/listagem.json`);
+  if (pastas.length && (!L.mods || typeof L.mods.category !== 'string' || !L.mods.category.trim())) {
+    achados.push(achado('mod.listagem', `${FONTES}/listagem.json`, 'mods.category ausente'));
   }
   return achados;
 }
@@ -581,7 +750,7 @@ function verificar(raiz) {
     if (!fs.existsSync(alvo)) achados.push(achado('deriva.faltando', rel, REGENERAR));
     else if (!mesmoConteudo(fs.readFileSync(alvo), conteudo, rel)) achados.push(achado('deriva.diferente', rel, REGENERAR));
   }
-  for (const pasta of [DESTINOS.claude, DESTINOS.codex]) {
+  for (const pasta of [DESTINOS.claude, DESTINOS.codex, DESTINOS.mods]) {
     for (const a of listar(path.join(raiz, pasta))) {
       const rel = `${pasta}/${a.rel}`;
       if (!a.dir && !esperado.has(rel)) achados.push(achado('deriva.sobrando', rel, REGENERAR));
@@ -592,14 +761,15 @@ function verificar(raiz) {
     ...conferirPastaClaude(path.join(raiz, DESTINOS.claude), raiz),
     ...conferirPastaCodex(path.join(raiz, DESTINOS.codex), raiz),
     ...conferirMarketplaces(raiz),
+    ...conferirMods(raiz),
     ...conferirTextosDoRepositorio(raiz),
   ];
 }
 
-/** Escreve o que as fontes geram. As duas pastas do plugin sao do gerador: o que sobra nelas sai. */
+/** Escreve o que as fontes geram. As pastas do plugin e as copias dos mods sao do gerador: o que sobra nelas sai. */
 function escrever(raiz) {
   const esperado = gerar(raiz);
-  for (const pasta of [DESTINOS.claude, DESTINOS.codex]) {
+  for (const pasta of [DESTINOS.claude, DESTINOS.codex, DESTINOS.mods]) {
     fs.rmSync(path.join(raiz, pasta), { recursive: true, force: true });
   }
   for (const [rel, conteudo] of esperado) {
@@ -629,8 +799,9 @@ function main(argv) {
 }
 
 module.exports = {
-  BUCKETS, DESTINOS, SEM_COPIA, gerar, verificar, escrever, fontesDaGeracao,
+  BUCKETS, DESTINOS, SEM_COPIA, MODS, gerar, verificar, escrever, fontesDaGeracao,
   conferirPastaClaude, conferirPastaCodex, conferirMarketplaces, conferirTextosDoRepositorio, problemaDoFrontmatter, palavrasForaDeCodigo,
+  conferirMods, problemaDaDeclaracao,
 };
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));

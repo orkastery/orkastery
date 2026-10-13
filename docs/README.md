@@ -36,15 +36,20 @@ Cada guia resolve uma tarefa, com os comandos na ordem em que você vai usar.
 | [Experiência de orquestração](guias/orchestration-experience.pt-BR.md) / [English](guias/orchestration-experience.md) | Preferências, instalação reversível e limites do pacote |
 | [Onboarding do projeto](guias/onboarding.md) | Você está trazendo um repositório novo para o `ork` |
 | [Várias máquinas](guias/varias-maquinas.md) | Você conduz o mesmo produto de mais de um computador, ou com mais de um builder |
+| [Condução pela Sentinela](guias/conducao-pela-sentinela.md) | Você liga a Sentinela do Condutor na sua sessão do Claude Code e quer que o condutor externo ceda o despacho |
+| [Pista de Entrega](guias/pista-de-entrega.md) | Você quer ver do CHECK verde ao merge sem sair do terminal, ou trocar o push cru do condutor externo pelo `ork ship publicar` |
+| [Ritual do MASTER](guias/ritual-do-master.md) | Você quer dar a nota das entregas sem sair do terminal, com a prova de cada uma na frente |
+| [Mensageiro de Sessões](guias/mensageiro-de-sessoes.md) | Uma sessão de fase `claude-bg` parou com uma pergunta e você quer responder da sua sessão do Claude Code, sem `claude attach` |
 | [Contribuir](guias/contribuir/o-que-contribuir.md) | Você quer mandar um PR, abrir uma issue ou cuidar da triagem: um guia por tarefa, com o índice no [CONTRIBUTING](../CONTRIBUTING.md) |
 
 ## Referência
 
 | Página | O que tem |
 | --- | --- |
-| [CLI](referencia/cli.md) | Todos os comandos, por tarefa (a fonte é `ork --help`) |
+| [CLI](referencia/cli.md) / [English](referencia/cli.en.md) | Todos os comandos, por tarefa (a fonte é `ork --help`) |
 | [Contratos](referencia/contratos/) | Os contratos versionados que outros sistemas leem |
 | [Capacidades do Maestro](referencia/maestro-capacidades.json) | O que cada host pode e não pode fazer, com a evidência de cada capacidade |
+| [Fronteira de confiança](referencia/fronteira-de-confianca.md) | O que o `ork` faz com valor vindo do repositório clonado: cada chamada de processo e cada caminho, por classe |
 
 ## Conceitos
 
@@ -53,6 +58,7 @@ Cada guia resolve uma tarefa, com os comandos na ordem em que você vai usar.
 | [Visão geral](conceitos/visao-geral.md) | O vocabulário inteiro em uma página: thread, bloco, fase, claim, lease |
 | [Arquitetura](conceitos/arquitetura.md) | As três camadas, o mapa dos módulos e os fluxos de despacho e entrega |
 | [Diagramas](conceitos/diagramas/README.md) | O ciclo, o espectro de modos, o paralelismo e os auditores em imagem |
+| [ADR-001](conceitos/decisoes/ADR-001-estado-da-rede.md) | Onde mora a rede das máquinas de uma pessoa, e por que não numa branch de cada projeto |
 
 ## Produto e roadmap, como código
 
@@ -64,6 +70,7 @@ Produto e roadmap vivem em páginas com frontmatter, conferidas contra o código
 | [Produto](produto/README.md) | O que o Orkastery é e faz hoje: plataforma, sistemas, módulos e features, com as fontes no código |
 | [Roadmap](roadmap/README.md) | Um arquivo por item, com as sete dimensões de estado, o commit do merge e quem está com ele |
 | [Padrões](padroes/documentacao-de-produto.md) | As regras de escrita e leitura para pessoa, verificador e agente |
+| [Design (Partitura)](design/README.md) | Design system, marca, voz e componentes: leia antes de mexer em qualquer UI, site, mod ou imagem do Orkastery |
 
 ## Governança
 

@@ -16,15 +16,19 @@
  */
 
 import { AchadoDoLint, RegraDoLint } from './types';
+import { msg } from './locale';
 
 export type { AchadoDoLint, RegraDoLint };
 
+/**
+ * A correcao que vai ao `claims.jsonl` com o achado: dado gravado, sempre em pt-BR. Fatia 2 do ensaio da 0.5.0 (P6): ela
+ * vale para qualquer projeto. RM-061 (F3b): o texto mora no catalogo (`claims.correcoesDoLint`), e a impressao do
+ * `claims add` a mostra no locale do comando, pela regra.
+ */
 const CORRECAO: Record<RegraDoLint, string> = {
-  // Fatia 2 do ensaio da 0.5.0 (P6): a correcao vale para qualquer projeto; o script do Orkastery saiu daqui.
-  'suite-inteira': 'rode só o teste da claim (`node --test` no arquivo do teste, ou o comando do projeto que roda um arquivo) ' +
-    'ou um script hermético do projeto',
-  'sha-intermediario': 'ancore na base (`git diff "$(git merge-base origin/main HEAD)" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`',
-  'contagem-de-commits': 'use `git merge-base --is-ancestor <commit> HEAD`: contagem de commits quebra com rebase e merge',
+  'suite-inteira': msg('pt-BR').claims.correcoesDoLint['suite-inteira'],
+  'sha-intermediario': msg('pt-BR').claims.correcoesDoLint['sha-intermediario'],
+  'contagem-de-commits': msg('pt-BR').claims.correcoesDoLint['contagem-de-commits'],
 };
 
 /**
@@ -66,7 +70,7 @@ export function analisarComandos(comandos: readonly string[]): AchadoDoLint[] {
 
 /** Uma linha por achado, para o terminal e para o ledger. */
 export function linhaDoLintDeClaim(claimId: string, a: AchadoDoLint): string {
-  const nome = { 'suite-inteira': 'roda a suite inteira', 'sha-intermediario': 'fixa um SHA intermediario',
-    'contagem-de-commits': 'compara contagem de commits' }[a.regra];
-  return `${claimId} ${nome} (${a.trecho}); ${a.correcao}`;
+  // RM-061 (F3b): nome e correcao pela regra, no locale ativo (o `ci prepare` nao o ativa: sai em pt-BR, como antes).
+  const m = msg().claims;
+  return m.linhaDoLint(claimId, m.nomesDoLint[a.regra] ?? a.regra, a.trecho, m.correcoesDoLint[a.regra] ?? a.correcao);
 }

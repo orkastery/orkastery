@@ -33,9 +33,15 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { agora, COMMIT_DESCONHECIDO, exec, shaCurto } from './util';
 import { formatarDataHoraRotulada } from './horario';
-import { redigirSaida, testesQueCairam } from './redacao-saida';
+import { msg, remontar, textoDoCatalogo } from './locale';
+import { falhasDeTeste, redigirSaida, testesQueCairam } from './redacao-saida';
+import { abrirJanela, FONTE_STEAL, LeitorProcStat, LIMIAR_STEAL_PCT, lerProcStat, reprovacaoSoDeRelogio, stealAlto,
+  TestesDeRelogio } from './steal';
+import { lerRegistroDeInstabilidade, RegistroLido, testesDeRelogioVigentes } from './instabilidade';
+import { comRecursoPesado, OcupanteDaFila, UsoDaFilaPesada } from './fila-pesada';
 import { redigirCredenciaisUrl } from './redacao-url';
 import { canalDoProcesso, comConducao, ConducaoTomada, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
+import { diretorioDaThread } from './procedencia';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -108,9 +114,39 @@ export function executar(nome: string, comando: string, cwd: string,
     const saida = r.stdout + (r.stderr ? '\n' + r.stderr : '');
     const testes = testesQueCairam(saida);
     if (testes.length > 0) resultado.testeQueCaiu = testes;
+    const falhas = falhasDeTeste(saida);
+    if (falhas.length > 0) resultado.falhasDeTeste = falhas;
     resultado.trecho = redigirSaida(saida);
   }
   return resultado;
+}
+
+/**
+ * RM-037 (fatia 6): o comando nao tem veredito. Estouro de prazo, ou reprovacao so de teste com relogio
+ * sob steal acima de 40%: a maquina, e nao o codigo, decidiu o resultado.
+ */
+export function semVereditoPorTempo(c: ResultadoDeComando): boolean {
+  return c.causa === 'timeout' || (c.relogioSobSteal?.length ?? 0) > 0;
+}
+
+/**
+ * RM-037 (fatia 6): mede o steal na janela de cada comando e marca a reprovacao que foi so de teste com
+ * relogio sob steal alto. Os testes de relogio sao os da assinatura de prazo do runner e os do registro
+ * de instabilidade vigente. Comando que passou, estourou ou nem rodou so ganha a medida.
+ */
+export function executorComSteal(base: ExecutorVerify, leitor: LeitorProcStat = lerProcStat,
+  registro: TestesDeRelogio = new Set()): ExecutorVerify {
+  return (nome, comando, cwd) => {
+    const janela = abrirJanela(leitor);
+    const r = base(nome, comando, cwd);
+    const stealPct = janela.fechar();
+    const resultado: ResultadoDeComando = { ...r, stealPct };
+    if (!r.ok && r.causa !== 'timeout' && r.executado !== false && stealAlto(stealPct)) {
+      const testes = reprovacaoSoDeRelogio(r.falhasDeTeste, registro);
+      if (testes) resultado.relogioSobSteal = testes;
+    }
+    return resultado;
+  };
 }
 
 /** I-54 (D11): erros de spawn em que o processo nem chegou a existir. */
@@ -165,6 +201,8 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
     ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}),
     ...(c.testeQueCaiu?.length ? { testeQueCaiu: c.testeQueCaiu } : {}),
     ...(c.trecho !== undefined ? { trecho: c.trecho } : {}),
+    ...(c.stealPct !== undefined ? { stealPct: c.stealPct } : {}),
+    ...(c.relogioSobSteal?.length ? { relogioSobSteal: c.relogioSobSteal } : {}),
   };
 }
 
@@ -178,9 +216,13 @@ export function comandosDoManifesto(manifesto: Manifesto): { nome: string; coman
   return lista;
 }
 
-/** Diretorio onde a verificacao roda: a worktree da thread, ou a raiz do projeto. */
+/**
+ * Diretorio onde a verificacao roda: a worktree da thread, ou a raiz do projeto. RM-047 (P2): a worktree
+ * do `thread.json` so vale registrada no `git worktree list` e com o estado local (`estado.rastreado`,
+ * `estado.worktree-nao-registrada`).
+ */
 export function cwdDaThread(raiz: string, thread: Thread): string {
-  return thread.worktree ?? raiz;
+  return diretorioDaThread(raiz, thread);
 }
 
 /** HEAD real do diretorio de trabalho, carimbado em toda verificacao. */
@@ -199,6 +241,31 @@ export interface ConducaoDoVerify {
   identidade?: string | null;
   /** `--esperar`: espera a vez ate este prazo em vez de recusar na hora (D2). */
   esperarMs?: number;
+  /**
+   * RM-058 N2 (D10 da ork-rm058n2): a espera pela fila de recursos pesados. Sem ela, `esperarMs` e depois
+   * `ESPERA_PADRAO_DA_FILA_PESADA_MS`: quem verifica por dentro de outro comando (ship, fix, retry, a baseline do
+   * despacho) nunca espera em silencio por muito tempo. O `ork verify` do CLI pede `ESPERA_DA_FILA_PESADA_MS` e avisa.
+   */
+  filaPesada?: { esperarMs?: number; aoEsperar?: (ocupantes: OcupanteDaFila[]) => void; comandoDeEsperar?: string };
+}
+
+/** RM-058 N2 (D10): quanto o `ork verify` do CLI espera a vez na fila pesada sem `--esperar`. */
+export const ESPERA_DA_FILA_PESADA_MS = 60 * 60 * 1000;
+/** RM-058 N2 (GO-FIX 1, B1 e A9 do CHECK): a espera de quem verifica por dentro de outro comando e nao disse prazo. */
+export const ESPERA_PADRAO_DA_FILA_PESADA_MS = 30_000;
+
+/**
+ * RM-058 N2 (D9 e D10 da ork-rm058n2): a rodada inteira na fila de recursos pesados, depois da conducao. O
+ * artefato e o diretorio de trabalho da thread; as vagas sao `concurrency.max_parallel_heavy` (0 desliga). Sem a
+ * vez no prazo, `ErroDaFilaPesada` sai antes de qualquer comando rodar e de qualquer evento ir ao ledger.
+ */
+function naFilaPesada<T>(carregado: ManifestoCarregado, threadId: string, operacao: 'verify' | 'baseline',
+  conducao: ConducaoDoVerify, executar: (uso: UsoDaFilaPesada) => T): T {
+  const cwd = cwdDaThread(carregado.raiz, lerThread(carregado.raiz, threadId));
+  const espera = conducao.filaPesada?.esperarMs ?? conducao.esperarMs ?? ESPERA_PADRAO_DA_FILA_PESADA_MS;
+  return comRecursoPesado(carregado.raiz, { artefato: cwd, operacao, thread: threadId,
+    slots: carregado.manifesto.concurrency.max_parallel_heavy, esperarMs: espera, aoEsperar: conducao.filaPesada?.aoEsperar,
+    comandoDeEsperar: conducao.filaPesada?.comandoDeEsperar }, executar);
 }
 
 /** O pedido de conducao de uma verificacao, com o prazo derivado dos comandos que ela vai rodar (D3). */
@@ -233,8 +300,8 @@ export type OrigemDaBaseline = 'cli' | 'phase.run';
 export function gravarBaseline(carregado: ManifestoCarregado, threadId: string, executor: ExecutorVerify = executar,
   conducao: ConducaoDoVerify = {}, origem: OrigemDaBaseline = 'cli'): Baseline {
   const pedido = pedidoDoVerify(carregado, threadId, 'baseline', comandosDoManifesto(carregado.manifesto).length, conducao);
-  return comConducao(carregado.raiz, threadId, pedido,
-    (tomada) => gravarBaselineSobConducao(carregado, threadId, executorSobConducao(executor, carregado.manifesto, tomada), origem));
+  return comConducao(carregado.raiz, threadId, pedido, (tomada) => naFilaPesada(carregado, threadId, 'baseline', conducao,
+    () => gravarBaselineSobConducao(carregado, threadId, executorSobConducao(executor, carregado.manifesto, tomada), origem)));
 }
 
 function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: string, executor: ExecutorVerify,
@@ -274,9 +341,29 @@ export interface ResultadoVerify {
   estouros: ResultadoDeComando[];
   /** I-54 (D10): o preparo unico da rodada, quando o manifesto declara `verify.preparo`. */
   preparo: { resultado: ResultadoDeComando; identidade: string; identidadeFinal: string; produtoAlterado: boolean } | null;
+  /** RM-037 (fatia 6): o steal medido na rodada, gravado no `verify_run`. */
+  steal: MedidaDeSteal;
+  /** RM-037 (fatia 6): o registro de instabilidade lido na arvore verificada. */
+  instabilidade: RegistroLido;
+  /** RM-058 N2: a vez na fila de recursos pesados que a rodada segurou. */
+  filaPesada: UsoDaFilaPesada;
   motivos: MotivoGate[];
   /** True quando nenhum motivo BLOQUEANTE apareceu. */
   ok: boolean;
+}
+
+/** RM-037 (fatia 6): o steal da rodada inteira e de cada comando, como vai ao `verify_run`. */
+export interface MedidaDeSteal {
+  fonte: typeof FONTE_STEAL;
+  /** Houve medida da rodada (Linux com `/proc/stat`). Sem ela, nada e atenuado. */
+  medido: boolean;
+  /** Steal da rodada inteira, do preparo ao ultimo comando, em %. */
+  rodadaPct: number | null;
+  limiarPct: number;
+  /** Steal na janela de cada comando (`build`, `test`, `C3.1`...), em %. */
+  porComando: Record<string, number | null>;
+  /** Comandos cuja reprovacao foi so de teste com relogio sob steal acima do limiar. */
+  relogioSobSteal: string[];
 }
 
 /** Dependência interna; nunca desserializada de argumentos CLI/MCP. */
@@ -290,6 +377,10 @@ export interface OpcoesVerify {
   conducao?: ConducaoDoVerify;
   /** I-36: quem pede a verificacao (default `verify`); o MCP declara `mcp.verify`. */
   operacao?: OperacaoDeConducao;
+  /** RM-037 (fatia 6): de onde vem o `/proc/stat` (dependencia interna, os testes injetam a VPS sob steal). */
+  lerProcStat?: LeitorProcStat;
+  /** RM-037 (fatia 6): o relogio da vigencia do registro de instabilidade. */
+  agoraMs?: number;
 }
 
 /**
@@ -306,9 +397,7 @@ export function verificarClaim(claim: ResultadoDeClaim['claim'], cwd: string, ex
       verificado: false,
       // Alegacao negativa sem comando e reprovacao (caso EvoJ6); positiva e aviso.
       motivo: negativa ? 'claims.failed' : 'claims.unverifiable',
-      detalhe: negativa
-        ? 'alegacao negativa/absoluta sem comando de verificacao: nao ha como comprova-la'
-        : 'sem comando de verificacao declarado',
+      detalhe: textoDoCatalogo((m) => negativa ? m.verify.claimNegativaSemComando : m.verify.claimSemComando),
       execucoes: [],
     };
   }
@@ -320,22 +409,26 @@ export function verificarClaim(claim: ResultadoDeClaim['claim'], cwd: string, ex
       claim,
       verificado: false,
       motivo: 'verify.sem-veredito',
-      detalhe: `comando "${redigirCredenciaisUrl(naoRodou.comando)}" nao foi executado: ${naoRodou.resumo}`,
+      detalhe: textoDoCatalogo((m) => m.verify.claimNaoExecutada(redigirCredenciaisUrl(naoRodou.comando), naoRodou.resumo)),
       execucoes,
     };
   }
   const falhou = execucoes.find((e) => !e.ok);
-  // I-37 (D1): estouro de prazo nao desmente a alegacao; a prova so nao chegou ao fim.
-  const estourou = falhou?.causa === 'timeout';
+  // I-37 (D1): estouro de prazo nao desmente a alegacao; a prova so nao chegou ao fim. RM-037 (fatia 6):
+  // nem a reprovacao so de teste com relogio sob steal acima de 40%.
+  const estourou = !!falhou && semVereditoPorTempo(falhou);
   return {
     claim,
     verificado: !falhou,
     motivo: falhou ? (estourou ? 'verify.timeout' : 'claims.failed') : null,
-    detalhe: falhou
+    detalhe: textoDoCatalogo((m) => falhou
       ? estourou
-        ? `comando "${falhou.comando}" estourou o prazo de ${Math.round((falhou.prazoMs ?? 0) / 1000)} s sem terminar`
-        : `comando "${redigirCredenciaisUrl(falhou.comando)}" saiu com codigo ${falhou.code}`
-      : `${execucoes.length} comando(s) reexecutado(s) com sucesso`,
+        ? falhou.causa === 'timeout'
+          ? m.verify.claimEstourou(falhou.comando, Math.round((falhou.prazoMs ?? 0) / 1000))
+          : m.verify.claimRelogio(redigirCredenciaisUrl(falhou.comando), falhou.stealPct, LIMIAR_STEAL_PCT,
+            falhou.relogioSobSteal!.join(', '))
+        : m.verify.claimSaiu(redigirCredenciaisUrl(falhou.comando), falhou.code)
+      : m.verify.claimOk(execucoes.length)),
     execucoes,
   };
 }
@@ -353,7 +446,8 @@ export function verificar(
   const planejados = lerClaims(carregado.raiz, threadId).filter((c) => c.estado !== 'retirada')
     .reduce((n, c) => n + c.verificar.length, 0) + (opcoes.soClaims ? 0 : comandosDoManifesto(carregado.manifesto).length) + 1;
   const pedido = pedidoDoVerify(carregado, threadId, opcoes.operacao ?? 'verify', planejados, opcoes.conducao ?? {});
-  return comConducao(carregado.raiz, threadId, pedido, (tomada) => verificarSobConducao(carregado, threadId, opcoes, tomada, pedido.canal));
+  return comConducao(carregado.raiz, threadId, pedido, (tomada) => naFilaPesada(carregado, threadId, 'verify', opcoes.conducao ?? {},
+    (uso) => verificarSobConducao(carregado, threadId, opcoes, tomada, pedido.canal, uso)));
 }
 
 function verificarSobConducao(
@@ -361,7 +455,8 @@ function verificarSobConducao(
   threadId: string,
   opcoes: OpcoesVerify,
   conducao: ConducaoTomada,
-  canal: CanalDeConducao
+  canal: CanalDeConducao,
+  filaPesada: UsoDaFilaPesada
 ): ResultadoVerify {
   const { raiz, manifesto } = carregado;
   const thread = lerThread(raiz, threadId);
@@ -375,10 +470,16 @@ function verificarSobConducao(
   // acumulador em vez de verificacao.
   registrarCriteriosDePronto(raiz, threadId);
 
+  // RM-037 (fatia 6): o registro de instabilidade da arvore verificada e a janela de steal da rodada.
+  const instabilidade = lerRegistroDeInstabilidade(cwd, opcoes.agoraMs);
+  const leitor = opcoes.lerProcStat ?? lerProcStat;
+  const janelaDaRodada = abrirJanela(leitor);
+
   // I-37 (D2, D3): o prazo de cada comando sai do manifesto carregado no inicio da rodada;
   // editar o manifesto no meio dela nao muda o teto de quem ainda vai rodar.
-  const executor: ExecutorVerify = executorSobConducao(opcoes.executor
-    ?? ((nome, comando, dirDeTrabalho) => executar(nome, comando, dirDeTrabalho, prazoDoComando(manifesto, nome))), manifesto, conducao);
+  const executor: ExecutorVerify = executorSobConducao(executorComSteal(opcoes.executor
+    ?? ((nome, comando, dirDeTrabalho) => executar(nome, comando, dirDeTrabalho, prazoDoComando(manifesto, nome))),
+  leitor, testesDeRelogioVigentes(instabilidade)), manifesto, conducao);
 
   // I-54 (D10): o preparo roda UMA vez, antes das claims. Ele nunca e condicao para uma claim
   // passar (cada uma roda o proprio comando inteiro); ele so deixa pronta a compilacao. A
@@ -414,7 +515,7 @@ function verificarSobConducao(
   const estouros: ResultadoDeComando[] = [];
   for (const atual of comandos) {
     if (atual.ok) continue;
-    if (atual.causa === 'timeout') {
+    if (semVereditoPorTempo(atual)) {
       estouros.push(atual);
       continue;
     }
@@ -428,6 +529,17 @@ function verificarSobConducao(
   const identidadeFinal = preparo ? identidadeDoProduto(cwd) : null;
   const produtoAlterado = !!preparo && identidadeFinal !== preparo.identidade;
   const naoExecutados = comandos.filter((c) => c.executado === false);
+
+  const rodadaPct = janelaDaRodada.fechar();
+  const todos = [...(preparo ? [preparo.resultado] : []), ...claims.flatMap((c) => c.execucoes), ...comandos];
+  const steal: MedidaDeSteal = {
+    fonte: FONTE_STEAL,
+    medido: rodadaPct !== null,
+    rodadaPct,
+    limiarPct: LIMIAR_STEAL_PCT,
+    porComando: Object.fromEntries(todos.map((c) => [c.nome, c.stealPct ?? null])),
+    relogioSobSteal: todos.filter((c) => c.relogioSobSteal?.length).map((c) => c.nome),
+  };
 
   const motivos: MotivoGate[] = [];
   if (claims.some((c) => c.motivo === 'claims.failed')) motivos.push('claims.failed');
@@ -462,6 +574,10 @@ function verificarSobConducao(
     falhasSemBaseline: falhasSemBaseline.map((r) => r.nome),
     estouros: estouros.map((r) => r.nome),
     prazoMs: manifesto.verify.timeout_ms ?? TIMEOUT_VERIFY_MS,
+    steal,
+    ...(instabilidade.presente ? { instabilidade: { contrato: 'ork.instabilidade/v1', arquivo: instabilidade.arquivo,
+      vigentes: instabilidade.vigentes.map((e) => e.teste), vencidas: instabilidade.vencidas.map((e) => e.teste),
+      erros: instabilidade.erros } } : {}),
     ...(preparo ? { preparo: { ...comandoNoLedger(preparo.resultado), duracaoMs: preparo.resultado.duracaoMs,
       identidade: preparo.identidade.slice(0, 16), identidadeFinal: identidadeFinal!.slice(0, 16), produtoAlterado } } : {}),
     motivos,
@@ -469,6 +585,8 @@ function verificarSobConducao(
     // I-36: por qual canal a verificacao chegou; a reentrada da sessao que conduz aparece aqui.
     canal,
     conducao: { identidade: conducao.identidade, reentrada: conducao.reentrada },
+    // RM-058 N2: se a rodada esperou a vez na fila pesada, e quanto.
+    filaPesada,
   });
 
   for (const motivo of bloqueantes) {
@@ -485,7 +603,8 @@ function verificarSobConducao(
           : motivo === 'verify.regression'
             ? `regressao em: ${regressoes.map((r) => r.nome).join(', ')}`
             : motivo === 'verify.timeout'
-              ? `estourou o prazo sem terminar: ${[...estouros.map((r) => r.nome),
+              ? `sem veredito por tempo (prazo estourado, ou teste com relogio sob steal acima de ${LIMIAR_STEAL_PCT}%): ${[
+                ...estouros.map((r) => r.nome),
                 ...claims.filter((c) => c.motivo === 'verify.timeout').map((c) => c.claim.id)].join(', ')}`
               : motivo === 'verify.sem-veredito'
                 ? [produtoAlterado ? 'o produto mudou entre o preparo e o fim da rodada' : '',
@@ -517,6 +636,9 @@ function verificarSobConducao(
     falhasSemBaseline,
     estouros,
     preparo: preparo ? { ...preparo, identidadeFinal: identidadeFinal!, produtoAlterado } : null,
+    steal,
+    instabilidade,
+    filaPesada,
     motivos,
     ok,
   };
@@ -524,71 +646,65 @@ function verificarSobConducao(
 
 /** `FALHOU (codigo 1)`, ou `ESTOUROU O PRAZO (600 s, rodou 612 s)`: a causa e dita pelo nome. */
 function situacaoDoComando(c: ResultadoDeComando): string {
+  const m = msg().verify;
   const s = (ms?: number) => `${Math.round((ms ?? 0) / 1000)} s`;
-  if (c.causa === 'timeout') return `ESTOUROU O PRAZO (${s(c.prazoMs)}, rodou ${s(c.duracaoMs)})`;
-  if (c.causa === 'nao-encontrado') return `NAO EXECUTOU (comando nao encontrado, codigo ${c.code})`;
-  if (c.causa === 'sinal') return `MORTO POR SINAL (codigo ${c.code})`;
-  return `FALHOU (codigo ${c.code})`;
+  if (c.causa === 'timeout') return m.estourou(s(c.prazoMs), s(c.duracaoMs));
+  if (c.relogioSobSteal?.length) return m.relogioSobSteal(c.stealPct, LIMIAR_STEAL_PCT);
+  if (c.causa === 'nao-encontrado') return m.naoExecutou(c.code);
+  if (c.causa === 'sinal') return m.mortoPorSinal(c.code);
+  return m.falhou(c.code);
 }
 
-/** Texto de `ork verify`. */
+/** Texto de `ork verify`. O detalhe da claim veio do catalogo em pt-BR e sai remontado no locale ativo. */
 export function textoDoVerify(r: ResultadoVerify): string {
+  const m = msg().verify;
   const linhas: string[] = [];
-  linhas.push(`ork verify da thread ${r.thread}`);
-  linhas.push(`  HEAD real   ${r.commit}`);
-  linhas.push(`  diretorio   ${r.cwd}`);
-  linhas.push(
-    `  baseline    ${r.baseline ? `${shaCurto(r.baseline.commit)} de ${formatarDataHoraRotulada(r.baseline.gravadaEm)}` : '(nao gravada: falha nao pode ser chamada de regressao)'}`
-  );
+  linhas.push(m.titulo(r.thread));
+  linhas.push(m.head(r.commit));
+  linhas.push(m.diretorio(r.cwd));
+  linhas.push(r.baseline ? m.baseline(shaCurto(r.baseline.commit), formatarDataHoraRotulada(r.baseline.gravadaEm)) : m.semBaseline);
   if (r.preparo) {
     const p = r.preparo;
-    linhas.push(`  preparo     ${p.resultado.ok ? 'ok' : situacaoDoComando(p.resultado)} em ` +
-      `${Math.round((p.resultado.duracaoMs ?? 0) / 1000)} s, uma vez para a rodada; produto ` +
-      `${p.produtoAlterado ? 'MUDOU no meio da rodada: nenhum veredito vale' : 'conferido do preparo ao fim'}`);
+    linhas.push(m.preparo(p.resultado.ok ? m.comandoOk : situacaoDoComando(p.resultado),
+      Math.round((p.resultado.duracaoMs ?? 0) / 1000), p.produtoAlterado));
+  }
+  linhas.push(r.steal.medido ? m.stealMedido(r.steal.rodadaPct, r.steal.fonte, r.steal.limiarPct) : m.stealNaoMedido(r.steal.fonte));
+  if (r.instabilidade.erros.length > 0) {
+    linhas.push(m.instabilidadeForaDoContrato(r.instabilidade.arquivo, r.instabilidade.erros.join('; ')));
+  } else if (r.instabilidade.vencidas.length > 0) {
+    linhas.push(m.instabilidadeVencidas(r.instabilidade.vencidas.length, r.instabilidade.vencidas.map((e) => e.teste).join(', ')));
   }
   linhas.push('');
-  linhas.push('Claims reexecutadas no HEAD real:');
+  linhas.push(m.claimsReexecutadas);
   if (r.claims.length === 0) {
-    linhas.push('  (nenhuma claim registrada nesta thread)');
+    linhas.push(m.nenhumaClaim);
   }
   for (const c of r.claims) {
-    linhas.push(
-      `  ${c.claim.id}  verificado: ${c.verificado ? 'sim' : 'NAO'}  ${c.claim.alegacao}`
-    );
-    linhas.push(`      arquivo: ${c.claim.arquivo}`);
-    linhas.push(
-      `      ${c.claim.verificar.length > 0 ? `comando(s): ${c.claim.verificar.join(' && ')}` : 'sem comando de verificacao'}`
-    );
-    if (!c.verificado) linhas.push(`      motivo tipado: ${c.motivo} (${c.detalhe})`);
+    linhas.push(m.claim(c.claim.id, c.verificado, c.claim.alegacao));
+    linhas.push(m.arquivo(c.claim.arquivo));
+    linhas.push(c.claim.verificar.length > 0 ? m.comandos(c.claim.verificar.join(' && ')) : m.semComando);
+    if (!c.verificado) linhas.push(m.motivoTipado(String(c.motivo), remontar(c.detalhe)));
   }
   if (r.comandos.length > 0) {
     linhas.push('');
-    linhas.push('Comandos de verify do manifesto:');
+    linhas.push(m.comandosDoManifesto);
     for (const c of r.comandos) {
-      linhas.push(`  ${c.nome.padEnd(10)} ${c.ok ? 'ok' : situacaoDoComando(c)}  ${c.comando}`);
-      if (!c.ok && c.testeQueCaiu?.length) linhas.push(`             teste(s) que caiu(ram): ${c.testeQueCaiu.join('; ')}`);
+      linhas.push(m.comando(c.nome, c.ok ? m.comandoOk : situacaoDoComando(c), c.comando));
+      if (!c.ok && c.testeQueCaiu?.length) linhas.push(m.testesQueCairam(c.testeQueCaiu.join('; ')));
     }
   }
   if (r.estouros.length > 0) {
     linhas.push('');
-    linhas.push(`Estouro de prazo (nao e reprovacao, a prova nao terminou): ${r.estouros.map((c) => c.nome).join(', ')}`);
+    linhas.push(m.semVeredito(r.estouros.map((c) => c.nome).join(', ')));
   }
   if (r.regressoes.length > 0 || r.preExistentes.length > 0 || r.falhasSemBaseline.length > 0) {
     linhas.push('');
-    linhas.push(
-      `Classificacao: ${r.regressoes.length} regressao(oes), ` +
-        `${r.preExistentes.length} pre-existente(s), ` +
-        `${r.falhasSemBaseline.length} falha(s) sem baseline`
-    );
-    for (const c of r.regressoes) linhas.push(`  regressao      ${c.nome}: ${c.comando}`);
-    for (const c of r.preExistentes) linhas.push(`  pre-existente  ${c.nome}: ${c.comando}`);
-    for (const c of r.falhasSemBaseline) linhas.push(`  sem baseline   ${c.nome}: ${c.comando}`);
+    linhas.push(m.classificacao(r.regressoes.length, r.preExistentes.length, r.falhasSemBaseline.length));
+    for (const c of r.regressoes) linhas.push(m.regressao(c.nome, c.comando));
+    for (const c of r.preExistentes) linhas.push(m.preExistente(c.nome, c.comando));
+    for (const c of r.falhasSemBaseline) linhas.push(m.falhaSemBaseline(c.nome, c.comando));
   }
   linhas.push('');
-  linhas.push(
-    r.ok
-      ? 'Veredito: VERDADE SUSTENTADA (nenhum motivo bloqueante).'
-      : `Veredito: REPROVADO. Motivos tipados: ${r.motivos.join(', ')}`
-  );
+  linhas.push(r.ok ? m.verdade : m.reprovado(r.motivos.join(', ')));
   return linhas.join('\n');
 }

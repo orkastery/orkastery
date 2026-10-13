@@ -18,49 +18,15 @@ import { dirThread } from './thread';
 import { validarEvidenciaDoIngresso } from './hitl-ingress-receipt';
 import { validarEvidenciaLocal } from './hitl-local-receipt';
 import { ehContratoDePedido } from './hitl-contract';
+import { PULSE_PT_BR } from './locale-pulse';
 
 /** Onde um gate acontece. Uma policy declara em quais gates ela vale. */
-export type PontoDeGate = 'phase.dispatch' | 'verify' | 'ship';
+/** RM-008 (B8): `claims.add` so avalia policy em warn; nenhum gate bloqueia o registro de claim. */
+export type PontoDeGate = 'phase.dispatch' | 'verify' | 'ship' | 'claims.add';
 
 /** O que cada motivo tipado significa, em uma linha, para a saida do CLI. */
-export const DESCRICAO_DO_MOTIVO: Readonly<Record<MotivoGate, string>> = {
-  'artifact.missing': 'artefato exigido pela fase nao existe no disco',
-  'claims.failed': 'alegacao verificavel reprovou na reexecucao no HEAD real',
-  'claims.unverifiable': 'alegacao sem comando de verificacao declarado',
-  'policy.violation': 'policy do manifesto com severidade block foi violada',
-  'runtime.autoconferencia': 'o CHECK foi despachado no mesmo runtime que fez o GO, e a thread exige validacao cruzada',
-  'verify.regression': 'comando que passava na baseline falha agora',
-  'verify.failed': 'comando de verificacao falhou (sem baseline para separar divida pre-existente)',
-  'verify.timeout': 'comando de verificacao estourou o prazo antes de terminar: nao ha veredito sobre ele',
-  'verify.sem-veredito': 'a rodada nao produziu veredito valido: comando que nao chegou a rodar, ou produto alterado entre o preparo e o fim',
-  'ci.failed': 'CHECK independente ausente, pendente ou reprovado no commit candidato',
-  'runtime.unavailable': 'runtime adapter indisponivel para o despacho',
-  'runtime.silencio': 'fase despachada sem heartbeat dentro do limite de liveness',
-  'runtime.rate-limited':
-    'o runtime bateu o limite de uso da assinatura e a fase morreu antes de terminar (bloco B3: entra na fila duravel e e retomada na janela seguinte)',
-  'runtime.quota-exhausted':
-    'a cota ou os creditos da conta do runtime acabaram (I-33: o perfil sai do rodizio e a fase segue em outro perfil, outro runtime ou na fila)',
-  'runtime.auth-missing':
-    'a conta do runtime nao esta autenticada (I-33: o perfil nunca recebe despacho ate o login ser refeito pelo proprio CLI)',
-  'runtime.model-unavailable':
-    'o modelo pedido nao existe ou a conta nao tem acesso a ele (RM-037: o perfil segue no rodizio e a fase vai a outro perfil com o mesmo modelo ou ao fallback do bloco)',
-  'runtime.profile-invalid':
-    'o perfil pedido no despacho (--perfil) nao existe no store ou e de outro runtime (RM-056: o despacho nunca troca de perfil sozinho)',
-  'runtime.workspace-untrusted':
-    'o runtime nao confia no diretorio da worktree e recusou o despacho (RM-055: so o dono aceita a confianca no terminal; depois o ork re-despacha o mesmo prompt)',
-  'runtime.consent-pending':
-    'o runtime espera o dono aceitar termos novos e recusou o despacho (RM-055: so o dono aceita no terminal; depois o ork re-despacha o mesmo prompt)',
-  'cost.violation':
-    'o despacho seria redirecionado para provider pago (violacao de custo: e o unico motivo que NUNCA recebe retry automatico)',
-  'tree.blocked':
-    'a arvore de destino nao esta disponivel para o merge (branch em check-out com alteracao nao commitada, ou worktree que nao pode ser montada)',
-  'lease.busy': 'lease ocupado por outra thread',
-  'conducao.em-andamento':
-    'outra conducao ja executa na worktree da thread (I-36): o pedido foi recusado com quem conduz e as tres acoes (esperar, acompanhar, assumir)',
-  'hitl.formato':
-    'o pedido HITL saiu fora do formato obrigatorio (pergunta em uma frase, de 3 a 5 alternativas rotuladas com consequencia, exatamente uma com o selo Recomendacao e o porque, corpo em lista; texto livre so com dependencia tecnica tipada)',
-  'human.pending': 'gate humano do modo de conducao ainda nao autorizou',
-};
+// RM-061 (F2b): a fonte e o catalogo pt-BR (`locale-pulse.ts`), com o ingles ao lado; o texto nao muda.
+export const DESCRICAO_DO_MOTIVO: Readonly<Record<MotivoGate, string>> = PULSE_PT_BR.motivos;
 
 /**
  * Motivos que reprovam em QUALQUER modo, inclusive `#Auto`.

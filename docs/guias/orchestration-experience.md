@@ -19,12 +19,14 @@ The agenda offers activation with detected values, configuration or opt-out. UTC
 
 | Field | Values | When absent |
 | --- | --- | --- |
-| `owner.language` | BCP-47 locale, such as `en-US` or `pt-BR` | System locale |
+| `owner.language` | BCP-47 locale, such as `en-US` or `pt-BR` | System locale; with `C`, `POSIX` or no locale, `pt-BR`, the language of the CLI |
 | `owner.timezone` | IANA timezone | Core timezone resolution |
 | `owner.depth` | `curta` (short) or `detalhada` (detailed) | `curta` |
 | `owner.experience` | `true` or `false` | `true` |
 
 `show --json` reports effective values, their origins and the selected skill. Portuguese locales select the pt-BR variant; other locales select English while retaining the configured response language. Invalid answers are rejected before persistence. An invalid value edited by hand in the manifest raises a warning and falls back to the default until the same `onboarding set` fixes it; meanwhile `adapter install` skips the pack (an `experience: "false"` activates nothing) and `experiencia show` reports the warning. Explicit configuration wins over detection; repeating the same answer applies it to the manifest again.
+
+The instruction block that `adapter install` writes to `CLAUDE.md` or `AGENTS.md` follows the CLI language rule instead: English only when `owner.language` (or, without it, the system locale) asks for `en`, Portuguese otherwise. An `es-ES` owner gets the block in Portuguese, pointing to the English skill.
 
 ## Install and check discovery
 

@@ -1,10 +1,11 @@
 /**
  * RM-031 KG5: a consulta do grafo de codigo pelas fases, pelo MCP do projeto.
  *
- * Quatro tools de leitura com o contrato do `ork grafo` (D6): cada uma roda, na worktree da thread, o
+ * Cinco tools de leitura com o contrato do `ork grafo` (D6): cada uma roda, na worktree da thread, o
  * argv que a CLI receberia (`<consulta> ... --json --teto-bytes N`) e devolve o que ela escreve, sem
  * transformar: a resposta e JSON `ork.code-graph-query/v0` com a evidencia de cada aresta e no maximo
- * `tetoBytes` bytes (D4); a recusa da consulta sai compacta e nao passa pelo teto.
+ * `tetoBytes` bytes (D4); contexto usa ork.thread-graph-context/v2. A recusa nao passa pelo teto. Desde a
+ * fatia 5, a resposta traz as fontes (sha256 e blob) e diz por aresta se elas conferem com a arvore.
  *
  * Desligadas por padrao (D2): so existem com `grafo.mcp: true` no manifesto da raiz, lido no startup, e
  * cada chamada confere a flag de novo. A consulta roda num worker (D3), um processo filho por chamada,
@@ -15,13 +16,16 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { z } from 'zod';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { Manifesto } from './types';
 import { ambienteGitMcp } from './mcp-git';
+import { lerArtefatoMcp, listarClaimsMcp, validarArquivosEstadoMcp } from './mcp-artifacts';
+import { lerThread } from './thread';
+import { raizDoEstado } from './estado-thread';
 
-export const TOOLS_DO_GRAFO = ['ork_grafo_vizinhos', 'ork_grafo_chamadores', 'ork_grafo_importadores', 'ork_grafo_caminho'] as const;
+export const TOOLS_DO_GRAFO = ['ork_grafo_vizinhos', 'ork_grafo_chamadores', 'ork_grafo_importadores', 'ork_grafo_caminho', 'ork_grafo_contexto'] as const;
 /** D4: o teto das respostas, em bytes do JSON. */
 export const TETO_PADRAO = 32768;
 export const TETO_MINIMO = 4096;
@@ -34,7 +38,7 @@ const TETO_DO_STDOUT = 1024 * 1024;
  * O vocabulario e os limites da consulta do KG3, repetidos aqui porque este modulo nao importa a
  * familia do grafo (D8); o teste confere que sao os mesmos do contrato v1 e da consulta.
  */
-export const TIPOS_DE_ARESTA_DO_MCP = ['contains', 'declares', 'imports', 'calls', 'references', 'derived_from'] as const;
+export const TIPOS_DE_ARESTA_DO_MCP = ['contains', 'declares', 'imports', 'calls', 'references', 'derived_from', 'cites'] as const;
 export const PROFUNDIDADE_MAXIMA_DO_MCP = 5;
 export const LIMITE_MAXIMO_DO_MCP = 10_000;
 
@@ -64,7 +68,8 @@ const tetoBytes = z.number().int().min(TETO_MINIMO).max(TETO_MAXIMO).optional()
   .describe(`teto da resposta em bytes (padrao ${TETO_PADRAO}); acima, saem as arestas mais longe`);
 
 const COMUM = 'Leitura do grafo do HEAD da worktree da thread (o do ork grafo): so o que o extrator prova. '
-  + 'Resposta JSON ork.code-graph-query/v0 de ate tetoBytes; sem indice do HEAD, recusa com a correcao ork grafo indexar.';
+  + 'Resposta JSON ork.code-graph-query/v0 de ate tetoBytes; sem indice do HEAD, recusa com a correcao ork grafo indexar. '
+  + 'Cada aresta traz arvore (modificada quando uma fonte dela mudou depois do HEAD) e a resposta traz fontes, com o sha256 e o blob de cada arquivo citado.';
 
 interface Definicao { nome: typeof TOOLS_DO_GRAFO[number]; descricao: string; schema: z.AnyZodObject; argv: (a: Record<string, unknown>) => string[] }
 
@@ -104,7 +109,44 @@ const DEFINICOES: readonly Definicao[] = [
     schema: z.object({ threadId, de: no(`origem: ${DESCRICAO_DO_NO}`), para: no('destino, na mesma forma'), sentido, tipos, tetoBytes }).strict(),
     argv: (a) => ['caminho', a.de as string, a.para as string, ...opcoes(a)],
   },
+  {
+    nome: 'ork_grafo_contexto',
+    descricao: 'Pacote deterministico da thread: diff da worktree contra base (ignorado sem worktree), GOAL, PLAN e claims; fan-in agregado e evidencias compactas. '
+      + 'JSON ork.thread-graph-context/v2 limitado em bytes, refs locais, prioridade entre arquivos e por proximidade ao diff. Citacoes literais cites; segundo salto marcado usa a sobra apos ligacoes diretas. '
+      + 'Grupo com fonte que mudou depois do HEAD traz arvore: modificada. Sem indice do HEAD, recusa com ork grafo indexar.',
+    schema: z.object({ threadId, tetoBytes }).strict(),
+    argv: (a) => ['contexto', a.threadId as string, ...opcoes(a)],
+  },
 ];
+
+/** Leitura compartilhada por CLI e worker, fora da familia do grafo. Nunca escreve estado. */
+export function lerEntradaDaThread(raiz: string, id: string) {
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(id)) throw Error('grafo.contexto.thread-invalida: id invalido');
+  const projeto = fs.realpathSync(raizDoEstado(raiz));
+  validarArquivosEstadoMcp(projeto, id);
+  const t = lerThread(projeto, id);
+  const cwd = fs.realpathSync(t.worktree ?? projeto);
+  if (cwd !== projeto && !cwd.startsWith(projeto + path.sep)) throw Error('grafo.contexto.escopo: worktree fora do projeto');
+  if (fs.realpathSync(raizDoEstado(cwd)) !== projeto) throw Error('grafo.contexto.escopo: worktree de outro repositorio');
+  // Em uma WT, consultar outra thread daria um pacote de outra arvore silenciosamente.
+  const origem = fs.realpathSync(raiz);
+  if (origem !== projeto && origem !== cwd) throw Error('grafo.contexto.escopo: thread de outra worktree');
+  if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(t.base.commit)) throw Error('grafo.contexto.base-invalida: thread sem commit base');
+  const git = (args: string[]): string => {
+    const r = spawnSync('git', ['-c', 'core.fsmonitor=false', ...args], {
+      cwd, env: { ...ambienteGitMcp(), GIT_OPTIONAL_LOCKS: '0' }, encoding: 'utf8', timeout: 10000, maxBuffer: 8 * 1024 * 1024,
+    });
+    if (r.error || r.status !== 0) throw Error('grafo.contexto.git-falhou: nao foi possivel ler HEAD/base/diff da thread');
+    return r.stdout;
+  };
+  const head = git(['rev-parse', '--verify', 'HEAD']).trim();
+  const diff = !t.worktree || cwd === projeto ? [] : git(['diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--name-only', '-z', t.base.commit, '--']).split('\0').filter(Boolean);
+  const goal = lerArtefatoMcp(projeto, id, 'goal').conteudo;
+  const plan = lerArtefatoMcp(projeto, id, 'plan').conteudo;
+  const claims = listarClaimsMcp(projeto, id).filter((c) => c.estado !== 'retirada').map(({ id, arquivo }) => ({ id, arquivo }));
+  if (head !== git(['rev-parse', '--verify', 'HEAD']).trim()) throw Error('grafo.contexto.revisao-mudou: HEAD mudou durante a leitura; repita');
+  return { raiz: cwd, head, entrada: { thread: id, base: t.base.commit, diff, diffEstado: !t.worktree || cwd === projeto ? 'ignorado-sem-worktree' as const : 'coletado-na-worktree' as const, goal, plan, claims } };
+}
 
 /** D9: o argv que a tool monta para os argumentos dados; a medida offline usa o mesmo. */
 export function argvDaTool(nome: typeof TOOLS_DO_GRAFO[number], args: Record<string, unknown>): string[] {
@@ -182,7 +224,7 @@ export function consultarPeloWorker(raiz: string, argv: readonly string[],
 const texto = (t: string, isError = false): CallToolResult => ({ content: [{ type: 'text', text: t }], ...(isError ? { isError: true } : {}) });
 
 /**
- * As quatro tools, chamadas pelo servidor so com a flag ligada no startup. `carregar` e `thread` sao os
+ * As cinco tools, chamadas pelo servidor so com a flag ligada no startup. `carregar` e `thread` sao os
  * do servidor: o projeto fixado e a thread conferida (escopo da sessao filha e worktree confinada).
  */
 export function registrarConsultasDoGrafo(registrar: Registrar, contexto: {

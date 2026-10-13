@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { dirTemporario, projetoTemporario, runtimePorConta } from './apoio';
+import { dirTemporario, envPtBr, projetoTemporario, runtimePorConta } from './apoio';
 import { conferirAuth as authClaude } from '../src/adapters/claude-bg';
 import { conferirAuth as authCodex } from '../src/adapters/codex';
 import { checarContas } from '../src/doctor';
@@ -23,7 +23,8 @@ import { dirThread, novaThread } from '../src/thread';
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 
 function ork(cwd: string, args: string[], env: NodeJS.ProcessEnv): { saida: string; codigo: number } {
-  try { return { saida: execFileSync(process.execPath, [CLI, ...args], { cwd, env, encoding: 'utf8', stdio: 'pipe' }), codigo: 0 }; }
+  // RM-061 (F3b): `accounts` segue o locale; o teste le o texto em pt-BR.
+  try { return { saida: execFileSync(process.execPath, [CLI, ...args], { cwd, env: envPtBr(env), encoding: 'utf8', stdio: 'pipe' }), codigo: 0 }; }
   catch (e) { const x = e as { stdout?: string; stderr?: string; status?: number }; return { saida: `${x.stdout ?? ''}${x.stderr ?? ''}`, codigo: x.status ?? 1 }; }
 }
 

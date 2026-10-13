@@ -151,6 +151,164 @@ Sem `tool_use_id`, cada invocação do hook recebe uma identidade de ocorrência
 do transcript não identifica uma ocorrência; eventos de um novo episódio de permissão
 podem chegar sem alteração do arquivo. Replays com `tool_use_id` continuam idempotentes.
 
+## Mods nas sessões de fase (RM-059)
+
+Mod é plugin de *function hooks* do Claude Code 2.1.287 ou mais novo. Cada mod do Orkastery mora
+em `adapters/claude-code/mods/<mod>/`, com o próprio `.claude-plugin/plugin.json`, e declara o
+papel em `orkastery-mod.json`:
+
+```json
+{"formato":"ork.mod/v1","papeis":["fase"],"claudeCodeMinimo":"2.1.287"}
+```
+
+O papel `dono` roda na sessão de quem conduz; o papel `fase`, nas sessões de fase que o `ork`
+despacha. O `ork adapter install claude-code` copia os mods com o resto do adaptador e grava cada
+arquivo deles no `INSTALADO.json`. No despacho `claude-bg`, cada mod de papel `fase` entra com o
+próprio `--plugin-dir`, logo depois do plugin do Orkastery, quando:
+
+- a pasta instalada do mod tem exatamente os arquivos do recibo, com os mesmos bytes e sem link;
+  os tipos que o próprio Claude Code escreve em `.claude-plugin/types/` (`*.d.ts` e
+  `tsconfig.json`) ficam fora da conta;
+- o `claude --version` atende o `claudeCodeMinimo` do mod e o 2.1.287 da API de mods.
+
+Mod que pede versão mais nova fica fora do comando, e o despacho segue: o núcleo não depende de
+mod. Mod cuja dependência ficou de fora (pela versão, ou por ser só de papel `dono`) também fica.
+Declaração inválida, manifesto fora do recibo ou arquivo a mais na pasta recusa o despacho com
+`runtime.context.installation`, como um byte divergente. Arquivo de mod que saiu do catálogo sai da
+cópia na reinstalação: o `ork adapter install claude-code` tira o que ele mesmo instalou e ninguém
+editou. Arquivo editado ou acrescentado à mão fica, e a recusa diz o caminho para apagar. A dependência (`dependencies` do
+`plugin.json` do mod) entra antes de quem depende; o resto segue o nome. Os mods que foram ficam no
+comando gravado no evento `phase_dispatch` do ledger da thread.
+
+O arquivo comum da raiz de `mods/`, como a lista de autoridade que a ponte lê em `../autoridade.json`
+antes da própria pasta, segue a mesma regra quando há mod de fase no despacho: fora do recibo, link
+ou arquivo especial recusam, e o que saiu do catálogo sai da cópia na reinstalação.
+
+Para tirar um mod das sessões de fase, mude o papel no `orkastery-mod.json` do catálogo, ou tire o
+mod, e rode `ork adapter install claude-code` de novo.
+
+O mod de papel `dono` não vai ao despacho: ele roda na sessão de quem conduz. Num projeto com o
+adaptador instalado, a cópia dele já está em `.claude/plugins/orkastery/mods/<mod>`, com cada
+arquivo registrado no `INSTALADO.json` e os arquivos comuns da raiz de `mods/` ao lado. Nesse
+carregamento ninguém confere os bytes: a conferência contra o recibo roda no despacho, para mod de
+fase. Carregue-a na sessão com:
+
+```bash
+claude --plugin-dir .claude/plugins/orkastery/mods/<mod>
+```
+
+Sem o adaptador local, cada mod tem uma entrada no marketplace próprio do repositório
+(`.claude-plugin/marketplace.json`, gerado por `node core/scripts/gerar-marketplaces.cjs`), que aponta
+para uma cópia gerada em `marketplaces/claude-code/mods/<mod>/`. Instalado pelo marketplace, o plugin
+é só a própria pasta, então o arquivo comum da raiz de `adapters/claude-code/mods/` (a lista de
+autoridade da ponte, por exemplo) vai dentro de cada cópia. A instalação é no escopo do projeto:
+
+```bash
+claude plugin marketplace add orkastery/orkastery
+claude plugin install <mod>@orkastery --scope project
+```
+
+Os dois marketplaces se chamam `orkastery`, e o local, registrado na instalação acima a partir de
+`.claude/plugins/orkastery`, não lista os mods. Não troque um pelo outro num projeto que usa o
+plugin do adaptador: remover um marketplace desinstala os plugins que vieram dele (medido no
+Claude Code 2.1.296), e o plugin do marketplace do repositório não traz o guard `PreToolUse` nem o
+MCP do adaptador.
+
+### Freio de Lote (`ork-freio`)
+
+O primeiro mod de papel `fase`. Na sessão de fase, depois de cada lote de ferramentas, ele:
+
+- acha os arquivos que o lote mexeu: os caminhos de `Edit`, `Write`, `MultiEdit` e `NotebookEdit` e a
+  diferença do `git status` entre um lote e outro, que pega também a edição feita por `Bash`;
+- acha as claims da thread que citam esses arquivos, pelo `arquivo` ou pelo texto do comando, e avisa
+  quando o lote mexeu fora dos `touch_paths` do plano;
+- pede ao núcleo, em segundo plano, a conferência dessas claims com
+  `ork claims conferir <thread> --claims ... --json`, no sandbox do verify, uma rodada por vez;
+- devolve ao modelo, no lote seguinte do laço principal, o que quebrou: o id da claim, o comando e o
+  fim da saída. Lote sem claim afetada passa sem texto, e a linha de status mostra as claims em risco.
+  O lote de um subagente conta os arquivos tocados, mas não leva a entrega nem o aviso.
+
+O Freio nunca roda o comando de uma claim, nunca grava estado de claim e nunca para o laço: quem
+verifica de verdade continua sendo o `ork verify`. Ele lê o papel e a thread pelo `$.ork` da ponte, e
+as claims e o plano pelas ferramentas de leitura `ork_claims_list` e `ork_artifact_read`, nunca do
+disco em `.orkastery/`. Precisa de um `ork` com `ork claims conferir` no `PATH` da sessão; sem ele, ou
+sem o sandbox do verify, avisa uma vez que a conferência está indisponível e segue. Teste que cria
+processo pode reprovar no sandbox e passar no `ork verify`, e o aviso diz isso junto da falha. O
+resultado chega no lote seguinte: se a sessão terminar antes dele, a última conferência fica sem
+entrega. Falha de claim cujo arquivo foi tocado de novo durante a conferência não é entregue, porque
+uma conferência nova já foi pedida. Um `Edit` que falhou também conta como toque e pode pedir uma
+conferência a mais.
+
+### Portão de Tarefas (`ork-portao`)
+
+O segundo mod de papel `fase`. Os portões do quadro agem só na sessão de fase cujo bloco atual tem o GO
+(pelo slug do bloco no retrato do núcleo) e cuja thread tem plano com ao menos uma tarefa `T<n>` que
+serve ao quadro: com `touch_paths` (caminhos entre crases, com barra, ponto ou curinga) e um verify com um
+comando só entre crases, a regra do `ork claims conferir --tarefa`. Plano sem nenhuma tarefa assim não
+ganha portão, para não travar o quadro do GO. Com o portão ligado:
+
+- **criação:** `TaskCreated` recusa a tarefa cujo assunto não traz o id de uma tarefa do plano
+  (`T2.1 ...`), ou cuja tarefa do plano não serve ao quadro. A recusa volta ao modelo com o motivo e as
+  tarefas do plano que servem;
+- **conclusão:** `TaskCompleted` da tarefa registrada na criação, ou da que cita no assunto uma tarefa do
+  plano que serve, pede ao núcleo `ork claims conferir <thread> --tarefa T2.1 --prazo 540 --json`, no
+  sandbox do verify, e só deixa a tarefa fechar com o item aprovado. Reprovação volta com o comando, o
+  código e o fim da saída; sem veredito, recusa tipada, outra condução na thread, conferência que não roda
+  ou falha do próprio Portão também bloqueiam, sempre com a saída: corrigir e concluir de novo, ou devolver
+  a tarefa para `pending` e seguir. A tarefa registrada continua conferida mesmo com o plano ilegível na
+  hora, porque o núcleo lê o plano por conta própria. Uma conferência por vez: a conclusão que chega no
+  meio de outra é recusada na hora. Da terceira reprovação igual em diante, o texto manda deixar a tarefa
+  aberta;
+- **teammate ocioso:** com agent teams no piloto (abaixo), `TeammateIdle` entrega ao teammate a próxima
+  tarefa do plano que serve, não fechou nesta sessão e cuja região está livre: nenhum lease `path:` ativo,
+  de nenhuma thread, cruza os `touch_paths` dela e ela não cruza as tarefas dos outros teammates. Os leases
+  vêm do retrato de todas as threads pela consulta `maestro` da ponte
+  (`ork maestro --json --section leases --offset N`), seguindo o `nextOffset` das páginas que o teto de
+  bytes do retrato corta, até 10 páginas, porque o servidor MCP da sessão de fase só mostra os da própria
+  thread. O Portão não toma nem solta lease: o `ork_git_commit` toma o `path:` de cada arquivo na hora do
+  commit e recusa o commit com qualquer lease no caminho. Quem fica ocioso sem concluir devolve a tarefa,
+  que sai da distribuição automática desta sessão. Sem a lista de leases inteira (seção indisponível,
+  lacuna, retrato em conflito ou mais de 10 páginas), no teto de custo ou sem tarefa livre, o teammate
+  fica ocioso.
+
+O Portão nunca roda o verify por conta própria: quem verifica de verdade continua sendo o `ork verify`.
+Ele lê o papel pelo `$.ork.contexto` da ponte, o estado e o bloco pelo `$.ork.retrato`, os leases pela
+consulta `maestro` da ponte e o plano pelo `ork_artifact_read`, nunca do disco em `.orkastery/`. Teste que
+cria processo pode reprovar no sandbox e passar no `ork verify`, e o bloqueio diz isso.
+
+Agent teams na sessão de fase só rodam no piloto, desligado por padrão. Quem conduz liga no manifesto da
+raiz:
+
+```yaml
+runtime:
+  agent_teams:
+    ligado: true
+    teammates: 2   # teto de teammates vivos, de 1 a 8
+    custo_usd: 10  # teto do custo da sessão, como o /cost soma, até 500
+```
+
+Com a chave ligada, o GO no bloco da fase atual e o Portão entre os mods que vão à sessão, o despacho
+`claude-bg` acrescenta ao `--settings` a variável `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, os dois tetos
+(`ORK_AGENT_TEAMS_TEAMMATES` e `ORK_AGENT_TEAMS_CUSTO_USD`) e `teammateMode` `in-process`, porque a sessão
+de fundo não tem `tmux`. Teto inválido vira aviso do manifesto e deixa desligado. Em toda sessão de fase,
+com ou sem o portão do quadro, o Portão recusa o nascimento de teammate sem os tetos, no teto de teammates
+vivos ou com o custo da sessão no teto, e no teto de custo não entrega tarefa nova.
+
+Limites conhecidos:
+
+- o quadro do Portão vale para a sessão: numa sessão de GO redespachada, tarefa fechada na anterior pode
+  ser entregue de novo ao teammate, que a encontra pronta no quadro e no git;
+- o líder não recebe aviso quando um teammate devolve uma tarefa; ele a vê aberta no quadro;
+- a conferência do Freio, em segundo plano, e a do Portão, na conclusão, podem rodar ao mesmo tempo na
+  mesma worktree; cada mod só serializa as próprias;
+- os tetos dependem de o Portão carregar de verdade: o despacho decide pelo `--plugin-dir`, e se o mod não
+  registrar na sessão, agent teams fica ligado sem ninguém aplicando os tetos;
+- se o turno for interrompido no meio da conferência, o Claude Code segue sem a resposta do gancho;
+- nome de lease que o retrato redige (caminho absoluto ou texto com cara de segredo) chega irreconhecível e
+  não cruza nenhuma região;
+- o comportamento desses eventos numa sessão `claude --bg` real com agent teams ainda não foi medido; os
+  testes do kit e do núcleo cobrem o mod e o despacho.
+
 ## A #TAG de conducao
 
 O comando `/goal` extrai o modo do proprio pedido, sem reimplementar nada:

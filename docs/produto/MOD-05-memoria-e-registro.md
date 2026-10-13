@@ -19,7 +19,7 @@ verificado_em: 2026-09-24T21:30:00-03:00
 
 - **Objetivo:** contexto certo na hora certa, sem janela inteira; documentação que não mente sobre o código.
 - **Limites:** a memória degrada para arquivos com aviso tipado, nunca cai em silêncio para outra base.
-- **Código:** `core/src/handoff.ts`, `core/src/recall.ts`, `core/src/memoria.ts`, `core/src/orkmind.ts`, `core/src/ledger-stats.ts`, `core/src/docs.ts`, `core/src/company-brain-cli.ts`, `core/src/company-brain-dossie.ts`.
+- **Código:** `core/src/handoff.ts`, `core/src/recall.ts`, `core/src/memoria.ts`, `core/src/orkmind.ts`, `core/src/ledger-stats.ts`, `core/src/docs.ts`, `core/src/company-brain-cli.ts`, `core/src/company-brain-dossie.ts`, `core/src/conhecimento.ts`, `core/src/conhecimento-consulta.ts`.
 
 ## Features
 
@@ -29,9 +29,11 @@ verificado_em: 2026-09-24T21:30:00-03:00
 - [FEAT-019](FEAT-019-telemetria-do-ledger.md) Telemetria econômica do ledger
 - [FEAT-024](FEAT-024-company-brain-no-cli.md) Company Brain no CLI
 - [FEAT-033](FEAT-033-dossie-de-decisao.md) Dossiê de decisão
+- [FEAT-038](FEAT-038-conhecimento-escrito.md) Conhecimento escrito
 
 ## Histórico
 
 | Data | Mudança | Autor/revisor | Evidência ou decisão |
 | --- | --- | --- | --- |
 | 2026-09-24 | página criada no padrão v1.1 | Claude (agente) / Julio, revisão pendente | RM-044 |
+| 2026-10-12 | FEAT-038, o conhecimento escrito (RM-026 K7) | Claude (agente) / Julio, revisão pendente | thread `ork-rm026k7conhe` |

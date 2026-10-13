@@ -48,5 +48,11 @@ function copiar() {
   }
 }
 
-if (process.argv.includes('--limpar')) limpar();
-else copiar();
+// A prova do grafo no pacote instalado (`provar-grafo-instalado.cjs`) le a lista para limpar o que o
+// `prepack` deixou se o `pack` cair no meio; so como script este arquivo copia ou remove.
+module.exports = { DIRETORIOS, ARQUIVOS };
+
+if (require.main === module) {
+  if (process.argv.includes('--limpar')) limpar();
+  else copiar();
+}

@@ -1,8 +1,8 @@
 {
   "id": "orkastery",
   "name": "Orkastery",
-  "description": "Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI.",
-  "version": "0.5.1",
+  "description": "Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI. Toda tool de projeto aceita projeto (nome do projeto pedido); o cwd do gateway nunca escolhe o projeto. O status do roadmap vem de ork_network_roadmap; as maquinas da pessoa, de ork_network_status (sem projeto).",
+  "version": "0.5.6",
   "configSchema": {
     "type": "object",
     "properties": {},
@@ -27,6 +27,10 @@
       "ork_brain_get",
       "ork_brain_context",
       "ork_brain_dossie",
+      "ork_conhecimento_listar",
+      "ork_conhecimento_mostrar",
+      "ork_conhecimento_colecoes",
+      "ork_conhecimento_verificar",
       "ork_claims_add",
       "ork_verify",
       "ork_verify_baseline",
@@ -39,12 +43,42 @@
       "ork_board",
       "ork_roadmap_status",
       "ork_network_roadmap",
+      "ork_network_status",
       "ork_master_batch"
     ]
   },
   "toolMetadata": {
+    "ork_conhecimento_listar": {
+      "profiles": [
+        "coding"
+      ]
+    },
+    "ork_conhecimento_mostrar": {
+      "profiles": [
+        "coding"
+      ]
+    },
+    "ork_conhecimento_colecoes": {
+      "profiles": [
+        "coding"
+      ]
+    },
+    "ork_conhecimento_verificar": {
+      "profiles": [
+        "coding"
+      ]
+    },
     "ork_network_roadmap": {
-      "profiles": ["coding", "messaging"]
+      "profiles": [
+        "coding",
+        "messaging"
+      ]
+    },
+    "ork_network_status": {
+      "profiles": [
+        "coding",
+        "messaging"
+      ]
     }
   }
 }

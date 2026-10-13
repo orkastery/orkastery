@@ -1,0 +1,127 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-claimsemprov",
+  "branch": "ork/ork-claimsemprov-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-claimsemprov",
+      "fase": "GOAL",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "Sem a policy declarada, claims add não roda o comando da claim",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='sem a policy' core/dist-test/test/rm008-claim-prova-local.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:24:42.012Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-claimsemprov",
+      "fase": "GOAL",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "Com claim_sem_prova_local: warn, comando que falha grava policy_warn (claims.failed) no ledger e a claim entra",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='comando que falha grava' core/dist-test/test/rm008-claim-prova-local.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:24:42.156Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-claimsemprov",
+      "fase": "GOAL",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "Com a policy, comando que passa não gera aviso",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='comando que passa' core/dist-test/test/rm008-claim-prova-local.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:24:42.301Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-claimsemprov",
+      "fase": "GOAL",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "Comando que estoura o prazo do verify vira aviso verify.timeout sem travar o add",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='estoura o prazo' core/dist-test/test/rm008-claim-prova-local.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:24:42.442Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-claimsemprov",
+      "fase": "GOAL",
+      "arquivo": "core/src/policies.ts",
+      "alegacao": "claims_failed é alias com um aviso só, block avisa como warn, off cala e a policy só avalia no gate claims.add",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='claims_failed e alias' core/dist-test/test/rm008-claim-prova-local.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:24:42.582Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-claimsemprov",
+      "fase": "GOAL",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "O manifesto deste repositório não declara a policy e não muda contra a base",
+      "negativa": false,
+      "verificar": [
+        "git diff --exit-code \"$(git merge-base origin/main HEAD)\" HEAD -- orkastery.yaml && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='manifesto deste repositorio' core/dist-test/test/rm008-claim-prova-local.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:24:42.721Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-claimsemprov",
+      "fase": "GOAL",
+      "arquivo": "core/test/licoes.test.ts",
+      "alegacao": "O ork licoes chama a proposta claims_failed de executável, e os testes vizinhos de policy e claim seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/licoes.test.js core/dist-test/test/policies-avisos.test.js core/dist-test/test/claim-lint.test.js core/dist-test/test/prova-minima.test.js core/dist-test/test/demo.test.js core/dist-test/test/mcp-artifacts.test.js core/dist-test/test/verify.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:24:42.862Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-claimsemprov",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-008-loop-de-aprendizado.md",
+      "alegacao": "A paridade de docs passa com a RM-008 atualizada",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-03T03:24:43.009Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

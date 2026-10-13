@@ -21,6 +21,15 @@ import { criarWorktree, dirThread, gravarThread, lerThread, pastaDaWorktree } fr
 import { Check, MotivoGate, Thread } from './types';
 import { exec, simbolo } from './util';
 import { auditarEstado, vincularEstado, comEstadoParaGit } from './estado-thread';
+import { exigirCwdLocal } from './procedencia';
+import { Mensagens, msg, remontar, textoDoCatalogo, textoDoErro } from './locale';
+
+/**
+ * RM-061 (F3b, G4): o detalhe e a correcao que o resultado devolve nascem pelo catalogo, no locale ativo (pt-BR no
+ * escopo da gravacao), e ficam registrados para a impressao remonta-los; o que so vai ao ledger sai sempre em pt-BR.
+ */
+const tw = (montar: (m: Mensagens['worktree']) => string): string => textoDoCatalogo((m) => montar(m.worktree));
+const gravado = (): Mensagens['worktree'] => msg('pt-BR').worktree;
 
 /**
  * Diretorio canonico da worktree de uma thread, resolvido pelo `ork` na arvore principal: o mesmo que a criacao usa,
@@ -104,13 +113,13 @@ export function garantirWorktree(carregado: ManifestoCarregado, id: string): Res
         branch,
         base,
         motivo: 'tree.blocked',
-        detalhe: `${dir} existe mas nao aparece em \`git worktree list\``,
-        correcao: `remova o diretorio ou registre a worktree; depois rode: ork worktree ensure ${id}`,
+        detalhe: tw((m) => m.naoRegistrada(dir)),
+        correcao: tw((m) => m.naoRegistradaCorrecao(id)),
       };
     }
     try { vincularEstado(raiz, id, dir); } catch (e) {
       return { ok: false, criada: false, dir, branch, base, motivo: 'tree.blocked',
-        detalhe: (e as Error).message, correcao: `reconcilie o estado e rode ork worktree sync ${id}` };
+        detalhe: textoDoErro(e), correcao: tw((m) => m.reconcilieOEstado(id)) };
     }
     if (thread.worktree !== dir) {
       thread.worktree = dir;
@@ -130,7 +139,7 @@ export function garantirWorktree(carregado: ManifestoCarregado, id: string): Res
       branch,
       base,
       motivo: null,
-      detalhe: 'a worktree da thread ja existe e o git a reconhece',
+      detalhe: tw((m) => m.jaExiste),
       correcao: '',
     };
   }
@@ -158,9 +167,7 @@ export function garantirWorktree(carregado: ManifestoCarregado, id: string): Res
     branch: criada.branch,
     base,
     motivo: null,
-    detalhe: jaTemBranch
-      ? `worktree recriada sobre a branch ${criada.branch}, que ja existia`
-      : `worktree criada a partir de ${base}`,
+    detalhe: tw((m) => jaTemBranch ? m.recriadaSobreBranch(criada.branch) : m.criadaAPartirDe(base)),
     correcao: '',
   };
 }
@@ -262,8 +269,8 @@ export function sincronizarWorktree(
       jaAtualizada: false,
       rebaseFeito: false,
       motivo: 'tree.blocked',
-      detalhe: `a thread ${id} nao tem worktree registrada no git`,
-      correcao: `crie a worktree com: ork worktree ensure ${id}`,
+      detalhe: tw((m) => m.semWorktree(id)),
+      correcao: tw((m) => m.semWorktreeCorrecao(id)),
     };
   }
 
@@ -275,17 +282,14 @@ export function sincronizarWorktree(
       jaAtualizada: false,
       rebaseFeito: false,
       motivo: 'tree.blocked',
-      detalhe:
-        limpa === null
-          ? `${dir} nao respondeu a \`git status\``
-          : `${dir} tem alteracao nao commitada; rebase em arvore suja perde trabalho`,
-      correcao: `commite ou guarde as alteracoes em ${dir} e rode de novo: ork worktree sync ${id}`,
+      detalhe: tw((m) => limpa === null ? m.semStatus(dir) : m.arvoreSuja(dir)),
+      correcao: tw((m) => m.arvoreSujaCorrecao(dir, id)),
     };
   }
 
   try { vincularEstado(raiz, id, dir, opcoes.dryRun); } catch (e) {
     return { ...vazio, ok: false, jaAtualizada: false, rebaseFeito: false,
-      motivo: 'tree.blocked', detalhe: (e as Error).message, correcao: 'reconcilie as duas cópias sem descartar evidências' };
+      motivo: 'tree.blocked', detalhe: textoDoErro(e), correcao: tw((m) => m.reconcilieAsCopias) };
   }
 
   const refBase = exec('git', ['rev-parse', '--verify', base], raiz);
@@ -296,8 +300,8 @@ export function sincronizarWorktree(
       jaAtualizada: false,
       rebaseFeito: false,
       motivo: 'tree.blocked',
-      detalhe: `a base ${base} do manifesto nao existe neste repositorio`,
-      correcao: `corrija worktree.base_branch em ${carregado.caminho}`,
+      detalhe: tw((m) => m.baseInexistente(base)),
+      correcao: tw((m) => m.baseInexistenteCorrecao(carregado.caminho)),
     };
   }
   const shaBase = refBase.stdout.trim();
@@ -316,7 +320,7 @@ export function sincronizarWorktree(
         shaAntes,
         shaDepois: shaAntes,
         rebaseFeito: false,
-        detalhe: 'a base ja era ancestral do HEAD da thread',
+        detalhe: gravado().jaEraAncestral,
       });
     }
     return {
@@ -328,7 +332,7 @@ export function sincronizarWorktree(
       jaAtualizada: true,
       rebaseFeito: false,
       motivo: null,
-      detalhe: `a base ${base} ja esta incorporada: nada a sincronizar`,
+      detalhe: tw((m) => m.jaIncorporada(base)),
       correcao: '',
     };
   }
@@ -343,55 +347,53 @@ export function sincronizarWorktree(
     passos.push(`git reset --keep ${shaBase}`);
     if (opcoes.dryRun) {
       return { ...vazio, shaBase, shaAntes, shaDepois: shaAntes, ok: true, jaAtualizada: false, rebaseFeito: false, recriada: false,
-        motivo: null, detalhe: `a branch ${branch} nao tem commit proprio: o sync real a recriaria na base ${base} atual, sem rebase`,
+        motivo: null, detalhe: tw((m) => m.semCommitProprio(branch, base)),
         correcao: '' };
     }
     let recriacao;
     try { recriacao = comEstadoParaGit(raiz, id, dir, () => exec('git', ['reset', '--keep', shaBase], dir)); }
     catch (e) {
       return { ...vazio, shaBase, shaAntes, ok: false, jaAtualizada: false, rebaseFeito: false,
-        motivo: 'tree.blocked', detalhe: (e as Error).message,
-        correcao: 'inspecione a cópia local e a fonte canônica preservadas antes de repetir o sync' };
+        motivo: 'tree.blocked', detalhe: textoDoErro(e),
+        correcao: tw((m) => m.inspecioneAsCopias) };
     }
     const shaDepois = exec('git', ['rev-parse', 'HEAD'], dir).stdout.trim();
     if (!recriacao.ok || shaDepois !== shaBase) {
       return { ...vazio, shaBase, shaAntes, shaDepois, ok: false, jaAtualizada: false, rebaseFeito: false, motivo: 'tree.blocked',
-        detalhe: `a recriacao da branch ${branch} na base falhou: ${(recriacao.stderr || recriacao.stdout).trim().split('\n').slice(-2).join(' | ')}`,
-        correcao: `confira a worktree ${dir} e rode de novo: ork worktree sync ${id}` };
+        detalhe: tw((m) => m.recriacaoFalhou(branch, (recriacao.stderr || recriacao.stdout).trim().split('\n').slice(-2).join(' | '))),
+        correcao: tw((m) => m.confiraAWorktree(dir, id)) };
     }
-    const detalhe = historia.semAncestral
-      ? `branch sem commit proprio recriada a partir da base ${base} atual; a base foi reescrita e nao tinha historia em comum com ela`
-      : `branch sem commit proprio recriada a partir da base ${base} atual`;
+    const detalhe = tw((m) => m.recriada(base, historia.semAncestral));
     registrar(dirThread(raiz, id), id, TIPOS_DE_EVENTO.worktreeSincronizada, { dir, branch, base, shaBase, shaAntes, shaDepois,
-      rebaseFeito: false, recriada: true, semAncestral: historia.semAncestral, detalhe });
+      rebaseFeito: false, recriada: true, semAncestral: historia.semAncestral, detalhe: gravado().recriada(base, historia.semAncestral) });
     return { ...vazio, shaBase, shaAntes, shaDepois, ok: true, jaAtualizada: false, rebaseFeito: false, recriada: true,
       motivo: null, detalhe, correcao: '' };
   }
   if (historia.semAncestral) {
-    const onto = historia.pontoDePartida
+    const onto = (m: Mensagens['worktree']) => historia.pontoDePartida
       ? `git -C ${dir} rebase --onto ${shaBase} ${historia.pontoDePartida}`
-      : `git -C ${dir} rebase --onto ${shaBase} <commit onde a branch da thread comecou>`;
-    const detalhe = `a base ${base} foi reescrita e nao tem historia em comum com a branch ${branch}, que tem ` +
-      `${historia.proprios ?? 'um numero desconhecido de'} commit(s) proprio(s): o rebase reaplicaria a historia antiga inteira`;
+      : `git -C ${dir} rebase --onto ${shaBase} ${m.ondeComecou}`;
+    const detalhe = tw((m) => m.semHistoriaComum(base, branch, historia.proprios));
     if (!opcoes.dryRun) registrar(dirThread(raiz, id), id, TIPOS_DE_EVENTO.worktreeSincronizada, { dir, branch, base, shaBase, shaAntes,
-      rebaseFeito: false, motivo: 'tree.blocked', causa: 'base-reescrita', semAncestral: true, detalhe });
+      rebaseFeito: false, motivo: 'tree.blocked', causa: 'base-reescrita', semAncestral: true,
+      detalhe: gravado().semHistoriaComum(base, branch, historia.proprios) });
     return { ...vazio, shaBase, shaAntes, shaDepois: shaAntes, ok: false, jaAtualizada: false, rebaseFeito: false,
-      motivo: 'tree.blocked', causa: 'base-reescrita', detalhe, correcao: `reaplique so os commits da thread sobre a base nova: ${onto}` };
+      motivo: 'tree.blocked', causa: 'base-reescrita', detalhe, correcao: tw((m) => m.reaplique(onto(m))) };
   }
   // RM-037 (fatia 3, defeito 3): com ancestral comum, o sync caia no `git rebase <base>` abaixo e
   // reaplicava tambem o que a reescrita tirou da base. O ponto de partida fora da base atual e o sinal.
   if (historia.baseReescrita) {
     const ponto = historia.pontoDePartida as string;
-    passos.push(`git merge-base --is-ancestor ${ponto.slice(0, 8)} ${shaBase.slice(0, 8)}   (falso: a base foi reescrita)`);
-    const detalhe = `a base ${base} foi reescrita: o ponto de partida ${ponto.slice(0, 8)} da branch ${branch} nao esta mais nela, ` +
-      `e o rebase comum reaplicaria ${historia.sairamDaBase ?? 'um numero desconhecido de'} commit(s) que sairam da base junto com ` +
-      `o(s) ${historia.proprios ?? '?'} da thread (git rev-list --count HEAD --not ${ponto.slice(0, 8)} ${shaBase.slice(0, 8)})`;
+    passos.push(tw((m) => m.passoBaseReescrita(ponto.slice(0, 8), shaBase.slice(0, 8))));
+    const contagem = `git rev-list --count HEAD --not ${ponto.slice(0, 8)} ${shaBase.slice(0, 8)}`;
+    const reescrita = (m: Mensagens['worktree']) => m.baseReescrita(base, ponto.slice(0, 8), branch, historia.sairamDaBase, historia.proprios, contagem);
+    const detalhe = tw(reescrita);
     if (!opcoes.dryRun) registrar(dirThread(raiz, id), id, TIPOS_DE_EVENTO.worktreeSincronizada, { dir, branch, base, shaBase, shaAntes,
       rebaseFeito: false, motivo: 'tree.blocked', causa: 'base-reescrita', baseReescrita: true, pontoDePartida: ponto,
-      sairamDaBase: historia.sairamDaBase, proprios: historia.proprios, detalhe });
+      sairamDaBase: historia.sairamDaBase, proprios: historia.proprios, detalhe: reescrita(gravado()) });
     return { ...vazio, shaBase, shaAntes, shaDepois: shaAntes, ok: false, jaAtualizada: false, rebaseFeito: false,
       motivo: 'tree.blocked', causa: 'base-reescrita', detalhe,
-      correcao: `reaplique so os commits da thread sobre a base nova: git -C ${dir} rebase --onto ${shaBase} ${ponto}` };
+      correcao: tw((m) => m.reaplique(`git -C ${dir} rebase --onto ${shaBase} ${ponto}`)) };
   }
 
   if (opcoes.dryRun) {
@@ -405,7 +407,7 @@ export function sincronizarWorktree(
       jaAtualizada: false,
       rebaseFeito: false,
       motivo: null,
-      detalhe: `a base ${base} avancou; o sync real faria o rebase acima`,
+      detalhe: tw((m) => m.rebaseAcima(base)),
       correcao: '',
     };
   }
@@ -419,8 +421,8 @@ export function sincronizarWorktree(
     });
   } catch (e) {
     return { ...vazio, shaBase, shaAntes, ok: false, jaAtualizada: false, rebaseFeito: false,
-      motivo: 'tree.blocked', detalhe: (e as Error).message,
-      correcao: 'inspecione a cópia local e a fonte canônica preservadas antes de repetir o sync' };
+      motivo: 'tree.blocked', detalhe: textoDoErro(e),
+      correcao: tw((m) => m.inspecioneAsCopias) };
   }
   passos.push(`git rebase ${shaBase}`);
   if (!rebase.ok) {
@@ -445,10 +447,8 @@ export function sincronizarWorktree(
       jaAtualizada: false,
       rebaseFeito: false,
       motivo: 'tree.blocked',
-      detalhe: `o rebase sobre ${base} conflitou e foi abortado: ${detalhe}`,
-      correcao:
-        `resolva o conflito na worktree ${dir} (git rebase ${shaBase} e resolucao manual), ` +
-        `ou reduza a regiao da thread com um lease path:<glob> menor`,
+      detalhe: tw((m) => m.rebaseConflitou(base, detalhe)),
+      correcao: tw((m) => m.rebaseConflitouCorrecao(dir, shaBase)),
     };
   }
 
@@ -461,7 +461,7 @@ export function sincronizarWorktree(
     shaAntes,
     shaDepois,
     rebaseFeito: true,
-    detalhe: `branch da thread rebasada sobre ${base}`,
+    detalhe: gravado().rebasada(base),
   });
   return {
     ...vazio,
@@ -472,7 +472,7 @@ export function sincronizarWorktree(
     jaAtualizada: false,
     rebaseFeito: true,
     motivo: null,
-    detalhe: `a base ${base} avancou e a branch ${branch} foi rebasada sobre ela`,
+    detalhe: tw((m) => m.rebasadaSobreEla(base, branch)),
     correcao: '',
   };
 }
@@ -505,11 +505,11 @@ export function auditarWorktree(carregado: ManifestoCarregado, id: string): Resu
 
   checks.push(
     thread.worktree
-      ? { nome: 'registro', nivel: 'ok', detalhe: `thread.json aponta para ${thread.worktree}` }
+      ? { nome: 'registro', nivel: 'ok', detalhe: tw((m) => m.apontaPara(thread.worktree as string)) }
       : {
           nome: 'registro',
           nivel: 'fail',
-          detalhe: 'a thread nao tem worktree registrada no thread.json',
+          detalhe: tw((m) => m.semRegistroNoThread),
           correcao: `ork worktree ensure ${id}`,
         }
   );
@@ -521,7 +521,7 @@ export function auditarWorktree(carregado: ManifestoCarregado, id: string): Resu
       : {
           nome: 'diretorio',
           nivel: 'fail',
-          detalhe: `${dir} nao existe no disco`,
+          detalhe: tw((m) => m.naoExisteNoDisco(dir)),
           correcao: `ork worktree ensure ${id}`,
         }
   );
@@ -529,11 +529,11 @@ export function auditarWorktree(carregado: ManifestoCarregado, id: string): Resu
   const registro = worktreesDoGit(raiz).find((w) => w.dir === dir);
   checks.push(
     registro
-      ? { nome: 'git', nivel: 'ok', detalhe: 'aparece em `git worktree list --porcelain`' }
+      ? { nome: 'git', nivel: 'ok', detalhe: tw((m) => m.apareceNoGit) }
       : {
           nome: 'git',
           nivel: 'fail',
-          detalhe: `${dir} nao aparece em \`git worktree list\``,
+          detalhe: tw((m) => m.naoApareceNoGit(dir)),
           correcao: `git worktree prune && ork worktree ensure ${id}`,
         }
   );
@@ -541,28 +541,34 @@ export function auditarWorktree(carregado: ManifestoCarregado, id: string): Resu
   if (registro) {
     checks.push(
       registro.branch === branchEsperada
-        ? { nome: 'branch', nivel: 'ok', detalhe: `${registro.branch} em check-out` }
+        ? { nome: 'branch', nivel: 'ok', detalhe: tw((m) => m.emCheckout(registro.branch)) }
         : {
             nome: 'branch',
             nivel: 'fail',
-            detalhe: `esperado ${branchEsperada}, encontrado "${registro.branch || '(HEAD solto)'}"`,
+            detalhe: tw((m) => m.branchErrada(branchEsperada, registro.branch)),
             correcao: `git -C ${dir} switch ${branchEsperada}`,
           }
     );
   }
 
+  // RM-047 (P2): git so roda na worktree registrada e com o thread.json local.
+  let procedencia: string | null = null;
   if (existe) {
+    try { exigirCwdLocal(raiz, id, dir, 'thread'); }
+    catch (e) {
+      procedencia = textoDoErro(e);
+      checks.push({ nome: 'procedencia', nivel: 'fail', detalhe: procedencia, correcao: `ork worktree ensure ${id}` });
+    }
+  }
+  if (existe && procedencia === null) {
     const limpa = arvoreLimpa(dir);
     checks.push(
       limpa === true
-        ? { nome: 'arvore', nivel: 'ok', detalhe: 'sem alteracao nao commitada' }
+        ? { nome: 'arvore', nivel: 'ok', detalhe: tw((m) => m.arvoreLimpa) }
         : {
             nome: 'arvore',
             nivel: limpa === null ? 'fail' : 'warn',
-            detalhe:
-              limpa === null
-                ? '`git status` nao respondeu neste diretorio'
-                : 'ha alteracao nao commitada na worktree',
+            detalhe: tw((m) => limpa === null ? m.statusSemResposta : m.alteracaoNaWorktree),
             correcao: `git -C ${dir} status`,
           }
     );
@@ -574,11 +580,11 @@ export function auditarWorktree(carregado: ManifestoCarregado, id: string): Resu
       const incorporada = exec('git', ['merge-base', '--is-ancestor', shaBase, 'HEAD'], dir).ok;
       checks.push(
         incorporada
-          ? { nome: 'base', nivel: 'ok', detalhe: `${base} @ ${shaBase.slice(0, 8)} ja incorporada` }
+          ? { nome: 'base', nivel: 'ok', detalhe: tw((m) => m.baseIncorporada(base, shaBase.slice(0, 8))) }
           : {
               nome: 'base',
               nivel: 'fail',
-              detalhe: `a base ${base} avancou para ${shaBase.slice(0, 8)} e nao esta na branch da thread`,
+              detalhe: tw((m) => m.baseAdiante(base, shaBase.slice(0, 8))),
               correcao: `ork worktree sync ${id}`,
             }
       );
@@ -592,13 +598,13 @@ export function auditarWorktree(carregado: ManifestoCarregado, id: string): Resu
       ? {
           nome: 'artefatos',
           nivel: 'fail',
-          detalhe: `os artefatos da thread estao DENTRO da worktree (${dirArtefatos})`,
-          correcao: 'os artefatos da thread vivem em .orkastery/threads/<id>, fora da arvore',
+          detalhe: tw((m) => m.artefatosDentro(dirArtefatos)),
+          correcao: tw((m) => m.artefatosDentroCorrecao),
         }
       : {
           nome: 'artefatos',
           nivel: 'ok',
-          detalhe: `${path.relative(raiz, dirArtefatos)} fica fora da worktree`,
+          detalhe: tw((m) => m.artefatosFora(path.relative(raiz, dirArtefatos))),
         }
   );
 
@@ -616,22 +622,15 @@ export function auditarWorktree(carregado: ManifestoCarregado, id: string): Resu
 
 /** Texto de `ork worktree audit`. */
 export function textoDoAudit(id: string, r: ResultadoAudit): string {
-  const linhas = [
-    `Auditoria da worktree da thread ${id}`,
-    `  dir     ${r.dir}`,
-    `  branch  ${r.branch}`,
-    '',
-  ];
+  // RM-061 (F3b): a moldura pelo catalogo; o nome do check (dado do ledger) traduzido so aqui, e o detalhe remontado.
+  const m = msg().worktree;
+  const linhas = [m.auditoria(id), m.linhaDir(r.dir), m.linhaBranch(r.branch), ''];
   for (const c of r.checks) {
-    linhas.push(`  ${simbolo(c.nivel)} ${c.nome.padEnd(11)} ${c.detalhe}`);
-    if (c.nivel !== 'ok' && c.correcao) linhas.push(`         correcao: ${c.correcao}`);
+    linhas.push(`  ${simbolo(c.nivel)} ${m.nomeDoCheck(c.nome).padEnd(11)} ${remontar(c.detalhe)}`);
+    if (c.nivel !== 'ok' && c.correcao) linhas.push(m.correcaoDoCheck(remontar(c.correcao)));
   }
   linhas.push('');
-  linhas.push(
-    r.ok
-      ? '  worktree consistente: o git confirma cada item acima.'
-      : `  ${r.divergencias} divergencia(s) encontrada(s) no proprio git.`
-  );
+  linhas.push(r.ok ? m.consistente : m.divergencias(r.divergencias));
   return linhas.join('\n');
 }
 
@@ -690,7 +689,7 @@ export function liberarWorktree(
       branch,
       removida: false,
       leasesLiberados: soltos,
-      detalhe: 'o diretorio ja nao existia; o registro foi limpo',
+      detalhe: gravado().jaNaoExistia,
     });
     return {
       ok: true,
@@ -699,11 +698,17 @@ export function liberarWorktree(
       branch,
       leasesLiberados: soltos,
       motivo: null,
-      detalhe: 'o diretorio ja nao existia; registro limpo e `git worktree prune` rodado',
+      detalhe: tw((m) => m.jaNaoExistiaImpresso),
       correcao: '',
     };
   }
 
+  // RM-047 (P2): nada de git num diretorio que o thread.json escolheu e o git nao registra.
+  try { exigirCwdLocal(raiz, id, dir, 'thread'); }
+  catch (e) {
+    return { ok: false, removida: false, dir, branch, leasesLiberados: [], motivo: 'tree.blocked',
+      detalhe: textoDoErro(e), correcao: tw((m) => m.confiraODiretorio(id)) };
+  }
   const limpa = arvoreLimpa(dir);
   if (limpa === false && !opcoes.forcar) {
     return {
@@ -713,8 +718,8 @@ export function liberarWorktree(
       branch,
       leasesLiberados: [],
       motivo: 'tree.blocked',
-      detalhe: `${dir} tem alteracao nao commitada`,
-      correcao: `commite o que interessa em ${dir}, ou repita com --forcar para descartar`,
+      detalhe: tw((m) => m.releaseArvoreSuja(dir)),
+      correcao: tw((m) => m.releaseArvoreSujaCorrecao(dir)),
     };
   }
 
@@ -729,8 +734,8 @@ export function liberarWorktree(
       branch,
       leasesLiberados: [],
       motivo: 'tree.blocked',
-      detalhe: `git worktree remove falhou: ${(r.stderr || r.stdout).trim()}`,
-      correcao: `rode \`git worktree remove ${dir}\` na mao e confira \`git worktree list\``,
+      detalhe: tw((m) => m.removeFalhou((r.stderr || r.stdout).trim())),
+      correcao: tw((m) => m.removeFalhouCorrecao(dir)),
     };
   }
   exec('git', ['worktree', 'prune'], raiz);
@@ -743,7 +748,7 @@ export function liberarWorktree(
       branch,
       leasesLiberados: [],
       motivo: 'tree.blocked',
-      detalhe: `${dir} continua em \`git worktree list\` depois do remove`,
+      detalhe: tw((m) => m.continuaNaLista(dir)),
       correcao: 'git worktree prune && git worktree list',
     };
   }
@@ -766,7 +771,7 @@ export function liberarWorktree(
     branch,
     leasesLiberados: soltos,
     motivo: null,
-    detalhe: `worktree removida; a branch ${branch} continua no repositorio`,
+    detalhe: tw((m) => m.removida(branch)),
     correcao: '',
   };
 }

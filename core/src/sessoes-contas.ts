@@ -55,6 +55,15 @@ export function ehFantasma(runtime: RuntimeComPerfil, s: SessaoRuntime, vivo: (p
   return runtime === 'claude-bg' && !TERMINAIS.includes(estadoDe(s)) && !vivo(s.pid);
 }
 
+/**
+ * RM-037 (ork-rm037esperas, D7): o runtime mostra a sessao encerrada: estado terminal (`done`, `completed`, `exited`,
+ * `stopped`, `failed`) ou fantasma, registro sem processo que trabalhe por ele. Domicilio unico dessa leitura: o portao
+ * de vaga do `ork phase run` (`vagaDoDespacho`) e a capacidade do #Noctum a usam.
+ */
+export function encerradaNaLista(s: SessaoDaConta): boolean {
+  return s.fantasma || TERMINAIS.includes(estadoDe(s));
+}
+
 const real = (dir: string): string => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
 
 /**
@@ -90,6 +99,8 @@ const rotulo = (c: ContaDeSessoes): string => c.perfil ? `perfil ${c.perfil.id}`
  * sessoes". `staleMin` e a janela de atividade que torna viva uma sessao codex (D3).
  */
 export function consultarContas(raiz: string | null, opcoes: { todas?: boolean; agoraMs?: number; staleMin?: number;
+  /** RM-063 (F2): prazo do `claude agents` por conta; o padrao e o de sempre (60 s). */
+  prazoMs?: number;
   contas?: ContaDeSessoes[] } = {}): { sessoes: SessaoDaConta[]; fontes: FonteDeSessoes[]; contas: ContaDeSessoes[] } {
   const base = opcoes.contas ? { contas: opcoes.contas, fontes: [] as FonteDeSessoes[] } : contasDeSessoes(raiz);
   const fontes = [...base.fontes];
@@ -102,7 +113,7 @@ export function consultarContas(raiz: string | null, opcoes: { todas?: boolean; 
       let ambiente: NodeJS.ProcessEnv;
       try { ambiente = ambienteDoPerfil(conta.perfil); }
       catch (e) { fontes.push({ origem: `claude agents (${rotulo(conta)})`, ok: false, detalhe: (e as Error).message }); continue; }
-      const r = consultarSessoes(undefined, opcoes.todas, ambiente);
+      const r = consultarSessoes(undefined, opcoes.todas, ambiente, opcoes.prazoMs);
       const origem = `claude agents --json${opcoes.todas ? ' --all' : ''} (${rotulo(conta)})`;
       // Fatia 2 do ensaio da 0.5.0 (P1): só o ENOENT antes da consulta prova a fonte ausente; qualquer
       // outra falha do `claude` continua deixando o inventário incompleto.

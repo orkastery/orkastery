@@ -118,22 +118,141 @@ para OpenClaw, substituindo o destino pelo chat autorizado:
 }
 ```
 
+O arquivo é desta máquina: versionado no git, ou como link, ele não vale, e a varredura sai com
+`transporte.rastreado` sem rodar nada (RM-047). O mesmo vale para o `master-host.json` do digest.
+
 Os argumentos são passados diretamente ao executável, sem shell ou eval. Um adaptador
 Hermes pode fornecer um executável determinístico com a mesma interface e código 0
 somente após confirmar a entrega. Não use uma sessão de chat ou cron LLM como transporte.
 O template `monitor/pulse.cron` bate de 15 em 15 minutos (`*/15 * * * *`), e o núcleo decide
-o que sai em cada batida pela cadência que o dono escolheu com uma tag (seção J). Renderize o
-caminho da main e instale junto das entradas existentes. O host precisa encontrar `node`, `claude` e seu
-transportador pelo PATH ou por caminhos absolutos. No pacote npm, execute com o projeto
-como cwd, ou defina `ORK_PULSE_PROJECT` explicitamente.
+o que sai em cada batida pela cadência que o dono escolheu com uma tag (seção J). O host precisa
+encontrar `node`, `claude` e seu transportador pelo PATH ou por caminhos absolutos.
+
+### A batida instalada pelo `ork` (RM-063, F1)
+
+A linha do template não se instala sozinha: no maquina-b, de 03/10 a 12/10/2026, ela nunca entrou
+no crontab, e o `ork doctor` calava porque só conferia o cron com `pulse-host.json`. Agora quem
+instala é o próprio `ork`, num comando que o dono autoriza uma vez:
+
+```bash
+ork fabrica batida instalar   # põe a linha do template no crontab desta máquina
+ork fabrica batida status     # a linha, e a última rodada do hitl.log com a idade
+ork fabrica batida remover    # tira só a linha que o ork instalou
+```
+
+O `instalar` lê o crontab, tira a linha antiga do `ork` e a linha posta à mão da varredura deste
+projeto, e acrescenta uma só, com o checkout canônico (`ORK_PULSE_PROJECT`), o PATH que acha o
+`node`, o `claude`, o `codex`, o `gh`, o `git` e o executável do `pulse-host.json`, e a marca
+`# ork-batida` no fim. As outras entradas ficam como estavam: nada de `PATH=` solto, que mudaria
+todas. Rodar de novo com a mesma linha não grava nada. A gravação só vale depois de relida, e o
+evento `batida_instalada` (ou `batida_removida`) vai ao ledger da máquina,
+`~/.orkastery/ledger.jsonl`, com a linha que entrou e as que saíram. Crontab que não se lê não é
+gravado: o comando recusa com `fabrica.batida.sem-leitura`.
+
+O crontab é lido como o cron e o `sh` o leem: a linha de ambiente (`ORK_PULSE_PROJECT=/outro`)
+vale para as entradas que vêm depois dela, e aspas, `~` e `$HOME` valem. O `instalar` e o `remover`
+releem o crontab antes de gravar e recusam com `fabrica.batida.concorrencia` quando ele mudou no meio.
+
+O `status` sai 1 sem a batida e avisa "atrasada" quando a batida está instalada e a última rodada
+do `hitl.log` passou de 30 minutos. O `ork doctor` reprova quando o projeto tem thread aberta e
+nenhuma batida deste projeto, com ou sem `pulse-host.json`, e a correção é `ork fabrica batida
+instalar`. A linha que roda a varredura de outro projeto, ou de outro checkout, não conta. Quem
+bate por outro agendador (timer do systemd, batida do host) prova a batida pelo `hitl.log`: uma
+rodada de até 30 minutos basta.
 
 Provas de operação:
 
 ```bash
 npm --prefix core test
 node core/dist/index.js eval --json
+ork fabrica batida status
 crontab -l
 monitor/varredura-pulse.sh
+cat .orkastery/monitor/hitl.log
+```
+
+### O fecho do status lê a fila do pulse (RM-063, F2)
+
+O `ork roadmap status` monta o "O que precisa de você" com a mesma fila do `ork pulse`
+(`precisaDeHumanoAgora`), sem tocar a forja e sem registrar. Com item do dono na fila, ou com a
+fila lida pela metade, ele não diz "Nada agora". E o `sigo <thread> na fase <F>` só sai com a
+sessão viva verificada no runtime; a sessão fantasma, o despacho falho e a falta de sessão viram
+`<thread> parada desde HH:MM: <motivo>`.
+
+### A escada de recuperação do runtime (RM-063, F4)
+
+No incidente da K7 o despacho morreu com o daemon do claude-bg fora do ar, e o retry só sabia repetir o mesmo destino.
+Agora o `runtime.unavailable` sobe uma escada no `ork retry run`, sempre com o mesmo prompt e o mesmo sha256:
+
+| Degrau | O que acontece | Pulado quando |
+| --- | --- | --- |
+| 1, reerguer o daemon | No claude-bg, `claude daemon status` (na conta do despacho) diz se o `control.sock` responde; o daemon de pé com o socket mudo sai por `claude daemon stop --any --keep-workers` (as sessões destacadas ficam), e o prompt volta ao mesmo runtime, perfil, modelo e esforço | nunca: daemon parado, que responde ou que não se deixa ler fica como está, e o redespacho sai do mesmo jeito |
+| 2, o fallback do bloco | O primeiro alvo da ordem `--fallback` do bloco (I-33) com destino agora: o perfil da vez do runtime dele, ou o ambiente do processo | o bloco não tem fallback, ou nenhum alvo tem perfil disponível |
+| 3, outro perfil | Outra conta do runtime que falhou (RM-056), que não seja a do despacho (nem a que o degrau 1 de fato usou, quando o despacho nasceu sem perfil) nem tenha o mesmo diretório | o runtime não tem outro perfil disponível |
+
+Cada degrau vai ao ledger da thread como `runtime_recuperacao`, feito, pulado, falho ou interrompido, com o destino
+efetivo e a prova (no degrau 1, o que o daemon disse antes e depois). O degrau pulado não gasta tentativa. O adaptador
+que lança vira falha do destino no ledger, e a escada segue. Uma falha que não é do destino (impedimento do dono,
+policy, worktree, condução, prompt mudado) para a escada sem consumir o degrau (`interrompido`, sem gastar tentativa):
+destravado, o mesmo degrau vale de novo. Entre um degrau e outro, a prova de vida: se o degrau anterior abriu a sessão e
+saiu como falha (o `claude --bg` lento diz o id e estoura o prazo), ou se o runtime não responde, nada mais sai, e a
+fase nunca ganha uma segunda sessão na mesma worktree. Com o `claude agents` sem resposta (o daemon travado), o retry
+reergue o daemon antes da prova; na terceira recusa seguida sem resposta no episódio, o dono é chamado.
+
+Esgotados os três degraus, o dono é chamado: `gate_blocked human.pending` com três alternativas, uma recomendada
+(RM-057), o comando que confere o runtime e o que retoma a fase com o mesmo prompt
+(`ork phase run <thread> <fase> --prompt "$(cat '<caminho absoluto do prompt gravado>')"`); o pulse leva o pedido curto e
+o resumo o manda na hora, como um impedimento do dono. O mesmo pedido não é gravado de novo enquanto nada for
+despachado na fase. A escada vale por episódio: o pedido novo da fase recomeça os degraus. O `ork retry plan` diz o
+degrau da vez.
+
+O mod `ork-sentinela` (RM-059) retoma pelo `ork retry plan` e pelo `ork retry run`: ele herda a escada sem mudar nada.
+
+### A varredura que age (RM-063, F5)
+
+O PR #112 ficou dois dias mesclado sem `ork ship registrar-pr`, e sessões fantasmas de threads fechadas ficaram
+registradas, porque ninguém roda esses comandos sem um condutor. Agora a batida age logo depois de entregar o resumo ao
+dono (a busca da base e o registro do PR não atrasam o resumo), uma batida por vez, só com a autorização durável do dono
+gravada nesta máquina, em `.orkastery/monitor/autorizacao.json` (fora do git, como o `pulse-host.json`; o contrato está
+em [autorizacao-duravel-rm063.md](../referencia/contratos/autorizacao-duravel-rm063.md)). O `por` nomeia a pessoa (nome
+de agente ou de runtime não autoriza), e os instantes levam o fuso:
+
+```json
+{ "contrato": "ork.autorizacao-duravel/v1", "maquina": "maquina-b", "projeto": "orkastery", "por": "Dono",
+  "concedidaEm": "2026-10-12T21:00:00-03:00", "ate": "2026-10-18T23:59:00-03:00", "pode": ["limpar", "registrar", "master"] }
+```
+
+| Ação | O que a batida faz | Sem autorização |
+| --- | --- | --- |
+| `limpar` | Solta a sessão fantasma presa a uma thread deste projeto, sem sinal de vida há pelo menos 30 min (`sessao_morta`, o runtime não é tocado) | item da fila do dono: `ork sessions limpar-fantasmas` |
+| `registrar` | Traz a base remota e registra a entrega do merge `ship(<thread>)` sem `ship_done`, com a thread parada | item da fila do dono: `ork ship registrar-pr <thread>` |
+| `master` | Fecha pelo MASTER por omissão a thread entregue e quieta (30 min depois do `ship_done`, nada despachado depois, a thread parada) | o item da entrega sem nota, na faixa automática, com `ork master <thread> --aceitar-omissao` |
+
+Cada ação feita ou recusada vai ao ledger da thread como `varredura_acao`, com quem autorizou e até quando, e cada
+rodada grava `varredura_acoes` no `hitl.log`. A autorização vencida, ilegível, de outra máquina ou de outro projeto
+não autoriza nada, e o pulse diz o motivo tipado. O resumo ao dono ganha dois blocos: a arrumação que a varredura faria
+com a autorização dele, com o comando de cada uma, e o que ela fez sozinha. O `ork fabrica batida status` diz a
+autorização em vigor. Registrar ou fechar por cima de quem trabalha na thread nunca é automático: com alguém
+conduzindo, sessão viva na worktree (ou o runtime sem resposta, sem a prova), alteração não commitada, commit na branch
+depois do head do PR ou despacho depois dele, a ação fica com o dono, com o motivo tipado, e o comando que ele recebe é
+`ork thread status <thread>`. A mesma recusa da batida anterior não vira linha nova no ledger.
+
+### Máquina ociosa é alerta (RM-063, F6)
+
+A máquina com vaga livre no projeto (as vagas ocupadas pela mesma regra do portão de vaga do despacho, abaixo de
+`concurrency.max_parallel_threads`) e item do roadmap reservado para ela (a cópia local de `ork/roadmap-reservas`) que
+ninguém trabalha está ociosa. Fica de fora a reserva de thread fechada, a thread que alguém conduz agora e a que espera o
+dono. O `ork pulse` traz `maquinaOciosa`, com as próximas threads sugeridas, até o número de vagas livres, cada uma com o
+passo do condutor e o comando: retomar a thread que já existe vem antes de abrir a do item sem thread. A varredura avisa
+na hora, furando a cadência como a pergunta nova, uma vez por episódio: a marca fica enquanto a máquina segue ociosa e
+por mais duas batidas, e cada aviso vai ao ledger do projeto como `maquina_ociosa_avisada`.
+
+Provas de operação:
+
+```bash
+ork retry plan <thread>
+ork fabrica batida status
+ork pulse --json
 cat .orkastery/monitor/hitl.log
 ```
 
@@ -584,6 +703,11 @@ mudou o que o núcleo traduz depois dela.
   O tempo parado por essas perguntas sai do ledger em `ork ledger stats` (`hitlDeConducao`, com a
   mediana contra a meta de 5 min), e o canário `fx-pedido-colado` prova que o pedido colado com
   autorização explícita segue sem parar. A regra está nos quatro adaptadores de condução.
+  O mesmo tempo chega ao `ork pulse` e ao `ork roadmap status` (campo `hitlDeConducao`): cada
+  pergunta de condução aberta com há quanto tempo para a thread e desde que hora, no fuso do dono,
+  e a mediana dos últimos 7 dias. O resumo do pulse ganha uma linha só quando passa da meta (uma
+  aberta além de 5 min ou a mediana da semana acima dela); a linha acompanha o resumo que já sai e
+  não o faz sair fora da cadência.
 - **Texto livre inequívoco:** vocabulário fechado (`aprovo`, `sim`, `pode seguir`, `ok`, `revisar`,
   `esperar`, `detalhes` e parentes), letra `a` a `e` e dígito `1` a `5`. A palavra casa a ação da
   alternativa; `não` num gate casa revisar e esperar, e por isso volta como pergunta. Com mais de
@@ -606,11 +730,45 @@ mudou o que o núcleo traduz depois dela.
   `ork master` com `--por` vindo de processo de host recebe `master.prova-de-canal`, e `ORK_CANAL=cli`
   não absolve sessão despachada (`ORK_DISPATCH_ID`), Claude Code (`CLAUDECODE`) nem Codex
   (`CODEX_SANDBOX`).
+- **Nota do MASTER pelo diálogo nativo (RM-059, fatia F8):** na sessão do dono, a ferramenta MCP
+  `ork_request_master_note` recebe só o `threadId`, pede ao host um formulário com a nota de 0 a 5 e o
+  porquê e grava o `master_done` com `autorizadoPor` `dono (dialogo nativo)`, o canal `claude-code`, o
+  pedido de nota do `ork master pedir` e o recibo assinado em `hitl-ingress-local/`. Sem formulário no
+  cliente, recusa com `master.nota.sem-dialogo` sem gravar nada. O núcleo confere o recibo ao gravar (essa
+  identidade não se digita no `--por`), e a nota vale como nota humana em qualquer versão do `ork`: nem
+  o aceite por omissão nem a resposta pelo Telegram a trocam. O botão Dar a nota do
+  [Ritual do MASTER](ritual-do-master.md) chama essa ferramenta.
 - **O que isto NÃO prova:** o canal do processo é declarado pelo ambiente e só serve para recusar;
   quem apaga as variáveis do próprio host passa como terminal, e o Codex interativo que não exporta
-  `CODEX_SANDBOX` não é reconhecido. A nota dada do terminal e a aceita por omissão não tomam o lock
-  da thread; só a nota pelo canal toma. O diálogo MCP de nota para Claude Code e Codex fica para
-  depois.
+  `CODEX_SANDBOX` não é reconhecido. A nota dada do terminal não toma o lock da thread; a nota pelo
+  canal, a nota pelo diálogo nativo e o aceite por omissão tomam. O recibo do diálogo nativo prova o
+  caminho, não a pessoa: a chave local é legível pelo mesmo usuário do sistema, e um `ork` anterior a
+  esta versão aceita a identidade `dono (dialogo nativo)` no `--por` como qualquer nome.
+
+## M. Resposta de sessão `claude-bg` pelo Mensageiro (RM-059, fatia F9)
+
+Até aqui, a sessão de fase `claude-bg` que parava com uma pergunta não tinha pedido de sessão: o núcleo não sabia prender
+o pedido ao turno que parou nem entregar a resposta, e o caminho era o `claude attach`. O
+[Mensageiro de Sessões](mensageiro-de-sessoes.md) fecha esse caminho com o núcleo nas duas pontas.
+
+- **O vínculo:** o pedido de sessão `claude-bg` sai da transcrição que o próprio Claude Code grava: as últimas linhas do
+  assistente da conversa principal, sem linha do usuário depois, com texto e sem ferramenta. O `bloqueio` é o `uuid` da
+  última delas, e a pergunta nativa é a projeção do texto. Sem turno, ou com texto que não projeta, o pedido não abre e o
+  motivo vem com o código (`turno.ausente`, `pergunta.longa`, `pergunta.invalida`).
+- **A entrega assíncrona:** o controle de resposta `claude-bg` declara `assincrono`. O `session_answer_sending` leva o
+  recibo do ingresso, e, sem o recibo do receptor, a entrega devolve `aguardando-receptor` em vez de falhar; o
+  `session_answered` sai da reconciliação de sempre quando o receptor grava o recibo.
+- **A recusa antes de tudo:** sem caixa de saída no processo, ou sem Mensageiro que a consultou nos últimos 120 s, o
+  ingresso local recusa antes do diálogo, a entrega recusa antes de reservar e o Telegram recusa antes de gravar o
+  ingresso, sempre com `runtime.unavailable` e a correção.
+- **O receptor:** o `ork_session_inbox` só existe no servidor preso a uma thread e a um despacho. Ele tira a sessão do
+  `phase_dispatch` do despacho, nunca de argumento, aceita o envelope do Claude Code só na forma que o motor escreve,
+  confere a entrega, o sha256 e o turno, e reserva uma vez, só antes do prazo (`ate`) que o Mensageiro dá à conferência
+  (`entrega.prazo` depois dele; sem prazo, recusa). A pasta `.orkastery/threads/<thread>/entregas-de-sessao/` guarda a
+  reserva e o recibo, só com ids e o sha256. O Mensageiro entrega ao modelo só o corpo conferido, num envelope fixo
+  dele, sem os rótulos que a sessão remetente declara.
+- **O que isto NÃO prova:** a entrega numa sessão `claude --bg` de verdade, que esta fatia não abriu. O guia diz os
+  passos da prova e o que acontece se o formato no destino for outro: a entrega falha fechada.
 
 ## D. Rollback
 

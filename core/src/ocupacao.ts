@@ -90,6 +90,8 @@ export interface OcupacaoDaThread {
   detalhe: string;
   /** Evidencia verificavel: evento do ledger ou estado de sessao do runtime. */
   evidencia: string;
+  /** Na pausa humana por escalada, a correcao gravada no gate; ausente nas demais. */
+  correcao?: string;
   /** Sessao do ultimo despacho, quando existe. */
   sessionId: string | null;
   /** State bruto da sessao no runtime; null quando nao consultado ou sem sessao. */
@@ -127,12 +129,14 @@ function ultimaAtividadeEm(eventos: EventoLedger[]): string | null {
  * `human.pending` sem destravamento, ou sessao bloqueada no runtime), e a que o pulse declarou em silencio
  * (`runtime.silencio`). A pausa PREVISTA ao fim do bloco nao entra: ela e gravada no proprio
  * despacho e a sessao roda ate o fim do bloco. O impedimento de verify tambem nao: a sessao corrige e
- * verifica de novo. Somente leitura.
+ * verifica de novo. RM-058 N2 (D8): a quarta e a sessao com o turno encerrado pelo ledger (`turno-encerrado`), passada
+ * a carencia.
+ * Somente leitura.
  */
 export function sessaoLivreDaVaga(doLedger: EventoLedger[], desde: string, agora: string, staleMin: number,
   /** A-3 do CHECK 4: o bloqueio no runtime e por sessao; o de outra sessao (a sucedida) nao libera esta. */
   sessionId?: string):
-  'stale' | 'human.pending' | 'runtime.silencio' | null {
+  'stale' | 'human.pending' | 'runtime.silencio' | 'turno-encerrado' | null {
   // Fatia 2 do ensaio da 0.5.0 (P2): evento de `--dry-run` nao e atividade nem parada.
   const eventos = doLedger.filter((e) => !ehEnsaio(e));
   const ultima = ultimaAtividadeEm(eventos);
@@ -150,14 +154,39 @@ export function sessaoLivreDaVaga(doLedger: EventoLedger[], desde: string, agora
   const bloqueio = depois.filter((e) => (e.tipo === 'sessao_bloqueada' || e.tipo === 'sessao_destravada') &&
     (!sessionId || e.sessionId === sessionId)).at(-1);
   if (bloqueio?.tipo === 'sessao_bloqueada') return 'human.pending';
+  if (sessionId && turnoEncerrado(eventos, sessionId, desde, agora)) return 'turno-encerrado';
   return null;
+}
+
+/**
+ * RM-058 N2 (A8 do CHECK da ork-rm058n2): a carencia do turno encerrado. O Stop do Claude Code dispara a cada fim de
+ * turno, e a sessao que espera uma tarefa em segundo plano volta sozinha quando ela acaba; nesse intervalo a vaga
+ * continua dela. Sem atividade da sessao por toda a carencia, o turno acabou de vez e a vaga sai.
+ */
+export const CARENCIA_DO_TURNO_ENCERRADO_MIN = 15;
+
+/**
+ * RM-058 N2 (D8 da ork-rm058n2): a sessao cujo turno o ledger prova encerrado (o Stop correlacionado e nenhuma
+ * atividade dela depois, ha pelo menos `CARENCIA_DO_TURNO_ENCERRADO_MIN`) nao trabalha mais, mesmo com o lease de pe:
+ * e a mesma leitura do pulse (P7). Em 12/10/2026 o `runtime_stop` sem `phase_result` (sessao parada com `claude stop`
+ * antes do resultado) prendia a vaga ate a thread fechar. A sessao que volta a trabalhar tem atividade depois do Stop
+ * e volta a ocupar.
+ */
+function turnoEncerrado(eventos: EventoLedger[], sessionId: string, desde: string, agora: string): boolean {
+  const despacho = [...eventos].reverse().find((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada && e.sessionId === sessionId);
+  if (!despacho) return false;
+  // Carregado na hora: `parado-no-condutor` importa este modulo, e o import no topo fecharia um ciclo de modulos.
+  const { fimDoTurno } = require('./parado-no-condutor') as typeof import('./parado-no-condutor');
+  const fim = fimDoTurno(eventos, despacho);
+  return !!fim && fim.tipo !== 'outro' && fim.sessionId === sessionId && Date.parse(fim.em) >= Date.parse(desde) &&
+    minutos(fim.em, agora) >= CARENCIA_DO_TURNO_ENCERRADO_MIN;
 }
 
 /** A thread tem pausa humana ABERTA? Mesmas tres fontes do monitor, resumidas. */
 function pausaHumanaAberta(
   thread: Thread,
   eventos: EventoLedger[]
-): { desdeEm: string; evidencia: string } | null {
+): { desdeEm: string; evidencia: string; correcao?: string } | null {
   if (thread.status === 'pausada' && faseTemPausaPrevista(thread)) {
     return { desdeEm: thread.atualizadaEm, evidencia: 'thread.json (status: pausada)' };
   }
@@ -181,11 +210,16 @@ function pausaHumanaAberta(
       );
     });
     if (resolvida) continue;
+    // Ensaio de 03/10/2026 (RM-049): a escalada traz a correcao gravada no gate (no impedimento do dono,
+    // o comando dele e o `ork retry run`); o board a mostra, em vez de um `ork gate request` que o
+    // modo sem pausa prevista recusa.
+    const correcao = escalada && typeof e.correcao === 'string' && e.correcao !== '' ? e.correcao : undefined;
     return {
       desdeEm: e.ts,
       evidencia: prevista
         ? `ledger ${TIPOS_DE_EVENTO.pausaHumana} (${PAUSA_PREVISTA}) em ${e.ts}`
-        : `ledger ${TIPOS_DE_EVENTO.gateBloqueado} (human.pending) em ${e.ts}`,
+        : `ledger ${TIPOS_DE_EVENTO.gateBloqueado} (${String(e.motivo)}) em ${e.ts}`,
+      ...(correcao ? { correcao } : {}),
     };
   }
   return null;
@@ -297,6 +331,7 @@ export function avaliarOcupacao(
         `pausa humana aberta ha ${minutos(pausa.desdeEm, opcoes.agora)} min: ` +
         'esperar veredito humano nao ocupa vaga da maquina',
       evidencia: pausa.evidencia,
+      ...(pausa.correcao ? { correcao: pausa.correcao } : {}),
     };
   }
 

@@ -15,6 +15,8 @@ import * as path from 'node:path';
 import { init } from '../src/init';
 import { carregarManifesto } from '../src/manifest';
 import { checar, checarOnboarding } from '../src/doctor';
+import { checarAnalisadoresDoGrafo } from '../src/intelligence-graph-cli';
+import { VERSAO_DO_ORK } from '../src/versao';
 import { exec, shaCurto } from '../src/util';
 import { avaliarPolicies } from '../src/policies';
 import { gravarEtapa } from '../src/onboarding';
@@ -314,7 +316,9 @@ test('ensaio 050: amostras do quickstart batem com a saida do ork do HEAD', () =
     assert.equal(normalizar(gate.stdout, dir), normalizar(amostraDepoisDe(doc, 'ork gate next prd-corrigirofil --proximo GO\n')));
 
     // O doctor depende da maquina (versoes, caminhos, runtimes): conferem os rotulos e o veredito.
-    const nomes = new Set([...checar(semManifesto), ...checar(dir)].map(c => c.nome));
+    // RM-031: como o `ork doctor` do index.ts, que passa ao doctor o check dos analisadores do grafo.
+    const doGrafo = () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK);
+    const nomes = new Set([...checar(semManifesto, undefined, undefined, undefined, doGrafo), ...checar(dir, undefined, undefined, undefined, doGrafo)].map(c => c.nome));
     const amostras = [...doc.matchAll(/```text\n(ork doctor: o que vale nesta maquina agora\n[\s\S]*?)\n```/g)].map(m => m[1]);
     assert.equal(amostras.length, 2, 'antes e depois do ork init');
     for (const a of amostras) {

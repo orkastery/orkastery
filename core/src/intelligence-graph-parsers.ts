@@ -6,10 +6,12 @@
  * `typescript` e os pacotes do micromark so valem dentro da instalacao do `ork` que roda (o
  * `node_modules` do pacote `@orkastery/cli` que contem este modulo), nunca do diretorio atual, do
  * `NODE_PATH` nem de uma pasta acima, como a do projeto que instalou o `ork` como dependencia: o
- * repositorio lido e dado, e codigo dele nunca e carregado. Eles nao sao dependencias de runtime do
- * pacote publicado (D1: dependencia nova e decisao de produto); onde faltam ou estao fora da
- * instalacao, a recusa e `grafo.parser.indisponivel: <pacote>`. `pacotesDosAnalisadores` lista o
- * fecho de dependencias deles, com versao, para a chave do indice (CHECK rodada 1, A10).
+ * repositorio lido e dado, e codigo dele nunca e carregado. Desde a correcao de empacotamento da
+ * RM-031 eles sao dependencias de runtime do pacote publicado, com versao exata, e o
+ * `npm install -g` os poe dentro da instalacao; onde faltam ou estao fora dela (o `ork` instalado
+ * dentro de um projeto ou pelo `npx`, que icam as dependencias), a recusa e
+ * `grafo.parser.indisponivel: <pacote>`, e o `ork doctor` diz a correcao. `pacotesDosAnalisadores`
+ * lista o fecho de dependencias deles, com versao, para a chave do indice (CHECK rodada 1, A10).
  *
  * O juiz de sintaxe e o V8 do Node que roda a extracao, o mesmo que carregaria o arquivo. CommonJS
  * compila aqui, em funcao com as variaveis do modulo, como o carregador faz. ESM compila num unico

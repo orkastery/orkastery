@@ -110,7 +110,7 @@ test('nome desconhecido e host sem cwd com dois projetos recusam na saida 4, com
       const proprio = ork(usuario, gateway.dir, args, host);
       assert.notEqual(proprio.status, 4, `${args.join(' ')}: a resolucao do projeto nao pode recusar ${proprio.stderr.slice(0, 200)}`);
       assert.doesNotMatch(proprio.stderr, /projeto\.(escolha|nenhum|desconhecido)/);
-      assert.doesNotMatch(proprio.stderr, /^comando desconhecido: network/);
+      assert.doesNotMatch(proprio.stderr, /^(comando desconhecido|unknown command): network/);
     }
   } finally { a.limpar(); gateway.limpar(); fs.rmSync(vazio, { recursive: true, force: true }); fs.rmSync(usuario, { recursive: true, force: true }); }
 });

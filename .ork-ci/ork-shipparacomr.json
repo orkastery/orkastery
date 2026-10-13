@@ -1,0 +1,113 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-shipparacomr",
+  "branch": "ork/ork-shipparacomr-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-shipparacomr",
+      "fase": "GO",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "ship() recusa remoto que não é nome de remoto com ship.remoto-invalido antes de qualquer git: sem merge, sem ship_done, e shaNoRemoto/remotoConfigurado também recusam",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='antes de qualquer git' core/dist-test/test/ship-remoto-validado.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:18:13.704Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-shipparacomr",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "ork ship <thread> --para recusa --remoto ruim e --remoto sem valor com ship.remoto-invalido, sem tocar a main",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='a CLI recusa' core/dist-test/test/ship-remoto-validado.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:18:14.062Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-shipparacomr",
+      "fase": "GO",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "remoto legítimo (meu-remoto.2) empurra e prova o push, com -- antes do remoto em push e ls-remote",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='nome legitimo' core/dist-test/test/ship-remoto-validado.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:18:14.424Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-shipparacomr",
+      "fase": "GO",
+      "arquivo": "core/src/parado-no-condutor.ts",
+      "alegacao": "a leitura da forja do pulse não leva remoto inválido ao git nem ao gh, e usa -- antes do remoto",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='pulse' core/dist-test/test/ship-remoto-validado.test.js && grep -c \"'remote', 'get-url', '--', remoto\" core/src/parado-no-condutor.ts | grep -qx 3"
+      ],
+      "criadoEm": "2026-10-03T04:18:15.119Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-shipparacomr",
+      "fase": "GO",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "as suítes de ship, remoto da fábrica, registrar-pr, forja do pulse e merge incorporado seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/ship.test.js core/dist-test/test/remoto-linha-de-comando.test.js core/dist-test/test/branch-de-estado-remoto.test.js core/dist-test/test/rm037-fatia5-forja-sem-leitura.test.js core/dist-test/test/rm037-fatia5-merge-incorporado.test.js core/dist-test/test/ensaio-050-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:18:15.427Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-shipparacomr",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "CHANGELOG traz a linha de segurança do ship --para em Não publicado e o guia de várias máquinas documenta a recusa",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -q 'ork ship --para. validado antes do git' CHANGELOG.md && grep -q 'ork ship <thread> --para <branch>' docs/guias/varias-maquinas.md"
+      ],
+      "criadoEm": "2026-10-03T04:18:15.732Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-shipparacomr",
+      "fase": "GO",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "branch de origem (opção de) cujo nome começa com hífen é mergeada pelo sha verificado, sem virar opção do git merge",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='mergeado pelo sha' core/dist-test/test/ship-remoto-validado.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:18:49.565Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

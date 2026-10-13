@@ -20,9 +20,13 @@ import { contextoHitl, abrirPedidoGate } from './hitl-gates';
 import { CAMPOS_DA_DECISAO_NO_MCP, estadoDoPedido, recusaNaSuperficie, respostaAceitaDoPedido } from './hitl-contract';
 import { apresentarDecisao, ofertaDoPedido, pedidoHitlAberto, prazoLocalDoPedido } from './hitl-presentation';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
-import { montarPanoramaDaRede, textoDoPanoramaDaRede } from './network-roadmap';
+import { filaDoDono } from './pulse';
+import { montarPanoramaDaRede, redeDoProjetoFixado, textoDoPanoramaDaRede } from './network-roadmap';
+import { jsonDaRede, textoDaRede } from './rede-status';
 import { controleNativo } from './hitl-sessions';
 import { criarIngressoLocal } from './hitl-local';
+import { criarIngressoDaNota } from './master-nota-local';
+import { CONTRATO_DA_ENTREGA, confirmarNoReceptor, conferirNoReceptor, LIMITE_DA_MENSAGEM, novaCaixaDeSaida } from './entrega-por-mod';
 import {lerArtefatoMcp,escreverArtefatoMcp,listarClaimsMcp,adicionarClaimMcp,validarArquivosEstadoMcp} from './mcp-artifacts';
 import {commitMcp,estadoGitMcp} from './mcp-git';
 import {preflight} from './preflight';
@@ -30,6 +34,7 @@ import {exigirModoVivo,ORDEM_DOS_MODOS} from './modos';
 import {VERSAO_DO_ORK} from './versao';
 import {verificarMcp} from './mcp-verify';
 import { conducaoDaThread, ErroDeConducao } from './conducao';
+import { ErroDaFilaPesada } from './fila-pesada';
 import { registrarDecisao } from './decisao-autonoma';
 import { linhaDeConducao } from './conducao-texto';
 import {criarPerfilShipMcp,PerfilShipMcp,shipMcp} from './mcp-ship';
@@ -43,6 +48,7 @@ import { consultaDoProjeto, ErroDeProjeto, FORA_DA_CONSULTA, PADRAO_DO_NOME_DE_P
   remotoDoProjeto } from './projeto-alvo';
 import { registrarConsultasExperiencia } from './mcp-experiencia';
 import { grafoLigado, registrarConsultasDoGrafo } from './mcp-grafo';
+import { registrarConsultasDoConhecimento } from './mcp-conhecimento';
 
 const identidade = z.string().min(1).max(80).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 const daThread = z.object({ threadId: identidade }).strict();
@@ -262,7 +268,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   function registrarTool<S extends z.AnyZodObject>(nome:string,
     config:{description:string;inputSchema:S;annotations:Tool['annotations']},
     executar:(args:z.infer<S>,extra:{signal:AbortSignal})=>Promise<CallToolResult>) {
-    if(opcoes.threadId && ['ork_thread_new','ork_phase_run','ork_request_decision','ork_preflight'].includes(nome)) return;
+    if(opcoes.threadId && ['ork_thread_new','ork_phase_run','ork_request_decision','ork_request_master_note','ork_preflight'].includes(nome)) return;
     const entrada=config.inputSchema.extend({projeto:campoProjeto.optional()});
     const schema=converterSchema(entrada,{$refStrategy:'none'});
     ferramentas.set(nome,{tool:{name:nome,description:config.description,annotations:config.annotations,
@@ -283,7 +289,11 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       return {...resposta({erro:(e as Error).message}),isError:true};
     }
   });
-  const ingresso = criarIngressoLocal(raiz,{host:opcoes.host,connectionId:randomUUID()},async (pedido,signal) => {
+  const conexaoLocal=randomUUID();
+  // RM-059 (F9, G3): a caixa de saida do Mensageiro de Sessoes so existe no servidor do dono do Claude Code, na memoria:
+  // a resposta a uma sessao claude-bg que entra pelo dialogo deste servidor sai por ela, e o texto nunca vai a disco.
+  const caixa = opcoes.host==='claude-code' && !opcoes.threadId ? novaCaixaDeSaida() : null;
+  const ingresso = criarIngressoLocal(raiz,{host:opcoes.host,connectionId:conexaoLocal},async (pedido,signal) => {
     carregar(); thread(pedido.thread);
     // D12: pergunta nativa que aceita texto NAO vira menu. Um menu sobre pergunta aberta
     // muda a pergunta, e a resposta que chega a sessao deixa de ser a do humano.
@@ -303,10 +313,20 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     if (r.action !== 'accept') return {action:r.action};
     const parsed = z.object({opcao:z.string().min(1).max(limite)}).strict().parse(r.content);
     return {action:'accept',content:parsed};
-  });
-  server.onclose = () => ingresso.fechar();
+  },{caixa});
+  // RM-059 (fatia F8, T8.1): a nota do MASTER pelo mesmo ingresso local. O formulario e fixo (a nota de 0 a 5 e o
+  // porque); sem a capacidade de formulario no cliente, a recusa vem antes de qualquer escrita.
+  const ingressoDaNota = criarIngressoDaNota(raiz,{host:opcoes.host,connectionId:conexaoLocal},async (apresentacao,signal) => {
+    carregar(); thread(apresentacao.thread);
+    const r = await server.elicitInput({ mode:'form', message:apresentacao.mensagem,
+      requestedSchema:apresentacao.esquema },{signal,timeout:300000});
+    return r.action === 'accept' ? {action:'accept',content:r.content} : {action:r.action};
+  },()=>Boolean(server.getClientCapabilities()?.elicitation?.form));
+  server.onclose = () => { ingresso.fechar(); ingressoDaNota.fechar(); };
   registerBrainTools(registrarTool,carregar,thread,opcoes.brainWrites??[]);
   registrarConsultasExperiencia(registrarTool, { raiz, carregar, transporte: opcoes.transporteShip ?? 'github-ssh' });
+  // RM-026 K7 (fatia 2): o conhecimento escrito, só leitura, do projeto fixado; também na sessão filha vinculada.
+  registrarConsultasDoConhecimento(registrarTool, carregar);
   registerMaestro(registrarTool,{root:raiz,threadId:opcoes.threadId,load:carregar,checkThread:thread,tools:()=>[...ferramentas.keys()]});
   registrarTool('ork_preflight',{description:'Preflight contextual por modo e bloco, sem inventário global/modelos. Não autoriza despacho nem comprova entrega.',
     inputSchema:z.object({modo:modoDeConducao}).strict(),annotations:{readOnlyHint:true}},async({modo})=>{
@@ -331,6 +351,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       } catch(e) {
         // I-36 (T18): a mesma recusa tipada do CLI, com o mesmo texto, sem reescrever nada no host.
         if(e instanceof ErroDeConducao) return {...resposta(e.recusa),isError:true};
+        // RM-058 N2 (A6 do CHECK): a fila pesada que nao deu a vez no prazo responde como a conducao.
+        if(e instanceof ErroDaFilaPesada) return {...resposta(e.recusa),isError:true};
         throw e;
       }
     });
@@ -339,7 +361,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       paths:z.array(z.string().min(1).max(512)).min(1).max(32),mensagem:z.string().trim().min(1).max(2048)}).strict(),
     annotations:{readOnlyHint:false,destructiveHint:false}},async(args,extra)=>{
       thread(args.threadId);livre(args.threadId);
-      const r=await commitMcp(raiz,args,extra.signal);return {...resposta(r),...(r.ok?{}:{isError:true})};
+      const r=await commitMcp(raiz,args,extra.signal,opcoes.dispatchId);return {...resposta(r),...(r.ok?{}:{isError:true})};
     });
   const documento=daThread.extend({tipo:z.enum(['goal','plan','check'])}).strict();
   registrarTool('ork_artifact_read',{description:'Le documento GOAL, PLAN ou CHECK da thread, com hash para revisao; nao le caminhos arbitrarios.',
@@ -401,7 +423,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       // RM-052: origem `instalacao`; o servidor fixado nao revela os outros projetos da maquina.
       const consulta=consultaDoProjeto(c,{origem:'instalacao',outrosProjetos:false,
         lido:['roadmap (docs/roadmap)',FORA_DA_CONSULTA.threadsDaMaquina],naoLido:[FORA_DA_CONSULTA.reservas,'threads de outras máquinas (ork network roadmap)']});
-      const status=montarStatusDoRoadmap(raiz,{projeto:c.manifesto.project.name,consulta});
+      // RM-063 (F2): a mesma fila do `ork pulse`; a consulta que falha e dita no fecho, nunca "Nada agora".
+      const status=montarStatusDoRoadmap(raiz,{projeto:c.manifesto.project.name,consulta,fila:(quando)=>filaDoDono(c,{quando})});
       return resposta({texto:textoDoStatusDoRoadmap(status),status});
     });
   /**
@@ -413,6 +436,16 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       carregar();
       const panorama=montarPanoramaDaRede({fixado:raiz});
       return resposta({texto:textoDoPanoramaDaRede(panorama),panorama});
+    });
+  /**
+   * RM-054 (fatia 3): as maquinas da pessoa (RM-053, `ork.rede-status/v1`), com a fonte, a batida e as
+   * lacunas. O retrato de cada maquina fica so com o projeto servido (D5 da RM-052).
+   */
+  registrarTool('ork_network_status',{description:'Status da Orkastery Network, somente leitura: as maquinas da pessoa (casa privada na forja), com a batida de cada uma, a forja e o login, os runtimes e hosts com versao e o projeto servido em cada uma, mais a fonte e as lacunas. Transporte o texto como vem. Lacuna e "Nao consultado" sao o que nao foi lido: nunca conclua "nenhuma maquina" nem "rede vazia" a partir deles. Nao le roadmap nem threads: para isso, ork_network_roadmap.',
+    inputSchema:z.object({}).strict(),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:true}},async () => {
+      carregar();
+      const status=redeDoProjetoFixado(raiz);
+      return resposta({texto:textoDaRede(status),status:JSON.parse(jsonDaRede(status))});
     });
   registrarTool('ork_observe',{description:'Observa uma vez o progresso canonico e pedidos da thread. Nao cria monitor ou despacho.',
     inputSchema:daThread,annotations:{readOnlyHint:true}},async ({threadId}) => {
@@ -448,6 +481,32 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     inputSchema:daDecisao,annotations:{readOnlyHint:false,destructiveHint:false}},async ({threadId,pedidoId},extra) => {
       thread(threadId); return resposta(await ingresso.solicitar(threadId,pedidoId,extra.signal));
     });
+  registrarTool('ork_request_master_note',{description:'Pede ao dono, pelo dialogo nativo do host, a nota de 0 a 5 e o porque de uma entrega. Somente o threadId; nunca forneca nota nem porque nos argumentos.',
+    inputSchema:daThread,annotations:{readOnlyHint:false,destructiveHint:false}},async ({threadId},extra) => {
+      thread(threadId); return resposta(await ingressoDaNota.solicitar(threadId,extra.signal));
+    });
+  // RM-059 (F9, T9.1): o Mensageiro de Sessoes nas duas pontas. Nenhuma das duas entra no --allowedTools do modelo (D8):
+  // quem chama e o mod ork-mensageiro, e nenhuma responde, aprova ou abre pedido.
+  if(caixa) registrarTool('ork_session_outbox',{description:'Caixa de saida do Mensageiro de Sessoes nesta sessao do dono: lista as respostas do dono que esperam ir a uma sessao de fase claude-bg (listar marca o Mensageiro vivo) e anota o resultado do envio. Nao responde, nao aprova nem abre pedido.',
+    inputSchema:z.object({operacao:z.enum(['listar','enviada']),threadId:identidade.optional(),envioId:z.string().uuid().optional(),
+      entregue:z.boolean().optional(),motivo:z.string().max(1000).optional()}).strict(),
+    annotations:{readOnlyHint:false,destructiveHint:false}},async(args)=>{
+      if(args.operacao==='listar') {carregar(); return resposta({contrato:CONTRATO_DA_ENTREGA,entregas:caixa.listar(raiz)});}
+      if(!args.threadId || !args.envioId || args.entregue===undefined) throw Error('mcp.outbox.args: enviada exige threadId, envioId e entregue');
+      thread(args.threadId);
+      return resposta({contrato:CONTRATO_DA_ENTREGA,entrega:caixa.anotarEnvio(raiz,args.threadId,args.envioId,args.entregue,args.motivo)});
+    });
+  if(opcoes.threadId && opcoes.dispatchId) {
+    const despacho=opcoes.dispatchId;
+    registrarTool('ork_session_inbox',{description:'Lado receptor do Mensageiro de Sessoes na sessao de fase deste despacho: confere e reserva uma vez a resposta do dono que chegou de outra sessao (conferir, com o prazo ate) e, depois de ela entrar na fila, grava o recibo (confirmar). A sessao sai do despacho deste servidor, nunca de argumento. Nao responde nem aprova pedido.',
+      inputSchema:daThread.extend({operacao:z.enum(['conferir','confirmar']),texto:z.string().max(LIMITE_DA_MENSAGEM),
+        envioId:z.string().uuid().optional(),ate:z.string().max(40).optional()}).strict(),
+      annotations:{readOnlyHint:false,destructiveHint:false}},async({threadId,operacao,texto,envioId,ate})=>{
+        thread(threadId);
+        return resposta(operacao==='conferir' ? conferirNoReceptor(raiz,threadId,despacho,texto,ate)
+          : confirmarNoReceptor(raiz,threadId,despacho,envioId,texto));
+      });
+  }
   // RM-031 KG5 (D2): as tools do grafo so existem com a flag do manifesto da raiz no startup; sem ela, nada muda.
   // CHECK rodada 1 (S8): o startup le so o manifesto, como antes; as conferencias de estado ficam na chamada.
   if(grafoLigado(exigirManifesto(raiz).manifesto)) registrarConsultasDoGrafo(registrarTool,{raiz,carregar,thread});

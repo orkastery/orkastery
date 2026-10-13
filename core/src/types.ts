@@ -164,6 +164,11 @@ export interface Manifesto {
     provider_policy: string;
     /** Sandbox do runtime codex (`read-only` | `workspace-write` | `danger-full-access`). */
     sandbox: string;
+    /**
+     * RM-059 (T10.4): agent teams no despacho do GO, só no piloto, com o teto de teammates e o de custo da sessão
+     * em dólares. Ausente: desligado, o padrão. Só existe com `ligado: true` e os dois tetos válidos no manifesto.
+     */
+    agent_teams?: { teammates: number; custo_usd: number };
   };
   conduction: {
     default_mode: Modo;
@@ -214,6 +219,11 @@ export interface Manifesto {
      * uma thread despachada deixa de ocupar vaga do escalonador (`vaga.stale`).
      */
     stale_after_min: number;
+    /**
+     * RM-058 N2 (D9 da ork-rm058n2): quantas operacoes pesadas (verify e baseline) rodam ao mesmo tempo nesta
+     * raiz de estado, na fila com trava do kernel. 0 desliga a fila.
+     */
+    max_parallel_heavy: number;
   };
   handoff: {
     rotate_above: number;
@@ -268,8 +278,10 @@ export interface Manifesto {
     cli: string;
     /** Tenant/produto dono da base. Vazio herda `project.name`. */
     tenant: string;
-    /** Timeout de cada chamada ao OrkMind, em ms. Estourou, degrada para `files`. */
+    /** Timeout geral de chamada ao OrkMind, em ms (universo tem prazo proprio). */
     timeout_ms: number;
+    /** Prazo da leitura das cinco colecoes; padrao 90.000 ms. */
+    universo_timeout_ms?: number;
     /** I-38 (D5): embeddings da busca por significado. Ausente vale `provider: none`. */
     embedding?: ConfigDeEmbedding;
   };
@@ -300,6 +312,15 @@ export interface Manifesto {
    */
   grafo: {
     mcp: boolean;
+  };
+  /**
+   * RM-026 K7 (D1): a pasta dos documentos `ork.conhecimento/v1`, relativa a raiz. Ausente: o projeto nao
+   * declarou conhecimento (nao ha pasta padrao). `dir` vazio: o bloco veio fora do formato. A regra do caminho
+   * (dentro da raiz pelo caminho real, sem seguir link) mora no leitor, `conhecimento.ts`, que recusa com lacuna
+   * tipada.
+   */
+  conhecimento?: {
+    dir: string;
   };
   policies?: Record<string, string>;
 }
@@ -375,6 +396,12 @@ export interface Thread {
    * timeout, a mesma captura de saida e o mesmo registro de evidencia.
    */
   doneWhen?: CriterioDePronto[];
+  /**
+   * RM-059 (T6.0): o pedido do builder guardado na criacao (`ork thread new --pedido`). O texto mora em
+   * `pedido.md` na pasta da thread, e o sha256 prova que ninguem o editou fora do nucleo. Ausente na
+   * thread criada sem pedido, que segue recebendo o pedido a cada render.
+   */
+  pedido?: PedidoDaThread;
   /** Decisoes D1..Dn fechadas com o humano (bloco B2 alimenta; o handoff ja le). */
   decisoes: DecisaoDaThread[];
   /** Ids das claims da thread; o corpo vive em `claims.jsonl` (append-only). */
@@ -393,6 +420,13 @@ export interface Thread {
   score?: ScoreHumano | null;
   score_proposto?: ScoreProposto | null;
   fechamentoAdmin?: { motivo: MotivoFechamentoAdmin; por: string; justificativa: string; fechadoEm: string };
+}
+
+/** RM-059 (T6.0): onde o pedido guardado mora e os bytes que ele tinha na criacao. */
+export interface PedidoDaThread {
+  arquivo: 'pedido.md';
+  sha256: string;
+  bytes: number;
 }
 
 /** Decisao fechada com o humano. `locked` vai inline em todo handoff da thread. */
@@ -541,6 +575,7 @@ export type MotivoGate =
   | 'cost.violation'
   | 'tree.blocked'
   | 'lease.busy'
+  | 'lease.resume-unavailable'
   /**
    * I-36 (RM-036, D2): outra conducao ja executa na worktree desta thread. Nao e reprovacao nem
    * falha: e a resposta util ao segundo pedido, com quem conduz e as tres acoes possiveis.
@@ -622,6 +657,21 @@ export interface ResultadoDeComando {
    * que nao rodou, e ele nunca vira verificado. Ausente so em baseline gravada antes da I-54.
    */
   executado?: boolean;
+  /**
+   * RM-037 (fatia 6): steal da CPU na janela do comando, em %, lido de `/proc/stat`. `null` sem
+   * medida (sem `/proc/stat`, janela vazia). Ausente em resultado anterior a fatia 6.
+   */
+  stealPct?: number | null;
+  /**
+   * RM-037 (fatia 6): os testes que reprovaram, cada um com a natureza da falha (estouro do relogio
+   * do runner ou nao). So em comando que falha e cujo runner nomeia os testes.
+   */
+  falhasDeTeste?: { nome: string; relogio: boolean }[];
+  /**
+   * RM-037 (fatia 6): a reprovacao foi so de teste com relogio, sob steal acima de 40%. Os nomes. O
+   * verify trata como `verify.timeout` (sem veredito, o retry reexecuta), nunca como regressao.
+   */
+  relogioSobSteal?: string[];
 }
 
 /** Baseline gravada antes do GO: separa regressao de divida pre-existente. */
@@ -1329,8 +1379,14 @@ export interface EstadoDeEmbeddings {
   indices: IndiceDeEmbeddings[];
   /** Entradas do tenant nas colecoes do ork; null fora do `memory status`. */
   entradas: number | null;
-  /** Coerentes do indice ativo / entradas do tenant; null fora do `memory status`. */
+  /** Coerentes do indice ativo / entradas do universo da busca; null fora do `memory status`. */
   cobertura: number | null;
+  /** RM-038: o universo da busca por colecao e o que fica fora dele; null sem leitura do universo. */
+  universo: { porColecao: Record<ColecaoDoOrk, number>; foraDaBusca: ForaDaBusca | null; latenciaMs?: number } | null;
+  /** RM-038: o indice ativo cobre menos que o universo da busca; null quando cobre tudo ou sem universo. */
+  aviso: string | null;
+  /** RM-038: codigo tipado quando o universo nao foi lido inteiro (a cobertura fica null, nunca inventada). */
+  falhaDoUniverso: string | null;
   ativo: 'primario' | 'fallback' | 'nenhum';
   /** true quando o estado veio da operacao `health` da ponte, nao de suposicao. */
   sondado: boolean;
@@ -1366,6 +1422,35 @@ export interface EntradaDeMemoria {
   author_id?: string | null;
   visibility?: string;
   protected?: boolean;
+  /** Governanca recebida da biblioteca, reconferida antes do embed. */
+  injection_risk?: boolean;
+  expires_at?: string | null;
+}
+
+/** RM-038: entradas do tenant que ficam fora do universo da busca, so a contagem e o porque. */
+export interface ForaDaBusca {
+  /** Ativas com `injection_risk` (a leitura governada as tira; nunca vao ao embed). */
+  injecao: number;
+  expiradas: number;
+  /** Do tenant, em colecoes fora da busca do `ork` (fora de COLECOES_DO_ORK; a ponte grava session e semantic_log). */
+  outrasColecoes: number;
+}
+
+/**
+ * RM-038: o universo da busca e do indice, lido de uma vez e conferido (domicilio unico:
+ * `universoDaBusca` em `indice-vetorial.ts`). Indice, vetor, FTS e status usam este conjunto.
+ */
+export interface UniversoDaBusca {
+  tenant: string;
+  /** Instante anterior a leitura, em ms desde epoch; referencia unica para a expiracao. */
+  lidoEm: number;
+  /** Ordenadas por colecao e id. */
+  entradas: EntradaDeMemoria[];
+  porColecao: Record<ColecaoDoOrk, number>;
+  /** null quando a base nao mede (backend sem a contagem). */
+  foraDaBusca: ForaDaBusca | null;
+  /** Tempo monotonico da leitura pelo transporte, incluindo o subprocesso; ausente se nao medido. */
+  latenciaMs?: number;
 }
 
 /** O que o `ork` manda gravar (o id e a data quem carimba e o OrkMind). */
@@ -1594,6 +1679,15 @@ export interface PlanoDeRetry {
   automatica: boolean;
   bloqueio: BloqueioDeRetry | null;
   razao: string;
+  /**
+   * RM-063 (F4): so em `runtime.unavailable`, a escada de recuperacao do episodio: o proximo degrau (`null` com os
+   * tres consumidos) e os degraus ja subidos desde o ultimo pedido novo da fase.
+   */
+  escada?: {
+    degrau: 1 | 2 | 3 | null;
+    tipo: 'reerguer-daemon' | 'fallback-do-bloco' | 'outro-perfil' | null;
+    consumidos: { degrau: 1 | 2 | 3; tipo: string; resultado: 'redespachada' | 'falhou' | 'pulado' | 'interrompido'; em: string }[];
+  };
 }
 
 /** Como o horario de reset do rate limit foi obtido do stderr do adapter. */
@@ -1792,6 +1886,16 @@ export interface ParadaDaThread {
    * `ork` faz depois. Ausente em qualquer outra parada.
    */
   impedimento?: { comando: string; depois: string; trecho: string };
+  /**
+   * RM-063 (F4): a escada de recuperacao do runtime que acabou sem sessao: os degraus, o comando que confere o runtime,
+   * o que retoma a fase com o mesmo prompt e as alternativas da RM-057 (uma recomendada).
+   */
+  escada?: {
+    degraus: { degrau: 1 | 2 | 3; tipo: string; resultado: string; motivo: string | null }[];
+    conferir: string;
+    retomar: string;
+    alternativas: { chave: string; texto: string; consequencia: string; recomendada?: { porque: string } }[];
+  };
 }
 
 /** Uma thread na visao do monitor, com tudo que a trava agora. */

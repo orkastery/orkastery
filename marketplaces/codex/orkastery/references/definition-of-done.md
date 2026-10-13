@@ -54,7 +54,7 @@ flowchart LR
 
 | # | Verificacao | Como se comprova |
 |---|---|---|
-| 16 | Existe MASTER log valido contra o contrato congelado `ork.master-log/v1`, com POSTMORTEM tipado, classes de falha do catalogo fixo, score inteiro de 0 a 5 e justificativa nao vazia. Uma entrega sem MASTER log nao aconteceu. | `ork master <thread> --score N --justificativa "<texto>"`. O comando recusa score fora da escala, score sem justificativa e classe fora do catalogo, e nao grava nada quando recusa. |
+| 16 | Existe MASTER log valido contra o contrato congelado `ork.master-log/v1`, com POSTMORTEM tipado, classes de falha do catalogo fixo, score inteiro de 0 a 5 e justificativa nao vazia. Uma entrega sem MASTER log nao aconteceu. | `ork master <thread> --score N --justificativa "<texto>" --por <quem>`. O comando recusa score fora da escala, score sem justificativa, score sem autoria humana em `--por` e classe fora do catalogo, e nao grava nada quando recusa. |
 
 ## Toda thread, no seu inicio
 

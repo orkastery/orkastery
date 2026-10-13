@@ -141,6 +141,8 @@ test('bundle separa claims do host sem fingir que o runner hospedado as executou
     'bash core/scripts/prova-busca-semantica.sh | grep -qF x',
     // RM-051: o ensaio instala o tarball com npm --offline e exige o cache do npm da estacao.
     'node core/scripts/testar-experiencia-e2e.cjs',
+    // RM-037: a contagem da suite local inteira.
+    'node core/scripts/suite-local.cjs --minimo-de-skips 1',
   ]) assert.equal(motivoDiferimentoCi({ ...base, verificar: [comando] }, p.dir), 'local-integration-required', comando);
   for (const comando of [
     'npm --prefix core run test:ci',

@@ -23,7 +23,7 @@ import { pegarItem } from '../src/roadmap-reservas';
 import { montarStatusDoRoadmap } from '../src/roadmap-status';
 import { dirThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
-import { dirTemporario, projetoTemporario } from './apoio';
+import { comAmbientePtBr, dirTemporario, projetoTemporario } from './apoio';
 
 const QUANDO = '2026-09-29T23:10:00.000Z'; // 29/09 20:10 em Brasilia
 const antes = (min: number): string => new Date(Date.parse(QUANDO) - min * 60000).toISOString();
@@ -130,10 +130,13 @@ test('rede: agrega roadmap, reservas e threads das duas maquinas, com fonte e ho
     const itens = new Map(x.roadmap!.grupos.flatMap((g) => g.itens.map((i) => [i.id, { ...i, grupo: g.id }])));
     assert.deepEqual([...itens.keys()].sort(), ['RM-001', 'RM-002', 'RM-003', 'RM-004']);
     assert.equal(itens.get('RM-001')!.hitl?.maquina, 'pc-a');
-    assert.deepEqual(itens.get('RM-002')!.conduzindo, { thread: r.anda, fase: 'GOAL', maquina: 'pc-b' });
+    // RM-063 (F2): a pc-b publicou a vida da sessao da thread; sem sessao despachada, ela nao anda e nao ha "sigo".
+    const { vida: daPcB, ...conduzindo } = itens.get('RM-002')!.conduzindo!;
+    assert.deepEqual(conduzindo, { thread: r.anda, fase: 'GOAL', maquina: 'pc-b' });
+    assert.deepEqual([daPcB?.viva, daPcB?.motivo], [false, 'nenhuma sessão despachada na fase GOAL']);
     assert.equal(itens.get('RM-003')!.grupo, 'hoje');
     assert.equal(itens.get('RM-004')!.grupo, 'proposto');
-    assert.deepEqual(x.roadmap!.emSeguida, [{ item: 'RM-002', thread: r.anda, fase: 'GOAL', maquina: 'pc-b' }]);
+    assert.deepEqual(x.roadmap!.emSeguida.map(({ vida: _vida, ...resto }) => resto), [{ item: 'RM-002', thread: r.anda, fase: 'GOAL', maquina: 'pc-b' }]);
 
     // Reservas e maquinas: B pelo retrato (idade da batida), A pelo estado local.
     assert.deepEqual(x.reservas!.map((v) => [v.item, v.maquina, v.thread]), [['RM-002', 'pc-b', r.anda]]);
@@ -159,7 +162,9 @@ test('rede: agrega roadmap, reservas e threads das duas maquinas, com fonte e ho
     assert.equal(linhas[1], `Consultado: orkastery (clone em ${r.a})`);
     assert.ok(linhas.includes('Roadmap do Orkastery (29/09, 20:10)'), texto);
     assert.ok(linhas.includes('• RM-002 Anda na outra maquina (GOAL, pc-b)'), texto);
-    assert.ok(linhas.includes(`• RM-002: sigo ${r.anda} na fase GOAL (pc-b).`), texto);
+    assert.ok(linhas.some((l) => l.startsWith(`• RM-002: ${r.anda} (pc-b) parada desde `) &&
+      l.endsWith(': nenhuma sessão despachada na fase GOAL.')), texto);
+    assert.ok(!linhas.some((l) => l.includes(`sigo ${r.anda}`)), 'sem sessao viva verificada, nada de sigo');
     assert.ok(linhas.some((l) => /^• RM-001 \(pc-a\): Qual é o veredito sobre objetivo\?/.test(l)), texto);
     assert.ok(linhas.includes('• pc-b: 1 ativa(s), retrato de 29/09 20:00 (há 10min)'), texto);
     assert.match(texto, new RegExp(`^• roadmap: docs/roadmap em origin/main @ ${origemMain.slice(0, 7)} \\(commit de \\d{2}/\\d{2} ` +
@@ -381,7 +386,9 @@ test('rede: CLI network roadmap imprime o panorama e --json devolve o contrato',
   const rodar = (dir: string, args: string[]): number => {
     saida = '';
     process.chdir(dir);
-    return main(args);
+    // RM-061 (F3b): `network status` e o uso de `network` seguem o locale; o teste le o texto em pt-BR, e o locale
+    // ativado pelo `main` no proprio processo nao vaza para os testes seguintes.
+    return comAmbientePtBr(() => main(args));
   };
   try {
     process.env.ORK_MAQUINA = 'pc-a';
@@ -406,8 +413,9 @@ test('rede: CLI network roadmap imprime o panorama e --json devolve o contrato',
     assert.equal(rodar(workspace, ['network', 'roadmap', '--projeto', 'orkastery', '--json']), 4);
     assert.equal(JSON.parse(saida).erro, 'projeto.desconhecido');
     // Uso errado sai 2, com a linha de uso.
-    assert.equal(rodar(r.a, ['network']), 2);
-    assert.match(saida, /^uso: ork network roadmap/m);
+    // RM-053: `ork network` sem subcomando e o status da rede; o subcomando desconhecido sai 2.
+    assert.equal(rodar(r.a, ['network', 'nada']), 2);
+    assert.match(saida, /^uso: ork network /m);
     assert.equal(rodar(r.a, ['network', 'roadmap', '--projeto']), 2);
   } finally {
     console.log = log; console.error = erro; process.chdir(cwd);
@@ -432,7 +440,8 @@ test('rede: isolamento, projeto ou estado ilegivel vira lacuna e o resto respond
     assert.deepEqual([pcA.origem, pcA.ativas.map((t) => t.id).sort()], ['estado-local', [boa.id, r.espera].sort()]);
     const itens = new Map(x.roadmap!.grupos.flatMap((g) => g.itens.map((i) => [i.id, i])));
     assert.equal(itens.get('RM-001')!.hitl?.maquina, 'pc-a', 'quem espera o dono continua visivel');
-    assert.deepEqual(itens.get('RM-004')!.conduzindo, { thread: boa.id, fase: 'GOAL', maquina: 'pc-a' });
+    const { vida: _vida, ...conduzindo } = itens.get('RM-004')!.conduzindo!;
+    assert.deepEqual(conduzindo, { thread: boa.id, fase: 'GOAL', maquina: 'pc-a' });
     semVazio(p);
 
     // Um projeto que derruba a leitura vira lacuna dele; o outro projeto do registro segue.

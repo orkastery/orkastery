@@ -47,6 +47,19 @@ ork adapter install hermes --dry-run             # lista o que seria escrito
 | `bin/ork-maestro.sh` | `ork_maestro`: o panorama Maestro do projeto pedido (`ork maestro --json`) |
 | `bin/ork-roadmap-status.sh` | `ork_roadmap_status`: o status report do roadmap so desta maquina (`ork roadmap status`) |
 | `bin/ork-network-roadmap.sh` | `ork_network_roadmap`: o roadmap da rede (`ork network roadmap`), com as threads de todas as maquinas, fonte, hora e lacunas; a fonte do status do roadmap e o panorama da frase `orkastery maestro` sem projeto (RM-054) |
+| `bin/ork-network-status.sh` | `ork_network_status`: as maquinas da pessoa na Orkastery Network (`ork network status`), com a batida, as forjas, os runtimes, os hosts, a fonte e as lacunas; sem projeto (RM-054, fatia 3) |
+| `bin/ork-conhecimento-listar.sh`, `-mostrar.sh`, `-colecoes.sh` e `-verificar.sh` | `ork_conhecimento_listar`, `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar`: o conhecimento escrito do projeto (`ork conhecimento <consulta> --json`), as mesmas tools do MCP e do OpenClaw (RM-026 K7, fatia 3) |
+
+## Conhecimento escrito (RM-026 K7)
+
+Os quatro wrappers `bin/ork-conhecimento-*.sh` sao as tools MCP do conhecimento escrito com os mesmos nomes no
+manifesto: cada um chama `ork conhecimento <consulta> "$@" --json`, com `ORK_PROJETO_EXPLICITO=1` e
+`ORK_CANAL=hermes`, e devolve o JSON do nucleo e a saida dele como vem (saida 1 e a consulta que nao respondeu, com as
+lacunas dizendo por que). O `--json` vai no fim, depois do `<doc-id>` do `mostrar`. A skill manda citar o documento
+pela versao e pela fonte e mostrar cada lacuna como lacuna, nunca como resposta, com a mesma frase das descricoes do
+OpenClaw ([contrato](../../docs/referencia/contratos/conhecimento-rm026.md)).
+
+Verificacao: `python3 -m unittest discover -s adapters/hermes/test -p conhecimento_test.py -v`.
 
 ## Tickets `obj-*` aposentados
 

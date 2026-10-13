@@ -31,6 +31,7 @@ import * as adapter from './adapters/claude-bg';
 import { estadosDeSessao, planejar, threadsDeTodosOsPerfis, perfisDetectados } from './board';
 import { DESCRICAO_DO_MOTIVO } from './gates';
 import { ehEnsaio, lerLedger, TIPOS_DE_EVENTO } from './ledger';
+import { argumentoDeLease } from './leases';
 import { ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
 import {
@@ -42,6 +43,7 @@ import {
 } from './ocupacao';
 import { faltaPara, lerFilaDeRetomada } from './ratelimit';
 import { ehEsperaDoDono, ehImpedimentoDoDono, impedimentoDoEvento } from './impedimento';
+import { escadaDoEvento } from './runtime-escada';
 import { blocoDaThread, dirThread } from './thread';
 import {
   EventoLedger,
@@ -60,6 +62,7 @@ import { agora, tabela } from './util';
 import { duracaoCurta, duracaoRelativa, formatarHora, legendaDoFuso, localizarTexto } from './horario';
 import { conducaoDaThread } from './conducao';
 import { linhaDeConducao } from './conducao-texto';
+import { textoDoCatalogo } from './locale';
 
 
 /** Limite de atencao padrao, em minutos: parada mais velha que isso e destacada. */
@@ -176,19 +179,19 @@ function pausasAbertas(
           fase,
           bloco: blocoDaFase(thread, fase).bloco,
           pausaSobre: sobre,
-          detalhe:
-            sessaoViva === true
-              ? `a sessao ${sessionId.slice(0, 8)} do bloco ainda esta trabalhando no runtime: a pausa chega quando ela terminar`
-              : sessaoEstado === 'blocked'
-                ? `a sessao ${sessionId.slice(0, 8)} do bloco esta BLOQUEADA no runtime esperando acao humana (prompt, permissao ou credencial): veja \`ork sessions hitl\``
-                : `bloco fechado em ${fase ?? '?'}: espera o veredito humano sobre ${sobre || 'a pausa do bloco'}`,
+          // RM-061 (F2b, G2): a parada nasce em pt-BR (o --json do monitor) e o pulse a remonta no locale.
+          detalhe: textoDoCatalogo((m) => sessaoViva === true
+            ? m.pulse.pausaTrabalhando(sessionId.slice(0, 8))
+            : sessaoEstado === 'blocked'
+              ? m.pulse.pausaBloqueada(sessionId.slice(0, 8))
+              : m.pulse.blocoFechado(fase ?? '?', sobre ? m.thread.pausaSobre(sobre) : m.pulse.aPausaDoBloco)),
           evidencia:
             `ledger ${TIPOS_DE_EVENTO.pausaHumana} (${PAUSA_PREVISTA})` +
             `${sessionId ? `, sessao ${sessionId.slice(0, 8)}` : ''}` +
             `${sessaoEstado ? ` em state=${sessaoEstado}` : ''}`,
           correcao:
             sessaoEstado === 'blocked'
-              ? `ork sessions logs ${sessionId.slice(0, 8)} para ver o que a sessao pede, e claude attach ${sessionId} para responder`
+              ? textoDoCatalogo((m) => m.pulse.responderSessao(sessionId.slice(0, 8), sessionId))
               : comandoDeAprovacao(thread.id, sobre),
           desdeEm: e.ts,
           sessaoViva,
@@ -215,6 +218,8 @@ function pausasAbertas(
     if (porFase.has(chave)) return;
     const { bloco, pausaSobre } = blocoDaFase(thread, fase);
     const imp = ehImpedimentoDoDono(e.motivo) ? impedimentoDoEvento(e) : null;
+    // RM-063 (F4): a escada de recuperacao do runtime que acabou chama o dono com as alternativas e o comando que retoma.
+    const escada = !imp && e.motivo === 'human.pending' ? escadaDoEvento(e) : null;
     porFase.set(
       chave,
       parada(
@@ -223,11 +228,13 @@ function pausasAbertas(
           motivo: imp ? (e.motivo as MotivoGate) : 'human.pending',
           fase,
           bloco,
-          pausaSobre: imp ? `rodar \`${imp.comando}\` no terminal` : pausaSobre || 'autorizacao da retomada',
+          pausaSobre: imp ? `rodar \`${imp.comando}\` no terminal` : escada ? 'a escada de recuperacao do runtime'
+            : pausaSobre || 'autorizacao da retomada',
           ...(imp ? { impedimento: imp } : {}),
+          ...(escada ? { escada } : {}),
           detalhe: typeof e.detalhe === 'string' && e.detalhe !== ''
             ? e.detalhe
-            : DESCRICAO_DO_MOTIVO['human.pending'],
+            : textoDoCatalogo((m) => m.pulse.motivos['human.pending']),
           evidencia: `ledger ${TIPOS_DE_EVENTO.gateBloqueado} (gate ${String(e.gate ?? '?')})`,
           correcao: typeof e.correcao === 'string' && e.correcao !== ''
             ? e.correcao
@@ -255,7 +262,7 @@ function pausasAbertas(
           fase: thread.faseAtual,
           bloco,
           pausaSobre: pausaSobre || 'veredito do bloco',
-          detalhe: `thread carimbada como pausada na fase ${thread.faseAtual}`,
+          detalhe: textoDoCatalogo((m) => m.pulse.threadPausada(thread.faseAtual)),
           evidencia: 'thread.json (status: pausada)',
           correcao: comandoDeAprovacao(thread.id, pausaSobre),
           desdeEm: thread.atualizadaEm,
@@ -292,9 +299,9 @@ function impedimentosAbertos(
           fase: thread.faseAtual,
           bloco: blocoDaFase(thread, thread.faseAtual).bloco,
           pausaSobre: '',
-          detalhe: `na fila de ${p.nome}, atras da thread ${p.bloqueadaPor} (colide com ${p.colidiuCom})`,
+          detalhe: textoDoCatalogo((m) => m.pulse.naFilaDoLease(p.nome, p.bloqueadaPor, p.colidiuCom)),
           evidencia: `.orkastery/leases/fila.json (${p.tipo})`,
-          correcao: `espere a thread ${p.bloqueadaPor} liberar (ork lease release ${p.colidiuCom} --thread ${p.bloqueadaPor}), ou reduza a regiao pedida`,
+          correcao: textoDoCatalogo((m) => m.pulse.espereOLease(p.bloqueadaPor, argumentoDeLease(p.colidiuCom), argumentoDeLease(p.bloqueadaPor))),
           desdeEm: p.desdeEm,
           sessaoViva: null,
           fonte: 'fila-de-lease',
@@ -316,9 +323,7 @@ function impedimentosAbertos(
           fase: p.fase,
           bloco: blocoDaFase(thread, p.fase).bloco,
           pausaSobre: '',
-          detalhe:
-            `pedido ${p.id} na fila de rate limit, libera ${faltaPara(p, quando)} ` +
-            `(${p.liberaEm}, ${p.janelaEstimada ? 'janela estimada' : 'hora dita pelo runtime'})`,
+          detalhe: textoDoCatalogo((m) => m.pulse.naFilaDeRateLimit(p.id, faltaPara(p, quando), p.liberaEm, p.janelaEstimada)),
           evidencia: `.orkastery/retry/fila.jsonl (${p.id}, ${p.sinal.fonte})`,
           correcao: `ork retry resume --id ${p.id}`,
           desdeEm: p.criadoEm,
@@ -355,7 +360,7 @@ function impedimentosAbertos(
           pausaSobre: '',
           detalhe: typeof e.detalhe === 'string' && e.detalhe !== ''
             ? e.detalhe
-            : DESCRICAO_DO_MOTIVO[motivo],
+            : textoDoCatalogo((m) => m.pulse.motivos[motivo]),
           evidencia: `ledger ${e.tipo} (gate ${String(e.gate ?? '?')})`,
           correcao: typeof e.correcao === 'string' && e.correcao !== ''
             ? e.correcao

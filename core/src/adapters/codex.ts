@@ -11,6 +11,7 @@ import { exec as executar, noPath } from '../util';
 import { ambienteDeAssinatura, ENVS_DE_PROVIDER_PAGO } from '../runtime-ambiente';
 import { parseFalhaDeConta, parseRateLimit, StatusDeAuth } from './claude-bg';
 import { ambienteComPerfil, diretorioEfetivo, PerfilDeDespacho } from '../runtime-profiles';
+import { textoDoErro } from '../locale';
 
 export const NOME_ADAPTER = 'codex';
 
@@ -128,7 +129,8 @@ export function casaDoCodex(perfil?: PerfilDeDespacho | null): string {
  */
 export function conferirAuth(perfil?: PerfilDeDespacho | null): StatusDeAuth {
   let ambiente: NodeJS.ProcessEnv;
-  try { ambiente = ambienteDoDespacho(process.env, perfil); } catch (e) { return { ok: false, detalhe: (e as Error).message }; }
+  // RM-061 (F3b, GO-FIX 1): o erro do catalogo fica registrado, e a impressao o remonta.
+  try { ambiente = ambienteDoDespacho(process.env, perfil); } catch (e) { return { ok: false, detalhe: textoDoErro(e) }; }
   const r = exec('codex', ['login', 'status'], undefined, 30000, ambiente);
   // A14: sem codigo de saida (timeout, sinal ou binario ausente), a conferencia e inconclusiva.
   if (r.code === -1) return { ok: false, transitorio: true, detalhe: 'codex login status sem resposta (timeout, sinal ou binario ausente)' };
@@ -326,6 +328,16 @@ export function parseRateLimitCodex(saida: string, agoraMs = Date.now()): SinalD
   return { resetEm: null, fonte: 'sem-horario', trecho: linha.trim().slice(0, 200) };
 }
 
+/**
+ * O ambiente do filho do despacho: o do processo, sem provider pago, com o contexto da condução POR
+ * CIMA. RM-052 (fatia 2, D2): a ordem importa, porque e o extra que neutraliza o `ORK_PROJETO` e o
+ * modo host herdados de quem despachou.
+ */
+export function ambienteDoFilho(pedido: Pick<DespachoCodexPedido, 'perfil' | 'ambienteExtra'>,
+    base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  return { ...ambienteDoDespacho(base, pedido.perfil), ...(pedido.ambienteExtra ?? {}) };
+}
+
 /** Despacho governado exige vínculo: nenhum fallback implícito para codex exec. */
 export function despachar(pedido: DespachoCodexPedido): DespachoCodexResultado {
   if (!pedido.vinculo) return { ok: false, comando: [], sessionId: null, verificada: false, stdout: '', stderr: '',
@@ -338,7 +350,7 @@ export function despachar(pedido: DespachoCodexPedido): DespachoCodexResultado {
     } catch (e) { return { ok: false, comando: [], sessionId: null, verificada: false, stdout: '', stderr: '', erro: (e as Error).message }; }
   }
   let ambiente: NodeJS.ProcessEnv;
-  try { ambiente = { ...ambienteDoDespacho(process.env, pedido.perfil), ...(pedido.ambienteExtra ?? {}) }; }
+  try { ambiente = ambienteDoFilho(pedido); }
   catch (e) { return { ok: false, comando: [], sessionId: null, verificada: false, stdout: '', stderr: '', erro: (e as Error).message }; }
   const r = despacharComController(pedido, ambiente);
   if (r.ok) return r;

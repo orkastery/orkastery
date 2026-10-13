@@ -14,7 +14,7 @@ import { instalarAdaptador } from '../src/hosts';
 import { init } from '../src/init';
 import { exigirManifesto } from '../src/manifest';
 import { registrarProjeto } from '../src/projeto-alvo';
-import { dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
+import { dirTemporario, envPtBr, projetoTemporario, ProjetoDeTeste } from './apoio';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 
@@ -26,7 +26,8 @@ function projeto(nome: string, abbrev: string): ProjetoDeTeste {
 }
 
 function sh(script: string, args: string[], cwd: string, env: Record<string, string>) {
-  const base = { ...process.env };
+  // RM-061 (F2b, D13 da F2a): o teste le o texto pt-BR do comando; o filho nao herda o LANG de quem roda.
+  const base = { ...envPtBr(process.env) };
   delete base.ORK_PROJETO; delete base.ORK_PROJETO_EXPLICITO;
   return spawnSync('/bin/sh', [script, ...args], { cwd, encoding: 'utf8', timeout: 60000, env: { ...base, ...env } });
 }
@@ -85,6 +86,18 @@ test('Hermes de ponta a ponta com o ork real: gateway no cwd de outro projeto de
     assert.match(linhas[1], /^Horários (?:de Brasília|em .+)\.$/);
     assert.match(linhas[2], /^Projeto consultado: orkastery \(ork\) · .* · pela opção --projeto$/);
   } finally { process.env.ORK_USUARIO_DIR = anterior; a.limpar(); gateway.limpar(); fs.rmSync(usuario, { recursive: true, force: true }); }
+});
+
+test('RM-052 (fatia 2, L4): a skill do Hermes manda --projeto em todo ork do terminal, dentro do teto de linhas', () => {
+  const p = projeto('orkastery', 'ork');
+  try {
+    const hermes = instalarAdaptador('hermes', { projeto: p.dir });
+    const skill = fs.readFileSync(path.join(hermes.destino, 'skills/orkastery-devmaster/SKILL.md'), 'utf8');
+    // Fora dos wrappers (que declaram o modo host), o `ork` do terminal do Hermes resolvia pelo cwd do gateway.
+    assert.ok(skill.includes('No terminal, todo `ork` de projeto leva `--projeto <nome>` do projeto pedido; sem ele, quem escolhe é o cwd do gateway.'),
+      'a regra do terminal');
+    assert.ok(skill.split('\n').length <= 170, 'a skill do Hermes segue no teto de hosts.test');
+  } finally { p.limpar(); }
 });
 
 test('skill do Hermes, /ork do Claude Code e bootstrap comum: projeto pedido, cabecalho lido e roadmap so da fonte do roadmap', () => {

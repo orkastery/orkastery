@@ -16,24 +16,96 @@
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { TIPOS_DE_ARESTA, canonico, compararUtf8, type Aresta, type GrafoCodigo, type TipoDeAresta } from './intelligence-graph-contract';
+import {
+  TIPOS_DE_ARESTA, canonico, compararUtf8, type Aresta, type EntradaDoManifesto, type GrafoCodigo, type TipoDeAresta,
+} from './intelligence-graph-contract';
 import {
   chaveDoIndice, concessaoLocal, construirIndice, estadoDosIndices, indiceDoHead, lerIndice, limparIndices, perfilDoIndice,
   type ContextoDoIndice, type PerfilDoIndice, type ResultadoDaConstrucao,
 } from './intelligence-graph-index';
+import { carregarAnalisadores, versoesDosAnalisadores, type VersoesDosAnalisadores } from './intelligence-graph-parsers';
 import {
-  CONSULTA_SCHEMA, ErroDeConsulta, caminho, chamadores, filtrarGrafo, importadores, jsonDaResposta, prepararConsulta, textoDaResposta, vizinhos,
-  type CabecalhoDoIndice, type RespostaDeConsulta, type Sentido,
+  CONSULTA_SCHEMA, ErroDeConsulta, TUDO_IGUAL, caminho, chamadores, filtrarGrafo, importadores, jsonDaResposta, prepararConsulta, textoDaResposta, vizinhos,
+  type CabecalhoDoIndice, type RespostaDeConsulta, type Sentido, type SituacaoDaFonte, type SituacaoNaArvore,
 } from './intelligence-graph-query';
 import { headsDasArvores, revisaoDaArvore } from './intelligence-graph-repo';
+import { CONTEXTO_SCHEMA, pacoteDeContexto, type EntradaDoContexto } from './intelligence-graph-contexto';
 
 export const STATUS_SCHEMA = 'ork.code-graph-index-status/v0' as const;
+
+/** As versoes dos analisadores como o `ork grafo status` e o `ork doctor` as mostram. */
+export function descreverVersoes(v: VersoesDosAnalisadores): string {
+  return Object.entries(v).map(([k, x]) => `${k} ${x}`).join(', ');
+}
+
+/** O prefixo das recusas dos analisadores (`intelligence-graph-parsers.ts`). */
+const RECUSA_DOS_ANALISADORES = 'grafo.parser.indisponivel';
+
+/**
+ * RM-031 (pacote do npm): o que fazer quando os analisadores nao carregam, dito pelo `ork doctor` e
+ * pelo `ork grafo status`. O micromark e so ESM e carrega por `require`, o que o Node so faz sem flag
+ * a partir de 20.19 e de 22.12. Nos outros casos o pacote falta ou esta fora da instalacao do `ork`,
+ * e a instalacao global do npm traz os analisadores, que sao dependencias do pacote. Mora aqui, fora
+ * de `MODULOS_DO_EXTRATOR`, para a redacao nao entrar na chave do indice; a versao vem de quem chama
+ * (o `index.ts`), porque o CLI do grafo so importa a propria familia (fronteira do KG3).
+ */
+export function correcaoDosAnalisadores(motivo: string, versao?: string,
+  redacao: RedacaoDosAnalisadores = REDACAO_DOS_ANALISADORES): string {
+  if (/ERR_REQUIRE_ESM/.test(motivo)) return redacao.soEsm(process.version);
+  // Sem a versao do pacote (`0.0.0-desconhecida` quando o package.json dele nao e achado), o comando
+  // sai sem `@<versao>` e o npm instala a ultima publicada.
+  const fixada = versao && /^\d+\.\d+\.\d+/.test(versao) && !versao.startsWith('0.0.0') ? `@${versao}` : '';
+  return redacao.reinstale(fixada);
+}
+
+/**
+ * RM-061 (F2a): a redacao do check e da correcao. A familia do grafo nao importa o catalogo de mensagens
+ * (fronteira do KG3): o pt-BR mora aqui, para o `ork grafo status`, e o doctor passa a do catalogo, no
+ * locale do comando. Um teste confere que o pt-BR do catalogo e este.
+ */
+export interface RedacaoDosAnalisadores {
+  recusa: (motivo: string) => string;
+  soEsm: (versaoDoNode: string) => string;
+  reinstale: (fixada: string) => string;
+}
+
+export const REDACAO_DOS_ANALISADORES: RedacaoDosAnalisadores = {
+  recusa: (motivo) => `${motivo}: o ork grafo indexar recusa nesta instalacao, e sem o indice as consultas e as tools ork_grafo_* tambem`,
+  soEsm: (versaoDoNode) => `o micromark e so ESM, e este Node (${versaoDoNode}) nao o carrega por require: use Node 20.19, 22.12 ou mais novo, ` +
+    'sem a opcao --no-experimental-require-module (na linha de comando ou no NODE_OPTIONS)',
+  reinstale: (fixada) => `reinstale o ork global, que traz os analisadores como dependencias: npm install -g @orkastery/cli${fixada}` +
+    ' (instalado dentro de um projeto ou pelo npx, o npm deixa os analisadores fora do pacote do ork, e o grafo os recusa)',
+};
+
+/** O check do `ork doctor`, na forma do `Check` do nucleo (`types.ts`, que o CLI do grafo nao importa). */
+export interface CheckDosAnalisadores { nome: string; nivel: 'ok' | 'warn'; detalhe: string; correcao?: string }
+
+/**
+ * RM-031 (pacote do npm): o check "analisadores do grafo" do `ork doctor`. Carrega o que o
+ * `ork grafo indexar` carrega (`carregarAnalisadores`), entao diz o que o indexar faria, inclusive no
+ * Node sem `require` de ESM. A falta e `warn`, com a correcao: o grafo nao e condicao do despacho de
+ * fase. Fora da familia do grafo so o `index.ts` e o worker do MCP a abrem (fronteira do KG1), entao o
+ * `index.ts` passa este check ao doctor, que nao importa o grafo.
+ */
+export function checarAnalisadoresDoGrafo(versao?: string, carregar: () => unknown = carregarAnalisadores,
+  versoes: () => VersoesDosAnalisadores = versoesDosAnalisadores,
+  redacao: RedacaoDosAnalisadores = REDACAO_DOS_ANALISADORES): CheckDosAnalisadores {
+  const nome = 'analisadores do grafo';
+  try {
+    carregar();
+    return { nome, nivel: 'ok', detalhe: descreverVersoes(versoes()) };
+  } catch (e) {
+    const motivo = (e as Error).message;
+    return { nome, nivel: 'warn', detalhe: redacao.recusa(motivo), correcao: correcaoDosAnalisadores(motivo, versao, redacao) };
+  }
+}
 /** O mesmo schema da amostra do KG2: as amostras auditadas continuam validas. */
 export const AMOSTRA_SCHEMA = 'ork.graph-edge-audit-sample/v0' as const;
 
 export const USO_DO_GRAFO = [
   'uso: ork grafo indexar [--verificar] [--forcar] [--json]',
   '     ork grafo status [--json]',
+  '     ork grafo contexto <thread> [--json [--teto-bytes N]]',
   '     ork grafo vizinhos <no> [--profundidade N] [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json [--teto-bytes N]]',
   '     ork grafo chamadores <simbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]',
   '     ork grafo importadores <arquivo|simbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]',
@@ -53,6 +125,10 @@ const ESTADO_DO_INDICE: Readonly<Record<string, string>> = Object.freeze({
 });
 
 export interface ContextoDoCli extends ContextoDoIndice {
+  /** A borda le a thread; a familia do grafo nao importa o estado nem o servidor. */
+  contextoDaThread?: (id: string) => { raiz: string; head: string; entrada: EntradaDoContexto };
+  /** RM-031: a versao do `ork` que roda, para a correcao do `status` sem os analisadores (o `index.ts` passa). */
+  versao?: string;
   escrever: (texto: string) => void;
 }
 
@@ -60,6 +136,7 @@ interface Especificacao { posicionais: number; bandeiras: readonly string[]; val
 const SUBCOMANDOS: Readonly<Record<string, Especificacao>> = Object.freeze({
   indexar: { posicionais: 0, bandeiras: ['verificar', 'forcar', 'json'], valores: [] },
   status: { posicionais: 0, bandeiras: ['json'], valores: [] },
+  contexto: { posicionais: 1, bandeiras: ['json'], valores: ['teto-bytes'] },
   vizinhos: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'sentido', 'tipo', 'limite', 'teto-bytes'] },
   chamadores: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'limite', 'teto-bytes'] },
   importadores: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'limite', 'teto-bytes'] },
@@ -203,9 +280,11 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
   const doHead = chave ? estado.indices.find((i) => i.chave === chave) ?? null : null;
   // Sem analisadores nao ha chave: o indice do HEAD fica indisponivel, nunca "ausente" (indexar tambem nao roda).
   const indiceDoHeadEstado = erro ? 'indisponivel' : doHead ? (doHead.problema ? 'com-problema' : 'presente') : 'ausente';
+  // RM-031 (pacote do npm): a recusa dos analisadores vem com o que fazer, a mesma correcao do `ork doctor`.
+  const correcao = erro !== null && erro.startsWith(RECUSA_DOS_ANALISADORES) ? correcaoDosAnalisadores(erro, ctx.versao) : null;
   const r = {
     schema: STATUS_SCHEMA, head: arvore.head, arvore: arvore.motivo === null ? 'limpa' : arvore.motivo, chave_do_head: chave,
-    indice_do_head: indiceDoHeadEstado, analisadores, erro,
+    indice_do_head: indiceDoHeadEstado, analisadores, erro, correcao,
     dir: estado.dir, bytes: estado.bytes, indices: estado.indices, sobras: estado.sobras,
   };
   if (p.bandeiras.has('json')) {
@@ -215,8 +294,11 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
   const linhas = [
     `grafo: HEAD ${arvore.head ? arvore.head.slice(0, 12) : 'sem commit'}, arvore ${r.arvore}`,
     `  indice do HEAD  ${chave ?? 'indisponivel'} ${r.indice_do_head === 'ausente' ? '(ausente: rode ork grafo indexar)'
-      : r.indice_do_head === 'indisponivel' ? '(sem os analisadores nesta instalacao, nem a consulta nem o indexar rodam)' : `(${r.indice_do_head})`}`,
-    `  analisadores    ${erro ?? Object.entries(analisadores as Record<string, string>).map(([k, v]) => `${k} ${v}`).join(', ')}`,
+      : r.indice_do_head === 'indisponivel'
+        ? (correcao ? '(sem os analisadores nesta instalacao, nem a consulta nem o indexar rodam)' : '(sem a chave do indice: o erro esta na linha de baixo)')
+        : `(${r.indice_do_head})`}`,
+    `  analisadores    ${erro ?? descreverVersoes(analisadores as VersoesDosAnalisadores)}`,
+    ...(correcao ? [`  correcao        ${correcao}`] : []),
     `  pasta           ${estado.dir ?? 'ainda nao criada'} (${estado.indices.length} indice(s), ${mb(estado.bytes)})`,
   ];
   for (const i of estado.indices) {
@@ -272,8 +354,13 @@ function semIndiceDoHead(ctx: ContextoDoCli, original: Error): never {
   throw original;
 }
 
-/** O indice do HEAD pronto para consulta, com a concessao local e o cabecalho; `grafo` ja vem filtrado por ela. */
-function consultavel(ctx: ContextoDoCli): { g: ReturnType<typeof prepararConsulta>; cabecalho: CabecalhoDoIndice; grafo: GrafoCodigo; raiz: string } {
+/**
+ * O indice do HEAD pronto para consulta, com a concessao local e o cabecalho; `grafo` ja vem filtrado por ela.
+ * KG5 fatia 5 (D3): `situacao` so le a arvore quando o cabecalho diz `modificada`; limpa, tudo vale `igual`.
+ */
+function consultavel(ctx: ContextoDoCli): {
+  g: ReturnType<typeof prepararConsulta>; cabecalho: CabecalhoDoIndice; grafo: GrafoCodigo; raiz: string; situacao: SituacaoNaArvore;
+} {
   let doHead: ReturnType<typeof indiceDoHead>;
   try {
     doHead = indiceDoHead(ctx);
@@ -289,7 +376,8 @@ function consultavel(ctx: ContextoDoCli): { g: ReturnType<typeof prepararConsult
     arvore: arvore.motivo === null ? 'limpa' : 'modificada',
     extratores: grafo.snapshot.extractors.map((e) => ({ extractor_id: e.extractor_id, extractor_version: e.extractor_version })),
   };
-  return { g: prepararConsulta(grafo, concessao), cabecalho, grafo, raiz: arvore.raiz };
+  const situacao = cabecalho.arvore === 'limpa' ? TUDO_IGUAL : situacaoNaArvore(arvore.raiz, grafo.snapshot.source_manifest);
+  return { g: prepararConsulta(grafo, concessao), cabecalho, grafo, raiz: arvore.raiz, situacao };
 }
 
 function responder(ctx: ContextoDoCli, p: Pedido, r: RespostaDeConsulta): number {
@@ -334,15 +422,40 @@ function consultar(ctx: ContextoDoCli, p: Pedido): number {
   // As opcoes sao conferidas antes de carregar o indice: erro de uso nao custa a leitura do grafo.
   const [a, b] = p.posicionais;
   const profundidade = inteiro(p, 'profundidade'), limite = inteiro(p, 'limite'), s = sentido(p), t = tipos(p), teto = tetoDeBytes(p);
-  const { g, cabecalho } = consultavel(ctx);
+  const { g, cabecalho, situacao } = consultavel(ctx);
+  // A busca binaria do teto pergunta de novo com outro limite; a situacao guarda o que ja leu da arvore.
   const perguntar = (lim: number | undefined): RespostaDeConsulta => {
-    if (p.sub === 'vizinhos') return vizinhos(g, cabecalho, a, { profundidade, limite: lim, sentido: s, tipos: t });
-    if (p.sub === 'chamadores') return chamadores(g, cabecalho, a, { profundidade, limite: lim });
-    if (p.sub === 'importadores') return importadores(g, cabecalho, a, { profundidade, limite: lim });
-    return caminho(g, cabecalho, a, b, { sentido: s, tipos: t });
+    if (p.sub === 'vizinhos') return vizinhos(g, cabecalho, a, { profundidade, limite: lim, sentido: s, tipos: t }, situacao);
+    if (p.sub === 'chamadores') return chamadores(g, cabecalho, a, { profundidade, limite: lim }, situacao);
+    if (p.sub === 'importadores') return importadores(g, cabecalho, a, { profundidade, limite: lim }, situacao);
+    return caminho(g, cabecalho, a, b, { sentido: s, tipos: t }, situacao);
   };
   if (teto === undefined) return responder(ctx, p, perguntar(limite));
   ctx.escrever(respostaComTeto(perguntar, limite, teto));
+  return 0;
+}
+
+function contexto(ctx: ContextoDoCli, p: Pedido): number {
+  const teto = tetoDeBytes(p);
+  if (teto !== undefined && (teto < 4096 || teto > 65536))
+    throw new ErroDeConsulta('grafo.contexto.teto-invalido', 'teto deve ser inteiro de 4096 a 65536 bytes');
+  if (!ctx.contextoDaThread) throw new ErroDeConsulta('grafo.contexto.indisponivel', 'borda sem leitor da thread');
+  const lido = ctx.contextoDaThread(p.posicionais[0]);
+  const { grafo, cabecalho, situacao } = consultavel({ ...ctx, raiz: lido.raiz });
+  if (lido.head !== cabecalho.revision) throw new ErroDeConsulta('grafo.contexto.revisao-mudou', 'HEAD mudou durante a leitura; repita a consulta');
+  const json = pacoteDeContexto(grafo, cabecalho, lido.entrada, teto, situacao);
+  if (p.bandeiras.has('json')) ctx.escrever(json);
+  else {
+    const r = JSON.parse(json);
+    // KG5 fatia 5 (D9): o resumo conta as ligacoes cuja fonte mudou na arvore, como o JSON marca.
+    const mudadas = (r.arestas as { arvore?: string }[]).filter((a) => a.arvore === 'modificada').length;
+    ctx.escrever([`Contexto ${r.thread} @ ${r.indice.revision}`,
+      `  ${r.sementes.length}/${r.total_sementes} sementes, ${r.arestas.length}/${r.total_ligacoes} ligacoes agregadas; ${r.medida.pacote_bytes} bytes JSON`,
+      `  tamanho dos arquivos no pacote (nao descoberta): ${r.medida.leitura_crua_bytes} bytes (revisao indexada); tokens: unavailable`,
+      `  diff: ${r.fontes.diff}`,
+      ...(mudadas ? [`  ligacoes com fonte modificada na arvore: ${mudadas}`] : []),
+      `  truncado: ${r.truncado}; arvore: ${r.indice.arvore}; use --json para nos e evidencias`, json].join('\n'));
+  }
   return 0;
 }
 
@@ -378,6 +491,57 @@ function leitorDaArvore(raiz: string, grafo: GrafoCodigo): (p: string) => Buffer
     if (sha256(bytes) !== esperado) throw new Error(`grafo.amostra.fonte-mudou: ${p}`);
     lidos.set(p, bytes);
     return bytes;
+  };
+}
+
+/**
+ * KG5 fatia 5 (D3, D6): a situacao de cada fonte do indice na arvore, pelos bytes. So caminho do manifesto;
+ * sem seguir link, nem no ultimo nome nem numa pasta do caminho: o caminho real tem de ser o proprio caminho
+ * indexado dentro da raiz (CHECK rodada 1, A1). So arquivo regular; tamanho diferente do indexado e
+ * `modificada` sem ler, e o sha256 dos bytes decide o resto, lidos ate o tamanho indexado mais um. O arquivo
+ * aberto tem de ser o mesmo do `lstat` (dispositivo e inode, CHECK rodada 1, S3): troca entre a conferencia e
+ * a abertura vira `ausente`; duas trocas no intervalo ainda passam, e revelariam so se os bytes sao os
+ * indexados. Qualquer falha e `ausente`: nao ha arquivo regular legivel no caminho. Cada caminho e lido uma
+ * vez, sob demanda, e nada e escrito.
+ */
+export function situacaoNaArvore(raiz: string, manifesto: readonly EntradaDoManifesto[]): SituacaoNaArvore {
+  const porCaminho = new Map(manifesto.map((m) => [m.path, m]));
+  const vistas = new Map<string, SituacaoDaFonte>();
+  let raizReal: string | null = null;
+  const ler = (p: string): SituacaoDaFonte => {
+    const m = porCaminho.get(p);
+    if (!m) return 'ausente';
+    const absoluto = path.join(raiz, p);
+    try {
+      raizReal ??= fs.realpathSync(raiz);
+      const st = fs.lstatSync(absoluto, { throwIfNoEntry: false });
+      if (!st || !st.isFile()) return 'ausente';
+      // CHECK rodada 2 (R2-S1): caminho de manifesto adulterado com `..` coincidiria com o real fora da raiz.
+      const real = fs.realpathSync(absoluto);
+      if (real !== path.join(raizReal, p) || !real.startsWith(raizReal + path.sep)) return 'ausente';
+      if (st.size !== m.size_bytes) return 'modificada';
+      const fd = fs.openSync(absoluto, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+      try {
+        const aberto = fs.fstatSync(fd);
+        if (!aberto.isFile() || aberto.dev !== st.dev || aberto.ino !== st.ino) return 'ausente';
+        if (aberto.size !== m.size_bytes) return 'modificada';
+        const bytes = Buffer.alloc(m.size_bytes + 1);
+        let lidos = 0;
+        for (let n = 1; n > 0 && lidos < bytes.length; lidos += n) n = fs.readSync(fd, bytes, lidos, bytes.length - lidos, null);
+        return lidos === m.size_bytes && sha256(bytes.subarray(0, lidos)) === m.source_hash ? 'igual' : 'modificada';
+      } finally {
+        fs.closeSync(fd);
+      }
+    } catch {
+      return 'ausente';
+    }
+  };
+  return (p: string): SituacaoDaFonte => {
+    const vista = vistas.get(p);
+    if (vista !== undefined) return vista;
+    const s = ler(p);
+    vistas.set(p, s);
+    return s;
   };
 }
 
@@ -498,12 +662,12 @@ function limpar(ctx: ContextoDoCli, p: Pedido): number {
 }
 
 /** KG5 (D4, D5): com `--teto-bytes` o erro tambem sai compacto; recusa de indice traz o estado e a correcao. */
-const erroEmJson = (ctx: ContextoDoCli, e: unknown, compacto: boolean): number => {
+const erroEmJson = (ctx: ContextoDoCli, e: unknown, compacto: boolean, schema: string = CONSULTA_SCHEMA): number => {
   const [codigo, ...detalhe] = String((e as Error).message).split('\n')[0].split(': ');
   const doIndice = Object.prototype.hasOwnProperty.call(ESTADO_DO_INDICE, codigo)
     ? { estado_do_indice: ESTADO_DO_INDICE[codigo], correcao: CORRECAO_DO_INDICE } : {};
   const r = {
-    schema: CONSULTA_SCHEMA,
+    schema,
     erro: { codigo, detalhe: detalhe.join(': ') || null, candidatos: e instanceof ErroDeConsulta ? e.candidatos : [], ...doIndice },
   };
   ctx.escrever(compacto ? JSON.stringify(r) : JSON.stringify(r, null, 2));
@@ -512,13 +676,14 @@ const erroEmJson = (ctx: ContextoDoCli, e: unknown, compacto: boolean): number =
 
 /** `ork grafo <subcomando> ...`: devolve o codigo de saida; sem `--json`, o erro de uso ou tipado e lancado. */
 export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): number {
-  const compacto = argv.some((a) => a === '--teto-bytes' || a.startsWith('--teto-bytes='));
+  const schema = argv[0] === 'contexto' ? CONTEXTO_SCHEMA : CONSULTA_SCHEMA;
+  const compacto = argv[0] === 'contexto' || argv.some((a) => a === '--teto-bytes' || a.startsWith('--teto-bytes='));
   let p: Pedido;
   try {
     p = lerPedido(argv);
   } catch (e) {
     // Com `--json` no argv, tambem o erro de uso sai como objeto, como os demais.
-    if (argv.includes('--json')) return erroEmJson(ctx, e, compacto);
+    if (argv.includes('--json')) return erroEmJson(ctx, e, compacto, schema);
     throw e;
   }
   try {
@@ -526,10 +691,10 @@ export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): numb
     if (p.sub === 'status') return status(ctx, p);
     if (p.sub === 'amostra') return amostra(ctx, p);
     if (p.sub === 'limpar') return limpar(ctx, p);
+    if (p.sub === 'contexto') return contexto(ctx, p);
     return consultar(ctx, p);
   } catch (e) {
     if (!p.bandeiras.has('json')) throw e;
-    return erroEmJson(ctx, e, compacto);
+    return erroEmJson(ctx, e, compacto, schema);
   }
 }
-

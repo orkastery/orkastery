@@ -13,7 +13,7 @@ import { lintDoBundle, prepararBundleCi } from '../src/ci';
 import { TESTES_DE_INTEGRACAO_LOCAL } from '../src/integracoes-locais';
 import { lerLedger } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
-import { projetoTemporario } from './apoio';
+import { envPtBr, projetoTemporario } from './apoio';
 
 const regras = (c: string) => analisarComando(c).map((a) => a.regra);
 
@@ -81,7 +81,7 @@ test('CLI: claims add avisa na hora e diz que o ci prepare recusa', () => {
   try {
     const { thread } = novaThread(p.carregado, { nome: 'lint cli', modo: 'auto' });
     const r = spawnSync(process.execPath, [path.resolve(__dirname, '../../dist/index.js'), 'claims', 'add', thread.id, 'README.md',
-      '--claim', 'tudo verde', '--verificar', 'npm test'], { cwd: p.dir, encoding: 'utf8', timeout: 60000 });
+      '--claim', 'tudo verde', '--verificar', 'npm test'], { cwd: p.dir, encoding: 'utf8', timeout: 60000, env: envPtBr() });
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /AVISO: C1 roda a suite inteira \(npm test\); rode só o teste da claim .*script hermético do projeto\. O `ci prepare` recusa esta claim\./);
   } finally { p.limpar(); }

@@ -56,7 +56,7 @@ test('ork_network_roadmap: caminho, URL, traversal e tipo errado em projeto recu
     assert.equal(rede.parameters.additionalProperties, false);
     assert.match(p.description, /github:dono\/repo/);
     assert.match(p.description, /Nunca caminho nem URL/);
-    for (const projeto of ['/home/julio/.openclaw/workspace', '../orkastery', '~/orkastery', './orkastery', '',
+    for (const projeto of ['/home/usuario/.openclaw/workspace', '../orkastery', '~/orkastery', './orkastery', '',
       'https://github.com/orkastery/orkastery', 'https://u:segredo@github.com/o/r', 'git@github.com:orkastery/orkastery.git',
       'github:../x', 'github:orkastery', 'gitlab:/grupo/repo', 'orkastery/orkastery', 'a b', 42, 'github:o/r;id']) {
       const r = await rede.execute({ projeto }, {}, {});
@@ -93,11 +93,15 @@ test('catalogo: ork_network_roadmap no manifesto, em paridade com o entry, e as 
     assert.ok(manifesto.contracts.tools.includes('ork_network_roadmap'));
     assert.deepEqual(tools.map(t => t.name).sort(), [...manifesto.contracts.tools].sort());
     // RM-054 (fatia 2): com o perfil coding (padrao do OpenClaw), tool de plugin so chega ao modelo
-    // declarada no perfil; so a leitura da rede e declarada, e as outras seguem sob o operador.
-    assert.deepEqual(manifesto.toolMetadata, { ork_network_roadmap: { profiles: ['coding', 'messaging'] } });
+    // declarada no perfil; so as leituras sao declaradas: as da rede (o status entra na fatia 3) nos perfis coding e
+    // messaging, e as do conhecimento (RM-026 K7, fatia 3, D18 revista) so no coding; as outras seguem sob o operador.
+    const leitura = { profiles: ['coding', 'messaging'] }, doCoding = { profiles: ['coding'] };
+    assert.deepEqual(manifesto.toolMetadata, { ork_network_roadmap: leitura, ork_network_status: leitura,
+      ork_conhecimento_listar: doCoding, ork_conhecimento_mostrar: doCoding, ork_conhecimento_colecoes: doCoding,
+      ork_conhecimento_verificar: doCoding });
     const pacote = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
     assert.match(pacote.description, new RegExp(`: ${tools.length} tools ork_\\*`), 'a contagem do pacote e a do entry');
-    for (const t of tools.filter(x => x.name !== 'ork_network_roadmap')) {
+    for (const t of tools.filter(x => x.name !== 'ork_network_roadmap' && x.name !== 'ork_network_status')) {
       assert.equal(t.parameters.properties.projeto.pattern, '^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$', `${t.name}: so nome (RM-052)`);
     }
   });

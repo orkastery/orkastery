@@ -55,9 +55,10 @@ manifesto: sem biblioteca padrão e sem disco. A resolução de módulo nunca en
 `node_modules`, mesmo versionado, e a raiz virtual deriva do conteúdo do manifesto: especificador
 que sobe acima da raiz ou é absoluto fica `unresolved-import`.
 
-A estrutura do Markdown vem do micromark com a tabela GFM, o parser CommonMark que o
-markdownlint do core já instala (fixado no `package-lock.json`), carregado pelo mesmo módulo de
-analisadores e recebido por parâmetro como o compilador. As versões do
+A estrutura do Markdown vem do micromark com a tabela GFM, o parser CommonMark que o pacote do
+`ork` declara como dependência de runtime, com versão exata (as transitivas dele seguem o
+`package-lock.json` no checkout e a faixa de cada pacote em quem instala do npm), carregado pelo
+mesmo módulo de analisadores e recebido por parâmetro como o compilador. As versões do
 micromark e do Unicode do motor JavaScript entram na versão do `ork.md-structure`, porque a
 estrutura e o slug dependem delas. O módulo também entrega o decodificador de referência de
 caractere que o próprio micromark usa (as entidades do HTML5, e o número com a troca do código

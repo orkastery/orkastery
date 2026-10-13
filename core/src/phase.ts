@@ -13,11 +13,12 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { esperarVaga, vagaDoDespacho, VagaRecusada } from './board';
-import { gravarBaseline } from './verify';
+import { ConducaoDoVerify, gravarBaseline } from './verify';
 import { iniciarWatcher, validarFonteWatcher } from './session-watcher';
 import { fonteClaudeDoDespacho, headDaWorktree } from './session-watcher-claude';
-import { ManifestoCarregado } from './manifest';
-import { resolverRuntime, runtimeConhecido } from './runtimes';
+import { ManifestoCarregado, exigirManifesto } from './manifest';
+import { grafoLigado } from './mcp-grafo';
+import { PedidoDeDespacho, ResultadoDeDespacho, resolverRuntime, runtimeConhecido } from './runtimes';
 import { configDoBloco, fallbackDoBloco, lerSetup, limitesDoBloco } from './setup';
 import { definicaoDoModo, INVARIANTES } from './modos';
 import { registrarGateBloqueado } from './gates';
@@ -27,8 +28,9 @@ import { registrarImpedimentoDoDono } from './impedimento';
 import { conferirAuth as authClaude } from './adapters/claude-bg';
 import { conferirAuth as authCodex } from './adapters/codex';
 import { abrirMemoria, injecaoDaFase, Memoria } from './memoria';
-import { renderizar, templateDaFase } from './prompts';
+import { pedidoComDicaDoGrafo, renderizar, templateDaFase } from './prompts';
 import { montarSlug, parseSlug, proximaRotacao } from './slug';
+import { ErroDoCatalogo, msg } from './locale';
 import { blocoDaThread, dirThread, gravarThread, lerThread, pausaNaThread } from './thread';
 import {
   CanalDeConducao,
@@ -45,7 +47,7 @@ import {
 } from './types';
 import { agora, gravar, tabela } from './util';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
-import { vincularEstado } from './estado-thread';
+import { raizDoEstado, vincularEstado } from './estado-thread';
 import { formatarDataHora, legendaDoFuso, localizarTexto } from './horario';
 import {
   lerPerfisComContas, marcarFalhaDePerfil, StoreDePerfis, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, perfisDoRuntime, POLITICA_PADRAO,
@@ -54,6 +56,8 @@ import {
 } from './runtime-profiles';
 import { sessoesVivasPorPerfil } from './sessoes-contas';
 import { nomeDaMaquina } from './maquina';
+import { diretorioDaThread } from './procedencia';
+import { comandoDeConfirmacao, posturaAfrouxada, recusaDePostura } from './postura-local';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import {
   ambienteDaConducao, canalDoProcesso, ConducaoOcupada, ConducaoTomada, conducaoDaThread, dormir, ErroDeConducao, esperarConducaoLivre,
@@ -228,6 +232,8 @@ export function runtimeCruzadoParaDespacho(
 export function estadoParaDespacho(raiz: string, thread: Thread, dryRun = false): string | null {
   if (!thread.worktree) return null;
   try {
+    // RM-047 (P2): a worktree do thread.json so vale registrada no git e com o estado local.
+    diretorioDaThread(raiz, thread);
     vincularEstado(raiz, thread.id, thread.worktree, dryRun);
     return null;
   } catch(e) { return (e as Error).message; }
@@ -249,11 +255,28 @@ export const CONTRATO_DAS_FASES: Readonly<Record<Fase, string>> = {
     'MASTER (F6): MASTER log com postmortem tipado, licoes e o score humano de 0 a 5. Uma entrega sem MASTER log nao aconteceu.',
 };
 
+/**
+ * RM-037 (ork-rm037esperas, D3): a regra das esperas, uma linha so, a mesma no prompt de toda fase e na skill e nos
+ * guias que o adaptador instala (`core/test/rm037-esperas.test.ts` confere os arquivos). Em 12/10/2026, sessoes de
+ * fase esperaram para sempre por verify ou suite mandados para segundo plano com `&`, cujo processo morreu com a
+ * chamada, e por lacos de espera com `pgrep -f` que acham a si mesmos, porque o proprio laco traz o texto procurado.
+ */
+export const REGRA_DAS_ESPERAS =
+  'Esperas: nunca dispare verify, build ou suite com `&` dentro do comando, porque o processo se perde e a sessao ' +
+  'espera um aviso que nunca vem; rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de ' +
+  'recursos pesados), ou use a execucao em segundo plano do host, que avisa quando termina; nunca espere com ' +
+  '`pgrep -f` cujo padrao aparece no proprio comando, porque o laco acha a si mesmo e nao termina: espere pelo ' +
+  'arquivo de saida com prazo, ou pelo PID guardado.';
+
 /** As regras de evidencia que valem em toda fase, em todo modo. */
 export const REGRAS_DE_EVIDENCIA: readonly string[] = [
   'Nada de self-report: toda alegacao vem com o comando que a comprova e a saida real.',
   'Trabalhe apenas no diretorio de trabalho indicado acima.',
   'Passos irreversiveis (push, merge, delecao) so acontecem quando o modo autoriza.',
+  // RM-058 N2 (D13 da ork-rm058n2): tres sessoes de 12/10/2026 mandaram verify ou suite para segundo plano com `&`,
+  // perderam o processo e esperaram para sempre. RM-037 (ork-rm037esperas, D3): a linha da N2 virou a regra das
+  // esperas, que tambem traz a execucao em segundo plano do host e a espera por `pgrep -f`.
+  REGRA_DAS_ESPERAS,
 ];
 
 /**
@@ -355,8 +378,10 @@ export function montarPromptComMemoria(
   memoria: Memoria
 ): { prompt: string; injecao: InjecaoDeMemoria } {
   const injecao = injecaoDaFase(carregado, memoria, thread, fase);
+  // Mesma raiz usada pelo MCP e runtime-context; o manifesto da WT nao habilita a dica.
+  const ligado = grafoLigado(exigirManifesto(raizDoEstado(carregado.raiz)).manifesto);
   return {
-    prompt: montarPrompt(thread, fase, pedido, carregado.raiz, injecao.texto),
+    prompt: montarPrompt(thread, fase, pedidoComDicaDoGrafo(pedido, thread.id, ligado), carregado.raiz, injecao.texto),
     injecao,
   };
 }
@@ -420,10 +445,10 @@ export function resolverDespacho(
   const origem = doBloco?.runtime ?? manifesto.runtime.adapter;
   const runtime = opcoes.runtime ?? origem;
   if (runtimeConhecido(runtime) && runtime !== origem && !opcoes.model?.trim())
-    throw new Error(`setup.model.required: ao trocar runtime de ${origem} para ${runtime}, informe --runtime ${runtime} --model <modelo> para este despacho; o setup do projeto permanece intacto.`);
+    throw new ErroDoCatalogo((m) => m.phase.modeloAoTrocarRuntime(origem, runtime));
   const model = opcoes.model ?? doBloco?.model ?? manifesto.runtime.model;
   if (!model.trim())
-    throw new Error(`setup.model.required: modelo pendente para ${runtime}; informe --model <modelo> neste despacho ou complete o bloco em ork setup.`);
+    throw new ErroDoCatalogo((m) => m.phase.modeloPendente(runtime));
   const effort =
     opcoes.effort ??
     (opcoes.model !== undefined ? 'high' : doBloco?.effort ?? manifesto.runtime.effort);
@@ -649,6 +674,11 @@ export interface OpcoesRun {
   /** I-36 (D2): espera a vez ate este prazo em vez de recusar na hora. */
   esperarMs?: number;
   /**
+   * RM-058 N2 (A1 da rodada 2 do CHECK): a espera da baseline do despacho na fila de recursos pesados, com o aviso de
+   * quem espera; sem ela, o `esperarMs` e depois o padrao curto do verify.
+   */
+  filaPesada?: ConducaoDoVerify['filaPesada'];
+  /**
    * RM-037 (defeito 1, achado A3 do CHECK): `false` no MCP, que executa confinado e com prazo. O despacho
    * que precisaria da baseline recusa com `baseline.pendente` e o comando do CLI, em vez de rodar a suite.
    */
@@ -722,7 +752,8 @@ export function garantirBaselineDoDespacho(carregado: ManifestoCarregado, thread
   if (!baselineDoDespachoNecessaria(carregado, threadId, opcoes)) return;
   try {
     gravarBaseline(carregado, threadId, undefined,
-      { canal: opcoes.canal ?? canalDoProcesso(), correlacao: opcoes.correlacao ?? null, ...(identidade ? { identidade } : {}) }, 'phase.run');
+      { canal: opcoes.canal ?? canalDoProcesso(), correlacao: opcoes.correlacao ?? null, ...(identidade ? { identidade } : {}),
+        filaPesada: { esperarMs: opcoes.esperarMs, ...opcoes.filaPesada } }, 'phase.run');
   } catch (e) { if (!(e instanceof ErroDeConducao)) throw e; }
 }
 
@@ -866,6 +897,16 @@ function rodarFaseSobLock(
       verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
       runtime, model, effort, bloqueado: true, motivo: 'runtime.autoconferencia', violacoes, erro: erroDeRuntime };
   }
+  // RM-047 (P1): sandbox afrouxado pelo manifesto so despacha com a confirmacao local desta maquina.
+  const erroDePostura = recusaDePostura(raiz, manifesto, runtime);
+  if (erroDePostura) {
+    const postura = posturaAfrouxada(manifesto) ?? '';
+    if (!opcoes.dryRun) registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'policy.violation',
+      modo: thread.modo, detalhe: erroDePostura, correcao: comandoDeConfirmacao(postura), fase, slug });
+    return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
+      verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
+      runtime, model, effort, bloqueado: true, motivo: 'policy.violation', violacoes, erro: erroDePostura };
+  }
   const erroDeEstado = estadoParaDespacho(raiz, thread, opcoes.dryRun);
   if (erroDeEstado) {
     registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'tree.blocked',
@@ -951,19 +992,28 @@ function rodarFaseSobLock(
         return pendente;
       }
     }
-    const cwd = thread.worktree ?? raiz;
+    const cwd = diretorioDaThread(raiz, thread);
+    // RM-063 (F3): o prompt vai ao disco e ao ledger, com o sha256, ANTES do contexto do runtime e do adaptador. No
+    // incidente de 12/10/2026 a fase morreu no despacho e o `ork retry run` saiu com "nao ha despacho falho registrado
+    // em GO com prompt gravado"; daqui em diante, toda tentativa deixa o prompt que o retry redespacha sem pedir o texto.
+    gravar(promptPath, prompt);
+    const promptNoLedger = { promptPath: path.relative(raiz, promptPath), promptSha256: sha };
+    if (!opcoes.dryRun) {
+      registrar(dir, thread.id, TIPOS_DE_EVENTO.promptGravado, { fase, slug, modo: thread.modo, runtime, model, effort, cwd,
+        ...promptNoLedger, origem: 'phase.run', canal, ...(opcoes.correlacao ? { correlacao: opcoes.correlacao } : {}), identidade });
+    }
+    const correcaoDoRetry = `ork retry run ${thread.id} redespacha o mesmo prompt (sha256 ${sha.slice(0, 12)})`;
     let contextoRuntime: ContextoRuntime | undefined;
     try { contextoRuntime = contextoDoProjeto(raiz, runtime, cwd, thread.id); }
     catch (e) {
       const erro = `runtime.unavailable: ${(e as Error).message}`;
       registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'runtime.unavailable',
-        modo: thread.modo, detalhe: erro, fase, slug });
+        modo: thread.modo, detalhe: erro, fase, slug, ...(opcoes.dryRun ? {} : { ...promptNoLedger, correcao: correcaoDoRetry }) });
       return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
         verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
         runtime, model, effort, bloqueado: true, motivo: 'runtime.unavailable', violacoes, erro };
     }
     if (contextoRuntime) contextoRuntime.identidade = identidade;
-    gravar(promptPath, prompt);
     // I-33 (D2, D4, D7): o perfil sai do store com o login conferido. Sem perfil disponivel, o
     // despacho nao sai pela conta errada: o prompt ja gravado fica registrado para a rotacao do
     // retry (outro runtime da ordem de fallback, ou a fila), com o motivo tipado.
@@ -1022,7 +1072,7 @@ function rodarFaseSobLock(
       : undefined;
     // I-33 (N1): lido antes de a sessao existir; depois dela, um commit rapido ja estaria no HEAD.
     const headNoDespacho = fase === 'GO' && runtime === 'codex' && !opcoes.dryRun ? headDaWorktree(cwd) : undefined;
-    const resultado = rt.despachar({
+    const pedidoAoRuntime: PedidoDeDespacho = {
       prompt,
       nome: slug,
       cwd,
@@ -1043,8 +1093,7 @@ function rodarFaseSobLock(
       ...(limites ? { duracaoMaximaMs: limites.duracaoMs } : {}),
       // I-36 (D4): a sessao filha herda a identidade do despacho e o canal; e assim que ela reentra.
       ambienteExtra: ambienteDaConducao(identidade.dispatchId, thread.id, canal),
-    });
-
+    };
     const ctx: ContextoDeDespacho = {
       identidade,
       canal,
@@ -1065,6 +1114,20 @@ function rodarFaseSobLock(
       ...(perfil ? { perfil } : {}),
       ...(headNoDespacho !== undefined ? { headNoDespacho } : {}),
     };
+    let resultado: ResultadoDeDespacho;
+    try { resultado = rt.despachar(pedidoAoRuntime); }
+    catch (e) {
+      // RM-063 (F3): o adaptador que lanca (o daemon do runtime fora do ar) deixa no ledger a falha do despacho com o
+      // prompt e o sha256, e o gate tipado que o `ork retry run` le; o erro segue para quem chamou, como antes.
+      if (!opcoes.dryRun) {
+        const erro = `runtime.unavailable: o runtime adapter lancou no despacho: ${(e as Error).message}`;
+        registrar(dir, thread.id, TIPOS_DE_EVENTO.despachoFalhou, { ...dadosDoDespacho(ctx, []), erro });
+        registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'runtime.unavailable', modo: thread.modo,
+          detalhe: erro, correcao: correcaoDoRetry, fase, slug, runtime, origem: 'phase.run', ...promptNoLedger,
+          evidencia: 'excecao real do runtime adapter no despacho, nao relato do agente' });
+      }
+      throw e;
+    }
     const comum = dadosDoDespacho(ctx, resultado.comando);
 
     if (opcoes.dryRun) {
@@ -1091,11 +1154,15 @@ function rodarFaseSobLock(
 
     if (!resultado.ok || !resultado.sessionId) {
       const erro = resultado.erro ?? 'sem sessionId na saida do runtime';
+      // RM-063 (F3, GO-FIX): o `claude --bg` que sai com erro, ou estoura o prazo, depois de dizer o id deixa a sessao
+      // aberta; o id vai a falha e ao gate, para o retry conferir que ela morreu antes de redespachar.
+      const daSessao = resultado.sessionId ? { sessionId: resultado.sessionId } : {};
       registrar(dir, thread.id, TIPOS_DE_EVENTO.despachoFalhou, {
         ...comum,
         controlador: resultado.controlador,
         erro,
         stderr: resultado.stderr.slice(0, 500),
+        ...daSessao,
       });
 
       // I-33 (D1, D5): a CONTA recusou o despacho. Nada rodou, entao nada foi produzido: o perfil
@@ -1179,6 +1246,11 @@ function rodarFaseSobLock(
           motivo: impedimento.motivo, violacoes, naFila: null, erro: `${impedimento.motivo}: ${impedimento.trecho}` };
       }
 
+      // RM-063 (F3): a falha seca do adaptador vira gate tipado, com o prompt e o sha256. Antes so o `phase_dispatch_failed`
+      // a registrava: o `ork retry plan` nao a via e a fase ficava parada sem ninguem saber.
+      registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'runtime.unavailable', modo: thread.modo,
+        detalhe: erro, correcao: correcaoDoRetry, fase, slug, runtime, origem: 'phase.run', ...promptNoLedger, ...daSessao,
+        evidencia: 'saida real do runtime adapter no despacho, nao relato do agente' });
       return {
         thread,
         slug,
@@ -1234,68 +1306,73 @@ export function tabelaDoLedger(raiz: string, threadId: string): string {
   // Thread inexistente e erro, nao ledger vazio: o CLI precisa reprovar o id errado.
   lerThread(raiz, threadId);
   const eventos = lerLedger(dirThread(raiz, threadId));
+  // RM-061 (F2a): a moldura e os rotulos vem do catalogo; o valor de cada evento (decisao, estado,
+  // erro, detalhe) e dado do ledger e sai como foi gravado.
+  const m = msg().phase;
   if (eventos.length === 0) {
-    return `Ledger vazio para a thread ${threadId}.`;
+    return m.ledgerVazio(threadId);
   }
   const linhas = eventos.map((e) => {
     const detalhe: string[] = [];
     if (e.fase) detalhe.push(String(e.fase));
     if (e.slug) detalhe.push(String(e.slug));
-    if (e.sessionId) detalhe.push(`sessao ${String(e.sessionId).slice(0, 8)}`);
+    if (e.sessionId) detalhe.push(m.sessao(String(e.sessionId).slice(0, 8)));
     if (e.decisao) detalhe.push(String(e.decisao));
-    if (e.previstaSobre) detalhe.push(`pausa sobre ${String(e.previstaSobre)}`);
-    if (e.encontrada !== undefined) detalhe.push(`no runtime: ${e.encontrada ? 'sim' : 'nao'}`);
+    if (e.previstaSobre) detalhe.push(m.pausaSobre(msg().thread.pausaSobre(String(e.previstaSobre))));
+    if (e.encontrada !== undefined) detalhe.push(m.noRuntime(!!e.encontrada));
     // Fato verificavel do despacho: o par modelo/esforco real, lido do proprio evento.
-    if (e.model) detalhe.push(`modelo ${String(e.model)}/${String(e.effort ?? '-')}`);
+    if (e.model) detalhe.push(m.modelo(String(e.model), String(e.effort ?? '-')));
     // Eventos do bloco B1: motivo tipado, veredito e as provas do ship.
-    if (e.motivo) detalhe.push(`motivo ${String(e.motivo)}`);
+    if (e.motivo) detalhe.push(m.motivo(String(e.motivo)));
     if (e.claim) detalhe.push(`claim ${String(e.claim)}`);
-    if (e.veredito) detalhe.push(`veredito: ${String(e.veredito)}`);
+    if (e.veredito) detalhe.push(m.veredito(String(e.veredito)));
     if (e.fonte && e.ocupacao !== undefined) {
-      detalhe.push(`ocupacao ${e.ocupacao === null ? 'nao medivel' : String(e.ocupacao)} (${String(e.fonte)})`);
+      detalhe.push(m.ocupacao(e.ocupacao === null ? null : String(e.ocupacao), String(e.fonte)));
     }
-    if (e.slugSugerido) detalhe.push(`proximo slug ${String(e.slugSugerido)}`);
+    if (e.slugSugerido) detalhe.push(m.proximoSlug(String(e.slugSugerido)));
     if (e.lease) detalhe.push(`lease ${String(e.lease)}`);
     // Eventos do bloco B3: acao de retry, playbook da retomada e rodada de GO-FIX.
-    if (e.acao) detalhe.push(`acao ${String(e.acao)}`);
+    if (e.acao) detalhe.push(m.acao(String(e.acao)));
     if (e.playbook) detalhe.push(`playbook ${String(e.playbook)}`);
-    if (e.pedido) detalhe.push(`pedido ${String(e.pedido)}`);
-    if (e.rodada !== undefined) detalhe.push(`rodada ${String(e.rodada)}`);
-    if (e.cobertura) detalhe.push(`cobertura ${String(e.cobertura)}`);
-    if (e.liberaEm) detalhe.push(`libera em ${formatarDataHora(String(e.liberaEm))}`);
+    // Ensaio de 03/10/2026 (RM-049): na decisao autonoma o pedido e o objeto `ork.hitl/v2`, e a tabela
+    // mostrava "pedido [object Object]"; do objeto sai o id curto.
+    if (typeof e.pedido === 'string' && e.pedido !== '') detalhe.push(m.pedido(e.pedido));
+    else if (e.pedido && typeof e.pedido === 'object' && typeof (e.pedido as { id?: unknown }).id === 'string') {
+      detalhe.push(m.pedido((e.pedido as { id: string }).id.slice(0, 8)));
+    }
+    if (e.rodada !== undefined) detalhe.push(m.rodada(String(e.rodada)));
+    if (e.cobertura) detalhe.push(m.cobertura(String(e.cobertura)));
+    if (e.liberaEm) detalhe.push(m.liberaEm(formatarDataHora(String(e.liberaEm))));
     if (e.tentativa !== undefined && e.limite !== undefined) {
-      detalhe.push(`tentativa ${String(e.tentativa)}/${String(e.limite)}`);
+      detalhe.push(m.tentativa(String(e.tentativa), String(e.limite)));
     }
     if (e.mergeSha) detalhe.push(`merge ${String(e.mergeSha).slice(0, 8)}`);
-    if (e.shaRemoto) detalhe.push(`remoto ${String(e.shaRemoto).slice(0, 8)}`);
-    if (e.pushVerificado !== undefined) detalhe.push(`push provado: ${e.pushVerificado ? 'sim' : 'nao'}`);
-    if (e.autorizadoPor) detalhe.push(`autorizado por ${String(e.autorizadoPor)}`);
-    if (e.sobre) detalhe.push(`sobre ${String(e.sobre)}`);
+    if (e.shaRemoto) detalhe.push(m.remoto(String(e.shaRemoto).slice(0, 8)));
+    if (e.pushVerificado !== undefined) detalhe.push(m.pushProvado(!!e.pushVerificado));
+    if (e.autorizadoPor) detalhe.push(m.autorizadoPor(String(e.autorizadoPor)));
+    if (e.sobre) detalhe.push(m.sobre(String(e.sobre)));
     if (e.estado) detalhe.push(String(e.estado));
     if (typeof e.de === 'string' && typeof e.para === 'string') {
       detalhe.push(`${e.de} -> ${e.para}`);
     }
-    if (e.dryRun === true) detalhe.push('ensaio (--dry-run)');
+    if (e.dryRun === true) detalhe.push(m.ensaio);
     if (e.tipo === TIPOS_DE_EVENTO.worktreeCriada && e.dir) {
-      detalhe.push(`${String(e.branch)} em ${String(e.dir)}`);
+      detalhe.push(m.worktreeEm(String(e.branch), String(e.dir)));
     }
     if (e.inline !== undefined) {
-      detalhe.push(`triagem ${String(e.inline)} inline / ${String(e.pointers)} ponteiros / ${String(e.summaries)} resumos`);
+      detalhe.push(m.triagem(String(e.inline), String(e.pointers), String(e.summaries)));
     }
-    if (e.location) detalhe.push(`ponteiro ${String(e.location)}`);
-    if (e.erro) detalhe.push(`erro: ${String(e.erro)}`);
+    if (e.location) detalhe.push(m.ponteiro(String(e.location)));
+    if (e.erro) detalhe.push(m.erro(String(e.erro)));
     if (e.detalhe && !e.decisao) detalhe.push(localizarTexto(String(e.detalhe)).slice(0, 90));
-    if (e.modo && !e.fase) detalhe.push(`modo ${String(e.modo)}`);
+    if (e.modo && !e.fase) detalhe.push(m.modo(String(e.modo)));
     return [formatarDataHora(e.ts, { segundos: true }), e.tipo, detalhe.join(' | ')];
   });
-  return `${tabela(['QUANDO', 'EVENTO', 'DETALHE'], linhas)}\n${legendaDoFuso()}`;
+  return `${tabela([...m.colunas], linhas)}\n${legendaDoFuso()}`;
 }
 
 /** Slug legivel por humano de uma sessao (usado nas mensagens do CLI). */
 export function descreverSlug(slug: string): string {
   const p = parseSlug(slug);
-  if (!p) return slug;
-  const rot = p.rotacao ? `, rotacao ${p.rotacao}` : '';
-  return `produto "${p.produto}", assunto "${p.assunto}", fases "${p.fases}"${rot}`;
+  return p ? msg().thread.slug(p.produto, p.assunto, p.fases, p.rotacao) : slug;
 }
-

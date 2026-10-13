@@ -65,7 +65,8 @@ function cena(registrarWorkspace: boolean) {
 async function gatewayNoWorkspace(cwd: string, corpo: (tools: Map<string, Tool>) => Promise<void>): Promise<void> {
   const dir = dirTemporario('incidente-openclaw');
   const antes = { cwd: process.cwd(), ORK_BIN: process.env.ORK_BIN, ORK_PROJETO: process.env.ORK_PROJETO,
-    ORK_PROJETO_EXPLICITO: process.env.ORK_PROJETO_EXPLICITO };
+    ORK_PROJETO_EXPLICITO: process.env.ORK_PROJETO_EXPLICITO, LANG: process.env.LANG, LC_ALL: process.env.LC_ALL,
+    LC_MESSAGES: process.env.LC_MESSAGES };
   try {
     const sdk = path.join(dir, 'node_modules/openclaw');
     fs.mkdirSync(sdk, { recursive: true });
@@ -75,6 +76,8 @@ async function gatewayNoWorkspace(cwd: string, corpo: (tools: Map<string, Tool>)
     for (const f of ['index.js', 'hitl-ingress.js']) fs.copyFileSync(path.join(DIST_OPENCLAW, f), path.join(dir, f));
     process.env.ORK_BIN = ORK;
     delete process.env.ORK_PROJETO; delete process.env.ORK_PROJETO_EXPLICITO;
+    // RM-061 (F2b): o teste le o status pt-BR que o host transporta; o ork chamado nao herda o LANG de quem roda.
+    process.env.LANG = 'C.UTF-8'; delete process.env.LC_ALL; delete process.env.LC_MESSAGES;
     for (const nome of Object.keys(process.env)) if (nome.startsWith('ORK_HITL_')) delete process.env[nome];
     process.chdir(cwd);
     const importar = new Function('u', 'return import(u)') as (u: string) => Promise<{ default: { tools: (f: (d: Tool) => Tool) => Tool[] } }>;

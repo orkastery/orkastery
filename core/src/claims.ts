@@ -10,14 +10,18 @@
  * verificacao reprova no gate, porque nao existe como comprova-la depois.
  */
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { carregarManifesto } from './manifest';
 import { cicloSemCheck, validarProvaSemCheck } from './prova-minima';
 import { dirThread, gravarThread, lerThread } from './thread';
-import { Claim, Fase } from './types';
+import { Claim, Fase, ResultadoDeComando } from './types';
+import { avaliarPolicies, avisos, policyDeProvaLocal, ViolacaoDePolicy } from './policies';
+import { cwdDaThread, executar, TIMEOUT_VERIFY_MS } from './verify';
 import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, tabela } from './util';
 import { analisarComandos } from './claim-lint';
+import { ErroDoCatalogo, msg } from './locale';
 
 /** Caminho do `claims.jsonl` da thread (append-only, como o ledger). */
 export function caminhoClaims(raiz: string, threadId: string): string {
@@ -110,7 +114,17 @@ export interface OpcoesDeClaim {
   fase?: Fase | null;
   /** I-43: `nucleo.doneWhen` quando o nucleo registra um criterio de pronto. */
   origem?: Claim['origem'];
+  /** RM-008 (B8): executor da conferencia local (o do verify; injetavel no teste). */
+  executarProva?: (nome: string, comando: string, cwd: string, prazoMs: number) => ResultadoDeComando;
+  /**
+   * Suspeitas da revisao de 03/10: o registro pelo MCP (`ork_claim_add`, "Nao executa comandos") nunca
+   * roda o texto da claim; a prova dele e o `ork_verify`, no sandbox.
+   */
+  semProvaLocal?: boolean;
 }
+
+/** A claim registrada e, com a policy de prova local declarada, os avisos dela (fora do claims.jsonl). */
+export type ClaimRegistrada = Claim & { avisosDePolicy?: ViolacaoDePolicy[] };
 
 /** I-42 (D5): a suite inteira do manifesto, que um ciclo sem CHECK nao roda como prova. */
 function comandoDeTesteDoManifesto(raiz: string): string | undefined {
@@ -118,7 +132,7 @@ function comandoDeTesteDoManifesto(raiz: string): string | undefined {
 }
 
 /** `ork claims add`: registra a alegacao e a lista no `thread.json` e no ledger. */
-export function adicionarClaim(raiz: string, threadId: string, opcoes: OpcoesDeClaim): Claim {
+export function adicionarClaim(raiz: string, threadId: string, opcoes: OpcoesDeClaim): ClaimRegistrada {
   const thread = lerThread(raiz, threadId);
   if (cicloSemCheck(thread)) validarProvaSemCheck(opcoes.verificar ?? [], comandoDeTesteDoManifesto(raiz));
   const existentes = lerClaims(raiz, threadId);
@@ -148,7 +162,40 @@ export function adicionarClaim(raiz: string, threadId: string, opcoes: OpcoesDeC
     estado: claim.estado,
     ...(claim.lint?.length ? { lint: claim.lint.map((a) => a.regra) } : {}),
   });
-  return claim;
+  const avisosDePolicy = opcoes.semProvaLocal ? [] : conferirProvaLocal(raiz, thread, claim, opcoes.executarProva ?? executar);
+  return avisosDePolicy.length ? { ...claim, avisosDePolicy } : claim;
+}
+
+/**
+ * RM-008 (B8): com `claim_sem_prova_local` (ou `claims_failed`) declarada, o registro roda o comando da
+ * claim uma vez, na worktree da thread e no prazo do verify. A claim ja entrou: reprovacao ou estouro
+ * so gravam `policy_warn` no ledger e voltam como aviso. Sem a policy, nada roda.
+ */
+function conferirProvaLocal(raiz: string, thread: ReturnType<typeof lerThread>, claim: Claim,
+  executarProva: NonNullable<OpcoesDeClaim['executarProva']>): ViolacaoDePolicy[] {
+  const carregado = carregarManifesto(raiz);
+  if (!carregado || claim.verificar.length === 0 || !policyDeProvaLocal(carregado.manifesto)) return [];
+  const prazoMs = carregado.manifesto.verify.timeout_ms ?? TIMEOUT_VERIFY_MS;
+  // RM-047 (P2): worktree apagada nao passa pela procedencia, porque nada roda nela; vira o aviso abaixo.
+  const apagada = thread.worktree && !fs.existsSync(thread.worktree) ? thread.worktree : undefined;
+  const cwd = apagada ?? cwdDaThread(raiz, thread);
+  let reprovada: { comando: string; code: number; estourou: boolean; semDiretorio?: string } | undefined;
+  // Suspeitas da revisao de 03/10: sem a worktree (apagada), nada roda e o aviso diz por que, sem culpar a claim.
+  if (!fs.existsSync(cwd)) reprovada = { comando: claim.verificar[0], code: -1, estourou: false, semDiretorio: cwd };
+  for (const comando of reprovada ? [] : claim.verificar) {
+    const r = executarProva(`claim ${claim.id}`, comando, cwd, prazoMs);
+    if (!r.ok) { reprovada = { comando, code: r.code, estourou: r.causa === 'timeout' }; break; }
+  }
+  if (!reprovada) return [];
+  const violacoes = avisos(avaliarPolicies(carregado.manifesto, {
+    gate: 'claims.add', threadId: thread.id, modo: thread.modo, fase: claim.fase ?? undefined,
+    provaLocalReprovada: { claim: claim.id, ...reprovada, prazoMs },
+  }));
+  for (const v of violacoes) {
+    registrar(dirThread(raiz, thread.id), thread.id, TIPOS_DE_EVENTO.politicaAviso, { gate: 'claims.add', claim: claim.id,
+      fase: claim.fase, policy: v.policy, motivo: v.motivo, detalhe: v.detalhe, correcao: v.correcao, modo: thread.modo });
+  }
+  return violacoes;
 }
 
 /** Prefixo do arquivo das claims de criterio, para o veredito dizer de onde veio. */
@@ -195,7 +242,7 @@ export function registrarCriteriosDePronto(raiz: string, threadId: string): Clai
 export function exigirClaim(raiz: string, threadId: string, claimId: string): Claim {
   const claim = lerClaims(raiz, threadId).find((c) => c.id === claimId);
   if (!claim) {
-    throw new Error(`claim "${claimId}" nao existe na thread ${threadId}`);
+    throw new ErroDoCatalogo((m) => m.claims.naoExiste(claimId, threadId));
   }
   return claim;
 }
@@ -268,20 +315,17 @@ export function carimbarEstado(raiz: string, claim: Claim, estado: Claim['estado
 /** Tabela de `ork claims list`. */
 export function tabelaDeClaims(raiz: string, threadId: string): string {
   const claims = lerClaims(raiz, threadId);
-  if (claims.length === 0) {
-    return (
-      `Nenhuma claim na thread ${threadId}.\n` +
-      `Registre uma com: ork claims add ${threadId} <arquivo> --claim "<alegacao>" --verificar "<comando>"`
-    );
-  }
+  // RM-061 (F3b): o texto pelo catalogo; o estado (dado do `claims.jsonl`) so se traduz aqui, pelo id.
+  const m = msg().claims;
+  if (claims.length === 0) return m.listaVazia(threadId);
   const linhas = claims.map((c) => [
     c.id,
     c.fase ?? '-',
-    c.estado,
-    c.negativa ? 'sim' : 'nao',
+    m.estado(c.estado),
+    c.negativa ? m.sim : m.nao,
     c.arquivo,
-    c.verificar.join(' && ') || '(sem comando)',
+    c.verificar.join(' && ') || m.semComando,
     c.alegacao,
   ]);
-  return tabela(['ID', 'FASE', 'ESTADO', 'NEGATIVA', 'ARQUIVO', 'VERIFICAR', 'ALEGACAO'], linhas);
+  return tabela([...m.colunas], linhas);
 }

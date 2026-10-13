@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 import { runBrain } from './company-brain-cli';
+import { ID_DE_DOCUMENTO, NOME_DE_COLECAO } from './conhecimento';
+import { CONSULTAS_DO_CONHECIMENTO, consultaRespondeu, consultarConhecimento, PedidoDoConhecimento, textoDoConhecimento } from './conhecimento-consulta';
 import { raizDoEstado } from './estado-thread';
-import { executarGrafo } from './intelligence-graph-cli';
+import { checarAnalisadoresDoGrafo, executarGrafo } from './intelligence-graph-cli';
+import { lerEntradaDaThread } from './mcp-grafo';
 import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
 import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
-import { exigirNotaSemHost, pedirNota, textoDoPedidoDeNota } from './master-nota';
+import { exigirNotaSemHost, marcaDeHost, pedirNota, textoDoPedidoDeNota } from './master-nota';
 import { readNativeOfferStdin } from './hitl-native-offer';
 import { prepararRecibosParaDespacho } from './hitl-ingress-receipt';
 import { isAbsolute } from 'node:path';
@@ -77,7 +80,7 @@ import {
 } from './superficie';
 import { devolverVagas, textoDoBoard, textoDoPlano, textoDoReap, planejar, threadsDeTodosOsPerfis } from './board';
 import { textoDoRadar, varrerSessoes } from './hitl';
-import { montarPulse, textoDoPulse } from './pulse';
+import { filaDoDono, montarPulse, textoDoPulse } from './pulse';
 import { codigosEmUso, interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
 import { CADENCIAS, gravarCadencia, inicioDaProximaJanela, lerCadencia, textoDaCadencia } from './pulse-cadencia';
 import { LIMIAR_DE_DECISOES_POR_FASE, placarDaThread, registrarDecisao, taxaDeReversao } from './decisao-autonoma';
@@ -92,7 +95,8 @@ import {
 } from './divida';
 import { definicaoDaVariante, parseVariante, tabelaDeVariantes, VARIANTES } from './ciclos';
 import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './claims';
-import { exigirCatalogo } from './catalogo';
+import { conferirClaims, ErroDeConferencia, FORMATO_DA_CONFERENCIA, idsDeClaims, textoDaConferencia } from './claims-conferir';
+import { exigirCatalogoDoPacote } from './catalogo';
 import { doctor } from './doctor';
 import { endurecerUmask, preflight, textoPreflight } from './preflight';
 import { rodarEval, textoDoEval } from './evalrunner';
@@ -100,7 +104,7 @@ import { aprovarGateHumano } from './gates';
 import { abrirPedidoGate, contextoDoPedidoNativo, lerRespostaStdin, responderGate } from './hitl-gates';
 import { exportarHandoff, recall, textoDoHandoff } from './handoff';
 import {
-  HOSTS,
+  destinoPadraoDe,
   instalarAdaptador,
   ORDEM_DOS_HOSTS,
   parseHost,
@@ -108,19 +112,23 @@ import {
   textoDaInstalacao,
   textoDosPitfalls,
 } from './hosts';
-import { init } from './init';
+import { exigirRepositorioParaInit, init } from './init';
 import { createInitiative, createProduct, createProject, findEntity, listEntities, PortfolioKind, PortfolioStatus, readPortfolio } from './portfolio';
 import { atualizarAgentsMd } from './agents-md';
 import { adquirirRegiao, liberar, tabelaDeLeases } from './leases';
 import { inventariarSessoes } from './sessoes-inventario';
 import { coletarEstatisticas, registrarEstimativaPlano, textoDasEstatisticas } from './ledger-stats';
+import { relatorioDeEsgotamentos, textoDosEsgotamentos } from './esgotamentos';
 import { adotarSessao } from './sessoes-adopt';
 import { textoDoInventario } from './sessoes';
-import { ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
+import { ENV_THREAD_DO_DESPACHO, ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
 import { avaliarPolicies, linhasDeAviso } from './policies';
 import {
   aceitarPendentesPorOmissao,
   aceitosPorOmissao,
+  entregasParaOmissao,
+  indiceDaThread,
+  motivoForaDaOmissao,
   ORDEM_DAS_CLASSES,
   parseClasse,
   registrarMaster,
@@ -131,10 +139,11 @@ import {
 import { carregarManifesto, configDeEmbedding, DIR_ESTADO, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
-import { gravarEtapa, lerOnboarding, ONDE_FICAM_OS_SEGREDOS, resetarOnboarding, textoDaPauta } from './onboarding';
+import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { PROXIMO_PASSO_INIT } from './init';
+import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
+import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
   sondarEmbeddings,
@@ -147,8 +156,8 @@ import {
   textoDoSync,
 } from './memoria';
 import { chaveDeEmbeddingAceita, COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
-import { AlvoDeEmbedding, indexar, ResultadoDoIndice, universoDoTenant } from './indice-vetorial';
-import { buscarPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
+import { AlvoDeEmbedding, codigoDaFalha, indexar, ResultadoDoIndice, textoDoIndice, universoDaBusca } from './indice-vetorial';
+import { buscarPorSignificado, textoDaBuscaPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
 import { recallDaThread, textoDoRecall } from './recall';
 import { inventariarHandoffs, migrarHandoffs } from './memory-migration';
 import {
@@ -179,7 +188,7 @@ import { exigirModoVivo, extrairTagAposentadaDoPedido, extrairTagDoPedido, MODOS
 import { migrarModosAposentados, textoDaMigracaoModos } from './modos-migracao';
 import { editarBloco, lerSetup, resetarSetup, textoDaEntrevista, textoDoSetup, versionarSetup } from './setup';
 import {
-  adicionarPerfil, COLUNAS_DE_PERFIS, desativarPerfil, lerPerfis, lerPerfisComContas, linhasDePerfis, marcarFalhaDePerfil, perfilDeDespacho, PerfilDeDespacho,
+  adicionarPerfil, desativarPerfil, lerPerfis, lerPerfisComContas, linhasDePerfis, marcarFalhaDePerfil, perfilDeDespacho, PerfilDeDespacho,
   perfisComHorario, prepararDiretorioDoPerfil, reativarPerfil, registrarConferenciaInconclusiva, VARIAVEL_DO_PERFIL,
 } from './runtime-profiles';
 import { ambienteDoPerfil as ambienteDoPerfilClaude, conferirAuth as conferirAuthClaude } from './adapters/claude-bg';
@@ -188,6 +197,7 @@ import {
   assumirConducao, canalDoProcesso, conducaoDaThread, ErroDeConducao, ESPERA_PADRAO_MS, esperarConducaoLivre, liberarSeOrfa,
   textoDoPedidoRepetido, textoDoStatusDaConducao,
 } from './conducao';
+import { baterSentinela, desligarSentinela, statusDaSentinela, textoDoStatusDaSentinela } from './conducao-sentinela';
 import { descreverSlug, hashDoPrompt, montarPrompt, rodarFase, tabelaDoLedger, valoresDoPrompt } from './phase';
 import {
   carregarTemplates,
@@ -201,22 +211,32 @@ import {
   threadDeExemplo,
 } from './prompts';
 import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLimpeza } from './sessoes';
-import { exec, tabela } from './util';
+import { exec, shaCurto, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
-import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, canalDaSessao, dirThread, exigirFase, lerThread,
-  linhaDaWorktree, listarIds, novaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
+import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, caminhoThread, canalDaSessao, dirThread, exigirFase, lerThread,
+  linhaDaWorktree, listarIds, novaThread, pedidoDaThread, pedidoDeWorktree, PedidoDeWorktree, prepararPedido, resumoDaThread, tabelaDeThreads,
+  threadsDaListagem,
 } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
-import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
+import { BRANCH_DE_RESERVAS, leituraDasReservas, listarReservas, PainelDeReservas, pegarItem, REMOTO_PADRAO, reservarFeat, reservasOrfas,
+  soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
+import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
-import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
+import { estadoDaBatida, instalarBatida, removerBatida, textoDoEstadoDaBatida, textoDoResultadoDaBatida } from './fabrica-batida';
+import { avisoDaFabricaPedida, fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
+import { entrarNaRede, publicarRede, refDaCasa, sairDaRede } from './rede';
+import { registrarNaRede } from './rede-adesao';
+import { jsonSemInvisivel } from './saida-segura';
+import { ehNomeDeForja } from './rede-forja';
+import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
-import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate } from './types';
-import { gravarBaseline, textoDoVerify, verificar } from './verify';
+import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
+import { ESPERA_DA_FILA_PESADA_MS, gravarBaseline, textoDoVerify, verificar } from './verify';
+import { ErroDaFilaPesada, OcupanteDaFila } from './fila-pesada';
 import {
   auditarWorktree,
   garantirWorktree,
@@ -228,12 +248,16 @@ import { linhaDoLintDeClaim } from './claim-lint';
 import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLicoes } from './licoes';
 import { executarDemo } from './demo';
 import { registrarEntregaExternaPorPr, registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
+import { linhasDaPublicacao, pistaDeEntrega, publicarEntrega } from './ship-publicar';
 import {
-  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto, fixarProjetoAlvo,
-  FORA_DA_CONSULTA,
-  linhasDaConsulta, listarProjetos, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, remotoDoProjeto,
-  resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
+  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, declaracaoQueFaltou, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto,
+  fixarProjetoAlvo, FORA_DA_CONSULTA, iniciarDeclaracaoDoProjeto,
+  linhasDaConsulta, listarProjetos, pedirDeclaracaoDoProjeto, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio,
+  remotoDoProjeto, resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
 } from './projeto-alvo';
+import { ARQUIVO_WORKTREE_LOCAL, COMANDO_CONFIRMAR_WORKTREE, confirmarWorktreeLocal, lerWorktreeLocal, pastaDasWorktreesPedida,
+  recusaDePastaDasWorktrees, revogarWorktreeLocal } from './worktree-local';
+import { caminhoDaPosturaLocal, comandoDeConfirmacao, confirmarPosturaLocal, lerPosturaLocal, posturaAfrouxada, recusaDePostura, revogarPosturaLocal } from './postura-local';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
 // Antes de qualquer arquivo ou despacho: sem escrita de grupo nem de outros, que o sensor recusaria.
@@ -277,373 +301,69 @@ function texto(v: string | boolean | undefined): string | undefined {
 }
 
 /**
+ * RM-058 N2 (A1 da rodada 2 do CHECK): a fila de recursos pesados de um comando que verifica por dentro, pelo `--esperar`
+ * dele, com o aviso no stderr e o comando que a recusa sugere. Sem `--esperar`, vale o padrão curto do verify.
+ */
+function filaPesadaDoCli(args: Args, operacao: 'verify' | 'baseline', comandoDeEsperar: string):
+  { esperarMs: number | undefined; aoEsperar: (ocupantes: OcupanteDaFila[]) => void; comandoDeEsperar: string } {
+  const m = msg().verify;
+  return { esperarMs: conducaoDoCli(args).esperarMs, comandoDeEsperar,
+    aoEsperar: (ocupantes) => console.error(m.filaPesadaEsperando(operacao,
+      ocupantes.map((o) => m.filaPesadaOcupante(o.operacao, o.thread, formatarDataHora(o.desde))).join('; '))) };
+}
+
+/**
  * I-36 (D2, D6): o que o CLI declara sobre a conducao. `--canal` (sem ele, o que a borda exporta),
  * `--correlacao` (conversa ou mensagem de origem) e `--esperar [minutos]` (sem valor, 30).
  */
 function conducaoDoCli(args: Args): { canal: ReturnType<typeof canalDoProcesso>; correlacao: string | null; esperarMs: number | undefined } {
-  if (args.opcoes.canal === true) throw new Error('uso: --canal <claude-code|hermes|openclaw|codex|mcp|cli>');
+  if (args.opcoes.canal === true) throw new Error(msg().phase.canalUso);
   const bruto = args.opcoes.esperar;
   let esperarMs: number | undefined;
   if (bruto === true) esperarMs = ESPERA_PADRAO_MS;
   else if (typeof bruto === 'string') {
     const minutos = Number(bruto);
-    if (!Number.isFinite(minutos) || minutos <= 0 || minutos > 24 * 60) throw new Error('uso: --esperar [minutos], de 1 a 1440 (sem valor, 30)');
+    if (!Number.isFinite(minutos) || minutos <= 0 || minutos > 24 * 60) throw new Error(msg().phase.esperarUso);
     esperarMs = Math.round(minutos * 60_000);
   }
   return { canal: canalDoProcesso(texto(args.opcoes.canal)), correlacao: texto(args.opcoes.correlacao) ?? null, esperarMs };
 }
 
-const AJUDA = `ork ${VERSAO}, nucleo de orquestracao do Orkastery
+/** RM-061 (F2a): o que a ajuda interpola; a redacao mora no catalogo (`msg().ajuda`, D10). */
+function dadosDaAjuda(locale: Locale = localeAtivo()): DadosDaAjuda {
+  return { versao: VERSAO, modos: ORDEM_DOS_MODOS.length, segredos: msg(locale).onboarding.segredos,
+    tags: ORDEM_DOS_MODOS.map((m) => MODOS[m].tag).join(' ') };
+}
 
-Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
+/** A ajuda em pt-BR, o texto de sempre: o `docs verificar` a compara com a referencia do CLI. */
+const AJUDA = msg('pt-BR').ajuda.texto(dadosDaAjuda('pt-BR'));
 
-  --projeto <nome|caminho>                  Projeto-alvo de qualquer comando (RM-052): vence ORK_PROJETO, que vence o
-                                            diretorio atual; nome ambiguo ou desconhecido recusa com os candidatos (saida 4)
-  projetos [--json]                         Projetos conhecidos desta maquina (~/.orkastery/projetos.json)
-  projetos registrar [caminho]              Registra a copia (init, thread new e fabrica entrar ja registram)
-  projetos esquecer <nome|caminho>          Tira do registro a copia que sumiu ou sobrou (nada no disco e apagado)
-
-  doctor                                    O que vale nesta maquina agora (sai != 0 se bloqueado)
-  init [--force] [--name N] [--abbrev A]    Gera o orkastery.yaml do repositorio
-  modos                                     Tabela dos ${ORDEM_DOS_MODOS.length} modos de conducao vivos por #TAG
-
-  setup                                     Pauta da entrevista #setup: runtime/modelo/esforco
-                                            por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
-  onboarding [show|set <etapa>|reset [etapa]] Pauta e respostas do projeto (9 etapas)
-        [--conteudo JSON] [--por Q] [--json]  Segredos ficam ${ONDE_FICAM_OS_SEGREDOS}
-        [--reset [etapa]]                    Reset seletivo ou total, idempotente
-  onboarding sync [--json]                  Publicação opcional na memória, com degradação
-  experiencia show [--json]                 Preferências efetivas; configure por onboarding set maestro --conteudo '{"owner":{"experience":true}}'
-  experiencia uninstall <host> [--dry-run] [--json]
-                                            Remove o bloco de Claude Code/Codex; sem --dry-run aplica a remoção
-  setup <modo>                              Config atual de cada bloco do modo
-  setup <modo> --bloco N [--runtime R]      Edita o bloco (runtimes: claude-bg, codex);
-        [--model M] [--effort E] [--por Q]       evento setup_configured no ledger do projeto
-        [--fallback R:M[:E],...]                  ordem de fallback de runtime do bloco (I-33)
-  accounts list [--json]                    Perfis de conta por runtime, sem segredo (I-33)
-  accounts add <id> --runtime R --dir D     Cria o perfil e roda o login do proprio CLI com o env
-        [--sem-login]                            do perfil (nunca copia credencial)
-  accounts remove <id>                      Desativa o perfil (diretorio e login ficam onde estao)
-  accounts check [<id>]                     Confere o login de cada perfil e marca o store
-  setup [<modo>] --reset                    Volta o modo (ou tudo) ao default
-  setup versionar                           Leva o setup que vale para orkastery.setup.json: por PR, vale em
-                                            todas as maquinas e passa a ser o arquivo editado (I-52)
-
-  thread new <nome> --modo <MODO>           Cria a thread, o slug de 3 partes e o ledger
-        [--exige-runtime-diferente]              o CHECK precisa de runtime que o GO nao usou
-        [--done "<criterio> :: <comando>"]       criterio de pronto EXECUTAVEL (use ;; para varios)
-        [--slug S] [--assunto A] [--worktree auto|DIR] [--dry-run]
-        [--sem-worktree]                         cria sem worktree (na branch base, o ship barra a entrega com
-                                                 push_direto_na_base: block, o padrão do ork init); com
-                                                 worktree.por_thread: true, a worktree nasce sem flag
-        [--roadmap RM-NNN]                       reserva o item do roadmap antes de criar (I-47)
-  thread list [--todas] [--json]            Threads NAO fechadas do projeto (--todas inclui as fechadas)
-  thread close <id> --motivo orfa|engano|superada --por Q --justificativa J
-  thread entrega <id> --arquivo A --sha256 H --por Q
-  thread status <thread-id> [--json]        Estado da thread, cruzado com o runtime
-
-  portfolio inspect <id> --json              Entidade, origem e ciclos com lacunas explícitas
-  creation start --input-file F --json       Criação durável com identidade do processo local
-  creation show|list|events [id] --json       Consulta journal e recuperação
-  creation resume|compensate <id> --expected-version N --json
-  portfolio create <product|project|initiative> <id> --title T [--parent ID]
-  portfolio list [product|project|initiative] [--parent ID] [--json]
-  portfolio show <id> [--json]              Catálogo prod -> proj -> init
-        [--constraints A;B] [--outcomes A;B] [--threads N]
-        [--execution-runtime R] [--validation-runtimes R1,R2]
-  objective ...                             Aposentado na I-43: as duas vigas viraram
-                                            --exige-runtime-diferente e --done de thread
-
-  phase run <thread-id> <FASE> --prompt "<texto>"
-        [--runtime R] [--model M]           Despacha a fase como background agent
-        [--effort E] [--dry-run]                 (runtime: CLI > setup do bloco > manifesto;
-                                             so --model assume --effort high; o trio
-                                             efetivo vai ao ledger como fato verificavel)
-        [--canal C] [--correlacao ID]        Canal de origem (sem ele, o que o host declara)
-        [--esperar [min]]                    Com a thread ja conduzida, espera a vez (sem: recusa na hora)
-        [--perfil ID]                        Conta do despacho (ork accounts list); inexistente, de outro
-                                             runtime, esgotado ou sem login recusa com motivo tipado
-  phase list <thread-id>                    Historico do ledger da thread
-                                            (mostra o modelo/esforco reais de cada fase)
-  ledger stats --desde 7d [--ate ISO]       Telemetria economica do ledger (intervalo [desde,ate))
-        [--thread T] [--modo M] [--runtime R] [--json]
-  ledger estimate <thread-id> --sem-ia H --ia-sem-ork H --por Q --metodo M --premissas P
-        [--incerteza I]                     Registra estimativas explicitas da fase PLAN
-
-  sessions [--all] [--global] [--json]      Inventário Claude e Codex da conta do processo e de cada perfil
-        [--exigir-limpo]                    Sai != 0 com fonte inválida ou sessão sem thread
-  sessions adopt <id> [--json]             Adota identidade real sem executar prompt
-  sessions event --tipo T --sessao ID       Ingere JSON limitado no stdin; observa sem aprovar gates
-  sessions watch --thread T [--sessao ID]   Observa somente a sessão selecionada; --once faz uma varredura
-  sessions limpar-fantasmas [--dry-run]     Solta do ork (sessao_morta no ledger) a sessao sem pid e sem processo;
-        [--json]                             nunca toca no runtime (RM-056)
-  sessions logs <sessao> [--linhas N]       Logs de uma sessao
-  sessions supersede <thread> <UUID> --fase F --runtime R  Confirma encerramento de sessão superada
-  sessions request <thread> <UUID> --fase F --runtime R --pergunta P  Abre pedido vinculado ao prompt nativo
-  sessions answer <thread> <pedido> --stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]  Confirma entrega autenticada
-  sessions reconcile <thread> <pedido>      Fecha envio pendente so com thread e pedido; consulta recibo, nunca reenvia
-  sessions stop <sessao>                    Para uma sessao
-  sessions attach <sessao>                  Imprime o comando de attach (precisa de TTY)
-  pulse [--json] [--registrar]             Fila unificada de atenção humana e retry de órfãs
-  pulse responder --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
-                                            Recebe o que o dono digitou no canal do resumo (P4EJ a, 1a 2c)
-  pulse cadencia [<tag>] [--por P] [--json] Mostra ou troca a cadencia do resumo: OrkPulseOn, OrkPulseOn-15m,
-                                            -30m, -60m ou OrkPulseOff; pergunta nova sai na hora (I-50)
-  sessions hitl [--json] [--so-paradas]     Radar de sessoes que exigem acao humana AGORA:
-        [--atencao N] [--sem-logs]              classifica o estado de cada sessao do runtime,
-        [--so-da-raiz] [--exigir-limpo]         le a pergunta que a sessao trava e diz o que
-                                                destrava (pega HITL de sessao SEM thread)
-
-  claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"] [--fase F]
-                                            Registra alegacao verificavel da thread
-  claims list <thread-id>                   Claims da thread e o estado de cada uma
-  decisao registrar <thread-id> --decidido D --porque P --como-mudar C --custo-agora A --custo-depois B
-        --criterio manifesto:CHAVE|ledger:REF|medicao:COMANDO --quem Q --evidencia E [--razao R] [--reverte ID]
-                                            Decisao tomada sem perguntar: chega ao dono no resumo
-  decisao placar <thread-id> [--json]       Decididas contra perguntas por fase, reversoes e o limiar
-  claims verificar <thread-id> <claim-id> --comando "<comando>"
-                                            Anexa o comando que comprova uma claim ja feita
-  claims retirar <thread-id> <claim-id> --motivo "<motivo>"
-                                            Retira a alegacao (o historico fica no claims.jsonl)
-  claims ausente <thread-id> --paths A,B --motivo "<motivo>" [--commit SHA]
-                                            Ciclo sem CHECK: declara no ledger o que ficou sem prova
-  verify <thread-id> [--baseline]           Reexecuta claims e verify do manifesto no HEAD real
-        [--so-claims]                       --baseline grava o estado do mundo antes do GO
-        [--canal C] [--esperar [min]]       So executa com a conducao da thread (sai 3 se outra conduz)
-  ci prepare <thread-id>                    Exporta claims/comandos para a candidata (.ork-ci/<thread>.json)
-  ci run [<thread-id>] [--bundle ARQ]       Executa o CHECK no runner independente
-        [--branch B]                         acha o bundle da thread pelo nome da branch (o CI usa)
-  ci status [--sha SHA] [--remoto origin]   Consulta o check exato publicado no GitHub
-
-  gate next <thread-id> [--proximo FASE]    Gate de tokens: mesma sessao ou nova sessao
-        [--ocupacao 0..1] [--fonte F] [--transcript ARQ] [--janela N] [--refazer]
-  gate request <thread-id> [--motivo M]     Apresenta pedido HITL correlacionado à pausa
-        [--formato telegram|terminal]           no contrato curto, com o codigo estavel para responder
-  gate answer <thread-id> <pedido>          Recebe envelope do ingresso humano autenticado
-        --resposta-stdin --por Q --mensagem ID --origem telegram [--canal hermes|openclaw]
-        [--conta ID]  conta homologada do canal; obrigatoria no canal openclaw
-  gate approve                             Aposentado: aprovação sem pedido é recusada
-
-  retry policy [--motivo M] [--json]        Politica de retry por motivo tipado de gate
-  retry plan <thread-id> [--motivo M]       O que o ork faria pelo ultimo gate reprovado
-        [--fase F] [--json]                      (calcula, nao executa, nao gasta tentativa)
-  retry run <thread-id> [--reverify]        Executa a acao tipada do ultimo gate reprovado
-        [--por Q] [--dry-run]                    (--por autoriza quando o bloco do modo pausa)
-  retry list [--json]                       Fila DURAVEL de rate limit do projeto
-  retry resume [--id R1] [--agora ISO]      Retoma a fase morta por rate limit na janela seguinte
-        [--ocupacao 0..1] [--forcar] [--dry-run] (playbooks: mesma-sessao, nova-sessao, escalada)
-  retry cancel <id> --motivo M              Tira um pedido da fila, com motivo registrado
-  retry parse --stderr "<texto>"            Le o horario de reset do stderr do adapter
-
-  fix open <thread-id> [--so-claims]        GO-FIX: deriva a spec exata do CHECK reprovado
-        [--reverify] [--json]                    (uma correcao por motivo tipado, tipo A ou B)
-  fix list <thread-id> [--rodada N]         Correcoes da rodada e o veredito de cada uma
-  fix reverify <thread-id> [--rodada N]     CHECK-REVERIFY com veredito POR correcao
-        [--parcial] [--json]                     (--parcial e RECUSADO se houver tipo B)
-
-  handoff export <thread-id>                Handoff triado CRITICO/IMPORTANTE/RESUMIVEL
-        [--proxima-fase FASE] [--slug S]
-  handoff recall <thread-id> <ponteiro>     Resolve um ponteiro path#ancora de volta ao conteudo
-
-  recall <thread-id> --fase FASE            Recuperacao TARDIA: resolve so os ponteiros do
-        [--id ptr-N] [--todos] [--forcar]        momento (retrieve_when), nunca a janela inteira
-        [--sem-conteudo] [--json]                (orkmind por tag, files por path#ancora)
-
-  brain status|inventory|get|query|receipts|context|dossie|sync|reconcile|apply|rollback|bind
-  brain dossie --thread T [--decisao ID]    Dossie de decisao: vinculo, contexto citavel, alternativas,
-                                            quem decidiu e evidencia, com os ids do Brain (so leitura)
-  memory status [--json] [--sondar]         Regime efetivo (files|orkmind), tenant, degradacao e embeddings
-                                            (--sondar: uma chamada real de embedding, com a latencia)
-  memory sync [<thread-id>] [--json]        Publica decisoes, policies, handoff, licao e roadmap
-  memory inventory --escopo <threads> [--json]                 Inventaria fontes canonicas e tenants excluidos, sem gravar
-  memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]                   Migra handoffs por G3, com pacote integral e readback
-  memory search --tags '<json>' [--colecao C]  Busca deterministica por tag (mandatory sempre volta)
-        [--thread ID] [--restrito] [--janela N] [--limite N] [--json]
-  memory search --texto "<frase>"          Busca por significado (I-38): vetor + FTS por RRF no tenant,
-        [--modo hibrido|vetor|fts]               NAO deterministica; nao combina com --tags nem --thread
-        [--colecao C] [--limite N] [--json]
-  memory index [--modelo primario|fallback|todos] Indice vetorial local do tenant (I-38), idempotente,
-        [--dry-run] [--json]                     com tokens e custo estimados; --dry-run nao chama o provider
-
-  grafo indexar [--verificar] [--forcar]    Indice do grafo de codigo do HEAD limpo (RM-031 KG3) no estado do projeto:
-        [--json]                                 pastas 0700, chave por revisao e extrator, idempotente; incremental (KG4)
-                                                 a partir do indice ancestral, ou completo com o motivo; --forcar extrai
-                                                 completo; --verificar confere contrato, bytes, determinismo e o incremental
-                                                 contra a completa; precisa de typescript e micromark
-  grafo status [--json]                     Indices guardados, o do HEAD, os analisadores e o tamanho
-  grafo vizinhos <no> [--profundidade N]    Vizinhanca de arquivo ou simbolo, com extrator e evidencia de cada aresta
-        [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json]
-  grafo chamadores <simbolo>                Quem chama (arestas calls que chegam) [--profundidade N] [--limite N] [--json]
-  grafo importadores <arquivo|simbolo>      Quem importa (arestas imports que chegam) [--profundidade N] [--limite N] [--json]
-  grafo caminho <de> <para>                 Menor caminho pelas arestas [--sentido saida|entrada|ambos] [--tipo T,...] [--json]
-        [--json --teto-bytes N]                  Nas quatro consultas (KG5): JSON compacto de no maximo N bytes; as arestas mais
-                                                 longe do alvo saem ate caber, e o caminho que nao cabe recusa
-  grafo amostra [--por-estrato N]           Amostra de arestas para auditoria manual; --conferir ARQ confere a auditada
-  grafo limpar [--tudo] [--json]            Apaga os indices que nao sao do HEAD e as sobras com mais de uma hora
-
-  ship <thread-id> --para <branch>          Merge --no-ff serializado por lease e push PROVADO
-  ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
-        [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master --aceitar-omissao
-        [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
-        [--dry-run]                              Ensaio: as mesmas conferencias, sem gravar ship_done, fase nem fabrica
-        [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
-
-  board [--all] [--sem-remoto]              Visao unica das threads (todos os perfis com --all); com a
-                                            fabrica compartilhada, tambem as outras maquinas (I-51)
-  board plan                                Escalonador: quem avanca agora, quem espera e por que
-
-  orquestracao status [--all] [--json]      Monitor PROATIVO de pausas e impedimentos: quem esta
-        [--atencao N] [--so-paradas]             parado, esperando o que, ha quanto tempo e o que
-        [--sem-runtime] [--exigir-limpo]         destrava (alias curto: ork monitor)
-
-  worktree ensure <thread-id>               Garante a worktree da thread (base resolvida pelo ork)
-  worktree sync <thread-id> [--dry-run]     Rebasa a branch da thread quando a base avancou
-  worktree audit <thread-id>                Confere a worktree no proprio git (sai != 0 se divergir)
-  worktree release <thread-id> [--forcar]   Remove a worktree e limpa o registro
-
-  activation plan|status|enable|disable     Escrita escopada com aceite, hash, leases e recibo
-  lease list                                Leases, familias e as filas (merge e colisao de regiao)
-  lease acquire <nome> --thread T --motivo M   Toma um lease tipado (entra na fila se colidir)
-  lease release <nome> [--thread T] [--forcar]
-  conducao status <thread-id> [--json]      Quem conduz a thread agora (canal, sessao, fase, desde)
-  conducao assumir <thread-id> --por Q --motivo M
-                                            Handoff: encerra a conducao atual pelo runtime e registra quem assumiu
-
-  master propor <id> --score N --justificativa J --por <agente>
-  master batch --aceitar <thread:assinatura,...> --por <humano>
-  master migrar --dry-run --por Q           Inspeciona correções sem alterar originais
-  master digest <enviar|preview|responder>  Digest semanal com recibos do host
-  master <thread-id> --score 0-5 --justificativa "<texto>"
-        [--classe C[,C]] [--resumo R] [--por Q] [--refazer]
-                                            Fecha a thread: POSTMORTEM + MASTER log + score (so do terminal;
-                                            de processo de host e recusado com master.prova-de-canal)
-  master pedir <thread-id> [--formato telegram|terminal|json]
-                                            Pede a nota ao dono com codigo curto; ele responde pelo Telegram
-                                            (<codigo> <0 a 5> <porque>) e a nota vai ao ledger com o recibo (RM-048)
-  master [--todas] [--json]                 As entregas, com o indice derivado do ledger
-  master --aceitar-omissao [--json]         Aceita as entregues por omissao, com registro
-  master classes                            As classes de falha fixas do POSTMORTEM
-  licoes [--json]                           O que volta no GOAL e no PLAN da proxima thread (POSTMORTEM e
-                                            MASTER) e as propostas de policy por recorrencia (I-55)
-
-  demo [--manter] [--dir D]                 A promessa em 30 s: uma afirmacao falsa reprovada e a corrigida aceita,
-                                            offline, num repositorio temporario (I-56)
-  ciclos                                    Variantes de ciclo de "ork thread new --ciclo"
-  modos --do-pedido "<texto>" [--json]      Le a #TAG do pedido do builder (usado pelos adaptadores)
-  modos migrar [--dry-run] [--por Q]        Tira modo aposentado do orkastery.yaml e do setup.json
-        [--json]                             (idempotente, com backup; nao toca em historico)
-
-  prompt list                               Templates de prompt (embutidos e os do projeto)
-  prompt lint [--template ID]               Reprova template quebrado antes de ele virar despacho
-  prompt render <thread-id> --fase F        Mostra o prompt exato, com o sha256 que vai ao ledger
-        [--pedido "<texto>"] [--template ID]
-  prompt render --exemplo --fase F --modo M Renderiza sem thread nenhuma, para revisar o texto
-
-  roadmap status [--json]                   Status report unico do roadmap: grupos com icones, #HITL no que espera
-                                            voce e o fecho com o que precisa de voce e o que vem a seguir (RM-048)
-  roadmap reservas [--json] [--remoto R]    Quem esta com cada item do roadmap, lido da branch ork/roadmap-reservas
-        [--soltar-orfas]                     marca a reserva de thread ja fechada (orfa) e, com a opcao, solta
-                                             ou passa para outra thread aberta do mesmo item, com registro
-  roadmap pegar <RM-NNN> [--thread T]       Reserva o item para esta maquina (push atomico: o primeiro vence)
-        [--nota N] [--por Q] [--maquina M]       maquina = --maquina, ORK_MAQUINA ou o hostname
-        [--forcar --motivo M]                    tomar a reserva de outra maquina fica registrado
-  roadmap soltar <RM-NNN> [--forcar --motivo M]  Devolve o item
-  roadmap feat [--thread T] [--nota N]      Reserva o proximo numero de FEAT na mesma branch (push atomico: duas
-                                            maquinas nunca levam o mesmo numero; numero reservado nao volta)
-  fabrica [--json] [--sem-remoto]           O que cada maquina conduz, lido da branch ork/fabrica-estado (I-51)
-  fabrica entrar [--maquina NOME]           Esta maquina entra na fabrica compartilhada deste usuario, com
-                                            este nome (~/.orkastery/maquina.json), e publica o primeiro retrato
-  fabrica publicar [--forcar] [--json]      Grava o retrato desta maquina na branch (push atomico, sem forca);
-                                            depois de entrar, sai sozinho ao criar thread, despachar fase,
-                                            entregar e fechar, e a cada batida do pulse
-  fabrica sair                              Para de publicar daqui e tira o retrato desta maquina da branch
-  network roadmap [--projeto P] [--json]    Roadmap, reservas e threads de cada maquina de cada projeto, de qualquer diretorio:
-        [--sem-remoto]                           fonte e hora de cada parte, lacuna tipada no que nao leu. P = caminho do clone,
-                                                 github:dono/repo, gitlab:grupo/repo ou nome conhecido; sem clone, le a forja (RM-054)
-  docs verificar [--json] [--pr]            Documentacao de produto e roadmap contra o codigo e o git; no PR (--pr),
-                                            o merge de outra thread e o indice que divergem da main so avisam
-                                            (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
-  docs sincronizar [--escrever]             Fatos do ledger e do git para o roadmap (merge, fase) e indices;
-                                            sem --escrever so mostra; nunca muda status por passagem de tempo
-        [--so RM-NNN[,RM-MMM]] [--todos]     so esses itens (e os indices); na worktree de uma thread com item,
-                                             o padrao e o item dela; --todos volta a todo item (RM-037)
-  docs init                                 Cria padroes, modelos, indices e o lint de Markdown no projeto
-
-  mcp serve --project RAIZ --host HOST       Servidor MCP stdio deste projeto (codex|claude-code)
-  mcp install --project RAIZ --host HOST     Prepara MCP; aceita --dry-run, --ship-transport, --child-permissions e --owner-permissions (Codex)
-
-  adapter list                              Adaptadores de host (Camada 1) e o destino de cada um
-  adapter show <host>                       Os 3 pitfalls de instalacao do host
-  adapter install <host> [--dir D]          Instala o adaptador (claude-code|codex|hermes|openclaw)
-        [--dry-run] [--force]                    divergencia segura resolve sozinha; o resto pergunta
-        [--aceitar-catalogo <arquivo>]           sobrescreve a copia com o catalogo, arquivo a arquivo
-        [--manter-copia <arquivo>]               deixa a copia como esta, arquivo a arquivo
-
-  eval [--skill S] [--canario C]            Canarios de comportamento + corpus das skills finas
-        [--so-canarios] [--so-skills] [--json]   (sai != 0 em qualquer falha)
-
-  audit packs [--estagio E] [--pack P]      Os 7 packs, o estagio que os ativa e a postura
-  audit run <pack> [--profile P]            Monta o prompt do pack e despacha pelo runtime adapter
-        [--since Nd] [--tudo] [--effort E] [--model M] [--agora "<quem>"] [--forcar] [--dry-run]
-  audit list                                Rodadas de auditoria do projeto
-  audit show <rodada> [--ledger]            Contexto, achados e propostas de uma rodada
-  audit prompt <pack> [--since Nd]          O prompt exato do pack, com o sha256 que vai ao ledger
-  audit lint                                Reprova template de auditoria quebrado (auditors/)
-  audit ingest <rodada> --arquivo J         Registra em lote os achados que o auditor escreveu
-  audit finding add <rodada> --regra R      Registra um achado com evidencia, claim e proposta
-        --titulo T --arquivo caminho:linha --impacto I --fix F --estimativa E
-        [--severidade critico|maior|menor] [--irreversivel "<passo>"] [--verificar "<comando>"]
-  audit verify <rodada>                     Reexecuta as claims dos achados (auditor sem self-report)
-  audit report <rodada> [--publicar]        Relatorio com o bloco OBRIGATORIO de propostas
-  audit divida [--pack P] [--todos]         Board de divida: propostas abertas e recorrencia
-  audit surface [<dir>] [--regra SPn]       Varredura DETERMINISTICA da superficie de ataque de rede
-        [--limite N] [--json]                    (SP8..SP12; sai != 0 quando ha achado)
-  audit surface --registrar <rodada>        Grava os achados da varredura no board da rodada
-  audit finding estado <id> <estado>        Carimba o achado (aberto|adiado|resolvido|descartado)
-
-  thread new <nome> --from-finding <ID>     Abre a thread a partir de um achado de auditoria
-        [--modo M] [--worktree auto] [--sem-worktree] [--dry-run]
-                                                 (evidencia, claim e proposta viajam junto; a worktree segue
-                                                 worktree.por_thread como no thread new)
-
-Regimes de memoria: files (fallback honesto) e orkmind (bloco B6, base propria por tenant
-declarada em memory.database_url_env pelo NOME da variavel de ambiente, sem fallback).
-Colecoes gravadas no OrkMind: decision, handoff, rule, learning, roadmap (source=agent,
-nunca mandatory: regra critica so nasce de humano autenticado).
-
-Retry tipado (bloco B3): reexecutar, corrigir-dirigido, sincronizar-worktree,
-escalar-esforco, esperar-janela, escalar-humano, sem-retry. Violacao de custo
-(cost.violation) NUNCA recebe retry automatico. O limite de escalacao do manifesto
-(retry.max_tentativas) pausa QUALQUER modo, inclusive #Auto.
-
-Monitor de orquestracao (ork orquestracao status / ork monitor): duas naturezas de parada.
-pausa-humana e a parada PREVISTA pelo modo (o bloco fechou e espera veredito, com o
-pausaSobre do bloco dizendo o que o humano decide); impedimento e a nao prevista
-(lease.busy, runtime.rate-limited, concurrency.limite e os demais gates tipados). Tudo e
-DERIVADO de thread.json, ledger.jsonl e das filas em disco: o monitor le, nunca grava.
---exigir-limpo sai != 0 enquanto houver thread parada, para virar watchdog do orquestrador.
-
-Fases: GOAL PLAN GO CHECK SHIP MASTER. Modos: ${ORDEM_DOS_MODOS.map((m) => MODOS[m].tag).join(' ')}.
-Familias de lease: main-tree, worktree-write:<thread>, path:<glob>, board:<card>, service:<porta>.
-Ciclos: greenfield, merge-branch, goal-plan, gap, feature-xl-faseada.
-Fontes de medida do gate de tokens: runtime_reported, estimated, informada, unavailable.
-Hosts de Camada 1: claude-code, codex, hermes, openclaw. Canarios: fx-happy, fx-hallucination,
-fx-stale-base, fx-wiki-destroy, fx-schema-drift, fx-concurrency.
-Packs de auditoria: clean-code, reuse, architecture, data-model, ux, security-privacy, process.
-Superficie de ataque de rede (SP8..SP12, varredura deterministica): rota sem auth, endpoint de
-administracao exposto, rota sem rate limit, CORS permissivo, rota sem esquema de payload.
-Estagios do produto: nascente, crescendo, maduro (hardening gradual, visao secao 5.2).
-`;
+/**
+ * RM-061 (F2a): a ajuda segue o locale como os comandos cobertos: `owner.language` do projeto de
+ * `--projeto` ou do diretorio, senao `LC_ALL`, `LC_MESSAGES` e `LANG`. Manifesto ilegivel nao derruba a ajuda.
+ */
+function localeDaAjuda(projeto?: string): Locale {
+  // A ajuda sai antes de o projeto-alvo ser fixado: com `--projeto`, vale o manifesto dele (D14).
+  let raiz: string | undefined;
+  if (projeto !== undefined) {
+    try { raiz = resolverProjetoAlvo({ opcao: projeto })?.raiz; } catch { /* nome ambiguo ou desconhecido: o cwd */ }
+  }
+  let ownerLanguage: unknown;
+  try { ownerLanguage = carregarManifesto(raiz)?.manifesto.owner?.language; } catch { /* vale o ambiente */ }
+  return resolverLocale(ownerLanguage).locale;
+}
 
 
 function comandoThread(args: Args): number {
   if (args.posicionais[1] === 'close' || args.posicionais[1] === 'entrega') {
     const raiz = exigirManifesto().raiz, id = args.posicionais[2];
-    if (!id) throw new Error('informe o id da thread');
+    if (!id) throw new ErroDoCatalogo((m) => m.thread.informeOId);
     const por = texto(args.opcoes.por) ?? '';
-    const r = args.posicionais[1] === 'close'
+    // RM-061 (F3b, D3): o fechamento e a entrega gravam (ledger, thread.json, a soltura do que a thread segurava) no
+    // escopo pt-BR; a recusa vem do catalogo e a entrada do CLI a remonta no locale do comando. O resultado e JSON.
+    const r = comLocale('pt-BR', () => args.posicionais[1] === 'close'
       ? fecharAdministrativamente(raiz, id, { motivo: texto(args.opcoes.motivo) ?? '', por, justificativa: texto(args.opcoes.justificativa) ?? '' })
-      : registrarArtefato(raiz, id, texto(args.opcoes.arquivo) ?? '', texto(args.opcoes.sha256) ?? '', por);
+      : registrarArtefato(raiz, id, texto(args.opcoes.arquivo) ?? '', texto(args.opcoes.sha256) ?? '', por));
     console.log(JSON.stringify(r, null, 2));
     return 0;
   }
@@ -740,8 +460,9 @@ function comandoThread(args: Args): number {
     }
 
     const nome = args.posicionais[2];
+    const mt = msg().thread;
     if (!nome) {
-      console.error('uso: ork thread new <nome> --modo <MODO>');
+      console.error(mt.usoNew);
       return 2;
     }
     const avisoRoadmap = avisoRoadmapSemAssociacao(nome, texto(args.opcoes.roadmap));
@@ -762,16 +483,24 @@ function comandoThread(args: Args): number {
     const doneWhen = (texto(args.opcoes.done) ?? '').split(';;').map((p) => p.trim()).filter(Boolean)
       .map((entrada) => {
         const corte = entrada.indexOf('::');
-        if (corte < 0) {
-          throw new Error(`done.sem-comando: "${entrada}" nao traz comando. `
-            + 'Use --done "<criterio> :: <comando que o prova>"; criterio sem comando e prosa, nao criterio de pronto.');
-        }
+        if (corte < 0) throw new Error(mt.doneSemComando(entrada));
         const criterio = entrada.slice(0, corte).trim();
         const comando = entrada.slice(corte + 2).trim();
-        if (!criterio || !comando) throw new Error(`done.incompleto: "${entrada}" precisa de criterio E comando`);
+        if (!criterio || !comando) throw new Error(mt.doneIncompleto(entrada));
         return { criterio, comando };
       });
     const dryRun = args.opcoes['dry-run'] === true;
+    // RM-059 (T6.0): o pedido do builder, guardado para o render da fase quando falta `--pedido`.
+    if (args.opcoes.pedido === true) {
+      console.error(mt.usoPedido);
+      return 2;
+    }
+    const pedidoDoBuilder = texto(args.opcoes.pedido);
+    // A4 do CHECK: pedido invalido e erro de uso, e sai antes da reserva do roadmap, que vai ao remoto.
+    if (pedidoDoBuilder !== undefined) {
+      try { prepararPedido(pedidoDoBuilder); }
+      catch (e) { console.error(mt.usoComMotivo(mensagemDoErro(e))); return 2; }
+    }
     // `--worktree auto` (ou `--worktree` sozinho) cria a worktree isolada da thread; um caminho reusa um
     // diretorio que ja existe. P4 do ensaio da 0.5.0: sem flag, `worktree.por_thread: true` cria como o
     // `--worktree auto`, e `--sem-worktree` cria sem ela. Uso invalido sai antes da reserva do roadmap.
@@ -783,15 +512,13 @@ function comandoThread(args: Args): number {
     const brutoCiclo = texto(args.opcoes.ciclo) ?? texto(args.opcoes.variante);
     const variante = brutoCiclo ? parseVariante(brutoCiclo) : null;
     if (brutoCiclo && !variante) {
-      console.error(
-        `variante de ciclo invalida: "${brutoCiclo}". Use uma de: ${Object.keys(VARIANTES).join(', ')}`
-      );
+      console.error(mt.varianteInvalida(brutoCiclo, Object.keys(VARIANTES).join(', ')));
       return 2;
     }
     // P4 do ensaio da 0.5.0 (D4, CHECK): a recusa do ciclo sai antes da reserva do roadmap, como os outros erros de
     // uso; a do `novaThread` fica como defesa de quem o chama direto.
     if (variante && definicaoDaVariante(variante).exigeWorktree && pedido.origem === 'sem-worktree') {
-      console.error(`uso: o ciclo ${variante} exige worktree isolada: crie a thread sem --sem-worktree ou escolha outro ciclo`);
+      console.error(mt.cicloExigeWorktree(variante));
       return 2;
     }
     const brutoFatias = texto(args.opcoes.fatias);
@@ -799,10 +526,11 @@ function comandoThread(args: Args): number {
     // atomico entre maquinas (o primeiro push vence); a thread e local. Se a criacao falhar,
     // a reserva e devolvida; se der certo, ela passa a apontar para a thread.
     const itemDoRoadmap = dryRun ? undefined : texto(args.opcoes.roadmap);
-    const itemReservado = itemDoRoadmap ? pegarItem(carregado.raiz, itemDoRoadmap).item : undefined;
+    // RM-061 (F2a, D6): o que grava estado (reserva, thread, ledger, worktree, registro, publicacoes) roda em pt-BR.
+    const itemReservado = itemDoRoadmap ? comLocale('pt-BR', () => pegarItem(carregado.raiz, itemDoRoadmap).item) : undefined;
     let criada: ReturnType<typeof novaThread>;
     try {
-      criada = novaThread(carregado, {
+      criada = comLocale('pt-BR', () => novaThread(carregado, {
         nome,
         modo,
         slug: texto(args.opcoes.slug),
@@ -817,39 +545,45 @@ function comandoThread(args: Args): number {
         exigeRuntimeDiferente,
         doneWhen,
         roadmap: itemReservado,
-      });
+        ...(pedidoDoBuilder !== undefined ? { pedido: pedidoDoBuilder } : {}),
+      }));
     } catch (e) {
       if (itemDoRoadmap) {
-        try { soltarItem(carregado.raiz, itemDoRoadmap); } catch { /* fica reservado; `ork roadmap soltar` resolve */ }
+        try { comLocale('pt-BR', () => soltarItem(carregado.raiz, itemDoRoadmap)); } catch { /* fica reservado; `ork roadmap soltar` resolve */ }
       }
       throw e;
     }
     const { thread, gravada } = criada;
-    const reservaDoItem = itemDoRoadmap && gravada ? pegarItem(carregado.raiz, itemDoRoadmap, { thread: thread.id }) : null;
+    const reservaDoItem = itemDoRoadmap && gravada
+      ? comLocale('pt-BR', () => pegarItem(carregado.raiz, itemDoRoadmap, { thread: thread.id })) : null;
     // I-51 (RM-047): com a fabrica compartilhada, as outras maquinas veem a thread nova.
-    if (gravada) publicarEmSegundoPlano(carregado.raiz);
+    if (gravada) comLocale('pt-BR', () => publicarEmSegundoPlano(carregado.raiz));
     // RM-052 (D7): quem abre thread aqui conhece este projeto; o aviso nunca derruba a criacao.
-    const avisoDoRegistro = gravada ? registrarProjetoEmSilencio(carregado.raiz, 'thread new') : null;
+    const avisoDoRegistro = gravada ? comLocale('pt-BR', () => registrarProjetoEmSilencio(carregado.raiz, 'thread new')) : null;
     if (avisoDoRegistro) console.error(avisoDoRegistro);
-    console.log(gravada ? 'Thread criada.' : 'Simulacao (--dry-run), nada foi gravado.');
-    if (reservaDoItem) console.log(`  roadmap: ${reservaDoItem.item} reservado para esta maquina (${reservaDoItem.reserva?.maquina})`);
+    console.log(gravada ? mt.criada : mt.simulacao);
+    if (reservaDoItem) console.log(mt.roadmapReservado(reservaDoItem.item, reservaDoItem.reserva?.maquina));
     console.log(resumoDaThread(thread));
     console.log('');
-    console.log(`  slug em 3 partes: ${descreverSlug(thread.slug)}`);
+    console.log(mt.slugEm3Partes(descreverSlug(thread.slug)));
     const linhaDaWorktreeNova = linhaDaWorktree(criada.worktreePor, gravada, variante);
     if (linhaDaWorktreeNova) console.log(linhaDaWorktreeNova);
     const avisoDaWorktreeNova = criada.worktreeFalharia ? avisoDeWorktreeQueFalharia(criada.worktreeFalharia)
       : avisoDaWorktree(pedido.origem, criada, carregado.manifesto);
     const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
+    if (thread.pedido) {
+      console.log(mt.pedidoGuardado(gravada, `.orkastery/threads/${thread.id}/${thread.pedido.arquivo}`, shaCurto(thread.pedido.sha256),
+        thread.pedido.bytes));
+    }
     if (gravada) {
-      console.log(`  estado: .orkastery/threads/${thread.id}/thread.json`);
+      console.log(mt.estado(thread.id));
       // Bloco B6: a origem da thread e as policies do projeto vao para a memoria
       // semantica quando ela esta ligada. Em regime files nada muda nesta saida.
-      relatarPublicacao(publicar(carregado, thread.id));
+      relatarPublicacao(comLocale('pt-BR', () => publicar(carregado, thread.id)));
       // Thread sem base nao tem fase para rodar: o proximo passo e o do aviso.
       if (!avisoSemBase) {
         console.log('');
-        console.log(`Proximo passo: ork phase run ${thread.id} ${thread.faseAtual} --prompt "<pedido>"`);
+        console.log(mt.proximoPasso(thread.id, thread.faseAtual));
       }
     }
     if (avisoDaWorktreeNova) console.error(avisoDaWorktreeNova);
@@ -873,8 +607,9 @@ function comandoThread(args: Args): number {
   if (sub === 'status') {
     const carregado = exigirManifesto();
     const id = args.posicionais[2];
+    const mt = msg().thread;
     if (!id) {
-      console.error('uso: ork thread status <thread-id>');
+      console.error(mt.usoStatus);
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
@@ -888,21 +623,18 @@ function comandoThread(args: Args): number {
     console.log(resumoDaThread(thread, conducaoDaThread(carregado.raiz, thread.id)));
     console.log('');
     if (thread.sessoes.length === 0) {
-      console.log('  nenhuma sessao despachada ainda');
+      console.log(mt.nenhumaSessao);
     } else {
-      console.log('  sessoes despachadas (estado real conferido em `ork sessions`)');
+      console.log(mt.sessoesDespachadas);
       for (const s of thread.sessoes) {
-        console.log(
-          `    ${s.slug.padEnd(24)} ${s.fase.padEnd(6)} ${s.sessionId.slice(0, 8)}  ` +
-            `verificada no runtime: ${s.verificada ? 'sim' : 'nao'}  canal: ${canalDaSessao(s)}`
-        );
+        console.log(`    ${s.slug.padEnd(24)} ${s.fase.padEnd(6)} ${s.sessionId.slice(0, 8)}  ` + mt.sessao(s.verificada, canalDaSessao(s)));
       }
     }
     console.log('');
-    console.log(`  pausas humanas do modo: ${pausasDoModo(thread.modo)}`);
+    console.log(mt.pausasDoModo(pausasDoModo(thread.modo)));
     return 0;
   }
-  console.error(`subcomando desconhecido: thread ${sub}`);
+  console.error(msg().cli.subcomandoDesconhecido('thread', sub));
   return 2;
 }
 
@@ -915,7 +647,7 @@ function comandoThread(args: Args): number {
  * Toda edicao vira evento `setup_configured` no ledger do projeto.
  */
 function comandoOnboarding(args: Args): number {
-  const invalido = () => { throw new Error('onboarding.input.invalid: use ork onboarding [show|set <etapa>|reset [etapa]] --conteudo <JSON> [--por Q] [--json]'); };
+  const invalido = () => { throw new Error(msg().onboarding.usoInvalido); };
   if (Object.keys(args.opcoes).some(k => !['conteudo', 'por', 'json', 'reset'].includes(k))) invalido();
   if ('json' in args.opcoes && args.opcoes.json !== true) invalido();
   if ('por' in args.opcoes && typeof args.opcoes.por !== 'string') invalido();
@@ -935,12 +667,16 @@ function comandoOnboarding(args: Args): number {
     return 0;
   }
   let estado;
+  // RM-061 (F2a, D6): a recusa de uso sai no locale do comando; a gravacao roda em pt-BR (o dado nao muda).
   if (sub === 'set') {
     let conteudo: unknown;
     try { conteudo = JSON.parse(args.opcoes.conteudo as string); } catch { return invalido(); }
-    estado = gravarEtapa(raiz, etapa!, conteudo, por);
-  } else if (sub === 'reset') estado = resetarOnboarding(raiz, etapa, por);
-  else estado = lerOnboarding(raiz);
+    validarPedidoDeEtapa(etapa, conteudo, por);
+    estado = comLocale('pt-BR', () => gravarEtapa(raiz, etapa!, conteudo, por));
+  } else if (sub === 'reset') {
+    validarPedidoDeEtapa(etapa, undefined, por);
+    estado = comLocale('pt-BR', () => resetarOnboarding(raiz, etapa, por));
+  } else estado = lerOnboarding(raiz);
   console.log(args.opcoes.json === true ? JSON.stringify(estado, null, 2) : textoDaPauta(estado, exigirManifesto(raiz).manifesto.owner));
   return 0;
 }
@@ -960,7 +696,7 @@ function aspasDeShell(valor: string): string {
  * `retry`, `accounts`), nao so no `ork doctor`: valor invalido nunca liga a troca em silencio.
  */
 function avisarChavesDePerfis(carregado: ReturnType<typeof exigirManifesto>): void {
-  for (const a of carregado.avisos) if (a.startsWith('runtime_profiles.')) console.error(`aviso: ${a}`);
+  for (const a of carregado.avisos) if (a.startsWith('runtime_profiles.')) console.error(msg().phase.aviso(a));
 }
 
 function comandoAccounts(args: Args): number {
@@ -968,14 +704,18 @@ function comandoAccounts(args: Args): number {
   avisarChavesDePerfis(carregado);
   const raiz = carregado.raiz;
   const sub = args.posicionais[1] ?? 'list';
-  const conferir = (p: PerfilDeDespacho) => p.runtime === 'claude-bg' ? conferirAuthClaude(p) : conferirAuthCodex(p);
+  // RM-061 (F3b, GO-FIX 1): a conferencia roda no escopo pt-BR (o detalhe vai ao store), e a impressao o traduz.
+  const conferir = (p: PerfilDeDespacho) => comLocale('pt-BR', () => p.runtime === 'claude-bg' ? conferirAuthClaude(p) : conferirAuthCodex(p));
+  const detalhe = (auth: { detalhe: string }) => ma.detalheDoLogin(remontar(auth.detalhe));
+  // RM-061 (F3b, D3): o texto pelo catalogo; o que se grava (store de perfis, registro de contas) roda no escopo pt-BR,
+  // e o id, o runtime, o diretorio, o motivo tipado e o detalhe que o CLI do runtime devolve saem como vieram.
+  const ma = msg().accounts;
   const imprimir = () => {
     const store = lerPerfis(raiz);
     if (args.opcoes.json === true) { console.log(JSON.stringify(store, null, 2)); return; }
     // I-49: a tabela mostra o que o despacho enxerga, com o que outra fabrica viu na mesma conta.
     const visto = lerPerfisComContas(raiz);
-    console.log(visto.perfis.length === 0 ? 'Nenhum perfil configurado: cada runtime despacha pelo ambiente do processo.'
-      : tabela(COLUNAS_DE_PERFIS, linhasDePerfis(visto)));
+    console.log(visto.perfis.length === 0 ? ma.semPerfis : tabela([...ma.colunas], linhasDePerfis(visto)));
     // I-35: a tabela mostra horario do dono; o fuso sai uma vez, no fim da mensagem.
     if (perfisComHorario(store)) console.log(legendaDoFuso());
   };
@@ -983,7 +723,7 @@ function comandoAccounts(args: Args): number {
   if (sub === 'add') {
     const id = args.posicionais[2], runtime = texto(args.opcoes.runtime), dirBruto = texto(args.opcoes.dir);
     if (!id || !runtime || !dirBruto) {
-      console.error('uso: ork accounts add <id> --runtime claude-bg|codex --dir <diretorio> [--sem-login]');
+      console.error(ma.usoAdd);
       return 2;
     }
     const dir = path.resolve(dirBruto);
@@ -992,9 +732,9 @@ function comandoAccounts(args: Args): number {
       // A7: diretorio inacessivel ou de outro usuario e recusado antes de qualquer gravacao no store.
       prepararDiretorioDoPerfil(dir);
       const desativado = lerPerfis(raiz).perfis.some(p => p.id === id && p.estado === 'desativado');
-      perfil = adicionarPerfil(raiz, { id, runtime, dir });
-      if (desativado) console.log(`Perfil ${id} reativado: mesmo id, runtime e diretorio do perfil desativado.`);
-    } catch (e) { console.error(`perfil recusado: ${(e as Error).message}`); return 1; }
+      perfil = comLocale('pt-BR', () => adicionarPerfil(raiz, { id, runtime, dir }));
+      if (desativado) console.log(ma.reativado(id));
+    } catch (e) { console.error(ma.recusado(mensagemDoErro(e))); return 1; }
     const despacho = perfilDeDespacho(perfil);
     const variavel = VARIAVEL_DO_PERFIL[perfil.runtime];
     // D13: o login do claude e fixado na assinatura (`--claudeai`), nunca no Console de API.
@@ -1004,49 +744,59 @@ function comandoAccounts(args: Args): number {
       const env = perfil.runtime === 'claude-bg' ? ambienteDoPerfilClaude(despacho) : ambienteDoDespachoCodex(process.env, despacho);
       spawnSync(comando[0], comando.slice(1), { stdio: 'inherit', env });
     } else {
-      console.log(`Login pendente: rode ${variavel}=${aspasDeShell(dir)} ${comando.join(' ')} e depois ork accounts check ${id}`);
+      console.log(ma.loginPendente(variavel, aspasDeShell(dir), comando.join(' '), id));
     }
     const auth = conferir(despacho);
     // A14: conferencia inconclusiva nao marca sem-auth; o preflight do proximo despacho confere de novo.
-    if (!auth.ok && !auth.transitorio) marcarFalhaDePerfil(raiz, id, auth.pago
+    if (!auth.ok && !auth.transitorio) comLocale('pt-BR', () => marcarFalhaDePerfil(raiz, id, auth.pago
       ? { estado: 'provider-pago', esgotadoAte: null, motivo: 'cost.violation', detalhe: auth.detalhe }
-      : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe });
-    console.log(`Perfil ${id} (${perfil.runtime}) em ${dir}: ${auth.ok ? 'login de assinatura conferido'
-      : auth.transitorio ? `conferencia de login inconclusiva (${auth.detalhe}); o proximo despacho confere de novo`
-      : auth.pago ? `provider pago (${auth.detalhe}); nunca recebe despacho` : `sem login (${auth.detalhe}); fora do rodizio`}`);
+      : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe }));
+    console.log(ma.resultadoAdd(id, perfil.runtime, dir, auth.ok ? ma.conferido
+      : auth.transitorio ? ma.inconclusivaAdd(detalhe(auth))
+      : auth.pago ? ma.pagoAdd(detalhe(auth)) : ma.semLoginAdd(detalhe(auth))));
     return 0;
   }
   if (sub === 'remove') {
     const id = args.posicionais[2];
-    if (!id) { console.error('uso: ork accounts remove <id>'); return 2; }
-    try { desativarPerfil(raiz, id); } catch (e) { console.error((e as Error).message); return 1; }
-    console.log(`Perfil ${id} desativado: o diretorio e o login do CLI ficam onde estao.`);
+    if (!id) { console.error(ma.usoRemove); return 2; }
+    try { comLocale('pt-BR', () => desativarPerfil(raiz, id)); } catch (e) { console.error(mensagemDoErro(e)); return 1; }
+    console.log(ma.desativado(id));
     return 0;
   }
   if (sub === 'check') {
     const alvo = args.posicionais[2];
     const perfis = lerPerfis(raiz).perfis.filter(p => p.estado !== 'desativado' && (alvo === undefined || p.id === alvo));
-    if (alvo !== undefined && perfis.length === 0) { console.error(`perfil ativo "${alvo}" nao existe (veja: ork accounts list)`); return 1; }
+    if (alvo !== undefined && perfis.length === 0) { console.error(ma.perfilAtivoNaoExiste(alvo)); return 1; }
     let falhas = 0;
     for (const p of perfis) {
       const auth = conferir(perfilDeDespacho(p));
-      if (auth.ok && (p.estado === 'sem-auth' || p.estado === 'provider-pago')) reativarPerfil(raiz, p.id);
+      comLocale('pt-BR', () => {
+        if (auth.ok && (p.estado === 'sem-auth' || p.estado === 'provider-pago')) reativarPerfil(raiz, p.id);
+        if (!auth.ok && auth.transitorio) registrarConferenciaInconclusiva(raiz, p.id, auth.detalhe);
+        else if (!auth.ok) {
+          marcarFalhaDePerfil(raiz, p.id, auth.pago
+            ? { estado: 'provider-pago', esgotadoAte: null, motivo: 'cost.violation', detalhe: auth.detalhe }
+            : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe });
+        }
+      });
       if (!auth.ok) falhas++;
-      if (!auth.ok && auth.transitorio) registrarConferenciaInconclusiva(raiz, p.id, auth.detalhe);
-      else if (!auth.ok) {
-        marcarFalhaDePerfil(raiz, p.id, auth.pago
-          ? { estado: 'provider-pago', esgotadoAte: null, motivo: 'cost.violation', detalhe: auth.detalhe }
-          : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe });
-      }
-      console.log(`${p.id} (${p.runtime}): ${auth.ok ? 'login de assinatura conferido'
-        : auth.transitorio ? `conferencia de login inconclusiva, estado mantido (${auth.detalhe})`
-        : auth.pago ? `provider pago, nunca despacha (${auth.detalhe})` : `sem login (${auth.detalhe})`}`);
+      console.log(ma.resultadoCheck(p.id, p.runtime, auth.ok ? ma.conferido
+        : auth.transitorio ? ma.inconclusivaCheck(detalhe(auth))
+        : auth.pago ? ma.pagoCheck(detalhe(auth)) : ma.semLoginCheck(detalhe(auth))));
     }
     console.log('');
     imprimir();
     return falhas > 0 ? 1 : 0;
   }
-  console.error(`subcomando desconhecido: accounts ${sub} (use list, add, remove ou check)`);
+  if (sub === 'esgotamentos') {
+    // RM-040 (B7): so leitura do registro de contas e dos ledgers dos projetos registrados.
+    let relatorio;
+    try { relatorio = relatorioDeEsgotamentos({ desde: texto(args.opcoes.desde) ?? '7d' }); }
+    catch (e) { console.error(ma.periodoInvalido((e as Error).message)); return 2; }
+    console.log(args.opcoes.json === true ? JSON.stringify(relatorio, null, 2) : textoDosEsgotamentos(relatorio));
+    return 0;
+  }
+  console.error(ma.desconhecido(sub));
   return 2;
 }
 
@@ -1062,6 +812,70 @@ function comandoSetup(args: Args): number {
     if (args.opcoes.json === true) { console.log(JSON.stringify({ caminho: r.caminho, setup: r.setup }, null, 2)); return 0; }
     console.log(`Setup versionado em ${r.caminho}.`);
     console.log('  Leve para o repositorio por PR: dali em diante ele vale em todas as maquinas, e ork setup <modo> --bloco N passa a editar este arquivo.');
+    return 0;
+  }
+  if (modoBruto === 'worktree') {
+    // RM-047 (P3): worktree.dir fora da raiz so cria checkout com a confirmacao desta maquina, fora do git.
+    const acao = args.posicionais[2];
+    const json = args.opcoes.json === true;
+    if (acao === 'confirmar') {
+      const local = confirmarWorktreeLocal(raiz, carregado.manifesto, por, args.posicionais[3]);
+      if (json) { console.log(JSON.stringify(local, null, 2)); return 0; }
+      console.log(`Pasta das worktrees "${local.dir}" confirmada nesta maquina para ${local.raiz}.`);
+      console.log(`  Gravada em .orkastery/private/${ARQUIVO_WORKTREE_LOCAL} (local, fora do git). Para desfazer: ork setup worktree revogar.`);
+      return 0;
+    }
+    if (acao === 'revogar') {
+      const havia = revogarWorktreeLocal(raiz);
+      if (json) { console.log(JSON.stringify({ revogada: havia }, null, 2)); return 0; }
+      console.log(havia ? 'Confirmacao local da pasta das worktrees revogada.' : 'Nao havia confirmacao local da pasta das worktrees.');
+      return 0;
+    }
+    if (acao !== undefined) { console.error(`subcomando desconhecido: setup worktree ${acao} (use confirmar [<dir>] ou revogar)`); return 2; }
+    const pedida = pastaDasWorktreesPedida(raiz, carregado.manifesto);
+    const local = lerWorktreeLocal(raiz);
+    const recusa = recusaDePastaDasWorktrees(raiz, carregado.manifesto);
+    if (json) {
+      console.log(JSON.stringify({ manifesto: carregado.manifesto.worktree.dir, dir: pedida.dir, dentroDaRaiz: pedida.dentro,
+        confirmadaNestaMaquina: local.local?.dir ?? null, criacao: recusa === null ? 'permitida' : 'recusada' }, null, 2));
+      return 0;
+    }
+    console.log(`worktree.dir no orkastery.yaml: ${carregado.manifesto.worktree.dir} (${pedida.dir}, ${pedida.dentro ? 'dentro' : 'fora'} da raiz)`);
+    console.log(`confirmacao local desta maquina: ${local.local ? local.local.dir : `nenhuma (${local.motivo})`}`);
+    console.log(recusa === null ? 'criacao de worktree: permitida' : `criacao de worktree: recusada. ${COMANDO_CONFIRMAR_WORKTREE}`);
+    return 0;
+  }
+  if (modoBruto === 'sandbox') {
+    // RM-047 (P1): a postura de sandbox que afrouxa so vale com a confirmacao desta maquina, fora do git.
+    const acao = args.posicionais[2];
+    const json = args.opcoes.json === true;
+    if (acao === 'confirmar') {
+      const postura = args.posicionais[3];
+      if (!postura) { console.error('uso: ork setup sandbox confirmar <read-only|workspace-write|danger-full-access> [--por Q]'); return 2; }
+      const p = confirmarPosturaLocal(raiz, postura, por);
+      if (json) { console.log(JSON.stringify(p, null, 2)); return 0; }
+      console.log(`Postura de sandbox "${p.sandbox}" confirmada nesta maquina para ${p.raiz}.`);
+      console.log(`  Gravada em ${caminhoDaPosturaLocal(raiz)} (local, fora do git). Para desfazer: ork setup sandbox revogar.`);
+      return 0;
+    }
+    if (acao === 'revogar') {
+      const havia = revogarPosturaLocal(raiz);
+      if (json) { console.log(JSON.stringify({ revogada: havia }, null, 2)); return 0; }
+      console.log(havia ? 'Confirmacao local da postura de sandbox revogada.' : 'Nao havia confirmacao local de postura de sandbox.');
+      return 0;
+    }
+    if (acao !== undefined) { console.error(`subcomando desconhecido: setup sandbox ${acao} (use confirmar <postura> ou revogar)`); return 2; }
+    const pedida = carregado.manifesto.runtime.sandbox;
+    const local = lerPosturaLocal(raiz);
+    const recusa = recusaDePostura(raiz, carregado.manifesto, 'codex');
+    if (json) {
+      console.log(JSON.stringify({ manifesto: pedida, afrouxa: posturaAfrouxada(carregado.manifesto) !== null,
+        confirmadaNestaMaquina: local.postura?.sandbox ?? null, despachoCodex: recusa === null ? 'permitido' : 'recusado' }, null, 2));
+      return 0;
+    }
+    console.log(`runtime.sandbox no orkastery.yaml: ${pedida}`);
+    console.log(`confirmacao local desta maquina: ${local.postura ? local.postura.sandbox : `nenhuma (${local.motivo})`}`);
+    console.log(recusa === null ? 'despacho pelo codex: permitido' : `despacho pelo codex: recusado. ${comandoDeConfirmacao(pedida)}`);
     return 0;
   }
   if (!modoBruto) {
@@ -1130,19 +944,21 @@ function comandoSetup(args: Args): number {
 function comandoPhase(args: Args): number {
   const sub = args.posicionais[1];
   const carregado = exigirManifesto();
+  const m = msg().phase;
   if (sub === 'run') {
     avisarChavesDePerfis(carregado);
     const id = args.posicionais[2];
     const faseBruta = args.posicionais[3];
     const prompt = texto(args.opcoes.prompt);
     if (!id || !faseBruta || !prompt) {
-      console.error('uso: ork phase run <thread-id> <FASE> --prompt "<texto>"');
+      console.error(m.usoRun);
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
     const fase: Fase = exigirFase(thread, faseBruta);
     const conducao = conducaoDoCli(args);
-    const r = rodarFase(carregado, id, {
+    // RM-061 (F2a, D6): o despacho grava prompt, ledger, lease e pedidos em pt-BR; so a impressao segue o locale.
+    const r = comLocale('pt-BR', () => rodarFase(carregado, id, {
       fase,
       prompt,
       runtime: texto(args.opcoes.runtime),
@@ -1153,7 +969,9 @@ function comandoPhase(args: Args): number {
       canal: conducao.canal,
       ...(conducao.correlacao ? { correlacao: conducao.correlacao } : {}),
       ...(conducao.esperarMs ? { esperarMs: conducao.esperarMs } : {}),
-    });
+      // A baseline que o despacho grava espera a fila pesada com aviso; a recusa sugere gravá-la antes, com mais espera.
+      filaPesada: filaPesadaDoCli(args, 'baseline', `ork verify ${id} --baseline --esperar 120`),
+    }));
     // I-36 (T12, T14): pedido repetido e segundo pedido tem resposta propria, antes dos outros gates.
     if (r.idempotente && r.conducao) {
       console.log(textoDoPedidoRepetido(id, r.conducao));
@@ -1166,79 +984,80 @@ function comandoPhase(args: Args): number {
     // RM-037 (defeito 3): a recusa por vaga e espera, como a da conducao (codigo 3), e diz quem ocupa.
     if (r.motivo === 'concurrency.limite' && r.vaga) {
       if (args.opcoes.json === true) { console.log(JSON.stringify({ motivo: r.motivo, ...r.vaga }, null, 2)); return 3; }
-      console.log(`Despacho recusado: concurrency.limite. O projeto ja tem ${r.vaga.ocupam.length} sessao(oes) viva(s) ` +
-        `em outras threads e o limite e ${r.vaga.limite} (concurrency.max_parallel_threads).`);
+      console.log(m.vagaRecusada(r.vaga.ocupam.length, r.vaga.limite));
       for (const o of r.vaga.ocupam) {
         console.log(`  ${o.thread.padEnd(20)} ${(o.fase ?? '-').padEnd(6)} ` +
-          `${o.sessao ? `${o.runtime} ${o.sessao.slice(0, 8)}` : 'despacho em curso'}, desde ${localizarTextoRotulado(o.desde)}`);
+          `${o.sessao ? `${o.runtime} ${o.sessao.slice(0, 8)}` : m.despachoEmCurso}, ${m.desde(localizarTextoRotulado(o.desde))}`);
       }
-      console.log(`  correcao: ${r.vaga.correcao}`);
-      console.log(r.dryRun ? '  ensaio (--dry-run): nada foi gravado.' : `  evento slot_refused no ledger de ${id}; nenhuma sessao aberta.`);
+      console.log(m.correcao(r.vaga.correcao));
+      console.log(r.dryRun ? m.vagaEnsaio : m.vagaLedger(id));
       return 3;
     }
     // RM-037 (S-4 do CHECK 3): a baseline que o despacho nao conseguiu gravar nao e gate reprovado.
     if (r.motivo === 'baseline.pendente') {
       if (args.opcoes.json === true) { console.log(JSON.stringify({ motivo: r.motivo, detalhe: r.erro }, null, 2)); return 1; }
-      console.error(`Despacho recusado: ${r.erro}`);
-      console.error('  nenhuma sessao aberta; o ledger nao ganhou gate_blocked');
+      console.error(m.recusado(`${r.erro}`));
+      console.error(m.baselinePendente);
       return 1;
     }
+    // RM-061 (F2a): o resumo do despacho sai pelo catalogo; o rotulo tem largura 14, como antes.
+    const campo = (rotulo: string, valor: string) => `  ${rotulo.padEnd(14)} : ${valor}`, rt = m.rotulos;
     if (r.dryRun && !r.bloqueado) {
-      console.log('Simulacao (--dry-run), nada foi despachado.');
-      console.log(`  slug da sessao : ${r.slug}`);
-      console.log(`  prompt         : ${r.promptPath}`);
-      console.log(`  sha256         : ${r.promptSha256}`);
-      console.log(`  pausa ao fim   : ${r.pausaAoFim ? 'sim' : 'nao'}`);
-      console.log(`  runtime        : ${r.runtime}`);
-      console.log(`  modelo/esforco : ${r.model}/${r.effort}`);
+      console.log(m.simulacao);
+      console.log(campo(rt.slug, r.slug));
+      console.log(campo(rt.prompt, `${r.promptPath}`));
+      console.log(campo(rt.sha256, `${r.promptSha256}`));
+      console.log(campo(rt.pausaAoFim, m.simNao(!!r.pausaAoFim)));
+      console.log(campo(rt.runtime, `${r.runtime}`));
+      console.log(campo(rt.modelo, `${r.model}/${r.effort}`));
       // O prompt inteiro nao cabe na tela: o argumento longo aparece mascarado.
-      console.log(`  comando        : ${r.comando.map((c) => (c.length > 80 ? '"<prompt>"' : c)).join(' ')}`);
+      console.log(campo(rt.comando, r.comando.map((c) => (c.length > 80 ? '"<prompt>"' : c)).join(' ')));
       for (const l of linhasDeAviso(r.violacoes ?? [])) console.log(l);
       return 0;
     }
     if (r.bloqueado) {
-      console.error(`Despacho BLOQUEADO pelo gate tipado: ${r.motivo}`);
+      console.error(m.bloqueado(`${r.motivo}`));
       for (const v of r.violacoes) {
         console.error(`  [${v.severidade}] policy ${v.policy}: ${v.detalhe}`);
-        console.error(`           correcao: ${v.correcao}`);
+        console.error(m.violacaoCorrecao(v.correcao));
       }
-      console.error(`  o prompt nao foi gravado em disco; evento gate_blocked no ledger de ${id}`);
+      console.error(m.promptNaoGravado(id));
       return 1;
     }
     if (!r.sessionId) {
       // I-35: o erro vai ao ledger com o ISO; o dono le no fuso dele, com o fuso dito uma vez.
-      console.error(`Despacho falhou: ${r.erro ? localizarTextoRotulado(r.erro) : r.erro}`);
-      console.error(`  evento registrado no ledger de ${id}`);
+      console.error(m.falhou(`${r.erro ? localizarTextoRotulado(r.erro) : r.erro}`));
+      console.error(m.falhouLedger(id));
       return 1;
     }
-    console.log(`Fase ${fase} despachada como background agent.`);
+    console.log(m.despachada(fase));
     for (const l of linhasDeAviso(r.violacoes ?? [])) console.log(l);
-    console.log(`  sessionId      : ${r.sessionId}`);
-    console.log(`  slug da sessao : ${r.slug} (${descreverSlug(r.slug)})`);
-    console.log(`  prompt         : ${r.promptPath}`);
-    console.log(`  sha256         : ${r.promptSha256}`);
-    console.log(`  runtime        : ${r.runtime}`);
-    console.log(`  modelo/esforco : ${r.model}/${r.effort} (gravado no ledger, veja \`ork phase list\`)`);
-    console.log(`  verificada no runtime: ${r.verificada ? 'sim' : 'NAO (confira `ork sessions`)'}`);
-    console.log(`  pausa ao fim do bloco: ${r.pausaAoFim ? 'sim' : 'nao (decisao autonoma no ledger)'}`);
+    console.log(campo(rt.sessionId, r.sessionId));
+    console.log(campo(rt.slug, `${r.slug} (${descreverSlug(r.slug)})`));
+    console.log(campo(rt.prompt, `${r.promptPath}`));
+    console.log(campo(rt.sha256, `${r.promptSha256}`));
+    console.log(campo(rt.runtime, `${r.runtime}`));
+    console.log(campo(rt.modelo, m.modeloGravado(`${r.model}`, `${r.effort}`)));
+    console.log(m.verificada(!!r.verificada));
+    console.log(m.pausaNoFim(!!r.pausaAoFim));
     console.log('');
     if (r.runtime === 'claude-bg') {
-      console.log(`Acompanhe: claude attach ${r.sessionId}  |  ork phase list ${id}`);
+      console.log(m.acompanheClaude(r.sessionId, id));
     } else {
-      console.log(`Acompanhe: ork phase list ${id} (eventos do despacho no log da thread)`);
+      console.log(m.acompanhe(id));
     }
     return r.verificada ? 0 : 1;
   }
   if (sub === 'list') {
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork phase list <thread-id>');
+      console.error(m.usoList);
       return 2;
     }
     console.log(tabelaDoLedger(carregado.raiz, id));
     return 0;
   }
-  console.error(`subcomando desconhecido: phase ${sub}`);
+  console.error(msg().cli.subcomandoDesconhecido('phase', sub));
   return 2;
 }
 
@@ -1433,7 +1252,9 @@ function comandoDecisao(args: Args): number {
     return 0;
   }
   if (sub === 'placar') {
-    if (!id) throw new Error('uso: ork decisao placar <thread-id> [--json]');
+    // RM-061 (F3b): o placar pelo catalogo; o `--json` e a fase de cada linha sao dado e nao mudam.
+    const md = msg().decisao;
+    if (!id) throw new ErroDoCatalogo((m) => m.decisao.usoPlacar);
     lerThread(carregado.raiz, id);
     const placar = placarDaThread(lerLedger(dirThread(carregado.raiz, id)));
     const taxa = taxaDeReversao(placar);
@@ -1441,13 +1262,13 @@ function comandoDecisao(args: Args): number {
       console.log(JSON.stringify({ thread: id, limiar: LIMIAR_DE_DECISOES_POR_FASE, taxaDeReversao: taxa, fases: placar }, null, 2));
       return 0;
     }
-    console.log(tabela(['FASE', 'DECIDIDAS', 'INFORMADAS', 'PERGUNTAS', 'REVERTIDAS', 'SEM RASTRO', 'LIMIAR'],
+    console.log(tabela([...md.colunasDoPlacar],
       placar.map(f => [f.fase, String(f.decididas), String(f.informadas), String(f.perguntas), String(f.revertidas),
-        String(f.semRastro), f.acimaDoLimiar ? `acima de ${LIMIAR_DE_DECISOES_POR_FASE}: revisar` : 'ok'])));
-    console.log(`\ntaxa de reversão das decisões informadas: ${taxa === null ? 'sem decisão informada ainda' : `${Math.round(taxa * 100)}%`}`);
+        String(f.semRastro), f.acimaDoLimiar ? md.acimaDoLimiar(LIMIAR_DE_DECISOES_POR_FASE) : md.dentroDoLimiar])));
+    console.log(md.taxaDeReversao(taxa));
     return 0;
   }
-  throw new Error('uso: ork decisao registrar|placar <thread-id>');
+  throw new ErroDoCatalogo((m) => m.decisao.uso);
 }
 
 /**
@@ -1483,54 +1304,91 @@ function comandoCadenciaDoPulse(args: Args): number {
 function comandoClaims(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  // RM-061 (F3b, D3): o texto pelo catalogo; o que se grava (claims.jsonl, ledger) roda no escopo pt-BR, e a alegacao,
+  // o arquivo, o comando e o motivo digitado saem como vieram. O estado da claim so se traduz na impressao.
+  const mc = msg().claims;
   if (sub === 'add') {
     const id = args.posicionais[2];
     const arquivo = args.posicionais[3];
     const alegacao = texto(args.opcoes.claim) ?? texto(args.opcoes.alegacao);
     if (!id || !arquivo || !alegacao) {
-      console.error('uso: ork claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"]');
+      console.error(mc.usoAdd);
       return 2;
     }
     const comando = texto(args.opcoes.verificar) ?? texto(args.opcoes.verify);
     const faseBruta = texto(args.opcoes.fase);
     const thread = lerThread(carregado.raiz, id);
-    const claim = adicionarClaim(carregado.raiz, id, {
+    const claim = comLocale('pt-BR', () => adicionarClaim(carregado.raiz, id, {
       arquivo,
       alegacao,
       verificar: comando ? [comando] : [],
       fase: faseBruta ? exigirFase(thread, faseBruta) : undefined,
-    });
-    console.log(`Claim ${claim.id} registrada na thread ${id}.`);
-    console.log(`  arquivo    ${claim.arquivo}`);
-    console.log(`  alegacao   ${claim.alegacao}`);
-    console.log(`  negativa   ${claim.negativa ? 'sim (exige comando de verificacao)' : 'nao'}`);
-    console.log(`  verificar  ${claim.verificar.join(' && ') || '(nenhum comando declarado)'}`);
-    console.log(`  estado     ${claim.estado}`);
+    }));
+    console.log(mc.registrada(claim.id, id));
+    console.log(mc.campoArquivo(claim.arquivo));
+    console.log(mc.campoAlegacao(claim.alegacao));
+    console.log(mc.campoNegativa(claim.negativa));
+    console.log(mc.campoVerificar(claim.verificar.join(' && ')));
+    console.log(mc.campoEstado(mc.estado(claim.estado)));
     if (claim.negativa && claim.verificar.length === 0) {
       console.log('');
-      console.log('AVISO: alegacao negativa sem comando de verificacao reprova em `ork verify`.');
+      console.log(mc.avisoNegativa);
     }
+    // RM-008 (B8): a conferencia local da policy claim_sem_prova_local avisa e segue.
+    const linhasDePolicy = linhasDeAviso(claim.avisosDePolicy ?? []);
+    if (linhasDePolicy.length) { console.log(''); for (const l of linhasDePolicy) console.log(l); }
     // I-53 (RM-037, P6): o lint avisa aqui; a suite inteira e recusada no `ci prepare`.
     for (const a of claim.lint ?? []) {
       console.log('');
-      console.log(`AVISO: ${linhaDoLintDeClaim(claim.id, a)}${a.regra === 'suite-inteira' ? '. O `ci prepare` recusa esta claim.' : ''}`);
+      console.log(mc.avisoDoLint(linhaDoLintDeClaim(claim.id, a), a.regra === 'suite-inteira'));
     }
     return 0;
+  }
+  if (sub === 'conferir') {
+    // RM-059 (T0.10): so o que foi pedido, no sandbox do verify, sob a conducao da thread, sem recibo.
+    const id = args.posicionais[2];
+    const json = args.opcoes.json === true;
+    const claims = texto(args.opcoes.claims);
+    const tarefa = texto(args.opcoes.tarefa);
+    const prazo = texto(args.opcoes.prazo);
+    const semValor = ['claims', 'tarefa', 'prazo'].some((o) => args.opcoes[o] === true);
+    if (!id || semValor || (claims === undefined) === (tarefa === undefined)) {
+      console.error(mc.usoConferir);
+      return 2;
+    }
+    const conducao = conducaoDoCli(args);
+    try {
+      // O resultado e as recusas nascem em pt-BR, como o --json os leva; o texto os remonta no locale do comando.
+      const r = comLocale('pt-BR', () => conferirClaims(carregado, id, {
+        claims: claims !== undefined ? idsDeClaims(claims) : undefined,
+        tarefa,
+        prazoMs: prazo !== undefined ? Number(prazo) * 1000 : undefined,
+        canal: conducao.canal,
+        correlacao: conducao.correlacao,
+      }));
+      console.log(json ? JSON.stringify(r, null, 2) : textoDaConferencia(r));
+      return r.ok ? 0 : 1;
+    } catch (e) {
+      if (!(e instanceof ErroDeConferencia)) throw e;
+      if (json) console.log(JSON.stringify({ formato: FORMATO_DA_CONFERENCIA, thread: id, ok: false, erro: e.message }, null, 2));
+      else console.error(mensagemDoErro(e));
+      return 2;
+    }
   }
   if (sub === 'verificar') {
     const id = args.posicionais[2];
     const claimId = args.posicionais[3];
     const comando = texto(args.opcoes.comando) ?? texto(args.opcoes.verificar);
     if (!id || !claimId || !comando) {
-      console.error('uso: ork claims verificar <thread-id> <claim-id> --comando "<comando>"');
+      console.error(mc.usoVerificar);
       return 2;
     }
-    const claim = anexarComando(carregado.raiz, id, claimId, comando);
-    console.log(`Claim ${claim.id} agora tem comando de verificacao.`);
-    console.log(`  verificar  ${claim.verificar.join(' && ')}`);
-    console.log(`  estado     ${claim.estado}`);
+    const claim = comLocale('pt-BR', () => anexarComando(carregado.raiz, id, claimId, comando));
+    console.log(mc.comandoAnexado(claim.id));
+    console.log(mc.campoVerificar(claim.verificar.join(' && ')));
+    console.log(mc.campoEstado(mc.estado(claim.estado)));
     console.log('');
-    console.log(`Prove agora: ork verify ${id}`);
+    console.log(mc.proveAgora(id));
     return 0;
   }
   if (sub === 'retirar') {
@@ -1538,14 +1396,14 @@ function comandoClaims(args: Args): number {
     const claimId = args.posicionais[3];
     const motivo = texto(args.opcoes.motivo);
     if (!id || !claimId || !motivo) {
-      console.error('uso: ork claims retirar <thread-id> <claim-id> --motivo "<motivo>"');
+      console.error(mc.usoRetirar);
       return 2;
     }
-    const claim = retirarClaim(carregado.raiz, id, claimId, motivo);
-    console.log(`Claim ${claim.id} retirada da thread ${id}.`);
-    console.log(`  alegacao   ${claim.alegacao}`);
-    console.log(`  motivo     ${motivo}`);
-    console.log('  o historico da alegacao continua no claims.jsonl e no ledger.');
+    const claim = comLocale('pt-BR', () => retirarClaim(carregado.raiz, id, claimId, motivo));
+    console.log(mc.retirada(claim.id, id));
+    console.log(mc.campoAlegacao(claim.alegacao));
+    console.log(mc.campoMotivo(motivo));
+    console.log(mc.historicoContinua);
     return 0;
   }
   if (sub === 'ausente') {
@@ -1553,49 +1411,61 @@ function comandoClaims(args: Args): number {
     const paths = (texto(args.opcoes.paths) ?? '').split(',').map((p) => p.trim()).filter(Boolean);
     const motivo = texto(args.opcoes.motivo);
     if (!id || paths.length === 0 || !motivo) {
-      console.error('uso: ork claims ausente <thread-id> --paths A,B --motivo "<motivo>" [--commit SHA]');
+      console.error(mc.usoAusente);
       return 2;
     }
-    registrarProvaAusente(carregado.raiz, id, { paths, motivo, commit: texto(args.opcoes.commit) });
-    console.log(`Ausencia de prova registrada na thread ${id}: ${paths.join(', ')}.`);
-    console.log(`  motivo     ${motivo}`);
+    comLocale('pt-BR', () => registrarProvaAusente(carregado.raiz, id, { paths, motivo, commit: texto(args.opcoes.commit) }));
+    console.log(mc.ausenciaRegistrada(id, paths.join(', ')));
+    console.log(mc.campoMotivo(motivo));
     return 0;
   }
   if (sub === 'list' || sub === undefined) {
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork claims list <thread-id>');
+      console.error(mc.usoList);
       return 2;
     }
     console.log(tabelaDeClaims(carregado.raiz, id));
     return 0;
   }
-  console.error(`subcomando desconhecido: claims ${sub}`);
+  console.error(msg().cli.subcomandoDesconhecido('claims', sub));
   return 2;
 }
 
 function comandoVerify(args: Args): number {
   const carregado = exigirManifesto();
   const id = args.posicionais[1];
+  const m = msg().verify;
   if (!id) {
-    console.error('uso: ork verify <thread-id> [--baseline] [--so-claims] [--canal C] [--esperar [min]]');
+    console.error(m.uso);
     return 2;
   }
-  const conducao = conducaoDoCli(args);
+  // RM-058 N2 (D10): enquanto a fila de recursos pesados nao da a vez, o CLI diz uma vez por quem espera.
+  const aoEsperar = (ocupantes: OcupanteDaFila[]) => console.error(m.filaPesadaEsperando(args.opcoes.baseline === true ? 'baseline' : 'verify',
+    ocupantes.map((o) => m.filaPesadaOcupante(o.operacao, o.thread, formatarDataHora(o.desde))).join('; ')));
+  const doCli = conducaoDoCli(args);
+  // O `ork verify` do CLI espera a fila em primeiro plano ate `--esperar` ou 60 min; a recusa sugere o dobro.
+  const conducao = { ...doCli, filaPesada: { aoEsperar, esperarMs: doCli.esperarMs ?? ESPERA_DA_FILA_PESADA_MS,
+    comandoDeEsperar: `ork verify ${id}${args.opcoes.baseline === true ? ' --baseline' : ''} --esperar 120` } };
   if (args.opcoes.baseline === true) {
-    const b = gravarBaseline(carregado, id, undefined, conducao);
-    console.log(`Baseline gravada para a thread ${id}.`);
-    console.log(`  commit ${b.commit}`);
+    // RM-061 (F2b, G2): a baseline e o ledger sao gravados em pt-BR; so a impressao segue o locale.
+    const b = comLocale('pt-BR', () => gravarBaseline(carregado, id, undefined, conducao));
+    console.log(m.baselineGravada(id));
+    console.log(m.baselineCommit(b.commit));
     for (const c of b.comandos) {
-      console.log(`  ${c.nome.padEnd(10)} ${c.ok ? 'passava' : `ja falhava (codigo ${c.code})`}  ${c.comando}`);
+      console.log(m.baselineComando(c.nome, c.ok, c.code, c.comando));
+    }
+    if (b.comandos.some((c) => !c.ok)) {
+      // Ensaio de 03/10 (R7): "ja falhava" sem dizer onde ver a saida do comando.
+      console.log(m.baselineSaida(caminhoThread(carregado.raiz, id), id));
     }
     if (b.comandos.length === 0) {
       // Fatia 2 do ensaio da 0.5.0 (R5): a baseline foi gravada; o que falta e comando, nao baseline.
-      console.log('  (nenhum comando em verify: no manifesto: a baseline guarda so o commit, e o verify nao tem como separar regressao de divida)');
+      console.log(m.baselineSemComandos);
     }
     return 0;
   }
-  const r = verificar(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao });
+  const r = comLocale('pt-BR', () => verificar(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao }));
   console.log(textoDoVerify(r));
   return r.ok ? 0 : 1;
 }
@@ -1604,10 +1474,43 @@ function comandoVerify(args: Args): number {
  * `ork conducao status|assumir` (I-36, T15): quem conduz a thread agora, e o handoff explicito. O
  * status tambem libera, com prova no ledger, a conducao que ficou sem dono (T16).
  */
+/**
+ * RM-059 (F6, T6.4; DD5 do plano dos mods): `ork conducao sentinela status|bater|desligar`. A presenca da
+ * Sentinela do Condutor nesta maquina e o passo do condutor em cada thread aberta; o condutor externo le o
+ * `status --json` para ceder o despacho enquanto a presenca vale. Nada aqui despacha.
+ */
+function comandoSentinela(carregado: ManifestoCarregado, args: Args): number {
+  const acao = args.posicionais[2] ?? 'status';
+  const json = args.opcoes.json === true;
+  if (acao === 'status') {
+    const s = statusDaSentinela(carregado);
+    console.log(json ? JSON.stringify(s, null, 2) : textoDoStatusDaSentinela(s));
+    return 0;
+  }
+  if (acao !== 'bater' && acao !== 'desligar') throw new Error('uso: ork conducao sentinela status|bater|desligar [--sessao <id>] [--json]');
+  const sessao = texto(args.opcoes.sessao);
+  if (!sessao) throw new Error(`uso: ork conducao sentinela ${acao} --sessao <id> [--json]`);
+  if (acao === 'bater') {
+    const r = baterSentinela(carregado.raiz, { sessao });
+    const curta = r.presenca.sessao.slice(0, 8);
+    console.log(json ? JSON.stringify(r, null, 2) : r.ok
+      ? `Sentinela ${r.ligou ? 'ligada' : 'renovada'} na maquina ${r.presenca.maquina} pela sessao ${curta}; vale 3 min sem batida.`
+      : `Outra sessao (${curta}) conduz pela Sentinela na maquina ${r.presenca.maquina}; esta fica so olhando.`);
+    return r.ok ? 0 : 3;
+  }
+  const motivo = texto(args.opcoes.motivo);
+  const r = desligarSentinela(carregado.raiz, { sessao, ...(motivo ? { motivo } : {}) });
+  console.log(json ? JSON.stringify(r, null, 2) : r.desligada
+    ? 'Sentinela desligada nesta maquina; o condutor externo volta a conduzir.'
+    : 'Nada a desligar: a presenca nesta maquina nao e desta sessao.');
+  return 0;
+}
+
 function comandoConducao(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
   const id = args.posicionais[2];
+  if (sub === 'sentinela') return comandoSentinela(carregado, args);
   if (sub === 'status') {
     if (!id) throw new Error('uso: ork conducao status <thread-id> [--json]');
     lerThread(carregado.raiz, id);
@@ -1623,7 +1526,7 @@ function comandoConducao(args: Args): number {
     console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : `${r.ok ? 'Conducao assumida.' : 'Handoff recusado.'} ${r.detalhe}`);
     return r.ok ? 0 : 3;
   }
-  throw new Error('uso: ork conducao status|assumir <thread-id>');
+  throw new Error('uso: ork conducao status|assumir <thread-id> | ork conducao sentinela status|bater|desligar');
 }
 
 /** RM-048 (D1): o gate aberto no contrato curto, com o codigo estavel e o "desde" do ledger. */
@@ -1790,7 +1693,7 @@ function comandoRetry(args: Args): number {
   if (sub === 'plan' || sub === 'run') {
     const id = args.posicionais[2];
     if (!id) {
-      console.error(`uso: ork retry ${sub} <thread-id> [--motivo M] [--fase F]`);
+      console.error(msg().retry.usoPlanRun(sub));
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
@@ -1801,7 +1704,8 @@ function comandoRetry(args: Args): number {
       autorizadoPor: texto(args.opcoes.por) ?? texto(args.opcoes.quem),
     };
     if (sub === 'plan') {
-      const plano = planejarRetry(carregado, id, opcoes);
+      // RM-061 (F2b, G2): a razao nasce em pt-BR, como o --json e o ledger a guardam; so a impressao segue o locale.
+      const plano = comLocale('pt-BR', () => planejarRetry(carregado, id, opcoes));
       if (args.opcoes.json === true) {
         console.log(JSON.stringify(plano, null, 2));
         return 0;
@@ -1812,11 +1716,11 @@ function comandoRetry(args: Args): number {
     // I-36 (D2): `--esperar` espera a conducao em andamento terminar antes de executar a retomada.
     const conducao = conducaoDoCli(args);
     if (conducao.esperarMs && args.opcoes['dry-run'] !== true) esperarConducaoLivre(carregado.raiz, id, conducao.esperarMs);
-    const r = executarRetry(carregado, id, {
+    const r = comLocale('pt-BR', () => executarRetry(carregado, id, {
       ...opcoes,
       dryRun: args.opcoes['dry-run'] === true,
       reverify: args.opcoes.reverify === true,
-    });
+    }));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify(r, null, 2));
     } else {
@@ -1900,7 +1804,7 @@ function comandoFix(args: Args): number {
       console.error('uso: ork fix open <thread-id> [--so-claims] [--reverify]');
       return 2;
     }
-    const conducao = conducaoDoCli(args);
+    const conducao = { ...conducaoDoCli(args), filaPesada: filaPesadaDoCli(args, 'verify', `ork fix open ${id} --esperar 30`) };
     const rodada = abrirRodada(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao });
     const reverify =
       args.opcoes.reverify === true && rodada.correcoes.length > 0
@@ -1961,7 +1865,7 @@ function comandoFix(args: Args): number {
     }
     const rodadaBruta = texto(args.opcoes.rodada);
     const r = reverificar(carregado, id, {
-      conducao: conducaoDoCli(args),
+      conducao: { ...conducaoDoCli(args), filaPesada: filaPesadaDoCli(args, 'verify', `ork fix reverify ${id} --esperar 30`) },
       rodada: rodadaBruta ? Number(rodadaBruta) : undefined,
       parcial: args.opcoes.parcial === true,
     });
@@ -2018,8 +1922,70 @@ function comandoHandoff(args: Args): number {
   return 2;
 }
 
+/**
+ * RM-059 (F7, T7.1; DD4 do plano dos mods): `ork ship publicar <thread>`. So publica no modo que ja autoriza push
+ * (#Auto e #Maestro); a autorizacao humana na linha nao vale aqui (D1 da ork-rm059pista), e o push do modo que pausa
+ * e do dono, no terminal dele.
+ */
+function comandoShipPublicar(carregado: ManifestoCarregado, args: Args): number {
+  const m = msg().ship;
+  const p = m.publicar;
+  if (args.opcoes['autorizar-push'] !== undefined) {
+    console.error(p.semAutorizarPush);
+    return 2;
+  }
+  const alvo = args.posicionais[2];
+  if (!alvo || args.posicionais.length > 3) {
+    console.error(p.uso);
+    return 2;
+  }
+  if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
+  // Como o ship: o que o publicar grava (ledger, detalhe e correcao do --json) nasce em pt-BR.
+  const r = comLocale('pt-BR', () => publicarEntrega(carregado, alvo, {
+    remoto: texto(args.opcoes.remoto), dryRun: args.opcoes['dry-run'] === true,
+  }));
+  if (args.opcoes.json === true) {
+    console.log(JSON.stringify(r, null, 2));
+    return r.acao === 'recusada' ? 1 : 0;
+  }
+  for (const linha of linhasDaPublicacao(r)) console.log(linha);
+  return r.acao === 'recusada' ? 1 : 0;
+}
+
+/** RM-059 (F7, T7.1): `ork ship pista [<thread>]`, as etapas da entrega e o proximo passo que o nucleo declara. */
+function comandoShipPista(carregado: ManifestoCarregado, args: Args): number {
+  const p = msg().ship.publicar;
+  if (args.posicionais.length > 3) {
+    console.error(p.usoPista);
+    return 2;
+  }
+  if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
+  const r = comLocale('pt-BR', () => pistaDeEntrega(carregado, { remoto: texto(args.opcoes.remoto), thread: args.posicionais[2] }));
+  if (args.opcoes.json === true) {
+    console.log(JSON.stringify(r, null, 2));
+    return 0;
+  }
+  console.log(p.cabecalhoPista(formatarDataHora(r.lidoEm), r.remoto, r.base));
+  if (!r.remotoLido) console.log(p.remotoNaoRespondeu(r.remoto));
+  if (!r.prsLidos) console.log(p.prsNaoResponderam(remontar(r.prsNaoLidos ?? '-')));
+  if (!r.pistas.length) console.log(p.semPistas);
+  for (const pista of r.pistas) {
+    console.log('');
+    console.log(p.linhaDaThread(pista.thread, pista.tag, pista.branch));
+    console.log(`    ${pista.etapas.map((e) => `${p.nomeDaEtapa(e.id)} ${p.marcaDaEtapa(e.estado)}`).join(' | ')}`);
+    for (const e of pista.etapas.filter((x) => x.estado !== 'feita' && x.estado !== 'nao-se-aplica')) {
+      console.log(`      ${p.nomeDaEtapa(e.id)}: ${remontar(e.texto)}`);
+    }
+    console.log(p.linhaDoProximo(remontar(pista.proximo.texto), pista.proximo.comando));
+  }
+  return 0;
+}
+
 function comandoShip(args: Args): number {
   const carregado = exigirManifesto();
+  const m = msg().ship;
+  if (args.posicionais[1] === 'publicar') return comandoShipPublicar(carregado, args);
+  if (args.posicionais[1] === 'pista') return comandoShipPista(carregado, args);
   if (args.posicionais[1] === 'registrar-pr') {
     // I-57 (RM-008): a entrega feita por PR vira ship_done, provada no remoto e no CI.
     const alvo = args.posicionais[2];
@@ -2027,37 +1993,59 @@ function comandoShip(args: Args): number {
     // RM-037 (defeito 5): PR mesclado em repositorio externo declarado em ci.external_repositories.
     const repo = texto(args.opcoes.repo), numeroDoPr = texto(args.opcoes.pr);
     if ((!alvo && args.opcoes.todas !== true) || (!!repo !== !!numeroDoPr) || (repo && !alvo)) {
-      console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]');
+      console.error(m.usoRegistrarPr);
       return 2;
     }
+    // RM-047: o `--remoto` da linha de comando so chega ao git como nome de remoto (ship.remoto-invalido).
+    if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
     // RM-037 (fatia 3, defeito 6): o `--dry-run` era ignorado, e o ensaio gravava o ship_done de verdade.
     const dryRun = args.opcoes['dry-run'] === true;
-    const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
-      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto, dryRun })] : registrarEntregasPorPr(carregado, { remoto, dryRun });
+    // RM-061 (F2b, G2): o ship_done e o motivo nascem em pt-BR; so a impressao segue o locale.
+    const r = comLocale('pt-BR', () => alvo && repo
+      ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
+      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto, dryRun })] : registrarEntregasPorPr(carregado, { remoto, dryRun }));
     if (args.opcoes.json === true) { console.log(JSON.stringify(r, null, 2)); return r.some((x) => x.acao === 'recusada') ? 1 : 0; }
-    if (dryRun) console.log('Ensaio (--dry-run): nada foi gravado.');
-    if (r.length === 0) console.log('Nenhuma thread aberta com merge ship(<thread>) na base.');
-    for (const x of r) console.log(`  ${x.thread.padEnd(20)} ${x.acao.padEnd(13)} ${x.motivo}`);
+    if (dryRun) console.log(m.ensaio);
+    if (r.length === 0) console.log(m.nenhumaComMerge);
+    for (const x of r) console.log(m.linhaDoRegistro(x.thread, m.acoes[x.acao] ?? x.acao, remontar(x.motivo)));
+    // RM-044 (A3): a pagina que o push da base vai reprovar em docs.paridade.merge, com o comando que corrige.
+    // So aviso: nada e gravado e o codigo de saida nao muda.
+    const pendentes = r.flatMap((x) => x.docsPendentes.map((d) => ({ thread: x.thread, ...d })));
+    if (pendentes.length) {
+      console.log('');
+      console.log(m.avisoDeDocs(pendentes.length));
+      for (const d of pendentes) {
+        console.log(m.docPendente(d.id, d.arquivo, d.merge.slice(0, 7), d.thread, d.codigo));
+        console.log(m.docPendenteComando(d.comando));
+      }
+    }
     const registradas = r.filter((x) => x.acao === 'registrou').length;
     const registrariam = r.filter((x) => x.acao === 'registraria').length;
     if (registradas) {
       console.log('');
-      console.log(`${registradas} entrega(s) registrada(s). Fechar pelo MASTER: ork master --aceitar-omissao (a nota humana sobrescreve).`);
+      // RM-008 (03/10): o texto ensina a forma COM a thread. A forma sem thread fechava tambem as
+      // entregues de outras frentes paralelas, e era ela que os condutores copiavam daqui.
+      console.log(m.registradas(registradas));
+      for (const x of r.filter((y) => y.acao === 'registrou')) console.log(`  ork master ${x.thread} --aceitar-omissao`);
     }
     if (registrariam) {
       console.log('');
-      console.log(`${registrariam} entrega(s) seria(m) registrada(s). Para gravar, rode o mesmo comando sem --dry-run.`);
+      console.log(m.registrariam(registrariam));
     }
     return r.some((x) => x.acao === 'recusada') ? 1 : 0;
   }
   const id = args.posicionais[1];
   const para = texto(args.opcoes.para) ?? texto(args.opcoes.to);
   if (!id || !para) {
-    console.error('uso: ork ship <thread-id> --para <branch> [--de <branch>] [--dry-run]');
+    console.error(m.uso);
     return 2;
   }
+  // RM-047: como no registrar-pr, o `--remoto` so chega ao git como nome de remoto (ship.remoto-invalido),
+  // e `--remoto` sem valor nao vira `origin` em silencio.
+  if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
   const autorizar = args.opcoes['autorizar-push'];
-  const r = ship(carregado, id, {
+  // RM-061 (F2b, G2): o que o ship grava (ledger, verificacao, mensagem do merge) nasce em pt-BR.
+  const r = comLocale('pt-BR', () => ship(carregado, id, {
     para,
     de: texto(args.opcoes.de),
     remoto: texto(args.opcoes.remoto),
@@ -2065,9 +2053,32 @@ function comandoShip(args: Args): number {
     dryRun: args.opcoes['dry-run'] === true,
     autorizarPush: typeof autorizar === 'string' ? autorizar : undefined,
     semPush: args.opcoes['sem-push'] === true,
-  });
+    // RM-058 N2 (A1 da rodada 2 do CHECK): o `--esperar` chega à fila pesada da verificação do ship, com aviso.
+    ...((f) => ({ esperarFilaPesadaMs: f.esperarMs, avisoDaFilaPesada: { aoEsperar: f.aoEsperar, comandoDeEsperar: f.comandoDeEsperar } }))(
+      filaPesadaDoCli(args, 'verify', `ork ship ${id} --para ${para} --esperar 30`)),
+  }));
   console.log(textoDoShip(r));
   return r.ok ? 0 : 1;
+}
+
+/**
+ * RM-043 (sobra achada na RM-044): opcoes que o `portfolio show` herdou do `objective`,
+ * aposentado na I-43. A ajuda as listava e o `parseArgs` as aceitava, mas o `show` nunca as
+ * leu: eram ignoradas em silencio. A recusa e tipada e diz para onde ir, como a do
+ * `objective.aposentado`.
+ */
+const SOBRAS_DO_OBJECTIVE = ['constraints', 'outcomes', 'threads', 'execution-runtime', 'validation-runtimes'];
+
+function recusarSobraDoObjective(opcao: string): number {
+  console.error(
+    `portfolio.opcao-aposentada: --${opcao} era do Objective Envelope, aposentado na I-43, e o\n` +
+    '  portfolio show nunca a leu. As duas vigas do envelope viraram propriedade de thread comum:\n' +
+    '    ork thread new "<nome>" --modo <MODO> --exige-runtime-diferente\n' +
+    '        o CHECK precisa de runtime que o GO nao usou\n' +
+    '    ork thread new "<nome>" --modo <MODO> --done "<criterio> :: <comando>"\n' +
+    '        criterio de pronto EXECUTAVEL, que vira claim e roda no ork verify'
+  );
+  return 2;
 }
 
 function comandoPortfolio(args: Args): number {
@@ -2091,6 +2102,8 @@ function comandoPortfolio(args: Args): number {
     return 0;
   }
   if (sub === 'show') {
+    const sobra = SOBRAS_DO_OBJECTIVE.find((opcao) => args.opcoes[opcao] !== undefined);
+    if (sobra) return recusarSobraDoObjective(sobra);
     const id = args.posicionais[2];
     if (!id) { console.error('uso: ork portfolio show <id>'); return 2; }
     const item = findEntity(root, id);
@@ -2223,10 +2236,15 @@ function comandoCi(args: Args): number {
   if (sub === 'status') {
     const sha = texto(args.opcoes.sha) ?? args.posicionais[2] ?? exec('git', ['rev-parse', 'HEAD'], carregado.raiz).stdout.trim();
     if (!/^[0-9a-f]{40}$/.test(sha)) {
-      console.error('uso: ork ci status --sha <commit> [--remoto origin]');
+      // Ensaio de 03/10 (R4): `--sha HEAD` ou um sha curto respondiam so a linha de uso, sem dizer por que.
+      console.error('erro: ci status: --sha exige o sha completo, de 40 caracteres hexadecimais minusculos ' +
+        '(git rev-parse HEAD); o check e consultado no commit exato, nunca por ref nem prefixo');
+      console.error('uso: ork ci status --sha <sha de 40 caracteres> [--remoto origin]');
       return 2;
     }
-    const result = consultarCi(carregado, sha, texto(args.opcoes.remoto) ?? 'origin');
+    // RM-047: recusa o `--remoto` que nao e nome de remoto mesmo com o gate de CI desligado.
+    const remoto = exigirRemoto(args.opcoes.remoto === undefined ? 'origin' : args.opcoes.remoto, 'ci');
+    const result = consultarCi(carregado, sha, remoto);
     console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : `${result.ok ? 'CI VERDE' : 'CI NÃO LIBEROU'}: ${result.detail}`);
     return result.ok ? 0 : 1;
   }
@@ -2357,7 +2375,12 @@ const CONTRATO_DO_BOARD = 'ork.board/v1';
 function comandoFabrica(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  // RM-063 (F1): a batida e do crontab desta maquina; nao le nem escreve o remoto.
+  if (sub === 'batida') return comandoDaBatida(carregado, args);
+  // RM-047: o remoto vem do manifesto de quem fez o repositorio; fora do formato, recusa antes do git.
+  // O `publicar` recusa dentro do try (publicarMaquina), para o silencioso deixar a recusa no log.
   const remoto = texto(args.opcoes.remoto) ?? carregado.manifesto.fabrica.remoto;
+  if (sub !== 'publicar') exigirRemoto(remoto, 'fabrica');
   if (sub === 'publicar') {
     const silencioso = args.opcoes.silencioso === true;
     try {
@@ -2371,6 +2394,8 @@ function comandoFabrica(args: Args): number {
           : `Fabrica: retrato de ${r.maquina} igual ao ultimo publicado; nada a enviar (use --forcar para publicar mesmo assim).`);
       if (!fabricaCompartilhada(carregado.manifesto) && !silencioso) {
         console.log('  esta maquina nao entrou na fabrica compartilhada: so publica quando voce pede (ork fabrica entrar liga).');
+        // RM-047 (P5): o manifesto que pede a fabrica nao liga a publicacao desta maquina.
+        if (carregado.manifesto.fabrica.compartilhada) console.log('  o orkastery.yaml pede a fabrica compartilhada; quem liga e a maquina, com ork fabrica entrar.');
       }
       return 0;
     } catch (e) {
@@ -2398,13 +2423,14 @@ function comandoFabrica(args: Args): number {
     const r = removerMaquina(carregado, { remoto });
     console.log(`Fabrica: ${nomeDaMaquina()} saiu; nada mais e publicado daqui.` +
       (r ? ` Retrato removido de ork/fabrica-estado (${r.slice(0, 7)}).` : ' Nao havia retrato desta maquina na branch.'));
-    if (fabricaCompartilhada(carregado.manifesto)) console.log('  AVISO: o manifesto do projeto (ou ORK_FABRICA_COMPARTILHADA) ainda liga a fabrica aqui.');
+    if (fabricaCompartilhada(carregado.manifesto)) console.log('  AVISO: ORK_FABRICA_COMPARTILHADA=1 neste shell ainda liga a fabrica aqui.');
     void config;
     return 0;
   }
   if (sub !== undefined && sub !== 'list') {
     console.error(`subcomando desconhecido: fabrica ${sub}`);
-    console.error('uso: ork fabrica [--json] [--sem-remoto] | fabrica publicar [--forcar] [--json] | fabrica entrar [--maquina NOME] | fabrica sair');
+    console.error('uso: ork fabrica [--json] [--sem-remoto] | fabrica publicar [--forcar] [--json] | fabrica entrar [--maquina NOME] | fabrica sair' +
+      ' | fabrica batida [status|instalar|remover] [--por Q] [--json]');
     return 2;
   }
   // RM-052: a fabrica le a branch de UM projeto, no remoto dele; o cabecalho diz qual e o que ficou de fora.
@@ -2417,13 +2443,109 @@ function comandoFabrica(args: Args): number {
     naoLido: [FORA_DA_CONSULTA.roadmap, FORA_DA_CONSULTA.reservas, ...(url === null ? [semRemoto(remoto)] : [])],
   });
   if (args.opcoes.json === true) {
-    console.log(JSON.stringify({ ...painel, consulta }, null, 2));
+    // RM-053 (fatia 2): o mesmo JSON, com o invisivel do remoto escrito como \uXXXX.
+    console.log(jsonSemInvisivel({ ...painel, consulta }));
     return 0;
   }
   console.log([...linhasDaConsulta(consulta), ''].join('\n'));
   console.log(url === null
     ? `Fabrica: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`
     : textoDaFabrica(painel, nomeDaMaquina()));
+  // RM-047 (P5): o manifesto pede a fabrica, mas quem liga a publicacao e a maquina.
+  const pedida = avisoDaFabricaPedida(carregado.manifesto);
+  if (pedida) console.log(`\n${pedida}`);
+  return 0;
+}
+
+/**
+ * RM-063 (F1): `ork fabrica batida` instala, mostra e remove a batida da varredura do pulse no crontab desta
+ * maquina. `status` sai 0 com a batida instalada e 1 sem ela (ou sem crontab legivel); `instalar` e
+ * `remover` gravam o evento no ledger da maquina quando o crontab muda.
+ */
+function comandoDaBatida(carregado: ManifestoCarregado, args: Args): number {
+  const acao = args.posicionais[2] ?? 'status';
+  const json = args.opcoes.json === true;
+  if (acao === 'status') {
+    const estado = estadoDaBatida(carregado.raiz, { projeto: carregado.manifesto.project.name });
+    console.log(json ? JSON.stringify(estado, null, 2) : textoDoEstadoDaBatida(estado));
+    return estado.leitura.ok && estado.instalada ? 0 : 1;
+  }
+  if ((acao === 'instalar' || acao === 'remover') && args.posicionais.length === 3) {
+    const por = texto(args.opcoes.por);
+    const r = acao === 'instalar' ? instalarBatida(carregado.raiz, { por }) : removerBatida(carregado.raiz, { por });
+    console.log(json ? JSON.stringify(r, null, 2) : textoDoResultadoDaBatida(r));
+    return 0;
+  }
+  console.error('uso: ork fabrica batida [status|instalar|remover] [--por Q] [--json]');
+  return 2;
+}
+
+/**
+ * RM-053: `ork network` e a Orkastery Network, as maquinas de uma pessoa em rede. Roda de qualquer
+ * diretorio, com ou sem projeto: a rede e da pessoa, nao de um repositorio. O projeto do diretorio
+ * atual, quando ha, so entra no retrato e na leitura da fabrica legada.
+ */
+function comandoNetwork(args: Args): number {
+  const sub = args.posicionais[1];
+  // RM-054: `network roadmap` tem o proprio --projeto e o proprio uso (e segue em pt-BR, G6 da RM-061 F3b).
+  if (sub === 'roadmap') return comandoNetworkRoadmap(args);
+  const diretorio = process.cwd();
+  // RM-061 (F3b, D3): o texto pelo catalogo; o que se grava (adesao, retrato, casa) roda no escopo pt-BR, e o nome da
+  // maquina, a casa, a forja e o commit saem como vieram.
+  const mn = msg().network;
+  const forja = texto(args.opcoes.forja), repositorio = texto(args.opcoes.repositorio);
+  if ((args.opcoes.forja !== undefined && !ehNomeDeForja(forja)) || args.opcoes.repositorio === true ||
+      (repositorio !== undefined && !/^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/)?[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repositorio))) {
+    console.error(mn.uso);
+    return 2;
+  }
+  if (sub === 'entrar') {
+    const r = comLocale('pt-BR', () => entrarNaRede({ maquina: texto(args.opcoes.maquina), forja: ehNomeDeForja(forja) ? forja : undefined,
+      repositorio, diretorio, tomarNome: args.opcoes.forcar === true }));
+    console.log(mn.entrou(r.publicacao.maquina, r.casa.dono, r.casa.forja, refDaCasa(r.casa), r.criado));
+    console.log(mn.primeiroRetrato(String(r.publicacao.commit?.slice(0, 7))));
+    if (r.publicacao.tomouNome) console.log(mn.tomouNome(r.publicacao.maquina));
+    console.log(mn.eAoCriar);
+    for (const d of r.publicacao.descartados) console.log(mn.avisoDescartado(d.padrao, d.campo));
+    if (process.env.ORK_MAQUINA && process.env.ORK_MAQUINA.trim() !== r.publicacao.maquina) {
+      console.log(mn.avisoOrkMaquina(process.env.ORK_MAQUINA));
+    }
+    return 0;
+  }
+  if (sub === 'sair') {
+    const r = comLocale('pt-BR', () => sairDaRede({ forja: ehNomeDeForja(forja) ? forja : undefined, repositorio }));
+    console.log(mn.saiu(r.maquina, r.commit ? mn.retratoRemovido(r.casa, r.commit.slice(0, 7))
+      : r.alheio ? mn.retratoDeOutraInstalacao(r.maquina, r.casa, r.mesmoHostname === true)
+        : mn.semRetrato(r.casa)));
+    if (lerConfigDaMaquina()?.fabricaCompartilhada) console.log(mn.fabricaContinua);
+    return 0;
+  }
+  if (sub === 'publicar') {
+    if (args.opcoes.silencioso === true) {
+      // O filho do evento de thread: quem disparou ja tomou a vez (teto de 14 min) e nao espera.
+      // RM-061 (F3b): o rede.log guarda o que aconteceu em pt-BR, com qualquer lingua no ambiente.
+      try { comLocale('pt-BR', () => registrarNaRede({ ...publicarRede({ diretorio }), origem: 'evento' })); return 0; }
+      catch (e) { comLocale('pt-BR', () => registrarNaRede({ acao: 'falhou', origem: 'evento', erro: (e as Error).message })); return 1; }
+    }
+    const r = comLocale('pt-BR', () => publicarRede({ diretorio, forcar: args.opcoes.forcar === true,
+      forja: ehNomeDeForja(forja) ? forja : undefined, repositorio }));
+    if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
+    else console.log(r.acao === 'publicou' ? mn.publicou(r.maquina, r.casa, r.commit?.slice(0, 7), r.tentativas)
+      : r.acao === 'ocupado' ? mn.ocupado : mn.igual(r.maquina, r.casa));
+    if (args.opcoes.json !== true) {
+      for (const d of r.descartados) console.log(mn.avisoDescartado(d.padrao, d.campo));
+    }
+    return 0;
+  }
+  if (sub !== undefined && sub !== 'status') {
+    console.error(msg().cli.subcomandoDesconhecido('network', sub));
+    console.error(mn.uso);
+    return 2;
+  }
+  // RM-054 (fatia 3): o host sem cwd de projeto (RM-052, D3) nao faz do diretorio do gateway um projeto lido.
+  const doHost = (process.env[ENV_PROJETO_EXPLICITO] ?? '').trim() === '1';
+  const status = comLocale('pt-BR', () => lerRede({ semRemoto: args.opcoes['sem-remoto'] === true, diretorio: doHost ? null : diretorio }));
+  console.log(args.opcoes.json === true ? jsonDaRede(status) : textoDaRede(status));
   return 0;
 }
 
@@ -2518,69 +2640,69 @@ function comandoWorktree(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
   const id = args.posicionais[2];
+  // RM-061 (F3b, D3): a moldura pelo catalogo; o que os quatro subcomandos gravam (ledger, thread.json, a soltura dos
+  // leases) roda no escopo pt-BR, e o detalhe e a correcao do resultado sao remontados no locale do comando.
+  const m = msg().worktree;
   if (!sub || !id) {
-    console.error('uso: ork worktree <ensure|sync|audit|release> <thread-id>');
+    console.error(m.uso);
     return 2;
   }
+  const bloqueio = (titulo: string, r: { motivo: string | null; detalhe: string; correcao: string }) => {
+    console.error(titulo);
+    console.error(m.motivoTipado(r.motivo));
+    console.error(m.detalhe(remontar(r.detalhe)));
+    console.error(m.correcao(remontar(r.correcao)));
+  };
   if (sub === 'ensure') {
-    const r = garantirWorktree(carregado, id);
+    const r = comLocale('pt-BR', () => garantirWorktree(carregado, id));
     if (!r.ok) {
-      console.error(`Worktree da thread ${id} NAO garantida.`);
-      console.error(`  motivo tipado: ${r.motivo}`);
-      console.error(`  detalhe: ${r.detalhe}`);
-      console.error(`  correcao: ${r.correcao}`);
+      bloqueio(m.naoGarantida(id), r);
       return 1;
     }
-    console.log(r.criada ? `Worktree criada para a thread ${id}.` : `Worktree ja existia para a thread ${id}.`);
-    console.log(`  dir     ${r.dir}`);
-    console.log(`  branch  ${r.branch}`);
-    console.log(`  base    ${r.base} (resolvida pelo ork, nao pelo executor)`);
-    console.log(`  ${r.detalhe}`);
+    console.log(r.criada ? m.criada(id) : m.jaExistia(id));
+    console.log(m.linhaDir(r.dir));
+    console.log(m.linhaBranch(r.branch));
+    console.log(m.linhaBase(r.base));
+    console.log(`  ${remontar(r.detalhe)}`);
     return 0;
   }
   if (sub === 'sync') {
-    const r = sincronizarWorktree(carregado, id, { dryRun: args.opcoes['dry-run'] === true });
+    const r = comLocale('pt-BR', () => sincronizarWorktree(carregado, id, { dryRun: args.opcoes['dry-run'] === true }));
     if (!r.ok) {
-      console.error(`Sync da worktree da thread ${id} BLOQUEADO.`);
-      console.error(`  motivo tipado: ${r.motivo}`);
-      console.error(`  detalhe: ${r.detalhe}`);
-      console.error(`  correcao: ${r.correcao}`);
+      bloqueio(m.syncBloqueado(id), r);
       return 1;
     }
-    console.log(r.dryRun ? `Sync (--dry-run) da thread ${id}: nada foi executado.` : `Sync da thread ${id}.`);
-    console.log(`  base       ${r.base} @ ${r.shaBase.slice(0, 8)}`);
-    console.log(`  branch     ${r.branch} @ ${r.shaAntes.slice(0, 8)} -> ${r.shaDepois.slice(0, 8)}`);
-    console.log(`  rebase     ${r.rebaseFeito ? 'feito' : r.jaAtualizada ? 'desnecessario' : 'seria feito'}`);
-    console.log(`  ${r.detalhe}`);
+    console.log(r.dryRun ? m.syncEnsaio(id) : m.syncFeito(id));
+    console.log(m.syncBase(r.base, r.shaBase.slice(0, 8)));
+    console.log(m.syncBranch(r.branch, r.shaAntes.slice(0, 8), r.shaDepois.slice(0, 8)));
+    console.log(m.syncRebase(r.rebaseFeito ? 'feito' : r.jaAtualizada ? 'desnecessario' : 'seria feito'));
+    console.log(`  ${remontar(r.detalhe)}`);
     if (r.passos.length > 0) {
       console.log('');
-      console.log('  Comandos reais, na ordem:');
-      for (const passo of r.passos) console.log(`    ${passo}`);
+      console.log(m.comandosReais);
+      for (const passo of r.passos) console.log(`    ${remontar(passo)}`);
     }
     return 0;
   }
   if (sub === 'audit') {
-    const r = auditarWorktree(carregado, id);
+    const r = comLocale('pt-BR', () => auditarWorktree(carregado, id));
     console.log(textoDoAudit(id, r));
     return r.ok ? 0 : 1;
   }
   if (sub === 'release') {
-    const r = liberarWorktree(carregado, id, { forcar: args.opcoes.forcar === true });
+    const r = comLocale('pt-BR', () => liberarWorktree(carregado, id, { forcar: args.opcoes.forcar === true }));
     if (!r.ok) {
-      console.error(`Release da worktree da thread ${id} BLOQUEADO.`);
-      console.error(`  motivo tipado: ${r.motivo}`);
-      console.error(`  detalhe: ${r.detalhe}`);
-      console.error(`  correcao: ${r.correcao}`);
+      bloqueio(m.releaseBloqueado(id), r);
       return 1;
     }
-    console.log(`Worktree da thread ${id} liberada.`);
-    console.log(`  dir      ${r.dir}`);
-    console.log(`  removida ${r.removida ? 'sim' : 'nao (o diretorio ja nao existia)'}`);
-    console.log(`  leases   ${r.leasesLiberados.join(', ') || '(nenhum lease de escrita para soltar)'}`);
-    console.log(`  ${r.detalhe}`);
+    console.log(m.liberada(id));
+    console.log(m.releaseDir(r.dir));
+    console.log(m.releaseRemovida(r.removida));
+    console.log(m.releaseLeases(r.leasesLiberados.join(', ')));
+    console.log(`  ${remontar(r.detalhe)}`);
     return 0;
   }
-  console.error(`subcomando desconhecido: worktree ${sub}`);
+  console.error(msg().cli.subcomandoDesconhecido('worktree', sub));
   return 2;
 }
 
@@ -2596,8 +2718,9 @@ function comandoMaster(args: Args): number {
     // RM-048 (item 8): a nota com prova. O canal mostra a linha; o dono responde pelo Telegram.
     const id = args.posicionais[2];
     const formato = texto(args.opcoes.formato) ?? 'telegram';
-    if (!id || !['telegram', 'terminal', 'json'].includes(formato)) throw new Error('uso: ork master pedir <thread> [--formato telegram|terminal|json]');
-    const pedido = pedirNota(carregado.raiz, id, { codigosEmUso: codigosEmUso(carregado.raiz) });
+    if (!id || !['telegram', 'terminal', 'json'].includes(formato)) throw new Error(msg().master.usoPedir);
+    // RM-061 (F2b, G2): o pedido de nota e gravado no escopo pt-BR; o erro da entrega volta no locale do comando.
+    const pedido = comLocale('pt-BR', () => pedirNota(carregado.raiz, id, { codigosEmUso: codigosEmUso(carregado.raiz) }));
     console.log(formato === 'json' ? JSON.stringify(pedido, null, 2) : textoDoPedidoDeNota(carregado.raiz, pedido, formato as 'telegram' | 'terminal'));
     return 0;
   }
@@ -2651,20 +2774,14 @@ function comandoMaster(args: Args): number {
       'master.fila-aposentada: a fila de ratificacao de score saiu na I-43. ' +
       'Entregue e aceito, a menos que voce diga o contrario.\n' +
       '  ork master                     as entregas, com o indice ja derivado do ledger\n' +
-      '  ork master --aceitar-omissao   aceita as entregues, com indice e insumos no ledger\n' +
+      '  ork master <id> --aceitar-omissao   aceita so esta entrega, com indice e insumos no ledger\n' +
+      '  ork master --aceitar-omissao        aceita todas as entregues (--dry-run mostra quais)\n' +
       '  ork master <id> --score <0-5> --justificativa "<por que>" --por <humano>   para reclamar'
     );
     return 2;
   }
-  if (args.opcoes['aceitar-omissao'] === true) {
-    const aceitos = aceitarPendentesPorOmissao(carregado.raiz);
-    if (args.opcoes.json === true) { console.log(JSON.stringify(aceitos, null, 2)); return 0; }
-    if (aceitos.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
-    console.log(`Aceitas por omissao: ${aceitos.length}. O indice e os insumos foram ao ledger.`);
-    for (const a of aceitos) console.log(`  ${a.thread.padEnd(20)} indice ${a.indice.valor}/${a.indice.base}`);
-    console.log('');
-    console.log('Discordou? A nota humana sobrescreve, e o registro da omissao permanece.');
-    return 0;
+  if (args.opcoes['aceitar-omissao'] !== undefined) {
+    return comandoAceitarOmissao(args, carregado.raiz, primeiro);
   }
   if (primeiro === undefined) {
     console.log(args.opcoes.json
@@ -2679,7 +2796,7 @@ function comandoMaster(args: Args): number {
   const brutoScore = texto(args.opcoes.score);
   const justificativa = texto(args.opcoes.justificativa) ?? texto(args.opcoes.porque);
   if (brutoScore === undefined) {
-    console.error('uso: ork master <thread-id> --score 0-5 --justificativa "<texto>"');
+    console.error('uso: ork master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>');
     console.error('  o score do MASTER e humano, de 0 a 5, e a justificativa e obrigatoria.');
     return 2;
   }
@@ -2732,6 +2849,73 @@ function comandoMaster(args: Args): number {
   return 0;
 }
 
+/**
+ * RM-008 (03/10/2026): `ork master [<thread>] --aceitar-omissao [--thread T] [--dry-run] [--json]`.
+ *
+ * Tres vezes na madrugada de 03/10, um condutor rodou `ork master --aceitar-omissao` para fechar a
+ * propria thread, e o comando fechou tambem as entregues de outras frentes (ork-rm057fatia3t,
+ * ork-rm025modocon). A thread indicada (posicional, `--thread T` ou `--aceitar-omissao=T`) limita o
+ * aceite a ela. Sem thread, o padrao continua o mesmo, por decisao registrada: drenar todas, agora
+ * listando cada uma e avisando em stderr quando quem roda e processo de agente.
+ */
+function comandoAceitarOmissao(args: Args, raiz: string, posicional: string | undefined): number {
+  const bruto = args.opcoes['aceitar-omissao'];
+  const candidatos = [posicional, texto(args.opcoes.thread), typeof bruto === 'string' ? bruto : undefined]
+    .filter((v): v is string => typeof v === 'string' && v.trim() !== '').map((v) => v.trim());
+  if (args.opcoes.thread === true || new Set(candidatos).size > 1) {
+    console.error(msg().master.usoOmissao);
+    return 2;
+  }
+  const alvo = candidatos[0];
+  const dryRun = args.opcoes['dry-run'] === true;
+  const json = args.opcoes.json === true;
+  if (alvo) {
+    const fora = motivoForaDaOmissao(raiz, alvo);
+    if (fora) {
+      if (json) console.log(JSON.stringify(dryRun ? { dryRun: true, fecharia: [], motivo: fora.motivo } : [], null, 2));
+      else (fora.motivo === 'ja-fechada' ? console.log : console.error)(fora.texto);
+      return fora.motivo === 'ja-fechada' ? 0 : 1;
+    }
+  }
+  if (dryRun) {
+    const fecharia = entregasParaOmissao(raiz, alvo).map((p) => ({ thread: p.thread.id, indice: indiceDaThread(raiz, p.thread.id) }));
+    if (json) { console.log(JSON.stringify({ dryRun: true, fecharia }, null, 2)); return 0; }
+    const m = msg().master;
+    console.log(m.ensaio);
+    if (fecharia.length === 0) { console.log(m.nadaEsperando); return 0; }
+    console.log(m.fecharia(fecharia.length));
+    for (const f of fecharia) console.log(m.linhaDoIndice(f.thread, f.indice.valor, f.indice.base));
+    avisoDeOmissaoSemAlvo(alvo, fecharia.length, true);
+    return 0;
+  }
+  // RM-061 (F2b, G2): o MASTER log, o POSTMORTEM e o registro da omissao nascem em pt-BR.
+  const aceitos = comLocale('pt-BR', () => aceitarPendentesPorOmissao(raiz, { thread: alvo }));
+  avisoDeOmissaoSemAlvo(alvo, aceitos.length, false);
+  if (json) { console.log(JSON.stringify(aceitos, null, 2)); return 0; }
+  const m = msg().master;
+  if (aceitos.length === 0) { console.log(m.nadaEsperando); return 0; }
+  console.log(m.aceitas(aceitos.length));
+  for (const a of aceitos) console.log(m.linhaDoIndice(a.thread, a.indice.valor, a.indice.base));
+  console.log('');
+  console.log(m.discordou);
+  return 0;
+}
+
+/**
+ * O aviso do aceite SEM thread vindo de processo de agente que alcanca mais de uma entrega. A marca
+ * e a mesma do `master.prova-de-canal` (ambiente do host ou do despacho). Vai para stderr: o stdout,
+ * inclusive o `--json`, fica como era.
+ */
+function avisoDeOmissaoSemAlvo(alvo: string | undefined, quantas: number, ensaio: boolean): void {
+  if (alvo || quantas <= 1) return;
+  const marca = marcaDeHost(process.env);
+  if (!marca) return;
+  const propria = (process.env[ENV_THREAD_DO_DESPACHO] ?? '').trim();
+  console.error('');
+  console.error(msg().master.avisoSemThread(marca, ensaio, quantas));
+  console.error(msg().master.avisoSoASua(propria || '<thread-id>', ensaio));
+}
+
 /** I-55 (RM-008): `ork licoes` mostra o que volta no proximo GOAL e PLAN, e as propostas de policy. */
 function comandoLicoes(args: Args): number {
   const carregado = exigirManifesto();
@@ -2762,15 +2946,35 @@ function comandoRoadmap(args: Args): number {
   if (sub === 'reservas') {
     // RM-037 (rm037noite, defeito 3): a reserva de thread ja fechada aparece como orfa e sai com registro.
     if (args.opcoes['soltar-orfas'] === true) {
-      const soltas = soltarReservasOrfas(carregado.raiz, { remoto });
+      // RM-061 (F3b, D3): a soltura grava no escopo pt-BR (ledger, branch de reservas); o detalhe e remontado no texto.
+      const soltas = comLocale('pt-BR', () => soltarReservasOrfas(carregado.raiz, { remoto }));
+      const mr = msg().reservas;
       if (args.opcoes.json === true) console.log(JSON.stringify(soltas, null, 2));
-      else console.log(soltas.length === 0 ? 'Nenhuma reserva órfã desta máquina.'
-        : soltas.map((s) => `${s.item}: ${s.detalhe} (thread fechada ${s.thread})`).join('\n'));
+      else console.log(soltas.length === 0 ? mr.nenhumaOrfa
+        : soltas.map((s) => mr.soltura(s.item, remontar(s.detalhe), s.thread)).join('\n'));
       return 0;
     }
-    const painel = listarReservas(carregado.raiz, { remoto });
+    // RM-052 (fatia 2, D4): as reservas moram no remoto do projeto. Sem ele, nada e lido; com ele mudo e
+    // sem copia, tambem nao. A resposta diz qual projeto leu e o que ficou de fora, nunca "nenhum item".
+    // RM-047: nome fora do formato de remoto recusa antes do git, como sempre.
+    const nomeDoRemoto = exigirRemoto(remoto ?? REMOTO_PADRAO, 'roadmap');
+    const url = remotoDoProjeto(carregado.raiz, nomeDoRemoto);
+    const painel: PainelDeReservas = url === null ? { reservas: [], feats: [], atualizado: false, ponta: null }
+      : listarReservas(carregado.raiz, { remoto });
+    const leitura = leituraDasReservas(painel, url !== null);
     const orfas = reservasOrfas(carregado.raiz, painel.reservas);
-    console.log(args.opcoes.json === true ? JSON.stringify({ ...painel, orfas }, null, 2) : textoDasReservas(painel, orfas));
+    const lido = leitura === 'lido-agora' || leitura === 'copia-local';
+    const consulta = consultaDoProjeto(carregado, {
+      remoto: url,
+      lido: lido ? [`reservas do roadmap (${BRANCH_DE_RESERVAS} em ${nomeDoRemoto}, ${leitura === 'lido-agora' ? 'lido agora' : 'última cópia local'})`] : [],
+      naoLido: [FORA_DA_CONSULTA.roadmap,
+        ...(leitura === 'sem-remoto' ? [`reservas do roadmap: o projeto não tem o remoto ${nomeDoRemoto}, nada foi lido de ${BRANCH_DE_RESERVAS}`]
+          : leitura === 'sem-copia' ? [`reservas do roadmap: o remoto ${nomeDoRemoto} não respondeu e não há cópia local de ${BRANCH_DE_RESERVAS}`]
+            : [])],
+    });
+    console.log(args.opcoes.json === true ? JSON.stringify({ ...painel, orfas, leitura, consulta }, null, 2)
+      : [...linhasDaConsulta(consulta), '', textoDasReservas(painel, orfas,
+        { remoto: nomeDoRemoto, projeto: carregado.manifesto.project.name, temRemoto: url !== null })].join('\n'));
     return 0;
   }
   if (sub === 'status') {
@@ -2778,26 +2982,30 @@ function comandoRoadmap(args: Args): number {
     // RM-052: com o projeto consultado e o que ficou de fora (as outras maquinas nao sao lidas aqui).
     const consulta = consultaDoProjeto(carregado, { lido: ['roadmap (docs/roadmap)', FORA_DA_CONSULTA.threadsDaMaquina],
       naoLido: [FORA_DA_CONSULTA.reservas, 'threads de outras máquinas (ork network roadmap)'] });
-    const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta });
+    // RM-061 (F2b, G2): o status e montado em pt-BR, como o --json; so o texto segue o locale. Os canais (Hermes,
+    // OpenClaw) transportam o texto: com owner.language ou LANG en no host, o dono o recebe em ingles.
+    // RM-063 (F2): o fecho le a mesma fila do `ork pulse`, sem forja e sem registrar.
+    const status = comLocale('pt-BR', () => montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta,
+      fila: (quando) => filaDoDono(carregado, { quando }) }));
     console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
     return 0;
   }
   // RM-037 (rm037noite, defeito 6): o numero da FEAT nova sai da mesma branch de reservas.
   if (sub === 'feat') {
-    const r = reservarFeat(carregado.raiz, { remoto, por: texto(args.opcoes.por), maquina: texto(args.opcoes.maquina),
-      thread: texto(args.opcoes.thread) ?? null, nota: texto(args.opcoes.nota) ?? null });
+    const r = comLocale('pt-BR', () => reservarFeat(carregado.raiz, { remoto, por: texto(args.opcoes.por), maquina: texto(args.opcoes.maquina),
+      thread: texto(args.opcoes.thread) ?? null, nota: texto(args.opcoes.nota) ?? null }));
+    const mr = msg().reservas;
     if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
     else {
-      console.log(`${r.feat}: reservado para esta maquina${r.reserva.thread ? `, thread ${r.reserva.thread}` : ''}.`);
-      console.log(`  crie docs/produto/${r.feat}-<assunto>.md; o numero nao volta, mesmo que a feature nao saia`);
-      console.log(`  branch ork/roadmap-reservas em ${r.commit.slice(0, 7)}`);
+      console.log(mr.feat(r.feat, r.reserva.thread ?? null));
+      console.log(mr.crieAPagina(r.feat));
+      console.log(mr.branch(r.commit.slice(0, 7)));
     }
     return 0;
   }
   const item = args.posicionais[2];
   if ((sub !== 'pegar' && sub !== 'soltar') || !item) {
-    console.error('uso: ork roadmap status [--json] | reservas [--soltar-orfas] | pegar <RM-NNN> [--thread T] [--nota N] | ' +
-      'soltar <RM-NNN> [--forcar --motivo M] | feat [--thread T] [--nota N]');
+    console.error(msg().reservas.uso);
     return 2;
   }
   const opcoes = {
@@ -2809,16 +3017,15 @@ function comandoRoadmap(args: Args): number {
     forcar: args.opcoes.forcar === true,
     motivo: texto(args.opcoes.motivo),
   };
-  const r = sub === 'pegar' ? pegarItem(carregado.raiz, item, opcoes) : soltarItem(carregado.raiz, item, opcoes);
+  const r = comLocale('pt-BR', () => sub === 'pegar' ? pegarItem(carregado.raiz, item, opcoes) : soltarItem(carregado.raiz, item, opcoes));
   if (args.opcoes.json === true) {
     console.log(JSON.stringify(r, null, 2));
     return 0;
   }
-  const verbo = { pegou: 'reservado para esta maquina', renovou: 'reserva renovada', tomou: 'reserva TOMADA de outra maquina',
-    soltou: 'devolvido', nada: 'ja estava livre' }[r.acao];
-  console.log(`${r.item}: ${verbo}.`);
-  if (r.reserva && r.acao !== 'soltou') console.log(`  com ${r.reserva.por} em ${r.reserva.maquina}${r.reserva.thread ? `, thread ${r.reserva.thread}` : ''}`);
-  if (r.commit) console.log(`  branch ork/roadmap-reservas em ${r.commit.slice(0, 7)}`);
+  const mr = msg().reservas;
+  console.log(mr.itemAcao(r.item, mr.acao(r.acao)));
+  if (r.reserva && r.acao !== 'soltou') console.log(mr.com(r.reserva.por, r.reserva.maquina, r.reserva.thread ?? null));
+  if (r.commit) console.log(mr.branch(r.commit.slice(0, 7)));
   return 0;
 }
 
@@ -2826,7 +3033,7 @@ function comandoRoadmap(args: Args): number {
  * RM-054 (fatia 1): `ork network roadmap`, o roadmap da rede de qualquer diretorio. Pedido de projeto
  * ambiguo ou desconhecido e resposta, nao erro: a recusa com os candidatos, e o codigo da RM-052.
  */
-function comandoNetwork(args: Args): number {
+function comandoNetworkRoadmap(args: Args): number {
   const pedido = texto(args.opcoes.projeto);
   if (args.posicionais[1] !== 'roadmap' || args.posicionais.length > 2 || (args.opcoes.projeto !== undefined && !pedido)) {
     console.error('uso: ork network roadmap [--projeto <caminho|github:dono/repo|gitlab:grupo/repo|nome>] [--json] [--sem-remoto]');
@@ -2846,15 +3053,43 @@ function comandoNetwork(args: Args): number {
   }
 }
 
+/**
+ * RM-026 K7 (fatia 2, D11 e D13): o conhecimento escrito, so leitura. O JSON e o das tools `ork_conhecimento_*`,
+ * em pt-BR nas duas linguas; so o texto segue o locale. Sai 1 quando a consulta nao responde e 2 com uso errado
+ * (D13 revista no CHECK: o gate de CI separa o erro de digitacao da lacuna).
+ */
+function comandoConhecimento(args: Args): number {
+  const [, sub = 'listar', id, ...resto] = args.posicionais;
+  const colecao = args.opcoes.colecao;
+  const valido = (CONSULTAS_DO_CONHECIMENTO as readonly string[]).includes(sub) && !resto.length &&
+    (args.opcoes.json === undefined || args.opcoes.json === true) &&
+    Object.keys(args.opcoes).every((k) => k === 'json' || (k === 'colecao' && sub === 'listar')) &&
+    (colecao === undefined || (typeof colecao === 'string' && NOME_DE_COLECAO.test(colecao))) &&
+    (sub === 'mostrar' ? typeof id === 'string' && ID_DE_DOCUMENTO.test(id) : id === undefined);
+  if (!valido) {
+    console.error(msg().cli.erro(msg().conhecimento.uso));
+    return 2;
+  }
+  const pedido: PedidoDoConhecimento = sub === 'mostrar' ? { consulta: 'mostrar', id }
+    : sub === 'listar' ? { consulta: 'listar', ...(typeof colecao === 'string' ? { colecao } : {}) }
+      : { consulta: sub as 'colecoes' | 'verificar' };
+  const carregado = exigirManifesto();
+  const r = consultarConhecimento(carregado, pedido);
+  console.log(args.opcoes.json === true ? jsonSemInvisivel(r) : textoDoConhecimento(r));
+  return consultaRespondeu(r) ? 0 : 1;
+}
+
 function comandoDocs(args: Args): number {
   const sub = args.posicionais[1] ?? 'verificar';
   const carregado = carregarManifesto();
   const raiz = carregado?.raiz ?? diretorioDoProjeto();
   const baseBranch = carregado?.manifesto.worktree?.base_branch ?? 'main';
 
+  const md = msg().docs;
   if (sub === 'verificar') {
     // RM-037 (fatia 3, GO-FIX 2): o CI passa --pr no pull_request; no push da main as duas regras novas reprovam.
-    const { docs, achados } = verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA, pr: args.opcoes.pr === true });
+    // RM-061 (F3b, G4): verifica no escopo pt-BR, como o `--json` leva os achados; o texto os remonta no locale do comando.
+    const { docs, achados } = comLocale('pt-BR', () => verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA, pr: args.opcoes.pr === true }));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ paginas: docs.length, erros: achados.filter((a) => a.gravidade === 'erro').length,
         achados }, null, 2));
@@ -2870,41 +3105,43 @@ function comandoDocs(args: Args): number {
     // Sugestao 4 do CHECK 1 (e 8 do CHECK 2, `--so=`): `--so` sem item e erro de uso, nunca o escopo
     // padrao em silencio.
     if (args.opcoes.so === true || (typeof args.opcoes.so === 'string' && !args.opcoes.so.trim())) {
-      console.error('uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (faltou o item depois de --so)');
+      console.error(md.usoSoSemItem);
       return 2;
     }
     const so = texto(args.opcoes.so);
     let itens: string[] | undefined;
-    let escopo = 'todo item do roadmap';
+    let escopo = md.escopoTodos;
     if (so) {
       itens = so.split(',').map((i) => i.trim().toUpperCase()).filter(Boolean);
       const fora = itens.filter((i) => !/^RM-\d{3}$/.test(i));
       if (fora.length || itens.length === 0) {
-        console.error(`uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (recebido: ${so})`);
+        console.error(md.usoSoInvalido(so));
         return 2;
       }
-      escopo = `so ${itens.join(', ')} (--so)`;
+      escopo = md.escopoSo(itens.join(', '));
     } else if (args.opcoes.todos !== true) {
       const padrao = escopoPadraoDoSync(raiz);
       if (padrao.itens) {
         itens = padrao.itens;
-        escopo = `so ${itens.join(', ')}, o item da thread ${padrao.thread} desta worktree (--todos para todo item)`;
+        escopo = md.escopoDaThread(itens.join(', '), String(padrao.thread));
       }
     }
-    const r = sincronizarDocs(raiz, { baseBranch, escrever, itens });
+    const r = comLocale('pt-BR', () => sincronizarDocs(raiz, { baseBranch, escrever, itens }));
     console.log(args.opcoes.json === true ? JSON.stringify({ ...r, escopo: itens ?? null }, null, 2)
-      : `Escopo: ${escopo}.\n${textoDaSincronizacao(r, escrever)}`);
+      : `${md.escopo(escopo)}\n${textoDaSincronizacao(r, escrever)}`);
     return 0;
   }
   if (sub === 'init') {
-    const criados = iniciarDocs(raiz);
+    // RM-061 (F3a, D1 e D5): os sete arquivos nascem na lingua do dono, resolvida pelo manifesto (tambem com `--json`,
+    // que tira so o texto impresso do locale); o texto segue o locale do comando coberto.
+    const criados = iniciarDocs(raiz, resolverLocale(carregado?.manifesto.owner?.language).locale);
+    const m = msg().gerados.docsInit;
     console.log(criados.length === 0
-      ? 'Documentacao como codigo ja estava no projeto: nada criado.'
-      : ['Criado:', ...criados.map((c) => `  ${c}`), '',
-        'Proximo passo: copie docs/produto/_modelo-feature.md e docs/roadmap/_modelo-item.md, e rode ork docs verificar'].join('\n'));
+      ? m.jaEstava
+      : [m.criado, ...criados.map((c) => `  ${c}`), '', m.proximoPasso].join('\n'));
     return 0;
   }
-  console.error(`uso: ork docs verificar [--json] [--pr] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);
+  console.error(md.uso);
   return 2;
 }
 
@@ -2958,12 +3195,17 @@ function comandoPrompt(args: Args): number {
       return 2;
     }
     const thread = lerThread(obrigatorio.raiz, threadId);
+    // RM-059 (T6.0): sem --pedido, o pedido guardado na criacao, conferido pelo sha256; thread sem pedido
+    // guardado segue com o texto de exemplo, como antes.
+    const guardado = texto(args.opcoes.pedido) === undefined ? pedidoDaThread(obrigatorio.raiz, thread) : null;
+    const pedidoDaFase = guardado?.texto ?? pedido;
     const template = idTemplate ? exigirTemplate(idTemplate, obrigatorio.raiz) : templateDaFase(fase, obrigatorio.raiz);
     const prompt = idTemplate
-      ? renderizar(template, valoresDoPrompt(thread, fase, pedido))
-      : montarPrompt(thread, fase, pedido, obrigatorio.raiz);
+      ? renderizar(template, valoresDoPrompt(thread, fase, pedidoDaFase))
+      : montarPrompt(thread, fase, pedidoDaFase, obrigatorio.raiz);
     console.log(`# template ${template.id} v${template.versao} (origem: ${template.origem})`);
     console.log(`# thread ${thread.id}, fase ${fase}, sha256 ${hashDoPrompt(prompt)}`);
+    if (guardado) console.log(`# pedido guardado na criacao da thread (sha256 ${shaCurto(guardado.sha256)})`);
     console.log('');
     console.log(prompt);
     return 0;
@@ -2985,8 +3227,20 @@ function exigirFaseCanonica(bruto: string | undefined): Fase {
 /**
  * `ork adapter list|show|install <host>`: instalacao dos adaptadores de Camada 1 (bloco B4).
  */
+/**
+ * O caminho real do `ork` em execução, quando o processo é este CLI (argv[1] resolve para este arquivo).
+ * Importado por outro script, devolve undefined e o install volta à ordem antiga (PATH, catálogo).
+ */
+function orkEmExecucao(): string | undefined {
+  try {
+    const proprio = fs.realpathSync(__filename);
+    return process.argv[1] && fs.realpathSync(process.argv[1]) === proprio ? proprio : undefined;
+  } catch { return undefined; }
+}
+
 function comandoAdapter(args: Args): number {
   const sub = args.posicionais[1] ?? 'list';
+  const ma = msg().adapter;
 
   if (sub === 'list') {
     console.log(tabelaDeHosts());
@@ -2996,13 +3250,12 @@ function comandoAdapter(args: Args): number {
   if (sub === 'show') {
     const host = parseHost(args.posicionais[2]);
     if (!host) {
-      console.error(`host desconhecido: "${args.posicionais[2] ?? ''}". Use: ${ORDEM_DOS_HOSTS.join(' | ')}`);
+      console.error(ma.hostDesconhecido(args.posicionais[2] ?? '', ORDEM_DOS_HOSTS.join(' | ')));
       return 2;
     }
-    const def = HOSTS[host];
-    console.log(`Adaptador ${host}`);
-    console.log(`  ${def.descricao}`);
-    console.log(`  destino padrao: <projeto>/${def.destinoPadrao}${def.subdir ? '/' + def.subdir : ''}`);
+    console.log(ma.adaptador(host));
+    console.log(`  ${ma.hosts[host].descricao}`);
+    console.log(`  ${ma.destinoPadrao(destinoPadraoDe(host))}`);
     console.log('');
     console.log(textoDosPitfalls(host));
     return 0;
@@ -3011,27 +3264,32 @@ function comandoAdapter(args: Args): number {
   if (sub === 'install') {
     const host = parseHost(args.posicionais[2]);
     if (!host) {
-      console.error(`host desconhecido: "${args.posicionais[2] ?? ''}". Use: ${ORDEM_DOS_HOSTS.join(' | ')}`);
+      console.error(ma.hostDesconhecido(args.posicionais[2] ?? '', ORDEM_DOS_HOSTS.join(' | ')));
       return 2;
     }
     const carregado = carregarManifesto();
-    const r = instalarAdaptador(host, {
+    // RM-061 (F3b, G4): instala no escopo pt-BR; os avisos nascem pelo catalogo e o texto os remonta no locale do comando.
+    const r = comLocale('pt-BR', () => instalarAdaptador(host, {
       projeto: carregado?.raiz ?? diretorioDoProjeto(),
       dir: texto(args.opcoes.dir),
       dryRun: args.opcoes['dry-run'] === true,
       force: args.opcoes.force === true || args.opcoes.forcar === true,
       orkBin: texto(args.opcoes.ork),
+      // Ensaio de 03/10: a extensão chama o ork que a instalou, não o primeiro do PATH.
+      orkEmExecucao: orkEmExecucao(),
       versao: VERSAO,
       // I-43 (D5): a decisao por ARQUIVO, que e o que faz `--force` deixar de ser o
       // unico caminho de saida. `;` separa varios, como o resto do CLI ja faz.
       aceitarCatalogo: (texto(args.opcoes['aceitar-catalogo']) ?? '').split(';').map(x => x.trim()).filter(Boolean),
       manterCopia: (texto(args.opcoes['manter-copia']) ?? '').split(';').map(x => x.trim()).filter(Boolean),
-    });
+      // RM-061 (F3a, D1 e D9): o bloco da experiência nasce na língua do dono; na F3b, o texto impresso segue o locale.
+      locale: resolverLocale(carregado?.manifesto.owner?.language).locale,
+    }));
     console.log(textoDaInstalacao(r));
     return r.ok ? 0 : 2;
   }
 
-  console.error(`subcomando desconhecido: adapter ${sub}`);
+  console.error(ma.subcomandoDesconhecido(sub));
   return 2;
 }
 
@@ -3042,7 +3300,8 @@ function comandoAdapter(args: Args): number {
  * de zero em qualquer falha, para o CI do kit poder barrar merge sem eval.
  */
 function comandoEval(args: Args): number {
-  const catalogo = exigirCatalogo(carregarManifesto()?.raiz ?? diretorioDoProjeto());
+  // RM-047 (P4): o eval so executa o catalogo do proprio pacote, nunca o achado a partir do cwd.
+  const catalogo = exigirCatalogoDoPacote(carregarManifesto()?.raiz ?? diretorioDoProjeto());
   const lista = (v: string | boolean | undefined): string[] | undefined => {
     const t = texto(v);
     return t ? t.split(',').map((x) => x.trim()).filter(Boolean) : undefined;
@@ -3209,6 +3468,8 @@ function comandoAudit(args: Args): number {
   }
 
   if (sub === 'show') {
+    const sobra = SOBRAS_DO_OBJECTIVE.find((opcao) => args.opcoes[opcao] !== undefined);
+    if (sobra) return recusarSobraDoObjective(sobra);
     const id = args.posicionais[2];
     if (!id) {
       console.error('uso: ork audit show <rodada> [--ledger]');
@@ -3478,7 +3739,8 @@ function comandoAudit(args: Args): number {
  * que sempre teve. E o que garante que ligar o B6 nao muda o que o builder ja conhece.
  */
 function relatarPublicacao(r: ResultadoDoSync): void {
-  if (r.publicacao?.estado === 'pendente') { console.log(`Memoria: publicacao pendente (${r.publicacao.motivo}); ativacao explicita necessaria.`); return; }
+  const m = msg().thread;
+  if (r.publicacao?.estado === 'pendente') { console.log(m.publicacaoPendente(`${r.publicacao.motivo}`)); return; }
   if (r.regime !== 'orkmind') return;
   const gravados = [
     `${r.decisoes.gravadas.filter((g) => g.ok).length} decision`,
@@ -3488,8 +3750,8 @@ function relatarPublicacao(r: ResultadoDoSync): void {
     r.roadmap?.ok ? '1 roadmap' : '',
   ].filter((t) => t !== '');
   console.log('');
-  console.log(`Memoria (orkmind, tenant ${r.estado.tenant}): ${gravados.join(', ') || 'nada a gravar'}.`);
-  if (r.falhas > 0) console.log(`  ${r.falhas} gravacao(oes) nao concluida(s); veja ork memory status.`);
+  console.log(m.memoriaGravada(`${r.estado.tenant}`, gravados.join(', ') || m.nadaAGravar));
+  if (r.falhas > 0) console.log(m.gravacoesFalhas(r.falhas));
 }
 
 /** Janela de origem e corte de apresentação são inteiros positivos explícitos. */
@@ -3679,7 +3941,15 @@ function comandoMemory(args: Args): number {
     const config = configDeEmbedding(carregado.manifesto);
     const driver = configDoManifesto(carregado.manifesto);
     const embedder = new DriverCliOrkMind(driver);
-    const universo = universoDoTenant(memoria, memoria.estado.tenant);
+    // RM-038: o universo da busca inteiro, numa leitura; sem ele, nada e embedado (nunca um pedaco).
+    let universo: UniversoDaBusca;
+    try { universo = universoDaBusca(memoria, memoria.estado.tenant); } catch (erro) {
+      const motivo = codigoDaFalha(erro);
+      const detalhe = 'o universo da busca nao foi lido inteiro; nada foi embedado';
+      if (args.opcoes.json === true) console.log(JSON.stringify({ motivo, detalhe }, null, 2));
+      else console.error(`memory.index: ${motivo}; ${detalhe}`);
+      return 1;
+    }
     const alvos: AlvoDeEmbedding[] = modelo === 'todos' ? ['primario', 'fallback'] : [modelo as AlvoDeEmbedding];
     const resultados: ResultadoDoIndice[] = alvos.map(alvo => indexar({ raiz: carregado.raiz, tenant: memoria.estado.tenant,
       dsn: driver.dsn, config, alvo, universo, dryRun: args.opcoes['dry-run'] === true,
@@ -3703,7 +3973,7 @@ function comandoMemory(args: Args): number {
 export function avisoRoadmapSemAssociacao(nome: string, roadmap?: string): string | null {
   const item = /\bRM-\d{3}\b/i.exec(nome)?.[0].toUpperCase();
   if (!item || roadmap) return null;
-  return `Aviso: ${item} no nome não associa a thread ao roadmap. No terminal, consulte ork roadmap reservas e ork fabrica; para associar e reservar, use --roadmap ${item} em ork thread new. Nenhuma reserva foi criada por este aviso.`;
+  return msg().thread.roadmapNoNome(item);
 }
 
 /**
@@ -3730,50 +4000,36 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
   const memoria = abrirMemoria(carregado);
   const config = configDeEmbedding(carregado.manifesto);
   let r: ResultadoDaBuscaSemantica;
+  const vazio = { texto: frase, modo, origem: 'nenhum' as const, modeloUsado: null, deterministico: false as const,
+    resultados: [], listas: { vetor: [], fts: [] }, ftsForaDoUniverso: 0, coberturaDoIndice: null };
+  let universo: UniversoDaBusca | null = null;
+  let falhaDoUniverso = '';
+  if (memoria.ativo) {
+    try { universo = universoDaBusca(memoria, memoria.estado.tenant); } catch (erro) { falhaDoUniverso = codigoDaFalha(erro); }
+  }
   if (!memoria.ativo) {
-    r = { texto: frase, modo, origem: 'nenhum', modeloUsado: null, deterministico: false, motivo: memoria.estado.motivo,
-      detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}`, resultados: [], listas: { vetor: [], fts: [] } };
+    r = { ...vazio, motivo: memoria.estado.motivo, detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}` };
+  } else if (!universo) {
+    // RM-038: sem o universo inteiro nao ha busca; o motivo tipado sai, nunca um resultado parcial.
+    r = { ...vazio, motivo: falhaDoUniverso, detalhe: 'o universo da busca nao foi lido inteiro; nada foi buscado' };
   } else {
     const driver = configDoManifesto(carregado.manifesto);
     const transporte = new DriverCliOrkMind(driver);
     const fallback = memoria.estado.embeddings?.fallback;
     r = buscarPorSignificado({ raiz: carregado.raiz, tenant: memoria.estado.tenant, dsn: driver.dsn, config,
-      universo: universoDoTenant(memoria, memoria.estado.tenant, colecao ? [colecao as ColecaoDoOrk] : COLECOES_DO_ORK),
+      universo, colecao: colecao as ColecaoDoOrk | undefined,
       texto: frase, modo, limite, timeoutMs: driver.timeoutMs,
       chavePresente: memoria.estado.embeddings?.chavePresente === true,
       fallbackUsavel: memoria.estado.embeddings?.sondado === true && fallback?.dependencias === true,
       embeddar: (p, o) => transporte.embeddar(p, o), buscarTexto: (t, q) => transporte.buscarTexto(t, q) });
   }
+  const codigo = universo ? 0 : 1;
   if (args.opcoes.json === true) {
     console.log(JSON.stringify(r, null, 2));
-    return 0;
+    return codigo;
   }
-  console.log(`Busca por significado (NAO deterministica; modo ${r.modo}, origem ${r.origem}${r.modeloUsado ? ` ${r.modeloUsado}` : ''})`);
-  if (r.motivo) console.log(`  motivo: ${r.motivo}${r.detalhe ? `; ${r.detalhe}` : ''}`);
-  console.log('');
-  r.resultados.forEach((e, i) => {
-    const sim = e.similaridade === null ? '' : `  similaridade ${e.similaridade}`;
-    console.log(`  ${i + 1}. [${e.collection}] ${e.id}  score ${e.score}  ${e.fontes.join('+')}${sim}`);
-    console.log(`      ${e.resumo}`);
-  });
-  console.log('');
-  console.log(`  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
-  return 0;
-}
-
-/** Texto de `ork memory index`: o que foi (ou seria) embedado e quanto custa estimado. */
-function textoDoIndice(r: ResultadoDoIndice): string {
-  const custo = r.custoEstimadoUsd === null ? 'nao estimado' : `US$ ${r.custoEstimadoUsd.toFixed(8)}`;
-  return [
-    `Indice vetorial (${r.alvo}${r.dryRun ? ', --dry-run' : ''}): ${r.modelo ?? '(sem modelo)'}${r.dim ? ` / ${r.dim} dim` : ''}`,
-    `  universo do tenant   ${r.universo} entrada(s); coerentes ${r.coerentes}`,
-    `  embedados            ${r.embedados} (reescritos ${r.reescritos}); removidos ${r.removidos}`,
-    `  fora do indice       ${r.recusados} recusada(s) por padrao de segredo, ${r.foraDoLimite} acima do limite`,
-    ...(r.truncados ? [`  truncados            ${r.truncados} acima do contexto do modelo local, embedados pelo comeco`] : []),
-    `  estimativa           ${r.tokensEstimados} token(s), ${custo}; chamadas ao provider ${r.chamadasAoProvider}`,
-    ...(r.arquivo ? [`  arquivo              ${r.arquivo}`] : []),
-    ...(r.motivo ? [`  motivo               ${r.motivo}: ${r.detalhe}`] : r.detalhe ? [`  ${r.detalhe}`] : []),
-  ].join('\n');
+  console.log(textoDaBuscaPorSignificado(r));
+  return codigo;
 }
 
 /**
@@ -3799,25 +4055,57 @@ export function extrairOpcaoDeProjeto(argv: readonly string[]): { argv: string[]
 const COMANDOS_SEM_PROJETO = new Set(['demo', 'ciclos', 'mcp', 'init', 'projetos']);
 
 /**
+ * Fatia 2 (D3): os comandos que leem projeto e nao terminam com a linha `Projeto consultado`. Hoje so
+ * o `sessions event`, o sensor dos hooks do Claude Code: maquina falando com maquina, e o sensor compara
+ * o stderr da recusa. O `maestro` declara no snapshot e nao passa por aqui.
+ */
+const SEM_DECLARACAO_DO_PROJETO: ReadonlySet<string> = new Set(['sessions event']);
+
+/**
  * Comandos cujo `--projeto` e DELES (RM-054: `ork network roadmap --projeto github:dono/repo`, que
  * le varios projetos). A opcao volta intacta ao argv do subcomando e o alvo global nao e resolvido:
  * nem `--projeto`, nem `ORK_PROJETO`, nem o modo host escolhem um projeto por eles.
  */
 export const COMANDOS_COM_PROJETO_PROPRIO: ReadonlySet<string> = new Set(['network']);
 
-/** Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. */
-function fixarAlvoDoProcesso(projeto: string | undefined): ProjetoAlvo | null {
+/**
+ * Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. Fatia 2 (D3): com
+ * `declarar`, o comando termina dizendo qual projeto leu, quando o leitor nao tem como saber.
+ */
+function fixarAlvoDoProcesso(projeto: string | undefined, declarar = true): ProjetoAlvo | null {
   const alvo = resolverProjetoAlvo({ opcao: projeto ?? null });
   fixarProjetoAlvo(alvo);
+  if (declarar) pedirDeclaracaoDoProjeto(alvo);
   return alvo;
 }
 
+/**
+ * RM-052 (fatia 2, D3): o comando que leu um projeto que o leitor nao tem como adivinhar (no host, ou
+ * fora do diretorio dele) escreve no fim a linha `Projeto consultado: ...` no stderr, salvo se ja montou
+ * o proprio cabecalho. Quando ele falha, a linha sai antes da mensagem de erro, que a entrada imprime.
+ */
 export function main(argvBruto: string[]): number {
   // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso, e já
   // depois de o projeto-alvo abaixo estar fixado: a fonte é preguiçosa).
   registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
   // RM-052: sem alvo herdado de uma chamada anterior no mesmo processo (os testes chamam `main` em serie).
   fixarProjetoAlvo(null);
+  // Prova de conceito do CLI por locale: cada chamada comeca em pt-BR; so os comandos cobertos trocam.
+  ativarLocale(undefined);
+  // RM-061 (F2b, D1): e sem o registro dos textos remontaveis, que so os comandos cobertos ligam.
+  ligarRemontagem(false);
+  iniciarDeclaracaoDoProjeto();
+  try { return executarComando(argvBruto); }
+  finally {
+    // RM-061 (F2b): o registro dos textos remontaveis nao sobrevive a chamada (o locale sim: a entrada do CLI
+    // ainda imprime o erro no locale do comando).
+    ligarRemontagem(false);
+    const linha = declaracaoQueFaltou();
+    if (linha) console.error(linha);
+  }
+}
+
+function executarComando(argvBruto: string[]): number {
   const extraida = extrairOpcaoDeProjeto(argvBruto);
   const proprio = COMANDOS_COM_PROJETO_PROPRIO.has(parseArgs(extraida.argv).posicionais[0] ?? '');
   const argv = proprio && extraida.projeto !== undefined
@@ -3839,8 +4127,9 @@ export function main(argvBruto: string[]): number {
   }
   if (argv[0] === 'maestro') {
     if (argv.length === 2 && argv[1] === '--help') return runMaestroCli(argv.slice(1));
-    // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre.
-    const alvo = fixarAlvoDoProcesso(projeto);
+    // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre. O
+    // snapshot ja declara o projeto consultado (project.root, notConsulted): sem a linha da fatia 2.
+    const alvo = fixarAlvoDoProcesso(projeto, false);
     return alvo ? runMaestroCli(argv.slice(1), alvo.raiz, { allowedRoots: [alvo.raiz], selected: alvo.raiz })
       : runMaestroCli(argv.slice(1));
   }
@@ -3853,11 +4142,13 @@ export function main(argvBruto: string[]): number {
     return 0;
   }
   if (!comando || args.opcoes.help === true || comando === 'help') {
-    console.log(AJUDA);
+    ativarLocale(localeDaAjuda(projeto));
+    console.log(msg().ajuda.texto(dadosDaAjuda()));
     return 0;
   }
-  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) fixarAlvoDoProcesso(projeto);
-  else if (projeto !== undefined && comando !== 'projetos') {
+  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) {
+    fixarAlvoDoProcesso(projeto, !SEM_DECLARACAO_DO_PROJETO.has(`${comando} ${args.posicionais[1] ?? ''}`.trim()));
+  } else if (projeto !== undefined && comando !== 'projetos') {
     throw new Error(comando === 'init'
       ? 'uso: ork init cria o projeto no diretório atual; entre nele e rode ork init, sem --projeto'
       : comando === 'mcp' ? 'uso: o servidor MCP recebe a raiz por --project <raiz absoluta>, não por --projeto'
@@ -3872,6 +4163,14 @@ export function main(argvBruto: string[]): number {
     // O gate oficial precisa observar e registrar a violação (inclusive warn).
     // Diagnósticos continuam acessíveis; os adapters sanitizam seus filhos sempre.
     if (violacoes.length === 0) for (const nome of ENVS_DE_PROVIDER_PAGO) delete process.env[nome];
+  }
+
+  // CLI por locale (RM-061, EN1 e EN7): a escolha do onboarding (owner.language) ou o LC_ALL/LC_MESSAGES/LANG
+  // decidem a lingua do TEXTO dos comandos cobertos (`cobreLocale`); `--json` e contrato, e os recortes da D2
+  // da F2a (`doctor --modo`, `thread new --from-finding` e os subcomandos fora da lista) ficam em pt-BR.
+  if (cobreLocale(args.posicionais, args.opcoes)) {
+    ativarLocale(resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale);
+    ligarRemontagem(true);
   }
 
   switch (comando) {
@@ -3915,37 +4214,46 @@ export function main(argvBruto: string[]): number {
           throw Error(`uso: ork doctor --modo ${ORDEM_DOS_MODOS.join('|')}`);
         const r=preflight(diretorioDoProjeto(),exigirModoVivo(bruto),nomesHerdados);console.log(textoPreflight(r));return r.prontoPrimeiroBloco?0:1;
       }
-      const r = doctor(diretorioDoProjeto(), nomesHerdados);
+      // RM-031: o check dos analisadores do grafo entra por aqui, a porta da familia do grafo (fronteira do KG1).
+      // RM-061 (F2a): a redacao do check vem do catalogo, no locale do comando (a familia do grafo nao o importa).
+      const r = doctor(diretorioDoProjeto(), nomesHerdados, () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK, undefined, undefined, msg().doctor.grafo));
       console.log(r.texto);
       return r.codigo;
     }
     case 'init': {
+      exigirRepositorioParaInit(process.cwd());
+      // RM-061 (F3a, D1 e D2): os arquivos nascem na lingua do dono no momento da geracao, resolvida pelo manifesto lido
+      // antes do `--force` regrava-lo (o YAML e o AGENTS.md saem na mesma lingua) e independente do texto impresso, que
+      // nao segue o locale com `--json` (GO-FIX do CHECK, W3).
+      const localeDosArquivos = resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale;
       const r = init(process.cwd(), {
         force: args.opcoes.force === true,
         nome: texto(args.opcoes.name) ?? texto(args.opcoes.nome),
         abbrev: texto(args.opcoes.abbrev),
+        locale: localeDosArquivos,
       });
       const carregado = exigirManifesto(r.deteccao.raiz);
-      const agents = atualizarAgentsMd(r.deteccao.raiz, carregado.manifesto);
+      const agents = atualizarAgentsMd(r.deteccao.raiz, carregado.manifesto, localeDosArquivos);
       // RM-052 (D7): o projeto entra no registro desta maquina; falha vira aviso, nunca derruba o init.
       const avisoDoRegistro = registrarProjetoEmSilencio(r.deteccao.raiz, 'init');
       if (avisoDoRegistro) console.error(avisoDoRegistro);
+      const m = msg().init, estadoAgents = m.estadosAgents[agents.estado] ?? agents.estado;
       if (!r.criado) {
-        console.log(`Manifesto ja existe: ${r.caminho}`);
-        console.log('Nada foi sobrescrito. Use --force para regerar.');
-        console.log(`AGENTS.md ${agents.estado}: ${agents.caminho}`);
+        console.log(m.jaExiste(r.caminho));
+        console.log(m.nadaSobrescrito);
+        console.log(m.agentsMd(estadoAgents, agents.caminho));
         return 0;
       }
-      console.log(`Manifesto criado: ${r.caminho}`);
-      console.log(`  projeto     ${r.deteccao.nome} (abbrev "${r.deteccao.abbrev}")`);
-      console.log(`  branch base ${r.deteccao.baseBranch}`);
-      console.log(`  gerenciador ${r.deteccao.gerenciador}`);
-      console.log(`  verify      ${Object.entries(r.deteccao.verify).map(([k, v]) => `${k}="${v}"`).join(', ') || '(nenhum script detectado)'}`);
-      console.log(`  AGENTS.md   ${agents.estado}: ${agents.caminho}`);
+      console.log(m.criado(r.caminho));
+      console.log(m.projeto(r.deteccao.nome, r.deteccao.abbrev));
+      console.log(m.branchBase(r.deteccao.baseBranch));
+      console.log(m.gerenciador(r.deteccao.gerenciador));
+      console.log(m.verify(Object.entries(r.deteccao.verify).map(([k, v]) => `${k}="${v}"`).join(', ') || m.semScript));
+      console.log(m.agentsMdLinha(estadoAgents, agents.caminho));
       // Fatia 2 do ensaio da 0.5.0 (P3): o estado fica fora do git por um `.gitignore` proprio.
-      if (r.estadoIgnorado) console.log(`  estado      ${DIR_ESTADO}/ fora do git (${DIR_ESTADO}/.gitignore com *; o seu .gitignore fica como está)`);
+      if (r.estadoIgnorado) console.log(m.estado(DIR_ESTADO));
       console.log('');
-      console.log(PROXIMO_PASSO_INIT);
+      console.log(m.proximoPasso);
       return 0;
     }
     case 'modos': {
@@ -4010,16 +4318,17 @@ export function main(argvBruto: string[]): number {
       }
       if ((args.posicionais[1] ?? 'show') !== 'show' || args.posicionais.length > 2 ||
           Object.keys(args.opcoes).some(k => k !== 'json') || ('json' in args.opcoes && args.opcoes.json !== true)) {
-        throw Error('uso: ork experiencia show [--json]');
+        throw Error(msg().onboarding.experienciaUso);
       }
       const manifesto = exigirManifesto(), p = resolverExperiencia(manifesto.manifesto.owner);
       // Preferência inválida vale o padrão e faz o adapter install pular o pacote: a consulta avisa.
       const avisos = manifesto.avisos.filter(a => a.startsWith('experiencia.config.invalid'));
+      const m = msg().onboarding;
       console.log(args.opcoes.json ? JSON.stringify({ ...p, avisos }, null, 2) :
-        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\n` +
+        `${m.experiencia(p.experience, p.language, p.timezone, p.depth)}\nSkill: ${p.skill}\n` +
         // Fatia 2 do ensaio da 0.5.0 (R2): as origens em texto, e nao o JSON cru.
-        `Origens: ${Object.entries(p.origem).map(([chave, origem]) => `${chave} ${origem}`).join(', ')}` +
-        avisos.map(a => `\nAviso: ${a}; o adapter install pula o pacote até ork onboarding set maestro corrigir.`).join(''));
+        m.experienciaOrigens(Object.entries(p.origem).map(([chave, origem]) => `${chave} ${m.origemDaPreferencia(origem)}`).join(', ')) +
+        avisos.map(a => `\n${m.experienciaAviso(m.avisoDaPreferencia(a))}`).join(''));
       return 0;
     }
     case 'thread':
@@ -4052,10 +4361,12 @@ export function main(argvBruto: string[]): number {
         return 0;
       }
       if (args.posicionais[1] === 'cadencia') return comandoCadenciaDoPulse(args);
-      const p = montarPulse(exigirManifesto(), { registrar: args.opcoes.registrar === true,
+      // RM-061 (F2b, G2): o pulse grava (sensores, condução) e monta o --json em pt-BR; so o texto segue o locale.
+      const carregadoDoPulse = exigirManifesto();
+      const p = comLocale('pt-BR', () => montarPulse(carregadoDoPulse, { registrar: args.opcoes.registrar === true,
         escopo: texto(args.opcoes.escopo)?.split(',').map(s => s.trim()),
         semRuntime: args.opcoes['sem-runtime'] === true,
-        linhasLogs: texto(args.opcoes.linhas) === undefined ? undefined : Number(texto(args.opcoes.linhas)) });
+        linhasLogs: texto(args.opcoes.linhas) === undefined ? undefined : Number(texto(args.opcoes.linhas)) }));
       console.log(args.opcoes.json === true ? JSON.stringify(p, null, 2) : textoDoPulse(p));
       return p.runtime.ok || args.opcoes['sem-runtime'] === true ? 0 : 1;
     }
@@ -4082,13 +4393,17 @@ export function main(argvBruto: string[]): number {
       console.log(JSON.stringify(result, null, 2));
       return ['ok','empty','unknown','withheld','applied','rolled-back'].includes(result.state) ? 0 : 1;
     }
+    case 'conhecimento':
+      return comandoConhecimento(args);
     case 'memory':
       return comandoMemory(args);
     case 'grafo': {
       // RM-031 KG3 (D7): o argv cru depois do comando; o parser do grafo e estrito.
       const carregado = exigirManifesto();
       return executarGrafo(argv.slice(argv.indexOf('grafo') + 1),
-        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, escrever: (texto) => console.log(texto) });
+        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, versao: VERSAO_DO_ORK,
+          contextoDaThread: (id) => lerEntradaDaThread(carregado.raiz, id),
+          escrever: (texto) => console.log(texto) });
     }
     case 'ship':
       return comandoShip(args);
@@ -4136,8 +4451,9 @@ export function main(argvBruto: string[]): number {
       console.log(tabelaDeVariantes());
       return 0;
     default:
-      console.error(`comando desconhecido: ${comando}`);
-      console.log(AJUDA);
+      ativarLocale(localeDaAjuda());
+      console.error(msg().ajuda.comandoDesconhecido(comando));
+      console.log(msg().ajuda.texto(dadosDaAjuda()));
       return 2;
   }
 }
@@ -4150,12 +4466,18 @@ if (require.main === module) {
     if (e instanceof ErroDeConducao) {
       console.log(process.argv.includes('--json') ? JSON.stringify(e.recusa, null, 2) : e.recusa.texto);
       process.exitCode = 3;
+    } else if (e instanceof ErroDaFilaPesada) {
+      // RM-058 N2 (D10): a fila pesada que nao deu a vez no prazo responde como a conducao: o texto ou o JSON, e 3.
+      console.log(process.argv.includes('--json') ? JSON.stringify(e.recusa, null, 2) : e.recusa.texto);
+      process.exitCode = 3;
     } else if (e instanceof ErroDeProjeto) {
       // RM-052 (D3): a recusa de projeto-alvo e a resposta (a escolha, os candidatos), nao um stack trace.
       console.log(process.argv.includes('--json') ? JSON.stringify(e.recusa, null, 2) : e.texto);
       process.exitCode = SAIDA_DE_PROJETO;
     } else {
-      console.error(`erro: ${(e as Error).message}`);
+      // RM-061 (F2a, D11): o prefixo segue o locale do comando coberto; a mensagem sai como veio, salvo o
+      // erro do catalogo, remontado no locale do comando (D14).
+      console.error(msg().cli.erro(mensagemDoErro(e)));
       process.exitCode = 1;
     }
   }

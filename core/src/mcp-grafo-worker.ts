@@ -2,7 +2,7 @@
  * RM-031 KG5 (D3, D8): o worker da consulta do grafo pelo MCP.
  *
  * Roda num processo filho, aberto pelo `mcp-grafo.ts` com o ambiente minimo do MCP. Le `{raiz, argv}`
- * do stdin, confere que o cwd e a raiz, aceita so as quatro consultas no argv que as tools montam (com
+ * do stdin, confere que o cwd e a raiz, aceita so as cinco consultas no argv que as tools montam (com
  * `--json` e `--teto-bytes`), carrega o manifesto da raiz (a worktree da thread) e chama o
  * `executarGrafo` com o argv que a CLI receberia: a resposta e a do `ork grafo`, byte a byte. O `main` do
  * `ork` nao roda aqui, entao nada do argv vira `--projeto`, `--version` ou `--help`.
@@ -16,8 +16,9 @@ import { z } from 'zod';
 import { executarGrafo } from './intelligence-graph-cli';
 import { exigirManifesto } from './manifest';
 import { raizDoEstado } from './estado-thread';
+import { lerEntradaDaThread } from './mcp-grafo';
 
-const CONSULTAS: Readonly<Record<string, number>> = Object.freeze({ vizinhos: 1, chamadores: 1, importadores: 1, caminho: 2 });
+const CONSULTAS: Readonly<Record<string, number>> = Object.freeze({ vizinhos: 1, chamadores: 1, importadores: 1, caminho: 2, contexto: 1 });
 const OPCAO = /^--(profundidade|sentido|tipo|limite|teto-bytes)=[a-z0-9_,]{1,120}$/;
 const PEDIDO = z.object({
   raiz: z.string().min(1).max(4096).refine((p) => path.isAbsolute(p), 'raiz absoluta'),
@@ -38,7 +39,8 @@ export function rodarConsulta(entrada: unknown, cwd: string, escrever: (texto: s
     || opcoes.some((o) => o !== '--json' && !OPCAO.test(o))) throw Error('grafo.mcp.worker: opcoes fora das que a tool monta');
   const carregado = exigirManifesto(raiz);
   if (fs.realpathSync(carregado.raiz) !== fs.realpathSync(raiz)) throw Error('grafo.mcp.worker: o manifesto nao e o da raiz pedida');
-  return executarGrafo(argv, { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, escrever });
+  return executarGrafo(argv, { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name,
+    contextoDaThread: (id) => lerEntradaDaThread(carregado.raiz, id), escrever });
 }
 
 if (require.main === module) {

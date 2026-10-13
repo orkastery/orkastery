@@ -16,7 +16,9 @@ import { validarDelegacao } from './delegation';
 import { lerFusoDoDono } from './horario';
 import { validarPreferencias } from './experiencia';
 import { ENVS_DE_PROVIDER_PAGO } from './runtime-ambiente';
-import { MODELO_DE_EMBEDDING } from './orkmind';
+import { LIMITE_TIMEOUT_DO_UNIVERSO_MS, MODELO_DE_EMBEDDING, TIMEOUT_DO_UNIVERSO_MS } from './orkmind';
+import { ErroDoCatalogo } from './locale';
+import { branchValida } from './branch-de-estado';
 
 export const NOME_MANIFESTO = 'orkastery.yaml';
 export const NOME_MANIFESTO_LEGADO = 'devmaster.yaml';
@@ -62,7 +64,12 @@ export function acharRaiz(dirInicial: string = diretorioDoProjeto()): string {
 
 /** Caminho do diretorio de estado da raiz informada. */
 export function dirEstado(raiz: string): string {
-  return path.join(raiz, DIR_ESTADO);
+  // RM-047 (fronteira de confiança): `.orkastery` versionado como link levaria o estado para fora da raiz.
+  const dir = path.join(raiz, DIR_ESTADO);
+  if (fs.lstatSync(dir, { throwIfNoEntry: false })?.isSymbolicLink()) {
+    throw new ErroDoCatalogo((m) => m.estado.dirEstadoLink(DIR_ESTADO));
+  }
+  return dir;
 }
 
 function texto(v: ValorYaml, padrao: string): string {
@@ -71,6 +78,15 @@ function texto(v: ValorYaml, padrao: string): string {
 
 function numero(v: ValorYaml, padrao: number): number {
   return typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v)) ? Number(v) : padrao;
+}
+
+/**
+ * RM-058 N2: as vagas da fila pesada, inteiras de 0 a 64. So o 0 escrito desliga a fila; fracao positiva sobe para 1 e
+ * valor sem sentido volta ao padrao 1, nunca a "sem fila".
+ */
+function vagasPesadas(v: number): number {
+  if (!Number.isFinite(v) || v < 0) return 1;
+  return v === 0 ? 0 : Math.min(64, Math.max(1, Math.trunc(v)));
 }
 
 /**
@@ -149,6 +165,62 @@ function lerGrafo(v: ValorYaml | undefined, avisos: string[]): Manifesto['grafo'
   if (mcp === undefined || mcp === null || typeof mcp === 'boolean') return { mcp: mcp === true };
   avisos.push(`grafo.mcp deve ser true ou false; vale false (${mostrar(mcp)} nao reconhecido)`);
   return { mcp: false };
+}
+
+/** RM-059 (T10.4): os limites dos tetos de agent teams, os mesmos que o Portao de Tarefas aceita do ambiente. */
+export const TETO_MAXIMO_DE_TEAMMATES = 8;
+export const TETO_MAXIMO_DE_CUSTO_USD = 500;
+
+/**
+ * RM-059 (T10.4, D11 da thread ork-rm059portao): agent teams no despacho do GO, so em piloto. `runtime.agent_teams`
+ * liga com `ligado: true` e os dois tetos validos: `teammates` inteiro de 1 a 8 e `custo_usd` maior que 0 e ate 500,
+ * escrito como numero decimal simples. Ausente ou `ligado: false` fica desligado sem aviso; ligado com teto invalido,
+ * outro tipo ou chave desconhecida avisa e fica desligado, nunca erro: a chave e experimental e nao para a fabrica.
+ */
+function lerAgentTeams(v: ValorYaml | undefined, avisos: string[]): Manifesto['runtime']['agent_teams'] {
+  const mostrar = (x: ValorYaml | undefined): string => (x === undefined ? 'ausente' : JSON.stringify(x).slice(0, 80));
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    avisos.push(`runtime.agent_teams deve ser um mapa com ligado, teammates e custo_usd; fica desligado (${mostrar(v)} nao reconhecido)`);
+    return undefined;
+  }
+  for (const chave of Object.keys(v)) {
+    if (!['ligado', 'teammates', 'custo_usd'].includes(chave)) avisos.push(`runtime.agent_teams.${chave} desconhecida; o bloco so tem ligado, teammates e custo_usd`);
+  }
+  if (v.ligado !== true) {
+    if (v.ligado !== undefined && v.ligado !== null && v.ligado !== false) {
+      avisos.push(`runtime.agent_teams.ligado deve ser true ou false; fica desligado (${mostrar(v.ligado)} nao reconhecido)`);
+    }
+    return undefined;
+  }
+  const teammates = v.teammates;
+  const custo = v.custo_usd;
+  const tetoOk = typeof teammates === 'number' && Number.isInteger(teammates) && teammates >= 1 && teammates <= TETO_MAXIMO_DE_TEAMMATES;
+  const custoOk = typeof custo === 'number' && /^\d+(?:\.\d+)?$/.test(String(custo)) && custo > 0 && custo <= TETO_MAXIMO_DE_CUSTO_USD;
+  if (!tetoOk || !custoOk) {
+    avisos.push(`runtime.agent_teams ligado sem teto valido (teammates inteiro de 1 a ${TETO_MAXIMO_DE_TEAMMATES} e custo_usd maior que 0 ` +
+      `e ate ${TETO_MAXIMO_DE_CUSTO_USD}; recebido teammates ${mostrar(teammates)} e custo_usd ${mostrar(custo)}); fica desligado`);
+    return undefined;
+  }
+  return { teammates: teammates as number, custo_usd: custo as number };
+}
+
+/**
+ * RM-026 K7 (D1): `conhecimento.dir`, a pasta dos documentos `ork.conhecimento/v1`. Sem o bloco, o projeto nao
+ * declarou conhecimento. Bloco que nao e mapa e `dir` vazio avisam e ficam declarados com `dir` vazio, que o
+ * leitor (`conhecimento.ts`) recusa com `conhecimento.dir-invalido`: quem declarou nao ouve que nao declarou.
+ * Chave desconhecida so avisa. Ler a pasta nao executa nada, e a regra do caminho mora no leitor.
+ */
+function lerBlocoConhecimento(v: ValorYaml | undefined, avisos: string[]): Manifesto['conhecimento'] {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    avisos.push('conhecimento deve ser um mapa com dir: <pasta dentro da raiz>; o leitor recusa ate corrigir');
+    return { dir: '' };
+  }
+  for (const chave of Object.keys(v)) if (chave !== 'dir') avisos.push(`conhecimento.${chave} desconhecida; o bloco conhecimento so tem dir`);
+  const dir = texto(v.dir, '').trim();
+  if (!dir) avisos.push('conhecimento.dir deve ser uma pasta dentro da raiz, como docs/conhecimento; o leitor recusa ate corrigir');
+  return { dir };
 }
 
 /** Mesmo contrato na leitura do YAML e nos consumidores de manifesto em memoria. */
@@ -289,6 +361,12 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     erros.push('conduction.delegation exige thread, escopo premissas, prazo ISO, evidencia e delegado');
   }
   const worktree = mapa(dados.worktree);
+  // RM-047 (fronteira de confiança): a base vai ao git em rev-parse, log, fetch e worktree add. Nome que o
+  // git não aceita como branch (começa com `-`, tem `..`) viraria opção dele; a regra é a do check-ref-format.
+  if (worktree.base_branch !== undefined && worktree.base_branch !== null && !branchValida(texto(worktree.base_branch, ''))) {
+    erros.push(`worktree.base_branch invalido: ${JSON.stringify(texto(worktree.base_branch, '')).slice(0, 60)} ` +
+      '(esperado nome de branch do git, sem "-" no começo e sem "..")');
+  }
   const verify = mapa(dados.verify);
   const ci = mapa(dados.ci);
   const concurrency = mapa(dados.concurrency);
@@ -397,6 +475,8 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       `runtime.sandbox invalido: "${sandboxDoRuntime}" (aceitos: ${SANDBOXES_DO_CODEX.join(', ')})`
     );
   }
+  // RM-059 (T10.4): agent teams no despacho do GO, so no piloto e desligado por padrao.
+  const agentTeams = lerAgentTeams(runtime.agent_teams, avisos);
 
   // Bloco B6, isolamento por tenant (precedente do incidente memory-orkmind):
   // `database_url_env` recebe o NOME da variavel de ambiente, nunca a string de conexao.
@@ -417,6 +497,14 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       `memory.database_url_env invalido: "${variavelDaDsn}" (esperado nome de variavel de ambiente, [A-Z][A-Z0-9_]*)`
     );
   }
+  // RM-047 (fronteira de confiança): `memory.cli` escolhe o executável que o `ork doctor`, a memória e o
+  // `ork brain` rodam. Caminho relativo apontaria para um arquivo do próprio clone; só nome procurado no
+  // PATH (o `orkmind` instalado) ou caminho absoluto escolhido por quem instalou.
+  const cliDaMemoria = texto(memory.cli, 'orkmind');
+  if (!cliDaMemoriaValido(cliDaMemoria)) {
+    erros.push(`memory.cli invalido: ${JSON.stringify(cliDaMemoria).slice(0, 60)} ` +
+      '(esperado nome de executável no PATH, como orkmind, ou caminho absoluto; caminho relativo não é aceito)');
+  }
   if (modoDeMemoria === 'orkmind' && variavelDaDsn === '') {
     avisos.push(
       'memory.mode: orkmind sem memory.database_url_env: o regime efetivo cai para files ' +
@@ -424,6 +512,11 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     );
   }
   const embedding = lerEmbedding(memory.embedding, variavelDaDsn, erros);
+  const prazoDoUniverso = memory.universo_timeout_ms === undefined ? TIMEOUT_DO_UNIVERSO_MS : memory.universo_timeout_ms;
+  if (typeof prazoDoUniverso !== 'number' || !Number.isSafeInteger(prazoDoUniverso) || prazoDoUniverso <= 0 ||
+      prazoDoUniverso > LIMITE_TIMEOUT_DO_UNIVERSO_MS) {
+    erros.push('memory.universo_timeout_ms: esperado inteiro em ms entre 1 e 86400000 (24 h; valor omitido)');
+  }
 
   const bytes = Buffer.byteLength(bruto, 'utf8');
   if (bytes > LIMITE_MANIFESTO_BYTES) {
@@ -434,6 +527,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   if (achado.legado) {
     avisos.push(`lendo ${NOME_MANIFESTO_LEGADO} como fallback; migre para ${NOME_MANIFESTO}`);
   }
+  const conhecimento = lerBlocoConhecimento(dados.conhecimento, avisos);
 
   const manifesto: Manifesto = {
     project: {
@@ -453,6 +547,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       effort: texto(runtime.effort, 'high'),
       provider_policy: providerPolicy,
       sandbox: sandboxDoRuntime,
+      ...(agentTeams ? { agent_teams: agentTeams } : {}),
     },
     conduction: {
       default_mode: defaultModo ?? 'classic',
@@ -487,6 +582,8 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     concurrency: {
       max_parallel_threads: numero(concurrency.max_parallel_threads, 3),
       stale_after_min: Math.max(1, Math.trunc(numero(concurrency.stale_after_min, 240))),
+      // RM-058 N2 (D9): uma operacao pesada por vez nesta raiz, por padrao; 0 desliga a fila.
+      max_parallel_heavy: vagasPesadas(numero(concurrency.max_parallel_heavy, 1)),
     },
     liveness: { silencio_max_min: silencioMaxMin },
     handoff: {
@@ -516,6 +613,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       cli: texto(memory.cli, 'orkmind'),
       tenant: texto(memory.tenant, '') || nomeProjeto,
       timeout_ms: numero(memory.timeout_ms, 15000),
+      universo_timeout_ms: typeof prazoDoUniverso === 'number' ? prazoDoUniverso : TIMEOUT_DO_UNIVERSO_MS,
       ...(embedding ? { embedding } : {}),
     },
     // Bloco B5: governanca de custo dos auditores. Ausente no manifesto quer dizer
@@ -534,6 +632,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     },
     // RM-031 KG5 (D2): expor as tools do grafo no MCP e opt-in do dono.
     grafo: lerGrafo(dados.grafo, avisos),
+    ...(conhecimento ? { conhecimento } : {}),
     policies: Object.fromEntries(
       Object.entries(mapa(dados.policies)).map(([k, v]) => [k, texto(v, '')])
     ),
@@ -542,13 +641,46 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   return { caminho: achado.caminho, raiz, legado: achado.legado, bytes, manifesto, erros, avisos };
 }
 
+/**
+ * RM-047: `memory.cli` aceito. Nome simples (procurado no PATH, sem barra e sem `-` no começo) ou caminho
+ * absoluto normalizado. Caminho relativo (`./bin/x`, `bin/x`) resolveria dentro do repositório clonado.
+ */
+export function cliDaMemoriaValido(cli: string): boolean {
+  // eslint-disable-next-line no-control-regex
+  if (cli === '' || /[\x00-\x1f\x7f]/.test(cli)) return false;
+  if (/^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$/.test(cli)) return true;
+  return path.isAbsolute(cli) && path.normalize(cli) === cli;
+}
+
+/** Os comandos de verify e o comando do CI de um manifesto. */
+export interface ComandosDoManifesto {
+  typecheck: string | undefined;
+  build: string | undefined;
+  test: string | undefined;
+  ciCommand: string | undefined;
+}
+
+/**
+ * RM-059 (A15 da revisao da ork-rm059pista): os comandos de verify e o do CI de um `orkastery.yaml` lido como texto (o
+ * do HEAD de uma branch, pelo `git show`), com as mesmas regras do `carregarManifesto`. `null` quando o texto nao abre.
+ */
+export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto | null {
+  let dados: Record<string, ValorYaml>;
+  try {
+    dados = mapa(lerYaml(bruto));
+  } catch {
+    return null;
+  }
+  const verify = mapa(dados.verify), ci = mapa(dados.ci);
+  const opcional = (v: ValorYaml | undefined): string | undefined => (v === null || v === undefined ? undefined : texto(v, ''));
+  return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test), ciCommand: opcional(ci.command) };
+}
+
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */
 export function exigirManifesto(dirInicial: string = diretorioDoProjeto()): ManifestoCarregado {
   const carregado = carregarManifesto(dirInicial);
   if (!carregado) {
-    throw new Error(
-      `manifesto ${NOME_MANIFESTO} nao encontrado a partir de ${dirInicial}. Rode: ork init`
-    );
+    throw new ErroDoCatalogo((m) => m.cli.manifestoNaoEncontrado(NOME_MANIFESTO, dirInicial));
   }
   if (carregado.erros.length > 0) {
     throw new Error(

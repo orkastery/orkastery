@@ -46,8 +46,8 @@ import {
   SaudeDaPonte,
 } from './orkmind';
 import {
-  arquivoDoIndice, dirDosIndices, dimDoModeloLocal, Embeddar, impressaoDaBase, lerIndice, universoDoTenant,
-  vetoresCoerentes, codigoDeEmbedding, CONTRATO_INDICE,
+  arquivoDoIndice, avisoDeCobertura, codigoDaFalha, conferirUniverso, dirDosIndices, dimDoModeloLocal, Embeddar, impressaoDaBase, lerIndice,
+  textoForaDaBusca, universoDaBusca, vetoresCoerentes, codigoDeEmbedding, CONTRATO_INDICE,
 } from './indice-vetorial';
 import { registrar, lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
@@ -61,6 +61,7 @@ import {
   EntradaNova,
   EstadoDaMemoria,
   EstadoDeEmbeddings,
+  ForaDaBusca,
   IndiceDeEmbeddings,
   Fase,
   Handoff,
@@ -75,6 +76,7 @@ import {
   PedidoDeHandoff,
   ResultadoDeHandoff,
   Thread,
+  UniversoDaBusca,
 } from './types';
 import { resumoDasLicoes, textoDasLicoes } from './licoes';
 
@@ -104,12 +106,17 @@ export interface Memoria {
   buscar(consulta: ConsultaPorTag): EntradaDeMemoria[];
   /** Uma entrada pelo id, dentro de uma colecao. Usado pelo `ork recall`. */
   porId(colecao: string, id: string): EntradaDeMemoria | null;
+  /**
+   * RM-038: o universo da busca do tenant pela operacao `universo` da ponte. Use por
+   * `universoDaBusca` (indice-vetorial.ts), que confere a fronteira e conta por colecao.
+   */
+  universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null; latenciaMs?: number };
 }
 
 export interface OpcoesDeMemoria {
   /** Janela finita da origem; tenant vem exclusivamente do manifesto. */
   leituraRestrita?: { thread: string; limite?: number };
-  /** I-38 (D6): `detalhado` le o universo do tenant para a cobertura; so o `memory status` pede. */
+  /** I-38 (D6), RM-038: `detalhado` le o universo da busca para a cobertura; so o `memory status` pede. */
   embeddings?: 'resumo' | 'detalhado';
   /** Driver injetado (testes, `--dry-run`). Sem ele, o regime resolve o driver real. */
   driver?: DriverDeMemoria | null;
@@ -191,8 +198,8 @@ export function abrirMemoria(
   const { estado, driver } = resolverRegime(carregado.manifesto, opcoes.driver ?? null);
   const ativo = estado.efetivo === 'orkmind' && driver !== null;
   const config = configDoManifesto(carregado.manifesto);
-  const embeddings = (universo?: EntradaDeMemoria[]) => estadoDeEmbeddings(carregado.manifesto,
-    ativo ? driver?.disponivel().saude ?? null : null, carregado.raiz, estado.tenant, config.dsn, { universo });
+  const embeddings = (leitura: { universo?: UniversoDaBusca; falhaDoUniverso?: string } = {}) => estadoDeEmbeddings(
+    carregado.manifesto, ativo ? driver?.disponivel().saude ?? null : null, carregado.raiz, estado.tenant, config.dsn, leitura);
   if (estado.pedido === 'orkmind') estado.embeddings = embeddings();
   const consultarRestrito = (collection: unknown, tags: unknown): EntradaDeMemoria[] => {
     if (!leituraRestrita) throw Error('memory.query.invalid');
@@ -260,10 +267,22 @@ export function abrirMemoria(
       if (!ativo || !driver) return null;
       return driver.exportar(colecao).find((e) => e.id === id) ?? null;
     },
+    universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null; latenciaMs?: number } {
+      // A fronteira do manifesto vale antes de qualquer leitura: tenant e so o configurado.
+      if (tenant !== estado.tenant) throw new Error('memory.tenant.mismatch');
+      if (leituraRestrita) throw new Error('memory.query.invalid');
+      if (!ativo || !driver) throw new Error('memory.universo.indisponivel');
+      if (typeof driver.universo !== 'function') throw new Error('memory.universo.unsupported');
+      return driver.universo(tenant);
+    },
   };
-  // A cobertura precisa do universo do tenant (um export por colecao): so quando pedida.
+  // RM-038: a cobertura precisa do universo da busca (uma leitura pela ponte): so quando pedida. Falha
+  // de leitura (janela saturada, fronteira violada) vira motivo tipado no estado, nunca cobertura inventada.
   if (opcoes.embeddings === 'detalhado' && ativo && !leituraRestrita) {
-    estado.embeddings = embeddings(universoDoTenant(memoria, estado.tenant));
+    let leitura: { universo?: UniversoDaBusca; falhaDoUniverso?: string };
+    try { leitura = { universo: universoDaBusca(memoria, estado.tenant) }; }
+    catch (erro) { leitura = { falhaDoUniverso: codigoDaFalha(erro) }; }
+    estado.embeddings = embeddings(leitura);
   }
   return memoria;
 }
@@ -295,7 +314,7 @@ function indicesDoTenant(raiz: string, tenant: string, base: string, universo: E
  * da ponte e os arquivos de indice. `saude` null quer dizer que a ponte nao foi sondada.
  */
 export function estadoDeEmbeddings(manifesto: Manifesto, saude: SaudeDaPonte | null, raiz: string, tenant: string,
-  dsn: string, opcoes: { universo?: EntradaDeMemoria[]; env?: NodeJS.ProcessEnv } = {}): EstadoDeEmbeddings {
+  dsn: string, opcoes: { universo?: UniversoDaBusca; falhaDoUniverso?: string; env?: NodeJS.ProcessEnv } = {}): EstadoDeEmbeddings {
   const config = configDeEmbedding(manifesto);
   const env = opcoes.env ?? process.env;
   const configurado = config.provider !== 'none';
@@ -311,6 +330,7 @@ export function estadoDeEmbeddings(manifesto: Manifesto, saude: SaudeDaPonte | n
   const estado: EstadoDeEmbeddings = {
     configurado, provider: config.provider, modelo: configurado ? config.model : null, dim: configurado ? config.dim : null,
     variavelDaChave: variavel, chavePresente, fallback, indices: [], entradas: null, cobertura: null,
+    universo: null, aviso: null, falhaDoUniverso: null,
     ativo: 'nenhum', sondado: saude !== null, motivo: null, detalhe: '', correcao: '',
   };
   if (!configurado) {
@@ -339,13 +359,21 @@ export function estadoDeEmbeddings(manifesto: Manifesto, saude: SaudeDaPonte | n
     estado.correcao = `exporte ${variavel} com a chave dedicada ao Orkastery; o valor nunca vai ao manifesto`;
   }
   if (opcoes.universo) {
-    const universo = opcoes.universo.filter(e => (e.tags.project ?? []).includes(tenant));
+    // RM-038: o universo vem de universoDaBusca; a fronteira vale de novo antes de contar.
+    if (opcoes.universo.tenant !== tenant) throw new Error('memory.query.scope-violation');
+    conferirUniverso(opcoes.universo.entradas, tenant, opcoes.universo.lidoEm);
+    const universo = opcoes.universo.entradas;
     estado.indices = indicesDoTenant(raiz, tenant, base, universo);
     estado.entradas = universo.length;
+    estado.universo = { porColecao: { ...opcoes.universo.porColecao }, foraDaBusca: opcoes.universo.foraDaBusca,
+      ...(opcoes.universo.latenciaMs === undefined ? {} : { latenciaMs: opcoes.universo.latenciaMs }) };
     const referencia = estado.ativo === 'fallback' ? { modelo: fallback.modelo, dim: fallback.dim } : { modelo: config.model, dim: config.dim };
     const indice = estado.indices.find(i => i.modelo === referencia.modelo && i.dim === referencia.dim);
-    estado.cobertura = universo.length === 0 ? 0 : Math.round(((indice?.coerentes ?? 0) / universo.length) * 10_000) / 10_000;
-  }
+    const coerentes = indice?.coerentes ?? 0;
+    estado.cobertura = universo.length === 0 ? 0 : Math.round((coerentes / universo.length) * 10_000) / 10_000;
+    // RM-038 (D7): o indice que a busca usa cobre menos do que ela enxerga: dito, nunca escondido.
+    estado.aviso = avisoDeCobertura(coerentes, universo, estado.ativo);
+  } else if (opcoes.falhaDoUniverso) estado.falhaDoUniverso = opcoes.falhaDoUniverso;
   return estado;
 }
 
@@ -1245,12 +1273,20 @@ export function textoDosEmbeddings(e: EstadoDeEmbeddings): string[] {
       `dependencias ${e.fallback.dependencias ? 'ok' : e.sondado ? 'ausentes' : 'nao sondadas'}` : '(nao declarado)'}`);
     linhas.push(`  caminho ativo         ${e.ativo}${e.sondado ? '' : ' (ponte nao sondada)'}`);
   }
+  if (e.universo) {
+    const colecoes = Object.entries(e.universo.porColecao).map(([c, n]) => `${c} ${n}`).join(', ');
+    linhas.push(`  universo da busca     ${e.entradas} entrada(s) do tenant: ${colecoes}`);
+    linhas.push(`  fora da busca         ${textoForaDaBusca(e.universo.foraDaBusca)}`);
+  } else if (e.falhaDoUniverso) {
+    linhas.push(`  universo da busca     nao lido (${e.falhaDoUniverso}); cobertura nao calculada`);
+  }
   for (const i of e.indices) {
     linhas.push(`  indice                ${i.modelo} / ${i.dim} dim: ${i.vetores} vetor(es), ${i.coerentes ?? '?'} coerente(s), ${i.desatualizados ?? '?'} desatualizado(s)`);
   }
   if (e.entradas !== null) {
-    linhas.push(`  cobertura             ${e.cobertura === null ? '-' : `${Math.round(e.cobertura * 1000) / 10}%`} de ${e.entradas} entrada(s) do tenant`);
+    linhas.push(`  cobertura             ${e.cobertura === null ? '-' : `${Math.round(e.cobertura * 1000) / 10}%`} de ${e.entradas} entrada(s) do universo da busca`);
   }
+  if (e.aviso) linhas.push(`  aviso                 ${e.aviso}`);
   if (e.sonda) {
     linhas.push(`  sonda                 ${e.sonda.ok ? `${e.sonda.alvo} respondeu em ${e.sonda.latenciaMs} ms` : `sem resposta (${e.sonda.motivo ?? 'sem caminho ativo'})`}`);
   }

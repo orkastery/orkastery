@@ -12,11 +12,14 @@ test('preferências ausentes usam sistema e consulta não altera dados', () => {
   assert.equal(r.origem.language, 'sistema'); assert.deepEqual(owner, {});
   assert.equal(idiomaDoSistema({ LANG: 'pt_BR.UTF-8' }), 'pt-BR');
   assert.equal(idiomaDoSistema({ LC_ALL: 'en_GB.UTF-8', LANG: 'pt_BR.UTF-8' }), 'en-GB');
-  // Locale de CI e contêiner não escolhe idioma: vale o do Intl e, sem ele, o padrão.
+  // Locale de CI e contêiner não escolhe idioma: vale a língua da CLI (ensaio de 03/10, R2), mesmo com o
+  // Intl dizendo en-US, que é o que o ICU responde sob C. Sem locale nenhum no ambiente, vale o do Intl.
   for (const LANG of ['C.UTF-8', 'C', 'POSIX']) {
-    assert.equal(idiomaDoSistema({ LANG }, () => 'und'), 'en-US', LANG);
-    assert.equal(idiomaDoSistema({ LANG }, () => 'pt-BR'), 'pt-BR', LANG);
+    assert.equal(idiomaDoSistema({ LANG }, () => 'und'), 'pt-BR', LANG);
+    assert.equal(idiomaDoSistema({ LANG }, () => 'en-US'), 'pt-BR', LANG);
   }
+  assert.equal(idiomaDoSistema({}, () => 'fr-FR'), 'fr-FR');
+  assert.equal(idiomaDoSistema({}, () => 'und'), 'pt-BR');
 });
 
 test('configuração explícita prevalece e opt-out permanece booleano', () => {

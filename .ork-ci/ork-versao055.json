@@ -1,0 +1,85 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-versao055",
+  "branch": "ork/ork-versao055-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-versao055",
+      "fase": "GO",
+      "arquivo": "core/package.json",
+      "alegacao": "O CLI declara a versão 0.5.5.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"process.exit(require(\\\"./core/package.json\\\").version===\\\"0.5.5\\\"?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T13:10:56.243Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-versao055",
+      "fase": "GO",
+      "arquivo": "core/package-lock.json",
+      "alegacao": "O lockfile declara a versão 0.5.5.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF \"\\\"version\\\": \\\"0.5.5\\\"\" core/package-lock.json | grep -vx 0"
+      ],
+      "criadoEm": "2026-10-12T13:10:56.626Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-versao055",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/package.json",
+      "alegacao": "O adaptador OpenClaw declara a versão 0.5.5 no pacote e no manifesto.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"\\\"version\\\": \\\"0.5.5\\\"\" adapters/openclaw/package.json adapters/openclaw/openclaw.plugin.json | wc -l | grep -x 2"
+      ],
+      "criadoEm": "2026-10-12T13:10:56.946Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-versao055",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/.claude-plugin/plugin.json",
+      "alegacao": "Os plugins dos marketplaces declaram a versão 0.5.5 e batem com o gerador.",
+      "negativa": false,
+      "verificar": [
+        "grep -lF \"\\\"version\\\": \\\"0.5.5\\\"\" marketplaces/claude-code/orkastery/.claude-plugin/plugin.json marketplaces/codex/orkastery/.codex-plugin/plugin.json | wc -l | grep -x 2 && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T13:10:57.245Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-versao055",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG publica a 0.5.5 com a Não publicado vazia e marca a 0.5.4 como não publicada no npm.",
+      "negativa": false,
+      "verificar": [
+        "awk \"/^## Não publicado/{f=1;next} /^## \\\\[0\\\\.5\\\\.5\\\\] - 2026-10-12/{exit} f && /[^[:space:]]/{n++} END{exit n?1:0}\" CHANGELOG.md && grep -A2 \"^## \\\\[0\\\\.5\\\\.4\\\\]\" CHANGELOG.md | grep -qF \"Não publicada no npm\""
+      ],
+      "criadoEm": "2026-10-12T13:10:57.559Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

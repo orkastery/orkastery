@@ -1,0 +1,29 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm049recibod",
+  "branch": "ork/ork-rm049recibod-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm049recibod",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-049/ensaio-2026-10-03-en.json",
+      "alegacao": "os achados corrigidos do ensaio em inglês citam o PR 107 e um commit que está na main",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm049-recibos-de-ensaio.test.js"
+      ],
+      "criadoEm": "2026-10-03T11:07:11.955Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

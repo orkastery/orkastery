@@ -1,0 +1,160 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm054fatia3s",
+  "branch": "ork/ork-rm054fatia3-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm054fatia3s",
+      "fase": "GOAL",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "O panorama le a rede por pessoa (ork.rede-status/v1): secao Rede por pessoa com a casa, a batida e os projetos de cada maquina, JSON com rede, lacunas da casa tipadas e nada de 'nao lida nesta versao'",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"panorama le a rede por pessoa\" core/dist-test/test/rm054-fatia3-rede.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:17:05.664Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm054fatia3s",
+      "fase": "GOAL",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "A maquina da rede que declara o projeto e nao publicou na fabrica sai com threadsLidas false, 'threads nao lidas' e a lacuna maquina.sem-fabrica, nunca 0 ativas",
+      "negativa": true,
+      "verificar": [
+        "node --test --test-name-pattern=\"nao publicou na fabrica\" core/dist-test/test/rm054-fatia3-rede.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:17:05.823Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm054fatia3s",
+      "fase": "GOAL",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "No host, o projeto que so a rede conhece e pedido pelo nome e lido pela forja; sem a rede, o mesmo pedido recusa projeto.desconhecido",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"so a rede conhece\" core/dist-test/test/rm054-fatia3-rede.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:17:05.977Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm054fatia3s",
+      "fase": "GOAL",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "Sem casa a leitura da rede vira a lacuna rede.sem-leitura, e ORK_REDE_LER=0 vai ao Nao consultado com o motivo",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"ORK_REDE_LER=0 nem rede pronta\" core/dist-test/test/rm054-fatia3-rede.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:17:06.134Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm054fatia3s",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "MCP: ork_network_status (somente leitura) devolve ork.rede-status/v1 com so o projeto servido em cada maquina, e o panorama fixado nao revela outros projetos",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"MCP, ork_network_status\" core/dist-test/test/rm054-fatia3-rede.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:17:06.294Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm054fatia3s",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Com ORK_PROJETO_EXPLICITO=1, ork network status nao le o projeto do diretorio do gateway; sem ele, le",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"no host, ork network status\" core/dist-test/test/rm054-fatia3-rede.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:17:06.455Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm054fatia3s",
+      "fase": "GOAL",
+      "arquivo": "core/src/forja.ts",
+      "alegacao": "A forja do panorama acha o gh em ~/.local/bin com o PATH curto, e sem binario segue ENOENT (forja.ausente)",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"acha o gh\" core/dist-test/test/rm054-fatia3-rede.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:17:06.618Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm054fatia3s",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/src/index.ts",
+      "alegacao": "OpenClaw: ork_network_status chama network status com ORK_PROJETO_EXPLICITO=1, sem projeto (recusa o parametro), declarada nos perfis coding e messaging; os testes do adaptador passam",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"OpenClaw, ork_network_status\" core/dist-test/test/rm054-fatia3-rede.test.js && node --test adapters/openclaw/test/network-roadmap.test.mjs adapters/openclaw/test/projeto-alvo.test.mjs"
+      ],
+      "criadoEm": "2026-10-03T04:17:06.768Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm054fatia3s",
+      "fase": "GOAL",
+      "arquivo": "adapters/hermes/bin/ork-network-status.sh",
+      "alegacao": "Hermes: ork-network-status.sh declara ORK_PROJETO_EXPLICITO=1 e ORK_CANAL=hermes e chama network status; esta no manifesto, na skill e nas entradas do Claude Code e do Codex",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"Hermes, ork-network-status\" core/dist-test/test/rm054-fatia3-rede.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:17:06.928Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm054fatia3s",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md",
+      "alegacao": "Documentacao e roadmap em paridade com o codigo e o git no PR",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-03T04:17:07.239Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C12",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

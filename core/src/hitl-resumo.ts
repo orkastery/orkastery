@@ -15,6 +15,8 @@
  * mensagem do canal. Quem entrega chama a segunda.
  */
 import { formatarDataHoraRotulada, formatarHora } from './horario';
+import { msg } from './locale';
+import { HitlDeConducaoAgora, linhaDoHitlAcimaDaMeta } from './hitl-tempo-parado';
 import { DecisaoParaODono, FaseAcimaDoLimiar, LIMIAR_DE_DECISOES_POR_FASE } from './decisao-autonoma';
 import {
   ContagemDeClassificacao, contarClassificacoes, ItemClassificavel, JANELA_PADRAO_MIN, OpcoesDeClassificacao, quemDecide,
@@ -55,6 +57,25 @@ export interface ResumoDeMaquina {
  */
 export interface LinhaDoCondutor { thread: string; caso: string; desdeEm: string; proximoPasso: string }
 
+/**
+ * RM-055 (continuacao, D3): um impedimento do despacho que so o dono resolve, como o resumo o mostra: a
+ * thread, a fase, o comando que ele roda no terminal e o retry que devolve a fase ao runtime. Nao e
+ * pergunta deste canal (a resposta e no terminal), e por isso fica fora de "Perguntas para voce".
+ */
+export interface LinhaDoImpedimento { thread: string; fase: string | null; comando: string; retry: string }
+
+/**
+ * RM-063 (F5): uma acao da varredura, como o resumo a mostra: a que fica com o dono (sem a autorizacao dele), com o
+ * comando pronto, ou a que a varredura fez sozinha, pela autorizacao.
+ */
+export interface LinhaDaVarredura { thread: string; acao: string; texto: string; comando: string | null }
+
+/** RM-063 (F6): a maquina ociosa, como o resumo a mostra: as vagas, o trabalho reservado e as proximas threads. */
+export interface LinhaDaOciosidade {
+  maquina: string; livres: number; limite: number; reservados: number;
+  sugeridas: { item: string; thread: string | null; passo: string; comando: string }[];
+}
+
 export interface ResumoHitl extends ContagemDeClassificacao {
   contrato: typeof CONTRATO_RESUMO;
   consultadoEm: string;
@@ -94,6 +115,20 @@ export interface ResumoHitl extends ContagemDeClassificacao {
   threadsTecnicas: string[];
   /** RM-037 (fatia 4): uma linha por thread parada no condutor, fora das contagens do dono. */
   paradosNoCondutor?: LinhaDoCondutor[];
+  /** RM-055 (continuacao, D3): os impedimentos do despacho que so o dono resolve, com o comando de cada um. */
+  impedimentosDoDono?: LinhaDoImpedimento[];
+  /** RM-063 (F5): as acoes da varredura que esperam o dono (sem a autorizacao dele), com o comando de cada uma. */
+  acoesDaVarredura?: LinhaDaVarredura[];
+  /** RM-063 (F5): o que a varredura fez sozinha desde o ultimo resumo, pela autorizacao do dono. */
+  feitasPelaVarredura?: LinhaDaVarredura[];
+  /** RM-063 (F6): a maquina ociosa, uma vez por episodio. */
+  maquinaOciosa?: LinhaDaOciosidade;
+  /**
+   * RM-057 (fatia 3): o tempo parado por HITL de conducao, so quando passou da meta de 5 min (uma
+   * aberta alem dela ou a mediana dos 7 dias acima). Vira uma linha; nao conta como pergunta nem e
+   * novidade que faca o resumo sair fora da cadencia do dono.
+   */
+  hitlDeConducao?: HitlDeConducaoAgora;
 }
 
 export interface OpcoesDeResumo {
@@ -108,6 +143,11 @@ export interface OpcoesDeResumo {
   acimaDoLimiar?: readonly FaseAcimaDoLimiar[];
   outrasMaquinas?: readonly ResumoDeMaquina[];
   paradosNoCondutor?: readonly LinhaDoCondutor[];
+  impedimentosDoDono?: readonly LinhaDoImpedimento[];
+  acoesDaVarredura?: readonly LinhaDaVarredura[];
+  feitasPelaVarredura?: readonly LinhaDaVarredura[];
+  maquinaOciosa?: LinhaDaOciosidade | null;
+  hitlDeConducao?: HitlDeConducaoAgora;
 }
 
 export function resumirHitl(itens: readonly ItemClassificavel[], opcoes: OpcoesDeResumo): ResumoHitl {
@@ -127,7 +167,47 @@ export function resumirHitl(itens: readonly ItemClassificavel[], opcoes: OpcoesD
     threadsTecnicas: [...new Set(tecnicos.map(i => i.thread).filter((t): t is string => !!t))].sort(),
     ...(opcoes.paradosNoCondutor?.length ? { paradosNoCondutor: opcoes.paradosNoCondutor.map(p => ({ thread: p.thread, caso: p.caso,
       desdeEm: p.desdeEm, proximoPasso: p.proximoPasso })) } : {}),
+    ...(opcoes.impedimentosDoDono?.length ? { impedimentosDoDono: opcoes.impedimentosDoDono.map(i => ({ thread: i.thread,
+      fase: i.fase, comando: i.comando, retry: i.retry })) } : {}),
+    ...(opcoes.acoesDaVarredura?.length ? { acoesDaVarredura: opcoes.acoesDaVarredura.map(a => ({ ...a })) } : {}),
+    ...(opcoes.feitasPelaVarredura?.length ? { feitasPelaVarredura: opcoes.feitasPelaVarredura.map(a => ({ ...a })) } : {}),
+    ...(opcoes.maquinaOciosa ? { maquinaOciosa: { ...opcoes.maquinaOciosa, sugeridas: opcoes.maquinaOciosa.sugeridas.map(x => ({ ...x })) } } : {}),
+    ...(opcoes.hitlDeConducao?.acimaDaMeta ? { hitlDeConducao: opcoes.hitlDeConducao } : {}),
   };
+}
+
+/**
+ * RM-063 (F6): a maquina ociosa no resumo, igual nos dois canais: as vagas livres, o trabalho reservado parado e as
+ * proximas threads sugeridas, cada uma com o comando.
+ */
+export function linhasDaOciosidade(r: ResumoHitl, marcador: string, recuo: string): string[] {
+  const o = r.maquinaOciosa;
+  if (!o) return [];
+  return [`${marcador}Máquina ociosa: ${semQuebra(o.maquina)}, com ${o.livres} de ${o.limite} vagas livres e ${o.reservados} ` +
+    `${o.reservados === 1 ? 'item reservado parado' : 'itens reservados parados'}. Próximas sugeridas:`,
+    ...o.sugeridas.map(x => `${recuo}• ${semQuebra(x.item)}${x.thread ? ` (${semQuebra(x.thread)})` : ''}: ${uma(x.passo, 120)} ` +
+      `(\`${semQuebra(x.comando)}\`)`)];
+}
+
+/** Quantas acoes da varredura o resumo detalha antes de contar o resto. */
+export const TETO_DA_VARREDURA = 5;
+
+/**
+ * RM-063 (F5): as acoes da varredura no resumo, iguais nos dois canais: as que esperam o dono, com o comando (o
+ * incidente do PR #112, mesclado e dois dias sem registro sem nenhum canal avisar), e as que ela fez sozinha.
+ */
+export function linhasDaVarredura(r: ResumoHitl, marcadores: { dono: string; feitas: string }, recuo: string): string[] {
+  const linhas: string[] = [];
+  const bloco = (lista: readonly LinhaDaVarredura[], titulo: string) => {
+    if (!lista.length) return;
+    const mostradas = lista.slice(0, TETO_DA_VARREDURA), sobra = lista.length - mostradas.length;
+    if (linhas.length) linhas.push('');
+    linhas.push(titulo, ...mostradas.map(a => `${recuo}• ${semQuebra(a.thread)}: ${uma(a.texto, 140)}` +
+      (a.comando ? ` (\`${semQuebra(a.comando)}\`)` : '')), ...(sobra > 0 ? [`${recuo}e mais ${sobra}: ork pulse`] : []));
+  };
+  bloco(r.acoesDaVarredura ?? [], `${marcadores.dono}Arrumação que a varredura faria com a sua autorização: ${(r.acoesDaVarredura ?? []).length}`);
+  bloco(r.feitasPelaVarredura ?? [], `${marcadores.feitas}A varredura fez sozinha, pela sua autorização: ${(r.feitasPelaVarredura ?? []).length}`);
+  return linhas;
 }
 
 /** Quantas linhas do condutor o resumo mostra antes de contar o resto. */
@@ -140,7 +220,7 @@ export const TETO_DE_PARADOS_NO_CONDUTOR = 5;
 export function linhaDoParadoNoCondutor(p: Pick<LinhaDoCondutor, 'thread' | 'desdeEm' | 'proximoPasso'>,
   opcoes: { agora: string; fuso?: string }): string {
   const { desdeEm: desde } = p;
-  return `${p.thread} parado no condutor desde ${formatarHora(desde, opcoes)}: ${p.proximoPasso}`;
+  return msg().pulse.linhaDoCondutor(p.thread, formatarHora(desde, opcoes), p.proximoPasso);
 }
 
 /** As linhas do condutor no resumo, uma por thread, com o resto contado. */
@@ -149,6 +229,32 @@ export function linhasDoCondutor(r: ResumoHitl, marcador: string, recuo: string)
   const mostradas = parados.slice(0, TETO_DE_PARADOS_NO_CONDUTOR), sobra = parados.length - mostradas.length;
   return [...mostradas.map(p => `${marcador}${linhaDoParadoNoCondutor(p, { agora: r.consultadoEm })}`),
     ...(sobra > 0 ? [`${recuo}e mais ${sobra}: ork pulse`] : [])];
+}
+
+/** Quantos impedimentos do dono o resumo detalha antes de contar o resto. */
+export const TETO_DE_IMPEDIMENTOS = 5;
+
+/** Uma linha so, sem caractere de controle e sem corte: o comando precisa chegar inteiro para ser copiado. */
+const semQuebra = (texto: string): string => String(texto).replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim();
+
+/**
+ * RM-055 (continuacao, D3): o titulo e uma linha por impedimento do dono, iguais nos dois canais (so o
+ * marcador e o recuo mudam). Cada linha diz a thread, a fase, o comando exato e o retry que vem depois.
+ */
+export function linhasDosImpedimentos(r: ResumoHitl, marcador: string, recuo: string): string[] {
+  const impedimentos = r.impedimentosDoDono ?? [];
+  if (!impedimentos.length) return [];
+  const mostrados = impedimentos.slice(0, TETO_DE_IMPEDIMENTOS), sobra = impedimentos.length - mostrados.length;
+  return [`${marcador}Só você destrava, no terminal: ${impedimentos.length}`,
+    ...mostrados.map(i => `${recuo}• ${semQuebra(i.thread)}${i.fase ? ` ${semQuebra(i.fase)}` : ''}: ` +
+      `rode \`${semQuebra(i.comando)}\`; depois \`${semQuebra(i.retry)}\``),
+    ...(sobra > 0 ? [`${recuo}e mais ${sobra}: ork pulse`] : [])];
+}
+
+/** RM-057 (fatia 3): a linha do tempo parado por HITL de conducao, a mesma nos dois canais. */
+function linhaDoHitlParado(r: ResumoHitl): string[] {
+  const linha = linhaDoHitlAcimaDaMeta(r.hitlDeConducao, { agora: r.consultadoEm });
+  return linha ? [linha] : [];
 }
 
 /** RM-048 (D6): a linha do que e tecnico, igual nos dois canais. Nao pede nada ao dono. */
@@ -212,6 +318,9 @@ export function linhasDasDecisoes(r: ResumoHitl, marcador: string, recuo: string
 /** Quando nao ha pergunta, o resumo diz isso em vez de pedir licenca para mandar nada. */
 export const SEM_PERGUNTA_NO_RESUMO = 'Nada aqui pede resposta sua por este canal agora.';
 
+/** RM-055 (continuacao, D3): sem pergunta, mas com impedimento do dono: o que fazer esta no bloco acima. */
+export const SEM_PERGUNTA_COM_IMPEDIMENTO = 'Nada aqui pede resposta sua por este canal agora; o que só você destrava está acima, no terminal.';
+
 /** A linha das perguntas prontas, uma so para os dois canais, pelo mesmo motivo da de baixo. */
 export function linhaDasPerguntas(n: number): string {
   return `Perguntas para você: ${n}`;
@@ -266,7 +375,7 @@ function abertura(r: ResumoHitl, codigo: string | undefined, marca: string, resp
 }
 
 function fecho(r: ResumoHitl): string[] {
-  return r.pergunta ? [] : ['', SEM_PERGUNTA_NO_RESUMO];
+  return r.pergunta ? [] : ['', r.impedimentosDoDono?.length ? SEM_PERGUNTA_COM_IMPEDIMENTO : SEM_PERGUNTA_NO_RESUMO];
 }
 
 function textoTelegram(r: ResumoHitl, codigo: string | undefined): string {
@@ -283,6 +392,10 @@ function textoTelegram(r: ResumoHitl, codigo: string | undefined): string {
     `❓ ${linhaDasPerguntas(r.prontas)}`,
     ...(r.tecnicos ? [`🔧 ${linhaDosTecnicos(r)}`] : []),
     ...(r.consertos ? [`🔧 ${linhaDosConsertos(r.consertos)}`] : []),
+    ...linhaDoHitlParado(r).map(l => `⏳ ${l}`),
+    ...(r.maquinaOciosa ? ['', ...linhasDaOciosidade(r, '💤 ', '   ')] : []),
+    ...(r.impedimentosDoDono?.length ? ['', ...linhasDosImpedimentos(r, '🔑 ', '   ')] : []),
+    ...(r.acoesDaVarredura?.length || r.feitasPelaVarredura?.length ? ['', ...linhasDaVarredura(r, { dono: '🧹 ', feitas: '🤖 ' }, '   ')] : []),
     ...(r.paradosNoCondutor?.length ? ['', ...linhasDoCondutor(r, '🚧 ', '   ')] : []),
     ...(r.acumuladas ? ['', `📥 ${linhaDoLoteGuardado(r.acumuladas)}`] : []),
     ...(r.decisoes.length || r.acimaDoLimiar.length ? ['', ...linhasDasDecisoes(r, '🧭 ', '   ')] : []),
@@ -315,6 +428,10 @@ function textoTerminal(r: ResumoHitl, codigo: string | undefined): string {
       ? ['', `  threads travadas (${r.threadsBloqueadas.length}): ${nomearThreads(r.threadsBloqueadas)}`] : []),
     ...(r.tecnicos ? ['', `  ${linhaDosTecnicos(r)}`] : []),
     ...(r.consertos ? ['', `  ${linhaDosConsertos(r.consertos)}`] : []),
+    ...linhaDoHitlParado(r).flatMap(l => ['', `  ${l}`]),
+    ...(r.maquinaOciosa ? ['', ...linhasDaOciosidade(r, '  ', '    ')] : []),
+    ...(r.impedimentosDoDono?.length ? ['', ...linhasDosImpedimentos(r, '  ', '  ')] : []),
+    ...(r.acoesDaVarredura?.length || r.feitasPelaVarredura?.length ? ['', ...linhasDaVarredura(r, { dono: '  ', feitas: '  ' }, '    ')] : []),
     ...(r.paradosNoCondutor?.length ? ['', ...linhasDoCondutor(r, '  ', '  ')] : []),
     ...(r.acumuladas ? ['', `  ${linhaDoLoteGuardado(r.acumuladas)}`] : []),
     ...(r.decisoes.length || r.acimaDoLimiar.length ? ['', ...linhasDasDecisoes(r, '', '  ').map(l => l.startsWith('  ') ? l : `  ${l}`)] : []),

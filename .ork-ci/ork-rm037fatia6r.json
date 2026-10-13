@@ -1,0 +1,197 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm037fatia6r",
+  "branch": "ork/ork-rm037fatia6r-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "core/src/steal.ts",
+      "alegacao": "o steal da janela sai da linha agregada cpu do /proc/stat (steal sobre os oito primeiros campos); sem /proc/stat ou sem a coluna de steal nao ha medida; limiar 40",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='o steal da janela sai' core/dist-test/test/rm037-fatia6-steal-no-verify.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:57:57.024Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "core/src/redacao-saida.ts",
+      "alegacao": "falhasDeTeste diz cada teste caido e se a falha foi do relogio do runner, no spec e no TAP do node 24; testesQueCairam le a secao failing tests do spec, que antes saia vazia",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='os testes que cairam' core/dist-test/test/rm037-fatia6-steal-no-verify.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:57:57.332Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "teste com relogio reprovado sob steal de 70% vira verify.timeout, nunca verify.regression, com a causa real exit e o steal da rodada e do comando gravados no verify_run",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='teste com relogio reprovado sob steal' core/dist-test/test/rm037-fatia6-steal-no-verify.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:57:57.696Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "o limiar e estrito (acima de 40%): com steal de 30% e de 40% a mesma reprovacao de relogio e regressao",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='o limiar e estrito' core/dist-test/test/rm037-fatia6-steal-no-verify.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:57:58.028Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "asercao comum sob steal de 90% continua regressao, inclusive misturada com um teste de relogio",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='asercao que reprova sob steal' core/dist-test/test/rm037-fatia6-steal-no-verify.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:57:58.344Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "sem /proc/stat o verify_run grava medido false e nada e atenuado",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='sem /proc/stat nao ha medida' core/dist-test/test/rm037-fatia6-steal-no-verify.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:57:58.685Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "claim que reprova so no relogio sob steal sai verify.timeout e nao e carimbada reprovada; com steal baixo a mesma saida reprova a alegacao",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='claim que reprova so no relogio' core/dist-test/test/rm037-fatia6-steal-no-verify.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:57:58.966Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "core/instabilidade.json",
+      "alegacao": "core/instabilidade.json existe, esta no contrato ork.instabilidade/v1 e nasce vazio",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='o registro do repositorio existe' core/dist-test/test/rm037-fatia6-registro-de-instabilidade.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:57:59.277Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "core/src/instabilidade.ts",
+      "alegacao": "o registro so aceita entrada com taxa medida (falhas, rodadas, comando, data) e revalidacao em ate 30 dias da medida; chave desconhecida, repeticao e contrato errado sao erros",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='so entra entrada com taxa medida|a entrada vale ate o fim do dia' core/dist-test/test/rm037-fatia6-registro-de-instabilidade.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:57:59.589Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "teste registrado de relogio sob steal alto vira verify.timeout e o verify_run traz o registro lido; sem steal o mesmo teste e regressao",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='teste registrado de relogio' core/dist-test/test/rm037-fatia6-registro-de-instabilidade.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:57:59.888Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "sem registro, com entrada vencida, com registro fora do contrato ou ilegivel, a asercao de tempo sob steal e regressao, e o texto diz o motivo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='sem o registro, com entrada vencida' core/dist-test/test/rm037-fatia6-registro-de-instabilidade.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:58:00.211Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "os testes de verify de antes da fatia 6 (estouro de prazo, baseline, claims) continuam passando",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/verify-timeout.test.js core/dist-test/test/verify.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:58:00.504Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm037fatia6r",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/instabilidade-rm037.md",
+      "alegacao": "o contrato ork.instabilidade/v1 e o steal no verify_run estao documentados, a RM-037 e o CHANGELOG dizem a fatia 6 e a paridade de docs passa no PR",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node core/dist/index.js docs verificar --pr && grep -q 'ork.instabilidade/v1' docs/referencia/contratos/instabilidade-rm037.md && grep -q 'rm037fatia6r' docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -q 'Verify ciente do steal' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-03T02:58:00.840Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

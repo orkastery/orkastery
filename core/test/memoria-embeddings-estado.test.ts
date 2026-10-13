@@ -12,7 +12,7 @@ import * as path from 'node:path';
 import { carregarManifesto, ManifestoCarregado } from '../src/manifest';
 import { abrirMemoria, estadoDeEmbeddings, sondarEmbeddings, textoDoEstado } from '../src/memoria';
 import { DriverEmMemoria } from '../src/orkmind';
-import { indexar, universoDoTenant } from '../src/indice-vetorial';
+import { indexar, universoDaBusca } from '../src/indice-vetorial';
 import { EntradaDeMemoria } from '../src/types';
 
 const CHAVE = 'TESTE_ESTADO_EMBEDDING_KEY';
@@ -126,7 +126,7 @@ test('chave presente sem indice pede ork memory index; com indice o primario fic
       assert.equal(antes.motivo, 'embeddings.indice-ausente');
       const memoria = abrirMemoria(m.carregado, { driver });
       const r = indexar({ raiz: m.raiz, tenant: 'fabrica', dsn: '', config: m.carregado.manifesto.memory.embedding!,
-        alvo: 'primario', universo: universoDoTenant(memoria, 'fabrica'), dryRun: false, chavePresente: true,
+        alvo: 'primario', universo: universoDaBusca(memoria, 'fabrica'), dryRun: false, chavePresente: true,
         embeddar: p => driver.embeddar(p) });
       assert.equal(r.embedados, 3);
       const depois = abrirMemoria(m.carregado, { driver, embeddings: 'detalhado' }).estado.embeddings!;
@@ -146,12 +146,14 @@ test('cobertura cai quando o conteudo muda e o texto do status nunca imprime o v
     comAmbiente({ [CHAVE]: VALOR }, () => {
       const memoria = abrirMemoria(m.carregado, { driver });
       indexar({ raiz: m.raiz, tenant: 'fabrica', dsn: '', config: m.carregado.manifesto.memory.embedding!,
-        alvo: 'primario', universo: universoDoTenant(memoria, 'fabrica'), dryRun: false, chavePresente: true,
+        alvo: 'primario', universo: universoDaBusca(memoria, 'fabrica'), dryRun: false, chavePresente: true,
         embeddar: p => driver.embeddar(p) });
       base[0].content = 'Rotacao de conta: conteudo revisado depois do indice';
       const estado = abrirMemoria(m.carregado, { driver, embeddings: 'detalhado' }).estado;
       assert.equal(estado.embeddings!.cobertura, 0.6667);
       assert.equal(estado.embeddings!.indices[0].desatualizados, 1);
+      // RM-038 (D7): indice velho depois de conteudo novo pede reindexacao, com a conta exata.
+      assert.equal(estado.embeddings!.aviso, 'o indice cobre 2 de 3 entrada(s) que a busca enxerga: rode ork memory index');
       const texto = textoDoEstado(estado);
       assert.ok(texto.includes(`${CHAVE} presente no ambiente (valor nunca impresso)`));
       assert.ok(texto.includes('cobertura'));

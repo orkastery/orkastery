@@ -16,5 +16,8 @@ for (const name of LOCAL_INTEGRATION) {
 const hermetic = found.filter((name) => !LOCAL_INTEGRATION.has(name)).map((name) => path.join(dir, name));
 if (hermetic.length < 100) throw new Error(`suíte hermética pequena demais: ${hermetic.length} arquivos`);
 process.stderr.write(`CI hermético: ${hermetic.length} arquivos; ${LOCAL_INTEGRATION.size} integrações locais explicitamente separadas\n`);
-const result = spawnSync(process.execPath, ['--test', ...hermetic], { stdio: 'inherit', env: process.env });
+// RM-037: nenhum teste com o skip tipado pula no CI. Com a variavel ligada, um teste que usasse o skip
+// tipado de test/ambiente-de-teste.ts roda e reprova pela falta real, em vez de sumir do CI.
+const env = { ...process.env, ORK_TESTE_EXIGE_AMBIENTE: '1' };
+const result = spawnSync(process.execPath, ['--test', ...hermetic], { stdio: 'inherit', env });
 process.exit(result.status ?? 1);

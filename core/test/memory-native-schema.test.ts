@@ -6,8 +6,9 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { camposNativos } from '../src/orkmind';
 import { pythonFixture, fixtureEnv, assets } from './native-fixture';
+import { semOrkMind } from './ambiente-de-teste';
 
-test('G8 contrato compartilhado coincide com MemoryEntry real; drift aditivo e subtrativo falham explicitamente', () => {
+test('G8 contrato compartilhado coincide com MemoryEntry real; drift aditivo e subtrativo falham explicitamente', { skip: semOrkMind() }, () => {
   const CAMPOS_NATIVOS = camposNativos();
   const r=spawnSync(pythonFixture(),['-c',`
 import json,sys

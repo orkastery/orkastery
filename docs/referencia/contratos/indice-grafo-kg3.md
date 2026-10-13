@@ -68,11 +68,15 @@ código dele não roda. O mesmo vale para o fecho de dependências: dependência
 analisador que falta dentro da instalação recusa a carga inteira, em vez de o Node achá-la fora. O juiz roda o ESM num processo
 filho sem ambiente, então um `NODE_OPTIONS` de quem chama não carrega código nele.
 
-Eles não são dependências de runtime do pacote publicado: dependência nova é decisão de produto.
-No checkout de desenvolvimento e no CI existem; numa instalação sem eles, todo o `ork grafo` recusa
-com `grafo.parser.indisponivel: <pacote>`, e o `status` mostra o índice do HEAD como indisponível:
-as versões entram na chave, e a consulta calcula a chave lendo só os `package.json`, sem carregar o
-compilador.
+Desde a correção de empacotamento da RM-031, eles são dependências de runtime do pacote publicado,
+com versão exata (`typescript` 5.9.3, `micromark` 4.0.2, `micromark-extension-gfm-table` 2.1.1,
+`decode-named-character-reference` 1.3.0 e `micromark-util-decode-numeric-character-reference`
+2.0.2): o `npm install -g` os põe dentro da instalação, e a prova
+`core/scripts/provar-grafo-instalado.cjs` confere isso no CI. Numa instalação sem eles (o `ork`
+instalado dentro de um projeto ou pelo `npx`, que içam as dependências para fora do pacote), todo o
+`ork grafo` recusa com `grafo.parser.indisponivel: <pacote>`, o `status` mostra o índice do HEAD como
+indisponível e a correção, e o check "analisadores do grafo" do `ork doctor` diz o mesmo: as versões
+entram na chave, e a consulta calcula a chave lendo só os `package.json`, sem carregar o compilador.
 No mesmo HEAD, o comando provisório do KG2 e o `ork grafo indexar` deram o mesmo snapshot e o mesmo
 digest.
 
@@ -101,11 +105,16 @@ corta pela mesma ordem até o JSON caber em N bytes ([teto da resposta](consumo-
 de ler o índice. A saída em
 JSON (`ork.code-graph-query/v0`, provisório e fora do contrato) traz a consulta, o cabeçalho do
 índice (revisão, chave, snapshot, digest, estado da árvore e extratores), os nós, as arestas com
-todas as evidências, o total e o aviso de parcialidade. Não há horário nem tempo na resposta.
+todas as evidências, o total e o aviso de parcialidade. Desde a
+[fatia 5 do KG5](consumo-grafo-kg5.md#fatia-5-proveniência-conferida-contra-a-árvore), cada aresta
+traz também a situação das fontes dela na árvore (`arvore`, `igual` ou `modificada`), e a resposta
+traz `fontes`, com o sha256, o blob do Git e a situação de cada arquivo citado. Não há horário nem
+tempo na resposta.
 
 Com a árvore modificada, a consulta responde pelo índice do HEAD e diz isso no texto e no
-campo `arvore`. Toda resposta diz que é parcial: chamada por despacho de tipo, chamada fora de
-símbolo, import não resolvido e as outras lacunas do relatório de extração não viram aresta.
+campo `indice.arvore` (`limpa` ou `modificada`), e, por aresta, no `arvore` de cada uma. Toda resposta
+diz que é parcial: chamada por despacho de tipo, chamada fora de símbolo, import não resolvido e as
+outras lacunas do relatório de extração não viram aresta.
 
 ## Tenant, ACL e não vazamento
 

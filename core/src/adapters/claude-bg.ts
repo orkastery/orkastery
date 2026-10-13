@@ -11,11 +11,12 @@
 import { SessaoRuntime, SinalDeFalhaDeConta, SinalDeRateLimit } from '../types';
 import { instanteNoFuso, normalizarFuso, partesLocais } from '../horario';
 import { exec as executar, noPath } from '../util';
-import { ambienteDeAssinatura } from '../runtime-ambiente';
+import { ambienteDeAssinatura, ENV_IDENTIDADE_DE_DESPACHO } from '../runtime-ambiente';
 import * as path from 'node:path';
-import { ContextoRuntime, validarContextoRuntime } from '../runtime-context';
+import { ContextoRuntime, ModDeFase, validarContextoRuntime } from '../runtime-context';
 import { ambienteComPerfil, diretorioEfetivo, PerfilDeDespacho } from '../runtime-profiles';
 import { TOOLS_DO_GRAFO } from '../mcp-grafo';
+import { textoDoCatalogo, textoDoErro } from '../locale';
 
 function exec(cmd: string, args: string[], cwd?: string, timeoutMs?: number, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()) {
   return executar(cmd, args, cwd, timeoutMs, ambiente);
@@ -92,6 +93,11 @@ export interface DespachoPedido {
   perfil?: PerfilDeDespacho;
   /** I-36 (D4): identidade, thread e canal do despacho no ambiente da sessao filha. */
   ambienteExtra?: Record<string, string>;
+  /**
+   * RM-059 (T0.7): a saida do `claude --version` que vai rodar a sessao. Ausente, ela e lida so quando
+   * a instalacao tem mod de fase; `null` (ilegivel) deixa todos os mods de fora.
+   */
+  versaoClaude?: string | null;
 }
 
 export interface DespachoResultado {
@@ -123,6 +129,84 @@ export function versao(): string | null {
 /** Ferramentas de arquivo negadas no PLAN: o plano sai pelo núcleo, não pelo disco. */
 const ESCRITA_DE_ARQUIVO = ['Edit', 'Write', 'NotebookEdit'] as const;
 
+/** O contexto do despacho conferido para o host Claude Code (D4 do RM-037: o host errado recusa antes de tudo). */
+function validarDoClaude(contexto: ContextoRuntime, cwd: string) {
+  if (contexto.host !== 'claude-code') throw Error('runtime.context.invalid: host Claude esperado');
+  return validarContextoRuntime(contexto, cwd);
+}
+
+/** RM-059 (T0.7, D2): a API de mods saiu no Claude Code 2.1.287; nenhum mod vai a um `claude` mais velho. */
+export const MINIMO_DA_API_DE_MODS = '2.1.287';
+
+/** `2.1.296 (Claude Code)` vira `[2, 1, 296]`; texto sem versao vira `null`. */
+function versaoNumerica(texto: string | null | undefined): number[] | null {
+  const m = /(\d+)\.(\d+)\.(\d+)/.exec(texto ?? '');
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+function atende(versao: number[], minimo: number[]): boolean {
+  const i = versao.findIndex((parte, j) => parte !== minimo[j]);
+  return i < 0 || versao[i] > minimo[i];
+}
+
+/**
+ * RM-059 (T0.7, D2): os mods de fase que este `claude` carrega. O mod que pede versao mais nova fica de
+ * fora e o despacho segue, porque o nucleo nao depende de mod; versao ilegivel nao leva mod nenhum. Mod
+ * cuja dependencia ficou de fora (por versao, ou por ser so de papel `dono`) tambem fica: sem ela, ele
+ * carregaria pela metade na sessao de fase.
+ */
+export function modsParaOClaude(mods: readonly ModDeFase[], versao: string | null | undefined): ModDeFase[] {
+  const atual = versaoNumerica(versao);
+  if (!atual) return [];
+  const piso = versaoNumerica(MINIMO_DA_API_DE_MODS)!;
+  let vao = mods.filter((m) => atende(atual, piso) && atende(atual, versaoNumerica(m.claudeCodeMinimo) ?? piso));
+  for (;;) {
+    const nomes = new Set(vao.map((m) => m.nome));
+    const sobram = vao.filter((m) => m.dependencias.every((d) => nomes.has(d)));
+    if (sobram.length === vao.length) return vao;
+    vao = sobram;
+  }
+}
+
+/** RM-059 (T10.4): o mod que aplica os tetos de agent teams dentro da sessao de fase. */
+export const MOD_DOS_TETOS = 'ork-portao';
+
+/**
+ * RM-059 (T10.4, D11 da thread ork-rm059portao): o que o despacho acrescenta ao `--settings` para agent teams no
+ * piloto, e so quando o contexto validado trouxe os tetos (manifesto ligado, GO no bloco) e o Portao de Tarefas esta
+ * entre os mods que vao de fato a sessao: sem ele, ninguem aplicaria os tetos. A sessao de fundo nao tem `tmux`, entao
+ * os teammates rodam no mesmo processo (`teammateMode` `in-process`).
+ */
+export function agentTeamsDoDespacho(tetos: { teammates: number; custo_usd: number } | null | undefined,
+  mods: readonly ModDeFase[]): { env: Record<string, string>; teammateMode: 'in-process' } | null {
+  if (!tetos || !mods.some((m) => m.nome === MOD_DOS_TETOS)) return null;
+  return {
+    env: {
+      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
+      ORK_AGENT_TEAMS_TEAMMATES: String(tetos.teammates),
+      ORK_AGENT_TEAMS_CUSTO_USD: String(tetos.custo_usd),
+    },
+    teammateMode: 'in-process',
+  };
+}
+
+/** RM-059 (fatia F9): o mod que confere, na sessao de fase, a resposta do dono que chega de outra sessao. */
+export const MOD_DA_ENTREGA = 'ork-mensageiro';
+
+/**
+ * RM-059 (T9.4, D14 da thread ork-rm059mensag): o que o despacho acrescenta ao `--settings` para a sessao de fase
+ * receber a resposta do dono pelo Mensageiro de Sessoes. `crossSessionInbound: accept` entrega a mensagem de outra
+ * sessao do mesmo usuario sem a paridade de modo, que numa sessao sem pessoa vence o prazo e descarta; por isso so
+ * vai com o Mensageiro entre os mods que vao de fato a sessao (sem ele, ninguem confere o que chega) e so na sessao
+ * despachada (`ORK_DISPATCH_ID` no env do despacho). Sem um dos dois, o `--settings` sai como antes.
+ */
+export function entradaDoDespacho(mods: readonly ModDeFase[], env: Readonly<Record<string, string>> | undefined):
+  { crossSessionInbound: 'accept' } | null {
+  if (!mods.some((m) => m.nome === MOD_DA_ENTREGA)) return null;
+  const despacho = env?.[ENV_IDENTIDADE_DE_DESPACHO];
+  return typeof despacho === 'string' && despacho.trim() !== '' ? { crossSessionInbound: 'accept' } : null;
+}
+
 /** Monta a linha de comando exata do despacho (usada tambem pelo `--dry-run`). */
 export function montarComando(pedido: DespachoPedido): string[] {
   const args = ['--bg', pedido.prompt, '--name', pedido.nome];
@@ -136,11 +220,19 @@ export function montarComando(pedido: DespachoPedido): string[] {
   // O `claude --bg` entrega a sessao a um processo reserva do daemon da conta, e o daemon guarda o
   // ambiente de quem o iniciou: pelo ambiente, a sessao nascia com a identidade de outro despacho.
   // Medido em 28/09/2026 (2.1.284): o `env` de `--settings` chega ao Bash da sessao e vence o herdado.
-  const doDespacho = pedido.ambienteExtra ?? {};
-  if (Object.keys(doDespacho).length) args.push('--settings', JSON.stringify({ env: doDespacho }));
-  if (pedido.contextoRuntime) {
-    if (pedido.contextoRuntime.host !== 'claude-code') throw Error('runtime.context.invalid: host Claude esperado');
-    const contexto = validarContextoRuntime(pedido.contextoRuntime, pedido.cwd);
+  const contexto = pedido.contextoRuntime ? validarDoClaude(pedido.contextoRuntime, pedido.cwd) : null;
+  // RM-059 (T0.7): cada mod de fase conferido entra com o proprio --plugin-dir, depois do plugin do Orkastery.
+  const mods = !contexto || contexto.modsDeFase.length === 0 ? []
+    : modsParaOClaude(contexto.modsDeFase, pedido.versaoClaude !== undefined ? pedido.versaoClaude : versao());
+  // RM-059 (T10.4): agent teams so no piloto, com os tetos no env e o Portao na sessao; sem eles, o --settings de antes.
+  const teams = agentTeamsDoDespacho(contexto?.agentTeams, mods);
+  // RM-059 (T9.4): a resposta do dono pelo Mensageiro so na sessao despachada e com ele na sessao.
+  const entrada = entradaDoDespacho(mods, pedido.ambienteExtra);
+  const doDespacho = { ...(pedido.ambienteExtra ?? {}), ...(teams ? teams.env : {}) };
+  if (Object.keys(doDespacho).length) {
+    args.push('--settings', JSON.stringify({ env: doDespacho, ...(teams ? { teammateMode: teams.teammateMode } : {}), ...(entrada ?? {}) }));
+  }
+  if (contexto) {
     const consultas = [...CONSULTAS_MCP, ...(contexto.grafoMcp ? consultasDoGrafoMcp() : [])];
     // Somente o servidor gerado: nao mesclar MCP de outros escopos nesta sessao filha.
     const permissoes = contexto.permissoesFilho === 'worktree'
@@ -150,7 +242,7 @@ export function montarComando(pedido: DespachoPedido): string[] {
     const allow = plano ? [...consultas, 'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_decision_record']
       : permissoes?.allow ?? consultas;
     const deny = [...(plano ? ESCRITA_DE_ARQUIVO : []), ...(permissoes?.deny ?? [])];
-    args.push('--plugin-dir', contexto.instalacao, '--strict-mcp-config',
+    args.push('--plugin-dir', contexto.instalacao, ...mods.flatMap((m) => ['--plugin-dir', m.dir]), '--strict-mcp-config',
       '--mcp-config', JSON.stringify({ mcpServers: { orkastery: contexto.servidor } }),
       '--allowedTools', allow.join(','));
     if (deny.length) args.push('--disallowedTools', deny.join(','));
@@ -191,12 +283,13 @@ export interface ConsultaDeSessoes {
  * falha aqui (o observador e o pulse não concluem nada dele); só o inventário o trata como fonte
  * ausente, com a correção.
  */
-export function consultarSessoes(cwd?: string, todas = false, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()): ConsultaDeSessoes {
+export function consultarSessoes(cwd?: string, todas = false, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura(),
+  prazoMs = 60000): ConsultaDeSessoes {
   const args = ['agents', '--json'];
   if (todas) args.push('--all');
-  const r = exec('claude', args, undefined, 60000, ambiente);
-  if (r.error === 'ENOENT') return { ok: false, ausente: true, sessoes: [], detalhe: 'binário `claude` fora do PATH' };
-  if (!r.ok) return { ok: false, sessoes: [], detalhe: `claude agents falhou (código ${r.code})` };
+  const r = exec('claude', args, undefined, prazoMs, ambiente);
+  if (r.error === 'ENOENT') return { ok: false, ausente: true, sessoes: [], detalhe: textoDoCatalogo((m) => m.pulse.claudeForaDoPath) };
+  if (!r.ok) return { ok: false, sessoes: [], detalhe: textoDoCatalogo((m) => m.pulse.claudeAgentsFalhou(r.code)) };
   let dados: SessaoRuntime[];
   try {
     const bruto = JSON.parse(r.stdout) as SessaoRuntime[];
@@ -693,7 +786,8 @@ const campoDeAuth = (v: unknown): string => typeof v === 'string' ? v.replace(/[
  */
 export function conferirAuth(perfil?: PerfilDeDespacho | null): StatusDeAuth {
   let ambiente: NodeJS.ProcessEnv;
-  try { ambiente = ambienteDoPerfil(perfil); } catch (e) { return { ok: false, detalhe: (e as Error).message }; }
+  // RM-061 (F3b, GO-FIX 1): o erro do catalogo fica registrado, e a impressao o remonta.
+  try { ambiente = ambienteDoPerfil(perfil); } catch (e) { return { ok: false, detalhe: textoDoErro(e) }; }
   const r = exec('claude', ['auth', 'status', '--json'], undefined, 30000, ambiente);
   // A14: sem codigo de saida (timeout, sinal ou binario ausente) ou sem JSON, a conferencia e inconclusiva.
   if (r.code === -1) return { ok: false, transitorio: true, detalhe: 'claude auth status sem resposta (timeout, sinal ou binario ausente)' };
@@ -869,3 +963,61 @@ export function ocupacaoDeContexto(chave: string): number | null {
   void chave;
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// RM-063 (F4): o daemon da conta (`cc-daemon`), o degrau 1 da escada de recuperacao do runtime.
+// ---------------------------------------------------------------------------
+
+/** O que o `claude daemon status` diz do daemon da conta. */
+export type EstadoDoDaemon = 'responde' | 'nao-responde' | 'parado' | 'nao-lido';
+export interface SondaDoDaemon { estado: EstadoDoDaemon; detalhe: string }
+
+/** O `status` e o `stop` do daemon nao esperam um daemon travado por minutos. */
+export const PRAZO_DO_DAEMON_MS = 20_000;
+
+const linhaCurta = (texto: string): string => texto.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+
+/**
+ * A saida do `claude daemon status` (medida em 12/10/2026 na 2.1.296): `pid:` com o daemon de pe ou `not running`,
+ * e a linha `control.sock: reachable` ou `control.sock: unreachable (...)`. O daemon de pe com o socket que nao
+ * responde e o travado do incidente; sem daemon, o `claude --bg` sobe um sob demanda. Saida fora dessa forma e
+ * `nao-lido`: sem prova, nada e derrubado.
+ */
+export function lerStatusDoDaemon(saida: string, codigo: number | null): SondaDoDaemon {
+  const texto = String(saida ?? '').replace(/\r/g, '');
+  const sock = /^\s*control\.sock:\s*(.+)$/m.exec(texto)?.[1]?.trim() ?? '';
+  const dePe = /^\s*pid:\s*\d+/m.test(texto);
+  const parado = /^\s*not running\b/im.test(texto);
+  const detalhe = sock ? linhaCurta(`control.sock: ${sock}`) : linhaCurta(texto.split('\n').find((l) => l.trim()) ?? '');
+  if (codigo !== 0 || !sock || dePe === parado) {
+    return { estado: 'nao-lido', detalhe: `claude daemon status sem a forma conhecida (codigo ${codigo ?? '?'})${detalhe ? `: ${detalhe}` : ''}` };
+  }
+  if (/^reachable\b/i.test(sock)) return dePe ? { estado: 'responde', detalhe } : { estado: 'nao-lido', detalhe };
+  if (/^unreachable\b/i.test(sock)) return { estado: dePe ? 'nao-responde' : 'parado', detalhe };
+  return { estado: 'nao-lido', detalhe };
+}
+
+/** `claude daemon status` com o ambiente do perfil do despacho: a conta certa, o daemon certo. */
+export function sondarDaemon(perfil?: PerfilDeDespacho | null): SondaDoDaemon {
+  let ambiente: NodeJS.ProcessEnv;
+  try { ambiente = ambienteDoPerfil(perfil); } catch (e) { return { estado: 'nao-lido', detalhe: linhaCurta((e as Error).message) }; }
+  const r = exec('claude', ['daemon', 'status'], undefined, PRAZO_DO_DAEMON_MS, ambiente);
+  if (r.error === 'ENOENT') return { estado: 'nao-lido', detalhe: 'binario `claude` nao encontrado no PATH' };
+  if (r.error || r.signal) return { estado: 'nao-lido', detalhe: `claude daemon status nao terminou em ${PRAZO_DO_DAEMON_MS / 1000} s` };
+  return lerStatusDoDaemon(`${r.stdout}\n${r.stderr}`, r.code);
+}
+
+/**
+ * `claude daemon stop --any --keep-workers`: derruba o supervisor transitorio da conta (o que o `claude --bg` subiu
+ * sob demanda) e deixa as sessoes destacadas rodando. O proximo `claude --bg` sobe outro.
+ */
+export function derrubarDaemon(perfil?: PerfilDeDespacho | null): { ok: boolean; detalhe: string } {
+  let ambiente: NodeJS.ProcessEnv;
+  try { ambiente = ambienteDoPerfil(perfil); } catch (e) { return { ok: false, detalhe: linhaCurta((e as Error).message) }; }
+  const r = exec('claude', ['daemon', 'stop', '--any', '--keep-workers'], undefined, PRAZO_DO_DAEMON_MS, ambiente);
+  const primeira = linhaCurta(`${r.stdout}\n${r.stderr}`.split('\n').find((l) => l.trim()) ?? '');
+  return { ok: r.ok, detalhe: r.ok ? primeira || 'daemon parado' : `saiu ${r.error ?? r.code}${primeira ? `: ${primeira}` : ''}` };
+}
+
+/** O daemon do claude-bg que a escada usa quando ninguem injeta outro. */
+export const DAEMON_DO_CLAUDE = { sondar: sondarDaemon, derrubar: derrubarDaemon } as const;

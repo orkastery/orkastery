@@ -5,6 +5,7 @@
  * verificacao) e nunca sobrescreve um manifesto existente sem `--force`.
  */
 
+import { Locale, LOCALE_PADRAO, msg } from './locale';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DIR_ESTADO, NOME_MANIFESTO } from './manifest';
@@ -13,7 +14,8 @@ import { branchDoHead, exec, gravar, ignorarPastaNoGit } from './util';
 import { FUSO_DE_BRASILIA } from './horario';
 import { ORDEM_DOS_MODOS } from './modos';
 
-export const PROXIMO_PASSO_INIT = 'Proximo passo: ork doctor; depois ork onboarding para conduzir a entrevista do projeto.';
+/** O proximo passo do `ork init` em pt-BR; o texto do CLI sai pelo catalogo (`msg().init.proximoPasso`). */
+export const PROXIMO_PASSO_INIT = msg('pt-BR').init.proximoPasso;
 
 export interface Deteccao {
   raiz: string;
@@ -111,58 +113,59 @@ export function detectar(dirInicial: string, nomeForcado?: string, abbrevForcada
   };
 }
 
-/** Serializa o manifesto v1 a partir da deteccao. */
-export function manifestoYaml(d: Deteccao): string {
+/** Cada linha do texto vira comentario do YAML, com o recuo da chave em que ele fica. */
+function comentario(texto: string, recuo = '  '): string {
+  return texto.split('\n').map((linha) => `${recuo}# ${linha}`).join('\n');
+}
+
+/**
+ * Serializa o manifesto v1 a partir da deteccao. RM-061 (F3a, D1 a D3): os comentarios saem na lingua pedida, pela
+ * familia `gerados` do catalogo; chaves, valores e exemplos comentados sao este esqueleto, o mesmo nas duas linguas.
+ * Sem locale, pt-BR: so o `ork init` passa a lingua do dono (D2).
+ */
+export function manifestoYaml(d: Deteccao, locale: Locale = LOCALE_PADRAO): string {
+  const c = msg(locale).gerados.manifesto;
   const linhaVerify = (chave: string, valor?: string) =>
-    valor ? `  ${chave}: "${valor}"` : `  # ${chave}: nao detectado`;
-  return `# Manifesto do Orkastery (v1, bloco B0)
-# Gerado por \`ork init\`. Fonte unica da configuracao do projeto.
-# Limite duro de 16 KB: prosa longa vai para a memoria com tag, nao para este arquivo.
+    valor ? `  ${chave}: "${valor}"` : `  # ${chave}: ${c.naoDetectado}`;
+  return `${comentario(c.cabecalho, '')}
 
 project:
   name: "${d.nome}"
-  # abbrev: ate 3 caracteres [a-z0-9], parte 1 do slug de sessao, unica no workspace
+${comentario(c.abbrev)}
   abbrev: "${d.abbrev}"
   stage: nascente
 
 owner:
-  # fuso do dono (nome IANA): todo horario mostrado a pessoas usa este fuso.
-  # Ausente: fuso do sistema. Exemplo:
+${comentario(c.fuso)}
   # timezone: "${FUSO_DE_BRASILIA}"
-  # Preferências: ork onboarding set maestro --conteudo '{"owner":{"experience":true}}'
-  # language: pt-BR  # ausente: locale do sistema
+${comentario(c.preferencias(`ork onboarding set maestro --conteudo '{"owner":{"experience":true}}'`))}
+  # language: ${c.exemploDeIdioma}  # ${c.idiomaAusente}
   # depth: curta    # curta | detalhada
-  # experience: true  # false desativa o pacote na próxima instalação do adaptador
+  # experience: true  # ${c.experienciaFalse}
 
 board:
   adapter: hermes-kanban
   default: default
 
 runtime:
-  # Runtimes homologados:
-  #   claude-bg (padrao, mais maduro): despacha \`claude --bg\`, sessao visivel no app
-  #             e em \`claude agents --json\`
-  #   codex: despacha \`codex exec\` headless na sessao autenticada do Codex CLI,
-  #          verificado no rollout de $CODEX_HOME/sessions (requer \`codex login\`)
+${comentario(c.runtimes)}
   adapter: claude-bg
   model: opus
   effort: high
-  # subscription-only: proibido despachar por provider pago (cobra por token, fora da assinatura)
+${comentario(c.providerPolicy)}
   provider_policy: subscription-only
-  # sandbox do runtime codex: read-only | workspace-write | danger-full-access
-  # (danger-full-access SO onde o bubblewrap nao roda; \`ork doctor\` tem a sonda)
+${comentario(c.sandbox)}
   sandbox: workspace-write
 
 conduction:
-  # modo usado quando o pedido do builder nao traz #TAG
+${comentario(c.modoPadrao)}
   default_mode: classic
   allowed_modes: [${ORDEM_DOS_MODOS.join(', ')}]
 
 worktree:
   base_branch: "${d.baseBranch}"
   dir: ".claude/worktrees"
-  # true: o ork thread new cria a worktree e a branch da thread sem flag (--sem-worktree cria sem);
-  # false ou ausente: só com --worktree auto
+${comentario(c.porThread)}
   por_thread: true
 
 verify:
@@ -171,54 +174,46 @@ ${linhaVerify('test', d.verify.test)}
 ${linhaVerify('typecheck', d.verify.typecheck)}
 
 ci:
-  # Ative depois de publicar o workflow e tornar ork-verify um check obrigatório.
+${comentario(c.ci)}
   required_for_ship: false
   context: ork-verify
-  # command: "npm test" # perfil hermético opcional do runner; sem ele, usa verify acima
+  # command: "npm test" # ${c.ciComando}
 
 concurrency:
   max_parallel_threads: 3
-  # thread despachada sem atividade (ledger parado, sessao nao-working) por mais que
-  # isto NAO ocupa vaga do escalonador: a vaga volta para quem esta pronto para rodar
+${comentario(c.staleAfter)}
   stale_after_min: 240
 
 handoff:
-  # gate de tokens (bloco B1): rotaciona a sessao acima destas ocupacoes de janela
+${comentario(c.handoff)}
   rotate_above: 0.70
   force_rotate_above: 0.85
 
 retry:
-  # autonomia do bloco B3: retry tipado por motivo de gate e fila duravel de rate limit
-  # max_tentativas e o LIMITE DE ESCALACAO: estourado, pausa qualquer modo, ate #Auto
+${comentario(c.retry)}
   max_tentativas: 3
-  # janela usada so quando o runtime diz "rate limit" e NAO diz a hora do reset
-  # (fica marcada como estimativa na fila; o ork nunca inventa horario medido)
+${comentario(c.janelaPadrao)}
   janela_padrao_min: 60
   escalar_esforco: true
 
 memory:
-  # files = fallback honesto sem OrkMind (handoff por arquivos, ponteiro path#ancora)
-  # orkmind = camada semantica do bloco B6 por cima, com degradacao honesta para files
+${comentario(c.memoriaModo)}
   mode: files
-  # NOME da variavel de ambiente com a DSN da base PROPRIA deste tenant, nunca a DSN.
-  # Vazio = o regime orkmind nao liga (o ork nao adivinha base: base alheia e pior que
-  # base nenhuma, precedente do incidente memory-orkmind).
+${comentario(c.databaseUrl)}
   database_url_env: ""
   cli: orkmind
   timeout_ms: 15000
-  # busca por significado (ork memory search --texto): sem o bloco, provider none (desligada).
-  # api_key_env recebe o NOME da variavel com a chave dedicada, nunca o valor.
+${comentario(c.embedding)}
   # embedding:
   #   provider: "none"            # none | openrouter
   #   model: "qwen/qwen3-embedding-8b"
   #   dim: 1024
   #   api_key_env: "ORKASTERY_EMBEDDING_API_KEY"
-  #   fallback_model: ""          # modelo local offline, ex.: intfloat/multilingual-e5-small
+  #   fallback_model: ""          # ${c.modeloOffline}
   #   max_tokens_por_execucao: 1000000
 
 audit:
-  # governanca de custo dos auditores periodicos (bloco B5)
-  # janela ociosa da assinatura: fora dela a rodada so anda com --agora <quem>
+${comentario(c.audit)}
   janela_ociosa: "22:00-06:00"
   effort: eco
   since_padrao: 7d
@@ -239,10 +234,26 @@ export interface ResultadoInit {
   estadoIgnorado?: boolean;
 }
 
-/** Gera o manifesto e o esqueleto de `.orkastery/`. Nao sobrescreve sem `force`. */
+/**
+ * Ensaio de 03/10/2026 (RM-049): o `ork init` rodado por engano fora de um repositorio (no HOME, por
+ * exemplo) gravava manifesto, `AGENTS.md` e `.orkastery/` ali e saia 0; um repositorio criado depois
+ * dentro dessa pasta herdava o manifesto de fora, com outro nome e outra abbrev, e o doctor dizia PRONTO.
+ * A CLI recusa antes de gravar qualquer coisa. A funcao `init` segue aceitando qualquer pasta (demo e
+ * canarios montam o projeto por ela).
+ */
+export function exigirRepositorioParaInit(dir: string): void {
+  const r = exec('git', ['rev-parse', '--is-inside-work-tree'], dir);
+  if (r.ok && r.stdout.trim() === 'true') return;
+  throw new Error(msg().init.foraDoRepositorio(path.resolve(dir)));
+}
+
+/**
+ * Gera o manifesto e o esqueleto de `.orkastery/`. Nao sobrescreve sem `force`. Os comentarios do manifesto saem
+ * no `locale` pedido (RM-061, F3a), pt-BR por omissao.
+ */
 export function init(
   dirInicial: string,
-  opcoes: { force?: boolean; nome?: string; abbrev?: string } = {}
+  opcoes: { force?: boolean; nome?: string; abbrev?: string; locale?: Locale } = {}
 ): ResultadoInit {
   const deteccao = detectar(dirInicial, opcoes.nome, opcoes.abbrev);
   const caminho = path.join(deteccao.raiz, NOME_MANIFESTO);
@@ -250,7 +261,7 @@ export function init(
   if (existe && !opcoes.force) {
     return { caminho, criado: false, deteccao };
   }
-  gravar(caminho, manifestoYaml(deteccao));
+  gravar(caminho, manifestoYaml(deteccao, opcoes.locale));
   const estado = path.join(deteccao.raiz, DIR_ESTADO);
   fs.mkdirSync(path.join(estado, 'threads'), { recursive: true });
   // Fatia 2 do ensaio da 0.5.0 (P3): o estado e da maquina; fica fora do git sem mexer no `.gitignore` do usuario.

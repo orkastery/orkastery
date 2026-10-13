@@ -1,0 +1,99 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm025modocon",
+  "branch": "ork/ork-rm025modocon-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm025modocon",
+      "fase": "GO",
+      "arquivo": "core/src/company-brain-context.ts",
+      "alegacao": "ork brain context pede o modo context e traduz o pacote dourado do OrkMind numa só consulta, com o digest conferido",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm025-b42-contexto-no-servidor.test.js --test-name-pattern=dourado"
+      ],
+      "criadoEm": "2026-10-03T04:29:53.823Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm025modocon",
+      "fase": "GO",
+      "arquivo": "core/src/company-brain-context.ts",
+      "alegacao": "para os mesmos dados, o caminho do servidor e o da consulta dão o mesmo conteúdo e o mesmo digest",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm025-b42-contexto-no-servidor.test.js --test-name-pattern=caminhos"
+      ],
+      "criadoEm": "2026-10-03T04:29:53.969Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm025modocon",
+      "fase": "GO",
+      "arquivo": "core/src/company-brain-context.ts",
+      "alegacao": "só brain.selection.context-unsupported leva ao caminho da consulta",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm025-b42-contexto-no-servidor.test.js --test-name-pattern=context-unsupported"
+      ],
+      "criadoEm": "2026-10-03T04:29:54.265Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm025modocon",
+      "fase": "GO",
+      "arquivo": "core/test/company-brain-context.test.ts",
+      "alegacao": "o caminho da consulta (B4.1) segue com o comportamento anterior contra um OrkMind sem o modo context",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/company-brain-context.test.js core/dist-test/test/company-brain-dossie.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:29:54.412Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm025modocon",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/company-brain-context-v1.json",
+      "alegacao": "o pacote dourado é o mesmo arquivo do OrkMind (merge b533e3e)",
+      "negativa": false,
+      "verificar": [
+        "test \"$(sha256sum core/test/fixtures/company-brain-context-v1.json | cut -c1-64)\" = \"$(curl -fsSL https://raw.githubusercontent.com/orkastery/orkmind/b533e3ed9db166085ba5506ef4f267224e0dc205/tests/fixtures/company-brain-context-v1.json | sha256sum | cut -c1-64)\""
+      ],
+      "criadoEm": "2026-10-03T04:29:54.560Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm025modocon",
+      "fase": "GO",
+      "arquivo": "core/src/company-brain-context.ts",
+      "alegacao": "pacote do servidor adulterado encerra com conflict brain.context.server-invalid sem cair na consulta",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm025-b42-contexto-no-servidor.test.js --test-name-pattern='encerra com conflict'"
+      ],
+      "criadoEm": "2026-10-03T04:30:01.487Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

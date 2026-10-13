@@ -17,7 +17,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { desligarRotacaoPorCota, projetoTemporario, runtimePorConta } from './apoio';
+import { desligarRotacaoPorCota, envPtBr, projetoTemporario, runtimePorConta } from './apoio';
 import { definirFusoDoDono, formatarDataHora, FUSO_DE_BRASILIA, partesLocais } from '../src/horario';
 import { lerLedger, registrar } from '../src/ledger';
 import { escolherPerfil, rodarFase } from '../src/phase';
@@ -266,7 +266,7 @@ test('despacho real: depois da cota vista, o rodarFase seguinte sai pelo outro p
     const despacho = lerLedger(dirThread(c.p.dir, t2.id)).find((e) => e.tipo === 'phase_dispatch');
     assert.equal((despacho?.perfil as { id: string }).id, 'b');
     const saida = execFileSync(process.execPath, [CLI, 'accounts', 'list'], { cwd: c.p.dir, encoding: 'utf8',
-      env: { ...process.env, TZ: FUSO_DE_BRASILIA } });
+      env: envPtBr({ ...process.env, TZ: FUSO_DE_BRASILIA }) });
     const linhaA = saida.split('\n').find((l) => /^\s*a\s/.test(l)) ?? '';
     assert.match(linhaA, /\besgotado\b/, saida);
     assert.ok(linhaA.includes(formatarDataHora(esgotadoAte, { fuso: FUSO_DE_BRASILIA })), saida);

@@ -23,8 +23,16 @@
  *
  * LIMITE DITO: o canal do processo e declarado pelo ambiente (`canalDoProcesso`). Ele serve para
  * RECUSAR, nunca para autorizar, e um agente que apague as variaveis do proprio host de proposito
- * passa como terminal. Essa e a mesma fronteira do `humano-no-cli` do SHIP; fecha-la de vez exige o
- * dialogo nativo do host para a nota, que fica fora desta entrega.
+ * passa como terminal. Essa e a mesma fronteira do `humano-no-cli` do SHIP.
+ *
+ * RM-059 (fatia F8, T8.1): a sessao de host ganhou o caminho com recibo que faltava, o dialogo
+ * nativo (`ork_request_master_note`, em `master-nota-local.ts`): so o `threadId` entra pela
+ * ferramenta, a nota e o porque vem do formulario do host, e o MASTER grava `dono (dialogo nativo)`
+ * com o host no canal e o recibo assinado do ingresso local; essa identidade nao se digita no `--por`.
+ * O que fica: o `--por` do terminal continua sem prova, a recusa pelo ambiente continua sendo so
+ * recusa, e um `ork` anterior a esta versao aceita aquela identidade no `--por` como qualquer nome.
+ * O recibo local prova o caminho, nao a pessoa: quem ja
+ * roda como o mesmo usuario do sistema le a chave local e forja o recibo.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -38,6 +46,7 @@ import { gerarCodigo } from './pulse-consentimento';
 import { comLockDaConversa } from './monitor-lock';
 import type { RespostaHumana } from './hitl-gates';
 import { CanalDeConducao } from './types';
+import { msg } from './locale';
 
 export const CONTRATO_PEDIDO_DE_NOTA = 'ork.master-nota/v1' as const;
 export const ERRO_PROVA_DE_CANAL = 'master.prova-de-canal';
@@ -45,20 +54,29 @@ export const ERRO_PROVA_DE_CANAL = 'master.prova-de-canal';
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
 /**
- * D8: nota em nome de pessoa, vinda de processo de host, e recusada. O canal e lido SO do
- * ambiente: `--canal` em argv nao conta, porque quem escreve argv e justamente quem chama.
+ * A marca de host ou de despacho do processo, ou `undefined` no terminal do dono. Lida SO do
+ * ambiente. Serve para RECUSAR (D8) e para AVISAR (RM-008, aceite por omissao sem thread), nunca
+ * para autorizar.
  */
-export function exigirNotaSemHost(ambiente: NodeJS.ProcessEnv = process.env): void {
+export function marcaDeHost(ambiente: NodeJS.ProcessEnv = process.env): string | undefined {
   let canal: CanalDeConducao;
   try { canal = canalDoProcesso(undefined, ambiente); } catch { canal = 'mcp'; }
   // B2 do CHECK: `ORK_CANAL=cli` NAO absolve. A sessao despachada herda `ORK_CANAL=cli` quando a
   // thread e conduzida do terminal, e o Claude Code e o Codex marcam os proprios processos. Qualquer
-  // marca de host ou de despacho recusa, mesmo com o canal declarado como terminal.
-  const marca = canal !== 'cli' ? canal
-    : ambiente.ORK_DISPATCH_ID ? 'sessão despachada (ORK_DISPATCH_ID)'
+  // marca de host ou de despacho conta, mesmo com o canal declarado como terminal.
+  return canal !== 'cli' ? canal
+    : ambiente.ORK_DISPATCH_ID ? msg().master.marcaDespachada
       : ambiente.CLAUDECODE === '1' ? 'claude-code (CLAUDECODE)'
         : ambiente.CODEX_SANDBOX || ambiente.CODEX_SANDBOX_NETWORK_DISABLED ? 'codex (CODEX_SANDBOX)'
           : (ambiente.HERMES_HOME ?? '').trim() ? 'hermes (HERMES_HOME)' : undefined;
+}
+
+/**
+ * D8: nota em nome de pessoa, vinda de processo de host, e recusada. O canal e lido SO do
+ * ambiente: `--canal` em argv nao conta, porque quem escreve argv e justamente quem chama.
+ */
+export function exigirNotaSemHost(ambiente: NodeJS.ProcessEnv = process.env): void {
+  const marca = marcaDeHost(ambiente);
   if (marca) {
     throw new Error(`${ERRO_PROVA_DE_CANAL}: nota em nome de pessoa vinda de ${marca} exige a prova de canal do ingresso. ` +
       'Peça a nota com ork master pedir <thread>: o dono responde pelo Telegram com o código, e a nota é gravada com o recibo.');
@@ -131,11 +149,8 @@ export function pedidoDeNotaDoCodigo(raiz: string, codigo: string, estadoDir?: s
 export function textoDoPedidoDeNota(raiz: string, p: PedidoDeNota, canal: 'telegram' | 'terminal'): string {
   const t = lerThread(raiz, p.thread);
   const tg = canal === 'telegram';
-  return [
-    `${tg ? '🧾 ' : ''}Nota da entrega ${p.thread} (${t.nome.slice(0, 80)})`,
-    `${tg ? '• ' : '- '}Sem nota, vale a aceita por omissão, com o índice derivado do ledger ao lado.`,
-    `${tg ? '↩️ ' : ''}Responda: ${p.codigo} <0 a 5> <porquê>, por exemplo: ${p.codigo} 4 entregou o que pedi.`,
-  ].join('\n');
+  const m = msg().master;
+  return [m.notaTitulo(tg, p.thread, t.nome.slice(0, 80)), m.notaSemNota(tg), m.notaResponda(tg, p.codigo)].join('\n');
 }
 
 /** "4 entregou o que pedi" vira nota e justificativa; o resto e devolvido como pergunta. */

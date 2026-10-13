@@ -163,7 +163,7 @@
       "thread": "ork-rm032ativaca",
       "fase": "GO",
       "arquivo": "docs/roadmap/evidencias/RM-032/claude-code-2026-10-01.json",
-      "alegacao": "recibo real de 01/10/2026 na srvjcp86 sobre c6a7636: prova claude-code aprovada, 11/11 conferencias, configuracao global intocada, raiz removida",
+      "alegacao": "recibo real de 01/10/2026 na maquina-b sobre c6a7636: prova claude-code aprovada, 11/11 conferencias, configuracao global intocada, raiz removida",
       "negativa": false,
       "verificar": [
         "node -e \"for (const h of ['claude-code','openclaw']) { const r=require('./docs/roadmap/evidencias/RM-032/'+h+'-2026-10-01.json'); if (r.estado!=='aprovada' || !r.global.intocado || !r.limpeza.removido || r.conferencias.length!==11 || r.conferencias.some(c=>!c.ok)) process.exit(1); }\""
@@ -177,7 +177,7 @@
       "thread": "ork-rm032ativaca",
       "fase": "GO",
       "arquivo": "docs/roadmap/evidencias/RM-032/openclaw-2026-10-01.json",
-      "alegacao": "recibo real de 01/10/2026 na srvjcp86 sobre c6a7636: prova openclaw aprovada, 11/11 conferencias, configuracao global intocada, raiz removida",
+      "alegacao": "recibo real de 01/10/2026 na maquina-b sobre c6a7636: prova openclaw aprovada, 11/11 conferencias, configuracao global intocada, raiz removida",
       "negativa": false,
       "verificar": [
         "node -e \"for (const h of ['claude-code','openclaw']) { const r=require('./docs/roadmap/evidencias/RM-032/'+h+'-2026-10-01.json'); if (r.estado!=='aprovada' || !r.global.intocado || !r.limpeza.removido || r.conferencias.length!==11 || r.conferencias.some(c=>!c.ok)) process.exit(1); }\""

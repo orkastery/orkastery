@@ -6,19 +6,11 @@
  * `thread.ts` e o `leases.ts` possam usa-lo sem ciclo de importacao.
  */
 import { formatarDataHora } from './horario';
+import { msg } from './locale';
 import { ConducaoAtual, Lease, OperacaoDeConducao } from './types';
 
-/** O que cada operacao de conducao e, em portugues de gente. */
-export const NOME_DA_OPERACAO: Readonly<Record<OperacaoDeConducao, string>> = {
-  'phase.run': 'despacho de fase',
-  'retry.run': 'retomada de fase',
-  verify: 'ork verify',
-  baseline: 'ork verify --baseline',
-  'fix.open': 'ork fix open',
-  'fix.reverify': 'ork fix reverify',
-  'mcp.verify': 'ork_verify (MCP)',
-  handoff: 'reserva de quem assumiu',
-};
+/** O que cada operacao de conducao e, em portugues de gente (o texto gravado das recusas usa este). */
+export const NOME_DA_OPERACAO = msg('pt-BR').thread.operacoes as Readonly<Record<OperacaoDeConducao, string>>;
 
 /** O objeto de leitura a partir do lease, sem consultar nada. */
 export function conducaoDoLease(lease: Lease): ConducaoAtual | null {
@@ -40,17 +32,20 @@ export function conducaoDoLease(lease: Lease): ConducaoAtual | null {
 
 /** Quem segura a conducao, em poucas palavras: a sessao, o processo ou a reserva. */
 export function quemConduz(c: Pick<ConducaoAtual, 'sessao' | 'dono' | 'operacao'>): string {
-  if (c.sessao) return `sessao ${c.sessao.slice(0, 8)}`;
-  if (c.dono.tipo === 'processo') return `processo ${c.dono.pid} (${NOME_DA_OPERACAO[c.operacao]})`;
-  if (c.dono.tipo === 'reserva') return `reserva de ${c.dono.por}`;
-  return NOME_DA_OPERACAO[c.operacao];
+  // RM-061 (F2a): no locale do comando; fora dos comandos cobertos, o pt-BR de sempre.
+  const m = msg().thread;
+  if (c.sessao) return m.quemSessao(c.sessao.slice(0, 8));
+  if (c.dono.tipo === 'processo') return m.quemProcesso(c.dono.pid, m.operacoes[c.operacao]);
+  if (c.dono.tipo === 'reserva') return m.quemReserva(c.dono.por);
+  return m.operacoes[c.operacao];
 }
 
 /**
- * "conduzido agora por CANAL, sessao ID, fase F, desde HORARIO": a linha unica (CS7). O horario
+ * A linha unica de quem conduz (CS7): canal, quem, fase e desde, na redacao do catalogo (`msg().thread.conduzido`,
+ * RM-061), no locale do comando; fora dos comandos cobertos, o pt-BR de sempre. O horario
  * sai no fuso do dono; a legenda do fuso fica com a superficie, uma vez por tela.
  */
 export function linhaDeConducao(c: ConducaoAtual, opcoes: { agora?: string } = {}): string {
-  return `conduzido agora por ${c.canal}, ${quemConduz(c)}, fase ${c.fase ?? '-'}, ` +
-    `desde ${formatarDataHora(c.desde, opcoes.agora ? { agora: opcoes.agora } : {})}`;
+  return msg().thread.conduzido(c.canal, quemConduz(c), c.fase ?? '-',
+    formatarDataHora(c.desde, opcoes.agora ? { agora: opcoes.agora } : {}));
 }

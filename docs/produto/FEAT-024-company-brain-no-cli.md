@@ -20,6 +20,7 @@ fontes:
     - core/test/company-brain-cli.test.ts
     - core/test/company-brain-contract.test.ts
     - core/test/company-brain-context.test.ts
+    - core/test/rm025-b42-contexto-no-servidor.test.ts
     - core/test/company-brain-mcp.test.ts
     - core/test/company-brain-hosts.test.ts
   simbolos:
@@ -58,25 +59,27 @@ fontes:
 - **Fluxo principal:**
 
   1. `ork brain status` mostra o contrato e o tenant efetivo.
-  2. `ork brain context --thread <id> --ids <ids>` devolve o pacote `ork.brain-context/v1`: as entidades pedidas e os pais, cada uma com a citação da fonte, o frescor contra o portfólio canônico e as lacunas. Sem `--ids`, vale o escopo vinculado por `ork brain bind`.
+  2. `ork brain context --thread <id> --ids <ids>` devolve o pacote `ork.brain-context/v1`: as entidades pedidas e os pais, cada uma com a citação da fonte, o frescor contra o portfólio canônico e as lacunas. Sem `--ids`, vale o escopo vinculado por `ork brain bind`. O pacote vem do modo `context` do OrkMind, conferido pelo núcleo; com um OrkMind anterior ao modo, o núcleo monta o mesmo pacote por `query` e `get`, e o campo `caminho` diz qual foi (`servidor` ou `consulta`).
   3. `ork brain query` e `ork brain get` leem entidades pela mesma identidade.
   4. As escritas exigem a ativação com aceite e a concessão do banco do Brain; uma não concede a outra.
 
-- **Alternativas, erros e recuperação:** opção fora da lista fechada (por exemplo `--principal` ou `--dsn`) é recusada com `brain.argument.invalid`. Brain indisponível ou recusando devolve o estado recebido, sem pacote montado só da fonte.
+- **Alternativas, erros e recuperação:** opção fora da lista fechada (por exemplo `--principal` ou `--dsn`) é recusada com `brain.argument.invalid`. Brain indisponível ou recusando devolve o estado recebido, sem pacote montado só da fonte. Pacote do servidor que não confere (digest, pedido, tenant, citação, fecho de pais ou destino de um id) encerra com `conflict` e `brain.context.server-invalid`, sem cair no caminho da consulta; só `brain.selection.context-unsupported` leva a ele.
 - **Pós-condições:** leitura não grava nada; escrita deixa recibos por operação.
 - **Regras de negócio:**
   - BR-024-01: a identidade vem só do transporte autenticado (o usuário do PostgreSQL mapeado a um principal pelo OrkMind), nunca de argumento.
   - BR-024-02: no pacote de contexto, item sem a citação inteira (`source_ref`, `source_hash`, `source_version` e `location`) vira a lacuna `citacao.incompleta`, nunca conteúdo.
   - BR-024-03: item retido pela ACL do Brain sai só com o id e o frescor `retido`, sem valor, nem o da fonte local.
+  - BR-024-04: para os mesmos dados, o caminho do servidor e o da consulta dão o mesmo conteúdo e o mesmo digest.
 - **Critérios de aceite e testes:**
   - Dado um principal vindo da conversa, quando o comando roda, então é recusado (`core/test/company-brain-cli.test.ts`).
   - Dado um Brain atrasado em relação ao portfólio, quando o contexto é pedido, então a entidade que falta sai com frescor `ausente-no-brain` e lacuna `brain.ausente` (`core/test/company-brain-context.test.ts`).
+  - Dado o pacote dourado do OrkMind (`core/test/fixtures/company-brain-context-v1.json`, o mesmo arquivo nos dois repositórios), quando o contexto é pedido, então sai numa só consulta, com o digest conferido; e um pacote adulterado encerra com `brain.context.server-invalid` (`core/test/rm025-b42-contexto-no-servidor.test.ts`).
 - **Interface e acessibilidade:** não se aplica: CLI, MCP (`ork_brain_*`) e os hosts Hermes e OpenClaw.
 
 ## Dados e contratos
 
 - **Entidades:** contrato `orkmind.company-brain/v1` (`core/schemas/company-brain.schema.json`, o mesmo arquivo do OrkMind), com entidades `prod`, `proj` e `init`, afirmações, eventos, recibos, seleção e migração.
-- **Pacote de contexto:** `ork.brain-context/v1` com `pedido`, `itens`, `lacunas` e `digest` (sha256 do JSON canônico, sem o horário da consulta).
+- **Pacote de contexto:** `ork.brain-context/v1` com `pedido`, `itens`, `lacunas` e `digest` (sha256 do JSON canônico, sem o horário da consulta nem o `caminho`). O do servidor é o `orkmind.company-brain-context/v1`, documentado no `docs/company-brain.md` do OrkMind.
 - **Frescor:** `confere`, `divergente`, `ausente-no-brain`, `ausente-na-fonte` e `retido`.
 - **Lacunas:** `dono.sem-principal`, `observado.desconhecido`, `registrado.desconhecido`, `brain.ausente`, `fonte.ausente`, `fonte.divergente`, `brain.retido`, `citacao.incompleta` e `entidade.desconhecida`.
 - **APIs:** OrkMind, sem HTTP: o subprocesso `orkmind brain request` na leitura e na captura, e o `orkmind brain migration` em `reconcile`, `apply` e `rollback`.
@@ -94,3 +97,4 @@ fontes:
 | --- | --- | --- | --- |
 | 2026-09-24 | página criada no padrão v1.1 | Claude (agente) / Julio, revisão pendente | RM-044 |
 | 2026-09-28 | subcomandos reais, identidade pelo transporte e pacote de contexto | Claude (agente) / Julio, revisão pendente | RM-025, B4.1 |
+| 2026-10-03 | o contexto vem do modo `context` do OrkMind, conferido, com a consulta como caminho anterior | Claude (agente) / Julio, revisão pendente | RM-025, B4.2, thread `ork-rm025modocon` |

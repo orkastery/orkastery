@@ -26,10 +26,14 @@ function montar(nome: string): ProjetoDeTeste {
 const fonte = (p: ProjetoDeTeste): BrainEntity[] => portfolioEntities(readPortfolio(p.dir),
   { tenant: p.carregado.manifesto.memory.tenant, instance: p.carregado.manifesto.project.name, thread: '', aclRef: 'ork-factory' });
 const copia = <T>(v: T): T => JSON.parse(JSON.stringify(v));
-/** Brain falso: responde a seleção por ids e o `get`, como o OrkMind, e anota cada operação. */
+/** Resposta de um OrkMind anterior ao modo `context` (B4.2): o núcleo volta a `query` e `get`. */
+const SEM_MODO_CONTEXT = { schema: BRAIN_API, state: 'unavailable', error: 'brain.selection.context-unsupported' } as const;
+const modoContext = (request: { payload?: unknown }) => (request.payload as any)?.mode === 'context';
+/** Brain falso sem o modo `context`: responde a seleção por ids e o `get`, como o OrkMind, e anota cada operação. */
 function brainFalso(entidades: BrainEntity[], retidas: string[] = [], chamadas: string[] = []): BrainTransport {
   const porId = new Map(entidades.map(e => [e.id, e]));
   return request => {
+    if (modoContext(request)) return SEM_MODO_CONTEXT;
     chamadas.push(request.operation);
     const payload = request.payload as any;
     if (request.operation === 'query') {
@@ -140,7 +144,7 @@ test('S5 o digest é reproduzível, ignora o horário da consulta e muda quando 
     const segundo = buildContext(p.carregado, ['init-alpha-one'], brain, 'thread-s5');
     assert.match(primeiro.digest!, /^[a-f0-9]{64}$/);
     assert.equal(primeiro.digest, segundo.digest);
-    const { digest: _d, consultadoEm: _c, ...corpo } = primeiro;
+    const { digest: _d, consultadoEm: _c, caminho: _k, ...corpo } = primeiro;
     assert.equal(digest(corpo), primeiro.digest);
     const arquivo = stateFile(p.dir, 'portfolio.json'), catalogo = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
     catalogo.initiatives.find((e: any) => e.id === 'init-alpha-one').title = 'Outro título';
@@ -182,7 +186,7 @@ test('D7 Brain indisponível ou recusando encerra o pacote sem montar conteúdo 
       assert.deepEqual([pacote.itens, pacote.lacunas, pacote.digest], [[], [], null]);
     }
     let consultas = 0;
-    const getRecusado: BrainTransport = r => r.operation === 'query' ? (consultas++, { schema: BRAIN_API, state: 'ok', items: [{ state: 'withheld' }] })
+    const getRecusado: BrainTransport = r => modoContext(r) ? SEM_MODO_CONTEXT : r.operation === 'query' ? (consultas++, { schema: BRAIN_API, state: 'ok', items: [{ state: 'withheld' }] })
       : { schema: BRAIN_API, state: 'forbidden' };
     assert.equal(buildContext(p.carregado, ['init-alpha-one', 'init-alpha-two'], getRecusado, 'thread-d7').state, 'forbidden');
     assert.equal(consultas, 1);
@@ -208,7 +212,7 @@ test('S5 o digest e a ordem não dependem do locale do processo', () => {
     const dist = path.resolve(__dirname, '..');
     const script = `const {exigirManifesto}=require(${JSON.stringify(path.join(dist, 'src/manifest.js'))});`
       + `const {buildContext}=require(${JSON.stringify(path.join(dist, 'src/company-brain-context.js'))});`
-      + `const r=buildContext(exigirManifesto(${JSON.stringify(p.dir)}),['init-alpha-abc','init-alpha-aab'],()=>({schema:'orkmind.company-brain-api/v1',state:'empty',items:[]}),'thread-locale');`
+      + `const r=buildContext(exigirManifesto(${JSON.stringify(p.dir)}),['init-alpha-abc','init-alpha-aab'],r=>r.payload.mode==='context'?{schema:'orkmind.company-brain-api/v1',state:'unavailable',error:'brain.selection.context-unsupported'}:({schema:'orkmind.company-brain-api/v1',state:'empty',items:[]}),'thread-locale');`
       + `process.stdout.write(JSON.stringify({ids:r.itens.map(i=>i.id),digest:r.digest}));`;
     const rodar = (locale: string) => {
       const r = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', timeout: 30000,
@@ -256,7 +260,7 @@ test('S1 até 1000 ids por pedido; o fecho com pais vai ao Brain em lotes de no 
     const inits = Array.from({ length: 1000 }, (_, i) => `init-lote-${String(i).padStart(4, '0')}`);
     const lotes: number[] = [];
     const base = brainFalso([entidade('prod-lote', 'prod', null), entidade('proj-lote-core', 'proj', 'prod-lote'), ...inits.map(id => entidade(id, 'init', 'proj-lote-core'))]);
-    const brain: BrainTransport = r => { if (r.operation === 'query') lotes.push((r.payload as any).facets.ids.length); return base(r); };
+    const brain: BrainTransport = r => { if (r.operation === 'query' && !modoContext(r)) lotes.push((r.payload as any).facets.ids.length); return base(r); };
     const pacote = buildContext(p.carregado, inits, brain, 'thread-lotes');
     assert.equal(pacote.itens.length, 1002);
     assert.deepEqual(lotes, [1000, 1, 1]);

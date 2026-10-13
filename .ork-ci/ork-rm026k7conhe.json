@@ -1,0 +1,426 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm026k7conhe",
+  "branch": "ork/ork-rm026k7conhe-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-026-workspace-empresarial.md",
+      "alegacao": "a RM-026 traz o GOAL e o PLAN do K7 com quatro alternativas e uma recomendada",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^- \\*\\*[abcd]) ' docs/roadmap/RM-026-workspace-empresarial.md) -eq 4 && grep -q '(Recomendação)' docs/roadmap/RM-026-workspace-empresarial.md"
+      ],
+      "criadoEm": "2026-10-03T03:42:43.445Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GOAL",
+      "arquivo": "core/src/company-brain-contract.ts",
+      "alegacao": "o contrato vigente do Brain não tem tipo de documento nem de coleção: o K7 é contrato novo",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"kind: 'prod' | 'proj' | 'init'\" core/src/company-brain-contract.ts && ! grep -q \"'doc'\" core/src/company-brain-client.ts"
+      ],
+      "criadoEm": "2026-10-03T03:42:43.589Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/test/conhecimento.test.ts",
+      "alegacao": "GO fatia 1: o leitor ork.conhecimento/v1 lê a pasta declarada e devolve documentos, coleções e lacunas tipadas; documento inválido ou referência que não confere nunca entra na resposta; pasta fora da raiz e link recusam e a leitura não cria processo (testes D1 a D9)",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conhecimento.test.js"
+      ],
+      "criadoEm": "2026-10-12T13:01:58.823Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/conhecimento-rm026.md",
+      "alegacao": "GO fatia 1: o contrato ork.conhecimento/v1 está em docs/referencia/contratos, a pasta entra na matriz da fronteira de confiança e o PR traz linha em Não publicado do CHANGELOG",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -q 'ork.conhecimento/v1' docs/referencia/contratos/conhecimento-rm026.md && grep -q 'conhecimento.dir' docs/referencia/fronteira-de-confianca.md && grep -q 'O GO segue em três fatias' docs/roadmap/RM-026-workspace-empresarial.md"
+      ],
+      "criadoEm": "2026-10-12T13:01:59.156Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO fatia 1: a documentação passa no markdownlint e nos links relativos",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-10-12T13:01:59.321Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "a documentação segue em paridade com o frontmatter e o git, na regra do PR: merge de outra thread e índice que divergem da main só avisam",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-12T13:37:57.001Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/test/conhecimento-consulta.test.ts",
+      "alegacao": "GO fatia 2, T1: as consultas do conhecimento conferem o id do Brain por get; ok no contrato da entidade vira referência citável, e unknown, withheld e Brain fora do ar viram lacunas distintas (brain-inexistente, brain-retido, brain-indisponivel), nunca resposta; listar e colecoes não abrem o Brain; o detalhe das lacunas nasce no catálogo e remonta em inglês (testes D11 a D13)",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conhecimento.test.js core/dist-test/test/conhecimento-consulta.test.js core/dist-test/test/locale-dado.test.js"
+      ],
+      "criadoEm": "2026-10-12T17:22:17.784Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/src/conhecimento-consulta.ts",
+      "alegacao": "GO fatia 2, T1: o comportamento é novo: a base da fatia 2 (merge da fatia 1, 1079f471, ancestral do HEAD) não tem a consulta nem a família conhecimento do catálogo, e o teste importa a consulta",
+      "negativa": false,
+      "verificar": [
+        "git merge-base --is-ancestor 1079f471d403650eb227a62920971cd393bd3ea3 HEAD && ! git cat-file -e 1079f471d403650eb227a62920971cd393bd3ea3:core/src/conhecimento-consulta.ts && ! git cat-file -e 1079f471d403650eb227a62920971cd393bd3ea3:core/src/locale-conhecimento.ts && git cat-file -e HEAD:core/src/conhecimento-consulta.ts && grep -q \"from '../src/conhecimento-consulta'\" core/test/conhecimento-consulta.test.ts"
+      ],
+      "criadoEm": "2026-10-12T17:22:31.059Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1079f471d403650eb227a62920971cd393bd3ea3",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/test/conhecimento-cli.test.ts",
+      "alegacao": "GO fatia 2, T2: ork conhecimento listar|mostrar|colecoes|verificar responde pela CLI o JSON da consulta, igual nas duas línguas, com o id do Brain conferido por get pelo transporte do memory.cli; verificar sai 1 com lacuna e 0 sem; o texto sai pelo catálogo em pt-BR e em inglês; o uso errado recusa pelo catálogo; o corpo com invisível sai escapado no --json e limpo no texto; a ajuda, o cli.md e o cli.en.md andam juntos",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conhecimento-cli.test.js core/dist-test/test/rm044-paridade-cli-md.test.js core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/locale-ajuda.test.js core/dist-test/test/locale-f2a-snapshot.test.js core/dist-test/test/locale-f2a-infra.test.js"
+      ],
+      "criadoEm": "2026-10-12T17:30:13.540Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "GO fatia 2, T2: o comando é novo: a base da fatia 2 (1079f471, ancestral do HEAD) não despacha ork conhecimento nem o declara na ajuda, e o HEAD despacha e declara",
+      "negativa": false,
+      "verificar": [
+        "git merge-base --is-ancestor 1079f471d403650eb227a62920971cd393bd3ea3 HEAD && ! git show 1079f471d403650eb227a62920971cd393bd3ea3:core/src/index.ts | grep -q \"case 'conhecimento'\" && ! git show 1079f471d403650eb227a62920971cd393bd3ea3:core/src/locale-ajuda.ts | grep -q '  conhecimento ' && grep -q \"case 'conhecimento'\" core/src/index.ts && grep -q '  conhecimento verificar' core/src/locale-ajuda.ts"
+      ],
+      "criadoEm": "2026-10-12T17:30:13.712Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1079f471d403650eb227a62920971cd393bd3ea3",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-conhecimento.ts",
+      "alegacao": "GO fatia 2, T3: as tools são novas: a base da fatia 2 (1079f471, ancestral do HEAD) não registra ork_conhecimento_ no servidor MCP, e o HEAD registra",
+      "negativa": false,
+      "verificar": [
+        "git merge-base --is-ancestor 1079f471d403650eb227a62920971cd393bd3ea3 HEAD && ! git cat-file -e 1079f471d403650eb227a62920971cd393bd3ea3:core/src/mcp-conhecimento.ts && ! git show 1079f471d403650eb227a62920971cd393bd3ea3:core/src/mcp-server.ts | grep -q registrarConsultasDoConhecimento && grep -q 'registrarConsultasDoConhecimento(registrarTool' core/src/mcp-server.ts"
+      ],
+      "criadoEm": "2026-10-12T17:33:47.332Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1079f471d403650eb227a62920971cd393bd3ea3",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/conhecimento-rm026.md",
+      "alegacao": "GO fatia 2, T4: o contrato traz as consultas públicas, a conferência do id do Brain por get, a seção da CLI e das tools MCP e as lacunas novas; a fronteira de confiança cita o transporte do ork brain get; a seção K7 da RM-026 marca a fatia 2; o PR traz linha em Não publicado do CHANGELOG",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -q 'ork_conhecimento_verificar' docs/referencia/contratos/conhecimento-rm026.md && grep -q 'referencia.brain-indisponivel' docs/referencia/contratos/conhecimento-rm026.md && grep -q 'ork conhecimento mostrar' docs/referencia/fronteira-de-confianca.md && grep -q 'CLI e tools MCP, com as referências conferidas.\\*\\* Entregue' docs/roadmap/RM-026-workspace-empresarial.md && grep -q 'Conhecimento escrito, fatia 2' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T17:49:51.476Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/test/conhecimento-consulta.test.ts",
+      "alegacao": "GO-FIX do CHECK da fatia 2: listar, colecoes e o mostrar de outro documento não leem ledger; os ledgers de uma consulta têm teto de 64 MiB e a linha citada é achada sem partir o ledger; a conferência do Brain para no prazo de 60 s, e timeout_ms fora da faixa vale 15 s; empty é o id inexistente e só unavailable, forbidden e conflict param; o texto do mostrar aguenta 200 mil linhas; a consulta nasce em pt-BR; uso errado sai 2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conhecimento-consulta.test.js core/dist-test/test/conhecimento-cli.test.js core/dist-test/test/company-brain-transport.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:17:32.201Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/test/mcp-conhecimento.test.ts",
+      "alegacao": "GO fatia 2, T3, no runner hospedado: as tools ork_conhecimento_* respondem pelo MCP o mesmo JSON da consulta, com o id do Brain conferido por get pelo memory.cli e as lacunas tipadas, schema fechado e isError na regra da CLI; o catálogo do servidor tem as 35 tools (a C15 roda também o mcp-server.test.js, que fica na estação)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/mcp-conhecimento.test.js core/dist-test/test/projeto-alvo-mcp.test.js core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:27:54.751Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/test/conhecimento.test.mjs",
+      "alegacao": "GO fatia 3, T1: o teste do conhecimento no OpenClaw reprova no adaptador da base da fatia (babe9d48, ancestral do HEAD), que não tem as tools",
+      "negativa": false,
+      "verificar": [
+        "B=babe9d48c603a766ddf7ed58d7a3b993b59acb20 && git merge-base --is-ancestor $B HEAD && D=$(mktemp -d) && git archive $B adapters | tar -x -C \"$D\" && cp adapters/openclaw/test/conhecimento.test.mjs \"$D/adapters/openclaw/test/\" && if node --test \"$D/adapters/openclaw/test/conhecimento.test.mjs\" >/dev/null 2>&1; then rm -rf \"$D\"; exit 1; fi; rm -rf \"$D\""
+      ],
+      "criadoEm": "2026-10-13T01:22:21.712Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "babe9d48c603a766ddf7ed58d7a3b993b59acb20",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "adapters/hermes/bin/ork-conhecimento-mostrar.sh",
+      "alegacao": "GO fatia 3, T2: o Hermes declara no bin os mesmos nomes ork_conhecimento_* do OpenClaw; cada wrapper, renderizado como o instalador o deixa, chama ork conhecimento <consulta> [argumentos] --json com ORK_PROJETO_EXPLICITO=1 e ORK_CANAL=hermes, sem shell no meio, e devolve o JSON e a saída do núcleo como vêm, também a saída 1; a skill roteia as quatro e diz a regra das lacunas com a mesma frase do OpenClaw",
+      "negativa": false,
+      "verificar": [
+        "python3 -m unittest discover -s adapters/hermes/test -p conhecimento_test.py -v"
+      ],
+      "criadoEm": "2026-10-13T01:26:07.270Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "adapters/hermes/test/conhecimento_test.py",
+      "alegacao": "GO fatia 3, T2: o teste do conhecimento no Hermes reprova no adaptador da base da fatia (babe9d48, ancestral do HEAD), que não tem os wrappers",
+      "negativa": false,
+      "verificar": [
+        "git merge-base --is-ancestor babe9d48c603a766ddf7ed58d7a3b993b59acb20 HEAD && D=$(mktemp -d) && git archive babe9d48c603a766ddf7ed58d7a3b993b59acb20 adapters | tar -x -C \"$D\" && cp adapters/hermes/test/conhecimento_test.py \"$D/adapters/hermes/test/\" && if python3 -m unittest discover -s \"$D/adapters/hermes/test\" -p conhecimento_test.py >/dev/null 2>&1; then rm -rf \"$D\"; exit 1; fi; rm -rf \"$D\""
+      ],
+      "criadoEm": "2026-10-13T01:26:07.447Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "babe9d48c603a766ddf7ed58d7a3b993b59acb20",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/test/conhecimento-hosts.test.ts",
+      "alegacao": "GO fatia 3, T3: as tools do conhecimento têm os mesmos nomes no MCP, no OpenClaw e no Hermes; a descrição e o schema do OpenClaw são os da tool MCP com os padrões do núcleo; a regra das lacunas é a mesma frase nos dois hosts; com o ork real, MCP, OpenClaw e Hermes respondem o mesmo JSON nas seis consultas, com a saída 1 no lugar do isError e as lacunas só na lista de lacunas",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conhecimento-hosts.test.js core/dist-test/test/hosts.test.js core/dist-test/test/company-brain-hosts.test.js core/dist-test/test/rm057-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-13T01:29:36.522Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/test/conhecimento-hosts.test.ts",
+      "alegacao": "GO fatia 3, T3: o teste de paridade do núcleo reprova com o adapters/ da base da fatia (babe9d48, ancestral do HEAD) e passa com o do HEAD, na mesma árvore temporária",
+      "negativa": false,
+      "verificar": [
+        "git merge-base --is-ancestor babe9d48c603a766ddf7ed58d7a3b993b59acb20 HEAD && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && D=$(mktemp -d) && mkdir -p \"$D/core\" && cp -r core/dist core/dist-test core/package.json core/schemas core/assets \"$D/core/\" && ln -s \"$PWD/core/node_modules\" \"$D/core/node_modules\" && git archive babe9d48c603a766ddf7ed58d7a3b993b59acb20 adapters | tar -x -C \"$D\" && if (cd \"$D\" && node --test core/dist-test/test/conhecimento-hosts.test.js) >/dev/null 2>&1; then rm -rf \"$D\"; exit 1; fi && rm -rf \"$D/adapters\" && cp -r adapters \"$D/\" && (cd \"$D\" && node --test core/dist-test/test/conhecimento-hosts.test.js) >/dev/null 2>&1; S=$?; rm -rf \"$D\"; exit $S"
+      ],
+      "criadoEm": "2026-10-13T01:29:36.700Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "babe9d48c603a766ddf7ed58d7a3b993b59acb20",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-038-conhecimento-escrito.md",
+      "alegacao": "GO fatia 3, T4: a documentação segue em paridade com o código e o git na regra do PR, o markdownlint e os links passam, e o CHANGELOG tem a linha nova em Não publicado",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node core/dist/index.js docs verificar --pr && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-13T01:35:37.650Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-026-workspace-empresarial.md",
+      "alegacao": "GO fatia 3, T4: a FEAT-038 traz a próxima ação do dono com os comandos de reinstalar a extensão do OpenClaw e a skill do Hermes; a seção K7 da RM-026 fecha com as três fatias, o estado, o histórico e a próxima ação, e cita a FEAT-038; o contrato ganha a seção dos hosts com a frase da regra das lacunas",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'node core/dist/index.js adapter install openclaw --dir ~/.openclaw' docs/produto/FEAT-038-conhecimento-escrito.md && grep -q 'adapter install hermes --dir ~/.hermes' docs/produto/FEAT-038-conhecimento-escrito.md && grep -q 'openclaw gateway restart' docs/produto/FEAT-038-conhecimento-escrito.md && grep -q 'Estado do K7' docs/roadmap/RM-026-workspace-empresarial.md && grep -q 'features: \\[FEAT-024, FEAT-033, FEAT-038\\]' docs/roadmap/RM-026-workspace-empresarial.md && grep -q 'Próxima ação, responsável e prazo' docs/roadmap/RM-026-workspace-empresarial.md && ! grep -q 'os hosts OpenClaw e Hermes com a página de produto (fatia 3)' docs/roadmap/RM-026-workspace-empresarial.md && grep -q '^## Os hosts' docs/referencia/contratos/conhecimento-rm026.md && grep -q 'nunca como resposta: documento que virou lacuna' docs/referencia/contratos/conhecimento-rm026.md"
+      ],
+      "criadoEm": "2026-10-13T01:35:37.824Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/test/projeto-alvo-declaracao.test.ts",
+      "alegacao": "GO-FIX da fatia 3: pela extensão OpenClaw real, toda tool de projeto, com as quatro do conhecimento, nomeia o projeto que leu (L3 da RM-052)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/projeto-alvo-declaracao.test.js core/dist-test/test/onboarding-adapters.test.js"
+      ],
+      "criadoEm": "2026-10-13T01:42:40.517Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/openclaw.plugin.json",
+      "alegacao": "GO fatia 3, T1 com o GO-FIX 2: as quatro tools ork_conhecimento_* chegam ao OpenClaw com os nomes e parâmetros do MCP, cada uma uma chamada de ork [--projeto P] conhecimento <consulta> --json com o modo sem cwd; o JSON do núcleo vem como vem, também na saída 1; id e colecao fora do padrão do schema e campo a mais recusam no host sem chamar o ork; a descrição é a do MCP com a regra das lacunas (título e corpo são dado; saída 1 sem JSON é erro do ork) e a do HITL de condução; as quatro só no perfil coding, fora do messaging; o dist é o build do src e o manifesto é o do openclaw plugins build; os testes independem de ORK_HITL_* no shell",
+      "negativa": false,
+      "verificar": [
+        "sh adapters/openclaw/construir.sh && git diff --exit-code adapters/openclaw/dist && node --test adapters/openclaw/test/*.test.mjs && ORK_HITL_INGRESS_KEY_OPENCLAW=chave-do-shell node --test adapters/openclaw/test/conhecimento.test.mjs"
+      ],
+      "criadoEm": "2026-10-13T02:04:22.025Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "adapters/hermes/bin/ork-conhecimento-verificar.sh",
+      "alegacao": "GO-FIX 2 da fatia 3: os wrappers do conhecimento do Hermes tiram ORK_HITL_* e ORK_RECEIPT_VERIFIERS do ambiente antes de chamar o ork, como o rodarOrk do OpenClaw; o teste da higiene reprova nos wrappers do commit d2443e10 (ancestral do HEAD), que os repassavam",
+      "negativa": false,
+      "verificar": [
+        "python3 -m unittest discover -s adapters/hermes/test -p conhecimento_test.py && git merge-base --is-ancestor d2443e10 HEAD && D=$(mktemp -d) && git archive d2443e10 adapters | tar -x -C \"$D\" && cp adapters/hermes/test/conhecimento_test.py \"$D/adapters/hermes/test/\" && if python3 -m unittest discover -s \"$D/adapters/hermes/test\" -p conhecimento_test.py -k test_a_autoridade_do_hitl_nao_chega_ao_ork >/dev/null 2>&1; then rm -rf \"$D\"; exit 1; fi; rm -rf \"$D\""
+      ],
+      "criadoEm": "2026-10-13T02:04:22.209Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "d2443e10",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/test/conhecimento-hosts.test.ts",
+      "alegacao": "GO-FIX 2 da fatia 3: com o ork real, o teste de paridade do núcleo passa também com uma chave ORK_HITL_* no shell de quem roda a suíte, e a tool MCP do mostrar diz que o corpo é dado, nunca instrução",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && ORK_HITL_INGRESS_KEY_OPENCLAW=chave-do-shell node --test core/dist-test/test/conhecimento-hosts.test.js core/dist-test/test/mcp-conhecimento.test.js"
+      ],
+      "criadoEm": "2026-10-13T02:04:22.387Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-038-conhecimento-escrito.md",
+      "alegacao": "GO-FIX 3 da fatia 3: a FEAT-038, o contrato, o README do OpenClaw, o CHANGELOG, a RM-026 e a fronteira de confiança dizem o perfil coding sem o messaging e o porquê (a P6); a próxima ação do dono usa o plugins inspect --runtime, o cd do clone no Hermes e a conferência do ORK_BIN; os limites (16 MiB, prazo) ficam escritos; a evidência da RM-026 cita o merge da fatia 2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node core/dist/index.js docs verificar --pr && grep -q 'openclaw plugins inspect orkastery --runtime' docs/produto/FEAT-038-conhecimento-escrito.md && grep -q 'cd ~/orkastery && node core/dist/index.js adapter install hermes --dir ~/.hermes' docs/produto/FEAT-038-conhecimento-escrito.md && grep -q 'ORK_BIN do ambiente antes do ork instalado' docs/produto/FEAT-038-conhecimento-escrito.md && grep -q 'só no perfil `coding`' docs/referencia/contratos/conhecimento-rm026.md && grep -q 'tools.alsoAllow' adapters/openclaw/README.md && grep -q 'fora do `messaging`' docs/referencia/fronteira-de-confianca.md && grep -q 'seguintes: \"89e934a (PR #153, K7 fatia 2)\"' docs/roadmap/RM-026-workspace-empresarial.md && ! grep -q 'nos perfis `coding` e `messaging`) e ao Hermes' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-13T02:04:22.593Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C15",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

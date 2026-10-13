@@ -18,6 +18,7 @@ import { exec } from '../src/util';
 import { criarServidorMcp } from '../src/mcp-server';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { semCodexSandbox } from './ambiente-de-teste';
 
 const ARQUIVO = 'docs/compartilhado.md';
 
@@ -85,7 +86,7 @@ test('defeito 4: lease vencido de thread aberta segue barrando o commit pelo MCP
   } finally { p.limpar(); }
 }));
 
-test('defeito 4: o verify pelo MCP nao trava no main-tree ativo de thread fechada', () => comHomeIsolado(async () => {
+test('defeito 4: o verify pelo MCP nao trava no main-tree ativo de thread fechada', { skip: semCodexSandbox() }, () => comHomeIsolado(async () => {
   const p = projetoTemporario('rm037-f3-lease-mcp-verify');
   try {
     const fechada = novaThread(p.carregado, { nome: 'ship que caiu', modo: 'auto' }).thread.id;
@@ -98,7 +99,7 @@ test('defeito 4: o verify pelo MCP nao trava no main-tree ativo de thread fechad
   } finally { p.limpar(); }
 }));
 
-test('defeito 4 (GO-FIX 2): pelas tools do servidor MCP, o main-tree ativo de thread fechada nao trava artefato nem verify', () => comHomeIsolado(async () => {
+test('defeito 4 (GO-FIX 2): pelas tools do servidor MCP, o main-tree ativo de thread fechada nao trava artefato nem verify', { skip: semCodexSandbox() }, () => comHomeIsolado(async () => {
   const p = projetoTemporario('rm037-f3-lease-mcp-servidor');
   const server = criarServidorMcp({ projeto: p.dir, host: 'codex' });
   const client = new Client({ name: 'fixture-MCP-SIMULADA', version: '1' }, { capabilities: {} });

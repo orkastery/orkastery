@@ -3,8 +3,9 @@ import { strict as assert } from 'node:assert';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { usingFixture, pythonFixture, fixtureEnv, assets } from './native-fixture';
+import { semPostgres } from './ambiente-de-teste';
 
-test('B4 ensaio PostgreSQL sem rede: transacao, recibo integral, ACL, replay e rollback compensatorio', () => {
+test('B4 ensaio PostgreSQL sem rede: transacao, recibo integral, ACL, replay e rollback compensatorio', { skip: semPostgres() }, () => {
   usingFixture(receipt => {
     const r = spawnSync(pythonFixture(), [path.resolve(__dirname, '../../test/memory-native-preparation.py'),
       receipt, assets], { encoding: 'utf8', env: fixtureEnv(), timeout: 60000 });

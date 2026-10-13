@@ -8,8 +8,11 @@
  * nao carregam o perfil do shell, e a mesma maquina apareceria com dois nomes.
  *
  * Precedencia do nome: `--maquina`, `ORK_MAQUINA`, o arquivo, o hostname.
- * Precedencia da adesao: `ORK_FABRICA_COMPARTILHADA` (1 liga, 0 desliga), senao o manifesto do
- * projeto (`fabrica.compartilhada`, para o time que quer em todas as maquinas) ou o arquivo.
+ * Precedencia da adesao: `ORK_FABRICA_COMPARTILHADA` (1 liga, 0 desliga), senao o arquivo.
+ *
+ * RM-047 (fronteira de confianca, P5): o `fabrica.compartilhada` do manifesto vem com o repositorio e
+ * nao liga a publicacao desta maquina. Ele so diz que o time pede a fabrica compartilhada; o `ork`
+ * avisa, e quem liga e a maquina, com `ork fabrica entrar` (ou a variavel de ambiente).
  */
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -59,10 +62,25 @@ export function nomeDaMaquina(explicito?: string | null): string {
   return (explicito ?? '').trim() || (process.env.ORK_MAQUINA ?? '').trim() || lerConfigDaMaquina()?.nome || os.hostname();
 }
 
-/** Esta maquina publica o estado da fabrica deste projeto? */
+/**
+ * Esta maquina publica o estado da fabrica deste projeto (e le o das outras)? Decide a maquina: a
+ * variavel de ambiente ou o `~/.orkastery/maquina.json`. O manifesto nao entra (RM-047, P5); o
+ * parametro fica para quem chama dizer de que projeto se trata.
+ */
 export function fabricaCompartilhada(manifesto: { fabrica?: { compartilhada?: boolean } }): boolean {
+  void manifesto;
   const env = (process.env.ORK_FABRICA_COMPARTILHADA ?? '').trim();
   if (env === '1') return true;
   if (env === '0') return false;
-  return manifesto.fabrica?.compartilhada === true || lerConfigDaMaquina()?.fabricaCompartilhada === true;
+  return lerConfigDaMaquina()?.fabricaCompartilhada === true;
+}
+
+/**
+ * RM-047 (P5): o manifesto pede a fabrica compartilhada e esta maquina nao entrou. Devolve o aviso,
+ * com o comando que liga, ou `null`.
+ */
+export function avisoDaFabricaPedida(manifesto: { fabrica?: { compartilhada?: boolean } }): string | null {
+  if (manifesto.fabrica?.compartilhada !== true || fabricaCompartilhada(manifesto)) return null;
+  return 'fabrica.nao-confirmada: o orkastery.yaml pede fabrica.compartilhada: true, mas quem liga a publicacao ' +
+    'do retrato desta maquina e a propria maquina, nao o repositorio. Nada foi publicado. Para entrar: ork fabrica entrar';
 }

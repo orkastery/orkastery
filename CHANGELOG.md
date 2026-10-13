@@ -8,6 +8,1022 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **CLI em inglês e pt-BR, fatia F3b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): seguem também o
+  locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`,
+  `ork accounts`, `ork network` (fora `network roadmap`), `ork roadmap reservas`, `pegar`, `soltar` e `feat`,
+  `ork docs verificar` e `docs sincronizar`, `ork adapter` e os erros de estado. Com o dono em inglês, o
+  `ork adapter install` copia as skills, as checklists, os comandos e os subagentes em inglês (variantes em
+  `core/assets/*-en/`) para o mesmo destino, e trocar a língua troca no lugar a cópia intacta. O `--json`, o ledger, o
+  `claims.jsonl`, o recibo `INSTALADO.json` e o que o `ork docs verificar` lê nas páginas não mudam; o pt-BR segue igual
+  byte a byte. Ficam em pt-BR, para a F3c, `decisao registrar`, `network roadmap`, `thread new --from-finding` e os
+  prompts de fase. O catálogo vai de 1.020 para 1.653 entradas (cobertura de 25,3% para 39,7%).
+
+- **Ritual do MASTER, mod de papel `dono`, e a nota pelo diálogo nativo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a ferramenta MCP `ork_request_master_note`, só no servidor do dono, recebe só o `threadId`, pede ao host um formulário
+  com a nota de 0 a 5 e o porquê e grava o MASTER com `avaliadoPor` `dono (dialogo nativo)`, o canal do host e o recibo
+  assinado do ingresso local (`ork.hitl-local-master-note/v1`); sem formulário no cliente, recusa com
+  `master.nota.sem-dialogo` sem gravar nada, e a gravação espera até um minuto pela trava da thread. O contrato
+  `ork.master-log/v1` não muda: a nota vale como nota humana em qualquer versão do `ork`, o núcleo confere o recibo ao
+  gravá-la e essa identidade não se digita no `--por`. O aceite por omissão (`ork master --aceitar-omissao`) passa a
+  gravar sob a trava de HITL da thread e não troca a nota humana que chegou depois da listagem; sem thread indicada, a
+  entrega com a trava tomada fica para o próximo aceite. O recibo prova o caminho, não a pessoa: a chave local é legível
+  pelo mesmo usuário do sistema. A seção `master` do retrato do Maestro passa a trazer o regime, o índice derivado do
+  ledger com as parcelas, as reprovações tipadas, as classes e a entrega, inclusive a entrega por artefato
+  (`deliveredArtifact`).
+  `adapters/claude-code/mods/ork-ritual` mostra na sessão do dono as entregas dos últimos 7 dias que esperam a nota
+  (inclusive as aceitas por omissão), a prova de cada uma (o índice, o POSTMORTEM e as claims com comando e estado, uma
+  por vez) e o botão Dar a nota, que chama só a ferramenta da nota; sem diálogo, Pelo Telegram mostra o código do
+  `ork master pedir`. A prova do diálogo pedido por mod fica com o dono (`core/scripts/prova-ritual-nota-nativa.cjs`), e
+  o guia é o [Ritual do MASTER](docs/guias/ritual-do-master.md).
+
+- **Mensageiro de Sessões, mod de papéis `dono` e `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a resposta que o dono dá pelo diálogo nativo da sessão do Claude Code chega à sessão de fase `claude-bg` que parou
+  esperando por ela. O núcleo abre o pedido de sessão `claude-bg` preso ao turno que parou (a transcrição do próprio
+  Claude Code), compõe a mensagem no contrato `ork.session-delivery/v1` e a guarda numa caixa de saída só na memória do
+  servidor MCP do dono (`ork_session_outbox`); o ledger guarda só o sha256. Na sessão do dono,
+  `adapters/claude-code/mods/ork-mensageiro` leva a mensagem por `$.session.send`, com reenvio pela D10 e o painel
+  `/mensageiro`; na sessão de fase, só entra na conversa a mensagem de outra sessão que o núcleo confirma pelo
+  `ork_session_inbox` (o envelope do Claude Code só na forma do motor, reserva uma vez e antes do prazo, mesmo turno,
+  mesmo sha256), só com o corpo conferido e num envelope fixo do Mensageiro, e o resto é consumido antes do modelo.
+  Muda para todos: o despacho `claude-bg` acrescenta `crossSessionInbound: accept` ao `--settings` só com o Mensageiro na
+  sessão e o `ORK_DISPATCH_ID`; a resposta a uma sessão `claude-bg` pelo Telegram, ou sem um Mensageiro vivo na sessão do
+  dono, recusa com `runtime.unavailable` antes de gravar nada. O guia é o `docs/guias/mensageiro-de-sessoes.md`.
+
+- **Conhecimento escrito, fatia 2: o comando e as tools MCP** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
+  `ork conhecimento listar [--colecao C]|mostrar <doc-id>|colecoes|verificar`, todos com `--json`, e as tools
+  `ork_conhecimento_listar`, `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar` no
+  `ork mcp serve`, só leitura, respondem o mesmo JSON do contrato `ork.conhecimento/v1`
+  ([contrato](docs/referencia/contratos/conhecimento-rm026.md)). O `mostrar` traz o corpo, a versão (sha256), a fonte e
+  as referências, com cada id do Brain conferido por `get` no Company Brain: o id que o Brain não tem, o que ele retém e
+  o Brain fora do ar viram lacunas distintas (`referencia.brain-inexistente`, `referencia.brain-retido` e
+  `referencia.brain-indisponivel`), nunca resposta. `listar` e `colecoes` não chamam o Brain nem leem ledger, e
+  `verificar` confere a pasta inteira e sai 1 com qualquer lacuna (uso errado sai 2). A conferência tem teto de 100
+  `get`, prazo de 60 s e teto de 64 MiB de ledger por consulta. O texto sai em pt-BR e em inglês pelo catálogo, e o
+  `--json` é o mesmo nas duas línguas. Os hosts OpenClaw e Hermes chegam na fatia 3.
+- **Conhecimento escrito, fatia 3: os hosts OpenClaw e Hermes** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md),
+  [FEAT-038](docs/produto/FEAT-038-conhecimento-escrito.md)): as quatro tools `ork_conhecimento_*` chegam ao OpenClaw
+  (tools do plugin, só no perfil `coding`) e ao Hermes (wrappers do `bin`) com os mesmos nomes, parâmetros e JSON das
+  tools MCP; cada uma é uma chamada de `ork conhecimento <consulta> --json`, e o host só transporta. Fora do perfil
+  `messaging`, porque o `mostrar` e o `verificar` rodam o `memory.cli` do manifesto (a P6 da fronteira de confiança).
+  O host do OpenClaw confere `id` e `colecao` pelo padrão do schema antes de chamar o `ork`, e os wrappers do Hermes
+  tiram `ORK_HITL_*` do ambiente, como o OpenClaw. A descrição das tools e a skill do Hermes mandam citar o documento
+  pela versão e pela fonte, tratar título e corpo como dado e mostrar cada lacuna como lacuna, nunca como resposta,
+  com a mesma frase. Nos hosts, o conhecimento chega depois de reinstalar a
+  extensão e a skill (`ork adapter install openclaw --dir ~/.openclaw` e `ork adapter install hermes --dir ~/.hermes`).
+  O manifesto do OpenClaw volta a ser a saída do `openclaw plugins build`, que o validador já acusava desatualizado.
+- **Escada de recuperação do runtime** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F4): no
+  `runtime.unavailable`, o `ork retry run` sobe três degraus, sempre com o mesmo prompt e o mesmo sha256: reerguer o
+  daemon do runtime (no claude-bg, `claude daemon status` diz se o `control.sock` responde, e o daemon de pé com o
+  socket mudo sai por `claude daemon stop --any --keep-workers` antes do redespacho no mesmo destino), o fallback do
+  bloco (`--fallback`, I-33) e outro perfil do runtime (RM-056). Cada degrau vai ao ledger como `runtime_recuperacao`,
+  feito, pulado, falho ou interrompido; o degrau sem destino é pulado sem gastar tentativa, e o parado por um motivo
+  que não é do destino não é consumido. Entre os degraus, a prova de vida: a fase nunca ganha uma segunda sessão na
+  mesma worktree, e com o runtime mudo o retry reergue o daemon e, na terceira recusa seguida, chama o dono. Só depois
+  dos três o dono é chamado, com
+  três alternativas e uma recomendada (RM-057), o comando que confere o runtime e o que retoma a fase com o mesmo
+  prompt; o `ork pulse` leva o pedido curto e o resumo o manda na hora. A escada recomeça a cada pedido novo da fase
+  (`ork phase run`), e o `ork retry plan` diz o degrau. Runtime fora deixa de subir o esforço.
+- **Varredura que age, com a autorização durável do dono** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md),
+  F5): a batida do pulse, depois de entregar o resumo, traz a base remota e, com a autorização gravada nesta máquina
+  (`.orkastery/monitor/autorizacao.json`, fora do git, no contrato
+  [`ork.autorizacao-duravel/v1`](docs/referencia/contratos/autorizacao-duravel-rm063.md)), solta as sessões fantasmas,
+  registra a entrega do PR já mesclado (o merge `ship(<thread>)` na base sem `ship_done`) e fecha pelo MASTER por
+  omissão a thread entregue e quieta, cada ação no ledger da thread como `varredura_acao`, com quem autorizou e até
+  quando. Registrar ou fechar por cima de quem trabalha na thread (sessão viva, alteração não commitada, commit ou
+  despacho depois do PR) nunca é automático: a ação fica com o dono, com o motivo e `ork thread status`. Sem
+  autorização, vencida, de outra máquina ou de outro projeto, nada é feito: cada ação vira item da fila do pulse com o
+  comando pronto, e o resumo ao dono mostra a arrumação pendente e o que a varredura fez. O
+  `ork fabrica batida status` diz a autorização em vigor. Em 10/10/2026 o PR #112 ficou dois dias mesclado sem registro.
+- **Máquina ociosa vira alerta** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F6): com vaga livre no
+  projeto (abaixo de `concurrency.max_parallel_threads`) e item do roadmap reservado para esta máquina que ninguém
+  trabalha, o `ork pulse` traz `maquinaOciosa` com as próximas threads sugeridas, até o número de vagas livres, cada
+  uma com o passo e o comando, e a varredura avisa o dono na hora, uma vez por episódio, com o aviso no ledger do
+  projeto (`maquina_ociosa_avisada`).
+
+### Corrigido
+
+- **A skill e o README do Hermes em inglês com o conhecimento escrito** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)):
+  com o dono em inglês, o `ork adapter install hermes` copiava a skill `orkastery-devmaster` e o README sem as linhas do
+  conhecimento escrito (RM-026 K7, fatia 3), que entraram no original em pt-BR no mesmo dia. As duas variantes inglesas
+  recebem essas linhas, traduzidas, e o pt-BR segue igual byte a byte.
+
+- **As esperas que nunca terminam** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o prompt de toda
+  fase, a skill de entrada das duas instalações (`orkastery-bootstrap`), as skills de GO e CHECK, a skill `ork` do
+  Codex e os seis agentes de fase do Claude Code dizem, numa linha só, que verify, build e suíte nunca saem com `&`
+  dentro do comando, que o `ork verify` roda em primeiro plano com `timeout` (ou pela execução em segundo plano do
+  host, que avisa quando termina) e que a espera nunca usa `pgrep -f` com o padrão no próprio comando (espera-se pelo
+  arquivo de saída com prazo, ou pelo PID guardado). O `ork phase run` deixa de contar no
+  `concurrency.max_parallel_threads` a sessão que o runtime mostra parada (`stopped`, `done`, `failed`) ou fantasma no
+  `claude agents --json --all`, consultado só quando o limite recusaria; ausente da lista ou com a leitura falhando, ela
+  segue contando. O teste do `ork pulse --json` nas duas línguas não cai mais quando o minuto vira entre as leituras.
+  Em 12/10/2026, cinco sessões de fase esperaram por processo morto ou por laço que achava a si mesmo, e uma sessão
+  parada com `claude stop` prendia a vaga até a thread fechar.
+
+- **Prazo de cada chamada ao Company Brain** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
+  `memory.timeout_ms` fora da faixa (0, negativo ou fração) passa a valer o padrão de 15 s no transporte do Brain, em
+  vez de esperar sem prazo (0) ou falhar com erro (negativo ou fração). Visto na revisão da fatia 2 do K7.
+
+## [0.5.6] - 2026-10-12
+
+### Adicionado
+
+- **#Noctum, fatia N2: fila local e capacidade** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): o contrato
+  `ork.noctum-envelope/v2` traz a lista fechada de trabalhos do arco (prioridade e dependências do dono, thread que já
+  existe ou pedido para abrir uma, que o dono lê inteiro no resumo que autoriza) e os limites de sessões ao mesmo tempo
+  (máquina, conta, runtime e slots de revisão). `core/src/noctum-fila.ts` escolhe de forma determinística (dependências
+  entregues, item reservado por esta máquina, prioridade, prova mais adiantada da Sentinela, posição e id) e diz quando
+  esperar e quando encerrar, sem chamar lacuna de fila vazia; `core/src/noctum-capacidade.ts` admite um despacho só com
+  projeto, máquina, revisão, conta e runtime ao mesmo tempo; `core/src/noctum-execucao.ts` despacha no máximo um
+  trabalho por passo, sob a trava do kernel, com o envelope conferido e a sessão reservada no orçamento imediatamente
+  antes, só pelo `ork phase run`, e grava fora dessa trava a baseline que o despacho pede. Muda para todos:
+  `ork verify` e a baseline esperam a vez na fila de recursos pesados (`concurrency.max_parallel_heavy`, padrão 1, 0
+  desliga) e, sem ela no prazo, recusam com `fila-pesada.ocupada` e saem com 3 (o `ork verify` espera até `--esperar`
+  ou 60 min; `ork ship`, `ork fix` e a baseline do `ork phase run`, até o `--esperar` deles ou 30 s, com aviso no
+  stderr; o `ork retry`, até 30 s; o MCP, até 20 s); o comando que roda dentro da vez herda a marca da posse, e o
+  `ork verify` aninhado nele não espera a vaga do próprio pai; a
+  sessão com o turno encerrado sem resultado deixa a vaga do `ork phase run` depois de 15 min sem atividade; e o prompt
+  de fase pede verify, build e suíte em primeiro plano, nunca com `&`. O modo continua desligado: `#Noctum` não é
+  aceito e nenhum comando abre ou executa arco.
+- **Design system Partitura no repositório** ([docs/design](docs/design/README.md)): o kit do Claude Design do dono (tokens
+  em `docs/design/partitura/`, marca em `docs/design/marca/`, manual, brand kit, componentes, diretrizes e revisão de
+  copy) entra no repositório, com um README de entrada e um apontamento no `AGENTS.md` para toda sessão que mexer em UI,
+  design, frontend, componentes visuais ou layout. Em conflito, a Partitura vence o `tokens.css` legado.
+- **#Noctum, fatia N1: envelope e estado do arco** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
+  `core/src/noctum-envelope.ts` define o contrato `ork.noctum-envelope/v1` (janela de 6 a 12 h com fuso, destinos com
+  `push`, `pr` e `merge`, teto do arco e subtetos por conta e por runtime com unidade, horário e canal do relatório da
+  manhã) e recusa pedido sem os valores do dono, listando o que falta, teto ilimitado e as ações que nunca entram (tag e
+  publicação, produção, segredos, ação destrutiva, repositório público novo). `core/src/noctum-arco.ts` guarda o estado
+  do arco num log encadeado e com MAC, só aceita autorização e revogação com prova de origem do dono pelo caminho do HITL
+  (Telegram assinado e callback nativo, com recibo durável do canal, ou diálogo nativo do host, na fronteira da conta
+  do sistema) e confere o recibo, o hash, a revogação, a janela e o destino imediatamente antes de cada efeito. O modo
+  continua desligado: `#Noctum` não é aceito e nenhum comando abre arco ainda.
+- **Sentinela do Condutor, mod de papel `dono`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `adapters/claude-code/mods/ork-sentinela` liga só na sessão do dono, mantém pelo núcleo a presença dela nesta
+  máquina (`ork conducao sentinela bater` a cada 60 s; sai no fim da sessão e no `/sentinela pausar`), relê o passo do
+  condutor de cada thread aberta quando um ledger muda e a cada batida, e publica pela ponte a linha da faixa (threads
+  andando, paradas em degraus de tempo, pausada). `/sentinela` mostra o passo de cada thread e o diário. Despacha a
+  fase seguinte das threads #Auto que o núcleo manda despachar, uma vez por turno: relê a condução e o retrato da
+  thread, renderiza o prompt com o pedido guardado e despacha por `ork phase run --canal claude-code --correlacao
+  sentinela:<sessão>`; a recusa que passa (outro condutor, sem vaga, pedido aberto) volta depois de 3 min, com a
+  espera dobrando até 30 min na mesma recusa, e a retomada só roda `ork retry run` quando o `ork retry plan` é
+  automático. A cada 5 min, o que só o dono resolve no `ork pulse --json` vira notificação do sistema, linha no diário
+  e conta na faixa, uma vez por texto e com o próximo passo do núcleo (em #Auto, nunca o pedido de gate); o que foi
+  mostrado entra no registro da ponte, para o Telegram não repetir.
+- **Condução pela Sentinela no núcleo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `ork conducao sentinela status --json` (`ork.conducao-sentinela/v1`) diz se a Sentinela do Condutor está ligada nesta
+  máquina (canal `claude-code`, sessão, batida e prazo de 3 min) e dá o passo do condutor em cada thread aberta, com as
+  leituras do pulse, sem o limiar de 30 min e sem a forja; no #Auto, sai a fase seguinte à prova mais adiantada que a
+  sessão do bloco deixou (artefato gravado depois do despacho, produto na branch, `ship_done` ou `master_done`), nada sai
+  depois de um bloco que passou do CHECK, e a pendência do dono segura tudo. `bater` e `desligar`
+  mantêm a presença, uma por máquina, com `sentinela_ligada` e `sentinela_desligada` no ledger do projeto só na troca.
+  O guia `docs/guias/conducao-pela-sentinela.md` diz ao condutor externo como ceder o despacho enquanto ela conduz.
+- **Publicação provada da branch e do PR** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `ork ship publicar <thread>` (`ork.ship-publicar/v1`) publica a branch da thread e abre o PR pelo núcleo, só no modo
+  que já autoriza o push (#Auto e #Maestro). Antes de qualquer efeito confere a thread aberta, ninguém conduzindo, a
+  branch com produto, o CHECK com veredito PASSOU depois do último commit de produto, o último `ork verify` verde no
+  HEAD (ou só o bundle depois dele), o bundle `.ork-ci/<thread>.json` com as claims ativas e os comandos delas, o remoto do GitHub e os
+  PRs da branch; a recusa antes de qualquer efeito volta com motivo tipado e não grava nada. Empurra sem força o sha
+  conferido, prova pelo `git ls-remote`, reaproveita o PR aberto ou abre um com o texto do `pr-body.md` da thread
+  (título `ship(<thread>): ...`) e grava `ship_published`, também para o push que ficou sem prova; repetido, ou com o
+  PR já mesclado no HEAD, responde `ja-publicada`. Não aceita `--autorizar-push`: nos outros modos o push é do
+  dono, e a correção diz o comando dele. `ork ship pista --json` (`ork.ship-pista/v1`) dá, por thread aberta na
+  entrega, as etapas (CHECK, verify, bundle, branch, PR, CI, conflito e `ship_done`) e o próximo passo com a ação
+  que o núcleo declara disponível. A leitura dos PRs do pulse passa a trazer o estado de merge do PR aberto, e a prova
+  do push pelo `git ls-remote` passa a valer só pela ref exata, também no `ork ship`.
+- **Pista de Entrega, mod de papel `dono`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `adapters/claude-code/mods/ork-pista` liga só na sessão do dono e abre com `/pista [thread]` (a Torre abre a Pista
+  assim) um painel com uma pista por entrega: as oito etapas do `ork ship pista --json` (CHECK, verify, bundle, branch,
+  PR, CI, conflito e `ship_done`), o texto do núcleo em cada uma que falta e o próximo passo com o comando dele, no
+  terminal e no desktop. Relê a pista fora do desenho, uma leitura por vez, quando um ledger muda, quando o retrato da
+  ponte diz que uma entrega andou e por idade; publica na faixa só o que pede o dono e registra pela ponte o que o
+  painel à vista mostrou, para o Telegram não repetir. Botão só com a ação que o núcleo declara disponível: Publicar
+  (`ork ship publicar`, só em #Auto e #Maestro) e Registrar a entrega (`ork ship registrar-pr`); o clique relê a pista
+  da thread antes de valer, roda o argv do próprio mod (nunca `git` nem `gh`) e deixa o resultado na pista. Fora de
+  #Auto e #Maestro, só o comando para o dono. O CI acompanha o evento do GitHub que a sessão recebe (`session.receive`,
+  fonte `github`, só pelos campos asseridos) como gatilho da consulta `ork ci status --sha <head> --json`, com reserva
+  a cada 2 min à vista e 10 min escondido; o conteúdo do evento nunca vira estado, e a consulta que falha não apaga o
+  que o núcleo leu. O guia `docs/guias/pista-de-entrega.md`
+  diz ao condutor externo como trocar a publicação crua pelo `ork ship publicar`.
+- **CLI em inglês e pt-BR, fatia F3a** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): o que o CLI escreve em
+  arquivo nasce na língua do dono no momento da geração (`owner.language` ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou `LANG`
+  em `en`): os comentários do `orkastery.yaml` e o bloco do `AGENTS.md` do `ork init`, o bloco da experiência que
+  `ork adapter install` põe no `CLAUDE.md` (ou no `AGENTS.md` do Codex) e os sete arquivos do `ork docs init`, que passa
+  a imprimir em inglês também. Chaves, valores e marcadores não mudam, nem o que o `ork docs verificar` lê nas páginas
+  (frontmatter, nomes das seções e a linha `Em uma frase` seguem em pt-BR); o pt-BR segue igual byte a byte. Rodar
+  `ork init` de novo regrava o bloco do `AGENTS.md` na língua do momento, e o bloco da experiência é reconhecido nas
+  duas línguas na reinstalação e na remoção. A referência do CLI ganha a versão em inglês,
+  [`docs/referencia/cli.en.md`](docs/referencia/cli.en.md), ligada à de pt-BR e conferida por teste. O catálogo vai de
+  835 para 877 entradas.
+- **Conhecimento escrito, fatia 1: o contrato e a leitura** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
+  o bloco `conhecimento: { dir }` do `orkastery.yaml` declara uma pasta de documentos Markdown no contrato
+  `ork.conhecimento/v1` ([contrato](docs/referencia/contratos/conhecimento-rm026.md)), com frontmatter fechado: `id`
+  (`doc-...`), `titulo`, `colecoes` e `referencias` a ids do Brain e a decisões `thread#linha` do ledger. O núcleo lê a
+  pasta e devolve os documentos válidos, as coleções e as lacunas tipadas: documento inválido ou referência que não
+  confere nunca entra na resposta. A decisão confere no ledger canônico da thread, com a fonte e o sha256 da linha que a
+  captura do Brain grava; o id do Brain confere só pela forma até a fatia 2. A pasta segue a fronteira da RM-047: fica
+  dentro da raiz pelo caminho real, link não é seguido e nada é executado. Ainda sem CLI pública nem tools MCP (fatias
+  2 e 3); projeto sem o bloco segue igual.
+- **Batida da fábrica instalada e vigiada pelo `ork`** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F1):
+  `ork fabrica batida instalar|status|remover`. O `instalar` põe no crontab desta máquina, de forma idempotente, a
+  linha do template `monitor/pulse.cron` com o checkout canônico (`ORK_PULSE_PROJECT`), o PATH que acha `node`,
+  `claude` e o transporte, e a marca `# ork-batida`; preserva as outras entradas, nunca grava sem ler e confere
+  relendo. O `remover` tira só a linha marcada; o `status` diz a linha e a última rodada do `hitl.log`, com a idade,
+  e sai 1 sem a batida. Os eventos novos `batida_instalada` e `batida_removida` vão ao ledger da máquina
+  (`~/.orkastery/ledger.jsonl`). O crontab é lido como o cron e o `sh` o leem (linha de ambiente que vale para as
+  entradas seguintes, aspas, `~` e `$HOME`), e o que mudou entre a leitura e a gravação não é sobrescrito. O
+  `ork doctor` passa a reprovar quando o projeto tem thread aberta e não há batida deste projeto, com ou sem
+  `pulse-host.json`, com a correção `ork fabrica batida instalar`; uma rodada de até 30 min no `hitl.log` prova a
+  batida de outro agendador. Antes, sem transporte, ele calava, e o maquina-b ficou de 03/10 a 12/10/2026 sem varredura.
+
+### Corrigido
+
+- **Superfícies honestas: "sigo" só com sessão viva** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F2): o
+  `ork roadmap status` (o fecho "O que eu faço em seguida", também no MCP e na visão da rede) só diz `sigo <thread> na fase <F>` com a sessão viva verificada no runtime (`claude agents --json --all` de cada conta e os rollouts do
+  Codex) ou com o processo do condutor conduzindo agora; sessão fantasma, despacho falho e nenhuma sessão viram
+  `<thread> parada desde HH:MM: <motivo>`. O "O que precisa de você" lê a mesma fila do `ork pulse`
+  (`precisaDeHumanoAgora`, sem forja e sem registrar) e nunca diz "Nada agora" com item do dono nela, nem com a fila
+  lida pela metade; o campo aditivo `filaDoDono` leva os itens no `--json`. O `ork fabrica` e o `FABRICA.md` ganham a
+  coluna da sessão de cada thread (`viva` ou `parada desde HH:MM`), publicada no retrato (`sessao`, opcional). Em
+  12/10/2026 o status disse "Nada agora" e "sigo" com o despacho da K7 morto e o pulse contando 3.
+- **Retry que sempre tem o prompt** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F3): o `ork phase run`
+  grava o prompt e o evento `phase_prompt_recorded` (prompt e sha256) antes de chamar o adaptador; a falha seca do
+  adaptador e a exceção dele viram `gate_blocked runtime.unavailable` com o prompt e o sha256. O `ork retry run`
+  acha o prompt pelo despacho da sessão do gate, pelo próprio gate ou pela tentativa mais recente da fase, localiza o
+  arquivo pelo sha256, só dentro do projeto (o caminho gravado da worktree não resolvia do checkout), e redespacha o
+  mesmo sha256 sem pedir o texto. Antes de redespachar, confere no runtime que nenhuma sessão viva trabalha na thread
+  (o `claude --bg` lento devolve erro com a sessão aberta): com ela, ou sem resposta do runtime, nada sai e a tentativa
+  não conta. Antes saía com "não há despacho falho registrado em GO com prompt gravado".
+- **Portão de Tarefas, o segundo mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `adapters/claude-code/mods/ork-portao` faz do quadro de tarefas do Claude Code, na sessão de fase do GO, o quadro
+  do plano: a tarefa só entra apontando uma tarefa do plano com `touch_paths` e verify, e só fecha com a conferência
+  do núcleo aprovada (`ork claims conferir --tarefa`, no sandbox do verify), nunca com o verify rodado pelo mod. Plano
+  sem nenhuma tarefa assim não ganha portão. Com agent teams no piloto, o teammate ocioso recebe a próxima tarefa
+  cuja região está livre: sem lease `path:` ativo de nenhuma thread no caminho (lidos de todas as threads pelo
+  `ork maestro --json`, página a página; leitura incompleta deixa o teammate ocioso) e sem cruzar as tarefas dos
+  outros teammates; o Portão não toma lease. O manifesto ganha `runtime.agent_teams`
+  (`ligado`, `teammates`, `custo_usd`), desligado por padrão: ligado, o despacho do GO com o Portão na sessão passa
+  `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` e os dois tetos, que o Portão aplica no nascimento de teammate e na entrega
+  de tarefa.
+
+## [0.5.5] - 2026-10-12
+
+Não publicada no npm; o conteúdo saiu na 0.5.6.
+
+### Adicionado
+
+- **Item novo de roadmap, RM-062: repositório público sem dado privado** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)):
+  nada privado do dono entra em repositório público, nem em linha, nem em nome de arquivo, nem em JSON de evidência.
+  Quatro fatias: barreira no CI do núcleo e dos sites (padrões genéricos mais uma lista local fora do git), a mesma
+  barreira no `ork verify` e no `ork ci prepare`, nome genérico de máquina na evidência de rede e o relatório honesto de
+  quando algo escapou. Só a página e o registro no índice; o código das fatias vem depois.
+- **Freio de Lote, o primeiro mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `adapters/claude-code/mods/ork-freio` acha, a cada lote de ferramentas da sessão de fase, os arquivos que o lote
+  mexeu (inclusive por `Bash`, pela diferença do `git status`) e as claims da thread que os citam, pede ao núcleo a
+  conferência delas em segundo plano (`ork claims conferir`, no sandbox do verify) e devolve o que quebrou no lote
+  seguinte, com o id da claim, o comando e o fim da saída; também avisa o lote que mexeu fora dos `touch_paths` do
+  plano. Nunca roda comando de claim, nunca grava estado de claim e nunca para o laço: o `ork verify` continua sendo
+  quem verifica. Vai às sessões de fase pela distribuição dos mods e ao marketplace próprio pelo gerador; sem um
+  `ork` com `claims conferir`, avisa uma vez que a conferência está indisponível.
+- **CLI em inglês e pt-BR, fatia F2a** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): `ork doctor` inteiro, o
+  erro de `ork init` fora do repositório, `ork onboarding` (pauta, `show`, `set`, `reset`), `ork experiencia show`,
+  `ork thread new`, `ork thread status`, `ork phase list`, o resumo de `ork phase run` e a ajuda (`ork --help` e a ajuda
+  por comando) saem em inglês quando `owner.language` ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou `LANG` pedem `en`. O pt-BR
+  segue igual byte a byte; o `--json`, o ledger, o `thread.json` e os prompts não mudam com a língua. Erro do validador
+  do manifesto, do regime de memória e de estado durante a gravação segue em pt-BR até a F2b.
+  `core/scripts/contar-mensagens-de-saida.cjs` mede a cobertura do catálogo (de 92 para 382 entradas).
+- **CLI em inglês e pt-BR, fatia F2b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): `ork verify` (com
+  `--baseline`), `ork ship`, `ork ship registrar-pr`, `ork pulse`, `ork master` (o índice, `--aceitar-omissao` e
+  `master pedir`), `ork retry plan`, `ork retry run` e `ork roadmap status` saem em inglês quando `owner.language` ou o
+  locale pedem `en`. O pt-BR segue igual byte a byte; o `--json`, o ledger, o MASTER log e os demais arquivos gravados
+  não mudam com a língua: o texto que o comando monta e grava nasce em pt-BR, e só a impressão o remonta. Motivo
+  tipado, ação e código saem iguais nas duas línguas. O catálogo vai de 389 para 835 entradas.
+- **Mods de papel `fase` nas sessões de fase, conferidos contra o recibo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  o despacho `claude-bg` passa um `--plugin-dir` por mod de `adapters/claude-code/mods/` que declara o papel `fase` no
+  `orkastery-mod.json` (`ork.mod/v1`), depois do plugin do Orkastery, quando a pasta instalada tem exatamente os arquivos
+  do `INSTALADO.json` e o `claude --version` atende o `claudeCodeMinimo` do mod e o 2.1.287 da API de mods. Arquivo a
+  mais, link ou declaração inválida recusa o despacho com `runtime.context.installation`; mod que pede versão mais nova
+  fica de fora e o despacho segue, e o mod que depende dele sai junto. O arquivo comum da raiz de `mods/` (a lista de
+  autoridade da ponte) também precisa estar no recibo. O `ork adapter install claude-code` tira da cópia o arquivo de
+  mod que saiu do catálogo. Sem mods, o comando é o de antes.
+- **Mods no marketplace próprio, pelo gerador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `node core/scripts/gerar-marketplaces.cjs` copia cada mod de `adapters/claude-code/mods/*/orkastery-mod.json` para
+  `marketplaces/claude-code/mods/<mod>/`, com os arquivos comuns da raiz de `mods/` dentro de cada cópia, e põe o mod no
+  `.claude-plugin/marketplace.json` com `source` na cópia. O `--verificar` confere a declaração, o manifesto, o
+  `hooks/hooks.json` e a cópia em dia. A pasta do diretório da Anthropic segue sem mods e sem hooks.
+- **Job dos mods no CI e canário de eventos** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)): o job
+  `mods` instala o Claude Code 2.1.296 fixado pelo npm, sem credencial nem chave de API, e roda
+  `node core/scripts/canario-eventos-mods.cjs --com-plugin`: `claude plugin validate --strict` e `claude plugin test` em
+  cada mod e a busca, no binário, de cada evento e chamada de `$` que os mods usam, com um nome de controle que precisa
+  ficar ausente. Medido: os builds 2.1.288 e 2.1.289 reprovam (sem `ui.notify`) e o 2.1.296 aprova.
+- **`ork claims conferir`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)): reexecuta só as claims
+  pedidas (`--claims C3,C7`) ou o verify de uma tarefa do plano da thread (`--tarefa T2.1`, quando ele é um comando só
+  entre crases) no sandbox do `ork_verify`, na worktree da thread registrada no git do projeto, sob a condução da
+  thread e sem gravar recibo; `--json` devolve `ork.claims-conferencia/v1`, com prazo total de 180 s (teto de 600 s).
+  No sandbox, processo filho do node falha: teste que cria processo pode reprovar ali e passar no `ork verify`.
+- **Pedido guardado na criação da thread** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `ork thread new --pedido "<texto>"` guarda o pedido em `pedido.md`, com o sha256 no `thread.json` e no
+  `thread_created`, e o `ork prompt render` sem `--pedido` usa esse pedido, conferido pelo sha256. Thread sem pedido
+  guardado segue como antes.
+- **Fundação dos mods no Claude Code, lado do adaptador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a ponte `ork-ponte` (`adapters/claude-code/mods/ork-ponte`) acrescenta ao `$` dos mods o noun `$.ork`, com o papel
+  da sessão (`dono`, `fase` ou `dormente`), o retrato do núcleo pelo `ork_maestro` com reserva numa lista fechada de
+  consultas `--json` do CLI, a faixa acima do prompt e os `watchPaths` com dono único, e o registro do que um mod
+  mostrou ao dono (`ork.mod-mostrado/v1`). A regra de autoridade (nenhum mod aprova gate, permissão, nota do MASTER,
+  push ou tag pelo dono, nem fala como o dono) mora em `adapters/claude-code/mods/autoridade.json` e tem duas guardas:
+  `node core/scripts/checar-mods.cjs` reprova o mod pelo fonte, e a ponte recusa em tempo de execução. O script
+  `core/scripts/prova-mods-sessao-de-fase.cjs` prova se um mod carrega numa sessão `claude --bg`; o veredito fica com
+  quem conduz.
+- **Clima de Cota no Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md), onda 1): o mod
+  `ork-clima` (`adapters/claude-code/mods/ork-clima`), na sessão do dono, lê as janelas de limite da conta a cada
+  medição do motor (`session.measure`), guarda a série e prevê quando cada janela acaba no ritmo atual. Na faixa da
+  ponte, só no alerta, aparece algo como `não cabe: ork-x; 5 h com 80% ou mais, acaba ~16:45, renova 17:00`, com a
+  retomada da fila que cai entre o esgotamento e a renovação na frente; o `/clima` mostra cada janela, a fila de
+  retomada, as threads abertas paradas por cota e as contas do registro (`ork accounts esgotamentos`), com o que o
+  núcleo já sabe fazer. O Clima só lê e avisa: troca de conta, de runtime ou de modelo fica com o núcleo e com o dono.
+- **Torre de Controle no Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md), fatia F1):
+  o mod `ork-torre` (`adapters/claude-code/mods/ork-torre`), sobre a ponte, abre na sessão do dono um painel com cada
+  thread aberta numa linha: o trilho das seis fases, o modo, quem conduz e desde quando, o bloqueio tipado numa frase
+  curta, os pedidos ao dono e a ação que o estado da thread pede, entre as que o núcleo declara. `/torre` abre o
+  painel; sozinho, ele só abre no fullscreen e nunca depois que o dono o fecha. Apertar a linha abre o detalhe (sessões, últimos eventos, claims com estado e as leituras de estado,
+  observação e git). Ação com efeito nunca roda pela Torre: abre o mod dono dela pelo comando dele, quando ele está
+  carregado, ou aparece como o comando do `ork` para o dono rodar. As threads das outras máquinas entram quando a rede
+  é lida, a linha da faixa sai pela ponte e o que o painel mostrou na tela entra no registro da ponte, para o Telegram
+  não repetir.
+- **Radar de Colisão no Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md), fatia F3):
+  o mod `ork-radar` (`adapters/claude-code/mods/ork-radar`), sobre a ponte, calcula na sessão do dono, a cada 10 min e
+  no `/radar`, o merge de cada thread aberta contra a `origin/main` local e entre as threads, antes do SHIP, sem
+  worktree e sem gravar objeto no repositório: os SHAs saem do `git ls-remote` e cada par roda
+  `git merge-tree --write-tree` com os objetos novos num temporário e os do repositório como alternativo. O `fetch`
+  continua com o núcleo; a base diferente do remoto aparece com os dois SHAs. O painel mostra o mapa de calor (`Raster`
+  no terminal, tabela nas outras superfícies), os arquivos em conflito, o lease `path:` que cobre cada um e o comando
+  `ork worktree sync <thread> --dry-run` que resolve, como texto. A colisão nova vira uma linha na faixa pela ponte, e
+  o que o dono viu entra no registro da ponte, para o Telegram não repetir.
+- **Mesa do Dono no Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md), fatia F5): o
+  mod `ork-mesa` (`adapters/claude-code/mods/ork-mesa`), sobre a ponte, junta na sessão do dono tudo que espera por
+  ele. `/mesa` abre um painel com o lote de até cinco perguntas, cada uma com a recomendada na frente, o porquê e a
+  consequência das outras alternativas; as decisões que a fábrica tomou por ele na semana, com como mudar e o custo de
+  reverter agora e depois; e as paradas, só leitura. O botão Decidir só pede ao núcleo o diálogo nativo do host
+  (`ork_request_decision`, com o `threadId` e o `pedidoId`), e o código e a letra para o Telegram ficam sempre à
+  vista. A Mesa só decide pelo dono pela decisão autônoma do núcleo (`ork_decision_record`), quando o pedido passa no
+  mesmo teste das quatro condições do núcleo, e nunca responde um pedido. A prova de que o diálogo abre quando o
+  pedido vem de um mod fica com o dono: `core/scripts/prova-mods-dialogo-nativo.cjs` e
+  `docs/roadmap/evidencias/mods-dialogo-nativo.md`.
+- **CLI em inglês e pt-BR** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): nova página do
+  roadmap, em desenvolvimento, com a decisão do dono de 12/10/2026 de que o CLI fala inglês e pt-BR. A
+  língua vem de `owner.language` e, sem ela, de `LC_ALL`, `LC_MESSAGES` e `LANG`; o pt-BR fica idêntico
+  byte a byte, o `--json` não muda com a língua e as datas seguem o locale. Fatias: F1, a prova de
+  conceito do #113 (`doctor`, `init`, catálogo tipado e datas), já mesclada; F2, o caminho da primeira
+  experiência; F3, o resto do CLI, os arquivos gerados e a referência em inglês. A entrada é só
+  documentação.
+- **Decisões do dono no modo #Noctum** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): em 12/10/2026 o
+  dono decidiu D1 a D4 (entrega com push, PR e merge no SHA exato; piloto local e depois em duas
+  máquinas; janela de 6 a 12 h com vigia externo a cada 5 min; vários perfis e runtimes de assinatura
+  com teto e subtetos). Continuam pendentes a prioridade final, o horário e o canal do relatório e os
+  valores do teto; o item segue em Refinamento até o dono autorizar o primeiro piloto.
+- **Verify ciente do steal e registro de instabilidade** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 6):
+  - o `ork verify` (CLI, MCP e CHECK-REVERIFY) mede o steal da CPU no `/proc/stat` na rodada e na janela de cada
+    comando e grava a medida no `verify_run` (`steal`, e `stealPct` em cada comando que falha);
+  - a reprovação só de teste com relógio (estouro de prazo do `node --test`, ou entrada vigente do registro) sob steal
+    acima de 40% vira `verify.timeout`, que o retry reexecuta, e nunca `verify.regression`; asserção comum continua
+    regressão, sem `/proc/stat` nada é atenuado e o `ork ci run` não atenua;
+  - `core/instabilidade.json`, contrato `ork.instabilidade/v1` ([contrato](docs/referencia/contratos/instabilidade-rm037.md)),
+    nasce vazio e só aceita entrada com a taxa medida e revalidação em até 30 dias;
+  - o `testeQueCaiu` do ledger lê a seção "failing tests" do reporter `spec` do `node --test` 24, que antes saía vazio.
+- **O `ork roadmap status` diz quando uma thread fora do roadmap espera você** ([RM-049](docs/roadmap/RM-049-lancamento.md), R3):
+  no ensaio, uma thread sem item do roadmap esperava o dono por `runtime.workspace-untrusted`, e o relatório dizia
+  "O que precisa de você: Nada agora" enquanto o `ork pulse` dizia "Precisa de humano agora: 1". Pela alternativa (a)
+  da decisão do dono, o fecho ganha a linha "Fora do roadmap: N thread(s) esperam você (ork pulse)", só quando há, e o
+  `--json` o campo opcional e aditivo `foraDoRoadmap`. Sem thread fora do roadmap esperando, a saída fica igual byte a byte.
+
+### Alterado
+
+- **Requisito de linguagem simples no HITL por alternativas** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md)):
+  todo passo que depende do dono chega como pergunta com 3 alternativas e uma recomendada, em linguagem simples, sem lista
+  de comandos crus e sem termo técnico sem explicação (o caso: o comando de uma tag mandado sem dizer o que é uma tag).
+  A recomendada, quando possível, é a que o dono responde com uma palavra e a fábrica executa o resto com a autorização dele.
+- **Teto do `test` no verify deste repositório** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  o `orkastery.yaml` do projeto passa a dar 40 min ao comando `test` (`verify.timeout_ms_por_comando.test`),
+  porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba CPU. O `build` e os
+  outros comandos seguem no prazo padrão.
+- **No #Fast, o ship sem `--autorizar-push` não desconta o índice** ([RM-049](docs/roadmap/RM-049-lancamento.md), EN8):
+  o `ship_blocked` com `human.pending` de uma thread #Fast é a pausa prevista do modo, como o `ork ship --dry-run`
+  barrado, e deixa de entrar no índice derivado do MASTER (era 4.75/5, `ship_blocked x1`). Fora do #Fast, ou com
+  outro motivo, o desconto segue. Decisão do dono, alternativa (a) do recibo do ensaio em inglês.
+
+### Segurança
+
+- **Postura de sandbox e procedência do estado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md),
+  P1 a P5 da [fronteira de confiança](docs/referencia/fronteira-de-confianca.md)). Patch de segurança, por decisão do
+  dono (S1 a, 11/10/2026).
+  - **Muda para quem já usa** (uma vez em cada máquina): com `runtime.sandbox: danger-full-access`, rode
+    `ork setup sandbox confirmar danger-full-access`; com `.orkastery/` versionado, `git rm -r --cached .orkastery`;
+    com `worktree.dir` fora da raiz, `ork setup worktree confirmar`; com a fábrica ligada só pelo manifesto,
+    `ork fabrica entrar`; com o `ork` instalado rodando `ork eval` num checkout do Orkastery, `node core/dist/index.js eval`.
+    Quem usa `.claude/worktrees`, `workspace-write`, estado fora do índice e `ork fabrica entrar` não percebe mudança.
+  - o `runtime.sandbox` que afrouxa o sandbox do agente (`danger-full-access`) só despacha pelo Codex depois de a
+    máquina confirmá-lo com `ork setup sandbox confirmar <postura>`, gravado em `.orkastery/private/postura-local.json`
+    (0600, fora do git, só para este checkout). Sem isso, `ork phase run` e `ork retry run` recusam com
+    `runtime.sandbox-nao-confirmado`, e o `ork doctor` acusa. **Muda para quem já usa `danger-full-access`:** rode o
+    comando uma vez em cada máquina;
+  - estado de `.orkastery/` rastreado pelo git não escolhe cwd, worktree nem executável (`estado.rastreado`), e o cwd
+    de git e agente vindo do `thread.json`, do ledger ou da fila só vale na raiz do projeto ou numa worktree do
+    `git worktree list` do repositório (`estado.worktree-nao-registrada`). Vale para despacho, retomada, verify, claims,
+    GO-FIX, prova do GO, handoff, liveness, `ci prepare` e `ork worktree audit|release`. **Muda para quem versiona o
+    `.orkastery/`:** tire o estado do índice (`git rm -r --cached .orkastery`);
+  - o transporte do pulse e do digest só vale do `pulse-host.json` e do `master-host.json` locais, arquivos comuns
+    fora do índice do git (`transporte.rastreado`);
+  - os ponteiros do `ork recall`, do `ork handoff recall` e do `ork handoff export` (o `location` do `handoff.json`,
+    o arquivo de uma claim, o prompt de uma sessão, o handoff e a lição vindos da memória) só leem arquivo que, pelo
+    caminho real, fica na raiz do projeto ou na worktree registrada da thread. O recall recusa com
+    `ponteiro.fora-da-raiz`, e o export deixa de apontar para fora;
+  - o `worktree.dir` do manifesto que leva para fora da raiz pelo caminho real (`..`, caminho absoluto, link no
+    caminho ou `.git`) só cria worktree depois de a máquina confirmar a pasta com `ork setup worktree confirmar`,
+    gravado em `.orkastery/private/worktree-local.json` (0600, fora do git, só para este checkout e esta pasta). Sem
+    isso, a criação recusa com `worktree.dir-fora-da-raiz`, e o `ork doctor` acusa. **Muda para quem já usa worktree
+    fora da raiz:** rode o comando uma vez em cada máquina; as worktrees que já existem seguem valendo;
+  - o `ork eval` só executa o catálogo (canários, hooks e `core/dist`) do pacote que está rodando. Um diretório com
+    `skills/`, `references/` e `eval/` achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio`.
+    **Muda para quem roda o `ork` instalado dentro de um checkout do Orkastery:** use o `ork` do checkout
+    (`node core/dist/index.js eval`), como o CI já faz;
+  - o `fabrica.compartilhada: true` do manifesto não liga mais a publicação do retrato desta máquina (threads, nome,
+    host) no remoto do clone, nem a leitura das outras máquinas: só a adesão da máquina liga (`ork fabrica entrar`,
+    em `~/.orkastery/maquina.json`, ou `ORK_FABRICA_COMPARTILHADA=1`). Com o pedido no manifesto e sem a adesão, o
+    `ork doctor` e o `ork fabrica` avisam com `fabrica.nao-confirmada`. **Muda para o time que ligava a fábrica só
+    pelo manifesto:** rode `ork fabrica entrar` uma vez em cada máquina.
+- **Fronteira de confiança do repositório clonado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
+  auditoria de cada chamada de processo e de cada caminho montado com dado do clone em `core/src`, com a matriz em
+  [docs/referencia/fronteira-de-confianca.md](docs/referencia/fronteira-de-confianca.md). Corrigido:
+  - o `mergeSha` e o `para` de um `ship_done` do ledger só chegam ao `git log` da detecção de reversão como sha
+    hexadecimal e nome de branch, depois de `--end-of-options`; antes, um ledger versionado no clone passava uma
+    opção ao git em `ork master` e `ork ship`;
+  - `ork docs sincronizar` não cai mais na base crua do manifesto quando ela não resolve, e o sha do ledger e o
+    commit do frontmatter só vão ao git como sha hexadecimal;
+  - o manifesto recusa `worktree.base_branch` que o git não aceita como nome de branch (começa com `-`, tem `..`);
+  - o manifesto recusa `memory.cli` relativo: vale nome procurado no PATH, como `orkmind`, ou caminho absoluto. A
+    sonda do OrkMind (inclusive a do `ork doctor`) ignora entradas relativas do PATH e shebang com interpretador
+    relativo, e o `ork brain` roda o executável com cwd no `$HOME`, não na raiz do clone;
+  - `.orkastery`, `.orkastery/threads` e a pasta de uma thread como link simbólico recusam com `estado.link`, e o
+    append do ledger, das claims e do board usa `O_NOFOLLOW`; antes, um link versionado levava a escrita para fora
+    da raiz;
+  - o id de uma rodada de auditoria lido do `run.json` precisa ser um nome simples (`audit.rodada-invalida`).
+  - O SECURITY.md passa a listar todos os comandos declarados que o `ork` executa (inclusive `verify.preparo`,
+    `ci.command`, `.ork-ci/` e `doneWhen`). Cinco itens que exigem mudar comportamento aceito hoje ficam na matriz
+    como pendentes do dono.
+
+### Corrigido
+
+- **Prova de mod em sessão de fase** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `core/scripts/prova-mods-sessao-de-fase.cjs` abre a sessão de sonda com `--strict-mcp-config`, como o despacho de fase;
+  sem a flag, a sessão parava na aprovação do MCP do projeto e a prova saía inconclusiva. Veredito da T0.1: o mod carrega
+  numa sessão `claude --bg` e recebe `classic.PostToolBatch`.
+- **Nome de máquina do dono fora do repositório público** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)):
+  o arquivo de evidência da RM-040 foi renomeado para `docs/roadmap/evidencias/RM-040/maquina-b-2026-10-03.json`, e o
+  hostname de uma máquina do dono, que aparecia em recibos, páginas do roadmap, contratos, comentários e bundles de
+  claims, virou `maquina-b`; caminhos de home de exemplo passaram a `/home/usuario`. O nome antigo continua nos commits
+  anteriores, porque o histórico não é reescrito.
+
+## [0.5.4] - 2026-10-12
+
+Não publicada no npm; o conteúdo saiu na 0.5.6.
+
+### Adicionado
+
+- **Quickstart até a primeira thread em `#Fast`** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  `docs/comecar/quickstart.md` ganha o atalho do menor ciclo completo, de `ork thread new --modo fast` a
+  `ork master`, com a saída para `runtime.workspace-untrusted` e para o `human.pending` do `ship`; um teste confere os comandos.
+- **Que página do site uma mudança deixa para revisar, e a medida do piloto de contribuição** ([RM-050](docs/roadmap/RM-050-guia-de-contribuicao.md)):
+  `node core/scripts/checar-fontes-do-site.cjs --snapshot <docs-sources.json>` compara o checkout com o snapshot de fontes
+  do site e lista, por página, as fontes mudadas, novas e removidas; com `--base <ref>`, só o que a mudança tocou desde
+  que saiu da ref. Sai 0 em dia, 1 com fonte a revisar e 2 com erro. `node core/scripts/medir-piloto-de-contribuicao.cjs`
+  mede pelo `gh api` os PRs de fora desde a publicação do guia, a conclusão da primeira execução do CI de cada um e o
+  critério de dois PRs mesclados sem ajuda; lacuna da coleta reprova em vez de virar zero. O guia de documentação passa
+  a explicar o catálogo dos dois sites, e a triagem, a medida.
+- **Roadmap: condução dentro do Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  página nova do item que leva a condução da fábrica para a sessão do Claude Code com dez mods (Freio de Lote,
+  Sentinela do Condutor, Torre de Controle, Mesa do Dono, Portão de Tarefas, Clima de Cota, Pista de Entrega,
+  Ritual do MASTER, Mensageiro de Sessões e Radar de Colisão), em quatro ondas, com as decisões do dono, os
+  riscos e as métricas pelo ledger. Só documentação: nenhum mod existe ainda.
+- **Roadmap: site como produto** ([RM-060](docs/roadmap/RM-060-site-como-produto.md)): página nova do item que
+  trata os dois sites públicos como produto, com seis fatias (código que não quebra, quickstart, mesma regra
+  no site do OrkMind, docs e home por versão, CI e prévia de PR) e a regra de que nada é mesclado nem
+  publicado sem a aprovação do dono. Só documentação.
+- **Diagnóstico na prova da busca por significado** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  `core/scripts/prova-busca-semantica.sh` mostra, por par, a posição e a similaridade de cada alvo no
+  ranking vetorial e quantas entradas da busca têm vetor coerente no índice, na mesma consulta
+  vetorial, agora com `--limite 100`. O diagnóstico não muda o critério da prova (alvo no top 5 da
+  semântica, fora da tag e do FTS da paráfrase) nem os códigos de saída.
+- **Proveniência conferida contra a árvore nas tools do grafo, KG5 fatia 5** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  as consultas por nó (`ork grafo vizinhos`, `chamadores`, `importadores` e `caminho` com `--json`, e as
+  tools `ork_grafo_*`) trazem `fontes`, com o sha256 e o blob do Git de cada arquivo citado e a situação
+  dele na árvore (`igual`, `modificada` ou `ausente`), e cada aresta traz `arvore`, `modificada` quando a
+  origem, o alvo ou uma evidência mudou depois do HEAD. No pacote de contexto, só o grupo de fonte mudada
+  ganha `arvore: "modificada"`; com a árvore limpa, o pacote é o de antes, byte a byte. A árvore só é
+  lida quando o `git status` diz que mudou, pelos bytes, sem seguir link e com o tamanho conferido antes
+  de abrir; nenhum índice guardado precisa ser refeito. O texto da CLI marca a aresta, e as descrições
+  das tools e a dica do pedido explicam a marca. Custo medido no mesmo índice: de 15% a 29% a mais de
+  bytes por resposta; na pergunta cortada pelo teto, 34 arestas em vez de 41. A flag `grafo.mcp`
+  continua desligada.
+- **Planejamento do modo #Noctum** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): proposta no roadmap de arcos autônomos de 6 a 12 horas, com envelope de autorização, muitas threads e máquinas, resiliência, qualidade, custo e relatório; modo ainda não implementado.
+- **CLI em inglês e pt-BR, fatia 1 da RM-061** (achados EN1, EN6 e EN7 do
+  [recibo do ensaio em inglês](docs/roadmap/evidencias/RM-049/ensaio-2026-10-03-en.json)): o texto de `ork doctor` e
+  `ork init` sai em inglês quando `owner.language` (a escolha do onboarding) ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou
+  `LANG` pedem `en`; com `en`, as datas desses comandos saem em ISO (`2026-10-03 06:30`). O padrão segue pt-BR, igual
+  byte a byte; os demais comandos, o `--json` e o `ork doctor --modo` não mudam. Sem dependência nova
+  (`core/src/locale.ts`).
+- **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  arestas `cites` ligam caminhos literais em Markdown e strings de testes/scripts a arquivos existentes
+  no índice, com evidência de linha, sem duplicar links ou imports resolvidos, inclusive código inline
+  no rótulo de links relativos ou resolvidos pela raiz, nem sondar palavras ou nomes de pacote.
+  Sondas e variantes de extensão e `index` preservam a equivalência incremental quando
+  diretório vira arquivo e volta, inclusive diretórios com extensão no nome. `cites` fica por último no
+  desempate por tipo. Após selecionar as ligações diretas,
+  o pacote v2 usa a sobra para vizinhos a dois saltos, marcados com `salto: 2`, mantendo o teto em
+  bytes e parando após oito rejeições seguidas por espaço. `omitidos.segundo_salto` separa as
+  omissões indiretas, que não ativam `truncado` quando a vizinhança direta está completa. A medida
+  histórica continua v3, com o mesmo comparador: a cobertura do pacote vai de 23% para 69% (KG3) e de
+  41% para 65% (KG4), acima da descoberta por grep nos dois casos; a precisão cai para 36% e 61%, ainda acima
+  dela; o pacote quase dobra (28.015 e 32.706 bytes) e, no KG4, passa a saída do grep (25.988).
+
+### Alterado
+
+- **Primeira experiência em inglês e o recibo do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  o `README.md` traz a primeira thread e o glossário do CLI, o `CONTRIBUTING.md` o caminho curto, e o recibo do ensaio
+  em inglês (EN1 a EN10) registra os achados corrigidos com o PR e o commit de cada um.
+- **A prova da busca por significado usa os pares que o dono decidiu** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  sem argumentos, `core/scripts/prova-busca-semantica.sh` consulta
+  `watchdog|vigia agendado que inunda a conversa privada com avisos repetidos` e
+  `duplicacao|dois repositorios gemeos fundidos num unico oficial` (decisão do dono em 10/10/2026), no lugar
+  dos pares `rotacao` e `handoff`; pares passados como argumentos substituem os padrão.
+
+### Corrigido
+
+- **Impedimento que só o dono resolve, RM-055, continuação** ([RM-055](docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md)):
+  - a classificação segue as frases reais do claude 2.1.296: o aviso de termos que bloqueia ("[ACTION
+    REQUIRED] ... You must run `claude` to review the updated terms.") e os portões do `--bg` para o modo
+    sem permissões e o modo auto viram `runtime.consent-pending`, com o comando exato tirado da própria
+    frase (só na forma fechada do binário com opções); "could not be resolved on disk", o diretório home e
+    o aviso de carência dos termos não viram espera do dono, porque aceitar a confiança não os resolve;
+  - a prova de que o dono aceitou a confiança segue a regra que o claude aplica no `--bg`: vale o diretório
+    e os de cima até a raiz git, e o repositório principal de uma worktree vinculada, dentro ou fora dele; o
+    diretório acima do repositório não vale mais (dava "resolvido" onde o claude recusa, e travava o
+    re-despacho numa worktree fora do repositório);
+  - o redespacho recusado de novo pelo mesmo impedimento não gasta tentativa nem sobe esforço: antes, a
+    quarta chamada do `ork retry run` escalava e o retry nunca mais re-despachava, nem depois do aceite;
+  - o resumo que chega ao dono traz o bloco "Só você destrava, no terminal", com a thread, a fase, o
+    comando e o `ork retry run` de cada impedimento, e o impedimento novo sai na hora, sem esperar a janela
+    da cadência.
+- **Projeto-alvo explícito, fatia 2: o que faltou da resposta honesta** ([RM-052](docs/roadmap/RM-052-projeto-alvo-explicito.md)):
+  a sessão despachada por um host (fase, retry e `ork audit run`) deixa de herdar o modo host e o `ORK_PROJETO`
+  do gateway (o despacho leva `ORK_PROJETO` vazio e `ORK_PROJETO_EXPLICITO=0`), e o `ork` dela, na worktree da
+  thread, lê a própria thread em vez de recusar com `projeto.escolha`; o filho `fabrica publicar` herda o mesmo.
+  `ork roadmap reservas` abre com o cabeçalho do projeto consultado e, sem remoto ou sem cópia, diz que nada foi
+  lido, nunca "Nenhum item do roadmap reservado"; o JSON ganha `consulta` e `leitura`. Todo comando que lê um
+  projeto que o leitor não tem como adivinhar (no host, ou fora do diretório dele) termina com a linha
+  `Projeto consultado: ...` no stderr, com o remoto sem query, sem fragmento e sem a pasta da conta, e a skill
+  do Hermes manda `--projeto` em todo `ork` de projeto do terminal.
+
+- **O `ork portfolio show` deixa de aceitar em silêncio as sobras do `objective`** ([RM-043](docs/roadmap/RM-043-aposentadoria.md)):
+  a ajuda ainda listava `--constraints`, `--outcomes`, `--threads`, `--execution-runtime` e `--validation-runtimes`
+  sob `portfolio show`, herança do `objective` aposentado na I-43, e o comando as aceitava e ignorava. Elas saem da
+  ajuda e recusam com `portfolio.opcao-aposentada` (saída 2), apontando `ork thread new --exige-runtime-diferente` e
+  `--done`, como a recusa `objective.aposentado`.
+
+- **Teste da coleta após falha de limpeza do candidato** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  os cenários de `EPERM`, com aquisição bem-sucedida ou erro original, agora exigem que um concorrente
+  recolha o candidato após `ESRCH` simulado e deixe a fila vazia, com `flock` e transporte portátil.
+  Receita de mutação suprime essa coleta sem alterar a recusa de limpeza inicial.
+- **Diagnóstico da entrada fora de UTF-8 no MCP** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  a recusa em metadados Git e em leases/candidatos mostra o caminho relativo da entrada, preserva os
+  bytes em escapes hexadecimais e orienta renomear pelo shell. A guarda continua antes do `lstat`;
+  testes cobrem `refs/`, `logs/`, worktrees e nomes com controles ou barra invertida, com receitas de mutação.
+- **Fixture de nome fora de UTF-8 sem pulo silencioso** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  `ENOENT` ao criar a entrada faz o teste falhar; só incompatibilidade do filesystem permite pular.
+  Regressão com pasta-mãe ausente e receita de mutação que recoloca `ENOENT` na lista de pulo.
+- **Watcher e recuperação da condução Codex** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  commits MCP auditados do despacho renovam o prazo de inatividade com controller e runtime vivos,
+  mesmo quando o rollout não avança. A materialização temporária do estado durante commit exige nova
+  auditoria. Contenção e estado dividido usam somente o orçamento de 600 segundos sem observação
+  bem-sucedida; as demais falhas transitórias também têm teto de 12 tentativas. Contenção passageira
+  não grava erro; esgotar o prazo gera diagnóstico próprio. Falha permanente inicial gera um único
+  resumo com contagem 1. Os recibos MCP incluem sessão e despacho quando o servidor tem esse vínculo.
+  `conducao assumir` exige todos os watchers, controlador e runtime ausentes por identidade comprovada,
+  relendo os eventos terminais após conferir os processos, sob a trava.
+  Nos dois incidentes históricos, conforme cruzamento do ledger pela condutora, os heartbeats param
+  logo depois de `mcp_git_committed`, a 8 e a 11 minutos do despacho, sem `gate_blocked` aos 600 segundos.
+  A causa provável é a exceção de estado dividido durante o commit MCP, antes lançada fora do `try`.
+  Essa evidência não comprova a causa; os incidentes não são atribuídos ao prazo de 600 segundos.
+- **A referência do CLI volta a cobrir a ajuda do `ork`** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
+  depois dos ~50 PRs de 03/10, `docs/referencia/cli.md` estava sem `brain`, `portfolio`, `creation`, `onboarding`,
+  `experiencia`, `mcp`, `docs verificar`, os novos `sessions` e várias opções que o binário já aceitava; o exemplo do
+  `ork memory status` no guia de memória não batia com a saída. Só documentação, mais um teste que confere as
+  invocações da referência contra o despacho do `main` e a ajuda, com exceções explícitas.
+
+## [0.5.3] - 2026-10-03
+
+### Adicionado
+
+- **O `ork ship registrar-pr` avisa a página que vai deixar a `main` vermelha** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
+  seis pushes da `main` reprovaram em `docs.paridade.merge` em 02 e 03/10, e o condutor só descobria no push. Depois
+  de registrar, o `registrar-pr` lê as páginas do roadmap da base remota e lista a da thread que já entrou pelo merge
+  `ship(<thread>)` com o `estado.codigo` fora de `Mesclado`, com o comando `ork docs sincronizar --escrever --so RM-NNN`.
+  No `--json`, o campo aditivo `docsPendentes`. Só avisa: não grava, não muda o código de saída nem o veredito do
+  `ork docs verificar`.
+- **Medida da conta esgotada entre projetos** ([RM-040](docs/roadmap/RM-040-estado-de-conta-compartilhado.md)):
+  `ork accounts esgotamentos [--desde 7d] [--json]` (`ork.esgotamentos/v1`) só lê as marcas vivas de
+  `~/.orkastery/private/contas.json` e os `phase_dispatch` com perfil dos projetos de `ork projetos`, e conta o
+  despacho que caiu na conta de uma marca de outro projeto, dentro do prazo dela. A conta sai como id opaco e o
+  perfil, pelo id; nenhum diretório de conta vai à saída. O total é um piso: o registro só guarda as marcas vivas.
+- **Contexto compacto da thread, KG5 fatia 3** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  pacote `ork.thread-graph-context/v2` com referências locais, evidências em tupla e fan-in agregado;
+  prioridade entre arquivos e perto do diff, limite por alvo e amostra de sementes ausentes.
+  Sem worktree, o diff é ignorado e declarado. A flag `grafo.mcp` segue desligada.
+  Sementes de prosa exigem extensão conhecida ou diretório do índice; evidências auxiliares
+  de outro arquivo são omitidas e declaradas. Fixture sintética de 22.973 para 3.119 bytes.
+  A [medida histórica](core/test/fixtures/kg5-medida-contexto.json) foi executada; o GO-FIX
+  corrige a descoberta para exports de pelo menos quatro caracteres e `grep -w`, mede precisão
+  e cobertura só dos editados existentes na base, e conta arquivos novos à parte. Medida v3 em dois
+  casos reais ([tabela do contrato](docs/referencia/contratos/consumo-grafo-kg5.md#dica-e-medidas)): o pacote, que é só o mapa, tem 15.122 e 16.974 bytes,
+  2,2 e 1,5 vez menos que a saída do grep (sem a leitura dos arquivos); precisão 3/7 (43%) e 7/8 (88%)
+  contra 3/41 (7%) e 6/11 (55%); cobertura 3/13 e 7/17 contra 3/13 e 6/17. Pacote pequeno e preciso nos vínculos, cobertura parcial; sem economia de tokens demonstrada.
+- **Contexto determinístico da thread, KG5 fatia 2** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  `ork grafo contexto <thread>` e `ork_grafo_contexto` compõem o mesmo pacote de arquivos e símbolos
+  a partir de diff, GOAL, PLAN e claims, com evidências, teto em bytes e omissões declaradas.
+  Índice ausente ou de outra revisão recusa com `ork grafo indexar`. A medida offline compara bytes
+  do pacote e dos mesmos arquivos indexados, sem estimar tokens. Com `grafo.mcp` ligada, o pedido da
+  fase ganha uma dica curta; desligada, mantém o texto anterior. A flag continua desligada por padrão.
+- **Orkastery Network, fatia 2** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)):
+  - o `ork doctor` ganha a linha `rede`: a adesão, a casa, a última batida e a última falha do `rede.log`, só de
+    arquivos locais; vira aviso, com a correção, quando a falha é mais nova que a última batida ou quando a batida
+    passou de 3 h, e nunca bloqueia o despacho;
+  - o retrato sem batida há mais de 14 dias sai da tabela do `REDE.md` e vai ao rodapé; o arquivo dele e o
+    `ork network status` ficam;
+  - um saneador de saída comum ao núcleo (`core/src/saida-segura.ts`): o `ork fabrica`, a seção de outras máquinas
+    do `ork board` e o `ork fabrica --json` deixam de levar à tela a quebra de linha e o controle de terminal do
+    `por`, do `projeto` e da pergunta lidos de `ork/fabrica-estado`; o JSON tem o mesmo valor, com o invisível
+    escrito como `\uXXXX`;
+  - a faxina da trava órfã da rede é serial e não move mais a trava viva de outro processo (W9 do CHECK 5).
+- **A rede por pessoa no roadmap da rede, fatia 3** ([RM-054](docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md)):
+  - `ork network roadmap` lê a casa da RM-053: a seção "Rede por pessoa" traz a casa e cada máquina com a batida e
+    os projetos que declara, e o JSON ganha `rede`; o projeto que uma máquina da rede declara passa a ser pedido
+    pelo nome mesmo sem clone nem registro, e a máquina da rede sem retrato na fábrica do projeto sai com as
+    threads não lidas e a lacuna `maquina.sem-fabrica`; `ORK_REDE_LER=0` desliga a leitura;
+  - `ork_network_status` no OpenClaw (perfis `coding` e `messaging`, sem `projeto`), no Hermes e no MCP (só o projeto
+    servido em cada máquina); no host, `ork network status` não lê o projeto do diretório do gateway;
+  - o `gh` e o `glab` da forja são achados também em `~/.local/bin` e nas outras pastas de usuário, fora do PATH
+    curto do gateway e do cron.
+- **Orkastery Network** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)): as máquinas de uma pessoa em
+  rede, num repositório privado dela na forja (`<usuario>/orkastery-network`):
+  - `ork network entrar`, `status`, `publicar` e `sair`, de qualquer diretório; GitHub pelo `gh` e GitLab
+    pelo `glab`, com a identidade da CLI já autenticada;
+  - o retrato leva nome, hostname, forja e login, runtimes e hosts com versão, projetos conhecidos, versão do
+    `ork` e a batida; nunca token, conta paga ou caminho de credencial: a varredura de segredo recusa o
+    retrato, e o projeto suspeito fica fora sozinho, com aviso;
+  - cada instalação tem uma identidade aleatória no retrato: duas máquinas com o mesmo nome não se
+    sobrescrevem;
+  - a casa só fala por HTTPS, e nada que o terminal execute (ESC, bidi) chega à saída do
+    `ork network status` nem ao `REDE.md`;
+  - quem já fez `ork fabrica entrar` entra sem refazer, e `ork/fabrica-estado` continua lida;
+  - `ork network status --json` (`ork.rede-status/v1`) declara a fonte, as lacunas e o que não foi consultado.
+- **Prova de ativação do Maestro no Codex** ([RM-032](docs/roadmap/RM-032-bootstrap-maestro.md)):
+  `node core/scripts/prova-ativacao.cjs codex` prova o terceiro host. A sessão é nova, não interativa e efêmera
+  (`codex exec --json --ephemeral --ignore-user-config`), usa o login nativo do `CODEX_HOME` de quem roda e recebe por
+  `-c` o servidor MCP que o `ork mcp install --host codex` gravou no projeto, só com `ork_maestro` aprovada. A
+  conferência lê os eventos do `codex exec --json` e exige `mcp__orkastery__ork_maestro`: `ork maestro` pelo shell,
+  inclusive embrulhado em `bash -lc '...'`, é desvio. Ela confere também que nenhuma sessão da prova ficou em
+  `$CODEX_HOME/sessions`. A skill `ork` do Codex passa a pedir `ork_maestro` antes de qualquer `ork` no shell: na
+  primeira rodada real, o modelo rodou `ork maestro --json` no shell antes da tool, e a prova reprovou.
+- **`ork brain context` pelo modo `context` do OrkMind** ([RM-025](docs/roadmap/RM-025-company-brain-fundacao.md)):
+  o núcleo pede primeiro o pacote `orkmind.company-brain-context/v1` ao servidor, confere schema, tenant, pedido,
+  digest, citação inteira, ordem, fecho de pais e o destino de cada id, e o traduz para `ork.brain-context/v1` com o
+  frescor contra o portfólio. Com um OrkMind anterior ao modo (`brain.selection.context-unsupported`), monta o pacote
+  por `query` e `get`, como antes; os dois caminhos dão o mesmo digest, e o campo `caminho` diz qual foi. Pacote do
+  servidor que não confere encerra com `conflict` e `brain.context.server-invalid`. Vale também para a ferramenta
+  `ork_brain_context` e para o contexto do dossiê.
+- **Suíte local sem as dependências opcionais** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o
+  `npm --prefix core test` passa com 0 falhas numa máquina sem o codex em `/usr/bin`, sem PostgreSQL ou sem o
+  interpretador do OrkMind. Os 44 testes que dependem deles sondam a dependência e saem como skip com o motivo
+  (`skip: PostgreSQL ausente ...`), em vez de reprovar. `ORK_TESTE_EXIGE_AMBIENTE=1` desliga o skip, e o
+  `test:ci` a liga na suíte hermética. `node core/scripts/suite-local.cjs` roda a suíte e conta falhas e skips.
+- **HITL de condução por alternativas, fatia 3** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md)):
+  - `ork pulse` e `ork roadmap status` trazem `hitlDeConducao`: as perguntas de condução abertas com há quanto tempo cada
+    uma para a thread (e desde que hora, no fuso do dono) e a mediana dos últimos 7 dias contra a meta de 5 min;
+  - o resumo do pulse (Telegram e terminal) ganha uma linha só quando passa da meta, sem sair fora da cadência.
+- **Conferência opt-in da claim no registro** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)): a policy
+  `claim_sem_prova_local` (alias `claims_failed`, o nome que o `ork licoes` propõe) vem desligada. Declarada, o
+  `ork claims add` roda o comando da claim uma vez, na worktree da thread e no prazo do `verify.timeout_ms`; se ele
+  reprova, grava `policy_warn` com `claims.failed`, e se estoura o prazo, com `verify.timeout`. A claim entra do
+  mesmo jeito e nada para, nem com a policy em `block`.
+- **Aceite por omissão só da thread indicada** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)): em 03/10,
+  três vezes, um condutor rodou `ork master --aceitar-omissao` para fechar a própria thread e fechou também as
+  entregues de outras frentes paralelas, porque a CLI não deixava indicar a thread.
+  - `ork master <thread> --aceitar-omissao` (também `--thread <thread>` e `--aceitar-omissao=<thread>`) aceita só a
+    entrega daquela thread; thread sem entrega recusa (saída 1) e a já fechada não grava de novo (saída 0);
+  - `--dry-run` lista o que seria fechado, com o índice, sem gravar (`--json`: `{ dryRun, fecharia }`);
+  - sem a thread, o padrão continua o mesmo (aceita todas as entregues e lista cada uma). De processo de agente
+    (a mesma marca do `master.prova-de-canal`) com mais de uma, sai em stderr o aviso `master.omissao-sem-thread`,
+    com o comando da thread do despacho; o stdout e o `--json` ficam como eram;
+  - o `ork ship registrar-pr`, a tabela do `ork master`, o bloco do `AGENTS.md` que o `ork init` escreve, as skills,
+    os adaptadores e os guias passam a ensinar a forma com a thread.
+- **`ork doctor` acusa o pulse que bate devagar** ([RM-039](docs/roadmap/RM-039-cadencia-do-pulse-por-tag.md)): com
+  `.orkastery/monitor/pulse-host.json`, o check `cadencia do pulse no cron` lê o `crontab -l` e avisa, sem bloquear, a
+  linha da varredura ausente, o crontab inexistente ou a batida mais lenta que 15 minutos (como a antiga `0 * * * *`),
+  com a linha do template `monitor/pulse.cron` pronta para colar. O doctor nunca edita o crontab.
+
+### Alterado
+
+- **Ramos do `ork doctor` sob teste, C5** ([RM-039](docs/roadmap/RM-039-cadencia-do-pulse-por-tag.md)):
+  cobertura do cron, do manifesto fora do repositório e do login do Claude com diferentes perfis de conta.
+- **Fechamento com falha parcial sob teste, C4** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md)):
+  falhas isoladas em leases, sessões e reserva comprovam que as demais liberações continuam e a pendência fica registrada.
+- **Piloto de contas compartilhadas** ([RM-040](docs/roadmap/RM-040-estado-de-conta-compartilhado.md)):
+  prova real só de leitura registra ausência de marcas; esgotamento entre dois projetos reais segue sem caso observado.
+- **Fatos da rede após os merges** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), [RM-054](docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md)):
+  roadmaps registram os PRs #31 e #72 e distinguem código mesclado de implantação pendente.
+- **Company Brain, B4.2 após o merge** ([RM-025](docs/roadmap/RM-025-company-brain-fundacao.md)):
+  roadmap registra o modo `context` no núcleo pelo PR #64 e as capacidades já presentes no OrkMind.
+- **Fatos do roadmap e ordem do CHANGELOG, B3:** documentação consolidada após as entregas, com as notas em ordem.
+
+### Corrigido
+
+- **A skill do Codex e a do Hermes consultam o `ork` no shell só depois da `ork_maestro`** ([RM-032](docs/roadmap/RM-032-bootstrap-maestro.md)):
+  na segunda rodada da prova do Codex, o `ork doctor`, o `ork onboarding` e o `ork experiencia show` rodaram no
+  shell antes da tool, e a skill mandava consultar a experiência sem ordem. O CLI resolve o projeto pelo diretório
+  da sessão, a classe de erro que a frase `orkastery maestro` evita. Um teste de guarda confere a ordem nas skills
+  de entrada e na cópia do marketplace.
+- **Recibos do ensaio com o estado real dos achados** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  itens corrigidos citam PR e commit; R3 segue registrado, e um teste confere essa distinção em todos os recibos.
+- **O MASTER sem `--classe` junta `base-avancou` quando a branch trouxe a base** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
+  a classe fixa nunca era inferida. Em 03/10, 29 das 35 entregas trouxeram a `origin/main` para a branch antes do
+  merge, e todas fecharam sem ela. Agora conta o `worktree_synced` do ledger e, no merge da entrega, os merges da
+  branch cujo pai trazido já estava na base. Git sem resposta conta 0, e `--classe` continua vencendo.
+- **O POSTMORTEM conta o CHECK e o SHIP que o ledger registrou** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
+  o `verify_run` e o `ship_done` são gravados sem o campo `fase`, e as `fasesPercorridas` só contavam evento com
+  fase. Dos 35 POSTMORTEMs de 03/10, só 1 listava o CHECK e 2 o SHIP. Agora `verify_run` e `check_reverify` contam
+  como CHECK, e `ship_started`, `ship_done` e `ship_blocked` como SHIP, quando o evento não traz fase; o campo
+  explícito continua vencendo. A forma do POSTMORTEM não muda, e os já gravados ficam como estão.
+- **Id da instalação numa pasta dividida** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), X6 do CHECK 6):
+  sem hard link (vboxsf, SMB, alguns FUSE), e na troca de um `~/.orkastery/maquina-id` ruim, cada host ou contêiner
+  que divide a pasta gravava um id derivado do próprio hostname e boot, e o último a gravar vencia. Por isso, quem
+  já tinha publicado passava a ler outro id. Agora o id sai de uma reserva que entra por `rename` de pasta com
+  conteúdo (`maquina-id.reserva/` ou `maquina-id.troca-<chave>/`): só a primeira entra, e todos leem o mesmo id.
+  O `maquina-id` continua um arquivo com o UUID, e o id derivado fica para quando a reserva falha.
+- **Testes instáveis do CI de 03/10** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o caso "tomar a reserva de
+  outra maquina fica registrado com de quem e por que" (`roadmap-reservas`, Node 20, run 37106955227) caía com
+  `ENOTEMPTY` na limpeza do remoto bare. Depois de push e fetch, o git solta `git maintenance run --auto --detach`,
+  e o processo destacado escrevia em `objects/` enquanto o `rmSync` apagava o diretório; o `git clone` local da
+  outra máquina também podia copiar um repack pela metade. Os testes que usam `core/test/apoio.ts` agora desligam a
+  manutenção automática do git: por `GIT_CONFIG_COUNT` do lado de quem roda o comando e por `GIT_CONFIG_SYSTEM`
+  (que inclui a configuração de sistema de verdade) no `receive-pack` do remoto bare, porque o transporte local
+  limpa a primeira. Nenhum repositório ganha chave nova. Sem retry e sem prazo maior; a prova
+  `bash core/scripts/prova-laco-sob-carga.sh` roda o teste N vezes sob carga de CPU, com a manutenção do git fazendo
+  trabalho a cada push: antes, 13 de 1000 rodadas caíam; depois, nenhuma.
+- **Marcas visíveis da categoria `Cf` na rede** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), Y4 do CHECK 7):
+  o saneador comum (`core/src/saida-segura.ts`) tratava toda a categoria `Cf` como invisível, e o projeto com um
+  sinal numérico árabe (U+0600 a U+0605, U+06DD), U+070F, U+0890, U+0891, U+08E2, U+110BD ou U+110CD no nome ou
+  no caminho saía do retrato com aviso, e a marca sumia da saída. Essas 13 marcas, que têm glifo, passam como
+  texto; bidi, largura zero, tags e o resto de `Cf` continuam barrados.
+- **Avisos finais dos leases multicanais** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  o teste de fila simbólica usa um alvo fora de `.orkastery/leases`, isolando a recusa do link;
+  a varredura de metadados usada pelo commit e pelo SHIP do MCP ignora `ENOENT` quando a fila de
+  retomada ou um candidato desaparece durante `lstat` ou `readdir`, preservando os demais erros.
+  Nomes fora de UTF-8 são recusados antes de `lstat`, tanto nos metadados quanto no preflight de
+  documentos e claims, inclusive nas filas; perda de bytes na decodificação não conta como desaparecimento.
+  Falhas de `unlink` do candidato ou de `rmdir` da fila vazia não alteram o resultado da aquisição
+  nem encobrem a exceção original; candidatos remanescentes são recolhidos por concorrentes quando
+  o PID morre ou o prazo vence. Os ajustes têm cenários de regressão e receitas em
+  `core/scripts/rm036-leases-mutantes.cjs`.
+- **Instalação e suíte sem os avisos do próprio repositório:** o `markdownlint-cli2` de desenvolvimento desce
+  para `^0.22.1` (com o `markdownlint` 0.40.0), a última que aceita o Node 20 que o `core/package.json` declara.
+  Assim, o `npm ci` do núcleo no Node 20 deixa de imprimir `npm warn EBADENGINE`, e o lint dá o mesmo resultado
+  em `docs/` e nos READMEs. Os três testes que usam `mock.timers` deixam de imprimir o `ExperimentalWarning` do
+  MockTimers no Node 20 e 22, e qualquer outro aviso continua saindo.
+- **Suspeitas da revisão de 03/10** (thread `ork-suspeitasdar`):
+  - a marca da rede (`~/.orkastery/rede/publicada.json`) é trocada inteira, por `rename`; antes, um
+    `ork network status`, o `ork doctor` ou uma publicação concorrente liam o arquivo vazio ou cortado, e um
+    processo morto no meio da escrita deixava a marca ilegível, o que fazia a próxima publicação perder a reserva
+    dos projetos (D7) e o doctor dizer "nenhuma batida publicada".
+  - `ork network sair` durante uma publicação em curso não deixa mais a marca da rede regravada depois da saída: a
+    marca sai de novo sob a trava, quando a publicação já terminou; antes, ela sobrevivia ao `sair` e o próximo
+    `ork network entrar` na mesma casa voltava a reservar os projetos que a saída tinha esquecido.
+  - a prova de ativação (`core/scripts/prova-ativacao.cjs`) reconhece como desvio toda forma de rodar o
+    `ork maestro` pelo shell do host: pelo caminho do binário (`$(which ork) maestro`), pelo node
+    (`node core/dist/index.js maestro`), pelo npx (`npx @orkastery/cli maestro`) e com o projeto entre aspas
+    (`ork --projeto "/srv/meu projeto" maestro`); antes só a forma `ork [--projeto X] maestro` reprovava, e as outras,
+    ao lado da chamada contratada, deixavam a prova verde. `maestro` no argumento de outro subcomando continua não
+    sendo desvio.
+  - a leitura de uma branch de estado (a casa da rede, `ork/fabrica-estado`, as reservas do roadmap) busca de novo
+    quando outro processo atualizou a mesma ref no mesmo instante; antes, o `ork network status` rodando junto da
+    publicação, com a casa avançada, fazia uma das duas sair com `rede.sem-leitura` ("incorrect old value
+    provided"), sem falha de rede nenhuma.
+  - `ork network status` e `ork network entrar` não confundem mais a falha da forja com falta de login: prazo, erro do
+    servidor ou falta de rede no `gh api user` (ou `glab api user`) saem como `rede.sem-leitura`, com o erro da forja
+    redigido; antes viravam `forja.sem-login` e mandavam a pessoa rodar `gh auth login`. A falta de login de verdade
+    continua `forja.sem-login`.
+  - `ork_network_status` no servidor MCP fixado num projeto lê a fábrica só desse projeto; antes lia a de todos os
+    projetos do registro e só filtrava a saída: a batida e a versão do ork de uma máquina vista nos dois vinham do
+    projeto que o servidor não serve (D5 da RM-052), e o servidor rodava `git fetch` no clone do outro projeto.
+  - `ork network roadmap` não marca mais como "(esta máquina)" o retrato de outra instalação com o nome desta
+    (`maquina.nome-em-uso`), como o `ork network status` já fazia desde a revisão de 03/10.
+  - a validação do remoto da RM-047 aceita o nome com `/` que o git aceita (`fabrica.remoto: time/origem`), como a
+    0.5.2; a primeira versão dela o recusava com `fabrica.remoto-invalido`. Cada parte começa por letra ou dígito, então
+    caminho absoluto, `..`, opção e transporte continuam recusados.
+  - com `claim_sem_prova_local` declarada, o `ork_claim_add` do MCP não roda mais o comando da claim: antes, o texto
+    vindo do pedido MCP rodava no processo do servidor, fora do sandbox do `ork_verify` e por até `verify.timeout_ms`
+    dentro do pedido, embora a tool diga "Nao executa comandos". Pela CLI, com a worktree da thread apagada, o aviso
+    diz que a worktree não existe, em vez de dizer que a claim "reprova no verify".
+  - o pacote de contexto do Company Brain (`ork brain context`) exige `source.authority` na citação também pelo caminho
+    da consulta (OrkMind sem o modo `context`), como o servidor; antes, um Brain fora do próprio contrato dava pacote e
+    digest diferentes conforme o caminho. Com pais divergentes entre a fonte e o Brain, os dois caminhos já davam o
+    mesmo pacote, agora com teste.
+- **A vez de publicar na rede tem um vencedor só também sob carga** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)):
+  `tomarVezDePublicar` lia a hora antes de pegar a trava; o processo que perdia a CPU nesse intervalo achava a marca
+  do vencedor "no futuro", a tomava por relógio que voltou e tomava a vez também (o teste da revisão de 03/10 reprovou
+  assim no CI, `FFFTFFFFFTFF`). Agora a hora é lida dentro da trava.
+- **Fechar a thread solta as sessões fantasma dela** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md)): o
+  MASTER e o `ork thread close` soltavam leases, fila e reserva, mas a sessão `blocked` sem processo presa à thread
+  fechada seguia no `ork sessions list` até alguém rodar `ork sessions limpar-fantasmas`. Agora, quando o ledger da
+  thread tem sessão sem fim, o fechamento grava `sessao_morta` (origem `fechamento`) só nos fantasmas dela; sessão
+  viva e fantasma de outra thread ficam, e o runtime nunca é parado.
+- **O MASTER sem `--classe` infere a classe de falha pelo motivo do gate** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
+  antes, toda thread com gate reprovado fechava com a classe `outra`, que o `ork licoes` ignora; 8 POSTMORTEMs de
+  03/10 fecharam assim pelo aceite por omissão. Agora os motivos de verificação e evidência (`claims.failed`,
+  `verify.failed`, `ci.failed` e os outros da tabela `CLASSE_DO_MOTIVO`) gravam `processo`, os de limite de uso
+  gravam `rate-limit` e os de região e condução gravam `conflito`; o resto segue `outra`. O aviso cita os motivos, e
+  `--classe` continua vencendo.
+- **Revisão das entregas da madrugada de 03/10** (thread `ork-revisaodasen`):
+  - `ork network status` não repete mais o `fabrica.remoto` cru: o valor do manifesto versionado vai ao git só como
+    nome de remoto, depois do `--`, como no resto da RM-047, e o recusado sai redigido na lacuna
+    `fabrica.sem-leitura`; antes, uma URL com credencial no lugar do nome aparecia inteira no texto e no JSON. O
+    projeto do diretório no retrato da rede também deixa de passar o valor cru ao `git remote get-url`.
+  - o teto de uma tentativa de publicar na rede a cada 14 minutos vale também para processos simultâneos: a marca
+    da tentativa é lida e gravada sob uma trava e trocada por `rename`; antes, vários pulses na mesma batida
+    tomavam a vez juntos.
+  - `ork network status` sem o `maquina-id` local (antes da primeira publicação, ou com `~/.orkastery` apagada) diz
+    `maquina.nome-em-uso` quando o retrato com o nome desta máquina é de outra instalação, como a publicação já
+    recusava; antes o mostrava como "(esta máquina)", publicado e sem lacuna.
+  - `ork_network_status` no MCP (só o projeto servido) tira também a lacuna da máquina que saiu dos membros por ser
+    vista só na fábrica de outro projeto; antes, a `maquina.sem-batida` dela continuava com o nome (D5).
+  - `ork memory search --texto` mostra o `detalhe` também na busca que deu certo: a quantidade de ids do FTS fora
+    do universo e o aviso de cobertura do índice (RM-038) só apareciam no `--json`.
+- **Defeitos do ensaio isolado da reinstalação do OpenClaw** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md)):
+  - a regra do HITL de condução vai também nas descrições de `ork_network_roadmap` e `ork_network_status`, as únicas
+    tools que o perfil `coding` do OpenClaw expõe; antes o modelo desse perfil nunca lia a regra. O perfil não foi
+    ampliado: `tools.alsoAllow` segue como decisão do dono;
+  - `ork adapter install` aponta a extensão para o `ork` que roda o install (o caminho real do CLI), e não para o
+    primeiro `ork` do PATH; com outro `ork` no PATH, a saída avisa com as duas versões. `--ork <caminho>` continua
+    vencendo.
+- **Achados do ensaio de 03/10, com a recomendada de cada um** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  - `ork doctor` avisa (`warn`) quando o `claude` do PATH está sem login e não há perfil de conta do
+    `claude-bg`: confere pelo mesmo `claude auth status` do check de contas; antes dizia `ok` e o primeiro
+    despacho falhava;
+  - sem idioma escolhido no ambiente (`LANG=C.UTF-8`, `C`, `POSIX`), o `ork onboarding` recomenda a
+    experiência em `pt-BR`, a língua da CLI, em vez de `en-US`; um locale escolhido continua valendo;
+  - `ork ci status` com `--sha HEAD` ou sha curto diz que pede o sha completo de 40 caracteres
+    (`git rev-parse HEAD`); antes respondia só a linha de uso;
+  - `ork ship --dry-run` sem o remoto configurado (ou com `--sem-push`) diz o mesmo que o ship real, "merge
+    local concluído, sem push a provar", em vez de listar o `git push` e o `git ls-remote`;
+  - `ork adapter install claude-code` (e `codex`) repete no fim, depois da lista de arquivos e dos pitfalls, as
+    linhas de ativação e o `ork mcp install`: o fim da saída diz o próximo passo;
+  - `ork verify --baseline` com comando que já falhava diz onde ver a saída: as últimas linhas no
+    `thread.json` da thread (`baseline.comandos`, `resumo` e `trecho`) e o evento em `ork phase list`;
+  - o README traz os números do CI da `main` de 03/10 (run 37102089623): 2.733 testes do núcleo, 24 canários e
+    20 skills com 199 asserções; dizia 1.553 testes, de 27/09;
+- **Primeira experiência sobre a main de 03/10, achados do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  - `ork init` fora de um repositório git recusa com `init.fora-do-repositorio` sem criar nada; antes, rodado
+    por engano no HOME, gravava manifesto, `AGENTS.md` e `.orkastery/` ali, e um repositório criado depois
+    dentro dessa pasta herdava o manifesto de fora. O `ork doctor` avisa o `orkastery.yaml` lido de fora do
+    repositório (`manifesto do repositorio`), e fora de repositório a correção do manifesto manda entrar nele;
+  - `ork board` mostra, na thread parada por impedimento do dono (`runtime.workspace-untrusted`,
+    `runtime.consent-pending`), a correção gravada no gate, com o `ork retry run` que o pulse recomenda, em
+    vez de um `ork gate request` que o `#Fast` e o `#Auto` recusam;
+  - o `ship_blocked` e o `gate_blocked` de um `ork ship --dry-run` não descontam o índice do `ork master`
+    nem entram nas reprovações do POSTMORTEM;
+  - a linha do cron que o `ork doctor` sugere para o pulse aponta o `monitor/varredura-pulse.sh` do `ork`
+    instalado, com `ORK_PULSE_PROJECT`, quando o projeto não tem o script; antes apontava um caminho que só
+    existe no checkout do Orkastery;
+  - `ork phase list` mostra o id curto do pedido da decisão autônoma, e não `[object Object]`; a linha `ci`
+    do resumo do `ork ship` fica alinhada com as outras;
+  - `ork master` com score: a ajuda e o erro dizem que o `--por` é obrigatório; o quickstart, a referência
+    da CLI e a definição de pronto o trazem, e o quickstart manda fazer o commit do manifesto de novo depois
+    da etapa `maestro` do onboarding, que grava `owner` nele;
+  - o `npm --prefix core test` volta a 0 falhas sem o interpretador do OrkMind: os testes da ponte da
+    RM-038 saem como skip tipado, e um teste-guarda reprova arquivo que suba a fixture sem ele.
+- **Teste instável do lease da sucessora no Node 22** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  o caso B-1 de `rm037-baseline-no-despacho` lia `conducaoDaThread` logo depois de despachar uma sessão codex que
+  termina sozinha. O watcher destacado grava o `phase_result` na volta seguinte do laço de 1 s, e dali em diante a
+  leitura derivada é `null` por desenho; num runner carregado o teste chegava depois do watcher e reprovava (run
+  37096532937, que passou no rerun). Agora ele espera o fim da sessão e lê a identidade no lease, sempre na mesma ordem.
+  Com 3 s de atraso injetado depois do despacho, o teste antigo reprova com a mesma mensagem do CI e o novo passa; sob
+  carga, o arquivo passou 60 vezes seguidas no Node 22 e no 24. A varredura de `FINALIZAR-SIMULADO` e `conducaoDaThread`
+  em `core/test` não achou outro teste que leia estado vivo de sessão que termina sozinha.
+- **Memória inativa na busca por significado, rodada 3** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  `memory search --texto` mantém saída 1 também em `modo.files`, `dsn.env-ausente` e
+  `orkmind.indisponivel`, com motivo tipado em texto e JSON, como `memory index`;
+  universo vazio lido com sucesso sai 0. A prova `core/scripts/prova-busca-semantica.sh`
+  imprime a resposta com o motivo antes de sair se qualquer busca falhar.
+- **Avisos da rodada 2 do universo da busca** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  - `ork memory search --texto` sai 1 com motivo tipado quando o universo não foi lido, em texto e JSON;
+  - o cliente preserva `injection_risk` e `expires_at` e reconfere a governança antes de qualquer embed;
+  - a operação `universo` tem prazo próprio, `memory.universo_timeout_ms`, com padrão de 90.000 ms, e informa a
+    latência medida no JSON do índice e do status;
+  - o teste de expiração da ponte atravessa a leitura com relógio crescente, cobrindo FTS e universo.
+- **O universo do índice é o mesmo da busca** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md), fatia de correção):
+  - índice, vetor, FTS e `ork memory status` usam o mesmo universo da busca, lido de uma vez pela operação `universo`
+    da ponte, com o tenant como filtro na origem: as entradas ativas do tenant nas coleções do `ork`, sem as que a
+    biblioteca marca com `injection_risk`;
+  - o FTS da ponte deixa de devolver entrada com `injection_risk` (antes ela chegava ao `ork` e era descartada em
+    silêncio); a quantidade de ids do FTS fora do universo aparece no `detalhe` da busca e em `ftsForaDoUniverso`;
+  - `universo` e `export` leem até o fim: quando a janela enche, a ponte conta e lê de novo uma vez, e cheia de novo sai
+    com `memory.query.window-saturated` (como o `fts` já fazia) em vez de cortar;
+  - entrada de outro tenant ou de outra coleção no universo, no `ork memory index` ou na busca vira
+    `memory.query.scope-violation` antes de qualquer embed, em vez de ser filtrada em silêncio;
+  - `ork memory status` e `ork memory index` mostram o universo da busca por coleção e o que fica fora da busca (com
+    `injection_risk`, expiradas e em outras coleções, só em número), e o status avisa quando o índice cobre menos do
+    que a busca enxerga, só mandando reindexar quando isso resolve; sem o universo lido inteiro, o status diz o motivo
+    e não calcula cobertura.
+- **O grafo de código funciona em quem instala o `ork` pelo npm** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  - o `typescript` 5.9.3 e o micromark 4.0.2, com a tabela GFM 2.1.1 e os dois decodificadores de referência de
+    caractere que o extrator usa, passam a ser dependências de runtime do `@orkastery/cli`, com versão exata: no
+    `npm install -g`, o `ork grafo indexar`, as consultas e as tools `ork_grafo_*` rodam sem passo manual, onde antes
+    a recusa era `grafo.parser.indisponivel: typescript`. Os rótulos `ork.ts-ast` e `ork.md-structure` não mudam; a
+    instalação fica com 125 pacotes e cerca de 26 MB a mais em disco, quase todo o compilador;
+  - depois de atualizar, `ork grafo indexar` refaz o índice completo uma vez: o comentário atualizado dos
+    analisadores entra no `dist` e muda a impressão do extrator, invalidando o índice anterior para o HEAD;
+  - `ork doctor` ganha o check "analisadores do grafo", logo depois do `node`: `ok` com as versões, ou `warn` com a
+    recusa e a correção (`npm install -g @orkastery/cli@<versão>`, quando o pacote falta ou o npm o deixou fora da
+    instalação, como dentro de um projeto ou pelo `npx`; Node 20.19, 22.12 ou mais novo, quando o Node não carrega ESM
+    por `require`). Quando falta um pacote dos analisadores, o `ork grafo status` diz a mesma correção, na linha
+    `correcao` e no campo `correcao` do `--json`;
+  - `core/scripts/provar-grafo-instalado.cjs` instala o tarball do `npm pack` com `npm install -g` num prefixo e num
+    HOME temporários e indexa e consulta um repositório novo; roda no CI (job `nucleo`, em cada Node da matriz) e no
+    `publicar.yml`, num job só de leitura, sem o `id-token`, de que a publicação depende.
+
+- **Leases de todas as famílias no estado canônico** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md), [FEAT-007](docs/produto/FEAT-007-worktree-e-leases.md)):
+  - `main-tree`, `worktree-write`, `path`, `board`, `service` e a fila por colisão moram no `.orkastery/leases` da raiz do
+    projeto: um `ork` chamado da raiz e outro de uma worktree passam a se excluir, com `lease.busy` (antes cada checkout
+    tinha a sua pasta, e duas threads pegavam o `main-tree` ao mesmo tempo);
+  - o legado válido das worktrees só barra enquanto vivo na janela de 30 minutos iniciada na primeira consulta
+    desta versão, mesmo sem legado, marcada em `.orkastery/leases/.legado`; encerrada, a janela não reabre com
+    arquivos novos. Arquivos inválidos ou ilegíveis não bloqueiam; o diagnóstico do legado não sugere `release`. Os comandos sugeridos citam os argumentos com aspas simples
+    e escape; links simbólicos são ignorados e o registro da worktree exige vínculo de volta;
+  - o prazo legado tolera 1 segundo além dos 30 minutos. O legado nunca é apagado: o descarte grava uma marca
+    `dev:ino:ctime` em `.orkastery/leases/.legado-ignorado-<dev>-<ino>-<ctime>` no estado canônico. `release` atua somente no
+    canônico quando presente; sem ele, marca o legado. Nenhuma liberação é anunciada quando nada saiu.
+    A marca usa `ctimeMs`, conferido novamente antes do descarte: reutilizar o inode não oculta um legado novo.
+    O motivo exposto do legado é sempre `(legado)`. A retomada automática funciona em Linux e macOS, inclusive
+    sem `/usr/bin/flock`, por candidatos exclusivos e tickets publicados com `rename` atômico. A fila portátil
+    também serializa concorrentes com `flock`; sob exclusão, relê o conteúdo, confere dispositivo e inode e cria
+    com `wx`. Ausência, bloqueio do spawn, timeout ou erro do `flock` usam o caminho portátil. A fila fica
+    em `.orkastery/leases/<lease>.json.retomadas`; o MCP aceita somente diretório real desse formato, com
+    candidatos regulares de um único vínculo, e a pasta vazia é removida. `ork lease list` mostra
+    candidatos, PID, ticket, idade e temporários `.json.tmp`. A prova de morte por `process.kill(pid, 0)` só
+    vale no mesmo namespace de PID; processos de namespaces diferentes não devem compartilhar esta fila. PID
+    reutilizado ou sem permissão de consulta bloqueia até o limite de 30 minutos (`TTL_PADRAO_MS`).
+    Candidatos e temporários expirados são recolhidos na próxima tentativa, que retorna
+    `lease.resume-unavailable`; a correção é consultar `ork lease list` e repetir a aquisição, sem apagar o
+    lease. Temporários de PID comprovadamente morto são recolhidos mesmo antes do prazo, inclusive JSON
+    parcial deixado por SIGKILL. Um retomador que perdeu seu candidato não pode prosseguir. Dispositivo e
+    inode são reconferidos imediatamente antes de `unlink`; as duas chamadas de sistema não constituem um
+    CAS atômico contra escritores externos à exclusão.
+    `nlink === 0` é `lease.busy`, com fila normal e
+    preservação do vencedor. Hard link ou link simbólico recebem `lease.resume-unavailable`, com escalada humana
+    e sem retry automático: avaliar a posse antes de `ork lease release <nome> --forcar`, seguido de nova aquisição.
+    O `ship --dry-run` também considera o legado vivo;
+  - a fila legada não é lida e a espera se refaz no próximo pedido; a dona da própria cópia legada não entra na fila
+    atrás de si, e a fila canônica grava por temporário e `rename`;
+  - o legado nunca prova posse canônica para ativação de escrita; arquivo canônico vazio ou ilegível com menos de
+    cinco segundos é preservado para o escritor que o criou com `wx`, e o escalonador elimina nomes repetidos;
+  - o lock de espera do `ork portfolio` também passa para a raiz: a worktree espera a vez em vez de recusar com
+    `brain.journal.busy`.
+
+### Segurança
+
+- **`--remoto` de `ork ship --para` validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
+  o valor passa pelo mesmo validador; fora do formato, `ork ship <thread> --para <branch>` recusa com
+  `ship.remoto-invalido` antes de qualquer git, na CLI e na API. Antes, com o gate de CI desligado, o valor ia cru ao
+  `git remote get-url`, ao `git ls-remote` e ao `git push`, e um remoto inválido virava "remoto não configurado": o ship
+  entregava com merge local e sem push provado. O `ls-remote`, o `remote get-url` e o `push` recebem `--` antes do
+  remoto, o merge usa o sha verificado de `--de` (nome de branch nunca vira opção do `git merge`) e a leitura dos PRs do
+  pulse só leva nome de remoto ao git.
+- **`--remoto` de `ork ship registrar-pr` e de `ork ci status` validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
+  o valor passa pelo mesmo validador do remoto da fábrica; fora do formato, `ork ship registrar-pr` (com a thread ou
+  `--todas`) recusa com `ship.remoto-invalido` e `ork ci status` com `ci.remoto-invalido`, sem nada passado ao git nem
+  consulta ao GitHub; antes, o valor ia cru ao `git fetch`, ao `git ls-remote` e ao `git remote get-url`, que agora
+  recebem `--` antes do remoto. `--remoto` sem valor também recusa, em vez de virar `origin` em silêncio.
+- **Remoto da fábrica validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
+  - o `fabrica.remoto` do `orkastery.yaml` e o `--remoto` da linha de comando só chegam ao git como nome de remoto
+    (letras, dígitos, `.`, `_`, `-` e `/` entre partes, cada parte começando por letra ou dígito, sem URL nem
+    transporte, sem caractere de controle); antes, um
+    repositório podia pôr ali uma opção do git, e o `ork fabrica` ou o `ork roadmap reservas` a passavam ao `git fetch`
+    e ao `git push` de quem o clonou (classe: injeção de argumento na linha de comando do git);
+  - fora do formato, `ork fabrica` (e `publicar`, `entrar`, `sair`) recusa com `fabrica.remoto-invalido`, e
+    `ork roadmap reservas`, `pegar`, `soltar` e `feat` com `roadmap.remoto-invalido`, com o valor redigido e nada passado
+    ao git; o `fetch`, o `push` e o `remote get-url` recebem `--` antes do remoto.
+
+## [0.5.2] - 2026-10-03
+
+### Adicionado
+
 - **Perfil por despacho, rodízio por carga e sessões de cada conta** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md), [FEAT-037](docs/produto/FEAT-037-perfil-carga-e-sessoes-das-contas.md)):
   - `ork phase run ... --perfil <id>`, e `perfil` em `ork_phase_run` (MCP e OpenClaw): o despacho sai pela conta pedida;
     perfil inexistente ou de outro runtime recusa com o motivo novo `runtime.profile-invalid` (sem retry automático),

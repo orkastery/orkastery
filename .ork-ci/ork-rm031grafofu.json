@@ -1,0 +1,432 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm031grafofu",
+  "branch": "ork/ork-rm031pacote-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "core/package.json",
+      "alegacao": "grafo no pacote: os cinco pacotes que os analisadores do grafo carregam (typescript, micromark, micromark-extension-gfm-table, decode-named-character-reference e micromark-util-decode-numeric-character-reference) são dependências de runtime do @orkastery/cli com a versão exata instalada no checkout (typescript 5.9.3, micromark 4.0.2 e a tabela GFM 2.1.1), fora de devDependencies e de optionalDependencies, e a raiz do lockfile diz o mesmo",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: dependencias' core/dist-test/test/rm031-grafo-no-pacote.test.js",
+        "node -e \"const p=require('./core/package.json'); const d=p.dependencies||{}; if (d.typescript!=='5.9.3' || d.micromark!=='4.0.2' || d['micromark-extension-gfm-table']!=='2.1.1' || (p.devDependencies||{}).typescript) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-03T02:55:49.505Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "core/package-lock.json",
+      "alegacao": "grafo no pacote: o lockfile do core muda só a raiz e as marcas dev, sem mudar a versão, a origem ou o hash de nenhum pacote em relação à base, e nenhum pacote do fecho dos analisadores fica marcado dev",
+      "negativa": true,
+      "verificar": [
+        "b=$(git merge-base origin/main HEAD) && ! git diff --quiet \"$b\" HEAD -- core/package-lock.json && ! git diff \"$b\" HEAD -- core/package-lock.json | grep -E '^[-+][[:space:]]+\"(version|resolved|integrity)\"'",
+        "node --test --test-name-pattern='grafo no pacote: lockfile' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:55:52.519Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/provar-grafo-instalado.cjs",
+      "alegacao": "grafo no pacote: a prova de instalação limpa passa de ponta a ponta: npm pack da árvore, npm install -g do tarball num prefixo e num HOME temporários com ambiente limpo e, num repositório novo, ork grafo status com os analisadores nas versões do package.json, ork grafo indexar com o índice criado e arestas calls, imports e references, ork grafo chamadores com a aresta calls do ork.ts-ast, o índice do HEAD presente e o ork doctor com o check dos analisadores ok; sem o typescript na instalação, o doctor dá warn com a correção npm install -g e o grafo recusa com grafo.parser.indisponivel: typescript",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/provar-grafo-instalado.cjs"
+      ],
+      "criadoEm": "2026-10-03T02:55:54.972Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "grafo no pacote: o CI roda a prova de instalação limpa no job nucleo, nas duas versões do Node da matriz, depois dos testes do núcleo",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: workflow' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:55:56.829Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "core/src/doctor.ts",
+      "alegacao": "grafo no pacote: o ork doctor tem o check analisadores do grafo: ok com as versões no formato do ork grafo status quando os analisadores carregam; warn, nunca fail, com o erro exato, o que deixa de rodar e a correção npm install -g @orkastery/cli@<versão> quando falta pacote ou ele está fora da instalação; e a correção do Node 20.19 ou 22.12 quando o Node não carrega ESM por require",
+      "negativa": true,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: doctor' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:55:59.256Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "docs/comecar/quickstart.md",
+      "alegacao": "grafo no pacote: o quickstart, os READMEs e o SECURITY.md dizem nove dependências de runtime com versão fixa, e os contratos do KG3 e do KG5 e a referência da CLI dizem que os analisadores vêm com o pacote, sem a frase de que não são dependências",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='ensaio 050: contagens' core/dist-test/test/ensaio-050.test.js",
+        "node --test --test-name-pattern='grafo no pacote: docs' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:56:03.549Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "grafo no pacote: o CHANGELOG tem a linha da correção em Não publicado, e o checador do CI aceita a mudança de core contra a base",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main",
+        "awk '/^## Não publicado/{f=1;next} /^## \\[/{f=0} f' CHANGELOG.md | grep -q 'RM-031'"
+      ],
+      "criadoEm": "2026-10-03T02:56:04.603Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "grafo no pacote: sem os analisadores, o ork grafo status diz a correção na linha correcao do texto e no campo correcao do --json, a mesma do doctor (correcaoDosAnalisadores); com os analisadores, o campo é null e o texto não tem a linha",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: status' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:01:58.499Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm031-grafo-no-pacote.test.ts",
+      "alegacao": "grafo no pacote: o arquivo de testes da thread passa inteiro: dependências exatas, lockfile, check do doctor, correção no status, partes puras da prova de instalação, passos dos workflows e docs",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:11:11.385Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "README.md",
+      "alegacao": "grafo no pacote: a tabela Verified in this tree do README diz o número de dependências de runtime do package.json do core (9, pinned)",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: dependencias' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:11:12.924Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "README.pt-BR.md",
+      "alegacao": "grafo no pacote: a tabela Verificado nesta árvore do README em português diz o número de dependências de runtime do package.json do core (9, com versão fixa)",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: dependencias' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:11:15.191Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "SECURITY.md",
+      "alegacao": "grafo no pacote: a superfície do produto no SECURITY.md diz nove dependências de runtime com versão fixa, os analisadores do grafo entre elas, e que nenhum pacote de produção do lockfile roda script de instalação",
+      "negativa": true,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: (dependencias|lockfile)' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:11:16.293Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-parsers.ts",
+      "alegacao": "grafo no pacote: o comentário dos analisadores diz que eles são dependências de runtime do pacote publicado, sem a frase antiga de que não são, e a regra de só valer dentro da instalação do ork continua com os testes do KG3 verdes",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='KG3 parsers' core/dist-test/test/intelligence-graph-index.test.js",
+        "! grep -q 'nao sao dependencias de runtime' core/src/intelligence-graph-parsers.ts && grep -q 'sao dependencias de runtime do pacote publicado' core/src/intelligence-graph-parsers.ts"
+      ],
+      "criadoEm": "2026-10-03T03:15:32.545Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/indice-grafo-kg3.md",
+      "alegacao": "grafo no pacote: o contrato do índice do KG3, na seção Analisadores, diz que eles são dependências de runtime do pacote publicado com versão exata, sem a frase de que não são, e cita o check analisadores do grafo do doctor",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: docs' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:24:17.281Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "grafo no pacote: a referência da CLI diz que os analisadores são dependências do pacote, o que acontece dentro de um projeto ou pelo npx, que o grafo pede Node 20.19, 22.12 ou mais novo, e descreve o check analisadores do grafo do doctor",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: docs' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:24:20.978Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "grafo no pacote: o pré-requisito do contrato do KG5 diz que os analisadores são dependências do pacote, que as versões publicadas antes da correção não os levavam, e que o check analisadores do grafo do doctor diz a correção",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: docs' core/dist-test/test/rm031-grafo-no-pacote.test.js",
+        "grep -q 'versões publicadas antes dessa correção' docs/referencia/contratos/consumo-grafo-kg5.md"
+      ],
+      "criadoEm": "2026-10-03T03:26:25.988Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "grafo no pacote: o ork doctor do CLI passa ao doctor o check dos analisadores do grafo e o ork grafo status recebe a versão do ork para a correção, pelo index.ts, a porta da família do grafo, e as fronteiras do KG1, do KG3 e do KG5 continuam verdes",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: (doctor|status)' core/dist-test/test/rm031-grafo-no-pacote.test.js",
+        "node --test --test-name-pattern='boundary' core/dist-test/test/intelligence-kg1-boundary.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:34:35.878Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "core/test/ensaio-050.test.ts",
+      "alegacao": "grafo no pacote: as amostras do doctor no quickstart são conferidas com os checks que o ork doctor do CLI emite, inclusive o dos analisadores do grafo, e o arquivo de testes do ensaio da 0.5.0 passa inteiro",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/ensaio-050.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:34:37.512Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm031grafofu.json",
+      "alegacao": "grafo no pacote: o bundle de CI da thread (ork.ci-bundle/v1) é da thread ork-rm031grafofu e da branch ork/ork-rm031pacote-full e leva as 21 claims ativas, entre as que rodam no CI e as adiadas",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=JSON.parse(require('fs').readFileSync('.ork-ci/ork-rm031grafofu.json','utf8'));const ids=new Set([...b.claims,...(b.deferredClaims||[])].map(c=>c.id));if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm031grafofu'||b.branch!=='ork/ork-rm031pacote-full'||ids.size<21){console.error('bundle da thread incompleto');process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-03T03:41:18.414Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/publicar.yml",
+      "alegacao": "grafo no pacote: o publicar.yml roda a prova de instalação limpa num job próprio, provar-grafo, só com permissão de leitura e sem o id-token; o job publicar depende dele, não roda a prova e mantém as conferências de tag igual à versão do package.json, da URL do repositório e da tag na main",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: workflow' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:25:14.963Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/preparar-pacote.js",
+      "alegacao": "grafo no pacote: o preparar-pacote.js exporta a lista das cópias do prepack e só copia ou remove quando roda como script, e a prova de instalação limpa usa essa lista para limpar o que o pack deixar",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const m=require('./core/scripts/preparar-pacote.js'); if (m.DIRETORIOS.join()!=='skills,references,eval,adapters,monitor' || m.ARQUIVOS.join()!=='LICENSE') process.exit(1)\" && test ! -e core/skills",
+        "node --test --test-name-pattern='grafo no pacote: script' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:25:17.420Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "grafo no pacote: o Próximo passo da RM-031 não cita os analisadores nem a instalação sem eles, a página registra a correção de empacotamento, e a documentação inteira fica sem erro de paridade contra a origin/main, com a ajuda do CLI",
+      "negativa": false,
+      "verificar": [
+        "grep -q '^- \\*\\*Próximo passo:\\*\\*' docs/roadmap/RM-031-grafo-de-codigo.md && ! grep '^- \\*\\*Próximo passo:\\*\\*' docs/roadmap/RM-031-grafo-de-codigo.md | grep -qE 'typescript|micromark|analisadores'",
+        "node --test --test-name-pattern='grafo no pacote: docs' core/dist-test/test/rm031-grafo-no-pacote.test.js",
+        "node -e \"const {execFileSync}=require('child_process');const d=require('./core/dist/docs.js');const ajuda=execFileSync(process.execPath,['core/dist/index.js','--help'],{encoding:'utf8'});const r=d.verificarDocs(process.cwd(),{baseBranch:'origin/main',pr:true,ajudaDoCli:ajuda});const e=r.achados.filter(a=>a.gravidade==='erro');if(e.length){console.error(JSON.stringify(e,null,1));process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-03T04:29:25.116Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/SYS-01-nucleo-ork.md",
+      "alegacao": "grafo no pacote: o SYS-01 do núcleo diz as nove dependências de runtime com versão fixa, em vez de zero",
+      "negativa": true,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: dependencias' core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:29:26.922Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm031grafofu",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/extracao-grafo-kg2.md",
+      "alegacao": "grafo no pacote: o contrato da extração do KG2 diz que o micromark é dependência de runtime do pacote, com as transitivas pelo lockfile no checkout e pela faixa de cada pacote em quem instala do npm, sem dizer que vem do markdownlint",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='grafo no pacote: docs' core/dist-test/test/rm031-grafo-no-pacote.test.js",
+        "grep -q 'declara como dependência de runtime' docs/referencia/contratos/extracao-grafo-kg2.md"
+      ],
+      "criadoEm": "2026-10-03T04:29:29.109Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm031grafofu",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "grafo no pacote: o CHANGELOG avisa que, depois de atualizar, o ork grafo indexar refaz o índice completo uma vez (a impressão do extrator muda)",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"refaz o índice completo uma vez\" CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-03T05:38:19.643Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm031grafofu",
+      "fase": "GO",
+      "arquivo": "core/scripts/provar-grafo-instalado.cjs",
+      "alegacao": "grafo no pacote: a prova de instalação limpa recusa preinstall, install e postinstall nas dependências instaladas, inclusive escopos e node_modules aninhados, e lista os pacotes",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"grafo no pacote: script: scripts de instalacao\" core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:38:19.893Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm031grafofu",
+      "fase": "GO",
+      "arquivo": ".github/workflows/publicar.yml",
+      "alegacao": "grafo no pacote: o teste do workflow recusa qualquer if no job publicar, e os checkouts do provar-grafo e do nucleo usam persist-credentials: false",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"grafo no pacote: workflow\" core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:38:20.134Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm031grafofu",
+      "fase": "GO",
+      "arquivo": "docs/conceitos/arquitetura.md",
+      "alegacao": "grafo no pacote: a arquitetura diz as dependências de runtime reais, com o compilador, e o Node 20.19 ou 22.12 que o grafo pede, coberta pelo teste de dependências",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"grafo no pacote: dependencias\" core/dist-test/test/rm031-grafo-no-pacote.test.js && grep -q \"nove dependências de runtime\" docs/conceitos/arquitetura.md"
+      ],
+      "criadoEm": "2026-10-03T05:38:20.393Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm031grafofu",
+      "fase": "GO",
+      "arquivo": ".github/workflows/publicar.yml",
+      "alegacao": "grafo no pacote: o comentário do publicar.yml registra que 0.5.0, 0.5.1 e 0.5.2 saíram sem os analisadores",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"0\\.5\\.2\" .github/workflows/publicar.yml"
+      ],
+      "criadoEm": "2026-10-03T05:38:20.652Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

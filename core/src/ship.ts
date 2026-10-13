@@ -20,7 +20,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { aprovacoesHumanas, registrarGateBloqueado, registrarGateLiberado } from './gates';
-import { adquirirRegiao, esperandoPor, liberar, lerLease, LEASE_MAIN_TREE } from './leases';
+import { adquirirRegiao, esperandoPor, liberar, leasesColidentes, LEASE_MAIN_TREE } from './leases';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirEstado, ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
@@ -28,12 +28,14 @@ import { avaliarPolicies, avisos, bloqueantes, linhasDeAviso, ViolacaoDePolicy }
 import { dirThread, gravarThread, lerThread } from './thread';
 import { Lease, MotivoGate, Thread } from './types';
 import { agora, exec, shaCurto } from './util';
-import { comandoNoLedger, ExecutorVerify, ResultadoVerify, verificar } from './verify';
+import { comandoNoLedger, ConducaoDoVerify, ExecutorVerify, ResultadoVerify, verificar } from './verify';
 import { consultarCi, ExecutorCi, ResultadoCi } from './ci';
 import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
 import { formatarDataHora, legendaDoFuso, localizarTexto } from './horario';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
+import { branchValida, exigirRemoto, shaValido } from './branch-de-estado';
+import { ErroDoCatalogo, Mensagens, msg, remontar, textoDoCatalogo } from './locale';
 
 export interface OpcoesShip {
   /** Revalidação interna confiável; nunca exposta pela CLI/MCP como argumento. */
@@ -41,6 +43,16 @@ export interface OpcoesShip {
   revalidarGit?: (etapa: 'preparar' | 'merge' | 'push', arvore?: string) => void;
   /** Executor interno confiável; não é uma opção de CLI nem argumento MCP. */
   executorVerify?: ExecutorVerify;
+  /**
+   * RM-058 N2 (GO-FIX 1, B1 do CHECK): quanto a verificação do ship espera a fila de recursos pesados. O worker do
+   * `ork_ship` passa o que cabe no prazo dele; sem valor, vale o padrão curto do verify.
+   */
+  esperarFilaPesadaMs?: number;
+  /**
+   * RM-058 N2 (A1 da rodada 2 do CHECK): o aviso de quem espera a fila pesada e o comando que a recusa sugere. O CLI
+   * passa os dois, com o `--esperar` em `esperarFilaPesadaMs`.
+   */
+  avisoDaFilaPesada?: Pick<NonNullable<ConducaoDoVerify['filaPesada']>, 'aoEsperar' | 'comandoDeEsperar'>;
   /** Executor interno confiável da consulta ao provedor de CI. */
   executorCi?: ExecutorCi;
   /** Branch de destino (`--para main`). */
@@ -141,8 +153,8 @@ function contratosDaEntrega(raiz: string, shaPara: string, shaDe: string): strin
   return diff.ok ? contratosTocados(diff.stdout.split('\n').map((l) => l.trim()).filter(Boolean)) : [];
 }
 
-/** Modos em que a propria #TAG do pedido autoriza o push antecipadamente. */
-const MODOS_QUE_AUTORIZAM_PUSH: readonly Thread['modo'][] = ['maestro', 'auto'];
+/** Modos em que a propria #TAG do pedido autoriza o push antecipadamente (o `ork ship publicar` usa a mesma lista). */
+export const MODOS_QUE_AUTORIZAM_PUSH: readonly Thread['modo'][] = ['maestro', 'auto'];
 
 /**
  * Quem autoriza o push desta thread.
@@ -166,15 +178,15 @@ export function autorizacaoDePush(
       autorizado: true,
       tipo: 'humano-no-cli',
       por: opcoes.autorizarPush.trim(),
-      razao: `pausa de push do modo ${tag} autorizada na linha de comando`,
+      razao: textoDoCatalogo((m) => m.ship.autorizadoNaLinha(tag)),
     };
   }
   if (MODOS_QUE_AUTORIZAM_PUSH.includes(thread.modo)) {
     return {
       autorizado: true,
       tipo: 'modo',
-      por: `#TAG ${tag} no pedido do builder`,
-      razao: `o modo ${tag} entrega dentro de um bloco sem pausa: a #TAG e a autorizacao previa`,
+      por: textoDoCatalogo((m) => m.ship.porTag(tag)),
+      razao: textoDoCatalogo((m) => m.ship.autorizadoPeloModo(tag)),
     };
   }
   if (thread.modo === 'classic') {
@@ -185,8 +197,9 @@ export function autorizacaoDePush(
       return {
         autorizado: true,
         tipo: 'humano-antecipado',
-        por: String(antecipada.autorizadoPor ?? 'humano'),
-        razao: `autorizacao antecipada de push registrada no ledger em ${antecipada.ts}`,
+        por: antecipada.autorizadoPor !== undefined && antecipada.autorizadoPor !== null ? String(antecipada.autorizadoPor)
+          : textoDoCatalogo((m) => m.ship.humano),
+        razao: textoDoCatalogo((m) => m.ship.autorizadoAntes(String(antecipada.ts))),
       };
     }
   }
@@ -194,9 +207,7 @@ export function autorizacaoDePush(
     autorizado: false,
     tipo: 'pendente',
     por: '',
-    razao:
-      `o modo ${tag} pausa no push e ainda nao ha autorizacao humana registrada. ` +
-      `Autorize na entrega: ork ship ${thread.id} --para <branch> --autorizar-push <quem>`,
+    razao: textoDoCatalogo((m) => m.ship.semAutorizacao(tag, thread.id)),
   };
 }
 
@@ -249,20 +260,16 @@ export function prepararArvore(raiz: string, para: string): ArvoreDeMerge {
   const dona = arvoreComBranch(raiz, para);
   if (dona) {
     if (temAlteracaoNaoCommitada(dona)) {
-      throw new Error(
-        `a branch de destino "${para}" esta em check-out em ${dona} com alteracoes nao commitadas; ` +
-          'commite ou reverta la antes do ship'
-      );
+      throw new ErroDoCatalogo((m) => m.ship.arvoreSuja(para, dona));
     }
     return { dir: dona, temporaria: false };
   }
   const dir = dirTemporarioDeShip(raiz, para);
   fs.mkdirSync(path.dirname(dir), { recursive: true });
-  const r = exec('git', ['worktree', 'add', dir, para], raiz);
+  const r = exec('git', ['worktree', 'add', '--', dir, para], raiz);
   if (!r.ok) {
-    throw new Error(
-      `nao foi possivel montar a arvore de merge de "${para}": ${(r.stderr || r.stdout).trim()}`
-    );
+    const erro = (r.stderr || r.stdout).trim();
+    throw new ErroDoCatalogo((m) => m.ship.arvoreNaoMontada(para, erro));
   }
   return { dir, temporaria: true };
 }
@@ -288,17 +295,18 @@ export function shaDaRef(dir: string, ref: string): string | null {
  * codigo de saida do `git push` nao prova que o remoto ficou com o commit certo.
  */
 export function shaNoRemoto(dir: string, remoto: string, branch: string): string | null {
-  const r = exec('git', ['ls-remote', remoto, `refs/heads/${branch}`], dir, 120000);
+  // RM-047: so nome de remoto chega ao git, e depois do `--` (nunca vira opcao nem transporte).
+  const r = exec('git', ['ls-remote', '--', exigirRemoto(remoto, 'ship'), `refs/heads/${branch}`], dir, 120000);
   if (!r.ok) return null;
-  const linha = r.stdout.split('\n').find((l) => l.trim() !== '');
-  if (!linha) return null;
-  const sha = linha.split(/\s+/)[0];
+  // RM-059 (S1 da revisao da ork-rm059pista): o padrao do ls-remote casa por sufixo; vale so a linha da ref exata.
+  const linha = r.stdout.split('\n').map((l) => l.trim().split(/\s+/)).find((partes) => partes[1] === `refs/heads/${branch}`);
+  const sha = linha?.[0] ?? '';
   return /^[0-9a-f]{40}$/.test(sha) ? sha : null;
 }
 
 /** O remoto esta configurado neste repositorio? */
 export function remotoConfigurado(dir: string, remoto: string): boolean {
-  return exec('git', ['remote', 'get-url', remoto], dir).ok;
+  return exec('git', ['remote', 'get-url', '--', exigirRemoto(remoto, 'ship')], dir).ok;
 }
 
 function baseDoResultado(thread: Thread, de: string, opcoes: OpcoesShip): ResultadoShip {
@@ -371,7 +379,9 @@ export function detectarReversaoDaEntrega(
   const entregas = lerLedger(dir)
     .filter((e) => e.tipo === TIPOS_DE_EVENTO.shipConcluido && typeof e.mergeSha === 'string')
     .map((e) => ({ mergeSha: String(e.mergeSha), para: para ?? String(e.para ?? '') }))
-    .filter((e) => e.para.length > 0);
+    // RM-047 (fronteira de confiança): o ledger pode vir do clone. Só sha hexadecimal e nome de branch
+    // chegam ao `git log`; qualquer outro valor viraria opção dele e é ignorado.
+    .filter((e) => e.para.length > 0 && shaValido(e.mergeSha) && branchValida(e.para));
   if (entregas.length === 0) return null;
 
   const perguntados = new Set<string>();
@@ -380,7 +390,7 @@ export function detectarReversaoDaEntrega(
     if (perguntados.has(intervalo)) continue;
     perguntados.add(intervalo);
     // O historico e append-only: o merge continua la, e o revert vem DEPOIS dele.
-    const log = exec('git', ['log', '--format=%H%x1f%B%x1e', intervalo], raiz, 60000);
+    const log = exec('git', ['log', '--format=%H%x1f%B%x1e', '--end-of-options', intervalo], raiz, 60000);
     if (!log.ok) continue;
     for (const bruto of log.stdout.split('\x1e')) {
       const [sha, corpo] = bruto.split('\x1f');
@@ -430,7 +440,10 @@ export function ship(
   const dir = dirThread(raiz, threadId);
   const de = opcoes.de ?? thread.base.branch;
   const para = opcoes.para;
-  const remoto = opcoes.remoto ?? 'origin';
+  // RM-047: o `--remoto` vem da linha de comando. Antes de qualquer git (inclusive a leitura da reversao),
+  // so nome de remoto passa; o resto recusa com `ship.remoto-invalido`, e o ship nao entrega sem push provado
+  // por um remoto que nunca existiu.
+  const remoto = exigirRemoto(opcoes.remoto ?? 'origin', 'ship');
   const r = baseDoResultado(thread, de, opcoes);
 
   // I-43 (T7): antes de qualquer coisa, se a entrega ANTERIOR desta thread foi
@@ -470,7 +483,7 @@ export function ship(
     return bloquear(
       'human.pending',
       autorizacao.razao,
-      `ork ship ${threadId} --para <branch> --autorizar-push <quem>`
+      textoDoCatalogo((m) => m.ship.autorizeNaEntrega(threadId))
     );
   }
 
@@ -528,14 +541,15 @@ export function ship(
   }
 
   // 3. Verificacao independente: reexecuta claims e comandos no HEAD real da thread.
-  const verificacao = verificar(carregado, threadId, { executor: opcoes.executorVerify });
+  const verificacao = verificar(carregado, threadId, { executor: opcoes.executorVerify,
+    conducao: { filaPesada: { ...opcoes.avisoDaFilaPesada, esperarMs: opcoes.esperarFilaPesadaMs } } });
   r.verificacao = verificacao;
   if (!verificacao.ok) {
     const motivo = verificacao.motivos.find((m) => m !== 'claims.unverifiable') as MotivoGate;
     return bloquear(
       motivo,
-      `verificacao reprovou no HEAD ${verificacao.commit}: ${verificacao.motivos.join(', ')}`,
-      'rode `ork verify ' + threadId + '` e corrija antes de entregar'
+      textoDoCatalogo((m) => m.ship.verificacaoReprovou(verificacao.commit, verificacao.motivos.join(', '))),
+      textoDoCatalogo((m) => m.ship.rodeVerify(threadId))
     );
   }
 
@@ -545,15 +559,15 @@ export function ship(
   if (!shaDe) {
     return bloquear(
       'artifact.missing',
-      `branch de origem "${de}" nao existe neste repositorio`,
-      `use --de <branch> ou crie a branch da thread`
+      textoDoCatalogo((m) => m.ship.origemAusente(de)),
+      textoDoCatalogo((m) => m.ship.origemAusenteCorrecao)
     );
   }
   if (!shaPara) {
     return bloquear(
       'artifact.missing',
-      `branch de destino "${para}" nao existe neste repositorio`,
-      `crie a branch de destino ou informe outra em --para`
+      textoDoCatalogo((m) => m.ship.destinoAusente(para)),
+      textoDoCatalogo((m) => m.ship.destinoAusenteCorrecao)
     );
   }
   r.shaDe = shaDe;
@@ -565,8 +579,8 @@ export function ship(
   if (tocados.length > 0) {
     return bloquear(
       'policy.violation',
-      `contrato publico em ciclo sem PLAN nem CHECK: ${tocados.join(', ')}`,
-      'refaca a mudanca numa thread #Classic, #Maestro ou #Auto'
+      textoDoCatalogo((m) => m.ship.contratoPublico(tocados.join(', '))),
+      textoDoCatalogo((m) => m.ship.contratoPublicoCorrecao)
     );
   }
 
@@ -577,27 +591,33 @@ export function ship(
   if (!ci.ok) {
     return bloquear(
       'ci.failed',
-      `${ci.detail} (commit ${shaDe}, contexto ${ci.context})`,
-      `publique a branch, aguarde o check ${ci.context} verde no GitHub e repita o SHIP`,
+      textoDoCatalogo((m) => m.ship.ciReprovou(remontar(ci.detail), shaDe, ci.context)),
+      textoDoCatalogo((m) => m.ship.ciReprovouCorrecao(ci.context)),
     );
   }
 
   // 4. Lease `main-tree`: so uma thread mergeia por vez.
   if (r.dryRun) {
-    const ocupado = lerLease(raiz, LEASE_MAIN_TREE);
+    const ocupado = leasesColidentes(raiz, LEASE_MAIN_TREE)[0] ?? null;
     r.leaseOcupadoPor = ocupado;
     // O ensaio tambem responde ONDE o merge aconteceria e se aquela arvore esta limpa:
     // descobrir isso so na hora do merge real seria descobrir tarde demais.
     const dona = arvoreComBranch(raiz, para);
-    const arvoreDoMerge = dona
-      ? `${dona} (arvore que tem ${para} em check-out; ${temAlteracaoNaoCommitada(dona) ? 'SUJA, o ship reprovaria com tree.blocked' : 'limpa'})`
-      : `worktree temporaria em ${path.join(dirEstado(raiz), 'tmp')} (ninguem tem ${para} em check-out)`;
-    r.detalhe = `arvore de merge: ${arvoreDoMerge}`;
+    const suja = dona ? temAlteracaoNaoCommitada(dona) : false;
+    const temporaria = path.join(dirEstado(raiz), 'tmp');
+    const arvoreDoMerge = (m: Mensagens): string => dona ? m.ship.arvoreDona(dona, para, suja) : m.ship.arvoreTemporaria(temporaria, para);
+    r.detalhe = textoDoCatalogo((m) => m.ship.arvoreDeMerge(arvoreDoMerge(m)));
+    // Ensaio de 03/10 (R5): sem remoto (ou com --sem-push), o ensaio diz o mesmo que o ship real, e nao
+    // promete um push e uma prova que nao vao acontecer.
+    const semPushNoReal = opcoes.semPush || !remotoConfigurado(raiz, remoto)
+      ? (m: Mensagens): string => opcoes.semPush ? m.ship.semPushPorFlag : m.ship.semRemoto(remoto) : null;
     r.passos = [
-      `arvore de merge: ${arvoreDoMerge}`,
-      `git merge --no-ff ${de} -m "<mensagem de ship>"`,
-      `git push ${remoto} ${para}`,
-      `git ls-remote ${remoto} refs/heads/${para}   (prova do push)`,
+      r.detalhe,
+      textoDoCatalogo((m) => m.ship.passoMerge(de)),
+      ...(semPushNoReal ? [textoDoCatalogo((m) => m.ship.passoSemPush(semPushNoReal(m)))] : [
+        `git push ${remoto} ${para}`,
+        textoDoCatalogo((m) => m.ship.passoProvaDoPush(remoto, para)),
+      ]),
     ];
     registrar(dir, threadId, TIPOS_DE_EVENTO.shipIniciado, {
       de,
@@ -629,14 +649,13 @@ export function ship(
       posicao: aquisicao.posicaoNaFila,
       naFrente: esperandoPor(raiz, LEASE_MAIN_TREE).length,
       bloqueadaPor: dono?.thread ?? '(desconhecida)',
-      motivo: 'lease.busy',
+      motivo: aquisicao.motivo ?? 'lease.busy',
     });
     return bloquear(
-      'lease.busy',
-      `lease ${LEASE_MAIN_TREE} esta com a thread ${dono?.thread ?? '(desconhecida)'} ` +
-        `desde ${dono?.adquiridoEm ?? '?'} (${dono?.motivo ?? 'sem motivo'}); ` +
-        `esta thread entrou na merge queue na posicao ${aquisicao.posicaoNaFila}`,
-      `espere a vez na fila (ork lease list), ou libere com: ork lease release ${LEASE_MAIN_TREE} --forcar`
+      aquisicao.motivo ?? 'lease.busy',
+      aquisicao.falhaRetomada ? aquisicao.detalhe : textoDoCatalogo((m) => m.ship.leaseComOutra(LEASE_MAIN_TREE,
+        dono?.thread ?? m.ship.desconhecida, dono?.adquiridoEm ?? '?', dono?.motivo ?? m.ship.semMotivo, aquisicao.posicaoNaFila)),
+      aquisicao.correcao
     );
   }
   r.lease = aquisicao.lease;
@@ -666,8 +685,8 @@ export function ship(
       // Arvore de destino indisponivel e reprovacao tipada, nao excecao vazando pelo CLI.
       return bloquear(
         'tree.blocked',
-        (e as Error).message,
-        'deixe a arvore da branch de destino limpa (ou libere a branch) e rode o ship de novo'
+        e instanceof ErroDoCatalogo ? textoDoCatalogo(e.montar) : (e as Error).message,
+        textoDoCatalogo((m) => m.ship.arvoreCorrecao)
       );
     }
     const passos: string[] = [];
@@ -688,20 +707,22 @@ export function ship(
           `modo: ${tagDoModo(thread.modo)}\n` +
           `autorizado por: ${autorizacao.por} (${autorizacao.tipo})\n` +
           `verificado em: HEAD ${verificacao.commit}\n`;
-      const merge = exec('git', ['merge', '--no-ff', de, '-m', mensagem], arvore.dir, 300000);
+      // RM-047: o merge e do sha verificado, e nao do nome que veio de `--de` (nome nunca vira opcao do git).
+      const merge = exec('git', ['merge', '--no-ff', '-m', mensagem, shaDe], arvore.dir, 300000);
       passos.push(`git merge --no-ff ${de}`);
       if (!merge.ok) {
         exec('git', ['merge', '--abort'], arvore.dir);
         r.passos = [...passos, 'git merge --abort'];
+        const erro = (merge.stderr || merge.stdout).trim().slice(0, 400);
         return bloquear(
           'artifact.missing',
-          `merge de ${de} em ${para} falhou: ${(merge.stderr || merge.stdout).trim().slice(0, 400)}`,
-          'resolva o conflito na branch da thread e rode o ship de novo'
+          textoDoCatalogo((m) => m.ship.mergeFalhou(de, para, erro)),
+          textoDoCatalogo((m) => m.ship.mergeFalhouCorrecao)
         );
       }
       const novo = shaDaRef(arvore.dir, 'HEAD');
       if (!novo) {
-        return bloquear('artifact.missing', 'nao foi possivel ler o HEAD apos o merge', 'confira o repositorio');
+        return bloquear('artifact.missing', textoDoCatalogo((m) => m.ship.headIlegivel), textoDoCatalogo((m) => m.ship.confiraRepositorio));
       }
       mergeSha = novo;
       pontaDaBase = novo;
@@ -711,8 +732,8 @@ export function ship(
       if (!incorporou) {
         return bloquear(
           'artifact.missing',
-          `o commit de ${de} nao aparece como ancestral do merge ${mergeSha}`,
-          'nao empurre: investigue o estado do repositorio'
+          textoDoCatalogo((m) => m.ship.naoAncestral(de, mergeSha)),
+          textoDoCatalogo((m) => m.ship.naoEmpurre)
         );
       }
     } else {
@@ -721,12 +742,13 @@ export function ship(
       if (!incorporadoEm) {
         return bloquear(
           'artifact.missing',
-          `${de} ja e ancestral de ${para}, mas o git nao achou o commit de primeiro pai que o incorporou`,
-          'confira o repositorio: o ship_done precisa do merge que entregou a thread'
+          textoDoCatalogo((m) => m.ship.semPrimeiroPai(de, para)),
+          textoDoCatalogo((m) => m.ship.semPrimeiroPaiCorrecao)
         );
       }
       mergeSha = incorporadoEm;
-      passos.push(`(nada a mergear: ${de} ja e ancestral de ${para}, incorporado em ${mergeSha.slice(0, 8)})`);
+      const incorporado = mergeSha.slice(0, 8);
+      passos.push(textoDoCatalogo((m) => m.ship.passoJaIncorporado(de, para, incorporado)));
     }
     r.mergeSha = mergeSha;
     r.pontaDaBase = pontaDaBase;
@@ -737,22 +759,21 @@ export function ship(
     r.remoto = temRemoto ? remoto : null;
     if (opcoes.semPush || !temRemoto) {
       r.pushVerificado = false;
-      r.detalhe = opcoes.semPush
-        ? 'push nao executado por --sem-push (merge local concluido)'
-        : `remoto "${remoto}" nao configurado: merge local concluido, sem push a provar`;
+      r.detalhe = textoDoCatalogo((m) => opcoes.semPush ? m.ship.semPushPorFlag : m.ship.semRemoto(remoto));
     } else {
       const existeNoRemoto = shaNoRemoto(arvore.dir, remoto, para) !== null;
       const argsPush = existeNoRemoto
-        ? ['push', remoto, `${para}:refs/heads/${para}`]
-        : ['push', '-u', remoto, `${para}:refs/heads/${para}`];
+        ? ['push', '--', remoto, `refs/heads/${para}:refs/heads/${para}`]
+        : ['push', '-u', '--', remoto, `refs/heads/${para}:refs/heads/${para}`];
       const push = exec('git', argsPush, arvore.dir, 300000);
       passos.push(`git ${argsPush.join(' ')}`);
       if (!push.ok) {
         r.passos = passos;
+        const erro = (push.stderr || push.stdout).trim().slice(0, 400);
         return bloquear(
           'runtime.unavailable',
-          `push para ${remoto}/${para} falhou: ${(push.stderr || push.stdout).trim().slice(0, 400)}`,
-          'resolva o acesso ao remoto e rode o ship de novo (o merge local ja aconteceu)'
+          textoDoCatalogo((m) => m.ship.pushFalhou(remoto, para, erro)),
+          textoDoCatalogo((m) => m.ship.pushFalhouCorrecao)
         );
       }
       // A prova: o sha que o REMOTO devolve tem que ser o mesmo do destino local.
@@ -764,9 +785,8 @@ export function ship(
         r.passos = passos;
         return bloquear(
           'runtime.unavailable',
-          `ls-remote devolveu ${shaRemoto ?? '(nada)'} e o destino local esta em ${pontaDaBase}: ` +
-            'o push nao ficou provado',
-          'rode o ship de novo e confira o remoto'
+          textoDoCatalogo((m) => m.ship.pushSemProva(shaRemoto, pontaDaBase)),
+          textoDoCatalogo((m) => m.ship.pushSemProvaCorrecao)
         );
       }
     }
@@ -831,81 +851,73 @@ export function ship(
   }
 }
 
-/** Texto de `ork ship` para o CLI. */
+/**
+ * Texto de `ork ship` para o CLI. A razao, o detalhe, a correcao e os passos que o ship montou pelo catalogo
+ * vieram em pt-BR (como o ledger os guarda) e saem remontados no locale ativo (G2 da F2b).
+ */
 export function textoDoShip(r: ResultadoShip): string {
+  const m = msg().ship;
   const linhas: string[] = [];
   // I-35: horários no fuso do dono, sem rótulo por linha; o fuso é dito uma vez, no fim.
   let comHorario = false;
   const local = (texto: string): string => {
-    const localizado = localizarTexto(texto);
-    if (localizado !== texto) comHorario = true;
+    const remontado = remontar(texto);
+    const localizado = localizarTexto(remontado);
+    if (localizado !== remontado) comHorario = true;
     return localizado;
   };
   const fechar = (): string => (comHorario ? [...linhas, legendaDoFuso()] : linhas).join('\n');
-  const cabecalho = r.dryRun ? 'ork ship (--dry-run, nada foi executado)' : 'ork ship';
-  linhas.push(`${cabecalho}: thread ${r.thread}`);
-  linhas.push(`  de            ${r.de}${r.shaDe ? ` @ ${r.shaDe.slice(0, 8)}` : ''}`);
-  linhas.push(`  para          ${r.para}${r.shaParaAntes ? ` @ ${r.shaParaAntes.slice(0, 8)}` : ''}`);
-  linhas.push(
-    `  autorizacao   ${r.autorizacao.autorizado ? `AUTORIZADO por ${r.autorizacao.por} (${r.autorizacao.tipo})` : 'AGUARDANDO AUTORIZACAO HUMANA'}`
-  );
-  linhas.push(`                ${local(r.autorizacao.razao)}`);
+  linhas.push(m.cabecalho(r.dryRun, r.thread));
+  linhas.push(m.de(r.de, r.shaDe ? r.shaDe.slice(0, 8) : ''));
+  linhas.push(m.para(r.para, r.shaParaAntes ? r.shaParaAntes.slice(0, 8) : ''));
+  linhas.push(r.autorizacao.autorizado
+    ? m.autorizado(remontar(r.autorizacao.por), m.tiposDeAutorizacao[r.autorizacao.tipo] ?? r.autorizacao.tipo) : m.aguardandoAutorizacao);
+  linhas.push(m.razao(local(r.autorizacao.razao)));
   if (r.verificacao) {
     const v = r.verificacao;
-    linhas.push(
-      `  verificacao   ${v.ok ? 'passou' : 'REPROVOU'} no HEAD ${shaCurto(v.commit)} ` +
-        `(${v.claims.filter((c) => c.verificado).length}/${v.claims.length} claims, ` +
-        `${v.comandos.filter((c) => c.ok).length}/${v.comandos.length} comandos)`
-    );
+    linhas.push(m.verificacao(v.ok, shaCurto(v.commit), v.claims.filter((c) => c.verificado).length, v.claims.length,
+      v.comandos.filter((c) => c.ok).length, v.comandos.length));
   }
   if (r.ci) {
-    linhas.push(
-      `  ci             ${r.ci.required ? `${r.ci.state.toUpperCase()} ${r.ci.context} em ${r.ci.sha.slice(0, 8)}` : 'não exigido'}`
-    );
+    linhas.push(r.ci.required ? m.ciExigido(r.ci.state.toUpperCase(), r.ci.context, r.ci.sha.slice(0, 8)) : m.ciNaoExigido);
   }
   linhas.push(...linhasDeAviso(r.violacoes ?? []));
   if (r.leaseOcupadoPor) {
     comHorario = true;
-    linhas.push(
-      `  lease         ${LEASE_MAIN_TREE} OCUPADO pela thread ${r.leaseOcupadoPor.thread} (desde ${formatarDataHora(r.leaseOcupadoPor.adquiridoEm)})`
-    );
+    linhas.push(m.leaseOcupado(LEASE_MAIN_TREE, r.leaseOcupadoPor.thread, formatarDataHora(r.leaseOcupadoPor.adquiridoEm)));
   } else if (r.lease) {
-    linhas.push(`  lease         ${LEASE_MAIN_TREE} tomado por ${r.thread} e liberado ao fim`);
+    linhas.push(m.leaseTomado(LEASE_MAIN_TREE, r.thread));
   } else if (r.dryRun) {
-    linhas.push(`  lease         ${LEASE_MAIN_TREE} livre`);
+    linhas.push(m.leaseLivre(LEASE_MAIN_TREE));
   }
 
   if (r.bloqueado) {
     linhas.push('');
-    linhas.push(`BLOQUEADO. motivo tipado: ${r.motivo}`);
-    linhas.push(`  detalhe   ${local(r.detalhe)}`);
-    linhas.push(`  correcao  ${r.correcao}`);
+    linhas.push(m.bloqueado(String(r.motivo)));
+    linhas.push(m.detalhe(local(r.detalhe)));
+    linhas.push(m.correcao(remontar(r.correcao)));
     return fechar();
   }
 
   if (r.dryRun) {
     linhas.push('');
-    linhas.push('Passos que o ship real executaria, nesta ordem:');
-    for (const p of r.passos) linhas.push(`  ${p}`);
+    linhas.push(m.passosDoEnsaio);
+    for (const p of r.passos) linhas.push(`  ${remontar(p)}`);
     return fechar();
   }
 
   linhas.push('');
-  linhas.push(
-    r.jaIncorporado
-      ? `Nada a mergear: ${r.de} ja estava em ${r.para}, incorporado em ${r.mergeSha}.`
-      : `Merge --no-ff concluido: ${r.mergeSha}`
-  );
+  linhas.push(r.jaIncorporado ? m.nadaAMergear(r.de, r.para, String(r.mergeSha)) : m.mergeConcluido(String(r.mergeSha)));
   if (r.pushVerificado) {
-    linhas.push(`Push PROVADO: ls-remote de ${r.remoto}/${r.para} devolveu ${r.shaRemoto}`);
-    linhas.push(`  e o destino local esta no mesmo sha: ${r.pontaDaBase ?? r.mergeSha}`);
+    linhas.push(m.pushProvado(String(r.remoto), r.para, String(r.shaRemoto)));
+    linhas.push(m.mesmoSha(r.pontaDaBase ?? String(r.mergeSha)));
   } else {
-    linhas.push(`Push nao provado: ${local(r.detalhe) || 'sem remoto configurado'}`);
+    linhas.push(m.pushNaoProvado(local(r.detalhe) || m.semRemotoConfigurado));
   }
   linhas.push('');
-  linhas.push('Evidencia (comandos executados):');
-  for (const p of r.passos) linhas.push(`  ${p}`);
+  linhas.push(m.evidencia);
+  for (const p of r.passos) linhas.push(`  ${remontar(p)}`);
   linhas.push('');
-  linhas.push(`Ledger: ork phase list ${r.thread}  (evento ship_done)`);
+  linhas.push(m.ledger(r.thread));
   return fechar();
 }

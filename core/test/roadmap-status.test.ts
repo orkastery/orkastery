@@ -10,10 +10,11 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { projetoTemporario } from './apoio';
+import { comAmbientePtBr, projetoTemporario } from './apoio';
 import { CONTRATO_STATUS_DO_ROADMAP, GRUPOS_DO_ROADMAP, montarStatusDoRoadmap, textoDoStatusDoRoadmap } from '../src/roadmap-status';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
-import { registrar } from '../src/ledger';
+import { lerLedger, registrar } from '../src/ledger';
+import { paradaDesde } from '../src/vida-da-thread';
 import { abrirPedidoGate } from '../src/hitl-gates';
 import { definirFusoDoDono } from '../src/horario';
 import { main } from '../src/index';
@@ -93,7 +94,10 @@ test('#HITL só no que espera o dono; o impedimento técnico não chama o dono',
     const precisa = linhas.indexOf('O que precisa de você'), seguir = linhas.indexOf('O que eu faço em seguida');
     assert.ok(precisa > 0 && seguir > precisa);
     assert.match(linhas[precisa + 1], /^• RM-004: Qual é o veredito sobre objetivo\? A pergunta chega no próximo resumo\.$/);
-    assert.equal(linhas[seguir + 1], `• RM-005: sigo ${runtime.id} na fase GOAL.`);
+    // RM-063 (F2): o despacho falho nao vira "sigo"; a linha diz desde quando e por que a thread parou.
+    const bloqueio = lerLedger(dirThread(p.dir, runtime.id)).find((e) => e.tipo === 'gate_blocked')!;
+    assert.equal(linhas[seguir + 1],
+      `• RM-005: ${runtime.id} ${paradaDesde({ desdeEm: bloqueio.ts, motivo: 'despacho de GOAL falhou (runtime.unavailable: simulado)' }, { agora: QUANDO })}.`);
     // Com o pedido aberto, a linha diz exatamente o que digitar.
     const pedido = abrirPedidoGate(p.dir, gate.id, 'human.pending', QUANDO) as { codigo: string };
     const depois = textoDoStatusDoRoadmap(montarStatusDoRoadmap(p.dir, { quando: QUANDO, projeto: 'orkastery' }));
@@ -117,11 +121,11 @@ test('CLI: ork roadmap status imprime o relatório e --json devolve o contrato',
   try {
     process.chdir(p.dir);
     let saida = ''; console.log = (s: unknown) => { saida += String(s) + '\n'; };
-    assert.equal(main(['roadmap', 'status']), 0);
+    assert.equal(comAmbientePtBr(() => main(['roadmap', 'status'])), 0);
     assert.match(saida, /^Roadmap do Orkastery \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/m);
     assert.match(saida, /^O que eu faço em seguida$/m);
     saida = '';
-    assert.equal(main(['roadmap', 'status', '--json']), 0);
+    assert.equal(comAmbientePtBr(() => main(['roadmap', 'status', '--json'])), 0);
     assert.equal(JSON.parse(saida).contrato, CONTRATO_STATUS_DO_ROADMAP);
   } finally { console.log = log; process.chdir(cwd); p.limpar(); definirFusoDoDono(undefined); }
 });

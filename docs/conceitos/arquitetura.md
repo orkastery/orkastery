@@ -1,7 +1,7 @@
 # Arquitetura
 
 O Orkastery é um **núcleo CLI determinístico** com adaptadores nas duas pontas. Não há LLM
-dentro do núcleo, não há servidor, não há banco obrigatório e não há dependência de runtime.
+dentro do núcleo, não há servidor e não há banco obrigatório; as dependências de runtime são poucas, com versão fixa (veja a seção 7).
 
 ---
 
@@ -278,7 +278,7 @@ Saber o que um produto recusa a ser diz mais do que a lista de features.
 
 | Decisão | Ganho | Preço aceito |
 | --- | --- | --- |
-| Zero dependência de runtime | Instala em qualquer lugar com Node 20, sem árvore de deps para auditar | Um leitor de YAML próprio, restrito ao subconjunto do manifesto |
+| Pacote com nove dependências de runtime com versão fixa | Analisadores do grafo incluídos no `npm install -g` | Árvore de dependências para auditar, incluindo o compilador TypeScript; o grafo pede Node 20.19, 22.12 ou mais novo |
 | Estado em arquivos, não em banco | `cat`, `grep` e `git diff` funcionam. Auditável sem ferramenta | Consulta pesada exige a camada OrkMind, que é opcional |
 | CLI, não daemon | Sem processo residente, sem porta, sem superfície de ataque própria | Não há push de evento: o host consulta |
 | OrkMind como adaptador | O produto funciona inteiro sem ele | Duas implementacoes de recall para manter coerentes, e um teste de degradação para cada uma |
@@ -315,13 +315,14 @@ seu estado:
 | Camada | O que é | Estado |
 | --- | --- | --- |
 | Contrato | [grafo](../referencia/contratos/grafo-deterministico-kg1.md) e [benchmark](../referencia/contratos/benchmark-grafo-kg1.md) versionados, validação pura e corpus sintético (KG1) | entregue |
-| Serviço | [extração](../referencia/contratos/extracao-grafo-kg2.md) (KG2), [índice e consulta](../referencia/contratos/indice-grafo-kg3.md) pelo `ork grafo` (KG3), [incremental](../referencia/contratos/incremental-grafo-kg4.md) (KG4) e [consumo pelas fases](../referencia/contratos/consumo-grafo-kg5.md) pelo MCP (KG5) | entregue até o KG5, com o consumo atrás da flag `grafo.mcp`, desligada; pacote de contexto da thread, federação (KG6) e paridade entre hosts (KG7) não existem |
+| Serviço | [extração](../referencia/contratos/extracao-grafo-kg2.md) (KG2), [índice e consulta](../referencia/contratos/indice-grafo-kg3.md) pelo `ork grafo` (KG3), [incremental](../referencia/contratos/incremental-grafo-kg4.md) (KG4) e [consumo pelas fases](../referencia/contratos/consumo-grafo-kg5.md) pelo MCP (KG5) | entregue até o KG5: o `ork grafo` consulta e monta o pacote de contexto da thread, com a proveniência de cada aresta conferida contra a árvore, e as tools MCP ficam atrás da flag `grafo.mcp`, desligada; federação (KG6) e paridade entre hosts (KG7) não existem |
 | Evidência de economia | registro `measured` do benchmark, com recibos revisados | não existe: o protocolo está fixado (`not-run`) e a rodada paga, pendente |
 
 O consumo pelas fases (KG5) passa pelo MCP do projeto: as tools `ork_grafo_*` rodam a consulta do
 `ork grafo` na worktree da thread, num processo filho com o ambiente mínimo do MCP, prazo e
-cancelamento, e a resposta tem teto em bytes. O servidor MCP não carrega o grafo, e sem a flag ele
-lista as mesmas tools de antes.
+cancelamento, e a resposta tem teto em bytes. Cada aresta diz se as fontes dela conferem com a árvore
+da thread, e a consulta por nó traz o sha256 e o blob de cada fonte. O servidor MCP não carrega o
+grafo, e sem a flag ele lista as mesmas tools de antes.
 
 O grafo é projeção descartável: não substitui o estado em arquivos do Ork nem o Company
 Brain. O contrato do grafo não é emitido como evento do OrkMind e não amplia o schema

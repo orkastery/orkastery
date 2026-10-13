@@ -374,24 +374,26 @@ async function listarCom(p: ProjetoDeTeste, bloco: string): Promise<Tool[]> {
   }
 }
 
-test('KG5 flag: servidor sem a flag, com false ou com valor invalido lista as mesmas 30 tools; com true, so acrescenta as quatro', async () => {
+// RM-026 K7 (fatia 2): as quatro ork_conhecimento_* levam o servidor sem a flag de 31 a 35 tools; a RM-059 (fatia F8) soma a
+// ork_request_master_note: 36.
+test('KG5 flag: servidor sem a flag, com false ou com valor invalido lista as mesmas 36 tools; com true, so acrescenta as do grafo', async () => {
   const p = projetoTemporario('kg5-lista');
   try {
     const sem = await listarCom(p, '');
-    assert.equal(sem.length, 30);
+    assert.equal(sem.length, 36);
     assert.ok(!sem.some((t) => t.name.startsWith('ork_grafo_')));
     assert.deepEqual(await listarCom(p, 'grafo:\n  mcp: false\n'), sem);
     assert.deepEqual(await listarCom(p, 'grafo:\n  mcp: sim\n'), sem);
     const com = await listarCom(p, FLAG_LIGADA);
-    assert.equal(com.length, 34);
-    assert.deepEqual(com.slice(0, 30), sem, 'a flag nao muda nenhuma das outras tools');
-    assert.deepEqual(com.slice(30).map((t) => t.name), [...TOOLS_DO_GRAFO]);
+    assert.equal(com.length, 36 + TOOLS_DO_GRAFO.length);
+    assert.deepEqual(com.slice(0, 36), sem, 'a flag nao muda nenhuma das outras tools');
+    assert.deepEqual(com.slice(36).map((t) => t.name), [...TOOLS_DO_GRAFO]);
   } finally {
     p.limpar();
   }
 });
 
-test('KG5 flag: servidor com a flag expoe as quatro tools de leitura, com schema fechado e threadId', async () => {
+test('KG5 flag: servidor com a flag expoe as cinco tools de leitura, com schema fechado e threadId', async () => {
   const p = projetoTemporario('kg5-schemas');
   try {
     const grafoTools = (await listarCom(p, FLAG_LIGADA)).filter((t) => t.name.startsWith('ork_grafo_'));
@@ -401,7 +403,8 @@ test('KG5 flag: servidor com a flag expoe as quatro tools de leitura, com schema
       assert.equal(t.inputSchema.additionalProperties, false, t.name);
       const props = Object.keys(t.inputSchema.properties ?? {});
       assert.ok(props.includes('threadId') && props.includes('tetoBytes') && props.includes('projeto'), `${t.name}: ${props}`);
-      const exigidos = t.name === 'ork_grafo_caminho' ? ['threadId', 'de', 'para'] : ['threadId', 'alvo'];
+      if (t.name === 'ork_grafo_contexto') assert.match(t.description ?? '', /ork\.thread-graph-context\/v2/);
+      const exigidos = t.name === 'ork_grafo_contexto' ? ['threadId'] : t.name === 'ork_grafo_caminho' ? ['threadId', 'de', 'para'] : ['threadId', 'alvo'];
       assert.deepEqual([...(t.inputSchema.required ?? [])].sort(), exigidos.sort(), t.name);
       assert.match(t.description ?? '', /ork grafo indexar/, t.name);
     }
@@ -412,6 +415,7 @@ test('KG5 flag: servidor com a flag expoe as quatro tools de leitura, com schema
 
 test('KG5 contrato: o vocabulario e os limites das tools sao os do contrato v1 e da consulta', () => {
   assert.deepEqual([...TIPOS_DE_ARESTA_DO_MCP], [...TIPOS_DE_ARESTA]);
+  assert.ok(TIPOS_DE_ARESTA_DO_MCP.includes('cites'));
   assert.equal(PROFUNDIDADE_MAXIMA_DO_MCP, PROFUNDIDADE_MAXIMA);
   assert.equal(LIMITE_MAXIMO_DO_MCP, LIMITE_MAXIMO);
 });
@@ -637,7 +641,7 @@ function despacho(perfil: 'interactive' | 'worktree'): { p: ProjetoDeTeste; t: T
   };
 }
 
-test('KG5 despacho: com a flag da raiz, as quatro tools entram logo depois das consultas, em todas as fases; sem ela, o comando de sempre', () => {
+test('KG5 despacho: com a flag da raiz, as cinco tools entram logo depois das consultas, em todas as fases; sem ela, o comando de sempre', () => {
   for (const perfil of ['interactive', 'worktree'] as const) {
     const f = despacho(perfil);
     try {
@@ -687,7 +691,7 @@ function registroSintetico(): Record<string, any> {
     schema: 'ork.graph-mcp-cost/v0', medido_em: '2026-10-02T05:00:00.000Z', revisao: 'a'.repeat(40), teto_padrao: TETO_PADRAO,
     maquina: { node: 'v22', plataforma: 'linux', cpus: 8, carga_1min: 1 },
     preparo_do_indice: { ms: 1, bytes_do_indice: 1, fontes: 1, arestas: 1 },
-    descoberta: { tools: [...TOOLS_DO_GRAFO], bytes_das_tools: 4000, tools_sem_flag: 30, tools_com_flag: 34, bytes_tools_list_sem_flag: 30000, bytes_tools_list_com_flag: 34000 },
+    descoberta: { tools: [...TOOLS_DO_GRAFO], bytes_das_tools: 4000, tools_sem_flag: 31, tools_com_flag: 36, bytes_tools_list_sem_flag: 30000, bytes_tools_list_com_flag: 34000 },
     perguntas: PERGUNTAS_DO_KG3.map((p) => ({
       id: p.id,
       tool: { bytes_ao_agente: 1000, arestas_devolvidas: 1, total_arestas: 1, cortado: false, evidencias: 1, arquivos_abertos: 0, latencia_ms: [1], latencia_mediana_ms: 1 },

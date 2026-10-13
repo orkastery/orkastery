@@ -20,6 +20,10 @@ export const TIPOS_DE_EVENTO = {
   faseDespachada: 'phase_dispatch',
   despachoVerificado: 'phase_dispatch_verified',
   despachoFalhou: 'phase_dispatch_failed',
+  // RM-063 (F3): o prompt foi ao disco e ao ledger, com o sha256, ANTES do adaptador. O despacho que morre
+  // depois (contexto do runtime, adaptador que lanca, processo morto) deixa o que o `ork retry run`
+  // redespacha sem pedir o texto. Escritor: `phase.ts` (`rodarFaseSobLock`).
+  promptGravado: 'phase_prompt_recorded',
   decisaoAutonoma: 'autonomous_decision',
   pausaHumana: 'human_gate',
   // Bloco B1: verdade, leases, ship e handoff
@@ -33,6 +37,8 @@ export const TIPOS_DE_EVENTO = {
   shipIniciado: 'ship_started',
   shipConcluido: 'ship_done',
   shipBloqueado: 'ship_blocked',
+  // RM-059 (F7, T7.1): o `ork ship publicar` publicou a branch ou abriu o PR, com a prova do `ls-remote`.
+  shipPublicado: 'ship_published',
   /**
    * I-43 (D3): a entrega foi revertida na base depois do ship.
    *
@@ -135,6 +141,30 @@ export const TIPOS_DE_EVENTO = {
   // RM-037 (rm037defeito, A-1 do CHECK 3): o despacho recusado antes da sessao devolveu o lease que a tomada consumiu.
   conducaoDevolvida: 'conducao_devolvida',
   conducaoRenovada: 'conducao_renovada',
+  // RM-063 (F1): a batida da varredura instalada ou removida no crontab desta maquina, pelo
+  // `ork fabrica batida`. Mora no ledger da maquina (`~/.orkastery/ledger.jsonl`, thread `maquina`):
+  // o crontab e do usuario na maquina, nao de uma thread. Escritor: `fabrica-batida.ts`.
+  batidaInstalada: 'batida_instalada',
+  batidaRemovida: 'batida_removida',
+  // RM-063 (F4): um degrau da escada de recuperacao do runtime (reerguer o daemon, o fallback do bloco, outro
+  // perfil), feito, pulado ou falho, com o destino e o mesmo sha256 do prompt. Escritor: `runtime-escada.ts`.
+  recuperacaoDoRuntime: 'runtime_recuperacao',
+  // RM-063 (F5): uma acao da varredura (limpar sessao fantasma, registrar a entrega de PR mesclado, MASTER por omissao),
+  // feita ou recusada, com a autorizacao duravel do dono que a permitiu. Escritor: `varredura-acoes.ts`.
+  acaoDaVarredura: 'varredura_acao',
+  // RM-063 (F6): o dono foi avisado de que a maquina esta ociosa (vaga livre e item reservado para ela sem ninguem
+  // trabalhando), uma linha por episodio, no ledger do projeto. Escritor: a varredura (`pulse-delivery.ts`).
+  maquinaOciosaAvisada: 'maquina_ociosa_avisada',
+  // RM-059 (F6, T6.4): a Sentinela do Condutor ligou ou desligou nesta maquina (ledger do projeto, so na troca).
+  sentinelaLigada: 'sentinela_ligada',
+  sentinelaDesligada: 'sentinela_desligada',
+  // RM-059 (F9, T9.1): a resposta de sessao `claude-bg` pelo Mensageiro de Sessoes (`entrega-por-mod.ts`), sem o
+  // texto, so o sha256 do corpo. Na fila: o `enviar` do controle por mod, no servidor do dono que recebeu a resposta.
+  // Enviada: a `ork_session_outbox` com o resultado do `$.session.send`. Reservada: a `ork_session_inbox` do servidor
+  // preso ao despacho, quando a conferencia no receptor passa. O `session_answered` sai da reconciliacao de sempre.
+  entregaNaFila: 'session_delivery_queued',
+  entregaEnviada: 'session_delivery_sent',
+  entregaReservada: 'session_delivery_reserved',
 } as const;
 
 /**
@@ -194,7 +224,7 @@ export function registrarSeExiste(
   if (tipo === TIPOS_DE_EVENTO.decisaoAutonoma) exigirRastroDeDecisaoAutonoma(dados);
   if (!fs.existsSync(path.join(dirThread, 'thread.json'))) return null;
   let fd: number;
-  try { fd = fs.openSync(caminhoLedger(dirThread), fs.constants.O_WRONLY | fs.constants.O_APPEND); }
+  try { fd = fs.openSync(caminhoLedger(dirThread), fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW); }
   catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw e;
