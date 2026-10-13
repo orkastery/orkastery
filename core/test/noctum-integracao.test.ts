@@ -401,3 +401,44 @@ test('I11: a vez abandonada de uma máquina viva não vira entrega fora da base 
     assert.equal(mainNoRemoto(m2), cb.base);
   } finally { (transporte as { cabecasNoRemoto: typeof original }).cabecasNoRemoto = original; m2.limpar(); }
 });
+
+test('I12: a reconciliação grava o commit do merge provado, não a ponta da base; o avanço rápido que outro esconde espera a inspeção', () => {
+  const m = cenario('noctum-i12');
+  try {
+    // S-R2A-4 da rodada 2: o merge da B sobre a base provada chega e ela cai; depois, um commit de fora entra na main.
+    const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    let daB = '';
+    recusa(() => integrarComVez(m.b.carregado, m.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, (c) => {
+      daB = mergeSobreAProvada(m.b.dir)(c).merge;
+      throw new Error('SIMULADO: a B caiu logo depois do push');
+    }, op(m.b)), 'noctum.integracao.nao-provada');
+    const deFora = branchDeTrabalho(m.a.dir, 'hotfix', 'h.txt', 'H SIMULADO\n');
+    assert.ok(exec('git', ['push', '-q', 'origin', `${deFora.fonte}:refs/heads/main`], m.a.dir).ok);
+    assert.equal(mainNoRemoto(m), deFora.fonte);
+    const r = reconciliarIntegracao(m.b.carregado, m.arco, op(m.b));
+    assert.deepEqual(r.registradas, [{ trabalho: 'b', merge: daB }]);
+    assert.equal(lerCoordenacao(m.a.carregado, m.arco, op(m.a)).entregas.get('b')!.merge, daB, 'o merge da entrega é o da B, não a ponta da base');
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-i12b');
+  try {
+    // Limite dito: a B avança a base até a fonte dela e cai antes de registrar; a vez é abandonada, e a A avança a base até
+    // a branch dela, que mesclou a main nova. A linha de primeiro pai da base passa pela branch da A, e a fonte da B, que
+    // esteve na ponta, já não se prova: nada vira entrega nem é refeito, e o trabalho da B espera a inspeção.
+    branchDeTrabalho(m2.a.dir, 'trabalho-a', 'a.txt', 'A SIMULADO\n');
+    const cb = candidato(branchDeTrabalho(m2.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    recusa(() => integrarComVez(m2.b.carregado, m2.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, (c) => {
+      integradorPorAvanco(m2.b.dir)(c);
+      throw new Error('SIMULADO: a B caiu logo depois do push');
+    }, op(m2.b)), 'noctum.integracao.nao-provada');
+    const tarde = new Date(Date.now() + BATIDA_VENCIDA_MS + 60_000).toISOString();
+    gravarNaCoordenacao(m2.a.carregado, m2.arco, op(m2.a, tarde), (l) => ({ novos: registrosDosAbandonos(derivarCoordenacao(l), 'maquina-a', tarde), resultado: null }));
+    const ca = candidato(atualizarBranch(m2.a.dir, 'trabalho-a'), 'a');
+    assert.equal(ca.base, cb.fonte, 'a A provou sobre a base com a fonte da B');
+    assert.equal(integrarComVez(m2.a.carregado, m2.arco, { ordem: 'O-a-1', destino: DESTINO, candidato: ca }, integradorPorAvanco(m2.a.dir), op(m2.a, tarde)).merge, ca.fonte);
+    const r = reconciliarIntegracao(m2.b.carregado, m2.arco, op(m2.b, tarde));
+    assert.deepEqual([r.registradas, r.semProva], [[], [`${chaveDoDestino(DESTINO)}/1`]]);
+    const estado = lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a, tarde));
+    assert.deepEqual([[...estado.entregas.keys()], situacaoDoTrabalho(estado, 'b')!.estado], [['a'], 'em-execucao']);
+    assert.equal(mainNoRemoto(m2), ca.fonte, 'nada foi integrado de novo');
+  } finally { m2.limpar(); }
+});

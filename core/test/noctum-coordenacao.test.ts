@@ -627,6 +627,9 @@ test('K17: quem grava confere com a régua de quem lê; checkpoint fechado, orde
     assert.match(recusa(() => gravarNaCoordenacao(m.b.carregado, m.arco, op(m.b), () => ({ novos: [{ tipo: 'entrega', trabalho: 'a', ordem: 'O-a-1',
       destino: { repositorio: 'exemplo/produto', base: 'main', permissoes: ['merge'] }, fonte: 'a'.repeat(40), base: 'b'.repeat(40), merge: 'c'.repeat(40) }],
       resultado: null })), 'noctum.envelope.invalido'), /as máquinas reprovariam .*destino fora do formato.*nada foi ao ramo/);
+    // O leitor também fecha o checkpoint: o recibo com sessão, que um núcleo divergente gravaria, as máquinas reprovam.
+    assert.match(recusa(() => gravarNaCoordenacao(m.b.carregado, m.arco, op(m.b), () => ({ novos: [{ tipo: 'recibo', ordem: 'O-a-1', recibo: 'encerrada',
+      motivo: 'SIMULADO', checkpoint: { thread: null, sessionId: 'sessao-SIMULADA' } }], resultado: null })), 'noctum.envelope.invalido'), /checkpoint fora do formato/);
     assert.equal(lerCoordenacao(m.a.carregado, m.arco, op(m.a)).ponta, antes, 'nada foi ao ramo');
     // S2 da rodada 2: a vaga já solta com o mesmo seq local não volta como tomada.
     tomarVagaGlobal(m.b.carregado, m.arco, { ordem: 'O-a-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, op(m.b));
