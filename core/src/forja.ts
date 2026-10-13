@@ -82,7 +82,7 @@ export const executorPadrao: ExecutorDaForja = (cmd, args, entrada, timeoutMs) =
 // Identidade
 // ---------------------------------------------------------------------------
 
-function tipoDoHost(host: string): TipoDeForja | null {
+export function tipoDoHost(host: string): TipoDeForja | null {
   if (host === 'github.com' || /(^|[.-])github([.-]|$)/.test(host)) return 'github';
   if (host === 'gitlab.com' || /(^|[.-])gitlab([.-]|$)/.test(host)) return 'gitlab';
   return null;

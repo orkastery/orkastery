@@ -1,6 +1,6 @@
 /** GitHub CI como CHECK independente (I-12). */
 import { hostComPorta, lerEnderecoDoRemoto } from './forja/endereco';
-import { repositorioGithubNoHost } from './forja';
+import { tipoDoHost } from './forja';
 import { exigirRemoto } from './branch-de-estado';
 import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
@@ -129,26 +129,36 @@ function executorPadrao(input: { repository: string; sha: string; context: strin
   return { ok: r.status === 0, code: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
-export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto = 'origin', executor: ExecutorCi = executorPadrao): ResultadoCi {
-  const { ci } = carregado.manifesto;
-  const context = ci.context || 'ork-verify';
-  if (!ci.required_for_ship) return { schema: 'ork.ci-status/v1', required: false, ok: true, provider: 'github', repository: null, sha, context, state: 'disabled', url: null, detail: textoDoCatalogo((m) => m.ship.ciNaoExigidoDetalhe) };
-  // RM-047: o `--remoto` do `ork ci status` vem da linha de comando; so nome de remoto chega ao git.
-  const remote = exec('git', ['remote', 'get-url', '--', exigirRemoto(remoto, 'ci')], carregado.raiz);
-  const identidade = remote.ok ? repositorioGithubNoHost(remote.stdout) : null;
-  const repository = identidade?.repo ?? null;
-  if (!repository) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: null, sha, context, state: 'unavailable', url: null, detail: textoDoCatalogo((m) => m.ship.ciRemotoNaoGithub(remoto)) };
-  return consultarCiDoRepositorio(repository, sha, context, executor, hostDaApi(remote.stdout));
+/** O `gh` tem login no host (`gh auth status --hostname`)? So o github.com dispensa a pergunta. */
+function loginPadrao(host: string): boolean {
+  return rodarCli({ cmd: 'gh', args: ['auth', 'status', '--hostname', host], prazoMs: 30000, maxBuffer: 1024 * 1024, procurarBinario: false }).status === 0;
 }
 
 /**
- * O `--hostname` do `gh api` para o remoto: `host` ou `host:porta` do GitHub Enterprise. O `ssh.github.com`
- * (SSH pela 443) e o servico do github.com, e a porta de um remoto SSH nao e a da API.
+ * O repositorio e o host da API saem de UM parse so (`lerEnderecoDoRemoto`), sem host de reserva: o `dono/nome`
+ * nunca e consultado num host que o remoto nao nomeia. `ssh.github.com` (SSH pela 443) e o github.com; a porta de um
+ * remoto SSH nao e a da API. Host de GitLab nao e GitHub.
  */
-function hostDaApi(url: string): string {
-  const e = lerEnderecoDoRemoto(url);
-  if (!e || e.host === 'ssh.github.com') return 'github.com';
-  return e.protocolo === 'https' || e.protocolo === 'http' ? hostComPorta(e) : e.host;
+function alvoDaCi(url: string): { repository: string; host: string } | null {
+  const e = lerEnderecoDoRemoto(url.trim());
+  if (!e || e.caminho.split('/').length !== 2 || tipoDoHost(e.host) === 'gitlab') return null;
+  const host = e.host === 'ssh.github.com' ? 'github.com' : e.protocolo === 'https' || e.protocolo === 'http' ? hostComPorta(e) : e.host;
+  return { repository: e.caminho, host };
+}
+
+export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto = 'origin', executor: ExecutorCi = executorPadrao,
+  loginNoHost: (host: string) => boolean = loginPadrao): ResultadoCi {
+  const { ci } = carregado.manifesto;
+  const context = ci.context || 'ork-verify';
+  const falha = (detalhe: string): ResultadoCi => ({ schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: null, sha, context, state: 'unavailable', url: null, detail: detalhe });
+  if (!ci.required_for_ship) return { schema: 'ork.ci-status/v1', required: false, ok: true, provider: 'github', repository: null, sha, context, state: 'disabled', url: null, detail: textoDoCatalogo((m) => m.ship.ciNaoExigidoDetalhe) };
+  // RM-047: o `--remoto` do `ork ci status` vem da linha de comando; so nome de remoto chega ao git.
+  const remote = exec('git', ['remote', 'get-url', '--', exigirRemoto(remoto, 'ci')], carregado.raiz);
+  const alvo = remote.ok ? alvoDaCi(remote.stdout) : null;
+  if (!alvo) return falha(textoDoCatalogo((m) => m.ship.ciRemotoNaoGithub(remoto)));
+  // Fronteira de confianca: so o github.com e consultado sem pergunta; outro host so com login do `gh` nele.
+  if (alvo.host !== 'github.com' && !loginNoHost(alvo.host)) return falha(textoDoCatalogo((m) => m.ship.ciHostSemLogin(alvo.host)));
+  return consultarCiDoRepositorio(alvo.repository, sha, context, executor, alvo.host);
 }
 
 /**

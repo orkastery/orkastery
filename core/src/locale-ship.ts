@@ -93,6 +93,7 @@ export const SHIP_PT_BR = {
   // ci.ts: o detalhe da consulta ao CI (vai ao ledger dentro da evidencia do ship)
   ciNaoExigidoDetalhe: 'gate de CI não exigido pelo manifesto',
   ciRemotoNaoGithub: (remoto: string) => `remoto ${remoto} não é um repositório GitHub reconhecível`,
+  ciHostSemLogin: (host: string) => `o gh não está autenticado em ${host}: a CI desse host não foi consultada`,
   ciConsultaFalhou: 'consulta ao GitHub falhou',
   ciRespostaInvalida: 'GitHub devolveu uma resposta de checks inválida',
   ciSemCheck: (contexto: string) => `check ${contexto} não encontrado no commit`,
@@ -347,6 +348,7 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
   pushSemProvaCorrecao: 'run ship again and check the remote',
   ciNaoExigidoDetalhe: 'CI gate not required by the manifest',
   ciRemotoNaoGithub: (remoto) => `remote ${remoto} is not a recognizable GitHub repository`,
+  ciHostSemLogin: (host) => `gh is not logged in to ${host}: CI on that host was not queried`,
   ciConsultaFalhou: 'GitHub query failed',
   ciRespostaInvalida: 'GitHub returned an invalid checks response',
   ciSemCheck: (contexto) => `check ${contexto} not found on the commit`,
