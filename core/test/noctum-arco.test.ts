@@ -141,9 +141,10 @@ test('A2: ingresso sem prova não autoriza, por nenhuma das portas', () => comRa
 
 test('A3: o módulo não exporta escritor de autorização sem prova; o diálogo confia no callback do servidor, como criarIngressoLocal', () => {
   // RM-058 N2: reservarDespacho e concluirDespacho gravam despacho, nunca autorização (A30 prova que sem ela nada passa).
-  assert.deepEqual(Object.keys(arcoMod).sort(), ['ALVO_DO_NOCTUM', 'CONTRATO_ARCO', 'PRAZO_PARA_AUTORIZAR_MIN',
+  // RM-058 N6: encerrarArco grava o fechamento, terminal, nunca autorização (o EC1 prova que depois dele nada passa).
+  assert.deepEqual(Object.keys(arcoMod).sort(), ['ALVO_DO_NOCTUM', 'CONTRATO_ARCO', 'MOTIVOS_DE_ENCERRAMENTO', 'PRAZO_PARA_AUTORIZAR_MIN',
     'TEXTO_DE_REVOGACAO', 'autorizarPeloIngresso', 'concluirDespacho', 'conferirAntesDoEfeito', 'contextoDoArco', 'criarDialogoDoArco',
-    'enderecoDoArco', 'enfileirarDecisao', 'hashDaRevogacao', 'idDaDecisao', 'lerArco', 'proporEnvelope',
+    'encerrarArco', 'enderecoDoArco', 'enfileirarDecisao', 'hashDaRevogacao', 'idDaDecisao', 'lerArco', 'proporEnvelope',
     'reservarDespacho', 'revogarPeloIngresso', 'textoDeAutorizacao']);
 });
 

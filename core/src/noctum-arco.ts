@@ -138,6 +138,22 @@ export interface DespachoDoArco extends ReservaDeDespacho {
 /** Sessões consumidas (reservadas e não recusadas), no arco e por conta e runtime. A N2 só mede `sessoes`. */
 export interface ConsumoDoArco { arco: number; porConta: Record<string, number>; porRuntime: Record<string, number> }
 
+/**
+ * RM-058 N6 (D2 e D8 da ork-rm058n6): por que o arco fechou, na ordem em que as condições valem. O fechamento é ato do
+ * núcleo, não do dono: ele só registra que a hora, o teto ou a fila acabaram, e que a revogação do dono já foi tratada.
+ */
+export const MOTIVOS_DE_ENCERRAMENTO = ['revogado', 'hora', 'custo', 'fila-vazia'] as const;
+export type MotivoDeEncerramento = typeof MOTIVOS_DE_ENCERRAMENTO[number];
+
+/** O encerramento do arco como o log o conta: terminal, com a versão que valia quando ele fechou. */
+export interface EncerramentoDoArco {
+  motivo: MotivoDeEncerramento;
+  detalhe: string;
+  em: string;
+  versao: number;
+  envelopeSha256: string;
+}
+
 type EventoDoArco =
   | { tipo: 'proposto'; versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope; prazo: string }
   | { tipo: 'autorizado'; versao: number; envelopeSha256: string; ingresso: IngressoDoDono }
@@ -145,7 +161,8 @@ type EventoDoArco =
   | { tipo: 'decisao_enfileirada'; decisao: DecisaoEmLote }
   | { tipo: 'despacho_reservado'; reserva: ReservaDeDespacho }
   | { tipo: 'despacho_concluido'; reserva: number; thread: string; sessionId: string | null; idempotente: boolean }
-  | { tipo: 'despacho_recusado'; reserva: number; motivo: string };
+  | { tipo: 'despacho_recusado'; reserva: number; motivo: string }
+  | { tipo: 'encerrado'; motivo: MotivoDeEncerramento; detalhe: string };
 
 interface DadosDaLinha {
   contrato: typeof CONTRATO_ARCO;
@@ -157,7 +174,7 @@ interface DadosDaLinha {
   evento: EventoDoArco;
 }
 
-export type SituacaoDoArco = 'proposto' | 'agendado' | 'vigente' | 'expirado' | 'revogado';
+export type SituacaoDoArco = 'proposto' | 'agendado' | 'vigente' | 'expirado' | 'revogado' | 'encerrado';
 
 export interface EstadoDoArco {
   contrato: typeof CONTRATO_ARCO;
@@ -175,6 +192,8 @@ export interface EstadoDoArco {
   /** RM-058 N2: os despachos do arco, na ordem do log, e o consumo que eles reservaram. */
   despachos: DespachoDoArco[];
   consumo: ConsumoDoArco;
+  /** RM-058 N6: o fechamento, quando o arco já fechou. Terminal: nada reabre o arco. */
+  encerramento: EncerramentoDoArco | null;
 }
 
 export interface ConferenciaDoEfeito {
@@ -357,11 +376,13 @@ interface Derivado {
   usadas: Set<string>;
   /** RM-058 N2: os despachos pelo `seq` da reserva. */
   despachos: Map<number, DespachoDoArco>;
+  /** RM-058 N6: o fechamento do arco. */
+  encerramento: EncerramentoDoArco | null;
 }
 
 function derivar(linhas: DadosDaLinha[]): Derivado {
   const d: Derivado = { propostas: new Map(), ultima: null, autorizacao: null, revogacao: null, decisoes: [], usadas: new Set(),
-    despachos: new Map() };
+    despachos: new Map(), encerramento: null };
   const usar = (i: IngressoDoDono) => {
     const prova = i.origem === 'mcp-local' ? `mcp-local:${i.solicitacao}` : `${i.origem}:${i.mensagem}`;
     // Uma prova do dono vale para um ato só: reaproveitada noutra linha, o log foi emendado à mão.
@@ -383,6 +404,12 @@ function derivar(linhas: DadosDaLinha[]): Derivado {
       else Object.assign(r, { desfecho: 'recusado', motivo: e.motivo, concluidoEm: em });
       continue;
     }
+    if (e.tipo === 'encerrado') {
+      // O fechamento é um só e vem depois da autorização: outra linha assim só existe num log emendado à mão.
+      if (!d.autorizacao || d.encerramento) throw adulterado('encerramento sem autorização ou repetido');
+      d.encerramento = { motivo: e.motivo, detalhe: e.detalhe, em, versao: d.autorizacao.versao, envelopeSha256: d.autorizacao.envelopeSha256 };
+      continue;
+    }
     if (e.tipo === 'proposto') {
       const p = { versao: e.versao, envelopeSha256: e.envelopeSha256, conteudo: e.conteudo, prazo: e.prazo };
       if (hashDoEnvelope(p.conteudo) !== p.envelopeSha256) throw adulterado(`proposta ${p.versao} com hash que não confere`);
@@ -390,6 +417,7 @@ function derivar(linhas: DadosDaLinha[]): Derivado {
       d.ultima = p;
     } else if (e.tipo === 'autorizado') {
       if (d.propostas.get(e.versao)?.envelopeSha256 !== e.envelopeSha256) throw adulterado(`autorização da versão ${e.versao} sem proposta`);
+      if (d.encerramento) throw adulterado(`autorização da versão ${e.versao} depois do encerramento`);
       d.autorizacao = { versao: e.versao, envelopeSha256: e.envelopeSha256, ingresso: e.ingresso };
       usar(e.ingresso);
     } else if (e.tipo === 'revogado') {
@@ -403,6 +431,7 @@ function derivar(linhas: DadosDaLinha[]): Derivado {
 function situacao(d: Derivado, quando: string): SituacaoDoArco {
   if (d.revogacao) return 'revogado';
   if (!d.autorizacao) return 'proposto';
+  if (d.encerramento) return 'encerrado';
   const janela = d.propostas.get(d.autorizacao.versao)!.conteudo.janela;
   const agora = Date.parse(quando);
   if (agora < Date.parse(janela.inicio)) return 'agendado';
@@ -411,13 +440,13 @@ function situacao(d: Derivado, quando: string): SituacaoDoArco {
 
 function estadoDe(arco: string, d: Derivado, quando: string): EstadoDoArco {
   const vigente = d.autorizacao ? d.propostas.get(d.autorizacao.versao)! : null;
-  const pendente = d.ultima && !d.revogacao && d.ultima.versao !== d.autorizacao?.versao &&
+  const pendente = d.ultima && !d.revogacao && !d.encerramento && d.ultima.versao !== d.autorizacao?.versao &&
     Date.parse(quando) < Date.parse(d.ultima.prazo) ? d.ultima : null;
   return { contrato: CONTRATO_ARCO, arco, situacao: situacao(d, quando), versao: vigente?.versao ?? null,
     envelopeSha256: vigente?.envelopeSha256 ?? null, conteudo: vigente?.conteudo ?? null,
     autorizadoPor: d.autorizacao?.ingresso ?? null, revogadoPor: d.revogacao,
     propostaPendente: pendente ? { versao: pendente.versao, envelopeSha256: pendente.envelopeSha256, prazo: pendente.prazo } : null,
-    decisoes: d.decisoes, despachos: [...d.despachos.values()], consumo: consumoDe(d) };
+    decisoes: d.decisoes, despachos: [...d.despachos.values()], consumo: consumoDe(d), encerramento: d.encerramento };
 }
 
 /** D12 da ork-rm058n2: a reserva consome uma sessão até ser recusada; a concluída e a pendente contam. */
@@ -448,6 +477,7 @@ export function proporEnvelope(raiz: string, pedido: unknown, quando = new Date(
   return comLockDoArco(raiz, conteudo.arco, true, () => {
     const log = lerLog(raiz, conteudo.arco), d = derivar(log.linhas);
     if (d.revogacao) throw new RecusaDoArco('noctum.efeito.revogado', 'arco revogado é terminal; abra outro arco');
+    if (d.encerramento) throw new RecusaDoArco('noctum.efeito.encerrado', `arco encerrado (${d.encerramento.motivo}) é terminal; abra outro arco`);
     const resumo = resumoDoEnvelope(conteudo, envelopeSha256);
     const pendente = estadoDe(conteudo.arco, d, quando).propostaPendente;
     if (pendente?.envelopeSha256 === envelopeSha256) return { arco: conteudo.arco, ...pendente, resumo };
@@ -481,6 +511,7 @@ function exigirEmendaSemProrrogar(d: Derivado, conteudo: ConteudoDoEnvelope, qua
 /** A proposta que o dono pode autorizar agora, ou a recusa tipada de por que não. */
 function propostaAutorizavel(d: Derivado, envelopeSha256: string, quando: string): Proposta {
   if (d.revogacao) throw new RecusaDoArco('noctum.efeito.revogado', 'arco revogado é terminal; abra outro arco');
+  if (d.encerramento) throw new RecusaDoArco('noctum.efeito.encerrado', `arco encerrado (${d.encerramento.motivo}) é terminal; abra outro arco`);
   if (!d.ultima) throw new RecusaDoArco('noctum.efeito.sem-autorizacao', 'arco sem proposta');
   if (d.ultima.envelopeSha256 !== envelopeSha256) {
     const conhecida = [...d.propostas.values()].some(p => p.envelopeSha256 === envelopeSha256);
@@ -833,6 +864,11 @@ function vigenteConferido(raiz: string, arco: string, envelopeSha256: unknown, l
   const d = derivar(log.linhas);
   if (d.revogacao) throw new RecusaDoArco('noctum.efeito.revogado', `arco ${arco} revogado pelo dono`);
   if (!d.autorizacao) throw new RecusaDoArco('noctum.efeito.sem-autorizacao', `arco ${arco} sem envelope autorizado`);
+  // RM-058 N6 (D2): encerrado é terminal como o revogado; reserva devolvida depois do teto não o reabre.
+  if (d.encerramento) {
+    throw new RecusaDoArco('noctum.efeito.encerrado', `arco ${arco} encerrado (${d.encerramento.motivo}) em ${d.encerramento.em}; ` +
+      'nenhum despacho ou efeito novo passa, e o arco não reabre');
+  }
   // A prova do dono é reconferida aqui, pelo recibo do canal, e não lida da linha do log (FX2 no gate).
   const prova = reciboConfere(raiz, arco, 'autorizar', d.autorizacao.envelopeSha256, d.autorizacao.versao, d.autorizacao.ingresso);
   if (prova === 'sem-verificador') {
@@ -957,6 +993,26 @@ export function reservarDespacho(raiz: string, pedido: PedidoDeDespacho, quando 
     const seq = log.linhas.length + 1;
     const estado = confirmado(raiz, pedido.arco, quando, e => e.despachos.some(x => x.seq === seq && x.desfecho === 'pendente'), 'reserva do despacho');
     return { arco: pedido.arco, seq, versao: vigente.versao, envelopeSha256: vigente.envelopeSha256, fim: c.janela.fim, consumo: estado.consumo };
+  }, true);
+}
+
+/**
+ * RM-058 N6 (D2 e D8 da ork-rm058n6): fecha o arco, uma vez, sob o lock do arco (espera como a revogação, porque é ato de
+ * segurança). Depois disto `vigenteConferido` recusa todo despacho e efeito com `noctum.efeito.encerrado`, a emenda é
+ * recusada e a fila encerra. O segundo fechamento devolve o primeiro. Só fecha arco que o dono autorizou; o revogado
+ * também fecha, para o registro do fechamento (a situação continua `revogado`).
+ */
+export function encerrarArco(raiz: string, arco: string, fechamento: { motivo: MotivoDeEncerramento; detalhe: string },
+  quando = new Date().toISOString()): EstadoDoArco {
+  if (!(MOTIVOS_DE_ENCERRAMENTO as readonly string[]).includes(fechamento?.motivo)) {
+    throw new RecusaDoArco('noctum.envelope.invalido', `motivo de encerramento fora de ${MOTIVOS_DE_ENCERRAMENTO.join(', ')}`);
+  }
+  return comLockDoArco(raiz, arco, false, () => {
+    const log = lerLog(raiz, arco), d = derivar(log.linhas);
+    if (!d.autorizacao) throw new RecusaDoArco('noctum.efeito.sem-autorizacao', `arco ${arco} nunca autorizado não encerra`);
+    if (d.encerramento) return estadoDe(arco, d, quando);
+    anexar(raiz, arco, log, { tipo: 'encerrado', motivo: fechamento.motivo, detalhe: String(fechamento.detalhe ?? '').slice(0, 500) }, quando);
+    return confirmado(raiz, arco, quando, e => e.encerramento !== null, 'encerramento');
   }, true);
 }
 

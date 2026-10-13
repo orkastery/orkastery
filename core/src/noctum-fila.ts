@@ -234,7 +234,10 @@ export function montarFila(fatos: FatosDaFila): FilaDoArco {
     return vazia('fonte-indisponivel', { acao: 'aguardar', motivo: 'sem-autorizacao', ate: daqui(CADENCIA_MS) }, ['o arco não tem envelope autorizado']);
   }
   const conteudo: ConteudoDoEnvelope = estado.conteudo;
-  if (estado.situacao === 'revogado' || estado.situacao === 'expirado') return vazia('vazia', { acao: 'encerrar', motivo: 'arco-encerrado' });
+  // RM-058 N6: o arco encerrado (hora, custo ou fila vazia) também acabou: nada é candidato.
+  if (estado.situacao === 'revogado' || estado.situacao === 'expirado' || estado.situacao === 'encerrado') {
+    return vazia('vazia', { acao: 'encerrar', motivo: 'arco-encerrado' });
+  }
   if (estado.situacao === 'agendado') return vazia('bloqueada', { acao: 'aguardar', motivo: 'agendado', ate: conteudo.janela.inicio });
   if (!envelopeComTrabalhos(conteudo)) {
     return vazia('fonte-indisponivel', { acao: 'aguardar', motivo: 'fonte-indisponivel', ate: daqui(CADENCIA_MS, conteudo.janela.fim) },
