@@ -78,8 +78,12 @@ function main(argv) {
       if (vezes !== 1) return falha(`o trecho do mutante ${id} aparece ${vezes} vez(es) em ${alvo}: precisa ser exatamente uma`);
       fs.writeFileSync(arquivo, texto.replace(m.de, () => m.para));
     }
+    // Dentro de um `node --test` (a suíte), o filho herdaria o contexto do runner e escreveria no formato dele, e não em TAP:
+    // nenhum teste apareceria, e o mutante não teria veredito.
+    const env = { ...process.env };
+    delete env.NODE_TEST_CONTEXT;
     const r = spawnSync(process.execPath, ['--test-reporter=tap', `--test-name-pattern=${m.nome}`, path.join(copia, teste)],
-      { cwd: copia, encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024, env: process.env });
+      { cwd: copia, encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024, env });
     const linhas = (r.stdout || '').split('\n');
     // Só os testes de primeiro nível que rodaram de fato: o pulado pelo nome não conta.
     const rodaram = linhas.filter((l) => /^(?:not )?ok \d+ - /.test(l) && !/# SKIP\b/.test(l));
