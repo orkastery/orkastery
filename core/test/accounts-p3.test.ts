@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { dirTemporario, projetoTemporario } from './apoio';
+import { dirTemporario, envPtBr, projetoTemporario } from './apoio';
 import { adicionarPerfil, caminhoRealDoPerfil, desativarPerfil, lerPerfis } from '../src/runtime-profiles';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -23,7 +23,8 @@ if [ "$1" = "auth" ] && [ "$2" = "status" ]; then printf '{"loggedIn":false,"con
 if [ "$1" = "auth" ] && [ "$2" = "login" ]; then printf '%s' "$CLAUDE_CONFIG_DIR"; exit 0; fi
 exit 1
 `, { mode: 0o755 });
-const ENV = { ...process.env, PATH: `${STUB}:${process.env.PATH ?? ''}` };
+// RM-061 (F3b): o teste le o texto em pt-BR; o comando agora segue o locale, entao o filho fixa o pt-BR.
+const ENV = envPtBr({ ...process.env, PATH: `${STUB}:${process.env.PATH ?? ''}` });
 process.on('exit', () => fs.rmSync(STUB, { recursive: true, force: true }));
 function ork(cwd: string, args: string[]): { saida: string; codigo: number } {
   try { return { saida: execFileSync(process.execPath, [CLI, ...args], { cwd, env: ENV, encoding: 'utf8', stdio: 'pipe' }), codigo: 0 }; }

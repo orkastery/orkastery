@@ -16,6 +16,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { redigirCredenciaisUrl } from './redacao-url';
+import { ErroDoCatalogo } from './locale';
 
 export interface SaidaGit { ok: boolean; stdout: string; stderr: string }
 
@@ -29,7 +30,11 @@ export function git(raiz: string, args: string[], extra: OpcoesDeGit = {}): Said
 
 export function exigirGit(raiz: string, args: string[], prefixo: string, extra: OpcoesDeGit = {}): string {
   const r = git(raiz, args, extra);
-  if (!r.ok) throw new Error(`${prefixo}.git: git ${args[0]} falhou: ${r.stderr.trim().split('\n').pop() ?? ''}`);
+  if (!r.ok) {
+    // RM-061 (F3b, GO-FIX 1): pelo catalogo, com o codigo `<prefixo>.git` igual; a saida do git vai como veio.
+    const comando = args[0], saida = r.stderr.trim().split('\n').pop() ?? '';
+    throw new ErroDoCatalogo((m) => m.estado.gitFalhou(prefixo, comando, saida));
+  }
   return r.stdout;
 }
 
@@ -66,9 +71,9 @@ export function remotoRedigido(remoto: unknown): string {
  */
 export function exigirRemoto(remoto: unknown, prefixo: string): string {
   if (remotoValido(remoto)) return remoto;
-  throw new Error(`${prefixo}.remoto-invalido: o remoto ${remotoRedigido(remoto)} não é nome de remoto do git ` +
-    '(letras, dígitos, ".", "_", "-" e "/" entre partes, cada parte começando por letra ou dígito, sem URL); nada foi passado ao git. ' +
-    'Corrija fabrica.remoto no orkastery.yaml ou --remoto (padrão: origin).');
+  // RM-061 (F3b): a recusa nasce do catalogo; o codigo `<prefixo>.remoto-invalido` e o mesmo nas duas linguas.
+  const redigido = remotoRedigido(remoto);
+  throw new ErroDoCatalogo((m) => m.estado.remotoInvalido(prefixo, redigido));
 }
 
 /**
@@ -170,7 +175,8 @@ export function gravarNaBranch(raiz: string, remoto: string, branch: string, pon
       return commit;
     }
     if (/rejected|non-fast-forward|fetch first|stale info|failed to push/i.test(push.stderr)) return false;
-    throw new Error(`${prefixo}.sem-remoto: o push para ${remoto} falhou: ${push.stderr.trim().split('\n').pop() ?? ''}`);
+    const saida = push.stderr.trim().split('\n').pop() ?? '';
+    throw new ErroDoCatalogo((m) => m.estado.pushFalhou(prefixo, remoto, saida));
   } finally {
     fs.rmSync(path.dirname(indice), { recursive: true, force: true });
   }

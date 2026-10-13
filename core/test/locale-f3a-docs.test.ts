@@ -2,8 +2,8 @@
  * RM-061, fatia F3a: a familia docs init em ingles. Com o locale ingles, `ork docs init` cria os sete arquivos a
  * partir de `core/assets/docs-en/`, nos mesmos caminhos, e imprime em ingles (D5, D6). O contrato do `ork docs
  * verificar` fica igual (D3): pagina de produto e item de roadmap feitos dos modelos em ingles, preenchidos, passam no
- * verificador sem erro. Negativo: em pt-BR os arquivos sao os de `core/assets/docs/`; `ork docs verificar` segue em
- * pt-BR com o locale ingles. Os nomes comecam por "locale F3a docs:".
+ * verificador sem erro. Negativo: em pt-BR os arquivos sao os de `core/assets/docs/`. A F3b leva o texto do `ork docs
+ * verificar` ao catalogo: com o locale ingles ele sai em ingles, com o `--json` igual. Os nomes comecam por "locale F3a docs:".
  */
 
 import { strict as assert } from 'node:assert';
@@ -124,15 +124,18 @@ test('locale F3a docs: pagina e item feitos dos modelos em ingles, preenchidos, 
   } finally { c.limpar(); }
 });
 
-test('locale F3a docs (negativo): em pt-BR os arquivos sao os de core/assets/docs, e ork docs verificar segue em pt-BR com LANG ingles', () => {
+test('locale F3a docs (negativo): em pt-BR os arquivos sao os de core/assets/docs, e o --json do ork docs verificar nao muda com a lingua', () => {
   const c = cenario('f3a-docs-pt', false);
   try {
     assert.equal(ork(c, C, false, 'docs', 'init').status, 0);
     const s = snapshot();
     for (const arquivo of ARQUIVOS_DO_DOCS_INIT) assert.equal(ler(c.dir, arquivo), s[`cli: ork docs init, ${arquivo}`], arquivo);
+    // F3b: o texto segue o locale; o `--json` e o codigo de saida, nao.
     const pt = ork(c, C, false, 'docs', 'verificar'), en = ork(c, EN, false, 'docs', 'verificar');
     assert.equal(en.status, pt.status);
-    assert.equal(en.stdout, pt.stdout, 'docs verificar nao segue o locale (F3b)');
+    assert.match(pt.stdout, /^Documentação: /);
+    assert.match(en.stdout, /^Documentation: /);
+    assert.equal(ork(c, EN, false, 'docs', 'verificar', '--json').stdout, ork(c, C, false, 'docs', 'verificar', '--json').stdout);
   } finally { c.limpar(); }
   // A funcao sem locale segue em pt-BR mesmo com o locale ativo em ingles (D2): o esperado vem da fixture da base, nao do
   // padrao do proprio codigo (W2 do CHECK).

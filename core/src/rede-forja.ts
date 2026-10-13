@@ -16,6 +16,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { redigirCredenciaisUrl } from './redacao-url';
+import { ErroDoCatalogo, montadorDe, textoDoCatalogo } from './locale';
 
 export type NomeDaForja = 'github' | 'gitlab';
 export const ORDEM_DAS_FORJAS: readonly NomeDaForja[] = ['github', 'gitlab'];
@@ -172,7 +173,8 @@ const naoEncontrado = (s: Saida) => /HTTP 404|404 Not Found|"status"\s*:\s*"?404
 
 function falhou(cli: string, rota: string, s: Saida): Error {
   const linha = redigirCredenciaisUrl(s.stderr.trim().split('\n').pop() ?? '').slice(0, 200);
-  return new Error(`rede.forja: ${cli} api ${rota} falhou${linha ? `: ${linha}` : ''}`);
+  const montarLinha = montadorDe(linha);
+  return new ErroDoCatalogo((m) => m.network.apiFalhou(cli, rota, montarLinha(m)));
 }
 
 /** A resposta de quem nao tem login (ou tem credencial recusada), no `gh` e no `glab`. */
@@ -181,8 +183,10 @@ const SEM_LOGIN = /auth login|not logged|not authenticated|authentication|HTTP 4
 /** `usuario: null` so e falta de login quando a forja disse isso; o resto e falha da leitura. */
 function falhaDoLogin(cli: string, s: Saida): { falha?: string } {
   if (!s.ok && SEM_LOGIN.test(`${s.stderr}\n${s.stdout}`)) return {};
-  if (s.ok) return { falha: `${cli} api user devolveu uma resposta sem login legivel` };
-  return { falha: falhou(cli, 'user', s.stderr.trim() ? s : { ...s, stderr: 'sem resposta da forja no prazo' }).message.replace(/^rede\.forja: /, '') };
+  // RM-061 (F3b): a falha entra no detalhe da lacuna da casa, que a impressao remonta no locale do comando.
+  if (s.ok) return { falha: textoDoCatalogo((m) => m.network.respostaSemLogin(cli)) };
+  const erro = falhou(cli, 'user', s.stderr.trim() ? s : { ...s, stderr: textoDoCatalogo((m) => m.network.semRespostaNoPrazo) }) as ErroDoCatalogo;
+  return { falha: textoDoCatalogo((m) => erro.montar(m).replace(/^rede\.forja: /, '')) };
 }
 
 /** Caminho seguro para o shell que o git usa no helper: aspas simples, com `'` escapada (B10). */
@@ -201,7 +205,7 @@ function privadoDe(v: Record<string, unknown>): boolean | null {
 function github(binario: string, amb: AmbienteDaMaquina, host = 'github.com'): Forja {
   // B2: a casa vai sempre por HTTPS, com o helper da propria CLI; SSH pediria agente, que o cron nao tem.
   const repositorioDe = (v: Record<string, unknown> | null): RepositorioNaForja => {
-    if (!v) throw new Error('rede.forja: gh devolveu um repositorio ilegivel');
+    if (!v) throw new ErroDoCatalogo((m) => m.network.repositorioIlegivel);
     return { existe: true, privado: privadoDe(v), url: typeof v.clone_url === 'string' ? v.clone_url : null };
   };
   // B9: o host da casa vai em toda chamada; o cron nao tem o ambiente do terminal.
@@ -241,7 +245,7 @@ function hostDoGitlab(amb: AmbienteDaMaquina): string {
 function gitlab(binario: string, amb: AmbienteDaMaquina, hostPedido?: string): Forja {
   const host = hostPedido ?? hostDoGitlab(amb);
   const repositorioDe = (v: Record<string, unknown> | null): RepositorioNaForja => {
-    if (!v) throw new Error('rede.forja: glab devolveu um projeto ilegivel');
+    if (!v) throw new ErroDoCatalogo((m) => m.network.projetoIlegivel);
     return { existe: true, privado: privadoDe(v), url: typeof v.http_url_to_repo === 'string' ? v.http_url_to_repo : null };
   };
   const api = (args: string[], timeoutMs: number) => rodar(binario, ['api', '--hostname', host, ...args], amb, timeoutMs);

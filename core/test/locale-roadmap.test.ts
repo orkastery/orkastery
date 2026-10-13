@@ -30,11 +30,11 @@ test('locale en F2b roadmap: roadmap status do CLI sai em ingles, com o bloco do
     assert.deepEqual(linhasEmPortugues(en.stdout.split('\n').filter((x) => !bloco(x).length).join('\n')), []);
     const semData = (t: string) => t.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>');
     assert.equal(semData(ork(c, EN, false, 'roadmap', 'status', '--json').stdout), semData(ork(c, PT, false, 'roadmap', 'status', '--json').stdout));
-    // roadmap reservas (e o padrao do roadmap) seguem pt-BR.
+    // A F3b levou `roadmap reservas` (e o padrao do roadmap) ao catalogo: o bloco do RM-052 segue igual, o resto em ingles.
     for (const args of [['roadmap'], ['roadmap', 'reservas']]) {
       const a = ork(c, PT, false, ...args), b = ork(c, EN, false, ...args);
-      assert.equal(b.stdout, a.stdout, args.join(' '));
-      assert.equal(b.stderr, a.stderr, args.join(' '));
+      assert.deepEqual(bloco(b.stdout), bloco(a.stdout), args.join(' '));
+      assert.match(b.stdout, /\nRoadmap reservations: project loc has no remote origin; nothing was read from ork\/roadmap-reservas\.\n$/, args.join(' '));
     }
     // A fabrica compartilhada num clone parcial: o motivo de nao ler sai pelo catalogo.
     execFileSync('git', ['config', 'extensions.partialclone', 'origin'], { cwd: c.dir });

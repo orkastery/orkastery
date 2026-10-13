@@ -35,9 +35,10 @@ async function comPlugin(corpo) {
   }
 }
 
-test('toda tool de projeto aceita projeto opcional, so nome (a rede da RM-054 tambem aceita a forja); o catalogo com 28 tools e os requisitos de antes', async () => {
+test('toda tool de projeto aceita projeto opcional, so nome (a rede da RM-054 tambem aceita a forja); o catalogo com 32 tools e os requisitos de antes', async () => {
   await comPlugin(async (tools) => {
-    assert.equal(tools.length, 28, 'as 25 da RM-052, ork_brain_dossie (RM-026), ork_network_roadmap (RM-054, fatia 2) e ork_network_status (fatia 3)');
+    assert.equal(tools.length, 32, 'as 25 da RM-052, ork_brain_dossie (RM-026), ork_network_roadmap (RM-054, fatia 2), ' +
+      'ork_network_status (fatia 3) e as quatro ork_conhecimento_* (RM-026 K7, fatia 3)');
     for (const t of tools) {
       const p = t.parameters.properties.projeto;
       // RM-054 (fatia 3): o status da rede e da pessoa, nao de um projeto: sem o parametro.

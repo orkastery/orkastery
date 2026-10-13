@@ -67,7 +67,7 @@ export function dirEstado(raiz: string): string {
   // RM-047 (fronteira de confiança): `.orkastery` versionado como link levaria o estado para fora da raiz.
   const dir = path.join(raiz, DIR_ESTADO);
   if (fs.lstatSync(dir, { throwIfNoEntry: false })?.isSymbolicLink()) {
-    throw new Error(`estado.link: ${DIR_ESTADO} é link simbólico; o estado do ork fica numa pasta de verdade dentro da raiz. Remova o link.`);
+    throw new ErroDoCatalogo((m) => m.estado.dirEstadoLink(DIR_ESTADO));
   }
   return dir;
 }

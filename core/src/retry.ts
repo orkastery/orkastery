@@ -82,7 +82,7 @@ import { linhaDeConducao } from './conducao-texto';
 import { CanalDeConducao } from './types';
 import { caminhoContidoOuNulo, cwdLocalOuNulo, diretorioDaThread, exigirCwdLocal } from './procedencia';
 import { comandoDeConfirmacao, posturaAfrouxada, recusaDePostura } from './postura-local';
-import { Mensagens, msg, remontar, textoDoCatalogo } from './locale';
+import { Mensagens, msg, remontar, textoDoCatalogo, textoDoErro } from './locale';
 import { RETRY_PT_BR } from './locale-retry';
 
 /** RM-061 (F2b, D3): `porque` e `correcao` de cada motivo tem a fonte no catalogo pt-BR; o `--json` nao muda. */
@@ -730,7 +730,8 @@ function redespacharSobLock(
     // RM-047 (P2): o cwd do pedido da fila ou da worktree da thread so vale como worktree registrada no git.
     let cwd: string;
     try { cwd = opcoes.cwd !== undefined ? exigirCwdLocal(raiz, thread.id, opcoes.cwd, 'fila') : diretorioDaThread(raiz, thread); }
-    catch (e) { return { ...vazio, ok: false, motivo: 'tree.blocked', detalhe: (e as Error).message, dryRun: opcoes.dryRun === true }; }
+    // RM-061 (F3b, GO-FIX 1): o erro do catalogo fica registrado, e a impressao o remonta.
+    catch (e) { return { ...vazio, ok: false, motivo: 'tree.blocked', detalhe: textoDoErro(e), dryRun: opcoes.dryRun === true }; }
     // Mesma resolucao do `ork phase run`: a retomada carimba no ledger o trio que ela de
     // fato despachou, inclusive quando o pedido da fila trazia um modelo proprio. O setup
     // do bloco (feature #setup) vale aqui tambem: a fase retomada abre no MESMO runtime
@@ -1559,7 +1560,8 @@ export function executarRetry(
 
   if (acaoBase === 'sincronizar-worktree') {
     const sync = sincronizarWorktree(carregado, threadId, { dryRun: opcoes.dryRun });
-    const detalhe = textoDoCatalogo((m) => sync.ok ? m.retry.sincronizada(sync.passos.join('; ')) : m.retry.sincronizacaoFalhou(sync.detalhe));
+    // RM-061 (F3b): o detalhe da worktree tambem vem do catalogo; remontado aqui, ele segue o locale da impressao.
+    const detalhe = textoDoCatalogo((m) => sync.ok ? m.retry.sincronizada(sync.passos.join('; ')) : m.retry.sincronizacaoFalhou(remontar(sync.detalhe)));
     registrarTentativa(sync.ok, detalhe);
     return { ...vazio, executada: sync.ok, sync, detalhe };
   }

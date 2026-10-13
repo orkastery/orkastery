@@ -142,7 +142,8 @@ test('locale F3a experiencia (negativo): bloco ingles editado e conflito, com e 
       if (semRecibo) fs.unlinkSync(path.join(c.dir, '.orkastery', 'experiencia', 'claude-code.json'));
       const r = ork(c, C, false, 'adapter', 'install', 'claude-code');
       assert.equal(r.status, 0, r.stderr);
-      assert.match(r.stdout, /Pacote de experiência pulado: o bloco de instruções ou o recibo .* foi editado ou está duplicado; nada foi escrito/);
+      // F3b: com o dono em en-US, o texto da instalacao tambem sai em ingles.
+      assert.match(r.stdout, /Experience package skipped: the instructions block or the `\.orkastery\/experiencia\/claude-code\.json` receipt was edited or is duplicated; nothing was written/);
       assert.equal(ler(c, 'CLAUDE.md'), editado, semRecibo ? 'sem recibo' : 'com recibo');
       assert.throws(() => planejarExperiencia(c.dir, 'claude-code', null), /experiencia\.bloco\.conflict/);
     }
