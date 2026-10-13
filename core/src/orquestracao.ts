@@ -46,6 +46,7 @@ import { ehEsperaDoDono, ehImpedimentoDoDono, impedimentoDoEvento } from './impe
 import { escadaDoEvento } from './runtime-escada';
 import { blocoDaThread, dirThread } from './thread';
 import {
+  estadoDeTrabalho,
   EventoLedger,
   Fase,
   FonteDaParada,
@@ -164,8 +165,9 @@ function pausasAbertas(
     // continua listada, e o monitor a lia como uma sessao que ainda ia terminar. Uma
     // sessao `blocked` e o contrario disso -- ela e a pausa, ja chegada.
     const sessaoEstado = estados === null ? null : estados.get(sessionId) ?? null;
+    // RM-063 (fatia 3, achado a): `busy` e `running` tambem sao a sessao trabalhando.
     const sessaoViva =
-      estados === null ? null : sessaoEstado === 'working' || sessaoEstado === '';
+      estados === null ? null : estadoDeTrabalho(sessaoEstado) || sessaoEstado === '';
     const sobre = typeof e.previstaSobre === 'string' && e.previstaSobre !== ''
       ? e.previstaSobre
       : blocoDaFase(thread, fase).pausaSobre;

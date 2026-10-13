@@ -75,7 +75,9 @@ export const PULSE_PT_BR = {
   sessao: { blocked: 'sessao parada esperando acao humana (prompt, permissao ou credencial)',
     failed: 'sessao terminou em erro: alguem decide entre retomar, corrigir ou abandonar',
     working: 'sessao em execucao', done: 'sessao concluiu', stopped: 'sessao parada por decisao humana (`claude stop`)',
-    idle: 'sessao interativa ociosa, conduzida por um humano no terminal' } as Record<string, string>,
+    idle: 'sessao interativa ociosa, conduzida por um humano no terminal',
+    // RM-063 (fatia 3, achado a): `busy` e `running` sao a sessao trabalhando num turno, como o observador ja os le.
+    busy: 'sessao ocupada, executando um turno', running: 'sessao em execucao' } as Record<string, string>,
   sessaoSemEstado: 'runtime nao informou estado desta sessao: tratada como possivel parada',
   sessaoEstadoForaDoCatalogo: (estado: string) => `estado "${estado}" nao esta no catalogo do ork: tratado como possivel parada`,
   // a consulta do runtime (claude-bg.ts e hitl.ts): o detalhe do pulse quando ela falha
@@ -220,7 +222,8 @@ export const PULSE_EN: typeof PULSE_PT_BR = {
   sessao: { blocked: 'session stopped waiting for human action (prompt, permission or credential)',
     failed: 'session ended in an error: someone decides whether to resume, fix or drop it',
     working: 'session running', done: 'session finished', stopped: 'session stopped by a human decision (`claude stop`)',
-    idle: 'idle interactive session, driven by a human in the terminal' },
+    idle: 'idle interactive session, driven by a human in the terminal',
+    busy: 'session busy, running a turn', running: 'session running' },
   sessaoSemEstado: 'the runtime did not report a state for this session: treated as possibly stopped',
   sessaoEstadoForaDoCatalogo: (estado) => `state "${estado}" is not in the ork catalog: treated as possibly stopped`,
   adapterIndisponivel: 'runtime adapter unavailable on this machine (`claude` not on PATH)',

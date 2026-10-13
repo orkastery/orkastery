@@ -493,6 +493,18 @@ export interface EventoLedger {
   [chave: string]: unknown;
 }
 
+/**
+ * RM-063 (fatia 3, achado a): os estados crus do runtime que sao trabalho em curso. O `claude agents --json` diz
+ * `working` para a sessao de fundo, e `busy` ou `running` para a interativa que executa um turno: nenhum dos tres e
+ * parada, com ou sem thread.
+ */
+export const ESTADOS_DE_TRABALHO: readonly string[] = ['working', 'busy', 'running'];
+
+/** O estado cru e trabalho em curso? */
+export function estadoDeTrabalho(estado: string | null | undefined): boolean {
+  return typeof estado === 'string' && ESTADOS_DE_TRABALHO.includes(estado.trim().toLowerCase());
+}
+
 /** Sessao viva reportada pelo runtime (`claude agents --json`). */
 export interface SessaoRuntime {
   id?: string;
