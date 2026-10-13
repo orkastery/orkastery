@@ -25,6 +25,7 @@ import { montarPanoramaDaRede, redeDoProjetoFixado, textoDoPanoramaDaRede } from
 import { jsonDaRede, textoDaRede } from './rede-status';
 import { controleNativo } from './hitl-sessions';
 import { criarIngressoLocal } from './hitl-local';
+import { criarIngressoDaNota } from './master-nota-local';
 import { CONTRATO_DA_ENTREGA, confirmarNoReceptor, conferirNoReceptor, LIMITE_DA_MENSAGEM, novaCaixaDeSaida } from './entrega-por-mod';
 import {lerArtefatoMcp,escreverArtefatoMcp,listarClaimsMcp,adicionarClaimMcp,validarArquivosEstadoMcp} from './mcp-artifacts';
 import {commitMcp,estadoGitMcp} from './mcp-git';
@@ -267,7 +268,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   function registrarTool<S extends z.AnyZodObject>(nome:string,
     config:{description:string;inputSchema:S;annotations:Tool['annotations']},
     executar:(args:z.infer<S>,extra:{signal:AbortSignal})=>Promise<CallToolResult>) {
-    if(opcoes.threadId && ['ork_thread_new','ork_phase_run','ork_request_decision','ork_preflight'].includes(nome)) return;
+    if(opcoes.threadId && ['ork_thread_new','ork_phase_run','ork_request_decision','ork_request_master_note','ork_preflight'].includes(nome)) return;
     const entrada=config.inputSchema.extend({projeto:campoProjeto.optional()});
     const schema=converterSchema(entrada,{$refStrategy:'none'});
     ferramentas.set(nome,{tool:{name:nome,description:config.description,annotations:config.annotations,
@@ -288,10 +289,11 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       return {...resposta({erro:(e as Error).message}),isError:true};
     }
   });
+  const conexaoLocal=randomUUID();
   // RM-059 (F9, G3): a caixa de saida do Mensageiro de Sessoes so existe no servidor do dono do Claude Code, na memoria:
   // a resposta a uma sessao claude-bg que entra pelo dialogo deste servidor sai por ela, e o texto nunca vai a disco.
   const caixa = opcoes.host==='claude-code' && !opcoes.threadId ? novaCaixaDeSaida() : null;
-  const ingresso = criarIngressoLocal(raiz,{host:opcoes.host,connectionId:randomUUID()},async (pedido,signal) => {
+  const ingresso = criarIngressoLocal(raiz,{host:opcoes.host,connectionId:conexaoLocal},async (pedido,signal) => {
     carregar(); thread(pedido.thread);
     // D12: pergunta nativa que aceita texto NAO vira menu. Um menu sobre pergunta aberta
     // muda a pergunta, e a resposta que chega a sessao deixa de ser a do humano.
@@ -312,7 +314,15 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     const parsed = z.object({opcao:z.string().min(1).max(limite)}).strict().parse(r.content);
     return {action:'accept',content:parsed};
   },{caixa});
-  server.onclose = () => ingresso.fechar();
+  // RM-059 (fatia F8, T8.1): a nota do MASTER pelo mesmo ingresso local. O formulario e fixo (a nota de 0 a 5 e o
+  // porque); sem a capacidade de formulario no cliente, a recusa vem antes de qualquer escrita.
+  const ingressoDaNota = criarIngressoDaNota(raiz,{host:opcoes.host,connectionId:conexaoLocal},async (apresentacao,signal) => {
+    carregar(); thread(apresentacao.thread);
+    const r = await server.elicitInput({ mode:'form', message:apresentacao.mensagem,
+      requestedSchema:apresentacao.esquema },{signal,timeout:300000});
+    return r.action === 'accept' ? {action:'accept',content:r.content} : {action:r.action};
+  },()=>Boolean(server.getClientCapabilities()?.elicitation?.form));
+  server.onclose = () => { ingresso.fechar(); ingressoDaNota.fechar(); };
   registerBrainTools(registrarTool,carregar,thread,opcoes.brainWrites??[]);
   registrarConsultasExperiencia(registrarTool, { raiz, carregar, transporte: opcoes.transporteShip ?? 'github-ssh' });
   // RM-026 K7 (fatia 2): o conhecimento escrito, só leitura, do projeto fixado; também na sessão filha vinculada.
@@ -470,6 +480,10 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   registrarTool('ork_request_decision',{description:'Apresenta pedido existente ao dono por dialogo nativo. Somente IDs; nunca forneca resposta nos argumentos.',
     inputSchema:daDecisao,annotations:{readOnlyHint:false,destructiveHint:false}},async ({threadId,pedidoId},extra) => {
       thread(threadId); return resposta(await ingresso.solicitar(threadId,pedidoId,extra.signal));
+    });
+  registrarTool('ork_request_master_note',{description:'Pede ao dono, pelo dialogo nativo do host, a nota de 0 a 5 e o porque de uma entrega. Somente o threadId; nunca forneca nota nem porque nos argumentos.',
+    inputSchema:daThread,annotations:{readOnlyHint:false,destructiveHint:false}},async ({threadId},extra) => {
+      thread(threadId); return resposta(await ingressoDaNota.solicitar(threadId,extra.signal));
     });
   // RM-059 (F9, T9.1): o Mensageiro de Sessoes nas duas pontas. Nenhuma das duas entra no --allowedTools do modelo (D8):
   // quem chama e o mod ork-mensageiro, e nenhuma responde, aprova ou abre pedido.

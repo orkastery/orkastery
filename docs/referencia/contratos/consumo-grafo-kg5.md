@@ -18,7 +18,7 @@ fontes dela conferem com a árvore, e traz o sha256 e o blob de cada fonte, na t
 
 | Garante | Não garante |
 | --- | --- |
-| Sem a flag, nada muda: as mesmas tools (31 no KG5), com os mesmos schemas, e o mesmo comando de despacho | Que a resposta é completa: o grafo só tem o que o extrator prova |
+| Sem a flag, nada muda: as mesmas tools do servidor sem a flag (31 no KG5), com os mesmos schemas, e o mesmo comando de despacho | Que a resposta é completa: o grafo só tem o que o extrator prova |
 | A resposta da tool é, byte a byte, o JSON que o `ork grafo <consulta> ... --json --teto-bytes N` escreve na worktree da thread (a CLI só acrescenta a quebra de linha final) | Que o host não corta a resposta por um limite próprio |
 | Toda aresta sai com toda a evidência: o teto tira arestas inteiras, as mais longe do alvo | Que a recusa cabe no teto: ele vale para a resposta |
 | Sem os analisadores na instalação, a tool recusa com `grafo.parser.indisponivel`, nunca responde pela metade | Economia de contexto: isso é o benchmark do [protocolo](benchmark-grafo-kg1.md) |
