@@ -135,7 +135,7 @@ function executorPadrao(input: { repository: string; sha: string; context: strin
 
 /** O `gh` tem login no host (`gh auth status --hostname`)? So o github.com dispensa a pergunta. */
 function loginPadrao(host: string): boolean {
-  return rodarCli({ cmd: 'gh', args: ['auth', 'status', '--hostname', host], prazoMs: 30000, maxBuffer: 1024 * 1024, procurarBinario: false }).status === 0;
+  return rodarCli({ cmd: 'gh', args: ['auth', 'status', '--hostname', host], prazoMs: 30000, maxBuffer: 1024 * 1024 }).status === 0;
 }
 
 /**
@@ -196,11 +196,15 @@ export function consultarCiDoRepositorio(repository: string, sha: string, contex
   }
   // Varios produtores: a combinacao e conservadora. Vermelho ou bloqueado de qualquer um reprova; senao, pendente
   // de qualquer um espera; so todos verdes passam.
-  const lidos = escolhidos.map((check) => ({ check, state: estadoNoGate(estadoDoCheck(check.fonte, check.status, check.conclusao)) }));
+  const lidos = escolhidos.map((check) => {
+    const estado = estadoDoCheck(check.fonte, check.status, check.conclusao);
+    return { check, estado, state: estadoNoGate(estado) };
+  });
   const state: EstadoCi = lidos.some((l) => l.state === 'failure') ? 'failure' : lidos.some((l) => l.state === 'pending') ? 'pending' : 'success';
   if (state === 'success' && semCheckRunVerde) return statusSemProdutorConfiavel();
   const decisivo = lidos.find((l) => l.state === state)!;
-  const produtores = lidos.map((l) => `${nomeDoProdutor(l.check)} ${l.state}`).join(', ');
+  // O estado do ork por produtor, com o motivo do bloqueio (spec 6.2: o motivo e mostrado).
+  const produtores = lidos.map((l) => `${nomeDoProdutor(l.check)} ${l.estado}${l.estado === 'bloqueado' ? ` (${l.check.conclusao ?? ''})` : ''}`).join(', ');
   return { ...base, ok: state === 'success', state, url: decisivo.check.url || null, detail: textoDoCatalogo((m) => m.ship.ciProdutores(context, produtores)) };
 }
 

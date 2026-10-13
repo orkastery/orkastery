@@ -114,5 +114,54 @@ test('fixture gravada do GitHub (check-runs e statuses de 2026-10): ork-verify v
   assert.equal(r.state, 'success');
   assert.ok(r.url);
   assert.ok(caminhos.some((c) => c.includes('/check-runs?check_name=ork-verify')));
-  assert.ok(caminhos.some((c) => c.endsWith('/statuses?per_page=100')));
+  assert.ok(caminhos.some((c) => c.endsWith('/statuses?per_page=100&page=1')));
+});
+
+// Rodada de correção 1.
+test('status vermelho do ork-verify na segunda página de statuses reprova, mesmo com check-run verde', () => {
+  const alheios = Array.from({ length: 100 }, (_, i) => ({ id: 1000 - i, context: `outro-${i}`, state: 'success', creator: { login: 'bot' } }));
+  const vermelho = { id: 1, context: 'ork-verify', state: 'failure', updated_at: '2026-10-13T10:05:00Z', creator: { login: 'bot' } };
+  const executor: ExecutorCi = (e) => {
+    const c = e.caminho ?? '';
+    const pagina = Number(/[?&]page=(\d+)/.exec(c)?.[1] ?? '1');
+    if (c.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: JSON.stringify(pagina === 1 ? alheios : pagina === 2 ? [vermelho] : []) };
+    return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ total_count: 1, check_runs: pagina === 1 ? [run(2, 'success')] : [] }) };
+  };
+  assert.equal(consultarCiDoRepositorio('o/r', SHA, 'ork-verify', executor).state, 'failure');
+});
+
+test('mais de 10 páginas de statuses é incompleto', () => {
+  const cheia = Array.from({ length: 100 }, (_, i) => ({ id: i + 1, context: `outro-${i}`, state: 'success', creator: { login: 'bot' } }));
+  const executor: ExecutorCi = (e) => (e.caminho ?? '').includes('/statuses')
+    ? { ok: true, code: 0, stderr: '', stdout: JSON.stringify(cheia) }
+    : { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ total_count: 1, check_runs: [run(2, 'success')] }) };
+  const r = consultarCiDoRepositorio('o/r', SHA, 'ork-verify', executor);
+  assert.equal(r.state, 'unavailable');
+  assert.match(r.detail, /1000/);
+});
+
+test('total_count baixo não encerra a lista: a página cheia pede a próxima', () => {
+  const cheia = Array.from({ length: 100 }, (_, i) => run(i + 1, 'success'));
+  const novo = { ...run(200, 'failure'), completed_at: '2026-10-13T11:00:00Z' };
+  const executor: ExecutorCi = (e) => {
+    const c = e.caminho ?? '';
+    if (c.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' };
+    const pagina = Number(/[?&]page=(\d+)/.exec(c)?.[1] ?? '1');
+    return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ total_count: 100, check_runs: pagina === 1 ? cheia : pagina === 2 ? [novo] : [] }) };
+  };
+  assert.equal(consultarCiDoRepositorio('o/r', SHA, 'ork-verify', executor).state, 'failure');
+});
+
+test('vários produtores: o bloqueado mostra o motivo no detalhe', () => {
+  const { executor } = forja([[run(2, 'success'), run(3, 'skipped', { app: { slug: 'outro-app' } })]]);
+  const r = consultarCiDoRepositorio('o/r', SHA, 'ork-verify', executor);
+  assert.equal(r.state, 'failure');
+  assert.match(r.detail, /outro-app bloqueado \(skipped\)/);
+});
+
+test('lista de check-runs que acaba antes do total_count declarado é incompleta', () => {
+  const executor: ExecutorCi = (e) => (e.caminho ?? '').includes('/statuses')
+    ? { ok: true, code: 0, stderr: '', stdout: '[]' }
+    : { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ total_count: 5, check_runs: [run(2, 'success')] }) };
+  assert.equal(consultarCiDoRepositorio('o/r', SHA, 'ork-verify', executor).state, 'unavailable');
 });

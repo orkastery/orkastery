@@ -23,29 +23,49 @@ function chamar(e: Entrada, caminho: string): Resultado<unknown> {
 const invalida = (detalhe = ''): Resultado<never> => ({ ok: false, erro: { codigo: 'forja.resposta-invalida', detalhe } });
 
 /**
- * Os check-runs (paginados, filtrados por nome no servidor e de novo aqui) e os commit statuses (uma pagina, os mais
+ * Le as paginas 1..10 ate uma pagina curta. `itens` extrai a lista da resposta (`null`: fora do formato). Passou do
+ * teto sem pagina curta: `forja.resposta-invalida` com detalhe `incompleto`.
+ */
+function paginar(e: Entrada, caminho: (pagina: number) => string, itens: (valor: unknown) => unknown[] | null): Resultado<unknown[]> {
+  const todos: unknown[] = [];
+  for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
+    const lido = chamar(e, caminho(pagina));
+    if (!lido.ok) return lido;
+    const lista = itens(lido.valor);
+    if (!lista) return invalida();
+    todos.push(...lista);
+    if (lista.length < POR_PAGINA) return { ok: true, valor: todos };
+  }
+  return invalida('incompleto');
+}
+
+/**
+ * Os check-runs (paginados, filtrados por nome no servidor e de novo aqui) e os commit statuses (paginados, os mais
  * novos primeiro) com o nome `context` no commit. Resposta fora do formato, de qualquer das duas chamadas, e
  * `forja.resposta-invalida`; lista que passa do teto de paginas tambem, com detalhe `incompleto`: nunca vira ausente.
  */
 export function checksNoCommitGithub(e: Entrada): Resultado<CheckNoCommit[]> {
   const base = `repos/${e.repository}/commits/${e.sha}`;
-  const runs: CheckRun[] = [];
-  let completo = false;
-  for (let pagina = 1; pagina <= MAX_PAGINAS && !completo; pagina++) {
-    const lido = chamar(e, `${base}/check-runs?check_name=${encodeURIComponent(e.context)}&filter=all&per_page=${POR_PAGINA}&page=${pagina}`);
-    if (!lido.ok) return lido;
-    const payload = lido.valor as { total_count?: unknown; check_runs?: unknown } | null;
-    if (!payload || typeof payload !== 'object' || !Array.isArray(payload.check_runs)) return invalida();
-    runs.push(...(payload.check_runs as CheckRun[]));
-    const total = typeof payload.total_count === 'number' ? payload.total_count : null;
-    completo = payload.check_runs.length < POR_PAGINA || (total !== null && runs.length >= total);
-  }
-  if (!completo) return invalida('incompleto');
+  // A lista so termina numa pagina curta. O `total_count` nao encerra a leitura (um valor baixo cortaria a lista
+  // cedo); ele so confere: lista que acabou antes do total declarado esta incompleta. Mais itens que o total nao e
+  // erro (um run novo entre duas paginas).
+  let total: number | null = null;
+  const lidosRuns = paginar(e, (pagina) => `${base}/check-runs?check_name=${encodeURIComponent(e.context)}&filter=all&per_page=${POR_PAGINA}&page=${pagina}`,
+    (valor) => {
+      const payload = valor as { total_count?: unknown; check_runs?: unknown } | null;
+      if (!payload || typeof payload !== 'object' || !Array.isArray(payload.check_runs)) return null;
+      if (typeof payload.total_count === 'number') total = Math.max(total ?? 0, payload.total_count);
+      return payload.check_runs;
+    });
+  if (!lidosRuns.ok) return lidosRuns;
+  if (total !== null && lidosRuns.valor.length < total) return invalida('incompleto');
+  const runs = lidosRuns.valor as CheckRun[];
 
-  const lidoStatuses = chamar(e, `${base}/statuses?per_page=${POR_PAGINA}`);
-  if (!lidoStatuses.ok) return lidoStatuses;
-  if (!Array.isArray(lidoStatuses.valor)) return invalida();
-  const statuses = lidoStatuses.valor as CommitStatus[];
+  // O GitHub lista toda transicao de todo contexto: um vermelho do `ork-verify` pode estar alem da primeira pagina.
+  const lidosStatuses = paginar(e, (pagina) => `${base}/statuses?per_page=${POR_PAGINA}&page=${pagina}`,
+    (valor) => (Array.isArray(valor) ? valor : null));
+  if (!lidosStatuses.ok) return lidosStatuses;
+  const statuses = lidosStatuses.valor as CommitStatus[];
 
   const valor: CheckNoCommit[] = [
     ...runs.filter((c) => c && c.name === e.context).map((c, i): CheckNoCommit => ({
