@@ -10,6 +10,11 @@ import { buscarBranch, gravarNaBranch } from '../src/branch-de-estado';
 import { exigirManifesto, ManifestoCarregado } from '../src/manifest';
 import { CONTRATO_ENVELOPE_V3 } from '../src/noctum-envelope';
 import { BRANCH_DE_COORDENACAO, identidadeDaMaquina } from '../src/noctum-transporte';
+import { registrarConducaoDaSessao } from '../src/conducao';
+import { registrar } from '../src/ledger';
+import { OpcoesDoPasso } from '../src/noctum-execucao';
+import { ResultadoRun } from '../src/phase';
+import { dirThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
 import { commitar, dirTemporario, projetoTemporario } from './apoio';
 import { autorizarPedido, OpcoesDoArco, pedidoV2, TrabalhoSimulado } from './noctum-apoio';
@@ -168,3 +173,40 @@ export function integradorPorAvanco(dir: string): (c: { remoto: string; destino:
 
 /** O sha256 SIMULADO das provas de um candidato. */
 export const provasSimuladas = (rotulo: string): string => createHash('sha256').update(`provas SIMULADAS ${rotulo}`).digest('hex');
+
+// ---------------------------------------------------------------------------
+// O passo da N2 simulado: sessões, perfis, despacho e abertura de thread sem runtime de verdade.
+// ---------------------------------------------------------------------------
+
+export const SEM_SESSOES = () => ({ sessoes: [], fontes: [{ origem: 'claude agents --json (SIMULADO)', ok: true, detalhe: '' }],
+  contas: [{ runtime: 'claude-bg' as const, perfil: null }] });
+
+let despachos = 0;
+/** O despacho simulado: a condução de sessão e o `phase_dispatch` que o `phase run` deixaria. O id leva o pid do processo. */
+export function despachoSimulado(registro: string[] = []): NonNullable<OpcoesDoPasso['despachar']> {
+  return (carregado, threadId, o) => {
+    despachos += 1;
+    const sessionId = `00000000-0000-4000-8000-${String(process.pid % 1000000).padStart(6, '0')}${String(despachos).padStart(6, '0')}`;
+    registrarConducaoDaSessao(carregado.raiz, threadId, { canal: 'cli', operacao: 'phase.run', fase: o.fase, prazoMs: 3600_000 },
+      { sessionId, runtime: 'claude-bg', perfil: o.perfil ?? null });
+    registrar(dirThread(carregado.raiz, threadId), threadId, 'phase_dispatch', { fase: o.fase, sessionId, runtime: 'claude-bg', pausaAoFim: false });
+    registro.push(`${threadId}:${o.fase}:${o.perfil}:${sessionId}`);
+    return { sessionId, verificada: true, bloqueado: false, motivo: null } as unknown as ResultadoRun;
+  };
+}
+
+/** As opções do passo da N2 sem runtime: sem sessões de fora, o perfil `perfil-a`, o despacho simulado e thread sem worktree. */
+export function n2Simulada(registro: string[] = []) {
+  return {
+    consultarSessoes: SEM_SESSOES,
+    perfis: () => [{ id: 'perfil-a', runtime: 'claude-bg' }],
+    despachar: despachoSimulado(registro),
+    abrirThread: ((carregado, o) => novaThread(carregado, { ...o, criarWorktree: false }).thread) as NonNullable<OpcoesDoPasso['abrirThread']>,
+  };
+}
+
+/** A sessão simulada da thread acabou: o `phase_result` e a entrega, como a sessão do bloco inteiro deixaria. */
+export function entregarThread(raiz: string, threadId: string, sessionId: string): void {
+  registrar(dirThread(raiz, threadId), threadId, 'phase_result', { fase: 'GOAL', sessionId, classificacao: 'fase_concluida', ok: true });
+  registrar(dirThread(raiz, threadId), threadId, 'ship_done', { origem: 'pr', pr: 1, simulado: true });
+}

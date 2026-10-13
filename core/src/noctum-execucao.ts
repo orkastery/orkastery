@@ -30,8 +30,9 @@ import { ErroDaFilaPesada, kernelDisponivel, tentarTravaExclusiva } from './fila
 import { ManifestoCarregado } from './manifest';
 import { concluirDespacho, reservarDespacho } from './noctum-arco';
 import { admitir, Admissao, escolherConta, fatosDeCapacidade, LeituraDeSessoes } from './noctum-capacidade';
-import { envelopeComTrabalhos, RecusaDoArco } from './noctum-envelope';
-import { DecisaoDaFila, FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila, MOTIVO_DO_ERRO_NO_DESPACHO } from './noctum-fila';
+import { envelopeComTrabalhos, envelopeMultimaquina, RecusaDoArco } from './noctum-envelope';
+import { CoordenacaoDaFila, DecisaoDaFila, FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila,
+  MOTIVO_DO_ERRO_NO_DESPACHO } from './noctum-fila';
 import { OpcoesRun, resolverDespacho, ResultadoRun, rodarFase } from './phase';
 import { lerPerfis, perfilDisponivel } from './runtime-profiles';
 import { configDoBloco, lerSetup } from './setup';
@@ -57,6 +58,11 @@ export interface OpcoesDoPasso {
   gravarBaseline?: (carregado: ManifestoCarregado, threadId: string, conducao: ConducaoDoVerify) => void;
   /** A reserva no log do arco; em produção, `reservarDespacho`. */
   reservar?: typeof reservarDespacho;
+  /**
+   * RM-058 N3: o que o ramo de coordenação diz a esta máquina, dado só pelo passo da máquina (`noctum-maquinas.ts`). Sem
+   * isso, o arco entre máquinas (envelope `v3`) não despacha daqui.
+   */
+  coordenacao?: CoordenacaoDaFila;
 }
 
 export type ResultadoDoPasso =
@@ -138,11 +144,16 @@ export function passoDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
   let pendente: BaselinePendente | null = null;
   try {
     let fatos: FatosDaFila;
-    try { fatos = fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas }); }
+    try { fatos = fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, coordenacao: opcoes.coordenacao }); }
     catch (e) {
       // S6 do CHECK: a recusa tipada do arco (o log adulterado, por exemplo) volta como resultado, e não como exceção.
       if (!(e instanceof RecusaDoArco)) throw e;
       return { acao: 'aguardar', ate: cadencia, motivo: e.motivo, detalhe: e.message, fila: null };
+    }
+    // N3: o arco entre máquinas só despacha pelo passo da máquina, que confere ordem, reserva e vaga global antes.
+    if (fatos.estado?.conteudo && envelopeMultimaquina(fatos.estado.conteudo) && !opcoes.coordenacao) {
+      return { acao: 'aguardar', ate: cadencia, motivo: 'noctum.coordenacao.exige-passo-da-maquina', fila: null,
+        detalhe: 'o envelope vigente é de várias máquinas: o despacho passa pelo passo da máquina, com a ordem, a reserva e a vaga global' };
     }
     const fila = montarFila(fatos);
     if (fila.decisao.acao === 'encerrar') return { acao: 'encerrar', motivo: fila.decisao.motivo, fila };

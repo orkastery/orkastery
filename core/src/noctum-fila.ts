@@ -41,7 +41,7 @@ export type EstadoDoTrabalho = 'entregue' | 'encerrado-sem-entrega' | 'em-curso'
 export type MotivoDoBloqueio =
   | 'dependencia' | 'reserva-ausente' | 'reserva-de-outra-maquina' | 'reserva-sem-leitura' | 'decisao-no-lote' | 'dono'
   | 'retomada' | 'fim-de-turno-sem-resultado' | 'sem-passo' | 'modo' | 'pedido-ausente' | 'thread-ausente' | 'thread-ambigua'
-  | 'thread-ilegivel' | 'item-divergente' | 'erro-repetido' | 'dependencia-encerrada';
+  | 'thread-ilegivel' | 'item-divergente' | 'erro-repetido' | 'dependencia-encerrada' | 'sem-ordem';
 
 /** Quantas falhas seguidas do núcleo no despacho de um trabalho o bloqueiam (A4 do CHECK da ork-rm058n2). */
 export const ERROS_SEGUIDOS_QUE_BLOQUEIAM = 3;
@@ -108,6 +108,12 @@ export interface FatosDoTrabalho {
   doDono: string | null;
 }
 
+/**
+ * RM-058 N3 (D14 da ork-rm058n3): o que o ramo de coordenação diz a esta máquina num arco entre máquinas. Os trabalhos
+ * com ordem aceita dela são os únicos que ela despacha, e os entregues em qualquer máquina contam como entregues aqui.
+ */
+export interface CoordenacaoDaFila { trabalhos: ReadonlySet<string>; entregues: ReadonlyMap<string, string> }
+
 /** A leitura das reservas: a última cópia local da branch de reservas, ou a falta dela. */
 export type LeitorDeReservas = () => { leitura: 'copia-local' | 'sem-copia'; reservas: Array<{ item: string; maquina: string; thread: string | null }> };
 
@@ -123,6 +129,8 @@ export interface FatosDaFila {
   threadsIlegiveis: string[];
   /** Os modos que o manifesto deixa criar (`conduction.allowed_modes`): sem `auto`, o arco não abre thread. */
   modosPermitidos: readonly string[];
+  /** Só no arco entre máquinas (N3), pelo passo da máquina. */
+  coordenacao?: CoordenacaoDaFila;
 }
 
 const adiante = (t: TrabalhoNaFila): number => t.estado === 'abrir' ? -1 : t.fase ? FASES.indexOf(t.fase) : -1;
@@ -154,6 +162,9 @@ function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefine
   const base = { id: t.id, item: t.item, prioridade: t.prioridade, posicao, thread: null as string | null, fase: null as Fase | null,
     motivo: null as MotivoDoBloqueio | null, entregueEm: null as string | null };
   const bloqueado = (motivo: MotivoDoBloqueio, detalhe: string): TrabalhoNaFila => ({ ...base, estado: 'bloqueado', motivo, detalhe });
+  // N3: a entrega em outra máquina do arco vale aqui, até sem thread nesta raiz.
+  const naRede = fatos.coordenacao?.entregues.get(t.id);
+  if (naRede) return { ...base, thread: f?.threads[0]?.id ?? null, estado: 'entregue', entregueEm: naRede, detalhe: 'entregue em outra máquina do arco' };
   if (!f) return bloqueado('thread-ilegivel', 'o trabalho não foi lido');
   if (f.ilegivel) return bloqueado('thread-ilegivel', `a thread ${f.ilegivel} não pôde ser lida`);
   if (f.threads.length > 1) {
@@ -172,6 +183,9 @@ function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefine
   }
   const faltam = t.dependeDe.filter(d => !entregues.has(d));
   if (faltam.length) return bloqueado('dependencia', `depende de ${faltam.join(', ')}, ainda não entregue(s)`);
+  if (fatos.coordenacao && !fatos.coordenacao.trabalhos.has(t.id)) {
+    return bloqueado('sem-ordem', 'o trabalho não tem ordem aceita desta máquina no ramo de coordenação do arco');
+  }
   if (fatos.reservas.leitura === 'sem-copia') return bloqueado('reserva-sem-leitura', 'esta máquina não tem cópia da branch de reservas');
   const reserva = fatos.reservas.porItem.get(t.item);
   if (!reserva) return bloqueado('reserva-ausente', `o item ${t.item} não está reservado; tomar reserva é da N3`);
@@ -240,10 +254,10 @@ export function montarFila(fatos: FatosDaFila): FilaDoArco {
     return vazia('fonte-indisponivel', { acao: 'aguardar', motivo: 'fonte-indisponivel', ate: daqui(CADENCIA_MS, conteudo.janela.fim) },
       ['o envelope vigente é v1, sem lista de trabalhos']);
   }
-  // Primeiro quem já foi entregue, para as dependências; depois cada trabalho.
+  // Primeiro quem já foi entregue, para as dependências (aqui ou, no arco entre máquinas, em outra); depois cada trabalho.
   const entregues = new Set(conteudo.trabalhos.filter(t => {
     const f = fatos.porTrabalho.get(t.id);
-    return !!f && f.threads.length === 1 && !!f.entregueEm && f.threads[0].roadmap === t.item;
+    return fatos.coordenacao?.entregues.has(t.id) || (!!f && f.threads.length === 1 && !!f.entregueEm && f.threads[0].roadmap === t.item);
   }).map(t => t.id));
   // S7 do CHECK: quem fechou sem entrega nunca mais entrega neste arco, nem quem depende dele, de qualquer distância.
   const semSaida = new Set(conteudo.trabalhos.filter(t => {
@@ -278,7 +292,7 @@ export function montarFila(fatos: FatosDaFila): FilaDoArco {
  * última cópia local (sem rede) e o lote. `lerReservas` é dependência dos testes.
  */
 export function fatosDaFila(carregado: ManifestoCarregado, arco: string, opcoes: { quando?: string; maquina?: string;
-  lerReservas?: LeitorDeReservas } = {}): FatosDaFila {
+  lerReservas?: LeitorDeReservas; coordenacao?: CoordenacaoDaFila } = {}): FatosDaFila {
   const quando = opcoes.quando ?? new Date().toISOString();
   const { raiz } = carregado;
   const estado = lerArco(raiz, arco, quando);
@@ -287,7 +301,7 @@ export function fatosDaFila(carregado: ManifestoCarregado, arco: string, opcoes:
     ? { leitura: 'sem-copia' as const, reservas: [] }
     : { leitura: 'copia-local' as const, reservas: reservasLocais(raiz) }) as LeitorDeReservas)();
   const fatos: FatosDaFila = { arco, quando, maquina, estado, porTrabalho: new Map(), threadsIlegiveis: [],
-    modosPermitidos: carregado.manifesto.conduction.allowed_modes,
+    modosPermitidos: carregado.manifesto.conduction.allowed_modes, ...(opcoes.coordenacao ? { coordenacao: opcoes.coordenacao } : {}),
     reservas: { leitura: lidas.leitura, porItem: new Map(lidas.reservas.map(r => [r.item, { maquina: r.maquina, thread: r.thread }])) } };
   if (!estado?.conteudo || !envelopeComTrabalhos(estado.conteudo)) return fatos;
   const threads: Thread[] = [];
