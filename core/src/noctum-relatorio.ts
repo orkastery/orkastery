@@ -239,11 +239,14 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
       continue;
     }
     const concluida = eventos ? ultimaFaseConcluida(eventos) : null;
+    // No arco fechado, a sessão em curso recebeu o pedido de parada: "conduzida agora" seria o lease, não o trabalho.
+    const proximo = t.fase ? `fase ${t.fase}` : fechado && t.estado === 'em-curso'
+      ? 'conferir a sessão que o fechamento mandou parar e retomar pela prova mais adiantada' : t.detalhe;
     emCurso.push({ ...base, estado: t.estado,
       checkpoint: t.estado === 'abrir' ? 'não começou' : concluida
         ? `fase ${concluida.fase} concluída às ${formatarHora(concluida.ts, { fuso, agora: quando, locale: 'pt-BR' })}` : 'sem fase concluída ainda',
       retomada: t.estado === 'aguardando-entrega' ? 'a entrega (N5, com a condutora)' : fechado ? 'um arco novo, com envelope vigente' : 'o passo do arco',
-      proximo: t.fase ? `fase ${t.fase}` : t.detalhe, reserva: pendente ? `reserva ${pendente.seq} pendente` : null });
+      proximo, reserva: pendente ? `reserva ${pendente.seq} pendente` : null });
   }
   const autorizadoEm = estado.autorizadoPor.recebidoEm;
   const decisoes: DecisaoNoEnvelope[] = [];
@@ -295,7 +298,7 @@ export function linhasDoRelatorio(f: FatosDoRelatorio, versao: number): string[]
     `${e.pr !== null ? `, PR #${e.pr}` : ''}${e.merge ? `, merge ${e.merge.slice(0, 8)}` : ''}, push provado (${e.push}), ${e.master}`) : nada));
   l.push('', '🔄 Em curso', ...(f.emCurso.length || f.paradas.length ? [...f.emCurso.map(e => `• ${e.trabalho} (${e.item}): ` +
     `${e.thread ? `thread ${e.thread}, ` : ''}checkpoint: ${e.checkpoint}; retoma: ${e.retomada}; próximo passo: ${e.proximo}` +
-    `${e.reserva ? `; ${e.reserva}` : ''}`), ...f.paradas.map(p => `• sessão parada no fechamento: ${p}`)] : nada));
+    `${e.reserva ? `; ${e.reserva}` : ''}`), ...f.paradas.map(p => `• no fechamento, ${p}`)] : nada));
   l.push('', '⏸️ Impedido', ...(f.impedidos.length ? f.impedidos.map(i => `• ${i.trabalho} (${i.item}): ${i.causa} (${i.detalhe}); ` +
     `alcance: ${i.alcance}; tentativas: ${i.tentativas}${i.hitl ? `; ${i.hitl} #HITL` : ''}`) : nada));
   const decisoes = f.decisoes.slice(0, 10);

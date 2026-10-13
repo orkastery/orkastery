@@ -271,3 +271,24 @@ test('FE11: o retrato guarda a branch, a ponta e a árvore da worktree de cada t
     assert.ok(chamadas.every(a => !a.includes('fetch') && !a.includes('push')), 'só leitura local');
   } finally { p.limpar(); }
 });
+
+test('FE12: a parada sem id, sem controle ou que falhou vem em palavras, e a fila vazia diz entrega registrada, não provada', () => {
+  // Achado do ensaio do piloto (T8): o código cru (`sem-id`) chegava ao relatório como se fosse uma sessão parada.
+  const parada = { seq: 3, trabalho: 't1', thread: 'ens-x', conta: 'perfil-a', detalhe: 'o runtime recusou (SIMULADO)' };
+  const semId = textoDaParada({ ...parada, sessionId: null, runtime: 'claude-bg', resultado: 'sem-id' }, []);
+  assert.equal(semId, 'reserva 3 (t1, claude-bg): reserva pendente sem id de sessão, nada a parar; reconciliar antes do arco novo');
+  const codex = textoDaParada({ ...parada, sessionId: uuid(7), runtime: 'codex', resultado: 'sem-controle' }, []);
+  assert.equal(codex, `${uuid(7)} (t1, codex): sem controle de parada no codex; conferir a sessão antes do arco novo`);
+  const falhou = textoDaParada({ ...parada, sessionId: uuid(8), runtime: 'claude-bg', resultado: 'falhou' }, []);
+  assert.equal(falhou, `${uuid(8)} (t1, claude-bg): o pedido de parada falhou (o runtime recusou (SIMULADO))`);
+  for (const t of [semId, codex, falhou]) assert.doesNotMatch(t, /: (sem-id|sem-controle|falhou)$/, 'nenhum código cru no texto do dono');
+  const estado = { contrato: 'ork.noctum-arco/v1', arco: 'arco-fe12', situacao: 'vigente', versao: 1, envelopeSha256: 'b'.repeat(64),
+    autorizadoPor: { origem: 'telegram' } as never, revogadoPor: null, propostaPendente: null, decisoes: [], despachos: [],
+    consumo: { arco: 0, porConta: {}, porRuntime: {} }, encerramento: null,
+    conteudo: { janela: { inicio: '2026-10-13T06:00:00.000Z', fim: '2026-10-13T14:00:00.000Z', fuso: 'UTC' },
+      orcamento: { arco: { valor: 3, unidade: 'sessoes' }, porConta: [], porRuntime: [] } } as never } as EstadoDoArco;
+  const vazia = { situacao: 'vazia', decisao: { acao: 'encerrar', motivo: 'fila-vazia' } } as FilaDoArco;
+  const detalhe = condicaoDeFechamento(estado, vazia, null, '2026-10-13T12:00:00.000Z')!.detalhe;
+  assert.match(detalhe, /^todo trabalho do envelope tem a entrega registrada \(ship_done\), fechou sem entrega/);
+  assert.doesNotMatch(detalhe, /está entregue/, 'o ship_done sem a prova do push não é entrega provada: quem diz qual tem prova é o relatório');
+});

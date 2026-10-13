@@ -9,12 +9,13 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { projetoTemporario } from './apoio';
-import { autorizarPedido, pedidoV2, prepararIngressoSimulado, TrabalhoSimulado } from './noctum-apoio';
+import { autorizarPedido, despachar, pedidoV2, prepararIngressoSimulado, TrabalhoSimulado } from './noctum-apoio';
 import { depois, HORA, MIN } from './noctum-n6-apoio';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { partesLocais } from '../src/horario';
 import { registrar } from '../src/ledger';
-import { encerrarArco, enfileirarDecisao, lerArco } from '../src/noctum-arco';
+import { concluirDespacho, encerrarArco, enfileirarDecisao, lerArco, reservarDespacho } from '../src/noctum-arco';
+import { fecharSeDevido } from '../src/noctum-fechamento';
 import { validarPedidoDeAbertura } from '../src/noctum-envelope';
 import { CanalComTransporte, entregarRelatorioSeDevido, enviarPeloTransporte, fatosDoRelatorio, linhasDoRelatorio, paginar,
   reenviarRelatorio, relatorioNoTerminal, ResultadoDoEnvio, retratoDoRelatorio, TETO_DA_PAGINA, transporteDoCanal,
@@ -360,5 +361,32 @@ test('RL14: a versão 1 não muda depois de composta, mesmo com fatos novos sem 
     assert.match(t.envios[0], /✅ Entregue\n• nada/, 'a versão entregue é a composta no vencimento');
     const compostos = lerRegistro<{ tipo: string }>(p.dir, 'arco-rl14', 'relatorio').filter(l => l.evento.tipo === 'composto');
     assert.equal(compostos.length, 1);
+  } finally { p.limpar(); }
+});
+
+test('RL15: no arco fechado, o trabalho em curso não diz que segue conduzido, e cada parada sai em palavras', { skip: semKernel }, () => {
+  // Achado do ensaio do piloto (T8): a sessão parada no fechamento ainda aparecia como "sendo conduzida agora", e a reserva
+  // sem id saía com o código cru, como se fosse uma sessão parada.
+  const p = projetoTemporario('noctum-rl15');
+  try {
+    const { trabalhos, ids } = threads(p, 2);
+    const a = abrir(p, 'arco-rl15', trabalhos, 'telegram', ids, 9 * HORA);
+    const { sessionId } = despachar(p.dir, ids[0], 'GO', 151);
+    const r1 = reservarDespacho(p.dir, { arco: 'arco-rl15', envelopeSha256: a.sha, trabalho: 't1', thread: ids[0], fase: 'GO', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    concluirDespacho(p.dir, 'arco-rl15', r1.seq, { thread: ids[0], sessionId, idempotente: false });
+    const pendente = reservarDespacho(p.dir, { arco: 'arco-rl15', envelopeSha256: a.sha, trabalho: 't2', thread: ids[1], fase: 'GO',
+      runtime: 'claude-bg', conta: 'perfil-a', revisao: false });
+    const vivas = new Set([sessionId]);
+    const simuladas = { ...base, git: () => null, parar: () => { vivas.delete(sessionId); return { ok: true, detalhe: 'parada SIMULADA' }; },
+      listarSessoes: () => ({ lidas: true, vivas: new Set(vivas) }) };
+    assert.equal(fecharSeDevido(p.carregado, 'arco-rl15', { ...simuladas, quando: a.fim }).motivo, 'hora');
+    fecharSeDevido(p.carregado, 'arco-rl15', { ...simuladas, quando: depois(a.fim, 5 * MIN) });
+    const texto = linhasDoRelatorio(fatosDoRelatorio(p.carregado, 'arco-rl15', { ...base, quando: a.vencimento })!, 1).join('\n');
+    assert.match(texto, /• t1 \(RM-901\): thread .*próximo passo: conferir a sessão que o fechamento mandou parar e retomar pela prova mais adiantada/);
+    assert.doesNotMatch(texto, /sendo conduzida agora/);
+    assert.ok(texto.includes(`• no fechamento, ${sessionId} (t1, claude-bg): parada confirmada`), texto);
+    assert.ok(texto.includes(`• no fechamento, reserva ${pendente.seq} (t2, claude-bg): reserva pendente sem id de sessão, nada a parar`), texto);
+    assert.doesNotMatch(texto, /: sem-id\b/, 'nenhum código cru no relatório');
   } finally { p.limpar(); }
 });

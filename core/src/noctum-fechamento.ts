@@ -154,7 +154,9 @@ export function condicaoDeFechamento(estado: EstadoDoArco | null, fila: FilaDoAr
   }
   if (estado.situacao === 'agendado') return null;
   if (fila?.situacao === 'vazia' && fila.decisao.acao === 'encerrar' && fila.decisao.motivo === 'fila-vazia') {
-    return { motivo: 'fila-vazia', detalhe: 'todo trabalho do envelope está entregue, encerrado ou preso a uma dependência que fechou sem entrega' };
+    // A entrega registrada (`ship_done`) pode vir sem a prova do push; o relatório diz qual tem prova.
+    return { motivo: 'fila-vazia', detalhe: 'todo trabalho do envelope tem a entrega registrada (ship_done), fechou sem entrega ou depende ' +
+      'de um que fechou sem entrega; nada sobra para este arco' };
   }
   return null;
 }
@@ -361,10 +363,17 @@ export function fecharSeDevido(carregado: ManifestoCarregado, arco: string, opco
     paradas: registro.paradas, conferencias: registro.conferencias };
 }
 
+/** O que cada desfecho da parada quer dizer para o dono, sem o código. */
+const PARADA_EM_TEXTO: Readonly<Record<Exclude<ResultadoDaParada, 'pedida'>, (p: ParadaDeSessao) => string>> = Object.freeze({
+  'sem-id': () => 'reserva pendente sem id de sessão, nada a parar; reconciliar antes do arco novo',
+  'sem-controle': (p: ParadaDeSessao) => `sem controle de parada no ${p.runtime}; conferir a sessão antes do arco novo`,
+  falhou: (p: ParadaDeSessao) => `o pedido de parada falhou (${p.detalhe})`,
+});
+
 /** Uma linha por parada, para o retrato e o relatório. */
 export function textoDaParada(p: ParadaDeSessao, conferencias: readonly ConferenciaDaParada[]): string {
   const c = p.sessionId ? conferencias.find(x => x.sessionId === p.sessionId) : undefined;
-  const situacao = p.resultado !== 'pedida' ? p.resultado : !c ? 'parada pedida, sem conferência ainda'
+  const situacao = p.resultado !== 'pedida' ? PARADA_EM_TEXTO[p.resultado](p) : !c ? 'parada pedida, sem conferência ainda'
     : c.confirmada ? 'parada confirmada' : 'parada não confirmada';
   return `${p.sessionId ?? `reserva ${p.seq}`} (${p.trabalho}, ${p.runtime}): ${situacao}`;
 }
