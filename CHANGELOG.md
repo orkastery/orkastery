@@ -26,6 +26,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   das fases, o ork vai tratar o fim como evento da conta, mover sozinho todas as threads dela para outra conta
   ou para o fallback do bloco e retomar do ponto onde pararam, com o trabalho da sessão guardado na thread.
   Frentes T1 a T7. Só documentação.
+- **Respostas gravadas do GitHub e do GitLab para o contrato da forja**: `core/scripts/forja-contrato.cjs` grava, só
+  por consulta, as respostas reais de uma forja (`--forja github|gitlab --host H --repo CAMINHO --sha SHA [--pr N]
+  [--branch B] --saida DIR`) pela CLI já logada (`gh`, `glab`), sem ler nem passar token, e cada registro passa pelo
+  redator antes do disco (arquivo 600): tokens do GitHub e do GitLab (inclusive o formato com ponto e os de runner),
+  JWT, credencial em URL e o valor de toda chave terminada em `token`. Os testes ganham as respostas redigidas do
+  GitHub (10/2026) e do GitLab CE 16.11, 17.0, 18.11, 19.2, 19.3 e 19.4 em `core/test/fixtures/forja/`.
 - **CLI em inglês e pt-BR, fatia F3b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): seguem também o
   locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`,
   `ork accounts`, `ork network` (fora `network roadmap`), `ork roadmap reservas`, `pegar`, `soltar` e `feat`,
