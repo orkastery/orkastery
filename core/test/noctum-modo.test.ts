@@ -265,3 +265,16 @@ test('MO11: o registro do fechamento adulterado vira falha do tique, e o relató
     assert.match(cliTique.stdout, /falha no fechamento: noctum\.registro\.adulterado/);
   } finally { p.limpar(); }
 });
+
+test('MO12: arquivo de proposta que não se lê e entrada do ingresso malformada são recusas tipadas, com código 2', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-mo12');
+  try {
+    const semArquivo = cli(p.dir, ['noctum', 'propor', '--arquivo', path.join(p.dir, 'nao-existe.json')]);
+    assert.equal(semArquivo.status, 2);
+    assert.match(semArquivo.stderr, /^noctum\.envelope\.invalido: o pedido de abertura .* não se lê/m);
+    const malformada = cli(p.dir, ['noctum', 'responder', 'arco-mo12', '--resposta-stdin', '--origem', 'telegram', '--canal', 'hermes',
+      '--por', 'telegram:42', '--mensagem', 'telegram:-7:1'], '{ isto não é json');
+    assert.equal(malformada.status, 2);
+    assert.match(malformada.stderr, /^noctum\.origem\.sem-prova: /m);
+  } finally { p.limpar(); }
+});

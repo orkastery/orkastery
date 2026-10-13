@@ -42,7 +42,9 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
     if (sub === 'propor') {
       const arquivo = texto(args.opcoes.arquivo);
       if (!arquivo || args.posicionais.length !== 2) { console.error(USO_DO_NOCTUM); return 2; }
-      const st = fs.statSync(arquivo);
+      let st: fs.Stats;
+      try { st = fs.statSync(arquivo); }
+      catch { console.error(`noctum.envelope.invalido: o pedido de abertura ${arquivo} não se lê`); return 2; }
       if (!st.isFile() || st.size > TETO_DO_ARQUIVO_DO_ENVELOPE) {
         console.error(`noctum.envelope.invalido: o pedido de abertura é um arquivo JSON de até ${TETO_DO_ARQUIVO_DO_ENVELOPE} bytes`);
         return 2;
@@ -69,8 +71,12 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
         console.error('noctum responder exige o arco, --resposta-stdin e o envelope do ingresso autenticado na entrada');
         return 2;
       }
-      const envelope = lerRespostaStdin({ por: texto(args.opcoes.por), mensagem: texto(args.opcoes.mensagem), origem: texto(args.opcoes.origem),
-        canal: texto(args.opcoes.canal), conta: texto(args.opcoes.conta) });
+      // A entrada malformada ou o argv que diverge do envelope é recusa tipada, como a do núcleo, e nunca autoriza nada.
+      let envelope: ReturnType<typeof lerRespostaStdin>;
+      try {
+        envelope = lerRespostaStdin({ por: texto(args.opcoes.por), mensagem: texto(args.opcoes.mensagem), origem: texto(args.opcoes.origem),
+          canal: texto(args.opcoes.canal), conta: texto(args.opcoes.conta) });
+      } catch (e) { console.error(`noctum.origem.sem-prova: ${(e as Error).message.slice(0, 300)}`); return 2; }
       console.log(JSON.stringify(responderAoArco(exigirManifesto().raiz, arco, envelope)));
       return 0;
     }

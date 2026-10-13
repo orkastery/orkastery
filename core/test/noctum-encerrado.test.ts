@@ -15,6 +15,7 @@ import { kernelDisponivel, tentarTravaExclusiva } from '../src/fila-pesada';
 import { autorizarPeloIngresso, concluirDespacho, conferirAntesDoEfeito, encerrarArco, lerArco, PedidoDeDespacho, proporEnvelope,
   reservarDespacho, textoDeAutorizacao } from '../src/noctum-arco';
 import { RecusaDoArco } from '../src/noctum-envelope';
+import { responderAoArco } from '../src/noctum-modo';
 import { FatosDaFila, montarFila } from '../src/noctum-fila';
 import { comRegistro, lerRegistro, RecusaDoRegistro } from '../src/noctum-registro';
 
@@ -184,4 +185,26 @@ test('EC9: a cauda rasgada não conta e sai na gravação seguinte; a trava ocup
     recusa(() => gravar(3), 'noctum.registro.ocupado');
   } finally { fs.closeSync(fd!); }
   assert.equal(lerRegistro(raiz, 'arco-ec9', 'relatorio').length, 2, 'a trava ocupada não gravou nada');
+}));
+
+test('EC10: autorizar de novo o arco encerrado ou expirado recusa tipado (o gateway responde), e o "já valia" vem de dentro do lock', { skip: semKernel }, () => comRaiz('ec10', raiz => {
+  // Achados do CHECK: o hash que valia num arco encerrado voltava ok mudo (repetida), e o "já valia" vinha de uma leitura
+  // fora do lock, que duas entregas simultâneas do mesmo ato liam iguais.
+  const sha256 = abrirArco(raiz, 'arco-ec10', { trabalhos: TRABALHOS });
+  const agora = new Date().toISOString();
+  const repetida = responderAoArco(raiz, 'arco-ec10', assinadoPara('arco-ec10', textoDeAutorizacao(sha256), agora), agora);
+  assert.deepEqual([repetida.situacao, repetida.repetida], ['vigente', true], 'o ato que já valia não ganha segunda confirmação');
+  const info = { repetida: false };
+  autorizarPeloIngresso(raiz, 'arco-ec10', sha256, assinadoPara('arco-ec10', textoDeAutorizacao(sha256), agora), agora, info);
+  assert.equal(info.repetida, true, 'o sinal sai do caminho que a autorização tomou sob o lock');
+  const fim = lerArco(raiz, 'arco-ec10')!.conteudo!.janela.fim;
+  const depoisDoFim = new Date(Date.parse(fim) + 60_000).toISOString();
+  assert.match(recusa(() => responderAoArco(raiz, 'arco-ec10', assinadoPara('arco-ec10', textoDeAutorizacao(sha256), depoisDoFim), depoisDoFim),
+    'noctum.efeito.expirado'), /abra outro arco/);
+  encerrarArco(raiz, 'arco-ec10', { motivo: 'fila-vazia', detalhe: 'simulado' });
+  assert.match(recusa(() => responderAoArco(raiz, 'arco-ec10', assinadoPara('arco-ec10', textoDeAutorizacao(sha256), agora), agora),
+    'noctum.efeito.encerrado'), /terminal; abra outro arco/);
+  const r1 = responderAoArco(raiz, 'arco-ec10', assinadoPara('arco-ec10', 'revogar', agora), agora);
+  const r2 = responderAoArco(raiz, 'arco-ec10', assinadoPara('arco-ec10', 'revogar', agora), agora);
+  assert.deepEqual([r1.repetida, r2.repetida, r2.situacao], [false, true, 'revogado']);
 }));

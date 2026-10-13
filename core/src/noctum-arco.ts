@@ -651,16 +651,30 @@ function confirmado(raiz: string, arco: string, quando: string, vale: (e: Estado
   return estado;
 }
 
-/** Autoriza a proposta pendente pelo envelope assinado do dono. Sem prova, nada muda. */
+/**
+ * Autoriza a proposta pendente pelo envelope assinado do dono. Sem prova, nada muda. `info.repetida` diz, decidido sob
+ * o lock do arco, que o ato já valia antes desta mensagem (o gateway não confirma de novo ao dono).
+ */
 export function autorizarPeloIngresso(raiz: string, arco: string, envelopeSha256: string, envelope: RespostaHumana,
-  quando = new Date().toISOString()): EstadoDoArco {
+  quando = new Date().toISOString(), info?: { repetida: boolean }): EstadoDoArco {
   return comLockDoArco(raiz, arco, false, () => {
     const log = lerLog(raiz, arco), d = derivar(log.linhas);
     const versao = d.ultima?.envelopeSha256 === envelopeSha256 ? d.ultima.versao : 0;
     const provado = provarEnvelope(arco, textoDeAutorizacao(envelopeSha256), envelope, quando,
       { pedidoSha256: envelopeSha256, contexto: contextoDoArco(arco, versao), prazo: d.ultima?.prazo });
-    // A mesma autorização repetida, pela mesma mensagem, devolve o que já vale.
-    if (d.autorizacao?.envelopeSha256 === envelopeSha256 && !d.revogacao) return estadoDe(arco, d, quando);
+    // A mesma autorização repetida devolve o que já vale; no arco que já acabou, a recusa tipada chega ao gateway, que
+    // responde ao dono, em vez de um ok mudo (RM-058 N6).
+    if (d.autorizacao?.envelopeSha256 === envelopeSha256 && !d.revogacao) {
+      const atual = estadoDe(arco, d, quando);
+      if (atual.situacao === 'encerrado') {
+        throw new RecusaDoArco('noctum.efeito.encerrado', `arco ${arco} encerrado (${d.encerramento?.motivo ?? 'fechado'}) é terminal; abra outro arco`);
+      }
+      if (atual.situacao === 'expirado') {
+        throw new RecusaDoArco('noctum.efeito.expirado', `o arco ${arco} terminou em ${atual.conteudo?.janela.fim ?? 'o fim da janela'}; abra outro arco`);
+      }
+      if (info) info.repetida = true;
+      return atual;
+    }
     if (d.usadas.has(`${provado.origem}:${provado.mensagem}`)) throw semProva('esta mensagem já provou outro ato neste arco');
     const proposta = propostaAutorizavel(d, envelopeSha256, quando);
     const ingresso = { ...provado, ...gravarRecibo(raiz, arco, 'autorizar', envelopeSha256, proposta.versao, provado) };
@@ -669,14 +683,17 @@ export function autorizarPeloIngresso(raiz: string, arco: string, envelopeSha256
   });
 }
 
-/** Revoga o arco pelo envelope assinado do dono. Terminal: nenhum efeito passa depois (D7). */
+/** Revoga o arco pelo envelope assinado do dono. Terminal: nenhum efeito passa depois (D7). `info.repetida`: já valia. */
 export function revogarPeloIngresso(raiz: string, arco: string, envelope: RespostaHumana,
-  quando = new Date().toISOString()): EstadoDoArco {
+  quando = new Date().toISOString(), info?: { repetida: boolean }): EstadoDoArco {
   return comLockDoArco(raiz, arco, false, () => {
     const log = lerLog(raiz, arco), d = derivar(log.linhas);
     const provado = provarEnvelope(arco, TEXTO_DE_REVOGACAO, envelope, quando,
       { pedidoSha256: hashDaRevogacao(arco), contexto: contextoDoArco(arco, 0) });
-    if (d.revogacao) return estadoDe(arco, d, quando);
+    if (d.revogacao) {
+      if (info) info.repetida = true;
+      return estadoDe(arco, d, quando);
+    }
     if (d.usadas.has(`${provado.origem}:${provado.mensagem}`)) throw semProva('esta mensagem já provou outro ato neste arco');
     // O recibo da revogação é auditoria e nunca é reconferido: falha nele não segura o ato de segurança, e o motivo fica na linha.
     let recibo: { evidencia: string; evidenciaSha256: string; semRecibo?: string };

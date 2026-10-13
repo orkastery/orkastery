@@ -99,13 +99,16 @@ def _is_pulse(text):
     return bool(PULSE_LIVRE.fullmatch(text)) and _escuta_aberta(os.environ.get('ORK_HITL_ROOT', ''))
 
 
-def _receipt_ok(receipt, operation, pedido):
+def _receipt_ok(receipt, operation, pedido, answer=None):
     if operation == 'noctum':
-        # O recibo tipado do arco: o mesmo arco, um ato conhecido e se ja valia antes.
+        # O recibo tipado do arco: o mesmo arco, o MESMO ato pedido (e, ao autorizar, o mesmo hash) e se ja valia
+        # antes. Um ork de outra versao, ou um ORK_BIN errado, que devolva o recibo de outro ato nunca confirma.
+        ato, _, sha = (answer or '').partition(' ')
         return (isinstance(receipt, dict) and receipt.get('ok') is True
                 and receipt.get('contrato') == 'ork.noctum-ingresso/v1'
                 and receipt.get('arco') == pedido[len(NOCTUM_ENDERECO):]
-                and receipt.get('ato') in ('autorizar', 'revogar')
+                and ato in ('autorizar', 'revogar') and receipt.get('ato') == ato
+                and (ato != 'autorizar' or receipt.get('envelopeSha256') == sha)
                 and type(receipt.get('repetida')) is bool)
     if operation == 'pulse':
         # O texto que volta ao dono e montado pelo nucleo; este adaptador so o transporta.
@@ -134,7 +137,7 @@ async def _deliver(entry, msg, operation, pedido, argv, envelope, root, env):
         result = await asyncio.wait_for(
             asyncio.to_thread(_call_core, argv, envelope, root, env), CORE_TIMEOUT + 1)
         receipt = json.loads(result.stdout) if result.returncode == 0 else None
-        if not _receipt_ok(receipt, operation, pedido):
+        if not _receipt_ok(receipt, operation, pedido, envelope.get('resposta')):
             return
         entry['effect'] = 'confirmed'
         if receipt['repetida']:

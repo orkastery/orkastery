@@ -191,8 +191,11 @@ async function noctumIngress(arco, resposta, m, denied) {
         child.stdin?.on('error', () => resolve(null));
         child.stdin?.end(JSON.stringify(envelope));
     });
+    // The receipt must be for the SAME act the owner asked (and, to authorize, the same hash): a core of another version, or a
+    // wrong ORK_BIN, that answers with the receipt of another act is never a confirmation.
+    const [ato, sha] = resposta.split(' ');
     if (!receipt || receipt.ok !== true || receipt.contrato !== 'ork.noctum-ingresso/v1' || receipt.arco !== arco ||
-        !['autorizar', 'revogar'].includes(receipt.ato) || typeof receipt.repetida !== 'boolean')
+        receipt.ato !== ato || (ato === 'autorizar' && receipt.envelopeSha256 !== sha) || typeof receipt.repetida !== 'boolean')
         return denied;
     if (receipt.repetida)
         return { handled: true };

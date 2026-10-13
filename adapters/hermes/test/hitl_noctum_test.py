@@ -110,7 +110,9 @@ class NoctumIngressTest(unittest.IsolatedAsyncioTestCase):
                 run.assert_not_called()
 
     async def test_recibo_de_outro_arco_ou_contrato_nao_confirma(self):
-        for errado in [recibo(arco='outro-arco'), recibo(contrato='ork.hitl-gate/v1'), recibo(ato='aprovar'), recibo(repetida='nao')]:
+        # O recibo de outro ato ou de outro hash tambem nao confirma: o gateway so diz ao dono o ato que ele pediu.
+        for errado in [recibo(arco='outro-arco'), recibo(contrato='ork.hitl-gate/v1'), recibo(ato='aprovar'), recibo(repetida='nao'),
+                       recibo(ato='revogar', situacao='revogado'), recibo(envelopeSha256='c' * 64)]:
             with self.subTest(recibo=errado.stdout), patch.object(ingress.subprocess, 'run', return_value=errado):
                 ingress._entries.clear()
                 msg, evento = self.mensagem(f'/ork noctum arco-simulado autorizar {HASH}')

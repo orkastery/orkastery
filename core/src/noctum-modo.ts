@@ -119,14 +119,12 @@ export function responderAoArco(raiz: string, arco: string, envelope: RespostaHu
   if (!autorizar && texto !== 'revogar') {
     throw new RecusaDoArco('noctum.origem.sem-prova', 'o texto assinado precisa ser autorizar <sha256> ou revogar');
   }
-  const antes = lerArco(raiz, arco, quando);
   const recibo = (e: EstadoDoArco, ato: 'autorizar' | 'revogar', repetida: boolean): ReciboDoIngressoDoArco =>
     ({ ok: true, contrato: CONTRATO_INGRESSO_DO_ARCO, arco, ato, situacao: e.situacao, versao: e.versao, envelopeSha256: e.envelopeSha256, repetida });
-  if (autorizar) {
-    const repetida = antes !== null && antes.envelopeSha256 === autorizar[1] && antes.situacao !== 'revogado';
-    return recibo(autorizarPeloIngresso(raiz, arco, autorizar[1], envelope, quando), 'autorizar', repetida);
-  }
-  return recibo(revogarPeloIngresso(raiz, arco, envelope, quando), 'revogar', antes?.situacao === 'revogado');
+  // O "já valia" é decidido sob o lock do arco: duas entregas do mesmo ato ao mesmo tempo dão uma confirmação só.
+  const info = { repetida: false };
+  if (autorizar) return recibo(autorizarPeloIngresso(raiz, arco, autorizar[1], envelope, quando, info), 'autorizar', info.repetida);
+  return recibo(revogarPeloIngresso(raiz, arco, envelope, quando, info), 'revogar', info.repetida);
 }
 
 export interface RetratoDoArco {

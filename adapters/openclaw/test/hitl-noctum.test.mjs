@@ -79,7 +79,9 @@ test('noctum: malformed commands, foreign senders and old messages never reach t
 });
 
 test('noctum: a receipt for another arc or contract is not a confirmation', async () => {
-  for (const wrong of [ok({ arco: 'outro-arco' }), ok({ contrato: 'ork.hitl-gate/v1' }), ok({ ato: 'aprovar' }), ok({ repetida: 'nao' })]) {
+  // A receipt for another act or another hash is not a confirmation either: the owner only hears about the act asked.
+  for (const wrong of [ok({ arco: 'outro-arco' }), ok({ contrato: 'ork.hitl-gate/v1' }), ok({ ato: 'aprovar' }), ok({ repetida: 'nao' }),
+    ok({ ato: 'revogar', situacao: 'revogado' }), ok({ envelopeSha256: 'c'.repeat(64) })]) {
     await withIngress(wrong, async ({ handler, event, ctx }) => {
       const r = await handler(event(`/ork noctum arco-simulado autorizar ${HASH}`), ctx);
       assert.match(r.reply.text, /não confirmada/, JSON.stringify(wrong));
