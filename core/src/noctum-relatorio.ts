@@ -236,7 +236,7 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
     lacunas.push(`o registro do fechamento não se lê (${e.motivo})`);
   }
   const supervisao = opcoes.supervisao ? opcoes.supervisao(raiz, arco) : null;
-  if (!opcoes.supervisao) lacunas.push('a supervisão e a retomada da N4 não foram lidas nesta instalação');
+  if (!opcoes.supervisao) lacunas.push('a supervisão e a retomada da N4 não rodam neste arco: o tique ainda não chama o vigia');
   else if (!supervisao) lacunas.push('a supervisão da N4 não respondeu');
   const cache = new Map<string, EventoLedger[] | null>();
   const fechado = estado.encerramento !== null || ['revogado', 'expirado', 'encerrado'].includes(estado.situacao);

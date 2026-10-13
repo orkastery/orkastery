@@ -129,7 +129,7 @@ test('RL3: os sete grupos na ordem da página, cada fato do núcleo, #HITL só n
     assert.match(texto, /  a\) Mesclar depois do CI: entra hoje \(Recomendação: o CI cobre o risco\)/);
     assert.match(texto, /Usar a fila local\. Porque: é a fatia pedida\. Como reverter: trocar a fonte da fila\./);
     assert.match(texto, /Teto do arco: 0 sessoes de 40 sessoes/);
-    assert.match(texto, /Não lido: .*a supervisão e a retomada da N4 não foram lidas nesta instalação/);
+    assert.match(texto, /Não lido: .*a supervisão e a retomada da N4 não rodam neste arco: o tique ainda não chama o vigia/);
     assert.match(texto, /📝 Correções\n• nada/);
     assert.match(texto, /Próximo trabalho elegível: t2 \(RM-902\), fase GOAL/);
     assert.doesNotMatch(texto, /\d{4}-\d{2}-\d{2}T/, 'nenhum ISO cru para a pessoa');
@@ -137,7 +137,7 @@ test('RL3: os sete grupos na ordem da página, cada fato do núcleo, #HITL só n
     const comN4 = fatosDoRelatorio(p.carregado, 'arco-rl3', { ...base, quando: a.vencimento,
       supervisao: () => ({ isolados: [{ trabalho: 't2', motivo: 'duas sessões sem primeiro turno' }], contasFora: [{ conta: 'perfil-a', motivo: 'cota esgotada' }] }) })!;
     const t2 = linhasDoRelatorio(comN4, 1).join('\n');
-    assert.doesNotMatch(t2, /supervisão e a retomada da N4 não foram lidas/);
+    assert.doesNotMatch(t2, /supervisão e a retomada da N4 não rodam/);
     assert.match(t2, /• t2 \(RM-902\): isolado pela supervisão \(duas sessões sem primeiro turno\)/);
     assert.match(t2, /a conta perfil-a saiu do arco: cota esgotada/);
   } finally { p.limpar(); }

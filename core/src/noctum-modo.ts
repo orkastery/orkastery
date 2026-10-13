@@ -14,7 +14,8 @@
  * pela entrada, conferido aqui com o `autorizarPeloIngresso` e o `revogarPeloIngresso` da N1) ou o diálogo nativo do host
  * pelo MCP. Argumento de ferramenta e comando de terminal nunca são resposta do dono.
  *
- * O tique (D13) junta, nesta ordem, o fechamento, o passo (hoje o da N2; com a N4 na base, o vigia dela) e o relatório.
+ * O tique (D13) junta, nesta ordem, o fechamento, o passo (ainda o da N2; o vigia da N4, já na base, não entra no lugar dele
+ * nesta fatia) e o relatório.
  * É o que o cron do dono chama no piloto; a N6 não instala cron.
  */
 import * as fs from 'node:fs';
@@ -219,7 +220,7 @@ export function textoDoRetrato(r: RetratoDoArco): string {
 }
 
 export interface OpcoesDoTique extends OpcoesDoFechamento, Omit<OpcoesDoRelatorio, 'medir'> {
-  /** O passo do arco; hoje o da N2, e o vigia da N4 quando ele estiver na base (D6). */
+  /** O passo do arco; ainda o da N2 (D6): ligar o vigia da N4 aqui pede decidir quem roda o condutor e a baseline. */
   passo?: (carregado: ManifestoCarregado, arco: string, quando: string) => ResultadoDoPasso;
   /** Opções do passo da N2 quando ele é o padrão (as dependências dos testes). */
   opcoesDoPasso?: OpcoesDoPasso;

@@ -492,8 +492,8 @@ function cenarioArcoCurto(c, a, n) {
   c.esperar('o custo traz as sessões medidas contra o teto do arco, de cada conta e do runtime, e separa as sessões abertas da reserva pendente',
     /• Teto do arco: 4 sessoes de 10 sessoes/.test(texto) && /• Teto da conta perfil-a: \d sessoes de 6 sessoes/.test(texto) &&
       /• Teto do runtime claude-bg: 4 sessoes de 8 sessoes/.test(texto) && /• Sessões abertas pelo arco: 3; reservas pendentes: 1 \(/.test(texto), texto);
-  c.esperar('a supervisão da N4, ainda fora da base, aparece como fonte não lida, em vez de vazia',
-    /Não lido: .*a supervisão e a retomada da N4 não foram lidas nesta instalação/.test(texto), texto.slice(0, 600));
+  c.esperar('a supervisão da N4, que o tique ainda não chama, aparece como fonte não lida, em vez de vazia',
+    /Não lido: .*a supervisão e a retomada da N4 não rodam neste arco: o tique ainda não chama o vigia/.test(texto), texto.slice(0, 600));
   const rDepois = tq(depois(vencimento, 10 * MIN));
   c.esperar('cada página chegou ao canal uma vez só, e o tique seguinte não manda nada de novo',
     canal.doArco('arco-curto').length === paginas.length && new Set(paginas).size === paginas.length && rDepois.relatorio.enviadas === 0 &&
