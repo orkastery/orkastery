@@ -8,6 +8,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Entrega dentro do arco #Noctum, fatia N5 da RM-058** ([RM-058](docs/roadmap/RM-058-modo-noctum.md#n5-qualidade-e-entrega)):
+  o passo da entrega do arco (`passoDaEntrega`, ainda sem quem o chame) leva a thread que a fila deixou na entrega do
+  CHECK ao MASTER, um efeito por chamada, e só integra com todas as provas no SHA fonte exato e na base lida no remoto: a
+  revisão independente de uma sessão de CHECK que o núcleo despachou, verificou e viu concluir, com id nativo fora dos
+  autores (o arco despacha esse CHECK pela reserva de revisão quando ele falta); o verify contra a baseline com as claims
+  ativas, guardando a reprovação anterior do mesmo SHA; o CI obrigatório verde no SHA; nenhum segredo nas linhas
+  acrescentadas; e nenhum mutante sobrevivente, com o mutante como claim que começa por "Mutante" e o executor
+  `core/scripts/mutante.cjs`. A base que anda é mesclada na worktree com o conflito só aditivo resolvido pela regra do
+  núcleo, a entrada da thread posta em "Não publicado" depois de uma versão, o bundle regravado e o verify de novo; o
+  merge é amarrado ao SHA (a árvore da fonte com os pais base e fonte, push sem força que a base que andou recusa, prova
+  pelo `ls-remote`) e leva no mesmo push o estado derivado da página do item que deixaria a `main` vermelha.
+  `publicarEntrega` ganha a opção `antesDoEfeito`, chamada imediatamente antes do push e antes de abrir o PR.
+
 - **CLI em inglês e pt-BR, fatia F3b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): seguem também o
   locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`,
   `ork accounts`, `ork network` (fora `network roadmap`), `ork roadmap reservas`, `pegar`, `soltar` e `feat`,

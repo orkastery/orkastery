@@ -22,8 +22,9 @@ evidencias:
   testes:
     n1: core/test/noctum-envelope.test.ts (E1 a E12) e core/test/noctum-arco.test.ts (A1 a A26)
     n2: core/test/noctum-fila.test.ts (F1 a F17), noctum-capacidade.test.ts (C1 a C10), fila-pesada.test.ts (P1 a P11), fila-pesada-verify.test.ts (V1 a V12) e noctum-execucao.test.ts (X1 a X15)
+    n5: core/test/noctum-changelog.test.ts (QC1 a QC5), noctum-provas.test.ts (QP0 a QP8), noctum-integracao-entrega.test.ts (QI1 a QI7), noctum-entrega.test.ts (QE1 a QE8), noctum-mutante.test.ts (QM1 a QM3), ship-publicar.test.ts (QS1 a QS3) e os mutantes de core/test/mutantes/noctum-entrega.json
 sdlc:
-  thread: ork-rm058n2
+  thread: ork-rm058n5
   modo: "#Auto"
   fase: GOAL
   status: aberta
@@ -41,9 +42,9 @@ sdlc:
 
 <!-- ork-docs:relance:fim -->
 
-**Em desenvolvimento, com as quatro decisões de produto tomadas e as fatias N1 e N2 implementadas nas threads `ork-rm058n1` e `ork-rm058n2`.** Esta página planeja o #Noctum; o modo ainda não está habilitado e `#Noctum` não é aceito como modo.
+**Em desenvolvimento, com as quatro decisões de produto tomadas e as fatias N1 e N2 implementadas nas threads `ork-rm058n1` e `ork-rm058n2`, e a N5 na `ork-rm058n5`.** Esta página planeja o #Noctum; o modo ainda não está habilitado e `#Noctum` não é aceito como modo.
 
-- Fora da [N1](#n1-envelope-e-estado-do-arco) e da [N2](#n2-fila-local-e-capacidade), as regras abaixo são requisitos futuros. A duração vem do pedido do dono, não de um ensaio de autonomia já aprovado.
+- Fora da [N1](#n1-envelope-e-estado-do-arco), da [N2](#n2-fila-local-e-capacidade) e da [N5](#n5-qualidade-e-entrega), as regras abaixo são requisitos futuros. A duração vem do pedido do dono, não de um ensaio de autonomia já aprovado.
 - Em 12/10/2026 o dono decidiu D1 a D4 (veja [Decisões do dono](#decisões-do-dono)); seguem pendentes a prioridade final, o horário e o canal do relatório da manhã e os valores do teto, que o dono preenche antes do primeiro piloto.
 - O primeiro piloto continua dependendo da autorização do dono.
 
@@ -71,7 +72,7 @@ O #Noctum não reduzirá checks nem converterá `policy: block`, autenticação 
 
 **Incluído:** envelope anterior ao arco, fila persistente de itens autorizados, distribuição com reservas, supervisão, recuperação limitada, revisão independente, fila de operações pesadas, entrega com provas, controle de custo e relatório multicanal.
 
-**Entregável desta etapa:** apenas o planejamento, sua posição proposta no [índice](README.md#prioridade-para-a-comunidade-de-product-builders) e a entrada documental no [CHANGELOG](../../CHANGELOG.md). A implementação tem as seis fatias abaixo; a N1 está na thread `ork-rm058n1` e a N2 na `ork-rm058n2`, registrada no bloco `sdlc`, e o modo segue sem habilitação.
+**Entregável desta etapa:** apenas o planejamento, sua posição proposta no [índice](README.md#prioridade-para-a-comunidade-de-product-builders) e a entrada documental no [CHANGELOG](../../CHANGELOG.md). A implementação tem as seis fatias abaixo; a N1 está na thread `ork-rm058n1`, a N2 na `ork-rm058n2` e a N5 na `ork-rm058n5`, registrada no bloco `sdlc`, e o modo segue sem habilitação.
 
 **Validação documental:** `node core/dist/index.js docs sincronizar --escrever`, `ork docs verificar` e `core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-058-modo-noctum.md docs/roadmap/README.md CHANGELOG.md`. A aprovação desses comandos confere documentação; não prova um arco Noctum.
 
@@ -128,6 +129,26 @@ Implementada na thread `ork-rm058n2` (modo #Auto), sem ligar o modo: nenhum coma
 
 Evidência: `core/test/noctum-envelope.test.ts` (E13 a E18), `core/test/noctum-fila.test.ts` (F1 a F17), `core/test/noctum-capacidade.test.ts` (C1 a C10), `core/test/fila-pesada.test.ts` (P1 a P11), `core/test/fila-pesada-verify.test.ts` (V1 a V12), `core/test/noctum-arco.test.ts` (A27 a A31), `core/test/noctum-execucao.test.ts` (X1 a X15) e o teste do `ork_ship` com a fila ocupada em `core/test/mcp-ship.test.ts`, que rodam em `npm --prefix core test`.
 
+### N5: qualidade e entrega
+
+Implementada na thread `ork-rm058n5` (modo #Auto), numa máquina, sem ligar o modo: ninguém chama o passo novo (o vigia é da N4), nenhum comando, ferramenta ou gateway abre arco, e `#Noctum` segue recusado como modo.
+
+- **O passo da entrega** (`core/src/noctum-entrega.ts`): `passoDaEntrega` relê a fila da N2 e, para os trabalhos do envelope `v2` vigente que ela mostra `aguardando-entrega` (e os entregues sem MASTER), decide pela ordem de `decidirEntrega` e faz no máximo um efeito por chamada: atualizar o candidato, pedir a revisão independente, rodar o verify, publicar, integrar, reconciliar ou registrar o MASTER por omissão, com o índice derivado do ledger (a nota humana vem depois e sobrescreve). Espera e bloqueio voltam tipados (`noctum.entrega.*`), sem efeito; só a recusa da publicação e da atualização deixa o mesmo passo seguir para o trabalho seguinte.
+- **As provas no SHA exato** (`core/src/noctum-provas.ts`): a fatia só chega à base com todas valendo na fonte (a ponta da branch) e na base lida agora no remoto: a base é ancestral da fonte (senão o candidato se atualiza e as provas se repetem); nenhum padrão de segredo nas linhas que a thread acrescenta (`procurarSegredos`; a evidência traz só o nome do padrão, o arquivo e a linha); linha em "Não publicado" quando o código muda (a regra do checador do CHANGELOG); o bundle de CI com as claims ativas; a revisão independente; o verify contra a baseline; e o check obrigatório do CI verde no SHA exato. O sha256 canônico das provas é o `provas` do candidato que a N3 recebe.
+- **Revisão com vínculo do núcleo:** vale a última sessão de CHECK que o núcleo despachou e verificou (`phase_dispatch` e `phase_dispatch_verified`, com o prompt no sha256 do despacho) e viu concluir (o `phase_result` do observador), com `PASSOU` e o SHA revisado do fim do turno dela (a prova que o observador gravou, ou o último verify antes do resultado). O id nativo dela não pode ser de autor: as sessões de GO, as que começaram antes do GO num bloco que o contém (o bloco inteiro numa sessão só) e as que commitaram; ela também não commita no próprio intervalo nem vem antes do último despacho de autor, e o parecer reescrito depois do resultado não vale mais. Faltando, o arco despacha o CHECK numa sessão nova pela reserva (`revisao: true`), pelos slots de revisão e pela trava de despacho, até 4 vezes por trabalho.
+- **SHA alterado e neutralidade:** o verify vale no SHA ou com só commits de bundle depois; a revisão também sobrevive ao merge da base que o núcleo recomputa byte a byte (o `git merge-tree` diff3 com a regra do núcleo), limpo ou com conflito só no `CHANGELOG.md`; merge com conflito de código resolvido, com ajuste ou de outra branch pede revisão nova; o CI só vale no SHA exato.
+- **Verify e falhas registradas:** decide o último `verify_run` no SHA, com os comandos do manifesto, a baseline (sem ela, bloqueia) e todas as claims ativas executadas. A reprovação anterior do mesmo SHA (a do build concorrente) fica em `falhasRegistradas` e no `ship_done`; duas reprovações no SHA bloqueiam, e o passo roda no máximo 3 verifies por SHA, sempre na fila pesada.
+- **Mutantes:** a claim cuja alegação começa por "Mutante" é um mutante relevante, e o comando dela sai 0 quando o mutante morre (`core/scripts/mutante.cjs`, com a especificação versionada `ork.mutantes/v1`). Mutante reprovado no verify do SHA bloqueia; mudança de código sem nenhuma claim de mutante bloqueia; diff só de docs, testes ou CI dispensa, com os arquivos na evidência.
+- **CI obrigatório e publicação:** o arco só integra com `ci.required_for_ship: true` e o check do `ci.context` verde no SHA fonte; vermelho bloqueia; pendente ou sem check espera a cadência; a consulta que falha é lacuna. O PR é o que dá o check: a publicação é a do `publicarEntrega`, com o envelope conferido imediatamente antes do push e imediatamente antes de abrir o PR (a opção `antesDoEfeito`).
+- **A base que anda:** na worktree limpa da thread e sob a condução do verify, o merge da base lida no remoto (diff3). Conflito só aditivo (a seção do ancestral vazia, ou prefixo ou sufixo comum aos dois lados) vira a união, a base primeiro e a thread depois (`core/src/noctum-changelog.ts`); a entrada da thread que caiu numa versão volta para "Não publicado", na subseção de origem, e nenhuma linha da base some; o bundle é regravado em commit `ci(<thread>)`, e o verify roda logo depois. Conflito que muda linha da base, que não é de conteúdo ou com marcador fora do formato aborta o merge, deixa a worktree como estava e bloqueia (`conflito-nao-aditivo`), sem tentar de novo a mesma base.
+- **A integração amarrada ao SHA** (`integrarNoDestino`): sob a trava do kernel do destino (um integrador por repositório e base nesta máquina, entre todos os arcos), as provas são relidas do zero, a branch no remoto precisa ser a fonte, e a conferência da N1 com `merge` vem logo antes do push. O merge é `git commit-tree` da árvore da fonte com os pais base e fonte e o assunto `ship(<thread>)`; o push vai sem força para a base, então a base que andou recusa (`base-mudou`) e o candidato se refaz; o `ls-remote` prova a ponta com a fonte contida. O `ship_done` leva `mergeSha`, `pontaDaBase`, `shaRemoto`, `tipoDeAutorizacao: noctum` e a evidência das provas. O push sem prova vira `noctum_push_incerto` no ledger da thread, e o passo seguinte relê o remoto: a fonte que já está na base é reconciliada (o `ship_done` sai sem integrar de novo).
+- **A página que deixaria a `main` vermelha:** quando a página com `sdlc.thread` da thread não diz `Mesclado`, o `docs sincronizar` dos itens dela roda numa worktree temporária sobre o merge, e o commit dele vai em cima do merge, no mesmo push; antes do push, o `docs verificar` estrito não acusa o item nem o índice. O `mergeSha` é o merge; a `pontaDaBase`, a ponta empurrada.
+- **Interface para a N3 e a N4:** a integração só sai sozinha com o envelope `v2`; com outro contrato, o passo bloqueia com `exige-vez-da-n3`. `candidatoDaEntrega` dá o candidato (a branch, a fonte, a base e o sha256 das provas), e `integradorDaEntrega` dá a função de merge no formato que `integrarComVez` recebe: ela confere a fonte, a base e as provas do candidato antes do push e devolve o commit para onde a base aponta. Para a N4, o push incerto fica no ledger da thread, e a reconciliação decide pelo remoto.
+- **Limites ditos:** o passo é de uma máquina, e a vez entre máquinas é da N3. A sessão de CHECK de um bloco que continua até o SHIP pode chamar o `ork ship`, que não confere a revisão independente: ligar o modo pede fechar esse caminho para as threads do arco. O commit dos docs derivados entra na base sem CI próprio antes: ele só leva o que o `docs sincronizar` gera para o item, conferido pelo verificador estrito, e o CI do push da base roda depois. A autoria vem do que o núcleo registra (o `ork_git_commit`, o sensor `commit` e as sessões): um commit pelo shell de uma sessão sem o sensor, no meio do CHECK, não aparece. A trava do destino é desta máquina.
+- **Fica para depois:** chamar o passo (o vigia da N4), a vez entre máquinas pela N3, o fechamento e o relatório (N6), e o transporte que liga o modo.
+
+Evidência: `core/test/noctum-changelog.test.ts` (QC1 a QC5), `core/test/noctum-provas.test.ts` (QP0 a QP8), `core/test/noctum-integracao-entrega.test.ts` (QI1 a QI7), `core/test/noctum-entrega.test.ts` (QE1 a QE8), `core/test/noctum-mutante.test.ts` (QM1 a QM3) e os testes QS1 a QS3 de `core/test/ship-publicar.test.ts`, que rodam em `npm --prefix core test`; os 14 mutantes de `core/test/mutantes/noctum-entrega.json` rodam nas claims da thread.
+
 ### Sem HITL no meio, com decisões registradas
 
 Dentro do envelope, uma dúvida delegável deverá virar decisão autônoma registrada por `ork decisao registrar <thread>` ou pela ferramenta correspondente do núcleo. O registro levará quem decidiu, alternativas, uma recomendada, razão, evidência, critério, como mudar e custo de reverter agora e depois. A recomendação escolhida dentro do envelope terá autoria do agente, nunca do dono.
@@ -179,6 +200,8 @@ Cada CHECK cobrirá correção, segurança, performance, manutenção e estilo, 
 
 Falha, revisão pendente, mutante sobrevivente relevante, segredo, baseline ausente ou check de outro SHA impedirão a integração. Um verde antigo não sobreviverá a ajuste de conflito, código, teste ou documentação no candidato. A fila de merge deverá impedir que duas máquinas integrem com a mesma prova de uma base já superada. O MASTER de cada thread registrará índice derivado do ledger; eventual nota humana será posterior e identificada como humana.
 
+A [N5](#n5-qualidade-e-entrega) implementa estas exigências numa máquina: as provas no SHA exato, a revisão com vínculo do núcleo, os mutantes como claims, a integração amarrada ao SHA e o MASTER por omissão; a vez entre máquinas segue com a N3.
+
 ### Relatório da manhã
 
 O envelope fixará horário e fuso, canal do dono e destinos habilitados: terminal, Telegram e OpenClaw deverão apresentar o mesmo conteúdo essencial. A composição partirá dos fatos do núcleo, segundo o formato aprovado na [RM-048](RM-048-hitl-humano-no-centro.md); o exemplo abaixo define conteúdo, sem afirmar números de uma execução.
@@ -213,7 +236,7 @@ O fechamento deverá deixar fila ordenada, envelope encerrado, decisões e evid�
 ## Plano e decisões
 
 - **Prioridade proposta:** posição 5, após RM-047 e antes de RM-037; aproxima a autonomia prolongada de sua base multimáquina, preservando as quatro primeiras posições. Método: dependências e impacto no trabalho sem supervisão; sem pontuação numérica inventada. Proposta de 2026-10-03, posição final de Julio.
-- **Horizonte e confiança:** desenvolvimento, com a N1 e a N2 implementadas e sem previsão de lançamento. Confiança depende dos ensaios e da ratificação do envelope; marcos N1 a N6 abaixo.
+- **Horizonte e confiança:** desenvolvimento, com a N1, a N2 e a N5 implementadas e sem previsão de lançamento. Confiança depende dos ensaios e da ratificação do envelope; marcos N1 a N6 abaixo.
 - **Dependências e responsáveis:** RM-047 (reservas), RM-053 (rede), RM-054 (panorama), RM-048/RM-057 (decisões e status), [RM-037](RM-037-verify-rapido-e-confiavel.md) (verify), [RM-040](RM-040-estado-de-conta-compartilhado.md) e [RM-056](RM-056-perfil-por-thread-e-carga.md) (contas/capacidade), [RM-036](RM-036-maestro-multicanal.md) (condução). Owner de integração: Julio; executor a designar por fatia. Próxima revisão: antes de admitir N3, conferindo evidência de cada dependência, sem presumir conclusão pelo número do item.
 
 ### Fatias propostas
@@ -273,7 +296,7 @@ Como mudar: registrar a nova escolha do dono por ingresso autenticado e atualiza
 
 ## Estado com evidências
 
-O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`. Código e testes referem-se ao modo proposto, não à existência desta página. A thread `ork-rm058planeja` preparou o planejamento, a `ork-rm058n1` implementou a [N1](#n1-envelope-e-estado-do-arco) e a `ork-rm058n2` implementa a [N2](#n2-fila-local-e-capacidade); nenhum ensaio Noctum ou entrega do modo é alegado aqui.
+O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`. Código e testes referem-se ao modo proposto, não à existência desta página. A thread `ork-rm058planeja` preparou o planejamento, a `ork-rm058n1` implementou a [N1](#n1-envelope-e-estado-do-arco) a `ork-rm058n2` a [N2](#n2-fila-local-e-capacidade) e a `ork-rm058n5` implementa a [N5](#n5-qualidade-e-entrega); nenhum ensaio Noctum ou entrega do modo é alegado aqui.
 
 <!-- ork-docs:estado:inicio -->
 
@@ -282,7 +305,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
 | Documentação | Em revisão | — | 2026-10-12 | Julio |
 | Código | Mesclado | commit `5551300` | 2026-10-12 | Julio |
-| Testes | Em execução | n1: core/test/noctum-envelope.test.ts (E1 a E12) e core/test/noctum-arco.test.ts (A1 a A26) · n2: core/test/noctum-fila.test.ts (F1 a F17), noctum-capacidade.test.ts (C1 a C10), fila-pesada.test.ts (P1 a P11), fila-pesada-verify.test.ts (V1 a V12) e noctum-execucao.test.ts (X1 a X15) | 2026-10-12 | Julio |
+| Testes | Em execução | n1: core/test/noctum-envelope.test.ts (E1 a E12) e core/test/noctum-arco.test.ts (A1 a A26) · n2: core/test/noctum-fila.test.ts (F1 a F17), noctum-capacidade.test.ts (C1 a C10), fila-pesada.test.ts (P1 a P11), fila-pesada-verify.test.ts (V1 a V12) e noctum-execucao.test.ts (X1 a X15) · n5: core/test/noctum-changelog.test.ts (QC1 a QC5), noctum-provas.test.ts (QP0 a QP8), noctum-integracao-entrega.test.ts (QI1 a QI7), noctum-entrega.test.ts (QE1 a QE8), noctum-mutante.test.ts (QM1 a QM3), ship-publicar.test.ts (QS1 a QS3) e os mutantes de core/test/mutantes/noctum-entrega.json | 2026-10-12 | Julio |
 | Deploy | Não implantado | — | 2026-10-12 | Julio |
 | Exposição | Flag desligada | — | 2026-10-12 | Julio |
 | Habilitação | Pendente | — | 2026-10-12 | Julio |
@@ -292,8 +315,8 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 ## Responsabilidades e histórico
 
 - **RACI:** R: fábrica Orkastery na elaboração e nas futuras fatias; A: Julio; C: revisores independentes designados por fatia; I: dono pelo canal autorizado.
-- **Agentes envolvidos, atuação e autonomia:** agente Codex redigiu a proposta em #Auto, restrita à documentação; agente Claude Code implementou a N1 e a N2 em #Auto, nas threads `ork-rm058n1` e `ork-rm058n2`. Revisão independente e ratificação de produto não são presumidas; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** Julio define a prioridade final, o horário e o canal do relatório e os valores do teto, e autoriza o primeiro piloto; D1–D4 já estão decididas; a N1 e a N2 estão implementadas e a próxima fatia é a N3 (coordenação entre máquinas), sem data de lançamento definida.
+- **Agentes envolvidos, atuação e autonomia:** agente Codex redigiu a proposta em #Auto, restrita à documentação; agente Claude Code implementou a N1, a N2 e a N5 em #Auto, nas threads `ork-rm058n1`, `ork-rm058n2` e `ork-rm058n5`. Revisão independente e ratificação de produto não são presumidas; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** Julio define a prioridade final, o horário e o canal do relatório e os valores do teto, e autoriza o primeiro piloto; D1–D4 já estão decididas; a N1, a N2 e a N5 estão implementadas, e a N5 integra sozinha só numa máquina; a vez entre máquinas é da N3, sem data de lançamento definida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -301,3 +324,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-12 | D1 a D4 decididas (C, B, C, B); prioridade final, horário e canal do relatório e valores do teto seguem pendentes; ciclo continua em Refinamento | Decisão do dono de 12/10/2026, registrada na seção Decisões do dono | Julio |
 | 2026-10-12 | N1 implementada: contrato do envelope, estado do arco, ingresso com prova de origem e recusas antes do efeito, com testes; ciclo passa a Em desenvolvimento; valores do teto, horário e canal do relatório seguem pendentes | Thread `ork-rm058n1`, testes E1 a E12 e A1 a A26 | Fábrica Orkastery em #Auto; Julio decide valores e piloto |
 | 2026-10-12 | N2 implementada: contrato `v2` com trabalhos e capacidade, fila do arco, capacidade de sessões, fila de recursos pesados no `ork verify`, passo do arco pelo núcleo e os três aprendizados da madrugada, com testes; o modo segue desligado | Thread `ork-rm058n2`, testes E13 a E17, F1 a F10, C1 a C9, P1 a P9, V1 a V7, A27 a A31 e X1 a X8 | Fábrica Orkastery em #Auto; Julio decide valores e piloto |
+| 2026-10-13 | N5 implementada numa máquina: o passo da entrega do arco, as provas no SHA exato, a revisão com vínculo do núcleo, os mutantes como claims, a atualização contra a base com o CHANGELOG em Não publicado, a integração amarrada ao SHA com os docs derivados e o MASTER por omissão, com testes; o modo segue desligado | Thread `ork-rm058n5`, testes QC1 a QC5, QP0 a QP8, QI1 a QI7, QE1 a QE8, QM1 a QM3 e QS1 a QS3 e 14 mutantes | Fábrica Orkastery em #Auto; Julio decide valores e piloto |
