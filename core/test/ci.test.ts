@@ -169,3 +169,17 @@ test('SHIP para antes do lease e do merge quando CI obrigatório não tem recibo
   assert.equal(result.lease, null);
   p.limpar();
 });
+
+test('ork-verify pulado não passa o gate e o detalhe diz bloqueado', () => {
+  const p = projetoTemporario('ci-bloqueado', false);
+  ajustarManifesto(p, 'required_for_ship: false', 'required_for_ship: true');
+  p.carregado.manifesto.ci.required_for_ship = true;
+  exec('git', ['remote', 'add', 'origin', 'https://github.com/Orkastery/orkastery.git'], p.carregado.raiz);
+  const sha = shaDaBranch(p.carregado.raiz, 'main');
+  const r = consultarCi(p.carregado, sha, 'origin', () => ({ ok: true, code: 0, stderr: '',
+    stdout: JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'skipped' }] }) }));
+  assert.equal(r.ok, false);
+  assert.equal(r.state, 'failure');
+  assert.match(r.detail, /bloqueado \(skipped\)/);
+  p.limpar();
+});

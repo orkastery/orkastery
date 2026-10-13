@@ -5,6 +5,7 @@ import { exigirRemoto } from './branch-de-estado';
 import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
 import { rodarCli } from './forja/executor';
+import { estadoDoCheck } from './forja/estado';
 import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { branchDaWorktree } from './worktree';
 import { cwdLocalOuNulo } from './procedencia';
@@ -176,8 +177,9 @@ export function consultarCiDoRepositorio(repository: string, sha: string, contex
   const check = lido.valor.at(-1)!; // a mesma escolha de antes da porta: o ultimo da lista
   const status = check.status;
   const conclusion = check.conclusao ?? '';
-  const state: EstadoCi = status !== 'completed' ? 'pending' : conclusion === 'success' ? 'success' : 'failure';
-  return { ...base, ok: state === 'success', state, url: check.url || null, detail: textoDoCatalogo((m) => state === 'success' ? m.ship.ciVerde : m.ship.ciEstado(context, String(status), conclusion)) };
+  const estado = estadoDoCheck(check.fonte, status, check.conclusao);
+  const state: EstadoCi = estado === 'verde' ? 'success' : estado === 'pendente' ? 'pending' : 'failure';
+  return { ...base, ok: state === 'success', state, url: check.url || null, detail: textoDoCatalogo((m) => state === 'success' ? m.ship.ciVerde : estado === 'bloqueado' ? m.ship.ciBloqueado(context, conclusion) : m.ship.ciEstado(context, String(status), conclusion)) };
 }
 
 export function executarCi(carregado: ManifestoCarregado, threadId: string): { status: ResultadoCi; verify: ResultadoVerify } {

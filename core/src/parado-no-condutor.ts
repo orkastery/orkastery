@@ -25,6 +25,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { rodarCli } from './forja/executor';
+import { estadoDoCheck } from './forja/estado';
 import { remotoRedigido, remotoValido } from './branch-de-estado';
 import { conducaoDaThread } from './conducao';
 import { raizDoEstado } from './estado-thread';
@@ -185,10 +186,12 @@ function checkDaForja(c: unknown): { check: CheckDoPr; chave: string; inicio: st
   let situacao: SituacaoDoCheck;
   if (o.__typename === 'StatusContext' || (o.status === undefined && typeof o.state === 'string')) {
     const s = String(o.state ?? '').toUpperCase();
-    situacao = s === 'SUCCESS' ? 'verde' : s === 'FAILURE' || s === 'ERROR' ? 'vermelho' : 'pendente';
+    situacao = estadoDoCheck('commit-status', s, null) as SituacaoDoCheck;
   } else {
     const status = String(o.status ?? '').toUpperCase(), conclusao = String(o.conclusion ?? '').toUpperCase();
-    situacao = status !== 'COMPLETED' ? 'pendente' : ['SUCCESS', 'NEUTRAL', 'SKIPPED'].includes(conclusao) ? 'verde' : 'vermelho';
+    // O pulse mostra o job pulado de proposito como verde, como sempre: so o gate trata `bloqueado` como nao verde.
+    const estado = estadoDoCheck('check-run', status, conclusao);
+    situacao = estado === 'bloqueado' ? 'verde' : estado;
   }
   const concluidoEm = situacao === 'pendente' ? null : instante(o.completedAt) ?? instante(o.startedAt);
   return { check: { nome, situacao, concluidoEm }, chave, inicio: instante(o.startedAt) ?? instante(o.completedAt) ?? '' };

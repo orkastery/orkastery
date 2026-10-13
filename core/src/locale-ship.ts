@@ -98,6 +98,7 @@ export const SHIP_PT_BR = {
   ciRespostaInvalida: 'GitHub devolveu uma resposta de checks inválida',
   ciSemCheck: (contexto: string) => `check ${contexto} não encontrado no commit`,
   ciVerde: 'CHECK independente verde no GitHub',
+  ciBloqueado: (contexto: string, conclusao: string) => `check ${contexto}: bloqueado (${conclusao})`,
   ciEstado: (contexto: string, status: string, conclusao: string) => `check ${contexto}: ${status}/${conclusao || 'sem conclusão'}`,
   // ork ship registrar-pr
   usoRegistrarPr: 'uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]',
@@ -353,6 +354,7 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
   ciRespostaInvalida: 'GitHub returned an invalid checks response',
   ciSemCheck: (contexto) => `check ${contexto} not found on the commit`,
   ciVerde: 'independent CHECK green on GitHub',
+  ciBloqueado: (contexto, conclusao) => `check ${contexto}: blocked (${conclusao})`,
   ciEstado: (contexto, status, conclusao) => `check ${contexto}: ${status}/${conclusao || 'no conclusion'}`,
   usoRegistrarPr: 'usage: ork ship registrar-pr <thread-id> [--repo <owner/name> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]',
   ensaio: 'Dry run (--dry-run): nothing was written.',
