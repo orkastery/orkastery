@@ -8,6 +8,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Mensageiro de Sessões, mod de papéis `dono` e `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a resposta que o dono dá pelo diálogo nativo da sessão do Claude Code chega à sessão de fase `claude-bg` que parou
+  esperando por ela. O núcleo abre o pedido de sessão `claude-bg` preso ao turno que parou (a transcrição do próprio
+  Claude Code), compõe a mensagem no contrato `ork.session-delivery/v1` e a guarda numa caixa de saída só na memória do
+  servidor MCP do dono (`ork_session_outbox`); o ledger guarda só o sha256. Na sessão do dono,
+  `adapters/claude-code/mods/ork-mensageiro` leva a mensagem por `$.session.send`, com reenvio pela D10 e o painel
+  `/mensageiro`; na sessão de fase, só entra na conversa a mensagem de outra sessão que o núcleo confirma pelo
+  `ork_session_inbox` (o envelope do Claude Code só na forma do motor, reserva uma vez e antes do prazo, mesmo turno,
+  mesmo sha256), só com o corpo conferido e num envelope fixo do Mensageiro, e o resto é consumido antes do modelo.
+  Muda para todos: o despacho `claude-bg` acrescenta `crossSessionInbound: accept` ao `--settings` só com o Mensageiro na
+  sessão e o `ORK_DISPATCH_ID`; a resposta a uma sessão `claude-bg` pelo Telegram, ou sem um Mensageiro vivo na sessão do
+  dono, recusa com `runtime.unavailable` antes de gravar nada. O guia é o `docs/guias/mensageiro-de-sessoes.md`.
+
 - **Conhecimento escrito, fatia 2: o comando e as tools MCP** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
   `ork conhecimento listar [--colecao C]|mostrar <doc-id>|colecoes|verificar`, todos com `--json`, e as tools
   `ork_conhecimento_listar`, `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar` no

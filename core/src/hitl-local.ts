@@ -5,8 +5,9 @@
 import { randomUUID } from 'node:crypto';
 import { PedidoHitl, validarPedidoHitl, estadoDoPedido } from './hitl-contract';
 import { comLockHitl, contextoHitl, responderGateLocal } from './hitl-gates';
-import { responderSessaoLocal, ResultadoEntregaSessao } from './hitl-sessions';
+import { impedimentoDaEntrega, responderSessaoLocal, ResultadoEntregaSessao } from './hitl-sessions';
 import type { ControleSessao } from './hitl-sessions';
+import type { CaixaDeSaida } from './entrega-por-mod';
 import { lerLedger, registrar } from './ledger';
 import { selecaoDeCanal } from './hitl-canais';
 import { reservarDialogoHitl } from './hitl-lock';
@@ -34,8 +35,10 @@ export function criarIngressoLocal(
   origem: { host: 'claude-code' | 'codex'; connectionId: string },
   elicitar: (pedido: PedidoHitl, signal: AbortSignal) => Promise<RespostaElicitation>,
   /** Vinculo do adapter para resposta de SESSAO, fornecido pelo servidor. E o mesmo ponto
-   *  de injecao que `responderSessao` ja tem; ausente, vale o controle nativo do runtime. */
-  opcoes: { controle?: ControleSessao } = {}
+   *  de injecao que `responderSessao` ja tem; ausente, vale o controle nativo do runtime.
+   *  RM-059 (F9): a `caixa` de saida do servidor do dono, por onde a resposta a uma sessao
+   *  `claude-bg` sai para o Mensageiro de Sessoes; sem ela, essa resposta e recusada antes do dialogo. */
+  opcoes: { controle?: ControleSessao; caixa?: CaixaDeSaida | null } = {}
 ): { solicitar: (threadId: string, pedidoId: string, signal?: AbortSignal) => Promise<ResultadoIngressoLocal>; fechar: () => void } {
   if (!['claude-code', 'codex'].includes(origem.host) || !idValido(origem.connectionId)) throw new Error('hitl.local.origem-invalida');
   const conexao = { ...origem }, ativos = new Map<string, AbortController>();
@@ -67,6 +70,12 @@ export function criarIngressoLocal(
       const contexto = contextoHitl(raiz, threadId);
       if (evento!.contexto !== contexto) throw new Error('hitl.local.pedido-antigo');
       if (estadoDoPedido(pedido) !== 'aberto') throw new Error('hitl.local.pedido-expirado');
+      // RM-059 (F9, D4): a resposta que nao vai sair (sessao claude-bg sem Mensageiro vivo) recusa antes do dialogo,
+      // para o dono nao digitar uma resposta que ficaria sem quem a leve. Com o envio ja reservado, vale a recusa de
+      // sempre (`hitl.channel.delivery-uncertain`), logo abaixo.
+      const emEnvio = eventos.some(e => e.tipo === 'session_answer_sending' && e.pedidoId === pedidoId);
+      const impedimento = alvo === 'session' && !emEnvio ? impedimentoDaEntrega(raiz, threadId, pedido, opcoes.controle, opcoes.caixa) : null;
+      if (impedimento) throw new Error(impedimento);
       const pedidoSha256 = hashPedidoLocal(pedido), requestId = randomUUID(), controller = new AbortController();
       let liberarReserva: (() => void) | undefined;
       comLockHitl(raiz, threadId, () => {
@@ -112,7 +121,7 @@ export function criarIngressoLocal(
         try {
           return alvo === 'gate'
             ? responderGateLocal(raiz, threadId, pedidoId, token)
-            : responderSessaoLocal(raiz, threadId, pedidoId, token, opcoes.controle);
+            : responderSessaoLocal(raiz, threadId, pedidoId, token, opcoes.controle, opcoes.caixa);
         }
         finally { descartarAtestadoLocal(token); }
       } finally {

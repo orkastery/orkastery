@@ -736,6 +736,31 @@ mudou o que o núcleo traduz depois dela.
   da thread; só a nota pelo canal toma. O diálogo MCP de nota para Claude Code e Codex fica para
   depois.
 
+## M. Resposta de sessão `claude-bg` pelo Mensageiro (RM-059, fatia F9)
+
+Até aqui, a sessão de fase `claude-bg` que parava com uma pergunta não tinha pedido de sessão: o núcleo não sabia prender
+o pedido ao turno que parou nem entregar a resposta, e o caminho era o `claude attach`. O
+[Mensageiro de Sessões](mensageiro-de-sessoes.md) fecha esse caminho com o núcleo nas duas pontas.
+
+- **O vínculo:** o pedido de sessão `claude-bg` sai da transcrição que o próprio Claude Code grava: as últimas linhas do
+  assistente da conversa principal, sem linha do usuário depois, com texto e sem ferramenta. O `bloqueio` é o `uuid` da
+  última delas, e a pergunta nativa é a projeção do texto. Sem turno, ou com texto que não projeta, o pedido não abre e o
+  motivo vem com o código (`turno.ausente`, `pergunta.longa`, `pergunta.invalida`).
+- **A entrega assíncrona:** o controle de resposta `claude-bg` declara `assincrono`. O `session_answer_sending` leva o
+  recibo do ingresso, e, sem o recibo do receptor, a entrega devolve `aguardando-receptor` em vez de falhar; o
+  `session_answered` sai da reconciliação de sempre quando o receptor grava o recibo.
+- **A recusa antes de tudo:** sem caixa de saída no processo, ou sem Mensageiro que a consultou nos últimos 120 s, o
+  ingresso local recusa antes do diálogo, a entrega recusa antes de reservar e o Telegram recusa antes de gravar o
+  ingresso, sempre com `runtime.unavailable` e a correção.
+- **O receptor:** o `ork_session_inbox` só existe no servidor preso a uma thread e a um despacho. Ele tira a sessão do
+  `phase_dispatch` do despacho, nunca de argumento, aceita o envelope do Claude Code só na forma que o motor escreve,
+  confere a entrega, o sha256 e o turno, e reserva uma vez, só antes do prazo (`ate`) que o Mensageiro dá à conferência
+  (`entrega.prazo` depois dele; sem prazo, recusa). A pasta `.orkastery/threads/<thread>/entregas-de-sessao/` guarda a
+  reserva e o recibo, só com ids e o sha256. O Mensageiro entrega ao modelo só o corpo conferido, num envelope fixo
+  dele, sem os rótulos que a sessão remetente declara.
+- **O que isto NÃO prova:** a entrega numa sessão `claude --bg` de verdade, que esta fatia não abriu. O guia diz os
+  passos da prova e o que acontece se o formato no destino for outro: a entrega falha fechada.
+
 ## D. Rollback
 
 Desative apenas a entrada identificada da varredura de pulse no crontab, preservando as
