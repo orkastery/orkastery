@@ -385,8 +385,7 @@ export function checarTransporteDoPulse(dirMonitor: string, agora: number = Date
   const e = ultimaEntrega(dirMonitor);
   if (!e || !(agora - Date.parse(e.ts) <= VALIDADE_DA_FALHA_MS)) return null;
   const nome = 'transporte do pulse';
-  // I-35: o check guarda o ISO; o relatorio o localiza no fuso do dono.
-  const quando = e.ts;
+  const quando = formatarDataHoraRotulada(e.ts, { agora: new Date(agora).toISOString() });
   if (!e.ok) {
     const tentativas = e.tentativas.map((t) => `${t.host}: ${t.codigo ?? 'sem código'}`).join('; ');
     return { nome, nivel: 'fail', detalhe: msg().doctor.transporteFalhou(quando, tentativas), correcao: msg().doctor.transporteCorrecao };

@@ -16,7 +16,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { raizDoEstado } from './estado-thread';
-import { formatarDataHoraRotulada, instanteNoFuso, normalizarFuso } from './horario';
+import { formatarDataHoraRotulada, instanteNoFuso, isoComFuso, normalizarFuso } from './horario';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { autoriaHumana } from './master';
 import { nomeDaMaquina } from './maquina';
@@ -194,19 +194,6 @@ export type GravacaoDaAutorizacao =
   | { ok: true; leitura: Extract<LeituraDaAutorizacao, { valida: true }>; anterior: AutorizacaoDuravel | null }
   | { ok: false; motivo: MotivoDaGravacao; detalhe: string };
 
-/** O ISO com o deslocamento do fuso escrito (`-03:00`), nunca o `Z` de quem leu no UTC. */
-function isoNoFuso(ms: number, fuso: string): string {
-  const f = new Intl.DateTimeFormat('en-US', { timeZone: fuso, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit',
-    minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
-  const p = Object.fromEntries(f.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
-  const local = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour), Number(p.minute), Number(p.second));
-  const desvio = Math.round((local - Math.floor(ms / 1000) * 1000) / 60000);
-  const sinal = desvio < 0 ? '-' : '+';
-  const abs = Math.abs(desvio);
-  const deslocamento = desvio === 0 ? 'Z' : `${sinal}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`;
-  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}${deslocamento}`;
-}
-
 /**
  * O prazo do `--ate`, sempre com o fuso escrito. Instante com fuso vale como veio; so a data vale ate 23:59 dela no fuso
  * do dono; data e hora sem fuso, no fuso do dono. O resto e recusado: o prazo nao e adivinhado.
@@ -220,7 +207,7 @@ export function prazoDoPedido(bruto: string, fuso: string): string | null {
   const hora = m[4] ? Number(m[4]) : 23, minuto = m[5] ? Number(m[5]) : 59;
   if (hora > 23 || minuto > 59) return null;
   const ms = instanteNoFuso(Number(m[1]), Number(m[2]), Number(m[3]), hora, minuto, nome);
-  return Number.isFinite(ms) ? isoNoFuso(ms, nome) : null;
+  return Number.isFinite(ms) ? isoComFuso(ms, nome) : null;
 }
 
 /** O `user.name` do git do checkout, quando nomeia uma pessoa. */
@@ -280,7 +267,7 @@ export function gravarAutorizacao(raiz: string, pedido: PedidoDeAutorizacao): Gr
   const anterior = lida.valida ? lida.autorizacao : null;
   const autorizacao: AutorizacaoDuravel = {
     contrato: CONTRATO_DA_AUTORIZACAO, maquina: pedido.maquina ?? nomeDaMaquina(), projeto: pedido.projeto, por,
-    concedidaEm: isoNoFuso(agora.getTime(), normalizarFuso(pedido.fuso) ?? 'UTC'), ate, pode: pode as AcaoAutorizavel[],
+    concedidaEm: isoComFuso(agora.getTime(), normalizarFuso(pedido.fuso) ?? 'UTC'), ate, pode: pode as AcaoAutorizavel[],
     ...(nota ? { nota } : {}),
   };
   fs.mkdirSync(path.dirname(arquivo), { recursive: true });
