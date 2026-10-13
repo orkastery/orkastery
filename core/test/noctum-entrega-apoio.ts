@@ -10,6 +10,9 @@ import { createHash } from 'node:crypto';
 import { ajustarManifesto, commitar, projetoTemporario, ProjetoDeTeste } from './apoio';
 import { passar } from './noctum-apoio';
 import { ExecutorCi, prepararBundleCi } from '../src/ci';
+import { registrarConducaoDaSessao } from '../src/conducao';
+import { ExecutorDoGh } from '../src/parado-no-condutor';
+import { ResultadoRun } from '../src/phase';
 import { adicionarClaim, lerClaims } from '../src/claims';
 import { registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
@@ -93,7 +96,7 @@ export function sessaoDespachada(p: ProjetoDeTeste, threadId: string, fase: Fase
   gravarThread(p.dir, t);
   const dir = dirThread(p.dir, threadId);
   registrar(dir, threadId, TIPOS_DE_EVENTO.faseDespachada, { fase, slug: t.slug, bloco, sessionId, runtime, promptSha256: sha,
-    promptPath: rel, cwd: t.worktree, modo: t.modo });
+    promptPath: rel, cwd: t.worktree, modo: t.modo, pausaAoFim: false });
   if (!o.semVerificacao) {
     registrar(dir, threadId, TIPOS_DE_EVENTO.despachoVerificado, { fase, slug: t.slug, sessionId, fonte: 'claude agents --json', encontrada: true });
   }
@@ -119,18 +122,28 @@ export function verifyNoLedger(p: ProjetoDeTeste, threadId: string, commit: stri
   return String(e.eventId);
 }
 
-/** O CHECK da sessão: o parecer gravado depois do despacho, o verify no intervalo e o `phase_result` do observador. */
+/**
+ * O CHECK da sessão: o parecer gravado depois do despacho, o verify no intervalo e o `phase_result` do observador, com a
+ * prova do núcleo (`provaOrk`) e o sha do parecer que o observador do claude-bg grava. `semProvaGravada` é o resultado sem
+ * esses campos (o do codex), e a prova volta a ser lida do disco.
+ */
 export function concluirRevisao(p: ProjetoDeTeste, threadId: string, s: SessaoSimulada, veredito: string, commit: string | null,
-  o: { semResultado?: boolean; origem?: string } = {}): void {
+  o: { semResultado?: boolean; origem?: string; semProvaGravada?: boolean } = {}): void {
   passar(25);
   const docs = path.join(dirThread(p.dir, threadId), 'docs');
   fs.mkdirSync(docs, { recursive: true });
-  fs.writeFileSync(path.join(docs, 'check.md'), `# CHECK SIMULADO\n\nVeredito: ${veredito}\n`);
-  if (commit) verifyNoLedger(p, threadId, commit);
+  const parecer = `# CHECK SIMULADO\n\nVeredito: ${veredito}\n`;
+  fs.writeFileSync(path.join(docs, 'check.md'), parecer);
+  const verify = commit ? verifyNoLedger(p, threadId, commit) : null;
   if (o.semResultado) return;
+  const gravado = o.semProvaGravada ? {} : {
+    provaOrk: { ok: true, fonte: `docs/check.md gravado com veredito ${veredito}`, veredito,
+      verify: verify ? { eventId: verify, commit, ts: new Date().toISOString() } : null },
+    artefato: { arquivo: 'docs/check.md', sha256Base: null, sha256Atual: createHash('sha256').update(parecer).digest('hex') },
+  };
   registrar(dirThread(p.dir, threadId), threadId, 'phase_result', { fase: 'CHECK', sessionId: s.sessionId, despachoEm: s.despachadaEm,
     origem: o.origem ?? 'sessions.watch', sensorResultId: `claude-bg:${s.sessionId}`, classificacao: 'fase_concluida', ok: true,
-    runtime: 'claude-bg' });
+    runtime: 'claude-bg', ...gravado });
 }
 
 export function claimDe(p: ProjetoDeTeste, threadId: string, arquivo: string, alegacao: string): string {
@@ -175,13 +188,16 @@ export interface EntregaPronta {
  * claim comum e a de mutante estão cadastradas, o bundle foi commitado e uma sessão de CHECK nova, distinta e vinculada,
  * concluiu com PASSOU depois de verificar a fonte.
  */
-export function entregaPronta(p: ProjetoDeTeste, nome: string, o: { semMutante?: boolean; arquivos?: Record<string, string> } = {}): EntregaPronta {
+export function entregaPronta(p: ProjetoDeTeste, nome: string,
+  o: { semMutante?: boolean; arquivos?: Record<string, string> | ((t: Thread) => Record<string, string>) } = {}): EntregaPronta {
   const t = threadComWorktree(p, nome);
   const autor = sessaoDespachada(p, t.id, 'GOAL');
   const changelog = fs.readFileSync(path.join(t.worktree!, 'CHANGELOG.md'), 'utf8')
     .replace('### Adicionado\n\n', `### Adicionado\n\n${ENTRADA_DA_THREAD(nome)}\n\n`);
-  const produto = commitarNaWorktree(t, o.arquivos ?? { [`core/src/${nome}.ts`]: `export const ${nome.replace(/[^a-z]/g, '')} = 1;\n`,
-    'CHANGELOG.md': changelog }, `feat(${t.id}): ${nome}`);
+  const padrao = { [`core/src/${nome}.ts`]: `export const ${nome.replace(/[^a-z]/g, '')} = 1;\n`, 'CHANGELOG.md': changelog };
+  // A função acrescenta arquivos ao commit de produto padrão; o objeto o substitui.
+  const arquivos = typeof o.arquivos === 'function' ? { ...padrao, ...o.arquivos(t) } : o.arquivos ?? padrao;
+  const produto = commitarNaWorktree(t, arquivos, `feat(${t.id}): ${nome}`);
   commitDaSessao(p, t.id, autor, produto);
   claimDe(p, t.id, `core/src/${nome}.ts`, `o código de ${nome} existe`);
   const mutante = o.semMutante ? null : claimDe(p, t.id, `core/src/${nome}.ts`, `Mutante M1: trocar a guarda de ${nome} faz o teste cair`);
@@ -189,4 +205,69 @@ export function entregaPronta(p: ProjetoDeTeste, nome: string, o: { semMutante?:
   const revisor = sessaoDespachada(p, t.id, 'CHECK');
   concluirRevisao(p, t.id, revisor, 'PASSOU', fonte);
   return { t: lerThread(p.dir, t.id), autor, revisor, fonte, produto, mutante };
+}
+
+/** O `gh` falso: `pr list` filtra pela branch e pelo estado; `pr create` abre o PR na ponta que o remoto tem. */
+export function ghFalso(p: ProjetoDeTeste) {
+  const prs: Array<{ number: number; state: 'OPEN' | 'MERGED' | 'CLOSED'; headRefName: string; headRefOid: string; baseRefName: string }> = [];
+  const chamadas: string[][] = [];
+  const opcao = (args: readonly string[], nome: string) => args.find(a => a.startsWith(`--${nome}=`))?.slice(nome.length + 3);
+  const executor: ExecutorDoGh = (args) => {
+    chamadas.push([...args]);
+    if (args[0] === 'pr' && args[1] === 'list') {
+      const h = opcao(args, 'head'), estado = opcao(args, 'state');
+      const lista = prs.filter(x => (!h || x.headRefName === h) && (estado !== 'open' || x.state === 'OPEN')).map(x => ({
+        number: x.number, state: x.state, headRefName: x.headRefName, headRefOid: x.headRefOid, baseRefName: x.baseRefName, isDraft: false,
+        isCrossRepository: false, url: `https://github.com/${FORJA.repositorio}/pull/${x.number}`, createdAt: '2026-10-13T03:00:00Z',
+        mergedAt: null, mergeable: 'MERGEABLE', statusCheckRollup: [] }));
+      return { status: 0, stdout: JSON.stringify(lista), stderr: '' };
+    }
+    if (args[0] === 'pr' && args[1] === 'create') {
+      const h = opcao(args, 'head') ?? '', b = opcao(args, 'base') ?? '';
+      const remota = git(p.dir, 'ls-remote', 'origin', `refs/heads/${h}`).stdout.split(/\s+/)[0] ?? '';
+      prs.push({ number: 200 + prs.length + 1, state: 'OPEN', headRefName: h, headRefOid: remota, baseRefName: b });
+      return { status: 0, stdout: `https://github.com/${FORJA.repositorio}/pull/${200 + prs.length}\n`, stderr: '' };
+    }
+    return { status: 1, stdout: '', stderr: `gh falso: ${args.join(' ')}` };
+  };
+  return { prs, chamadas, executor, criacoes: () => chamadas.filter(c => c[0] === 'pr' && c[1] === 'create').length };
+}
+
+/**
+ * O despacho falso do CHECK: o que o `phase run` deixa no disco quando abre a sessão (a condução da sessão, a entrada em
+ * `thread.sessoes`, o `phase_dispatch` e a verificação). Guarda as sessões abertas para o teste concluí-las.
+ */
+export function despachoDoCheck(p: ProjetoDeTeste, abertas: SessaoSimulada[] = []) {
+  return (_carregado: unknown, threadId: string, o: { fase: Fase; perfil?: string | null }) => {
+    const s = sessaoDespachada(p, threadId, o.fase);
+    registrarConducaoDaSessao(p.dir, threadId, { canal: 'cli', operacao: 'phase.run', fase: o.fase, prazoMs: 3600_000 },
+      { sessionId: s.sessionId, runtime: 'claude-bg', perfil: o.perfil ?? null });
+    abertas.push(s);
+    return { sessionId: s.sessionId, verificada: true, bloqueado: false, motivo: null } as unknown as ResultadoRun;
+  };
+}
+
+/** O verify falso do passo: um `verify_run` verde no HEAD da worktree da thread. */
+export function verifyDoPasso(p: ProjetoDeTeste, chamadas: string[] = []) {
+  return (_carregado: unknown, threadId: string) => {
+    const t = lerThread(p.dir, threadId);
+    const commit = head(t.worktree!);
+    chamadas.push(commit);
+    verifyNoLedger(p, threadId, commit);
+    return { ok: true };
+  };
+}
+
+/**
+ * O fim do bloco inteiro numa sessão só (a autora): o parecer dela mesma com PASSOU, o verify no commit e o `phase_result`
+ * da fase que ela começou. A fila da N2 põe a thread na entrega, e a revisão dela não vale (a autora não se revisa).
+ */
+export function concluirBloco(p: ProjetoDeTeste, threadId: string, s: SessaoSimulada, commit: string): void {
+  passar(25);
+  const docs = path.join(dirThread(p.dir, threadId), 'docs');
+  fs.mkdirSync(docs, { recursive: true });
+  fs.writeFileSync(path.join(docs, 'check.md'), '# CHECK SIMULADO da própria sessão\n\nVeredito: PASSOU\n');
+  verifyNoLedger(p, threadId, commit);
+  registrar(dirThread(p.dir, threadId), threadId, 'phase_result', { fase: s.fase, sessionId: s.sessionId, despachoEm: s.despachadaEm,
+    origem: 'sessions.watch', sensorResultId: `claude-bg:${s.sessionId}`, classificacao: 'fase_concluida', ok: true, runtime: 'claude-bg' });
 }

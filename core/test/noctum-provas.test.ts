@@ -84,6 +84,19 @@ test('QP1: revisor sem vínculo recusa: sem CHECK do núcleo, sessão não verif
     const boa = sessaoDespachada(p, t.id, 'CHECK');
     concluirRevisao(p, t.id, boa, 'PASSOU', fonte);
     assert.equal(motivo(provas(p, t.id, { [fonte]: 'success' }), 'revisao'), null);
+    // O verify que outro roda depois do resultado (o do arco, por exemplo) não vira o SHA revisado.
+    verifyNoLedger(p, t.id, produto);
+    assert.equal(provas(p, t.id, { [fonte]: 'success' }).provas.find(x => x.id === 'revisao')!.evidencia.revisado, fonte);
+    // O parecer reescrito depois do resultado não é mais o que o observador viu.
+    fs.appendFileSync(path.join(dirThread(p.dir, t.id), 'docs', 'check.md'), '\nLinha escrita depois do resultado.\n');
+    assert.equal(motivo(provas(p, t.id, { [fonte]: 'success' }), 'revisao'), 'noctum.entrega.revisao-antiga');
+    // Sem a prova gravada no resultado (o caminho do codex): o parecer do intervalo e o último verify até o resultado.
+    const semProva = sessaoDespachada(p, t.id, 'CHECK', { runtime: 'codex' });
+    concluirRevisao(p, t.id, semProva, 'PASSOU', fonte, { semProvaGravada: true });
+    verifyNoLedger(p, t.id, produto);
+    const r = provas(p, t.id, { [fonte]: 'success' });
+    assert.equal(motivo(r, 'revisao'), null);
+    assert.equal(r.provas.find(x => x.id === 'revisao')!.evidencia.revisado, fonte);
   } finally { p.limpar(); }
 });
 

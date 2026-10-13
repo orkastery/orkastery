@@ -30,7 +30,7 @@ import { ARQUIVO_DO_CHANGELOG, conferirChangelog, ConferenciaDoChangelog, entrad
   resolverConflitosAditivos } from './noctum-changelog';
 import { canonico } from './noctum-envelope';
 import { procurarSegredos } from './policies';
-import { eventosDoIntervalo, fonteRegistrada, provaDoOrk } from './session-watcher-claude';
+import { estadoDoArtefato, eventosDoIntervalo, fonteRegistrada, provaDoOrk } from './session-watcher-claude';
 import { conferirBundle, manifestoDaBranch } from './ship-publicar';
 import { dirThread, lerThread } from './thread';
 import { EventoLedger, FASES, Thread } from './types';
@@ -53,7 +53,7 @@ export const MOTIVOS_DA_ENTREGA = [
   'noctum.entrega.mutante-nao-executado', 'noctum.entrega.changelog', 'noctum.entrega.bundle-velho',
   'noctum.entrega.conflito-nao-aditivo', 'noctum.entrega.worktree-suja', 'noctum.entrega.fora-do-destino',
   'noctum.entrega.exige-vez-da-n3', 'noctum.entrega.integracao-ocupada', 'noctum.entrega.fonte-mudou',
-  'noctum.entrega.push-incerto', 'noctum.entrega.docs-vermelhos', 'noctum.entrega.nao-provada',
+  'noctum.entrega.push-incerto', 'noctum.entrega.docs-vermelhos', 'noctum.entrega.nao-provada', 'noctum.entrega.ocupada',
 ] as const;
 export type MotivoDaEntrega = typeof MOTIVOS_DA_ENTREGA[number];
 
@@ -94,6 +94,8 @@ export interface RevisaoLida {
   revisado: string | null;
   /** Commits de produto que a própria sessão de revisão registrou no intervalo dela. */
   commitsDoRevisor: number;
+  /** O parecer em disco não é mais o que o observador viu no resultado do CHECK. */
+  parecerMudou: boolean;
 }
 
 export interface VerifyLido {
@@ -300,6 +302,7 @@ function provaDaRevisao(f: FatosDaEntrega): ProvaDaEntrega {
     return prova('revisao', 'noctum.entrega.revisao-ausente', `a sessão de CHECK ${r.sessionId.slice(0, 8)} terminou sem concluir (${r.resultado})`, ev);
   }
   if (!r.prova.ok) return prova('revisao', 'noctum.entrega.revisao-sem-vinculo', `o CHECK concluiu sem a prova do núcleo: ${r.prova.fonte}`, ev);
+  if (r.parecerMudou) return prova('revisao', 'noctum.entrega.revisao-antiga', 'o parecer do CHECK mudou depois do resultado que o observador gravou', ev);
   if (!r.revisado) return prova('revisao', 'noctum.entrega.revisao-sem-sha', 'o CHECK não rodou verify no intervalo: o SHA revisado é desconhecido', ev);
   const eq = equivalente(f.cadeia, r.revisado, NEUTROS_DA_REVISAO);
   if (!eq.ok) {
@@ -502,11 +505,28 @@ function revisoesDaThread(raiz: string, t: Thread, eventos: readonly EventoLedge
     const morta = eventos.some(e => e.tipo === 'sessao_morta' && e.sessionId === s.sessionId);
     const estado: RevisaoLida['resultado'] = resultado
       ? (resultado.classificacao === 'fase_concluida' && resultado.ok === true ? 'concluida' : 'bloqueada') : morta ? 'morta' : 'em-curso';
-    const p = provaDoOrk(raiz, t.id, sessao, eventos, fonteRegistrada(eventos, sessao));
     const intervalo = eventosDoIntervalo(eventos, sessao);
     const commitsDoRevisor = intervalo.filter(e => (e.tipo === 'mcp_git_committed' || e.tipo === 'commit') && e.sessionId === s.sessionId).length;
+    // O SHA revisado e o veredito são os do fim do turno do revisor: a prova que o observador gravou no resultado (o claude-bg
+    // grava `provaOrk` e o sha do parecer) ou, sem ela, o parecer de agora e o último verify até o resultado. Um verify que
+    // outro roda depois (o do próprio arco, por exemplo) nunca vira o SHA da revisão.
+    const gravada = resultado?.provaOrk as { ok?: unknown; fonte?: unknown; veredito?: unknown; verify?: { commit?: unknown } | null } | undefined;
+    let prova: RevisaoLida['prova'];
+    let revisado: string | null;
+    if (gravada && typeof gravada.ok === 'boolean') {
+      prova = { ok: gravada.ok, fonte: texto(gravada.fonte) ?? 'a prova do núcleo gravada no resultado do CHECK', veredito: texto(gravada.veredito) };
+      revisado = texto(gravada.verify?.commit);
+    } else {
+      const p = provaDoOrk(raiz, t.id, sessao, eventos, fonteRegistrada(eventos, sessao));
+      prova = { ok: p.ok, fonte: p.fonte, veredito: p.veredito ?? null };
+      // Pela posição no ledger, e não pela hora: dois eventos no mesmo milissegundo não trocam de lado.
+      const ate = resultado ? eventos.indexOf(resultado) : eventos.length;
+      revisado = texto(intervalo.filter(e => e.tipo === TIPOS_DE_EVENTO.verificacao && eventos.indexOf(e) < ate).at(-1)?.commit);
+    }
+    const viu = texto((resultado?.artefato as { sha256Atual?: unknown } | undefined)?.sha256Atual);
+    const parecerMudou = !!viu && estadoDoArtefato(raiz, t.id, 'docs/check.md').sha256 !== viu;
     return { sessionId: s.sessionId, runtime: s.runtime, despachadaEm: s.despachadaEm!, semVinculo: vinculoDaSessao(raiz, t, s, eventos),
-      resultado: estado, prova: { ok: p.ok, fonte: p.fonte, veredito: p.veredito ?? null }, revisado: p.verify?.commit ?? null, commitsDoRevisor };
+      resultado: estado, prova, revisado: revisado && SHA.test(revisado) ? revisado : null, commitsDoRevisor, parecerMudou };
   });
 }
 
