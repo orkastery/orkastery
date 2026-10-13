@@ -149,13 +149,30 @@ export const mesmaForja = (a: IdentidadeDaForja | null, b: IdentidadeDaForja | n
 // Erros
 // ---------------------------------------------------------------------------
 
-/** O fim da saida de erro, sem segredo: redigido, e descartado inteiro se ainda casar um padrao. */
-export function detalheSeguro(texto: string): string {
-  const redigido = redigirSegredos(texto)
+/** O texto inteiro sem segredo: o redator comum, mais os tokens do GitLab e o PAT fino do GitHub. */
+function redigirDaForja(texto: string): string {
+  return redigirSegredos(texto)
     .replace(/\b(?:glpat|gldt|glrt|glptt|glcbt)-[A-Za-z0-9_-]{16,}\b/g, '[redigido]')
     .replace(/\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, '[redigido]');
-  const linha = redigido.split('\n').map((l) => l.trim()).filter(Boolean).slice(-2).join(' ').slice(0, 240);
-  return procurarSegredos(linha).length ? '[detalhe omitido: um padrão de segredo casou]' : linha;
+}
+
+const OMITIDO = '[detalhe omitido: um padrão de segredo casou]';
+
+/** O fim da saida de erro, sem segredo: redigido, e descartado inteiro se ainda casar um padrao. */
+export function detalheSeguro(texto: string): string {
+  const linha = redigirDaForja(texto).split('\n').map((l) => l.trim()).filter(Boolean).slice(-2).join(' ').slice(0, 240);
+  return procurarSegredos(linha).length ? OMITIDO : linha;
+}
+
+/**
+ * O motivo de um `git push` recusado, sem segredo. O texto inteiro e redigido antes do corte; as linhas `hint:` saem,
+ * e fica o comeco do resto (ate 400 caracteres), onde o git poe o `! [rejected]` ou `! [remote rejected]` e o
+ * `error: failed to push`. Guardar so o fim perderia o motivo: num non-fast-forward, as ultimas linhas sao hints.
+ */
+export function detalheDoPush(texto: string): string {
+  const linhas = redigirDaForja(texto).split('\n').map((l) => l.trim()).filter((l) => l && !/^hint:/i.test(l));
+  const detalhe = linhas.join(' ').slice(0, 400);
+  return procurarSegredos(detalhe).length ? OMITIDO : detalhe;
 }
 
 function erro(codigo: CodigoDeErroDaForja, detalhe: string): { ok: false; erro: ErroDaForja } {
