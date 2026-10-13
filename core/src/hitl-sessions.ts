@@ -16,6 +16,7 @@ import { evidenciaDoIngresso, validarEvidenciaReconstruida } from './hitl-ingres
 import { redigirSegredos } from './hitl';
 import { conferirCanalSelecionado } from './hitl-canais';
 import { PerguntaNativa, projetarPergunta } from './adapters/codex-question';
+import { CaixaDeSaida, controleClaudeBgPorMod } from './entrega-por-mod';
 
 export interface IdentidadeSessao {
   sessionId: string; runtime: string; cwd: string; estado: string; instancia: string;
@@ -30,6 +31,13 @@ export interface ControleSessao {
   /** Capacidades apenas do adapter vinculado ao controller. Nunca vindas de argv/env. */
   enviar?: (entrega: EntregaSessao) => void;
   confirmar?: (entrega: Omit<EntregaSessao, 'resposta'>) => ConfirmacaoSessao | null;
+  /**
+   * RM-059 (F9, D3): o envio sai por mod e o recibo vem depois, do receptor. Sem recibo na hora, a entrega fica
+   * `aguardando-receptor` em vez de falhar, e quem fecha e a reconciliacao, pelo recibo correlacionado.
+   */
+  assincrono?: true;
+  /** RM-059 (F9, D4): o motivo de nao poder enviar agora, conferido antes de reservar; `null` pode. */
+  impedimentoDoEnvio?: () => string | null;
 }
 
 export interface EntregaSessao {
@@ -46,11 +54,29 @@ const reciboDaProva = (r: RespostaHumana) => createHash('sha256').update(r.prova
 const mesmaInstancia = (a: IdentidadeSessao, b: IdentidadeSessao) =>
   a.sessionId === b.sessionId && a.runtime === b.runtime && a.cwd === b.cwd && a.instancia === b.instancia;
 
-function controleDeResposta(raiz: string, id: string, sessionId: string, runtime: string, controle?: ControleSessao): ControleSessao &
-  Required<Pick<ControleSessao, 'enviar' | 'confirmar'>> {
-  const ctl = controle ?? controleNativo(runtime, raiz, id, sessionId);
+/**
+ * O controle que responde a sessao. RM-059 (F9, D2): para `claude-bg`, o controle por mod do Mensageiro de Sessoes,
+ * com a caixa de saida do servidor do dono quando a resposta entrou por ele; o `controleNativo` dos outros
+ * chamadores (conducao, superacao, maestro), que so consultam e param, segue igual.
+ */
+function controleDeResposta(raiz: string, id: string, sessionId: string, runtime: string, controle?: ControleSessao,
+  caixa?: CaixaDeSaida | null): ControleSessao & Required<Pick<ControleSessao, 'enviar' | 'confirmar'>> {
+  const ctl = controle ?? (runtime === 'claude-bg' ? controleClaudeBgPorMod(raiz, id, sessionId, caixa)
+    : controleNativo(runtime, raiz, id, sessionId));
   if (!ctl.enviar || !ctl.confirmar) throw new Error('runtime.unavailable: adapter não comprova entrada e recibo na mesma sessão; attach/resume não são fallback');
   return ctl as ControleSessao & Required<Pick<ControleSessao, 'enviar' | 'confirmar'>>;
+}
+
+/**
+ * RM-059 (F9, D4): o que impede de levar agora a resposta de um pedido de sessao `claude-bg` (sem caixa de saida no
+ * processo, ou sem Mensageiro vivo nela), conferido antes do dialogo e antes de gravar o ingresso. `null` para os
+ * outros alvos e runtimes, que seguem o caminho de antes.
+ */
+export function impedimentoDaEntrega(raiz: string, id: string, pedido: PedidoHitl, controle?: ControleSessao,
+  caixa?: CaixaDeSaida | null): string | null {
+  if (pedido.alvo.tipo !== 'session' || pedido.alvo.runtime !== 'claude-bg') return null;
+  try { return controleDeResposta(raiz, id, pedido.alvo.sessionId, pedido.alvo.runtime, controle, caixa).impedimentoDoEnvio?.() ?? null; }
+  catch (e) { return (e as Error).message; }
 }
 
 function observarBloqueio(ctl: ControleSessao, sessionId: string, runtime: string, cwd: string): IdentidadeSessao {
@@ -59,7 +85,8 @@ function observarBloqueio(ctl: ControleSessao, sessionId: string, runtime: strin
   const matches = consulta.sessoes.filter(s => s.sessionId === sessionId);
   const s = matches[0];
   if (matches.length !== 1 || !s || s.runtime !== runtime || s.cwd !== cwd || s.estado !== 'blocked' ||
-      !s.instancia || !s.bloqueio) throw new Error('runtime.unavailable: identidade, cwd e prompt bloqueado exatos não comprovados');
+      !s.instancia || !s.bloqueio) throw new Error('runtime.unavailable: identidade, cwd e prompt bloqueado exatos não comprovados' +
+        (matches.length === 1 && s?.limitacao ? ` (${s.limitacao.codigo})` : ''));
   return { sessionId: s.sessionId, runtime: s.runtime, cwd: s.cwd, estado: s.estado, instancia: s.instancia, bloqueio: s.bloqueio, perguntaNativa: s.perguntaNativa };
 }
 
@@ -82,7 +109,13 @@ export function abrirPedidoSessao(raiz: string, id: string, sessionId: string, o
     const revalidada = observarBloqueio(ctl, sessionId, opcoes.runtime, cwd);
     if (!mesmaInstancia(sessao, revalidada) || sessao.bloqueio !== revalidada.bloqueio) throw new Error('prompt ou instância mudou durante o pedido');
     const nativa = sessao.perguntaNativa;
-    if (!nativa || JSON.stringify(nativa) !== JSON.stringify(revalidada.perguntaNativa) ||
+    if (!nativa) {
+      // RM-059 (F9): o codigo da limitacao (turno ausente, pergunta longa) diz ao operador por que nao abriu.
+      let codigo: string | undefined;
+      try { codigo = ctl.consultar().sessoes.find(s => s.sessionId === sessionId)?.limitacao?.codigo; } catch { codigo = undefined; }
+      throw new Error('runtime.unavailable: conteúdo nativo da pergunta não comprovado' + (codigo ? ` (${codigo})` : ''));
+    }
+    if (JSON.stringify(nativa) !== JSON.stringify(revalidada.perguntaNativa) ||
         projetarPergunta({ isBlocking: true, questions: [nativa] }).sha256 !== nativa.sha256)
       throw new Error('runtime.unavailable: conteúdo nativo da pergunta não comprovado');
     if (opcoes.pergunta !== undefined && opcoes.pergunta !== nativa.question)
@@ -141,7 +174,11 @@ function orientacaoDaResposta(tipo: 'opcao' | 'texto', quantasOpcoes: number): s
 }
 
 export interface ResultadoEntregaSessao {
-  ok: true; pedidoId: string; sessionId: string; estado: 'entregue'; repetida: boolean;
+  /**
+   * RM-059 (F9, D3): `aguardando-receptor` quando o envio saiu por mod (o Mensageiro de Sessoes) e o receptor ainda
+   * nao confirmou; o `session_answered` entra depois, pela reconciliacao, com o recibo do receptor.
+   */
+  ok: true; pedidoId: string; sessionId: string; estado: 'entregue' | 'aguardando-receptor'; repetida: boolean;
 }
 
 /**
@@ -171,7 +208,7 @@ export interface ProvenienciaDeResposta {
  * durável, envio único e confirmação correlacionada. Nenhum canal ganha atalho aqui.
  */
 function entregarNaSessao(raiz: string, id: string, pedido: PedidoHitl,
-  prov: ProvenienciaDeResposta, controle?: ControleSessao): ResultadoEntregaSessao {
+  prov: ProvenienciaDeResposta, controle?: ControleSessao, caixa?: CaixaDeSaida | null): ResultadoEntregaSessao {
   if (pedido.alvo.tipo !== 'session') throw new Error('pedido destina-se ao gate, não à sessão');
   const pedidoId = pedido.id;
   const { sessionId, runtime } = pedido.alvo;
@@ -183,7 +220,7 @@ function entregarNaSessao(raiz: string, id: string, pedido: PedidoHitl,
       !sessao.instancia || !sessao.bloqueio || sessao.cwd !== path.resolve(lerThread(raiz, id).worktree ?? raiz)) {
     throw new Error('runtime.unavailable: pedido sem vínculo nativo exato');
   }
-  const ctl = controleDeResposta(raiz, id, sessionId, runtime, controle);
+  const ctl = controleDeResposta(raiz, id, sessionId, runtime, controle, caixa);
   const pendente = eventos.find(e => e.tipo === 'session_answer_sending' && e.pedidoId === pedidoId);
   if (pendente && (pendente.recibo !== prov.recibo || pendente.mensagem !== prov.mensagem || pendente.autorizadoPor !== prov.autorizadoPor)) {
     throw new Error('envio já iniciado; resposta divergente recusada');
@@ -194,11 +231,16 @@ function entregarNaSessao(raiz: string, id: string, pedido: PedidoHitl,
   const entrega: Omit<EntregaSessao, 'resposta'> = { contrato: 'ork.session-answer/v1',
     envioId: pendente ? String(pendente.envioId) : randomUUID(), pedidoId, thread: id, fase: pedido.fase, sessao, recibo: prov.recibo };
   if (!pendente) {
+    // RM-059 (F9, D4): sem quem leve a mensagem (sem caixa de saida, sem Mensageiro vivo), nada se reserva.
+    const impedimento = ctl.impedimentoDoEnvio?.() ?? null;
+    if (impedimento) throw new Error(impedimento);
     for (let i = 0; i < 2; i++) {
       const atual = observarBloqueio(ctl, sessionId, runtime, sessao.cwd);
       if (!mesmaInstancia(atual, sessao) || atual.bloqueio !== sessao.bloqueio || JSON.stringify(atual.perguntaNativa) !== JSON.stringify(sessao.perguntaNativa)) throw new Error('prompt ou instância mudou antes do envio');
     }
-    registrar(dir, id, 'session_answer_sending', { ...prov.dados, sessionId, runtime,
+    // RM-059 (F9, D3): no envio por mod, a reconciliacao fecha pelo recibo do receptor, que confere o `recibo` deste
+    // evento; o ingresso local nao o levava aqui (so o `reciboEntrega`), e o Telegram ja leva o mesmo valor.
+    registrar(dir, id, 'session_answer_sending', { ...(ctl.assincrono ? { recibo: prov.recibo } : {}), ...prov.dados, sessionId, runtime,
       instancia: sessao.instancia, bloqueio: sessao.bloqueio, envioId: entrega.envioId });
     // O número só vira rótulo nativo quando o pedido aceita OPÇÃO. Em texto livre a
     // resposta humana chega literal ao receptor, inclusive quando é "1" ou "12".
@@ -211,6 +253,8 @@ function entregarNaSessao(raiz: string, id: string, pedido: PedidoHitl,
   let ack: ConfirmacaoSessao | null;
   try { ack = ctl.confirmar(entrega); }
   catch { throw new Error('runtime.unavailable: consulta do recibo falhou; envio não será repetido'); }
+  // RM-059 (F9, D3): o envio por mod ainda sem recibo do receptor nao e falha; a reconciliacao fecha depois.
+  if (!ack && ctl.assincrono) return { ...resultado, estado: 'aguardando-receptor' as const, repetida: !!pendente };
   if (!ack || ack.estado !== 'recebida' || ack.contrato !== entrega.contrato || ack.envioId !== entrega.envioId ||
       ack.pedidoId !== pedidoId || ack.thread !== id || ack.fase !== pedido.fase || ack.recibo !== entrega.recibo ||
       !ack.sessao || !mesmaInstancia(ack.sessao, sessao) || ack.sessao.bloqueio !== sessao.bloqueio) {
@@ -227,6 +271,14 @@ function entregarNaSessao(raiz: string, id: string, pedido: PedidoHitl,
 /** Uma intenção durável impede reenvio após crash, timeout ou confirmação divergente. */
 export function responderSessao(raiz: string, id: string, pedidoId: string, r: RespostaHumana,
   controle?: ControleSessao, quando?: string): ResultadoEntregaSessao {
+  // RM-059 (F9, D4): a sessao `claude-bg` so recebe pelo Mensageiro, e este caminho (o `ork sessions answer` do
+  // Telegram) nao tem caixa de saida: recusa antes de gravar o ingresso, e o pedido segue aberto. Resposta ja
+  // entregue ou envio ja reservado seguem o caminho de antes (a repeticao e idempotente e nada reserva de novo).
+  const eventos = lerLedger(dirThread(raiz, id));
+  const solicitado = eventos.find(e => e.tipo === 'hitl_requested' && (e.pedido as PedidoHitl | undefined)?.id === pedidoId);
+  const andamento = eventos.some(e => ['session_answered', 'session_answer_sending'].includes(e.tipo) && e.pedidoId === pedidoId);
+  const impedimento = solicitado?.pedido && !andamento ? impedimentoDaEntrega(raiz, id, solicitado.pedido as PedidoHitl, controle) : null;
+  if (impedimento) throw new Error(impedimento);
   receberResposta(raiz, id, pedidoId, r, quando);
   return comLockHitl(raiz, id, () => {
     const { pedido, anterior } = conferirResposta(raiz, id, pedidoId, r, quando);
@@ -254,7 +306,7 @@ export function responderSessao(raiz: string, id: string, pedidoId: string, r: R
  * por menu vira outra pergunta.
  */
 export function responderSessaoLocal(raiz: string, id: string, pedidoId: string, token: unknown,
-  controle?: ControleSessao): ResultadoEntregaSessao {
+  controle?: ControleSessao, caixa?: CaixaDeSaida | null): ResultadoEntregaSessao {
   const atestado = consumirAtestadoLocal(token, raiz, id, pedidoId);
   return comLockHitl(raiz, id, () => {
     const eventos = lerLedger(dirThread(raiz, id));
@@ -287,7 +339,7 @@ export function responderSessaoLocal(raiz: string, id: string, pedidoId: string,
       evidenciar: (entrega) => gravarEvidenciaLocalSessao(atestado, { fase: String(pedido.fase),
         sessionId: entrega.sessao.sessionId, runtime: entrega.sessao.runtime,
         instancia: entrega.sessao.instancia, bloqueio: String(entrega.sessao.bloqueio), envioId: entrega.envioId }),
-    }, controle);
+    }, controle, caixa);
   });
 }
 

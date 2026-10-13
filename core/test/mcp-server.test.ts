@@ -300,8 +300,10 @@ test('MCP elicitation usa timeout cinco minutos e signal do ingresso, sem aceita
 
 test('D12: elicitation de pergunta aberta nao vira menu, e gate oferece opções com rótulos',()=>fixture(async(p,c)=>{
   const {t,q}=pedido(p);
+  // RM-059 (F9, D4): a sessao claude-bg so recebe pelo Mensageiro, e este servidor (codex) nao tem caixa de saida, entao
+  // o dialogo dela nem abre; o formulario da pergunta aberta e o mesmo para qualquer runtime, e aqui ele e o do codex.
   const sessao:PedidoHitl={...q,id:'q-mcp-sessao',
-    alvo:{tipo:'session',sessionId:'00000000-0000-0000-0000-000000000042',runtime:'claude-bg'},
+    alvo:{tipo:'session',sessionId:'00000000-0000-0000-0000-000000000042',runtime:'codex'},
     motivo:'hitl.pergunta',pergunta:'Qual e o diretorio correto?',
     opcoes:[],recomendacao:'Esta pergunta aceita texto livre.',
     criadoEm:new Date().toISOString(),prazo:new Date(Date.now()+60000).toISOString(),

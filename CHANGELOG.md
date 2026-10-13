@@ -26,6 +26,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `ork master pedir`. A prova do diálogo pedido por mod fica com o dono (`core/scripts/prova-ritual-nota-nativa.cjs`), e
   o guia é o [Ritual do MASTER](docs/guias/ritual-do-master.md).
 
+- **Mensageiro de Sessões, mod de papéis `dono` e `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a resposta que o dono dá pelo diálogo nativo da sessão do Claude Code chega à sessão de fase `claude-bg` que parou
+  esperando por ela. O núcleo abre o pedido de sessão `claude-bg` preso ao turno que parou (a transcrição do próprio
+  Claude Code), compõe a mensagem no contrato `ork.session-delivery/v1` e a guarda numa caixa de saída só na memória do
+  servidor MCP do dono (`ork_session_outbox`); o ledger guarda só o sha256. Na sessão do dono,
+  `adapters/claude-code/mods/ork-mensageiro` leva a mensagem por `$.session.send`, com reenvio pela D10 e o painel
+  `/mensageiro`; na sessão de fase, só entra na conversa a mensagem de outra sessão que o núcleo confirma pelo
+  `ork_session_inbox` (o envelope do Claude Code só na forma do motor, reserva uma vez e antes do prazo, mesmo turno,
+  mesmo sha256), só com o corpo conferido e num envelope fixo do Mensageiro, e o resto é consumido antes do modelo.
+  Muda para todos: o despacho `claude-bg` acrescenta `crossSessionInbound: accept` ao `--settings` só com o Mensageiro na
+  sessão e o `ORK_DISPATCH_ID`; a resposta a uma sessão `claude-bg` pelo Telegram, ou sem um Mensageiro vivo na sessão do
+  dono, recusa com `runtime.unavailable` antes de gravar nada. O guia é o `docs/guias/mensageiro-de-sessoes.md`.
+
 - **Conhecimento escrito, fatia 2: o comando e as tools MCP** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
   `ork conhecimento listar [--colecao C]|mostrar <doc-id>|colecoes|verificar`, todos com `--json`, e as tools
   `ork_conhecimento_listar`, `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar` no
@@ -37,6 +50,34 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `verificar` confere a pasta inteira e sai 1 com qualquer lacuna (uso errado sai 2). A conferência tem teto de 100
   `get`, prazo de 60 s e teto de 64 MiB de ledger por consulta. O texto sai em pt-BR e em inglês pelo catálogo, e o
   `--json` é o mesmo nas duas línguas. Os hosts OpenClaw e Hermes chegam na fatia 3.
+- **Escada de recuperação do runtime** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F4): no
+  `runtime.unavailable`, o `ork retry run` sobe três degraus, sempre com o mesmo prompt e o mesmo sha256: reerguer o
+  daemon do runtime (no claude-bg, `claude daemon status` diz se o `control.sock` responde, e o daemon de pé com o
+  socket mudo sai por `claude daemon stop --any --keep-workers` antes do redespacho no mesmo destino), o fallback do
+  bloco (`--fallback`, I-33) e outro perfil do runtime (RM-056). Cada degrau vai ao ledger como `runtime_recuperacao`,
+  feito, pulado, falho ou interrompido; o degrau sem destino é pulado sem gastar tentativa, e o parado por um motivo
+  que não é do destino não é consumido. Entre os degraus, a prova de vida: a fase nunca ganha uma segunda sessão na
+  mesma worktree, e com o runtime mudo o retry reergue o daemon e, na terceira recusa seguida, chama o dono. Só depois
+  dos três o dono é chamado, com
+  três alternativas e uma recomendada (RM-057), o comando que confere o runtime e o que retoma a fase com o mesmo
+  prompt; o `ork pulse` leva o pedido curto e o resumo o manda na hora. A escada recomeça a cada pedido novo da fase
+  (`ork phase run`), e o `ork retry plan` diz o degrau. Runtime fora deixa de subir o esforço.
+- **Varredura que age, com a autorização durável do dono** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md),
+  F5): a batida do pulse, depois de entregar o resumo, traz a base remota e, com a autorização gravada nesta máquina
+  (`.orkastery/monitor/autorizacao.json`, fora do git, no contrato
+  [`ork.autorizacao-duravel/v1`](docs/referencia/contratos/autorizacao-duravel-rm063.md)), solta as sessões fantasmas,
+  registra a entrega do PR já mesclado (o merge `ship(<thread>)` na base sem `ship_done`) e fecha pelo MASTER por
+  omissão a thread entregue e quieta, cada ação no ledger da thread como `varredura_acao`, com quem autorizou e até
+  quando. Registrar ou fechar por cima de quem trabalha na thread (sessão viva, alteração não commitada, commit ou
+  despacho depois do PR) nunca é automático: a ação fica com o dono, com o motivo e `ork thread status`. Sem
+  autorização, vencida, de outra máquina ou de outro projeto, nada é feito: cada ação vira item da fila do pulse com o
+  comando pronto, e o resumo ao dono mostra a arrumação pendente e o que a varredura fez. O
+  `ork fabrica batida status` diz a autorização em vigor. Em 10/10/2026 o PR #112 ficou dois dias mesclado sem registro.
+- **Máquina ociosa vira alerta** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F6): com vaga livre no
+  projeto (abaixo de `concurrency.max_parallel_threads`) e item do roadmap reservado para esta máquina que ninguém
+  trabalha, o `ork pulse` traz `maquinaOciosa` com as próximas threads sugeridas, até o número de vagas livres, cada
+  uma com o passo e o comando, e a varredura avisa o dono na hora, uma vez por episódio, com o aviso no ledger do
+  projeto (`maquina_ociosa_avisada`).
 
 ### Corrigido
 

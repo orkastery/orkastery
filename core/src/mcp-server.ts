@@ -26,6 +26,7 @@ import { jsonDaRede, textoDaRede } from './rede-status';
 import { controleNativo } from './hitl-sessions';
 import { criarIngressoLocal } from './hitl-local';
 import { criarIngressoDaNota } from './master-nota-local';
+import { CONTRATO_DA_ENTREGA, confirmarNoReceptor, conferirNoReceptor, LIMITE_DA_MENSAGEM, novaCaixaDeSaida } from './entrega-por-mod';
 import {lerArtefatoMcp,escreverArtefatoMcp,listarClaimsMcp,adicionarClaimMcp,validarArquivosEstadoMcp} from './mcp-artifacts';
 import {commitMcp,estadoGitMcp} from './mcp-git';
 import {preflight} from './preflight';
@@ -289,6 +290,9 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     }
   });
   const conexaoLocal=randomUUID();
+  // RM-059 (F9, G3): a caixa de saida do Mensageiro de Sessoes so existe no servidor do dono do Claude Code, na memoria:
+  // a resposta a uma sessao claude-bg que entra pelo dialogo deste servidor sai por ela, e o texto nunca vai a disco.
+  const caixa = opcoes.host==='claude-code' && !opcoes.threadId ? novaCaixaDeSaida() : null;
   const ingresso = criarIngressoLocal(raiz,{host:opcoes.host,connectionId:conexaoLocal},async (pedido,signal) => {
     carregar(); thread(pedido.thread);
     // D12: pergunta nativa que aceita texto NAO vira menu. Um menu sobre pergunta aberta
@@ -309,7 +313,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     if (r.action !== 'accept') return {action:r.action};
     const parsed = z.object({opcao:z.string().min(1).max(limite)}).strict().parse(r.content);
     return {action:'accept',content:parsed};
-  });
+  },{caixa});
   // RM-059 (fatia F8, T8.1): a nota do MASTER pelo mesmo ingresso local. O formulario e fixo (a nota de 0 a 5 e o
   // porque); sem a capacidade de formulario no cliente, a recusa vem antes de qualquer escrita.
   const ingressoDaNota = criarIngressoDaNota(raiz,{host:opcoes.host,connectionId:conexaoLocal},async (apresentacao,signal) => {
@@ -481,6 +485,28 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     inputSchema:daThread,annotations:{readOnlyHint:false,destructiveHint:false}},async ({threadId},extra) => {
       thread(threadId); return resposta(await ingressoDaNota.solicitar(threadId,extra.signal));
     });
+  // RM-059 (F9, T9.1): o Mensageiro de Sessoes nas duas pontas. Nenhuma das duas entra no --allowedTools do modelo (D8):
+  // quem chama e o mod ork-mensageiro, e nenhuma responde, aprova ou abre pedido.
+  if(caixa) registrarTool('ork_session_outbox',{description:'Caixa de saida do Mensageiro de Sessoes nesta sessao do dono: lista as respostas do dono que esperam ir a uma sessao de fase claude-bg (listar marca o Mensageiro vivo) e anota o resultado do envio. Nao responde, nao aprova nem abre pedido.',
+    inputSchema:z.object({operacao:z.enum(['listar','enviada']),threadId:identidade.optional(),envioId:z.string().uuid().optional(),
+      entregue:z.boolean().optional(),motivo:z.string().max(1000).optional()}).strict(),
+    annotations:{readOnlyHint:false,destructiveHint:false}},async(args)=>{
+      if(args.operacao==='listar') {carregar(); return resposta({contrato:CONTRATO_DA_ENTREGA,entregas:caixa.listar(raiz)});}
+      if(!args.threadId || !args.envioId || args.entregue===undefined) throw Error('mcp.outbox.args: enviada exige threadId, envioId e entregue');
+      thread(args.threadId);
+      return resposta({contrato:CONTRATO_DA_ENTREGA,entrega:caixa.anotarEnvio(raiz,args.threadId,args.envioId,args.entregue,args.motivo)});
+    });
+  if(opcoes.threadId && opcoes.dispatchId) {
+    const despacho=opcoes.dispatchId;
+    registrarTool('ork_session_inbox',{description:'Lado receptor do Mensageiro de Sessoes na sessao de fase deste despacho: confere e reserva uma vez a resposta do dono que chegou de outra sessao (conferir, com o prazo ate) e, depois de ela entrar na fila, grava o recibo (confirmar). A sessao sai do despacho deste servidor, nunca de argumento. Nao responde nem aprova pedido.',
+      inputSchema:daThread.extend({operacao:z.enum(['conferir','confirmar']),texto:z.string().max(LIMITE_DA_MENSAGEM),
+        envioId:z.string().uuid().optional(),ate:z.string().max(40).optional()}).strict(),
+      annotations:{readOnlyHint:false,destructiveHint:false}},async({threadId,operacao,texto,envioId,ate})=>{
+        thread(threadId);
+        return resposta(operacao==='conferir' ? conferirNoReceptor(raiz,threadId,despacho,texto,ate)
+          : confirmarNoReceptor(raiz,threadId,despacho,envioId,texto));
+      });
+  }
   // RM-031 KG5 (D2): as tools do grafo so existem com a flag do manifesto da raiz no startup; sem ela, nada muda.
   // CHECK rodada 1 (S8): o startup le so o manifesto, como antes; as conferencias de estado ficam na chamada.
   if(grafoLigado(exigirManifesto(raiz).manifesto)) registrarConsultasDoGrafo(registrarTool,{raiz,carregar,thread});

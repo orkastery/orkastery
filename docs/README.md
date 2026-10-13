@@ -39,6 +39,7 @@ Cada guia resolve uma tarefa, com os comandos na ordem em que você vai usar.
 | [Condução pela Sentinela](guias/conducao-pela-sentinela.md) | Você liga a Sentinela do Condutor na sua sessão do Claude Code e quer que o condutor externo ceda o despacho |
 | [Pista de Entrega](guias/pista-de-entrega.md) | Você quer ver do CHECK verde ao merge sem sair do terminal, ou trocar o push cru do condutor externo pelo `ork ship publicar` |
 | [Ritual do MASTER](guias/ritual-do-master.md) | Você quer dar a nota das entregas sem sair do terminal, com a prova de cada uma na frente |
+| [Mensageiro de Sessões](guias/mensageiro-de-sessoes.md) | Uma sessão de fase `claude-bg` parou com uma pergunta e você quer responder da sua sessão do Claude Code, sem `claude attach` |
 | [Contribuir](guias/contribuir/o-que-contribuir.md) | Você quer mandar um PR, abrir uma issue ou cuidar da triagem: um guia por tarefa, com o índice no [CONTRIBUTING](../CONTRIBUTING.md) |
 
 ## Referência
