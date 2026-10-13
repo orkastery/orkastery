@@ -1,0 +1,71 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm064pagina",
+  "branch": "ork/ork-rm064pagina-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm064pagina",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+      "alegacao": "A página da RM-064 existe com id RM-064, ciclo Refinamento e código Não iniciado no frontmatter",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^id: RM-064$\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md && grep -q \"^  ciclo: Refinamento$\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md && grep -q \"^  codigo: Não iniciado$\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md"
+      ],
+      "criadoEm": "2026-10-13T18:06:43.280Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm064pagina",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+      "alegacao": "A página traz o incidente I1 a I8 e as sete frentes T1 a T7, com a prova de cada uma",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -cE \"^\\| I[1-8] \\|\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md) -eq 8 && test $(grep -cE \"^\\| T[1-7] \" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md) -eq 7"
+      ],
+      "criadoEm": "2026-10-13T18:06:43.719Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm064pagina",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap lista a RM-064",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"[RM-064](RM-064-conta-esgotada-nao-para-a-fase.md)\" docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-13T18:06:44.139Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm064pagina",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A linha da RM-064 está em Não publicado do CHANGELOG",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"[RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)\" CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-13T18:06:44.616Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
