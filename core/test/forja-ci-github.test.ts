@@ -27,7 +27,7 @@ test('acha o ork-verify na segunda página', () => {
   assert.ok(caminhos.some((c) => /page=2/.test(c)));
 });
 
-// Decisao do controlador (seguranca): status verde sozinho nao aprova; sem lista de produtores confiaveis, qualquer
+// Seguranca: status verde sozinho nao aprova; sem lista de produtores confiaveis, qualquer
 // um com escrita de status forjaria o gate.
 test('só commit status ork-verify verde não passa (missing)', () => {
   const { executor } = forja([[]], [{ id: 1, context: 'ork-verify', state: 'success', target_url: 'https://x', updated_at: '2026-10-13T10:00:00Z', creator: { login: 'bot' } }]);
@@ -117,7 +117,6 @@ test('fixture gravada do GitHub (check-runs e statuses de 2026-10): ork-verify v
   assert.ok(caminhos.some((c) => c.endsWith('/statuses?per_page=100&page=1')));
 });
 
-// Rodada de correção 1.
 test('status vermelho do ork-verify na segunda página de statuses reprova, mesmo com check-run verde', () => {
   const alheios = Array.from({ length: 100 }, (_, i) => ({ id: 1000 - i, context: `outro-${i}`, state: 'success', creator: { login: 'bot' } }));
   const vermelho = { id: 1, context: 'ork-verify', state: 'failure', updated_at: '2026-10-13T10:05:00Z', creator: { login: 'bot' } };

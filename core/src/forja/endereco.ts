@@ -1,4 +1,4 @@
-/** Spec do suporte a GitLab, seção 5.1: um parser só para as três formas de URL, com porta e subgrupos. */
+/** Um parser só para as três formas de URL, com porta e subgrupos. */
 const HOST = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
 const SEGMENTO = /^[A-Za-z0-9_.-]+$/;
 
