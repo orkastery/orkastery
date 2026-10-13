@@ -23,6 +23,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { kernelDisponivel, tentarTravaExclusiva } from './fila-pesada';
+import { formatarDataHora } from './horario';
 import { lerLedger, registrar } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { nomeDaMaquina } from './maquina';
@@ -165,7 +166,7 @@ export function passoConduzido(carregado: ManifestoCarregado, arco: string, quem
     const vigia = sup.batidas.vigia;
     if (!vigia || agora - Date.parse(vigia.em) > parametros.vigiaAusenteMs) {
       return { acao: 'aguardar', ate: cadencia, motivo: 'vigia-ausente', fila: null,
-        detalhe: vigia ? `o último tique do vigia foi em ${vigia.em}, há mais de ${Math.round(parametros.vigiaAusenteMs / 60000)} min: nada novo sai sem supervisão`
+        detalhe: vigia ? `o último tique do vigia foi em ${formatarDataHora(vigia.em)}, há mais de ${Math.round(parametros.vigiaAusenteMs / 60000)} min: nada novo sai sem supervisão`
           : 'o vigia ainda não deu nenhum tique neste arco: nada novo sai sem supervisão' };
     }
   }
@@ -265,7 +266,7 @@ export function vigiarArco(carregado: ManifestoCarregado, arco: string, opcoes: 
         condutor = 'vivo';
         const batida = sup.batidas.condutor;
         if (!batida || Date.parse(quando) - Date.parse(batida.em) > 3 * parametros.cadenciaMs) {
-          lacunas.push(`o condutor segura a trava sem batida desde ${batida?.em ?? 'nunca'}: vivo, sem prova de ausência, ele não é substituído`);
+          lacunas.push(`o condutor segura a trava sem batida desde ${batida ? formatarDataHora(batida.em) : 'nunca'}: vivo, sem prova de ausência, ele não é substituído`);
         }
       } else {
         try {

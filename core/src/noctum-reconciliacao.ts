@@ -19,6 +19,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
+import { formatarDataHora } from './horario';
 import { lerLedger } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { DespachoDoArco, EstadoDoArco } from './noctum-arco';
@@ -367,7 +368,7 @@ export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2,
     // D11: o fim de turno sem resultado, depois da carência, com a sessão parada no runtime.
     if (espera?.tipo === 'stop-sem-resultado' && agora - Date.parse(espera.fimDoTurnoEm) >= parametros.carenciaMs && !trabalhando) {
       decisoes.push(retomar(faseDaRetomada(raiz, t, eventos, fase, d.ts), 'fim-de-turno-sem-resultado', sessao,
-        `o turno da sessão ${sid} acabou sem resultado em ${espera.fimDoTurnoEm} e ela não trabalha: ${p.detalhe}`, true));
+        `o turno da sessão ${sid} acabou sem resultado em ${formatarDataHora(espera.fimDoTurnoEm)} e ela não trabalha: ${p.detalhe}`, true));
     }
   }
   return decisoes;
@@ -422,13 +423,13 @@ export function decidirPedidos(raiz: string, arco: string, conteudo: ConteudoV2,
     const retomado = eventos.find(e => e.tipo === 'phase_dispatch' && e.correlacao === correlacao && Date.parse(e.ts) > Date.parse(p.criadoEm));
     if (retomado) {
       decisoes.push({ acao: 'cancelar', pedido: p.id, thread: p.thread,
-        motivo: `retomado pelo arco ${arco} no despacho ${String(retomado.eventId ?? retomado.ts)} (${String(retomado.fase)})` });
+        motivo: `retomado pelo arco ${arco} no despacho ${String(retomado.eventId ?? formatarDataHora(retomado.ts))} (${String(retomado.fase)})` });
       continue;
     }
     const trabalho = porThread.get(p.thread);
     if (!trabalho || sup.pedidos.has(p.id)) continue;
     decisoes.push({ acao: 'retomar', pedido: p.id, trabalho, thread: p.thread, fase: p.fase, tentativa: retomadasDe(sup, trabalho, p.fase) + 1,
-      prova: `pedido ${p.id} da fila durável (libera em ${p.liberaEm}${p.janelaEstimada ? ', janela estimada' : ', hora dita pelo runtime'})` });
+      prova: `pedido ${p.id} da fila durável (libera em ${formatarDataHora(p.liberaEm)}${p.janelaEstimada ? ', janela estimada' : ', hora dita pelo runtime'})` });
   }
   return decisoes;
 }
