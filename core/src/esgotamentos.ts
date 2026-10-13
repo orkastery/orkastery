@@ -24,11 +24,12 @@ import { listarProjetos } from './projeto-alvo';
 import { chaveDaConta, ContaCompartilhada, lerContasCompartilhadas, validarPerfilDeDespacho } from './runtime-profiles';
 import { dirThread, listarIds } from './thread';
 import { tabela } from './util';
+import { msg } from './locale';
 
 export const CONTRATO_ESGOTAMENTOS = 'ork.esgotamentos/v1';
 
-export const LIMITE_DO_RELATORIO = 'o registro guarda so as marcas vivas (uso bem sucedido, login reconferido e prazo vencido ' +
-  'apagam a marca): o total e um piso, valido enquanto a marca existe';
+/** O limite que o `--json` leva: dado, sempre em pt-BR (RM-061, F3b: o texto mora no catalogo). */
+export const LIMITE_DO_RELATORIO = msg('pt-BR').accounts.limiteDoRelatorio;
 
 export interface MarcaDeConta {
   /** Id opaco da conta: os 12 primeiros hex do sha256 de `<runtime>:<diretorio real>`. */
@@ -150,23 +151,25 @@ export function relatorioDeEsgotamentos(opcoes: OpcoesDeEsgotamentos = {}): Rela
 
 /** Texto para o terminal, com o horario do dono e o fuso uma vez no fim. */
 export function textoDosEsgotamentos(r: RelatorioDeEsgotamentos): string {
+  // RM-061 (F3b): o texto pelo catalogo; o estado da marca so se traduz aqui, e o limite do `--json` (pt-BR) sai no locale.
+  const t = msg().accounts;
   const linhas = [
-    `Esgotamentos de conta  ${formatarDataHora(r.periodo.desde)} ate ${formatarDataHora(r.periodo.ate)} ${r.periodo.intervalo}`,
-    `  marcas vivas no registro: ${r.marcas.length}`,
+    t.esgotamentosTitulo(formatarDataHora(r.periodo.desde), formatarDataHora(r.periodo.ate), r.periodo.intervalo),
+    t.marcasVivas(r.marcas.length),
   ];
   for (const m of r.marcas) {
-    const ate = m.estado === 'esgotado' ? `ate ${formatarDataHora(m.esgotadoAte)}` : 'sem prazo';
-    linhas.push(`    conta ${m.conta}  ${m.runtime}  ${m.estado} desde ${formatarDataHora(m.em)}, ${ate}  visto em ${m.projeto} (${m.motivo})`);
+    linhas.push(t.marca(m.conta, m.runtime, t.estado(m.estado), formatarDataHora(m.em),
+      m.estado === 'esgotado' ? formatarDataHora(m.esgotadoAte) : null, m.projeto, m.motivo));
   }
-  linhas.push(`  projetos lidos: ${r.projetos.length === 0 ? 'nenhum registrado'
-    : r.projetos.map((p) => `${p.nome} (${p.presente ? `${p.despachosComPerfil} despacho(s) com perfil` : 'fora do disco'})`).join(', ')}`);
-  linhas.push(`  despachos em conta marcada por outro projeto: ${r.total}`);
+  linhas.push(t.projetosLidos(r.projetos.length === 0 ? null
+    : r.projetos.map((p) => t.projetoLido(p.nome, p.presente ? p.despachosComPerfil : null)).join(', ')));
+  linhas.push(t.despachosMarcados(r.total));
   if (r.despachos.length > 0) {
-    linhas.push(tabela(['QUANDO', 'PROJETO', 'THREAD', 'FASE', 'PERFIL', 'CONTA', 'MARCADA POR'],
+    linhas.push(tabela([...t.colunasDosDespachos],
       r.despachos.map((d) => [formatarDataHora(d.em), d.projeto, d.thread, d.fase ?? '-', d.perfil, d.conta, d.marcadaPor]))
       .split('\n').map((l) => `    ${l}`).join('\n'));
   }
-  linhas.push(`  limite: ${r.limite}`);
+  linhas.push(t.limite(r.limite === LIMITE_DO_RELATORIO ? t.limiteDoRelatorio : r.limite));
   linhas.push(legendaDoFuso());
   return linhas.join('\n');
 }

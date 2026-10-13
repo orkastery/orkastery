@@ -1,0 +1,15 @@
+#!/bin/sh
+# RM-026 K7 (fatia 3): ork_conhecimento_verificar, a mesma tool do MCP e do OpenClaw. A conferencia da pasta inteira,
+# com cada id do Brain por get, e todas as lacunas tipadas, no JSON do nucleo (`ork conhecimento verificar --json`);
+# sai 1 com qualquer lacuna. Somente leitura; o Hermes transporta o JSON como vem: lacuna e lacuna, nunca resposta.
+# Argumentos continuam dados: [--projeto <nome>].
+set -eu
+# A tool do modelo nao herda a autoridade da callback humana, como no rodarOrk do OpenClaw: a consulta do
+# conhecimento nao usa recibo, e o memory.cli que o manifesto escolhe (P6) nunca recebe chave do HITL.
+for nome in $(env | sed -n 's/^\(ORK_HITL_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "$nome"; done
+unset ORK_RECEIPT_VERIFIERS
+export ORK_CANAL="${ORK_CANAL:-hermes}"
+# RM-052 (D3): o cwd do gateway nao escolhe projeto. Sem --projeto <nome> (que passa em "$@"), o
+# nucleo usa o unico projeto conhecido da maquina ou devolve a escolha. ORK_PROJETO_EXPLICITO=0 desliga.
+export ORK_PROJETO_EXPLICITO="${ORK_PROJETO_EXPLICITO:-1}"
+exec "${ORK_BIN:-{{ork_bin}}}" conhecimento verificar "$@" --json

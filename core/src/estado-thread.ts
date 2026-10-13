@@ -4,13 +4,14 @@ import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Check } from './types';
 import { exec } from './util';
+import { ErroDoCatalogo, textoDoCatalogo } from './locale';
 
 export function raizDoEstado(raiz: string): string {
   const local = path.resolve(raiz);
   const git = path.join(local, '.git');
   if (!fs.existsSync(git) || !fs.statSync(git).isFile()) return local;
   const match = /^gitdir: (.+)\s*$/m.exec(fs.readFileSync(git, 'utf8'));
-  if (!match) throw new Error(`.git inválido em ${local}`);
+  if (!match) throw new ErroDoCatalogo((m) => m.estado.gitInvalido(local));
   const gitdir = path.resolve(local, match[1].trim());
   const commondir = path.join(gitdir, 'commondir');
   if (!fs.existsSync(commondir)) return local; // submódulo, não linked worktree
@@ -18,13 +19,13 @@ export function raizDoEstado(raiz: string): string {
   const principal = path.dirname(comum);
   if (!fs.existsSync(path.join(principal, '.git')) ||
       fs.realpathSync(path.join(principal, '.git')) !== fs.realpathSync(comum)) {
-    throw new Error(`árvore principal não resolvida pelo git-common-dir: ${comum}`);
+    throw new ErroDoCatalogo((m) => m.estado.arvorePrincipal(comum));
   }
   return principal;
 }
 
 export function estadoCanonico(raiz: string, id: string): string {
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id)) throw new Error('id de thread inválido');
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id)) throw new ErroDoCatalogo((m) => m.estado.idInvalido);
   const principal = raizDoEstado(raiz);
   exigirEstadoSemLink(principal, ['.orkastery', 'threads', id]);
   return path.join(principal, '.orkastery', 'threads', id);
@@ -43,8 +44,8 @@ export function exigirEstadoSemLink(principal: string, componentes: readonly str
     const stat = fs.lstatSync(atual, { throwIfNoEntry: false });
     if (!stat) return;
     if (stat.isSymbolicLink()) {
-      throw new Error(`estado.link: ${path.relative(principal, atual)} é link simbólico; o estado do ork fica em ` +
-        'pastas de verdade dentro da raiz (um link versionado levaria a escrita para fora dela). Remova o link.');
+      const rel = path.relative(principal, atual);
+      throw new ErroDoCatalogo((m) => m.estado.link(rel));
     }
   }
 }
@@ -56,9 +57,9 @@ function mesmoArquivo(a: string, b: string): boolean {
 function arquivos(dir: string, prefixo = ''): string[] {
   return fs.readdirSync(path.join(dir, prefixo), { withFileTypes: true }).flatMap(e => {
     const nome = path.join(prefixo, e.name);
-    if (e.isSymbolicLink()) throw new Error(`estado legado contém link: ${nome}`);
+    if (e.isSymbolicLink()) throw new ErroDoCatalogo((m) => m.estado.legadoComLink(nome));
     if (e.isDirectory()) return arquivos(dir, nome);
-    if (!e.isFile()) throw new Error(`estado legado contém arquivo especial: ${nome}`);
+    if (!e.isFile()) throw new ErroDoCatalogo((m) => m.estado.legadoEspecial(nome));
     return [nome];
   });
 }
@@ -78,15 +79,15 @@ export function vincularEstado(raiz: string, id: string, worktree: string, dryRu
   const alvo = estadoCanonico(raiz, id);
   const local = path.join(worktree, '.orkastery', 'threads', id);
   if (path.resolve(local) === alvo) return;
-  if (raizDoEstado(worktree) !== raizDoEstado(raiz)) throw new Error('worktree não pertence à árvore principal');
+  if (raizDoEstado(worktree) !== raizDoEstado(raiz)) throw new ErroDoCatalogo((m) => m.estado.foraDaArvore);
   // O índice é próprio da linked worktree. A main continua versionando seu estado.
   const rastreados = exec('git', ['ls-files', '-z', '--', `.orkastery/threads/${id}/`], worktree);
-  if (!rastreados.ok) throw new Error(`índice da worktree indisponível: ${rastreados.stderr}`);
+  if (!rastreados.ok) throw new ErroDoCatalogo((m) => m.estado.indiceIndisponivel(rastreados.stderr));
   const nomes = rastreados.stdout.split('\0').filter(Boolean);
   const prepararIndice = () => {
     if (dryRun || nomes.length === 0) return;
     const r = exec('git', ['update-index', '--skip-worktree', '--', ...nomes], worktree);
-    if (!r.ok) throw new Error(`não foi possível preservar o estado versionado no índice: ${r.stderr}`);
+    if (!r.ok) throw new ErroDoCatalogo((m) => m.estado.naoPreservou(r.stderr));
   };
   if (mesmoArquivo(local, alvo)) {
     prepararIndice();
@@ -96,10 +97,10 @@ export function vincularEstado(raiz: string, id: string, worktree: string, dryRu
   const copiar: string[] = [];
   const existe = fs.existsSync(local);
   if (!existe && fs.lstatSync(path.dirname(local), { throwIfNoEntry: false })?.isSymbolicLink()) {
-    throw new Error('diretório de threads inesperadamente vinculado');
+    throw new ErroDoCatalogo((m) => m.estado.threadsVinculado);
   }
   if (existe) {
-    if (fs.lstatSync(local).isSymbolicLink()) throw new Error(`link de estado aponta para outro destino: ${local}`);
+    if (fs.lstatSync(local).isSymbolicLink()) throw new ErroDoCatalogo((m) => m.estado.linkOutroDestino(local));
     for (const nome of arquivos(local)) {
       const destino = path.join(alvo, nome);
       if (!fs.existsSync(destino)) { copiar.push(nome); continue; }
@@ -108,10 +109,10 @@ export function vincularEstado(raiz: string, id: string, worktree: string, dryRu
       if (a.equals(b)) continue;
       // Prefixo JSONL já incorporado na main não é conflito nem deve ser duplicado.
       if (nome.endsWith('.jsonl') && a.toString().endsWith('\n') && b.subarray(0, a.length).equals(a)) continue;
-      throw new Error(`estado dividido: ${nome} diverge entre ${local} e ${alvo}; reconcilie antes do sync`);
+      throw new ErroDoCatalogo((m) => m.estado.dividido(nome, local, alvo));
     }
   } else if (fs.lstatSync(local, { throwIfNoEntry: false })) {
-    throw new Error(`link de estado quebrado: ${local}`);
+    throw new ErroDoCatalogo((m) => m.estado.linkQuebrado(local));
   }
   // O ensaio executa o mesmo preflight, sem tocar em arquivos ou no índice.
   if (dryRun) return;
@@ -144,7 +145,7 @@ export function comEstadoParaGit<T>(raiz: string, id: string, worktree: string, 
   const prefixo = `.orkastery/threads/${id}/`;
   const git = (args: string[]) => {
     const r = exec('git', args, worktree);
-    if (!r.ok) throw new Error(`preparação do estado para Git falhou: ${r.stderr || r.stdout}`);
+    if (!r.ok) throw new ErroDoCatalogo((m) => m.estado.preparacaoFalhou(r.stderr || r.stdout));
     return r.stdout;
   };
   const nomes = git(['ls-files', '-z', '--', prefixo]).split('\0').filter(Boolean);
@@ -162,7 +163,7 @@ export function comEstadoParaGit<T>(raiz: string, id: string, worktree: string, 
     // Uma escrita externa durante a operação é conflito, não estado descartável.
     const mudou = materializado && (!exec('git', ['diff', '--quiet', '--', prefixo], worktree).ok ||
       git(['ls-files', '--others', '--', prefixo]).trim() !== '');
-    if (mudou) throw new Error(`estado local alterado durante operação Git: ${local}; cópia e main preservadas para reconciliação`);
+    if (mudou) throw new ErroDoCatalogo((m) => m.estado.alteradoDuranteGit(local));
     if (fs.existsSync(local)) {
       const backup = path.join(raizDoEstado(raiz), '.orkastery', 'state-backups', `${id}-git-${randomUUID()}`);
       fs.mkdirSync(path.dirname(backup), { recursive: true });
@@ -181,7 +182,9 @@ export function auditarEstado(raiz: string, id: string, worktree: string): Check
     return fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).length : 0;
   };
   const ok = mesmoArquivo(main, local);
+  // RM-061 (F3b, G4): o detalhe vai ao ledger do audit em pt-BR (escopo da gravacao) e a impressao o remonta.
+  const eventosMain = contar(main), eventosLocal = contar(local);
   return { nome: 'estado-unico', nivel: ok ? 'ok' : 'fail',
-    detalhe: `${ok ? 'mesmo estado' : 'estado dividido'}: main=${contar(main)} eventos, worktree=${contar(local)} eventos; ${main}`,
-    ...(ok ? {} : { correcao: `ork worktree sync ${id}; divergências exigem reconciliação preservando evidências` }) };
+    detalhe: textoDoCatalogo((m) => m.estado.estadoUnico(ok, eventosMain, eventosLocal, main)),
+    ...(ok ? {} : { correcao: textoDoCatalogo((m) => m.estado.estadoUnicoCorrecao(id)) }) };
 }

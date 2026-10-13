@@ -42,6 +42,7 @@
     "!adapters/**/test/",
     "!adapters/**/__pycache__/",
     "!adapters/claude-code/ACTIVATION.md",
+    "!assets/adapters-en/claude-code/ACTIVATION.md",
     "monitor/",
     "!monitor/*.test.cjs",
     "!monitor/pulse-write-scope.json",

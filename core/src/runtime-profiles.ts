@@ -18,6 +18,7 @@ import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { raizDoEstado } from './estado-thread';
 import { formatarDataHora } from './horario';
+import { ErroDoCatalogo, msg } from './locale';
 
 export const CONTRATO_PERFIS = 'ork.runtime-profiles/v1';
 export const ARQUIVO_PERFIS = 'runtime-profiles.json';
@@ -64,7 +65,7 @@ const LIMITE_DETALHE = 200;
 
 const uid = (): number => {
   const atual = process.getuid?.();
-  if (atual === undefined) throw new Error('runtime.profiles.invalid: uid do processo indisponivel');
+  if (atual === undefined) throw new ErroDoCatalogo((m) => m.accounts.uidIndisponivel);
   return atual;
 };
 
@@ -76,13 +77,13 @@ export function runtimeComPerfil(nome: string): nome is RuntimeComPerfil {
 export function validarDiretorioDePerfil(dir: unknown): string {
   if (typeof dir !== 'string' || dir.length === 0 || dir.length > 1024 || /\p{Cc}/u.test(dir) ||
       !path.isAbsolute(dir) || path.normalize(dir) !== dir || dir === '/' || dir.endsWith('/'))
-    throw new Error('runtime.profiles.invalid: diretorio do perfil precisa ser caminho absoluto normalizado');
+    throw new ErroDoCatalogo((m) => m.accounts.diretorioNaoNormalizado);
   return dir;
 }
 
 export function validarIdDePerfil(id: unknown): string {
   if (typeof id !== 'string' || !ID_DE_PERFIL.test(id))
-    throw new Error('runtime.profiles.invalid: id do perfil aceita letras, digitos, ponto, hifen e sublinhado (ate 63)');
+    throw new ErroDoCatalogo((m) => m.accounts.idInvalido);
   return id;
 }
 
@@ -94,14 +95,14 @@ export function diretorioDoPerfil(p: PerfilDeDespacho): string {
 
 /** Valida um perfil de despacho vindo do ledger, do thread.json ou do pedido da fila. */
 export function validarPerfilDeDespacho(v: unknown): PerfilDeDespacho {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('runtime.profiles.invalid: perfil de despacho ausente');
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ErroDoCatalogo((m) => m.accounts.despachoAusente);
   const o = v as Record<string, unknown>;
   const runtime = o.runtime;
-  if (typeof runtime !== 'string' || !runtimeComPerfil(runtime)) throw new Error('runtime.profiles.invalid: runtime do perfil desconhecido');
+  if (typeof runtime !== 'string' || !runtimeComPerfil(runtime)) throw new ErroDoCatalogo((m) => m.accounts.runtimeDesconhecido);
   const campo = runtime === 'claude-bg' ? 'configDir' : 'codexHome';
   const outro = runtime === 'claude-bg' ? 'codexHome' : 'configDir';
   if (o[outro] !== undefined || Object.keys(o).some(k => !['id', 'runtime', campo].includes(k)))
-    throw new Error('runtime.profiles.invalid: perfil de despacho com campo inesperado');
+    throw new ErroDoCatalogo((m) => m.accounts.despachoComCampo);
   const id = validarIdDePerfil(o.id), dir = validarDiretorioDePerfil(o[campo]);
   return runtime === 'claude-bg' ? { id, runtime, configDir: dir } : { id, runtime, codexHome: dir };
 }
@@ -124,7 +125,7 @@ export function diretorioImplicito(runtime: RuntimeComPerfil, env: NodeJS.Proces
 export function diretorioEfetivo(runtime: RuntimeComPerfil, perfil: PerfilDeDespacho | null | undefined,
   env: NodeJS.ProcessEnv = process.env): string {
   if (!perfil) return diretorioImplicito(runtime, env);
-  if (perfil.runtime !== runtime) throw new Error('runtime.profiles.invalid: perfil de outro runtime');
+  if (perfil.runtime !== runtime) throw new ErroDoCatalogo((m) => m.accounts.perfilDeOutroRuntime);
   return diretorioDoPerfil(perfil);
 }
 
@@ -154,7 +155,7 @@ export function perfilDoRegistro(eventos: readonly Record<string, unknown>[],
   const perfil = validarPerfilDeDespacho(bruto);
   if (doSensor?.perfil !== undefined && doDespacho?.perfil !== undefined &&
       JSON.stringify(validarPerfilDeDespacho(doDespacho.perfil)) !== JSON.stringify(perfil))
-    throw new Error('runtime.profiles.invalid: perfil do sensor diverge do despacho');
+    throw new ErroDoCatalogo((m) => m.accounts.sensorDiverge);
   return perfil;
 }
 
@@ -173,7 +174,7 @@ export function caminhoDoStore(raiz: string): string {
 function validarPasta(pasta: string): fs.Stats {
   const st = fs.lstatSync(pasta);
   if (!st.isDirectory() || st.isSymbolicLink() || st.uid !== uid() || (st.mode & 0o777) !== 0o700 ||
-      fs.realpathSync(pasta) !== pasta) throw new Error('runtime.profiles.invalid: pasta privada precisa ser 0700 do proprio usuario');
+      fs.realpathSync(pasta) !== pasta) throw new ErroDoCatalogo((m) => m.accounts.pastaPrivada);
   return st;
 }
 
@@ -182,7 +183,7 @@ function garantirPasta(raiz: string): { pasta: string; st: fs.Stats } {
   const estado = path.dirname(pasta);
   const stEstado = fs.lstatSync(estado);
   if (!stEstado.isDirectory() || stEstado.isSymbolicLink() || fs.realpathSync(estado) !== estado)
-    throw new Error('runtime.profiles.invalid: diretorio de estado invalido');
+    throw new ErroDoCatalogo((m) => m.accounts.diretorioDeEstado);
   try { fs.mkdirSync(pasta, { mode: 0o700 }); fs.chmodSync(pasta, 0o700); }
   catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e; }
   return { pasta, st: validarPasta(pasta) };
@@ -192,24 +193,24 @@ function storeVazio(): StoreDePerfis { return { contrato: CONTRATO_PERFIS, perfi
 
 function data(v: unknown, campo: string): string | null {
   if (v === null) return null;
-  if (typeof v !== 'string' || !Number.isFinite(Date.parse(v))) throw new Error(`runtime.profiles.invalid: ${campo} invalido`);
+  if (typeof v !== 'string' || !Number.isFinite(Date.parse(v))) throw new ErroDoCatalogo((m) => m.accounts.dataInvalida(campo));
   return v;
 }
 
 function validarPerfil(v: unknown): PerfilDeRuntime {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('runtime.profiles.invalid: perfil invalido');
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ErroDoCatalogo((m) => m.accounts.perfilInvalido);
   const o = v as Record<string, unknown>;
   const despacho = validarPerfilDeDespacho({ id: o.id, runtime: o.runtime,
     ...(o.configDir !== undefined ? { configDir: o.configDir } : {}), ...(o.codexHome !== undefined ? { codexHome: o.codexHome } : {}) });
   const permitidos = ['id', 'runtime', 'configDir', 'codexHome', 'estado', 'esgotadoAte', 'ultimaFalha', 'ultimoUso', 'criadoEm'];
-  if (Object.keys(o).some(k => !permitidos.includes(k))) throw new Error('runtime.profiles.invalid: campo inesperado no perfil');
-  if (!ESTADOS_DE_PERFIL.includes(o.estado as EstadoDePerfil)) throw new Error('runtime.profiles.invalid: estado do perfil desconhecido');
+  if (Object.keys(o).some(k => !permitidos.includes(k))) throw new ErroDoCatalogo((m) => m.accounts.campoInesperado);
+  if (!ESTADOS_DE_PERFIL.includes(o.estado as EstadoDePerfil)) throw new ErroDoCatalogo((m) => m.accounts.estadoDesconhecido);
   let ultimaFalha: FalhaDePerfil | null = null;
   if (o.ultimaFalha !== null) {
     const f = o.ultimaFalha as Record<string, unknown> | undefined;
     if (!f || typeof f !== 'object' || typeof f.motivo !== 'string' || typeof f.detalhe !== 'string' ||
         f.detalhe.length > LIMITE_DETALHE || Object.keys(f).some(k => !['motivo', 'em', 'detalhe'].includes(k)))
-      throw new Error('runtime.profiles.invalid: ultimaFalha invalida');
+      throw new ErroDoCatalogo((m) => m.accounts.ultimaFalhaInvalida);
     ultimaFalha = { motivo: f.motivo, em: data(f.em, 'ultimaFalha.em') as string, detalhe: f.detalhe };
   }
   return { ...despacho, estado: o.estado as EstadoDePerfil, esgotadoAte: data(o.esgotadoAte, 'esgotadoAte'),
@@ -218,14 +219,14 @@ function validarPerfil(v: unknown): PerfilDeRuntime {
 
 /** Conteudo validado; ids unicos e diretorio unico por runtime. */
 export function validarStore(v: unknown): StoreDePerfis {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('runtime.profiles.invalid: store invalido');
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ErroDoCatalogo((m) => m.accounts.storeInvalido);
   const o = v as Record<string, unknown>;
   if (o.contrato !== CONTRATO_PERFIS || !Array.isArray(o.perfis) || Object.keys(o).sort().join(',') !== 'contrato,perfis')
-    throw new Error(`runtime.profiles.invalid: contrato ${CONTRATO_PERFIS} esperado`);
+    throw new ErroDoCatalogo((m) => m.accounts.contratoEsperado(CONTRATO_PERFIS));
   const perfis = o.perfis.map(validarPerfil);
-  if (new Set(perfis.map(p => p.id)).size !== perfis.length) throw new Error('runtime.profiles.invalid: id de perfil repetido');
+  if (new Set(perfis.map(p => p.id)).size !== perfis.length) throw new ErroDoCatalogo((m) => m.accounts.idRepetido);
   if (new Set(perfis.map(p => `${p.runtime}|${diretorioDoPerfil(p)}`)).size !== perfis.length)
-    throw new Error('runtime.profiles.invalid: dois perfis do mesmo runtime no mesmo diretorio');
+    throw new ErroDoCatalogo((m) => m.accounts.mesmoDiretorio);
   return { contrato: CONTRATO_PERFIS, perfis };
 }
 
@@ -239,15 +240,15 @@ export function lerPerfis(raiz: string): StoreDePerfis {
   try { fd = fs.openSync(path.join(pasta, ARQUIVO_PERFIS), fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW); }
   catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') return storeVazio();
-    throw new Error('runtime.profiles.invalid: arquivo de perfis ilegivel ou link simbolico');
+    throw new ErroDoCatalogo((m) => m.accounts.arquivoIlegivel);
   }
   try {
     const st = fs.fstatSync(fd), atual = fs.lstatSync(pasta);
     if (!st.isFile() || st.nlink !== 1 || st.uid !== uid() || (st.mode & 0o777) !== 0o600 || st.size > LIMITE_STORE_BYTES ||
-        atual.dev !== pastaSt.dev || atual.ino !== pastaSt.ino) throw new Error('runtime.profiles.invalid: arquivo de perfis precisa ser 0600 do proprio usuario');
+        atual.dev !== pastaSt.dev || atual.ino !== pastaSt.ino) throw new ErroDoCatalogo((m) => m.accounts.arquivoSemPermissao);
     let bruto: unknown;
     try { bruto = JSON.parse(fs.readFileSync(fd, 'utf8')); }
-    catch { throw new Error('runtime.profiles.invalid: arquivo de perfis com JSON invalido'); }
+    catch { throw new ErroDoCatalogo((m) => m.accounts.arquivoJson); }
     return validarStore(bruto);
   } finally { fs.closeSync(fd); }
 }
@@ -269,7 +270,7 @@ function gravarArquivoPrivado(pasta: string, pastaSt: fs.Stats, arquivo: string,
   const atual = fs.lstatSync(pasta);
   if (atual.dev !== pastaSt.dev || atual.ino !== pastaSt.ino) {
     fs.rmSync(temp, { force: true });
-    throw new Error('runtime.profiles.invalid: pasta privada trocada durante a gravacao');
+    throw new ErroDoCatalogo((m) => m.accounts.pastaTrocada);
   }
   fs.renameSync(temp, path.join(pasta, arquivo));
   const dfd = fs.openSync(pasta, fs.constants.O_RDONLY | fs.constants.O_DIRECTORY);
@@ -324,7 +325,7 @@ function comLockDoStore<T>(pasta: string, executar: () => T, arquivo: string = A
       try { process.kill(pid, 0); } catch (erro) { vivo = (erro as NodeJS.ErrnoException).code !== 'ESRCH'; }
     } else vivo = Date.now() - mtimeMs < LOCK_SEM_DONO_VELHO_MS;
     if (!vivo) { quebrarLockVelho(lock, bruto); continue; }
-    if (Date.now() >= prazo) throw new Error('runtime.profiles.busy: store de perfis ocupado; tente novamente');
+    if (Date.now() >= prazo) throw new ErroDoCatalogo((m) => m.accounts.storeOcupado);
     Atomics.wait(pausa, 0, 0, 2 + Math.floor(Math.random() * 18));
   }
   try { fs.writeFileSync(dono, String(process.pid), { flag: 'wx', mode: 0o600 }); }
@@ -350,7 +351,7 @@ export function atualizarPerfis<T>(raiz: string, mutar: (store: StoreDePerfis) =
 
 function exigirPerfil(store: StoreDePerfis, id: string): PerfilDeRuntime {
   const p = store.perfis.find(x => x.id === id);
-  if (!p) throw new Error(`runtime.profiles.unknown: perfil "${id}" nao existe (veja: ork accounts list)`);
+  if (!p) throw new ErroDoCatalogo((m) => m.accounts.perfilNaoExiste(id));
   return p;
 }
 
@@ -382,19 +383,19 @@ export function caminhoRealDoPerfil(dir: string): string {
 export function prepararDiretorioDoPerfil(dir: string): void {
   validarDiretorioDePerfil(dir);
   try { fs.mkdirSync(dir, { recursive: true, mode: 0o700 }); }
-  catch (e) { throw new Error(`runtime.profiles.invalid: diretorio do perfil inacessivel (${(e as NodeJS.ErrnoException).code ?? 'erro'})`); }
+  catch (e) { const codigo = (e as NodeJS.ErrnoException).code ?? 'erro'; throw new ErroDoCatalogo((m) => m.accounts.diretorioInacessivel(codigo)); }
   let st: fs.Stats;
   try { st = fs.statSync(dir); }
-  catch (e) { throw new Error(`runtime.profiles.invalid: diretorio do perfil inacessivel (${(e as NodeJS.ErrnoException).code ?? 'erro'})`); }
-  if (!st.isDirectory()) throw new Error('runtime.profiles.invalid: o caminho do perfil nao e diretorio');
-  if (st.uid !== uid()) throw new Error('runtime.profiles.invalid: diretorio do perfil pertence a outro usuario');
+  catch (e) { const codigo = (e as NodeJS.ErrnoException).code ?? 'erro'; throw new ErroDoCatalogo((m) => m.accounts.diretorioInacessivel(codigo)); }
+  if (!st.isDirectory()) throw new ErroDoCatalogo((m) => m.accounts.naoEDiretorio);
+  if (st.uid !== uid()) throw new ErroDoCatalogo((m) => m.accounts.outroUsuario);
   try { fs.accessSync(dir, fs.constants.R_OK | fs.constants.W_OK | fs.constants.X_OK); }
-  catch { throw new Error('runtime.profiles.invalid: diretorio do perfil sem leitura e escrita para este usuario'); }
+  catch { throw new ErroDoCatalogo((m) => m.accounts.semLeituraEscrita); }
 }
 
 export function adicionarPerfil(raiz: string, novo: { id: string; runtime: string; dir: string },
   agoraIso = new Date().toISOString()): PerfilDeRuntime {
-  if (!runtimeComPerfil(novo.runtime)) throw new Error(`runtime.profiles.invalid: runtime "${novo.runtime}" nao aceita perfil`);
+  if (!runtimeComPerfil(novo.runtime)) throw new ErroDoCatalogo((m) => m.accounts.runtimeSemPerfil(novo.runtime));
   const runtime = novo.runtime;
   const dir = validarDiretorioDePerfil(novo.dir);
   const perfil: PerfilDeRuntime = { id: validarIdDePerfil(novo.id), runtime,
@@ -408,15 +409,15 @@ export function adicionarPerfil(raiz: string, novo: { id: string; runtime: strin
         existente.estado = 'ativo'; existente.esgotadoAte = null;
         return { ...existente };
       }
-      throw new Error(`runtime.profiles.invalid: perfil "${perfil.id}" ja existe` +
-        (existente.estado === 'desativado' ? ` (desativado em ${diretorioDoPerfil(existente)}; reative com o mesmo --runtime e --dir)` : ''));
+      const desativadoEm = existente.estado === 'desativado' ? diretorioDoPerfil(existente) : null;
+      throw new ErroDoCatalogo((m) => m.accounts.jaExiste(perfil.id, desativadoEm));
     }
     if (store.perfis.some(p => p.runtime === runtime && diretorioDoPerfil(p) === dir))
-      throw new Error(`runtime.profiles.invalid: ja ha perfil ${runtime} em ${dir}`);
+      throw new ErroDoCatalogo((m) => m.accounts.jaHaPerfil(runtime, dir));
     // A7: o mesmo diretorio por outro caminho (link simbolico) e a mesma conta, nao outro perfil.
     const real = caminhoRealDoPerfil(dir);
     const mesmo = store.perfis.find(p => p.runtime === runtime && caminhoRealDoPerfil(diretorioDoPerfil(p)) === real);
-    if (mesmo) throw new Error(`runtime.profiles.invalid: ${dir} e o mesmo diretorio do perfil "${mesmo.id}" (${real})`);
+    if (mesmo) throw new ErroDoCatalogo((m) => m.accounts.mesmoDiretorioDoPerfil(dir, mesmo.id, real));
     store.perfis.push(perfil);
     return perfil;
   });
@@ -435,7 +436,7 @@ export function desativarPerfil(raiz: string, id: string): PerfilDeRuntime {
 export function reativarPerfil(raiz: string, id: string): PerfilDeRuntime {
   const p = atualizarPerfis(raiz, store => {
     const p = exigirPerfil(store, id);
-    if (p.estado === 'desativado') throw new Error(`runtime.profiles.invalid: perfil "${id}" esta desativado`);
+    if (p.estado === 'desativado') throw new ErroDoCatalogo((m) => m.accounts.estaDesativado(id));
     p.estado = 'ativo'; p.esgotadoAte = null;
     return { ...p };
   });
@@ -452,7 +453,7 @@ export function marcarFalhaDePerfil(raiz: string, id: string, falha: {
   estado: 'esgotado' | 'sem-auth' | 'provider-pago'; esgotadoAte: string | null; motivo: string; detalhe: string; em?: string;
 }): PerfilDeRuntime {
   if (falha.estado === 'esgotado' && (falha.esgotadoAte === null || !Number.isFinite(Date.parse(falha.esgotadoAte))))
-    throw new Error('runtime.profiles.invalid: cota esgotada exige esgotadoAte');
+    throw new ErroDoCatalogo((m) => m.accounts.cotaExigePrazo);
   const marcado = atualizarPerfis(raiz, store => {
     const p = exigirPerfil(store, id);
     if (p.estado !== 'desativado') p.estado = falha.estado;
@@ -475,7 +476,7 @@ const detalheCurto = (detalhe: string): string => Array.from(detalhe.replace(/\p
 export function registrarConferenciaInconclusiva(raiz: string, id: string, detalhe: string, em = new Date().toISOString()): PerfilDeRuntime {
   return atualizarPerfis(raiz, store => {
     const p = exigirPerfil(store, id);
-    p.ultimaFalha = { motivo: 'runtime.unavailable', em, detalhe: detalheCurto(`conferencia de login inconclusiva: ${detalhe}`) };
+    p.ultimaFalha = { motivo: 'runtime.unavailable', em, detalhe: detalheCurto(msg('pt-BR').accounts.inconclusiva(detalhe)) };
     return { ...p };
   });
 }
@@ -551,12 +552,12 @@ export function chaveDaConta(p: PerfilDeDespacho): string {
 
 function validarRegistroDeContas(v: unknown): RegistroDeContas {
   if (!v || typeof v !== 'object' || (v as { contrato?: unknown }).contrato !== CONTRATO_CONTAS ||
-      !Array.isArray((v as { contas?: unknown }).contas)) throw new Error('runtime.profiles.invalid: registro de contas invalido');
+      !Array.isArray((v as { contas?: unknown }).contas)) throw new ErroDoCatalogo((m) => m.accounts.registroInvalido);
   const contas = (v as { contas: unknown[] }).contas.map((c) => {
     const o = c as Record<string, unknown>;
     if (!o || typeof o.chave !== 'string' || !ESTADOS_COMPARTILHADOS.includes(String(o.estado)) ||
         typeof o.motivo !== 'string' || typeof o.detalhe !== 'string' || typeof o.projeto !== 'string' || typeof o.em !== 'string')
-      throw new Error('runtime.profiles.invalid: conta compartilhada invalida');
+      throw new ErroDoCatalogo((m) => m.accounts.contaInvalida);
     return { chave: o.chave, estado: o.estado as EstadoCompartilhado, esgotadoAte: data(o.esgotadoAte ?? null, 'esgotadoAte'),
       motivo: o.motivo, detalhe: detalheCurto(o.detalhe), em: data(o.em, 'em') as string, projeto: o.projeto };
   });
@@ -630,7 +631,7 @@ export function aplicarContasCompartilhadas(store: StoreDePerfis, contas: readon
     let c: ContaCompartilhada | undefined;
     try { c = porChave.get(chaveDaConta(p)); } catch { return p; }
     if (!c) return p;
-    const falha = { motivo: c.motivo, em: c.em, detalhe: detalheCurto(`visto em outro projeto: ${c.detalhe}`) };
+    const falha = { motivo: c.motivo, em: c.em, detalhe: detalheCurto(msg('pt-BR').accounts.vistoEmOutroProjeto(c.detalhe)) };
     if (c.estado === 'esgotado') {
       const ate = c.esgotadoAte === null ? NaN : Date.parse(c.esgotadoAte);
       if (!(ate > agoraMs)) return p;
@@ -757,13 +758,16 @@ export function menorEsgotadoAte(store: StoreDePerfis, runtimes: readonly string
  * vez, pela `legendaDoFuso()`, quando `perfisComHorario` acusa alguma coluna preenchida.
  */
 export function linhasDePerfis(store: StoreDePerfis): string[][] {
-  return store.perfis.map(p => [p.id, p.runtime, diretorioDoPerfil(p), p.estado,
+  // RM-061 (F3b): o estado (dado do store e do `--json`) so se traduz aqui, pelo id; o motivo tipado sai igual.
+  const m = msg().accounts;
+  return store.perfis.map(p => [p.id, p.runtime, diretorioDoPerfil(p), m.estado(p.estado),
     p.esgotadoAte ? formatarDataHora(p.esgotadoAte) : '-', p.ultimoUso ? formatarDataHora(p.ultimoUso) : '-',
-    p.ultimaFalha ? `${p.ultimaFalha.motivo} em ${formatarDataHora(p.ultimaFalha.em)}` : '-']);
+    p.ultimaFalha ? m.falhaEm(p.ultimaFalha.motivo, formatarDataHora(p.ultimaFalha.em)) : '-']);
 }
 
 /** True quando a tabela mostra algum horario, e a mensagem precisa dizer o fuso uma vez. */
 export function perfisComHorario(store: StoreDePerfis): boolean {
   return store.perfis.some(p => p.esgotadoAte !== null || p.ultimoUso !== null || p.ultimaFalha !== null);
 }
-export const COLUNAS_DE_PERFIS = ['PERFIL', 'RUNTIME', 'DIRETORIO', 'ESTADO', 'ESGOTADO ATE', 'ULTIMO USO', 'ULTIMA FALHA'];
+/** As colunas da tabela em pt-BR; o CLI usa as do catalogo, no locale do comando (`msg().accounts.colunas`). */
+export const COLUNAS_DE_PERFIS: string[] = [...msg('pt-BR').accounts.colunas];

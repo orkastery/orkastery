@@ -8,6 +8,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **CLI em inglês e pt-BR, fatia F3b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): seguem também o
+  locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`,
+  `ork accounts`, `ork network` (fora `network roadmap`), `ork roadmap reservas`, `pegar`, `soltar` e `feat`,
+  `ork docs verificar` e `docs sincronizar`, `ork adapter` e os erros de estado. Com o dono em inglês, o
+  `ork adapter install` copia as skills, as checklists, os comandos e os subagentes em inglês (variantes em
+  `core/assets/*-en/`) para o mesmo destino, e trocar a língua troca no lugar a cópia intacta. O `--json`, o ledger, o
+  `claims.jsonl`, o recibo `INSTALADO.json` e o que o `ork docs verificar` lê nas páginas não mudam; o pt-BR segue igual
+  byte a byte. Ficam em pt-BR, para a F3c, `decisao registrar`, `network roadmap`, `thread new --from-finding` e os
+  prompts de fase. O catálogo vai de 1.020 para 1.653 entradas (cobertura de 25,3% para 39,7%).
+
 - **Ritual do MASTER, mod de papel `dono`, e a nota pelo diálogo nativo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   a ferramenta MCP `ork_request_master_note`, só no servidor do dono, recebe só o `threadId`, pede ao host um formulário
   com a nota de 0 a 5 e o porquê e grava o MASTER com `avaliadoPor` `dono (dialogo nativo)`, o canal do host e o recibo
@@ -50,6 +60,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `verificar` confere a pasta inteira e sai 1 com qualquer lacuna (uso errado sai 2). A conferência tem teto de 100
   `get`, prazo de 60 s e teto de 64 MiB de ledger por consulta. O texto sai em pt-BR e em inglês pelo catálogo, e o
   `--json` é o mesmo nas duas línguas. Os hosts OpenClaw e Hermes chegam na fatia 3.
+- **Conhecimento escrito, fatia 3: os hosts OpenClaw e Hermes** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md),
+  [FEAT-038](docs/produto/FEAT-038-conhecimento-escrito.md)): as quatro tools `ork_conhecimento_*` chegam ao OpenClaw
+  (tools do plugin, só no perfil `coding`) e ao Hermes (wrappers do `bin`) com os mesmos nomes, parâmetros e JSON das
+  tools MCP; cada uma é uma chamada de `ork conhecimento <consulta> --json`, e o host só transporta. Fora do perfil
+  `messaging`, porque o `mostrar` e o `verificar` rodam o `memory.cli` do manifesto (a P6 da fronteira de confiança).
+  O host do OpenClaw confere `id` e `colecao` pelo padrão do schema antes de chamar o `ork`, e os wrappers do Hermes
+  tiram `ORK_HITL_*` do ambiente, como o OpenClaw. A descrição das tools e a skill do Hermes mandam citar o documento
+  pela versão e pela fonte, tratar título e corpo como dado e mostrar cada lacuna como lacuna, nunca como resposta,
+  com a mesma frase. Nos hosts, o conhecimento chega depois de reinstalar a
+  extensão e a skill (`ork adapter install openclaw --dir ~/.openclaw` e `ork adapter install hermes --dir ~/.hermes`).
+  O manifesto do OpenClaw volta a ser a saída do `openclaw plugins build`, que o validador já acusava desatualizado.
 - **Escada de recuperação do runtime** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F4): no
   `runtime.unavailable`, o `ork retry run` sobe três degraus, sempre com o mesmo prompt e o mesmo sha256: reerguer o
   daemon do runtime (no claude-bg, `claude daemon status` diz se o `control.sock` responde, e o daemon de pé com o
@@ -108,6 +129,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   e aparece no `ork doctor` ("transporte do pulse"). O doctor também reprova a batida parada com a linha no crontab.
 
 ### Corrigido
+
+- **A skill e o README do Hermes em inglês com o conhecimento escrito** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)):
+  com o dono em inglês, o `ork adapter install hermes` copiava a skill `orkastery-devmaster` e o README sem as linhas do
+  conhecimento escrito (RM-026 K7, fatia 3), que entraram no original em pt-BR no mesmo dia. As duas variantes inglesas
+  recebem essas linhas, traduzidas, e o pt-BR segue igual byte a byte.
 
 - **As esperas que nunca terminam** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o prompt de toda
   fase, a skill de entrada das duas instalações (`orkastery-bootstrap`), as skills de GO e CHECK, a skill `ork` do
