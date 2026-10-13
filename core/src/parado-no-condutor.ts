@@ -24,7 +24,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { rodarCli } from './forja/executor';
 import { remotoRedigido, remotoValido } from './branch-de-estado';
 import { conducaoDaThread } from './conducao';
 import { raizDoEstado } from './estado-thread';
@@ -128,16 +128,11 @@ export const FORJA_SEM_LEITURA = 'forja sem leitura de PR';
 /** Quem roda o `gh`. Os testes trocam por uma resposta gravada e contam as chamadas. */
 export type ExecutorDoGh = (args: readonly string[], timeoutMs: number) => { status: number | null; stdout: string; stderr: string };
 
-/** O ambiente do `gh`: sem cor, sem prompt e sem host ou repositorio herdados (o host vai no `--repo`). */
-function ambienteDoGh(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, GH_PROMPT_DISABLED: '1', NO_COLOR: '1', CLICOLOR: '0', CLICOLOR_FORCE: '0' };
-  delete env.GH_HOST; delete env.GH_REPO; delete env.GH_FORCE_TTY;
-  return env;
-}
-
 export const ghPadrao: ExecutorDoGh = (args, timeoutMs) => {
-  const r = spawnSync('gh', [...args], { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, env: ambienteDoGh() });
-  return { status: r.status, stdout: r.stdout ?? '', stderr: r.error ? r.error.message : (r.stderr ?? '') };
+  const r = rodarCli({ cmd: 'gh', args, prazoMs: timeoutMs, maxBuffer: 16 * 1024 * 1024,
+    acrescentar: { GH_PROMPT_DISABLED: '1', NO_COLOR: '1', CLICOLOR: '0', CLICOLOR_FORCE: '0' },
+    apagar: ['GH_HOST', 'GH_REPO', 'GH_FORCE_TTY'] });
+  return { status: r.status, stdout: r.stdout, stderr: r.mensagemDoErro ?? r.stderr };
 };
 
 /** Git local sem rede escondida: clone parcial nunca busca objeto durante uma leitura daqui. */

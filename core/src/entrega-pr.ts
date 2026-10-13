@@ -19,6 +19,7 @@ import { ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
 import { dirThread, gravarThread, lerThread, listarIds } from './thread';
 import { exec } from './util';
+import { rodarCli } from './forja/executor';
 import { ErroDoCatalogo, remontar, textoDoCatalogo } from './locale';
 
 export interface EntregaPorPr {
@@ -135,7 +136,11 @@ export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: s
 
 /** O `gh api <caminho>` da entrega externa; os testes injetam as respostas. */
 export type ExecutorGitHub = (caminho: string) => { ok: boolean; stdout: string; stderr: string; code: number };
-const ghApi: ExecutorGitHub = (caminho) => exec('gh', ['api', caminho, '-H', 'Accept: application/vnd.github+json'], process.cwd(), 120000);
+const ghApi: ExecutorGitHub = (caminho) => {
+  const r = rodarCli({ cmd: 'gh', args: ['api', caminho, '-H', 'Accept: application/vnd.github+json'], prazoMs: 120000,
+    maxBuffer: 1024 * 1024 });
+  return { ok: r.status === 0, code: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
+};
 
 function lerJson<T>(r: ReturnType<ExecutorGitHub>): T | null {
   if (!r.ok) return null;

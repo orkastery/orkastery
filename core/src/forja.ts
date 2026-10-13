@@ -15,20 +15,12 @@
  * Resposta fora do formato vira erro tipado, nunca lista vazia: quem le nao confunde "nao li" com
  * "nao tem".
  */
-import { spawnSync } from 'node:child_process';
 import { redigirSegredos } from './hitl';
 import { procurarSegredos } from './policies';
-import { acharBinario } from './rede-forja';
+import { rodarCli } from './forja/executor';
 
-export type TipoDeForja = 'github' | 'gitlab';
-
-/** O repositorio na forja: `repo` e `dono/nome` no GitHub e o caminho completo no GitLab. */
-export interface IdentidadeDaForja { tipo: TipoDeForja; host: string; repo: string }
-
-export type CodigoDeErroDaForja = 'forja.ausente' | 'forja.sem-login' | 'forja.nao-encontrado' | 'forja.tempo-esgotado'
-  | 'forja.inacessivel' | 'forja.resposta-invalida';
-
-export interface ErroDaForja { codigo: CodigoDeErroDaForja; detalhe: string }
+export type { TipoDeForja, IdentidadeDaForja, CodigoDeErroDaForja, ErroDaForja, SaidaDoExecutor, ExecutorDaForja } from './forja/contrato';
+import type { TipoDeForja, IdentidadeDaForja, CodigoDeErroDaForja, ErroDaForja, SaidaDoExecutor, ExecutorDaForja } from './forja/contrato';
 
 /** `texto` e null quando o blob e binario ou veio truncado: a pagina existe e nao foi lida. */
 export interface ArquivoDaForja { caminho: string; texto: string | null }
@@ -69,11 +61,6 @@ export interface PedidoDaForja {
   lidoEm?: string;
 }
 
-export interface SaidaDoExecutor { status: number | null; stdout: string; stderr: string; sinal?: string | null; erro?: string }
-
-/** Quem roda a CLI da forja. Os testes trocam por uma resposta gravada. */
-export type ExecutorDaForja = (cmd: 'gh' | 'glab', args: readonly string[], entrada: string, timeoutMs: number) => SaidaDoExecutor;
-
 const PRAZO_MS = 30000;
 const SHA = /^[0-9a-f]{40}$/;
 const SEGMENTO = /^[A-Za-z0-9_.-]+$/;
@@ -86,14 +73,9 @@ const HOST = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9]
  * usuario (`~/.local/bin` e as outras): o gateway e o cron rodam com PATH curto, e o `gh` da maquina-b
  * mora em `~/.local/bin`. Sem achar, o nome vai cru ao spawn, e o ENOENT continua `forja.ausente`.
  */
-export const executorPadrao: ExecutorDaForja = (cmd, args, entrada, timeoutMs) => {
-  const r = spawnSync(acharBinario(cmd) ?? cmd, [...args], {
-    input: entrada, encoding: 'utf8', timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env, GH_PROMPT_DISABLED: '1', GH_NO_UPDATE_NOTIFIER: '1', GLAB_CHECK_UPDATE: 'false', NO_COLOR: '1' },
-  });
-  return { status: r.status, stdout: (r.stdout ?? '').toString(), stderr: (r.stderr ?? '').toString(), sinal: r.signal ?? null,
-    ...(r.error ? { erro: (r.error as NodeJS.ErrnoException).code ?? r.error.message } : {}) };
-};
+export const executorPadrao: ExecutorDaForja = (cmd, args, entrada, timeoutMs) => rodarCli({ cmd, args, entrada,
+  prazoMs: timeoutMs, maxBuffer: 32 * 1024 * 1024,
+  acrescentar: { GH_PROMPT_DISABLED: '1', GH_NO_UPDATE_NOTIFIER: '1', GLAB_CHECK_UPDATE: 'false', NO_COLOR: '1' } });
 
 // ---------------------------------------------------------------------------
 // Identidade

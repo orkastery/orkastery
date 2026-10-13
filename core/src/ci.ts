@@ -2,6 +2,7 @@
 import { exigirRemoto } from './branch-de-estado';
 import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
+import { rodarCli } from './forja/executor';
 import { branchDaWorktree } from './worktree';
 import { cwdLocalOuNulo } from './procedencia';
 import { verificar, ResultadoVerify } from './verify';
@@ -120,10 +121,9 @@ export function repositorioGitHub(url: string): string | null {
 }
 
 function executorPadrao(input: { repository: string; sha: string; context: string }) {
-  return exec('gh', [
-    'api', `repos/${input.repository}/commits/${input.sha}/check-runs`,
-    '-H', 'Accept: application/vnd.github+json',
-  ], process.cwd(), 120000);
+  const r = rodarCli({ cmd: 'gh', args: ['api', `repos/${input.repository}/commits/${input.sha}/check-runs`,
+    '-H', 'Accept: application/vnd.github+json'], prazoMs: 120000, maxBuffer: 1024 * 1024 });
+  return { ok: r.status === 0, code: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
 export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto = 'origin', executor: ExecutorCi = executorPadrao): ResultadoCi {
