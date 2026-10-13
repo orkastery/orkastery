@@ -501,3 +501,38 @@ test('QP13: o vínculo do revisor recusa o prompt de outro despacho e o prompt f
     assert.equal(motivo(provas(p, e.t.id, verde(e)), 'revisao'), 'noctum.entrega.revisao-sem-vinculo');
   } finally { p.limpar(); }
 });
+
+test('QP14: o merge polvo da thread: a chave que ele deixa na árvore final recusa pelo diff de três pontos, e sem chave a prova não o dá por lido', () => {
+  const p = projetoDaEntrega('noctum-qp14');
+  try {
+    const chave = ['AKIA', 'SIMULADA00000000'].join('');
+    const polvo = (nome: string, extra: Record<string, string>): string => {
+      const e = entregaPronta(p, nome);
+      const wt = e.t.worktree!;
+      const branch = git(wt, 'symbolic-ref', '--short', 'HEAD').stdout.trim();
+      for (const lado of ['1', '2']) {
+        assert.equal(git(wt, 'switch', '-q', '-c', `${nome}-lado${lado}`, branch).ok, true);
+        commitarNaWorktree(e.t, { [`docs/${nome}-lado${lado}.md`]: `# lado ${lado}\n` }, `docs: lado ${lado}`);
+        assert.equal(git(wt, 'switch', '-q', branch).ok, true);
+      }
+      git(wt, 'merge', '--no-ff', '--no-commit', `${nome}-lado1`, `${nome}-lado2`);
+      for (const [arquivo, conteudo] of Object.entries(extra)) {
+        fs.mkdirSync(path.dirname(path.join(wt, arquivo)), { recursive: true });
+        fs.writeFileSync(path.join(wt, arquivo), conteudo);
+        git(wt, 'add', '--', arquivo);
+      }
+      assert.equal(git(wt, 'commit', '-q', '-m', 'merge: os dois lados de uma vez').ok, true);
+      assert.equal(git(wt, 'log', '-1', '--format=%P').stdout.trim().split(' ').length, 3, 'o merge tem três pais');
+      return e.t.id;
+    };
+    // R3-B1 da rodada 3: o git não refaz o merge polvo, e a chave que só ele acrescenta não está em commit nenhum da história.
+    const comChave = provas(p, polvo('qp14', { 'core/src/qp14-config.ts': `export const id = '${chave}';\n` }));
+    const s = comChave.provas.find(x => x.id === 'segredo')!;
+    assert.equal(s.motivo, 'noctum.entrega.segredo', s.detalhe);
+    assert.match(s.detalhe, /core\/src\/qp14-config\.ts:1/);
+    assert.ok(!JSON.stringify(comChave).includes(chave), 'o segredo não aparece em lugar nenhum das provas');
+    const semChave = provas(p, polvo('qp14b', { 'docs/qp14b-nota.md': '# nota\n' })).provas.find(x => x.id === 'segredo')!;
+    assert.equal(semChave.motivo, 'noctum.entrega.nao-provada', semChave.detalhe);
+    assert.match(semChave.detalhe, /mais de dois pais/);
+  } finally { p.limpar(); }
+});

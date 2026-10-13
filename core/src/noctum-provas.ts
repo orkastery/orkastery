@@ -144,6 +144,8 @@ export interface FatosDaEntrega {
   segredos: AchadoDeSegredo[];
   /** Os commits da base até a fonte que a varredura de segredo leu (R2-B2 da rodada 2). */
   commitsVarridos: number;
+  /** R3-B1 da rodada 3: os merges com mais de dois pais na história, que a varredura não lê por commit. */
+  polvos: string[];
   /** `null` quando o CHANGELOG da fonte ou do ancestral comum não se leu (lacuna). */
   changelog: ConferenciaDoChangelog | null;
   /** `lido: false` quando o bundle da fonte existe e o git não o leu (lacuna, e não bundle velho). */
@@ -215,6 +217,11 @@ function provaDaIntegracao(f: FatosDaEntrega): ProvaDaEntrega {
 
 function provaDoSegredo(f: FatosDaEntrega): ProvaDaEntrega {
   if (!f.diffLido) return prova('segredo', LACUNA, 'a história da base até a fonte não saiu inteira: nada se prova sobre ela');
+  // R3-B1 da rodada 3: o merge polvo não tem o remerge; sem segredo achado, a prova não o dá por lido.
+  if (!f.segredos.length && f.polvos.length) {
+    return prova('segredo', 'noctum.entrega.nao-provada', `merge com mais de dois pais na história da thread (${f.polvos.join(', ')}): ` +
+      'a varredura não lê o que ele acrescenta, e o arco não o entrega', { polvos: f.polvos });
+  }
   if (!f.segredos.length) {
     return prova('segredo', null, `nenhum padrão de segredo nas linhas que os ${f.commitsVarridos} commit(s) da thread acrescentam nem ` +
       `nas mensagens deles (${f.arquivos.length} arquivo(s) no diff final)`);
@@ -568,33 +575,77 @@ export function cadeiaDaFonte(raiz: string, fonte: string, base: string): Commit
 /** Um padrão de segredo achado: o nome do padrão, o arquivo (ou a mensagem do commit), a linha e o commit; nunca o trecho. */
 export interface AchadoDeSegredo { nome: string; arquivo: string; linha: number; commit?: string }
 
+/** Uma linha acrescentada com padrão de segredo, antes de virar achado: o texto só serve para comparar, nunca sai daqui. */
+interface LinhaComSegredo { nome: string; arquivo: string; linha: number; texto: string; commit: string; pais: string[] }
+
 /**
- * R2-B2 da rodada 2: os padrões de segredo na história que a thread empurraria. O push da branch e o merge levam todos os
- * commits de `base..fonte`, e a chave posta num commit e tirada no seguinte some do diff final, mas não do remoto. Por isso
- * a varredura lê as linhas que cada commit acrescenta (no merge, só as que a resolução trouxe: `--diff-merges=remerge`) e
- * as mensagens dos commits. O arquivo que o git acha binário entra como texto (`--text`, A6 da rodada 1): um byte nulo não
- * esconde a chave. `lido` é falso quando a história não saiu inteira, e então a prova não diz "nenhum segredo".
+ * As linhas acrescentadas de uma saída de `git diff` ou `git log -p` com `--unified=0`, com o arquivo, o número da linha
+ * nova e os padrões de segredo de cada uma. No `git log`, a linha do formato (`\0<sha> <pais>`) abre cada commit; devolve
+ * os merges com mais de dois pais, que o git não refaz pelo `--diff-merges=remerge`.
  */
-export function segredosDaHistoria(raiz: string, base: string, fonte: string): { lido: boolean; commits: number; achados: AchadoDeSegredo[] } {
-  const r = git(raiz, ['-c', 'core.quotePath=false', 'log', '--format=%x00%H', '-p', '--text', '--no-color', '--no-ext-diff', '--unified=0',
-    '--no-renames', '--diff-merges=remerge', `${base}..${fonte}`], 300000);
-  const mensagens = git(raiz, ['log', '--format=%x00%H%n%B', `${base}..${fonte}`]);
-  const achados: AchadoDeSegredo[] = [];
-  if (!r.ok || !mensagens.ok) return { lido: false, commits: 0, achados };
-  let commit = '', arquivo = '', nova = 0, cabecalho = false;
-  for (const l of r.stdout.split('\n')) {
+function segredosDaSaida(saida: string, achar: (s: LinhaComSegredo) => void): string[] {
+  const polvos: string[] = [];
+  let commit = '', pais: string[] = [], arquivo = '', nova = 0, cabecalho = false;
+  for (const l of saida.split('\n')) {
     // A linha do formato abre cada commit; dentro do diff, toda linha começa por espaço, "+", "-" ou "\".
-    if (l.startsWith('\0')) { commit = l.slice(1, 13); cabecalho = false; arquivo = ''; continue; }
+    if (l.startsWith('\0')) {
+      const [sha, ...resto] = l.slice(1).split(' ');
+      commit = sha.slice(0, 12);
+      pais = resto.filter(Boolean);
+      if (pais.length > 2) polvos.push(commit);
+      cabecalho = false; arquivo = '';
+      continue;
+    }
     if (l.startsWith('diff --git ')) { cabecalho = true; arquivo = ''; continue; }
     // O `+++` só é o nome do arquivo no cabeçalho; dentro do hunk, é uma linha acrescentada que começa por "++".
     if (cabecalho && l.startsWith('+++ ')) { arquivo = l.slice(4).replace(/^b\//, ''); continue; }
     const h = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(l);
     if (h) { nova = Number(h[1]); cabecalho = false; continue; }
     if (!cabecalho && l.startsWith('+') && arquivo) {
-      for (const a of procurarSegredos(l.slice(1))) achados.push({ nome: a.nome, arquivo, linha: nova, commit });
+      for (const a of procurarSegredos(l.slice(1))) achar({ nome: a.nome, arquivo, linha: nova, texto: l.slice(1), commit, pais });
       nova += 1;
     }
   }
+  return polvos;
+}
+
+/**
+ * R2-B2 da rodada 2: os padrões de segredo na história que a thread empurraria. O push da branch e o merge levam todos os
+ * commits de `base..fonte`, e a chave posta num commit e tirada no seguinte some do diff final, mas não do remoto. Por isso
+ * a varredura lê as linhas que cada commit acrescenta (no merge, só as que a resolução trouxe: `--diff-merges=remerge`) e
+ * as mensagens dos commits. O arquivo que o git acha binário entra como texto (`--text`, A6 da rodada 1): um byte nulo não
+ * esconde a chave. `lido` é falso quando a história não saiu inteira, e então a prova não diz "nenhum segredo".
+ *
+ * R3-B1 da rodada 3: o diff de três pontos entra também, em união com a história, porque o git não refaz o merge polvo
+ * (mais de dois pais), e o que a árvore final da thread acrescenta está sempre nele; o merge polvo volta em `polvos`, e a
+ * prova não o dá por lido. R3-A2: no merge, a linha que já está no arquivo de um dos pais não é da thread (o remerge mostra
+ * assim a linha da base que a regra do núcleo pôs antes da thread).
+ */
+export function segredosDaHistoria(raiz: string, base: string, fonte: string):
+  { lido: boolean; commits: number; polvos: string[]; achados: AchadoDeSegredo[] } {
+  const r = git(raiz, ['-c', 'core.quotePath=false', 'log', '--format=%x00%H %P', '-p', '--text', '--no-color', '--no-ext-diff', '--unified=0',
+    '--no-renames', '--diff-merges=remerge', `${base}..${fonte}`], 300000);
+  const final = git(raiz, ['-c', 'core.quotePath=false', 'diff', '--text', '--no-color', '--no-ext-diff', '--unified=0', '--no-renames',
+    `${base}...${fonte}`], 300000);
+  const mensagens = git(raiz, ['log', '--format=%x00%H%n%B', `${base}..${fonte}`]);
+  const achados: AchadoDeSegredo[] = [];
+  if (!r.ok || !final.ok || !mensagens.ok) return { lido: false, commits: 0, polvos: [], achados };
+  const doPai = new Map<string, string[] | null>();
+  const linhasDoPai = (pai: string, arquivo: string): string[] | null => {
+    const chave = `${pai}:${arquivo}`;
+    if (!doPai.has(chave)) doPai.set(chave, blobEm(raiz, pai, arquivo)?.split('\n') ?? null);
+    return doPai.get(chave)!;
+  };
+  const vistos = new Set<string>();
+  const guardar = (s: LinhaComSegredo): void => {
+    if (s.pais.length === 2 && s.pais.some(pai => linhasDoPai(pai, s.arquivo)?.includes(s.texto))) return;
+    const chave = `${s.nome}\0${s.arquivo}\0${s.texto}`;
+    if (vistos.has(chave)) return;
+    vistos.add(chave);
+    achados.push({ nome: s.nome, arquivo: s.arquivo, linha: s.linha, ...(s.commit ? { commit: s.commit } : {}) });
+  };
+  const polvos = segredosDaSaida(r.stdout, guardar);
+  segredosDaSaida(final.stdout, guardar);
   const blocos = mensagens.stdout.split('\0').filter(Boolean);
   for (const bloco of blocos) {
     const [sha, ...linhas] = bloco.split('\n');
@@ -602,7 +653,7 @@ export function segredosDaHistoria(raiz: string, base: string, fonte: string): {
       for (const a of procurarSegredos(linha)) achados.push({ nome: a.nome, arquivo: 'mensagem do commit', linha: i + 1, commit: sha.slice(0, 12) });
     });
   }
-  return { lido: true, commits: blocos.length, achados };
+  return { lido: true, commits: blocos.length, polvos, achados };
 }
 
 /** Os autores do candidato: as sessões de GO, as que começaram antes do GO num bloco com GO, e as que commitaram. */
@@ -734,7 +785,7 @@ export function lerFatosDaEntrega(carregado: ManifestoCarregado, threadId: strin
     comandosEsperados: comandosDoManifesto(daBranch.manifesto).length,
     // A2 da rodada 1: a claim de mutante sem comando não executa nada e nunca prova a guarda; ela não conta como mutante.
     claims: claimsAtivas.map(c => ({ id: c.id, mutante: ALEGACAO_DE_MUTANTE.test(c.alegacao) && c.verificar.length > 0 })),
-    ciExigido: manifesto.ci.required_for_ship === true, ci: null, arquivos: [], diffLido: false, segredos: [], commitsVarridos: 0, changelog: null,
+    ciExigido: manifesto.ci.required_for_ship === true, ci: null, arquivos: [], diffLido: false, segredos: [], commitsVarridos: 0, polvos: [], changelog: null,
     bundle: { ok: false, texto: 'a fonte não se lê' },
   };
   if (!fonte) return fatos;
@@ -762,6 +813,7 @@ export function lerFatosDaEntrega(carregado: ManifestoCarregado, threadId: strin
   const varridos = segredosDaHistoria(raiz, base.sha, fonte);
   fatos.segredos = varridos.achados;
   fatos.commitsVarridos = varridos.commits;
+  fatos.polvos = varridos.polvos;
   fatos.diffLido = mudados.ok && varridos.lido;
   // O CHANGELOG do ancestral comum e o da fonte; a leitura que falha deixa `changelog` nulo, e a prova dele é lacuna.
   const ancestral = git(raiz, ['merge-base', base.sha, fonte]);
