@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { repositorioGitHub } from '../src/ci';
 import { hostComPorta, lerEnderecoDoRemoto } from '../src/forja/endereco';
 
 const casos: Array<[string, ReturnType<typeof lerEnderecoDoRemoto>]> = [
@@ -20,4 +21,12 @@ for (const [url, esperado] of casos) {
 test('hostComPorta só põe a porta quando ela existe', () => {
   assert.equal(hostComPorta(lerEnderecoDoRemoto('https://ghe.empresa.com:8443/o/r')!), 'ghe.empresa.com:8443');
   assert.equal(hostComPorta(lerEnderecoDoRemoto('git@github.com:o/r.git')!), 'github.com');
+});
+
+test('git:// e o apelido ssh.github.com', () => {
+  assert.deepEqual(lerEnderecoDoRemoto('git://github.com/o/r.git'), { protocolo: 'git', host: 'github.com', porta: null, caminho: 'o/r' });
+  assert.equal(repositorioGitHub('git://github.com/o/r.git'), 'o/r');
+  assert.equal(repositorioGitHub('git://github.com/o/r'), 'o/r');
+  assert.equal(repositorioGitHub('ssh://git@ssh.github.com:443/o/r.git'), 'o/r');
+  assert.equal(repositorioGitHub('ssh://git@ssh.gitlab.com/o/r.git'), null);
 });

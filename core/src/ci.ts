@@ -119,7 +119,7 @@ export function motivoDiferimentoCi(
 
 export function repositorioGitHub(url: string): string | null {
   const e = lerEnderecoDoRemoto(url);
-  return e && e.host === 'github.com' && e.caminho.split('/').length === 2 ? e.caminho : null;
+  return e && (e.host === 'github.com' || e.host === 'ssh.github.com') && e.caminho.split('/').length === 2 ? e.caminho : null;
 }
 
 function executorPadrao(input: { repository: string; sha: string; context: string }) {

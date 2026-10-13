@@ -15,7 +15,7 @@
  * Resposta fora do formato vira erro tipado, nunca lista vazia: quem le nao confunde "nao li" com
  * "nao tem".
  */
-import { lerEnderecoDoRemoto } from './forja/endereco';
+import { lerHostDoRemoto } from './forja/endereco';
 import { redigirSegredos } from './hitl';
 import { procurarSegredos } from './policies';
 import { rodarCli } from './forja/executor';
@@ -101,17 +101,9 @@ function montar(tipo: TipoDeForja, host: string, caminho: string): IdentidadeDaF
  * na URL nunca entra; caminho local e host que nao e hostname voltam null.
  */
 export function enderecoDoRemoto(url: string): { host: string; caminho: string } | null {
-  // Parser unico (forja/endereco.ts); o `HOST` daqui continua exigindo ponto. O que o parser recusa e este
-  // caminho aceitava (`git://`, caminho de um segmento, `.`/`..` que `montar` rejeita depois) segue no legado.
-  const lido = lerEnderecoDoRemoto(url);
-  if (lido) return HOST.test(lido.host) ? { host: lido.host, caminho: lido.caminho } : null;
-  const t = url.trim();
-  const esquema = /^(?:https?|ssh|git|git\+ssh|ssh\+git):\/\/(?:[^@/]*@)?([^/:?#@]+)(?::\d+)?\/([^?#\s]+)$/i.exec(t);
-  const scp = esquema ? null : /^(?:[^@\s/:]+@)?([^:\s/@]+):(?!\/\/)([^\s]+)$/.exec(t);
-  const achado = esquema ?? scp;
-  if (!achado) return null;
-  const host = achado[1].toLowerCase();
-  return HOST.test(host) ? { host, caminho: achado[2].replace(/^\/+/, '') } : null;
+  // Parser unico (forja/endereco.ts); aqui so o `HOST` com ponto e o caminho como escrito (`montar` o valida).
+  const lido = lerHostDoRemoto(url);
+  return lido && HOST.test(lido.host) ? { host: lido.host, caminho: lido.caminhoBruto } : null;
 }
 
 /**
