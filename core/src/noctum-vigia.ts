@@ -155,15 +155,19 @@ const RECUSAS_PASSAGEIRAS = ['runtime.quota-exhausted', 'runtime.auth-missing', 
   'conducao.em-andamento', 'baseline.pendente', 'noctum.orcamento.esgotado'];
 export const passageira = (motivo: string | null): boolean => !motivo || RECUSAS_PASSAGEIRAS.includes(motivo) || motivo.startsWith('noctum.reconciliacao.');
 
-/** As recusas seguidas do trabalho, das mais novas para trás, que não passam (B4 do CHECK). */
-export function recusasSeguidas(estado: EstadoDoArco, trabalho: string): { n: number; motivo: string | null } {
-  let n = 0, motivo: string | null = null;
+/**
+ * As recusas seguidas do trabalho, das mais novas para trás, que não passam (B4 do CHECK), e o instante da reserva da
+ * primeira delas: a série precisa durar uma cadência para isolar (aviso da rodada 4).
+ */
+export function recusasSeguidas(estado: EstadoDoArco, trabalho: string): { n: number; motivo: string | null; desde: string | null } {
+  let n = 0, motivo: string | null = null, desde: string | null = null;
   for (const d of estado.despachos.filter(x => x.trabalho === trabalho).sort((a, b) => b.seq - a.seq)) {
     if (d.desfecho !== 'recusado' || passageira(d.motivo)) break;
     n += 1;
     motivo ??= d.motivo;
+    desde = d.reservadoEm;
   }
-  return { n, motivo };
+  return { n, motivo, desde };
 }
 
 /** O vigia não roda a baseline dentro do tique (A6 do CHECK): ela fica para o condutor, e o passo espera por ela. */
@@ -365,11 +369,12 @@ function reconciliarSobATravaDeDespacho(carregado: ManifestoCarregado, arco: str
     if (estado.situacao !== 'vigente' || lerSupervisao(raiz, arco).parada) return;
     aplicarSessoes(carregado, arco, conteudo, leitura, quando, opcoes, lacunas, contagem, consultar);
     // B4 do CHECK: o trabalho que o núcleo recusa seguidas vezes pelo mesmo tipo de motivo (a árvore, a policy, o erro
-    // antes de lançar) não volta a noite toda: no teto, é isolado.
+    // antes de lançar) não volta a noite toda: no teto, e com a série durando ao menos uma cadência, é isolado. O soluço
+    // mais curto que a cadência (a conferência de login inconclusiva da A14, que o núcleo refaz a cada despacho) não isola.
     const depois = lerArco(raiz, arco, quando)!;
     for (const t of conteudo.trabalhos) {
       const r = recusasSeguidas(depois, t.id);
-      if (r.n >= parametros.tetoDeRetomadas &&
+      if (r.n >= parametros.tetoDeRetomadas && r.desde !== null && Date.parse(quando) - Date.parse(r.desde) >= parametros.cadenciaMs &&
           isolar(carregado, arco, t.id, null, r.motivo === 'noctum.despacho.erro' ? 'erro-repetido' : 'recusas-repetidas',
             `${r.n} despachos seguidos recusados pelo núcleo (${String(r.motivo)}): o dono decide`, quando)) contagem.isolados += 1;
     }
