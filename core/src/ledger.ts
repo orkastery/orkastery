@@ -155,6 +155,9 @@ export const TIPOS_DE_EVENTO = {
   // RM-063 (F6): o dono foi avisado de que a maquina esta ociosa (vaga livre e item reservado para ela sem ninguem
   // trabalhando), uma linha por episodio, no ledger do projeto. Escritor: a varredura (`pulse-delivery.ts`).
   maquinaOciosaAvisada: 'maquina_ociosa_avisada',
+  // RM-063 (F7): o dono gravou a autorizacao duravel desta maquina (`ork conducao autorizar`), no ledger do projeto, com
+  // quem autorizou, ate quando, o que pode e a que ela substituiu. Escritor: `autorizacao-duravel.ts`.
+  autorizacaoConcedida: 'autorizacao_concedida',
   // RM-059 (F6, T6.4): a Sentinela do Condutor ligou ou desligou nesta maquina (ledger do projeto, so na troca).
   sentinelaLigada: 'sentinela_ligada',
   sentinelaDesligada: 'sentinela_desligada',
