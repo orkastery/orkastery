@@ -407,6 +407,36 @@ Veja [os contratos de governança e migração](../guias/memoria-e-handoff.md) e
 
 ---
 
+## Conhecimento escrito (RM-026 K7)
+
+Os documentos da empresa (política, especificação, guia), em Markdown versionado na pasta que o `orkastery.yaml`
+declara em `conhecimento.dir`, no [contrato `ork.conhecimento/v1`](contratos/conhecimento-rm026.md). Só leitura:
+escrever um documento é um commit numa thread, com PR.
+
+| Comando | O que faz |
+| --- | --- |
+| `ork conhecimento listar [--colecao C] [--json]` | Os documentos válidos, com título, coleções, arquivo e versão (o sha256 do arquivo); `ork conhecimento` sozinho é o mesmo. Não abre o Brain nem mostra referência |
+| `ork conhecimento mostrar <doc-id> [--json]` | O documento com o corpo, a versão, a fonte e as referências: as decisões conferidas no ledger e cada id do Brain conferido por `get` no Company Brain |
+| `ork conhecimento colecoes [--json]` | As coleções e os documentos de cada uma |
+| `ork conhecimento verificar [--json]` | Confere a pasta inteira, com os ids do Brain por `get`, e sai 1 com qualquer lacuna |
+
+Documento inválido e referência que não confere saem como lacuna tipada, nunca como resposta: o id que o Brain não
+tem (`referencia.brain-inexistente`), o que ele retém (`referencia.brain-retido`) e o Brain fora do ar ou sem
+configuração (`referencia.brain-indisponivel`) são lacunas distintas. `listar` e `colecoes` saem 1 só quando a pasta
+não foi lida, e `mostrar`, quando o id não tem documento válido (`documento.inexistente`); uso errado sai 2. Só o
+`mostrar` e o `verificar` chamam o Brain e leem os ledgers das decisões, com teto de `get`, de prazo e de bytes por
+consulta ([contrato](contratos/conhecimento-rm026.md#tetos)). O texto segue a língua do dono; o `--json` é o mesmo nas duas línguas e o mesmo das tools MCP `ork_conhecimento_listar`,
+`ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar`.
+
+```bash
+ork conhecimento colecoes
+ork conhecimento listar --colecao rh
+ork conhecimento mostrar doc-politica-de-ferias --json
+ork conhecimento verificar
+```
+
+---
+
 ## Grafo de código (RM-031, KG3)
 
 O índice persistente e a consulta do [grafo determinístico](contratos/indice-grafo-kg3.md). O

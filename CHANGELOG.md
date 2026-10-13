@@ -8,6 +8,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Conhecimento escrito, fatia 2: o comando e as tools MCP** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
+  `ork conhecimento listar [--colecao C]|mostrar <doc-id>|colecoes|verificar`, todos com `--json`, e as tools
+  `ork_conhecimento_listar`, `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar` no
+  `ork mcp serve`, só leitura, respondem o mesmo JSON do contrato `ork.conhecimento/v1`
+  ([contrato](docs/referencia/contratos/conhecimento-rm026.md)). O `mostrar` traz o corpo, a versão (sha256), a fonte e
+  as referências, com cada id do Brain conferido por `get` no Company Brain: o id que o Brain não tem, o que ele retém e
+  o Brain fora do ar viram lacunas distintas (`referencia.brain-inexistente`, `referencia.brain-retido` e
+  `referencia.brain-indisponivel`), nunca resposta. `listar` e `colecoes` não chamam o Brain nem leem ledger, e
+  `verificar` confere a pasta inteira e sai 1 com qualquer lacuna (uso errado sai 2). A conferência tem teto de 100
+  `get`, prazo de 60 s e teto de 64 MiB de ledger por consulta. O texto sai em pt-BR e em inglês pelo catálogo, e o
+  `--json` é o mesmo nas duas línguas. Os hosts OpenClaw e Hermes chegam na fatia 3.
 - **Escada de recuperação do runtime** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F4): no
   `runtime.unavailable`, o `ork retry run` sobe três degraus, sempre com o mesmo prompt e o mesmo sha256: reerguer o
   daemon do runtime (no claude-bg, `claude daemon status` diz se o `control.sock` responde, e o daemon de pé com o
@@ -36,6 +47,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   trabalha, o `ork pulse` traz `maquinaOciosa` com as próximas threads sugeridas, até o número de vagas livres, cada
   uma com o passo e o comando, e a varredura avisa o dono na hora, uma vez por episódio, com o aviso no ledger do
   projeto (`maquina_ociosa_avisada`).
+
+### Corrigido
+
+- **Prazo de cada chamada ao Company Brain** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
+  `memory.timeout_ms` fora da faixa (0, negativo ou fração) passa a valer o padrão de 15 s no transporte do Brain, em
+  vez de esperar sem prazo (0) ou falhar com erro (negativo ou fração). Visto na revisão da fatia 2 do K7.
 
 ## [0.5.6] - 2026-10-12
 

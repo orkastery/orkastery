@@ -99,15 +99,15 @@ Agrupada por módulo. "Dado externo" é o que pode vir do clone; o resto é iner
 | `docs/roadmap/*.md`, `README.md`, `orkastery.setup.json`, `orkastery.yaml` como link | arquivo do clone | escrita segue o link, só se o alvo tiver o formato esperado e só em comando explícito | Defendido pelo formato; baixo |
 | nomes vindos das branches `ork/*` e de outras máquinas | branch de estado | nunca viram caminho local | Inerte |
 | `projetos.json` | `~/.orkastery` | exige caminho absoluto | Inerte |
-| `conhecimento.dir` e os documentos dela ([RM-026 K7](contratos/conhecimento-rm026.md)) | manifesto e arquivos do clone | não existia | só leitura: pasta relativa, sem `..`, fora de `.git` e `.orkastery` e, pelo caminho real, dentro da raiz (`conhecimento.dir-fora-da-raiz`); link dentro dela nunca é seguido (`documento.link`), arquivo abre com `O_NOFOLLOW` e nenhum processo é criado; a citação `thread#linha` só vira caminho depois da regra de id e do `estado.link` |
+| `conhecimento.dir` e os documentos dela ([RM-026 K7](contratos/conhecimento-rm026.md)) | manifesto e arquivos do clone | não existia | só leitura: pasta relativa, sem `..`, fora de `.git` e `.orkastery` e, pelo caminho real, dentro da raiz (`conhecimento.dir-fora-da-raiz`); link dentro dela nunca é seguido (`documento.link`), arquivo abre com `O_NOFOLLOW` e o leitor não cria processo; a citação `thread#linha` só vira caminho depois da regra de id e do `estado.link`. Na fatia 2, o `ork conhecimento mostrar\|verificar` e as tools `ork_conhecimento_mostrar` e `ork_conhecimento_verificar` conferem o id do Brain (na forma do portfólio) pelo transporte do `ork brain get`: o `memory.cli` que o manifesto escolhe (nome no PATH ou caminho absoluto), com os argumentos fixos e o cwd no `$HOME`; o `listar` e o `colecoes` não criam processo. O executável escolhido pelo manifesto é o pendente P6 |
 
 ## 6. Pendentes do dono
 
 Fechar estes itens exige mudar comportamento que hoje é aceito ou documentado. Por isso a auditoria não os
 alterou. P1 a P5 ganharam correção na thread `ork-rm047procede`, mesclada por decisão do dono (S1 a, 11/10/2026)
-como patch de segurança; a coluna da direita diz o estado de cada um. A regra é a mesma nos cinco: o que vem com o repositório
-não decide executável, caminho fora da raiz nem publicação desta máquina; quando o uso é legítimo, a máquina
-confirma fora do git, e a recusa é tipada e diz o comando.
+como patch de segurança; a P6 segue pendente. A coluna da direita diz o estado de cada um. A regra é a mesma em
+todos: o que vem com o repositório não decide executável, caminho fora da raiz nem publicação desta máquina; quando
+o uso é legítimo, a máquina confirma fora do git, e a recusa é tipada e diz o comando.
 
 | Id | Classe do problema | Por que é contrato, ou o estado |
 | --- | --- | --- |
@@ -116,6 +116,7 @@ confirma fora do git, e a recusa é tipada e diz o comando.
 | P3 | `worktree.dir` do manifesto aceita `..` e caminho absoluto, e o `git worktree add` cria o checkout fora da raiz | **Corrigido, em decisão do dono.** Worktree fora da raiz segue possível, mas quem decide é a máquina: fora da raiz pelo caminho real (`..`, absoluto, link no caminho, `.git`), a criação recusa com `worktree.dir-fora-da-raiz` até `ork setup worktree confirmar`, gravado em `.orkastery/private/worktree-local.json` (0600, fora do git, só para este checkout e esta pasta). O `ork doctor` acusa. O MCP segue recusando |
 | P4 | `ork eval` trata qualquer diretório com `skills/`, `references/` e `eval/` como catálogo e executa os hooks e o `core/dist` dele | **Corrigido, em decisão do dono.** O eval só executa o catálogo do pacote que está rodando (achado a partir do próprio código). Um catálogo achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio`, e a mensagem diz como rodar o `ork` daquele checkout de propósito. O CI do kit (`node core/dist/index.js eval` na raiz) não muda |
 | P5 | `fabrica.compartilhada: true` vindo do manifesto liga a publicação, em segundo plano, do retrato desta máquina (threads, nome, host) para o remoto do clone | **Corrigido, em decisão do dono.** O opt-in é da máquina: só `ork fabrica entrar` (`~/.orkastery/maquina.json`) ou `ORK_FABRICA_COMPARTILHADA=1` ligam a publicação e a leitura das outras máquinas. O `fabrica.compartilhada` do manifesto vira pedido do time: o `ork doctor` e o `ork fabrica` avisam (`fabrica.nao-confirmada`) e dizem o comando |
+| P6 | O `memory.cli` do manifesto pode ser qualquer nome do PATH ou caminho absoluto, inclusive dentro do clone, e o `memory.database_url_env` nomeia qualquer variável de ambiente; o executável roda com `brain request` (cwd no `$HOME`) em toda consulta ao Brain com a configuração `orkmind`, também nas de leitura: `ork brain status`, `ork conhecimento mostrar\|verificar` e as tools de leitura do Brain e do conhecimento | **Pendente do dono.** Visto na revisão da fatia 2 do K7 da RM-026 (12/10/2026), que só abriu novas portas de leitura para a mesma classe. Fechar muda o que o manifesto aceita hoje: recusar o caminho real dentro do clone, como a P3, ou pedir a confirmação local da máquina, como a P1 |
 
 Também ficam registrados, com risco baixo: `ork retry run --dry-run` na ação `corrigir-dirigido`
 reexecuta claims e verify (comandos declarados, mas contra a semântica do `--dry-run`); o perfil do
