@@ -22,8 +22,9 @@ evidencias:
   testes:
     n1: core/test/noctum-envelope.test.ts (E1 a E12) e core/test/noctum-arco.test.ts (A1 a A26)
     n2: core/test/noctum-fila.test.ts (F1 a F17), noctum-capacidade.test.ts (C1 a C10), fila-pesada.test.ts (P1 a P11), fila-pesada-verify.test.ts (V1 a V12) e noctum-execucao.test.ts (X1 a X15)
+    n4: core/test/noctum-supervisao.test.ts (S1 a S12), noctum-reconciliacao.test.ts (R1 a R15), noctum-vigia.test.ts (G1 a G8), noctum-fila.test.ts (F18 a F20) e noctum-execucao.test.ts (X16 a X18)
 sdlc:
-  thread: ork-rm058n2
+  thread: ork-rm058n4
   modo: "#Auto"
   fase: GOAL
   status: aberta
@@ -41,9 +42,9 @@ sdlc:
 
 <!-- ork-docs:relance:fim -->
 
-**Em desenvolvimento, com as quatro decisões de produto tomadas e as fatias N1 e N2 implementadas nas threads `ork-rm058n1` e `ork-rm058n2`.** Esta página planeja o #Noctum; o modo ainda não está habilitado e `#Noctum` não é aceito como modo.
+**Em desenvolvimento, com as quatro decisões de produto tomadas e as fatias N1, N2 e N4 implementadas nas threads `ork-rm058n1`, `ork-rm058n2` e `ork-rm058n4`.** Esta página planeja o #Noctum; o modo ainda não está habilitado e `#Noctum` não é aceito como modo.
 
-- Fora da [N1](#n1-envelope-e-estado-do-arco) e da [N2](#n2-fila-local-e-capacidade), as regras abaixo são requisitos futuros. A duração vem do pedido do dono, não de um ensaio de autonomia já aprovado.
+- Fora da [N1](#n1-envelope-e-estado-do-arco), da [N2](#n2-fila-local-e-capacidade) e da [N4](#n4-supervisão-e-recuperação), as regras abaixo são requisitos futuros. A duração vem do pedido do dono, não de um ensaio de autonomia já aprovado.
 - Em 12/10/2026 o dono decidiu D1 a D4 (veja [Decisões do dono](#decisões-do-dono)); seguem pendentes a prioridade final, o horário e o canal do relatório da manhã e os valores do teto, que o dono preenche antes do primeiro piloto.
 - O primeiro piloto continua dependendo da autorização do dono.
 
@@ -127,6 +128,23 @@ Implementada na thread `ork-rm058n2` (modo #Auto), sem ligar o modo: nenhum coma
 - **Fica para depois:** reserva nova e coordenação entre máquinas (N3), vigia, retomada e reconciliação (N4), entrega com provas no SHA (N5), fechamento, relatório e medição das outras unidades (N6), e o transporte que liga o modo.
 
 Evidência: `core/test/noctum-envelope.test.ts` (E13 a E18), `core/test/noctum-fila.test.ts` (F1 a F17), `core/test/noctum-capacidade.test.ts` (C1 a C10), `core/test/fila-pesada.test.ts` (P1 a P11), `core/test/fila-pesada-verify.test.ts` (V1 a V12), `core/test/noctum-arco.test.ts` (A27 a A31), `core/test/noctum-execucao.test.ts` (X1 a X15) e o teste do `ork_ship` com a fila ocupada em `core/test/mcp-ship.test.ts`, que rodam em `npm --prefix core test`.
+
+### N4: supervisão e recuperação
+
+Implementada na thread `ork-rm058n4` (modo #Auto), numa máquina, sem ligar o modo: nenhum comando, ferramenta ou gateway abre, executa ou vigia arco, e `#Noctum` segue recusado como modo. Quem chama o vigia a cada 5 min (cron, serviço ou o transporte) é a fatia que liga o modo.
+
+- **Checkpoints** (`core/src/noctum-supervisao.ts`): log append-only `.orkastery/noctum/arcos/<arco>/supervisao.jsonl`, ao lado do log do arco, encadeado e com MAC de subchave própria da chave local (a do log do arco não vale ali), com recusas no tipo fechado `MotivoDaSupervisao`. Guarda as gerações de quem conduz, as batidas, os tiques do vigia, as retomadas autorizadas, as sessões paradas, as contas que o arco tirou, os trabalhos isolados, as recusas de ambiente, a parada, os efeitos incertos e os pedidos da fila durável já tratados, e o estado é relido do disco a cada passo. Os parâmetros vão na primeira linha e valem pelo arco inteiro, mesmo com o manifesto mudado depois: cadência de 5 min (D3), carência de 15 min, vigia ausente depois de 15 min, 3 tiques interrompidos seguidos param o arco, 15 min para o primeiro turno, 90 min sem avanço, teto de retomadas por trabalho e fase igual ao `retry.max_tentativas` (padrão 3), uma retomada por sessão sem primeiro turno, 2 recusas de ambiente seguidas param o arco, 15 min de carência da reserva incerta e 2 leituras do efeito incerto; todos a medir no piloto. O log do arco não ganha linha da supervisão: nada aqui autoriza, renova, emenda ou prorroga o envelope, e a contabilidade da reserva segue no `concluirDespacho`.
+- **Condutor e vigia** (`core/src/noctum-vigia.ts`): a prova de vida é a trava do kernel. O condutor (`conduzirArco`) segura `condutor.lock` pela vida inteira, grava a geração nova com a prova e chama o passo da N2 na cadência que a fila pede; quem perde a geração sai sem despachar. O vigia (`vigiarArco`, um tique) segura `vigia.lock`, registra o tique anterior que ficou aberto (o vigia que morreu no meio), reconcilia, aplica as paradas e, com a trava do condutor livre (o condutor morreu ou nunca existiu), grava a geração dele e dá um passo. O condutor vivo sem batida não é substituído, porque não há prova de ausência. Sem tique do vigia dentro do limite, o condutor não despacha nada novo (`vigia-ausente`).
+- **Reconciliação** (`core/src/noctum-reconciliacao.ts`), só com a trava de despacho livre (nenhum passo no meio): a reserva pendente cujo despacho o ledger prova vira concluída; a de nada lançado (nenhum `phase_prompt_recorded` do arco depois dela) volta ao orçamento; a do id dito antes da falha vai ao runtime (viva conclui, morta conclui e retoma, sem leitura espera); o prompt gravado sem despacho nem id procura a sessão da thread no runtime: achada, conclui e isola o trabalho, porque ela roda fora do registro do núcleo; ausente da listagem completa do claude-bg depois da carência, a sessão volta ao orçamento; sem prova, a reserva fica contada e o trabalho é isolado.
+- **Retomada pelo passo do arco**: a sessão morta sem resultado (estado terminal, fantasma, ou ausente da listagem completa da conta dela no claude-bg), o fim de turno sem resultado depois da carência, a sessão que trabalha sem evento de produto por 90 min (a espera por processo que morreu, o laço que acha a si mesmo) e a sessão sem nenhuma atividade 15 min depois do despacho (o diálogo do servidor MCP novo) viram `sessao_morta` no ledger da thread, o que solta condução e vaga, e uma retomada autorizada. A sessão viva é parada antes pelo controle do runtime (`claude stop` com o ambiente do perfil) e conferida na listagem seguinte. A fase é a seguinte à prova mais adiantada que a sessão deixou depois do despacho, ou a mesma; produto na branch prova o PLAN, não o GO; SHIP e MASTER ficam para a N5. Quem despacha é o passo da N2, com a conferência do envelope, a reserva e a capacidade. No teto, ou na segunda sessão sem primeiro turno, o trabalho é isolado.
+- **Rodízio dentro do envelope**: o passo recebe só as contas do envelope que o store (com o registro compartilhado da [RM-040](RM-040-estado-de-conta-compartilhado.md)) dá como disponíveis e que o arco não tirou, e os runtimes do bloco e da ordem de fallback dele que o envelope admite, com o modelo e o esforço do item. Cota esgotada num despacho do arco sai até o reset dito; sem reset dito, fica fora pelo resto do arco, como lacuna; limite de uso sai até o `liberaEm` do pedido; login perdido tira a conta do arco; subteto esgotado tira a conta. Teto do arco esgotado, recusa por custo e 2 recusas de ambiente seguidas (`runtime.context.conflict`) param o arco, sem retry nem troca de conta.
+- **O pedido do limite de uso**: o `ork phase run` grava a correlação do despacho no pedido da fila durável; o `ork retry resume` não redespacha o pedido de um arco e devolve que a retomada é do vigia, sem regravar o pedido; o vigia autoriza a retomada da fase pelo passo do arco e tira o pedido da fila depois do despacho do arco, ou com o arco encerrado.
+- **Despacho de fora**: o `phase_dispatch` numa thread de trabalho do arco, depois da autorização, sem a correlação do arco (o condutor que relê a última linha do ledger, o `ork retry run`, o dono) isola o trabalho: o arco não conduz junto com outro condutor.
+- **Efeito incerto**: `registrarEfeitoIncerto` e `reconciliarEfeito` deixam o remoto decidir o push que ficou incerto (`git ls-remote`): confirmado nunca se repete; ausente permite repetir abaixo do teto, e quem repete confere o envelope de novo; outro sha na branch, ou remoto sem leitura no teto, isolam o trabalho. Quem chama na entrega é a N5.
+- **Retomada em outra máquina (interface para a N3)**: a geração e as travas são desta máquina. A geração vigente e as anteriores ficam no log de supervisão (`conducao_assumida`, com instância, pid e máquina), e as retomadas, os isolamentos e as contas fora são relidos de lá. Retomar noutra máquina exige revogar a geração anterior entre máquinas e provar que o executor antigo não grava mais (a trava do kernel não cruza máquinas), e só então gravar a geração nova com essa prova. A reconciliação de reserva e de sessão vale para despachos desta máquina, porque a prova vem da listagem local do runtime.
+- **Limites ditos**: a chave local é legível por processos do mesmo usuário (como no log do arco), que escrevem linha nova ou truncam o log; a trava do kernel prova o fim do processo, não o travamento (o condutor vivo e parado só aparece como lacuna); o claude-bg prova a ausência de sessão só com todas as contas lidas, e o codex nunca prova ausência (a reserva incerta do codex fica contada e o trabalho isolado); a parada de sessão codex exige o controller vinculado, que o vigia não infere; o prazo de 90 min sem avanço é parâmetro a medir (uma fase pode passar disso sem produto, como a revisão longa); os despachos de fora não passam pela conferência do envelope e só são percebidos depois; e a cota marcada no store por outro projeto, sem prova do arco, vale pelo prazo do store, que pode ser estimado.
+
+Evidência: `core/test/noctum-supervisao.test.ts` (S1 a S12), `core/test/noctum-reconciliacao.test.ts` (R1 a R15), `core/test/noctum-vigia.test.ts` (G1 a G8), `core/test/noctum-fila.test.ts` (F18 a F20) e `core/test/noctum-execucao.test.ts` (X16 a X18), que rodam em `npm --prefix core test`.
 
 ### Sem HITL no meio, com decisões registradas
 
@@ -218,7 +236,7 @@ O fechamento deverá deixar fila ordenada, envelope encerrado, decisões e evid�
 
 ### Fatias propostas
 
-Os aceites da N1 e da N2 já são testes (veja a [N1](#n1-envelope-e-estado-do-arco) e a [N2](#n2-fila-local-e-capacidade)); os das demais fatias são testes a construir, não provas já executadas. A ordem respeitará dependências e a aprovação das escolhas de produto.
+Os aceites da N1, da N2 e da N4 já são testes (veja a [N1](#n1-envelope-e-estado-do-arco), a [N2](#n2-fila-local-e-capacidade) e a [N4](#n4-supervisão-e-recuperação)); os das demais fatias são testes a construir, não provas já executadas. A ordem respeitará dependências e a aprovação das escolhas de produto.
 
 | Fatia | Resultado | Critério de aceite verificável | Dependências |
 | --- | --- | --- | --- |
@@ -273,7 +291,7 @@ Como mudar: registrar a nova escolha do dono por ingresso autenticado e atualiza
 
 ## Estado com evidências
 
-O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`. Código e testes referem-se ao modo proposto, não à existência desta página. A thread `ork-rm058planeja` preparou o planejamento, a `ork-rm058n1` implementou a [N1](#n1-envelope-e-estado-do-arco) e a `ork-rm058n2` implementa a [N2](#n2-fila-local-e-capacidade); nenhum ensaio Noctum ou entrega do modo é alegado aqui.
+O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`. Código e testes referem-se ao modo proposto, não à existência desta página. A thread `ork-rm058planeja` preparou o planejamento, a `ork-rm058n1` implementou a [N1](#n1-envelope-e-estado-do-arco), a `ork-rm058n2` a [N2](#n2-fila-local-e-capacidade) e a `ork-rm058n4` a [N4](#n4-supervisão-e-recuperação); nenhum ensaio Noctum ou entrega do modo é alegado aqui.
 
 <!-- ork-docs:estado:inicio -->
 
@@ -282,7 +300,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
 | Documentação | Em revisão | — | 2026-10-12 | Julio |
 | Código | Mesclado | commit `5551300` | 2026-10-12 | Julio |
-| Testes | Em execução | n1: core/test/noctum-envelope.test.ts (E1 a E12) e core/test/noctum-arco.test.ts (A1 a A26) · n2: core/test/noctum-fila.test.ts (F1 a F17), noctum-capacidade.test.ts (C1 a C10), fila-pesada.test.ts (P1 a P11), fila-pesada-verify.test.ts (V1 a V12) e noctum-execucao.test.ts (X1 a X15) | 2026-10-12 | Julio |
+| Testes | Em execução | n1: core/test/noctum-envelope.test.ts (E1 a E12) e core/test/noctum-arco.test.ts (A1 a A26) · n2: core/test/noctum-fila.test.ts (F1 a F17), noctum-capacidade.test.ts (C1 a C10), fila-pesada.test.ts (P1 a P11), fila-pesada-verify.test.ts (V1 a V12) e noctum-execucao.test.ts (X1 a X15) · n4: core/test/noctum-supervisao.test.ts (S1 a S12), noctum-reconciliacao.test.ts (R1 a R15), noctum-vigia.test.ts (G1 a G8), noctum-fila.test.ts (F18 a F20) e noctum-execucao.test.ts (X16 a X18) | 2026-10-12 | Julio |
 | Deploy | Não implantado | — | 2026-10-12 | Julio |
 | Exposição | Flag desligada | — | 2026-10-12 | Julio |
 | Habilitação | Pendente | — | 2026-10-12 | Julio |
@@ -292,7 +310,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 ## Responsabilidades e histórico
 
 - **RACI:** R: fábrica Orkastery na elaboração e nas futuras fatias; A: Julio; C: revisores independentes designados por fatia; I: dono pelo canal autorizado.
-- **Agentes envolvidos, atuação e autonomia:** agente Codex redigiu a proposta em #Auto, restrita à documentação; agente Claude Code implementou a N1 e a N2 em #Auto, nas threads `ork-rm058n1` e `ork-rm058n2`. Revisão independente e ratificação de produto não são presumidas; revisor humano: Julio.
+- **Agentes envolvidos, atuação e autonomia:** agente Codex redigiu a proposta em #Auto, restrita à documentação; agente Claude Code implementou a N1, a N2 e a N4 em #Auto, nas threads `ork-rm058n1`, `ork-rm058n2` e `ork-rm058n4`. Revisão independente e ratificação de produto não são presumidas; revisor humano: Julio.
 - **Próxima ação, responsável e prazo:** Julio define a prioridade final, o horário e o canal do relatório e os valores do teto, e autoriza o primeiro piloto; D1–D4 já estão decididas; a N1 e a N2 estão implementadas e a próxima fatia é a N3 (coordenação entre máquinas), sem data de lançamento definida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
@@ -301,3 +319,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-12 | D1 a D4 decididas (C, B, C, B); prioridade final, horário e canal do relatório e valores do teto seguem pendentes; ciclo continua em Refinamento | Decisão do dono de 12/10/2026, registrada na seção Decisões do dono | Julio |
 | 2026-10-12 | N1 implementada: contrato do envelope, estado do arco, ingresso com prova de origem e recusas antes do efeito, com testes; ciclo passa a Em desenvolvimento; valores do teto, horário e canal do relatório seguem pendentes | Thread `ork-rm058n1`, testes E1 a E12 e A1 a A26 | Fábrica Orkastery em #Auto; Julio decide valores e piloto |
 | 2026-10-12 | N2 implementada: contrato `v2` com trabalhos e capacidade, fila do arco, capacidade de sessões, fila de recursos pesados no `ork verify`, passo do arco pelo núcleo e os três aprendizados da madrugada, com testes; o modo segue desligado | Thread `ork-rm058n2`, testes E13 a E17, F1 a F10, C1 a C9, P1 a P9, V1 a V7, A27 a A31 e X1 a X8 | Fábrica Orkastery em #Auto; Julio decide valores e piloto |
+| 2026-10-12 | N4 implementada: checkpoints da supervisão, condutor e vigia com prova de vida pelo kernel, reconciliação do que a N2 deixou no meio, retomada pelo passo do arco, rodízio dentro do envelope, pedido do limite de uso amarrado ao arco e efeito incerto reconciliado pelo remoto, com testes; o modo segue desligado | Thread `ork-rm058n4`, testes S1 a S12, R1 a R15, G1 a G8, F18 a F20 e X16 a X18 | Fábrica Orkastery em #Auto; Julio decide valores e piloto |
