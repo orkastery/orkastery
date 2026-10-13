@@ -509,48 +509,6 @@
       "lint": []
     },
     {
-      "id": "C43",
-      "thread": "ork-rm059ritual",
-      "fase": "GOAL",
-      "arquivo": "core/test/mcp-grafo.test.ts",
-      "alegacao": "O teste do KG5 conta 32 ferramentas no servidor do dono sem a flag do grafo (com a ork_request_master_note) e, com a flag, só as do grafo a mais, no fim da lista.",
-      "negativa": false,
-      "verificar": [
-        "grep -F 'lista as mesmas 32 tools' core/test/mcp-grafo.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/mcp-grafo.test.js"
-      ],
-      "criadoEm": "2026-10-12T21:52:38.765Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C44",
-      "thread": "ork-rm059ritual",
-      "fase": "GOAL",
-      "arquivo": "core/test/projeto-alvo-mcp.test.ts",
-      "alegacao": "O teste do projeto-alvo no MCP conta 32 ferramentas, nomeia a ork_request_master_note entre as somadas e confere que toda ferramenta aceita o projeto com esquema fechado.",
-      "negativa": false,
-      "verificar": [
-        "grep -F \"'ork_request_master_note']) assert.ok(tools.some\" core/test/projeto-alvo-mcp.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/projeto-alvo-mcp.test.js"
-      ],
-      "criadoEm": "2026-10-12T21:52:41.105Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C45",
-      "thread": "ork-rm059ritual",
-      "fase": "GOAL",
-      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
-      "alegacao": "O contrato do KG5 diz que, sem a flag, o servidor lista as mesmas tools do servidor sem a flag, sem fixar um número que a ferramenta nova da nota tornaria falso.",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'Sem a flag, nada muda: as mesmas tools do servidor sem a flag' docs/referencia/contratos/consumo-grafo-kg5.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/consumo-grafo-kg5.md"
-      ],
-      "criadoEm": "2026-10-12T21:52:43.246Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C47",
       "thread": "ork-rm059ritual",
       "fase": "GOAL",
@@ -733,20 +691,6 @@
       "lint": []
     },
     {
-      "id": "C62",
-      "thread": "ork-rm059ritual",
-      "fase": "GOAL",
-      "arquivo": "adapters/claude-code/mods/ork-ritual/hooks/nota.ts",
-      "alegacao": "A thread que seguiu ocupada depois da resposta (master.nota.trava-ocupada) volta a ter o botão Dar a nota, sem a reserva, e o botão espera mais que o diálogo e a trava do núcleo juntos.",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'trava-ocupada' adapters/claude-code/mods/ork-ritual/hooks/nota.ts && grep -qF 'export const PRAZO_DA_NOTA_MS = 370000' adapters/claude-code/mods/ork-ritual/hooks/nota.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
-      ],
-      "criadoEm": "2026-10-13T00:02:51.049Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
       "id": "C63",
       "thread": "ork-rm059ritual",
       "fase": "GOAL",
@@ -759,6 +703,76 @@
       "criadoEm": "2026-10-13T00:02:53.264Z",
       "estado": "pendente",
       "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-ritual/hooks/nota.ts",
+      "alegacao": "A thread que seguiu ocupada depois da resposta (master.nota.trava-ocupada) volta a ter o botão Dar a nota, sem a reserva, e o botão espera 430 s: o diálogo do núcleo, a espera da trava e a soltura ao fechar, que vem antes da resposta.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'trava-ocupada' adapters/claude-code/mods/ork-ritual/hooks/nota.ts && grep -qF 'export const PRAZO_DA_NOTA_MS = 430000' adapters/claude-code/mods/ork-ritual/hooks/nota.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-ritual.test.js"
+      ],
+      "criadoEm": "2026-10-13T00:25:59.727Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/test/master-nota-local.test.ts",
+      "alegacao": "Os testes da soltura ao fechar provam onde ela roda: na nota pelo diálogo e no aceite por omissão, o runtime falso consultado pela soltura acha a trava de HITL da thread livre (D17).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'nota local: o aceite por omissão solta o que a thread segurava com a trava da thread já solta' core/test/master-nota-local.test.ts && grep -qF 'e rodou com a trava da thread já solta' core/test/master-nota-local.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/master-nota-local.test.js"
+      ],
+      "criadoEm": "2026-10-13T00:26:02.477Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/test/mcp-grafo.test.ts",
+      "alegacao": "O teste do KG5 conta 36 ferramentas no servidor do dono sem a flag do grafo (com as ork_conhecimento_* e a ork_request_master_note) e, com a flag, só as do grafo a mais, no fim da lista.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'lista as mesmas 36 tools' core/test/mcp-grafo.test.ts && grep -qF 'com.length, 36 + TOOLS_DO_GRAFO.length' core/test/mcp-grafo.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-13T00:39:13.020Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "core/test/projeto-alvo-mcp.test.ts",
+      "alegacao": "O teste do projeto-alvo no MCP conta 36 ferramentas, nomeia as ork_conhecimento_* e a ork_request_master_note entre as somadas e confere que toda ferramenta aceita o projeto com esquema fechado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'ork_request_master_note']) assert.ok(tools.some\" core/test/projeto-alvo-mcp.test.ts && grep -qF 'assert.equal(tools.length, 36' core/test/projeto-alvo-mcp.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/projeto-alvo-mcp.test.js"
+      ],
+      "criadoEm": "2026-10-13T00:39:15.424Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm059ritual",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "O contrato do KG5 diz que, sem a flag, o servidor lista as mesmas tools do servidor sem a flag (31 quando o KG5 nasceu), sem fixar a contagem atual que as ferramentas novas mudam.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'Sem a flag, nada muda: as mesmas tools do servidor sem a flag' docs/referencia/contratos/consumo-grafo-kg5.md && grep -qF '(31 no KG5)' docs/referencia/contratos/consumo-grafo-kg5.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/consumo-grafo-kg5.md"
+      ],
+      "criadoEm": "2026-10-13T00:39:17.778Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
   "deferredClaims": [
@@ -767,11 +781,11 @@
       "reason": "local-integration-required"
     },
     {
-      "id": "C14",
+      "id": "C50",
       "reason": "local-integration-required"
     },
     {
-      "id": "C50",
+      "id": "C66",
       "reason": "local-integration-required"
     }
   ],
