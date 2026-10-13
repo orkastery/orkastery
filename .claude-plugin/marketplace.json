@@ -71,6 +71,13 @@
       "homepage": "https://orkastery.com/"
     },
     {
+      "name": "ork-ritual",
+      "source": "./marketplaces/claude-code/mods/ork-ritual",
+      "description": "Ritual do MASTER do Orkastery no Claude Code: as entregas que esperam a sua nota, a prova de cada uma (o que foi entregue, o índice derivado do ledger e as claims com comando e estado, uma por vez) e a nota de 0 a 5 pelo diálogo nativo do host. O mod nunca dá a nota pelo dono.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
       "name": "ork-sentinela",
       "source": "./marketplaces/claude-code/mods/ork-sentinela",
       "description": "Sentinela do Condutor do Orkastery no Claude Code: na sessão do dono, despacha a fase seguinte das threads #Auto só pelo núcleo, sem duplicar o condutor externo, que cede enquanto ela conduz; o que só o dono resolve vira aviso com o próximo passo do núcleo.",
