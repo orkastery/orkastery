@@ -28,7 +28,12 @@ export interface BlocoDoChangelog {
 
 interface Secao { titulo: string; inicio: number; fim: number }
 
-const linhasDe = (texto: string): string[] => texto.replace(/\r\n/g, '\n').split('\n');
+/**
+ * As linhas como estão, sem converter CRLF (B3 da rodada 1 do CHECK): a resolução não pode mudar a quebra de linha de quem
+ * não conflitou. A linha em branco é a que só tem espaço (`branca`), com ou sem o `\r`.
+ */
+const linhasDe = (texto: string): string[] => texto.split('\n');
+const branca = (l: string | undefined): boolean => l !== undefined && l.trim() === '';
 const chaveDoBloco = (b: { linhas: string[] }): string => b.linhas.join('\n');
 const titulo = (linha: string): boolean => /^## /.test(linha);
 const subtitulo = (linha: string): boolean => /^### /.test(linha);
@@ -91,10 +96,10 @@ export function entradasDaThread(antes: string, depois: string): BlocoDoChangelo
 // D4: conflitos diff3 só aditivos.
 // ---------------------------------------------------------------------------
 
-const INICIO = /^<{7}(?: |$)/;
-const ANCESTRAL = /^\|{7}(?: |$)/;
-const MEIO = /^={7}$/;
-const FIM = /^>{7}(?: |$)/;
+const INICIO = /^<{7}(?: |\r?$)/;
+const ANCESTRAL = /^\|{7}(?: |\r?$)/;
+const MEIO = /^={7}\r?$/;
+const FIM = /^>{7}(?: |\r?$)/;
 const marcador = (l: string): boolean => INICIO.test(l) || ANCESTRAL.test(l) || MEIO.test(l) || FIM.test(l);
 
 export type ResolucaoDeConflitos = { ok: true; texto: string; conflitos: number } | { ok: false; recusa: string };
@@ -222,15 +227,15 @@ export function posicionarEntradas(texto: string, entradas: readonly BlocoDoChan
     const sec = secaoDaLinha(s, fora)!;
     // Tira o bloco e a linha em branco que sobraria dobrada.
     linhas.splice(fora, e.linhas.length);
-    if (linhas[fora] === '' && (fora === 0 || linhas[fora - 1] === '')) linhas.splice(fora, 1);
+    if (branca(linhas[fora]) && (fora === 0 || branca(linhas[fora - 1]))) linhas.splice(fora, 1);
     // O subtítulo que ficou sem nada na versão, e que a base não tem nela, era da thread: sai também.
     const subAcima = (() => { for (let k = fora - 1; k > sec.inicio; k--) { if (subtitulo(linhas[k])) return k; if (/^- /.test(linhas[k]) || continuacao(linhas[k])) return -1; } return -1; })();
     if (subAcima > 0) {
       let k = subAcima + 1;
-      while (k < linhas.length && linhas[k] === '') k++;
+      while (k < linhas.length && branca(linhas[k])) k++;
       const vazio = k >= linhas.length || titulo(linhas[k]) || subtitulo(linhas[k]);
       if (vazio && !subtitulosDaBase.get(sec.titulo)?.has(linhas[subAcima].trim())) {
-        linhas.splice(subAcima, linhas[subAcima + 1] === '' ? 2 : 1);
+        linhas.splice(subAcima, branca(linhas[subAcima + 1]) ? 2 : 1);
       }
     }
     inserirEmNaoPublicado(linhas, e);
@@ -245,12 +250,12 @@ function inserirEmNaoPublicado(linhas: string[], e: BlocoDoChangelog): void {
   if (!s) {
     const primeiraVersao = secoes(linhas).find(x => ehVersao(x.titulo));
     const onde = primeiraVersao ? primeiraVersao.inicio : linhas.length;
-    const antes = onde > 0 && linhas[onde - 1] !== '' ? [''] : [];
+    const antes = onde > 0 && !branca(linhas[onde - 1]) ? [''] : [];
     linhas.splice(onde, 0, ...antes, SECAO_NAO_PUBLICADO, '');
     s = secaoNaoPublicada(linhas)!;
   }
   // Depois do título da seção (e da linha em branco dele, que é criada quando falta).
-  if (linhas[s.inicio + 1] !== '') linhas.splice(s.inicio + 1, 0, '');
+  if (!branca(linhas[s.inicio + 1])) linhas.splice(s.inicio + 1, 0, '');
   s = secaoNaoPublicada(linhas)!;
   let alvo = s.inicio + 2;
   if (e.subsecao !== null) {
@@ -260,24 +265,38 @@ function inserirEmNaoPublicado(linhas: string[], e: BlocoDoChangelog): void {
       alvo = s.inicio + 4;
     } else {
       const k = s.inicio + 1 + h;
-      if (linhas[k + 1] !== '') linhas.splice(k + 1, 0, '');
+      if (!branca(linhas[k + 1])) linhas.splice(k + 1, 0, '');
       alvo = k + 2;
     }
   }
   linhas.splice(alvo, 0, ...e.linhas, '');
 }
 
-/** As linhas de texto da base que o resultado não tem mais (multiconjunto, sem as linhas em branco). */
-export function linhasDaBasePerdidas(daBase: string, resultado: string): string[] {
+/** As linhas de texto de `antes` que `depois` não tem mais (multiconjunto, sem as linhas em branco). */
+export function linhasRemovidas(antes: string, depois: string): string[] {
   const restantes = new Map<string, number>();
-  for (const l of linhasDe(resultado)) if (l.trim()) restantes.set(l, (restantes.get(l) ?? 0) + 1);
-  const perdidas: string[] = [];
-  for (const l of linhasDe(daBase)) {
+  for (const l of linhasDe(depois)) if (l.trim()) restantes.set(l, (restantes.get(l) ?? 0) + 1);
+  const removidas: string[] = [];
+  for (const l of linhasDe(antes)) {
     if (!l.trim()) continue;
     const n = restantes.get(l) ?? 0;
-    if (n > 0) restantes.set(l, n - 1); else perdidas.push(l);
+    if (n > 0) restantes.set(l, n - 1); else removidas.push(l);
   }
-  return perdidas;
+  return removidas;
+}
+
+/**
+ * As linhas de texto da base que o resultado não tem mais (multiconjunto, sem as linhas em branco), fora as que a própria
+ * thread tirou desde o ancestral comum (`daThread`, A3 da rodada 1): a correção de uma linha antiga não é perda.
+ */
+export function linhasDaBasePerdidas(daBase: string, resultado: string, daThread: readonly string[] = []): string[] {
+  const permitidas = new Map<string, number>();
+  for (const l of daThread) permitidas.set(l, (permitidas.get(l) ?? 0) + 1);
+  return linhasRemovidas(daBase, resultado).filter(l => {
+    const n = permitidas.get(l) ?? 0;
+    if (n > 0) { permitidas.set(l, n - 1); return false; }
+    return true;
+  });
 }
 
 // ---------------------------------------------------------------------------

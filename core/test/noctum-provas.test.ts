@@ -12,8 +12,10 @@ import { ajustarManifesto, ProjetoDeTeste } from './apoio';
 import { avancarBase, ciFalso, claimDe, commitarBundle, commitarNaWorktree, commitDaSessao, concluirRevisao, ENTRADA_DA_THREAD,
   EntregaPronta, entregaPronta, EstadoDoCheck, FORJA, git, head, projetoDaEntrega, sessaoDespachada, threadComWorktree,
   verifyNoLedger } from './noctum-entrega-apoio';
-import { avaliarProvas, classificarCommit, lerFatosDaEntrega, provasDaEntrega, ProvasDaEntrega } from '../src/noctum-provas';
+import { passar } from './noctum-apoio';
+import { avaliarProvas, classificarCommit, FatosDaEntrega, lerFatosDaEntrega, provasDaEntrega, ProvasDaEntrega } from '../src/noctum-provas';
 import { resolverConflitosAditivos } from '../src/noctum-changelog';
+import { adicionarClaim, lerClaims } from '../src/claims';
 import { registrar } from '../src/ledger';
 import { dirThread, gravarThread, lerThread } from '../src/thread';
 
@@ -97,6 +99,10 @@ test('QP1: revisor sem vínculo recusa: sem CHECK do núcleo, sessão não verif
     const r = provas(p, t.id, { [fonte]: 'success' });
     assert.equal(motivo(r, 'revisao'), null);
     assert.equal(r.provas.find(x => x.id === 'revisao')!.evidencia.revisado, fonte);
+    // A5 da rodada 1: sem o sha que o observador viu, o parecer reescrito depois do resultado também não vale.
+    passar(5);
+    fs.appendFileSync(path.join(dirThread(p.dir, t.id), 'docs', 'check.md'), '\nReescrito depois do resultado do codex.\n');
+    assert.equal(motivo(provas(p, t.id, { [fonte]: 'success' }), 'revisao'), 'noctum.entrega.revisao-antiga');
   } finally { p.limpar(); }
 });
 
@@ -270,10 +276,11 @@ test('QP6: falha de build concorrente fica registrada; duas reprovações no SHA
     // Verde sem baseline não vale.
     verifyNoLedger(p, e.t.id, e.fonte, { baseline: false });
     assert.equal(motivo(provas(p, e.t.id, verde(e)), 'verify'), 'noctum.entrega.baseline-ausente');
-    // A claim cadastrada depois do verify não rodou nele.
+    // A claim cadastrada depois do verify não rodou nele e pediria outra rodada; com seis no SHA, o teto já passou (A2 da
+    // rodada 1; o QP10 prova a repetição antes do teto).
     verifyNoLedger(p, e.t.id, e.fonte);
     claimDe(p, e.t.id, 'core/src/qp6.ts', 'claim nova depois do verify');
-    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'verify'), 'noctum.entrega.verify-ausente');
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'verify'), 'noctum.entrega.verify-esgotado');
   } finally { p.limpar(); }
 });
 
@@ -310,6 +317,137 @@ test('QP8: o sha256 das provas é o mesmo para os mesmos fatos e muda quando uma
     const t = lerThread(p.dir, e.t.id);
     gravarThread(p.dir, { ...t, sessoes: t.sessoes.filter(s => s.sessionId !== e.revisor.sessionId) });
     assert.equal(motivo(provas(p, e.t.id, verde(e)), 'revisao'), 'noctum.entrega.revisao-ausente');
+    // Um evento que não é prova não muda o sha256.
+    const antes = provas(p, e.t.id, verde(e)).sha256;
     registrar(dirThread(p.dir, e.t.id), e.t.id, 'nota', { texto: 'sem efeito nas provas' });
+    assert.equal(provas(p, e.t.id, verde(e)).sha256, antes);
   } finally { p.limpar(); }
+});
+
+const copiar = (f: FatosDaEntrega): FatosDaEntrega => JSON.parse(JSON.stringify(f)) as FatosDaEntrega;
+
+test('QP9: o segredo depois do primeiro MiB do diff, em arquivo binário e em linha que começa por "++" recusa; a leitura que falha é lacuna', () => {
+  const p = projetoDaEntrega('noctum-qp9');
+  try {
+    const chave = ['sk', 'ant', 'SIMULADA0000000000000000000000'].join('-');
+    const e = entregaPronta(p, 'qp9');
+    // B1: mais de 1 MiB de linhas acrescentadas antes da chave; o teto padrão do spawnSync cortaria o diff antes dela.
+    const grande = Array.from({ length: 24000 }, (_, i) => `export const linha${i} = '${'x'.repeat(40)}';`).join('\n') + '\n';
+    commitarNaWorktree(e.t, {
+      'core/src/aa-grande-qp9.ts': grande,
+      'core/src/zz-config-qp9.ts': `// configuração\nexport const usar = '${chave}';\n`,
+      // A6: o byte nulo faz o git chamar o arquivo de binário; a chave dentro dele conta do mesmo jeito.
+      'docs/zz-anexo-qp9.bin': `\u0000\u0001cabeçalho\nchave=${chave}\n`,
+      // X9: dentro do hunk, a linha acrescentada que começa por "++" é conteúdo, e não o cabeçalho do arquivo.
+      'docs/zz-notas-qp9.md': `# Notas\n++ ${chave}\n`,
+    }, 'feat: grande, binário e notas');
+    const r = provas(p, e.t.id);
+    const s = r.provas.find(x => x.id === 'segredo')!;
+    assert.equal(s.motivo, 'noctum.entrega.segredo', s.detalhe);
+    for (const onde of ['core/src/zz-config-qp9.ts:2', 'docs/zz-anexo-qp9.bin:2', 'docs/zz-notas-qp9.md:2']) assert.ok(s.detalhe.includes(onde), `${onde} em ${s.detalhe}`);
+    assert.ok(!JSON.stringify(r).includes(chave), 'o segredo não aparece em lugar nenhum das provas');
+    // A leitura que falha é lacuna, nunca "nada mudou": o diff, a cadeia, o commit sem classificação, o CHANGELOG e o bundle.
+    const fatos = lerFatosDaEntrega(p.carregado, e.t.id, { forja: FORJA, executorCi: ciFalso({}) });
+    assert.equal(fatos.diffLido, true);
+    const lacuna = 'noctum.entrega.git-sem-leitura';
+    const semDiff = avaliarProvas({ ...copiar(fatos), diffLido: false, segredos: [] });
+    assert.deepEqual(['segredo', 'mutantes', 'changelog'].map(id => motivo(semDiff, id)), [lacuna, lacuna, lacuna]);
+    const semCadeia = avaliarProvas({ ...copiar(fatos), cadeiaLida: false, cadeia: [] });
+    assert.deepEqual(['revisao', 'verify', 'mutantes'].map(id => motivo(semCadeia, id)), [lacuna, lacuna, lacuna]);
+    const comCommitSemLeitura = copiar(fatos);
+    comCommitSemLeitura.cadeia[0] = { ...comCommitSemLeitura.cadeia[0], tipo: 'sem-leitura', detalhe: 'os pais do commit não se leram' };
+    assert.deepEqual(['revisao', 'verify'].map(id => motivo(avaliarProvas(comCommitSemLeitura), id)), [lacuna, lacuna]);
+    assert.equal(motivo(avaliarProvas({ ...copiar(fatos), changelog: null }), 'changelog'), lacuna);
+    assert.equal(motivo(avaliarProvas({ ...copiar(fatos), bundle: { ok: false, lido: false, texto: 'o bundle não se leu' } }), 'bundle'), lacuna);
+  } finally { p.limpar(); }
+});
+
+test('QP10: o teto de rodadas por SHA vale para toda repetição; a claim de mutante sem comando não conta como mutante', () => {
+  const p = projetoDaEntrega('noctum-qp10');
+  try {
+    const e = entregaPronta(p, 'qp10');
+    const antigas = lerClaims(p.dir, e.t.id).filter(c => c.estado !== 'retirada').map(c => ({ id: c.id, verificado: true, motivo: null }));
+    // A2: a claim cadastrada depois do verify pede outra rodada; com três rodadas no SHA, a prova não pede a quarta.
+    claimDe(p, e.t.id, 'core/src/qp10.ts', 'claim nova depois do verify');
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'verify'), 'noctum.entrega.verify-ausente');
+    verifyNoLedger(p, e.t.id, e.fonte, { claims: antigas });
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'verify'), 'noctum.entrega.verify-ausente');
+    verifyNoLedger(p, e.t.id, e.fonte, { claims: antigas });
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'verify'), 'noctum.entrega.verify-esgotado');
+    const q = projetoDaEntrega('noctum-qp10b');
+    try {
+      const f = entregaPronta(q, 'qp10b');
+      const fatos = lerFatosDaEntrega(q.carregado, f.t.id, { forja: FORJA, executorCi: ciFalso(verde(f)) });
+      // O mutante sem veredito num verify verde pede outra rodada, e o teto vale para ele.
+      const semVeredito = (n: number): FatosDaEntrega => {
+        const c = copiar(fatos);
+        const v = c.verifies.at(-1)!;
+        v.claims = v.claims.map(x => (x.id === f.mutante ? { ...x, verificado: false, motivo: null } : x));
+        c.verifies = Array.from({ length: n }, (_, i) => ({ ...v, eventId: `verify-${i}` }));
+        return c;
+      };
+      assert.deepEqual([motivo(avaliarProvas(semVeredito(1)), 'mutantes'), motivo(avaliarProvas(semVeredito(1)), 'verify')],
+        ['noctum.entrega.mutante-nao-executado', null]);
+      assert.equal(motivo(avaliarProvas(semVeredito(3)), 'verify'), 'noctum.entrega.verify-esgotado');
+      // A claim "Mutante" sem comando não executa nada: o código sem mutante de verdade recusa (mutantes-ausentes).
+      const sem = entregaPronta(q, 'qp10c', { semMutante: true });
+      adicionarClaim(q.dir, sem.t.id, { arquivo: 'core/src/qp10c.ts', alegacao: 'Mutante M9: sem comando nenhum', verificar: [], semProvaLocal: true });
+      assert.equal(motivo(provas(q, sem.t.id, verde(sem)), 'mutantes'), 'noctum.entrega.mutantes-ausentes');
+      // "Mutantes", no plural, com comando, é claim de mutante.
+      claimDe(q, sem.t.id, 'core/src/qp10c.ts', 'Mutantes M1 e M2: as guardas de qp10c caem no teste');
+      assert.equal(motivo(provas(q, sem.t.id, verde(sem)), 'mutantes'), 'noctum.entrega.mutante-nao-executado');
+    } finally { q.limpar(); }
+  } finally { p.limpar(); }
+});
+
+test('QP11: guardas da revisão e da recomputação: autor despachado depois do CHECK, commit de bundle e produto, CHANGELOG fora da regra e conflito sem conteúdo', () => {
+  const p = projetoDaEntrega('noctum-qp11');
+  try {
+    const e = entregaPronta(p, 'qp11');
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'revisao'), null);
+    // X1: uma sessão de GO despachada depois do CHECK escreve depois da revisão: a revisão ficou antiga.
+    sessaoDespachada(p, e.t.id, 'GO');
+    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'revisao'), 'noctum.entrega.revisao-antiga');
+  } finally { p.limpar(); }
+  const q = projetoDaEntrega('noctum-qp11b');
+  try {
+    avancarBase(q, { 'core/src/apagavel.ts': 'export const a = 1;\n' }, 'feat: apagável');
+    const e = entregaPronta(q, 'qp11b');
+    const wt = e.t.worktree!;
+    // X2: o commit que mexe no bundle e no código é produto, e o verify de antes não vale para ele.
+    const bundle = `.ork-ci/${e.t.id}.json`;
+    const misto = commitarNaWorktree(e.t, { [bundle]: `${fs.readFileSync(path.join(wt, bundle), 'utf8')}\n`, 'core/src/qp11b-extra.ts': 'export const x = 2;\n' },
+      'feat: bundle e produto no mesmo commit');
+    assert.equal(classificarCommit(q.dir, misto, head(q.dir)).tipo, 'produto');
+    assert.equal(motivo(provas(q, e.t.id, { [misto]: 'success' }), 'verify'), 'noctum.entrega.verify-ausente');
+    // X3: o conflito do CHANGELOG resolvido com a thread antes da base tem as mesmas linhas, e não é o que a regra produz.
+    const mesclar = (alvo: string, msg: string) => git(wt, '-c', 'merge.conflictStyle=diff3', 'merge', '--no-ff', '--no-commit', '-m', msg, alvo);
+    const outra = '- **Outra SIMULADA** (RM-959): da base.';
+    const b1 = avancarBase(q, { 'CHANGELOG.md': fs.readFileSync(path.join(q.dir, 'CHANGELOG.md'), 'utf8').replace('### Adicionado\n\n', `### Adicionado\n\n${outra}\n\n`) },
+      'docs: changelog da outra');
+    assert.equal(mesclar(b1, 'Merge com o CHANGELOG fora da regra').ok, false);
+    const certo = resolverConflitosAditivos(fs.readFileSync(path.join(wt, 'CHANGELOG.md'), 'utf8'));
+    assert.ok(certo.ok);
+    const entrada = ENTRADA_DA_THREAD('qp11b');
+    const trocado = certo.ok ? certo.texto.replace(`${outra}\n\n${entrada}`, `${entrada}\n\n${outra}`) : '';
+    assert.notEqual(trocado, certo.ok ? certo.texto : '');
+    fs.writeFileSync(path.join(wt, 'CHANGELOG.md'), trocado);
+    git(wt, 'add', '--', 'CHANGELOG.md');
+    git(wt, 'commit', '-q', '--no-edit');
+    const c3 = classificarCommit(q.dir, head(wt), b1);
+    assert.equal(c3.tipo, 'merge-com-ajuste');
+    assert.match(c3.detalhe, /não é o que a regra do núcleo produz/);
+    // X15: o arquivo que a thread muda e a base apaga conflita sem conteúdo dos dois lados: ajuste de alguém, nunca a regra.
+    commitarNaWorktree(e.t, { 'core/src/apagavel.ts': 'export const a = 2;\n' }, 'feat: a thread muda o apagável');
+    git(q.dir, 'rm', '-q', '--', 'core/src/apagavel.ts');
+    git(q.dir, 'commit', '-q', '-m', 'feat: a base apaga o apagável');
+    git(q.dir, 'push', '-q', 'origin', 'main');
+    const b2 = head(q.dir);
+    assert.equal(mesclar(b2, 'Merge com o apagado').ok, false);
+    git(wt, 'add', '--', 'core/src/apagavel.ts');
+    git(wt, 'commit', '-q', '--no-edit');
+    const c15 = classificarCommit(q.dir, head(wt), b2);
+    assert.equal(c15.tipo, 'merge-com-ajuste');
+    assert.match(c15.detalhe, /não é de conteúdo/);
+  } finally { q.limpar(); }
 });

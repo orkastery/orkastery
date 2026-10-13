@@ -22,6 +22,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { comandosDoBundle, consultarCi, consultarCiDoRepositorio, ExecutorCi, ResultadoCi } from './ci';
 import { lerClaims } from './claims';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
@@ -34,7 +35,6 @@ import { estadoDoArtefato, eventosDoIntervalo, fonteRegistrada, provaDoOrk } fro
 import { conferirBundle, manifestoDaBranch } from './ship-publicar';
 import { dirThread, lerThread } from './thread';
 import { EventoLedger, FASES, Thread } from './types';
-import { exec } from './util';
 import { comandosDoManifesto } from './verify';
 import { branchDaWorktree } from './worktree';
 
@@ -54,6 +54,12 @@ export const MOTIVOS_DA_ENTREGA = [
   'noctum.entrega.conflito-nao-aditivo', 'noctum.entrega.worktree-suja', 'noctum.entrega.fora-do-destino',
   'noctum.entrega.exige-vez-da-n3', 'noctum.entrega.integracao-ocupada', 'noctum.entrega.fonte-mudou',
   'noctum.entrega.push-incerto', 'noctum.entrega.docs-vermelhos', 'noctum.entrega.nao-provada', 'noctum.entrega.ocupada',
+  // GO-FIX da rodada 1 do CHECK: a leitura do git que falhou (lacuna, nunca "nada mudou"), a thread sem produto, o push
+  // recusado com a base parada, a thread que não é trabalho do envelope e as esperas do despacho do CHECK, que antes
+  // voltavam como texto solto (A8).
+  'noctum.entrega.git-sem-leitura', 'noctum.entrega.sem-produto', 'noctum.entrega.push-recusado', 'noctum.entrega.fora-do-envelope',
+  'noctum.entrega.agendado', 'noctum.entrega.sem-trava-do-kernel', 'noctum.entrega.despacho-em-curso', 'noctum.entrega.pedido-ausente',
+  'noctum.entrega.despacho-recusado', 'noctum.entrega.despacho-incerto',
 ] as const;
 export type MotivoDaEntrega = typeof MOTIVOS_DA_ENTREGA[number];
 
@@ -69,12 +75,13 @@ export const REPROVACOES_QUE_BLOQUEIAM = 2;
 export const RODADAS_POR_SHA = 3;
 /** Os motivos do verify que são reprovação de fato; o prazo estourado e a rodada sem veredito não contam como falha. */
 const MOTIVOS_DE_REPROVACAO: readonly string[] = ['claims.failed', 'verify.regression', 'verify.failed'];
-/** D6: a claim de mutante. A alegação começa por "Mutante", em qualquer caixa. */
-export const ALEGACAO_DE_MUTANTE = /^\s*mutante\b/i;
+/** D6: a claim de mutante. A alegação começa por "Mutante" (ou "Mutantes"), em qualquer caixa, e ela tem comando. */
+export const ALEGACAO_DE_MUTANTE = /^\s*mutantes?\b/i;
 /** O máximo de commits da cadeia de primeiro pai que a prova lê: a thread nunca chega perto disso. */
 const MAXIMO_DA_CADEIA = 300;
 
-export type TipoDeCommit = 'produto' | 'bundle' | 'merge-mecanico' | 'merge-de-codigo' | 'merge-com-ajuste' | 'merge-de-fora';
+/** `sem-leitura`: o git não respondeu sobre o commit; a prova que passa por ele é lacuna, e não "nada mudou". */
+export type TipoDeCommit = 'produto' | 'bundle' | 'merge-mecanico' | 'merge-de-codigo' | 'merge-com-ajuste' | 'merge-de-fora' | 'sem-leitura';
 /** D3: o que cada prova aceita entre o SHA dela e a fonte. */
 const NEUTROS_DO_VERIFY: readonly TipoDeCommit[] = ['bundle'];
 const NEUTROS_DA_REVISAO: readonly TipoDeCommit[] = ['bundle', 'merge-mecanico'];
@@ -92,8 +99,6 @@ export interface RevisaoLida {
   prova: { ok: boolean; fonte: string; veredito: string | null };
   /** O commit do último `verify_run` do intervalo do CHECK: o SHA que o revisor verificou. */
   revisado: string | null;
-  /** Commits de produto que a própria sessão de revisão registrou no intervalo dela. */
-  commitsDoRevisor: number;
   /** O parecer em disco não é mais o que o observador viu no resultado do CHECK. */
   parecerMudou: boolean;
 }
@@ -117,6 +122,8 @@ export interface FatosDaEntrega {
   /** A base é ancestral da fonte; `null` quando não se sabe. */
   integrada: boolean | null;
   cadeia: CommitDaCadeia[];
+  /** A cadeia de primeiro pai saiu inteira, cada commit classificado; sem ela, revisão e verify são lacuna. */
+  cadeiaLida: boolean;
   autores: string[];
   ultimoDespachoDeAutor: string | null;
   revisoes: RevisaoLida[];
@@ -126,9 +133,13 @@ export interface FatosDaEntrega {
   ciExigido: boolean;
   ci: ResultadoCi | null;
   arquivos: string[];
+  /** O diff de três pontos (os arquivos e as linhas) saiu inteiro; sem ele, segredo, mutantes e CHANGELOG não se provam. */
+  diffLido: boolean;
   segredos: Array<{ nome: string; arquivo: string; linha: number }>;
+  /** `null` quando o CHANGELOG da fonte ou do ancestral comum não se leu (lacuna). */
   changelog: ConferenciaDoChangelog | null;
-  bundle: { ok: boolean; texto: string };
+  /** `lido: false` quando o bundle da fonte existe e o git não o leu (lacuna, e não bundle velho). */
+  bundle: { ok: boolean; texto: string; lido?: boolean };
 }
 
 export type IdDaProva = 'integracao' | 'segredo' | 'mutantes' | 'changelog' | 'bundle' | 'revisao' | 'verify' | 'ci';
@@ -158,6 +169,9 @@ export interface ProvasDaEntrega {
 const SHA = /^[0-9a-f]{40}$/;
 const curto = (s: string | null | undefined): string => (s ? s.slice(0, 12) : '-');
 const texto = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
+const primeira = (s: string): string => s.trim().split('\n')[0].slice(0, 200);
+/** A leitura do git que falhou: a prova que dependia dela é lacuna, e a entrega espera (nunca "nada mudou"). */
+const LACUNA: MotivoDaEntrega = 'noctum.entrega.git-sem-leitura';
 
 // ---------------------------------------------------------------------------
 // A avaliação, pura sobre os fatos.
@@ -192,6 +206,7 @@ function provaDaIntegracao(f: FatosDaEntrega): ProvaDaEntrega {
 }
 
 function provaDoSegredo(f: FatosDaEntrega): ProvaDaEntrega {
+  if (!f.diffLido) return prova('segredo', LACUNA, 'o diff da base até a fonte não saiu inteiro: nada se prova sobre ele');
   if (!f.segredos.length) return prova('segredo', null, `nenhum padrão de segredo nas linhas acrescentadas (${f.arquivos.length} arquivo(s))`);
   const lista = f.segredos.slice(0, 10).map(s => `${s.nome} em ${s.arquivo}:${s.linha}`);
   // Só o nome do padrão, o arquivo e a linha: a prova que imprime o segredo vaza de novo.
@@ -200,13 +215,22 @@ function provaDoSegredo(f: FatosDaEntrega): ProvaDaEntrega {
 }
 
 function provaDoChangelog(f: FatosDaEntrega): ProvaDaEntrega {
-  if (!f.changelog) return prova('changelog', 'noctum.entrega.changelog', 'o CHANGELOG da fonte e do ancestral comum não se leram');
+  if (!f.diffLido) return prova('changelog', LACUNA, 'sem o diff, não se sabe se a fonte pede linha no CHANGELOG');
+  if (!f.changelog) return prova('changelog', LACUNA, 'o CHANGELOG da fonte ou do ancestral comum não se leu');
   if (!f.changelog.ok) return prova('changelog', 'noctum.entrega.changelog', `${f.changelog.motivo}: ${f.changelog.detalhe}`);
   return prova('changelog', null, f.changelog.detalhe, { linhas: f.changelog.linhas.slice(0, 10) });
 }
 
 function provaDoBundle(f: FatosDaEntrega): ProvaDaEntrega {
+  if (f.bundle.lido === false) return prova('bundle', LACUNA, f.bundle.texto);
   return f.bundle.ok ? prova('bundle', null, f.bundle.texto) : prova('bundle', 'noctum.entrega.bundle-velho', f.bundle.texto);
+}
+
+/** A lacuna da cadeia de primeiro pai: sem ela inteira, nada se diz sobre o que veio depois do SHA de uma prova. */
+function lacunaDaCadeia(f: FatosDaEntrega): string | null {
+  if (!f.cadeiaLida) return `a cadeia de primeiro pai da fonte ${curto(f.fonte)} até a base não se leu`;
+  const c = f.cadeia.find(x => x.tipo === 'sem-leitura');
+  return c ? `o commit ${curto(c.sha)} da cadeia não se classificou: ${c.detalhe}` : null;
 }
 
 /** Os `verify_run` que valem para a fonte (D3: no SHA, ou num ancestral seguido só de commits de bundle), na ordem do ledger. */
@@ -216,45 +240,52 @@ function verifiesDaFonte(f: FatosDaEntrega): VerifyLido[] {
 
 const reprovado = (v: VerifyLido): boolean => !v.ok && v.motivos.some(m => MOTIVOS_DE_REPROVACAO.includes(m));
 
-function provaDoVerify(f: FatosDaEntrega): { prova: ProvaDaEntrega; falhas: ProvasDaEntrega['falhasRegistradas']; ultimo: VerifyLido | null } {
+interface VerifyDaFonte { prova: ProvaDaEntrega; falhas: ProvasDaEntrega['falhasRegistradas']; ultimo: VerifyLido | null; rodadas: number }
+
+function provaDoVerify(f: FatosDaEntrega): VerifyDaFonte {
+  const lacuna = lacunaDaCadeia(f);
+  if (lacuna) return { prova: prova('verify', LACUNA, lacuna), falhas: [], ultimo: null, rodadas: 0 };
   const daFonte = verifiesDaFonte(f);
   const ultimo = daFonte.at(-1) ?? null;
   const falhas = daFonte.filter(v => !v.ok).map(v => ({ eventId: v.eventId, commit: v.commit, motivos: v.motivos, ts: v.ts }));
   const evidencia = { rodadas: daFonte.length, ultimo: ultimo?.eventId ?? null, commit: ultimo?.commit ?? null, falhas: falhas.map(x => x.eventId) };
-  if (!ultimo) return { prova: prova('verify', 'noctum.entrega.verify-ausente', `nenhum verify na fonte ${curto(f.fonte)}`, evidencia), falhas, ultimo };
+  const fim = (p: ProvaDaEntrega): VerifyDaFonte => ({ prova: p, falhas, ultimo, rodadas: daFonte.length });
+  // A2 da rodada 1: o teto de rodadas por SHA vale para toda prova que pede outro verify, e não só para a reprovada.
+  const repetir = (motivo: MotivoDaEntrega, detalhe: string, extra: Record<string, unknown> = {}): VerifyDaFonte => fim(daFonte.length >= RODADAS_POR_SHA
+    ? prova('verify', 'noctum.entrega.verify-esgotado', `${daFonte.length} rodadas do verify no SHA, e a prova ainda pede outra: ${detalhe}`, { ...evidencia, ...extra })
+    : prova('verify', motivo, detalhe, { ...evidencia, ...extra }));
+  if (!ultimo) return fim(prova('verify', 'noctum.entrega.verify-ausente', `nenhum verify na fonte ${curto(f.fonte)}`, evidencia));
   if (!ultimo.comBaseline) {
-    return { prova: prova('verify', 'noctum.entrega.baseline-ausente',
-      `o verify ${ultimo.eventId} rodou sem baseline: grave a baseline antes do GO (ork verify <thread> --baseline)`, evidencia), falhas, ultimo };
+    return fim(prova('verify', 'noctum.entrega.baseline-ausente',
+      `o verify ${ultimo.eventId} rodou sem baseline: grave a baseline antes do GO (ork verify <thread> --baseline)`, evidencia));
   }
   if (ultimo.ok) {
     if (f.comandosEsperados > 0 && !ultimo.comComandos) {
-      return { prova: prova('verify', 'noctum.entrega.verify-sem-comandos',
-        `o verify ${ultimo.eventId} rodou só as claims; o manifesto pede ${f.comandosEsperados} comando(s)`, evidencia), falhas, ultimo };
+      return repetir('noctum.entrega.verify-sem-comandos', `o verify ${ultimo.eventId} rodou só as claims; o manifesto pede ${f.comandosEsperados} comando(s)`);
     }
     // Claims executadas: a claim cadastrada depois do verify não rodou nele, e o verify se repete.
     const rodaram = new Set(ultimo.claims.map(c => c.id));
     const semExecucao = f.claims.map(c => c.id).filter(id => !rodaram.has(id));
     if (semExecucao.length) {
-      return { prova: prova('verify', 'noctum.entrega.verify-ausente',
-        `claim(s) ativa(s) que o verify ${ultimo.eventId} não executou: ${semExecucao.slice(0, 10).join(', ')}`, { ...evidencia, semExecucao }),
-        falhas, ultimo };
+      return repetir('noctum.entrega.verify-ausente', `claim(s) ativa(s) que o verify ${ultimo.eventId} não executou: ${semExecucao.slice(0, 10).join(', ')}`,
+        { semExecucao });
     }
-    return { prova: prova('verify', null, `verify verde em ${curto(ultimo.commit)} (${ultimo.eventId})` +
-      (falhas.length ? `, com ${falhas.length} reprovação(ões) anterior(es) no mesmo SHA registrada(s)` : ''), evidencia), falhas, ultimo };
+    return fim(prova('verify', null, `verify verde em ${curto(ultimo.commit)} (${ultimo.eventId})` +
+      (falhas.length ? `, com ${falhas.length} reprovação(ões) anterior(es) no mesmo SHA registrada(s)` : ''), evidencia));
   }
   const reprovacoes = daFonte.filter(reprovado).length;
   if (reprovacoes >= REPROVACOES_QUE_BLOQUEIAM) {
-    return { prova: prova('verify', 'noctum.entrega.verify-falha-consistente',
-      `${reprovacoes} reprovações do verify no mesmo SHA: falha consistente, que não se repete sozinha`, evidencia), falhas, ultimo };
+    return fim(prova('verify', 'noctum.entrega.verify-falha-consistente',
+      `${reprovacoes} reprovações do verify no mesmo SHA: falha consistente, que não se repete sozinha`, evidencia));
   }
-  if (daFonte.length >= RODADAS_POR_SHA) {
-    return { prova: prova('verify', 'noctum.entrega.verify-esgotado', `${daFonte.length} rodadas do verify no SHA sem verde`, evidencia), falhas, ultimo };
-  }
-  return { prova: prova('verify', 'noctum.entrega.verify-reprovado',
-    `o último verify (${ultimo.eventId}) reprovou: ${ultimo.motivos.join(', ') || 'sem motivo'}; repete isolado na fila pesada`, evidencia), falhas, ultimo };
+  return repetir('noctum.entrega.verify-reprovado',
+    `o último verify (${ultimo.eventId}) reprovou: ${ultimo.motivos.join(', ') || 'sem motivo'}; repete isolado na fila pesada`);
 }
 
 function provaDosMutantes(f: FatosDaEntrega, ultimo: VerifyLido | null): ProvaDaEntrega {
+  if (!f.diffLido) return prova('mutantes', LACUNA, 'sem o diff, não se sabe se a fonte muda código');
+  const lacuna = lacunaDaCadeia(f);
+  if (lacuna) return prova('mutantes', LACUNA, `sem a cadeia, não se sabe qual verify vale para a fonte: ${lacuna}`);
   const mutantes = f.claims.filter(c => c.mutante).map(c => c.id);
   const codigo = f.arquivos.filter(pedeLinha);
   if (!mutantes.length) {
@@ -269,8 +300,11 @@ function provaDosMutantes(f: FatosDaEntrega, ultimo: VerifyLido | null): ProvaDa
   // Sobrevivente é a claim reprovada; a que estourou o prazo ou ficou sem veredito não rodou até o fim, e roda de novo.
   const sobreviventes = mutantes.filter(id => noVerify.get(id)?.verificado === false && noVerify.get(id)?.motivo === 'claims.failed');
   if (sobreviventes.length) {
+    // O verify só guarda a reprovação da claim: o mutante que sobreviveu (saída 1) e a especificação que não se aplica
+    // (saída 2) caem juntos aqui, e os dois deixam a guarda sem prova.
     return prova('mutantes', 'noctum.entrega.mutante-sobrevivente',
-      `mutante(s) que sobreviveram no verify ${ultimo?.eventId ?? '-'}: ${sobreviventes.join(', ')}`, { sobreviventes });
+      `mutante(s) que não morreram no verify ${ultimo?.eventId ?? '-'} (sobreviveram, ou a especificação não se aplica): ${sobreviventes.join(', ')}`,
+      { sobreviventes });
   }
   const faltam = mutantes.filter(id => noVerify.get(id)?.verificado !== true);
   if (faltam.length) {
@@ -288,9 +322,6 @@ function provaDaRevisao(f: FatosDaEntrega): ProvaDaEntrega {
   if (f.autores.includes(r.sessionId)) {
     return prova('revisao', 'noctum.entrega.revisor-autor', `a sessão ${r.sessionId.slice(0, 8)} também é autora do candidato: não é revisão independente`, ev);
   }
-  if (r.commitsDoRevisor > 0) {
-    return prova('revisao', 'noctum.entrega.revisor-autor', `a sessão de CHECK ${r.sessionId.slice(0, 8)} commitou produto no próprio intervalo`, ev);
-  }
   if (f.ultimoDespachoDeAutor && !(Date.parse(r.despachadaEm) > Date.parse(f.ultimoDespachoDeAutor))) {
     return prova('revisao', 'noctum.entrega.revisao-antiga', 'o CHECK foi despachado antes do último despacho de quem escreveu o candidato', ev);
   }
@@ -304,6 +335,8 @@ function provaDaRevisao(f: FatosDaEntrega): ProvaDaEntrega {
   if (!r.prova.ok) return prova('revisao', 'noctum.entrega.revisao-sem-vinculo', `o CHECK concluiu sem a prova do núcleo: ${r.prova.fonte}`, ev);
   if (r.parecerMudou) return prova('revisao', 'noctum.entrega.revisao-antiga', 'o parecer do CHECK mudou depois do resultado que o observador gravou', ev);
   if (!r.revisado) return prova('revisao', 'noctum.entrega.revisao-sem-sha', 'o CHECK não rodou verify no intervalo: o SHA revisado é desconhecido', ev);
+  const lacuna = lacunaDaCadeia(f);
+  if (lacuna) return prova('revisao', LACUNA, lacuna, ev);
   const eq = equivalente(f.cadeia, r.revisado, NEUTROS_DA_REVISAO);
   if (!eq.ok) {
     const depois = eq.entre.filter(c => !NEUTROS_DA_REVISAO.includes(c.tipo)).map(c => `${curto(c.sha)} (${c.tipo})`);
@@ -331,8 +364,13 @@ function provaDoCi(f: FatosDaEntrega): ProvaDaEntrega {
 /** As provas da entrega sobre os fatos, sem disco nem rede. */
 export function avaliarProvas(f: FatosDaEntrega): ProvasDaEntrega {
   const verify = provaDoVerify(f);
-  const provas = [provaDaIntegracao(f), provaDoSegredo(f), provaDosMutantes(f, verify.ultimo), provaDoChangelog(f), provaDoBundle(f),
-    provaDaRevisao(f), verify.prova, provaDoCi(f)];
+  const mutantes = provaDosMutantes(f, verify.ultimo);
+  // A2 da rodada 1: o mutante sem veredito também pede outro verify, e o teto de rodadas por SHA vale para ele.
+  const doVerify = verify.prova.ok && mutantes.motivo === 'noctum.entrega.mutante-nao-executado' && verify.rodadas >= RODADAS_POR_SHA
+    ? prova('verify', 'noctum.entrega.verify-esgotado', `${verify.rodadas} rodadas do verify no SHA sem o veredito dos mutantes: ${mutantes.detalhe}`,
+      verify.prova.evidencia)
+    : verify.prova;
+  const provas = [provaDaIntegracao(f), provaDoSegredo(f), mutantes, provaDoChangelog(f), provaDoBundle(f), provaDaRevisao(f), doVerify, provaDoCi(f)];
   const base = { nome: f.base.nome, sha: f.base.sha };
   const sha256 = createHash('sha256').update(canonico({ contrato: CONTRATO_DAS_PROVAS, thread: f.thread, branch: f.branch, fonte: f.fonte,
     base: base.sha, provas: provas.map(p => ({ id: p.id, ok: p.ok, motivo: p.motivo, evidencia: p.evidencia })) })).digest('hex');
@@ -344,15 +382,52 @@ export function avaliarProvas(f: FatosDaEntrega): ProvasDaEntrega {
 // A leitura dos fatos.
 // ---------------------------------------------------------------------------
 
-/** Git local sem rede escondida nem pergunta de credencial. */
-function git(raiz: string, args: string[], prazoMs = 60000) {
-  return exec('git', args, raiz, prazoMs, { ...process.env, GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0' });
+/**
+ * Git local sem rede escondida nem pergunta de credencial, com buffer de 256 MiB (B1 da rodada 1 do CHECK): o diff de uma
+ * fatia grande passa de 1 MiB, o teto do `spawnSync`, e a saída cortada esconderia o resto. `ok` só com saída 0 e sem erro.
+ */
+export function gitDaEntrega(raiz: string, args: string[], prazoMs = 120000): { ok: boolean; code: number; stdout: string; stderr: string } {
+  const r = spawnSync('git', args, { cwd: raiz, encoding: 'utf8', timeout: prazoMs, maxBuffer: 256 * 1024 * 1024,
+    env: { ...process.env, GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0' } });
+  return { ok: r.status === 0 && !r.error, code: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr || (r.error ? r.error.message : '') };
+}
+const git = gitDaEntrega;
+
+/** O mesmo git, com a saída em bytes: o blob como está no repositório, sem decodificar. */
+function gitEmBytes(raiz: string, args: string[], prazoMs = 120000): { ok: boolean; stdout: Buffer; stderr: string } {
+  const r = spawnSync('git', args, { cwd: raiz, timeout: prazoMs, maxBuffer: 256 * 1024 * 1024,
+    env: { ...process.env, GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0' } });
+  return { ok: r.status === 0 && !r.error, stdout: r.stdout ?? Buffer.alloc(0), stderr: r.stderr?.toString('utf8') || (r.error ? r.error.message : '') };
 }
 
-/** O conteúdo de um arquivo numa árvore ou commit, ou `null` quando ele não existe nela. */
+/**
+ * Um arquivo numa árvore ou commit, em bytes: `null` quando ele não existe nela (ou não é arquivo), e a lacuna quando o git
+ * não respondeu. O `ls-tree` separa "não existe" de "não se leu", que o `cat-file` sozinho confunde.
+ */
+export function blobLido(raiz: string, arvore: string, arquivo: string): { ok: true; bytes: Buffer | null } | { ok: false; erro: string } {
+  const ls = git(raiz, ['ls-tree', '-z', '--full-tree', arvore, '--', arquivo]);
+  if (!ls.ok) return { ok: false, erro: `o git ls-tree de ${arquivo} em ${curto(arvore)} falhou: ${primeira(ls.stderr) || `código ${ls.code}`}` };
+  const m = /^\d+ blob ([0-9a-f]{40,64})\t/.exec(ls.stdout);
+  if (!m) return { ok: true, bytes: null };
+  const c = gitEmBytes(raiz, ['cat-file', 'blob', m[1]]);
+  return c.ok ? { ok: true, bytes: c.stdout } : { ok: false, erro: `o git cat-file de ${arquivo} em ${curto(arvore)} falhou: ${primeira(c.stderr)}` };
+}
+
+/** O texto de um arquivo numa árvore ou commit, ou `null` quando ele não existe nela; a leitura que falha é lacuna tipada. */
 export function blobEm(raiz: string, arvore: string, arquivo: string): string | null {
-  const r = git(raiz, ['cat-file', 'blob', `${arvore}:${arquivo}`]);
-  return r.ok ? r.stdout : null;
+  const b = blobLido(raiz, arvore, arquivo);
+  if (!b.ok) throw new RecusaDaEntrega(LACUNA, b.erro);
+  return b.bytes === null ? null : b.bytes.toString('utf8');
+}
+
+/**
+ * O texto que a regra do núcleo pode reescrever: UTF-8 que volta aos mesmos bytes e sem byte nulo (B3 da rodada 1). Arquivo
+ * binário ou noutra codificação devolve `null`, e o conflito nele não é só aditivo.
+ */
+export function textoDe(bytes: Buffer): string | null {
+  if (bytes.includes(0)) return null;
+  const t = bytes.toString('utf8');
+  return Buffer.from(t, 'utf8').equals(bytes) ? t : null;
 }
 
 /** A ponta da base no remoto pelo `ls-remote`, só a linha da ref exata. */
@@ -377,21 +452,26 @@ export function garantirObjetos(raiz: string, remoto: string, base: string, sha:
  * de código quando outro arquivo conflitou, e com ajuste quando a árvore não é a recomputada.
  */
 export function classificarCommit(raiz: string, sha: string, base: string): CommitDaCadeia {
-  const pais = git(raiz, ['rev-list', '--parents', '-n', '1', sha]).stdout.trim().split(/\s+/).slice(1);
+  // A leitura que falha é lacuna (`sem-leitura`), e não um tipo: nem "nada diferente", nem uma revisão nova pedida à toa.
+  const semLeitura = (detalhe: string, conflitos: string[] = []): CommitDaCadeia => ({ sha, tipo: 'sem-leitura', conflitos, detalhe });
+  const lidos = git(raiz, ['rev-list', '--parents', '-n', '1', sha]);
+  if (!lidos.ok) return semLeitura('os pais do commit não se leram');
+  const pais = lidos.stdout.trim().split(/\s+/).slice(1);
   if (pais.length <= 1) {
-    const mudou = git(raiz, ['diff-tree', '--no-commit-id', '--name-only', '-r', '--root', sha]);
-    const arquivos = mudou.stdout.split('\n').map(l => l.trim()).filter(Boolean);
-    return mudou.ok && arquivos.every(a => a.startsWith('.ork-ci/'))
+    const mudou = git(raiz, ['diff-tree', '--no-commit-id', '--name-only', '-z', '-r', '--root', sha]);
+    if (!mudou.ok) return semLeitura('os arquivos do commit não se leram');
+    const arquivos = mudou.stdout.split('\0').filter(Boolean);
+    return arquivos.every(a => a.startsWith('.ork-ci/'))
       ? { sha, tipo: 'bundle', conflitos: [], detalhe: 'só o bundle de CI' }
       : { sha, tipo: 'produto', conflitos: [], detalhe: `${arquivos.length} arquivo(s)` };
   }
   if (pais.length > 2) return { sha, tipo: 'merge-com-ajuste', conflitos: [], detalhe: `merge com ${pais.length} pais` };
   const [p1, p2] = pais;
-  if (!git(raiz, ['merge-base', '--is-ancestor', p2, base]).ok) {
-    return { sha, tipo: 'merge-de-fora', conflitos: [], detalhe: `o segundo pai ${curto(p2)} não está na base` };
-  }
+  const naBase = git(raiz, ['merge-base', '--is-ancestor', p2, base]);
+  if (naBase.code === 1) return { sha, tipo: 'merge-de-fora', conflitos: [], detalhe: `o segundo pai ${curto(p2)} não está na base` };
+  if (naBase.code !== 0) return semLeitura('não se leu se o segundo pai está na base');
   const mt = git(raiz, ['-c', 'merge.conflictStyle=diff3', 'merge-tree', '--write-tree', p1, p2], 120000);
-  if (mt.code !== 0 && mt.code !== 1) return { sha, tipo: 'merge-com-ajuste', conflitos: [], detalhe: 'o merge-tree não respondeu' };
+  if (mt.code !== 0 && mt.code !== 1) return semLeitura('o git merge-tree --write-tree não respondeu (pede git 2.38 ou mais novo)');
   const [arvore, ...resto] = mt.stdout.split('\n');
   const estagios = new Map<string, Set<string>>();
   for (const l of resto) {
@@ -404,20 +484,38 @@ export function classificarCommit(raiz: string, sha: string, base: string): Comm
   // Só o conflito de conteúdo (ancestral, thread e base, os três estágios) tem a regra do núcleo; o resto é escolha de alguém.
   const semConteudo = conflitos.find(a => estagios.get(a)!.size !== 3);
   if (semConteudo) return { sha, tipo: 'merge-com-ajuste', conflitos, detalhe: `${semConteudo}: conflito que não é de conteúdo` };
-  const ancestral = git(raiz, ['merge-base', p1, p2]).stdout.trim();
-  const entradas = entradasDaThread(ancestral ? blobEm(raiz, ancestral, ARQUIVO_DO_CHANGELOG) ?? '' : '', blobEm(raiz, p1, ARQUIVO_DO_CHANGELOG) ?? '');
-  const daBase = blobEm(raiz, p2, ARQUIVO_DO_CHANGELOG) ?? '';
-  const diferentes = git(raiz, ['diff-tree', '-r', '--name-only', arvore.trim(), `${sha}^{tree}`]).stdout.split('\n').map(l => l.trim()).filter(Boolean);
+  const ancestral = git(raiz, ['merge-base', p1, p2]);
+  if (!ancestral.ok) return semLeitura('o ancestral comum dos pais não se leu', conflitos);
+  const changelogs = [ancestral.stdout.trim(), p1, p2].map(rev => blobLido(raiz, rev, ARQUIVO_DO_CHANGELOG));
+  const falhou = changelogs.find(b => !b.ok);
+  if (falhou && !falhou.ok) return semLeitura(falhou.erro, conflitos);
+  const [noAncestral, naThread, naBaseDoMerge] = changelogs.map(b => (b.ok && b.bytes ? b.bytes.toString('utf8') : ''));
+  const entradas = entradasDaThread(noAncestral, naThread);
+  // S1 da rodada 1: a comparação que falha nunca vira "nada diferente".
+  const diff = git(raiz, ['diff-tree', '-r', '-z', '--name-only', arvore.trim(), `${sha}^{tree}`]);
+  if (!diff.ok) return semLeitura('a árvore do merge não se comparou com a recomputada', conflitos);
+  const diferentes = diff.stdout.split('\0').filter(Boolean);
   for (const arquivo of new Set([...conflitos, ...diferentes])) {
     if (!conflitos.includes(arquivo) && arquivo !== ARQUIVO_DO_CHANGELOG) {
       return { sha, tipo: 'merge-com-ajuste', conflitos, detalhe: `${arquivo} difere do merge recomputado sem ter conflitado` };
     }
-    const comMarcas = blobEm(raiz, arvore.trim(), arquivo);
-    if (comMarcas === null) return { sha, tipo: 'merge-com-ajuste', conflitos, detalhe: `${arquivo} some no merge recomputado` };
-    const resolvido = resolverConflitosAditivos(comMarcas);
+    const comMarcas = blobLido(raiz, arvore.trim(), arquivo);
+    if (!comMarcas.ok) return semLeitura(comMarcas.erro, conflitos);
+    if (comMarcas.bytes === null) return { sha, tipo: 'merge-com-ajuste', conflitos, detalhe: `${arquivo} some no merge recomputado` };
+    // B3 da rodada 1: binário ou fora de UTF-8 não tem a regra do núcleo; o texto decodificado esconderia a troca de bytes.
+    const textoComMarcas = textoDe(comMarcas.bytes);
+    if (textoComMarcas === null) return { sha, tipo: 'merge-com-ajuste', conflitos, detalhe: `${arquivo}: não é texto UTF-8 (binário)` };
+    const resolvido = resolverConflitosAditivos(textoComMarcas);
     if (!resolvido.ok) return { sha, tipo: 'merge-com-ajuste', conflitos, detalhe: `${arquivo}: ${resolvido.recusa}` };
-    const esperado = arquivo === ARQUIVO_DO_CHANGELOG ? posicionarEntradas(resolvido.texto, entradas, daBase).texto : resolvido.texto;
-    if (blobEm(raiz, sha, arquivo) !== esperado) {
+    // O conflito sem marcador é de arquivo que o git não mesclou como texto (deixou um dos lados inteiro).
+    if (conflitos.includes(arquivo) && resolvido.conflitos === 0) {
+      return { sha, tipo: 'merge-com-ajuste', conflitos, detalhe: `${arquivo}: conflito sem marcador de texto` };
+    }
+    const esperado = arquivo === ARQUIVO_DO_CHANGELOG ? posicionarEntradas(resolvido.texto, entradas, naBaseDoMerge).texto : resolvido.texto;
+    const noMerge = blobLido(raiz, sha, arquivo);
+    if (!noMerge.ok) return semLeitura(noMerge.erro, conflitos);
+    // Byte a byte: a árvore do merge precisa ser a que a regra produz.
+    if (noMerge.bytes === null || !noMerge.bytes.equals(Buffer.from(esperado, 'utf8'))) {
       return { sha, tipo: 'merge-com-ajuste', conflitos, detalhe: `${arquivo} não é o que a regra do núcleo produz` };
     }
   }
@@ -427,17 +525,45 @@ export function classificarCommit(raiz: string, sha: string, base: string): Comm
     : { sha, tipo: 'merge-mecanico', conflitos, detalhe: conflitos.length ? 'só o CHANGELOG conflitou' : 'merge limpo da base' };
 }
 
-/** A cadeia de primeiro pai da fonte até a base (exclusive), cada commit classificado; a mais nova primeiro. */
-export function cadeiaDaFonte(raiz: string, fonte: string, base: string): CommitDaCadeia[] {
-  const r = git(raiz, ['rev-list', '--first-parent', `--max-count=${MAXIMO_DA_CADEIA}`, fonte, '--not', base]);
-  if (!r.ok) return [];
-  return r.stdout.split('\n').map(l => l.trim()).filter(l => SHA.test(l)).map(sha => classificarCommit(raiz, sha, base));
+/**
+ * A9 da rodada 1: a classificação de um commit sobre uma base não muda (o commit, os pais, os blobs e o merge recomputado
+ * são imutáveis), então cada passo não recomputa a cadeia inteira. A lacuna (`sem-leitura`) nunca fica guardada.
+ */
+const classificados = new Map<string, CommitDaCadeia>();
+const LIMITE_DA_MEMORIA = 2000;
+
+function classificarComMemoria(raiz: string, sha: string, base: string): CommitDaCadeia {
+  const chave = `${raiz}\0${sha}\0${base}`;
+  const guardado = classificados.get(chave);
+  if (guardado) return { ...guardado, conflitos: [...guardado.conflitos] };
+  const c = classificarCommit(raiz, sha, base);
+  if (c.tipo !== 'sem-leitura') {
+    if (classificados.size >= LIMITE_DA_MEMORIA) classificados.clear();
+    classificados.set(chave, { ...c, conflitos: [...c.conflitos] });
+  }
+  return c;
 }
 
-/** As linhas acrescentadas do diff de três pontos, com o arquivo e o número da linha nova, e os padrões de segredo nelas. */
-export function segredosDoDiff(raiz: string, base: string, fonte: string): Array<{ nome: string; arquivo: string; linha: number }> {
-  const r = git(raiz, ['-c', 'core.quotePath=false', 'diff', '--no-color', '--no-ext-diff', '--unified=0', '--no-renames', `${base}...${fonte}`], 120000);
+/**
+ * A cadeia de primeiro pai da fonte até a base (exclusive), cada commit classificado; a mais nova primeiro. `null` quando o
+ * git não a listou: a lacuna não vira cadeia vazia.
+ */
+export function cadeiaDaFonte(raiz: string, fonte: string, base: string): CommitDaCadeia[] | null {
+  const r = git(raiz, ['rev-list', '--first-parent', `--max-count=${MAXIMO_DA_CADEIA}`, fonte, '--not', base]);
+  if (!r.ok) return null;
+  return r.stdout.split('\n').map(l => l.trim()).filter(l => SHA.test(l)).map(sha => classificarComMemoria(raiz, sha, base));
+}
+
+/**
+ * As linhas acrescentadas do diff de três pontos, com o arquivo e o número da linha nova, e os padrões de segredo nelas. O
+ * arquivo que o git acha binário entra como texto (`--text`, A6 da rodada 1): um byte nulo não esconde a chave. `lido` é falso
+ * quando o diff não saiu inteiro, e então a prova não diz "nenhum segredo".
+ */
+export function segredosDoDiff(raiz: string, base: string, fonte: string): { lido: boolean; achados: Array<{ nome: string; arquivo: string; linha: number }> } {
+  const r = git(raiz, ['-c', 'core.quotePath=false', 'diff', '--text', '--no-color', '--no-ext-diff', '--unified=0', '--no-renames',
+    `${base}...${fonte}`], 300000);
   const achados: Array<{ nome: string; arquivo: string; linha: number }> = [];
+  if (!r.ok) return { lido: false, achados };
   let arquivo = '', nova = 0, cabecalho = false;
   for (const l of r.stdout.split('\n')) {
     if (l.startsWith('diff --git ')) { cabecalho = true; arquivo = ''; continue; }
@@ -450,7 +576,7 @@ export function segredosDoDiff(raiz: string, base: string, fonte: string): Array
       nova += 1;
     }
   }
-  return achados;
+  return { lido: true, achados };
 }
 
 /** Os autores do candidato: as sessões de GO, as que começaram antes do GO num bloco com GO, e as que commitaram. */
@@ -496,6 +622,7 @@ function vinculoDaSessao(raiz: string, t: Thread, s: Thread['sessoes'][number], 
 
 /** As sessões de CHECK da thread, da mais velha para a mais nova, com o que o núcleo prova de cada uma. */
 function revisoesDaThread(raiz: string, t: Thread, eventos: readonly EventoLedger[]): RevisaoLida[] {
+  const posicao = new Map(eventos.map((e, i) => [e, i] as const));
   const checks = (t.sessoes ?? []).filter(s => s.fase === 'CHECK' && s.origem !== 'adocao' && !!s.despachadaEm)
     .sort((a, b) => Date.parse(a.despachadaEm!) - Date.parse(b.despachadaEm!));
   return checks.map(s => {
@@ -506,7 +633,6 @@ function revisoesDaThread(raiz: string, t: Thread, eventos: readonly EventoLedge
     const estado: RevisaoLida['resultado'] = resultado
       ? (resultado.classificacao === 'fase_concluida' && resultado.ok === true ? 'concluida' : 'bloqueada') : morta ? 'morta' : 'em-curso';
     const intervalo = eventosDoIntervalo(eventos, sessao);
-    const commitsDoRevisor = intervalo.filter(e => (e.tipo === 'mcp_git_committed' || e.tipo === 'commit') && e.sessionId === s.sessionId).length;
     // O SHA revisado e o veredito são os do fim do turno do revisor: a prova que o observador gravou no resultado (o claude-bg
     // grava `provaOrk` e o sha do parecer) ou, sem ela, o parecer de agora e o último verify até o resultado. Um verify que
     // outro roda depois (o do próprio arco, por exemplo) nunca vira o SHA da revisão.
@@ -520,13 +646,17 @@ function revisoesDaThread(raiz: string, t: Thread, eventos: readonly EventoLedge
       const p = provaDoOrk(raiz, t.id, sessao, eventos, fonteRegistrada(eventos, sessao));
       prova = { ok: p.ok, fonte: p.fonte, veredito: p.veredito ?? null };
       // Pela posição no ledger, e não pela hora: dois eventos no mesmo milissegundo não trocam de lado.
-      const ate = resultado ? eventos.indexOf(resultado) : eventos.length;
-      revisado = texto(intervalo.filter(e => e.tipo === TIPOS_DE_EVENTO.verificacao && eventos.indexOf(e) < ate).at(-1)?.commit);
+      const ate = resultado ? posicao.get(resultado) ?? eventos.length : eventos.length;
+      revisado = texto(intervalo.filter(e => e.tipo === TIPOS_DE_EVENTO.verificacao && (posicao.get(e) ?? eventos.length) < ate).at(-1)?.commit);
     }
+    // O parecer do resultado: o sha que o observador viu; sem ele (o observador do codex não grava), a data do arquivo, que
+    // não pode ser depois do resultado (A5 da rodada 1). O `ts` do ledger é de milissegundo; a data do arquivo, mais fina.
     const viu = texto((resultado?.artefato as { sha256Atual?: unknown } | undefined)?.sha256Atual);
-    const parecerMudou = !!viu && estadoDoArtefato(raiz, t.id, 'docs/check.md').sha256 !== viu;
+    const parecer = estadoDoArtefato(raiz, t.id, 'docs/check.md');
+    const parecerMudou = viu ? parecer.sha256 !== viu
+      : !!resultado && parecer.mtimeMs !== null && Math.floor(parecer.mtimeMs) > Date.parse(resultado.ts);
     return { sessionId: s.sessionId, runtime: s.runtime, despachadaEm: s.despachadaEm!, semVinculo: vinculoDaSessao(raiz, t, s, eventos),
-      resultado: estado, prova, revisado: revisado && SHA.test(revisado) ? revisado : null, commitsDoRevisor, parecerMudou };
+      resultado: estado, prova, revisado: revisado && SHA.test(revisado) ? revisado : null, parecerMudou };
   });
 }
 
@@ -573,16 +703,23 @@ export function lerFatosDaEntrega(carregado: ManifestoCarregado, threadId: strin
   const claimsAtivas = (() => { try { return lerClaims(raiz, threadId).filter(c => c.estado !== 'retirada'); } catch { return []; } })();
   const daBranch = manifestoDaBranch(carregado, fonte);
   const fatos: FatosDaEntrega = {
-    thread: t.id, branch, fonte, base, integrada: null, cadeia: [], autores, ultimoDespachoDeAutor: ultimoDespacho,
+    thread: t.id, branch, fonte, base, integrada: null, cadeia: [], cadeiaLida: false, autores, ultimoDespachoDeAutor: ultimoDespacho,
     revisoes: revisoesDaThread(raiz, t, eventos), verifies: verifiesDoLedger(eventos),
     comandosEsperados: comandosDoManifesto(daBranch.manifesto).length,
-    claims: claimsAtivas.map(c => ({ id: c.id, mutante: ALEGACAO_DE_MUTANTE.test(c.alegacao) })),
-    ciExigido: manifesto.ci.required_for_ship === true, ci: null, arquivos: [], segredos: [], changelog: null,
+    // A2 da rodada 1: a claim de mutante sem comando não executa nada e nunca prova a guarda; ela não conta como mutante.
+    claims: claimsAtivas.map(c => ({ id: c.id, mutante: ALEGACAO_DE_MUTANTE.test(c.alegacao) && c.verificar.length > 0 })),
+    ciExigido: manifesto.ci.required_for_ship === true, ci: null, arquivos: [], diffLido: false, segredos: [], changelog: null,
     bundle: { ok: false, texto: 'a fonte não se lê' },
   };
   if (!fonte) return fatos;
-  const b = conferirBundle(raiz, t, branch, fonte, comandosDoBundle(daBranch));
-  fatos.bundle = { ok: b.estado === 'feita', texto: b.texto };
+  // O bundle que existe e não se leu é lacuna; o `conferirBundle` sozinho o daria por ausente, e a entrega o regravaria.
+  const arquivoDoBundle = `.ork-ci/${t.id}.json`;
+  const doBundle = blobLido(raiz, fonte, arquivoDoBundle);
+  if (!doBundle.ok) fatos.bundle = { ok: false, lido: false, texto: `o bundle ${arquivoDoBundle} da fonte não se leu: ${doBundle.erro}` };
+  else {
+    const b = conferirBundle(raiz, t, branch, fonte, comandosDoBundle(daBranch));
+    fatos.bundle = { ok: b.estado === 'feita', texto: b.texto };
+  }
   if (fatos.ciExigido) {
     const contexto = manifesto.ci.context || 'ork-verify';
     fatos.ci = opcoes.forja ? consultarCiDoRepositorio(opcoes.forja.repositorio, fonte, contexto, opcoes.executorCi)
@@ -591,16 +728,24 @@ export function lerFatosDaEntrega(carregado: ManifestoCarregado, threadId: strin
   if (!base.sha) return fatos;
   const integrada = git(raiz, ['merge-base', '--is-ancestor', base.sha, fonte]);
   fatos.integrada = integrada.code === 0 ? true : integrada.code === 1 ? false : null;
-  fatos.cadeia = cadeiaDaFonte(raiz, fonte, base.sha);
+  const cadeia = cadeiaDaFonte(raiz, fonte, base.sha);
+  fatos.cadeia = cadeia ?? [];
+  fatos.cadeiaLida = cadeia !== null;
   const mudados = git(raiz, ['diff', '--name-only', '-z', '--no-renames', `${base.sha}...${fonte}`]);
   fatos.arquivos = mudados.ok ? mudados.stdout.split('\0').filter(Boolean) : [];
-  fatos.segredos = segredosDoDiff(raiz, base.sha, fonte);
-  const ancestral = git(raiz, ['merge-base', base.sha, fonte]).stdout.trim();
-  const antes = ancestral ? blobEm(raiz, ancestral, ARQUIVO_DO_CHANGELOG) ?? '' : '';
-  const depois = blobEm(raiz, fonte, ARQUIVO_DO_CHANGELOG);
-  fatos.changelog = depois === null && !fatos.arquivos.some(pedeLinha)
+  const varridos = segredosDoDiff(raiz, base.sha, fonte);
+  fatos.segredos = varridos.achados;
+  fatos.diffLido = mudados.ok && varridos.lido;
+  // O CHANGELOG do ancestral comum e o da fonte; a leitura que falha deixa `changelog` nulo, e a prova dele é lacuna.
+  const ancestral = git(raiz, ['merge-base', base.sha, fonte]);
+  if (!ancestral.ok || !SHA.test(ancestral.stdout.trim())) return fatos;
+  const antes = blobLido(raiz, ancestral.stdout.trim(), ARQUIVO_DO_CHANGELOG);
+  const depois = blobLido(raiz, fonte, ARQUIVO_DO_CHANGELOG);
+  if (!antes.ok || !depois.ok) return fatos;
+  const textoAntes = antes.bytes?.toString('utf8') ?? '';
+  fatos.changelog = depois.bytes === null && !fatos.arquivos.some(pedeLinha)
     ? { ok: true, detalhe: 'sem CHANGELOG e sem código do produto', linhas: [] }
-    : conferirChangelog(antes, depois ?? '', fatos.arquivos);
+    : conferirChangelog(textoAntes, depois.bytes?.toString('utf8') ?? '', fatos.arquivos);
   return fatos;
 }
 

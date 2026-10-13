@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dirTemporario } from './apoio';
-import { blocosNaoPublicados, conferirChangelog, entradasDaThread, linhasDaBasePerdidas, pedeLinha, posicionarEntradas,
+import { blocosNaoPublicados, conferirChangelog, entradasDaThread, linhasDaBasePerdidas, linhasRemovidas, pedeLinha, posicionarEntradas,
   resolverConflitosAditivos } from '../src/noctum-changelog';
 import { exec } from '../src/util';
 
@@ -184,4 +184,21 @@ test('QC5: a regra do checador portada: produto sem linha reprova, com linha, ve
   assert.equal(!semSecao.ok && semSecao.motivo, 'changelog.secao-ausente');
   assert.deepEqual(['core/src/a.ts', 'core/scripts/checar-x.cjs', 'core/scripts/mutante.cjs', 'marketplaces/m.json', 'docs/a.md']
     .map(pedeLinha), [true, false, true, true, false]);
+});
+
+test('QC6: a resolução preserva o CRLF de quem não conflitou e aceita os marcadores com CR; a linha que a thread corrigiu não é perda da base', () => {
+  // B3 da rodada 1: o arquivo com CRLF volta com CRLF; converter para LF mudaria a quebra de linha de quem não conflitou.
+  const comCrlf = ['a', '<<<<<<< HEAD', 'da thread', '||||||| ancestral', '=======', 'da base', '>>>>>>> base', 'b', ''].join('\r\n');
+  const r = resolverConflitosAditivos(comCrlf);
+  assert.deepEqual(r, { ok: true, texto: ['a', 'da base', 'da thread', 'b', ''].join('\r\n'), conflitos: 1 });
+  // A3 da rodada 1: a linha antiga que a própria thread corrigiu desde o ancestral comum não conta como perda da base.
+  const ancestral = `${CAB}## [0.1.0] - 2026-10-01\n\n- v1\n`;
+  const daThread = `${CAB}## [0.1.0] - 2026-10-01\n\n- v1, com a data certa\n`;
+  const daBase = `${CAB}## Não publicado\n\n${DA_MAIN}\n\n## [0.1.0] - 2026-10-01\n\n- v1\n`;
+  const resultado = `${CAB}## Não publicado\n\n${DA_MAIN}\n\n## [0.1.0] - 2026-10-01\n\n- v1, com a data certa\n`;
+  assert.deepEqual(linhasDaBasePerdidas(daBase, resultado), ['- v1'], 'sem saber o que a thread tirou, a linha some');
+  assert.deepEqual(linhasRemovidas(ancestral, daThread), ['- v1']);
+  assert.deepEqual(linhasDaBasePerdidas(daBase, resultado, linhasRemovidas(ancestral, daThread)), []);
+  // Só o que a thread tirou: outra linha da base que some continua perda.
+  assert.deepEqual(linhasDaBasePerdidas(`${daBase}- v0\n`, resultado, linhasRemovidas(ancestral, daThread)), ['- v0']);
 });
