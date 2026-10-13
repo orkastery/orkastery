@@ -9,12 +9,18 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { projetoTemporario } from './apoio';
-import { abrirArco, prepararIngressoSimulado, TrabalhoSimulado } from './noctum-apoio';
-import { assinar, instancia, linhasDoLog, regravarLog } from './noctum-supervisao-apoio';
+import { abrirArco, prepararIngressoSimulado, threadDoTrabalho, TrabalhoSimulado } from './noctum-apoio';
+import { assinar, instancia, linhasDoLog, regravarLog, storeCom } from './noctum-supervisao-apoio';
+import { registrar } from '../src/ledger';
+import { reservarDespacho } from '../src/noctum-arco';
+import { envelopeComTrabalhos } from '../src/noctum-envelope';
+import { editarBloco } from '../src/setup';
+import { dirThread } from '../src/thread';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { lerArco } from '../src/noctum-arco';
 import { CONTRATO_ARCO } from '../src/noctum-arco';
-import { dirDaSupervisao, gravarNaSupervisao, lerSupervisao, parametrosDoArco, RecusaDaSupervisao, retomadasDe } from '../src/noctum-supervisao';
+import { alvosDaFase, ConteudoV2, contasDoArco, correlacaoDoArco, dirDaSupervisao, gravarNaSupervisao, lerSupervisao, observarContas,
+  parametrosDoArco, RecusaDaSupervisao, retomadasDe } from '../src/noctum-supervisao';
 
 prepararIngressoSimulado();
 const semKernel = !kernelDisponivel();
@@ -151,5 +157,154 @@ test('S6: a subchave é própria: uma linha assinada no domínio do log do arco 
     assert.throws(() => lerSupervisao(p.dir, 'arco-s6'), (e: unknown) => adulterada(e) && /MAC/.test(String(e)));
     regravarLog(p.dir, 'arco-s6', [linhas[0], assinar(p.dir, segunda.dados)]);
     assert.equal(lerSupervisao(p.dir, 'arco-s6').linhas, 2, 'a mesma linha, assinada no domínio da supervisão, vale');
+  } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// D13 a D15: as contas e os runtimes do arco.
+// ---------------------------------------------------------------------------
+
+const DUAS = [{ conta: 'perfil-a', sessoes: 1 }, { conta: 'perfil-b', sessoes: 1 }];
+
+function conteudo(p: ReturnType<typeof projetoTemporario>, arco: string): ConteudoV2 {
+  const c = lerArco(p.dir, arco)!.conteudo!;
+  assert.ok(envelopeComTrabalhos(c));
+  return c as ConteudoV2;
+}
+
+/** A falha de conta de um despacho do arco, como o `phase run` a deixa: a falha do despacho com o perfil e o gate tipado. */
+function falhaDoDespacho(raiz: string, thread: string, arco: string, conta: string, gate: Record<string, unknown>): void {
+  registrar(dirThread(raiz, thread), thread, 'phase_dispatch_failed', { fase: 'GOAL', slug: `${thread}-goal`, runtime: 'claude-bg',
+    correlacao: correlacaoDoArco(arco), perfil: { id: conta, runtime: 'claude-bg', configDir: `/contas/${conta}` }, erro: 'SIMULADO' });
+  registrar(dirThread(raiz, thread), thread, 'gate_blocked', { gate: 'phase.dispatch', fase: 'GOAL', origem: 'phase.run', ...gate });
+}
+
+const visao = (p: ReturnType<typeof projetoTemporario>, arco: string, store: ReturnType<typeof storeCom>, quando = new Date().toISOString()) =>
+  contasDoArco(conteudo(p, arco), lerArco(p.dir, arco, quando)!, lerSupervisao(p.dir, arco), store, quando);
+
+function observarEGravar(p: ReturnType<typeof projetoTemporario>, arco: string) {
+  const o = observarContas(p.dir, arco, conteudo(p, arco), lerArco(p.dir, arco)!, lerSupervisao(p.dir, arco));
+  if (o.eventos.length) gravarNaSupervisao(p.carregado, arco, o.eventos);
+  return o;
+}
+
+test('S7: o limite semanal com o reset dito tira a conta até o reset, e a seleção fica com a outra conta do envelope', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-s7');
+  try {
+    const t = threadDoTrabalho(p.carregado, 'semana', 'RM-901', 'Pedido SIMULADO da semana.');
+    abrirArco(p.dir, 'arco-s7', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], thread: t.id }], contas: DUAS });
+    const reset = new Date(Date.now() + 5 * 24 * 3600_000).toISOString();
+    falhaDoDespacho(p.dir, t.id, 'arco-s7', 'perfil-a', { motivo: 'runtime.quota-exhausted',
+      falhaDeConta: { motivo: 'runtime.quota-exhausted', resetEm: reset, fonte: 'relogio', trecho: 'weekly limit SIMULADO' } });
+    const o = observarEGravar(p, 'arco-s7');
+    assert.deepEqual(o.eventos.map(e => e.tipo === 'conta_fora' ? `${e.conta}:${e.motivo}:${e.ate}` : e.tipo), [`perfil-a:cota:${reset}`]);
+    assert.equal(observarContas(p.dir, 'arco-s7', conteudo(p, 'arco-s7'), lerArco(p.dir, 'arco-s7')!, lerSupervisao(p.dir, 'arco-s7')).eventos.length, 0,
+      'a mesma decisão não se grava duas vezes');
+    const store = storeCom([{ id: 'perfil-a' }, { id: 'perfil-b' }]);
+    const v = visao(p, 'arco-s7', store);
+    assert.deepEqual(v.perfis, [{ id: 'perfil-b', runtime: 'claude-bg' }]);
+    assert.deepEqual(v.contas.find(c => c.conta === 'perfil-a'), { conta: 'perfil-a', runtime: 'claude-bg', disponivel: false, motivo: 'cota', ate: reset });
+    // Passado o reset dito, a conta volta.
+    const depois = new Date(Date.parse(reset) + 60_000).toISOString();
+    assert.deepEqual(visao(p, 'arco-s7', store, depois).perfis.map(x => x.id), ['perfil-a', 'perfil-b']);
+  } finally { p.limpar(); }
+});
+
+test('S8: a cota sem reset dito é lacuna: a conta fica fora pelo resto do arco, mesmo depois que a janela estimada do store vence', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-s8');
+  try {
+    const t = threadDoTrabalho(p.carregado, 'sem reset', 'RM-901', 'Pedido SIMULADO sem reset.');
+    abrirArco(p.dir, 'arco-s8', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], thread: t.id }], contas: DUAS });
+    falhaDoDespacho(p.dir, t.id, 'arco-s8', 'perfil-a', { motivo: 'runtime.quota-exhausted',
+      falhaDeConta: { motivo: 'runtime.quota-exhausted', resetEm: null, fonte: 'sem-horario', trecho: 'limit SIMULADO' } });
+    observarEGravar(p, 'arco-s8');
+    // O store marcou a conta com a janela padrão (estimada): vencida ela, o store a devolve, e o arco não.
+    const estimada = new Date(Date.now() + 3600_000).toISOString();
+    const store = storeCom([{ id: 'perfil-a', estado: 'esgotado', esgotadoAte: estimada }, { id: 'perfil-b' }]);
+    const tarde = new Date(Date.now() + 2 * 3600_000).toISOString();
+    const v = visao(p, 'arco-s8', store, tarde);
+    assert.deepEqual(v.perfis.map(x => x.id), ['perfil-b']);
+    assert.equal(v.contas.find(c => c.conta === 'perfil-a')?.motivo, 'cota-sem-reset');
+    assert.equal(v.contas.find(c => c.conta === 'perfil-a')?.ate, null);
+    assert.ok(v.lacunas.some(l => /perfil-a: reset desconhecido/.test(l)), JSON.stringify(v.lacunas));
+    // Sem prova do arco, só o store: a conta fica fora enquanto o prazo do store vale, e volta depois dele.
+    const outro = storeCom([{ id: 'perfil-a' }, { id: 'perfil-b', estado: 'esgotado', esgotadoAte: estimada }]);
+    assert.deepEqual(visao(p, 'arco-s8', outro).perfis.map(x => x.id), []);
+    assert.deepEqual(visao(p, 'arco-s8', outro, tarde).perfis.map(x => x.id), ['perfil-b']);
+  } finally { p.limpar(); }
+});
+
+test('S9: a falha de autenticação tira a conta do arco, sem prazo; sem conta, nada é selecionado, nem sem perfil', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-s9');
+  try {
+    const t = threadDoTrabalho(p.carregado, 'sem login', 'RM-901', 'Pedido SIMULADO sem login.');
+    abrirArco(p.dir, 'arco-s9', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], thread: t.id }], contas: DUAS });
+    falhaDoDespacho(p.dir, t.id, 'arco-s9', 'perfil-a', { motivo: 'runtime.auth-missing',
+      falhaDeConta: { motivo: 'runtime.auth-missing', resetEm: null, fonte: 'sem-horario', trecho: 'not logged in SIMULADO' } });
+    observarEGravar(p, 'arco-s9');
+    // O dono refez o login (o store diz ativo): no arco, a conta segue fora; a outra está sem login no store.
+    const v = visao(p, 'arco-s9', storeCom([{ id: 'perfil-a' }, { id: 'perfil-b', estado: 'sem-auth' }]));
+    assert.deepEqual(v.perfis, []);
+    assert.deepEqual(v.contas.map(c => `${c.conta}:${c.motivo}`), ['perfil-a:auth', 'perfil-b:sem-auth']);
+    // Store ilegível: nenhuma conta, e a lacuna diz por quê.
+    const ilegivel = visao(p, 'arco-s9', null as never);
+    assert.deepEqual(ilegivel.perfis, []);
+    assert.match(ilegivel.lacunas[0], /store de perfis/);
+  } finally { p.limpar(); }
+});
+
+test('S10: o subteto esgotado de uma conta só tira a conta; perfil ausente, desativado e provider pago também ficam fora', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-s10');
+  try {
+    const h = abrirArco(p.dir, 'arco-s10', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'Pedido SIMULADO.' }],
+      contas: [...DUAS, { conta: 'perfil-c', sessoes: 1 }, { conta: 'perfil-d', sessoes: 1 }], maquina: 3, tetoDoArco: 5 });
+    // O subteto de cada conta é o menor entre 20 e o teto do arco (5): cinco reservas na conta A esgotam a conta e o arco.
+    for (let i = 0; i < 4; i++) reservarDespacho(p.dir, { arco: 'arco-s10', envelopeSha256: h, trabalho: 'a', thread: null, fase: 'GOAL',
+      runtime: 'claude-bg', conta: 'perfil-a', revisao: false });
+    const store = storeCom([{ id: 'perfil-a' }, { id: 'perfil-b', estado: 'desativado' }, { id: 'perfil-c', estado: 'provider-pago' }]);
+    const v = visao(p, 'arco-s10', store);
+    assert.deepEqual(v.contas.map(c => `${c.conta}:${c.disponivel ? 'ok' : c.motivo}`),
+      ['perfil-a:ok', 'perfil-b:desativado', 'perfil-c:provider-pago', 'perfil-d:perfil-ausente']);
+    assert.equal(v.parada, null);
+    reservarDespacho(p.dir, { arco: 'arco-s10', envelopeSha256: h, trabalho: 'a', thread: null, fase: 'GOAL', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    const cheio = visao(p, 'arco-s10', store);
+    assert.equal(cheio.contas[0].motivo, 'subteto');
+    assert.equal(cheio.parada?.motivo, 'teto-do-arco', 'o teto do arco esgotado para o arco: nenhum rodízio resolve');
+  } finally { p.limpar(); }
+});
+
+test('S11: a recusa por custo num despacho do arco para o arco, sem retry nem troca de conta', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-s11');
+  try {
+    const t = threadDoTrabalho(p.carregado, 'pago', 'RM-901', 'Pedido SIMULADO pago.');
+    abrirArco(p.dir, 'arco-s11', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], thread: t.id }], contas: DUAS });
+    assert.equal(observarEGravar(p, 'arco-s11').parada, null);
+    // Uma recusa por custo fora do arco (sem a correlação) não conta.
+    registrar(dirThread(p.dir, t.id), t.id, 'phase_dispatch_failed', { fase: 'GOAL', runtime: 'claude-bg', perfil: { id: 'perfil-a' }, erro: 'SIMULADO' });
+    registrar(dirThread(p.dir, t.id), t.id, 'gate_blocked', { gate: 'phase.dispatch', fase: 'GOAL', motivo: 'cost.violation' });
+    assert.equal(observarEGravar(p, 'arco-s11').parada, null);
+    falhaDoDespacho(p.dir, t.id, 'arco-s11', 'perfil-a', { motivo: 'cost.violation' });
+    const o = observarEGravar(p, 'arco-s11');
+    assert.equal(o.parada?.motivo, 'violacao-de-custo');
+    assert.deepEqual(o.eventos, [], 'custo não vira conta fora: vira parada');
+  } finally { p.limpar(); }
+});
+
+test('S12: os alvos da fase são o runtime do bloco e a ordem de fallback dele, só os do envelope e com subteto aberto', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-s12');
+  try {
+    assert.equal(editarBloco(p.dir, 'auto', 1, { fallback: ['codex:modelo-SIMULADO:high'] }, 'fixture').ok, true);
+    abrirArco(p.dir, 'arco-s12a', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'Pedido SIMULADO.' }] });
+    assert.deepEqual(alvosDaFase(p.carregado, conteudo(p, 'arco-s12a'), lerArco(p.dir, 'arco-s12a')!, 'GO', 'claude-bg', 'auto'),
+      [{ runtime: 'claude-bg' }], 'o codex fora do envelope nunca é alvo');
+    const h = abrirArco(p.dir, 'arco-s12b', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'Pedido SIMULADO.' }],
+      contas: [{ conta: 'perfil-a', sessoes: 1 }], runtimes: [{ runtime: 'claude-bg', sessoes: 1 }, { runtime: 'codex', sessoes: 1 }], tetoDoArco: 4 });
+    const alvos = () => alvosDaFase(p.carregado, conteudo(p, 'arco-s12b'), lerArco(p.dir, 'arco-s12b')!, 'GO', 'claude-bg', 'auto');
+    assert.deepEqual(alvos(), [{ runtime: 'claude-bg' }, { runtime: 'codex', model: 'modelo-SIMULADO', effort: 'high' }]);
+    // O subteto do runtime do bloco esgotado (4, o menor entre 30 e o teto do arco): só o fallback do envelope sobra.
+    for (let i = 0; i < 4; i++) reservarDespacho(p.dir, { arco: 'arco-s12b', envelopeSha256: h, trabalho: 'a', thread: null, fase: 'GOAL',
+      runtime: 'claude-bg', conta: 'perfil-a', revisao: false });
+    assert.deepEqual(alvos().map(a => a.runtime), ['codex']);
   } finally { p.limpar(); }
 });

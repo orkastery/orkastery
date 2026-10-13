@@ -22,11 +22,16 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
 import { kernelDisponivel, tentarTravaExclusiva } from './fila-pesada';
 import { chaveLocal } from './hitl-local-receipt';
+import { lerLedger } from './ledger';
 import { ManifestoCarregado } from './manifest';
-import { ID_DO_ARCO } from './noctum-envelope';
+import { EstadoDoArco } from './noctum-arco';
+import { Capacidade, ConteudoDoEnvelope, ID_DO_ARCO, shaDoPedido, Trabalho } from './noctum-envelope';
 import { CADENCIA_MS } from './noctum-fila';
 import { CARENCIA_DO_TURNO_ENCERRADO_MIN } from './ocupacao';
-import { Fase, FASES } from './types';
+import { StoreDePerfis } from './runtime-profiles';
+import { alvosDaOrdemDeFallback, ConfigDeBlocoComFallback, configDoBloco, lerSetup } from './setup';
+import { dirThread, lerThread, listarIds } from './thread';
+import { EventoLedger, Fase, FASES, Thread } from './types';
 
 export const CONTRATO_SUPERVISAO = 'ork.noctum-supervisao/v1' as const;
 
@@ -404,3 +409,173 @@ export function contaForaAgora(s: EstadoDaSupervisao, conta: string, quando: str
 
 /** Uma fase do ciclo, para validar o que vem de fora (fixtures e ledgers). */
 export const faseValida = (v: unknown): v is Fase => typeof v === 'string' && (FASES as readonly string[]).includes(v);
+
+// ---------------------------------------------------------------------------
+// RM-058 N4 (D13 a D15): as contas e os runtimes do arco.
+// ---------------------------------------------------------------------------
+
+/** O envelope `v2` vigente, com a lista de trabalhos e a capacidade. */
+export type ConteudoV2 = ConteudoDoEnvelope & { trabalhos: Trabalho[]; capacidade: Capacidade };
+
+/** As threads do arco: a de cada trabalho (a que o envelope diz, ou a que casa com o item e o sha256 do pedido) e as dos despachos. */
+export function threadsDoArco(raiz: string, conteudo: ConteudoV2, estado: EstadoDoArco): Map<string, string> {
+  const porTrabalho = new Map<string, string>();
+  const pedidos = conteudo.trabalhos.filter(t => t.pedido !== undefined);
+  const lidas: Thread[] = [];
+  if (pedidos.length) for (const id of listarIds(raiz)) { try { lidas.push(lerThread(raiz, id)); } catch { /* ilegível: a fila diz a lacuna */ } }
+  for (const t of conteudo.trabalhos) {
+    if (t.thread !== undefined) { porTrabalho.set(t.id, t.thread); continue; }
+    const alvo = shaDoPedido(t.pedido!);
+    const casam = lidas.filter(x => x.roadmap === t.item && x.pedido?.sha256 === alvo);
+    if (casam.length === 1) porTrabalho.set(t.id, casam[0].id);
+  }
+  for (const d of estado.despachos) {
+    const th = d.threadDespachada ?? d.thread;
+    if (th && !porTrabalho.has(d.trabalho)) porTrabalho.set(d.trabalho, th);
+  }
+  return porTrabalho;
+}
+
+/** A correlação que o passo do arco grava em todo despacho dele. */
+export const correlacaoDoArco = (arco: string): string => `noctum:${arco}`;
+
+export interface ContaDoArco {
+  conta: string;
+  runtime: string | null;
+  disponivel: boolean;
+  /** Por que está fora: o motivo da linha do arco, ou o estado do perfil no store, ou o subteto. */
+  motivo: string | null;
+  /** Até quando, quando se sabe. `null` com a conta fora é reset desconhecido ou impedimento do dono. */
+  ate: string | null;
+}
+
+export interface VisaoDeContas {
+  /** Os perfis que o passo pode usar agora: do envelope, disponíveis no store e não tirados pelo arco. */
+  perfis: Array<{ id: string; runtime: string }>;
+  contas: ContaDoArco[];
+  /** O que a leitura não sabe: store ilegível, reset desconhecido. Lacuna nunca é conta disponível. */
+  lacunas: string[];
+  /** O teto do arco esgotado para tudo (D15); sem rodízio que resolva. */
+  parada: { motivo: MotivoDaParada; detalhe: string } | null;
+}
+
+/**
+ * D13: as contas que o passo pode usar. Só as do envelope (capacidade e orçamento), que o store dá como disponíveis (com o
+ * registro compartilhado da RM-040) e que o arco não tirou: a linha `conta_fora` do arco vale até o reset conhecido, e a
+ * sem reset vale pelo resto do arco. O subteto esgotado tira a conta; o teto do arco esgotado para o arco. `store` nulo é
+ * store ilegível: nenhuma conta, e a lacuna diz por quê.
+ */
+export function contasDoArco(conteudo: ConteudoV2, estado: EstadoDoArco, sup: EstadoDaSupervisao, store: StoreDePerfis | null,
+  quando: string): VisaoDeContas {
+  const agora = Date.parse(quando);
+  const lacunas: string[] = store ? [] : ['o store de perfis não pôde ser lido: nenhuma conta é dada como disponível'];
+  const tetoDoArco = conteudo.orcamento.arco;
+  const parada = tetoDoArco.unidade === 'sessoes' && estado.consumo.arco >= tetoDoArco.valor
+    ? { motivo: 'teto-do-arco' as const, detalhe: `o teto do arco é de ${tetoDoArco.valor} sessoes e ${estado.consumo.arco} já foram reservadas` }
+    : null;
+  const contas: ContaDoArco[] = conteudo.capacidade.porConta.map(({ conta }) => {
+    const p = store?.perfis.find(x => x.id === conta) ?? null;
+    const fora = (motivo: string, ate: string | null = null): ContaDoArco => ({ conta, runtime: p?.runtime ?? null, disponivel: false, motivo, ate });
+    if (!store) return fora('store-ilegivel');
+    if (!p) return fora('perfil-ausente');
+    const doArco = contaForaAgora(sup, conta, quando);
+    if (doArco) {
+      if (doArco.ate === null && doArco.motivo !== 'auth') lacunas.push(`conta ${conta}: reset desconhecido, fora pelo resto do arco (${doArco.prova})`);
+      return fora(doArco.motivo, doArco.ate);
+    }
+    const teto = conteudo.orcamento.porConta.find(x => x.conta === conta)?.teto;
+    if (teto?.unidade === 'sessoes' && (estado.consumo.porConta[conta] ?? 0) >= teto.valor) return fora('subteto');
+    if (p.estado === 'ativo') return { conta, runtime: p.runtime, disponivel: true, motivo: null, ate: null };
+    if (p.estado === 'esgotado' && p.esgotadoAte !== null) {
+      // O prazo do store pode ter sido estimado (janela padrão): ele só vale enquanto não passa, e a prova do arco manda.
+      if (Date.parse(p.esgotadoAte) <= agora) return { conta, runtime: p.runtime, disponivel: true, motivo: null, ate: null };
+      return fora('esgotado-no-store', p.esgotadoAte);
+    }
+    return fora(p.estado);
+  });
+  return { perfis: contas.filter(c => c.disponivel && c.runtime).map(c => ({ id: c.conta, runtime: c.runtime! })), contas, lacunas, parada };
+}
+
+/**
+ * D14: os runtimes em que a fase pode sair, em ordem: o do bloco e depois a ordem de fallback do bloco (o modelo e o
+ * esforço de cada item), só os que o envelope admite (capacidade e orçamento) e com o subteto em `sessoes` ainda aberto.
+ */
+export function alvosDaFase(carregado: ManifestoCarregado, conteudo: ConteudoV2, estado: EstadoDoArco, fase: Fase, runtimeDoBloco: string,
+  modo: Thread['modo']): Array<{ runtime: string; model?: string; effort?: string }> {
+  let bloco: ConfigDeBlocoComFallback | null = null;
+  try { bloco = configDoBloco(lerSetup(carregado.raiz), modo, fase) as ConfigDeBlocoComFallback | null; } catch { bloco = null; }
+  const doEnvelope = (r: string): boolean => conteudo.capacidade.porRuntime.some(x => x.runtime === r) &&
+    conteudo.orcamento.porRuntime.some(x => x.runtime === r);
+  const aberto = (r: string): boolean => {
+    const teto = conteudo.orcamento.porRuntime.find(x => x.runtime === r)?.teto;
+    return !teto || teto.unidade !== 'sessoes' || (estado.consumo.porRuntime[r] ?? 0) < teto.valor;
+  };
+  const lista = [{ runtime: runtimeDoBloco }, ...alvosDaOrdemDeFallback(bloco?.fallback, runtimeDoBloco)
+    .map(a => ({ runtime: a.runtime, model: a.model, ...(a.effort ? { effort: a.effort } : {}) }))];
+  const vistos = new Set<string>();
+  return lista.filter(a => { if (vistos.has(a.runtime)) return false; vistos.add(a.runtime); return doEnvelope(a.runtime) && aberto(a.runtime); });
+}
+
+/** O id do perfil de um evento de despacho (o `perfil` gravado pelo `phase run`: objeto com `id`, ou o id). */
+function perfilDoEvento(e: EventoLedger): string | null {
+  const p = e.perfil as unknown;
+  if (typeof p === 'string') return p;
+  if (objeto(p) && typeof p.id === 'string') return p.id;
+  return null;
+}
+
+/**
+ * D13 e D15: o que os despachos do arco provaram sobre as contas, desde a autorização: cota esgotada com o reset dito,
+ * cota sem reset dito, login perdido e limite de uso (até o `liberaEm` do pedido da fila durável). Devolve as linhas
+ * `conta_fora` novas (a mesma decisão já gravada não se repete) e a parada por violação de custo, quando o núcleo recusou
+ * um despacho do arco por provider pago. Só a prova do próprio arco entra: o store é relido a cada passo.
+ */
+export function observarContas(raiz: string, arco: string, conteudo: ConteudoV2, estado: EstadoDoArco, sup: EstadoDaSupervisao):
+  { eventos: EventoDaSupervisao[]; parada: { motivo: MotivoDaParada; detalhe: string } | null } {
+  const desde = Date.parse(estado.autorizadoPor?.recebidoEm ?? conteudo.janela.inicio);
+  const correlacao = correlacaoDoArco(arco);
+  // A falha mais nova de cada conta decide, entre todas as threads do arco.
+  const decisoes = new Map<string, { evento: Extract<EventoDaSupervisao, { tipo: 'conta_fora' }>; em: number }>();
+  let parada: { motivo: MotivoDaParada; detalhe: string } | null = null;
+  for (const thread of new Set(threadsDoArco(raiz, conteudo, estado).values())) {
+    let eventos: EventoLedger[];
+    try { eventos = lerLedger(dirThread(raiz, thread)); } catch { continue; }
+    eventos.forEach((e, i) => {
+      if (e.tipo !== 'phase_dispatch_failed' || e.correlacao !== correlacao || !(Date.parse(e.ts) >= desde)) return;
+      const conta = perfilDoEvento(e);
+      const runtime = typeof e.runtime === 'string' ? e.runtime : '';
+      // O que o núcleo gravou logo depois desta falha, até o próximo despacho: o gate tipado e o pedido da fila durável.
+      const depois: EventoLedger[] = [];
+      for (const x of eventos.slice(i + 1)) {
+        if (x.tipo === 'phase_dispatch' || x.tipo === 'phase_dispatch_failed' || x.tipo === 'phase_prompt_recorded') break;
+        depois.push(x);
+      }
+      const gate = depois.find(x => x.tipo === 'gate_blocked');
+      const falha = objeto(gate?.falhaDeConta) ? gate!.falhaDeConta as { motivo?: unknown; resetEm?: unknown } : null;
+      const prova = `${thread}: ${gate ? `gate_blocked ${String(gate.motivo)}` : 'phase_dispatch_failed'} ${String((gate ?? e).eventId ?? '')}`.trim();
+      if (gate?.motivo === 'cost.violation') {
+        parada ??= { motivo: 'violacao-de-custo', detalhe: `o núcleo recusou um despacho do arco por custo (${prova}); sem retry nem troca de conta` };
+        return;
+      }
+      if (!conta) return;
+      const fila = depois.find(x => x.tipo === 'rate_limit_queued');
+      let decisao: Extract<EventoDaSupervisao, { tipo: 'conta_fora' }> | null = null;
+      if (falha?.motivo === 'runtime.quota-exhausted') {
+        const reset = typeof falha.resetEm === 'string' && Date.parse(falha.resetEm) > Date.parse(e.ts) ? falha.resetEm : null;
+        decisao = { tipo: 'conta_fora', conta, runtime, motivo: reset ? 'cota' : 'cota-sem-reset', ate: reset, prova };
+      } else if (falha?.motivo === 'runtime.auth-missing') {
+        decisao = { tipo: 'conta_fora', conta, runtime, motivo: 'auth', ate: null, prova };
+      } else if (fila && typeof fila.liberaEm === 'string') {
+        decisao = { tipo: 'conta_fora', conta, runtime, motivo: 'limite-de-uso', ate: fila.liberaEm,
+          prova: `${thread}: rate_limit_queued ${String(fila.pedido ?? '')} (${fila.janelaEstimada === true ? 'janela estimada' : 'hora dita pelo runtime'})` };
+      }
+      const em = Date.parse(e.ts);
+      if (decisao && !((decisoes.get(conta)?.em ?? -Infinity) > em)) decisoes.set(conta, { evento: decisao, em });
+    });
+  }
+  const eventos = [...decisoes.values()].map(d => d.evento).filter(d => {
+    const atual = sup.contasFora.get(d.conta);
+    return !atual || atual.motivo !== d.motivo || atual.ate !== d.ate || atual.prova !== d.prova;
+  });
+  return { eventos, parada };
+}

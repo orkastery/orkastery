@@ -8,7 +8,7 @@ import { createHmac } from 'node:crypto';
 import { chaveLocal } from '../src/hitl-local-receipt';
 import { LeituraDeSessoes } from '../src/noctum-capacidade';
 import { CONTRATO_SUPERVISAO, dirDaSupervisao, Instancia } from '../src/noctum-supervisao';
-import { PerfilDeDespacho } from '../src/runtime-profiles';
+import { CONTRATO_PERFIS, EstadoDePerfil, PerfilDeDespacho, StoreDePerfis } from '../src/runtime-profiles';
 import { SessaoDaConta } from '../src/sessoes-contas';
 
 export const MAQUINA = 'maquina-simulada';
@@ -58,4 +58,11 @@ export function runtimeSemLeitura(perfis: string[] = ['perfil-a']): LeituraDeSes
 /** Espera alguns milissegundos sem ocupar a CPU. */
 export function esperar(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** O store de perfis SIMULADO, montado na mão (a leitura da supervisão é pura sobre ele). */
+export function storeCom(perfis: Array<{ id: string; runtime?: 'claude-bg' | 'codex'; estado?: EstadoDePerfil; esgotadoAte?: string | null }>): StoreDePerfis {
+  return { contrato: CONTRATO_PERFIS, perfis: perfis.map(p => ({ id: p.id, runtime: p.runtime ?? 'claude-bg',
+    ...(p.runtime === 'codex' ? { codexHome: `/contas/${p.id}` } : { configDir: `/contas/${p.id}` }),
+    estado: p.estado ?? 'ativo', esgotadoAte: p.esgotadoAte ?? null, ultimaFalha: null, ultimoUso: null, criadoEm: '2026-01-01T00:00:00.000Z' })) };
 }
