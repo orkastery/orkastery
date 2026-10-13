@@ -1,15 +1,15 @@
 # Autorização durável da varredura (RM-063)
 
-Contrato `ork.autorizacao-duravel/v1`, lido por `core/src/autorizacao-duravel.ts`. É a permissão que o dono grava
-nesta máquina para a batida do pulse agir sozinha, com prazo e com a lista do que ela pode. A F5 da
-[RM-063](../../roadmap/RM-063-fabrica-que-nao-para.md) lê este arquivo; a F7 (`ork conducao autorizar`) vai gravá-lo na
-mesma forma.
+Contrato `ork.autorizacao-duravel/v1`, lido e gravado por `core/src/autorizacao-duravel.ts`. É a permissão que o dono
+grava nesta máquina para a batida do pulse agir sozinha, com prazo e com a lista do que ela pode. A F5 da
+[RM-063](../../roadmap/RM-063-fabrica-que-nao-para.md) o lê na varredura; a F7 o grava pelo `ork conducao autorizar` e o
+lê na batida da condução (`ork conducao batida`).
 
 ## Onde mora
 
 Arquivo `.orkastery/monitor/autorizacao.json` no checkout canônico do projeto (de dentro de uma worktree, o da raiz),
 ao lado do `pulse-host.json`. Ele é desta máquina e fica fora do git, como o transporte do pulse (RM-047): versionado no
-git, ou link, ele não vale. Até a F7, o dono o grava à mão.
+git, ou link, ele não vale. O dono o grava com o `ork conducao autorizar` (ou à mão, na mesma forma).
 
 ```json
 {
@@ -41,8 +41,8 @@ git, ou link, ele não vale. Até a F7, o dono o grava à mão.
 | `limpar` | Solta do `ork` a sessão fantasma (sem pid e sem processo) presa a uma thread deste projeto e sem sinal de vida há pelo menos 30 min (a recém-despachada pode não ter pid ainda): `sessao_morta` no ledger, sem tocar o runtime | `ork sessions limpar-fantasmas` | F5 |
 | `registrar` | Registra a entrega do PR já mesclado: o merge `ship(<thread>)` na base remota sem `ship_done`, com o CI verde quando o manifesto o exige, e a thread parada (veja os bloqueios abaixo) | `ork ship registrar-pr <thread>` | F5 |
 | `master` | Fecha pelo MASTER por omissão a thread entregue e quieta: 30 min depois do `ship_done`, nada despachado depois dele e a thread parada | `ork master <thread> --aceitar-omissao` | F5 |
-| `merge` | Reservada: o merge do PR verde | (F7) | F7 |
-| `despachar` | Reservada: o despacho da fase seguinte | (F7) | F7 |
+| `merge` | Mescla o PR aberto de branch `ork/*` de thread #Auto ou #Maestro com todos os checks obrigatórios verdes e o PR limpo, provado na cópia da base; o PR para trás ou em conflito só no CHANGELOG ganha antes o merge da base na branch | `gh pr merge <n> --merge --match-head-commit <sha> --subject "ship(<thread>): ..."` | F7 |
+| `despachar` | Despacha a fase seguinte que o núcleo calcula (o passo da Sentinela), só com o pedido guardado na criação da thread, e retoma pelo retry com o prompt gravado quando o plano é automático; com a Sentinela ligada nesta máquina, cede | `ork phase run <thread> <FASE> --prompt "$(ork prompt render <thread> <FASE>)"` | F7 |
 
 A varredura nunca registra a entrega nem fecha a thread por cima de quem trabalha nela. Nesses casos a ação fica com o
 dono, com o motivo tipado (`motivoDoBloqueio`):
@@ -56,9 +56,18 @@ dono, com o motivo tipado (`motivoDoBloqueio`):
 | `branch-com-commits` | A branch da thread tem commit depois do head do PR mesclado (no `master`, commit fora da base) |
 | `trabalho-novo` | Pedido ou despacho de fase depois do head do PR: a ação mudaria a fase por cima dele |
 | `git-sem-resposta` | O git não respondeu sobre a worktree ou a branch |
+| `pr-rascunho` | O PR está em rascunho (`merge`) |
+| `checks-vermelhos` | Um check obrigatório do PR falhou (`merge`) |
+| `sem-checks-obrigatorios` | A base não exige check nenhum: merge sem check obrigatório verde fica com o dono (`merge`) |
+| `pr-bloqueado` | O GitHub bloqueia o merge com os checks obrigatórios verdes: revisão ou regra da base (`merge`) |
+| `pr-instavel` | Há check não obrigatório vermelho, e o PR não está limpo (`merge`) |
+| `conflito-em-codigo` | O merge da base na branch conflita fora do CHANGELOG: nunca é resolvido sozinho (`merge`) |
+| `branch-nao-publicada` | A branch local tem commits que o PR ainda não tem (`merge`) |
+| `sem-prompt-gravado` | A thread não tem o pedido guardado na criação (`ork thread new --pedido`) (`despachar`) |
 
-Com bloqueio, o comando que o pulse e o resumo dão ao dono é `ork thread status <thread>`, e a recomendação diz o comando
-da ação para quando o trabalho parar. Tag, publicação e merge fora da lista nunca entram por omissão.
+Com bloqueio de trabalho na thread, o comando que o pulse e o resumo dão ao dono é `ork thread status <thread>`, e a
+recomendação diz o comando da ação para quando o trabalho parar. Tag, publicação e merge fora da lista nunca entram por
+omissão.
 
 ## A leitura
 
@@ -91,6 +100,41 @@ A leitura nunca grava. Cada recusa tem motivo tipado, e só a autorização vál
   `precisaDeHumanoAgora` com o comando em `comandoResposta`; o MASTER completa o item da entrega sem nota, na faixa
   automática (I-45).
 - O `ork fabrica batida status` diz a autorização em vigor ou por que ela não vale.
+
+## A gravação
+
+`ork conducao autorizar --ate <data> --pode <acoes> [--por Q] [--nota N]` grava o arquivo inteiro, na forma acima, e a
+releitura confere que ele vale antes de responder. O prazo sai sempre com o fuso escrito: a data sozinha vale até 23:59
+no fuso do dono (`owner.timezone`), e a data com hora, no fuso do dono. Sem `--por`, vale o `user.name` do git do
+checkout, quando nomeia uma pessoa. Cada concessão vai ao ledger do projeto como `autorizacao_concedida`, com quem, até
+quando, o que pode, o sha256 do arquivo e a autorização que ela substituiu. Recusas, nenhuma grava nada:
+
+| Motivo | Quando |
+| --- | --- |
+| `autorizacao.sessao-despachada` | O pedido veio de uma sessão despachada pelo `ork` (a identidade de despacho no ambiente) |
+| `autorizacao.ate-invalido` / `autorizacao.ate-passado` | O `--ate` não é prazo, ou já passou |
+| `autorizacao.pode-vazio` / `autorizacao.pode-repetido` | O `--pode` sem ação, ou com ação repetida |
+| `autorizacao.acao-proibida` | Tag ou publicação, com qualquer nome (`tag`, `publicar`, `release`, `npm`, `versao`) |
+| `autorizacao.acao-desconhecida` | Ação fora do contrato |
+| `autorizacao.por` | O `--por` (ou o `user.name` do git) não nomeia uma pessoa |
+| `autorizacao.rastreada` | O arquivo está no git, ou é link ou diretório |
+
+Para revogar, apague o arquivo: sem ele, nada é feito sozinho.
+
+## A batida da condução
+
+`ork conducao batida` (contrato `ork.conducao-batida/v1`) roda, uma por vez nesta máquina (a mesma trava da varredura,
+`varredura-acoes.lock`), na ordem: traz a base, mescla os PRs prontos, roda a varredura da F5 (`limpar`, `registrar`,
+`master`, de modo que o PR mesclado agora é registrado agora) e despacha a fase seguinte. A varredura do cron a chama
+depois de entregar o resumo, e o `#OrkRetomar` do canal a dispara em segundo plano (`--entregar` manda o resultado ao
+dono pelo transporte do pulse). Cada ação vai a `feitas` ou a `pendentes`, com `resultado` (`feita`, `espera` quando a
+próxima batida tenta de novo, `dono` quando só ele destrava), o motivo tipado (o da autorização, um bloqueio acima,
+`checks-pendentes`, `estado-desconhecido`, `merge-sem-prova`, ou a tentativa que falhou: `merge-recusado`,
+`atualizacao-recusada`, `despacho-recusado`, `retomada-recusada`) e o comando pronto. O que ela fez, e o que tentou e
+falhou, vai ao ledger da thread como `varredura_acao` (origem `conducao.batida`); sem autorização ou com bloqueio, só o
+item da fila. O retrato da última rodada fica em `.orkastery/monitor/conducao-batida.json`, e por 45 min o pulse leva os
+pendentes do merge e do despacho para a fila: com a ação autorizada e sem bloqueio (o check pendente, por exemplo), na
+faixa automática; senão, com o dono.
 
 ## Para quem consome
 

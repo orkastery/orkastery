@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-12T18:04:38+00:00
+atualizado_em: 2026-10-13T03:30:00+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -76,7 +76,7 @@ sdlc:
 | F4 Escada de recuperação do runtime | `runtime.unavailable` tenta, em ordem: reerguer o daemon do runtime, o fallback do bloco (`--fallback`, I-33), outro perfil (RM-056). Só depois de 3 tentativas sobe ao dono, com alternativas e recomendação (RM-057) | teste por degrau, com runtimes falsos |
 | F5 Varredura que age | Na batida, com autorização durável gravada: limpar fantasmas, registrar entrega de PR já mesclado (`ship registrar-pr`) e fechar pelo MASTER por omissão. Sem autorização, cada um vira um item da fila, com o comando pronto | teste: merge de branch `ork/*` na main sem `ship_done` aparece na batida seguinte |
 | F6 Ociosidade é alerta | Máquina com vaga livre (abaixo de `concurrency.max_parallel_threads`, 5 pela decisão P1.a) e fila de trabalho do roadmap reservada para ela gera o alerta "máquina ociosa" ao dono, com as próximas threads sugeridas | teste: 0 sessões vivas e reserva aberta geram o alerta |
-| F7 Condutor autônomo dentro de autorização durável | `ork conducao autorizar --ate <data> --pode merge,registrar,master,despachar` grava a autorização do dono (como a X1.a); `ork conducao batida` é o passo determinístico que a varredura chama para avançar as threads dentro dela. A fase que precisa de LLM é despachada como sessão de background, nunca rodada por cron LLM | teste: autorização expirada recusa com motivo tipado |
+| F7 Condutor autônomo dentro de autorização durável | `ork conducao autorizar --ate <data> --pode merge,registrar,master,despachar` grava a autorização do dono (como a X1.a); `ork conducao batida` é o passo determinístico que a varredura chama para avançar as threads dentro dela: merge do PR verde e limpo, registro, MASTER por omissão e o despacho com o prompt gravado. A fase que precisa de LLM é despachada como sessão de background, nunca rodada por cron LLM. O merge da main na branch da thread devolve os itens dela a "## Não publicado" do CHANGELOG | teste: autorização expirada recusa com motivo tipado; `gh`, remoto e runtime falsos |
 
 ### Frentes nos mods do Claude Code (família da [RM-059](RM-059-conducao-dentro-do-claude-code.md), conduzida pela VPS)
 
@@ -114,13 +114,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
-| Documentação | Em revisão | — | 2026-10-12 | Julio |
-| Código | Mesclado | commit `adc973d` · PR #144 | 2026-10-12 | Julio |
-| Testes | Em execução | — | 2026-10-12 | Julio |
-| Deploy | Não implantado | — | 2026-10-12 | Julio |
-| Exposição | Flag desligada | — | 2026-10-12 | Julio |
-| Habilitação | Pendente | — | 2026-10-12 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-13 | Julio |
+| Documentação | Em revisão | — | 2026-10-13 | Julio |
+| Código | Mesclado | commit `adc973d` · PR #144 | 2026-10-13 | Julio |
+| Testes | Em execução | — | 2026-10-13 | Julio |
+| Deploy | Não implantado | — | 2026-10-13 | Julio |
+| Exposição | Flag desligada | — | 2026-10-13 | Julio |
+| Habilitação | Pendente | — | 2026-10-13 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -128,7 +128,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: condutor do maquina-b (núcleo e hosts) e VPS (mods, se o dono decidir); A: Julio; C: —; I: —.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** condutor do maquina-b (#Auto), merge pela X1.a até 18/10/2026; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** merge do PR da fatia 2 (F4, F5, F6) e, com ele na base, `ork ship registrar-pr ork-rm062fabrica`; a autorização durável da varredura nesta máquina (`.orkastery/monitor/autorizacao.json`) é ato do dono, e sem ela a varredura só põe as ações na fila dele; depois, a fatia 3 (F7 e os hosts H1 a H4). Responsável: condutor do maquina-b; prazo: 14/10/2026.
+- **Próxima ação, responsável e prazo:** merge do PR da fatia 3 (F7 e os hosts H1 a H4) e, com ele na base, `ork ship registrar-pr ork-rm062fabrica` e o MASTER da thread; depois, atos do dono nesta máquina: a autorização durável pelo `ork conducao autorizar --ate <data> --pode merge,registrar,master,despachar`, o canal do dono pelo onboarding (`ork onboarding set maestro` com o `canal`) e a automação de 30 min do OpenClaw (ou o agendador do Hermes) com o `bin/ork-vigia-batida`. Os mods M1 a M5 seguem a decisão do dono sobre quem conduz. Responsável: condutor do maquina-b; prazo: 15/10/2026.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -136,4 +136,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-12 | Fatia 1 no GO da thread `ork-rm062fabrica`: F1 (`ork fabrica batida` e o doctor que reprova sem batida), F2 ("sigo" só com sessão viva e o fecho lendo a fila do pulse) e F3 (prompt no ledger antes do adaptador e retry pelo sha256); F4 a F7, mods e hosts ficam para as fatias seguintes | Testes `core/test/rm062-batida.test.ts`, `rm062-superficies.test.ts` e `rm062-retry-prompt.test.ts`; decisões no ledger da thread | condutor do maquina-b (#Auto) |
 | 2026-10-12 | Fatia 2 no GO da thread `ork-rm062fabrica`: F4 (a escada de recuperação do runtime no `ork retry run`: reerguer o daemon pelo `claude daemon status` e `stop`, o fallback do bloco, outro perfil, e o dono só depois dos três, com alternativas da RM-057), F5 (a varredura que age com a autorização durável `ork.autorizacao-duravel/v1`: limpar fantasmas, registrar a entrega do PR mesclado e o MASTER por omissão; sem ela, item da fila com o comando) e F6 (o alerta de máquina ociosa, uma vez por episódio); o mod `ork-sentinela` herda a F4 pelo `ork retry plan` e `retry run`, sem mudança nele | Testes `core/test/rm063-escada.test.ts`, `rm063-varredura.test.ts` e `rm063-ociosa.test.ts`; contrato em `docs/referencia/contratos/autorizacao-duravel-rm063.md`; decisões no ledger da thread | condutor do maquina-b (#Auto) |
 | 2026-10-12 | Fatia 2, GO-FIX da revisão independente (14 achados): a escada não abre segunda sessão na worktree (a falha do redespacho guarda a sessão, e há prova de vida entre os degraus), o degrau parado por motivo que não é do destino não é consumido, o adaptador que lança vira falha do destino, o runtime mudo reergue o daemon e chama o dono na terceira vez, e o degrau 3 não volta à conta que o degrau 1 usou; a varredura não registra nem fecha por cima de trabalho na thread (sessão viva, worktree suja, commit ou despacho depois do PR), age depois da entrega do resumo e sob trava, só solta a fantasma com 30 min sem sinal e não repete a mesma recusa; a autorização exige fuso e autoria humana | Testes novos em `core/test/rm063-escada.test.ts` e `rm063-varredura.test.ts`, cada um reprovado no código anterior (`e22de4b0`) | condutor do maquina-b (#Auto) |
+| 2026-10-13 | Fatia 3 no GO da thread `ork-rm062fabrica`: F7 (`ork conducao autorizar` e `autorizacao`, que gravam e mostram a autorização durável; `ork conducao batida`, que mescla o PR de branch `ork/*` com os checks obrigatórios verdes e o PR limpo por `gh pr merge --match-head-commit`, registra a entrega, fecha pelo MASTER por omissão e despacha a fase seguinte com o pedido guardado, cedendo à Sentinela; a reconciliação do CHANGELOG no merge da main, por `ork conducao atualizar`), H1 a H4 (o `ork doctor --json` com a batida, o `bin/ork-vigia-batida` do OpenClaw e do Hermes, `#OrkRetomar` e `#OrkFabrica` pelo ingresso assinado, o `pulse-host.json` gravado pelo onboarding com o canal do dono e o transporte que tenta o outro host) e três achados do núcleo (sessão `busy` não é parada; nenhum projeto de pasta temporária no registro durável, com a suíte numa casa temporária; a sessão terminada no runtime solta o lease) | Testes `core/test/rm063-conducao-autorizar.test.ts`, `rm063-conducao-batida.test.ts`, `rm063-changelog-reconciliacao.test.ts`, `rm063-hosts-nucleo.test.ts`, `rm063-hosts-canal.test.ts`, `rm063-achado-busy.test.ts`, `rm063-achado-registro.test.ts` e `rm063-achado-lease.test.ts`, e os dos adaptadores; a reconciliação conferida contra os 25 merges reais mais recentes; decisões no ledger da thread | condutor do maquina-b (#Auto) |
 | 2026-10-12 | Item renumerado de RM-062 para RM-063; a thread segue `ork-rm062fabrica` | A RM-062 "Repositório público sem dado privado" nasceu em paralelo (thread `ork-rm062privado`), sem reserva de nenhuma das duas, e já estava na `main` e na branch da versão 0.5.5; a renumeração desta, ainda sem merge, é a troca barata. Decisão no ledger da thread | condutor do maquina-b (#Auto) |

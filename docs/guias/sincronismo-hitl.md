@@ -121,6 +121,14 @@ para OpenClaw, substituindo o destino pelo chat autorizado:
 O arquivo é desta máquina: versionado no git, ou como link, ele não vale, e a varredura sai com
 `transporte.rastreado` sem rodar nada (RM-047). O mesmo vale para o `master-host.json` do digest.
 
+O onboarding grava o arquivo pronto junto com o canal do dono (RM-063, H3), para a máquina nunca ficar sem
+transporte: `ork onboarding set maestro --conteudo '{"canal":{"host":"openclaw","destino":"telegram:CHAT"}}' --por <dono>`
+usa o `openclaw` do PATH, e o host `hermes` usa o Python do venv do Hermes com o `ork-pulse-enviar.py` do adaptador
+(`canal.executavel` e `canal.script` apontam outro caminho). Sem o executável do host nesta máquina, nada é gravado.
+O canal de um segundo host vira o principal e o primeiro fica em `alternativos` (H4): quando o principal falha, a
+entrega tenta o outro, na ordem, cada entrega vai ao `.orkastery/monitor/transporte.log`, e o `ork doctor` mostra o
+check "transporte do pulse" (o desvio é aviso; nenhum transporte, falha).
+
 Os argumentos são passados diretamente ao executável, sem shell ou eval. Um adaptador
 Hermes pode fornecer um executável determinístico com a mesma interface e código 0
 somente após confirmar a entrega. Não use uma sessão de chat ou cron LLM como transporte.
@@ -247,11 +255,30 @@ passo do condutor e o comando: retomar a thread que já existe vem antes de abri
 na hora, furando a cadência como a pergunta nova, uma vez por episódio: a marca fica enquanto a máquina segue ociosa e
 por mais duas batidas, e cada aviso vai ao ledger do projeto como `maquina_ociosa_avisada`.
 
+### A batida da condução e a segunda linha dos hosts (RM-063, F7 e H1 a H4)
+
+Depois da varredura que age, a batida do cron roda a batida da condução (`ork conducao batida`), o mesmo passo que o
+dono roda à mão: com a autorização durável (que o `ork conducao autorizar` grava), ela mescla o PR de branch `ork/*` com
+os checks obrigatórios verdes e o PR limpo, registra a entrega e fecha pelo MASTER por omissão na mesma rodada, e
+despacha a fase seguinte com o pedido guardado na criação da thread; com a Sentinela ligada nesta máquina, cede o
+despacho. O PR que ficou para trás, ou em conflito só no CHANGELOG, ganha o merge da base na branch com os itens da
+thread de volta a "## Não publicado"; conflito em código fica com o dono. O que ela não faz vira item da fila, com o
+motivo tipado e o comando ([contrato](../referencia/contratos/autorizacao-duravel-rm063.md)).
+
+Os hosts são a segunda linha. O heartbeat do OpenClaw e o do Hermes rodam, de 30 em 30 minutos e sem modelo, o
+`bin/ork-vigia-batida` do adaptador, que lê o `ork doctor --json` e manda ao dono o aviso pronto quando a última rodada
+da varredura passou de 30 min; nunca um cron LLM com `deliver=origin`. No Telegram autorizado, `#OrkRetomar` sozinho
+roda a batida da condução e o que voltou a andar chega em seguida pelo transporte, e `#OrkFabrica` responde o
+`ork fabrica`, pelo mesmo ingresso assinado da resposta ao pulse.
+
 Provas de operação:
 
 ```bash
 ork retry plan <thread>
 ork fabrica batida status
+ork conducao autorizacao
+ork conducao batida
+ork doctor --json
 ork pulse --json
 cat .orkastery/monitor/hitl.log
 ```
