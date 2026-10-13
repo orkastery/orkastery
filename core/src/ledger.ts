@@ -146,9 +146,25 @@ export const TIPOS_DE_EVENTO = {
   // o crontab e do usuario na maquina, nao de uma thread. Escritor: `fabrica-batida.ts`.
   batidaInstalada: 'batida_instalada',
   batidaRemovida: 'batida_removida',
+  // RM-063 (F4): um degrau da escada de recuperacao do runtime (reerguer o daemon, o fallback do bloco, outro
+  // perfil), feito, pulado ou falho, com o destino e o mesmo sha256 do prompt. Escritor: `runtime-escada.ts`.
+  recuperacaoDoRuntime: 'runtime_recuperacao',
+  // RM-063 (F5): uma acao da varredura (limpar sessao fantasma, registrar a entrega de PR mesclado, MASTER por omissao),
+  // feita ou recusada, com a autorizacao duravel do dono que a permitiu. Escritor: `varredura-acoes.ts`.
+  acaoDaVarredura: 'varredura_acao',
+  // RM-063 (F6): o dono foi avisado de que a maquina esta ociosa (vaga livre e item reservado para ela sem ninguem
+  // trabalhando), uma linha por episodio, no ledger do projeto. Escritor: a varredura (`pulse-delivery.ts`).
+  maquinaOciosaAvisada: 'maquina_ociosa_avisada',
   // RM-059 (F6, T6.4): a Sentinela do Condutor ligou ou desligou nesta maquina (ledger do projeto, so na troca).
   sentinelaLigada: 'sentinela_ligada',
   sentinelaDesligada: 'sentinela_desligada',
+  // RM-059 (F9, T9.1): a resposta de sessao `claude-bg` pelo Mensageiro de Sessoes (`entrega-por-mod.ts`), sem o
+  // texto, so o sha256 do corpo. Na fila: o `enviar` do controle por mod, no servidor do dono que recebeu a resposta.
+  // Enviada: a `ork_session_outbox` com o resultado do `$.session.send`. Reservada: a `ork_session_inbox` do servidor
+  // preso ao despacho, quando a conferencia no receptor passa. O `session_answered` sai da reconciliacao de sempre.
+  entregaNaFila: 'session_delivery_queued',
+  entregaEnviada: 'session_delivery_sent',
+  entregaReservada: 'session_delivery_reserved',
 } as const;
 
 /**

@@ -30,6 +30,7 @@ import { nomeDaMaquina, pastaDoUsuario } from './maquina';
 import { formatarHora, legendaDoFuso } from './horario';
 import { noPath } from './util';
 import { exigirHostLocal } from './procedencia';
+import { lerAutorizacao, linhaDaAutorizacao } from './autorizacao-duravel';
 
 /** O comentario no fim da linha que o `ork` instalou; o `sh` do cron o ignora. */
 export const MARCA_DA_BATIDA = '# ork-batida';
@@ -152,6 +153,12 @@ export interface EstadoDaBatida {
   /** O ritmo da linha que vale (a gerenciada, senao a manual mais rapida); `null` quando o cron nao e lido. */
   intervaloMin: number | null;
   ultimaRodada: (RodadaDaVarredura & { haMin: number }) | null;
+  /**
+   * RM-063 (F5): a autorizacao duravel que deixa a batida agir sozinha, quando o projeto foi informado: valida (com
+   * quem, ate quando e o que ela pode), ausente ou sem valor (com o motivo tipado).
+   */
+  autorizacao?: { estado: 'valida' | 'ausente' | 'invalida'; motivo: string | null; por: string | null; ate: string | null;
+    pode: string[]; linha: string };
 }
 
 /**
@@ -170,7 +177,9 @@ function ritmoDa(linha: string): number | null {
 }
 
 /** `ork fabrica batida status`: o que o crontab desta maquina diz da batida deste projeto, e a ultima rodada. */
-export function estadoDaBatida(raizDoProjeto: string, opcoes: { executor?: ExecutorDoCrontab; quando?: string } = {}): EstadoDaBatida {
+export function estadoDaBatida(raizDoProjeto: string, opcoes: { executor?: ExecutorDoCrontab; quando?: string;
+  /** RM-063 (F5): o `project.name` do manifesto; com ele, o estado diz a autorizacao duravel da varredura. */
+  projeto?: string } = {}): EstadoDaBatida {
   const raiz = raizDoEstado(raizDoProjeto);
   const executor = opcoes.executor ?? CRONTAB_DO_SISTEMA;
   const quando = opcoes.quando ?? new Date().toISOString();
@@ -185,7 +194,15 @@ export function estadoDaBatida(raizDoProjeto: string, opcoes: { executor?: Execu
     instalada: gerenciadas.length + manuais.length > 0,
     intervaloMin: ritmos.length ? Math.min(...ritmos) : null,
     ultimaRodada: rodada ? { ...rodada, haMin: Math.max(0, Math.floor((Date.parse(quando) - Date.parse(rodada.em)) / 60000)) } : null,
+    ...(opcoes.projeto ? { autorizacao: autorizacaoDaBatida(raiz, opcoes.projeto, quando) } : {}),
   };
+}
+
+function autorizacaoDaBatida(raiz: string, projeto: string, quando: string): NonNullable<EstadoDaBatida['autorizacao']> {
+  const l = lerAutorizacao(raiz, { projeto, agora: new Date(quando) });
+  const a = l.valida ? l.autorizacao : null;
+  return { estado: l.valida ? 'valida' : l.motivo === 'autorizacao.ausente' ? 'ausente' : 'invalida', motivo: l.valida ? null : l.motivo,
+    por: a?.por ?? null, ate: a?.ate ?? null, pode: a ? [...a.pode] : [], linha: linhaDaAutorizacao(l, quando) };
 }
 
 export interface ResultadoDaBatida {
@@ -292,6 +309,7 @@ export function textoDoEstadoDaBatida(e: EstadoDaBatida, quando: string = new Da
       linhas.push(`  atrasada: nenhuma rodada há ${r.haMin} min com a batida instalada; confira crontab -l e o hitl.log`);
     }
   }
+  if (e.autorizacao) linhas.push(`  ${e.autorizacao.linha}`);
   linhas.push(legendaDoFuso());
   return linhas.join('\n');
 }

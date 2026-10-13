@@ -103,12 +103,16 @@ const ENCERRAM_A_SESSAO = ['phase_result', 'sessao_morta', 'session_superseded']
  * (`fimDaSessao`) e a vaga. Nunca chama o runtime: o registro no `claude agents` fica onde esta.
  */
 export function limparFantasmas(raiz: string,
-  opcoes: { dryRun?: boolean; agora?: string; thread?: string; origem?: string } = {}):
+  opcoes: { dryRun?: boolean; agora?: string; thread?: string; origem?: string;
+    /** RM-063 (F5): o inventario ja lido (a varredura le uma vez as fantasmas e as sessoes vivas). */
+    inventario?: InventarioDeSessoes;
+    /** RM-063 (F5): so estas sessoes (a varredura solta so as fantasmas que ela ja viu velhas). */
+    sessoes?: readonly string[] } = {}):
   { ok: boolean; dryRun: boolean; itens: FantasmaTratado[]; falhas: string[] } {
   const canonica = raizDoEstado(raiz);
-  const inv = inventariarSessoes(canonica, { global: true });
+  const inv = opcoes.inventario ?? inventariarSessoes(canonica, { global: true });
   const itens: FantasmaTratado[] = [];
-  for (const s of inv.sessoes.filter(x => x.fantasma)) {
+  for (const s of inv.sessoes.filter(x => x.fantasma && (!opcoes.sessoes || opcoes.sessoes.includes(x.sessionId)))) {
     // Fechamento (RM-056, ao fechar): so os vinculos da thread que fecha; o resto fica como estava.
     const vinculos = opcoes.thread ? s.vinculos.filter(v => v.thread === opcoes.thread && v.raiz === canonica) : s.vinculos;
     if (opcoes.thread && vinculos.length === 0) continue;

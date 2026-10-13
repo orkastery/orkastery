@@ -2466,7 +2466,7 @@ function comandoDaBatida(carregado: ManifestoCarregado, args: Args): number {
   const acao = args.posicionais[2] ?? 'status';
   const json = args.opcoes.json === true;
   if (acao === 'status') {
-    const estado = estadoDaBatida(carregado.raiz);
+    const estado = estadoDaBatida(carregado.raiz, { projeto: carregado.manifesto.project.name });
     console.log(json ? JSON.stringify(estado, null, 2) : textoDoEstadoDaBatida(estado));
     return estado.leitura.ok && estado.instalada ? 0 : 1;
   }
