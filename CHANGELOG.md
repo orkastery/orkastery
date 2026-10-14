@@ -12,9 +12,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `porta`, `caminho_base`, `ssh_host`, `ssh_porta`, `ca`) e o `ci.produtor`; sem eles, o manifesto lê como antes. A
   forja do remoto é resolvida pelo manifesto, pelo host conhecido ou pela sondagem só da CLI com login no host
   (`gh api meta`, `glab api metadata`), nunca pelo nome do host; sem resposta, `forja.desconhecida`, e com duas,
-  `forja.ambigua`. A API da forja passa por uma chamada só, com o host explícito (`GH_HOST` no `gh` e `GITLAB_HOST` no
-  `glab`, quando há porta; o subcaminho só vai no login), o corpo pelo stdin, os erros tipados pelo status HTTP, um
-  retry só do 429 em leitura e a paginação com teto de 10 páginas. Versões mínimas medidas das CLIs: `gh` 2.18.0 e
+  `forja.ambigua`. A API da forja passa por uma chamada só, com o host explícito (`GITLAB_HOST` sempre no `glab`;
+  `GH_HOST` no `gh`, só quando há porta; o subcaminho só vai no login), o corpo pelo stdin, os erros tipados pelo
+  status HTTP, uma espera do limite de cota ou secundário numa leitura (até 60 s) e a paginação com teto de 10
+  páginas. Versões mínimas medidas das CLIs: `gh` 2.18.0 e
   `glab` 1.121.0. A versão do GitLab cai numa faixa (testada 19.2 a 19.4, compatível desde 17.0, recusa abaixo), em
   cache por 24 h. O `ork doctor` ganha a seção forja (identidade, alcance HTTPS e SSH, TLS, subcaminho, CLI, login,
   servidor, escopo, projeto, capacidades), que só reprova o projeto que depende da forja; no `--json`, só com

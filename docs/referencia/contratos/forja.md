@@ -16,10 +16,18 @@ Sem ele, tudo vem do remoto `origin` e da sondagem. Com ele, o que ele declara v
 | `ssh_host`, `ssh_porta` | SSH em outro host ou outra porta | `ssh.empresa.com`, `2222` |
 | `ca` | CA interna, o caminho absoluto do arquivo PEM | `/etc/pki/ca-trust/source/anchors/empresa.pem` |
 
-Valor fora da forma é erro do manifesto. Com `host` declarado, o remoto tem de apontar para ele ou para o `ssh_host`:
-outro host é `forja.remoto-divergente`, e nada é consultado. O manifesto não redireciona a API de um remoto em host
-conhecido (`github.com`, `gitlab.com`) nem a de um remoto HTTPS: só o remoto SSH cujo host é o `ssh_host` declarado
-usa o `host` do manifesto (o caso de web e SSH em hosts diferentes).
+Valor fora da forma é erro do manifesto. O manifesto confirma o remoto, nunca o redireciona. Dá
+`forja.remoto-divergente`, sem consulta nenhuma, quando:
+
+- o `host` declarado difere do host do remoto;
+- a `porta` declarada difere da porta do remoto HTTPS ou HTTP (remoto sem porta é a padrão, 443 ou 80);
+- o `caminho_base` não é prefixo do caminho do remoto, ou não sobra `dono/repo` depois dele;
+- o `tipo` contradiz um host conhecido (`tipo: gitlab` em `github.com`);
+- o remoto está em host conhecido (`github.com`, `gitlab.com` e os apelidos SSH): ele nunca é redirecionado, e o
+  `host` ou a `porta` do manifesto que divergem recusam.
+
+O único desvio é o do SSH em outro host: o remoto `ssh` ou `scp` (nunca `git://`) cujo host é o `ssh_host` declarado
+usa o `host` do manifesto para a web e a API, e esse `host` nunca pode ser um host conhecido.
 
 ## Como o tipo é resolvido
 
@@ -42,6 +50,11 @@ Lista de quem pode publicar o `ork-verify`. Padrão: `github-actions` no GitHub,
 
 Muda para quem já usava outro app: o `ork-verify` verde de um app fora da lista deixa de aprovar o gate, e a pessoa
 declara a lista em `ci.produtor`.
+
+`ci.produtor` é validado na leitura do manifesto: de 1 a 20 entradas (a string solta vale como lista de uma), cada
+uma um slug de app, um nome de job ou `status:<login>` (letras, dígitos, `_`, `.` e `-`, até 100 caracteres, começando
+por letra ou dígito); repetidas contam uma vez. Lista vazia, com mais de 20 ou com entrada inválida é erro do
+manifesto: nunca se adivinha quem aprova.
 
 ## Versão do servidor
 
@@ -71,7 +84,7 @@ sistema, instale a CA no sistema (o `ork doctor` avisa).
 
 ## Erros da forja
 
-`forja.sem-login` (401, ou CLI sem login no host), `forja.sem-permissao` (403), `forja.nao-achei` (404; no GitLab,
+`forja.ausente` (a CLI não está instalada), `forja.sem-login` (401, ou CLI sem login no host), `forja.sem-permissao` (403), `forja.nao-achei` (404; no GitLab,
 projeto privado sem acesso também), `forja.limite` (429 ou cota esgotada, com `tentarEm`), `forja.conflito` (409),
 `forja.indisponivel` (5xx, prazo, TLS), `forja.pedido-recusado` (outro 4xx), `forja.resposta-invalida`,
 `forja.incompleto` (lista acima de 10 páginas de 100), `forja.desconhecida`, `forja.ambigua`,
@@ -85,7 +98,8 @@ capacidades. Sem remoto de forja e sem o bloco `forja:`, a seção não aparece.
 fora, cadeia TLS inválida, subcaminho sem resposta, CLI abaixo do mínimo, sem login, token sem leitura da API,
 servidor abaixo do piso, projeto não lido) só quando o projeto depende da forja (`ci.required_for_ship: true` ou o
 bloco `forja:` declarado); fora disso, avisa. SSH recusado, as opções de merge do projeto e as capacidades desligadas
-são sempre aviso.
+são sempre aviso. Entre as que reprovam o projeto dependente, estão a CLI ausente (`forja.ausente`) e o arquivo da
+`ca` que não existe ou não é legível.
 
 No `ork doctor --json` (contrato `ork.doctor/v1`), a seção só roda com `--forja`, porque ela faz chamadas de rede. O
 campo `forja` do JSON diz o que foi feito: `medida` (a seção rodou) ou `nao-medida` (sem a flag).
