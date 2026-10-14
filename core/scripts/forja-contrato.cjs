@@ -116,6 +116,9 @@ function casosDoGitlab(o) {
     casos['mr-pipelines'] = ['api', ...h, `projects/${id}/merge_requests/${o.pr}/pipelines?per_page=100`];
   }
   if (o['commit-mesclado']) casos['commit-mesclado'] = ['api', ...h, `projects/${id}/repository/commits/${o['commit-mesclado']}`];
+  // A ponta da base e a comparacao do sha com ela: o `registrar-pr` externo prova o merge dentro da ponta assim.
+  if (o.base) casos['branch'] = ['api', ...h, `projects/${id}/repository/branches/${encodeURIComponent(o.base)}`];
+  if (o.base && s) casos['compare'] = ['api', ...h, `projects/${id}/repository/compare?from=${encodeURIComponent(o.base)}&to=${s}&straight=false`];
   if (o.branch) casos['mr-list'] = ['api', ...h, `projects/${id}/merge_requests?source_branch=${encodeURIComponent(o.branch)}&state=all&per_page=100`];
   return { cli: 'glab', casos };
 }

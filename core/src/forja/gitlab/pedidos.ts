@@ -5,6 +5,7 @@
  */
 import type { PrDaForja } from '../../parado-no-condutor';
 import type { ChamadorDaApi } from '../api';
+import type { PedidoMesclado } from '../contrato';
 import { deFora } from '../texto';
 
 const SHA = /^[0-9a-f]{40}$/, BRANCH = /^[A-Za-z0-9._/-]{1,200}$/;
@@ -35,7 +36,9 @@ export function prDoMr(bruto: unknown, base: string): PrDaForja | null {
   // As versoes antigas so tem `work_in_progress`.
   const rascunho = typeof m.draft === 'boolean' ? m.draft : m.work_in_progress;
   if (typeof m.iid !== 'number' || !Number.isSafeInteger(m.iid) || m.iid < 1 || typeof m.sha !== 'string' || !SHA.test(m.sha) || !estado ||
-      typeof rascunho !== 'boolean') throw new Error('MR fora do formato');
+      typeof rascunho !== 'boolean' || !Number.isSafeInteger(m.source_project_id) || !Number.isSafeInteger(m.target_project_id)) {
+    throw new Error('MR fora do formato');
+  }
   if (m.source_project_id !== m.target_project_id || m.target_branch !== base || typeof m.source_branch !== 'string' ||
       !BRANCH.test(m.source_branch)) return null;
   const url = typeof m.web_url === 'string' && /^https?:\/\/\S+$/.test(m.web_url) ? m.web_url.slice(0, 300) : null;
@@ -64,8 +67,8 @@ export function pedidosDaBranchGitlab(e: { repositorio: string; base: string; br
 }
 
 /**
- * Abre o MR da branch na base. Escrita: nunca se repete sozinha (quem chamou rele a lista). A saida tem a forma da
- * do `gh pr create`: status 0 com o MR criado, ou 1 com o codigo `forja.*` no stderr.
+ * Abre o MR da branch na base. Escrita: nunca se repete sozinha (quem chamou rele a lista). O status e o stderr
+ * seguem o `gh pr create` (0, ou 1 com o codigo `forja.*` no stderr); o stdout e o JSON do MR criado.
  */
 export function abrirPedidoGitlab(e: { repositorio: string; base: string; branch: string; titulo: string; corpo: string; prazoMs: number;
   api?: ChamadorDaApi }): { status: number | null; stdout: string; stderr: string } {
@@ -74,4 +77,58 @@ export function abrirPedidoGitlab(e: { repositorio: string; base: string; branch
     corpo: { source_branch: e.branch, target_branch: e.base, title: e.titulo, description: e.corpo } });
   return r.ok ? { status: 0, stdout: JSON.stringify(r.valor.corpo), stderr: '' }
     : { status: 1, stdout: '', stderr: deFora(`${r.erro.codigo}: ${r.erro.detalhe}`, 300) };
+}
+
+/** O corpo de um GET que deu certo, quando e objeto; `null` sem a API, com erro ou fora do formato. */
+function lerObjeto<T>(api: ChamadorDaApi | undefined, caminho: string): T | null {
+  if (!api) return null;
+  const r = api({ metodo: 'GET', caminho });
+  return r.ok && r.valor.corpo !== null && typeof r.valor.corpo === 'object' && !Array.isArray(r.valor.corpo) ? (r.valor.corpo as T) : null;
+}
+
+const sha = (v: unknown): string | null => (typeof v === 'string' && SHA.test(v) ? v : null);
+
+/**
+ * O MR da entrega externa, pelo `iid`; `null` quando a consulta falha. O merge e o commit de merge (metodos `merge` e
+ * `rebase_merge`), o do squash (`ff` com squash) ou o proprio head (`ff` sem squash: o head entra na base sem commit
+ * novo, e o `ship(<thread>)` nunca chega a ela; e por isso que essa entrega vem por aqui).
+ */
+export function pedidoMescladoGitlab(e: { repo: string; numero: number; api?: ChamadorDaApi }): PedidoMesclado | null {
+  const mr = lerObjeto<Record<string, unknown>>(e.api, `${projetoNaApi(e.repo)}/merge_requests/${e.numero}`);
+  if (!mr) return null;
+  const mesclado = mr.state === 'merged';
+  const headSha = sha(mr.sha);
+  return {
+    numero: e.numero, mesclado, headSha,
+    mergeSha: sha(mr.merge_commit_sha) ?? sha(mr.squash_commit_sha) ?? (mesclado ? headSha : null),
+    base: typeof mr.target_branch === 'string' && BRANCH.test(mr.target_branch) ? mr.target_branch : null,
+    branch: typeof mr.source_branch === 'string' ? mr.source_branch : null,
+    titulo: typeof mr.title === 'string' ? mr.title : null, corpo: typeof mr.description === 'string' ? mr.description : null,
+    url: typeof mr.web_url === 'string' && /^https?:\/\/\S+$/.test(mr.web_url) ? mr.web_url : null,
+  };
+}
+
+/** A branch padrao do projeto; `''` se a resposta nao a traz; `null` quando a consulta falha. */
+export function branchPadraoGitlab(e: { repo: string; api?: ChamadorDaApi }): string | null {
+  const p = lerObjeto<{ default_branch?: unknown }>(e.api, projetoNaApi(e.repo));
+  return p ? (typeof p.default_branch === 'string' ? p.default_branch : '') : null;
+}
+
+/** O sha da ponta da branch (`commit.id` no GitLab); `null` quando a consulta falha ou nao ha sha valido. */
+export function pontaDaBranchGitlab(e: { repo: string; branch: string; api?: ChamadorDaApi }): string | null {
+  const b = lerObjeto<{ commit?: { id?: unknown } }>(e.api, `${projetoNaApi(e.repo)}/repository/branches/${encodeURIComponent(e.branch)}`);
+  return sha(b?.commit?.id);
+}
+
+/**
+ * A ponta `ate` contem o merge `de`? Pela base de mesclagem (`straight=false`): os commits de `de` que a base de
+ * mesclagem com `ate` nao tem. Nenhum: `ahead`; algum: `diverged` (o GitLab nao separa `behind`). `null` sem leitura.
+ */
+export function compararGitlab(e: { repo: string; de: string; ate: string; api?: ChamadorDaApi }): string | null {
+  if (!sha(e.de) || !sha(e.ate)) return null;
+  if (e.de === e.ate) return 'identical';
+  const consulta = new URLSearchParams({ from: e.ate, to: e.de, straight: 'false' });
+  const r = lerObjeto<{ commits?: unknown; compare_timeout?: unknown }>(e.api, `${projetoNaApi(e.repo)}/repository/compare?${consulta.toString()}`);
+  if (!r || r.compare_timeout === true || !Array.isArray(r.commits)) return null;
+  return r.commits.length === 0 ? 'ahead' : 'diverged';
 }

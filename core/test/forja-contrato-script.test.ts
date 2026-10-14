@@ -294,3 +294,19 @@ test('GitLab: os casos da rede usam o id do usuário lido e o caminho codificado
   assert.equal(comando('membro-do-grupo'), 'groups/time%2Fsub/members/all/7');
   assert.equal(comando('membro-sem-nivel'), 'groups/outro/members/all/7');
 });
+
+test('ramo GitLab com --base: grava a ponta da base e a comparação do sha com ela', () => {
+  const { bin, saida } = sandbox();
+  cliFalso(bin, 'glab', [
+    { padrao: 'repository/branches/main', corpo: { name: 'main', commit: { id: SHA } } },
+    { padrao: 'repository/compare', corpo: { commits: [], diffs: [], compare_timeout: false, compare_same_ref: false } },
+  ]);
+  const r = rodar(bin, [...argsGitlab(saida), '--base', 'main']);
+  assert.equal(r.status, 0, r.stderr);
+  const branch = JSON.parse(fs.readFileSync(path.join(saida, 'branch.json'), 'utf8'));
+  assert.deepEqual(branch.comando.slice(-1), ['projects/grupo%2Fproj/repository/branches/main']);
+  assert.equal(branch.corpo.commit.id, SHA);
+  const compare = JSON.parse(fs.readFileSync(path.join(saida, 'compare.json'), 'utf8'));
+  assert.deepEqual(compare.comando.slice(-1), [`projects/grupo%2Fproj/repository/compare?from=main&to=${SHA}&straight=false`]);
+  assert.deepEqual(compare.corpo.commits, []);
+});

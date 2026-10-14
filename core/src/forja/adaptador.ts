@@ -19,16 +19,16 @@ export interface AdaptadorDeForja {
   checksNoCommit?(e: { repository: string; sha: string; context: string; executor: ExecutorCi; host?: string }): Resultado<CheckNoCommit[]>;
   /** Os checks com esse nome no commit, pela API da forja ja resolvida, e se houve resultado mesclado sem vinculo com ele. */
   estadoDeCi?(e: EntradaDoEstadoDeCi): Resultado<ChecksDoCommit>;
-  /** O PR da entrega externa; `null` quando a consulta falha. */
-  pedidoMesclado?(e: { repo: string; numero: number; executor: ExecutorGitHub }): PedidoMesclado | null;
+  /** O PR/MR da entrega externa; `null` quando a consulta falha. O GitLab le pela `api`. */
+  pedidoMesclado?(e: { repo: string; numero: number; executor: ExecutorGitHub; api?: ChamadorDaApi }): PedidoMesclado | null;
   /** O namespace do dono pedido para a casa da rede e, quando e grupo, o nivel da pessoa nele. */
   donoDaRede?(e: { api: ChamadorDaApi; dono: string }): Resultado<DonoDaRede>;
   /** A branch padrão do repositório; `''` se a resposta não a traz; `null` quando a consulta falha. */
-  branchPadrao?(e: { repo: string; executor: ExecutorGitHub }): string | null;
+  branchPadrao?(e: { repo: string; executor: ExecutorGitHub; api?: ChamadorDaApi }): string | null;
   /** O sha da ponta da branch; `null` quando a consulta falha ou não há sha válido. */
-  pontaDaBranch?(e: { repo: string; branch: string; executor: ExecutorGitHub }): string | null;
+  pontaDaBranch?(e: { repo: string; branch: string; executor: ExecutorGitHub; api?: ChamadorDaApi }): string | null;
   /** O status da comparação (`ahead`, `identical`, `behind`, `diverged`); `null` quando a consulta falha. */
-  comparar?(e: { repo: string; de: string; ate: string; executor: ExecutorGitHub }): string | null;
+  comparar?(e: { repo: string; de: string; ate: string; executor: ExecutorGitHub; api?: ChamadorDaApi }): string | null;
   /** Os pedidos da branch na base, do mais novo para o mais velho; `erro` não nulo quando a leitura falha. O GitLab lê pela `api`. */
   pedidosDaBranch?(e: { host: string; repositorio: string; base: string; branch: string; executor: ExecutorDoGh; prazoMs: number;
     api?: ChamadorDaApi }): { prs: PrDaForja[]; erro: string | null };

@@ -1,0 +1,21 @@
+{
+  "caso": "compare",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/repository/compare?from=main&to=4029c287105c50241e1ca52e386447762c927b6b&straight=false"
+  ],
+  "status": 0,
+  "corpo": {
+    "commit": null,
+    "commits": [],
+    "diffs": [],
+    "compare_timeout": false,
+    "compare_same_ref": true,
+    "web_url": "http://127.0.0.1/root/matriz/-/compare/4029c287105c50241e1ca52e386447762c927b6b...4029c287105c50241e1ca52e386447762c927b6b"
+  }
+}

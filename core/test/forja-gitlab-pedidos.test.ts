@@ -69,12 +69,16 @@ test('MR de fork, de outra base ou de outra branch fica de fora; o conflito só 
 });
 
 test('lista que não cabe numa página, fora do formato ou com erro da API vira erro, nunca a lista curta', () => {
+  // Sintetico: o cabecalho `X-Next-Page` de uma lista cheia (a gravada cabe numa pagina).
   const pagina = ler([{ quando: listaDaBranch, responde: http(200, [MR()], { 'X-Next-Page': '2' }) }]);
   assert.match(pagina.r.erro ?? '', /^forja\.incompleto/);
   assert.deepEqual(pagina.r.prs, []);
   assert.match(ler([{ quando: listaDaBranch, responde: http(200, { message: 'x' }) }]).r.erro ?? '', /^forja\.resposta-invalida/);
   assert.match(ler([{ quando: listaDaBranch, responde: http(200, [{ ...MR(), sha: null }]) }]).r.erro ?? '',
     /^forja\.resposta-invalida: MR fora do formato/);
+  assert.match(ler([{ quando: listaDaBranch, responde: http(200, [{ ...MR(), source_project_id: undefined, target_project_id: undefined }]) }]).r.erro ?? '',
+    /^forja\.resposta-invalida: MR fora do formato/);
+  // Sintetico: o corpo do 404 (nao ha 404 gravado desta lista).
   assert.match(ler([{ quando: listaDaBranch, responde: http(404, { message: '404 Project Not Found' }) }]).r.erro ?? '',
     /^forja\.nao-achei: HTTP 404 GET projects\/root%2Fmatriz\/merge_requests/);
 });
@@ -106,6 +110,7 @@ test('abrirPedido do GitLab: POST com a descrição pelo stdin, só os quatro ca
 });
 
 test('abrirPedido do GitLab que a forja recusa (MR já aberto: 409) devolve a saída de erro, sem repetir a escrita', () => {
+  // Sintetico: o corpo do 409 (a mensagem da forja para MR ja aberto nao foi gravada).
   const cli = cliFalsa([{ quando: login, responde: ok('') },
     { quando: (c) => c.args[0] === 'api', responde: http(409, { message: ['Another open merge request already exists for this source branch: !1'] }) }]);
   const r = exigirCapacidade(adaptadorDaForja('gitlab'), 'abrirPedido')({ host: GL.host, repositorio: GL.repo, base: 'main', branch: 'ork/ork-teste',
