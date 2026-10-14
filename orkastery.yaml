@@ -46,7 +46,8 @@ verify:
   preparo: "npm --prefix core run build && npm --prefix core run build:test"
   # RM-037: o teto global de 10 min nao cobre a suite quando o hipervisor rouba CPU. A mesma
   # suite mede 3,6 min com CPU livre (medido em 10/10/2026: 2753 testes, 0 falhas) e 24 a 30 min
-  # com steal alto (sar de 23-24/09/2026). Sobe so o `test`; build e demais comandos no padrao.
+  # com steal alto (sar de 23-24/09/2026). O runner hermetico faz `test:ci` herdar este mesmo
+  # teto de `test`; build e demais comandos ficam no padrao.
   timeout_ms_por_comando:
     test: 2400000
 
