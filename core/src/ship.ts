@@ -30,7 +30,7 @@ import { Lease, MotivoGate, Thread } from './types';
 import { agora, exec, shaCurto } from './util';
 import { comandoNoLedger, ConducaoDoVerify, ExecutorVerify, ResultadoVerify, verificar } from './verify';
 import { consultarCi, ExecutorCi, ResultadoCi } from './ci';
-import { detalheDoPush } from './forja';
+import { detalheDoPush, pushRecusadoPelaProtecao } from './forja';
 import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
 import { formatarDataHora, legendaDoFuso, localizarTexto } from './horario';
@@ -81,6 +81,8 @@ export interface ResultadoShip {
   ok: boolean;
   bloqueado: boolean;
   motivo: MotivoGate | null;
+  /** O porque estavel da recusa do push, quando ha um; o motivo do gate continua `runtime.unavailable`. */
+  codigo?: 'entrega.base-protegida';
   detalhe: string;
   correcao: string;
   thread: string;
@@ -453,7 +455,7 @@ export function ship(
   // Idempotente: o mesmo revert nao rebaixa a thread duas vezes.
   try { registrarReversaoDaEntrega(raiz, thread, para); } catch { /* git indisponivel nao barra o ship */ }
 
-  const bloquear = (motivo: MotivoGate, detalhe: string, correcao: string): ResultadoShip => {
+  const bloquear = (motivo: MotivoGate, detalhe: string, correcao: string, codigo?: ResultadoShip['codigo']): ResultadoShip => {
     registrarGateBloqueado(dir, threadId, {
       gate: 'ship',
       motivo,
@@ -469,12 +471,13 @@ export function ship(
       de,
       para,
       motivo,
+      ...(codigo ? { codigo } : {}),
       detalhe,
       correcao,
       modo: thread.modo,
       dryRun: r.dryRun,
     });
-    return { ...r, bloqueado: true, ok: false, motivo, detalhe, correcao };
+    return { ...r, bloqueado: true, ok: false, motivo, detalhe, correcao, ...(codigo ? { codigo } : {}) };
   };
 
   // 1. Autorizacao de push pelo gate do modo de conducao.
@@ -771,6 +774,15 @@ export function ship(
       if (!push.ok) {
         r.passos = passos;
         const erro = detalheDoPush(push.stderr || push.stdout);
+        // A protecao da base recusou: a entrega e por PR/MR e o registro dele. O motivo do gate nao muda, so a orientacao.
+        if (pushRecusadoPelaProtecao(`${push.stderr}\n${push.stdout}`)) {
+          return bloquear(
+            'runtime.unavailable',
+            textoDoCatalogo((m) => m.ship.pushBaseProtegida(remoto, para, erro)),
+            textoDoCatalogo((m) => m.ship.pushBaseProtegidaCorrecao(threadId)),
+            'entrega.base-protegida'
+          );
+        }
         return bloquear(
           'runtime.unavailable',
           textoDoCatalogo((m) => m.ship.pushFalhou(remoto, para, erro)),

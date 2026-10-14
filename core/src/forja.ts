@@ -197,6 +197,18 @@ export function detalheDoPush(texto: string): string {
   return procurarSegredos(detalhe).length ? OMITIDO : detalhe;
 }
 
+/**
+ * O push recusado pela protecao da branch. O GitHub diz `GH006: Protected branch update failed` (ou `GH013` nas regras
+ * do repositorio) e `protected branch hook declined`; o GitLab diz `You are not allowed to push code to protected
+ * branches` (ou `force push code to a protected branch`) antes do `pre-receive hook declined`. So a frase da protecao
+ * conta: o `pre-receive hook declined` sozinho e de qualquer gancho, e o "not allowed to push code to this project" do
+ * GitLab e falta de acesso ao projeto.
+ */
+export function pushRecusadoPelaProtecao(texto: string): boolean {
+  return /\bGH006\b|\bGH013\b|protected branch hook declined|declined due to repository rule violations|not allowed to (?:force )?push code to (?:a )?protected branch/i
+    .test(texto);
+}
+
 function erro(codigo: CodigoDeErroDaForja, detalhe: string): { ok: false; erro: ErroDaForja } {
   return { ok: false, erro: { codigo, detalhe } };
 }

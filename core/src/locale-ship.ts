@@ -91,6 +91,11 @@ export const SHIP_PT_BR = {
   passoJaIncorporado: (de: string, para: string, sha: string) => `(nada a mergear: ${de} ja e ancestral de ${para}, incorporado em ${sha})`,
   pushFalhou: (remoto: string, para: string, erro: string) => `push para ${remoto}/${para} falhou: ${erro}`,
   pushFalhouCorrecao: 'resolva o acesso ao remoto e rode o ship de novo (o merge local ja aconteceu)',
+  pushBaseProtegida: (remoto: string, para: string, erro: string) =>
+    `a proteção de ${remoto}/${para} recusou o push direto na base (entrega.base-protegida): ${erro}`,
+  pushBaseProtegidaCorrecao: (thread: string) =>
+    `entregue por PR/MR: ork ship publicar ${thread} (em #Auto e #Maestro) ou o pedido aberto na forja; depois do merge, ` +
+    `ork ship registrar-pr ${thread}. O merge local na base não chegou ao remoto`,
   pushSemProva: (sha: string | null, ponta: string) => `ls-remote devolveu ${sha ?? '(nada)'} e o destino local esta em ${ponta}: o push nao ficou provado`,
   pushSemProvaCorrecao: 'rode o ship de novo e confira o remoto',
   // ci.ts: o detalhe da consulta ao CI (vai ao ledger dentro da evidencia do ship)
@@ -374,6 +379,10 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
   passoJaIncorporado: (de, para, sha) => `(nothing to merge: ${de} is already an ancestor of ${para}, brought in by ${sha})`,
   pushFalhou: (remoto, para, erro) => `push to ${remoto}/${para} failed: ${erro}`,
   pushFalhouCorrecao: 'fix the access to the remote and run ship again (the local merge already happened)',
+  pushBaseProtegida: (remoto, para, erro) => `the protection of ${remoto}/${para} refused the direct push to the base (entrega.base-protegida): ${erro}`,
+  pushBaseProtegidaCorrecao: (thread) =>
+    `deliver by PR/MR: ork ship publicar ${thread} (in #Auto and #Maestro) or a request opened on the forge; after the merge, ` +
+    `ork ship registrar-pr ${thread}. The local merge on the base did not reach the remote`,
   pushSemProva: (sha, ponta) => `ls-remote returned ${sha ?? '(nothing)'} and the local target is at ${ponta}: the push was not proven`,
   pushSemProvaCorrecao: 'run ship again and check the remote',
   ciNaoExigidoDetalhe: 'CI gate not required by the manifest',
