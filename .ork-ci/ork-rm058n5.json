@@ -1113,14 +1113,276 @@
       "criadoEm": "2026-10-13T22:46:19.219Z",
       "estado": "verificado",
       "lint": []
-    }
-  ],
-  "deferredClaims": [
+    },
     {
       "id": "C80",
-      "reason": "artifact-not-in-checkout"
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm058n5.json",
+      "alegacao": "RM-058 N5, fecho do GO: o bundle de CI da thread segue o contrato ork.ci-bundle/v1, é da thread e da branch dela com base main, leva as claims ativas da thread e só adia a do próprio bundle (enquanto ele não está versionado), roda o test:ci do manifesto e não tem caminho de máquina nem travessão",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs');const t=fs.readFileSync('.ork-ci/ork-rm058n5.json','utf8');const b=JSON.parse(t);const d=b.deferredClaims||[];const ok=b.schema==='ork.ci-bundle/v1'&&b.thread==='ork-rm058n5'&&b.branch==='ork/ork-rm058n5-full'&&b.base==='main'&&b.claims.length+d.length>=80&&b.claims.every(c=>c.thread==='ork-rm058n5')&&d.length<=1&&d.every(x=>x.id==='C80'&&x.reason==='artifact-not-in-checkout')&&b.commands.some(c=>c.command==='npm --prefix core run test:ci')&&!t.includes('/hom'+'e/')&&!t.includes(String.fromCharCode(0x2014));if(!ok){console.error('bundle fora do contrato');process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-13T23:20:29.784Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C81",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-provas.ts",
+      "alegacao": "N5 GO-FIX r3: a varredura de segredo lê também o diff de três pontos, então o merge polvo (que o git não refaz pelo remerge) não esconde a chave da árvore final, e o merge polvo sem chave não se dá por lido (nao-provada); a linha que um merge mostra como acrescentada e que já está num dos pais não é segredo da thread (QP14 e QE25)",
+      "negativa": false,
+      "verificar": [
+        "node --test-reporter=tap --test-name-pattern='^QP14:' core/dist-test/test/noctum-provas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - QP14:/{p++} END{exit !(p==1 && f==0)}'",
+        "node --test-reporter=tap --test-name-pattern='^QE25:' core/dist-test/test/noctum-entrega.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - QE25:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T23:55:22.366Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C82",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-entrega.ts",
+      "alegacao": "N5 GO-FIX r3: a supervisão é relida imediatamente antes do push da publicação, sob a trava do despacho do CHECK e antes do push na base, e o log que não se lê espera; a trava passageira do remoto e o transporte esperam, e só a recusa definitiva (GH0.., gancho, proteção, permissão) bloqueia; o commit do bundle que falha espera e deixa a worktree limpa; o trabalho entregue e isolado não recebe o MASTER; quem incorporou se lê no commit que incorporou; a publicação e o despacho conferem com o relógio da hora deles (QE26 a QE35)",
+      "negativa": false,
+      "verificar": [
+        "node --test-reporter=tap --test-name-pattern='^QE(2[6-9]|3[0-5]):' core/dist-test/test/noctum-entrega.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - QE(2[6-9]|3[0-5]):/{p++} END{exit !(p==10 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T23:55:24.516Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-integracao-entrega.test.ts",
+      "alegacao": "N5 GO-FIX r3: o isolamento que a supervisão grava no meio da integração recusa o push na base, e o trabalho que fixa a thread de outro item não integra (QI11 e QI12)",
+      "negativa": false,
+      "verificar": [
+        "node --test-reporter=tap --test-name-pattern='^QI1[12]:' core/dist-test/test/noctum-integracao-entrega.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - QI1[12]:/{p++} END{exit !(p==2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T23:55:26.456Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M54: o merge polvo sem segredo achado passar como lido morre no QP14",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M54"
+      ],
+      "criadoEm": "2026-10-13T23:55:30.261Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C85",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M55: a linha da base que o merge do arco mostra como acrescentada virar segredo da thread morre no QE25",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M55"
+      ],
+      "criadoEm": "2026-10-13T23:55:31.913Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C86",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M56: a publicação não reler a supervisão antes do push morre no QE26",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M56"
+      ],
+      "criadoEm": "2026-10-13T23:55:33.458Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C87",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M57: a integração não reler a supervisão imediatamente antes do push na base morre no QI11",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M57"
+      ],
+      "criadoEm": "2026-10-13T23:55:34.971Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C88",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M58: o despacho do CHECK sair com o arco parado morre no QE27",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M58"
+      ],
+      "criadoEm": "2026-10-13T23:55:36.402Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C89",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M59: o despacho do CHECK sair com o trabalho isolado morre no QE27",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M59"
+      ],
+      "criadoEm": "2026-10-13T23:55:37.882Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C90",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M60: o log de supervisão que não se lê valer como vazio morre no QE28",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M60"
+      ],
+      "criadoEm": "2026-10-13T23:55:39.313Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C91",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M61: a reconciliação dizer que o arco incorporou o merge de outro caminho morre no QE30",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M61"
+      ],
+      "criadoEm": "2026-10-13T23:55:40.655Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C92",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M62: a falha passageira do servidor no push virar recusa definitiva morre no QE29",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M62"
+      ],
+      "criadoEm": "2026-10-13T23:55:44.473Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C93",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M63: o commit do bundle que falha sair do passo como exceção morre no QE31",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M63"
+      ],
+      "criadoEm": "2026-10-13T23:55:45.930Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C94",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M64: o trabalho entregue e isolado receber o MASTER do arco morre no QE32",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M64"
+      ],
+      "criadoEm": "2026-10-13T23:55:47.394Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C95",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M65: a publicação conferir o envelope com o instante de quem chamou o passo morre no QE33",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M65"
+      ],
+      "criadoEm": "2026-10-13T23:55:48.842Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C96",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M66: o despacho do CHECK conferir a janela com o instante de quem chamou o passo morre no QE34",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M66"
+      ],
+      "criadoEm": "2026-10-13T23:55:50.340Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C97",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M67: a thread fixada de outro item integrar morre no QI12",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M67"
+      ],
+      "criadoEm": "2026-10-13T23:55:51.750Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C98",
+      "thread": "ork-rm058n5",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-entrega.json",
+      "alegacao": "Mutante M68: o código do GitHub casar em qualquer lugar da saída do push morre no QE35",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M68"
+      ],
+      "criadoEm": "2026-10-13T23:55:53.037Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
