@@ -12,9 +12,38 @@ export const TIPOS_DE_FORJA: readonly TipoDeForja[] = ['github', 'gitlab'];
 export interface IdentidadeDaForja { tipo: TipoDeForja; host: string; repo: string }
 
 export type CodigoDeErroDaForja = 'forja.ausente' | 'forja.sem-login' | 'forja.nao-encontrado' | 'forja.tempo-esgotado'
-  | 'forja.inacessivel' | 'forja.resposta-invalida';
+  | 'forja.inacessivel' | 'forja.resposta-invalida'
+  // A chamada a API (`forja/api.ts`), pelo status HTTP e pela lista paginada.
+  | 'forja.sem-permissao' | 'forja.nao-achei' | 'forja.limite' | 'forja.conflito' | 'forja.indisponivel' | 'forja.pedido-recusado'
+  | 'forja.incompleto'
+  // A identidade, as capacidades e a versao da forja.
+  | 'forja.desconhecida' | 'forja.ambigua' | 'forja.remoto-divergente' | 'forja.sem-capacidade' | 'forja.versao-abaixo-do-piso';
 
-export interface ErroDaForja { codigo: CodigoDeErroDaForja; detalhe: string }
+/** `tentarEm` (ISO) so no `forja.limite`: do `Retry-After` ou do reset da cota. */
+export interface ErroDaForja { codigo: CodigoDeErroDaForja; detalhe: string; tentarEm?: string }
+
+/** De onde veio um valor da identidade: o bloco `forja:`, o remoto, a sondagem pela CLI ou o padrao. */
+export type OrigemDoValor = 'manifesto' | 'remoto' | 'sondagem' | 'padrao';
+
+/** A forja do projeto, resolvida do bloco `forja:`, do remoto e da sondagem (`forja/resolver.ts`). */
+export interface ForjaResolvida {
+  tipo: TipoDeForja;
+  /** O host da web e da API, sem porta, em minusculas. */
+  host: string;
+  /** A porta HTTPS da web e da API; `null` e a padrao. */
+  porta: number | null;
+  /** O subcaminho da instancia (`/gitlab`), sem barra final; `''` sem subcaminho. */
+  caminhoBase: string;
+  /** O host e a porta do SSH; `null` e o proprio host e a porta 22. */
+  sshHost: string | null;
+  sshPorta: number | null;
+  /** O arquivo PEM da CA interna; `null` usa a CA do sistema. */
+  ca: string | null;
+  /** O caminho completo do projeto, sem o caminho base: `dono/nome` ou `grupo/sub/projeto`. */
+  repo: string;
+  /** De onde veio cada valor, para o `doctor` mostrar. */
+  origem: { tipo: OrigemDoValor; host: OrigemDoValor; porta: OrigemDoValor; caminhoBase: OrigemDoValor };
+}
 
 export interface SaidaDoExecutor { status: number | null; stdout: string; stderr: string; sinal?: string | null; erro?: string }
 

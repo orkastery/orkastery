@@ -360,7 +360,8 @@ function consultaDeBlobsDoGitlab(partes: readonly ('base' | 'reservas' | 'fabric
 }
 
 function lerDoGitlab(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: ExecutorDaForja, lidoEm: string): ResultadoDaForja {
-  const args = ['api', 'graphql', '--method', 'POST', '--input', '-', ...hostnameDe(forja)];
+  // Sem o Content-Type, o GitLab ignora o corpo do `--input -` e responde "Unexpected end of document".
+  const args = ['api', 'graphql', '--method', 'POST', '-H', 'Content-Type: application/json', '--input', '-', ...hostnameDe(forja)];
   let chamadas = 0;
   const graphql = (query: string, variables: Json) => { chamadas++; return chamarJson(executor, 'glab', args, JSON.stringify({ query, variables })); };
   const repositorio = (json: unknown): Json => {

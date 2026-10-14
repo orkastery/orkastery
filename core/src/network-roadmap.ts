@@ -789,6 +789,18 @@ const CORRECAO_DA_FORJA: Record<ErroDaForja['codigo'], (cli: string) => string> 
   'forja.tempo-esgotado': () => 'tente de novo: a forja não respondeu a tempo',
   'forja.inacessivel': () => 'confira a rede e o status da forja',
   'forja.resposta-invalida': () => 'a forja respondeu fora do formato esperado: registre o caso no RM-054',
+  'forja.sem-permissao': () => 'o login da forja não tem permissão para isso: confira o escopo do token',
+  'forja.nao-achei': () => 'a forja não achou o recurso: confira o nome e o login',
+  'forja.limite': () => 'a forja limitou as chamadas: tente de novo mais tarde',
+  'forja.conflito': () => 'a forja recusou por conflito: atualize e tente de novo',
+  'forja.indisponivel': () => 'a forja está indisponível: tente de novo mais tarde',
+  'forja.pedido-recusado': () => 'a forja recusou o pedido: confira os dados enviados',
+  'forja.incompleto': () => 'a forja devolveu uma lista incompleta: tente de novo',
+  'forja.desconhecida': () => 'o ork não reconheceu a forja: declare o bloco forja: no manifesto',
+  'forja.ambigua': () => 'a forja é ambígua: declare o bloco forja: no manifesto',
+  'forja.remoto-divergente': () => 'o remoto do clone não bate com a forja declarada: confira o manifesto',
+  'forja.sem-capacidade': () => 'esta forja não oferece o recurso necessário',
+  'forja.versao-abaixo-do-piso': (cli) => `atualize ${cli}: a versão instalada está abaixo da mínima`,
 };
 
 function lerProjetoDaForja(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama {

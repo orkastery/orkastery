@@ -141,7 +141,7 @@ test('forja: GitLab pela mesma interface, so com consulta', () => {
   assert.equal(chamadas.length, 4);
   assert.ok(chamadas.every((c) => c.cmd === 'glab'));
   for (const c of chamadas.slice(0, 3)) {
-    assert.deepEqual(c.args, ['api', 'graphql', '--method', 'POST', '--input', '-', '--hostname', 'gitlab.com']);
+    assert.deepEqual(c.args, ['api', 'graphql', '--method', 'POST', '-H', 'Content-Type: application/json', '--input', '-', '--hostname', 'gitlab.com']);
     assert.doesNotMatch(JSON.parse(c.entrada).query, /mutation/i);
   }
   // O REST de commits e GET (sem --method) e so le.
