@@ -400,7 +400,10 @@ test('QI13: com o envelope v3, a entrega da N5 não integra sozinha: o passo blo
     const base = lsRemote(p, 'refs/heads/main');
     const r = passoDaEntrega(p.carregado, 'arco-qi13', { maquina: 'maquina-simulada', forja: FORJA, executorCi: ciFalso({ [e.fonte]: 'success' }),
       lerReservas: () => ({ leitura: 'copia-local', reservas: [{ item: 'RM-958', maquina: 'maquina-simulada', thread: null }] }) });
-    assert.ok(JSON.stringify(r).includes('noctum.entrega.exige-vez-da-n3'), `o passo bloqueia o trabalho: ${JSON.stringify(r).slice(0, 300)}`);
+    // O bloqueio é do passo, antes de qualquer efeito (atualizar, revisar, publicar, integrar ou o MASTER), e não da segunda
+    // guarda, no merge: o detalhe é o do passo.
+    assert.ok(r.acao === 'bloqueado' && r.motivo === 'noctum.entrega.exige-vez-da-n3' && /integra pela vez entre máquinas \(integrarComVez da N3\)/.test(r.detalhe),
+      `o passo bloqueia o trabalho: ${JSON.stringify(r).slice(0, 300)}`);
     assert.throws(() => integrar(p, 'arco-qi13', e.t.id, { [e.fonte]: 'success' }),
       (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.exige-vez-da-n3');
     assert.equal(lsRemote(p, 'refs/heads/main'), base, 'a base não mudou');
