@@ -99,8 +99,21 @@ function casosDoGitlab(o) {
     'projeto': ['api', ...h, `projects/${id}`],
     'statuses': ['api', ...h, `projects/${id}/repository/commits/${s}/statuses?all=true&per_page=100`],
     'token': ['api', ...h, 'personal_access_tokens/self'],
+    // A CI do commit: o commit com os pais (o vinculo do resultado mesclado) e os MRs que o contem.
+    'commit': ['api', ...h, `projects/${id}/repository/commits/${s}`],
+    'commit-mrs': ['api', ...h, `projects/${id}/repository/commits/${s}/merge_requests?per_page=100`],
   };
-  if (o.pr) casos['mr'] = ['api', ...h, `projects/${id}/merge_requests/${o.pr}`];
+  if (o.contexto) {
+    casos['statuses-do-check'] = ['api', ...h, `projects/${id}/repository/commits/${s}/statuses?name=${encodeURIComponent(o.contexto)}&all=true&per_page=100`];
+  }
+  for (const p of (o.pipeline ?? '').split(',').filter(Boolean)) {
+    casos[`pipeline-${p}-jobs`] = ['api', ...h, `projects/${id}/pipelines/${p}/jobs?include_retried=true&per_page=100`];
+  }
+  if (o.pr) {
+    casos['mr'] = ['api', ...h, `projects/${id}/merge_requests/${o.pr}`];
+    casos['mr-pipelines'] = ['api', ...h, `projects/${id}/merge_requests/${o.pr}/pipelines?per_page=100`];
+  }
+  if (o['commit-mesclado']) casos['commit-mesclado'] = ['api', ...h, `projects/${id}/repository/commits/${o['commit-mesclado']}`];
   if (o.branch) casos['mr-list'] = ['api', ...h, `projects/${id}/merge_requests?source_branch=${encodeURIComponent(o.branch)}&state=all&per_page=100`];
   return { cli: 'glab', casos };
 }
@@ -108,8 +121,11 @@ function casosDoGitlab(o) {
 function principal() {
   const o = opcoes(process.argv.slice(2));
   const plano = o.forja === 'github' ? casosDoGithub(o) : o.forja === 'gitlab' ? casosDoGitlab(o) : null;
-  if (!plano || !o.host || !o.repo || !/^[0-9a-f]{40}$/.test(o.sha ?? '') || !o.saida) {
-    process.stderr.write('uso: forja-contrato.cjs --forja github|gitlab --host H --repo CAMINHO --sha SHA [--pr N] [--branch B] [--incluir-cabecalhos] --saida DIR\n');
+  const pipelinesOk = o.pipeline === undefined || /^\d+(?:,\d+)*$/.test(o.pipeline);
+  const mescladoOk = o['commit-mesclado'] === undefined || /^[0-9a-f]{40}$/.test(o['commit-mesclado']);
+  if (!plano || !o.host || !o.repo || !/^[0-9a-f]{40}$/.test(o.sha ?? '') || !o.saida || !pipelinesOk || !mescladoOk) {
+    process.stderr.write('uso: forja-contrato.cjs --forja github|gitlab --host H --repo CAMINHO --sha SHA [--pr N] [--branch B] ' +
+      '[--contexto C] [--pipeline ID[,ID...]] [--commit-mesclado SHA] [--incluir-cabecalhos] --saida DIR\n');
     return 2;
   }
   fs.mkdirSync(o.saida, { recursive: true });

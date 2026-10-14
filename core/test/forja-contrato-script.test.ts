@@ -221,3 +221,29 @@ test('sem --incluir-cabecalhos nada muda: sem -i e sem status_http', () => {
   assert.ok(!caso.comando.includes('-i'));
   assert.equal(caso.status_http, undefined);
 });
+
+test('ramo GitLab: os casos da CI do commit, do check, das pipelines, do MR e do commit mesclado', () => {
+  const { bin, saida } = sandbox();
+  cliFalso(bin, 'glab', []);
+  const mesclado = 'b'.repeat(40);
+  const r = rodar(bin, [...argsGitlab(saida), '--contexto', 'ork-verify', '--pipeline', '7,9', '--pr', '3', '--commit-mesclado', mesclado]);
+  assert.equal(r.status, 0, r.stderr);
+  const caminho = (caso: string) => JSON.parse(fs.readFileSync(path.join(saida, `${caso}.json`), 'utf8')).comando.at(-1);
+  assert.equal(caminho('commit'), `projects/grupo%2Fproj/repository/commits/${SHA}`);
+  assert.equal(caminho('commit-mrs'), `projects/grupo%2Fproj/repository/commits/${SHA}/merge_requests?per_page=100`);
+  assert.equal(caminho('statuses-do-check'), `projects/grupo%2Fproj/repository/commits/${SHA}/statuses?name=ork-verify&all=true&per_page=100`);
+  assert.equal(caminho('pipeline-7-jobs'), 'projects/grupo%2Fproj/pipelines/7/jobs?include_retried=true&per_page=100');
+  assert.equal(caminho('pipeline-9-jobs'), 'projects/grupo%2Fproj/pipelines/9/jobs?include_retried=true&per_page=100');
+  assert.equal(caminho('mr-pipelines'), 'projects/grupo%2Fproj/merge_requests/3/pipelines?per_page=100');
+  assert.equal(caminho('commit-mesclado'), `projects/grupo%2Fproj/repository/commits/${mesclado}`);
+});
+
+test('--pipeline que não é número e --commit-mesclado que não é sha: recusa sem gravar', () => {
+  for (const extra of [['--pipeline', '7;rm'], ['--commit-mesclado', 'HEAD']]) {
+    const { bin, saida } = sandbox();
+    cliFalso(bin, 'glab', []);
+    const r = rodar(bin, [...argsGitlab(saida), ...extra]);
+    assert.equal(r.status, 2, extra.join(' '));
+    assert.deepEqual(fs.readdirSync(saida), []);
+  }
+});
