@@ -11,7 +11,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { gerarCasos } from './locale-f3b-casos';
+import { gerarCasos, normalizar } from './locale-f3b-casos';
 
 const FIXTURE = path.resolve(__dirname, '../../test/fixtures/locale-f3b-pt-BR.json');
 
@@ -20,4 +20,11 @@ test('locale pt-BR F3b: o resto do CLI, as skills instaladas e o prompt de fase 
   const obtido = gerarCasos();
   assert.deepEqual(Object.keys(obtido), Object.keys(esperado), 'os mesmos casos, na mesma ordem');
   for (const nome of Object.keys(esperado)) assert.equal(obtido[nome], esperado[nome], nome);
+});
+
+test('locale pt-BR F3b: SHA7 só de letras é normalizado no contexto de commit sem engolir palavras comuns', () => {
+  assert.equal(
+    normalizar('commit ceedebe; merge deadbee; remoto cafeabc; @ faceade; a1b2c3d; acabada; decafed'),
+    'commit <SHA7>; merge <SHA7>; remoto <SHA7>; @ <SHA7>; <SHA7>; acabada; decafed',
+  );
 });
