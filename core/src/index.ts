@@ -221,7 +221,6 @@ import {
 import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLimpeza } from './sessoes';
 import { exec, shaCurto, tabela } from './util';
 import { ship, textoDoShip } from './ship';
-import { ambienteDeCi } from './forja/ambiente-de-ci';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
 import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, caminhoThread, canalDaSessao, dirThread, exigirFase, lerThread,
   linhaDaWorktree, listarIds, novaThread, pedidoDaThread, pedidoDeWorktree, PedidoDeWorktree, prepararPedido, resumoDaThread, tabelaDeThreads,
@@ -2300,14 +2299,6 @@ function comandoCi(args: Args): number {
     }
     const thread = args.posicionais[2];
     if (!thread) {
-      // No runner (GitHub Actions ou GitLab CI), sem thread nem --branch: a branch vem do ambiente da CI, a mesma que
-      // os modelos de workflow passam por --branch.
-      const daCi = ambienteDeCi()?.branch;
-      if (daCi) {
-        const result = executarCiDaBranch(carregado, daCi);
-        console.log(JSON.stringify(result, null, 2));
-        return result.ok ? 0 : 1;
-      }
       console.error('uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo> | ork ci run --branch <branch>');
       return 2;
     }

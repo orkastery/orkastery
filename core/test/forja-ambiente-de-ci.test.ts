@@ -49,7 +49,7 @@ test('executarCi: o retrato v2 do runner diz a forja, o projeto, a fonte e o pro
   } finally { p.limpar(); }
 });
 
-test('ork ci run sem thread nem --branch: no runner, a branch do runner; fora dele, a linha de uso', () => {
+test('ork ci run sem thread nem --branch: a linha de uso, dentro e fora do runner; a branch só vem do --branch', () => {
   const p = projetoTemporario('ci-run-ambiente');
   try {
     const env = envPtBr();
@@ -60,8 +60,11 @@ test('ork ci run sem thread nem --branch: no runner, a branch do runner; fora de
     const fora = rodar({});
     assert.equal(fora.status, 2);
     assert.match(fora.stderr, /uso: ork ci run/);
-    const noRunner = rodar({ GITLAB_CI: 'true', CI_COMMIT_BRANCH: 'ork/ork-sem-bundle' });
-    assert.notEqual(noRunner.status, 0);
-    assert.match(`${noRunner.stdout}${noRunner.stderr}`, /ci\.bundle\.ausente: a branch ork\/ork-sem-bundle/);
+    for (const runner of [{ GITLAB_CI: 'true', CI_COMMIT_BRANCH: 'ork/ork-sem-bundle' },
+      { GITHUB_ACTIONS: 'true', GITHUB_HEAD_REF: 'ork/ork-sem-bundle', GITHUB_REF_NAME: 'ork/ork-sem-bundle' }]) {
+      const noRunner = rodar(runner);
+      assert.equal(noRunner.status, 2, JSON.stringify(runner));
+      assert.match(noRunner.stderr, /uso: ork ci run/);
+    }
   } finally { p.limpar(); }
 });
