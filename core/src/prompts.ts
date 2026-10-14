@@ -20,6 +20,8 @@ import * as path from 'node:path';
 import { definicaoDoModo } from './modos';
 import { procurarSegredos } from './policies';
 import { Fase, FASES, Modo, Thread } from './types';
+import { localeAtivo, msg, Locale } from './locale';
+import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
 
 /** Limite duro de um template, o mesmo do manifesto: prosa longa nao vira prompt. */
 export const LIMITE_TEMPLATE_BYTES = 16384;
@@ -28,13 +30,9 @@ export const LIMITE_TEMPLATE_BYTES = 16384;
  * KG5 fatia 2: dica opt-in no pedido; desligada preserva o texto byte a byte. Fatia 5: a dica diz o que
  * a marca `arvore: modificada` quer dizer na aresta.
  */
-export function pedidoComDicaDoGrafo(pedido: string, thread: string, ligado: boolean): string {
+export function pedidoComDicaDoGrafo(pedido: string, thread: string, ligado: boolean, locale: Locale = localeAtivo()): string {
   if (!ligado) return pedido;
-  return pedido.trimEnd() + '\n\n## Contexto do grafo (opcional)\n'
-    + `Consulte ork_grafo_contexto {threadId: "${thread}"} ou ork grafo contexto ${thread} --json para o pacote da thread com evidencias e teto em bytes.\n`
-    + 'As tools ork_grafo_vizinhos, ork_grafo_chamadores, ork_grafo_importadores e ork_grafo_caminho permitem aprofundar. '
-    + 'Sem indice do HEAD, rode ork grafo indexar. O grafo e parcial e descreve o HEAD; '
-    + 'aresta com arvore: modificada vem de fonte que mudou depois dele: confira o arquivo antes de usar.\n';
+  return pedido.trimEnd() + (locale === 'en' ? PROMPTS_EN : PROMPTS_PT_BR).contextoDoGrafo(thread);
 }
 
 /** Onde um projeto guarda os templates que sobrescrevem os embutidos. */
@@ -88,9 +86,7 @@ export function variaveisUsadas(corpo: string): string[] {
 export function renderizar(template: TemplateDePrompt, valores: Record<string, string>): string {
   const faltando = variaveisUsadas(template.corpo).filter((v) => !(v in valores));
   if (faltando.length > 0) {
-    throw new Error(
-      `template ${template.id}: variavel sem valor na renderizacao: ${faltando.join(', ')}`
-    );
+    throw new Error(msg().prompts.cli.variavelSemValor(template.id, faltando.join(', ')));
   }
   const linhas = template.corpo.split('\n');
   const saida: string[] = [];
@@ -121,7 +117,7 @@ function parseListaInline(bruto: string): string[] {
 export function parseTemplate(bruto: string, origem: string): TemplateDePrompt {
   const casado = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(bruto);
   if (!casado) {
-    throw new Error(`template em ${origem}: frontmatter ausente (esperado bloco --- ... ---)`);
+    throw new Error(msg().prompts.cli.frontmatterAusente(origem));
   }
   const campos: Record<string, string> = {};
   for (const linha of casado[1].split('\n')) {
@@ -157,6 +153,8 @@ export const SECOES_OBRIGATORIAS: readonly string[] = [
 
 /** A frase que nenhum template pode perder, porque ela e o contrato de todo modo. */
 export const REGRA_CENTRAL = 'REGRA CENTRAL: o modo afrouxa a pausa, NUNCA a verificacao.';
+export const SECOES_OBRIGATORIAS_EN: readonly string[] = PROMPTS_EN.secoesObrigatorias;
+export const REGRA_CENTRAL_EN = PROMPTS_EN.regraCentral;
 
 /**
  * O que um template precisa carregar para continuar sendo aquele tipo de template.
@@ -184,6 +182,10 @@ export const CONTRATO_DE_FASE: ContratoDeTemplate = {
   regraCentral: REGRA_CENTRAL,
   variavelObrigatoria: 'pedido',
   validaFases: true,
+};
+export const CONTRATO_DE_FASE_EN: ContratoDeTemplate = {
+  nome: 'phase', secoes: SECOES_OBRIGATORIAS_EN, regraCentral: REGRA_CENTRAL_EN,
+  variavelObrigatoria: 'pedido', validaFases: true,
 };
 
 /**
@@ -217,8 +219,10 @@ export function procurarHitlEmTextoLivre(corpo: string): { linha: number; oQue: 
  */
 export function lintTemplate(
   t: TemplateDePrompt,
-  contrato: ContratoDeTemplate = CONTRATO_DE_FASE
+  contrato?: ContratoDeTemplate
 ): ProblemaDeTemplate[] {
+  contrato ??= t.id.endsWith('.en') ? CONTRATO_DE_FASE_EN : CONTRATO_DE_FASE;
+  const mc = msg().prompts.cli;
   const problemas: ProblemaDeTemplate[] = [];
   const erro = (regra: string, detalhe: string): void => {
     problemas.push({ template: t.id || t.origem, regra, gravidade: 'erro', detalhe });
@@ -227,22 +231,22 @@ export function lintTemplate(
     problemas.push({ template: t.id || t.origem, regra, gravidade: 'aviso', detalhe });
   };
 
-  if (!t.id) erro('id', 'frontmatter sem `id`');
+  if (!t.id) erro('id', mc.idAusente);
   if (t.origem !== 'embutido') {
     const esperado = path.basename(t.origem, '.md');
     if (t.id && t.id !== esperado) {
-      erro('id', `o id "${t.id}" nao bate com o nome do arquivo "${esperado}.md"`);
+      erro('id', mc.idDiverge(t.id, esperado));
     }
   }
   if (!Number.isInteger(t.versao) || t.versao < 1) {
-    erro('versao', `versao "${t.versao}" invalida: esperado inteiro a partir de 1`);
+    erro('versao', mc.versaoInvalida(t.versao));
   }
-  if (t.descricao.trim() === '') erro('descricao', 'frontmatter sem `descricao`');
+  if (t.descricao.trim() === '') erro('descricao', mc.descricaoAusente);
 
   if (contrato.validaFases) {
     for (const fase of t.fases) {
       if (!(FASES as readonly string[]).includes(fase)) {
-        erro('fases', `"${fase}" nao e fase do ciclo canonico (${FASES.join(', ')})`);
+        erro('fases', mc.faseInvalida(fase, FASES.join(', ')));
       }
     }
   }
@@ -250,44 +254,44 @@ export function lintTemplate(
   const usadas = variaveisUsadas(t.corpo);
   const naoDeclaradas = usadas.filter((v) => !t.variaveis.includes(v));
   if (naoDeclaradas.length > 0) {
-    erro('variaveis', `usadas no corpo e nao declaradas: ${naoDeclaradas.join(', ')}`);
+    erro('variaveis', mc.variaveisNaoDeclaradas(naoDeclaradas.join(', ')));
   }
   const naoUsadas = t.variaveis.filter((v) => !usadas.includes(v));
   if (naoUsadas.length > 0) {
-    erro('variaveis', `declaradas e nao usadas: ${naoUsadas.join(', ')}`);
+    erro('variaveis', mc.variaveisNaoUsadas(naoUsadas.join(', ')));
   }
 
   for (const secao of contrato.secoes) {
-    if (!t.corpo.includes(secao)) erro('secoes', `secao obrigatoria ausente: ${secao}`);
+    if (!t.corpo.includes(secao)) erro('secoes', mc.secaoAusente(secao));
   }
   if (!t.corpo.includes(contrato.regraCentral)) {
-    erro('regra-central', `o template perdeu a linha: ${contrato.regraCentral}`);
+    erro('regra-central', mc.regraCentralAusente(contrato.regraCentral));
   }
   if (contrato.variavelObrigatoria && !usadas.includes(contrato.variavelObrigatoria)) {
     erro(
       contrato.variavelObrigatoria,
-      `o template nao usa {{${contrato.variavelObrigatoria}}}: despacharia uma ${contrato.nome} sem a demanda do builder`
+      mc.pedidoAusente(contrato.variavelObrigatoria, contrato.nome)
     );
   }
 
   for (const achado of procurarSegredos(t.bruto)) {
     erro(
       'segredo',
-      `padrao "${achado.nome}" casou na linha ${achado.linha} do template (trecho omitido de proposito)`
+      mc.segredo(achado.nome, achado.linha)
     );
   }
 
   const bytes = Buffer.byteLength(t.bruto, 'utf8');
   if (bytes > LIMITE_TEMPLATE_BYTES) {
-    erro('tamanho', `${bytes} bytes acima do limite de ${LIMITE_TEMPLATE_BYTES}`);
+    erro('tamanho', mc.tamanho(bytes, LIMITE_TEMPLATE_BYTES));
   }
 
   for (const achado of procurarHitlEmTextoLivre(t.corpo)) {
-    erro('hitl-texto-livre', `linha ${achado.linha} pede ${achado.oQue}; HITL de conducao e selecao de 3 a 5 alternativas com uma Recomendacao (RM-057)`);
+    erro('hitl-texto-livre', mc.hitlTextoLivre(achado.linha, achado.oQue));
   }
 
   if (t.bruto.includes('—')) {
-    aviso('idioma', 'o template usa travessao longo (U+2014); o padrao do projeto e hifen ou virgula');
+    aviso('idioma', mc.travessao);
   }
 
   return problemas;
@@ -357,9 +361,68 @@ Falha de autenticação permanece impedimento; não troque provider, sandbox ou 
 ## Regras de evidencia
 {{regras_de_evidencia}}`;
 
+/** English counterpart of the canonical phase prompt. The pt-BR template above remains the source contract. */
+export const TEMPLATE_FASE_PADRAO_EN = `---
+id: fase-padrao.en
+versao: 3
+descricao: Canonical prompt for a GOAL..MASTER cycle phase, with naming, conduction mode, thread context, injected memory, and evidence rules.
+fases: [GOAL, PLAN, GO, CHECK, SHIP, MASTER]
+variaveis: [fase, thread, bloco, nome, ciclo_canonico, tag, blocos, pausas, linha_variante, regra_de_pausa, invariantes, slug, projeto_nome, projeto_abbrev, base_branch, base_commit, diretorio, pedido, memoria_injetada, regras_de_evidencia]
+---
+# Orkastery, {{fase}} phase of thread {{thread}}
+
+You conduct block {{bloco}} of thread "{{nome}}". {{fase}} is the entry phase, not a new orchestration.
+Run the phases in this block in canonical order, respecting each phase scope and the core gates; GOAL does not implement before GO.
+Do not open another thread or redispatch yourself. If the project has an MCP server, prefer its tools for supported state and operations.
+In Claude with the \`orkastery\` server, use the exposed full names: \`ToolSearch\` with \`select:mcp__orkastery__ork_thread_status,mcp__orkastery__ork_artifact_read\` discovers those reads; select the full name for any other tool. Do not search for \`select:ork_thread_status\`. Other hosts use their discovered namespace.
+When available, use ork_artifact_read/write for the goal, plan, and review, and ork_claims_list/ork_claim_add for claims; do not write the ledger or canonical state directly.
+Record every decision you make without asking the owner in the ledger with \`ork decisao registrar <thread>\` (or \`ork_decision_record\` in MCP because the Codex sandbox cannot write the ledger), including what was decided, why, how to change it, reversal cost now and later, the written criterion, who decided, and the evidence. This is how it reaches the owner in the summary instead of disappearing in the conversation.
+An agent-authored artifact is not an official receipt; registering a claim does not verify it.
+To record product changes, prefer ork_git_commit with the current HEAD and paths with claims; use ork_verify for real verification and ork_ship with checked source/destination HEADs for delivery. A local commit is not SHIP; an incomplete result requires reconciling state and remote before retrying. Permission to query does not grant those operations: respect native authorization and gates.
+The conducting session presents an owner decision to the host; a child session neither answers nor assumes the owner's identity.
+Preserve the configured child profile: \`interactive\` grants queries; \`worktree\` requires installation opt-in and authorizes exact tools in the validated worktree, without approving gates or assuming the owner. Do not change configuration to bypass a block.
+Query \`ork_git_status\` for real HEADs and Git state; use \`ork_git_commit\`, \`ork_verify\`, and \`ork_ship\` through the core contracts, without Bash Git or invented SHAs. Use \`source.head\` as the commit \`expectedHead\`; query again after the commit and use \`source.head\`/\`destination.head\` as SHIP \`expectedSource\`/\`expectedDestination\`. A historical base does not replace the current query. Edit/deny rules are native tool permissions, not process sandbox rules.
+A native permission failure or an operation without supported transport remains a real blocker, never a reason to alter the sandbox.
+
+## Canonical cycle
+{{ciclo_canonico}}
+
+## Conduction mode: {{tag}}
+Blocks in this thread: {{blocos}}
+Human pauses in this thread: {{pausas}}
+{{linha_variante}}
+{{regra_de_pausa}}
+
+CENTRAL RULE: the mode relaxes the pause, NEVER verification.
+{{invariantes}}
+
+## Thread context
+- thread: {{thread}} (slug {{slug}})
+- project: {{projeto_nome}} (abbrev {{projeto_abbrev}})
+- stamped base: {{base_branch}} @ {{base_commit}}
+- working directory: {{diretorio}}
+- thread state: .orkastery/threads/{{thread}}/thread.json
+- ledger: .orkastery/threads/{{thread}}/ledger.jsonl
+
+## Builder request
+{{pedido}}
+{{memoria_injetada}}
+
+## Session isolation
+
+The runtime may be the same for the conductor and reviewer. Independence requires distinct native IDs
+and links proven by the core; a role name in the prompt is not authority. This session executes the
+received block without opening recursion, approving a gate, or validating its own work. Preserve the
+configured runtime/model/effort and \`interactive\`/\`worktree\` profile. Authentication failure remains
+a blocker; do not change provider, sandbox, or identity.
+
+## Evidence rules
+{{regras_de_evidencia}}`;
+
 /** Os templates que vem dentro do `ork`, por id. */
 export const TEMPLATES_EMBUTIDOS: Readonly<Record<string, string>> = {
   'fase-padrao': TEMPLATE_FASE_PADRAO,
+  'fase-padrao.en': TEMPLATE_FASE_PADRAO_EN,
 };
 
 /**
@@ -405,7 +468,7 @@ export function exigirTemplate(id: string, raiz?: string): TemplateDePrompt {
   const achado = carregarTemplates(raiz).find((t) => t.id === id);
   if (!achado) {
     const ids = carregarTemplates(raiz).map((t) => t.id).join(', ');
-    throw new Error(`template "${id}" nao existe (conhecidos: ${ids})`);
+    throw new Error(msg().prompts.cli.templateNaoExiste(id, ids));
   }
   return achado;
 }
@@ -414,42 +477,45 @@ export function exigirTemplate(id: string, raiz?: string): TemplateDePrompt {
  * O template que conduz a fase: `fase-<minuscula>` quando o projeto versionou um so para ela,
  * senao o `fase-padrao`. E o unico ponto de resolucao, para nao haver duas regras de escolha.
  */
-export function templateDaFase(fase: Fase, raiz?: string): TemplateDePrompt {
+export function templateDaFase(fase: Fase, raiz?: string, locale: Locale = localeAtivo()): TemplateDePrompt {
   const templates = carregarTemplates(raiz);
-  const especifico = templates.find((t) => t.id === `fase-${fase.toLowerCase()}`);
+  const sufixo = locale === 'en' ? '.en' : '';
+  const especifico = templates.find((t) => t.id === `fase-${fase.toLowerCase()}${sufixo}`);
   if (especifico) return especifico;
-  const padrao = templates.find((t) => t.id === 'fase-padrao');
-  if (!padrao) throw new Error('template `fase-padrao` ausente: o `ork` nao tem prompt de fase');
+  const padrao = templates.find((t) => t.id === `fase-padrao${sufixo}`);
+  if (!padrao) throw new Error(msg().prompts.cli.templatePadraoAusente);
   return padrao;
 }
 
 /** Texto de `ork prompt lint` para a saida do CLI. */
 export function textoDoLint(problemas: ProblemaDeTemplate[], quantos: number): string {
+  const m = msg().prompts.cli;
   const linhas: string[] = [];
   const erros = problemas.filter((p) => p.gravidade === 'erro');
   const avisos = problemas.filter((p) => p.gravidade === 'aviso');
   for (const p of problemas) {
-    linhas.push(`  [${p.gravidade}] ${p.template} :: ${p.regra}`);
+    linhas.push(`  [${m.gravidades[p.gravidade]}] ${p.template} :: ${p.regra}`);
     linhas.push(`           ${p.detalhe}`);
   }
   if (problemas.length === 0) {
-    linhas.push(`  nenhum problema em ${quantos} template(s)`);
+    linhas.push(m.semProblema(quantos));
   }
   linhas.push('');
-  linhas.push(`templates: ${quantos} | erros: ${erros.length} | avisos: ${avisos.length}`);
+  linhas.push(m.resumoLint(quantos, erros.length, avisos.length));
   return linhas.join('\n');
 }
 
 /** Texto de `ork prompt list`. */
 export function tabelaDeTemplates(templates: TemplateDePrompt[]): string {
-  const linhas: string[] = ['Templates de prompt (o do projeto sobrescreve o embutido de mesmo id)', ''];
+  const m = msg().prompts.cli;
+  const linhas: string[] = [m.tituloLista, ''];
   for (const t of templates) {
-    linhas.push(`  ${t.id.padEnd(16)} v${t.versao}  origem: ${t.origem}`);
-    linhas.push(`  ${' '.repeat(16)}   fases: ${t.fases.length > 0 ? t.fases.join(' ') : 'todas'}`);
+    linhas.push(`  ${t.id.padEnd(16)} v${t.versao}  ${m.origem(t.origem)}`);
+    linhas.push(`  ${' '.repeat(16)}   ${m.fases(t.fases.length > 0 ? t.fases.join(' ') : m.todas)}`);
     linhas.push(`  ${' '.repeat(16)}   ${t.descricao}`);
   }
   linhas.push('');
-  linhas.push('Para versionar o seu: grave em prompts/<id>.md e rode `ork prompt lint`.');
+  linhas.push(m.comoVersionar);
   return linhas.join('\n');
 }
 

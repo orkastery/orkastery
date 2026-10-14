@@ -20,7 +20,7 @@ import { ManifestoCarregado, exigirManifesto } from './manifest';
 import { grafoLigado } from './mcp-grafo';
 import { PedidoDeDespacho, ResultadoDeDespacho, resolverRuntime, runtimeConhecido } from './runtimes';
 import { configDoBloco, fallbackDoBloco, lerSetup, limitesDoBloco } from './setup';
-import { definicaoDoModo, INVARIANTES } from './modos';
+import { definicaoDoModo } from './modos';
 import { registrarGateBloqueado } from './gates';
 import { avaliarPolicies, avisos, bloqueantes, motivoDominante, ViolacaoDePolicy } from './policies';
 import { enfileirar, marcarContaDaFalha } from './ratelimit';
@@ -30,7 +30,8 @@ import { conferirAuth as authCodex } from './adapters/codex';
 import { abrirMemoria, injecaoDaFase, Memoria } from './memoria';
 import { pedidoComDicaDoGrafo, renderizar, templateDaFase } from './prompts';
 import { montarSlug, parseSlug, proximaRotacao } from './slug';
-import { ErroDoCatalogo, msg } from './locale';
+import { ErroDoCatalogo, localeAtivo, Locale, msg, resolverLocale } from './locale';
+import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
 import { blocoDaThread, dirThread, gravarThread, lerThread, pausaNaThread } from './thread';
 import {
   CanalDeConducao,
@@ -241,18 +242,7 @@ export function estadoParaDespacho(raiz: string, thread: Thread, dryRun = false)
 
 /** O que cada fase canonica entrega. Vai no cabecalho do prompt de toda sessao. */
 export const CONTRATO_DAS_FASES: Readonly<Record<Fase, string>> = {
-  GOAL:
-    'GOAL (F1): objetivo verificavel, impact map, criterios de sucesso e claims com comando de verificacao. Nao implementa.',
-  PLAN:
-    'PLAN (F2): plano com tarefas, touch_paths, decisoes D1..Dn com domicilio unico e verify executavel por tarefa. Nao implementa.',
-  GO:
-    'GO (F3): implementacao slice por slice, um commit atomico por tarefa, dentro da worktree da thread.',
-  CHECK:
-    'CHECK (F4): verificacao contra a baseline (regressao versus divida pre-existente), review de codigo, testes, seguranca e performance.',
-  SHIP:
-    'SHIP (F5): merge serializado, push provado por comando, roadmap atualizado e plano de rollback.',
-  MASTER:
-    'MASTER (F6): MASTER log com postmortem tipado, licoes e o score humano de 0 a 5. Uma entrega sem MASTER log nao aconteceu.',
+  ...PROMPTS_PT_BR.contratoDasFases,
 };
 
 /**
@@ -261,18 +251,11 @@ export const CONTRATO_DAS_FASES: Readonly<Record<Fase, string>> = {
  * fase esperaram para sempre por verify ou suite mandados para segundo plano com `&`, cujo processo morreu com a
  * chamada, e por lacos de espera com `pgrep -f` que acham a si mesmos, porque o proprio laco traz o texto procurado.
  */
-export const REGRA_DAS_ESPERAS =
-  'Esperas: nunca dispare verify, build ou suite com `&` dentro do comando, porque o processo se perde e a sessao ' +
-  'espera um aviso que nunca vem; rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de ' +
-  'recursos pesados), ou use a execucao em segundo plano do host, que avisa quando termina; nunca espere com ' +
-  '`pgrep -f` cujo padrao aparece no proprio comando, porque o laco acha a si mesmo e nao termina: espere pelo ' +
-  'arquivo de saida com prazo, ou pelo PID guardado.';
+export const REGRA_DAS_ESPERAS = PROMPTS_PT_BR.regraDasEsperas;
 
 /** As regras de evidencia que valem em toda fase, em todo modo. */
 export const REGRAS_DE_EVIDENCIA: readonly string[] = [
-  'Nada de self-report: toda alegacao vem com o comando que a comprova e a saida real.',
-  'Trabalhe apenas no diretorio de trabalho indicado acima.',
-  'Passos irreversiveis (push, merge, delecao) so acontecem quando o modo autoriza.',
+  ...PROMPTS_PT_BR.regrasDeEvidencia,
   // RM-058 N2 (D13 da ork-rm058n2): tres sessoes de 12/10/2026 mandaram verify ou suite para segundo plano com `&`,
   // perderam o processo e esperaram para sempre. RM-037 (ork-rm037esperas, D3): a linha da N2 virou a regra das
   // esperas, que tambem traz a execucao em segundo plano do host e a espera por `pgrep -f`.
@@ -306,8 +289,10 @@ export function valoresDoPrompt(
   thread: Thread,
   fase: Fase,
   pedido: string,
-  memoriaInjetada = ''
+  memoriaInjetada = '',
+  locale: Locale = localeAtivo()
 ): Record<string, string> {
+  const mp = locale === 'en' ? PROMPTS_EN : PROMPTS_PT_BR;
   const def = definicaoDoModo(thread.modo);
   const bloco = blocoDaThread(thread, fase);
   const pausa = pausaNaThread(thread, fase);
@@ -317,28 +302,28 @@ export function valoresDoPrompt(
     bloco: bloco.fases.join('-'),
     nome: thread.nome,
     ciclo_canonico: fasesDoCicloNoPrompt(thread).map(
-      (f) => `${bloco.fases.includes(f) ? '>' : ' '} ${CONTRATO_DAS_FASES[f]}`
+      (f) => `${bloco.fases.includes(f) ? '>' : ' '} ${mp.contratoDasFases[f]}`
     ).join('\n'),
     tag: def.tag,
     blocos: thread.blocos.map((b) => b.fases.join('-')).join(' / '),
     pausas: String(thread.blocos.filter((b) => b.pausa).length),
-    linha_variante: thread.variante ? `Variante de ciclo: ${thread.variante}` : '',
+    linha_variante: thread.variante ? mp.variante(thread.variante) : '',
     regra_de_pausa: pausa
-      ? `Ao fim deste bloco HA PAUSA humana sobre: ${bloco.pausaSobre}. Pare, apresente a evidencia e espere o veredito.`
-      : 'Ao fim deste bloco NAO ha pausa humana: siga com decisao autonoma e registre no ledger quem decidiu, com que evidencia e por que.',
-    invariantes: INVARIANTES.map((i) => `- ${i}`).join('\n'),
+      ? mp.pausa(mp.pausaSobre(bloco.pausaSobre))
+      : mp.semPausa,
+    invariantes: mp.invariantes.map((i) => `- ${i}`).join('\n'),
     slug: thread.slug,
     projeto_nome: thread.projeto.name,
     projeto_abbrev: thread.projeto.abbrev,
     base_branch: thread.base.branch,
     base_commit: thread.base.commit,
-    diretorio: thread.worktree ?? '(raiz do projeto)',
+    diretorio: thread.worktree ?? mp.raizDoProjeto,
     pedido: pedido.trim(),
     // Bloco B6: o bloco de memoria injetada deterministicamente. Vazio em toda thread sem
     // decisao fechada e sem OrkMind, e ai a linha da variavel some do prompt: o texto fica
     // byte a byte igual ao que o B4 ja despachava.
     memoria_injetada: memoriaInjetada,
-    regras_de_evidencia: REGRAS_DE_EVIDENCIA.map((r) => `- ${r}`).join('\n'),
+    regras_de_evidencia: [...mp.regrasDeEvidencia, mp.regraDasEsperas].map((r) => `- ${r}`).join('\n'),
   };
 }
 
@@ -354,11 +339,12 @@ export function montarPrompt(
   fase: Fase,
   pedido: string,
   raiz?: string,
-  memoriaInjetada = ''
+  memoriaInjetada = '',
+  locale: Locale = localeAtivo()
 ): string {
   return renderizar(
-    templateDaFase(fase, raiz),
-    valoresDoPrompt(thread, fase, pedido, memoriaInjetada)
+    templateDaFase(fase, raiz, locale),
+    valoresDoPrompt(thread, fase, pedido, memoriaInjetada, locale)
   );
 }
 
@@ -378,10 +364,11 @@ export function montarPromptComMemoria(
   memoria: Memoria
 ): { prompt: string; injecao: InjecaoDeMemoria } {
   const injecao = injecaoDaFase(carregado, memoria, thread, fase);
+  const locale = resolverLocale(carregado.manifesto.owner?.language).locale;
   // Mesma raiz usada pelo MCP e runtime-context; o manifesto da WT nao habilita a dica.
   const ligado = grafoLigado(exigirManifesto(raizDoEstado(carregado.raiz)).manifesto);
   return {
-    prompt: montarPrompt(thread, fase, pedidoComDicaDoGrafo(pedido, thread.id, ligado), carregado.raiz, injecao.texto),
+    prompt: montarPrompt(thread, fase, pedidoComDicaDoGrafo(pedido, thread.id, ligado, locale), carregado.raiz, injecao.texto, locale),
     injecao,
   };
 }

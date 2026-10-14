@@ -3220,6 +3220,7 @@ function comandoPrompt(args: Args): number {
   const sub = args.posicionais[1] ?? 'list';
   const carregado = carregarManifesto();
   const raiz = carregado?.raiz;
+  const mp = msg().prompts.cli;
 
   if (sub === 'list') {
     console.log(tabelaDeTemplates(carregarTemplates(raiz)));
@@ -3230,7 +3231,7 @@ function comandoPrompt(args: Args): number {
     const id = texto(args.opcoes.template);
     const templates = id ? [exigirTemplate(id, raiz)] : carregarTemplates(raiz);
     const problemas: ProblemaDeTemplate[] = templates.flatMap((t) => lintTemplate(t));
-    console.log(`Lint dos templates de prompt${raiz ? ` (projeto ${raiz})` : ' (somente embutidos)'}`);
+    console.log(mp.lintTitulo(raiz ?? null));
     console.log('');
     console.log(textoDoLint(problemas, templates.length));
     return problemas.some((p) => p.gravidade === 'erro') ? 2 : 0;
@@ -3238,7 +3239,7 @@ function comandoPrompt(args: Args): number {
 
   if (sub === 'render') {
     const fase = exigirFaseCanonica(texto(args.opcoes.fase) ?? args.posicionais[3]);
-    const pedido = texto(args.opcoes.pedido) ?? '<pedido do builder>';
+    const pedido = texto(args.opcoes.pedido) ?? mp.pedidoExemplo;
     const idTemplate = texto(args.opcoes.template);
 
     // Modo exemplo: renderiza sem thread nenhuma, para revisar o texto de um modo antes de
@@ -3249,10 +3250,10 @@ function comandoPrompt(args: Args): number {
       try { modo = exigirModoVivo(bruto); }
       catch (e) { console.error((e as Error).message); return 2; }
       const exemplo = threadDeExemplo(modo, fase, carregado?.manifesto.project);
-      const template = idTemplate ? exigirTemplate(idTemplate, raiz) : templateDaFase(fase, raiz);
+      const template = idTemplate ? exigirTemplate(idTemplate, raiz) : templateDaFase(fase, raiz, localeAtivo());
       const prompt = renderizar(template, valoresDoPrompt(exemplo, fase, pedido));
-      console.log(`# template ${template.id} v${template.versao} (origem: ${template.origem})`);
-      console.log(`# thread de EXEMPLO (nada foi gravado), modo ${MODOS[modo].tag}, sha256 ${hashDoPrompt(prompt)}`);
+      console.log(mp.cabecalhoTemplate(template.id, template.versao, template.origem));
+      console.log(mp.cabecalhoExemplo(MODOS[modo].tag, hashDoPrompt(prompt)));
       console.log('');
       console.log(prompt);
       return 0;
@@ -3261,8 +3262,8 @@ function comandoPrompt(args: Args): number {
     const obrigatorio = exigirManifesto();
     const threadId = args.posicionais[2];
     if (!threadId) {
-      console.error('uso: ork prompt render <thread-id> <FASE> --pedido "<texto>"');
-      console.error('     ork prompt render --exemplo --fase GOAL --modo auto --pedido "<texto>"');
+      console.error(mp.usoRenderThread);
+      console.error(mp.usoRenderExemplo);
       return 2;
     }
     const thread = lerThread(obrigatorio.raiz, threadId);
@@ -3270,19 +3271,19 @@ function comandoPrompt(args: Args): number {
     // guardado segue com o texto de exemplo, como antes.
     const guardado = texto(args.opcoes.pedido) === undefined ? pedidoDaThread(obrigatorio.raiz, thread) : null;
     const pedidoDaFase = guardado?.texto ?? pedido;
-    const template = idTemplate ? exigirTemplate(idTemplate, obrigatorio.raiz) : templateDaFase(fase, obrigatorio.raiz);
+    const template = idTemplate ? exigirTemplate(idTemplate, obrigatorio.raiz) : templateDaFase(fase, obrigatorio.raiz, localeAtivo());
     const prompt = idTemplate
       ? renderizar(template, valoresDoPrompt(thread, fase, pedidoDaFase))
       : montarPrompt(thread, fase, pedidoDaFase, obrigatorio.raiz);
-    console.log(`# template ${template.id} v${template.versao} (origem: ${template.origem})`);
-    console.log(`# thread ${thread.id}, fase ${fase}, sha256 ${hashDoPrompt(prompt)}`);
-    if (guardado) console.log(`# pedido guardado na criacao da thread (sha256 ${shaCurto(guardado.sha256)})`);
+    console.log(mp.cabecalhoTemplate(template.id, template.versao, template.origem));
+    console.log(mp.cabecalhoThread(thread.id, fase, hashDoPrompt(prompt)));
+    if (guardado) console.log(mp.pedidoGuardado(shaCurto(guardado.sha256)));
     console.log('');
     console.log(prompt);
     return 0;
   }
 
-  console.error(`subcomando desconhecido: prompt ${sub}`);
+  console.error(mp.subcomandoDesconhecido(sub));
   return 2;
 }
 
@@ -3290,7 +3291,7 @@ function comandoPrompt(args: Args): number {
 function exigirFaseCanonica(bruto: string | undefined): Fase {
   const alvo = (bruto ?? '').toUpperCase();
   if (!(FASES as readonly string[]).includes(alvo)) {
-    throw new Error(`fase "${bruto ?? ''}" fora do ciclo canonico (${FASES.join(' ')})`);
+    throw new Error(msg().prompts.cli.faseForaDoCiclo(bruto ?? '', FASES.join(' ')));
   }
   return alvo as Fase;
 }

@@ -78,6 +78,7 @@ import { NETWORK_EN, NETWORK_PT_BR } from './locale-network';
 import { RESERVAS_EN, RESERVAS_PT_BR } from './locale-reservas';
 import { DOCS_EN, DOCS_PT_BR } from './locale-docs';
 import { ADAPTER_EN, ADAPTER_PT_BR } from './locale-adapter';
+import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
 import { CONHECIMENTO_EN, CONHECIMENTO_PT_BR } from './locale-conhecimento';
 
 export type Locale = 'pt-BR' | 'en';
@@ -107,6 +108,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   // O contrato que o `docs verificar` le nas paginas (chaves, valores, secoes, marcadores) segue em pt-BR; so a mensagem muda.
   'docs verificar', 'docs sincronizar', 'docs ?',
   'adapter list', 'adapter show', 'adapter install', 'adapter ?',
+  'prompt list', 'prompt lint', 'prompt render', 'prompt ?',
   'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?'];
 
 
@@ -125,6 +127,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['accounts', { padrao: 'list', conhecidos: ['list', 'add', 'remove', 'check', 'esgotamentos'] }],
   ['network', { padrao: 'status', conhecidos: ['status', 'entrar', 'sair', 'publicar', 'roadmap'] }],
   ['adapter', { padrao: 'list', conhecidos: ['list', 'show', 'install'] }],
+  ['prompt', { padrao: 'list', conhecidos: ['list', 'lint', 'render'] }],
   ['conhecimento', { padrao: 'listar', conhecidos: ['listar', 'mostrar', 'colecoes', 'verificar'] }],
 ]);
 
@@ -464,6 +467,7 @@ const PT_BR = {
   reservas: RESERVAS_PT_BR,
   docs: DOCS_PT_BR,
   adapter: ADAPTER_PT_BR,
+  prompts: PROMPTS_PT_BR,
   conhecimento: CONHECIMENTO_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
@@ -748,6 +752,7 @@ const EN: Mensagens = {
   reservas: RESERVAS_EN,
   docs: DOCS_EN,
   adapter: ADAPTER_EN,
+  prompts: PROMPTS_EN,
   conhecimento: CONHECIMENTO_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
