@@ -4,6 +4,8 @@ import { ajustarManifesto, projetoTemporario, shaDaBranch } from './apoio';
 import { consultarCi } from '../src/ci';
 import { exec } from '../src/util';
 import type { SondasDaForja } from '../src/forja/resolver';
+import type { OpcoesDaApi } from '../src/forja/api';
+import { cliFalsa, falhou, login } from './forja-cli-falsa';
 
 /** Sem bloco `forja:`, o GHE e reconhecido pela sonda do gh com login; o glab nao tem login nele. */
 const SONDA_GHE: SondasDaForja = { github: () => 'responde', gitlab: () => 'sem-login' };
@@ -34,7 +36,7 @@ test('remoto ssh.github.com (SSH pela 443) consulta o github.com', () => {
   assert.equal(r.state, 'success');
 });
 
-function consultarComLogin(url: string, login: (h: string) => boolean) {
+function consultarComLogin(url: string, login: (h: string) => boolean, api: OpcoesDaApi = {}) {
   const p = projetoTemporario('ci-ghe2', false);
   ajustarManifesto(p, 'required_for_ship: false', 'required_for_ship: true');
   p.carregado.manifesto.ci.required_for_ship = true;
@@ -43,7 +45,7 @@ function consultarComLogin(url: string, login: (h: string) => boolean) {
   const hosts: Array<string | undefined> = [];
   const perguntados: string[] = [];
   const r = consultarCi(p.carregado, sha, 'origin', (e) => { if (e.caminho?.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' }; hosts.push(e.host); return { ok: true, code: 0, stderr: '', stdout: verde }; },
-    (h) => { perguntados.push(h); return login(h); }, SONDA_GHE);
+    (h) => { perguntados.push(h); return login(h); }, SONDA_GHE, api);
   p.limpar();
   return { hosts, perguntados, r };
 }
@@ -69,11 +71,14 @@ test('porta fora da faixa: unavailable, sem cair no github.com', () => {
   assert.deepEqual(perguntados, []);
 });
 
-test('remoto GitLab continua ciRemotoNaoGithub', () => {
-  const { hosts, r } = consultarComLogin('https://gitlab.com/o/r.git', () => true);
-  assert.equal(r.state, 'unavailable');
-  assert.match(r.detail, /GitHub/);
+test('remoto do gitlab.com vai à CI do GitLab pelo glab, nunca pelo gh', () => {
+  const cli = cliFalsa([{ quando: login, responde: falhou('glab: not logged in') }]);
+  const { hosts, perguntados, r } = consultarComLogin('https://gitlab.com/o/r.git', () => true, { rodar: cli.rodar, logins: new Map() });
+  assert.deepEqual([r.state, r.provider], ['unavailable', 'gitlab']);
+  assert.match(r.detail, /forja\.sem-login/);
   assert.deepEqual(hosts, []);
+  assert.deepEqual(perguntados, []);
+  assert.deepEqual(cli.chamadas.map((c) => c.cmd), ['glab']);
 });
 
 test('github.com nao pergunta login', () => {

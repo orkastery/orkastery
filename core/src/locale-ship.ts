@@ -106,6 +106,10 @@ export const SHIP_PT_BR = {
   ciVerde: 'CHECK independente verde no GitHub',
   ciBloqueado: (contexto: string, conclusao: string) => `check ${contexto}: bloqueado (${conclusao})`,
   ciEstado: (contexto: string, status: string, conclusao: string) => `check ${contexto}: ${status}/${conclusao || 'sem conclusão'}`,
+  ciVerdeNoGitlab: 'CHECK independente verde no GitLab',
+  ciLeituraFalhou: (contexto: string, motivo: string) => `check ${contexto}: a CI não foi lida: ${motivo}`,
+  ciMescladoSemVinculo: (contexto: string, sha: string) =>
+    `ci.merged-results-sem-vinculo: o ${contexto} rodou só em pipeline de resultado mesclado sem vínculo provado com o head ${sha}; o gate não aprova`,
   // ork ship registrar-pr
   usoRegistrarPr: 'uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]',
   ensaio: 'Ensaio (--dry-run): nada foi gravado.',
@@ -370,6 +374,10 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
   ciVerde: 'independent CHECK green on GitHub',
   ciBloqueado: (contexto, conclusao) => `check ${contexto}: blocked (${conclusao})`,
   ciEstado: (contexto, status, conclusao) => `check ${contexto}: ${status}/${conclusao || 'no conclusion'}`,
+  ciVerdeNoGitlab: 'independent CHECK green on GitLab',
+  ciLeituraFalhou: (contexto, motivo) => `check ${contexto}: CI was not read: ${motivo}`,
+  ciMescladoSemVinculo: (contexto, sha) =>
+    `ci.merged-results-sem-vinculo: ${contexto} ran only in a merged results pipeline with no proven link to head ${sha}; the gate does not approve`,
   usoRegistrarPr: 'usage: ork ship registrar-pr <thread-id> [--repo <owner/name> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]',
   ensaio: 'Dry run (--dry-run): nothing was written.',
   nenhumaComMerge: 'No open thread with a ship(<thread>) merge on the base.',

@@ -7,14 +7,15 @@ import type { SondasDaForja } from '../src/forja/resolver';
 import { exigirManifesto } from '../src/manifest';
 import { exec } from '../src/util';
 import { loginDoGh } from '../src/ci';
-import { cliFalsa, login, ok } from './forja-cli-falsa';
+import type { OpcoesDaApi } from '../src/forja/api';
+import { api, apiEm, cliFalsa, gravado, http, login, ok } from './forja-cli-falsa';
 import { projetoTemporario, shaDaBranch } from './apoio';
 
 const VERDE = JSON.stringify({ check_runs: [{ id: 1, name: 'ork-verify', status: 'completed', conclusion: 'success',
   completed_at: '2026-10-13T10:00:00Z', app: { slug: 'github-actions' } }] });
 const NUNCA: SondasDaForja = { github: () => { throw new Error('sondou o github'); }, gitlab: () => { throw new Error('sondou o gitlab'); } };
 
-function consultar(url: string, opcoes: { bloco?: string; sondas?: SondasDaForja; login?: (h: string) => boolean; repetir?: SondasDaForja } = {}) {
+function consultar(url: string, opcoes: { bloco?: string; sondas?: SondasDaForja; login?: (h: string) => boolean; repetir?: SondasDaForja; api?: OpcoesDaApi } = {}) {
   const p = projetoTemporario('ci-resolvida', false);
   try {
     const arquivo = path.join(p.dir, 'orkastery.yaml');
@@ -26,7 +27,7 @@ function consultar(url: string, opcoes: { bloco?: string; sondas?: SondasDaForja
     const r = consultarCi(carregado, shaDaBranch(p.dir, 'main'), 'origin', (e) => {
       chamadas.push({ host: e.host, repository: e.repository });
       return { ok: true, code: 0, stderr: '', stdout: (e.caminho ?? '').includes('/statuses') ? '[]' : VERDE };
-    }, opcoes.login ?? (() => true), opcoes.sondas ?? NUNCA);
+    }, opcoes.login ?? (() => true), opcoes.sondas ?? NUNCA, opcoes.api ?? {});
     // A segunda consulta no mesmo projeto, com outras sondas: prova o cache do tipo sondado.
     const repetida = opcoes.repetir ? consultarCi(carregado, shaDaBranch(p.dir, 'main'), 'origin',
       (e) => ({ ok: true, code: 0, stderr: '', stdout: (e.caminho ?? '').includes('/statuses') ? '[]' : VERDE }), () => true, opcoes.repetir) : null;
@@ -34,11 +35,14 @@ function consultar(url: string, opcoes: { bloco?: string; sondas?: SondasDaForja
   } finally { p.limpar(); }
 }
 
-test('host com "github" no nome que só o glab reconhece não tem a CI consultada como GitHub', () => {
-  const { r, chamadas } = consultar('https://github.empresa.com/o/r.git', { sondas: { github: () => 'sem-login', gitlab: () => 'responde' } });
-  assert.equal(r.state, 'unavailable');
-  assert.match(r.detail, /GitHub/);
+test('host com "github" no nome que só o glab reconhece tem a CI lida como GitLab, nunca pelo gh', () => {
+  const cli = cliFalsa([{ quando: login, responde: ok('') }, { quando: api('metadata'), responde: http(200, gravado('gitlab/19.2/metadata')) },
+    { quando: apiEm('/statuses?'), responde: http(200, []) }]);
+  const { r, chamadas } = consultar('https://github.empresa.com/o/r.git',
+    { sondas: { github: () => 'sem-login', gitlab: () => 'responde' }, api: { rodar: cli.rodar, logins: new Map() } });
+  assert.deepEqual([r.provider, r.state], ['gitlab', 'missing']);
   assert.deepEqual(chamadas, []);
+  assert.ok(cli.chamadas.every((c) => c.cmd === 'glab'));
 });
 
 test('host próprio declarado github no manifesto é consultado sem sondar', () => {

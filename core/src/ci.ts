@@ -3,7 +3,8 @@ import { ambienteDeCi } from './forja/ambiente-de-ci';
 import { lerEnderecoDoRemoto } from './forja/endereco';
 import { detalheSeguro } from './forja';
 import { hostDaApi } from './forja/cli';
-import { RodarCli, temLogin } from './forja/api';
+import { chamadorDaApi, RodarCli, temLogin, type OpcoesDaApi } from './forja/api';
+import { lerMetadados, recusaAbaixoDoPiso } from './forja/versao';
 import { resolverForja, SONDAS_PADRAO, SondasDaForja } from './forja/resolver';
 import { dirDoCacheDaForja } from './forja/cache';
 import { exigirRemoto } from './branch-de-estado';
@@ -12,7 +13,7 @@ import { exec } from './util';
 import { rodarCli } from './forja/executor';
 import { estadoDoCheck } from './forja/estado';
 import { PRODUTORES_PADRAO, produtorAceito, produtoresAceitos } from './forja/produtor';
-import type { CheckNoCommit, FonteDoCheck, TipoDeForja } from './forja/contrato';
+import type { CheckNoCommit, ErroDaForja, FonteDoCheck, ForjaResolvida, TipoDeForja } from './forja/contrato';
 import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { branchDaWorktree } from './worktree';
 import { cwdLocalOuNulo } from './procedencia';
@@ -175,22 +176,22 @@ export function loginDoGh(host: string, rodar?: RodarCli): boolean {
 const loginPadrao = (host: string): boolean => loginDoGh(host);
 
 /**
- * O repositorio e o host da API saem de UM parse do remoto (`lerEnderecoDoRemoto`) e da forja resolvida (o bloco
- * `forja:`, o host conhecido ou a sondagem pela CLI com login no host), sem host de reserva: o `dono/nome` nunca e
- * consultado num host que o remoto ou o manifesto nao nomeiam. O nome do host nao decide o tipo: so a forja resolvida
- * como GitHub tem a CI consultada aqui. `ssh.github.com` (SSH pela 443) e o github.com; a porta de um remoto SSH nao
- * e a da API.
+ * A forja do remoto: o repositorio e o host saem de UM parse do remoto (`lerEnderecoDoRemoto`) e da forja resolvida (o
+ * bloco `forja:`, o host conhecido ou a sondagem pela CLI com login no host), sem host de reserva: o caminho nunca e
+ * consultado num host que o remoto ou o manifesto nao nomeiam. O nome do host nao decide o tipo. No GitHub o
+ * repositorio e `dono/nome`; no GitLab, o caminho inteiro, com subgrupos. `ssh.github.com` (SSH pela 443) e o
+ * github.com; a porta de um remoto SSH nao e a da API.
  */
 function alvoDaCi(carregado: ManifestoCarregado, remoto: string, url: string, sondas: SondasDaForja):
-  { ok: true; repository: string; host: string } | { ok: false; detalhe: string } {
-  const naoGithub = () => ({ ok: false as const, detalhe: textoDoCatalogo((m) => m.ship.ciRemotoNaoGithub(remoto)) });
+  { ok: true; forja: ForjaResolvida } | { ok: false; detalhe: string } {
+  const naoReconhecido = () => ({ ok: false as const, detalhe: textoDoCatalogo((m) => m.ship.ciRemotoNaoGithub(remoto)) });
   const endereco = lerEnderecoDoRemoto(url.trim());
-  if (!endereco) return naoGithub();
+  if (!endereco) return naoReconhecido();
   // O tipo sondado fica 24 h no cache da raiz: um GHE sem bloco `forja:` nao paga as sondas a cada consulta.
   const forja = resolverForja({ endereco, manifesto: carregado.manifesto.forja, sondas, cache: dirDoCacheDaForja(carregado.raiz) });
   if (!forja.ok) return { ok: false, detalhe: textoDoCatalogo((m) => m.ship.ciForjaNaoResolvida(remoto, m.forja.motivo(forja.erro, null))) };
-  if (forja.valor.tipo !== 'github' || forja.valor.repo.split('/').length !== 2) return naoGithub();
-  return { ok: true, repository: forja.valor.repo, host: hostDaApi(forja.valor) };
+  if (forja.valor.tipo === 'github' && forja.valor.repo.split('/').length !== 2) return naoReconhecido();
+  return { ok: true, forja: forja.valor };
 }
 
 /** O resultado da CI quando o projeto nao a exige (`ci.required_for_ship: false`): nada e consultado na forja. */
@@ -201,19 +202,25 @@ export function ciNaoExigida(carregado: ManifestoCarregado, sha: string): Result
 }
 
 export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto = 'origin', executor: ExecutorCi = executorPadrao,
-  loginNoHost: (host: string) => boolean = loginPadrao, sondas: SondasDaForja = SONDAS_PADRAO): ResultadoCi {
+  loginNoHost: (host: string) => boolean = loginPadrao, sondas: SondasDaForja = SONDAS_PADRAO, api: OpcoesDaApi = {}): ResultadoCi {
   const { ci } = carregado.manifesto;
   const context = ci.context || 'ork-verify';
-  const falha = (detalhe: string): ResultadoCi => ({ ...baseDaCi(null, null, sha, context), ok: false, state: 'unavailable', url: null, detail: detalhe });
+  const falha = (detalhe: string, provider: TipoDeForja | null = null): ResultadoCi =>
+    ({ ...baseDaCi(provider, null, sha, context), ok: false, state: 'unavailable', url: null, detail: detalhe });
   if (!ci.required_for_ship) return ciNaoExigida(carregado, sha);
   // RM-047: o `--remoto` do `ork ci status` vem da linha de comando; so nome de remoto chega ao git.
   const remote = exec('git', ['remote', 'get-url', '--', exigirRemoto(remoto, 'ci')], carregado.raiz);
   const alvo = remote.ok ? alvoDaCi(carregado, remoto, remote.stdout, sondas)
     : { ok: false as const, detalhe: textoDoCatalogo((m) => m.ship.ciRemotoNaoGithub(remoto)) };
   if (!alvo.ok) return falha(alvo.detalhe);
+  const { forja } = alvo;
+  const produtores = produtoresAceitos(carregado.manifesto, forja.tipo);
+  // Fora do GitHub, a CI vai pela API da CLI logada (`chamarApi`), que confere o login no host antes da primeira chamada.
+  if (forja.tipo !== 'github') return consultarCiNaForja(forja, sha, context, produtores, { api, cache: dirDoCacheDaForja(carregado.raiz) });
   // Fronteira de confianca: so o github.com e consultado sem pergunta; outro host so com login do `gh` nele.
-  if (alvo.host !== 'github.com' && !loginNoHost(alvo.host)) return falha(textoDoCatalogo((m) => m.ship.ciHostSemLogin(alvo.host)));
-  return consultarCiDoRepositorio(alvo.repository, sha, context, executor, alvo.host, produtoresAceitos(carregado.manifesto, 'github'));
+  const host = hostDaApi(forja);
+  if (host !== 'github.com' && !loginNoHost(host)) return falha(textoDoCatalogo((m) => m.ship.ciHostSemLogin(host)), 'github');
+  return consultarCiDoRepositorio(forja.repo, sha, context, executor, host, produtores);
 }
 
 /**
@@ -231,6 +238,35 @@ export function consultarCiDoRepositorio(repository: string, sha: string, contex
   }
   if (!lido.ok) return { ...base, ok: false, state: 'unavailable', url: null, detail: detalheSeguro(lido.erro.detalhe || textoDoCatalogo((m) => m.ship.ciConsultaFalhou)) };
   return decidirCi(base, lido.valor, produtores, (m) => m.ship.ciVerde);
+}
+
+/** A CLI e os logins (os testes trocam) e o diretorio do cache dos metadados da forja. */
+export interface OpcoesDaCiNaForja { api?: OpcoesDaApi; cache?: string | null }
+
+/**
+ * O check `context` no `sha` pela API da forja ja resolvida (`estadoDeCi`): o GitLab do projeto ou, na entrega externa,
+ * o de um repositorio declarado. A versao abaixo do piso recusa antes de ler a CI. So produtor de `produtores` aprova; o
+ * check que so rodou em resultado mesclado sem vinculo com o `sha` nunca aprova (`ci.merged-results-sem-vinculo`).
+ */
+export function consultarCiNaForja(forja: ForjaResolvida, sha: string, context: string, produtores: readonly string[],
+  o: OpcoesDaCiNaForja = {}): ResultadoCi {
+  const base = baseDaCi(forja.tipo, forja.repo, sha, context);
+  const naoLida = (erro: ErroDaForja): ResultadoCi => ({ ...base, ok: false, state: 'unavailable', url: null,
+    detail: textoDoCatalogo((m) => m.ship.ciLeituraFalhou(context, m.forja.motivo(erro, forja.tipo))) });
+  const ler = adaptadorDaForja(forja.tipo).estadoDeCi;
+  if (!ler) return naoLida({ codigo: 'forja.sem-capacidade', detalhe: `${forja.tipo}: estadoDeCi` });
+  const api = chamadorDaApi(forja, o.api);
+  const meta = lerMetadados(forja, { cache: o.cache ?? null, api });
+  if (!meta.ok) return naoLida(meta.erro);
+  const piso = recusaAbaixoDoPiso(forja.tipo, meta.valor);
+  if (piso) return naoLida(piso);
+  const lido = ler({ api, repo: forja.repo, sha, context, edicao: meta.valor.edicao });
+  if (!lido.ok) return naoLida(lido.erro);
+  const decidido = decidirCi(base, lido.valor.checks, produtores, (m) => (forja.tipo === 'gitlab' ? m.ship.ciVerdeNoGitlab : m.ship.ciVerde));
+  if (lido.valor.mescladoSemVinculo && decidido.state !== 'failure' && decidido.state !== 'pending') {
+    return { ...base, ok: false, state: 'missing', url: null, detail: textoDoCatalogo((m) => m.ship.ciMescladoSemVinculo(context, sha.slice(0, 8))) };
+  }
+  return decidido;
 }
 
 /** O motivo de um check bloqueado: a conclusao do check-run ou, sem ela, o estado do job (`manual`, `skipped`). */

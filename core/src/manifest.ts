@@ -122,9 +122,13 @@ function prazosDoVerify(verify: Record<string, ValorYaml>, erros: string[]): Pic
   return saida;
 }
 
+/** O caminho de um projeto: dois segmentos ou mais (os subgrupos do GitLab). */
+const CAMINHO_DE_PROJETO = /^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+$/;
+
 /**
- * RM-037 (rm037defeito, defeito 5): `ci.external_repositories`, mapa `dono/nome` para o check exigido no
- * head do PR (texto vazio ou nulo: repositorio sem CI). Forma invalida e erro do manifesto, nunca adivinhada.
+ * RM-037 (rm037defeito, defeito 5): `ci.external_repositories`, mapa do caminho do projeto (`dono/nome` no GitHub,
+ * `grupo/sub/projeto` no GitLab) para o check exigido no head do PR (texto vazio ou nulo: repositorio sem CI). Forma
+ * invalida e erro do manifesto, nunca adivinhada.
  */
 function repositoriosExternos(v: ValorYaml, erros: string[]): Record<string, string> {
   if (v === undefined || v === null) return {};
@@ -134,7 +138,10 @@ function repositoriosExternos(v: ValorYaml, erros: string[]): Record<string, str
   }
   const r: Record<string, string> = {};
   for (const [repo, check] of Object.entries(v)) {
-    if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) { erros.push(`ci.external_repositories: "${repo}" nao e dono/nome do GitHub`); continue; }
+    if (!CAMINHO_DE_PROJETO.test(repo) || repo.split('/').some((p) => p === '.' || p === '..')) {
+      erros.push(`ci.external_repositories: "${repo}" nao e dono/nome do GitHub nem grupo/subgrupo/projeto do GitLab`);
+      continue;
+    }
     if (check !== null && typeof check !== 'string') { erros.push(`ci.external_repositories.${repo}: o check exigido e texto (vazio para sem CI)`); continue; }
     r[repo] = (check ?? '').trim();
   }
