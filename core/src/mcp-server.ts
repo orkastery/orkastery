@@ -31,6 +31,7 @@ import {lerArtefatoMcp,escreverArtefatoMcp,listarClaimsMcp,adicionarClaimMcp,val
 import {commitMcp,estadoGitMcp} from './mcp-git';
 import {preflight} from './preflight';
 import {exigirModoVivo,ORDEM_DOS_MODOS} from './modos';
+import { registrarFerramentasDoNoctum } from './mcp-noctum';
 import {VERSAO_DO_ORK} from './versao';
 import {verificarMcp} from './mcp-verify';
 import { conducaoDaThread, ErroDeConducao } from './conducao';
@@ -329,6 +330,15 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   // RM-026 K7 (fatia 2): o conhecimento escrito, só leitura, do projeto fixado; também na sessão filha vinculada.
   registrarConsultasDoConhecimento(registrarTool, carregar);
   registerMaestro(registrarTool,{root:raiz,threadId:opcoes.threadId,load:carregar,checkThread:thread,tools:()=>[...ferramentas.keys()]});
+  // RM-058 N6 (D12): o arco #Noctum no host do dono, com o dialogo nativo deste servidor; nunca na sessao de fase.
+  if(!opcoes.threadId) registrarFerramentasDoNoctum(registrarTool,{raiz,carregar,host:opcoes.host as 'claude-code'|'codex',conexao:conexaoLocal,
+    elicitar:async (a,signal) => {
+      const r = await server.elicitInput({ mode:'form', message:a.resumo.join('\n'),
+        requestedSchema:{type:'object',properties:{opcao:{type:'string',title:'Sua decisão',oneOf:a.opcoes.map(x=>({const:x,title:x}))}},
+          required:['opcao']} },{signal,timeout:300000});
+      return r.action === 'accept' ? {action:'accept',content:r.content as {opcao:string}} : {action:r.action};
+    },
+    temFormulario:()=>Boolean(server.getClientCapabilities()?.elicitation?.form)});
   registrarTool('ork_preflight',{description:'Preflight contextual por modo e bloco, sem inventário global/modelos. Não autoriza despacho nem comprova entrega.',
     inputSchema:z.object({modo:modoDeConducao}).strict(),annotations:{readOnlyHint:true}},async({modo})=>{
       carregar();return resposta(preflight(raiz,modo,opcoes.nomesProviderHerdados));

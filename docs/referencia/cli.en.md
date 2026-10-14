@@ -636,6 +636,20 @@ waiting (RM-058).
 
 ---
 
+## #Noctum mode (RM-058)
+
+`#Noctum` conducts an arc of many `#Auto` threads inside the envelope the owner authorized, and it only holds with an envelope in force: without one, `ork modos --do-pedido` refuses the tag with `noctum.modo.sem-envelope`, and `ork thread new --modo noctum` never creates a thread. No command authorizes from the terminal: authorization and revocation come only through authenticated ingress (the signed gateway or the host's native dialog through MCP).
+
+| Command | What it does |
+| --- | --- |
+| `ork noctum propor --arquivo <envelope.json> [--json]` | Records the envelope proposal and shows the summary, the hash and how to authorize it; it authorizes nothing |
+| `ork noctum responder <arco> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]` | The gateways' ingress: the signed authorization (`autorizar <sha256>`) or revocation (`revogar`), checked at the arc address, with the typed receipt `ork.noctum-ingresso/v1` |
+| `ork noctum status [<arco>] [--json]` | The arc snapshot: situation, window, measured usage per unit with the gaps, the queue, the closing and the stops, and the report with the receipts and the gaps; without an arc, the list of arcs |
+| `ork noctum tique <arco> [--json]` | The closing (time, cost and empty queue), the step and the report, in that order: what the owner's cron calls in the pilot |
+| `ork noctum relatorio <arco> [--json] [--reenviar telegram\|openclaw]` | The morning report in the terminal (the `terminal` channel receipt only comes in an interactive terminal), or the resend the owner asks for of the pages without a receipt |
+
+---
+
 ## Prompts and adapters
 
 | Command | What it does |

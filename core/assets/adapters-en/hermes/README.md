@@ -180,6 +180,12 @@ The script must receive events directly from the gateway, whose Telegram authent
 
 Verification: `python3 -m unittest discover -s adapters/hermes/test -p hitl_answer_test.py -v`.
 
+## #Noctum arc through Telegram (RM-058)
+
+The same `hitl-ingress/` plugin receives `/ork noctum <arco> autorizar <sha256>` and `/ork noctum <arco> revogar`, with the same checks as `/ork gate` (host authorization, user, chat, bot, a message of up to 60 s and the `ORK_HITL_INGRESS_KEY_HERMES` key). The envelope is signed at the `noctum` / `arco:<arco>` address, which no `/ork gate` reaches, and goes over stdin to `ork noctum responder <arco>`. Only the typed receipt `ork.noctum-ingresso/v1` of the same arc confirms to the owner, and an act that was already in force gets no second confirmation. The envelope proposal is `ork noctum propor --arquivo <envelope.json>`, and it authorizes nothing. The grammar lives in the core (`GRAMATICA_DO_NOCTUM`), and the core's `noctum-gateways` test checks the copy here.
+
+Verification: `python3 -m unittest discover -s adapters/hermes/test -p hitl_noctum_test.py -v`.
+
 ## Confirmation through the native HITL plugin
 
 The `hitl-ingress/` plugin receives `/ork gate <thread> <pedido> <resposta>` and

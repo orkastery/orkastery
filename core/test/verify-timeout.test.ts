@@ -38,6 +38,19 @@ test('a causa separa estouro de prazo, falha, comando ausente e morte por sinal'
   assert.equal(passou.trecho, undefined, 'sucesso nao leva trecho: a evidencia e o codigo 0');
 });
 
+test('o executor aceita mais de 1 MiB e preserva o fim da saida na falha', () => {
+  const comando = (code: number, fim: string) =>
+    `(yes x | head -c $((1024 * 1024 + 32)); printf '\\n${fim}\\n'; exit ${code})`;
+
+  const passou = executar('saida-longa-ok', comando(0, 'FIM_OK'), process.cwd(), 10_000);
+  assert.equal(passou.ok, true, passou.resumo);
+
+  const falhou = executar('saida-longa-falha', comando(1, 'FIM_FALHA'), process.cwd(), 10_000);
+  assert.equal(falhou.ok, false);
+  assert.equal(falhou.code, 1);
+  assert.match(falhou.trecho ?? '', /FIM_FALHA/, 'o trecho guarda o fim da saida longa');
+});
+
 test('a classificacao da causa, caso a caso, com e sem o timeout(1) na frente', () => {
   const base = { signal: null, comGrupo: true, duracaoMs: 60_000, tetoMs: 60_000 };
   assert.equal(causaDoEncerramento({ ...base, code: 124 }), 'timeout');

@@ -4,7 +4,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { commitar, projetoTemporario } from './apoio';
+import { commitar, dirTemporario, projetoTemporario } from './apoio';
 import { lerLedger } from '../src/ledger';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
@@ -15,6 +15,42 @@ import {
   registradaNoGit,
   sincronizarWorktree,
 } from '../src/worktree';
+
+/** Avanca `origin/main` por outro checkout, sem mover a `main` local do projeto sob teste. */
+function avancarMainRemota(p: ReturnType<typeof projetoTemporario>, nome: string): string {
+  assert.ok(p.remoto);
+  const clone = dirTemporario(nome);
+  try {
+    assert.equal(exec('git', ['clone', '-q', p.remoto!, clone], clone).ok, true);
+    exec('git', ['config', 'user.email', 'teste@orkastery.local'], clone);
+    exec('git', ['config', 'user.name', 'Teste Orkastery'], clone);
+    return commitar(clone, 'remoto.txt', `${nome}\n`, 'base remota avancou');
+  } finally {
+    exec('git', ['push', '-q', 'origin', 'main'], clone);
+    fs.rmSync(clone, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+}
+
+test('worktree nova nasce da origin/main atual mesmo quando a main local ficou atras', () => {
+  const p = projetoTemporario('wt-base-remota', true);
+  try {
+    const localAntes = exec('git', ['rev-parse', 'main'], p.dir).stdout.trim();
+    const remoto = avancarMainRemota(p, 'wt-base-remota-outro');
+    assert.notEqual(remoto, localAntes);
+
+    const criada = novaThread(p.carregado, { nome: 'Remota nova', modo: 'auto', criarWorktree: true }).thread;
+    assert.equal(exec('git', ['rev-parse', 'HEAD'], criada.worktree!).stdout.trim(), remoto);
+    assert.equal(criada.base.commit, remoto);
+    assert.equal(exec('git', ['rev-parse', 'main'], p.dir).stdout.trim(), localAntes, 'o fetch nao move a branch local');
+
+    const semWorktree = novaThread(p.carregado, { nome: 'Remota ensure', modo: 'auto' }).thread;
+    const remoto2 = avancarMainRemota(p, 'wt-base-remota-ensure-outro');
+    const garantida = garantirWorktree(p.carregado, semWorktree.id);
+    assert.equal(exec('git', ['rev-parse', 'HEAD'], garantida.dir).stdout.trim(), remoto2);
+    assert.equal(lerThread(p.dir, semWorktree.id).base.commit, remoto2);
+    assert.equal(exec('git', ['rev-parse', 'main'], p.dir).stdout.trim(), localAntes);
+  } finally { p.limpar(); }
+});
 
 test('worktree ensure cria a worktree que faltava e e idempotente na segunda vez', () => {
   const p = projetoTemporario('wt-ensure');

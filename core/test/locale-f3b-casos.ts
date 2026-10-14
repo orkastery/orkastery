@@ -62,7 +62,9 @@ export function normalizar(texto: string): string {
     .replace(/\b[0-9a-f]{64}\b/g, '<SHA256>')
     .replace(/\b[0-9a-f]{40}\b/g, '<SHA>')
     .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/g, '<UUID>')
-    // sha curto de commit (7 ou 8 hex com ao menos um digito; um sha so de letras e raro o bastante para nao contar)
+    // SHA curto de 7 letras precisa de contexto: sem ele, palavras comuns como "acabada" também são hexadecimais.
+    .replace(/(\b(?:commit|merge|remoto)\s+|@\s*)[0-9a-f]{7}\b/g, '$1<SHA7>')
+    // Com um dígito, 7 ou 8 hexadecimais não se confundem com uma palavra comum.
     .replace(/\b(?=[a-f]*\d)[0-9a-f]{7,8}\b/g, '<SHA7>')
     .replace(/\b(ha|há) (?:menos de )?\d+ ?(?:h\d{2}|min|s|h|d)\b/g, '$1 <DURACAO>')
     .replace(/\bconta [0-9a-f]{12}\b/g, 'conta <CONTA>')

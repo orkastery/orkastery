@@ -89,6 +89,22 @@ test('bundle usa o perfil hermético declarado pelo CI quando ele existe', () =>
   p.limpar();
 });
 
+test('runner do CI aplica ao comando hermetico o mesmo teto de test', () => {
+  const p = projetoTemporario('ci-timeout');
+  const file = `${p.dir}/bundle-timeout.json`;
+  fs.writeFileSync(file, JSON.stringify({
+    schema: 'ork.ci-bundle/v1', thread: 'ork-ci-timeout', base: 'main', claims: [],
+    commands: [{ name: 'ci', command: 'sleep 5' }],
+  }));
+  const carregado = { ...p.carregado, manifesto: { ...p.carregado.manifesto,
+    verify: { ...p.carregado.manifesto.verify, timeout_ms_por_comando: { test: 1000 } } } };
+  const result = executarBundleCi(carregado, file);
+  assert.equal(result.ok, false);
+  assert.equal(result.commands[0].causa, 'timeout');
+  assert.equal(result.commands[0].prazoMs, 1000);
+  p.limpar();
+});
+
 test('bundle separa claims do host sem fingir que o runner hospedado as executou', () => {
   const p = projetoTemporario('ci-host-claims');
   const base = {

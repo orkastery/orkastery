@@ -10,6 +10,18 @@ import { conferirDiretorio, EstadoController, BootstrapController, erroNativoDoT
 import type { DespachoCodexPedido } from './codex';
 import type { ConfirmacaoSessao, EntregaSessao, IdentidadeSessao } from '../hitl-sessions';
 
+/** RM-064: interrupção nativa testável sem descobrir PID, sessão ou turno fora do controller vinculado. */
+export async function interromperTurnoAtivo(state: EstadoController, sessao: IdentidadeSessao,
+  perguntaAtiva: boolean, enviar: (metodo: string, dados: unknown) => Promise<unknown>,
+  esperar: (condicao: () => boolean) => Promise<void>): Promise<void> {
+  const bloqueioDivergente = state.estado === 'blocked' && (!perguntaAtiva || sessao.bloqueio !== state.bloqueio);
+  if (!['working', 'blocked'].includes(state.estado) || sessao.estado !== state.estado || !state.turno ||
+      sessao.sessionId !== state.sessionId || sessao.instancia !== state.instancia || sessao.cwd !== state.cwd ||
+      bloqueioDivergente) throw new Error('runtime.unavailable: sessão não está ativa nesta instância');
+  await enviar('turn/interrupt', { threadId: state.sessionId, turnId: state.turno });
+  await esperar(() => state.estado === 'stopped');
+}
+
 function gravar(nome: string, valor: unknown): void {
   const tmp = `${nome}.${randomUUID()}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(valor), { flag: 'wx', mode: 0o600 }); fs.renameSync(tmp, nome);
@@ -149,10 +161,7 @@ async function servidor(): Promise<void> {
           await aguardar(() => fs.existsSync(`receipt-${e.envioId}.json`)); resultado = true;
         } else if (r.operacao === 'parar') {
           const s = r.dados as IdentidadeSessao;
-          if (!pergunta || state.estado !== 'blocked' || s.sessionId !== state.sessionId || s.instancia !== state.instancia ||
-            s.cwd !== state.cwd || s.bloqueio !== state.bloqueio) throw new Error('runtime.unavailable: sessão não está bloqueada nesta instância');
-          await rpc('turn/interrupt', { threadId: state.sessionId, turnId: state.turno });
-          await aguardar(() => state.estado === 'stopped'); resultado = true;
+          await interromperTurnoAtivo(state, s, !!pergunta, rpc, aguardar); resultado = true;
         } else throw new Error('runtime.unavailable: operação desconhecida');
         socket.end(JSON.stringify({ ok: true, resultado }));
       } catch (e) { socket.end(JSON.stringify({ ok: false, erro: (e as Error).message })); }

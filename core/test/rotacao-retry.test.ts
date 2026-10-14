@@ -1,5 +1,5 @@
 /**
- * I-33 (T6, D5 e D11c): rotacao de perfil pelo caminho REAL do despacho. O stub do `claude`
+ * I-33 (T6, D5) e RM-064 T3: rotação de perfil pelo caminho REAL do despacho. O stub do `claude`
  * responde por conta: `auth status` so aprova com o marcador de login da conta, o `--bg` recusa
  * com a frase gravada na conta (cota ou login) e `agents` so lista a sessao da conta que a
  * despachou. A prova e o que o ledger, o store e a fila registram, nunca relato.
@@ -13,7 +13,7 @@ import { registrarGateBloqueado } from '../src/gates';
 import { lerLedger, registrar } from '../src/ledger';
 import { hashDoPrompt, rodarFase } from '../src/phase';
 import { enfileirar, lerFilaDeRetomada, marcarContaDaFalha, PedidoComPerfil, prazoDaConta } from '../src/ratelimit';
-import { alvosDeFallback, executarRetry, producaoNoIntervalo, proximoAlvo } from '../src/retry';
+import { alvosDeFallback, executarRetry, localizarPromptGravado, producaoNoIntervalo, proximoAlvo } from '../src/retry';
 import { adicionarPerfil, lerPerfis, marcarFalhaDePerfil } from '../src/runtime-profiles';
 
 /** D5 com a troca por cota ligada no manifesto (D14): os testes deste arquivo exercitam a rotacao da D5. */
@@ -201,7 +201,7 @@ function sessaoMortaPorCota(c: Cenario, fase: 'GO' | 'GOAL') {
   return { t, dir, sessionId, despachadaEm, gate };
 }
 
-test('D11c: morte por cota depois de commit no intervalo vira human.pending, sem rotacao nem redespacho', () => {
+test('RM-064 T3: morte por cota depois de commit retoma no próximo perfil com checkpoint, sem human.pending', () => {
   const c = cenario('rotacao-producao-parcial');
   try {
     const s = sessaoMortaPorCota(c, 'GO');
@@ -209,19 +209,23 @@ test('D11c: morte por cota depois de commit no intervalo vira human.pending, sem
     s.gate();
     const antes = lerLedger(s.dir).filter(e => e.tipo === 'phase_dispatch').length;
     const retry = executarRetry(c.p.carregado, s.t.id);
-    assert.equal(retry.executada, false);
-    assert.match(retry.detalhe, /producao parcial sob cota esgotada: 1 commit\(s\) registrado\(s\)/);
+    assert.equal(retry.executada, true, retry.detalhe);
     const eventos = lerLedger(s.dir);
-    assert.equal(eventos.filter(e => e.tipo === 'phase_dispatch').length, antes, 'nenhum redespacho');
-    assert.equal(eventos.some(e => e.tipo === 'runtime_profile_rotated'), false);
-    const gate = eventos.filter(e => e.tipo === 'gate_blocked').at(-1);
-    assert.equal(gate?.motivo, 'human.pending');
-    assert.match(String(gate?.diagnostico), /producao parcial/);
-    assert.equal(c.envs().filter(l => l.startsWith('--bg')).length, 0);
+    assert.equal(eventos.filter(e => e.tipo === 'phase_dispatch').length, antes + 1);
+    assert.equal(eventos.some(e => e.tipo === 'runtime_profile_rotated'), true);
+    assert.equal(eventos.some(e => e.tipo === 'gate_blocked' && e.motivo === 'human.pending'), false);
+    const original = eventos.filter(e => e.tipo === 'phase_dispatch')[0];
+    const retomada = eventos.filter(e => e.tipo === 'phase_dispatch').at(-1)!;
+    assert.equal(retomada.fase, 'GO');
+    assert.equal(retomada.promptOriginalSha256, original.promptSha256);
+    assert.notEqual(retomada.promptSha256, original.promptSha256);
+    const arquivo = localizarPromptGravado(c.p.dir, s.t.id, String(retomada.promptPath), String(retomada.promptSha256));
+    assert.match(fs.readFileSync(arquivo!, 'utf8'), /## Ponto de parada[\s\S]*Continue da fase `GO`; não repita GOAL nem PLAN/);
+    assert.equal(c.envs().filter(l => l.startsWith('--bg')).length, 1);
   } finally { c.limpar(); }
 });
 
-test('D11c: morte por cota sem producao no intervalo rotaciona para o proximo perfil', () => {
+test('RM-064 T3: morte por cota sem producao no intervalo rotaciona para o proximo perfil', () => {
   const c = cenario('rotacao-sem-producao');
   try {
     ligarRotacaoPorCota(c.p);

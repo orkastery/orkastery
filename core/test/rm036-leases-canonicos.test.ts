@@ -24,6 +24,7 @@ import { comLockHitl } from '../src/hitl-gates';
 import { lerLedger } from '../src/ledger';
 import { ship as ensaiarShip } from '../src/ship';
 import { Lease, PedidoNaFila } from '../src/types';
+import { exec } from '../src/util';
 import { commitar, dirTemporario, projetoTemporario, ProjetoDeTeste, shaDaBranch } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -85,6 +86,10 @@ interface Cenario { p: ProjetoDeTeste; raiz: string; wt: string; t1: string; out
 function cenario(nome: string, opcoes: { remoto?: boolean; threads?: number } = {}): Cenario {
   const p = projetoTemporario(nome, opcoes.remoto ?? false);
   commitar(p.dir, 'orkastery.yaml', fs.readFileSync(path.join(p.dir, 'orkastery.yaml'), 'utf8'), 'manifesto');
+  if (opcoes.remoto) {
+    const push = exec('git', ['push', 'origin', 'main'], p.dir);
+    assert.equal(push.ok, true, push.stderr || push.stdout);
+  }
   const t1 = novaThread(p.carregado, { nome: 'na worktree', modo: 'auto', criarWorktree: true }).thread;
   const outras = Array.from({ length: opcoes.threads ?? 1 },
     (_, i) => novaThread(p.carregado, { nome: `outra ${i + 1}`, modo: 'auto' }).thread.id);

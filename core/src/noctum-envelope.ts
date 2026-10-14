@@ -90,6 +90,8 @@ export const MOTIVOS_DE_RECUSA = [
   'noctum.estado.adulterado',
   // RM-058 N2 (D11 e D12 da ork-rm058n2): o despacho fora da lista, conta ou runtime do envelope, e o orçamento.
   'noctum.despacho.fora-do-envelope', 'noctum.orcamento.esgotado', 'noctum.orcamento.sem-medicao',
+  // RM-058 N6 (D1 e D2 da ork-rm058n6): o arco encerrado e o #Noctum pedido sem envelope vigente ou como modo de thread.
+  'noctum.efeito.encerrado', 'noctum.modo.sem-envelope', 'noctum.modo.lista-fechada',
 ] as const;
 export type MotivoDeRecusaDoArco = typeof MOTIVOS_DE_RECUSA[number];
 

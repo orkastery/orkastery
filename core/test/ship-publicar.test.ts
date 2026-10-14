@@ -977,3 +977,68 @@ test('publicar: o verify e o bundle valem pelo manifesto do HEAD da branch, e na
     p.limpar();
   }
 });
+
+// ---------------------------------------------------------------------------
+// RM-058 N5 (D11 da ork-rm058n5): a conferencia de quem publica por cima, imediatamente antes de cada efeito.
+// ---------------------------------------------------------------------------
+
+test('QS1: o gancho recusa antes do push: nada vai ao remoto, nenhum PR abre e nada vai ao ledger', () => {
+  const p = projetoTemporario('publicar-qs1', true);
+  try {
+    const gh = ghFalso(p);
+    const e = prepararEntrega(p, 'qs1', 'auto');
+    const chamados: string[] = [];
+    const r = publicarEntrega(p.carregado, e.id, { executorGh: gh.executor, forja: FORJA,
+      antesDoEfeito: (efeito) => { chamados.push(efeito); return { recusa: 'noctum.efeito.revogado: arco revogado pelo dono', correcao: 'abra outro arco' }; } });
+    assert.deepEqual([r.acao, r.motivo], ['recusada', 'policy.violation']);
+    assert.match(r.detalhe, /revogado/);
+    assert.equal(r.correcao, 'abra outro arco');
+    assert.deepEqual(chamados, ['push']);
+    assert.equal(shaNoRemotoDeTeste(p.dir, 'origin', e.branch), '', 'a branch nao foi ao remoto');
+    assert.equal(gh.criacoes(), 0);
+    assert.equal(publicados(p, e.id).length, 0);
+  } finally { p.limpar(); }
+});
+
+test('QS2: o gancho recusa antes do PR: o push que aconteceu vai ao ledger com a prova, e o PR nao abre', () => {
+  const p = projetoTemporario('publicar-qs2', true);
+  try {
+    const gh = ghFalso(p);
+    const e = prepararEntrega(p, 'qs2', 'auto');
+    const head = exec('git', ['rev-parse', e.branch], p.dir).stdout.trim();
+    const vistos: Array<{ efeito: string; remota: string; prs: number }> = [];
+    const r = publicarEntrega(p.carregado, e.id, { executorGh: gh.executor, forja: FORJA,
+      antesDoEfeito: (efeito) => {
+        vistos.push({ efeito, remota: shaNoRemotoDeTeste(p.dir, 'origin', e.branch), prs: gh.criacoes() });
+        return efeito === 'pr' ? { recusa: 'noctum.efeito.expirado: a janela terminou', correcao: 'abra outro arco' } : null;
+      } });
+    assert.deepEqual([r.acao, r.motivo], ['recusada', 'policy.violation']);
+    assert.deepEqual(vistos, [{ efeito: 'push', remota: '', prs: 0 }, { efeito: 'pr', remota: head, prs: 0 }],
+      'cada conferencia vem imediatamente antes do seu efeito');
+    assert.equal(r.pushVerificado, true);
+    assert.equal(gh.criacoes(), 0);
+    const ev = publicados(p, e.id);
+    assert.equal(ev.length, 1, 'o push aconteceu e vai ao ledger');
+    assert.deepEqual([ev[0].pushFeito, ev[0].pushVerificado, ev[0].pr], [true, true, null]);
+    assert.match(String(ev[0].prRecusado), /expirado/);
+  } finally { p.limpar(); }
+});
+
+test('QS3: o gancho que deixa seguir e chamado antes do push e antes do PR, e a publicacao sai igual', () => {
+  const p = projetoTemporario('publicar-qs3', true);
+  try {
+    const gh = ghFalso(p);
+    const e = prepararEntrega(p, 'qs3', 'auto');
+    const chamados: string[] = [];
+    const r = publicarEntrega(p.carregado, e.id, { executorGh: gh.executor, forja: FORJA,
+      antesDoEfeito: (efeito) => { chamados.push(efeito); return null; } });
+    assert.equal(r.acao, 'publicou', `${r.detalhe} ${r.correcao}`);
+    assert.deepEqual(chamados, ['push', 'pr']);
+    assert.equal(gh.criacoes(), 1);
+    // Ja publicada: sem efeito, o gancho nao e chamado.
+    const de = publicarEntrega(p.carregado, e.id, { executorGh: gh.executor, forja: FORJA,
+      antesDoEfeito: (efeito) => { chamados.push(`de novo ${efeito}`); return null; } });
+    assert.equal(de.acao, 'ja-publicada');
+    assert.deepEqual(chamados, ['push', 'pr']);
+  } finally { p.limpar(); }
+});

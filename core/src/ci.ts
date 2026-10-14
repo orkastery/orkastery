@@ -542,7 +542,10 @@ function rodarBundle(carregado: ManifestoCarregado, bundle: BundleCi) {
     ? executar('preparo', comandoDoPreparo, carregado.raiz, prazoDoComando(carregado.manifesto, 'preparo'))
     : null;
   const claims = bundle.claims.map((claim) => verificarClaim(claim, carregado.raiz));
-  const commands = bundle.commands.map((item) => executar(item.name, item.command, carregado.raiz));
+  // O comando lógico `ci` executa o script de testes hermético (`test:ci`) e herda o mesmo teto configurado
+  // para `test`. Assim a suíte não volta silenciosamente ao default de 600 s no runner hospedado.
+  const commands = bundle.commands.map((item) => executar(item.name, item.command, carregado.raiz,
+    prazoDoComando(carregado.manifesto, item.name === 'ci' ? 'test' : item.name)));
   const ok = claims.every((item) => item.verificado || item.motivo === 'claims.unverifiable') && commands.every((item) => item.ok);
   return { schema: 'ork.ci-run/v1' as const, ok, thread: bundle.thread, commit: commitReal(carregado.raiz), preparo, claims, commands };
 }

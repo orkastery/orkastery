@@ -78,13 +78,53 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   pelo remoto o push de resultado incerto; toda retomada sai pelo passo do arco, até o teto, e depois o trabalho é
   isolado. O rodízio fica dentro do envelope: conta esgotada sai até o reset dito, reset desconhecido é lacuna pelo
   resto do arco, login perdido tira a conta, e o teto do arco ou a recusa por custo param o arco. Muda para todos: o
-  `ork retry resume` não redespacha o pedido do limite de uso de um despacho de arco, que o vigia retoma pelo arco. O
-  modo continua desligado: nenhum comando abre, executa ou vigia arco.
-- **Conta esgotada não para a fase** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)): nova
-  página do roadmap, em refinamento, pedida pelo dono em 13/10/2026. Quando a cota de uma conta acaba no meio
-  das fases, o ork vai tratar o fim como evento da conta, mover sozinho todas as threads dela para outra conta
-  ou para o fallback do bloco e retomar do ponto onde pararam, com o trabalho da sessão guardado na thread.
-  Frentes T1 a T7. Só documentação.
+  `ork retry resume` não redespacha o pedido do limite de uso de um despacho de arco, que o vigia retoma pelo arco.
+  Nenhum comando chama o vigia nem o condutor.
+- **#Noctum, fatia N6: fechamento, relatório da manhã e o transporte que liga o modo** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
+  o arco fecha sozinho pela hora final, pelo teto do arco ou pela fila vazia (`core/src/noctum-fechamento.ts`): grava o
+  `encerrado` no log do arco antes de tudo (nenhuma reserva nem efeito passa depois, nem por outra conta, e nada o
+  reabre), pede a parada de cada sessão em voo uma vez (no teto em sessões, as já contadas terminam e o arco fecha
+  quando a última acaba), confirma no tique seguinte e deixa o estado de retomada. A
+  medição (`core/src/noctum-medicao.ts`) cobre `minutos-de-sessao`, `tokens` e `percentual-da-cota`, com o consumo
+  desconhecido como lacuna, nunca zero, e a reserva com teto nessas unidades admite só abaixo do medido. O relatório da
+  manhã (`core/src/noctum-relatorio.ts`) vence no primeiro `HH:MM` do fuso do envelope, traz os sete grupos da página a
+  partir dos fatos do núcleo (entregue só com a prova do push) e sai pelo transporte local
+  `.orkastery/monitor/noctum-host.json`, com recibo por página, reenvio limitado sem duplicação e a correção explícita
+  numa versão nova; sem recibo, a lacuna aparece no `ork noctum status`. O modo passa a ser ligado pelo transporte:
+  `ork noctum propor`, `responder`, `status`, `tique` e `relatorio`, as ferramentas `ork_noctum_propor`,
+  `ork_noctum_autorizar`, `ork_noctum_revogar` e `ork_noctum_status` do MCP (autorizar e revogar só pelo diálogo nativo
+  do host) e `/ork noctum <arco> autorizar <sha256>` ou `revogar` no Telegram do Hermes e do OpenClaw; `#Noctum` só vale
+  com um envelope vigente e, sem ele, segue recusado com `noctum.modo.sem-envelope`. `core/scripts/ensaio-noctum.cjs`
+  ensaia o piloto local em repositórios descartáveis, com relógio controlado e runtime e canal simulados. O tique ainda
+  chama o passo da N2: ligar o vigia e o condutor da N4 vem antes do primeiro piloto, que espera também os valores e a
+  autorização do dono.
+
+- **Conta esgotada não para a fase, fatia 1** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)):
+  o fim de cota vira evento da conta, interrompe com prova as sessões vinculadas, troca para outro perfil ou fallback
+  autorizado — ou espera o prazo de volta — e, mesmo quando a sessão já commitou, retoma a fase pelo checkpoint sem
+  substituir o prompt original nem repetir o trabalho já registrado no `HEAD`.
+
+- **Entrega dentro do arco #Noctum, fatia N5 da RM-058** ([RM-058](docs/roadmap/RM-058-modo-noctum.md#n5-qualidade-e-entrega)):
+  o passo da entrega do arco (`passoDaEntrega`, ainda sem quem o chame) leva a thread que a fila deixou na entrega do
+  CHECK ao MASTER, um efeito por chamada, e só integra com todas as provas no SHA fonte exato e na base lida no remoto:
+  a revisão independente de uma sessão de CHECK que o núcleo despachou, verificou e viu concluir, com id nativo fora dos
+  autores (o arco despacha esse CHECK pela reserva de revisão quando ele falta); o verify contra a baseline com as
+  claims ativas, guardando a reprovação anterior do mesmo SHA; o CI obrigatório verde no SHA; nenhum segredo na história
+  que iria ao remoto (as linhas de cada commit da thread, o diff final e as mensagens deles) nem no título e no corpo do
+  PR que o arco abre; e nenhum mutante
+  sobrevivente, com o mutante como claim que começa por "Mutante" e o executor `core/scripts/mutante.cjs`. A base que
+  anda é mesclada na worktree com o conflito só aditivo resolvido pela regra do núcleo, a entrada da thread posta em
+  "Não publicado" depois de uma versão, o bundle regravado e o verify de novo (conflito em binário, fora de UTF-8 ou sem
+  conteúdo dos dois lados aborta); o merge é amarrado ao SHA (a árvore da fonte com os pais base e fonte, o envelope
+  conferido com o relógio da hora do push, push com lease na ponta conferida que a base que andou recusa, prova pelo
+  `ls-remote`) e leva no mesmo push o estado derivado da página do item que deixaria a `main` vermelha. A supervisão da
+  N4 vale na entrega: o arco parado não faz efeito, o trabalho isolado não sai nem pela vez da N3, e a conta que o arco
+  tirou não despacha o CHECK. A leitura do git que falha é lacuna e espera, o git que falha sem conflito nem recusa do
+  remoto (a trava do índice, a rede do push) espera, a branch sem commit próprio não se entrega, o push que a proteção
+  do remoto recusa não se repete, o push leva só a fonte que as provas viram, e a recusa de antes de qualquer efeito não
+  prende a fila. `publicarEntrega` ganha a opção `antesDoEfeito`, chamada imediatamente antes do push e antes de abrir o
+  PR.
+
 - **A forja vira porta**: o GitHub passa por um adaptador com capacidades em `core/src/forja/` (CI, entrega externa,
   PRs da branch e abertura de PR), com a CLI da forja rodada por um executor só, sem mudança de comportamento. É a
   base para o GitLab.
@@ -94,6 +134,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   redator antes do disco (arquivo 600): tokens do GitHub e do GitLab (inclusive o formato com ponto e os de runner),
   JWT, credencial em URL e o valor de toda chave terminada em `token`. Os testes ganham as respostas redigidas do
   GitHub (10/2026) e do GitLab CE 16.11, 17.0, 18.11, 19.2, 19.3 e 19.4 em `core/test/fixtures/forja/`.
+
 - **CLI em inglês e pt-BR, fatia F3b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): seguem também o
   locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`,
   `ork accounts`, `ork network` (fora `network roadmap`), `ork roadmap reservas`, `pegar`, `soltar` e `feat`,
@@ -216,6 +257,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Codex e Claude Code fecham o GO com os mesmos artefatos** ([RM-016](docs/roadmap/RM-016-experiencia-do-builder.md)): o prompt canônico agora exige `verify`, build, bundle de CI, commit `ci(<thread>): bundle ...` e `pr-body.md` nos dois runtimes.
+- **Parecer reprovado volta a ser legível na retomada** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)): o leitor do CHECK reconhece `Veredito: REPROVOU` como reprovação, além dos três termos já aceitos.
+- **Baseline não aceita dependência ausente na worktree** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)): código `127` agora recusa `ork verify --baseline` com motivo tipado, em vez de virar “já falhava” e mascarar o ambiente incompleto.
+- **Worktrees novas saem da base remota atual** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)): `ork thread new` e `ork worktree ensure` atualizam `origin/<base>` antes de criar a branch, sem depender da `main` local parada em outra worktree.
+- **Verificações longas e primeiro uso do HITL sem falha espúria** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  o comando hermético do CI passa a respeitar o teto configurado para a suíte de testes, e a primeira operação de HITL
+  inicializa com segurança um arquivo de trava ainda vazio, sem tratá-lo como estado corrompido.
+- **Saída completa no `ork verify`** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): comandos de
+  verificação que escrevem mais de 1 MiB não são mais interrompidos pelo limite padrão do Node; falhas continuam
+  mostrando o trecho final da saída.
 - **O install não leva o cache do Python** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md)): o `ork adapter
   install` a partir de um checkout copiava, e punha no recibo, o `__pycache__` e os `*.pyc` que o Python deixa nas pastas
   do adaptador depois de rodar os testes dele; agora eles ficam de fora, como já ficavam no hash do runtime.
@@ -564,10 +615,10 @@ Não publicada no npm; o conteúdo saiu na 0.5.6.
   todo passo que depende do dono chega como pergunta com 3 alternativas e uma recomendada, em linguagem simples, sem lista
   de comandos crus e sem termo técnico sem explicação (o caso: o comando de uma tag mandado sem dizer o que é uma tag).
   A recomendada, quando possível, é a que o dono responde com uma palavra e a fábrica executa o resto com a autorização dele.
-- **Teto do `test` no verify deste repositório** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
-  o `orkastery.yaml` do projeto passa a dar 40 min ao comando `test` (`verify.timeout_ms_por_comando.test`),
-  porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba CPU. O `build` e os
-  outros comandos seguem no prazo padrão.
+- **Teto dos testes no verify deste repositório** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  o `orkastery.yaml` do projeto passa a dar 40 min ao comando `test`, teto que o comando hermético do CI
+  herda ao rodar `test:ci`, porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba
+  CPU. O `build` e os outros comandos seguem no prazo padrão.
 - **No #Fast, o ship sem `--autorizar-push` não desconta o índice** ([RM-049](docs/roadmap/RM-049-lancamento.md), EN8):
   o `ship_blocked` com `human.pending` de uma thread #Fast é a pausa prevista do modo, como o `ork ship --dry-run`
   barrado, e deixa de entrar no índice derivado do MASTER (era 4.75/5, `ship_blocked x1`). Fora do #Fast, ou com
