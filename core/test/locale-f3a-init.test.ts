@@ -125,6 +125,7 @@ test('locale F3a init: com --json o texto impresso sai do locale, mas os arquivo
     assert.equal(r.status, 0, r.stderr);
     confereYamlIngles(ler(c.dir, 'orkastery.yaml'), snapshot()['cli: ork init, orkastery.yaml']);
     confereAgentsIngles(ler(c.dir, 'AGENTS.md'));
+    assert.equal(ler(c.dir, '.orkastery/.gitignore'), GITIGNORE_EN);
   } finally { c.limpar(); }
 });
 

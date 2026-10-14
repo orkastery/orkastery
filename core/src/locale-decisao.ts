@@ -60,11 +60,11 @@ export const DECISAO_EN: MensagensDeDecisao = {
   linhaLonga: (campo, tamanho, teto) => `${campo} has ${tamanho} characters; the limit is ${teto}`,
   contratoCampoDeGate: (campo) => `HITL v2 request: an informed decision cannot include ${campo}`,
   contratoCamposObrigatorios: (problema) =>
-    `HITL v2 request: an informed decision requires what was decided, why and how to change it (${problema})`,
+    `HITL v2 request: informed decision needs what was decided, why and how to change it (${problema})`,
   contratoCampoInvalido: (problema) => `HITL v2 request: informed decision: ${problema}`,
   contratoCustoObrigatorio: 'HITL v2 request: reversal cost requires both now and later',
   contratoCustoInvalido: (problema) => `HITL v2 request: reversal cost: ${problema}`,
-  contratoCriterioObrigatorio: 'HITL v2 request: an informed decision requires a cited, resolvable criterion',
+  contratoCriterioObrigatorio: 'HITL v2 request: informed decision criterion must be cited and resolvable',
   contratoCriterioInvalido: (problema) => `HITL v2 request: criterion: ${problema}`,
   contratoIrreversivel: 'HITL v2 request: an irreversible act is never an informed decision',
   threadFechada: 'informed decision: a closed thread cannot decide anything else',

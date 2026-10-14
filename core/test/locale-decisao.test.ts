@@ -6,7 +6,10 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { cobreLocale } from '../src/locale';
+import { ativarLocale, cobreLocale, mensagemDoErro, msg } from '../src/locale';
+import { main } from '../src/index';
+import { novaThread } from '../src/thread';
+import { ajustarManifesto, projetoTemporario } from './apoio';
 import { cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 
 const CAMPOS = ['--decidido', 'usar a fila', '--porque', 'menos carga', '--como-mudar', 'trocar a flag', '--custo-agora', 'nenhum',
@@ -39,19 +42,34 @@ test('locale en F3c decisao: as recusas de decisao registrar saem em ingles e pr
   assert.ok(cobreLocale(['decisao', 'registrar', 'x'], {}));
   assert.ok(cobreLocale(['decisao', 'placar', 'x'], {}));
   assert.ok(cobreLocale(['decisao'], {}));
-  const c = cenario('decisao-f3b-negativo');
+  const p = projetoTemporario('decisao-f3c-negativo');
+  ajustarManifesto(p, 'owner:\n', 'owner:\n  language: en-US\n');
+  const thread = novaThread(p.carregado, { nome: 'decision refusal', modo: 'auto' }).thread;
+  const cwd = process.cwd(), log = console.log, error = console.error;
+  const executar = (...args: string[]): { status: number; stdout: string; stderr: string } => {
+    const stdout: string[] = [], stderr: string[] = [];
+    console.log = (...v: unknown[]) => stdout.push(v.map(String).join(' '));
+    console.error = (...v: unknown[]) => stderr.push(v.map(String).join(' '));
+    let status: number;
+    try { status = main(['decisao', ...args]); }
+    catch (e) { console.error(msg().cli.erro(mensagemDoErro(e))); status = 1; }
+    return { status, stdout: stdout.join('\n') + (stdout.length ? '\n' : ''), stderr: stderr.join('\n') + (stderr.length ? '\n' : '') };
+  };
   try {
-    assert.equal(ork(c, PT, false, 'thread', 'new', 'loc-n', '--sem-worktree', '--modo', 'auto').status, 0);
-    for (const args of [['registrar', 'loc-locn', '--decidido', 'x'], ['registrar', 'loc-locn', ...CAMPOS.slice(0, -2), '--criterio', 'palpite:x'],
-      ['registrar', 'loc-locn', ...CAMPOS.slice(0, -2), '--criterio', 'ledger:nao-existe'], ['registrar']]) {
-      const en = ork(c, EN, false, 'decisao', ...args);
+    process.chdir(p.dir);
+    for (const args of [['registrar', thread.id, '--decidido', 'x'], ['registrar', thread.id, ...CAMPOS.slice(0, -2), '--criterio', 'palpite:x'],
+      ['registrar', thread.id, ...CAMPOS.slice(0, -2), '--criterio', 'ledger:nao-existe'], ['registrar']]) {
+      const en = executar(...args);
       assert.notEqual(en.status, 0, args.join(' '));
       assert.match(en.stderr, /^error: /, args.join(' '));
       assert.doesNotMatch(en.stderr, /\b(erro|exige|critério|decisão|falta)\b/i, args.join(' '));
+      assert.deepEqual(linhasEmPortugues(en.stderr), [], args.join(' '));
     }
-    assert.match(ork(c, EN, false, 'decisao', 'registrar', 'loc-locn', '--decidido', 'x').stderr,
+    assert.match(executar('registrar', thread.id, '--criterio', 'medicao:true', '--decidido', 'x').stderr,
       /decisao registrar requires --porque/);
-    assert.match(ork(c, EN, false, 'decisao', 'registrar', 'loc-locn', ...CAMPOS.slice(0, -2), '--criterio', 'ledger:nao-existe').stderr,
+    assert.match(executar('registrar', thread.id, ...CAMPOS.slice(0, -2), '--criterio', 'ledger:nao-existe').stderr,
       /informed decision: the criterion does not resolve/);
-  } finally { c.limpar(); }
+  } finally {
+    console.log = log; console.error = error; process.chdir(cwd); ativarLocale(undefined); p.limpar();
+  }
 });
