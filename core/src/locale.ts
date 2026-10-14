@@ -162,7 +162,6 @@ function chaveDoMaster(bruto: string | undefined, opcoes: Readonly<Record<string
 export function cobreLocale(posicionais: readonly (string | undefined)[], opcoes: Readonly<Record<string, unknown>>): boolean {
   if (opcoes.json !== undefined) return false;
   if (posicionais[0] === 'doctor' && opcoes.modo !== undefined) return false;
-  if (opcoes['from-finding'] !== undefined || opcoes['do-achado'] !== undefined) return false;
   return COMANDOS_COM_LOCALE.includes(chaveDoLocale(posicionais, opcoes));
 }
 

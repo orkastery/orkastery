@@ -66,6 +66,7 @@ import {
 import { agora, gravar, gravarJson, lerJson, shaCurto, tabela } from './util';
 import { commitReal, verificarClaim } from './verify';
 import { formatarDataHora, formatarDataHoraRotulada, legendaDoFuso, localizarTexto } from './horario';
+import { msg } from './locale';
 
 /** Versao do formato de `run.json`. */
 export const VERSAO_DA_RODADA = 1;
@@ -1067,6 +1068,7 @@ export function abrirThreadDoAchado(
   const { raiz, manifesto } = carregado;
   const achado = exigirAchado(raiz, achadoId);
   const pedido = pedidoDoAchado(achado);
+  const m = msg().thread.fromFinding;
 
   if (achado.estado === 'virou-thread' && achado.thread) {
     return {
@@ -1075,8 +1077,8 @@ export function abrirThreadDoAchado(
       thread: null,
       pedido,
       motivo: 'achado.ja-virou-thread',
-      detalhe: `o achado ${achado.id} ja originou a thread ${achado.thread}`,
-      correcao: `continue naquela thread: ork thread status ${achado.thread}`,
+      detalhe: m.jaVirouThread(achado.id, achado.thread),
+      correcao: m.continueNaThread(achado.thread),
     };
   }
   if (achado.claim.estado === 'pendente') {
@@ -1086,10 +1088,8 @@ export function abrirThreadDoAchado(
       thread: null,
       pedido,
       motivo: 'claims.failed',
-      detalhe:
-        `a claim ${achado.claim.id} do achado ainda nao foi reexecutada no HEAD real: ` +
-        'o auditor nao tem direito a self-report',
-      correcao: `prove o achado antes de abrir trabalho: ork audit verify ${achado.rodada}`,
+      detalhe: m.claimPendente(achado.claim.id),
+      correcao: m.proveOAchado(achado.rodada),
     };
   }
   if (achado.claim.estado === 'reprovado') {
@@ -1099,9 +1099,8 @@ export function abrirThreadDoAchado(
       thread: null,
       pedido,
       motivo: 'claims.failed',
-      detalhe: `a claim ${achado.claim.id} do achado REPROVOU na reexecucao no HEAD real`,
-      correcao:
-        'o achado nao se sustenta: corrija a evidencia na rodada, ou descarte o achado, em vez de abrir thread sobre ele',
+      detalhe: m.claimReprovada(achado.claim.id),
+      correcao: m.descarteOAchado,
     };
   }
 
@@ -1127,7 +1126,7 @@ export function abrirThreadDoAchado(
       worktreePor,
       worktreeFalharia,
       motivo: null,
-      detalhe: 'simulacao (--dry-run): nenhuma thread e nenhum carimbo no board foram gravados',
+      detalhe: m.simulacaoDetalhe,
       correcao: '',
     };
   }
@@ -1194,8 +1193,8 @@ export function abrirThreadDoAchado(
     motivo: achado.claim.estado === 'nao-verificavel' ? 'claims.unverifiable' : null,
     detalhe:
       achado.claim.estado === 'nao-verificavel'
-        ? `AVISO: a claim ${achado.claim.id} do achado nao tem comando de verificacao (motivo tipado claims.unverifiable, que avisa e nao bloqueia)`
-        : `achado ${achado.id} aberto como thread ${thread.id}, com a evidencia e a claim junto`,
+        ? m.claimSemComando(achado.claim.id)
+        : m.achadoAberto(achado.id, thread.id),
     correcao: '',
   };
 }

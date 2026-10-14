@@ -382,6 +382,7 @@ function comandoThread(args: Args): number {
     // O nome posicional passa a ser opcional, porque o titulo do achado ja serve de nome.
     const doAchado = texto(args.opcoes['from-finding']) ?? texto(args.opcoes['do-achado']);
     if (doAchado) {
+      const mf = msg().thread.fromFinding;
       const brutoModoAchado = texto(args.opcoes.modo) ?? texto(args.opcoes.mode);
       let modoAchado: Modo | undefined;
       // RM-058 N6 (D1): thread em modo #Noctum não existe; a recusa diz se falta o envelope ou se a lista do arco é fechada.
@@ -407,11 +408,12 @@ function comandoThread(args: Args): number {
         dryRun: args.opcoes['dry-run'] === true,
       });
       if (!r.ok) {
-        console.error(`Thread a partir do achado ${r.achado.id} RECUSADA.`);
-        console.error(`  ${DESCRICAO_DO_MOTIVO_DE_AUDITORIA[r.motivo ?? 'claims.failed']}`);
-        console.error(`  motivo tipado: ${r.motivo}`);
-        console.error(`  detalhe: ${r.detalhe}`);
-        console.error(`  correcao: ${r.correcao}`);
+        const motivo = r.motivo ?? 'claims.failed';
+        console.error(mf.recusada(r.achado.id));
+        console.error(`  ${mf.descricaoDoMotivo(motivo, DESCRICAO_DO_MOTIVO_DE_AUDITORIA[motivo])}`);
+        console.error(mf.motivoTipado(r.motivo));
+        console.error(mf.detalhe(r.detalhe));
+        console.error(mf.correcao(r.correcao));
         return 1;
       }
       const gravadaDoAchado = args.opcoes['dry-run'] !== true;
@@ -420,8 +422,8 @@ function comandoThread(args: Args): number {
       if (avisoDoRegistroDoAchado) console.error(avisoDoRegistroDoAchado);
       console.log(
         gravadaDoAchado
-          ? `Thread criada a partir do achado ${r.achado.id}.`
-          : 'Simulacao (--dry-run), nada foi gravado.'
+          ? mf.criada(r.achado.id)
+          : mf.simulacao
       );
       console.log(textoDoAchado(r.achado));
       console.log('');
@@ -454,16 +456,14 @@ function comandoThread(args: Args): number {
         );
       }
       if (gravadaDoAchado && r.thread) {
-        console.log(`  origem do GOAL: .orkastery/threads/${r.thread.id}/achado.json`);
+        console.log(mf.origemDoGoal(r.thread.id));
         console.log('');
-        console.log('Pedido de GOAL ja montado a partir do achado:');
+        console.log(mf.pedidoMontado);
         console.log('');
         console.log(r.pedido);
         console.log('');
-        console.log('Proximo passo:');
-        console.log(
-          `  ork phase run ${r.thread.id} GOAL --prompt "$(cat .orkastery/threads/${r.thread.id}/pedido-goal.md)"`
-        );
+        console.log(mf.proximoPasso);
+        console.log(mf.comandoDoProximoPasso(r.thread.id));
       }
       return 0;
     }
@@ -4237,8 +4237,8 @@ function executarComando(argvBruto: string[]): number {
   }
 
   // CLI por locale (RM-061, EN1 e EN7): a escolha do onboarding (owner.language) ou o LC_ALL/LC_MESSAGES/LANG
-  // decidem a lingua do TEXTO dos comandos cobertos (`cobreLocale`); `--json` e contrato, e os recortes da D2
-  // da F2a (`doctor --modo`, `thread new --from-finding` e os subcomandos fora da lista) ficam em pt-BR.
+  // decidem a lingua do TEXTO dos comandos cobertos (`cobreLocale`); `--json` e contrato, e os recortes ainda
+  // fora do catalogo (`doctor --modo` e os subcomandos fora da lista) ficam em pt-BR.
   if (cobreLocale(args.posicionais, args.opcoes)) {
     ativarLocale(resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale);
     ligarRemontagem(true);
