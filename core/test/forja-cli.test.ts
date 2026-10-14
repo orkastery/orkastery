@@ -9,7 +9,7 @@ import { chamadorDaApi } from '../src/forja/api';
 import { lerDaForja } from '../src/forja';
 import { cliFalsa, falhou, login, ok } from './forja-cli-falsa';
 
-const GL = { tipo: 'gitlab' as const, host: 'gitlab-ia.unifique.com.br', porta: 8443, caminhoBase: '/gitlab', ca: '/etc/pki/empresa.pem' };
+const GL = { tipo: 'gitlab' as const, host: 'gitlab.empresa.com', porta: 8443, caminhoBase: '/gitlab', ca: '/etc/pki/empresa.pem' };
 const GHE = { tipo: 'github' as const, host: 'ghe.empresa.com', porta: 8443, caminhoBase: '', ca: '/etc/pki/empresa.pem' };
 
 test('glab: a API por GITLAB_HOST=host:porta, sem o caminho base e nunca com --hostname; a CA por GLAB_CA_CERT', () => {
@@ -22,7 +22,7 @@ test('glab: a API por GITLAB_HOST=host:porta, sem o caminho base e nunca com --h
   assert.ok(!cli.api(GL, 'GET', 'x', false).includes('--hostname'));
   const amb = cli.ambiente(GL);
   // Medido: o glab guarda o login de `H/sub` como `H` (com subfolder) e acrescenta `/sub/api/v4` sozinho.
-  assert.equal(amb.acrescentar.GITLAB_HOST, 'gitlab-ia.unifique.com.br:8443');
+  assert.equal(amb.acrescentar.GITLAB_HOST, 'gitlab.empresa.com:8443');
   assert.equal(amb.acrescentar.GLAB_CA_CERT, '/etc/pki/empresa.pem');
   assert.equal(amb.acrescentar.GLAB_CHECK_UPDATE, 'false');
   assert.equal(amb.acrescentar.GLAB_SEND_TELEMETRY, 'false');
@@ -33,10 +33,10 @@ test('glab: a API por GITLAB_HOST=host:porta, sem o caminho base e nunca com --h
 
 test('glab: o auth status pela chave (host:porta, sem caminho base); o login da pessoa leva o caminho base e o protocolo', () => {
   const cli = CLI_DA_FORJA.gitlab;
-  assert.deepEqual(cli.login(GL), ['auth', 'status', '--hostname', 'gitlab-ia.unifique.com.br:8443']);
-  assert.deepEqual(cli.entrar(GL, false), ['glab', 'auth', 'login', '--hostname', 'gitlab-ia.unifique.com.br:8443/gitlab', '--stdin']);
+  assert.deepEqual(cli.login(GL), ['auth', 'status', '--hostname', 'gitlab.empresa.com:8443']);
+  assert.deepEqual(cli.entrar(GL, false), ['glab', 'auth', 'login', '--hostname', 'gitlab.empresa.com:8443/gitlab', '--stdin']);
   assert.deepEqual(cli.entrar({ ...GL, porta: null, caminhoBase: '' }, true),
-    ['glab', 'auth', 'login', '--hostname', 'gitlab-ia.unifique.com.br', '--api-protocol', 'http', '--stdin']);
+    ['glab', 'auth', 'login', '--hostname', 'gitlab.empresa.com', '--api-protocol', 'http', '--stdin']);
   assert.deepEqual(CLI_DA_FORJA.github.entrar(GHE, false), ['GH_HOST=ghe.empresa.com:8443', 'gh', 'auth', 'login']);
   assert.deepEqual(CLI_DA_FORJA.github.entrar({ ...GHE, porta: null }, false), ['gh', 'auth', 'login', '--hostname', 'ghe.empresa.com']);
 });

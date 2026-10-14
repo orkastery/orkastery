@@ -11,7 +11,7 @@ Sem ele, tudo vem do remoto `origin` e da sondagem. Com ele, o que ele declara v
 | Campo | Para que serve | Exemplo |
 | --- | --- | --- |
 | `tipo` | `github` ou `gitlab` | `gitlab` |
-| `host`, `porta` | a web e a API | `gitlab-ia.unifique.com.br`, `443` |
+| `host`, `porta` | a web e a API | `gitlab.empresa.com`, `443` |
 | `caminho_base` | instância servida em subcaminho (`relative_url_root`); só o GitLab | `/gitlab` |
 | `ssh_host`, `ssh_porta` | SSH em outro host ou outra porta | `ssh.empresa.com`, `2222` |
 | `ca` | CA interna, o caminho absoluto do arquivo PEM | `/etc/pki/ca-trust/source/anchors/empresa.pem` |
@@ -193,7 +193,7 @@ campo `forja` do JSON diz o que foi feito: `medida` (a seção rodou) ou `nao-me
 
 Os quatro modos entregam como antes, nas duas forjas. Nenhum modo de entrega mescla PR ou MR, e o
 `ork ship publicar` só abre um, em `#Auto` e `#Maestro`, nunca o mescla. A exceção fora da entrega é a batida do
-condutor (`ork conducao`, RM-062): com autorização, ela mescla PR do GitHub (`gh pr merge --match-head-commit`), e só
+condutor (`ork conducao`, RM-063): com autorização, ela mescla PR do GitHub (`gh pr merge --match-head-commit`), e só
 do GitHub; no GitLab o merge fica com o dono.
 
 | Comando | GitHub | GitLab |
@@ -290,7 +290,7 @@ O `ork_ship` do MCP empurra a base por um de quatro transportes, escolhidos no `
   nome precisa do bloco `forja:` no clone, ou do `gitlab:host/grupo/projeto`.
 - A entrega do #Noctum (RM-058): ela só aceita remoto do GitHub e recusa os outros com
   `noctum.entrega.fora-do-destino`.
-- A varredura de merge da batida do condutor (RM-062): só lê e mescla PR do GitHub, e decide se o remoto é GitHub
+- A varredura de merge da batida do condutor (RM-063): só lê e mescla PR do GitHub, e decide se o remoto é GitHub
   pelo nome do host, sem o bloco `forja:` nem a sondagem; com outro remoto, o merge fica com o dono.
 - A proteção do transporte supõe que o agente roda em sandbox e não escreve em `~/.config` nem em `~/.gitconfig`; a
   config global de git da pessoa é confiável.

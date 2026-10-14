@@ -28,11 +28,11 @@ test('sem o bloco forja e sem ci.produtor, o manifesto lê como antes', () => {
 
 test('o bloco forja inteiro é lido, com o host em minúsculas e o caminho base sem a barra final', () => {
   const c = ler('forja-bloco', { bloco: [
-    'forja:', '  tipo: gitlab', '  host: GitLab-IA.Unifique.com.br', '  porta: 8443', '  caminho_base: /gitlab/',
-    '  ssh_host: ssh.unifique.com.br', '  ssh_porta: 2222', '  ca: "/etc/pki/ca-trust/source/anchors/empresa.pem"'].join('\n') });
+    'forja:', '  tipo: gitlab', '  host: GitLab.Empresa.com', '  porta: 8443', '  caminho_base: /gitlab/',
+    '  ssh_host: ssh.empresa.com', '  ssh_porta: 2222', '  ca: "/etc/pki/ca-trust/source/anchors/empresa.pem"'].join('\n') });
   assert.deepEqual(c.erros, []);
-  assert.deepEqual(c.manifesto.forja, { tipo: 'gitlab', host: 'gitlab-ia.unifique.com.br', porta: 8443, caminho_base: '/gitlab',
-    ssh_host: 'ssh.unifique.com.br', ssh_porta: 2222, ca: '/etc/pki/ca-trust/source/anchors/empresa.pem' });
+  assert.deepEqual(c.manifesto.forja, { tipo: 'gitlab', host: 'gitlab.empresa.com', porta: 8443, caminho_base: '/gitlab',
+    ssh_host: 'ssh.empresa.com', ssh_porta: 2222, ca: '/etc/pki/ca-trust/source/anchors/empresa.pem' });
 });
 
 test('caminho_base "/" é o mesmo que nenhum subcaminho', () => {
