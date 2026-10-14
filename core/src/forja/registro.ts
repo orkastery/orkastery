@@ -1,13 +1,16 @@
 import type { AdaptadorDeForja, NomeDaCapacidade } from './adaptador';
 import type { TipoDeForja } from './contrato';
+import { metadadosGithub } from './github/metadados';
+import { metadadosGitlab } from './gitlab/metadados';
 import { checksNoCommitGithub } from './github/ci';
 import { abrirPedidoGithub, branchPadraoGithub, compararGithub, pedidoMescladoGithub, pedidosDaBranchGithub, pontaDaBranchGithub } from './github/pedidos';
 
 const ADAPTADORES: Record<TipoDeForja, AdaptadorDeForja> = {
   github: { tipo: 'github', checksNoCommit: checksNoCommitGithub,
     pedidoMesclado: pedidoMescladoGithub, branchPadrao: branchPadraoGithub, pontaDaBranch: pontaDaBranchGithub, comparar: compararGithub,
-    pedidosDaBranch: pedidosDaBranchGithub, abrirPedido: abrirPedidoGithub },
-  gitlab: { tipo: 'gitlab' },
+    pedidosDaBranch: pedidosDaBranchGithub, abrirPedido: abrirPedidoGithub, metadados: metadadosGithub },
+  // As capacidades do GitLab entram uma a uma (CI, pulse e rede, entrega); o doctor mostra as desligadas.
+  gitlab: { tipo: 'gitlab', metadados: metadadosGitlab },
 };
 
 export const adaptadorDaForja = (tipo: TipoDeForja): AdaptadorDeForja => ADAPTADORES[tipo];

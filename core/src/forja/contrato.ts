@@ -19,6 +19,9 @@ export type CodigoDeErroDaForja = 'forja.ausente' | 'forja.sem-login' | 'forja.n
   // A identidade, as capacidades e a versao da forja.
   | 'forja.desconhecida' | 'forja.ambigua' | 'forja.remoto-divergente' | 'forja.sem-capacidade' | 'forja.versao-abaixo-do-piso';
 
+/** A versao e a edicao do servidor; `null` onde a forja nao as expoe (o github.com nao tem versao nem edicao). */
+export interface VersaoDoServidor { versao: string | null; edicao: 'ce' | 'ee' | null }
+
 /** `tentarEm` (ISO) so no `forja.limite`: do `Retry-After` ou do reset da cota. */
 export interface ErroDaForja { codigo: CodigoDeErroDaForja; detalhe: string; tentarEm?: string }
 

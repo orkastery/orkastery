@@ -1,9 +1,14 @@
 import type { ExecutorCi } from '../ci';
 import type { ExecutorGitHub } from '../entrega-pr';
 import type { ExecutorDoGh, PrDaForja } from '../parado-no-condutor';
-import type { CheckNoCommit, PedidoMesclado, Resultado, TipoDeForja } from './contrato';
+import type { ChamadorDaApi } from './api';
+import type { CheckNoCommit, PedidoMesclado, Resultado, TipoDeForja, VersaoDoServidor } from './contrato';
 
-export type NomeDaCapacidade = 'checksNoCommit' | 'pedidoMesclado' | 'branchPadrao' | 'pontaDaBranch' | 'comparar' | 'pedidosDaBranch' | 'abrirPedido';
+export type NomeDaCapacidade = 'checksNoCommit' | 'pedidoMesclado' | 'branchPadrao' | 'pontaDaBranch' | 'comparar' | 'pedidosDaBranch'
+  | 'abrirPedido' | 'metadados';
+/** Todas as capacidades, na ordem em que o `doctor` as mostra. */
+export const CAPACIDADES: readonly NomeDaCapacidade[] = ['checksNoCommit', 'pedidoMesclado', 'branchPadrao', 'pontaDaBranch', 'comparar',
+  'pedidosDaBranch', 'abrirPedido', 'metadados'];
 export interface AdaptadorDeForja {
   tipo: TipoDeForja;
   /** Os checks com esse nome no commit: check-runs paginados e commit statuses; lista truncada é `forja.resposta-invalida`. */
@@ -22,4 +27,6 @@ export interface AdaptadorDeForja {
   /** Abre o pedido da branch; devolve a saída crua da CLI. */
   abrirPedido?(e: { host: string; repositorio: string; base: string; branch: string; titulo: string; corpo: string;
     executor: ExecutorDoGh; prazoMs: number }): { status: number | null; stdout: string; stderr: string };
+  /** A versao e a edicao do servidor, pela API da forja ja resolvida. */
+  metadados?(e: { api: ChamadorDaApi }): Resultado<VersaoDoServidor>;
 }
