@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-14T07:22:56.079Z",
+  "publicadoEm": "2026-10-14T07:23:27.056Z",
   "threads": [
     {
       "id": "ork-rm037instav",
@@ -70,6 +70,28 @@
         "viva": false,
         "desdeEm": "2026-10-14T05:03:34.535Z",
         "motivo": "sessão 01a13879 caiu (runtime.unavailable)"
+      }
+    },
+    {
+      "id": "ork-worktreebase",
+      "nome": "worktreebase",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-worktreebase-go",
+      "atualizadaEm": "2026-10-14T07:23:26.779Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-14T07:23:27.515Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
       }
     }
   ]
