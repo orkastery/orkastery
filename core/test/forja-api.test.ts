@@ -262,3 +262,70 @@ test('o motivo do erro sai do catálogo nas duas línguas; o 404 do GitLab lembr
     /2026-10-13T10:00:00\.000Z/);
   assert.match(msg('en').forja.motivo({ codigo: 'forja.desconhecida', detalhe: 'git.empresa.com' }, null), /forja\.tipo/);
 });
+
+test('Link com vírgula na URL do next: segue a página, e next sem número nunca encerra a lista', () => {
+  const link = '<https://api.github.com/x?labels=a,b&per_page=100&page=2>; rel="next", <https://api.github.com/x?labels=a,b&page=5>; rel="last"';
+  assert.equal(proximaPagina({ link }), 2);
+  assert.equal(proximaPagina({ link: '<https://api.github.com/x?labels=a,b&after=abc>; rel="next"' }), 'sem-numero');
+  assert.equal(proximaPagina({ link: '<https://h/x?page=1>; rel="first", <https://h/x?page=3>; rel="last"' }), null);
+  let n = 0;
+  const r = paginarApi(GH, { caminho: 'repos/o/r/issues?labels=a,b' }, { rodar: () => (++n === 1
+    ? http(200, [{ id: 1 }], { Link: '<https://api.github.com/x?labels=a,b&after=abc>; rel="next"' }) : http(200, [])) });
+  assert.equal(!r.ok && r.erro.codigo, 'forja.resposta-invalida');
+});
+
+test('limite secundário do GitHub: 403 com cota sobrando e mensagem de rate limit é forja.limite, com tentarEm em 60 s', () => {
+  const r = chamarApi(GH, { metodo: 'POST', caminho: 'x', corpo: {} }, { agoraMs: () => AGORA, rodar: () =>
+    http(403, { message: 'You have exceeded a secondary rate limit. Please wait a few minutes before you try again.' },
+      { 'X-Ratelimit-Remaining': '4000', 'X-Ratelimit-Reset': '1791933869' }) });
+  assert.equal(!r.ok && r.erro.codigo, 'forja.limite');
+  assert.equal(!r.ok && r.erro.tentarEm, new Date(AGORA + 60_000).toISOString());
+  const proibido = chamarApi(GH, { metodo: 'POST', caminho: 'x', corpo: {} }, { agoraMs: () => AGORA, rodar: () =>
+    http(403, { message: 'Resource not accessible by integration' }, { 'X-Ratelimit-Remaining': '4000' }) });
+  assert.equal(!proibido.ok && proibido.erro.codigo, 'forja.sem-permissao');
+});
+
+test('saída acima do teto (ENOBUFS, que também mata com SIGTERM) é resposta inválida, com o detalhe redigido', () => {
+  const token = 'ghp_' + 'b'.repeat(36);
+  const r = chamarApi(GH, { metodo: 'GET', caminho: `repos/o/r/x?t=${token}` },
+    { rodar: () => ({ status: null, stdout: '', stderr: '', sinal: 'SIGTERM', erro: 'ENOBUFS' }) });
+  assert.equal(!r.ok && r.erro.codigo, 'forja.resposta-invalida');
+  assert.match(!r.ok ? r.erro.detalhe : '', /repos\/o\/r\/x/);
+  assert.doesNotMatch(!r.ok ? r.erro.detalhe : '', /b{36}/);
+});
+
+test('JSON inválido e paginação: o detalhe passa pelo detalheSeguro', () => {
+  const token = 'glpat-' + 'c'.repeat(20);
+  const json = chamarApi(GH, { metodo: 'GET', caminho: `x?t=${token}` }, { rodar: () => http(200, '<html>') });
+  assert.equal(!json.ok && json.erro.codigo, 'forja.resposta-invalida');
+  assert.doesNotMatch(!json.ok ? json.erro.detalhe : '', /c{20}/);
+  const lista = paginarApi(GH, { caminho: `repos/o/r/x?t=${token}` }, { rodar: () => http(200, {}) });
+  assert.equal(!lista.ok && lista.erro.codigo, 'forja.resposta-invalida');
+  assert.doesNotMatch(!lista.ok ? lista.erro.detalhe : '', /c{20}/);
+});
+
+test('o glab: login que falhou não fica guardado; o que passou, sim', () => {
+  let tentativas = 0;
+  const cli = cliFalsa([{ quando: login, responde: () => (++tentativas === 1 ? falhou('connection reset') : ok('')) },
+    { quando: api('metadata'), responde: respostaGravada('gitlab/19.4-cabecalhos/metadata') }]);
+  const logins = new Map<string, boolean>();
+  const primeira = chamarApi(GL, { metodo: 'GET', caminho: 'metadata' }, { rodar: cli.rodar, logins });
+  assert.equal(!primeira.ok && primeira.erro.codigo, 'forja.sem-login');
+  assert.ok(chamarApi(GL, { metodo: 'GET', caminho: 'metadata' }, { rodar: cli.rodar, logins }).ok);
+  assert.ok(chamarApi(GL, { metodo: 'GET', caminho: 'metadata' }, { rodar: cli.rodar, logins }).ok);
+  assert.equal(cli.chamadas.filter(login).length, 2);
+});
+
+test('caminho que começa com - é recusado antes de rodar a CLI', () => {
+  const cli = cliFalsa([{ quando: () => true, responde: ok('') }]);
+  for (const f of [GH, GL]) {
+    const r = chamarApi(f, { metodo: 'GET', caminho: '--hostname=outro.com' }, { rodar: cli.rodar, logins: new Map() });
+    assert.equal(!r.ok && r.erro.codigo, 'forja.pedido-recusado');
+  }
+  assert.equal(cli.chamadas.length, 0);
+});
+
+test('lerSaidaHttp lê a linha de status do gh (HTTP/2.0 200 OK)', () => {
+  assert.deepEqual(lerSaidaHttp('HTTP/2.0 200 OK\nContent-Type: application/json\r\n\r\n{"a":1}'),
+    { status: 200, cabecalhos: { 'content-type': 'application/json' }, corpo: '{"a":1}' });
+});

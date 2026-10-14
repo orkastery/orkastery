@@ -101,9 +101,13 @@ function erroDoStatus(h: { status: number; cabecalhos: Record<string, string>; c
   const texto = mensagemDoCorpo(h.corpo);
   const detalhe = detalheSeguro(`HTTP ${h.status} ${pedido.metodo} ${pedido.caminho}${texto ? `: ${texto}` : ''}`);
   // O GitHub responde 403, e nao 429, quando a cota primaria acaba (`x-ratelimit-remaining: 0`) e na secundaria.
-  const cota = h.status === 429 || (h.status === 403 && (h.cabecalhos['x-ratelimit-remaining'] === '0' || 'retry-after' in h.cabecalhos));
+  // O limite secundario pode vir com a cota primaria sobrando e sem `Retry-After`: so a mensagem o diz, e a espera
+  // minima recomendada e de 60 s (o reset da cota primaria nao vale para ele).
+  const secundario = h.status === 403 && !('retry-after' in h.cabecalhos) && h.cabecalhos['x-ratelimit-remaining'] !== '0'
+    && /rate limit/i.test(texto);
+  const cota = h.status === 429 || (h.status === 403 && (h.cabecalhos['x-ratelimit-remaining'] === '0' || 'retry-after' in h.cabecalhos)) || secundario;
   if (cota) {
-    const tentarEm = tentarEmDe(h.cabecalhos, agora);
+    const tentarEm = secundario ? new Date(agora + 60_000).toISOString() : tentarEmDe(h.cabecalhos, agora);
     return { codigo: 'forja.limite', detalhe, ...(tentarEm ? { tentarEm } : {}) };
   }
   const codigo: CodigoDeErroDaForja = h.status === 401 ? 'forja.sem-login' : h.status === 403 ? 'forja.sem-permissao'
@@ -118,8 +122,9 @@ function umaChamada(f: AlvoDaCli, pedido: PedidoDaApi, rodar: RodarCli, agora: n
   const s = rodar({ cmd: cli.cmd, args: cli.api(f, pedido.metodo, pedido.caminho, comCorpo), entrada: comCorpo ? JSON.stringify(pedido.corpo) : undefined,
     prazoMs, maxBuffer: TETO_DA_SAIDA, ...cli.ambiente(f), cwd: os.tmpdir(), reduzido: true });
   if (s.erro === 'ENOENT') return falha('forja.ausente', `${cli.cmd}: ENOENT`);
+  // O estouro do teto tambem mata o processo com SIGTERM: vem antes do prazo.
+  if (s.erro === 'ENOBUFS') return falha('forja.resposta-invalida', detalheSeguro(`${pedido.metodo} ${pedido.caminho}: saida > ${TETO_DA_SAIDA} B`));
   if (s.erro === 'ETIMEDOUT' || s.sinal === 'SIGTERM') return falha('forja.indisponivel', `${cli.cmd}: ${Math.round(prazoMs / 1000)} s`);
-  if (s.erro === 'ENOBUFS') return falha('forja.resposta-invalida', `${pedido.caminho} > ${TETO_DA_SAIDA} B`);
   const h = lerSaidaHttp(s.stdout);
   if (!h) {
     const texto = `${s.stderr}\n${s.stdout}`;
@@ -129,7 +134,7 @@ function umaChamada(f: AlvoDaCli, pedido: PedidoDaApi, rodar: RodarCli, agora: n
   if (h.status < 200 || h.status >= 300) return { ok: false, erro: erroDoStatus(h, pedido, agora) };
   let corpo: unknown = null;
   if (h.corpo.trim()) {
-    try { corpo = JSON.parse(h.corpo); } catch { return falha('forja.resposta-invalida', `HTTP ${h.status} ${pedido.metodo} ${pedido.caminho}`); }
+    try { corpo = JSON.parse(h.corpo); } catch { return falha('forja.resposta-invalida', detalheSeguro(`HTTP ${h.status} ${pedido.metodo} ${pedido.caminho}`)); }
   }
   return { ok: true, valor: { status: h.status, corpo, cabecalhos: h.cabecalhos, limite: limiteDe(h.cabecalhos) } };
 }
@@ -137,10 +142,13 @@ function umaChamada(f: AlvoDaCli, pedido: PedidoDaApi, rodar: RodarCli, agora: n
 export function chamarApi(f: AlvoDaCli, pedido: PedidoDaApi, opcoes: OpcoesDaApi = {}): Resultado<RespostaDaApi> {
   const rodar = opcoes.rodar ?? rodarCli, agoraMs = opcoes.agoraMs ?? Date.now, esperar = opcoes.esperar ?? dormir;
   const cli = CLI_DA_FORJA[f.tipo];
+  // Um caminho com `-` na frente seria lido pela CLI como opcao.
+  if (pedido.caminho.startsWith('-')) return falha('forja.pedido-recusado', detalheSeguro(`${pedido.metodo} ${pedido.caminho}: caminho com - na frente`));
   if (cli.loginAntes) {
     const logins = opcoes.logins ?? LOGINS, chave = chaveDoLogin(f);
     let comLogin = logins.get(chave);
-    if (comLogin === undefined) { comLogin = temLogin(f, rodar); logins.set(chave, comLogin); }
+    // So o login confirmado fica guardado: uma falha passageira nao marca o host como sem login pelo resto do processo.
+    if (comLogin === undefined) { comLogin = temLogin(f, rodar); if (comLogin) logins.set(chave, true); }
     if (!comLogin) return falha('forja.sem-login', `${cli.cmd} ${chave}`);
   }
   const r = umaChamada(f, pedido, rodar, agoraMs());
@@ -156,13 +164,12 @@ export const chamadorDaApi = (f: AlvoDaCli, opcoes: OpcoesDaApi = {}): ChamadorD
 /** O numero da proxima pagina: do `Link` `rel="next"` ou do `x-next-page`. `sem-numero`: ha proxima sem `page=`. */
 export function proximaPagina(cabecalhos: Readonly<Record<string, string>>): number | null | 'sem-numero' {
   const link = cabecalhos.link;
-  if (link) {
-    for (const parte of link.split(',')) {
-      const m = /<([^>]+)>\s*;\s*rel="?next"?/.exec(parte);
-      if (!m) continue;
-      const pagina = /[?&]page=(\d+)/.exec(m[1]);
-      return pagina ? Number(pagina[1]) : 'sem-numero';
-    }
+  // O header inteiro, sem cortar na virgula: a URL do next pode ter virgula (`labels=a,b`). Com `rel=next` e sem o
+  // numero lido, `sem-numero`, nunca o fim da lista.
+  if (link && /\brel="?next\b/.test(link)) {
+    const m = /<([^>]*)>\s*;\s*rel="?next\b/.exec(link);
+    const pagina = m ? /[?&]page=(\d+)/.exec(m[1]) : null;
+    return pagina ? Number(pagina[1]) : 'sem-numero';
   }
   return inteiro(cabecalhos['x-next-page'] || undefined);
 }
@@ -189,12 +196,12 @@ export function paginarApi(f: AlvoDaCli, p: { caminho: string; itens?: (corpo: u
     const r = chamarApi(f, { metodo: 'GET', caminho: comPagina(p.caminho, pagina), prazoMs: p.prazoMs }, opcoes);
     if (!r.ok) return r;
     const lista = extrair(r.valor.corpo);
-    if (!lista) return falha('forja.resposta-invalida', p.caminho);
+    if (!lista) return falha('forja.resposta-invalida', detalheSeguro(p.caminho));
     itens.push(...lista);
     const proxima = proximaPagina(r.valor.cabecalhos);
     if (proxima === null) return { ok: true, valor: { itens, paginas: lidas } };
-    if (proxima === 'sem-numero' || proxima <= pagina) return falha('forja.resposta-invalida', `${p.caminho}: next`);
+    if (proxima === 'sem-numero' || proxima <= pagina) return falha('forja.resposta-invalida', detalheSeguro(`${p.caminho}: next`));
     pagina = proxima;
   }
-  return falha('forja.incompleto', `${p.caminho} > ${MAX_PAGINAS}x${POR_PAGINA}`);
+  return falha('forja.incompleto', detalheSeguro(`${p.caminho} > ${MAX_PAGINAS}x${POR_PAGINA}`));
 }
