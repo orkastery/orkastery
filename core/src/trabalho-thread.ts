@@ -36,13 +36,30 @@ export function caminhoDoTrabalho(threadId: string): string {
   return `.orkastery/threads/${threadId}/trabalho/`;
 }
 
-export function garantirDiretorioDoTrabalho(raiz: string, threadId: string): string {
+interface DiretorioDoTrabalhoAberto { diretorio: string; real: string; fd: number }
+
+function abrirDiretorioDoTrabalho(raiz: string, threadId: string): DiretorioDoTrabalhoAberto {
   const diretorio = diretorioDoTrabalho(raiz, threadId);
   fs.mkdirSync(diretorio, { recursive: true, mode: 0o700 });
-  const stat = fs.lstatSync(diretorio);
-  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('trabalho da thread precisa ser diretorio real, nunca link');
-  // `mode` só vale na criação. Uma pasta preexistente também volta ao contrato privado.
-  fs.chmodSync(diretorio, 0o700);
+  let fd: number;
+  try { fd = fs.openSync(diretorio, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_DIRECTORY); }
+  catch { throw new Error('trabalho da thread precisa ser diretorio real, nunca link'); }
+  try {
+    const aberto = fs.fstatSync(fd);
+    if (!aberto.isDirectory()) throw new Error('trabalho da thread precisa ser diretorio real, nunca link');
+    // `mode` de mkdir só vale na criação. Pelo descritor, uma troca de caminho não aplica modo em outro alvo.
+    fs.fchmodSync(fd, 0o700);
+    const real = fs.realpathSync(diretorio), peloCaminho = fs.statSync(real);
+    if (aberto.dev !== peloCaminho.dev || aberto.ino !== peloCaminho.ino)
+      throw new Error('trabalho da thread mudou durante a abertura');
+    return { diretorio, real, fd };
+  } catch (erro) { fs.closeSync(fd); throw erro; }
+}
+
+export function garantirDiretorioDoTrabalho(raiz: string, threadId: string): string {
+  const aberto = abrirDiretorioDoTrabalho(raiz, threadId);
+  fs.closeSync(aberto.fd);
+  const { diretorio } = aberto;
   return diretorio;
 }
 
@@ -100,8 +117,8 @@ function lerArquivoSeguro(baseReal: string, absoluto: string, opcoes: OpcoesDoRe
  */
 export function resumirTrabalhoDaThread(raiz: string, threadId: string,
   opcoes: OpcoesDoResumoDoTrabalho = {}): ResumoDoTrabalho {
-  const base = garantirDiretorioDoTrabalho(raiz, threadId);
-  const baseReal = fs.realpathSync(base);
+  const aberto = abrirDiretorioDoTrabalho(raiz, threadId);
+  const base = aberto.diretorio, baseReal = aberto.real;
   const arquivos: ArquivoDoTrabalho[] = [];
   const ignorados = { grandes: 0, links: 0, excedentes: 0, outros: 0 };
   let bytes = 0;
@@ -152,8 +169,10 @@ export function resumirTrabalhoDaThread(raiz: string, threadId: string,
     }
   };
 
-  visitar(base, '', 0);
-  return { caminho: caminhoDoTrabalho(threadId), arquivos, ignorados };
+  try {
+    visitar(base, '', 0);
+    return { caminho: caminhoDoTrabalho(threadId), arquivos, ignorados };
+  } finally { fs.closeSync(aberto.fd); }
 }
 
 export function formatarResumoDoTrabalho(resumo: ResumoDoTrabalho): string {
