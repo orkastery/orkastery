@@ -29,10 +29,9 @@ import { BundleCi, comandosDoBundle, consultarCi, ResultadoCi } from './ci';
 import { chamadorDaApi, OpcoesDaApi } from './forja/api';
 import { hostDaApi } from './forja/cli';
 import type { ErroDaForja, ForjaResolvida, TipoDeForja } from './forja/contrato';
-import { lerEnderecoDoRemoto } from './forja/endereco';
 import { caminhoDosMrsDaBranch, projetoNaApi } from './forja/gitlab/pedidos';
 import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
-import { hostConhecido, resolverForja, SONDAS_PADRAO, SondasDaForja } from './forja/resolver';
+import { hostConhecido, SondasDaForja } from './forja/resolver';
 import { deFora, umaLinha } from './forja/texto';
 import { lerClaims } from './claims';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
@@ -41,7 +40,9 @@ import { tagDoModo } from './modos';
 import {
   conducaoAgora, ExecutorDoGh, ghPadrao, LIMITE_DE_PRS, lerPrsDaForja, PrDaForja, refsLocais,
 } from './parado-no-condutor';
-import { mergeDaEntrega } from './entrega-pr';
+import { enderecoDoRemotoDaRaiz, forjaDaEntrega, mergeDaEntrega } from './entrega-pr';
+
+export { forjaDaEntrega };
 import { MODOS_QUE_AUTORIZAM_PUSH } from './ship';
 import { estadoDoArtefato, vereditoDoParecer } from './session-watcher-claude';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -302,27 +303,6 @@ function pontasNoRemoto(raiz: string, remoto: string): Map<string, string> | nul
 }
 
 export interface Forja { host: string; repositorio: string }
-
-/** O endereco do remoto, de UM parse da URL; `null` quando o remoto nao existe ou nao tem host de forja. */
-function enderecoDoRemotoDaRaiz(raiz: string, remoto: string) {
-  const url = git(raiz, ['remote', 'get-url', '--', remoto]);
-  return url.ok ? lerEnderecoDoRemoto(url.stdout.trim()) : null;
-}
-
-/**
- * A forja do remoto, de UM parse da URL e do resolver (o bloco `forja:`, o host conhecido ou a sondagem pela CLI com
- * login no host): o nome do host nao decide o tipo. `erro` nulo: o remoto nao existe, nao tem host de forja (caminho
- * local) ou aponta um caminho que a forja dele nao tem (subgrupo no GitHub).
- */
-export function forjaDaEntrega(carregado: ManifestoCarregado, remoto: string, sondas: SondasDaForja = SONDAS_PADRAO):
-  { ok: true; valor: ForjaResolvida } | { ok: false; erro: ErroDaForja | null } {
-  const endereco = enderecoDoRemotoDaRaiz(carregado.raiz, remoto);
-  if (!endereco) return { ok: false, erro: null };
-  const r = resolverForja({ endereco, manifesto: carregado.manifesto.forja, sondas });
-  if (!r.ok) return { ok: false, erro: r.erro };
-  if (r.valor.tipo === 'github' && r.valor.repo.split('/').length !== 2) return { ok: false, erro: null };
-  return { ok: true, valor: r.valor };
-}
 
 /** O tipo da forja sem rede nem CLI (o fixado, o bloco `forja:` ou o host conhecido), para o comando que o dono roda. */
 function tipoSemRede(carregado: ManifestoCarregado, remoto: string, fixado?: TipoDeForja): TipoDeForja {

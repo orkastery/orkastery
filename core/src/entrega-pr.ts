@@ -12,7 +12,13 @@
  */
 import { exigirRemoto } from './branch-de-estado';
 import { produtoresAceitos } from './forja/produtor';
-import { ciNaoExigida, consultarCi, consultarCiDoRepositorio, ExecutorCi, ResultadoCi } from './ci';
+import { ciNaoExigida, consultarCi, consultarCiDoRepositorio, consultarCiNaForja, ExecutorCi, ResultadoCi } from './ci';
+import { chamadorDaApi, OpcoesDaApi } from './forja/api';
+import { hostDaApi } from './forja/cli';
+import type { ErroDaForja, ForjaResolvida } from './forja/contrato';
+import { lerEnderecoDoRemoto } from './forja/endereco';
+import { projetoNaApi } from './forja/gitlab/pedidos';
+import { resolverForja, SONDAS_PADRAO, SondasDaForja } from './forja/resolver';
 import { DocPendente, docsPendentesDoMerge } from './docs';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
@@ -65,6 +71,28 @@ function avancarParaShip(raiz: string, threadId: string): void {
   if (!fases.includes('SHIP') || fases.indexOf(atualizada.faseAtual) >= fases.indexOf('SHIP')) return;
   atualizada.faseAtual = 'SHIP';
   gravarThread(raiz, atualizada);
+}
+
+/** O endereco do remoto, de UM parse da URL; `null` quando o remoto nao existe ou nao tem host de forja. */
+export function enderecoDoRemotoDaRaiz(raiz: string, remoto: string) {
+  // Git local sem rede escondida nem pergunta de credencial no terminal.
+  const url = exec('git', ['remote', 'get-url', '--', remoto], raiz, 60000, { ...process.env, GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0' });
+  return url.ok ? lerEnderecoDoRemoto(url.stdout.trim()) : null;
+}
+
+/**
+ * A forja do remoto, de UM parse da URL e do resolver (o bloco `forja:`, o host conhecido ou a sondagem pela CLI com
+ * login no host): o nome do host nao decide o tipo. `erro` nulo: o remoto nao existe, nao tem host de forja (caminho
+ * local) ou aponta um caminho que a forja dele nao tem (subgrupo no GitHub).
+ */
+export function forjaDaEntrega(carregado: ManifestoCarregado, remoto: string, sondas: SondasDaForja = SONDAS_PADRAO):
+  { ok: true; valor: ForjaResolvida } | { ok: false; erro: ErroDaForja | null } {
+  const endereco = enderecoDoRemotoDaRaiz(carregado.raiz, remoto);
+  if (!endereco) return { ok: false, erro: null };
+  const r = resolverForja({ endereco, manifesto: carregado.manifesto.forja, sondas });
+  if (!r.ok) return { ok: false, erro: r.erro };
+  if (r.valor.tipo === 'github' && r.valor.repo.split('/').length !== 2) return { ok: false, erro: null };
+  return { ok: true, valor: r.valor };
 }
 
 function resultado(thread: string, acao: EntregaPorPr['acao'], motivo: string, extra: Partial<EntregaPorPr> = {}): EntregaPorPr {
@@ -162,7 +190,7 @@ const ghApi: ExecutorGitHub = (caminho) => {
 };
 
 export interface OpcoesDaEntregaExterna {
-  /** `dono/nome` declarado em `ci.external_repositories`. */
+  /** `dono/nome` (GitHub) ou `grupo/subgrupo/projeto` (GitLab) declarado em `ci.external_repositories`. */
   repositorio: string;
   pr: number;
   executorGitHub?: ExecutorGitHub;
@@ -170,14 +198,39 @@ export interface OpcoesDaEntregaExterna {
   publicar?: boolean;
   /** RM-037 (fatia 3, defeito 6): ensaio, sem gravar nada. */
   dryRun?: boolean;
+  /** O remoto do projeto, de onde vem a forja do repositorio externo; padrao 'origin'. */
+  remoto?: string;
+  sondas?: SondasDaForja;
+  /** A forja do projeto; os testes a fixam. Nunca vem da CLI. */
+  forja?: ForjaResolvida;
+  api?: OpcoesDaApi;
+  /** A CI do repositorio externo no GitLab; padrao: `consultarCiNaForja`. Nunca vem da CLI. */
+  ciDaForja?: (f: ForjaResolvida, sha: string, contexto: string) => ResultadoCi;
+}
+
+/**
+ * A forja do repositorio externo: a do projeto quando ela e um GitLab (o mesmo host, a mesma porta, o mesmo caminho
+ * base, outro projeto); senao o github.com, como sempre, inclusive sem remoto. O projeto que declara `forja.tipo: gitlab`
+ * e cuja forja nao se resolve nunca cai no github.com.
+ */
+function forjaDoExterno(carregado: ManifestoCarregado, repo: string, opcoes: OpcoesDaEntregaExterna):
+  { ok: true; gitlab: ForjaResolvida | null } | { ok: false; erro: ErroDaForja } {
+  const remoto = opcoes.remoto ?? 'origin';
+  const doProjeto = opcoes.forja ? { ok: true as const, valor: opcoes.forja } : forjaDaEntrega(carregado, exigirRemoto(remoto, 'ship'), opcoes.sondas);
+  if (doProjeto.ok && doProjeto.valor.tipo === 'gitlab') return { ok: true, gitlab: { ...doProjeto.valor, repo } };
+  if (carregado.manifesto.forja?.tipo === 'gitlab') {
+    return { ok: false, erro: !doProjeto.ok && doProjeto.erro ? doProjeto.erro : { codigo: 'forja.desconhecida', detalhe: remoto } };
+  }
+  return { ok: true, gitlab: null };
 }
 
 /**
  * `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>`: a thread que entrega por PR em outro
  * repositorio (os sites, por exemplo) nao tinha como virar `ship_done`, e a entrega virava decisao. A
- * exigencia e a mesma do caminho local: o merge dentro da ponta da base (pela API do GitHub, porque o
- * repositorio nao e remoto deste checkout) e o check declarado verde no head do PR. O repositorio precisa
- * estar declarado no manifesto; e o dono que diz onde, e com que check, a entrega vale. Idempotente.
+ * exigencia e a mesma do caminho local: o merge dentro da ponta da base (pela API da forja do repositorio, o GitHub
+ * ou o GitLab do projeto, porque o repositorio nao e remoto deste checkout) e o check declarado verde no head do PR.
+ * O repositorio precisa estar declarado no manifesto; e o dono que diz onde, e com que check, a entrega vale.
+ * Idempotente.
  */
 export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesDaEntregaExterna): EntregaPorPr {
   const raiz = carregado.raiz, repo = opcoes.repositorio, n = opcoes.pr;
@@ -194,12 +247,23 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
     return resultado(threadId, 'ja-registrada', textoDoCatalogo((m) => m.ship.prExternoJaTem(n, repo)));
   }
 
-  const forja = adaptadorDaForja('github');
-  const pr = exigirCapacidade(forja, 'pedidoMesclado')({ repo, numero: n, executor: gh });
-  if (!pr) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prConsultaFalhou(n, repo)));
+  const daForja = forjaDoExterno(carregado, repo, opcoes);
+  if (!daForja.ok) {
+    const erro = daForja.erro;
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prForjaDoExterno(repo, m.forja.motivo(erro, 'gitlab'))),
+      { codigo: 'entrega.sem-leitura' });
+  }
+  const gitlab = daForja.gitlab;
+  // O GitHub so tem dono/nome: o caminho com subgrupo e recusado antes de qualquer consulta.
+  if (!gitlab && repo.split('/').length !== 2) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prRepoComSubgrupoNoGithub(repo)));
+  const nomeDaForja = gitlab ? 'GitLab' : undefined;
+  const forja = adaptadorDaForja(gitlab ? 'gitlab' : 'github');
+  const api = gitlab ? chamadorDaApi(gitlab, opcoes.api ?? {}) : undefined;
+  const pr = exigirCapacidade(forja, 'pedidoMesclado')({ repo, numero: n, executor: gh, api });
+  if (!pr) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prConsultaFalhou(n, repo, nomeDaForja)));
   const { mergeSha, headSha, base } = pr;
   if (pr.mesclado && mergeSha && base && !headSha) {
-    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemHead(n, repo)), { mergeSha, codigo: 'entrega.sem-head' });
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemHead(n, repo, nomeDaForja)), { mergeSha, codigo: 'entrega.sem-head' });
   }
   if (!pr.mesclado || !mergeSha || !headSha || !base) {
     return resultado(threadId, 'sem-merge', textoDoCatalogo((m) => m.ship.prNaoMesclado(n, repo)));
@@ -214,22 +278,25 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
   if (!vinculo) {
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prNaoCitaThread(n, repo, threadId)), { mergeSha, headSha });
   }
-  const branchPadrao = exigirCapacidade(forja, 'branchPadrao')({ repo, executor: gh });
-  if (branchPadrao === null) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prRepoFalhou(repo)), { mergeSha, headSha });
+  const branchPadrao = exigirCapacidade(forja, 'branchPadrao')({ repo, executor: gh, api });
+  if (branchPadrao === null) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prRepoFalhou(repo, nomeDaForja)), { mergeSha, headSha });
   if (branchPadrao !== base) {
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prOutraBase(n, base, repo, branchPadrao || undefined)),
       { mergeSha, headSha });
   }
 
   // A ponta da base AGORA, e o merge dentro dela: o push provado, pela mesma pergunta do ls-remote.
-  const ponta = exigirCapacidade(forja, 'pontaDaBranch')({ repo, branch: base, executor: gh }) ?? '';
-  const comparacao = ponta ? exigirCapacidade(forja, 'comparar')({ repo, de: mergeSha, ate: ponta, executor: gh }) : null;
+  const ponta = exigirCapacidade(forja, 'pontaDaBranch')({ repo, branch: base, executor: gh, api }) ?? '';
+  const comparacao = ponta ? exigirCapacidade(forja, 'comparar')({ repo, de: mergeSha, ate: ponta, executor: gh, api }) : null;
   if (!ponta || comparacao === null || !['ahead', 'identical'].includes(comparacao)) {
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prExternoForaDaPonta(mergeSha.slice(0, 7), repo, base)), { mergeSha, headSha });
   }
 
   const check = declarados[repo];
-  const ci = check ? consultarCiDoRepositorio(repo, headSha, check, opcoes.executorCi, 'github.com', produtoresAceitos(carregado.manifesto, 'github')) : null;
+  const ciDaForja = opcoes.ciDaForja ?? ((f: ForjaResolvida, sha: string, contexto: string) =>
+    consultarCiNaForja(f, sha, contexto, produtoresAceitos(carregado.manifesto, 'gitlab'), { api: opcoes.api }));
+  const ci = !check ? null : gitlab ? ciDaForja(gitlab, headSha, check)
+    : consultarCiDoRepositorio(repo, headSha, check, opcoes.executorCi, 'github.com', produtoresAceitos(carregado.manifesto, 'github'));
   if (ci && !ci.ok) {
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemCiVerde(remontar(ci.detail))), { mergeSha, headSha, ci });
   }
@@ -243,17 +310,19 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
     para: `${repo}:${base}`,
     repositorio: repo,
     pr: n,
-    url: pr.url ?? `https://github.com/${repo}/pull/${n}`,
+    url: pr.url ?? (gitlab ? `https://${hostDaApi(gitlab)}${gitlab.caminhoBase}/${repo}/-/merge_requests/${n}` : `https://github.com/${repo}/pull/${n}`),
     shaDe: headSha,
     mergeSha,
     // RM-037 (fatia 5, A1; aviso da rodada 1 do CHECK): a ponta conferida vai em campo proprio, como no PR local; a
     // comparacao aceita `ahead`, e o recibo do Maestro confere o push contra ela.
     pontaDaBase: ponta,
     jaIncorporado: true,
-    remoto: `github:${repo}`,
+    remoto: `${gitlab ? 'gitlab' : 'github'}:${repo}`,
     shaRemoto: ponta,
     pushVerificado: true,
-    fonteDaProva: `gh api repos/${repo}/compare/${mergeSha}...${ponta} (status ${comparacao}; ponta de ${base} por gh api repos/${repo}/branches/${base})`,
+    fonteDaProva: gitlab
+      ? `glab api ${projetoNaApi(repo)}/repository/compare?from=${ponta}&to=${mergeSha}&straight=false (status ${comparacao}; ponta de ${base} por glab api ${projetoNaApi(repo)}/repository/branches/${encodeURIComponent(base)})`
+      : `gh api repos/${repo}/compare/${mergeSha}...${ponta} (status ${comparacao}; ponta de ${base} por gh api repos/${repo}/branches/${base})`,
     autorizadoPor: ci ? 'merge de PR com o CI independente verde no SHA exato' : 'merge de PR em repositorio externo declarado sem CI no manifesto',
     tipoDeAutorizacao: 'pr-externo',
     modo: thread.modo,

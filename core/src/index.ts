@@ -2068,7 +2068,7 @@ function comandoShip(args: Args): number {
     const dryRun = args.opcoes['dry-run'] === true;
     // RM-061 (F2b, G2): o ship_done e o motivo nascem em pt-BR; so a impressao segue o locale.
     const r = comLocale('pt-BR', () => alvo && repo
-      ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
+      ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun, remoto })]
       : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto, dryRun })] : registrarEntregasPorPr(carregado, { remoto, dryRun }));
     if (args.opcoes.json === true) { console.log(JSON.stringify(r, null, 2)); return r.some((x) => x.acao === 'recusada') ? 1 : 0; }
     if (dryRun) console.log(m.ensaio);
