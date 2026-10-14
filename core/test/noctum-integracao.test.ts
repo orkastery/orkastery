@@ -4,6 +4,7 @@
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { spawnSync } from 'node:child_process';
 import { exec } from '../src/util';
 import { prepararIngressoSimulado, revogarArco } from './noctum-apoio';
 import {
@@ -15,6 +16,7 @@ import {
   assumirAutoridade, bater, BATIDA_VENCIDA_MS, cancelarOrdem, chaveDoDestino, derivarCoordenacao, emitirOrdem, gravarNaCoordenacao, lerCoordenacao,
   planejarReconciliacao, registrosDosAbandonos, responderOrdem, revogarNaRede, situacaoDoTrabalho,
 } from '../src/noctum-coordenacao';
+import * as integracaoDoModulo from '../src/noctum-integracao';
 import { integrarComVez, reconciliarIntegracao } from '../src/noctum-integracao';
 
 prepararIngressoSimulado();
@@ -579,5 +581,93 @@ test('I15: a repetição que acha a fonte da forja na base não deixa o trabalho
     () => { chamou = true; return { merge: f.fonte }; }, op(m2.b)), 'noctum.integracao.base-nao-provada');
     assert.equal(chamou, false);
     assert.equal(lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a)).entregas.size, 0);
+  } finally { m2.limpar(); }
+});
+
+test('I16: o commit devolvido aparado e em minúsculas é o merge; o que não é commit termina a vez com o motivo verdadeiro; a fonte igual à base é o avanço rápido vazio', () => {
+  const m = cenario('noctum-i16');
+  try {
+    // S-R3C-1 da R3-C: o integrador honesto que devolve a saída do git sem aparar, em maiúsculas, entrega o mesmo merge.
+    const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    let daB = '';
+    const feito = integrarComVez(m.b.carregado, m.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, (c) => {
+      daB = mergeSobreAProvada(m.b.dir)(c).merge;
+      return { merge: `${daB.toUpperCase()}\n` };
+    }, op(m.b));
+    assert.equal(feito.merge, daB);
+    // O nome de uma ref não é o commit que chegou: a vez termina sem prova, e o motivo não acusa a fonte de chegar por fora.
+    const ca = candidato(branchDeTrabalho(m.a.dir, 'trabalho-a', 'a.txt', 'A SIMULADO\n'), 'a');
+    const motivo = recusa(() => integrarComVez(m.a.carregado, m.arco, { ordem: 'O-a-1', destino: DESTINO, candidato: ca }, (c) => {
+      mergeSobreAProvada(m.a.dir)(c);
+      return { merge: 'HEAD' };
+    }, op(m.a)), 'noctum.integracao.base-nao-provada');
+    assert.match(motivo, /o integrador não devolveu um commit que se resolva neste clone/);
+    assert.doesNotMatch(motivo, /fora da base provada/);
+    const estado = lerCoordenacao(m.b.carregado, m.arco, op(m.b));
+    assert.deepEqual([...estado.entregas.keys()], ['b']);
+    assert.equal(estado.entregas.get('b')!.merge, daB);
+    const vezes = [...estado.vezes.values()].flat();
+    assert.deepEqual(vezes.map(v => [v.trabalho, v.fim?.desfecho]), [['b', 'entregue'], ['a', 'sem-prova']]);
+    assert.match(vezes[1].fim!.motivo, /não devolveu um commit/);
+    assert.doesNotMatch(vezes[1].fim!.motivo, /fora da base provada/);
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-i16b');
+  try {
+    // S-R3C-8 da R3-C: a branch sem commit próprio (a fonte é a base provada) não tem o que integrar; a entrega fica com a
+    // base, como a branch já incorporada do `ork ship`, e o motivo não se contradiz.
+    const base = mainNoRemoto(m2);
+    assert.ok(exec('git', ['push', '-q', 'origin', `${base}:refs/heads/trabalho-b`], m2.b.dir).ok);
+    const cb = candidato({ branch: 'trabalho-b', fonte: base, base }, 'b');
+    const feito = integrarComVez(m2.b.carregado, m2.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, mergeSobreAProvada(m2.b.dir), op(m2.b));
+    assert.equal(feito.merge, base);
+    assert.equal(mainNoRemoto(m2), base, 'a base não mudou');
+    const estado = lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a));
+    assert.deepEqual([estado.entregas.get('b')!.merge, situacaoDoTrabalho(estado, 'b')!.estado], [base, 'entregue']);
+    assert.deepEqual([...estado.vezes.values()].flat().map(v => v.fim?.desfecho), ['entregue']);
+  } finally { m2.limpar(); }
+});
+
+test('I17: a prova lê a história de mais de 1 MiB; com o buffer estourado ela não sabe, e a vez espera a reconciliação', () => {
+  const m = cenario('noctum-i17');
+  const integracao = integracaoDoModulo as { BUFFER_DA_HISTORIA: number };
+  const buffer = integracao.BUFFER_DA_HISTORIA;
+  try {
+    // S-R3C-5 da R3-C: com o buffer da prova menor que a saída do git, a prova não sabe; o motivo diz isso, e a vez fica.
+    const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    let daB = '';
+    integracao.BUFFER_DA_HISTORIA = 16;
+    const motivo = recusa(() => integrarComVez(m.b.carregado, m.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, (c) => {
+      daB = mergeSobreAProvada(m.b.dir)(c).merge;
+      return { merge: daB };
+    }, op(m.b)), 'noctum.integracao.nao-provada');
+    assert.match(motivo, /ou a história dela não se leram \(rede, buffer ou prazo\): a prova não sabe/);
+    let estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
+    assert.deepEqual([estado.entregas.size, [...estado.vezes.values()].flat().map(v => v.fim)], [0, [null]], 'a vez fica ativa');
+    integracao.BUFFER_DA_HISTORIA = buffer;
+    assert.deepEqual(reconciliarIntegracao(m.b.carregado, m.arco, op(m.b)).registradas, [{ trabalho: 'b', merge: daB }]);
+  } finally { integracao.BUFFER_DA_HISTORIA = buffer; m.limpar(); }
+  const m2 = cenario('noctum-i17b');
+  try {
+    // S-R3A-2 da rodada 3: o merge da B chega e ela cai; depois, 12 000 merges de uma branch lateral entram em cima dele, e a
+    // saída do git da prova passa de 1 MiB, o buffer padrão do spawnSync. A reconciliação prova o merge pela história inteira.
+    const cb = candidato(branchDeTrabalho(m2.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    let daB = '';
+    recusa(() => integrarComVez(m2.b.carregado, m2.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, (c) => {
+      daB = mergeSobreAProvada(m2.b.dir)(c).merge;
+      throw new Error('SIMULADO: a B caiu logo depois do push');
+    }, op(m2.b)), 'noctum.integracao.nao-provada');
+    const linhas = ['commit refs/heads/lateral', 'committer SIMULADO <simulado@exemplo.invalid> 1700000000 +0000', 'data 1', 'S', `from ${cb.base}`, ''];
+    for (let i = 1; i <= 12000; i++) {
+      linhas.push('commit refs/heads/longa', `committer SIMULADO <simulado@exemplo.invalid> ${1700000000 + i} +0000`, `data ${String(i).length}`, String(i));
+      if (i === 1) linhas.push(`from ${daB}`);
+      linhas.push('merge refs/heads/lateral', '');
+    }
+    assert.equal(spawnSync('git', ['fast-import', '--quiet'], { cwd: m2.b.dir, input: linhas.join('\n') + '\n', encoding: 'utf8' }).status, 0);
+    assert.ok(exec('git', ['push', '-q', 'origin', 'refs/heads/longa:refs/heads/main'], m2.b.dir).ok);
+    const saida = spawnSync('git', ['rev-list', '--ancestry-path', '--parents', `${cb.base}..refs/heads/longa`],
+      { cwd: m2.b.dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    assert.ok(saida.status === 0 && saida.stdout.length > 1024 * 1024, `a saída do git da prova tem ${saida.stdout.length} bytes`);
+    assert.deepEqual(reconciliarIntegracao(m2.b.carregado, m2.arco, op(m2.b)).registradas, [{ trabalho: 'b', merge: daB }]);
+    assert.equal(lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a)).entregas.get('b')!.merge, daB);
   } finally { m2.limpar(); }
 });

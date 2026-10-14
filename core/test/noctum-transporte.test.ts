@@ -14,6 +14,7 @@ import { autorizarPedido, pedidoV2, prepararIngressoSimulado } from './noctum-ap
 import { cloneDoRemoto, duasMaquinas, DuasMaquinas, gravarCru, registroCru } from './noctum-maquinas-apoio';
 import { chavePublicaValida, RecusaDoArco } from '../src/noctum-envelope';
 import { exigirManifesto } from '../src/manifest';
+import * as transporteDoModulo from '../src/noctum-transporte';
 import {
   assinarDados, BRANCH_DE_COORDENACAO, CONTRATO_COORDENACAO, DadosDoRegistro, gravarNoRamo, identidadeDaMaquina, LeituraDoRamo, lerRamo,
 } from '../src/noctum-transporte';
@@ -379,4 +380,24 @@ test('T14: o instante da gravação tem de ser uma data, como o leitor exige; se
     assert.equal(exec('git', ['ls-remote', m.remoto, `refs/heads/${BRANCH_DE_COORDENACAO}`], m.a.dir).stdout.split(/\s+/)[0], antes);
     assert.equal(lerRamo(m.a.carregado, m.arco).registros.length, 1);
   } finally { m.limpar(); }
+});
+
+test('T15: o teto de registros do arco vale também para quem grava: o registro que passaria dele não vai ao ramo', () => {
+  const m = cenario('noctum-t15');
+  const modulo = transporteDoModulo as { TETO_DE_REGISTROS: number };
+  const teto = modulo.TETO_DE_REGISTROS;
+  try {
+    // S-R3C-6 da R3-C: o teto baixado em tempo de execução, que o escritor e o leitor leem do módulo. Com três registros no
+    // arco, a quarta entrega fica aqui, antes do push, e as duas máquinas seguem lendo o ramo.
+    modulo.TETO_DE_REGISTROS = 3;
+    entrega(m, 'a', 't1');
+    entrega(m, 'b', 't2');
+    entrega(m, 'a', 't3');
+    const ponta = () => exec('git', ['ls-remote', m.remoto, `refs/heads/${BRANCH_DE_COORDENACAO}`], m.a.dir).stdout.split(/\s+/)[0];
+    const antes = ponta();
+    assert.match(recusa(() => entrega(m, 'b', 't4'), 'noctum.envelope.invalido'), /o arco passaria de 3 registros; nada foi ao ramo/);
+    assert.equal(ponta(), antes);
+    assert.deepEqual([lerRamo(m.a.carregado, m.arco, { maquina: 'maquina-a' }).registros.length,
+      lerRamo(m.b.carregado, m.arco, { maquina: 'maquina-b' }).registros.length], [3, 3]);
+  } finally { modulo.TETO_DE_REGISTROS = teto; m.limpar(); }
 });

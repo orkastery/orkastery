@@ -222,11 +222,21 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
     try { depoisDoEfeito = entreguesDoDestino(lerCoordenacao(carregado, arco, opcoes), chave, n); }
     catch (e) { throw recusa('noctum.integracao.nao-provada', `o ramo de coordenação não se leu depois do merge (${primeiraLinha(e)}); a vez fica até a reconciliação`); }
     const prova = provaDoMerge(carregado, remoto, alvo.base, candidato, opcoes, [...new Set([...posteriores, ...depoisDoEfeito])]);
-    if (prova?.situacao === 'sem-prova') semProva(carregado, arco, chave, n, alvo, candidato, prova.ponta, opcoes);
-    if (prova?.situacao !== 'provado') {
+    if (prova === null) {
+      // S-R3C-5 da R3-C: a base ou a história dela não se leram (rede, buffer ou prazo); a prova não sabe, e a vez espera.
+      throw recusa('noctum.integracao.nao-provada', `a base ${alvo.base} ou a história dela não se leram (rede, buffer ou prazo): a prova não sabe, e a vez fica até a reconciliação`);
+    }
+    if (prova.situacao === 'sem-prova') semProva(carregado, arco, chave, n, alvo, candidato, prova.ponta, opcoes);
+    if (prova.situacao !== 'provado') {
       throw recusa('noctum.integracao.nao-provada', `a base ${alvo.base} não tem a fonte pelo merge ${String(merge).slice(0, 12)}; a vez fica até a reconciliação`);
     }
-    if (commitDevolvido(carregado.raiz, merge) !== prova.merge) {
+    const devolvido = commitDevolvido(carregado.raiz, merge);
+    if (devolvido === null) {
+      // S-R3C-1 da R3-C: sem o commit devolvido, o merge provado não se confere; o motivo diz o que houve, sem acusar a fonte.
+      fimSemProva(carregado, arco, chave, n, prova.ponta, opcoes, `o integrador não devolveu um commit que se resolva neste clone, e o merge ` +
+        `${prova.merge.slice(0, 12)} que leva a fonte ${candidato.fonte.slice(0, 12)} à base ${alvo.base} não se confere por ele`);
+    }
+    if (devolvido !== prova.merge) {
       semProva(carregado, arco, chave, n, alvo, candidato, prova.ponta, opcoes, 'o commit que o integrador devolveu não é o merge provado');
     }
     registrarEntrega(carregado, arco, { chave, n, trabalho, ordem: pedido.ordem, destino: alvo, fonte: candidato.fonte,
@@ -238,13 +248,15 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
 export type ProvaDoMerge = { situacao: 'provado'; merge: string; ponta: string } | { situacao: 'sem-prova'; ponta: string } |
   { situacao: 'ausente'; ponta: string };
 
+/** O buffer do git da prova pela história; a saída com os pais dos merges passa fácil de 1 MiB, o padrão do `spawnSync`. */
+export const BUFFER_DA_HISTORIA = 256 * 1024 * 1024;
+
 /**
  * O git da prova pela história (S-R3A-2 da rodada 3): a busca lê a história inteira entre a base provada e a ponta, sem
- * corte por contagem, e a saída com os pais dos merges passa fácil de 1 MiB. Estourado o buffer ou o prazo, a prova não
- * sabe (`null`), e a vez espera.
+ * corte por contagem. Estourado o buffer ou o prazo, a prova não sabe (`null`), e a vez espera.
  */
 function gitDaHistoria(raiz: string, args: string[]): { ok: boolean; stdout: string } {
-  const r = spawnSync('git', args, { cwd: raiz, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, timeout: 120_000 });
+  const r = spawnSync('git', args, { cwd: raiz, encoding: 'utf8', maxBuffer: BUFFER_DA_HISTORIA, timeout: 120_000 });
   return { ok: r.status === 0 && !r.error, stdout: (r.stdout ?? '').toString() };
 }
 
@@ -256,10 +268,15 @@ function entreguesDoDestino(estado: EstadoDaCoordenacao, chave: string, fora?: n
     .map(v => v.fim!.merge as string);
 }
 
-/** O commit que o integrador devolveu, resolvido no clone desta máquina; `null` quando não é um commit daqui. */
+/**
+ * O commit que o integrador devolveu, resolvido no clone desta máquina; `null` quando não é um commit daqui. O SHA vem
+ * aparado e em minúsculas (S-R3C-1 da R3-C): a saída do `git rev-parse` sem `trim` e o SHA em maiúsculas são o mesmo
+ * commit. Nome de ref não vale: resolvido aqui, diria o commit deste clone, não o que chegou à base.
+ */
 function commitDevolvido(raiz: string, merge: unknown): string | null {
-  if (typeof merge !== 'string' || !/^[0-9a-f]{7,64}$/.test(merge)) return null;
-  const r = git(raiz, ['rev-parse', '--verify', '--quiet', `${merge}^{commit}`]);
+  const valor = typeof merge === 'string' ? merge.trim().toLowerCase() : '';
+  if (!/^[0-9a-f]{7,64}$/.test(valor)) return null;
+  const r = git(raiz, ['rev-parse', '--verify', '--quiet', `${valor}^{commit}`]);
   return r.ok ? r.stdout.trim() : null;
 }
 
@@ -294,6 +311,9 @@ export function provaDoMerge(carregado: ManifestoCarregado, remoto: string, base
     if (!ancestral(raiz, candidato.base, candidato.fonte)) return { situacao: 'sem-prova', ponta };
     merge = candidato.fonte;
   }
+  // O avanço rápido vazio (S-R3C-8 da R3-C): a fonte é a própria base provada, a branch sem commit próprio, e não há o que
+  // integrar; a entrega fica com a base, como a branch já incorporada do `ork ship`.
+  if (!merge && candidato.fonte === candidato.base) merge = candidato.base;
   if (!merge) return { situacao: 'sem-prova', ponta };
   for (const x of posteriores) {
     if (x === candidato.base || !ancestral(raiz, candidato.base, x)) continue;
@@ -308,8 +328,13 @@ export function provaDoMerge(carregado: ManifestoCarregado, remoto: string, base
  */
 function semProva(carregado: ManifestoCarregado, arco: string, chave: string, n: number, alvo: { base: string },
   candidato: CandidatoDeIntegracao, ponta: string, opcoes: OpcoesDaCoordenacao, porque?: string): never {
-  const motivo = `a fonte ${candidato.fonte.slice(0, 12)} chegou à base ${alvo.base} por um merge fora da base provada ${candidato.base.slice(0, 12)}` +
-    (porque ? ` (${porque})` : '');
+  return fimSemProva(carregado, arco, chave, n, ponta, opcoes, `a fonte ${candidato.fonte.slice(0, 12)} chegou à base ${alvo.base} ` +
+    `por um merge fora da base provada ${candidato.base.slice(0, 12)}` + (porque ? ` (${porque})` : ''));
+}
+
+/** O fim `sem-prova` da vez com o motivo que quem chama montou, e a recusa que diz que o trabalho espera a inspeção. */
+function fimSemProva(carregado: ManifestoCarregado, arco: string, chave: string, n: number, ponta: string, opcoes: OpcoesDaCoordenacao,
+  motivo: string): never {
   encerrarSemEsconder(carregado, arco, chave, n, { desfecho: 'sem-prova', motivo: `base-nao-provada: ${motivo}`, merge: ponta }, opcoes);
   throw recusa('noctum.integracao.base-nao-provada', `${motivo}: nada foi registrado como entrega, e o trabalho espera a inspeção do dono, sem ser refeito`);
 }

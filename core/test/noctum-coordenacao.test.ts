@@ -732,3 +732,36 @@ test('K21: a repetição da ordem só devolve a que entrou quando é da mesma ge
       /o trabalho a está ordenado \(ordem O-a-1\)/);
   } finally { m.limpar(); }
 });
+
+test('K22: o trabalho preso à máquina cuja ordem a autoridade cancelou espera a emissão explícita; depois de uma emenda, a máquina volta à distribuição', () => {
+  const m = cenario('noctum-k22', { trabalhos: [{ id: 'x', item: 'RM-981', prioridade: 1, dependeDe: [], pedido: 'Fatia X SIMULADA.', maquina: 'maquina-a' }] });
+  try {
+    // S-R3C-3 da R3-C: o x é preso à A; cancelado e encerrado lá, a distribuição não o devolve à A nem o leva à B.
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'x', maquina: 'maquina-a' }, op(m.a));
+    responderOrdem(m.a.carregado, m.arco, 'O-x-1', 'aceita', 'SIMULADO', op(m.a));
+    cancelarOrdem(m.a.carregado, m.arco, 'O-x-1', 'SIMULADO: retomada', op(m.a));
+    encerrarOrdem(m.a.carregado, m.arco, 'O-x-1', { motivo: 'SIMULADO: a sessão parou', checkpoint: { thread: null, vagasSoltas: [] } }, op(m.a));
+    const estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
+    assert.equal(situacaoDoTrabalho(estado, 'x')!.estado, 'livre');
+    assert.deepEqual(distribuirOrdens(estado, 'maquina-a', depois(0), LIVRES), [], 'o trabalho preso espera a emissão explícita');
+    recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'x', maquina: 'maquina-b' }, op(m.a)), 'noctum.coordenacao.fora-do-envelope');
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'x', maquina: 'maquina-a' }, op(m.a)), 'O-x-2', 'a emissão explícita, a da N4');
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-k22b', { trabalhos: [{ id: 'x', item: 'RM-981', prioridade: 1, dependeDe: [], pedido: 'Fatia X SIMULADA.' }] });
+  try {
+    // S-R3C-6 da R3-C: a exclusão da máquina cancelada vale só na versão do cancelamento. A B nunca bate, e a A é a única
+    // candidata: fora da distribuição na versão 1, ela volta depois da emenda autorizada nas duas máquinas.
+    assumirAutoridade(m2.a.carregado, m2.arco, op(m2.a));
+    emitirOrdem(m2.a.carregado, m2.arco, { trabalho: 'x', maquina: 'maquina-a' }, op(m2.a));
+    responderOrdem(m2.a.carregado, m2.arco, 'O-x-1', 'aceita', 'SIMULADO', op(m2.a));
+    cancelarOrdem(m2.a.carregado, m2.arco, 'O-x-1', 'SIMULADO: retomada', op(m2.a));
+    encerrarOrdem(m2.a.carregado, m2.arco, 'O-x-1', { motivo: 'SIMULADO: a sessão parou', checkpoint: { thread: null, vagasSoltas: [] } }, op(m2.a));
+    assert.deepEqual(distribuirOrdens(lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a)), 'maquina-a', depois(0), LIVRES), []);
+    const emenda = { ...m2.pedido, relatorio: { horario: '08:00', canal: 'telegram' } };
+    autorizarPedido(m2.b.dir, m2.arco, emenda);
+    autorizarPedido(m2.a.dir, m2.arco, emenda);
+    assert.deepEqual(distribuirOrdens(lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a)), 'maquina-a', depois(0), LIVRES), [{ trabalho: 'x', maquina: 'maquina-a' }]);
+  } finally { m2.limpar(); }
+});
