@@ -2,13 +2,13 @@ import type { ExecutorCi } from '../ci';
 import type { ExecutorGitHub } from '../entrega-pr';
 import type { ExecutorDoGh, PrDaForja } from '../parado-no-condutor';
 import type { ChamadorDaApi } from './api';
-import type { CheckNoCommit, ChecksDoCommit, PedidoMesclado, Resultado, TipoDeForja, VersaoDoServidor } from './contrato';
+import type { CheckNoCommit, ChecksDoCommit, ForjaResolvida, PedidoMesclado, Resultado, TipoDeForja, VersaoDoServidor } from './contrato';
 
 export type NomeDaCapacidade = 'checksNoCommit' | 'estadoDeCi' | 'pedidoMesclado' | 'branchPadrao' | 'pontaDaBranch' | 'comparar'
-  | 'pedidosDaBranch' | 'abrirPedido' | 'metadados';
+  | 'pedidosDaBranch' | 'abrirPedido' | 'metadados' | 'pedidosAbertos';
 /** Todas as capacidades, na ordem em que o `doctor` as mostra. */
 export const CAPACIDADES: readonly NomeDaCapacidade[] = ['checksNoCommit', 'estadoDeCi', 'pedidoMesclado', 'branchPadrao', 'pontaDaBranch',
-  'comparar', 'pedidosDaBranch', 'abrirPedido', 'metadados'];
+  'comparar', 'pedidosDaBranch', 'abrirPedido', 'metadados', 'pedidosAbertos'];
 
 /** A leitura da CI pela API da forja ja resolvida. `edicao` vem dos metadados (`null`: desconhecida). */
 export interface EntradaDoEstadoDeCi { api: ChamadorDaApi; repo: string; sha: string; context: string; edicao: VersaoDoServidor['edicao'] }
@@ -35,4 +35,28 @@ export interface AdaptadorDeForja {
     executor: ExecutorDoGh; prazoMs: number }): { status: number | null; stdout: string; stderr: string };
   /** A versao e a edicao do servidor, pela API da forja ja resolvida. */
   metadados?(e: { api: ChamadorDaApi }): Resultado<VersaoDoServidor>;
+  /**
+   * Os pedidos abertos na base, os recentes de qualquer estado e os das branches candidatas, para o pulse. Lista
+   * cortada e `parcial` (ou a candidata em `semConferir`), nunca "sem pedido".
+   */
+  pedidosAbertos?(e: EntradaDosPedidosAbertos): Resultado<PedidosAbertos>;
 }
+
+/** O teto de cada lista e o prazo de cada chamada da leitura do pulse. */
+export interface LimitesDosPedidos { abertos: number; recentes: number; candidatas: number; minimoDaConferenciaMs: number; prazoMs: number }
+
+export interface EntradaDosPedidosAbertos {
+  forja: ForjaResolvida;
+  base: string;
+  /** As branches de thread com produto publicado, conferidas uma a uma quando nao aparecem nas listas. */
+  candidatas: readonly string[];
+  /** A API da forja pela CLI logada (`chamadorDaApi`); o GitHub do pulse usa o `executor`. */
+  api: ChamadorDaApi;
+  executor: ExecutorDoGh;
+  /** Quanto sobra do orcamento da leitura, em ms. */
+  resta: () => number;
+  orcamentoMs: number;
+  limites: LimitesDosPedidos;
+}
+
+export interface PedidosAbertos { prs: PrDaForja[]; parcial: boolean; semConferir: string[] }

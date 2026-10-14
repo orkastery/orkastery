@@ -4,12 +4,13 @@ import { metadadosGithub } from './github/metadados';
 import { metadadosGitlab } from './gitlab/metadados';
 import { checksNoCommitGithub, estadoDeCiGithub } from './github/ci';
 import { estadoDeCiGitlab } from './gitlab/ci';
-import { abrirPedidoGithub, branchPadraoGithub, compararGithub, pedidoMescladoGithub, pedidosDaBranchGithub, pontaDaBranchGithub } from './github/pedidos';
+import { abrirPedidoGithub, branchPadraoGithub, compararGithub, pedidoMescladoGithub, pedidosAbertosGithub, pedidosDaBranchGithub, pontaDaBranchGithub } from './github/pedidos';
 
 const ADAPTADORES: Record<TipoDeForja, AdaptadorDeForja> = {
   github: { tipo: 'github', checksNoCommit: checksNoCommitGithub, estadoDeCi: estadoDeCiGithub,
     pedidoMesclado: pedidoMescladoGithub, branchPadrao: branchPadraoGithub, pontaDaBranch: pontaDaBranchGithub, comparar: compararGithub,
-    pedidosDaBranch: pedidosDaBranchGithub, abrirPedido: abrirPedidoGithub, metadados: metadadosGithub },
+    pedidosDaBranch: pedidosDaBranchGithub, abrirPedido: abrirPedidoGithub, metadados: metadadosGithub,
+    pedidosAbertos: pedidosAbertosGithub },
   // As capacidades do GitLab entram uma a uma (CI, pulse e rede, entrega); o doctor mostra as desligadas.
   gitlab: { tipo: 'gitlab', estadoDeCi: estadoDeCiGitlab, metadados: metadadosGitlab },
 };

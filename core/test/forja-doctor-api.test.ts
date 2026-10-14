@@ -122,7 +122,7 @@ test('GitHub github.com: escopos do x-oauth-scopes, o repositório gravado e tod
   assert.equal(linha(checks, 'forja servidor')!.detalhe, 'github.com');
   assert.equal(linha(checks, 'forja escopo')!.detalhe, 'escopos do token: gist, read:org, repo, workflow');
   assert.equal(linha(checks, 'forja projeto')!.detalhe, 'merge commit permitido; squash permitido; rebase permitido');
-  assert.match(linha(checks, 'forja capacidades')!.detalhe, /^ligadas: checksNoCommit, .*metadados$/);
+  assert.match(linha(checks, 'forja capacidades')!.detalhe, /^ligadas: checksNoCommit, .*metadados, pedidosAbertos$/);
 });
 
 test('GitHub: gh 2.17 não tem headRefOid e reprova; token fine-grained não é medível', () => {

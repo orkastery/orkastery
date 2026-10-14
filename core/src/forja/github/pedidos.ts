@@ -2,8 +2,10 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { ExecutorGitHub } from '../../entrega-pr';
+import { redigirSegredos } from '../../hitl';
 import type { ExecutorDoGh, PrDaForja } from '../../parado-no-condutor';
-import type { PedidoMesclado } from '../contrato';
+import type { EntradaDosPedidosAbertos, PedidosAbertos } from '../adaptador';
+import type { PedidoMesclado, Resultado } from '../contrato';
 import { deFora } from '../texto';
 
 const SHA = /^[0-9a-f]{40}$/, BRANCH = /^[A-Za-z0-9._/-]{1,200}$/;
@@ -76,5 +78,79 @@ export function abrirPedidoGithub(e: { host: string; repositorio: string; base: 
       '--body-file', arquivo], e.prazoMs);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** Os campos dos recentes e os dos abertos, com o rollup e o estado de merge (RM-059, F7). */
+const CAMPOS_DOS_RECENTES = 'number,state,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository,url,createdAt,mergedAt';
+const CAMPOS_DOS_ABERTOS = `${CAMPOS_DOS_RECENTES},statusCheckRollup,mergeable`;
+
+/** Texto curto vindo de fora: sem controle, num teto. */
+function curto(v: string, teto: number): string | null {
+  const limpo = Array.from(v.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim()).slice(0, teto).join('');
+  return limpo || null;
+}
+
+/**
+ * Os PRs da base para o pulse, pelo `gh pr list`: os abertos com o rollup (ate o teto; lista cheia e `parcial`), os
+ * recentes de qualquer estado, e cada candidata que nao apareceu, conferida pelo `--head` enquanto houver tempo
+ * (acima do teto ou sem tempo, ela fica em `semConferir`, que e "PR nao lido", nunca "sem PR"). O `gh` usa a
+ * autenticacao dele; nenhum token passa por aqui.
+ */
+export function pedidosAbertosGithub(e: EntradaDosPedidosAbertos): Resultado<PedidosAbertos> {
+  // Carga tardia: o parado-no-condutor chega a este modulo pelo registro; importar no topo fecharia um ciclo de carga.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { prDaForja } = require('../../parado-no-condutor') as typeof import('../../parado-no-condutor');
+  const l = e.limites, repo = `--repo=${e.forja.host}/${e.forja.repo}`;
+  const falha = (detalhe: string, codigo: 'forja.indisponivel' | 'forja.resposta-invalida' = 'forja.indisponivel'): Resultado<PedidosAbertos> =>
+    ({ ok: false, erro: { codigo, detalhe } });
+  const pedir = (args: string[]): unknown[] | string => {
+    if (e.resta() <= 0) return `gh pr list: orçamento de ${Math.round(e.orcamentoMs / 1000)} s da leitura esgotado`;
+    const r = e.executor(['pr', 'list', repo, `--base=${e.base}`, ...args], Math.min(l.prazoMs, e.resta()));
+    if (r.status !== 0) {
+      const detalhe = curto(redigirSegredos(r.stderr || r.stdout || ''), 160) ?? 'sem detalhe';
+      return `gh pr list falhou (${r.status === null ? 'sem código de saída' : `código ${r.status}`}): ${detalhe}`;
+    }
+    try {
+      const lista = JSON.parse(r.stdout) as unknown;
+      if (!Array.isArray(lista)) throw new Error('a resposta não é uma lista');
+      return lista;
+    } catch (err) {
+      return `resposta do gh pr list fora do formato: ${curto(redigirSegredos((err as Error).message), 120) ?? 'sem detalhe'}`;
+    }
+  };
+  try {
+    const porNumero = new Map<number, PrDaForja>();
+    const juntar = (lista: unknown[], comChecks: boolean) => {
+      for (const bruto of lista) {
+        const pr = prDaForja(bruto, e.base);
+        if (!pr || porNumero.has(pr.numero)) continue;
+        // A leitura sem rollup nunca diz que o aberto nao tem checks.
+        if (!comChecks && pr.estado === 'aberto') pr.checks = [{ nome: 'checks não lidos', situacao: 'pendente', concluidoEm: null }];
+        porNumero.set(pr.numero, pr);
+      }
+    };
+    const abertos = pedir(['--state=open', `--limit=${l.abertos}`, `--json=${CAMPOS_DOS_ABERTOS}`]);
+    if (typeof abertos === 'string') return falha(abertos);
+    juntar(abertos, true);
+    const recentes = pedir(['--state=all', `--limit=${l.recentes}`, `--json=${CAMPOS_DOS_RECENTES}`]);
+    if (typeof recentes === 'string') return falha(recentes);
+    juntar(recentes, false);
+    // Antes de dizer "sem PR", a candidata e conferida sozinha (o mesclado velho fica fora dos recentes).
+    const achadas = new Set([...porNumero.values()].map((p) => p.branch));
+    const faltam = [...new Set(e.candidatas)].filter((b) => BRANCH.test(b) && !achadas.has(b));
+    const semConferir: string[] = [];
+    for (const [i, branch] of faltam.entries()) {
+      if (i >= l.candidatas || e.resta() < l.minimoDaConferenciaMs) { semConferir.push(branch); continue; }
+      const daBranch = pedir(['--state=all', `--head=${branch}`, '--limit=5', `--json=${CAMPOS_DOS_RECENTES}`]);
+      try {
+        if (typeof daBranch === 'string') throw new Error(daBranch);
+        juntar(daBranch, false);
+      } catch { semConferir.push(branch); }
+    }
+    return { ok: true, valor: { prs: [...porNumero.values()], parcial: abertos.length >= l.abertos, semConferir } };
+  } catch (err) {
+    return falha(`resposta do gh pr list fora do formato: ${curto(redigirSegredos((err as Error).message), 120) ?? 'sem detalhe'}`,
+      'forja.resposta-invalida');
   }
 }

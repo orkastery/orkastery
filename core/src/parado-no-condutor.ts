@@ -24,7 +24,10 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { LimitesDosPedidos } from './forja/adaptador';
+import type { ForjaResolvida } from './forja/contrato';
 import { rodarCli } from './forja/executor';
+import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { estadoDoCheck } from './forja/estado';
 import { remotoRedigido, remotoValido } from './branch-de-estado';
 import { conducaoDaThread } from './conducao';
@@ -53,19 +56,15 @@ export const VALIDADE_DO_RETRATO_MIN = 60;
 export const LIMITE_DE_PRS = 200;
 /** Quantos PRs recentes (de qualquer estado) a segunda leitura pede: so para achar o mesclado e o fechado. */
 export const LIMITE_DE_RECENTES = 100;
+const PRAZO_DO_GH_MS = 30000;
+/** Os tetos e o prazo de cada chamada da leitura de pedidos, que o adaptador de cada forja respeita. */
+export const LIMITES_DOS_PEDIDOS: LimitesDosPedidos = { abertos: LIMITE_DE_PRS, recentes: LIMITE_DE_RECENTES, candidatas: 10,
+  minimoDaConferenciaMs: 5000, prazoMs: PRAZO_DO_GH_MS };
 /** Retrato com data mais a frente do relogio do que isto nao vale (relogio adiantado ou arquivo mexido). */
 const FOLGA_DO_RELOGIO_MIN = 5;
 const ARQUIVO_DOS_PRS = 'prs.json';
-const PRAZO_DO_GH_MS = 30000;
 /** A leitura inteira da forja numa batida: cabe com folga nos 240 s que a varredura da ao subprocesso do pulse. */
 const ORCAMENTO_DA_LEITURA_MS = 60000;
-const CAMPOS_DOS_RECENTES = 'number,state,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository,url,createdAt,mergedAt';
-/** RM-059 (F7, D11 da ork-rm059pista): o estado de merge do PR aberto, que a pista de entrega mostra como conflito. */
-const CAMPOS_DO_GH = `${CAMPOS_DOS_RECENTES},statusCheckRollup,mergeable`;
-/** Quantas branches candidatas a "sem PR" sao conferidas uma a uma por batida; o resto fica "PR nao lido". */
-const LIMITE_DE_CANDIDATAS = 10;
-/** A conferencia de uma candidata so comeca com este tempo de sobra no orcamento; com menos, a branch fica sem conferir. */
-const MINIMO_DA_CONFERENCIA_MS = 5000;
 /** As fases que o ciclo despacha antes da entrega: depois de um bloco que para nelas, o passo e despachar, nao publicar. */
 const FASES_ANTES_DA_ENTREGA = ['GOAL', 'PLAN', 'GO', 'CHECK'];
 /** Os modos em que a #TAG ja autoriza o push (`autorizacaoDePush`, `core/src/ship.ts`). */
@@ -318,59 +317,14 @@ export function lerPrsDaForja(carregado: ManifestoCarregado,
     : forjaDosPrs(carregado.raiz, remoto, executor, Math.min(PRAZO_DO_GH_MS, Math.max(1, resta())));
   if (!forja.leitura) return { ok: false, lidoEm, erro: forja.motivo, ...(forja.semLeitura ? { semLeitura: { remoto, host: forja.host } } : {}) };
   const { host, repositorio } = forja;
-  const pedir = (args: string[]): unknown[] | string => {
-    if (resta() <= 0) return `gh pr list: orçamento de ${Math.round(orcamento / 1000)} s da leitura esgotado`;
-    const r = executor(['pr', 'list', `--repo=${host}/${repositorio}`, `--base=${base}`, ...args],
-      Math.min(PRAZO_DO_GH_MS, resta()));
-    if (r.status !== 0) {
-      const detalhe = curto(redigirSegredos(r.stderr || r.stdout || ''), 160) ?? 'sem detalhe';
-      return `gh pr list falhou (${r.status === null ? 'sem código de saída' : `código ${r.status}`}): ${detalhe}`;
-    }
-    try {
-      const lista = JSON.parse(r.stdout) as unknown;
-      if (!Array.isArray(lista)) throw new Error('a resposta não é uma lista');
-      return lista;
-    } catch (e) {
-      return `resposta do gh pr list fora do formato: ${curto(redigirSegredos((e as Error).message), 120) ?? 'sem detalhe'}`;
-    }
-  };
-  try {
-    const porNumero = new Map<number, PrDaForja>();
-    const juntar = (lista: unknown[], comChecks: boolean) => {
-      for (const bruto of lista) {
-        const pr = prDaForja(bruto, base);
-        if (!pr || porNumero.has(pr.numero)) continue;
-        // S-b do CHECK (rodada 3): a leitura sem rollup nunca diz que o aberto nao tem checks.
-        if (!comChecks && pr.estado === 'aberto') pr.checks = [{ nome: 'checks não lidos', situacao: 'pendente', concluidoEm: null }];
-        porNumero.set(pr.numero, pr);
-      }
-    };
-    const abertos = pedir(['--state=open', `--limit=${LIMITE_DE_PRS}`, `--json=${CAMPOS_DO_GH}`]);
-    if (typeof abertos === 'string') return { ok: false, lidoEm, erro: abertos };
-    juntar(abertos, true);
-    const recentes = pedir(['--state=all', `--limit=${LIMITE_DE_RECENTES}`, `--json=${CAMPOS_DOS_RECENTES}`]);
-    if (typeof recentes === 'string') return { ok: false, lidoEm, erro: recentes };
-    juntar(recentes, false);
-    // R1 do CHECK (rodada 3): antes de dizer "sem PR", a branch candidata e conferida sozinha (o mesclado velho
-    // fica fora dos recentes). Acima do teto da batida, a branch fica sem conferir, e isso e "PR nao lido".
-    const achadas = new Set([...porNumero.values()].map((p) => p.branch));
-    const faltam = [...new Set(opcoes.candidatas ?? [])].filter((b) => BRANCH.test(b) && !achadas.has(b));
-    const semConferir: string[] = [];
-    for (const [i, branch] of faltam.entries()) {
-      // Acima do teto da batida, sem tempo para a conferencia inteira ou com ela falhando, a candidata fica sem conferir
-      // ("PR nao lido") e o que ja foi lido vale (sugestao da seguranca na rodada 4 do CHECK).
-      if (i >= LIMITE_DE_CANDIDATAS || resta() < MINIMO_DA_CONFERENCIA_MS) { semConferir.push(branch); continue; }
-      const daBranch = pedir(['--state=all', `--head=${branch}`, '--limit=5', `--json=${CAMPOS_DOS_RECENTES}`]);
-      try {
-        if (typeof daBranch === 'string') throw new Error(daBranch);
-        juntar(daBranch, false);
-      } catch { semConferir.push(branch); }
-    }
-    return { ok: true, retrato: { contrato: CONTRATO_PRS, lidoEm, repositorio, ...(host !== 'github.com' ? { host } : {}), base,
-      parcial: abertos.length >= LIMITE_DE_PRS, ...(semConferir.length ? { semConferir } : {}), prs: [...porNumero.values()] } };
-  } catch (e) {
-    return { ok: false, lidoEm, erro: `resposta do gh pr list fora do formato: ${curto(redigirSegredos((e as Error).message), 120) ?? 'sem detalhe'}` };
-  }
+  const resolvida: ForjaResolvida = { tipo: 'github', host, porta: null, caminhoBase: '', sshHost: null, sshPorta: null, ca: null,
+    repo: repositorio, origem: { tipo: 'remoto', host: 'remoto', porta: 'padrao', caminhoBase: 'padrao' } };
+  const lidos = exigirCapacidade(adaptadorDaForja('github'), 'pedidosAbertos')({ forja: resolvida, base, candidatas: opcoes.candidatas ?? [],
+    api: () => ({ ok: false, erro: { codigo: 'forja.sem-capacidade', detalhe: 'api' } }), executor, resta, orcamentoMs: orcamento,
+    limites: LIMITES_DOS_PEDIDOS });
+  if (!lidos.ok) return { ok: false, lidoEm, erro: lidos.erro.detalhe };
+  return { ok: true, retrato: { contrato: CONTRATO_PRS, lidoEm, repositorio, ...(host !== 'github.com' ? { host } : {}), base,
+    parcial: lidos.valor.parcial, ...(lidos.valor.semConferir.length ? { semConferir: lidos.valor.semConferir } : {}), prs: lidos.valor.prs } };
 }
 
 const dirDoMonitor = (raiz: string) => path.join(raizDoEstado(raiz), '.orkastery', 'monitor');
