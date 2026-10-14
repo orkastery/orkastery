@@ -15,5 +15,6 @@ O número da FEAT nova sai de `ork roadmap feat`; número reservado não volta.
 | FEAT | Com quem | Máquina | Thread | Em |
 | --- | --- | --- | --- | --- |
 | FEAT-038 | Julio Pessoa | srvjcp86 | ork-rm026k7conhe | 12/10 22:05 |
+| FEAT-039 | Paschoal Diniz | dsk1 | sem thread | 14/10 12:42 |
 
 Horários de Brasília.

@@ -1,0 +1,9 @@
+{
+  "contrato": "ork.feat-reserva/v1",
+  "feat": "FEAT-039",
+  "por": "Paschoal Diniz",
+  "maquina": "dsk1",
+  "thread": null,
+  "nota": "Suporte a GitLab com paridade ao GitHub (forja)",
+  "em": "2026-10-14T15:42:59.195Z"
+}
