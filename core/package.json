@@ -53,8 +53,8 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && chmod +x dist/index.js",
-    "build:test": "tsc -p tsconfig.test.json",
+    "build": "tsc --build tsconfig.json && chmod +x dist/index.js",
+    "build:test": "tsc --build tsconfig.test.json",
     "test": "npm run build && npm run build:test && node scripts/casa-temporaria.cjs node --test dist-test/test/*.test.js",
     "test:ci": "npm run build && npm run build:test && node scripts/test-ci.js",
     "ork": "node dist/index.js",

@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { createHash, randomUUID } = require('node:crypto');
+const { accountFailure } = require('./quota-signal');
 
 function executar() {
   const limite = 1024 * 1024;
@@ -25,6 +26,8 @@ function executar() {
   if (!tipo) return;
   const payload = { observedAt: new Date().toISOString() };
   if (h.hook_event_name === 'Notification') payload.notificationType = h.notification_type;
+  const falhaDaConta = accountFailure(h);
+  if (falhaDaConta && (tipo === 'notification' || tipo === 'stop')) payload.accountFailure = falhaDaConta;
   // tool_use_id identifica replay da mesma ferramenta. Sem id do protocolo,
   // cada invocação é uma ocorrência; stat do transcript não identifica eventos.
   payload.eventId = typeof h.tool_use_id === 'string'

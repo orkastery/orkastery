@@ -487,6 +487,8 @@ export interface ContextoDeDespacho {
   /** Caminho ABSOLUTO do prompt em disco. */
   promptPath: string;
   promptSha256: string;
+  /** RM-064 T3: origem imutável quando o prompt executado é um checkpoint derivado. */
+  promptOriginal?: { path: string; sha256: string };
   runtime: string;
   cwd: string;
   /** Modelo EFETIVAMENTE despachado (ja resolvido contra o manifesto). Vai ao ledger. */
@@ -529,6 +531,8 @@ export function dadosDoDespacho(ctx: ContextoDeDespacho, comando: string[]): Rec
     cwd: ctx.cwd,
     promptPath: path.relative(ctx.raiz, ctx.promptPath),
     promptSha256: ctx.promptSha256,
+    ...(ctx.promptOriginal ? { promptOriginalPath: path.relative(ctx.raiz, ctx.promptOriginal.path),
+      promptOriginalSha256: ctx.promptOriginal.sha256 } : {}),
     origem: ctx.origem,
     // I-36 (T10): a porta por onde o dono chegou. `runtime` e o motor; `canal` e a porta.
     ...(ctx.canal ? { canal: ctx.canal } : {}),
@@ -650,7 +654,7 @@ function registrarObservacao(ctx: ContextoDeDespacho, sessao: SessaoDaThread, di
   const mesmoDespacho = (e: Record<string, unknown>) => e.sessionId === sessao.sessionId && e.despachoEm === sessao.despachadaEm;
   try {
     // I-34: claude-bg observa pela fonte nativa; no PLAN o registro guarda o sha de base do artefato.
-    // I-33 (N1): o GO codex registra o HEAD do despacho, como a fonte claude-bg; sem ele a D11c nao ve commit pelo shell.
+    // I-33 (N1): o GO codex registra o HEAD do despacho, como a fonte claude-bg; ele revela commit pelo shell no checkpoint.
     const head = ctx.runtime === 'codex' && ctx.fase === 'GO' ? { head: ctx.headNoDespacho ?? null } : {};
     const fonte = ctx.runtime === 'claude-bg' ? fonteClaudeDoDespacho(ctx.raiz, ctx.thread.id, ctx.fase, ctx.cwd)
       : sensores?.logPath ? { logPath: sensores.logPath, processoPath: sensores.processoPath, reciboPath: sensores.reciboPath, ...head }

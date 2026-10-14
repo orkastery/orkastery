@@ -677,6 +677,7 @@ export interface LimiteClassificado {
 const FRASES_DE_ESGOTAMENTO: readonly RegExp[] = [
   /\busage_limit_exceeded\b/i,
   /\busage_limit_reached\b/i,
+  /seu limite de uso foi atingido/i,
   /\bout of credits\b/i,
   /\binsufficient_quota\b/i,
   /exceeded your current quota/i,

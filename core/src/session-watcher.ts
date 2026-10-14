@@ -17,6 +17,7 @@ import { marcarContaDaFalha } from './ratelimit';
 import { SinalDeFalhaDeConta } from './types';
 import { ConsultaAgentesNativos } from './adapters/claude-bg';
 import { eventosDoIntervalo, garantirFonteClaude, INTERVALO_WATCH_CLAUDE_MS, observarClaudeSobLock, THREAD_REMOVIDA, validarFonteClaude } from './session-watcher-claude';
+import { reconciliarContaEsgotada } from './conta-esgotada';
 
 /** Falhas operacionais e bloqueios sem retry automático não alegam conclusão do produto. */
 function bloqueioPreservado(terminal: TerminalCodex): boolean {
@@ -336,7 +337,9 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         thread, sessao, dir, pasta, chave, agoraMs: now, limiteMs: LIMITE_MORTE_MS, consulta: opcoes.consultaClaude, carregado })) ?? { ...base, ocupado: true };
       return threadPresente(dir) ? r : desfazer();
     }
-    return comLockWatcher(pasta, () => {
+    let contaParaReconciliar: { perfil: NonNullable<ReturnType<typeof perfilDoRegistro>>; falha: SinalDeFalhaDeConta;
+      esgotadoAte: string; erroEm: string } | null = null;
+    const observado: ResultadoWatcher | null = comLockWatcher(pasta, () => {
     const eventos = lerLedger(dir), resultadoId = `codex:${chave}`;
     const pronto = eventos.find(e => e.tipo === 'phase_result' && e.sensorResultId === resultadoId);
     if (pronto) return { ...base, concluido: true, classificacao: String(pronto.classificacao) };
@@ -508,7 +511,7 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         terminal = { ...terminal, classificacao: 'gate_blocked', motivo: 'runtime.unavailable' };
       }
       // I-33 (D12): o turno terminou pela CONTA (cota, credito ou login), dito pelo proprio runtime.
-      // E bloqueio, nunca conclusao; a D11c decide no retry se houve producao antes da morte.
+      // É bloqueio, nunca conclusão; o retry deriva checkpoint quando já houve produção.
       if (conta) terminal = { ...terminal, classificacao: 'gate_blocked', motivo: conta.falha.motivo, falhaDeConta: conta.falha,
         fonte: `${conta.fonte}: ${conta.falha.motivo} (${conta.falha.trecho})` };
       const dados = { fase: sessao.fase, sessionId, despachoEm: sessao.despachadaEm, sensorResultId: resultadoId,
@@ -529,7 +532,11 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
       const tipo = semTerminal && morte && !incompleto && !conta ? 'sessao_morta' : terminal.classificacao;
       // I-33 (D12): o perfil sai do rodizio na primeira gravacao do resultado, onde a evidencia esta.
       if (conta && perfil && !atuais.some(e => e.tipo === 'phase_result' && e.sensorResultId === resultadoId)) {
-        try { marcarContaDaFalha(carregado, perfil, conta.falha, now); }
+        try {
+          const marcado = marcarContaDaFalha(carregado, perfil, conta.falha, now);
+          if (marcado?.esgotadoAte) contaParaReconciliar = { perfil, falha: conta.falha,
+            esgotadoAte: marcado.esgotadoAte, erroEm: terminal.timestamp };
+        }
         catch { /* store ocupado ou invalido: o retry marca de novo pelo gate tipado */ }
       }
       if (!atuais.some(e => e.tipo === tipo && e.sensorResultId === resultadoId)) registrar(dir, thread.id, tipo, dados);
@@ -538,7 +545,12 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
       if (!atuais.some(e => e.tipo === 'phase_result' && e.sensorResultId === resultadoId)) registrar(dir, thread.id, 'phase_result', dados);
       return { ...base, bytesLidos, concluido: true, classificacao: terminal.classificacao };
     });
-  }) ?? { ...base, ocupado: true }; }
+    });
+    const episodio = contaParaReconciliar as { perfil: NonNullable<ReturnType<typeof perfilDoRegistro>>;
+      falha: SinalDeFalhaDeConta; esgotadoAte: string; erroEm: string } | null;
+    if (episodio) reconciliarContaEsgotada({ raiz: carregado.raiz, agoraMs: now, ...episodio });
+    return observado ?? { ...base, ocupado: true };
+  }
   catch (e) {
     // Thread apagada no meio da observação: encerra sem erro, sem recriar a pasta e sem resíduo.
     if (!threadPresente(dir)) return desfazer();
