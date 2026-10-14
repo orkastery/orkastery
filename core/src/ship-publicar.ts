@@ -30,7 +30,7 @@ import { chamadorDaApi, OpcoesDaApi } from './forja/api';
 import { hostDaApi } from './forja/cli';
 import type { ErroDaForja, ForjaResolvida, TipoDeForja } from './forja/contrato';
 import { lerEnderecoDoRemoto } from './forja/endereco';
-import { projetoNaApi } from './forja/gitlab/pedidos';
+import { caminhoDosMrsDaBranch, projetoNaApi } from './forja/gitlab/pedidos';
 import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { hostConhecido, resolverForja, SONDAS_PADRAO, SondasDaForja } from './forja/resolver';
 import { deFora, umaLinha } from './forja/texto';
@@ -369,7 +369,7 @@ function pedidosDoGitlab(f: ForjaResolvida, opcoes: OpcoesDaApi): PedidosDaEntre
     tipo: 'gitlab',
     listar: (base, branch) => exigirCapacidade(gl, 'pedidosDaBranch')({ ...comum, base, branch }),
     abrir: (base, branch, titulo, corpo) => exigirCapacidade(gl, 'abrirPedido')({ ...comum, base, branch, titulo, corpo }),
-    passoDaLista: (branch) => `glab api ${projeto}/merge_requests?source_branch=${encodeURIComponent(branch)}&state=all`,
+    passoDaLista: (branch) => `glab api ${caminhoDosMrsDaBranch(f.repo, branch)}`,
     passoDaCriacao: (base, branch) => `glab api --method POST ${projeto}/merge_requests (source_branch=${branch}, target_branch=${base})`,
     ensaioDaCriacao: (base, branch, titulo, corpo) =>
       `glab api --method POST ${projeto}/merge_requests (source_branch=${branch}, target_branch=${base}, title="${titulo}", description <${corpo}>)`,
@@ -385,7 +385,7 @@ function pedidosDaEntrega(carregado: ManifestoCarregado, remoto: string,
   const r = opcoes.forjaResolvida ? { ok: true as const, valor: opcoes.forjaResolvida } : forjaDaEntrega(carregado, remoto, opcoes.sondas);
   if (!r.ok) return r;
   return { ok: true, pedidos: r.valor.tipo === 'gitlab' ? pedidosDoGitlab(r.valor, opcoes.api ?? {})
-    : pedidosDoGithub({ host: hostDaApi(r.valor), repositorio: r.valor.repo }, executor) };
+    : pedidosDoGithub({ host: r.valor.host, repositorio: r.valor.repo }, executor) };
 }
 
 // ---------------------------------------------------------------------------
@@ -426,15 +426,16 @@ export function entreAspas(s: string): string {
 
 /**
  * O que o dono roda no proprio terminal quando o modo da thread nao autoriza o push. A branch e a base vem do estado e do
- * manifesto, que podem ser do clone: cada parte vai entre aspas simples (A4 da revisao). No GitLab, o `glab` nao le a
- * descricao de arquivo, e quem a le e o shell do dono; o `glab mr create` nao arma merge.
+ * manifesto, que podem ser do clone: cada parte vai entre aspas simples (A4 da revisao). No GitLab, a descricao vai pelo
+ * `--description-file` (ou o titulo, sem `pr-body.md`) e nunca pelo `--fill`, que empurra a branch e pode trocar o titulo;
+ * o `glab mr create` nao arma merge.
  */
 export function comandoDoDono(remoto: string, base: string, branch: string, titulo: string, comCorpo: string | null,
   tipo: TipoDeForja = 'github'): string {
   const push = `git push -u ${entreAspas(remoto)} ${entreAspas(branch)}`;
   if (tipo === 'gitlab') {
     return `${push} && glab mr create --source-branch ${entreAspas(branch)} --target-branch ${entreAspas(base)} --title ${entreAspas(titulo)} ` +
-      `${comCorpo ? `--description "$(cat ${entreAspas(comCorpo)})"` : '--fill'} --yes`;
+      `${comCorpo ? `--description-file ${entreAspas(comCorpo)}` : `--description ${entreAspas(titulo)}`} --yes`;
   }
   return `${push} && gh pr create --base ${entreAspas(base)} --head ${entreAspas(branch)} ` +
     `--title ${entreAspas(titulo)} ${comCorpo ? `--body-file ${entreAspas(comCorpo)}` : '--fill'}`;
@@ -604,11 +605,11 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   // A2 da revisao: o PR mesclado no HEAD ja e a entrega, com ou sem a branch no remoto (o GitHub pode te-la apagado).
   if (mesclado && !aberto) {
     return { ...r, acao: 'ja-publicada', pr: { numero: mesclado.numero, url: mesclado.url, criado: false, head: mesclado.head },
-      detalhe: textoDoCatalogo((m) => p(m).jaMesclado(mesclado.numero)), correcao: textoDoCatalogo((m) => p(m).registreAEntrega(t.id)) };
+      detalhe: textoDoCatalogo((m) => p(m).jaMesclado(mesclado.numero, noGitlab)), correcao: textoDoCatalogo((m) => p(m).registreAEntrega(t.id)) };
   }
   if (noRemoto && aberto) {
     return { ...r, acao: 'ja-publicada', pr: { numero: aberto.numero, url: aberto.url, criado: false, head: aberto.head },
-      detalhe: textoDoCatalogo((m) => p(m).jaPublicada(aberto.numero)) };
+      detalhe: textoDoCatalogo((m) => p(m).jaPublicada(aberto.numero, noGitlab)) };
   }
   // O remoto com commit que a branch local nao tem, ou que esta copia nem conhece (A3 da revisao): o push sem forca
   // seria recusado. Nunca forcar.
@@ -629,10 +630,10 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   if (dryRun) {
     const passos = [...r.passos];
     if (!noRemoto) passos.push(`git push -- ${remoto} ${refspec}`, provaDoPush);
-    passos.push(aberto ? textoDoCatalogo((m) => p(m).passoReaproveita(aberto.numero))
+    passos.push(aberto ? textoDoCatalogo((m) => p(m).passoReaproveita(aberto.numero, noGitlab))
       : pedidos.ensaioDaCriacao(base, f.branch, titulo, corpo ? 'pr-body.md' : 'padrao'));
     return { ...r, acao: 'publicaria', passos, pr: aberto ? { numero: aberto.numero, url: aberto.url, criado: false, head: aberto.head } : null,
-      detalhe: textoDoCatalogo((m) => p(m).publicaria(curto(head), aberto?.numero ?? null)) };
+      detalhe: textoDoCatalogo((m) => p(m).publicaria(curto(head), aberto?.numero ?? null, noGitlab)) };
   }
 
   // A evidencia de cada efeito, com a prova ou a falta dela.
@@ -697,10 +698,10 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   }
   // S7 da revisao: sem push e sem PR aberto por este processo, quem publicou foi outro; a entrega ja estava publicada.
   if (!pushFeito && !pr?.criado) {
-    return { ...r, acao: 'ja-publicada', motivo: null, correcao: '', detalhe: textoDoCatalogo((m) => p(m).jaPublicada(pr?.numero ?? 0)) };
+    return { ...r, acao: 'ja-publicada', motivo: null, correcao: '', detalhe: textoDoCatalogo((m) => p(m).jaPublicada(pr?.numero ?? 0, noGitlab)) };
   }
   return { ...r, acao: 'publicou', motivo: null, correcao: '',
-    detalhe: textoDoCatalogo((m) => p(m).publicou(curto(head), pr?.numero ?? 0, pr?.criado === true)) };
+    detalhe: textoDoCatalogo((m) => p(m).publicou(curto(head), pr?.numero ?? 0, pr?.criado === true, noGitlab)) };
 }
 
 /** As linhas da saida de texto do `ork ship publicar`, no locale ativo. */

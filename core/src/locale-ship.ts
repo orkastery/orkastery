@@ -8,6 +8,9 @@
  * merge do git e o que so o ledger le seguem em pt-BR fora do catalogo.
  */
 
+/** O pedido de merge pelo numero, como cada forja o escreve: `PR #n` no GitHub, `MR !n` no GitLab. */
+const rotuloDoPedido = (n: number, gitlab: boolean): string => (gitlab ? `MR !${n}` : `PR #${n}`);
+
 export const SHIP_PT_BR = {
   uso: 'uso: ork ship <thread-id> --para <branch> [--de <branch>] [--dry-run]',
   // textoDoShip
@@ -212,14 +215,15 @@ export const SHIP_PT_BR = {
     lsRemoteFalhou: (remoto: string, erro: string) => `git ls-remote ${remoto} falhou: ${erro}`,
     prsFalharam: (erro: string) => `a lista de PRs da branch falhou: ${erro}`,
     redeCorrecao: 'confira a rede e o login do gh (gh auth status) e rode de novo',
-    jaPublicada: (n: number) => `a branch já está no remoto no HEAD e o PR #${n} está aberto; nada a fazer`,
-    jaMesclado: (n: number) => `o PR #${n} já foi mesclado no HEAD; nada a publicar`,
+    jaPublicada: (n: number, gitlab = false) => `a branch já está no remoto no HEAD e o ${rotuloDoPedido(n, gitlab)} está aberto; nada a fazer`,
+    jaMesclado: (n: number, gitlab = false) => `o ${rotuloDoPedido(n, gitlab)} já foi mesclado no HEAD; nada a publicar`,
     registreAEntrega: (thread: string) => `registre a entrega: ork ship registrar-pr ${thread}`,
     remotoDivergiu: (remoto: string, branch: string, sha: string) => `o remoto ${remoto} tem a branch ${branch} em ${sha}, com commit que a branch local não tem`,
     remotoDivergiuCorrecao: (remoto: string, branch: string) =>
       `traga o remoto para a branch pela sessão de GO (git pull --no-rebase ${remoto} ${branch}) e publique de novo; nunca force`,
-    passoReaproveita: (n: number) => `reaproveita o PR #${n}, já aberto`,
-    publicaria: (sha: string, n: number | null) => `ensaio: publicaria o HEAD ${sha} e ${n ? `atualizaria o PR #${n}` : 'abriria o PR'} (nada foi feito)`,
+    passoReaproveita: (n: number, gitlab = false) => `reaproveita o ${rotuloDoPedido(n, gitlab)}, já aberto`,
+    publicaria: (sha: string, n: number | null, gitlab = false) =>
+      `ensaio: publicaria o HEAD ${sha} e ${n ? `atualizaria o ${rotuloDoPedido(n, gitlab)}` : `abriria o ${gitlab ? 'MR' : 'PR'}`} (nada foi feito)`,
     pushFalhou: (remoto: string, branch: string, erro: string) => `o push de ${branch} para ${remoto} falhou: ${erro}`,
     pushSemProva: (remota: string | null, head: string) => `o ls-remote devolveu ${remota ?? '(nada)'} e o HEAD está em ${head}: o push não ficou provado`,
     pushSemProvaCorrecao: (thread: string) => `confira o remoto e rode ork ship publicar ${thread} de novo`,
@@ -234,7 +238,8 @@ export const SHIP_PT_BR = {
     prSemReleituraGitlab: 'o MR não apareceu na releitura da lista',
     prFalhouGitlab: (sha: string, erro: string) => `a branch foi publicada e provada no HEAD ${sha}, mas o MR não abriu: ${erro}`,
     prFalhouCorrecaoGitlab: (thread: string) => `confira o login do glab e rode ork ship publicar ${thread} de novo (o push já está provado)`,
-    publicou: (sha: string, n: number, criado: boolean) => `HEAD ${sha} publicado e provado; PR #${n} ${criado ? 'aberto agora' : 'reaproveitado'}`,
+    publicou: (sha: string, n: number, criado: boolean, gitlab = false) =>
+      `HEAD ${sha} publicado e provado; ${rotuloDoPedido(n, gitlab)} ${criado ? 'aberto agora' : 'reaproveitado'}`,
     // As etapas da pista
     remotoNaoLido: (remoto: string) => `o git ls-remote ${remoto} não respondeu`,
     branchPublicada: (sha: string) => `branch publicada no HEAD ${sha}`,
@@ -479,14 +484,15 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     lsRemoteFalhou: (remoto, erro) => `git ls-remote ${remoto} failed: ${erro}`,
     prsFalharam: (erro) => `the branch PR list failed: ${erro}`,
     redeCorrecao: 'check the network and the gh login (gh auth status) and run it again',
-    jaPublicada: (n) => `the branch is already on the remote at HEAD and PR #${n} is open; nothing to do`,
-    jaMesclado: (n) => `PR #${n} was already merged at HEAD; nothing to publish`,
+    jaPublicada: (n, gitlab = false) => `the branch is already on the remote at HEAD and ${rotuloDoPedido(n, gitlab)} is open; nothing to do`,
+    jaMesclado: (n, gitlab = false) => `${rotuloDoPedido(n, gitlab)} was already merged at HEAD; nothing to publish`,
     registreAEntrega: (thread) => `record the delivery: ork ship registrar-pr ${thread}`,
     remotoDivergiu: (remoto, branch, sha) => `remote ${remoto} has branch ${branch} at ${sha}, with a commit the local branch does not have`,
     remotoDivergiuCorrecao: (remoto, branch) =>
       `bring the remote into the branch through the GO session (git pull --no-rebase ${remoto} ${branch}) and publish again; never force`,
-    passoReaproveita: (n) => `reuses PR #${n}, already open`,
-    publicaria: (sha, n) => `rehearsal: would publish HEAD ${sha} and ${n ? `update PR #${n}` : 'open the PR'} (nothing was done)`,
+    passoReaproveita: (n, gitlab = false) => `reuses ${rotuloDoPedido(n, gitlab)}, already open`,
+    publicaria: (sha, n, gitlab = false) =>
+      `rehearsal: would publish HEAD ${sha} and ${n ? `update ${rotuloDoPedido(n, gitlab)}` : `open the ${gitlab ? 'MR' : 'PR'}`} (nothing was done)`,
     pushFalhou: (remoto, branch, erro) => `the push of ${branch} to ${remoto} failed: ${erro}`,
     pushSemProva: (remota, head) => `ls-remote returned ${remota ?? '(nothing)'} and HEAD is at ${head}: the push was not proven`,
     pushSemProvaCorrecao: (thread) => `check the remote and run ork ship publicar ${thread} again`,
@@ -501,7 +507,7 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     prSemReleituraGitlab: 'the MR did not show up when the list was read again',
     prFalhouGitlab: (sha, erro) => `the branch was published and proven at HEAD ${sha}, but the MR did not open: ${erro}`,
     prFalhouCorrecaoGitlab: (thread) => `check the glab login and run ork ship publicar ${thread} again (the push is already proven)`,
-    publicou: (sha, n, criado) => `HEAD ${sha} published and proven; PR #${n} ${criado ? 'opened now' : 'reused'}`,
+    publicou: (sha, n, criado, gitlab = false) => `HEAD ${sha} published and proven; ${rotuloDoPedido(n, gitlab)} ${criado ? 'opened now' : 'reused'}`,
     remotoNaoLido: (remoto) => `git ls-remote ${remoto} did not answer`,
     branchPublicada: (sha) => `branch published at HEAD ${sha}`,
     branchNaoPublicada: 'branch not published yet',

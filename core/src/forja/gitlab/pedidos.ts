@@ -48,12 +48,17 @@ export function prDoMr(bruto: unknown, base: string): PrDaForja | null {
     mescladoEm: instante(m.merged_at), checks: [], ...(conflito !== undefined ? { conflito } : {}) };
 }
 
+/** O caminho da lista de MRs de uma branch na API, como a leitura o pede. */
+export function caminhoDosMrsDaBranch(repo: string, branch: string): string {
+  const consulta = new URLSearchParams({ source_branch: branch, state: 'all', per_page: '100' });
+  return `${projetoNaApi(repo)}/merge_requests?${consulta.toString()}`;
+}
+
 /** Os MRs de uma branch na base, do mais novo para o mais velho; `erro` com o codigo `forja.*` quando a leitura falha. */
 export function pedidosDaBranchGitlab(e: { repositorio: string; base: string; branch: string; prazoMs: number; api?: ChamadorDaApi }):
   { prs: PrDaForja[]; erro: string | null } {
   if (!e.api) return { prs: [], erro: 'forja.sem-capacidade: pedidosDaBranch sem a API do GitLab' };
-  const consulta = new URLSearchParams({ source_branch: e.branch, state: 'all', per_page: '100' });
-  const r = e.api({ metodo: 'GET', caminho: `${projetoNaApi(e.repositorio)}/merge_requests?${consulta.toString()}`, prazoMs: e.prazoMs });
+  const r = e.api({ metodo: 'GET', caminho: caminhoDosMrsDaBranch(e.repositorio, e.branch), prazoMs: e.prazoMs });
   if (!r.ok) return { prs: [], erro: deFora(`${r.erro.codigo}: ${r.erro.detalhe}`) };
   // Mais de 100 MRs da mesma branch: a lista nao foi lida inteira, e nunca vira a lista curta.
   if (r.valor.cabecalhos['x-next-page']) return { prs: [], erro: deFora(`forja.incompleto: ${e.branch} > 100`) };
