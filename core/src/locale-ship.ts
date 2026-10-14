@@ -101,7 +101,7 @@ export const SHIP_PT_BR = {
   pushSemProvaCorrecao: 'rode o ship de novo e confira o remoto',
   // ci.ts: o detalhe da consulta ao CI (vai ao ledger dentro da evidencia do ship)
   ciNaoExigidoDetalhe: 'gate de CI não exigido pelo manifesto',
-  ciRemotoNaoGithub: (remoto: string) => `remoto ${remoto} não é um repositório GitHub reconhecível`,
+  ciRemotoNaoGithub: (remoto: string) => `remoto ${remoto} não é um repositório GitHub reconhecível, nem GitLab`,
   ciHostSemLogin: (host: string) => `o gh não está autenticado em ${host}: a CI desse host não foi consultada`,
   ciForjaNaoResolvida: (remoto: string, motivo: string) => `a forja do remoto ${remoto} não foi resolvida: ${motivo}`,
   ciConsultaFalhou: 'consulta ao GitHub falhou',
@@ -390,7 +390,7 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
   pushSemProva: (sha, ponta) => `ls-remote returned ${sha ?? '(nothing)'} and the local target is at ${ponta}: the push was not proven`,
   pushSemProvaCorrecao: 'run ship again and check the remote',
   ciNaoExigidoDetalhe: 'CI gate not required by the manifest',
-  ciRemotoNaoGithub: (remoto) => `remote ${remoto} is not a recognizable GitHub repository`,
+  ciRemotoNaoGithub: (remoto) => `remote ${remoto} is not a recognizable GitHub repository, nor a GitLab one`,
   ciHostSemLogin: (host) => `gh is not logged in to ${host}: CI on that host was not queried`,
   ciForjaNaoResolvida: (remoto, motivo) => `the forge of remote ${remoto} was not resolved: ${motivo}`,
   ciConsultaFalhou: 'GitHub query failed',

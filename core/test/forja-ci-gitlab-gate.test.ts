@@ -154,3 +154,11 @@ test('ci.external_repositories aceita subgrupo do GitLab e recusa segmento . ou 
     assert.match(carregarManifesto(p.dir)!.erros.join('\n'), /"grupo\/\.\.\/projeto" nao e dono\/nome do GitHub nem grupo\/subgrupo\/projeto do GitLab/);
   } finally { p.limpar(); }
 });
+
+test('job real rodando no head: pendente, nunca verde', () => {
+  const rodando = <T extends Item>(x: T) => ({ ...x, status: 'running', finished_at: null });
+  const corpo = comRunner('statuses-do-check').filter((s) => s.id === 2).map(rodando);
+  const jobs = comRunner('pipeline-1-jobs').map((j) => (j.id === 2 ? rodando(j) : j));
+  const { r } = consultar(comJobs(corpo, jobs));
+  assert.deepEqual([r.state, r.ok, r.fonte], ['pending', false, 'pipeline-job']);
+});

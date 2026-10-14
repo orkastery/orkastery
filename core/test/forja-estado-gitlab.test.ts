@@ -33,7 +33,8 @@ test('o vocabulário do GitHub não muda: status e check-run', () => {
 
 test('os jobs gravados do GitLab 19.4 têm estado conhecido pela regra', () => {
   const dir = join(__dirname, '..', '..', 'test', 'fixtures', 'forja', 'gitlab', '19.4-ci');
-  const jobs = (JSON.parse(readFileSync(join(dir, 'pipeline-1-jobs.json'), 'utf8')) as { corpo: Array<{ status: string }> }).corpo;
-  assert.ok(Array.isArray(jobs) && jobs.length > 0);
-  for (const j of jobs) assert.ok(['verde', 'vermelho'].includes(estadoDoCheck('pipeline-job', j.status, null)), j.status);
+  const jobs = (JSON.parse(readFileSync(join(dir, 'pipeline-1-jobs.json'), 'utf8')) as { corpo: Array<{ name: string; status: string }> }).corpo;
+  // O `opcional` falhou com `allow_failure: true`: a regra o deixa vermelho (falha fechada), como qualquer `failed`.
+  assert.deepEqual(jobs.map((j) => [j.name, estadoDoCheck('pipeline-job', j.status, null)]),
+    [['opcional', 'vermelho'], ['ork-verify', 'verde'], ['lint', 'verde']]);
 });
