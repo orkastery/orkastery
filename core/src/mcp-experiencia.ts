@@ -7,11 +7,13 @@ import { z } from 'zod';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { listarReservas, PainelDeReservas } from './roadmap-reservas';
 import { lerFabrica, PainelDaFabrica } from './fabrica-estado';
-import { criarPerfilShipMcp } from './mcp-ship';
+import { criarPerfilShipMcp, configDeRedeDoPerfil } from './mcp-ship';
 import { ambienteGitMcp, gitPassivoMcp, perfilGitMcp } from './mcp-git';
+import { TRANSPORTES_SHIP_MCP, ehTransporteFixado, type TransporteShipMcp } from './mcp-transportes';
+import { msg } from './locale';
 
 type Consulta = 'reservas' | 'fabrica';
-type Transporte = 'github-ssh' | 'bare-local';
+type Transporte = TransporteShipMcp;
 type Painel = PainelDeReservas | PainelDaFabrica;
 export const consultaExperienciaSchema = z.object({}).strict();
 type Registrar = <S extends z.AnyZodObject>(nome: string,
@@ -33,9 +35,12 @@ export function consultarPainel(raiz: string, tipo: Consulta) {
   } catch { return indisponivel(); }
 }
 
-/** Usa as mesmas guardas de transporte do núcleo; não cria autorização de SHIP. */
+/**
+ * Usa as mesmas guardas de transporte do núcleo; não cria autorização de SHIP. O fetch da consulta não leva o `-c`
+ * do transporte fixado: com ele, a consulta fica indisponível em vez de ir à rede pela config do usuário.
+ */
 function assinatura(raiz: string, transporte: Transporte): string {
-  criarPerfilShipMcp(raiz, transporte);
+  if (configDeRedeDoPerfil(criarPerfilShipMcp(raiz, transporte)).length) throw new ConsultaNoFixado(transporte);
   const g = path.join(raiz, '.git');
   perfilGitMcp(raiz, g, g, 'consulta-experiencia', []);
   const st = fs.statSync(raiz);
@@ -44,6 +49,9 @@ function assinatura(raiz: string, transporte: Transporte): string {
     gitPassivoMcp(raiz, ['config', '--null', '--list'])])).digest('hex');
 }
 
+/** O transporte fixado deixa a consulta indisponivel, com o motivo do catalogo para a pessoa. */
+class ConsultaNoFixado extends Error { constructor(readonly modo: Transporte) { super(msg().forja.transporteShip.consultaNoFixado(modo)); } }
+const indisponivelNoFixado = (modo: Transporte) => ({ estado: 'indisponivel', dados: null, motivo: msg().forja.transporteShip.consultaNoFixado(modo) });
 type Resultado = ReturnType<typeof apresentarConsulta> | ReturnType<typeof indisponivel>;
 const PRAZO_DA_CONSULTA_MS = 90000;
 
@@ -53,9 +61,10 @@ const PRAZO_DA_CONSULTA_MS = 90000;
  * prazo ou cancelamento da chamada matam o worker e o git que ele abriu.
  */
 export function criarLeitorExperiencia(raiz: string, transporte: Transporte, prazoMs = PRAZO_DA_CONSULTA_MS) {
-  let fixacao: string | null = null;
-  try { fixacao = assinatura(raiz, transporte); } catch { /* ferramenta continua descoberta, com lacuna explícita */ }
+  let fixacao: string | null = null, noFixado = false;
+  try { fixacao = assinatura(raiz, transporte); } catch (e) { noFixado = e instanceof ConsultaNoFixado; /* ferramenta continua descoberta, com lacuna explícita */ }
   return (tipo: Consulta, signal?: AbortSignal): Promise<Resultado> => new Promise(resolve => {
+    if (noFixado && ehTransporteFixado(transporte)) { resolve(indisponivelNoFixado(transporte)); return; }
     if (!fixacao || signal?.aborted) { resolve(indisponivel()); return; }
     const grupo = process.platform !== 'win32';
     const filho = spawn(process.execPath, [__filename, '--consulta-experiencia'], {
@@ -102,7 +111,7 @@ export function registrarConsultasExperiencia(registrar: Registrar, opcoes: {
 
 if (require.main === module && process.argv[2] === '--consulta-experiencia') {
   try {
-    const p = z.object({ raiz: z.string(), transporte: z.enum(['github-ssh', 'bare-local']),
+    const p = z.object({ raiz: z.string(), transporte: z.enum(TRANSPORTES_SHIP_MCP),
       fixacao: z.string().regex(/^[a-f0-9]{64}$/), tipo: z.enum(['reservas', 'fabrica']) }).strict()
       .parse(JSON.parse(fs.readFileSync(0, 'utf8')));
     if (assinatura(p.raiz, p.transporte) !== p.fixacao) throw Error('scope.changed');

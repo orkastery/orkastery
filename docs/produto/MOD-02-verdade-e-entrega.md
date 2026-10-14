@@ -28,9 +28,11 @@ verificado_em: 2026-09-24T21:30:00-03:00
 - [FEAT-006](FEAT-006-ship-com-push-provado.md) Ship com push provado
 - [FEAT-007](FEAT-007-worktree-e-leases.md) Worktree e leases por thread
 - [FEAT-022](FEAT-022-auditoria-e-divida.md) Auditoria periódica e board de dívida
+- [FEAT-039](FEAT-039-gitlab-com-paridade-ao-github.md) GitLab com paridade ao GitHub
 
 ## Histórico
 
 | Data | Mudança | Autor/revisor | Evidência ou decisão |
 | --- | --- | --- | --- |
 | 2026-09-24 | página criada no padrão v1.1 | Claude (agente) / Julio, revisão pendente | RM-044 |
+| 2026-10-14 | FEAT-039, GitLab com paridade ao GitHub (RM-065) | Claude (agente) / Julio, revisão pendente | branch `forja/gitlab` |

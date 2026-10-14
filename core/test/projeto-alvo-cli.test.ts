@@ -106,12 +106,22 @@ test('nome desconhecido e host sem cwd com dois projetos recusam na saida 4, com
     assert.equal(ork(usuario, gateway.dir, ['--version'], host).status, 0);
     assert.equal(ork(usuario, gateway.dir, ['ciclos'], host).status, 0);
     // RM-054: o `--projeto` do `network` e dele (github:dono/repo); a opcao chega intacta e nada e resolvido aqui.
+    // `gh` e `glab` de mentira na frente do PATH: nenhuma chamada chega a CLI de verdade desta maquina.
+    const falsas = dirTemporario('projeto-alvo-cli-clis');
+    const registro = path.join(falsas, 'chamadas.log');
+    for (const cli of ['gh', 'glab']) {
+      const alvo = path.join(falsas, cli);
+      fs.writeFileSync(alvo, `#!/bin/sh\necho "${cli}" >> "${registro}"\necho 'You are not logged in' >&2\nexit 1\n`, { mode: 0o755 });
+    }
+    const hermetico = { ...host, PATH: `${falsas}${path.delimiter}${process.env.PATH ?? ''}` };
     for (const args of [['network', 'roadmap', '--projeto', 'github:orkastery/orkastery'], ['--projeto=github:o/r', 'network', 'roadmap']]) {
-      const proprio = ork(usuario, gateway.dir, args, host);
+      const proprio = ork(usuario, gateway.dir, args, hermetico);
       assert.notEqual(proprio.status, 4, `${args.join(' ')}: a resolucao do projeto nao pode recusar ${proprio.stderr.slice(0, 200)}`);
       assert.doesNotMatch(proprio.stderr, /projeto\.(escolha|nenhum|desconhecido)/);
       assert.doesNotMatch(proprio.stderr, /^(comando desconhecido|unknown command): network/);
     }
+    assert.ok(fs.existsSync(registro), 'a leitura da forja passou pelas CLIs falsas');
+    fs.rmSync(falsas, { recursive: true, force: true });
   } finally { a.limpar(); gateway.limpar(); fs.rmSync(vazio, { recursive: true, force: true }); fs.rmSync(usuario, { recursive: true, force: true }); }
 });
 

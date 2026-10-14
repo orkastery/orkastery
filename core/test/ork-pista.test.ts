@@ -366,6 +366,16 @@ test('ci: a leitura casa com o ork ci status de verdade, com o CI desligado e co
   assert.throws(() => c.lerCi(rodar(c.argvDoCi(head)), 'f'.repeat(40), 5, 'evento'), /respondeu pelo commit/);
 });
 
+test('ci: a leitura aceita o ork.ci-status v1 e v2, e recusa outro contrato', () => {
+  const c = carregar('hooks/ci.ts');
+  const base = { required: true, ok: true, provider: 'github', repository: 'o/r', sha: SHA, context: 'ork-verify', state: 'success',
+    url: null, detail: 'verde' };
+  const v1 = c.lerCi(saida(0, { ...base, schema: 'ork.ci-status/v1' }), SHA, 5, 'consulta');
+  const v2 = c.lerCi(saida(0, { ...base, schema: 'ork.ci-status/v2', provider: 'gitlab', fonte: 'pipeline-job', produtor: 'gitlab-ci' }), SHA, 5, 'consulta');
+  assert.deepEqual([v1.estado, v2.estado], ['success', 'success']);
+  assert.throws(() => c.lerCi(saida(0, { ...base, schema: 'ork.ci-status/v3' }), SHA, 5, 'consulta'), /não é o contrato ork\.ci-status/);
+});
+
 type Chamada = { cadeia: string[]; no: ts.CallExpression; linha: number };
 function chamadasDoFonte(arquivo: string): { chamadas: Chamada[]; fonte: ts.SourceFile } {
   const texto = fs.readFileSync(arquivo, 'utf8');
