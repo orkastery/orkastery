@@ -1,0 +1,994 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm058n6",
+  "branch": "ork/ork-rm058n6-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-registro.ts",
+      "alegacao": "RM-058 N6 (T1, D7): o registro da N6 (fechamento.jsonl e relatorio.jsonl ao lado do log do arco) encadeia cada linha pelo sha256 da anterior, assina com subchave por domínio, exige arquivo privado do núcleo, descarta a cauda rasgada sob a trava do kernel própria e recusa trava ocupada; provado pelos testes EC8 e EC9.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function comRegistro<E, T>(' core/src/noctum-registro.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-encerrado.test.js | awk '/^ok [0-9]+ - EC[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=9 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T03:50:18.880Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-arco.ts",
+      "alegacao": "RM-058 N6 (T1, D2): o evento encerrado do log do arco é terminal: a situação vira encerrado (revogado vence), vigenteConferido recusa reserva de despacho e conferência de efeito com noctum.efeito.encerrado, a emenda e a autorização pendente são recusadas, reserva devolvida depois não reabre e um segundo encerrado emendado à mão reprova a leitura; os 31 testes A da N1 seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"if (d.encerramento) return 'encerrado';\" core/src/noctum-arco.ts && grep -qF 'nenhum despacho ou efeito novo passa, e o arco n' core/src/noctum-arco.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-encerrado.test.js | awk '/^ok [0-9]+ - EC[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=9 && f==0)}'",
+        "node --test-reporter=tap core/dist-test/test/noctum-arco.test.js | awk '/^ok [0-9]+ - A[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=31 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T03:50:22.922Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-envelope.ts",
+      "alegacao": "RM-058 N6 (T1): MOTIVOS_DE_RECUSA ganha noctum.efeito.encerrado, noctum.modo.sem-envelope e noctum.modo.lista-fechada, e os 18 testes E do contrato do envelope seguem verdes (o E9 mantém #Noctum fora dos modos de thread).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'noctum.efeito.encerrado', 'noctum.modo.sem-envelope', 'noctum.modo.lista-fechada',\" core/src/noctum-envelope.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-envelope.test.js | awk '/^ok [0-9]+ - E[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=18 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T03:50:25.781Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fila.ts",
+      "alegacao": "RM-058 N6 (T1): a fila do arco encerrado encerra com arco-encerrado e nenhum candidato (EC4), e os 17 testes F da fila da N2 seguem verdes.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"estado.situacao === 'encerrado'\" core/src/noctum-fila.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-fila.test.js | awk '/^ok [0-9]+ - F[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=17 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T03:50:28.033Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-encerrado.test.ts",
+      "alegacao": "RM-058 N6 (T1): o arquivo traz os testes EC1 a EC9 do arco encerrado e do registro da N6, inclusive a trava ocupada que não grava nada.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('EC[0-9]+:\" core/test/noctum-encerrado.test.ts)\" -ge 9 && grep -qF 'noctum.registro.ocupado' core/test/noctum-encerrado.test.ts && grep -qF 'noctum.efeito.encerrado' core/test/noctum-encerrado.test.ts"
+      ],
+      "criadoEm": "2026-10-13T03:50:30.474Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-n6-apoio.ts",
+      "alegacao": "RM-058 N6 (T1): o apoio comum dos testes da N6 assina o envelope simulado do Telegram no endereço do arco com a chave do ingresso simulado do processo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function assinadoPara(' core/test/noctum-n6-apoio.ts && grep -qF 'ALVO_DO_NOCTUM, enderecoDoArco(arco)' core/test/noctum-n6-apoio.ts"
+      ],
+      "criadoEm": "2026-10-13T03:50:32.522Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-arco.test.ts",
+      "alegacao": "RM-058 N6 (T1): o A3 da N1 lista o encerrarArco e o MOTIVOS_DE_ENCERRAMENTO entre os exports do módulo do arco, com o comentário de que o fechamento nunca grava autorização, e os 31 testes A seguem verdes.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"'encerrarArco', 'enderecoDoArco'\" core/test/noctum-arco.test.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-arco.test.js | awk '/^ok [0-9]+ - A[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=31 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T03:50:34.912Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-medicao.ts",
+      "alegacao": "RM-058 N6 (T2, D4, D5 e D9): o consumo do arco em minutos-de-sessao (do phase_dispatch ao resultado, para cima, parcial em voo), tokens (message.usage deduplicado por message.id com subagentes; total_tokens do rollout do codex) e percentual-da-cota (rate_limits do codex como teto superior; janela renovada no meio e conta claude-bg viram lacuna) é medido sem estimativa; reserva pendente, ledger, transcrição ou rollout ausente e linha ilegível são lacuna, nunca zero; provado pelos testes ME1 a ME12.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'export function medirArco(raiz: string, estado: EstadoDoArco' core/src/noctum-medicao.ts && grep -qF 'tetoSuperior: true' core/src/noctum-medicao.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-medicao.test.js | awk '/^ok [0-9]+ - ME[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=12 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T03:58:37.585Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-arco.ts",
+      "alegacao": "RM-058 N6 (T2, D5): a reserva de despacho confere o consumo medido de cada teto fora de sessoes (pedido.medido): admite abaixo do teto, recusa com noctum.orcamento.esgotado quando alcançado e com noctum.orcamento.sem-medicao sem medida, em outra unidade ou com lacuna (ME8); sessoes segue a contagem da N2.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const medido = pedido.medido?.[chave];' core/src/noctum-arco.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-medicao.test.js | awk '/^ok [0-9]+ - ME[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=12 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T03:58:40.415Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-medicao.test.ts",
+      "alegacao": "RM-058 N6 (T2): o arquivo traz os testes ME1 a ME12 da medição, com a janela renovada no meio e a reserva pendente como lacuna.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('ME[0-9]+:\" core/test/noctum-medicao.test.ts)\" -ge 12 && grep -qF 'renovou no meio do arco' core/test/noctum-medicao.test.ts && grep -qF 'reserva pendente' core/test/noctum-medicao.test.ts"
+      ],
+      "criadoEm": "2026-10-13T03:58:45.960Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-arco.test.ts",
+      "alegacao": "RM-058 N6 (T2): o A28 da N2 confere a recusa nova sem medida (o consumo nessa unidade não foi medido), e os 31 testes A seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'o consumo nessa unidade n' core/test/noctum-arco.test.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-arco.test.js | awk '/^ok [0-9]+ - A[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=31 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T03:58:48.062Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fechamento.ts",
+      "alegacao": "RM-058 N6 (T3, D2, D6 e D8): o arco fecha por revogado, hora, custo e fila vazia, nessa ordem; grava o encerrado antes de tudo, depois o retrato com o consumo, a fila e o estado de retomada (trabalhos com fase, branch e ponta, reservas em voo, reconciliação pendente e instrução) e pede a parada de cada sessão em voo uma vez (claude-bg pelo controle da conta, codex sem controle, reserva sem id sem parada), confirmada no tique seguinte; reserva devolvida depois não reabre, subteto esgotado e lacuna não fecham; provado pelos testes FE1 a FE11.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function fecharSeDevido(carregado: ManifestoCarregado, arco: string' core/src/noctum-fechamento.ts && grep -qF 'export function trabalhosDoArco(fatos: FatosDaFila)' core/src/noctum-fechamento.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-fechamento.test.js | awk '/^ok [0-9]+ - FE[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=11 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:06:40.953Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-fechamento.test.ts",
+      "alegacao": "RM-058 N6 (T3): o arquivo traz os testes FE1 a FE11 do fechamento, com a reserva pendente reconciliada antes do arco novo e a sessão do codex sem controle de parada.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('FE[0-9]+:\" core/test/noctum-fechamento.test.ts)\" -ge 11 && grep -qF 'reconciliadas antes do primeiro despacho do arco novo' core/test/noctum-fechamento.test.ts && grep -qF 'sem-controle' core/test/noctum-fechamento.test.ts"
+      ],
+      "criadoEm": "2026-10-13T04:06:43.448Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-relatorio.ts",
+      "alegacao": "RM-058 N6 (T4, D3, D10 e D11): o relatório da manhã vence no primeiro HH:MM do fuso no início ou depois (com horário de verão), traz os sete grupos da página a partir dos fatos do núcleo (entregue só com a prova do push, #HITL só no lote do dono, a supervisão da N4 como fonte não lida), vai em páginas de até 3900 caracteres com o arco e a versão, sai pelo transporte local fora do git com recibo por página, repete a falha explícita até 5 vezes com 5 min entre elas, nunca repete às cegas a tentativa sem desfecho (só o reenvio do dono), para depois de 24 h, deixa a lacuna sem recibo no retrato e corrige explicitamente na versão seguinte a entrega revertida; provado pelos testes RL1 a RL14.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'export function entregarRelatorioSeDevido(carregado: ManifestoCarregado, arco: string' core/src/noctum-relatorio.ts && grep -qF 'export function vencimentoDoRelatorio(' core/src/noctum-relatorio.ts && grep -qF 'MAXIMO_DE_TENTATIVAS = 5' core/src/noctum-relatorio.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-relatorio.test.js | awk '/^ok [0-9]+ - RL[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=14 && f==0)}'",
+        "node --test-reporter=tap core/dist-test/test/horario-lint.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:32:37.013Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-relatorio.test.ts",
+      "alegacao": "RM-058 N6 (T4): o arquivo traz os testes RL1 a RL14 do relatório da manhã, com o vencimento no horário de verão de America/New_York e a tentativa sem desfecho que nunca se repete às cegas.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('RL[0-9]+:\" core/test/noctum-relatorio.test.ts)\" -ge 14 && grep -qF 'America/New_York' core/test/noctum-relatorio.test.ts && grep -qF 'nada às cegas' core/test/noctum-relatorio.test.ts"
+      ],
+      "criadoEm": "2026-10-13T04:32:39.313Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-modo.ts",
+      "alegacao": "RM-058 N6 (T5, D1, D3, D12 e D13): #Noctum só vale com algum arco vigente (sem ele, recusa noctum.modo.sem-envelope dizendo como abrir; thread em #Noctum recusa com noctum.modo.lista-fechada), o ingresso dos gateways autoriza ou revoga pelo envelope assinado com o recibo tipado ork.noctum-ingresso/v1, o retrato do arco traz consumo, fila, fechamento, relatório e lacunas, e o tique faz fechamento, passo e relatório nessa ordem; provado pelos testes MO1 a MO10.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function aceitarModoNoctum(raiz: string | null' core/src/noctum-modo.ts && grep -qF 'export function tiqueDoArco(carregado: ManifestoCarregado' core/src/noctum-modo.ts && grep -qF 'export const GRAMATICA_DO_NOCTUM' core/src/noctum-modo.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-modo.test.js | awk '/^ok [0-9]+ - MO[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=10 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:47:54.840Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "RM-058 N6 (T5): o comando ork noctum tem propor (grava a proposta e diz como autorizar, sem autorizar), responder (o envelope assinado do gateway pela entrada, argv conferido contra ele), status, tique e relatorio (recibo do terminal só em terminal interativo, reenvio pedido pelo dono), e nenhum subcomando autoriza pelo terminal (MO5, MO6, MO7, MO9 e MO10).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'export function comandoNoctum(args: ArgsDoNoctum): number' core/src/noctum-cli.ts && grep -qF 'Nenhum subcomando autoriza pelo terminal' core/src/noctum-cli.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-modo.test.js | awk '/^ok [0-9]+ - MO[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=10 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:47:58.243Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "RM-058 N6 (T5, D1): o CLI despacha ork noctum, o ork modos --do-pedido com #Noctum recusa tipado sem envelope vigente (código 2, nunca o modo padrão em silêncio) e aceita com ele devolvendo os arcos, e ork thread new --modo noctum recusa (MO1 e MO2).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"case 'noctum':\" core/src/index.ts && grep -qF 'if (tagNoctumNoPedido(pedido)) {' core/src/index.ts && grep -qF 'ehModoNoctum(brutoModo)' core/src/index.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-modo.test.js | awk '/^ok [0-9]+ - MO[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=10 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:48:01.164Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "RM-058 N6 (T5): a ajuda do CLI declara ork noctum propor, responder, status, tique e relatorio em pt-BR e em inglês, com as mesmas cabeças e flags, e os testes da ajuda inglesa seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '  noctum propor --arquivo <envelope.json>   Prop' core/src/locale-ajuda.ts && grep -qF '  noctum relatorio <arc> [--json]' core/src/locale-ajuda.ts",
+        "node --test-reporter=tap core/dist-test/test/locale-ajuda.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:48:03.728Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "RM-058 N6 (T5): a referência do CLI em pt-BR tem a seção Modo #Noctum (RM-058) com os cinco subcomandos, e a paridade com o parser e a ajuda (rm044) segue verde.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '## Modo #Noctum (RM-058)' docs/referencia/cli.md && grep -qF '| `ork noctum tique <arco> [--json]` |' docs/referencia/cli.md",
+        "node --test-reporter=tap core/dist-test/test/rm044-paridade-cli-md.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:48:06.146Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "RM-058 N6 (T5): a referência do CLI em inglês tem a seção #Noctum mode (RM-058) espelhada da pt-BR, e a paridade entre as duas (locale F3a referencia) segue verde.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '## #Noctum mode (RM-058)' docs/referencia/cli.en.md",
+        "node --test-reporter=tap core/dist-test/test/locale-f3a-referencia.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:48:08.552Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-modo.test.ts",
+      "alegacao": "RM-058 N6 (T5): o arquivo traz os testes MO1 a MO10 do modo, do ingresso, do retrato, do tique e do CLI, com o #Noctum que nunca cai no modo padrão e a thread nova recusada pela lista fechada.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('MO[0-9]+:\" core/test/noctum-modo.test.ts)\" -ge 10 && grep -qF 'recusa pela lista fechada' core/test/noctum-modo.test.ts && grep -qF 'nunca cai no modo padr' core/test/noctum-modo.test.ts"
+      ],
+      "criadoEm": "2026-10-13T04:48:10.892Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "RM-058 N6 (T5): a fixture da ajuda pt-BR foi regerada pelo gerarCasos com a ajuda nova, e só as oito linhas do ork noctum entraram nos cinco casos de ajuda; o snapshot locale pt-BR F2a segue verde.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'noctum propor --arquivo <envelope.json>' core/test/fixtures/locale-f2a-pt-BR.json",
+        "node --test-reporter=tap core/dist-test/test/locale-f2a-snapshot.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:48:13.365Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-noctum.ts",
+      "alegacao": "RM-058 N6 (T6, D12): o MCP tem ork_noctum_propor (proposta sem autorização), ork_noctum_autorizar e ork_noctum_revogar (diálogo nativo do host pela elicitação do servidor, só identificadores no esquema fechado, recusa antes de escrever sem formulário no cliente) e ork_noctum_status (somente leitura); provado pelos testes MN1 a MN8.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function registrarFerramentasDoNoctum(registrar: Registrar, o: OpcoesDoNoctumNoMcp)' core/src/mcp-noctum.ts && grep -qF 'inputSchema: z.object({ arco, envelopeSha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),' core/src/mcp-noctum.ts",
+        "node --test-reporter=tap core/dist-test/test/mcp-noctum.test.js | awk '/^ok [0-9]+ - MN[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=8 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:54:33.163Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/mcp-noctum.test.ts",
+      "alegacao": "RM-058 N6 (T6): o arquivo traz os testes MN1 a MN8 das ferramentas do arco no MCP, com o cliente do SDK contra o servidor real, inclusive a resposta nos argumentos recusada sem abrir o diálogo.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('MN[0-9]+:\" core/test/mcp-noctum.test.ts)\" -ge 8 && grep -qF 'o diálogo nem abre' core/test/mcp-noctum.test.ts"
+      ],
+      "criadoEm": "2026-10-13T04:54:39.090Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/projeto-alvo-mcp.test.ts",
+      "alegacao": "RM-058 N6 (T6): o teste do projeto-alvo no MCP conta 40 ferramentas, nomeia as quatro ork_noctum_* e confere que todas aceitam projeto com o esquema fechado.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"assert.equal(tools.length, 40, 'nenhuma tool nova no catalogo alem das quinze nomeadas');\" core/test/projeto-alvo-mcp.test.ts",
+        "node --test-reporter=tap core/dist-test/test/projeto-alvo-mcp.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T04:54:44.190Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "adapters/hermes/hitl-ingress/__init__.py",
+      "alegacao": "RM-058 N6 (T7, D12): o ingresso do Telegram do Hermes recebe /ork noctum <arco> autorizar <sha256> e /ork noctum <arco> revogar com as conferências do /ork gate, assina ork.hitl-answer/v2 no endereço noctum / arco:<arco>, entrega a ork noctum responder pela entrada e só confirma com o recibo tipado do mesmo arco; a ponta a ponta com o ork real autoriza o arco (GW2 e GW4).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '/ork noctum ([a-z0-9][a-z0-9-]{0,62}) (autorizar [a-f0-9]{64}|revogar)' adapters/hermes/hitl-ingress/__init__.py && grep -qF \"NOCTUM_ALVO, NOCTUM_ENDERECO = 'noctum', 'arco:'\" adapters/hermes/hitl-ingress/__init__.py && grep -qF \"'noctum', 'responder', pedido[len(NOCTUM_ENDERECO):],\" adapters/hermes/hitl-ingress/__init__.py",
+        "node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ok [0-9]+ - GW[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T05:00:28.151Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "adapters/hermes/test/hitl_noctum_test.py",
+      "alegacao": "RM-058 N6 (T7): o teste do Hermes traz os seis casos do /ork noctum: a assinatura no endereço arco:<arco> e o argv do responder, a revogação, o comando malformado, o usuário fora da lista e a mensagem velha, o recibo de outro arco ou contrato e o ato que já valia.",
+      "negativa": false,
+      "verificar": [
+        "grep -cE '^    async def test_' adapters/hermes/test/hitl_noctum_test.py | grep -qx 6 && grep -qF 'arco:arco-simulado' adapters/hermes/test/hitl_noctum_test.py",
+        "node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ok [0-9]+ - GW[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T05:00:31.185Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/src/hitl-ingress.ts",
+      "alegacao": "RM-058 N6 (T7, D12): o ingresso do Telegram do OpenClaw recebe /ork noctum <arco> autorizar <sha256> e revogar, assina no endereço noctum / arco:<arco> com a conta autorizada, entrega a ork noctum responder e só responde ao dono o que o recibo tipado do mesmo arco diz; a ponta a ponta com o ork real autoriza o arco com a conta (GW3 e GW5).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'async function noctumIngress(arco: string, resposta: string' adapters/openclaw/src/hitl-ingress.ts && grep -qF \"receipt.contrato !== 'ork.noctum-ingresso/v1'\" adapters/openclaw/src/hitl-ingress.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ok [0-9]+ - GW[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T05:00:34.537Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/dist/hitl-ingress.js",
+      "alegacao": "RM-058 N6 (T7): o dist do OpenClaw foi recompilado pelo construir.sh com o /ork noctum, igual à fonte, e a cópia da gramática no dist confere com o núcleo (GW1).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'async function noctumIngress(arco, resposta, m, denied)' adapters/openclaw/dist/hitl-ingress.js",
+        "node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ok [0-9]+ - GW[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T05:00:37.090Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/test/hitl-noctum.test.mjs",
+      "alegacao": "RM-058 N6 (T7): o teste do OpenClaw traz os quatro casos do /ork noctum: a assinatura com a conta e o argv do responder, a revogação e o ato que já valia, o comando malformado e a origem recusada, e o recibo de outro arco ou contrato.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('noctum:\" adapters/openclaw/test/hitl-noctum.test.mjs)\" -ge 4 && grep -qF 'arco:arco-simulado' adapters/openclaw/test/hitl-noctum.test.mjs",
+        "node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ok [0-9]+ - GW[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T05:00:40.134Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-gateways.test.ts",
+      "alegacao": "RM-058 N6 (T7): os testes GW1 a GW5 conferem a gramática do /ork noctum igual no núcleo e nas cópias dos dois gateways, rodam os testes de cada gateway e levam a mensagem assinada pelo Hermes e pelo OpenClaw até o ork real numa raiz descartável, onde o arco é autorizado.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('GW[0-9]+:\" core/test/noctum-gateways.test.ts)\" -ge 5 && grep -qF 'ponta a ponta, a mensagem assinada pelo Hermes autoriza o arco no ork real' core/test/noctum-gateways.test.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ok [0-9]+ - GW[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T05:00:43.439Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "adapters/hermes/README.md",
+      "alegacao": "RM-058 N6 (T7): o README do Hermes descreve o /ork noctum no ingresso do Telegram, o endereço assinado, o recibo tipado e o comando de verificação.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '## Arco #Noctum pelo Telegram (RM-058)' adapters/hermes/README.md && grep -qF 'hitl_noctum_test.py' adapters/hermes/README.md"
+      ],
+      "criadoEm": "2026-10-13T05:00:45.328Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/README.md",
+      "alegacao": "RM-058 N6 (T7): o README do OpenClaw descreve o /ork noctum no ingresso do Telegram com a conta autorizada e o comando de verificação.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'adapters/openclaw/test/hitl-noctum.test.mjs' adapters/openclaw/README.md && grep -qF '/ork noctum <arco> autorizar <sha256>' adapters/openclaw/README.md"
+      ],
+      "criadoEm": "2026-10-13T05:00:47.179Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/hermes/README.md",
+      "alegacao": "RM-058 N6 (merge da origin/main): a variante inglesa do README do Hermes ganhou a seção do arco #Noctum pelo Telegram, com a estrutura do original linha a linha (D5 da F3b: mesmas linhas, títulos, trechos entre crases e alvos de link), e a paridade das variantes segue verde.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '## #Noctum arc through Telegram (RM-058)' core/assets/adapters-en/hermes/README.md && grep -qF 'hitl_noctum_test.py' core/assets/adapters-en/hermes/README.md",
+        "node --test-reporter=tap core/dist-test/test/locale-skills.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T18:15:59.498Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/variantes-en.json",
+      "alegacao": "RM-058 N6 (merge da origin/main): o sha256 registrado do original do README do Hermes é o da versão com a seção do arco #Noctum, de onde a variante inglesa foi traduzida.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"\\\"adapters-en/hermes/README.md\\\": \\\"$(sha256sum adapters/hermes/README.md | cut -d' ' -f1)\\\"\" core/test/fixtures/variantes-en.json",
+        "node --test-reporter=tap core/dist-test/test/locale-skills.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T18:16:02.241Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-gateways.test.ts",
+      "alegacao": "RM-058 N6 (GO-FIX da T7): o GW3 roda o teste do OpenClaw sem a marca NODE_TEST_CONTEXT do runner pai, e os cinco GW passam também sob node --test com vários arquivos, como na suíte inteira (antes, o neto falava o protocolo binário do runner e o GW3 contava zero).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'delete env.NODE_TEST_CONTEXT;' core/test/noctum-gateways.test.ts",
+        "node --test --test-reporter=tap core/dist-test/test/noctum-gateways.test.js core/dist-test/test/noctum-encerrado.test.js | awk '/^ok [0-9]+ - GW[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T18:16:04.481Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-relatorio.ts",
+      "alegacao": "RM-058 N6 (achado do ensaio da T8): no arco fechado, o trabalho em curso diz como retomar (conferir a sessão que o fechamento mandou parar e retomar pela prova mais adiantada) em vez de \"sendo conduzida agora\", e cada parada sai como \"no fechamento, ...\" com o desfecho em palavras (RL15).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'conferir a sessão que o fechamento mandou parar e retomar pela prova mais adiantada'\" core/src/noctum-relatorio.ts && grep -qF '`• no fechamento, ${p}`' core/src/noctum-relatorio.ts",
+        "grep -qF \"test('RL15: no arco fechado, o trabalho em curso não diz que segue conduzido\" core/test/noctum-relatorio.test.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-relatorio.test.js | awk '/^ok [0-9]+ - RL[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=15 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T18:37:02.434Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fechamento.ts",
+      "alegacao": "RM-058 N6 (achado do ensaio da T8): a parada sem id, sem controle ou que falhou sai em palavras para o dono, nunca o código cru, e o fechamento por fila vazia diz entrega registrada (ship_done), não entrega provada (FE12).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"'sem-id': () => 'reserva pendente sem id de sessão, nada a parar; reconciliar antes do arco novo',\" core/src/noctum-fechamento.ts && grep -qF 'todo trabalho do envelope tem a entrega registrada (ship_done)' core/src/noctum-fechamento.ts",
+        "grep -qF \"test('FE12: a parada sem id, sem controle ou que falhou vem em palavras\" core/test/noctum-fechamento.test.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-fechamento.test.js | awk '/^ok [0-9]+ - FE[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=12 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T18:37:04.549Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/ensaio-noctum.cjs",
+      "alegacao": "RM-058 N6 (T8, D13): o ensaio do piloto monta repositórios descartáveis com fila fora de qualquer projeto, isola HOME, CLAUDE_CONFIG_DIR, CODEX_HOME e o diretório do usuário, troca as chaves do ingresso por chaves desta execução, desliga as publicações em segundo plano e roda sete cenários com relógio controlado sobre o core/dist (ligar o modo, arco curto com falhas, prazo e fuso, teto com sessões em voo, teto medido, sem recibo e reenvio, correção explícita), com runtime, parada e canal simulados; sai 0 só com todas as expectativas.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"const CONTRATO = 'ork.noctum-ensaio/v1';\" core/scripts/ensaio-noctum.cjs && grep -qF 'chave-do-ensaio-SIMULADA-' core/scripts/ensaio-noctum.cjs && grep -qF \"SEM_PUBLICAR = { ORK_FABRICA_PUBLICAR: '0', ORK_REDE_PUBLICAR: '0' }\" core/scripts/ensaio-noctum.cjs",
+        "node core/scripts/ensaio-noctum.cjs --resumo | grep -qF 'Ensaio aprovado: 7 cenário(s),'"
+      ],
+      "criadoEm": "2026-10-13T18:42:42.887Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-ensaio-piloto.test.ts",
+      "alegacao": "RM-058 N6 (T8): o aceite da N6 vira teste: EP1 a EP7 rodam o ensaio num processo filho e provam prazo e fuso, teto com sessões em voo (sem retry nem troca de conta) e teto medido com lacuna, ausência de recibo e reenvio sem duplicação, correção explícita, cenário isolado pelo argumento e a sabotagem do canal que duplica, que tem de reprovar.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('EP[0-9]+:\" core/test/noctum-ensaio-piloto.test.ts)\" -ge 7 && grep -qF \"'--sabotar', 'duplicar-envio'\" core/test/noctum-ensaio-piloto.test.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-ensaio-piloto.test.js | awk '/^ok [0-9]+ - EP[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=7 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T18:42:46.333Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "RM-058 N6 (T9): a página da RM-058 tem a seção N6 (fechamento, medição, relatório, registro, o transporte que liga o modo, o tique, o ensaio do piloto, os limites ditos e o que falta do dono para o primeiro piloto, com a evidência dos testes), o frontmatter com os testes n6 e o sdlc da ork-rm058n6, as frases que diziam que o transporte não existia ajustadas, e passa no docs verificar, no markdownlint e na checagem de links.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '### N6: fechamento, relatório e o transporte que liga o modo' docs/roadmap/RM-058-modo-noctum.md && grep -qF '**O que falta do dono para o primeiro piloto**' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'thread: ork-rm058n6' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'noctum-ensaio-piloto.test.ts (EP1 a EP7)' docs/roadmap/RM-058-modo-noctum.md",
+        "node core/dist/index.js docs verificar --pr && core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-058-modo-noctum.md docs/roadmap/README.md CHANGELOG.md && node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-10-13T18:49:20.568Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "RM-058 N6 (T9): o índice do roadmap e a tabela de estado da RM-058 foram regerados pelo ork docs sincronizar e batem com o frontmatter da página.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE '^\\| \\[RM-058\\]\\(RM-058-modo-noctum\\.md\\) \\| Modo #Noctum' docs/roadmap/README.md && node core/dist/index.js docs sincronizar --so RM-058 | grep -qF 'bate com o ledger e o git'"
+      ],
+      "criadoEm": "2026-10-13T18:49:22.594Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-058 N6 (T9): o CHANGELOG tem, em Não publicado, a linha da fatia N6 (fechamento, medição, relatório da manhã com recibo, o transporte que liga o modo e o ensaio do piloto), e o checador do CHANGELOG aceita o PR contra a origin/main.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '**#Noctum, fatia N6: fechamento, relatório da manhã e o transporte que liga o modo**' CHANGELOG.md && core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md",
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-13T18:49:24.940Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-modo.ts",
+      "alegacao": "RM-058 N6 (GO-FIX do verify): o textoDoRetrato passa cada campo ISO pelo formatador com um nome que o lint do horário reconhece (formatarNoFuso), e o horario-lint volta a passar como na baseline.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const formatarNoFuso = (iso: string) => formatarDataHora(iso,' core/src/noctum-modo.ts && ! grep -qE '[$][{]dh[(]' core/src/noctum-modo.ts",
+        "node --test-reporter=tap core/dist-test/test/horario-lint.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:17:32.289Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/mcp-grafo.test.ts",
+      "alegacao": "RM-058 N6 (GO-FIX do verify): o KG5 conta as 40 ferramentas do servidor do dono (as quatro ork_noctum_* registradas antes das do grafo), e a flag do grafo continua só acrescentando as cinco dele no fim.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'assert.equal(sem.length, 40);' core/test/mcp-grafo.test.ts && grep -qF 'com.slice(40).map((t) => t.name)' core/test/mcp-grafo.test.ts",
+        "node --test-reporter=tap core/dist-test/test/mcp-grafo.test.js | awk '/^ok [0-9]+ - KG5 flag:/{p++} /^not ok/{f++} END{exit !(p>=3 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:17:35.082Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/ensaio-noctum.cjs",
+      "alegacao": "RM-058 N6 (GO-FIX 2, achados do CHECK no ensaio): o ensaio limpa as variáveis que levariam o git para outro repositório ou outra configuração (como o GIT_DIR que um hook exporta), põe à frente do PATH sentinelas de claude, codex, gh, glab, openclaw e hermes e prova em cada cenário que nenhuma rodou, e a expectativa do canal conta a mensagem em vez de passar no vazio.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"const SENTINELAS = ['claude', 'codex', 'gh', 'glab', 'openclaw', 'hermes'];\" core/scripts/ensaio-noctum.cjs && grep -qF \"'GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR'\" core/scripts/ensaio-noctum.cjs && grep -qF \"canal.doArco('arco-recibo').length === 1 && canal.doArco('arco-recibo').every(\" core/scripts/ensaio-noctum.cjs",
+        "GIT_DIR=/nao/existe node core/scripts/ensaio-noctum.cjs --cenario ligar-o-modo --resumo | grep -qF 'Ensaio aprovado: 1 cenário(s),'"
+      ],
+      "criadoEm": "2026-10-13T19:20:03.719Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fechamento.ts",
+      "alegacao": "RM-058 N6 (GO-FIX 3, achados do CHECK): no teto em sessões o arco fecha só quando nenhuma sessão admitida segue em voo (as contadas terminam, nada novo passa); a reserva pendente para pelo id que a falha do runtime disse no ledger da thread, também na thread que o arco abriu para o pedido; revogado, hora e teto em sessões vêm antes da fila e da medição, e a medição que falha não segura a hora; o retrato que faltou é gravado no tique seguinte; medida que não é número não prova o teto; o teto superior sai como teto superior (FE2, FE7, FE13 a FE15).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'if (estado.consumo.arco >= teto.valor && emVoo === 0) {' core/src/noctum-fechamento.ts && grep -qF 'function threadDaReserva(raiz: string, estado: EstadoDoArco, d: DespachoDoArco): string | null {' core/src/noctum-fechamento.ts && grep -qF 'if (!lerFechamento(raiz, arco).retrato) gravarRetrato(' core/src/noctum-fechamento.ts && grep -qF 'c.valor !== null && Number.isFinite(c.valor) && c.valor >= teto.valor' core/src/noctum-fechamento.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-fechamento.test.js | awk '/^ok [0-9]+ - FE[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=15 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:30:45.653Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-modo.ts",
+      "alegacao": "RM-058 N6 (GO-FIX 3, achado do CHECK): o tique isola cada etapa: a recusa tipada do fechamento ou do passo (como o registro do fechamento adulterado) vira falha no resultado, o relatório da manhã sai assim mesmo, e o erro que não é recusa sobe só depois do relatório (MO11).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"export interface FalhaDoTique { etapa: 'fechamento' | 'passo'; motivo: string; detalhe: string }\" core/src/noctum-modo.ts && grep -qF 'if (erro !== null) throw erro;' core/src/noctum-modo.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-modo.test.js | awk '/^ok [0-9]+ - MO[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=11 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:30:48.988Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "RM-058 N6 (GO-FIX 3): o ork noctum tique imprime cada falha de etapa e sai 1 quando há falha, para o cron do dono ver, sem deixar de entregar o relatório (MO11).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'return r.falhas.length ? 1 : 0;' core/src/noctum-cli.ts && grep -qF 'falha no ${f.etapa}: ${f.detalhe}' core/src/noctum-cli.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-modo.test.js | awk '/^ok [0-9]+ - MO11:/{p++} /^not ok/{f++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:30:51.450Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-medicao.ts",
+      "alegacao": "RM-058 N6 (GO-FIX 4, achados do CHECK): o teto em percentual da cota nunca admite o claude-bg (lacuna na reserva, mesmo com o zero provado de um escopo sem sessão); instante que não é data e medida que não é número viram lacuna; o teto superior chega à reserva; o ledger de cada thread é lido uma vez por medição e as transcrições vêm uma de cada vez (ME13 a ME15).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"c.unidade === 'percentual-da-cota' && runtime === 'claude-bg'\" core/src/noctum-medicao.ts && grep -qF '!Number.isFinite(duracao)' core/src/noctum-medicao.ts && grep -qF 'const lidas = function* (): Generator<Buffer> {' core/src/noctum-medicao.ts && grep -qF 'const ledgers = new Map<string, EventoLedger[] | null>();' core/src/noctum-medicao.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-medicao.test.js | awk '/^ok [0-9]+ - ME[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=15 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:36:07.447Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-arco.ts",
+      "alegacao": "RM-058 N6 (GO-FIX 4): a reserva com teto em unidade contínua recusa sem medição a medida que não é número (NaN nunca fica abaixo do teto) e, alcançado o teto, diz o teto superior como teto superior, com o percentual arredondado (ME14); os 31 testes A seguem verdes.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"'lacuna' in medido || !Number.isFinite(medido.valor)\" core/src/noctum-arco.ts && grep -qF '(teto superior: inclui uso de fora do arco)' core/src/noctum-arco.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-arco.test.js | awk '/^ok [0-9]+ - A[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=31 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:36:10.939Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-relatorio.ts",
+      "alegacao": "RM-058 N6 (GO-FIX 5, achados do CHECK): o relatório mede só quando compõe uma versão (e sem tetos fora de sessões não lê transcrição nem rollout); a versão segue no canal com que foi composta, e a emenda que troca o canal não a reenvia; só a entrega revertida ou sem a prova do push vira correção, nunca a lacuna; o transporte que nem sobe é falha, não envio incerto; as decisões de antes da emenda continuam; as sessões abertas se separam das reservas pendentes; #HITL só com o id do lote, e a pendência fora do lote vai ao grupo do dono; o terminal ocupado ainda mostra as páginas (RL16 a RL19).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'if (r.error && !r.pid) return' core/src/noctum-relatorio.ts && grep -qF 'const doCanal = atual.canal;' core/src/noctum-relatorio.ts && grep -qF '{ semCusto: true }' core/src/noctum-relatorio.ts && grep -qF 'if (doDono && !lote && t.thread) foraDoLote.push(' core/src/noctum-relatorio.ts && grep -qF 'fatos.impedidos.find(i => i.trabalho === trabalho && i.causa === CAUSA_REVERTIDA)' core/src/noctum-relatorio.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-relatorio.test.js | awk '/^ok [0-9]+ - RL[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=19 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:43:50.243Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-modo.ts",
+      "alegacao": "RM-058 N6 (GO-FIX 5): o retrato do arco (ork noctum status) mede pelas unidades dos tetos, e com todos em sessões não lê transcrição nem rollout; os testes MO seguem verdes.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'const medicao = medidorDoRelatorio(opcoes, conteudo)(raiz, estado, quando);' core/src/noctum-modo.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-modo.test.js | awk '/^ok [0-9]+ - MO[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=11 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:43:52.837Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-arco.ts",
+      "alegacao": "RM-058 N6 (GO-FIX 6, achados do CHECK): autorizar de novo o arco encerrado ou expirado recusa tipado (noctum.efeito.encerrado ou noctum.efeito.expirado), e o gateway responde ao dono em vez de um ok mudo; autorizar e revogar devolvem, decidido sob o lock do arco, se o ato já valia (EC10).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"if (atual.situacao === 'encerrado') {\" core/src/noctum-arco.ts && grep -qF 'quando = new Date().toISOString(), info?: { repetida: boolean }): EstadoDoArco {' core/src/noctum-arco.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-encerrado.test.js | awk '/^ok [0-9]+ - EC[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=10 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:52:40.382Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-modo.ts",
+      "alegacao": "RM-058 N6 (GO-FIX 6): o recibo do ingresso diz repetida pelo caminho que o ato tomou sob o lock do arco, e não por uma leitura de antes: duas entregas do mesmo ato ao mesmo tempo dão uma confirmação só (EC10).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const info = { repetida: false };' core/src/noctum-modo.ts && ! grep -qF 'const antes = lerArco(raiz, arco, quando);' core/src/noctum-modo.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-encerrado.test.js | awk '/^ok [0-9]+ - EC10:/{p++} /^not ok/{f++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:52:43.252Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "RM-058 N6 (GO-FIX 6, achado do CHECK): o arquivo de proposta que não se lê e a entrada do ingresso malformada (ou o argv que diverge dela) saem como recusa tipada com código 2, e não como erro genérico com código 1 (MO12, MO5).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'noctum.envelope.invalido: o pedido de abertura ${arquivo} não se lê' core/src/noctum-cli.ts && grep -qF 'noctum.origem.sem-prova: ${(e as Error).message.slice(0, 300)}' core/src/noctum-cli.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-modo.test.js | awk '/^ok [0-9]+ - MO[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=12 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:52:46.519Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "adapters/hermes/hitl-ingress/__init__.py",
+      "alegacao": "RM-058 N6 (GO-FIX 6, achado do CHECK): o ingresso do Hermes só confirma o /ork noctum com o recibo do MESMO ato pedido e, ao autorizar, do mesmo hash; o recibo de outro ato ou de outro hash não confirma (o teste do Hermes segue com 6 casos, GW2).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"and ato in ('autorizar', 'revogar') and receipt.get('ato') == ato\" adapters/hermes/hitl-ingress/__init__.py && grep -qF \"and (ato != 'autorizar' or receipt.get('envelopeSha256') == sha)\" adapters/hermes/hitl-ingress/__init__.py",
+        "node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ok [0-9]+ - GW[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:52:49.915Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/src/hitl-ingress.ts",
+      "alegacao": "RM-058 N6 (GO-FIX 6, achado do CHECK): o ingresso do OpenClaw só confirma o /ork noctum com o recibo do MESMO ato pedido e, ao autorizar, do mesmo hash, e a resposta ao dono nunca nomeia outro ato (GW3).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"receipt.ato !== ato || (ato === 'autorizar' && receipt.envelopeSha256 !== sha)\" adapters/openclaw/src/hitl-ingress.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ok [0-9]+ - GW3:/{p++} /^not ok/{f++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:52:52.973Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/dist/hitl-ingress.js",
+      "alegacao": "RM-058 N6 (GO-FIX 6): o dist do OpenClaw foi recompilado pelo construir.sh com o recibo amarrado ao ato e ao hash, igual à fonte, e a gramática copiada segue igual à do núcleo (GW1).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"receipt.ato !== ato || (ato === 'autorizar' && receipt.envelopeSha256 !== sha)\" adapters/openclaw/dist/hitl-ingress.js",
+        "node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ok [0-9]+ - GW1:/{p++} /^not ok/{f++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T19:52:55.833Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "RM-058 N6 (merge da origin/main com a N4): o passo mede o consumo uma vez por passo, só com algum teto fora de sessoes, e passa à reserva o medido pelo runtime do alvo que a N4 escolheu (alvo.runtime); os 18 testes X (N2 e N4) e os 15 ME seguem verdes. Substitui a C10.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'medidoParaReserva(medicao, conteudo, conta!, alvo.runtime)' core/src/noctum-execucao.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-execucao.test.js | awk '/^ok [0-9]+ - X[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=18 && f==0)}'",
+        "node --test-reporter=tap core/dist-test/test/noctum-medicao.test.js | awk '/^ok [0-9]+ - ME[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=15 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T21:45:58.121Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "RM-058 N6 (merge da origin/main com a RM-063): a fixture do snapshot pt-BR da F3b foi regerada pelo gerarCasos sobre a árvore do merge; o install e o recibo do Hermes trazem o test/hitl_noctum_test.py junto com os arquivos novos da RM-063, e o snapshot F3b segue verde. Substitui a C38.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'test/hitl_noctum_test.py sha:' core/test/fixtures/locale-f3b-pt-BR.json && grep -qF '+ test/hitl_noctum_test.py' core/test/fixtures/locale-f3b-pt-BR.json",
+        "node --test-reporter=tap core/dist-test/test/locale-f3b-snapshot.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T21:46:01.075Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-relatorio.ts",
+      "alegacao": "RM-058 N6 (merge com a N4 na base): sem a leitura da supervisão, o relatório diz como fonte não lida que a supervisão e a retomada da N4 não rodam no arco porque o tique ainda não chama o vigia, e não mais que a N4 falta na instalação; os 19 testes RL seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'a supervisão e a retomada da N4 não rodam neste arco: o tique ainda não chama o vigia' core/src/noctum-relatorio.ts && grep -qF 'não rodam neste arco: o tique ainda não chama o vigia/' core/test/noctum-relatorio.test.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-relatorio.test.js | awk '/^ok [0-9]+ - RL[0-9]+:/{p++} /^not ok/{f++} END{exit !(p>=19 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T21:46:04.410Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "RM-058 N6 (merge com a N4 na base): a página traz as seções da N4 e da N6, e diz na abertura, na seção da N4 e nos limites da N6 que o tique ainda chama o passo da N2, sem o vigia e o condutor da N4, e que ligá-los vem antes do primeiro piloto; o CHANGELOG diz o mesmo e a frase da N4 não diz mais o modo desligado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'o tique da N6 ainda chama o passo da N2' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'o tique ainda chama o passo da N2: o vigia e o condutor da [N4](#n4-supervisão-e-recuperação) chegaram à base depois desta fatia' docs/roadmap/RM-058-modo-noctum.md && grep -qF '### N4: supervisão e recuperação' docs/roadmap/RM-058-modo-noctum.md",
+        "grep -qF 'Nenhum comando chama o vigia nem o condutor.' CHANGELOG.md && ! grep -qF 'modo continua desligado: nenhum comando abre, executa ou vigia arco' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-13T21:46:07.867Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm058n6",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm063-hosts-canal.test.ts",
+      "alegacao": "RM-058 N6 (merge da origin/main): o teste GO-FIX da RM-063 sobre o script do transporte do Hermes versionado no git roda com uma casa do Hermes vazia (HERMES_HOME temporário, restaurado no fim), e passa também na máquina que tem o adaptador instalado em ~/.hermes; os 7 testes do arquivo passam.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"process.env.HERMES_HOME = dirTemporario('rm063-gofix-casa-hermes');\" core/test/rm063-hosts-canal.test.ts && grep -qF 'if (casaAntes === undefined) delete process.env.HERMES_HOME;' core/test/rm063-hosts-canal.test.ts",
+        "node --test-reporter=tap core/dist-test/test/rm063-hosts-canal.test.js | awk '/^ok [0-9]+ - GO-FIX: o script do transporte do Hermes/{g++} /^ok /{p++} /^not ok/{f++} END{exit !(g==1 && p>=7 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-13T22:36:25.875Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C26",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C28",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

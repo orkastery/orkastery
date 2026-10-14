@@ -141,9 +141,10 @@ test('A2: ingresso sem prova não autoriza, por nenhuma das portas', () => comRa
 
 test('A3: o módulo não exporta escritor de autorização sem prova; o diálogo confia no callback do servidor, como criarIngressoLocal', () => {
   // RM-058 N2: reservarDespacho e concluirDespacho gravam despacho, nunca autorização (A30 prova que sem ela nada passa).
-  assert.deepEqual(Object.keys(arcoMod).sort(), ['ALVO_DO_NOCTUM', 'CONTRATO_ARCO', 'PRAZO_PARA_AUTORIZAR_MIN',
+  // RM-058 N6: encerrarArco grava o fechamento, terminal, nunca autorização (o EC1 prova que depois dele nada passa).
+  assert.deepEqual(Object.keys(arcoMod).sort(), ['ALVO_DO_NOCTUM', 'CONTRATO_ARCO', 'MOTIVOS_DE_ENCERRAMENTO', 'PRAZO_PARA_AUTORIZAR_MIN',
     'TEXTO_DE_REVOGACAO', 'autorizarPeloIngresso', 'concluirDespacho', 'conferirAntesDoEfeito', 'contextoDoArco', 'criarDialogoDoArco',
-    'enderecoDoArco', 'enfileirarDecisao', 'hashDaRevogacao', 'idDaDecisao', 'lerArco', 'proporEnvelope',
+    'encerrarArco', 'enderecoDoArco', 'enfileirarDecisao', 'hashDaRevogacao', 'idDaDecisao', 'lerArco', 'proporEnvelope',
     'reservarDespacho', 'revogarPeloIngresso', 'textoDeAutorizacao']);
 });
 
@@ -664,8 +665,9 @@ test('A28: o orçamento só em sessoes: teto esgotado recusa, e teto em outra un
   concluirDespacho(raiz, 'arco-a', r.seq, { motivo: 'runtime.quota-exhausted' }, DENTRO);
   assert.equal(reservarDespacho(raiz, despacho('arco-a', h), DENTRO).consumo.arco, 2);
   const t = abrirV2(raiz, 'arco-b', { unidadeDaConta: 'tokens' });
+  // RM-058 N6: sem o consumo medido que o passo traz, o teto em outra unidade continua recusando (noctum-medicao.test.ts).
   assert.match(recusa(() => reservarDespacho(raiz, despacho('arco-b', t), DENTRO), 'noctum.orcamento.sem-medicao'),
-    /o teto da conta perfil-a está em tokens, e a N2 só mede sessoes/);
+    /o teto da conta perfil-a está em tokens, e o consumo nessa unidade não foi medido/);
   assert.equal(lerArco(raiz, 'arco-b', DENTRO)!.despachos.length, 0, 'nada foi reservado');
 }));
 
