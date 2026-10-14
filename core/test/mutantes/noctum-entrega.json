@@ -613,6 +613,24 @@
       "para": "/GH0\\d/i.test(linha)",
       "teste": "noctum-entrega",
       "nome": "^QE35:"
+    },
+    {
+      "id": "M69",
+      "descricao": "o título e o corpo do PR vão à forja sem passar pelo detector de segredo",
+      "modulo": "noctum-entrega",
+      "de": "conferirTextoDoPr(pr);",
+      "para": "void 0;",
+      "teste": "noctum-entrega",
+      "nome": "^QE36:"
+    },
+    {
+      "id": "M70",
+      "descricao": "a conferência antes do PR recebe outro texto que não o que vai ao gh",
+      "modulo": "ship-publicar",
+      "de": "opcoes.antesDoEfeito?.('pr', { titulo, corpo: textoDoCorpo })",
+      "para": "opcoes.antesDoEfeito?.('pr', { titulo: '', corpo: '' })",
+      "teste": "noctum-entrega",
+      "nome": "^QE36:"
     }
   ]
 }
