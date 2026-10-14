@@ -181,7 +181,8 @@ function servidor(f: ForjaResolvida, s: SondasDoDoctor, api: ChamadorDaApi, linh
   const v = meta.valor;
   const cache = v.doCache ? `; ${m.doCache}` : '';
   const piso = FAIXAS[f.tipo]?.piso;
-  if (v.faixa === 'abaixo-do-piso' && piso) {
+  // A versao ilegivel na forja com faixas (`sem-faixa`) nao prova o piso: reprova como abaixo dele.
+  if ((v.faixa === 'abaixo-do-piso' || v.faixa === 'sem-faixa') && piso) {
     checks.push(linha('forja servidor', 'fail', m.servidorAbaixo(v.versao ?? '?', piso) + cache, m.servidorCorrecao(piso)));
     return false;
   }

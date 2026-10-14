@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { CAPACIDADES } from '../src/forja/adaptador';
+import { gravarNoCache } from '../src/forja/cache';
 import { adaptadorDaForja, exigirCapacidade } from '../src/forja/registro';
 import { faixaDaVersao, lerMetadados, recusaAbaixoDoPiso, VALIDADE_DO_CACHE_MS } from '../src/forja/versao';
 import { api, cliFalsa, gravado, http, login, ok } from './forja-cli-falsa';
@@ -76,4 +77,33 @@ test('o GitLab é registrado com a capacidade metadados; as outras seguem deslig
   assert.throws(() => exigirCapacidade(adaptadorDaForja('gitlab'), 'checksNoCommit'), /^Error: forja\.sem-capacidade: gitlab/);
   assert.ok(CAPACIDADES.includes('metadados'));
   for (const c of CAPACIDADES) assert.equal(typeof adaptadorDaForja('github')[c], 'function', c);
+});
+
+test('versão ilegível no GitLab recusa como abaixo do piso; no GitHub, sem faixa não recusa', () => {
+  assert.deepEqual(recusaAbaixoDoPiso('gitlab', { versao: null, faixa: 'sem-faixa' }),
+    { codigo: 'forja.versao-abaixo-do-piso', detalhe: 'gitlab: versão ilegível (nula)' });
+  assert.equal(recusaAbaixoDoPiso('gitlab', { versao: 'v-estranha', faixa: faixaDaVersao('gitlab', 'v-estranha') })?.codigo,
+    'forja.versao-abaixo-do-piso');
+  assert.equal(recusaAbaixoDoPiso('github', { versao: null, faixa: 'sem-faixa' }), null);
+});
+
+test('enterprise: true dá a edição ee; versão fora de N.N na resposta é inválida', () => {
+  const resposta = (corpo: unknown) => cliFalsa([{ quando: login, responde: ok('') }, { quando: api('metadata'), responde: http(200, corpo) }]).rodar;
+  const ee = lerMetadados(GL, { cache: null, rodar: resposta({ version: '19.4.2-ee', revision: 'abc', enterprise: true }) });
+  assert.ok(ee.ok);
+  assert.deepEqual([ee.valor.edicao, ee.valor.faixa], ['ee', 'testada']);
+  const estranha = lerMetadados(GL, { cache: null, rodar: resposta({ version: 'nightly', enterprise: false }) });
+  assert.equal(!estranha.ok && estranha.erro.codigo, 'forja.resposta-invalida');
+});
+
+test('cache com versao: null dá sem-faixa, e a recusa do piso vale para ele', () => {
+  const cache = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-cache-nulo-'));
+  try {
+    gravarNoCache(cache, 'metadados gitlab gitlab.empresa.com', { versao: null, edicao: 'ce' }, T0);
+    const r = lerMetadados(GL, { cache, agoraMs: T0, rodar: () => { throw new Error('chamou a CLI'); } });
+    if (r.ok && r.valor.doCache) {
+      assert.equal(r.valor.faixa, 'sem-faixa');
+      assert.equal(recusaAbaixoDoPiso('gitlab', r.valor)?.codigo, 'forja.versao-abaixo-do-piso');
+    } else assert.fail(`o cache não foi lido: ${JSON.stringify(r)}`);
+  } finally { fs.rmSync(cache, { recursive: true, force: true }); }
 });

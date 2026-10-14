@@ -9,6 +9,7 @@ import { gravarNoCache, lerDoCache } from './cache';
 import { AlvoDaCli, hostDaApi } from './cli';
 import type { ErroDaForja, Resultado, TipoDeForja, VersaoDoServidor } from './contrato';
 import { adaptadorDaForja } from './registro';
+import { deFora } from './texto';
 
 export { VALIDADE_DO_CACHE_MS } from './cache';
 
@@ -37,9 +38,16 @@ export function faixaDaVersao(tipo: TipoDeForja, versao: string | null): FaixaDa
   return f.testadas.some((t) => comparar(v, minor(t)!) === 0) ? 'testada' : 'compativel';
 }
 
-/** O erro de quem nao opera abaixo do piso; `null` na faixa. */
+/**
+ * O erro de quem nao opera abaixo do piso; `null` na faixa. Na forja com faixas, a versao ilegivel (a do cache com
+ * `versao: null` ou fora de `N.N`) tambem recusa: sem saber a versao, o piso nao esta provado.
+ */
 export function recusaAbaixoDoPiso(tipo: TipoDeForja, m: Pick<MetadadosDaForja, 'versao' | 'faixa'>): ErroDaForja | null {
-  return m.faixa === 'abaixo-do-piso' ? { codigo: 'forja.versao-abaixo-do-piso', detalhe: `${tipo} ${m.versao} < ${FAIXAS[tipo]?.piso}` } : null;
+  if (m.faixa === 'abaixo-do-piso') return { codigo: 'forja.versao-abaixo-do-piso', detalhe: `${tipo} ${m.versao} < ${FAIXAS[tipo]?.piso}` };
+  if (m.faixa === 'sem-faixa' && FAIXAS[tipo]) {
+    return { codigo: 'forja.versao-abaixo-do-piso', detalhe: `${tipo}: versão ilegível (${m.versao === null ? 'nula' : deFora(m.versao)})` };
+  }
+  return null;
 }
 
 export interface OpcoesDosMetadados { cache: string | null; agoraMs?: number; api?: ChamadorDaApi; rodar?: RodarCli }
