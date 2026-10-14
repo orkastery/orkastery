@@ -108,7 +108,7 @@ test('forja-https: o -c zera os helpers, fixa um so pela origem e liga a CA', ()
     '-c', 'credential.helper=', '-c', 'credential.https://gitlab.empresa.com:8929.helper=!/usr/bin/glab auth git-credential',
     '-c', 'credential.https://gitlab.empresa.com:8929.useHttpPath=false', '-c', 'http.sslVerify=true',
     '-c', `http.${URL_HTTPS}.sslVerify=true`, '-c', `http.${URL_HTTPS}.proxy=`, '-c', `http.${URL_HTTPS}.extraHeader=`,
-    '-c', `http.${URL_HTTPS}.sslCAInfo=/etc/pki/e.pem`]);
+    '-c', `http.${URL_HTTPS}.followRedirects=false`, '-c', `http.${URL_HTTPS}.sslCAInfo=/x/ca.pem`]);
   assert.throws(() => configDeRede({ ...fixHttps('/usr/bin/glab'), url: 'https://outro.empresa.com:8929/g/p.git' }, '/x'), /https\.divergente/);
   assert.equal(configDeRede(fixHttps("/opt/c'li/glab"), '/x')[3],
     `credential.https://gitlab.empresa.com:8929.helper=!'/opt/c'\\''li/glab' auth git-credential`);
@@ -168,20 +168,64 @@ test('fixacao SSH: gravada 700/600 fora do projeto, lida e conferida; alterada, 
   assert.throws(() => lerFixacao(RAIZ, 'forja-ssh', URL_SSH, env), /fixacao-insegura/);
 }));
 
-test('fixacao HTTPS: CLI conferida pelo dono e pela escrita, CA pelo hash; sem known_hosts', () => comBase((env, base) => {
-  const bin = cliFalsa(base), ca = path.join(base, 'empresa.pem');
+test('fixacao HTTPS: CLI pelo caminho real, dono e escrita; CA copiada para a fixacao e conferida pelo hash; sem known_hosts', () => comBase((env, base) => {
+  const pastaDaCli = path.join(base, 'bin');
+  fs.mkdirSync(pastaDaCli, { mode: 0o700 });
+  const bin = cliFalsa(pastaDaCli), ca = path.join(base, 'empresa.pem');
   fs.writeFileSync(ca, PEM, { mode: 0o644 });
-  const fix = fixHttps(bin, { arquivo: ca, sha256: sha256(PEM) }), dir = dirDaFixacao(RAIZ, env);
-  gravarFixacao(dir, { fixacao: fix });
+  const fix = fixHttps(bin, { arquivo: ca, sha256: sha256(PEM) }), dir = dirDaFixacao(RAIZ, env), copia = path.join(dir, 'ca.pem');
+  assert.throws(() => gravarFixacao(dir, { fixacao: fix }), /mcp\.ship\.transport\.ca:/);
+  assert.throws(() => gravarFixacao(dir, { fixacao: fix, ca: Buffer.from(PEM.replace('MIIB', 'MIIC')) }), /mcp\.ship\.transport\.ca:/);
+  gravarFixacao(dir, { fixacao: fix, ca: Buffer.from(PEM) });
+  assert.equal(fs.statSync(copia).mode & 0o777, 0o600);
+  assert.equal(fs.readFileSync(copia, 'utf8'), PEM);
   assert.deepEqual(lerFixacao(RAIZ, 'forja-https', URL_HTTPS, env).fixacao, fix);
   assert.equal(fs.existsSync(path.join(dir, 'known_hosts')), false);
+  assert.ok(configDeRede(fix, dir).includes(`http.${URL_HTTPS}.sslCAInfo=${copia}`));
+  // O arquivo de origem (que pode estar no projeto) nao e mais lido: troca-lo nao muda nada.
   fs.writeFileSync(ca, PEM.replace('MIIB', 'MIIC'));
+  conferirFixacao(fix, dir);
+  fs.writeFileSync(copia, PEM.replace('MIIB', 'MIIC'));
   assert.throws(() => conferirFixacao(fix, dir), /mcp\.ship\.transport\.ca-alterada/);
-  fs.writeFileSync(ca, PEM);
+  fs.rmSync(copia);
+  fs.symlinkSync(ca, copia);
+  assert.throws(() => conferirFixacao(fix, dir), /fixacao-insegura/);
+  fs.rmSync(copia);
+  fs.writeFileSync(copia, PEM, { mode: 0o600 });
+  conferirFixacao(fix, dir);
   fs.chmodSync(bin, 0o775);
   assert.throws(() => conferirFixacao(fix, dir), /mcp\.ship\.transport\.binario/);
   fs.chmodSync(bin, 0o644);
   assert.throws(() => conferirFixacao(fix, dir), /mcp\.ship\.transport\.binario/);
+  fs.chmodSync(bin, 0o755);
+  fs.chmodSync(pastaDaCli, 0o770);
+  assert.throws(() => conferirFixacao(fix, dir), (e: Error) => /mcp\.ship\.transport\.binario: /.test(e.message) && e.message.includes(`(${pastaDaCli})`));
+  fs.chmodSync(pastaDaCli, 0o700);
+  conferirFixacao(fix, dir);
+  const link = path.join(base, 'glab-link');
+  fs.symlinkSync(bin, link);
+  assert.throws(() => conferirFixacao({ ...fix, binario: link }, dir), /mcp\.ship\.transport\.binario/);
+  assert.ok(configDeRede(fix, dir)[3].includes(`!${bin} auth git-credential`));
+  gravarFixacao(dir, { fixacao: fixHttps(bin) });
+  assert.equal(fs.existsSync(copia), false);
+}));
+
+test('fixacao: pasta acima com escrita de grupo recusa, ate a raiz; formato com caminho relativo ou controle recusa', () => comBase((env, base) => {
+  const dir = dirDaFixacao(RAIZ, env), xdg = path.join(base, 'xdg');
+  gravarFixacao(dir, { fixacao: FIX_SSH, knownHosts: KH });
+  fs.chmodSync(xdg, 0o770);
+  assert.throws(() => lerFixacao(RAIZ, 'forja-ssh', URL_SSH, env), (e: Error) => /fixacao-insegura/.test(e.message) && e.message.includes(xdg));
+  fs.chmodSync(xdg, 0o700);
+  fs.chmodSync(base, 0o757);
+  assert.throws(() => lerFixacao(RAIZ, 'forja-ssh', URL_SSH, env), /fixacao-insegura/);
+  fs.chmodSync(base, 0o700);
+  assert.equal(lerFixacao(RAIZ, 'forja-ssh', URL_SSH, env).dir, dir);
+  const bin = cliFalsa(base);
+  for (const ruim of [{ ...fixHttps(bin), binario: 'glab' }, { ...fixHttps(bin), binario: `${bin}\n` },
+    fixHttps(bin, { arquivo: 'empresa.pem', sha256: sha256(PEM) }), { ...FIX_SSH, host: '-oProxyCommand=x' }]) {
+    fs.writeFileSync(path.join(dir, 'transporte.json'), JSON.stringify(ruim));
+    assert.throws(() => lerFixacao(RAIZ, ruim.transporte, ruim.url, env), /fixacao-insegura/);
+  }
 }));
 
 test('catalogo: a recusa sai com o codigo e o detalhe nas duas linguas', () => {
@@ -269,7 +313,7 @@ test('forja-https: nenhuma regra http.<url> do ~/.gitconfig vence o -c fixado (T
   const dir = dirTemporario('https-urlmatch'), home = path.join(dir, 'home');
   try {
     fs.mkdirSync(home);
-    const regras = (url: string, n: number) => `[http "${url}"]\n\tsslVerify = false\n\tsslCAInfo = /falsa/ca-${n}.pem\n` +
+    const regras = (url: string, n: number) => `[http "${url}"]\n\tsslVerify = false\n\tsslCAInfo = /falsa/ca-${n}.pem\n\tfollowRedirects = true\n` +
       `\tproxy = http://127.0.0.1:${9000 + n}\n\textraHeader = X-Regra-${n}: 1\n`;
     fs.writeFileSync(path.join(home, '.gitconfig'), regras('https://gitlab.empresa.com:8929/', 1) + regras('https://gitlab.empresa.com:8929/g/', 2) +
       regras(URL_HTTPS, 3) + '[http]\n\tsslVerify = false\n');
@@ -280,7 +324,9 @@ test('forja-https: nenhuma regra http.<url> do ~/.gitconfig vence o -c fixado (T
     assert.equal(ler([], 'proxy'), 'http://127.0.0.1:9003');
     const c = configDeRede(fixHttps('/usr/bin/glab', { arquivo: '/etc/pki/e.pem', sha256: '0'.repeat(64) }), dir);
     assert.equal(ler(c, 'sslVerify'), 'true');
-    assert.equal(ler(c, 'sslCAInfo'), '/etc/pki/e.pem');
+    assert.equal(ler(c, 'sslCAInfo'), path.join(dir, 'ca.pem'));
+    assert.equal(ler([], 'followRedirects'), 'true');
+    assert.equal(ler(c, 'followRedirects'), 'false');
     assert.equal(ler(c, 'proxy'), '');
     assert.equal(ler(c, 'extraHeader'), '');
     const tudo = spawnSync('git', [...c, 'config', '--get-urlmatch', 'http', URL_HTTPS], { encoding: 'utf8', env }).stdout;
@@ -297,4 +343,30 @@ test('forja-ssh: senha ou token na URL recusa sem ecoar o segredo; so o usuario 
   }
   assert.throws(() => enderecoDoOrigin('forja-ssh', 'ssh://git@gitlab.empresa.com/g/a:b@c'), /transport\.urls: /);
   assert.equal(enderecoDoOrigin('forja-ssh', 'git@gitlab.empresa.com:g/p.git').porta, 22);
+});
+
+test('recusa do origin nunca ecoa o que veio cru: query, fragmento, userinfo malformado', () => {
+  const X = 'MARCA-SECRETA-7731';
+  const casos: Array<['forja-ssh' | 'forja-https', string]> = [
+    ['forja-https', `https://h.com/g/p.git?private_token=${X}`], ['forja-https', `http://h.com/g/p.git?private_token=${X}`],
+    ['forja-https', `https://h.com/g/p.git#${X}`], ['forja-https', `http://h.com/g/p.git#${X}`],
+    ['forja-https', `https:/u:${X}@h.com/g/p.git`], ['forja-https', `http:/u:${X}@h.com/g/p.git`],
+    ['forja-https', `https://h.com/g/${X}?x`], ['forja-ssh', `ssh://git@h.com/g/p.git?t=${X}`],
+    ['forja-ssh', `ssh://git@h.com/g/p.git#${X}`], ['forja-ssh', `https:/u:${X}@h.com/g/p.git`], ['forja-ssh', `git://h.com/${X}/p.git`],
+  ];
+  for (const [t, url] of casos) {
+    let msgDoErro = '';
+    try { enderecoDoOrigin(t, url); } catch (e) { msgDoErro = `${(e as Error).message} ${JSON.stringify(e)} ${String(e)}`; }
+    assert.ok(/^mcp\.ship\.transport\./.test(msgDoErro), `${t} ${url}: ${msgDoErro}`);
+    assert.ok(!msgDoErro.includes(X), `${t} ${url}: ${msgDoErro}`);
+  }
+  assert.throws(() => enderecoDoOrigin('forja-https', 'http://h.com/g/p.git'), /https\.sem-tls: .*http:\/\/h\.com\)/);
+});
+
+test('forja-ssh: usuario ou host com cara de opcao recusa', () => {
+  for (const url of ['ssh://-oProxyCommand=x@h.com/g/p.git', '-oProxyCommand=x@h.com:g/p.git', 'ssh://g$t@h.com/g/p.git',
+    'ssh://git@-h.com/g/p.git', 'git@-h.com:g/p.git', 'ssh://git@h_x.com/g/p.git']) {
+    assert.throws(() => enderecoDoOrigin('forja-ssh', url), /mcp\.ship\.transport\.(urls|modo)/, url);
+  }
+  assert.equal(enderecoDoOrigin('forja-ssh', 'ssh://deploy.bot_1@h.com/g/p.git').host, 'h.com');
 });

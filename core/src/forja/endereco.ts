@@ -1,5 +1,7 @@
 /** Um parser só para as três formas de URL, com porta e subgrupos. */
-const HOST = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
+/** O host que o parser aceita: minusculas, rotulos sem hifen na ponta (nunca comeca por `-`). */
+export const HOST_DO_REMOTO = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
+const HOST = HOST_DO_REMOTO;
 const SEGMENTO = /^[A-Za-z0-9_.-]+$/;
 
 export interface EnderecoDoRemoto { protocolo: 'https' | 'http' | 'ssh' | 'scp' | 'git'; host: string; porta: number | null; caminho: string }
