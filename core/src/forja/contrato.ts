@@ -11,8 +11,7 @@ export const TIPOS_DE_FORJA: readonly TipoDeForja[] = ['github', 'gitlab'];
 /** O repositorio na forja: `repo` e `dono/nome` no GitHub e o caminho completo no GitLab. */
 export interface IdentidadeDaForja { tipo: TipoDeForja; host: string; repo: string }
 
-export type CodigoDeErroDaForja = 'forja.ausente' | 'forja.sem-login' | 'forja.nao-encontrado' | 'forja.tempo-esgotado'
-  | 'forja.inacessivel' | 'forja.resposta-invalida'
+export type CodigoDeErroDaForja = 'forja.ausente' | 'forja.sem-login' | 'forja.resposta-invalida'
   // A chamada a API (`forja/api.ts`), pelo status HTTP e pela lista paginada.
   | 'forja.sem-permissao' | 'forja.nao-achei' | 'forja.limite' | 'forja.conflito' | 'forja.indisponivel' | 'forja.pedido-recusado'
   | 'forja.incompleto'

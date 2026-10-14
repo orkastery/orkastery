@@ -16,7 +16,7 @@ type Entrada = { repository: string; sha: string; context: string; executor: Exe
 function chamar(e: Entrada, caminho: string): Resultado<unknown> {
   const r = e.executor({ repository: e.repository, sha: e.sha, context: e.context, host: e.host, caminho });
   // Sem trim aqui: quem formata o detalhe (ci.ts) apara e corta, como sempre fez.
-  if (!r.ok) return { ok: false, erro: { codigo: 'forja.inacessivel', detalhe: r.stderr || r.stdout } };
+  if (!r.ok) return { ok: false, erro: { codigo: 'forja.indisponivel', detalhe: r.stderr || r.stdout } };
   try { return { ok: true, valor: JSON.parse(r.stdout) as unknown }; }
   catch { return { ok: false, erro: { codigo: 'forja.resposta-invalida', detalhe: '' } }; }
 }

@@ -271,7 +271,7 @@ test('rede: lacuna tipada nunca vira vazio', () => {
       [{ status: null, stdout: '', stderr: '', erro: 'ENOENT' }, 'forja.ausente'],
       [{ status: 4, stdout: '', stderr: 'To get started with GitHub CLI, please run:  gh auth login' }, 'forja.sem-login'],
       [{ status: 1, stdout: JSON.stringify({ data: { repository: null }, errors: [{ type: 'NOT_FOUND', message: 'Could not resolve' }] }),
-        stderr: 'gh: Could not resolve to a Repository' }, 'forja.nao-encontrado'],
+        stderr: 'gh: Could not resolve to a Repository' }, 'forja.nao-achei'],
     ];
     for (const [saida, tipo] of casos) {
       const p = montarPanoramaDaRede({ cwd: vazio, pedido: 'github:dono/app', quando: QUANDO, maquina: 'pc-c',

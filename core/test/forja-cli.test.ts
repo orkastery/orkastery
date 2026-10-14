@@ -5,7 +5,9 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { ambienteReduzido, rodarCli } from '../src/forja/executor';
 import { CLI_DA_FORJA, hostDaApi, versaoAbaixo } from '../src/forja/cli';
-import { ExecutorDaForja, lerDaForja } from '../src/forja';
+import { chamadorDaApi } from '../src/forja/api';
+import { lerDaForja } from '../src/forja';
+import { cliFalsa, falhou, login, ok } from './forja-cli-falsa';
 
 const GL = { tipo: 'gitlab' as const, host: 'gitlab-ia.unifique.com.br', porta: 8443, caminhoBase: '/gitlab', ca: '/etc/pki/empresa.pem' };
 const GHE = { tipo: 'github' as const, host: 'ghe.empresa.com', porta: 8443, caminhoBase: '', ca: '/etc/pki/empresa.pem' };
@@ -61,12 +63,14 @@ test('gh sem porta: --hostname, como hoje, e o GH_HOST herdado é apagado', () =
   assert.ok(cli.ambiente(sem).apagar.includes('GH_HOST'));
 });
 
-test('a leitura GraphQL do GitLab de hoje (lerDaForja) manda o Content-Type junto do corpo', () => {
-  const args: string[][] = [];
-  const executor: ExecutorDaForja = (_cmd, a) => { args.push([...a]); return { status: 1, stdout: '', stderr: 'HTTP 404' }; };
+test('a leitura GraphQL do GitLab de hoje (lerDaForja) manda o Content-Type junto do corpo e o host por GITLAB_HOST', () => {
+  const cli = cliFalsa([{ quando: login, responde: ok('') }, { quando: (c) => c.args.includes('graphql'), responde: falhou('HTTP 404') }]);
   lerDaForja({ tipo: 'gitlab', host: 'gitlab.com', repo: 'grupo/app' }, { desde: '2026-10-13T00:00:00.000Z', dirRoadmap: 'docs/roadmap',
-    manifesto: 'orkastery.yaml', reservas: { branch: 'ork/roadmap-reservas', dir: 'reservas' }, fabrica: { branch: 'ork/fabrica-estado', dir: 'maquinas' } }, executor);
-  assert.deepEqual(args[0], ['api', 'graphql', '--method', 'POST', '-H', 'Content-Type: application/json', '--input', '-', '--hostname', 'gitlab.com']);
+    manifesto: 'orkastery.yaml', reservas: { branch: 'ork/roadmap-reservas', dir: 'reservas' }, fabrica: { branch: 'ork/fabrica-estado', dir: 'maquinas' } },
+  undefined, chamadorDaApi({ tipo: 'gitlab', host: 'gitlab.com', porta: null, caminhoBase: '', ca: null }, { rodar: cli.rodar, logins: new Map() }));
+  const consulta = cli.chamadas.find((c) => c.args.includes('graphql'))!;
+  assert.deepEqual(consulta.args, ['api', '-i', '--method', 'POST', 'graphql', '-H', 'Content-Type: application/json', '--input', '-']);
+  assert.equal(consulta.acrescentar?.GITLAB_HOST, 'gitlab.com');
 });
 
 test('a porta 443 não entra no host da API', () => {

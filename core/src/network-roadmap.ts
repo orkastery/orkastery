@@ -785,15 +785,13 @@ function lerProjetoDoClone(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
 const CORRECAO_DA_FORJA: Record<ErroDaForja['codigo'], (cli: string) => string> = {
   'forja.ausente': (cli) => `instale ${cli} e faça login (${cli} auth login); gateway e cron têm PATH curto`,
   'forja.sem-login': (cli) => `rode ${cli} auth login nesta máquina; o ork nunca lê nem copia token`,
-  'forja.nao-encontrado': () => 'confira o nome (github:dono/repo) e se o login da forja enxerga o repositório',
-  'forja.tempo-esgotado': () => 'tente de novo: a forja não respondeu a tempo',
-  'forja.inacessivel': () => 'confira a rede e o status da forja',
   'forja.resposta-invalida': () => 'a forja respondeu fora do formato esperado: registre o caso no RM-054',
   'forja.sem-permissao': () => 'o login da forja não tem permissão para isso: confira o escopo do token',
-  'forja.nao-achei': () => 'a forja não achou o recurso: confira o nome e o login',
+  'forja.nao-achei': () => 'confira o nome (github:dono/repo ou gitlab:grupo/sub/repo) e se o login da forja enxerga o repositório; ' +
+    'no GitLab, projeto privado sem acesso também responde assim',
   'forja.limite': () => 'a forja limitou as chamadas: tente de novo mais tarde',
   'forja.conflito': () => 'a forja recusou por conflito: atualize e tente de novo',
-  'forja.indisponivel': () => 'a forja está indisponível: tente de novo mais tarde',
+  'forja.indisponivel': () => 'tente de novo e confira a rede e o status da forja',
   'forja.pedido-recusado': () => 'a forja recusou o pedido: confira os dados enviados',
   'forja.incompleto': () => 'a forja devolveu uma lista incompleta: tente de novo',
   'forja.desconhecida': () => 'o ork não reconheceu a forja: declare o bloco forja: no manifesto',
