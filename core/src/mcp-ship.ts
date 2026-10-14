@@ -129,6 +129,22 @@ function guardarPino(f:Fixacao,url:string):void {
   if(atual.dir!==p.dir || JSON.stringify(atual.fixacao)!==JSON.stringify(p.fixacao))recusar('fixacao-divergente','transporte.json');
   conferirFixacao(p.fixacao,p.dir);
 }
+/**
+ * Depois do push e da prova, o origin e a config tem de ser os do startup, e a fixacao a mesma: o git releu os dois a
+ * cada comando de rede, e uma troca no meio levaria o push a outro lugar que a prova tambem leria.
+ */
+function depoisDoPush(f:Fixacao):()=>void {
+  return ()=>{
+    let url:string|undefined,cfg:string|undefined;
+    try{url=originUnico(f.raiz);cfg=config(f.raiz);}catch{/* origin ou config ilegivel tambem e troca */}
+    if(url!==f.url || cfg!==f.config)recusar('mudou-no-push','origin');
+    guardarPino(f,url!);
+  };
+}
+/** A conferencia de depois do push do perfil; so os transportes fixados a tem. */
+export function conferenciaDepoisDoPush(perfil:PerfilShipMcp):(()=>void)|undefined {
+  const f=perfis.get(perfil);if(!f)erro('profile.invalid');return f.pino?depoisDoPush(f):undefined;
+}
 /** Somente instalação/startup confiável chama esta factory. O objeto é uma capacidade privada. */
 export function criarPerfilShipMcp(raiz:string,transporte:TransporteShipMcp='github-ssh'):PerfilShipMcp {
   if(process.platform!=='linux' || !path.isAbsolute(raiz))erro('project.invalid');fisico(raiz,raiz);
@@ -150,7 +166,7 @@ export function criarPerfilShipMcp(raiz:string,transporte:TransporteShipMcp='git
 }
 /** O `-c` que o push e o `ls-remote` do perfil levam; vazio no `github-ssh` e no `bare-local`. */
 export function configDeRedeDoPerfil(perfil:PerfilShipMcp):readonly string[] {
-  const f=perfis.get(perfil);if(!f)erro('profile.invalid');return [...f!.rede];
+  const f=perfis.get(perfil);if(!f)erro('profile.invalid');return [...f.rede];
 }
 function validar(p:PedidoShipMcp) {
   if(!p || Object.keys(p).sort().join(',')!=='expectedDestination,expectedSource,threadId' ||
@@ -244,7 +260,7 @@ function executar(f:Fixacao,p:PedidoShipMcp):ResultadoShip {
       try{return sandbox.executar(nomeComando,comando,cwd);}finally{sandbox.fechar();}
     };
     // RM-058 N2 (B1 do CHECK): a fila pesada espera so o que cabe no prazo do worker, para o finally soltar as leases.
-    return ship(c,t.id,{de,para,remoto:'origin',configDoRemoto:f.rede,executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
+    return ship(c,t.id,{de,para,remoto:'origin',configDoRemoto:f.rede,...(f.pino?{conferirDepoisDoPush:depoisDoPush(f)}:{}),executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
       esperarFilaPesadaMs:Math.max(0,Math.min(20000,deadline-Date.now()-RESERVA)),
       revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}});
   } finally {for(const l of proprias.reverse())if(JSON.stringify(lerLease(raiz,l.nome))===JSON.stringify(l))liberar(raiz,l.nome,t.id);}

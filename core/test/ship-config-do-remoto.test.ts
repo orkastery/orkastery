@@ -137,6 +137,15 @@ test('config fora da forma, de chave desconhecida ou de valor fora do fixado rec
       ['-c', `http.${u}.sslVerify=true`, '-c', 'http.https://outro.com/g/p.git.proxy='],
       ['-c', `http.${u}.sslVerify=true`, '-c', `credential.https://outro.com.useHttpPath=false`],
       ['-c', `credential.${o}.useHttpPath=false`, '-c', `credential.https://outro.com.useHttpPath=false`],
+      // as travas do hook e do protocolo: so o valor fixado, todas presentes e o protocolo do modo
+      ['-c', 'core.hooksPath=/tmp/hooks'], ['-c', 'protocol.allow=always'], ['-c', 'protocol.ssh.allow=user'],
+      ['-c', 'protocol.file.allow=always'], ['-c', 'protocol.https.allow=never'],
+      ssh.config.filter((_, i, l) => !(l[i] === 'core.hooksPath=/dev/null' || l[i + 1] === 'core.hooksPath=/dev/null')),
+      ssh.config.filter((_, i, l) => !(l[i] === 'protocol.allow=never' || l[i + 1] === 'protocol.allow=never')),
+      ssh.config.filter((_, i, l) => !(l[i] === 'protocol.ssh.allow=always' || l[i + 1] === 'protocol.ssh.allow=always')),
+      [...ssh.config, '-c', 'protocol.https.allow=always'],
+      [...configDeRede(fixHttps(bin, null), '/x'), '-c', 'protocol.ssh.allow=always'],
+      [...ssh.config, '-c', 'protocol.file.allow=always'],
     ];
     for (const c of invalidas) {
       assert.throws(() => ship(projeto.carregado, thread.id, { para: 'main', configDoRemoto: c }), refusa(c), c.join(' '));

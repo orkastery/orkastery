@@ -132,6 +132,7 @@ export const FORJA_PT_BR = {
           case 'mcp.ship.transport.fixacao-ausente': return `este transporte não foi instalado nesta máquina; rode ${d}`;
           case 'mcp.ship.transport.fixacao-insegura': return `a fixação do transporte precisa ser sua, sem link e sem acesso de grupo ou de outros (${d})`;
           case 'mcp.ship.transport.fixacao-divergente': return `a instalação fixou outro transporte ou outro origin (${d}); reinstale o MCP`;
+          case 'mcp.ship.transport.mudou-no-push': return `o ${d} ou a config do git mudou durante o push; a entrega não foi provada: confira o remoto, a branch e a config antes de repetir`;
           default: return d;
         }
       })();
@@ -145,6 +146,8 @@ export const FORJA_PT_BR = {
       `SHIP por forja-ssh: a chave de ${nome} (${chaves}) seria fixada em ${arquivo}; nada foi gravado.`,
     fixariaHttps: (origem: string, cli: string, ca: string | null): string =>
       `SHIP por forja-https: o git pediria a credencial de ${origem} só ao ${cli} (auth git-credential)${ca ? `, com a CA ${ca} conferida pelo hash a cada push` : ''}; nada foi gravado.`,
+    consultaNoFixado: (modo: string): string =>
+      `mcp.experiencia.transporte-fixado: consulta indisponível no transporte fixado ${modo}: o fetch das consultas ainda não leva a chave, o helper e as travas fixados, e sem eles iria à rede pela config do usuário`,
     proposta: (modo: string): string =>
       `SHIP: o origin deste projeto pede --ship-transport ${modo}; com o transporte padrão, o ork_ship fica indisponível. Para trocar, remova a entrada orkastery e reinstale com a opção.`,
   },
@@ -274,6 +277,7 @@ export const FORJA_EN: MensagensDeForja = {
           case 'mcp.ship.transport.fixacao-ausente': return `this transport was not installed on this machine; run ${d}`;
           case 'mcp.ship.transport.fixacao-insegura': return `the transport pin must be yours, with no link and no group or other access (${d})`;
           case 'mcp.ship.transport.fixacao-divergente': return `the install pinned another transport or another origin (${d}); reinstall the MCP`;
+          case 'mcp.ship.transport.mudou-no-push': return `the ${d} or the git config changed during the push; the delivery was not proved: check the remote, the branch and the config before trying again`;
           default: return d;
         }
       })();
@@ -287,6 +291,8 @@ export const FORJA_EN: MensagensDeForja = {
       `SHIP over forja-ssh: the key of ${nome} (${chaves}) would be pinned in ${arquivo}; nothing was written.`,
     fixariaHttps: (origem, cli, ca) =>
       `SHIP over forja-https: git would ask only ${cli} (auth git-credential) for the credential of ${origem}${ca ? `, with the CA ${ca} checked by hash on every push` : ''}; nothing was written.`,
+    consultaNoFixado: (modo) =>
+      `mcp.experiencia.transporte-fixado: lookup unavailable on the pinned transport ${modo}: the lookup fetch does not carry the pinned key, helper and locks yet, and without them it would reach the network through the user's config`,
     proposta: (modo) =>
       `SHIP: this project's origin needs --ship-transport ${modo}; with the default transport, ork_ship is unavailable. To switch, remove the orkastery entry and reinstall with the option.`,
   },

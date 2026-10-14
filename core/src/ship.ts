@@ -65,6 +65,11 @@ export interface OpcoesShip {
    * nenhuma chave que carregue segredo pode entrar aqui, nunca.
    */
   configDoRemoto?: readonly string[];
+  /**
+   * Conferencia interna confiavel depois do `ls-remote` que prova o push, antes de dar a entrega por provada: o
+   * transporte fixado do MCP confere de novo o origin e a config. Se lanca, a entrega nao sai como provada.
+   */
+  conferirDepoisDoPush?: () => void;
   /** Branch de destino (`--para main`). */
   para: string;
   /** Branch de origem. Padrao: a base carimbada da thread. */
@@ -811,6 +816,7 @@ export function ship(
       // A prova: o sha que o REMOTO devolve tem que ser o mesmo do destino local.
       const shaRemoto = shaNoRemoto(arvore.dir, remoto, para, configDoRemoto);
       passos.push(comConfig(['ls-remote', remoto, `refs/heads/${para}`]));
+      opcoes.conferirDepoisDoPush?.();
       r.shaRemoto = shaRemoto;
       r.pushVerificado = shaRemoto !== null && shaRemoto === pontaDaBase;
       if (!r.pushVerificado) {

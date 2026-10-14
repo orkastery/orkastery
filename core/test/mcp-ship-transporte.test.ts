@@ -75,7 +75,7 @@ test('forja-ssh: o -c leva o ssh sem config, com a chave fixada e sem pergunta',
   const dir = '/home/u/.config/orkastery/mcp-ship/abc';
   assert.deepEqual(configDeRede(FIX_SSH, dir), ['-c', `core.sshCommand=ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes ` +
     `-o UserKnownHostsFile=${dir}/known_hosts -o GlobalKnownHostsFile=/dev/null -o UpdateHostKeys=no -o CheckHostIP=no -o ConnectTimeout=30`,
-    '-c', 'ssh.variant=ssh']);
+    '-c', 'ssh.variant=ssh', '-c', 'core.hooksPath=/dev/null', '-c', 'protocol.allow=never', '-c', 'protocol.ssh.allow=always']);
   assert.throws(() => configDeRede(FIX_SSH, '/home/u/com espaco'), /mcp\.ship\.transport\.ssh\.caminho/);
 });
 
@@ -108,7 +108,8 @@ test('forja-https: o -c zera os helpers, fixa um so pela origem e liga a CA', ()
     '-c', 'credential.helper=', '-c', 'credential.https://gitlab.empresa.com:8929.helper=!/usr/bin/glab auth git-credential',
     '-c', 'credential.https://gitlab.empresa.com:8929.useHttpPath=false', '-c', 'http.sslVerify=true',
     '-c', `http.${URL_HTTPS}.sslVerify=true`, '-c', `http.${URL_HTTPS}.proxy=`, '-c', `http.${URL_HTTPS}.extraHeader=`,
-    '-c', `http.${URL_HTTPS}.followRedirects=false`, '-c', `http.${URL_HTTPS}.sslCAInfo=/x/ca.pem`]);
+    '-c', `http.${URL_HTTPS}.followRedirects=false`, '-c', `http.${URL_HTTPS}.sslCAInfo=/x/ca.pem`,
+    '-c', 'core.hooksPath=/dev/null', '-c', 'protocol.allow=never', '-c', 'protocol.https.allow=always']);
   assert.throws(() => configDeRede({ ...fixHttps('/usr/bin/glab'), url: 'https://outro.empresa.com:8929/g/p.git' }, '/x'), /https\.divergente/);
   assert.equal(configDeRede(fixHttps("/opt/c'li/glab"), '/x')[3],
     `credential.https://gitlab.empresa.com:8929.helper=!'/opt/c'\\''li/glab' auth git-credential`);

@@ -15,7 +15,7 @@ import { novaThread, dirThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
 import { exec } from '../src/util';
 import { ship } from '../src/ship';
-import { criarPerfilShipMcp, shipMcp, configDeRedeDoPerfil, PedidoShipMcp, ambienteDoWorkerDoTransporte } from '../src/mcp-ship';
+import { criarPerfilShipMcp, shipMcp, configDeRedeDoPerfil, PedidoShipMcp, ambienteDoWorkerDoTransporte, conferenciaDepoisDoPush } from '../src/mcp-ship';
 import { criarServidorMcp } from '../src/mcp-server';
 import { criarLeitorExperiencia } from '../src/mcp-experiencia';
 import { configDeRede, dirDaFixacao, gravarFixacao, prepararFixacao } from '../src/mcp-ship-transporte';
@@ -110,6 +110,7 @@ test('forja-ssh fixado: o perfil leva o ssh da chave fixada; github-ssh e bare-l
   assert.deepEqual(configDeRedeDoPerfil(perfil), configDeRede(prep.fixacao, dirDaFixacao(f.raiz)));
   f.git(['remote', 'set-url', 'origin', f.p.remoto!]);
   assert.deepEqual(configDeRedeDoPerfil(criarPerfilShipMcp(f.raiz, 'bare-local')), []);
+  assert.equal(conferenciaDepoisDoPush(criarPerfilShipMcp(f.raiz, 'bare-local')), undefined);
   f.git(['remote', 'set-url', 'origin', 'git@github.com:o/r.git']);
   assert.deepEqual(configDeRedeDoPerfil(criarPerfilShipMcp(f.raiz, 'github-ssh')), []);
   assert.throws(() => configDeRedeDoPerfil({ transporte: 'forja-ssh', destino: 'main' }), /mcp\.ship\.profile\.invalid/);
@@ -237,7 +238,10 @@ test('ambiente do worker por transporte: a lista fechada e, nos fixados, so o qu
 test('consultas do MCP com transporte fixado ficam indisponiveis: o fetch delas nao leva o -c fixado', () => fixture(async (f) => {
   fixarSsh(f);
   const ler = criarLeitorExperiencia(f.raiz, 'forja-ssh');
-  assert.equal((await ler('fabrica')).estado, 'indisponivel');
+  const r = await ler('fabrica');
+  assert.equal(r.estado, 'indisponivel');
+  assert.match(String(r.motivo), /^mcp\.experiencia\.transporte-fixado: consulta indisponível no transporte fixado forja-ssh: /);
+  assert.equal((await criarLeitorExperiencia(f.raiz, 'github-ssh')('reservas')).motivo, 'mcp.experiencia.consulta.indisponivel');
 }));
 
 test('forja-ssh: entrega com push provado pelo -c do perfil e pelo remoto origin, com o ssh falso no PATH do teste', () => fixture(async (f) => {
@@ -255,7 +259,7 @@ test('forja-ssh: entrega com push provado pelo -c do perfil e pelo remoto origin
     const env = ambienteDoWorkerDoTransporte('forja-ssh', { ...process.env, GIT_SSH_COMMAND: 'ssh -o StrictHostKeyChecking=no', LD_PRELOAD: '/x.so' });
     for (const k of Object.keys(process.env)) delete process.env[k];
     Object.assign(process.env, env, { PATH: `${bin}:${env.PATH}` });
-    const r = ship(f.p.carregado, f.id, { para: 'main', remoto: 'origin', configDoRemoto: rede });
+    const r = ship(f.p.carregado, f.id, { para: 'main', remoto: 'origin', configDoRemoto: rede, conferirDepoisDoPush: conferenciaDepoisDoPush(perfil) });
     assert.equal(r.ok, true, r.detalhe);
     assert.equal(r.pushVerificado, true);
     assert.ok(r.passos.includes(`git ${rede.join(' ')} push -- origin refs/heads/main:refs/heads/main`), r.passos.join('\n'));
@@ -271,4 +275,89 @@ test('forja-ssh: entrega com push provado pelo -c do perfil e pelo remoto origin
     fs.rmSync(bin, { recursive: true, force: true });
   }
   assert.equal(exec('/usr/bin/git', ['rev-parse', 'main'], bare).stdout.trim(), f.git(['rev-parse', 'main']).trim());
+}));
+
+/** Um ssh falso que serve o bare local e, com `acao`, roda um comando no meio do push (o escritor concorrente). */
+function sshFalso(acao = ''): { bin: string; log: string } {
+  const bin = dirTemporario('mcp-ship-fixado-ssh2'), log = path.join(bin, 'argv.log');
+  fs.writeFileSync(path.join(bin, 'ssh'), `#!/bin/sh\nprintf '%s\\n' "$*" >> '${log}'\nfor a; do :; done\n`
+    + `case "$a" in *receive-pack*) ${acao || ':'} ;; esac\neval "git ${'${a#git-}'}"\n`, { mode: 0o755 });
+  return { bin, log };
+}
+function comPath<T>(bin: string, fn: () => T): T {
+  const antes = process.env.PATH;
+  process.env.PATH = `${bin}:/usr/bin:/bin`;
+  try { return fn(); } finally { process.env.PATH = antes; fs.rmSync(bin, { recursive: true, force: true }); }
+}
+
+test('o -c fixado: hook da config do projeto e da pasta hooks nao roda no push, nos dois modos', () => fixture(async (f) => {
+  const bare = f.p.remoto!, url = `ssh://git@gitlab.empresa.com:2222${bare}`;
+  fixarSsh(f, url);
+  const rede = configDeRedeDoPerfil(criarPerfilShipMcp(f.raiz, 'forja-ssh'));
+  const marca = path.join(f.home, 'hook-rodou'), hooks = path.join(f.home, 'hooks');
+  fs.mkdirSync(hooks);
+  for (const d of [hooks, path.join(f.raiz, '.git', 'hooks')]) fs.writeFileSync(path.join(d, 'pre-push'), `#!/bin/sh\necho x >> '${marca}'\n`, { mode: 0o755 });
+  const { bin } = sshFalso();
+  comPath(bin, () => {
+    // Sem o -c, os dois hooks rodam (a pasta hooks, e depois a da config): o ataque e de verdade neste git.
+    assert.equal(exec('git', ['push', 'origin', 'HEAD:refs/heads/sem-trava'], f.raiz).ok, true);
+    assert.equal(fs.readFileSync(marca, 'utf8').split('\n').filter(Boolean).length, 1);
+    f.git(['config', 'core.hooksPath', hooks]);
+    assert.equal(exec('git', ['push', 'origin', 'HEAD:refs/heads/sem-trava-2'], f.raiz).ok, true);
+    assert.equal(fs.readFileSync(marca, 'utf8').split('\n').filter(Boolean).length, 2);
+    const r = exec('git', [...rede, 'push', 'origin', 'HEAD:refs/heads/com-trava'], f.raiz);
+    assert.equal(r.ok, true, r.stderr);
+    assert.equal(fs.readFileSync(marca, 'utf8').split('\n').filter(Boolean).length, 2);
+  });
+  // O https leva as mesmas travas.
+  const { prep } = fixarHttps(f);
+  assert.deepEqual(configDeRede(prep.fixacao, dirDaFixacao(f.raiz)).slice(-6),
+    ['-c', 'core.hooksPath=/dev/null', '-c', 'protocol.allow=never', '-c', 'protocol.https.allow=always']);
+}));
+
+test('o -c fixado: origin trocado para caminho local ou file:// com receivepack/uploadpack proprios recusa no protocolo', () => fixture(async (f) => {
+  fixarSsh(f);
+  const ssh = configDeRedeDoPerfil(criarPerfilShipMcp(f.raiz, 'forja-ssh'));
+  const { prep } = fixarHttps(f);
+  const https = configDeRede(prep.fixacao, dirDaFixacao(f.raiz));
+  const bare = f.p.remoto!, marca = path.join(f.home, 'pack-rodou');
+  for (const origem of [bare, `file://${bare}`]) {
+    f.git(['remote', 'set-url', 'origin', origem]);
+    f.git(['config', 'remote.origin.receivepack', `sh -c 'echo x >> ${marca}; exec git-receive-pack "$@"' --`]);
+    f.git(['config', 'remote.origin.uploadpack', `sh -c 'echo x >> ${marca}; exec git-upload-pack "$@"' --`]);
+    for (const rede of [ssh, https]) {
+      const push = exec('git', [...rede, 'push', 'origin', 'HEAD:refs/heads/desviado'], f.raiz);
+      const ls = exec('git', [...rede, 'ls-remote', 'origin', 'refs/heads/main'], f.raiz);
+      assert.equal(push.ok, false); assert.equal(ls.ok, false);
+      assert.match(push.stderr + ls.stderr, /transport 'file' not allowed/);
+    }
+    assert.equal(fs.existsSync(marca), false, origem);
+  }
+  // Sem o -c, o mesmo origin roda o receivepack do projeto: o ataque e de verdade neste git.
+  assert.equal(exec('git', ['push', 'origin', 'HEAD:refs/heads/desviado'], f.raiz).ok, true);
+  assert.equal(fs.existsSync(marca), true);
+}));
+
+test('origin ou config trocados entre o push e a prova: a entrega nao sai como provada e recusa tipada', () => fixture(async (f) => {
+  const bare = f.p.remoto!, url = `ssh://git@gitlab.empresa.com:2222${bare}`;
+  fixarSsh(f, url);
+  const perfil = criarPerfilShipMcp(f.raiz, 'forja-ssh');
+  const rede = configDeRedeDoPerfil(perfil);
+  const outro = dirTemporario('mcp-ship-fixado-outro');
+  exec('/usr/bin/git', ['clone', '-q', '--bare', bare, path.join(outro, 'p.git')]);
+  for (const acao of [`git config --file '${f.raiz}/.git/config' ork.escritor concorrente`,
+    `git config --file '${f.raiz}/.git/config' remote.origin.url 'ssh://git@gitlab.empresa.com:2222${outro}/p.git'`]) {
+    const antes = exec('/usr/bin/git', ['rev-parse', 'main'], bare).stdout.trim();
+    const { bin } = sshFalso(acao);
+    let r: ReturnType<typeof ship> | undefined;
+    comPath(bin, () => assert.throws(() => { r = ship(f.p.carregado, f.id, { para: 'main', remoto: 'origin', configDoRemoto: rede,
+      conferirDepoisDoPush: conferenciaDepoisDoPush(perfil) }); },
+    (e: Error) => /^mcp\.ship\.transport\.mudou-no-push: /.test(e.message) && !e.message.includes(bare), acao));
+    assert.equal(r, undefined);
+    assert.equal(lerLedger(dirThread(f.raiz, f.id)).some((e) => e.tipo === 'ship_done'), false);
+    // Volta ao estado do startup para a proxima rodada.
+    exec('/usr/bin/git', ['update-ref', 'refs/heads/main', antes], bare);
+    exec('/usr/bin/git', ['config', '--unset-all', 'ork.escritor'], f.raiz);
+  }
+  fs.rmSync(outro, { recursive: true, force: true });
 }));

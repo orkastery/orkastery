@@ -29,7 +29,7 @@ export const URL_GITHUB_SSH = /^git@github\.com:[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-
 export const RECUSAS_DO_TRANSPORTE = ['urls', 'modo', 'forja', 'ssh.divergente', 'ssh.sem-resposta', 'ssh.revogada',
   'ssh.nao-confirmada', 'ssh.impressao-divergente', 'ssh.known-hosts-ilegivel', 'ssh.caminho', 'ssh.known-hosts-alterado', 'https.sem-tls',
   'ssh.credencial-na-url', 'https.credencial-na-url', 'https.divergente', 'sem-cli', 'sem-helper', 'sem-login', 'binario', 'ca', 'ca-alterada',
-  'fixacao-ausente', 'fixacao-insegura', 'fixacao-divergente'] as const;
+  'fixacao-ausente', 'fixacao-insegura', 'fixacao-divergente', 'mudou-no-push'] as const;
 export type RecusaDoTransporte = (typeof RECUSAS_DO_TRANSPORTE)[number];
 
 /** A recusa sai com o codigo `mcp.ship.transport.*` na frente: o servidor e o worker do SHIP so repassam `mcp.*`. */
@@ -251,7 +251,9 @@ export interface FixacaoLida { fixacao: FixacaoDoTransporte; dir: string }
  * config da pessoa: nao afrouxa a verificacao do servidor. A credencial casa sem o caminho (`useHttpPath`), pela origem.
  */
 export function configDeRede(fix: FixacaoDoTransporte, dir: string): string[] {
-  if (fix.transporte === 'forja-ssh') return ['-c', `core.sshCommand=${comandoSsh(path.join(dir, 'known_hosts'))}`, '-c', 'ssh.variant=ssh'];
+  if (fix.transporte === 'forja-ssh') {
+    return ['-c', `core.sshCommand=${comandoSsh(path.join(dir, 'known_hosts'))}`, '-c', 'ssh.variant=ssh', ...travasDoRemoto('ssh')];
+  }
   const e = enderecoDoOrigin('forja-https', fix.url);
   if (e.transporte !== 'forja-https' || e.origem !== fix.origem) return recusar('https.divergente', fix.origem);
   const url = fix.url;
@@ -259,7 +261,18 @@ export function configDeRede(fix: FixacaoDoTransporte, dir: string): string[] {
     '-c', `credential.${fix.origem}.useHttpPath=${fix.caminho}`, '-c', 'http.sslVerify=true',
     '-c', `http.${url}.sslVerify=true`, '-c', `http.${url}.proxy=`, '-c', `http.${url}.extraHeader=`,
     '-c', `http.${url}.followRedirects=false`,
-    ...(fix.ca ? ['-c', `http.${url}.sslCAInfo=${path.join(dir, ARQUIVO_DA_CA)}`] : [])];
+    ...(fix.ca ? ['-c', `http.${url}.sslCAInfo=${path.join(dir, ARQUIVO_DA_CA)}`] : []), ...travasDoRemoto('https')];
+}
+
+/**
+ * O que o git le da `.git/config` e da `.git/hooks` a cada comando, inclusive entre a ultima conferencia e o push:
+ * nenhum hook roda (`core.hooksPath=/dev/null` vence o da config do projeto e a pasta `hooks`) e so o protocolo do
+ * modo vale (`protocol.allow=never`). Um origin trocado para caminho local ou `file://`, com `receivepack` ou
+ * `uploadpack` proprios, recusa no protocolo sem rodar nada. O `-c remote.origin.url=` nao serviria: a chave tem
+ * varios valores, e o `-c` acrescenta um em vez de trocar.
+ */
+function travasDoRemoto(protocolo: 'ssh' | 'https'): string[] {
+  return ['-c', 'core.hooksPath=/dev/null', '-c', 'protocol.allow=never', '-c', `protocol.${protocolo}.allow=always`];
 }
 
 const ESCAPE_DE_REGEX = (t: string): string => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -289,6 +302,7 @@ function binarioDoHelper(valor: string): string | null {
 export function chaveRecusadaDaConfigDeRede(config: readonly string[]): string | null {
   const origens = new Set<string>();
   const urls = new Set<string>();
+  const vistas = new Set<string>();
   if (config.length % 2 !== 0) return '';
   for (let i = 0; i < config.length; i += 2) {
     const par = config[i + 1];
@@ -298,7 +312,11 @@ export function chaveRecusadaDaConfigDeRede(config: readonly string[]): string |
     if (config[i] !== '-c' || chave === '' || /[\0\n\r]/.test(valor)) return chave;
     let ok = false;
     let m: RegExpExecArray | null;
+    vistas.add(chave);
     if (chave === 'core.sshCommand') ok = FORMA_DO_SSH.test(valor);
+    else if (chave === 'core.hooksPath') ok = valor === '/dev/null';
+    else if (chave === 'protocol.allow') ok = valor === 'never';
+    else if (chave === 'protocol.ssh.allow' || chave === 'protocol.https.allow') ok = valor === 'always';
     else if (chave === 'ssh.variant') ok = valor === 'ssh';
     else if (chave === 'credential.helper') ok = valor === '';
     else if (chave === 'http.sslVerify') ok = valor === 'true';
@@ -314,6 +332,16 @@ export function chaveRecusadaDaConfigDeRede(config: readonly string[]): string |
         : valor === '';
     }
     if (!ok) return chave;
+  }
+  // Lista nao vazia leva as travas, e o protocolo liberado e o do modo: ssh com o ssh fixado, https sem ele.
+  if (config.length) {
+    const ssh = vistas.has('core.sshCommand') || vistas.has('ssh.variant');
+    const http = urls.size > 0 || origens.size > 0 || vistas.has('credential.helper') || vistas.has('http.sslVerify');
+    if (!vistas.has('core.hooksPath')) return 'core.hooksPath';
+    if (!vistas.has('protocol.allow')) return 'protocol.allow';
+    if (ssh === http) return 'core.sshCommand/http';
+    if (vistas.has(ssh ? 'protocol.https.allow' : 'protocol.ssh.allow')) return ssh ? 'protocol.https.allow' : 'protocol.ssh.allow';
+    if (!vistas.has(ssh ? 'protocol.ssh.allow' : 'protocol.https.allow')) return ssh ? 'protocol.ssh.allow' : 'protocol.https.allow';
   }
   // Uma URL so, e a origem das credenciais e a do endereco dela.
   if (urls.size > 1 || origens.size > 1) return 'http/credential';
