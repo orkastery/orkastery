@@ -189,6 +189,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Parecer reprovado volta a ser legível na retomada** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)): o leitor do CHECK reconhece `Veredito: REPROVOU` como reprovação, além dos três termos já aceitos.
 - **Baseline não aceita dependência ausente na worktree** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)): código `127` agora recusa `ork verify --baseline` com motivo tipado, em vez de virar “já falhava” e mascarar o ambiente incompleto.
 - **Worktrees novas saem da base remota atual** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)): `ork thread new` e `ork worktree ensure` atualizam `origin/<base>` antes de criar a branch, sem depender da `main` local parada em outra worktree.
 - **Saída completa no `ork verify`** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): comandos de

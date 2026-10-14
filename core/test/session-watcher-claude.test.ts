@@ -530,6 +530,7 @@ test('GO-FIX 2 (D12): MASTER exige score_proposto e SHIP exige ship_done no inte
 test('GO-FIX 2 (D12): veredito legível e intervalo do despacho', () => {
   assert.equal(vereditoDoParecer('## Veredito: PRECISA DE MUDANÇA\n'), 'PRECISA DE MUDANCA');
   assert.equal(vereditoDoParecer('**Veredito:** PASSOU\nVeredito: passou\n'), 'PASSOU');
+  assert.equal(vereditoDoParecer('Veredito: REPROVOU\n'), 'REPROVOU');
   assert.equal(vereditoDoParecer('Veredito: BLOQUEADO\n'), 'BLOQUEADO');
   for (const texto of ['Veredito: PASSOUX\n', 'o veredito foi PASSOU\n', 'Veredito: PASSOU\nVeredito: BLOQUEADO\n', ''])
     assert.equal(vereditoDoParecer(texto), null, texto);
