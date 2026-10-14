@@ -10,21 +10,24 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { createHash, createHmac, randomUUID } from 'node:crypto';
-import { TIPOS_DE_FORJA, type TipoDeForja } from './forja/contrato';
-import type { AlvoDaCli } from './forja/cli';
-import { chaveDoLogin } from './forja/api';
-import { HOST_DO_REMOTO, lerEnderecoDoRemoto } from './forja/endereco';
+import { spawnSync } from 'node:child_process';
+import { TIPOS_DE_FORJA, type ForjaResolvida, type TipoDeForja } from './forja/contrato';
+import { CLI_DA_FORJA, versaoAbaixo, type AlvoDaCli } from './forja/cli';
+import { chaveDoLogin, temLogin, type RodarCli } from './forja/api';
+import { HOST_DO_REMOTO, lerEnderecoDoRemoto, type EnderecoDoRemoto } from './forja/endereco';
+import { resolverForja, type SondasDaForja } from './forja/resolver';
 import { gitPassivoMcp } from './mcp-git';
-import { helperDeCredencialDaCli } from './rede-forja';
+import { acharBinario, helperDeCredencialDaCli } from './rede-forja';
 import { ErroDoCatalogo, msg } from './locale';
-import type { TransporteFixado } from './mcp-transportes';
+import type { Manifesto } from './types';
+import type { TransporteFixado, TransporteShipMcp } from './mcp-transportes';
 
 /** O unico remoto que o `github-ssh` aceita, como sempre. */
 export const URL_GITHUB_SSH = /^git@github\.com:[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9._-]*\.git$/;
 
 /** Cada recusa dos transportes fixados; todas tem a frase no catalogo (`transporteShip.recusa`). */
 export const RECUSAS_DO_TRANSPORTE = ['urls', 'modo', 'forja', 'ssh.divergente', 'ssh.sem-resposta', 'ssh.revogada',
-  'ssh.nao-confirmada', 'ssh.impressao-divergente', 'ssh.caminho', 'ssh.known-hosts-alterado', 'https.sem-tls',
+  'ssh.nao-confirmada', 'ssh.impressao-divergente', 'ssh.known-hosts-ilegivel', 'ssh.caminho', 'ssh.known-hosts-alterado', 'https.sem-tls',
   'ssh.credencial-na-url', 'https.credencial-na-url', 'https.divergente', 'sem-cli', 'sem-helper', 'sem-login', 'binario', 'ca', 'ca-alterada',
   'fixacao-ausente', 'fixacao-insegura', 'fixacao-divergente'] as const;
 export type RecusaDoTransporte = (typeof RECUSAS_DO_TRANSPORTE)[number];
@@ -87,6 +90,11 @@ const USUARIO_SSH = /^[A-Za-z0-9._][A-Za-z0-9._-]*$/;
  * host do parse, ou a palavra `origin` quando nao houve parse.
  */
 export function enderecoDoOrigin(transporte: TransporteFixado, url: string): EnderecoDoTransporte {
+  return lerOrigin(transporte, url).endereco;
+}
+
+/** O parse do origin e o que ele diz ao transporte; a sonda da instalacao leva os dois, de uma leitura so. */
+function lerOrigin(transporte: TransporteFixado, url: string): { endereco: EnderecoDoTransporte; remoto: EnderecoDoRemoto } {
   const bruta = url.trim(), e = lerEnderecoDoRemoto(bruta);
   const resumo = (): string => (e ? `${e.protocolo}://${e.host}${e.porta ? `:${e.porta}` : ''}` : 'origin');
   if (transporte === 'forja-https') {
@@ -104,12 +112,12 @@ export function enderecoDoOrigin(transporte: TransporteFixado, url: string): End
     if (e.protocolo !== 'ssh' && e.protocolo !== 'scp') return recusar('urls', resumo());
     const usuario = usuarioDoSsh(bruta);
     if (usuario !== null && !USUARIO_SSH.test(usuario)) return recusar('urls', resumo());
-    return { transporte, host: e.host, porta: e.porta ?? 22 };
+    return { endereco: { transporte, host: e.host, porta: e.porta ?? 22 }, remoto: e };
   }
   if (e.protocolo === 'ssh' || e.protocolo === 'scp') return recusar('modo', 'forja-ssh');
   if (e.protocolo !== 'https') return recusar('urls', resumo());
   const porta = e.porta === 443 ? null : e.porta;
-  return { transporte, host: e.host, porta, origem: `https://${porta === null ? e.host : `${e.host}:${porta}`}` };
+  return { endereco: { transporte, host: e.host, porta, origem: `https://${porta === null ? e.host : `${e.host}:${porta}`}` }, remoto: e };
 }
 
 // ---------------------------------------------------------------------------
@@ -369,16 +377,39 @@ function lerDaFixacao(arquivo: string, limite = LIMITE_DA_FIXACAO): Buffer {
 
 const ehPem = (bytes: Buffer): boolean => bytes.toString('latin1').includes('-----BEGIN CERTIFICATE-----');
 
+/** Le ate `limite + 1` bytes do descritor: o que passa do teto nunca entra inteiro na memoria. */
+function lerComTeto(fd: number, limite: number): Buffer {
+  const partes: Buffer[] = [];
+  let total = 0;
+  for (;;) {
+    const b = Buffer.alloc(Math.min(65536, limite + 1 - total));
+    const n = fs.readSync(fd, b, 0, b.length, null);
+    if (n === 0) break;
+    partes.push(b.subarray(0, n));
+    total += n;
+    if (total > limite) break;
+  }
+  return Buffer.concat(partes, total);
+}
+
 /**
- * A CA do manifesto, lida uma vez na instalacao: um PEM legivel, ate 1 MiB, do usuario ou do root, sem escrita de
- * grupo ou de outros. Os bytes lidos vao para a copia da fixacao; o arquivo de origem nunca mais e lido.
+ * A CA do manifesto, lida uma vez na instalacao: caminho absoluto, um PEM, ate 1 MiB, arquivo regular do usuario ou
+ * do root sem escrita de grupo ou de outros, e toda pasta do caminho real com a mesma regra. O caminho real e aberto
+ * sem seguir link e conferido pelo descritor aberto, o mesmo que se le. Os bytes vao para a copia da fixacao; o
+ * arquivo de origem nunca mais e lido.
  */
 function lerCa(arquivo: string): Buffer {
+  if (!path.isAbsolute(arquivo) || CONTROLE.test(arquivo)) return recusar('ca', arquivo);
   let bytes: Buffer;
   try {
-    const real = fs.realpathSync(arquivo), st = fs.statSync(real);
-    if (!st.isFile() || st.size > LIMITE_DA_CA || (st.mode & 0o022) !== 0 || (st.uid !== meuUid() && st.uid !== 0)) recusar('ca', arquivo);
-    bytes = fs.readFileSync(real);
+    const real = fs.realpathSync(arquivo);
+    conferirAncestrais(real, 'ca');
+    const fd = fs.openSync(real, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    try {
+      const st = fs.fstatSync(fd);
+      if (!st.isFile() || st.size > LIMITE_DA_CA || (st.mode & 0o022) !== 0 || (st.uid !== meuUid() && st.uid !== 0)) recusar('ca', arquivo);
+      bytes = lerComTeto(fd, LIMITE_DA_CA);
+    } finally { fs.closeSync(fd); }
   } catch (e) {
     if (e instanceof ErroDoCatalogo) throw e;
     return recusar('ca', arquivo);
@@ -501,4 +532,162 @@ export function textoDaFixacao(f: FixacaoDoTransporte, dir: string): string {
   return f.transporte === 'forja-ssh'
     ? t.fixadoSsh(nomeNoKnownHosts(f.host, f.porta), f.chaves.map((k) => `${k.tipo} ${k.impressao}`).join(', '), path.join(dir, 'known_hosts'))
     : t.fixadoHttps(f.origem, `${f.cli} ${f.versaoCli}`, f.ca?.arquivo ?? null);
+}
+
+// ---------------------------------------------------------------------------
+// A sonda da instalacao.
+// ---------------------------------------------------------------------------
+
+/** O transporte que o origin pede, sem rede: bare local, o SSH do GitHub de sempre, SSH de outra forja ou HTTPS. */
+export function proporTransporte(url: string): TransporteShipMcp | null {
+  const t = url.trim();
+  if (path.isAbsolute(t)) return 'bare-local';
+  if (URL_GITHUB_SSH.test(t)) return 'github-ssh';
+  const e = lerEnderecoDoRemoto(t);
+  if (!e) return null;
+  return e.protocolo === 'ssh' || e.protocolo === 'scp' ? 'forja-ssh' : e.protocolo === 'https' ? 'forja-https' : null;
+}
+
+/** O que a sonda roda. Os testes trocam tudo; nenhuma sonda pede credencial (`git-credential get` nunca roda aqui). */
+export interface SondasDoTransporte {
+  /** Sem shell e com prazo: o `ssh-keyscan`, o `--version` e a ajuda do `auth git-credential` da CLI. */
+  rodar(binario: string, args: readonly string[], prazoMs: number): { status: number | null; stdout: string; stderr: string };
+  /** O executor do `temLogin`; sem valor, a CLI de verdade. */
+  rodarCli?: RodarCli;
+  acharBinario(cmd: 'gh' | 'glab'): string | null;
+  /** As sondas do `resolverForja`, para host sem `forja.tipo`; sem valor, as padrao. */
+  sondas?: SondasDaForja;
+  /** O known_hosts da pessoa, que confirma a chave do servidor sem `--ssh-fingerprint`. */
+  knownHostsDoUsuario: string | null;
+}
+
+/** O `ssh-keyscan` desiste de cada host em 10 s; o processo inteiro, em 30 s. A CLI responde a versao e a ajuda em 10 s. */
+const PRAZO_DO_KEYSCAN_MS = 30_000, PRAZO_DA_CLI_MS = 10_000;
+const LIMITE_DO_KNOWN_HOSTS = 4 * 1048576;
+
+export function sondasPadraoDoTransporte(env: NodeJS.ProcessEnv = process.env): SondasDoTransporte {
+  const home = env.HOME || os.homedir();
+  return {
+    rodar: (binario, args, prazoMs) => {
+      const r = spawnSync(binario, [...args], { encoding: 'utf8', timeout: prazoMs, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { PATH: '/usr/bin:/bin', HOME: home, LANG: 'C', LC_ALL: 'C', NO_COLOR: '1', GH_NO_UPDATE_NOTIFIER: '1',
+          GH_PROMPT_DISABLED: '1', GLAB_CHECK_UPDATE: 'false', GLAB_SEND_TELEMETRY: 'false' } });
+      return { status: r.status, stdout: (r.stdout ?? '').toString(), stderr: (r.stderr ?? '').toString() };
+    },
+    acharBinario: (cmd) => acharBinario(cmd, { env }),
+    knownHostsDoUsuario: path.join(home, '.ssh', 'known_hosts'),
+  };
+}
+
+export interface EntradaDaFixacao {
+  raiz: string; transporte: TransporteFixado; url: string; manifesto?: Manifesto['forja'];
+  /** `SHA256:...` conferida pela pessoa fora do ork (`--ssh-fingerprint`). */
+  impressao?: string;
+  sondas: SondasDoTransporte;
+}
+
+/**
+ * Sonda o origin no modo pedido e devolve a fixacao, sem gravar nada; o que nao fecha recusa com o motivo. Nesta
+ * ordem: o modo serve ao origin (um parse so dele), a forja resolve, e o SSH ou o HTTPS confere o resto.
+ */
+export function prepararFixacao(e: EntradaDaFixacao): FixacaoPreparada {
+  const { endereco, remoto } = lerOrigin(e.transporte, e.url);
+  const r = resolverForja({ endereco: remoto, manifesto: e.manifesto, sondas: e.sondas.sondas });
+  // O detalhe do resolver pode citar o caminho do projeto: sai so o host, como em toda recusa do origin.
+  if (!r.ok) return recusar('forja', msg().forja.motivo({ codigo: r.erro.codigo, detalhe: r.erro.detalhe.split(remoto.caminho).join('<caminho>') }, null));
+  return endereco.transporte === 'forja-ssh' ? fixarSsh(e, endereco, r.valor) : fixarHttps(e, endereco, r.valor);
+}
+
+/**
+ * O known_hosts da pessoa para o nome: o que ele aceita e o que ele revoga. Sem arquivo, nada confirma (so a
+ * impressao dita); arquivo que existe e nao se le recusa, porque esconderia uma revogacao.
+ */
+function conhecidasDoUsuario(arquivo: string | null, nome: string): ReturnType<typeof lerKnownHosts> {
+  const vazio = { aceitas: [], revogadas: [] };
+  if (!arquivo) return vazio;
+  let conteudo: Buffer;
+  try {
+    const fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
+    try {
+      if (!fs.fstatSync(fd).isFile()) recusar('ssh.known-hosts-ilegivel', arquivo);
+      conteudo = lerComTeto(fd, LIMITE_DO_KNOWN_HOSTS);
+    } finally { fs.closeSync(fd); }
+  } catch (e) {
+    if (e instanceof ErroDoCatalogo) throw e;
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return vazio;
+    return recusar('ssh.known-hosts-ilegivel', arquivo);
+  }
+  if (conteudo.length > LIMITE_DO_KNOWN_HOSTS) recusar('ssh.known-hosts-ilegivel', arquivo);
+  return lerKnownHosts(conteudo.toString('utf8'), nome);
+}
+
+const impressoes = (ks: readonly ChaveDoServidor[]): string => ks.map((k) => `${k.tipo} ${impressaoDaChave(k.chave)}`).join(', ');
+
+/**
+ * A chave do servidor so entra confirmada: o known_hosts da pessoa a aceita, ou a impressao dita (`--ssh-fingerprint`)
+ * e a dela. Nunca a primeira que aparece. Revogada no known_hosts, trocada (o known_hosts guarda outra do mesmo tipo)
+ * ou impressao que o servidor nao apresentou recusam.
+ */
+function fixarSsh(e: EntradaDaFixacao, origin: { host: string; porta: number }, f: ForjaResolvida): FixacaoPreparada {
+  const { host, porta } = origin;
+  const alvo = { host: f.sshHost ?? f.host, porta: f.sshPorta ?? 22 };
+  if (host !== alvo.host || porta !== alvo.porta) recusar('ssh.divergente', `${host}:${porta} != ${alvo.host}:${alvo.porta}`);
+  // O host vem do parse e nunca comeca por `-`; mesmo assim vai depois do `--`, para nunca virar opcao.
+  if (!HOST_DO_REMOTO.test(host) || !Number.isInteger(porta) || porta < 1 || porta > 65535) recusar('urls', 'origin');
+  const nome = nomeNoKnownHosts(host, porta);
+  const scan = e.sondas.rodar('ssh-keyscan', ['-T', '10', '-p', String(porta), '-t', 'ed25519,ecdsa,rsa', '--', host], PRAZO_DO_KEYSCAN_MS);
+  const doServidor = lerKeyscan(scan.stdout, nome);
+  if (!doServidor.length) recusar('ssh.sem-resposta', nome);
+  const conhecidas = conhecidasDoUsuario(e.sondas.knownHostsDoUsuario, nome);
+  if (doServidor.some((k) => conhecidas.revogadas.some((r) => mesma(k, r)))) recusar('ssh.revogada', nome);
+  const trocadas = doServidor.filter((k) => conhecidas.aceitas.some((u) => u.tipo === k.tipo) && !conhecidas.aceitas.some((u) => mesma(k, u)));
+  if (trocadas.length) {
+    const guardadas = conhecidas.aceitas.filter((u) => trocadas.some((t) => t.tipo === u.tipo));
+    recusar('ssh.impressao-divergente', `known_hosts ${nome}: ${impressoes(guardadas)} != ${impressoes(trocadas)}`);
+  }
+  const lista = impressoes(doServidor);
+  let dita: string | null = null;
+  if (e.impressao !== undefined) {
+    dita = e.impressao.trim().replace(/=+$/, '');
+    const valida = IMPRESSAO.test(dita);
+    if (!valida || !doServidor.some((k) => impressaoDaChave(k.chave) === dita)) {
+      recusar('ssh.impressao-divergente', `${valida ? dita : '--ssh-fingerprint'}; ${nome}: ${lista}`);
+    }
+  }
+  const confirmadas = doServidor.filter((k) => conhecidas.aceitas.some((u) => mesma(k, u)) || impressaoDaChave(k.chave) === dita);
+  if (!confirmadas.length) recusar('ssh.nao-confirmada', `${nome}: ${lista}`);
+  const knownHosts = linhasDoKnownHosts(confirmadas, nome);
+  return {
+    knownHosts,
+    fixacao: { schema: ESQUEMA_DA_FIXACAO, raiz: e.raiz, url: e.url, transporte: 'forja-ssh', host, porta,
+      chaves: confirmadas.map((k) => ({ tipo: k.tipo, impressao: impressaoDaChave(k.chave) })), knownHostsSha256: sha256(knownHosts) },
+  };
+}
+
+/**
+ * O helper e o da CLI do tipo, pelo caminho real, na versao minima, com `auth git-credential` e login no host exato
+ * (`host[:porta]`, nunca o caminho base). A CA do manifesto e lida uma vez aqui e segue em bytes para a copia fixada.
+ * A saida da CLI nunca e repetida: so o codigo de saida e a versao lida.
+ */
+function fixarHttps(e: EntradaDaFixacao, origin: { origem: string }, f: ForjaResolvida): FixacaoPreparada {
+  const alvo: AlvoDaCli = { tipo: f.tipo, host: f.host, porta: f.porta, caminhoBase: f.caminhoBase, ca: f.ca };
+  const { origem, caminhoBase } = alvoDaCredencial(alvo);
+  if (origin.origem !== origem) recusar('https.divergente', `${origin.origem} != ${origem}`);
+  const ca = f.ca === null ? null : lerCa(f.ca);
+  const cli = CLI_DA_FORJA[f.tipo];
+  const achado = e.sondas.acharBinario(cli.cmd);
+  if (!achado) return recusar('sem-cli', `${cli.cmd} ${cli.minima}`);
+  const binario = binarioReal(achado);
+  const versao = cli.lerVersao(e.sondas.rodar(binario, ['--version'], PRAZO_DA_CLI_MS).stdout);
+  if (versao === null || versaoAbaixo(versao, cli.minima)) return recusar('sem-helper', `${cli.cmd} ${versao ?? '?'} < ${cli.minima}`);
+  const ajuda = e.sondas.rodar(binario, ['auth', 'git-credential', '--help'], PRAZO_DA_CLI_MS);
+  if (ajuda.status !== 0 || !/git-credential/.test(`${ajuda.stdout}\n${ajuda.stderr}`)) recusar('sem-helper', `${cli.cmd} ${versao}, >= ${cli.minima}`);
+  if (!temLogin(alvo, e.sondas.rodarCli)) recusar('sem-login', `${cli.cmd} ${chaveDoLogin(alvo)}`);
+  return {
+    fixacao: { schema: ESQUEMA_DA_FIXACAO, raiz: e.raiz, url: e.url, transporte: 'forja-https', tipo: f.tipo, origem,
+      caminho: CAMINHO_NA_CREDENCIAL && caminhoBase !== '', cli: cli.cmd, binario, versaoCli: versao,
+      ca: ca && f.ca ? { arquivo: f.ca, sha256: sha256(ca) } : null },
+    ...(ca ? { ca } : {}),
+  };
 }

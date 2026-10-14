@@ -116,6 +116,7 @@ export const FORJA_PT_BR = {
           case 'mcp.ship.transport.ssh.revogada': return `o seu known_hosts revoga uma chave que ${d} apresentou; não instale até saber por quê`;
           case 'mcp.ship.transport.ssh.nao-confirmada': return `confira a impressão com quem administra a forja e rode de novo com --ssh-fingerprint <impressão> (${d})`;
           case 'mcp.ship.transport.ssh.impressao-divergente': return `a impressão dita não é de nenhuma chave que o servidor apresentou (${d}); não instale até saber por quê`;
+          case 'mcp.ship.transport.ssh.known-hosts-ilegivel': return `o seu known_hosts existe e não pôde ser lido (${d}); sem ele, uma chave revogada passaria; acerte o arquivo e rode de novo`;
           case 'mcp.ship.transport.ssh.caminho': return `o known_hosts fixado precisa de caminho absoluto sem espaço nem caractere especial (${d})`;
           case 'mcp.ship.transport.ssh.known-hosts-alterado': return `o known_hosts fixado mudou depois da instalação (${d}); reinstale o MCP`;
           case 'mcp.ship.transport.ssh.credencial-na-url': return `o ${d} leva senha ou token na URL SSH; tire-os com git remote set-url origin ssh://<usuário>@<host>/<caminho>.git`;
@@ -253,6 +254,7 @@ export const FORJA_EN: MensagensDeForja = {
           case 'mcp.ship.transport.ssh.revogada': return `your known_hosts revokes a key that ${d} offered; do not install until you know why`;
           case 'mcp.ship.transport.ssh.nao-confirmada': return `check the fingerprint with whoever runs the forge and run again with --ssh-fingerprint <fingerprint> (${d})`;
           case 'mcp.ship.transport.ssh.impressao-divergente': return `the given fingerprint matches no key the server offered (${d}); do not install until you know why`;
+          case 'mcp.ship.transport.ssh.known-hosts-ilegivel': return `your known_hosts exists but could not be read (${d}); without it, a revoked key would pass; fix the file and run again`;
           case 'mcp.ship.transport.ssh.caminho': return `the pinned known_hosts needs an absolute path without spaces or special characters (${d})`;
           case 'mcp.ship.transport.ssh.known-hosts-alterado': return `the pinned known_hosts changed after the install (${d}); reinstall the MCP`;
           case 'mcp.ship.transport.ssh.credencial-na-url': return `${d} carries a password or token in the SSH URL; remove them with git remote set-url origin ssh://<user>@<host>/<path>.git`;
