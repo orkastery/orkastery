@@ -83,7 +83,7 @@ Relações: [RM-049](RM-049-lancamento.md) (lançamento), [RM-016](RM-016-experi
 
 A F2 sai em duas metades: a F2a (`doctor` inteiro, o erro de `init` fora do repositório, onboarding, `experiencia show`, `thread new`, `thread status`, `phase list`, `phase run` e a ajuda) e a F2b (`verify`, `ship`, `pulse`, `master`, `retry` e `roadmap status`).
 
-A F3 também sai em duas: a F3a (os arquivos gerados, a referência do CLI em inglês e a cobertura medida) e a F3b (o resto das mensagens do CLI e as skills); os prompts, `decisao registrar` e `network roadmap` ficam para a F3c.
+A F3 sai em quatro fatias: a F3a (os arquivos gerados, a referência do CLI em inglês e a cobertura medida), a F3b (o resto das mensagens do CLI e as skills), a F3c (os prompts, `decisao registrar`, `network roadmap`, `thread new --from-finding` e o `.orkastery/.gitignore`) e a F3d (os demais comandos, mods, tools do OpenClaw e cópias dos marketplaces).
 
 Os aceites acima são o que cada fatia terá de provar; não são provas já executadas. Os achados EN5 e EN9 entram na F1 porque são só de documentação: EN9 é a regra de idioma do guia de pull request em relação ao `CONTRIBUTING.md`, já corrigida na `main` ("em pt-BR ou em inglês"); EN5 é o quickstart em inglês do site, que para em `ork thread new`, `thread status` e `phase list`, e cujos exemplos seguem em português, e continua aberto.
 
@@ -199,11 +199,23 @@ A F3b mede no mesmo contador, com o recibo em [`cobertura-f3b.json`](evidencias/
 - **Skills na língua do dono:** com `owner.language` (ou o locale) em `en`, o `ork adapter install` copia as 18 skills do catálogo, as seis checklists, os comandos e os subagentes do Claude Code, a skill `ork` do Codex e a skill do Hermes em inglês (43 variantes em `core/assets/skills-en/`, `references-en/` e `adapters-en/`), no mesmo destino; o recibo `INSTALADO.json` guarda a origem real, e trocar a língua troca no lugar a cópia intacta. As variantes têm a estrutura do original, linha a linha, e um teste acusa a que foi traduzida de outra versão do original. O par `orchestration-experience` já era bilíngue. As variantes ficam fora da régua do contador, como os modelos do `docs init`.
 - **Seguem em pt-BR, para a F3c:** o `.orkastery/.gitignore` que o `ork init` cria, `ork decisao registrar` (as recusas são do contrato HITL v2, também do MCP), `ork network roadmap` (o texto é contrato com os hosts e com a prova de ativação), `ork thread new --from-finding`, os prompts de fase (`ork prompt` e o prompt que o `ork phase run` monta, que saem de cinco módulos e da `REGRA CENTRAL`), os demais comandos fora da lista, os mods, as tools do OpenClaw e as cópias dos marketplaces (geradas do catálogo pt-BR).
 
+A F3c mede no mesmo contador, com o recibo em [`cobertura-f3c.json`](evidencias/RM-061/cobertura-f3c.json):
+
+| Medida | Base carimbada da F3c (`d38070d5`) | F3c (`74edf4cb`) |
+| --- | --- | --- |
+| Entradas do catálogo | 1.800 | 1.998 |
+| Literais de saída fora do catálogo | 2.946 | 2.860 |
+| Cobertura | 37,9% | 41,1% |
+
+- **O que mudou:** o `.orkastery/.gitignore` gerado pelo `ork init`, as recusas humanas de `ork decisao registrar` no CLI e no MCP, o texto humano de `ork network roadmap`, o resultado e o pedido gerado por `ork thread new --from-finding`, `ork prompt` e o prompt montado pelo `ork phase run` seguem a língua atual do dono. O prompt inglês preserva as seis fases, os cinco módulos e a `CENTRAL RULE`; o pt-BR continua no template original.
+- **Contratos preservados:** `ork network roadmap` mantém byte a byte as três linhas que os hosts e a prova de ativação leem; códigos do HITL v2, ledger e `--json` não mudam. Os quatro snapshots pt-BR mantêm os mesmos hashes das fatias anteriores, registrados no recibo da cobertura.
+- **F3d:** ficam para a próxima fatia os demais comandos ainda fora da lista, os mods, as tools do OpenClaw e as cópias dos marketplaces. Essa separação mantém a F3c verificável sem misturar superfícies opcionais com os cinco itens pedidos.
+
 ## Responsabilidades e histórico
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery nas fatias; A: Julio; C: revisão humana do inglês; I: quem usa o CLI em inglês.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente Claude Code redigiu esta página em #Fast, restrita à documentação. O código da F1 vem do #113, mesclado por outra thread. Revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** revisar o inglês da F2a à F3b (as frases mais visíveis estão no PR da F3b), abrir a F3c (prompts de fase, `decisao registrar`, `network roadmap`, `thread new --from-finding` e o `.orkastery/.gitignore`) e fechar o EN5; responsável: fábrica, com a revisão do inglês pelo dono; sem data definida nesta página.
+- **Próxima ação, responsável e prazo:** revisar o inglês da F2a à F3c (as frases mais visíveis ficam no corpo do PR), executar a F3d e fechar o EN5; responsável: fábrica, com a revisão do inglês pelo dono; sem data definida nesta página.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |

@@ -8,6 +8,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **CLI em inglês e pt-BR, fatia F3c** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): o
+  `.orkastery/.gitignore` gerado pelo `ork init`, as recusas humanas de `ork decisao registrar` no CLI e no MCP, o
+  texto humano de `ork network roadmap`, `ork thread new --from-finding`, `ork prompt` e o prompt montado pelo
+  `ork phase run` seguem a língua atual do dono. As linhas de contrato do panorama da rede, os códigos HITL v2, o
+  ledger, o `--json` e os snapshots pt-BR permanecem iguais; o prompt inglês conserva as seis fases, os cinco módulos
+  e a `CENTRAL RULE`.
+
 - **#Noctum, fatia N4: supervisão e recuperação** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
   `core/src/noctum-supervisao.ts` guarda os checkpoints da supervisão do arco num log próprio, encadeado e assinado
   (`ork.noctum-supervisao/v1`), com os parâmetros na primeira linha: reiniciar o condutor ou o vigia, trocar de conta ou

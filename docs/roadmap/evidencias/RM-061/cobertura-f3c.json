@@ -1,0 +1,44 @@
+{
+  "schema": "ork.locale-cobertura-evidencia/v1",
+  "item": "RM-061",
+  "fatia": "F3c",
+  "thread": "ork-rm061f3c",
+  "contador": "core/scripts/contar-mensagens-de-saida.cjs",
+  "metodo": "o mesmo das fatias anteriores: literais com texto de pessoa em posicao de saida, fora do catalogo, e folhas do catalogo ingles; cobertura = entradas / (entradas + literais de saida)",
+  "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json",
+  "antes": {
+    "arvore": "d38070d5321662aaa5fed03e8138f64b1c7b2289",
+    "descricao": "base carimbada da F3c, com F1, F2a, F2b, F3a e F3b",
+    "catalogo": { "entradas": 1800 },
+    "emPosicaoDeSaida": 2946,
+    "cobertura": 0.3793
+  },
+  "depois": {
+    "arvore": "74edf4cb62bb9e6844ec3944b98b9e84a7d9447f",
+    "descricao": "F3c: gitignore gerado, decisoes HITL, network roadmap, thread a partir de achado e prompts de fase na lingua do dono",
+    "schema": "ork.locale-cobertura/v1",
+    "arquivos": 271,
+    "literaisComTexto": 5138,
+    "emPosicaoDeSaida": 2860,
+    "arquivosComSaida": 174,
+    "catalogo": {
+      "entradas": 1998,
+      "familiasNovasOuAmpliadas": [
+        "locale-decisao.ts",
+        "locale-gerados.ts",
+        "locale-network.ts",
+        "locale-prompts.ts",
+        "locale-thread.ts",
+        "locale.ts"
+      ]
+    },
+    "cobertura": 0.4113
+  },
+  "snapshotsPtBR": {
+    "core/test/fixtures/locale-f2a-pt-BR.json": "3c5592b9553235ba98f3a01c81369cdc9403ea3ab052c4142c50e0573926775f",
+    "core/test/fixtures/locale-f2b-pt-BR.json": "6d7500a22320d57125965837180ea2b80139a4ae21a3cb27963e3bc5991720ab",
+    "core/test/fixtures/locale-f3a-pt-BR.json": "40fe60a9346b19bbca1fb5d9b68c0a2409542d41e5fa6a3271bc5cda753ee3cc",
+    "core/test/fixtures/locale-f3b-pt-BR.json": "8a2450186f778d66baf01475abef091296273561651fc3e6fa97f92b17d0405c"
+  },
+  "nota": "os demais comandos, os mods, as tools do OpenClaw e as copias dos marketplaces seguem para a F3d"
+}
