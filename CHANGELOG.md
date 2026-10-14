@@ -8,6 +8,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Pulse e rede no GitLab**: o pulse lê os MRs da base em uma consulta GraphQL, com a pipeline do head e o job do
+  check da CI (`ci.context`); a forja do pulse é resolvida pelo manifesto e pela CLI com login, nunca pelo nome do
+  host; o retrato `ork.prs-abertos/v1` aceita subgrupos. A rede usa a API da CLI logada (host com porta por
+  `GITLAB_HOST`, login conferido antes, corpo com `Content-Type`), e a casa da rede pode morar num grupo em que a
+  pessoa é Maintainer ou acima (`ork network entrar --repositorio GRUPO/SUB/NOME`). A porta de um remoto https de
+  GitLab chega à leitura do roadmap. Contrato em [`docs/referencia/contratos/forja.md`](docs/referencia/contratos/forja.md).
+- **`ork network roadmap --json`**: as lacunas `forja.nao-encontrado`, `forja.inacessivel` e `forja.tempo-esgotado`
+  passam a `forja.nao-achei` e `forja.indisponivel`.
+- **Correção medida**: o `glab api --input` não mandava `Content-Type`, e o GitLab ignorava o corpo; o `gh` com host e
+  porta passa por `GH_HOST` (o `--hostname` recusa a porta).
 - **O gate de CI lê o GitLab**: `ork ci status` e o gate do `ork ship` leem a CI pela forja resolvida. Só o job que
   está na lista de jobs da pipeline do projeto conta como produtor `gitlab-ci`; um status criado por `POST /statuses`
   conta só como `status:<login>` e só aprova se estiver em `ci.produtor`. Abaixo do GitLab 17.0 a consulta é recusada, e

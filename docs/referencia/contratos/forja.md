@@ -90,6 +90,25 @@ projeto, fora de qualquer `include:`; sem elas, a pipeline do MR pode não nasce
 No `ork ci status --json`, o contrato é `ork.ci-status/v2`: a v1 mais `provider` (`github`, `gitlab` ou `null`),
 `fonte` (`check-run`, `commit-status` ou `pipeline-job`) e `produtor`. Os leitores da v1 continuam aceitos.
 
+## Pulse no GitLab
+
+O pulse lê os MRs da base numa consulta GraphQL: os abertos (100 por página, até 200), com a pipeline do head e o
+job do check da CI (o `ci.context` do manifesto, `ork-verify` por padrão), os recentes de qualquer estado (100) e os das
+branches de thread com produto publicado (até 10). MR de fork e de outra base ficam de fora. Cada check sai da regra
+única de estado; `manual` e `skipped` contam como verde no pulse, como no GitHub. Um status externo (`POST /statuses`)
+com o nome do check fica pendente: não é o job. Lista cortada (teto, cota abaixo de 10 %) é `parcial`, nunca "sem MR".
+A forja do pulse vem do bloco `forja:`, do host conhecido ou da sondagem só pela CLI com login. Sem login do `glab` no
+host, o pulse diz uma vez `prs.sem-leitura`. O retrato `ork.prs-abertos/v1` aceita o repositório em subgrupos.
+
+## Casa da rede num grupo
+
+`ork network entrar --forja gitlab --repositorio <grupo>[/<sub>...]/<nome>` cria a casa privada no grupo quando a
+pessoa é Maintainer (40) ou acima nele, herdado inclusive. Abaixo disso a recusa é `rede.repositorio-alheio`, com o
+nível medido e o grupo na frase; com namespace de outro usuário, a recusa é `rede.repositorio-alheio` também. O host
+com porta vai por `GITLAB_HOST`; a rede não guarda caminho base. Um GitLab em subcaminho ou com CA própria é recusado
+com `rede.forja-nao-suportada`. O `ork network roadmap` lê a porta de um remoto https de GitLab (a que não é a do
+esquema) e a leva à API; a porta de um remoto ssh é do ssh e nunca entra.
+
 ## Versão do servidor
 
 `GET /api/v4/metadata` dá a versão e a edição, em cache por 24 h em `.orkastery/cache/`.
@@ -142,5 +161,6 @@ campo `forja` do JSON diz o que foi feito: `medida` (a seção rodou) ou `nao-me
 
 ## O que não é suportado
 
-- Uma casa da rede GitLab em subcaminho ou com CA própria: o `rede.json` guarda só `host[:porta]`.
+- Uma casa da rede GitLab em subcaminho ou com CA própria: o `rede.json` guarda só `host[:porta]`; a recusa é
+  `rede.forja-nao-suportada`.
 - Duas instâncias do GitLab no mesmo host, em subcaminhos diferentes, na mesma máquina (limite do `glab`).
