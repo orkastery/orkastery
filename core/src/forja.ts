@@ -19,7 +19,7 @@ import { lerHostDoRemoto } from './forja/endereco';
 import { redigirSegredos } from './hitl';
 import { procurarSegredos } from './policies';
 import { rodarCli } from './forja/executor';
-import { chamadorDaApi, ChamadorDaApi } from './forja/api';
+import { chamadorDaApi, ChamadorDaApi, OpcoesDaApi } from './forja/api';
 import { CONSULTA_ARVORES_GITLAB, CONSULTA_RAIZ_GITLAB, consultaDeBlobsDoGitlab } from './forja/gitlab/consultas';
 import { projetoNaApi } from './forja/gitlab/pedidos';
 
@@ -313,8 +313,8 @@ function commitsDoHistorico(historico: unknown, onde: string): { commits: Commit
 }
 
 /** A API do GitLab de uma forja: o host e a porta da API, e o caminho base e a CA quando vieram do bloco `forja:`. */
-const apiDoGitlab = (forja: IdentidadeDaForja): ChamadorDaApi =>
-  chamadorDaApi({ tipo: 'gitlab', host: forja.host, porta: forja.porta ?? null, caminhoBase: forja.caminhoBase ?? '', ca: forja.ca ?? null });
+export const apiDoGitlab = (forja: IdentidadeDaForja, opcoes: OpcoesDaApi = {}): ChamadorDaApi =>
+  chamadorDaApi({ tipo: 'gitlab', host: forja.host, porta: forja.porta ?? null, caminhoBase: forja.caminhoBase ?? '', ca: forja.ca ?? null }, opcoes);
 
 /** Uma consulta GraphQL do GitLab; `errors` no corpo e erro tipado, nunca resposta. */
 function graphqlDoGitlab(api: ChamadorDaApi, query: string, variables: Json): { ok: true; json: unknown } | { ok: false; erro: ErroDaForja } {

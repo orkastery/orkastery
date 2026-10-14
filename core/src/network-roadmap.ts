@@ -36,8 +36,9 @@ import { buscarBranch, git, pontaLocal, remotoValido, remotoRedigido } from './b
 import { DIR_ROADMAP, Documento, documentoDeTexto, ehPaginaDeDocs } from './docs';
 import { BRANCH_DA_FABRICA, CONTRATO_MAQUINA, DIR_DA_FABRICA, despachoDaThread, entregasNaBase, EstadoDaMaquina, estadoValido,
   LIMIAR_SEM_BATIDA_MS, retratoDaMaquina, runtimeDaThread, ThreadNaFabrica } from './fabrica-estado';
-import { ArquivoDaForja, CommitDaBase, detalheSeguro, ErroDaForja, ExecutorDaForja, forjaDoArgumento, IdentidadeDaForja,
+import { apiDoGitlab, ArquivoDaForja, CommitDaBase, detalheSeguro, ErroDaForja, ExecutorDaForja, forjaDoArgumento, IdentidadeDaForja,
   identidadeDaForja, identidadeDaForjaResolvida, lerCommitsDaForja, lerDaForja, mesmaForja, rotuloDaForja } from './forja';
+import type { RodarCli } from './forja/api';
 import { lerEnderecoDoRemoto } from './forja/endereco';
 import { resolverForja } from './forja/resolver';
 import { dataLocal, duracaoCurta, formatarDataHora, fusoDoDono, legendaDoFuso, normalizarFuso, partesLocais } from './horario';
@@ -207,6 +208,8 @@ export interface OpcoesDoPanorama {
   semRemoto?: boolean;
   /** Os testes trocam a CLI da forja por respostas gravadas. */
   executor?: ExecutorDaForja;
+  /** Quem roda o `glab` da API do GitLab; os testes trocam por uma CLI falsa. */
+  rodarDaForja?: RodarCli;
   /** O nome desta maquina; padrao: `nomeDaMaquina()`. */
   maquina?: string;
   /** O arquivo do registro da RM-052; padrao: `~/.orkastery/projetos.json`. */
@@ -230,7 +233,7 @@ export interface OpcoesDoPanorama {
 }
 
 /** `fuso`: o do projeto em leitura; no panorama, o do dono deste processo ate um projeto dizer o seu. */
-interface Contexto { quando: string; maquina: string; semRemoto: boolean; executor?: ExecutorDaForja; fuso: string }
+interface Contexto { quando: string; maquina: string; semRemoto: boolean; executor?: ExecutorDaForja; rodarDaForja?: RodarCli; fuso: string }
 
 const lacuna = (tipo: TipoDeLacunaDaRede, parte: ParteDaRede, alvo: string | undefined, detalhe: string, correcao: string): LacunaDaRede =>
   ({ tipo, parte, ...(alvo ? { alvo } : {}), detalhe, correcao });
@@ -829,9 +832,10 @@ function lerProjetoDaForja(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
     return semLeitura();
   }
   const desde = inicioDoDia(geral.quando, geral.fuso);
+  const api = forja.tipo === 'gitlab' && geral.rodarDaForja ? apiDoGitlab(forja, { rodar: geral.rodarDaForja }) : undefined;
   const ler = (base: string | null) => lerDaForja(forja, { base, desde, dirRoadmap: DIR_ROADMAP, manifesto: NOME_MANIFESTO,
     reservas: { branch: BRANCH_DE_RESERVAS, dir: DIR_DE_RESERVAS }, fabrica: { branch: BRANCH_DA_FABRICA, dir: DIR_DA_FABRICA },
-    lidoEm: geral.quando }, geral.executor);
+    lidoEm: geral.quando }, geral.executor, api);
   let baseUsada = p.base;
   let r = ler(p.base);
   // Sem clone, a base e a do manifesto lido: se ele aponta outra branch, a leitura e refeita por ela.
@@ -855,7 +859,7 @@ function lerProjetoDaForja(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
   let commits = l.base?.commits ?? [], commitsParciais = l.base?.commitsParciais ?? false;
   const inicioNoProjeto = inicioDoDia(ctx.quando, ctx.fuso);
   if (l.base && Date.parse(inicioNoProjeto) < Date.parse(desde)) {
-    const h = lerCommitsDaForja(forja, { commit: l.base.commit, desde: inicioNoProjeto }, geral.executor);
+    const h = lerCommitsDaForja(forja, { commit: l.base.commit, desde: inicioNoProjeto }, geral.executor, api);
     if (h.ok) { commits = h.commits; commitsParciais = h.parciais; }
     else {
       lacunas.push(lacuna('roadmap.entregas-parciais', 'roadmap', `${rotulo}@${l.base.ref}`,
@@ -1069,6 +1073,7 @@ export function montarPanoramaDaRede(opcoes: OpcoesDoPanorama = {}): PanoramaDaR
   const quando = opcoes.quando ?? new Date().toISOString();
   const cwd = opcoes.cwd ?? process.cwd();
   const ctx: Contexto = { quando, maquina: nomeDaMaquina(opcoes.maquina), semRemoto: opcoes.semRemoto === true, executor: opcoes.executor,
+    rodarDaForja: opcoes.rodarDaForja,
     fuso: fusoDoDono().fuso };
   const naoConsultado: string[] = [];
   const lacunas: LacunaDaRede[] = [];
