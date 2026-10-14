@@ -298,11 +298,17 @@ export function prepararArvore(raiz: string, para: string): ArvoreDeMerge {
 }
 
 /** Remove a worktree temporaria do merge (best effort: o lease ja foi liberado). */
-function descartarArvore(raiz: string, arvore: ArvoreDeMerge): void {
+function descartarArvore(raiz: string, arvore: ArvoreDeMerge, trava: readonly string[] = []): void {
   if (!arvore.temporaria) return;
-  exec('git', ['worktree', 'remove', '--force', arvore.dir], raiz);
-  exec('git', ['worktree', 'prune'], raiz);
+  exec('git', [...trava, 'worktree', 'remove', '--force', arvore.dir], raiz);
+  exec('git', [...trava, 'worktree', 'prune'], raiz);
 }
+
+/**
+ * O git local que o transporte fixado roda no projeto depois da ultima conferencia: nenhum hook (o
+ * `reference-transaction` do `update-ref`, inclusive) e nenhum fsmonitor, que o agente pode ter posto ali durante o push.
+ */
+const TRAVA_LOCAL_DO_FIXADO = ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor='] as const;
 
 /** sha de uma referencia local, ou null quando ela nao existe. */
 export function shaDaRef(dir: string, ref: string): string | null {
@@ -832,7 +838,7 @@ export function ship(
     if (urlFixada && !opcoes.semPush) {
       const fixado: RemotoFixado = { gitdir: criarGitdirDoPush(raiz), ...urlFixada, config: configDoRemoto };
       const comFixado = (args: readonly string[]): string =>
-        `git --git-dir=<gitdir privado> ${[...configDoRemoto, ...args].join(' ')}`.replace(urlFixada.url, '<origin fixado>');
+        `git --git-dir=<gitdir privado> ${[...configDoRemoto, ...args].join(' ')}`.replaceAll(urlFixada.url, '<origin fixado>');
       try {
         // O sha e o decidido aqui. Sem `-u`: o gitdir privado nao tem branch para rastrear, e gravar o upstream na
         // config do projeto mudaria a config conferida; o `ls-remote` que so decidia o `-u` sai junto.
@@ -870,7 +876,7 @@ export function ship(
           );
         }
         // A ref de rastreio do projeto acompanha o remoto provado, como no push por nome; local, sem rede.
-        exec('git', ['update-ref', '--', `refs/remotes/${remoto}/${para}`, pontaDaBase], raiz);
+        exec('git', [...TRAVA_LOCAL_DO_FIXADO, 'update-ref', '--', `refs/remotes/${remoto}/${para}`, pontaDaBase], raiz);
       } finally { fs.rmSync(fixado.gitdir, { recursive: true, force: true }); }
     } else if (opcoes.semPush || !temRemoto) {
       r.pushVerificado = false;
@@ -952,7 +958,8 @@ export function ship(
       },
     });
 
-    publicarEmSegundoPlano(raiz);
+    // A publicacao da fabrica empurra pelo origin do projeto, sem o transporte fixado: no fixado, nao sai daqui.
+    if (!urlFixada) publicarEmSegundoPlano(raiz);
 
     const atualizada = lerThread(raiz, threadId);
     // I-42: ciclo sem SHIP (o `#Fast`) entrega sem trocar de fase; `faseAtual` fica sempre
@@ -966,7 +973,7 @@ export function ship(
 
     return { ...r, ok: true, bloqueado: false };
   } finally {
-    if (arvore) descartarArvore(raiz, arvore);
+    if (arvore) descartarArvore(raiz, arvore, urlFixada ? TRAVA_LOCAL_DO_FIXADO : []);
     const solto = liberar(raiz, LEASE_MAIN_TREE, threadId);
     registrar(dir, threadId, TIPOS_DE_EVENTO.leaseLiberado, {
       lease: LEASE_MAIN_TREE,

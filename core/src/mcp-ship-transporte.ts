@@ -301,7 +301,8 @@ export function criarGitdirDoPush(raiz: string, env: NodeJS.ProcessEnv = process
   try {
     fs.chmodSync(dir, 0o700);
     conferirAncestrais(path.join(dir, 'x'), 'fixacao-insegura');
-    const r = spawnSync('git', ['init', '--bare', '--quiet', '--template=', '--', dir], { encoding: 'utf8', timeout: 30000,
+    // Fora do projeto: com o cwd nele, o init leria a config local (`core.sharedRepository` afrouxaria os modos).
+    const r = spawnSync('git', ['init', '--bare', '--quiet', '--template=', '--', dir], { cwd: '/', encoding: 'utf8', timeout: 30000,
       env: { ...env, GIT_ALLOW_PROTOCOL: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
     if (r.status !== 0) recusar('urls', 'gitdir');
     fs.mkdirSync(path.join(dir, 'objects', 'info'), { recursive: true, mode: 0o700 });

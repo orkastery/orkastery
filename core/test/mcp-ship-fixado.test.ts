@@ -451,3 +451,38 @@ test('gitdir privado: 700, sem hooks, objetos do projeto pelo caminho real tambe
 }));
 
 function lerThreadDoTeste(f: Fixture): string { return lerThread(f.raiz, f.id).worktree!; }
+
+test('hook reference-transaction posto durante o push nao roda no update-ref da ref de rastreio, que ainda acompanha o remoto', () => fixture(async (f) => {
+  const bare = f.p.remoto!, url = `ssh://git@gitlab.empresa.com:2222${bare}`;
+  fixarSsh(f, url);
+  const perfil = criarPerfilShipMcp(f.raiz, 'forja-ssh'), rede = configDeRedeDoPerfil(perfil);
+  const marca = path.join(f.home, 'ref-hook-rodou'), hook = path.join(f.raiz, '.git', 'hooks', 'reference-transaction');
+  const { bin } = sshFalso(`printf '#!/bin/sh\\necho x >> ${marca}\\n' > '${hook}'; chmod 755 '${hook}'`);
+  const r = comPath(bin, () => ship(f.p.carregado, f.id, { para: 'main', remoto: 'origin', configDoRemoto: rede,
+    conferirDepoisDoPush: conferenciaDepoisDoPush(perfil), urlFixada: url }));
+  assert.equal(r.ok, true, r.detalhe);
+  assert.equal(r.pushVerificado, true);
+  assert.equal(fs.existsSync(hook), true);
+  assert.equal(fs.existsSync(marca), false);
+  assert.equal(f.git(['rev-parse', 'refs/remotes/origin/main']).trim(), r.pontaDaBase);
+  // Controle: o mesmo update-ref sem a trava roda o hook neste git.
+  f.git(['update-ref', 'refs/remotes/origin/controle', r.pontaDaBase!]);
+  assert.equal(fs.existsSync(marca), true);
+}));
+
+test('gitdir privado: core.sharedRepository do projeto nao afrouxa os modos', () => fixture(async (f) => {
+  const modos = (gitdir: string) => ['objects', 'refs', 'config', 'HEAD'].map((n) => fs.statSync(path.join(gitdir, n)).mode & 0o7777);
+  const criar = () => {
+    const antes = process.cwd();
+    process.chdir(f.raiz);
+    try { return criarGitdirDoPush(f.raiz); } finally { process.chdir(antes); }
+  };
+  const limpo = criar();
+  f.git(['config', 'core.sharedRepository', '0777']);
+  const comShared = criar();
+  try {
+    assert.deepEqual(modos(comShared), modos(limpo));
+    assert.equal(fs.statSync(comShared).mode & 0o777, 0o700);
+    assert.equal(exec('/usr/bin/git', [`--git-dir=${comShared}`, 'config', '--local', 'core.sharedRepository'], '/').ok, false);
+  } finally { for (const d of [limpo, comShared]) fs.rmSync(d, { recursive: true, force: true }); }
+}));
