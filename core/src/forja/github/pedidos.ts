@@ -2,7 +2,6 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { ExecutorGitHub } from '../../entrega-pr';
-import { redigirSegredos } from '../../hitl';
 import type { ExecutorDoGh, PrDaForja } from '../../parado-no-condutor';
 import type { EntradaDosPedidosAbertos, PedidosAbertos } from '../adaptador';
 import type { PedidoMesclado, Resultado } from '../contrato';
@@ -85,11 +84,8 @@ export function abrirPedidoGithub(e: { host: string; repositorio: string; base: 
 const CAMPOS_DOS_RECENTES = 'number,state,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository,url,createdAt,mergedAt';
 const CAMPOS_DOS_ABERTOS = `${CAMPOS_DOS_RECENTES},statusCheckRollup,mergeable`;
 
-/** Texto curto vindo de fora: sem controle, num teto. */
-function curto(v: string, teto: number): string | null {
-  const limpo = Array.from(v.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim()).slice(0, teto).join('');
-  return limpo || null;
-}
+/** O texto de fora numa linha, sem segredo e com teto (`deFora`); vazio vira "sem detalhe". */
+const detalheDeFora = (v: string, teto: number): string => (v.replace(/\p{Cc}/gu, ' ').trim() ? deFora(v, teto) : 'sem detalhe');
 
 /**
  * Os PRs da base para o pulse, pelo `gh pr list`: os abertos com o rollup (ate o teto; lista cheia e `parcial`), os
@@ -108,7 +104,7 @@ export function pedidosAbertosGithub(e: EntradaDosPedidosAbertos): Resultado<Ped
     if (e.resta() <= 0) return `gh pr list: orçamento de ${Math.round(e.orcamentoMs / 1000)} s da leitura esgotado`;
     const r = e.executor(['pr', 'list', repo, `--base=${e.base}`, ...args], Math.min(l.prazoMs, e.resta()));
     if (r.status !== 0) {
-      const detalhe = curto(redigirSegredos(r.stderr || r.stdout || ''), 160) ?? 'sem detalhe';
+      const detalhe = detalheDeFora(r.stderr || r.stdout || '', 160);
       return `gh pr list falhou (${r.status === null ? 'sem código de saída' : `código ${r.status}`}): ${detalhe}`;
     }
     try {
@@ -116,7 +112,7 @@ export function pedidosAbertosGithub(e: EntradaDosPedidosAbertos): Resultado<Ped
       if (!Array.isArray(lista)) throw new Error('a resposta não é uma lista');
       return lista;
     } catch (err) {
-      return `resposta do gh pr list fora do formato: ${curto(redigirSegredos((err as Error).message), 120) ?? 'sem detalhe'}`;
+      return `resposta do gh pr list fora do formato: ${detalheDeFora((err as Error).message, 120)}`;
     }
   };
   try {
@@ -150,7 +146,7 @@ export function pedidosAbertosGithub(e: EntradaDosPedidosAbertos): Resultado<Ped
     }
     return { ok: true, valor: { prs: [...porNumero.values()], parcial: abertos.length >= l.abertos, semConferir } };
   } catch (err) {
-    return falha(`resposta do gh pr list fora do formato: ${curto(redigirSegredos((err as Error).message), 120) ?? 'sem detalhe'}`,
+    return falha(`resposta do gh pr list fora do formato: ${detalheDeFora((err as Error).message, 120)}`,
       'forja.resposta-invalida');
   }
 }

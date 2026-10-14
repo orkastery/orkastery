@@ -148,6 +148,8 @@ const BRANCH = /^[A-Za-z0-9._/-]{1,200}$/;
 const REPOSITORIO = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 /** O caminho do projeto no retrato: `dono/nome` no GitHub, o caminho completo com subgrupos no GitLab. */
 const CAMINHO_DO_PROJETO = /^[A-Za-z0-9_.-]{1,100}(?:\/[A-Za-z0-9_.-]{1,100}){1,19}$/;
+/** O caminho do projeto na forma, sem segmento `.` ou `..`. */
+const caminhoDoProjeto = (v: string): boolean => CAMINHO_DO_PROJETO.test(v) && v.split('/').every((p) => p !== '.' && p !== '..');
 /** O host do GitHub Enterprise guardado no retrato: rotulos alfanumericos separados por ponto, como na forja. */
 const HOST = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/;
 
@@ -275,7 +277,7 @@ const githubResolvido = (f: { host: string; repositorio: string }): ForjaResolvi
  * status` que falha por outro motivo que nao a falta de login (prazo, rede, `gh` ausente) fica em `falha`.
  */
 function sondasDoPulse(executor: ExecutorDoGh, prazoMs: number, rodar: RodarCli, logins: Map<string, boolean>,
-  falha: { gh?: string; ghSemLogin?: boolean }): SondasDaForja {
+  falha: { gh?: string; ghSemLogin?: boolean; glabSemLogin?: boolean }): SondasDaForja {
   return {
     github: (alvo) => {
       if (alvo.caminhoBase) return 'nao-responde';
@@ -290,7 +292,11 @@ function sondasDoPulse(executor: ExecutorDoGh, prazoMs: number, rodar: RodarCli,
         (curto(redigirSegredos(auth.stderr || auth.stdout || ''), 120) ?? 'sem detalhe');
       return 'nao-responde';
     },
-    gitlab: sondasPadrao(rodar, logins).gitlab,
+    gitlab: (alvo) => {
+      const r = sondasPadrao(rodar, logins).gitlab!(alvo);
+      if (r === 'sem-login') falha.glabSemLogin = true;
+      return r;
+    },
   };
 }
 
@@ -312,14 +318,14 @@ function forjaDosPrs(carregado: ManifestoCarregado, remoto: string, executor: Ex
   if (!endereco || !lido) {
     return { leitura: false, host: null, motivo: `o remoto ${remoto} não tem host de forja (caminho local ou apelido de SSH)`, semLeitura: true };
   }
-  const falha: { gh?: string; ghSemLogin?: boolean } = {};
+  const falha: { gh?: string; ghSemLogin?: boolean; glabSemLogin?: boolean } = {};
   // Sem o cache de 24 h: o pulse percebe na batida seguinte a CLI que perdeu o login no host.
   const r = resolverForja({ endereco: lido, manifesto: carregado.manifesto.forja, sondas: sondas ?? sondasDoPulse(executor, prazoMs, rodar, logins, falha) });
   if (!r.ok) {
     if (falha.gh) return { leitura: false, host: endereco.host, semLeitura: false, motivo: falha.gh };
     const erro = r.erro;
     const motivo = erro.codigo === 'forja.desconhecida' && falha.ghSemLogin
-      ? textoDoCatalogo((m) => m.pulse.forjaSemLogin('gh', endereco.host, remoto))
+      ? textoDoCatalogo((m) => falha.glabSemLogin ? m.pulse.forjaSemLoginNasDuas(endereco.host, remoto) : m.pulse.forjaSemLogin('gh', endereco.host, remoto))
       : textoDoCatalogo((m) => m.pulse.forjaNaoResolvida(remoto, m.forja.motivo(erro, null)));
     return { leitura: false, host: endereco.host, semLeitura: true, motivo };
   }
@@ -490,7 +496,7 @@ export function lerRetratoDePrs(raiz: string): RetratoDePrs | null {
   try {
     const r = JSON.parse(fs.readFileSync(path.join(dirDoMonitor(raiz), ARQUIVO_DOS_PRS), 'utf8')) as Record<string, unknown>;
     const lidoEm = instante(r.lidoEm);
-    if (r.contrato !== CONTRATO_PRS || !lidoEm || typeof r.repositorio !== 'string' || !CAMINHO_DO_PROJETO.test(r.repositorio) ||
+    if (r.contrato !== CONTRATO_PRS || !lidoEm || typeof r.repositorio !== 'string' || !caminhoDoProjeto(r.repositorio) ||
         typeof r.base !== 'string' || typeof r.parcial !== 'boolean' || !Array.isArray(r.prs) ||
         (r.host !== undefined && !(typeof r.host === 'string' && HOST.test(r.host))) ||
         (r.semConferir !== undefined && !(Array.isArray(r.semConferir) && r.semConferir.every((b) => typeof b === 'string' && BRANCH.test(b))))) return null;

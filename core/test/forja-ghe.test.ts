@@ -1,12 +1,12 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { ajustarManifesto, projetoTemporario, shaDaBranch } from './apoio';
+import { ajustarManifesto, comAmbientePtBr, projetoTemporario, shaDaBranch } from './apoio';
 import { consultarCi } from '../src/ci';
 import { exec } from '../src/util';
 import type { SondasDaForja } from '../src/forja/resolver';
 import type { OpcoesDaApi } from '../src/forja/api';
 import { cliFalsa, falhou, login } from './forja-cli-falsa';
-import { ExecutorDoGh, lerPrsDaForja } from '../src/parado-no-condutor';
+import { CONTRATO_PRS, ExecutorDoGh, gravarRetratoDePrs, lerPrsDaForja, lerRetratoDePrs } from '../src/parado-no-condutor';
 
 /** Sem bloco `forja:`, o GHE e reconhecido pela sonda do gh com login; o glab nao tem login nele. */
 const SONDA_GHE: SondasDaForja = { github: () => 'responde', gitlab: () => 'sem-login' };
@@ -102,5 +102,27 @@ test('pulse num GHE com porta própria: o login é conferido no host:porta exato
     assert.equal(doGh.length, 1);
     assert.deepEqual(doGh[0].args, ['auth', 'status']);
     assert.equal(doGh[0].acrescentar?.GH_HOST, 'ghe.empresa.com:8443');
+  } finally { p.limpar(); }
+});
+
+test('pulse num host próprio sem login no gh nem no glab: a frase diz as duas CLIs', () => {
+  const p = projetoTemporario('pulse-sem-login-nas-duas', false);
+  try {
+    exec('git', ['remote', 'add', 'origin', 'https://git.empresa.com/o/r.git'], p.carregado.raiz);
+    const executor: ExecutorDoGh = () => ({ status: 1, stdout: '', stderr: 'You are not logged into any accounts on git.empresa.com' });
+    const cli = cliFalsa([{ quando: login, responde: falhou('not logged in') }]);
+    const r = comAmbientePtBr(() => lerPrsDaForja(p.carregado, { remoto: 'origin', executor, rodar: cli.rodar }));
+    assert.match(!r.ok ? r.erro : '', /^o gh não está autenticado em git\.empresa\.com, a forja de origin, e o glab também não$/);
+  } finally { p.limpar(); }
+});
+
+test('retrato de PRs com segmento .. no caminho do projeto não é lido', () => {
+  const p = projetoTemporario('retrato-ponto-ponto', false);
+  try {
+    const base = { contrato: CONTRATO_PRS, lidoEm: '2026-10-02T13:15:00.000Z', base: 'main', parcial: false, prs: [] };
+    gravarRetratoDePrs(p.dir, { ...base, repositorio: 'grupo/sub/app' });
+    assert.equal(lerRetratoDePrs(p.dir)?.repositorio, 'grupo/sub/app');
+    gravarRetratoDePrs(p.dir, { ...base, repositorio: 'grupo/../app' });
+    assert.equal(lerRetratoDePrs(p.dir), null);
   } finally { p.limpar(); }
 });
