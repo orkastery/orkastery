@@ -8,10 +8,10 @@ features: []
 owner: Julio
 atualizado_em: 2026-10-13T15:30:00-03:00
 estado:
-  ciclo: Refinamento
+  ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Não iniciado
-  testes: Não iniciados
+  codigo: Branch criada
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -32,7 +32,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Refinamento | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -90,16 +90,36 @@ A conta A (assinatura Claude) esgotou a cota semanal entre 02h03 e 02h12, com vo
 
 ## Estado com evidências
 
+### Fatia 1 — T1, T2 e T3
+
+A primeira fatia está implementada na branch da thread `ork-rm064f1`:
+
+- **T1:** falas de limite em inglês e português, erro estruturado do Codex e hooks `Stop`/`Notification` viram o sinal tipado `runtime.quota-exhausted`. O perfil recebe o prazo de volta e o reconciliador procura, nos projetos registrados, as sessões vivas ligadas à mesma conta. A parada de `claude-bg` usa a identidade retornada pelo runtime; a do Codex exige o controller e o vínculo canônico da thread. Sem prova da parada, a condução não é liberada.
+- **T2:** o retry automático reaproveita a autorização durável da thread, tenta primeiro outro perfil ativo do mesmo runtime, depois o fallback do bloco e, sem destino capaz, grava uma única espera até o menor prazo de retorno. Perfil desativado, esgotado, sem autenticação ou de provedor pago não recebe despacho.
+- **T3:** a retomada recebe um prompt derivado com fase, último commit, `git status`, claims pendentes, rodada do CHECK e GO-FIX em curso. O prompt e o `sha256` originais permanecem registrados; a fase corrente é preservada e a existência anterior de `docs/goal.md` não abre `human.pending`.
+
+Provas focadas:
+
+```sh
+npm --prefix core run build:test
+node core/dist-test/test/rm064-quota-signals.test.js
+node core/dist-test/test/rm064-conta-esgotada.test.js
+node core/dist-test/test/rotacao-retry.test.js
+node core/dist-test/test/rm064-retomada-checkpoint.test.js
+```
+
+Limites desta fatia: T4 a T7 continuam pendentes; a enumeração entre máquinas pertence à T6. Uma fonte de inventário incompleta ou um controller Codex sem vínculo mantém a thread bloqueada, sem inferir parada nem criar uma segunda sessão na worktree. Não há implantação nesta fatia.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Refinamento | — | 2026-10-13 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-13 | Julio |
 | Documentação | Em revisão | — | 2026-10-13 | Julio |
-| Código | Não iniciado | — | 2026-10-13 | Julio |
-| Testes | Não iniciados | — | 2026-10-13 | Julio |
+| Código | Branch criada | — | 2026-10-13 | Julio |
+| Testes | Em execução | — | 2026-10-13 | Julio |
 | Deploy | Não implantado | — | 2026-10-13 | Julio |
 | Exposição | Flag desligada | — | 2026-10-13 | Julio |
 | Habilitação | Pendente | — | 2026-10-13 | Julio |

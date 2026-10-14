@@ -40,11 +40,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   chama o passo da N2: ligar o vigia e o condutor da N4 vem antes do primeiro piloto, que espera também os valores e a
   autorização do dono.
 
-- **Conta esgotada não para a fase** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)): nova
-  página do roadmap, em refinamento, pedida pelo dono em 13/10/2026. Quando a cota de uma conta acaba no meio
-  das fases, o ork vai tratar o fim como evento da conta, mover sozinho todas as threads dela para outra conta
-  ou para o fallback do bloco e retomar do ponto onde pararam, com o trabalho da sessão guardado na thread.
-  Frentes T1 a T7. Só documentação.
+- **Conta esgotada não para a fase, fatia 1** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)):
+  o fim de cota vira evento da conta, interrompe com prova as sessões vinculadas, troca para outro perfil ou fallback
+  autorizado — ou espera o prazo de volta — e retoma a fase pelo checkpoint sem substituir o prompt original.
 
 - **CLI em inglês e pt-BR, fatia F3b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): seguem também o
   locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`,
