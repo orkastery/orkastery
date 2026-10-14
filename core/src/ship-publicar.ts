@@ -423,8 +423,10 @@ export interface OpcoesDaPublicacao {
    * RM-058 N5 (D11 da ork-rm058n5): a conferência de quem publica por cima (o arco #Noctum confere o envelope), chamada
    * imediatamente antes do push e imediatamente antes de abrir o PR. Devolve `null` para seguir ou a recusa com a correção:
    * antes do push, nada acontece; depois dele, o push que aconteceu vai ao ledger e o PR não é aberto. Nunca vem da CLI.
+   * Antes do PR, ela recebe o título e o corpo que vão ao `gh` (R4-B1 da rodada 4 do CHECK da N5: quem publica sozinho lê
+   * o texto que fica público).
    */
-  antesDoEfeito?: (efeito: 'push' | 'pr') => { recusa: string; correcao: string } | null;
+  antesDoEfeito?: (efeito: 'push' | 'pr', pr?: { titulo: string; corpo: string }) => { recusa: string; correcao: string } | null;
 }
 
 /**
@@ -593,7 +595,7 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   let pr: PrDaPublicacao | null = aberto ? { numero: aberto.numero, url: aberto.url, criado: false, head: aberto.head } : null;
   let erroDoPr: string | null = null;
   if (!pr) {
-    const conferido = opcoes.antesDoEfeito?.('pr') ?? null;
+    const conferido = opcoes.antesDoEfeito?.('pr', { titulo, corpo: textoDoCorpo }) ?? null;
     if (conferido) {
       // O push desta chamada aconteceu: ele vai ao ledger com a prova, e o PR fica para depois (B1 da revisao).
       if (pushFeito) gravar({ pr: null, prRecusado: conferido.recusa.slice(0, 300) });

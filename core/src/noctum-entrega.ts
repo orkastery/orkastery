@@ -51,6 +51,7 @@ import { blobEm, garantirObjetos, gitDaEntrega, MotivoDaEntrega, OpcoesDasProvas
 import { contaForaAgora, EstadoDaSupervisao, lerSupervisao } from './noctum-supervisao';
 import { ExecutorDoGh } from './parado-no-condutor';
 import { OpcoesRun, resolverDespacho, ResultadoRun, rodarFase } from './phase';
+import { procurarSegredos } from './policies';
 import { lerPerfis, perfilDisponivel } from './runtime-profiles';
 import { configDoBloco, lerSetup } from './setup';
 import { commitQueIncorporou } from './ship';
@@ -690,13 +691,27 @@ function verificarAFonte(carregado: ManifestoCarregado, arco: string, threadId: 
 }
 
 /**
+ * R4-B1 da rodada 4: o título e o corpo do PR que o arco abre ficam públicos na forja. O corpo é o `pr-body.md` da thread,
+ * fora do git e escrito pelas sessões, então a varredura da história não o lê: o padrão de segredo nele bloqueia, com o nome
+ * do padrão e a linha (nunca o trecho), e o texto que não chegou à conferência não abre PR.
+ */
+function conferirTextoDoPr(pr: { titulo: string; corpo: string } | undefined): void {
+  if (!pr) throw new RecusaDaEntrega('noctum.entrega.nao-provada', 'o título e o corpo do PR não chegaram à conferência: o arco não abre PR sem lê-los');
+  const achados = [...procurarSegredos(pr.titulo).map(a => `${a.nome} no título`),
+    ...procurarSegredos(pr.corpo).map(a => `${a.nome} na linha ${a.linha} do corpo`)];
+  if (achados.length) {
+    throw new RecusaDaEntrega('noctum.entrega.segredo', `padrão de segredo no PR que o arco abriria (o pr-body.md da thread): ${achados.join('; ')}`);
+  }
+}
+
+/**
  * A conferência da N1 de um efeito, na forma que o `publicarEntrega` recebe; guarda o motivo da recusa do envelope e marca
  * o rastro quando a conferência passa (o efeito vem logo depois dela).
  */
 function conferirParaPublicar(raiz: string, arco: string, estado: EstadoDoArco, destino: Destino, branch: string, trabalho: string,
   fonte: string | null, relogio: (() => string) | undefined, rastro: Rastro) {
   const recusado: { motivo: MotivoDoPasso | null } = { motivo: null };
-  const conferir = (efeito: 'push' | 'pr') => {
+  const conferir = (efeito: 'push' | 'pr', pr?: { titulo: string; corpo: string }) => {
     try {
       // R2-S2 da rodada 2: o push leva a fonte que as provas viram; a branch que andou depois delas espera o passo seguinte.
       if (efeito === 'push') {
@@ -705,6 +720,7 @@ function conferirParaPublicar(raiz: string, arco: string, estado: EstadoDoArco, 
           throw new RecusaDaEntrega('noctum.entrega.fonte-mudou', `a branch ${branch} está em ${curto(ponta)}, e as provas são da fonte ${curto(fonte)}`);
         }
       }
+      if (efeito === 'pr') conferirTextoDoPr(pr);
       // R2-B1 da rodada 2: a supervisão não isolou o trabalho nem parou o arco desde a leitura da fila.
       conferirSupervisao(raiz, arco, [trabalho]);
       conferirAntesDoEfeito(raiz, { arco, envelopeSha256: estado.envelopeSha256 ?? '', acao: efeito, repositorio: destino.repositorio,
@@ -714,7 +730,8 @@ function conferirParaPublicar(raiz: string, arco: string, estado: EstadoDoArco, 
     } catch (e) {
       if (e instanceof RecusaDaEntrega) {
         recusado.motivo = e.motivo;
-        return { recusa: e.message, correcao: 'o passo seguinte relê as provas e a supervisão' };
+        return { recusa: e.message, correcao: e.motivo === 'noctum.entrega.segredo'
+          ? 'tire o padrão de segredo do pr-body.md da thread; o passo seguinte confere de novo' : 'o passo seguinte relê as provas e a supervisão' };
       }
       if (!(e instanceof RecusaDoArco)) throw e;
       recusado.motivo = e.motivo;

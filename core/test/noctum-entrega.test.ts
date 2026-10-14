@@ -896,3 +896,34 @@ test('QE35: a falha de transporte com "gh00" e um dígito no endereço do remoto
     assert.equal(passo(m, 'arco-qe35').acao, 'integrou');
   } finally { m.p.limpar(); }
 });
+
+test('QE36: o padrão de segredo no título ou no corpo do PR (o pr-body.md da thread) não vai à forja: o PR não abre, e o passo bloqueia sem imprimir o trecho', { skip: semKernel }, () => {
+  const m = mundo('noctum-qe36');
+  m.gh = ghFalso(m.p);
+  try {
+    const e = entregaPronta(m.p, 'qe36');
+    arco(m.p, 'arco-qe36', e.t.id);
+    // R4-B1 da rodada 4: o pr-body.md fica fora do git, e a varredura da história não o lê; a chave é SIMULADA.
+    const chave = ['AKIA', 'SIMULADA00000000'].join('');
+    const corpo = path.join(dirThread(m.p.dir, e.t.id), 'pr-body.md');
+    fs.writeFileSync(corpo, `# Entrega SIMULADA\n\nO log do teste tinha a chave ${chave}.\n`);
+    const r1 = passo(m, 'arco-qe36');
+    assert.deepEqual([r1.acao, motivoDe(r1)], ['bloqueado', 'noctum.entrega.segredo'], resumo(r1));
+    assert.match(resumo(r1), /chave de acesso AWS na linha 3 do corpo/);
+    assert.equal(m.gh.criacoes(), 0, 'o PR com o segredo não foi aberto');
+    // A branch é limpa (a varredura da história passou) e o push dela sai; só o PR espera o corpo sem segredo.
+    assert.equal(lsRemote(m.p, `refs/heads/${branchDaWorktree(e.t)}`), e.fonte);
+    assert.ok(!resumo(r1).includes(chave), 'o resultado não imprime o segredo');
+    assert.ok(!lerLedger(dirThread(m.p.dir, e.t.id)).some(x => JSON.stringify(x).includes(chave)), 'o ledger não guarda o segredo');
+    // O título vem do primeiro cabeçalho do corpo: o segredo nele também bloqueia.
+    fs.writeFileSync(corpo, `# Entrega ${chave}\n\nsem mais nada.\n`);
+    const r2 = passo(m, 'arco-qe36');
+    assert.deepEqual([r2.acao, motivoDe(r2)], ['bloqueado', 'noctum.entrega.segredo'], resumo(r2));
+    assert.match(resumo(r2), /no título/);
+    assert.equal(m.gh.criacoes(), 0);
+    fs.writeFileSync(corpo, '# Entrega SIMULADA\n\nO corpo sem segredo.\n');
+    const r3 = passo(m, 'arco-qe36');
+    assert.equal(r3.acao, 'publicou', resumo(r3));
+    assert.equal(m.gh.criacoes(), 1);
+  } finally { m.p.limpar(); }
+});
