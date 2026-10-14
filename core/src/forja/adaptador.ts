@@ -2,13 +2,13 @@ import type { ExecutorCi } from '../ci';
 import type { ExecutorGitHub } from '../entrega-pr';
 import type { ExecutorDoGh, PrDaForja } from '../parado-no-condutor';
 import type { ChamadorDaApi } from './api';
-import type { CheckNoCommit, ChecksDoCommit, ForjaResolvida, PedidoMesclado, Resultado, TipoDeForja, VersaoDoServidor } from './contrato';
+import type { CheckNoCommit, ChecksDoCommit, DonoDaRede, ForjaResolvida, PedidoMesclado, Resultado, TipoDeForja, VersaoDoServidor } from './contrato';
 
 export type NomeDaCapacidade = 'checksNoCommit' | 'estadoDeCi' | 'pedidoMesclado' | 'branchPadrao' | 'pontaDaBranch' | 'comparar'
-  | 'pedidosDaBranch' | 'abrirPedido' | 'metadados' | 'pedidosAbertos';
+  | 'pedidosDaBranch' | 'abrirPedido' | 'metadados' | 'pedidosAbertos' | 'donoDaRede';
 /** Todas as capacidades, na ordem em que o `doctor` as mostra. */
 export const CAPACIDADES: readonly NomeDaCapacidade[] = ['checksNoCommit', 'estadoDeCi', 'pedidoMesclado', 'branchPadrao', 'pontaDaBranch',
-  'comparar', 'pedidosDaBranch', 'abrirPedido', 'metadados', 'pedidosAbertos'];
+  'comparar', 'pedidosDaBranch', 'abrirPedido', 'metadados', 'pedidosAbertos', 'donoDaRede'];
 
 /** A leitura da CI pela API da forja ja resolvida. `edicao` vem dos metadados (`null`: desconhecida). */
 export interface EntradaDoEstadoDeCi { api: ChamadorDaApi; repo: string; sha: string; context: string; edicao: VersaoDoServidor['edicao'] }
@@ -20,6 +20,8 @@ export interface AdaptadorDeForja {
   /** Os checks com esse nome no commit, pela API da forja ja resolvida, e se houve resultado mesclado sem vinculo com ele. */
   estadoDeCi?(e: EntradaDoEstadoDeCi): Resultado<ChecksDoCommit>;
   /** O PR da entrega externa; `null` quando a consulta falha. */
+  /** O namespace do dono pedido para a casa da rede e, quando e grupo, o nivel da pessoa nele. */
+  donoDaRede?(e: { api: ChamadorDaApi; dono: string }): Resultado<DonoDaRede>;
   pedidoMesclado?(e: { repo: string; numero: number; executor: ExecutorGitHub }): PedidoMesclado | null;
   /** A branch padrão do repositório; `''` se a resposta não a traz; `null` quando a consulta falha. */
   branchPadrao?(e: { repo: string; executor: ExecutorGitHub }): string | null;

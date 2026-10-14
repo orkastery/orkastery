@@ -75,5 +75,6 @@ test('o GitLab é registrado com a capacidade metadados; as outras seguem deslig
   assert.equal(typeof exigirCapacidade(adaptadorDaForja('gitlab'), 'metadados'), 'function');
   assert.throws(() => exigirCapacidade(adaptadorDaForja('gitlab'), 'checksNoCommit'), /^Error: forja\.sem-capacidade: gitlab/);
   assert.ok(CAPACIDADES.includes('metadados'));
-  for (const c of CAPACIDADES) assert.equal(typeof adaptadorDaForja('github')[c], 'function', c);
+  // O dono da casa da rede só tem leitura no GitLab.
+  for (const c of CAPACIDADES.filter((x) => x !== 'donoDaRede')) assert.equal(typeof adaptadorDaForja('github')[c], 'function', c);
 });

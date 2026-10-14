@@ -72,3 +72,9 @@ export interface PedidoMesclado {
   numero: number; mesclado: boolean; mergeSha: string | null; headSha: string | null; base: string | null;
   branch: string | null; titulo: string | null; corpo: string | null; url: string | null;
 }
+
+/**
+ * O dono pedido para a casa da rede, na forja: o usuario ou um grupo. `nivel` e o acesso da pessoa no grupo, herdado
+ * inclusive (GitLab: 30 Developer, 40 Maintainer, 50 Owner; 0 fora do grupo); `null` no usuario.
+ */
+export interface DonoDaRede { tipo: 'usuario' | 'grupo'; caminho: string; namespaceId: number; nivel: number | null }

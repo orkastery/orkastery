@@ -27,7 +27,7 @@ test('GitLab CE 19.2 gravado: CLI, login, servidor testada, escopo api, aviso da
     'nesta edição; a mensagem de merge padrão (Merge branch …) não começa por ship(<thread>)');
   const cap = linha(checks, 'forja capacidades')!;
   assert.equal(cap.nivel, 'warn');
-  assert.match(cap.detalhe, /^ligadas: estadoDeCi, metadados, pedidosAbertos; desligadas \(o adaptador não implementa\): checksNoCommit, /);
+  assert.match(cap.detalhe, /^ligadas: estadoDeCi, metadados, pedidosAbertos, donoDaRede; desligadas \(o adaptador não implementa\): checksNoCommit, /);
   assert.equal(checks.filter((c) => c.nivel === 'fail').length, 0);
   // Um `auth status` so: as chamadas da API reusam o login conferido.
   assert.equal(cli.chamadas.filter(login).length, 1);
@@ -118,11 +118,13 @@ test('projeto: fast-forward e squash sempre avisam; modelo que começa por %{tit
 test('GitHub github.com: escopos do x-oauth-scopes, o repositório gravado e todas as capacidades ligadas', () => {
   const checks = checarForja(projeto({ exigida: true }), sondas({ url: 'https://github.com/orkastery/orkastery.git', rodar: cliGithub().rodar }));
   assert.deepEqual(checks.map((c) => c.nome), NOMES);
-  assert.equal(checks.filter((c) => c.nivel !== 'ok').length, 0, JSON.stringify(checks.filter((c) => c.nivel !== 'ok')));
+  // O dono da casa da rede só tem leitura no GitLab; no GitHub ele segue o caminho de reserva.
+  const fora = checks.filter((c) => c.nivel !== 'ok' && c.nome !== 'forja capacidades');
+  assert.equal(fora.length, 0, JSON.stringify(fora));
   assert.equal(linha(checks, 'forja servidor')!.detalhe, 'github.com');
   assert.equal(linha(checks, 'forja escopo')!.detalhe, 'escopos do token: gist, read:org, repo, workflow');
   assert.equal(linha(checks, 'forja projeto')!.detalhe, 'merge commit permitido; squash permitido; rebase permitido');
-  assert.match(linha(checks, 'forja capacidades')!.detalhe, /^ligadas: checksNoCommit, .*metadados, pedidosAbertos$/);
+  assert.match(linha(checks, 'forja capacidades')!.detalhe, /^ligadas: checksNoCommit, .*metadados, pedidosAbertos; desligadas \(o adaptador não implementa\): donoDaRede$/);
 });
 
 test('GitHub: gh 2.17 não tem headRefOid e reprova; token fine-grained não é medível', () => {
