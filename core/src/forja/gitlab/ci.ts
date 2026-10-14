@@ -29,7 +29,9 @@ const JOB = z.object({ id: z.number().int(), name: z.string(), status: z.string(
 const PROJETO = z.object({ id: z.number().int(), merge_pipelines_enabled: z.boolean().nullish(), merge_trains_enabled: z.boolean().nullish() })
   .passthrough();
 const PEDIDO = z.object({ iid: z.number().int(), sha: z.string().nullish() }).passthrough();
-const PIPELINE = z.object({ id: z.number().int(), project_id: z.number().int().nullish(), sha: z.string(), ref: z.string() }).passthrough();
+/** O sha completo: o que entra no caminho da API, de fora ou da resposta, tem esta forma. */
+const SHA = /^[0-9a-f]{40}$/;
+const PIPELINE = z.object({ id: z.number().int(), project_id: z.number().int().nullish(), sha: z.string().regex(SHA), ref: z.string() }).passthrough();
 const COMMIT = z.object({ id: z.string(), parent_ids: z.array(z.string()) }).passthrough();
 
 type Job = z.infer<typeof JOB>;
@@ -69,6 +71,7 @@ const jobsDaPipeline = (api: ChamadorDaApi, projeto: string, pipeline: number): 
   lista(api, `${projeto}/pipelines/${pipeline}/jobs?include_retried=true`, JOB);
 
 export function estadoDeCiGitlab(e: EntradaDoEstadoDeCi): Resultado<ChecksDoCommit> {
+  if (!SHA.test(e.sha)) return falha('forja.pedido-recusado', 'o sha do commit não tem 40 caracteres hexadecimais minúsculos');
   const projeto = projetoNaApi(e.repo);
   const lidos = lista(e.api, `${projeto}/repository/commits/${e.sha}/statuses?name=${encodeURIComponent(e.context)}&all=true`, STATUS);
   if (!lidos.ok) return lidos;

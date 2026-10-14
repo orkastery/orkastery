@@ -230,3 +230,13 @@ test('as duas forjas registram estadoDeCi; o GitLab segue sem checksNoCommit', (
   assert.equal(typeof adaptadorDaForja('github').estadoDeCi, 'function');
   assert.throws(() => exigirCapacidade(adaptadorDaForja('gitlab'), 'checksNoCommit'), /^Error: forja\.sem-capacidade: gitlab/);
 });
+
+test('sha fora da forma não chega ao caminho da API: o de fora recusa antes; o da pipeline na resposta é resposta inválida', () => {
+  const curto = ler([], { sha: HEAD.slice(0, 12) });
+  assert.equal(!curto.r.ok && curto.r.erro.codigo, 'forja.pedido-recusado');
+  assert.deepEqual(curto.caminhos, []);
+  const pipelines = (sintetico('mr-pipelines') as Item[]).map((p) => ({ ...p, sha: '../../projects' }));
+  const torta = ler(resultadoMesclado([BASE, HEAD], { pipelines }), { edicao: 'ee' });
+  assert.equal(!torta.r.ok && torta.r.erro.codigo, 'forja.resposta-invalida');
+  assert.ok(!torta.caminhos.some((c) => c.includes('../')));
+});
