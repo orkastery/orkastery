@@ -44,6 +44,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   o fim de cota vira evento da conta, interrompe com prova as sessões vinculadas, troca para outro perfil ou fallback
   autorizado — ou espera o prazo de volta — e, mesmo quando a sessão já commitou, retoma a fase pelo checkpoint sem
   substituir o prompt original nem repetir o trabalho já registrado no `HEAD`.
+- **Conta esgotada não para a fase, fatia 2** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)): o trabalho retomável mora na thread, a batida determinística reage à cota, `accounts check` mantém o estado vivo e fallback sem adaptador instalado não recebe despacho.
 
 - **Entrega dentro do arco #Noctum, fatia N5 da RM-058** ([RM-058](docs/roadmap/RM-058-modo-noctum.md#n5-qualidade-e-entrega)):
   o passo da entrega do arco (`passoDaEntrega`, ainda sem quem o chame) leva a thread que a fila deixou na entrega do
