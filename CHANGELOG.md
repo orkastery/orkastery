@@ -189,6 +189,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Verificações longas e primeiro uso do HITL sem falha espúria** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  o comando hermético do CI passa a respeitar o teto configurado para a suíte de testes, e a primeira operação de HITL
+  inicializa com segurança um arquivo de trava ainda vazio, sem tratá-lo como estado corrompido.
 - **Saída completa no `ork verify`** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): comandos de
   verificação que escrevem mais de 1 MiB não são mais interrompidos pelo limite padrão do Node; falhas continuam
   mostrando o trecho final da saída.
