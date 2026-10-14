@@ -186,6 +186,8 @@ export const SHIP_PT_BR = {
     threadFechadaCorrecao: 'a entrega nova vai numa thread nova',
     modoSemPush: (tag: string) => `o modo ${tag} pede a autorização do dono para o push; o ork ship publicar só publica em #Auto e #Maestro`,
     modoSemPushCorrecao: (comando: string) => `o dono publica do próprio terminal: ${comando}`,
+    /** O comando do dono quando o tipo da forja nao se sabe sem rede (host proprio sem o bloco `forja:`). */
+    comandoDasDuasForjas: (gh: string, glab: string) => `no GitHub, ${gh}; no GitLab, ${glab}`,
     conduzida: (sessao: string, fase: string) => `a sessão ${sessao} conduz a thread agora (fase ${fase}); a branch pode mudar no meio da publicação`,
     conduzidaCorrecao: (thread: string) => `publique depois do fim do turno (ork conducao status ${thread})`,
     semBranch: (branch: string) => `a branch ${branch} da thread não existe neste repositório`,
@@ -465,6 +467,7 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     threadFechadaCorrecao: 'the new delivery goes in a new thread',
     modoSemPush: (tag) => `the ${tag} mode asks for the owner's authorization to push; ork ship publicar only publishes in #Auto and #Maestro`,
     modoSemPushCorrecao: (comando) => `the owner publishes from their own terminal: ${comando}`,
+    comandoDasDuasForjas: (gh, glab) => `on GitHub, ${gh}; on GitLab, ${glab}`,
     conduzida: (sessao, fase) => `session ${sessao} is conducting the thread now (phase ${fase}); the branch may change in the middle of the publication`,
     conduzidaCorrecao: (thread) => `publish after the end of the turn (ork conducao status ${thread})`,
     semBranch: (branch) => `the thread branch ${branch} does not exist in this repository`,

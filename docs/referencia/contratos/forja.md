@@ -44,7 +44,9 @@ declarado usa o `host` do manifesto para a web e a API (e a `porta` declarada, s
 4. Nenhuma resposta: `forja.desconhecida`. Duas: `forja.ambigua`. As duas pedem `forja.tipo`.
 
 O nome do host nunca decide o tipo sozinho: um GitLab pode se chamar `git.empresa.com`, ou `github.empresa.com`. A
-resposta da sondagem fica em cache por 24 h em `.orkastery/cache/`.
+resposta da sondagem fica em cache por 24 h em `.orkastery/cache/`, lido pelo gate, pelo `ork doctor`, pelo
+`ork ship publicar` e pelo `registrar-pr --repo`. O pulse e a pista sondam a cada leitura, para perceber logo a CLI que
+perdeu o login no host.
 
 ## Quem aprova o check exigido: `ci.produtor`
 
@@ -178,6 +180,11 @@ do GitHub; no GitLab o merge fica com o dono.
 
 A pista mostra o check bloqueado (`manual` ou `skipped`) como feito, igual à pista do GitHub; o gate continua
 reprovando (`ork ci status --json` traz `bloqueado: true`). Nas mensagens em texto, o GitLab diz `MR !n`.
+
+A pista acha a forja como o pulse: o bloco `forja:`, o host conhecido ou a sondagem. Num GitLab de
+host próprio sem o bloco, ela sonda uma vez e segue pelo caminho do GitLab da tabela. O comando que o dono roda nos
+modos sem push (`#Classic`, `#Fast`) usa só o tipo que se sabe sem rede (o bloco, o host conhecido ou o cache); sem ele,
+a correção mostra o comando do `gh` e o do `glab`.
 
 O `ork ship publicar` e o `ork ship registrar-pr --repo` só escrevem ou consultam depois de resolver a forja do remoto
 do projeto (o bloco `forja:`, o host conhecido ou a CLI com login no host). Um remoto Enterprise sem o bloco `forja:` e

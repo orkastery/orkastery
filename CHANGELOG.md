@@ -35,7 +35,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   [`docs/referencia/contratos/forja.md`](docs/referencia/contratos/forja.md#entrega).
 - **`ork ship pista` no GitLab**: a pista lê os MRs de cada branch candidata (até 20 por chamada) e a CI do head pelo mesmo
   mapa do GitHub (`manual`/`skipped` contam como verde só na pista). O `ork.ci-status/v2` ganha o campo opcional
-  `bloqueado: true`, e o gate segue reprovando.
+  `bloqueado: true`, e o gate segue reprovando. Num host próprio sem o bloco `forja:`, a pista resolve a forja uma vez,
+  como o pulse, e o comando do dono nos modos sem push usa o tipo sabido sem rede (o bloco, o host conhecido ou a
+  sondagem em cache); sem ele, mostra o do `gh` e o do `glab`. O `ork ship publicar` e o `registrar-pr --repo` passam
+  a usar o cache de 24 h da sondagem.
 - **Pulse e rede no GitLab**: o pulse lê os MRs da base em uma consulta GraphQL, com a pipeline do head e o job do
   check da CI (`ci.context`); a forja do pulse é resolvida pelo manifesto e pela CLI com login, nunca pelo nome do
   host; o retrato `ork.prs-abertos/v1` aceita subgrupos. A rede usa a API da CLI logada (host com porta por

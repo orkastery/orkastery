@@ -31,18 +31,18 @@ import { hostDaApi } from './forja/cli';
 import type { ErroDaForja, ForjaResolvida, TipoDeForja } from './forja/contrato';
 import { caminhoDosMrsDaBranch, projetoNaApi } from './forja/gitlab/pedidos';
 import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
-import { hostConhecido, SondasDaForja } from './forja/resolver';
+import { resolverForja, SondasDaForja } from './forja/resolver';
+import { dirDoCacheDaForja } from './forja/cache';
 import { deFora, umaLinha } from './forja/texto';
 import { lerClaims } from './claims';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { comandosDoTextoDoManifesto, ManifestoCarregado, NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
 import { tagDoModo } from './modos';
 import {
-  conducaoAgora, ExecutorDoGh, ghPadrao, LIMITE_DE_PRS, lerPrsDaForja, PrDaForja, refsLocais,
+  conducaoAgora, ExecutorDoGh, forjaDoRemotoDoPulse, ghPadrao, LIMITE_DE_PRS, lerPrsDaForja, PrDaForja, refsLocais,
 } from './parado-no-condutor';
 import { enderecoDoRemotoDaRaiz, forjaDaEntrega, mergeDaEntrega } from './entrega-pr';
 
-export { forjaDaEntrega };
 import { MODOS_QUE_AUTORIZAM_PUSH } from './ship';
 import { estadoDoArtefato, vereditoDoParecer } from './session-watcher-claude';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -304,12 +304,18 @@ function pontasNoRemoto(raiz: string, remoto: string): Map<string, string> | nul
 
 export interface Forja { host: string; repositorio: string }
 
-/** O tipo da forja sem rede nem CLI (o fixado, o bloco `forja:` ou o host conhecido), para o comando que o dono roda. */
-function tipoSemRede(carregado: ManifestoCarregado, remoto: string, fixado?: TipoDeForja): TipoDeForja {
+/**
+ * O tipo da forja sem rede nem CLI, para o comando que o dono roda: o fixado, o bloco `forja:`, o host conhecido ou a
+ * sondagem que ja esta no cache de 24 h. Remoto sem host (caminho local) segue o GitHub de sempre; host proprio que
+ * nada disso resolve da `null`, e o comando do dono mostra as duas forjas.
+ */
+function tipoSemRede(carregado: ManifestoCarregado, remoto: string, fixado?: TipoDeForja): TipoDeForja | null {
   if (fixado) return fixado;
   if (carregado.manifesto.forja?.tipo) return carregado.manifesto.forja.tipo;
   const endereco = enderecoDoRemotoDaRaiz(carregado.raiz, remoto);
-  return (endereco ? hostConhecido(endereco.host)?.tipo : null) ?? 'github';
+  if (!endereco) return 'github';
+  const r = resolverForja({ endereco, manifesto: carregado.manifesto.forja, sondas: {}, cache: dirDoCacheDaForja(carregado.raiz) });
+  return r.ok ? r.valor.tipo : null;
 }
 
 /**
@@ -411,7 +417,11 @@ export function entreAspas(s: string): string {
  * o `glab mr create` nao arma merge.
  */
 export function comandoDoDono(remoto: string, base: string, branch: string, titulo: string, comCorpo: string | null,
-  tipo: TipoDeForja = 'github'): string {
+  tipo: TipoDeForja | null = 'github'): string {
+  if (tipo === null) {
+    const gh = comandoDoDono(remoto, base, branch, titulo, comCorpo, 'github'), glab = comandoDoDono(remoto, base, branch, titulo, comCorpo, 'gitlab');
+    return textoDoCatalogo((m) => m.ship.publicar.comandoDasDuasForjas(gh, glab));
+  }
   const push = `git push -u ${entreAspas(remoto)} ${entreAspas(branch)}`;
   if (tipo === 'gitlab') {
     return `${push} && glab mr create --source-branch ${entreAspas(branch)} --target-branch ${entreAspas(base)} --title ${entreAspas(titulo)} ` +
@@ -870,7 +880,8 @@ function etapaDaCiNoHead(ci: ResultadoCi, contexto: string, pr: PrDaForja): Etap
 function gitlabDaPista(carregado: ManifestoCarregado, remoto: string, opcoes: OpcoesDaPista): ForjaResolvida | { erro: ErroDaForja } | null {
   if (opcoes.forja) return null;
   if (opcoes.forjaResolvida) return opcoes.forjaResolvida.tipo === 'gitlab' ? opcoes.forjaResolvida : null;
-  // So o remoto que ja se sabe do GitLab, sem rede, passa pela resolucao; o resto segue pelo caminho do GitHub.
+  // So o remoto que ja se sabe do GitLab, sem rede, passa pela resolucao aqui; o host proprio sem tipo e resolvido
+  // uma vez pela pista, como o pulse o resolveria, e o resto segue pelo caminho do GitHub.
   if (tipoSemRede(carregado, remoto) !== 'gitlab') return null;
   const r = forjaDaEntrega(carregado, remoto, opcoes.sondas);
   if (r.ok) return r.valor.tipo === 'gitlab' ? r.valor : null;
@@ -881,8 +892,8 @@ function gitlabDaPista(carregado: ManifestoCarregado, remoto: string, opcoes: Op
 function pistaDaThread(carregado: ManifestoCarregado, f: FatosDaThread, local: EntregaLocal, leitura: {
   remoto: string; base: string; remotasLidas: boolean; prs: PrDaForja[] | null; prsNaoLidos: string | null;
   corte: (branch: string) => CorteDaLeitura; ciExigido: boolean; contexto: string;
-  /** A forja do comando do dono. */
-  tipo?: TipoDeForja;
+  /** A forja do comando do dono; `null` quando ela nao se sabe sem rede. */
+  tipo?: TipoDeForja | null;
   /** A etapa `ci` do PR aberto, quando a forja nao traz os checks na lista (o GitLab). */
   ciDoPedido?: (pr: PrDaForja) => EtapaDaPista;
 }): PistaDaThread | null {
@@ -1007,9 +1018,22 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
   let semConferir: ReadonlySet<string> = new Set<string>();
   let ciDoPedido: ((pr: PrDaForja) => EtapaDaPista) | undefined;
   let prsNaoLidosDoGitlab = false;
+  let doHostProprio: ForjaResolvida | undefined;
   if (candidatas.length) {
-    const gitlab = gitlabDaPista(carregado, remoto, opcoes);
-    if (gitlab && 'erro' in gitlab) {
+    let gitlab = gitlabDaPista(carregado, remoto, opcoes);
+    // Host proprio sem o bloco `forja:` (um GitLab como o de um piloto, ou um GitHub Enterprise): a forja e resolvida uma
+    // vez, como o pulse a resolve, e a leitura segue pela forja certa, com o mesmo criterio do gate no GitLab.
+    let naoResolvida: string | null = null;
+    if (!gitlab && !opcoes.forja && !opcoes.forjaResolvida && tipoSemRede(carregado, remoto) === null) {
+      const lido = forjaDoRemotoDoPulse(carregado, remoto, { executor: opcoes.executorGh, sondas: opcoes.sondas });
+      if (!lido.ok) naoResolvida = lido.erro;
+      else if (lido.forja.tipo === 'gitlab') gitlab = lido.forja;
+      else doHostProprio = lido.forja;
+    }
+    if (naoResolvida !== null) {
+      prs = null;
+      prsNaoLidos = deFora(naoResolvida);
+    } else if (gitlab && 'erro' in gitlab) {
       prs = null;
       prsNaoLidos = textoDoCatalogo((m) => m.forja.motivo(gitlab.erro, 'gitlab'));
       prsNaoLidosDoGitlab = true;
@@ -1027,7 +1051,8 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
     } else {
       const fixada = opcoes.forja ?? (opcoes.forjaResolvida?.tipo === 'github'
         ? { host: hostDaApi(opcoes.forjaResolvida), repositorio: opcoes.forjaResolvida.repo } : undefined);
-      const leitura = lerPrsDaForja(carregado, { quando: lidoEm, executor: opcoes.executorGh, remoto, candidatas, forja: fixada, sondas: opcoes.sondas });
+      const leitura = lerPrsDaForja(carregado, { quando: lidoEm, executor: opcoes.executorGh, remoto, candidatas, forja: fixada,
+        resolvida: doHostProprio, sondas: opcoes.sondas });
       if (leitura.ok) {
         prs = leitura.retrato.prs;
         parcial = leitura.retrato.parcial;
@@ -1038,7 +1063,7 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
       }
     }
   }
-  const tipo: TipoDeForja = ciDoPedido || prsNaoLidosDoGitlab ? 'gitlab'
+  const tipo: TipoDeForja | null = ciDoPedido || prsNaoLidosDoGitlab ? 'gitlab' : doHostProprio ? 'github'
     : tipoSemRede(carregado, remoto, opcoes.forja ? 'github' : opcoes.forjaResolvida?.tipo);
   // S8 da revisao (rodada 2): a candidata sem nenhum PR na leitura foi conferida uma a uma pelo `--head`, que a lista
   // cortada nao limita; so a que nao foi conferida, ou que so tem PR achado na lista cortada, fica em duvida.

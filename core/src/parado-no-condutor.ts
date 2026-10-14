@@ -311,6 +311,7 @@ function forjaDosPrs(carregado: ManifestoCarregado, remoto: string, executor: Ex
     return { leitura: false, host: null, motivo: `o remoto ${remoto} não tem host de forja (caminho local ou apelido de SSH)`, semLeitura: true };
   }
   const falha: { gh?: string; ghSemLogin?: boolean } = {};
+  // Sem o cache de 24 h: o pulse percebe na batida seguinte a CLI que perdeu o login no host.
   const r = resolverForja({ endereco: lido, manifesto: carregado.manifesto.forja, sondas: sondas ?? sondasDoPulse(executor, prazoMs, rodar, logins, falha) });
   if (!r.ok) {
     if (falha.gh) return { leitura: false, host: endereco.host, semLeitura: false, motivo: falha.gh };
@@ -330,6 +331,17 @@ function forjaDosPrs(carregado: ManifestoCarregado, remoto: string, executor: Ex
       motivo: textoDoCatalogo((m) => m.pulse.forjaSemPedidos(forja.tipo, forja.host, remoto)) };
   }
   return { leitura: true, forja, hostDoRemoto: endereco.host };
+}
+
+/**
+ * A forja do remoto como o pulse a resolve (o bloco `forja:`, o host conhecido, o cache ou a sondagem pela CLI com
+ * login), sem ler pedido nenhum: a pista a usa num host proprio, para seguir o caminho da forja certa. `erro` e a frase
+ * que a leitura dos pedidos diria.
+ */
+export function forjaDoRemotoDoPulse(carregado: ManifestoCarregado, remoto: string,
+  opcoes: { executor?: ExecutorDoGh; rodar?: RodarCli; sondas?: SondasDaForja } = {}): { ok: true; forja: ForjaResolvida } | { ok: false; erro: string } {
+  const lido = forjaDosPrs(carregado, remoto, opcoes.executor ?? ghPadrao, PRAZO_DO_GH_MS, opcoes.rodar ?? rodarCli, new Map(), opcoes.sondas);
+  return lido.leitura ? { ok: true, forja: lido.forja } : { ok: false, erro: lido.motivo };
 }
 
 /**

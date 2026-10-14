@@ -18,6 +18,7 @@ import { hostDaApi } from './forja/cli';
 import type { ErroDaForja, ForjaResolvida } from './forja/contrato';
 import { lerEnderecoDoRemoto } from './forja/endereco';
 import { projetoNaApi } from './forja/gitlab/pedidos';
+import { dirDoCacheDaForja } from './forja/cache';
 import { resolverForja, SONDAS_PADRAO, SondasDaForja } from './forja/resolver';
 import { DocPendente, docsPendentesDoMerge } from './docs';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
@@ -89,7 +90,7 @@ export function forjaDaEntrega(carregado: ManifestoCarregado, remoto: string, so
   { ok: true; valor: ForjaResolvida } | { ok: false; erro: ErroDaForja | null } {
   const endereco = enderecoDoRemotoDaRaiz(carregado.raiz, remoto);
   if (!endereco) return { ok: false, erro: null };
-  const r = resolverForja({ endereco, manifesto: carregado.manifesto.forja, sondas });
+  const r = resolverForja({ endereco, manifesto: carregado.manifesto.forja, sondas, cache: dirDoCacheDaForja(carregado.raiz) });
   if (!r.ok) return { ok: false, erro: r.erro };
   if (r.valor.tipo === 'github' && r.valor.repo.split('/').length !== 2) return { ok: false, erro: null };
   return { ok: true, valor: r.valor };

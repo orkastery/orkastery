@@ -143,7 +143,7 @@ test('pista no GitLab: CI com job rodando e outro pulado fica pendente, nunca fe
   } finally { p.limpar(); }
 });
 
-test('pista num remoto de host desconhecido sem bloco forja: a pista não sonda por conta própria, o caminho é o do GitHub', () => {
+test('pista num remoto de host desconhecido sem bloco forja: a forja é sondada uma vez só, e sem resposta a pista diz sem leitura', () => {
   const p = projetoTemporario('pista-host-desconhecido', true);
   try {
     const e = entregaPronta(p, 'host desconhecido');
@@ -153,8 +153,28 @@ test('pista num remoto de host desconhecido sem bloco forja: a pista não sonda 
     const gh: ExecutorDoGh = () => ({ status: 1, stdout: '', stderr: 'sem gh no teste' });
     const r = pistaDeEntrega(p.carregado, { executorGh: gh, sondas, ciDoHead: () => { throw new Error('consultou a CI'); } });
     assert.equal(r.prsLidos, false);
-    // So a leitura dos PRs sonda (uma vez por forja): a pista nao resolve a forja antes por conta propria.
+    // A resolucao da pista e a da leitura dos PRs sao uma so: cada forja e sondada no maximo uma vez.
     assert.ok(chamadas.github <= 1 && chamadas.gitlab <= 1, JSON.stringify(chamadas));
     assert.ok(e.id && r.prsNaoLidos);
+  } finally { p.limpar(); }
+});
+
+test('pista num GitLab de host próprio sem bloco forja: a sondagem resolve o GitLab, e os MRs e a CI do head vão pelo caminho do gate', () => {
+  const p = projetoTemporario('pista-gitlab-host-proprio', true);
+  try {
+    const carregado = comCiExigido(p.carregado);
+    const gl = gitlabFalso((b) => shaNoRemotoDeTeste(p.dir, 'origin', b));
+    const e = entregaPronta(p, 'host proprio');
+    assert.equal(publicarEntrega(carregado, e.id, { forjaResolvida: GITLAB, api: gl.api, executorGh: SEM_GH }).acao, 'publicou');
+    exec('git', ['remote', 'set-url', 'origin', 'https://git.empresa.example/grupo/sub/app.git'], p.dir);
+    const sondas = { github: () => 'sem-login' as const, gitlab: () => 'responde' as const };
+    const consultados: string[] = [];
+    const r = pistaDeEntrega(carregado, { api: gl.api, executorGh: SEM_GH, sondas,
+      ciDoHead: (sha) => { consultados.push(sha); return ci(sha, 'success'); } });
+    assert.equal(r.prsLidos, true, r.prsNaoLidos ?? '');
+    const x = r.pistas.find((y) => y.thread === e.id)!;
+    assert.equal(x.etapas.find((y) => y.id === 'ci')?.estado, 'feita');
+    assert.deepEqual(consultados, [e.head], 'a CI do head foi lida pelo gate');
+    assert.ok(gl.chamadas.some((c) => c.args[0] === 'api'), 'os MRs foram lidos pela API do GitLab');
   } finally { p.limpar(); }
 });

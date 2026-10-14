@@ -6,7 +6,9 @@ import type { ForjaResolvida } from '../src/forja/contrato';
 import type { SondasDaForja } from '../src/forja/resolver';
 import { lerLedger, TIPOS_DE_EVENTO } from '../src/ledger';
 import type { ExecutorDoGh } from '../src/parado-no-condutor';
-import { forjaDaEntrega, publicarEntrega } from '../src/ship-publicar';
+import { forjaDaEntrega } from '../src/entrega-pr';
+import { dirDoCacheDaForja, gravarNoCache } from '../src/forja/cache';
+import { publicarEntrega } from '../src/ship-publicar';
 import { dirThread } from '../src/thread';
 import { exec } from '../src/util';
 import { projetoTemporario, shaNoRemotoDeTeste } from './apoio';
@@ -181,5 +183,21 @@ test('publicar num remoto https de host desconhecido, sem forja: e sem login: re
     assert.deepEqual(r.passos, [], 'nem o ls-remote nem o push rodaram');
     assert.equal(r.remotaAntes, null);
     assert.equal(publicados(p.dir, e.id).length, 0);
+  } finally { p.limpar(); }
+});
+
+test('publicar fora de #Auto e #Maestro num host próprio sem bloco forja: sem saber o tipo sem rede, o comando do dono mostra as duas forjas', () => {
+  const p = projetoTemporario('publicar-host-proprio-dono', true);
+  try {
+    const e = entregaPronta(p, 'classica no host proprio', 'classic');
+    exec('git', ['remote', 'add', 'gl', 'https://git.empresa.example/grupo/app.git'], p.dir);
+    const sondas: SondasDaForja = { github: () => { throw new Error('sondou o gh'); }, gitlab: () => { throw new Error('sondou o glab'); } };
+    const r = publicarEntrega(p.carregado, e.id, { remoto: 'gl', sondas, executorGh: SEM_GH });
+    assert.equal(r.motivo, 'human.pending');
+    assert.ok(r.correcao.includes(' && gh pr create --base ') && r.correcao.includes(' && glab mr create --source-branch '), r.correcao);
+    // A sondagem que ja esta no cache de 24 h diz o tipo sem rede: o comando e so o do glab.
+    gravarNoCache(dirDoCacheDaForja(p.dir), 'sondagem git.empresa.example', { tipo: 'gitlab' }, Date.now());
+    const cacheado = publicarEntrega(p.carregado, e.id, { remoto: 'gl', sondas, executorGh: SEM_GH });
+    assert.ok(cacheado.correcao.includes('glab mr create') && !cacheado.correcao.includes('gh pr create'), cacheado.correcao);
   } finally { p.limpar(); }
 });
