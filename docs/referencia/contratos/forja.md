@@ -16,16 +16,22 @@ Sem ele, tudo vem do remoto `origin` e da sondagem. Com ele, o que ele declara v
 | `ssh_host`, `ssh_porta` | SSH em outro host ou outra porta | `ssh.empresa.com`, `2222` |
 | `ca` | CA interna, o caminho absoluto do arquivo PEM | `/etc/pki/ca-trust/source/anchors/empresa.pem` |
 
+O bloco é configuração confiável, como o próprio remoto: quem muda o `orkastery.yaml` da base pode apontar a API para
+outro host. A CLI só manda credencial ao host em que tem login, ou com `GITLAB_TOKEN` ou `GH_ENTERPRISE_TOKEN` no
+ambiente, que passam à CLI como estão. A `ca` vale pelo caminho no gate e no pulse, sem pino; só o SHIP do MCP a
+fixa pelo hash.
+
 Valor fora da forma é erro do manifesto. O manifesto confirma o remoto, nunca o redireciona. Dá
 `forja.remoto-divergente`, sem consulta nenhuma, quando:
 
 - o `host` declarado difere do host do remoto;
 - há `porta` declarada e o remoto é de host conhecido (`github.com`, `gitlab.com`), ou é web sem porta explícita ou
-  com a porta padrão do protocolo (443 em https, 80 em http): qualquer `porta` declarada é recusada,
-  até a padrão. Num remoto web com porta explícita fora do padrão, a `porta` declarada tem de ser igual a ela. Num remoto SSH (`ssh://` ou `scp`) de host
-  que não é conhecido, a `porta` declarada vale para a web e a API, no mesmo host do manifesto ou no caso do SSH em
-  host separado (`ssh_host`, abaixo): a porta do SSH não diz nada sobre a porta da web. O host continua tendo de bater,
-  e qualquer outro host dá `forja.remoto-divergente`;
+  com a porta padrão do protocolo (443 em https, 80 em http): qualquer `porta` declarada é recusada, até a padrão.
+  Num remoto web com porta explícita fora do padrão, a `porta` declarada tem de ser igual a ela. Num remoto SSH
+  (`ssh://` ou `scp`) ou `git://` de host que não é conhecido, a `porta` declarada vale para a web e a API, no mesmo
+  host do manifesto ou no caso do SSH em host separado (`ssh_host`, abaixo): a porta do SSH ou do `git://` não diz
+  nada sobre a porta da web. O host do remoto continua tendo de ser o `host` declarado (ou o `ssh_host`, no caso
+  abaixo), e qualquer outro host dá `forja.remoto-divergente`;
 - o remoto é web e o `caminho_base` não é prefixo do caminho dele, ou não sobra `dono/repo` depois dele;
 - o `tipo` contradiz um host conhecido (`tipo: gitlab` em `github.com`);
 - o remoto está em host conhecido (`github.com`, `gitlab.com` e os apelidos SSH): ele nunca é redirecionado, e o
@@ -46,7 +52,9 @@ declarado usa o `host` do manifesto para a web e a API (e a `porta` declarada, s
 O nome do host nunca decide o tipo sozinho: um GitLab pode se chamar `git.empresa.com`, ou `github.empresa.com`. A
 resposta da sondagem fica em cache por 24 h em `.orkastery/cache/`, lido pelo gate, pelo `ork doctor`, pelo
 `ork ship publicar` e pelo `registrar-pr --repo`. O pulse e a pista sondam a cada leitura, para perceber logo a CLI que
-perdeu o login no host.
+perdeu o login no host. O cache só economiza consulta: arquivo ilegível, vencido ou datado no futuro é ignorado e a
+leitura consulta de novo. Ele não é conferido por dono nem gravado de forma atômica, e nada nele aprova CI: o gate
+sempre lê os checks.
 
 ## Quem aprova o check exigido: `ci.produtor`
 
@@ -55,7 +63,9 @@ Lista de quem pode publicar o `ork-verify`. Padrão: `github-actions` no GitHub,
 - check-run: o slug do app (`github-actions`, `circleci`);
 - job de pipeline do GitLab: `gitlab-ci`;
 - commit status: a conta de um app (`github-actions[bot]`) vale pelo slug; outra conta só com `status:<login>`;
-- verde de produtor fora da lista não aprova; vermelho, pendente ou bloqueado de qualquer produtor reprova ou espera.
+- verde de produtor fora da lista não aprova; vermelho, pendente ou bloqueado de qualquer produtor reprova ou espera;
+- o login de `status:<login>` se compara com maiúsculas e minúsculas: escrito de outro jeito, não aprova (falha
+  fechada).
 
 Muda para quem já usava outro app: o `ork-verify` verde de um app fora da lista deixa de aprovar o gate, e a pessoa
 declara a lista em `ci.produtor`.
@@ -76,14 +86,20 @@ O `ork-verify` é um job da pipeline do projeto, e o `ork` o lê pela API: os co
 - **Status avulso não aprova sozinho.** Um status criado por `POST /statuses` (que vira um job `external`, fora da
   lista de jobs) conta só como `status:<login>`, o login de quem o criou, e só aprova se esse produtor estiver em
   `ci.produtor`. Assim ninguém forja o `ork-verify` com um `POST /statuses` de nome igual.
-- **Piso.** Abaixo do GitLab 17.0 a consulta é recusada (`forja.versao-abaixo-do-piso`).
+- **Piso.** Abaixo do GitLab 17.0 a consulta é recusada (`forja.versao-abaixo-do-piso`). A versão ilegível
+  (também a do cache) recusa do mesmo jeito: sem ela, o piso não está provado.
+- **Job com `allow_failure`.** Um job `failed` conta como vermelho mesmo com `allow_failure: true` (falha fechada).
+- **Status descartado.** O detalhe da consulta diz que um status não conta, mas não nomeia quem o criou.
 - **Resultado mesclado e merge train** (Premium): o job roda num commit temporário, não no head do MR. O `ork` liga a
   pipeline ao head pelo pai desse commit. Sem esse vínculo (por exemplo, merge train com squash), o check nunca aprova:
-  a consulta responde `ci.merged-results-sem-vinculo` (falha fechada). Vermelho e pendente continuam valendo.
+  a consulta responde `ci.merged-results-sem-vinculo` (falha fechada). Vermelho e pendente continuam valendo. O `ork`
+  confere até 10 pipelines de resultado mesclado por MR, as mais novas, e só as do próprio projeto: a pipeline sem
+  `project_id` não é candidata, e sem candidata a consulta dá `missing`. Nesse caso, o `ork ci run` grava no
+  `verify.commit` o commit temporário, que some depois do merge.
 - **Falha fechada:** erro de leitura, página a mais ou item fora do esquema deixam a
   consulta indisponível, nunca verde.
 
-O job do `ork-verify` vai pelo modelo `templates/gitlab/ork-verify.yml` (copie para o projeto e use `include: local`)
+O job do `ork-verify` vai pelo modelo `templates/gitlab/ork-verify.yml` (imagem `node:22`, fixada só no major) (copie para o projeto e use `include: local`)
 ou pelo CI/CD Component `templates/ork-verify/template.yml` (GitLab 17.0 ou mais novo, com o repositório do Orkastery
 espelhado na instância). Os dois rodam `ork ci run --branch` com a branch do MR e não usam token nem publicam status.
 As regras de `workflow:rules` (pipeline de MR sem duplicar a de branch) têm de morar no `.gitlab-ci.yml` do próprio
@@ -102,7 +118,11 @@ branches de thread com produto publicado (até 10). MR de fork e de outra base f
 única de estado; `manual` e `skipped` contam como verde no pulse, como no GitHub. Um status externo (`POST /statuses`)
 com o nome do check fica pendente: não é o job. Lista cortada (teto, cota abaixo de 10 %) é `parcial`, nunca "sem MR".
 A forja do pulse vem do bloco `forja:`, do host conhecido ou da sondagem só pela CLI com login. Sem login do `glab` no
-host, o pulse diz uma vez `prs.sem-leitura`. O retrato `ork.prs-abertos/v1` aceita o repositório em subgrupos.
+host, o pulse diz uma vez `prs.sem-leitura`. O retrato `ork.prs-abertos/v1` aceita o repositório em subgrupos. A
+sondagem do `glab` tem prazo próprio (15 s para o login e 15 s para o `metadata`), dentro do orçamento de 60 s da
+leitura, mas sem ser cortada por ele. No Premium, o check da pipeline de resultado mesclado não aparece no pulse, que lê a
+pipeline do head: o MR fica pendente até o gate decidir. Um MR sem `diffHeadSha` na resposta deixa a leitura inteira
+sem PR lido.
 
 ## Casa da rede num grupo
 
@@ -135,7 +155,9 @@ Na API, o `glab` recebe o host por `GITLAB_HOST=host[:porta]`, nunca por `--host
 caminho base; o `gh` também recusa `--hostname host:porta` e recebe a porta por `GH_HOST`. O login de uma instância
 em subcaminho é `glab auth login --hostname host[:porta]/sub --stdin`, que o `glab` guarda como o host, com o
 subcaminho à parte (a chave do login é `host[:porta]`): duas instâncias no mesmo host, em subcaminhos diferentes, não
-coexistem no `glab`. O corpo de uma requisição vai por stdin ou arquivo 600, nunca por argumento.
+coexistem no `glab`. O corpo de uma requisição vai por stdin ou arquivo 600, nunca por argumento. Com porta, o login
+do `gh` se confere pela linha `Logged in to host:porta` da saída dele, em inglês: outra saída conta como sem login
+(falha fechada).
 
 A `ca` do manifesto chega ao `glab` por `GLAB_CA_CERT` e ao `gh` por `SSL_CERT_FILE`, que só vale no Linux; em outro
 sistema, instale a CA no sistema (o `ork doctor` avisa).
@@ -148,7 +170,8 @@ sistema, instale a CA no sistema (o `ork doctor` avisa).
 `forja.indisponivel` (5xx, prazo, TLS), `forja.pedido-recusado` (outro 4xx), `forja.resposta-invalida`,
 `forja.incompleto` (lista acima de 10 páginas de 100), `forja.desconhecida`, `forja.ambigua`,
 `forja.remoto-divergente`, `forja.sem-capacidade`, `forja.versao-abaixo-do-piso`. Uma leitura espera uma vez o
-limite de cota ou secundário (até 60 s); escrita nunca se repete sozinha. Erro ou lista incompleta nunca vira verde: a
+limite de cota ou secundário (até 60 s); escrita nunca se repete sozinha. Um 403 cuja mensagem fala em limite
+(`rate limit`) conta como limite: a leitura espera antes de falhar. Erro ou lista incompleta nunca vira verde: a
 consulta fica indisponível.
 
 ## A seção "forja" do `ork doctor`
@@ -221,7 +244,8 @@ O `ork_ship` do MCP empurra a base por um de quatro transportes, escolhidos no `
 - **`forja-ssh`.** A chave do servidor é confirmada pela pessoa (o `known_hosts` dela ou `--ssh-fingerprint
   SHA256:<43>`, só com `forja-ssh`) e nunca aceita na primeira conexão. Toda linha `@revoked` para a chave oferecida
   recusa, qualquer que seja o campo de host, inclusive no `/etc/ssh/ssh_known_hosts` (lido só para revogações). O
-  push usa `ssh -F /dev/null`, o `known_hosts` fixado e `StrictHostKeyChecking=yes`.
+  push usa `ssh -F /dev/null`, o `known_hosts` fixado e `StrictHostKeyChecking=yes`. O `ssh` vem do PATH do worker
+  (`/usr/bin:/bin`), sem pino do binário.
 - **`forja-https`.** Os helpers de credencial são zerados e um só é fixado: o caminho real do
   `auth git-credential` da CLI da forja, com login no `host[:porta]` exato. Nenhum prompt abre e o token nunca passa
   pelo `ork`. A credencial casa pela origem `https://host[:porta]`, sem o caminho (`useHttpPath` desligado): numa
@@ -245,6 +269,8 @@ O `ork_ship` do MCP empurra a base por um de quatro transportes, escolhidos no `
 
 ## O que não é suportado
 
+- Host da forja por IPv6 literal (`[::1]`): o remoto não é reconhecido como forja.
+- As correções das lacunas de forja do `ork network roadmap` saem só em pt-BR.
 - Uma casa da rede GitLab em subcaminho ou com CA própria: o `rede.json` guarda só `host[:porta]`; a recusa é
   `rede.forja-nao-suportada`.
 - Duas instâncias do GitLab no mesmo host, em subcaminhos diferentes, na mesma máquina (limite do `glab`).
