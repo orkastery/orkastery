@@ -33,7 +33,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { agora, COMMIT_DESCONHECIDO, exec, shaCurto } from './util';
 import { formatarDataHoraRotulada } from './horario';
-import { msg, remontar, textoDoCatalogo } from './locale';
+import { ErroDoCatalogo, msg, remontar, textoDoCatalogo } from './locale';
 import { falhasDeTeste, redigirSaida, testesQueCairam } from './redacao-saida';
 import { abrirJanela, FONTE_STEAL, LeitorProcStat, LIMIAR_STEAL_PCT, lerProcStat, reprovacaoSoDeRelogio, stealAlto,
   TestesDeRelogio } from './steal';
@@ -310,6 +310,13 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
   const thread = lerThread(raiz, threadId);
   const cwd = cwdDaThread(raiz, thread);
   const comandos = comandosDoManifesto(manifesto).map((c) => executor(c.nome, c.comando, cwd));
+  const naoEncontrado = comandos.find((c) => c.causa === 'nao-encontrado');
+  if (naoEncontrado) {
+    // Uma dependencia ausente nao e divida do codigo: o comando nem chegou a existir. Gravar isso
+    // como "ja falhava" faria todo verify futuro aceitar a falta da ferramenta como baseline.
+    throw new ErroDoCatalogo((m) => m.verify.baselineDependenciaAusente(
+      naoEncontrado.nome, naoEncontrado.code, redigirCredenciaisUrl(naoEncontrado.comando)));
+  }
   const baseline: Baseline = { commit: commitReal(cwd), gravadaEm: agora(), comandos };
 
   thread.baseline = baseline;

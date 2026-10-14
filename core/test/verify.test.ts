@@ -166,6 +166,21 @@ test('a baseline separa regressao de divida pre-existente', () => {
   projeto.limpar();
 });
 
+test('baseline recusa comando inexistente em vez de grava-lo como divida pre-existente', () => {
+  const projeto = projetoTemporario('verify-baseline-127');
+  try {
+    const { thread } = novaThread(projeto.carregado, { nome: 'baseline sem dependencia', modo: 'auto' });
+    projeto.carregado.manifesto.verify = { build: 'comando-inexistente-ork-worktreebase', test: 'true' };
+
+    assert.throws(
+      () => gravarBaseline(projeto.carregado, thread.id),
+      /baseline\.dependencia-ausente: build nao executou porque o comando nao existe \(codigo 127\)/
+    );
+    assert.equal(lerThread(projeto.dir, thread.id).baseline, null);
+    assert.equal(lerLedger(dirThread(projeto.dir, thread.id)).some((e) => e.tipo === 'baseline_recorded'), false);
+  } finally { projeto.limpar(); }
+});
+
 test('falha sem baseline e declarada como tal, e nao chamada de regressao', () => {
   const projeto = projetoTemporario('verify-sem-baseline');
   const { thread } = novaThread(projeto.carregado, { nome: 'semlinha', modo: 'auto' });
