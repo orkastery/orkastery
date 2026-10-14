@@ -20,8 +20,11 @@ Valor fora da forma é erro do manifesto. O manifesto confirma o remoto, nunca o
 `forja.remoto-divergente`, sem consulta nenhuma, quando:
 
 - o `host` declarado difere do host do remoto;
-- a `porta` declarada difere da porta do remoto HTTPS ou HTTP (remoto sem porta é a padrão, 443 ou 80);
-- o `caminho_base` não é prefixo do caminho do remoto, ou não sobra `dono/repo` depois dele;
+- há `porta` declarada e o remoto é de host conhecido (`github.com`, `gitlab.com`), ou é web sem porta explícita ou
+  com a porta padrão (443 ou 80): qualquer `porta` declarada é recusada, até a 443 ou a 80. Num remoto web com
+  porta explícita fora do padrão, a `porta` declarada tem de ser igual a ela. Para remoto SSH, vale a regra do SSH em
+  outro host, abaixo;
+- o remoto é web e o `caminho_base` não é prefixo do caminho dele, ou não sobra `dono/repo` depois dele;
 - o `tipo` contradiz um host conhecido (`tipo: gitlab` em `github.com`);
 - o remoto está em host conhecido (`github.com`, `gitlab.com` e os apelidos SSH): ele nunca é redirecionado, e o
   `host` ou a `porta` do manifesto que divergem recusam.
@@ -84,12 +87,14 @@ sistema, instale a CA no sistema (o `ork doctor` avisa).
 
 ## Erros da forja
 
-`forja.ausente` (a CLI não está instalada), `forja.sem-login` (401, ou CLI sem login no host), `forja.sem-permissao` (403), `forja.nao-achei` (404; no GitLab,
-projeto privado sem acesso também), `forja.limite` (429 ou cota esgotada, com `tentarEm`), `forja.conflito` (409),
+`forja.ausente` (a CLI não está instalada), `forja.sem-login` (401, ou CLI sem login no host), `forja.sem-permissao`
+(403), `forja.nao-achei` (404; no GitLab, projeto privado sem acesso também), `forja.limite` (429 ou cota esgotada, com
+`tentarEm`), `forja.conflito` (409),
 `forja.indisponivel` (5xx, prazo, TLS), `forja.pedido-recusado` (outro 4xx), `forja.resposta-invalida`,
 `forja.incompleto` (lista acima de 10 páginas de 100), `forja.desconhecida`, `forja.ambigua`,
-`forja.remoto-divergente`, `forja.sem-capacidade`, `forja.versao-abaixo-do-piso`. Um 429 em leitura espera uma vez
-(até 60 s); escrita nunca se repete sozinha. Erro ou lista incompleta nunca vira verde: a consulta fica indisponível.
+`forja.remoto-divergente`, `forja.sem-capacidade`, `forja.versao-abaixo-do-piso`. Uma leitura espera uma vez o
+limite de cota ou secundário (até 60 s); escrita nunca se repete sozinha. Erro ou lista incompleta nunca vira verde: a
+consulta fica indisponível.
 
 ## A seção "forja" do `ork doctor`
 
