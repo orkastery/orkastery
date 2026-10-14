@@ -13,7 +13,7 @@ import { cliGithub, cliGitlab, linha, projeto, sondas } from './forja-doctor-apo
 const NOMES = ['forja identidade', 'forja alcance', 'forja tls', 'forja cli', 'forja login', 'forja servidor', 'forja escopo',
   'forja projeto', 'forja capacidades'];
 
-test('GitLab CE 19.2 gravado: CLI, login, servidor testada, escopo api, aviso da mensagem de merge padrão e as capacidades desligadas', () => {
+test('GitLab CE 19.2 gravado: CLI, login, servidor testada, escopo api, aviso da mensagem de merge padrão e as capacidades sem aviso', () => {
   const cli = cliGitlab('19.2');
   const checks = checarForja(projeto({ exigida: true }), sondas({ rodar: cli.rodar }));
   assert.deepEqual(checks.map((c) => c.nome), NOMES);
@@ -26,8 +26,9 @@ test('GitLab CE 19.2 gravado: CLI, login, servidor testada, escopo api, aviso da
   assert.equal(p.detalhe, 'merge merge; squash default_off; merged results não disponível nesta edição; merge train não disponível ' +
     'nesta edição; a mensagem de merge padrão (Merge branch …) não começa por ship(<thread>)');
   const cap = linha(checks, 'forja capacidades')!;
-  assert.equal(cap.nivel, 'warn');
-  assert.match(cap.detalhe, /^ligadas: estadoDeCi, pedidoMesclado, branchPadrao, pontaDaBranch, comparar, pedidosDaBranch, abrirPedido, metadados, pedidosAbertos, donoDaRede; desligadas \(o adaptador não implementa\): checksNoCommit$/);
+  assert.equal(cap.nivel, 'ok', 'o checksNoCommit é do executor do gh; o GitLab lê a CI pelo estadoDeCi');
+  assert.match(cap.detalhe, /estadoDeCi, pedidoMesclado, branchPadrao, pontaDaBranch, comparar, pedidosDaBranch, abrirPedido, metadados, pedidosAbertos, donoDaRede$/);
+  assert.doesNotMatch(cap.detalhe, /checksNoCommit|desligadas/);
   assert.equal(checks.filter((c) => c.nivel === 'fail').length, 0);
   // Um `auth status` so: as chamadas da API reusam o login conferido.
   assert.equal(cli.chamadas.filter(login).length, 1);
@@ -166,4 +167,19 @@ test('doctor --json: sem a seção, forja nao-medida; com ela, medida', () => {
     assert.equal(com.forja, 'medida');
     assert.ok(com.checks.some((c) => c.nome === 'forja identidade'));
   } finally { p.limpar(); }
+});
+
+test('escopo com o SHIP do MCP em forja-https: read_api sem write_repository reprova; com write_repository ou api, passa', () => {
+  const token = gravado('gitlab/19.2/token') as Record<string, unknown>;
+  const com = (scopes: string[], transporte: string | null) => {
+    const cli = cliGitlab('19.2', [{ quando: api('personal_access_tokens/self'), responde: http(200, { ...token, scopes }) }]);
+    return linha(checarForja(projeto({ exigida: true }), { ...sondas({ rodar: cli.rodar }), transporteDoShip: () => transporte }), 'forja escopo')!;
+  };
+  const semEscrita = com(['read_api'], 'forja-https');
+  assert.equal(semEscrita.nivel, 'fail');
+  assert.match(semEscrita.detalhe, /write_repository/);
+  assert.equal(com(['read_api', 'write_repository'], 'forja-https').nivel, 'ok');
+  assert.equal(com(['api'], 'forja-https').nivel, 'ok');
+  assert.equal(com(['read_api'], 'forja-ssh').nivel, 'ok', 'o forja-ssh empurra pela chave, não pelo token');
+  assert.equal(com(['read_api'], null).nivel, 'ok');
 });

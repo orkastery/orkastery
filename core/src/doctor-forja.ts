@@ -25,6 +25,7 @@ import { resolverForja, SONDAS_PADRAO, SondasDaForja } from './forja/resolver';
 import { msg } from './locale';
 import { ManifestoCarregado } from './manifest';
 import { projetoNaApi } from './forja/gitlab/pedidos';
+import { fixacaoInstalada } from './mcp-ship-transporte';
 import { Check } from './types';
 import { exec } from './util';
 
@@ -44,6 +45,8 @@ export interface SondasDoDoctor {
   cache: string | null;
   /** A plataforma da maquina: fora do Linux, a `ca` do manifesto nao chega ao `gh`. */
   plataforma: NodeJS.Platform;
+  /** O transporte do SHIP do MCP fixado para a raiz (`forja-https` empurra com o token da CLI); `null` sem fixacao. */
+  transporteDoShip?(raiz: string): string | null;
 }
 
 /** O remoto conferido: o mesmo que a CI do `ork ship` consulta por padrao. */
@@ -97,6 +100,7 @@ export function sondasPadraoDoDoctor(raiz: string): SondasDoDoctor {
     agoraMs: () => Date.now(),
     cache: dirDoCacheDaForja(raiz),
     plataforma: process.platform,
+    transporteDoShip: (dir) => { try { return fixacaoInstalada(dir)?.transporte ?? null; } catch { return null; } },
   };
 }
 
@@ -195,7 +199,8 @@ function servidor(f: ForjaResolvida, s: SondasDoDoctor, api: ChamadorDaApi, linh
 
 const TOKEN_DO_GITLAB = z.object({ scopes: z.array(z.string()) });
 
-function escopo(f: ForjaResolvida, api: ChamadorDaApi, linha: Linha): Check {
+/** `empurra`: o SHIP do MCP empurra pelo `forja-https`, com o token da CLI; no GitLab, ele precisa de escrita no repositorio. */
+function escopo(f: ForjaResolvida, api: ChamadorDaApi, linha: Linha, empurra = false): Check {
   const m = msg().forja.doctor;
   const naoMedivel = (motivo: string): Check => linha('forja escopo', 'warn', m.escopoNaoMedivel(motivo), m.escopoNaoMedivelCorrecao);
   if (f.tipo === 'gitlab') {
@@ -204,8 +209,11 @@ function escopo(f: ForjaResolvida, api: ChamadorDaApi, linha: Linha): Check {
     const lido = TOKEN_DO_GITLAB.safeParse(r.valor.corpo);
     if (!lido.success) return naoMedivel('personal_access_tokens/self');
     const lista = lido.data.scopes.join(', ') || m.nenhum;
-    return lido.data.scopes.some((x) => x === 'api' || x === 'read_api') ? linha('forja escopo', 'ok', m.escopo(lista))
-      : linha('forja escopo', 'fail', m.escopoSemLeitura(lista), m.escopoCorrecao);
+    if (!lido.data.scopes.some((x) => x === 'api' || x === 'read_api')) return linha('forja escopo', 'fail', m.escopoSemLeitura(lista), m.escopoCorrecao);
+    if (empurra && !lido.data.scopes.some((x) => x === 'api' || x === 'write_repository')) {
+      return linha('forja escopo', 'fail', m.escopoSemEscrita(lista), m.escopoSemEscritaCorrecao);
+    }
+    return linha('forja escopo', 'ok', m.escopo(lista));
   }
   if (f.tipo === 'github') {
     // `rate_limit` nao gasta a cota e traz o `x-oauth-scopes` do token classico.
@@ -261,8 +269,10 @@ function projetoDaForja(f: ForjaResolvida, api: ChamadorDaApi, linha: Linha): Ch
 
 function capacidades(f: ForjaResolvida): Check {
   const m = msg().forja.doctor, a = adaptadorDaForja(f.tipo);
-  const ligadas = CAPACIDADES.filter((c) => typeof a[c] === 'function');
-  const desligadas = CAPACIDADES.filter((c) => typeof a[c] !== 'function');
+  // O `checksNoCommit` e o caminho antigo do executor do `gh`: a forja que le a CI pelo `estadoDeCi` nao precisa dele.
+  const mostradas = CAPACIDADES.filter((c) => c !== 'checksNoCommit' || typeof a.checksNoCommit === 'function' || typeof a.estadoDeCi !== 'function');
+  const ligadas = mostradas.filter((c) => typeof a[c] === 'function');
+  const desligadas = mostradas.filter((c) => typeof a[c] !== 'function');
   return desligadas.length
     ? { nome: 'forja capacidades', nivel: 'warn', detalhe: m.capacidadesDesligadas(ligadas.join(', ') || m.nenhum, desligadas.join(', ')),
       correcao: m.capacidadesCorrecao }
@@ -297,6 +307,6 @@ export function checarForja(carregado: ManifestoCarregado, s: SondasDoDoctor = s
   // O login ja foi conferido: as chamadas da API nao repetem o `auth status`.
   const api = chamadorDaApi(f, { rodar: s.rodar, agoraMs: s.agoraMs, logins: new Map([[chaveDoLogin(f), true]]) });
   if (!servidor(f, s, api, linha, checks)) return checks;
-  checks.push(escopo(f, api, linha), projetoDaForja(f, api, linha), capacidades(f));
+  checks.push(escopo(f, api, linha, s.transporteDoShip?.(carregado.raiz) === 'forja-https'), projetoDaForja(f, api, linha), capacidades(f));
   return checks;
 }

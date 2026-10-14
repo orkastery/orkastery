@@ -15,7 +15,7 @@ const ADAPTADORES: Record<TipoDeForja, AdaptadorDeForja> = {
     pedidoMesclado: pedidoMescladoGithub, branchPadrao: branchPadraoGithub, pontaDaBranch: pontaDaBranchGithub, comparar: compararGithub,
     pedidosDaBranch: pedidosDaBranchGithub, abrirPedido: abrirPedidoGithub, metadados: metadadosGithub,
     pedidosAbertos: pedidosAbertosGithub, donoDaRede: donoDaRedeGithub },
-  // As capacidades do GitLab entram uma a uma (CI, pulse e rede, entrega); o doctor mostra as desligadas.
+  // O GitLab le a CI so pelo `estadoDeCi`: o `checksNoCommit` e o caminho antigo do executor do `gh`, e o doctor nao o cobra.
   gitlab: { tipo: 'gitlab', estadoDeCi: estadoDeCiGitlab, metadados: metadadosGitlab, pedidosAbertos: pedidosAbertosGitlab,
     donoDaRede: donoDaRedeGitlab, pedidosDaBranch: pedidosDaBranchGitlab, abrirPedido: abrirPedidoGitlab,
     pedidoMesclado: pedidoMescladoGitlab, branchPadrao: branchPadraoGitlab, pontaDaBranch: pontaDaBranchGitlab, comparar: compararGitlab },
