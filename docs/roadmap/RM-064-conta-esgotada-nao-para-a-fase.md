@@ -98,6 +98,11 @@ A primeira fatia está implementada na branch da thread `ork-rm064f1`:
 - **T2:** o retry automático reaproveita a autorização durável da thread, tenta primeiro outro perfil ativo do mesmo runtime, depois o fallback do bloco e, sem destino capaz, grava uma única espera até o menor prazo de retorno. Perfil desativado, esgotado, sem autenticação ou de provedor pago não recebe despacho.
 - **T3:** a retomada recebe um prompt derivado com fase, último commit, `git status`, claims pendentes, rodada do CHECK e GO-FIX em curso. O prompt e o `sha256` originais permanecem registrados; a fase corrente é preservada e a existência anterior de `docs/goal.md` não abre `human.pending`.
 
+T3 substitui a guarda D11c somente para `runtime.quota-exhausted`: se a sessão já produziu ou
+commitou, o retry usa o checkpoint em vez de abrir `human.pending`. A guarda fail-closed permanece
+nas falhas sem retomada segura. A regressão em `core/test/cota-terminal.test.ts` confere que o novo
+despacho referencia o `HEAD` existente e que o retry não cria um segundo commit.
+
 Provas focadas:
 
 ```sh
