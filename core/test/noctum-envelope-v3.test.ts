@@ -3,9 +3,9 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { generateKeyPairSync } from 'node:crypto';
 import { projetoTemporario } from './apoio';
-import { autorizarPedido, prepararIngressoSimulado } from './noctum-apoio';
+import { autorizarPedido, pedidoV2, prepararIngressoSimulado } from './noctum-apoio';
 import { chaveSimulada, pedidoV3 } from './noctum-maquinas-apoio';
-import { lerArco, versoesAutorizadas } from '../src/noctum-arco';
+import { lerArco, proporEnvelope, versoesAutorizadas } from '../src/noctum-arco';
 import {
   chavePublicaValida, CONTRATO_ENVELOPE_V2, CONTRATO_ENVELOPE_V3, envelopeComTrabalhos, envelopeMultimaquina, hashDoEnvelope,
   impressaoDaChave, MAXIMO_DE_MAQUINAS, RecusaDoArco, resumoDoEnvelope, validarPedidoDeAbertura,
@@ -165,5 +165,23 @@ test('EV7: as versões autorizadas do arco saem na ordem do log, com a vigente p
     assert.deepEqual(versoes.map(v => [v.versao, v.envelopeSha256]), [[1, h1], [2, h2]]);
     assert.equal(lerArco(p.dir, 'arco-v3')!.envelopeSha256, h2, 'a vigente é a última autorizada');
     assert.deepEqual(versoes[0].conteudo.capacidadeGlobal, { porConta: [{ conta: 'perfil-a', sessoes: 3 }] });
+  } finally { p.limpar(); }
+});
+
+test('EV8: a emenda não troca o contrato entre a v3 e as outras; dentro da v3, a emenda segue valendo', () => {
+  const p = projetoTemporario('noctum-ev8');
+  try {
+    // A4 da revisão do merge com a N6: o consumo e as sessões da v2 não estão no ramo, e a soma entre máquinas os perderia.
+    const v2 = pedidoV2('arco-v2', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'Fatia A SIMULADA.' }] });
+    autorizarPedido(p.dir, 'arco-v2', v2);
+    const paraV3 = { ...v2, contrato: CONTRATO_ENVELOPE_V3, maquinas: [A, B], capacidadeGlobal: { porConta: [{ conta: 'perfil-a', sessoes: 2 }] } };
+    assert.match(recusa(() => proporEnvelope(p.dir, paraV3), 'noctum.envelope.invalido'),
+      /a emenda não troca o contrato de ork\.noctum-envelope\/v2 para ork\.noctum-envelope\/v3/);
+    const comoV3 = v3();
+    autorizarPedido(p.dir, 'arco-v3', comoV3);
+    const { maquinas: _m, capacidadeGlobal: _g, ...resto } = comoV3;
+    const paraV2 = { ...resto, contrato: CONTRATO_ENVELOPE_V2, trabalhos: trabalhosDe(comoV3).filter(t => !t.thread).map(({ maquina: _x, ...t }) => t) };
+    assert.match(recusa(() => proporEnvelope(p.dir, paraV2), 'noctum.envelope.invalido'), /a emenda não troca o contrato de ork\.noctum-envelope\/v3/);
+    assert.equal(lerArco(p.dir, 'arco-v3')!.conteudo!.contrato, CONTRATO_ENVELOPE_V3, 'a vigente segue a v3');
   } finally { p.limpar(); }
 });

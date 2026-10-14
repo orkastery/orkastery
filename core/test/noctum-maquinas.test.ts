@@ -11,7 +11,7 @@ import { abrirArco, autorizarPedido, prepararIngressoSimulado, revogarArco, Trab
 import { commitar } from './apoio';
 import { duasMaquinas, DuasMaquinas, entregarThread, MaquinaDeTeste, n2Simulada } from './noctum-maquinas-apoio';
 import { kernelDisponivel } from '../src/fila-pesada';
-import { lerArco } from '../src/noctum-arco';
+import { encerrarArco, lerArco } from '../src/noctum-arco';
 import * as coordenacao from '../src/noctum-coordenacao';
 import {
   assumirAutoridade, cancelarOrdem, emitirOrdem, lerCoordenacao, motivoDaReservaDeFora, reservaDoItem, responderOrdem, situacaoDoTrabalho,
@@ -474,4 +474,40 @@ test('M18: no vigia da N4, a vaga global ocupada, o ramo sem leitura e a corrida
     assert.equal(passageira(motivo), true, motivo);
   }
   for (const motivo of ['noctum.coordenacao.revogada', 'noctum.orcamento.sem-medicao']) assert.equal(passageira(motivo), false, motivo);
+});
+
+test('M19: a máquina em que a N6 encerrou o arco para de bater, encerra a ordem aceita sem sessão e recusa a que chega; a autoridade encerrada perde a vez para a tomada forçada', { skip: semKernel }, () => {
+  const em = (min: number) => new Date(Date.now() + min * 60_000).toISOString();
+  const recusa = (fn: () => unknown, motivo: string): void => {
+    assert.throws(fn, (e: unknown) => e instanceof RecusaDoArco && e.motivo === motivo);
+  };
+  const m = cenario('noctum-m19');
+  try {
+    // A2 e A3 da revisão do merge com a N6: a B tem uma ordem aceita, sem sessão, e outra só emitida quando o arco fecha nela.
+    coordenacao.bater(m.b.carregado, m.arco, { maquina: 'maquina-b' });
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, { maquina: 'maquina-a' });
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'c', maquina: 'maquina-b' }, { maquina: 'maquina-a' });
+    responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', { maquina: 'maquina-b' });
+    const batida = lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' }).batidas.get('maquina-b');
+    encerrarArco(m.b.dir, m.arco, { motivo: 'fila-vazia', detalhe: 'SIMULADO' });
+    assert.equal(passo(m.b).acao, 'passo');
+    const estado = lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' });
+    assert.deepEqual([...estado.ordens.values()].map(o => [o.ordem, o.estado]), [['O-a-1', 'encerrada'], ['O-c-1', 'recusada']]);
+    assert.match(String(estado.ordens.get('O-c-1')!.recibos.recusada!.motivo), /^noctum\.efeito\.encerrado: /);
+    assert.deepEqual(estado.batidas.get('maquina-b'), batida, 'a B parou de bater');
+    assert.equal(situacaoDoTrabalho(estado, 'a')!.estado, 'livre', 'o trabalho da ordem encerrada pode mudar de máquina');
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-m19b');
+  try {
+    // A autoridade A encerrada para de bater: enquanto o sinal dela vale, a tomada forçada recusa; vencido, a B a toma.
+    coordenacao.bater(m2.b.carregado, m2.arco, { maquina: 'maquina-b' });
+    encerrarArco(m2.a.dir, m2.arco, { motivo: 'custo', detalhe: 'SIMULADO' });
+    passoDaMaquina(m2.a.carregado, m2.arco, { maquina: 'maquina-a', n2: n2Simulada(registro) });
+    recusa(() => assumirAutoridade(m2.b.carregado, m2.arco, { maquina: 'maquina-b', forcar: { motivo: 'SIMULADO: a autoridade parou' } }),
+      'noctum.coordenacao.autoridade-ativa');
+    passoDaMaquina(m2.a.carregado, m2.arco, { maquina: 'maquina-a', quando: em(16), n2: n2Simulada(registro) });
+    coordenacao.bater(m2.b.carregado, m2.arco, { maquina: 'maquina-b', quando: em(16) });
+    const g2 = assumirAutoridade(m2.b.carregado, m2.arco, { maquina: 'maquina-b', quando: em(16), forcar: { motivo: 'SIMULADO: a autoridade encerrou' } });
+    assert.deepEqual([g2.geracao, g2.maquina, g2.modo], [2, 'maquina-b', 'forcada']);
+  } finally { m2.limpar(); }
 });

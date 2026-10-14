@@ -13,7 +13,8 @@ import { avancarBase, ciFalso, EntregaPronta, entregaPronta, EstadoDoCheck, FORJ
 import { renderizarEstado, renderizarRelance, separarFrontmatter, verificarDocs, Documento } from '../src/docs';
 import { kernelDisponivel, tentarTravaExclusiva } from '../src/fila-pesada';
 import { lerLedger, TIPOS_DE_EVENTO } from '../src/ledger';
-import { RecusaDoArco } from '../src/noctum-envelope';
+import { CONTRATO_ENVELOPE_V3, RecusaDoArco } from '../src/noctum-envelope';
+import { identidadeDaMaquina } from '../src/noctum-transporte';
 import { candidatoDaEntrega, caminhoDaTravaDoDestino, integradorDaEntrega, integrarNoDestino, passoDaEntrega } from '../src/noctum-entrega';
 import { provasDaEntrega, RecusaDaEntrega } from '../src/noctum-provas';
 import { gravarNaSupervisao } from '../src/noctum-supervisao';
@@ -380,5 +381,29 @@ test('QI12: o trabalho que fixa a thread de outro item não integra, como a fila
     assert.throws(() => integrar(p, 'arco-qi12', e.t.id, { [e.fonte]: 'success' }),
       (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.fora-do-envelope');
     assert.equal(lsRemote(p, 'refs/heads/main'), base, 'a base não mudou');
+  } finally { p.limpar(); }
+});
+
+test('QI13: com o envelope v3, a entrega da N5 não integra sozinha: o passo bloqueia, e o merge sem o candidato da vez recusa', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi13');
+  try {
+    // A3 da revisão do merge com a N5 (ork-rm058n3): o arco entre máquinas integra pela vez da N3, e as duas guardas daqui o
+    // seguram; a página da N3 se apoia nelas.
+    const e = entregaPronta(p, 'qi13');
+    publicarBranch(e);
+    const pedido = pedidoV2('arco-qi13', { trabalhos: [{ id: 'a', item: 'RM-958', prioridade: 1, dependeDe: [], thread: e.t.id }], revisao: 1 });
+    Object.assign(pedido, { contrato: CONTRATO_ENVELOPE_V3, maquinas: [identidadeDaMaquina(p.dir, 'maquina-a')],
+      trabalhos: (pedido.trabalhos as Array<Record<string, unknown>>).map(t => ({ ...t, maquina: 'maquina-a' })),
+      destinos: [{ repositorio: FORJA.repositorio, base: 'main', permissoes: ['push', 'pr', 'merge'] }],
+      capacidadeGlobal: { porConta: [{ conta: 'perfil-a', sessoes: 2 }] } });
+    autorizarPedido(p.dir, 'arco-qi13', pedido);
+    const base = lsRemote(p, 'refs/heads/main');
+    const r = passoDaEntrega(p.carregado, 'arco-qi13', { maquina: 'maquina-simulada', forja: FORJA, executorCi: ciFalso({ [e.fonte]: 'success' }),
+      lerReservas: () => ({ leitura: 'copia-local', reservas: [{ item: 'RM-958', maquina: 'maquina-simulada', thread: null }] }) });
+    assert.ok(JSON.stringify(r).includes('noctum.entrega.exige-vez-da-n3'), `o passo bloqueia o trabalho: ${JSON.stringify(r).slice(0, 300)}`);
+    assert.throws(() => integrar(p, 'arco-qi13', e.t.id, { [e.fonte]: 'success' }),
+      (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.exige-vez-da-n3');
+    assert.equal(lsRemote(p, 'refs/heads/main'), base, 'a base não mudou');
+    assert.equal(lerLedger(dirThread(p.dir, e.t.id)).filter(x => x.tipo === TIPOS_DE_EVENTO.shipConcluido).length, 0);
   } finally { p.limpar(); }
 });

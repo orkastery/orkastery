@@ -34,7 +34,7 @@ import { comLockInspecionavel } from './hitl-lock';
 import { chaveLocal } from './hitl-local-receipt';
 import { nativeBinding, nativeContextSchema, nativeKey } from './hitl-native';
 import { publicBindingMatches, publicReceiptAuthority, signPublicReceipt, verifyPublicReceipt } from './hitl-public-receipt';
-import { avaliarEfeito, avaliarJanela, canonico, ConteudoDoEnvelope, envelopeComTrabalhos, hashDoEnvelope, ID_DO_ARCO,
+import { avaliarEfeito, avaliarJanela, canonico, ConteudoDoEnvelope, CONTRATO_ENVELOPE_V3, envelopeComTrabalhos, hashDoEnvelope, ID_DO_ARCO,
   PedidoDeEfeito, RecusaDoArco, recusaDeExclusao, resumoDoEnvelope, shaDoPedido, Teto, validarPedidoDeAbertura } from './noctum-envelope';
 import { lerThread, listarIds, pedidoDaThread } from './thread';
 import { Fase, Thread } from './types';
@@ -505,6 +505,13 @@ function exigirEmendaSemProrrogar(d: Derivado, conteudo: ConteudoDoEnvelope, qua
   }
   if (Date.parse(conteudo.janela.inicio) !== Date.parse(janela.inicio) || Date.parse(conteudo.janela.fim) > Date.parse(janela.fim)) {
     throw new RecusaDoArco('noctum.envelope.invalido', 'emenda mantém o início e não prorroga o fim do envelope autorizado');
+  }
+  // RM-058 N3 (A4 da revisão da ork-rm058n3): a emenda não troca o contrato entre a `v3` e as outras. O consumo e as sessões de
+  // uma máquina só não estão no ramo de coordenação, e a soma entre máquinas os perderia; o arco entre máquinas nasce assim.
+  const antes = d.propostas.get(d.autorizacao.versao)!.conteudo.contrato;
+  if ((antes === CONTRATO_ENVELOPE_V3) !== (conteudo.contrato === CONTRATO_ENVELOPE_V3)) {
+    throw new RecusaDoArco('noctum.envelope.invalido', `a emenda não troca o contrato de ${antes} para ${conteudo.contrato}: ` +
+      'o arco entre máquinas começa como tal, e o de uma máquina segue assim; abra outro arco');
   }
 }
 

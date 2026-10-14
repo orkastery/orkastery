@@ -807,6 +807,8 @@ export function cancelarOrdem(carregado: ManifestoCarregado, arco: string, ordem
  */
 export interface FatosDaResposta {
   arcoVigente: boolean;
+  /** RM-058 N6: o fechamento encerrou o arco nesta máquina; ela não vai aceitar, então recusa o que chegar. */
+  arcoEncerrado?: boolean;
   threadsLocais: ReadonlyMap<string, { roadmap: string | null; modo: string }>;
   itensDeOutros?: ReadonlySet<string>;
 }
@@ -819,6 +821,7 @@ export function respostaAOrdem(estado: EstadoDaCoordenacao, o: OrdemDerivada, eu
   { recibo: 'aceita' | 'recusada'; motivo: string } {
   if (o.envelopeSha256 !== estado.vigente.envelopeSha256) return { recibo: 'recusada', motivo: 'noctum.efeito.hash-antigo: a ordem é de outra versão do envelope' };
   if (estado.revogada) return { recibo: 'recusada', motivo: `noctum.coordenacao.revogada: o arco foi revogado na máquina ${estado.revogada.por}` };
+  if (fatos.arcoEncerrado) return { recibo: 'recusada', motivo: 'noctum.efeito.encerrado: o arco encerrou nesta máquina' };
   if (!fatos.arcoVigente) return { recibo: 'recusada', motivo: 'noctum.efeito.fora-da-janela: o arco não está vigente nesta máquina' };
   const t = trabalhoDe(estado.vigente.conteudo, o.trabalho);
   if (!t) return { recibo: 'recusada', motivo: 'noctum.despacho.fora-do-envelope: o trabalho não está no envelope vigente' };

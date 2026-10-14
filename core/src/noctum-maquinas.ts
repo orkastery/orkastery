@@ -227,7 +227,10 @@ export function passoDaMaquina(carregado: ManifestoCarregado, arco: string, opco
       // Sem a leitura das reservas, nenhuma ordem sai: o item reservado fora do arco iria e voltaria.
       const ordens = local.situacao === 'vigente' && vistas ? registrosDaDistribuicao(e, eu, quando, vistas) : [];
       const abandonos = registrosDosAbandonos(e, eu, quando);
-      return { novos: [{ tipo: 'batida' }, ...abandonos, ...ordens],
+      // A2 da revisão do merge com a N6: a máquina em que o fechamento encerrou o arco para de bater. Sem sinal há mais de 15
+      // min, a autoridade não manda mais ordem para ela, e a tomada forçada da autoridade dela passa a valer.
+      const batida = local.situacao === 'encerrado' ? [] : [{ tipo: 'batida' as const }];
+      return { novos: [...batida, ...abandonos, ...ordens],
         resultado: { ordens: ordens.map(o => String(o.ordem)), abandonos: abandonos.map(x => `${String(x.chave)}/${String(x.n)}`) } };
     });
     relatorio.ordensEmitidas = distribuicao.resultado.ordens;
@@ -241,10 +244,13 @@ export function passoDaMaquina(carregado: ManifestoCarregado, arco: string, opco
     const itensDeOutros = painel?.atualizado
       ? new Set(painel.reservas.filter(r => r.maquina !== quem.maquina || r.por !== quem.por).map(r => r.item)) : undefined;
     // A-R2A-3 da rodada 2: com o arco ainda não vigente aqui (o relógio daqui atrás do da autoridade, na borda da janela), a
-    // máquina não responde: a ordem fica emitida até a janela abrir, em vez de virar recusa que a exclui nesta versão.
+    // máquina não responde: a ordem fica emitida até a janela abrir, em vez de virar recusa que a exclui nesta versão. Com o
+    // arco encerrado aqui pela N6, que é terminal, ela recusa o que chegar, e o trabalho vai a outra máquina (A2 da revisão).
     const respostas = gravarNaCoordenacao(carregado, arco, op, (leitura) => {
-      const novos = local.situacao === 'vigente'
-        ? registrosDasRespostas(derivarCoordenacao(leitura), eu, { arcoVigente: true, threadsLocais, itensDeOutros }) : [];
+      const novos = local.situacao === 'vigente' || local.situacao === 'encerrado'
+        ? registrosDasRespostas(derivarCoordenacao(leitura), eu,
+          { arcoVigente: local.situacao === 'vigente', arcoEncerrado: local.situacao === 'encerrado', threadsLocais, itensDeOutros })
+        : [];
       return { novos, resultado: novos.map(r => ({ ordem: String(r.ordem), recibo: String(r.recibo), motivo: String(r.motivo) })) };
     });
     relatorio.respostas = respostas.resultado;

@@ -51,7 +51,8 @@ export interface PedidoDeIntegracao {
  * `candidato.fonte` (avanço rápido), e vai à base por push sem força. O merge sobre a base de agora, como o botão de uma
  * forja faria, não é provado e não vira entrega. Push recusado é falha (B-R3A-1 da rodada 3): o integrador nunca mescla a
  * base nova no merge e empurra de novo. O commit devolvido é o merge, mesmo quando o push leva algo por cima dele, como os
- * docs derivados da N5 (A-R3D-1 da R3-D): a ponta da base não é o que se devolve.
+ * docs derivados da N5 (A-R3D-1 da R3-D): a ponta da base não é o que se devolve. Por cima do merge, no mesmo push, só vão
+ * os docs derivados da página do item; o que for por cima não passa pela prova, e só o contrato o limita (S-G6-3 da R3-D).
  */
 export type Integrador = (c: { remoto: string; destino: { repositorio: string; base: string }; candidato: CandidatoDeIntegracao }) => { merge: string };
 
@@ -292,13 +293,15 @@ function entreguesDoDestino(estado: EstadoDaCoordenacao, chave: string, fora?: n
  * O commit que o integrador devolveu, resolvido no clone desta máquina; `commit: null` quando não é um commit daqui. O SHA vem
  * aparado e em minúsculas (S-R3C-1 da R3-C): a saída do `git rev-parse` sem `trim` e o SHA em maiúsculas são o mesmo
  * commit. Nome de ref não vale: resolvido aqui, diria o commit deste clone, não o que chegou à base. `lido: false` quando o
- * git não rodou (S-R3D-2 da R3-D): prazo, sinal ou falha ao abrir o processo não dizem nada do valor.
+ * git não rodou ou morreu por erro dele (S-R3D-2 e S-G6-2 da R3-D): prazo, sinal, falha ao abrir o processo ou a saída 128
+ * não dizem nada do valor.
  */
 function commitDevolvido(raiz: string, merge: unknown): { lido: true; commit: string | null } | { lido: false } {
   const valor = typeof merge === 'string' ? merge.trim().toLowerCase() : '';
   if (!/^[0-9a-f]{7,64}$/.test(valor)) return { lido: true, commit: null };
   const r = spawnSync('git', ['rev-parse', '--verify', '--quiet', `${valor}^{commit}`], { cwd: raiz, encoding: 'utf8', timeout: 60_000 });
-  if (r.error || r.status === null) return { lido: false };
+  // S-G6-2 da R3-D: o valor que o git recusa sai 1; o git que morre por erro dele sai 128 e também não diz nada do valor.
+  if (r.error || (r.status !== 0 && r.status !== 1)) return { lido: false };
   return { lido: true, commit: r.status === 0 ? (r.stdout ?? '').trim() : null };
 }
 
