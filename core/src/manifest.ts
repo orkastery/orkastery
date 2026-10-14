@@ -18,6 +18,7 @@ import { validarPreferencias } from './experiencia';
 import { ENVS_DE_PROVIDER_PAGO } from './runtime-ambiente';
 import { LIMITE_TIMEOUT_DO_UNIVERSO_MS, MODELO_DE_EMBEDDING, TIMEOUT_DO_UNIVERSO_MS } from './orkmind';
 import { ErroDoCatalogo } from './locale';
+import { TIPOS_DE_FORJA, TipoDeForja } from './forja/contrato';
 import { branchValida } from './branch-de-estado';
 
 export const NOME_MANIFESTO = 'orkastery.yaml';
@@ -223,6 +224,81 @@ function lerBlocoConhecimento(v: ValorYaml | undefined, avisos: string[]): Manif
   return { dir };
 }
 
+/** Nome de host sem esquema, porta, caminho ou credencial; um rotulo so vale (`localhost`). */
+const HOST_DA_FORJA = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
+const CHAVES_DA_FORJA = ['tipo', 'host', 'porta', 'caminho_base', 'ssh_host', 'ssh_porta', 'ca'];
+
+/**
+ * O bloco opcional `forja:`. Ausente, nada muda: tudo vem do remoto e da sondagem. Valor fora da forma e erro do
+ * manifesto, nunca adivinhado: um host ou uma porta errados mandariam a consulta, e o login da CLI, a outro servidor.
+ * Chave desconhecida so avisa. `caminho_base` `/` e o mesmo que nenhum subcaminho.
+ */
+function lerBlocoForja(v: ValorYaml | undefined, erros: string[], avisos: string[]): Manifesto['forja'] {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push(`forja deve ser um mapa com ${CHAVES_DA_FORJA.join(', ')} (recebido ${exibir(v)})`);
+    return undefined;
+  }
+  for (const chave of Object.keys(v)) {
+    if (!CHAVES_DA_FORJA.includes(chave)) avisos.push(`forja.${chave} desconhecida; o bloco forja tem ${CHAVES_DA_FORJA.join(', ')}`);
+  }
+  const forja: NonNullable<Manifesto['forja']> = {};
+  if (v.tipo !== undefined && v.tipo !== null) {
+    if (typeof v.tipo === 'string' && (TIPOS_DE_FORJA as readonly string[]).includes(v.tipo)) forja.tipo = v.tipo as TipoDeForja;
+    else erros.push(`forja.tipo aceita ${TIPOS_DE_FORJA.join(' ou ')} (recebido ${exibir(v.tipo)})`);
+  }
+  for (const chave of ['host', 'ssh_host'] as const) {
+    const x = v[chave];
+    if (x === undefined || x === null) continue;
+    const t = typeof x === 'string' ? x.trim().toLowerCase() : '';
+    if (HOST_DA_FORJA.test(t)) forja[chave] = t;
+    else erros.push(`forja.${chave} deve ser um nome de host sem esquema, porta ou caminho (recebido ${exibir(x)})`);
+  }
+  for (const chave of ['porta', 'ssh_porta'] as const) {
+    const x = v[chave];
+    if (x === undefined || x === null) continue;
+    if (typeof x === 'number' && Number.isInteger(x) && x >= 1 && x <= 65535) forja[chave] = x;
+    else erros.push(`forja.${chave} deve ser um inteiro de 1 a 65535 (recebido ${exibir(x)})`);
+  }
+  if (v.caminho_base !== undefined && v.caminho_base !== null) {
+    const t = typeof v.caminho_base === 'string' ? v.caminho_base.trim().replace(/\/+$/, '') : null;
+    const valido = t !== null && (t === '' || (/^(?:\/[A-Za-z0-9._~-]+)+$/.test(t) && !t.split('/').some((p) => p === '.' || p === '..')));
+    if (!valido) erros.push(`forja.caminho_base deve ser um caminho absoluto como /gitlab, sem .. (recebido ${exibir(v.caminho_base)})`);
+    else if (t) forja.caminho_base = t;
+  }
+  if (forja.caminho_base && forja.tipo === 'github') {
+    erros.push('forja.caminho_base só vale para forja servida em subcaminho (gitlab); o GitHub não tem');
+  }
+  if (v.ca !== undefined && v.ca !== null) {
+    if (typeof v.ca === 'string' && path.isAbsolute(v.ca) && path.normalize(v.ca) === v.ca) forja.ca = v.ca;
+    else erros.push(`forja.ca deve ser o caminho absoluto de um arquivo PEM (recebido ${exibir(v.ca)})`);
+  }
+  return forja;
+}
+
+/** Um produtor: o slug de um app ou de um job, ou `status:<login>`. */
+const PRODUTOR = /^(?:status:)?[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/;
+
+/**
+ * `ci.produtor`: quem pode publicar o check exigido. Ausente: o padrao da forja. Lista vazia e erro (o gate nunca
+ * ficaria verde), e entrada que nao e produtor tambem: nunca se adivinha quem aprova.
+ */
+function lerProdutores(v: ValorYaml | undefined, erros: string[]): string[] | undefined {
+  if (v === undefined || v === null) return undefined;
+  const lista = typeof v === 'string' ? [v] : Array.isArray(v) ? v : null;
+  if (!lista || lista.length === 0 || lista.length > 20) {
+    erros.push('ci.produtor deve ser uma lista de 1 a 20 produtores (app, job ou status:<login>), como [github-actions]');
+    return undefined;
+  }
+  const saida: string[] = [];
+  for (const x of lista) {
+    const t = typeof x === 'string' ? x.trim() : '';
+    if (!PRODUTOR.test(t)) { erros.push(`ci.produtor: ${exibir(x)} não é um produtor (app, job ou status:<login>)`); continue; }
+    if (!saida.includes(t)) saida.push(t);
+  }
+  return saida.length ? saida : undefined;
+}
+
 /** Mesmo contrato na leitura do YAML e nos consumidores de manifesto em memoria. */
 export function validarOptInPlaybook(valor: unknown): boolean {
   if (valor === undefined) return false;
@@ -409,6 +485,9 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     erros.push((e as Error).message);
   }
 
+  const forja = lerBlocoForja(dados.forja, erros, avisos);
+  const produtores = lerProdutores(ci.produtor, erros);
+
   const abbrev = texto(project.abbrev, '');
   const checkAbbrev = validarAbbrev(abbrev);
   if (!checkAbbrev.ok) erros.push(checkAbbrev.erro as string);
@@ -578,6 +657,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       context: texto(ci.context, 'ork-verify'),
       command: ci.command === null || ci.command === undefined ? undefined : texto(ci.command, ''),
       external_repositories: repositoriosExternos(ci.external_repositories, erros),
+      ...(produtores ? { produtor: produtores } : {}),
     },
     concurrency: {
       max_parallel_threads: numero(concurrency.max_parallel_threads, 3),
@@ -633,6 +713,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     // RM-031 KG5 (D2): expor as tools do grafo no MCP e opt-in do dono.
     grafo: lerGrafo(dados.grafo, avisos),
     ...(conhecimento ? { conhecimento } : {}),
+    ...(forja ? { forja } : {}),
     policies: Object.fromEntries(
       Object.entries(mapa(dados.policies)).map(([k, v]) => [k, texto(v, '')])
     ),

@@ -5,6 +5,9 @@
 
 export type TipoDeForja = 'github' | 'gitlab';
 
+/** Os tipos de forja que o registro conhece, na ordem em que a sondagem os tenta. Sem import: o manifesto o le. */
+export const TIPOS_DE_FORJA: readonly TipoDeForja[] = ['github', 'gitlab'];
+
 /** O repositorio na forja: `repo` e `dono/nome` no GitHub e o caminho completo no GitLab. */
 export interface IdentidadeDaForja { tipo: TipoDeForja; host: string; repo: string }
 
