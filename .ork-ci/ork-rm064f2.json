@@ -1,0 +1,319 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm064f2",
+  "branch": "ork/ork-rm064f2-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/trabalho-thread.ts",
+      "alegacao": "A retomada entrega o caminho da thread e resume somente arquivos pequenos e seguros, sem copiar o job.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='T4' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:47:04.928Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/conducao-batida.ts",
+      "alegacao": "A batida determinística processa quota com Sentinela ativa e mantém o despacho comum cedido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='T5' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:47:04.963Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-profiles.ts",
+      "alegacao": "`accounts check` expira marca vencida, distingue limites e relata carga, retorno e cota exposta por conta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='T7.*accounts' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:47:04.999Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-context.ts",
+      "alegacao": "Um runtime sem adaptador instalado no projeto não é selecionado como fallback capaz.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='T7.*adaptador' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:47:05.041Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+      "alegacao": "A documentação pública descreve o entregue na fatia 2 e seus limites sem prometer capacidade não medida.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'T4|trabalho/|T5|conducao batida|T7|accounts check|adaptador' docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+        "grep -E 'conta|cota|trabalho da thread' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-14T09:47:05.079Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/retomada-checkpoint.ts",
+      "alegacao": "O checkpoint de retomada inclui o caminho e o inventário limitado do trabalho da thread.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='T4' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:49:08.198Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm064-fatia2.test.ts",
+      "alegacao": "A prova T4 cobre arquivo pequeno, arquivo grande e link fora do trabalho retomável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='T4' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:49:08.254Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "O despacho real cria o diretório de trabalho antes de entregar o prompt da fase.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:50:20.959Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/prompts.ts",
+      "alegacao": "O template embutido declara o caminho retomável e os artefatos que pertencem à thread.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:50:21.003Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "prompts/fase-padrao.md",
+      "alegacao": "O template versionado é idêntico ao embutido e entrega o caminho de trabalho da thread.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:50:21.041Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/doctor.ts",
+      "alegacao": "O doctor compara a conta do condutor LLM com fases vivas e avisa quando coincidem.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:52:52.785Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "O aviso de separação da condução tem texto equivalente em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:52:52.829Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "O adaptador transporta uma medida de cota somente quando o JSON do runtime a expõe.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:59:43.522Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "`accounts check` expira marcas antes da autenticação e relata limite, cota, carga e volta por perfil.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:59:43.569Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-accounts.ts",
+      "alegacao": "O estado operacional de cada conta tem textos equivalentes em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:59:43.607Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "A retomada por cota e a troca por modelo ignoram fallbacks cujo adaptador não está instalado no projeto preparado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='T7.*destino' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T10:03:59.821Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-escada.ts",
+      "alegacao": "A escada de recuperação não oferece como fallback um runtime sem adaptador instalado no projeto preparado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='T7.*destino' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T10:03:59.861Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-retry.ts",
+      "alegacao": "A escada explica em pt-BR e inglês quando o fallback foi pulado por ausência de adaptador instalado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='T7.*destino' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-14T10:05:09.067Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado registra a mudança de comportamento da fatia 2 da RM-064.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'Conta esgotada não para a fase, fatia 2' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-14T10:06:18.654Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm064f2",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A fixture pt-BR F3b espera o caminho de trabalho retomável nos três renders de prompt afetados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node -e \"const fs=require('fs');const f=JSON.parse(fs.readFileSync('core/test/fixtures/locale-f3b-pt-BR.json','utf8'));const p=Object.entries(f).filter(([k])=>k.startsWith('cli prompt:'));if(p.length!==3||p.some(([,v])=>!v.includes('- trabalho retomavel:')))process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-14T10:29:19.710Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C21",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
