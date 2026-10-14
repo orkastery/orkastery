@@ -620,7 +620,7 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   // A5 da revisao: o corpo e o texto lido agora, gravado num arquivo temporario 600 so para o `gh pr create`
   // (`--body-file`); o gh nunca reabre o `pr-body.md`.
   const textoDoCorpo = corpo?.texto ?? textoDoCatalogo((m) => p(m).corpoPadrao(tagDoModo(t.modo), f.branch, curto(head),
-    carregado.manifesto.ci.context || 'ork-verify'));
+    carregado.manifesto.ci.context || 'ork-verify', noGitlab));
   // B1 da revisao: o push leva o sha conferido, e nao a ref: o commit que chegue a branch depois das conferencias fica
   // fora desta publicacao.
   const refspec = `${head}:refs/heads/${f.branch}`;

@@ -9,6 +9,7 @@ import type { ExecutorDoGh } from '../src/parado-no-condutor';
 import { forjaDaEntrega } from '../src/entrega-pr';
 import { dirDoCacheDaForja, gravarNoCache } from '../src/forja/cache';
 import { linhasDaPublicacao, publicarEntrega } from '../src/ship-publicar';
+import { SHIP_EN, SHIP_PT_BR } from '../src/locale-ship';
 import { dirThread } from '../src/thread';
 import { exec } from '../src/util';
 import { comAmbientePtBr, projetoTemporario, shaNoRemotoDeTeste } from './apoio';
@@ -201,4 +202,24 @@ test('publicar fora de #Auto e #Maestro num host próprio sem bloco forja: sem s
     const cacheado = publicarEntrega(p.carregado, e.id, { remoto: 'gl', sondas, executorGh: SEM_GH });
     assert.ok(cacheado.correcao.includes('glab mr create') && !cacheado.correcao.includes('gh pr create'), cacheado.correcao);
   } finally { p.limpar(); }
+});
+
+test('publicar no GitLab: a descrição padrão do MR fala em MR, e o corpo padrão do GitHub segue em PR', () => {
+  const p = projetoTemporario('publicar-gitlab-corpo', true);
+  try {
+    const gl = gitlabFalso((b) => shaNoRemotoDeTeste(p.dir, 'origin', b));
+    const e = entregaPronta(p, 'corpo gitlab');
+    const r = publicarEntrega(p.carregado, e.id, { forjaResolvida: GITLAB, api: gl.api, executorGh: SEM_GH });
+    assert.equal(r.acao, 'publicou', `${r.detalhe} ${r.correcao}`);
+    const descricao = String(gl.corpos[0].description);
+    assert.match(descricao, /a partir deste MR\.$/);
+    assert.ok(!/\bPR\b/.test(descricao), descricao);
+  } finally { p.limpar(); }
+  const args = ['manual', 'ramo', 'abc1234', 'ork-verify'] as const;
+  assert.match(SHIP_PT_BR.publicar.corpoPadrao(...args, true), /a partir deste MR\.$/);
+  assert.match(SHIP_EN.publicar.corpoPadrao(...args, true), /from this MR\.$/);
+  assert.match(SHIP_PT_BR.publicar.corpoPadrao(...args), /a partir deste PR\.$/);
+  assert.match(SHIP_EN.publicar.corpoPadrao(...args, false), /from this PR\.$/);
+  assert.equal(SHIP_PT_BR.publicar.corpoPadrao(...args),
+    'Publicado pelo ork ship publicar (modo manual): a branch ramo no HEAD abc1234, provada pelo ls-remote. O CHECK independente roda no CI (ork-verify) a partir deste PR.');
 });

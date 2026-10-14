@@ -240,9 +240,9 @@ export const SHIP_PT_BR = {
     pushFalhou: (remoto: string, branch: string, erro: string) => `o push de ${branch} para ${remoto} falhou: ${erro}`,
     pushSemProva: (remota: string | null, head: string) => `o ls-remote devolveu ${remota ?? '(nada)'} e o HEAD está em ${head}: o push não ficou provado`,
     pushSemProvaCorrecao: (thread: string) => `confira o remoto e rode ork ship publicar ${thread} de novo`,
-    corpoPadrao: (tag: string, branch: string, sha: string, contexto: string) =>
+    corpoPadrao: (tag: string, branch: string, sha: string, contexto: string, gitlab = false) =>
       `Publicado pelo ork ship publicar (modo ${tag}): a branch ${branch} no HEAD ${sha}, provada pelo ls-remote. ` +
-      `O CHECK independente roda no CI (${contexto}) a partir deste PR.`,
+      `O CHECK independente roda no CI (${contexto}) a partir deste ${gitlab ? 'MR' : 'PR'}.`,
     prSemReleitura: 'o PR não apareceu na releitura da lista',
     prFalhou: (sha: string, erro: string) => `a branch foi publicada e provada no HEAD ${sha}, mas o PR não abriu: ${erro}`,
     prFalhouCorrecao: (thread: string) => `confira o login do gh e rode ork ship publicar ${thread} de novo (o push já está provado)`,
@@ -520,9 +520,9 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     pushFalhou: (remoto, branch, erro) => `the push of ${branch} to ${remoto} failed: ${erro}`,
     pushSemProva: (remota, head) => `ls-remote returned ${remota ?? '(nothing)'} and HEAD is at ${head}: the push was not proven`,
     pushSemProvaCorrecao: (thread) => `check the remote and run ork ship publicar ${thread} again`,
-    corpoPadrao: (tag, branch, sha, contexto) =>
+    corpoPadrao: (tag, branch, sha, contexto, gitlab = false) =>
       `Published by ork ship publicar (${tag} mode): branch ${branch} at HEAD ${sha}, proven by ls-remote. ` +
-      `The independent CHECK runs on CI (${contexto}) from this PR.`,
+      `The independent CHECK runs on CI (${contexto}) from this ${gitlab ? 'MR' : 'PR'}.`,
     prSemReleitura: 'the PR did not show up when the list was read again',
     prFalhou: (sha, erro) => `the branch was published and proven at HEAD ${sha}, but the PR did not open: ${erro}`,
     prFalhouCorrecao: (thread) => `check the gh login and run ork ship publicar ${thread} again (the push is already proven)`,
