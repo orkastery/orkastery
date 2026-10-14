@@ -82,6 +82,10 @@ export const executorPadrao: ExecutorDaForja = (cmd, args, entrada, timeoutMs) =
 // Identidade
 // ---------------------------------------------------------------------------
 
+/**
+ * O tipo pelo nome do host. So vale onde nao ha manifesto nem login para resolver: a rede le os remotos de outros
+ * projetos. A CI do projeto usa a forja resolvida (`forja/resolver.ts`), que nao decide pelo nome.
+ */
 export function tipoDoHost(host: string): TipoDeForja | null {
   if (host === 'github.com' || /(^|[.-])github([.-]|$)/.test(host)) return 'github';
   if (host === 'gitlab.com' || /(^|[.-])gitlab([.-]|$)/.test(host)) return 'gitlab';

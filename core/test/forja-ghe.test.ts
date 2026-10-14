@@ -3,6 +3,10 @@ import { test } from 'node:test';
 import { ajustarManifesto, projetoTemporario, shaDaBranch } from './apoio';
 import { consultarCi } from '../src/ci';
 import { exec } from '../src/util';
+import type { SondasDaForja } from '../src/forja/resolver';
+
+/** Sem bloco `forja:`, o GHE e reconhecido pela sonda do gh com login; o glab nao tem login nele. */
+const SONDA_GHE: SondasDaForja = { github: () => 'responde', gitlab: () => 'sem-login' };
 
 const verde = JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'success' }] });
 
@@ -13,7 +17,7 @@ function consultar(url: string) {
   exec('git', ['remote', 'add', 'origin', url], p.carregado.raiz);
   const sha = shaDaBranch(p.carregado.raiz, 'main');
   let host: string | undefined;
-  const r = consultarCi(p.carregado, sha, 'origin', (e) => { if (e.caminho?.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' }; host = e.host; return { ok: true, code: 0, stderr: '', stdout: verde }; }, () => true);
+  const r = consultarCi(p.carregado, sha, 'origin', (e) => { if (e.caminho?.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' }; host = e.host; return { ok: true, code: 0, stderr: '', stdout: verde }; }, () => true, SONDA_GHE);
   p.limpar();
   return { host, r };
 }
@@ -39,7 +43,7 @@ function consultarComLogin(url: string, login: (h: string) => boolean) {
   const hosts: Array<string | undefined> = [];
   const perguntados: string[] = [];
   const r = consultarCi(p.carregado, sha, 'origin', (e) => { if (e.caminho?.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' }; hosts.push(e.host); return { ok: true, code: 0, stderr: '', stdout: verde }; },
-    (h) => { perguntados.push(h); return login(h); });
+    (h) => { perguntados.push(h); return login(h); }, SONDA_GHE);
   p.limpar();
   return { hosts, perguntados, r };
 }

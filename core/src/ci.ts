@@ -1,6 +1,9 @@
 /** GitHub CI como CHECK independente (I-12). */
-import { hostComPorta, lerEnderecoDoRemoto } from './forja/endereco';
-import { detalheSeguro, tipoDoHost } from './forja';
+import { lerEnderecoDoRemoto } from './forja/endereco';
+import { detalheSeguro } from './forja';
+import { hostDaApi } from './forja/cli';
+import { resolverForja, SONDAS_PADRAO, SondasDaForja } from './forja/resolver';
+import { dirDoCacheDaForja } from './forja/cache';
 import { exigirRemoto } from './branch-de-estado';
 import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
@@ -125,29 +128,42 @@ export function repositorioGitHub(url: string): string | null {
   return e && (e.host === 'github.com' || e.host === 'ssh.github.com') && e.caminho.split('/').length === 2 ? e.caminho : null;
 }
 
+/** O host da API para o gh: `--hostname host`, ou `GH_HOST=host:porta` (o gh recusa `--hostname` com porta). */
+function hostDoGh(host: string): { args: string[]; acrescentar?: Record<string, string> } {
+  return host.includes(':') ? { args: [], acrescentar: { GH_HOST: host } } : { args: ['--hostname', host] };
+}
+
 function executorPadrao(input: { repository: string; sha: string; context: string; host?: string; caminho?: string }) {
   // 32 MiB, o teto do `forja.ts`: uma pagina de 100 check-runs passa de 1 MiB com facilidade.
-  const r = rodarCli({ cmd: 'gh', args: ['api', '--hostname', input.host ?? 'github.com',
-    input.caminho ?? `repos/${input.repository}/commits/${input.sha}/check-runs`,
-    '-H', 'Accept: application/vnd.github+json'], prazoMs: 120000, maxBuffer: 32 * 1024 * 1024 });
+  const h = hostDoGh(input.host ?? 'github.com');
+  const r = rodarCli({ cmd: 'gh', args: ['api', ...h.args, input.caminho ?? `repos/${input.repository}/commits/${input.sha}/check-runs`,
+    '-H', 'Accept: application/vnd.github+json'], prazoMs: 120000, maxBuffer: 32 * 1024 * 1024, acrescentar: h.acrescentar });
   return { ok: r.status === 0, code: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
-/** O `gh` tem login no host (`gh auth status --hostname`)? So o github.com dispensa a pergunta. */
+/** O `gh` tem login no host (`gh auth status`)? So o github.com dispensa a pergunta. */
 function loginPadrao(host: string): boolean {
-  return rodarCli({ cmd: 'gh', args: ['auth', 'status', '--hostname', host], prazoMs: 30000, maxBuffer: 1024 * 1024 }).status === 0;
+  const h = hostDoGh(host);
+  return rodarCli({ cmd: 'gh', args: ['auth', 'status', ...h.args], prazoMs: 30000, maxBuffer: 1024 * 1024, acrescentar: h.acrescentar }).status === 0;
 }
 
 /**
- * O repositorio e o host da API saem de UM parse so (`lerEnderecoDoRemoto`), sem host de reserva: o `dono/nome`
- * nunca e consultado num host que o remoto nao nomeia. `ssh.github.com` (SSH pela 443) e o github.com; a porta de um
- * remoto SSH nao e a da API. Host de GitLab nao e GitHub.
+ * O repositorio e o host da API saem de UM parse do remoto (`lerEnderecoDoRemoto`) e da forja resolvida (o bloco
+ * `forja:`, o host conhecido ou a sondagem pela CLI com login no host), sem host de reserva: o `dono/nome` nunca e
+ * consultado num host que o remoto ou o manifesto nao nomeiam. O nome do host nao decide o tipo: so a forja resolvida
+ * como GitHub tem a CI consultada aqui. `ssh.github.com` (SSH pela 443) e o github.com; a porta de um remoto SSH nao
+ * e a da API.
  */
-function alvoDaCi(url: string): { repository: string; host: string } | null {
-  const e = lerEnderecoDoRemoto(url.trim());
-  if (!e || e.caminho.split('/').length !== 2 || tipoDoHost(e.host) === 'gitlab') return null;
-  const host = e.host === 'ssh.github.com' ? 'github.com' : e.protocolo === 'https' || e.protocolo === 'http' ? hostComPorta(e) : e.host;
-  return { repository: e.caminho, host };
+function alvoDaCi(carregado: ManifestoCarregado, remoto: string, url: string, sondas: SondasDaForja):
+  { ok: true; repository: string; host: string } | { ok: false; detalhe: string } {
+  const naoGithub = () => ({ ok: false as const, detalhe: textoDoCatalogo((m) => m.ship.ciRemotoNaoGithub(remoto)) });
+  const endereco = lerEnderecoDoRemoto(url.trim());
+  if (!endereco) return naoGithub();
+  // O tipo sondado fica 24 h no cache da raiz: um GHE sem bloco `forja:` nao paga as sondas a cada consulta.
+  const forja = resolverForja({ endereco, manifesto: carregado.manifesto.forja, sondas, cache: dirDoCacheDaForja(carregado.raiz) });
+  if (!forja.ok) return { ok: false, detalhe: textoDoCatalogo((m) => m.ship.ciForjaNaoResolvida(remoto, m.forja.motivo(forja.erro, null))) };
+  if (forja.valor.tipo !== 'github' || forja.valor.repo.split('/').length !== 2) return naoGithub();
+  return { ok: true, repository: forja.valor.repo, host: hostDaApi(forja.valor) };
 }
 
 /** O resultado da CI quando o projeto nao a exige (`ci.required_for_ship: false`): nada e consultado na forja. */
@@ -157,15 +173,16 @@ export function ciNaoExigida(carregado: ManifestoCarregado, sha: string): Result
 }
 
 export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto = 'origin', executor: ExecutorCi = executorPadrao,
-  loginNoHost: (host: string) => boolean = loginPadrao): ResultadoCi {
+  loginNoHost: (host: string) => boolean = loginPadrao, sondas: SondasDaForja = SONDAS_PADRAO): ResultadoCi {
   const { ci } = carregado.manifesto;
   const context = ci.context || 'ork-verify';
   const falha = (detalhe: string): ResultadoCi => ({ schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: null, sha, context, state: 'unavailable', url: null, detail: detalhe });
   if (!ci.required_for_ship) return ciNaoExigida(carregado, sha);
   // RM-047: o `--remoto` do `ork ci status` vem da linha de comando; so nome de remoto chega ao git.
   const remote = exec('git', ['remote', 'get-url', '--', exigirRemoto(remoto, 'ci')], carregado.raiz);
-  const alvo = remote.ok ? alvoDaCi(remote.stdout) : null;
-  if (!alvo) return falha(textoDoCatalogo((m) => m.ship.ciRemotoNaoGithub(remoto)));
+  const alvo = remote.ok ? alvoDaCi(carregado, remoto, remote.stdout, sondas)
+    : { ok: false as const, detalhe: textoDoCatalogo((m) => m.ship.ciRemotoNaoGithub(remoto)) };
+  if (!alvo.ok) return falha(alvo.detalhe);
   // Fronteira de confianca: so o github.com e consultado sem pergunta; outro host so com login do `gh` nele.
   if (alvo.host !== 'github.com' && !loginNoHost(alvo.host)) return falha(textoDoCatalogo((m) => m.ship.ciHostSemLogin(alvo.host)));
   return consultarCiDoRepositorio(alvo.repository, sha, context, executor, alvo.host);
