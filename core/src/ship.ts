@@ -35,6 +35,7 @@ import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
 import { formatarDataHora, legendaDoFuso, localizarTexto } from './horario';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
+import { chaveRecusadaDaConfigDeRede } from './mcp-ship-transporte';
 import { branchValida, exigirRemoto, shaValido } from './branch-de-estado';
 import { ErroDoCatalogo, Mensagens, msg, remontar, textoDoCatalogo } from './locale';
 
@@ -59,7 +60,9 @@ export interface OpcoesShip {
   /**
    * Pares `-c chave=valor` que o transporte fixado do MCP leva so ao `ls-remote` e ao `push` da base (o ssh com a
    * chave fixada, o helper da forja, a CA). Interno e confiavel, como o `executorVerify`: a CLI nunca o recebe.
-   * So as chaves que `configDeRede` emite passam; qualquer outra forma recusa antes do primeiro git.
+   * So a lista que `configDeRede` emite passa, chave e valor; qualquer outra forma recusa antes do primeiro git.
+   * O git repassa os valores de `-c` aos processos filhos (hooks, o helper de credencial) por `GIT_CONFIG_PARAMETERS`:
+   * nenhuma chave que carregue segredo pode entrar aqui, nunca.
    */
   configDoRemoto?: readonly string[];
   /** Branch de destino (`--para main`). */
@@ -313,37 +316,11 @@ export function shaNoRemoto(dir: string, remoto: string, branch: string, config:
   return /^[0-9a-f]{40}$/.test(sha) ? sha : null;
 }
 
-// As chaves que o transporte fixado emite (`configDeRede`): so elas viajam no `-c` do push e do `ls-remote`.
-const URL_DA_CONFIG = String.raw`https?://[^=\s]+`;
-const CHAVES_DO_TRANSPORTE: readonly RegExp[] = [
-  /^core\.sshCommand$/,
-  /^ssh\.variant$/,
-  /^http\.sslVerify$/,
-  /^credential\.helper$/,
-  new RegExp(`^credential\\.${URL_DA_CONFIG}\\.(?:helper|useHttpPath)$`),
-  new RegExp(`^http\\.${URL_DA_CONFIG}\\.(?:sslVerify|proxy|extraHeader|followRedirects|sslCAInfo)$`),
-];
-const chavesExtrasDeTeste = new Set<string>();
-
-/** Gancho interno dos testes: aceita uma chave a mais (ex.: `protocol.file.allow`) ate o retorno chamar. Nunca usado fora deles. */
-export function permitirChaveDeConfigNoTeste(chave: string): () => void {
-  chavesExtrasDeTeste.add(chave);
-  return () => { chavesExtrasDeTeste.delete(chave); };
-}
-
-/** So pares `-c chave=valor` de chave conhecida: nenhuma opcao solta chega antes do subcomando de rede. */
+/** So a lista que `configDeRede` emite, chave e valor: nenhuma outra opcao, chave ou valor chega antes do subcomando de rede. */
 function configDoRemotoValida(config: readonly string[]): readonly string[] {
-  for (let i = 0; i < config.length; i += 2) {
-    const par = config[i + 1];
-    const igual = typeof par === 'string' ? par.indexOf('=') : -1;
-    const chave = igual > 0 ? par.slice(0, igual) : '';
-    const valor = igual > 0 ? par.slice(igual + 1) : '';
-    const aceita = config[i] === '-c' && chave !== '' && !/[\0\n\r]/.test(valor) &&
-      (CHAVES_DO_TRANSPORTE.some((re) => re.test(chave)) || chavesExtrasDeTeste.has(chave));
-    // Nunca ecoa o valor: so a chave (ate 80 caracteres) mostra o que foi recusado.
-    if (!aceita) throw new ErroDoCatalogo((m) => m.ship.configDoRemotoInvalida(chave.slice(0, 80)));
-  }
-  if (config.length % 2 !== 0) throw new ErroDoCatalogo((m) => m.ship.configDoRemotoInvalida(''));
+  const recusada = chaveRecusadaDaConfigDeRede(config);
+  // Nunca ecoa o valor: so a chave (ate 80 caracteres) mostra o que foi recusado.
+  if (recusada !== null) throw new ErroDoCatalogo((m) => m.ship.configDoRemotoInvalida(recusada.slice(0, 80)));
   return config;
 }
 

@@ -240,6 +240,72 @@ export function configDeRede(fix: FixacaoDoTransporte, dir: string): string[] {
     ...(fix.ca ? ['-c', `http.${url}.sslCAInfo=${path.join(dir, ARQUIVO_DA_CA)}`] : [])];
 }
 
+const ESCAPE_DE_REGEX = (t: string): string => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const MARCA_DO_KNOWN_HOSTS = '/__known_hosts__';
+const FORMA_DO_SSH = new RegExp(`^${ESCAPE_DE_REGEX(comandoSsh(MARCA_DO_KNOWN_HOSTS)).replace(ESCAPE_DE_REGEX(MARCA_DO_KNOWN_HOSTS), '(/[A-Za-z0-9_./+-]+/known_hosts)')}$`);
+const SUFIXO_DO_HELPER = ' auth git-credential';
+const CHAVE_DO_HTTP = /^http\.(https:\/\/[^=\s]+)\.(sslVerify|proxy|extraHeader|followRedirects|sslCAInfo)$/;
+const CHAVE_DA_CREDENCIAL = /^credential\.(https:\/\/[^=\s]+)\.(helper|useHttpPath)$/;
+
+/** O binario de um helper `!<caminho> auth git-credential` na forma exata de `helperDeCredencialDaCli`; senao, null. */
+function binarioDoHelper(valor: string): string | null {
+  if (!valor.startsWith('!') || !valor.endsWith(SUFIXO_DO_HELPER)) return null;
+  const resto = valor.slice(1, -SUFIXO_DO_HELPER.length);
+  let binario: string;
+  if (CAMINHO_SEGURO.test(resto)) binario = resto;
+  else if (resto.length >= 2 && resto.startsWith("'") && resto.endsWith("'") && !resto.slice(1, -1).replace(/'\\''/g, '').includes("'")) {
+    binario = resto.slice(1, -1).replace(/'\\''/g, "'");
+  } else return null;
+  return path.isAbsolute(binario) && helperDeCredencialDaCli(binario) === valor ? binario : null;
+}
+
+/**
+ * Confere uma lista `-c chave=valor` contra o que `configDeRede` emite: cada chave tem so o valor da sua forma
+ * (TLS ligado, proxy e cabecalho vazios, sem redirecionamento, ssh sem config do usuario, helper da CLI, CA `ca.pem`),
+ * e toda URL da lista e a mesma. Devolve a chave recusada (nunca o valor) ou null quando a lista toda e valida.
+ */
+export function chaveRecusadaDaConfigDeRede(config: readonly string[]): string | null {
+  const origens = new Set<string>();
+  const urls = new Set<string>();
+  if (config.length % 2 !== 0) return '';
+  for (let i = 0; i < config.length; i += 2) {
+    const par = config[i + 1];
+    const igual = typeof par === 'string' ? par.indexOf('=') : -1;
+    const chave = igual > 0 ? par.slice(0, igual) : '';
+    const valor = igual > 0 ? par.slice(igual + 1) : '';
+    if (config[i] !== '-c' || chave === '' || /[\0\n\r]/.test(valor)) return chave;
+    let ok = false;
+    let m: RegExpExecArray | null;
+    if (chave === 'core.sshCommand') ok = FORMA_DO_SSH.test(valor);
+    else if (chave === 'ssh.variant') ok = valor === 'ssh';
+    else if (chave === 'credential.helper') ok = valor === '';
+    else if (chave === 'http.sslVerify') ok = valor === 'true';
+    else if ((m = CHAVE_DA_CREDENCIAL.exec(chave))) {
+      origens.add(m[1]);
+      ok = m[2] === 'helper' ? binarioDoHelper(valor) !== null : valor === 'true' || valor === 'false';
+    } else if ((m = CHAVE_DO_HTTP.exec(chave))) {
+      urls.add(m[1]);
+      const v = m[2];
+      ok = v === 'sslVerify' ? valor === 'true'
+        : v === 'followRedirects' ? valor === 'false'
+        : v === 'sslCAInfo' ? path.isAbsolute(valor) && CAMINHO_SEGURO.test(valor) && path.basename(valor) === ARQUIVO_DA_CA
+        : valor === '';
+    }
+    if (!ok) return chave;
+  }
+  // Uma URL so, e a origem das credenciais e a do endereco dela.
+  if (urls.size > 1 || origens.size > 1) return 'http/credential';
+  const [u] = [...urls];
+  const [o] = [...origens];
+  if (u !== undefined) {
+    try {
+      const e = enderecoDoOrigin('forja-https', u);
+      if (e.transporte !== 'forja-https' || (o !== undefined && e.origem !== o)) return 'http/credential';
+    } catch { return 'http/credential'; }
+  } else if (o !== undefined) return 'http/credential';
+  return null;
+}
+
 /**
  * O que o transporte fixado acrescenta ao ambiente do worker: nenhuma pergunta (`GIT_ASKPASS` vazio desliga tambem o
  * `core.askPass` e o `SSH_ASKPASS` no git). No HTTPS, o barramento da sessao, para a CLI ler o token do keyring do
