@@ -8,6 +8,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **SHIP do MCP por qualquer forja**: dois transportes novos no `ork mcp install --ship-transport`. `forja-ssh` aceita
+  host e porta da forja (inclusive `forja.ssh_host`/`ssh_porta`), fixa na instalação a chave do servidor confirmada
+  pelo `known_hosts` da pessoa ou por `--ssh-fingerprint`, e confere a chave a cada push com
+  `StrictHostKeyChecking=yes`, sem config de SSH do usuário. `forja-https` zera os helpers de credencial da config e
+  usa só o `auth git-credential` do `gh`/`glab` com login no host, sem prompt, com a CA do `forja.ca` conferida pelo
+  hash. A fixação mora fora do projeto (`$XDG_CONFIG_HOME/orkastery/mcp-ship/`) e é reconferida em cada passo do
+  worker. O push e a prova saem de um gitdir privado direto para a URL fixada, e mudança do origin ou da config durante
+  o push deixa a entrega sem prova (`mcp.ship.transport.mudou-no-push`). Nos modos `forja-*`, a publicação da fábrica em
+  segundo plano e as consultas `ork_fabrica` e `ork_roadmap_reservas` ficam indisponíveis por ora. `github-ssh` e
+  `bare-local` não mudam; sem a opção, a instalação é a de sempre e propõe o modo do origin. Contrato em
+  [`docs/referencia/contratos/forja.md`](docs/referencia/contratos/forja.md#transporte-do-ship-pelo-mcp).
 - **Entrega no GitLab**: o `ork ship publicar` abre MR no GitLab nos mesmos `#Auto` e `#Maestro`, com as mesmas
   conferências e recusas, a descrição pelo stdin e sem merge automático, provado pela releitura da lista; o
   `ork ship pista` lê os MRs e a CI do head pela regra única de estado; o `ork ship registrar-pr --repo --pr` reconhece

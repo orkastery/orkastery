@@ -33,12 +33,42 @@ usable as a pipeline gate.
 | `ork experiencia show [--json]` | The effective preferences of the experience package; turn it on and off with `ork onboarding set maestro --conteudo '{"owner":{"experience":true}}'` ([orchestration-experience.md](../guias/orchestration-experience.md)) |
 | `ork experiencia uninstall <host> [--dry-run] [--json]` | Removes the Claude Code or Codex block; without `--dry-run`, it applies the removal |
 | `ork mcp serve --project RAIZ --host HOST` | This project's stdio MCP server (`codex` or `claude-code`); the root comes from `--project`, never from `--projeto` |
-| `ork mcp install --project RAIZ --host HOST` | Sets up the host's MCP; accepts `--dry-run`, `--ship-transport`, `--child-permissions` and `--owner-permissions` (Codex) |
+| `ork mcp install --project RAIZ --host HOST` | Sets up the host's MCP; accepts `--dry-run`, `--ship-transport` (`github-ssh`, `forja-ssh`, `forja-https`, `bare-local`), `--ssh-fingerprint` (with `forja-ssh`), `--child-permissions` and `--owner-permissions` (Codex) |
 | `ork accounts list [--json]` | Account profiles per runtime: id, runtime, directory, state, deadline, last use and last failure. **No secrets**, because the store keeps none |
 | `ork accounts add <id> --runtime R --dir D [--sem-login]` | Creates the profile and its directory (0700) and runs the **CLI's own** login with the profile's env (`claude auth login --claudeai`, `codex login`); without a TTY, it prints the command. Never copies credentials |
 | `ork accounts remove <id>` | Deactivates the profile; the directory and the CLI login stay where they are |
 | `ork accounts check [<id>]` | Checks the login of each active profile (`claude auth status`, `codex login status`) and marks the store: `sem-auth` leaves the rotation; a login by API key, `api_key_helper`, Console or cloud becomes `provider-pago` and never dispatches; a profile whose subscription login was redone comes back; an inconclusive check (timeout, missing binary, unreadable response) keeps the state and records the failure. Exits nonzero when a profile lacks a verified subscription login |
 | `ork accounts esgotamentos [--desde 7d] [--json]` | Measures the RM-040 metric without writing anything: the live marks in the account registry and the dispatches with a profile, in each registered project (`ork projetos`), that landed on an account marked by another project, within the mark's deadline. The account comes out as an opaque id, the profile by its id, with no directory (`ork.esgotamentos/v1`). The registry keeps only live marks, so the total is a lower bound |
+
+`--ship-transport` decides how the MCP `ork_ship` pushes the base branch, the only push an agent can trigger. Without
+it, `github-ssh` applies (only `git@github.com:`, as always) and the install says which mode origin needs, without a
+network call. `forja-ssh` takes any forge host and port (`ssh://git@host:2222/…`, the scp form, `forja.ssh_host` and
+`forja.ssh_porta`): the install reads the server key and pins it only once confirmed, by your `~/.ssh/known_hosts` or
+by `--ssh-fingerprint SHA256:…` (check the fingerprint with whoever runs the forge; a key is never accepted on first
+use); any `@revoked` line for the offered key, whatever its host field (`/etc/ssh/ssh_known_hosts` is read for
+revocations only), refuses. Every push checks that key with `StrictHostKeyChecking=yes` and `ssh -F /dev/null`,
+without reading your SSH config. `forja-https` pushes through the `auth git-credential` of `gh` or `glab` logged in to
+the exact host (`host[:porta]`): the helpers in your config are reset, a single helper is pinned (the real path of the
+CLI), no prompt opens, and plain HTTP or credentials in the URL are refused. The CA in `forja.ca` is copied into the
+pin and checked by hash; it adds trust and is not exclusive (the system CAs still count), and without it your own git CA
+settings apply. A CLI without that subcommand is refused with the minimum version. The token never goes through `ork`.
+
+The push and its proof run from a private temporary gitdir (0700) that uses the project's objects, straight to the
+pinned URL with `GIT_ALLOW_PROTOCOL`: the project's `.git/config`, hooks and `insteadOf` are never read for the push,
+and hooks are locked for the local steps after it. If the origin or the repo config changes during the push, the
+delivery is not marked as proved (`mcp.ship.transport.mudou-no-push`) and the message says the push may have gone out.
+
+The pin lives in `$XDG_CONFIG_HOME/orkastery/mcp-ship/<hash da raiz>/` (outside the project, dir 700, files 600).
+Every ancestor directory must be owned by you or root, not group/other-writable, and not a symlink: a symlinked `/home`
+or `XDG_CONFIG_HOME` is refused (fail closed). Pins are per machine: on another one, `ork_ship` is unavailable until the
+same `ork mcp install` runs there. Switching modes means removing the `orkastery` entry and reinstalling; mixing
+`github-ssh`/`bare-local` with `forja-*` across hosts of the same project is refused at dispatch.
+
+Limits of the `forja-*` modes for now: the background factory publication (`ork fabrica publicar` after SHIP) and the
+MCP lookups `ork_fabrica` and `ork_roadmap_reservas` are unavailable. The protection assumes the agent runs sandboxed
+and cannot write `~/.config` or `~/.gitconfig`; the user's global git config is trusted. The refusal carries a
+`mcp.ship.transport.*` code (the list is in
+[SHIP transport over MCP](contratos/forja.md#transporte-do-ship-pelo-mcp)).
 
 `ork doctor` has the "accounts per runtime" check (it reads and reports, without marking the store)
 and the probe of the umask and of the permissions of `.orkastery` and `.orkastery/private`. The

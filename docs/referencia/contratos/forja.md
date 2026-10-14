@@ -198,8 +198,43 @@ por PR/MR e registrar com `ork ship registrar-pr`. No GitHub conta o `GH006` ou 
 recusa da proteção contra segredo (push protection) nunca conta. No GitLab é "not allowed to push code to protected
 branches" (medido no CE 19.4.2). O motivo do gate continua `runtime.unavailable`.
 
+## Transporte do SHIP pelo MCP
+
+O `ork_ship` do MCP empurra a base por um de quatro transportes, escolhidos no `ork mcp install --ship-transport`
+(`github-ssh`, `forja-ssh`, `forja-https`, `bare-local`). `github-ssh` não mudou e não fixa nada; `forja-ssh` e
+`forja-https` são fixados na instalação, que não chama a rede sem a opção e só propõe o modo que o origin pede.
+
+- **Fixação.** Mora em `$XDG_CONFIG_HOME/orkastery/mcp-ship/<hash da raiz>/` (700/600), por máquina; em outra
+  máquina o `ork_ship` fica indisponível até o `ork mcp install` rodar lá. Cada pasta acima precisa ser do usuário ou do
+  root, sem escrita de grupo ou de outros e sem link simbólico (`/home` ou `XDG_CONFIG_HOME` simbólico é recusado). O
+  worker reconfere a fixação a cada passo.
+- **`forja-ssh`.** A chave do servidor é confirmada pela pessoa (o `known_hosts` dela ou `--ssh-fingerprint
+  SHA256:<43>`, só com `forja-ssh`) e nunca aceita na primeira conexão. Toda linha `@revoked` para a chave oferecida
+  recusa, qualquer que seja o campo de host, inclusive no `/etc/ssh/ssh_known_hosts` (lido só para revogações). O
+  push usa `ssh -F /dev/null`, o `known_hosts` fixado e `StrictHostKeyChecking=yes`.
+- **`forja-https`.** Os helpers de credencial são zerados e um só é fixado: o caminho real do
+  `auth git-credential` da CLI da forja, com login no `host[:porta]` exato. Nenhum prompt abre e o token nunca passa
+  pelo `ork`. A CA do `forja.ca` é copiada para a fixação (`ca.pem`) e conferida pelo hash: soma confiança e não é
+  exclusiva (as CAs do sistema continuam valendo); sem ela vale a config de CA do git da pessoa. HTTP puro e
+  credencial na URL são recusados.
+- **Push.** O push e a prova saem de um gitdir temporário privado (0700) com os objetos do projeto, direto para a URL
+  fixada, com `GIT_ALLOW_PROTOCOL`; o `.git/config`, os hooks e o `insteadOf` do projeto não são lidos. Os hooks ficam
+  travados nos passos locais depois do push. Se o origin ou a config do repositório mudar durante o push, a entrega
+  não é marcada como provada (`mcp.ship.transport.mudou-no-push`) e a mensagem diz que o push pode ter saído.
+- **Códigos.** `mcp.ship.transport.` seguido de `urls`, `modo`, `forja`, `ssh.divergente`, `ssh.sem-resposta`,
+  `ssh.revogada`, `ssh.nao-confirmada`, `ssh.impressao-divergente`, `ssh.known-hosts-ilegivel`, `ssh.caminho`,
+  `ssh.known-hosts-alterado`, `ssh.credencial-na-url`, `https.sem-tls`, `https.credencial-na-url`,
+  `https.divergente`, `sem-cli`, `sem-helper`, `sem-login`, `binario`, `ca`, `ca-alterada`, `fixacao-ausente`,
+  `fixacao-insegura`, `fixacao-divergente` e `mudou-no-push`.
+
 ## O que não é suportado
 
 - Uma casa da rede GitLab em subcaminho ou com CA própria: o `rede.json` guarda só `host[:porta]`; a recusa é
   `rede.forja-nao-suportada`.
 - Duas instâncias do GitLab no mesmo host, em subcaminhos diferentes, na mesma máquina (limite do `glab`).
+- Nos modos `forja-ssh` e `forja-https` do SHIP do MCP: a publicação da fábrica em segundo plano (`ork fabrica publicar`
+  depois do SHIP) e as consultas `ork_fabrica` e `ork_roadmap_reservas` ficam indisponíveis por ora.
+- Misturar `github-ssh`/`bare-local` e `forja-*` entre hosts do mesmo projeto: recusado no despacho. Trocar de modo exige
+  remover a entrada `orkastery` e reinstalar.
+- A proteção do transporte supõe que o agente roda em sandbox e não escreve em `~/.config` nem em `~/.gitconfig`; a
+  config global de git da pessoa é confiável.
