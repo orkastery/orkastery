@@ -32,7 +32,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   a revisão independente de uma sessão de CHECK que o núcleo despachou, verificou e viu concluir, com id nativo fora dos
   autores (o arco despacha esse CHECK pela reserva de revisão quando ele falta); o verify contra a baseline com as
   claims ativas, guardando a reprovação anterior do mesmo SHA; o CI obrigatório verde no SHA; nenhum segredo na história
-  que iria ao remoto (as linhas de cada commit da thread, o diff final e as mensagens deles); e nenhum mutante
+  que iria ao remoto (as linhas de cada commit da thread, o diff final e as mensagens deles) nem no título e no corpo do
+  PR que o arco abre; e nenhum mutante
   sobrevivente, com o mutante como claim que começa por "Mutante" e o executor `core/scripts/mutante.cjs`. A base que
   anda é mesclada na worktree com o conflito só aditivo resolvido pela regra do núcleo, a entrada da thread posta em
   "Não publicado" depois de uma versão, o bundle regravado e o verify de novo (conflito em binário, fora de UTF-8 ou sem
