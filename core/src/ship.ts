@@ -56,6 +56,12 @@ export interface OpcoesShip {
   avisoDaFilaPesada?: Pick<NonNullable<ConducaoDoVerify['filaPesada']>, 'aoEsperar' | 'comandoDeEsperar'>;
   /** Executor interno confiável da consulta ao provedor de CI. */
   executorCi?: ExecutorCi;
+  /**
+   * Pares `-c chave=valor` que o transporte fixado do MCP leva so ao `ls-remote` e ao `push` da base (o ssh com a
+   * chave fixada, o helper da forja, a CA). Interno e confiavel, como o `executorVerify`: a CLI nunca o recebe.
+   * So as chaves que `configDeRede` emite passam; qualquer outra forma recusa antes do primeiro git.
+   */
+  configDoRemoto?: readonly string[];
   /** Branch de destino (`--para main`). */
   para: string;
   /** Branch de origem. Padrao: a base carimbada da thread. */
@@ -297,14 +303,48 @@ export function shaDaRef(dir: string, ref: string): string | null {
  * E o unico jeito aceito de provar push nesta maquina: `gh api` e imprevisivel aqui, e o
  * codigo de saida do `git push` nao prova que o remoto ficou com o commit certo.
  */
-export function shaNoRemoto(dir: string, remoto: string, branch: string): string | null {
+export function shaNoRemoto(dir: string, remoto: string, branch: string, config: readonly string[] = []): string | null {
   // RM-047: so nome de remoto chega ao git, e depois do `--` (nunca vira opcao nem transporte).
-  const r = exec('git', ['ls-remote', '--', exigirRemoto(remoto, 'ship'), `refs/heads/${branch}`], dir, 120000);
+  const r = exec('git', [...configDoRemotoValida(config), 'ls-remote', '--', exigirRemoto(remoto, 'ship'), `refs/heads/${branch}`], dir, 120000);
   if (!r.ok) return null;
   // RM-059 (S1 da revisao da ork-rm059pista): o padrao do ls-remote casa por sufixo; vale so a linha da ref exata.
   const linha = r.stdout.split('\n').map((l) => l.trim().split(/\s+/)).find((partes) => partes[1] === `refs/heads/${branch}`);
   const sha = linha?.[0] ?? '';
   return /^[0-9a-f]{40}$/.test(sha) ? sha : null;
+}
+
+// As chaves que o transporte fixado emite (`configDeRede`): so elas viajam no `-c` do push e do `ls-remote`.
+const URL_DA_CONFIG = String.raw`https?://[^=\s]+`;
+const CHAVES_DO_TRANSPORTE: readonly RegExp[] = [
+  /^core\.sshCommand$/,
+  /^ssh\.variant$/,
+  /^http\.sslVerify$/,
+  /^credential\.helper$/,
+  new RegExp(`^credential\\.${URL_DA_CONFIG}\\.(?:helper|useHttpPath)$`),
+  new RegExp(`^http\\.${URL_DA_CONFIG}\\.(?:sslVerify|proxy|extraHeader|followRedirects|sslCAInfo)$`),
+];
+const chavesExtrasDeTeste = new Set<string>();
+
+/** Gancho interno dos testes: aceita uma chave a mais (ex.: `protocol.file.allow`) ate o retorno chamar. Nunca usado fora deles. */
+export function permitirChaveDeConfigNoTeste(chave: string): () => void {
+  chavesExtrasDeTeste.add(chave);
+  return () => { chavesExtrasDeTeste.delete(chave); };
+}
+
+/** So pares `-c chave=valor` de chave conhecida: nenhuma opcao solta chega antes do subcomando de rede. */
+function configDoRemotoValida(config: readonly string[]): readonly string[] {
+  for (let i = 0; i < config.length; i += 2) {
+    const par = config[i + 1];
+    const igual = typeof par === 'string' ? par.indexOf('=') : -1;
+    const chave = igual > 0 ? par.slice(0, igual) : '';
+    const valor = igual > 0 ? par.slice(igual + 1) : '';
+    const aceita = config[i] === '-c' && chave !== '' && !/[\0\n\r]/.test(valor) &&
+      (CHAVES_DO_TRANSPORTE.some((re) => re.test(chave)) || chavesExtrasDeTeste.has(chave));
+    // Nunca ecoa o valor: so a chave (ate 80 caracteres) mostra o que foi recusado.
+    if (!aceita) throw new ErroDoCatalogo((m) => m.ship.configDoRemotoInvalida(chave.slice(0, 80)));
+  }
+  if (config.length % 2 !== 0) throw new ErroDoCatalogo((m) => m.ship.configDoRemotoInvalida(''));
+  return config;
 }
 
 /** O remoto esta configurado neste repositorio? */
@@ -447,6 +487,8 @@ export function ship(
   // so nome de remoto passa; o resto recusa com `ship.remoto-invalido`, e o ship nao entrega sem push provado
   // por um remoto que nunca existiu.
   const remoto = exigirRemoto(opcoes.remoto ?? 'origin', 'ship');
+  const configDoRemoto = configDoRemotoValida(opcoes.configDoRemoto ?? []);
+  const comConfig = (args: readonly string[]): string => `git ${[...configDoRemoto, ...args].join(' ')}`;
   const r = baseDoResultado(thread, de, opcoes);
 
   // I-43 (T7): antes de qualquer coisa, se a entrega ANTERIOR desta thread foi
@@ -765,12 +807,12 @@ export function ship(
       r.pushVerificado = false;
       r.detalhe = textoDoCatalogo((m) => opcoes.semPush ? m.ship.semPushPorFlag : m.ship.semRemoto(remoto));
     } else {
-      const existeNoRemoto = shaNoRemoto(arvore.dir, remoto, para) !== null;
+      const existeNoRemoto = shaNoRemoto(arvore.dir, remoto, para, configDoRemoto) !== null;
       const argsPush = existeNoRemoto
         ? ['push', '--', remoto, `refs/heads/${para}:refs/heads/${para}`]
         : ['push', '-u', '--', remoto, `refs/heads/${para}:refs/heads/${para}`];
-      const push = exec('git', argsPush, arvore.dir, 300000);
-      passos.push(`git ${argsPush.join(' ')}`);
+      const push = exec('git', [...configDoRemoto, ...argsPush], arvore.dir, 300000);
+      passos.push(comConfig(argsPush));
       if (!push.ok) {
         r.passos = passos;
         const erro = detalheDoPush(push.stderr || push.stdout);
@@ -790,8 +832,8 @@ export function ship(
         );
       }
       // A prova: o sha que o REMOTO devolve tem que ser o mesmo do destino local.
-      const shaRemoto = shaNoRemoto(arvore.dir, remoto, para);
-      passos.push(`git ls-remote ${remoto} refs/heads/${para}`);
+      const shaRemoto = shaNoRemoto(arvore.dir, remoto, para, configDoRemoto);
+      passos.push(comConfig(['ls-remote', remoto, `refs/heads/${para}`]));
       r.shaRemoto = shaRemoto;
       r.pushVerificado = shaRemoto !== null && shaRemoto === pontaDaBase;
       if (!r.pushVerificado) {

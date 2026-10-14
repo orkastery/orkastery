@@ -90,6 +90,7 @@ export const SHIP_PT_BR = {
   semPrimeiroPaiCorrecao: 'confira o repositorio: o ship_done precisa do merge que entregou a thread',
   passoJaIncorporado: (de: string, para: string, sha: string) => `(nada a mergear: ${de} ja e ancestral de ${para}, incorporado em ${sha})`,
   pushFalhou: (remoto: string, para: string, erro: string) => `push para ${remoto}/${para} falhou: ${erro}`,
+  configDoRemotoInvalida: (chave: string) => `ship.config-do-remoto.invalida: a config do remoto aceita só pares -c chave=valor das chaves do transporte fixado (recusada: ${chave || 'forma inválida'}); nada foi passado ao git`,
   pushFalhouCorrecao: 'resolva o acesso ao remoto e rode o ship de novo (o merge local ja aconteceu)',
   pushBaseProtegida: (remoto: string, para: string, erro: string) =>
     `a proteção de ${remoto}/${para} recusou o push direto na base (entrega.base-protegida): ${erro}`,
@@ -378,6 +379,7 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
   semPrimeiroPaiCorrecao: 'check the repository: ship_done needs the merge that delivered the thread',
   passoJaIncorporado: (de, para, sha) => `(nothing to merge: ${de} is already an ancestor of ${para}, brought in by ${sha})`,
   pushFalhou: (remoto, para, erro) => `push to ${remoto}/${para} failed: ${erro}`,
+  configDoRemotoInvalida: (chave) => `ship.config-do-remoto.invalida: the remote config accepts only -c key=value pairs for the pinned transport keys (refused: ${chave || 'invalid shape'}); nothing was passed to git`,
   pushFalhouCorrecao: 'fix the access to the remote and run ship again (the local merge already happened)',
   pushBaseProtegida: (remoto, para, erro) => `the protection of ${remoto}/${para} refused the direct push to the base (entrega.base-protegida): ${erro}`,
   pushBaseProtegidaCorrecao: (thread) =>
