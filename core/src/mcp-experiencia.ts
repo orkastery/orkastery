@@ -7,7 +7,7 @@ import { z } from 'zod';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { listarReservas, PainelDeReservas } from './roadmap-reservas';
 import { lerFabrica, PainelDaFabrica } from './fabrica-estado';
-import { criarPerfilShipMcp } from './mcp-ship';
+import { criarPerfilShipMcp, configDeRedeDoPerfil } from './mcp-ship';
 import { ambienteGitMcp, gitPassivoMcp, perfilGitMcp } from './mcp-git';
 import { TRANSPORTES_SHIP_MCP, type TransporteShipMcp } from './mcp-transportes';
 
@@ -34,9 +34,12 @@ export function consultarPainel(raiz: string, tipo: Consulta) {
   } catch { return indisponivel(); }
 }
 
-/** Usa as mesmas guardas de transporte do núcleo; não cria autorização de SHIP. */
+/**
+ * Usa as mesmas guardas de transporte do núcleo; não cria autorização de SHIP. O fetch da consulta não leva o `-c`
+ * do transporte fixado: com ele, a consulta fica indisponível em vez de ir à rede pela config do usuário.
+ */
 function assinatura(raiz: string, transporte: Transporte): string {
-  criarPerfilShipMcp(raiz, transporte);
+  if (configDeRedeDoPerfil(criarPerfilShipMcp(raiz, transporte)).length) throw Error('mcp.experiencia.transporte.fixado');
   const g = path.join(raiz, '.git');
   perfilGitMcp(raiz, g, g, 'consulta-experiencia', []);
   const st = fs.statSync(raiz);

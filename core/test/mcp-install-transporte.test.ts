@@ -7,8 +7,8 @@ import { spawnSync } from 'node:child_process';
 import { dirTemporario, projetoTemporario, semAutoridadeHitlNoAmbiente } from './apoio';
 import { CHAVE_ED25519, IMPRESSAO_ED25519, cliFalsa, sondasFalsas } from './apoio-transporte';
 import { configuracaoServidorMcp, instalarMcp } from '../src/mcp-install';
-import { ambienteDoTransporte, dirDaFixacao, lerFixacao } from '../src/mcp-ship-transporte';
-import { ambienteDoWorkerShip, criarPerfilShipMcp } from '../src/mcp-ship';
+import { dirDaFixacao, lerFixacao } from '../src/mcp-ship-transporte';
+import { ambienteDoWorkerDoTransporte, ambienteDoWorkerShip, criarPerfilShipMcp } from '../src/mcp-ship';
 import { contextoDoProjeto, validarContextoRuntime } from '../src/runtime-context';
 import { instalarAdaptador } from '../src/hosts';
 import { novaThread } from '../src/thread';
@@ -157,14 +157,17 @@ test('ambiente do worker do SHIP: nada de GIT_SSH, askpass, TLS desligado ou con
     GIT_SSL_NO_VERIFY: '1', GIT_ASKPASS: '/tmp/askpass', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.sshCommand', GIT_CONFIG_VALUE_0: 'ssh -o x',
     GIT_CONFIG_PARAMETERS: "'http.sslverify'='false'", GIT_CONFIG_GLOBAL: '/tmp/g', GIT_CONFIG_SYSTEM: '/tmp/s', GIT_CONFIG: '/tmp/c',
     LD_PRELOAD: '/tmp/x.so', GIT_PROXY_COMMAND: '/tmp/proxy', GIT_EXEC_PATH: '/tmp/git-core', XDG_CONFIG_HOME: '/home/x/.config',
-    LOGNAME: 'x', SSH_AUTH_SOCK: '/run/agente', LANG: 'xx', TMPDIR: '/tmp/mal' };
+    LOGNAME: 'x', SSH_AUTH_SOCK: '/run/agente', LANG: 'xx', TMPDIR: '/tmp/mal', DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/b', XDG_RUNTIME_DIR: '/run/user/1' };
   const PERMITIDAS = ['HOME', 'LANG', 'LOGNAME', 'PATH', 'SSH_AUTH_SOCK', 'TMPDIR', 'USER', 'XDG_CONFIG_HOME'];
   const proibida = (k: string) => k === 'GIT_SSH' || k === 'GIT_SSH_COMMAND' || k === 'GIT_SSL_NO_VERIFY' || k === 'GIT_ASKPASS' || k.startsWith('GIT_CONFIG');
   const base = ambienteDoWorkerShip(sujo);
   assert.deepEqual(Object.keys(base).sort(), PERMITIDAS);
   assert.deepEqual({ PATH: base.PATH, LANG: base.LANG, TMPDIR: base.TMPDIR }, { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', TMPDIR: '/tmp' });
+  for (const t of ['github-ssh', 'bare-local'] as const) assert.deepEqual(ambienteDoWorkerDoTransporte(t, sujo), base, t);
+  const SEM_PERGUNTA = ['GIT_ASKPASS', 'GIT_TERMINAL_PROMPT', 'SSH_ASKPASS_REQUIRE'];
   for (const t of ['forja-ssh', 'forja-https'] as const) {
-    const env = { ...base, ...ambienteDoTransporte(t, sujo) };
+    const env = ambienteDoWorkerDoTransporte(t, sujo);
+    assert.deepEqual(Object.keys(env).sort(), [...PERMITIDAS, ...SEM_PERGUNTA, ...(t === 'forja-https' ? ['DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR'] : [])].sort(), t);
     assert.deepEqual(Object.keys(env).filter((k) => proibida(k) && !(k === 'GIT_ASKPASS' && env[k] === '')), [], t);
     assert.equal(env.GIT_ASKPASS, '', t);
   }
@@ -229,7 +232,7 @@ test('install: transporte desconhecido na config instalada nao e repetido na rec
   } finally { p.limpar(); }
 });
 
-test('perfil do SHIP recusa os transportes fixados enquanto o worker nao os leva', { skip: process.platform !== 'linux' }, () => {
+test('perfil do SHIP: transporte fixado sem fixacao recusa com o comando de instalar; bare-local segue', { skip: process.platform !== 'linux' }, () => {
   // O HOME de teste: a config global de quem roda nao entra na conferencia da config do git.
   const home = dirTemporario('mcp-ship-perfil-home'), antes = process.env.HOME;
   process.env.HOME = home;
@@ -238,7 +241,10 @@ test('perfil do SHIP recusa os transportes fixados enquanto o worker nao os leva
       const p = projetoTemporario('mcp-ship-perfil-fixado', true);
       try {
         assert.equal(criarPerfilShipMcp(p.dir, 'bare-local').transporte, 'bare-local');
-        for (const t of ['forja-ssh', 'forja-https'] as const) assert.throws(() => criarPerfilShipMcp(p.dir, t), /^Error: mcp\.ship\.transport\.invalid$/);
+        exec('git', ['remote', 'set-url', 'origin', SSH], p.dir);
+        assert.throws(() => criarPerfilShipMcp(p.dir, 'forja-ssh'), /mcp\.ship\.transport\.fixacao-ausente: .*--ship-transport forja-ssh/);
+        exec('git', ['remote', 'set-url', 'origin', HTTPS], p.dir);
+        assert.throws(() => criarPerfilShipMcp(p.dir, 'forja-https'), /mcp\.ship\.transport\.fixacao-ausente: .*--ship-transport forja-https/);
       } finally { p.limpar(); }
     });
   } finally {
