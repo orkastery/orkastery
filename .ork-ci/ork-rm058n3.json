@@ -523,20 +523,6 @@
       "lint": []
     },
     {
-      "id": "C71",
-      "thread": "ork-rm058n3",
-      "fase": "GOAL",
-      "arquivo": "core/src/noctum-integracao.ts",
-      "alegacao": "GO-FIX 4 (S-R3C-1, S-R3C-5 e S-R3C-8 da R3-C), no lugar da C64: a entrega só se prova pelo commit que o integrador devolveu, aparado e em minúsculas, que tem de ser o merge provado e estar na linha das entregas seguintes do destino, relidas depois do efeito; o valor que não se resolve em commit termina a vez sem prova com o motivo verdadeiro; a fonte igual à base provada é o avanço rápido vazio; a prova lê a história inteira, com o buffer exportado de 256 MiB e sem corte por contagem, e a história que não se lê dá uma recusa que diz isso.",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'function commitDevolvido(' core/src/noctum-integracao.ts && grep -qF \"const valor = typeof merge === 'string' ? merge.trim().toLowerCase() : '';\" core/src/noctum-integracao.ts && grep -qF 'if (devolvido === null) {' core/src/noctum-integracao.ts && grep -qF 'o integrador não devolveu um commit que se resolva neste clone' core/src/noctum-integracao.ts && grep -qF 'if (devolvido !== prova.merge) {' core/src/noctum-integracao.ts && grep -qF 'function entreguesDoDestino(' core/src/noctum-integracao.ts && grep -qF 'depoisDoEfeito = entreguesDoDestino(lerCoordenacao(carregado, arco, opcoes), chave, n)' core/src/noctum-integracao.ts && grep -qF \"if (!ancestral(raiz, merge, x) && !ancestral(raiz, x, merge)) return { situacao: 'sem-prova', ponta };\" core/src/noctum-integracao.ts && grep -qF 'if (!merge && candidato.fonte === candidato.base) merge = candidato.base;' core/src/noctum-integracao.ts && grep -qF 'export const BUFFER_DA_HISTORIA = 256 * 1024 * 1024;' core/src/noctum-integracao.ts && grep -qF 'maxBuffer: BUFFER_DA_HISTORIA' core/src/noctum-integracao.ts && grep -qF 'ou a história dela não se leram (rede, buffer ou prazo)' core/src/noctum-integracao.ts && test -z \"$(grep -F 'max-count' core/src/noctum-integracao.ts)\""
-      ],
-      "criadoEm": "2026-10-14T04:03:57.867Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C72",
       "thread": "ork-rm058n3",
       "fase": "GOAL",
@@ -561,7 +547,7 @@
         "grep -qF \"if (e.situacao === 'encerrado') {\" core/src/noctum-coordenacao.ts && grep -qF \"throw recusa('noctum.efeito.encerrado', \" core/src/noctum-coordenacao.ts && grep -qF 'e a soma entre máquinas só mede sessoes: consumo desconhecido nunca vale zero' core/src/noctum-coordenacao.ts"
       ],
       "criadoEm": "2026-10-14T07:50:50.345Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -575,7 +561,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-coordenacao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - K[0-9]+:/{p++} END{exit !(p>=23 && f==0)}'"
       ],
       "criadoEm": "2026-10-14T07:50:53.192Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -589,7 +575,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-integracao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - I[0-9]+:/{p++} END{exit !(p>=21 && f==0)}'"
       ],
       "criadoEm": "2026-10-14T08:35:16.090Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -603,7 +589,7 @@
         "grep -qF 'return { merge: r.mergeSha };' core/src/noctum-entrega.ts && grep -qF 'e a ponta da base' core/src/noctum-entrega.ts"
       ],
       "criadoEm": "2026-10-14T08:35:18.300Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -617,7 +603,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^QI6:' core/dist-test/test/noctum-integracao-entrega.test.js | awk '/^not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - QI6:/{p++} END{exit !(p==1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-14T08:35:20.859Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -631,7 +617,7 @@
         "grep -qF -- 'o valor que não se resolve em commit (um nome de ref, por exemplo) termina a vez sem prova, com o motivo dito' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'A fonte igual à base provada (a branch sem nada além da base) não tem o que integrar: é o avanço rápido vazio, e a entrega fica com a base' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'a branch sem commit próprio desde a partida da thread fica bloqueada' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'se prova enquanto a história se lê: a busca lê a história inteira entre a base provada e a ponta, com buffer de 256 MiB e prazo de 120 s' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'no efeito, na repetição do mesmo pedido e na reconciliação, a vez fica ativa' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'ou de um integrador que faz isso e devolve o merge de dentro (os dois fora do contrato)' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'O filtro é por padrão: recusa qualquer UUID' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'O trabalho preso à máquina cancelada, ou com o item nela, fica sem ordem até a emissão explícita ou uma emenda' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'a thread antiga só se fecha depois da entrega (ou do fim sem entrega) na outra' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'fica parado, sem efeito, até o passo da máquina ser ligado' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'na forma que esta interface recebe, conferida pelo I18' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'O encerramento da N6 também é desta máquina e não vai ao ramo como a revogação' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'a vaga global soma só sessões, e o teto em outra unidade recusa a vaga' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'e o encerramento da N6 entre máquinas.' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'mesmo quando o push leva algo por cima dele, como os docs derivados da N5' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'o git que não roda nessa conferência deixa a vez até a reconciliação' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'que a N3 confere no remoto; os docs derivados, quando há, vão por cima dele no mesmo push' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- '| 2026-10-14 | N3 ajustada ao merge com a N5 e a N6:' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- '| 2026-10-14 | N3 ajustada pela confirmação do GO-FIX 4:' docs/roadmap/RM-058-modo-noctum.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/roadmap/RM-058-modo-noctum.md"
       ],
       "criadoEm": "2026-10-14T08:38:44.069Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -645,7 +631,7 @@
         "grep -qF 'Nada chama a coordenação ainda: o tique da N6 chama o passo da N2' CHANGELOG.md && grep -qF 'integrador (a fonte igual à base provada entrega com a base, como a já incorporada do' CHANGELOG.md && grep -qF 'entrega da N5 bloqueia antes a branch sem commit próprio desde a partida da thread)' CHANGELOG.md && grep -qF 'devolve o merge, e não a ponta com os docs derivados' CHANGELOG.md && core/node_modules/.bin/markdownlint-cli2 --no-globs CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-10-14T08:38:48.213Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -659,7 +645,7 @@
         "grep -qF 'if ((antes === CONTRATO_ENVELOPE_V3) !== (conteudo.contrato === CONTRATO_ENVELOPE_V3)) {' core/src/noctum-arco.ts && grep -qF 'a emenda não troca o contrato de ' core/src/noctum-arco.ts"
       ],
       "criadoEm": "2026-10-14T09:09:53.864Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -673,7 +659,7 @@
         "grep -qF \"const batida = local.situacao === 'encerrado' ? [] : [{ tipo: 'batida' as const }];\" core/src/noctum-maquinas.ts && grep -qF \"arcoEncerrado: local.situacao === 'encerrado'\" core/src/noctum-maquinas.ts && grep -qF \"if (fatos.arcoEncerrado) return { recibo: 'recusada', motivo: 'noctum.efeito.encerrado: o arco encerrou nesta máquina' };\" core/src/noctum-coordenacao.ts"
       ],
       "criadoEm": "2026-10-14T09:09:57.158Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -687,7 +673,7 @@
         "grep -qF 'function commitDevolvido(raiz: string, merge: unknown): { lido: true; commit: string | null } | { lido: false } {' core/src/noctum-integracao.ts && grep -qF 'if (r.error || (r.status !== 0 && r.status !== 1)) return { lido: false };' core/src/noctum-integracao.ts && grep -qF 'if (base && prova === null && repeticao) {' core/src/noctum-integracao.ts && grep -qF 'o commit que o integrador devolveu não é o merge provado: ele devolveu ' core/src/noctum-integracao.ts && grep -qF 'já era a base provada, sem o que integrar' core/src/noctum-integracao.ts && grep -qF 'O commit devolvido é o merge, mesmo quando o push leva algo por cima dele' core/src/noctum-integracao.ts && grep -qF 'Por cima do merge, no mesmo push, só vão' core/src/noctum-integracao.ts"
       ],
       "criadoEm": "2026-10-14T09:10:02.293Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -701,7 +687,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-envelope-v3.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - EV[0-9]+:/{p++} END{exit !(p>=8 && f==0)}'"
       ],
       "criadoEm": "2026-10-14T09:10:04.622Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -715,7 +701,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-maquinas.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - M[0-9]+:/{p++} END{exit !(p>=19 && f==0)}' && node --test-reporter=tap core/dist-test/test/noctum-fila.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - F[0-9]+:/{p++} END{exit !(p>=20 && f==0)}' && node --test-reporter=tap core/dist-test/test/noctum-execucao.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - X[0-9]+:/{p++} END{exit !(p>=18 && f==0)}' && node --test-reporter=tap core/dist-test/test/noctum-capacidade.test.js | awk '/^not ok/{f++} /^ok [0-9]+ - C[0-9]+:/{p++} END{exit !(p>=10 && f==0)}'"
       ],
       "criadoEm": "2026-10-14T09:10:09.059Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -729,7 +715,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^QI13:' core/dist-test/test/noctum-integracao-entrega.test.js | awk '/^not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - QI13:/{p++} END{exit !(p==1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-14T09:10:11.657Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -743,7 +729,7 @@
         "grep -qF -- 'e a emenda não troca o contrato entre a' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'recusa as ordens que chegam, encerra a ordem aceita sem sessão viva e para de bater' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'se a autoridade era ela, a tomada forçada (a da N4) passa a valer' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'A emenda que as outras autorizam depois do encerramento deixa a encerrada sem ler o ramo' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'O retrato, o relatório da manhã e o fechamento por fila vazia da N6 leem a fila sem a coordenação' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'isso é o fechamento por fila vazia aqui, que é terminal' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'também integra fora da vez da N3' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'e a vez fica até a reconciliação, que a solta sem a fonte na base' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- 'da sessão do bloco para as threads do arco; o fechamento, o retrato e o relatório da N6 vendo a rede' docs/roadmap/RM-058-modo-noctum.md && grep -qF -- '| 2026-10-14 | N3 ajustada pela revisão do merge com a N5 e a N6:' docs/roadmap/RM-058-modo-noctum.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/roadmap/RM-058-modo-noctum.md"
       ],
       "criadoEm": "2026-10-14T09:11:01.331Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -757,7 +743,7 @@
         "npm --prefix core run build && node core/dist/index.js docs verificar --pr && grep -qF '| [RM-058](RM-058-modo-noctum.md) | Modo #Noctum: arcos autônomos de muitas threads e máquinas | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-14 |' docs/roadmap/README.md && test \"$(grep -cF 'noctum-envelope-v3.test.ts (EV1 a EV8), noctum-transporte.test.ts (T1 a T15), noctum-coordenacao.test.ts (K1 a K23), noctum-integracao.test.ts (I1 a I21), noctum-maquinas.test.ts (M1 a M19)' docs/roadmap/RM-058-modo-noctum.md)\" -ge 2"
       ],
       "criadoEm": "2026-10-14T09:11:05.225Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -771,7 +757,7 @@
         "grep -qF 'recusa as ordens que' CHANGELOG.md && grep -qF 'a emenda não troca o contrato entre a' CHANGELOG.md && core/node_modules/.bin/markdownlint-cli2 --no-globs CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-10-14T09:11:07.515Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -785,20 +771,34 @@
         "grep -qF 'então o arco entre máquinas usa um id que nenhuma máquina tem em' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'já autorizada nas outras se revoga e se abre outro arco' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'manter o passo da máquina rodando no arco encerrado, porque o tique da N6 só chama o passo com o arco vigente' docs/roadmap/RM-058-modo-noctum.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/roadmap/RM-058-modo-noctum.md"
       ],
       "criadoEm": "2026-10-14T09:32:51.946Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C101",
+      "thread": "ork-rm058n3",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-integracao.ts",
+      "alegacao": "GO-FIX 4 a 7, no lugar da C71: a entrega só se prova pelo commit que o integrador devolveu, aparado e em minúsculas, que tem de ser o merge provado e estar na linha das entregas seguintes do destino, relidas depois do efeito; o valor que não se resolve em commit termina a vez sem prova com o motivo verdadeiro; a fonte igual à base provada é o avanço rápido vazio; a prova lê a história inteira, com o buffer exportado de 256 MiB e sem corte por contagem, e a história que não se lê dá uma recusa que diz isso.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'function commitDevolvido(' core/src/noctum-integracao.ts && grep -qF \"const valor = typeof merge === 'string' ? merge.trim().toLowerCase() : '';\" core/src/noctum-integracao.ts && grep -qF 'if (devolvido.commit === null) {' core/src/noctum-integracao.ts && grep -qF 'o integrador não devolveu um commit que se resolva neste clone' core/src/noctum-integracao.ts && grep -qF 'if (devolvido.commit !== prova.merge) {' core/src/noctum-integracao.ts && grep -qF 'function entreguesDoDestino(' core/src/noctum-integracao.ts && grep -qF 'depoisDoEfeito = entreguesDoDestino(lerCoordenacao(carregado, arco, opcoes), chave, n)' core/src/noctum-integracao.ts && grep -qF \"if (!ancestral(raiz, merge, x) && !ancestral(raiz, x, merge)) return { situacao: 'sem-prova', ponta };\" core/src/noctum-integracao.ts && grep -qF 'if (!merge && candidato.fonte === candidato.base) merge = candidato.base;' core/src/noctum-integracao.ts && grep -qF 'export const BUFFER_DA_HISTORIA = 256 * 1024 * 1024;' core/src/noctum-integracao.ts && grep -qF 'maxBuffer: BUFFER_DA_HISTORIA' core/src/noctum-integracao.ts && grep -qF 'ou a história dela não se leram (rede, buffer ou prazo)' core/src/noctum-integracao.ts && test -z \"$(grep -F 'max-count' core/src/noctum-integracao.ts)\""
+      ],
+      "criadoEm": "2026-10-14T09:56:11.303Z",
       "estado": "pendente",
       "lint": []
     },
     {
-      "id": "C100",
+      "id": "C102",
       "thread": "ork-rm058n3",
       "fase": "GOAL",
       "arquivo": ".ork-ci/ork-rm058n3.json",
-      "alegacao": "D40, no lugar da C45: o bundle do CI da thread leva exatamente as claims ativas da ork-rm058n3 depois dos GO-FIX 5 a 7 (conferidas pelos ids, não só pela contagem), na branch dela, para o check ork-verify; as diferidas são só as de integração local e, no máximo uma, a do próprio bundle enquanto ele não está versionado.",
+      "alegacao": "D40, no lugar da C100: o bundle do CI da thread leva exatamente as claims ativas da ork-rm058n3 depois da troca da C71 pela C101 (conferidas pelos ids, não só pela contagem), na branch dela, para o check ork-verify; as diferidas são só as de integração local e, no máximo uma, a do próprio bundle enquanto ele não está versionado.",
       "negativa": false,
       "verificar": [
-        "node -e 'const b=require(\"./.ork-ci/ork-rm058n3.json\");const d=b.deferredClaims||[];const ids=b.claims.map(c=>c.id).concat(d.map(x=>x.id)).sort().join(\",\");const esperado=\"C1,C2,C4,C5,C6,C7,C9,C10,C12,C14,C17,C19,C23,C24,C26,C28,C30,C32,C36,C37,C38,C39,C40,C41,C43,C44,C47,C48,C49,C50,C51,C57,C58,C59,C60,C65,C70,C71,C72,C77,C78,C84,C85,C86,C87,C88,C90,C91,C92,C93,C94,C95,C96,C97,C98,C99,C100\".split(\",\").sort().join(\",\");process.exit(b.schema===\"ork.ci-bundle/v1\"&&b.thread===\"ork-rm058n3\"&&b.branch===\"ork/ork-rm058n3-full\"&&ids===esperado&&d.filter(x=>x.reason===\"artifact-not-in-checkout\").length<=1&&d.every(x=>x.reason===\"artifact-not-in-checkout\"||x.reason===\"local-integration-required\")?0:1)'"
+        "node -e 'const b=require(\"./.ork-ci/ork-rm058n3.json\");const d=b.deferredClaims||[];const ids=b.claims.map(c=>c.id).concat(d.map(x=>x.id)).sort().join(\",\");const esperado=\"C1,C2,C4,C5,C6,C7,C9,C10,C12,C14,C17,C19,C23,C24,C26,C28,C30,C32,C36,C37,C38,C39,C40,C41,C43,C44,C47,C48,C49,C50,C51,C57,C58,C59,C60,C65,C70,C72,C77,C78,C84,C85,C86,C87,C88,C90,C91,C92,C93,C94,C95,C96,C97,C98,C99,C101,C102\".split(\",\").sort().join(\",\");process.exit(b.schema===\"ork.ci-bundle/v1\"&&b.thread===\"ork-rm058n3\"&&b.branch===\"ork/ork-rm058n3-full\"&&ids===esperado&&d.filter(x=>x.reason===\"artifact-not-in-checkout\").length<=1&&d.every(x=>x.reason===\"artifact-not-in-checkout\"||x.reason===\"local-integration-required\")?0:1)'"
       ],
-      "criadoEm": "2026-10-14T09:37:51.923Z",
+      "criadoEm": "2026-10-14T09:56:15.740Z",
       "estado": "pendente",
       "lint": []
     }
