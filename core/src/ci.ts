@@ -12,7 +12,7 @@ import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
 import { rodarCli } from './forja/executor';
 import { estadoDoCheck } from './forja/estado';
-import { PRODUTORES_PADRAO, produtorAceito, produtoresAceitos } from './forja/produtor';
+import { PRODUTORES_PADRAO, produtorAceito, produtorDeSaida, produtoresAceitos } from './forja/produtor';
 import type { CheckNoCommit, ErroDaForja, FonteDoCheck, ForjaResolvida, TipoDeForja } from './forja/contrato';
 import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { branchDaWorktree } from './worktree';
@@ -298,7 +298,7 @@ function decidirCi(base: BaseDaCi, checks: readonly CheckNoCommit[], produtores:
     const check = contam[0];
     const estado = estadoDoCheck(check.fonte, check.status, check.conclusao);
     const state = estadoNoGate(estado);
-    return { ...base, fonte: check.fonte, produtor: check.produtor, ok: state === 'success', state, url: check.url || null,
+    return { ...base, fonte: check.fonte, produtor: produtorDeSaida(check), ok: state === 'success', state, url: check.url || null,
       ...(estado === 'bloqueado' ? { bloqueado: true as const } : {}),
       detail: textoDoCatalogo((m) => state === 'success' ? verde(m) : estado === 'bloqueado' ? m.ship.ciBloqueado(context, motivoDoBloqueio(check))
         : m.ship.ciEstado(context, String(check.status), check.conclusao ?? '')) };
@@ -314,7 +314,7 @@ function decidirCi(base: BaseDaCi, checks: readonly CheckNoCommit[], produtores:
   // Bloqueado so quando todo check que conta e verde ou bloqueado: pendente ou vermelho de qualquer um desfaz a marca.
   const soBloqueados = state === 'failure' && lidos.every((l) => l.estado === 'verde' || l.estado === 'bloqueado')
     && lidos.some((l) => l.estado === 'bloqueado');
-  return { ...base, fonte: decisivo.check.fonte, produtor: decisivo.check.produtor, ok: state === 'success', state, url: decisivo.check.url || null,
+  return { ...base, fonte: decisivo.check.fonte, produtor: produtorDeSaida(decisivo.check), ok: state === 'success', state, url: decisivo.check.url || null,
     ...(soBloqueados ? { bloqueado: true as const } : {}),
     detail: textoDoCatalogo((m) => m.ship.ciProdutores(context, porProdutor)) };
 }

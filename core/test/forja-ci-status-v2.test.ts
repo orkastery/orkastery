@@ -25,7 +25,7 @@ test('sem check decisivo, fonte e produtor nulos', () => {
 test('vários produtores: a fonte e o produtor são os do check que decidiu', () => {
   const st = { id: 9, context: 'ork-verify', state: 'failure', updated_at: '2026-10-13T10:09:00Z', creator: { login: 'deploy-bot' } };
   const r = consultarCiDoRepositorio('o/r', SHA, 'ork-verify', forja([run(1, 'success')], [st]));
-  assert.deepEqual([r.state, r.fonte, r.produtor], ['failure', 'commit-status', 'deploy-bot']);
+  assert.deepEqual([r.state, r.fonte, r.produtor], ['failure', 'commit-status', 'status:deploy-bot']);
 });
 
 test('o detalhe do GitHub não muda: verde e bloqueado pela conclusão', () => {

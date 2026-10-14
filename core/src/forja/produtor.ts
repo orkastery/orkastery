@@ -24,3 +24,12 @@ export function produtorAceito(c: Pick<CheckNoCommit, 'fonte' | 'produtor'>, ace
   const app = /^(.+)\[bot\]$/.exec(c.produtor)?.[1];
   return (app !== undefined && aceitos.includes(app)) || aceitos.includes(`status:${c.produtor}`);
 }
+
+/**
+ * O produtor como a pessoa o escreve em `ci.produtor` (e como o `ork ci status --json` o devolve): o slug para check-run
+ * e job da forja, o slug do app para a conta `<slug>[bot]` e `status:<login>` para qualquer outra conta de commit status.
+ */
+export function produtorDeSaida(c: Pick<CheckNoCommit, 'fonte' | 'produtor'>): string | null {
+  if (!c.produtor || c.fonte !== 'commit-status') return c.produtor;
+  return /^(.+)\[bot\]$/.exec(c.produtor)?.[1] ?? `status:${c.produtor}`;
+}

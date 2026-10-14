@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { carregarManifesto, ManifestoCarregado } from '../src/manifest';
-import { PRODUTORES_PADRAO, produtorAceito, produtoresAceitos } from '../src/forja/produtor';
+import { PRODUTORES_PADRAO, produtorAceito, produtorDeSaida, produtoresAceitos } from '../src/forja/produtor';
 import { projetoTemporario } from './apoio';
 
 /** O manifesto do `ork init` com linhas a mais no bloco `ci:` e um bloco novo no fim. */
@@ -115,4 +115,14 @@ test('ci.produtor com entrada que não é texto ou com mais de 20 é erro', () =
   assert.ok(ler('produtor-demais', { ci: `  produtor: [${vinteEUm}]` }).erros.some((e) => /^ci\.produtor deve ser uma lista de 1 a 20/.test(e)));
   const vinte = Array.from({ length: 20 }, (_, i) => `app-${i}`).join(', ');
   assert.deepEqual(ler('produtor-vinte', { ci: `  produtor: [${vinte}]` }).erros, []);
+});
+
+test('produtorDeSaida: a forma de ci.produtor (slug, slug do app, status:<login>); check-run e job ficam como estão', () => {
+  assert.equal(produtorDeSaida({ fonte: 'commit-status', produtor: 'root' }), 'status:root');
+  assert.equal(produtorDeSaida({ fonte: 'commit-status', produtor: 'github-actions[bot]' }), 'github-actions');
+  assert.equal(produtorDeSaida({ fonte: 'check-run', produtor: 'github-actions' }), 'github-actions');
+  assert.equal(produtorDeSaida({ fonte: 'pipeline-job', produtor: 'gitlab-ci' }), 'gitlab-ci');
+  assert.equal(produtorDeSaida({ fonte: 'commit-status', produtor: null }), null);
+  // O que sai do JSON volta a ser aceito pela mesma lista que a pessoa escreveu.
+  assert.equal(produtorAceito({ fonte: 'commit-status', produtor: 'root' }, ['status:root']), true);
 });

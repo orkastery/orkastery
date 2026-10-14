@@ -77,13 +77,13 @@ test('só o status externo (POST /statuses): não aprova; com status:<login> em 
   assert.equal(sem.r.state, 'missing');
   assert.match(sem.r.detail, /commit status/);
   const com = consultar(comJobs(externo), { produtor: '[gitlab-ci, "status:root"]' });
-  assert.deepEqual([com.r.state, com.r.fonte, com.r.produtor], ['success', 'commit-status', 'root']);
+  assert.deepEqual([com.r.state, com.r.fonte, com.r.produtor], ['success', 'commit-status', 'status:root']);
 });
 
 test('status externo vermelho reprova mesmo com o job real verde', () => {
   const corpo = comRunner('statuses-do-check').map((s) => (s.id === 4 ? { ...s, status: 'failed' } : s));
   const { r } = consultar(comJobs(corpo));
-  assert.deepEqual([r.state, r.fonte, r.produtor], ['failure', 'commit-status', 'root']);
+  assert.deepEqual([r.state, r.fonte, r.produtor], ['failure', 'commit-status', 'status:root']);
 });
 
 test('job manual no head: bloqueado, nunca verde, com o estado no detalhe', () => {
