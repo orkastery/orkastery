@@ -5,9 +5,10 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-rm058n3 | #Auto | GOAL | claude-bg opus/max | — | — | 14/10 03:34 | viva |
-| vps | ork-rm058n5 | #Auto | GOAL | claude-bg opus/max | — | — | 14/10 03:34 | viva |
-| vps | ork-rm064f1 | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-064 | — | 14/10 03:34 | viva |
-| vps | ork-verifybuffer | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 14/10 03:34 | viva |
+| vps | ork-rm037instav | #Fast | GO | sem despacho | — | — | 14/10 00:56 | parada desde 00:56: nenhuma sessão despachada na fase GO |
+| vps | ork-rm058n3 | #Auto | GOAL | claude-bg opus/max | — | — | 14/10 00:56 | viva |
+| vps | ork-rm058n5 | #Auto | GOAL | claude-bg opus/max | — | — | 14/10 00:56 | viva |
+| vps | ork-rm064f1 | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-064 | — | 14/10 00:56 | viva |
+| vps | ork-verifybuffer | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 14/10 00:56 | parada desde 00:54: sessão 01a1386f encerrada (completed) |
 
-Horários em UTC.
+Horários de Brasília.
