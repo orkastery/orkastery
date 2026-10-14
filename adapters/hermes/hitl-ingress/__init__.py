@@ -18,6 +18,11 @@ from datetime import datetime, timezone
 CANAL = 'hermes'
 COMMAND = re.compile(r'^/ork (gate|session) ([a-zA-Z0-9][a-zA-Z0-9._-]{0,79}) ([a-zA-Z0-9][a-zA-Z0-9._-]{0,79}) ([\s\S]{1,4096})$')
 NATIVE_COMMAND = re.compile(r'^/ork (offer|gate|session) ([a-zA-Z0-9][a-zA-Z0-9._-]{0,79}) ([a-zA-Z0-9][a-zA-Z0-9._-]{0,79})(?: ([\s\S]{1,4096}))?$')
+# RM-058 N6 (D12): o ato do dono sobre um arco #Noctum. A MESMA fonte vive no nucleo (GRAMATICA_DO_NOCTUM,
+# core/src/noctum-modo.ts) e um teste do nucleo confere que continuam iguais. O endereco assinado e `noctum` /
+# `arco:<arco>`: o `:` deixa o arco fora do alcance de /ork gate e /ork session, e o contrario tambem.
+NOCTUM = re.compile(r'^/ork noctum ([a-z0-9][a-z0-9-]{0,62}) (autorizar [a-f0-9]{64}|revogar)$')
+NOCTUM_ALVO, NOCTUM_ENDERECO = 'noctum', 'arco:'
 # I-41 (GO-FIX 1): as duas formas da resposta ao resumo do pulse, que o dono digita sem barra e
 # sem identificador: "P4EJ a" ao resumo e "1a 2c" as perguntas. As MESMAS fontes vivem no nucleo
 # (GRAMATICA_DO_PULSE, core/src/pulse-resposta.ts) e um teste do nucleo confere que continuam
@@ -52,6 +57,7 @@ MAX_PENDING = 16
 CONFIRM_TEXT = {
     'gate': 'Orkastery: resposta ao gate registrada pelo núcleo.',
     'session': 'Orkastery: resposta entregue à sessão pelo núcleo.',
+    'noctum': 'Orkastery: o ato do dono sobre o arco foi registrado pelo núcleo.',
 }
 logger = logging.getLogger(__name__)
 # Só metadados: nunca guardar resposta, chave, stdout ou exceção nestes registros.
@@ -96,7 +102,17 @@ def _is_pulse(text):
     return bool(PULSE_LIVRE.fullmatch(text)) and _escuta_aberta(os.environ.get('ORK_HITL_ROOT', ''))
 
 
-def _receipt_ok(receipt, operation, pedido):
+def _receipt_ok(receipt, operation, pedido, answer=None):
+    if operation == 'noctum':
+        # O recibo tipado do arco: o mesmo arco, o MESMO ato pedido (e, ao autorizar, o mesmo hash) e se ja valia
+        # antes. Um ork de outra versao, ou um ORK_BIN errado, que devolva o recibo de outro ato nunca confirma.
+        ato, _, sha = (answer or '').partition(' ')
+        return (isinstance(receipt, dict) and receipt.get('ok') is True
+                and receipt.get('contrato') == 'ork.noctum-ingresso/v1'
+                and receipt.get('arco') == pedido[len(NOCTUM_ENDERECO):]
+                and ato in ('autorizar', 'revogar') and receipt.get('ato') == ato
+                and (ato != 'autorizar' or receipt.get('envelopeSha256') == sha)
+                and type(receipt.get('repetida')) is bool)
     if operation == 'pulse':
         # O texto que volta ao dono e montado pelo nucleo; este adaptador so o transporta.
         return (isinstance(receipt, dict) and receipt.get('ok') is True
@@ -124,7 +140,7 @@ async def _deliver(entry, msg, operation, pedido, argv, envelope, root, env):
         result = await asyncio.wait_for(
             asyncio.to_thread(_call_core, argv, envelope, root, env), CORE_TIMEOUT + 1)
         receipt = json.loads(result.stdout) if result.returncode == 0 else None
-        if not _receipt_ok(receipt, operation, pedido):
+        if not _receipt_ok(receipt, operation, pedido, envelope.get('resposta')):
             return
         entry['effect'] = 'confirmed'
         if receipt['repetida']:
@@ -188,9 +204,13 @@ def _ingress(*, event, gateway, **_kwargs):
             operation, thread, pedido, answer = 'pulse', PULSE_ALVO, PULSE_ENDERECO, text
         else:
             match = COMMAND.fullmatch(text)
-            if not match or '\x00' in text:
+            noctum = None if match else NOCTUM.fullmatch(text)
+            if (not match and not noctum) or '\x00' in text:
                 return _status()
-            operation, thread, pedido, answer = match.groups()
+            if noctum:
+                operation, thread, pedido, answer = 'noctum', NOCTUM_ALVO, NOCTUM_ENDERECO + noctum.group(1), noctum.group(2)
+            else:
+                operation, thread, pedido, answer = match.groups()
         now = datetime.now(timezone.utc)
         age = (now - msg.date).total_seconds()
         # FX1: este canal assina com a SUA chave. ORK_HITL_INGRESS_KEY fica so para o
@@ -214,6 +234,10 @@ def _ingress(*, event, gateway, **_kwargs):
         if operation == 'pulse':
             argv = [os.environ.get('ORK_BIN', 'ork'), 'pulse', 'responder', '--resposta-stdin',
                     '--origem', 'telegram', '--canal', CANAL,
+                    '--por', envelope['por'], '--mensagem', envelope['mensagem']]
+        elif operation == 'noctum':
+            argv = [os.environ.get('ORK_BIN', 'ork'), 'noctum', 'responder', pedido[len(NOCTUM_ENDERECO):],
+                    '--resposta-stdin', '--origem', 'telegram', '--canal', CANAL,
                     '--por', envelope['por'], '--mensagem', envelope['mensagem']]
         else:
             argv = [os.environ.get('ORK_BIN', 'ork'), 'gate' if operation == 'gate' else 'sessions',

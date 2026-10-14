@@ -19,13 +19,33 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   pelo remoto o push de resultado incerto; toda retomada sai pelo passo do arco, até o teto, e depois o trabalho é
   isolado. O rodízio fica dentro do envelope: conta esgotada sai até o reset dito, reset desconhecido é lacuna pelo
   resto do arco, login perdido tira a conta, e o teto do arco ou a recusa por custo param o arco. Muda para todos: o
-  `ork retry resume` não redespacha o pedido do limite de uso de um despacho de arco, que o vigia retoma pelo arco. O
-  modo continua desligado: nenhum comando abre, executa ou vigia arco.
+  `ork retry resume` não redespacha o pedido do limite de uso de um despacho de arco, que o vigia retoma pelo arco.
+  Nenhum comando chama o vigia nem o condutor.
+- **#Noctum, fatia N6: fechamento, relatório da manhã e o transporte que liga o modo** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
+  o arco fecha sozinho pela hora final, pelo teto do arco ou pela fila vazia (`core/src/noctum-fechamento.ts`): grava o
+  `encerrado` no log do arco antes de tudo (nenhuma reserva nem efeito passa depois, nem por outra conta, e nada o
+  reabre), pede a parada de cada sessão em voo uma vez (no teto em sessões, as já contadas terminam e o arco fecha
+  quando a última acaba), confirma no tique seguinte e deixa o estado de retomada. A
+  medição (`core/src/noctum-medicao.ts`) cobre `minutos-de-sessao`, `tokens` e `percentual-da-cota`, com o consumo
+  desconhecido como lacuna, nunca zero, e a reserva com teto nessas unidades admite só abaixo do medido. O relatório da
+  manhã (`core/src/noctum-relatorio.ts`) vence no primeiro `HH:MM` do fuso do envelope, traz os sete grupos da página a
+  partir dos fatos do núcleo (entregue só com a prova do push) e sai pelo transporte local
+  `.orkastery/monitor/noctum-host.json`, com recibo por página, reenvio limitado sem duplicação e a correção explícita
+  numa versão nova; sem recibo, a lacuna aparece no `ork noctum status`. O modo passa a ser ligado pelo transporte:
+  `ork noctum propor`, `responder`, `status`, `tique` e `relatorio`, as ferramentas `ork_noctum_propor`,
+  `ork_noctum_autorizar`, `ork_noctum_revogar` e `ork_noctum_status` do MCP (autorizar e revogar só pelo diálogo nativo
+  do host) e `/ork noctum <arco> autorizar <sha256>` ou `revogar` no Telegram do Hermes e do OpenClaw; `#Noctum` só vale
+  com um envelope vigente e, sem ele, segue recusado com `noctum.modo.sem-envelope`. `core/scripts/ensaio-noctum.cjs`
+  ensaia o piloto local em repositórios descartáveis, com relógio controlado e runtime e canal simulados. O tique ainda
+  chama o passo da N2: ligar o vigia e o condutor da N4 vem antes do primeiro piloto, que espera também os valores e a
+  autorização do dono.
+
 - **Conta esgotada não para a fase** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)): nova
   página do roadmap, em refinamento, pedida pelo dono em 13/10/2026. Quando a cota de uma conta acaba no meio
   das fases, o ork vai tratar o fim como evento da conta, mover sozinho todas as threads dela para outra conta
   ou para o fallback do bloco e retomar do ponto onde pararam, com o trabalho da sessão guardado na thread.
   Frentes T1 a T7. Só documentação.
+
 - **Entrega dentro do arco #Noctum, fatia N5 da RM-058** ([RM-058](docs/roadmap/RM-058-modo-noctum.md#n5-qualidade-e-entrega)):
   o passo da entrega do arco (`passoDaEntrega`, ainda sem quem o chame) leva a thread que a fila deixou na entrega do
   CHECK ao MASTER, um efeito por chamada, e só integra com todas as provas no SHA fonte exato e na base lida no remoto:

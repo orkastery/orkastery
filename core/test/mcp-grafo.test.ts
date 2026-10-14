@@ -376,18 +376,19 @@ async function listarCom(p: ProjetoDeTeste, bloco: string): Promise<Tool[]> {
 
 // RM-026 K7 (fatia 2): as quatro ork_conhecimento_* levam o servidor sem a flag de 31 a 35 tools; a RM-059 (fatia F8) soma a
 // ork_request_master_note: 36.
-test('KG5 flag: servidor sem a flag, com false ou com valor invalido lista as mesmas 36 tools; com true, so acrescenta as do grafo', async () => {
+test('KG5 flag: servidor sem a flag, com false ou com valor invalido lista as mesmas 40 tools; com true, so acrescenta as do grafo', async () => {
   const p = projetoTemporario('kg5-lista');
   try {
     const sem = await listarCom(p, '');
-    assert.equal(sem.length, 36);
+    // RM-058 N6 (ork-rm058n6): o servidor do dono ganhou as quatro ork_noctum_*, registradas antes das do grafo.
+    assert.equal(sem.length, 40);
     assert.ok(!sem.some((t) => t.name.startsWith('ork_grafo_')));
     assert.deepEqual(await listarCom(p, 'grafo:\n  mcp: false\n'), sem);
     assert.deepEqual(await listarCom(p, 'grafo:\n  mcp: sim\n'), sem);
     const com = await listarCom(p, FLAG_LIGADA);
-    assert.equal(com.length, 36 + TOOLS_DO_GRAFO.length);
-    assert.deepEqual(com.slice(0, 36), sem, 'a flag nao muda nenhuma das outras tools');
-    assert.deepEqual(com.slice(36).map((t) => t.name), [...TOOLS_DO_GRAFO]);
+    assert.equal(com.length, 40 + TOOLS_DO_GRAFO.length);
+    assert.deepEqual(com.slice(0, 40), sem, 'a flag nao muda nenhuma das outras tools');
+    assert.deepEqual(com.slice(40).map((t) => t.name), [...TOOLS_DO_GRAFO]);
   } finally {
     p.limpar();
   }
