@@ -109,7 +109,8 @@ pessoa é Maintainer (40) ou acima nele, herdado inclusive. Abaixo disso a recus
 nível medido e o grupo na frase; com namespace de outro usuário, a recusa é `rede.repositorio-alheio` também. O host
 com porta vai por `GITLAB_HOST`; a rede não guarda caminho base. Um GitLab em subcaminho ou com CA própria é recusado
 com `rede.forja-nao-suportada`. O `ork network roadmap` lê a porta de um remoto https de GitLab (a que não é a do
-esquema) e a leva à API; a porta de um remoto ssh é do ssh e nunca entra.
+esquema) e a leva à API; a porta de um remoto ssh é do ssh e nunca entra. No clone com manifesto, o roadmap resolve a
+forja pelo bloco `forja:` e pelo host conhecido, sem rede, e leva à API o caminho base e a `ca` declarados.
 
 ## Versão do servidor
 
@@ -163,8 +164,10 @@ campo `forja` do JSON diz o que foi feito: `medida` (a seção rodou) ou `nao-me
 
 ## Entrega
 
-Os quatro modos entregam como antes, nas duas forjas. O `ork` nunca mescla PR nem MR, e só abre um pelo
-`ork ship publicar`, em `#Auto` e `#Maestro`.
+Os quatro modos entregam como antes, nas duas forjas. Nenhum modo de entrega mescla PR ou MR, e o
+`ork ship publicar` só abre um, em `#Auto` e `#Maestro`, nunca o mescla. A exceção fora da entrega é a batida do
+condutor (`ork conducao`, RM-062): com autorização, ela mescla PR do GitHub (`gh pr merge --match-head-commit`), e só
+do GitHub; no GitLab o merge fica com o dono.
 
 | Comando | GitHub | GitLab |
 | --- | --- | --- |
@@ -241,5 +244,13 @@ O `ork_ship` do MCP empurra a base por um de quatro transportes, escolhidos no `
   depois do SHIP) e as consultas `ork_fabrica` e `ork_roadmap_reservas` ficam indisponíveis por ora.
 - Misturar `github-ssh`/`bare-local` e `forja-*` entre hosts do mesmo projeto: recusado no despacho. Trocar de modo exige
   remover a entrada `orkastery` e reinstalar.
+- O tipo da forja de um projeto do `ork network roadmap` sem clone nesta máquina (os do registro e os que a rede
+  declara), e o do clone sem o bloco `forja:` em host que não é conhecido: vem do nome do host (`gitlab` ou `github`
+  como parte do nome) ou do prefixo `github:`/`gitlab:` do argumento `--projeto`, sem sondagem. Um GitLab com outro
+  nome precisa do bloco `forja:` no clone, ou do `gitlab:host/grupo/projeto`.
+- A entrega do #Noctum (RM-058): ela só aceita remoto do GitHub e recusa os outros com
+  `noctum.entrega.fora-do-destino`.
+- A varredura de merge da batida do condutor (RM-062): só lê e mescla PR do GitHub, e decide se o remoto é GitHub
+  pelo nome do host, sem o bloco `forja:` nem a sondagem; com outro remoto, o merge fica com o dono.
 - A proteção do transporte supõe que o agente roda em sandbox e não escreve em `~/.config` nem em `~/.gitconfig`; a
   config global de git da pessoa é confiável.

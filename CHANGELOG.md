@@ -27,8 +27,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   de forja que não se resolve é recusado com `entrega.sem-leitura`, e subgrupo no GitHub com `entrega.forja-mista`). O
   push da base recusado pela proteção da branch (GitHub: `GH006` ou "protected branch hook declined"; `GH013` só com a
   mensagem de proteção da branch; recusa de segredo nunca; GitLab: "not allowed to push code to protected branches")
-  vira `entrega.base-protegida`, com a orientação de entregar por PR/MR; o motivo do gate não muda. O `ork` continua
-  sem mesclar PR ou MR. Muda para todos: remoto GitHub Enterprise sem o bloco `forja:` e sem login da `gh` nele passa a
+  vira `entrega.base-protegida`, com a orientação de entregar por PR/MR; o motivo do gate não muda. Nenhum modo de
+  entrega mescla PR ou MR; a batida do condutor (RM-062) continua mesclando só PR do GitHub, com autorização, e a
+  entrega do #Noctum continua só no GitHub. Muda para todos: remoto GitHub Enterprise sem o bloco `forja:` e sem login da `gh` nele passa a
   ser recusado pelo `ork ship publicar` e pelo `registrar-pr --repo` antes de qualquer escrita (`forja.desconhecida`
   ou `entrega.sem-leitura`), pedindo `forja.tipo`. Contrato em
   [`docs/referencia/contratos/forja.md`](docs/referencia/contratos/forja.md#entrega).
