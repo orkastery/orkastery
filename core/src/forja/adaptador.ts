@@ -29,12 +29,12 @@ export interface AdaptadorDeForja {
   pontaDaBranch?(e: { repo: string; branch: string; executor: ExecutorGitHub }): string | null;
   /** O status da comparação (`ahead`, `identical`, `behind`, `diverged`); `null` quando a consulta falha. */
   comparar?(e: { repo: string; de: string; ate: string; executor: ExecutorGitHub }): string | null;
-  /** Os pedidos da branch na base, do mais novo para o mais velho; `erro` não nulo quando a leitura falha. */
-  pedidosDaBranch?(e: { host: string; repositorio: string; base: string; branch: string; executor: ExecutorDoGh; prazoMs: number }):
-    { prs: PrDaForja[]; erro: string | null };
-  /** Abre o pedido da branch; devolve a saída crua da CLI. */
+  /** Os pedidos da branch na base, do mais novo para o mais velho; `erro` não nulo quando a leitura falha. O GitLab lê pela `api`. */
+  pedidosDaBranch?(e: { host: string; repositorio: string; base: string; branch: string; executor: ExecutorDoGh; prazoMs: number;
+    api?: ChamadorDaApi }): { prs: PrDaForja[]; erro: string | null };
+  /** Abre o pedido da branch; devolve a saída crua da CLI (no GitLab, status 0 ou 1 e o código `forja.*`). */
   abrirPedido?(e: { host: string; repositorio: string; base: string; branch: string; titulo: string; corpo: string;
-    executor: ExecutorDoGh; prazoMs: number }): { status: number | null; stdout: string; stderr: string };
+    executor: ExecutorDoGh; prazoMs: number; api?: ChamadorDaApi }): { status: number | null; stdout: string; stderr: string };
   /** A versao e a edicao do servidor, pela API da forja ja resolvida. */
   metadados?(e: { api: ChamadorDaApi }): Resultado<VersaoDoServidor>;
   /**

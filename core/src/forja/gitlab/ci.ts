@@ -19,6 +19,7 @@ import type { EntradaDoEstadoDeCi } from '../adaptador';
 import { paginarPelaApi, type ChamadorDaApi } from '../api';
 import type { CheckNoCommit, ChecksDoCommit, ErroDaForja, FonteDoCheck, Resultado } from '../contrato';
 import { estadoDoCheck } from '../estado';
+import { projetoNaApi } from './pedidos';
 
 const INSTANTES = { created_at: z.string().nullish(), started_at: z.string().nullish(), finished_at: z.string().nullish() };
 const STATUS = z.object({ id: z.number().int(), name: z.string(), status: z.string(), target_url: z.string().nullish(),
@@ -68,7 +69,7 @@ const jobsDaPipeline = (api: ChamadorDaApi, projeto: string, pipeline: number): 
   lista(api, `${projeto}/pipelines/${pipeline}/jobs?include_retried=true`, JOB);
 
 export function estadoDeCiGitlab(e: EntradaDoEstadoDeCi): Resultado<ChecksDoCommit> {
-  const projeto = `projects/${encodeURIComponent(e.repo)}`;
+  const projeto = projetoNaApi(e.repo);
   const lidos = lista(e.api, `${projeto}/repository/commits/${e.sha}/statuses?name=${encodeURIComponent(e.context)}&all=true`, STATUS);
   if (!lidos.ok) return lidos;
   const doNome = lidos.valor.filter((s) => s.name === e.context);

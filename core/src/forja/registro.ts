@@ -6,6 +6,7 @@ import { donoDaRedeGithub } from './github/dono-da-rede';
 import { checksNoCommitGithub, estadoDeCiGithub } from './github/ci';
 import { estadoDeCiGitlab } from './gitlab/ci';
 import { donoDaRedeGitlab } from './gitlab/dono-da-rede';
+import { abrirPedidoGitlab, pedidosDaBranchGitlab } from './gitlab/pedidos';
 import { pedidosAbertosGitlab } from './gitlab/pedidos-abertos';
 import { abrirPedidoGithub, branchPadraoGithub, compararGithub, pedidoMescladoGithub, pedidosAbertosGithub, pedidosDaBranchGithub, pontaDaBranchGithub } from './github/pedidos';
 
@@ -16,7 +17,7 @@ const ADAPTADORES: Record<TipoDeForja, AdaptadorDeForja> = {
     pedidosAbertos: pedidosAbertosGithub, donoDaRede: donoDaRedeGithub },
   // As capacidades do GitLab entram uma a uma (CI, pulse e rede, entrega); o doctor mostra as desligadas.
   gitlab: { tipo: 'gitlab', estadoDeCi: estadoDeCiGitlab, metadados: metadadosGitlab, pedidosAbertos: pedidosAbertosGitlab,
-    donoDaRede: donoDaRedeGitlab },
+    donoDaRede: donoDaRedeGitlab, pedidosDaBranch: pedidosDaBranchGitlab, abrirPedido: abrirPedidoGitlab },
 };
 
 export const adaptadorDaForja = (tipo: TipoDeForja): AdaptadorDeForja => ADAPTADORES[tipo];
