@@ -3,7 +3,7 @@
  * retry rotaciona para o proximo perfil, cai para o runtime de fallback do bloco (codex pelo
  * controller simulado, com o CODEX_HOME do perfil) e, sem destino, entra na fila duravel, que
  * retoma o MESMO prompt quando o prazo passa. A prova de conta e a captura de env dos stubs e o
- * rollout gravado no diretorio do perfil. Inclui a D11c com o observador destacado de verdade
+ * rollout gravado no diretorio do perfil. Inclui a retomada da RM-064 sobre produção parcial
  * e a regressao da D9 (perfil nao e eixo de independencia do CHECK).
  */
 import { strict as assert } from 'node:assert';

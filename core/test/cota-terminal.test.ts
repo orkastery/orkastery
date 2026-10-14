@@ -17,8 +17,7 @@ import { lerLedger, registrar } from '../src/ledger';
 import { ManifestoCarregado } from '../src/manifest';
 import { observarSessao } from '../src/session-watcher';
 import { rodarFase } from '../src/phase';
-import { executarRetry, retomarFila } from '../src/retry';
-import { aguardando } from '../src/ratelimit';
+import { executarRetry } from '../src/retry';
 import { adicionarPerfil, lerPerfis } from '../src/runtime-profiles';
 import { dirThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
@@ -36,7 +35,7 @@ function fimDoTurno(payload: Record<string, unknown>): string {
 }
 const AGORA = Date.parse('2026-09-19T00:00:00.000Z');
 
-/** `codex` por conta na frente do simulado: `login status` pelo marcador do CODEX_HOME, resto no simulado. */
+/** `codex` por conta na frente do simulado: `login status` pelo marcador do CODEX_HOME. */
 function codexPorConta(raiz: string, simulado: string): { restaurar: () => void } {
   const bin = path.join(raiz, 'codex-conta-bin');
   fs.mkdirSync(bin);
@@ -90,7 +89,7 @@ function esperarResultado(carregado: ManifestoCarregado, dir: string, sessionId:
   }
 }
 
-/** Stubs fora do git e o que o `ork init` gerou commitado: so a producao da sessao conta na D11c. */
+/** Stubs fora do git e o que o `ork init` gerou commitado: só a produção da sessão entra no checkpoint. */
 function ignorarStubs(raiz: string): void {
   fs.writeFileSync(path.join(raiz, '.gitignore'), 'fake-bin/\nruntime/\ncontas/\ncodex-conta-bin/\n');
   exec('git', ['add', '-A'], raiz);
@@ -198,7 +197,7 @@ test('A1 fim a fim: turno codex iniciado termina sem credito; o observador grava
   }
 });
 
-test('A1 regra da prova (D11c): turno codex que morre sem credito depois de commit vira human.pending, sem redespacho', () => {
+test('A1 RM-064 T3: turno codex que morre sem credito depois de commit retoma do commit, sem repetir trabalho', () => {
   const p = projetoTemporario('cota-terminal-producao');
   const f = controllerSimulado(p.dir, { cenario: 'sem-credito', fixture: FIXTURE });
   const codex = codexPorConta(p.dir, path.join(p.dir, 'fake-bin'));
@@ -206,7 +205,7 @@ test('A1 regra da prova (D11c): turno codex que morre sem credito depois de comm
   try {
     ignorarStubs(p.dir);
     contaCodex(p.dir, f.runtimeHome, 'x');
-    contaCodex(p.dir, f.runtimeHome, 'y');
+    const contaY = contaCodex(p.dir, f.runtimeHome, 'y');
     const t = novaThread(p.carregado, { nome: 'producao', modo: 'auto' }).thread;
     dir = dirThread(p.dir, t.id);
     const r = rodarFase(p.carregado, t.id, { fase: 'GO', prompt: 'turno SIMULADO com producao', runtime: 'codex', model: 'modelo-SIMULADO' });
@@ -217,13 +216,14 @@ test('A1 regra da prova (D11c): turno codex que morre sem credito depois de comm
     assert.equal(lerLedger(dir).find(e => e.tipo === 'phase_result')?.motivo, 'runtime.quota-exhausted');
     assert.equal(lerPerfis(p.dir).perfis.find(q => q.id === 'x')?.estado, 'esgotado', 'a conta esgotou mesmo com producao');
 
+    fs.writeFileSync(path.join(contaY, 'cenario.json'), JSON.stringify({ cenario: 'never', fixture: FIXTURE }));
+    const despachosAntes = lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').length;
     const retry = executarRetry(p.carregado, t.id);
-    assert.equal(retry.executada, false);
-    assert.match(retry.detalhe, /producao parcial sob cota esgotada/);
+    assert.equal(retry.executada, true, retry.detalhe);
+    assegurarCheckpoint(p.dir, dir, 'GO', sha, r.promptSha256, despachosAntes);
     const eventos = lerLedger(dir);
-    assert.equal(eventos.filter(e => e.tipo === 'phase_dispatch').length, 1, 'nenhum redespacho sobre a worktree alterada');
-    assert.equal(eventos.some(e => e.tipo === 'runtime_profile_rotated'), false);
-    assert.equal(eventos.filter(e => e.tipo === 'gate_blocked').at(-1)?.motivo, 'human.pending');
+    assert.deepEqual(eventos.filter(e => e.tipo === 'runtime_profile_rotated').at(-1)?.para,
+      { runtime: 'codex', perfil: 'y' });
     assert.equal(eventos.some(e => e.tipo === 'fase_concluida'), false, 'morte por cota nunca conclui a fase');
   } finally {
     encerrarControllers(dir);
@@ -281,34 +281,35 @@ for (const caso of [
 }
 
 // ---------------------------------------------------------------------------
-// I-33 (N1, CHECK-REVERIFY 8924757a): commit feito pela sessao PELO SHELL, sem `mcp_git_committed` nem
-// sensor `commit` no ledger, antes de morrer por cota. So o HEAD do despacho revela a producao. Nos dois
-// runtimes, com e sem perfis, o retry escala ao humano, nao redespacha o mesmo prompt e a fila duravel
-// nao ganha pedido; o mesmo caminho sem commit segue a politica (positivo).
+// I-33 (N1) + RM-064 T3: commit feito pela sessão PELO SHELL, sem `mcp_git_committed` nem sensor
+// `commit` no ledger, antes de morrer por cota. Só o HEAD do despacho revela a produção. O retry não
+// repete o prompt sobre a worktree: despacha ou enfileira uma retomada com o HEAD atual no checkpoint.
 // ---------------------------------------------------------------------------
 
 function headDe(raiz: string): string {
   return exec('git', ['rev-parse', 'HEAD'], raiz).stdout.trim();
 }
 
-/** A D11c segurou a sessao: `human.pending`, nenhum redespacho, nenhuma troca e nada na fila para retomar sozinho. */
-function assegurarEscalada(carregado: ManifestoCarregado, dir: string, detalhe: string, evidencia: RegExp): void {
-  assert.match(detalhe, /producao parcial sob cota esgotada/);
-  assert.match(detalhe, evidencia);
+function assegurarCheckpoint(raiz: string, dir: string, fase: 'GO', commit: string, promptOriginalSha: string,
+    despachosAntes: number): void {
   const eventos = lerLedger(dir);
-  assert.equal(eventos.filter(e => e.tipo === 'phase_dispatch').length, 1, 'o mesmo prompt nao volta sobre a worktree commitada');
-  assert.equal(eventos.some(e => e.tipo === 'runtime_profile_rotated'), false, 'nenhuma troca de perfil nem ida a fila');
-  assert.equal(eventos.some(e => e.tipo === 'rate_limit_queued'), false);
-  assert.equal(eventos.filter(e => e.tipo === 'gate_blocked').at(-1)?.motivo, 'human.pending');
-  assert.equal(aguardando(carregado.raiz).length, 0, 'a fila duravel nao ganhou pedido');
-  assert.deepEqual(retomarFila(carregado, { forcar: true }), [], 'nada para a fila retomar sozinha');
-  assert.equal(lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').length, 1);
-  assert.equal(eventos.some(e => e.tipo === 'fase_concluida'), false, 'morte por cota nunca conclui a fase');
+  assert.equal(eventos.filter(e => e.tipo === 'phase_dispatch').length, despachosAntes + 1);
+  assert.equal(eventos.some(e => e.tipo === 'gate_blocked' && e.motivo === 'human.pending'), false);
+  const retomada = eventos.filter(e => e.tipo === 'phase_dispatch').at(-1)!;
+  assert.equal(retomada.fase, fase);
+  assert.equal(retomada.promptOriginalSha256, promptOriginalSha);
+  assert.notEqual(retomada.promptSha256, promptOriginalSha);
+  const relativo = String(retomada.promptPath);
+  const arquivo = path.isAbsolute(relativo) ? relativo : path.join(raiz, relativo);
+  const prompt = fs.readFileSync(arquivo, 'utf8');
+  assert.ok(prompt.includes(`Continue da fase \`${fase}\`; não repita GOAL nem PLAN`));
+  assert.ok(prompt.includes(`Último commit: \`${commit}\``));
+  assert.equal(headDe(raiz), commit, 'o retry só despacha o checkpoint; não cria outro commit');
 }
 
 for (const perfis of [true, false]) {
   for (const commit of [true, false]) {
-    const rotulo = commit ? 'commit pelo shell antes da cota vira human.pending, sem redespacho nem fila' : 'sem commit segue a politica (positivo)';
+    const rotulo = commit ? 'commit pelo shell antes da cota segue em checkpoint, sem repetir trabalho' : 'sem commit segue a politica (positivo)';
     test(`N1 codex ${perfis ? 'com perfis x,y' : 'sem perfis'}: ${rotulo}`, () => {
       const p = projetoTemporario('cota-n1-codex');
       const f = controllerSimulado(p.dir, { cenario: commit ? 'sem-credito-commit' : 'sem-credito', fixture: FIXTURE });
@@ -316,7 +317,8 @@ for (const perfis of [true, false]) {
       let dir = '';
       try {
         ignorarStubs(p.dir);
-        if (perfis) { contaCodex(p.dir, f.runtimeHome, 'x'); contaCodex(p.dir, f.runtimeHome, 'y'); }
+        let contaY: string | null = null;
+        if (perfis) { contaCodex(p.dir, f.runtimeHome, 'x'); contaY = contaCodex(p.dir, f.runtimeHome, 'y'); }
         const t = novaThread(p.carregado, { nome: 'n1', modo: 'auto' }).thread;
         dir = dirThread(p.dir, t.id);
         const antes = headDe(p.dir);
@@ -330,10 +332,23 @@ for (const perfis of [true, false]) {
         assert.equal(exec('git', ['status', '--porcelain', '--', '.', ':(exclude).orkastery'], p.dir).stdout.trim(), '', 'worktree limpa');
         assert.equal(lerLedger(dir).some(e => e.tipo === 'mcp_git_committed' || e.tipo === 'commit'), false, 'nenhum commit pelo ledger');
 
+        if (contaY) fs.writeFileSync(path.join(contaY, 'cenario.json'), JSON.stringify({ cenario: 'never', fixture: FIXTURE }));
+        const shaDepoisDaSessao = headDe(p.dir);
+        const despachosAntes = lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').length;
         const retry = executarRetry(p.carregado, t.id);
         if (commit) {
-          assert.equal(retry.executada, false);
-          assegurarEscalada(p.carregado, dir, retry.detalhe, /HEAD da worktree mudou desde o despacho/);
+          assert.equal(retry.executada, true, retry.detalhe);
+          if (perfis) {
+            assegurarCheckpoint(p.dir, dir, 'GO', shaDepoisDaSessao, r.promptSha256, despachosAntes);
+            assert.deepEqual(lerLedger(dir).filter(e => e.tipo === 'runtime_profile_rotated').at(-1)?.para,
+              { runtime: 'codex', perfil: 'y' });
+          } else {
+            assert.equal(retry.fila.length, 1, retry.detalhe);
+            assert.equal((retry.fila[0] as { checkpoint?: boolean }).checkpoint, true);
+            assert.equal(retry.fila[0].promptSha256, r.promptSha256);
+            assert.equal(headDe(p.dir), shaDepoisDaSessao, 'enfileirar o checkpoint não cria outro commit');
+            assert.equal(lerLedger(dir).some(e => e.tipo === 'gate_blocked' && e.motivo === 'human.pending'), false);
+          }
         } else if (perfis) {
           assert.equal(retry.executada, true, retry.detalhe);
           const eventos = lerLedger(dir);
@@ -355,7 +370,7 @@ for (const perfis of [true, false]) {
   }
 }
 
-test('N1 codex: registro de despacho sem HEAD (sessao anterior a correcao) e duvida, que conta como producao', () => {
+test('N1 codex: registro antigo sem HEAD retoma por checkpoint, preservando a dúvida sem repetir a fase', () => {
   const p = projetoTemporario('cota-n1-sem-head');
   const f = controllerSimulado(p.dir, { cenario: 'sem-credito', fixture: FIXTURE });
   const codex = codexPorConta(p.dir, path.join(p.dir, 'fake-bin'));
@@ -363,7 +378,7 @@ test('N1 codex: registro de despacho sem HEAD (sessao anterior a correcao) e duv
   try {
     ignorarStubs(p.dir);
     contaCodex(p.dir, f.runtimeHome, 'x');
-    contaCodex(p.dir, f.runtimeHome, 'y');
+    const contaY = contaCodex(p.dir, f.runtimeHome, 'y');
     const t = novaThread(p.carregado, { nome: 'n1-sem-head', modo: 'auto' }).thread;
     dir = dirThread(p.dir, t.id);
     const r = rodarFase(p.carregado, t.id, { fase: 'GO', prompt: 'turno SIMULADO sem HEAD', runtime: 'codex', model: 'modelo-SIMULADO' });
@@ -373,9 +388,12 @@ test('N1 codex: registro de despacho sem HEAD (sessao anterior a correcao) e duv
     const { eventId: _id, ts: _ts, tipo: _tipo, thread: _thread, head: _head, ...semHead } =
       lerLedger(dir).find(e => e.tipo === 'session_sensor_registered' && e.sessionId === r.sessionId)!;
     registrar(dir, t.id, 'session_sensor_registered', semHead);
+    fs.writeFileSync(path.join(contaY, 'cenario.json'), JSON.stringify({ cenario: 'never', fixture: FIXTURE }));
+    const commit = headDe(p.dir);
+    const despachosAntes = lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').length;
     const retry = executarRetry(p.carregado, t.id);
-    assert.equal(retry.executada, false);
-    assegurarEscalada(p.carregado, dir, retry.detalhe, /HEAD da worktree no despacho desconhecido/);
+    assert.equal(retry.executada, true, retry.detalhe);
+    assegurarCheckpoint(p.dir, dir, 'GO', commit, r.promptSha256, despachosAntes);
   } finally {
     encerrarControllers(dir);
     codex.restaurar(); f.restaurar(); p.limpar();
@@ -384,7 +402,7 @@ test('N1 codex: registro de despacho sem HEAD (sessao anterior a correcao) e duv
 
 for (const perfis of [true, false]) {
   for (const commit of [true, false]) {
-    const rotulo = commit ? 'commit pelo shell antes da cota vira human.pending, sem redespacho nem fila' : 'sem commit segue a politica (positivo)';
+    const rotulo = commit ? 'commit pelo shell antes da cota segue em checkpoint, sem repetir trabalho' : 'sem commit segue a politica (positivo)';
     test(`N1 claude-bg ${perfis ? 'com perfis a,b' : 'sem perfis'}: ${rotulo}`, () => {
       const p = projetoTemporario('cota-n1-claude');
       const claude = runtimePorConta('cota-n1');
@@ -408,10 +426,22 @@ for (const perfis of [true, false]) {
         assert.equal(headDe(p.dir) !== antes, commit);
         assert.equal(lerLedger(dir).some(e => e.tipo === 'mcp_git_committed' || e.tipo === 'commit'), false, 'nenhum commit pelo ledger');
 
+        const shaDepoisDaSessao = headDe(p.dir);
+        const despachosAntes = lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').length;
         const retry = executarRetry(p.carregado, t.id);
         if (commit) {
-          assert.equal(retry.executada, false);
-          assegurarEscalada(p.carregado, dir, retry.detalhe, /HEAD da worktree mudou desde o despacho/);
+          assert.equal(retry.executada, true, retry.detalhe);
+          if (perfis) {
+            assegurarCheckpoint(p.dir, dir, 'GO', shaDepoisDaSessao, r.promptSha256, despachosAntes);
+            assert.deepEqual(lerLedger(dir).filter(e => e.tipo === 'runtime_profile_rotated').at(-1)?.para,
+              { runtime: 'claude-bg', perfil: 'b' });
+          } else {
+            assert.equal(retry.fila.length, 1, retry.detalhe);
+            assert.equal((retry.fila[0] as { checkpoint?: boolean }).checkpoint, true);
+            assert.equal(retry.fila[0].promptSha256, r.promptSha256);
+            assert.equal(headDe(p.dir), shaDepoisDaSessao, 'enfileirar o checkpoint não cria outro commit');
+            assert.equal(lerLedger(dir).some(e => e.tipo === 'gate_blocked' && e.motivo === 'human.pending'), false);
+          }
         } else if (perfis) {
           assert.equal(retry.executada, true, retry.detalhe);
           assert.deepEqual(lerLedger(dir).filter(e => e.tipo === 'runtime_profile_rotated').map(e => [e.de, e.para]),

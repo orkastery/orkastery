@@ -1,5 +1,5 @@
 /**
- * I-33 (T6, D5 e D11c): rotacao de perfil pelo caminho REAL do despacho. O stub do `claude`
+ * I-33 (T6, D5) e RM-064 T3: rotação de perfil pelo caminho REAL do despacho. O stub do `claude`
  * responde por conta: `auth status` so aprova com o marcador de login da conta, o `--bg` recusa
  * com a frase gravada na conta (cota ou login) e `agents` so lista a sessao da conta que a
  * despachou. A prova e o que o ledger, o store e a fila registram, nunca relato.
@@ -225,7 +225,7 @@ test('RM-064 T3: morte por cota depois de commit retoma no próximo perfil com c
   } finally { c.limpar(); }
 });
 
-test('D11c: morte por cota sem producao no intervalo rotaciona para o proximo perfil', () => {
+test('RM-064 T3: morte por cota sem producao no intervalo rotaciona para o proximo perfil', () => {
   const c = cenario('rotacao-sem-producao');
   try {
     ligarRotacaoPorCota(c.p);
