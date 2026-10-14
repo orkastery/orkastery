@@ -12,6 +12,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { comLocale } from '../src/locale';
 import {
   DESCRICAO_DO_MOTIVO_DE_AUDITORIA,
   ORDEM_DOS_PACKS,
@@ -450,6 +451,12 @@ test('ork thread new --from-finding abre a thread com evidencia, claim e propost
   assert.ok(cedo.correcao.includes('ork audit verify'));
 
   assert.equal(verificarRodada(p.carregado, rodada.id).ok, true);
+
+  const english = comLocale('en', () => abrirThreadDoAchado(p.carregado, achado.id, { modo: 'classic', dryRun: true }));
+  assert.equal(english.ok, true);
+  assert.match(english.pedido, /^Audit finding F1 \(pack reuse, rule RU1, severity maior\)\./);
+  assert.match(english.pedido, /Adjustment proposed by the audit run:/);
+  assert.equal(english.detalhe, 'dry run: no thread or board stamp was written');
 
   const r = abrirThreadDoAchado(p.carregado, achado.id, { modo: 'classic' });
   assert.equal(r.ok, true);

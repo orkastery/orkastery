@@ -123,15 +123,13 @@ test('locale en F2a thread: o dado gravado por thread new e o --json do status n
   } finally { pt.limpar(); en.limpar(); }
 });
 
-test('locale en F2a thread: thread new --from-finding segue em pt-BR com LANG=en_US', () => {
+test('locale en F3c thread: thread new --from-finding traduz a recusa com LANG=en_US', () => {
   const c = cenario('thread-negativo');
   try {
     assert.equal(ork(c, PT, true, 'thread', 'new', 'Lista', '--modo', 'auto', '--sem-worktree').status, 0);
-    // A F3b levou `thread list` ao catalogo (locale-thread-f3b); o achado de auditoria segue fora (G2 da F3b).
-    for (const args of [['thread', 'new', 'x', '--from-finding', 'A9']]) {
-      const pt = ork(c, PT, true, ...args), en = ork(c, EN, true, ...args);
-      assert.equal(en.stdout, pt.stdout, args.join(' '));
-      assert.equal(en.stderr, pt.stderr, args.join(' '));
-    }
+    const en = ork(c, EN, true, 'thread', 'new', 'x', '--from-finding', 'A9');
+    assert.notEqual(en.status, 0);
+    assert.match(en.stderr, /^error: finding "A9" does not exist on the debt board/);
+    assert.doesNotMatch(en.stderr, /achado|nao existe|Veja:/);
   } finally { c.limpar(); }
 });
