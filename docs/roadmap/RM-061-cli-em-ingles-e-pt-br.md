@@ -201,7 +201,7 @@ A F3b mede no mesmo contador, com o recibo em [`cobertura-f3b.json`](evidencias/
 
 A F3c mede no mesmo contador, com o recibo em [`cobertura-f3c.json`](evidencias/RM-061/cobertura-f3c.json):
 
-| Medida | Base carimbada da F3c (`d38070d5`) | F3c (`74edf4cb`) |
+| Medida | Base carimbada da F3c (`d38070d5`) | F3c (`7576d416`) |
 | --- | --- | --- |
 | Entradas do catálogo | 1.800 | 1.998 |
 | Literais de saída fora do catálogo | 2.946 | 2.860 |

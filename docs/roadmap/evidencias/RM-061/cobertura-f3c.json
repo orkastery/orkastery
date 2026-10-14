@@ -14,7 +14,7 @@
     "cobertura": 0.3793
   },
   "depois": {
-    "arvore": "74edf4cb62bb9e6844ec3944b98b9e84a7d9447f",
+    "arvore": "7576d416bc5e92184da8308c263e0ca75a8c38a5",
     "descricao": "F3c: gitignore gerado, decisoes HITL, network roadmap, thread a partir de achado e prompts de fase na lingua do dono",
     "schema": "ork.locale-cobertura/v1",
     "arquivos": 271,
