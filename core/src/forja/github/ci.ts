@@ -1,5 +1,6 @@
 import type { ExecutorCi } from '../../ci';
-import type { CheckNoCommit, Resultado } from '../contrato';
+import type { EntradaDoEstadoDeCi } from '../adaptador';
+import type { CheckNoCommit, ChecksDoCommit, Resultado } from '../contrato';
 
 type CheckRun = { id?: number; name?: string; status?: string; conclusion?: string | null; html_url?: string;
   completed_at?: string | null; app?: { slug?: string } };
@@ -81,4 +82,17 @@ export function checksNoCommitGithub(e: Entrada): Resultado<CheckNoCommit[]> {
     })),
   ];
   return { ok: true, valor };
+}
+
+/**
+ * A mesma leitura pela API da forja ja resolvida: os check-runs e os statuses do commit, pelo chamador em vez do
+ * `ExecutorCi`. O GitHub nao testa commit temporario fora do lido: `mescladoSemVinculo` e sempre falso.
+ */
+export function estadoDeCiGithub(e: EntradaDoEstadoDeCi): Resultado<ChecksDoCommit> {
+  const executor: ExecutorCi = (input) => {
+    const r = e.api({ metodo: 'GET', caminho: input.caminho ?? `repos/${input.repository}/commits/${input.sha}/check-runs` });
+    return r.ok ? { ok: true, code: 0, stdout: JSON.stringify(r.valor.corpo), stderr: '' } : { ok: false, code: 1, stdout: '', stderr: r.erro.detalhe };
+  };
+  const lido = checksNoCommitGithub({ repository: e.repo, sha: e.sha, context: e.context, executor });
+  return lido.ok ? { ok: true, valor: { checks: lido.valor, mescladoSemVinculo: false } } : lido;
 }

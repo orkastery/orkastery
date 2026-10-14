@@ -185,16 +185,17 @@ function comPagina(caminho: string, pagina: number): string {
 }
 
 /**
- * Le as paginas de uma lista (GET) pelo numero que a forja manda. `itens` extrai a lista do corpo (`null`: fora do
- * formato); sem ele, o corpo tem de ser a lista. Mais de 10 paginas: `forja.incompleto`, nunca a lista curta.
+ * Le as paginas de uma lista (GET) por um chamador ja ligado a forja, pelo numero que a forja manda. `itens` extrai a
+ * lista do corpo (`null`: fora do formato); sem ele, o corpo tem de ser a lista. Mais de 10 paginas: `forja.incompleto`,
+ * nunca a lista curta.
  */
-export function paginarApi(f: AlvoDaCli, p: { caminho: string; itens?: (corpo: unknown) => unknown[] | null; prazoMs?: number },
-  opcoes: OpcoesDaApi = {}): Resultado<{ itens: unknown[]; paginas: number }> {
+export function paginarPelaApi(api: ChamadorDaApi, p: { caminho: string; itens?: (corpo: unknown) => unknown[] | null; prazoMs?: number }):
+  Resultado<{ itens: unknown[]; paginas: number }> {
   const extrair = p.itens ?? ((corpo: unknown) => (Array.isArray(corpo) ? corpo : null));
   const itens: unknown[] = [];
   let pagina = 1;
   for (let lidas = 1; lidas <= MAX_PAGINAS; lidas++) {
-    const r = chamarApi(f, { metodo: 'GET', caminho: comPagina(p.caminho, pagina), prazoMs: p.prazoMs }, opcoes);
+    const r = api({ metodo: 'GET', caminho: comPagina(p.caminho, pagina), prazoMs: p.prazoMs });
     if (!r.ok) return r;
     const lista = extrair(r.valor.corpo);
     if (!lista) return falha('forja.resposta-invalida', detalheSeguro(p.caminho));
@@ -205,4 +206,10 @@ export function paginarApi(f: AlvoDaCli, p: { caminho: string; itens?: (corpo: u
     pagina = proxima;
   }
   return falha('forja.incompleto', detalheSeguro(`${p.caminho} > ${MAX_PAGINAS}x${POR_PAGINA}`));
+}
+
+/** `paginarPelaApi` com o chamador da forja `f`. */
+export function paginarApi(f: AlvoDaCli, p: { caminho: string; itens?: (corpo: unknown) => unknown[] | null; prazoMs?: number },
+  opcoes: OpcoesDaApi = {}): Resultado<{ itens: unknown[]; paginas: number }> {
+  return paginarPelaApi(chamadorDaApi(f, opcoes), p);
 }

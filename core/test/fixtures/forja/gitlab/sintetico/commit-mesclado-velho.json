@@ -1,0 +1,28 @@
+{
+  "caso": "commit-mesclado-velho",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/repository/commits/4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "sintetico": "o commit do resultado mesclado de um head anterior do MR: o head atual nao esta entre os pais. Trocar por uma gravacao EE.",
+  "corpo": {
+    "id": "4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d",
+    "short_id": "4d4d4d4d",
+    "title": "Merge branch 'ork/ork-ci' into 'main'",
+    "parent_ids": [
+      "291615e904fc9e96598992e28d1c92a2f2c34dfa",
+      "3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c"
+    ],
+    "authored_date": "2026-10-14T02:20:00.000Z",
+    "committed_date": "2026-10-14T02:20:00.000Z",
+    "web_url": "http://127.0.0.1/root/matriz/-/commit/4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d"
+  }
+}

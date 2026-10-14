@@ -1,0 +1,54 @@
+{
+  "caso": "mr-pipelines",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/merge_requests/1/pipelines?per_page=100"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "sintetico": "forma da Pipeline basica (GET /projects/:id/merge_requests/:iid/pipelines, docs.gitlab.com/api/merge_requests), no MR gravado em 19.4-ci: duas pipelines de resultado mesclado, 21 (do head atual) e 20 (de um head anterior), e a pipeline 1 gravada do head. Resultado mesclado e Premium: trocar por uma gravacao EE.",
+  "corpo": [
+    {
+      "id": 21,
+      "iid": 6,
+      "project_id": 1,
+      "sha": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "ref": "refs/merge-requests/1/merge",
+      "status": "success",
+      "source": "merge_request_event",
+      "created_at": "2026-10-14T02:40:00.000Z",
+      "updated_at": "2026-10-14T02:42:00.000Z",
+      "web_url": "http://127.0.0.1/root/matriz/-/pipelines/21"
+    },
+    {
+      "id": 20,
+      "iid": 5,
+      "project_id": 1,
+      "sha": "4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d",
+      "ref": "refs/merge-requests/1/merge",
+      "status": "failed",
+      "source": "merge_request_event",
+      "created_at": "2026-10-14T02:20:00.000Z",
+      "updated_at": "2026-10-14T02:22:00.000Z",
+      "web_url": "http://127.0.0.1/root/matriz/-/pipelines/20"
+    },
+    {
+      "id": 1,
+      "iid": 1,
+      "project_id": 1,
+      "sha": "12edddda9ac424f9355c39785b873803a062d59d",
+      "ref": "refs/merge-requests/1/head",
+      "status": "success",
+      "source": "merge_request_event",
+      "created_at": "2026-10-14T02:28:58.846Z",
+      "updated_at": "2026-10-14T02:29:45.555Z",
+      "web_url": "http://127.0.0.1/root/matriz/-/pipelines/1"
+    }
+  ]
+}

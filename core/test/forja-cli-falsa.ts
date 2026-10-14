@@ -44,6 +44,8 @@ export const ok = (stdout: string): SaidaDaCli => ({ status: 0, stdout, stderr: 
 export const falhou = (stderr: string): SaidaDaCli => ({ status: 1, stdout: '', stderr });
 
 export const api = (caminho: string) => (c: ChamadaDaCli): boolean => c.args[0] === 'api' && c.args.includes(caminho);
+/** A chamada `api` cujo caminho contem o trecho: o caminho paginado ganha `per_page` e `page` no fim. */
+export const apiEm = (trecho: string) => (c: ChamadaDaCli): boolean => c.args[0] === 'api' && c.args.some((a) => a.includes(trecho));
 export const login = (c: ChamadaDaCli): boolean => c.args[0] === 'auth' && c.args[1] === 'status';
 export const versao = (c: ChamadaDaCli): boolean => c.args[0] === '--version';
 

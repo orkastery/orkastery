@@ -60,6 +60,11 @@ export interface CheckNoCommit {
   nome: string; fonte: FonteDoCheck; produtor: string | null; status: string; conclusao: string | null;
   url: string | null; concluidoEm: string | null; ordem: number;
 }
+/**
+ * A CI de um commit lida da forja: os checks do nome pedido e, no GitLab, se houve pipeline de resultado mesclado ou
+ * de merge train do pedido sem vinculo provado com o commit (o gate nunca a conta como verde).
+ */
+export interface ChecksDoCommit { checks: CheckNoCommit[]; mescladoSemVinculo: boolean }
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: ErroDaForja };
 
 /** Um pedido de mesclagem (PR/MR) lido da forja, na forma neutra. `null` nos campos que a resposta não trouxe válidos. */
