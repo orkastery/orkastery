@@ -12,6 +12,7 @@ import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
 import { redespachar } from '../src/retry';
 import { encerrarController } from '../src/adapters/codex-controller';
+import { identidadeProcesso } from '../src/adapters/codex-runner';
 
 const PROMPT = 'FINALIZAR-SIMULADO: fatia governada do teste';
 
@@ -165,13 +166,33 @@ test('TC5: spawn sem PID e erro assincrono nao registram started; recuperacao te
     const sessao = lerThread(c.p.dir, c.t.id).sessoes.at(-1)!;
     require('../src/ledger').registrar(c.dir, c.t.id, 'session_watcher_started', {
       sessionId: r.sessionId, despachoEm: sessao.despachadaEm, pid: null });
-    const pid = iniciarWatcher(c.p.dir, r.sessionId!);
-    assert.ok(pid > 0);
-    const count = c.eventos().filter(e => e.tipo === 'session_watcher_started').length;
-    assert.equal(iniciarWatcher(c.p.dir, r.sessionId!), pid);
-    assert.equal(c.eventos().filter(e => e.tipo === 'session_watcher_started').length, count);
-    esperarCondicao(() => c.eventos().some(e => e.tipo === 'phase_result'), 10000);
-    assert.equal(c.eventos().filter(e => e.tipo === 'phase_result').length, 1);
+    // A prontidao da recuperacao e exercitada por protocolo, sem esperar o processo destacado e o relogio da
+    // maquina. O filho simulado publica token, sessao, despacho e identidade reais; qualquer campo divergente faz
+    // `iniciarWatcher` recusar, exatamente como no processo destacado.
+    let prontidoes = 0;
+    const prontidao = mock.method(cp, 'spawn', (...args: any[]) => {
+      if (Array.isArray(args[1]) && String(args[1][0]).endsWith('session-watcher.js')) {
+        prontidoes++;
+        const argv = args[1] as string[];
+        const readyPath = argv[3], token = argv[4], identidade = identidadeProcesso(process.pid)!;
+        fs.writeFileSync(readyPath, JSON.stringify({ token, sessionId: r.sessionId,
+          despachoEm: sessao.despachadaEm, identidade }), { mode: 0o600 });
+        const child = new EventEmitter() as EventEmitter & { pid: number; unref: () => void; kill: () => boolean };
+        child.pid = process.pid; child.unref = () => {}; child.kill = () => true;
+        return child;
+      }
+      return original(...args);
+    });
+    try {
+      const pid = iniciarWatcher(c.p.dir, r.sessionId!);
+      assert.equal(pid, process.pid);
+      const started = c.eventos().filter(e => e.tipo === 'session_watcher_started').at(-1)!;
+      assert.deepEqual(started.identidade, identidadeProcesso(process.pid));
+      const count = c.eventos().filter(e => e.tipo === 'session_watcher_started').length;
+      assert.equal(iniciarWatcher(c.p.dir, r.sessionId!), pid);
+      assert.equal(prontidoes, 1, 'o registro vivo e autenticado impede outro spawn');
+      assert.equal(c.eventos().filter(e => e.tipo === 'session_watcher_started').length, count);
+    } finally { prontidao.mock.restore(); }
     encerrar(lerThread(c.p.dir, c.t.id).sessoes.at(-1)!.controlador!);
   } finally { interceptar.mock.restore(); c.limpar(); }
 });

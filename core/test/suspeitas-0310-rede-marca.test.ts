@@ -20,34 +20,44 @@ const MODULO = path.resolve(__dirname, '../src/rede.js');
 const MARCA = `(n) => ({ assinatura: 'a' + n, em: new Date().toISOString(), commit: 'c'.repeat(40), casa: 'github.com/p/r',
   forja: 'github', maquina: 'm1', projetos: Array.from({ length: 4000 }, (_, i) => ({ nome: 'p' + i, remoto: null, caminho: '/srv/p' + i })) })`;
 
-function filho(codigo: string, dir: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const p = spawn(process.execPath, ['-e', codigo], { env: { ...process.env, ORK_USUARIO_DIR: dir } });
-    let saida = '';
-    p.stdout.on('data', (d) => { saida += String(d); });
-    p.stderr.on('data', (d) => { saida += String(d); });
-    p.on('error', reject);
-    p.on('close', () => resolve(saida));
-  });
-}
-
 test('suspeitas 03/10: leitor concorrente nunca ve a marca da rede vazia ou cortada', async () => {
   const dir = dirTemporario('susp0310-marca-leitor');
+  let processo: ReturnType<typeof spawn> | null = null;
   try {
-    const fim = path.join(dir, 'fim');
-    const largada = Date.now() + 1200;
+    const pronto = path.join(dir, 'temporario-pronto'), seguir = path.join(dir, 'seguir');
     const escritor = `const { gravarMarca } = require(${JSON.stringify(MODULO)}); const marca = ${MARCA};` +
-      `gravarMarca(marca(0)); while (Date.now() < ${largada}) {}` +
-      `for (let i = 1; i <= 400; i++) gravarMarca(marca(i)); require('fs').writeFileSync(${JSON.stringify(fim)}, '1');`;
-    const leitor = `const fs = require('fs'); const { lerMarcaDaRede } = require(${JSON.stringify(MODULO)});` +
-      `while (Date.now() < ${largada}) {} let lidas = 0, ruins = 0;` +
-      `while (!fs.existsSync(${JSON.stringify(fim)})) { lidas++; if (lerMarcaDaRede() === null) ruins++; }` +
-      `process.stdout.write(JSON.stringify({ lidas, ruins }));`;
-    const [, saida] = await Promise.all([filho(escritor, dir), filho(leitor, dir)]);
-    const { lidas, ruins } = JSON.parse(saida) as { lidas: number; ruins: number };
-    assert.ok(lidas > 50, `o leitor leu durante a escrita: ${lidas}`);
-    assert.equal(ruins, 0, `${ruins} de ${lidas} leituras viram a marca vazia ou cortada`);
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+      `gravarMarca(marca(0)); const fs = require('fs'), rename = fs.renameSync;` +
+      `fs.renameSync = (de, para) => { fs.writeFileSync(${JSON.stringify(pronto)}, '1');` +
+      `const p = new Int32Array(new SharedArrayBuffer(4)); while (!fs.existsSync(${JSON.stringify(seguir)})) Atomics.wait(p, 0, 0, 10);` +
+      `rename(de, para); }; gravarMarca(marca(1));`;
+    const escritorProcesso = spawn(process.execPath, ['-e', escritor], { env: { ...process.env, ORK_USUARIO_DIR: dir } });
+    processo = escritorProcesso;
+    let stderr = '';
+    escritorProcesso.stderr.on('data', d => { stderr += String(d); });
+    const saiu = new Promise<number | null>((resolve, reject) => {
+      escritorProcesso.on('error', reject); escritorProcesso.on('close', resolve);
+    });
+    await new Promise<void>((resolve, reject) => {
+      if (fs.existsSync(pronto)) return resolve();
+      const watcher = fs.watch(dir, () => { if (fs.existsSync(pronto)) { watcher.close(); resolve(); } });
+      escritorProcesso.on('close', code => { if (!fs.existsSync(pronto)) { watcher.close(); reject(new Error(`escritor saiu ${code}: ${stderr}`)); } });
+    });
+    const ler = (nome: string) => {
+      const saida = path.join(dir, nome);
+      const r = spawnSync(process.execPath, ['-e', `const fs = require('fs'), m = require(${JSON.stringify(MODULO)}).lerMarcaDaRede();` +
+        `fs.writeFileSync(${JSON.stringify(saida)}, m ? m.assinatura : 'ILEGIVEL');`],
+        { env: { ...process.env, ORK_USUARIO_DIR: dir }, encoding: 'utf8' });
+      assert.equal(r.status, 0, r.stderr);
+      return fs.readFileSync(saida, 'utf8');
+    };
+    assert.equal(ler('leitura-antes'), 'a0', 'durante a troca, o leitor ve a marca anterior inteira');
+    fs.writeFileSync(seguir, '1');
+    assert.equal(await saiu, 0, stderr);
+    assert.equal(ler('leitura-depois'), 'a1', 'depois da troca, o leitor ve a marca nova inteira');
+  } finally {
+    if (processo?.exitCode === null) processo.kill('SIGKILL');
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('suspeitas 03/10: queda no meio da escrita deixa a marca anterior legivel (injecao de falha)', () => {
