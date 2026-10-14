@@ -638,7 +638,7 @@ function registrarObservacao(ctx: ContextoDeDespacho, sessao: SessaoDaThread, di
   const mesmoDespacho = (e: Record<string, unknown>) => e.sessionId === sessao.sessionId && e.despachoEm === sessao.despachadaEm;
   try {
     // I-34: claude-bg observa pela fonte nativa; no PLAN o registro guarda o sha de base do artefato.
-    // I-33 (N1): o GO codex registra o HEAD do despacho, como a fonte claude-bg; sem ele a D11c nao ve commit pelo shell.
+    // I-33 (N1): o GO codex registra o HEAD do despacho, como a fonte claude-bg; ele revela commit pelo shell no checkpoint.
     const head = ctx.runtime === 'codex' && ctx.fase === 'GO' ? { head: ctx.headNoDespacho ?? null } : {};
     const fonte = ctx.runtime === 'claude-bg' ? fonteClaudeDoDespacho(ctx.raiz, ctx.thread.id, ctx.fase, ctx.cwd)
       : sensores?.logPath ? { logPath: sensores.logPath, processoPath: sensores.processoPath, reciboPath: sensores.reciboPath, ...head }

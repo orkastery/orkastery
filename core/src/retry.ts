@@ -1713,11 +1713,10 @@ export function executarRetry(
 }
 
 /**
- * D5 + D11: rotacao depois de falha da conta. Com sessao no gate (o observador classificou a
- * morte), a prova do `ork` decide antes: producao parcial vira `human.pending` com diagnostico.
- * Sem producao, o perfil sai do rodizio e o MESMO prompt segue no proximo destino; recusa da
- * conta no redespacho (nada rodou) continua a rotacao na mesma chamada, dentro do limite de
- * tentativas. Sem destino: fila ate o menor prazo, ou o humano quando nenhum prazo existe.
+ * D5 + RM-064 T2/T3: rotação depois de falha da conta. Produção parcial sob cota segue com um
+ * checkpoint derivado do ledger e do Git; sem produção, o prompt original segue no próximo
+ * destino. Recusa da conta no redespacho continua a rotação dentro do limite de tentativas.
+ * Sem destino: fila até o menor prazo, ou o humano quando nenhum prazo existe.
  */
 function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: PlanoDeRetry, opcoes: OpcoesDeExecucao,
   vazio: ResultadoDeRetry, registrarTentativa: (ok: boolean, detalhe: string) => void): ResultadoDeRetry {

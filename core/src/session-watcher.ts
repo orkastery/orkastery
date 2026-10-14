@@ -511,7 +511,7 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         terminal = { ...terminal, classificacao: 'gate_blocked', motivo: 'runtime.unavailable' };
       }
       // I-33 (D12): o turno terminou pela CONTA (cota, credito ou login), dito pelo proprio runtime.
-      // E bloqueio, nunca conclusao; a D11c decide no retry se houve producao antes da morte.
+      // É bloqueio, nunca conclusão; o retry deriva checkpoint quando já houve produção.
       if (conta) terminal = { ...terminal, classificacao: 'gate_blocked', motivo: conta.falha.motivo, falhaDeConta: conta.falha,
         fonte: `${conta.fonte}: ${conta.falha.motivo} (${conta.falha.trecho})` };
       const dados = { fase: sessao.fase, sessionId, despachoEm: sessao.despachadaEm, sensorResultId: resultadoId,
