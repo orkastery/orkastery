@@ -26,6 +26,7 @@ import { publicarAprovacaoHumana, PublicacaoDeAprovacao } from './memoria-humana
 import { Canal, conferirCanalSelecionado } from './hitl-canais';
 import { NativeAnswer, NativeContext, authenticateNative, nativeContextSchema, nativeSignature } from './hitl-native';
 import { exigirModoVivo } from './modos';
+import { msg } from './locale';
 
 export interface RespostaHumana {
   resposta: string;
@@ -132,40 +133,41 @@ export function autenticarResposta(thread: string, pedido: string, r: RespostaHu
  */
 export function resolverCriterio(raiz: string, pedido: DecisaoInformada): { resolve: boolean; detalhe: string } {
   const { tipo, referencia } = pedido.criterio;
+  const m = msg().decisao;
   if (tipo === 'medicao') {
-    return { resolve: true, detalhe: 'comando citado; quem executa e reprova é o CHECK' };
+    return { resolve: true, detalhe: m.criterioMedicao };
   }
   if (tipo === 'manifesto') {
     let alvo: unknown;
     try { alvo = exigirManifesto(raiz).manifesto as unknown; }
-    catch { return { resolve: false, detalhe: 'manifesto do projeto não pôde ser lido' }; }
+    catch { return { resolve: false, detalhe: m.criterioManifestoIlegivel }; }
     for (const parte of referencia.split('.')) {
       if (!alvo || typeof alvo !== 'object' || !(parte in (alvo as Record<string, unknown>))) {
-        return { resolve: false, detalhe: `o manifesto não tem a chave ${referencia}` };
+        return { resolve: false, detalhe: m.criterioManifestoSemChave(referencia) };
       }
       alvo = (alvo as Record<string, unknown>)[parte];
     }
     const vazio = alvo === undefined || alvo === null || alvo === '' ||
       (Array.isArray(alvo) && alvo.length === 0);
     return vazio
-      ? { resolve: false, detalhe: `a chave ${referencia} existe mas está vazia` }
-      : { resolve: true, detalhe: `chave ${referencia} lida do manifesto` };
+      ? { resolve: false, detalhe: m.criterioManifestoVazio(referencia) }
+      : { resolve: true, detalhe: m.criterioManifestoLido(referencia) };
   }
   // `ledger`: `<thread>#evento:<n>` (1-based) ou o `eventId` do proprio evento.
   const comIndice = /^([a-zA-Z0-9][a-zA-Z0-9._-]{0,79})#evento:(\d+)$/.exec(referencia);
   const thread = comIndice ? comIndice[1] : pedido.thread;
   let eventos: EventoLedger[];
   try { eventos = lerLedger(dirThread(raiz, thread)); }
-  catch { return { resolve: false, detalhe: `a thread ${thread} não tem ledger legível` }; }
+  catch { return { resolve: false, detalhe: m.criterioLedgerIlegivel(thread) }; }
   if (comIndice) {
     const n = Number(comIndice[2]);
     return n >= 1 && n <= eventos.length
-      ? { resolve: true, detalhe: `evento ${n} de ${thread}` }
-      : { resolve: false, detalhe: `${thread} não tem evento ${n}` };
+      ? { resolve: true, detalhe: m.criterioEvento(n, thread) }
+      : { resolve: false, detalhe: m.criterioEventoAusente(n, thread) };
   }
   return eventos.some(e => e.eventId === referencia)
-    ? { resolve: true, detalhe: `evento ${referencia} de ${thread}` }
-    : { resolve: false, detalhe: `nenhum evento de ${thread} tem esse identificador` };
+    ? { resolve: true, detalhe: m.criterioEvento(referencia, thread) }
+    : { resolve: false, detalhe: m.criterioEventoAusente(referencia, thread) };
 }
 
 export function registrarPedidoHitl(raiz: string, pedido: PedidoHitlQualquer): PedidoHitlQualquer {

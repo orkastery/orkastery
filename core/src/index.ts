@@ -1238,14 +1238,14 @@ function comandoDecisao(args: Args): number {
   if (sub === 'registrar') {
     const campo = (nome: string): string => {
       const v = texto(args.opcoes[nome]);
-      if (!v) throw new Error(`decisao registrar exige --${nome}`);
+      if (!v) throw new ErroDoCatalogo((m) => m.decisao.exigeFlag(nome));
       return v;
     };
-    if (!id) throw new Error('uso: ork decisao registrar <thread-id> --decidido D --porque P ...');
+    if (!id) throw new ErroDoCatalogo((m) => m.decisao.usoRegistrar);
     const bruto = campo('criterio'), separador = bruto.indexOf(':');
     const tipo = bruto.slice(0, separador) as TipoDeCriterio, referencia = bruto.slice(separador + 1);
     if (separador < 1 || !['manifesto', 'ledger', 'medicao'].includes(tipo) || !referencia.trim()) {
-      throw new Error('decisao registrar: --criterio manifesto:CHAVE, ledger:REF ou medicao:COMANDO');
+      throw new ErroDoCatalogo((m) => m.decisao.criterioUso);
     }
     const entrada = {
       decidido: campo('decidido'), porque: campo('porque'), comoMudar: campo('como-mudar'),

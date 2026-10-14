@@ -1,7 +1,7 @@
 /**
  * RM-061, fatia F3b: `ork decisao placar` e o uso de `ork decisao` em ingles. A tabela, o limiar e a taxa de reversao
- * saem pelo catalogo; a fase de cada linha e o `--json` sao dado. Negativo (G5): `ork decisao registrar` segue em pt-BR,
- * porque as recusas sao da validacao do pedido HITL v2. Os nomes comecam por "locale en F3b decisao:".
+ * saem pelo catalogo; a fase de cada linha e o `--json` sao dado. A F3c leva as recusas de `ork decisao registrar`
+ * ao mesmo catalogo sem mudar o contrato HITL v2. Os nomes comecam por "locale en F3b decisao:".
  */
 
 import { strict as assert } from 'node:assert';
@@ -35,8 +35,8 @@ test('locale en F3b decisao: placar e o uso saem em ingles, e o --json do placar
   } finally { c.limpar(); }
 });
 
-test('locale en F3b decisao (negativo): decisao registrar segue em pt-BR, byte a byte, com LANG ingles', () => {
-  assert.equal(cobreLocale(['decisao', 'registrar', 'x'], {}), false);
+test('locale en F3c decisao: as recusas de decisao registrar saem em ingles e preservam flags e contrato', () => {
+  assert.ok(cobreLocale(['decisao', 'registrar', 'x'], {}));
   assert.ok(cobreLocale(['decisao', 'placar', 'x'], {}));
   assert.ok(cobreLocale(['decisao'], {}));
   const c = cenario('decisao-f3b-negativo');
@@ -44,10 +44,14 @@ test('locale en F3b decisao (negativo): decisao registrar segue em pt-BR, byte a
     assert.equal(ork(c, PT, false, 'thread', 'new', 'loc-n', '--sem-worktree', '--modo', 'auto').status, 0);
     for (const args of [['registrar', 'loc-locn', '--decidido', 'x'], ['registrar', 'loc-locn', ...CAMPOS.slice(0, -2), '--criterio', 'palpite:x'],
       ['registrar', 'loc-locn', ...CAMPOS.slice(0, -2), '--criterio', 'ledger:nao-existe'], ['registrar']]) {
-      const pt = ork(c, PT, false, 'decisao', ...args), en = ork(c, EN, false, 'decisao', ...args);
-      assert.equal(en.status, pt.status, args.join(' '));
-      assert.equal(en.stderr, pt.stderr, args.join(' '));
-      assert.match(en.stderr, /^erro: /, args.join(' '));
+      const en = ork(c, EN, false, 'decisao', ...args);
+      assert.notEqual(en.status, 0, args.join(' '));
+      assert.match(en.stderr, /^error: /, args.join(' '));
+      assert.doesNotMatch(en.stderr, /\b(erro|exige|critério|decisão|falta)\b/i, args.join(' '));
     }
+    assert.match(ork(c, EN, false, 'decisao', 'registrar', 'loc-locn', '--decidido', 'x').stderr,
+      /decisao registrar requires --porque/);
+    assert.match(ork(c, EN, false, 'decisao', 'registrar', 'loc-locn', ...CAMPOS.slice(0, -2), '--criterio', 'ledger:nao-existe').stderr,
+      /informed decision: the criterion does not resolve/);
   } finally { c.limpar(); }
 });
