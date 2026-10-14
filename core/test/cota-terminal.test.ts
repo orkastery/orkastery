@@ -26,6 +26,10 @@ const FIXTURE = path.resolve(__dirname, '../../test/fixtures/rollout-incidente-2
 const LINHA_65 = fs.readFileSync(FIXTURE, 'utf8').trim();
 const TURNO_REAL = '01a0b34b-2fab-7e23-a541-dfa2d3bf8444';
 const HORA = 60 * 60 * 1000;
+const SEM_CONTROLLER_NO_SANDBOX_EXTERNO = process.env.CODEX_SANDBOX_NETWORK_DISABLED
+  && process.env.ORK_TESTE_EXIGE_AMBIENTE !== '1'
+  ? 'sandbox externo do Codex não permite iniciar o controller; o CI hermético força esta prova'
+  : false;
 
 function inicioDoTurno(turnId: string): string {
   return JSON.stringify({ timestamp: '2026-09-18T06:54:04.000Z', type: 'event_msg', payload: { type: 'task_started', turn_id: turnId } }) + '\n';
@@ -143,7 +147,8 @@ test('A1 erro nativo do app-server: camelCase do turn.error, forma exata no stat
   assert.equal(erroNativoValido({ codigo: 'a b', mensagem: 'x' }), false);
 });
 
-test('A1 fim a fim: turno codex iniciado termina sem credito; o observador grava quota-exhausted, marca o perfil e o retry vai a fila', () => {
+test('A1 fim a fim: turno codex iniciado termina sem credito; o observador grava quota-exhausted, marca o perfil e o retry vai a fila',
+  { skip: SEM_CONTROLLER_NO_SANDBOX_EXTERNO }, () => {
   const p = projetoTemporario('cota-terminal');
   const f = controllerSimulado(p.dir, { cenario: 'sem-credito', fixture: FIXTURE });
   const codex = codexPorConta(p.dir, path.join(p.dir, 'fake-bin'));
@@ -197,7 +202,8 @@ test('A1 fim a fim: turno codex iniciado termina sem credito; o observador grava
   }
 });
 
-test('A1 RM-064 T3: turno codex que morre sem credito depois de commit retoma do commit, sem repetir trabalho', () => {
+test('A1 RM-064 T3: turno codex que morre sem credito depois de commit retoma do commit, sem repetir trabalho',
+  { skip: SEM_CONTROLLER_NO_SANDBOX_EXTERNO }, () => {
   const p = projetoTemporario('cota-terminal-producao');
   const f = controllerSimulado(p.dir, { cenario: 'sem-credito', fixture: FIXTURE });
   const codex = codexPorConta(p.dir, path.join(p.dir, 'fake-bin'));
@@ -310,7 +316,8 @@ function assegurarCheckpoint(raiz: string, dir: string, fase: 'GO', commit: stri
 for (const perfis of [true, false]) {
   for (const commit of [true, false]) {
     const rotulo = commit ? 'commit pelo shell antes da cota segue em checkpoint, sem repetir trabalho' : 'sem commit segue a politica (positivo)';
-    test(`N1 codex ${perfis ? 'com perfis x,y' : 'sem perfis'}: ${rotulo}`, () => {
+    test(`N1 codex ${perfis ? 'com perfis x,y' : 'sem perfis'}: ${rotulo}`,
+      { skip: SEM_CONTROLLER_NO_SANDBOX_EXTERNO }, () => {
       const p = projetoTemporario('cota-n1-codex');
       const f = controllerSimulado(p.dir, { cenario: commit ? 'sem-credito-commit' : 'sem-credito', fixture: FIXTURE });
       const codex = perfis ? codexPorConta(p.dir, path.join(p.dir, 'fake-bin')) : null;
@@ -370,7 +377,8 @@ for (const perfis of [true, false]) {
   }
 }
 
-test('N1 codex: registro antigo sem HEAD retoma por checkpoint, preservando a dúvida sem repetir a fase', () => {
+test('N1 codex: registro antigo sem HEAD retoma por checkpoint, preservando a dúvida sem repetir a fase',
+  { skip: SEM_CONTROLLER_NO_SANDBOX_EXTERNO }, () => {
   const p = projetoTemporario('cota-n1-sem-head');
   const f = controllerSimulado(p.dir, { cenario: 'sem-credito', fixture: FIXTURE });
   const codex = codexPorConta(p.dir, path.join(p.dir, 'fake-bin'));

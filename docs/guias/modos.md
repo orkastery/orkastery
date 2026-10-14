@@ -247,7 +247,8 @@ perfil de API paga. A troca por login perdido segue ligada por padrão. A troca 
 explícita do operador (`ork accounts`, `ork setup`) continua possível. A autorização segue a mesma regra do resto do retry: num bloco que pausa, a
 ação espera a resposta humana ao `ork gate request`; no `#Maestro` e no `#Auto`, o `ork` troca sozinho e grava
 `runtime_profile_rotated` com quem decidiu, a evidência e a razão. Estourar `retry.max_tentativas`
-pausa **qualquer** modo, inclusive o `#Auto`; produção parcial sob cota segue pelo checkpoint com
+pausa **qualquer** modo, inclusive o `#Auto`; a regra `producao parcial sob cota segue pelo checkpoint`
+retoma com
 fase, `HEAD`, estado da worktree, claims e rodada. Perfil não é eixo de independência do
 CHECK: dois perfis do mesmo runtime não viram dois avaliadores.
 
