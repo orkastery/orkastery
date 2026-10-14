@@ -1,0 +1,10 @@
+{
+  "contrato": "ork.roadmap-reserva/v1",
+  "item": "RM-065",
+  "por": "Paschoal Diniz",
+  "maquina": "dsk1",
+  "thread": "forja-gitlab",
+  "nota": "Suporte a GitLab com paridade ao GitHub, PR da branch forja/gitlab",
+  "desdeEm": "2026-10-14T15:56:41.622Z",
+  "atualizadaEm": "2026-10-14T15:56:41.622Z"
+}
