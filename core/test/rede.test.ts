@@ -18,8 +18,9 @@ import { exigirManifesto } from '../src/manifest';
 import { gravarConfigDaMaquina } from '../src/maquina';
 import { procurarSegredos } from '../src/policies';
 import { achadoDeSegredo, dirDoCache, entrarNaRede, exigirRetratoSeguro, exigirSoOProprioRetrato, normalizarRetrato, prepararCache, publicarRede,
-  publicarRedeNaBatida, retratoDaMaquina, sairDaRede, tirarTravaOrfa, urlDaCasaAceita } from '../src/rede';
+  publicarRedeNaBatida, retratoDaMaquina, resolverCasa, sairDaRede, tirarTravaOrfa, urlDaCasaAceita } from '../src/rede';
 import { adesaoDaRede, idDaMaquina, idDerivado, lerConfigDaRede, publicarRedeEmSegundoPlano, TETO_DE_TENTATIVA_MS, tomarVezDePublicar } from '../src/rede-adesao';
+import { NETWORK_EN, NETWORK_PT_BR } from '../src/locale-network';
 import { ehNomeDeProjeto, limparRemoto, projetosConhecidos } from '../src/rede-projetos';
 import { nomeSeguro } from '../src/rede';
 import { jsonDaRede, lerRede, SEM_BATIDA_MS, textoDaRede } from '../src/rede-status';
@@ -597,6 +598,31 @@ test('RM-053 migracao: evento de thread dispara a publicacao em segundo plano so
       assert.equal(publicarRedeEmSegundoPlano({ cli, env, diretorio: f.home }), false, 'segunda dentro do teto');
     });
   } finally { f.limpar(); fs.rmSync(ua, { recursive: true, force: true }); }
+});
+
+test('sem login e sem GITLAB_HOST: a mensagem diz gitlab.com e que o GitLab próprio exige GITLAB_HOST (pt-BR e en)', () => {
+  const f = forjaFalsa('sem-login-gitlab-proprio', { GLAB_FAKE_SEM_LOGIN: '1' });
+  const u = dirTemporario('rede-sem-login-gitlab-proprio');
+  try {
+    naMaquina(u, () => {
+      const amb = ligado(f, { GLAB_FAKE_SEM_LOGIN: '1' });
+      const lacuna = lerRede({ amb, maquina: 'pc-a' }).lacunas.find((l) => l.tipo === 'forja.sem-login')!;
+      assert.match(lacuna.detalhe, /glab sem login no gitlab\.com \(glab auth login\)/);
+      assert.match(lacuna.detalhe, /um GitLab proprio exige GITLAB_HOST=<host>/);
+      assert.ok(!/gh e glab sem login nesta maquina/.test(lacuna.detalhe), lacuna.detalhe);
+      const casa = resolverCasa({ amb, forja: 'gitlab' });
+      assert.equal(casa.motivo?.tipo, 'forja.sem-login');
+      assert.match(casa.motivo!.detalhe, /gitlab\.com/);
+      // Com GITLAB_HOST, o host dito e o do ambiente e nao ha dica de gitlab.com.
+      const proprio = resolverCasa({ amb: ligado(f, { GLAB_FAKE_SEM_LOGIN: '1', GITLAB_HOST: 'git.exemplo.com' }), forja: 'gitlab' });
+      assert.match(proprio.motivo!.detalhe, /glab sem login no git\.exemplo\.com/);
+      assert.ok(!/GITLAB_HOST=<host>/.test(proprio.motivo!.detalhe));
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+  const clis = [{ nome: 'gitlab', cli: 'glab', host: 'gitlab.com' }];
+  assert.equal(NETWORK_PT_BR.semLogin(clis), 'glab sem login no gitlab.com (glab auth login); um GitLab proprio exige GITLAB_HOST=<host>');
+  assert.equal(NETWORK_EN.semLogin(clis), 'glab without a login on gitlab.com (`glab auth login`); a self-hosted GitLab needs GITLAB_HOST=<host>');
+  assert.equal(NETWORK_PT_BR.semLogin([{ nome: 'github', cli: 'gh', host: 'github.com' }]), 'gh sem login nesta maquina (gh auth login)');
 });
 
 test('RM-053 honestidade: cada falta de leitura vira lacuna tipada, nunca lista vazia calada', () => {

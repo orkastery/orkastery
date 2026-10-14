@@ -75,7 +75,11 @@ export const NETWORK_PT_BR = {
   cliAusente: (forja: string) => `a CLI da forja ${forja} nao esta nesta maquina`,
   nenhumaCli: 'nenhuma CLI de forja (gh ou glab) nesta maquina',
   loginNaoLido: (falhas: string) => `${falhas}; o login nao foi lido, rode de novo com a forja respondendo`,
-  semLogin: (clis: readonly string[]) => `${clis.join(' e ')} sem login nesta maquina (${clis.map((c) => `${c} auth login`).join(' ou ')})`,
+  semLogin: (candidatas: readonly { nome: string; cli: string; host: string }[]) => {
+    const partes = candidatas.map((c) => (c.nome === 'gitlab' ? `${c.cli} sem login no ${c.host}` : `${c.cli} sem login nesta maquina`) + ` (${c.cli} auth login)`);
+    const noPadrao = candidatas.some((c) => c.nome === 'gitlab' && c.host === 'gitlab.com');
+    return partes.join('; ') + (noPadrao ? '; um GitLab proprio exige GITLAB_HOST=<host>' : '');
+  },
   respostaSemLogin: (cli: string) => `${cli} api user devolveu uma resposta sem login legivel`,
   semRespostaNoPrazo: 'sem resposta da forja no prazo',
   apiFalhou: (cli: string, rota: string, linha: string) => `rede.forja: ${cli} api ${rota} falhou${linha ? `: ${linha}` : ''}`,
@@ -213,7 +217,11 @@ export const NETWORK_EN: MensagensDeNetwork = {
   cliAusente: (forja) => `the ${forja} forge CLI is not on this machine`,
   nenhumaCli: 'no forge CLI (gh or glab) on this machine',
   loginNaoLido: (falhas) => `${falhas}; the login was not read, run again with the forge responding`,
-  semLogin: (clis) => `${clis.join(' and ')} without a login on this machine (${clis.map((c) => `\`${c} auth login\``).join(' or ')})`,
+  semLogin: (candidatas) => {
+    const partes = candidatas.map((c) => (c.nome === 'gitlab' ? `${c.cli} without a login on ${c.host}` : `${c.cli} without a login on this machine`) + ` (\`${c.cli} auth login\`)`);
+    const noPadrao = candidatas.some((c) => c.nome === 'gitlab' && c.host === 'gitlab.com');
+    return partes.join('; ') + (noPadrao ? '; a self-hosted GitLab needs GITLAB_HOST=<host>' : '');
+  },
   respostaSemLogin: (cli) => `${cli} api user returned a response without a readable login`,
   semRespostaNoPrazo: 'no answer from the forge in time',
   apiFalhou: (cli, rota, linha) => `rede.forja: ${cli} api ${rota} failed${linha ? `: ${linha}` : ''}`,

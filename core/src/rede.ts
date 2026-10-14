@@ -173,7 +173,7 @@ export function resolverCasa(opcoes: OpcoesDaCasa = {}): CasaResolvida {
       detalhe: textoDoCatalogo((m) => m.network.loginNaoLido(montarFalhas.map((f) => f(m)).join('; '))) } };
   }
   return { casa: null, forja: null, identidades, motivo: { tipo: 'forja.sem-login',
-    detalhe: textoDoCatalogo((m) => m.network.semLogin(candidatas.map((f) => f.cli))) } };
+    detalhe: textoDoCatalogo((m) => m.network.semLogin(candidatas)) } };
 }
 
 // ---------------------------------------------------------------------------
