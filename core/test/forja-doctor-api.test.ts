@@ -27,7 +27,7 @@ test('GitLab CE 19.2 gravado: CLI, login, servidor testada, escopo api, aviso da
     'nesta edição; a mensagem de merge padrão (Merge branch …) não começa por ship(<thread>)');
   const cap = linha(checks, 'forja capacidades')!;
   assert.equal(cap.nivel, 'warn');
-  assert.match(cap.detalhe, /^ligadas: estadoDeCi, metadados; desligadas \(o adaptador não implementa\): checksNoCommit, /);
+  assert.match(cap.detalhe, /^ligadas: estadoDeCi, metadados, pedidosAbertos; desligadas \(o adaptador não implementa\): checksNoCommit, /);
   assert.equal(checks.filter((c) => c.nivel === 'fail').length, 0);
   // Um `auth status` so: as chamadas da API reusam o login conferido.
   assert.equal(cli.chamadas.filter(login).length, 1);
