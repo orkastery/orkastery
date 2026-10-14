@@ -447,9 +447,11 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
    */
   registrarTool('ork_network_roadmap',{description:'Roadmap da rede do projeto servido, somente leitura: o status report do roadmap (RM-048) com as threads de TODAS as maquinas, as reservas, as threads por maquina com a idade da batida, a fonte e a hora de cada parte e as lacunas tipadas. E a fonte do status do roadmap: transporte o texto como vem, sem reescrever nem resumir. Lacuna e "Nao consultado" sao o que nao foi lido: nunca conclua "roadmap vazio" nem "nenhuma maquina publicou" a partir deles. Este servidor le so o projeto fixado; os outros projetos vem do CLI ork network roadmap.',
     inputSchema:z.object({}).strict(),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:true}},async () => {
-      carregar();
-      const panorama=montarPanoramaDaRede({fixado:raiz});
-      return resposta({texto:textoDoPanoramaDaRede(panorama),panorama});
+      const c=carregar();
+      // O panorama devolvido continua no contrato pt-BR; somente o texto humano segue o dono.
+      const panorama=comLocale('pt-BR',()=>montarPanoramaDaRede({fixado:raiz}));
+      const locale=resolverLocale(c.manifesto.owner?.language).locale;
+      return resposta({texto:comLocale(locale,()=>textoDoPanoramaDaRede(panorama)),panorama});
     });
   /**
    * RM-054 (fatia 3): as maquinas da pessoa (RM-053, `ork.rede-status/v1`), com a fonte, a batida e as
