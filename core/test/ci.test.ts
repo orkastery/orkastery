@@ -29,7 +29,7 @@ test('consulta exige sucesso do contexto e do SHA exatos', () => {
     assert.equal(got, sha);
     assert.equal(context, 'ork-verify');
     if (caminho?.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' };
-    return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'success', html_url: 'https://example.test/run/1' }] }) };
+    return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'success', html_url: 'https://example.test/run/1', app: { slug: 'github-actions' } }] }) };
   });
   assert.equal(success.ok, true);
   assert.equal(success.state, 'success');

@@ -103,7 +103,7 @@ test('defeito 5: repositorio declarado com check exige o CI verde no head do PR'
     const ci = (conclusion: string): ExecutorCi => ({ repository, sha, context, caminho }) => {
       assert.deepEqual([repository, sha, context], ['orkastery/orkastery.com', HEAD_PR, 'build']);
       if (caminho?.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' };
-      return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'build', status: 'completed', conclusion, html_url: 'https://ci.example/1' }] }) };
+      return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'build', status: 'completed', conclusion, html_url: 'https://ci.example/1', app: { slug: 'github-actions' } }] }) };
     };
     const vermelho = registrarEntregaExternaPorPr(p.carregado, t.id, { repositorio: 'orkastery/orkastery.com', pr: 6, executorGitHub: gh.executor, executorCi: ci('failure'), publicar: false });
     assert.equal(vermelho.acao, 'recusada');

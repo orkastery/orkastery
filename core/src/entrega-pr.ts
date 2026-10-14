@@ -11,6 +11,7 @@
  * head do PR. Sem CI verde, nao registra: merge sem prova independente nao e entrega.
  */
 import { exigirRemoto } from './branch-de-estado';
+import { produtoresAceitos } from './forja/produtor';
 import { ciNaoExigida, consultarCi, consultarCiDoRepositorio, ExecutorCi, ResultadoCi } from './ci';
 import { DocPendente, docsPendentesDoMerge } from './docs';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
@@ -228,7 +229,7 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
   }
 
   const check = declarados[repo];
-  const ci = check ? consultarCiDoRepositorio(repo, headSha, check, opcoes.executorCi) : null;
+  const ci = check ? consultarCiDoRepositorio(repo, headSha, check, opcoes.executorCi, 'github.com', produtoresAceitos(carregado.manifesto, 'github')) : null;
   if (ci && !ci.ok) {
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemCiVerde(remontar(ci.detail))), { mergeSha, headSha, ci });
   }

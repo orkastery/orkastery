@@ -131,7 +131,7 @@ test('remoto da linha de comando: nomes legitimos seguem (meu-remoto.2 no regist
     const ci = consultarCi(c.carregado, sha, 'Fork_1', ({ repository, caminho }) => {
       assert.equal(repository, 'Orkastery/orkastery');
       if (caminho?.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' };
-      return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'success' }] }) };
+      return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'success', app: { slug: 'github-actions' } }] }) };
     });
     assert.equal(ci.ok, true, ci.detail);
   } finally { c.limparTudo(); }

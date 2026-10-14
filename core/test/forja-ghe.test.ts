@@ -8,7 +8,7 @@ import type { SondasDaForja } from '../src/forja/resolver';
 /** Sem bloco `forja:`, o GHE e reconhecido pela sonda do gh com login; o glab nao tem login nele. */
 const SONDA_GHE: SondasDaForja = { github: () => 'responde', gitlab: () => 'sem-login' };
 
-const verde = JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'success' }] });
+const verde = JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'success', app: { slug: 'github-actions' } }] });
 
 function consultar(url: string) {
   const p = projetoTemporario('ci-ghe', false);

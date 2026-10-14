@@ -10,6 +10,7 @@ import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
 import { rodarCli } from './forja/executor';
 import { estadoDoCheck } from './forja/estado';
+import { PRODUTORES_PADRAO, produtorAceito, produtoresAceitos } from './forja/produtor';
 import type { CheckNoCommit } from './forja/contrato';
 import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { branchDaWorktree } from './worktree';
@@ -191,14 +192,16 @@ export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto =
   if (!alvo.ok) return falha(alvo.detalhe);
   // Fronteira de confianca: so o github.com e consultado sem pergunta; outro host so com login do `gh` nele.
   if (alvo.host !== 'github.com' && !loginNoHost(alvo.host)) return falha(textoDoCatalogo((m) => m.ship.ciHostSemLogin(alvo.host)));
-  return consultarCiDoRepositorio(alvo.repository, sha, context, executor, alvo.host);
+  return consultarCiDoRepositorio(alvo.repository, sha, context, executor, alvo.host, produtoresAceitos(carregado.manifesto, 'github'));
 }
 
 /**
  * O check `context` no `sha` de um repositorio GitHub ja resolvido: o do remoto do projeto ou, desde a
- * RM-037 (rm037defeito, defeito 5), um repositorio externo declarado em `ci.external_repositories`.
+ * RM-037 (rm037defeito, defeito 5), um repositorio externo declarado em `ci.external_repositories`. So produtor de
+ * `produtores` (`ci.produtor`) aprova.
  */
-export function consultarCiDoRepositorio(repository: string, sha: string, context: string, executor: ExecutorCi = executorPadrao, host = 'github.com'): ResultadoCi {
+export function consultarCiDoRepositorio(repository: string, sha: string, context: string, executor: ExecutorCi = executorPadrao, host = 'github.com',
+  produtores: readonly string[] = PRODUTORES_PADRAO.github): ResultadoCi {
   const base = { schema: 'ork.ci-status/v1' as const, required: true, provider: 'github' as const, repository, sha, context };
   const lido = exigirCapacidade(adaptadorDaForja('github'), 'checksNoCommit')({ repository, sha, context, executor, host });
   if (!lido.ok && lido.erro.codigo === 'forja.resposta-invalida') {
@@ -208,33 +211,33 @@ export function consultarCiDoRepositorio(repository: string, sha: string, contex
   if (!lido.ok) return { ...base, ok: false, state: 'unavailable', url: null, detail: detalheSeguro(lido.erro.detalhe || textoDoCatalogo((m) => m.ship.ciConsultaFalhou)) };
   if (!lido.valor.length) return { ...base, ok: false, state: 'missing', url: null, detail: textoDoCatalogo((m) => m.ship.ciSemCheck(context)) };
   const escolhidos = maisNovoPorProdutor(lido.valor);
-  // Commit status so endurece o gate: vermelho ou pendente bloqueia, mas verde sozinho nao basta. Qualquer um com
-  // escrita de status no repositorio publica `ork-verify: success` sem rodar o verify; enquanto nao houver lista de
-  // produtores confiaveis (`ci.produtor`), so check-run verde aprova.
-  const semCheckRunVerde = !escolhidos.some((c) => c.fonte === 'check-run' && estadoDoCheck(c.fonte, c.status, c.conclusao) === 'verde');
-  const statusSemProdutorConfiavel = (): ResultadoCi =>
-    ({ ...base, ok: false, state: 'missing', url: null, detail: textoDoCatalogo((m) => m.ship.ciStatusSemProdutorConfiavel(context)) });
-  if (escolhidos.length === 1) {
-    const check = escolhidos[0];
+  // So produtor da lista aprova: o verde de quem esta fora dela e descartado. Vermelho, pendente ou bloqueado de
+  // qualquer um continua contando: quem escreve status no repositorio pode atrasar o gate, nunca aprova-lo.
+  const contam = escolhidos.filter((c) => produtorAceito(c, produtores) || estadoDoCheck(c.fonte, c.status, c.conclusao) !== 'verde');
+  if (!contam.length) {
+    const descartados = escolhidos.map(nomeDoProdutor).join(', ');
+    return { ...base, ok: false, state: 'missing', url: null, detail: textoDoCatalogo((m) => escolhidos.every((c) => c.fonte === 'commit-status')
+      ? m.ship.ciStatusSemProdutorConfiavel(context) : m.ship.ciSemProdutorAceito(context, descartados, produtores.join(', '))) };
+  }
+  if (contam.length === 1) {
+    const check = contam[0];
     const status = check.status;
     const conclusion = check.conclusao ?? '';
     const estado = estadoDoCheck(check.fonte, status, check.conclusao);
     const state = estadoNoGate(estado);
-    if (state === 'success' && semCheckRunVerde) return statusSemProdutorConfiavel();
     return { ...base, ok: state === 'success', state, url: check.url || null, detail: textoDoCatalogo((m) => state === 'success' ? m.ship.ciVerde : estado === 'bloqueado' ? m.ship.ciBloqueado(context, conclusion) : m.ship.ciEstado(context, String(status), conclusion)) };
   }
   // Varios produtores: a combinacao e conservadora. Vermelho ou bloqueado de qualquer um reprova; senao, pendente
   // de qualquer um espera; so todos verdes passam.
-  const lidos = escolhidos.map((check) => {
+  const lidos = contam.map((check) => {
     const estado = estadoDoCheck(check.fonte, check.status, check.conclusao);
     return { check, estado, state: estadoNoGate(estado) };
   });
   const state: EstadoCi = lidos.some((l) => l.state === 'failure') ? 'failure' : lidos.some((l) => l.state === 'pending') ? 'pending' : 'success';
-  if (state === 'success' && semCheckRunVerde) return statusSemProdutorConfiavel();
   const decisivo = lidos.find((l) => l.state === state)!;
   // O estado do ork por produtor, com o motivo do bloqueio (spec 6.2: o motivo e mostrado).
-  const produtores = lidos.map((l) => `${nomeDoProdutor(l.check)} ${l.estado}${l.estado === 'bloqueado' ? ` (${l.check.conclusao ?? ''})` : ''}`).join(', ');
-  return { ...base, ok: state === 'success', state, url: decisivo.check.url || null, detail: textoDoCatalogo((m) => m.ship.ciProdutores(context, produtores)) };
+  const porProdutor = lidos.map((l) => `${nomeDoProdutor(l.check)} ${l.estado}${l.estado === 'bloqueado' ? ` (${l.check.conclusao ?? ''})` : ''}`).join(', ');
+  return { ...base, ok: state === 'success', state, url: decisivo.check.url || null, detail: textoDoCatalogo((m) => m.ship.ciProdutores(context, porProdutor)) };
 }
 
 function estadoNoGate(estado: ReturnType<typeof estadoDoCheck>): EstadoCi {
