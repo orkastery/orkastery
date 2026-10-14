@@ -1,4 +1,3 @@
-// core/test/forja-resolver.test.ts
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
@@ -140,4 +139,35 @@ test('sonda padrão do GitHub: confere o login, depois o /meta; em subcaminho ne
   const nada = cliFalsa([]);
   assert.equal(sondasPadrao(nada.rodar).github!({ ...alvo, caminhoBase: '/gitlab' }), 'nao-responde');
   assert.equal(nada.chamadas.length, 0);
+});
+
+test('o cache com tipo estranho ou JSON corrompido é ignorado, e a dúvida (ambígua) não é guardada', () => {
+  const cache = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-sonda-'));
+  const T0 = Date.parse('2026-10-13T12:00:00Z');
+  const chave = 'sondagem ghe.empresa.com:8443';
+  const com = (sondas: SondasDaForja) => resolverForja({ endereco: remoto('https://ghe.empresa.com:8443/o/r.git'), sondas, cache, agoraMs: T0 });
+  const arquivo = path.join(cache, 'forja.json');
+  try {
+    for (const tipo of ['bitbucket', 42, null, { x: 1 }]) {
+      fs.writeFileSync(arquivo, JSON.stringify({ [chave]: { tipo, lidoEm: new Date(T0).toISOString() } }));
+      let sondou = 0;
+      const r = com({ github: () => { sondou++; return 'nao-responde'; }, gitlab: () => 'responde' });
+      assert.ok(r.ok && r.valor.tipo === 'gitlab', String(tipo));
+      assert.equal(sondou, 1, String(tipo));
+    }
+    fs.writeFileSync(arquivo, '{ nao e json');
+    assert.ok(com({ github: () => 'nao-responde', gitlab: () => 'responde' }).ok);
+    assert.equal(JSON.parse(fs.readFileSync(arquivo, 'utf8'))[chave].tipo, 'gitlab');
+    fs.rmSync(arquivo);
+    const ambigua = com({ github: () => 'responde', gitlab: () => 'responde' });
+    assert.equal(!ambigua.ok && ambigua.erro.codigo, 'forja.ambigua');
+    assert.equal(fs.existsSync(arquivo), false);
+  } finally { fs.rmSync(cache, { recursive: true, force: true }); }
+});
+
+test('a porta declarada no manifesto tem origem manifesto', () => {
+  const r = resolver('https://h.empresa.com/o/r.git', { tipo: 'github', porta: 8443 });
+  assert.ok(r.ok);
+  assert.equal(r.valor.porta, 8443);
+  assert.equal(r.valor.origem.porta, 'manifesto');
 });

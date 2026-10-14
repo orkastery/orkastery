@@ -1,4 +1,3 @@
-// core/src/forja/cache.ts
 /**
  * O cache da forja: um arquivo JSON por raiz do estado (`.orkastery/cache/forja.json`) com o que vale 24 h, a versao do
  * servidor e o tipo sondado de um host. Arquivo ilegivel e entrada vencida (ou datada no futuro alem da folga do

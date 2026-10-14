@@ -1,4 +1,3 @@
-// core/src/forja/resolver.ts
 /**
  * A identidade da forja do projeto: o tipo, o endereco da web e da API, o SSH, a CA e o caminho do projeto. Nesta
  * ordem: o bloco `forja:` do manifesto; o host conhecido (`github.com`, `gitlab.com` e os apelidos de SSH deles); e a

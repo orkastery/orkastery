@@ -69,11 +69,34 @@ test('o login do glab é conferido uma vez por host no processo; o gh não confe
 });
 
 test('temLogin pergunta à CLI do tipo, com o host certo', () => {
-  const cli = cliFalsa([{ quando: login, responde: ok('') }]);
+  const cli = cliFalsa([{ quando: login, responde: ok('ghe.empresa.com:8443\n  \u2713 Logged in to ghe.empresa.com:8443 account u (keyring)\n') }]);
   assert.equal(temLogin({ ...GH, host: 'ghe.empresa.com', porta: 8443 }, cli.rodar), true);
   assert.deepEqual(cli.chamadas[0].args, ['auth', 'status']);
   assert.equal(cli.chamadas[0].acrescentar?.GH_HOST, 'ghe.empresa.com:8443');
   assert.equal(temLogin(GL, cliFalsa([{ quando: login, responde: falhou('not authenticated') }]).rodar), false);
+});
+
+test('gh com porta: o auth status ignora o GH_HOST, então só vale com o host:porta exato na saída', () => {
+  const GHE = { ...GH, host: 'ghe.empresa.com', porta: 8443 };
+  const com = (saida: string, status = 0) => temLogin(GHE, cliFalsa([{ quando: login, responde: { status, stdout: saida, stderr: '' } }]).rodar);
+  // Logado so no github.com: sai 0, mas nao e login no host consultado.
+  assert.equal(com('github.com\n  \u2713 Logged in to github.com account u (keyring)\n'), false);
+  assert.equal(com('\u2713 Logged in to github.com as u (keyring)\n'), false);
+  // Outra porta ou um host que so comeca igual tambem nao valem.
+  assert.equal(com('ghe.empresa.com\n  \u2713 Logged in to ghe.empresa.com account u\n'), false);
+  assert.equal(com('ghe.empresa.com:84430\n  \u2713 Logged in to ghe.empresa.com:84430 account u\n'), false);
+  assert.equal(com('xghe.empresa.com:8443\n  \u2713 Logged in to xghe.empresa.com:8443 account u\n'), false);
+  // Os dois formatos do gh.
+  assert.equal(com('ghe.empresa.com:8443\n  \u2713 Logged in to ghe.empresa.com:8443 account u (keyring)\n'), true);
+  assert.equal(com('\u2713 Logged in to ghe.empresa.com:8443 as u (keyring)\n'), true);
+  assert.equal(com('github.com\n  \u2713 Logged in to github.com account u\n\nghe.empresa.com:8443\n  \u2713 Logged in to ghe.empresa.com:8443 account u\n'), true);
+  // Lixo, vazio e login que falhou.
+  assert.equal(com('qualquer coisa'), false);
+  assert.equal(com(''), false);
+  assert.equal(com('ghe.empresa.com:8443\n  X Failed to log in to ghe.empresa.com:8443 account u\n'), false);
+  assert.equal(com('\u2713 Logged in to ghe.empresa.com:8443 as u', 1), false);
+  // Sem porta o --hostname ja decide pelo codigo de saida.
+  assert.equal(temLogin({ ...GHE, porta: null }, cliFalsa([{ quando: login, responde: ok('') }]).rodar), true);
 });
 
 test('o corpo da escrita vai pelo stdin, nunca pelo argv', () => {

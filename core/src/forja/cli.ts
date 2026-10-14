@@ -26,6 +26,8 @@ export interface CliDaForja {
   api(f: AlvoDaCli, metodo: string, caminho: string, comCorpo: boolean): string[];
   /** O argv que sai 0 so com login no host. */
   login(f: AlvoDaCli): string[];
+  /** Confere a saida do `login` alem do codigo: ausente, o codigo de saida basta. */
+  confirmaLogin?(f: AlvoDaCli, saida: string): boolean;
   /** O comando de login que a pessoa roda (o `ork` nunca o roda; o token vai pelo stdin dela). */
   entrar(f: AlvoDaCli, http: boolean): string[];
   /** A versao lida da saida de `--version`. */
@@ -52,6 +54,10 @@ export const CLI_DA_FORJA: Readonly<Record<TipoDeForja, CliDaForja>> = {
     api: (f, metodo, caminho, comCorpo) => ['api', ...hostnameDoGh(f), '-i', '--method', metodo,
       '-H', 'Accept: application/vnd.github+json', caminho, ...(comCorpo ? ['--input', '-'] : [])],
     login: (f) => ['auth', 'status', ...hostnameDoGh(f)],
+    // Com porta, o `auth status` roda sem `--hostname` e sai 0 se QUALQUER host tem login: so vale a linha de login
+    // do host:porta exato, nos dois formatos do gh (`Logged in to H as U` e `Logged in to H account U`).
+    confirmaLogin: (f, saida) => !comPorta(f)
+      || new RegExp(`Logged in to ${hostDaApi(f).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} (?:as|account) `).test(saida),
     entrar: (f) => (comPorta(f) ? [`GH_HOST=${hostDaApi(f)}`, 'gh', 'auth', 'login'] : ['gh', 'auth', 'login', '--hostname', f.host]),
     lerVersao: (s) => /^gh version (\d+\.\d+\.\d+)/m.exec(s)?.[1] ?? null,
   },

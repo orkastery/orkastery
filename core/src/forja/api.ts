@@ -42,11 +42,12 @@ const dormir = (ms: number): void => { Atomics.wait(new Int32Array(new SharedArr
 /** A chave do login: o host como a CLI o guarda, `host` ou `host:porta`, nunca com o caminho base. */
 export const chaveDoLogin = (f: AlvoDaCli): string => hostDaApi(f);
 
-/** A CLI do tipo tem login no host exato? So o codigo de saida e lido. */
+/** A CLI do tipo tem login no host exato? O codigo de saida, e a saida quando a CLI nao filtra o host sozinha. */
 export function temLogin(f: AlvoDaCli, rodar: RodarCli = rodarCli): boolean {
   const cli = CLI_DA_FORJA[f.tipo];
-  return rodar({ cmd: cli.cmd, args: cli.login(f), prazoMs: PRAZO_DO_LOGIN_MS, maxBuffer: 1024 * 1024, ...cli.ambiente(f),
-    cwd: os.tmpdir(), reduzido: true }).status === 0;
+  const s = rodar({ cmd: cli.cmd, args: cli.login(f), prazoMs: PRAZO_DO_LOGIN_MS, maxBuffer: 1024 * 1024, ...cli.ambiente(f),
+    cwd: os.tmpdir(), reduzido: true });
+  return s.status === 0 && (cli.confirmaLogin?.(f, `${s.stdout}\n${s.stderr}`) ?? true);
 }
 
 /** A saida de `-i`: `HTTP/x NNN texto`, os cabecalhos ate a linha vazia (CRLF ou LF) e o corpo. */
