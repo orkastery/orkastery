@@ -100,3 +100,19 @@ test('produtorAceito: slug do app, conta de app pelo slug, outra conta só com s
   assert.equal(produtorAceito({ fonte: 'pipeline-job', produtor: 'gitlab-ci' }, aceitos), true);
   assert.equal(produtorAceito({ fonte: 'pipeline-job', produtor: 'gitlab-ci' }, ['github-actions']), false);
 });
+
+test('forja.ssh_host fora da forma de host é erro do manifesto', () => {
+  for (const ssh of ['"ssh://ssh.empresa.com"', 'ssh.empresa.com:2222', '-oProxyCommand=x']) {
+    const c = ler('forja-ssh-host', { bloco: `forja:\n  ssh_host: ${ssh}` });
+    assert.ok(c.erros.some((e) => /^forja\.ssh_host /.test(e)), `${ssh}: ${c.erros.join(' | ')}`);
+  }
+});
+
+test('ci.produtor com entrada que não é texto ou com mais de 20 é erro', () => {
+  assert.ok(ler('produtor-numero', { ci: '  produtor: [42]' }).erros.some((e) => /^ci\.produtor/.test(e)));
+  assert.ok(ler('produtor-mapa', { ci: '  produtor:\n    - nome: x' }).erros.some((e) => /^ci\.produtor/.test(e)));
+  const vinteEUm = Array.from({ length: 21 }, (_, i) => `app-${i}`).join(', ');
+  assert.ok(ler('produtor-demais', { ci: `  produtor: [${vinteEUm}]` }).erros.some((e) => /^ci\.produtor deve ser uma lista de 1 a 20/.test(e)));
+  const vinte = Array.from({ length: 20 }, (_, i) => `app-${i}`).join(', ');
+  assert.deepEqual(ler('produtor-vinte', { ci: `  produtor: [${vinte}]` }).erros, []);
+});
