@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-14T09:15:02.379Z",
+  "publicadoEm": "2026-10-14T09:26:30.246Z",
   "threads": [
     {
       "id": "ork-rm058n3",
@@ -36,7 +36,7 @@
       "status": "aberta",
       "roadmap": "RM-061",
       "branch": "ork/ork-rm061f3c-full",
-      "atualizadaEm": "2026-10-14T09:14:47.901Z",
+      "atualizadaEm": "2026-10-14T09:20:14.684Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -54,23 +54,19 @@
       "id": "ork-rm064f1",
       "nome": "rm064f1",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-064",
       "branch": "ork/ork-rm064f1-full",
-      "atualizadaEm": "2026-10-14T08:23:58.399Z",
-      "entregue": null,
+      "atualizadaEm": "2026-10-14T09:26:29.856Z",
+      "entregue": "9975486e",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "codex",
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-14T08:31:21.221Z",
-        "motivo": "sessão 01a13956 encerrada (completed)"
-      }
+      "sessao": null
     },
     {
       "id": "ork-worktreebase",
@@ -89,9 +85,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-14T09:18:34.048Z",
+        "motivo": "sessão 01a1398b encerrada (completed)"
       }
     }
   ]
