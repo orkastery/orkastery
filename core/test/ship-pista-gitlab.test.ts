@@ -114,3 +114,47 @@ test('pista no GitLab: confere até 20 branches por chamada e as outras ficam se
     assert.equal(estados.filter((s) => s === 'nao-lida').length, 1);
   } finally { p.limpar(); }
 });
+
+test('pista no GitLab: a lista incompleta (x-next-page) deixa PR, CI e conflito sem leitura', () => {
+  const p = projetoTemporario('pista-gitlab-incompleta', true);
+  try {
+    const e = entregaPronta(p, 'incompleta');
+    const gl = gitlabFalso(() => e.head, { listaIncompleta: true });
+    const r = pistaDeEntrega(p.carregado, { forjaResolvida: GITLAB, api: gl.api, executorGh: SEM_GH,
+      ciDoHead: () => { throw new Error('consultou a CI sem MR'); } });
+    assert.equal(r.prsLidos, false);
+    assert.match(r.prsNaoLidos ?? '', /forja\.incompleto/);
+    const x = r.pistas.find((y) => y.thread === e.id)!;
+    assert.deepEqual(x.etapas.filter((y) => ['pr', 'ci', 'conflito'].includes(y.id)).map((y) => y.estado), ['nao-lida', 'nao-lida', 'nao-lida']);
+  } finally { p.limpar(); }
+});
+
+test('pista no GitLab: CI com job rodando e outro pulado fica pendente, nunca feita', () => {
+  const p = projetoTemporario('pista-gitlab-pendente-bloqueado', true);
+  try {
+    const carregado = comCiExigido(p.carregado);
+    const gl = gitlabFalso((b) => shaNoRemotoDeTeste(p.dir, 'origin', b));
+    const opcoes = { forjaResolvida: GITLAB, api: gl.api, executorGh: SEM_GH };
+    const e = entregaPronta(p, 'rodando e pulado');
+    assert.equal(publicarEntrega(carregado, e.id, opcoes).acao, 'publicou');
+    // Pendente com outro job bloqueado: o leitor da CI nao marca `bloqueado`.
+    const r = pistaDeEntrega(carregado, { ...opcoes, ciDoHead: (sha) => ci(sha, 'pending') });
+    assert.equal(r.pistas.find((x) => x.thread === e.id)!.etapas.find((x) => x.id === 'ci')?.estado, 'pendente');
+  } finally { p.limpar(); }
+});
+
+test('pista num remoto de host desconhecido sem bloco forja: a pista não sonda por conta própria, o caminho é o do GitHub', () => {
+  const p = projetoTemporario('pista-host-desconhecido', true);
+  try {
+    const e = entregaPronta(p, 'host desconhecido');
+    exec('git', ['remote', 'set-url', 'origin', 'https://git.desconhecido.example/grupo/app.git'], p.dir);
+    const chamadas = { github: 0, gitlab: 0 };
+    const sondas = { github: () => { chamadas.github++; return 'nao-responde' as const; }, gitlab: () => { chamadas.gitlab++; return 'nao-responde' as const; } };
+    const gh: ExecutorDoGh = () => ({ status: 1, stdout: '', stderr: 'sem gh no teste' });
+    const r = pistaDeEntrega(p.carregado, { executorGh: gh, sondas, ciDoHead: () => { throw new Error('consultou a CI'); } });
+    assert.equal(r.prsLidos, false);
+    // So a leitura dos PRs sonda (uma vez por forja): a pista nao resolve a forja antes por conta propria.
+    assert.ok(chamadas.github <= 1 && chamadas.gitlab <= 1, JSON.stringify(chamadas));
+    assert.ok(e.id && r.prsNaoLidos);
+  } finally { p.limpar(); }
+});

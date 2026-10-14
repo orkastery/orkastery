@@ -311,7 +311,9 @@ function decidirCi(base: BaseDaCi, checks: readonly CheckNoCommit[], produtores:
   const decisivo = lidos.find((l) => l.state === state)!;
   // O estado do ork por produtor, com o motivo do bloqueio.
   const porProdutor = lidos.map((l) => `${nomeDoProdutor(l.check)} ${l.estado}${l.estado === 'bloqueado' ? ` (${motivoDoBloqueio(l.check)})` : ''}`).join(', ');
-  const soBloqueados = state === 'failure' && lidos.filter((l) => l.state === 'failure').every((l) => l.estado === 'bloqueado');
+  // Bloqueado so quando todo check que conta e verde ou bloqueado: pendente ou vermelho de qualquer um desfaz a marca.
+  const soBloqueados = state === 'failure' && lidos.every((l) => l.estado === 'verde' || l.estado === 'bloqueado')
+    && lidos.some((l) => l.estado === 'bloqueado');
   return { ...base, fonte: decisivo.check.fonte, produtor: decisivo.check.produtor, ok: state === 'success', state, url: decisivo.check.url || null,
     ...(soBloqueados ? { bloqueado: true as const } : {}),
     detail: textoDoCatalogo((m) => m.ship.ciProdutores(context, porProdutor)) };

@@ -89,6 +89,8 @@ projeto, fora de qualquer `include:`; sem elas, a pipeline do MR pode não nasce
 
 No `ork ci status --json`, o contrato é `ork.ci-status/v2`: a v1 mais `provider` (`github`, `gitlab` ou `null`),
 `fonte` (`check-run`, `commit-status` ou `pipeline-job`) e `produtor`. Os leitores da v1 continuam aceitos.
+O campo opcional `bloqueado: true` aparece só quando todo check que não é verde está `manual` ou `skipped`; o gate
+continua reprovando (`state: failure`), e só a pista de `ork ship pista` mostra esse caso como verde, como o rollup do GitHub.
 
 ## Pulse no GitLab
 

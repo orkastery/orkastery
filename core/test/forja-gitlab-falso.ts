@@ -29,7 +29,7 @@ export interface MrFalso {
 export const metodoDe = (c: ChamadaDaCli): string => c.args[c.args.indexOf('--method') + 1];
 export const caminhoDe = (c: ChamadaDaCli): string => c.args[c.args.indexOf('--method') + 2];
 
-export function gitlabFalso(pontaDe: (branch: string) => string, opcoes: { listaFalha?: boolean; criaMasFalha?: boolean } = {}) {
+export function gitlabFalso(pontaDe: (branch: string) => string, opcoes: { listaFalha?: boolean; listaIncompleta?: boolean; criaMasFalha?: boolean } = {}) {
   const modelo = (gravado('gitlab/19.4/mr-list') as Record<string, unknown>[])[0];
   const mrs: MrFalso[] = [];
   const chamadas: ChamadaDaCli[] = [];
@@ -44,6 +44,7 @@ export function gitlabFalso(pontaDe: (branch: string) => string, opcoes: { lista
     const metodo = metodoDe(c), caminho = caminhoDe(c);
     if (metodo === 'GET' && caminho.startsWith(`${PROJETO}/merge_requests?`)) {
       if (opcoes.listaFalha) return http(502, { message: '502 Bad Gateway' });
+      if (opcoes.listaIncompleta) return http(200, [], { 'x-next-page': '2' });
       const branch = new URLSearchParams(caminho.slice(caminho.indexOf('?') + 1)).get('source_branch');
       return http(200, mrs.filter((m) => m.source_branch === branch).map(comoApi));
     }

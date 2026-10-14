@@ -199,3 +199,24 @@ test('o retrato marca bloqueado só quando nenhum check que reprovou está verme
   assert.equal(com('success').bloqueado, undefined);
   p.limpar();
 });
+
+test('o retrato com vários checks marca bloqueado só quando todos são verdes ou bloqueados', () => {
+  const p = projetoTemporario('ci-marca-bloqueado-multi', false);
+  ajustarManifesto(p, 'required_for_ship: false', 'required_for_ship: true');
+  p.carregado.manifesto.ci.required_for_ship = true;
+  exec('git', ['remote', 'add', 'origin', 'https://github.com/Orkastery/orkastery.git'], p.carregado.raiz);
+  const sha = shaDaBranch(p.carregado.raiz, 'main');
+  type Run = { app: string; status: string; conclusion: string | null };
+  const com = (runs: Run[]) => consultarCi(p.carregado, sha, 'origin', (e) => ({ ok: true, code: 0, stderr: '',
+    stdout: e.caminho?.includes('/statuses') ? '[]' : JSON.stringify({ check_runs: runs.map((r) => ({ name: 'ork-verify', status: r.status,
+      conclusion: r.conclusion, app: { slug: r.app } })) }) }));
+  const pulado: Run = { app: 'outro-app', status: 'completed', conclusion: 'skipped' };
+  const verde: Run = { app: 'github-actions', status: 'completed', conclusion: 'success' };
+  assert.equal(com([{ app: 'github-actions', status: 'in_progress', conclusion: null }, pulado]).bloqueado, undefined);
+  assert.equal(com([{ app: 'github-actions', status: 'completed', conclusion: 'failure' }, pulado]).bloqueado, undefined);
+  assert.equal(com([{ ...verde, app: 'nao-aceito' }, pulado]).bloqueado, true);
+  assert.equal(com([verde, pulado]).bloqueado, true);
+  assert.equal(com([verde, pulado]).state, 'failure');
+  assert.equal(com([pulado]).bloqueado, true);
+  p.limpar();
+});

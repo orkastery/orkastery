@@ -874,9 +874,11 @@ function etapaDaCiNoHead(ci: ResultadoCi, contexto: string, pr: PrDaForja): Etap
 function gitlabDaPista(carregado: ManifestoCarregado, remoto: string, opcoes: OpcoesDaPista): ForjaResolvida | { erro: ErroDaForja } | null {
   if (opcoes.forja) return null;
   if (opcoes.forjaResolvida) return opcoes.forjaResolvida.tipo === 'gitlab' ? opcoes.forjaResolvida : null;
+  // So o remoto que ja se sabe do GitLab, sem rede, passa pela resolucao; o resto segue pelo caminho do GitHub.
+  if (tipoSemRede(carregado, remoto) !== 'gitlab') return null;
   const r = forjaDaEntrega(carregado, remoto, opcoes.sondas);
   if (r.ok) return r.valor.tipo === 'gitlab' ? r.valor : null;
-  return r.erro && tipoSemRede(carregado, remoto) === 'gitlab' ? { erro: r.erro } : null;
+  return r.erro ? { erro: r.erro } : null;
 }
 
 /** O que a pista de uma thread diz, das leituras ja feitas. */
@@ -1029,7 +1031,7 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
     } else {
       const fixada = opcoes.forja ?? (opcoes.forjaResolvida?.tipo === 'github'
         ? { host: hostDaApi(opcoes.forjaResolvida), repositorio: opcoes.forjaResolvida.repo } : undefined);
-      const leitura = lerPrsDaForja(carregado, { quando: lidoEm, executor: opcoes.executorGh, remoto, candidatas, forja: fixada });
+      const leitura = lerPrsDaForja(carregado, { quando: lidoEm, executor: opcoes.executorGh, remoto, candidatas, forja: fixada, sondas: opcoes.sondas });
       if (leitura.ok) {
         prs = leitura.retrato.prs;
         parcial = leitura.retrato.parcial;

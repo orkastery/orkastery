@@ -8,6 +8,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **`ork ship pista` no GitLab**: a pista lê os MRs de cada branch candidata (até 20 por chamada) e a CI do head pelo mesmo
+  mapa do GitHub (`manual`/`skipped` contam como verde só na pista). O `ork.ci-status/v2` ganha o campo opcional
+  `bloqueado: true`, e o gate segue reprovando.
 - **Pulse e rede no GitLab**: o pulse lê os MRs da base em uma consulta GraphQL, com a pipeline do head e o job do
   check da CI (`ci.context`); a forja do pulse é resolvida pelo manifesto e pela CLI com login, nunca pelo nome do
   host; o retrato `ork.prs-abertos/v1` aceita subgrupos. A rede usa a API da CLI logada (host com porta por
