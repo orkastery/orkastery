@@ -147,7 +147,7 @@ test('CS8: sem perfil ativo em nenhum runtime, fila ate o menor prazo e retomada
   } finally { claude.restaurar(); f.restaurar(); p.limpar(); }
 });
 
-test('D11c fim a fim: observador destacado classifica a morte por cota; commit no intervalo vira human.pending sem rotacao', () => {
+test('RM-064 T3 fim a fim: observador classifica a cota e o commit segue em checkpoint sem human.pending', () => {
   const p = projetoTemporario('ciclo-producao');
   const claude = runtimePorConta('producao');
   try {
@@ -173,14 +173,17 @@ test('D11c fim a fim: observador destacado classifica a morte por cota; commit n
 
     const antes = lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').length;
     const retry = executarRetry(p.carregado, t.id);
-    assert.equal(retry.executada, false);
-    assert.match(retry.detalhe, /producao parcial sob cota esgotada/);
+    assert.equal(retry.executada, true, retry.detalhe);
     const eventos = lerLedger(dir);
-    assert.equal(eventos.filter(e => e.tipo === 'phase_dispatch').length, antes, 'nenhum redespacho sobre a worktree alterada');
-    assert.equal(eventos.some(e => e.tipo === 'runtime_profile_rotated'), false);
-    assert.equal(eventos.filter(e => e.tipo === 'gate_blocked').at(-1)?.motivo, 'human.pending');
-    assert.equal(claude.envs().filter(l => l.startsWith('--bg')).length, 1);
-    assert.ok(claude.envs().filter(l => l.startsWith('agents')).every(l => l === `agents ${contaA}`), 'observador pela conta A');
+    assert.equal(eventos.filter(e => e.tipo === 'phase_dispatch').length, antes + 1);
+    assert.equal(eventos.some(e => e.tipo === 'runtime_profile_rotated'), true);
+    assert.equal(eventos.some(e => e.tipo === 'gate_blocked' && e.motivo === 'human.pending'), false);
+    const retomada = eventos.filter(e => e.tipo === 'phase_dispatch').at(-1)!;
+    assert.equal(retomada.fase, 'GO');
+    assert.equal(retomada.promptOriginalSha256, r.promptSha256);
+    assert.notEqual(retomada.promptSha256, r.promptSha256);
+    assert.equal(claude.envs().filter(l => l.startsWith('--bg')).length, 2);
+    assert.ok(claude.envs().filter(l => l.startsWith('agents')).includes(`agents ${contaA}`), 'observador original pela conta A');
   } finally { p.limpar(); claude.restaurar(); }
 });
 
