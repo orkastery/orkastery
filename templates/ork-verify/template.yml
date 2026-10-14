@@ -17,7 +17,7 @@ spec:
       description: "A imagem do job, com Node 20 ou mais novo"
       default: node:22
     versao_do_ork:
-      description: "A versao do @orkastery/cli que roda o CHECK"
+      description: "A versao do @orkastery/cli que roda o CHECK (a que traz o suporte a GitLab e a proxima publicada, no minimo)"
       default: "0.5.6"
       regex: ^\d+\.\d+\.\d+$
 ---
@@ -31,4 +31,4 @@ spec:
     - if: $CI_COMMIT_BRANCH
   script:
     - npm install --global --no-audit --no-fund "@orkastery/cli@$[[ inputs.versao_do_ork ]]"
-    - ork ci run --branch "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_BRANCH}"
+    - ork ci run --branch "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_REF_NAME}"

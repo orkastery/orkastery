@@ -7,7 +7,7 @@ import { ambienteDeCi } from '../src/forja/ambiente-de-ci';
 const RAIZ = path.resolve(__dirname, '../../..');
 const MODELO = path.join(RAIZ, 'templates/gitlab/ork-verify.yml');
 const COMPONENTE = path.join(RAIZ, 'templates/ork-verify/template.yml');
-const RODAR = 'ork ci run --branch "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_BRANCH}"';
+const RODAR = 'ork ci run --branch "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_REF_NAME}"';
 const semComentario = (t: string) => t.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
 const PROIBIDOS = [/CI_JOB_TOKEN/, /\/statuses/, /allow_failure/, /PRIVATE-TOKEN/, /@latest/, /--force/];
 

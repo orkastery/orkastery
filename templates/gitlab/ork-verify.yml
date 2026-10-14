@@ -24,7 +24,8 @@ ork-verify:
   variables:
     # O bundle da thread e a comparacao com a base precisam do historico inteiro.
     GIT_DEPTH: "0"
-    # A versao do ork que roda o CHECK; suba junto com a do ork de quem conduz.
+    # A versao do ork que roda o CHECK (>= a que traz `ci run --branch`). O suporte a GitLab chega na proxima versao
+    # publicada: ate la, instale o tarball gerado do repositorio (npm pack em core/) no lugar do pacote do npm.
     ORK_VERSAO: "0.5.6"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -32,4 +33,4 @@ ork-verify:
   script:
     - npm install --global --no-audit --no-fund "@orkastery/cli@${ORK_VERSAO}"
     # A branch do MR (ou a do push): o ork acha o .ork-ci/<thread>.json da thread por ela.
-    - ork ci run --branch "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_BRANCH}"
+    - ork ci run --branch "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_REF_NAME}"
