@@ -2,6 +2,7 @@
 import { lerEnderecoDoRemoto } from './forja/endereco';
 import { detalheSeguro } from './forja';
 import { hostDaApi } from './forja/cli';
+import { RodarCli, temLogin } from './forja/api';
 import { resolverForja, SONDAS_PADRAO, SondasDaForja } from './forja/resolver';
 import { dirDoCacheDaForja } from './forja/cache';
 import { exigirRemoto } from './branch-de-estado';
@@ -141,11 +142,16 @@ function executorPadrao(input: { repository: string; sha: string; context: strin
   return { ok: r.status === 0, code: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
-/** O `gh` tem login no host (`gh auth status`)? So o github.com dispensa a pergunta. */
-function loginPadrao(host: string): boolean {
-  const h = hostDoGh(host);
-  return rodarCli({ cmd: 'gh', args: ['auth', 'status', ...h.args], prazoMs: 30000, maxBuffer: 1024 * 1024, acrescentar: h.acrescentar }).status === 0;
+/**
+ * O `gh` tem login no host exato (`host` ou `host:porta`)? So o github.com dispensa a pergunta. Com porta o
+ * `auth status` roda sem `--hostname` e sai 0 se QUALQUER host tem login: o `temLogin` confere a linha do host exato.
+ */
+export function loginDoGh(host: string, rodar?: RodarCli): boolean {
+  const m = /^(.+?)(?::(\d+))?$/.exec(host);
+  return temLogin({ tipo: 'github', host: m ? m[1] : host, porta: m?.[2] ? Number(m[2]) : null, caminhoBase: '', ca: null }, rodar);
 }
+
+const loginPadrao = (host: string): boolean => loginDoGh(host);
 
 /**
  * O repositorio e o host da API saem de UM parse do remoto (`lerEnderecoDoRemoto`) e da forja resolvida (o bloco

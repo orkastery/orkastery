@@ -166,8 +166,29 @@ test('o cache com tipo estranho ou JSON corrompido é ignorado, e a dúvida (amb
 });
 
 test('a porta declarada no manifesto tem origem manifesto', () => {
-  const r = resolver('https://h.empresa.com/o/r.git', { tipo: 'github', porta: 8443 });
+  const r = resolver('https://h.empresa.com:8443/o/r.git', { tipo: 'github', porta: 8443 });
   assert.ok(r.ok);
   assert.equal(r.valor.porta, 8443);
   assert.equal(r.valor.origem.porta, 'manifesto');
+});
+
+test('o manifesto não desvia o gate: host conhecido, porta do remoto e SSH declarado', () => {
+  const divergente = (url: string, m: NonNullable<Parameters<typeof resolverForja>[0]['manifesto']>) => {
+    const r = resolver(url, m);
+    assert.equal(!r.ok && r.erro.codigo, 'forja.remoto-divergente', `${url} ${JSON.stringify(m)}`);
+  };
+  divergente('https://github.com/o/r.git', { tipo: 'github', host: 'ghe.evil.com', ssh_host: 'github.com' });
+  divergente('git@github.com:o/r.git', { tipo: 'github', host: 'ghe.evil.com', ssh_host: 'github.com' });
+  divergente('https://ghe.empresa.com:8443/o/r.git', { tipo: 'github', host: 'ghe.empresa.com', porta: 9443 });
+  divergente('https://github.com/o/r.git', { tipo: 'github', porta: 8443 });
+  divergente('https://ghe.empresa.com/o/r.git', { tipo: 'github', host: 'ghe.empresa.com', porta: 8443 });
+  divergente('git@git.empresa.com:o/r.git', { tipo: 'github', host: 'ghe.evil.com' });
+});
+
+test('o SSH em outro host vale pelo ssh_host: a API é o host da web declarado', () => {
+  const r = resolver('git@ssh.empresa.com:o/r.git', { tipo: 'github', host: 'git.empresa.com', ssh_host: 'ssh.empresa.com' });
+  assert.ok(r.ok);
+  assert.deepEqual([r.valor.host, r.valor.sshHost, r.valor.porta], ['git.empresa.com', 'ssh.empresa.com', null]);
+  const web = resolver('https://ghe.empresa.com:8443/o/r.git', { tipo: 'github', host: 'ghe.empresa.com', porta: 8443 });
+  assert.ok(web.ok && web.valor.porta === 8443);
 });

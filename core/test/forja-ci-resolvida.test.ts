@@ -6,6 +6,8 @@ import { consultarCi } from '../src/ci';
 import type { SondasDaForja } from '../src/forja/resolver';
 import { exigirManifesto } from '../src/manifest';
 import { exec } from '../src/util';
+import { loginDoGh } from '../src/ci';
+import { cliFalsa, login, ok } from './forja-cli-falsa';
 import { projetoTemporario, shaDaBranch } from './apoio';
 
 const VERDE = JSON.stringify({ check_runs: [{ id: 1, name: 'ork-verify', status: 'completed', conclusion: 'success',
@@ -83,4 +85,20 @@ test('github.com continua sem sondar e sem perguntar o login', () => {
   const { r } = consultar('git@github.com:o/r.git', { login: (h) => { perguntados.push(h); return false; } });
   assert.equal(r.state, 'success', r.detail);
   assert.deepEqual(perguntados, []);
+});
+
+test('login com porta: o login do github.com não vale para o GHE com porta, e a CI não é consultada', () => {
+  const soGithub = cliFalsa([{ quando: login, responde: ok('github.com\n  \u2713 Logged in to github.com account u (keyring)\n') }]);
+  const { r, chamadas } = consultar('https://ghe.empresa.com:8443/o/r.git', { login: (h) => loginDoGh(h, soGithub.rodar), sondas: { github: () => 'responde', gitlab: () => 'sem-login' } });
+  assert.equal(r.state, 'unavailable');
+  assert.match(r.detail, /ghe\.empresa\.com:8443/);
+  assert.deepEqual(chamadas, []);
+});
+
+test('login com porta: a linha do host:porta exato libera a consulta', () => {
+  const ghe = cliFalsa([{ quando: login, responde: ok('ghe.empresa.com:8443\n  \u2713 Logged in to ghe.empresa.com:8443 account u (keyring)\n') }]);
+  const { r, chamadas } = consultar('https://ghe.empresa.com:8443/o/r.git', { login: (h) => loginDoGh(h, ghe.rodar), sondas: { github: () => 'responde', gitlab: () => 'sem-login' } });
+  assert.equal(r.state, 'success', r.detail);
+  assert.equal(chamadas[0].host, 'ghe.empresa.com:8443');
+  assert.equal(ghe.chamadas[0].acrescentar?.GH_HOST, 'ghe.empresa.com:8443');
 });

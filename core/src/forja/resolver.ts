@@ -70,13 +70,21 @@ export function resolverForja(e: EntradaDoResolver): Resultado<ForjaResolvida> {
   const m = e.manifesto ?? {};
   const r = e.endereco;
   const web = r.protocolo === 'https' || r.protocolo === 'http';
-  const hostDoRemoto = hostConhecido(r.host)?.host ?? r.host;
+  const ssh = r.protocolo === 'ssh' || r.protocolo === 'scp' || r.protocolo === 'git';
+  const conhecidoDoRemoto = hostConhecido(r.host);
+  const hostDoRemoto = conhecidoDoRemoto?.host ?? r.host;
   const declarado = m.host ? (hostConhecido(m.host)?.host ?? m.host) : null;
-  const host = declarado ?? hostDoRemoto;
-  // Com o host declarado, o remoto aponta para ele ou para o SSH declarado; outro host nunca e consultado.
-  if (declarado) {
-    const aceitos = [declarado, ...(m.ssh_host ? [m.ssh_host] : [])];
-    if (!aceitos.includes(r.host) && !aceitos.includes(hostDoRemoto)) return erro('forja.remoto-divergente', `${r.host} != ${declarado}`);
+  const portaPadrao = r.protocolo === 'http' ? 80 : 443;
+  const portaDoRemoto = web && !conhecidoDoRemoto && r.porta !== null && r.porta !== portaPadrao ? r.porta : null;
+  // O host da API sai do remoto: o manifesto so o confirma, nunca o troca. A unica troca e a do SSH declarado
+  // (`ssh_host`), em que o remoto nomeia o host do SSH e o manifesto, o da web.
+  const dividido = ssh && !conhecidoDoRemoto && !!m.ssh_host && r.host === m.ssh_host;
+  if (declarado && !dividido && declarado !== hostDoRemoto) return erro('forja.remoto-divergente', `${r.host} != ${declarado}`);
+  const host = dividido ? (declarado ?? r.host) : hostDoRemoto;
+  if (m.porta !== undefined && !dividido) {
+    // A porta do remoto SSH e a do SSH, nao a da API: so um remoto web ou um host conhecido restringe a porta.
+    const exigida = conhecidoDoRemoto ? null : web ? portaDoRemoto : m.porta;
+    if (m.porta !== exigida) return erro('forja.remoto-divergente', `${host}: porta ${m.porta} != ${exigida ?? 'padrao'}`);
   }
   const caminhoBase = m.caminho_base ?? '';
   let repo = r.caminho;
@@ -87,10 +95,7 @@ export function resolverForja(e: EntradaDoResolver): Resultado<ForjaResolvida> {
     }
     repo = repo.slice(prefixo.length);
   }
-  const portaPadrao = r.protocolo === 'http' ? 80 : 443;
-  const portaDoRemoto = web && hostDoRemoto === host && r.porta !== null && r.porta !== portaPadrao ? r.porta : null;
   const porta = m.porta ?? portaDoRemoto;
-  const ssh = r.protocolo === 'ssh' || r.protocolo === 'scp';
   const valor = {
     host, porta, caminhoBase,
     sshHost: m.ssh_host ?? (ssh && r.host !== host ? r.host : null),
