@@ -107,7 +107,9 @@ test('forja-https: o -c zera os helpers, fixa um so pela origem e liga a CA', ()
   assert.deepEqual(configDeRede(fixHttps('/usr/bin/glab', { arquivo: '/etc/pki/e.pem', sha256: '0'.repeat(64) }), '/x'), [
     '-c', 'credential.helper=', '-c', 'credential.https://gitlab.empresa.com:8929.helper=!/usr/bin/glab auth git-credential',
     '-c', 'credential.https://gitlab.empresa.com:8929.useHttpPath=false', '-c', 'http.sslVerify=true',
-    '-c', 'http.https://gitlab.empresa.com:8929.sslCAInfo=/etc/pki/e.pem']);
+    '-c', `http.${URL_HTTPS}.sslVerify=true`, '-c', `http.${URL_HTTPS}.proxy=`, '-c', `http.${URL_HTTPS}.extraHeader=`,
+    '-c', `http.${URL_HTTPS}.sslCAInfo=/etc/pki/e.pem`]);
+  assert.throws(() => configDeRede({ ...fixHttps('/usr/bin/glab'), url: 'https://outro.empresa.com:8929/g/p.git' }, '/x'), /https\.divergente/);
   assert.equal(configDeRede(fixHttps("/opt/c'li/glab"), '/x')[3],
     `credential.https://gitlab.empresa.com:8929.helper=!'/opt/c'\\''li/glab' auth git-credential`);
 });
@@ -261,4 +263,38 @@ test('forja-https: nenhum token no -c nem no ambiente do worker', () => {
   const env = { GH_TOKEN: 'gh-SEGREDO', GITLAB_TOKEN: 'gl-SEGREDO', GIT_ASKPASS: '/bin/pergunta', DBUS_SESSION_BUS_ADDRESS: 'unix:x' };
   const tudo = JSON.stringify([configDeRede(fixHttps('/usr/bin/glab'), '/x'), ambienteDoTransporte('forja-https', env)]);
   assert.ok(!/SEGREDO|pergunta/.test(tudo), tudo);
+});
+
+test('forja-https: nenhuma regra http.<url> do ~/.gitconfig vence o -c fixado (TLS, CA, proxy, cabecalho extra)', () => {
+  const dir = dirTemporario('https-urlmatch'), home = path.join(dir, 'home');
+  try {
+    fs.mkdirSync(home);
+    const regras = (url: string, n: number) => `[http "${url}"]\n\tsslVerify = false\n\tsslCAInfo = /falsa/ca-${n}.pem\n` +
+      `\tproxy = http://127.0.0.1:${9000 + n}\n\textraHeader = X-Regra-${n}: 1\n`;
+    fs.writeFileSync(path.join(home, '.gitconfig'), regras('https://gitlab.empresa.com:8929/', 1) + regras('https://gitlab.empresa.com:8929/g/', 2) +
+      regras(URL_HTTPS, 3) + '[http]\n\tsslVerify = false\n');
+    const env = { HOME: home, PATH: '/usr/bin:/bin', GIT_CONFIG_NOSYSTEM: '1' };
+    const ler = (c: string[], chave: string) => spawnSync('git', [...c, 'config', '--get-urlmatch', `http.${chave}`, URL_HTTPS],
+      { encoding: 'utf8', env }).stdout.trim();
+    assert.equal(ler([], 'sslVerify'), 'false');
+    assert.equal(ler([], 'proxy'), 'http://127.0.0.1:9003');
+    const c = configDeRede(fixHttps('/usr/bin/glab', { arquivo: '/etc/pki/e.pem', sha256: '0'.repeat(64) }), dir);
+    assert.equal(ler(c, 'sslVerify'), 'true');
+    assert.equal(ler(c, 'sslCAInfo'), '/etc/pki/e.pem');
+    assert.equal(ler(c, 'proxy'), '');
+    assert.equal(ler(c, 'extraHeader'), '');
+    const tudo = spawnSync('git', [...c, 'config', '--get-urlmatch', 'http', URL_HTTPS], { encoding: 'utf8', env }).stdout;
+    assert.ok(!/X-Regra|127\.0\.0\.1|falsa|sslverify false/.test(tudo), tudo);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('forja-ssh: senha ou token na URL recusa sem ecoar o segredo; so o usuario passa', () => {
+  const segredo = 'SEGREDO-SSH-DO-TESTE';
+  for (const url of [`ssh://git:${segredo}@gitlab.empresa.com:2222/g/p.git`, `git:${segredo}@gitlab.empresa.com:g/p.git`,
+    `ssh+git://u:${segredo}@gitlab.empresa.com/g/p.git`]) {
+    assert.throws(() => enderecoDoOrigin('forja-ssh', url), (e: Error) =>
+      /mcp\.ship\.transport\.ssh\.credencial-na-url: /.test(e.message) && !e.message.includes(segredo), url);
+  }
+  assert.throws(() => enderecoDoOrigin('forja-ssh', 'ssh://git@gitlab.empresa.com/g/a:b@c'), /transport\.urls: /);
+  assert.equal(enderecoDoOrigin('forja-ssh', 'git@gitlab.empresa.com:g/p.git').porta, 22);
 });

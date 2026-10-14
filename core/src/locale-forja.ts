@@ -118,6 +118,7 @@ export const FORJA_PT_BR = {
           case 'mcp.ship.transport.ssh.impressao-divergente': return `a impressão dita não é de nenhuma chave que o servidor apresentou (${d}); não instale até saber por quê`;
           case 'mcp.ship.transport.ssh.caminho': return `o known_hosts fixado precisa de caminho absoluto sem espaço nem caractere especial (${d})`;
           case 'mcp.ship.transport.ssh.known-hosts-alterado': return `o known_hosts fixado mudou depois da instalação (${d}); reinstale o MCP`;
+          case 'mcp.ship.transport.ssh.credencial-na-url': return `o ${d} leva senha ou token na URL SSH; tire-os com git remote set-url origin ssh://<usuário>@<host>/<caminho>.git`;
           case 'mcp.ship.transport.https.sem-tls': return `HTTP sem TLS levaria a credencial em claro; use https:// no origin (${d})`;
           case 'mcp.ship.transport.https.credencial-na-url': return `o ${d} leva usuário ou token na URL; tire-os com git remote set-url origin https://<host>/<caminho>.git`;
           case 'mcp.ship.transport.https.divergente': return `o origin e a forja resolvida apontam HTTPS diferente (${d}); acerte forja.host e forja.porta ou a URL do origin`;
@@ -254,6 +255,7 @@ export const FORJA_EN: MensagensDeForja = {
           case 'mcp.ship.transport.ssh.impressao-divergente': return `the given fingerprint matches no key the server offered (${d}); do not install until you know why`;
           case 'mcp.ship.transport.ssh.caminho': return `the pinned known_hosts needs an absolute path without spaces or special characters (${d})`;
           case 'mcp.ship.transport.ssh.known-hosts-alterado': return `the pinned known_hosts changed after the install (${d}); reinstall the MCP`;
+          case 'mcp.ship.transport.ssh.credencial-na-url': return `${d} carries a password or token in the SSH URL; remove them with git remote set-url origin ssh://<user>@<host>/<path>.git`;
           case 'mcp.ship.transport.https.sem-tls': return `HTTP without TLS would send the credential in clear text; use https:// in origin (${d})`;
           case 'mcp.ship.transport.https.credencial-na-url': return `${d} carries a user or token in the URL; remove them with git remote set-url origin https://<host>/<path>.git`;
           case 'mcp.ship.transport.https.divergente': return `origin and the resolved forge point to different HTTPS (${d}); fix forja.host and forja.porta or the origin URL`;

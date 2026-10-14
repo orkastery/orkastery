@@ -26,7 +26,7 @@ export const URL_GITHUB_SSH = /^git@github\.com:[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-
 /** Cada recusa dos transportes fixados; todas tem a frase no catalogo (`transporteShip.recusa`). */
 export const RECUSAS_DO_TRANSPORTE = ['urls', 'modo', 'forja', 'ssh.divergente', 'ssh.sem-resposta', 'ssh.revogada',
   'ssh.nao-confirmada', 'ssh.impressao-divergente', 'ssh.caminho', 'ssh.known-hosts-alterado', 'https.sem-tls',
-  'https.credencial-na-url', 'https.divergente', 'sem-cli', 'sem-helper', 'sem-login', 'binario', 'ca', 'ca-alterada',
+  'ssh.credencial-na-url', 'https.credencial-na-url', 'https.divergente', 'sem-cli', 'sem-helper', 'sem-login', 'binario', 'ca', 'ca-alterada',
   'fixacao-ausente', 'fixacao-insegura', 'fixacao-divergente'] as const;
 export type RecusaDoTransporte = (typeof RECUSAS_DO_TRANSPORTE)[number];
 
@@ -64,8 +64,18 @@ export type EnderecoDoTransporte = { transporte: 'forja-ssh'; host: string; port
 /**
  * O que o origin diz ao transporte, de um parse so (`lerEnderecoDoRemoto`). `forja-ssh`: `ssh://` ou a forma scp,
  * porta 22 quando nao vem. `forja-https`: so `https://`, sem usuario nem token na URL; `http://` levaria a
- * credencial em claro. O detalhe nunca leva a URL com credencial.
+ * credencial em claro. Nos dois, senha ou token na URL recusa. O detalhe nunca leva a URL com credencial.
  */
+/**
+ * Senha ou token na parte de usuario (`user:segredo@`), antes do primeiro `/` do endereco: `ssh://u:s@h/…` ou
+ * `u:s@h:caminho`. O usuario sozinho (`git@`) passa.
+ */
+function senhaNaUrl(bruta: string): boolean {
+  const resto = bruta.replace(/^[a-z][a-z0-9+.-]*:\/\//i, ''), barra = resto.indexOf('/');
+  const autoridade = barra < 0 ? resto : resto.slice(0, barra), arroba = autoridade.lastIndexOf('@');
+  return arroba >= 0 && autoridade.slice(0, arroba).includes(':');
+}
+
 export function enderecoDoOrigin(transporte: TransporteFixado, url: string): EnderecoDoTransporte {
   const bruta = url.trim(), seguro = (): string => redigirCredenciaisUrl(bruta);
   if (transporte === 'forja-https') {
@@ -76,6 +86,7 @@ export function enderecoDoOrigin(transporte: TransporteFixado, url: string): End
       if (comCredencial || /^https:\/\/[^/]*@/i.test(bruta)) return recusar('https.credencial-na-url', 'origin');
     }
   }
+  if (transporte === 'forja-ssh' && senhaNaUrl(bruta)) return recusar('ssh.credencial-na-url', 'origin');
   const e = lerEnderecoDoRemoto(bruta);
   if (!e) return recusar(path.isAbsolute(bruta) ? 'modo' : 'urls', path.isAbsolute(bruta) ? 'bare-local' : seguro());
   if (transporte === 'forja-ssh') {
@@ -195,12 +206,24 @@ export type FixacaoDoTransporte = FixacaoSsh | FixacaoHttps;
 export interface FixacaoPreparada { fixacao: FixacaoDoTransporte; knownHosts?: string }
 export interface FixacaoLida { fixacao: FixacaoDoTransporte; dir: string }
 
-/** O `-c` que o push e o `ls-remote` do SHIP levam. Nada de token: so o comando do ssh, o helper e a CA. */
+/**
+ * O `-c` que o push e o `ls-remote` do SHIP levam. Nada de token: so o comando do ssh, o helper e a CA.
+ *
+ * No HTTPS, o git escolhe cada `http.*` pela regra de URL mais especifica (host, depois o caminho mais longo), e o
+ * `-c` vem por ultimo: so a URL exata do origin garante que nenhuma regra `http.<url>.*` do `~/.gitconfig` vence.
+ * Nela, o TLS fica ligado, o proxy sai (vazio desliga, inclusive o do ambiente), a lista de cabecalhos extras e
+ * zerada (vazio limpa o que veio antes) e a CA fixada entra. O certificado de cliente (`sslCert`, `sslKey`) fica com a
+ * config da pessoa: nao afrouxa a verificacao do servidor. A credencial casa sem o caminho (`useHttpPath`), pela origem.
+ */
 export function configDeRede(fix: FixacaoDoTransporte, dir: string): string[] {
   if (fix.transporte === 'forja-ssh') return ['-c', `core.sshCommand=${comandoSsh(path.join(dir, 'known_hosts'))}`, '-c', 'ssh.variant=ssh'];
+  const e = enderecoDoOrigin('forja-https', fix.url);
+  if (e.transporte !== 'forja-https' || e.origem !== fix.origem) return recusar('https.divergente', fix.origem);
+  const url = fix.url;
   return ['-c', 'credential.helper=', '-c', `credential.${fix.origem}.helper=${helperDeCredencialDaCli(fix.binario)}`,
     '-c', `credential.${fix.origem}.useHttpPath=${fix.caminho}`, '-c', 'http.sslVerify=true',
-    ...(fix.ca ? ['-c', `http.${fix.origem}.sslCAInfo=${fix.ca.arquivo}`] : [])];
+    '-c', `http.${url}.sslVerify=true`, '-c', `http.${url}.proxy=`, '-c', `http.${url}.extraHeader=`,
+    ...(fix.ca ? ['-c', `http.${url}.sslCAInfo=${fix.ca.arquivo}`] : [])];
 }
 
 /**
