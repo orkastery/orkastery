@@ -14,11 +14,11 @@ import type { CodigoDeErroDaForja, Resultado } from '../contrato';
 import { estadoDoCheck } from '../estado';
 import { deFora } from '../texto';
 import { CONSULTA_DOS_ABERTOS_SEGUINTES, CONSULTA_DOS_PEDIDOS } from './consultas';
+import { ESTADOS_DO_MR } from './pedidos';
 
 type Json = Record<string, unknown>;
 const obj = (v: unknown): v is Json => !!v && typeof v === 'object' && !Array.isArray(v);
 const SHA = /^[0-9a-f]{40}$/, BRANCH = /^[A-Za-z0-9._/-]{1,200}$/, IID = /^[1-9]\d{0,9}$/;
-const ESTADOS: Readonly<Record<string, PrDaForja['estado']>> = { opened: 'aberto', merged: 'mesclado', closed: 'fechado', locked: 'fechado' };
 
 class ForaDoFormato extends Error {}
 
@@ -58,7 +58,7 @@ function checksDoAberto(no: Json, head: string, check: string): CheckDoPr[] {
 /** Um MR da resposta, ou `null` quando nao e desta base nem deste projeto (fork). Formato errado lanca. */
 function pedidoDoGitlab(bruto: unknown, base: string, projeto: number, comChecks: boolean, check: string): PrDaForja | null {
   if (!obj(bruto)) throw new ForaDoFormato('MR');
-  const estado = ESTADOS[String(bruto.state)];
+  const estado = ESTADOS_DO_MR[String(bruto.state)];
   if (typeof bruto.iid !== 'string' || !IID.test(bruto.iid) || !estado || typeof bruto.draft !== 'boolean' ||
       typeof bruto.sourceProjectId !== 'number') throw new ForaDoFormato('MR');
   if (bruto.sourceProjectId !== projeto || bruto.targetBranch !== base || typeof bruto.sourceBranch !== 'string' ||

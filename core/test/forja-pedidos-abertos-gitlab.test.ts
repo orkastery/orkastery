@@ -196,3 +196,11 @@ test('resposta com data e errors juntos: resposta invalida, nunca o data parcial
   assert.equal(!r.ok && r.erro.codigo, 'forja.resposta-invalida');
   assert.match(!r.ok ? r.erro.detalhe : '', /Timeout/);
 });
+
+test('MR locked (o merge em curso) é aberto no pulse, como na lista da branch, nunca fechado sem merge', () => {
+  const corpo = copia(gravado('gitlab/19.4/mr-abertos') as Corpo);
+  (corpo.data.project.abertos.nodes as No[]).find((n) => n.iid === '1')!.state = 'locked';
+  const { r } = ler([http(200, corpo)]);
+  assert.ok(r.ok);
+  assert.equal(r.valor.prs.find((p) => p.numero === 1)!.estado, 'aberto');
+});

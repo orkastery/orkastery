@@ -13,8 +13,8 @@ const SHA = /^[0-9a-f]{40}$/, BRANCH = /^[A-Za-z0-9._/-]{1,200}$/;
 /** O projeto na API: o caminho completo codificado (`projects/grupo%2Fsub%2Fprojeto`). */
 export const projetoNaApi = (repo: string): string => `projects/${encodeURIComponent(repo)}`;
 
-/** `locked` e o merge em curso: o MR ainda nao entrou na base. */
-const ESTADOS: Readonly<Record<string, PrDaForja['estado'] | undefined>> = { opened: 'aberto', locked: 'aberto', merged: 'mesclado', closed: 'fechado' };
+/** O estado do MR, no REST e no GraphQL. `locked` e o merge em curso: o MR ainda nao entrou na base. */
+export const ESTADOS_DO_MR: Readonly<Record<string, PrDaForja['estado'] | undefined>> = { opened: 'aberto', locked: 'aberto', merged: 'mesclado', closed: 'fechado' };
 /** O GitLab ainda calcula a mesclabilidade: o conflito nao e conhecido. */
 const EM_CALCULO = new Set(['unchecked', 'checking', 'preparing', 'approvals_syncing']);
 
@@ -32,7 +32,7 @@ function instante(v: unknown): string | null {
 export function prDoMr(bruto: unknown, base: string): PrDaForja | null {
   if (!bruto || typeof bruto !== 'object') throw new Error('MR fora do formato');
   const m = bruto as Record<string, unknown>;
-  const estado = ESTADOS[String(m.state)];
+  const estado = ESTADOS_DO_MR[String(m.state)];
   // As versoes antigas so tem `work_in_progress`.
   const rascunho = typeof m.draft === 'boolean' ? m.draft : m.work_in_progress;
   if (typeof m.iid !== 'number' || !Number.isSafeInteger(m.iid) || m.iid < 1 || typeof m.sha !== 'string' || !SHA.test(m.sha) || !estado ||
