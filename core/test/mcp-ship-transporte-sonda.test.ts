@@ -6,7 +6,7 @@ import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { dirTemporario } from './apoio';
 import { CHAVE_ED25519, CHAVE_RSA, IMPRESSAO_ED25519, PEM, cliFalsa, sondasFalsas } from './apoio-transporte';
 import {
-  ESQUEMA_DA_FIXACAO, EntradaDaFixacao, ambienteDoTransporte, FixacaoHttps, FixacaoSsh, SondasDoTransporte, impressaoDaChave, prepararFixacao, proporTransporte,
+  ESQUEMA_DA_FIXACAO, EntradaDaFixacao, ambienteDoTransporte, ambienteDoWorkerDoTransporte, FixacaoHttps, FixacaoSsh, SondasDoTransporte, impressaoDaChave, prepararFixacao, proporTransporte,
   sondasPadraoDoTransporte,
 } from '../src/mcp-ship-transporte';
 
@@ -178,6 +178,18 @@ test('forja-https: a sonda do login usa o ambiente do worker e fixa a pasta de c
   const f = prepararFixacao({ raiz: RAIZ, transporte: 'forja-https', url: 'https://github.com/o/r.git', manifesto: { tipo: 'github' }, sondas: gh });
   assert.equal((f.fixacao as FixacaoHttps).configDaCli, '/home/x/gh');
   assert.equal(gh.logins[0].acrescentar?.GH_PROMPT_DISABLED, '1');
+});
+
+test('forja-https: a sonda do login roda no ambiente literal do worker, sem o proxy nem as variaveis da CLI que so quem instala tem', () => {
+  const env = { HOME: '/home/x', HTTPS_PROXY: 'http://proxy.local:3128', GLAB_ALGO: 'so-aqui', GITLAB_URI: 'https://outro', PATH: '/opt/bin:/usr/bin' };
+  const s = sondasFalsas({ binario: GLAB, env });
+  https({}, s);
+  const base = s.logins[0].base;
+  assert.ok(base, 'a sonda passa a base do worker');
+  assert.deepEqual(base, ambienteDoWorkerDoTransporte('forja-https', env, 'glab'));
+  assert.equal(base.PATH, '/usr/bin:/bin');
+  for (const k of ['HTTPS_PROXY', 'GLAB_ALGO', 'GITLAB_URI']) assert.equal(base[k], undefined, k);
+  assert.equal(base.HOME, '/home/x');
 });
 
 test('forja-https: com subcaminho, o login e a origem sao do host[:porta], nunca do caminho base', () => {

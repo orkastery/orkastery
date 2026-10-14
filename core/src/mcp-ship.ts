@@ -10,7 +10,8 @@ import {lerThread,blocoDaThread} from './thread';
 import {branchDaWorktree} from './worktree';
 import {validarArquivosEstadoMcp} from './mcp-artifacts';
 import {perfilGitMcp,gitPassivoMcp as git,caminhoFisicoGitMcp as fisico,metadadosGitMcp as metadados,configuracaoPassivaGitMcp} from './mcp-git';
-import {originUnicoMcp,URL_GITHUB_SSH,lerFixacao,conferirFixacao,configDeRede,ambienteDoTransporte,conferirConfigDaCli,chaveRecusadaDaConfigDeRede,recusar,FixacaoLida} from './mcp-ship-transporte';
+import {originUnicoMcp,URL_GITHUB_SSH,lerFixacao,conferirFixacao,configDeRede,conferirConfigDaCli,chaveRecusadaDaConfigDeRede,recusar,FixacaoLida,
+  ambienteDoWorkerShip,ambienteDoWorkerDoTransporte} from './mcp-ship-transporte';
 import {ehTransporteFixado,TransporteShipMcp} from './mcp-transportes';
 import {adquirirRegiao,lerLease,liberar,leasesColidentes,caminhoLease,caminhoFila,podarRegioesDeThreadsFechadas} from './leases';
 import {ship,ResultadoShip,arvoreComBranch} from './ship';
@@ -103,22 +104,7 @@ function guardarBare(url:string):{dev:number;ino:number} {
     if(k==='core.bare' && v==='true'){bare=true;continue;}if(i<0 || !configuracaoPassivaGitMcp(k,v,true))erro('transport.bare.config');}
   if(!bare)erro('transport.bare.invalid');return {dev:st.dev,ino:st.ino};
 }
-/**
- * O ambiente do worker do SHIP, por lista fechada: nada de `GIT_SSH*`, `GIT_ASKPASS`, `GIT_SSL_NO_VERIFY` ou
- * `GIT_CONFIG_*` de quem iniciou o servidor chega ao git do push.
- */
-export function ambienteDoWorkerShip(origem:NodeJS.ProcessEnv=process.env):NodeJS.ProcessEnv {
-  return {HOME:origem.HOME,USER:origem.USER,LOGNAME:origem.LOGNAME,XDG_CONFIG_HOME:origem.XDG_CONFIG_HOME,
-    SSH_AUTH_SOCK:origem.SSH_AUTH_SOCK,PATH:'/usr/bin:/bin',LANG:'C.UTF-8',TMPDIR:'/tmp'};
-}
-/**
- * O ambiente do worker para cada transporte: a lista fechada de `ambienteDoWorkerShip` e, nos transportes fixados,
- * o que `ambienteDoTransporte` acrescenta (nenhuma pergunta; no HTTPS, o barramento da sessao). Nada mais.
- */
-export function ambienteDoWorkerDoTransporte(transporte:TransporteShipMcp,origem:NodeJS.ProcessEnv=process.env,cli?:'gh'|'glab'):NodeJS.ProcessEnv {
-  const base=ambienteDoWorkerShip(origem);
-  return ehTransporteFixado(transporte)?{...base,...ambienteDoTransporte(transporte,origem,cli)}:base;
-}
+export {ambienteDoWorkerShip,ambienteDoWorkerDoTransporte};
 /**
  * A fixacao de agora tem de ser a do startup, byte a byte no que importa: a mesma pasta, o mesmo `transporte.json`
  * (modo, origin, chaves, CLI, hash da CA) e os mesmos arquivos fixados (`lerFixacao` confere pasta, known_hosts, CLI

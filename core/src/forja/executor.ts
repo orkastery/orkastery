@@ -24,6 +24,8 @@ export interface ChamadaDaCli {
   cwd?: string;
   /** true: so passa o que a CLI precisa (PATH, HOME, locale, proxy, keyring e as variaveis da propria CLI). */
   reduzido?: boolean;
+  /** O ambiente de base no lugar do do `ork` (vence `reduzido`): a sonda que tem de ver o ambiente de outro processo. */
+  base?: NodeJS.ProcessEnv;
 }
 
 /** A saida do executor, mais a mensagem inteira do erro de spawn (o pulse a mostra no lugar do stderr). */
@@ -45,7 +47,7 @@ export function ambienteReduzido(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 }
 
 export function rodarCli(c: ChamadaDaCli): SaidaDaCli {
-  const env: NodeJS.ProcessEnv = { ...(c.reduzido ? ambienteReduzido(process.env) : process.env), ...(c.acrescentar ?? {}) };
+  const env: NodeJS.ProcessEnv = { ...(c.base ?? (c.reduzido ? ambienteReduzido(process.env) : process.env)), ...(c.acrescentar ?? {}) };
   for (const nome of c.apagar ?? []) delete env[nome];
   if (c.binario !== undefined && !path.isAbsolute(c.binario)) {
     return { status: null, stdout: '', stderr: '', sinal: null, erro: 'EINVAL', mensagemDoErro: 'binario sem caminho absoluto' };

@@ -21,7 +21,7 @@ import { gitPassivoMcp } from './mcp-git';
 import { acharBinario, helperDeCredencialDaCli } from './rede-forja';
 import { ErroDoCatalogo, msg } from './locale';
 import type { Manifesto } from './types';
-import type { TransporteFixado, TransporteShipMcp } from './mcp-transportes';
+import { ehTransporteFixado, type TransporteFixado, type TransporteShipMcp } from './mcp-transportes';
 
 /** O unico remoto que o `github-ssh` aceita, como sempre. */
 export const URL_GITHUB_SSH = /^git@github\.com:[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9._-]*\.git$/;
@@ -453,6 +453,23 @@ export function ambienteDoTransporte(t: TransporteFixado, env: NodeJS.ProcessEnv
   return extra;
 }
 
+/**
+ * O ambiente do worker do SHIP, por lista fechada: nada de `GIT_SSH*`, `GIT_ASKPASS`, `GIT_SSL_NO_VERIFY` ou
+ * `GIT_CONFIG_*` de quem iniciou o servidor chega ao git do push.
+ */
+export function ambienteDoWorkerShip(origem: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  return { HOME: origem.HOME, USER: origem.USER, LOGNAME: origem.LOGNAME, XDG_CONFIG_HOME: origem.XDG_CONFIG_HOME,
+    SSH_AUTH_SOCK: origem.SSH_AUTH_SOCK, PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', TMPDIR: '/tmp' };
+}
+/**
+ * O ambiente do worker para cada transporte: a lista fechada de `ambienteDoWorkerShip` e, nos transportes fixados,
+ * o que `ambienteDoTransporte` acrescenta (nenhuma pergunta; no HTTPS, o barramento da sessao). Nada mais.
+ */
+export function ambienteDoWorkerDoTransporte(transporte: TransporteShipMcp, origem: NodeJS.ProcessEnv = process.env, cli?: 'gh' | 'glab'): NodeJS.ProcessEnv {
+  const base = ambienteDoWorkerShip(origem);
+  return ehTransporteFixado(transporte) ? { ...base, ...ambienteDoTransporte(transporte, origem, cli) } : base;
+}
+
 /** Uma pasta por raiz, na config do usuario: fora do projeto, longe do que o agente escreve. */
 export function dirDaFixacao(raiz: string, env: NodeJS.ProcessEnv = process.env): string {
   const xdg = env.XDG_CONFIG_HOME;
@@ -845,8 +862,12 @@ function fixarHttps(e: EntradaDaFixacao, origin: { origem: string }, f: ForjaRes
   if (ajuda.status !== 0 || !/git-credential/.test(`${ajuda.stdout}\n${ajuda.stderr}`)) recusar('sem-helper', `${cli.cmd} ${versao}, >= ${cli.minima}`);
   // O login confere a mesma CLI que vai ser fixada, pelo caminho real, sem nova busca no PATH.
   // O login confere no ambiente que o worker vai ter: a mesma pasta de config e as mesmas variaveis, sem token.
-  const amb = ambienteDaCliDoTransporte(cli.cmd, e.sondas.env ?? process.env), executor = e.sondas.rodarCli ?? rodarCli;
-  const rodarLogin: RodarCli = (c) => executor({ ...c, acrescentar: { ...c.acrescentar, ...amb.acrescentar }, apagar: [...(c.apagar ?? []), ...amb.apagar] });
+  // A base e o ambiente literal do worker (a lista fechada mais o do transporte), e nao o reduzido do `ork`: proxy ou
+  // variavel da CLI que so quem instala tem nao aprova um login que o worker nao veria.
+  const env = e.sondas.env ?? process.env, amb = ambienteDaCliDoTransporte(cli.cmd, env), executor = e.sondas.rodarCli ?? rodarCli;
+  const doWorker = ambienteDoWorkerDoTransporte('forja-https', env, cli.cmd);
+  const rodarLogin: RodarCli = (c) => executor({ ...c, base: doWorker, acrescentar: { ...c.acrescentar, ...amb.acrescentar },
+    apagar: [...(c.apagar ?? []), ...amb.apagar] });
   if (!temLogin(alvo, rodarLogin, binario)) recusar('sem-login', `${cli.cmd} ${chaveDoLogin(alvo)}`);
   return {
     fixacao: { schema: ESQUEMA_DA_FIXACAO, raiz: e.raiz, url: e.url, transporte: 'forja-https', tipo: f.tipo, origem,
