@@ -6,7 +6,8 @@ import { checar, doctorJson } from '../src/doctor';
 import { checarForja } from '../src/doctor-forja';
 import type { ManifestoCarregado } from '../src/manifest';
 import type { Check } from '../src/types';
-import { projetoTemporario } from './apoio';
+import { spawnSync } from 'node:child_process';
+import { envPtBr, projetoTemporario } from './apoio';
 import { api, falhou, gravado, http, login, ok, versao } from './forja-cli-falsa';
 import { cliGithub, cliGitlab, linha, projeto, sondas } from './forja-doctor-apoio';
 
@@ -182,4 +183,17 @@ test('escopo com o SHIP do MCP em forja-https: read_api sem write_repository rep
   assert.equal(com(['api'], 'forja-https').nivel, 'ok');
   assert.equal(com(['read_api'], 'forja-ssh').nivel, 'ok', 'o forja-ssh empurra pela chave, não pelo token');
   assert.equal(com(['read_api'], null).nivel, 'ok');
+});
+
+test('doctor --forja com valor é recusado na linha de comando, nunca vira nao-medida calado', () => {
+  const p = projetoTemporario('doctor-forja-valor', false);
+  try {
+    const cli = path.resolve(__dirname, '../../dist/index.js');
+    for (const flag of ['--forja=false', '--forja=sim']) {
+      const r = spawnSync(process.execPath, [cli, 'doctor', '--json', flag], { cwd: p.dir, encoding: 'utf8', env: { ...envPtBr(), ORK_FABRICA_PUBLICAR: '0' } });
+      assert.equal(r.status, 2, `${flag}: ${r.stdout}${r.stderr}`);
+      assert.match(r.stderr, /ork doctor --forja não leva valor/);
+      assert.equal(r.stdout, '');
+    }
+  } finally { p.limpar(); }
 });

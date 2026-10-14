@@ -4296,6 +4296,11 @@ function executarComando(argvBruto: string[]): number {
       // RM-031: o check dos analisadores do grafo entra por aqui, a porta da familia do grafo (fronteira do KG1).
       // RM-061 (F2a): a redacao do check vem do catalogo, no locale do comando (a familia do grafo nao o importa).
       const analisadores = () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK, undefined, undefined, msg().doctor.grafo);
+      // `--forja=false` ou `--forja <valor>` nao vira `nao-medida` calado: a flag e booleana.
+      if (args.opcoes.forja !== undefined && args.opcoes.forja !== true) {
+        console.error(msg().forja.doctor.flagComValor);
+        return 2;
+      }
       // RM-063 (fatia 3, H1): `--json` e o contrato `ork.doctor/v1` que a batida do host le, com a idade da batida.
       if (args.opcoes.json === true) {
         // A batida dos hosts le o --json com frequencia: a secao forja (rede e CLI) so com --forja.

@@ -32,6 +32,7 @@ export const FORJA_PT_BR = {
   },
   /** As linhas da secao "forja" do `ork doctor` (`doctor-forja.ts`). */
   doctor: {
+    flagComValor: 'erro: ork doctor --forja não leva valor (uso: ork doctor --json [--forja]); sem a flag, a seção forja não roda',
     origens: { manifesto: 'manifesto', remoto: 'remoto', sondagem: 'sondagem', padrao: 'padrão' } as Record<string, string>,
     identidade: (tipo: string, host: string, porta: number, base: string, repo: string, origens: string) =>
       `${tipo} em ${host}, porta ${porta}, caminho base ${base}; projeto ${repo} (${origens})`,
@@ -183,6 +184,7 @@ export const FORJA_EN: MensagensDeForja = {
     }
   },
   doctor: {
+    flagComValor: 'error: ork doctor --forja takes no value (usage: ork doctor --json [--forja]); without the flag, the forge section does not run',
     origens: { manifesto: 'manifest', remoto: 'remote', sondagem: 'probe', padrao: 'default' },
     identidade: (tipo, host, porta, base, repo, origens) => `${tipo} at ${host}, port ${porta}, base path ${base}; project ${repo} (${origens})`,
     origensDosCampos: (tipo, host, porta, base) => `type: ${tipo}; host: ${host}; port: ${porta}; base path: ${base}`,

@@ -87,3 +87,25 @@ test('as portas do manifesto: HTTPS na porta e SSH no host e na porta declarados
   assert.deepEqual(medidas, [['gitlab.empresa.com', 8443], ['ssh.empresa.com', 2222]]);
   assert.deepEqual(tls, [['gitlab.empresa.com', 8443]]);
 });
+
+test('forja ambígua reprova o projeto que depende da forja e só avisa o que não depende', () => {
+  const duas = { github: () => 'responde' as const, gitlab: () => 'responde' as const };
+  const exigida = checarForja(projeto({ exigida: true }), sondas({ tipos: duas }));
+  assert.deepEqual([exigida.length, exigida[0].nivel], [1, 'fail']);
+  assert.match(exigida[0].detalhe, /^forja\.ambigua: /);
+  assert.match(exigida[0].correcao ?? '', /forja\.tipo/);
+  assert.equal(checarForja(projeto(), sondas({ tipos: duas }))[0].nivel, 'warn');
+});
+
+test('o bloco forja: que contradiz o remoto reprova a identidade com a correção do manifesto', () => {
+  const checks = checarForja(projeto({ forja: { tipo: 'gitlab', host: 'outro.empresa.com' } }), sondas());
+  assert.equal(checks.length, 1);
+  assert.equal(checks[0].nivel, 'fail', 'o bloco forja: declarado faz o projeto depender da forja');
+  assert.match(checks[0].detalhe, /^forja\.remoto-divergente: /);
+});
+
+test('a origem de cada valor: tipo e host do manifesto', () => {
+  const id = linha(checarForja(projeto({ forja: { tipo: 'gitlab', host: 'gitlab.empresa.com' } }), sondas({ tipos: {} })), 'forja identidade')!;
+  assert.equal(id.nivel, 'ok');
+  assert.match(id.detalhe, /\(tipo: manifesto; host: manifesto; porta: padrão; caminho base: padrão\)$/);
+});
