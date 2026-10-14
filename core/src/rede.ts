@@ -29,7 +29,7 @@ import { procurarSegredos } from './policies';
 import { Adesao, adesaoDaRede, ConfigDaRede, ehIdDeMaquina, gravarConfigDaRede, idDaMaquina, lerConfigDaRede, pastaDaRede,
   publicacaoDesligada, REPOSITORIO_PADRAO, tomarVezDePublicar } from './rede-adesao';
 import { AmbienteDaMaquina, acharBinario, comGitIsolado, Forja, forjaPorNome, forjasDaMaquina, IdentidadeDoGit, IdentidadeNaForja, NomeDaForja,
-  versaoDoBinario } from './rede-forja';
+  gitlabSemSuporteNaRede, versaoDoBinario } from './rede-forja';
 import { ehNomeDeProjeto, emUmaLinha, INVISIVEL, limparRemoto, projetosConhecidos } from './rede-projetos';
 import { VERSAO_DO_ORK } from './versao';
 import { ErroDoCatalogo, montadorDe, textoDoCatalogo } from './locale';
@@ -81,6 +81,9 @@ const BINARIO_DO_HOST: Readonly<Record<Host, string>> = { 'claude-code': 'claude
 const VERSAO_ESTRITA = /^\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.]{1,20})?$/;
 
 export const refDaCasa = (c: Pick<CasaDaRede, 'host' | 'dono' | 'repositorio'>): string => `${c.host}/${c.dono}/${c.repositorio}`;
+
+/** O nivel minimo da pessoa no grupo para a casa da rede morar nele (GitLab: Maintainer). */
+export const NIVEL_MINIMO_NO_GRUPO = 40;
 
 /**
  * O nome da maquina no que vai a forja: so o que o git e a forja aceitam sem surpresa. E o mesmo no
@@ -624,16 +627,28 @@ function casaConferida(opcoes: OpcoesDaCasa & { criar?: boolean }): CasaConferid
     const detalhe = r.motivo ? montadorDe(r.motivo.detalhe) : null;
     throw new ErroDoCatalogo((m) => m.network.semForja(detalhe === null ? null : detalhe(m)));
   }
+  const semSuporte = r.forja.nome === 'gitlab' ? gitlabSemSuporteNaRede(opcoes.amb ?? {}) : null;
+  if (semSuporte) throw new ErroDoCatalogo((m) => m.network.gitlabNaoSuportado(semSuporte));
   let repo = r.forja.repositorio(r.casa.dono, r.casa.repositorio);
   let criado = false;
   if (!repo.existe) {
     const ref = refDaCasa(r.casa);
     if (!opcoes.criar) throw new ErroDoCatalogo((m) => m.network.semRepositorio(ref));
     const login = (r.identidades.find((i) => i.forja === r.forja!.nome && i.host === r.forja!.host) ?? r.forja.identidade()).usuario;
+    let namespaceId: number | undefined;
     if (r.casa.dono !== login) {
-      throw new ErroDoCatalogo((m) => m.network.repositorioAlheio(ref, login));
+      // Outro dono so vale quando e um grupo em que a pessoa e Maintainer ou acima; forja sem a capacidade recusa como antes.
+      const dono = r.forja.donoDaRede?.(r.casa.dono) ?? null;
+      if (dono && !dono.ok && dono.erro.codigo !== 'forja.nao-achei') {
+        const erro = dono.erro, cli = r.forja.cli, tipo = r.forja.nome, rota = `namespaces/${r.casa.dono}`;
+        throw new ErroDoCatalogo((m) => m.network.apiFalhou(cli, rota, m.forja.motivo(erro, tipo)));
+      }
+      if (!dono || !dono.ok || dono.valor.tipo !== 'grupo') throw new ErroDoCatalogo((m) => m.network.repositorioAlheio(ref, login));
+      const nivel = dono.valor.nivel ?? 0, grupo = dono.valor.caminho;
+      if (nivel < NIVEL_MINIMO_NO_GRUPO) throw new ErroDoCatalogo((m) => m.network.grupoSemNivel(ref, grupo, login, nivel));
+      namespaceId = dono.valor.namespaceId;
     }
-    repo = r.forja.criarPrivado(r.casa.repositorio, DESCRICAO);
+    repo = r.forja.criarPrivado(r.casa.repositorio, DESCRICAO, r.casa.dono, namespaceId);
     criado = true;
   }
   const refDaConferida = refDaCasa(r.casa), cli = r.forja.cli;

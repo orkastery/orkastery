@@ -34,7 +34,7 @@ const SCRIPT_FALSO = `#!${process.execPath}
 const fs = require('fs'), path = require('path'), cp = require('child_process');
 const cli = path.basename(process.argv[1]);
 const args = process.argv.slice(2);
-const dir = process.env.FORJA_FAKE_DIR;
+const dir = process.env.GLAB_FAKE_DIR;
 const arquivo = path.join(dir, 'repos.json');
 const ler = () => { try { return JSON.parse(fs.readFileSync(arquivo, 'utf8')); } catch { return {}; } };
 const sair = (code, out, err) => { if (out) process.stdout.write(out); if (err) process.stderr.write(err); process.exit(code); };
@@ -45,32 +45,57 @@ if (RUNTIMES[cli] !== undefined) {
   if (args[0] === 'auth') sair(0, 'Logado como dono-pago@exemplo.com, plano Claude Max 20x (pago), token sk-ant-oat01-FAKE0123456789abcdef\\n');
   sair(2, '', 'fake: nao simulado\\n');
 }
-const login = cli === 'gh' ? (process.env.FORJA_FAKE_LOGIN || 'pessoa-teste') : (process.env.FORJA_FAKE_LOGIN_LAB || 'pessoa-lab');
+const login = cli === 'gh' ? (process.env.GLAB_FAKE_LOGIN || 'pessoa-teste') : (process.env.GLAB_FAKE_LOGIN_LAB || 'pessoa-lab');
+const log = (extra) => { if (process.env.GLAB_FAKE_LOG) fs.appendFileSync(process.env.GLAB_FAKE_LOG, JSON.stringify(Object.assign({ cli, args, host: process.env.GITLAB_HOST || null }, extra)) + '\\n'); };
 if (args[0] === '--version') sair(0, cli === 'gh' ? 'gh version 2.99.0 (2026-01-01)\\nhttps://github.com/cli/cli/releases/tag/v2.99.0\\n' : 'glab 1.50.0 (2026-01-01)\\n');
-if (args[0] === 'config' && args[1] === 'get' && args[2] === 'git_protocol') sair(0, (process.env.FORJA_FAKE_PROTOCOLO || 'https') + '\\n');
+if (args[0] === 'config' && args[1] === 'get' && args[2] === 'git_protocol') sair(0, (process.env.GLAB_FAKE_PROTOCOLO || 'https') + '\\n');
 if (args[0] === 'auth') {
-  if (process.env.FORJA_FAKE_LOG) fs.appendFileSync(process.env.FORJA_FAKE_LOG, JSON.stringify({ cli, args }) + '\\n');
+  log({});
   if (args[1] === 'token') sair(0, TOKEN + '\\n');
   if (args[1] === 'git-credential') sair(0);
+  // O glab sem login no host diz isto no auth status (medido no 1.121.0).
+  if (cli === 'glab' && args[1] === 'status' && process.env.GLAB_FAKE_SEM_LOGIN === '1') sair(1, '', 'x ' + (process.env.GITLAB_HOST || 'gitlab.com') + ' has not been authenticated with glab\\n');
   sair(0, 'Logged in as ' + login + '\\nToken: ' + TOKEN + '\\n');
 }
 if (args[0] !== 'api') sair(2, '', 'fake: nao simulado\\n');
-if (process.env.FORJA_FAKE_LOG) fs.appendFileSync(process.env.FORJA_FAKE_LOG, JSON.stringify({ cli, args }) + '\\n');
-if (process.env.FORJA_FAKE_SEM_LOGIN === '1') sair(1, '', cli === 'gh' ? 'gh: To get started with GitHub CLI, please run:  gh auth login\\n' : 'glab: not authenticated\\n');
-if (process.env.FORJA_FAKE_ERRO === '1') sair(1, '', cli + ': Server Error (HTTP 500)\\n');
-if (process.env.FORJA_FAKE_SEM_REDE === '1') sair(1, '', 'error connecting to api.github.com\\ncheck your internet connection or https://githubstatus.com\\n');
-let metodo = 'GET', rota = null;
+// O api -i (a chamarApi) responde no envelope medido: status com LF, cabecalhos com CRLF, linha vazia e o corpo.
+const comCab = args.includes('-i');
+const responder = (status, corpo) => sair(status < 400 ? 0 : 1, 'HTTP/1.1 ' + status + ' X\\nContent-Type: application/json\\r\\n\\r\\n' + JSON.stringify(corpo),
+  status < 400 ? '' : cli + ': erro (HTTP ' + status + ')\\n');
+const ok = (corpo) => (comCab ? responder(200, corpo) : sair(0, JSON.stringify(corpo)));
+let metodo = 'GET', rota = null, entrada = false;
 const campos = {};
 for (let i = 1; i < args.length; i++) {
   if (args[i] === '-X' || args[i] === '--method') { metodo = args[++i]; continue; }
-  if (args[i] === '--hostname') { i++; continue; }
+  if (args[i] === '--hostname' || args[i] === '-H') { i++; continue; }
+  if (args[i] === '-i') continue;
+  if (args[i] === '--input') { i++; entrada = true; continue; }
   if (['-f', '-F', '--field', '--raw-field'].includes(args[i])) { const [k, ...v] = args[++i].split('='); campos[k] = v.join('='); continue; }
   if (rota === null) rota = args[i];
 }
-if (rota === 'user') sair(0, JSON.stringify(cli === 'gh'
+if (entrada) Object.assign(campos, JSON.parse(fs.readFileSync(0, 'utf8') || '{}'));
+log({ metodo, rota, campos });
+if (process.env.GLAB_FAKE_SEM_LOGIN === '1') { if (comCab) responder(401, { message: '401 Unauthorized' }); sair(1, '', cli === 'gh' ? 'gh: To get started with GitHub CLI, please run:  gh auth login\\n' : 'glab: not authenticated\\n'); }
+if (process.env.GLAB_FAKE_ERRO === '1') { if (comCab) responder(500, { message: '500 Internal Server Error' }); sair(1, '', cli + ': Server Error (HTTP 500)\\n'); }
+if (process.env.GLAB_FAKE_SEM_REDE === '1') sair(1, '', 'error connecting to api.github.com\\ncheck your internet connection or https://githubstatus.com\\n');
+if (rota === 'user') ok(cli === 'gh'
   ? { login, id: 42, email: 'dono-secreto@exemplo.com', plan: { name: 'pro', private_repos: 9999 }, token: TOKEN }
-  : { username: login, id: 7, email: 'lab-secreto@exemplo.com', plan: 'gold', private_token: 'glpat-FAKE0123456789abcdefgh' }));
+  : { username: login, id: 7, email: 'lab-secreto@exemplo.com', plan: 'gold', private_token: 'glpat-FAKE0123456789abcdefgh' });
 const estado = ler();
+// Os grupos do GitLab falso: { "time/sub": { "id": 4, "nivel": 40 } }; o namespace do proprio login e o 7.
+const grupos = JSON.parse(process.env.GLAB_FAKE_GRUPOS || '{}');
+if (metodo === 'GET' && /^namespaces\\//.test(rota || '')) {
+  const caminho = decodeURIComponent(rota.slice('namespaces/'.length));
+  if (caminho === login) ok({ id: 7, kind: 'user', full_path: login, path: login, parent_id: null });
+  if (grupos[caminho]) ok({ id: grupos[caminho].id, kind: 'group', full_path: caminho, path: caminho.split('/').pop(), parent_id: null });
+  responder(404, { message: '404 Namespace Not Found' });
+}
+const membro = /^groups\\/(\\d+)\\/members\\/all\\/(\\d+)$/.exec(rota || '');
+if (metodo === 'GET' && membro) {
+  const g = Object.values(grupos).find((x) => String(x.id) === membro[1]);
+  if (!g || !g.nivel) responder(404, { message: '404 Not found' });
+  ok({ id: 7, username: login, access_level: g.nivel, state: 'active' });
+}
 const resposta = (chave) => {
   const r = estado[chave];
   const visibilidade = r.visibilidade || (r.privado ? 'private' : 'public');
@@ -80,27 +105,30 @@ const resposta = (chave) => {
     : { path_with_namespace: chave, visibility: visibilidade, http_url_to_repo: r.url, ssh_url_to_repo: 'git@fake.invalid:' + chave + '.git' };
 };
 if (metodo === 'POST' && (rota === 'user/repos' || rota === 'projects')) {
-  const chave = login + '/' + campos.name;
-  if (estado[chave]) sair(1, '', 'fake: ja existe (HTTP 422)\\n');
+  const doGrupo = campos.namespace_id ? Object.keys(grupos).find((k) => String(grupos[k].id) === String(campos.namespace_id)) : null;
+  const chave = (doGrupo || login) + '/' + campos.name;
+  if (estado[chave]) { if (comCab) responder(400, { message: { name: ['has already been taken'] } }); sair(1, '', 'fake: ja existe (HTTP 422)\\n'); }
   const url = path.join(dir, 'repos', chave + '.git');
   fs.mkdirSync(url, { recursive: true });
   cp.execFileSync('git', ['init', '--bare', '-q', url]);
   estado[chave] = { privado: rota === 'user/repos' ? campos.private === 'true' : campos.visibility === 'private', url };
   fs.writeFileSync(arquivo, JSON.stringify(estado, null, 2));
-  sair(0, JSON.stringify(resposta(chave)));
+  // A forja criou, mas a resposta se perdeu no caminho.
+  if (comCab && process.env.GLAB_FAKE_POST_SEM_RESPOSTA === '1') responder(502, { message: '502 Bad Gateway' });
+  ok(resposta(chave));
 }
 let chave = null;
 const m = cli === 'gh' ? /^repos\\/([^/]+)\\/([^/]+)$/.exec(rota || '') : /^projects\\/(.+)$/.exec(rota || '');
 if (m) chave = cli === 'gh' ? m[1] + '/' + m[2] : decodeURIComponent(m[1]);
 // Simula um ork network sair de outro processo no meio da publicacao (entre a checagem e a trava).
-if (metodo === 'GET' && chave && process.env.FORJA_FAKE_SAIR_DURANTE) {
-  const cfg = JSON.parse(fs.readFileSync(process.env.FORJA_FAKE_SAIR_DURANTE, 'utf8'));
+if (metodo === 'GET' && chave && process.env.GLAB_FAKE_SAIR_DURANTE) {
+  const cfg = JSON.parse(fs.readFileSync(process.env.GLAB_FAKE_SAIR_DURANTE, 'utf8'));
   cfg.membro = false;
-  fs.writeFileSync(process.env.FORJA_FAKE_SAIR_DURANTE, JSON.stringify(cfg));
+  fs.writeFileSync(process.env.GLAB_FAKE_SAIR_DURANTE, JSON.stringify(cfg));
 }
 if (metodo === 'GET' && chave) {
-  if (!estado[chave]) sair(1, cli === 'gh' ? '{"message":"Not Found","status":"404"}' : '', cli === 'gh' ? 'gh: Not Found (HTTP 404)\\n' : 'glab: 404 Not Found (HTTP 404)\\n');
-  sair(0, JSON.stringify(resposta(chave)));
+  if (!estado[chave]) { if (comCab) responder(404, { message: '404 Project Not Found' }); sair(1, cli === 'gh' ? '{"message":"Not Found","status":"404"}' : '', cli === 'gh' ? 'gh: Not Found (HTTP 404)\\n' : 'glab: 404 Not Found (HTTP 404)\\n'); }
+  ok(resposta(chave));
 }
 sair(2, '', 'fake: rota nao simulada ' + metodo + ' ' + rota + '\\n');
 `;
@@ -135,7 +163,7 @@ function forjaFalsa(nome: string, extra: NodeJS.ProcessEnv = {}): ForjaFalsa {
   for (const d of [bin, estado, home]) fs.mkdirSync(d, { recursive: true });
   for (const cli of ['gh', 'glab', 'claude', 'codex', 'openclaw']) fs.writeFileSync(path.join(bin, cli), SCRIPT_FALSO, { mode: 0o755 });
   const env: NodeJS.ProcessEnv = { ...process.env, PATH: [bin, ferramentas(raiz)].join(path.delimiter), ORK_BINARIOS_EXTRA: '',
-    FORJA_FAKE_DIR: estado, HOME: home, ...extra };
+    GLAB_FAKE_DIR: estado, HOME: home, ...extra };
   delete env.GITLAB_HOST;
   return {
     raiz, bin, estado, home, env, amb: { env, home },
@@ -196,11 +224,11 @@ test('RM-053 forja: o GitLab passa pela mesma interface', () => {
 });
 
 test('RM-053 forja: sem login o usuario e null, erro da API e tipado, e sem CLI nao ha forja', () => {
-  const f = forjaFalsa('forja-sem-login', { FORJA_FAKE_SEM_LOGIN: '1' });
+  const f = forjaFalsa('forja-sem-login', { GLAB_FAKE_SEM_LOGIN: '1' });
   try {
     const gh = forjaPorNome('github', f.amb)!;
     assert.deepEqual(gh.identidade(), { forja: 'github', host: 'github.com', cli: 'gh', versao: '2.99.0', usuario: null });
-    const comErro = forjaPorNome('github', { env: { ...f.env, FORJA_FAKE_SEM_LOGIN: '', FORJA_FAKE_ERRO: '1' }, home: f.home })!;
+    const comErro = forjaPorNome('github', { env: { ...f.env, GLAB_FAKE_SEM_LOGIN: '', GLAB_FAKE_ERRO: '1' }, home: f.home })!;
     assert.throws(() => comErro.repositorio('pessoa-teste', 'x'), /^Error: rede\.forja: gh api repos\/pessoa-teste\/x falhou: gh: Server Error \(HTTP 500\)$/);
     f.tirar('gh');
     f.tirar('glab');
@@ -587,7 +615,7 @@ test('RM-053 honestidade: cada falta de leitura vira lacuna tipada, nunca lista 
       assert.match(texto, /Não consultado: roadmap, reservas, threads\./);
       assert.match(texto, /rede\.sem-repositorio: github\.com\/pessoa-teste\/orkastery-network ainda nao existe/);
       // Sem login e sem CLI de forja.
-      assert.deepEqual(tipos(lerRede({ amb: ligado(f, { FORJA_FAKE_SEM_LOGIN: '1' }), maquina: 'pc-a' })), ['forja.sem-login']);
+      assert.deepEqual(tipos(lerRede({ amb: ligado(f, { GLAB_FAKE_SEM_LOGIN: '1' }), maquina: 'pc-a' })), ['forja.sem-login']);
       entrarNaRede({ amb, maquina: 'pc-a' });
     });
     naMaquina(ub, () => entrarNaRede({ amb, maquina: 'pc-b', agora: '2026-09-29T10:00:00.000Z' }));
@@ -841,7 +869,7 @@ test('RM-053 forja: internal do GitHub nao conta como privado; entrar recusa e n
 });
 
 test('RM-053 forja: a casa vai sempre por HTTPS com o helper, mesmo com git_protocol=ssh na CLI (B2)', () => {
-  const f = forjaFalsa('forja-https', { FORJA_FAKE_PROTOCOLO: 'ssh' });
+  const f = forjaFalsa('forja-https', { GLAB_FAKE_PROTOCOLO: 'ssh' });
   const u = dirTemporario('rede-forja-https');
   try {
     const r = naMaquina(u, () => entrarNaRede({ amb: ligado(f), maquina: 'pc-a' }));
@@ -853,7 +881,7 @@ test('RM-053 forja: a casa vai sempre por HTTPS com o helper, mesmo com git_prot
 
 test('RM-053 forja: o host da casa vai em toda chamada da API e --repositorio sozinho mantem a forja gravada (B9, B3)', () => {
   const log = path.join(dirTemporario('rede-forja-host-log'), 'chamadas.jsonl');
-  const f = forjaFalsa('forja-host', { FORJA_FAKE_LOG: log });
+  const f = forjaFalsa('forja-host', { GLAB_FAKE_LOG: log });
   const u = dirTemporario('rede-forja-host');
   try {
     naMaquina(u, () => {
@@ -867,10 +895,13 @@ test('RM-053 forja: o host da casa vai em toda chamada da API e --repositorio so
       const retratoDaCasa = JSON.parse(exec('git', ['show', 'main:maquinas/pc-lab.json'], path.join(f.estado, 'repos', 'pessoa-lab', 'orkastery-network.git')).stdout);
       assert.deepEqual(retratoDaCasa.forjas.find((x: { forja: string }) => x.forja === 'gitlab'),
         { forja: 'gitlab', host: 'git.exemplo.com', cli: 'glab', versao: '1.50.0', usuario: 'pessoa-lab' });
-      const chamadas = fs.readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as { cli: string; args: string[] });
-      const doGlab = chamadas.filter((c) => c.cli === 'glab' && !c.args.includes('user'));
+      const chamadas = fs.readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as { cli: string; args: string[]; host: string | null });
+      const doGlab = chamadas.filter((c) => c.cli === 'glab' && c.args[0] === 'api' && !c.args.includes('user'));
       assert.ok(doGlab.length > 0);
-      for (const c of doGlab) assert.deepEqual(c.args.slice(0, 3), ['api', '--hostname', 'git.exemplo.com'], JSON.stringify(c));
+      for (const c of doGlab) {
+        assert.equal(c.host, 'git.exemplo.com', JSON.stringify(c));
+        assert.ok(!c.args.includes('--hostname'), JSON.stringify(c));
+      }
       // B3: com rede.json no GitLab proprio, --repositorio sozinho continua no GitLab e no host gravado.
       const outra = entrarNaRede({ amb: ligado(f), maquina: 'pc-lab', repositorio: 'outra-rede' });
       assert.deepEqual([outra.casa.forja, outra.casa.host, outra.casa.dono, outra.casa.repositorio],
@@ -1014,7 +1045,7 @@ test('RM-053 migracao: com a casa ocupada, entrar recusa sem gravar nada e publi
 
 test('RM-053 migracao: retrato igual dentro da batida nao chama a forja nenhuma vez (M4)', () => {
   const log = path.join(dirTemporario('rede-atalho-log'), 'chamadas.jsonl');
-  const f = forjaFalsa('migracao-atalho', { FORJA_FAKE_LOG: log });
+  const f = forjaFalsa('migracao-atalho', { GLAB_FAKE_LOG: log });
   const u = dirTemporario('rede-atalho');
   try {
     const amb = ligado(f);
@@ -1054,7 +1085,7 @@ test('RM-053 migracao: quem saiu da rede mas segue na fabrica aparece como vista
 test('RM-053 forja: com URL HTTPS, o git do cache pergunta so ao helper da propria forja; o helper global e zerado (D4)', () => {
   const raiz = dirTemporario('rede-helper');
   const log = path.join(raiz, 'chamadas.jsonl');
-  const f = forjaFalsa('forja-helper', { FORJA_FAKE_LOG: log });
+  const f = forjaFalsa('forja-helper', { GLAB_FAKE_LOG: log });
   const u = dirTemporario('rede-helper-usuario');
   try {
     // A pessoa tem um helper global (store, keychain...): ele nunca pode receber a credencial da casa.
@@ -1315,7 +1346,7 @@ test('RM-053 migracao: um sair no meio da publicacao vence; a adesao e reconferi
       entrarNaRede({ amb: ligado(f), maquina: 'pc-a' });
       const antes = exec('git', ['rev-parse', 'main'], casaFalsa(f)).stdout;
       // A forja, ao responder pelo repositorio (depois da checagem de fora, antes da trava), ve a maquina sair.
-      const amb = ligado(f, { FORJA_FAKE_SAIR_DURANTE: path.join(u, 'rede.json') });
+      const amb = ligado(f, { GLAB_FAKE_SAIR_DURANTE: path.join(u, 'rede.json') });
       assert.throws(() => publicarRede({ amb, maquina: 'pc-a', forcar: true }), /^Error: rede\.fora: esta maquina saiu da rede; nada foi publicado$/);
       assert.equal(exec('git', ['rev-parse', 'main'], casaFalsa(f)).stdout, antes, 'nenhum commit depois do sair');
     });
@@ -2158,7 +2189,7 @@ test('suspeitas 03/10: falha da forja no gh api user (500, sem rede) nao vira fo
   try {
     const tipos = (s: ReturnType<typeof lerRede>) => s.lacunas.map((l) => l.tipo);
     naMaquina(u, () => {
-      for (const [extra, motivo] of [[{ FORJA_FAKE_ERRO: '1' }, /HTTP 500/], [{ FORJA_FAKE_SEM_REDE: '1' }, /internet connection/]] as const) {
+      for (const [extra, motivo] of [[{ GLAB_FAKE_ERRO: '1' }, /HTTP 500/], [{ GLAB_FAKE_SEM_REDE: '1' }, /internet connection/]] as const) {
         const s = lerRede({ amb: ligado(f, extra), maquina: 'pc-a' });
         assert.ok(!tipos(s).includes('forja.sem-login'), `falha da forja virou falta de login: ${JSON.stringify(s.lacunas)}`);
         const lacuna = s.lacunas.find((l) => l.tipo === 'rede.sem-leitura');
@@ -2169,7 +2200,85 @@ test('suspeitas 03/10: falha da forja no gh api user (500, sem rede) nao vira fo
         assert.throws(() => entrarNaRede({ amb: ligado(f, extra), maquina: 'pc-a' }), /gh api user falhou/);
       }
       // Sem login de verdade continua forja.sem-login.
-      assert.deepEqual(tipos(lerRede({ amb: ligado(f, { FORJA_FAKE_SEM_LOGIN: '1' }), maquina: 'pc-a' })), ['forja.sem-login']);
+      assert.deepEqual(tipos(lerRede({ amb: ligado(f, { GLAB_FAKE_SEM_LOGIN: '1' }), maquina: 'pc-a' })), ['forja.sem-login']);
     });
   } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+
+// ---------------------------------------------------------------------------
+// A rede no GitLab pela API da CLI logada, e a casa num grupo.
+// ---------------------------------------------------------------------------
+
+const lerLog = (log: string) => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) : [])
+  .map((l) => JSON.parse(l) as { cli: string; args: string[]; host: string | null; metodo?: string; rota?: string; campos?: Record<string, unknown> });
+
+test('forja 5: GitLab com porta vai por GITLAB_HOST, com o login conferido antes e sem pedido anônimo', () => {
+  const log = path.join(dirTemporario('rede-porta-log'), 'chamadas.jsonl');
+  const f = forjaFalsa('rede-porta', { GLAB_FAKE_LOG: log });
+  try {
+    assert.equal(forjaPorNome('gitlab', f.amb, 'git.exemplo.com:8443')!.identidade().usuario, 'pessoa-lab');
+    const chamadas = lerLog(log);
+    assert.deepEqual(chamadas.map((c) => [c.args[0], c.args[1], c.host]),
+      [['auth', 'status', 'git.exemplo.com:8443'], ['api', '-i', 'git.exemplo.com:8443']]);
+    // O login e conferido por `auth status --hostname`; so a API vai por GITLAB_HOST.
+    assert.ok(chamadas.filter((c) => c.args[0] === 'api').every((c) => !c.args.includes('--hostname')));
+    fs.writeFileSync(log, '');
+    const semLogin = forjaPorNome('gitlab', { env: { ...f.env, GLAB_FAKE_SEM_LOGIN: '1' }, home: f.home }, 'git.exemplo.com:8443')!;
+    assert.equal(semLogin.identidade().usuario, null);
+    assert.equal(lerLog(log).filter((c) => c.args[0] === 'api').length, 0, 'sem login, nenhum pedido anonimo');
+  } finally { f.limpar(); fs.rmSync(path.dirname(log), { recursive: true, force: true }); }
+});
+
+test('forja 5: a casa num subgrupo do GitLab em que a pessoa é Maintainer; Developer e usuário alheio recusam', () => {
+  const log = path.join(dirTemporario('rede-grupo-log'), 'chamadas.jsonl');
+  const f = forjaFalsa('rede-grupo', { GLAB_FAKE_LOG: log,
+    GLAB_FAKE_GRUPOS: JSON.stringify({ 'time/sub': { id: 4, nivel: 40 }, outro: { id: 5, nivel: 30 } }) });
+  const u = dirTemporario('rede-grupo');
+  try {
+    f.tirar('gh');
+    naMaquina(u, () => {
+      const r = entrarNaRede({ amb: ligado(f), maquina: 'pc-lab', forja: 'gitlab', repositorio: 'time/sub/orkastery-network' });
+      assert.deepEqual([r.casa.forja, r.casa.dono, r.casa.repositorio, r.criado], ['gitlab', 'time/sub', 'orkastery-network', true]);
+      assert.equal(lerConfigDaRede()?.dono, 'time/sub');
+      const criacao = lerLog(log).find((c) => c.metodo === 'POST' && c.rota === 'projects');
+      assert.deepEqual([criacao?.campos?.namespace_id, criacao?.campos?.visibility], [4, 'private']);
+      assert.ok(fs.existsSync(path.join(f.estado, 'repos', 'time', 'sub', 'orkastery-network.git', 'HEAD')));
+      assert.throws(() => entrarNaRede({ amb: ligado(f), maquina: 'pc-lab', forja: 'gitlab', repositorio: 'outro/orkastery-network' }),
+        /rede\.repositorio-alheio: .*nivel 30 no grupo outro.*Maintainer/);
+      assert.throws(() => entrarNaRede({ amb: ligado(f), maquina: 'pc-lab', forja: 'gitlab', repositorio: 'alheia/orkastery-network' }),
+        /rede\.repositorio-alheio: .*nao e do login pessoa-lab/);
+      assert.equal(lerLog(log).filter((c) => c.metodo === 'POST').length, 1, 'as recusas nao criam nada');
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); fs.rmSync(path.dirname(log), { recursive: true, force: true }); }
+});
+
+test('forja 5: a criação da casa que perde a resposta é relida, e a escrita não se repete', () => {
+  const log = path.join(dirTemporario('rede-post-log'), 'chamadas.jsonl');
+  const f = forjaFalsa('rede-post-perdido', { GLAB_FAKE_LOG: log, GLAB_FAKE_POST_SEM_RESPOSTA: '1' });
+  const u = dirTemporario('rede-post-perdido');
+  try {
+    f.tirar('gh');
+    naMaquina(u, () => {
+      const r = entrarNaRede({ amb: ligado(f), maquina: 'pc-lab' });
+      assert.deepEqual([r.casa.dono, r.casa.repositorio, r.criado], ['pessoa-lab', 'orkastery-network', true]);
+      assert.equal(lerLog(log).filter((c) => c.metodo === 'POST' && c.rota === 'projects').length, 1);
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); fs.rmSync(path.dirname(log), { recursive: true, force: true }); }
+});
+
+test('forja 5: a casa num GitLab em subcaminho ou com CA própria é recusada com erro tipado, sem tocar a forja', () => {
+  const log = path.join(dirTemporario('rede-subcaminho-log'), 'chamadas.jsonl');
+  const f = forjaFalsa('rede-subcaminho', { GLAB_FAKE_LOG: log });
+  const u = dirTemporario('rede-subcaminho');
+  try {
+    f.tirar('gh');
+    naMaquina(u, () => {
+      assert.throws(() => entrarNaRede({ amb: ligado(f, { GITLAB_HOST: 'https://git.exemplo.com/gitlab' }), maquina: 'pc-lab', forja: 'gitlab' }),
+        /rede\.forja-nao-suportada: .*subcaminho/);
+      assert.throws(() => entrarNaRede({ amb: ligado(f, { GITLAB_HOST: 'https://git.exemplo.com', GLAB_CA_CERT: '/tmp/ca.pem' }), maquina: 'pc-lab', forja: 'gitlab' }),
+        /rede\.forja-nao-suportada: .*CA propria/);
+      assert.equal(lerLog(log).filter((c) => c.metodo === 'POST').length, 0);
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); fs.rmSync(path.dirname(log), { recursive: true, force: true }); }
 });

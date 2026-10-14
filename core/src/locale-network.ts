@@ -93,6 +93,12 @@ export const NETWORK_PT_BR = {
   semRepositorio: (ref: string) => `rede.sem-repositorio: ${ref} ainda nao existe; ork network entrar o cria, privado`,
   repositorioAlheio: (ref: string, login: string | null) =>
     `rede.repositorio-alheio: ${ref} nao existe e nao e do login ${login}; crie o repositorio privado na forja e rode de novo`,
+  gitlabNaoSuportado: (motivo: 'subcaminho' | 'ca') =>
+    `rede.forja-nao-suportada: a casa da rede num GitLab ${motivo === 'ca' ? 'com CA propria (GLAB_CA_CERT)' : 'em subcaminho (GITLAB_HOST com caminho)'} ` +
+    'ainda nao e suportada; o rede.json guarda so host[:porta]. Use um GitLab na raiz do host e com certificado publico',
+  grupoSemNivel: (ref: string, grupo: string, login: string | null, nivel: number) =>
+    `rede.repositorio-alheio: ${ref} nao existe, e o login ${login} tem nivel ${nivel} no grupo ${grupo}; criar a casa num grupo pede ` +
+    'Maintainer (40) ou acima',
   repositorioPublico: (ref: string) => `rede.repositorio-publico: ${ref} nao e privado; nada foi publicado`,
   semUrl: (cli: string, ref: string) => `rede.forja: ${cli} nao devolveu a URL de ${ref}`,
   semHttps: (cli: string, ref: string) =>
@@ -222,6 +228,12 @@ export const NETWORK_EN: MensagensDeNetwork = {
   semRepositorio: (ref) => `rede.sem-repositorio: ${ref} does not exist yet; \`ork network entrar\` creates it, private`,
   repositorioAlheio: (ref, login) =>
     `rede.repositorio-alheio: ${ref} does not exist and does not belong to the login ${login}; create the private repository on the forge and run again`,
+  gitlabNaoSuportado: (motivo) =>
+    `rede.forja-nao-suportada: the network home on a GitLab ${motivo === 'ca' ? 'with its own CA (GLAB_CA_CERT)' : 'under a subpath (GITLAB_HOST with a path)'} ` +
+    'is not supported yet; rede.json stores only host[:port]. Use a GitLab at the host root with a public certificate',
+  grupoSemNivel: (ref, grupo, login, nivel) =>
+    `rede.repositorio-alheio: ${ref} does not exist, and the login ${login} has level ${nivel} in the group ${grupo}; creating the ` +
+    'network home in a group needs Maintainer (40) or above',
   repositorioPublico: (ref) => `rede.repositorio-publico: ${ref} is not private; nothing was published`,
   semUrl: (cli, ref) => `rede.forja: ${cli} did not return the URL of ${ref}`,
   semHttps: (cli, ref) => `rede.sem-https: ${cli} returned a URL without https for ${ref}; the network only talks to the forge over https, and nothing was published`,
