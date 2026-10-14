@@ -11,6 +11,8 @@ import { passosDaBatida } from '../src/conducao-batida';
 import { PassoDoCondutor } from '../src/conducao-sentinela';
 import { checarSeparacaoDaConducao } from '../src/doctor';
 import { InventarioDeSessoes } from '../src/sessoes-inventario';
+import { conferirAuth as conferirAuthClaude, cotaExpostaDoAuth } from '../src/adapters/claude-bg';
+import { adicionarPerfil, classificarTipoDeLimite, expirarPerfisVencidos, lerPerfis, marcarFalhaDePerfil } from '../src/runtime-profiles';
 
 test('RM-064 T4: retomada recebe caminho e inventário pequeno sem copiar job grande ou seguir link', () => {
   const p = projetoTemporario('rm064-t4-trabalho');
@@ -80,5 +82,38 @@ test('RM-064 T5 doctor: avisa quando o condutor LLM e a fase viva usam a mesma c
     assert.match(compartilhada?.detalhe ?? '', /ork-fase:GO/);
     assert.equal(checarSeparacaoDaConducao(p.dir, inventario('outra'), { CLAUDECODE: '1' })?.nivel, 'ok');
     assert.equal(checarSeparacaoDaConducao(p.dir, inventario(null), {}) , null);
+  } finally { p.limpar(); }
+});
+
+test('RM-064 T7 accounts: expira marca vencida, distingue limites e aceita cota estruturada do runtime', () => {
+  const p = projetoTemporario('rm064-t7-accounts');
+  try {
+    const dir = path.join(p.dir, 'conta-a');
+    fs.mkdirSync(dir);
+    adicionarPerfil(p.dir, { id: 'a', runtime: 'claude-bg', dir });
+    marcarFalhaDePerfil(p.dir, 'a', { estado: 'esgotado', motivo: 'runtime.quota-exhausted',
+      detalhe: 'session limit; resets in 2 hours', esgotadoAte: new Date(Date.now() - 60_000).toISOString() });
+    assert.deepEqual(expirarPerfisVencidos(p.dir).map(x => x.id), ['a']);
+    assert.deepEqual([lerPerfis(p.dir).perfis[0].estado, lerPerfis(p.dir).perfis[0].esgotadoAte], ['ativo', null]);
+    assert.equal(classificarTipoDeLimite('session limit; resets in 2 hours'), 'sessao');
+    assert.equal(classificarTipoDeLimite('weekly usage limit'), 'semanal');
+    assert.equal(classificarTipoDeLimite('spending limit set by administrator'), 'gasto-admin');
+    assert.deepEqual(cotaExpostaDoAuth({ quota: { used: 7, limit: 10, unit: 'requests', resetsAt: '2030-01-02T03:04:05.000Z' } }),
+      { usada: 7, limite: 10, restante: 3, unidade: 'requests', resetEm: '2030-01-02T03:04:05.000Z', fonte: 'runtime' });
+    assert.equal(cotaExpostaDoAuth({ loggedIn: true }), null, 'ausencia de medida nao vira zero');
+
+    const bin = path.join(p.dir, 'fake-bin'), claude = path.join(bin, 'claude');
+    fs.mkdirSync(bin);
+    fs.writeFileSync(claude, '#!/bin/sh\n' +
+      'printf \'%s\\n\' \'{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty",' +
+      '"quota":{"used":4,"limit":20,"unit":"tokens"}}\'\n');
+    fs.chmodSync(claude, 0o755);
+    const pathAnterior = process.env.PATH;
+    try {
+      process.env.PATH = `${bin}:${pathAnterior ?? ''}`;
+      const auth = conferirAuthClaude({ id: 'a', runtime: 'claude-bg', configDir: dir });
+      assert.equal(auth.ok, true, auth.detalhe);
+      assert.deepEqual(auth.cota, { usada: 4, limite: 20, restante: 16, unidade: 'tokens', resetEm: null, fonte: 'runtime' });
+    } finally { if (pathAnterior === undefined) delete process.env.PATH; else process.env.PATH = pathAnterior; }
   } finally { p.limpar(); }
 });

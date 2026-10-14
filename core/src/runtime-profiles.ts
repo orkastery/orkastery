@@ -445,6 +445,40 @@ export function reativarPerfil(raiz: string, id: string): PerfilDeRuntime {
   return p;
 }
 
+/** RM-064 T7: `accounts check` materializa a disponibilidade que antes existia só na leitura pura. */
+export function expirarPerfisVencidos(raiz: string, agoraMs = Date.now()): PerfilDeRuntime[] {
+  const temVencido = lerPerfis(raiz).perfis.some(p => p.estado === 'esgotado' && p.esgotadoAte !== null &&
+    Date.parse(p.esgotadoAte) <= agoraMs);
+  if (!temVencido) return [];
+  const expirados = atualizarPerfis(raiz, store => {
+    const saida: PerfilDeRuntime[] = [];
+    for (const p of store.perfis) {
+      if (p.estado !== 'esgotado' || p.esgotadoAte === null || Date.parse(p.esgotadoAte) > agoraMs) continue;
+      p.estado = 'ativo'; p.esgotadoAte = null;
+      saida.push({ ...p });
+    }
+    return saida;
+  });
+  for (const p of expirados) publicarEstadoDaConta(p, raizDoEstado(raiz), agoraMs);
+  return expirados;
+}
+
+export type TipoDeLimiteDaConta = 'sessao' | 'semanal' | 'gasto-admin' | 'outro' | 'nenhum';
+
+/** Classificação conservadora da evidência curta guardada; texto desconhecido continua desconhecido. */
+export function classificarTipoDeLimite(detalhe: string | null | undefined): TipoDeLimiteDaConta {
+  const texto = detalhe ?? '';
+  if (!texto) return 'nenhum';
+  if (/weekly|semana(?:l)?/iu.test(texto)) return 'semanal';
+  if (/spend(?:ing)?\s+(?:cap|limit)|limite\s+de\s+gasto|admin(?:istrator|istrador)?/iu.test(texto)) return 'gasto-admin';
+  if (/session|sess[aã]o|\b\d+(?:[.,]\d+)?\s*(?:hours?|horas?|h)\b/iu.test(texto)) return 'sessao';
+  return 'outro';
+}
+
+export function tipoDeLimiteDoPerfil(p: PerfilDeRuntime): TipoDeLimiteDaConta {
+  return p.ultimaFalha?.motivo === 'runtime.quota-exhausted' ? classificarTipoDeLimite(p.ultimaFalha.detalhe) : 'nenhum';
+}
+
 /**
  * D5: marca a falha de conta. Cota esgotada sai do rodizio ate `esgotadoAte`; auth ausente
  * sai sem prazo, ate o login ser refeito e conferido.

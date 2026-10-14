@@ -766,6 +766,8 @@ export function parseFalhaDeConta(saida: string, agoraMs = Date.now()): SinalDeF
 /** D7: resultado da conferencia de login feita pelo proprio CLI com o env do perfil. */
 export interface StatusDeAuth {
   ok: boolean; detalhe: string;
+  /** RM-064 T7: medida que o próprio runtime expôs; ausente nunca significa zero. */
+  cota?: CotaExposta;
   /** I-33 (D13): ha login, mas por provider pago (API key, helper, Console ou nuvem): nunca despacha. */
   pago?: boolean;
   /**
@@ -773,6 +775,37 @@ export interface StatusDeAuth {
    * login perdido: o perfil fica fora so deste despacho e e conferido de novo no proximo.
    */
   transitorio?: boolean;
+}
+
+export interface CotaExposta {
+  usada: number;
+  limite: number;
+  restante: number;
+  unidade: string;
+  resetEm: string | null;
+  fonte: 'runtime';
+}
+
+const objeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const numeroFinito = (v: unknown): number | null => typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
+
+/** Formatos estruturados aceitos quando `auth status --json` traz uso; chaves alheias não viram medida. */
+export function cotaExpostaDoAuth(dados: unknown): CotaExposta | null {
+  if (!objeto(dados)) return null;
+  const candidato = ['quota', 'usage', 'rateLimit'].map((k) => dados[k]).find(objeto);
+  if (!candidato) return null;
+  let limite = numeroFinito(candidato.limit ?? candidato.total ?? candidato.max);
+  let usada = numeroFinito(candidato.used ?? candidato.consumed ?? candidato.current);
+  const restanteInformada = numeroFinito(candidato.remaining);
+  const percentual = numeroFinito(candidato.percentUsed ?? candidato.utilization);
+  if (limite === null && percentual !== null && percentual <= 100) { limite = 100; usada = percentual; }
+  if (limite !== null && usada === null && restanteInformada !== null) usada = Math.max(0, limite - restanteInformada);
+  if (limite === null || usada === null || limite <= 0 || usada > limite) return null;
+  const unidadeBruta = candidato.unit ?? candidato.unidade;
+  const unidade = typeof unidadeBruta === 'string' ? unidadeBruta.replace(/[^a-zA-Z0-9%._-]/g, '').slice(0, 24) || 'unidades' : 'unidades';
+  const resetBruto = candidato.resetsAt ?? candidato.resetAt ?? candidato.resetEm;
+  const resetEm = typeof resetBruto === 'string' && Number.isFinite(Date.parse(resetBruto)) ? resetBruto : null;
+  return { usada, limite, restante: Math.max(0, limite - usada), unidade, resetEm, fonte: 'runtime' };
 }
 
 /** Campo textual do `auth status`, sem controle e curto, para o detalhe legivel. */
@@ -792,7 +825,8 @@ export function conferirAuth(perfil?: PerfilDeDespacho | null): StatusDeAuth {
   const r = exec('claude', ['auth', 'status', '--json'], undefined, 30000, ambiente);
   // A14: sem codigo de saida (timeout, sinal ou binario ausente) ou sem JSON, a conferencia e inconclusiva.
   if (r.code === -1) return { ok: false, transitorio: true, detalhe: 'claude auth status sem resposta (timeout, sinal ou binario ausente)' };
-  let dados: { loggedIn?: unknown; authMethod?: unknown; configDirectory?: unknown; apiKeySource?: unknown; apiProvider?: unknown };
+  let dados: { loggedIn?: unknown; authMethod?: unknown; configDirectory?: unknown; apiKeySource?: unknown; apiProvider?: unknown;
+    quota?: unknown; usage?: unknown; rateLimit?: unknown };
   try { dados = JSON.parse(r.stdout); } catch { return { ok: false, transitorio: true, detalhe: `claude auth status sem JSON legivel (codigo ${r.code})` }; }
   if (!dados || typeof dados !== 'object') return { ok: false, transitorio: true, detalhe: 'claude auth status sem JSON legivel' };
   if (perfil && typeof dados.configDirectory === 'string' && dados.configDirectory !== perfil.configDir)
@@ -804,7 +838,8 @@ export function conferirAuth(perfil?: PerfilDeDespacho | null): StatusDeAuth {
       ...(provedor && provedor !== 'firstParty' ? [`apiProvider ${provedor}`] : [])];
     return { ok: false, pago: true, detalhe: `claude auth status: provider pago (${partes.join(', ')}); so a assinatura claude.ai despacha` };
   }
-  return { ok: true, detalhe: `claude auth status: loggedIn (${metodo})` };
+  const cota = cotaExpostaDoAuth(dados);
+  return { ok: true, detalhe: `claude auth status: loggedIn (${metodo})`, ...(cota ? { cota } : {}) };
 }
 
 /**
