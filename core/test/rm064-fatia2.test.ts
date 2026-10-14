@@ -12,7 +12,14 @@ import { PassoDoCondutor } from '../src/conducao-sentinela';
 import { checarSeparacaoDaConducao } from '../src/doctor';
 import { InventarioDeSessoes } from '../src/sessoes-inventario';
 import { conferirAuth as conferirAuthClaude, cotaExpostaDoAuth } from '../src/adapters/claude-bg';
-import { adicionarPerfil, classificarTipoDeLimite, expirarPerfisVencidos, lerPerfis, marcarFalhaDePerfil } from '../src/runtime-profiles';
+import { adicionarPerfil, classificarTipoDeLimite, expirarPerfisVencidos, lerPerfis, marcarFalhaDePerfil,
+  politicaDeRotacao } from '../src/runtime-profiles';
+import { instalarAdaptador } from '../src/hosts';
+import { instalarMcp } from '../src/mcp-install';
+import { capacidadeDoRuntimeNoProjeto } from '../src/runtime-context';
+import { proximoAlvo } from '../src/retry';
+import { planoDoDegrau } from '../src/runtime-escada';
+import { editarBloco } from '../src/setup';
 
 test('RM-064 T4: retomada recebe caminho e inventário pequeno sem copiar job grande ou seguir link', () => {
   const p = projetoTemporario('rm064-t4-trabalho');
@@ -115,5 +122,35 @@ test('RM-064 T7 accounts: expira marca vencida, distingue limites e aceita cota 
       assert.equal(auth.ok, true, auth.detalhe);
       assert.deepEqual(auth.cota, { usada: 4, limite: 20, restante: 16, unidade: 'tokens', resetEm: null, fonte: 'runtime' });
     } finally { if (pathAnterior === undefined) delete process.env.PATH; else process.env.PATH = pathAnterior; }
+  } finally { p.limpar(); }
+});
+
+test('RM-064 T7 destino: runtime sem adaptador instalado não entra no fallback', () => {
+  const p = projetoTemporario('rm064-t7-adapter');
+  try {
+    instalarMcp({ projeto: p.dir, host: 'codex' });
+    instalarAdaptador('claude-code', { projeto: p.dir });
+    assert.deepEqual(capacidadeDoRuntimeNoProjeto(p.dir, 'claude-bg'), {
+      runtime: 'claude-bg', host: 'claude-code', preparado: true, capaz: true, motivo: null,
+    });
+    const codexAusente = capacidadeDoRuntimeNoProjeto(p.dir, 'codex');
+    assert.equal(codexAusente.preparado, true);
+    assert.equal(codexAusente.capaz, false);
+    assert.match(codexAusente.motivo ?? '', /runtime\.context\.installation/);
+    const fallback = [{ runtime: 'codex', model: 'gpt-5' }];
+    const excluir = { perfis: [] as string[], runtimesImplicitos: [] as string[] };
+    assert.equal(proximoAlvo(p.dir, { runtime: 'claude-bg', perfil: null }, fallback, excluir,
+      politicaDeRotacao(p.carregado.manifesto)), null);
+    assert.equal(editarBloco(p.dir, 'auto', 1, { fallback: ['codex:gpt-5'] }).ok, true);
+    const thread = novaThread(p.carregado, { nome: 'destino capaz', modo: 'auto' }).thread;
+    const despacho = { promptPath: 'prompt.md', promptSha256: '0'.repeat(64), runtime: 'claude-bg', perfil: null,
+      model: 'opus', effort: 'high' };
+    assert.deepEqual(planoDoDegrau(p.carregado, thread, 'GO', 2, despacho, []), { pulo: 'adaptador-ausente' });
+
+    instalarAdaptador('codex', { projeto: p.dir });
+    assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'codex').capaz, true);
+    assert.equal(proximoAlvo(p.dir, { runtime: 'claude-bg', perfil: null }, fallback, excluir,
+      politicaDeRotacao(p.carregado.manifesto))?.runtime, 'codex');
+    assert.equal('destino' in planoDoDegrau(p.carregado, thread, 'GO', 2, despacho, []), true);
   } finally { p.limpar(); }
 });

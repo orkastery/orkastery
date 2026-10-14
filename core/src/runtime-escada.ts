@@ -31,6 +31,7 @@ import {
   validarPerfilDeDespacho,
 } from './runtime-profiles';
 import { alvosDaOrdemDeFallback, configDoBloco, lerSetup } from './setup';
+import { capacidadeDoRuntimeNoProjeto } from './runtime-context';
 import { dirThread } from './thread';
 import { EventoLedger, Fase, ModoLegado, Thread } from './types';
 import type { ResultadoDoRedespacho } from './retry';
@@ -45,7 +46,7 @@ export type NumeroDoDegrau = 1 | 2 | 3;
  */
 export type ResultadoDoDegrau = 'redespachada' | 'falhou' | 'pulado' | 'interrompido';
 /** Por que um degrau nao tinha para onde mandar o prompt. */
-export type MotivoDoPulo = 'sem-fallback' | 'fallback-sem-destino' | 'sem-outro-perfil';
+export type MotivoDoPulo = 'sem-fallback' | 'adaptador-ausente' | 'fallback-sem-destino' | 'sem-outro-perfil';
 
 export interface DestinoDoDegrau { runtime: string; perfil: string | null; model: string | null; effort: string | null }
 
@@ -178,9 +179,11 @@ export function planoDoDegrau(carregado: ManifestoCarregado, thread: Thread, fas
   const store = lerPerfisComContas(raiz, agoraMs);
   if (n === 2) {
     const doBloco = configDoBloco(lerSetup(raiz), thread.modo as ModoLegado, fase);
-    const ordem = alvosDaOrdemDeFallback((doBloco as { fallback?: unknown } | null)?.fallback, doBloco?.runtime ?? manifesto.runtime.adapter)
-      .filter((f) => f.runtime !== despacho.runtime);
-    if (ordem.length === 0) return { pulo: 'sem-fallback' };
+    const configurados = alvosDaOrdemDeFallback((doBloco as { fallback?: unknown } | null)?.fallback,
+      doBloco?.runtime ?? manifesto.runtime.adapter).filter((f) => f.runtime !== despacho.runtime);
+    if (configurados.length === 0) return { pulo: 'sem-fallback' };
+    const ordem = configurados.filter((f) => capacidadeDoRuntimeNoProjeto(raiz, f.runtime).capaz);
+    if (ordem.length === 0) return { pulo: 'adaptador-ausente' };
     for (const f of ordem) {
       const perfis = perfisDoRuntime(store, f.runtime);
       const effort = f.effort ?? despacho.effort;
