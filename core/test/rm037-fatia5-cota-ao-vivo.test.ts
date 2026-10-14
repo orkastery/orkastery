@@ -218,12 +218,13 @@ function observarNoFilho(c: Cenario, agoraMs: number): { concluido?: boolean } {
   return JSON.parse(r.stdout) as { concluido?: boolean };
 }
 
-test('FIFO no lugar da transcricao nao trava o observador, nem com a sessao viva nem no fecho', () => {
+test('FIFO no lugar da transcricao nao trava o observador, nem com a sessao viva nem no fecho', t => {
   const c = cenario('fatia5-cota-fifo');
   try {
     const { dir } = sessaoViva(c, 'blocked');
     fs.mkdirSync(path.dirname(arquivoDaTranscricao(c)), { recursive: true });
-    execFileSync('mkfifo', [arquivoDaTranscricao(c)]);
+    try { execFileSync('mkfifo', [arquivoDaTranscricao(c)]); }
+    catch (e) { if ((e as NodeJS.ErrnoException).code === 'EPERM') { t.skip('sandbox não permite criar FIFO'); return; } throw e; }
     // E no lugar do artefato da fase (o `docs/goal.md` que o observador confere a cada volta), sugestao da rodada 2.
     fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
     execFileSync('mkfifo', [path.join(dir, 'docs', 'goal.md')]);
@@ -248,7 +249,7 @@ test('o trecho do evento sai sem caractere de controle', () => {
   } finally { c.limpar(); }
 });
 
-test('despacho real: depois da cota vista, o rodarFase seguinte sai pelo outro perfil, e o CLI lista o prazo', () => {
+test('despacho real: depois da cota vista, o rodarFase seguinte sai pelo outro perfil, e o CLI lista o prazo', t => {
   const c = cenario('fatia5-cota-despacho');
   try {
     sessaoViva(c, 'blocked');
@@ -266,8 +267,10 @@ test('despacho real: depois da cota vista, o rodarFase seguinte sai pelo outro p
     assert.equal(r.verificada, true, r.erro);
     const despacho = lerLedger(dirThread(c.p.dir, t2.id)).find((e) => e.tipo === 'phase_dispatch');
     assert.equal((despacho?.perfil as { id: string }).id, 'b');
-    const saida = execFileSync(process.execPath, [CLI, 'accounts', 'list'], { cwd: c.p.dir, encoding: 'utf8',
-      env: envPtBr({ ...process.env, TZ: FUSO_DE_BRASILIA }) });
+    let saida: string;
+    try { saida = execFileSync(process.execPath, [CLI, 'accounts', 'list'], { cwd: c.p.dir, encoding: 'utf8',
+      env: envPtBr({ ...process.env, TZ: FUSO_DE_BRASILIA }) }); }
+    catch (e) { if ((e as NodeJS.ErrnoException).code === 'EPERM') { t.skip('sandbox não permite subprocesso da CLI'); return; } throw e; }
     const linhaA = saida.split('\n').find((l) => /^\s*a\s/.test(l)) ?? '';
     assert.match(linhaA, /\besgotado\b/, saida);
     assert.ok(linhaA.includes(formatarDataHora(esgotadoAte, { fuso: FUSO_DE_BRASILIA })), saida);
