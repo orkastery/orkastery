@@ -1,7 +1,7 @@
 /**
  * O runner da CI em que o `ork ci run` roda, lido das variaveis que a propria CI define: GitHub Actions
- * (`GITHUB_ACTIONS=true`) ou GitLab CI (`GITLAB_CI=true`). Fora de runner, `null`. Nenhum token e lido; valor de varias
- * linhas ou fora da forma vale como ausente.
+ * (`GITHUB_ACTIONS=true`) ou GitLab CI (`GITLAB_CI=true`). Fora de runner, `null`. Nenhum token e lido; valor com caractere de
+ * controle ou fora da forma vale como ausente.
  */
 import type { TipoDeForja } from './contrato';
 
@@ -21,12 +21,13 @@ export interface AmbienteDeCi {
 }
 
 const CAMINHO = /^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+$/;
-const URL_WEB = /^https?:\/\/\S+$/;
+/** A pagina web, sem credencial na URL (`user:senha@`): a URL vai ao JSON do `ork ci run`. */
+const URL_WEB = /^https?:\/\/(?![^/]*@)\S+$/;
 const NUMERO = /^\d+$/;
 
 function valor(v: string | undefined, forma?: RegExp): string | null {
   const t = v?.trim();
-  if (!t || /[\r\n]/.test(t)) return null;
+  if (!t || /\p{Cc}/u.test(t)) return null;
   return !forma || forma.test(t) ? t : null;
 }
 

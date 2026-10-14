@@ -36,6 +36,16 @@ test('fora de runner, null; valor de várias linhas ou fora da forma vale como a
   assert.deepEqual([torto?.repository, torto?.branch, torto?.url], [null, null, null]);
 });
 
+test('caractere de controle em qualquer valor e URL com credencial valem como ausentes', () => {
+  const r = ambienteDeCi({ ...GITLAB, CI_COMMIT_BRANCH: 'ork/a\u001b[31m', CI_JOB_URL: 'https://user:senha@gitlab.empresa.com/g/p/-/jobs/7' });
+  assert.deepEqual([r?.branch, r?.url], [null, null]);
+  assert.equal(ambienteDeCi({ ...GITLAB, CI_JOB_URL: 'https://token@gitlab.empresa.com/g/p/-/jobs/7' })?.url, null);
+  assert.equal(ambienteDeCi({ ...GITLAB, CI_COMMIT_BRANCH: 'ork/a\tb' })?.branch, null);
+  const gh = ambienteDeCi({ GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'o/r', GITHUB_SERVER_URL: 'https://x:y@github.com', GITHUB_RUN_ID: '1' });
+  assert.equal(gh?.url, null);
+  assert.equal(ambienteDeCi(GITLAB)?.url, 'https://gitlab.empresa.com/grupo/sub/projeto/-/jobs/7');
+});
+
 test('executarCi: o retrato v2 do runner diz a forja, o projeto, a fonte e o produtor; fora de runner, nada disso', () => {
   const p = projetoTemporario('ci-ambiente');
   try {
