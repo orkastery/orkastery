@@ -106,7 +106,9 @@ As regras de `workflow:rules` (pipeline de MR sem duplicar a de branch) têm de 
 projeto, fora de qualquer `include:`; sem elas, a pipeline do MR pode não nascer, ou nascer em dobro.
 
 No `ork ci status --json`, o contrato é `ork.ci-status/v2`: a v1 mais `provider` (`github`, `gitlab` ou `null`),
-`fonte` (`check-run`, `commit-status` ou `pipeline-job`) e `produtor`. Os leitores da v1 continuam aceitos.
+`fonte` (`check-run`, `commit-status` ou `pipeline-job`) e `produtor`, que sai na forma de `ci.produtor`: o slug do app
+(`github-actions`), `gitlab-ci` para o job da forja e `status:<login>` para o commit status de outra conta (a conta
+`<slug>[bot]` sai como o slug). Os leitores da v1 continuam aceitos.
 O campo opcional `bloqueado: true` aparece só quando todo check que não é verde está `manual` ou `skipped`; o gate
 continua reprovando (`state: failure`), e só a pista de `ork ship pista` mostra esse caso como verde, como o rollup do GitHub.
 
@@ -130,7 +132,7 @@ sem PR lido.
 pessoa é Maintainer (40) ou acima nele, herdado inclusive. Abaixo disso a recusa é `rede.repositorio-alheio`, com o
 nível medido e o grupo na frase; com namespace de outro usuário, a recusa é `rede.repositorio-alheio` também. O host
 com porta vai por `GITLAB_HOST`; a rede não guarda caminho base. Um GitLab em subcaminho ou com CA própria é recusado
-com `rede.forja-nao-suportada`. O `ork network roadmap` lê a porta de um remoto https de GitLab (a que não é a do
+com `rede.forja-nao-suportada`. Num GitLab próprio, `ork network entrar --forja gitlab` exige `GITLAB_HOST=<host>`: sem ele a rede olha o gitlab.com, e o `glab` logado só no host próprio não conta; a recusa `forja.sem-login` diz que não há login no gitlab.com e que o GitLab próprio precisa do `GITLAB_HOST` (o ork não sonda outros hosts). O `ork network roadmap` lê a porta de um remoto https de GitLab (a que não é a do
 esquema) e a leva à API; a porta de um remoto ssh é do ssh e nunca entra. No clone com manifesto, o roadmap resolve a
 forja pelo bloco `forja:` e pelo host conhecido, sem rede, e leva à API o caminho base e a `ca` declarados.
 
@@ -257,6 +259,10 @@ O `ork_ship` do MCP empurra a base por um de quatro transportes, escolhidos no `
   diferente no worker recusa com `fixacao-divergente`. O worker também leva as variáveis que calam a CLI
   (`GLAB_CHECK_UPDATE=false` e `GLAB_SEND_TELEMETRY=false`; `GH_NO_UPDATE_NOTIFIER=1` e `GH_PROMPT_DISABLED=1`), e
   nenhuma variável de token passa.
+- **Binário da CLI em pasta com escrita de grupo.** A instalação do `forja-https` recusa o binário da CLI (`glab` ou
+  `gh`) numa pasta gravável pelo grupo, como o `glab` em `~/.local/bin` com modo 775 (outro usuário do grupo poderia
+  trocar o binário que entrega a credencial ao git): rode `chmod g-w` na pasta, ou instale a CLI numa pasta do usuário
+  ou do root sem escrita de grupo.
 - **Push.** O push e a prova saem de um gitdir temporário privado (0700) com os objetos do projeto, direto para a URL
   fixada, com `GIT_ALLOW_PROTOCOL`; o `.git/config`, os hooks e o `insteadOf` do projeto não são lidos. Os hooks ficam
   travados nos passos locais depois do push. Se o origin ou a config do repositório mudar durante o push, a entrega
