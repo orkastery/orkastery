@@ -8,6 +8,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Entrega no GitLab**: o `ork ship publicar` abre MR no GitLab nos mesmos `#Auto` e `#Maestro`, com as mesmas
+  conferências e recusas, a descrição pelo stdin e sem merge automático, provado pela releitura da lista; o
+  `ork ship pista` lê os MRs e a CI do head pela regra única de estado; o `ork ship registrar-pr --repo --pr` reconhece
+  MR mesclado do GitLab (inclusive pelo método `ff`), e o `ci.external_repositories` aceita `grupo/subgrupo/projeto`. A
+  publicação acha a forja pelo resolver, e não pelo nome do host; o `registrar-pr --repo` não tem host de reserva (remoto
+  de forja que não se resolve é recusado com `entrega.sem-leitura`, e subgrupo no GitHub com `entrega.forja-mista`). O
+  push da base recusado pela proteção da branch (GitHub: `GH006` ou "protected branch hook declined"; `GH013` só com a
+  mensagem de proteção da branch; recusa de segredo nunca; GitLab: "not allowed to push code to protected branches")
+  vira `entrega.base-protegida`, com a orientação de entregar por PR/MR; o motivo do gate não muda. O `ork` continua
+  sem mesclar PR ou MR. Muda para todos: remoto GitHub Enterprise sem o bloco `forja:` e sem login da `gh` nele passa a
+  ser recusado pelo `ork ship publicar` e pelo `registrar-pr --repo` antes de qualquer escrita (`forja.desconhecida`
+  ou `entrega.sem-leitura`), pedindo `forja.tipo`. Contrato em
+  [`docs/referencia/contratos/forja.md`](docs/referencia/contratos/forja.md#entrega).
 - **`ork ship pista` no GitLab**: a pista lê os MRs de cada branch candidata (até 20 por chamada) e a CI do head pelo mesmo
   mapa do GitHub (`manual`/`skipped` contam como verde só na pista). O `ork.ci-status/v2` ganha o campo opcional
   `bloqueado: true`, e o gate segue reprovando.

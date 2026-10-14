@@ -161,6 +161,43 @@ são sempre aviso. Entre as que reprovam o projeto dependente, estão a CLI ause
 No `ork doctor --json` (contrato `ork.doctor/v1`), a seção só roda com `--forja`, porque ela faz chamadas de rede. O
 campo `forja` do JSON diz o que foi feito: `medida` (a seção rodou) ou `nao-medida` (sem a flag).
 
+## Entrega
+
+Os quatro modos entregam como antes, nas duas forjas. O `ork` nunca mescla PR nem MR, e só abre um pelo
+`ork ship publicar`, em `#Auto` e `#Maestro`.
+
+| Comando | GitHub | GitLab |
+| --- | --- | --- |
+| `ork ship` | merge local `--no-ff`, push da base, prova pelo `git ls-remote` | o mesmo |
+| `ork ship publicar` | `gh pr list --head`, `gh pr create --body-file` | `GET /projects/:id/merge_requests?source_branch=…&state=all` e `POST /projects/:id/merge_requests` com `source_branch`, `target_branch`, `title` e `description` pelo stdin, nunca com merge automático |
+| `ork ship pista` | a lista de PRs e o rollup dos checks | os MRs de cada branch e a CI do head pelo `ork ci status` |
+| `ork ship registrar-pr --repo` | `dono/nome` no github.com | `grupo/subgrupo/projeto` na forja do projeto: `GET /projects/:id/merge_requests/:iid`, a ponta da base e a comparação |
+
+A pista mostra o check bloqueado (`manual` ou `skipped`) como feito, igual à pista do GitHub; o gate continua
+reprovando (`ork ci status --json` traz `bloqueado: true`). Nas mensagens em texto, o GitLab diz `MR !n`.
+
+O `ork ship publicar` e o `ork ship registrar-pr --repo` só escrevem ou consultam depois de resolver a forja do remoto
+do projeto (o bloco `forja:`, o host conhecido ou a CLI com login no host). Um remoto Enterprise sem o bloco `forja:` e
+sem login da CLI nele é recusado antes de qualquer escrita (`forja.desconhecida` no `publicar`, `entrega.sem-leitura`
+no `registrar-pr --repo`), pedindo `forja.tipo` ou o login. Não há host de reserva: o `registrar-pr --repo` só usa o
+github.com quando o projeto não tem remoto de forja (sem remoto ou caminho local) ou quando a forja resolvida é o
+GitHub. Um caminho com subgrupo no GitHub é recusado antes de qualquer consulta (`entrega.forja-mista`). Quando o
+dono precisa publicar, o comando que a recusa mostra no GitLab é `glab mr create … --description-file`, nunca `--fill`.
+
+MR de fork da mesma branch não conta, como o PR de outro repositório no GitHub. No GitLab, o projeto com o método
+de merge `ff`, ou com a mensagem de merge padrão (`Merge branch '…'`), não deixa o assunto `ship(<thread>)` na base, e o
+`ork ship registrar-pr <thread>` local diz "nenhum merge". Declare o próprio projeto em `ci.external_repositories` e
+registre pelo MR: `ork ship registrar-pr <thread> --repo <caminho> --pr <iid>`. O merge vale pelo commit de merge,
+pelo do squash ou, no `ff` sem squash, pelo próprio head, sempre dentro da ponta da base. Medido no GitLab CE 19.4.2:
+o `ff` sem squash deixa `merge_commit_sha` e `squash_commit_sha` nulos (vale o head), o squash preenche só
+`squash_commit_sha`, e a comparação com `from` ou `to` inexistente responde 404.
+
+O push da base recusado pela proteção da branch volta com o código `entrega.base-protegida` e a orientação de entregar
+por PR/MR e registrar com `ork ship registrar-pr`. No GitHub conta o `GH006` ou "protected branch hook declined"; o
+`GH013` só conta junto de "Changes must be made through a pull request" ou "Cannot update this protected ref", e a
+recusa da proteção contra segredo (push protection) nunca conta. No GitLab é "not allowed to push code to protected
+branches" (medido no CE 19.4.2). O motivo do gate continua `runtime.unavailable`.
+
 ## O que não é suportado
 
 - Uma casa da rede GitLab em subcaminho ou com CA própria: o `rede.json` guarda só `host[:porta]`; a recusa é
