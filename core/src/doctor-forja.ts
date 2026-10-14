@@ -10,7 +10,13 @@
  */
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
-import type { RodarCli } from './forja/api';
+import * as os from 'node:os';
+import { z } from 'zod';
+import { CAPACIDADES } from './forja/adaptador';
+import { chamadorDaApi, ChamadorDaApi, chaveDoLogin, RodarCli, temLogin } from './forja/api';
+import { CLI_DA_FORJA, hostDaApi, versaoAbaixo } from './forja/cli';
+import { adaptadorDaForja } from './forja/registro';
+import { FAIXAS, lerMetadados } from './forja/versao';
 import type { ForjaResolvida } from './forja/contrato';
 import { lerEnderecoDoRemoto } from './forja/endereco';
 import { rodarCli } from './forja/executor';
@@ -139,6 +145,128 @@ function alcanceETls(f: ForjaResolvida, portaWeb: number, http: boolean, s: Sond
   return true;
 }
 
+const PRAZO_DA_CLI_MS = 10_000;
+
+function cliELogin(f: ForjaResolvida, http: boolean, s: SondasDoDoctor, linha: Linha, checks: Check[]): boolean {
+  const m = msg().forja.doctor, cli = CLI_DA_FORJA[f.tipo];
+  const correcao = m.cliCorrecao(cli.cmd, cli.minima);
+  const v = s.rodar({ cmd: cli.cmd, args: ['--version'], prazoMs: PRAZO_DA_CLI_MS, maxBuffer: 1024 * 1024, cwd: os.tmpdir(), reduzido: true });
+  if (v.erro === 'ENOENT') { checks.push(linha('forja cli', 'fail', m.cliAusente(cli.cmd, cli.minima), correcao)); return false; }
+  const versao = cli.lerVersao(`${v.stdout}\n${v.stderr}`);
+  if (!versao) { checks.push(linha('forja cli', 'fail', m.cliIlegivel(cli.cmd), correcao)); return false; }
+  if (versaoAbaixo(versao, cli.minima)) { checks.push(linha('forja cli', 'fail', m.cliAbaixo(cli.cmd, versao, cli.minima), correcao)); return false; }
+  checks.push(linha('forja cli', 'ok', m.cli(cli.cmd, versao, cli.minima)));
+  const alvo = `${hostDaApi(f)}${f.caminhoBase}`;
+  if (!temLogin(f, s.rodar)) {
+    // O comando que a pessoa roda: com o caminho base no glab (guardado como host, com subfolder) e o token pelo stdin.
+    checks.push(linha('forja login', 'fail', m.semLogin(cli.cmd, alvo), m.loginCorrecao(cli.entrar(f, http).join(' '))));
+    return false;
+  }
+  checks.push(linha('forja login', 'ok', m.login(cli.cmd, alvo)));
+  return true;
+}
+
+/** O subcaminho (com caminho base) e o servidor, pela mesma leitura do metadata. */
+function servidor(f: ForjaResolvida, s: SondasDoDoctor, api: ChamadorDaApi, linha: Linha, checks: Check[]): boolean {
+  const m = msg().forja.doctor;
+  const meta = lerMetadados(f, { cache: s.cache, agoraMs: s.agoraMs(), api });
+  if (f.caminhoBase) {
+    checks.push(meta.ok ? linha('forja subcaminho', 'ok', m.subcaminho(f.caminhoBase))
+      : linha('forja subcaminho', 'fail', m.subcaminhoFalhou(f.caminhoBase, msg().forja.motivo(meta.erro, f.tipo)), m.subcaminhoCorrecao));
+  }
+  if (!meta.ok) {
+    if (!f.caminhoBase) checks.push(linha('forja servidor', 'fail', m.servidorFalhou(msg().forja.motivo(meta.erro, f.tipo)), m.servidorFalhouCorrecao));
+    return false;
+  }
+  const v = meta.valor;
+  const cache = v.doCache ? `; ${m.doCache}` : '';
+  const piso = FAIXAS[f.tipo]?.piso;
+  if (v.faixa === 'abaixo-do-piso' && piso) {
+    checks.push(linha('forja servidor', 'fail', m.servidorAbaixo(v.versao ?? '?', piso) + cache, m.servidorCorrecao(piso)));
+    return false;
+  }
+  checks.push(linha('forja servidor', 'ok', (FAIXAS[f.tipo]
+    ? m.servidor(v.versao ?? '?', (v.edicao ?? '?').toUpperCase(), m.faixas[v.faixa] ?? v.faixa)
+    : m.servidorSemFaixa(f.host, v.versao)) + cache));
+  return true;
+}
+
+const TOKEN_DO_GITLAB = z.object({ scopes: z.array(z.string()) });
+
+function escopo(f: ForjaResolvida, api: ChamadorDaApi, linha: Linha): Check {
+  const m = msg().forja.doctor;
+  const naoMedivel = (motivo: string): Check => linha('forja escopo', 'warn', m.escopoNaoMedivel(motivo), m.escopoNaoMedivelCorrecao);
+  if (f.tipo === 'gitlab') {
+    const r = api({ metodo: 'GET', caminho: 'personal_access_tokens/self' });
+    if (!r.ok) return naoMedivel(msg().forja.motivo(r.erro, f.tipo));
+    const lido = TOKEN_DO_GITLAB.safeParse(r.valor.corpo);
+    if (!lido.success) return naoMedivel('personal_access_tokens/self');
+    const lista = lido.data.scopes.join(', ') || m.nenhum;
+    return lido.data.scopes.some((x) => x === 'api' || x === 'read_api') ? linha('forja escopo', 'ok', m.escopo(lista))
+      : linha('forja escopo', 'fail', m.escopoSemLeitura(lista), m.escopoCorrecao);
+  }
+  if (f.tipo === 'github') {
+    // `rate_limit` nao gasta a cota e traz o `x-oauth-scopes` do token classico.
+    const r = api({ metodo: 'GET', caminho: 'rate_limit' });
+    if (!r.ok) return naoMedivel(msg().forja.motivo(r.erro, f.tipo));
+    const cabecalho = r.valor.cabecalhos['x-oauth-scopes'];
+    if (cabecalho === undefined) return linha('forja escopo', 'ok', m.escopoFineGrained);
+    const escopos = cabecalho.split(',').map((x) => x.trim()).filter(Boolean);
+    const lista = escopos.join(', ') || m.nenhum;
+    return escopos.includes('repo') ? linha('forja escopo', 'ok', m.escopo(lista)) : linha('forja escopo', 'warn', m.escopoSemRepo(lista), m.escopoSemRepoCorrecao);
+  }
+  return linha('forja escopo', 'ok', m.escopoNaoMedivel(f.tipo));
+}
+
+const PROJETO_DO_GITLAB = z.object({
+  merge_method: z.string(), squash_option: z.string().optional(), merge_commit_template: z.string().nullable().optional(),
+  merge_pipelines_enabled: z.boolean().optional(), merge_trains_enabled: z.boolean().optional(),
+});
+const REPOSITORIO_DO_GITHUB = z.object({
+  allow_merge_commit: z.boolean().optional(), allow_squash_merge: z.boolean().optional(), allow_rebase_merge: z.boolean().optional(),
+});
+
+/** O metodo de merge e o resto do que decide se o merge `ship(<thread>)` chega a base. So avisa; o projeto nao lido reprova. */
+function projetoDaForja(f: ForjaResolvida, api: ChamadorDaApi, linha: Linha): Check {
+  const m = msg().forja.doctor;
+  const caminho = f.tipo === 'gitlab' ? `projects/${encodeURIComponent(f.repo)}` : `repos/${f.repo}`;
+  if (f.tipo !== 'gitlab' && f.tipo !== 'github') return linha('forja projeto', 'ok', m.naoMedivel);
+  const r = api({ metodo: 'GET', caminho });
+  if (!r.ok) return linha('forja projeto', 'fail', m.projetoFalhou(f.repo, msg().forja.motivo(r.erro, f.tipo)), m.projetoFalhouCorrecao);
+  const invalido = (): Check => linha('forja projeto', 'warn',
+    m.projetoFalhou(f.repo, msg().forja.motivo({ codigo: 'forja.resposta-invalida', detalhe: caminho }, f.tipo)), m.projetoFalhouCorrecao);
+  if (f.tipo === 'gitlab') {
+    const lido = PROJETO_DO_GITLAB.safeParse(r.valor.corpo);
+    if (!lido.success) return invalido();
+    const p = lido.data;
+    const estado = (v: boolean | undefined): string => (v === undefined ? m.naoDisponivel : v ? m.ligado : m.desligado);
+    const avisos: string[] = [];
+    if (p.merge_method === 'ff') avisos.push(m.avisoFf);
+    else if (!(p.merge_commit_template ?? '').trimStart().startsWith('%{title}')) avisos.push(m.avisoMensagemPadrao);
+    if (p.squash_option === 'always' || p.squash_option === 'default_on') avisos.push(m.avisoSquash(p.squash_option));
+    const detalhe = [m.projetoGitlab(p.merge_method, p.squash_option ?? '?', estado(p.merge_pipelines_enabled), estado(p.merge_trains_enabled)),
+      ...avisos].join('; ');
+    return linha('forja projeto', avisos.length ? 'warn' : 'ok', detalhe, m.projetoGitlabCorrecao);
+  }
+  const lido = REPOSITORIO_DO_GITHUB.safeParse(r.valor.corpo);
+  if (!lido.success) return invalido();
+  const p = lido.data;
+  const permite = (v: boolean | undefined): string => (v === undefined ? m.naoMedivel : v ? m.permitido : m.desligado);
+  const avisos = p.allow_merge_commit === false ? [m.avisoSemMergeCommit] : [];
+  const detalhe = [m.projetoGithub(permite(p.allow_merge_commit), permite(p.allow_squash_merge), permite(p.allow_rebase_merge)), ...avisos].join('; ');
+  return linha('forja projeto', avisos.length ? 'warn' : 'ok', detalhe, m.projetoGithubCorrecao);
+}
+
+function capacidades(f: ForjaResolvida): Check {
+  const m = msg().forja.doctor, a = adaptadorDaForja(f.tipo);
+  const ligadas = CAPACIDADES.filter((c) => typeof a[c] === 'function');
+  const desligadas = CAPACIDADES.filter((c) => typeof a[c] !== 'function');
+  return desligadas.length
+    ? { nome: 'forja capacidades', nivel: 'warn', detalhe: m.capacidadesDesligadas(ligadas.join(', ') || m.nenhum, desligadas.join(', ')),
+      correcao: m.capacidadesCorrecao }
+    : { nome: 'forja capacidades', nivel: 'ok', detalhe: m.capacidades(ligadas.join(', ')) };
+}
+
 export function checarForja(carregado: ManifestoCarregado, s: SondasDoDoctor = sondasPadraoDoDoctor(carregado.raiz)): Check[] {
   const m = msg().forja.doctor;
   const declarada = carregado.manifesto.forja;
@@ -163,5 +291,10 @@ export function checarForja(carregado: ManifestoCarregado, s: SondasDoDoctor = s
   const portaWeb = f.porta ?? (http ? 80 : 443);
   const checks: Check[] = [linha('forja identidade', 'ok', identidade(f, portaWeb))];
   if (!alcanceETls(f, portaWeb, http, s, linha, checks)) return checks;
+  if (!cliELogin(f, http, s, linha, checks)) return checks;
+  // O login ja foi conferido: as chamadas da API nao repetem o `auth status`.
+  const api = chamadorDaApi(f, { rodar: s.rodar, agoraMs: s.agoraMs, logins: new Map([[chaveDoLogin(f), true]]) });
+  if (!servidor(f, s, api, linha, checks)) return checks;
+  checks.push(escopo(f, api, linha), projetoDaForja(f, api, linha), capacidades(f));
   return checks;
 }

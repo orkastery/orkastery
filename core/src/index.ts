@@ -98,6 +98,7 @@ import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './c
 import { conferirClaims, ErroDeConferencia, FORMATO_DA_CONFERENCIA, idsDeClaims, textoDaConferencia } from './claims-conferir';
 import { exigirCatalogoDoPacote } from './catalogo';
 import { doctor, doctorJson } from './doctor';
+import { checarForja } from './doctor-forja';
 import { endurecerUmask, preflight, textoPreflight } from './preflight';
 import { rodarEval, textoDoEval } from './evalrunner';
 import { aprovarGateHumano } from './gates';
@@ -4283,11 +4284,12 @@ function executarComando(argvBruto: string[]): number {
       const analisadores = () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK, undefined, undefined, msg().doctor.grafo);
       // RM-063 (fatia 3, H1): `--json` e o contrato `ork.doctor/v1` que a batida do host le, com a idade da batida.
       if (args.opcoes.json === true) {
-        const j = doctorJson(diretorioDoProjeto(), nomesHerdados, analisadores);
+        // A batida dos hosts le o --json com frequencia: a secao forja (rede e CLI) so com --forja.
+        const j = doctorJson(diretorioDoProjeto(), nomesHerdados, analisadores, undefined, args.opcoes.forja === true ? checarForja : undefined);
         console.log(JSON.stringify(j.json, null, 2));
         return j.codigo;
       }
-      const r = doctor(diretorioDoProjeto(), nomesHerdados, analisadores);
+      const r = doctor(diretorioDoProjeto(), nomesHerdados, analisadores, checarForja);
       console.log(r.texto);
       return r.codigo;
     }
