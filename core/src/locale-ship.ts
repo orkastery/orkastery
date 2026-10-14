@@ -150,6 +150,8 @@ export const SHIP_PT_BR = {
     `o PR #${n} entrou em ${base}, e a branch padrao de ${repo} e ${padrao ?? 'desconhecida'}`,
   prExternoForaDaPonta: (merge: string, repo: string, base: string) => `o merge ${merge} nao esta na ponta de ${repo}:${base}`,
   prForjaDoExterno: (repo: string, motivo: string) => `a forja de ${repo} não foi resolvida: ${motivo}`,
+  prForjaDoProjetoNaoResolvida: (repo: string, remoto: string, motivo: string) =>
+    `a forja do remoto ${remoto} não foi resolvida (${motivo}), e ${repo} não é consultado em outro host; declare forja.tipo no orkastery.yaml ou faça login na CLI da forja nesse host`,
   prRepoComSubgrupoNoGithub: (repo: string) =>
     `${repo} tem subgrupos, e um repositorio do GitHub e so dono/nome; num projeto do GitLab, o remoto ou forja.tipo: gitlab no orkastery.yaml diz a forja`,
   prExternoRegistraria: (merge: string, n: number, repo: string) => `ensaio: registraria ship_done pelo merge ${merge} do PR #${n} de ${repo} (nada gravado)`,
@@ -425,6 +427,8 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
   prOutraBase: (n, base, repo, padrao) => `PR #${n} landed on ${base}, and the default branch of ${repo} is ${padrao ?? 'unknown'}`,
   prExternoForaDaPonta: (merge, repo, base) => `merge ${merge} is not at the tip of ${repo}:${base}`,
   prForjaDoExterno: (repo, motivo) => `the forge of ${repo} was not resolved: ${motivo}`,
+  prForjaDoProjetoNaoResolvida: (repo, remoto, motivo) =>
+    `the forge of remote ${remoto} was not resolved (${motivo}), and ${repo} is not queried on another host; declare forja.tipo in orkastery.yaml or log in to the forge CLI on that host`,
   prRepoComSubgrupoNoGithub: (repo) =>
     `${repo} has subgroups, and a GitHub repository is only owner/name; in a GitLab project, the remote or forja.tipo: gitlab in orkastery.yaml names the forge`,
   prExternoRegistraria: (merge, n, repo) => `dry run: would record ship_done from merge ${merge} of PR #${n} of ${repo} (nothing written)`,

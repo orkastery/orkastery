@@ -34,7 +34,10 @@ function projeto(nome: string) {
 const mrDa = (v: string, thread: string, extra: Record<string, unknown> = {}) =>
   ({ ...(gravado(`gitlab/${v}/mr`) as Record<string, unknown>), iid: 7, title: `ship(${thread}): sites`, web_url: URL_DO_MR, ...extra });
 
-/** O GitLab do site: o MR, o projeto, a ponta da main e a comparação da ponta com o merge. */
+/**
+ * O GitLab do site: o MR, o projeto, a ponta da main e a comparação da ponta com o merge. O `compare-dentro` foi gravado
+ * para outro sha de merge (o do MR !1 da matriz); aqui ele serve como a forma de uma resposta `ahead` não trivial.
+ */
 function gitlabDoSite(mr: Record<string, unknown>, comparacao: unknown = gravado('gitlab/19.4/compare-dentro')) {
   const m = mr as unknown as Mr;
   const merge = m.merge_commit_sha ?? m.squash_commit_sha ?? m.sha;
@@ -145,6 +148,7 @@ test('projeto do GitHub: o subgrupo declarado é recusado sem consultar o gh; o 
       executorGitHub: (c) => { consultas.push(c); return { ok: false, stdout: '', stderr: 'x', code: 1 }; } });
     assert.equal(r.acao, 'recusada');
     assert.match(r.motivo, /tem subgrupos/);
+    assert.equal(r.codigo, 'entrega.forja-mista');
     assert.deepEqual(consultas, []);
 
     const arquivo = path.join(p.dir, 'orkastery.yaml');
@@ -186,5 +190,68 @@ test('a forja do externo vem do --remoto do projeto: o gitlab.com com subgrupo, 
     assert.deepEqual(ci.chamadas.map((c) => [c.repo, c.host]), [[SITE, 'gitlab.com']]);
     const apis = gl.cli.chamadas.filter((c) => c.args[0] === 'api');
     assert.ok(apis.length > 0 && apis.every((c) => c.acrescentar?.GITLAB_HOST === 'gitlab.com'));
+  } finally { p.limpar(); }
+});
+
+test('recusas no GitLab: MR mesclado em outra base e MR que não cita a thread', () => {
+  const { p, t, dir } = projeto('gitlab-externo-base-vinculo');
+  try {
+    const com = (mr: Record<string, unknown>) => registrarEntregaExternaPorPr(p.carregado, t.id, { repositorio: SITE, pr: 7, forja: GITLAB,
+      api: gitlabDoSite(mr).api, ciDaForja: ciFalsa().ciDaForja, executorGitHub: SEM_GH, publicar: false });
+    const outraBase = com(mrDa('19.4', t.id, { target_branch: 'dev' }));
+    assert.equal(outraBase.acao, 'recusada');
+    assert.match(outraBase.motivo, /o PR #7 entrou em dev, e a branch padrao de grupo\/sub\/site e main/);
+    const semVinculo = com(mrDa('19.4', t.id, { title: 'feat: outra coisa', description: null, source_branch: 'ork/outra-coisa' }));
+    assert.equal(semVinculo.acao, 'recusada');
+    assert.match(semVinculo.motivo, new RegExp(`nao cita a thread ${t.id}`));
+    assert.equal(lerLedger(dir).filter((x) => x.tipo === 'ship_done').length, 0);
+  } finally { p.limpar(); }
+});
+
+test('merge igual à ponta: identical sem consultar a comparação, e a prova diz de onde veio a ponta', () => {
+  const { p, t, dir } = projeto('gitlab-externo-identical');
+  try {
+    const gl = gitlabDoSite(mrDa('19.4', t.id, { merge_commit_sha: PONTA }));
+    const r = registrarEntregaExternaPorPr(p.carregado, t.id, { repositorio: SITE, pr: 7, forja: GITLAB, api: gl.api, ciDaForja: ciFalsa().ciDaForja,
+      executorGitHub: SEM_GH, publicar: false });
+    assert.equal(r.acao, 'registrou', r.motivo);
+    assert.equal(gl.cli.chamadas.filter((c) => c.args[0] === 'api' && caminhoDe(c).includes('/repository/compare')).length, 0);
+    const e = lerLedger(dir).find((x) => x.tipo === 'ship_done')!;
+    assert.equal(e.fonteDaProva, `merge = ponta de main por glab api ${P}/repository/branches/main`);
+  } finally { p.limpar(); }
+});
+
+test('sem host de reserva: o remoto de forja que não se resolve recusa sem ir ao github.com; sem remoto e GitHub resolvido seguem no github.com', () => {
+  const { p, t } = projeto('gitlab-externo-sem-reserva');
+  try {
+    const REPO = 'dono/site';
+    p.carregado.manifesto.ci.external_repositories = { [REPO]: '' };
+    const consultas: string[] = [];
+    const gh: ExecutorGitHub = (c) => { consultas.push(c); return { ok: false, stdout: '', stderr: 'x', code: 1 }; };
+    const semLogin = { github: () => 'sem-login' as const, gitlab: () => 'sem-login' as const };
+    const nunca = { github: () => { throw new Error('sondou o github'); }, gitlab: () => { throw new Error('sondou o gitlab'); } };
+    const com = (remoto: string, sondas: typeof semLogin | typeof nunca) =>
+      registrarEntregaExternaPorPr(p.carregado, t.id, { repositorio: REPO, pr: 7, remoto, sondas, executorGitHub: gh, publicar: false });
+
+    // (a) Um GitLab proprio sem `forja:` e sem login na CLI: nem o gh nem o glab sao chamados.
+    exec('git', ['remote', 'add', 'proprio', 'https://git.empresa.interna/dono/site.git'], p.dir);
+    const proprio = com('proprio', semLogin);
+    assert.equal(proprio.acao, 'recusada');
+    assert.equal(proprio.codigo, 'entrega.sem-leitura');
+    assert.match(proprio.motivo, /a forja do remoto proprio não foi resolvida .*declare forja\.tipo no orkastery\.yaml ou faça login na CLI da forja nesse host/);
+    assert.deepEqual(consultas, []);
+
+    // (b) Sem remoto: o github.com, como sempre.
+    const semRemoto = com('origin', nunca);
+    assert.equal(semRemoto.acao, 'recusada');
+    assert.match(semRemoto.motivo, /a consulta do PR #7 de dono\/site ao GitHub falhou/);
+    assert.deepEqual(consultas, [`repos/${REPO}/pulls/7`]);
+
+    // (c) O GitHub resolvido pelo host conhecido, sem sondar: o github.com.
+    consultas.length = 0;
+    exec('git', ['remote', 'add', 'gh', 'https://github.com/dono/app.git'], p.dir);
+    const github = com('gh', nunca);
+    assert.match(github.motivo, /ao GitHub falhou/);
+    assert.deepEqual(consultas, [`repos/${REPO}/pulls/7`]);
   } finally { p.limpar(); }
 });

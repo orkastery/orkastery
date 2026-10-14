@@ -39,7 +39,7 @@ export interface EntregaPorPr {
   ci: ResultadoCi | null;
   motivo: string;
   /** Fatia 2: o porque estavel das recusas de entrega sem prova (so nelas). */
-  codigo?: 'entrega.sem-vinculo' | 'entrega.sem-leitura' | 'entrega.sem-head';
+  codigo?: 'entrega.sem-vinculo' | 'entrega.sem-leitura' | 'entrega.sem-head' | 'entrega.forja-mista';
   /**
    * RM-044 (A3): as paginas do roadmap desta thread que o push da base vai reprovar em
    * `docs.paridade.merge` (merge ship(<thread>) na base com o `estado.codigo` fora de `Mesclado`).
@@ -210,17 +210,20 @@ export interface OpcoesDaEntregaExterna {
 
 /**
  * A forja do repositorio externo: a do projeto quando ela e um GitLab (o mesmo host, a mesma porta, o mesmo caminho
- * base, outro projeto); senao o github.com, como sempre, inclusive sem remoto. O projeto que declara `forja.tipo: gitlab`
- * e cuja forja nao se resolve nunca cai no github.com.
+ * base, outro projeto); o github.com quando a forja do projeto e o GitHub ou quando o projeto nao tem remoto de forja
+ * (sem remoto ou caminho local), como sempre. Nao ha host de reserva: o remoto que nomeia um host de forja que nao se
+ * resolve, e o projeto que declara `forja.tipo: gitlab` sem a forja resolvida, nunca caem no github.com.
  */
 function forjaDoExterno(carregado: ManifestoCarregado, repo: string, opcoes: OpcoesDaEntregaExterna):
-  { ok: true; gitlab: ForjaResolvida | null } | { ok: false; erro: ErroDaForja } {
+  { ok: true; gitlab: ForjaResolvida | null } | { ok: false; erro: ErroDaForja; remoto: string; declarada: boolean } {
   const remoto = opcoes.remoto ?? 'origin';
   const doProjeto = opcoes.forja ? { ok: true as const, valor: opcoes.forja } : forjaDaEntrega(carregado, exigirRemoto(remoto, 'ship'), opcoes.sondas);
   if (doProjeto.ok && doProjeto.valor.tipo === 'gitlab') return { ok: true, gitlab: { ...doProjeto.valor, repo } };
   if (carregado.manifesto.forja?.tipo === 'gitlab') {
-    return { ok: false, erro: !doProjeto.ok && doProjeto.erro ? doProjeto.erro : { codigo: 'forja.desconhecida', detalhe: remoto } };
+    return { ok: false, remoto, declarada: true,
+      erro: !doProjeto.ok && doProjeto.erro ? doProjeto.erro : { codigo: 'forja.desconhecida', detalhe: remoto } };
   }
+  if (!doProjeto.ok && doProjeto.erro) return { ok: false, erro: doProjeto.erro, remoto, declarada: false };
   return { ok: true, gitlab: null };
 }
 
@@ -249,13 +252,15 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
 
   const daForja = forjaDoExterno(carregado, repo, opcoes);
   if (!daForja.ok) {
-    const erro = daForja.erro;
-    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prForjaDoExterno(repo, m.forja.motivo(erro, 'gitlab'))),
-      { codigo: 'entrega.sem-leitura' });
+    const { erro, remoto, declarada } = daForja;
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => declarada ? m.ship.prForjaDoExterno(repo, m.forja.motivo(erro, 'gitlab'))
+      : m.ship.prForjaDoProjetoNaoResolvida(repo, remoto, m.forja.motivo(erro, null))), { codigo: 'entrega.sem-leitura' });
   }
   const gitlab = daForja.gitlab;
   // O GitHub so tem dono/nome: o caminho com subgrupo e recusado antes de qualquer consulta.
-  if (!gitlab && repo.split('/').length !== 2) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prRepoComSubgrupoNoGithub(repo)));
+  if (!gitlab && repo.split('/').length !== 2) {
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prRepoComSubgrupoNoGithub(repo)), { codigo: 'entrega.forja-mista' });
+  }
   const nomeDaForja = gitlab ? 'GitLab' : undefined;
   const forja = adaptadorDaForja(gitlab ? 'gitlab' : 'github');
   const api = gitlab ? chamadorDaApi(gitlab, opcoes.api ?? {}) : undefined;
@@ -320,7 +325,10 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
     remoto: `${gitlab ? 'gitlab' : 'github'}:${repo}`,
     shaRemoto: ponta,
     pushVerificado: true,
-    fonteDaProva: gitlab
+    // `identical`: o merge e a propria ponta, e a comparacao nem e consultada.
+    fonteDaProva: gitlab && comparacao === 'identical'
+      ? `merge = ponta de ${base} por glab api ${projetoNaApi(repo)}/repository/branches/${encodeURIComponent(base)}`
+      : gitlab
       ? `glab api ${projetoNaApi(repo)}/repository/compare?from=${ponta}&to=${mergeSha}&straight=false (status ${comparacao}; ponta de ${base} por glab api ${projetoNaApi(repo)}/repository/branches/${encodeURIComponent(base)})`
       : `gh api repos/${repo}/compare/${mergeSha}...${ponta} (status ${comparacao}; ponta de ${base} por gh api repos/${repo}/branches/${base})`,
     autorizadoPor: ci ? 'merge de PR com o CI independente verde no SHA exato' : 'merge de PR em repositorio externo declarado sem CI no manifesto',
