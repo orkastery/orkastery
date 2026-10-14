@@ -22,16 +22,18 @@ Valor fora da forma é erro do manifesto. O manifesto confirma o remoto, nunca o
 - o `host` declarado difere do host do remoto;
 - há `porta` declarada e o remoto é de host conhecido (`github.com`, `gitlab.com`), ou é web sem porta explícita ou
   com a porta padrão do protocolo (443 em https, 80 em http): qualquer `porta` declarada é recusada, até a padrão. Num remoto web com
-  porta explícita fora do padrão, a `porta` declarada tem de ser igual a ela. Num remoto SSH (`ssh://` ou `scp`) em
-  outro host, a `porta` declarada vale para a web e a API: a porta do SSH não diz nada sobre a porta da web, e por isso
-  não restringe a `porta` do manifesto;
+  porta explícita fora do padrão, a `porta` declarada tem de ser igual a ela. Num remoto SSH (`ssh://` ou `scp`) de host
+  que não é conhecido, a `porta` declarada vale para a web e a API, no mesmo host do manifesto ou no caso do SSH em
+  host separado (`ssh_host`, abaixo): a porta do SSH não diz nada sobre a porta da web. O host continua tendo de bater,
+  e qualquer outro host dá `forja.remoto-divergente`;
 - o remoto é web e o `caminho_base` não é prefixo do caminho dele, ou não sobra `dono/repo` depois dele;
 - o `tipo` contradiz um host conhecido (`tipo: gitlab` em `github.com`);
 - o remoto está em host conhecido (`github.com`, `gitlab.com` e os apelidos SSH): ele nunca é redirecionado, e o
   `host` ou a `porta` do manifesto que divergem recusam.
 
-O único desvio é o do SSH em outro host: o remoto `ssh` ou `scp` (nunca `git://`) cujo host é o `ssh_host` declarado
-usa o `host` do manifesto para a web e a API, e esse `host` nunca pode ser um host conhecido.
+O único desvio é o do SSH em host separado: o remoto `ssh` ou `scp` (nunca `git://`) cujo host é o `ssh_host`
+declarado usa o `host` do manifesto para a web e a API (e a `porta` declarada, sem confronto com a do remoto), e esse
+`host` nunca pode ser um host conhecido.
 
 ## Como o tipo é resolvido
 
@@ -63,8 +65,9 @@ manifesto: nunca se adivinha quem aprova.
 
 ## A CI no GitLab
 
-`ork ci status` e o gate do `ork ship` leem a CI pela forja resolvida (o mesmo resolvedor do restante do contrato). O `ork-verify` é um job da pipeline do projeto, e o `ork` o lê pela API: os commit
-statuses do commit, filtrados pelo `ci.context`, conferidos contra a lista de jobs da pipeline do projeto.
+`ork ci status` e o gate do `ork ship` leem a CI pela forja resolvida (o mesmo resolvedor do restante do contrato).
+O `ork-verify` é um job da pipeline do projeto, e o `ork` o lê pela API: os commit statuses do commit, filtrados pelo
+`ci.context`, conferidos contra a lista de jobs da pipeline do projeto.
 
 - **Só o job real é `gitlab-ci`.** Um status conta como produtor `gitlab-ci` apenas se o id, o nome e a pipeline dele
   estão na lista de jobs da pipeline do projeto.
