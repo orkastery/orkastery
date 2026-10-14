@@ -25,7 +25,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { branchValida, exigirRemoto } from './branch-de-estado';
-import { BundleCi, comandosDoBundle } from './ci';
+import { BundleCi, comandosDoBundle, consultarCi, ResultadoCi } from './ci';
 import { chamadorDaApi, OpcoesDaApi } from './forja/api';
 import { hostDaApi } from './forja/cli';
 import type { ErroDaForja, ForjaResolvida, TipoDeForja } from './forja/contrato';
@@ -790,6 +790,11 @@ export interface OpcoesDaPista {
   thread?: string;
   executorGh?: ExecutorDoGh;
   forja?: Forja;
+  forjaResolvida?: ForjaResolvida;
+  api?: OpcoesDaApi;
+  sondas?: SondasDaForja;
+  /** A CI do head de um MR do GitLab; padrao: `consultarCi` no remoto. Nunca vem da CLI. */
+  ciDoHead?: (sha: string) => ResultadoCi;
 }
 
 /**
@@ -831,10 +836,57 @@ function entregaLocal(raiz: string, f: FatosDaThread, remotas: Map<string, strin
 /** Por que o PR de uma branch nao veio numa leitura que deu certo: a lista dos abertos cortada ou a branch sem conferir. */
 type CorteDaLeitura = 'parcial' | 'sem-conferir' | null;
 
+/** Quantas branches a pista confere uma a uma no GitLab por chamada; as outras ficam "sem conferir". */
+const MRS_CONFERIDOS_POR_LEITURA = 20;
+
+/** Os MRs das branches candidatas, uma leitura por branch; a primeira que falha deixa a lista sem leitura. */
+function lerMrsDasCandidatas(pedidos: PedidosDaEntrega, base: string, candidatas: readonly string[]):
+  { prs: PrDaForja[]; semConferir: string[] } | { erro: string } {
+  const prs: PrDaForja[] = [], semConferir: string[] = [];
+  for (const [i, branch] of [...new Set(candidatas)].entries()) {
+    if (i >= MRS_CONFERIDOS_POR_LEITURA) { semConferir.push(branch); continue; }
+    const lidos = pedidos.listar(base, branch);
+    if (lidos.erro !== null) return { erro: lidos.erro };
+    prs.push(...lidos.prs);
+  }
+  return { prs, semConferir };
+}
+
+/**
+ * A etapa `ci` do MR aberto pela CI do head. O mesmo mapa do rollup do GitHub: `success` e `bloqueado` (`manual`,
+ * `skipped`) sao verdes, vermelho e falhou, pendente e ausente esperam, e a leitura que falhou nao e lida.
+ */
+function etapaDaCiNoHead(ci: ResultadoCi, contexto: string, pr: PrDaForja): EtapaDaPista {
+  const c = (m: Mensagens) => m.ship.publicar;
+  if (ci.state === 'success' || (ci.state === 'failure' && ci.bloqueado)) {
+    return etapa('ci', 'feita', textoDoCatalogo((m) => c(m).ciVerde(contexto, curto(pr.head))));
+  }
+  if (ci.state === 'failure') return etapa('ci', 'falhou', textoDoCatalogo((m) => c(m).ciVermelho(contexto, pr.numero)));
+  if (ci.state === 'pending') return etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciEsperando(contexto, pr.numero)));
+  if (ci.state === 'missing') return etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciSemCheck(contexto, pr.numero)));
+  return etapa('ci', 'nao-lida', ci.detail);
+}
+
+/**
+ * O GitLab do remoto, quando e ele; `null` deixa a pista no caminho do GitHub de sempre. `erro` quando o remoto e do
+ * GitLab (pelo bloco `forja:` ou pelo host conhecido) e a forja nao resolveu: a pista diz "sem leitura", nunca "sem MR".
+ */
+function gitlabDaPista(carregado: ManifestoCarregado, remoto: string, opcoes: OpcoesDaPista): ForjaResolvida | { erro: ErroDaForja } | null {
+  if (opcoes.forja) return null;
+  if (opcoes.forjaResolvida) return opcoes.forjaResolvida.tipo === 'gitlab' ? opcoes.forjaResolvida : null;
+  const r = forjaDaEntrega(carregado, remoto, opcoes.sondas);
+  if (r.ok) return r.valor.tipo === 'gitlab' ? r.valor : null;
+  return r.erro && tipoSemRede(carregado, remoto) === 'gitlab' ? { erro: r.erro } : null;
+}
+
 /** O que a pista de uma thread diz, das leituras ja feitas. */
 function pistaDaThread(carregado: ManifestoCarregado, f: FatosDaThread, local: EntregaLocal, leitura: {
   remoto: string; base: string; remotasLidas: boolean; prs: PrDaForja[] | null; prsNaoLidos: string | null;
   corte: (branch: string) => CorteDaLeitura; ciExigido: boolean; contexto: string;
+  /** A forja do comando do dono. */
+  tipo?: TipoDeForja;
+  /** A etapa `ci` do PR aberto, quando a forja nao traz os checks na lista (o GitLab). */
+  ciDoPedido?: (pr: PrDaForja) => EtapaDaPista;
 }): PistaDaThread | null {
   const { t } = f;
   const raiz = carregado.raiz;
@@ -879,6 +931,7 @@ function pistaDaThread(carregado: ManifestoCarregado, f: FatosDaThread, local: E
     prEtapa = etapa('pr', 'feita', textoDoCatalogo((m) => pr.rascunho ? c(m).prRascunho(pr.numero) : c(m).prAberto(pr.numero)));
     const check = pr.checks.find((k) => k.nome === leitura.contexto);
     ciEtapa = !leitura.ciExigido ? etapa('ci', 'nao-se-aplica', textoDoCatalogo((m) => c(m).ciNaoExigido))
+      : leitura.ciDoPedido ? leitura.ciDoPedido(pr)
       : !check ? etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciSemCheck(leitura.contexto, pr.numero)))
       : check.situacao === 'verde' ? etapa('ci', 'feita', textoDoCatalogo((m) => c(m).ciVerde(leitura.contexto, curto(pr.head))))
       : check.situacao === 'vermelho' ? etapa('ci', 'falhou', textoDoCatalogo((m) => c(m).ciVermelho(leitura.contexto, pr.numero)))
@@ -911,7 +964,7 @@ function pistaDaThread(carregado: ManifestoCarregado, f: FatosDaThread, local: E
           texto: textoDoCatalogo((m) => pr?.estado === 'aberto' ? c(m).proximoPublicarNoPr(pr.numero) : c(m).proximoPublicar) }
       : { acao: 'publicar', disponivel: false, texto: textoDoCatalogo((m) => c(m).proximoDoDono(t.id, tagDoModo(t.modo))),
           comando: comandoDoDono(leitura.remoto, leitura.base, f.branch, tituloDoPr(t, corpo?.texto ?? null),
-            corpo ? path.relative(raiz, corpo.arquivo) : null) };
+            corpo ? path.relative(raiz, corpo.arquivo) : null, leitura.tipo) };
   } else if (prEtapa.estado === 'nao-lida') proximo = nada(prEtapa.texto, `ork ship pista ${t.id}`);
   else if (conflitoEtapa.estado === 'falhou') proximo = nada(textoDoCatalogo((m) => c(m).proximoConflito(pr?.numero ?? 0)));
   else if (ciEtapa.estado === 'falhou') proximo = nada(textoDoCatalogo((m) => c(m).proximoCiVermelho(leitura.contexto, pr?.numero ?? 0)));
@@ -954,17 +1007,41 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
   let prsNaoLidos: string | null = null;
   let parcial = false;
   let semConferir: ReadonlySet<string> = new Set<string>();
+  let ciDoPedido: ((pr: PrDaForja) => EtapaDaPista) | undefined;
+  let prsNaoLidosDoGitlab = false;
   if (candidatas.length) {
-    const leitura = lerPrsDaForja(carregado, { quando: lidoEm, executor: opcoes.executorGh, remoto, candidatas, forja: opcoes.forja });
-    if (leitura.ok) {
-      prs = leitura.retrato.prs;
-      parcial = leitura.retrato.parcial;
-      semConferir = new Set(leitura.retrato.semConferir ?? []);
-    } else {
+    const gitlab = gitlabDaPista(carregado, remoto, opcoes);
+    if (gitlab && 'erro' in gitlab) {
       prs = null;
-      prsNaoLidos = deFora(leitura.erro);
+      prsNaoLidos = textoDoCatalogo((m) => m.forja.motivo(gitlab.erro, 'gitlab'));
+      prsNaoLidosDoGitlab = true;
+    } else if (gitlab) {
+      const lidos = lerMrsDasCandidatas(pedidosDoGitlab(gitlab, opcoes.api ?? {}), base, candidatas);
+      if ('erro' in lidos) {
+        prs = null;
+        prsNaoLidos = deFora(lidos.erro);
+      } else {
+        prs = lidos.prs;
+        semConferir = new Set(lidos.semConferir);
+      }
+      const ciDoHead = opcoes.ciDoHead ?? ((sha: string) => consultarCi(carregado, sha, remoto, undefined, undefined, opcoes.sondas, opcoes.api));
+      ciDoPedido = (pr) => etapaDaCiNoHead(ciDoHead(pr.head), contexto, pr);
+    } else {
+      const fixada = opcoes.forja ?? (opcoes.forjaResolvida?.tipo === 'github'
+        ? { host: hostDaApi(opcoes.forjaResolvida), repositorio: opcoes.forjaResolvida.repo } : undefined);
+      const leitura = lerPrsDaForja(carregado, { quando: lidoEm, executor: opcoes.executorGh, remoto, candidatas, forja: fixada });
+      if (leitura.ok) {
+        prs = leitura.retrato.prs;
+        parcial = leitura.retrato.parcial;
+        semConferir = new Set(leitura.retrato.semConferir ?? []);
+      } else {
+        prs = null;
+        prsNaoLidos = deFora(leitura.erro);
+      }
     }
   }
+  const tipo: TipoDeForja = ciDoPedido || prsNaoLidosDoGitlab ? 'gitlab'
+    : tipoSemRede(carregado, remoto, opcoes.forja ? 'github' : opcoes.forjaResolvida?.tipo);
   // S8 da revisao (rodada 2): a candidata sem nenhum PR na leitura foi conferida uma a uma pelo `--head`, que a lista
   // cortada nao limita; so a que nao foi conferida, ou que so tem PR achado na lista cortada, fica em duvida.
   const comPrNaLeitura = new Set((prs ?? []).map((x) => x.branch));
@@ -973,7 +1050,7 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
     : parcial && !conferida(branch) ? 'parcial' : null);
   const pistas = fatos.flatMap((f) => {
     const local = locais.get(f.t.id);
-    const x = local ? pistaDaThread(carregado, f, local, { remoto, base, remotasLidas: remotas !== null, prs, prsNaoLidos, corte, ciExigido, contexto })
+    const x = local ? pistaDaThread(carregado, f, local, { remoto, base, remotasLidas: remotas !== null, prs, prsNaoLidos, corte, ciExigido, contexto, tipo, ciDoPedido })
       : null;
     return x ? [x] : [];
   });

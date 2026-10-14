@@ -184,3 +184,18 @@ test('ork-verify pulado não passa o gate e o detalhe diz bloqueado', () => {
   assert.match(r.detail, /bloqueado \(skipped\)/);
   p.limpar();
 });
+
+test('o retrato marca bloqueado só quando nenhum check que reprovou está vermelho', () => {
+  const p = projetoTemporario('ci-marca-bloqueado', false);
+  ajustarManifesto(p, 'required_for_ship: false', 'required_for_ship: true');
+  p.carregado.manifesto.ci.required_for_ship = true;
+  exec('git', ['remote', 'add', 'origin', 'https://github.com/Orkastery/orkastery.git'], p.carregado.raiz);
+  const sha = shaDaBranch(p.carregado.raiz, 'main');
+  const com = (conclusion: string) => consultarCi(p.carregado, sha, 'origin', (e) => ({ ok: true, code: 0, stderr: '',
+    stdout: e.caminho?.includes('/statuses') ? '[]' : JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion }] }) }));
+  assert.equal(com('skipped').bloqueado, true);
+  assert.equal(com('failure').state, 'failure');
+  assert.equal(com('failure').bloqueado, undefined);
+  assert.equal(com('success').bloqueado, undefined);
+  p.limpar();
+});
