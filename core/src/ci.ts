@@ -1,4 +1,5 @@
 /** GitHub CI como CHECK independente (I-12). */
+import { ambienteDeCi } from './forja/ambiente-de-ci';
 import { lerEnderecoDoRemoto } from './forja/endereco';
 import { detalheSeguro } from './forja';
 import { hostDaApi } from './forja/cli';
@@ -300,14 +301,20 @@ function maisNovoPorProdutor(checks: readonly CheckNoCommit[]): CheckNoCommit[] 
   return [...porProdutor.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, c]) => c);
 }
 
-export function executarCi(carregado: ManifestoCarregado, threadId: string): { status: ResultadoCi; verify: ResultadoVerify } {
+/**
+ * `ork ci run <thread>`: o verify da thread no runner. O runner (GitHub Actions ou GitLab CI) diz a forja, o projeto e
+ * a pagina do job; fora dele, so o commit verificado.
+ */
+export function executarCi(carregado: ManifestoCarregado, threadId: string, env: NodeJS.ProcessEnv = process.env):
+  { status: ResultadoCi; verify: ResultadoVerify } {
   const verify = verificar(carregado, threadId);
   const context = carregado.manifesto.ci.context || 'ork-verify';
-  const repository = process.env.GITHUB_REPOSITORY ?? null;
+  const runner = ambienteDeCi(env);
   return {
     status: {
-      ...baseDaCi('github', repository, verify.commit, context), ok: verify.ok, state: verify.ok ? 'success' : 'failure',
-      url: process.env.GITHUB_SERVER_URL && repository && process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}` : null,
+      ...baseDaCi(runner?.tipo ?? null, runner?.repository ?? null, verify.commit, context), ok: verify.ok,
+      state: verify.ok ? 'success' : 'failure', url: runner?.url ?? null,
+      fonte: runner ? (runner.tipo === 'github' ? 'check-run' : 'pipeline-job') : null, produtor: runner?.produtor ?? null,
       detail: verify.ok ? 'ork verify aprovado no runner independente' : `ork verify reprovou: ${verify.motivos.join(', ')}`,
     },
     verify,
