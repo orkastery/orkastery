@@ -461,11 +461,11 @@ export function saidaDoArtefato(raiz: string, threadId: string, sessao: Pick<Ses
   return { arquivo, produzido, sha256: atual.sha256, sha256Base: base?.sha256 ?? null, texto: atual.texto };
 }
 
-/** Exatamente um veredito legível numa linha `Veredito: ...` (PASSOU, PRECISA DE MUDANCA ou BLOQUEADO). */
+/** Exatamente um veredito legível numa linha `Veredito: ...`, incluindo a reprovação curta do prompt de CHECK. */
 export function vereditoDoParecer(texto: string): string | null {
   const achados = new Set<string>();
   for (const linha of texto.split('\n')) {
-    const m = /^[#>*_`\s-]*veredito[*_`\s]*:[*_`\s]*(passou|precisa de mudan[cç]a|bloqueado)(?![\p{L}\p{N}])/iu.exec(linha);
+    const m = /^[#>*_`\s-]*veredito[*_`\s]*:[*_`\s]*(passou|reprovou|precisa de mudan[cç]a|bloqueado)(?![\p{L}\p{N}])/iu.exec(linha);
     if (m) achados.add(m[1].toUpperCase().replace('Ç', 'C'));
   }
   return achados.size === 1 ? [...achados][0] : null;

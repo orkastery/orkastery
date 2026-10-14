@@ -280,6 +280,21 @@ export const REGRAS_DE_EVIDENCIA: readonly string[] = [
 ];
 
 /**
+ * RM-016: o rito de saída do GO pertence ao prompt canônico, não a um adaptador. Assim Claude Code
+ * e Codex recebem os mesmos artefatos obrigatórios antes de a sessão encerrar.
+ */
+export function fechoDoGo(threadId: string): string {
+  return [
+    '## Fecho obrigatório do GO',
+    '',
+    `Antes de encerrar o bloco com GO, rode \`ork verify ${threadId}\` e o build declarado no manifesto, ambos em primeiro plano.`,
+    `Gere o bundle com \`ork ci prepare ${threadId}\` e faça o commit atômico final \`ci(${threadId}): bundle ...\`.`,
+    `Grave \`.orkastery/threads/${threadId}/pr-body.md\` curto, no idioma do projeto; se o perfil não puder gravá-lo pelo transporte autorizado, devolva o corpo completo no resumo final.`,
+    'O rito é idêntico em Claude Code e Codex. Ele fecha o GO, mas não autoriza SHIP, push, PR ou merge.',
+  ].join('\n');
+}
+
+/**
  * I-42 (D11): as fases que o cabecalho do prompt descreve.
  *
  * Regra por desenho de bloco, nunca por nome de modo: quando o ciclo e um bloco so e esse bloco
@@ -334,6 +349,7 @@ export function valoresDoPrompt(
     base_commit: thread.base.commit,
     diretorio: thread.worktree ?? '(raiz do projeto)',
     pedido: pedido.trim(),
+    fecho_go: bloco.fases.includes('GO') ? fechoDoGo(thread.id) : '',
     // Bloco B6: o bloco de memoria injetada deterministicamente. Vazio em toda thread sem
     // decisao fechada e sem OrkMind, e ai a linha da variavel some do prompt: o texto fica
     // byte a byte igual ao que o B4 ja despachava.

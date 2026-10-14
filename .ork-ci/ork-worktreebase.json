@@ -1,0 +1,323 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-worktreebase",
+  "branch": "ork/ork-worktreebase-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/src/locale-worktree.ts",
+      "alegacao": "Falha do fetch da base remota tem motivo tipado e não é ocultada pela base local.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'worktree\\.base-remota-indisponivel|worktree\\.remote-base-unavailable' core/src/locale-worktree.ts"
+      ],
+      "criadoEm": "2026-10-14T07:38:46.033Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/src/thread.ts",
+      "alegacao": "A criação resolve e busca a base no remoto configurado antes de abrir a worktree.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'baseAtualDaWorktree|git.*,.*fetch.*,.*--no-tags' core/src/thread.ts"
+      ],
+      "criadoEm": "2026-10-14T07:38:46.081Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/src/worktree.ts",
+      "alegacao": "O ensure grava no estado da thread o commit remoto exato usado na nova worktree.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'thread\\.base = \\{ branch: criada\\.branch, commit: criada\\.commit \\}' core/src/worktree.ts"
+      ],
+      "criadoEm": "2026-10-14T07:38:46.128Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/test/worktree.test.ts",
+      "alegacao": "O teste temporário prova thread new e worktree ensure com main local atrás de origin/main.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'main local ficou atras|Remota ensure' core/test/worktree.test.ts && npm --prefix core run build:test && node --test core/dist-test/test/worktree.test.js"
+      ],
+      "criadoEm": "2026-10-14T07:38:46.176Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG não publicado registra a correção da base remota com RM-047.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'Worktrees novas saem da base remota atual.*RM-047' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-14T07:38:46.224Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/test/verify.test.ts",
+      "alegacao": "O teste prova código 127 sem baseline nem evento baseline_recorded.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'baseline recusa comando inexistente|baseline_recorded' core/test/verify.test.ts && npm --prefix core run build:test && node --test --test-name-pattern='baseline recusa comando inexistente' core/dist-test/test/verify.test.js"
+      ],
+      "criadoEm": "2026-10-14T07:40:32.698Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG não publicado registra a recusa de baseline por dependência ausente com RM-047.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'Baseline não aceita dependência ausente.*RM-047' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-14T07:40:32.741Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/src/locale-verify.ts",
+      "alegacao": "A recusa da baseline por dependência ausente tem motivo tipado em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'baseline\\.dependencia-ausente|baseline\\.missing-dependency' core/src/locale-verify.ts"
+      ],
+      "criadoEm": "2026-10-14T07:40:32.795Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "A baseline aborta antes de persistir quando um comando termina como nao-encontrado.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'naoEncontrado|baselineDependenciaAusente' core/src/verify.ts"
+      ],
+      "criadoEm": "2026-10-14T07:40:32.842Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/src/session-watcher-claude.ts",
+      "alegacao": "O leitor canônico de parecer reconhece REPROVOU como veredito legível.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'passou\\|reprovou\\|precisa de mudan' core/src/session-watcher-claude.ts"
+      ],
+      "criadoEm": "2026-10-14T07:41:31.369Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/test/session-watcher-claude.test.ts",
+      "alegacao": "O teste do leitor cobre literalmente Veredito: REPROVOU.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"Veredito: REPROVOU.*REPROVOU\" core/test/session-watcher-claude.test.ts && npm --prefix core run build:test && node --test --test-name-pattern='veredito' core/dist-test/test/session-watcher-claude.test.js"
+      ],
+      "criadoEm": "2026-10-14T07:41:31.416Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG não publicado registra a retomada do parecer REPROVOU com RM-064.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'Parecer reprovado volta a ser legível na retomada.*RM-064' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-14T07:41:31.460Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "O prompt de todo bloco com GO inclui verify, build, bundle, commit de CI e pr-body comuns aos runtimes.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'Fecho obrigatório do GO|O rito é idêntico em Claude Code e Codex' core/src/phase.ts"
+      ],
+      "criadoEm": "2026-10-14T07:43:12.048Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/src/prompts.ts",
+      "alegacao": "O template embutido v4 transporta a variável condicional fecho_go.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'versao: 4|fecho_go' core/src/prompts.ts"
+      ],
+      "criadoEm": "2026-10-14T07:43:12.100Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "prompts/fase-padrao.md",
+      "alegacao": "A cópia versionada do template v4 transporta a mesma variável fecho_go.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'versao: 4|fecho_go' prompts/fase-padrao.md"
+      ],
+      "criadoEm": "2026-10-14T07:43:12.159Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/test/prompts.test.ts",
+      "alegacao": "O teste renderiza o GO por dry-run explícito em claude-bg e codex e exige os mesmos artefatos.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"\\['claude-bg', 'codex'\\]|ork ci prepare.*thread.id|pr-body.md\" core/test/prompts.test.ts && npm --prefix core run build:test && node --test core/dist-test/test/prompts.test.js"
+      ],
+      "criadoEm": "2026-10-14T07:43:12.202Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG não publicado registra a paridade de fecho dos runtimes com RM-016.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'Codex e Claude Code fecham o GO.*RM-016' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-14T07:43:12.241Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-worktreebase.json",
+      "alegacao": "O bundle de CI identifica a thread ork-worktreebase e preserva o contrato verificável preparado pelo núcleo.",
+      "negativa": false,
+      "verificar": [
+        "grep -E '\"thread(Id)?\"[[:space:]]*:[[:space:]]*\"ork-worktreebase\"|\"contrato\"[[:space:]]*:' .ork-ci/ork-worktreebase.json"
+      ],
+      "criadoEm": "2026-10-14T08:03:23.641Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-canonicos.test.ts",
+      "alegacao": "Os cenários RM-036 que dependem de remoto publicam o manifesto antes de criar a worktree e preservam a base remota como fonte.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"push.*origin.*main|opcoes\\.remoto\" core/test/rm036-leases-canonicos.test.ts && npm --prefix core run build:test && node --test-name-pattern='rm036 leases: dois processos ship pela worktree com o main-tree na raiz|rm036 leases: A5 ship dry-run informa main-tree legado vivo sem adquirir' core/dist-test/test/rm036-leases-canonicos.test.js"
+      ],
+      "criadoEm": "2026-10-14T08:37:32.702Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A fixture pt-BR F3b foi regenerada deterministicamente para o template v4 e inclui o fecho obrigatório apenas nos blocos que contêm GO.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'template fase-padrao v4|Fecho obrigatório do GO' core/test/fixtures/locale-f3b-pt-BR.json && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-14T08:42:59.115Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-canonicos.test.ts",
+      "alegacao": "O cenário remoto RM-036 publica o manifesto antes de criar a worktree e o ensaio A5 preserva a base remota como fonte.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"push.*origin.*main|opcoes\\.remoto\" core/test/rm036-leases-canonicos.test.ts && npm --prefix core run build:test && node --test --test-name-pattern='rm036 leases: A5 ship dry-run informa main-tree legado vivo sem adquirir' core/dist-test/test/rm036-leases-canonicos.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:03:42.366Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A fixture F3b contém três renders v4 e o fecho obrigatório somente nos dois blocos que incluem GO; o render direto preserva o contrato.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'template fase-padrao v4' core/test/fixtures/locale-f3b-pt-BR.json)\" -eq 3 && test \"$(grep -c 'Fecho obrigatório do GO' core/test/fixtures/locale-f3b-pt-BR.json)\" -eq 2 && npm --prefix core run build:test && node --test --test-name-pattern='RM-016: Claude Code e Codex recebem o mesmo fecho obrigatório' core/dist-test/test/prompts.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:03:42.428Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
