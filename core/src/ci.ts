@@ -11,7 +11,7 @@ import { exec } from './util';
 import { rodarCli } from './forja/executor';
 import { estadoDoCheck } from './forja/estado';
 import { PRODUTORES_PADRAO, produtorAceito, produtoresAceitos } from './forja/produtor';
-import type { CheckNoCommit } from './forja/contrato';
+import type { CheckNoCommit, FonteDoCheck, TipoDeForja } from './forja/contrato';
 import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { branchDaWorktree } from './worktree';
 import { cwdLocalOuNulo } from './procedencia';
@@ -25,11 +25,12 @@ import { analisarComandos, linhaDoLintDeClaim } from './claim-lint';
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
-import { textoDoCatalogo } from './locale';
+import { textoDoCatalogo, type Mensagens } from './locale';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
-export interface ResultadoCi {
+/** A forma de antes (`ork.ci-status/v1`): os leitores do `ork ci status --json` continuam aceitando. */
+export interface ResultadoCiV1 {
   schema: 'ork.ci-status/v1';
   required: boolean;
   ok: boolean;
@@ -41,6 +42,24 @@ export interface ResultadoCi {
   url: string | null;
   detail: string;
 }
+
+/**
+ * `ork.ci-status/v2`: a v1 mais a forja (`provider`; `null` quando a CI nao e exigida ou a forja nao foi resolvida), a
+ * fonte do check que decidiu (`check-run`, `commit-status`, `pipeline-job`) e quem o publicou (`produtor`); os dois
+ * `null` quando nenhum check decidiu (ausente, nao lido, desligado).
+ */
+export interface ResultadoCi extends Omit<ResultadoCiV1, 'schema' | 'provider'> {
+  schema: 'ork.ci-status/v2';
+  provider: TipoDeForja | null;
+  fonte: FonteDoCheck | null;
+  produtor: string | null;
+}
+
+type BaseDaCi = Omit<ResultadoCi, 'ok' | 'state' | 'url' | 'detail'>;
+
+/** O comeco de todo retrato da CI exigida; `fonte` e `produtor` so com check decisivo. */
+const baseDaCi = (provider: TipoDeForja | null, repository: string | null, sha: string, context: string): BaseDaCi =>
+  ({ schema: 'ork.ci-status/v2', required: true, provider, repository, sha, context, fonte: null, produtor: null });
 
 export type ExecutorCi = (input: { repository: string; sha: string; context: string; host?: string; caminho?: string }) =>
   { ok: boolean; stdout: string; stderr: string; code: number };
@@ -176,14 +195,15 @@ function alvoDaCi(carregado: ManifestoCarregado, remoto: string, url: string, so
 /** O resultado da CI quando o projeto nao a exige (`ci.required_for_ship: false`): nada e consultado na forja. */
 export function ciNaoExigida(carregado: ManifestoCarregado, sha: string): ResultadoCi {
   const context = carregado.manifesto.ci.context || 'ork-verify';
-  return { schema: 'ork.ci-status/v1', required: false, ok: true, provider: 'github', repository: null, sha, context, state: 'disabled', url: null, detail: textoDoCatalogo((m) => m.ship.ciNaoExigidoDetalhe) };
+  return { ...baseDaCi(null, null, sha, context), required: false, ok: true, state: 'disabled', url: null,
+    detail: textoDoCatalogo((m) => m.ship.ciNaoExigidoDetalhe) };
 }
 
 export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto = 'origin', executor: ExecutorCi = executorPadrao,
   loginNoHost: (host: string) => boolean = loginPadrao, sondas: SondasDaForja = SONDAS_PADRAO): ResultadoCi {
   const { ci } = carregado.manifesto;
   const context = ci.context || 'ork-verify';
-  const falha = (detalhe: string): ResultadoCi => ({ schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: null, sha, context, state: 'unavailable', url: null, detail: detalhe });
+  const falha = (detalhe: string): ResultadoCi => ({ ...baseDaCi(null, null, sha, context), ok: false, state: 'unavailable', url: null, detail: detalhe });
   if (!ci.required_for_ship) return ciNaoExigida(carregado, sha);
   // RM-047: o `--remoto` do `ork ci status` vem da linha de comando; so nome de remoto chega ao git.
   const remote = exec('git', ['remote', 'get-url', '--', exigirRemoto(remoto, 'ci')], carregado.raiz);
@@ -202,17 +222,30 @@ export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto =
  */
 export function consultarCiDoRepositorio(repository: string, sha: string, context: string, executor: ExecutorCi = executorPadrao, host = 'github.com',
   produtores: readonly string[] = PRODUTORES_PADRAO.github): ResultadoCi {
-  const base = { schema: 'ork.ci-status/v1' as const, required: true, provider: 'github' as const, repository, sha, context };
+  const base = baseDaCi('github', repository, sha, context);
   const lido = exigirCapacidade(adaptadorDaForja('github'), 'checksNoCommit')({ repository, sha, context, executor, host });
   if (!lido.ok && lido.erro.codigo === 'forja.resposta-invalida') {
     return { ...base, ok: false, state: 'unavailable', url: null, detail: textoDoCatalogo((m) => lido.erro.detalhe === 'incompleto'
       ? m.ship.ciIncompleto(context) : m.ship.ciRespostaInvalida) };
   }
   if (!lido.ok) return { ...base, ok: false, state: 'unavailable', url: null, detail: detalheSeguro(lido.erro.detalhe || textoDoCatalogo((m) => m.ship.ciConsultaFalhou)) };
-  if (!lido.valor.length) return { ...base, ok: false, state: 'missing', url: null, detail: textoDoCatalogo((m) => m.ship.ciSemCheck(context)) };
-  const escolhidos = maisNovoPorProdutor(lido.valor);
-  // So produtor da lista aprova: o verde de quem esta fora dela e descartado. Vermelho, pendente ou bloqueado de
-  // qualquer um continua contando: quem escreve status no repositorio pode atrasar o gate, nunca aprova-lo.
+  return decidirCi(base, lido.valor, produtores, (m) => m.ship.ciVerde);
+}
+
+/** O motivo de um check bloqueado: a conclusao do check-run ou, sem ela, o estado do job (`manual`, `skipped`). */
+const motivoDoBloqueio = (c: CheckNoCommit): string => c.conclusao ?? c.status;
+
+/**
+ * A regra do gate sobre os checks lidos de qualquer forja. O mais novo de cada produtor conta. So produtor da lista
+ * aprova: o verde de quem esta fora dela e descartado; vermelho, pendente ou bloqueado de qualquer um continua contando
+ * (quem escreve status no repositorio pode atrasar o gate, nunca aprova-lo). Com varios, a combinacao e conservadora:
+ * vermelho ou bloqueado de qualquer um reprova; senao, pendente de qualquer um espera; so todos verdes passam. A fonte
+ * e o produtor do retrato sao os do check que decidiu.
+ */
+function decidirCi(base: BaseDaCi, checks: readonly CheckNoCommit[], produtores: readonly string[], verde: (m: Mensagens) => string): ResultadoCi {
+  const context = base.context;
+  if (!checks.length) return { ...base, ok: false, state: 'missing', url: null, detail: textoDoCatalogo((m) => m.ship.ciSemCheck(context)) };
+  const escolhidos = maisNovoPorProdutor(checks);
   const contam = escolhidos.filter((c) => produtorAceito(c, produtores) || estadoDoCheck(c.fonte, c.status, c.conclusao) !== 'verde');
   if (!contam.length) {
     const descartados = escolhidos.map(nomeDoProdutor).join(', ');
@@ -221,23 +254,22 @@ export function consultarCiDoRepositorio(repository: string, sha: string, contex
   }
   if (contam.length === 1) {
     const check = contam[0];
-    const status = check.status;
-    const conclusion = check.conclusao ?? '';
-    const estado = estadoDoCheck(check.fonte, status, check.conclusao);
+    const estado = estadoDoCheck(check.fonte, check.status, check.conclusao);
     const state = estadoNoGate(estado);
-    return { ...base, ok: state === 'success', state, url: check.url || null, detail: textoDoCatalogo((m) => state === 'success' ? m.ship.ciVerde : estado === 'bloqueado' ? m.ship.ciBloqueado(context, conclusion) : m.ship.ciEstado(context, String(status), conclusion)) };
+    return { ...base, fonte: check.fonte, produtor: check.produtor, ok: state === 'success', state, url: check.url || null,
+      detail: textoDoCatalogo((m) => state === 'success' ? verde(m) : estado === 'bloqueado' ? m.ship.ciBloqueado(context, motivoDoBloqueio(check))
+        : m.ship.ciEstado(context, String(check.status), check.conclusao ?? '')) };
   }
-  // Varios produtores: a combinacao e conservadora. Vermelho ou bloqueado de qualquer um reprova; senao, pendente
-  // de qualquer um espera; so todos verdes passam.
   const lidos = contam.map((check) => {
     const estado = estadoDoCheck(check.fonte, check.status, check.conclusao);
     return { check, estado, state: estadoNoGate(estado) };
   });
   const state: EstadoCi = lidos.some((l) => l.state === 'failure') ? 'failure' : lidos.some((l) => l.state === 'pending') ? 'pending' : 'success';
   const decisivo = lidos.find((l) => l.state === state)!;
-  // O estado do ork por produtor, com o motivo do bloqueio (spec 6.2: o motivo e mostrado).
-  const porProdutor = lidos.map((l) => `${nomeDoProdutor(l.check)} ${l.estado}${l.estado === 'bloqueado' ? ` (${l.check.conclusao ?? ''})` : ''}`).join(', ');
-  return { ...base, ok: state === 'success', state, url: decisivo.check.url || null, detail: textoDoCatalogo((m) => m.ship.ciProdutores(context, porProdutor)) };
+  // O estado do ork por produtor, com o motivo do bloqueio.
+  const porProdutor = lidos.map((l) => `${nomeDoProdutor(l.check)} ${l.estado}${l.estado === 'bloqueado' ? ` (${motivoDoBloqueio(l.check)})` : ''}`).join(', ');
+  return { ...base, fonte: decisivo.check.fonte, produtor: decisivo.check.produtor, ok: state === 'success', state, url: decisivo.check.url || null,
+    detail: textoDoCatalogo((m) => m.ship.ciProdutores(context, porProdutor)) };
 }
 
 function estadoNoGate(estado: ReturnType<typeof estadoDoCheck>): EstadoCi {
@@ -274,8 +306,7 @@ export function executarCi(carregado: ManifestoCarregado, threadId: string): { s
   const repository = process.env.GITHUB_REPOSITORY ?? null;
   return {
     status: {
-      schema: 'ork.ci-status/v1', required: true, ok: verify.ok, provider: 'github', repository,
-      sha: verify.commit, context, state: verify.ok ? 'success' : 'failure',
+      ...baseDaCi('github', repository, verify.commit, context), ok: verify.ok, state: verify.ok ? 'success' : 'failure',
       url: process.env.GITHUB_SERVER_URL && repository && process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}` : null,
       detail: verify.ok ? 'ork verify aprovado no runner independente' : `ork verify reprovou: ${verify.motivos.join(', ')}`,
     },

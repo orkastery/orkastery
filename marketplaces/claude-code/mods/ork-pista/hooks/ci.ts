@@ -1,7 +1,8 @@
 // O CI de cada pista (RM-059, fatia F7, T7.4; D7 da thread ork-rm059pista). Modulo puro: o argv da consulta ao nucleo
-// (`ork ci status --sha <sha> --json`, contrato `ork.ci-status/v1`), a leitura dela, as pistas que um evento do GitHub
-// cita, as que o relogio de reserva consulta e a etapa de CI que o painel mostra com a leitura mais nova. O evento so
-// dispara a consulta: o conteudo dele nunca vira estado, e quem diz o CI e o check do nucleo no sha exato.
+// (`ork ci status --sha <sha> --json`, contrato `ork.ci-status/v2`; a v1 dos nucleos anteriores continua lida), a
+// leitura dela, as pistas que um evento do GitHub cita, as que o relogio de reserva consulta e a etapa de CI que o
+// painel mostra com a leitura mais nova. O evento so dispara a consulta: o conteudo dele nunca vira estado, e quem diz o
+// CI e o check do nucleo no sha exato.
 import type { PistaCi, PistaEstadoDaEtapa, PistaLinha, PistaQuadro } from '../types'
 import { jsonDaSaida, umaLinha } from './pista'
 import type { SaidaDoProcesso } from './pista'
@@ -18,14 +19,17 @@ export function argvDoCi(sha: string): string[] {
   return ['ork', 'ci', 'status', '--sha', sha, '--json']
 }
 
+/** Os contratos do `ork ci status --json` que a Pista le: a v2 (forja, fonte e produtor) e a v1 de antes. */
+const CONTRATOS_DO_CI: readonly string[] = ['ork.ci-status/v1', 'ork.ci-status/v2']
+
 /**
  * A saida do `ork ci status --sha <sha> --json`: o comando sai 0 so com o check verde, e o JSON vem nos dois casos.
  * Leitura de outro sha nao vale para a pista.
  */
 export function lerCi(saida: SaidaDoProcesso, sha: string, agora: number, motivo: PistaCi['motivo']): PistaCi {
   const r = jsonDaSaida(saida, 'ork ci status') as Record<string, unknown> | null
-  if (!r || typeof r !== 'object' || r.schema !== 'ork.ci-status/v1' || !ESTADOS.includes(r.state as PistaCi['estado'])) {
-    throw new Error('a saída do ork ci status não é o contrato ork.ci-status/v1')
+  if (!r || typeof r !== 'object' || !CONTRATOS_DO_CI.includes(r.schema as string) || !ESTADOS.includes(r.state as PistaCi['estado'])) {
+    throw new Error('a saída do ork ci status não é o contrato ork.ci-status (v1 ou v2)')
   }
   if (r.sha !== sha) throw new Error(`o ork ci status respondeu pelo commit ${umaLinha(r.sha, 40)}, e não pelo head ${sha.slice(0, 7)}`)
   const estado = r.state as PistaCi['estado']
