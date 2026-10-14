@@ -5,9 +5,9 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-rm037instav | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 14/10 04:45 | viva |
-| vps | ork-rm058n3 | #Auto | GOAL | claude-bg opus/max | — | — | 14/10 04:45 | viva |
-| vps | ork-rm064f1 | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-064 | — | 14/10 04:45 | viva |
-| vps | ork-worktreebase | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 14/10 04:45 | viva |
+| vps | ork-rm037instav | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 14/10 07:45 | viva |
+| vps | ork-rm058n3 | #Auto | GOAL | claude-bg opus/max | — | — | 14/10 07:45 | viva |
+| vps | ork-rm064f1 | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-064 | — | 14/10 07:45 | viva |
+| vps | ork-worktreebase | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 14/10 07:45 | viva |
 
-Horários de Brasília.
+Horários em UTC.
