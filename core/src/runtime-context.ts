@@ -9,6 +9,7 @@ import { HOSTS } from './hosts';
 import { branchDaWorktree,worktreesDoGit } from './worktree';
 import { configuracaoServidorMcp, TransporteShipMcp, PermissoesFilhoMcp, politicasFilhoCodex } from './mcp-install';
 import { grafoLigado } from './mcp-grafo';
+import { ehTransporteShipMcp } from './mcp-transportes';
 import { ENV_HITL_VERIFIERS, publicHitlVerifiers } from './hitl-public-receipt';
 
 export interface IdentidadeDeDespacho {
@@ -63,7 +64,7 @@ function preparado(raiz: string): PerfilPreparado | undefined {
     }
     if(JSON.stringify(argv)!==JSON.stringify(legado)) {
       if(!Array.isArray(argv) || argv.length!==padrao.args.length ||
-          argv[argv.length-2]!=='--ship-transport' || !['github-ssh','bare-local'].includes(argv[argv.length-1]))
+          argv[argv.length-2]!=='--ship-transport' || !ehTransporteShipMcp(argv[argv.length-1]))
         throw Error('runtime.context.conflict: MCP Orkastery divergente; transporte invalido ou argumentos extras');
       transporte=argv[argv.length-1] as TransporteShipMcp;
     }
@@ -98,7 +99,7 @@ export function contextoDoProjeto(projeto: string, runtime: string, cwd: string,
 /** Revalida no receptor do despacho, incluindo bytes instalados e escopo real do cwd. */
 export function validarContextoRuntime(contexto: ContextoRuntime, cwd: string) {
   if (!contexto || !['claude-code', 'codex'].includes(contexto.host)) throw Error('runtime.context.invalid: host desconhecido');
-  if(contexto.transporteShip!==undefined && !['github-ssh','bare-local'].includes(contexto.transporteShip))throw Error('runtime.context.invalid: transporte desconhecido');
+  if(contexto.transporteShip!==undefined && !ehTransporteShipMcp(contexto.transporteShip))throw Error('runtime.context.invalid: transporte desconhecido');
   const raiz = raizCanonica(contexto.projeto);
   if(contexto.permissoesFilho!==undefined && !['interactive','worktree'].includes(contexto.permissoesFilho))throw Error('runtime.context.invalid: perfil de filho desconhecido');
   const perfil=preparado(raiz);

@@ -38,6 +38,7 @@ import { ErroDaFilaPesada } from './fila-pesada';
 import { registrarDecisao } from './decisao-autonoma';
 import { linhaDeConducao } from './conducao-texto';
 import {criarPerfilShipMcp,PerfilShipMcp,shipMcp} from './mcp-ship';
+import type { TransporteShipMcp } from './mcp-transportes';
 import { registerBrainTools } from './company-brain-mcp';
 import { ambienteDoPerfil, RegistroAgenteClaude } from './adapters/claude-bg';
 import { classificarSessaoClaude, comFalhaDeConta, falhaDeContaDaTranscricao, fonteRegistrada, processoNativo, provaDoOrk,
@@ -89,7 +90,7 @@ export interface OpcoesServidorMcp { projeto: string; host: 'claude-code' | 'cod
   /** Exact trusted startup grants; not inferred from worktree/interactive. */
   brainWrites?: readonly string[];
   /** Opção de instalação confiável para bare físico; nunca argumento de ferramenta. */
-  transporteShip?:'github-ssh'|'bare-local';permissoesFilho?:'interactive'|'worktree';nomesProviderHerdados?:string[] }
+  transporteShip?:TransporteShipMcp;permissoesFilho?:'interactive'|'worktree';nomesProviderHerdados?:string[] }
 
 /** Factory publica para compor transporte nativo ou testes; nao executa ferramentas no startup. */
 export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {

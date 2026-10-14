@@ -11,6 +11,7 @@ import {branchDaWorktree} from './worktree';
 import {validarArquivosEstadoMcp} from './mcp-artifacts';
 import {perfilGitMcp,gitPassivoMcp as git,caminhoFisicoGitMcp as fisico,metadadosGitMcp as metadados,configuracaoPassivaGitMcp} from './mcp-git';
 import {originUnicoMcp,URL_GITHUB_SSH} from './mcp-ship-transporte';
+import type {TransporteShipMcp} from './mcp-transportes';
 import {adquirirRegiao,lerLease,liberar,leasesColidentes,caminhoLease,caminhoFila,podarRegioesDeThreadsFechadas} from './leases';
 import {ship,ResultadoShip,arvoreComBranch} from './ship';
 import {comandosDoManifesto,ExecutorVerify} from './verify';
@@ -100,8 +101,16 @@ function guardarBare(url:string):{dev:number;ino:number} {
     if(k==='core.bare' && v==='true'){bare=true;continue;}if(i<0 || !configuracaoPassivaGitMcp(k,v,true))erro('transport.bare.config');}
   if(!bare)erro('transport.bare.invalid');return {dev:st.dev,ino:st.ino};
 }
+/**
+ * O ambiente do worker do SHIP, por lista fechada: nada de `GIT_SSH*`, `GIT_ASKPASS`, `GIT_SSL_NO_VERIFY` ou
+ * `GIT_CONFIG_*` de quem iniciou o servidor chega ao git do push.
+ */
+export function ambienteDoWorkerShip(origem:NodeJS.ProcessEnv=process.env):NodeJS.ProcessEnv {
+  return {HOME:origem.HOME,USER:origem.USER,LOGNAME:origem.LOGNAME,XDG_CONFIG_HOME:origem.XDG_CONFIG_HOME,
+    SSH_AUTH_SOCK:origem.SSH_AUTH_SOCK,PATH:'/usr/bin:/bin',LANG:'C.UTF-8',TMPDIR:'/tmp'};
+}
 /** Somente instalação/startup confiável chama esta factory. O objeto é uma capacidade privada. */
-export function criarPerfilShipMcp(raiz:string,transporte:'github-ssh'|'bare-local'='github-ssh'):PerfilShipMcp {
+export function criarPerfilShipMcp(raiz:string,transporte:TransporteShipMcp='github-ssh'):PerfilShipMcp {
   if(process.platform!=='linux' || !path.isAbsolute(raiz))erro('project.invalid');fisico(raiz,raiz);
   const c=exigirManifesto(raiz);if(c.raiz!==raiz)erro('project.invalid');
   const destino=c.manifesto.worktree.base_branch;
@@ -112,8 +121,7 @@ export function criarPerfilShipMcp(raiz:string,transporte:'github-ssh'|'bare-loc
     if(!URL_GITHUB_SSH.test(url))erro('transport.unsupported: GitHub SSH exigido; HTTPS requer autenticacao instalada auditada');
   } else if(transporte==='bare-local')bare=guardarBare(url);else erro('transport.invalid');
   const perfil=Object.freeze({transporte,destino}),st=fs.statSync(raiz);
-  const env={HOME:process.env.HOME,USER:process.env.USER,LOGNAME:process.env.LOGNAME,XDG_CONFIG_HOME:process.env.XDG_CONFIG_HOME,
-    SSH_AUTH_SOCK:process.env.SSH_AUTH_SOCK,PATH:'/usr/bin:/bin',LANG:'C.UTF-8',TMPDIR:'/tmp'};
+  const env=ambienteDoWorkerShip();
   perfis.set(perfil,{raiz,dev:st.dev,ino:st.ino,url,config:cfg,perfil,env,...(bare?{bare}:{})});return perfil;
 }
 function validar(p:PedidoShipMcp) {

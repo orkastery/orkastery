@@ -263,6 +263,7 @@ import {
 } from './projeto-alvo';
 import { ARQUIVO_WORKTREE_LOCAL, COMANDO_CONFIRMAR_WORKTREE, confirmarWorktreeLocal, lerWorktreeLocal, pastaDasWorktreesPedida,
   recusaDePastaDasWorktrees, revogarWorktreeLocal } from './worktree-local';
+import { ehTransporteShipMcp, type TransporteShipMcp } from './mcp-transportes';
 import { caminhoDaPosturaLocal, comandoDeConfirmacao, confirmarPosturaLocal, lerPosturaLocal, posturaAfrouxada, recusaDePostura, revogarPosturaLocal } from './postura-local';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
@@ -4252,32 +4253,38 @@ function executarComando(argvBruto: string[]): number {
       const projeto=texto(args.opcoes.project), host=texto(args.opcoes.host),threadId=texto(args.opcoes.thread);
       // I-36 (D4): a identidade do despacho so chega com a thread vinculada da sessao filha.
       const dispatchId=texto(args.opcoes.dispatch);
-      const transporteShip=texto(args.opcoes['ship-transport'])??'github-ssh';
+      const transporteDado=texto(args.opcoes['ship-transport']);
+      const transporteShip=transporteDado??'github-ssh';
+      const impressaoSsh=texto(args.opcoes['ssh-fingerprint']);
       const permissoesFilho=texto(args.opcoes['child-permissions'])??'interactive';
       const permissoesDono=texto(args.opcoes['owner-permissions']);
       const acao=args.posicionais[1];
       if(args.posicionais.length!==2 || !['serve','install'].includes(acao) || !projeto ||
           (host!=='codex' && host!=='claude-code') ||
-          Object.keys(args.opcoes).some(k=>!['project','host','ship-transport','child-permissions',...(acao==='install'?['dry-run','owner-permissions']:['thread','dispatch'])].includes(k)) ||
+          Object.keys(args.opcoes).some(k=>!['project','host','ship-transport','child-permissions',...(acao==='install'?['dry-run','owner-permissions','ssh-fingerprint']:['thread','dispatch'])].includes(k)) ||
           (args.opcoes.dispatch!==undefined && (!threadId || !dispatchId || !/^[a-f0-9-]{36}$/.test(dispatchId))) ||
           argv.filter(a=>a==='--ship-transport' || a.startsWith('--ship-transport=')).length>1 ||
           argv.filter(a=>a==='--child-permissions' || a.startsWith('--child-permissions=')).length>1 ||
+          argv.filter(a=>a==='--ssh-fingerprint' || a.startsWith('--ssh-fingerprint=')).length>1 ||
+          (args.opcoes['ssh-fingerprint']!==undefined && (transporteShip!=='forja-ssh' || typeof args.opcoes['ssh-fingerprint']!=='string' || !/^SHA256:[A-Za-z0-9+/]{43}$/.test(impressaoSsh??''))) ||
           (args.opcoes['owner-permissions']!==undefined && (host!=='codex' || typeof args.opcoes['owner-permissions']!=='string' || !['interactive','orchestrate'].includes(permissoesDono??''))) ||
           argv.filter(a=>a==='--owner-permissions' || a.startsWith('--owner-permissions=')).length>1 ||
           !['interactive','worktree'].includes(permissoesFilho) ||
           (args.opcoes['child-permissions']!==undefined && typeof args.opcoes['child-permissions']!=='string') ||
-          !['github-ssh','bare-local'].includes(transporteShip) ||
+          !ehTransporteShipMcp(transporteShip) ||
           (args.opcoes['ship-transport']!==undefined && typeof args.opcoes['ship-transport']!=='string') ||
           (args.opcoes.thread!==undefined && (!threadId || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(threadId))) ||
           (args.opcoes['dry-run']!==undefined && args.opcoes['dry-run']!==true))
-        throw new Error('uso: ork mcp serve|install --project <raiz absoluta> --host codex|claude-code [--ship-transport github-ssh|bare-local] [--child-permissions interactive|worktree] [--owner-permissions interactive|orchestrate somente install Codex] [--dry-run somente install]');
+        throw new Error('uso: ork mcp serve|install --project <raiz absoluta> --host codex|claude-code [--ship-transport github-ssh|forja-ssh|forja-https|bare-local] [--ssh-fingerprint SHA256:... somente install forja-ssh] [--child-permissions interactive|worktree] [--owner-permissions interactive|orchestrate somente install Codex] [--dry-run somente install]');
       if(acao==='install') {
         void import('./mcp-install').then(({instalarMcp,textoInstalacaoMcp})=>
-          console.log(textoInstalacaoMcp(instalarMcp({projeto,host,dryRun:args.opcoes['dry-run']===true,transporteShip:transporteShip as 'github-ssh'|'bare-local',permissoesFilho:permissoesFilho as 'interactive'|'worktree',permissoesDono:permissoesDono as 'interactive'|'orchestrate'|undefined}))))
+          console.log(textoInstalacaoMcp(instalarMcp({projeto,host,dryRun:args.opcoes['dry-run']===true,
+            transporteShip:transporteDado===undefined?undefined:transporteShip as TransporteShipMcp,impressaoSsh,
+            permissoesFilho:permissoesFilho as 'interactive'|'worktree',permissoesDono:permissoesDono as 'interactive'|'orchestrate'|undefined}))))
           .catch(e=>{console.error(`mcp: ${(e as Error).message}`);process.exitCode=1;});
         return 0;
       }
-      void import('./mcp-server').then(({servirMcp})=>servirMcp({projeto,host,threadId,dispatchId,nomesProviderHerdados:nomesHerdados,transporteShip:transporteShip as 'github-ssh'|'bare-local',permissoesFilho:permissoesFilho as 'interactive'|'worktree'})).catch(e=>{console.error(`mcp: ${(e as Error).message}`);process.exitCode=1;});
+      void import('./mcp-server').then(({servirMcp})=>servirMcp({projeto,host,threadId,dispatchId,nomesProviderHerdados:nomesHerdados,transporteShip:transporteShip as TransporteShipMcp,permissoesFilho:permissoesFilho as 'interactive'|'worktree'})).catch(e=>{console.error(`mcp: ${(e as Error).message}`);process.exitCode=1;});
       return 0;
     }
     case 'doctor': {

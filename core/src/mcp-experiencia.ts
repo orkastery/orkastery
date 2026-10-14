@@ -9,9 +9,10 @@ import { listarReservas, PainelDeReservas } from './roadmap-reservas';
 import { lerFabrica, PainelDaFabrica } from './fabrica-estado';
 import { criarPerfilShipMcp } from './mcp-ship';
 import { ambienteGitMcp, gitPassivoMcp, perfilGitMcp } from './mcp-git';
+import { TRANSPORTES_SHIP_MCP, type TransporteShipMcp } from './mcp-transportes';
 
 type Consulta = 'reservas' | 'fabrica';
-type Transporte = 'github-ssh' | 'bare-local';
+type Transporte = TransporteShipMcp;
 type Painel = PainelDeReservas | PainelDaFabrica;
 export const consultaExperienciaSchema = z.object({}).strict();
 type Registrar = <S extends z.AnyZodObject>(nome: string,
@@ -102,7 +103,7 @@ export function registrarConsultasExperiencia(registrar: Registrar, opcoes: {
 
 if (require.main === module && process.argv[2] === '--consulta-experiencia') {
   try {
-    const p = z.object({ raiz: z.string(), transporte: z.enum(['github-ssh', 'bare-local']),
+    const p = z.object({ raiz: z.string(), transporte: z.enum(TRANSPORTES_SHIP_MCP),
       fixacao: z.string().regex(/^[a-f0-9]{64}$/), tipo: z.enum(['reservas', 'fabrica']) }).strict()
       .parse(JSON.parse(fs.readFileSync(0, 'utf8')));
     if (assinatura(p.raiz, p.transporte) !== p.fixacao) throw Error('scope.changed');
