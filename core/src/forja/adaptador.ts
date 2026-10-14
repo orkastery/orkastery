@@ -20,9 +20,9 @@ export interface AdaptadorDeForja {
   /** Os checks com esse nome no commit, pela API da forja ja resolvida, e se houve resultado mesclado sem vinculo com ele. */
   estadoDeCi?(e: EntradaDoEstadoDeCi): Resultado<ChecksDoCommit>;
   /** O PR da entrega externa; `null` quando a consulta falha. */
+  pedidoMesclado?(e: { repo: string; numero: number; executor: ExecutorGitHub }): PedidoMesclado | null;
   /** O namespace do dono pedido para a casa da rede e, quando e grupo, o nivel da pessoa nele. */
   donoDaRede?(e: { api: ChamadorDaApi; dono: string }): Resultado<DonoDaRede>;
-  pedidoMesclado?(e: { repo: string; numero: number; executor: ExecutorGitHub }): PedidoMesclado | null;
   /** A branch padrão do repositório; `''` se a resposta não a traz; `null` quando a consulta falha. */
   branchPadrao?(e: { repo: string; executor: ExecutorGitHub }): string | null;
   /** O sha da ponta da branch; `null` quando a consulta falha ou não há sha válido. */

@@ -118,13 +118,11 @@ test('projeto: fast-forward e squash sempre avisam; modelo que começa por %{tit
 test('GitHub github.com: escopos do x-oauth-scopes, o repositório gravado e todas as capacidades ligadas', () => {
   const checks = checarForja(projeto({ exigida: true }), sondas({ url: 'https://github.com/orkastery/orkastery.git', rodar: cliGithub().rodar }));
   assert.deepEqual(checks.map((c) => c.nome), NOMES);
-  // O dono da casa da rede só tem leitura no GitLab; no GitHub ele segue o caminho de reserva.
-  const fora = checks.filter((c) => c.nivel !== 'ok' && c.nome !== 'forja capacidades');
-  assert.equal(fora.length, 0, JSON.stringify(fora));
+  assert.equal(checks.filter((c) => c.nivel !== 'ok').length, 0, JSON.stringify(checks.filter((c) => c.nivel !== 'ok')));
   assert.equal(linha(checks, 'forja servidor')!.detalhe, 'github.com');
   assert.equal(linha(checks, 'forja escopo')!.detalhe, 'escopos do token: gist, read:org, repo, workflow');
   assert.equal(linha(checks, 'forja projeto')!.detalhe, 'merge commit permitido; squash permitido; rebase permitido');
-  assert.match(linha(checks, 'forja capacidades')!.detalhe, /^ligadas: checksNoCommit, .*metadados, pedidosAbertos; desligadas \(o adaptador não implementa\): donoDaRede$/);
+  assert.match(linha(checks, 'forja capacidades')!.detalhe, /^ligadas: checksNoCommit, .*metadados, pedidosAbertos, donoDaRede$/);
 });
 
 test('GitHub: gh 2.17 não tem headRefOid e reprova; token fine-grained não é medível', () => {
