@@ -23,7 +23,7 @@ import { chamadorDaApi, ChamadorDaApi } from './forja/api';
 import { CONSULTA_ARVORES_GITLAB, CONSULTA_RAIZ_GITLAB, consultaDeBlobsDoGitlab } from './forja/gitlab/consultas';
 
 export type { TipoDeForja, IdentidadeDaForja, CodigoDeErroDaForja, ErroDaForja, SaidaDoExecutor, ExecutorDaForja } from './forja/contrato';
-import type { TipoDeForja, IdentidadeDaForja, CodigoDeErroDaForja, ErroDaForja, SaidaDoExecutor, ExecutorDaForja } from './forja/contrato';
+import type { TipoDeForja, IdentidadeDaForja, CodigoDeErroDaForja, ErroDaForja, SaidaDoExecutor, ExecutorDaForja, ForjaResolvida } from './forja/contrato';
 
 /** `texto` e null quando o blob e binario ou veio truncado: a pagina existe e nao foi lida. */
 export interface ArquivoDaForja { caminho: string; texto: string | null }
@@ -88,7 +88,7 @@ export const executorPadrao: ExecutorDaForja = (cmd, args, entrada, timeoutMs) =
  * O tipo pelo nome do host. So vale onde nao ha manifesto nem login para resolver: a rede le os remotos de outros
  * projetos. A CI do projeto usa a forja resolvida (`forja/resolver.ts`), que nao decide pelo nome.
  */
-export function tipoDoHost(host: string): TipoDeForja | null {
+function tipoDoHost(host: string): TipoDeForja | null {
   if (host === 'github.com' || /(^|[.-])github([.-]|$)/.test(host)) return 'github';
   if (host === 'gitlab.com' || /(^|[.-])gitlab([.-]|$)/.test(host)) return 'gitlab';
   return null;
@@ -131,6 +131,17 @@ export function identidadeDaForja(url: string): IdentidadeDaForja | null {
   const id = endereco && tipo ? montar(tipo, endereco.host, endereco.caminho) : null;
   const porta = id?.tipo === 'gitlab' ? portaDaApiNoRemoto(url) : null;
   return id && porta !== null ? { ...id, porta } : id;
+}
+
+/**
+ * A identidade de uma forja ja resolvida (o bloco `forja:`, o host conhecido), na forma que a leitura do roadmap usa. A
+ * porta, o caminho base e a CA so entram no GitLab: o GitHub le pelo `gh` com o host.
+ */
+export function identidadeDaForjaResolvida(f: ForjaResolvida): IdentidadeDaForja | null {
+  const id = montar(f.tipo, f.host, f.repo);
+  if (!id || id.tipo !== 'gitlab') return id;
+  return { ...id, ...(f.porta !== null ? { porta: f.porta } : {}), ...(f.caminhoBase ? { caminhoBase: f.caminhoBase } : {}),
+    ...(f.ca ? { ca: f.ca } : {}) };
 }
 
 /** A porta da API num remoto https/http, quando nao e a do esquema; a porta de ssh e do ssh e nunca entra. */
@@ -300,9 +311,9 @@ function commitsDoHistorico(historico: unknown, onde: string): { commits: Commit
   };
 }
 
-/** A API do GitLab de uma forja lida do remoto ou do argumento: o host e a porta da API, sem caminho base (o `montar` nao o le). */
+/** A API do GitLab de uma forja: o host e a porta da API, e o caminho base e a CA quando vieram do bloco `forja:`. */
 const apiDoGitlab = (forja: IdentidadeDaForja): ChamadorDaApi =>
-  chamadorDaApi({ tipo: 'gitlab', host: forja.host, porta: forja.porta ?? null, caminhoBase: '', ca: null });
+  chamadorDaApi({ tipo: 'gitlab', host: forja.host, porta: forja.porta ?? null, caminhoBase: forja.caminhoBase ?? '', ca: forja.ca ?? null });
 
 /** Uma consulta GraphQL do GitLab; `errors` no corpo e erro tipado, nunca resposta. */
 function graphqlDoGitlab(api: ChamadorDaApi, query: string, variables: Json): { ok: true; json: unknown } | { ok: false; erro: ErroDaForja } {

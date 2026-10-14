@@ -37,7 +37,9 @@ import { DIR_ROADMAP, Documento, documentoDeTexto, ehPaginaDeDocs } from './docs
 import { BRANCH_DA_FABRICA, CONTRATO_MAQUINA, DIR_DA_FABRICA, despachoDaThread, entregasNaBase, EstadoDaMaquina, estadoValido,
   LIMIAR_SEM_BATIDA_MS, retratoDaMaquina, runtimeDaThread, ThreadNaFabrica } from './fabrica-estado';
 import { ArquivoDaForja, CommitDaBase, detalheSeguro, ErroDaForja, ExecutorDaForja, forjaDoArgumento, IdentidadeDaForja,
-  identidadeDaForja, lerCommitsDaForja, lerDaForja, mesmaForja, rotuloDaForja } from './forja';
+  identidadeDaForja, identidadeDaForjaResolvida, lerCommitsDaForja, lerDaForja, mesmaForja, rotuloDaForja } from './forja';
+import { lerEnderecoDoRemoto } from './forja/endereco';
+import { resolverForja } from './forja/resolver';
 import { dataLocal, duracaoCurta, formatarDataHora, fusoDoDono, legendaDoFuso, normalizarFuso, partesLocais } from './horario';
 import { raizDoEstado } from './estado-thread';
 import { carregarManifesto, ManifestoCarregado, NOME_MANIFESTO } from './manifest';
@@ -253,8 +255,21 @@ const baseValida = (base: string | null | undefined): base is string =>
 function projetoDoClone(c: ManifestoCarregado, origem: OrigemNoPanorama): ProjetoDaRede {
   const remoto = c.manifesto.fabrica.remoto;
   const url = remotoValido(remoto) ? git(c.raiz, ['remote', 'get-url', '--', remoto]) : null;
-  return { nome: c.manifesto.project.name, forja: url?.ok ? identidadeDaForja(url.stdout.trim()) : null, raiz: c.raiz,
+  return { nome: c.manifesto.project.name, forja: url?.ok ? forjaDoClone(c, url.stdout.trim()) : null, raiz: c.raiz,
     base: c.manifesto.worktree.base_branch, remoto, origem };
+}
+
+/**
+ * A forja do clone, com o manifesto: o bloco `forja:` e o host conhecido decidem, sem rede (como o pulse). So quando
+ * nenhum dos dois diz o tipo (`forja.desconhecida`) vale o nome do host, como para os remotos sem clone; o manifesto
+ * que contradiz o remoto deixa o projeto sem forja, e a leitura cai no clone.
+ */
+function forjaDoClone(c: ManifestoCarregado, url: string): IdentidadeDaForja | null {
+  const endereco = lerEnderecoDoRemoto(url);
+  if (!endereco) return null;
+  const r = resolverForja({ endereco, manifesto: c.manifesto.forja, sondas: {} });
+  if (r.ok) return identidadeDaForjaResolvida(r.valor);
+  return r.erro.codigo === 'forja.desconhecida' ? identidadeDaForja(url) : null;
 }
 
 function mesmoProjeto(a: ProjetoDaRede, b: ProjetoDaRede): boolean {

@@ -10,7 +10,8 @@ export const TIPOS_DE_FORJA: readonly TipoDeForja[] = ['github', 'gitlab'];
 
 /** O repositorio na forja: `repo` e `dono/nome` no GitHub e o caminho completo no GitLab. */
 /** `porta`: a da API, so quando o remoto https/http de um GitLab a traz e ela nao e a do esquema (a de ssh nunca entra). */
-export interface IdentidadeDaForja { tipo: TipoDeForja; host: string; repo: string; porta?: number }
+/** `caminhoBase` e `ca`: so do bloco `forja:` de um GitLab, quando a identidade vem do clone com manifesto. */
+export interface IdentidadeDaForja { tipo: TipoDeForja; host: string; repo: string; porta?: number; caminhoBase?: string; ca?: string }
 
 export type CodigoDeErroDaForja = 'forja.ausente' | 'forja.sem-login' | 'forja.resposta-invalida'
   // A chamada a API (`forja/api.ts`), pelo status HTTP e pela lista paginada.
