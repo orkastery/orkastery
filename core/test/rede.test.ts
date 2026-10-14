@@ -2282,3 +2282,14 @@ test('forja 5: a casa num GitLab em subcaminho ou com CA própria é recusada co
     });
   } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); fs.rmSync(path.dirname(log), { recursive: true, force: true }); }
 });
+
+test('forja 5: o projeto criado fora do caminho pedido é recusado, com os dois caminhos na frase', () => {
+  const f = forjaFalsa('rede-outro-caminho');
+  try {
+    const lab = forjaPorNome('gitlab', f.amb)!;
+    // Sem o namespace do grupo, o GitLab falso cria no do login: o caminho devolvido nao e o pedido.
+    assert.throws(() => lab.criarPrivado('orkastery-network', 'Rede Orkastery', 'grupo-x'),
+      /rede\.forja: .*pessoa-lab\/orkastery-network.*grupo-x\/orkastery-network/);
+    assert.equal(lab.criarPrivado('outra-casa', 'Rede Orkastery', 'pessoa-lab').existe, true, 'no caminho pedido, vale');
+  } finally { f.limpar(); }
+});

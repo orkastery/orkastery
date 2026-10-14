@@ -81,6 +81,7 @@ export const NETWORK_PT_BR = {
   apiFalhou: (cli: string, rota: string, linha: string) => `rede.forja: ${cli} api ${rota} falhou${linha ? `: ${linha}` : ''}`,
   repositorioIlegivel: 'rede.forja: gh devolveu um repositorio ilegivel',
   projetoIlegivel: 'rede.forja: glab devolveu um projeto ilegivel',
+  projetoEmOutroCaminho: (pedido: string, criado: string) => `rede.forja: o GitLab criou o projeto em ${criado}, e não em ${pedido}; confira o grupo e apague o que sobrou`,
   // As recusas da rede (rede.ts e rede-adesao.ts).
   foraDoContrato: (onde: string) => `rede.segredo: ${onde} fora do contrato; nada foi publicado`,
   campoForaDaLista: (campo: string) => `rede.segredo: campo "${campo}" fora da lista de permissao; nada foi publicado`,
@@ -218,6 +219,7 @@ export const NETWORK_EN: MensagensDeNetwork = {
   apiFalhou: (cli, rota, linha) => `rede.forja: ${cli} api ${rota} failed${linha ? `: ${linha}` : ''}`,
   repositorioIlegivel: 'rede.forja: gh returned an unreadable repository',
   projetoIlegivel: 'rede.forja: glab returned an unreadable project',
+  projetoEmOutroCaminho: (pedido, criado) => `rede.forja: GitLab created the project at ${criado}, not at ${pedido}; check the group and delete the leftover`,
   foraDoContrato: (onde) => `rede.segredo: ${onde} is outside the contract; nothing was published`,
   campoForaDaLista: (campo) => `rede.segredo: field "${campo}" is not on the allow list; nothing was published`,
   campoLongo: (campo) => `rede.segredo: field "${campo}" is too long; nothing was published`,

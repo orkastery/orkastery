@@ -20,6 +20,7 @@ import type { AlvoDaCli } from './forja/cli';
 import type { DonoDaRede, ErroDaForja, Resultado } from './forja/contrato';
 import { ambienteReduzido, rodarCli } from './forja/executor';
 import { projetoNaApi } from './forja/gitlab/pedidos';
+import { deFora } from './forja/texto';
 import { redigirCredenciaisUrl } from './redacao-url';
 import { ErroDoCatalogo, montadorDe, textoDoCatalogo } from './locale';
 
@@ -327,11 +328,22 @@ function gitlab(binario: string, amb: AmbienteDaMaquina, hostPedido?: string): F
     criarPrivado(nome, descricao, dono, namespaceId) {
       const r = pedir('POST', 'projects', { name: nome, path: nome, visibility: 'private', description: descricao,
         ...(namespaceId ? { namespace_id: namespaceId } : {}) }, 30000);
-      if (r.ok) return repositorioDe(objeto(r.valor.corpo));
-      // Escrita nunca se repete sozinha: relida a casa, o projeto que a forja criou antes de a resposta se perder vale.
+      if (r.ok) {
+        const criado = objeto(r.valor.corpo), pedido = `${dono ?? ''}${dono ? '/' : ''}${nome}`;
+        // O projeto tem de nascer no caminho pedido: outro namespace seria uma casa que a rede nunca acharia.
+        const caminho = typeof criado?.path_with_namespace === 'string' ? criado.path_with_namespace : null;
+        if (dono && caminho !== null && caminho.toLowerCase() !== pedido.toLowerCase()) {
+          const visto = deFora(caminho, 200);
+          throw new ErroDoCatalogo((m) => m.network.projetoEmOutroCaminho(pedido, visto));
+        }
+        return repositorioDe(criado);
+      }
+      // Escrita nunca se repete sozinha: relida a casa, o projeto que a forja criou antes de a resposta se perder vale. A
+      // releitura que falha nao apaga o motivo do POST.
       if (dono) {
-        const relido = repositorio(dono, nome);
-        if (relido.existe) return relido;
+        let relido: RepositorioNaForja | null = null;
+        try { relido = repositorio(dono, nome); } catch { relido = null; }
+        if (relido?.existe) return relido;
       }
       throw falhouNaApi('projects', r.erro);
     },
