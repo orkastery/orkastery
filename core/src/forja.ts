@@ -21,6 +21,7 @@ import { procurarSegredos } from './policies';
 import { rodarCli } from './forja/executor';
 import { chamadorDaApi, ChamadorDaApi } from './forja/api';
 import { CONSULTA_ARVORES_GITLAB, CONSULTA_RAIZ_GITLAB, consultaDeBlobsDoGitlab } from './forja/gitlab/consultas';
+import { projetoNaApi } from './forja/gitlab/pedidos';
 
 export type { TipoDeForja, IdentidadeDaForja, CodigoDeErroDaForja, ErroDaForja, SaidaDoExecutor, ExecutorDaForja } from './forja/contrato';
 import type { TipoDeForja, IdentidadeDaForja, CodigoDeErroDaForja, ErroDaForja, SaidaDoExecutor, ExecutorDaForja, ForjaResolvida } from './forja/contrato';
@@ -329,7 +330,7 @@ function graphqlDoGitlab(api: ChamadorDaApi, query: string, variables: Json): { 
 /** Os commits da base desde `desde`, pelo REST do GitLab (GET), e se vieram 100 (pagina cheia). */
 function commitsDoGitlab(forja: IdentidadeDaForja, commit: string, desde: string, api: ChamadorDaApi):
   { ok: true; commits: CommitDaBase[]; parciais: boolean } | { ok: false; erro: ErroDaForja } {
-  const r = api({ metodo: 'GET', caminho: `projects/${encodeURIComponent(forja.repo)}/repository/commits?ref_name=${encodeURIComponent(commit)}` +
+  const r = api({ metodo: 'GET', caminho: `${projetoNaApi(forja.repo)}/repository/commits?ref_name=${encodeURIComponent(commit)}` +
     `&since=${encodeURIComponent(desde)}&per_page=100`, prazoMs: PRAZO_MS });
   if (!r.ok) return r;
   const lista = r.valor.corpo;

@@ -24,6 +24,7 @@ import { dirDoCacheDaForja } from './forja/cache';
 import { resolverForja, SONDAS_PADRAO, SondasDaForja } from './forja/resolver';
 import { msg } from './locale';
 import { ManifestoCarregado } from './manifest';
+import { projetoNaApi } from './forja/gitlab/pedidos';
 import { Check } from './types';
 import { exec } from './util';
 
@@ -230,7 +231,7 @@ const REPOSITORIO_DO_GITHUB = z.object({
 /** O metodo de merge e o resto do que decide se o merge `ship(<thread>)` chega a base. So avisa; o projeto nao lido reprova. */
 function projetoDaForja(f: ForjaResolvida, api: ChamadorDaApi, linha: Linha): Check {
   const m = msg().forja.doctor;
-  const caminho = f.tipo === 'gitlab' ? `projects/${encodeURIComponent(f.repo)}` : `repos/${f.repo}`;
+  const caminho = f.tipo === 'gitlab' ? projetoNaApi(f.repo) : `repos/${f.repo}`;
   if (f.tipo !== 'gitlab' && f.tipo !== 'github') return linha('forja projeto', 'ok', m.naoMedivel);
   const r = api({ metodo: 'GET', caminho });
   if (!r.ok) return linha('forja projeto', 'fail', m.projetoFalhou(f.repo, msg().forja.motivo(r.erro, f.tipo)), m.projetoFalhouCorrecao);

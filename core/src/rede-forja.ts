@@ -19,6 +19,7 @@ import { chamarApi, MetodoHttp, OpcoesDaApi, RespostaDaApi, RodarCli } from './f
 import type { AlvoDaCli } from './forja/cli';
 import type { DonoDaRede, ErroDaForja, Resultado } from './forja/contrato';
 import { rodarCli } from './forja/executor';
+import { projetoNaApi } from './forja/gitlab/pedidos';
 import { redigirCredenciaisUrl } from './redacao-url';
 import { ErroDoCatalogo, montadorDe, textoDoCatalogo } from './locale';
 
@@ -309,7 +310,7 @@ function gitlab(binario: string, amb: AmbienteDaMaquina, hostPedido?: string): F
     return { existe: true, privado: privadoDe(v), url: typeof v.http_url_to_repo === 'string' ? v.http_url_to_repo : null };
   };
   const repositorio = (dono: string, nome: string): RepositorioNaForja => {
-    const rota = `projects/${encodeURIComponent(`${dono}/${nome}`)}`;
+    const rota = projetoNaApi(`${dono}/${nome}`);
     const r = pedir('GET', rota);
     if (r.ok) return repositorioDe(objeto(r.valor.corpo));
     if (r.erro.codigo === 'forja.nao-achei') return { existe: false, privado: null, url: null };
