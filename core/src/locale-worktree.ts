@@ -132,6 +132,8 @@ export const WORKTREE_PT_BR = {
     `máquina. Para aceitar nesta máquina: ${comando} (ou volte worktree.dir para dentro do projeto, ` +
     'como .claude/worktrees).',
   worktreeJaExisteEm: (dir: string) => `worktree ja existe em ${dir}`,
+  baseRemotaFalhou: (remoto: string, base: string, saida: string) =>
+    `worktree.base-remota-indisponivel: git fetch de ${remoto}/${base} falhou; nenhuma worktree foi criada: ${saida}`,
   worktreeAddFalhou: (saida: string) => `git worktree add falhou: ${saida}`,
   worktreeNaoApareceu: (dir: string) => `worktree nao apareceu em \`git worktree list\` apos a criacao: ${dir}`,
 };
@@ -236,6 +238,8 @@ export const WORKTREE_EN: MensagensDeWorktree = {
       `To accept it on this machine: \`${comando}\` (or move worktree.dir back inside the project, such as .claude/worktrees).`;
   },
   worktreeJaExisteEm: (dir) => `a worktree already exists at ${dir}`,
+  baseRemotaFalhou: (remoto, base, saida) =>
+    `worktree.remote-base-unavailable: git fetch of ${remoto}/${base} failed; no worktree was created: ${saida}`,
   worktreeAddFalhou: (saida) => `git worktree add failed: ${saida}`,
   worktreeNaoApareceu: (dir) => `the worktree did not show up in \`git worktree list\` after it was created: ${dir}`,
 };
