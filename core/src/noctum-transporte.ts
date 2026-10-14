@@ -519,6 +519,10 @@ export function gravarNoRamo<T>(carregado: ManifestoCarregado, arco: string, opc
   regra: (leitura: LeituraDoRamo) => { novos: CamposDoRegistro[]; resultado: T }, conferir?: (leitura: LeituraDoRamo) => void): ResultadoDaGravacao<T> {
   const { raiz } = carregado;
   const quando = opcoes.quando ?? new Date().toISOString();
+  // S-R3A-1 da rodada 3: o instante vai ao `em` de cada registro, e o leitor o exige como data.
+  if (typeof quando !== 'string' || !Number.isFinite(Date.parse(quando))) {
+    throw new RecusaDoArco('noctum.envelope.invalido', 'o instante da gravação não é uma data; nada foi ao ramo');
+  }
   for (let tentativa = 1; tentativa <= TENTATIVAS_DE_GRAVAR; tentativa++) {
     const leitura = lerRamo(carregado, arco, { ...opcoes, quando }, conferir);
     const { novos, resultado } = regra(leitura);
@@ -542,6 +546,10 @@ export function gravarNoRamo<T>(carregado: ManifestoCarregado, arco: string, opc
       if (Buffer.byteLength(conteudo) > TETO_DO_REGISTRO) throw new RecusaDoArco('noctum.envelope.invalido', `o registro ${caminho} passa de ${TETO_DO_REGISTRO} bytes`);
       mudancas.push({ caminho, conteudo });
       gravados.push(dados);
+    }
+    // S-R3A-1 da rodada 3: o teto de registros por arco, que o leitor confere, também vale para quem grava.
+    if (leitura.registros.length + mudancas.filter(m => !existentes.has(m.caminho)).length > TETO_DE_REGISTROS) {
+      throw new RecusaDoArco('noctum.envelope.invalido', `o arco passaria de ${TETO_DE_REGISTROS} registros; nada foi ao ramo`);
     }
     // B1 da rodada 2: quem grava confere com a régua de quem lê, em memória e antes do push. O registro que as máquinas
     // reprovariam (e que travaria o arco em todas) fica aqui, como pedido inválido, e nada vai ao ramo.

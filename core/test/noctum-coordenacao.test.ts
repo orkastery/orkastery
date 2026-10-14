@@ -718,3 +718,17 @@ test('K20: o motivo de quem chama a interface vai ao ramo, que pode ser público
       'noctum.efeito.fora-do-destino: merge em exemplo/produto, base main');
   } finally { m.limpar(); }
 });
+
+test('K21: a repetição da ordem só devolve a que entrou quando é da mesma geração da autoridade', () => {
+  const m = cenario('noctum-k21');
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a)), 'O-a-1');
+    // S-R3A-3 da rodada 3: a B toma a autoridade à força (a A parou) e pede a mesma ordem; ela é da geração anterior.
+    const tarde = depois(BATIDA_VENCIDA_MS + 60_000);
+    assert.equal(assumirAutoridade(m.b.carregado, m.arco, { ...op(m.b, tarde), forcar: { motivo: 'SIMULADO: a A parou' } }).geracao, 2);
+    assert.match(recusa(() => emitirOrdem(m.b.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.b, tarde)), 'noctum.coordenacao.ordem-viva'),
+      /o trabalho a está ordenado \(ordem O-a-1\)/);
+  } finally { m.limpar(); }
+});

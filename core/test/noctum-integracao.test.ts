@@ -469,3 +469,115 @@ test('I13: a forja que leva a fonte à base fora da cerca, com a vez ainda da m�
     recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'b', maquina: 'maquina-a' }, op(m.a)), 'noctum.coordenacao.ordem-viva');
   } finally { m.limpar(); }
 });
+
+/**
+ * O integrador fora do contrato que, com o push do merge recusado, mescla a base nova no merge e empurra de novo, sem força.
+ * `noMeio` roda entre o merge e o primeiro push: é quando a base anda. Com `mente`, ele devolve o merge sobre a base provada,
+ * e não o commit que empurrou por cima.
+ */
+function mergeEPull(dir: string, noMeio: () => void, mente = false) {
+  return ({ remoto, destino, candidato: c }: { remoto: string; destino: { base: string }; candidato: { base: string; fonte: string } }) => {
+    exec('git', ['checkout', '-q', '--detach', c.base], dir);
+    if (!exec('git', ['merge', '-q', '--no-ff', '--no-edit', c.fonte], dir).ok) throw new Error('merge falhou');
+    const merge = exec('git', ['rev-parse', 'HEAD'], dir).stdout.trim();
+    noMeio();
+    const primeiro = exec('git', ['push', '-q', remoto, `${merge}:refs/heads/${destino.base}`], dir);
+    exec('git', ['fetch', '-q', remoto, `+refs/heads/${destino.base}:refs/remotes/origin/${destino.base}`], dir);
+    if (primeiro.ok || !exec('git', ['merge', '-q', '--no-ff', '--no-edit', `refs/remotes/origin/${destino.base}`], dir).ok) throw new Error('SIMULADO: o roteiro esperava o push recusado');
+    const porCima = exec('git', ['rev-parse', 'HEAD'], dir).stdout.trim();
+    const segundo = exec('git', ['push', '-q', remoto, `${porCima}:refs/heads/${destino.base}`], dir);
+    exec('git', ['checkout', '-q', 'main'], dir);
+    if (!segundo.ok) throw new Error('segundo push recusado');
+    return { merge: mente ? merge : porCima };
+  };
+}
+
+test('I14: o merge da base nova por cima de um push recusado não vira entrega, nem pelo commit devolvido, nem pela história, nem na repetição', () => {
+  const m = cenario('noctum-i14');
+  try {
+    // B-R3A-1 da rodada 3, com a vez ainda da B: um commit de fora entra na main durante o efeito, e o integrador mescla e
+    // empurra de novo. O commit devolvido não é o merge provado: a vez termina sem prova, e nada vira entrega.
+    const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    const motivo = recusa(() => integrarComVez(m.b.carregado, m.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, mergeEPull(m.b.dir, () => {
+      const deFora = branchDeTrabalho(m.a.dir, 'hotfix', 'h.txt', 'H SIMULADO\n');
+      assert.ok(exec('git', ['push', '-q', 'origin', `${deFora.fonte}:refs/heads/main`], m.a.dir).ok);
+    }), op(m.b)), 'noctum.integracao.base-nao-provada');
+    assert.match(motivo, /o commit que o integrador devolveu não é o merge provado/);
+    const estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
+    assert.deepEqual([estado.entregas.size, [...estado.vezes.values()].flat().map(v => v.fim?.desfecho)], [0, ['sem-prova']]);
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-i14b');
+  try {
+    // Com a vez da B abandonada, a A integra no meio pelo contrato; a B mescla a base nova e empurra de novo.
+    const cb = candidato(branchDeTrabalho(m2.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    const ca = candidato(branchDeTrabalho(m2.a.dir, 'trabalho-a', 'a.txt', 'A SIMULADO\n'), 'a');
+    const tarde = new Date(Date.now() + BATIDA_VENCIDA_MS + 60_000).toISOString();
+    let daA = '';
+    recusa(() => integrarComVez(m2.b.carregado, m2.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, mergeEPull(m2.b.dir, () => {
+      gravarNaCoordenacao(m2.a.carregado, m2.arco, op(m2.a, tarde), (l) => ({ novos: registrosDosAbandonos(derivarCoordenacao(l), 'maquina-a', tarde), resultado: null }));
+      daA = integrarComVez(m2.a.carregado, m2.arco, { ordem: 'O-a-1', destino: DESTINO, candidato: ca }, mergeSobreAProvada(m2.a.dir), op(m2.a, tarde)).merge;
+    }), op(m2.b)), 'noctum.integracao.base-nao-provada');
+    // Na volta, a reconciliação refaz a prova pela história: o merge da B não está na linha da entrega da A.
+    const rec = reconciliarIntegracao(m2.b.carregado, m2.arco, op(m2.b, tarde));
+    assert.deepEqual([rec.registradas, rec.semProva], [[], [`${chaveDoDestino(DESTINO)}/1`]]);
+    // A repetição do pedido toma outra vez e também não se prova, sem integrar de novo.
+    recusa(() => integrarComVez(m2.b.carregado, m2.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, () => assert.fail('não integra de novo'),
+      op(m2.b, tarde)), 'noctum.integracao.base-nao-provada');
+    const estado = lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a, tarde));
+    assert.deepEqual([[...estado.entregas.keys()], estado.entregas.get('a')!.merge], [['a'], daA]);
+    assert.deepEqual([...estado.vezes.values()].flat().map(v => [v.n, v.maquina, v.fim?.desfecho]),
+      [[1, 'maquina-b', 'abandonada'], [2, 'maquina-a', 'entregue'], [3, 'maquina-b', 'sem-prova']]);
+    assert.equal(situacaoDoTrabalho(estado, 'b')!.estado, 'em-execucao');
+  } finally { m2.limpar(); }
+  const m3 = cenario('noctum-i14c');
+  try {
+    // O integrador que mente e devolve o merge sobre a base provada: as entregas do destino, relidas depois do efeito, têm a
+    // da A, e o merge da B não está na linha dela.
+    const cb = candidato(branchDeTrabalho(m3.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    const ca = candidato(branchDeTrabalho(m3.a.dir, 'trabalho-a', 'a.txt', 'A SIMULADO\n'), 'a');
+    const tarde = new Date(Date.now() + BATIDA_VENCIDA_MS + 60_000).toISOString();
+    recusa(() => integrarComVez(m3.b.carregado, m3.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, mergeEPull(m3.b.dir, () => {
+      gravarNaCoordenacao(m3.a.carregado, m3.arco, op(m3.a, tarde), (l) => ({ novos: registrosDosAbandonos(derivarCoordenacao(l), 'maquina-a', tarde), resultado: null }));
+      integrarComVez(m3.a.carregado, m3.arco, { ordem: 'O-a-1', destino: DESTINO, candidato: ca }, mergeSobreAProvada(m3.a.dir), op(m3.a, tarde));
+    }, true), op(m3.b)), 'noctum.integracao.base-nao-provada');
+    assert.deepEqual([...lerCoordenacao(m3.a.carregado, m3.arco, op(m3.a, tarde)).entregas.keys()], ['a']);
+  } finally { m3.limpar(); }
+});
+
+test('I15: a repetição que acha a fonte da forja na base não deixa o trabalho ser refeito; o avanço rápido exige a fonte com a base provada', () => {
+  const m = cenario('noctum-i15');
+  try {
+    // A-R3A-1 da rodada 3: a forja leva a fonte à main por cima de um commit de fora e estoura o prazo; a N5 repete o pedido.
+    const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    recusa(() => integrarComVez(m.b.carregado, m.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, (c) => {
+      const deFora = branchDeTrabalho(m.a.dir, 'hotfix', 'h.txt', 'H SIMULADO\n');
+      assert.ok(exec('git', ['push', '-q', 'origin', `${deFora.fonte}:refs/heads/main`], m.a.dir).ok);
+      forja(m.b.dir)(c);
+      throw new Error('SIMULADO: a forja estourou o prazo depois do merge');
+    }, op(m.b)), 'noctum.integracao.nao-provada');
+    let chamou = false;
+    recusa(() => integrarComVez(m.b.carregado, m.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, () => { chamou = true; return { merge: cb.fonte }; },
+      op(m.b)), 'noctum.integracao.base-nao-provada');
+    assert.equal(chamou, false, 'a repetição não integra de novo');
+    assert.deepEqual([...lerCoordenacao(m.a.carregado, m.arco, op(m.a)).vezes.values()].flat().map(v => v.fim?.desfecho), ['sem-prova']);
+    cancelarOrdem(m.a.carregado, m.arco, 'O-b-1', 'SIMULADO: inspeção', op(m.a));
+    const plano = planejarReconciliacao(lerCoordenacao(m.b.carregado, m.arco, op(m.b)), 'maquina-b', { arcoVigente: true, sessoesVivas: new Set(),
+      threads: new Map(), despachos: new Map() });
+    assert.deepEqual(plano.encerradas, []);
+    recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 'b', maquina: 'maquina-a' }, op(m.a)), 'noctum.coordenacao.ordem-viva');
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-i15b');
+  try {
+    // S-R3A-3 da rodada 3: a fonte na linha de primeiro pai da main, com a base provada num commit lateral que ela não contém,
+    // não se prova: seria uma entrega registrada sem integração nenhuma.
+    const lateral = branchDeTrabalho(m2.b.dir, 'lateral', 'l.txt', 'L SIMULADO\n');
+    const f = branchDeTrabalho(m2.a.dir, 'hotfix', 'h.txt', 'H SIMULADO\n');
+    assert.ok(exec('git', ['push', '-q', 'origin', `${f.fonte}:refs/heads/main`], m2.a.dir).ok);
+    let chamou = false;
+    recusa(() => integrarComVez(m2.b.carregado, m2.arco, { ordem: 'O-b-1', destino: DESTINO,
+      candidato: { branch: 'hotfix', fonte: f.fonte, base: lateral.fonte, provas: provasSimuladas('lateral') } },
+    () => { chamou = true; return { merge: f.fonte }; }, op(m2.b)), 'noctum.integracao.base-nao-provada');
+    assert.equal(chamou, false);
+    assert.equal(lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a)).entregas.size, 0);
+  } finally { m2.limpar(); }
+});

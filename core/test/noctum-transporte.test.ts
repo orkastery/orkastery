@@ -368,3 +368,15 @@ test('T13: a história, a coerência e o avanço da vista são uma seção crít
     assert.match(recusa(() => lerRamo(m2.b.carregado, m2.arco), 'noctum.coordenacao.adulterado'), /esta máquina já viu o ramo adulterado/);
   } finally { trocar(original); m2.limpar(); }
 });
+
+test('T14: o instante da gravação tem de ser uma data, como o leitor exige; senão, nada vai ao ramo', () => {
+  const m = cenario('noctum-t14');
+  try {
+    const antes = entrega(m, 'a', 'antes')!;
+    // S-R3A-1 da rodada 3: um quando fora do formato iria ao em do registro, e todas as máquinas leriam adulterado.
+    assert.match(recusa(() => gravarNoRamo(m.b.carregado, m.arco, { maquina: 'maquina-b', quando: 'agora' }, () => ({ novos: [{ tipo: 'batida' }], resultado: null })),
+      'noctum.envelope.invalido'), /o instante da gravação não é uma data/);
+    assert.equal(exec('git', ['ls-remote', m.remoto, `refs/heads/${BRANCH_DE_COORDENACAO}`], m.a.dir).stdout.split(/\s+/)[0], antes);
+    assert.equal(lerRamo(m.a.carregado, m.arco).registros.length, 1);
+  } finally { m.limpar(); }
+});

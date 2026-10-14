@@ -22,6 +22,7 @@
  * máquina que não dá sinal há mais de 15 min é abandonada pela autoridade (A7 da revisão), e o destino volta a andar; na
  * volta, a reconciliação dela registra a entrega se o merge tiver chegado à base, e o trabalho não muda de máquina sem prova.
  */
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { branchValida, buscarBranch, git } from './branch-de-estado';
@@ -48,7 +49,8 @@ export interface PedidoDeIntegracao {
  * Quem integra de fato: recebe o destino e o candidato já revalidados e devolve o commit que ficou na base. O contrato é a
  * cerca da base (B-R2A-1 da rodada 2): o merge tem `candidato.base` como primeiro pai e a fonte como segundo, ou é a própria
  * `candidato.fonte` (avanço rápido), e vai à base por push sem força. O merge sobre a base de agora, como o botão de uma
- * forja faria, não é provado e não vira entrega.
+ * forja faria, não é provado e não vira entrega. Push recusado é falha (B-R3A-1 da rodada 3): o integrador nunca mescla a
+ * base nova no merge e empurra de novo, e o commit que ele devolve é o merge que chegou à base.
  */
 export type Integrador = (c: { remoto: string; destino: { repositorio: string; base: string }; candidato: CandidatoDeIntegracao }) => { merge: string };
 
@@ -155,19 +157,20 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
       if (!destino || destino.base !== alvo.base || !destino.permissoes.includes('merge')) {
         throw recusa('noctum.efeito.fora-do-destino', `merge em ${alvo.repositorio}, base ${alvo.base}, fora do envelope`);
       }
+      const posteriores = entreguesDoDestino(estado, chave);
       const ativa = ativaDo(estado, chave);
       if (ativa) {
         if (ativa.maquina === eu.nome && ativa.ordem === o.ordem && mesmoCandidato(ativa.candidato, candidato)) {
-          return { novos: [], resultado: { n: ativa.n, trabalho: o.trabalho } };
+          return { novos: [], resultado: { n: ativa.n, trabalho: o.trabalho, posteriores } };
         }
         throw recusa('noctum.integracao.ocupada', `a vez de integrar em ${destino.repositorio}, base ${destino.base}, está com a máquina ${ativa.maquina} ` +
           `(trabalho ${ativa.trabalho}); espere ela soltar e repita as provas sobre a base nova`);
       }
       const n = proximaDo(estado, chave);
       return { novos: [{ tipo: 'vez', chave, n, destino: { repositorio: destino.repositorio, base: destino.base }, ordem: o.ordem,
-        trabalho: o.trabalho, candidato }], resultado: { n, trabalho: o.trabalho } };
+        trabalho: o.trabalho, candidato }], resultado: { n, trabalho: o.trabalho, posteriores } };
     }).resultado;
-    const { n, trabalho } = tomada;
+    const { n, trabalho, posteriores } = tomada;
     // 2. Os HEADs, relidos do remoto depois de ter a vez.
     let cabecas: Map<string, string | null>;
     try { cabecas = cabecasNoRemoto(carregado, [alvo.base, candidato.branch], opcoes); }
@@ -179,7 +182,7 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
     if (base !== candidato.base) {
       // A1 da rodada 2: a base que andou com o próprio merge (a repetição depois de um `nao-provada` cujo push chegou) não
       // invalida o candidato: a fonte já está nela, e a entrega é registrada sem integrar de novo, como na reconciliação.
-      const prova = base ? provaDoMerge(carregado, remoto, alvo.base, candidato, opcoes) : null;
+      const prova = base ? provaDoMerge(carregado, remoto, alvo.base, candidato, opcoes, posteriores) : null;
       if (prova?.situacao === 'provado') {
         registrarEntrega(carregado, arco, { chave, n, trabalho, ordem: pedido.ordem, destino: alvo, fonte: candidato.fonte,
           base: candidato.base, merge: prova.merge }, opcoes);
@@ -212,11 +215,19 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
     let merge: string;
     try { merge = integrar({ remoto, destino: { ...alvo }, candidato: { ...candidato } }).merge; }
     catch (e) { throw recusa('noctum.integracao.nao-provada', `a integração falhou ou ficou incerta (${primeiraLinha(e)}); a vez fica até a reconciliação`); }
-    // 5. A prova no remoto (B-R2A-1 da rodada 2): a fonte entrou na base por um merge sobre a base provada.
-    const prova = provaDoMerge(carregado, remoto, alvo.base, candidato, opcoes);
+    // 5. A prova no remoto (B-R2A-1 da rodada 2): a fonte entrou na base por um merge sobre a base provada, e esse merge é o
+    // commit que o integrador devolveu (B-R3A-1 da rodada 3): o merge da base nova por cima de um push recusado não vira entrega.
+    // As entregas do destino, relidas depois do efeito: com a vez abandonada, outra máquina pode ter integrado no meio.
+    let depoisDoEfeito: string[];
+    try { depoisDoEfeito = entreguesDoDestino(lerCoordenacao(carregado, arco, opcoes), chave, n); }
+    catch (e) { throw recusa('noctum.integracao.nao-provada', `o ramo de coordenação não se leu depois do merge (${primeiraLinha(e)}); a vez fica até a reconciliação`); }
+    const prova = provaDoMerge(carregado, remoto, alvo.base, candidato, opcoes, [...new Set([...posteriores, ...depoisDoEfeito])]);
     if (prova?.situacao === 'sem-prova') semProva(carregado, arco, chave, n, alvo, candidato, prova.ponta, opcoes);
     if (prova?.situacao !== 'provado') {
       throw recusa('noctum.integracao.nao-provada', `a base ${alvo.base} não tem a fonte pelo merge ${String(merge).slice(0, 12)}; a vez fica até a reconciliação`);
+    }
+    if (commitDevolvido(carregado.raiz, merge) !== prova.merge) {
+      semProva(carregado, arco, chave, n, alvo, candidato, prova.ponta, opcoes, 'o commit que o integrador devolveu não é o merge provado');
     }
     registrarEntrega(carregado, arco, { chave, n, trabalho, ordem: pedido.ordem, destino: alvo, fonte: candidato.fonte,
       base: candidato.base, merge: prova.merge }, opcoes);
@@ -224,41 +235,71 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
   } finally { fs.closeSync(trava); }
 }
 
-/** Quantos commits da história de primeiro pai da base a prova percorre, no máximo, atrás da base provada. */
-const TETO_DA_HISTORIA = 10000;
+export type ProvaDoMerge = { situacao: 'provado'; merge: string; ponta: string } | { situacao: 'sem-prova'; ponta: string } |
+  { situacao: 'ausente'; ponta: string };
 
-export type ProvaDoMerge = { situacao: 'provado'; merge: string } | { situacao: 'sem-prova'; ponta: string } | { situacao: 'ausente'; ponta: string };
+/**
+ * O git da prova pela história (S-R3A-2 da rodada 3): a busca lê a história inteira entre a base provada e a ponta, sem
+ * corte por contagem, e a saída com os pais dos merges passa fácil de 1 MiB. Estourado o buffer ou o prazo, a prova não
+ * sabe (`null`), e a vez espera.
+ */
+function gitDaHistoria(raiz: string, args: string[]): { ok: boolean; stdout: string } {
+  const r = spawnSync('git', args, { cwd: raiz, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, timeout: 120_000 });
+  return { ok: r.status === 0 && !r.error, stdout: (r.stdout ?? '').toString() };
+}
+
+const ancestral = (raiz: string, de: string, para: string): boolean => git(raiz, ['merge-base', '--is-ancestor', de, para]).ok;
+
+/** Os merges das vezes entregues deste destino no arco: as integrações que a prova de outra vez tem de respeitar. */
+function entreguesDoDestino(estado: EstadoDaCoordenacao, chave: string, fora?: number): string[] {
+  return (estado.vezes.get(chave) ?? []).filter(v => v.n !== fora && v.fim?.desfecho === 'entregue' && typeof v.fim.merge === 'string')
+    .map(v => v.fim!.merge as string);
+}
+
+/** O commit que o integrador devolveu, resolvido no clone desta máquina; `null` quando não é um commit daqui. */
+function commitDevolvido(raiz: string, merge: unknown): string | null {
+  if (typeof merge !== 'string' || !/^[0-9a-f]{7,64}$/.test(merge)) return null;
+  const r = git(raiz, ['rev-parse', '--verify', '--quiet', `${merge}^{commit}`]);
+  return r.ok ? r.stdout.trim() : null;
+}
 
 /**
  * B-R2A-1 da rodada 2: a fonte entrou na base por um merge sobre a base provada? Busca a base e procura, entre a base
  * provada e a ponta, o merge cujos pais são exatamente a base provada e a fonte, ou a própria fonte na história de primeiro
- * pai da ponta, acima da base provada (o avanço rápido). Achou: `provado`, com o commit. A fonte na base por outro caminho,
- * como o merge sobre a base de agora que o botão de uma forja faria, é `sem-prova`; a base sem a fonte é `ausente`; `null`
- * quando a base não se lê.
+ * pai da ponta, acima da base provada (o avanço rápido). B-R3A-1 da rodada 3: o merge achado tem de estar na mesma linha de
+ * cada entrega do destino posterior à base provada (`posteriores`); o merge que chegou à base dentro de outro merge, depois
+ * de uma integração seguinte, não se prova. Achou: `provado`, com o commit. A fonte na base por outro caminho, como o merge
+ * sobre a base de agora que o botão de uma forja faria, é `sem-prova`; a base sem a fonte é `ausente`; `null` quando a base
+ * ou a história não se leem.
  */
 export function provaDoMerge(carregado: ManifestoCarregado, remoto: string, base: string, candidato: { base: string; fonte: string },
-  opcoes: OpcoesDaCoordenacao): ProvaDoMerge | null {
+  opcoes: OpcoesDaCoordenacao, posteriores: readonly string[] = []): ProvaDoMerge | null {
   const { raiz } = carregado;
   let lida: { ponta: string | null; atualizado: boolean };
   try { lida = buscarBranch(raiz, remoto, base, 'noctum', opcoes.rede?.timeoutMs, opcoes.rede?.env); } catch { return null; }
   if (!lida.atualizado || !lida.ponta) return null;
-  if (!git(raiz, ['merge-base', '--is-ancestor', candidato.fonte, lida.ponta]).ok) return { situacao: 'ausente', ponta: lida.ponta };
-  const merges = git(raiz, ['rev-list', '--ancestry-path', '--parents', `--max-count=${TETO_DA_HISTORIA}`, `${candidato.base}..${lida.ponta}`]);
-  const primeiros = git(raiz, ['rev-list', '--first-parent', `--max-count=${TETO_DA_HISTORIA}`, lida.ponta]);
+  const ponta = lida.ponta;
+  if (!ancestral(raiz, candidato.fonte, ponta)) return { situacao: 'ausente', ponta };
+  const merges = gitDaHistoria(raiz, ['rev-list', '--ancestry-path', '--parents', `${candidato.base}..${ponta}`]);
+  const primeiros = gitDaHistoria(raiz, ['rev-list', '--first-parent', `${candidato.base}..${ponta}`]);
   if (!merges.ok || !primeiros.ok) return null;
+  let merge: string | null = null;
   for (const linha of merges.stdout.split('\n')) {
     const [commit, ...pais] = linha.trim().split(' ');
-    if (commit && pais.length === 2 && pais[0] === candidato.base && pais[1] === candidato.fonte) return { situacao: 'provado', merge: commit };
+    if (commit && pais.length === 2 && pais[0] === candidato.base && pais[1] === candidato.fonte) { merge = commit; break; }
   }
-  // O avanço rápido: a própria fonte foi ponta da base, e ela contém a base provada (a branch atualizada com a base também).
-  for (const commit of primeiros.stdout.split('\n').map(x => x.trim())) {
-    if (commit === candidato.fonte) {
-      return git(raiz, ['merge-base', '--is-ancestor', candidato.base, candidato.fonte]).ok ? { situacao: 'provado', merge: candidato.fonte }
-        : { situacao: 'sem-prova', ponta: lida.ponta };
-    }
-    if (commit === candidato.base) break;
+  // O avanço rápido: a própria fonte foi ponta da base, acima da base provada, e ela contém a base provada (a branch
+  // atualizada com a base também).
+  if (!merge && primeiros.stdout.split('\n').some(x => x.trim() === candidato.fonte)) {
+    if (!ancestral(raiz, candidato.base, candidato.fonte)) return { situacao: 'sem-prova', ponta };
+    merge = candidato.fonte;
   }
-  return { situacao: 'sem-prova', ponta: lida.ponta };
+  if (!merge) return { situacao: 'sem-prova', ponta };
+  for (const x of posteriores) {
+    if (x === candidato.base || !ancestral(raiz, candidato.base, x)) continue;
+    if (!ancestral(raiz, merge, x) && !ancestral(raiz, x, merge)) return { situacao: 'sem-prova', ponta };
+  }
+  return { situacao: 'provado', merge, ponta };
 }
 
 /**
@@ -266,8 +307,9 @@ export function provaDoMerge(carregado: ManifestoCarregado, remoto: string, base
  * nada vira entrega. O trabalho não é refeito em outra máquina: a ordem fica, e a inspeção é do dono.
  */
 function semProva(carregado: ManifestoCarregado, arco: string, chave: string, n: number, alvo: { base: string },
-  candidato: CandidatoDeIntegracao, ponta: string, opcoes: OpcoesDaCoordenacao): never {
-  const motivo = `a fonte ${candidato.fonte.slice(0, 12)} chegou à base ${alvo.base} por um merge fora da base provada ${candidato.base.slice(0, 12)}`;
+  candidato: CandidatoDeIntegracao, ponta: string, opcoes: OpcoesDaCoordenacao, porque?: string): never {
+  const motivo = `a fonte ${candidato.fonte.slice(0, 12)} chegou à base ${alvo.base} por um merge fora da base provada ${candidato.base.slice(0, 12)}` +
+    (porque ? ` (${porque})` : '');
   encerrarSemEsconder(carregado, arco, chave, n, { desfecho: 'sem-prova', motivo: `base-nao-provada: ${motivo}`, merge: ponta }, opcoes);
   throw recusa('noctum.integracao.base-nao-provada', `${motivo}: nada foi registrado como entrega, e o trabalho espera a inspeção do dono, sem ser refeito`);
 }
@@ -322,7 +364,7 @@ export function reconciliarIntegracao(carregado: ManifestoCarregado, arco: strin
     const remoto = opcoes.remoto ?? carregado.manifesto.fabrica.remoto;
     for (const v of [...minhas, ...abandonadas]) {
       // B-R2A-1 e S-R2A-4 da rodada 2: só o merge sobre a base provada vira entrega, com o commit dele, nunca a ponta da base.
-      const prova = provaDoMerge(carregado, remoto, v.destino.base, v.candidato, opcoes);
+      const prova = provaDoMerge(carregado, remoto, v.destino.base, v.candidato, opcoes, entreguesDoDestino(estado, v.chave, v.n));
       if (prova === null) continue;
       if (prova.situacao === 'provado') {
         registrarEntrega(carregado, arco, { chave: v.chave, n: v.n, trabalho: v.trabalho, ordem: v.ordem, destino: v.destino,
