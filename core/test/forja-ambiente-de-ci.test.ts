@@ -60,8 +60,9 @@ test('ork ci run sem thread nem --branch: a linha de uso, dentro e fora do runne
     const fora = rodar({});
     assert.equal(fora.status, 2);
     assert.match(fora.stderr, /uso: ork ci run/);
-    for (const runner of [{ GITLAB_CI: 'true', CI_COMMIT_BRANCH: 'ork/ork-sem-bundle' },
-      { GITHUB_ACTIONS: 'true', GITHUB_HEAD_REF: 'ork/ork-sem-bundle', GITHUB_REF_NAME: 'ork/ork-sem-bundle' }]) {
+    const runners: Record<string, string>[] = [{ GITLAB_CI: 'true', CI_COMMIT_BRANCH: 'ork/ork-sem-bundle' },
+      { GITHUB_ACTIONS: 'true', GITHUB_HEAD_REF: 'ork/ork-sem-bundle', GITHUB_REF_NAME: 'ork/ork-sem-bundle' }];
+    for (const runner of runners) {
       const noRunner = rodar(runner);
       assert.equal(noRunner.status, 2, JSON.stringify(runner));
       assert.match(noRunner.stderr, /uso: ork ci run/);
