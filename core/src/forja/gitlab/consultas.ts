@@ -7,16 +7,16 @@
 /** Os campos de um MR que o pulse le, nas tres listas. */
 const CAMPOS_DO_PEDIDO = 'iid sourceBranch targetBranch diffHeadSha draft state webUrl createdAt mergedAt sourceProjectId targetProjectId';
 
-/** Os do MR aberto: os de todos, o conflito, a pipeline do head e o job `ork-verify` dela (com o estagio). */
+/** Os do MR aberto: os de todos, o conflito, a pipeline do head e o job do check da CI (`$check`) dela, com o estagio. */
 const CAMPOS_DO_ABERTO = `${CAMPOS_DO_PEDIDO} conflicts headPipeline { sha status finishedAt ` +
-  'job(name: "ork-verify") { status startedAt finishedAt stage { name } } }';
+  'job(name: $check) { status startedAt finishedAt stage { name } } }';
 
 /**
  * Os MRs da base numa consulta so: os abertos (100 por pagina), os recentes de qualquer estado (100) e os das
  * branches candidatas (ate 50). Medido no CE 17.0 e 19.4: complexidade 140 de 250. Lista vazia de candidatas nao devolve
  * MR nenhum (`null` devolveria todos, por isso a variavel e obrigatoria).
  */
-export const CONSULTA_DOS_PEDIDOS = `query($path: ID!, $base: String!, $candidatas: [String!]!) {
+export const CONSULTA_DOS_PEDIDOS = `query($path: ID!, $base: String!, $candidatas: [String!]!, $check: String!) {
   queryComplexity { score limit }
   project(fullPath: $path) {
     id
@@ -29,7 +29,7 @@ export const CONSULTA_DOS_PEDIDOS = `query($path: ID!, $base: String!, $candidat
 }`;
 
 /** A pagina seguinte dos abertos, pelo cursor da anterior. */
-export const CONSULTA_DOS_ABERTOS_SEGUINTES = `query($path: ID!, $base: String!, $depois: String!) {
+export const CONSULTA_DOS_ABERTOS_SEGUINTES = `query($path: ID!, $base: String!, $depois: String!, $check: String!) {
   queryComplexity { score limit }
   project(fullPath: $path) {
     id

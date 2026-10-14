@@ -145,7 +145,7 @@ function casosEncadeadosDoGitlab(o, gravar) {
   }
   if (o.base) {
     const candidatas = (o.candidatas || '').split(',').filter(Boolean);
-    g('mr-abertos', graphql(h, consultas.CONSULTA_DOS_PEDIDOS, { path: o.repo, base: o.base, candidatas }));
+    g('mr-abertos', graphql(h, consultas.CONSULTA_DOS_PEDIDOS, { path: o.repo, base: o.base, candidatas, check: o.contexto || 'ork-verify' }));
   }
   if (o.grupo) {
     const usuario = g('usuario', { args: ['api', ...h, 'user'] }) || {};

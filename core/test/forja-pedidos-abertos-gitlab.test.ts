@@ -24,12 +24,17 @@ const NUNCA_GH = () => { throw new Error('o GitLab nao chama o gh'); };
 type No = Record<string, any>;
 type Corpo = { data: { queryComplexity: { score: number; limit: number }; project: No } };
 const copia = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+/**
+ * A consulta como foi gravada: o nome do job ia literal (`"ork-verify"`) e hoje vai na variavel `$check`. A troca
+ * mantem a guarda de que a resposta gravada e a da consulta de hoje, sem regravar.
+ */
+const comoGravada = (q: string): string => q.replace(', $check: String!', '').replace('job(name: $check)', 'job(name: "ork-verify")');
 
 function ler(respostas: Array<ReturnType<typeof http>>, extra: Partial<EntradaDosPedidosAbertos> = {}) {
   let i = 0;
   const cli = cliFalsa([{ quando: login, responde: ok('') },
     { quando: api('graphql'), responde: () => respostas[Math.min(i++, respostas.length - 1)] }]);
-  const r = adaptadorDaForja('gitlab').pedidosAbertos!({ forja: FORJA, base: 'main', candidatas: ['ork/ork-c', 'ork/ork-x'],
+  const r = adaptadorDaForja('gitlab').pedidosAbertos!({ forja: FORJA, base: 'main', contexto: 'ork-verify', candidatas: ['ork/ork-c', 'ork/ork-x'],
     api: chamadorDaApi(FORJA, { rodar: cli.rodar, logins: new Map() }), executor: NUNCA_GH, resta: () => 60000, orcamentoMs: 60000,
     limites: LIMITES_DOS_PEDIDOS, ...extra });
   const corpos = cli.chamadas.filter((c) => c.args[0] === 'api')
@@ -46,13 +51,13 @@ test('a regra única de estado cobre os estados do GitLab', () => {
 for (const versao of ['19.4', '17.0']) {
   test(`GitLab ${versao}: uma consulta (a do código), fork fora, ork-verify externo pendente`, () => {
     const caso = JSON.parse(fs.readFileSync(path.join(FIXTURES, `gitlab/${versao}/mr-abertos.json`), 'utf8')) as { entrada: { query: string } };
-    assert.equal(caso.entrada.query, CONSULTA_DOS_PEDIDOS, 'a resposta gravada e a da consulta de hoje: regrave se a consulta mudar');
+    assert.equal(caso.entrada.query, comoGravada(CONSULTA_DOS_PEDIDOS), 'a resposta gravada e a da consulta de hoje: regrave se a consulta mudar');
     const corpo = gravado(`gitlab/${versao}/mr-abertos`) as Corpo;
     assert.ok(corpo.data.queryComplexity.score <= corpo.data.queryComplexity.limit);
     const { r, corpos, chamadas } = ler([http(200, corpo)]);
     assert.ok(r.ok, JSON.stringify(r));
     assert.equal(corpos.length, 1);
-    assert.deepEqual(corpos[0].variables, { path: 'time/sub/app', base: 'main', candidatas: ['ork/ork-c', 'ork/ork-x'] });
+    assert.deepEqual(corpos[0].variables, { path: 'time/sub/app', base: 'main', candidatas: ['ork/ork-c', 'ork/ork-x'], check: 'ork-verify' });
     assert.ok(chamadas.find((c) => c.args[0] === 'api')!.args.includes('Content-Type: application/json'));
     const porNumero = new Map(r.valor.prs.map((p) => [p.numero, p]));
     assert.deepEqual([...porNumero.keys()].sort(), [1, 2, 3, 5], 'o !4 e de fork: fica de fora');
@@ -97,7 +102,7 @@ test('abertos acima de uma página seguem o cursor; com a cota abaixo de 10 %, p
   assert.ok(duas.r.ok);
   assert.equal(duas.corpos.length, 2);
   assert.equal(duas.corpos[1].query, CONSULTA_DOS_ABERTOS_SEGUINTES);
-  assert.deepEqual(duas.corpos[1].variables, { path: 'time/sub/app', base: 'main', depois: 'cursor-1' });
+  assert.deepEqual(duas.corpos[1].variables, { path: 'time/sub/app', base: 'main', depois: 'cursor-1', check: 'ork-verify' });
   assert.equal(duas.r.valor.parcial, false);
   const baixa = ler([http(200, primeira, { 'Ratelimit-Remaining': '5', 'Ratelimit-Limit': '600' })]);
   assert.ok(baixa.r.ok);
@@ -122,8 +127,72 @@ test('projeto sem acesso, consulta com erros e glab sem login: erro tipado, nunc
   assert.equal(!comErros.r.ok && comErros.r.erro.codigo, 'forja.resposta-invalida');
   assert.match(!comErros.r.ok ? comErros.r.erro.detalhe : '', /conflicts/);
   const cli = cliFalsa([{ quando: login, responde: falhou('x 127.0.0.1 has not been authenticated with glab') }]);
-  const semLogin = adaptadorDaForja('gitlab').pedidosAbertos!({ forja: FORJA, base: 'main', candidatas: [], executor: NUNCA_GH,
+  const semLogin = adaptadorDaForja('gitlab').pedidosAbertos!({ forja: FORJA, base: 'main', contexto: 'ork-verify', candidatas: [], executor: NUNCA_GH,
     api: chamadorDaApi(FORJA, { rodar: cli.rodar, logins: new Map() }), resta: () => 60000, orcamentoMs: 60000, limites: LIMITES_DOS_PEDIDOS });
   assert.equal(!semLogin.ok && semLogin.erro.codigo, 'forja.sem-login');
   assert.equal(cli.chamadas.filter((c) => c.args[0] === 'api').length, 0, 'sem login, nenhum pedido anonimo');
+});
+
+test('as duas consultas pedem o job pelo nome em variavel, nunca literal', () => {
+  for (const q of [CONSULTA_DOS_PEDIDOS, CONSULTA_DOS_ABERTOS_SEGUINTES]) {
+    assert.match(q, /\$check: String!/);
+    assert.match(q, /job\(name: \$check\)/);
+    assert.doesNotMatch(q, /ork-verify/);
+  }
+  const caso = JSON.parse(fs.readFileSync(path.join(FIXTURES, 'gitlab/19.4/mr-abertos.json'), 'utf8')) as { entrada: { query: string } };
+  assert.notEqual(caso.entrada.query, CONSULTA_DOS_PEDIDOS, 'a gravada tem o nome literal');
+});
+
+test('ci.context verify-custom: a consulta pede esse job, e o ork-verify do projeto nao vira o check da CI', () => {
+  const corpo = copia(gravado('gitlab/19.4/mr-abertos') as Corpo);
+  // O servidor responde pelo nome pedido: o projeto tem o job ork-verify, mas nao o verify-custom.
+  (corpo.data.project.abertos.nodes as No[]).find((n) => n.iid === '1')!.headPipeline.job = null;
+  const { r, corpos } = ler([http(200, corpo)], { contexto: 'verify-custom' });
+  assert.ok(r.ok);
+  assert.equal(corpos[0].variables.check, 'verify-custom');
+  const um = r.valor.prs.find((p) => p.numero === 1)!;
+  assert.deepEqual(um.checks.map((c) => [c.nome, c.situacao]), [['pipeline', 'verde'], ['verify-custom', 'pendente']]);
+  assert.ok(r.valor.prs.every((p) => p.checks.every((c) => c.nome !== 'ork-verify')), 'nenhum check com o nome que nao e o do manifesto');
+  // Quando o servidor acha o job pedido (o do corpo gravado faz esse papel), ele fica verde com o nome do manifesto.
+  const verde = ler([http(200, gravado('gitlab/19.4/mr-abertos'))], { contexto: 'verify-custom' });
+  assert.ok(verde.r.ok);
+  assert.deepEqual(verde.r.valor.prs.find((p) => p.numero === 1)!.checks.map((c) => [c.nome, c.situacao]),
+    [['pipeline', 'verde'], ['verify-custom', 'verde']]);
+});
+
+test('job sem stage conta como externo: pendente', () => {
+  const corpo = copia(gravado('gitlab/19.4/mr-abertos') as Corpo);
+  delete (corpo.data.project.abertos.nodes as No[]).find((n) => n.iid === '1')!.headPipeline.job.stage;
+  const { r } = ler([http(200, corpo)]);
+  assert.ok(r.ok);
+  assert.deepEqual(r.valor.prs.find((p) => p.numero === 1)!.checks.map((c) => [c.nome, c.situacao]),
+    [['pipeline', 'verde'], ['ork-verify', 'pendente']]);
+});
+
+test('no teto dos abertos a leitura para e fica parcial, sem pedir a pagina seguinte', () => {
+  const corpo = copia(gravado('gitlab/19.4/mr-abertos') as Corpo);
+  corpo.data.project.abertos.pageInfo = { hasNextPage: true, endCursor: 'cursor-1' };
+  const lidos = (corpo.data.project.abertos.nodes as No[]).length;
+  const { r, corpos } = ler([http(200, corpo)], { limites: { ...LIMITES_DOS_PEDIDOS, abertos: lidos } });
+  assert.ok(r.ok);
+  assert.equal(corpos.length, 1);
+  assert.equal(r.valor.parcial, true);
+});
+
+test('pagina seguinte que falha: erro tipado, nunca a lista da primeira como completa', () => {
+  const corpo = copia(gravado('gitlab/19.4/mr-abertos') as Corpo);
+  corpo.data.project.abertos.pageInfo = { hasNextPage: true, endCursor: 'cursor-1' };
+  const { r, corpos } = ler([http(200, corpo), http(502, { message: 'bad gateway' })]);
+  assert.equal(corpos.length, 2);
+  assert.equal(!r.ok && r.erro.codigo, 'forja.indisponivel');
+  const semFormato = ler([http(200, corpo), http(200, { data: { queryComplexity: corpo.data.queryComplexity, project: { id: corpo.data.project.id } } })]);
+  assert.equal(!semFormato.r.ok && semFormato.r.erro.codigo, 'forja.resposta-invalida');
+});
+
+test('resposta com data e errors juntos: resposta invalida, nunca o data parcial', () => {
+  const corpo = copia(gravado('gitlab/19.4/mr-abertos') as Corpo) as Corpo & { errors?: unknown };
+  corpo.errors = [{ message: 'Timeout on MergeRequest.headPipeline' }];
+  const { r } = ler([http(200, corpo)]);
+  assert.equal(!r.ok && r.erro.codigo, 'forja.resposta-invalida');
+  assert.match(!r.ok ? r.erro.detalhe : '', /Timeout/);
 });

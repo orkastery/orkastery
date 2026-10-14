@@ -50,6 +50,8 @@ export interface EntradaDosPedidosAbertos {
   base: string;
   /** As branches de thread com produto publicado, conferidas uma a uma quando nao aparecem nas listas. */
   candidatas: readonly string[];
+  /** O nome do check da CI no manifesto (`ci.context`, `ork-verify` por padrao); o GitHub le todos os checks. */
+  contexto: string;
   /** A API da forja pela CLI logada (`chamadorDaApi`); o GitHub do pulse usa o `executor`. */
   api: ChamadorDaApi;
   executor: ExecutorDoGh;

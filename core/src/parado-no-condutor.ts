@@ -320,6 +320,7 @@ export function lerPrsDaForja(carregado: ManifestoCarregado,
   const resolvida: ForjaResolvida = { tipo: 'github', host, porta: null, caminhoBase: '', sshHost: null, sshPorta: null, ca: null,
     repo: repositorio, origem: { tipo: 'remoto', host: 'remoto', porta: 'padrao', caminhoBase: 'padrao' } };
   const lidos = exigirCapacidade(adaptadorDaForja('github'), 'pedidosAbertos')({ forja: resolvida, base, candidatas: opcoes.candidatas ?? [],
+    contexto: carregado.manifesto.ci.context || 'ork-verify',
     api: () => ({ ok: false, erro: { codigo: 'forja.sem-capacidade', detalhe: 'api' } }), executor, resta, orcamentoMs: orcamento,
     limites: LIMITES_DOS_PEDIDOS });
   if (!lidos.ok) return { ok: false, lidoEm, erro: lidos.erro.detalhe };

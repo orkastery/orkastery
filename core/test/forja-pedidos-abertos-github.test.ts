@@ -22,7 +22,7 @@ function gh(responder: (args: readonly string[]) => unknown[] | null) {
 test('pedidosAbertos do GitHub: abertos com o rollup, recentes e a candidata conferida, pelo gh pr list de sempre', () => {
   const mesclado = gravado('github/2026-10/pr-list') as unknown[];
   const g = gh((args) => (args.includes('--state=open') ? [] : args.some((a) => a.startsWith('--head=')) ? [] : mesclado));
-  const r = adaptadorDaForja('github').pedidosAbertos!({ forja: FORJA, base: 'main', candidatas: ['ork/ork-x'], api: NUNCA,
+  const r = adaptadorDaForja('github').pedidosAbertos!({ forja: FORJA, base: 'main', contexto: 'ork-verify', candidatas: ['ork/ork-x'], api: NUNCA,
     executor: g.executor, resta: () => 60000, orcamentoMs: 60000, limites: LIMITES_DOS_PEDIDOS });
   assert.ok(r.ok, JSON.stringify(r));
   assert.deepEqual(r.valor.prs.map((p) => [p.numero, p.estado, p.branch]), [[164, 'mesclado', 'ork/ork-f3bvariantes-go']]);
@@ -38,11 +38,11 @@ test('pedidosAbertos do GitHub: abertos com o rollup, recentes e a candidata con
 });
 
 test('pedidosAbertos do GitHub: falha e orçamento esgotado voltam a frase de sempre, tipada', () => {
-  const r = adaptadorDaForja('github').pedidosAbertos!({ forja: FORJA, base: 'main', candidatas: [], api: NUNCA,
+  const r = adaptadorDaForja('github').pedidosAbertos!({ forja: FORJA, base: 'main', contexto: 'ork-verify', candidatas: [], api: NUNCA,
     executor: gh(() => null).executor, resta: () => 60000, orcamentoMs: 60000, limites: LIMITES_DOS_PEDIDOS });
   assert.equal(!r.ok && r.erro.codigo, 'forja.indisponivel');
   assert.equal(!r.ok && r.erro.detalhe, 'gh pr list falhou (código 1): HTTP 502: Bad Gateway');
-  const sem = adaptadorDaForja('github').pedidosAbertos!({ forja: FORJA, base: 'main', candidatas: [], api: NUNCA,
+  const sem = adaptadorDaForja('github').pedidosAbertos!({ forja: FORJA, base: 'main', contexto: 'ork-verify', candidatas: [], api: NUNCA,
     executor: gh(() => []).executor, resta: () => 0, orcamentoMs: 60000, limites: LIMITES_DOS_PEDIDOS });
   assert.equal(!sem.ok && sem.erro.detalhe, 'gh pr list: orçamento de 60 s da leitura esgotado');
 });

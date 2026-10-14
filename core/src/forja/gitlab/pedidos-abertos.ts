@@ -1,11 +1,11 @@
 /**
  * Os MRs da base para o pulse, numa consulta GraphQL (todos os tiers; o REST pediria uma chamada por MR): os abertos
- * com a pipeline do head e o job `ork-verify`, os recentes de qualquer estado e os das branches candidatas. Os
- * abertos paginam de 100 em 100 ate o teto; com a cota abaixo de 10 % a paginacao para, e o que faltou e `parcial`,
- * nunca "sem MR". MR de fork (`sourceProjectId` de outro projeto) e de outra base ficam de fora, como o
+ * com a pipeline do head e o job do check da CI (`ci.context`), os recentes de qualquer estado e os das branches
+ * candidatas. Os abertos paginam de 100 em 100 ate o teto; com a cota abaixo de 10 % a paginacao para, e o que faltou
+ * e `parcial`, nunca "sem MR". MR de fork (`sourceProjectId` de outro projeto) e de outra base ficam de fora, como o
  * `isCrossRepository` do GitHub. O estado de cada job e da pipeline sai da regra unica (`estadoDoCheck`); como no
  * GitHub, o pulse conta o pulado de proposito (`manual`, `skipped`) como verde. O status externo (`POST /statuses`)
- * entra na pipeline com o estagio `external`: nunca e o `ork-verify`, e a pipeline sem o job nao fica verde no pulse.
+ * entra na pipeline com o estagio `external`: nunca e o check da CI, e a pipeline sem o job nao fica verde no pulse.
  */
 import { limiteBaixo } from '../api';
 import type { EntradaDosPedidosAbertos, PedidosAbertos } from '../adaptador';
@@ -35,8 +35,8 @@ function situacao(status: unknown): SituacaoDoCheck {
   return estado === 'bloqueado' ? 'verde' : estado;
 }
 
-/** Os checks do MR aberto: a pipeline do head e o `ork-verify` dela. */
-function checksDoAberto(no: Json, head: string): CheckDoPr[] {
+/** Os checks do MR aberto: a pipeline do head e o job do check da CI dela, com o nome do manifesto. */
+function checksDoAberto(no: Json, head: string, check: string): CheckDoPr[] {
   const p = no.headPipeline;
   if (p === null || p === undefined) return [];
   if (!obj(p)) throw new ForaDoFormato('headPipeline');
@@ -44,19 +44,19 @@ function checksDoAberto(no: Json, head: string): CheckDoPr[] {
   if (p.sha !== head) return [{ nome: 'pipeline', situacao: 'pendente', concluidoEm: null }];
   const daPipeline = situacao(p.status);
   const checks: CheckDoPr[] = [{ nome: 'pipeline', situacao: daPipeline, concluidoEm: daPipeline === 'pendente' ? null : instante(p.finishedAt) }];
-  // Sem o job, o verde da pipeline pode ser so de status externos (qualquer nome fecha a pipeline): o `ork-verify`
+  // Sem o job, o verde da pipeline pode ser so de status externos (qualquer nome fecha a pipeline): o check da CI
   // fica pendente, nunca some.
-  if (p.job === null || p.job === undefined) return [...checks, { nome: 'ork-verify', situacao: 'pendente', concluidoEm: null }];
+  if (p.job === null || p.job === undefined) return [...checks, { nome: check, situacao: 'pendente', concluidoEm: null }];
   if (!obj(p.job)) throw new ForaDoFormato('job');
   const externo = !obj(p.job.stage) || p.job.stage.name === 'external';
   const doJob = externo ? 'pendente' : situacao(p.job.status);
-  checks.push({ nome: 'ork-verify', situacao: doJob,
+  checks.push({ nome: check, situacao: doJob,
     concluidoEm: doJob === 'pendente' ? null : instante(p.job.finishedAt) ?? instante(p.job.startedAt) });
   return checks;
 }
 
 /** Um MR da resposta, ou `null` quando nao e desta base nem deste projeto (fork). Formato errado lanca. */
-function pedidoDoGitlab(bruto: unknown, base: string, projeto: number, comChecks: boolean): PrDaForja | null {
+function pedidoDoGitlab(bruto: unknown, base: string, projeto: number, comChecks: boolean, check: string): PrDaForja | null {
   if (!obj(bruto)) throw new ForaDoFormato('MR');
   const estado = ESTADOS[String(bruto.state)];
   if (typeof bruto.iid !== 'string' || !IID.test(bruto.iid) || !estado || typeof bruto.draft !== 'boolean' ||
@@ -70,7 +70,7 @@ function pedidoDoGitlab(bruto: unknown, base: string, projeto: number, comChecks
   }
   const url = typeof bruto.webUrl === 'string' && /^https:\/\/[^\s]+$/.test(bruto.webUrl) ? bruto.webUrl.slice(0, 300) : null;
   // A leitura sem a pipeline (recentes, candidatas) nunca diz que o aberto nao tem checks.
-  const checks = !aberto ? [] : comChecks ? checksDoAberto(bruto, head) : [{ nome: 'checks não lidos', situacao: 'pendente' as const, concluidoEm: null }];
+  const checks = !aberto ? [] : comChecks ? checksDoAberto(bruto, head, check) : [{ nome: 'checks não lidos', situacao: 'pendente' as const, concluidoEm: null }];
   return { numero: Number(bruto.iid), branch: bruto.sourceBranch, head, estado, rascunho: bruto.draft, url,
     criadoEm: instante(bruto.createdAt), mescladoEm: instante(bruto.mergedAt), checks,
     ...(aberto && comChecks && typeof bruto.conflicts === 'boolean' ? { conflito: bruto.conflicts } : {}) };
@@ -103,7 +103,8 @@ export function pedidosAbertosGitlab(e: EntradaDosPedidosAbertos): Resultado<Ped
     return { ok: true, valor: { projeto: dados.project, baixo: limiteBaixo(r.valor.limite) } };
   };
   const candidatas = [...new Set(e.candidatas)].filter((b) => BRANCH.test(b));
-  const primeira = pedir(CONSULTA_DOS_PEDIDOS, { path: e.forja.repo, base: e.base, candidatas: candidatas.slice(0, e.limites.candidatas) });
+  const primeira = pedir(CONSULTA_DOS_PEDIDOS, { path: e.forja.repo, base: e.base, candidatas: candidatas.slice(0, e.limites.candidatas),
+    check: e.contexto });
   if (!primeira.ok) return primeira;
   try {
     const projeto = primeira.valor.projeto;
@@ -113,7 +114,7 @@ export function pedidosAbertosGitlab(e: EntradaDosPedidosAbertos): Resultado<Ped
     const juntar = (conexao: unknown, comChecks: boolean, onde: string): Json => {
       if (!obj(conexao) || !Array.isArray(conexao.nodes)) throw new ForaDoFormato(onde);
       for (const bruto of conexao.nodes) {
-        const pr = pedidoDoGitlab(bruto, e.base, Number(id), comChecks);
+        const pr = pedidoDoGitlab(bruto, e.base, Number(id), comChecks, e.contexto);
         if (pr && !porNumero.has(pr.numero)) porNumero.set(pr.numero, pr);
       }
       return conexao;
@@ -121,7 +122,7 @@ export function pedidosAbertosGitlab(e: EntradaDosPedidosAbertos): Resultado<Ped
     let abertos = juntar(projeto.abertos, true, 'abertos');
     let lidos = (abertos.nodes as unknown[]).length, baixo = primeira.valor.baixo, seguinte = pagina(abertos, true);
     while (seguinte.temMais && lidos < e.limites.abertos && !baixo) {
-      const r = pedir(CONSULTA_DOS_ABERTOS_SEGUINTES, { path: e.forja.repo, base: e.base, depois: seguinte.cursor });
+      const r = pedir(CONSULTA_DOS_ABERTOS_SEGUINTES, { path: e.forja.repo, base: e.base, depois: seguinte.cursor, check: e.contexto });
       if (!r.ok) return r;
       abertos = juntar(r.valor.projeto.abertos, true, 'abertos');
       lidos += (abertos.nodes as unknown[]).length;

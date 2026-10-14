@@ -276,7 +276,7 @@ test('GitLab: a consulta GraphQL vai pelo stdin com Content-Type, e o registro g
     'graphql', '--input', '-']);
   const enviado = JSON.parse(fs.readFileSync(recebido, 'utf8').trim());
   assert.equal(enviado.query, 'query($path: ID!) { project(fullPath: $path) { id } }');
-  assert.deepEqual(enviado.variables, { path: 'grupo/proj', base: 'main', candidatas: ['ork/a', 'ork/b'] });
+  assert.deepEqual(enviado.variables, { path: 'grupo/proj', base: 'main', candidatas: ['ork/a', 'ork/b'], check: 'ork-verify' });
   assert.deepEqual(caso.entrada, enviado);
   assert.deepEqual(caso.corpo, { data: { project: null } });
 });
