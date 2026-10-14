@@ -6,6 +6,7 @@ import { exec } from '../src/util';
 import type { SondasDaForja } from '../src/forja/resolver';
 import type { OpcoesDaApi } from '../src/forja/api';
 import { cliFalsa, falhou, login } from './forja-cli-falsa';
+import { ExecutorDoGh, lerPrsDaForja } from '../src/parado-no-condutor';
 
 /** Sem bloco `forja:`, o GHE e reconhecido pela sonda do gh com login; o glab nao tem login nele. */
 const SONDA_GHE: SondasDaForja = { github: () => 'responde', gitlab: () => 'sem-login' };
@@ -85,4 +86,21 @@ test('github.com nao pergunta login', () => {
   const { perguntados, r } = consultarComLogin('https://github.com/o/r.git', () => false);
   assert.equal(r.state, 'success');
   assert.deepEqual(perguntados, []);
+});
+
+test('pulse num GHE com porta própria: o login é conferido no host:porta exato, nunca pelo --hostname sem a porta', () => {
+  const p = projetoTemporario('pulse-ghe-porta', false);
+  try {
+    exec('git', ['remote', 'add', 'origin', 'https://ghe.empresa.com:8443/o/r.git'], p.carregado.raiz);
+    const executor: ExecutorDoGh = (args) => { throw new Error(`o gh rodou sem a porta: ${args.join(' ')}`); };
+    // O gh tem login em outro host: o `auth status` sem --hostname sai 0, mas a linha do host:porta exato nao aparece.
+    const cli = cliFalsa([{ quando: (c) => c.cmd === 'gh' && c.args[0] === 'auth', responde: { status: 0, stdout: '', stderr: 'Logged in to github.com account alguem' } },
+      { quando: login, responde: falhou('not logged in') }]);
+    const r = lerPrsDaForja(p.carregado, { remoto: 'origin', executor, rodar: cli.rodar });
+    assert.equal(r.ok, false);
+    const doGh = cli.chamadas.filter((c) => c.cmd === 'gh');
+    assert.equal(doGh.length, 1);
+    assert.deepEqual(doGh[0].args, ['auth', 'status']);
+    assert.equal(doGh[0].acrescentar?.GH_HOST, 'ghe.empresa.com:8443');
+  } finally { p.limpar(); }
 });

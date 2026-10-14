@@ -279,6 +279,8 @@ function sondasDoPulse(executor: ExecutorDoGh, prazoMs: number, rodar: RodarCli,
   return {
     github: (alvo) => {
       if (alvo.caminhoBase) return 'nao-responde';
+      // Com porta propria, o login se confere no `host:porta` exato, pela sonda padrao: o `--hostname` nao leva porta.
+      if (alvo.porta !== null && alvo.porta !== 443) return sondasPadrao(rodar, logins).github!(alvo);
       const auth = executor(['auth', 'status', '--hostname', alvo.host], prazoMs);
       if (auth.status === 0) return 'responde';
       // So a resposta de login ausente (o `gh` 2.46 diz "You are not logged into any accounts on <host>") e o estado
