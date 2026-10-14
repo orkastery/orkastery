@@ -416,18 +416,19 @@ ela decide concluir ou bloquear em `human.pending`, e cota esgotada nunca reclas
 "sem prova" nem conclui fase. (b) Sem Stop correlacionado, `runtime.quota-exhausted` e
 `runtime.auth-missing` substituem `runtime.unavailable` quando a transcrição da sessão, no
 diretório do perfil, traz erro de API com a frase da conta; texto do agente nunca vira motivo.
-(c) A rotação só redespacha quando a prova do `ork` confirma que o intervalo do despacho não
-produziu nada: artefato da fase gravado, commit registrado, entrega registrada ou, no GO, HEAD
-movido ou worktree alterada contam como produção, e a dúvida conta como produção. O HEAD do
+(c) A prova do `ork` distingue o intervalo vazio da produção parcial: artefato da fase gravado,
+commit registrado, entrega registrada ou, no GO, HEAD movido ou worktree alterada contam como
+produção, e a dúvida conta como produção. O HEAD do
 GO fica no registro do despacho (`session_sensor_registered`) nos dois runtimes; no codex ele é
 lido antes do despacho (N1), então um `git commit` feito pela sessão no shell, fora do
 `ork_git_commit` e sem evento no ledger, aparece como HEAD movido. Registro sem HEAD (sessão
-anterior a esta regra, ou git sem resposta no despacho) é dúvida: conta como produção. Sessão que
-morre por cota depois de produzir vira `human.pending` com o diagnóstico de produção parcial
-sob cota esgotada, nunca conclusão nem redespacho sobre a worktree alterada, e nada entra na
-fila durável para ser retomado sozinho. A contagem de
-commit herda a dívida (12) da I-34: `mcp_git_committed` não carrega `sessionId`, então um
-commit de outra origem no intervalo também conta, sempre a favor de escalar.
+anterior a esta regra, ou git sem resposta no despacho) é dúvida: conta como produção. Desde a
+RM-064 T3, sessão que morre por cota depois de produzir não recebe o prompt original sobre a
+worktree alterada: o retry despacha ou enfileira um prompt derivado com fase, último commit,
+status, claims e rodada, preservando o prompt e o SHA-256 originais. Esse checkpoint manda
+continuar sem repetir GOAL nem PLAN; `human.pending` permanece para causas sem retomada segura.
+A contagem de commit herda a dívida (12) da I-34: `mcp_git_committed` não carrega `sessionId`,
+então um commit de outra origem no intervalo também conta, sempre a favor de incluir o checkpoint.
 
 A fila continua no mesmo `fila.jsonl`: o pedido só ganha `runtime`, `perfil` e `motivo`
 opcionais, e pedido antigo continua legível. Na retomada (D15), o `ork` tenta o runtime original

@@ -6,6 +6,8 @@ import { randomUUID } from 'node:crypto';
 import { controleDoController, encerrarController, identidadeDoProcesso } from '../src/adapters/codex-controller';
 import { controllerSimulado, esperarCondicao } from './controller-simulado';
 import type { EntregaSessao } from '../src/hitl-sessions';
+import { interromperTurnoAtivo } from '../src/adapters/codex-controller-worker';
+import type { EstadoController } from '../src/adapters/codex-controller';
 
 test('SIMULADO: controller captura filho, autentica IPC, correlaciona prompt e confirma somente evento nativo', () => {
   const f = controllerSimulado(); let r: ReturnType<typeof f.dispatch> | undefined;
@@ -57,4 +59,19 @@ test('SIMULADO: launcher exec preserva origem e fixa executável após initializ
     if (r?.controlador) { const state = f.estado(r); assert.equal(encerrarController(r.controlador, f.vinculo, state.instancia).ok, true); }
     f.restaurar();
   }
+});
+
+test('SIMULADO RM-064: controller interrompe turno em trabalho pela identidade vinculada', async () => {
+  const state = { instancia: randomUUID(), vinculo: { thread: 'ork-x', fase: 'GO', promptSha256: 'a'.repeat(64) },
+    cwd: '/worktree', sessionId: randomUUID(), pid: 1, estado: 'working', turno: 'turno-1' } as EstadoController;
+  const sessao = { sessionId: state.sessionId, runtime: 'codex', cwd: state.cwd, estado: 'working', instancia: state.instancia };
+  const chamadas: Array<{ metodo: string; dados: unknown }> = [];
+  await interromperTurnoAtivo(state, sessao, false, async (metodo, dados) => {
+    chamadas.push({ metodo, dados }); state.estado = 'stopped';
+  }, async condicao => { assert.equal(condicao(), true); });
+  assert.deepEqual(chamadas, [{ metodo: 'turn/interrupt', dados: { threadId: state.sessionId, turnId: 'turno-1' } }]);
+
+  state.estado = 'working';
+  await assert.rejects(() => interromperTurnoAtivo(state, { ...sessao, instancia: randomUUID() }, false,
+    async () => { throw new Error('não deveria enviar'); }, async () => {}), /não está ativa/);
 });

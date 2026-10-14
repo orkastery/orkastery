@@ -16,6 +16,8 @@ export interface PayloadSensor {
   eventId?: string;
   notificationType?: string;
   commit?: string;
+  /** RM-064 T1: o hook envia somente o motivo tipado; a fala bruta nunca entra no ledger. */
+  accountFailure?: 'runtime.quota-exhausted';
 }
 
 /** Sessão com despacho provado: é nesse instante que os sensores se ancoram. */
@@ -59,7 +61,7 @@ function validarPayload(bruto: string, tipo: TipoSensor, agoraMs: number): Paylo
   if (Buffer.byteLength(bruto) > LIMITE_EVENTO_BYTES) throw new Error('payload excede 16384 bytes');
   const p: unknown = JSON.parse(bruto.trim() || '{}');
   if (!p || typeof p !== 'object' || Array.isArray(p)) throw new Error('payload deve ser objeto JSON');
-  const campos = ['observedAt', 'eventId', 'notificationType', 'commit'];
+  const campos = ['observedAt', 'eventId', 'notificationType', 'commit', 'accountFailure'];
   for (const [k, v] of Object.entries(p)) {
     if (!campos.includes(k) || typeof v !== 'string') throw new Error(`campo de payload inválido: ${k}`);
   }
@@ -70,6 +72,10 @@ function validarPayload(bruto: string, tipo: TipoSensor, agoraMs: number): Paylo
   if (payload.eventId !== undefined && !/^[a-zA-Z0-9._:-]{1,160}$/.test(payload.eventId)) throw new Error('eventId inválido');
   if (payload.notificationType !== undefined && !['permission_prompt', 'idle_prompt', 'auth_success', 'elicitation_dialog'].includes(payload.notificationType)) {
     throw new Error('notificationType inválido');
+  }
+  if (payload.accountFailure !== undefined &&
+      (payload.accountFailure !== 'runtime.quota-exhausted' || !['notification', 'stop'].includes(tipo))) {
+    throw new Error('accountFailure inválido');
   }
   if ((tipo === 'commit' && !payload.commit) || (payload.commit !== undefined &&
       (tipo !== 'commit' || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(payload.commit)))) throw new Error('commit exige SHA completo');
@@ -135,6 +141,8 @@ export function ingerirEvento(raiz: string, sessionId: string, tipoBruto: string
       // I-34: a notificação de ociosidade depois do Stop não é atividade; sem o tipo gravado,
       // o observador claude-bg não teria como distingui-la e trataria o Stop como superado.
       ...(tipo === 'notification' && payload.notificationType ? { notificationType: payload.notificationType } : {}),
+      ...(payload.accountFailure ? { motivo: payload.accountFailure,
+        falhaDeConta: { motivo: payload.accountFailure, resetEm: null, fonte: 'hook', trecho: 'sinal tipado do hook' } } : {}),
       ...(bloqueio ? { tipoDeHitl: 'permissao', pergunta: null, estadoRuntime: 'blocked' } : {}) };
     if (retomada && ultimo?.tipo === 'sessao_bloqueada' && Date.parse(observedAt) > Date.parse(ultimo.ts)) {
       registrar(dir, thread.id, 'sessao_destravada', { ...dados, sensorEventId: eventId + ':resume' });
