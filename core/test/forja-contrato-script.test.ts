@@ -247,3 +247,50 @@ test('--pipeline que não é número e --commit-mesclado que não é sha: recusa
     assert.deepEqual(fs.readdirSync(saida), []);
   }
 });
+
+/** Um glab falso que guarda o stdin de cada chamada GraphQL e responde um corpo fixo. */
+function glabQueGuardaOStdin(bin: string, corpo: unknown): string {
+  const recebido = path.join(bin, 'stdin.jsonl');
+  const resposta = path.join(bin, 'resposta.json');
+  fs.writeFileSync(resposta, JSON.stringify(corpo));
+  fs.writeFileSync(path.join(bin, 'glab'), [
+    '#!/bin/sh',
+    'case "$*" in',
+    `  *graphql*) cat >> '${recebido}'; printf '\\n' >> '${recebido}'; cat '${resposta}' ;;`,
+    `  *namespaces/*|*members/all/*|*user*) printf '%s' '{"id":7,"username":"pessoa","kind":"group","full_path":"time/sub","access_level":40}' ;;`,
+    "  *) printf '%s' '{}' ;;",
+    'esac',
+  ].join('\n') + '\n', { mode: 0o755 });
+  return recebido;
+}
+
+test('GitLab: a consulta GraphQL vai pelo stdin com Content-Type, e o registro guarda a consulta e as variáveis', () => {
+  const { bin, saida } = sandbox();
+  const recebido = glabQueGuardaOStdin(bin, { data: { project: null } });
+  const consultas = path.join(bin, 'consultas.js');
+  fs.writeFileSync(consultas, "exports.CONSULTA_DOS_PEDIDOS = 'query($path: ID!) { project(fullPath: $path) { id } }';\n");
+  const r = rodar(bin, [...argsGitlab(saida), '--base', 'main', '--candidatas', 'ork/a,ork/b', '--consultas', consultas]);
+  assert.equal(r.status, 0, r.stderr);
+  const caso = JSON.parse(fs.readFileSync(path.join(saida, 'mr-abertos.json'), 'utf8'));
+  assert.deepEqual(caso.comando, ['glab', 'api', '--hostname', 'gitlab.example.com', '--method', 'POST', '-H', 'Content-Type: application/json',
+    'graphql', '--input', '-']);
+  const enviado = JSON.parse(fs.readFileSync(recebido, 'utf8').trim());
+  assert.equal(enviado.query, 'query($path: ID!) { project(fullPath: $path) { id } }');
+  assert.deepEqual(enviado.variables, { path: 'grupo/proj', base: 'main', candidatas: ['ork/a', 'ork/b'] });
+  assert.deepEqual(caso.entrada, enviado);
+  assert.deepEqual(caso.corpo, { data: { project: null } });
+});
+
+test('GitLab: os casos da rede usam o id do usuário lido e o caminho codificado do grupo', () => {
+  const { bin, saida } = sandbox();
+  glabQueGuardaOStdin(bin, {});
+  const r = rodar(bin, [...argsGitlab(saida), '--grupo', 'time/sub', '--grupo-sem-nivel', 'outro', '--alheio', 'alheia']);
+  assert.equal(r.status, 0, r.stderr);
+  const comando = (caso: string) => JSON.parse(fs.readFileSync(path.join(saida, `${caso}.json`), 'utf8')).comando.at(-1);
+  assert.equal(comando('usuario'), 'user');
+  assert.equal(comando('namespace-usuario'), 'namespaces/pessoa');
+  assert.equal(comando('namespace-grupo'), 'namespaces/time%2Fsub');
+  assert.equal(comando('namespace-alheio'), 'namespaces/alheia');
+  assert.equal(comando('membro-do-grupo'), 'groups/time%2Fsub/members/all/7');
+  assert.equal(comando('membro-sem-nivel'), 'groups/outro/members/all/7');
+});

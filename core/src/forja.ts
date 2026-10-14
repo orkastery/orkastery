@@ -19,6 +19,7 @@ import { lerHostDoRemoto } from './forja/endereco';
 import { redigirSegredos } from './hitl';
 import { procurarSegredos } from './policies';
 import { rodarCli } from './forja/executor';
+import { CONSULTA_ARVORES_GITLAB, CONSULTA_RAIZ_GITLAB, consultaDeBlobsDoGitlab } from './forja/gitlab/consultas';
 
 export type { TipoDeForja, IdentidadeDaForja, CodigoDeErroDaForja, ErroDaForja, SaidaDoExecutor, ExecutorDaForja } from './forja/contrato';
 import type { TipoDeForja, IdentidadeDaForja, CodigoDeErroDaForja, ErroDaForja, SaidaDoExecutor, ExecutorDaForja } from './forja/contrato';
@@ -338,29 +339,6 @@ function lerDoGithub(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
   };
   return { ok: true, leitura: { forja, lidoEm, chamadas: 1, base: leituraDaBase,
     reservas: estado(repo.reservas, pedido.reservas), fabrica: estado(repo.fabrica, pedido.fabrica) } };
-}
-
-const CONSULTA_RAIZ_GITLAB = 'query($path: ID!) { project(fullPath: $path) { repository { rootRef } } }';
-
-const CONSULTA_ARVORES_GITLAB = `query($path: ID!, $base: String!, $dirRoadmap: String!, $refReservas: String!, $dirReservas: String!,
-  $refFabrica: String!, $dirFabrica: String!) {
-  project(fullPath: $path) { repository {
-    baseTopo: tree(ref: $base) { lastCommit { sha committedDate } }
-    baseDir: tree(ref: $base, path: $dirRoadmap) { blobs(first: 100) { pageInfo { hasNextPage } nodes { name path } } }
-    reservasTopo: tree(ref: $refReservas) { lastCommit { sha committedDate } }
-    reservasDir: tree(ref: $refReservas, path: $dirReservas) { blobs(first: 100) { pageInfo { hasNextPage } nodes { name path } } }
-    fabricaTopo: tree(ref: $refFabrica) { lastCommit { sha committedDate } }
-    fabricaDir: tree(ref: $refFabrica, path: $dirFabrica) { blobs(first: 100) { pageInfo { hasNextPage } nodes { name path } } }
-  } }
-}`;
-
-/** Os blobs de cada ponta que existe; so as partes pedidas entram na consulta (texto fixo, sem interpolar o pedido). */
-function consultaDeBlobsDoGitlab(partes: readonly ('base' | 'reservas' | 'fabrica')[]): string {
-  const sufixo = { base: 'Base', reservas: 'Reservas', fabrica: 'Fabrica' };
-  const declaracoes = ['$path: ID!', ...partes.flatMap((p) => [`$ref${sufixo[p]}: String!`, `$paths${sufixo[p]}: [String!]!`])];
-  const campos = partes.map((p) => `${p}: blobs(ref: $ref${sufixo[p]}, paths: $paths${sufixo[p]}, first: 100) ` +
-    '{ pageInfo { hasNextPage } nodes { path rawTextBlob } }');
-  return `query(${declaracoes.join(', ')}) { project(fullPath: $path) { repository { ${campos.join(' ')} } } }`;
 }
 
 function lerDoGitlab(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: ExecutorDaForja, lidoEm: string): ResultadoDaForja {
