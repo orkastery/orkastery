@@ -24,7 +24,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   depois de tomar, e decide para qual máquina a ordem vai, ou se ela espera a reserva de fora ser solta,
   sem levar ao ramo quem reservou. `core/src/noctum-integracao.ts` deixa um integrador por destino entre máquinas, invalida o
   candidato quando a base ou a fonte mudam e só registra a entrega do merge feito sobre a base provada e devolvido pelo
-  integrador;
+  integrador (a branch sem commit próprio entrega com a base, como a já incorporada do `ork ship`);
   `core/src/noctum-maquinas.ts` reconcilia a máquina que volta, sem entrega em duplicidade, fecha o que é da máquina
   que uma emenda tirou do arco e chama o passo da N2 só com o que tem ordem dela, com a entrega e o fim sem entrega das
   outras máquinas valendo antes da thread local. Um ensaio com dois executores em
