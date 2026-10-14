@@ -34,6 +34,13 @@ const PULSE_LIVRE = new RegExp("^[ \\t]*(?:[1-5]|(?:[a-e]|pode seguir|pode ir|po
 const PULSE_RATIFICACAO = new RegExp("^[ \\t]*ratificar(?:-lote)?(?:[ \\t]+[A-Za-z0-9._-]{1,80}){2,3}[ \\t]*$", 'i');
 /** Text above this is never tested against the shapes: they run before the allowlist. */
 const PULSE_TETO = 300, ESCUTA_TETO = 4096;
+/**
+ * RM-058 N6 (D12): the owner's act on a #Noctum arc. The SAME source lives in the core (GRAMATICA_DO_NOCTUM,
+ * core/src/noctum-modo.ts) and a core test checks they stay equal. The signed address is `noctum` / `arco:<arc>`:
+ * the `:` keeps the arc out of reach of /ork gate and /ork session, and the other way around.
+ */
+const NOCTUM = new RegExp("^/ork noctum ([a-z0-9][a-z0-9-]{0,62}) (autorizar [a-f0-9]{64}|revogar)$");
+const NOCTUM_ALVO = 'noctum', NOCTUM_ENDERECO = 'arco:';
 /** The bare-word window (ork.pulse-escuta/v1), read with a byte cap; any error closes it. */
 export function listeningOpen(root, now = Date.now()) {
     try {
@@ -81,13 +88,16 @@ export function registerHitlIngress(api, bin) {
                 !Number.isFinite(age) || age < 0 || age > 60000)
                 return denied;
             const match = /^\/ork (gate|session) ([a-zA-Z0-9][a-zA-Z0-9._-]{0,79}) ([a-zA-Z0-9][a-zA-Z0-9._-]{0,79}) ([\s\S]{1,4096})$/.exec(event.content);
+            const noctum = match ? null : NOCTUM.exec(event.content);
             // FX1: this channel signs with ITS OWN key. The shared ORK_HITL_INGRESS_KEY is kept
             // for the legacy v1 envelope only, which this adapter no longer produces.
             const key = env.ORK_HITL_INGRESS_KEY_OPENCLAW, root = env.ORK_HITL_ROOT;
-            if ((!pulse && !match) || event.content.includes('\0') || !key || Buffer.byteLength(key) < 32 || !root?.startsWith('/'))
+            if ((!pulse && !match && !noctum) || event.content.includes('\0') || !key || Buffer.byteLength(key) < 32 || !root?.startsWith('/'))
                 return denied;
             if (pulse)
                 return pulseIngress(event.content, { user, chat, message, key, root, bin, timestamp: Number(event.timestamp) }, denied);
+            if (noctum)
+                return noctumIngress(noctum[1], noctum[2], { user, chat, message, key, root, bin, timestamp: Number(event.timestamp) }, denied);
             const [, operation, thread, pedido, resposta] = match;
             const canal = 'openclaw';
             // FX5: the authorized account goes INSIDE the signed body. Checking `accountId` only
@@ -160,6 +170,41 @@ async function pulseIngress(texto, m, denied) {
         return denied;
     // Same message already handled: never resend blindly.
     return receipt.repetida ? { handled: true } : { handled: true, reply: { text: receipt.mensagem } };
+}
+/**
+ * RM-058 N6 (D12): the owner authorizes or revokes a #Noctum arc. The envelope is signed at the arc address with this
+ * channel's key and the authorized account, and `ork noctum responder` checks it in the core. The reply to the owner only
+ * claims what the typed receipt says; a repeated act (already in force) gets no second confirmation.
+ */
+async function noctumIngress(arco, resposta, m, denied) {
+    const canal = 'openclaw', conta = process.env.ORK_HITL_OPENCLAW_ACCOUNT ?? '';
+    const envelope = { resposta, canal, conta, origem: 'telegram', por: `telegram:${m.user}`, mensagem: `telegram:${m.chat}:${m.message}`,
+        recebidoEm: new Date(m.timestamp).toISOString(), prova: '' };
+    envelope.prova = createHmac('sha256', m.key).update(JSON.stringify(['ork.hitl-answer/v2', NOCTUM_ALVO, NOCTUM_ENDERECO + arco, canal, conta,
+        envelope.origem, envelope.por, envelope.mensagem, envelope.recebidoEm, resposta])).digest('hex');
+    const args = ['noctum', 'responder', arco, '--resposta-stdin', '--origem', 'telegram', '--canal', canal, '--conta', conta,
+        '--por', envelope.por, '--mensagem', envelope.mensagem];
+    const receipt = await new Promise(resolve => {
+        const child = execFile(m.bin, args, { cwd: m.root, timeout: 10000, maxBuffer: 65536 }, (err, stdout) => {
+            try {
+                resolve(err ? null : JSON.parse(stdout));
+            }
+            catch {
+                resolve(null);
+            }
+        });
+        child.stdin?.on('error', () => resolve(null));
+        child.stdin?.end(JSON.stringify(envelope));
+    });
+    // The receipt must be for the SAME act the owner asked (and, to authorize, the same hash): a core of another version, or a
+    // wrong ORK_BIN, that answers with the receipt of another act is never a confirmation.
+    const [ato, sha] = resposta.split(' ');
+    if (!receipt || receipt.ok !== true || receipt.contrato !== 'ork.noctum-ingresso/v1' || receipt.arco !== arco ||
+        receipt.ato !== ato || (ato === 'autorizar' && receipt.envelopeSha256 !== sha) || typeof receipt.repetida !== 'boolean')
+        return denied;
+    if (receipt.repetida)
+        return { handled: true };
+    return { handled: true, reply: { text: receipt.ato === 'autorizar' ? `Arco ${arco} autorizado pelo núcleo.` : `Arco ${arco} revogado pelo núcleo.` } };
 }
 /** SDK instalado: inbound_claim fornece commandAuthorized, senderIsOwner e sessionKey.
  * Somente esta callback usa a chave privada; nenhuma tool registra nativeIngress. */

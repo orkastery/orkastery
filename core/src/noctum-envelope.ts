@@ -111,6 +111,8 @@ export const MOTIVOS_DE_RECUSA = [
   'noctum.coordenacao.maquina-recusou', 'noctum.reserva.item-invalido',
   // Rodada 2 da revisão da ork-rm058n3: a fonte que chegou à base por um merge fora da base provada.
   'noctum.integracao.base-nao-provada',
+  // RM-058 N6 (D1 e D2 da ork-rm058n6): o arco encerrado e o #Noctum pedido sem envelope vigente ou como modo de thread.
+  'noctum.efeito.encerrado', 'noctum.modo.sem-envelope', 'noctum.modo.lista-fechada',
 ] as const;
 export type MotivoDeRecusaDoArco = typeof MOTIVOS_DE_RECUSA[number];
 
