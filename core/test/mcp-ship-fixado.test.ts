@@ -11,14 +11,14 @@ import { createHash } from 'node:crypto';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { projetoTemporario, dirTemporario, commitar, ProjetoDeTeste } from './apoio';
-import { novaThread, dirThread } from '../src/thread';
+import { novaThread, dirThread, lerThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
 import { exec } from '../src/util';
 import { ship } from '../src/ship';
 import { criarPerfilShipMcp, shipMcp, configDeRedeDoPerfil, PedidoShipMcp, ambienteDoWorkerDoTransporte, conferenciaDepoisDoPush } from '../src/mcp-ship';
 import { criarServidorMcp } from '../src/mcp-server';
 import { criarLeitorExperiencia } from '../src/mcp-experiencia';
-import { configDeRede, dirDaFixacao, gravarFixacao, prepararFixacao } from '../src/mcp-ship-transporte';
+import { configDeRede, criarGitdirDoPush, dirDaFixacao, gravarFixacao, prepararFixacao } from '../src/mcp-ship-transporte';
 import { CHAVE_ED25519, CHAVE_RSA, IMPRESSAO_ED25519, PEM, cliFalsa, sondasFalsas } from './apoio-transporte';
 
 const SSH = 'ssh://git@gitlab.empresa.com:2222/g/p.git', HTTPS = 'https://gitlab.empresa.com/g/p.git';
@@ -259,11 +259,17 @@ test('forja-ssh: entrega com push provado pelo -c do perfil e pelo remoto origin
     const env = ambienteDoWorkerDoTransporte('forja-ssh', { ...process.env, GIT_SSH_COMMAND: 'ssh -o StrictHostKeyChecking=no', LD_PRELOAD: '/x.so' });
     for (const k of Object.keys(process.env)) delete process.env[k];
     Object.assign(process.env, env, { PATH: `${bin}:${env.PATH}` });
-    const r = ship(f.p.carregado, f.id, { para: 'main', remoto: 'origin', configDoRemoto: rede, conferirDepoisDoPush: conferenciaDepoisDoPush(perfil) });
+    const configAntes = fs.readFileSync(path.join(f.raiz, '.git', 'config'), 'utf8');
+    const r = ship(f.p.carregado, f.id, { para: 'main', remoto: 'origin', configDoRemoto: rede, conferirDepoisDoPush: conferenciaDepoisDoPush(perfil),
+      urlFixada: url });
     assert.equal(r.ok, true, r.detalhe);
     assert.equal(r.pushVerificado, true);
-    assert.ok(r.passos.includes(`git ${rede.join(' ')} push -- origin refs/heads/main:refs/heads/main`), r.passos.join('\n'));
-    assert.ok(r.passos.includes(`git ${rede.join(' ')} ls-remote origin refs/heads/main`), r.passos.join('\n'));
+    assert.ok(r.passos.includes(`git --git-dir=<gitdir privado> ${rede.join(' ')} push -- <origin fixado> ${r.pontaDaBase}:refs/heads/main`), r.passos.join('\n'));
+    assert.ok(r.passos.includes(`git --git-dir=<gitdir privado> ${rede.join(' ')} ls-remote -- <origin fixado> refs/heads/main`), r.passos.join('\n'));
+    assert.doesNotMatch(r.passos.join('\n'), /ork-ship-push-/);
+    // A ref de rastreio do projeto acompanha o remoto provado, sem rede; nada de upstream na config.
+    assert.equal(f.git(['rev-parse', 'refs/remotes/origin/main']).trim(), r.pontaDaBase);
+    assert.equal(fs.readFileSync(path.join(f.raiz, '.git', 'config'), 'utf8'), configAntes);
     const chamadas = fs.readFileSync(log, 'utf8').split('\n').filter(Boolean);
     assert.ok(chamadas.length >= 2 && chamadas.every((c) => c.includes(`UserKnownHostsFile=${knownHosts} `) && /-p 2222/.test(c)), chamadas.join('\n'));
     assert.ok(chamadas.some((c) => /git-receive-pack/.test(c)));
@@ -351,13 +357,97 @@ test('origin ou config trocados entre o push e a prova: a entrega nao sai como p
     const { bin } = sshFalso(acao);
     let r: ReturnType<typeof ship> | undefined;
     comPath(bin, () => assert.throws(() => { r = ship(f.p.carregado, f.id, { para: 'main', remoto: 'origin', configDoRemoto: rede,
-      conferirDepoisDoPush: conferenciaDepoisDoPush(perfil) }); },
-    (e: Error) => /^mcp\.ship\.transport\.mudou-no-push: /.test(e.message) && !e.message.includes(bare), acao));
+      conferirDepoisDoPush: conferenciaDepoisDoPush(perfil), urlFixada: url }); },
+    (e: Error) => /^mcp\.ship\.transport\.mudou-no-push: .*o push pode ter sido feito/.test(e.message) && !e.message.includes(bare), acao));
     assert.equal(r, undefined);
-    assert.equal(lerLedger(dirThread(f.raiz, f.id)).some((e) => e.tipo === 'ship_done'), false);
+    const ledger = lerLedger(dirThread(f.raiz, f.id));
+    assert.equal(ledger.some((e) => e.tipo === 'ship_done'), false);
+    const ultimo = ledger.filter((e) => e.tipo === 'ship_blocked').pop() as unknown as { codigo?: string } | undefined;
+    assert.equal(ultimo?.codigo ?? (ultimo as { dados?: { codigo?: string } } | undefined)?.dados?.codigo, 'transport.mudou-no-push', JSON.stringify(ultimo));
+    // O push saiu para o origin fixado; o outro bare, apontado no meio do push, nao recebeu nada.
+    assert.equal(exec('/usr/bin/git', ['rev-parse', 'main'], path.join(outro, 'p.git')).stdout.trim(), antes);
     // Volta ao estado do startup para a proxima rodada.
     exec('/usr/bin/git', ['update-ref', 'refs/heads/main', antes], bare);
     exec('/usr/bin/git', ['config', '--unset-all', 'ork.escritor'], f.raiz);
   }
   fs.rmSync(outro, { recursive: true, force: true });
 }));
+
+test('push e prova saem do gitdir privado: origin malicioso, insteadOf, pushInsteadOf, hooksPath, protocol.ext/file e ext:: nao valem', () => fixture(async (f) => {
+  const bare = f.p.remoto!, url = `ssh://git@gitlab.empresa.com:2222${bare}`;
+  fixarSsh(f, url);
+  const perfil = criarPerfilShipMcp(f.raiz, 'forja-ssh'), rede = configDeRedeDoPerfil(perfil);
+  const mal = dirTemporario('mcp-ship-fixado-mal'), malBare = path.join(mal, 'mal.git'), marca = path.join(mal, 'PWNED');
+  exec('/usr/bin/git', ['clone', '-q', '--bare', bare, malBare]);
+  const antesMal = exec('/usr/bin/git', ['rev-parse', 'main'], malBare).stdout.trim();
+  const hooks = path.join(mal, 'hooks');
+  fs.mkdirSync(hooks);
+  fs.writeFileSync(path.join(hooks, 'pre-push'), `#!/bin/sh\necho hook >> '${marca}'\n`, { mode: 0o755 });
+  // O projeto inteiro aponta para o mal depois do startup.
+  f.git(['config', 'remote.origin.url', `ext::sh -c touch% ${marca}`]);
+  f.git(['config', `url.${malBare}.insteadOf`, url]);
+  f.git(['config', `url.file://${malBare}.pushInsteadOf`, url]);
+  f.git(['config', 'core.hooksPath', hooks]);
+  f.git(['config', 'protocol.ext.allow', 'always']);
+  f.git(['config', 'protocol.file.allow', 'always']);
+  f.git(['config', 'remote.origin.receivepack', `sh -c 'echo pack >> ${marca}; exec git-receive-pack "$@"' --`]);
+  const { bin, log } = sshFalso();
+  comPath(bin, () => {
+    // Controle: sem o gitdir privado, o ext:: do projeto roda (o ataque e de verdade neste git), mesmo com o -c.
+    exec('git', [...rede, 'ls-remote', 'origin'], f.raiz);
+    assert.equal(fs.existsSync(marca), true, 'o ext:: do projeto deveria rodar sem o gitdir privado');
+    fs.rmSync(marca);
+    const r = ship(f.p.carregado, f.id, { para: 'main', remoto: 'origin', configDoRemoto: rede, urlFixada: url });
+    assert.equal(r.ok, true, r.detalhe);
+    assert.equal(r.pushVerificado, true);
+    assert.equal(exec('/usr/bin/git', ['rev-parse', 'main'], bare).stdout.trim(), r.pontaDaBase);
+    assert.ok(fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).every((c) => c.includes(bare) || !/-pack/.test(c)));
+  });
+  assert.equal(fs.existsSync(marca), false);
+  assert.equal(exec('/usr/bin/git', ['rev-parse', 'main'], malBare).stdout.trim(), antesMal);
+  fs.rmSync(mal, { recursive: true, force: true });
+}));
+
+test('forja-https com o origin trocado: no gitdir privado valem o proxy, a CA e os redirecionamentos fixados', () => fixture(async (f) => {
+  const { prep } = fixarHttps(f);
+  const perfil = criarPerfilShipMcp(f.raiz, 'forja-https'), rede = configDeRedeDoPerfil(perfil);
+  const ca = path.join(dirDaFixacao(f.raiz), 'ca.pem');
+  // O agente troca o origin e poe proxy, CA e redirecionamento proprios na config do projeto.
+  const mal = 'https://gitlab.empresa.com/evil/x.git';
+  f.git(['remote', 'set-url', 'origin', mal]);
+  f.git(['config', 'http.proxy', 'http://127.0.0.1:9999']);
+  f.git(['config', 'http.sslCAInfo', '/tmp/ca-do-agente.pem']);
+  f.git(['config', 'http.followRedirects', 'true']);
+  f.git(['config', `http.${mal}.proxy`, 'http://127.0.0.1:9998']);
+  const ler = (args: string[], chave: string, alvo: string) =>
+    exec('/usr/bin/git', [...args, ...rede, 'config', '--get-urlmatch', `http.${chave}`, alvo], f.raiz).stdout.trim();
+  // Controle: do projeto, a URL trocada escapa das regras exatas e leva o proxy do agente.
+  assert.equal(ler([], 'proxy', mal), 'http://127.0.0.1:9998');
+  const gitdir = criarGitdirDoPush(f.raiz);
+  try {
+    assert.equal(fs.statSync(gitdir).mode & 0o777, 0o700);
+    const fixada = prep.fixacao.url;
+    assert.equal(ler([`--git-dir=${gitdir}`], 'proxy', fixada), '');
+    assert.equal(ler([`--git-dir=${gitdir}`], 'sslCAInfo', fixada), ca);
+    assert.equal(ler([`--git-dir=${gitdir}`], 'followRedirects', fixada), 'false');
+    assert.equal(ler([`--git-dir=${gitdir}`], 'sslVerify', fixada), 'true');
+    const tudo = exec('/usr/bin/git', [`--git-dir=${gitdir}`, ...rede, 'config', '--list'], f.raiz).stdout;
+    assert.doesNotMatch(tudo, /127\.0\.0\.1|ca-do-agente|evil/);
+  } finally { fs.rmSync(gitdir, { recursive: true, force: true }); }
+}));
+
+test('gitdir privado: 700, sem hooks, objetos do projeto pelo caminho real tambem de uma worktree', () => fixture(async (f) => {
+  const wt = lerThreadDoTeste(f);
+  for (const origem of [f.raiz, wt]) {
+    const gitdir = criarGitdirDoPush(origem);
+    try {
+      assert.equal(fs.statSync(gitdir).mode & 0o777, 0o700);
+      assert.equal(fs.existsSync(path.join(gitdir, 'hooks')), false);
+      assert.equal(fs.readFileSync(path.join(gitdir, 'objects', 'info', 'alternates'), 'utf8'),
+        `${fs.realpathSync(path.join(f.raiz, '.git', 'objects'))}\n`);
+      assert.equal(exec('/usr/bin/git', [`--git-dir=${gitdir}`, 'cat-file', '-e', f.pedido.expectedSource], f.raiz).ok, true);
+    } finally { fs.rmSync(gitdir, { recursive: true, force: true }); }
+  }
+}));
+
+function lerThreadDoTeste(f: Fixture): string { return lerThread(f.raiz, f.id).worktree!; }

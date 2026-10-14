@@ -132,7 +132,7 @@ export const FORJA_PT_BR = {
           case 'mcp.ship.transport.fixacao-ausente': return `este transporte não foi instalado nesta máquina; rode ${d}`;
           case 'mcp.ship.transport.fixacao-insegura': return `a fixação do transporte precisa ser sua, sem link e sem acesso de grupo ou de outros (${d})`;
           case 'mcp.ship.transport.fixacao-divergente': return `a instalação fixou outro transporte ou outro origin (${d}); reinstale o MCP`;
-          case 'mcp.ship.transport.mudou-no-push': return `o ${d} ou a config do git mudou durante o push; a entrega não foi provada: confira o remoto, a branch e a config antes de repetir`;
+          case 'mcp.ship.transport.mudou-no-push': return `o ${d} ou a config do git mudou durante o push; o push pode ter sido feito, mas a entrega não foi provada: confira o remoto, a branch e a config antes de repetir`;
           default: return d;
         }
       })();
@@ -277,7 +277,7 @@ export const FORJA_EN: MensagensDeForja = {
           case 'mcp.ship.transport.fixacao-ausente': return `this transport was not installed on this machine; run ${d}`;
           case 'mcp.ship.transport.fixacao-insegura': return `the transport pin must be yours, with no link and no group or other access (${d})`;
           case 'mcp.ship.transport.fixacao-divergente': return `the install pinned another transport or another origin (${d}); reinstall the MCP`;
-          case 'mcp.ship.transport.mudou-no-push': return `the ${d} or the git config changed during the push; the delivery was not proved: check the remote, the branch and the config before trying again`;
+          case 'mcp.ship.transport.mudou-no-push': return `the ${d} or the git config changed during the push; the push may have gone out, but the delivery was not proved: check the remote, the branch and the config before trying again`;
           default: return d;
         }
       })();

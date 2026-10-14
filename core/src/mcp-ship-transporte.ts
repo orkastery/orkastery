@@ -275,6 +275,41 @@ function travasDoRemoto(protocolo: 'ssh' | 'https'): string[] {
   return ['-c', 'core.hooksPath=/dev/null', '-c', 'protocol.allow=never', '-c', `protocol.${protocolo}.allow=always`];
 }
 
+/** O protocolo de uma lista de `configDeRede` ja validada: ssh com o ssh fixado, https sem ele; vazia, nenhum. */
+export function protocoloDaConfigDeRede(config: readonly string[]): 'ssh' | 'https' | null {
+  if (!config.length) return null;
+  return config.some((c) => c.startsWith('core.sshCommand=')) ? 'ssh' : 'https';
+}
+
+/** A URL exata das regras `http.<url>.*` de uma lista https validada (todas tem a mesma). */
+export function urlDaConfigDeRede(config: readonly string[]): string | null {
+  for (const c of config) { const m = /^http\.(https:\/\/[^=\s]+)\.sslVerify=/.exec(c); if (m) return m[1]; }
+  return null;
+}
+
+/**
+ * O gitdir de onde saem o push e os `ls-remote` do transporte fixado: um bare novo, 700, numa pasta do usuario, sem
+ * modelo (nenhum hook copiado), que le os objetos do projeto pelo `objects/info/alternates`. Nada da config, dos hooks,
+ * dos `insteadOf` nem das regras de protocolo do projeto entra no git que vai a rede: so o objeto que o ship decidiu.
+ */
+export function criarGitdirDoPush(raiz: string, env: NodeJS.ProcessEnv = process.env): string {
+  const comum = gitPassivoMcp(raiz, ['rev-parse', '--path-format=absolute', '--git-common-dir']).trim();
+  if (!path.isAbsolute(comum) || CONTROLE.test(comum)) recusar('urls', 'gitdir');
+  const objetos = fs.realpathSync(path.join(comum, 'objects'));
+  if (!fs.statSync(objetos).isDirectory() || CONTROLE.test(objetos)) recusar('urls', 'gitdir');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ship-push-'));
+  try {
+    fs.chmodSync(dir, 0o700);
+    conferirAncestrais(path.join(dir, 'x'), 'fixacao-insegura');
+    const r = spawnSync('git', ['init', '--bare', '--quiet', '--template=', '--', dir], { encoding: 'utf8', timeout: 30000,
+      env: { ...env, GIT_ALLOW_PROTOCOL: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    if (r.status !== 0) recusar('urls', 'gitdir');
+    fs.mkdirSync(path.join(dir, 'objects', 'info'), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(dir, 'objects', 'info', 'alternates'), `${objetos}\n`, { mode: 0o600, flag: 'wx' });
+    return dir;
+  } catch (e) { fs.rmSync(dir, { recursive: true, force: true }); throw e; }
+}
+
 const ESCAPE_DE_REGEX = (t: string): string => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const MARCA_DO_KNOWN_HOSTS = '/__known_hosts__';
 const FORMA_DO_SSH = new RegExp(`^${ESCAPE_DE_REGEX(comandoSsh(MARCA_DO_KNOWN_HOSTS)).replace(ESCAPE_DE_REGEX(MARCA_DO_KNOWN_HOSTS), '(/[A-Za-z0-9_./+-]+/known_hosts)')}$`);
