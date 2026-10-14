@@ -1107,8 +1107,9 @@ export function candidatoDaEntrega(provas: ProvasDaEntrega): { branch: string; f
 
 /**
  * D9: a mesma integração na forma do `Integrador` da N3 (`integrarComVez`): recebe o remoto, o destino e o candidato já
- * revalidados pela vez, confere que o repositório, a base, a fonte e as provas são as do candidato e devolve o commit para
- * onde a base aponta.
+ * revalidados pela vez, confere que o repositório, a base, a fonte e as provas são as do candidato e devolve o merge
+ * (`mergeSha`), que a N3 confere no remoto. Os docs derivados, quando há, vão por cima dele no mesmo push, e a ponta da base
+ * não é o merge (A-R3D-1 da revisão da ork-rm058n3).
  */
 export function integradorDaEntrega(carregado: ManifestoCarregado, arco: string, threadId: string, opcoes: OpcoesDaEntrega = {}):
   (c: { remoto: string; destino: { repositorio: string; base: string }; candidato: { branch: string; fonte: string; base: string; provas: string } }) =>
@@ -1121,6 +1122,6 @@ export function integradorDaEntrega(carregado: ManifestoCarregado, arco: string,
     }
     const r = integrarNoDestino(carregado, arco, threadId, { ...opcoes, remoto: c.remoto,
       esperado: { fonte: c.candidato.fonte, base: c.candidato.base, provas: c.candidato.provas, repositorio: c.destino.repositorio } });
-    return { merge: r.merge };
+    return { merge: r.mergeSha };
   };
 }

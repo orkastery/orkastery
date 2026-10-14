@@ -46,11 +46,12 @@ export interface PedidoDeIntegracao {
 }
 
 /**
- * Quem integra de fato: recebe o destino e o candidato já revalidados e devolve o commit que ficou na base. O contrato é a
- * cerca da base (B-R2A-1 da rodada 2): o merge tem `candidato.base` como primeiro pai e a fonte como segundo, ou é a própria
+ * Quem integra de fato: recebe o destino e o candidato já revalidados e devolve o merge que levou a fonte à base. O contrato é
+ * a cerca da base (B-R2A-1 da rodada 2): o merge tem `candidato.base` como primeiro pai e a fonte como segundo, ou é a própria
  * `candidato.fonte` (avanço rápido), e vai à base por push sem força. O merge sobre a base de agora, como o botão de uma
  * forja faria, não é provado e não vira entrega. Push recusado é falha (B-R3A-1 da rodada 3): o integrador nunca mescla a
- * base nova no merge e empurra de novo, e o commit que ele devolve é o merge que chegou à base.
+ * base nova no merge e empurra de novo. O commit devolvido é o merge, mesmo quando o push leva algo por cima dele, como os
+ * docs derivados da N5 (A-R3D-1 da R3-D): a ponta da base não é o que se devolve.
  */
 export type Integrador = (c: { remoto: string; destino: { repositorio: string; base: string }; candidato: CandidatoDeIntegracao }) => { merge: string };
 
@@ -161,16 +162,16 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
       const ativa = ativaDo(estado, chave);
       if (ativa) {
         if (ativa.maquina === eu.nome && ativa.ordem === o.ordem && mesmoCandidato(ativa.candidato, candidato)) {
-          return { novos: [], resultado: { n: ativa.n, trabalho: o.trabalho, posteriores } };
+          return { novos: [], resultado: { n: ativa.n, trabalho: o.trabalho, posteriores, repeticao: true } };
         }
         throw recusa('noctum.integracao.ocupada', `a vez de integrar em ${destino.repositorio}, base ${destino.base}, está com a máquina ${ativa.maquina} ` +
           `(trabalho ${ativa.trabalho}); espere ela soltar e repita as provas sobre a base nova`);
       }
       const n = proximaDo(estado, chave);
       return { novos: [{ tipo: 'vez', chave, n, destino: { repositorio: destino.repositorio, base: destino.base }, ordem: o.ordem,
-        trabalho: o.trabalho, candidato }], resultado: { n, trabalho: o.trabalho, posteriores } };
+        trabalho: o.trabalho, candidato }], resultado: { n, trabalho: o.trabalho, posteriores, repeticao: false } };
     }).resultado;
-    const { n, trabalho, posteriores } = tomada;
+    const { n, trabalho, posteriores, repeticao } = tomada;
     // 2. Os HEADs, relidos do remoto depois de ter a vez.
     let cabecas: Map<string, string | null>;
     try { cabecas = cabecasNoRemoto(carregado, [alvo.base, candidato.branch], opcoes); }
@@ -189,6 +190,12 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
         return { trabalho, vez: n, merge: prova.merge };
       }
       if (prova?.situacao === 'sem-prova') semProva(carregado, arco, chave, n, alvo, candidato, prova.ponta, opcoes);
+      if (base && prova === null && repeticao) {
+        // S-R3D-3 da R3-D: na repetição, o merge desta vez pode ser o que fez a base andar, e a história que não se lê (rede,
+        // buffer ou prazo) não diz; a vez fica até a reconciliação, como no passo 5 (D45), em vez de invalidar o candidato.
+        throw recusa('noctum.integracao.nao-provada', `a base ${alvo.base} andou, e ela ou a história dela não se leram (rede, buffer ou prazo): ` +
+          'a prova não sabe se o merge desta vez chegou, e a vez fica até a reconciliação');
+      }
       const motivo = `a base ${alvo.base} está em ${base?.slice(0, 12) ?? 'nada'}, e o candidato foi provado sobre ${candidato.base.slice(0, 12)}`;
       encerrarSemEsconder(carregado, arco, chave, n, { desfecho: 'invalidado', motivo: `base-mudou: ${motivo}` }, opcoes);
       throw recusa('noctum.integracao.base-mudou', `${motivo}: o candidato foi invalidado; atualize, resolva os conflitos e repita as provas`);
@@ -231,13 +238,26 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
       throw recusa('noctum.integracao.nao-provada', `a base ${alvo.base} não tem a fonte pelo merge ${String(merge).slice(0, 12)}; a vez fica até a reconciliação`);
     }
     const devolvido = commitDevolvido(carregado.raiz, merge);
-    if (devolvido === null) {
+    if (!devolvido.lido) {
+      // S-R3D-2 da R3-D: o git não rodou (prazo, sinal ou falha ao abrir o processo); a prova não sabe, e a vez fica até a
+      // reconciliação (D45), em vez de terminar com o motivo de que o integrador não devolveu um commit.
+      throw recusa('noctum.integracao.nao-provada', 'o commit que o integrador devolveu não se conferiu neste clone (o git não rodou): ' +
+        'a vez fica até a reconciliação');
+    }
+    if (devolvido.commit === null) {
       // S-R3C-1 da R3-C: sem o commit devolvido, o merge provado não se confere; o motivo diz o que houve, sem acusar a fonte.
       fimSemProva(carregado, arco, chave, n, prova.ponta, opcoes, `o integrador não devolveu um commit que se resolva neste clone, e o merge ` +
         `${prova.merge.slice(0, 12)} que leva a fonte ${candidato.fonte.slice(0, 12)} à base ${alvo.base} não se confere por ele`);
     }
-    if (devolvido !== prova.merge) {
-      semProva(carregado, arco, chave, n, alvo, candidato, prova.ponta, opcoes, 'o commit que o integrador devolveu não é o merge provado');
+    if (devolvido.commit !== prova.merge) {
+      // B-R3A-1 da rodada 3, A-R3D-1 e S-R3D-1 da R3-D: o merge provado está na base, mas o commit devolvido é outro (o merge
+      // da base nova por cima de um push recusado, a ponta com algo por cima do merge, um commit novo sobre a fonte que já era
+      // a base); o motivo diz isso, sem dizer que a fonte chegou à base por fora.
+      const merge = candidato.fonte === candidato.base
+        ? `a fonte ${candidato.fonte.slice(0, 12)} já era a base provada, sem o que integrar`
+        : `o merge provado ${prova.merge.slice(0, 12)} leva a fonte ${candidato.fonte.slice(0, 12)} à base ${alvo.base}`;
+      fimSemProva(carregado, arco, chave, n, prova.ponta, opcoes,
+        `o commit que o integrador devolveu não é o merge provado: ele devolveu ${devolvido.commit.slice(0, 12)}, e ${merge}`);
     }
     registrarEntrega(carregado, arco, { chave, n, trabalho, ordem: pedido.ordem, destino: alvo, fonte: candidato.fonte,
       base: candidato.base, merge: prova.merge }, opcoes);
@@ -269,15 +289,17 @@ function entreguesDoDestino(estado: EstadoDaCoordenacao, chave: string, fora?: n
 }
 
 /**
- * O commit que o integrador devolveu, resolvido no clone desta máquina; `null` quando não é um commit daqui. O SHA vem
+ * O commit que o integrador devolveu, resolvido no clone desta máquina; `commit: null` quando não é um commit daqui. O SHA vem
  * aparado e em minúsculas (S-R3C-1 da R3-C): a saída do `git rev-parse` sem `trim` e o SHA em maiúsculas são o mesmo
- * commit. Nome de ref não vale: resolvido aqui, diria o commit deste clone, não o que chegou à base.
+ * commit. Nome de ref não vale: resolvido aqui, diria o commit deste clone, não o que chegou à base. `lido: false` quando o
+ * git não rodou (S-R3D-2 da R3-D): prazo, sinal ou falha ao abrir o processo não dizem nada do valor.
  */
-function commitDevolvido(raiz: string, merge: unknown): string | null {
+function commitDevolvido(raiz: string, merge: unknown): { lido: true; commit: string | null } | { lido: false } {
   const valor = typeof merge === 'string' ? merge.trim().toLowerCase() : '';
-  if (!/^[0-9a-f]{7,64}$/.test(valor)) return null;
-  const r = git(raiz, ['rev-parse', '--verify', '--quiet', `${valor}^{commit}`]);
-  return r.ok ? r.stdout.trim() : null;
+  if (!/^[0-9a-f]{7,64}$/.test(valor)) return { lido: true, commit: null };
+  const r = spawnSync('git', ['rev-parse', '--verify', '--quiet', `${valor}^{commit}`], { cwd: raiz, encoding: 'utf8', timeout: 60_000 });
+  if (r.error || r.status === null) return { lido: false };
+  return { lido: true, commit: r.status === 0 ? (r.stdout ?? '').trim() : null };
 }
 
 /**
@@ -327,9 +349,9 @@ export function provaDoMerge(carregado: ManifestoCarregado, remoto: string, base
  * nada vira entrega. O trabalho não é refeito em outra máquina: a ordem fica, e a inspeção é do dono.
  */
 function semProva(carregado: ManifestoCarregado, arco: string, chave: string, n: number, alvo: { base: string },
-  candidato: CandidatoDeIntegracao, ponta: string, opcoes: OpcoesDaCoordenacao, porque?: string): never {
+  candidato: CandidatoDeIntegracao, ponta: string, opcoes: OpcoesDaCoordenacao): never {
   return fimSemProva(carregado, arco, chave, n, ponta, opcoes, `a fonte ${candidato.fonte.slice(0, 12)} chegou à base ${alvo.base} ` +
-    `por um merge fora da base provada ${candidato.base.slice(0, 12)}` + (porque ? ` (${porque})` : ''));
+    `por um merge fora da base provada ${candidato.base.slice(0, 12)}`);
 }
 
 /** O fim `sem-prova` da vez com o motivo que quem chama montou, e a recusa que diz que o trabalho espera a inspeção. */

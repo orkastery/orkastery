@@ -226,7 +226,8 @@ test('QI5: a página do item que deixaria a main vermelha ganha o estado derivad
 test('QI6: a integração na forma do Integrador da N3 confere o candidato: fonte, base e provas de outro estado recusam', { skip: semKernel }, () => {
   const p = projetoDaEntrega('noctum-qi6');
   try {
-    const e = entregaPronta(p, 'qi6');
+    // A-R3D-1 da revisão da ork-rm058n3: com a página do item, o push leva os docs derivados em cima do merge.
+    const e = entregaPronta(p, 'qi6', { arquivos: (t) => ({ 'docs/roadmap/RM-958-entrega.md': paginaDoItem(t.id) }) });
     publicarBranch(e);
     arcoDaEntrega(p, 'arco-qi6', e.t.id);
     const opcoes = { forja: FORJA, executorCi: ciFalso({ [e.fonte]: 'success' }) };
@@ -249,7 +250,10 @@ test('QI6: a integração na forma do Integrador da N3 confere o candidato: font
     assert.throws(() => integrador({ remoto: 'origin', destino: { ...destino, repositorio: 'exemplo/outro' }, candidato: candidato! }),
       (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.fora-do-destino');
     const r = integrador({ remoto: 'origin', destino, candidato: candidato! });
-    assert.equal(r.merge, lsRemote(p, 'refs/heads/main'), 'devolve o commit para onde a base aponta, que a N3 confere no remoto');
+    // A-R3D-1 da revisão da ork-rm058n3: devolve o merge, com a base provada e a fonte como pais, que a N3 confere no remoto,
+    // e não a ponta da base, que é o commit dos docs derivados em cima dele.
+    assert.deepEqual(git(p.dir, 'rev-list', '--parents', '-n', '1', r.merge).stdout.trim().split(' ').slice(1), [candidato!.base, candidato!.fonte]);
+    assert.equal(git(p.dir, 'rev-parse', `${lsRemote(p, 'refs/heads/main')}^`).stdout.trim(), r.merge, 'a base aponta para os docs derivados, em cima do merge');
   } finally { p.limpar(); }
 });
 
