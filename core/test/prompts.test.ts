@@ -19,14 +19,16 @@ import {
   renderizar,
   SECOES_OBRIGATORIAS,
   TEMPLATE_FASE_PADRAO,
+  TEMPLATE_FASE_PADRAO_EN,
   templateDaFase,
   threadDeExemplo,
   variaveisUsadas,
 } from '../src/prompts';
-import { CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, REGRA_DAS_ESPERAS, valoresDoPrompt } from '../src/phase';
+import { CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, montarPromptComMemoria, REGRA_DAS_ESPERAS, valoresDoPrompt } from '../src/phase';
 import { FASES } from '../src/types';
-import { projetoTemporario } from './apoio';
+import { ajustarManifesto, projetoTemporario } from './apoio';
 import { novaThread } from '../src/thread';
+import { abrirMemoria } from '../src/memoria';
 
 const RAIZ_DO_PRODUTO = path.resolve(__dirname, '../../..');
 
@@ -38,6 +40,39 @@ test('o template versionado em prompts/ e identico ao embutido no ork', () => {
     TEMPLATE_FASE_PADRAO,
     'a copia versionada divergiu do embutido: regere com `node -e` a partir de TEMPLATE_FASE_PADRAO'
   );
+  const english = fs.readFileSync(path.join(RAIZ_DO_PRODUTO, 'prompts', 'fase-padrao.en.md'), 'utf8').replace(/\n$/, '');
+  assert.equal(english, TEMPLATE_FASE_PADRAO_EN, 'a copia inglesa divergiu do template embutido');
+});
+
+test('RM-061 F3c: o prompt ingles cobre as seis fases, os cinco modulos e a regra central', () => {
+  assert.equal(templateDaFase('GOAL', RAIZ_DO_PRODUTO, 'en').id, 'fase-padrao.en');
+  for (const fase of FASES) {
+    const prompt = montarPrompt(threadDeExemplo('auto', fase), fase, 'Map the smallest safe slice.', RAIZ_DO_PRODUTO, '', 'en');
+    assert.match(prompt, new RegExp(`^# Orkastery, ${fase} phase of thread`, 'm'));
+    for (const secao of ['## Canonical cycle', '## Conduction mode:', '## Thread context', '## Builder request', '## Evidence rules']) {
+      assert.ok(prompt.includes(secao), `${fase}: ${secao}`);
+    }
+    assert.ok(prompt.includes('CENTRAL RULE: the mode relaxes the pause, NEVER verification.'));
+    assert.ok(prompt.includes(`${fase} (F`), fase);
+    assert.ok(prompt.includes('No self-report: every claim includes the command that proves it and its real output.'));
+    assert.ok(!prompt.includes('REGRA CENTRAL:'));
+    assert.ok(!prompt.includes('Ciclo canonico'));
+  }
+});
+
+test('RM-061 F3c: o phase run monta o prompt na lingua atual do dono', () => {
+  const p = projetoTemporario('prompt-owner-language');
+  try {
+    ajustarManifesto(p, 'owner:\n', 'owner:\n  language: en-US\n');
+    const { thread } = novaThread(p.carregado, { nome: 'english-owner', modo: 'auto' });
+    const { prompt } = montarPromptComMemoria(p.carregado, thread, 'GOAL', 'Map the change.', abrirMemoria(p.carregado));
+    assert.match(prompt, /^# Orkastery, GOAL phase of thread/m);
+    assert.match(prompt, /## Builder request\nMap the change\./);
+    assert.match(prompt, /CENTRAL RULE: the mode relaxes the pause, NEVER verification\./);
+    assert.doesNotMatch(prompt, /## Pedido do builder|REGRA CENTRAL:/);
+  } finally {
+    p.limpar();
+  }
 });
 
 test('o lint aprova os templates do produto e reprova o que perde o contrato', () => {
