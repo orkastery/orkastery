@@ -12,13 +12,17 @@ test('pushRecusadoPelaProtecao: as frases da proteção do GitHub e do GitLab, e
   for (const texto of [
     ' ! [remote rejected] main -> main (protected branch hook declined)\nerror: failed to push some refs',
     'remote: error: GH006: Protected branch update failed for refs/heads/main.',
-    'remote: error: GH013: Repository rule violations found for refs/heads/main.',
-    ' ! [remote rejected] main -> main (push declined due to repository rule violations)',
+    'remote: error: GH013: Repository rule violations found for refs/heads/main.\nremote: - Changes must be made through a pull request.',
+    'remote: error: GH013: Repository rule violations found for refs/heads/main.\nremote: - Cannot update this protected ref.\n ! [remote rejected] main -> main (push declined due to repository rule violations)',
     'remote: GitLab: You are not allowed to push code to protected branches on this project.\n ! [remote rejected] main -> main (pre-receive hook declined)',
     'remote: GitLab: You are not allowed to force push code to a protected branch on this project.',
   ]) assert.equal(pushRecusadoPelaProtecao(texto), true, texto);
   for (const texto of [
     ' ! [remote rejected] main -> main (pre-receive hook declined)',
+    ' ! [remote rejected] main -> main (push declined due to repository rule violations)',
+    'remote: error: GH013: Repository rule violations found for refs/heads/main.\nremote: - GITHUB PUSH PROTECTION\nremote:   Push cannot contain secrets',
+    'remote: error: GH013: Repository rule violations found for refs/heads/main.\nremote: - Changes must be made through a pull request.\nremote: - GITHUB PUSH PROTECTION\nremote:   Push cannot contain secrets',
+    'remote: error: GH013: Repository rule violations found for refs/heads/main.\nremote: - Commit message must match the required pattern.',
     'remote: GitLab: You are not allowed to push code to this project.',
     ' ! [rejected] main -> main (fetch first)',
     'fatal: unable to access: The requested URL returned error: 403',
@@ -32,7 +36,7 @@ function comGancho(remoto: string, linhas: string[]): void {
 
 const RECUSAS: Record<string, string[]> = {
   github: ['error: GH006: Protected branch update failed for refs/heads/main.', 'error: Changes must be made through a pull request.'],
-  'github-regra': ['error: GH013: Repository rule violations found for refs/heads/main.'],
+  'github-regra': ['error: GH013: Repository rule violations found for refs/heads/main.', 'error: - Changes must be made through a pull request.'],
   gitlab: ['GitLab: You are not allowed to push code to protected branches on this project.'],
 };
 
@@ -61,6 +65,20 @@ test('push da base recusado por outro gancho continua o erro de push de sempre, 
   try {
     comGancho(projeto.remoto as string, ['o gancho da casa recusou este push']);
     const { thread } = novaThread(projeto.carregado, { nome: 'gancho qualquer', modo: 'auto', criarWorktree: true });
+    commitar(thread.worktree as string, 'entrega.md', `# ${thread.id}\n`, `feat: entrega da thread ${thread.id}`);
+    const r = ship(projeto.carregado, thread.id, { para: 'main' });
+    assert.equal(r.motivo, 'runtime.unavailable');
+    assert.equal(r.codigo, undefined);
+    assert.match(r.detalhe, /push para origin\/main falhou/);
+    assert.equal(lerLedger(dirThread(projeto.dir, thread.id)).filter((e) => e.tipo === 'ship_blocked').at(-1)?.codigo, undefined);
+  } finally { projeto.limpar(); }
+});
+
+test('push da base recusado pela proteção contra segredo (GH013) não ganha código e o motivo do gate não muda', () => {
+  const projeto = projetoTemporario('ship-gh013-segredo', true);
+  try {
+    comGancho(projeto.remoto as string, ['error: GH013: Repository rule violations found for refs/heads/main.', 'error: - GITHUB PUSH PROTECTION', 'error:   Push cannot contain secrets']);
+    const { thread } = novaThread(projeto.carregado, { nome: 'gh013 segredo', modo: 'auto', criarWorktree: true });
     commitar(thread.worktree as string, 'entrega.md', `# ${thread.id}\n`, `feat: entrega da thread ${thread.id}`);
     const r = ship(projeto.carregado, thread.id, { para: 'main' });
     assert.equal(r.motivo, 'runtime.unavailable');

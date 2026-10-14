@@ -198,15 +198,19 @@ export function detalheDoPush(texto: string): string {
 }
 
 /**
- * O push recusado pela protecao da branch. O GitHub diz `GH006: Protected branch update failed` (ou `GH013` nas regras
- * do repositorio) e `protected branch hook declined`; o GitLab diz `You are not allowed to push code to protected
- * branches` (ou `force push code to a protected branch`) antes do `pre-receive hook declined`. So a frase da protecao
- * conta: o `pre-receive hook declined` sozinho e de qualquer gancho, e o "not allowed to push code to this project" do
- * GitLab e falta de acesso ao projeto.
+ * O push recusado pela protecao da branch. O GitHub diz `GH006: Protected branch update failed` e
+ * `protected branch hook declined`; o GitLab diz `You are not allowed to push code to protected branches` (ou
+ * `force push code to a protected branch`) antes do `pre-receive hook declined`. O `GH013` (regras do repositorio) e
+ * generico: tambem vem da protecao contra segredo, de regra de caminho ou de mensagem de commit. Por isso so conta com
+ * o sinal da protecao da branch na mesma saida (`Changes must be made through a pull request` ou `Cannot update this
+ * protected ref`), e nunca com `PUSH PROTECTION` / `Push cannot contain secrets`. O `pre-receive hook declined` sozinho
+ * e de qualquer gancho, e o "not allowed to push code to this project" do GitLab e falta de acesso ao projeto.
  */
 export function pushRecusadoPelaProtecao(texto: string): boolean {
-  return /\bGH006\b|\bGH013\b|protected branch hook declined|declined due to repository rule violations|not allowed to (?:force )?push code to (?:a )?protected branch/i
-    .test(texto);
+  if (/PUSH PROTECTION|Push cannot contain secrets/i.test(texto)) return false;
+  if (/\bGH006\b|protected branch hook declined|not allowed to (?:force )?push code to (?:a )?protected branch/i.test(texto)) return true;
+  return /\bGH013\b|repository rule violations/i.test(texto)
+    && /Changes must be made through a pull request|Cannot update this protected ref/i.test(texto);
 }
 
 function erro(codigo: CodigoDeErroDaForja, detalhe: string): { ok: false; erro: ErroDaForja } {
