@@ -4,6 +4,7 @@
  * e achado pelo `acharBinario` salvo nos consumidores que pedem `procurarBinario: false`.
  */
 import { spawnSync } from 'node:child_process';
+import * as path from 'node:path';
 import { acharBinario } from '../rede-forja';
 import type { SaidaDoExecutor } from './contrato';
 
@@ -17,6 +18,8 @@ export interface ChamadaDaCli {
   acrescentar?: Readonly<Record<string, string>>;
   /** false: spawna o nome cru, resolvido so pelo PATH (os consumidores que sempre foram assim). Padrao: true. */
   procurarBinario?: boolean;
+  /** O caminho absoluto da CLI: roda este, sem procurar no PATH (vence `procurarBinario`). Caminho relativo nao roda. */
+  binario?: string;
   /** O diretorio do processo; sem ele, o do `ork`. A API usa um neutro: o `glab` le o host do remoto do cwd. */
   cwd?: string;
   /** true: so passa o que a CLI precisa (PATH, HOME, locale, proxy, keyring e as variaveis da propria CLI). */
@@ -44,7 +47,11 @@ export function ambienteReduzido(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 export function rodarCli(c: ChamadaDaCli): SaidaDaCli {
   const env: NodeJS.ProcessEnv = { ...(c.reduzido ? ambienteReduzido(process.env) : process.env), ...(c.acrescentar ?? {}) };
   for (const nome of c.apagar ?? []) delete env[nome];
-  const r = spawnSync((c.procurarBinario === false ? null : acharBinario(c.cmd, { env })) ?? c.cmd, [...c.args], {
+  if (c.binario !== undefined && !path.isAbsolute(c.binario)) {
+    return { status: null, stdout: '', stderr: '', sinal: null, erro: 'EINVAL', mensagemDoErro: 'binario sem caminho absoluto' };
+  }
+  const exe = c.binario ?? (c.procurarBinario === false ? null : acharBinario(c.cmd, { env })) ?? c.cmd;
+  const r = spawnSync(exe, [...c.args], {
     cwd: c.cwd, input: c.entrada, encoding: 'utf8', timeout: c.prazoMs, maxBuffer: c.maxBuffer, env,
   });
   return { status: r.status, stdout: (r.stdout ?? '').toString(), stderr: (r.stderr ?? '').toString(), sinal: r.signal ?? null,

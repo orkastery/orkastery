@@ -151,16 +151,30 @@ export function lerKeyscan(saida: string, nome: string): ChaveDoServidor[] {
   return chaves;
 }
 
-/** O campo de hosts casa o nome: lista separada por virgula, ou o hash `|1|sal|hmac` do `HashKnownHosts`. Curinga nao. */
+/** Um padrao do known_hosts (`*` e `?`) casa o nome inteiro. */
+const casaPadrao = (padrao: string, nome: string): boolean =>
+  new RegExp(`^${padrao.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`).test(nome);
+
+/**
+ * O campo de hosts aceita o nome: o hash `|1|sal|hmac` do `HashKnownHosts`, ou a lista separada por virgula com o nome
+ * exato. Como no OpenSSH, um `!padrao` que casa o nome tira a linha, mesmo com um positivo que case; curinga positivo
+ * nunca confirma.
+ */
 function casaNome(campo: string, nome: string): boolean {
   if (campo.startsWith('|1|')) {
     const [, , sal, hash] = campo.split('|');
     return !!sal && !!hash && createHmac('sha1', Buffer.from(sal, 'base64')).update(nome).digest('base64') === hash;
   }
-  return campo.split(',').includes(nome);
+  const padroes = campo.split(',');
+  if (padroes.some((p) => p.startsWith('!') && casaPadrao(p.slice(1), nome))) return false;
+  return padroes.includes(nome);
 }
 
-/** As chaves que o known_hosts da pessoa aceita para o nome, e as que ele revoga (`@revoked`). `@cert-authority` cai. */
+/**
+ * As chaves que o known_hosts da pessoa aceita para o nome, e as que ele revoga. Toda linha `@revoked` conta, qualquer
+ * que seja o campo de hosts (`*`, curinga, hash, outro nome): a chave revogada nao entra por nenhum nome.
+ * `@cert-authority` cai.
+ */
 export function lerKnownHosts(conteudo: string, nome: string): { aceitas: ChaveDoServidor[]; revogadas: ChaveDoServidor[] } {
   const aceitas: ChaveDoServidor[] = [], revogadas: ChaveDoServidor[] = [];
   for (const bruta of conteudo.split('\n')) {
@@ -168,9 +182,9 @@ export function lerKnownHosts(conteudo: string, nome: string): { aceitas: ChaveD
     if (!linha || linha.startsWith('#')) continue;
     let c = linha.split(/\s+/), marca: string | null = null;
     if (c[0].startsWith('@')) { marca = c[0]; c = c.slice(1); }
-    if (c.length < 3 || !casaNome(c[0], nome) || !TIPO_DE_CHAVE.test(c[1]) || !BASE64.test(c[2])) continue;
+    if (c.length < 3 || !TIPO_DE_CHAVE.test(c[1]) || !BASE64.test(c[2])) continue;
     if (marca === '@revoked') revogadas.push({ tipo: c[1], chave: c[2] });
-    else if (marca === null) aceitas.push({ tipo: c[1], chave: c[2] });
+    else if (marca === null && casaNome(c[0], nome)) aceitas.push({ tipo: c[1], chave: c[2] });
   }
   return { aceitas, revogadas };
 }
@@ -559,6 +573,8 @@ export interface SondasDoTransporte {
   sondas?: SondasDaForja;
   /** O known_hosts da pessoa, que confirma a chave do servidor sem `--ssh-fingerprint`. */
   knownHostsDoUsuario: string | null;
+  /** Os known_hosts do sistema, lidos so pelas revogacoes; sem valor, nenhum. */
+  knownHostsDoSistema?: readonly string[];
 }
 
 /** O `ssh-keyscan` desiste de cada host em 10 s; o processo inteiro, em 30 s. A CLI responde a versao e a ajuda em 10 s. */
@@ -577,6 +593,7 @@ export function sondasPadraoDoTransporte(env: NodeJS.ProcessEnv = process.env): 
     },
     acharBinario: (cmd) => acharBinario(cmd, { env }),
     knownHostsDoUsuario: path.join(home, '.ssh', 'known_hosts'),
+    knownHostsDoSistema: ['/etc/ssh/ssh_known_hosts', '/etc/ssh/ssh_known_hosts2'],
   };
 }
 
@@ -599,27 +616,37 @@ export function prepararFixacao(e: EntradaDaFixacao): FixacaoPreparada {
   return endereco.transporte === 'forja-ssh' ? fixarSsh(e, endereco, r.valor) : fixarHttps(e, endereco, r.valor);
 }
 
-/**
- * O known_hosts da pessoa para o nome: o que ele aceita e o que ele revoga. Sem arquivo, nada confirma (so a
- * impressao dita); arquivo que existe e nao se le recusa, porque esconderia uma revogacao.
- */
-function conhecidasDoUsuario(arquivo: string | null, nome: string): ReturnType<typeof lerKnownHosts> {
-  const vazio = { aceitas: [], revogadas: [] };
-  if (!arquivo) return vazio;
-  let conteudo: Buffer;
+/** O conteudo de um known_hosts: `null` quando nao existe; `undefined` quando existe e nao se le (nao regular, grande demais). */
+function lerArquivoDeKnownHosts(arquivo: string): string | null | undefined {
   try {
     const fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
     try {
-      if (!fs.fstatSync(fd).isFile()) recusar('ssh.known-hosts-ilegivel', arquivo);
-      conteudo = lerComTeto(fd, LIMITE_DO_KNOWN_HOSTS);
+      if (!fs.fstatSync(fd).isFile()) return undefined;
+      const conteudo = lerComTeto(fd, LIMITE_DO_KNOWN_HOSTS);
+      return conteudo.length > LIMITE_DO_KNOWN_HOSTS ? undefined : conteudo.toString('utf8');
     } finally { fs.closeSync(fd); }
   } catch (e) {
-    if (e instanceof ErroDoCatalogo) throw e;
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return vazio;
-    return recusar('ssh.known-hosts-ilegivel', arquivo);
+    return (e as NodeJS.ErrnoException).code === 'ENOENT' ? null : undefined;
   }
-  if (conteudo.length > LIMITE_DO_KNOWN_HOSTS) recusar('ssh.known-hosts-ilegivel', arquivo);
-  return lerKnownHosts(conteudo.toString('utf8'), nome);
+}
+
+/**
+ * O known_hosts da pessoa para o nome: o que ele aceita e o que ele revoga. Sem arquivo, nada confirma (so a
+ * impressao dita); arquivo que existe e nao se le recusa, porque esconderia uma revogacao. Os known_hosts do sistema
+ * so acrescentam revogacoes, nunca confirmam: ausente ou ilegivel, nao e a confirmacao da pessoa e fica de fora.
+ */
+function conhecidasDoUsuario(arquivo: string | null, globais: readonly string[], nome: string): ReturnType<typeof lerKnownHosts> {
+  let conhecidas: ReturnType<typeof lerKnownHosts> = { aceitas: [], revogadas: [] };
+  if (arquivo) {
+    const conteudo = lerArquivoDeKnownHosts(arquivo);
+    if (conteudo === undefined) recusar('ssh.known-hosts-ilegivel', arquivo);
+    if (conteudo) conhecidas = lerKnownHosts(conteudo, nome);
+  }
+  for (const global of globais) {
+    const conteudo = lerArquivoDeKnownHosts(global);
+    if (conteudo) conhecidas.revogadas.push(...lerKnownHosts(conteudo, nome).revogadas);
+  }
+  return conhecidas;
 }
 
 const impressoes = (ks: readonly ChaveDoServidor[]): string => ks.map((k) => `${k.tipo} ${impressaoDaChave(k.chave)}`).join(', ');
@@ -639,7 +666,7 @@ function fixarSsh(e: EntradaDaFixacao, origin: { host: string; porta: number }, 
   const scan = e.sondas.rodar('ssh-keyscan', ['-T', '10', '-p', String(porta), '-t', 'ed25519,ecdsa,rsa', '--', host], PRAZO_DO_KEYSCAN_MS);
   const doServidor = lerKeyscan(scan.stdout, nome);
   if (!doServidor.length) recusar('ssh.sem-resposta', nome);
-  const conhecidas = conhecidasDoUsuario(e.sondas.knownHostsDoUsuario, nome);
+  const conhecidas = conhecidasDoUsuario(e.sondas.knownHostsDoUsuario, e.sondas.knownHostsDoSistema ?? [], nome);
   if (doServidor.some((k) => conhecidas.revogadas.some((r) => mesma(k, r)))) recusar('ssh.revogada', nome);
   const trocadas = doServidor.filter((k) => conhecidas.aceitas.some((u) => u.tipo === k.tipo) && !conhecidas.aceitas.some((u) => mesma(k, u)));
   if (trocadas.length) {
@@ -683,7 +710,8 @@ function fixarHttps(e: EntradaDaFixacao, origin: { origem: string }, f: ForjaRes
   if (versao === null || versaoAbaixo(versao, cli.minima)) return recusar('sem-helper', `${cli.cmd} ${versao ?? '?'} < ${cli.minima}`);
   const ajuda = e.sondas.rodar(binario, ['auth', 'git-credential', '--help'], PRAZO_DA_CLI_MS);
   if (ajuda.status !== 0 || !/git-credential/.test(`${ajuda.stdout}\n${ajuda.stderr}`)) recusar('sem-helper', `${cli.cmd} ${versao}, >= ${cli.minima}`);
-  if (!temLogin(alvo, e.sondas.rodarCli)) recusar('sem-login', `${cli.cmd} ${chaveDoLogin(alvo)}`);
+  // O login confere a mesma CLI que vai ser fixada, pelo caminho real, sem nova busca no PATH.
+  if (!temLogin(alvo, e.sondas.rodarCli, binario)) recusar('sem-login', `${cli.cmd} ${chaveDoLogin(alvo)}`);
   return {
     fixacao: { schema: ESQUEMA_DA_FIXACAO, raiz: e.raiz, url: e.url, transporte: 'forja-https', tipo: f.tipo, origem,
       caminho: CAMINHO_NA_CREDENCIAL && caminhoBase !== '', cli: cli.cmd, binario, versaoCli: versao,

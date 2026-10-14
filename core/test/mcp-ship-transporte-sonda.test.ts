@@ -222,3 +222,59 @@ test('as sondas padrao: prazo de verdade, ambiente sem token e o known_hosts da 
   assert.ok(!env.includes('GITLAB_TOKEN') && !env.includes('glpat'));
   assert.ok(env.includes(`HOME=${dir}`));
 }));
+
+test('forja-ssh: @revoked vale para qualquer campo de hosts (curinga, hash, outro nome), mesmo com a impressao dita', () => comDir('sonda-rev', (dir) => {
+  const kh = path.join(dir, 'known_hosts');
+  for (const campo of ['*', '[*.empresa.com]:2222', 'outro.host', `|1|${randomBytes(20).toString('base64')}|${randomBytes(20).toString('base64')}`]) {
+    fs.writeFileSync(kh, `@revoked ${campo} ssh-ed25519 ${CHAVE_ED25519}\n`);
+    assert.throws(() => ssh({ impressao: IMPRESSAO_ED25519 }, sondasFalsas({ keyscan: KEYSCAN, knownHosts: kh })), /ssh\.revogada/, campo);
+  }
+  // A revogacao de OUTRA chave nao barra a boa.
+  fs.writeFileSync(kh, `@revoked * ssh-ed25519 ${OUTRA_ED25519}\n`);
+  const p = ssh({ impressao: IMPRESSAO_ED25519 }, sondasFalsas({ keyscan: KEYSCAN, knownHosts: kh }));
+  assert.deepEqual((p.fixacao as FixacaoSsh).chaves, [{ tipo: 'ssh-ed25519', impressao: IMPRESSAO_ED25519 }]);
+}));
+
+test('forja-ssh: a negacao tira a linha, como no OpenSSH, mesmo com o nome exato na lista', () => comDir('sonda-neg', (dir) => {
+  const kh = path.join(dir, 'known_hosts');
+  fs.writeFileSync(kh, `[gitlab.empresa.com]:2222,![gitlab.empresa.com]:2222 ssh-ed25519 ${CHAVE_ED25519}\n`);
+  assert.throws(() => ssh({}, sondasFalsas({ keyscan: KEYSCAN, knownHosts: kh })), /ssh\.nao-confirmada/);
+  fs.writeFileSync(kh, `[gitlab.empresa.com]:2222,!*.empresa.com* ssh-ed25519 ${CHAVE_ED25519}\n`);
+  assert.throws(() => ssh({}, sondasFalsas({ keyscan: KEYSCAN, knownHosts: kh })), /ssh\.nao-confirmada/);
+  fs.writeFileSync(kh, `[gitlab.empresa.com]:2222,!outro.host ssh-ed25519 ${CHAVE_ED25519}\n`);
+  assert.equal((ssh({}, sondasFalsas({ keyscan: KEYSCAN, knownHosts: kh })).fixacao as FixacaoSsh).chaves.length, 1);
+}));
+
+test('forja-ssh: o known_hosts do sistema so revoga, nunca confirma; ausente ou ilegivel fica de fora', () => comDir('sonda-glob', (dir) => {
+  const global = path.join(dir, 'ssh_known_hosts'), global2 = path.join(dir, 'ssh_known_hosts2');
+  fs.writeFileSync(global, `[gitlab.empresa.com]:2222 ssh-ed25519 ${CHAVE_ED25519}\n`);
+  assert.throws(() => ssh({}, sondasFalsas({ keyscan: KEYSCAN, globais: [global, path.join(dir, 'falta'), dir] })), /ssh\.nao-confirmada/);
+  fs.writeFileSync(global2, `@revoked * ssh-ed25519 ${CHAVE_ED25519}\n`);
+  assert.throws(() => ssh({ impressao: IMPRESSAO_ED25519 }, sondasFalsas({ keyscan: KEYSCAN, globais: [global, global2] })), /ssh\.revogada/);
+  assert.deepEqual(sondasPadraoDoTransporte({ HOME: dir }).knownHostsDoSistema, ['/etc/ssh/ssh_known_hosts', '/etc/ssh/ssh_known_hosts2']);
+}));
+
+test('forja-https: o login roda a CLI conferida que vai ser fixada, nunca a do PATH', () => comDir('sonda-login', (dir) => {
+  const conferida = path.join(dir, 'conferida'), doPath = path.join(dir, 'path');
+  for (const p of [conferida, doPath]) { fs.mkdirSync(p); fs.chmodSync(p, 0o755); }
+  const marca = (nome: string) => path.join(dir, `rodou-${nome}`);
+  const script = (pasta: string, nome: string) => {
+    const arquivo = path.join(pasta, 'glab');
+    fs.writeFileSync(arquivo, `#!/bin/sh\necho "$@" >> '${marca(nome)}'\nexit 0\n`, { mode: 0o755 });
+    fs.chmodSync(arquivo, 0o755);
+    return arquivo;
+  };
+  const vetada = script(conferida, 'conferida');
+  script(doPath, 'path');
+  const s = sondasFalsas({ binario: vetada });
+  https({}, s);
+  assert.equal(s.logins[0].binario, vetada);
+  const antes = process.env.PATH;
+  process.env.PATH = `${doPath}:${antes ?? ''}`;
+  try {
+    const p = https({}, { ...sondasFalsas({ binario: vetada }), rodarCli: undefined });
+    assert.equal((p.fixacao as FixacaoHttps).binario, vetada);
+  } finally { process.env.PATH = antes; }
+  assert.equal(fs.readFileSync(marca('conferida'), 'utf8'), 'auth status --hostname gitlab.empresa.com:8929\n');
+  assert.equal(fs.existsSync(marca('path')), false);
+}));

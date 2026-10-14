@@ -24,6 +24,8 @@ export interface OpcoesDasSondas {
   keyscan?: string; versao?: string; ajuda?: boolean; login?: boolean; binario?: string | null; knownHosts?: string | null;
   /** O que o `auth status` imprime (o gh com porta so vale com a linha do host exato). */
   saidaDoLogin?: string;
+  /** Os known_hosts do sistema (so revogacoes); nos testes, nunca o `/etc` de verdade. */
+  globais?: string[];
 }
 export interface SondasRegistradas extends SondasDoTransporte {
   chamadas: { binario: string; args: readonly string[] }[];
@@ -49,5 +51,6 @@ export function sondasFalsas(o: OpcoesDasSondas = {}): SondasRegistradas {
     acharBinario: () => o.binario ?? null,
     sondas: {},
     knownHostsDoUsuario: o.knownHosts ?? null,
+    knownHostsDoSistema: o.globais ?? [],
   };
 }
