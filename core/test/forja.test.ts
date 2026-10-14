@@ -143,6 +143,12 @@ for (const versao of ['19.4', '17.0']) {
     const apis = cli.chamadas.filter((c) => c.args[0] === 'api');
     assert.equal(apis.length, 4);
     assert.equal(r.leitura.chamadas, 4);
+    // O REST de commits e GET e so le.
+    const rest = apis[3];
+    assert.deepEqual(rest.args.slice(rest.args.indexOf('--method'), rest.args.indexOf('--method') + 2), ['--method', 'GET']);
+    assert.ok(rest.args.some((a) => /^projects\/time%2Fsub%2Fapp\/repository\/commits\?ref_name=[0-9a-f]{40}&since=/.test(a)), rest.args.join(' '));
+    // A branch que nao existe nao entra na consulta dos blobs.
+    assert.doesNotMatch(JSON.parse(apis[2].entrada!).query, /reservas:/);
     for (const c of apis) {
       assert.equal(c.acrescentar?.GITLAB_HOST, '127.0.0.1');
       assert.ok(!c.args.includes('--hostname'));
@@ -162,6 +168,27 @@ for (const versao of ['19.4', '17.0']) {
     assert.deepEqual(l.fabrica!.arquivos, [{ caminho: 'maquinas/vps.json', texto: '{"contrato":"ork.fabrica-maquina/v1"}' }]);
   });
 }
+
+test('forja: a porta da API vem so de remoto https/http fora da porta do esquema, e a de ssh nunca', () => {
+  const chamadasDe = (url: string) => {
+    const id = identidadeDaForja(url)!;
+    const cli = cliFalsa([{ quando: login, responde: okCli('') }, { quando: (c) => c.args.includes('graphql'), responde: http(200, { data: { project: null } }) }]);
+    lerDaForja(id, PEDIDO, undefined, chamadorDaApi({ tipo: 'gitlab', host: id.host, porta: id.porta ?? null, caminhoBase: '', ca: null },
+      { rodar: cli.rodar, logins: new Map() }));
+    return cli.chamadas;
+  };
+  const https = chamadasDe('https://gitlab.exemplo.org:8443/time/sub/app.git');
+  assert.deepEqual(https.find(login)!.args, ['auth', 'status', '--hostname', 'gitlab.exemplo.org:8443']);
+  assert.ok(https.filter((c) => c.args[0] === 'api').every((c) => c.acrescentar?.GITLAB_HOST === 'gitlab.exemplo.org:8443'));
+  assert.equal(identidadeDaForja('https://gitlab.exemplo.org:8443/time/sub/app.git')!.porta, 8443);
+  for (const url of ['ssh://git@gitlab.exemplo.org:2222/time/sub/app.git', 'https://gitlab.exemplo.org:443/time/sub/app.git', 'https://gitlab.exemplo.org/time/sub/app.git']) {
+    assert.equal(identidadeDaForja(url)!.porta, undefined, url);
+    const c = chamadasDe(url);
+    assert.ok(c.filter((x) => x.args[0] === 'api').every((x) => x.acrescentar?.GITLAB_HOST === 'gitlab.exemplo.org'), url);
+  }
+  // O GitHub segue como sempre: so o host.
+  assert.equal(identidadeDaForja('https://github.com:8443/o/r.git')!.porta, undefined);
+});
 
 test('forja: GitLab sem login não faz pedido; projeto sem acesso é forja.nao-achei', () => {
   const sem = cliFalsa([{ quando: login, responde: falhou('x 127.0.0.1 has not been authenticated with glab') }]);

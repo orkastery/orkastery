@@ -9,8 +9,8 @@
  *
  * GitHub responde tudo em UMA consulta: a base com `docs/roadmap`, o manifesto e os commits desde
  * `desde`, e as duas branches de estado, cada parte no commit que a propria consulta devolve.
- * GitLab devolve a mesma leitura por consultas GraphQL e pelo REST de commits; sem `glab` na
- * maquina que construiu, o esquema dele esta provado so com resposta simulada (D4 do PLAN).
+ * GitLab devolve a mesma leitura por consultas GraphQL e pelo REST de commits, pela API da CLI
+ * logada (`forja/api.ts`); o esquema esta provado com as respostas gravadas de um GitLab de verdade.
  *
  * Resposta fora do formato vira erro tipado, nunca lista vazia: quem le nao confunde "nao li" com
  * "nao tem".
@@ -128,7 +128,17 @@ export function repositorioGithubNoHost(url: string): IdentidadeDaForja | null {
 export function identidadeDaForja(url: string): IdentidadeDaForja | null {
   const endereco = enderecoDoRemoto(url);
   const tipo = endereco ? tipoDoHost(endereco.host) : null;
-  return endereco && tipo ? montar(tipo, endereco.host, endereco.caminho) : null;
+  const id = endereco && tipo ? montar(tipo, endereco.host, endereco.caminho) : null;
+  const porta = id?.tipo === 'gitlab' ? portaDaApiNoRemoto(url) : null;
+  return id && porta !== null ? { ...id, porta } : id;
+}
+
+/** A porta da API num remoto https/http, quando nao e a do esquema; a porta de ssh e do ssh e nunca entra. */
+function portaDaApiNoRemoto(url: string): number | null {
+  const lido = lerHostDoRemoto(url);
+  if (!lido || (lido.protocolo !== 'https' && lido.protocolo !== 'http') || lido.porta === null) return null;
+  if (lido.porta < 1 || lido.porta > 65535 || lido.porta === (lido.protocolo === 'https' ? 443 : 80)) return null;
+  return lido.porta;
 }
 
 /** `github:dono/repo`, `gitlab:grupo/sub/repo` (com host proprio: `gitlab:host.tld/grupo/repo`) ou uma URL. */
@@ -146,10 +156,10 @@ export function forjaDoArgumento(texto: string): IdentidadeDaForja | null {
 }
 
 /** Como a forja aparece para gente: `github.com/orkastery/orkastery`. */
-export const rotuloDaForja = (f: IdentidadeDaForja): string => `${f.host}/${f.repo}`;
+export const rotuloDaForja = (f: IdentidadeDaForja): string => `${f.host}${f.porta ? `:${f.porta}` : ''}/${f.repo}`;
 
 export const mesmaForja = (a: IdentidadeDaForja | null, b: IdentidadeDaForja | null): boolean =>
-  !!a && !!b && a.tipo === b.tipo && a.host === b.host && a.repo.toLowerCase() === b.repo.toLowerCase();
+  !!a && !!b && a.tipo === b.tipo && a.host === b.host && (a.porta ?? null) === (b.porta ?? null) && a.repo.toLowerCase() === b.repo.toLowerCase();
 
 // ---------------------------------------------------------------------------
 // Erros
@@ -233,10 +243,7 @@ function chamarJson(executor: ExecutorDaForja, cmd: 'gh' | 'glab', args: string[
   return { ok: true, json };
 }
 
-/**
- * O host vai sempre explicito: sem ele, o `gh` usa `GH_HOST` ou o unico host com login, e o `glab`,
- * o host do remoto do cwd; a consulta iria para outra forja.
- */
+/** So o `gh`: o host vai sempre explicito, ou ele usaria `GH_HOST` ou o unico host com login e a consulta iria para outra forja. */
 const hostnameDe = (f: IdentidadeDaForja): string[] => ['--hostname', f.host];
 
 function arquivosDoGithub(entrada: unknown, dir: string): ArquivoDaForja[] | null {
@@ -276,9 +283,9 @@ function commitsDoHistorico(historico: unknown, onde: string): { commits: Commit
   };
 }
 
-/** A API do GitLab de uma forja lida do remoto ou do argumento: o host, sem porta nem caminho base (o `montar` nao os le). */
+/** A API do GitLab de uma forja lida do remoto ou do argumento: o host e a porta da API, sem caminho base (o `montar` nao o le). */
 const apiDoGitlab = (forja: IdentidadeDaForja): ChamadorDaApi =>
-  chamadorDaApi({ tipo: 'gitlab', host: forja.host, porta: null, caminhoBase: '', ca: null });
+  chamadorDaApi({ tipo: 'gitlab', host: forja.host, porta: forja.porta ?? null, caminhoBase: '', ca: null });
 
 /** Uma consulta GraphQL do GitLab; `errors` no corpo e erro tipado, nunca resposta. */
 function graphqlDoGitlab(api: ChamadorDaApi, query: string, variables: Json): { ok: true; json: unknown } | { ok: false; erro: ErroDaForja } {
