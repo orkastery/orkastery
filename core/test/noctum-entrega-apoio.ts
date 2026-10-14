@@ -162,12 +162,16 @@ export type EstadoDoCheck = 'success' | 'failure' | 'pending' | 'missing' | 'err
 
 /** O check do CI falso: o estado de cada sha, e `missing` para o sha que ele não conhece. */
 export function ciFalso(estados: Record<string, EstadoDoCheck>, chamadas: string[] = []): ExecutorCi {
-  return ({ sha, context }) => {
+  return ({ sha, context, caminho }) => {
+    // A leitura do GitHub pela porta da forja pede também os commit statuses; este CI simulado só publica check-run.
+    if (caminho?.includes('/statuses')) return { ok: true, stdout: '[]', stderr: '', code: 0 };
     chamadas.push(sha);
     const estado = estados[sha] ?? 'missing';
     if (estado === 'erro') return { ok: false, stdout: '', stderr: 'HTTP 502: gateway SIMULADO', code: 1 };
+    // O produtor é o app do Actions: o `ci.produtor` padrão (`github-actions`) só aceita o verde dele.
     const checks = estado === 'missing' ? [] : [{ name: context, status: estado === 'pending' ? 'in_progress' : 'completed',
-      conclusion: estado === 'pending' ? null : estado, html_url: `https://exemplo.invalid/check/${sha.slice(0, 7)}` }];
+      conclusion: estado === 'pending' ? null : estado, html_url: `https://exemplo.invalid/check/${sha.slice(0, 7)}`,
+      app: { slug: 'github-actions' } }];
     return { ok: true, stdout: JSON.stringify({ check_runs: checks }), stderr: '', code: 0 };
   };
 }

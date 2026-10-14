@@ -378,14 +378,15 @@ test('push recusado por non-fast-forward: o detalhe guarda o motivo, sem as linh
   const projeto = projetoTemporario('ship-push-nff', true);
   const outro = fs.mkdtempSync(path.join(path.dirname(projeto.remoto as string), 'ship-push-nff-clone-'));
   try {
-    // Outro clone empurra um commit na base: o push do ship chega atrasado e o remoto recusa (fetch first).
+    // Outro clone empurra um commit na base depois que a worktree da thread nasceu (ela sai da base remota atual): o push
+    // do ship chega atrasado e o remoto recusa (fetch first).
     exec('git', ['clone', '-q', projeto.remoto as string, outro], projeto.dir);
     exec('git', ['config', 'user.email', 'outro@example.com'], outro);
     exec('git', ['config', 'user.name', 'outro'], outro);
     exec('git', ['config', 'commit.gpgsign', 'false'], outro);
+    const { thread } = threadComEntrega(projeto, 'entrega atrasada', 'auto');
     commitar(outro, 'outro.md', '# de outro clone\n', 'outro commit na base');
     assert.equal(exec('git', ['push', '-q', 'origin', 'main'], outro).ok, true);
-    const { thread } = threadComEntrega(projeto, 'entrega atrasada', 'auto');
     const r = ship(projeto.carregado, thread.id, { para: 'main' });
     assert.equal(r.bloqueado, true);
     assert.match(r.detalhe ?? '', /! \[rejected\]\s+main -> main/, r.detalhe);
