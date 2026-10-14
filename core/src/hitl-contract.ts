@@ -1,6 +1,7 @@
 /** D1: contrato de pedido, independente do host. Expiração nunca autoriza. */
 import { MODOS_LEGADOS } from './modos';
 import { Fase, FASES, Modo, ModoLegado, MotivoGate } from './types';
+import { ErroDoCatalogo, msg } from './locale';
 
 export const CONTRATO_HITL = 'ork.hitl/v1' as const;
 export type ProfundidadeHitl = 'resumo' | 'detalhada' | 'profunda';
@@ -330,10 +331,11 @@ function validarComumV2(v: Record<string, unknown>): void {
  * mandou os tres campos nao tinha como saber que o problema era o tamanho.
  */
 function problemaDaLinha(campo: string, v: unknown, teto: number): { ausente: boolean; texto: string } | null {
-  if (typeof v !== 'string' || !v.trim()) return { ausente: true, texto: `falta ${campo}` };
-  if (/[\r\n]/.test(v)) return { ausente: false, texto: `${campo} tem quebra de linha; cada campo é uma linha só` };
-  if (/[\x00-\x08\x0b-\x1f\x7f]/.test(v)) return { ausente: false, texto: `${campo} tem caractere de controle` };
-  if (v.length > teto) return { ausente: false, texto: `${campo} tem ${v.length} caracteres; o teto é ${teto}` };
+  const m = msg().decisao;
+  if (typeof v !== 'string' || !v.trim()) return { ausente: true, texto: m.linhaFalta(campo) };
+  if (/[\r\n]/.test(v)) return { ausente: false, texto: m.linhaQuebrada(campo) };
+  if (/[\x00-\x08\x0b-\x1f\x7f]/.test(v)) return { ausente: false, texto: m.linhaControle(campo) };
+  if (v.length > teto) return { ausente: false, texto: m.linhaLonga(campo, v.length, teto) };
   return null;
 }
 
@@ -352,35 +354,35 @@ export const CAMPOS_DA_DECISAO_NO_MCP: Readonly<Record<string, string>> = Object
 
 /** Troca o nome interno do campo, onde a recusa o cita, pelo nome da superficie. */
 export function recusaNaSuperficie(mensagem: string, nomes: Readonly<Record<string, string>>): string {
-  return mensagem.replace(/(falta |: )(decidido|porque|comoMudar|custoDeReverter\.agora|custoDeReverter\.depois|criterio\.referencia)(?=\)| tem )/g,
+  return mensagem.replace(/(falta |missing |: )(decidido|porque|comoMudar|custoDeReverter\.agora|custoDeReverter\.depois|criterio\.referencia)(?=\)| tem | has )/g,
     (_, antes: string, campo: string) => `${antes}${nomes[campo] ?? campo}`);
 }
 
 function validarDecidido(v: Record<string, unknown>): void {
   for (const campo of CAMPOS_DE_GATE) {
-    if (v[campo] !== undefined) throw new Error(`pedido HITL v2: decisão informada não pode trazer ${campo}`);
+    if (v[campo] !== undefined) throw new ErroDoCatalogo((m) => m.decisao.contratoCampoDeGate(campo));
   }
   for (const campo of ['decidido', 'porque', 'comoMudar'] as const) {
     const problema = problemaDaLinha(campo, v[campo], TETOS_HITL_V2.campoDaDecisao);
-    if (problema?.ausente) throw new Error(`pedido HITL v2: decisão informada exige o que foi decidido, o porquê e como mudar (${problema.texto})`);
-    if (problema) throw new Error(`pedido HITL v2: decisão informada: ${problema.texto}`);
+    if (problema?.ausente) throw new ErroDoCatalogo((m) => m.decisao.contratoCamposObrigatorios(problema.texto));
+    if (problema) throw new ErroDoCatalogo((m) => m.decisao.contratoCampoInvalido(problema.texto));
   }
   const custo = v.custoDeReverter;
   const problemasDoCusto = (['agora', 'depois'] as const)
     .map(lado => problemaDaLinha(`custoDeReverter.${lado}`, objeto(custo) ? custo[lado] : undefined, TETOS_HITL_V2.custo));
   if (problemasDoCusto.some(p => p?.ausente)) {
-    throw new Error('pedido HITL v2: custo de reverter exige agora e depois, os dois presentes');
+    throw new ErroDoCatalogo((m) => m.decisao.contratoCustoObrigatorio);
   }
   const doCusto = problemasDoCusto.find(p => p !== null);
-  if (doCusto) throw new Error(`pedido HITL v2: custo de reverter: ${doCusto.texto}`);
+  if (doCusto) throw new ErroDoCatalogo((m) => m.decisao.contratoCustoInvalido(doCusto.texto));
   const criterio = v.criterio;
   const daReferencia = objeto(criterio) ? problemaDaLinha('criterio.referencia', criterio.referencia, 300) : null;
   if (!objeto(criterio) || !['manifesto', 'ledger', 'medicao'].includes(criterio.tipo as string) || daReferencia?.ausente) {
-    throw new Error('pedido HITL v2: decisão informada exige critério citado e resolvível');
+    throw new ErroDoCatalogo((m) => m.decisao.contratoCriterioObrigatorio);
   }
-  if (daReferencia) throw new Error(`pedido HITL v2: critério: ${daReferencia.texto}`);
+  if (daReferencia) throw new ErroDoCatalogo((m) => m.decisao.contratoCriterioInvalido(daReferencia.texto));
   // R1, porta fechada: ato irreversivel nunca se qualifica como decisao informada.
-  if (v.irreversivel === true) throw new Error('pedido HITL v2: ato irreversível nunca é decisão informada');
+  if (v.irreversivel === true) throw new ErroDoCatalogo((m) => m.decisao.contratoIrreversivel);
 }
 
 function validarAlternativas(v: Record<string, unknown>): void {

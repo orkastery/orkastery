@@ -34,6 +34,7 @@ import { dirThread, listarIds, lerThread } from './thread';
 import { EventoLedger } from './types';
 import { exigirModoVivo } from './modos';
 import { canalDoProcesso, ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO, identidadeDoAmbiente } from './conducao';
+import { ErroDoCatalogo } from './locale';
 
 export const CONTRATO_DECISAO_AUTONOMA = 'ork.decisao-autonoma/v1' as const;
 
@@ -131,7 +132,7 @@ export interface EntradaDaDecisao {
  */
 export function registrarDecisao(raiz: string, threadId: string, entrada: EntradaDaDecisao): { pedido: DecisaoInformada; evento: EventoLedger } {
   const t = lerThread(raiz, threadId);
-  if (t.status === 'fechada') throw new Error('decisão informada: thread fechada não decide mais nada');
+  if (t.status === 'fechada') throw new ErroDoCatalogo((m) => m.decisao.threadFechada);
   const quando = entrada.quando ?? new Date().toISOString();
   // I-43: thread em modo aposentado e lida para sempre, mas nao escreve pedido novo.
   const modo = exigirModoVivo(t.modo);
@@ -145,16 +146,16 @@ export function registrarDecisao(raiz: string, threadId: string, entrada: Entrad
   validarPedidoHitlV2(pedido);
   // R1, camada 1: criterio que aponta para nada vale o mesmo que criterio ausente.
   const { resolve, detalhe } = resolverCriterio(raiz, pedido);
-  if (!resolve) throw new Error(`decisão informada: critério não resolve (${detalhe})`);
+  if (!resolve) throw new ErroDoCatalogo((m) => m.decisao.criterioNaoResolve(detalhe));
   const rastro: RastroDaDecisao = { quemDecidiu: entrada.quemDecidiu, evidencia: entrada.evidencia, razao: entrada.razao ?? entrada.porque };
   // O registro confere os tres de novo; conferir aqui evita tomar o lock para recusar.
   exigirRastroDeDecisaoAutonoma(rastro as unknown as Record<string, unknown>);
   return comLockHitl(raiz, t.id, () => {
     const agora = lerThread(raiz, t.id), dir = dirThread(raiz, t.id);
-    if (agora.status === 'fechada' || agora.faseAtual !== pedido.fase) throw new Error('decisão informada: a fase mudou enquanto ela era registrada');
+    if (agora.status === 'fechada' || agora.faseAtual !== pedido.fase) throw new ErroDoCatalogo((m) => m.decisao.faseMudou);
     if (entrada.reverte && !lerLedger(dir).some(e => e.tipo === TIPOS_DE_EVENTO.decisaoAutonoma &&
         (e.pedido as { id?: string } | undefined)?.id === entrada.reverte)) {
-      throw new Error('decisão informada: a decisão revertida não existe nesta thread');
+      throw new ErroDoCatalogo((m) => m.decisao.revertidaNaoExiste);
     }
     const evento = registrar(dir, t.id, TIPOS_DE_EVENTO.decisaoAutonoma, {
       contratoDecisao: CONTRATO_DECISAO_AUTONOMA, fase: pedido.fase, decisao: pedido.decidido, ...rastro,

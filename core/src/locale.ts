@@ -99,8 +99,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   // F3b (D1): o resto do CLI, na ordem do pedido.
   'thread list', 'thread close', 'thread entrega', 'worktree ensure', 'worktree sync', 'worktree audit', 'worktree release', 'worktree ?',
   'claims add', 'claims conferir', 'claims verificar', 'claims retirar', 'claims ausente', 'claims list', 'claims ?',
-  // G5: `decisao registrar` segue em pt-BR (as recusas sao do contrato HITL v2).
-  'decisao placar', 'decisao ?',
+  'decisao registrar', 'decisao placar', 'decisao ?',
   'accounts list', 'accounts add', 'accounts remove', 'accounts check', 'accounts esgotamentos', 'accounts ?',
   // G6: `network roadmap` segue em pt-BR (o texto e contrato com os hosts e com a prova de ativacao).
   'network status', 'network entrar', 'network sair', 'network publicar', 'network ?',
