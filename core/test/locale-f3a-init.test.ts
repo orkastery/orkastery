@@ -22,6 +22,8 @@ const FIXTURE = path.resolve(__dirname, '../../test/fixtures/locale-f3a-pt-BR.js
 const snapshot = (): Record<string, string> => JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string>;
 const C = { LANG: 'C.UTF-8' };
 const ES = { LANG: 'es_ES.UTF-8' };
+const GITIGNORE_PT_BR = '# Criado pelo ork: esta pasta é da máquina, não do repositório.\n*\n';
+const GITIGNORE_EN = '# Created by ork: this folder belongs to the machine, not the repository.\n*\n';
 
 /** O YAML sem as linhas de comentario: o dado que o nucleo le. */
 const semComentarios = (yaml: string): string => yaml.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
@@ -60,6 +62,7 @@ test('locale F3a init: com LANG ingles, o orkastery.yaml sai com os comentarios 
     const carregado = carregarManifesto(c.dir);
     assert.ok(carregado && carregado.erros.length === 0, 'o manifesto em ingles carrega sem erro');
     confereAgentsIngles(ler(c.dir, 'AGENTS.md'));
+    assert.equal(ler(c.dir, '.orkastery/.gitignore'), GITIGNORE_EN);
   } finally { c.limpar(); }
 });
 
@@ -87,6 +90,7 @@ test('locale F3a init (negativo): C.UTF-8, es_ES.UTF-8 e owner.language pt-BR co
       assert.equal(ork(c, locale, false, 'init', '--name', 'loja', '--abbrev', 'loj').status, 0, nome);
       assert.equal(ler(c.dir, 'orkastery.yaml'), s['cli: ork init, orkastery.yaml'], `${nome}: yaml`);
       assert.equal(ler(c.dir, 'AGENTS.md'), s['cli: ork init, AGENTS.md'], `${nome}: AGENTS.md`);
+      assert.equal(ler(c.dir, '.orkastery/.gitignore'), GITIGNORE_PT_BR, `${nome}: gitignore`);
     } finally { c.limpar(); }
   }
   const c = cenario('f3a-init-pt-owner', false);
@@ -99,6 +103,7 @@ test('locale F3a init (negativo): C.UTF-8, es_ES.UTF-8 e owner.language pt-BR co
     assert.match(r.stdout, /^Manifesto criado: /);
     assert.equal(ler(c.dir, 'orkastery.yaml'), s['cli: ork init, orkastery.yaml']);
     assert.equal(ler(c.dir, 'AGENTS.md'), s['cli: ork init, AGENTS.md']);
+    assert.equal(ler(c.dir, '.orkastery/.gitignore'), GITIGNORE_PT_BR);
   } finally { c.limpar(); }
 });
 
