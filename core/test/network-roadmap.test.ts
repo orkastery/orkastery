@@ -11,13 +11,13 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { entregasNaBase, publicarMaquina } from '../src/fabrica-estado';
-import { ExecutorDaForja, SaidaDoExecutor } from '../src/forja';
+import { ExecutorDaForja, identidadeDaForja, mesmaForja, SaidaDoExecutor } from '../src/forja';
 import { definirFusoDoDono } from '../src/horario';
 import { registrar } from '../src/ledger';
 import { exigirManifesto } from '../src/manifest';
 import { init } from '../src/init';
 import { main } from '../src/index';
-import { CONTRATO_PANORAMA_DA_REDE, ErroDoPedidoDeProjeto, LacunaDaRede, montarPanoramaDaRede, PanoramaDaRede,
+import { CONTRATO_PANORAMA_DA_REDE, ErroDoPedidoDeProjeto, resolverProjeto, LacunaDaRede, montarPanoramaDaRede, PanoramaDaRede,
   textoDoPanoramaDaRede } from '../src/network-roadmap';
 import { pegarItem } from '../src/roadmap-reservas';
 import { montarStatusDoRoadmap } from '../src/roadmap-status';
@@ -690,4 +690,15 @@ test('rede: espera voce igual no roadmap e nas maquinas', () => {
     const q = montarPanoramaDaRede({ cwd: r.a, quando: QUANDO, maquina: 'pc-a', registro: r.registro });
     assert.deepEqual([esperaNaMaquina(q).esperaVoce, esperaNaMaquina(q).pergunta], [true, 'Qual é o veredito sobre objetivo?']);
   } finally { r.limpar(); }
+});
+
+test('rede: o repo GitLab por ssh, por https com porta e por `gitlab:host/g/r` e o mesmo projeto, e a leitura segue na porta do conhecido', () => {
+  const https = identidadeDaForja('https://gitlab.exemplo.org:8443/g/r.git')!, ssh = identidadeDaForja('ssh://git@gitlab.exemplo.org:2222/g/r.git')!;
+  assert.equal(https.porta, 8443);
+  assert.equal(ssh.porta, undefined);
+  assert.ok(mesmaForja(ssh, https) && mesmaForja(https, ssh));
+  const conhecido = { nome: 'r', forja: https, raiz: null, base: null, remoto: 'origin', origem: 'registro' as const };
+  const r = resolverProjeto('gitlab:gitlab.exemplo.org/g/r', [conhecido]);
+  assert.equal(r.forja?.porta, 8443, 'a identidade lida e a do projeto conhecido, com a porta');
+  assert.equal(r.origem, 'argumento');
 });

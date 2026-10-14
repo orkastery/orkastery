@@ -158,8 +158,9 @@ export function forjaDoArgumento(texto: string): IdentidadeDaForja | null {
 /** Como a forja aparece para gente: `github.com/orkastery/orkastery`. */
 export const rotuloDaForja = (f: IdentidadeDaForja): string => `${f.host}${f.porta ? `:${f.porta}` : ''}/${f.repo}`;
 
+/** O mesmo repositorio: tipo, host e repo. A porta da API nao entra, senao o mesmo repo por ssh, https e `gitlab:host/g/r` nao casaria. */
 export const mesmaForja = (a: IdentidadeDaForja | null, b: IdentidadeDaForja | null): boolean =>
-  !!a && !!b && a.tipo === b.tipo && a.host === b.host && (a.porta ?? null) === (b.porta ?? null) && a.repo.toLowerCase() === b.repo.toLowerCase();
+  !!a && !!b && a.tipo === b.tipo && a.host === b.host && a.repo.toLowerCase() === b.repo.toLowerCase();
 
 // ---------------------------------------------------------------------------
 // Erros
