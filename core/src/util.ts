@@ -15,6 +15,9 @@ export interface ResultadoExec {
   error?: string;
 }
 
+/** Saidas de build e teste podem passar do teto padrao de 1 MiB do `spawnSync`. */
+const MAX_BUFFER_EXEC = 64 * 1024 * 1024;
+
 /** Executa um comando capturando saida, sem shell (argumentos vao como array). */
 export function exec(cmd: string, args: string[], cwd?: string, timeoutMs = 120000,
   env: NodeJS.ProcessEnv = process.env): ResultadoExec {
@@ -23,6 +26,7 @@ export function exec(cmd: string, args: string[], cwd?: string, timeoutMs = 1200
     encoding: 'utf8',
     timeout: timeoutMs,
     env,
+    maxBuffer: MAX_BUFFER_EXEC,
   });
   return {
     ok: r.status === 0,

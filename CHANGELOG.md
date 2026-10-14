@@ -168,6 +168,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Saída completa no `ork verify`** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): comandos de
+  verificação que escrevem mais de 1 MiB não são mais interrompidos pelo limite padrão do Node; falhas continuam
+  mostrando o trecho final da saída.
 - **O install não leva o cache do Python** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md)): o `ork adapter
   install` a partir de um checkout copiava, e punha no recibo, o `__pycache__` e os `*.pyc` que o Python deixa nas pastas
   do adaptador depois de rodar os testes dele; agora eles ficam de fora, como já ficavam no hash do runtime.
