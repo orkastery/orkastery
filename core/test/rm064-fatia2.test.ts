@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { projetoTemporario } from './apoio';
-import { hashDoPrompt } from '../src/phase';
+import { hashDoPrompt, montarPrompt } from '../src/phase';
 import { prepararPromptDeRetomada } from '../src/retomada-checkpoint';
 import { dirThread, novaThread } from '../src/thread';
 import { diretorioDoTrabalho, LIMITE_DE_ARQUIVO_DO_TRABALHO } from '../src/trabalho-thread';
@@ -35,5 +35,15 @@ test('RM-064 T4: retomada recebe caminho e inventário pequeno sem copiar job gr
     assert.match(retomada.prompt, /seguranca\.md/);
     assert.doesNotMatch(retomada.prompt, /copia-do-job\.bin/);
     assert.doesNotMatch(retomada.prompt, /fora\.link/);
+  } finally { p.limpar(); }
+});
+
+test('RM-064 T4 prompt: toda fase entrega a pasta de trabalho retomável da thread', () => {
+  const p = projetoTemporario('rm064-t4-prompt');
+  try {
+    const t = novaThread(p.carregado, { nome: 'prompt do trabalho', modo: 'auto' }).thread;
+    const prompt = montarPrompt(t, 'GOAL', 'defina o objetivo', p.dir);
+    assert.match(prompt, new RegExp(`trabalho retomavel: \\.orkastery/threads/${t.id}/trabalho/`));
+    assert.match(prompt, /rascunhos de check e PR, pareceres e listas de prova/);
   } finally { p.limpar(); }
 });
