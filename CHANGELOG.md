@@ -34,8 +34,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   processos separados, sobre um remoto de fixture, prova o aceite da tabela, inclusive o vencedor por item pela
   reserva e a disputa da última vaga global. Nada chama a coordenação ainda: o tique da N6 chama o passo da N2, que,
   com o envelope `v3`, espera o passo da máquina, a entrega da N5 bloqueia fora da `v2`, e nenhum comando grava no
-  ramo. O arco que a N6 encerrou nesta máquina recusa o que começa (`noctum.efeito.encerrado`), e a vaga global com
-  teto fora de sessões recusa, porque a soma entre máquinas só mede sessões.
+  ramo. O arco que a N6 encerrou nesta máquina recusa o que começa (`noctum.efeito.encerrado`), recusa as ordens que
+  chegam e para de bater, e a vaga global com teto fora de sessões recusa, porque a soma entre máquinas só mede sessões;
+  a emenda não troca o contrato entre a `v3` e as outras.
 - **#Noctum, fatia N4: supervisão e recuperação** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
   `core/src/noctum-supervisao.ts` guarda os checkpoints da supervisão do arco num log próprio, encadeado e assinado
   (`ork.noctum-supervisao/v1`), com os parâmetros na primeira linha: reiniciar o condutor ou o vigia, trocar de conta ou
