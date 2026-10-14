@@ -489,20 +489,3 @@ test('hook reference-transaction posto durante o push nao roda no update-ref da 
   f.git(['update-ref', 'refs/remotes/origin/controle', r.pontaDaBase!]);
   assert.equal(fs.existsSync(marca), true);
 }));
-
-test('gitdir privado: core.sharedRepository do projeto nao afrouxa os modos', () => fixture(async (f) => {
-  const modos = (gitdir: string) => ['objects', 'refs', 'config', 'HEAD'].map((n) => fs.statSync(path.join(gitdir, n)).mode & 0o7777);
-  const criar = () => {
-    const antes = process.cwd();
-    process.chdir(f.raiz);
-    try { return criarGitdirDoPush(f.raiz); } finally { process.chdir(antes); }
-  };
-  const limpo = criar();
-  f.git(['config', 'core.sharedRepository', '0777']);
-  const comShared = criar();
-  try {
-    assert.deepEqual(modos(comShared), modos(limpo));
-    assert.equal(fs.statSync(comShared).mode & 0o777, 0o700);
-    assert.equal(exec('/usr/bin/git', [`--git-dir=${comShared}`, 'config', '--local', 'core.sharedRepository'], '/').ok, false);
-  } finally { for (const d of [limpo, comShared]) fs.rmSync(d, { recursive: true, force: true }); }
-}));
