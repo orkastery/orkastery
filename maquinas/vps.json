@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-14T04:19:36.924Z",
+  "publicadoEm": "2026-10-14T04:30:02.539Z",
   "threads": [
     {
       "id": "ork-rm037instav",
@@ -93,24 +93,6 @@
         "desdeEm": null,
         "motivo": null
       }
-    },
-    {
-      "id": "ork-verifybuffer",
-      "nome": "verifybuffer",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-verifybuffer-go",
-      "atualizadaEm": "2026-10-14T03:28:54.766Z",
-      "entregue": "927f9daf",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
     }
   ]
 }
