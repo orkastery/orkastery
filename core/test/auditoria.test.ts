@@ -425,7 +425,7 @@ test('o relatorio sempre traz o bloco obrigatorio de propostas, com achado ou se
   assert.ok(fs.existsSync(r.caminho));
 });
 
-test('ork thread new --from-finding abre a thread com evidencia, claim e proposta', (t) => {
+test('achado sustentado abre a thread com evidencia, claim e proposta', (t) => {
   const p = projetoNoEstagio('b5-fromfinding', 'nascente');
   t.after(p.limpar);
   commitar(p.dir, 'src/dupe.ts', 'export const a = 1;\nexport const a2 = 1;\n', 'duplicacao');
@@ -496,6 +496,26 @@ test('ork thread new --from-finding abre a thread com evidencia, claim e propost
   assert.equal(denovo.motivo, 'achado.ja-virou-thread');
   assert.equal(lerBoard(p.dir)[0].estado, 'virou-thread');
   assert.equal(lerBoard(p.dir)[0].thread, thread.id);
+});
+
+test('ork thread new --from-finding abre em dry-run ingles sem gravar a thread', (t) => {
+  const p = projetoNoEstagio('b5-fromfinding-locale', 'nascente');
+  t.after(p.limpar);
+  const rodada = rodarAuditoria(p.carregado, 'reuse', { quando: MADRUGADA, dryRun: true });
+  const achado = registrarAchadoDaRodada(p.carregado, rodada.id, {
+    regra: 'RU1', severidade: 'maior', titulo: 'duplicated helper', arquivo: 'src/dupe.ts:2',
+    alegacao: 'src/dupe.ts declares the value twice', verificar: ['true'], impacto: 'two sources of truth',
+    fix: 'keep one constant', irreversivel: 'none', estimativa: '1h',
+  });
+  carimbarAchado(p.dir, achado, { claim: { ...achado.claim, estado: 'verificado' } });
+  const antes = fs.readdirSync(path.join(p.dir, '.orkastery', 'threads')).sort();
+  const r = comLocale('en', () => abrirThreadDoAchado(p.carregado, achado.id, { modo: 'classic', dryRun: true }));
+  assert.equal(r.ok, true);
+  assert.equal((r.thread as { nome: string }).nome, 'duplicated helper');
+  assert.match(r.pedido, /^Audit finding F1 \(pack reuse, rule RU1, severity maior\)\./);
+  assert.match(r.pedido, /Adjustment proposed by the audit run:[\s\S]*suggested fix keep one constant/);
+  assert.equal(r.detalhe, 'dry run: no thread or board stamp was written');
+  assert.deepEqual(fs.readdirSync(path.join(p.dir, '.orkastery', 'threads')).sort(), antes);
 });
 
 test('board de divida: ingestao em lote e a regra mecanica de recorrencia', (t) => {

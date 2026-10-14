@@ -3221,15 +3221,18 @@ function comandoPrompt(args: Args): number {
   const carregado = carregarManifesto();
   const raiz = carregado?.raiz;
   const mp = msg().prompts.cli;
+  const templatesDoLocale = () => carregarTemplates(raiz).filter(
+    (t) => localeAtivo() === 'en' ? t.id.endsWith('.en') : !t.id.endsWith('.en')
+  );
 
   if (sub === 'list') {
-    console.log(tabelaDeTemplates(carregarTemplates(raiz)));
+    console.log(tabelaDeTemplates(templatesDoLocale()));
     return 0;
   }
 
   if (sub === 'lint') {
     const id = texto(args.opcoes.template);
-    const templates = id ? [exigirTemplate(id, raiz)] : carregarTemplates(raiz);
+    const templates = id ? [exigirTemplate(id, raiz)] : templatesDoLocale();
     const problemas: ProblemaDeTemplate[] = templates.flatMap((t) => lintTemplate(t));
     console.log(mp.lintTitulo(raiz ?? null));
     console.log('');
