@@ -18,7 +18,7 @@ import * as path from 'node:path';
 import { chamarApi, MetodoHttp, OpcoesDaApi, RespostaDaApi, RodarCli } from './forja/api';
 import type { AlvoDaCli } from './forja/cli';
 import type { DonoDaRede, ErroDaForja, Resultado } from './forja/contrato';
-import { rodarCli } from './forja/executor';
+import { ambienteReduzido, rodarCli } from './forja/executor';
 import { projetoNaApi } from './forja/gitlab/pedidos';
 import { redigirCredenciaisUrl } from './redacao-url';
 import { ErroDoCatalogo, montadorDe, textoDoCatalogo } from './locale';
@@ -256,22 +256,21 @@ function hostDoGitlab(amb: AmbienteDaMaquina): string {
  * O que a casa da rede ainda nao suporta no GitLab da maquina: o `rede.json` guarda so `host[:porta]`, entao um GitLab em
  * subcaminho (`https://host/gitlab`) ou com CA propria (`GLAB_CA_CERT`) nao teria como ser lembrado em outra maquina.
  */
-export function gitlabSemSuporteNaRede(amb: AmbienteDaMaquina): 'subcaminho' | 'ca' | null {
+export function gitlabSemSuporteNaRede(amb: AmbienteDaMaquina, host: string = hostDoGitlab(amb)): 'subcaminho' | 'ca' | null {
   const env = ambienteDe(amb);
   const bruto = (env.GITLAB_HOST ?? '').trim().replace(/^https?:\/\//, '');
-  if (/^[^/]+\/+[^/]/.test(bruto)) return 'subcaminho';
-  if ((env.GLAB_CA_CERT ?? '').trim() && hostDoGitlab(amb) !== 'gitlab.com') return 'ca';
+  // So o subcaminho do proprio host da casa conta: o `GITLAB_HOST` do terminal pode ser de outra instancia.
+  const subcaminho = /^([^/]+)\/+[^/]/.exec(bruto);
+  if (subcaminho && subcaminho[1].toLowerCase() === host.toLowerCase()) return 'subcaminho';
+  if ((env.GLAB_CA_CERT ?? '').trim() && host !== 'gitlab.com') return 'ca';
   return null;
 }
 
 /** O `rodarCli` com o ambiente e o PATH da maquina da rede (o cron tem outro ambiente que o terminal). */
 const rodarNaMaquina = (amb: AmbienteDaMaquina): RodarCli => (c) => {
   if (!amb.env) return rodarCli(c);
-  const env = amb.env, acrescentar = c.acrescentar ?? {};
-  // O que a maquina da rede tem entra no processo, e o que so o `ork` tem fica de fora; o que a chamada acrescenta vale mais.
-  const dele = Object.fromEntries(Object.entries(env).filter((e): e is [string, string] => typeof e[1] === 'string'));
-  const apagar = [...(c.apagar ?? []), ...Object.keys(process.env).filter((k) => !(k in env) && !(k in acrescentar))];
-  return rodarCli({ ...c, acrescentar: { ...dele, ...acrescentar }, apagar: apagar.filter((k) => !(k in acrescentar)) });
+  // O ambiente da maquina da rede no lugar do do `ork`, e reduzido como o do `ork` seria: so o que a CLI le chega a ela.
+  return rodarCli({ ...c, base: c.reduzido ? ambienteReduzido(amb.env) : amb.env });
 };
 
 /** `host` ou `host:porta` da casa como alvo da API; a rede nao guarda caminho base nem CA. */

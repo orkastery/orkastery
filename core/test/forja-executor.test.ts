@@ -61,3 +61,15 @@ test('ghPadrao mapeia erro de spawn para stderr com a mensagem do erro', () => {
     if (extra === undefined) delete process.env.ORK_BINARIOS_EXTRA; else process.env.ORK_BINARIOS_EXTRA = extra;
   }
 });
+
+test('rodarCli com base: o ambiente dado no lugar do do ork, mais o acrescentado, menos o apagado', () => {
+  const r = rodarCli({ cmd: 'gh', binario: process.execPath, args: ['-e', 'process.stdout.write(JSON.stringify(process.env))'],
+    base: { PATH: '/usr/bin:/bin', SO_DA_BASE: '1', APAGADA: 'x' }, acrescentar: { ACRESCENTADA: '2' }, apagar: ['APAGADA'], reduzido: true,
+    prazoMs: 20000, maxBuffer: 1024 * 1024 });
+  assert.equal(r.status, 0, r.stderr);
+  const env = JSON.parse(r.stdout) as Record<string, string>;
+  assert.equal(env.SO_DA_BASE, '1');
+  assert.equal(env.ACRESCENTADA, '2');
+  assert.equal(env.APAGADA, undefined);
+  assert.equal(env.HOME, undefined, 'nada do ambiente do ork entra');
+});

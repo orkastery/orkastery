@@ -500,7 +500,9 @@ function lerRetratos(cache: string, ponta: string | null): { retratos: RetratoDa
 // ---------------------------------------------------------------------------
 
 export function dirDoCache(casa: Pick<CasaDaRede, 'forja' | 'host' | 'dono' | 'repositorio'>): string {
-  return path.join(pastaDaRede(), `${casa.forja}-${casa.host}-${casa.dono}-${casa.repositorio}`.replace(/[^A-Za-z0-9._-]+/g, '-'));
+  const nome = `${casa.forja}-${casa.host}-${casa.dono}-${casa.repositorio}`.replace(/[^A-Za-z0-9._-]+/g, '-');
+  // O dono com subgrupo (`time/sub`) leva um resumo curto, para nao cair na pasta do dono `time-sub`; sem subgrupo, o nome de sempre.
+  return path.join(pastaDaRede(), casa.dono.includes('/') ? `${nome}-${createHash('sha256').update(casa.dono).digest('hex').slice(0, 8)}` : nome);
 }
 
 /** O cache ja foi criado? */
@@ -627,7 +629,7 @@ function casaConferida(opcoes: OpcoesDaCasa & { criar?: boolean }): CasaConferid
     const detalhe = r.motivo ? montadorDe(r.motivo.detalhe) : null;
     throw new ErroDoCatalogo((m) => m.network.semForja(detalhe === null ? null : detalhe(m)));
   }
-  const semSuporte = r.forja.nome === 'gitlab' ? gitlabSemSuporteNaRede(opcoes.amb ?? {}) : null;
+  const semSuporte = r.forja.nome === 'gitlab' ? gitlabSemSuporteNaRede(opcoes.amb ?? {}, r.forja.host) : null;
   if (semSuporte) throw new ErroDoCatalogo((m) => m.network.gitlabNaoSuportado(semSuporte));
   let repo = r.forja.repositorio(r.casa.dono, r.casa.repositorio);
   let criado = false;
