@@ -592,7 +592,7 @@ waiting (RM-058).
 | `ork licoes [--json]` | What comes back in the GOAL and PLAN of the next thread (POSTMORTEM and MASTER) and the policy proposals by recurrence (I-55), saying which ones are already executable (RM-008, slice 3) |
 | `ork ci prepare <thread>` | Exports the claims and the manifest commands to `.ork-ci/<thread>.json` in the thread's worktree, with its branch (from the root or from the worktree, the file goes to the thread's branch), which the CI runner re-runs; refuses a claim that runs the whole npm suite and warns about an intermediate SHA and the commit count (I-53) |
 | `ork ci run [<thread>] [--bundle ARQ] [--branch B]` | Runs the CHECK on the independent runner; with `--branch`, finds the thread's bundle by the branch name, fails an `ork/*` branch without a bundle and, outside a thread, runs only the manifest commands (RM-037) |
-| `ork ci status [--sha SHA] [--remoto origin]` | Queries the exact check published on GitHub for the SHA, on the forge resolved by the `forja:` block, the known host or the probe of a logged-in CLI; only a producer in `ci.produtor` approves (`github-actions` by default) |
+| `ork ci status [--sha SHA] [--remoto origin]` | Queries the exact check published on GitHub or GitLab for the SHA, on the forge resolved by the `forja:` block, the known host or the probe of a logged-in CLI; only a producer in `ci.produtor` approves (`github-actions` by default) |
 
 ---
 

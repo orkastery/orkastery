@@ -8,10 +8,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **O gate de CI lê o GitLab**: `ork ci status` e o gate do `ork ship` leem a CI pela forja resolvida. Só o job que
+  está na lista de jobs da pipeline do projeto conta como produtor `gitlab-ci`; um status criado por `POST /statuses`
+  conta só como `status:<login>` e só aprova se estiver em `ci.produtor`. Abaixo do GitLab 17.0 a consulta é recusada, e
+  o resultado mesclado sem vínculo com o head falha fechado (`ci.merged-results-sem-vinculo`). O `ork ci status --json`
+  passa a `ork.ci-status/v2` (`provider`, `fonte`, `produtor`); a v1 continua lida. Traz o modelo
+  `templates/gitlab/ork-verify.yml` e o CI/CD Component `templates/ork-verify/template.yml`; as `workflow:rules` ficam
+  no `.gitlab-ci.yml` do projeto. Contrato em [`docs/referencia/contratos/forja.md`](docs/referencia/contratos/forja.md).
 - **Identidade, endereço e versão da forja**: o `orkastery.yaml` aceita o bloco opcional `forja:` (`tipo`, `host`,
   `porta`, `caminho_base`, `ssh_host`, `ssh_porta`, `ca`) e o `ci.produtor`; sem eles, o manifesto lê como antes. A
-  forja do remoto é resolvida pelo manifesto, pelo host conhecido ou pela sondagem só da CLI com login no host (`gh
-  api meta`, `glab api metadata`), nunca pelo nome do host; sem resposta, `forja.desconhecida`, e com duas,
+  forja do remoto é resolvida pelo manifesto, pelo host conhecido ou pela sondagem só da CLI com login no host
+  (`gh api meta`, `glab api metadata`), nunca pelo nome do host; sem resposta, `forja.desconhecida`, e com duas,
   `forja.ambigua`. A API da forja passa por uma chamada só, com o host explícito (`GITLAB_HOST` sempre no `glab`;
   `GH_HOST` no `gh`, só quando há porta; o subcaminho só vai no login), o corpo pelo stdin, os erros tipados pelo
   status HTTP, uma espera do limite de cota ou secundário numa leitura (até 60 s) e a paginação com teto de 10

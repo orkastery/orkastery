@@ -21,9 +21,10 @@ Valor fora da forma é erro do manifesto. O manifesto confirma o remoto, nunca o
 
 - o `host` declarado difere do host do remoto;
 - há `porta` declarada e o remoto é de host conhecido (`github.com`, `gitlab.com`), ou é web sem porta explícita ou
-  com a porta padrão (443 ou 80): qualquer `porta` declarada é recusada, até a 443 ou a 80. Num remoto web com
-  porta explícita fora do padrão, a `porta` declarada tem de ser igual a ela. Para remoto SSH, vale a regra do SSH em
-  outro host, abaixo;
+  com a porta padrão do protocolo (443 em https, 80 em http): qualquer `porta` declarada é recusada, até a padrão. Num remoto web com
+  porta explícita fora do padrão, a `porta` declarada tem de ser igual a ela. Num remoto SSH (`ssh://` ou `scp`) em
+  outro host, a `porta` declarada vale para a web e a API: a porta do SSH não diz nada sobre a porta da web, e por isso
+  não restringe a `porta` do manifesto;
 - o remoto é web e o `caminho_base` não é prefixo do caminho dele, ou não sobra `dono/repo` depois dele;
 - o `tipo` contradiz um host conhecido (`tipo: gitlab` em `github.com`);
 - o remoto está em host conhecido (`github.com`, `gitlab.com` e os apelidos SSH): ele nunca é redirecionado, e o
@@ -48,6 +49,7 @@ resposta da sondagem fica em cache por 24 h em `.orkastery/cache/`.
 Lista de quem pode publicar o `ork-verify`. Padrão: `github-actions` no GitHub, `gitlab-ci` no GitLab.
 
 - check-run: o slug do app (`github-actions`, `circleci`);
+- job de pipeline do GitLab: `gitlab-ci`;
 - commit status: a conta de um app (`github-actions[bot]`) vale pelo slug; outra conta só com `status:<login>`;
 - verde de produtor fora da lista não aprova; vermelho, pendente ou bloqueado de qualquer produtor reprova ou espera.
 
@@ -58,6 +60,32 @@ declara a lista em `ci.produtor`.
 uma um slug de app, um nome de job ou `status:<login>` (letras, dígitos, `_`, `.` e `-`, até 100 caracteres, começando
 por letra ou dígito); repetidas contam uma vez. Lista vazia, com mais de 20 ou com entrada inválida é erro do
 manifesto: nunca se adivinha quem aprova.
+
+## A CI no GitLab
+
+`ork ci status` e o gate do `ork ship` leem a CI pela forja resolvida (o mesmo resolvedor do restante do contrato). O `ork-verify` é um job da pipeline do projeto, e o `ork` o lê pela API: os commit
+statuses do commit, filtrados pelo `ci.context`, conferidos contra a lista de jobs da pipeline do projeto.
+
+- **Só o job real é `gitlab-ci`.** Um status conta como produtor `gitlab-ci` apenas se o id, o nome e a pipeline dele
+  estão na lista de jobs da pipeline do projeto.
+- **Status avulso não aprova sozinho.** Um status criado por `POST /statuses` (que vira um job `external`, fora da
+  lista de jobs) conta só como `status:<login>`, o login de quem o criou, e só aprova se esse produtor estiver em
+  `ci.produtor`. Assim ninguém forja o `ork-verify` com um `POST /statuses` de nome igual.
+- **Piso.** Abaixo do GitLab 17.0 a consulta é recusada (`forja.versao-abaixo-do-piso`).
+- **Resultado mesclado e merge train** (Premium): o job roda num commit temporário, não no head do MR. O `ork` liga a
+  pipeline ao head pelo pai desse commit. Sem esse vínculo (por exemplo, merge train com squash), o check nunca aprova:
+  a consulta responde `ci.merged-results-sem-vinculo` (falha fechada). Vermelho e pendente continuam valendo.
+- **Falha fechada:** erro de leitura, página a mais ou item fora do esquema deixam a
+  consulta indisponível, nunca verde.
+
+O job do `ork-verify` vai pelo modelo `templates/gitlab/ork-verify.yml` (copie para o projeto e use `include: local`)
+ou pelo CI/CD Component `templates/ork-verify/template.yml` (GitLab 17.0 ou mais novo, com o repositório do Orkastery
+espelhado na instância). Os dois rodam `ork ci run --branch` com a branch do MR e não usam token nem publicam status.
+As regras de `workflow:rules` (pipeline de MR sem duplicar a de branch) têm de morar no `.gitlab-ci.yml` do próprio
+projeto, fora de qualquer `include:`; sem elas, a pipeline do MR pode não nascer, ou nascer em dobro.
+
+No `ork ci status --json`, o contrato é `ork.ci-status/v2`: a v1 mais `provider` (`github`, `gitlab` ou `null`),
+`fonte` (`check-run`, `commit-status` ou `pipeline-job`) e `produtor`. Os leitores da v1 continuam aceitos.
 
 ## Versão do servidor
 

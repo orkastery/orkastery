@@ -38,7 +38,7 @@ O argv sai sempre do mod, nunca do texto do JSON, e a ponte confere cada um cont
 
 ## O CI
 
-A etapa de CI vem da leitura da pista (o rollup de checks do PR aberto) e, quando há algo mais novo, da consulta ao núcleo no head exato do PR: `ork ci status --sha <head> --json` (`ork.ci-status/v1`).
+A etapa de CI vem da leitura da pista (o rollup de checks do PR aberto) e, quando há algo mais novo, da consulta ao núcleo no head exato do PR: `ork ci status --sha <head> --json` (`ork.ci-status/v2`, com `provider` `github`, `gitlab` ou `null`, `fonte` e `produtor`; a Pista continua lendo a v1).
 
 - **Pelo evento do GitHub:** quando a sua sessão recebe um evento do GitHub (`session.receive` com a fonte `github`, de um PR que você acompanha), a Pista procura nele o PR (`dono/repo#N` ou o número), a branch ou o head de uma pista, só nos campos que o servidor assere; campo escrito por terceiros não conta. O evento só dispara a consulta: o conteúdo dele nunca vira estado da Pista, e a entrega segue para o modelo como chegou.
 - **Sem evento:** a reserva consulta, a cada 2 min com o painel à vista e a cada 10 min escondido, só as pistas com PR aberto e CI ainda aberto.

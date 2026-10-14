@@ -590,7 +590,7 @@ recursos pesados, com aviso no stderr enquanto espera (RM-058).
 | `ork licoes [--json]` | O que volta no GOAL e no PLAN da próxima thread (POSTMORTEM e MASTER) e as propostas de policy por recorrência (I-55), dizendo quais já são executáveis (RM-008, fatia 3) |
 | `ork ci prepare <thread>` | Exporta as claims e os comandos do manifesto para `.ork-ci/<thread>.json` da worktree da thread, com a branch dela (da raiz ou da worktree, o arquivo vai para a branch da thread), que o runner do CI reexecuta; recusa claim que roda a suíte inteira do npm e avisa sobre SHA intermediário e contagem de commits (I-53) |
 | `ork ci run [<thread>] [--bundle ARQ] [--branch B]` | Executa o CHECK no runner independente; com `--branch`, acha o bundle da thread pelo nome da branch, reprova branch `ork/*` sem bundle e, fora de thread, roda só os comandos do manifesto (RM-037) |
-| `ork ci status [--sha SHA] [--remoto origin]` | Consulta o check exato publicado no GitHub para o SHA, na forja resolvida pelo bloco `forja:`, pelo host conhecido ou pela sondagem da CLI com login; só produtor de `ci.produtor` aprova (`github-actions` por padrão) |
+| `ork ci status [--sha SHA] [--remoto origin]` | Consulta o check exato publicado no GitHub ou no GitLab para o SHA, na forja resolvida pelo bloco `forja:`, pelo host conhecido ou pela sondagem da CLI com login; só produtor de `ci.produtor` aprova (`github-actions` por padrão) |
 
 ---
 
