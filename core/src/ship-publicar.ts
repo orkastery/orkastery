@@ -187,7 +187,7 @@ function conferirVerify(raiz: string, eventos: readonly EventoLedger[], head: st
  * O bundle no HEAD: desta thread, desta branch, com exatamente as claims ativas (sem claim retirada nem faltando), o
  * comando de cada uma como esta agora e os comandos do manifesto que o runner roda.
  */
-function conferirBundle(raiz: string, t: Thread, branch: string, head: string | null,
+export function conferirBundle(raiz: string, t: Thread, branch: string, head: string | null,
   comandos: readonly { name: string; command: string }[]): EtapaDaPista {
   const arquivo = `.ork-ci/${t.id}.json`;
   if (!head) return etapa('bundle', 'pendente', textoDoCatalogo((m) => m.ship.publicar.bundleAusente(arquivo)));
@@ -229,7 +229,7 @@ function conferirBundle(raiz: string, t: Thread, branch: string, head: string | 
  * chama o publicar (a Pista, o condutor) pode estar noutro checkout, com outro manifesto. Sem manifesto versionado no
  * HEAD, ou ilegivel, vale o de quem chama.
  */
-function manifestoDaBranch(carregado: ManifestoCarregado, head: string | null): ManifestoCarregado {
+export function manifestoDaBranch(carregado: ManifestoCarregado, head: string | null): ManifestoCarregado {
   if (!head) return carregado;
   for (const nome of [NOME_MANIFESTO, NOME_MANIFESTO_LEGADO]) {
     const r = git(carregado.raiz, ['show', `${head}:./${nome}`]);
@@ -419,6 +419,14 @@ export interface OpcoesDaPublicacao {
   forja?: Forja;
   /** Quem roda o `git push`; os testes trocam para simular o push que sai com erro depois de chegar. Nunca vem da CLI. */
   executorGit?: (args: string[], prazoMs: number) => ResultadoExec;
+  /**
+   * RM-058 N5 (D11 da ork-rm058n5): a conferência de quem publica por cima (o arco #Noctum confere o envelope), chamada
+   * imediatamente antes do push e imediatamente antes de abrir o PR. Devolve `null` para seguir ou a recusa com a correção:
+   * antes do push, nada acontece; depois dele, o push que aconteceu vai ao ledger e o PR não é aberto. Nunca vem da CLI.
+   * Antes do PR, ela recebe o título e o corpo que vão ao `gh` (R4-B1 da rodada 4 do CHECK da N5: quem publica sozinho lê
+   * o texto que fica público).
+   */
+  antesDoEfeito?: (efeito: 'push' | 'pr', pr?: { titulo: string; corpo: string }) => { recusa: string; correcao: string } | null;
 }
 
 /**
@@ -558,6 +566,8 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
 
   // Efeito 1: o push sem forca do sha conferido, provado pelo ls-remote.
   if (!noRemoto) {
+    const conferido = opcoes.antesDoEfeito?.('push') ?? null;
+    if (conferido) return recusar('policy.violation', conferido.recusa, conferido.correcao);
     const argv = ['push', '--', remoto, refspec];
     const push = (opcoes.executorGit ?? ((args: string[], prazoMs: number) => git(raiz, args, prazoMs)))(argv, PRAZO_DO_PUSH_MS);
     r.passos.push(`git ${argv.join(' ')}`);
@@ -585,6 +595,12 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   let pr: PrDaPublicacao | null = aberto ? { numero: aberto.numero, url: aberto.url, criado: false, head: aberto.head } : null;
   let erroDoPr: string | null = null;
   if (!pr) {
+    const conferido = opcoes.antesDoEfeito?.('pr', { titulo, corpo: textoDoCorpo }) ?? null;
+    if (conferido) {
+      // O push desta chamada aconteceu: ele vai ao ledger com a prova, e o PR fica para depois (B1 da revisao).
+      if (pushFeito) gravar({ pr: null, prRecusado: conferido.recusa.slice(0, 300) });
+      return recusar('policy.violation', conferido.recusa, conferido.correcao);
+    }
     const argv = ['pr', 'create', `--repo=${forja.host}/${forja.repositorio}`, `--base=${base}`, `--head=${f.branch}`, `--title=${titulo}`,
       `--body=${textoDoCorpo}`];
     const criado = executor(argv, PRAZO_DO_GH_MS);
