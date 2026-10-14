@@ -1,0 +1,91 @@
+{
+  "caso": "statuses-do-check",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/repository/commits/12edddda9ac424f9355c39785b873803a062d59d/statuses?name=ork-verify&all=true&per_page=100"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-type": "application/json",
+    "date": "Wed, 14 Oct 2026 02:30:00 GMT",
+    "etag": "W/\"f7ec29a4493c6fc96c86865421a8670a\"",
+    "link": "<http://127.0.0.1/api/v4/projects/root%2Fmatriz/repository/commits/12edddda9ac424f9355c39785b873803a062d59d/statuses?all=true&id=root%2Fmatriz&name=ork-verify&order_by=id&page=1&per_page=100&sha=12edddda9ac424f9355c39785b873803a062d59d>; rel=\"first\", <http://127.0.0.1/api/v4/projects/root%2Fmatriz/repository/commits/12edddda9ac424f9355c39785b873803a062d59d/statuses?all=true&id=root%2Fmatriz&name=ork-verify&order_by=id&page=1&per_page=100&sha=12edddda9ac424f9355c39785b873803a062d59d>; rel=\"last\"",
+    "nel": "{\"max_age\": 0}",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Accept-Encoding, Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4W3XH92B95NF410NQ590Z6B\",\"version\":\"1\"}",
+    "x-next-page": "",
+    "x-page": "1",
+    "x-per-page": "100",
+    "x-prev-page": "",
+    "x-request-id": "01M4W3XH92B95NF410NQ590Z6B",
+    "x-runtime": "0.173676",
+    "x-total": "2",
+    "x-total-pages": "1"
+  },
+  "corpo": [
+    {
+      "id": 2,
+      "sha": "12edddda9ac424f9355c39785b873803a062d59d",
+      "ref": "refs/merge-requests/1/head",
+      "status": "success",
+      "name": "ork-verify",
+      "target_url": null,
+      "description": null,
+      "created_at": "2026-10-14T02:28:58.881Z",
+      "started_at": "2026-10-14T02:29:08.589Z",
+      "finished_at": "2026-10-14T02:29:11.675Z",
+      "allow_failure": false,
+      "coverage": null,
+      "pipeline_id": 1,
+      "author": {
+        "id": 1,
+        "username": "root",
+        "public_email": null,
+        "name": "Administrator",
+        "state": "active",
+        "locked": false,
+        "avatar_url": "https://www.gravatar.com/avatar/980150b69b25eca7bbd00aaa7cff1f00bb9c22b949f77b6e2f474a5cc347bb4f?s=80&d=identicon",
+        "web_url": "http://127.0.0.1/root"
+      }
+    },
+    {
+      "id": 4,
+      "sha": "12edddda9ac424f9355c39785b873803a062d59d",
+      "ref": "ork/ork-ci",
+      "status": "success",
+      "name": "ork-verify",
+      "target_url": "https://ci.example/ork-verify/1",
+      "description": null,
+      "created_at": "2026-10-14T02:29:30.961Z",
+      "started_at": null,
+      "finished_at": "2026-10-14T02:29:30.959Z",
+      "allow_failure": false,
+      "coverage": null,
+      "pipeline_id": 2,
+      "author": {
+        "id": 1,
+        "username": "root",
+        "public_email": null,
+        "name": "Administrator",
+        "state": "active",
+        "locked": false,
+        "avatar_url": "https://www.gravatar.com/avatar/980150b69b25eca7bbd00aaa7cff1f00bb9c22b949f77b6e2f474a5cc347bb4f?s=80&d=identicon",
+        "web_url": "http://127.0.0.1/root"
+      }
+    }
+  ]
+}

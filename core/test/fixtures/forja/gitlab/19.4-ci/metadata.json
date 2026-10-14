@@ -1,0 +1,44 @@
+{
+  "caso": "metadata",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "metadata"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-length": "228",
+    "content-type": "application/json",
+    "date": "Wed, 14 Oct 2026 02:29:56 GMT",
+    "etag": "W/\"d718e8b69970eca678ad095f0348e585\"",
+    "nel": "{\"max_age\": 0}",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4W3XDYDW6C108N1ABSBWM84\",\"version\":\"1\"}",
+    "x-request-id": "01M4W3XDYDW6C108N1ABSBWM84",
+    "x-runtime": "0.066697"
+  },
+  "corpo": {
+    "version": "19.4.2",
+    "revision": "ecff27ae760",
+    "kas": {
+      "enabled": true,
+      "externalUrl": "ws://127.0.0.1/-/kubernetes-agent/",
+      "externalK8sProxyUrl": "http://127.0.0.1/-/kubernetes-agent/k8s-proxy/",
+      "version": "19.4.2"
+    },
+    "enterprise": false
+  }
+}
