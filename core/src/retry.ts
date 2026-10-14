@@ -84,6 +84,7 @@ import { caminhoContidoOuNulo, cwdLocalOuNulo, diretorioDaThread, exigirCwdLocal
 import { comandoDeConfirmacao, posturaAfrouxada, recusaDePostura } from './postura-local';
 import { Mensagens, msg, remontar, textoDoCatalogo, textoDoErro } from './locale';
 import { RETRY_PT_BR } from './locale-retry';
+import { prepararPromptDeRetomada } from './retomada-checkpoint';
 
 /** RM-061 (F2b, D3): `porque` e `correcao` de cada motivo tem a fonte no catalogo pt-BR; o `--json` nao muda. */
 const TEXTOS_DA_POLITICA = RETRY_PT_BR.politica;
@@ -203,10 +204,9 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     automatica: true,
     ...TEXTOS_DA_POLITICA['runtime.rate-limited'],
   },
-  // I-33 (D5, D11): a falha e da CONTA. O perfil sai do rodizio e o MESMO prompt vai ao proximo
-  // perfil ativo, depois ao runtime de fallback do bloco, e so por ultimo a fila duravel. A
-  // rotacao so redespacha quando a prova do `ork` confirma que o intervalo nao produziu nada;
-  // producao parcial sob cota esgotada vira `human.pending`, nunca redespacho sobre a worktree.
+  // I-33 (D5, D11) + RM-064 T3: a falha e da CONTA. O perfil sai do rodizio e o pedido segue ao
+  // proximo perfil ativo, depois ao fallback e por ultimo a fila. Interrupcao no meio da fase leva
+  // checkpoint derivado do ledger/Git; o prompt original permanece gravado e referenciado.
   'runtime.quota-exhausted': {
     motivo: 'runtime.quota-exhausted',
     acao: 'reexecutar',
@@ -547,6 +547,8 @@ export interface OpcoesDeRedespacho {
   dryRun?: boolean;
   /** I-36 (D6): canal de quem pede a retomada; sem ele, o que a borda declarou. */
   canal?: CanalDeConducao;
+  /** RM-064 T3: usa um derivado com ponto de parada, preservando caminho/hash do prompt original. */
+  checkpoint?: boolean;
 }
 
 /**
@@ -660,8 +662,8 @@ function redespacharSobLock(
       dryRun: opcoes.dryRun === true,
     };
   }
-  const prompt = fs.readFileSync(absoluto, 'utf8');
-  const shaAtual = hashDoPrompt(prompt);
+  const promptOriginal = fs.readFileSync(absoluto, 'utf8');
+  const shaAtual = hashDoPrompt(promptOriginal);
   if (shaAtual !== sha) {
     return {
       ...vazio,
@@ -671,6 +673,12 @@ function redespacharSobLock(
       dryRun: opcoes.dryRun === true,
     };
   }
+
+  const retomada = opcoes.checkpoint ? prepararPromptDeRetomada(raiz, thread, fase,
+    { prompt: promptOriginal, promptPath: absoluto, promptSha256: sha }, !opcoes.dryRun) : null;
+  const prompt = retomada?.prompt ?? promptOriginal;
+  const promptExecutadoPath = retomada?.promptPath ?? absoluto;
+  const promptExecutadoSha = retomada?.promptSha256 ?? sha;
 
   const violacoes = bloqueantes(avaliarPolicies(manifesto, { gate: 'phase.dispatch', prompt }));
   if (violacoes.length > 0) {
@@ -685,7 +693,7 @@ function redespacharSobLock(
       fase,
       slug,
       origem: opcoes.origem ?? 'retry',
-      evidencia: `prompt sha256 ${sha} (retomada recusada antes de despachar)`,
+      evidencia: `prompt sha256 ${promptExecutadoSha} (origem ${sha}; retomada recusada antes de despachar)`,
     });
     return { ...vazio, ok: false, motivo, detalhe, dryRun: opcoes.dryRun === true };
   }
@@ -697,7 +705,7 @@ function redespacharSobLock(
     : novaIdentidadeDeDespacho(thread.id, fase);
   const canal = opcoes.canal ?? canalDoProcesso();
   const doBlocoDaConducao = limitesDoBloco(manifesto, lerSetup(raiz), thread.modo, fase);
-  const pedidoDeConducao = { canal, correlacao: null, operacao: 'retry.run' as const, fase, promptSha256: sha,
+  const pedidoDeConducao = { canal, correlacao: null, operacao: 'retry.run' as const, fase, promptSha256: promptExecutadoSha,
     identidade: identidade.dispatchId, prazoMs: prazoDaSessao(doBlocoDaConducao) };
   let conducao: ConducaoTomada | null = null;
   if (tomadaPrevia) {
@@ -713,7 +721,7 @@ function redespacharSobLock(
     const tomada = tomarConducao(raiz, thread.id, pedidoDeConducao);
     if (!tomada.ok) {
       if (tomada.idempotente && tomada.atual) {
-        registrar(dirThread(raiz, thread.id), thread.id, TIPOS_DE_EVENTO.despachoIdempotente, { fase, promptSha256: sha, canal,
+        registrar(dirThread(raiz, thread.id), thread.id, TIPOS_DE_EVENTO.despachoIdempotente, { fase, promptSha256: promptExecutadoSha, canal,
           sessionId: tomada.atual.sessao, origem: opcoes.origem ?? 'retry',
           razao: 'mesma fase e mesmo prompt de quem ja conduz: a sessao em andamento atende a retomada, sem sessao nova' });
         const sessao = String(tomada.atual.sessao).slice(0, 8);
@@ -799,7 +807,7 @@ function redespacharSobLock(
       dryRun: opcoes.dryRun,
       sandbox: manifesto.runtime.sandbox,
       logDir: path.join(dirThread(raiz, thread.id), 'sessoes'),
-      vinculo: { thread: thread.id, fase, promptSha256: sha },
+      vinculo: { thread: thread.id, fase, promptSha256: promptExecutadoSha },
       ...(perfil ? { perfil } : {}),
       // RM-037 (defeito 2): o modo plano segue a mesma regra do `ork phase run`, pelo bloco.
       ...(runtime === 'claude-bg' ? { contextoRuntime, ...(modoDaSessaoDoBloco(thread, fase).plano ? { colaboracao: 'plan' as const } : {}) } : {}),
@@ -827,14 +835,16 @@ function redespacharSobLock(
       // destino.
       const daSessao = resultado.sessionId ? { sessionId: resultado.sessionId } : {};
       registrar(dirThread(raiz, thread.id), thread.id, 'phase_dispatch_failed', { fase, runtime, slug, cwd,
-        promptPath: absoluto, promptSha256: sha, controlador: resultado.controlador, model, effort,
+        promptPath: promptExecutadoPath, promptSha256: promptExecutadoSha,
+        ...(retomada ? { promptOriginalPath: absoluto, promptOriginalSha256: sha } : {}),
+        controlador: resultado.controlador, model, effort,
         erro: resultado.erro ?? 'runtime.unavailable: sem sessionId', stderr: (resultado.stderr ?? '').slice(0, 500),
         origem: 'retry', ...(perfil ? { perfil } : {}), ...daSessao });
       const sinal = resultado.rateLimit ?? null;
       // RM-055: o redespacho recusado pelo que so o dono resolve reabre a pausa dele, com o mesmo comando.
       const impedimento = !resultado.falhaDeConta && !sinal
         ? registrarImpedimentoDoDono(dirThread(raiz, thread.id), thread, { fase, slug, runtime, cwd, origem: 'retry',
-          promptPath: absoluto, promptSha256: sha, perfil, saida: `${resultado.stderr ?? ''}\n${resultado.erro ?? ''}` })
+          promptPath: promptExecutadoPath, promptSha256: promptExecutadoSha, perfil, saida: `${resultado.stderr ?? ''}\n${resultado.erro ?? ''}` })
         : null;
       if (impedimento) {
         return { ok: false, slug, sessionId: null, verificada: false, motivo: impedimento.motivo,
@@ -871,8 +881,9 @@ function redespacharSobLock(
       thread,
       fase,
       slug,
-      promptPath: absoluto,
-      promptSha256: sha,
+      promptPath: promptExecutadoPath,
+      promptSha256: promptExecutadoSha,
+      ...(retomada ? { promptOriginal: { path: absoluto, sha256: sha } } : {}),
       runtime,
       cwd,
       model,
@@ -889,7 +900,7 @@ function redespacharSobLock(
       sessionId: resultado.sessionId,
       verificada: resultado.verificada,
       motivo: null,
-      detalhe: textoDoCatalogo((m) => m.retry.redespachada(String(resultado.sessionId), sha.slice(0, 12), perfil ? perfil.id : null, runtime)),
+      detalhe: textoDoCatalogo((m) => m.retry.redespachada(String(resultado.sessionId), promptExecutadoSha.slice(0, 12), perfil ? perfil.id : null, runtime)),
       sinal: null,
       perfil: perfil ?? null,
       comando: resultado.comando,
@@ -957,6 +968,8 @@ export interface OpcoesDeRetomada {
   /** Retoma mesmo antes de a janela liberar (uso do operador, sempre registrado). */
   forcar?: boolean;
 }
+
+type PedidoComCheckpoint = PedidoComPerfil & { checkpoint?: boolean };
 
 /** Retoma UM pedido da fila, aplicando o playbook que couber. */
 export function retomarPedido(
@@ -1045,7 +1058,7 @@ export function retomarPedido(
   // I-33 (R3, D15/A4): pedido da conta retoma no primeiro runtime, original ou da ordem de fallback,
   // cujo perfil da vez voltou: o prazo que liberou a fila pode ter sido o do fallback. Pedido antigo,
   // sem os campos, segue igual.
-  const doPedido = pedido as PedidoComPerfil;
+  const doPedido = pedido as PedidoComCheckpoint;
   const alvo = alvoDaRetomada(carregado, thread, doPedido);
   const r: ResultadoDoRedespacho = !alvo.destino
     ? { ok: false, slug, sessionId: null, verificada: false, motivo: doPedido.motivo ?? 'runtime.quota-exhausted',
@@ -1059,6 +1072,7 @@ export function retomarPedido(
       effort: alvo.effort,
       cwd: pedido.cwd,
       origem: 'retry.rate-limit',
+      checkpoint: doPedido.checkpoint === true,
       dryRun: opcoes.dryRun,
     });
 
@@ -1739,14 +1753,16 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
     return escalar('perfil registrado invalido', textoDoCatalogo((m) => m.retry.rotacaoRecusada(erro)));
   }
 
-  // D11 (c): sessao que morreu por cota depois de produzir nao e redespachada.
+  // RM-064 T3: produção parcial sob cota é preservada no checkpoint; não é razão para recomeçar nem escalar.
+  let checkpoint = false;
   if (typeof gate?.sessionId === 'string' && typeof gate.despachoEm === 'string') {
     const producao = producaoNoIntervalo(raiz, thread, { sessionId: gate.sessionId, fase, despachadaEm: gate.despachoEm }, eventos);
-    if (producao.produziu) {
-      return escalar('producao parcial sob falha da conta',
-        textoDoCatalogo((m) => m.retry.producaoParcialConta(motivo === 'runtime.quota-exhausted', String(producao.evidencia))));
-    }
+    checkpoint = motivo === 'runtime.quota-exhausted' &&
+      (producao.produziu || gate?.origem === 'account.quota-exhausted');
   }
+
+  const promptOriginalPath = typeof despacho.promptOriginalPath === 'string' ? despacho.promptOriginalPath : despacho.promptPath;
+  const promptOriginalSha = typeof despacho.promptOriginalSha256 === 'string' ? despacho.promptOriginalSha256 : despacho.promptSha256;
 
   const doBloco = configDoBloco(lerSetup(raiz), thread.modo, fase);
   const fallback = alvosDeFallback(doBloco, doBloco?.runtime ?? manifesto.runtime.adapter);
@@ -1767,7 +1783,7 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
     if (!opcoes.dryRun) registrar(dir, thread.id, TIPOS_DE_EVENTO.perfilRotacionado, { fase, motivo: falhaAtual.motivo, origem: 'retry.rotacao',
       de: { runtime: atual.runtime, perfil: atual.perfil?.id ?? null },
       para: para ? { runtime: para.runtime, perfil: para.perfil?.id ?? null } : null,
-      evidencia: falhaAtual.trecho, razao, promptSha256: despacho.promptSha256, modo: thread.modo,
+      evidencia: falhaAtual.trecho, razao, promptSha256: promptOriginalSha, modo: thread.modo,
       autorizadoPor: `politica de retry da I-33 (D5), bloco sem pausa ou delegado no modo ${thread.modo}` });
   };
   for (;;) {
@@ -1775,11 +1791,11 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
     if (!alvo) break;
     emitir(alvo, alvo.runtime === atual.runtime ? 'proximo perfil ativo do mesmo runtime' : 'fallback de runtime pela ordem do bloco');
     const mudouRuntime = alvo.runtime !== runtime;
-    ultimo = redespachar(carregado, thread, fase, despacho.promptPath, despacho.promptSha256, {
+    ultimo = redespachar(carregado, thread, fase, promptOriginalPath, promptOriginalSha, {
       runtime: alvo.runtime, perfil: alvo.perfil?.id ?? null,
       model: mudouRuntime ? alvo.model : typeof despacho.model === 'string' ? despacho.model : null,
       effort: mudouRuntime ? alvo.effort ?? (typeof despacho.effort === 'string' ? despacho.effort : null) : plano.effort,
-      origem: 'retry.rotacao', dryRun: opcoes.dryRun,
+      origem: 'retry.rotacao', checkpoint, dryRun: opcoes.dryRun,
     });
     registrarTentativa(ultimo.ok, ultimo.detalhe);
     tentativas += 1;
@@ -1810,14 +1826,15 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
   const liberaEm = prazo ?? new Date(Date.now() + janelaPadraoMs(manifesto)).toISOString();
   emitir(null, `nenhum perfil ativo em ${runtimes.join(', ')}: fila duravel ate ${liberaEm}`);
   if (opcoes.dryRun) return { ...vazio, detalhe: textoDoCatalogo((m) => m.retry.entrariaNaFila(liberaEm)) };
-  const pedido = enfileirar(carregado, { thread: thread.id, fase, slug: typeof despacho.slug === 'string' ? despacho.slug : slugDaSessao(thread, fase),
-    promptPath: despacho.promptPath, promptSha256: despacho.promptSha256,
+  let pedido = enfileirar(carregado, { thread: thread.id, fase, slug: typeof despacho.slug === 'string' ? despacho.slug : slugDaSessao(thread, fase),
+    promptPath: promptOriginalPath, promptSha256: promptOriginalSha,
     cwd: typeof despacho.cwd === 'string' ? despacho.cwd : thread.worktree ?? raiz,
     model: typeof despacho.model === 'string' ? despacho.model : null, effort: typeof despacho.effort === 'string' ? despacho.effort : null,
     sinal: { resetEm: prazo, fonte: prazo ? 'iso' : 'sem-horario', trecho: falhaAtual.trecho },
     detalhe: `${falhaAtual.motivo}: nenhum perfil ativo em ${runtimes.join(', ')}`, runtime, perfil: null, motivo: falhaAtual.motivo });
+  if (checkpoint) pedido = gravarPedido(raiz, { ...pedido, checkpoint: true } as PedidoComCheckpoint);
   registrar(dir, thread.id, TIPOS_DE_EVENTO.rateLimitEnfileirado, { fase, slug: pedido.slug, pedido: pedido.id, liberaEm: pedido.liberaEm,
-    janelaEstimada: pedido.janelaEstimada, motivo: falhaAtual.motivo, promptSha256: despacho.promptSha256,
+    janelaEstimada: pedido.janelaEstimada, motivo: falhaAtual.motivo, promptSha256: promptOriginalSha, checkpoint,
     correcao: `ork retry resume (ou aguarde ate ${pedido.liberaEm})` });
   registrarTentativa(true, `fila duravel: pedido ${pedido.id} libera em ${pedido.liberaEm}`);
   return { ...vazio, executada: true, fila: [pedido], redespacho: ultimo, detalhe: textoDoCatalogo((m) => m.retry.pedidoAte(pedido.id, pedido.liberaEm)) };
