@@ -1,0 +1,404 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm064f1",
+  "branch": "ork/ork-rm064f1-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "As falas de limite semanal, de sessão, de gasto individual, a variante em português e o código estruturado são classificados como `runtime.quota-exhausted` com o reset disponível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 60s node core/dist-test/test/rm064-quota-signals.test.js"
+      ],
+      "criadoEm": "2026-10-14T03:49:34.371Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-events.ts",
+      "alegacao": "O envelope de Stop/Notification aceita somente o motivo tipado de cota e não persiste a fala bruta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 60s node core/dist-test/test/rm064-quota-signals.test.js"
+      ],
+      "criadoEm": "2026-10-14T03:49:34.414Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/hooks/quota-signal.js",
+      "alegacao": "O reconhecedor do hook reduz as falas de cota a `runtime.quota-exhausted` e ignora notificação comum.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 60s node core/dist-test/test/rm064-quota-signals.test.js"
+      ],
+      "criadoEm": "2026-10-14T03:49:34.448Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/hooks/ork-sensor.js",
+      "alegacao": "O hook envia o motivo tipado de cota somente em Stop ou Notification.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 60s node core/dist-test/test/rm064-quota-signals.test.js"
+      ],
+      "criadoEm": "2026-10-14T03:49:34.487Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm064-quota-signals.test.ts",
+      "alegacao": "A prova determinística cobre as quatro falas, código estruturado, Stop e Notification sem vazamento da mensagem.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 60s node core/dist-test/test/rm064-quota-signals.test.js"
+      ],
+      "criadoEm": "2026-10-14T03:49:34.522Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/src/conta-esgotada.ts",
+      "alegacao": "Uma cota esgotada é reconciliada pela identidade compartilhada da conta em todos os projetos registrados; cada sessão `claude-bg` confirmada é parada uma vez e recebe terminal idempotente.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 90s node core/dist-test/test/rm064-conta-esgotada.test.js"
+      ],
+      "criadoEm": "2026-10-14T03:53:46.324Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-claude.ts",
+      "alegacao": "A cota observada com sessão viva aciona a reconciliação da conta, encerra a sessão e libera a condução com `runtime.quota-exhausted`.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js"
+      ],
+      "criadoEm": "2026-10-14T03:53:46.393Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm064-conta-esgotada.test.ts",
+      "alegacao": "A prova cobre duas sessões em projetos distintos, deduplicação do episódio e falha fechada quando a parada não é comprovada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 90s node core/dist-test/test/rm064-conta-esgotada.test.js"
+      ],
+      "criadoEm": "2026-10-14T03:53:46.457Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-fatia5-cota-ao-vivo.test.ts",
+      "alegacao": "A regressão histórica de cota viva agora prova terminal tipado e liberação da condução nos estados `blocked` e `working`.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js"
+      ],
+      "criadoEm": "2026-10-14T03:53:46.521Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/src/retomada-checkpoint.ts",
+      "alegacao": "O ponto de parada deriva fase, HEAD, status, claims pendentes, rodada de CHECK e GO-FIX do estado persistido e preserva o prompt original.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rm064-retomada-checkpoint.test.js",
+        "timeout 120s node core/dist-test/test/rotacao-retry.test.js"
+      ],
+      "criadoEm": "2026-10-14T04:01:16.914Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "Uma cota após produção ou uma retomada de evento da conta redespacha com checkpoint na fase corrente, sem repetir GOAL ou PLAN, preservando o hash original.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rm064-retomada-checkpoint.test.js",
+        "timeout 120s node core/dist-test/test/rotacao-retry.test.js"
+      ],
+      "criadoEm": "2026-10-14T04:01:16.965Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "O despacho registra separadamente o caminho e o sha256 do prompt original quando usa um prompt derivado de retomada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rm064-retomada-checkpoint.test.js",
+        "timeout 120s node core/dist-test/test/rotacao-retry.test.js"
+      ],
+      "criadoEm": "2026-10-14T04:01:17.025Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm064-retomada-checkpoint.test.ts",
+      "alegacao": "O teste prova que uma thread parada no CHECK retoma no CHECK e que docs/goal.md preexistente não produz human.pending.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rm064-retomada-checkpoint.test.js",
+        "timeout 120s node core/dist-test/test/rotacao-retry.test.js"
+      ],
+      "criadoEm": "2026-10-14T04:01:17.105Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/test/rotacao-retry.test.ts",
+      "alegacao": "O retry após commit redespacha no próximo perfil com checkpoint, preserva o prompt original e não abre human.pending.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rotacao-retry.test.js",
+        "timeout 90s node --test --test-name-pattern='RM-064 T3 fim a fim' core/dist-test/test/rotacao-perfis.test.js"
+      ],
+      "criadoEm": "2026-10-14T04:01:28.945Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/test/rotacao-perfis.test.ts",
+      "alegacao": "O fluxo fim a fim do watcher prova a retomada no perfil seguinte com novo observador e sem human.pending.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rotacao-retry.test.js",
+        "timeout 90s node --test --test-name-pattern='RM-064 T3 fim a fim' core/dist-test/test/rotacao-perfis.test.js"
+      ],
+      "criadoEm": "2026-10-14T04:01:29.028Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/src/conta-esgotada.ts",
+      "alegacao": "O evento de cota encerra sessões vivas claude-bg e Codex da mesma conta somente por vínculo canônico e só libera a condução após parada confirmada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rm064-conta-esgotada.test.js",
+        "timeout 120s node core/dist-test/test/rm064-quota-signals.test.js",
+        "timeout 120s node --test --test-name-pattern='SIMULADO RM-064' core/dist-test/test/codex-controller.test.js"
+      ],
+      "criadoEm": "2026-10-14T04:06:24.143Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher.ts",
+      "alegacao": "O watcher Codex marca o perfil e dispara a reconciliação da conta após persistir a falha terminal tipada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rm064-conta-esgotada.test.js",
+        "timeout 120s node core/dist-test/test/rm064-quota-signals.test.js",
+        "timeout 120s node --test --test-name-pattern='SIMULADO RM-064' core/dist-test/test/codex-controller.test.js"
+      ],
+      "criadoEm": "2026-10-14T04:06:24.211Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/codex-controller-worker.ts",
+      "alegacao": "O controller Codex aceita interrupção de turno working ou blocked apenas com sessionId, instância, cwd e turno vinculados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rm064-conta-esgotada.test.js",
+        "timeout 120s node core/dist-test/test/rm064-quota-signals.test.js",
+        "timeout 120s node --test --test-name-pattern='SIMULADO RM-064' core/dist-test/test/codex-controller.test.js"
+      ],
+      "criadoEm": "2026-10-14T04:06:24.320Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm064-conta-esgotada.test.ts",
+      "alegacao": "As provas cobrem idempotência multi-projeto, falha fechada e parada Codex pelo vínculo canônico.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rm064-conta-esgotada.test.js",
+        "timeout 120s node core/dist-test/test/rm064-quota-signals.test.js",
+        "timeout 120s node --test --test-name-pattern='SIMULADO RM-064' core/dist-test/test/codex-controller.test.js"
+      ],
+      "criadoEm": "2026-10-14T04:06:24.404Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/test/codex-controller.test.ts",
+      "alegacao": "O runtime falso prova que um turno Codex em trabalho pode ser interrompido pelo controller vinculado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "timeout 120s node core/dist-test/test/rm064-conta-esgotada.test.js",
+        "timeout 120s node core/dist-test/test/rm064-quota-signals.test.js",
+        "timeout 120s node --test --test-name-pattern='SIMULADO RM-064' core/dist-test/test/codex-controller.test.js"
+      ],
+      "criadoEm": "2026-10-14T04:06:24.499Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O changelog não publicado registra a mudança de comportamento da fatia 1 da RM-064.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar",
+        "grep -E 'Fatia 1|runtime.quota-exhausted|checkpoint' docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+        "grep -E 'Conta esgotada não para a fase, fatia 1' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-14T04:07:42.403Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap reflete o estado do frontmatter da RM-064 e passa na verificação de paridade.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar",
+        "grep -E 'Fatia 1|runtime.quota-exhausted|checkpoint' docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+        "grep -E 'Conta esgotada não para a fase, fatia 1' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-14T04:07:42.458Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+      "alegacao": "A página registra o que a fatia 1 entregou, as provas reproduzíveis e os limites T4 a T7 sem declarar implantação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar",
+        "grep -E 'Fatia 1|runtime.quota-exhausted|checkpoint' docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+        "grep -E 'Conta esgotada não para a fase, fatia 1' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-14T04:07:42.537Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm064f1",
+      "fase": "GOAL",
+      "arquivo": "core/package.json",
+      "alegacao": "Os builds TypeScript usam o modo incremental de projeto e uma segunda execução sem mudanças permanece verde sem recompilar toda a árvore.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "npm --prefix core run build:test",
+        "npm --prefix core run build",
+        "npm --prefix core run build"
+      ],
+      "criadoEm": "2026-10-14T04:14:11.115Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C25",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
