@@ -24,13 +24,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   depois de tomar, e decide para qual máquina a ordem vai, ou se ela espera a reserva de fora ser solta,
   sem levar ao ramo quem reservou. `core/src/noctum-integracao.ts` deixa um integrador por destino entre máquinas, invalida o
   candidato quando a base ou a fonte mudam e só registra a entrega do merge feito sobre a base provada e devolvido pelo
-  integrador (a branch sem commit próprio entrega com a base, como a já incorporada do `ork ship`);
+  integrador (a branch sem commit próprio entrega com a base, como a já incorporada do `ork ship`; o passo da entrega
+  da N5 bloqueia antes a branch sem commit desde a partida da thread);
   `core/src/noctum-maquinas.ts` reconcilia a máquina que volta, sem entrega em duplicidade, fecha o que é da máquina
   que uma emenda tirou do arco e chama o passo da N2 só com o que tem ordem dela, com a entrega e o fim sem entrega das
   outras máquinas valendo antes da thread local. Um ensaio com dois executores em
   processos separados, sobre um remoto de fixture, prova o aceite da tabela, inclusive o vencedor por item pela
-  reserva e a disputa da última vaga global. O modo continua desligado: `#Noctum` não é aceito, e nenhum comando abre
-  arco nem grava no ramo.
+  reserva e a disputa da última vaga global. Nada chama a coordenação ainda: o tique da N6 chama o passo da N2, que,
+  com o envelope `v3`, espera o passo da máquina, a entrega da N5 bloqueia fora da `v2`, e nenhum comando grava no
+  ramo. O arco que a N6 encerrou nesta máquina recusa o que começa (`noctum.efeito.encerrado`), e a vaga global com
+  teto fora de sessões recusa, porque a soma entre máquinas só mede sessões.
 - **#Noctum, fatia N4: supervisão e recuperação** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
   `core/src/noctum-supervisao.ts` guarda os checkpoints da supervisão do arco num log próprio, encadeado e assinado
   (`ork.noctum-supervisao/v1`), com os parâmetros na primeira linha: reiniciar o condutor ou o vigia, trocar de conta ou
