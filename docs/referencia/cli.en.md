@@ -14,8 +14,8 @@ usable as a pipeline gate.
 
 | Command | What it does |
 | --- | --- |
-| `ork doctor` | What holds on this machine now. **Exits nonzero if blocked**, never because of a `warn`. With an open thread in the project and no beat of this project in the crontab, it fails with or without `pulse-host.json`, and the fix is `ork fabrica batida instalar`; a round of up to 30 min in `hitl.log` proves the beat of another scheduler (RM-063). With the line in the crontab, a last round more than 30 min ago also fails: the beat stopped. The "pulse transport" check tells the last delivery of the summary: through the other configured host is a warning; through none, a failure |
-| `ork doctor --json` | The same checks in the `ork.doctor/v1` contract (verdict, failures, warnings, project, machine) and the factory beat: open threads, crontab line, last round and its age, `atrasada` and the ready `aviso` for the owner. It is what the host beat (OpenClaw and Hermes) reads deterministically (RM-063) |
+| `ork doctor` | What holds on this machine now. **Exits nonzero if blocked**, never because of a `warn`. With an open thread in the project and no beat of this project in the crontab, it fails with or without `pulse-host.json`, and the fix is `ork fabrica batida instalar`; a round of up to 30 min in `hitl.log` proves the beat of another scheduler (RM-063). With the line in the crontab, a last round more than 30 min ago also fails: the beat stopped. The "pulse transport" check tells the last delivery of the summary: through the other configured host is a warning; through none, a failure. The forge section checks the forge of the `origin` remote (identity, reach, TLS, base path, CLI, login, server, token scope, project and capabilities); without a forge remote and without the `forja:` block, it does not show. See [the forge contract](contratos/forja.md) |
+| `ork doctor --json [--forja]` | The same checks in the `ork.doctor/v1` contract (verdict, failures, warnings, project, machine) and the factory beat: open threads, crontab line, last round and its age, `atrasada` and the ready `aviso` for the owner. It is what the host beat (OpenClaw and Hermes) reads deterministically (RM-063). The forge section runs only with `--forja`; without the flag, the JSON says `forja: nao-medida` (with it, `forja: medida`) |
 | `ork demo [--manter] [--dir D]` | The promise in 30 s: in a temporary repository, `ork verify` fails the agent's false claim and accepts the corrected one; offline, with no account or model (I-56) |
 | `ork init [--force] [--name N] [--abbrev A]` | Generates the repository's `orkastery.yaml` |
 | `ork modos` | The table of the **4 live modes** of conduction, by #TAG |
@@ -592,7 +592,7 @@ waiting (RM-058).
 | `ork licoes [--json]` | What comes back in the GOAL and PLAN of the next thread (POSTMORTEM and MASTER) and the policy proposals by recurrence (I-55), saying which ones are already executable (RM-008, slice 3) |
 | `ork ci prepare <thread>` | Exports the claims and the manifest commands to `.ork-ci/<thread>.json` in the thread's worktree, with its branch (from the root or from the worktree, the file goes to the thread's branch), which the CI runner re-runs; refuses a claim that runs the whole npm suite and warns about an intermediate SHA and the commit count (I-53) |
 | `ork ci run [<thread>] [--bundle ARQ] [--branch B]` | Runs the CHECK on the independent runner; with `--branch`, finds the thread's bundle by the branch name, fails an `ork/*` branch without a bundle and, outside a thread, runs only the manifest commands (RM-037) |
-| `ork ci status [--sha SHA] [--remoto origin]` | Queries the exact check published on GitHub for the SHA |
+| `ork ci status [--sha SHA] [--remoto origin]` | Queries the exact check published on GitHub for the SHA, on the forge resolved by the `forja:` block, the known host or the probe of a logged-in CLI; only a producer in `ci.produtor` approves (`github-actions` by default) |
 
 ---
 
