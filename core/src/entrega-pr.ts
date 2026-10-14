@@ -39,7 +39,7 @@ export interface EntregaPorPr {
   headSha: string | null;
   ci: ResultadoCi | null;
   motivo: string;
-  /** Fatia 2: o porque estavel das recusas de entrega sem prova (so nelas). */
+  /** O porque estavel das recusas de entrega sem prova (so nelas). */
   codigo?: 'entrega.sem-vinculo' | 'entrega.sem-leitura' | 'entrega.sem-head' | 'entrega.forja-mista';
   /**
    * RM-044 (A3): as paginas do roadmap desta thread que o push da base vai reprovar em

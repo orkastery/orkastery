@@ -813,7 +813,7 @@ const CORRECAO_DA_FORJA: Record<ErroDaForja['codigo'], (cli: string) => string> 
   'forja.ambigua': () => 'a forja é ambígua: declare o bloco forja: no manifesto',
   'forja.remoto-divergente': () => 'o remoto do clone não bate com a forja declarada: confira o manifesto',
   'forja.sem-capacidade': () => 'esta forja não oferece o recurso necessário',
-  'forja.versao-abaixo-do-piso': (cli) => `atualize ${cli}: a versão instalada está abaixo da mínima`,
+  'forja.versao-abaixo-do-piso': () => 'o servidor da forja está abaixo do GitLab 17.0, o piso do ork',
 };
 
 function lerProjetoDaForja(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama {
