@@ -58,3 +58,18 @@ test('SIMULADO: launcher exec preserva origem e fixa executável após initializ
     f.restaurar();
   }
 });
+
+test('SIMULADO RM-064: controller interrompe turno em trabalho pela identidade vinculada', () => {
+  const f = controllerSimulado(undefined, { cenario: 'never' });
+  let r: ReturnType<typeof f.dispatch> | undefined;
+  try {
+    r = f.dispatch(); assert.equal(r.ok, true, r.erro);
+    const ctl = f.controle(r);
+    esperarCondicao(() => ctl.consultar().sessoes[0]?.estado === 'working');
+    assert.equal(ctl.parar(ctl.consultar().sessoes[0]), true);
+    assert.equal(ctl.consultar().sessoes[0]?.estado, 'stopped');
+  } finally {
+    if (r?.controlador) { const state = f.estado(r); if (state.estado === 'working' || state.estado === 'blocked') f.controle(r).parar(f.controle(r).consultar().sessoes[0]); }
+    f.restaurar();
+  }
+});

@@ -77,3 +77,32 @@ test('RM-064 T2: parada não comprovada não libera condução nem abre redespac
     assert.equal(lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result'), false);
   } finally { p.limpar(); fs.rmSync(configDir, { recursive: true, force: true }); }
 });
+
+test('RM-064 T2: sessão Codex viva é interrompida pelo vínculo canônico da thread', () => {
+  const p = projetoTemporario('rm064-conta-codex');
+  const codexHome = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'ork-rm064-codex-'));
+  const perfil = { id: 'codex-a', runtime: 'codex' as const, codexHome };
+  try {
+    const t = novaThread(p.carregado, { nome: 'quota-codex', modo: 'auto' }).thread;
+    t.sessoes.push({ slug: t.slug, fase: 'CHECK', bloco: 'full', sessionId: S1, runtime: 'codex', despachadaEm: EM,
+      promptPath: 'prompt.md', promptSha256: 'b'.repeat(64), verificada: true, controlador: path.join(codexHome, 'controller') });
+    gravarThread(p.dir, t);
+    registrar(dirThread(p.dir, t.id), t.id, 'phase_dispatch', { fase: 'CHECK', sessionId: S1, runtime: 'codex',
+      despachoEm: EM, promptPath: 'prompt.md', promptSha256: 'b'.repeat(64), perfil,
+      controlador: path.join(codexHome, 'controller') });
+    const inventario = { ok: true, escopo: { usuario: 'fixture', global: true, historico: true, raiz: p.dir }, fontes: [],
+      sessoes: [{ sessionId: S1, cwd: p.dir, runtime: 'codex' as const, perfil: 'codex-a', fantasma: false, viva: true, vinculos: [] }],
+      total: 1, semThread: 0, ambiguas: 0, fantasmas: 0 } satisfies InventarioDeSessoes;
+    const vinculos: Array<{ raiz: string; thread: string }> = [];
+    const r = reconciliarContaEsgotada({ raiz: p.dir, perfil,
+      falha: { motivo: 'runtime.quota-exhausted', resetEm: '2026-10-19T01:00:00.000Z', fonte: 'relogio', trecho: 'limite' },
+      esgotadoAte: '2026-10-19T01:00:00.000Z', erroEm: EM },
+    { inventario: () => inventario, projetos: () => [p.dir], parar: (_s, _id, _perfil, vinculo) => {
+      if (vinculo) vinculos.push(vinculo); return { ok: true, detalhe: 'controller stub confirmou' };
+    } });
+    assert.equal(r.completo, true);
+    assert.equal(vinculos.length, 1);
+    assert.deepEqual({ raiz: vinculos[0].raiz, thread: vinculos[0].thread }, { raiz: p.dir, thread: t.id });
+    assert.equal(lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.paradaConfirmada === true), true);
+  } finally { p.limpar(); fs.rmSync(codexHome, { recursive: true, force: true }); }
+});

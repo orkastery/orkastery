@@ -1,6 +1,7 @@
 /** RM-064 T1/T2: uma cota esgotada pertence à conta, não só à sessão que a revelou. */
 import { createHash } from 'node:crypto';
 import { ambienteDoPerfil, pararAchada } from './adapters/claude-bg';
+import { controleNativo } from './hitl-sessions';
 import { lerLedger, registrarSeExiste, threadPresente, TIPOS_DE_EVENTO } from './ledger';
 import { listarProjetos } from './projeto-alvo';
 import { chaveDaConta, perfilDoRegistro, PerfilDeDespacho } from './runtime-profiles';
@@ -31,7 +32,8 @@ export interface ResultadoDaContaEsgotada {
 export interface DependenciasDaContaEsgotada {
   inventario: (raiz: string) => InventarioDeSessoes;
   projetos: (raiz: string) => string[];
-  parar: (sessionId: string, id: string | undefined, perfil: PerfilDeDespacho) => { ok: boolean; detalhe: string };
+  parar: (sessionId: string, id: string | undefined, perfil: PerfilDeDespacho,
+    vinculo?: VinculoConfirmado) => { ok: boolean; detalhe: string };
 }
 
 const sha = (v: unknown): string => createHash('sha256').update(JSON.stringify(v)).digest('hex');
@@ -39,7 +41,17 @@ const sha = (v: unknown): string => createHash('sha256').update(JSON.stringify(v
 const padrao: DependenciasDaContaEsgotada = {
   inventario: (raiz) => inventariarSessoes(raiz, { global: true, todas: true, prazoMs: 30_000 }),
   projetos: (raiz) => [...new Set([raiz, ...listarProjetos().filter((p) => p.presente).map((p) => p.raiz)])],
-  parar: (sessionId, id, perfil) => {
+  parar: (sessionId, id, perfil, vinculo) => {
+    if (perfil.runtime === 'codex') {
+      if (!vinculo) return { ok: false, detalhe: 'vínculo canônico do controller ausente' };
+      try {
+        const ctl = controleNativo('codex', vinculo.raiz, vinculo.thread, sessionId);
+        const consulta = ctl.consultar();
+        const candidatas = consulta.sessoes.filter((s) => s.sessionId === sessionId && s.runtime === 'codex');
+        if (!consulta.ok || candidatas.length !== 1) return { ok: false, detalhe: 'controller codex não confirmou identidade única' };
+        return { ok: ctl.parar(candidatas[0]), detalhe: 'controller codex vinculado recebeu interrupção' };
+      } catch (e) { return { ok: false, detalhe: (e as Error).message }; }
+    }
     const r = pararAchada({ sessionId, ...(id ? { id } : {}) }, ambienteDoPerfil(perfil));
     return { ok: r.ok, detalhe: r.texto || (r.ok ? 'runtime confirmou a parada' : 'runtime recusou a parada') };
   },
@@ -91,14 +103,10 @@ export function reconciliarContaEsgotada(entrada: EpisodioDeContaEsgotada,
       sessoes.push({ ...v, sessionId: sessao.sessionId, parada: true, registrada: false, detalhe: 'episódio já reconciliado' });
     }
     if (pendentes.length === 0) continue;
-    if (sessao.runtime !== 'claude-bg') {
-      for (const v of pendentes) sessoes.push({ ...v, sessionId: sessao.sessionId, parada: false, registrada: false,
-        detalhe: 'sessão codex viva exige controller vinculado; parada não inferida' });
-      falhas.push(`sessão ${sessao.sessionId} não parada: controller codex não comprovado`);
-      continue;
-    }
-    const parada = deps.parar(sessao.sessionId, sessao.id, entrada.perfil);
+    const paradaUnica = sessao.runtime === 'claude-bg'
+      ? deps.parar(sessao.sessionId, sessao.id, entrada.perfil) : null;
     for (const v of pendentes) {
+      const parada = paradaUnica ?? deps.parar(sessao.sessionId, sessao.id, entrada.perfil, v);
       const dir = dirThread(v.raiz, v.thread);
       if (!parada.ok || !threadPresente(dir)) {
         sessoes.push({ ...v, sessionId: sessao.sessionId, parada: parada.ok, registrada: false, detalhe: parada.detalhe });

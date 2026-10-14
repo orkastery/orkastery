@@ -149,8 +149,10 @@ async function servidor(): Promise<void> {
           await aguardar(() => fs.existsSync(`receipt-${e.envioId}.json`)); resultado = true;
         } else if (r.operacao === 'parar') {
           const s = r.dados as IdentidadeSessao;
-          if (!pergunta || state.estado !== 'blocked' || s.sessionId !== state.sessionId || s.instancia !== state.instancia ||
-            s.cwd !== state.cwd || s.bloqueio !== state.bloqueio) throw new Error('runtime.unavailable: sessão não está bloqueada nesta instância');
+          const bloqueioDivergente = state.estado === 'blocked' && (!pergunta || s.bloqueio !== state.bloqueio);
+          if (!['working', 'blocked'].includes(state.estado) || !state.turno || s.sessionId !== state.sessionId ||
+            s.instancia !== state.instancia || s.cwd !== state.cwd || bloqueioDivergente)
+            throw new Error('runtime.unavailable: sessão não está ativa nesta instância');
           await rpc('turn/interrupt', { threadId: state.sessionId, turnId: state.turno });
           await aguardar(() => state.estado === 'stopped'); resultado = true;
         } else throw new Error('runtime.unavailable: operação desconhecida');
