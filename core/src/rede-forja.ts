@@ -199,6 +199,8 @@ function falhaDoLogin(cli: string, s: Saida): { falha?: string } {
 /** Caminho seguro para o shell que o git usa no helper: aspas simples, com `'` escapada (B10). */
 const citar = (caminho: string) => /^[A-Za-z0-9_./+-]+$/.test(caminho) ? caminho : `'${caminho.replace(/'/g, `'\\''`)}'`;
 const helper = (binario: string) => `!${citar(binario)} auth git-credential`;
+/** O mesmo helper do cache da rede, para o transporte `forja-https` do SHIP. */
+export const helperDeCredencialDaCli = helper;
 
 /**
  * Privado de verdade (B1): no GitHub, `internal` vem com `private: true`, e a empresa inteira le.

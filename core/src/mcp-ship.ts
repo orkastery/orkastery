@@ -10,6 +10,7 @@ import {lerThread,blocoDaThread} from './thread';
 import {branchDaWorktree} from './worktree';
 import {validarArquivosEstadoMcp} from './mcp-artifacts';
 import {perfilGitMcp,gitPassivoMcp as git,caminhoFisicoGitMcp as fisico,metadadosGitMcp as metadados,configuracaoPassivaGitMcp} from './mcp-git';
+import {originUnicoMcp,URL_GITHUB_SSH} from './mcp-ship-transporte';
 import {adquirirRegiao,lerLease,liberar,leasesColidentes,caminhoLease,caminhoFila,podarRegioesDeThreadsFechadas} from './leases';
 import {ship,ResultadoShip,arvoreComBranch} from './ship';
 import {comandosDoManifesto,ExecutorVerify} from './verify';
@@ -85,16 +86,7 @@ function config(raiz:string):string {
   }
   return digest(raw);
 }
-/** Push usa todas as URLs configuradas; nunca fixar somente a primeira. */
-function originUnico(raiz:string):string {
-  const ler=(push:boolean)=>{
-    const raw=git(raiz,['remote','get-url',...(push?['--push']:[]),'--all','origin']);
-    const urls=raw.split('\n');if(urls[urls.length-1]==='')urls.pop();
-    if(urls.length!==1 || !urls[0] || /[\x00-\x1f\x7f]/.test(urls[0]))erro('transport.urls: origin exige uma URL efetiva');
-    return urls[0];
-  };
-  const fetch=ler(false),push=ler(true);if(fetch!==push)erro('transport.pushurl');return fetch;
-}
+const originUnico=originUnicoMcp;
 function guardarBare(url:string):{dev:number;ino:number} {
   if(!path.isAbsolute(url))erro('transport.bare.invalid');fisico(url,url);
   const st=fs.statSync(url);if(st.uid!==process.getuid?.())erro('transport.bare.owner');
@@ -117,7 +109,7 @@ export function criarPerfilShipMcp(raiz:string,transporte:'github-ssh'|'bare-loc
   const cfg=config(raiz),url=originUnico(raiz);
   let bare:Fixacao['bare'];
   if(transporte==='github-ssh') {
-    if(!/^git@github\.com:[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9._-]*\.git$/.test(url))erro('transport.unsupported: GitHub SSH exigido; HTTPS requer autenticacao instalada auditada');
+    if(!URL_GITHUB_SSH.test(url))erro('transport.unsupported: GitHub SSH exigido; HTTPS requer autenticacao instalada auditada');
   } else if(transporte==='bare-local')bare=guardarBare(url);else erro('transport.invalid');
   const perfil=Object.freeze({transporte,destino}),st=fs.statSync(raiz);
   const env={HOME:process.env.HOME,USER:process.env.USER,LOGNAME:process.env.LOGNAME,XDG_CONFIG_HOME:process.env.XDG_CONFIG_HOME,

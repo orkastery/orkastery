@@ -103,6 +103,45 @@ export const FORJA_PT_BR = {
     capacidadesDesligadas: (ligadas: string, desligadas: string) => `ligadas: ${ligadas}; desligadas (o adaptador não implementa): ${desligadas}`,
     capacidadesCorrecao: 'cada capacidade desligada segue o caminho de reserva do ork, como hoje',
   },
+  /** O transporte do `ork_ship` do MCP: a frase de cada recusa e as linhas da instalacao. */
+  transporteShip: {
+    recusa: (codigo: string, d: string): string => {
+      const frase = ((): string => {
+        switch (codigo) {
+          case 'mcp.ship.transport.urls': return `o origin precisa de uma URL só, de forja ou de bare local (${d})`;
+          case 'mcp.ship.transport.modo': return `o origin não serve a este transporte; use --ship-transport ${d}`;
+          case 'mcp.ship.transport.forja': return `a forja do origin não foi resolvida (${d})`;
+          case 'mcp.ship.transport.ssh.divergente': return `o origin e a forja resolvida apontam SSH diferente (${d}); acerte forja.ssh_host e forja.ssh_porta ou a URL do origin`;
+          case 'mcp.ship.transport.ssh.sem-resposta': return `${d} não entregou chave de servidor SSH; se a forja não abre SSH, use --ship-transport forja-https`;
+          case 'mcp.ship.transport.ssh.revogada': return `o seu known_hosts revoga uma chave que ${d} apresentou; não instale até saber por quê`;
+          case 'mcp.ship.transport.ssh.nao-confirmada': return `confira a impressão com quem administra a forja e rode de novo com --ssh-fingerprint <impressão> (${d})`;
+          case 'mcp.ship.transport.ssh.impressao-divergente': return `a impressão dita não é de nenhuma chave que o servidor apresentou (${d}); não instale até saber por quê`;
+          case 'mcp.ship.transport.ssh.caminho': return `o known_hosts fixado precisa de caminho absoluto sem espaço nem caractere especial (${d})`;
+          case 'mcp.ship.transport.ssh.known-hosts-alterado': return `o known_hosts fixado mudou depois da instalação (${d}); reinstale o MCP`;
+          case 'mcp.ship.transport.https.sem-tls': return `HTTP sem TLS levaria a credencial em claro; use https:// no origin (${d})`;
+          case 'mcp.ship.transport.https.credencial-na-url': return `o ${d} leva usuário ou token na URL; tire-os com git remote set-url origin https://<host>/<caminho>.git`;
+          case 'mcp.ship.transport.https.divergente': return `o origin e a forja resolvida apontam HTTPS diferente (${d}); acerte forja.host e forja.porta ou a URL do origin`;
+          case 'mcp.ship.transport.sem-cli': return `a CLI da forja não está instalada; instale ${d} ou acima`;
+          case 'mcp.ship.transport.sem-helper': return `a CLI instalada não tem auth git-credential (${d}); atualize até a versão mínima`;
+          case 'mcp.ship.transport.sem-login': return `a CLI não tem login no host (${d}); faça o login e rode de novo (o ork doctor mostra o comando)`;
+          case 'mcp.ship.transport.binario': return `a CLI precisa ser arquivo executável seu ou do root, sem escrita de grupo ou de outros (${d})`;
+          case 'mcp.ship.transport.ca': return `a CA de forja.ca precisa ser um PEM legível, seu ou do root, sem escrita de grupo ou de outros (${d})`;
+          case 'mcp.ship.transport.ca-alterada': return `a CA mudou depois da instalação (${d}); reinstale o MCP`;
+          case 'mcp.ship.transport.fixacao-ausente': return `este transporte não foi instalado nesta máquina; rode ${d}`;
+          case 'mcp.ship.transport.fixacao-insegura': return `a fixação do transporte precisa ser sua, sem link e sem acesso de grupo ou de outros (${d})`;
+          case 'mcp.ship.transport.fixacao-divergente': return `a instalação fixou outro transporte ou outro origin (${d}); reinstale o MCP`;
+          default: return d;
+        }
+      })();
+      return `${codigo}: ${frase}`;
+    },
+    fixadoSsh: (nome: string, chaves: string, arquivo: string): string =>
+      `SHIP por forja-ssh: a chave de ${nome} (${chaves}) ficou fixada em ${arquivo}; cada push confere essa chave, sem perguntar.`,
+    fixadoHttps: (origem: string, cli: string, ca: string | null): string =>
+      `SHIP por forja-https: o git pede a credencial de ${origem} só ao ${cli} (auth git-credential)${ca ? `, com a CA ${ca} conferida pelo hash a cada push` : ''}.`,
+    proposta: (modo: string): string =>
+      `SHIP: o origin deste projeto pede --ship-transport ${modo}; com o transporte padrão, o ork_ship fica indisponível. Para trocar, remova a entrada orkastery e reinstale com a opção.`,
+  },
 };
 
 export type MensagensDeForja = typeof FORJA_PT_BR;
@@ -200,5 +239,43 @@ export const FORJA_EN: MensagensDeForja = {
     capacidades: (ligadas) => `on: ${ligadas}`,
     capacidadesDesligadas: (ligadas, desligadas) => `on: ${ligadas}; off (the adapter does not implement them): ${desligadas}`,
     capacidadesCorrecao: 'each capability that is off follows the ork fallback path, as today',
+  },
+  transporteShip: {
+    recusa: (codigo, d) => {
+      const frase = ((): string => {
+        switch (codigo) {
+          case 'mcp.ship.transport.urls': return `origin needs a single URL, of a forge or of a local bare repository (${d})`;
+          case 'mcp.ship.transport.modo': return `origin does not fit this transport; use --ship-transport ${d}`;
+          case 'mcp.ship.transport.forja': return `the forge of origin could not be resolved (${d})`;
+          case 'mcp.ship.transport.ssh.divergente': return `origin and the resolved forge point to different SSH (${d}); fix forja.ssh_host and forja.ssh_porta or the origin URL`;
+          case 'mcp.ship.transport.ssh.sem-resposta': return `${d} did not offer an SSH host key; if the forge has no SSH, use --ship-transport forja-https`;
+          case 'mcp.ship.transport.ssh.revogada': return `your known_hosts revokes a key that ${d} offered; do not install until you know why`;
+          case 'mcp.ship.transport.ssh.nao-confirmada': return `check the fingerprint with whoever runs the forge and run again with --ssh-fingerprint <fingerprint> (${d})`;
+          case 'mcp.ship.transport.ssh.impressao-divergente': return `the given fingerprint matches no key the server offered (${d}); do not install until you know why`;
+          case 'mcp.ship.transport.ssh.caminho': return `the pinned known_hosts needs an absolute path without spaces or special characters (${d})`;
+          case 'mcp.ship.transport.ssh.known-hosts-alterado': return `the pinned known_hosts changed after the install (${d}); reinstall the MCP`;
+          case 'mcp.ship.transport.https.sem-tls': return `HTTP without TLS would send the credential in clear text; use https:// in origin (${d})`;
+          case 'mcp.ship.transport.https.credencial-na-url': return `${d} carries a user or token in the URL; remove them with git remote set-url origin https://<host>/<path>.git`;
+          case 'mcp.ship.transport.https.divergente': return `origin and the resolved forge point to different HTTPS (${d}); fix forja.host and forja.porta or the origin URL`;
+          case 'mcp.ship.transport.sem-cli': return `the forge CLI is not installed; install ${d} or later`;
+          case 'mcp.ship.transport.sem-helper': return `the installed CLI has no auth git-credential (${d}); upgrade to the minimum version`;
+          case 'mcp.ship.transport.sem-login': return `the CLI is not logged in to the host (${d}); log in and run again (ork doctor shows the command)`;
+          case 'mcp.ship.transport.binario': return `the CLI must be an executable file owned by you or root, not writable by group or others (${d})`;
+          case 'mcp.ship.transport.ca': return `the CA in forja.ca must be a readable PEM, owned by you or root, not writable by group or others (${d})`;
+          case 'mcp.ship.transport.ca-alterada': return `the CA changed after the install (${d}); reinstall the MCP`;
+          case 'mcp.ship.transport.fixacao-ausente': return `this transport was not installed on this machine; run ${d}`;
+          case 'mcp.ship.transport.fixacao-insegura': return `the transport pin must be yours, with no link and no group or other access (${d})`;
+          case 'mcp.ship.transport.fixacao-divergente': return `the install pinned another transport or another origin (${d}); reinstall the MCP`;
+          default: return d;
+        }
+      })();
+      return `${codigo}: ${frase}`;
+    },
+    fixadoSsh: (nome, chaves, arquivo) =>
+      `SHIP over forja-ssh: the key of ${nome} (${chaves}) is pinned in ${arquivo}; every push checks this key, without asking.`,
+    fixadoHttps: (origem, cli, ca) =>
+      `SHIP over forja-https: git asks only ${cli} (auth git-credential) for the credential of ${origem}${ca ? `, with the CA ${ca} checked by hash on every push` : ''}.`,
+    proposta: (modo) =>
+      `SHIP: this project's origin needs --ship-transport ${modo}; with the default transport, ork_ship is unavailable. To switch, remove the orkastery entry and reinstall with the option.`,
   },
 };
