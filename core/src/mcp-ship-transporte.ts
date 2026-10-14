@@ -208,9 +208,6 @@ export function comandoSsh(knownHosts: string): string {
 // HTTPS: a credencial pela CLI logada.
 // ---------------------------------------------------------------------------
 
-/** Se o git manda o caminho do repositorio ao helper (`useHttpPath`). Falso ate a medicao do login com subcaminho. */
-export const CAMINHO_NA_CREDENCIAL = false;
-
 /**
  * A origem da credencial sai da chave do login da CLI (`host[:porta]`, nunca com o caminho base): o helper responde
  * pelo mesmo host em que a CLI tem login. O git casa `credential.<url>` pelo esquema, host e porta; o caminho base
@@ -849,7 +846,7 @@ function fixarSsh(e: EntradaDaFixacao, origin: { host: string; porta: number }, 
  */
 function fixarHttps(e: EntradaDaFixacao, origin: { origem: string }, f: ForjaResolvida): FixacaoPreparada {
   const alvo: AlvoDaCli = { tipo: f.tipo, host: f.host, porta: f.porta, caminhoBase: f.caminhoBase, ca: f.ca };
-  const { origem, caminhoBase } = alvoDaCredencial(alvo);
+  const { origem } = alvoDaCredencial(alvo);
   if (origin.origem !== origem) recusar('https.divergente', `${origin.origem} != ${origem}`);
   const ca = f.ca === null ? null : lerCa(f.ca);
   const cli = CLI_DA_FORJA[f.tipo];
@@ -871,7 +868,8 @@ function fixarHttps(e: EntradaDaFixacao, origin: { origem: string }, f: ForjaRes
   if (!temLogin(alvo, rodarLogin, binario)) recusar('sem-login', `${cli.cmd} ${chaveDoLogin(alvo)}`);
   return {
     fixacao: { schema: ESQUEMA_DA_FIXACAO, raiz: e.raiz, url: e.url, transporte: 'forja-https', tipo: f.tipo, origem,
-      caminho: CAMINHO_NA_CREDENCIAL && caminhoBase !== '', cli: cli.cmd, binario, versaoCli: versao,
+      // O git nunca manda o caminho ao helper (`useHttpPath=false`): a credencial casa pela origem `host[:porta]`.
+      caminho: false, cli: cli.cmd, binario, versaoCli: versao,
       configDaCli: configDaCliDoAmbiente(cli.cmd, e.sondas.env ?? process.env),
       ca: ca && f.ca ? { arquivo: f.ca, sha256: sha256(ca) } : null },
     ...(ca ? { ca } : {}),

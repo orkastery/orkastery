@@ -224,7 +224,8 @@ O `ork_ship` do MCP empurra a base por um de quatro transportes, escolhidos no `
   push usa `ssh -F /dev/null`, o `known_hosts` fixado e `StrictHostKeyChecking=yes`.
 - **`forja-https`.** Os helpers de credencial são zerados e um só é fixado: o caminho real do
   `auth git-credential` da CLI da forja, com login no `host[:porta]` exato. Nenhum prompt abre e o token nunca passa
-  pelo `ork`. A CA do `forja.ca` é copiada para a fixação (`ca.pem`) e conferida pelo hash: soma confiança e não é
+  pelo `ork`. A credencial casa pela origem `https://host[:porta]`, sem o caminho (`useHttpPath` desligado): numa
+  instância em subcaminho, vale o login do host, e duas instâncias no mesmo host não se distinguem. A CA do `forja.ca` é copiada para a fixação (`ca.pem`) e conferida pelo hash: soma confiança e não é
   exclusiva (as CAs do sistema continuam valendo); sem ela vale a config de CA do git da pessoa. HTTP puro e
   credencial na URL são recusados. A pasta de config da CLI (`GLAB_CONFIG_DIR` no `glab`, `GH_CONFIG_DIR` no `gh`),
   quando o ambiente de quem instala a traz, é conferida (caminho absoluto, sem caractere de controle), usada na checagem
