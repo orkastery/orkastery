@@ -78,7 +78,10 @@ export function resolverForja(e: EntradaDoResolver): Resultado<ForjaResolvida> {
   const portaDoRemoto = web && !conhecidoDoRemoto && r.porta !== null && r.porta !== portaPadrao ? r.porta : null;
   // O host da API sai do remoto: o manifesto so o confirma, nunca o troca. A unica troca e a do SSH declarado
   // (`ssh_host`), em que o remoto nomeia o host do SSH e o manifesto, o da web.
-  const dividido = ssh && !conhecidoDoRemoto && !!m.ssh_host && r.host === m.ssh_host;
+  // So `ssh` e `scp` dividem (nao o `git://`, sem autenticacao), e o host da web declarado nunca e um host conhecido:
+  // o gate dispensa o login no github.com, entao um manifesto nao pode apontar o SSH de um terceiro para ele.
+  const dividido = (r.protocolo === 'ssh' || r.protocolo === 'scp') && !conhecidoDoRemoto && !!m.ssh_host && r.host === m.ssh_host;
+  if (dividido && m.host && hostConhecido(m.host)) return erro('forja.remoto-divergente', `${r.host} !~ ${m.host}`);
   if (declarado && !dividido && declarado !== hostDoRemoto) return erro('forja.remoto-divergente', `${r.host} != ${declarado}`);
   const host = dividido ? (declarado ?? r.host) : hostDoRemoto;
   if (m.porta !== undefined && !dividido) {

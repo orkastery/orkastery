@@ -183,6 +183,9 @@ test('o manifesto não desvia o gate: host conhecido, porta do remoto e SSH decl
   divergente('https://github.com/o/r.git', { tipo: 'github', porta: 8443 });
   divergente('https://ghe.empresa.com/o/r.git', { tipo: 'github', host: 'ghe.empresa.com', porta: 8443 });
   divergente('git@git.empresa.com:o/r.git', { tipo: 'github', host: 'ghe.evil.com' });
+  divergente('git@ssh.ghe.x:o/r.git', { tipo: 'github', host: 'github.com', ssh_host: 'ssh.ghe.x' });
+  divergente('ssh://git@ssh.ghe.x/o/r.git', { tipo: 'gitlab', host: 'altssh.gitlab.com', ssh_host: 'ssh.ghe.x' });
+  divergente('git://git.empresa.com/o/r.git', { tipo: 'github', host: 'git2.empresa.com', ssh_host: 'git.empresa.com' });
 });
 
 test('o SSH em outro host vale pelo ssh_host: a API é o host da web declarado', () => {
