@@ -10,7 +10,7 @@ import {lerThread,blocoDaThread} from './thread';
 import {branchDaWorktree} from './worktree';
 import {validarArquivosEstadoMcp} from './mcp-artifacts';
 import {perfilGitMcp,gitPassivoMcp as git,caminhoFisicoGitMcp as fisico,metadadosGitMcp as metadados,configuracaoPassivaGitMcp} from './mcp-git';
-import {originUnicoMcp,URL_GITHUB_SSH,lerFixacao,conferirFixacao,configDeRede,ambienteDoTransporte,chaveRecusadaDaConfigDeRede,recusar,FixacaoLida} from './mcp-ship-transporte';
+import {originUnicoMcp,URL_GITHUB_SSH,lerFixacao,conferirFixacao,configDeRede,ambienteDoTransporte,conferirConfigDaCli,chaveRecusadaDaConfigDeRede,recusar,FixacaoLida} from './mcp-ship-transporte';
 import {ehTransporteFixado,TransporteShipMcp} from './mcp-transportes';
 import {adquirirRegiao,lerLease,liberar,leasesColidentes,caminhoLease,caminhoFila,podarRegioesDeThreadsFechadas} from './leases';
 import {ship,ResultadoShip,arvoreComBranch} from './ship';
@@ -115,9 +115,9 @@ export function ambienteDoWorkerShip(origem:NodeJS.ProcessEnv=process.env):NodeJ
  * O ambiente do worker para cada transporte: a lista fechada de `ambienteDoWorkerShip` e, nos transportes fixados,
  * o que `ambienteDoTransporte` acrescenta (nenhuma pergunta; no HTTPS, o barramento da sessao). Nada mais.
  */
-export function ambienteDoWorkerDoTransporte(transporte:TransporteShipMcp,origem:NodeJS.ProcessEnv=process.env):NodeJS.ProcessEnv {
+export function ambienteDoWorkerDoTransporte(transporte:TransporteShipMcp,origem:NodeJS.ProcessEnv=process.env,cli?:'gh'|'glab'):NodeJS.ProcessEnv {
   const base=ambienteDoWorkerShip(origem);
-  return ehTransporteFixado(transporte)?{...base,...ambienteDoTransporte(transporte,origem)}:base;
+  return ehTransporteFixado(transporte)?{...base,...ambienteDoTransporte(transporte,origem,cli)}:base;
 }
 /**
  * A fixacao de agora tem de ser a do startup, byte a byte no que importa: a mesma pasta, o mesmo `transporte.json`
@@ -128,6 +128,7 @@ function guardarPino(f:Fixacao,url:string):void {
   const p=f.pino!,atual=lerFixacao(f.raiz,p.fixacao.transporte,url,f.env);
   if(atual.dir!==p.dir || JSON.stringify(atual.fixacao)!==JSON.stringify(p.fixacao))recusar('fixacao-divergente','transporte.json');
   conferirFixacao(p.fixacao,p.dir);
+  conferirConfigDaCli(p.fixacao,f.env);
 }
 /**
  * Depois do push e da prova, o origin e a config tem de ser os do startup, e a fixacao a mesma: o git releu os dois a
@@ -161,7 +162,8 @@ export function criarPerfilShipMcp(raiz:string,transporte:TransporteShipMcp='git
   const rede=pino?configDeRede(pino.fixacao,pino.dir):[];
   if(chaveRecusadaDaConfigDeRede(rede)!==null)erro('transport.invalid');
   const perfil=Object.freeze({transporte,destino}),st=fs.statSync(raiz);
-  const env=ambienteDoWorkerDoTransporte(transporte);
+  const env=ambienteDoWorkerDoTransporte(transporte,process.env,pino?.fixacao.transporte==='forja-https'?pino.fixacao.cli:undefined);
+  if(pino)conferirConfigDaCli(pino.fixacao,env);
   perfis.set(perfil,{raiz,dev:st.dev,ino:st.ino,url,config:cfg,perfil,env,rede,...(bare?{bare}:{}),...(pino?{pino}:{})});return perfil;
 }
 /** O `-c` que o push e o `ls-remote` do perfil levam; vazio no `github-ssh` e no `bare-local`. */

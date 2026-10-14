@@ -166,8 +166,8 @@ test('ambiente do worker do SHIP: nada de GIT_SSH, askpass, TLS desligado ou con
   for (const t of ['github-ssh', 'bare-local'] as const) assert.deepEqual(ambienteDoWorkerDoTransporte(t, sujo), base, t);
   const SEM_PERGUNTA = ['GIT_ASKPASS', 'GIT_TERMINAL_PROMPT', 'SSH_ASKPASS_REQUIRE'];
   for (const t of ['forja-ssh', 'forja-https'] as const) {
-    const env = ambienteDoWorkerDoTransporte(t, sujo);
-    assert.deepEqual(Object.keys(env).sort(), [...PERMITIDAS, ...SEM_PERGUNTA, ...(t === 'forja-https' ? ['DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR'] : [])].sort(), t);
+    const env = ambienteDoWorkerDoTransporte(t, sujo, 'glab');
+    assert.deepEqual(Object.keys(env).sort(), [...PERMITIDAS, ...SEM_PERGUNTA, ...(t === 'forja-https' ? ['DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR', 'GLAB_CHECK_UPDATE', 'GLAB_SEND_TELEMETRY'] : [])].sort(), t);
     assert.deepEqual(Object.keys(env).filter((k) => proibida(k) && !(k === 'GIT_ASKPASS' && env[k] === '')), [], t);
     assert.equal(env.GIT_ASKPASS, '', t);
   }

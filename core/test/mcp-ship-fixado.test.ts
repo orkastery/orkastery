@@ -51,12 +51,12 @@ function fixarSsh(f: Fixture, url = SSH, keyscan = KEYSCAN) {
   gravarFixacao(dirDaFixacao(f.raiz), prep);
   return prep;
 }
-function fixarHttps(f: Fixture, url = HTTPS) {
+function fixarHttps(f: Fixture, url = HTTPS, env: NodeJS.ProcessEnv = {}) {
   f.git(['remote', 'set-url', 'origin', url]);
   const binario = cliFalsa(f.home), ca = path.join(f.home, 'empresa.pem');
   fs.writeFileSync(ca, PEM, { mode: 0o644 });
   const prep = prepararFixacao({ raiz: f.raiz, transporte: 'forja-https', url, manifesto: { tipo: 'gitlab', ca },
-    sondas: sondasFalsas({ binario }) });
+    sondas: sondasFalsas({ binario, env }) });
   gravarFixacao(dirDaFixacao(f.raiz), prep);
   return { prep, binario, ca };
 }
@@ -114,6 +114,20 @@ test('forja-ssh fixado: o perfil leva o ssh da chave fixada; github-ssh e bare-l
   f.git(['remote', 'set-url', 'origin', 'git@github.com:o/r.git']);
   assert.deepEqual(configDeRedeDoPerfil(criarPerfilShipMcp(f.raiz, 'github-ssh')), []);
   assert.throws(() => configDeRedeDoPerfil({ transporte: 'forja-ssh', destino: 'main' }), /mcp\.ship\.profile\.invalid/);
+}));
+
+test('forja-https: a pasta de config fixada na instalacao e a que o worker leva; outra ou ausente recusa no startup', () => fixture(async (f) => {
+  const config = path.join(f.home, 'glab-config');
+  fixarHttps(f, HTTPS, { GLAB_CONFIG_DIR: config, GITLAB_TOKEN: 'nao-fixa' });
+  const antes = process.env.GLAB_CONFIG_DIR;
+  try {
+    delete process.env.GLAB_CONFIG_DIR;
+    assert.throws(() => criarPerfilShipMcp(f.raiz, 'forja-https'), /mcp\.ship\.transport\.fixacao-divergente: .*\(GLAB_CONFIG_DIR\)/);
+    process.env.GLAB_CONFIG_DIR = path.join(f.home, 'outra-config');
+    assert.throws(() => criarPerfilShipMcp(f.raiz, 'forja-https'), /mcp\.ship\.transport\.fixacao-divergente: .*\(GLAB_CONFIG_DIR\)/);
+    process.env.GLAB_CONFIG_DIR = config;
+    assert.ok(criarPerfilShipMcp(f.raiz, 'forja-https'));
+  } finally { if (antes === undefined) delete process.env.GLAB_CONFIG_DIR; else process.env.GLAB_CONFIG_DIR = antes; }
 }));
 
 test('forja-https fixado: helper unico da CLI e CA; o helper do usuario na config passa como inerte', () => fixture(async (f) => {
@@ -223,13 +237,19 @@ test('ambiente do worker por transporte: a lista fechada e, nos fixados, so o qu
     XDG_RUNTIME_DIR: '/run/user/1' };
   const BASE = ['HOME', 'LANG', 'LOGNAME', 'PATH', 'SSH_AUTH_SOCK', 'TMPDIR', 'USER', 'XDG_CONFIG_HOME'];
   const SEM_PERGUNTA = ['GIT_ASKPASS', 'GIT_TERMINAL_PROMPT', 'SSH_ASKPASS_REQUIRE'];
-  const chaves = (t: Parameters<typeof ambienteDoWorkerDoTransporte>[0]) => Object.keys(ambienteDoWorkerDoTransporte(t, sujo)).sort();
+  const chaves = (t: Parameters<typeof ambienteDoWorkerDoTransporte>[0], cli?: 'gh' | 'glab') => Object.keys(ambienteDoWorkerDoTransporte(t, sujo, cli)).sort();
   assert.deepEqual(chaves('github-ssh'), BASE);
   assert.deepEqual(chaves('bare-local'), BASE);
   assert.deepEqual(chaves('forja-ssh'), [...BASE, ...SEM_PERGUNTA].sort());
-  assert.deepEqual(chaves('forja-https'), [...BASE, ...SEM_PERGUNTA, 'DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR'].sort());
+  assert.deepEqual(chaves('forja-https', 'glab'), [...BASE, ...SEM_PERGUNTA, 'DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR', 'GLAB_CHECK_UPDATE', 'GLAB_SEND_TELEMETRY'].sort());
+  assert.deepEqual(chaves('forja-https', 'gh'), [...BASE, ...SEM_PERGUNTA, 'DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR', 'GH_NO_UPDATE_NOTIFIER', 'GH_PROMPT_DISABLED'].sort());
+  // Com a pasta de config no ambiente de quem chama, entra so a da CLI fixada.
+  const comConfig = { ...sujo, GLAB_CONFIG_DIR: '/home/x/glab', GH_CONFIG_DIR: '/home/x/gh', GLAB_TOKEN: 'nao-leva' };
+  assert.deepEqual(Object.keys(ambienteDoWorkerDoTransporte('forja-https', comConfig, 'glab')).filter((k) => /^(GLAB|GH)_/.test(k)).sort(),
+    ['GLAB_CHECK_UPDATE', 'GLAB_CONFIG_DIR', 'GLAB_SEND_TELEMETRY']);
+  for (const t of ['github-ssh', 'bare-local', 'forja-ssh'] as const) assert.equal(ambienteDoWorkerDoTransporte(t, comConfig, 'glab').GLAB_CONFIG_DIR, undefined, t);
   for (const t of ['forja-ssh', 'forja-https'] as const) {
-    const env = ambienteDoWorkerDoTransporte(t, sujo);
+    const env = ambienteDoWorkerDoTransporte(t, sujo, 'glab');
     assert.deepEqual({ PATH: env.PATH, GIT_ASKPASS: env.GIT_ASKPASS, GIT_TERMINAL_PROMPT: env.GIT_TERMINAL_PROMPT },
       { PATH: '/usr/bin:/bin', GIT_ASKPASS: '', GIT_TERMINAL_PROMPT: '0' });
   }

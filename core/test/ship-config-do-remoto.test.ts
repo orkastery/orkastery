@@ -13,7 +13,7 @@ const URL_HTTPS = 'https://gitlab.empresa.com:8929/g/p.git';
 const FIX_SSH: FixacaoSsh = { schema: ESQUEMA_DA_FIXACAO, raiz: '/r', url: URL_SSH, transporte: 'forja-ssh', host: 'forja.test', porta: 22,
   chaves: [], knownHostsSha256: '0'.repeat(64) };
 const fixHttps = (binario: string, ca: FixacaoHttps['ca']): FixacaoHttps => ({ schema: ESQUEMA_DA_FIXACAO, raiz: '/r', url: URL_HTTPS,
-  transporte: 'forja-https', tipo: 'gitlab', origem: 'https://gitlab.empresa.com:8929', caminho: false, cli: 'glab', binario, versaoCli: '1.121.0', ca });
+  transporte: 'forja-https', tipo: 'gitlab', origem: 'https://gitlab.empresa.com:8929', caminho: false, cli: 'glab', binario, versaoCli: '1.121.0', configDaCli: null, ca });
 
 // O ssh falso: registra o argv e, no lugar da rede, roda o git-upload-pack/git-receive-pack contra um bare local.
 // Com o arquivo `recusa`, sai com erro (o transporte que nao deixa passar).

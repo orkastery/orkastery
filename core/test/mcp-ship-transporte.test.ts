@@ -8,7 +8,8 @@ import { dirTemporario } from './apoio';
 import { CHAVE_ED25519, CHAVE_RSA, IMPRESSAO_ED25519, PEM, cliFalsa } from './apoio-transporte';
 import { TRANSPORTES_SHIP_MCP, ehTransporteFixado, ehTransporteShipMcp } from '../src/mcp-transportes';
 import {
-  ESQUEMA_DA_FIXACAO, FixacaoHttps, FixacaoSsh, RECUSAS_DO_TRANSPORTE, alvoDaCredencial, ambienteDoTransporte, configDeRede,
+  ESQUEMA_DA_FIXACAO, FixacaoHttps, FixacaoSsh, RECUSAS_DO_TRANSPORTE, alvoDaCredencial, ambienteDaCliDoTransporte, ambienteDoTransporte,
+  conferirConfigDaCli, configDaCliDoAmbiente, configDeRede,
   conferirFixacao, dirDaFixacao, enderecoDoOrigin, gravarFixacao, impressaoDaChave, lerFixacao, lerKeyscan, lerKnownHosts,
   linhasDoKnownHosts, nomeNoKnownHosts, textoDaFixacao,
 } from '../src/mcp-ship-transporte';
@@ -23,7 +24,7 @@ const FIX_SSH: FixacaoSsh = { schema: ESQUEMA_DA_FIXACAO, raiz: RAIZ, url: URL_S
   porta: 2222, chaves: [{ tipo: 'ssh-ed25519', impressao: IMPRESSAO_ED25519 }], knownHostsSha256: sha256(KH) };
 const fixHttps = (binario: string, ca: FixacaoHttps['ca'] = null): FixacaoHttps => ({ schema: ESQUEMA_DA_FIXACAO, raiz: RAIZ, url: URL_HTTPS,
   transporte: 'forja-https', tipo: 'gitlab', origem: 'https://gitlab.empresa.com:8929', caminho: false, cli: 'glab', binario,
-  versaoCli: '1.121.0', ca });
+  versaoCli: '1.121.0', configDaCli: null, ca });
 const temSshKeygen = spawnSync('ssh-keygen', ['-?']).error === undefined;
 
 function comBase(fn: (env: NodeJS.ProcessEnv, base: string) => void): void {
@@ -123,7 +124,7 @@ test('forja-https: o git pede a credencial so ao helper fixado, nunca ao da conf
       `[credential "https://gitlab.empresa.com:8929"]\n\thelper = "!f() { touch '${marca}'; }; f"\n`);
     const glab = path.join(dir, 'glab');
     fs.writeFileSync(glab, '#!/bin/sh\n[ "$1 $2 $3" = "auth git-credential get" ] || exit 2\necho username=oauth2\necho password=FALSO-DO-TESTE\n', { mode: 0o755 });
-    const env = { HOME: home, PATH: '/usr/bin:/bin', GIT_CONFIG_NOSYSTEM: '1', ...ambienteDoTransporte('forja-https', {}) };
+    const env = { HOME: home, PATH: '/usr/bin:/bin', GIT_CONFIG_NOSYSTEM: '1', ...ambienteDoTransporte('forja-https', {}, 'glab') };
     const pedir = (host: string) => spawnSync('git', [...configDeRede(fixHttps(glab), dir), 'credential', 'fill'],
       { input: `protocol=https\nhost=${host}\n\n`, encoding: 'utf8', env });
     const r = pedir('gitlab.empresa.com:8929');
@@ -140,9 +141,64 @@ test('forja-https: o git pede a credencial so ao helper fixado, nunca ao da conf
 test('ambiente do worker: sem pergunta nos dois; so o HTTPS leva o barramento do keyring', () => {
   const env = { DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1000/bus', XDG_RUNTIME_DIR: '/run/user/1000', GH_TOKEN: 'nao-leva' };
   assert.deepEqual(ambienteDoTransporte('forja-ssh', env), { GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '', SSH_ASKPASS_REQUIRE: 'never' });
-  assert.deepEqual(ambienteDoTransporte('forja-https', env), { GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '', SSH_ASKPASS_REQUIRE: 'never',
-    DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1000/bus', XDG_RUNTIME_DIR: '/run/user/1000' });
+  assert.deepEqual(ambienteDoTransporte('forja-https', env, 'glab'), { GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '', SSH_ASKPASS_REQUIRE: 'never',
+    DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1000/bus', XDG_RUNTIME_DIR: '/run/user/1000',
+    GLAB_CHECK_UPDATE: 'false', GLAB_SEND_TELEMETRY: 'false' });
+  assert.deepEqual(ambienteDoTransporte('forja-https', env, 'gh'), { GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '', SSH_ASKPASS_REQUIRE: 'never',
+    DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1000/bus', XDG_RUNTIME_DIR: '/run/user/1000',
+    GH_NO_UPDATE_NOTIFIER: '1', GH_PROMPT_DISABLED: '1' });
+  assert.throws(() => ambienteDoTransporte('forja-https', env), /CLI fixada/);
 });
+
+test('ambiente do worker HTTPS: a pasta de config e a variavel da propria CLI; nunca a da outra nem token', () => {
+  const env = { GLAB_CONFIG_DIR: '/home/x/glab', GH_CONFIG_DIR: '/home/x/gh', GITLAB_TOKEN: 'a-SEGREDO', GLAB_TOKEN: 'b-SEGREDO', GH_TOKEN: 'c-SEGREDO',
+    GITHUB_TOKEN: 'd-SEGREDO', GH_ENTERPRISE_TOKEN: 'e-SEGREDO' };
+  const glab = ambienteDoTransporte('forja-https', env, 'glab'), gh = ambienteDoTransporte('forja-https', env, 'gh');
+  assert.equal(glab.GLAB_CONFIG_DIR, '/home/x/glab');
+  assert.equal(glab.GH_CONFIG_DIR, undefined);
+  assert.equal(gh.GH_CONFIG_DIR, '/home/x/gh');
+  assert.equal(gh.GLAB_CONFIG_DIR, undefined);
+  for (const e of [glab, gh]) assert.ok(!/SEGREDO/.test(JSON.stringify(e)) && !Object.keys(e).some((k) => /TOKEN/.test(k)), JSON.stringify(e));
+  // O forja-ssh nao leva nada da CLI.
+  assert.equal(ambienteDoTransporte('forja-ssh', env).GLAB_CONFIG_DIR, undefined);
+  // Sem a variavel no ambiente de quem chama, nada de config no do worker.
+  assert.equal(ambienteDoTransporte('forja-https', {}, 'glab').GLAB_CONFIG_DIR, undefined);
+  // A sonda apaga o que o worker nao leva: todo token e a config que nao veio.
+  const sonda = ambienteDaCliDoTransporte('glab', { GITLAB_TOKEN: 'x', GLAB_ACCESS_TOKEN: 'y', GH_CONFIG_DIR: '/z' });
+  assert.ok(['GITLAB_TOKEN', 'GLAB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GLAB_ACCESS_TOKEN', 'GLAB_CONFIG_DIR'].every((n) => sonda.apagar.includes(n)));
+});
+
+test('pasta de config da CLI: relativa ou com caractere de controle recusa, sem o valor na frase, nos dois idiomas', () => {
+  for (const [cli, nome] of [['glab', 'GLAB_CONFIG_DIR'], ['gh', 'GH_CONFIG_DIR']] as const) {
+    for (const ruim of ['relativo/glab', '~/glab', './glab', '/ok/\nruim', '/ok/\x07']) {
+      assert.throws(() => ambienteDoTransporte('forja-https', { [nome]: ruim }, cli), (e: Error) =>
+        e.message.startsWith(`mcp.ship.transport.cli-config: ${nome} precisa ser`) && !e.message.includes('ruim') && !e.message.includes('relativo'), ruim);
+    }
+    assert.equal(configDaCliDoAmbiente(cli, { [nome]: '/abs/ok' }), '/abs/ok');
+    assert.equal(configDaCliDoAmbiente(cli, { [nome]: '' }), null);
+  }
+  assert.match(FORJA_EN.transporteShip.recusa('mcp.ship.transport.cli-config', 'GLAB_CONFIG_DIR'), /^mcp\.ship\.transport\.cli-config: GLAB_CONFIG_DIR must be an absolute path/);
+});
+
+test('fixacao HTTPS: a pasta de config fixada precisa ser a do worker; diferente ou ausente recusa', () => {
+  const fix = { ...fixHttps('/usr/bin/glab'), configDaCli: '/home/x/glab' };
+  conferirConfigDaCli(fix, { GLAB_CONFIG_DIR: '/home/x/glab' });
+  for (const env of [{}, { GLAB_CONFIG_DIR: '/outra/glab' }]) {
+    assert.throws(() => conferirConfigDaCli(fix, env), /mcp\.ship\.transport\.fixacao-divergente: .*\(GLAB_CONFIG_DIR\)/);
+  }
+  assert.throws(() => conferirConfigDaCli(fixHttps('/usr/bin/glab'), { GLAB_CONFIG_DIR: '/outra' }), /fixacao-divergente/);
+  conferirConfigDaCli(fixHttps('/usr/bin/glab'), {});
+  conferirConfigDaCli(FIX_SSH, { GLAB_CONFIG_DIR: '/qualquer' });
+});
+
+test('fixacao HTTPS: o formato exige configDaCli nulo ou absoluto', () => comBase((env, base) => {
+  const url = URL_HTTPS, dir = dirDaFixacao(RAIZ, env), bin = cliFalsa(base);
+  for (const [valor, ok] of [[null, true], ['/home/x/glab', true], ['relativo', false], [7, false]] as const) {
+    gravarFixacao(dir, { fixacao: { ...fixHttps(bin), url, configDaCli: valor as string | null } });
+    if (ok) assert.equal((lerFixacao(RAIZ, 'forja-https', url, env).fixacao as FixacaoHttps).configDaCli, valor);
+    else assert.throws(() => lerFixacao(RAIZ, 'forja-https', url, env), /fixacao-insegura/);
+  }
+}));
 
 test('fixacao SSH: gravada 700/600 fora do projeto, lida e conferida; alterada, aberta ou ausente recusa', () => comBase((env, base) => {
   const dir = dirDaFixacao(RAIZ, env);
@@ -306,7 +362,7 @@ test('fixacao: host do origin diferente da chave fixada recusa, mesmo com a URL 
 
 test('forja-https: nenhum token no -c nem no ambiente do worker', () => {
   const env = { GH_TOKEN: 'gh-SEGREDO', GITLAB_TOKEN: 'gl-SEGREDO', GIT_ASKPASS: '/bin/pergunta', DBUS_SESSION_BUS_ADDRESS: 'unix:x' };
-  const tudo = JSON.stringify([configDeRede(fixHttps('/usr/bin/glab'), '/x'), ambienteDoTransporte('forja-https', env)]);
+  const tudo = JSON.stringify([configDeRede(fixHttps('/usr/bin/glab'), '/x'), ambienteDoTransporte('forja-https', env, 'glab')]);
   assert.ok(!/SEGREDO|pergunta/.test(tudo), tudo);
 });
 

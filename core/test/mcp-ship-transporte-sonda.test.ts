@@ -6,7 +6,7 @@ import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { dirTemporario } from './apoio';
 import { CHAVE_ED25519, CHAVE_RSA, IMPRESSAO_ED25519, PEM, cliFalsa, sondasFalsas } from './apoio-transporte';
 import {
-  ESQUEMA_DA_FIXACAO, EntradaDaFixacao, FixacaoHttps, FixacaoSsh, SondasDoTransporte, impressaoDaChave, prepararFixacao, proporTransporte,
+  ESQUEMA_DA_FIXACAO, EntradaDaFixacao, ambienteDoTransporte, FixacaoHttps, FixacaoSsh, SondasDoTransporte, impressaoDaChave, prepararFixacao, proporTransporte,
   sondasPadraoDoTransporte,
 } from '../src/mcp-ship-transporte';
 
@@ -129,7 +129,7 @@ test('forja-https: helper da CLI logada no host exato; nenhuma sonda pede a cred
   const s = sondasFalsas({ binario: GLAB });
   const p = https({}, s);
   assert.deepEqual(p.fixacao, { schema: ESQUEMA_DA_FIXACAO, raiz: RAIZ, url: HTTPS, transporte: 'forja-https', tipo: 'gitlab',
-    origem: 'https://gitlab.empresa.com:8929', caminho: false, cli: 'glab', binario: GLAB, versaoCli: '1.121.0', ca: null });
+    origem: 'https://gitlab.empresa.com:8929', caminho: false, cli: 'glab', binario: GLAB, versaoCli: '1.121.0', configDaCli: null, ca: null });
   assert.equal(p.knownHosts, undefined);
   assert.equal(p.ca, undefined);
   assert.deepEqual(s.chamadas.map((c) => c.args.join(' ')), ['--version', 'auth git-credential --help']);
@@ -151,6 +151,33 @@ test('forja-https: helper da CLI logada no host exato; nenhuma sonda pede a cred
   // Nenhuma chamada pede ou mostra o token.
   for (const c of [...s.chamadas, ...gh.chamadas]) assert.ok(!c.args.some((a) => a === 'get' || a === '-t' || a === '--show-token'));
   for (const c of [...s.logins, ...gh.logins]) assert.ok(!c.args.some((a) => a === '-t' || a === '--show-token'));
+});
+
+test('forja-https: a sonda do login usa o ambiente do worker e fixa a pasta de config', () => {
+  const env = { GLAB_CONFIG_DIR: '/home/x/glab', GITLAB_TOKEN: 'a-SEGREDO', GLAB_TOKEN: 'b-SEGREDO' };
+  const s = sondasFalsas({ binario: GLAB, env });
+  const p = https({}, s), c = s.logins[0];
+  assert.equal((p.fixacao as FixacaoHttps).configDaCli, '/home/x/glab');
+  // O que a sonda acrescenta e apaga e o que o worker leva: a mesma funcao.
+  const comum = ambienteDoTransporte('forja-https', env, 'glab');
+  for (const k of ['GLAB_CONFIG_DIR', 'GLAB_CHECK_UPDATE', 'GLAB_SEND_TELEMETRY']) assert.equal(c.acrescentar?.[k], comum[k], k);
+  assert.ok(['GITLAB_TOKEN', 'GLAB_TOKEN', 'GH_TOKEN'].every((n) => c.apagar?.includes(n)));
+  assert.ok(!c.apagar?.includes('GLAB_CONFIG_DIR'));
+  assert.ok(!JSON.stringify(c).includes('SEGREDO'));
+  // Sem a variavel, a sonda apaga a do processo e nada fica fixado.
+  const sem = sondasFalsas({ binario: GLAB });
+  assert.equal((https({}, sem).fixacao as FixacaoHttps).configDaCli, null);
+  assert.ok(sem.logins[0].apagar?.includes('GLAB_CONFIG_DIR'));
+  assert.equal(sem.logins[0].acrescentar?.GLAB_CONFIG_DIR, undefined);
+  // Pasta relativa recusa antes de qualquer login.
+  const ruim = sondasFalsas({ binario: GLAB, env: { GLAB_CONFIG_DIR: 'rel' } });
+  assert.throws(() => https({}, ruim), /mcp\.ship\.transport\.cli-config: GLAB_CONFIG_DIR/);
+  assert.equal(ruim.logins.length, 0);
+  // O gh leva a variavel dele.
+  const gh = sondasFalsas({ binario: GH, versao: 'gh version 2.18.0\n', env: { GH_CONFIG_DIR: '/home/x/gh', GLAB_CONFIG_DIR: '/nao' } });
+  const f = prepararFixacao({ raiz: RAIZ, transporte: 'forja-https', url: 'https://github.com/o/r.git', manifesto: { tipo: 'github' }, sondas: gh });
+  assert.equal((f.fixacao as FixacaoHttps).configDaCli, '/home/x/gh');
+  assert.equal(gh.logins[0].acrescentar?.GH_PROMPT_DISABLED, '1');
 });
 
 test('forja-https: com subcaminho, o login e a origem sao do host[:porta], nunca do caminho base', () => {

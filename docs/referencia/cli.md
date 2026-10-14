@@ -52,7 +52,8 @@ conexão); qualquer linha `@revoked` para a chave oferecida, em qualquer campo d
 fica um só helper (o caminho real da CLI), nenhum prompt abre, e HTTP puro ou credencial na URL são recusados. A CA do
 `forja.ca` é copiada para a fixação e conferida pelo hash; ela soma confiança, não é exclusiva (as CAs do sistema
 continuam valendo), e sem ela vale a sua config de CA do git. A CLI sem esse subcomando recusa com a versão mínima. O
-token nunca passa pelo `ork`.
+token nunca passa pelo `ork`. A pasta de config da CLI (`GLAB_CONFIG_DIR` ou `GH_CONFIG_DIR`), se definida, é fixada na
+instalação e repassada ao push; a CLI roda sem checar atualização, sem telemetria e sem prompt.
 
 O push e a prova saem de um gitdir temporário privado (0700) que usa os objetos do projeto, direto para a URL fixada
 e com `GIT_ALLOW_PROTOCOL`: o `.git/config`, os hooks e os `insteadOf` do projeto não são lidos no push, e os hooks

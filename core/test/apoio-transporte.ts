@@ -26,6 +26,8 @@ export interface OpcoesDasSondas {
   saidaDoLogin?: string;
   /** Os known_hosts do sistema (so revogacoes); nos testes, nunca o `/etc` de verdade. */
   globais?: string[];
+  /** O ambiente de quem instala; sem valor, vazio (o teste nunca le o do processo). */
+  env?: NodeJS.ProcessEnv;
 }
 export interface SondasRegistradas extends SondasDoTransporte {
   chamadas: { binario: string; args: readonly string[] }[];
@@ -49,6 +51,7 @@ export function sondasFalsas(o: OpcoesDasSondas = {}): SondasRegistradas {
     },
     rodarCli: (c) => { logins.push(c); return { status: o.login === false ? 1 : 0, stdout: o.saidaDoLogin ?? '', stderr: '', sinal: null }; },
     acharBinario: () => o.binario ?? null,
+    env: o.env ?? {},
     sondas: {},
     knownHostsDoUsuario: o.knownHosts ?? null,
     knownHostsDoSistema: o.globais ?? [],

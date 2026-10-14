@@ -14,6 +14,7 @@ import { spawnSync } from 'node:child_process';
 import { TIPOS_DE_FORJA, type ForjaResolvida, type TipoDeForja } from './forja/contrato';
 import { CLI_DA_FORJA, versaoAbaixo, type AlvoDaCli } from './forja/cli';
 import { chaveDoLogin, temLogin, type RodarCli } from './forja/api';
+import { rodarCli } from './forja/executor';
 import { HOST_DO_REMOTO, lerEnderecoDoRemoto, type EnderecoDoRemoto } from './forja/endereco';
 import { resolverForja, type SondasDaForja } from './forja/resolver';
 import { gitPassivoMcp } from './mcp-git';
@@ -29,7 +30,7 @@ export const URL_GITHUB_SSH = /^git@github\.com:[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-
 export const RECUSAS_DO_TRANSPORTE = ['urls', 'modo', 'forja', 'ssh.divergente', 'ssh.sem-resposta', 'ssh.revogada',
   'ssh.nao-confirmada', 'ssh.impressao-divergente', 'ssh.known-hosts-ilegivel', 'ssh.caminho', 'ssh.known-hosts-alterado', 'https.sem-tls',
   'ssh.credencial-na-url', 'https.credencial-na-url', 'https.divergente', 'sem-cli', 'sem-helper', 'sem-login', 'binario', 'ca', 'ca-alterada',
-  'fixacao-ausente', 'fixacao-insegura', 'fixacao-divergente', 'mudou-no-push'] as const;
+  'fixacao-ausente', 'fixacao-insegura', 'fixacao-divergente', 'mudou-no-push', 'cli-config'] as const;
 export type RecusaDoTransporte = (typeof RECUSAS_DO_TRANSPORTE)[number];
 
 /** A recusa sai com o codigo `mcp.ship.transport.*` na frente: o servidor e o worker do SHIP so repassam `mcp.*`. */
@@ -233,6 +234,8 @@ export interface FixacaoSsh extends BaseDaFixacao {
 }
 export interface FixacaoHttps extends BaseDaFixacao {
   transporte: 'forja-https'; tipo: TipoDeForja; origem: string; caminho: boolean; cli: 'gh' | 'glab'; binario: string; versaoCli: string;
+  /** A pasta de config da CLI (`GH_CONFIG_DIR`/`GLAB_CONFIG_DIR`) vista na instalacao; o worker leva a mesma. `null`: a padrao. */
+  configDaCli: string | null;
   /** A CA do manifesto: `arquivo` e de onde veio (so para mostrar); o git le a copia `ca.pem` da pasta da fixacao. */
   ca: { arquivo: string; sha256: string } | null;
 }
@@ -392,16 +395,60 @@ export function chaveRecusadaDaConfigDeRede(config: readonly string[]): string |
   return null;
 }
 
+/** A variavel que diz a cada CLI onde esta a config (e o login) dela. */
+const CONFIG_DA_CLI = { gh: 'GH_CONFIG_DIR', glab: 'GLAB_CONFIG_DIR' } as const;
+/** O que cada CLI recebe para nunca perguntar, checar versao ou enviar telemetria no meio do push. */
+const FIXAS_DA_CLI: Readonly<Record<'gh' | 'glab', Readonly<Record<string, string>>>> = {
+  gh: { GH_NO_UPDATE_NOTIFIER: '1', GH_PROMPT_DISABLED: '1' },
+  glab: { GLAB_CHECK_UPDATE: 'false', GLAB_SEND_TELEMETRY: 'false' },
+};
+const TOKENS_DA_CLI = ['GITLAB_TOKEN', 'GLAB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN'];
+
+/**
+ * A pasta de config da CLI no ambiente de quem chama: `null` quando nao vem; pasta absoluta sem caractere de controle
+ * quando vem; outra coisa recusa (so o nome da variavel sai na recusa, nunca o valor).
+ */
+export function configDaCliDoAmbiente(cli: 'gh' | 'glab', env: NodeJS.ProcessEnv): string | null {
+  const nome = CONFIG_DA_CLI[cli], v = env[nome];
+  if (v === undefined || v === '') return null;
+  if (!absoluto(v)) return recusar('cli-config', nome);
+  return v;
+}
+
+/**
+ * O ambiente da CLI da forja no transporte HTTPS, o mesmo na sonda da instalacao e no worker do push: a pasta de
+ * config (so a variavel da propria CLI, quando o ambiente a traz), as variaveis que a mantem calada e, em `apagar`, o
+ * que nunca passa: token de qualquer nome conhecido e a variavel de config quando ela nao vem.
+ */
+export function ambienteDaCliDoTransporte(cli: 'gh' | 'glab', env: NodeJS.ProcessEnv): { acrescentar: Record<string, string>; apagar: string[] } {
+  const config = configDaCliDoAmbiente(cli, env), acrescentar: Record<string, string> = { ...FIXAS_DA_CLI[cli] };
+  if (config !== null) acrescentar[CONFIG_DA_CLI[cli]] = config;
+  const tokens = Object.keys(env).filter((n) => /^(GH|GLAB|GITLAB|GITHUB)_/.test(n) && /TOKEN/i.test(n));
+  return { acrescentar, apagar: [...new Set([...TOKENS_DA_CLI, ...tokens]), ...(config === null ? [CONFIG_DA_CLI[cli]] : [])] };
+}
+
+/** A pasta de config que o worker leva tem de ser a fixada na instalacao (ambas `null` quando nao havia). */
+export function conferirConfigDaCli(f: FixacaoDoTransporte, envDoWorker: NodeJS.ProcessEnv): void {
+  if (f.transporte !== 'forja-https') return;
+  const nome = CONFIG_DA_CLI[f.cli], v = envDoWorker[nome];
+  if ((v === undefined || v === '' ? null : v) !== f.configDaCli) recusar('fixacao-divergente', nome);
+}
+
 /**
  * O que o transporte fixado acrescenta ao ambiente do worker: nenhuma pergunta (`GIT_ASKPASS` vazio desliga tambem o
  * `core.askPass` e o `SSH_ASKPASS` no git). No HTTPS, o barramento da sessao, para a CLI ler o token do keyring do
- * sistema. Nada de token do ambiente de quem chama.
+ * sistema, a pasta de config da CLI fixada (o login que o helper le) e as variaveis que a mantem calada. Nada de
+ * token do ambiente de quem chama.
  */
-export function ambienteDoTransporte(t: TransporteFixado, env: NodeJS.ProcessEnv = process.env): Record<string, string> {
+export function ambienteDoTransporte(t: TransporteFixado, env: NodeJS.ProcessEnv = process.env, cli?: 'gh' | 'glab'): Record<string, string> {
   const extra: Record<string, string> = { GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '', SSH_ASKPASS_REQUIRE: 'never' };
-  if (t === 'forja-https') for (const nome of ['DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR']) {
-    const v = env[nome];
-    if (v) extra[nome] = v;
+  if (t === 'forja-https') {
+    if (!cli) throw Error('mcp.ship.transport.cli: a CLI fixada e obrigatoria no HTTPS');
+    for (const nome of ['DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR']) {
+      const v = env[nome];
+      if (v) extra[nome] = v;
+    }
+    Object.assign(extra, ambienteDaCliDoTransporte(cli, env).acrescentar);
   }
   return extra;
 }
@@ -559,7 +606,7 @@ function formatoValido(v: unknown): v is FixacaoDoTransporte {
   const ca = o.ca as Record<string, unknown> | null;
   return (TIPOS_DE_FORJA as readonly unknown[]).includes(o.tipo) && typeof o.origem === 'string'
     && /^https:\/\/[a-z0-9.-]+(?::\d+)?$/.test(o.origem) && typeof o.caminho === 'boolean' && (o.cli === 'gh' || o.cli === 'glab')
-    && absoluto(o.binario) && texto(o.versaoCli) && (ca === null || (typeof ca === 'object' && absoluto(ca.arquivo) && hex64(ca.sha256)));
+    && absoluto(o.binario) && texto(o.versaoCli) && (o.configDaCli === null || absoluto(o.configDaCli)) && (ca === null || (typeof ca === 'object' && absoluto(ca.arquivo) && hex64(ca.sha256)));
 }
 
 /**
@@ -649,6 +696,8 @@ export function proporTransporte(url: string): TransporteShipMcp | null {
 export interface SondasDoTransporte {
   /** Sem shell e com prazo: o `ssh-keyscan`, o `--version` e a ajuda do `auth git-credential` da CLI. */
   rodar(binario: string, args: readonly string[], prazoMs: number): { status: number | null; stdout: string; stderr: string };
+  /** O ambiente de quem instala (a pasta de config da CLI); sem valor, o do processo. */
+  env?: NodeJS.ProcessEnv;
   /** O executor do `temLogin`; sem valor, a CLI de verdade. */
   rodarCli?: RodarCli;
   acharBinario(cmd: 'gh' | 'glab'): string | null;
@@ -674,6 +723,7 @@ export function sondasPadraoDoTransporte(env: NodeJS.ProcessEnv = process.env): 
           GH_PROMPT_DISABLED: '1', GLAB_CHECK_UPDATE: 'false', GLAB_SEND_TELEMETRY: 'false' } });
       return { status: r.status, stdout: (r.stdout ?? '').toString(), stderr: (r.stderr ?? '').toString() };
     },
+    env,
     acharBinario: (cmd) => acharBinario(cmd, { env }),
     knownHostsDoUsuario: path.join(home, '.ssh', 'known_hosts'),
     knownHostsDoSistema: ['/etc/ssh/ssh_known_hosts', '/etc/ssh/ssh_known_hosts2'],
@@ -794,10 +844,14 @@ function fixarHttps(e: EntradaDaFixacao, origin: { origem: string }, f: ForjaRes
   const ajuda = e.sondas.rodar(binario, ['auth', 'git-credential', '--help'], PRAZO_DA_CLI_MS);
   if (ajuda.status !== 0 || !/git-credential/.test(`${ajuda.stdout}\n${ajuda.stderr}`)) recusar('sem-helper', `${cli.cmd} ${versao}, >= ${cli.minima}`);
   // O login confere a mesma CLI que vai ser fixada, pelo caminho real, sem nova busca no PATH.
-  if (!temLogin(alvo, e.sondas.rodarCli, binario)) recusar('sem-login', `${cli.cmd} ${chaveDoLogin(alvo)}`);
+  // O login confere no ambiente que o worker vai ter: a mesma pasta de config e as mesmas variaveis, sem token.
+  const amb = ambienteDaCliDoTransporte(cli.cmd, e.sondas.env ?? process.env), executor = e.sondas.rodarCli ?? rodarCli;
+  const rodarLogin: RodarCli = (c) => executor({ ...c, acrescentar: { ...c.acrescentar, ...amb.acrescentar }, apagar: [...(c.apagar ?? []), ...amb.apagar] });
+  if (!temLogin(alvo, rodarLogin, binario)) recusar('sem-login', `${cli.cmd} ${chaveDoLogin(alvo)}`);
   return {
     fixacao: { schema: ESQUEMA_DA_FIXACAO, raiz: e.raiz, url: e.url, transporte: 'forja-https', tipo: f.tipo, origem,
       caminho: CAMINHO_NA_CREDENCIAL && caminhoBase !== '', cli: cli.cmd, binario, versaoCli: versao,
+      configDaCli: configDaCliDoAmbiente(cli.cmd, e.sondas.env ?? process.env),
       ca: ca && f.ca ? { arquivo: f.ca, sha256: sha256(ca) } : null },
     ...(ca ? { ca } : {}),
   };

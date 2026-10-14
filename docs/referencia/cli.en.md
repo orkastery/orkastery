@@ -51,7 +51,8 @@ without reading your SSH config. `forja-https` pushes through the `auth git-cred
 the exact host (`host[:porta]`): the helpers in your config are reset, a single helper is pinned (the real path of the
 CLI), no prompt opens, and plain HTTP or credentials in the URL are refused. The CA in `forja.ca` is copied into the
 pin and checked by hash; it adds trust and is not exclusive (the system CAs still count), and without it your own git CA
-settings apply. A CLI without that subcommand is refused with the minimum version. The token never goes through `ork`.
+settings apply. A CLI without that subcommand is refused with the minimum version. The token never goes through `ork`. The CLI config folder (`GLAB_CONFIG_DIR` or `GH_CONFIG_DIR`), if set, is pinned at
+install and handed to the push; the CLI runs with no update check, no telemetry and no prompt.
 
 The push and its proof run from a private temporary gitdir (0700) that uses the project's objects, straight to the
 pinned URL with `GIT_ALLOW_PROTOCOL`: the project's `.git/config`, hooks and `insteadOf` are never read for the push,

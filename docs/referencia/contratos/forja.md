@@ -216,7 +216,12 @@ O `ork_ship` do MCP empurra a base por um de quatro transportes, escolhidos no `
   `auth git-credential` da CLI da forja, com login no `host[:porta]` exato. Nenhum prompt abre e o token nunca passa
   pelo `ork`. A CA do `forja.ca` é copiada para a fixação (`ca.pem`) e conferida pelo hash: soma confiança e não é
   exclusiva (as CAs do sistema continuam valendo); sem ela vale a config de CA do git da pessoa. HTTP puro e
-  credencial na URL são recusados.
+  credencial na URL são recusados. A pasta de config da CLI (`GLAB_CONFIG_DIR` no `glab`, `GH_CONFIG_DIR` no `gh`),
+  quando o ambiente de quem instala a traz, é conferida (caminho absoluto, sem caractere de controle), usada na checagem
+  do login, fixada na instalação e repassada ao worker: o helper lê o mesmo login que a instalação viu, e um valor
+  diferente no worker recusa com `fixacao-divergente`. O worker também leva as variáveis que calam a CLI
+  (`GLAB_CHECK_UPDATE=false` e `GLAB_SEND_TELEMETRY=false`; `GH_NO_UPDATE_NOTIFIER=1` e `GH_PROMPT_DISABLED=1`), e
+  nenhuma variável de token passa.
 - **Push.** O push e a prova saem de um gitdir temporário privado (0700) com os objetos do projeto, direto para a URL
   fixada, com `GIT_ALLOW_PROTOCOL`; o `.git/config`, os hooks e o `insteadOf` do projeto não são lidos. Os hooks ficam
   travados nos passos locais depois do push. Se o origin ou a config do repositório mudar durante o push, a entrega
@@ -225,7 +230,7 @@ O `ork_ship` do MCP empurra a base por um de quatro transportes, escolhidos no `
   `ssh.revogada`, `ssh.nao-confirmada`, `ssh.impressao-divergente`, `ssh.known-hosts-ilegivel`, `ssh.caminho`,
   `ssh.known-hosts-alterado`, `ssh.credencial-na-url`, `https.sem-tls`, `https.credencial-na-url`,
   `https.divergente`, `sem-cli`, `sem-helper`, `sem-login`, `binario`, `ca`, `ca-alterada`, `fixacao-ausente`,
-  `fixacao-insegura`, `fixacao-divergente` e `mudou-no-push`.
+  `fixacao-insegura`, `fixacao-divergente`, `mudou-no-push` e `cli-config`.
 
 ## O que não é suportado
 
