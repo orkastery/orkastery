@@ -241,14 +241,79 @@
       "criadoEm": "2026-10-14T07:43:12.241Z",
       "estado": "verificado",
       "lint": []
-    }
-  ],
-  "deferredClaims": [
+    },
     {
       "id": "C18",
-      "reason": "artifact-not-in-checkout"
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-worktreebase.json",
+      "alegacao": "O bundle de CI identifica a thread ork-worktreebase e preserva o contrato verificável preparado pelo núcleo.",
+      "negativa": false,
+      "verificar": [
+        "grep -E '\"thread(Id)?\"[[:space:]]*:[[:space:]]*\"ork-worktreebase\"|\"contrato\"[[:space:]]*:' .ork-ci/ork-worktreebase.json"
+      ],
+      "criadoEm": "2026-10-14T08:03:23.641Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-canonicos.test.ts",
+      "alegacao": "Os cenários RM-036 que dependem de remoto publicam o manifesto antes de criar a worktree e preservam a base remota como fonte.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"push.*origin.*main|opcoes\\.remoto\" core/test/rm036-leases-canonicos.test.ts && npm --prefix core run build:test && node --test-name-pattern='rm036 leases: dois processos ship pela worktree com o main-tree na raiz|rm036 leases: A5 ship dry-run informa main-tree legado vivo sem adquirir' core/dist-test/test/rm036-leases-canonicos.test.js"
+      ],
+      "criadoEm": "2026-10-14T08:37:32.702Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A fixture pt-BR F3b foi regenerada deterministicamente para o template v4 e inclui o fecho obrigatório apenas nos blocos que contêm GO.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'template fase-padrao v4|Fecho obrigatório do GO' core/test/fixtures/locale-f3b-pt-BR.json && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-14T08:42:59.115Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-canonicos.test.ts",
+      "alegacao": "O cenário remoto RM-036 publica o manifesto antes de criar a worktree e o ensaio A5 preserva a base remota como fonte.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"push.*origin.*main|opcoes\\.remoto\" core/test/rm036-leases-canonicos.test.ts && npm --prefix core run build:test && node --test --test-name-pattern='rm036 leases: A5 ship dry-run informa main-tree legado vivo sem adquirir' core/dist-test/test/rm036-leases-canonicos.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:03:42.366Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-worktreebase",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A fixture F3b contém três renders v4 e o fecho obrigatório somente nos dois blocos que incluem GO; o render direto preserva o contrato.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'template fase-padrao v4' core/test/fixtures/locale-f3b-pt-BR.json)\" -eq 3 && test \"$(grep -c 'Fecho obrigatório do GO' core/test/fixtures/locale-f3b-pt-BR.json)\" -eq 2 && npm --prefix core run build:test && node --test --test-name-pattern='RM-016: Claude Code e Codex recebem o mesmo fecho obrigatório' core/dist-test/test/prompts.test.js"
+      ],
+      "criadoEm": "2026-10-14T09:03:42.428Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
