@@ -31,10 +31,10 @@ export function comLockInspecionavel<T>(dir: string, operacao: string, executar:
   if (process.platform !== 'linux') throw new Error('runtime.unavailable: lock HITL exige flock Linux');
   // Mesmo inode/nome do protocolo legado: writer wx antigo também recusa enquanto existir.
   const file = path.join(dir, '.hitl.lock');
-  let fd: number, criado = false;
-  try { fd = fs.openSync(file, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600); criado = true; }
-  catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
-    fd = fs.openSync(file, fs.constants.O_RDWR | fs.constants.O_NOFOLLOW); }
+  // `O_EXCL` abria uma janela no primeiro uso: o criador já tinha publicado o inode, mas ainda não o havia travado
+  // nem inicializado; um concorrente podia abrir o arquivo vazio e classificá-lo como legado. Todos abrem o mesmo
+  // inode e só interpretam os bytes depois do `flock`, que serializa criação, recuperação e uso normal.
+  const fd = fs.openSync(file, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
   try {
     const st = fs.fstatSync(fd);
     if (!st.isFile() || st.uid !== process.getuid?.() || st.mode & 0o077 || st.nlink !== 1) throw new Error('HITL lock exige arquivo privado do uid');
@@ -45,7 +45,7 @@ export function comLockInspecionavel<T>(dir: string, operacao: string, executar:
     if (atual.ino !== st.ino || atual.dev !== st.dev || atual.isSymbolicLink()) throw new Error('HITL lock mudou durante aquisição');
     let anterior: unknown = null;
     const raw = fs.readFileSync(fd, 'utf8');
-    if (!criado) {
+    if (raw !== '') {
       let v: any; try { v = JSON.parse(raw); } catch { /* legado ambíguo permanece preservado */ }
       if (v?.contrato !== 'ork.hitl-lock/v1') throw new Error('HITL ocupado; lock legado exige inspeção e migração coordenada');
       anterior = { token: v.token, dono: v.dono, estado: v.estado };

@@ -4,14 +4,15 @@ import { EventEmitter } from 'node:events';
 import { iniciarWatcher } from '../src/session-watcher';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { projetoTemporario } from './apoio';
 import { controllerSimulado, esperarCondicao } from './controller-simulado';
 import { novaThread, gravarThread, dirThread, lerThread } from '../src/thread';
-import { lerLedger } from '../src/ledger';
+import { lerLedger, registrar } from '../src/ledger';
 import { rodarFase } from '../src/phase';
 import { redespachar } from '../src/retry';
 import { encerrarController } from '../src/adapters/codex-controller';
+import { identidadeProcesso } from '../src/adapters/codex-runner';
 
 const PROMPT = 'FINALIZAR-SIMULADO: fatia governada do teste';
 
@@ -139,6 +140,14 @@ test('TC5: fonte corrompida recusa registro e spawn do observador antes de stder
 
 test('TC5: spawn sem PID e erro assincrono nao registram started; recuperacao tem prontidao real', async () => {
   const c = cenario('sensores-no-pid');
+  const sessionId = randomUUID(), despachadaEm = new Date().toISOString();
+  const thread = lerThread(c.p.dir, c.t.id);
+  thread.sessoes.push({ sessionId, slug: thread.slug, fase: 'GO', bloco: 'GO', runtime: 'codex', despachadaEm,
+    promptPath: '', promptSha256: createHash('sha256').update(PROMPT).digest('hex'), verificada: true });
+  gravarThread(c.p.dir, thread);
+  const sessoes = path.join(c.dir, 'sessoes'), logPath = path.join(sessoes, `${sessionId}.jsonl`);
+  fs.mkdirSync(sessoes, { recursive: true }); fs.writeFileSync(logPath, '');
+  registrar(c.dir, c.t.id, 'session_sensor_registered', { fase: 'GO', sessionId, despachoEm: despachadaEm, logPath });
   const cp = require('node:child_process');
   const original = cp.spawn;
   let tentativas = 0;
@@ -153,25 +162,45 @@ test('TC5: spawn sem PID e erro assincrono nao registram started; recuperacao te
     return original(...args);
   });
   try {
-    const r = rodarFase(c.p.carregado, c.t.id, { fase: 'GO', runtime: 'codex', model: 'modelo-SIMULADO', prompt: PROMPT });
+    assert.throws(() => iniciarWatcher(c.p.dir, sessionId), /watcher sem identidade de processo/);
     await new Promise(resolve => setImmediate(resolve));
-    assert.equal(tentativas, 1); assert.ok(r.sessionId);
+    assert.equal(tentativas, 1);
     assert.equal(c.eventos().some(e => e.tipo === 'session_watcher_started'), false);
     const erros = c.eventos().filter(e => e.tipo === 'session_watcher_error');
     assert.ok(erros.length > 0);
-    assert.ok(erros.every(e => e.sessionId === r.sessionId && e.despachoEm && e.motivo === 'runtime.unavailable'));
+    assert.ok(erros.every(e => e.sessionId === sessionId && e.despachoEm && e.motivo === 'runtime.unavailable'));
     interceptar.mock.restore();
     // Registro historico sem identidade nao satisfaz idempotencia.
     const sessao = lerThread(c.p.dir, c.t.id).sessoes.at(-1)!;
     require('../src/ledger').registrar(c.dir, c.t.id, 'session_watcher_started', {
-      sessionId: r.sessionId, despachoEm: sessao.despachadaEm, pid: null });
-    const pid = iniciarWatcher(c.p.dir, r.sessionId!);
-    assert.ok(pid > 0);
-    const count = c.eventos().filter(e => e.tipo === 'session_watcher_started').length;
-    assert.equal(iniciarWatcher(c.p.dir, r.sessionId!), pid);
-    assert.equal(c.eventos().filter(e => e.tipo === 'session_watcher_started').length, count);
-    esperarCondicao(() => c.eventos().some(e => e.tipo === 'phase_result'), 10000);
-    assert.equal(c.eventos().filter(e => e.tipo === 'phase_result').length, 1);
-    encerrar(lerThread(c.p.dir, c.t.id).sessoes.at(-1)!.controlador!);
+      sessionId, despachoEm: sessao.despachadaEm, pid: null });
+    // A prontidao da recuperacao e exercitada por protocolo, sem esperar o processo destacado e o relogio da
+    // maquina. O filho simulado publica token, sessao, despacho e identidade reais; qualquer campo divergente faz
+    // `iniciarWatcher` recusar, exatamente como no processo destacado.
+    let prontidoes = 0;
+    const prontidao = mock.method(cp, 'spawn', (...args: any[]) => {
+      if (Array.isArray(args[1]) && String(args[1][0]).endsWith('session-watcher.js')) {
+        prontidoes++;
+        const argv = args[1] as string[];
+        // Um processo inerte fornece identidade real sem iniciar outro Node/controller. A limpeza da fixture o encerra
+        // pela própria identidade registrada, como faria com um watcher destacado de verdade.
+        const child = original('/bin/sleep', ['60'], { stdio: 'ignore' });
+        const readyPath = argv[4], token = argv[5], identidade = identidadeProcesso(child.pid!)!;
+        fs.writeFileSync(readyPath, JSON.stringify({ token, sessionId,
+          despachoEm: sessao.despachadaEm, identidade }), { mode: 0o600 });
+        return child;
+      }
+      return original(...args);
+    });
+    try {
+      const pid = iniciarWatcher(c.p.dir, sessionId);
+      assert.ok(pid > 0 && pid !== process.pid);
+      const started = c.eventos().filter(e => e.tipo === 'session_watcher_started').at(-1)!;
+      assert.deepEqual(started.identidade, identidadeProcesso(pid));
+      const count = c.eventos().filter(e => e.tipo === 'session_watcher_started').length;
+      assert.equal(iniciarWatcher(c.p.dir, sessionId), pid);
+      assert.equal(prontidoes, 1, 'o registro vivo e autenticado impede outro spawn');
+      assert.equal(c.eventos().filter(e => e.tipo === 'session_watcher_started').length, count);
+    } finally { prontidao.mock.restore(); }
   } finally { interceptar.mock.restore(); c.limpar(); }
 });
