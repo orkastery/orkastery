@@ -97,14 +97,15 @@ for (const estado of ['blocked', 'working']) {
       const { dir } = sessaoViva(c, estado);
       transcricao(c, LINHAS);
       const r = observarSessao(c.p.carregado, SESSAO, { agoraMs: VOLTA });
-      assert.equal(r.concluido, false, 'a fase nao fecha: a sessao continua viva');
+      assert.equal(r.concluido, true, 'RM-064: a conta esgotada encerra a sessao viva e libera a conducao');
       const [vista, ...resto] = cotas(dir);
       assert.equal(resto.length, 0);
       assert.deepEqual([vista?.motivo, vista?.erroEm, vista?.resetEm, vista?.fonteDoPrazo, vista?.esgotadoAte, vista?.perfilMarcado],
         ['runtime.quota-exhausted', ERRO.timestamp, RESET, 'relogio', RESET, true]);
       assert.deepEqual(vista?.perfil, { id: 'a', runtime: 'claude-bg' }, 'o evento diz o perfil pelo id, sem o diretorio da conta');
       assert.equal(Date.parse(String(vista?.esgotadoAte)), ERRO.quotaLimits.resetsAt * 1000, 'o prazo bate com o resetsAt da linha real');
-      assert.ok(!lerLedger(dir).some((e) => e.tipo === 'phase_result' || e.tipo === 'gate_blocked'), 'nenhum resultado de fase');
+      assert.equal(lerLedger(dir).filter((e) => e.tipo === 'phase_result' && e.motivo === 'runtime.quota-exhausted').length, 1);
+      assert.equal(lerLedger(dir).filter((e) => e.tipo === 'gate_blocked' && e.motivo === 'runtime.quota-exhausted').length, 1);
       const a = perfil(c, 'a');
       assert.deepEqual([a.estado, a.esgotadoAte, a.ultimaFalha?.motivo], ['esgotado', RESET, 'runtime.quota-exhausted']);
       assert.equal(perfil(c, 'b').estado, 'ativo');
