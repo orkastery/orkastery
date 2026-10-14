@@ -22,6 +22,11 @@ export interface ResumoDoTrabalho {
   ignorados: { grandes: number; links: number; excedentes: number; outros: number };
 }
 
+export interface OpcoesDoResumoDoTrabalho {
+  /** Ponto de sincronização usado só por provas de troca da entrada entre inspeção e abertura. */
+  antesDeAbrir?: (arquivo: string) => void;
+}
+
 /** Caminho real no estado canônico. O prompt usa a forma relativa e portátil de `caminhoDoTrabalho`. */
 export function diretorioDoTrabalho(raiz: string, threadId: string): string {
   return path.join(dirThread(raiz, threadId), 'trabalho');
@@ -34,6 +39,10 @@ export function caminhoDoTrabalho(threadId: string): string {
 export function garantirDiretorioDoTrabalho(raiz: string, threadId: string): string {
   const diretorio = diretorioDoTrabalho(raiz, threadId);
   fs.mkdirSync(diretorio, { recursive: true, mode: 0o700 });
+  const stat = fs.lstatSync(diretorio);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('trabalho da thread precisa ser diretorio real, nunca link');
+  // `mode` só vale na criação. Uma pasta preexistente também volta ao contrato privado.
+  fs.chmodSync(diretorio, 0o700);
   return diretorio;
 }
 
@@ -41,12 +50,58 @@ function nomeSeguro(nome: string): string {
   return nome.replace(/[\u0000-\u001f\u007f]/g, '?');
 }
 
+const contido = (base: string, alvo: string): boolean => alvo === base || alvo.startsWith(base + path.sep);
+
+type LeituraSegura = { estado: 'ok'; conteudo: Buffer } | { estado: 'grande' | 'link' | 'outro' };
+
+/** Abre a entrada sem seguir o componente final e nunca lê mais que o teto mais um byte. */
+function lerArquivoSeguro(baseReal: string, absoluto: string, opcoes: OpcoesDoResumoDoTrabalho): LeituraSegura {
+  try {
+    const antes = fs.realpathSync(absoluto);
+    if (!contido(baseReal, antes)) return { estado: 'link' };
+  } catch { return { estado: 'outro' }; }
+  opcoes.antesDeAbrir?.(absoluto);
+  let fd: number;
+  try {
+    fd = fs.openSync(absoluto, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+  } catch (erro) {
+    return { estado: (erro as NodeJS.ErrnoException).code === 'ELOOP' ? 'link' : 'outro' };
+  }
+  try {
+    const inicial = fs.fstatSync(fd);
+    if (!inicial.isFile()) return { estado: 'outro' };
+    if (inicial.size > LIMITE_DE_ARQUIVO_DO_TRABALHO) return { estado: 'grande' };
+    const buffer = Buffer.alloc(LIMITE_DE_ARQUIVO_DO_TRABALHO + 1);
+    let lidos = 0;
+    while (lidos < buffer.length) {
+      const n = fs.readSync(fd, buffer, lidos, buffer.length - lidos, null);
+      if (n === 0) break;
+      lidos += n;
+    }
+    const final = fs.fstatSync(fd);
+    if (lidos > LIMITE_DE_ARQUIVO_DO_TRABALHO || final.size > LIMITE_DE_ARQUIVO_DO_TRABALHO)
+      return { estado: 'grande' };
+    // Confere que o caminho ainda aponta para o mesmo inode aberto e continua dentro da pasta.
+    let peloCaminho: fs.Stats, realDepois: string;
+    try { realDepois = fs.realpathSync(absoluto); peloCaminho = fs.statSync(realDepois); }
+    catch { return { estado: 'outro' }; }
+    if (!contido(baseReal, realDepois) || peloCaminho.dev !== final.dev || peloCaminho.ino !== final.ino)
+      return { estado: 'link' };
+    // Mudança durante a leitura não produz hash de estado híbrido.
+    if (lidos !== final.size || inicial.size !== final.size || inicial.mtimeMs !== final.mtimeMs || inicial.ctimeMs !== final.ctimeMs)
+      return { estado: 'outro' };
+    return { estado: 'ok', conteudo: buffer.subarray(0, lidos) };
+  } finally { fs.closeSync(fd); }
+}
+
 /**
- * Inventário deliberadamente limitado: não segue links, não lê conteúdo e não deixa uma árvore de job dominar
- * o prompt. A sessão sucessora recebe nomes, tamanhos e hashes; lê o arquivo pelo caminho apenas se precisar.
+ * Inventário deliberadamente limitado: não segue links, lê cada arquivo por descritor limitado e não deixa uma árvore
+ * de job dominar o prompt. A sessão sucessora recebe nomes, tamanhos e hashes; lê o arquivo pelo caminho se precisar.
  */
-export function resumirTrabalhoDaThread(raiz: string, threadId: string): ResumoDoTrabalho {
+export function resumirTrabalhoDaThread(raiz: string, threadId: string,
+  opcoes: OpcoesDoResumoDoTrabalho = {}): ResumoDoTrabalho {
   const base = garantirDiretorioDoTrabalho(raiz, threadId);
+  const baseReal = fs.realpathSync(base);
   const arquivos: ArquivoDoTrabalho[] = [];
   const ignorados = { grandes: 0, links: 0, excedentes: 0, outros: 0 };
   let bytes = 0;
@@ -57,28 +112,43 @@ export function resumirTrabalhoDaThread(raiz: string, threadId: string): ResumoD
       ignorados.excedentes += 1;
       return;
     }
-    let itens: fs.Dirent[];
-    try { itens = fs.readdirSync(diretorio, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name)); }
-    catch { ignorados.outros += 1; return; }
+    let dir: fs.Dir;
+    try {
+      const real = fs.realpathSync(diretorio);
+      if (!contido(baseReal, real) || !fs.lstatSync(diretorio).isDirectory()) { ignorados.links += 1; return; }
+      dir = fs.opendirSync(diretorio);
+    } catch { ignorados.outros += 1; return; }
+    const itens: fs.Dirent[] = [];
+    try {
+      while (entradas + itens.length < LIMITE_DE_ENTRADAS) {
+        const item = dir.readSync();
+        if (!item) break;
+        itens.push(item);
+      }
+      if (entradas + itens.length >= LIMITE_DE_ENTRADAS && dir.readSync()) ignorados.excedentes += 1;
+    } finally { dir.closeSync(); }
+    entradas += itens.length;
+    itens.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
     for (const item of itens) {
-      entradas += 1;
-      if (entradas > LIMITE_DE_ENTRADAS) { ignorados.excedentes += 1; break; }
       const absoluto = path.join(diretorio, item.name);
       const nome = path.posix.join(relativo, nomeSeguro(item.name));
       if (item.isSymbolicLink()) { ignorados.links += 1; continue; }
       if (item.isDirectory()) { visitar(absoluto, nome, profundidade + 1); continue; }
       if (!item.isFile()) { ignorados.outros += 1; continue; }
-      let stat: fs.Stats;
-      try { stat = fs.statSync(absoluto); } catch { ignorados.outros += 1; continue; }
-      if (stat.size > LIMITE_DE_ARQUIVO_DO_TRABALHO) { ignorados.grandes += 1; continue; }
-      if (arquivos.length >= LIMITE_DE_ARQUIVOS_DO_TRABALHO || bytes + stat.size > LIMITE_TOTAL_DO_TRABALHO) {
+      const leitura = lerArquivoSeguro(baseReal, absoluto, opcoes);
+      if (leitura.estado !== 'ok') {
+        if (leitura.estado === 'grande') ignorados.grandes += 1;
+        else if (leitura.estado === 'link') ignorados.links += 1;
+        else ignorados.outros += 1;
+        continue;
+      }
+      if (arquivos.length >= LIMITE_DE_ARQUIVOS_DO_TRABALHO || bytes + leitura.conteudo.byteLength > LIMITE_TOTAL_DO_TRABALHO) {
         ignorados.excedentes += 1;
         continue;
       }
-      let conteudo: Buffer;
-      try { conteudo = fs.readFileSync(absoluto); } catch { ignorados.outros += 1; continue; }
-      arquivos.push({ arquivo: nome, bytes: conteudo.byteLength, sha256: createHash('sha256').update(conteudo).digest('hex') });
-      bytes += conteudo.byteLength;
+      arquivos.push({ arquivo: nome, bytes: leitura.conteudo.byteLength,
+        sha256: createHash('sha256').update(leitura.conteudo).digest('hex') });
+      bytes += leitura.conteudo.byteLength;
     }
   };
 

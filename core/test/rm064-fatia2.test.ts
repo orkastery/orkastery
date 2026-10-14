@@ -6,7 +6,8 @@ import { projetoTemporario } from './apoio';
 import { hashDoPrompt, montarPrompt } from '../src/phase';
 import { prepararPromptDeRetomada } from '../src/retomada-checkpoint';
 import { dirThread, novaThread } from '../src/thread';
-import { diretorioDoTrabalho, LIMITE_DE_ARQUIVO_DO_TRABALHO } from '../src/trabalho-thread';
+import { diretorioDoTrabalho, garantirDiretorioDoTrabalho, LIMITE_DE_ARQUIVO_DO_TRABALHO,
+  resumirTrabalhoDaThread } from '../src/trabalho-thread';
 import { passosDaBatida } from '../src/conducao-batida';
 import { PassoDoCondutor } from '../src/conducao-sentinela';
 import { checarSeparacaoDaConducao } from '../src/doctor';
@@ -58,6 +59,50 @@ test('RM-064 T4 prompt: toda fase entrega a pasta de trabalho retomável da thre
     const prompt = montarPrompt(t, 'GOAL', 'defina o objetivo', p.dir);
     assert.match(prompt, new RegExp(`trabalho retomavel: \\.orkastery/threads/${t.id}/trabalho/`));
     assert.match(prompt, /rascunhos de check e PR, pareceres e listas de prova/);
+  } finally { p.limpar(); }
+});
+
+test('RM-064 T4 segurança: abertura recusa troca por link, limita crescimento e reafirma modo privado', () => {
+  const p = projetoTemporario('rm064-t4-seguranca');
+  try {
+    const t = novaThread(p.carregado, { nome: 'trabalho seguro', modo: 'auto' }).thread;
+    const trabalho = garantirDiretorioDoTrabalho(p.dir, t.id);
+    fs.chmodSync(trabalho, 0o777);
+    assert.equal(fs.statSync(garantirDiretorioDoTrabalho(p.dir, t.id)).mode & 0o777, 0o700);
+    const externo = path.join(p.dir, 'fora-do-trabalho.md');
+    fs.writeFileSync(externo, 'conteúdo que não pode entrar no resumo\n');
+    const troca = path.join(trabalho, 'troca.md'), cresce = path.join(trabalho, 'cresce.md');
+    fs.writeFileSync(troca, 'rascunho\n');
+    fs.writeFileSync(cresce, 'pequeno\n');
+    const resumo = resumirTrabalhoDaThread(p.dir, t.id, { antesDeAbrir: (arquivo) => {
+      if (arquivo === troca) { fs.unlinkSync(troca); fs.symlinkSync(externo, troca); }
+      if (arquivo === cresce) fs.appendFileSync(cresce, Buffer.alloc(LIMITE_DE_ARQUIVO_DO_TRABALHO + 1));
+    } });
+    assert.deepEqual(resumo.arquivos, []);
+    assert.deepEqual([resumo.ignorados.links, resumo.ignorados.grandes], [1, 1]);
+  } finally { p.limpar(); }
+});
+
+test('RM-064 T4 segurança: a própria pasta de trabalho nunca pode ser link', () => {
+  const p = projetoTemporario('rm064-t4-pasta-link');
+  try {
+    const t = novaThread(p.carregado, { nome: 'pasta segura', modo: 'auto' }).thread;
+    const alvo = path.join(p.dir, 'alvo-do-link');
+    fs.mkdirSync(alvo);
+    fs.symlinkSync(alvo, diretorioDoTrabalho(p.dir, t.id));
+    assert.throws(() => resumirTrabalhoDaThread(p.dir, t.id), /diretorio real, nunca link/);
+  } finally { p.limpar(); }
+});
+
+test('RM-064 T4 performance: inventário para durante a iteração de pasta numerosa', () => {
+  const p = projetoTemporario('rm064-t4-muitas-entradas');
+  try {
+    const t = novaThread(p.carregado, { nome: 'inventário limitado', modo: 'auto' }).thread;
+    const trabalho = garantirDiretorioDoTrabalho(p.dir, t.id);
+    for (let i = 0; i < 300; i++) fs.writeFileSync(path.join(trabalho, `prova-${String(i).padStart(3, '0')}.txt`), 'x');
+    const resumo = resumirTrabalhoDaThread(p.dir, t.id);
+    assert.equal(resumo.arquivos.length, 24);
+    assert.ok(resumo.ignorados.excedentes > 0);
   } finally { p.limpar(); }
 });
 
