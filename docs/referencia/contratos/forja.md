@@ -21,8 +21,8 @@ Valor fora da forma é erro do manifesto. O manifesto confirma o remoto, nunca o
 
 - o `host` declarado difere do host do remoto;
 - há `porta` declarada e o remoto é de host conhecido (`github.com`, `gitlab.com`), ou é web sem porta explícita ou
-  com a porta padrão do protocolo (443 em https, 80 em http): qualquer `porta` declarada é recusada, até a padrão. Num remoto web com
-  porta explícita fora do padrão, a `porta` declarada tem de ser igual a ela. Num remoto SSH (`ssh://` ou `scp`) de host
+  com a porta padrão do protocolo (443 em https, 80 em http): qualquer `porta` declarada é recusada,
+  até a padrão. Num remoto web com porta explícita fora do padrão, a `porta` declarada tem de ser igual a ela. Num remoto SSH (`ssh://` ou `scp`) de host
   que não é conhecido, a `porta` declarada vale para a web e a API, no mesmo host do manifesto ou no caso do SSH em
   host separado (`ssh_host`, abaixo): a porta do SSH não diz nada sobre a porta da web. O host continua tendo de bater,
   e qualquer outro host dá `forja.remoto-divergente`;
