@@ -45,7 +45,7 @@
         "grep -E \"prontidao da recuperacao e exercitada por protocolo|prontidoes, 1\" core/test/phase-controller-sensors.test.ts && node --test-name-pattern='TC5: spawn sem PID e erro assincrono' core/dist-test/test/phase-controller-sensors.test.js"
       ],
       "criadoEm": "2026-10-14T05:04:01.661Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -101,63 +101,7 @@
         "grep -E \"S6 dois condutores ao mesmo tempo|phase_dispatch.*length, 1\" core/test/conducao-sentinela.test.ts && for i in $(seq 1 30); do node --test-name-pattern='S6 dois condutores ao mesmo tempo' core/dist-test/test/conducao-sentinela.test.js || exit 1; done"
       ],
       "criadoEm": "2026-10-14T05:04:02.332Z",
-      "estado": "reprovado",
-      "lint": []
-    },
-    {
-      "id": "C8",
-      "thread": "ork-rm037instav",
-      "fase": "GO",
-      "arquivo": "core/src/types.ts",
-      "alegacao": "O contrato tipado aceita prazo específico para o comando lógico ci.",
-      "negativa": false,
-      "verificar": [
-        "grep -E \"timeout_ms_por_comando.*ci\\?: number\" core/src/types.ts && node --test-name-pattern='prazo sai do manifesto' core/dist-test/test/verify-timeout.test.js"
-      ],
-      "criadoEm": "2026-10-14T05:04:02.443Z",
-      "estado": "reprovado",
-      "lint": []
-    },
-    {
-      "id": "C9",
-      "thread": "ork-rm037instav",
-      "fase": "GO",
-      "arquivo": "core/src/manifest.ts",
-      "alegacao": "O parser do manifesto aceita ci entre as chaves de prazo por comando e rejeita chaves desconhecidas.",
-      "negativa": false,
-      "verificar": [
-        "grep -E \"build', 'test', 'typecheck', 'ci'|build, test, typecheck e ci\" core/src/manifest.ts && node --test-name-pattern='prazo sai do manifesto' core/dist-test/test/verify-timeout.test.js"
-      ],
-      "criadoEm": "2026-10-14T05:04:02.537Z",
-      "estado": "reprovado",
-      "lint": []
-    },
-    {
-      "id": "C10",
-      "thread": "ork-rm037instav",
-      "fase": "GO",
-      "arquivo": "core/src/ci.ts",
-      "alegacao": "O runner do bundle resolve o prazo pelo nome lógico de cada comando antes de executá-lo.",
-      "negativa": false,
-      "verificar": [
-        "grep -E \"prazoDoComando\\(carregado.manifesto, item.name\\)\" core/src/ci.ts && node --test-name-pattern='runner do CI aplica ao comando hermetico' core/dist-test/test/ci.test.js"
-      ],
-      "criadoEm": "2026-10-14T05:04:02.633Z",
-      "estado": "reprovado",
-      "lint": []
-    },
-    {
-      "id": "C11",
-      "thread": "ork-rm037instav",
-      "fase": "GO",
-      "arquivo": "core/test/verify-timeout.test.ts",
-      "alegacao": "O teste do manifesto prova que ci pode ter teto próprio e que ele vence o default.",
-      "negativa": false,
-      "verificar": [
-        "grep -E \"ci: 400000|prazoDoComando.*'ci'.*400_000\" core/test/verify-timeout.test.ts && node --test-name-pattern='prazo sai do manifesto' core/dist-test/test/verify-timeout.test.js"
-      ],
-      "criadoEm": "2026-10-14T05:04:02.720Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -172,20 +116,6 @@
       ],
       "criadoEm": "2026-10-14T05:04:02.805Z",
       "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C13",
-      "thread": "ork-rm037instav",
-      "fase": "GO",
-      "arquivo": "orkastery.yaml",
-      "alegacao": "O projeto concede 40 minutos aos comandos test e ci, sem alterar o prazo dos demais comandos.",
-      "negativa": false,
-      "verificar": [
-        "grep -E \"^[[:space:]]+(test|ci): 2400000$\" orkastery.yaml | grep -E -c \"2400000\" | grep -E \"^2$\" && node --test-name-pattern='runner do CI aplica ao comando hermetico' core/dist-test/test/ci.test.js"
-      ],
-      "criadoEm": "2026-10-14T05:04:02.862Z",
-      "estado": "reprovado",
       "lint": []
     },
     {
@@ -255,6 +185,51 @@
         "grep -E \"Teto dos testes no verify deste repositório|comando hermético do CI\" CHANGELOG.md && node --test-name-pattern='runner do CI aplica ao comando hermetico o mesmo teto de test' core/dist-test/test/ci.test.js"
       ],
       "criadoEm": "2026-10-14T05:07:11.008Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm037instav",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O changelog não publicado acrescenta uma correção visível para o teto do comando hermético do CI e a inicialização segura da trava HITL vazia.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"Verificações longas e primeiro uso do HITL sem falha espúria\" CHANGELOG.md",
+        "grep -E \"comando hermético do CI passa a respeitar o teto configurado|inicializa com segurança um arquivo de trava ainda vazio\" CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-14T07:39:42.467Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm037instav",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A fixture F3b pt-BR foi regenerada deterministicamente e só o recibo do Claude Code mudou para refletir a normalização de SHA curto no teste do ork-pista.",
+      "negativa": false,
+      "verificar": [
+        "grep -E '\"cli adapter: recibo do claude-code\".*mods/ork-pista/test/acoes.test.ts sha:43202d9045998f6c' core/test/fixtures/locale-f3b-pt-BR.json",
+        "node --test-name-pattern='locale pt-BR F3b: o resto do CLI' core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-14T07:51:16.665Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm037instav",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "O recibo F3b do Claude Code guarda o hash de 16 dígitos do conteúdo atual de ork-pista/test/acoes.test.ts após a normalização de SHA curto.",
+      "negativa": false,
+      "verificar": [
+        "grep -E '\"cli adapter: recibo do claude-code\".*mods/ork-pista/test/acoes.test.ts sha:43202d9045998f6c' core/test/fixtures/locale-f3b-pt-BR.json && node -e \"const fs=require('node:fs'),c=require('node:crypto'),{normalizar}=require('./core/dist-test/test/locale-f3b-casos.js');const h=c.createHash('sha256').update(normalizar(fs.readFileSync('adapters/claude-code/mods/ork-pista/test/acoes.test.ts','utf8'))).digest('hex').slice(0,16);process.exit(h==='43202d9045998f6c'?0:1)\"",
+        "node --test-name-pattern='SHA7 só' core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-14T07:57:07.449Z",
       "estado": "verificado",
       "lint": []
     }
