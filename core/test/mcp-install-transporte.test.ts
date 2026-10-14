@@ -8,7 +8,7 @@ import { dirTemporario, projetoTemporario, semAutoridadeHitlNoAmbiente } from '.
 import { CHAVE_ED25519, IMPRESSAO_ED25519, cliFalsa, sondasFalsas } from './apoio-transporte';
 import { configuracaoServidorMcp, instalarMcp } from '../src/mcp-install';
 import { ambienteDoTransporte, dirDaFixacao, lerFixacao } from '../src/mcp-ship-transporte';
-import { ambienteDoWorkerShip } from '../src/mcp-ship';
+import { ambienteDoWorkerShip, criarPerfilShipMcp } from '../src/mcp-ship';
 import { contextoDoProjeto, validarContextoRuntime } from '../src/runtime-context';
 import { instalarAdaptador } from '../src/hosts';
 import { novaThread } from '../src/thread';
@@ -44,7 +44,10 @@ test('install forja-ssh: sonda, fixa a chave confirmada e grava o transporte; na
     assert.equal(fs.existsSync(seco.arquivo), false);
     assert.equal(fs.existsSync(dir), false);
     assert.match(seco.transporte!.join('\n'), /forja-ssh: .*\[gitlab\.empresa\.com\]:2222 \(ssh-ed25519 SHA256:\+DiY3/);
+    assert.match(seco.transporte!.join('\n'), /seria fixada em .*known_hosts; nada foi gravado/);
+    assert.doesNotMatch(seco.transporte!.join('\n'), /ficou fixada/);
     const r = instalarMcp({ ...opcoes, sondasDoTransporte: sondasFalsas({ keyscan: KEYSCAN }) });
+    assert.match(r.transporte!.join('\n'), /ficou fixada em .*known_hosts/);
     assert.deepEqual(JSON.parse(fs.readFileSync(r.arquivo, 'utf8')).mcpServers.orkastery, configuracaoServidorMcp(p.dir, 'claude-code', undefined, 'forja-ssh'));
     assert.equal(fs.statSync(dir).mode & 0o777, 0o700);
     assert.equal(fs.readFileSync(path.join(dir, 'known_hosts'), 'utf8'), KEYSCAN);
@@ -152,11 +155,14 @@ test('CLI: enum novo, --ssh-fingerprint so no install forja-ssh, e a sonda recus
 test('ambiente do worker do SHIP: nada de GIT_SSH, askpass, TLS desligado ou config de git de quem chama', () => {
   const sujo: NodeJS.ProcessEnv = { HOME: '/home/x', USER: 'x', PATH: '/opt/mal/bin:/usr/bin', GIT_SSH: '/tmp/ssh', GIT_SSH_COMMAND: 'ssh -o StrictHostKeyChecking=no',
     GIT_SSL_NO_VERIFY: '1', GIT_ASKPASS: '/tmp/askpass', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.sshCommand', GIT_CONFIG_VALUE_0: 'ssh -o x',
-    GIT_CONFIG_PARAMETERS: "'http.sslverify'='false'", GIT_CONFIG_GLOBAL: '/tmp/g', GIT_CONFIG_SYSTEM: '/tmp/s', GIT_CONFIG: '/tmp/c' };
+    GIT_CONFIG_PARAMETERS: "'http.sslverify'='false'", GIT_CONFIG_GLOBAL: '/tmp/g', GIT_CONFIG_SYSTEM: '/tmp/s', GIT_CONFIG: '/tmp/c',
+    LD_PRELOAD: '/tmp/x.so', GIT_PROXY_COMMAND: '/tmp/proxy', GIT_EXEC_PATH: '/tmp/git-core', XDG_CONFIG_HOME: '/home/x/.config',
+    LOGNAME: 'x', SSH_AUTH_SOCK: '/run/agente', LANG: 'xx', TMPDIR: '/tmp/mal' };
+  const PERMITIDAS = ['HOME', 'LANG', 'LOGNAME', 'PATH', 'SSH_AUTH_SOCK', 'TMPDIR', 'USER', 'XDG_CONFIG_HOME'];
   const proibida = (k: string) => k === 'GIT_SSH' || k === 'GIT_SSH_COMMAND' || k === 'GIT_SSL_NO_VERIFY' || k === 'GIT_ASKPASS' || k.startsWith('GIT_CONFIG');
   const base = ambienteDoWorkerShip(sujo);
-  assert.deepEqual(Object.keys(base).filter(proibida), []);
-  assert.equal(base.PATH, '/usr/bin:/bin');
+  assert.deepEqual(Object.keys(base).sort(), PERMITIDAS);
+  assert.deepEqual({ PATH: base.PATH, LANG: base.LANG, TMPDIR: base.TMPDIR }, { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', TMPDIR: '/tmp' });
   for (const t of ['forja-ssh', 'forja-https'] as const) {
     const env = { ...base, ...ambienteDoTransporte(t, sujo) };
     assert.deepEqual(Object.keys(env).filter((k) => proibida(k) && !(k === 'GIT_ASKPASS' && env[k] === '')), [], t);
@@ -165,8 +171,78 @@ test('ambiente do worker do SHIP: nada de GIT_SSH, askpass, TLS desligado ou con
   const antes = { ...process.env };
   try {
     Object.assign(process.env, sujo);
-    assert.deepEqual(Object.keys(ambienteDoWorkerShip()).filter(proibida), []);
+    const doPai = ambienteDoWorkerShip();
+    assert.deepEqual(Object.keys(doPai).filter((k) => doPai[k] !== undefined && !PERMITIDAS.includes(k)), []);
+    assert.deepEqual(Object.keys(doPai).filter(proibida), []);
   } finally {
     for (const k of Object.keys(sujo)) if (antes[k] === undefined) delete process.env[k]; else process.env[k] = antes[k];
+  }
+});
+
+test('install no outro host nao troca a fixacao que o primeiro ainda usa; sem quem a use, refaz', () => comXdg(() => {
+  const p = projetoGitlab('mcp-install-outro-host', SSH);
+  try {
+    instalarMcp({ projeto: p.dir, host: 'codex', transporteShip: 'forja-ssh', impressaoSsh: IMPRESSAO_ED25519,
+      sondasDoTransporte: sondasFalsas({ keyscan: KEYSCAN }) });
+    const dir = dirDaFixacao(p.dir), arquivos = ['transporte.json', 'known_hosts'].map((n) => path.join(dir, n));
+    const antes = arquivos.map(sha256);
+    exec('git', ['remote', 'set-url', 'origin', HTTPS], p.dir);
+    const cli = dirTemporario('mcp-install-outro-host-cli');
+    const https = () => instalarMcp({ projeto: p.dir, host: 'claude-code', transporteShip: 'forja-https',
+      sondasDoTransporte: sondasFalsas({ binario: cliFalsa(cli) }) });
+    assert.throws(https, /mcp\.install\.conflict: transporte SHIP instalado e forja-ssh em .*\.codex\/config\.toml/);
+    assert.deepEqual(arquivos.map(sha256), antes);
+    assert.equal(fs.existsSync(path.join(p.dir, '.mcp.json')), false);
+    // Removida a entrada do Codex, como a recusa manda, ninguem usa a fixacao antiga e a troca segue.
+    fs.writeFileSync(path.join(p.dir, '.codex', 'config.toml'), '');
+    https();
+    assert.equal(lerFixacao(p.dir, 'forja-https', HTTPS).fixacao.transporte, 'forja-https');
+    assert.equal(fs.existsSync(path.join(dir, 'known_hosts')), false);
+  } finally { p.limpar(); }
+}));
+
+test('install: fixacao insegura recusa sem sobrescrever; fixacao ilegivel e refeita', () => comXdg(() => {
+  const p = projetoGitlab('mcp-install-fixacao-ruim', SSH);
+  try {
+    const instalar = () => instalarMcp({ projeto: p.dir, host: 'claude-code', transporteShip: 'forja-ssh', impressaoSsh: IMPRESSAO_ED25519,
+      sondasDoTransporte: sondasFalsas({ keyscan: KEYSCAN }) });
+    instalar();
+    const arquivo = path.join(dirDaFixacao(p.dir), 'transporte.json');
+    fs.chmodSync(arquivo, 0o644);
+    const antes = sha256(arquivo);
+    assert.throws(instalar, /mcp\.ship\.transport\.fixacao-insegura/);
+    assert.equal(sha256(arquivo), antes);
+    fs.chmodSync(arquivo, 0o600);
+    fs.writeFileSync(arquivo, '{ quebrado');
+    assert.equal(instalar().estado, 'igual');
+    assert.equal(lerFixacao(p.dir, 'forja-ssh', SSH).fixacao.transporte, 'forja-ssh');
+  } finally { p.limpar(); }
+}));
+
+test('install: transporte desconhecido na config instalada nao e repetido na recusa', () => {
+  const p = projetoTemporario('mcp-install-transporte-estranho');
+  try {
+    const def = configuracaoServidorMcp(p.dir, 'claude-code');
+    fs.writeFileSync(path.join(p.dir, '.mcp.json'), JSON.stringify({ mcpServers: { orkastery: { ...def, args: [...def.args.slice(0, -1), 'x; rm -rf ~'] } } }));
+    assert.throws(() => instalarMcp({ projeto: p.dir, host: 'claude-code' }), (e: Error) =>
+      /mcp\.install\.conflict: entrada orkastery divergente/.test(e.message) && !e.message.includes('rm -rf'));
+  } finally { p.limpar(); }
+});
+
+test('perfil do SHIP recusa os transportes fixados enquanto o worker nao os leva', { skip: process.platform !== 'linux' }, () => {
+  // O HOME de teste: a config global de quem roda nao entra na conferencia da config do git.
+  const home = dirTemporario('mcp-ship-perfil-home'), antes = process.env.HOME;
+  process.env.HOME = home;
+  try {
+    comXdg(() => {
+      const p = projetoTemporario('mcp-ship-perfil-fixado', true);
+      try {
+        assert.equal(criarPerfilShipMcp(p.dir, 'bare-local').transporte, 'bare-local');
+        for (const t of ['forja-ssh', 'forja-https'] as const) assert.throws(() => criarPerfilShipMcp(p.dir, t), /^Error: mcp\.ship\.transport\.invalid$/);
+      } finally { p.limpar(); }
+    });
+  } finally {
+    if (antes === undefined) delete process.env.HOME; else process.env.HOME = antes;
+    fs.rmSync(home, { recursive: true, force: true });
   }
 });

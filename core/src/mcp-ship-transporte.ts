@@ -540,12 +540,31 @@ export function lerFixacao(raiz: string, transporte: TransporteFixado, url: stri
   return { fixacao, dir };
 }
 
-/** A linha que a instalacao mostra para a pessoa. */
-export function textoDaFixacao(f: FixacaoDoTransporte, dir: string): string {
+/** A linha que a instalacao mostra para a pessoa; na simulacao, o que seria fixado. */
+export function textoDaFixacao(f: FixacaoDoTransporte, dir: string, simulacao = false): string {
   const t = msg().forja.transporteShip;
+  const ssh = simulacao ? t.fixariaSsh : t.fixadoSsh, https = simulacao ? t.fixariaHttps : t.fixadoHttps;
   return f.transporte === 'forja-ssh'
-    ? t.fixadoSsh(nomeNoKnownHosts(f.host, f.porta), f.chaves.map((k) => `${k.tipo} ${k.impressao}`).join(', '), path.join(dir, 'known_hosts'))
-    : t.fixadoHttps(f.origem, `${f.cli} ${f.versaoCli}`, f.ca?.arquivo ?? null);
+    ? ssh(nomeNoKnownHosts(f.host, f.porta), f.chaves.map((k) => `${k.tipo} ${k.impressao}`).join(', '), path.join(dir, 'known_hosts'))
+    : https(f.origem, `${f.cli} ${f.versaoCli}`, f.ca?.arquivo ?? null);
+}
+
+/**
+ * A fixacao que esta raiz ja tem, para uma instalacao nao trocar a de outro host do projeto. `null` sem fixacao, ou
+ * com uma que nenhum servidor aceitaria (JSON quebrado, formato desconhecido, outra raiz): essa a instalacao refaz.
+ * Pasta ou arquivo inseguro (link, dono, modo, segundo vinculo) recusa: sobrescrever apagaria o sinal de que alguem
+ * mexeu ali, e a gravacao recusaria a pasta do mesmo jeito.
+ */
+export function fixacaoInstalada(raiz: string, env: NodeJS.ProcessEnv = process.env): FixacaoDoTransporte | null {
+  const dir = dirDaFixacao(raiz, env);
+  if (!fs.lstatSync(dir, { throwIfNoEntry: false })) return null;
+  conferirPasta(dir);
+  const arquivo = path.join(dir, 'transporte.json');
+  if (!fs.lstatSync(arquivo, { throwIfNoEntry: false })) return null;
+  const bytes = lerDaFixacao(arquivo);
+  let v: unknown;
+  try { v = JSON.parse(bytes.toString('utf8')); } catch { return null; }
+  return formatoValido(v) && v.raiz === raiz ? v : null;
 }
 
 // ---------------------------------------------------------------------------

@@ -141,6 +141,10 @@ export const FORJA_PT_BR = {
       `SHIP por forja-ssh: a chave de ${nome} (${chaves}) ficou fixada em ${arquivo}; cada push confere essa chave, sem perguntar.`,
     fixadoHttps: (origem: string, cli: string, ca: string | null): string =>
       `SHIP por forja-https: o git pede a credencial de ${origem} só ao ${cli} (auth git-credential)${ca ? `, com a CA ${ca} conferida pelo hash a cada push` : ''}.`,
+    fixariaSsh: (nome: string, chaves: string, arquivo: string): string =>
+      `SHIP por forja-ssh: a chave de ${nome} (${chaves}) seria fixada em ${arquivo}; nada foi gravado.`,
+    fixariaHttps: (origem: string, cli: string, ca: string | null): string =>
+      `SHIP por forja-https: o git pediria a credencial de ${origem} só ao ${cli} (auth git-credential)${ca ? `, com a CA ${ca} conferida pelo hash a cada push` : ''}; nada foi gravado.`,
     proposta: (modo: string): string =>
       `SHIP: o origin deste projeto pede --ship-transport ${modo}; com o transporte padrão, o ork_ship fica indisponível. Para trocar, remova a entrada orkastery e reinstale com a opção.`,
   },
@@ -279,6 +283,10 @@ export const FORJA_EN: MensagensDeForja = {
       `SHIP over forja-ssh: the key of ${nome} (${chaves}) is pinned in ${arquivo}; every push checks this key, without asking.`,
     fixadoHttps: (origem, cli, ca) =>
       `SHIP over forja-https: git asks only ${cli} (auth git-credential) for the credential of ${origem}${ca ? `, with the CA ${ca} checked by hash on every push` : ''}.`,
+    fixariaSsh: (nome, chaves, arquivo) =>
+      `SHIP over forja-ssh: the key of ${nome} (${chaves}) would be pinned in ${arquivo}; nothing was written.`,
+    fixariaHttps: (origem, cli, ca) =>
+      `SHIP over forja-https: git would ask only ${cli} (auth git-credential) for the credential of ${origem}${ca ? `, with the CA ${ca} checked by hash on every push` : ''}; nothing was written.`,
     proposta: (modo) =>
       `SHIP: this project's origin needs --ship-transport ${modo}; with the default transport, ork_ship is unavailable. To switch, remove the orkastery entry and reinstall with the option.`,
   },

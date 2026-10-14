@@ -7,7 +7,7 @@ import { parse } from 'smol-toml';
 import { exigirManifesto } from './manifest';
 import { TRANSPORTES_SHIP_MCP, ehTransporteFixado, ehTransporteShipMcp, type TransporteShipMcp } from './mcp-transportes';
 import {
-  dirDaFixacao, gravarFixacao, originUnicoMcp, prepararFixacao, proporTransporte, sondasPadraoDoTransporte, textoDaFixacao,
+  dirDaFixacao, fixacaoInstalada, gravarFixacao, originUnicoMcp, prepararFixacao, proporTransporte, sondasPadraoDoTransporte, textoDaFixacao,
   type FixacaoPreparada, type SondasDoTransporte,
 } from './mcp-ship-transporte';
 import { msg } from './locale';
@@ -148,6 +148,22 @@ function migrarEnvVarsCodex(bruto:string,entrada:Record<string,unknown>):string 
   }
   return bruto.slice(0,corpoFim)+(corpo.endsWith('\n')?'':'\n')+`env_vars = ${valor}\n`+bruto.slice(corpoFim);
 }
+/** O transporte SHIP de cada host do projeto com a entrada orkastery; config que nao se le nao conta. */
+function transportesDosHosts(raiz:string):{arquivo:string;transporte:string}[] {
+  const achados:{arquivo:string;transporte:string}[]=[];
+  for(const host of ['claude-code','codex'] as const) {
+    const arquivo=path.join(raiz,host==='codex'?'.codex/config.toml':'.mcp.json');
+    try {
+      const lido=ler(arquivo);if(!lido)continue;
+      const bruto=lido.bytes.toString('utf8'),dados=objeto(host==='codex'?parse(bruto):JSON.parse(bruto));
+      const servidores=objeto(dados[host==='codex'?'mcp_servers':'mcpServers']);
+      if(!Object.hasOwn(servidores,'orkastery'))continue;
+      const argv=objeto(servidores.orkastery).args,lista=Array.isArray(argv)?argv as unknown[]:[],i=lista.indexOf('--ship-transport');
+      achados.push({arquivo,transporte:i>=0?String(lista[i+1]):'github-ssh'});
+    } catch {/* config ilegivel: nenhum servidor sobe dela */}
+  }
+  return achados;
+}
 export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp {
   // Ensaio da 0.5.0: os READMEs dos plugins mandavam `--project .`, recusado sem dizer como acertar.
   if(!path.isAbsolute(opcoes.projeto)) throw Error('mcp.install.project.invalid: raiz absoluta obrigatoria; na raiz do projeto, use --project "$PWD"');
@@ -162,9 +178,15 @@ export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp
   // O transporte fixado sonda o origin antes de qualquer escrita; sem transporte pedido, so a proposta, sem rede.
   let fixacao:FixacaoPreparada|undefined;const linhas:string[]=[];
   if(ehTransporteFixado(opcoes.transporteShip)) {
+    // A fixacao e uma por projeto: outro host que ainda usa a instalada nao perde a dele.
+    const instalada=fixacaoInstalada(raiz);
+    if(instalada && instalada.transporte!==opcoes.transporteShip) {
+      const usa=transportesDosHosts(raiz).find(h=>h.transporte===instalada.transporte);
+      if(usa)throw Error(`mcp.install.conflict: transporte SHIP instalado e ${instalada.transporte} em ${usa.arquivo}; para trocar, remova a entrada orkastery de ${usa.arquivo} e reinstale; configuracao preservada`);
+    }
     fixacao=prepararFixacao({raiz,transporte:opcoes.transporteShip,url:originUnicoMcp(raiz),manifesto:exigirManifesto(raiz).manifesto.forja,
       impressao:opcoes.impressaoSsh,sondas:opcoes.sondasDoTransporte??sondasPadraoDoTransporte()});
-    linhas.push(textoDaFixacao(fixacao.fixacao,dirDaFixacao(raiz)));
+    linhas.push(textoDaFixacao(fixacao.fixacao,dirDaFixacao(raiz),!!opcoes.dryRun));
   } else if(opcoes.transporteShip===undefined) {
     let proposto:TransporteShipMcp|null=null;
     try {proposto=proporTransporte(originUnicoMcp(raiz));} catch {/* sem origin unico: nada a propor */}
@@ -205,7 +227,7 @@ export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp
       // Trocar de transporte e reinstalar: a recusa diz qual esta instalado, e a fixacao dele fica como esta.
       const argv=Array.isArray(existente.args)?existente.args as unknown[]:[],i=argv.indexOf('--ship-transport');
       const instalado=i>=0?argv[i+1]:undefined;
-      if(existente.command===comando && typeof instalado==='string' && instalado!==(opcoes.transporteShip??'github-ssh'))
+      if(existente.command===comando && ehTransporteShipMcp(instalado) && instalado!==(opcoes.transporteShip??'github-ssh'))
         throw Error(`mcp.install.conflict: transporte SHIP instalado e ${instalado}; para trocar, remova a entrada orkastery de ${arquivo} e reinstale; configuracao preservada`);
       throw Error('mcp.install.conflict: entrada orkastery divergente; configuracao preservada');
     }
