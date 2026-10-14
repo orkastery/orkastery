@@ -240,7 +240,8 @@ test('S6 dois condutores ao mesmo tempo: a Sentinela e o cron pedem o PLAN em pr
   // conducao ja tomada recebe conducao.em-andamento (saida 3). Nos dois casos, nenhuma sessao a mais.
   const [venceu, perdeu] = sentinela.code === 0 ? [sentinela, cron] : [cron, sentinela];
   assert.equal(venceu.code, 0, venceu.stderr);
-  assert.ok(perdeu.code === 3 || (perdeu.code === 1 && /HITL ocupado/.test(perdeu.stderr)), `${perdeu.code}: ${perdeu.stderr}`);
+  assert.ok(perdeu.code === 3 || (perdeu.code === 1 && /HITL ocupado/.test(perdeu.stderr)),
+    `${perdeu.code}: stdout=${perdeu.stdout} stderr=${perdeu.stderr}`);
   const despacho = doTipo(eventos, 'phase_dispatch')[0];
   if (despacho.canal === 'claude-code') assert.equal(despacho.correlacao, 'sentinela:sessao-a');
   // Logo depois, com a sessao conduzindo: outro prompt e recusado com o motivo tipado, e o mesmo prompt e o repetido.
