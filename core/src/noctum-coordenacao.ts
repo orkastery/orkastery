@@ -498,6 +498,10 @@ function exigirArcoVigente(carregado: ManifestoCarregado, arco: string, quando: 
   const e = lerArco(carregado.raiz, arco, quando);
   if (!e || !e.conteudo) throw recusa('noctum.efeito.sem-autorizacao', `arco ${arco} sem envelope autorizado nesta máquina`);
   if (e.situacao === 'revogado') throw recusa('noctum.efeito.revogado', `arco ${arco} revogado pelo dono`);
+  // RM-058 N6: o arco que o fechamento encerrou nesta máquina é terminal, como o revogado; nada novo começa aqui.
+  if (e.situacao === 'encerrado') {
+    throw recusa('noctum.efeito.encerrado', `arco ${arco} encerrado nesta máquina (${e.encerramento?.motivo ?? 'fechado'}); nada novo começa aqui`);
+  }
   if (e.situacao === 'expirado') throw recusa('noctum.efeito.expirado', `a janela do arco ${arco} terminou em ${e.conteudo.janela.fim}`);
   if (e.situacao !== 'vigente') throw recusa('noctum.efeito.fora-da-janela', `a janela do arco ${arco} só começa em ${e.conteudo.janela.inicio}`);
 }
@@ -948,7 +952,9 @@ function porQueSemVaga(estado: EstadoDaCoordenacao, p: PedidoDeVagaGlobal): Recu
   for (const [nome, teto, usado] of tetos) {
     if (!teto) return recusa('noctum.coordenacao.fora-do-envelope', `sem teto ${nome} no envelope vigente`);
     if (teto.unidade !== 'sessoes') {
-      return recusa('noctum.orcamento.sem-medicao', `o teto ${nome} está em ${teto.unidade}, e só sessoes é medido: consumo desconhecido nunca vale zero`);
+      // RM-058 N6: a medição das outras unidades é desta máquina; somar as máquinas só sabe contar sessões.
+      return recusa('noctum.orcamento.sem-medicao',
+        `o teto ${nome} está em ${teto.unidade}, e a soma entre máquinas só mede sessoes: consumo desconhecido nunca vale zero`);
     }
     if (usado + 1 > teto.valor) return recusa('noctum.orcamento.esgotado', `o teto ${nome} é de ${teto.valor} sessoes e ${usado} já foram reservadas somando as máquinas`);
   }

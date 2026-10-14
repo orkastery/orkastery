@@ -18,6 +18,10 @@ import {
 } from '../src/noctum-coordenacao';
 import * as integracaoDoModulo from '../src/noctum-integracao';
 import { integrarComVez, reconciliarIntegracao } from '../src/noctum-integracao';
+import type { Integrador } from '../src/noctum-integracao';
+import type { CandidatoDeIntegracao } from '../src/noctum-coordenacao';
+import type { ManifestoCarregado } from '../src/manifest';
+import { candidatoDaEntrega, integradorDaEntrega } from '../src/noctum-entrega';
 
 prepararIngressoSimulado();
 
@@ -670,4 +674,16 @@ test('I17: a prova lê a história de mais de 1 MiB; com o buffer estourado ela 
     assert.deepEqual(reconciliarIntegracao(m2.b.carregado, m2.arco, op(m2.b)).registradas, [{ trabalho: 'b', merge: daB }]);
     assert.equal(lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a)).entregas.get('b')!.merge, daB);
   } finally { m2.limpar(); }
+});
+
+test('I18: a interface da N5 tem a forma que integrarComVez recebe: o integrador e o candidato só com os quatro campos do contrato', () => {
+  // Merge com a N5: o tsc confere aqui que integradorDaEntrega dá um Integrador e que candidatoDaEntrega dá o candidato do
+  // contrato; se a forma de um dos lados mudar, o build dos testes falha antes de a vez entre máquinas ser ligada à entrega.
+  const integrador: (carregado: ManifestoCarregado, arco: string, thread: string) => Integrador = integradorDaEntrega;
+  const candidato: (provas: Parameters<typeof candidatoDaEntrega>[0]) => CandidatoDeIntegracao | null = candidatoDaEntrega;
+  assert.equal(typeof integrador, 'function');
+  const provas = { ok: true, branch: 'ork/simulada', fonte: 'f'.repeat(40), base: { sha: 'b'.repeat(40) }, sha256: 'c'.repeat(64), extra: 'SIMULADO' };
+  assert.deepEqual(candidato(provas as unknown as Parameters<typeof candidatoDaEntrega>[0]),
+    { branch: 'ork/simulada', fonte: 'f'.repeat(40), base: 'b'.repeat(40), provas: 'c'.repeat(64) });
+  assert.equal(candidato({ ...provas, ok: false } as unknown as Parameters<typeof candidatoDaEntrega>[0]), null, 'sem as provas, nada vai à vez');
 });

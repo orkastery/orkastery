@@ -6,6 +6,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { autorizarPedido, prepararIngressoSimulado } from './noctum-apoio';
 import { duasMaquinas, DuasMaquinas, MaquinaDeTeste } from './noctum-maquinas-apoio';
+import { encerrarArco } from '../src/noctum-arco';
 import { RecusaDoArco } from '../src/noctum-envelope';
 import * as reservasDoRoadmap from '../src/roadmap-reservas';
 import { pegarItem, soltarItem } from '../src/roadmap-reservas';
@@ -763,5 +764,41 @@ test('K22: o trabalho preso à máquina cuja ordem a autoridade cancelou espera 
     autorizarPedido(m2.b.dir, m2.arco, emenda);
     autorizarPedido(m2.a.dir, m2.arco, emenda);
     assert.deepEqual(distribuirOrdens(lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a)), 'maquina-a', depois(0), LIVRES), [{ trabalho: 'x', maquina: 'maquina-a' }]);
+  } finally { m2.limpar(); }
+});
+
+test('K23: o arco que o fechamento da N6 encerrou nesta máquina não começa nada novo aqui, e o recusa com o motivo dele; a soma entre máquinas só mede sessões', () => {
+  const m = cenario('noctum-k23');
+  try {
+    // Merge com a N6: o encerramento é terminal como a revogação, e a recusa diz isso, e não que a janela ainda vai abrir.
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'c', maquina: 'maquina-b' }, op(m.a));
+    responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m.b));
+    encerrarArco(m.b.dir, m.arco, { motivo: 'fila-vazia', detalhe: 'SIMULADO' });
+    assert.match(recusa(() => responderOrdem(m.b.carregado, m.arco, 'O-c-1', 'aceita', 'SIMULADO', op(m.b)), 'noctum.efeito.encerrado'), /fila-vazia/);
+    recusa(() => tomarVagaGlobal(m.b.carregado, m.arco, { ordem: 'O-a-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, op(m.b)),
+      'noctum.efeito.encerrado');
+    recusa(() => assumirAutoridade(m.b.carregado, m.arco, { ...op(m.b), forcar: { motivo: 'SIMULADO: retomada' } }), 'noctum.efeito.encerrado');
+    // O que é dela ainda fecha: a recusa da ordem emitida e o fim confirmado da aceita.
+    assert.equal(responderOrdem(m.b.carregado, m.arco, 'O-c-1', 'recusada', 'SIMULADO: o arco fechou aqui', op(m.b)), 'recusada');
+    encerrarOrdem(m.b.carregado, m.arco, 'O-a-1', { motivo: 'SIMULADO: o arco fechou aqui', checkpoint: { thread: null, vagasSoltas: [] } }, op(m.b));
+    assert.equal(situacaoDoTrabalho(lerCoordenacao(m.a.carregado, m.arco, op(m.a)), 'a')!.estado, 'livre');
+    // O encerramento é desta máquina: na A, ainda vigente, a autoridade segue emitindo.
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'd', maquina: 'maquina-a' }, op(m.a)), 'O-d-1');
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-k23b');
+  try {
+    // A medição da N6 das outras unidades é local: com o teto do arco em tokens, a vaga global recusa, sem chamar de zero o
+    // consumo que ela não soma.
+    const emenda = { ...m2.pedido, orcamento: { ...(m2.pedido.orcamento as Record<string, unknown>), arco: { valor: 100000, unidade: 'tokens' } } };
+    autorizarPedido(m2.b.dir, m2.arco, emenda);
+    autorizarPedido(m2.a.dir, m2.arco, emenda);
+    assumirAutoridade(m2.a.carregado, m2.arco, op(m2.a));
+    emitirOrdem(m2.a.carregado, m2.arco, { trabalho: 'a', maquina: 'maquina-a' }, op(m2.a));
+    responderOrdem(m2.a.carregado, m2.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m2.a));
+    assert.match(recusa(() => tomarVagaGlobal(m2.a.carregado, m2.arco, { ordem: 'O-a-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, op(m2.a)),
+      'noctum.orcamento.sem-medicao'), /a soma entre máquinas só mede sessoes/);
   } finally { m2.limpar(); }
 });
