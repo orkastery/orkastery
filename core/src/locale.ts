@@ -89,7 +89,7 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
  * `experiencia uninstall`. A F2b (G3) acrescenta `verify` (com `--baseline`),
  * `ship`, `ship registrar-pr`, `retry plan`, `retry run`, `master` (o indice), `master aceitar-omissao` e
  * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`. A F3a (D5) acrescenta `docs init`, e a
- * F3b (D1), o resto da lista do dono, fora `decisao registrar` (G5) e `network roadmap` (G6). O conhecimento escrito
+ * F3b (D1), o resto da lista do dono; a F3c completa `decisao registrar` e `network roadmap`. O conhecimento escrito
  * (RM-026 K7, fatia 2) nasce coberto: `conhecimento listar|mostrar|colecoes|verificar` e o uso errado dele.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
@@ -101,8 +101,8 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'claims add', 'claims conferir', 'claims verificar', 'claims retirar', 'claims ausente', 'claims list', 'claims ?',
   'decisao registrar', 'decisao placar', 'decisao ?',
   'accounts list', 'accounts add', 'accounts remove', 'accounts check', 'accounts esgotamentos', 'accounts ?',
-  // G6: `network roadmap` segue em pt-BR (o texto e contrato com os hosts e com a prova de ativacao).
-  'network status', 'network entrar', 'network sair', 'network publicar', 'network ?',
+  // F3c preserva as tres linhas contratuais do panorama; o restante do texto segue o locale.
+  'network status', 'network entrar', 'network sair', 'network publicar', 'network roadmap', 'network ?',
   'roadmap reservas', 'roadmap pegar', 'roadmap soltar', 'roadmap feat', 'roadmap ?',
   // O contrato que o `docs verificar` le nas paginas (chaves, valores, secoes, marcadores) segue em pt-BR; so a mensagem muda.
   'docs verificar', 'docs sincronizar', 'docs ?',

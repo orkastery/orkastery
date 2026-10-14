@@ -1,8 +1,8 @@
 /**
  * RM-061, fatia F3b: `ork network status|entrar|sair|publicar` em ingles, com a forja falsa da RM-053 (tirada do proprio
  * teste da rede). O texto, as lacunas e as recusas saem pelo catalogo; o detalhe da lacuna vai ao `--json` em pt-BR e o
- * texto o remonta; a casa, a forja, o login e o motivo tipado saem iguais. Negativo (G6): `ork network roadmap` segue
- * em pt-BR byte a byte. Os nomes comecam por "locale en F3b network:".
+ * texto o remonta; a casa, a forja, o login e o motivo tipado saem iguais. A F3c traduz `ork network roadmap`, mas
+ * preserva as tres linhas que os hosts e a prova de ativacao leem. Os nomes comecam por "locale en F3b network:".
  */
 
 import { strict as assert } from 'node:assert';
@@ -11,9 +11,10 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { cobreLocale } from '../src/locale';
+import { comLocale, cobreLocale } from '../src/locale';
 import { CLI, EN, linhasEmPortugues, PT } from './locale-apoio';
 import { noPath } from '../src/util';
+import { CONTRATO_PANORAMA_DA_REDE, PanoramaDaRede, textoDoPanoramaDaRede } from '../src/network-roadmap';
 
 /** A forja falsa da RM-053, tirada do teste da rede (a mesma fonte, sem copia que envelhece). */
 function scriptDaForjaFalsa(): string {
@@ -24,6 +25,21 @@ function scriptDaForjaFalsa(): string {
 }
 
 interface Rede { raiz: string; rodar: (casa: 'a' | 'b', locale: Record<string, string>, ...args: string[]) => { status: number | null; stdout: string; stderr: string }; limpar: () => void }
+
+test('locale en F3c network: o render puro preserva o preambulo contratual e traduz lacunas', () => {
+  const panorama: PanoramaDaRede = { contrato: CONTRATO_PANORAMA_DA_REDE, consultadoEm: '2026-10-12T15:30:00.000Z',
+    maquina: 'pc-a', pedido: null, limiarSemBatidaMin: 30, fuso: 'America/Sao_Paulo', projetos: [], rede: null,
+    naoConsultado: ['registro de projetos desta máquina (RM-052): ausente'],
+    lacunas: [{ tipo: 'rede.sem-projeto', parte: 'rede', detalhe: 'nenhum projeto conhecido nesta máquina',
+      correcao: 'peça o projeto por --projeto' }] };
+  const pt = comLocale('pt-BR', () => textoDoPanoramaDaRede(panorama));
+  const en = comLocale('en', () => textoDoPanoramaDaRede(panorama));
+  assert.deepEqual(en.split('\n').slice(0, 3), pt.split('\n').slice(0, 3));
+  assert.match(en, /\n• this machine's project registry was not read because it is absent\n/);
+  assert.match(en, /\nQuery gaps\n• rede\.sem-projeto: no project source was known to this query\. What to do: register the clone/);
+  assert.deepEqual(linhasEmPortugues(en.split('\n').slice(3).join('\n')), []);
+  assert.match(pt, /\nLacunas da consulta\n• rede\.sem-projeto: nenhum projeto conhecido nesta máquina\. O que fazer: peça o projeto por --projeto\./);
+});
 
 function rede(nome: string, comForja = true): Rede {
   const raiz = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-locale-network-${nome}-`)));
@@ -94,18 +110,24 @@ test('locale en F3b network: sem forja, as lacunas saem em ingles e o --json lev
   } finally { r.limpar(); }
 });
 
-test('locale en F3b network (negativo): network roadmap segue em pt-BR, byte a byte', () => {
-  assert.equal(cobreLocale(['network', 'roadmap'], {}), false);
+test('locale en F3c network: network roadmap traduz o texto humano e preserva o preambulo dos hosts e o JSON', () => {
+  assert.ok(cobreLocale(['network', 'roadmap'], {}));
   assert.ok(cobreLocale(['network'], {}));
   for (const sub of ['status', 'entrar', 'sair', 'publicar']) assert.ok(cobreLocale(['network', sub], {}), sub);
   const r = rede('roadmap');
   try {
-    for (const args of [['network', 'roadmap', '--sem-remoto'], ['network', 'roadmap', 'x']]) {
-      const pt = r.rodar('a', PT, ...args), en = r.rodar('a', EN, ...args);
-      const semData = (t: string) => t.replace(/\(\d{2}\/\d{2}, \d{2}:\d{2}\)/g, '(<DATA>)');
-      assert.equal(semData(en.stdout), semData(pt.stdout), args.join(' '));
-      assert.equal(en.stderr, pt.stderr, args.join(' '));
-    }
+    const pt = r.rodar('a', PT, 'network', 'roadmap', '--sem-remoto');
+    const en = r.rodar('a', EN, 'network', 'roadmap', '--sem-remoto');
+    assert.equal(en.status, pt.status);
+    assert.deepEqual(en.stdout.split('\n').slice(0, 3), pt.stdout.split('\n').slice(0, 3), 'o preambulo contratual e byte a byte');
+    assert.match(en.stdout, /\nQuery gaps\n/);
+    assert.match(en.stdout, /\nGaps\n/);
+    assert.doesNotMatch(en.stdout, /\n(?:Rede por pessoa|Lacunas da consulta|Threads por máquina|Reservas|Fontes|Lacunas)\n/);
+    const normalizar = (t: string) => t.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>');
+    assert.equal(normalizar(r.rodar('a', EN, 'network', 'roadmap', '--sem-remoto', '--json').stdout),
+      normalizar(r.rodar('a', PT, 'network', 'roadmap', '--sem-remoto', '--json').stdout));
+    assert.equal(r.rodar('a', EN, 'network', 'roadmap', 'x').stderr,
+      'usage: ork network roadmap [--projeto <path|github:owner/repo|gitlab:group/repo|name>] [--json] [--sem-remoto]\n');
   } finally { r.limpar(); }
 });
 

@@ -10,6 +10,7 @@
  */
 
 const NAO_CONSULTADO_EN: Readonly<Record<string, string>> = { roadmap: 'roadmap', reservas: 'reservations', threads: 'threads' };
+const DIR_ROADMAP_LITERAL = 'docs/roadmap';
 
 export const NETWORK_PT_BR = {
   // ork network status
@@ -121,6 +122,71 @@ export const NETWORK_PT_BR = {
   campoInvalido: (campo: string, valor: string) => `rede.config: ${campo} invalido ("${valor}")`,
   idNaoGravou: (arquivo: string) => `rede.id: nao consegui gravar nem ler ${arquivo}`,
   idNaoArquivo: (arquivo: string) => `rede.id: ${arquivo} nao e um arquivo; apague-o e rode de novo`,
+  // ork network roadmap. As tres primeiras linhas e `clone em` sao contrato com os hosts e ficam fora daqui.
+  roadmap: {
+    uso: 'uso: ork network roadmap [--projeto <caminho|github:dono/repo|gitlab:grupo/repo|nome>] [--json] [--sem-remoto]',
+    contratoInvalido: 'panorama da rede: contrato inválido',
+    candidatos: 'Candidatos:',
+    recusaDetalhe: (_codigo: string, detalhe: string) => detalhe,
+    recusaCorrecao: (_codigo: string, correcao: string) => correcao,
+    nadaForaDoPedido: '• nada fora do pedido',
+    naoConsultado: (item: string) => `• ${item}`,
+    redePorPessoa: 'Rede por pessoa (RM-053)',
+    lacunasDaConsulta: 'Lacunas da consulta',
+    roadmapNaoLido: (projeto: string, tipos: string) => `Roadmap do ${projeto}: não lido (${tipos}).`,
+    semFonte: 'sem fonte',
+    threadsPorMaquina: 'Threads por máquina',
+    reservas: 'Reservas',
+    fontes: 'Fontes',
+    lacunas: 'Lacunas',
+    nenhumaFonte: '• nenhuma fonte lida',
+    nenhumaLacuna: '• nenhuma: todas as fontes foram lidas agora',
+    nesteProjeto: (legenda: string) => `Neste projeto: ${legenda}`,
+    fonteParte: (parte: string) => ({ roadmap: 'roadmap', reservas: 'reservas', fabrica: 'fábrica', 'estado-local': 'esta máquina' } as Record<string,string>)[parte] ?? parte,
+    lidoAgora: 'lido agora',
+    lidoEm: (quando: string) => `lido ${quando}`,
+    fonteLocal: (parte: string, onde: string, lido: string) => `• ${parte}: estado local em ${onde}, ${lido}`,
+    fonteInexistente: (parte: string, onde: string, lido: string) => `• ${parte}: ${onde} não existe, ${lido}`,
+    alvoDoRoadmap: (onde: string) => `${DIR_ROADMAP_LITERAL} em ${onde}`,
+    fonteCommit: (parte: string, alvo: string, commit: string, data: string, estado: string) =>
+      `• ${parte}: ${alvo} @ ${commit} (commit de ${data}), ${estado}`,
+    ultimaCopia: 'última cópia desta máquina, sem leitura nova',
+    maquinasNaoLidas: '• não lidas: veja as lacunas',
+    nenhumaMaquinaNaFabrica: '• nenhuma máquina publicou em ork/fabrica-estado',
+    estaMaquina: ' (esta máquina)',
+    maquinaSoNaRede: (quem: string, retrato: string, idade: string, semBatida: boolean, branch: string) =>
+      `• ${quem}: threads não lidas, na rede por pessoa (retrato de ${retrato}, há ${idade}${semBatida ? ', SEM BATIDA' : ''}) e sem retrato em ${branch}`,
+    estadoLocalAgora: 'estado local lido agora',
+    retrato: (quando: string, idade: string, semBatida: boolean) => `retrato de ${quando} (há ${idade})${semBatida ? ', SEM BATIDA' : ''}`,
+    resumoMaquina: (quem: string, ativas: number, semMaster: number, batida: string) =>
+      `• ${quem}: ${ativas} ativa(s)${semMaster ? `, ${semMaster} entregue(s) sem MASTER` : ''}, ${batida}`,
+    semItem: 'sem item',
+    esperaVoce: (pergunta: string) => ` · espera você: ${pergunta}`,
+    veredito: 'veredito',
+    reservasNaoLidas: '• não lidas: veja as lacunas',
+    nenhumaReserva: '• nenhuma reserva em ork/roadmap-reservas',
+    reserva: (item: string, maquina: string, thread: string, desde: string) => `  ${item} · ${maquina} · ${thread} · desde ${desde}`,
+    semThread: 'sem thread',
+    redeLidaAgora: 'lida agora',
+    redeLidaEm: (quando: string) => `lida ${quando}`,
+    casaAusente: '• casa: nenhuma achada (veja as lacunas)',
+    casaNaoLida: (casa: string) => `• casa: ${casa}, não lida (veja as lacunas)`,
+    casaLida: (casa: string, ponta: string, estado: string) => `• casa: ${casa} @ ${ponta}, ${estado}`,
+    semCommit: 'sem commit',
+    casaUltimaCopia: 'última cópia desta máquina, sem leitura nova',
+    nenhumRetrato: '• nenhum retrato lido na casa; isso não quer dizer que não há máquinas: veja as lacunas',
+    membro: (maquina: string, esta: string, quando: string, idade: string, semBatida: boolean, versao: string, projetos: string) =>
+      `• ${maquina}${esta}: retrato de ${quando}${idade}${semBatida ? ', SEM BATIDA' : ''}${versao}, ${projetos}`,
+    batidaIlegivel: ' (batida ilegível)',
+    idade: (idade: string) => ` (há ${idade})`,
+    versao: (versao: string) => `, ork ${versao}`,
+    projetos: (projetos: string) => `projetos: ${projetos}`,
+    nenhumProjeto: 'nenhum projeto declarado aqui',
+    lacuna: (tipo: string, alvo: string, detalhe: string, correcao: string) =>
+      `• ${tipo}${alvo}: ${detalhe}. O que fazer: ${correcao}.`,
+    lacunaDetalhe: (_tipo: string, _parte: string, _alvo: string | undefined, detalhe: string) => detalhe,
+    lacunaCorrecao: (_tipo: string, correcao: string) => correcao,
+  },
   // O CLI
   uso: 'uso: ork network [status] [--json] [--sem-remoto] | network entrar [--maquina NOME] [--forja github|gitlab] ' +
     '[--repositorio [DONO/]NOME] [--forcar] | network publicar [--forcar] [--json] | network sair | ' +
@@ -244,6 +310,99 @@ export const NETWORK_EN: MensagensDeNetwork = {
   campoInvalido: (campo, valor) => `rede.config: invalid ${campo} ("${valor}")`,
   idNaoGravou: (arquivo) => `rede.id: could not write or read ${arquivo}`,
   idNaoArquivo: (arquivo) => `rede.id: ${arquivo} is not a file; delete it and run again`,
+  roadmap: {
+    uso: 'usage: ork network roadmap [--projeto <path|github:owner/repo|gitlab:group/repo|name>] [--json] [--sem-remoto]',
+    contratoInvalido: 'network roadmap: invalid contract',
+    candidatos: 'Candidates:',
+    recusaDetalhe: (codigo) => ({
+      'projeto.desconhecido': 'the requested project is unknown from this machine',
+      'projeto.ambiguo': 'the requested project matches more than one known project',
+      'projeto.sem-manifesto': 'the requested project has no readable manifest',
+    } as Record<string,string>)[codigo] ?? 'the project request was refused',
+    recusaCorrecao: (codigo) => codigo === 'projeto.ambiguo'
+      ? 'request the project by an exact registered name, clone path, or forge reference'
+      : 'register the clone or request it as `github:owner/repo` or `gitlab:group/repo`',
+    nadaForaDoPedido: '• nothing outside the request',
+    naoConsultado: (item) => {
+      const projeto = /^projeto (.+?): fora do pedido/.exec(item)?.[1];
+      if (projeto) return `• project ${projeto}: outside the request (\`--projeto\`)`;
+      if (item.startsWith('registro de projetos')) return '• this machine\'s project registry was not read because it is absent';
+      if (item.startsWith('diretório do host')) return '• the host directory is outside this machine\'s project registry and was not read';
+      if (item.startsWith('rede por pessoa')) return '• the person network was not read; machines may still exist in each project factory';
+      if (item.startsWith('outros projetos desta máquina')) return '• other projects on this machine: this MCP server reads only its installed project';
+      return '• an additional source was not queried; see the typed gaps below';
+    },
+    redePorPessoa: 'Person network (RM-053)',
+    lacunasDaConsulta: 'Query gaps',
+    roadmapNaoLido: (projeto, tipos) => `Roadmap of ${projeto}: not read (${tipos}).`,
+    semFonte: 'no source',
+    threadsPorMaquina: 'Threads by machine',
+    reservas: 'Reservations',
+    fontes: 'Sources',
+    lacunas: 'Gaps',
+    nenhumaFonte: '• no source read',
+    nenhumaLacuna: '• none: all sources were read now',
+    nesteProjeto: (legenda) => `In this project: ${legenda}`,
+    fonteParte: (parte) => ({ roadmap: 'roadmap', reservas: 'reservations', fabrica: 'factory', 'estado-local': 'this machine' } as Record<string,string>)[parte] ?? parte,
+    lidoAgora: 'read now',
+    lidoEm: (quando) => `read ${quando}`,
+    fonteLocal: (parte, onde, lido) => `• ${parte}: local state at ${onde}, ${lido}`,
+    fonteInexistente: (parte, onde, lido) => `• ${parte}: ${onde} does not exist, ${lido}`,
+    alvoDoRoadmap: (onde) => `${DIR_ROADMAP_LITERAL} in ${onde}`,
+    fonteCommit: (parte, alvo, commit, data, estado) => `• ${parte}: ${alvo} @ ${commit} (commit from ${data}), ${estado}`,
+    ultimaCopia: 'this machine\'s last copy, without a new read',
+    maquinasNaoLidas: '• not read: see the gaps',
+    nenhumaMaquinaNaFabrica: '• no machine has published to ork/fabrica-estado',
+    estaMaquina: ' (this machine)',
+    maquinaSoNaRede: (quem, retrato, idade, semBatida, branch) =>
+      `• ${quem}: threads not read, seen in the person network (snapshot from ${retrato}, ${idade} ago${semBatida ? ', NO HEARTBEAT' : ''}) and no snapshot in ${branch}`,
+    estadoLocalAgora: 'local state read now',
+    retrato: (quando, idade, semBatida) => `snapshot from ${quando} (${idade} ago)${semBatida ? ', NO HEARTBEAT' : ''}`,
+    resumoMaquina: (quem, ativas, semMaster, batida) =>
+      `• ${quem}: ${ativas} active${semMaster ? `, ${semMaster} delivered without MASTER` : ''}, ${batida}`,
+    semItem: 'no item',
+    esperaVoce: (pergunta) => ` · waiting for you: ${pergunta}`,
+    veredito: 'verdict',
+    reservasNaoLidas: '• not read: see the gaps',
+    nenhumaReserva: '• no reservation in ork/roadmap-reservas',
+    reserva: (item, maquina, thread, desde) => `  ${item} · ${maquina} · ${thread} · since ${desde}`,
+    semThread: 'no thread',
+    redeLidaAgora: 'read now',
+    redeLidaEm: (quando) => `read ${quando}`,
+    casaAusente: '• home: none found (see the gaps)',
+    casaNaoLida: (casa) => `• home: ${casa}, not read (see the gaps)`,
+    casaLida: (casa, ponta, estado) => `• home: ${casa} @ ${ponta}, ${estado}`,
+    semCommit: 'no commit',
+    casaUltimaCopia: 'this machine\'s last copy, without a new read',
+    nenhumRetrato: '• no snapshot read from the home; this does not mean there are no machines: see the gaps',
+    membro: (maquina, esta, quando, idade, semBatida, versao, projetos) =>
+      `• ${maquina}${esta}: snapshot from ${quando}${idade}${semBatida ? ', NO HEARTBEAT' : ''}${versao}, ${projetos}`,
+    batidaIlegivel: ' (unreadable heartbeat)',
+    idade: (idade) => ` (${idade} ago)`,
+    versao: (versao) => `, ork ${versao}`,
+    projetos: (projetos) => `projects: ${projetos}`,
+    nenhumProjeto: 'no project declared here',
+    lacuna: (tipo, alvo, detalhe, correcao) => `• ${tipo}${alvo}: ${detalhe}. What to do: ${correcao}.`,
+    lacunaDetalhe: (tipo, parte, alvo) => {
+      const alvoSeguro = alvo ? ` for ${alvo}` : '';
+      if (tipo === 'maquina.sem-batida') return `the machine has no recent heartbeat${alvoSeguro}`;
+      if (tipo === 'maquina.sem-fabrica') return `the machine is in the person network but its project factory snapshot was not read${alvoSeguro}`;
+      if (tipo === 'rede.sem-projeto') return 'no project source was known to this query';
+      if (tipo.includes('sem-branch') || tipo.includes('sem-base')) return `the required branch does not exist${alvoSeguro}`;
+      if (tipo.includes('sem-leitura') || tipo === 'forja.nao-consultada') return `the ${parte} source was not read${alvoSeguro}`;
+      if (tipo.includes('invalida') || tipo.includes('invalido')) return `the ${parte} source is invalid${alvoSeguro}`;
+      if (tipo.includes('sem-itens')) return `no roadmap item page was read${alvoSeguro}`;
+      if (tipo.includes('parcial')) return `the ${parte} source was read only partially${alvoSeguro}`;
+      return `the ${parte} source has a typed query gap${alvoSeguro}`;
+    },
+    lacunaCorrecao: (tipo) => {
+      if (tipo === 'maquina.sem-batida') return 'check that machine and its pulse heartbeat';
+      if (tipo === 'maquina.sem-fabrica') return 'run `ork fabrica entrar` in the project clone on that machine';
+      if (tipo === 'rede.sem-projeto') return 'register the clone or request the project by forge reference';
+      if (tipo.startsWith('forja.') || tipo.startsWith('rede.')) return 'check the forge login and run `ork network status`';
+      return 'inspect the named source in its project and query again';
+    },
+  },
   uso: 'usage: ork network [status] [--json] [--sem-remoto] | network entrar [--maquina NAME] [--forja github|gitlab] ' +
     '[--repositorio [OWNER/]NAME] [--forcar] | network publicar [--forcar] [--json] | network sair | ' +
     'network roadmap [--projeto P] [--json] [--sem-remoto]',

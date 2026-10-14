@@ -3107,7 +3107,7 @@ function comandoRoadmap(args: Args): number {
 function comandoNetworkRoadmap(args: Args): number {
   const pedido = texto(args.opcoes.projeto);
   if (args.posicionais[1] !== 'roadmap' || args.posicionais.length > 2 || (args.opcoes.projeto !== undefined && !pedido)) {
-    console.error('uso: ork network roadmap [--projeto <caminho|github:dono/repo|gitlab:grupo/repo|nome>] [--json] [--sem-remoto]');
+    console.error(msg().network.roadmap.uso);
     return 2;
   }
   try {
