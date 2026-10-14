@@ -724,7 +724,8 @@ export function linhasDaPublicacao(r: Publicacao): string[] {
       linhas.push(r.pushVerificado ? p.linhaPushProvado : p.linhaPushSemProva);
     }
   }
-  if (r.pr) linhas.push(p.linhaPr(r.pr.numero, r.pr.criado, r.pr.url ?? ''));
+  // O MR do GitLab se reconhece pelos passos, que dizem a CLI de cada forja.
+  if (r.pr) linhas.push(p.linhaPr(r.pr.numero, r.pr.criado, r.pr.url ?? '', r.passos.some((x) => x.startsWith('glab '))));
   if (r.corpo) linhas.push(p.linhaCorpo(r.corpo));
   if (r.acao === 'recusada') linhas.push(m.bloqueado(r.motivo ?? '-'), m.detalhe(remontar(r.detalhe)));
   else {
@@ -867,9 +868,9 @@ function etapaDaCiNoHead(ci: ResultadoCi, contexto: string, pr: PrDaForja): Etap
   if (ci.state === 'success' || (ci.state === 'failure' && ci.bloqueado)) {
     return etapa('ci', 'feita', textoDoCatalogo((m) => c(m).ciVerde(contexto, curto(pr.head))));
   }
-  if (ci.state === 'failure') return etapa('ci', 'falhou', textoDoCatalogo((m) => c(m).ciVermelho(contexto, pr.numero)));
-  if (ci.state === 'pending') return etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciEsperando(contexto, pr.numero)));
-  if (ci.state === 'missing') return etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciSemCheck(contexto, pr.numero)));
+  if (ci.state === 'failure') return etapa('ci', 'falhou', textoDoCatalogo((m) => c(m).ciVermelho(contexto, pr.numero, true)));
+  if (ci.state === 'pending') return etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciEsperando(contexto, pr.numero, true)));
+  if (ci.state === 'missing') return etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciSemCheck(contexto, pr.numero, true)));
   return etapa('ci', 'nao-lida', ci.detail);
 }
 
@@ -898,6 +899,7 @@ function pistaDaThread(carregado: ManifestoCarregado, f: FatosDaThread, local: E
   ciDoPedido?: (pr: PrDaForja) => EtapaDaPista;
 }): PistaDaThread | null {
   const { t } = f;
+  const gl = leitura.tipo === 'gitlab';
   const raiz = carregado.raiz;
   const { remota, entregue, merge, mergeSemRegistro } = local;
   const pr = leitura.prs ? prDaBranchNaLista(leitura.prs, f.branch, f.head) : null;
@@ -928,24 +930,24 @@ function pistaDaThread(carregado: ManifestoCarregado, f: FatosDaThread, local: E
     ciEtapa = etapa('ci', 'nao-lida', texto);
     conflitoEtapa = etapa('conflito', 'nao-lida', texto);
   } else if (!pr || pr.estado === 'fechado') {
-    prEtapa = etapa('pr', 'pendente', pr ? textoDoCatalogo((m) => c(m).prFechado(pr.numero)) : textoDoCatalogo((m) => c(m).semPr));
+    prEtapa = etapa('pr', 'pendente', pr ? textoDoCatalogo((m) => c(m).prFechado(pr.numero, gl)) : textoDoCatalogo((m) => c(m).semPr));
     ciEtapa = etapa('ci', leitura.ciExigido ? 'pendente' : 'nao-se-aplica',
       textoDoCatalogo((m) => leitura.ciExigido ? c(m).ciSemPr : c(m).ciNaoExigido));
     conflitoEtapa = etapa('conflito', 'nao-se-aplica', textoDoCatalogo((m) => c(m).conflitoSemPr));
   } else if (pr.estado === 'mesclado') {
-    prEtapa = etapa('pr', 'feita', textoDoCatalogo((m) => c(m).prMesclado(pr.numero)));
+    prEtapa = etapa('pr', 'feita', textoDoCatalogo((m) => c(m).prMesclado(pr.numero, gl)));
     ciEtapa = etapa('ci', 'nao-se-aplica', textoDoCatalogo((m) => c(m).ciDoMesclado));
-    conflitoEtapa = etapa('conflito', 'feita', textoDoCatalogo((m) => c(m).prMesclado(pr.numero)));
+    conflitoEtapa = etapa('conflito', 'feita', textoDoCatalogo((m) => c(m).prMesclado(pr.numero, gl)));
   } else {
-    prEtapa = etapa('pr', 'feita', textoDoCatalogo((m) => pr.rascunho ? c(m).prRascunho(pr.numero) : c(m).prAberto(pr.numero)));
+    prEtapa = etapa('pr', 'feita', textoDoCatalogo((m) => pr.rascunho ? c(m).prRascunho(pr.numero, gl) : c(m).prAberto(pr.numero, gl)));
     const check = pr.checks.find((k) => k.nome === leitura.contexto);
     ciEtapa = !leitura.ciExigido ? etapa('ci', 'nao-se-aplica', textoDoCatalogo((m) => c(m).ciNaoExigido))
       : leitura.ciDoPedido ? leitura.ciDoPedido(pr)
-      : !check ? etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciSemCheck(leitura.contexto, pr.numero)))
+      : !check ? etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciSemCheck(leitura.contexto, pr.numero, gl)))
       : check.situacao === 'verde' ? etapa('ci', 'feita', textoDoCatalogo((m) => c(m).ciVerde(leitura.contexto, curto(pr.head))))
-      : check.situacao === 'vermelho' ? etapa('ci', 'falhou', textoDoCatalogo((m) => c(m).ciVermelho(leitura.contexto, pr.numero)))
-      : etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciEsperando(leitura.contexto, pr.numero)));
-    conflitoEtapa = pr.conflito === true ? etapa('conflito', 'falhou', textoDoCatalogo((m) => c(m).conflito(pr.numero)))
+      : check.situacao === 'vermelho' ? etapa('ci', 'falhou', textoDoCatalogo((m) => c(m).ciVermelho(leitura.contexto, pr.numero, gl)))
+      : etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciEsperando(leitura.contexto, pr.numero, gl)));
+    conflitoEtapa = pr.conflito === true ? etapa('conflito', 'falhou', textoDoCatalogo((m) => c(m).conflito(pr.numero, gl)))
       : pr.conflito === false ? etapa('conflito', 'feita', textoDoCatalogo((m) => c(m).semConflito))
       : etapa('conflito', 'nao-lida', textoDoCatalogo((m) => c(m).conflitoNaoCalculado));
   }
@@ -970,17 +972,17 @@ function pistaDaThread(carregado: ManifestoCarregado, f: FatosDaThread, local: E
   else if (branchEtapa.estado === 'pendente' || (prEtapa.estado === 'pendente')) {
     proximo = publicavel
       ? { acao: 'publicar', disponivel: true, comando: `ork ship publicar ${t.id}`,
-          texto: textoDoCatalogo((m) => pr?.estado === 'aberto' ? c(m).proximoPublicarNoPr(pr.numero) : c(m).proximoPublicar) }
+          texto: textoDoCatalogo((m) => pr?.estado === 'aberto' ? c(m).proximoPublicarNoPr(pr.numero, gl) : c(m).proximoPublicar) }
       : { acao: 'publicar', disponivel: false, texto: textoDoCatalogo((m) => c(m).proximoDoDono(t.id, tagDoModo(t.modo))),
           comando: comandoDoDono(leitura.remoto, leitura.base, f.branch, tituloDoPr(t, corpo?.texto ?? null),
             corpo ? path.relative(raiz, corpo.arquivo) : null, leitura.tipo) };
   } else if (prEtapa.estado === 'nao-lida') proximo = nada(prEtapa.texto, `ork ship pista ${t.id}`);
-  else if (conflitoEtapa.estado === 'falhou') proximo = nada(textoDoCatalogo((m) => c(m).proximoConflito(pr?.numero ?? 0)));
-  else if (ciEtapa.estado === 'falhou') proximo = nada(textoDoCatalogo((m) => c(m).proximoCiVermelho(leitura.contexto, pr?.numero ?? 0)));
+  else if (conflitoEtapa.estado === 'falhou') proximo = nada(textoDoCatalogo((m) => c(m).proximoConflito(pr?.numero ?? 0, gl)));
+  else if (ciEtapa.estado === 'falhou') proximo = nada(textoDoCatalogo((m) => c(m).proximoCiVermelho(leitura.contexto, pr?.numero ?? 0, gl)));
   else if (ciEtapa.estado === 'pendente' || ciEtapa.estado === 'nao-lida') {
-    proximo = nada(textoDoCatalogo((m) => c(m).proximoEsperandoCi(leitura.contexto, pr?.numero ?? 0)),
+    proximo = nada(textoDoCatalogo((m) => c(m).proximoEsperandoCi(leitura.contexto, pr?.numero ?? 0, gl)),
       pr ? `ork ci status --sha ${pr.head}` : null);
-  } else proximo = nada(textoDoCatalogo((m) => pr?.rascunho ? c(m).proximoRascunho(pr.numero) : c(m).proximoMerge(pr?.numero ?? 0)));
+  } else proximo = nada(textoDoCatalogo((m) => pr?.rascunho ? c(m).proximoRascunho(pr.numero, gl) : c(m).proximoMerge(pr?.numero ?? 0, gl)));
 
   return {
     thread: t.id, nome: t.nome, modo: t.modo, tag: tagDoModo(t.modo), publicavel, conduzida: !!f.conducao, branch: f.branch, head: f.head,

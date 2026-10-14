@@ -272,7 +272,7 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemHead(n, repo, nomeDaForja)), { mergeSha, codigo: 'entrega.sem-head' });
   }
   if (!pr.mesclado || !mergeSha || !headSha || !base) {
-    return resultado(threadId, 'sem-merge', textoDoCatalogo((m) => m.ship.prNaoMesclado(n, repo)));
+    return resultado(threadId, 'sem-merge', textoDoCatalogo((m) => m.ship.prNaoMesclado(n, repo, !!gitlab)));
   }
   // Achado A4 do CHECK: o PR precisa ser DESTA thread e ter entrado na branch padrao do repositorio. Sem o
   // vinculo, qualquer PR mesclado do repositorio viraria entrega de qualquer thread; sem a base, um PR
@@ -282,12 +282,12 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
     // letra ou digito colado nao (outro id). Sem diferenciar maiusculas.
     .some((x) => new RegExp(`(^|[^a-z0-9-])${threadId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9])`, 'i').test(x));
   if (!vinculo) {
-    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prNaoCitaThread(n, repo, threadId)), { mergeSha, headSha });
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prNaoCitaThread(n, repo, threadId, !!gitlab)), { mergeSha, headSha });
   }
   const branchPadrao = exigirCapacidade(forja, 'branchPadrao')({ repo, executor: gh, api });
   if (branchPadrao === null) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prRepoFalhou(repo, nomeDaForja)), { mergeSha, headSha });
   if (branchPadrao !== base) {
-    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prOutraBase(n, base, repo, branchPadrao || undefined)),
+    return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prOutraBase(n, base, repo, branchPadrao || undefined, !!gitlab)),
       { mergeSha, headSha });
   }
 
@@ -307,7 +307,7 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
     return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prSemCiVerde(remontar(ci.detail))), { mergeSha, headSha, ci });
   }
   if (opcoes.dryRun) {
-    return resultado(threadId, 'registraria', textoDoCatalogo((m) => m.ship.prExternoRegistraria(mergeSha.slice(0, 7), n, repo)),
+    return resultado(threadId, 'registraria', textoDoCatalogo((m) => m.ship.prExternoRegistraria(mergeSha.slice(0, 7), n, repo, !!gitlab)),
       { mergeSha, headSha, ci });
   }
 
@@ -340,7 +340,7 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
   });
   avancarParaShip(raiz, threadId);
   if (opcoes.publicar !== false) publicarEmSegundoPlano(raiz);
-  return resultado(threadId, 'registrou', textoDoCatalogo((m) => m.ship.prExternoRegistrou(mergeSha.slice(0, 7), n, repo)), { mergeSha, headSha, ci });
+  return resultado(threadId, 'registrou', textoDoCatalogo((m) => m.ship.prExternoRegistrou(mergeSha.slice(0, 7), n, repo, !!gitlab)), { mergeSha, headSha, ci });
 }
 
 /** `ork ship registrar-pr --todas`: toda thread aberta que ja tem merge `ship(<thread>)` na base. */

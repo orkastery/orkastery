@@ -49,11 +49,12 @@ test('pista no GitLab: os MRs pela capacidade, a CI do head pelo mapa da pista, 
     assert.ok((de(classica).proximo.comando ?? '').startsWith(`git push -u 'origin' '${classica.branch}' && glab mr create --source-branch`),
       de(classica).proximo.comando ?? '');
     assert.equal(de(esperando).pr?.estado, 'aberto');
+    assert.match(de(esperando).etapas.find((x) => x.id === 'pr')?.texto ?? '', /^MR !\d+ aberto$/, 'no GitLab, o texto diz MR !n');
     assert.equal(etapa(esperando, 'ci'), 'pendente');
     assert.equal(etapa(esperando, 'conflito'), 'feita');
     assert.equal(de(esperando).proximo.comando, `ork ci status --sha ${esperando.head}`);
     assert.equal(etapa(vermelha, 'ci'), 'falhou');
-    assert.match(de(vermelha).proximo.texto, /vermelho no PR/);
+    assert.match(de(vermelha).proximo.texto, /vermelho no MR !\d+/);
     assert.equal(etapa(verde, 'ci'), 'feita');
     // Bloqueado (manual/skipped) conta como verde na pista, como no rollup do GitHub; o gate segue reprovando.
     assert.equal(etapa(bloqueada, 'ci'), 'feita');

@@ -8,10 +8,10 @@ import { lerLedger, TIPOS_DE_EVENTO } from '../src/ledger';
 import type { ExecutorDoGh } from '../src/parado-no-condutor';
 import { forjaDaEntrega } from '../src/entrega-pr';
 import { dirDoCacheDaForja, gravarNoCache } from '../src/forja/cache';
-import { publicarEntrega } from '../src/ship-publicar';
+import { linhasDaPublicacao, publicarEntrega } from '../src/ship-publicar';
 import { dirThread } from '../src/thread';
 import { exec } from '../src/util';
-import { projetoTemporario, shaNoRemotoDeTeste } from './apoio';
+import { comAmbientePtBr, projetoTemporario, shaNoRemotoDeTeste } from './apoio';
 import { entregaPronta, GITLAB, gitlabFalso, PROJETO } from './forja-gitlab-falso';
 
 /** O gh nunca roda numa entrega pelo GitLab. */
@@ -47,6 +47,7 @@ test('publicar no GitLab: empurra, abre o MR pela API com os quatro campos e gra
     assert.equal(ev[0].tipoDeAutorizacao, 'modo');
     assert.match(r.detalhe, /MR !1 aberto agora/);
     assert.ok(!r.detalhe.includes('PR #'), r.detalhe);
+    assert.ok(comAmbientePtBr(() => linhasDaPublicacao(r)).some((l) => l.startsWith('  MR            !1 aberto agora')), 'a linha do pedido diz MR !n');
     assert.ok(gl.chamadas.some((c) => c.args.join(' ') === 'auth status --hostname gitlab.empresa.com'),
       'o login do glab foi conferido no host exato');
   } finally { p.limpar(); }

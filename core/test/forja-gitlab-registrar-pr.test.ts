@@ -123,7 +123,7 @@ test('recusas no GitLab: MR aberto, MR que não se lê, CI vermelha, merge fora 
       api: { rodar: cliFalsa([{ quando: login, responde: ok('') }, { quando: () => true, responde: http(404, { message: '404' }) }]).rodar, logins: new Map() },
       executorGitHub: SEM_GH, publicar: false });
     assert.equal(naoLe.acao, 'recusada');
-    assert.match(naoLe.motivo, /a consulta do PR #7 de grupo\/sub\/site ao GitLab falhou/);
+    assert.match(naoLe.motivo, /a consulta do MR !7 de grupo\/sub\/site ao GitLab falhou/);
     const vermelha = com(mrDa('19.4', t.id), { ciDaForja: ciFalsa('failure').ciDaForja });
     assert.equal(vermelha.acao, 'recusada');
     assert.equal(vermelha.ci?.state, 'failure');
@@ -200,7 +200,7 @@ test('recusas no GitLab: MR mesclado em outra base e MR que não cita a thread',
       api: gitlabDoSite(mr).api, ciDaForja: ciFalsa().ciDaForja, executorGitHub: SEM_GH, publicar: false });
     const outraBase = com(mrDa('19.4', t.id, { target_branch: 'dev' }));
     assert.equal(outraBase.acao, 'recusada');
-    assert.match(outraBase.motivo, /o PR #7 entrou em dev, e a branch padrao de grupo\/sub\/site e main/);
+    assert.match(outraBase.motivo, /o MR !7 entrou em dev, e a branch padrao de grupo\/sub\/site e main/);
     const semVinculo = com(mrDa('19.4', t.id, { title: 'feat: outra coisa', description: null, source_branch: 'ork/outra-coisa' }));
     assert.equal(semVinculo.acao, 'recusada');
     assert.match(semVinculo.motivo, new RegExp(`nao cita a thread ${t.id}`));
