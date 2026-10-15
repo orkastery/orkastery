@@ -132,7 +132,7 @@ test('RM-064 T4 despacho: a fase despachada de verdade cria a pasta de trabalho 
   const trabalho = diretorioDoTrabalho(p.dir, thread.id);
   const ensaio = rodarFase(p.carregado, thread.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO', dryRun: true });
   assert.equal(ensaio.dryRun, true);
-  assert.equal(fs.existsSync(trabalho), false, 'o ensaio não cria nada no estado');
+  assert.equal(fs.existsSync(trabalho), false, 'o ensaio não cria a pasta de trabalho');
   const r = rodarFase(p.carregado, thread.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO' });
   assert.equal(r.verificada, true, r.erro);
   const pasta = fs.lstatSync(trabalho);

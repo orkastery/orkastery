@@ -138,8 +138,9 @@ node --test --test-name-pattern='RM-064' core/dist-test/test/cota-terminal.test.
 
 Limites desta fatia:
 
-- A pasta de T4 fica na raiz do estado, fora da worktree. A sessão Codex no sandbox `workspace-write` só grava na worktree, e o perfil `worktree` do Claude Code só libera edição dentro dela: nesses perfis a sessão não grava em `trabalho/` e devolve os rascunhos no resumo, como antes.
-- Liberar a pasta para esses perfis muda sandbox e permissão, decisão do dono, e não entrou nesta fatia.
+- A pasta de T4 fica na raiz do estado, fora da worktree. A sessão Codex no sandbox `workspace-write` só grava na worktree e não alcança `trabalho/`.
+- No Claude Code, a gravação ali depende das permissões da sessão: o despacho só pré-aprova edição dentro da worktree, e a sessão que retomou esta fatia em modo automático gravou a sua lista de provas em `trabalho/`. Quem não puder gravar segue com os rascunhos no diretório do job e no resumo da sessão.
+- Garantir a pasta a todo perfil muda sandbox e permissão, decisão do dono, e não entrou nesta fatia.
 - O resumo de T4 aponta para o trabalho na mesma raiz de estado; ele não transporta conteúdo entre máquinas.
 - O aviso de T5 diagnostica a conta compartilhada, mas não move o condutor LLM.
 - Sem medida estruturada, T7 mostra cota indisponível em vez de estimar ou inventar zero. Projeto legado sem MCP mantém a seleção anterior.
