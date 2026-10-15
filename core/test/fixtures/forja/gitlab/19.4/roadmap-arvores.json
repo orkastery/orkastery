@@ -1,0 +1,112 @@
+{
+  "caso": "roadmap-arvores",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "--method",
+    "POST",
+    "-H",
+    "Content-Type: application/json",
+    "graphql",
+    "--input",
+    "-"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-security-policy": "",
+    "content-type": "application/json; charset=utf-8",
+    "date": "Wed, 14 Oct 2026 04:24:13 GMT",
+    "etag": "W/\"ff25d7764696fdc42d42f8e9b55bd19d\"",
+    "nel": "{\"max_age\": 0}",
+    "permissions-policy": "interest-cohort=()",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Accept-Encoding, Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4WAEP0YEN8FQE04YN119FQB\",\"version\":\"1\"}",
+    "x-permitted-cross-domain-policies": "none",
+    "x-request-id": "01M4WAEP0YEN8FQE04YN119FQB",
+    "x-runtime": "0.240733",
+    "x-ua-compatible": "IE=edge",
+    "x-xss-protection": "1; mode=block"
+  },
+  "entrada": {
+    "query": "query($path: ID!, $base: String!, $dirRoadmap: String!, $refReservas: String!, $dirReservas: String!,\n  $refFabrica: String!, $dirFabrica: String!) {\n  project(fullPath: $path) { repository {\n    baseTopo: tree(ref: $base) { lastCommit { sha committedDate } }\n    baseDir: tree(ref: $base, path: $dirRoadmap) { blobs(first: 100) { pageInfo { hasNextPage } nodes { name path } } }\n    reservasTopo: tree(ref: $refReservas) { lastCommit { sha committedDate } }\n    reservasDir: tree(ref: $refReservas, path: $dirReservas) { blobs(first: 100) { pageInfo { hasNextPage } nodes { name path } } }\n    fabricaTopo: tree(ref: $refFabrica) { lastCommit { sha committedDate } }\n    fabricaDir: tree(ref: $refFabrica, path: $dirFabrica) { blobs(first: 100) { pageInfo { hasNextPage } nodes { name path } } }\n  } }\n}",
+    "variables": {
+      "path": "time/sub/app",
+      "base": "main",
+      "dirRoadmap": "docs/roadmap",
+      "refReservas": "ork/roadmap-reservas",
+      "dirReservas": "reservas",
+      "refFabrica": "ork/fabrica-estado",
+      "dirFabrica": "maquinas"
+    }
+  },
+  "corpo": {
+    "data": {
+      "project": {
+        "repository": {
+          "baseTopo": {
+            "lastCommit": {
+              "sha": "55c2b98f4119c6b410835a33b7fd6f95b72ac7b7",
+              "committedDate": "2026-10-14T04:23:45+00:00"
+            }
+          },
+          "baseDir": {
+            "blobs": {
+              "pageInfo": {
+                "hasNextPage": false
+              },
+              "nodes": [
+                {
+                  "name": "RM-001-um.md",
+                  "path": "docs/roadmap/RM-001-um.md"
+                }
+              ]
+            }
+          },
+          "reservasTopo": {
+            "lastCommit": null
+          },
+          "reservasDir": {
+            "blobs": {
+              "pageInfo": {
+                "hasNextPage": false
+              },
+              "nodes": []
+            }
+          },
+          "fabricaTopo": {
+            "lastCommit": {
+              "sha": "3e9b88b479465b1e1e447f32e58871c887b0de25",
+              "committedDate": "2026-10-14T04:23:27+00:00"
+            }
+          },
+          "fabricaDir": {
+            "blobs": {
+              "pageInfo": {
+                "hasNextPage": false
+              },
+              "nodes": [
+                {
+                  "name": "vps.json",
+                  "path": "maquinas/vps.json"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

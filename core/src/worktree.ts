@@ -150,7 +150,7 @@ export function garantirWorktree(carregado: ManifestoCarregado, id: string): Res
     branchExistente: jaTemBranch ? branch : undefined,
   });
   thread.worktree = criada.dir;
-  thread.base = { branch: criada.branch, commit: thread.base.commit };
+  thread.base = { branch: criada.branch, commit: criada.commit };
   gravarThread(raiz, thread);
   registrar(dirThread(raiz, id), id, TIPOS_DE_EVENTO.worktreeGarantida, {
     dir: criada.dir,

@@ -1,0 +1,41 @@
+{
+  "caso": "statuses",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/repository/commits/3f79e22b6eaa0bea798a4670e78f042e87d9c81c/statuses?all=true&per_page=100"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-length": "2",
+    "content-type": "application/json",
+    "date": "Tue, 13 Oct 2026 23:12:44 GMT",
+    "etag": "W/\"4f53cda18c2baa0c0354bb5f9a3ecbe5\"",
+    "link": "<http://127.0.0.1:8929/api/v4/projects/root%2Fmatriz/repository/commits/3f79e22b6eaa0bea798a4670e78f042e87d9c81c/statuses?all=true&id=root%2Fmatriz&order_by=id&page=1&per_page=100&sha=3f79e22b6eaa0bea798a4670e78f042e87d9c81c>; rel=\"first\", <http://127.0.0.1:8929/api/v4/projects/root%2Fmatriz/repository/commits/3f79e22b6eaa0bea798a4670e78f042e87d9c81c/statuses?all=true&id=root%2Fmatriz&order_by=id&page=1&per_page=100&sha=3f79e22b6eaa0bea798a4670e78f042e87d9c81c>; rel=\"last\"",
+    "nel": "{\"max_age\": 0}",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4VRMAZAQGBFTNDXKXCYGF85\",\"version\":\"1\"}",
+    "x-next-page": "",
+    "x-page": "1",
+    "x-per-page": "100",
+    "x-prev-page": "",
+    "x-request-id": "01M4VRMAZAQGBFTNDXKXCYGF85",
+    "x-runtime": "0.194202",
+    "x-total": "0",
+    "x-total-pages": "1"
+  },
+  "corpo": []
+}

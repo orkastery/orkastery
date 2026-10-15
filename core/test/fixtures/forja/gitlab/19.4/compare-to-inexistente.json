@@ -1,0 +1,35 @@
+{
+  "caso": "compare",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/repository/compare?from=main&to=228a175ea7da5903616d13c6c92117820f8dd774&straight=false"
+  ],
+  "status": 1,
+  "status_http": 404,
+  "cabecalhos": {
+    "cache-control": "no-cache",
+    "connection": "keep-alive",
+    "content-length": "31",
+    "content-type": "application/json",
+    "date": "Wed, 14 Oct 2026 08:40:14 GMT",
+    "nel": "{\"max_age\": 0}",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4WS3EHYDJEJF9TE8KNAY1DN\",\"version\":\"1\"}",
+    "x-request-id": "01M4WS3EHYDJEJF9TE8KNAY1DN",
+    "x-runtime": "0.072011"
+  },
+  "corpo": {
+    "message": "404 Ref Not Found"
+  },
+  "erro": "HTTP 404"
+}

@@ -30,6 +30,13 @@ export const PULSE_PT_BR = {
   precisaDeHumano: (n: number) => `Precisa de humano agora: ${n}`,
   semNota: (n: number) => `${n} entrega(s) sem nota, aceitas por padrão com registro`,
   diagnostico: (detalhe: string) => `[diagnostico] ${detalhe}`,
+  // A forja sem leitura de pedidos (parado-no-condutor): o estado dela, dito uma vez por remoto e host.
+  forjaSemLogin: (cli: string, host: string, remoto: string) => `o ${cli} não está autenticado em ${host}, a forja de ${remoto}`,
+  /** Nem o `gh` nem o `glab` tem login no host proprio: a frase do gh de sempre, e o glab junto. */
+  forjaSemLoginNasDuas: (host: string, remoto: string) => `o gh não está autenticado em ${host}, a forja de ${remoto}, e o glab também não`,
+  forjaSemPedidos: (tipo: string, host: string, remoto: string) =>
+    `a forja de ${remoto} (${host}, ${tipo}) não tem a leitura de pedidos abertos no ork`,
+  forjaNaoResolvida: (remoto: string, motivo: string) => `a forja de ${remoto} não se resolveu: ${motivo}`,
   consultaIncompleta: (detalhe: string) => `[consulta incompleta] ${detalhe}`,
   item: (quem: string, classe: string, minutos: string) => `${quem} [${classe}] ${minutos} min`,
   /** A classe do item (`ItemPulse.classe`), dado do `--json`: o ingles a traduz pelo id na impressao (D4). */
@@ -202,6 +209,10 @@ export const PULSE_EN: typeof PULSE_PT_BR = {
   precisaDeHumano: (n) => `Needs a human now: ${n}`,
   semNota: (n) => `${n} delivery(ies) without a score, accepted by default with a record`,
   diagnostico: (detalhe) => `[diagnostic] ${detalhe}`,
+  forjaSemLogin: (cli, host, remoto) => `${cli} is not logged in to ${host}, the forge of ${remoto}`,
+  forjaSemLoginNasDuas: (host, remoto) => `gh is not logged in to ${host}, the forge of ${remoto}, and neither is glab`,
+  forjaSemPedidos: (tipo, host, remoto) => `the forge of ${remoto} (${host}, ${tipo}) has no open-request reading in ork`,
+  forjaNaoResolvida: (remoto, motivo) => `the forge of ${remoto} did not resolve: ${motivo}`,
   consultaIncompleta: (detalhe) => `[incomplete query] ${detalhe}`,
   item: (quem, classe, minutos) => `${quem} [${classe}] ${minutos} min`,
   classe: (classe) => CLASSES_EN[classe] ?? classe,

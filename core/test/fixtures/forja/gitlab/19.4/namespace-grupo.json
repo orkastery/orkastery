@@ -1,0 +1,43 @@
+{
+  "caso": "namespace-grupo",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "namespaces/time%2Fsub"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-length": "149",
+    "content-type": "application/json",
+    "date": "Wed, 14 Oct 2026 04:24:12 GMT",
+    "etag": "W/\"8e2ac6318705b3d0119ad55535d088d3\"",
+    "nel": "{\"max_age\": 0}",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4WAEN0CTRD8JMGYZT6HTCHN\",\"version\":\"1\"}",
+    "x-request-id": "01M4WAEN0CTRD8JMGYZT6HTCHN",
+    "x-runtime": "0.095581"
+  },
+  "corpo": {
+    "id": 5,
+    "name": "sub",
+    "path": "sub",
+    "kind": "group",
+    "full_path": "time/sub",
+    "parent_id": 4,
+    "avatar_url": null,
+    "web_url": "http://127.0.0.1/groups/time/sub"
+  }
+}

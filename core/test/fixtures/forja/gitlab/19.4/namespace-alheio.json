@@ -1,0 +1,35 @@
+{
+  "caso": "namespace-alheio",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "namespaces/alheia"
+  ],
+  "status": 1,
+  "status_http": 404,
+  "cabecalhos": {
+    "cache-control": "no-cache",
+    "connection": "keep-alive",
+    "content-length": "37",
+    "content-type": "application/json",
+    "date": "Wed, 14 Oct 2026 04:24:12 GMT",
+    "nel": "{\"max_age\": 0}",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4WAEN5R7Y3P55MJ4AE824QR\",\"version\":\"1\"}",
+    "x-request-id": "01M4WAEN5R7Y3P55MJ4AE824QR",
+    "x-runtime": "0.043040"
+  },
+  "corpo": {
+    "message": "404 Namespace Not Found"
+  },
+  "erro": "HTTP 404"
+}

@@ -5,8 +5,16 @@ import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { parse } from 'smol-toml';
 import { exigirManifesto } from './manifest';
+import { TRANSPORTES_SHIP_MCP, ehTransporteFixado, ehTransporteShipMcp, type TransporteShipMcp } from './mcp-transportes';
+import {
+  dirDaFixacao, fixacaoInstalada, gravarFixacao, originUnicoMcp, prepararFixacao, proporTransporte, sondasPadraoDoTransporte, textoDaFixacao,
+  type FixacaoPreparada, type SondasDoTransporte,
+} from './mcp-ship-transporte';
+import { msg } from './locale';
 
-export type TransporteShipMcp = 'github-ssh' | 'bare-local';
+export { TRANSPORTES_SHIP_MCP };
+export type { TransporteShipMcp };
+const IMPRESSAO_SSH = /^SHA256:[A-Za-z0-9+/]{43}$/;
 export type PermissoesDonoMcp = 'interactive' | 'orchestrate';
 export const TOOLS_DONO_CODEX = ['ork_thread_new','ork_phase_run','ork_request_decision'] as const;
 // RM-037 (rm037defeito, defeito 1): a decisao autonoma da sessao entra com as outras mutacoes do filho;
@@ -25,12 +33,18 @@ export interface OpcoesInstalacaoMcp {
   transporteShip?: TransporteShipMcp;
   permissoesFilho?: PermissoesFilhoMcp;
   permissoesDono?: PermissoesDonoMcp;
+  /** `SHA256:...` da chave do servidor, conferida pela pessoa fora do ork; so com `forja-ssh`. */
+  impressaoSsh?: string;
+  /** As sondas do transporte fixado; sem valor, as de verdade (rede, CLI da forja e o known_hosts da pessoa). */
+  sondasDoTransporte?: SondasDoTransporte;
 }
 export interface ResultadoInstalacaoMcp {
   arquivo: string;
   estado: 'novo' | 'atualizado' | 'igual';
   dryRun: boolean;
   ativacao: 'pendente-no-cliente';
+  /** O que a instalacao fixou ou propoe para o SHIP, ja no texto da pessoa. */
+  transporte?: string[];
 }
 function objeto(v: unknown): Record<string, unknown> {
   if (!v || typeof v !== 'object' || Array.isArray(v)) throw Error('mcp.install.config.invalid: objeto esperado');
@@ -89,7 +103,7 @@ function ler(file: string): {bytes: Buffer; modo: number} | null {
 export function configuracaoServidorMcp(raiz: string, host: 'claude-code' | 'codex',threadId?:string,transporteShip:TransporteShipMcp='github-ssh',permissoesFilho:PermissoesFilhoMcp='interactive',
   /** I-36 (D4): identidade do despacho da sessao filha; so existe junto com a thread vinculada. */
   dispatchId?:string) {
-  if(!['github-ssh','bare-local'].includes(transporteShip))throw Error('mcp.install.transport.invalid');
+  if(!ehTransporteShipMcp(transporteShip))throw Error('mcp.install.transport.invalid');
   if(!['interactive','worktree'].includes(permissoesFilho))throw Error('mcp.install.child-permissions.invalid');
   if(dispatchId!==undefined && (!threadId || !/^[a-f0-9-]{36}$/.test(dispatchId)))throw Error('mcp.install.dispatch.invalid');
   return {command:process.execPath,args:[path.resolve(__dirname,'index.js'),'mcp','serve','--project',raiz,'--host',host,'--ship-transport',transporteShip,
@@ -134,15 +148,51 @@ function migrarEnvVarsCodex(bruto:string,entrada:Record<string,unknown>):string 
   }
   return bruto.slice(0,corpoFim)+(corpo.endsWith('\n')?'':'\n')+`env_vars = ${valor}\n`+bruto.slice(corpoFim);
 }
+/** O transporte SHIP de cada host do projeto com a entrada orkastery; config que nao se le nao conta. */
+function transportesDosHosts(raiz:string):{arquivo:string;transporte:string}[] {
+  const achados:{arquivo:string;transporte:string}[]=[];
+  for(const host of ['claude-code','codex'] as const) {
+    const arquivo=path.join(raiz,host==='codex'?'.codex/config.toml':'.mcp.json');
+    try {
+      const lido=ler(arquivo);if(!lido)continue;
+      const bruto=lido.bytes.toString('utf8'),dados=objeto(host==='codex'?parse(bruto):JSON.parse(bruto));
+      const servidores=objeto(dados[host==='codex'?'mcp_servers':'mcpServers']);
+      if(!Object.hasOwn(servidores,'orkastery'))continue;
+      const argv=objeto(servidores.orkastery).args,lista=Array.isArray(argv)?argv as unknown[]:[],i=lista.indexOf('--ship-transport');
+      achados.push({arquivo,transporte:i>=0?String(lista[i+1]):'github-ssh'});
+    } catch {/* config ilegivel: nenhum servidor sobe dela */}
+  }
+  return achados;
+}
 export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp {
   // Ensaio da 0.5.0: os READMEs dos plugins mandavam `--project .`, recusado sem dizer como acertar.
   if(!path.isAbsolute(opcoes.projeto)) throw Error('mcp.install.project.invalid: raiz absoluta obrigatoria; na raiz do projeto, use --project "$PWD"');
   if(!['claude-code','codex'].includes(opcoes.host)) throw Error('mcp.install.host.invalid');
-  if(opcoes.transporteShip!==undefined && !['github-ssh','bare-local'].includes(opcoes.transporteShip))throw Error('mcp.install.transport.invalid');
+  if(opcoes.transporteShip!==undefined && !ehTransporteShipMcp(opcoes.transporteShip))throw Error('mcp.install.transport.invalid');
+  if(opcoes.impressaoSsh!==undefined && (opcoes.transporteShip!=='forja-ssh' || !IMPRESSAO_SSH.test(opcoes.impressaoSsh)))
+    throw Error('mcp.install.ssh-fingerprint.invalid: so com --ship-transport forja-ssh, no formato SHA256:<43 caracteres>');
   if(opcoes.permissoesFilho!==undefined && !['interactive','worktree'].includes(opcoes.permissoesFilho))throw Error('mcp.install.child-permissions.invalid');
   if(opcoes.permissoesDono!==undefined && (opcoes.host!=='codex' || !['interactive','orchestrate'].includes(opcoes.permissoesDono)))throw Error('mcp.install.owner-permissions.invalid: opt-in exclusivo Codex');
   const raiz=fs.realpathSync(opcoes.projeto);
   if(fs.realpathSync(exigirManifesto(raiz).raiz)!==raiz) throw Error('mcp.install.project.invalid');
+  // O transporte fixado sonda o origin antes de qualquer escrita; sem transporte pedido, so a proposta, sem rede.
+  let fixacao:FixacaoPreparada|undefined;const linhas:string[]=[];
+  if(ehTransporteFixado(opcoes.transporteShip)) {
+    // A fixacao e uma por projeto: outro host que ainda usa a instalada nao perde a dele.
+    const instalada=fixacaoInstalada(raiz);
+    if(instalada && instalada.transporte!==opcoes.transporteShip) {
+      const usa=transportesDosHosts(raiz).find(h=>h.transporte===instalada.transporte);
+      if(usa)throw Error(`mcp.install.conflict: transporte SHIP instalado e ${instalada.transporte} em ${usa.arquivo}; para trocar, remova a entrada orkastery de ${usa.arquivo} e reinstale; configuracao preservada`);
+    }
+    fixacao=prepararFixacao({raiz,transporte:opcoes.transporteShip,url:originUnicoMcp(raiz),manifesto:exigirManifesto(raiz).manifesto.forja,
+      impressao:opcoes.impressaoSsh,sondas:opcoes.sondasDoTransporte??sondasPadraoDoTransporte()});
+    linhas.push(textoDaFixacao(fixacao.fixacao,dirDaFixacao(raiz),!!opcoes.dryRun));
+  } else if(opcoes.transporteShip===undefined) {
+    let proposto:TransporteShipMcp|null=null;
+    try {proposto=proporTransporte(originUnicoMcp(raiz));} catch {/* sem origin unico: nada a propor */}
+    if(proposto!==null && proposto!=='github-ssh')linhas.push(msg().forja.transporteShip.proposta(proposto));
+  }
+  const gravarFixacaoSePedida=()=>{if(fixacao && !opcoes.dryRun)gravarFixacao(dirDaFixacao(raiz),fixacao);};
   const pasta=opcoes.host==='codex'?path.join(raiz,'.codex'):raiz;
   const validarPasta=() => {
     try {
@@ -173,9 +223,15 @@ export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp
   }
   if(existente) {
     const legadoSSH=(opcoes.permissoesFilho??'interactive')==='interactive' && (opcoes.transporteShip??'github-ssh')==='github-ssh' && JSON.stringify(existente.args)===JSON.stringify(args.slice(0,-2));
-    if(existente.command!==comando || (JSON.stringify(existente.args)!==JSON.stringify(args) && !legadoSSH))
+    if(existente.command!==comando || (JSON.stringify(existente.args)!==JSON.stringify(args) && !legadoSSH)) {
+      // Trocar de transporte e reinstalar: a recusa diz qual esta instalado, e a fixacao dele fica como esta.
+      const argv=Array.isArray(existente.args)?existente.args as unknown[]:[],i=argv.indexOf('--ship-transport');
+      const instalado=i>=0?argv[i+1]:undefined;
+      if(existente.command===comando && ehTransporteShipMcp(instalado) && instalado!==(opcoes.transporteShip??'github-ssh'))
+        throw Error(`mcp.install.conflict: transporte SHIP instalado e ${instalado}; para trocar, remova a entrada orkastery de ${arquivo} e reinstale; configuracao preservada`);
       throw Error('mcp.install.conflict: entrada orkastery divergente; configuracao preservada');
-    if(faltantes.length===0 && !faltaEnvCodex)return {arquivo,estado:'igual',dryRun:!!opcoes.dryRun,ativacao:'pendente-no-cliente'};
+    }
+    if(faltantes.length===0 && !faltaEnvCodex){gravarFixacaoSePedida();return {arquivo,estado:'igual',dryRun:!!opcoes.dryRun,ativacao:'pendente-no-cliente',transporte:linhas};}
   }
   let proximo: string;
   if(opcoes.host==='codex') {
@@ -199,6 +255,8 @@ export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp
     proximo=JSON.stringify(dados,null,2)+'\n';
   }
   if(!opcoes.dryRun) {
+    // A fixacao antes da config: um servidor que inicia entre as duas escritas acha a fixacao, nunca a falta dela.
+    gravarFixacaoSePedida();
     validarPasta();
     fs.mkdirSync(pasta,{recursive:true});
     validarPasta();
@@ -212,9 +270,10 @@ export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp
       fs.renameSync(temp,arquivo);
     } finally {fs.rmSync(temp,{force:true});}
   }
-  return {arquivo,estado:anterior?'atualizado':'novo',dryRun:!!opcoes.dryRun,ativacao:'pendente-no-cliente'};
+  return {arquivo,estado:anterior?'atualizado':'novo',dryRun:!!opcoes.dryRun,ativacao:'pendente-no-cliente',transporte:linhas};
 }
 
 export function textoInstalacaoMcp(r: ResultadoInstalacaoMcp): string {
-  return `${r.dryRun?'Simulacao: nenhuma escrita.':'Configuracao MCP preparada.'} ${r.arquivo} (${r.estado}).\nAbra uma nova sessao neste projeto, conclua o consentimento nativo solicitado pelo cliente e confira a descoberta das ferramentas ork_*.\nAtivacao e uso ainda pendentes de verificacao no cliente. Respostas automaticas de elicitation nao devem estar habilitadas para decisoes do dono.`;
+  return `${r.dryRun?'Simulacao: nenhuma escrita.':'Configuracao MCP preparada.'} ${r.arquivo} (${r.estado}).\nAbra uma nova sessao neste projeto, conclua o consentimento nativo solicitado pelo cliente e confira a descoberta das ferramentas ork_*.\nAtivacao e uso ainda pendentes de verificacao no cliente. Respostas automaticas de elicitation nao devem estar habilitadas para decisoes do dono.`+
+    (r.transporte?.length?`\n${r.transporte.join('\n')}`:'');
 }

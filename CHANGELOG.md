@@ -8,6 +8,69 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **SHIP do MCP por qualquer forja**: dois transportes novos no `ork mcp install --ship-transport`. `forja-ssh` aceita
+  host e porta da forja (inclusive `forja.ssh_host`/`ssh_porta`), fixa na instalação a chave do servidor confirmada
+  pelo `known_hosts` da pessoa ou por `--ssh-fingerprint`, e confere a chave a cada push com
+  `StrictHostKeyChecking=yes`, sem config de SSH do usuário. `forja-https` zera os helpers de credencial da config e
+  usa só o `auth git-credential` do `gh`/`glab` com login no host, sem prompt, com a CA do `forja.ca` conferida pelo
+  hash. A fixação mora fora do projeto (`$XDG_CONFIG_HOME/orkastery/mcp-ship/`) e é reconferida em cada passo do
+  worker. O push e a prova saem de um gitdir privado direto para a URL fixada, e mudança do origin ou da config durante
+  o push deixa a entrega sem prova (`mcp.ship.transport.mudou-no-push`). Nos modos `forja-*`, a publicação da fábrica em
+  segundo plano e as consultas `ork_fabrica` e `ork_roadmap_reservas` ficam indisponíveis por ora. `github-ssh` e
+  `bare-local` não mudam; sem a opção, a instalação é a de sempre e propõe o modo do origin. Contrato em
+  [`docs/referencia/contratos/forja.md`](docs/referencia/contratos/forja.md#transporte-do-ship-pelo-mcp).
+- **Entrega no GitLab**: o `ork ship publicar` abre MR no GitLab nos mesmos `#Auto` e `#Maestro`, com as mesmas
+  conferências e recusas, a descrição pelo stdin e sem merge automático, provado pela releitura da lista; o
+  `ork ship pista` lê os MRs e a CI do head pela regra única de estado; o `ork ship registrar-pr --repo --pr` reconhece
+  MR mesclado do GitLab (inclusive pelo método `ff`), e o `ci.external_repositories` aceita `grupo/subgrupo/projeto`. A
+  publicação acha a forja pelo resolver, e não pelo nome do host; o `registrar-pr --repo` não tem host de reserva (remoto
+  de forja que não se resolve é recusado com `entrega.sem-leitura`, e subgrupo no GitHub com `entrega.forja-mista`). O
+  push da base recusado pela proteção da branch (GitHub: `GH006` ou "protected branch hook declined"; `GH013` só com a
+  mensagem de proteção da branch; recusa de segredo nunca; GitLab: "not allowed to push code to protected branches")
+  vira `entrega.base-protegida`, com a orientação de entregar por PR/MR; o motivo do gate não muda. Nenhum modo de
+  entrega mescla PR ou MR; a batida do condutor (RM-063) continua mesclando só PR do GitHub, com autorização, e a
+  entrega do #Noctum continua só no GitHub. Muda para todos: remoto GitHub Enterprise sem o bloco `forja:` e sem login da `gh` nele passa a
+  ser recusado pelo `ork ship publicar` e pelo `registrar-pr --repo` antes de qualquer escrita (`forja.desconhecida`
+  ou `entrega.sem-leitura`), pedindo `forja.tipo`. Contrato em
+  [`docs/referencia/contratos/forja.md`](docs/referencia/contratos/forja.md#entrega).
+- **`ork ship pista` no GitLab**: a pista lê os MRs de cada branch candidata (até 20 por chamada) e a CI do head pelo mesmo
+  mapa do GitHub (`manual`/`skipped` contam como verde só na pista). O `ork.ci-status/v2` ganha o campo opcional
+  `bloqueado: true`, e o gate segue reprovando. Num host próprio sem o bloco `forja:`, a pista resolve a forja uma vez,
+  como o pulse, e o comando do dono nos modos sem push usa o tipo sabido sem rede (o bloco, o host conhecido ou a
+  sondagem em cache); sem ele, mostra o do `gh` e o do `glab`. O `ork ship publicar` e o `registrar-pr --repo` passam
+  a usar o cache de 24 h da sondagem.
+- **Pulse e rede no GitLab**: o pulse lê os MRs da base em uma consulta GraphQL, com a pipeline do head e o job do
+  check da CI (`ci.context`); a forja do pulse é resolvida pelo manifesto e pela CLI com login, nunca pelo nome do
+  host; o retrato `ork.prs-abertos/v1` aceita subgrupos. A rede usa a API da CLI logada (host com porta por
+  `GITLAB_HOST`, login conferido antes, corpo com `Content-Type`), e a casa da rede pode morar num grupo em que a
+  pessoa é Maintainer ou acima (`ork network entrar --repositorio GRUPO/SUB/NOME`). A porta de um remoto https de
+  GitLab chega à leitura do roadmap. Contrato em [`docs/referencia/contratos/forja.md`](docs/referencia/contratos/forja.md).
+- **`ork network roadmap --json`**: as lacunas `forja.nao-encontrado`, `forja.inacessivel` e `forja.tempo-esgotado`
+  passam a `forja.nao-achei` e `forja.indisponivel`.
+- **Correção medida**: o `glab api --input` não mandava `Content-Type`, e o GitLab ignorava o corpo; o `gh` com host e
+  porta passa por `GH_HOST` (o `--hostname` recusa a porta).
+- **O gate de CI lê o GitLab**: `ork ci status` e o gate do `ork ship` leem a CI pela forja resolvida. Só o job que
+  está na lista de jobs da pipeline do projeto conta como produtor `gitlab-ci`; um status criado por `POST /statuses`
+  conta só como `status:<login>` e só aprova se estiver em `ci.produtor`. Abaixo do GitLab 17.0 a consulta é recusada, e
+  o resultado mesclado sem vínculo com o head falha fechado (`ci.merged-results-sem-vinculo`). O `ork ci status --json`
+  passa a `ork.ci-status/v2` (`provider`, `fonte`, `produtor`); a v1 continua lida. Traz o modelo
+  `templates/gitlab/ork-verify.yml` e o CI/CD Component `templates/ork-verify/template.yml`; as `workflow:rules` ficam
+  no `.gitlab-ci.yml` do projeto. Contrato em [`docs/referencia/contratos/forja.md`](docs/referencia/contratos/forja.md).
+- **Identidade, endereço e versão da forja**: o `orkastery.yaml` aceita o bloco opcional `forja:` (`tipo`, `host`,
+  `porta`, `caminho_base`, `ssh_host`, `ssh_porta`, `ca`) e o `ci.produtor`; sem eles, o manifesto lê como antes. A
+  forja do remoto é resolvida pelo manifesto, pelo host conhecido ou pela sondagem só da CLI com login no host
+  (`gh api meta`, `glab api metadata`), nunca pelo nome do host; sem resposta, `forja.desconhecida`, e com duas,
+  `forja.ambigua`. A API da forja passa por uma chamada só, com o host explícito (`GITLAB_HOST` sempre no `glab`;
+  `GH_HOST` no `gh`, só quando há porta; o subcaminho só vai no login), o corpo pelo stdin, os erros tipados pelo
+  status HTTP, uma espera do limite de cota ou secundário numa leitura (até 60 s) e a paginação com teto de 10
+  páginas. Versões mínimas medidas das CLIs: `gh` 2.18.0 e `glab` 1.121.0. A versão do GitLab cai numa faixa (testada
+  19.2 a 19.4, compatível desde 17.0, recusa abaixo), em cache por 24 h. O `ork doctor` ganha a seção forja
+  (identidade, alcance HTTPS e SSH, TLS, subcaminho, CLI, login, servidor, escopo, projeto, capacidades), que só
+  reprova o projeto que depende da forja; no `--json`, só com `--forja`, e o campo `forja` do `ork.doctor/v1` diz
+  `medida` ou `nao-medida`. Contrato em [`docs/referencia/contratos/forja.md`](docs/referencia/contratos/forja.md).
+  Muda para todos: o `ork-verify` verde de um app fora de `ci.produtor` (padrão `github-actions`) deixa de aprovar o
+  gate; quem publica o check por outro app declara a lista. O commit status verde do `github-actions[bot]` passa a
+  aprovar sozinho.
 - **#Noctum, fatia N4: supervisão e recuperação** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
   `core/src/noctum-supervisao.ts` guarda os checkpoints da supervisão do arco num log próprio, encadeado e assinado
   (`ork.noctum-supervisao/v1`), com os parâmetros na primeira linha: reiniciar o condutor ou o vigia, trocar de conta ou
@@ -66,6 +129,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   do remoto recusa não se repete, o push leva só a fonte que as provas viram, e a recusa de antes de qualquer efeito não
   prende a fila. `publicarEntrega` ganha a opção `antesDoEfeito`, chamada imediatamente antes do push e antes de abrir o
   PR.
+
+- **A forja vira porta**: o GitHub passa por um adaptador com capacidades em `core/src/forja/` (CI, entrega externa,
+  PRs da branch e abertura de PR), com a CLI da forja rodada por um executor só, sem mudança de comportamento. É a
+  base para o GitLab.
+- **Respostas gravadas do GitHub e do GitLab para o contrato da forja**: `core/scripts/forja-contrato.cjs` grava, só
+  por consulta, as respostas reais de uma forja (`--forja github|gitlab --host H --repo CAMINHO --sha SHA [--pr N]
+  [--branch B] --saida DIR`) pela CLI já logada (`gh`, `glab`), sem ler nem passar token, e cada registro passa pelo
+  redator antes do disco (arquivo 600): tokens do GitHub e do GitLab (inclusive o formato com ponto e os de runner),
+  JWT, credencial em URL e o valor de toda chave terminada em `token`. Os testes ganham as respostas redigidas do
+  GitHub (10/2026) e do GitLab CE 16.11, 17.0, 18.11, 19.2, 19.3 e 19.4 em `core/test/fixtures/forja/`.
 
 - **CLI em inglês e pt-BR, fatia F3b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): seguem também o
   locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`,
@@ -189,6 +262,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Codex e Claude Code fecham o GO com os mesmos artefatos** ([RM-016](docs/roadmap/RM-016-experiencia-do-builder.md)): o prompt canônico agora exige `verify`, build, bundle de CI, commit `ci(<thread>): bundle ...` e `pr-body.md` nos dois runtimes.
+- **Parecer reprovado volta a ser legível na retomada** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)): o leitor do CHECK reconhece `Veredito: REPROVOU` como reprovação, além dos três termos já aceitos.
+- **Baseline não aceita dependência ausente na worktree** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)): código `127` agora recusa `ork verify --baseline` com motivo tipado, em vez de virar “já falhava” e mascarar o ambiente incompleto.
+- **Worktrees novas saem da base remota atual** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)): `ork thread new` e `ork worktree ensure` atualizam `origin/<base>` antes de criar a branch, sem depender da `main` local parada em outra worktree.
 - **Verificações longas e primeiro uso do HITL sem falha espúria** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
   o comando hermético do CI passa a respeitar o teto configurado para a suíte de testes, e a primeira operação de HITL
   inicializa com segurança um arquivo de trava ainda vazio, sem tratá-lo como estado corrompido.
@@ -225,6 +302,45 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   conducao assumir`: o `done` que o observador viu e a ausência na conta do perfil da sessão soltam o lease. O registro
   automático deixou de gravar no `~/.orkastery/projetos.json` projetos de `/tmp` e da pasta dos jobs do Claude Code, a
   casa do ork segue `ORKASTERY_HOME`, e a suíte roda com uma casa temporária.
+
+- **Remoto, CI e entrega do GitHub com a porta da forja**: o endereço do remoto (`https`, `ssh`, `git://`, com porta e
+  subgrupos) passa por um parser só, e o host e o `dono/nome` da consulta saem do mesmo parse, sem host de reserva. Um
+  remoto do GitHub Enterprise é consultado com `--hostname` no host dele (inclusive com porta) e exige login do `gh`
+  nesse host; só o `github.com` dispensa a pergunta. A entrega externa (`registrar-pr --repo`) consulta sempre com
+  `--hostname github.com`: o `GH_HOST` do ambiente deixa de valer ali.
+
+- **Gate de CI: lista completa, produtor claro e commit status só endurece**: a CI lê todas as páginas dos
+  check-runs e dos commit statuses, em ordem estável, e o detalhe diz o produtor que bloqueou. Um commit status sozinho
+  deixa de aprovar o gate: status vermelho ou pendente bloqueia, e o verde precisa de um check-run verde. A lista que
+  vem incompleta e a resposta de check-runs sem a lista (`check_runs` que não é array) dão CI indisponível, não check
+  ausente. As chamadas ao `gh` da CI e da entrega externa passam a usar um buffer de 32 MiB e a achar o `gh` como o
+  executor da forja.
+
+- **Uma regra só para o estado de um check**: o gate e o pulse leem o estado de um check pela mesma regra. Um check-run
+  concluído como `neutral` ou `skipped` segue reprovando o gate, e o detalhe passa a dizer `bloqueado (neutral)` ou
+  `bloqueado (skipped)` em vez de `completed/neutral`.
+
+- **`ork ship registrar-pr` sem vínculo com o head**: com a CI exigida (`ci.required_for_ship`), o merge de um pai só
+  (squash ou rebase) é recusado com `entrega.sem-vinculo` antes de qualquer consulta à CI, porque a CI do commit da
+  base nunca prova o head do PR; sem a CI exigida, ele é registrado como antes. O `git fetch` que falha recusa com
+  `entrega.sem-leitura`, em vez de dizer que não há merge, e `registrar-pr --todas` com a busca do remoto falhando
+  recusa por thread aberta, com saída 1.
+
+- **Stderr da forja e do push redigido**: o stderr da CLI da forja e do `git push` passa pelo redator de segredos
+  (`ghp_`, `github_pat_`, os tokens do GitLab inteiros, inclusive o formato com ponto e os de runner, e
+  `https://usuario:senha@host`) antes de ir ao detalhe da CI, ao erro do push, ao `--json`, ao ledger e ao terminal. O
+  detalhe da forja guarda as duas últimas linhas, no máximo 240 caracteres; o do push tira as linhas `hint:` e guarda o
+  começo, até 400 caracteres, com o `! [rejected]` e o `error: failed to push`.
+
+- **Corpo do PR por arquivo, fora do argv**: o `gh pr create` recebe o corpo por `--body-file`, num arquivo 600 em
+  diretório temporário apagado ao fim, em vez de `--body=<texto>`. Um `pr-body.md` que parece flag
+  (`--repo=outro/repo`) ou de 64 KiB não toca mais a linha de comando.
+
+- **`ork network --repositorio` com subgrupos do GitLab**: o dono e o nome se separam pelo último `/`, e
+  `grupo/sub/casa` deixa de ser cortado em `grupo/sub`. No GitHub, `dono/nome` sai igual.
+
+- **`ork-verify` no head exato do PR**: o job `ork-verify` do GitHub Actions faz o checkout do commit head do PR, não do
+  commit de merge temporário (`refs/pull/N/merge`), então o check que o `ork` lê no head é a prova daquele head.
 
 ## [0.5.6] - 2026-10-12
 

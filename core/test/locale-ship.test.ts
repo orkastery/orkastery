@@ -8,6 +8,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { Cenario, cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 import { comVerify, dadoDoLedger } from './locale-f2b-apoio';
@@ -83,8 +84,13 @@ test('locale en F2b ship: ensaio, bloqueio e entrega saem em ingles', () => {
 
 test('locale en F2b ship: registrar-pr em ingles, com o --json igual nas duas linguas', () => {
   const c = cenario('ship-pr');
+  const remoto = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-loc-remoto-'));
   try {
     preparar(c);
+    // Com o remoto legivel, a ausencia de merge segue "nenhum merge"; sem remoto o fetch falha e a recusa e sem-leitura.
+    exec('git', ['init', '-q', '--bare', '-b', 'main', remoto], c.dir);
+    exec('git', ['remote', 'add', 'origin', remoto], c.dir);
+    assert.equal(exec('git', ['push', '-q', 'origin', 'main'], c.dir).ok, true);
     const uso = ork(c, EN, false, 'ship', 'registrar-pr');
     assert.equal(uso.status, 2);
     assert.equal(uso.stderr, 'usage: ork ship registrar-pr <thread-id> [--repo <owner/name> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]\n');
@@ -104,7 +110,7 @@ test('locale en F2b ship: registrar-pr em ingles, com o --json igual nas duas li
       assert.equal(en.status, pt.status, args.join(' '));
     }
     assert.match(ork(c, EN, false, 'ship', 'registrar-pr', 'loc-entrega', '--dry-run', '--json').stdout, /"motivo": "nenhum merge ship\(loc-entrega\) em origin\/main"/);
-  } finally { c.limpar(); }
+  } finally { c.limpar(); fs.rmSync(remoto, { recursive: true, force: true }); }
 });
 
 test('locale en F2b ship: o que o ship grava nao muda com a lingua', () => {

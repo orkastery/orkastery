@@ -30,10 +30,12 @@ import { Lease, MotivoGate, Thread } from './types';
 import { agora, exec, shaCurto } from './util';
 import { comandoNoLedger, ConducaoDoVerify, ExecutorVerify, ResultadoVerify, verificar } from './verify';
 import { consultarCi, ExecutorCi, ResultadoCi } from './ci';
+import { detalheDoPush, pushRecusadoPelaProtecao } from './forja';
 import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
 import { formatarDataHora, legendaDoFuso, localizarTexto } from './horario';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
+import { chaveRecusadaDaConfigDeRede, criarGitdirDoPush, enderecoDoOrigin, protocoloDaConfigDeRede, urlDaConfigDeRede } from './mcp-ship-transporte';
 import { branchValida, exigirRemoto, shaValido } from './branch-de-estado';
 import { ErroDoCatalogo, Mensagens, msg, remontar, textoDoCatalogo } from './locale';
 
@@ -55,6 +57,25 @@ export interface OpcoesShip {
   avisoDaFilaPesada?: Pick<NonNullable<ConducaoDoVerify['filaPesada']>, 'aoEsperar' | 'comandoDeEsperar'>;
   /** Executor interno confiável da consulta ao provedor de CI. */
   executorCi?: ExecutorCi;
+  /**
+   * Pares `-c chave=valor` que o transporte fixado do MCP leva so ao `ls-remote` e ao `push` da base (o ssh com a
+   * chave fixada, o helper da forja, a CA). Interno e confiavel, como o `executorVerify`: a CLI nunca o recebe.
+   * So a lista que `configDeRede` emite passa, chave e valor; qualquer outra forma recusa antes do primeiro git.
+   * O git repassa os valores de `-c` aos processos filhos (hooks, o helper de credencial) por `GIT_CONFIG_PARAMETERS`:
+   * nenhuma chave que carregue segredo pode entrar aqui, nunca.
+   */
+  configDoRemoto?: readonly string[];
+  /**
+   * Conferencia interna confiavel depois do `ls-remote` que prova o push, antes de dar a entrega por provada: o
+   * transporte fixado do MCP confere de novo o origin e a config. Se lanca, a entrega nao sai como provada.
+   */
+  conferirDepoisDoPush?: () => void;
+  /**
+   * A URL exata do origin fixado. Com ela, o push e os dois `ls-remote` saem de um gitdir privado (sem a config, os
+   * hooks e os `insteadOf` do projeto), para essa URL e com `GIT_ALLOW_PROTOCOL` so do protocolo do modo; o push leva
+   * o sha decidido aqui, nunca o que uma ref do projeto apontar depois. So com `configDoRemoto`.
+   */
+  urlFixada?: string;
   /** Branch de destino (`--para main`). */
   para: string;
   /** Branch de origem. Padrao: a base carimbada da thread. */
@@ -80,6 +101,8 @@ export interface ResultadoShip {
   ok: boolean;
   bloqueado: boolean;
   motivo: MotivoGate | null;
+  /** O porque estavel da recusa do push, quando ha um; o motivo do gate continua `runtime.unavailable`. */
+  codigo?: 'entrega.base-protegida' | 'transport.mudou-no-push';
   detalhe: string;
   correcao: string;
   thread: string;
@@ -275,11 +298,17 @@ export function prepararArvore(raiz: string, para: string): ArvoreDeMerge {
 }
 
 /** Remove a worktree temporaria do merge (best effort: o lease ja foi liberado). */
-function descartarArvore(raiz: string, arvore: ArvoreDeMerge): void {
+function descartarArvore(raiz: string, arvore: ArvoreDeMerge, trava: readonly string[] = []): void {
   if (!arvore.temporaria) return;
-  exec('git', ['worktree', 'remove', '--force', arvore.dir], raiz);
-  exec('git', ['worktree', 'prune'], raiz);
+  exec('git', [...trava, 'worktree', 'remove', '--force', arvore.dir], raiz);
+  exec('git', [...trava, 'worktree', 'prune'], raiz);
 }
+
+/**
+ * O git local que o transporte fixado roda no projeto depois da ultima conferencia: nenhum hook (o
+ * `reference-transaction` do `update-ref`, inclusive) e nenhum fsmonitor, que o agente pode ter posto ali durante o push.
+ */
+const TRAVA_LOCAL_DO_FIXADO = ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor='] as const;
 
 /** sha de uma referencia local, ou null quando ela nao existe. */
 export function shaDaRef(dir: string, ref: string): string | null {
@@ -294,14 +323,49 @@ export function shaDaRef(dir: string, ref: string): string | null {
  * E o unico jeito aceito de provar push nesta maquina: `gh api` e imprevisivel aqui, e o
  * codigo de saida do `git push` nao prova que o remoto ficou com o commit certo.
  */
-export function shaNoRemoto(dir: string, remoto: string, branch: string): string | null {
+export function shaNoRemoto(dir: string, remoto: string, branch: string, config: readonly string[] = []): string | null {
   // RM-047: so nome de remoto chega ao git, e depois do `--` (nunca vira opcao nem transporte).
-  const r = exec('git', ['ls-remote', '--', exigirRemoto(remoto, 'ship'), `refs/heads/${branch}`], dir, 120000);
+  const r = exec('git', [...configDoRemotoValida(config), 'ls-remote', '--', exigirRemoto(remoto, 'ship'), `refs/heads/${branch}`], dir, 120000);
+  return shaDoLsRemote(r, branch);
+}
+
+/** O transporte fixado: o gitdir privado, a URL exata e o protocolo do modo, validados juntos com a config. */
+interface RemotoFixado { gitdir: string; url: string; protocolo: 'ssh' | 'https'; config: readonly string[] }
+
+function validarUrlFixada(url: string, config: readonly string[]): { url: string; protocolo: 'ssh' | 'https' } {
+  const protocolo = protocoloDaConfigDeRede(config);
+  const recusa = (): never => { throw new ErroDoCatalogo((m) => m.ship.configDoRemotoInvalida('urlFixada')); };
+  if (!protocolo || typeof url !== 'string' || /[\x00-\x20\x7f]/.test(url) || url.startsWith('-')) return recusa();
+  try {
+    const e = enderecoDoOrigin(protocolo === 'ssh' ? 'forja-ssh' : 'forja-https', url);
+    if (e.transporte === 'forja-https' && urlDaConfigDeRede(config) !== url) return recusa();
+  } catch { return recusa(); }
+  return { url, protocolo };
+}
+
+/** O git que vai a rede no transporte fixado: do gitdir privado, so com o protocolo do modo. */
+function gitDoRemotoFixado(f: RemotoFixado, args: readonly string[], timeoutMs: number) {
+  return exec('git', [`--git-dir=${f.gitdir}`, ...f.config, ...args], f.gitdir, timeoutMs, { ...process.env, GIT_ALLOW_PROTOCOL: f.protocolo });
+}
+
+function shaNoRemotoFixado(f: RemotoFixado, branch: string): string | null {
+  return shaDoLsRemote(gitDoRemotoFixado(f, ['ls-remote', '--', f.url, `refs/heads/${branch}`], 120000), branch);
+}
+
+function shaDoLsRemote(r: { ok: boolean; stdout: string }, branch: string): string | null {
   if (!r.ok) return null;
   // RM-059 (S1 da revisao da ork-rm059pista): o padrao do ls-remote casa por sufixo; vale so a linha da ref exata.
   const linha = r.stdout.split('\n').map((l) => l.trim().split(/\s+/)).find((partes) => partes[1] === `refs/heads/${branch}`);
   const sha = linha?.[0] ?? '';
   return /^[0-9a-f]{40}$/.test(sha) ? sha : null;
+}
+
+/** So a lista que `configDeRede` emite, chave e valor: nenhuma outra opcao, chave ou valor chega antes do subcomando de rede. */
+function configDoRemotoValida(config: readonly string[]): readonly string[] {
+  const recusada = chaveRecusadaDaConfigDeRede(config);
+  // Nunca ecoa o valor: so a chave (ate 80 caracteres) mostra o que foi recusado.
+  if (recusada !== null) throw new ErroDoCatalogo((m) => m.ship.configDoRemotoInvalida(recusada.slice(0, 80)));
+  return config;
 }
 
 /** O remoto esta configurado neste repositorio? */
@@ -444,6 +508,10 @@ export function ship(
   // so nome de remoto passa; o resto recusa com `ship.remoto-invalido`, e o ship nao entrega sem push provado
   // por um remoto que nunca existiu.
   const remoto = exigirRemoto(opcoes.remoto ?? 'origin', 'ship');
+  const configDoRemoto = configDoRemotoValida(opcoes.configDoRemoto ?? []);
+  const comConfig = (args: readonly string[]): string => `git ${[...configDoRemoto, ...args].join(' ')}`;
+  const urlFixada = opcoes.urlFixada === undefined ? null : validarUrlFixada(opcoes.urlFixada, configDoRemoto);
+  // Nos passos, o gitdir privado e a URL fixada vao por nome: o caminho temporario nao diz nada a quem le.
   const r = baseDoResultado(thread, de, opcoes);
 
   // I-43 (T7): antes de qualquer coisa, se a entrega ANTERIOR desta thread foi
@@ -452,7 +520,16 @@ export function ship(
   // Idempotente: o mesmo revert nao rebaixa a thread duas vezes.
   try { registrarReversaoDaEntrega(raiz, thread, para); } catch { /* git indisponivel nao barra o ship */ }
 
-  const bloquear = (motivo: MotivoGate, detalhe: string, correcao: string): ResultadoShip => {
+  // O push pode ter saido: a troca do origin ou da config durante ele bloqueia o gate no ledger e sobe tipada.
+  const conferirDepoisDoPush = (passos: string[]): void => {
+    try { opcoes.conferirDepoisDoPush?.(); } catch (e) {
+      r.passos = passos;
+      bloquear('runtime.unavailable', e instanceof ErroDoCatalogo ? textoDoCatalogo(e.montar) : (e as Error).message,
+        textoDoCatalogo((m) => m.ship.pushSemProvaCorrecao), 'transport.mudou-no-push');
+      throw e;
+    }
+  };
+  const bloquear = (motivo: MotivoGate, detalhe: string, correcao: string, codigo?: ResultadoShip['codigo']): ResultadoShip => {
     registrarGateBloqueado(dir, threadId, {
       gate: 'ship',
       motivo,
@@ -468,12 +545,13 @@ export function ship(
       de,
       para,
       motivo,
+      ...(codigo ? { codigo } : {}),
       detalhe,
       correcao,
       modo: thread.modo,
       dryRun: r.dryRun,
     });
-    return { ...r, bloqueado: true, ok: false, motivo, detalhe, correcao };
+    return { ...r, bloqueado: true, ok: false, motivo, detalhe, correcao, ...(codigo ? { codigo } : {}) };
   };
 
   // 1. Autorizacao de push pelo gate do modo de conducao.
@@ -755,21 +833,73 @@ export function ship(
 
     opcoes.revalidarGit?.('push', arvore.dir);
     // 6. Push PROVADO por ls-remote.
-    const temRemoto = remotoConfigurado(arvore.dir, remoto);
+    const temRemoto = urlFixada !== null || remotoConfigurado(arvore.dir, remoto);
     r.remoto = temRemoto ? remoto : null;
-    if (opcoes.semPush || !temRemoto) {
+    if (urlFixada && !opcoes.semPush) {
+      const fixado: RemotoFixado = { gitdir: criarGitdirDoPush(raiz), ...urlFixada, config: configDoRemoto };
+      const comFixado = (args: readonly string[]): string =>
+        `git --git-dir=<gitdir privado> ${[...configDoRemoto, ...args].join(' ')}`.replaceAll(urlFixada.url, '<origin fixado>');
+      try {
+        // O sha e o decidido aqui. Sem `-u`: o gitdir privado nao tem branch para rastrear, e gravar o upstream na
+        // config do projeto mudaria a config conferida; o `ls-remote` que so decidia o `-u` sai junto.
+        const argsPush = ['push', '--', urlFixada.url, `${pontaDaBase}:refs/heads/${para}`];
+        const push = gitDoRemotoFixado(fixado, argsPush, 300000);
+        passos.push(comFixado(argsPush));
+        if (!push.ok) {
+          r.passos = passos;
+          const erro = detalheDoPush(push.stderr || push.stdout);
+          if (pushRecusadoPelaProtecao(`${push.stderr}\n${push.stdout}`)) {
+            return bloquear(
+              'runtime.unavailable',
+              textoDoCatalogo((m) => m.ship.pushBaseProtegida(remoto, para, erro)),
+              textoDoCatalogo((m) => m.ship.pushBaseProtegidaCorrecao(threadId)),
+              'entrega.base-protegida'
+            );
+          }
+          return bloquear(
+            'runtime.unavailable',
+            textoDoCatalogo((m) => m.ship.pushFalhou(remoto, para, erro)),
+            textoDoCatalogo((m) => m.ship.pushFalhouCorrecao)
+          );
+        }
+        const shaRemoto = shaNoRemotoFixado(fixado, para);
+        passos.push(comFixado(['ls-remote', '--', urlFixada.url, `refs/heads/${para}`]));
+        conferirDepoisDoPush(passos);
+        r.shaRemoto = shaRemoto;
+        r.pushVerificado = shaRemoto !== null && shaRemoto === pontaDaBase;
+        if (!r.pushVerificado) {
+          r.passos = passos;
+          return bloquear(
+            'runtime.unavailable',
+            textoDoCatalogo((m) => m.ship.pushSemProva(shaRemoto, pontaDaBase)),
+            textoDoCatalogo((m) => m.ship.pushSemProvaCorrecao)
+          );
+        }
+        // A ref de rastreio do projeto acompanha o remoto provado, como no push por nome; local, sem rede.
+        exec('git', [...TRAVA_LOCAL_DO_FIXADO, 'update-ref', '--', `refs/remotes/${remoto}/${para}`, pontaDaBase], raiz);
+      } finally { fs.rmSync(fixado.gitdir, { recursive: true, force: true }); }
+    } else if (opcoes.semPush || !temRemoto) {
       r.pushVerificado = false;
       r.detalhe = textoDoCatalogo((m) => opcoes.semPush ? m.ship.semPushPorFlag : m.ship.semRemoto(remoto));
     } else {
-      const existeNoRemoto = shaNoRemoto(arvore.dir, remoto, para) !== null;
+      const existeNoRemoto = shaNoRemoto(arvore.dir, remoto, para, configDoRemoto) !== null;
       const argsPush = existeNoRemoto
         ? ['push', '--', remoto, `refs/heads/${para}:refs/heads/${para}`]
         : ['push', '-u', '--', remoto, `refs/heads/${para}:refs/heads/${para}`];
-      const push = exec('git', argsPush, arvore.dir, 300000);
-      passos.push(`git ${argsPush.join(' ')}`);
+      const push = exec('git', [...configDoRemoto, ...argsPush], arvore.dir, 300000);
+      passos.push(comConfig(argsPush));
       if (!push.ok) {
         r.passos = passos;
-        const erro = (push.stderr || push.stdout).trim().slice(0, 400);
+        const erro = detalheDoPush(push.stderr || push.stdout);
+        // A protecao da base recusou: a entrega e por PR/MR e o registro dele. O motivo do gate nao muda, so a orientacao.
+        if (pushRecusadoPelaProtecao(`${push.stderr}\n${push.stdout}`)) {
+          return bloquear(
+            'runtime.unavailable',
+            textoDoCatalogo((m) => m.ship.pushBaseProtegida(remoto, para, erro)),
+            textoDoCatalogo((m) => m.ship.pushBaseProtegidaCorrecao(threadId)),
+            'entrega.base-protegida'
+          );
+        }
         return bloquear(
           'runtime.unavailable',
           textoDoCatalogo((m) => m.ship.pushFalhou(remoto, para, erro)),
@@ -777,8 +907,9 @@ export function ship(
         );
       }
       // A prova: o sha que o REMOTO devolve tem que ser o mesmo do destino local.
-      const shaRemoto = shaNoRemoto(arvore.dir, remoto, para);
-      passos.push(`git ls-remote ${remoto} refs/heads/${para}`);
+      const shaRemoto = shaNoRemoto(arvore.dir, remoto, para, configDoRemoto);
+      passos.push(comConfig(['ls-remote', remoto, `refs/heads/${para}`]));
+      conferirDepoisDoPush(passos);
       r.shaRemoto = shaRemoto;
       r.pushVerificado = shaRemoto !== null && shaRemoto === pontaDaBase;
       if (!r.pushVerificado) {
@@ -827,7 +958,8 @@ export function ship(
       },
     });
 
-    publicarEmSegundoPlano(raiz);
+    // A publicacao da fabrica empurra pelo origin do projeto, sem o transporte fixado: no fixado, nao sai daqui.
+    if (!urlFixada) publicarEmSegundoPlano(raiz);
 
     const atualizada = lerThread(raiz, threadId);
     // I-42: ciclo sem SHIP (o `#Fast`) entrega sem trocar de fase; `faseAtual` fica sempre
@@ -841,7 +973,7 @@ export function ship(
 
     return { ...r, ok: true, bloqueado: false };
   } finally {
-    if (arvore) descartarArvore(raiz, arvore);
+    if (arvore) descartarArvore(raiz, arvore, urlFixada ? TRAVA_LOCAL_DO_FIXADO : []);
     const solto = liberar(raiz, LEASE_MAIN_TREE, threadId);
     registrar(dir, threadId, TIPOS_DE_EVENTO.leaseLiberado, {
       lease: LEASE_MAIN_TREE,

@@ -67,7 +67,7 @@ test('com o CI exigido pelo manifesto e sem CI verde no head, a entrega e recusa
   try {
     const id = entregaPorPr(p, 'sem ci');
     const exigente = { ...p.carregado, manifesto: { ...p.carregado.manifesto, ci: { ...p.carregado.manifesto.ci, required_for_ship: true } } };
-    const r = registrarEntregaPorPr(exigente, id, { executorCi: () => ({ ok: true, stdout: '{"check_runs":[]}', stderr: '', code: 0 }) });
+    const r = registrarEntregaPorPr(exigente, id, { executorCi: (e) => ({ ok: true, stdout: e.caminho?.includes('/statuses') ? '[]' : '{"check_runs":[]}', stderr: '', code: 0 }) });
     assert.equal(r.acao, 'recusada');
     assert.match(r.motivo, /sem CI verde no head do PR/);
     assert.equal(lerLedger(dirThread(p.dir, id)).some((e) => e.tipo === 'ship_done'), false);

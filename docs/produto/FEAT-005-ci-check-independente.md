@@ -24,7 +24,7 @@ fontes:
     - core/src/ci.ts#consultarCi
   contratos:
     - ork.ci-bundle/v1
-    - ork.ci-status/v1
+    - ork.ci-status/v2
   comandos:
     - ork ci prepare
     - ork ci run

@@ -13,7 +13,10 @@ import { test } from 'node:test';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { RodarCli } from '../src/forja/api';
+import { carregarManifesto } from '../src/manifest';
 import { projetoTemporario } from './apoio';
+import { api, cliFalsa, falhou, gravado, http, login, ok } from './forja-cli-falsa';
 import { registrar } from '../src/ledger';
 import { CONTRATO_PRS, entregasDoProjeto, ExecutorDoGh, gravarRetratoDePrs, lerPrsDaForja, lerRetratoDePrs, RetratoDePrs } from '../src/parado-no-condutor';
 import { montarPulse, textoDoPulse } from '../src/pulse';
@@ -77,29 +80,46 @@ function ghSimulado(opcoes: { auth?: boolean | 'falha'; prs?: unknown[] } = {}) 
   return { chamadas, executor };
 }
 
+/** O glab que nunca esta autenticado: os testes do GitHub nao deixam a sondagem do GitLab chegar a CLI de verdade. */
+const SEM_GLAB: RodarCli = () => ({ status: 1, stdout: '', stderr: 'You are not logged in' });
 const pulsar = (p: Projeto, quando: string, executor: ExecutorDoGh) =>
-  montarPulse(p.carregado, { quando, consulta: { ok: true, sessoes: [], detalhe: 'SIMULADO' }, executorDoGh: executor });
+  montarPulse(p.carregado, { quando, consulta: { ok: true, sessoes: [], detalhe: 'SIMULADO' }, executorDoGh: executor, rodarDaForja: SEM_GLAB });
 
-test('A5: com o remoto no GitLab, o pulse diz uma vez que a forja nao tem leitura de PR, e nenhuma linha diz "PR nao lido"', () => {
+const pulsarCom = (p: Projeto, quando: string, executor: ExecutorDoGh, rodar: RodarCli) =>
+  montarPulse(p.carregado, { quando, consulta: { ok: true, sessoes: [], detalhe: 'SIMULADO' }, executorDoGh: executor, rodarDaForja: rodar });
+
+/** A resposta gravada do GitLab com o MR !1 na branch e no head da thread de teste; o resto do corpo e o gravado. */
+function mrsGravadosCom(branch: string, head: string): unknown {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const corpo = JSON.parse(JSON.stringify(gravado('gitlab/19.4/mr-abertos'))) as { data: { project: { abertos: { nodes: any[] } } } };
+  const um = corpo.data.project.abertos.nodes.find((n) => n.iid === '1');
+  Object.assign(um, { sourceBranch: branch, diffHeadSha: head });
+  um.headPipeline.sha = head;
+  return corpo;
+}
+
+test('A5: com o remoto no GitLab e o glab sem login, o pulse diz uma vez que a forja nao tem leitura, e nenhuma linha diz "PR nao lido"', () => {
   const p = projetoTemporario('fatia5-a5-gitlab', true);
   try {
     const a = threadPublicada(p, 'branch publicada no gitlab', 31);
     git(p.dir, 'remote', 'set-url', 'origin', 'https://gitlab.com/grupo/simulado.git');
     const gh = ghSimulado({ auth: true });
-    const leitura = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor });
+    const glab = cliFalsa([{ quando: login, responde: falhou('x gitlab.com has not been authenticated with glab') }]);
+    const leitura = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor, rodar: glab.rodar });
     assert.equal(leitura.ok, false);
     assert.deepEqual(!leitura.ok && leitura.semLeitura, { remoto: 'origin', host: 'gitlab.com' });
 
-    const primeira = pulsar(p, BATIDA, gh.executor);
-    assert.match(primeira.runtime.detalhe, /prs\.sem-leitura: a forja de origin \(gitlab\.com\) é um GitLab/);
+    const primeira = pulsarCom(p, BATIDA, gh.executor, glab.rodar);
+    assert.match(primeira.runtime.detalhe, /prs\.sem-leitura: o glab não está autenticado em gitlab\.com, a forja de origin/);
     assert.ok(!primeira.runtime.detalhe.includes('prs.nao-lidos'), primeira.runtime.detalhe);
     assert.match(textoDoPulse(primeira), /\[diagnostico\] .*prs\.sem-leitura/);
     const linha = primeira.paradoNoCondutor?.find((x) => x.thread === a.t.id);
     assert.equal(linha?.proximoPasso, `conferir na forja o PR da branch ${a.branch} e seguir`);
-    const segunda = pulsar(p, SEGUINTE, gh.executor);
+    const segunda = pulsarCom(p, SEGUINTE, gh.executor, glab.rodar);
     assert.ok(!/prs\.(sem-leitura|nao-lidos)/.test(segunda.runtime.detalhe), `a segunda batida nao repete: ${segunda.runtime.detalhe}`);
     assert.ok(!textoDoPulse(segunda).includes('PR não lido'), textoDoPulse(segunda));
     assert.deepEqual(gh.chamadas, [], 'GitLab nao chama o gh');
+    assert.equal(glab.chamadas.filter((c) => c.args[0] === 'api').length, 0, 'sem login, nenhum pedido anonimo');
     // O status do roadmap, sem rede: o estado diz a forja, e a linha so o passo.
     const entrega = fatosLocais(p.dir, SEGUINTE).find((f) => f.id === a.t.id)?.entrega?.();
     assert.equal(entrega?.estado, 'branch publicada, forja sem leitura de PR');
@@ -112,11 +132,11 @@ test('A5: caminho local e host proprio sem login do gh sao forja sem leitura; so
   try {
     threadPublicada(p, 'branch publicada no remoto local', 32);
     const gh = ghSimulado({ auth: false });
-    const local = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor });
+    const local = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor, rodar: SEM_GLAB });
     assert.deepEqual(!local.ok && local.semLeitura, { remoto: 'origin', host: null });
     assert.deepEqual(gh.chamadas, []);
     git(p.dir, 'remote', 'set-url', 'origin', `https://${HOST_PROPRIO}/dono/simulado.git`);
-    const proprio = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor });
+    const proprio = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor, rodar: SEM_GLAB });
     assert.deepEqual(!proprio.ok && proprio.semLeitura, { remoto: 'origin', host: HOST_PROPRIO });
     assert.deepEqual(gh.chamadas, [['auth', 'status', '--hostname', HOST_PROPRIO]], 'nenhum gh pr list');
     // No pulse, o host proprio sem login e dito uma vez.
@@ -158,7 +178,7 @@ test('A5: o auth status que falha por rede ou prazo e "PR nao lido" desta batida
     const a = threadPublicada(p, 'ghe fora do ar', 35);
     git(p.dir, 'remote', 'set-url', 'origin', `https://${HOST_PROPRIO}/dono/simulado.git`);
     const gh = ghSimulado({ auth: 'falha' });
-    const leitura = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor });
+    const leitura = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor, rodar: SEM_GLAB });
     assert.equal(leitura.ok, false);
     assert.equal(!leitura.ok && leitura.semLeitura, undefined);
     for (const quando of [BATIDA, SEGUINTE]) {
@@ -170,7 +190,7 @@ test('A5: o auth status que falha por rede ou prazo e "PR nao lido" desta batida
     assert.ok(!fs.existsSync(path.join(p.dir, '.orkastery', 'monitor', 'forja-sem-leitura.json')), 'nenhuma marca');
     // E o gh ausente (sem codigo de saida) tambem.
     const ausente: ExecutorDoGh = () => ({ status: null, stdout: '', stderr: 'spawnSync gh ENOENT' });
-    const semGh = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: ausente });
+    const semGh = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: ausente, rodar: SEM_GLAB });
     assert.equal(!semGh.ok && semGh.semLeitura, undefined);
   } finally { p.limpar(); }
 });
@@ -181,11 +201,11 @@ test('A5: o SSH do github.com pela porta 443 e o github.com; apelido de SSH sem 
     threadPublicada(p, 'branch pelo ssh 443', 36);
     git(p.dir, 'remote', 'set-url', 'origin', 'ssh://git@ssh.github.com:443/dono/simulado.git');
     const gh = ghSimulado({ auth: false });
-    const leitura = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor });
+    const leitura = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor, rodar: SEM_GLAB });
     assert.equal(leitura.ok, true, JSON.stringify(leitura));
     assert.ok(gh.chamadas.every((c) => c[0] === 'pr' && c[2] === '--repo=github.com/dono/simulado'), JSON.stringify(gh.chamadas));
     git(p.dir, 'remote', 'set-url', 'origin', 'git@github-trabalho:dono/simulado.git');
-    const apelido = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor });
+    const apelido = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor, rodar: SEM_GLAB });
     assert.deepEqual(!apelido.ok && [apelido.semLeitura, apelido.erro],
       [{ remoto: 'origin', host: null }, 'o remoto origin não tem host de forja (caminho local ou apelido de SSH)']);
   } finally { p.limpar(); }
@@ -207,5 +227,59 @@ test('A5: a leitura que volta apaga a marca, e a forja que perde a leitura de no
       parcial: false, prs: [] });
     assert.equal(fatosLocais(p.dir, '2026-10-02T13:20:00.000Z').find((f) => f.id === a.t.id)?.entrega?.()?.estado,
       'branch publicada, forja sem leitura de PR');
+  } finally { p.limpar(); }
+});
+
+test('GitLab: o pulse lê os MRs numa consulta, com subgrupo, e o retrato guarda o caminho completo e o host', () => {
+  const p = projetoTemporario('fatia5-gitlab-le', true);
+  try {
+    const a = threadPublicada(p, 'branch com MR no gitlab', 34);
+    git(p.dir, 'remote', 'set-url', 'origin', 'git@gitlab.com:grupo/sub/simulado.git');
+    const gh = ghSimulado({ auth: true });
+    const glab = cliFalsa([{ quando: login, responde: ok('') }, { quando: api('graphql'), responde: http(200, mrsGravadosCom(a.branch, a.head)) }]);
+    const pulse = pulsarCom(p, BATIDA, gh.executor, glab.rodar);
+    assert.deepEqual(gh.chamadas, []);
+    const consultas = glab.chamadas.filter((c) => c.args[0] === 'api');
+    assert.equal(consultas.length, 1, 'uma consulta GraphQL por batida');
+    assert.equal(consultas[0].acrescentar?.GITLAB_HOST, 'gitlab.com');
+    assert.deepEqual(JSON.parse(consultas[0].entrada!).variables, { path: 'grupo/sub/simulado', base: 'main', candidatas: [a.branch], check: 'ork-verify' });
+    assert.ok(!/prs\./.test(pulse.runtime.detalhe), pulse.runtime.detalhe);
+    const retrato = lerRetratoDePrs(p.dir);
+    assert.deepEqual([retrato?.host, retrato?.repositorio], ['gitlab.com', 'grupo/sub/simulado']);
+    assert.deepEqual(retrato?.prs.find((x) => x.branch === a.branch)?.checks.map((c) => c.situacao), ['verde', 'verde']);
+    assert.equal(fatosLocais(p.dir, BATIDA).find((f) => f.id === a.t.id)?.entrega?.()?.estado, 'PR #1 com os checks verdes, esperando o merge');
+  } finally { p.limpar(); }
+});
+
+test('GitLab em host próprio: sem o bloco forja:, só a CLI com login responde; com ele, nenhuma sonda', () => {
+  const p = projetoTemporario('fatia5-gitlab-proprio', true);
+  try {
+    const a = threadPublicada(p, 'branch no gitlab proprio', 35);
+    git(p.dir, 'remote', 'set-url', 'origin', 'https://git.empresa.example.com/time/sub/simulado.git');
+    const corpo = mrsGravadosCom(a.branch, a.head);
+    const gh = ghSimulado({ auth: false });
+    const glab = cliFalsa([{ quando: login, responde: ok('') }, { quando: api('metadata'), responde: http(200, gravado('gitlab/19.4/metadata')) },
+      { quando: api('graphql'), responde: http(200, corpo) }]);
+    const sondado = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor, rodar: glab.rodar, candidatas: [a.branch] });
+    assert.ok(sondado.ok, JSON.stringify(sondado));
+    assert.deepEqual(gh.chamadas, [['auth', 'status', '--hostname', 'git.empresa.example.com']]);
+    assert.equal(sondado.retrato.host, 'git.empresa.example.com');
+    fs.appendFileSync(path.join(p.dir, 'orkastery.yaml'), '\nforja:\n  tipo: gitlab\n');
+    const gh2 = ghSimulado({ auth: true });
+    const glab2 = cliFalsa([{ quando: login, responde: ok('') }, { quando: api('graphql'), responde: http(200, corpo) }]);
+    const lido = lerPrsDaForja(carregarManifesto(p.dir)!, { quando: BATIDA, executor: gh2.executor, rodar: glab2.rodar, candidatas: [a.branch] });
+    assert.ok(lido.ok, JSON.stringify(lido));
+    assert.deepEqual(gh2.chamadas, [], 'o bloco forja: decide; o gh nem e consultado');
+    assert.ok(!glab2.chamadas.some((c) => c.args.includes('metadata')), 'sem sondagem');
+  } finally { p.limpar(); }
+});
+
+test('o retrato aceita o caminho com subgrupo do GitLab', () => {
+  const p = projetoTemporario('fatia5-retrato-subgrupo', false);
+  try {
+    const retrato: RetratoDePrs = { contrato: CONTRATO_PRS, lidoEm: BATIDA, repositorio: 'grupo/sub/simulado', host: 'gitlab.com', base: 'main',
+      parcial: false, prs: [] };
+    gravarRetratoDePrs(p.dir, retrato);
+    assert.deepEqual(lerRetratoDePrs(p.dir), retrato);
   } finally { p.limpar(); }
 });

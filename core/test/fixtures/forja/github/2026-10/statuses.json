@@ -1,0 +1,14 @@
+{
+  "caso": "statuses",
+  "forja": "github",
+  "host": "github.com",
+  "comando": [
+    "gh",
+    "api",
+    "--hostname",
+    "github.com",
+    "repos/orkastery/orkastery/commits/9436d3e076e66353e8e47f39c4457ed1d9bc3dc8/statuses?per_page=100"
+  ],
+  "status": 0,
+  "corpo": []
+}

@@ -1,0 +1,43 @@
+{
+  "caso": "branch",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/repository/branches/main"
+  ],
+  "status": 0,
+  "corpo": {
+    "name": "main",
+    "commit": {
+      "id": "4029c287105c50241e1ca52e386447762c927b6b",
+      "short_id": "4029c287",
+      "created_at": "2026-10-14T07:34:06.000+00:00",
+      "parent_ids": [
+        "19eabdc9816ab6c055721d670c1772d99cc630cd",
+        "eca980f1c1f2f7bdab6a2f87a1f0c2ff616bf94e"
+      ],
+      "title": "ship(ork-teste): teste",
+      "message": "ship(ork-teste): teste",
+      "author_name": "Administrator",
+      "author_email": "gitlab_admin_c1b7a5@example.com",
+      "authored_date": "2026-10-14T07:34:06.000+00:00",
+      "committer_name": "Administrator",
+      "committer_email": "gitlab_admin_c1b7a5@example.com",
+      "committed_date": "2026-10-14T07:34:06.000+00:00",
+      "trailers": {},
+      "extended_trailers": {},
+      "web_url": "http://127.0.0.1/root/matriz/-/commit/4029c287105c50241e1ca52e386447762c927b6b"
+    },
+    "merged": false,
+    "protected": true,
+    "developers_can_push": false,
+    "developers_can_merge": false,
+    "can_push": true,
+    "default": true,
+    "web_url": "http://127.0.0.1/root/matriz/-/tree/main"
+  }
+}

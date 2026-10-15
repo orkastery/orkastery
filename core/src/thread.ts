@@ -26,6 +26,7 @@ import { nomeDaMaquina } from './maquina';
 import { linhaDeConducao } from './conducao-texto';
 import { ErroDoCatalogo, msg } from './locale';
 import { CasoSemWorktree } from './locale-thread';
+import { exigirRemoto, refRemota } from './branch-de-estado';
 
 /** Diretorio de threads do projeto. */
 export function dirThreads(raiz: string): string {
@@ -103,6 +104,8 @@ export function idDisponivel(raiz: string, abbrev: string, assunto: string): { i
 export interface WorktreeDaThread {
   dir: string;
   branch: string;
+  /** Commit exato de onde a branch da worktree nasceu. */
+  commit: string;
 }
 
 /** Ajustes da criacao da worktree usados pelas variantes de ciclo do bloco B2. */
@@ -128,14 +131,14 @@ export function alvoDaWorktree(
   id: string,
   slug: string,
   opcoes: OpcoesDeWorktree = {}
-): WorktreeDaThread {
+): Omit<WorktreeDaThread, 'commit'> {
   return { dir: pastaDaWorktree(carregado, id), branch: opcoes.branchExistente ?? `ork/${slug}` };
 }
 
 /** P4 do ensaio da 0.5.0: por que a criacao de verdade recusaria a worktree prevista. */
 export type FalhaDaWorktree = 'pasta-existe' | 'sem-commit' | 'branch-existe';
 
-export interface WorktreePrevista extends WorktreeDaThread {
+export interface WorktreePrevista extends Omit<WorktreeDaThread, 'commit'> {
   /** Commit de onde a worktree partiria; `null` sem commit. */
   commit: string | null;
   /** O que faria a criacao recusar, na ordem em que `criarWorktree` e o git conferem; `null` quando ela nasce. */
@@ -155,9 +158,11 @@ export function worktreePrevista(
   opcoes: OpcoesDeWorktree = {}
 ): WorktreePrevista {
   const alvo = alvoDaWorktree(carregado, id, slug, opcoes);
+  const base = opcoes.base ?? carregado.manifesto.worktree.base_branch;
+  const remoto = exigirRemoto(carregado.manifesto.fabrica.remoto, 'worktree');
   const refs = opcoes.branchExistente
     ? [opcoes.branchExistente]
-    : [opcoes.base ?? carregado.manifesto.worktree.base_branch, 'HEAD'];
+    : [refRemota(remoto, base), base, 'HEAD'];
   let commit: string | null = null;
   for (const ref of refs) {
     const r = exec('git', ['rev-parse', '--verify', ref], carregado.raiz);
@@ -168,6 +173,37 @@ export function worktreePrevista(
   const falha: FalhaDaWorktree | null = fs.existsSync(alvo.dir) ? 'pasta-existe'
     : commit === null ? 'sem-commit' : branchJaExiste ? 'branch-existe' : null;
   return { ...alvo, commit, falha };
+}
+
+/**
+ * Resolve a base de uma worktree nova. Com remoto configurado e presente, a fonte e sempre
+ * `refs/remotes/<remoto>/<base>` atualizada por um fetch explicito; a branch local pode pertencer a
+ * outra worktree e ficar parada indefinidamente. Repositorio sem esse remoto preserva o caso local.
+ */
+function baseAtualDaWorktree(carregado: ManifestoCarregado, base: string): { ref: string; commit: string } {
+  const { raiz, manifesto } = carregado;
+  const remoto = exigirRemoto(manifesto.fabrica.remoto, 'worktree');
+  const temRemoto = exec('git', ['remote', 'get-url', '--', remoto], raiz).ok;
+  let ref = base;
+  if (temRemoto) {
+    ref = refRemota(remoto, base);
+    const ambiente = { ...process.env, GIT_TERMINAL_PROMPT: '0',
+      GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND ?? 'ssh -o BatchMode=yes' };
+    const fetch = exec('git', ['fetch', '-q', '--no-tags', '--', remoto,
+      `+refs/heads/${base}:${ref}`], raiz, 120000, ambiente);
+    if (!fetch.ok) {
+      const saida = (fetch.stderr || fetch.stdout).trim().split('\n').slice(-2).join(' | ');
+      throw new ErroDoCatalogo((m) => m.worktree.baseRemotaFalhou(remoto, base, saida));
+    }
+  }
+  const resolvida = exec('git', ['rev-parse', '--verify', ref], raiz);
+  if (!resolvida.ok) {
+    // Repositorio local ainda sem a branch do manifesto conserva a recusa historica do
+    // `git worktree add ... HEAD`; com remoto presente, o fetch acima ja teria recusado.
+    const head = exec('git', ['rev-parse', '--verify', 'HEAD'], raiz);
+    return { ref: 'HEAD', commit: head.ok ? head.stdout.trim() : COMMIT_DESCONHECIDO };
+  }
+  return { ref, commit: resolvida.stdout.trim() };
 }
 
 /**
@@ -192,8 +228,13 @@ export function criarWorktree(
     throw new ErroDoCatalogo((m) => m.worktree.worktreeJaExisteEm(dir));
   }
   const base = opcoes.base ?? manifesto.worktree.base_branch;
-  const commitBase = exec('git', ['rev-parse', '--verify', base], raiz);
-  const ref = commitBase.ok ? commitBase.stdout.trim() : 'HEAD';
+  const resolvida = opcoes.branchExistente
+    ? (() => {
+        const r = exec('git', ['rev-parse', '--verify', opcoes.branchExistente!], raiz);
+        if (!r.ok) throw new ErroDoCatalogo((m) => m.worktree.baseInexistente(opcoes.branchExistente!));
+        return { ref: opcoes.branchExistente!, commit: r.stdout.trim() };
+      })()
+    : baseAtualDaWorktree(carregado, base);
   // Fatia 2 do ensaio da 0.5.0 (P3): a pasta das worktrees que o ork cria agora nasce fora do git.
   const pastaDasWorktrees = path.dirname(dir);
   const pastaNova = !fs.existsSync(pastaDasWorktrees);
@@ -201,7 +242,7 @@ export function criarWorktree(
   // Branch nova (`-b`) no caso comum; branch que ja existe no ciclo `merge-branch`.
   const argumentos = opcoes.branchExistente
     ? ['worktree', 'add', dir, opcoes.branchExistente]
-    : ['worktree', 'add', '-b', branch, dir, ref];
+    : ['worktree', 'add', '-b', branch, dir, resolvida.ref];
   const r = exec('git', argumentos, raiz);
   if (!r.ok) {
     const saida = (r.stderr || r.stdout).trim();
@@ -214,7 +255,7 @@ export function criarWorktree(
     throw new ErroDoCatalogo((m) => m.worktree.worktreeNaoApareceu(dir));
   }
   vincularEstado(raiz, id, dir);
-  return { dir, branch };
+  return { dir, branch, commit: resolvida.commit };
 }
 
 /**
@@ -603,10 +644,9 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
       branchExistente: opcoes.branch,
     });
     thread.worktree = worktreeCriada.dir;
-    const commitDaBranch = exec('git', ['rev-parse', worktreeCriada.branch], raiz);
     thread.base = {
       branch: worktreeCriada.branch,
-      commit: commitDaBranch.ok ? commitDaBranch.stdout.trim() : thread.base.commit,
+      commit: worktreeCriada.commit,
     };
   }
 

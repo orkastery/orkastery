@@ -15,6 +15,12 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { chamarApi, MetodoHttp, OpcoesDaApi, RespostaDaApi, RodarCli } from './forja/api';
+import type { AlvoDaCli } from './forja/cli';
+import type { DonoDaRede, ErroDaForja, Resultado } from './forja/contrato';
+import { ambienteReduzido, rodarCli } from './forja/executor';
+import { projetoNaApi } from './forja/gitlab/pedidos';
+import { deFora } from './forja/texto';
 import { redigirCredenciaisUrl } from './redacao-url';
 import { ErroDoCatalogo, montadorDe, textoDoCatalogo } from './locale';
 
@@ -55,7 +61,10 @@ export interface Forja {
   binario: string;
   identidade(): IdentidadeNaForja;
   repositorio(dono: string, nome: string): RepositorioNaForja;
-  criarPrivado(nome: string, descricao: string): RepositorioNaForja;
+  /** Cria a casa privada; `dono` e `namespaceId` levam a casa a um grupo (GitLab). */
+  criarPrivado(nome: string, descricao: string, dono?: string, namespaceId?: number): RepositorioNaForja;
+  /** O dono pedido para a casa quando nao e o login (GitLab: um grupo). Ausente na forja sem a capacidade. */
+  donoDaRede?(dono: string): Resultado<DonoDaRede>;
   /** O helper que o git chama para autenticar: a propria CLI da forja entrega a credencial ao git. */
   helperDeCredencial(): string;
 }
@@ -192,6 +201,8 @@ function falhaDoLogin(cli: string, s: Saida): { falha?: string } {
 /** Caminho seguro para o shell que o git usa no helper: aspas simples, com `'` escapada (B10). */
 const citar = (caminho: string) => /^[A-Za-z0-9_./+-]+$/.test(caminho) ? caminho : `'${caminho.replace(/'/g, `'\\''`)}'`;
 const helper = (binario: string) => `!${citar(binario)} auth git-credential`;
+/** O mesmo helper do cache da rede, para o transporte `forja-https` do SHIP. */
+export const helperDeCredencialDaCli = helper;
 
 /**
  * Privado de verdade (B1): no GitHub, `internal` vem com `private: true`, e a empresa inteira le.
@@ -242,35 +253,105 @@ function hostDoGitlab(amb: AmbienteDaMaquina): string {
   return HOST.test(bruto) ? bruto : 'gitlab.com';
 }
 
+/**
+ * O que a casa da rede ainda nao suporta no GitLab da maquina: o `rede.json` guarda so `host[:porta]`, entao um GitLab em
+ * subcaminho (`https://host/gitlab`) ou com CA propria (`GLAB_CA_CERT`) nao teria como ser lembrado em outra maquina.
+ */
+export function gitlabSemSuporteNaRede(amb: AmbienteDaMaquina, host: string = hostDoGitlab(amb)): 'subcaminho' | 'ca' | null {
+  const env = ambienteDe(amb);
+  const bruto = (env.GITLAB_HOST ?? '').trim().replace(/^https?:\/\//, '');
+  // So o subcaminho do proprio host da casa conta: o `GITLAB_HOST` do terminal pode ser de outra instancia.
+  const subcaminho = /^([^/]+)\/+[^/]/.exec(bruto);
+  if (subcaminho && subcaminho[1].toLowerCase() === host.toLowerCase()) return 'subcaminho';
+  if ((env.GLAB_CA_CERT ?? '').trim() && host !== 'gitlab.com') return 'ca';
+  return null;
+}
+
+/** O `rodarCli` com o ambiente e o PATH da maquina da rede (o cron tem outro ambiente que o terminal). */
+const rodarNaMaquina = (amb: AmbienteDaMaquina): RodarCli => (c) => {
+  if (!amb.env) return rodarCli(c);
+  // O ambiente da maquina da rede no lugar do do `ork`, e reduzido como o do `ork` seria: so o que a CLI le chega a ela.
+  return rodarCli({ ...c, base: c.reduzido ? ambienteReduzido(amb.env) : amb.env });
+};
+
+/** `host` ou `host:porta` da casa como alvo da API; a rede nao guarda caminho base nem CA. */
+function alvoDoGitlab(host: string): AlvoDaCli {
+  const m = /^(.+?)(?::(\d+))?$/.exec(host) as RegExpExecArray;
+  return { tipo: 'gitlab', host: m[1].toLowerCase(), porta: m[2] ? Number(m[2]) : null, caminhoBase: '', ca: null };
+}
+
+const objeto = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null);
+
+/** A falha da API com o motivo tipado da forja (`forja.*`) no lugar da ultima linha do stderr. */
+const falhouNaApi = (rota: string, erro: ErroDaForja): Error =>
+  new ErroDoCatalogo((m) => m.network.apiFalhou('glab', rota, m.forja.motivo(erro, 'gitlab')));
+
+/** `usuario: null` so e falta de login quando a forja disse isso (`forja.sem-login`); o resto e falha da leitura. */
+function falhaDaApi(r: Resultado<RespostaDaApi>): { falha?: string } {
+  if (r.ok) return { falha: textoDoCatalogo((m) => m.network.respostaSemLogin('glab')) };
+  if (r.erro.codigo === 'forja.sem-login') return {};
+  const erro = r.erro;
+  return { falha: textoDoCatalogo((m) => m.network.apiFalhou('glab', 'user', m.forja.motivo(erro, 'gitlab')).replace(/^rede\.forja: /, '')) };
+}
+
+/**
+ * O GitLab da casa pela API da CLI logada (`chamarApi`): o host (com porta) vai por GITLAB_HOST, nunca por
+ * `--hostname` (o glab recusa a porta); o login e conferido antes da primeira chamada (sem ele o glab faria o pedido
+ * anonimo); o corpo vai pelo stdin com o Content-Type; o erro sai tipado pelo status HTTP.
+ */
 function gitlab(binario: string, amb: AmbienteDaMaquina, hostPedido?: string): Forja {
   const host = hostPedido ?? hostDoGitlab(amb);
+  const alvo = alvoDoGitlab(host);
+  const opcoes: OpcoesDaApi = { rodar: rodarNaMaquina(amb), logins: new Map() };
+  const pedir = (metodo: MetodoHttp, caminho: string, corpo?: unknown, prazoMs = 15000): Resultado<RespostaDaApi> =>
+    chamarApi(alvo, { metodo, caminho, prazoMs, ...(corpo !== undefined ? { corpo } : {}) }, opcoes);
   const repositorioDe = (v: Record<string, unknown> | null): RepositorioNaForja => {
     if (!v) throw new ErroDoCatalogo((m) => m.network.projetoIlegivel);
     return { existe: true, privado: privadoDe(v), url: typeof v.http_url_to_repo === 'string' ? v.http_url_to_repo : null };
   };
-  const api = (args: string[], timeoutMs: number) => rodar(binario, ['api', '--hostname', host, ...args], amb, timeoutMs);
+  const repositorio = (dono: string, nome: string): RepositorioNaForja => {
+    const rota = projetoNaApi(`${dono}/${nome}`);
+    const r = pedir('GET', rota);
+    if (r.ok) return repositorioDe(objeto(r.valor.corpo));
+    if (r.erro.codigo === 'forja.nao-achei') return { existe: false, privado: null, url: null };
+    throw falhouNaApi(rota, r.erro);
+  };
   return {
     nome: 'gitlab', host, cli: 'glab', binario,
     identidade() {
-      const r = api(['user'], 15000);
-      const login = r.ok ? json(r.stdout)?.username : null;
+      const r = pedir('GET', 'user');
+      const login = r.ok ? objeto(r.valor.corpo)?.username : null;
       const usuario = typeof login === 'string' && LOGIN.test(login) ? login : null;
-      return { forja: 'gitlab', host, cli: 'glab', versao: versaoDoBinario(binario, amb), usuario, ...(usuario ? {} : falhaDoLogin('glab', r)) };
+      return { forja: 'gitlab', host, cli: 'glab', versao: versaoDoBinario(binario, amb), usuario, ...(usuario ? {} : falhaDaApi(r)) };
     },
-    repositorio(dono, nome) {
-      const rota = `projects/${encodeURIComponent(`${dono}/${nome}`)}`;
-      const r = api([rota], 15000);
-      if (!r.ok) {
-        if (naoEncontrado(r)) return { existe: false, privado: null, url: null };
-        throw falhou('glab', rota, r);
+    repositorio,
+    criarPrivado(nome, descricao, dono, namespaceId) {
+      const r = pedir('POST', 'projects', { name: nome, path: nome, visibility: 'private', description: descricao,
+        ...(namespaceId ? { namespace_id: namespaceId } : {}) }, 30000);
+      if (r.ok) {
+        const criado = objeto(r.valor.corpo), pedido = `${dono ?? ''}${dono ? '/' : ''}${nome}`;
+        // O projeto tem de nascer no caminho pedido: outro namespace seria uma casa que a rede nunca acharia.
+        const caminho = typeof criado?.path_with_namespace === 'string' ? criado.path_with_namespace : null;
+        if (dono && caminho !== null && caminho.toLowerCase() !== pedido.toLowerCase()) {
+          const visto = deFora(caminho, 200);
+          throw new ErroDoCatalogo((m) => m.network.projetoEmOutroCaminho(pedido, visto));
+        }
+        return repositorioDe(criado);
       }
-      return repositorioDe(json(r.stdout));
+      // Escrita nunca se repete sozinha: relida a casa, o projeto que a forja criou antes de a resposta se perder vale. A
+      // releitura que falha nao apaga o motivo do POST.
+      if (dono) {
+        let relido: RepositorioNaForja | null = null;
+        try { relido = repositorio(dono, nome); } catch { relido = null; }
+        if (relido?.existe) return relido;
+      }
+      throw falhouNaApi('projects', r.erro);
     },
-    criarPrivado(nome, descricao) {
-      const r = api(['-X', 'POST', 'projects', '-f', `name=${nome}`, '-f', 'visibility=private',
-        '-f', `description=${descricao}`], 30000);
-      if (!r.ok) throw falhou('glab', 'projects', r);
-      return repositorioDe(json(r.stdout));
+    donoDaRede(dono) {
+      // Carga tardia: o registro chega a este modulo pelo executor da forja; importar no topo fecharia um ciclo de carga.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { adaptadorDaForja, exigirCapacidade } = require('./forja/registro') as typeof import('./forja/registro');
+      return exigirCapacidade(adaptadorDaForja('gitlab'), 'donoDaRede')({ api: (p) => chamarApi(alvo, p, opcoes), dono });
     },
     helperDeCredencial: () => helper(binario),
   };

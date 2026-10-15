@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { consultarCi } from '../src/ci';
+import { consultarCi, ExecutorCi } from '../src/ci';
 import { registrarEntregaPorPr, registrarEntregasPorPr } from '../src/entrega-pr';
 import { lerLedger } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
@@ -96,7 +96,7 @@ test('remoto da linha de comando: registrarEntregaPorPr, registrarEntregasPorPr 
     c.carregado.manifesto.ci.required_for_ship = true;
     const sha = shaDaBranch(c.dir, 'main');
     let consultas = 0;
-    const executor = () => { consultas++; return { ok: true, code: 0, stderr: '', stdout: '{"check_runs":[]}' }; };
+    const executor: ExecutorCi = (e) => { consultas++; return { ok: true, code: 0, stderr: '', stdout: e.caminho?.includes('/statuses') ? '[]' : '{"check_runs":[]}' }; };
     for (const ruim of maliciosos(c.marca)) {
       assert.throws(() => registrarEntregaPorPr(c.carregado, id, { remoto: ruim, executorCi: executor }),
         (e: Error) => RECUSA('ship').test(e.message), JSON.stringify(ruim));
@@ -128,9 +128,10 @@ test('remoto da linha de comando: nomes legitimos seguem (meu-remoto.2 no regist
     assert.equal(status.status, 0, status.stderr);
     exec('git', ['remote', 'add', 'Fork_1', 'https://github.com/Orkastery/orkastery.git'], c.dir);
     c.carregado.manifesto.ci.required_for_ship = true;
-    const ci = consultarCi(c.carregado, sha, 'Fork_1', ({ repository }) => {
+    const ci = consultarCi(c.carregado, sha, 'Fork_1', ({ repository, caminho }) => {
       assert.equal(repository, 'Orkastery/orkastery');
-      return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'success' }] }) };
+      if (caminho?.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' };
+      return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'success', app: { slug: 'github-actions' } }] }) };
     });
     assert.equal(ci.ok, true, ci.detail);
   } finally { c.limparTudo(); }

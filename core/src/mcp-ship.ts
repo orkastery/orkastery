@@ -10,6 +10,9 @@ import {lerThread,blocoDaThread} from './thread';
 import {branchDaWorktree} from './worktree';
 import {validarArquivosEstadoMcp} from './mcp-artifacts';
 import {perfilGitMcp,gitPassivoMcp as git,caminhoFisicoGitMcp as fisico,metadadosGitMcp as metadados,configuracaoPassivaGitMcp} from './mcp-git';
+import {originUnicoMcp,URL_GITHUB_SSH,lerFixacao,conferirFixacao,configDeRede,conferirConfigDaCli,chaveRecusadaDaConfigDeRede,recusar,FixacaoLida,
+  ambienteDoWorkerShip,ambienteDoWorkerDoTransporte} from './mcp-ship-transporte';
+import {ehTransporteFixado,TransporteShipMcp} from './mcp-transportes';
 import {adquirirRegiao,lerLease,liberar,leasesColidentes,caminhoLease,caminhoFila,podarRegioesDeThreadsFechadas} from './leases';
 import {ship,ResultadoShip,arvoreComBranch} from './ship';
 import {comandosDoManifesto,ExecutorVerify} from './verify';
@@ -72,12 +75,14 @@ print(json.dumps({'code': -1 if state['failure'] else code,
 `;
 const PRAZO=240000,RESERVA=15000,LIMITE=1048576;
 export interface PedidoShipMcp {threadId:string;expectedSource:string;expectedDestination:string}
-export interface PerfilShipMcp {readonly transporte:'github-ssh'|'bare-local';readonly destino:string}
-interface Fixacao {raiz:string;dev:number;ino:number;url:string;config:string;perfil:PerfilShipMcp;env:NodeJS.ProcessEnv;bare?:{dev:number;ino:number}}
+export interface PerfilShipMcp {readonly transporte:TransporteShipMcp;readonly destino:string}
+interface Fixacao {raiz:string;dev:number;ino:number;url:string;config:string;perfil:PerfilShipMcp;env:NodeJS.ProcessEnv;bare?:{dev:number;ino:number};
+  /** Transporte fixado na instalacao: a fixacao lida no startup e o `-c` do push e do ls-remote, calculado uma vez so. */
+  pino?:FixacaoLida;rede:string[]}
 const perfis=new WeakMap<PerfilShipMcp,Fixacao>();
 function erro(m:string):never {throw Error('mcp.ship.'+m);}
 function digest(s:string){return createHash('sha256').update(s).digest('hex');}
-/** Somente SSH fixado/bare físico: ambos nunca usam credential helpers HTTP. HTTPS é recusado na factory. */
+/** SSH (do GitHub ou fixado) e bare fisico nunca usam helper HTTP; o HTTPS fixado zera os helpers da config no push. */
 function config(raiz:string):string {
   const raw=git(raiz,['config','--null','--list']);
   for(const item of raw.split('\0').filter(Boolean)) {
@@ -85,16 +90,7 @@ function config(raiz:string):string {
   }
   return digest(raw);
 }
-/** Push usa todas as URLs configuradas; nunca fixar somente a primeira. */
-function originUnico(raiz:string):string {
-  const ler=(push:boolean)=>{
-    const raw=git(raiz,['remote','get-url',...(push?['--push']:[]),'--all','origin']);
-    const urls=raw.split('\n');if(urls[urls.length-1]==='')urls.pop();
-    if(urls.length!==1 || !urls[0] || /[\x00-\x1f\x7f]/.test(urls[0]))erro('transport.urls: origin exige uma URL efetiva');
-    return urls[0];
-  };
-  const fetch=ler(false),push=ler(true);if(fetch!==push)erro('transport.pushurl');return fetch;
-}
+const originUnico=originUnicoMcp;
 function guardarBare(url:string):{dev:number;ino:number} {
   if(!path.isAbsolute(url))erro('transport.bare.invalid');fisico(url,url);
   const st=fs.statSync(url);if(st.uid!==process.getuid?.())erro('transport.bare.owner');
@@ -108,21 +104,57 @@ function guardarBare(url:string):{dev:number;ino:number} {
     if(k==='core.bare' && v==='true'){bare=true;continue;}if(i<0 || !configuracaoPassivaGitMcp(k,v,true))erro('transport.bare.config');}
   if(!bare)erro('transport.bare.invalid');return {dev:st.dev,ino:st.ino};
 }
+export {ambienteDoWorkerShip,ambienteDoWorkerDoTransporte};
+/**
+ * A fixacao de agora tem de ser a do startup, byte a byte no que importa: a mesma pasta, o mesmo `transporte.json`
+ * (modo, origin, chaves, CLI, hash da CA) e os mesmos arquivos fixados (`lerFixacao` confere pasta, known_hosts, CLI
+ * e CA). O `-c` do push nao e recalculado: e o do startup.
+ */
+function guardarPino(f:Fixacao,url:string):void {
+  const p=f.pino!,atual=lerFixacao(f.raiz,p.fixacao.transporte,url,f.env);
+  if(atual.dir!==p.dir || JSON.stringify(atual.fixacao)!==JSON.stringify(p.fixacao))recusar('fixacao-divergente','transporte.json');
+  conferirFixacao(p.fixacao,p.dir);
+  conferirConfigDaCli(p.fixacao,f.env);
+}
+/**
+ * Depois do push e da prova, o origin e a config tem de ser os do startup, e a fixacao a mesma: o git releu os dois a
+ * cada comando de rede, e uma troca no meio levaria o push a outro lugar que a prova tambem leria.
+ */
+function depoisDoPush(f:Fixacao):()=>void {
+  return ()=>{
+    let url:string|undefined,cfg:string|undefined;
+    try{url=originUnico(f.raiz);cfg=config(f.raiz);}catch{/* origin ou config ilegivel tambem e troca */}
+    if(url!==f.url || cfg!==f.config)recusar('mudou-no-push','origin');
+    guardarPino(f,url!);
+  };
+}
+/** A conferencia de depois do push do perfil; so os transportes fixados a tem. */
+export function conferenciaDepoisDoPush(perfil:PerfilShipMcp):(()=>void)|undefined {
+  const f=perfis.get(perfil);if(!f)erro('profile.invalid');return f.pino?depoisDoPush(f):undefined;
+}
 /** Somente instalação/startup confiável chama esta factory. O objeto é uma capacidade privada. */
-export function criarPerfilShipMcp(raiz:string,transporte:'github-ssh'|'bare-local'='github-ssh'):PerfilShipMcp {
+export function criarPerfilShipMcp(raiz:string,transporte:TransporteShipMcp='github-ssh'):PerfilShipMcp {
   if(process.platform!=='linux' || !path.isAbsolute(raiz))erro('project.invalid');fisico(raiz,raiz);
   const c=exigirManifesto(raiz);if(c.raiz!==raiz)erro('project.invalid');
   const destino=c.manifesto.worktree.base_branch;
   if(!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(destino) || destino.includes('..') || destino.endsWith('/'))erro('destination.invalid');
   const cfg=config(raiz),url=originUnico(raiz);
-  let bare:Fixacao['bare'];
+  let bare:Fixacao['bare'],pino:FixacaoLida|undefined;
   if(transporte==='github-ssh') {
-    if(!/^git@github\.com:[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9._-]*\.git$/.test(url))erro('transport.unsupported: GitHub SSH exigido; HTTPS requer autenticacao instalada auditada');
-  } else if(transporte==='bare-local')bare=guardarBare(url);else erro('transport.invalid');
+    if(!URL_GITHUB_SSH.test(url))erro('transport.unsupported: GitHub SSH exigido; HTTPS requer autenticacao instalada auditada');
+  } else if(transporte==='bare-local')bare=guardarBare(url);
+  else if(ehTransporteFixado(transporte))pino=lerFixacao(raiz,transporte,url);
+  else erro('transport.invalid');
+  const rede=pino?configDeRede(pino.fixacao,pino.dir):[];
+  if(chaveRecusadaDaConfigDeRede(rede)!==null)erro('transport.invalid');
   const perfil=Object.freeze({transporte,destino}),st=fs.statSync(raiz);
-  const env={HOME:process.env.HOME,USER:process.env.USER,LOGNAME:process.env.LOGNAME,XDG_CONFIG_HOME:process.env.XDG_CONFIG_HOME,
-    SSH_AUTH_SOCK:process.env.SSH_AUTH_SOCK,PATH:'/usr/bin:/bin',LANG:'C.UTF-8',TMPDIR:'/tmp'};
-  perfis.set(perfil,{raiz,dev:st.dev,ino:st.ino,url,config:cfg,perfil,env,...(bare?{bare}:{})});return perfil;
+  const env=ambienteDoWorkerDoTransporte(transporte,process.env,pino?.fixacao.transporte==='forja-https'?pino.fixacao.cli:undefined);
+  if(pino)conferirConfigDaCli(pino.fixacao,env);
+  perfis.set(perfil,{raiz,dev:st.dev,ino:st.ino,url,config:cfg,perfil,env,rede,...(bare?{bare}:{}),...(pino?{pino}:{})});return perfil;
+}
+/** O `-c` que o push e o `ls-remote` do perfil levam; vazio no `github-ssh` e no `bare-local`. */
+export function configDeRedeDoPerfil(perfil:PerfilShipMcp):readonly string[] {
+  const f=perfis.get(perfil);if(!f)erro('profile.invalid');return [...f.rede];
 }
 function validar(p:PedidoShipMcp) {
   if(!p || Object.keys(p).sort().join(',')!=='expectedDestination,expectedSource,threadId' ||
@@ -185,7 +217,8 @@ function executar(f:Fixacao,p:PedidoShipMcp):ResultadoShip {
   refs.forEach(ref=>arvore(raiz,ref)); // Antes de qualquer diff, inclusive índice/WT.
   const guard=(etapa:'inicio'|'preparar'|'merge'|'push',dir?:string)=>{
     guardEstado();if(Date.now()>deadline-RESERVA)erro('deadline');
-    if(originUnico(raiz)!==f.url || config(raiz)!==f.config)erro('transport.changed');
+    const url=originUnico(raiz);if(url!==f.url || config(raiz)!==f.config)erro('transport.changed');
+    if(f.pino)guardarPino(f,url);
     if(f.bare){const b=guardarBare(f.url);if(b.dev!==f.bare.dev || b.ino!==f.bare.ino)erro('transport.changed');}
     if(git(raiz,['rev-parse',`refs/heads/${de}`]).trim()!==p.expectedSource || git(wt,['rev-parse','HEAD']).trim()!==p.expectedSource)erro('source.stale');
     if(etapa!=='push' && git(raiz,['rev-parse',`refs/heads/${para}`]).trim()!==p.expectedDestination)erro('destination.stale');
@@ -215,7 +248,7 @@ function executar(f:Fixacao,p:PedidoShipMcp):ResultadoShip {
       try{return sandbox.executar(nomeComando,comando,cwd);}finally{sandbox.fechar();}
     };
     // RM-058 N2 (B1 do CHECK): a fila pesada espera so o que cabe no prazo do worker, para o finally soltar as leases.
-    return ship(c,t.id,{de,para,remoto:'origin',executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
+    return ship(c,t.id,{de,para,remoto:'origin',configDoRemoto:f.rede,...(f.pino?{conferirDepoisDoPush:depoisDoPush(f),urlFixada:f.pino.fixacao.url}:{}),executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
       esperarFilaPesadaMs:Math.max(0,Math.min(20000,deadline-Date.now()-RESERVA)),
       revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}});
   } finally {for(const l of proprias.reverse())if(JSON.stringify(lerLease(raiz,l.nome))===JSON.stringify(l))liberar(raiz,l.nome,t.id);}

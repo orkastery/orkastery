@@ -23,7 +23,7 @@ import {
   threadDeExemplo,
   variaveisUsadas,
 } from '../src/prompts';
-import { CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, REGRA_DAS_ESPERAS, valoresDoPrompt } from '../src/phase';
+import { CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, REGRA_DAS_ESPERAS, rodarFase, valoresDoPrompt } from '../src/phase';
 import { FASES } from '../src/types';
 import { projetoTemporario } from './apoio';
 import { novaThread } from '../src/thread';
@@ -177,5 +177,25 @@ test('N2: o prompt de toda fase traz a regra contra & em verify, build e suite (
     assert.ok(prompt.split('\n').includes(`- ${REGRA_DAS_ESPERAS}`), fase);
     assert.ok(prompt.includes('nunca dispare verify, build ou suite com `&` dentro do comando'), fase);
     assert.ok(prompt.includes('rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de recursos pesados)'), fase);
+  }
+});
+
+test('RM-016: Claude Code e Codex recebem o mesmo fecho obrigatório no prompt renderizado do GO', () => {
+  for (const runtime of ['claude-bg', 'codex']) {
+    const projeto = projetoTemporario(`prompt-fecho-${runtime}`);
+    try {
+      const { thread } = novaThread(projeto.carregado, { nome: `fecho ${runtime}`, modo: 'fast' });
+      const r = rodarFase(projeto.carregado, thread.id, {
+        fase: 'GO', prompt: 'implementar a fatia', runtime, model: 'modelo-simulado', effort: 'high', dryRun: true,
+      });
+      assert.equal(r.runtime, runtime);
+      const prompt = fs.readFileSync(r.promptPath, 'utf8');
+      assert.match(prompt, /## Fecho obrigatório do GO/);
+      assert.ok(prompt.includes(`\`ork verify ${thread.id}\``));
+      assert.ok(prompt.includes(`\`ork ci prepare ${thread.id}\``));
+      assert.ok(prompt.includes(`\`ci(${thread.id}): bundle ...\``));
+      assert.ok(prompt.includes(`\`.orkastery/threads/${thread.id}/pr-body.md\``));
+      assert.match(prompt, /O rito é idêntico em Claude Code e Codex/);
+    } finally { projeto.limpar(); }
   }
 });

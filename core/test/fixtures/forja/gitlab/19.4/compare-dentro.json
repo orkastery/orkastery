@@ -1,0 +1,41 @@
+{
+  "caso": "compare",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/repository/compare?from=main&to=4029c287105c50241e1ca52e386447762c927b6b&straight=false"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-length": "223",
+    "content-type": "application/json",
+    "date": "Wed, 14 Oct 2026 08:40:08 GMT",
+    "etag": "W/\"38ae20fa5fe370971c2c3d213791842f\"",
+    "nel": "{\"max_age\": 0}",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4WS388TJY8DJSX14RCMGVXW\",\"version\":\"1\"}",
+    "x-request-id": "01M4WS388TJY8DJSX14RCMGVXW",
+    "x-runtime": "0.423648"
+  },
+  "corpo": {
+    "commit": null,
+    "commits": [],
+    "diffs": [],
+    "compare_timeout": false,
+    "compare_same_ref": false,
+    "web_url": "http://127.0.0.1/root/matriz/-/compare/4029c287105c50241e1ca52e386447762c927b6b...4029c287105c50241e1ca52e386447762c927b6b"
+  }
+}
