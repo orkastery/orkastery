@@ -465,12 +465,17 @@ export function expirarPerfisVencidos(raiz: string, agoraMs = Date.now()): Perfi
 
 export type TipoDeLimiteDaConta = 'sessao' | 'semanal' | 'gasto-admin' | 'outro' | 'nenhum';
 
-/** Classificação conservadora da evidência curta guardada; texto desconhecido continua desconhecido. */
+/**
+ * Classificação conservadora da evidência curta guardada; texto desconhecido continua desconhecido. O limite de gasto
+ * dito por extenso vence o semanal: a fala real "individual spend limit ... your weekly limit resets" é de gasto, e
+ * a semana ali é só o prazo de volta.
+ */
 export function classificarTipoDeLimite(detalhe: string | null | undefined): TipoDeLimiteDaConta {
   const texto = detalhe ?? '';
   if (!texto) return 'nenhum';
+  if (/spend(?:ing)?\s+(?:cap|limit)|limite\s+de\s+gasto/iu.test(texto)) return 'gasto-admin';
   if (/weekly|semana(?:l)?/iu.test(texto)) return 'semanal';
-  if (/spend(?:ing)?\s+(?:cap|limit)|limite\s+de\s+gasto|admin(?:istrator|istrador)?/iu.test(texto)) return 'gasto-admin';
+  if (/admin(?:istrator|istrador)?/iu.test(texto)) return 'gasto-admin';
   if (/session|sess[aã]o|\b\d+(?:[.,]\d+)?\s*(?:hours?|horas?|h)\b/iu.test(texto)) return 'sessao';
   return 'outro';
 }

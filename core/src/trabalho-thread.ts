@@ -152,6 +152,11 @@ export function resumirTrabalhoDaThread(raiz: string, threadId: string,
       if (item.isSymbolicLink()) { ignorados.links += 1; continue; }
       if (item.isDirectory()) { visitar(absoluto, nome, profundidade + 1); continue; }
       if (!item.isFile()) { ignorados.outros += 1; continue; }
+      // Lista ou orçamento já cheios: o arquivo só conta como excedente, sem ser aberto nem lido.
+      if (arquivos.length >= LIMITE_DE_ARQUIVOS_DO_TRABALHO || bytes >= LIMITE_TOTAL_DO_TRABALHO) {
+        ignorados.excedentes += 1;
+        continue;
+      }
       const leitura = lerArquivoSeguro(baseReal, absoluto, opcoes);
       if (leitura.estado !== 'ok') {
         if (leitura.estado === 'grande') ignorados.grandes += 1;
