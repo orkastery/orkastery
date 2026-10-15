@@ -7,6 +7,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | vps | ork-rm058n3 | #Auto | GOAL | claude-bg opus/max | — | — | 14/10 23:43 | viva |
 | vps | ork-rm061f3c | #Auto | GO | claude-bg opus/max | RM-061 | — | 14/10 23:43 | viva |
-| vps | ork-rm064f2 | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-064 | — | 14/10 23:43 | parada desde 08:06: sessão 01a139c9 caiu (runtime.unavailable) |
+| vps | ork-rm064f2 | #Auto | GO | claude-bg opus/max | RM-064 | — | 14/10 23:43 | viva |
 
 Horários de Brasília.
