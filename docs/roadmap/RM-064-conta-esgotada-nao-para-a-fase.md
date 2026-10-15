@@ -115,19 +115,22 @@ node core/dist-test/test/rm064-retomada-checkpoint.test.js
 
 Limites da fatia 1 ao ser entregue: T4 a T7 continuavam pendentes; a enumeração entre máquinas pertence à T6. Uma fonte de inventário incompleta ou um controller Codex sem vínculo mantém a thread bloqueada, sem inferir parada nem criar uma segunda sessão na worktree. Não houve implantação nessa fatia.
 
-### Fatia 2 — T4, T5 e T7
+### Fatia 2: T4, T5 e T7
 
 - **T4:** cada thread tem a pasta retomável `.orkastery/threads/<id>/trabalho/`. O prompt de fase e o checkpoint entregam esse caminho à sessão nova e resumem arquivos regulares pequenos por nome, tamanho e `sha256`. Arquivo grande, link simbólico, profundidade e volume excedentes são contados, mas não copiados nem injetados no prompt. O diretório do job deixa de ser o único lugar dos rascunhos de `check.md` e `pr-body.md`, dos pareceres e das listas de prova.
 - **T5:** com a Sentinela ativa, `ork conducao batida` continua responsável pela retomada tipada de `runtime.quota-exhausted`; os demais passos permanecem com o condutor. O `ork doctor` compara o runtime e o perfil do condutor LLM com as fases vivas e avisa quando dividem a mesma conta.
-- **T7:** `ork accounts check` persiste a expiração de marca vencida antes de conferir a autenticação, classifica o tipo de limite, relata cota estruturada somente quando o runtime a fornece, lista a carga viva da conta e mostra o prazo de volta. Em projeto preparado pelo MCP, a fila, a rotação e a escada só consideram um fallback depois de conferir o recibo e os bytes do adaptador desse runtime.
+- **T7:** `ork accounts check` persiste a expiração de marca vencida antes de conferir a autenticação, classifica o tipo de limite, relata cota estruturada somente quando o runtime a fornece, lista a carga viva da conta e mostra o prazo de volta. Os rótulos dessa linha seguem a língua da CLI (`owner.language` ou o locale): `limite`, `cota`, `roda agora` e `volta` em pt-BR; `limit`, `quota`, `running now` e `returns` em inglês. Em projeto preparado pelo MCP, a fila, a rotação e a escada só consideram um fallback depois de conferir o recibo e os bytes do adaptador desse runtime.
 
 Provas focadas:
 
 ```sh
+npm --prefix core run build
 npm --prefix core run build:test
 node core/dist-test/test/rm064-fatia2.test.js
 node core/dist-test/test/rm064-conta-esgotada.test.js
 node core/dist-test/test/rotacao-retry.test.js
+node core/dist-test/test/locale-accounts.test.js
+node core/dist-test/test/locale-f3b-snapshot.test.js
 ```
 
 Limites desta fatia: o resumo de T4 aponta para o trabalho na mesma raiz de estado; ele não transporta conteúdo entre máquinas. O aviso de T5 diagnostica a conta compartilhada, mas não move o condutor LLM. Sem medida estruturada, T7 mostra cota indisponível em vez de estimar ou inventar zero. Projeto legado sem MCP mantém a seleção anterior. A assunção entre máquinas continua na T6, reservada para a fatia 3. Não há implantação nesta fatia.
