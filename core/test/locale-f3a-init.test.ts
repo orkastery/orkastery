@@ -103,7 +103,14 @@ test('locale F3a init (negativo): C.UTF-8, es_ES.UTF-8 e owner.language pt-BR co
     assert.match(r.stdout, /^Manifesto criado: /);
     assert.equal(ler(c.dir, 'orkastery.yaml'), s['cli: ork init, orkastery.yaml']);
     assert.equal(ler(c.dir, 'AGENTS.md'), s['cli: ork init, AGENTS.md']);
-    assert.equal(ler(c.dir, '.orkastery/.gitignore'), GITIGNORE_PT_BR);
+    // O `.gitignore` do estado fica na lingua de quando nasceu: o init nunca o sobrescreve (fatia 2 do ensaio da 0.5.0),
+    // e o do primeiro init, em ingles, continua. Sem ele, o init o recria na lingua do dono, pt-BR, mesmo com LANG ingles.
+    const gitignore = path.join(c.dir, '.orkastery', '.gitignore');
+    assert.equal(fs.readFileSync(gitignore, 'utf8'), GITIGNORE_EN);
+    fs.rmSync(gitignore);
+    fs.writeFileSync(yaml, ler(c.dir, 'orkastery.yaml').replace('  # language: pt-BR  # ausente: locale do sistema', '  language: pt-BR'));
+    assert.equal(ork(c, EN, false, 'init', '--force', '--name', 'loja', '--abbrev', 'loj').status, 0);
+    assert.equal(fs.readFileSync(gitignore, 'utf8'), GITIGNORE_PT_BR);
   } finally { c.limpar(); }
 });
 
