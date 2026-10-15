@@ -276,22 +276,6 @@
       "lint": []
     },
     {
-      "id": "C27",
-      "thread": "ork-rm064f2",
-      "fase": "GO",
-      "arquivo": "core/src/phase.ts",
-      "alegacao": "A fase despachada de verdade cria a pasta de trabalho da thread com modo 0700 antes do prompt; o ensaio (dry-run) não cria nada no estado.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build",
-        "npm --prefix core run build:test",
-        "node --test --test-name-pattern='T4 despacho' core/dist-test/test/rm064-fatia2.test.js"
-      ],
-      "criadoEm": "2026-10-15T05:53:33.780Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C28",
       "thread": "ork-rm064f2",
       "fase": "GO",
@@ -371,39 +355,6 @@
       "lint": []
     },
     {
-      "id": "C33",
-      "thread": "ork-rm064f2",
-      "fase": "GO",
-      "arquivo": "prompts/fase-padrao.md",
-      "alegacao": "O template versionado é idêntico ao embutido (TEMPLATE_FASE_PADRAO) e entrega a toda fase o caminho de trabalho retomável da thread.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build",
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/prompts.test.js",
-        "node --test --test-name-pattern='T4 prompt' core/dist-test/test/rm064-fatia2.test.js"
-      ],
-      "criadoEm": "2026-10-15T05:53:50.175Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C34",
-      "thread": "ork-rm064f2",
-      "fase": "GO",
-      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
-      "alegacao": "Os 4 casos da F3b que a thread muda (os 3 renders do prompt v4 e cli accounts: check) são iguais byte a byte à saída de gerarCasos() no código mesclado, e nenhum deles tem SHA curto.",
-      "negativa": true,
-      "verificar": [
-        "npm --prefix core run build",
-        "npm --prefix core run build:test",
-        "node -e \"const {gerarCasos}=require('./core/dist-test/test/locale-f3b-casos');const f=require('./core/test/fixtures/locale-f3b-pt-BR.json');const g=gerarCasos();const k=['cli accounts: check','cli prompt: render de exemplo','cli prompt: render de exemplo classic no PLAN','cli prompt: render da thread'];const r=k.filter(x=>typeof f[x]!=='string'||g[x]!==f[x]||f[x].includes('<SHA7>'));if(r.length){console.error(r.join('\\n'));process.exit(1)}\""
-      ],
-      "criadoEm": "2026-10-15T05:53:53.275Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C35",
       "thread": "ork-rm064f2",
       "fase": "GO",
@@ -476,6 +427,55 @@
         "node core/scripts/gerar-marketplaces.cjs --verificar"
       ],
       "criadoEm": "2026-10-15T05:54:01.721Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "A fase despachada de verdade cria a pasta de trabalho da thread com modo 0700 antes do prompt; o ensaio (dry-run) não cria essa pasta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='T4 despacho' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-15T07:16:39.987Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "prompts/fase-padrao.md",
+      "alegacao": "O template versionado é idêntico ao embutido (TEMPLATE_FASE_PADRAO), e o prompt renderizado por ele traz o caminho de trabalho retomável da thread.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/prompts.test.js",
+        "node --test --test-name-pattern='T4 prompt' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-15T07:16:41.909Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "Os 5 casos da F3b que a thread muda (os 3 renders do prompt v4, cli accounts: check e o recibo do adapter install com o vigia.ts novo) são iguais byte a byte à saída de gerarCasos() no código mesclado, e nenhum deles tem SHA curto.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node -e \"const {gerarCasos}=require('./core/dist-test/test/locale-f3b-casos');const f=require('./core/test/fixtures/locale-f3b-pt-BR.json');const g=gerarCasos();const k=['cli accounts: check','cli adapter: recibo do claude-code','cli prompt: render de exemplo','cli prompt: render de exemplo classic no PLAN','cli prompt: render da thread'];const r=k.filter(x=>typeof f[x]!=='string'||g[x]!==f[x]||f[x].includes('<SHA7>'));if(r.length){console.error(r.join('\\n'));process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-15T07:16:44.968Z",
       "estado": "verificado",
       "lint": []
     }
