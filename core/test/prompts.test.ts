@@ -27,10 +27,13 @@ import {
 import {
   CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, montarPromptComMemoria, REGRA_DAS_ESPERAS, rodarFase, valoresDoPrompt,
 } from '../src/phase';
-import { FASES } from '../src/types';
+import { FASES, Modo } from '../src/types';
 import { ajustarManifesto, projetoTemporario } from './apoio';
 import { novaThread } from '../src/thread';
 import { abrirMemoria } from '../src/memoria';
+import { MODOS_LEGADOS } from '../src/modos';
+import { PAUSA_SOBRE_EN } from '../src/locale-thread';
+import { linhasEmPortugues } from './locale-apoio';
 
 const RAIZ_DO_PRODUTO = path.resolve(__dirname, '../../..');
 
@@ -67,6 +70,19 @@ test('RM-061 F3c: o prompt ingles cobre as seis fases, os cinco modulos e a regr
     assert.ok(!prompt.includes('REGRA CENTRAL:'));
     assert.ok(!prompt.includes('Ciclo canonico'));
   }
+});
+
+test('RM-061 F3c: o prompt ingles de todo modo e fase sai sem linha em pt-BR, inclusive a da pausa', () => {
+  for (const modo of MODOS_LEGADOS) {
+    const thread = threadDeExemplo(modo as Modo, 'GOAL');
+    for (const fase of thread.fases) {
+      const prompt = montarPrompt({ ...thread, faseAtual: fase }, fase, 'Map the change.', RAIZ_DO_PRODUTO, '', 'en');
+      assert.deepEqual(linhasEmPortugues(prompt, [thread.nome, thread.id, thread.slug]), [], `${modo}/${fase}`);
+    }
+  }
+  // Todo assunto de pausa dos modos tem par em ingles (premissas no #Maestro e no #Ork; o push antecipado no #Classic).
+  const pausas = MODOS_LEGADOS.flatMap((m) => threadDeExemplo(m as Modo, 'GOAL').blocos.filter((b) => b.pausa).map((b) => b.pausaSobre));
+  for (const sobre of new Set(pausas)) assert.ok(Object.hasOwn(PAUSA_SOBRE_EN, sobre), sobre);
 });
 
 test('RM-061 F3c: o phase run monta o prompt na lingua atual do dono', () => {

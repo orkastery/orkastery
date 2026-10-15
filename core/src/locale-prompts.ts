@@ -1,5 +1,7 @@
 /** RM-061 F3c: texto dos prompts de fase e da familia `ork prompt`. PT-BR e a fonte tipada. */
 
+import { PAUSA_SOBRE_EN } from './locale-thread';
+
 export interface MensagensDePrompts {
   contratoDasFases: Readonly<Record<'GOAL' | 'PLAN' | 'GO' | 'CHECK' | 'SHIP' | 'MASTER', string>>;
   invariantes: readonly string[];
@@ -150,7 +152,7 @@ export const PROMPTS_EN: MensagensDePrompts = {
     'Every autonomous decision goes to the ledger with who decided, evidence, and rationale.',
   ],
   variante: (v) => `Cycle variant: ${v}`,
-  pausaSobre: (s) => ({ objetivo: 'the goal', plano: 'the plan', implementacao: 'implementation', evidencias: 'evidence', push: 'push', score: 'the score' } as Record<string,string>)[s] ?? s,
+  pausaSobre: (s) => PAUSA_SOBRE_EN[s] ?? s,
   pausa: (s) => `At the end of this block, PAUSE for a human verdict about: ${s}. Stop, present the evidence, and wait for the verdict.`,
   semPausa: 'At the end of this block there is NO human pause: continue autonomously and record who decided, the evidence, and why in the ledger.',
   raizDoProjeto: '(project root)',

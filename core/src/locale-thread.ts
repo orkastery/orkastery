@@ -15,7 +15,8 @@ export type CasoSemWorktree =
   | { caso: 'outra'; branch: string }
   | { caso: 'base'; base: string; policy: string | undefined };
 
-const PAUSA_SOBRE_EN: Readonly<Record<string, string>> = {
+/** O assunto da pausa de cada bloco (`modos.ts`) em ingles: um mapa so, para o `thread` e para o prompt de fase. */
+export const PAUSA_SOBRE_EN: Readonly<Record<string, string>> = {
   objetivo: 'goal', plano: 'plan', implementacao: 'implementation', evidencias: 'evidence', push: 'push', score: 'score',
   premissas: 'assumptions', 'evidencias, com autorizacao antecipada de push': 'evidence, with push authorized in advance',
 };
