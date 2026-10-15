@@ -38,7 +38,7 @@ export const DECISAO_PT_BR = {
     typeof evento === 'number' ? `${thread} não tem evento ${evento}` : `nenhum evento de ${thread} tem esse identificador`,
   faseMudou: 'decisão informada: a fase mudou enquanto ela era registrada',
   revertidaNaoExiste: 'decisão informada: a decisão revertida não existe nesta thread',
-  autorMcp: 'mcp.decision.author: quemDecidiu é a sessão que decidiu, nunca o dono',
+  autorMcp: 'mcp.decision.author: quemDecidiu e a sessao que decidiu, nunca o dono',
   colunasDoPlacar: ['FASE', 'DECIDIDAS', 'INFORMADAS', 'PERGUNTAS', 'REVERTIDAS', 'SEM RASTRO', 'LIMIAR'],
   acimaDoLimiar: (limiar: number) => `acima de ${limiar}: revisar`,
   dentroDoLimiar: 'ok',
