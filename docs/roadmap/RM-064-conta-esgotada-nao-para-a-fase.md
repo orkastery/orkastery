@@ -117,9 +117,9 @@ Limites da fatia 1 ao ser entregue: T4 a T7 continuavam pendentes; a enumeraçã
 
 ### Fatia 2: T4, T5 e T7
 
-- **T4:** cada thread tem a pasta retomável `.orkastery/threads/<id>/trabalho/`. O prompt de fase e o checkpoint entregam esse caminho à sessão nova e resumem arquivos regulares pequenos por nome, tamanho e `sha256`. Arquivo grande, link simbólico, profundidade e volume excedentes são contados, mas não copiados nem injetados no prompt. O diretório do job deixa de ser o único lugar dos rascunhos de `check.md` e `pr-body.md`, dos pareceres e das listas de prova.
-- **T5:** com a Sentinela ativa, `ork conducao batida` continua responsável pela retomada tipada de `runtime.quota-exhausted`; os demais passos permanecem com o condutor. O `ork doctor` compara o runtime e o perfil do condutor LLM com as fases vivas e avisa quando dividem a mesma conta.
-- **T7:** `ork accounts check` persiste a expiração de marca vencida antes de conferir a autenticação, classifica o tipo de limite, relata cota estruturada somente quando o runtime a fornece, lista a carga viva da conta e mostra o prazo de volta. Os rótulos dessa linha seguem a língua da CLI (`owner.language` ou o locale): `limite`, `cota`, `roda agora` e `volta` em pt-BR; `limit`, `quota`, `running now` e `returns` em inglês. Em projeto preparado pelo MCP, a fila, a rotação e a escada só consideram um fallback depois de conferir o recibo e os bytes do adaptador desse runtime.
+- **T4:** cada thread tem a pasta retomável `.orkastery/threads/<id>/trabalho/`, criada com modo `0700` quando a fase é despachada. O prompt de toda fase entrega esse caminho; o checkpoint da retomada também resume os arquivos regulares pequenos por nome, tamanho e `sha256`. Arquivo grande, link simbólico, profundidade e volume excedentes são contados, mas não copiados nem injetados no prompt, e com a lista ou o orçamento cheios o resto da pasta só é contado, sem ser aberto. Para a sessão que grava fora da worktree, o diretório do job deixa de ser o único lugar dos rascunhos de parecer e de corpo do PR, dos pareceres e das listas de prova; o `pr-body.md` final continua na pasta da thread.
+- **T5:** com a Sentinela ativa, `ork conducao batida` continua responsável pela retomada tipada de `runtime.quota-exhausted`; os demais passos permanecem com a Sentinela. O `ork doctor` compara o runtime e o perfil do condutor LLM com as fases vivas e avisa quando dividem a mesma conta; a sessão de fase despachada pelo `ork` não entra nessa conta como condutor.
+- **T7:** `ork accounts check` persiste a expiração de marca vencida antes de conferir a autenticação, classifica o tipo de limite (o limite de gasto dito por extenso vence o semanal do prazo de volta), relata cota estruturada somente quando o runtime a fornece, lista a carga viva da conta e mostra o prazo de volta. Os rótulos dessa linha, e o nome da unidade que o runtime não informa, seguem a língua da CLI (`owner.language` ou o locale): `limite`, `cota`, `roda agora`, `volta` e `unidades` em pt-BR; `limit`, `quota`, `running now`, `returns` e `units` em inglês. Em projeto preparado pelo MCP, a fila, a rotação e a escada só consideram um fallback depois de conferir o recibo e os bytes do adaptador desse runtime.
 
 Provas focadas:
 
@@ -131,9 +131,19 @@ node core/dist-test/test/rm064-conta-esgotada.test.js
 node core/dist-test/test/rotacao-retry.test.js
 node core/dist-test/test/locale-accounts.test.js
 node core/dist-test/test/locale-f3b-snapshot.test.js
+node --test --test-name-pattern='RM-064' core/dist-test/test/rm063-conducao-batida.test.js
+node --test --test-name-pattern='RM-064' core/dist-test/test/fila-fallback.test.js
+node --test --test-name-pattern='RM-064' core/dist-test/test/cota-terminal.test.js
 ```
 
-Limites desta fatia: o resumo de T4 aponta para o trabalho na mesma raiz de estado; ele não transporta conteúdo entre máquinas. O aviso de T5 diagnostica a conta compartilhada, mas não move o condutor LLM. Sem medida estruturada, T7 mostra cota indisponível em vez de estimar ou inventar zero. Projeto legado sem MCP mantém a seleção anterior. A assunção entre máquinas continua na T6, reservada para a fatia 3. Não há implantação nesta fatia.
+Limites desta fatia:
+
+- A pasta de T4 fica na raiz do estado, fora da worktree. A sessão Codex no sandbox `workspace-write` só grava na worktree, e o perfil `worktree` do Claude Code só libera edição dentro dela: nesses perfis a sessão não grava em `trabalho/` e devolve os rascunhos no resumo, como antes.
+- Liberar a pasta para esses perfis muda sandbox e permissão, decisão do dono, e não entrou nesta fatia.
+- O resumo de T4 aponta para o trabalho na mesma raiz de estado; ele não transporta conteúdo entre máquinas.
+- O aviso de T5 diagnostica a conta compartilhada, mas não move o condutor LLM.
+- Sem medida estruturada, T7 mostra cota indisponível em vez de estimar ou inventar zero. Projeto legado sem MCP mantém a seleção anterior.
+- A assunção entre máquinas continua na T6, reservada para a fatia 3. Não há implantação nesta fatia.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 

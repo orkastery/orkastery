@@ -92,7 +92,7 @@ export interface BatidaDaConducao {
   busca: { ok: boolean; detalhe: string } | null;
   /** A leitura dos PRs da forja: `null` sem thread com branch a mesclar. */
   forja: { ok: boolean; detalhe: string } | null;
-  /** A Sentinela desta maquina conduz o despacho agora: a batida cede. */
+  /** A Sentinela desta maquina conduz o despacho agora: a batida cede tudo, menos a retomada por cota (RM-064 T5). */
   sentinela: boolean;
   feitas: ItemDaBatida[];
   pendentes: ItemDaBatida[];

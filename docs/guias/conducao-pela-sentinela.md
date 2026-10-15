@@ -45,9 +45,10 @@ A Sentinela não publica branch, não abre nem mergeia PR e não manda mensagem 
 Sem presença viva, o condutor externo conduz como antes, nas horas sem a sessão do dono.
 
 O condutor externo do próprio `ork` é a batida da condução (`ork conducao batida`, RM-063), que a varredura do cron roda
-depois do resumo: ela já lê a presença e cede o despacho e o retry enquanto a Sentinela conduz, e segue com o merge do
-PR verde, o registro da entrega e o MASTER por omissão, dentro da autorização durável do dono. Com ela no cron, o script
-de fora deixa de ser necessário.
+depois do resumo: ela já lê a presença e cede o despacho e o retry enquanto a Sentinela conduz, menos a retomada da fase
+que parou por cota (`runtime.quota-exhausted`), que continua com a batida porque a conta da Sentinela também pode
+esgotar (RM-064). E segue com o merge do PR verde, o registro da entrega e o MASTER por omissão, dentro da autorização
+durável do dono. Com ela no cron, o script de fora deixa de ser necessário.
 
 ## Por que não há despacho duplicado
 
