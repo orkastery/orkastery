@@ -69,6 +69,13 @@ test('locale en F3c decisao: as recusas de decisao registrar saem em ingles e pr
       /decisao registrar requires --porque/);
     assert.match(executar('registrar', thread.id, ...CAMPOS.slice(0, -2), '--criterio', 'ledger:nao-existe').stderr,
       /informed decision: the criterion does not resolve/);
+    // O rastro da decisao autonoma (ledger.ts) tambem recusa em ingles; o pt-BR e o de sempre, byte a byte.
+    const longa = CAMPOS.map((v, i) => CAMPOS[i - 1] === '--evidencia' ? 'x'.repeat(1001) : v);
+    const rastro = executar('registrar', thread.id, ...longa);
+    assert.notEqual(rastro.status, 0);
+    assert.equal(rastro.stderr, 'error: an autonomous decision requires evidencia: who decided, with what evidence and why\n');
+    assert.equal(msg('pt-BR').decisao.rastroObrigatorio('evidencia'),
+      'decisão autônoma exige evidencia: quem decidiu, com que evidência e por quê');
   } finally {
     console.log = log; console.error = error; process.chdir(cwd); ativarLocale(undefined); p.limpar();
   }

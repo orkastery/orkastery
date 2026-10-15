@@ -2,8 +2,9 @@
  * RM-061, fatia F3b: a familia `decisao` do catalogo de mensagens (`ork decisao placar` e o uso do comando). O pt-BR e
  * a fonte; o ingles e tipado por ele. Sem import do nucleo.
  *
- * `ork decisao registrar` segue em pt-BR nesta fatia (G5): o resultado ja e JSON, e as recusas vem da validacao do
- * pedido HITL v2 (`hitl-contract.ts`), compartilhada com o MCP e os gates. A fase da linha do placar e dado e sai igual.
+ * F3c: as recusas de `ork decisao registrar` (a validacao do pedido HITL v2 em `hitl-contract.ts`, o criterio em
+ * `hitl-gates.ts`, o rastro em `ledger.ts`), no CLI e no `ork_decision_record` do MCP, tambem vem daqui; o resultado
+ * segue JSON, e os codigos e o contrato nao mudam com a lingua. A fase da linha do placar e dado e sai igual.
  */
 
 export const DECISAO_PT_BR = {
@@ -39,6 +40,7 @@ export const DECISAO_PT_BR = {
   faseMudou: 'decisão informada: a fase mudou enquanto ela era registrada',
   revertidaNaoExiste: 'decisão informada: a decisão revertida não existe nesta thread',
   autorMcp: 'mcp.decision.author: quemDecidiu e a sessao que decidiu, nunca o dono',
+  rastroObrigatorio: (campo: string) => `decisão autônoma exige ${campo}: quem decidiu, com que evidência e por quê`,
   colunasDoPlacar: ['FASE', 'DECIDIDAS', 'INFORMADAS', 'PERGUNTAS', 'REVERTIDAS', 'SEM RASTRO', 'LIMIAR'],
   acimaDoLimiar: (limiar: number) => `acima de ${limiar}: revisar`,
   dentroDoLimiar: 'ok',
@@ -81,6 +83,7 @@ export const DECISAO_EN: MensagensDeDecisao = {
   faseMudou: 'informed decision: the phase changed while it was being recorded',
   revertidaNaoExiste: 'informed decision: the reversed decision does not exist in this thread',
   autorMcp: 'mcp.decision.author: quemDecidiu is the session that decided, never the owner',
+  rastroObrigatorio: (campo) => `an autonomous decision requires ${campo}: who decided, with what evidence and why`,
   colunasDoPlacar: ['PHASE', 'DECIDED', 'INFORMED', 'QUESTIONS', 'REVERTED', 'NO TRAIL', 'THRESHOLD'],
   acimaDoLimiar: (limiar) => `above ${limiar}: review`,
   dentroDoLimiar: 'ok',
