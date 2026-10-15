@@ -316,6 +316,38 @@
       "criadoEm": "2026-10-14T10:54:26.351Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/test/locale-accounts.test.ts",
+      "alegacao": "Em inglês, cada linha do `accounts check` traz limite, cota, carga e volta com os rótulos do catálogo inglês (limit, quota, running now, returns), sem rótulo pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='locale en F3b accounts' core/dist-test/test/locale-accounts.test.js"
+      ],
+      "criadoEm": "2026-10-15T03:11:26.044Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A fixture pt-BR F3b é igual byte a byte à saída de gerarCasos() no código mesclado: prompt v4 com fecho do GO e trabalho retomável, e a linha operacional do accounts check.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='locale pt-BR F3b' core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-15T03:11:27.868Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
