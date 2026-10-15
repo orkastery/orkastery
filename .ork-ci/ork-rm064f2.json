@@ -20,21 +20,6 @@
       "lint": []
     },
     {
-      "id": "C2",
-      "thread": "ork-rm064f2",
-      "fase": "GOAL",
-      "arquivo": "core/src/conducao-batida.ts",
-      "alegacao": "A batida determinística processa quota com Sentinela ativa e mantém o despacho comum cedido.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test --test-name-pattern='T5' core/dist-test/test/rm064-fatia2.test.js"
-      ],
-      "criadoEm": "2026-10-14T09:47:04.963Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C3",
       "thread": "ork-rm064f2",
       "fase": "GOAL",
@@ -110,21 +95,6 @@
       "lint": []
     },
     {
-      "id": "C8",
-      "thread": "ork-rm064f2",
-      "fase": "GOAL",
-      "arquivo": "core/src/phase.ts",
-      "alegacao": "O despacho real cria o diretório de trabalho antes de entregar o prompt da fase.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/rm064-fatia2.test.js"
-      ],
-      "criadoEm": "2026-10-14T09:50:20.959Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C9",
       "thread": "ork-rm064f2",
       "fase": "GOAL",
@@ -136,36 +106,6 @@
         "node --test core/dist-test/test/rm064-fatia2.test.js"
       ],
       "criadoEm": "2026-10-14T09:50:21.003Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C10",
-      "thread": "ork-rm064f2",
-      "fase": "GOAL",
-      "arquivo": "prompts/fase-padrao.md",
-      "alegacao": "O template versionado é idêntico ao embutido e entrega o caminho de trabalho da thread.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/rm064-fatia2.test.js"
-      ],
-      "criadoEm": "2026-10-14T09:50:21.041Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C11",
-      "thread": "ork-rm064f2",
-      "fase": "GOAL",
-      "arquivo": "core/src/doctor.ts",
-      "alegacao": "O doctor compara a conta do condutor LLM com fases vivas e avisa quando coincidem.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/rm064-fatia2.test.js"
-      ],
-      "criadoEm": "2026-10-14T09:52:52.785Z",
       "estado": "verificado",
       "lint": []
     },
@@ -200,21 +140,6 @@
       "lint": []
     },
     {
-      "id": "C14",
-      "thread": "ork-rm064f2",
-      "fase": "GOAL",
-      "arquivo": "core/src/index.ts",
-      "alegacao": "`accounts check` expira marcas antes da autenticação e relata limite, cota, carga e volta por perfil.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/rm064-fatia2.test.js"
-      ],
-      "criadoEm": "2026-10-14T09:59:43.569Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C15",
       "thread": "ork-rm064f2",
       "fase": "GOAL",
@@ -226,21 +151,6 @@
         "node --test core/dist-test/test/rm064-fatia2.test.js"
       ],
       "criadoEm": "2026-10-14T09:59:43.607Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C16",
-      "thread": "ork-rm064f2",
-      "fase": "GOAL",
-      "arquivo": "core/src/retry.ts",
-      "alegacao": "A retomada por cota e a troca por modelo ignoram fallbacks cujo adaptador não está instalado no projeto preparado.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test --test-name-pattern='T7.*destino' core/dist-test/test/rm064-fatia2.test.js"
-      ],
-      "criadoEm": "2026-10-14T10:03:59.821Z",
       "estado": "verificado",
       "lint": []
     },
@@ -334,18 +244,238 @@
       "lint": []
     },
     {
-      "id": "C24",
+      "id": "C25",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/src/conducao-batida.ts",
+      "alegacao": "Com a Sentinela ativa, conduzirBatida executa só a retomada tipada de runtime.quota-exhausted e não despacha a fase comum; sem a Sentinela, conduz os dois passos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='RM-064 T5' core/dist-test/test/rm063-conducao-batida.test.js core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-15T05:53:30.288Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/test/rm063-conducao-batida.test.ts",
+      "alegacao": "A prova da T5 roda conduzirBatida com a Sentinela ativa e reprova se a batida voltar a ceder a retomada por cota ou passar a despachar a fase comum.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='RM-064 T5' core/dist-test/test/rm063-conducao-batida.test.js"
+      ],
+      "criadoEm": "2026-10-15T05:53:32.047Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "A fase despachada de verdade cria a pasta de trabalho da thread com modo 0700 antes do prompt; o ensaio (dry-run) não cria nada no estado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='T4 despacho' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-15T05:53:33.780Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/src/doctor.ts",
+      "alegacao": "O ork doctor roda a separação da condução, nomeia a conta do ambiente pelo catálogo da língua da CLI e não trata a sessão de fase despachada pelo ork como condutor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='T5 doctor' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-15T05:53:35.450Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "ork accounts check grava no store a volta da marca vencida, avisa isso na língua da CLI e mostra a cota medida com a unidade do catálogo quando o runtime não a informa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='check grava no store' core/dist-test/test/locale-accounts.test.js"
+      ],
+      "criadoEm": "2026-10-15T05:53:37.204Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "Em projeto preparado, a fila de retomada, a rotação e a troca por modelo descartam o fallback sem adaptador instalado antes do despacho.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='RM-064 T7' core/dist-test/test/fila-fallback.test.js core/dist-test/test/cota-terminal.test.js core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-15T05:53:39.149Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/test/fila-fallback.test.ts",
+      "alegacao": "A prova da fila reprova se a retomada considerar o fallback sem adaptador instalado em projeto preparado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='RM-064 T7' core/dist-test/test/fila-fallback.test.js"
+      ],
+      "criadoEm": "2026-10-15T05:53:40.701Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/test/cota-terminal.test.ts",
+      "alegacao": "A prova da troca por modelo reprova se o retry escolher o fallback sem adaptador instalado em projeto preparado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='RM-064 T7' core/dist-test/test/cota-terminal.test.js"
+      ],
+      "criadoEm": "2026-10-15T05:53:42.145Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "prompts/fase-padrao.md",
+      "alegacao": "O template versionado é idêntico ao embutido (TEMPLATE_FASE_PADRAO) e entrega a toda fase o caminho de trabalho retomável da thread.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/prompts.test.js",
+        "node --test --test-name-pattern='T4 prompt' core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-15T05:53:50.175Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
       "thread": "ork-rm064f2",
       "fase": "GO",
       "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
-      "alegacao": "Os 4 casos da F3b que a thread muda (os 3 renders do prompt v4 com fecho do GO e trabalho retomável, e cli accounts: check com a linha operacional) são iguais byte a byte à saída de gerarCasos() no código mesclado; nenhum deles tem SHA curto.",
+      "alegacao": "Os 4 casos da F3b que a thread muda (os 3 renders do prompt v4 e cli accounts: check) são iguais byte a byte à saída de gerarCasos() no código mesclado, e nenhum deles tem SHA curto.",
       "negativa": true,
       "verificar": [
         "npm --prefix core run build",
         "npm --prefix core run build:test",
-        "node -e \"const {gerarCasos}=require('./core/dist-test/test/locale-f3b-casos');const f=require('./core/test/fixtures/locale-f3b-pt-BR.json');const g=gerarCasos();const k=['cli accounts: check','cli prompt: render de exemplo','cli prompt: render de exemplo classic no PLAN','cli prompt: render da thread'];const r=k.filter(x=>typeof f[x]!=='string'||g[x]!==f[x]);if(r.length){console.error(r.join('\\n'));process.exit(1)}\""
+        "node -e \"const {gerarCasos}=require('./core/dist-test/test/locale-f3b-casos');const f=require('./core/test/fixtures/locale-f3b-pt-BR.json');const g=gerarCasos();const k=['cli accounts: check','cli prompt: render de exemplo','cli prompt: render de exemplo classic no PLAN','cli prompt: render da thread'];const r=k.filter(x=>typeof f[x]!=='string'||g[x]!==f[x]||f[x].includes('<SHA7>'));if(r.length){console.error(r.join('\\n'));process.exit(1)}\""
       ],
-      "criadoEm": "2026-10-15T04:12:17.180Z",
+      "criadoEm": "2026-10-15T05:53:53.275Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/src/conducao-sentinela.ts",
+      "alegacao": "O status da Sentinela ligada diz que o condutor externo cede o despacho e o retry, menos a retomada por cota.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='S2 CLI' core/dist-test/test/conducao-sentinela.test.js"
+      ],
+      "criadoEm": "2026-10-15T05:53:54.874Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "core/test/conducao-sentinela.test.ts",
+      "alegacao": "A prova da CLI da Sentinela confere a frase inteira do status ligado, com a exceção da retomada por cota.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='S2 CLI' core/dist-test/test/conducao-sentinela.test.js"
+      ],
+      "criadoEm": "2026-10-15T05:53:56.478Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "docs/guias/conducao-pela-sentinela.md",
+      "alegacao": "O guia da Sentinela diz que a retomada da fase parada por cota continua com a batida, mesmo com a Sentinela conduzindo.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'runtime.quota-exhausted' docs/guias/conducao-pela-sentinela.md",
+        "grep -q 'que continua com a batida' docs/guias/conducao-pela-sentinela.md"
+      ],
+      "criadoEm": "2026-10-15T05:53:58.373Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "adapters/claude-code/mods/ork-sentinela/hooks/vigia.ts",
+      "alegacao": "O diário da Sentinela diz que o condutor externo cede tudo menos a retomada por cota, e a cópia do mod no marketplace é a que o catálogo gera.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'menos a retomada por cota' adapters/claude-code/mods/ork-sentinela/hooks/vigia.ts",
+        "node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-15T05:54:00.342Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm064f2",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/mods/ork-sentinela/hooks/vigia.ts",
+      "alegacao": "A cópia do mod ork-sentinela no marketplace é igual à gerada pelo catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-15T05:54:01.721Z",
       "estado": "verificado",
       "lint": []
     }
