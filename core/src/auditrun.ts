@@ -66,7 +66,7 @@ import {
 import { agora, gravar, gravarJson, lerJson, shaCurto, tabela } from './util';
 import { commitReal, verificarClaim } from './verify';
 import { formatarDataHora, formatarDataHoraRotulada, legendaDoFuso, localizarTexto } from './horario';
-import { msg } from './locale';
+import { comLocale, linguaDeclaradaDoDono, msg } from './locale';
 
 /** Versao do formato de `run.json`. */
 export const VERSAO_DA_RODADA = 1;
@@ -1067,7 +1067,9 @@ export function abrirThreadDoAchado(
 ): ResultadoDoFromFinding {
   const { raiz, manifesto } = carregado;
   const achado = exigirAchado(raiz, achadoId);
-  const pedido = pedidoDoAchado(achado);
+  // RM-061 F3c: o pedido vai a arquivo (pedido-goal.md e achado.json) e vira o --prompt do GOAL: e dado, na lingua
+  // declarada do dono, nunca na de quem roda nem conforme o --json. So o resultado impresso segue o locale ativo.
+  const pedido = comLocale(linguaDeclaradaDoDono(manifesto.owner?.language), () => pedidoDoAchado(achado));
   const m = msg().thread.fromFinding;
 
   if (achado.estado === 'virou-thread' && achado.thread) {

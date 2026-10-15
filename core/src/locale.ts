@@ -194,6 +194,15 @@ export function resolverLocale(ownerLanguage?: unknown, env: NodeJS.ProcessEnv =
   return { locale: LOCALE_PADRAO, origem: 'padrao' };
 }
 
+/**
+ * RM-061 F3c: a lingua do que o `ork` gera e grava para depois (o prompt despachado, o pedido do achado): so a
+ * declarada pelo dono em `owner.language`; sem ela, pt-BR. Nunca o locale de quem roda, nem o `--json`: o mesmo
+ * projeto grava o mesmo dado em qualquer maquina. O texto impresso segue o locale do CLI.
+ */
+export function linguaDeclaradaDoDono(ownerLanguage?: unknown): Locale {
+  return resolverLocale(ownerLanguage, {}).locale;
+}
+
 let ativo: Locale = LOCALE_PADRAO;
 
 /** Fixa o locale do processo (o CLI, nos comandos de `COMANDOS_COM_LOCALE`; os testes). */

@@ -30,7 +30,7 @@ import { conferirAuth as authCodex } from './adapters/codex';
 import { abrirMemoria, injecaoDaFase, Memoria } from './memoria';
 import { pedidoComDicaDoGrafo, renderizar, templateDaFase } from './prompts';
 import { montarSlug, parseSlug, proximaRotacao } from './slug';
-import { ErroDoCatalogo, localeAtivo, Locale, msg, resolverLocale } from './locale';
+import { ErroDoCatalogo, linguaDeclaradaDoDono, localeAtivo, Locale, msg } from './locale';
 import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
 import { blocoDaThread, dirThread, gravarThread, lerThread, pausaNaThread } from './thread';
 import {
@@ -376,7 +376,7 @@ export function montarPromptComMemoria(
   const injecao = injecaoDaFase(carregado, memoria, thread, fase);
   // RM-061 F3c: o prompt despachado e dado (arquivo com sha256 no ledger). Segue a lingua declarada do dono
   // (`owner.language`), nunca o locale de quem despacha: sem ela, pt-BR, com qualquer LANG (contrato da F2a).
-  const locale = resolverLocale(carregado.manifesto.owner?.language, {}).locale;
+  const locale = linguaDeclaradaDoDono(carregado.manifesto.owner?.language);
   // Mesma raiz usada pelo MCP e runtime-context; o manifesto da WT nao habilita a dica.
   const ligado = grafoLigado(exigirManifesto(raizDoEstado(carregado.raiz)).manifesto);
   return {
