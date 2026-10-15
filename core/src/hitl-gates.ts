@@ -26,7 +26,7 @@ import { publicarAprovacaoHumana, PublicacaoDeAprovacao } from './memoria-humana
 import { Canal, conferirCanalSelecionado } from './hitl-canais';
 import { NativeAnswer, NativeContext, authenticateNative, nativeContextSchema, nativeSignature } from './hitl-native';
 import { exigirModoVivo } from './modos';
-import { msg } from './locale';
+import { ErroDoCatalogo, msg } from './locale';
 
 export interface RespostaHumana {
   resposta: string;
@@ -179,7 +179,7 @@ export function registrarPedidoHitl(raiz: string, pedido: PedidoHitlQualquer): P
   // R1, camada 1: um `decidido` cujo critério não resolve não chega a existir.
   if (ehV2(pedido) && pedido.classe === 'decidido') {
     const { resolve, detalhe } = resolverCriterio(raiz, pedido);
-    if (!resolve) throw new Error(`decisão informada: critério não resolve (${detalhe})`);
+    if (!resolve) throw new ErroDoCatalogo((m) => m.decisao.criterioNaoResolve(detalhe));
   }
   return comLockHitl(raiz, pedido.thread, () => {
     const t = lerThread(raiz, pedido.thread), dir = dirThread(raiz, t.id);

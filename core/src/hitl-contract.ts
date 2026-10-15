@@ -606,7 +606,8 @@ export function classificarDecisao(sinais: SinaisDaDecisao): ResultadoDaClassifi
  * `hitl.formato` para tudo tornaria o motivo tao generico quanto a string que ele substitui.
  */
 export function motivoDaRecusaDeFormato(erro: unknown): MotivoGate | null {
-  const mensagem = erro instanceof Error ? erro.message : String(erro);
+  // RM-061 F3c: a recusa do catalogo e classificada pelo texto pt-BR, a fonte, em qualquer lingua de quem a leu.
+  const mensagem = erro instanceof ErroDoCatalogo ? erro.montar(msg('pt-BR')) : erro instanceof Error ? erro.message : String(erro);
   return mensagem.startsWith('pedido HITL v2: ') && !mensagem.includes('contrato inválido')
     ? 'hitl.formato' : null;
 }
