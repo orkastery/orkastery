@@ -13,7 +13,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { comLocale, cobreLocale } from '../src/locale';
 import { CLI, EN, linhasEmPortugues, PT } from './locale-apoio';
-import { noPath } from '../src/util';
+import { exec, noPath } from '../src/util';
+import { init } from '../src/init';
 import { CONTRATO_PANORAMA_DA_REDE, PanoramaDaRede, textoDoPanoramaDaRede } from '../src/network-roadmap';
 
 /** A forja falsa da RM-053, tirada do teste da rede (a mesma fonte, sem copia que envelhece). */
@@ -116,12 +117,21 @@ test('locale en F3c network: network roadmap traduz o texto humano e preserva o 
   for (const sub of ['status', 'entrar', 'sair', 'publicar']) assert.ok(cobreLocale(['network', sub], {}), sub);
   const r = rede('roadmap');
   try {
+    // O panorama le o projeto do cwd: com um projeto nele, saem tambem os blocos por projeto (threads, reservas, fontes
+    // e lacunas), onde mora a maior parte do texto humano. Sem projeto, so o preambulo e as lacunas da consulta.
+    const projeto = path.join(r.raiz, 'fora');
+    exec('git', ['init', '-q', '-b', 'main'], projeto);
+    init(projeto, { nome: 'loja', abbrev: 'loj' });
     const pt = r.rodar('a', PT, 'network', 'roadmap', '--sem-remoto');
     const en = r.rodar('a', EN, 'network', 'roadmap', '--sem-remoto');
+    assert.equal(en.status, 0, en.stderr);
     assert.equal(en.status, pt.status);
     assert.deepEqual(en.stdout.split('\n').slice(0, 3), pt.stdout.split('\n').slice(0, 3), 'o preambulo contratual e byte a byte');
-    assert.match(en.stdout, /\nQuery gaps\n/);
-    assert.match(en.stdout, /\nGaps\n/);
+    assert.match(en.stdout.split('\n')[1], /^Consultado: loja \(clone em /);
+    for (const secao of ['Threads by machine', 'Reservations', 'Sources', 'Gaps']) {
+      assert.match(en.stdout, new RegExp(`\\n${secao}\\n`), secao);
+    }
+    assert.match(pt.stdout, /\nThreads por máquina\n[\s\S]*\nReservas\n[\s\S]*\nFontes\n[\s\S]*\nLacunas\n/);
     assert.doesNotMatch(en.stdout, /\n(?:Rede por pessoa|Lacunas da consulta|Threads por máquina|Reservas|Fontes|Lacunas)\n/);
     const normalizar = (t: string) => t.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>');
     assert.equal(normalizar(r.rodar('a', EN, 'network', 'roadmap', '--sem-remoto', '--json').stdout),
