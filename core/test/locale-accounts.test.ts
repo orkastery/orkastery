@@ -32,6 +32,9 @@ function comContas(nome: string): { c: Cenario; com: string; sem: string } {
   return { c, com, sem };
 }
 
+/** RM-064 T7: o estado operacional que o `accounts check` poe depois de cada conta, com os rotulos do catalogo ingles. */
+const OPERACIONAL = '; limit: no observed limit; quota: not exposed by the runtime; running now: nothing; returns: no measured deadline';
+
 test('locale en F3b accounts: list, add, check, remove e esgotamentos saem em ingles, e o store nao muda', () => {
   const { c, com, sem } = comContas('accounts-f3b');
   try {
@@ -49,7 +52,8 @@ test('locale en F3b accounts: list, add, check, remove e esgotamentos saem em in
     assert.match(lista.stdout, /\nTimes in America\/New_York, E[SD]T\.\n$/);
     const check = ork(c, EN, true, 'accounts', 'check');
     assert.equal(check.status, 1);
-    assert.match(check.stdout, /^p1 \(claude-bg\): subscription login checked\np2 \(claude-bg\): no login \(.*\)\n\n/);
+    assert.match(check.stdout, new RegExp(`^p1 \\(claude-bg\\): subscription login checked${OPERACIONAL}\\np2 \\(claude-bg\\): no login \\(.*\\)${OPERACIONAL}\\n\\n`));
+    assert.doesNotMatch(check.stdout, /\b(limite|cota|roda agora|volta|sessao):/, 'nenhum rotulo pt-BR na linha da conta');
     assert.equal(ork(c, EN, true, 'accounts', 'check', 'p9').stderr, 'active profile "p9" does not exist (see: `ork accounts list`)\n');
     assert.equal(ork(c, EN, true, 'accounts', 'remove', 'p2').stdout, 'Profile p2 disabled: the directory and the CLI login stay where they are.\n');
     assert.equal(ork(c, EN, true, 'accounts', 'remove', 'p9').stderr, 'runtime.profiles.unknown: profile "p9" does not exist (see: `ork accounts list`)\n');
@@ -97,8 +101,8 @@ test('locale en F3b accounts: o detalhe do login que o ork escreve sai traduzido
     const add = ork(c, EN, true, 'accounts', 'add', 'p4', '--runtime', 'claude-bg', '--dir', pago, '--sem-login');
     assert.equal(add.status, 0, add.stderr);
     assert.match(add.stdout, /\nProfile p4 \(claude-bg\) in \S+: paid provider \(claude auth status: paid provider \(authMethod console\); only the claude\.ai subscription dispatches\); never receives a dispatch\n$/);
-    assert.match(ork(c, EN, true, 'accounts', 'check', 'p4').stdout,
-      /^p4 \(claude-bg\): paid provider, never dispatches \(claude auth status: paid provider \(authMethod console\); only the claude\.ai subscription dispatches\)\n/);
+    assert.match(ork(c, EN, true, 'accounts', 'check', 'p4').stdout, new RegExp('^p4 \\(claude-bg\\): paid provider, never dispatches ' +
+      `\\(claude auth status: paid provider \\(authMethod console\\); only the claude\\.ai subscription dispatches\\)${OPERACIONAL}\\n`));
     // O store guarda o detalhe como o ork o escreveu, em pt-BR, nas duas linguas.
     const store = JSON.parse(ork(c, EN, true, 'accounts', 'list', '--json').stdout) as { perfis: Array<{ id: string; ultimaFalha: { detalhe: string } | null }> };
     assert.equal(store.perfis.find((p) => p.id === 'p4')?.ultimaFalha?.detalhe,

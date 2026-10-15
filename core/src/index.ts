@@ -799,12 +799,12 @@ function comandoAccounts(args: Args): number {
       const atual = lerPerfis(raiz).perfis.find(x => x.id === p.id) ?? p;
       const sessoes = inventario.sessoes.filter(s => s.viva && s.runtime === p.runtime && s.perfil === p.id);
       const cargas = [...new Set(sessoes.flatMap(s => s.vinculos.length
-        ? s.vinculos.map(v => `${v.thread}:${v.fase}`) : [`sessao:${s.sessionId.slice(0, 8)}`]))];
+        ? s.vinculos.map(v => `${v.thread}:${v.fase}`) : [ma.sessaoSemVinculo(s.sessionId.slice(0, 8))]))];
       const carga = !inventario.ok ? ma.cargaInconclusiva : cargas.length ? ma.cargaDaConta(cargas.join(', ')) : ma.cargaVazia;
       const volta = atual.esgotadoAte ?? auth.cota?.resetEm ?? null;
       const operacional = [
-        `limite: ${ma.tipoDeLimite(tipoDeLimiteDoPerfil(atual))}`,
-        `cota: ${auth.cota ? ma.cotaMedida(auth.cota.usada, auth.cota.limite, auth.cota.unidade) : ma.cotaIndisponivel}`,
+        ma.limiteDaConta(ma.tipoDeLimite(tipoDeLimiteDoPerfil(atual))),
+        ma.cotaDaConta(auth.cota ? ma.cotaMedida(auth.cota.usada, auth.cota.limite, auth.cota.unidade) : ma.cotaIndisponivel),
         carga,
         volta ? ma.voltaEm(formatarDataHoraRotulada(volta)) : ma.voltaSemMedida,
         ...(expirados.has(p.id) ? [ma.marcaExpirada] : []),
