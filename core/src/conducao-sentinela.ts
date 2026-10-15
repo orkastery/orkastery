@@ -6,7 +6,8 @@
  * Dois fatos moram aqui, e so aqui:
  *
  * - a PRESENCA dela nesta maquina, com prazo curto renovado pela batida: enquanto ela vale, o condutor externo cede
- *   o despacho e o retry; vencida (a sessao do dono fechou), ele volta a conduzir sozinho, como reserva;
+ *   o despacho e o retry, menos a retomada por cota (RM-064 T5, `passosDaBatida`); vencida (a sessao do dono fechou),
+ *   ele volta a conduzir sozinho, como reserva;
  * - o PASSO DO CONDUTOR de cada thread aberta, calculado com as mesmas leituras do pulse (`entregasDoProjeto`,
  *   `esperaDoCondutor`), sem o limiar de 30 min e sem ler a forja. No #Auto, depois de uma fase concluida, sai a
  *   fase seguinte a prova mais adiantada que a sessao do bloco deixou (artefato gravado depois do despacho, produto
@@ -378,7 +379,7 @@ export function textoDoStatusDaSentinela(s: StatusDaSentinela): string {
   const linhas: string[] = [];
   const p = s.presenca;
   linhas.push(!p ? `Sentinela: desligada na maquina ${s.maquina}; o condutor externo conduz.`
-    : p.ativa ? `Sentinela: ligada na maquina ${s.maquina}, canal ${p.canal}, sessao ${p.sessao.slice(0, 8)}; o condutor externo cede o despacho e o retry.`
+    : p.ativa ? `Sentinela: ligada na maquina ${s.maquina}, canal ${p.canal}, sessao ${p.sessao.slice(0, 8)}; o condutor externo cede o despacho e o retry, menos a retomada por cota.`
     : `Sentinela: a presenca da sessao ${p.sessao.slice(0, 8)} venceu; o condutor externo conduz.`);
   if (s.threads.length === 0) linhas.push('  nenhuma thread aberta neste checkout');
   for (const t of s.threads) {

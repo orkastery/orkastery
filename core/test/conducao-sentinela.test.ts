@@ -103,7 +103,8 @@ test('S2 CLI: bater, a segunda sessao sai 3, status com o contrato e desligar', 
   const s = JSON.parse(status.stdout);
   assert.deepEqual([s.contrato, s.maquina, s.presenca.sessao, s.presenca.ativa], [CONTRATO_DA_SENTINELA, MAQUINA, 'sessao-a', true]);
   assert.deepEqual(s.threads, []);
-  assert.match(ork(p.dir, 'conducao', 'sentinela', 'status').stdout, /Sentinela: ligada na maquina maquina-de-teste, canal claude-code/);
+  assert.match(ork(p.dir, 'conducao', 'sentinela', 'status').stdout,
+    /Sentinela: ligada na maquina maquina-de-teste, canal claude-code, sessao sessao-a; o condutor externo cede o despacho e o retry, menos a retomada por cota\.\n/);
   assert.equal(ork(p.dir, 'conducao', 'sentinela', 'bater', '--json').status, 1, 'sem --sessao e erro de uso');
   const desligar = ork(p.dir, 'conducao', 'sentinela', 'desligar', '--sessao', 'sessao-a', '--json');
   assert.equal(desligar.status, 0, desligar.stderr);
