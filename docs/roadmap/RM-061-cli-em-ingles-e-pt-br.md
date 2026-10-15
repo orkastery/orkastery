@@ -201,14 +201,15 @@ A F3b mede no mesmo contador, com o recibo em [`cobertura-f3b.json`](evidencias/
 
 A F3c mede no mesmo contador, com o recibo em [`cobertura-f3c.json`](evidencias/RM-061/cobertura-f3c.json):
 
-| Medida | Base carimbada da F3c (`d38070d5`) | F3c (`7576d416`) |
-| --- | --- | --- |
-| Entradas do catálogo | 1.800 | 1.998 |
-| Literais de saída fora do catálogo | 2.946 | 2.860 |
-| Cobertura | 37,9% | 41,1% |
+| Medida | Base carimbada da F3c (`d38070d5`) | F3c (`7576d416`) | `main` sem a F3c (`1e88a932`) | F3c integrada à `main` (`8304d214`) |
+| --- | --- | --- | --- | --- |
+| Entradas do catálogo | 1.800 | 1.998 | 1.930 | 2.137 |
+| Literais de saída fora do catálogo | 2.946 | 2.860 | 3.046 | 2.955 |
+| Cobertura | 37,9% | 41,1% | 38,8% | 42,0% |
 
-- **O que mudou:** o `.orkastery/.gitignore` gerado pelo `ork init`, as recusas humanas de `ork decisao registrar` no CLI e no MCP, o texto humano de `ork network roadmap`, o resultado e o pedido gerado por `ork thread new --from-finding`, `ork prompt` e o prompt montado pelo `ork phase run` seguem a língua atual do dono. O prompt inglês preserva as seis fases, os cinco módulos e a `CENTRAL RULE`; o pt-BR continua no template original.
-- **Contratos preservados:** `ork network roadmap` mantém byte a byte as três linhas que os hosts e a prova de ativação leem; códigos do HITL v2, ledger e `--json` não mudam. Os quatro snapshots pt-BR mantêm os mesmos hashes das fatias anteriores, registrados no recibo da cobertura.
+- **O que mudou:** o `.orkastery/.gitignore` gerado pelo `ork init`, as recusas humanas de `ork decisao registrar` no CLI e no MCP, o texto humano de `ork network roadmap`, o resultado e o pedido gerado por `ork thread new --from-finding`, `ork prompt` e o prompt montado pelo `ork phase run` seguem a língua atual do dono. O prompt inglês preserva as seis fases, os cinco módulos, a `CENTRAL RULE` e o fecho obrigatório do GO da RM-016; o pt-BR continua no template original.
+- **Integração com a `main`:** o merge da `origin/main` (`1e88a932`) trouxe o template pt-BR v4 com o fecho obrigatório do GO. O fecho passou ao catálogo dos prompts (o pt-BR é o texto da `main`, byte a byte) e o template inglês acompanha a v4, com as mesmas variáveis, fases e ordem; um teste reprova a língua que ficar para trás. As duas colunas da direita medem a mesma `main` sem e com a F3c.
+- **Contratos preservados:** `ork network roadmap` mantém byte a byte as três linhas que os hosts e a prova de ativação leem; códigos do HITL v2, ledger e `--json` não mudam. Os quatro snapshots pt-BR da F3c têm os hashes das fatias anteriores, e os da F3c integrada são os da `main`, byte a byte (F2b e F3b mudaram na `main` por outras threads); os dois conjuntos estão no recibo da cobertura.
 - **F3d:** ficam para a próxima fatia os demais comandos ainda fora da lista, os mods, as tools do OpenClaw e as cópias dos marketplaces. Essa separação mantém a F3c verificável sem misturar superfícies opcionais com os cinco itens pedidos.
 
 ## Responsabilidades e histórico
@@ -224,3 +225,4 @@ A F3c mede no mesmo contador, com o recibo em [`cobertura-f3c.json`](evidencias/
 | 2026-10-12 | A F2b leva `verify`, `ship`, `pulse`, `master`, `retry` e `roadmap status` ao catálogo, com a cobertura medida | Thread `ork-rm061f2b` e o recibo `cobertura-f2b.json` | Fábrica, pelo pedido do dono |
 | 2026-10-12 | F3 dividida em F3a e F3b; a F3a leva os arquivos gerados à língua do dono, cria a referência do CLI em inglês e mede a cobertura | Thread `ork-rm061f3a` e o recibo `cobertura-f3a.json` | Fábrica, pelo pedido do dono |
 | 2026-10-12 | A F3b leva ao catálogo o resto da lista do dono e instala as skills na língua do dono; os prompts, `decisao registrar` e `network roadmap` ficam para a F3c | Thread `ork-rm061f3b` e o recibo `cobertura-f3b.json` | Fábrica, pelo pedido do dono |
+| 2026-10-15 | A F3c leva à língua do dono o `.orkastery/.gitignore`, `decisao registrar`, `network roadmap`, `thread new --from-finding` e os prompts de fase, com o fecho do GO em inglês depois do merge da `main`; os demais comandos, mods, tools do OpenClaw e marketplaces ficam para a F3d | Thread `ork-rm061f3c` e o recibo `cobertura-f3c.json` | Fábrica, pelo pedido do dono |

@@ -262,8 +262,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `.orkastery/.gitignore` gerado pelo `ork init`, as recusas humanas de `ork decisao registrar` no CLI e no MCP, o
   texto humano de `ork network roadmap`, `ork thread new --from-finding`, `ork prompt` e o prompt montado pelo
   `ork phase run` seguem a língua atual do dono. As linhas de contrato do panorama da rede, os códigos HITL v2, o
-  ledger, o `--json` e os snapshots pt-BR permanecem iguais; o prompt inglês conserva as seis fases, os cinco módulos
-  e a `CENTRAL RULE`.
+  ledger, o `--json` e os snapshots pt-BR permanecem iguais; o prompt inglês conserva as seis fases, os cinco módulos,
+  a `CENTRAL RULE` e o fecho obrigatório do GO.
 
 ### Corrigido
 

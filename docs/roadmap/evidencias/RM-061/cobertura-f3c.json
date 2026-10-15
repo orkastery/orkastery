@@ -34,6 +34,34 @@
     },
     "cobertura": 0.4113
   },
+  "integrada": {
+    "descricao": "a F3c depois do merge da origin/main: a main sozinha e a main com a F3c, no mesmo contador; o fecho obrigatorio do GO (RM-016) ganhou o par ingles no catalogo dos prompts",
+    "main": {
+      "arvore": "1e88a93292b19a08dd65f0798846441982d122d2",
+      "arquivos": 300,
+      "literaisComTexto": 5427,
+      "emPosicaoDeSaida": 3046,
+      "arquivosComSaida": 191,
+      "catalogo": { "entradas": 1930 },
+      "cobertura": 0.3879
+    },
+    "comF3c": {
+      "arvore": "8304d21419e2c96d6d6eb6189fff50cd020fce02",
+      "arquivos": 301,
+      "literaisComTexto": 5268,
+      "emPosicaoDeSaida": 2955,
+      "arquivosComSaida": 189,
+      "catalogo": { "entradas": 2137 },
+      "cobertura": 0.4197
+    },
+    "snapshotsPtBR": {
+      "nota": "iguais byte a byte aos da main integrada; F2b e F3b mudaram na main por outras threads (registrar-pr do ship, ork-rm064f1 e ork-worktreebase), nao pela F3c",
+      "core/test/fixtures/locale-f2a-pt-BR.json": "3c5592b9553235ba98f3a01c81369cdc9403ea3ab052c4142c50e0573926775f",
+      "core/test/fixtures/locale-f2b-pt-BR.json": "2ed8a595fb69394c3c3ecc33a1e7890fb0c50198df1d33a97108554d40e74024",
+      "core/test/fixtures/locale-f3a-pt-BR.json": "40fe60a9346b19bbca1fb5d9b68c0a2409542d41e5fa6a3271bc5cda753ee3cc",
+      "core/test/fixtures/locale-f3b-pt-BR.json": "42c8e95415ca8a39137f55eacf4c33a6629b24c69034e14b6924b8794943b62b"
+    }
+  },
   "snapshotsPtBR": {
     "core/test/fixtures/locale-f2a-pt-BR.json": "3c5592b9553235ba98f3a01c81369cdc9403ea3ab052c4142c50e0573926775f",
     "core/test/fixtures/locale-f2b-pt-BR.json": "6d7500a22320d57125965837180ea2b80139a4ae21a3cb27963e3bc5991720ab",
