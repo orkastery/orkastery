@@ -47,20 +47,6 @@
       "lint": []
     },
     {
-      "id": "C4",
-      "thread": "ork-rm061f3c",
-      "fase": "GOAL",
-      "arquivo": "core/test/locale-f3a-init.test.ts",
-      "alegacao": "Os testes cobrem o gitignore em inglês e preservam o pt-BR.",
-      "negativa": false,
-      "verificar": [
-        "grep -E 'GITIGNORE_EN|GITIGNORE_PT_BR' core/test/locale-f3a-init.test.ts | wc -l | grep -E '^[6-9][0-9]*$'"
-      ],
-      "criadoEm": "2026-10-14T08:56:23.842Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C5",
       "thread": "ork-rm061f3c",
       "fase": "GOAL",
@@ -162,21 +148,6 @@
       "lint": []
     },
     {
-      "id": "C12",
-      "thread": "ork-rm061f3c",
-      "fase": "GOAL",
-      "arquivo": "core/test/locale-decisao.test.ts",
-      "alegacao": "Os testes cobrem recusas em inglês de ork decisao registrar e preservam flags e contrato HITL v2.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test --test-name-pattern='locale en F3c decisao' core/dist-test/test/locale-decisao.test.js"
-      ],
-      "criadoEm": "2026-10-14T09:03:02.835Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C13",
       "thread": "ork-rm061f3c",
       "fase": "GOAL",
@@ -222,21 +193,6 @@
       "lint": []
     },
     {
-      "id": "C17",
-      "thread": "ork-rm061f3c",
-      "fase": "GOAL",
-      "arquivo": "core/src/locale.ts",
-      "alegacao": "network roadmap entra nas rotas cobertas por locale somente na saída humana, nunca com --json.",
-      "negativa": true,
-      "verificar": [
-        "npm --prefix core run build",
-        "grep -E \"'network roadmap'\" core/src/locale.ts"
-      ],
-      "criadoEm": "2026-10-14T09:14:30.874Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C18",
       "thread": "ork-rm061f3c",
       "fase": "GOAL",
@@ -248,21 +204,6 @@
         "grep -E \"network\\.roadmap\\.uso|JSON\\.stringify\\(p\" core/src/index.ts"
       ],
       "criadoEm": "2026-10-14T09:14:30.912Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C19",
-      "thread": "ork-rm061f3c",
-      "fase": "GOAL",
-      "arquivo": "core/test/locale-network.test.ts",
-      "alegacao": "Os testes provam o inglês de network roadmap, o preâmbulo byte a byte e a igualdade do JSON entre idiomas.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node core/dist-test/test/locale-network.test.js 2>&1 | grep -E \"ok 1 - locale en F3c network: o render puro\""
-      ],
-      "criadoEm": "2026-10-14T09:14:30.954Z",
       "estado": "verificado",
       "lint": []
     },
@@ -357,66 +298,6 @@
       "lint": []
     },
     {
-      "id": "C27",
-      "thread": "ork-rm061f3c",
-      "fase": "GOAL",
-      "arquivo": "core/test/locale-thread.test.ts",
-      "alegacao": "A CLI prova que uma recusa de --from-finding sai em inglês sob LANG en-US.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test --test-name-pattern='locale en F3c thread: thread new --from-finding traduz' core/dist-test/test/locale-thread.test.js"
-      ],
-      "criadoEm": "2026-10-14T09:19:50.425Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C28",
-      "thread": "ork-rm061f3c",
-      "fase": "GOAL",
-      "arquivo": "core/test/locale-thread-f3b.test.ts",
-      "alegacao": "O teste puro prova ficha e pedido do achado em inglês, pt-BR histórico e cobertura das duas flags de finding.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node core/dist-test/test/locale-thread-f3b.test.js 2>&1 | grep -E \"ok 1 - locale en F3c thread: achado e pedido\""
-      ],
-      "criadoEm": "2026-10-14T09:19:50.486Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C29",
-      "thread": "ork-rm061f3c",
-      "fase": "GOAL",
-      "arquivo": "core/test/auditoria.test.ts",
-      "alegacao": "A abertura simulada de thread a partir de achado gera o pedido e detalhe em inglês sem gravar a thread.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test --test-name-pattern='ork thread new --from-finding abre' core/dist-test/test/auditoria.test.js"
-      ],
-      "criadoEm": "2026-10-14T09:19:50.528Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C30",
-      "thread": "ork-rm061f3c",
-      "fase": "GOAL",
-      "arquivo": "core/test/locale-f2a-infra.test.ts",
-      "alegacao": "A matriz central de rotas prova que network roadmap e as duas flags de from-finding estão localizadas, mantendo --json fora.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "grep -E \"from-finding.*A1|do-achado.*A1|network roadmap\" core/test/locale-f2a-infra.test.ts"
-      ],
-      "criadoEm": "2026-10-14T09:20:14.684Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C31",
       "thread": "ork-rm061f3c",
       "fase": "GOAL",
@@ -469,20 +350,6 @@
         "npm --prefix core run build:test && node core/dist-test/test/prompts.test.js"
       ],
       "criadoEm": "2026-10-14T09:29:55.166Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C35",
-      "thread": "ork-rm061f3c",
-      "fase": "GOAL",
-      "arquivo": "core/src/index.ts",
-      "alegacao": "`ork prompt` usa o catálogo ativo e seleciona o template de fase correspondente à língua do dono.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && grep -E 'templateDaFase\\(fase,.*localeAtivo\\(\\)' core/src/index.ts >/dev/null"
-      ],
-      "criadoEm": "2026-10-14T09:29:55.219Z",
       "estado": "verificado",
       "lint": []
     },
@@ -571,71 +438,320 @@
       "lint": []
     },
     {
-      "id": "C43",
+      "id": "C47",
       "thread": "ork-rm061f3c",
       "fase": "GO",
-      "arquivo": "core/src/locale-prompts.ts",
-      "alegacao": "O fecho obrigatório do GO da RM-016 sai do catálogo dos prompts: o pt-BR é o texto da main byte a byte e o dono em inglês recebe o mesmo rito em inglês; o template inglês acompanha a v4 com as mesmas variáveis, fases e ordem do pt-BR.",
+      "arquivo": "prompts/README.md",
+      "alegacao": "O README dos prompts descreve a resolução por língua: a língua declarada do dono (owner.language), o template do projeto antes do embutido, o par .en antes no mesmo nível, a cópia inglesa versionada e o aviso do lint.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test && node --test --test-name-pattern='RM-016|identico ao embutido' core/dist-test/test/prompts.test.js",
-        "grep -c 'fechoDoGo: (t) =>' core/src/locale-prompts.ts | grep -E '^2$'"
+        "grep -E 'par .\\.en. vem antes' prompts/README.md >/dev/null && grep -E 'fase-padrao\\.en\\.md' prompts/README.md >/dev/null && grep -E 'owner\\.language' prompts/README.md >/dev/null"
       ],
-      "criadoEm": "2026-10-15T03:02:34.745Z",
+      "criadoEm": "2026-10-15T04:23:07.788Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C44",
+      "id": "C48",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência pt-BR do CLI diz que o ork prompt render mostra o prompt na língua declarada do dono, como o phase run, e que o lint avisa o template de fase do projeto sem o par .en.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'na língua declarada do dono \\(.owner\\.language.; sem ela, pt-BR\\)' docs/referencia/cli.md >/dev/null && grep -E 'sem o par .\\.en., que sai em pt-BR' docs/referencia/cli.md >/dev/null"
+      ],
+      "criadoEm": "2026-10-15T04:23:09.978Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência inglesa do CLI diz que o ork prompt render mostra o prompt na língua declarada do dono, como o phase run, e que o lint avisa o template de fase do projeto sem o par .en.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"in the owner's declared language \\(.owner\\.language.; without it, pt-BR\\)\" docs/referencia/cli.en.md >/dev/null && grep -E 'without its .\\.en. counterpart, which is rendered in pt-BR' docs/referencia/cli.en.md >/dev/null"
+      ],
+      "criadoEm": "2026-10-15T04:23:12.234Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3a-init.test.ts",
+      "alegacao": "O .gitignore do estado nasce na língua pedida ao init, com o * de sempre, e o init nunca o sobrescreve; a prova roda no próprio processo e reprova com o teste vermelho ou ausente.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='locale F3a init gitignore' core/dist-test/test/locale-f3a-init.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale F3a init gitignore'"
+      ],
+      "criadoEm": "2026-10-15T04:28:33.598Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/test/locale-network.test.ts",
+      "alegacao": "O render puro do panorama em inglês mantém byte a byte as três linhas contratuais dos hosts e traduz o texto humano e as lacunas; reprova com o teste vermelho ou ausente. O --json igual nas duas línguas e os blocos por projeto são provados pelo CLI no teste 4 do arquivo, na suíte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='locale en F3c network: o render puro' core/dist-test/test/locale-network.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale en F3c network: o render puro'"
+      ],
+      "criadoEm": "2026-10-15T04:28:39.042Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/test/locale-thread-f3b.test.ts",
+      "alegacao": "O teste puro prova a ficha e o pedido do achado em inglês, o pt-BR histórico e a cobertura das duas flags de finding; reprova com o teste vermelho ou ausente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='locale en F3c thread: achado e pedido' core/dist-test/test/locale-thread-f3b.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale en F3c thread: achado e pedido'"
+      ],
+      "criadoEm": "2026-10-15T04:28:41.393Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2a-infra.test.ts",
+      "alegacao": "A matriz central de rotas prova as rotas localizadas da F3c (network roadmap e as duas flags do from-finding) e que nenhuma rota localiza o --json; o arquivo inteiro roda no próprio processo.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-infra.test.js"
+      ],
+      "criadoEm": "2026-10-15T04:28:43.241Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "network roadmap entra nas rotas cobertas por locale só na saída humana, nunca com --json; a matriz de rotas reprova qualquer rota que localize o --json.",
+      "negativa": true,
+      "verificar": [
+        "grep -E \"'network roadmap'\" core/src/locale.ts >/dev/null && npm --prefix core run build:test && out=$(node --test --test-name-pattern='cobreLocale so com a entrada na lista' core/dist-test/test/locale-f2a-infra.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale F2a infra: cobreLocale so com a entrada na lista'"
+      ],
+      "criadoEm": "2026-10-15T04:28:45.582Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3c-snapshot.test.ts",
+      "alegacao": "O pt-BR das cinco superfícies da F3c (gitignore do init, recusas de decisao registrar no CLI e no MCP, network roadmap, ficha e pedido do from-finding, prompts e ork prompt) é igual byte a byte ao da main de integração 1e88a932, pela fixture gerada sobre ela; reprova com o teste vermelho ou ausente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='locale pt-BR F3c' core/dist-test/test/locale-f3c-snapshot.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale pt-BR F3c'"
+      ],
+      "criadoEm": "2026-10-15T04:32:25.796Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3c-pt-BR.json",
+      "alegacao": "A fixture pt-BR da F3c guarda os 355 casos gerados uma vez sobre a main de integração, sem caminho de máquina.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const d=JSON.parse(require('fs').readFileSync('core/test/fixtures/locale-f3c-pt-BR.json','utf8'));if(Object.keys(d).length!==355)process.exit(1)\" && ! grep -qE '/(home|Users|root)/' core/test/fixtures/locale-f3c-pt-BR.json"
+      ],
+      "criadoEm": "2026-10-15T04:32:28.053Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3c-casos.ts",
+      "alegacao": "Os casos do snapshot pt-BR da F3c ficam num módulo próprio, rodável sobre a main e sobre o HEAD, com a pasta temporária normalizada.",
+      "negativa": false,
+      "verificar": [
+        "grep -c 'export function gerarCasos' core/test/locale-f3c-casos.ts | grep -E '^1$' && grep -E 'gerada UMA vez' core/test/locale-f3c-casos.ts >/dev/null && grep -E \"split\\(raiz\\)\\.join\\('<RAIZ>'\\)\" core/test/locale-f3c-casos.ts >/dev/null"
+      ],
+      "criadoEm": "2026-10-15T04:32:30.546Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/src/modos.ts",
+      "alegacao": "As invariantes dos modos têm um domicílio só, o catálogo dos prompts: a tabela do ork modos e o prompt de fase leem o mesmo texto pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "grep -c 'export const INVARIANTES: readonly string\\[\\] = PROMPTS_PT_BR.invariantes;' core/src/modos.ts | grep -E '^1$' && npm --prefix core run build:test && node --test core/dist-test/test/modos.test.js"
+      ],
+      "criadoEm": "2026-10-15T04:33:54.797Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/test/hitl-v2-pergunta.test.ts",
+      "alegacao": "A recusa de forma da decisão informada conserva o motivo tipado hitl.formato também quando nasce com o locale em inglês; reprova com o teste vermelho ou ausente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='a recusa de forma do contrato vira o motivo tipado' core/dist-test/test/hitl-v2-pergunta.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - a recusa de forma do contrato vira o motivo tipado'"
+      ],
+      "criadoEm": "2026-10-15T04:35:55.566Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
       "thread": "ork-rm061f3c",
       "fase": "GO",
       "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
-      "alegacao": "A página da RM-061 registra a cobertura medida da F3c integrada à main (42,0%, 0,4197 no contador) ao lado da medida da fatia e da main sem a F3c, e separa o restante como F3d.",
+      "alegacao": "A página da RM-061 registra a cobertura da F3c integrada à main (2.139 entradas, 0,4201 no contador, 42,0%) ao lado das medidas anteriores, as regras de língua do dado gerado e dos templates do projeto, e separa o restante como F3d.",
       "negativa": false,
       "verificar": [
-        "node core/scripts/contar-mensagens-de-saida.cjs --json | grep -E '\"cobertura\": 0.4197' >/dev/null && grep -E '\\| Cobertura \\| 37,9% \\| 41,1% \\| 38,8% \\| 42,0% \\|' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md >/dev/null && grep -E 'F3d:' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md >/dev/null"
+        "node core/scripts/contar-mensagens-de-saida.cjs --json | grep -E '\"cobertura\": 0.4201' >/dev/null && grep -E '\\| Entradas do catálogo \\| 1.800 \\| 1.998 \\| 1.930 \\| 2.139 \\|' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md >/dev/null && grep -E '\\| Cobertura \\| 37,9% \\| 41,1% \\| 38,8% \\| 42,0% \\|' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md >/dev/null && grep -E '^- \\*\\*F3d:\\*\\*' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md >/dev/null"
       ],
-      "criadoEm": "2026-10-15T03:14:11.861Z",
+      "criadoEm": "2026-10-15T04:37:15.643Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C45",
+      "id": "C63",
       "thread": "ork-rm061f3c",
       "fase": "GO",
       "arquivo": "docs/roadmap/evidencias/RM-061/cobertura-f3c.json",
-      "alegacao": "O recibo da F3c guarda também a medida da main integrada (0,3879 sem a F3c e 0,4197 com ela) e os quatro hashes dos snapshots pt-BR, iguais aos arquivos da árvore.",
+      "alegacao": "O recibo da F3c guarda a medida da main integrada (0,3879 sem a F3c; 0,4201 e 2.139 entradas com ela) e os quatro hashes dos snapshots pt-BR, iguais aos arquivos da árvore.",
       "negativa": false,
       "verificar": [
-        "node -e \"const fs=require('fs'),c=require('crypto');const e=JSON.parse(fs.readFileSync('docs/roadmap/evidencias/RM-061/cobertura-f3c.json','utf8'));const i=e.integrada;if(i.main.cobertura!==0.3879||i.comF3c.cobertura!==0.4197)process.exit(1);const s=Object.entries(i.snapshotsPtBR).filter(([f])=>f!=='nota');if(s.length!==4||s.some(([f,h])=>c.createHash('sha256').update(fs.readFileSync(f)).digest('hex')!==h))process.exit(1)\""
+        "node -e \"const fs=require('fs'),c=require('crypto');const e=JSON.parse(fs.readFileSync('docs/roadmap/evidencias/RM-061/cobertura-f3c.json','utf8'));const i=e.integrada;if(i.main.cobertura!==0.3879||i.comF3c.cobertura!==0.4201||i.comF3c.catalogo.entradas!==2139)process.exit(1);const s=Object.entries(i.snapshotsPtBR).filter(([f])=>f!=='nota');if(s.length!==4||s.some(([f,h])=>c.createHash('sha256').update(fs.readFileSync(f)).digest('hex')!==h))process.exit(1)\""
       ],
-      "criadoEm": "2026-10-15T03:14:14.721Z",
+      "criadoEm": "2026-10-15T04:37:18.796Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C46",
+      "id": "C64",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "O ork prompt escreve o texto do CLI no locale ativo e escolhe o template e a língua do prompt pela língua do despacho (owner.language), como o phase run; o render mostra o mesmo sha256 do prompt gravado e o lint avisa o template do projeto sem par .en.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'templateDaFase\\(fase, raiz, linguaDoPrompt\\)' core/src/index.ts >/dev/null && npm --prefix core run build:test && out=$(node --test --test-name-pattern='locale en F3c prompts' core/dist-test/test/locale-prompts.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale en F3c prompts: o render mostra o prompt do despacho' && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale en F3c prompts: com o dono em ingles, o lint avisa'"
+      ],
+      "criadoEm": "2026-10-15T04:48:51.834Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/test/locale-decisao.test.ts",
+      "alegacao": "Os testes cobrem as recusas em inglês de ork decisao registrar (validação HITL v2, critério e rastro) e preservam flags e contrato HITL v2; reprova com o teste vermelho ou ausente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='locale en F3c decisao' core/dist-test/test/locale-decisao.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale en F3c decisao: as recusas de decisao registrar saem em ingles'"
+      ],
+      "criadoEm": "2026-10-15T04:50:36.906Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/test/locale-thread.test.ts",
+      "alegacao": "A CLI prova que uma recusa de --from-finding sai em inglês sob LANG en-US; reprova com o teste vermelho ou ausente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='locale en F3c thread: thread new --from-finding traduz' core/dist-test/test/locale-thread.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale en F3c thread: thread new --from-finding traduz a recusa'"
+      ],
+      "criadoEm": "2026-10-15T04:50:39.067Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/test/auditoria.test.ts",
+      "alegacao": "A abertura de thread a partir de achado sai em inglês em dry-run com o dono em inglês, sem gravar a thread, e o pedido gravado segue só a língua declarada do dono, nunca o locale ativo; reprova com qualquer dos dois testes vermelho ou ausente.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='ork thread new --from-finding' core/dist-test/test/auditoria.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - ork thread new --from-finding abre em dry-run ingles' && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - ork thread new --from-finding grava o pedido na lingua declarada do dono'"
+      ],
+      "criadoEm": "2026-10-15T04:50:41.907Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/src/locale-prompts.ts",
+      "alegacao": "O fecho obrigatório do GO da RM-016 sai do catálogo dos prompts: o pt-BR é o texto da main byte a byte e o dono em inglês recebe o mesmo rito em inglês; o template inglês acompanha a v4 com as mesmas variáveis, fases e ordem do pt-BR. Reprova com qualquer dos três testes vermelho ou ausente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='RM-016|identico ao embutido' core/dist-test/test/prompts.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - o template versionado em prompts/ e identico ao embutido' && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - RM-016: Claude Code e Codex recebem o mesmo fecho' && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - RM-061 F3c: com o dono em ingles, o GO dos dois runtimes'",
+        "grep -c 'fechoDoGo: (t) =>' core/src/locale-prompts.ts | grep -E '^2$'"
+      ],
+      "criadoEm": "2026-10-15T04:50:45.619Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
       "thread": "ork-rm061f3c",
       "fase": "GO",
       "arquivo": "core/test/ork-mesa.test.ts",
-      "alegacao": "O ork_decision_record recusa o dono como autor antes de registrar, agora pelo catálogo da decisão, e o texto pt-BR da recusa é o da base byte a byte; o teste D7 da Mesa confere as duas coisas.",
+      "alegacao": "O ork_decision_record recusa o dono como autor antes de registrar, pelo catálogo da decisão, e o texto pt-BR da recusa é o da base byte a byte; o teste D7 da Mesa confere as duas coisas e a claim reprova com ele vermelho ou ausente.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test && node --test --test-name-pattern='D7: cada ferramenta da lista fechada' core/dist-test/test/ork-mesa.test.js",
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='D7: cada ferramenta da lista fechada' core/dist-test/test/ork-mesa.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - D7: cada ferramenta da lista fechada'",
         "grep -c \"autorMcp: 'mcp.decision.author: quemDecidiu e a sessao que decidiu, nunca o dono'\" core/src/locale-decisao.ts | grep -E '^1$'"
       ],
-      "criadoEm": "2026-10-15T03:39:23.391Z",
+      "criadoEm": "2026-10-15T04:50:48.560Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm061f3c",
+      "fase": "GO",
+      "arquivo": "core/src/ledger.ts",
+      "alegacao": "A recusa do rastro da decisão autônoma (quemDecidiu, evidencia e razao) sai do catálogo da decisão, em inglês para o dono em inglês no CLI e no MCP e com o texto pt-BR de antes; reprova com o teste vermelho ou ausente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='locale en F3c decisao' core/dist-test/test/locale-decisao.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale en F3c decisao: as recusas de decisao registrar saem em ingles'",
+        "grep -c 'throw new ErroDoCatalogo((m) => m.decisao.rastroObrigatorio(campo))' core/src/ledger.ts | grep -E '^1$'"
+      ],
+      "criadoEm": "2026-10-15T04:50:51.256Z",
       "estado": "verificado",
       "lint": []
     }
   ],
   "deferredClaims": [
     {
-      "id": "C14",
-      "reason": "local-integration-required"
-    },
-    {
-      "id": "C21",
+      "id": "C52",
       "reason": "local-integration-required"
     }
   ],
