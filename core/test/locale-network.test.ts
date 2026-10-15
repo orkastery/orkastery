@@ -132,6 +132,10 @@ test('locale en F3c network: network roadmap traduz o texto humano e preserva o 
       assert.match(en.stdout, new RegExp(`\\n${secao}\\n`), secao);
     }
     assert.match(pt.stdout, /\nThreads por máquina\n[\s\S]*\nReservas\n[\s\S]*\nFontes\n[\s\S]*\nLacunas\n/);
+    // A parte da lacuna sai em ingles no detalhe (o identificador fica no tipo e no --json).
+    assert.match(en.stdout, /\n• reservas\.sem-leitura \([^)]*\): the reservations source was not read for /);
+    assert.match(en.stdout, /\n• fabrica\.sem-leitura \([^)]*\): the factory source was not read for /);
+    assert.doesNotMatch(en.stdout, /the (?:projeto|reservas|fabrica|estado-local|forja|registro|rede) source/);
     assert.doesNotMatch(en.stdout, /\n(?:Rede por pessoa|Lacunas da consulta|Threads por máquina|Reservas|Fontes|Lacunas)\n/);
     const normalizar = (t: string) => t.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>');
     assert.equal(normalizar(r.rodar('a', EN, 'network', 'roadmap', '--sem-remoto', '--json').stdout),

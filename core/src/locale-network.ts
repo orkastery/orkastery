@@ -10,6 +10,9 @@
  */
 
 const NAO_CONSULTADO_EN: Readonly<Record<string, string>> = { roadmap: 'roadmap', reservas: 'reservations', threads: 'threads' };
+/** A parte da lacuna (`ParteDaRede`) dita em ingles no detalhe; o `--json` guarda o identificador. */
+const PARTES_EN: Readonly<Record<string, string>> = { projeto: 'project', roadmap: 'roadmap', reservas: 'reservations',
+  fabrica: 'factory', 'estado-local': 'local state', forja: 'forge', registro: 'project registry', rede: 'network' };
 const DIR_ROADMAP_LITERAL = 'docs/roadmap';
 
 export const NETWORK_PT_BR = {
@@ -405,8 +408,9 @@ export const NETWORK_EN: MensagensDeNetwork = {
     projetos: (projetos) => `projects: ${projetos}`,
     nenhumProjeto: 'no project declared here',
     lacuna: (tipo, alvo, detalhe, correcao) => `• ${tipo}${alvo}: ${detalhe}. What to do: ${correcao}.`,
-    lacunaDetalhe: (tipo, parte, alvo) => {
+    lacunaDetalhe: (tipo, idDaParte, alvo) => {
       const alvoSeguro = alvo ? ` for ${alvo}` : '';
+      const parte = PARTES_EN[idDaParte] ?? idDaParte;
       if (tipo === 'maquina.sem-batida') return `the machine has no recent heartbeat${alvoSeguro}`;
       if (tipo === 'maquina.sem-fabrica') return `the machine is in the person network but its project factory snapshot was not read${alvoSeguro}`;
       if (tipo === 'rede.sem-projeto') return 'no project source was known to this query';
