@@ -365,10 +365,10 @@ Falha de autenticação permanece impedimento; não troque provider, sandbox ou 
 /** English counterpart of the canonical phase prompt. The pt-BR template above remains the source contract. */
 export const TEMPLATE_FASE_PADRAO_EN = `---
 id: fase-padrao.en
-versao: 3
+versao: 4
 descricao: Canonical prompt for a GOAL..MASTER cycle phase, with naming, conduction mode, thread context, injected memory, and evidence rules.
 fases: [GOAL, PLAN, GO, CHECK, SHIP, MASTER]
-variaveis: [fase, thread, bloco, nome, ciclo_canonico, tag, blocos, pausas, linha_variante, regra_de_pausa, invariantes, slug, projeto_nome, projeto_abbrev, base_branch, base_commit, diretorio, pedido, memoria_injetada, regras_de_evidencia]
+variaveis: [fase, thread, bloco, nome, ciclo_canonico, tag, blocos, pausas, linha_variante, regra_de_pausa, invariantes, slug, projeto_nome, projeto_abbrev, base_branch, base_commit, diretorio, pedido, fecho_go, memoria_injetada, regras_de_evidencia]
 ---
 # Orkastery, {{fase}} phase of thread {{thread}}
 
@@ -408,6 +408,7 @@ CENTRAL RULE: the mode relaxes the pause, NEVER verification.
 ## Builder request
 {{pedido}}
 {{memoria_injetada}}
+{{fecho_go}}
 
 ## Session isolation
 

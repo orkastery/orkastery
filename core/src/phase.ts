@@ -264,17 +264,11 @@ export const REGRAS_DE_EVIDENCIA: readonly string[] = [
 
 /**
  * RM-016: o rito de saída do GO pertence ao prompt canônico, não a um adaptador. Assim Claude Code
- * e Codex recebem os mesmos artefatos obrigatórios antes de a sessão encerrar.
+ * e Codex recebem os mesmos artefatos obrigatórios antes de a sessão encerrar. RM-061 F3c: o texto
+ * vem do catálogo dos prompts, e o prompt inglês leva o mesmo rito.
  */
-export function fechoDoGo(threadId: string): string {
-  return [
-    '## Fecho obrigatório do GO',
-    '',
-    `Antes de encerrar o bloco com GO, rode \`ork verify ${threadId}\` e o build declarado no manifesto, ambos em primeiro plano.`,
-    `Gere o bundle com \`ork ci prepare ${threadId}\` e faça o commit atômico final \`ci(${threadId}): bundle ...\`.`,
-    `Grave \`.orkastery/threads/${threadId}/pr-body.md\` curto, no idioma do projeto; se o perfil não puder gravá-lo pelo transporte autorizado, devolva o corpo completo no resumo final.`,
-    'O rito é idêntico em Claude Code e Codex. Ele fecha o GO, mas não autoriza SHIP, push, PR ou merge.',
-  ].join('\n');
+export function fechoDoGo(threadId: string, locale: Locale = localeAtivo()): string {
+  return (locale === 'en' ? PROMPTS_EN : PROMPTS_PT_BR).fechoDoGo(threadId);
 }
 
 /**
@@ -334,7 +328,7 @@ export function valoresDoPrompt(
     base_commit: thread.base.commit,
     diretorio: thread.worktree ?? mp.raizDoProjeto,
     pedido: pedido.trim(),
-    fecho_go: bloco.fases.includes('GO') ? fechoDoGo(thread.id) : '',
+    fecho_go: bloco.fases.includes('GO') ? mp.fechoDoGo(thread.id) : '',
     // Bloco B6: o bloco de memoria injetada deterministicamente. Vazio em toda thread sem
     // decisao fechada e sem OrkMind, e ai a linha da variavel some do prompt: o texto fica
     // byte a byte igual ao que o B4 ja despachava.

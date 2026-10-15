@@ -24,12 +24,13 @@ import {
   threadDeExemplo,
   variaveisUsadas,
 } from '../src/prompts';
-import { CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, REGRA_DAS_ESPERAS, rodarFase, valoresDoPrompt } from '../src/phase';
+import {
+  CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, montarPromptComMemoria, REGRA_DAS_ESPERAS, rodarFase, valoresDoPrompt,
+} from '../src/phase';
 import { FASES } from '../src/types';
 import { ajustarManifesto, projetoTemporario } from './apoio';
 import { novaThread } from '../src/thread';
 import { abrirMemoria } from '../src/memoria';
-import { montarPromptComMemoria } from '../src/phase';
 
 const RAIZ_DO_PRODUTO = path.resolve(__dirname, '../../..');
 
@@ -43,6 +44,13 @@ test('o template versionado em prompts/ e identico ao embutido no ork', () => {
   );
   const english = fs.readFileSync(path.join(RAIZ_DO_PRODUTO, 'prompts', 'fase-padrao.en.md'), 'utf8').replace(/\n$/, '');
   assert.equal(english, TEMPLATE_FASE_PADRAO_EN, 'a copia inglesa divergiu do template embutido');
+  // RM-061 F3c: as duas linguas andam juntas. Variavel ou versao nova no pt-BR (o `fecho_go` da RM-016 levou a v4)
+  // entra no ingles no mesmo lugar, para o prompt ingles nunca perder um modulo que o pt-BR ganhou.
+  const pt = parseTemplate(TEMPLATE_FASE_PADRAO, 'embutido'), en = parseTemplate(TEMPLATE_FASE_PADRAO_EN, 'embutido');
+  assert.equal(en.versao, pt.versao);
+  assert.deepEqual(en.fases, pt.fases);
+  assert.deepEqual(en.variaveis, pt.variaveis);
+  assert.deepEqual(variaveisUsadas(en.corpo), variaveisUsadas(pt.corpo));
 });
 
 test('RM-061 F3c: o prompt ingles cobre as seis fases, os cinco modulos e a regra central', () => {
@@ -233,5 +241,33 @@ test('RM-016: Claude Code e Codex recebem o mesmo fecho obrigatório no prompt r
       assert.ok(prompt.includes(`\`.orkastery/threads/${thread.id}/pr-body.md\``));
       assert.match(prompt, /O rito é idêntico em Claude Code e Codex/);
     } finally { projeto.limpar(); }
+  }
+});
+
+test('RM-061 F3c: com o dono em ingles, o GO dos dois runtimes recebe o mesmo fecho obrigatorio da RM-016', () => {
+  for (const runtime of ['claude-bg', 'codex']) {
+    const projeto = projetoTemporario(`prompt-fecho-en-${runtime}`);
+    try {
+      ajustarManifesto(projeto, 'owner:\n', 'owner:\n  language: en-US\n');
+      const { thread } = novaThread(projeto.carregado, { nome: `closing ${runtime}`, modo: 'fast' });
+      const r = rodarFase(projeto.carregado, thread.id, {
+        fase: 'GO', prompt: 'implement the slice', runtime, model: 'modelo-simulado', effort: 'high', dryRun: true,
+      });
+      assert.equal(r.runtime, runtime);
+      const prompt = fs.readFileSync(r.promptPath, 'utf8');
+      assert.match(prompt, /\n## Mandatory GO closing\n\nBefore ending a block that includes GO, run /);
+      assert.ok(prompt.includes(`\`ork verify ${thread.id}\``));
+      assert.ok(prompt.includes(`\`ork ci prepare ${thread.id}\``));
+      assert.ok(prompt.includes(`\`ci(${thread.id}): bundle ...\``));
+      assert.ok(prompt.includes(`\`.orkastery/threads/${thread.id}/pr-body.md\``));
+      assert.match(prompt, /The ritual is identical in Claude Code and Codex\. It closes GO, but it does not authorize SHIP/);
+      assert.doesNotMatch(prompt, /Fecho obrigatório do GO|O rito é idêntico/);
+    } finally { projeto.limpar(); }
+  }
+  // Bloco sem GO: o fecho fica fora nas duas linguas, e a linha vazia da variavel some.
+  for (const locale of ['pt-BR', 'en'] as const) {
+    const goal = montarPrompt(threadDeExemplo('classic', 'GOAL'), 'GOAL', 'pedido', RAIZ_DO_PRODUTO, '', locale);
+    assert.doesNotMatch(goal, /Fecho obrigatório do GO|Mandatory GO closing/, locale);
+    assert.ok(!goal.includes('\n\n\n'), `${locale}: sobrou linha vazia`);
   }
 });

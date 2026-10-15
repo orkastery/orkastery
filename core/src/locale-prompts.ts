@@ -10,6 +10,8 @@ export interface MensagensDePrompts {
   raizDoProjeto: string;
   regrasDeEvidencia: readonly string[];
   regraDasEsperas: string;
+  /** RM-016: o rito de saida do GO, igual em Claude Code e Codex, na lingua do prompt. */
+  fechoDoGo: (thread: string) => string;
   contextoDoGrafo: (thread: string) => string;
   secoesObrigatorias: readonly string[];
   regraCentral: string;
@@ -85,6 +87,14 @@ export const PROMPTS_PT_BR: MensagensDePrompts = {
     'recursos pesados), ou use a execucao em segundo plano do host, que avisa quando termina; nunca espere com ' +
     '`pgrep -f` cujo padrao aparece no proprio comando, porque o laco acha a si mesmo e nao termina: espere pelo ' +
     'arquivo de saida com prazo, ou pelo PID guardado.',
+  fechoDoGo: (t) => [
+    '## Fecho obrigatório do GO',
+    '',
+    `Antes de encerrar o bloco com GO, rode \`ork verify ${t}\` e o build declarado no manifesto, ambos em primeiro plano.`,
+    `Gere o bundle com \`ork ci prepare ${t}\` e faça o commit atômico final \`ci(${t}): bundle ...\`.`,
+    `Grave \`.orkastery/threads/${t}/pr-body.md\` curto, no idioma do projeto; se o perfil não puder gravá-lo pelo transporte autorizado, devolva o corpo completo no resumo final.`,
+    'O rito é idêntico em Claude Code e Codex. Ele fecha o GO, mas não autoriza SHIP, push, PR ou merge.',
+  ].join('\n'),
   contextoDoGrafo: (thread) => '\n\n## Contexto do grafo (opcional)\n' +
     `Consulte ork_grafo_contexto {threadId: "${thread}"} ou ork grafo contexto ${thread} --json para o pacote da thread com evidencias e teto em bytes.\n` +
     'As tools ork_grafo_vizinhos, ork_grafo_chamadores, ork_grafo_importadores e ork_grafo_caminho permitem aprofundar. ' +
@@ -153,6 +163,14 @@ export const PROMPTS_EN: MensagensDePrompts = {
     'waits for a notice that never comes. Run `ork verify` in the foreground with `timeout` (it waits for the heavy-resource queue), ' +
     'or use the host background execution that reports completion. Never wait with `pgrep -f` when its pattern appears in the command itself; ' +
     'the loop finds itself and never ends. Wait for an output file with a deadline, or for a stored PID.',
+  fechoDoGo: (t) => [
+    '## Mandatory GO closing',
+    '',
+    `Before ending a block that includes GO, run \`ork verify ${t}\` and the build declared in the manifest, both in the foreground.`,
+    `Generate the bundle with \`ork ci prepare ${t}\` and make the final atomic commit \`ci(${t}): bundle ...\`.`,
+    `Write a short \`.orkastery/threads/${t}/pr-body.md\` in the project language; if the profile cannot write it through the authorized transport, return the full body in the final summary.`,
+    'The ritual is identical in Claude Code and Codex. It closes GO, but it does not authorize SHIP, push, PR, or merge.',
+  ].join('\n'),
   contextoDoGrafo: (thread) => '\n\n## Graph context (optional)\n' +
     `Use ork_grafo_contexto {threadId: "${thread}"} or ork grafo contexto ${thread} --json for the thread package with evidence and a byte limit.\n` +
     'The ork_grafo_vizinhos, ork_grafo_chamadores, ork_grafo_importadores, and ork_grafo_caminho tools allow deeper queries. ' +

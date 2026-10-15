@@ -30,7 +30,7 @@ test('locale en F3c prompts: render, list, lint e recusas saem em ingles', () =>
     process.chdir(p.dir);
     const render = executar('prompt', 'render', '--exemplo', '--fase', 'GOAL', '--modo', 'auto', '--pedido', 'Map it.');
     assert.equal(render.status, 0, render.stderr);
-    assert.match(render.stdout, /^# template fase-padrao\.en v3 \(source: built-in\)/);
+    assert.match(render.stdout, /^# template fase-padrao\.en v4 \(source: built-in\)/);
     assert.match(render.stdout, /# EXAMPLE thread \(nothing was written\), mode #Auto, sha256 [0-9a-f]{64}/);
     assert.match(render.stdout, /# Orkastery, GOAL phase of thread/);
     assert.match(render.stdout, /## Canonical cycle[\s\S]*## Conduction mode: #Auto[\s\S]*## Builder request\nMap it\./);
@@ -55,7 +55,7 @@ test('locale en F3c prompts: render, list, lint e recusas saem em ingles', () =>
     ajustarManifesto(p, 'language: en-US', 'language: pt-BR');
     const pt = executar('prompt', 'render', '--exemplo', '--fase', 'GOAL', '--modo', 'auto', '--pedido', 'Mapear.');
     assert.equal(pt.status, 0, pt.stderr);
-    assert.match(pt.stdout, /^# template fase-padrao v3 \(origem: /);
+    assert.match(pt.stdout, /^# template fase-padrao v4 \(origem: /);
     assert.match(pt.stdout, /# Orkastery, fase GOAL da thread/);
     assert.match(pt.stdout, /REGRA CENTRAL: o modo afrouxa a pausa, NUNCA a verificacao\./);
   } finally {
@@ -72,7 +72,7 @@ test('locale en F3c prompts: owner.language vence o ambiente na geracao', () => 
     process.chdir(p.dir); process.env.LC_ALL = 'pt_BR.UTF-8'; process.env.LANG = 'pt_BR.UTF-8';
     const render = executar('prompt', 'render', '--exemplo', '--fase', 'PLAN', '--modo', 'auto', '--pedido', 'Plan it.');
     assert.equal(render.status, 0, render.stderr);
-    assert.match(render.stdout, /^# template fase-padrao\.en v3 \(source: built-in\)/);
+    assert.match(render.stdout, /^# template fase-padrao\.en v4 \(source: built-in\)/);
     assert.match(render.stdout, /# Orkastery, PLAN phase of thread/);
   } finally {
     console.log = log; console.error = error; process.chdir(cwd); ativarLocale(undefined);
