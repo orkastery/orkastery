@@ -126,7 +126,11 @@ test('locale en F3c network: network roadmap traduz o texto humano e preserva o 
     const en = r.rodar('a', EN, 'network', 'roadmap', '--sem-remoto');
     assert.equal(en.status, 0, en.stderr);
     assert.equal(en.status, pt.status);
-    assert.deepEqual(en.stdout.split('\n').slice(0, 3), pt.stdout.split('\n').slice(0, 3), 'o preambulo contratual e byte a byte');
+    // A primeira linha traz a hora da consulta; as duas rodadas podem cair em minutos diferentes, e so ela e normalizada.
+    const hora = / \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/;
+    for (const r of [pt, en]) assert.match(r.stdout.split('\n')[0], /^Panorama da rede lido de \S+ \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/);
+    const preambulo = (t: string) => t.split('\n').slice(0, 3).map((l, i) => i === 0 ? l.replace(hora, ' (<hora>)') : l);
+    assert.deepEqual(preambulo(en.stdout), preambulo(pt.stdout), 'o preambulo contratual e byte a byte, fora a hora da consulta');
     assert.match(en.stdout.split('\n')[1], /^Consultado: loja \(clone em /);
     for (const secao of ['Threads by machine', 'Reservations', 'Sources', 'Gaps']) {
       assert.match(en.stdout, new RegExp(`\\n${secao}\\n`), secao);
