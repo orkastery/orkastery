@@ -84,6 +84,24 @@ test('RM-061 F3c: o phase run monta o prompt na lingua atual do dono', () => {
   }
 });
 
+test('RM-061 F3c: sem owner.language, o prompt despachado segue em pt-BR com qualquer LANG (dado da F2a)', () => {
+  const p = projetoTemporario('prompt-sem-owner-language');
+  const lcAll = process.env.LC_ALL, lang = process.env.LANG;
+  try {
+    process.env.LC_ALL = 'en_US.UTF-8'; process.env.LANG = 'en_US.UTF-8';
+    const { thread } = novaThread(p.carregado, { nome: 'sem-lingua', modo: 'auto' });
+    const { prompt } = montarPromptComMemoria(p.carregado, thread, 'GOAL', 'Mapear a mudanca.', abrirMemoria(p.carregado));
+    assert.match(prompt, /^# Orkastery, fase GOAL da thread/m);
+    assert.match(prompt, /## Pedido do builder\nMapear a mudanca\./);
+    assert.match(prompt, /REGRA CENTRAL: o modo afrouxa a pausa, NUNCA a verificacao\./);
+    assert.doesNotMatch(prompt, /CENTRAL RULE|## Builder request/);
+  } finally {
+    if (lcAll === undefined) delete process.env.LC_ALL; else process.env.LC_ALL = lcAll;
+    if (lang === undefined) delete process.env.LANG; else process.env.LANG = lang;
+    p.limpar();
+  }
+});
+
 test('o lint aprova os templates do produto e reprova o que perde o contrato', () => {
   const templates = carregarTemplates(RAIZ_DO_PRODUTO);
   assert.ok(templates.length >= 1);
