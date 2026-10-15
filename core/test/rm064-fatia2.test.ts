@@ -2,15 +2,17 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { projetoTemporario } from './apoio';
-import { hashDoPrompt, montarPrompt } from '../src/phase';
+import { projetoTemporario, runtimeFalso } from './apoio';
+import { hashDoPrompt, montarPrompt, rodarFase } from '../src/phase';
 import { prepararPromptDeRetomada } from '../src/retomada-checkpoint';
 import { dirThread, novaThread } from '../src/thread';
-import { diretorioDoTrabalho, garantirDiretorioDoTrabalho, LIMITE_DE_ARQUIVO_DO_TRABALHO,
+import { diretorioDoTrabalho, garantirDiretorioDoTrabalho, LIMITE_DE_ARQUIVO_DO_TRABALHO, LIMITE_DE_ARQUIVOS_DO_TRABALHO,
   resumirTrabalhoDaThread } from '../src/trabalho-thread';
 import { passosDaBatida } from '../src/conducao-batida';
 import { PassoDoCondutor } from '../src/conducao-sentinela';
-import { checarSeparacaoDaConducao } from '../src/doctor';
+import { checar, checarSeparacaoDaConducao } from '../src/doctor';
+import { comLocale } from '../src/locale';
+import { ACCOUNTS_EN, ACCOUNTS_PT_BR } from '../src/locale-accounts';
 import { InventarioDeSessoes } from '../src/sessoes-inventario';
 import { conferirAuth as conferirAuthClaude, cotaExpostaDoAuth } from '../src/adapters/claude-bg';
 import { adicionarPerfil, classificarTipoDeLimite, expirarPerfisVencidos, lerPerfis, marcarFalhaDePerfil,
@@ -100,10 +102,42 @@ test('RM-064 T4 performance: inventário para durante a iteração de pasta nume
     const t = novaThread(p.carregado, { nome: 'inventário limitado', modo: 'auto' }).thread;
     const trabalho = garantirDiretorioDoTrabalho(p.dir, t.id);
     for (let i = 0; i < 300; i++) fs.writeFileSync(path.join(trabalho, `prova-${String(i).padStart(3, '0')}.txt`), 'x');
-    const resumo = resumirTrabalhoDaThread(p.dir, t.id);
-    assert.equal(resumo.arquivos.length, 24);
+    let aberturas = 0;
+    const resumo = resumirTrabalhoDaThread(p.dir, t.id, { antesDeAbrir: () => { aberturas += 1; } });
+    assert.equal(resumo.arquivos.length, LIMITE_DE_ARQUIVOS_DO_TRABALHO);
     assert.ok(resumo.ignorados.excedentes > 0);
+    assert.equal(aberturas, LIMITE_DE_ARQUIVOS_DO_TRABALHO, 'com a lista cheia, o resto da pasta só conta, sem abrir');
   } finally { p.limpar(); }
+});
+
+test('RM-064 T4 performance: orçamento de bytes cheio não abre os arquivos seguintes', () => {
+  const p = projetoTemporario('rm064-t4-orcamento');
+  try {
+    const t = novaThread(p.carregado, { nome: 'orçamento do trabalho', modo: 'auto' }).thread;
+    const trabalho = garantirDiretorioDoTrabalho(p.dir, t.id);
+    // Cada um no teto por arquivo: dois enchem o orçamento total da pasta.
+    for (let i = 0; i < 5; i++) fs.writeFileSync(path.join(trabalho, `parecer-${i}.md`), Buffer.alloc(LIMITE_DE_ARQUIVO_DO_TRABALHO, 0x61));
+    let aberturas = 0;
+    const resumo = resumirTrabalhoDaThread(p.dir, t.id, { antesDeAbrir: () => { aberturas += 1; } });
+    assert.deepEqual(resumo.arquivos.map((a) => a.arquivo), ['parecer-0.md', 'parecer-1.md']);
+    assert.deepEqual([resumo.ignorados.excedentes, aberturas], [3, 2]);
+  } finally { p.limpar(); }
+});
+
+test('RM-064 T4 despacho: a fase despachada de verdade cria a pasta de trabalho privada antes do prompt', (t) => {
+  const p = projetoTemporario('rm064-t4-despacho');
+  const runtime = runtimeFalso('rm064-t4-despacho');
+  t.after(() => { runtime.restaurar(); p.limpar(); });
+  const thread = novaThread(p.carregado, { nome: 'despacho cria trabalho', modo: 'auto' }).thread;
+  const trabalho = diretorioDoTrabalho(p.dir, thread.id);
+  const ensaio = rodarFase(p.carregado, thread.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO', dryRun: true });
+  assert.equal(ensaio.dryRun, true);
+  assert.equal(fs.existsSync(trabalho), false, 'o ensaio não cria nada no estado');
+  const r = rodarFase(p.carregado, thread.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO' });
+  assert.equal(r.verificada, true, r.erro);
+  const pasta = fs.lstatSync(trabalho);
+  assert.deepEqual([pasta.isDirectory(), pasta.mode & 0o777], [true, 0o700]);
+  assert.match(fs.readFileSync(r.promptPath, 'utf8'), new RegExp(`trabalho retomavel: \\.orkastery/threads/${thread.id}/trabalho/`));
 });
 
 const passo = (acao: PassoDoCondutor['acao'], motivo: string | null): PassoDoCondutor => ({
@@ -134,7 +168,37 @@ test('RM-064 T5 doctor: avisa quando o condutor LLM e a fase viva usam a mesma c
     assert.match(compartilhada?.detalhe ?? '', /ork-fase:GO/);
     assert.equal(checarSeparacaoDaConducao(p.dir, inventario('outra'), { CLAUDECODE: '1' })?.nivel, 'ok');
     assert.equal(checarSeparacaoDaConducao(p.dir, inventario(null), {}) , null);
+    for (const despacho of [{ ORK_DISPATCH_ID: 'despacho-da-fase' }, { ORK_DISPATCH_THREAD: 'ork-fase' }]) {
+      assert.equal(checarSeparacaoDaConducao(p.dir, inventario(null), { CLAUDECODE: '1', ...despacho }), null,
+        'a sessão de fase despachada pelo ork não é o condutor');
+    }
+    assert.equal(comLocale('en', () => checarSeparacaoDaConducao(p.dir, inventario('outra'), { CLAUDECODE: '1' }))?.detalhe,
+      'the LLM conductor (claude-bg, process environment) does not share its account with a live phase');
   } finally { p.limpar(); }
+});
+
+test('RM-064 T5 doctor: o checar do ork doctor inclui a separação da condução, fora da sessão de fase', () => {
+  const p = projetoTemporario('rm064-t5-doctor-checar');
+  const anterior = { CLAUDECODE: process.env.CLAUDECODE, ORK_DISPATCH_ID: process.env.ORK_DISPATCH_ID,
+    ORK_DISPATCH_THREAD: process.env.ORK_DISPATCH_THREAD, CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR, PATH: process.env.PATH };
+  const stub = path.join(p.dir, 'stub-doctor');
+  fs.mkdirSync(stub);
+  fs.writeFileSync(path.join(stub, 'claude'), '#!/bin/sh\necho "[]"\n', { mode: 0o755 });
+  const semCrontab = () => ({ ok: false as const, motivo: 'crontab -l falhou: no crontab for teste' });
+  const logado = () => ({ ok: true, detalhe: 'login simulado' });
+  try {
+    process.env.PATH = `${stub}:${anterior.PATH ?? ''}`;
+    process.env.CLAUDECODE = '1';
+    for (const k of ['ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'CLAUDE_CONFIG_DIR']) delete process.env[k];
+    const separacao = comLocale('pt-BR', () => checar(p.dir, [], semCrontab, logado)).find((c) => c.nome === 'separacao da conducao');
+    assert.ok(separacao, 'o doctor roda o check da T5');
+    assert.match(separacao.detalhe, /^o condutor LLM \(claude-bg, ambiente do processo\)/);
+    process.env.ORK_DISPATCH_ID = 'despacho-da-fase';
+    assert.equal(comLocale('pt-BR', () => checar(p.dir, [], semCrontab, logado)).some((c) => c.nome === 'separacao da conducao'), false);
+  } finally {
+    for (const [k, v] of Object.entries(anterior)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    p.limpar();
+  }
 });
 
 test('RM-064 T7 accounts: expira marca vencida, distingue limites e aceita cota estruturada do runtime', () => {
@@ -150,9 +214,21 @@ test('RM-064 T7 accounts: expira marca vencida, distingue limites e aceita cota 
     assert.equal(classificarTipoDeLimite('session limit; resets in 2 hours'), 'sessao');
     assert.equal(classificarTipoDeLimite('weekly usage limit'), 'semanal');
     assert.equal(classificarTipoDeLimite('spending limit set by administrator'), 'gasto-admin');
+    // As falas reais do Claude Code: o limite atingido é o que conta; a semana ou a sessão do fim é só o prazo de volta.
+    assert.equal(classificarTipoDeLimite('rate_limit: You\'ve hit your individual spend limit · run /extra-usage to ask your admin ' +
+      'for a higher limit · your weekly limit resets 5pm (America/New_York)'), 'gasto-admin');
+    assert.equal(classificarTipoDeLimite('rate_limit: You\'ve hit your individual spend limit · run /extra-usage to ask your admin ' +
+      'for a higher limit · your session limit resets 1:30am (America/New_York)'), 'gasto-admin');
+    assert.equal(classificarTipoDeLimite('rate_limit: You\'ve hit your weekly limit · resets Oct 20, 5pm (America/New_York)'), 'semanal');
+    assert.equal(classificarTipoDeLimite('rate_limit: You\'ve hit your session limit · resets 1:30am (America/New_York)'), 'sessao');
     assert.deepEqual(cotaExpostaDoAuth({ quota: { used: 7, limit: 10, unit: 'requests', resetsAt: '2030-01-02T03:04:05.000Z' } }),
       { usada: 7, limite: 10, restante: 3, unidade: 'requests', resetEm: '2030-01-02T03:04:05.000Z', fonte: 'runtime' });
     assert.equal(cotaExpostaDoAuth({ loggedIn: true }), null, 'ausencia de medida nao vira zero');
+    assert.equal(cotaExpostaDoAuth({ usage: { used: 3, limit: 10 } })?.unidade, null, 'sem unidade do runtime, o nome vem do catalogo');
+    assert.deepEqual(cotaExpostaDoAuth({ usage: { percentUsed: 30 } }),
+      { usada: 30, limite: 100, restante: 70, unidade: '%', resetEm: null, fonte: 'runtime' });
+    assert.deepEqual([ACCOUNTS_PT_BR.cotaMedida(3, 10, null), ACCOUNTS_EN.cotaMedida(3, 10, null), ACCOUNTS_EN.cotaMedida(30, 100, '%')],
+      ['3/10 unidades (medida pelo runtime)', '3/10 units (measured by the runtime)', '30/100% (measured by the runtime)']);
 
     const bin = path.join(p.dir, 'fake-bin'), claude = path.join(bin, 'claude');
     fs.mkdirSync(bin);

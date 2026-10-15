@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { cobreLocale } from '../src/locale';
+import { caminhoDoStore } from '../src/runtime-profiles';
 import { cenario, Cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 
 /** O `claude` das contas: `auth status --json` com login de assinatura, ou sem login quando a pasta tem `sem-login`. */
@@ -17,6 +18,10 @@ const CLAUDE = `#!/bin/sh
 if [ "$1" = "auth" ] && [ "$2" = "status" ]; then
   if [ -f "$CLAUDE_CONFIG_DIR/sem-login" ]; then echo '{"loggedIn":false}'; exit 1; fi
   if [ -f "$CLAUDE_CONFIG_DIR/pago" ]; then echo '{"loggedIn":true,"authMethod":"console"}'; exit 0; fi
+  if [ -f "$CLAUDE_CONFIG_DIR/com-uso" ]; then
+    echo '{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty","subscriptionType":"max","usage":{"used":3,"limit":10}}'
+    exit 0
+  fi
   echo '{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty","subscriptionType":"max"}'
   exit 0
 fi
@@ -108,4 +113,37 @@ test('locale en F3b accounts: o detalhe do login que o ork escreve sai traduzido
     assert.equal(store.perfis.find((p) => p.id === 'p4')?.ultimaFalha?.detalhe,
       'claude auth status: provider pago (authMethod console); so a assinatura claude.ai despacha');
   } finally { c.limpar(); fs.rmSync(pago, { recursive: true, force: true }); }
+});
+
+test('locale en F3b accounts: check grava no store a volta da marca vencida e mostra a cota medida em ingles (RM-064 T7)', () => {
+  const { c, com, sem } = comContas('accounts-f3b-expira');
+  const uso = fs.mkdtempSync(path.join(path.dirname(c.dir), 'ork-locale-accounts-uso-'));
+  try {
+    fs.writeFileSync(path.join(uso, 'com-uso'), '');
+    for (const [id, dir] of [['p1', com], ['p3', uso]]) {
+      assert.equal(ork(c, EN, true, 'accounts', 'add', id, '--runtime', 'claude-bg', '--dir', dir, '--sem-login').status, 0);
+    }
+    // A marca de cota que venceu, gravada direto no store do projeto: so o CLI filho, com a casa propria, publica.
+    const store = JSON.parse(fs.readFileSync(caminhoDoStore(c.dir), 'utf8')) as { perfis: Array<Record<string, unknown>> };
+    const p1 = store.perfis.find((p) => p.id === 'p1') as Record<string, unknown>;
+    Object.assign(p1, { estado: 'esgotado', esgotadoAte: new Date(Date.now() - 60_000).toISOString(),
+      ultimaFalha: { motivo: 'runtime.quota-exhausted', em: new Date(Date.now() - 3_600_000).toISOString(),
+        detalhe: "You've hit your session limit · resets 1:30am (America/New_York)" } });
+    fs.writeFileSync(caminhoDoStore(c.dir), JSON.stringify(store, null, 2) + '\n');
+    const check = ork(c, EN, true, 'accounts', 'check', 'p1');
+    assert.equal(check.status, 0, check.stderr);
+    assert.match(check.stdout, new RegExp('^p1 \\(claude-bg\\): subscription login checked; limit: session; ' +
+      'quota: not exposed by the runtime; running now: nothing; returns: no measured deadline; expired mark cleared in this check\\n'));
+    const depois = (JSON.parse(fs.readFileSync(caminhoDoStore(c.dir), 'utf8')) as { perfis: Array<Record<string, unknown>> })
+      .perfis.find((p) => p.id === 'p1');
+    assert.deepEqual([depois?.estado, depois?.esgotadoAte], ['ativo', null], 'a volta da conta fica gravada');
+    // A segunda conferencia nao expira de novo.
+    assert.doesNotMatch(ork(c, EN, true, 'accounts', 'check', 'p1').stdout, /expired mark/);
+    // Cota que o runtime expoe sem unidade: o nome da unidade vem do catalogo ingles.
+    assert.match(ork(c, EN, true, 'accounts', 'check', 'p3').stdout,
+      /^p3 \(claude-bg\): subscription login checked; limit: no observed limit; quota: 3\/10 units \(measured by the runtime\); /);
+  } finally {
+    c.limpar();
+    for (const d of [com, sem, uso]) fs.rmSync(d, { recursive: true, force: true });
+  }
 });
