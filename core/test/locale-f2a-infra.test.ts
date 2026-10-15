@@ -32,6 +32,8 @@ test('locale F2a infra: cobreLocale so com a entrada na lista e nunca com --json
   for (const chave of COMANDOS_COM_LOCALE) {
     const [posicionais, opcoes] = linhaDaChave[chave] ?? [chave.split(' '), {}];
     assert.ok(cobreLocale(posicionais, opcoes), chave);
+    // Nenhuma rota localiza o --json (F3c: `network roadmap`, `decisao registrar` e `prompt` tambem nao).
+    assert.equal(cobreLocale(posicionais, { ...opcoes, json: true }), false, `${chave} --json`);
   }
   assert.equal(cobreLocale(['doctor'], { json: true }), false);
   assert.equal(cobreLocale(['doctor'], { modo: 'fast' }), false);

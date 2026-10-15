@@ -9,9 +9,11 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { ativarLocale } from '../src/locale';
-import { manifestoYaml } from '../src/init';
+import { init, manifestoYaml } from '../src/init';
+import { exec } from '../src/util';
 import { blocoAgentsMd, FIM_AGENTS_ORK, INICIO_AGENTS_ORK } from '../src/agents-md';
 import { carregarManifesto, LIMITE_MANIFESTO_BYTES } from '../src/manifest';
 import { lerYaml } from '../src/yaml';
@@ -112,6 +114,22 @@ test('locale F3a init (negativo): C.UTF-8, es_ES.UTF-8 e owner.language pt-BR co
     assert.equal(ork(c, EN, false, 'init', '--force', '--name', 'loja', '--abbrev', 'loj').status, 0);
     assert.equal(fs.readFileSync(gitignore, 'utf8'), GITIGNORE_PT_BR);
   } finally { c.limpar(); }
+});
+
+test('locale F3a init gitignore: o arquivo do estado nasce na lingua pedida, com o * de sempre, e nunca e sobrescrito', () => {
+  // RM-061 F3c: a mesma prova dos testes pelo CLI, no proprio processo.
+  for (const [locale, esperado] of [['en', GITIGNORE_EN], ['pt-BR', GITIGNORE_PT_BR]] as const) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `ork-f3a-gitignore-${locale}-`));
+    try {
+      assert.equal(exec('git', ['init', '-q', '-b', 'main'], dir).ok, true);
+      init(dir, { nome: 'loja', abbrev: 'loj', locale });
+      const arquivo = path.join(dir, '.orkastery', '.gitignore');
+      assert.equal(fs.readFileSync(arquivo, 'utf8'), esperado, locale);
+      fs.writeFileSync(arquivo, '# do usuario\n*\n');
+      init(dir, { nome: 'loja', abbrev: 'loj', locale: locale === 'en' ? 'pt-BR' : 'en', force: true });
+      assert.equal(fs.readFileSync(arquivo, 'utf8'), '# do usuario\n*\n', `${locale}: o init nunca sobrescreve`);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  }
 });
 
 test('locale F3a init (negativo): o gerador chamado como funcao segue em pt-BR com o locale ativo em ingles', () => {
