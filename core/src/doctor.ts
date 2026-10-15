@@ -23,7 +23,7 @@ import { branchDoHead, exec, noPath, simbolo } from './util';
 import { inventariarSessoes, InventarioDeSessoes } from './sessoes-inventario';
 import { raizDoEstado } from './estado-thread';
 import { memoryState } from './project-state';
-import { ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
+import { ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO, ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
 import { StatusDeAuth } from './adapters/claude-bg';
 import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, RUNTIMES_COM_PERFIL } from './runtime-profiles';
 import { sondasDeAmbiente } from './preflight';
@@ -37,11 +37,15 @@ import { msg, nomeDoCheck } from './locale';
 
 const real = (dir: string): string => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
 
-/** RM-064 T5: avisa quando o LLM que roda o doctor usa a mesma conta das fases vivas. */
+/**
+ * RM-064 T5: avisa quando o LLM que roda o doctor usa a mesma conta das fases vivas. Sessão de fase
+ * despachada pelo `ork` (com a identidade do despacho no ambiente) não é o condutor e não entra na comparação.
+ */
 export function checarSeparacaoDaConducao(raiz: string, inventario: InventarioDeSessoes,
   env: NodeJS.ProcessEnv = process.env): Check | null {
   const runtime = env.CLAUDECODE ? 'claude-bg' : env.CODEX_THREAD_ID ? 'codex' : null;
-  if (!runtime) return null;
+  const despachada = (env[ENV_IDENTIDADE_DE_DESPACHO] ?? '').trim() || (env[ENV_THREAD_DO_DESPACHO] ?? '').trim();
+  if (!runtime || despachada) return null;
   const dirAtual = runtime === 'claude-bg' ? env.CLAUDE_CONFIG_DIR : env.CODEX_HOME;
   let perfil: string | null = null;
   try {
@@ -53,7 +57,7 @@ export function checarSeparacaoDaConducao(raiz: string, inventario: InventarioDe
   } catch { /* o check de contas relata o store inválido; aqui não inventamos perfil */ }
   const fases = inventario.sessoes.filter((s) => s.viva && s.runtime === runtime && s.perfil === perfil && s.vinculos.length > 0)
     .flatMap((s) => s.vinculos.map((v) => `${v.thread}:${v.fase}`));
-  const conta = perfil ?? 'ambiente do processo';
+  const conta = perfil ?? msg().doctor.contaDoAmbiente;
   return {
     nome: 'separacao da conducao',
     nivel: fases.length ? 'warn' : 'ok',

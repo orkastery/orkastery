@@ -61,7 +61,8 @@ export const ACCOUNTS_PT_BR = {
   tipoDeLimite: (tipo: string) => ({ sessao: 'sessao', semanal: 'semanal', 'gasto-admin': 'gasto definido pelo admin',
     outro: 'outro limite', nenhum: 'nenhum limite observado' }[tipo] ?? tipo),
   limiteDaConta: (limite: string) => `limite: ${limite}`,
-  cotaMedida: (usada: number, limite: number, unidade: string) => `${usada}/${limite} ${unidade} (medida pelo runtime)`,
+  cotaMedida: (usada: number, limite: number, unidade: string | null) =>
+    `${usada}/${limite}${unidade === '%' ? '%' : ` ${unidade ?? 'unidades'}`} (medida pelo runtime)`,
   cotaIndisponivel: 'nao exposta pelo runtime',
   cotaDaConta: (cota: string) => `cota: ${cota}`,
   sessaoSemVinculo: (sessao: string) => `sessao:${sessao}`,
@@ -160,7 +161,8 @@ export const ACCOUNTS_EN: MensagensDeAccounts = {
   tipoDeLimite: (tipo) => ({ sessao: 'session', semanal: 'weekly', 'gasto-admin': 'admin-defined spend',
     outro: 'other limit', nenhum: 'no observed limit' }[tipo] ?? tipo),
   limiteDaConta: (limite) => `limit: ${limite}`,
-  cotaMedida: (usada, limite, unidade) => `${usada}/${limite} ${unidade} (measured by the runtime)`,
+  cotaMedida: (usada, limite, unidade) =>
+    `${usada}/${limite}${unidade === '%' ? '%' : ` ${unidade ?? 'units'}`} (measured by the runtime)`,
   cotaIndisponivel: 'not exposed by the runtime',
   cotaDaConta: (cota) => `quota: ${cota}`,
   sessaoSemVinculo: (sessao) => `session:${sessao}`,

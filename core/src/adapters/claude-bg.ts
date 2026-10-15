@@ -781,7 +781,8 @@ export interface CotaExposta {
   usada: number;
   limite: number;
   restante: number;
-  unidade: string;
+  /** A unidade que o runtime informa; `%` quando a medida veio em percentual; null quando ele não diz. */
+  unidade: string | null;
   resetEm: string | null;
   fonte: 'runtime';
 }
@@ -798,11 +799,14 @@ export function cotaExpostaDoAuth(dados: unknown): CotaExposta | null {
   let usada = numeroFinito(candidato.used ?? candidato.consumed ?? candidato.current);
   const restanteInformada = numeroFinito(candidato.remaining);
   const percentual = numeroFinito(candidato.percentUsed ?? candidato.utilization);
-  if (limite === null && percentual !== null && percentual <= 100) { limite = 100; usada = percentual; }
+  let emPercentual = false;
+  if (limite === null && percentual !== null && percentual <= 100) { limite = 100; usada = percentual; emPercentual = true; }
   if (limite !== null && usada === null && restanteInformada !== null) usada = Math.max(0, limite - restanteInformada);
   if (limite === null || usada === null || limite <= 0 || usada > limite) return null;
   const unidadeBruta = candidato.unit ?? candidato.unidade;
-  const unidade = typeof unidadeBruta === 'string' ? unidadeBruta.replace(/[^a-zA-Z0-9%._-]/g, '').slice(0, 24) || 'unidades' : 'unidades';
+  // O nome da unidade que o runtime não informa é texto de quem lê: sai do catálogo, não daqui.
+  const informada = typeof unidadeBruta === 'string' ? unidadeBruta.replace(/[^a-zA-Z0-9%._-]/g, '').slice(0, 24) : '';
+  const unidade = informada || (emPercentual ? '%' : null);
   const resetBruto = candidato.resetsAt ?? candidato.resetAt ?? candidato.resetEm;
   const resetEm = typeof resetBruto === 'string' && Number.isFinite(Date.parse(resetBruto)) ? resetBruto : null;
   return { usada, limite, restante: Math.max(0, limite - usada), unidade, resetEm, fonte: 'runtime' };
