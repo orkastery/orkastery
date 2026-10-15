@@ -24,11 +24,12 @@ import {
   threadDeExemplo,
   variaveisUsadas,
 } from '../src/prompts';
-import { CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, montarPromptComMemoria, REGRA_DAS_ESPERAS, valoresDoPrompt } from '../src/phase';
+import { CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, REGRA_DAS_ESPERAS, valoresDoPrompt } from '../src/phase';
 import { FASES } from '../src/types';
 import { ajustarManifesto, projetoTemporario } from './apoio';
 import { novaThread } from '../src/thread';
 import { abrirMemoria } from '../src/memoria';
+import { montarPromptComMemoria } from '../src/phase';
 
 const RAIZ_DO_PRODUTO = path.resolve(__dirname, '../../..');
 
