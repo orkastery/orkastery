@@ -24,15 +24,16 @@ test('consulta exige sucesso do contexto e do SHA exatos', () => {
   // O remoto só é consultado para obter owner/repo; o executor injetado não usa rede.
   exec('git', ['remote', 'add', 'origin', remote], original);
   const sha = shaDaBranch(original, 'main');
-  const success = consultarCi(p.carregado, sha, 'origin', ({ repository, sha: got, context }) => {
+  const success = consultarCi(p.carregado, sha, 'origin', ({ repository, sha: got, context, caminho }) => {
     assert.equal(repository, 'Orkastery/orkastery');
     assert.equal(got, sha);
     assert.equal(context, 'ork-verify');
-    return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'success', html_url: 'https://example.test/run/1' }] }) };
+    if (caminho?.includes('/statuses')) return { ok: true, code: 0, stderr: '', stdout: '[]' };
+    return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'success', html_url: 'https://example.test/run/1', app: { slug: 'github-actions' } }] }) };
   });
   assert.equal(success.ok, true);
   assert.equal(success.state, 'success');
-  const missing = consultarCi(p.carregado, sha, 'origin', () => ({ ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'outro-check', status: 'completed', conclusion: 'success' }] }) }));
+  const missing = consultarCi(p.carregado, sha, 'origin', (e) => ({ ok: true, code: 0, stderr: '', stdout: e.caminho?.includes('/statuses') ? '[]' : JSON.stringify({ check_runs: [{ name: 'outro-check', status: 'completed', conclusion: 'success' }] }) }));
   assert.equal(missing.ok, false);
   assert.equal(missing.state, 'missing');
   p.limpar();
@@ -85,6 +86,22 @@ test('bundle usa o perfil hermético declarado pelo CI quando ele existe', () =>
   p.carregado.manifesto.ci.command = 'node --version';
   const bundle = JSON.parse(fs.readFileSync(prepararBundleCi(p.carregado, thread.id), 'utf8'));
   assert.deepEqual(bundle.commands, [{ name: 'ci', command: 'node --version' }]);
+  p.limpar();
+});
+
+test('runner do CI aplica ao comando hermetico o mesmo teto de test', () => {
+  const p = projetoTemporario('ci-timeout');
+  const file = `${p.dir}/bundle-timeout.json`;
+  fs.writeFileSync(file, JSON.stringify({
+    schema: 'ork.ci-bundle/v1', thread: 'ork-ci-timeout', base: 'main', claims: [],
+    commands: [{ name: 'ci', command: 'sleep 5' }],
+  }));
+  const carregado = { ...p.carregado, manifesto: { ...p.carregado.manifesto,
+    verify: { ...p.carregado.manifesto.verify, timeout_ms_por_comando: { test: 1000 } } } };
+  const result = executarBundleCi(carregado, file);
+  assert.equal(result.ok, false);
+  assert.equal(result.commands[0].causa, 'timeout');
+  assert.equal(result.commands[0].prazoMs, 1000);
   p.limpar();
 });
 
@@ -167,5 +184,55 @@ test('SHIP para antes do lease e do merge quando CI obrigatório não tem recibo
   assert.equal(result.ci?.state, 'unavailable');
   assert.equal(shaDaBranch(p.dir, 'main'), before);
   assert.equal(result.lease, null);
+  p.limpar();
+});
+
+test('ork-verify pulado não passa o gate e o detalhe diz bloqueado', () => {
+  const p = projetoTemporario('ci-bloqueado', false);
+  ajustarManifesto(p, 'required_for_ship: false', 'required_for_ship: true');
+  p.carregado.manifesto.ci.required_for_ship = true;
+  exec('git', ['remote', 'add', 'origin', 'https://github.com/Orkastery/orkastery.git'], p.carregado.raiz);
+  const sha = shaDaBranch(p.carregado.raiz, 'main');
+  const r = consultarCi(p.carregado, sha, 'origin', (e) => ({ ok: true, code: 0, stderr: '',
+    stdout: e.caminho?.includes('/statuses') ? '[]' : JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion: 'skipped' }] }) }));
+  assert.equal(r.ok, false);
+  assert.equal(r.state, 'failure');
+  assert.match(r.detail, /bloqueado \(skipped\)/);
+  p.limpar();
+});
+
+test('o retrato marca bloqueado só quando nenhum check que reprovou está vermelho', () => {
+  const p = projetoTemporario('ci-marca-bloqueado', false);
+  ajustarManifesto(p, 'required_for_ship: false', 'required_for_ship: true');
+  p.carregado.manifesto.ci.required_for_ship = true;
+  exec('git', ['remote', 'add', 'origin', 'https://github.com/Orkastery/orkastery.git'], p.carregado.raiz);
+  const sha = shaDaBranch(p.carregado.raiz, 'main');
+  const com = (conclusion: string) => consultarCi(p.carregado, sha, 'origin', (e) => ({ ok: true, code: 0, stderr: '',
+    stdout: e.caminho?.includes('/statuses') ? '[]' : JSON.stringify({ check_runs: [{ name: 'ork-verify', status: 'completed', conclusion }] }) }));
+  assert.equal(com('skipped').bloqueado, true);
+  assert.equal(com('failure').state, 'failure');
+  assert.equal(com('failure').bloqueado, undefined);
+  assert.equal(com('success').bloqueado, undefined);
+  p.limpar();
+});
+
+test('o retrato com vários checks marca bloqueado só quando todos são verdes ou bloqueados', () => {
+  const p = projetoTemporario('ci-marca-bloqueado-multi', false);
+  ajustarManifesto(p, 'required_for_ship: false', 'required_for_ship: true');
+  p.carregado.manifesto.ci.required_for_ship = true;
+  exec('git', ['remote', 'add', 'origin', 'https://github.com/Orkastery/orkastery.git'], p.carregado.raiz);
+  const sha = shaDaBranch(p.carregado.raiz, 'main');
+  type Run = { app: string; status: string; conclusion: string | null };
+  const com = (runs: Run[]) => consultarCi(p.carregado, sha, 'origin', (e) => ({ ok: true, code: 0, stderr: '',
+    stdout: e.caminho?.includes('/statuses') ? '[]' : JSON.stringify({ check_runs: runs.map((r) => ({ name: 'ork-verify', status: r.status,
+      conclusion: r.conclusion, app: { slug: r.app } })) }) }));
+  const pulado: Run = { app: 'outro-app', status: 'completed', conclusion: 'skipped' };
+  const verde: Run = { app: 'github-actions', status: 'completed', conclusion: 'success' };
+  assert.equal(com([{ app: 'github-actions', status: 'in_progress', conclusion: null }, pulado]).bloqueado, undefined);
+  assert.equal(com([{ app: 'github-actions', status: 'completed', conclusion: 'failure' }, pulado]).bloqueado, undefined);
+  assert.equal(com([{ ...verde, app: 'nao-aceito' }, pulado]).bloqueado, true);
+  assert.equal(com([verde, pulado]).bloqueado, true);
+  assert.equal(com([verde, pulado]).state, 'failure');
+  assert.equal(com([pulado]).bloqueado, true);
   p.limpar();
 });

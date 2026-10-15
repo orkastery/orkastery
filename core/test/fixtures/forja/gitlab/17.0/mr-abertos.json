@@ -1,0 +1,270 @@
+{
+  "caso": "mr-abertos",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "--method",
+    "POST",
+    "-H",
+    "Content-Type: application/json",
+    "graphql",
+    "--input",
+    "-"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-security-policy": "",
+    "content-type": "application/json; charset=utf-8",
+    "date": "Wed, 14 Oct 2026 04:34:02 GMT",
+    "etag": "W/\"44ab89b47bbf60df3970254e29ec6304\"",
+    "permissions-policy": "interest-cohort=()",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Accept-Encoding, Origin",
+    "x-content-type-options": "nosniff",
+    "x-download-options": "noopen",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4WB0M79RRW3GVEK96B5S6D2\",\"version\":\"1\"}",
+    "x-permitted-cross-domain-policies": "none",
+    "x-request-id": "01M4WB0M79RRW3GVEK96B5S6D2",
+    "x-runtime": "0.573683",
+    "x-ua-compatible": "IE=edge",
+    "x-xss-protection": "1; mode=block"
+  },
+  "entrada": {
+    "query": "query($path: ID!, $base: String!, $candidatas: [String!]!) {\n  queryComplexity { score limit }\n  project(fullPath: $path) {\n    id\n    abertos: mergeRequests(state: opened, targetBranches: [$base], sort: CREATED_DESC, first: 100) {\n      pageInfo { hasNextPage endCursor } nodes { iid sourceBranch targetBranch diffHeadSha draft state webUrl createdAt mergedAt sourceProjectId targetProjectId conflicts headPipeline { sha status finishedAt job(name: \"ork-verify\") { status startedAt finishedAt stage { name } } } } }\n    recentes: mergeRequests(state: all, targetBranches: [$base], sort: CREATED_DESC, first: 100) { nodes { iid sourceBranch targetBranch diffHeadSha draft state webUrl createdAt mergedAt sourceProjectId targetProjectId } }\n    daBranch: mergeRequests(state: all, targetBranches: [$base], sourceBranches: $candidatas, sort: CREATED_DESC, first: 50) {\n      pageInfo { hasNextPage } nodes { iid sourceBranch targetBranch diffHeadSha draft state webUrl createdAt mergedAt sourceProjectId targetProjectId } }\n  }\n}",
+    "variables": {
+      "path": "time/sub/app",
+      "base": "main",
+      "candidatas": [
+        "ork/ork-c",
+        "ork/ork-x"
+      ]
+    }
+  },
+  "corpo": {
+    "data": {
+      "queryComplexity": {
+        "score": 140,
+        "limit": 250
+      },
+      "project": {
+        "id": "gid://gitlab/Project/1",
+        "abertos": {
+          "pageInfo": {
+            "hasNextPage": false,
+            "endCursor": "eyJjcmVhdGVkX2F0IjoiMjAyNi0xMC0xNCAwNDozMzozNS4yNjc1MjMwMDAgKzAwMDAiLCJpZCI6IjEifQ"
+          },
+          "nodes": [
+            {
+              "iid": "5",
+              "sourceBranch": "ork/ork-e",
+              "targetBranch": "main",
+              "diffHeadSha": "d4a5cc0aab1c0e6fa70923f6e5915cb2259eefd4",
+              "draft": false,
+              "state": "opened",
+              "webUrl": "http://127.0.0.1/time/sub/app/-/merge_requests/5",
+              "createdAt": "2026-10-14T04:33:54Z",
+              "mergedAt": null,
+              "sourceProjectId": 1,
+              "targetProjectId": 1,
+              "conflicts": false,
+              "headPipeline": {
+                "sha": "d4a5cc0aab1c0e6fa70923f6e5915cb2259eefd4",
+                "status": "SUCCESS",
+                "finishedAt": "2026-10-14T04:33:55Z",
+                "job": {
+                  "status": "SUCCESS",
+                  "startedAt": null,
+                  "finishedAt": "2026-10-14T04:33:55Z",
+                  "stage": {
+                    "name": "external"
+                  }
+                }
+              }
+            },
+            {
+              "iid": "4",
+              "sourceBranch": "ork/ork-fork",
+              "targetBranch": "main",
+              "diffHeadSha": "cc4159d36329d37c403fad8e094c3a11fa7873d5",
+              "draft": false,
+              "state": "opened",
+              "webUrl": "http://127.0.0.1/time/sub/app/-/merge_requests/4",
+              "createdAt": "2026-10-14T04:33:53Z",
+              "mergedAt": null,
+              "sourceProjectId": 2,
+              "targetProjectId": 1,
+              "conflicts": false,
+              "headPipeline": {
+                "sha": "cc4159d36329d37c403fad8e094c3a11fa7873d5",
+                "status": "SUCCESS",
+                "finishedAt": "2026-10-14T04:34:00Z",
+                "job": {
+                  "status": "SUCCESS",
+                  "startedAt": "2026-10-14T04:33:58Z",
+                  "finishedAt": "2026-10-14T04:34:00Z",
+                  "stage": {
+                    "name": "test"
+                  }
+                }
+              }
+            },
+            {
+              "iid": "2",
+              "sourceBranch": "ork/ork-b",
+              "targetBranch": "main",
+              "diffHeadSha": "2d1a40a690df443a7d8537bc97f4dd62e85011d3",
+              "draft": true,
+              "state": "opened",
+              "webUrl": "http://127.0.0.1/time/sub/app/-/merge_requests/2",
+              "createdAt": "2026-10-14T04:33:38Z",
+              "mergedAt": null,
+              "sourceProjectId": 1,
+              "targetProjectId": 1,
+              "conflicts": false,
+              "headPipeline": {
+                "sha": "2d1a40a690df443a7d8537bc97f4dd62e85011d3",
+                "status": "CANCELED",
+                "finishedAt": "2026-10-14T04:33:57Z",
+                "job": {
+                  "status": "CANCELED",
+                  "startedAt": null,
+                  "finishedAt": "2026-10-14T04:33:57Z",
+                  "stage": {
+                    "name": "test"
+                  }
+                }
+              }
+            },
+            {
+              "iid": "1",
+              "sourceBranch": "ork/ork-a",
+              "targetBranch": "main",
+              "diffHeadSha": "8b5e15218be75533e5190dc843d529c1e6167e3c",
+              "draft": false,
+              "state": "opened",
+              "webUrl": "http://127.0.0.1/time/sub/app/-/merge_requests/1",
+              "createdAt": "2026-10-14T04:33:35Z",
+              "mergedAt": null,
+              "sourceProjectId": 1,
+              "targetProjectId": 1,
+              "conflicts": false,
+              "headPipeline": {
+                "sha": "8b5e15218be75533e5190dc843d529c1e6167e3c",
+                "status": "SUCCESS",
+                "finishedAt": "2026-10-14T04:33:48Z",
+                "job": {
+                  "status": "SUCCESS",
+                  "startedAt": "2026-10-14T04:33:46Z",
+                  "finishedAt": "2026-10-14T04:33:48Z",
+                  "stage": {
+                    "name": "test"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "recentes": {
+          "nodes": [
+            {
+              "iid": "5",
+              "sourceBranch": "ork/ork-e",
+              "targetBranch": "main",
+              "diffHeadSha": "d4a5cc0aab1c0e6fa70923f6e5915cb2259eefd4",
+              "draft": false,
+              "state": "opened",
+              "webUrl": "http://127.0.0.1/time/sub/app/-/merge_requests/5",
+              "createdAt": "2026-10-14T04:33:54Z",
+              "mergedAt": null,
+              "sourceProjectId": 1,
+              "targetProjectId": 1
+            },
+            {
+              "iid": "4",
+              "sourceBranch": "ork/ork-fork",
+              "targetBranch": "main",
+              "diffHeadSha": "cc4159d36329d37c403fad8e094c3a11fa7873d5",
+              "draft": false,
+              "state": "opened",
+              "webUrl": "http://127.0.0.1/time/sub/app/-/merge_requests/4",
+              "createdAt": "2026-10-14T04:33:53Z",
+              "mergedAt": null,
+              "sourceProjectId": 2,
+              "targetProjectId": 1
+            },
+            {
+              "iid": "3",
+              "sourceBranch": "ork/ork-c",
+              "targetBranch": "main",
+              "diffHeadSha": "5720b061287c2df75f7f208a770910c32c1ff900",
+              "draft": false,
+              "state": "merged",
+              "webUrl": "http://127.0.0.1/time/sub/app/-/merge_requests/3",
+              "createdAt": "2026-10-14T04:33:40Z",
+              "mergedAt": "2026-10-14T04:33:47Z",
+              "sourceProjectId": 1,
+              "targetProjectId": 1
+            },
+            {
+              "iid": "2",
+              "sourceBranch": "ork/ork-b",
+              "targetBranch": "main",
+              "diffHeadSha": "2d1a40a690df443a7d8537bc97f4dd62e85011d3",
+              "draft": true,
+              "state": "opened",
+              "webUrl": "http://127.0.0.1/time/sub/app/-/merge_requests/2",
+              "createdAt": "2026-10-14T04:33:38Z",
+              "mergedAt": null,
+              "sourceProjectId": 1,
+              "targetProjectId": 1
+            },
+            {
+              "iid": "1",
+              "sourceBranch": "ork/ork-a",
+              "targetBranch": "main",
+              "diffHeadSha": "8b5e15218be75533e5190dc843d529c1e6167e3c",
+              "draft": false,
+              "state": "opened",
+              "webUrl": "http://127.0.0.1/time/sub/app/-/merge_requests/1",
+              "createdAt": "2026-10-14T04:33:35Z",
+              "mergedAt": null,
+              "sourceProjectId": 1,
+              "targetProjectId": 1
+            }
+          ]
+        },
+        "daBranch": {
+          "pageInfo": {
+            "hasNextPage": false
+          },
+          "nodes": [
+            {
+              "iid": "3",
+              "sourceBranch": "ork/ork-c",
+              "targetBranch": "main",
+              "diffHeadSha": "5720b061287c2df75f7f208a770910c32c1ff900",
+              "draft": false,
+              "state": "merged",
+              "webUrl": "http://127.0.0.1/time/sub/app/-/merge_requests/3",
+              "createdAt": "2026-10-14T04:33:40Z",
+              "mergedAt": "2026-10-14T04:33:47Z",
+              "sourceProjectId": 1,
+              "targetProjectId": 1
+            }
+          ]
+        }
+      }
+    }
+  }
+}

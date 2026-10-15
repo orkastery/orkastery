@@ -36,8 +36,11 @@ import { buscarBranch, git, pontaLocal, remotoValido, remotoRedigido } from './b
 import { DIR_ROADMAP, Documento, documentoDeTexto, ehPaginaDeDocs } from './docs';
 import { BRANCH_DA_FABRICA, CONTRATO_MAQUINA, DIR_DA_FABRICA, despachoDaThread, entregasNaBase, EstadoDaMaquina, estadoValido,
   LIMIAR_SEM_BATIDA_MS, retratoDaMaquina, runtimeDaThread, ThreadNaFabrica } from './fabrica-estado';
-import { ArquivoDaForja, CommitDaBase, detalheSeguro, ErroDaForja, ExecutorDaForja, forjaDoArgumento, IdentidadeDaForja,
-  identidadeDaForja, lerCommitsDaForja, lerDaForja, mesmaForja, rotuloDaForja } from './forja';
+import { apiDoGitlab, ArquivoDaForja, CommitDaBase, detalheSeguro, ErroDaForja, ExecutorDaForja, forjaDoArgumento, IdentidadeDaForja,
+  identidadeDaForja, identidadeDaForjaResolvida, lerCommitsDaForja, lerDaForja, mesmaForja, rotuloDaForja } from './forja';
+import type { RodarCli } from './forja/api';
+import { lerEnderecoDoRemoto } from './forja/endereco';
+import { resolverForja } from './forja/resolver';
 import { dataLocal, duracaoCurta, formatarDataHora, fusoDoDono, legendaDoFuso, normalizarFuso, partesLocais } from './horario';
 import { raizDoEstado } from './estado-thread';
 import { carregarManifesto, ManifestoCarregado, NOME_MANIFESTO } from './manifest';
@@ -208,6 +211,8 @@ export interface OpcoesDoPanorama {
   semRemoto?: boolean;
   /** Os testes trocam a CLI da forja por respostas gravadas. */
   executor?: ExecutorDaForja;
+  /** Quem roda o `glab` da API do GitLab; os testes trocam por uma CLI falsa. */
+  rodarDaForja?: RodarCli;
   /** O nome desta maquina; padrao: `nomeDaMaquina()`. */
   maquina?: string;
   /** O arquivo do registro da RM-052; padrao: `~/.orkastery/projetos.json`. */
@@ -231,7 +236,7 @@ export interface OpcoesDoPanorama {
 }
 
 /** `fuso`: o do projeto em leitura; no panorama, o do dono deste processo ate um projeto dizer o seu. */
-interface Contexto { quando: string; maquina: string; semRemoto: boolean; executor?: ExecutorDaForja; fuso: string }
+interface Contexto { quando: string; maquina: string; semRemoto: boolean; executor?: ExecutorDaForja; rodarDaForja?: RodarCli; fuso: string }
 
 const lacuna = (tipo: TipoDeLacunaDaRede, parte: ParteDaRede, alvo: string | undefined, detalhe: string, correcao: string): LacunaDaRede =>
   ({ tipo, parte, ...(alvo ? { alvo } : {}), detalhe, correcao });
@@ -256,8 +261,21 @@ const baseValida = (base: string | null | undefined): base is string =>
 function projetoDoClone(c: ManifestoCarregado, origem: OrigemNoPanorama): ProjetoDaRede {
   const remoto = c.manifesto.fabrica.remoto;
   const url = remotoValido(remoto) ? git(c.raiz, ['remote', 'get-url', '--', remoto]) : null;
-  return { nome: c.manifesto.project.name, forja: url?.ok ? identidadeDaForja(url.stdout.trim()) : null, raiz: c.raiz,
+  return { nome: c.manifesto.project.name, forja: url?.ok ? forjaDoClone(c, url.stdout.trim()) : null, raiz: c.raiz,
     base: c.manifesto.worktree.base_branch, remoto, origem };
+}
+
+/**
+ * A forja do clone, com o manifesto: o bloco `forja:` e o host conhecido decidem, sem rede (como o pulse). So quando
+ * nenhum dos dois diz o tipo (`forja.desconhecida`) vale o nome do host, como para os remotos sem clone; o manifesto
+ * que contradiz o remoto deixa o projeto sem forja, e a leitura cai no clone.
+ */
+function forjaDoClone(c: ManifestoCarregado, url: string): IdentidadeDaForja | null {
+  const endereco = lerEnderecoDoRemoto(url);
+  if (!endereco) return null;
+  const r = resolverForja({ endereco, manifesto: c.manifesto.forja, sondas: {} });
+  if (r.ok) return identidadeDaForjaResolvida(r.valor);
+  return r.erro.codigo === 'forja.desconhecida' ? identidadeDaForja(url) : null;
 }
 
 function mesmoProjeto(a: ProjetoDaRede, b: ProjetoDaRede): boolean {
@@ -788,10 +806,20 @@ function lerProjetoDoClone(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
 const CORRECAO_DA_FORJA: Record<ErroDaForja['codigo'], (cli: string) => string> = {
   'forja.ausente': (cli) => `instale ${cli} e faça login (${cli} auth login); gateway e cron têm PATH curto`,
   'forja.sem-login': (cli) => `rode ${cli} auth login nesta máquina; o ork nunca lê nem copia token`,
-  'forja.nao-encontrado': () => 'confira o nome (github:dono/repo) e se o login da forja enxerga o repositório',
-  'forja.tempo-esgotado': () => 'tente de novo: a forja não respondeu a tempo',
-  'forja.inacessivel': () => 'confira a rede e o status da forja',
   'forja.resposta-invalida': () => 'a forja respondeu fora do formato esperado: registre o caso no RM-054',
+  'forja.sem-permissao': () => 'o login da forja não tem permissão para isso: confira o escopo do token',
+  'forja.nao-achei': () => 'confira o nome (github:dono/repo ou gitlab:grupo/sub/repo) e se o login da forja enxerga o repositório; ' +
+    'no GitLab, projeto privado sem acesso também responde assim',
+  'forja.limite': () => 'a forja limitou as chamadas: tente de novo mais tarde',
+  'forja.conflito': () => 'a forja recusou por conflito: atualize e tente de novo',
+  'forja.indisponivel': () => 'tente de novo e confira a rede e o status da forja',
+  'forja.pedido-recusado': () => 'a forja recusou o pedido: confira os dados enviados',
+  'forja.incompleto': () => 'a forja devolveu uma lista incompleta: tente de novo',
+  'forja.desconhecida': () => 'o ork não reconheceu a forja: declare o bloco forja: no manifesto',
+  'forja.ambigua': () => 'a forja é ambígua: declare o bloco forja: no manifesto',
+  'forja.remoto-divergente': () => 'o remoto do clone não bate com a forja declarada: confira o manifesto',
+  'forja.sem-capacidade': () => 'esta forja não oferece o recurso necessário',
+  'forja.versao-abaixo-do-piso': () => 'o servidor da forja está abaixo do GitLab 17.0, o piso do ork',
 };
 
 function lerProjetoDaForja(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama {
@@ -807,9 +835,10 @@ function lerProjetoDaForja(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
     return semLeitura();
   }
   const desde = inicioDoDia(geral.quando, geral.fuso);
+  const api = forja.tipo === 'gitlab' && geral.rodarDaForja ? apiDoGitlab(forja, { rodar: geral.rodarDaForja }) : undefined;
   const ler = (base: string | null) => lerDaForja(forja, { base, desde, dirRoadmap: DIR_ROADMAP, manifesto: NOME_MANIFESTO,
     reservas: { branch: BRANCH_DE_RESERVAS, dir: DIR_DE_RESERVAS }, fabrica: { branch: BRANCH_DA_FABRICA, dir: DIR_DA_FABRICA },
-    lidoEm: geral.quando }, geral.executor);
+    lidoEm: geral.quando }, geral.executor, api);
   let baseUsada = p.base;
   let r = ler(p.base);
   // Sem clone, a base e a do manifesto lido: se ele aponta outra branch, a leitura e refeita por ela.
@@ -833,7 +862,7 @@ function lerProjetoDaForja(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
   let commits = l.base?.commits ?? [], commitsParciais = l.base?.commitsParciais ?? false;
   const inicioNoProjeto = inicioDoDia(ctx.quando, ctx.fuso);
   if (l.base && Date.parse(inicioNoProjeto) < Date.parse(desde)) {
-    const h = lerCommitsDaForja(forja, { commit: l.base.commit, desde: inicioNoProjeto }, geral.executor);
+    const h = lerCommitsDaForja(forja, { commit: l.base.commit, desde: inicioNoProjeto }, geral.executor, api);
     if (h.ok) { commits = h.commits; commitsParciais = h.parciais; }
     else {
       lacunas.push(lacuna('roadmap.entregas-parciais', 'roadmap', `${rotulo}@${l.base.ref}`,
@@ -1047,6 +1076,7 @@ export function montarPanoramaDaRede(opcoes: OpcoesDoPanorama = {}): PanoramaDaR
   const quando = opcoes.quando ?? new Date().toISOString();
   const cwd = opcoes.cwd ?? process.cwd();
   const ctx: Contexto = { quando, maquina: nomeDaMaquina(opcoes.maquina), semRemoto: opcoes.semRemoto === true, executor: opcoes.executor,
+    rodarDaForja: opcoes.rodarDaForja,
     fuso: fusoDoDono().fuso };
   const naoConsultado: string[] = [];
   const lacunas: LacunaDaRede[] = [];

@@ -1,0 +1,73 @@
+{
+  "caso": "compare",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/repository/compare?from=main&to=ccb019e22467c04b1573fb435971736cf0671569&straight=false"
+  ],
+  "status": 0,
+  "corpo": {
+    "commit": {
+      "id": "ccb019e22467c04b1573fb435971736cf0671569",
+      "short_id": "ccb019e2",
+      "created_at": "2026-10-14T07:34:23.000+00:00",
+      "parent_ids": [
+        "4029c287105c50241e1ca52e386447762c927b6b"
+      ],
+      "title": "feat: solta",
+      "message": "feat: solta",
+      "author_name": "Administrator",
+      "author_email": "gitlab_admin_c1b7a5@example.com",
+      "authored_date": "2026-10-14T07:34:23.000+00:00",
+      "committer_name": "Administrator",
+      "committer_email": "gitlab_admin_c1b7a5@example.com",
+      "committed_date": "2026-10-14T07:34:23.000+00:00",
+      "trailers": {},
+      "extended_trailers": {},
+      "web_url": "http://127.0.0.1/root/matriz/-/commit/ccb019e22467c04b1573fb435971736cf0671569"
+    },
+    "commits": [
+      {
+        "id": "ccb019e22467c04b1573fb435971736cf0671569",
+        "short_id": "ccb019e2",
+        "created_at": "2026-10-14T07:34:23.000+00:00",
+        "parent_ids": [
+          "4029c287105c50241e1ca52e386447762c927b6b"
+        ],
+        "title": "feat: solta",
+        "message": "feat: solta",
+        "author_name": "Administrator",
+        "author_email": "gitlab_admin_c1b7a5@example.com",
+        "authored_date": "2026-10-14T07:34:23.000+00:00",
+        "committer_name": "Administrator",
+        "committer_email": "gitlab_admin_c1b7a5@example.com",
+        "committed_date": "2026-10-14T07:34:23.000+00:00",
+        "trailers": {},
+        "extended_trailers": {},
+        "web_url": "http://127.0.0.1/root/matriz/-/commit/ccb019e22467c04b1573fb435971736cf0671569"
+      }
+    ],
+    "diffs": [
+      {
+        "diff": "@@ -0,0 +1 @@\n+s\n\\ No newline at end of file\n",
+        "collapsed": false,
+        "too_large": false,
+        "new_path": "s.txt",
+        "old_path": "s.txt",
+        "a_mode": "0",
+        "b_mode": "100644",
+        "new_file": true,
+        "renamed_file": false,
+        "deleted_file": false,
+        "generated_file": null
+      }
+    ],
+    "compare_timeout": false,
+    "compare_same_ref": false,
+    "web_url": "http://127.0.0.1/root/matriz/-/compare/4029c287105c50241e1ca52e386447762c927b6b...ccb019e22467c04b1573fb435971736cf0671569"
+  }
+}

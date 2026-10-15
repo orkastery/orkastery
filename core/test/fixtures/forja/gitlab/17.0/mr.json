@@ -1,0 +1,117 @@
+{
+  "caso": "mr",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/merge_requests/1"
+  ],
+  "status": 0,
+  "corpo": {
+    "id": 1,
+    "iid": 1,
+    "project_id": 1,
+    "title": "ship(ork-teste): teste",
+    "description": null,
+    "state": "merged",
+    "created_at": "2026-10-13T19:49:32.649Z",
+    "updated_at": "2026-10-13T19:49:37.803Z",
+    "merged_by": {
+      "id": 1,
+      "username": "root",
+      "name": "Administrator",
+      "state": "active",
+      "locked": false,
+      "avatar_url": "https://www.gravatar.com/avatar/37a8c31d7e11b42164fda8a166380c8f764835f9cfebeb46f22ac28e6b9330ba?s=80&d=identicon",
+      "web_url": "http://127.0.0.1/root"
+    },
+    "merge_user": {
+      "id": 1,
+      "username": "root",
+      "name": "Administrator",
+      "state": "active",
+      "locked": false,
+      "avatar_url": "https://www.gravatar.com/avatar/37a8c31d7e11b42164fda8a166380c8f764835f9cfebeb46f22ac28e6b9330ba?s=80&d=identicon",
+      "web_url": "http://127.0.0.1/root"
+    },
+    "merged_at": "2026-10-13T19:49:37.879Z",
+    "closed_by": null,
+    "closed_at": null,
+    "target_branch": "main",
+    "source_branch": "ork/ork-teste",
+    "user_notes_count": 0,
+    "upvotes": 0,
+    "downvotes": 0,
+    "author": {
+      "id": 1,
+      "username": "root",
+      "name": "Administrator",
+      "state": "active",
+      "locked": false,
+      "avatar_url": "https://www.gravatar.com/avatar/37a8c31d7e11b42164fda8a166380c8f764835f9cfebeb46f22ac28e6b9330ba?s=80&d=identicon",
+      "web_url": "http://127.0.0.1/root"
+    },
+    "assignees": [],
+    "assignee": null,
+    "reviewers": [],
+    "source_project_id": 1,
+    "target_project_id": 1,
+    "labels": [],
+    "draft": false,
+    "imported": false,
+    "imported_from": "none",
+    "work_in_progress": false,
+    "milestone": null,
+    "merge_when_pipeline_succeeds": false,
+    "merge_status": "can_be_merged",
+    "detailed_merge_status": "not_open",
+    "sha": "da552706672f373f75b988cc5f4d9af27936ed9e",
+    "merge_commit_sha": "9be53d6b7c1eb7df0cdadb3e097e8703b0d24a7f",
+    "squash_commit_sha": null,
+    "discussion_locked": null,
+    "should_remove_source_branch": null,
+    "force_remove_source_branch": null,
+    "prepared_at": "2026-10-13T19:49:34.938Z",
+    "reference": "!1",
+    "references": {
+      "short": "!1",
+      "relative": "!1",
+      "full": "root/matriz!1"
+    },
+    "web_url": "http://127.0.0.1/root/matriz/-/merge_requests/1",
+    "time_stats": {
+      "time_estimate": 0,
+      "total_time_spent": 0,
+      "human_time_estimate": null,
+      "human_total_time_spent": null
+    },
+    "squash": false,
+    "squash_on_merge": false,
+    "task_completion_status": {
+      "count": 0,
+      "completed_count": 0
+    },
+    "has_conflicts": false,
+    "blocking_discussions_resolved": true,
+    "subscribed": true,
+    "changes_count": "1",
+    "latest_build_started_at": null,
+    "latest_build_finished_at": null,
+    "first_deployed_to_production_at": null,
+    "pipeline": null,
+    "head_pipeline": null,
+    "diff_refs": {
+      "base_sha": "3e042390de5a1bc9cd3149b07ed51547c911cc5d",
+      "head_sha": "da552706672f373f75b988cc5f4d9af27936ed9e",
+      "start_sha": "3e042390de5a1bc9cd3149b07ed51547c911cc5d"
+    },
+    "merge_error": null,
+    "first_contribution": true,
+    "user": {
+      "can_merge": true
+    }
+  }
+}

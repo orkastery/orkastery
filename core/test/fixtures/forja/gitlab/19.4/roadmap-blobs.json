@@ -1,0 +1,92 @@
+{
+  "caso": "roadmap-blobs",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "--method",
+    "POST",
+    "-H",
+    "Content-Type: application/json",
+    "graphql",
+    "--input",
+    "-"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-security-policy": "",
+    "content-type": "application/json; charset=utf-8",
+    "date": "Wed, 14 Oct 2026 04:24:14 GMT",
+    "etag": "W/\"e0a7f7c3c4641da04d949e025518c27e\"",
+    "nel": "{\"max_age\": 0}",
+    "permissions-policy": "interest-cohort=()",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Accept-Encoding, Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4WAEPATYFRB26FQQ8RS6QN6\",\"version\":\"1\"}",
+    "x-permitted-cross-domain-policies": "none",
+    "x-request-id": "01M4WAEPATYFRB26FQQ8RS6QN6",
+    "x-runtime": "0.208046",
+    "x-ua-compatible": "IE=edge",
+    "x-xss-protection": "1; mode=block"
+  },
+  "entrada": {
+    "query": "query($path: ID!, $refBase: String!, $pathsBase: [String!]!, $refFabrica: String!, $pathsFabrica: [String!]!) { project(fullPath: $path) { repository { base: blobs(ref: $refBase, paths: $pathsBase, first: 100) { pageInfo { hasNextPage } nodes { path rawTextBlob } } fabrica: blobs(ref: $refFabrica, paths: $pathsFabrica, first: 100) { pageInfo { hasNextPage } nodes { path rawTextBlob } } } } }",
+    "variables": {
+      "path": "time/sub/app",
+      "refBase": "55c2b98f4119c6b410835a33b7fd6f95b72ac7b7",
+      "pathsBase": [
+        "docs/roadmap/RM-001-um.md",
+        "orkastery.yaml"
+      ],
+      "refFabrica": "3e9b88b479465b1e1e447f32e58871c887b0de25",
+      "pathsFabrica": [
+        "maquinas/vps.json"
+      ]
+    }
+  },
+  "corpo": {
+    "data": {
+      "project": {
+        "repository": {
+          "base": {
+            "pageInfo": {
+              "hasNextPage": false
+            },
+            "nodes": [
+              {
+                "path": "docs/roadmap/RM-001-um.md",
+                "rawTextBlob": "---\nid: RM-001\n---\n"
+              },
+              {
+                "path": "orkastery.yaml",
+                "rawTextBlob": "project:\n  name: \"app\"\n"
+              }
+            ]
+          },
+          "fabrica": {
+            "pageInfo": {
+              "hasNextPage": false
+            },
+            "nodes": [
+              {
+                "path": "maquinas/vps.json",
+                "rawTextBlob": "{\"contrato\":\"ork.fabrica-maquina/v1\"}"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

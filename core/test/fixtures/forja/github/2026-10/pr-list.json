@@ -1,0 +1,31 @@
+{
+  "caso": "pr-list",
+  "forja": "github",
+  "host": "github.com",
+  "comando": [
+    "gh",
+    "pr",
+    "list",
+    "--repo=github.com/orkastery/orkastery",
+    "--head=ork/ork-f3bvariantes-go",
+    "--state=all",
+    "--limit=10",
+    "--json=number,state,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository,url,createdAt,mergedAt,mergeable"
+  ],
+  "status": 0,
+  "corpo": [
+    {
+      "baseRefName": "main",
+      "createdAt": "2026-10-13T03:31:13Z",
+      "headRefName": "ork/ork-f3bvariantes-go",
+      "headRefOid": "9436d3e076e66353e8e47f39c4457ed1d9bc3dc8",
+      "isCrossRepository": false,
+      "isDraft": false,
+      "mergeable": "UNKNOWN",
+      "mergedAt": "2026-10-13T03:46:48Z",
+      "number": 164,
+      "state": "MERGED",
+      "url": "https://github.com/orkastery/orkastery/pull/164"
+    }
+  ]
+}

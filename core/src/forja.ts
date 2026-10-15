@@ -9,26 +9,22 @@
  *
  * GitHub responde tudo em UMA consulta: a base com `docs/roadmap`, o manifesto e os commits desde
  * `desde`, e as duas branches de estado, cada parte no commit que a propria consulta devolve.
- * GitLab devolve a mesma leitura por consultas GraphQL e pelo REST de commits; sem `glab` na
- * maquina que construiu, o esquema dele esta provado so com resposta simulada (D4 do PLAN).
+ * GitLab devolve a mesma leitura por consultas GraphQL e pelo REST de commits, pela API da CLI
+ * logada (`forja/api.ts`); o esquema esta provado com as respostas gravadas de um GitLab de verdade.
  *
  * Resposta fora do formato vira erro tipado, nunca lista vazia: quem le nao confunde "nao li" com
  * "nao tem".
  */
-import { spawnSync } from 'node:child_process';
+import { lerHostDoRemoto } from './forja/endereco';
 import { redigirSegredos } from './hitl';
 import { procurarSegredos } from './policies';
-import { acharBinario } from './rede-forja';
+import { rodarCli } from './forja/executor';
+import { chamadorDaApi, ChamadorDaApi, OpcoesDaApi } from './forja/api';
+import { CONSULTA_ARVORES_GITLAB, CONSULTA_RAIZ_GITLAB, consultaDeBlobsDoGitlab } from './forja/gitlab/consultas';
+import { projetoNaApi } from './forja/gitlab/pedidos';
 
-export type TipoDeForja = 'github' | 'gitlab';
-
-/** O repositorio na forja: `repo` e `dono/nome` no GitHub e o caminho completo no GitLab. */
-export interface IdentidadeDaForja { tipo: TipoDeForja; host: string; repo: string }
-
-export type CodigoDeErroDaForja = 'forja.ausente' | 'forja.sem-login' | 'forja.nao-encontrado' | 'forja.tempo-esgotado'
-  | 'forja.inacessivel' | 'forja.resposta-invalida';
-
-export interface ErroDaForja { codigo: CodigoDeErroDaForja; detalhe: string }
+export type { TipoDeForja, IdentidadeDaForja, CodigoDeErroDaForja, ErroDaForja, SaidaDoExecutor, ExecutorDaForja } from './forja/contrato';
+import type { TipoDeForja, IdentidadeDaForja, CodigoDeErroDaForja, ErroDaForja, SaidaDoExecutor, ExecutorDaForja, ForjaResolvida } from './forja/contrato';
 
 /** `texto` e null quando o blob e binario ou veio truncado: a pagina existe e nao foi lida. */
 export interface ArquivoDaForja { caminho: string; texto: string | null }
@@ -69,11 +65,6 @@ export interface PedidoDaForja {
   lidoEm?: string;
 }
 
-export interface SaidaDoExecutor { status: number | null; stdout: string; stderr: string; sinal?: string | null; erro?: string }
-
-/** Quem roda a CLI da forja. Os testes trocam por uma resposta gravada. */
-export type ExecutorDaForja = (cmd: 'gh' | 'glab', args: readonly string[], entrada: string, timeoutMs: number) => SaidaDoExecutor;
-
 const PRAZO_MS = 30000;
 const SHA = /^[0-9a-f]{40}$/;
 const SEGMENTO = /^[A-Za-z0-9_.-]+$/;
@@ -86,19 +77,18 @@ const HOST = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9]
  * usuario (`~/.local/bin` e as outras): o gateway e o cron rodam com PATH curto, e o `gh` da maquina-b
  * mora em `~/.local/bin`. Sem achar, o nome vai cru ao spawn, e o ENOENT continua `forja.ausente`.
  */
-export const executorPadrao: ExecutorDaForja = (cmd, args, entrada, timeoutMs) => {
-  const r = spawnSync(acharBinario(cmd) ?? cmd, [...args], {
-    input: entrada, encoding: 'utf8', timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env, GH_PROMPT_DISABLED: '1', GH_NO_UPDATE_NOTIFIER: '1', GLAB_CHECK_UPDATE: 'false', NO_COLOR: '1' },
-  });
-  return { status: r.status, stdout: (r.stdout ?? '').toString(), stderr: (r.stderr ?? '').toString(), sinal: r.signal ?? null,
-    ...(r.error ? { erro: (r.error as NodeJS.ErrnoException).code ?? r.error.message } : {}) };
-};
+export const executorPadrao: ExecutorDaForja = (cmd, args, entrada, timeoutMs) => rodarCli({ cmd, args, entrada,
+  prazoMs: timeoutMs, maxBuffer: 32 * 1024 * 1024,
+  acrescentar: { GH_PROMPT_DISABLED: '1', GH_NO_UPDATE_NOTIFIER: '1', GLAB_CHECK_UPDATE: 'false', NO_COLOR: '1' } });
 
 // ---------------------------------------------------------------------------
 // Identidade
 // ---------------------------------------------------------------------------
 
+/**
+ * O tipo pelo nome do host. So vale onde nao ha manifesto nem login para resolver: a rede le os remotos de outros
+ * projetos. A CI do projeto usa a forja resolvida (`forja/resolver.ts`), que nao decide pelo nome.
+ */
 function tipoDoHost(host: string): TipoDeForja | null {
   if (host === 'github.com' || /(^|[.-])github([.-]|$)/.test(host)) return 'github';
   if (host === 'gitlab.com' || /(^|[.-])gitlab([.-]|$)/.test(host)) return 'gitlab';
@@ -118,13 +108,9 @@ function montar(tipo: TipoDeForja, host: string, caminho: string): IdentidadeDaF
  * na URL nunca entra; caminho local e host que nao e hostname voltam null.
  */
 export function enderecoDoRemoto(url: string): { host: string; caminho: string } | null {
-  const t = url.trim();
-  const esquema = /^(?:https?|ssh|git|git\+ssh|ssh\+git):\/\/(?:[^@/]*@)?([^/:?#@]+)(?::\d+)?\/([^?#\s]+)$/i.exec(t);
-  const scp = esquema ? null : /^(?:[^@\s/:]+@)?([^:\s/@]+):(?!\/\/)([^\s]+)$/.exec(t);
-  const achado = esquema ?? scp;
-  if (!achado) return null;
-  const host = achado[1].toLowerCase();
-  return HOST.test(host) ? { host, caminho: achado[2].replace(/^\/+/, '') } : null;
+  // Parser unico (forja/endereco.ts); aqui so o `HOST` com ponto e o caminho como escrito (`montar` o valida).
+  const lido = lerHostDoRemoto(url);
+  return lido && HOST.test(lido.host) ? { host: lido.host, caminho: lido.caminhoBruto } : null;
 }
 
 /**
@@ -143,7 +129,28 @@ export function repositorioGithubNoHost(url: string): IdentidadeDaForja | null {
 export function identidadeDaForja(url: string): IdentidadeDaForja | null {
   const endereco = enderecoDoRemoto(url);
   const tipo = endereco ? tipoDoHost(endereco.host) : null;
-  return endereco && tipo ? montar(tipo, endereco.host, endereco.caminho) : null;
+  const id = endereco && tipo ? montar(tipo, endereco.host, endereco.caminho) : null;
+  const porta = id?.tipo === 'gitlab' ? portaDaApiNoRemoto(url) : null;
+  return id && porta !== null ? { ...id, porta } : id;
+}
+
+/**
+ * A identidade de uma forja ja resolvida (o bloco `forja:`, o host conhecido), na forma que a leitura do roadmap usa. A
+ * porta, o caminho base e a CA so entram no GitLab: o GitHub le pelo `gh` com o host.
+ */
+export function identidadeDaForjaResolvida(f: ForjaResolvida): IdentidadeDaForja | null {
+  const id = montar(f.tipo, f.host, f.repo);
+  if (!id || id.tipo !== 'gitlab') return id;
+  return { ...id, ...(f.porta !== null ? { porta: f.porta } : {}), ...(f.caminhoBase ? { caminhoBase: f.caminhoBase } : {}),
+    ...(f.ca ? { ca: f.ca } : {}) };
+}
+
+/** A porta da API num remoto https/http, quando nao e a do esquema; a porta de ssh e do ssh e nunca entra. */
+function portaDaApiNoRemoto(url: string): number | null {
+  const lido = lerHostDoRemoto(url);
+  if (!lido || (lido.protocolo !== 'https' && lido.protocolo !== 'http') || lido.porta === null) return null;
+  if (lido.porta < 1 || lido.porta > 65535 || lido.porta === (lido.protocolo === 'https' ? 443 : 80)) return null;
+  return lido.porta;
 }
 
 /** `github:dono/repo`, `gitlab:grupo/sub/repo` (com host proprio: `gitlab:host.tld/grupo/repo`) ou uma URL. */
@@ -161,8 +168,9 @@ export function forjaDoArgumento(texto: string): IdentidadeDaForja | null {
 }
 
 /** Como a forja aparece para gente: `github.com/orkastery/orkastery`. */
-export const rotuloDaForja = (f: IdentidadeDaForja): string => `${f.host}/${f.repo}`;
+export const rotuloDaForja = (f: IdentidadeDaForja): string => `${f.host}${f.porta ? `:${f.porta}` : ''}/${f.repo}`;
 
+/** O mesmo repositorio: tipo, host e repo. A porta da API nao entra, senao o mesmo repo por ssh, https e `gitlab:host/g/r` nao casaria. */
 export const mesmaForja = (a: IdentidadeDaForja | null, b: IdentidadeDaForja | null): boolean =>
   !!a && !!b && a.tipo === b.tipo && a.host === b.host && a.repo.toLowerCase() === b.repo.toLowerCase();
 
@@ -170,13 +178,51 @@ export const mesmaForja = (a: IdentidadeDaForja | null, b: IdentidadeDaForja | n
 // Erros
 // ---------------------------------------------------------------------------
 
+/**
+ * O texto inteiro sem segredo. Os tokens do GitLab podem ter ponto (formato roteavel, `glpat-xxxx.01.yyyy`), por isso a
+ * classe inclui o ponto e nao ha `\b` no fim, que cortaria no ponto e deixaria o sufixo; o token de registro de runner
+ * legado tem o prefixo fixo `GR1348941`.
+ */
+function redigirDaForja(texto: string): string {
+  return redigirSegredos(texto)
+    .replace(/\b(?:glpat|gldt|glrt|glptt|glcbt|gloas|glft|glimt|glsoat)-[A-Za-z0-9_.-]{16,}/g, '[redigido]')
+    .replace(/\bGR1348941[A-Za-z0-9_-]{20,}/g, '[redigido]')
+    .replace(/\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, '[redigido]');
+}
+
+const OMITIDO = '[detalhe omitido: um padrão de segredo casou]';
+
 /** O fim da saida de erro, sem segredo: redigido, e descartado inteiro se ainda casar um padrao. */
 export function detalheSeguro(texto: string): string {
-  const redigido = redigirSegredos(texto)
-    .replace(/\b(?:glpat|gldt|glrt|glptt|glcbt)-[A-Za-z0-9_-]{16,}\b/g, '[redigido]')
-    .replace(/\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, '[redigido]');
-  const linha = redigido.split('\n').map((l) => l.trim()).filter(Boolean).slice(-2).join(' ').slice(0, 240);
-  return procurarSegredos(linha).length ? '[detalhe omitido: um padrão de segredo casou]' : linha;
+  const linha = redigirDaForja(texto).split('\n').map((l) => l.trim()).filter(Boolean).slice(-2).join(' ').slice(0, 240);
+  return procurarSegredos(linha).length ? OMITIDO : linha;
+}
+
+/**
+ * O motivo de um `git push` recusado, sem segredo. O texto inteiro e redigido antes do corte; as linhas `hint:` saem,
+ * e fica o comeco do resto (ate 400 caracteres), onde o git poe o `! [rejected]` ou `! [remote rejected]` e o
+ * `error: failed to push`. Guardar so o fim perderia o motivo: num non-fast-forward, as ultimas linhas sao hints.
+ */
+export function detalheDoPush(texto: string): string {
+  const linhas = redigirDaForja(texto).split('\n').map((l) => l.trim()).filter((l) => l && !/^hint:/i.test(l));
+  const detalhe = linhas.join(' ').slice(0, 400);
+  return procurarSegredos(detalhe).length ? OMITIDO : detalhe;
+}
+
+/**
+ * O push recusado pela protecao da branch. O GitHub diz `GH006: Protected branch update failed` e
+ * `protected branch hook declined`; o GitLab diz `You are not allowed to push code to protected branches` (ou
+ * `force push code to a protected branch`) antes do `pre-receive hook declined`. O `GH013` (regras do repositorio) e
+ * generico: tambem vem da protecao contra segredo, de regra de caminho ou de mensagem de commit. Por isso so conta com
+ * o sinal da protecao da branch na mesma saida (`Changes must be made through a pull request` ou `Cannot update this
+ * protected ref`), e nunca com `PUSH PROTECTION` / `Push cannot contain secrets`. O `pre-receive hook declined` sozinho
+ * e de qualquer gancho, e o "not allowed to push code to this project" do GitLab e falta de acesso ao projeto.
+ */
+export function pushRecusadoPelaProtecao(texto: string): boolean {
+  if (/PUSH PROTECTION|Push cannot contain secrets/i.test(texto)) return false;
+  if (/\bGH006\b|protected branch hook declined|not allowed to (?:force )?push code to (?:a )?protected branch/i.test(texto)) return true;
+  return /\bGH013\b|repository rule violations/i.test(texto)
+    && /Changes must be made through a pull request|Cannot update this protected ref/i.test(texto);
 }
 
 function erro(codigo: CodigoDeErroDaForja, detalhe: string): { ok: false; erro: ErroDaForja } {
@@ -186,16 +232,16 @@ function erro(codigo: CodigoDeErroDaForja, detalhe: string): { ok: false; erro: 
 /** O motivo tipado de uma chamada que falhou. */
 export function classificarFalha(cmd: 'gh' | 'glab', s: SaidaDoExecutor): ErroDaForja {
   if (s.erro === 'ENOENT') return { codigo: 'forja.ausente', detalhe: `${cmd} não está instalado nesta máquina` };
-  if (s.erro === 'ETIMEDOUT' || s.sinal === 'SIGTERM') return { codigo: 'forja.tempo-esgotado', detalhe: `${cmd} não respondeu em ${PRAZO_MS / 1000} s` };
+  if (s.erro === 'ETIMEDOUT' || s.sinal === 'SIGTERM') return { codigo: 'forja.indisponivel', detalhe: `${cmd} não respondeu em ${PRAZO_MS / 1000} s` };
   const texto = `${s.stderr}\n${s.stdout}`;
   const detalhe = detalheSeguro(s.stderr || s.stdout || s.erro || `${cmd} saiu com ${s.status}`);
   if (/"type"\s*:\s*"NOT_FOUND"|Could not resolve to a Repository|404 Not Found|HTTP 404|project not found/i.test(texto)) {
-    return { codigo: 'forja.nao-encontrado', detalhe };
+    return { codigo: 'forja.nao-achei', detalhe };
   }
   if (/auth login|not logged|authentication|HTTP 401|Bad credentials|GH_TOKEN|GITLAB_TOKEN|unauthorized|no token/i.test(texto)) {
     return { codigo: 'forja.sem-login', detalhe };
   }
-  return { codigo: 'forja.inacessivel', detalhe };
+  return { codigo: 'forja.indisponivel', detalhe };
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +264,7 @@ function chamarJson(executor: ExecutorDaForja, cmd: 'gh' | 'glab', args: string[
     const falha = classificarFalha(cmd, s.erro || s.status !== 0 ? s : { ...s, status: 1, stderr: JSON.stringify(json) });
     // `gh` sai 1 com NOT_FOUND no corpo: o tipo do erro GraphQL vale mais que a frase.
     if (erros && (json as { errors: unknown[] }).errors.some((e) => obj(e) && e.type === 'NOT_FOUND')) {
-      return { ok: false, erro: { codigo: 'forja.nao-encontrado', detalhe: falha.detalhe } };
+      return { ok: false, erro: { codigo: 'forja.nao-achei', detalhe: falha.detalhe } };
     }
     return { ok: false, erro: falha };
   }
@@ -226,10 +272,7 @@ function chamarJson(executor: ExecutorDaForja, cmd: 'gh' | 'glab', args: string[
   return { ok: true, json };
 }
 
-/**
- * O host vai sempre explicito: sem ele, o `gh` usa `GH_HOST` ou o unico host com login, e o `glab`,
- * o host do remoto do cwd; a consulta iria para outra forja.
- */
+/** So o `gh`: o host vai sempre explicito, ou ele usaria `GH_HOST` ou o unico host com login e a consulta iria para outra forja. */
 const hostnameDe = (f: IdentidadeDaForja): string[] => ['--hostname', f.host];
 
 function arquivosDoGithub(entrada: unknown, dir: string): ArquivoDaForja[] | null {
@@ -269,14 +312,28 @@ function commitsDoHistorico(historico: unknown, onde: string): { commits: Commit
   };
 }
 
+/** A API do GitLab de uma forja: o host e a porta da API, e o caminho base e a CA quando vieram do bloco `forja:`. */
+export const apiDoGitlab = (forja: IdentidadeDaForja, opcoes: OpcoesDaApi = {}): ChamadorDaApi =>
+  chamadorDaApi({ tipo: 'gitlab', host: forja.host, porta: forja.porta ?? null, caminhoBase: forja.caminhoBase ?? '', ca: forja.ca ?? null }, opcoes);
+
+/** Uma consulta GraphQL do GitLab; `errors` no corpo e erro tipado, nunca resposta. */
+function graphqlDoGitlab(api: ChamadorDaApi, query: string, variables: Json): { ok: true; json: unknown } | { ok: false; erro: ErroDaForja } {
+  const r = api({ metodo: 'POST', caminho: 'graphql', corpo: { query, variables }, prazoMs: PRAZO_MS });
+  if (!r.ok) return r;
+  const json = r.valor.corpo;
+  if (obj(json) && Array.isArray(json.errors) && json.errors.length) {
+    return { ok: false, erro: { codigo: 'forja.resposta-invalida', detalhe: detalheSeguro(JSON.stringify(json.errors)) } };
+  }
+  return { ok: true, json };
+}
+
 /** Os commits da base desde `desde`, pelo REST do GitLab (GET), e se vieram 100 (pagina cheia). */
-function commitsDoGitlab(forja: IdentidadeDaForja, commit: string, desde: string, executor: ExecutorDaForja):
+function commitsDoGitlab(forja: IdentidadeDaForja, commit: string, desde: string, api: ChamadorDaApi):
   { ok: true; commits: CommitDaBase[]; parciais: boolean } | { ok: false; erro: ErroDaForja } {
-  const rest = executor('glab', ['api', `projects/${encodeURIComponent(forja.repo)}/repository/commits?ref_name=${encodeURIComponent(commit)}` +
-    `&since=${encodeURIComponent(desde)}&per_page=100`, ...hostnameDe(forja)], '', PRAZO_MS);
-  if (rest.erro || rest.status !== 0) return { ok: false, erro: classificarFalha('glab', rest) };
-  let lista: unknown;
-  try { lista = JSON.parse(rest.stdout); } catch { lista = undefined; }
+  const r = api({ metodo: 'GET', caminho: `${projetoNaApi(forja.repo)}/repository/commits?ref_name=${encodeURIComponent(commit)}` +
+    `&since=${encodeURIComponent(desde)}&per_page=100`, prazoMs: PRAZO_MS });
+  if (!r.ok) return r;
+  const lista = r.valor.corpo;
   exigir(Array.isArray(lista), 'commits');
   const commits = (lista as unknown[]).map((c) => {
     exigir(obj(c) && typeof c.id === 'string' && typeof c.title === 'string' && typeof c.committed_date === 'string', 'commit');
@@ -335,33 +392,9 @@ function lerDoGithub(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
     reservas: estado(repo.reservas, pedido.reservas), fabrica: estado(repo.fabrica, pedido.fabrica) } };
 }
 
-const CONSULTA_RAIZ_GITLAB = 'query($path: ID!) { project(fullPath: $path) { repository { rootRef } } }';
-
-const CONSULTA_ARVORES_GITLAB = `query($path: ID!, $base: String!, $dirRoadmap: String!, $refReservas: String!, $dirReservas: String!,
-  $refFabrica: String!, $dirFabrica: String!) {
-  project(fullPath: $path) { repository {
-    baseTopo: tree(ref: $base) { lastCommit { sha committedDate } }
-    baseDir: tree(ref: $base, path: $dirRoadmap) { blobs(first: 100) { pageInfo { hasNextPage } nodes { name path } } }
-    reservasTopo: tree(ref: $refReservas) { lastCommit { sha committedDate } }
-    reservasDir: tree(ref: $refReservas, path: $dirReservas) { blobs(first: 100) { pageInfo { hasNextPage } nodes { name path } } }
-    fabricaTopo: tree(ref: $refFabrica) { lastCommit { sha committedDate } }
-    fabricaDir: tree(ref: $refFabrica, path: $dirFabrica) { blobs(first: 100) { pageInfo { hasNextPage } nodes { name path } } }
-  } }
-}`;
-
-/** Os blobs de cada ponta que existe; so as partes pedidas entram na consulta (texto fixo, sem interpolar o pedido). */
-function consultaDeBlobsDoGitlab(partes: readonly ('base' | 'reservas' | 'fabrica')[]): string {
-  const sufixo = { base: 'Base', reservas: 'Reservas', fabrica: 'Fabrica' };
-  const declaracoes = ['$path: ID!', ...partes.flatMap((p) => [`$ref${sufixo[p]}: String!`, `$paths${sufixo[p]}: [String!]!`])];
-  const campos = partes.map((p) => `${p}: blobs(ref: $ref${sufixo[p]}, paths: $paths${sufixo[p]}, first: 100) ` +
-    '{ pageInfo { hasNextPage } nodes { path rawTextBlob } }');
-  return `query(${declaracoes.join(', ')}) { project(fullPath: $path) { repository { ${campos.join(' ')} } } }`;
-}
-
-function lerDoGitlab(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: ExecutorDaForja, lidoEm: string): ResultadoDaForja {
-  const args = ['api', 'graphql', '--method', 'POST', '--input', '-', ...hostnameDe(forja)];
+function lerDoGitlab(forja: IdentidadeDaForja, pedido: PedidoDaForja, api: ChamadorDaApi, lidoEm: string): ResultadoDaForja {
   let chamadas = 0;
-  const graphql = (query: string, variables: Json) => { chamadas++; return chamarJson(executor, 'glab', args, JSON.stringify({ query, variables })); };
+  const graphql = (query: string, variables: Json) => { chamadas++; return graphqlDoGitlab(api, query, variables); };
   const repositorio = (json: unknown): Json => {
     const projeto = obj(json) && obj((json as Json).data) ? ((json as Json).data as Json).project : undefined;
     if (projeto === null) throw new NaoEncontrado();
@@ -433,7 +466,7 @@ function lerDoGitlab(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
   let commitsParciais = false;
   if (pontaBase) {
     chamadas++;
-    const r = commitsDoGitlab(forja, pontaBase.commit, pedido.desde, executor);
+    const r = commitsDoGitlab(forja, pontaBase.commit, pedido.desde, api);
     if (!r.ok) return r;
     commits = r.commits;
     commitsParciais = r.parciais;
@@ -459,10 +492,10 @@ const CONSULTA_DE_COMMITS_GITHUB = `query($owner: String!, $name: String!, $oid:
  * o fuso do projeto so se conhece depois de ler o manifesto dele (achado 5 da rodada 2). So consulta.
  */
 export function lerCommitsDaForja(forja: IdentidadeDaForja, pedido: { commit: string; desde: string },
-  executor: ExecutorDaForja = executorPadrao): { ok: true; commits: CommitDaBase[]; parciais: boolean } | { ok: false; erro: ErroDaForja } {
+  executor: ExecutorDaForja = executorPadrao, api?: ChamadorDaApi): { ok: true; commits: CommitDaBase[]; parciais: boolean } | { ok: false; erro: ErroDaForja } {
   if (!SHA.test(pedido.commit)) return erro('forja.resposta-invalida', 'commit da base fora do formato');
   try {
-    if (forja.tipo === 'gitlab') return commitsDoGitlab(forja, pedido.commit, pedido.desde, executor);
+    if (forja.tipo === 'gitlab') return commitsDoGitlab(forja, pedido.commit, pedido.desde, api ?? apiDoGitlab(forja));
     const [owner, name] = forja.repo.split('/');
     const r = chamarJson(executor, 'gh', ['api', 'graphql', '--method', 'POST', '--input', '-', ...hostnameDe(forja)],
       JSON.stringify({ query: CONSULTA_DE_COMMITS_GITHUB, variables: { owner, name, oid: pedido.commit, desde: pedido.desde } }));
@@ -482,12 +515,13 @@ export function lerCommitsDaForja(forja: IdentidadeDaForja, pedido: { commit: st
  * Le da forja a base (com `docs/roadmap`, o manifesto e os commits desde `desde`) e as duas branches
  * de estado. So consulta; qualquer falha volta como erro tipado, com o detalhe redigido.
  */
-export function lerDaForja(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: ExecutorDaForja = executorPadrao): ResultadoDaForja {
+export function lerDaForja(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: ExecutorDaForja = executorPadrao,
+  api?: ChamadorDaApi): ResultadoDaForja {
   const lidoEm = pedido.lidoEm ?? new Date().toISOString();
   try {
-    return forja.tipo === 'github' ? lerDoGithub(forja, pedido, executor, lidoEm) : lerDoGitlab(forja, pedido, executor, lidoEm);
+    return forja.tipo === 'github' ? lerDoGithub(forja, pedido, executor, lidoEm) : lerDoGitlab(forja, pedido, api ?? apiDoGitlab(forja), lidoEm);
   } catch (e) {
-    if (e instanceof NaoEncontrado) return erro('forja.nao-encontrado', `${rotuloDaForja(forja)} não existe ou não é visível para o login da forja`);
+    if (e instanceof NaoEncontrado) return erro('forja.nao-achei', `${rotuloDaForja(forja)} não existe ou não é visível para o login da forja`);
     if (e instanceof RespostaInvalida) return erro('forja.resposta-invalida', `resposta fora do formato esperado em ${e.message}`);
     throw e;
   }

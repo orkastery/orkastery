@@ -5,6 +5,20 @@ import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { dirTemporario } from './apoio';
 import { comLockInspecionavel } from '../src/hitl-lock';
+
+test('F4: arquivo vazio da janela de primeira criacao e inicializado somente depois do flock', () => {
+  const dir = dirTemporario('lock-primeiro-uso'), file = path.join(dir, '.hitl.lock');
+  fs.writeFileSync(file, '', { mode: 0o600 });
+  try {
+    comLockInspecionavel(dir, 'primeiro-uso', () => {
+      const durante = JSON.parse(fs.readFileSync(file, 'utf8'));
+      assert.equal(durante.contrato, 'ork.hitl-lock/v1');
+      assert.equal(durante.estado, 'ocupado');
+    });
+    assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).estado, 'liberado');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('F4: kernel mantém exclusão no dono, identidade é inspecionável, exceção libera sem apagar inode', () => {
   const dir = dirTemporario('lock-kernel'), file = path.join(dir, '.hitl.lock');
   comLockInspecionavel(dir, 'fixture', () => {

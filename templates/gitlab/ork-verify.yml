@@ -1,0 +1,36 @@
+# ork-verify no GitLab CI: o CHECK independente do Orkastery, no commit exato do MR.
+#
+# Copie este arquivo para o projeto e inclua-o no .gitlab-ci.yml (include: local), ou cole o job nele. As regras de
+# pipeline abaixo vao no proprio .gitlab-ci.yml do projeto, fora de qualquer include: sem elas no arquivo principal, a
+# pipeline de MR pode nao nascer, ou nascer em dobro com a de branch, e o head do MR fica sem o ork-verify.
+#
+#   workflow:
+#     rules:
+#       - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+#       - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+#         when: never
+#       - if: $CI_COMMIT_BRANCH
+#
+# O nome do job e o check que o ork exige (ci.context no orkastery.yaml, ork-verify por padrao). O job e o proprio
+# sinal: o ork le o job pela API (os commit statuses do commit) e confere que ele e um job de pipeline deste projeto.
+# O job nao publica status, nao usa token e nao precisa de nenhum: o CI_JOB_TOKEN nao pode publicar status.
+#
+# Resultado mesclado e merge train (Premium): o job roda num commit temporario; o ork o liga ao head do MR pelo pai
+# desse commit. Merge train com squash apaga esse vinculo, e o ork responde ci.merged-results-sem-vinculo.
+
+ork-verify:
+  stage: test
+  image: node:22
+  variables:
+    # O bundle da thread e a comparacao com a base precisam do historico inteiro.
+    GIT_DEPTH: "0"
+    # A versao do ork que roda o CHECK (>= a que traz `ci run --branch`). O suporte a GitLab chega na proxima versao
+    # publicada: ate la, instale o tarball gerado do repositorio (npm pack em core/) no lugar do pacote do npm.
+    ORK_VERSAO: "0.5.6"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+  script:
+    - npm install --global --no-audit --no-fund "@orkastery/cli@${ORK_VERSAO}"
+    # A branch do MR (ou a do push): o ork acha o .ork-ci/<thread>.json da thread por ela.
+    - ork ci run --branch "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_REF_NAME}"

@@ -17,6 +17,8 @@ import type { FantasmaTratado } from './sessoes';
 import { maquinaOciosa, MaquinaOciosa } from './maquina-ociosa';
 import { dirThread, lerThread } from './thread';
 import { ehRegistroDeAdocao } from './sessoes-adopt';
+import type { RodarCli } from './forja/api';
+import type { SondasDaForja } from './forja/resolver';
 import { lerLedger } from './ledger';
 import { FASES, MonitorDeOrquestracao, RadarDeSessoes, Thread, EventoLedger } from './types';
 import { agora, noPath } from './util';
@@ -370,6 +372,10 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
   registrar?: boolean; escopo?: readonly string[]; quando?: string; linhasLogs?: number; semRuntime?: boolean; consulta?: ConsultaDeSessoes;
   /** RM-037 (fatia 4): quem roda o `gh` na leitura dos PRs; os testes trocam por resposta gravada. */
   executorDoGh?: ExecutorDoGh;
+  /** Quem roda a CLI da API da forja (o `glab`, a sondagem); os testes trocam por uma CLI falsa. */
+  rodarDaForja?: RodarCli;
+  /** As sondas da resolucao da forja; os testes trocam. */
+  sondasDaForja?: SondasDaForja;
   /**
    * RM-063 (F2): sem tocar a forja. A fila do dono nao depende dos PRs; quem so le a fila (o status do roadmap)
    * nao espera a rede nem grava o retrato dos PRs.
@@ -404,7 +410,8 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
   let entregas: EntregasDoProjeto | undefined;
   try {
     entregas = entregasDoProjeto(carregado, { quando, sessoes: radar.sessoes, lerPrs: opcoes.semForja ? () => null : (candidatas): LeituraDePrs => {
-      const leitura = lerPrsDaForja(carregado, { quando, executor: opcoes.executorDoGh, candidatas });
+      const leitura = lerPrsDaForja(carregado, { quando, executor: opcoes.executorDoGh, candidatas, rodar: opcoes.rodarDaForja,
+        sondas: opcoes.sondasDaForja });
       if (leitura.ok) {
         try { gravarRetratoDePrs(carregado.raiz, leitura.retrato); } catch { /* o retrato e economia do status */ }
         try { esquecerForjaSemLeitura(carregado.raiz); } catch { /* sem a marca, a proxima perda de leitura e dita de novo */ }

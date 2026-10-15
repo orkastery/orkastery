@@ -233,8 +233,9 @@ runtime_profiles:
 ```
 
 Com a troca por cota ligada (o padrão), esgotamento de cota, crédito ou limite do plano marca o
-perfil e passa o MESMO prompt para o próximo perfil ativo do mesmo runtime; sem perfil ativo,
-segue para o runtime de fallback do bloco e depois para a fila durável até o menor prazo. Rate
+perfil e passa o prompt original quando nada foi produzido, ou um prompt de retomada com o
+checkpoint quando a sessão já produziu, para o próximo perfil ativo do mesmo runtime; sem perfil
+ativo, segue para o runtime de fallback do bloco e depois para a fila durável até o menor prazo. Rate
 limit comum de curta janela (429 por minuto, Retry-After curto, sobrecarga) nunca troca de
 perfil: espera a janela na fila. O critério entre os dois é único (D16, ver
 [verificacao.md](verificacao.md)). Com `rotate_same_runtime_on_quota: false`, o operador
@@ -245,8 +246,10 @@ do provedor (a responsabilidade por esses termos é do operador, SECURITY.md), e
 perfil de API paga. A troca por login perdido segue ligada por padrão. A troca manual e
 explícita do operador (`ork accounts`, `ork setup`) continua possível. A autorização segue a mesma regra do resto do retry: num bloco que pausa, a
 ação espera a resposta humana ao `ork gate request`; no `#Maestro` e no `#Auto`, o `ork` troca sozinho e grava
-`runtime_profile_rotated` com quem decidiu, a evidência e a razão. Estourar `retry.max_tentativas` e produção parcial sob cota
-esgotada pausam **qualquer** modo, inclusive o `#Auto`. Perfil não é eixo de independência do
+`runtime_profile_rotated` com quem decidiu, a evidência e a razão. Estourar `retry.max_tentativas`
+pausa **qualquer** modo, inclusive o `#Auto`; a regra `producao parcial sob cota segue pelo checkpoint`
+retoma com
+fase, `HEAD`, estado da worktree, claims e rodada. Perfil não é eixo de independência do
 CHECK: dois perfis do mesmo runtime não viram dois avaliadores.
 
 ---

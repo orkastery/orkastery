@@ -11,6 +11,9 @@ export const VERIFY_PT_BR = {
   uso: 'uso: ork verify <thread-id> [--baseline] [--so-claims] [--canal C] [--esperar [min]]',
   // ork verify --baseline
   baselineGravada: (id: string) => `Baseline gravada para a thread ${id}.`,
+  baselineDependenciaAusente: (nome: string, code: number, comando: string) =>
+    `baseline.dependencia-ausente: ${nome} nao executou porque o comando nao existe (codigo ${code}): ${comando}; ` +
+    'instale ou prepare as dependencias antes de gravar a baseline',
   baselineCommit: (commit: string) => `  commit ${commit}`,
   baselineComando: (nome: string, ok: boolean, code: number, comando: string) =>
     `  ${nome.padEnd(10)} ${ok ? 'passava' : `ja falhava (codigo ${code})`}  ${comando}`,
@@ -80,6 +83,9 @@ export const VERIFY_PT_BR = {
 export const VERIFY_EN: typeof VERIFY_PT_BR = {
   uso: 'usage: ork verify <thread-id> [--baseline] [--so-claims] [--canal C] [--esperar [min]]',
   baselineGravada: (id) => `Baseline recorded for thread ${id}.`,
+  baselineDependenciaAusente: (nome, code, comando) =>
+    `baseline.missing-dependency: ${nome} did not run because the command does not exist (exit ${code}): ${comando}; ` +
+    'install or prepare dependencies before recording the baseline',
   baselineCommit: (commit) => `  commit ${commit}`,
   baselineComando: (nome, ok, code, comando) => `  ${nome.padEnd(10)} ${ok ? 'passed' : `already failing (exit ${code})`}  ${comando}`,
   baselineSaida: (caminho, id) => `  output of the failing commands: the last lines in ${caminho}, field \`baseline.comandos\` ` +

@@ -76,12 +76,17 @@ export const NETWORK_PT_BR = {
   cliAusente: (forja: string) => `a CLI da forja ${forja} nao esta nesta maquina`,
   nenhumaCli: 'nenhuma CLI de forja (gh ou glab) nesta maquina',
   loginNaoLido: (falhas: string) => `${falhas}; o login nao foi lido, rode de novo com a forja respondendo`,
-  semLogin: (clis: readonly string[]) => `${clis.join(' e ')} sem login nesta maquina (${clis.map((c) => `${c} auth login`).join(' ou ')})`,
+  semLogin: (candidatas: readonly { nome: string; cli: string; host: string }[]) => {
+    const partes = candidatas.map((c) => (c.nome === 'gitlab' ? `${c.cli} sem login no ${c.host}` : `${c.cli} sem login nesta maquina`) + ` (${c.cli} auth login)`);
+    const noPadrao = candidatas.some((c) => c.nome === 'gitlab' && c.host === 'gitlab.com');
+    return partes.join('; ') + (noPadrao ? '; um GitLab proprio exige GITLAB_HOST=<host>' : '');
+  },
   respostaSemLogin: (cli: string) => `${cli} api user devolveu uma resposta sem login legivel`,
   semRespostaNoPrazo: 'sem resposta da forja no prazo',
   apiFalhou: (cli: string, rota: string, linha: string) => `rede.forja: ${cli} api ${rota} falhou${linha ? `: ${linha}` : ''}`,
   repositorioIlegivel: 'rede.forja: gh devolveu um repositorio ilegivel',
   projetoIlegivel: 'rede.forja: glab devolveu um projeto ilegivel',
+  projetoEmOutroCaminho: (pedido: string, criado: string) => `rede.forja: o GitLab criou o projeto em ${criado}, e não em ${pedido}; confira o grupo e apague o que sobrou`,
   // As recusas da rede (rede.ts e rede-adesao.ts).
   foraDoContrato: (onde: string) => `rede.segredo: ${onde} fora do contrato; nada foi publicado`,
   campoForaDaLista: (campo: string) => `rede.segredo: campo "${campo}" fora da lista de permissao; nada foi publicado`,
@@ -94,6 +99,12 @@ export const NETWORK_PT_BR = {
   semRepositorio: (ref: string) => `rede.sem-repositorio: ${ref} ainda nao existe; ork network entrar o cria, privado`,
   repositorioAlheio: (ref: string, login: string | null) =>
     `rede.repositorio-alheio: ${ref} nao existe e nao e do login ${login}; crie o repositorio privado na forja e rode de novo`,
+  gitlabNaoSuportado: (motivo: 'subcaminho' | 'ca') =>
+    `rede.forja-nao-suportada: a casa da rede num GitLab ${motivo === 'ca' ? 'com CA propria (GLAB_CA_CERT)' : 'em subcaminho (GITLAB_HOST com caminho)'} ` +
+    'ainda nao e suportada; o rede.json guarda so host[:porta]. Use um GitLab na raiz do host e com certificado publico',
+  grupoSemNivel: (ref: string, grupo: string, login: string | null, nivel: number) =>
+    `rede.repositorio-alheio: ${ref} nao existe, e o login ${login} tem nivel ${nivel} no grupo ${grupo}; criar a casa num grupo pede ` +
+    'Maintainer (40) ou acima',
   repositorioPublico: (ref: string) => `rede.repositorio-publico: ${ref} nao e privado; nada foi publicado`,
   semUrl: (cli: string, ref: string) => `rede.forja: ${cli} nao devolveu a URL de ${ref}`,
   semHttps: (cli: string, ref: string) =>
@@ -272,12 +283,17 @@ export const NETWORK_EN: MensagensDeNetwork = {
   cliAusente: (forja) => `the ${forja} forge CLI is not on this machine`,
   nenhumaCli: 'no forge CLI (gh or glab) on this machine',
   loginNaoLido: (falhas) => `${falhas}; the login was not read, run again with the forge responding`,
-  semLogin: (clis) => `${clis.join(' and ')} without a login on this machine (${clis.map((c) => `\`${c} auth login\``).join(' or ')})`,
+  semLogin: (candidatas) => {
+    const partes = candidatas.map((c) => (c.nome === 'gitlab' ? `${c.cli} without a login on ${c.host}` : `${c.cli} without a login on this machine`) + ` (\`${c.cli} auth login\`)`);
+    const noPadrao = candidatas.some((c) => c.nome === 'gitlab' && c.host === 'gitlab.com');
+    return partes.join('; ') + (noPadrao ? '; a self-hosted GitLab needs GITLAB_HOST=<host>' : '');
+  },
   respostaSemLogin: (cli) => `${cli} api user returned a response without a readable login`,
   semRespostaNoPrazo: 'no answer from the forge in time',
   apiFalhou: (cli, rota, linha) => `rede.forja: ${cli} api ${rota} failed${linha ? `: ${linha}` : ''}`,
   repositorioIlegivel: 'rede.forja: gh returned an unreadable repository',
   projetoIlegivel: 'rede.forja: glab returned an unreadable project',
+  projetoEmOutroCaminho: (pedido, criado) => `rede.forja: GitLab created the project at ${criado}, not at ${pedido}; check the group and delete the leftover`,
   foraDoContrato: (onde) => `rede.segredo: ${onde} is outside the contract; nothing was published`,
   campoForaDaLista: (campo) => `rede.segredo: field "${campo}" is not on the allow list; nothing was published`,
   campoLongo: (campo) => `rede.segredo: field "${campo}" is too long; nothing was published`,
@@ -288,6 +304,12 @@ export const NETWORK_EN: MensagensDeNetwork = {
   semRepositorio: (ref) => `rede.sem-repositorio: ${ref} does not exist yet; \`ork network entrar\` creates it, private`,
   repositorioAlheio: (ref, login) =>
     `rede.repositorio-alheio: ${ref} does not exist and does not belong to the login ${login}; create the private repository on the forge and run again`,
+  gitlabNaoSuportado: (motivo) =>
+    `rede.forja-nao-suportada: the network home on a GitLab ${motivo === 'ca' ? 'with its own CA (GLAB_CA_CERT)' : 'under a subpath (GITLAB_HOST with a path)'} ` +
+    'is not supported yet; rede.json stores only host[:port]. Use a GitLab at the host root with a public certificate',
+  grupoSemNivel: (ref, grupo, login, nivel) =>
+    `rede.repositorio-alheio: ${ref} does not exist, and the login ${login} has level ${nivel} in the group ${grupo}; creating the ` +
+    'network home in a group needs Maintainer (40) or above',
   repositorioPublico: (ref) => `rede.repositorio-publico: ${ref} is not private; nothing was published`,
   semUrl: (cli, ref) => `rede.forja: ${cli} did not return the URL of ${ref}`,
   semHttps: (cli, ref) => `rede.sem-https: ${cli} returned a URL without https for ${ref}; the network only talks to the forge over https, and nothing was published`,

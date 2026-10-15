@@ -352,3 +352,48 @@ test('o #Fast nao entrega contrato publico; o mesmo diff numa thread #Auto entre
     projeto.limpar();
   }
 });
+
+test('push recusado com token numa linha que o detalhe guarda: o detalhe sai redigido', () => {
+  const projeto = projetoTemporario('ship-redacao', true);
+  // O caminho do remoto traz o token: o git o imprime no `To <remoto>` e no `error: failed to push some refs to '<remoto>'`,
+  // linhas que o detalhe guarda.
+  const comToken = path.join(path.dirname(projeto.remoto as string), `ghp_${'a'.repeat(36)}`);
+  fs.renameSync(projeto.remoto as string, comToken);
+  try {
+    exec('git', ['remote', 'set-url', 'origin', comToken], projeto.dir);
+    fs.writeFileSync(path.join(comToken, 'hooks', 'pre-receive'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    const { thread } = threadComEntrega(projeto, 'entrega redigida', 'auto');
+    const r = ship(projeto.carregado, thread.id, { para: 'main' });
+    assert.equal(r.bloqueado, true);
+    assert.match(r.detalhe ?? '', /push para origin\/main falhou/);
+    assert.match(r.detalhe ?? '', /error: failed to push some refs to '[^']*\[redigido\]/, r.detalhe);
+    assert.doesNotMatch(r.detalhe ?? '', /a{36}/);
+  } finally {
+    fs.renameSync(comToken, projeto.remoto as string);
+    projeto.limpar();
+  }
+});
+
+test('push recusado por non-fast-forward: o detalhe guarda o motivo, sem as linhas de hint', () => {
+  const projeto = projetoTemporario('ship-push-nff', true);
+  const outro = fs.mkdtempSync(path.join(path.dirname(projeto.remoto as string), 'ship-push-nff-clone-'));
+  try {
+    // Outro clone empurra um commit na base depois que a worktree da thread nasceu (ela sai da base remota atual): o push
+    // do ship chega atrasado e o remoto recusa (fetch first).
+    exec('git', ['clone', '-q', projeto.remoto as string, outro], projeto.dir);
+    exec('git', ['config', 'user.email', 'outro@example.com'], outro);
+    exec('git', ['config', 'user.name', 'outro'], outro);
+    exec('git', ['config', 'commit.gpgsign', 'false'], outro);
+    const { thread } = threadComEntrega(projeto, 'entrega atrasada', 'auto');
+    commitar(outro, 'outro.md', '# de outro clone\n', 'outro commit na base');
+    assert.equal(exec('git', ['push', '-q', 'origin', 'main'], outro).ok, true);
+    const r = ship(projeto.carregado, thread.id, { para: 'main' });
+    assert.equal(r.bloqueado, true);
+    assert.match(r.detalhe ?? '', /! \[rejected\]\s+main -> main/, r.detalhe);
+    assert.match(r.detalhe ?? '', /error: failed to push some refs/, r.detalhe);
+    assert.doesNotMatch(r.detalhe ?? '', /hint:/);
+  } finally {
+    fs.rmSync(outro, { recursive: true, force: true });
+    projeto.limpar();
+  }
+});

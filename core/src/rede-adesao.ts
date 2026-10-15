@@ -54,6 +54,8 @@ const arquivoDaConfig = (): string => path.join(pastaDoUsuario(), 'rede.json');
 const arquivoDaTentativa = (): string => path.join(pastaDaRede(), 'tentativa.json');
 
 const IDENTIFICADOR = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+/** O dono da casa: o login, ou o caminho de um grupo com subgrupos (`time/sub`). */
+const DONO = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}(?:\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}){0,19}$/;
 const HOST = /^[A-Za-z0-9.-]+(?::\d+)?$/;
 const texto = (v: unknown, padrao: RegExp): string | null => typeof v === 'string' && padrao.test(v) ? v : null;
 
@@ -64,7 +66,7 @@ export function lerConfigDaRede(): ConfigDaRede | null {
     return {
       contrato: CONTRATO_DA_ADESAO, membro: bruto.membro,
       forja: bruto.forja === 'github' || bruto.forja === 'gitlab' ? bruto.forja : null,
-      host: texto(bruto.host, HOST), dono: texto(bruto.dono, IDENTIFICADOR), repositorio: texto(bruto.repositorio, IDENTIFICADOR),
+      host: texto(bruto.host, HOST), dono: texto(bruto.dono, DONO), repositorio: texto(bruto.repositorio, IDENTIFICADOR),
       atualizadoEm: typeof bruto.atualizadoEm === 'string' ? bruto.atualizadoEm : '',
     };
   } catch { return null; }
@@ -83,8 +85,8 @@ export function gravarConfigDaRede(mudanca: Partial<Omit<ConfigDaRede, 'contrato
     atualizadoEm: new Date().toISOString(),
   };
   if (config.host !== null && !HOST.test(config.host)) { const host = config.host; throw new ErroDoCatalogo((m) => m.network.hostInvalido(host)); }
-  for (const [campo, valor] of [['dono', config.dono], ['repositorio', config.repositorio]] as const) {
-    if (valor !== null && !IDENTIFICADOR.test(valor)) throw new ErroDoCatalogo((m) => m.network.campoInvalido(campo, valor));
+  for (const [campo, valor, padrao] of [['dono', config.dono, DONO], ['repositorio', config.repositorio, IDENTIFICADOR]] as const) {
+    if (valor !== null && !padrao.test(valor)) throw new ErroDoCatalogo((m) => m.network.campoInvalido(campo, valor));
   }
   const dir = pastaDoUsuario();
   fs.mkdirSync(dir, { recursive: true });

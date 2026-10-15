@@ -297,15 +297,15 @@ function casosDoShip(casos: Record<string, string>): void {
     autorizacao: { autorizado: false, tipo: 'pendente', por: '', razao: `o bloco pausa desde ${T0}: alguem precisa autorizar` },
     detalhe: `o bloco pausa desde ${T0}`, correcao: 'ork ship loc-x --para <branch> --autorizar-push <quem>' })));
   caso(casos, 'ship: texto do ensaio com lease livre, ci e aviso de policy', () => textoDoShip(resultadoShip({
-    ok: true, dryRun: true, ci: { schema: 'ork.ci-status/v1', required: true, ok: true, provider: 'github', repository: 'a/b',
-      sha: SHA_A, context: 'ork-verify', state: 'success', url: null, detail: 'verde' },
+    ok: true, dryRun: true, ci: { schema: 'ork.ci-status/v2', required: true, ok: true, provider: 'github', repository: 'a/b',
+      sha: SHA_A, context: 'ork-verify', state: 'success', url: null, detail: 'verde', fonte: 'check-run', produtor: 'github-actions' },
     violacoes: [{ policy: 'push_direto_na_base', severidade: 'warn', motivo: 'policy.violation', detalhe: 'push direto na base',
       correcao: 'use uma branch' }],
     passos: ['arvore de merge: /repo (arvore que tem main em check-out; limpa)', 'git merge --no-ff ork/loc-x-full -m "<mensagem de ship>"',
       'git push origin main', 'git ls-remote origin refs/heads/main   (prova do push)'] })));
   caso(casos, 'ship: texto do ensaio com ci nao exigido', () => textoDoShip(resultadoShip({
-    ok: true, dryRun: true, ci: { schema: 'ork.ci-status/v1', required: false, ok: true, provider: 'github', repository: null,
-      sha: SHA_A, context: 'ork-verify', state: 'success', url: null, detail: '' }, passos: ['git merge --no-ff x'] })));
+    ok: true, dryRun: true, ci: { schema: 'ork.ci-status/v2', required: false, ok: true, provider: null, repository: null,
+      sha: SHA_A, context: 'ork-verify', state: 'success', url: null, detail: '', fonte: null, produtor: null }, passos: ['git merge --no-ff x'] })));
   caso(casos, 'ship: texto entregue com push provado', () => textoDoShip(resultadoShip({
     ok: true, mergeSha: SHA_C, pontaDaBase: SHA_C, shaRemoto: SHA_C, pushVerificado: true,
     lease: { nome: 'main-tree', thread: 'loc-x', motivo: 'ship', pid: 1, adquiridoEm: T0, expiraEm: T1 },
@@ -320,8 +320,8 @@ function casosDoShip(casos: Record<string, string>): void {
     verificacao: resultadoVerify({ ok: false, claims: [], comandos: [comando('test', 'false', { ok: false, code: 1 })] }) })));
   caso(casos, 'ship: texto do ensaio sem autorizacao no ensaio', () => textoDoShip(resultadoShip({ dryRun: true, bloqueado: true,
     motivo: 'ci.failed', detalhe: 'gh: No commit found', correcao: 'publique a branch',
-    ci: { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: 'a/b', sha: SHA_A,
-      context: 'ork-verify', state: 'missing' as never, url: null, detail: 'gh: No commit found' } })));
+    ci: { schema: 'ork.ci-status/v2', required: true, ok: false, provider: 'github', repository: 'a/b', sha: SHA_A,
+      context: 'ork-verify', state: 'missing' as never, url: null, detail: 'gh: No commit found', fonte: null, produtor: null } })));
 
   const amb = ambiente('ship');
   const repo = projeto('ship', 'shp', amb);
@@ -354,6 +354,11 @@ function casosDoShip(casos: Record<string, string>): void {
     textosDoLedger(repo, 'shp-pausa', ['ship_blocked', 'gate_blocked']),
     textosDoLedger(repo, 'shp-entrega', ['ship_blocked', 'gate_blocked', 'ship_done', 'gate_passed']),
   ].join('\n'));
+  // O registrar-pr le a base do remoto: com um remoto legivel que nao tem o merge, a recusa segue "nenhum merge".
+  const remoto = dirTemp('ship-remoto', '<REMOTO>');
+  exec('git', ['init', '-q', '--bare', '-b', 'main', remoto], repo);
+  exec('git', ['remote', 'add', 'origin', remoto], repo);
+  exec('git', ['push', '-q', 'origin', `${exec('git', ['rev-list', '--max-parents=0', 'main'], repo).stdout.trim()}:refs/heads/main`], repo);
   caso(casos, 'ship cli: registrar-pr uso', () => texto(ork(repo, amb, 'ship', 'registrar-pr')));
   caso(casos, 'ship cli: registrar-pr uso com repo sem pr', () => texto(ork(repo, amb, 'ship', 'registrar-pr', 'shp-entrega', '--repo', 'a/b')));
   caso(casos, 'ship cli: registrar-pr todas em ensaio', () => texto(ork(repo, amb, 'ship', 'registrar-pr', '--todas', '--dry-run')));
@@ -362,6 +367,10 @@ function casosDoShip(casos: Record<string, string>): void {
   caso(casos, 'ship cli: registrar-pr de thread ja entregue', () => texto(ork(repo, amb, 'ship', 'registrar-pr', 'shp-entrega')));
   caso(casos, 'ship cli: registrar-pr de repositorio externo nao declarado', () =>
     texto(ork(repo, amb, 'ship', 'registrar-pr', 'shp-reprova', '--repo', 'dono/externo', '--pr', '7', '--dry-run')));
+  // Sem leitura do remoto (o fetch falha), a recusa e sem-leitura, nunca "nenhum merge".
+  exec('git', ['remote', 'set-url', 'origin', path.join(remoto, 'nao-existe.git')], repo);
+  caso(casos, 'ship cli: registrar-pr sem leitura do remoto', () =>
+    texto(ork(repo, amb, 'ship', 'registrar-pr', 'shp-reprova', '--dry-run')));
 }
 
 // ---------------------------------------------------------------------------

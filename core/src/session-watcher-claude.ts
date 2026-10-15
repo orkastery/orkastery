@@ -22,6 +22,7 @@ import { EventoLedger, MotivoGate, SinalDeFalhaDeConta, Thread } from './types';
 import { exec } from './util';
 import { cwdLocalOuNulo, diretorioDaThread, exigirCwdLocal } from './procedencia';
 import { redigirSegredos } from './hitl';
+import { reconciliarContaEsgotada } from './conta-esgotada';
 
 /** Uma consulta nativa custa cerca de 0,3 s; cinco segundos mantém o custo abaixo de 10%. */
 export const INTERVALO_WATCH_CLAUDE_MS = 5000;
@@ -351,8 +352,10 @@ function falhaDoErro(erro: ErroDeApiDaTranscricao | null, agoraMs: number): Sina
  * contada da mensagem) e grava `runtime_quota_detected` uma vez por erro. A fase nao fecha e a conducao nao muda:
  * a sessao continua viva, e o fecho segue o caminho de sempre, sem marcar de novo o mesmo erro.
  */
+interface CotaAoVivo { falha: SinalDeFalhaDeConta; esgotadoAte: string; erroEm: string }
+
 function cotaAoVivo(ctx: ContextoObservacaoClaude, perfil: PerfilDeDespacho | null, cwd: string, cursor: CursorClaude,
-    erroDaTranscricao: () => ErroDeApiDaTranscricao | null, gravar: (tipo: string, dados: Record<string, unknown>) => void): void {
+    erroDaTranscricao: () => ErroDeApiDaTranscricao | null, gravar: (tipo: string, dados: Record<string, unknown>) => void): CotaAoVivo | null {
   const { sessao, dir } = ctx;
   const arquivo = arquivoDaTranscricao(perfil, cwd, sessao.sessionId);
   let tamanho: number;
@@ -360,17 +363,17 @@ function cotaAoVivo(ctx: ContextoObservacaoClaude, perfil: PerfilDeDespacho | nu
     const st = arquivo ? fs.lstatSync(arquivo) : null;
     // Link, FIFO ou diretorio no lugar da transcricao nao e transcricao: nada a ler.
     tamanho = st?.isFile() ? st.size : NaN;
-  } catch { return; }
-  if (!Number.isFinite(tamanho) || cursor.transcricaoBytes === tamanho) return;
+  } catch { return null; }
+  if (!Number.isFinite(tamanho) || cursor.transcricaoBytes === tamanho) return null;
   cursor.transcricaoBytes = tamanho;
   const erro = erroDaTranscricao();
   const erroMs = erro?.em ? Date.parse(erro.em) : NaN;
   // Linha sem instante, ou de antes deste despacho (sessao retomada), nao prova que a cota e deste turno.
-  if (!erro || !Number.isFinite(erroMs) || erroMs < Date.parse(sessao.despachadaEm)) return;
+  if (!erro || !Number.isFinite(erroMs) || erroMs < Date.parse(sessao.despachadaEm)) return null;
   const falha = falhaDoErro(erro, ctx.agoraMs);
-  if (falha?.motivo !== 'runtime.quota-exhausted' || !ctx.carregado) return;
+  if (falha?.motivo !== 'runtime.quota-exhausted' || !ctx.carregado) return null;
   const esgotadoAte = prazoDaCotaVista(ctx.carregado.manifesto, falha, erroMs, ctx.agoraMs);
-  if (!esgotadoAte) return;
+  if (!esgotadoAte) return null;
   // A chave do erro: o uuid da linha ou, sem ele, o instante e o trecho (dado de maquina, nunca texto).
   const sensorEventId = createHash('sha256')
     .update(JSON.stringify([sessao.sessionId, sessao.despachadaEm, erro.uuid ?? [erro.em, falha.trecho]])).digest('hex');
@@ -390,6 +393,7 @@ function cotaAoVivo(ctx: ContextoObservacaoClaude, perfil: PerfilDeDespacho | nu
       esgotadoAte, trecho: falha.trecho.replace(/\p{Cc}/gu, ' '), perfil: perfil ? { id: perfil.id, runtime: perfil.runtime } : null,
       perfilMarcado: !!perfil, origem: 'sessions.watch' });
   });
+  return { falha, esgotadoAte, erroEm: erro.em! };
 }
 
 /**
@@ -457,11 +461,11 @@ export function saidaDoArtefato(raiz: string, threadId: string, sessao: Pick<Ses
   return { arquivo, produzido, sha256: atual.sha256, sha256Base: base?.sha256 ?? null, texto: atual.texto };
 }
 
-/** Exatamente um veredito legível numa linha `Veredito: ...` (PASSOU, PRECISA DE MUDANCA ou BLOQUEADO). */
+/** Exatamente um veredito legível numa linha `Veredito: ...`, incluindo a reprovação curta do prompt de CHECK. */
 export function vereditoDoParecer(texto: string): string | null {
   const achados = new Set<string>();
   for (const linha of texto.split('\n')) {
-    const m = /^[#>*_`\s-]*veredito[*_`\s]*:[*_`\s]*(passou|precisa de mudan[cç]a|bloqueado)(?![\p{L}\p{N}])/iu.exec(linha);
+    const m = /^[#>*_`\s-]*veredito[*_`\s]*:[*_`\s]*(passou|reprovou|precisa de mudan[cç]a|bloqueado)(?![\p{L}\p{N}])/iu.exec(linha);
     if (m) achados.add(m[1].toUpperCase().replace('Ç', 'C'));
   }
   return achados.size === 1 ? [...achados][0] : null;
@@ -687,8 +691,15 @@ export function observarClaudeSobLock(ctx: ContextoObservacaoClaude): ResultadoO
   if (!threadPresente(dir)) { fs.rmSync(arquivoCursor, { force: true }); throw new Error(THREAD_REMOVIDA); }
   if (!c.terminal) {
     const lidos = cursor.transcricaoBytes;
-    cotaAoVivo(ctx, perfil, fonte.cwd, cursor, erroDaTranscricao, gravar);
+    const cota = cotaAoVivo(ctx, perfil, fonte.cwd, cursor, erroDaTranscricao, gravar);
     if (cursor.transcricaoBytes !== lidos) gravarAtomico(arquivoCursor, cursor);
+    if (cota && perfil && ctx.carregado) {
+      reconciliarContaEsgotada({ raiz, perfil, falha: cota.falha, esgotadoAte: cota.esgotadoAte,
+        erroEm: cota.erroEm, agoraMs: ctx.agoraMs });
+      const terminal = lerLedger(dir).find(e => e.tipo === 'phase_result' && e.sessionId === sessao.sessionId &&
+        e.motivo === 'runtime.quota-exhausted');
+      if (terminal) return { ...base, concluido: true, classificacao: 'gate_blocked' };
+    }
   }
   if (!c.terminal && c.inconclusivo) return comLockDeSessao(dir, () => {
     const diagnosticoId = `${resultadoId}:inconclusivo`;

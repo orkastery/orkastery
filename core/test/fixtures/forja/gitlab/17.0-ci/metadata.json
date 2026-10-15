@@ -1,0 +1,42 @@
+{
+  "caso": "metadata",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "metadata"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-length": "157",
+    "content-type": "application/json",
+    "date": "Wed, 14 Oct 2026 02:39:38 GMT",
+    "etag": "W/\"57dba442e0391804b213bd9d5afc083a\"",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4W4F5J6H5H8J00V8NT1R8WD\",\"version\":\"1\"}",
+    "x-request-id": "01M4W4F5J6H5H8J00V8NT1R8WD",
+    "x-runtime": "0.044367"
+  },
+  "corpo": {
+    "version": "17.0.8",
+    "revision": "19a28eaa9dc",
+    "kas": {
+      "enabled": true,
+      "externalUrl": "ws://127.0.0.1/-/kubernetes-agent/",
+      "version": "17.0.8"
+    },
+    "enterprise": false
+  }
+}

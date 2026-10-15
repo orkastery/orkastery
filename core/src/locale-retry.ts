@@ -74,7 +74,7 @@ export const RETRY_PT_BR = {
       correcao: 'ork retry list mostra a fila; ork retry resume retoma o que ja liberou',
     },
     'runtime.quota-exhausted': {
-      porque: 'a cota ou os creditos da CONTA acabaram, nao a infraestrutura: o perfil sai do rodizio ate o prazo e o MESMO prompt, com o mesmo sha256, segue no proximo perfil, no runtime de fallback ou na fila ate o menor prazo',
+      porque: 'a cota ou os creditos da CONTA acabaram, nao a infraestrutura: o perfil sai do rodizio ate o prazo; o prompt original, se o intervalo ficou vazio, ou um checkpoint da producao parcial segue no proximo perfil, no runtime de fallback ou na fila ate o menor prazo',
       correcao: 'ork accounts list mostra o perfil esgotado; ork retry run <thread> rotaciona o prompt ja gravado',
     },
     'runtime.auth-missing': {
@@ -300,7 +300,7 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
       correcao: '`ork retry list` shows the queue; `ork retry resume` resumes what is already released',
     },
     'runtime.quota-exhausted': {
-      porque: 'the ACCOUNT quota or credits ran out, not the infrastructure: the profile leaves the rotation until the deadline and the SAME prompt, with the same sha256, goes on to the next profile, the fallback runtime or the queue until the earliest deadline',
+      porque: 'the ACCOUNT quota or credits ran out, not the infrastructure: the profile leaves the rotation until the deadline; the original prompt after an empty interval, or a checkpoint of partial production, goes on to the next profile, the fallback runtime or the queue until the earliest deadline',
       correcao: '`ork accounts list` shows the exhausted profile; `ork retry run <thread>` rotates the prompt already written',
     },
     'runtime.auth-missing': {

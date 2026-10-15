@@ -1,0 +1,28 @@
+{
+  "caso": "commit-mesclado",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/repository/commits/5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "sintetico": "forma da entidade Commit (GET /projects/:id/repository/commits/:sha, docs.gitlab.com/api/commits): o commit temporario do resultado mesclado, com a base e o head do MR gravado em 19.4-ci como pais. Trocar por uma gravacao EE.",
+  "corpo": {
+    "id": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+    "short_id": "5e5e5e5e",
+    "title": "Merge branch 'ork/ork-ci' into 'main'",
+    "parent_ids": [
+      "291615e904fc9e96598992e28d1c92a2f2c34dfa",
+      "12edddda9ac424f9355c39785b873803a062d59d"
+    ],
+    "authored_date": "2026-10-14T02:40:00.000Z",
+    "committed_date": "2026-10-14T02:40:00.000Z",
+    "web_url": "http://127.0.0.1/root/matriz/-/commit/5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e"
+  }
+}

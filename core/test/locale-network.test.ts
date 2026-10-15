@@ -55,7 +55,7 @@ function rede(nome: string, comForja = true): Rede {
     rodar: (casa, locale, ...args) => {
       const home = path.join(raiz, `casa-${casa}`);
       const r = spawnSync(process.execPath, [CLI, ...args], { cwd: fora, encoding: 'utf8', timeout: 120000,
-        env: { HOME: home, ORK_USUARIO_DIR: path.join(home, '.orkastery'), PATH: `${bin}:${ferramentas}`, FORJA_FAKE_DIR: forja,
+        env: { HOME: home, ORK_USUARIO_DIR: path.join(home, '.orkastery'), PATH: `${bin}:${ferramentas}`, GLAB_FAKE_DIR: forja,
           ORK_BINARIOS_EXTRA: '', ORK_MAQUINA: '', ORK_REDE_PUBLICAR: '0', ORK_FABRICA_PUBLICAR: '0', TZ: 'America/New_York', ...locale } });
       return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
     },
@@ -135,7 +135,7 @@ test('locale en F3b network: a lacuna que nasce de erro sai em ingles, e o --jso
   const r = rede('erro');
   try {
     assert.equal(r.rodar('a', EN, 'network', 'entrar', '--maquina', 'pc-a').status, 0);
-    const comErro = { ...EN, FORJA_FAKE_ERRO: '1' };
+    const comErro = { ...EN, GLAB_FAKE_ERRO: '1' };
     const en = r.rodar('a', comErro, 'network', 'status');
     assert.match(en.stdout, /\n {2}• rede\.sem-leitura: github\.com\/pessoa-teste\/orkastery-network: gh api \S+ failed: /);
     assert.deepEqual(linhasEmPortugues(en.stdout.replace(/hostname \S+/g, 'hostname X')), []);

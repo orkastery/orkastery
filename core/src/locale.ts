@@ -53,6 +53,8 @@
  * `core/assets/{skills,references,adapters}-en/`. Seguem em pt-BR, para a F3c: `decisao registrar` (G5), `network roadmap`
  * (G6), `thread new --from-finding` e os prompts de fase (G7).
  *
+ * A família `forja` (o motivo dos erros `forja.*` e a seção forja do `ork doctor`) nasce coberta.
+ *
  * Ingles (D8): curto, no imperativo onde e instrucao, com os mesmos termos em todo o CLI (`thread`,
  * `phase`, `claim`, `verify`, `ship`, `pulse`, `lease`, `ledger`, `worktree`, `slug`). Comando, flag
  * e identificador dentro de frase vao entre crases; valor que e so um comando (a linha `fix:`) fica nu.
@@ -80,6 +82,7 @@ import { DOCS_EN, DOCS_PT_BR } from './locale-docs';
 import { ADAPTER_EN, ADAPTER_PT_BR } from './locale-adapter';
 import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
 import { CONHECIMENTO_EN, CONHECIMENTO_PT_BR } from './locale-conhecimento';
+import { FORJA_EN, FORJA_PT_BR } from './locale-forja';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -469,6 +472,7 @@ const PT_BR = {
   adapter: ADAPTER_PT_BR,
   prompts: PROMPTS_PT_BR,
   conhecimento: CONHECIMENTO_PT_BR,
+  forja: FORJA_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -541,6 +545,16 @@ const EN: Mensagens = {
       'transporte do pulse': 'pulse transport',
       'fabrica compartilhada': 'shared factory',
       'pasta das worktrees': 'worktree folder',
+      'forja identidade': 'forge identity',
+      'forja alcance': 'forge reach',
+      'forja tls': 'forge TLS',
+      'forja subcaminho': 'forge base path',
+      'forja cli': 'forge CLI',
+      'forja login': 'forge login',
+      'forja servidor': 'forge server',
+      'forja escopo': 'forge token scope',
+      'forja projeto': 'forge project',
+      'forja capacidades': 'forge capabilities',
     },
     instaleNode: 'install Node 20 or later',
     gitAusente: 'not found on PATH',
@@ -754,6 +768,7 @@ const EN: Mensagens = {
   adapter: ADAPTER_EN,
   prompts: PROMPTS_EN,
   conhecimento: CONHECIMENTO_EN,
+  forja: FORJA_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

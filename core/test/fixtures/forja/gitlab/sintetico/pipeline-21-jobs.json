@@ -1,0 +1,69 @@
+{
+  "caso": "pipeline-21-jobs",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/pipelines/21/jobs?include_retried=true&per_page=100"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "sintetico": "o job ork-verify gravado em 19.4-ci (pipeline-1-jobs) levado a pipeline de resultado mesclado 21, no commit temporario (forma da entidade Job, docs.gitlab.com/api/jobs). Trocar por uma gravacao EE.",
+  "corpo": [
+    {
+      "id": 201,
+      "status": "success",
+      "stage": "test",
+      "name": "ork-verify",
+      "ref": "refs/merge-requests/1/merge",
+      "tag": false,
+      "coverage": null,
+      "allow_failure": false,
+      "created_at": "2026-10-14T02:40:00.000Z",
+      "started_at": "2026-10-14T02:40:05.000Z",
+      "finished_at": "2026-10-14T02:41:40.000Z",
+      "erased_at": null,
+      "duration": 3.085644,
+      "queued_duration": 1.263387,
+      "commit": {
+        "id": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "short_id": "5e5e5e5e",
+        "parent_ids": [
+          "291615e904fc9e96598992e28d1c92a2f2c34dfa",
+          "12edddda9ac424f9355c39785b873803a062d59d"
+        ],
+        "title": "Merge branch 'ork/ork-ci' into 'main'"
+      },
+      "pipeline": {
+        "id": 21,
+        "iid": 6,
+        "project_id": 1,
+        "sha": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "ref": "refs/merge-requests/1/merge",
+        "status": "success",
+        "source": "merge_request_event"
+      },
+      "web_url": "http://127.0.0.1/root/matriz/-/jobs/201",
+      "project": {
+        "ci_job_token_scope_enabled": false
+      },
+      "artifacts": [],
+      "artifacts_expire_at": null,
+      "archived": false,
+      "tag_list": [],
+      "user": {
+        "id": 1,
+        "username": "root",
+        "name": "Administrator",
+        "state": "active",
+        "locked": false,
+        "web_url": "http://127.0.0.1/root"
+      },
+      "runner": null
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "caso": "membro-sem-nivel",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "groups/outro/members/all/2"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-type": "application/json",
+    "date": "Wed, 14 Oct 2026 04:34:03 GMT",
+    "etag": "W/\"87926e561a2853d4e952c4cb4210fc7b\"",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Accept-Encoding, Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4WB0NRVJRS0GC7NFJDZY3F3\",\"version\":\"1\"}",
+    "x-request-id": "01M4WB0NRVJRS0GC7NFJDZY3F3",
+    "x-runtime": "0.086219"
+  },
+  "corpo": {
+    "id": 2,
+    "username": "pessoa",
+    "name": "Pessoa",
+    "state": "active",
+    "locked": false,
+    "avatar_url": "https://www.gravatar.com/avatar/c57251049dca8f3fa4e1d60e83dd2bbcf9cf5b1a88a7320cb0b085f3d1faf835?s=80&d=identicon",
+    "web_url": "http://127.0.0.1/pessoa",
+    "access_level": 30,
+    "created_at": "2026-10-14T04:33:23.158Z",
+    "created_by": {
+      "id": 1,
+      "username": "root",
+      "name": "Administrator",
+      "state": "active",
+      "locked": false,
+      "avatar_url": "https://www.gravatar.com/avatar/0b87aaa0fc6c958a65c1e3ccbc8ab4f6c457cbdca98063f862b1fdc86d7fa229?s=80&d=identicon",
+      "web_url": "http://127.0.0.1/root"
+    },
+    "expires_at": null
+  }
+}
