@@ -334,18 +334,18 @@
       "lint": []
     },
     {
-      "id": "C23",
+      "id": "C24",
       "thread": "ork-rm064f2",
       "fase": "GO",
       "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
-      "alegacao": "A fixture pt-BR F3b é igual byte a byte à saída de gerarCasos() no código mesclado: prompt v4 com fecho do GO e trabalho retomável, e a linha operacional do accounts check.",
-      "negativa": false,
+      "alegacao": "Os 4 casos da F3b que a thread muda (os 3 renders do prompt v4 com fecho do GO e trabalho retomável, e cli accounts: check com a linha operacional) são iguais byte a byte à saída de gerarCasos() no código mesclado; nenhum deles tem SHA curto.",
+      "negativa": true,
       "verificar": [
         "npm --prefix core run build",
         "npm --prefix core run build:test",
-        "node --test --test-name-pattern='locale pt-BR F3b' core/dist-test/test/locale-f3b-snapshot.test.js"
+        "node -e \"const {gerarCasos}=require('./core/dist-test/test/locale-f3b-casos');const f=require('./core/test/fixtures/locale-f3b-pt-BR.json');const g=gerarCasos();const k=['cli accounts: check','cli prompt: render de exemplo','cli prompt: render de exemplo classic no PLAN','cli prompt: render da thread'];const r=k.filter(x=>typeof f[x]!=='string'||g[x]!==f[x]);if(r.length){console.error(r.join('\\n'));process.exit(1)}\""
       ],
-      "criadoEm": "2026-10-15T03:11:27.868Z",
+      "criadoEm": "2026-10-15T04:12:17.180Z",
       "estado": "verificado",
       "lint": []
     }
