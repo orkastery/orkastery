@@ -478,15 +478,38 @@ export function exigirTemplate(id: string, raiz?: string): TemplateDePrompt {
 /**
  * O template que conduz a fase: `fase-<minuscula>` quando o projeto versionou um so para ela,
  * senao o `fase-padrao`. E o unico ponto de resolucao, para nao haver duas regras de escolha.
+ *
+ * RM-061 F3c: com o dono em ingles, o template do projeto vence o embutido e o da fase vence o padrao; no mesmo
+ * nivel, o `.en` vem antes. O projeto que versionou o proprio prompt nunca o perde porque o dono fala ingles: sem o
+ * par `.en`, a fase sai em pt-BR, e o `ork prompt lint` avisa (`avisosDeLingua`).
  */
 export function templateDaFase(fase: Fase, raiz?: string, locale: Locale = localeAtivo()): TemplateDePrompt {
   const templates = carregarTemplates(raiz);
-  const sufixo = locale === 'en' ? '.en' : '';
-  const especifico = templates.find((t) => t.id === `fase-${fase.toLowerCase()}${sufixo}`);
-  if (especifico) return especifico;
-  const padrao = templates.find((t) => t.id === `fase-padrao${sufixo}`);
-  if (!padrao) throw new Error(msg().prompts.cli.templatePadraoAusente);
-  return padrao;
+  const achar = (id: string, soDoProjeto = false) => templates.find((t) => t.id === id && (!soDoProjeto || t.origem !== 'embutido'));
+  const especifico = `fase-${fase.toLowerCase()}`;
+  const candidatos = locale === 'en'
+    ? [achar(`${especifico}.en`), achar(especifico), achar('fase-padrao.en', true), achar('fase-padrao', true), achar('fase-padrao.en')]
+    : [achar(especifico), achar('fase-padrao')];
+  const escolhido = candidatos.find((t): t is TemplateDePrompt => t !== undefined);
+  if (!escolhido) throw new Error(msg().prompts.cli.templatePadraoAusente);
+  return escolhido;
+}
+
+/** RM-061 F3c: a lingua de um template de fase, pelo sufixo do id; os valores do prompt falam a mesma. */
+export function idiomaDoTemplate(t: Pick<TemplateDePrompt, 'id'>): Locale {
+  return t.id.endsWith('.en') ? 'en' : 'pt-BR';
+}
+
+/**
+ * RM-061 F3c: com o dono em ingles, o template de fase do projeto sem o par `.en` do projeto vale como esta, em
+ * pt-BR. O lint avisa, para a troca de lingua nunca ser silenciosa; em pt-BR nao ha o que avisar.
+ */
+export function avisosDeLingua(templates: readonly TemplateDePrompt[], lingua: Locale): ProblemaDeTemplate[] {
+  if (lingua !== 'en') return [];
+  const doProjeto = new Set(templates.filter((t) => t.origem !== 'embutido').map((t) => t.id));
+  return templates
+    .filter((t) => t.origem !== 'embutido' && t.id.startsWith('fase-') && !t.id.endsWith('.en') && !doProjeto.has(`${t.id}.en`))
+    .map((t) => ({ template: t.id, regra: 'idioma', gravidade: 'aviso' as const, detalhe: msg().prompts.cli.semParIngles(t.id) }));
 }
 
 /** Texto de `ork prompt lint` para a saida do CLI. */

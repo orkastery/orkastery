@@ -143,7 +143,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, linguaDeclaradaDoDono, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
 import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
@@ -208,8 +208,10 @@ import { baterConducao, textoDaBatida } from './conducao-batida';
 import { entregarPeloTransporte } from './pulse-delivery';
 import { descreverSlug, hashDoPrompt, montarPrompt, rodarFase, tabelaDoLedger, valoresDoPrompt } from './phase';
 import {
+  avisosDeLingua,
   carregarTemplates,
   exigirTemplate,
+  idiomaDoTemplate,
   lintTemplate,
   ProblemaDeTemplate,
   renderizar,
@@ -3223,19 +3225,24 @@ function comandoPrompt(args: Args): number {
   const carregado = carregarManifesto();
   const raiz = carregado?.raiz;
   const mp = msg().prompts.cli;
-  const templatesDoLocale = () => carregarTemplates(raiz).filter(
-    (t) => localeAtivo() === 'en' ? t.id.endsWith('.en') : !t.id.endsWith('.en')
+  // RM-061 F3c: o template e a lingua do prompt sao os do despacho (a lingua declarada do dono, `owner.language`;
+  // sem ela, pt-BR), para o render mostrar o que o `phase run` grava; so o texto do CLI em volta segue o locale ativo.
+  // Os templates do projeto sempre aparecem; dos embutidos, o da lingua do prompt.
+  const linguaDoPrompt = linguaDeclaradaDoDono(carregado?.manifesto.owner?.language);
+  const templatesDaLingua = () => carregarTemplates(raiz).filter(
+    (t) => t.origem !== 'embutido' || (linguaDoPrompt === 'en' ? t.id.endsWith('.en') : !t.id.endsWith('.en'))
   );
 
   if (sub === 'list') {
-    console.log(tabelaDeTemplates(templatesDoLocale()));
+    console.log(tabelaDeTemplates(templatesDaLingua()));
     return 0;
   }
 
   if (sub === 'lint') {
     const id = texto(args.opcoes.template);
-    const templates = id ? [exigirTemplate(id, raiz)] : templatesDoLocale();
-    const problemas: ProblemaDeTemplate[] = templates.flatMap((t) => lintTemplate(t));
+    const templates = id ? [exigirTemplate(id, raiz)] : templatesDaLingua();
+    const problemas: ProblemaDeTemplate[] = [...templates.flatMap((t) => lintTemplate(t)),
+      ...(id ? [] : avisosDeLingua(templates, linguaDoPrompt))];
     console.log(mp.lintTitulo(raiz ?? null));
     console.log('');
     console.log(textoDoLint(problemas, templates.length));
@@ -3255,8 +3262,8 @@ function comandoPrompt(args: Args): number {
       try { modo = exigirModoVivo(bruto); }
       catch (e) { console.error((e as Error).message); return 2; }
       const exemplo = threadDeExemplo(modo, fase, carregado?.manifesto.project);
-      const template = idTemplate ? exigirTemplate(idTemplate, raiz) : templateDaFase(fase, raiz, localeAtivo());
-      const prompt = renderizar(template, valoresDoPrompt(exemplo, fase, pedido));
+      const template = idTemplate ? exigirTemplate(idTemplate, raiz) : templateDaFase(fase, raiz, linguaDoPrompt);
+      const prompt = renderizar(template, valoresDoPrompt(exemplo, fase, pedido, '', idiomaDoTemplate(template)));
       console.log(mp.cabecalhoTemplate(template.id, template.versao, template.origem));
       console.log(mp.cabecalhoExemplo(MODOS[modo].tag, hashDoPrompt(prompt)));
       console.log('');
@@ -3276,10 +3283,10 @@ function comandoPrompt(args: Args): number {
     // guardado segue com o texto de exemplo, como antes.
     const guardado = texto(args.opcoes.pedido) === undefined ? pedidoDaThread(obrigatorio.raiz, thread) : null;
     const pedidoDaFase = guardado?.texto ?? pedido;
-    const template = idTemplate ? exigirTemplate(idTemplate, obrigatorio.raiz) : templateDaFase(fase, obrigatorio.raiz, localeAtivo());
+    const template = idTemplate ? exigirTemplate(idTemplate, obrigatorio.raiz) : templateDaFase(fase, obrigatorio.raiz, linguaDoPrompt);
     const prompt = idTemplate
-      ? renderizar(template, valoresDoPrompt(thread, fase, pedidoDaFase))
-      : montarPrompt(thread, fase, pedidoDaFase, obrigatorio.raiz);
+      ? renderizar(template, valoresDoPrompt(thread, fase, pedidoDaFase, '', idiomaDoTemplate(template)))
+      : montarPrompt(thread, fase, pedidoDaFase, obrigatorio.raiz, '', linguaDoPrompt);
     console.log(mp.cabecalhoTemplate(template.id, template.versao, template.origem));
     console.log(mp.cabecalhoThread(thread.id, fase, hashDoPrompt(prompt)));
     if (guardado) console.log(mp.pedidoGuardado(shaCurto(guardado.sha256)));

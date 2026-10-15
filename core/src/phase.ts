@@ -28,7 +28,7 @@ import { registrarImpedimentoDoDono } from './impedimento';
 import { conferirAuth as authClaude } from './adapters/claude-bg';
 import { conferirAuth as authCodex } from './adapters/codex';
 import { abrirMemoria, injecaoDaFase, Memoria } from './memoria';
-import { pedidoComDicaDoGrafo, renderizar, templateDaFase } from './prompts';
+import { idiomaDoTemplate, pedidoComDicaDoGrafo, renderizar, templateDaFase } from './prompts';
 import { montarSlug, parseSlug, proximaRotacao } from './slug';
 import { ErroDoCatalogo, linguaDeclaradaDoDono, localeAtivo, Locale, msg } from './locale';
 import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
@@ -352,10 +352,9 @@ export function montarPrompt(
   memoriaInjetada = '',
   locale: Locale = localeAtivo()
 ): string {
-  return renderizar(
-    templateDaFase(fase, raiz, locale),
-    valoresDoPrompt(thread, fase, pedido, memoriaInjetada, locale)
-  );
+  // RM-061 F3c: os valores falam a lingua do template escolhido; o do projeto sem par `.en` sai inteiro em pt-BR.
+  const template = templateDaFase(fase, raiz, locale);
+  return renderizar(template, valoresDoPrompt(thread, fase, pedido, memoriaInjetada, idiomaDoTemplate(template)));
 }
 
 /**
@@ -375,8 +374,9 @@ export function montarPromptComMemoria(
 ): { prompt: string; injecao: InjecaoDeMemoria } {
   const injecao = injecaoDaFase(carregado, memoria, thread, fase);
   // RM-061 F3c: o prompt despachado e dado (arquivo com sha256 no ledger). Segue a lingua declarada do dono
-  // (`owner.language`), nunca o locale de quem despacha: sem ela, pt-BR, com qualquer LANG (contrato da F2a).
-  const locale = linguaDeclaradaDoDono(carregado.manifesto.owner?.language);
+  // (`owner.language`), nunca o locale de quem despacha: sem ela, pt-BR, com qualquer LANG (contrato da F2a). A
+  // dica do grafo fala a lingua do template que conduz a fase, como os valores.
+  const locale = idiomaDoTemplate(templateDaFase(fase, carregado.raiz, linguaDeclaradaDoDono(carregado.manifesto.owner?.language)));
   // Mesma raiz usada pelo MCP e runtime-context; o manifesto da WT nao habilita a dica.
   const ligado = grafoLigado(exigirManifesto(raizDoEstado(carregado.raiz)).manifesto);
   return {

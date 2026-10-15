@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
+  avisosDeLingua,
   carregarTemplates,
   exigirTemplate,
   lintTemplate,
@@ -83,6 +84,44 @@ test('RM-061 F3c: o prompt ingles de todo modo e fase sai sem linha em pt-BR, in
   // Todo assunto de pausa dos modos tem par em ingles (premissas no #Maestro e no #Ork; o push antecipado no #Classic).
   const pausas = MODOS_LEGADOS.flatMap((m) => threadDeExemplo(m as Modo, 'GOAL').blocos.filter((b) => b.pausa).map((b) => b.pausaSobre));
   for (const sobre of new Set(pausas)) assert.ok(Object.hasOwn(PAUSA_SOBRE_EN, sobre), sobre);
+});
+
+test('RM-061 F3c: com o dono em ingles, o template do projeto vence o embutido, e sem par .en a fase sai em pt-BR com aviso', () => {
+  const projeto = projetoTemporario('prompt-projeto-en');
+  try {
+    const dir = path.join(projeto.dir, 'prompts');
+    fs.mkdirSync(dir, { recursive: true });
+    const proprio = TEMPLATE_FASE_PADRAO.replace('id: fase-padrao', 'id: fase-goal')
+      .replace('# Orkastery, fase {{fase}} da thread {{thread}}', '# Orkastery no projeto X, fase {{fase}} da thread {{thread}}');
+    fs.writeFileSync(path.join(dir, 'fase-goal.md'), proprio + '\n', 'utf8');
+    assert.equal(templateDaFase('GOAL', projeto.dir, 'en').id, 'fase-goal');
+    assert.equal(templateDaFase('PLAN', projeto.dir, 'en').id, 'fase-padrao.en');
+    assert.equal(templateDaFase('GOAL', projeto.dir, 'pt-BR').id, 'fase-goal');
+    const exemplo = threadDeExemplo('classic', 'GOAL');
+    // Sem o par `.en`, a fase usa o template do projeto, e os valores falam a lingua dele: nada de prompt misturado.
+    const goal = montarPrompt(exemplo, 'GOAL', 'Map it.', projeto.dir, '', 'en');
+    assert.match(goal, /^# Orkastery no projeto X, fase GOAL da thread/m);
+    assert.match(goal, /^> GOAL \(F1\): objetivo verificavel/m);
+    assert.doesNotMatch(goal, /CENTRAL RULE|## Canonical cycle|Does not implement/);
+    assert.match(montarPrompt(exemplo, 'PLAN', 'Plan it.', projeto.dir, '', 'en'), /^# Orkastery, PLAN phase of thread/m);
+    const avisos = avisosDeLingua(carregarTemplates(projeto.dir), 'en');
+    assert.deepEqual(avisos.map((a) => [a.template, a.regra, a.gravidade]), [['fase-goal', 'idioma', 'aviso']]);
+    assert.deepEqual(avisosDeLingua(carregarTemplates(projeto.dir), 'pt-BR'), []);
+    // Com o par `.en` do projeto, a fase volta ao ingles e o aviso some.
+    fs.writeFileSync(path.join(dir, 'fase-goal.en.md'), TEMPLATE_FASE_PADRAO_EN.replace('id: fase-padrao.en', 'id: fase-goal.en') + '\n', 'utf8');
+    assert.equal(templateDaFase('GOAL', projeto.dir, 'en').id, 'fase-goal.en');
+    assert.deepEqual(lintTemplate(templateDaFase('GOAL', projeto.dir, 'en')), []);
+    assert.deepEqual(avisosDeLingua(carregarTemplates(projeto.dir), 'en'), []);
+    // O `fase-padrao` do projeto sem o par `.en` vale para o dono em ingles, e o aviso diz isso.
+    fs.rmSync(path.join(dir, 'fase-goal.md')); fs.rmSync(path.join(dir, 'fase-goal.en.md'));
+    fs.writeFileSync(path.join(dir, 'fase-padrao.md'), TEMPLATE_FASE_PADRAO + '\n', 'utf8');
+    const padraoDoProjeto = templateDaFase('PLAN', projeto.dir, 'en');
+    assert.equal(padraoDoProjeto.id, 'fase-padrao');
+    assert.notEqual(padraoDoProjeto.origem, 'embutido');
+    assert.deepEqual(avisosDeLingua(carregarTemplates(projeto.dir), 'en').map((a) => a.template), ['fase-padrao']);
+  } finally {
+    projeto.limpar();
+  }
 });
 
 test('RM-061 F3c: o phase run monta o prompt na lingua atual do dono', () => {

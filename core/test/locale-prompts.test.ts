@@ -2,8 +2,14 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { ativarLocale, cobreLocale, mensagemDoErro, msg } from '../src/locale';
 import { main } from '../src/index';
+import { hashDoPrompt, montarPromptComMemoria } from '../src/phase';
+import { TEMPLATE_FASE_PADRAO } from '../src/prompts';
+import { novaThread } from '../src/thread';
+import { abrirMemoria } from '../src/memoria';
 import { ajustarManifesto, projetoTemporario } from './apoio';
 import { linhasEmPortugues } from './locale-apoio';
 
@@ -58,6 +64,57 @@ test('locale en F3c prompts: render, list, lint e recusas saem em ingles', () =>
     assert.match(pt.stdout, /^# template fase-padrao v4 \(origem: /);
     assert.match(pt.stdout, /# Orkastery, fase GOAL da thread/);
     assert.match(pt.stdout, /REGRA CENTRAL: o modo afrouxa a pausa, NUNCA a verificacao\./);
+  } finally {
+    console.log = log; console.error = error; process.chdir(cwd); ativarLocale(undefined); p.limpar();
+  }
+});
+
+test('locale en F3c prompts: o render mostra o prompt do despacho, e o --template fala a lingua dele', () => {
+  // Sem owner.language, o phase run grava o prompt em pt-BR com qualquer LANG; o render, que mostra esse prompt, tambem.
+  const p = projetoTemporario('prompts-f3c-despacho');
+  const cwd = process.cwd(), log = console.log, error = console.error;
+  const lcAll = process.env.LC_ALL, lang = process.env.LANG;
+  try {
+    process.chdir(p.dir); process.env.LC_ALL = 'en_US.UTF-8'; process.env.LANG = 'en_US.UTF-8';
+    const { thread } = novaThread(p.carregado, { nome: 'despacho', modo: 'auto' });
+    const render = executar('prompt', 'render', thread.id, 'GOAL', '--pedido', 'Mapear a mudanca.');
+    assert.equal(render.status, 0, render.stderr);
+    assert.match(render.stdout, /^# template fase-padrao v4 \(source: built-in\)\n# thread \S+, phase GOAL, sha256 [0-9a-f]{64}\n/);
+    assert.match(render.stdout, /\n# Orkastery, fase GOAL da thread /);
+    const { prompt } = montarPromptComMemoria(p.carregado, thread, 'GOAL', 'Mapear a mudanca.', abrirMemoria(p.carregado));
+    assert.ok(render.stdout.includes(`, sha256 ${hashDoPrompt(prompt)}\n`), 'o mesmo sha256 do prompt que o phase run grava');
+    const lista = executar('prompt', 'list');
+    assert.match(lista.stdout, /^Prompt templates /);
+    assert.match(lista.stdout, /\n {2}fase-padrao {6}v4 {2}source: built-in\n/);
+    assert.doesNotMatch(lista.stdout, /fase-padrao\.en/);
+    // O --template escolhe tambem a lingua dos valores: o `.en` sai inteiro em ingles, sem modulo em pt-BR.
+    const en = executar('prompt', 'render', '--exemplo', '--fase', 'GO', '--modo', 'fast', '--template', 'fase-padrao.en', '--pedido', 'Fix it.');
+    assert.equal(en.status, 0, en.stderr);
+    assert.match(en.stdout, /\n> GO \(F3\): implement slice by slice/);
+    assert.doesNotMatch(en.stdout, /implementacao slice por slice|Nada de self-report/);
+  } finally {
+    console.log = log; console.error = error; process.chdir(cwd); ativarLocale(undefined);
+    if (lcAll === undefined) delete process.env.LC_ALL; else process.env.LC_ALL = lcAll;
+    if (lang === undefined) delete process.env.LANG; else process.env.LANG = lang;
+    p.limpar();
+  }
+});
+
+test('locale en F3c prompts: com o dono em ingles, o lint avisa o template do projeto sem par .en', () => {
+  const p = projetoTemporario('prompts-f3c-par');
+  ajustarManifesto(p, 'owner:\n', 'owner:\n  language: en-US\n');
+  const cwd = process.cwd(), log = console.log, error = console.error;
+  try {
+    process.chdir(p.dir);
+    fs.mkdirSync(path.join(p.dir, 'prompts'), { recursive: true });
+    fs.writeFileSync(path.join(p.dir, 'prompts', 'fase-goal.md'), TEMPLATE_FASE_PADRAO.replace('id: fase-padrao', 'id: fase-goal') + '\n');
+    const lint = executar('prompt', 'lint');
+    assert.equal(lint.status, 0, lint.stderr);
+    assert.match(lint.stdout, /\n {2}\[warning\] fase-goal :: idioma\n {11}the owner speaks English and the project template fase-goal has no fase-goal\.en counterpart: that phase is rendered in pt-BR\n/);
+    assert.match(lint.stdout, /templates: 2 \| errors: 0 \| warnings: 1/);
+    const lista = executar('prompt', 'list');
+    assert.match(lista.stdout, /\n {2}fase-goal /);
+    assert.match(lista.stdout, /\n {2}fase-padrao\.en /);
   } finally {
     console.log = log; console.error = error; process.chdir(cwd); ativarLocale(undefined); p.limpar();
   }

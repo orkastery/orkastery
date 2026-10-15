@@ -36,6 +36,7 @@ export interface MensagensDePrompts {
     travessao: string;
     templateNaoExiste: (id: string, ids: string) => string;
     templatePadraoAusente: string;
+    semParIngles: (id: string) => string;
     gravidades: Readonly<Record<'erro' | 'aviso', string>>;
     semProblema: (quantos: number) => string;
     resumoLint: (quantos: number, erros: number, avisos: number) => string;
@@ -119,6 +120,7 @@ export const PROMPTS_PT_BR: MensagensDePrompts = {
     travessao: 'o template usa travessao longo (U+2014); o padrao do projeto e hifen ou virgula',
     templateNaoExiste: (id, ids) => `template "${id}" nao existe (conhecidos: ${ids})`,
     templatePadraoAusente: 'template `fase-padrao` ausente: o `ork` nao tem prompt de fase',
+    semParIngles: (id) => `o dono fala ingles e o template ${id} do projeto nao tem o par ${id}.en: essa fase sai em pt-BR`,
     gravidades: { erro: 'erro', aviso: 'aviso' }, semProblema: (n) => `  nenhum problema em ${n} template(s)`,
     resumoLint: (n, e, a) => `templates: ${n} | erros: ${e} | avisos: ${a}`,
     tituloLista: 'Templates de prompt (o do projeto sobrescreve o embutido de mesmo id)', origem: (o) => `origem: ${o}`,
@@ -195,6 +197,7 @@ export const PROMPTS_EN: MensagensDePrompts = {
     travessao: 'template uses an em dash (U+2014); the project standard is a hyphen or comma',
     templateNaoExiste: (id, ids) => `template "${id}" does not exist (known: ${ids})`,
     templatePadraoAusente: 'missing `fase-padrao` template: `ork` has no phase prompt',
+    semParIngles: (id) => `the owner speaks English and the project template ${id} has no ${id}.en counterpart: that phase is rendered in pt-BR`,
     gravidades: { erro: 'error', aviso: 'warning' }, semProblema: (n) => `  no problem in ${n} template(s)`,
     resumoLint: (n, e, a) => `templates: ${n} | errors: ${e} | warnings: ${a}`,
     tituloLista: 'Prompt templates (the project template overrides the built-in template with the same id)',
