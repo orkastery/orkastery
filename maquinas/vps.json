@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-15T02:45:17.895Z",
+  "publicadoEm": "2026-10-15T02:45:22.636Z",
   "threads": [
     {
       "id": "ork-rm058n3",
@@ -71,24 +71,6 @@
         "desdeEm": null,
         "motivo": null
       }
-    },
-    {
-      "id": "ork-worktreebase",
-      "nome": "worktreebase",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-worktreebase-go",
-      "atualizadaEm": "2026-10-14T09:03:42.428Z",
-      "entregue": "84f5fa15",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
     }
   ]
 }
