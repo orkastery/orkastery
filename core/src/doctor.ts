@@ -348,7 +348,7 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
 export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
   lerCrontab: LeitorDoCrontab = lerCrontabDoSistema,
   conferirAuthDoClaude: () => StatusDeAuth = () => adapter.conferirAuth(null),
-  analisadores?: () => Check): Check[] {
+  analisadores?: () => Check, forja?: (carregado: ManifestoCarregado) => Check[]): Check[] {
   const checks: Check[] = [];
 
   const major = versaoNode();
@@ -598,6 +598,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     checks.push(checarContas(carregado.raiz));
     // I-33 (D7): umask e permissoes do estado, na mesma regra do sensor (sem bits 0o022).
     checks.push(...sondasDeAmbiente(carregado.raiz));
+    // A forja do remoto (identidade, alcance, TLS, CLI, login, servidor, escopo, projeto, capacidades): so com o
+    // manifesto valido, e so quando a entrada do CLI a passa, como os analisadores.
+    if (forja && carregado.erros.length === 0) checks.push(...forja(carregado));
 
     {
       const inventario = inventariarSessoes(carregado.raiz, { global: true, todas: true });
@@ -655,8 +658,8 @@ export function relatorio(checks: Check[]): string {
 
 /** Executa o doctor e devolve o codigo de saida (0 = pronto). */
 export function doctor(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
-  analisadores?: () => Check): { texto: string; codigo: number } {
-  const checks = checar(dirInicial, nomesHerdados, undefined, undefined, analisadores);
+  analisadores?: () => Check, forja?: (carregado: ManifestoCarregado) => Check[]): { texto: string; codigo: number } {
+  const checks = checar(dirInicial, nomesHerdados, undefined, undefined, analisadores, forja);
   const falhas = checks.filter((c) => c.nivel === 'fail').length;
   return { texto: relatorio(checks), codigo: falhas > 0 ? 1 : 0 };
 }
@@ -677,12 +680,15 @@ export interface DoctorJson {
   projeto: string | null;
   maquina: string;
   checks: Check[];
+  /** A secao forja (rede e CLI da forja) so roda com `ork doctor --json --forja`; sem a flag, `nao-medida`. */
+  forja: 'medida' | 'nao-medida';
   batida: BatidaNoDoctor | null;
 }
 
 export function doctorJson(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
-  analisadores?: () => Check, lerCrontab: LeitorDoCrontab = lerCrontabDoSistema): { json: DoctorJson; codigo: number } {
-  const checks = checar(dirInicial, nomesHerdados, lerCrontab, undefined, analisadores);
+  analisadores?: () => Check, lerCrontab: LeitorDoCrontab = lerCrontabDoSistema,
+  forja?: (carregado: ManifestoCarregado) => Check[]): { json: DoctorJson; codigo: number } {
+  const checks = checar(dirInicial, nomesHerdados, lerCrontab, undefined, analisadores, forja);
   const falhas = checks.filter((c) => c.nivel === 'fail').length;
   const avisos = checks.filter((c) => c.nivel === 'warn').length;
   let carregado: ManifestoCarregado | null = null;
@@ -697,5 +703,5 @@ export function doctorJson(dirInicial: string = process.cwd(), nomesHerdados = n
   }
   return { codigo: falhas > 0 ? 1 : 0, json: { contrato: CONTRATO_DO_DOCTOR, consultadoEm: new Date().toISOString(),
     veredito: falhas > 0 ? 'bloqueado' : 'pronto', falhas, avisos, projeto: carregado?.manifesto.project.name ?? null,
-    maquina: nomeDaMaquina(), checks, batida } };
+    maquina: nomeDaMaquina(), checks, forja: forja ? 'medida' : 'nao-medida', batida } };
 }

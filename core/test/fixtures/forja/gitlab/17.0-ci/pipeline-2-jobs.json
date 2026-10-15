@@ -1,0 +1,40 @@
+{
+  "caso": "pipeline-2-jobs",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/pipelines/2/jobs?include_retried=true&per_page=100"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-length": "2",
+    "content-type": "application/json",
+    "date": "Wed, 14 Oct 2026 02:39:41 GMT",
+    "etag": "W/\"4f53cda18c2baa0c0354bb5f9a3ecbe5\"",
+    "link": "<http://127.0.0.1/api/v4/projects/root%2Fmatriz/pipelines/2/jobs?id=root%2Fmatriz&include_retried=true&page=1&per_page=100&pipeline_id=2>; rel=\"first\", <http://127.0.0.1/api/v4/projects/root%2Fmatriz/pipelines/2/jobs?id=root%2Fmatriz&include_retried=true&page=1&per_page=100&pipeline_id=2>; rel=\"last\"",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4W4F964NE22X949KHJXVRQK\",\"version\":\"1\"}",
+    "x-next-page": "",
+    "x-page": "1",
+    "x-per-page": "100",
+    "x-prev-page": "",
+    "x-request-id": "01M4W4F964NE22X949KHJXVRQK",
+    "x-runtime": "0.186121",
+    "x-total": "0",
+    "x-total-pages": "1"
+  },
+  "corpo": []
+}

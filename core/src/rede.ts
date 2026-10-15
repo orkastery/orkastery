@@ -29,7 +29,7 @@ import { procurarSegredos } from './policies';
 import { Adesao, adesaoDaRede, ConfigDaRede, ehIdDeMaquina, gravarConfigDaRede, idDaMaquina, lerConfigDaRede, pastaDaRede,
   publicacaoDesligada, REPOSITORIO_PADRAO, tomarVezDePublicar } from './rede-adesao';
 import { AmbienteDaMaquina, acharBinario, comGitIsolado, Forja, forjaPorNome, forjasDaMaquina, IdentidadeDoGit, IdentidadeNaForja, NomeDaForja,
-  versaoDoBinario } from './rede-forja';
+  gitlabSemSuporteNaRede, versaoDoBinario } from './rede-forja';
 import { ehNomeDeProjeto, emUmaLinha, INVISIVEL, limparRemoto, projetosConhecidos } from './rede-projetos';
 import { VERSAO_DO_ORK } from './versao';
 import { ErroDoCatalogo, montadorDe, textoDoCatalogo } from './locale';
@@ -82,6 +82,9 @@ const VERSAO_ESTRITA = /^\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.]{1,20})?$/;
 
 export const refDaCasa = (c: Pick<CasaDaRede, 'host' | 'dono' | 'repositorio'>): string => `${c.host}/${c.dono}/${c.repositorio}`;
 
+/** O nivel minimo da pessoa no grupo para a casa da rede morar nele (GitLab: Maintainer). */
+export const NIVEL_MINIMO_NO_GRUPO = 40;
+
 /**
  * O nome da maquina no que vai a forja: so o que o git e a forja aceitam sem surpresa. E o mesmo no
  * arquivo, no campo `maquina` do retrato, na trava e nos commits (S2 da revisao 2: o leitor recusava o
@@ -121,6 +124,12 @@ export interface CasaResolvida {
   motivo: { tipo: 'forja.ausente' | 'forja.sem-login' | 'rede.sem-leitura'; detalhe: string } | null;
 }
 
+/** `--repositorio`: dono e nome pelo ULTIMO `/`, para o subgrupo do GitLab (`grupo/sub/casa`) nao ser truncado. */
+export function separarRepositorio(texto: string | undefined): [string | null, string | null] {
+  const corte = texto?.lastIndexOf('/') ?? -1;
+  return texto && corte > 0 ? [texto.slice(0, corte), texto.slice(corte + 1)] : [null, texto ?? null];
+}
+
 /**
  * A casa: a opcao do comando, senao a adesao gravada, senao o login da primeira forja com login.
  * Nunca lanca: sem forja ou sem login, devolve o motivo tipado.
@@ -130,7 +139,7 @@ export function resolverCasa(opcoes: OpcoesDaCasa = {}): CasaResolvida {
   const forjas = forjasDaMaquina(amb);
   const identidades = opcoes.identidades ?? forjas.map((f) => f.identidade());
   const config = lerConfigDaRede();
-  const [donoPedido, nomePedido] = opcoes.repositorio?.includes('/') ? opcoes.repositorio.split('/', 2) : [null, opcoes.repositorio ?? null];
+  const [donoPedido, nomePedido] = separarRepositorio(opcoes.repositorio);
   // B3: `--repositorio` sozinho troca so o repositorio; a forja gravada continua valendo.
   const nomeDaForja: NomeDaForja | null = opcoes.forja ?? config?.forja ?? null;
   if (!opcoes.forja && !opcoes.repositorio && config?.forja && config.dono && config.repositorio && config.host) {
@@ -164,7 +173,7 @@ export function resolverCasa(opcoes: OpcoesDaCasa = {}): CasaResolvida {
       detalhe: textoDoCatalogo((m) => m.network.loginNaoLido(montarFalhas.map((f) => f(m)).join('; '))) } };
   }
   return { casa: null, forja: null, identidades, motivo: { tipo: 'forja.sem-login',
-    detalhe: textoDoCatalogo((m) => m.network.semLogin(candidatas.map((f) => f.cli))) } };
+    detalhe: textoDoCatalogo((m) => m.network.semLogin(candidatas)) } };
 }
 
 // ---------------------------------------------------------------------------
@@ -491,7 +500,9 @@ function lerRetratos(cache: string, ponta: string | null): { retratos: RetratoDa
 // ---------------------------------------------------------------------------
 
 export function dirDoCache(casa: Pick<CasaDaRede, 'forja' | 'host' | 'dono' | 'repositorio'>): string {
-  return path.join(pastaDaRede(), `${casa.forja}-${casa.host}-${casa.dono}-${casa.repositorio}`.replace(/[^A-Za-z0-9._-]+/g, '-'));
+  const nome = `${casa.forja}-${casa.host}-${casa.dono}-${casa.repositorio}`.replace(/[^A-Za-z0-9._-]+/g, '-');
+  // O dono com subgrupo (`time/sub`) leva um resumo curto, para nao cair na pasta do dono `time-sub`; sem subgrupo, o nome de sempre.
+  return path.join(pastaDaRede(), casa.dono.includes('/') ? `${nome}-${createHash('sha256').update(casa.dono).digest('hex').slice(0, 8)}` : nome);
 }
 
 /** O cache ja foi criado? */
@@ -618,16 +629,28 @@ function casaConferida(opcoes: OpcoesDaCasa & { criar?: boolean }): CasaConferid
     const detalhe = r.motivo ? montadorDe(r.motivo.detalhe) : null;
     throw new ErroDoCatalogo((m) => m.network.semForja(detalhe === null ? null : detalhe(m)));
   }
+  const semSuporte = r.forja.nome === 'gitlab' ? gitlabSemSuporteNaRede(opcoes.amb ?? {}, r.forja.host) : null;
+  if (semSuporte) throw new ErroDoCatalogo((m) => m.network.gitlabNaoSuportado(semSuporte));
   let repo = r.forja.repositorio(r.casa.dono, r.casa.repositorio);
   let criado = false;
   if (!repo.existe) {
     const ref = refDaCasa(r.casa);
     if (!opcoes.criar) throw new ErroDoCatalogo((m) => m.network.semRepositorio(ref));
     const login = (r.identidades.find((i) => i.forja === r.forja!.nome && i.host === r.forja!.host) ?? r.forja.identidade()).usuario;
+    let namespaceId: number | undefined;
     if (r.casa.dono !== login) {
-      throw new ErroDoCatalogo((m) => m.network.repositorioAlheio(ref, login));
+      // Outro dono so vale quando e um grupo em que a pessoa e Maintainer ou acima; forja sem a capacidade recusa como antes.
+      const dono = r.forja.donoDaRede?.(r.casa.dono) ?? null;
+      if (dono && !dono.ok && dono.erro.codigo !== 'forja.nao-achei') {
+        const erro = dono.erro, cli = r.forja.cli, tipo = r.forja.nome, rota = `namespaces/${r.casa.dono}`;
+        throw new ErroDoCatalogo((m) => m.network.apiFalhou(cli, rota, m.forja.motivo(erro, tipo)));
+      }
+      if (!dono || !dono.ok || dono.valor.tipo !== 'grupo') throw new ErroDoCatalogo((m) => m.network.repositorioAlheio(ref, login));
+      const nivel = dono.valor.nivel ?? 0, grupo = dono.valor.caminho;
+      if (nivel < NIVEL_MINIMO_NO_GRUPO) throw new ErroDoCatalogo((m) => m.network.grupoSemNivel(ref, grupo, login, nivel));
+      namespaceId = dono.valor.namespaceId;
     }
-    repo = r.forja.criarPrivado(r.casa.repositorio, DESCRICAO);
+    repo = r.forja.criarPrivado(r.casa.repositorio, DESCRICAO, r.casa.dono, namespaceId);
     criado = true;
   }
   const refDaConferida = refDaCasa(r.casa), cli = r.forja.cli;

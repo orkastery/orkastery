@@ -9,6 +9,8 @@
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { chamadorDaApi } from '../src/forja/api';
+import { cliFalsa, falhou, gravado as respostaGravada, http, login, ok as okCli } from './forja-cli-falsa';
 import { classificarFalha, detalheSeguro, ExecutorDaForja, forjaDoArgumento, identidadeDaForja, lerDaForja, mesmaForja,
   PedidoDaForja, rotuloDaForja, SaidaDoExecutor } from '../src/forja';
 
@@ -119,45 +121,86 @@ test('forja: leitura GitHub em uma consulta GraphQL, sem mutation', () => {
   assert.equal(r2.leitura.base!.commitsParciais, true, 'mais de 100 commits na janela fica declarado');
 });
 
-test('forja: GitLab pela mesma interface, so com consulta', () => {
-  const { executor, chamadas } = gravado([
-    ok({ data: { project: { repository: { rootRef: 'main' } } } }),
-    ok({ data: { project: { repository: {
-      baseTopo: { lastCommit: { sha: SHA_BASE, committedDate: '2026-09-29T11:49:15Z' } },
-      baseDir: { blobs: { nodes: [{ name: 'RM-001-um.md', path: 'docs/roadmap/RM-001-um.md' }] } },
-      reservasTopo: { lastCommit: null }, reservasDir: { blobs: { nodes: [] } },
-      fabricaTopo: { lastCommit: { sha: SHA_FABRICA, committedDate: '2026-09-29T23:00:08Z' } },
-      fabricaDir: { blobs: { nodes: [{ name: 'vps.json', path: 'maquinas/vps.json' }] } },
-    } } } }),
-    ok({ data: { project: { repository: {
-      base: { nodes: [{ path: 'docs/roadmap/RM-001-um.md', rawTextBlob: '---\nid: RM-001\n---\n' },
-        { path: 'orkastery.yaml', rawTextBlob: 'project:\n  name: "app"\n' }] },
-      fabrica: { nodes: [{ path: 'maquinas/vps.json', rawTextBlob: '{"contrato":"ork.fabrica-maquina/v1"}' }] },
-    } } } }),
-    ok([{ id: SHA_BASE, title: 'ship(ork-y): merge de b em main', committed_date: '2026-09-29T08:49:15-03:00' }]),
-  ]);
-  const r = lerDaForja(forjaDoArgumento('gitlab:grupo/sub/app')!, PEDIDO, executor);
-  assert.ok(r.ok, JSON.stringify(r));
-  assert.equal(chamadas.length, 4);
-  assert.ok(chamadas.every((c) => c.cmd === 'glab'));
-  for (const c of chamadas.slice(0, 3)) {
-    assert.deepEqual(c.args, ['api', 'graphql', '--method', 'POST', '--input', '-', '--hostname', 'gitlab.com']);
-    assert.doesNotMatch(JSON.parse(c.entrada).query, /mutation/i);
+const ALVO_GITLAB = { tipo: 'gitlab' as const, host: '127.0.0.1', porta: null, caminhoBase: '', ca: null };
+
+/** O GitLab gravado (19.4 e 17.0): `time/sub/app` com o roadmap, a fabrica e sem a branch de reservas. */
+function gitlabGravado(versao: string) {
+  const v = `gitlab/${versao}`;
+  return cliFalsa([{ quando: login, responde: okCli('') },
+    { quando: (c) => c.args.includes('graphql'), responde: (c) => {
+      const q = (JSON.parse(c.entrada ?? '{}') as { query: string }).query;
+      return http(200, respostaGravada(`${v}/${q.includes('rootRef') ? 'roadmap-raiz' : q.includes('baseTopo') ? 'roadmap-arvores' : 'roadmap-blobs'}`));
+    } },
+    { quando: (c) => c.args.some((a) => a.includes('/repository/commits?')), responde: http(200, respostaGravada(`${v}/commits`)) }]);
+}
+
+for (const versao of ['19.4', '17.0']) {
+  test(`forja: GitLab ${versao} pela mesma interface, só com consulta, pela API da CLI logada`, () => {
+    const cli = gitlabGravado(versao);
+    const r = lerDaForja({ tipo: 'gitlab', host: '127.0.0.1', repo: 'time/sub/app' }, { ...PEDIDO, desde: '2026-01-01T00:00:00Z' }, undefined,
+      chamadorDaApi(ALVO_GITLAB, { rodar: cli.rodar, logins: new Map() }));
+    assert.ok(r.ok, JSON.stringify(r));
+    const apis = cli.chamadas.filter((c) => c.args[0] === 'api');
+    assert.equal(apis.length, 4);
+    assert.equal(r.leitura.chamadas, 4);
+    // O REST de commits e GET e so le.
+    const rest = apis[3];
+    assert.deepEqual(rest.args.slice(rest.args.indexOf('--method'), rest.args.indexOf('--method') + 2), ['--method', 'GET']);
+    assert.ok(rest.args.some((a) => /^projects\/time%2Fsub%2Fapp\/repository\/commits\?ref_name=[0-9a-f]{40}&since=/.test(a)), rest.args.join(' '));
+    // A branch que nao existe nao entra na consulta dos blobs.
+    assert.doesNotMatch(JSON.parse(apis[2].entrada!).query, /reservas:/);
+    for (const c of apis) {
+      assert.equal(c.acrescentar?.GITLAB_HOST, '127.0.0.1');
+      assert.ok(!c.args.includes('--hostname'));
+    }
+    for (const c of apis.filter((x) => x.args.includes('graphql'))) {
+      assert.ok(c.args.includes('Content-Type: application/json'));
+      assert.doesNotMatch(JSON.parse(c.entrada!).query, /mutation/i);
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const arvores = respostaGravada(`gitlab/${versao}/roadmap-arvores`) as any;
+    const l = r.leitura;
+    assert.deepEqual([l.base!.ref, l.base!.commit], ['main', arvores.data.project.repository.baseTopo.lastCommit.sha]);
+    assert.deepEqual(l.base!.arquivos!.map((a) => a.caminho), ['docs/roadmap/RM-001-um.md']);
+    assert.match(l.base!.manifesto!, /name: "app"/);
+    assert.ok(l.base!.commits.some((c) => c.assunto === 'base') && l.base!.commits.every((c) => /^[0-9a-f]{40}$/.test(c.commit)));
+    assert.equal(l.reservas, null);
+    assert.deepEqual(l.fabrica!.arquivos, [{ caminho: 'maquinas/vps.json', texto: '{"contrato":"ork.fabrica-maquina/v1"}' }]);
+  });
+}
+
+test('forja: a porta da API vem so de remoto https/http fora da porta do esquema, e a de ssh nunca', () => {
+  const chamadasDe = (url: string) => {
+    const id = identidadeDaForja(url)!;
+    const cli = cliFalsa([{ quando: login, responde: okCli('') }, { quando: (c) => c.args.includes('graphql'), responde: http(200, { data: { project: null } }) }]);
+    lerDaForja(id, PEDIDO, undefined, chamadorDaApi({ tipo: 'gitlab', host: id.host, porta: id.porta ?? null, caminhoBase: '', ca: null },
+      { rodar: cli.rodar, logins: new Map() }));
+    return cli.chamadas;
+  };
+  const https = chamadasDe('https://gitlab.exemplo.org:8443/time/sub/app.git');
+  assert.deepEqual(https.find(login)!.args, ['auth', 'status', '--hostname', 'gitlab.exemplo.org:8443']);
+  assert.ok(https.filter((c) => c.args[0] === 'api').every((c) => c.acrescentar?.GITLAB_HOST === 'gitlab.exemplo.org:8443'));
+  assert.equal(identidadeDaForja('https://gitlab.exemplo.org:8443/time/sub/app.git')!.porta, 8443);
+  for (const url of ['ssh://git@gitlab.exemplo.org:2222/time/sub/app.git', 'https://gitlab.exemplo.org:443/time/sub/app.git', 'https://gitlab.exemplo.org/time/sub/app.git']) {
+    assert.equal(identidadeDaForja(url)!.porta, undefined, url);
+    const c = chamadasDe(url);
+    assert.ok(c.filter((x) => x.args[0] === 'api').every((x) => x.acrescentar?.GITLAB_HOST === 'gitlab.exemplo.org'), url);
   }
-  // O REST de commits e GET (sem --method) e so le.
-  assert.deepEqual(chamadas[3].args.slice(0, 1), ['api']);
-  assert.match(chamadas[3].args[1], /^projects\/grupo%2Fsub%2Fapp\/repository\/commits\?ref_name=a{40}&since=/);
-  assert.ok(!chamadas[3].args.includes('--method'));
-  assert.deepEqual(chamadas[3].args.slice(2), ['--hostname', 'gitlab.com']);
-  // A branch que nao existe nao entra na consulta dos blobs.
-  assert.doesNotMatch(JSON.parse(chamadas[2].entrada).query, /reservas:/);
-  const l = r.leitura;
-  assert.equal(l.chamadas, 4);
-  assert.deepEqual([l.base!.ref, l.base!.commit, l.base!.arquivos!.map((a) => a.caminho)], ['main', SHA_BASE, ['docs/roadmap/RM-001-um.md']]);
-  assert.match(l.base!.manifesto!, /name: "app"/);
-  assert.deepEqual(l.base!.commits.map((c) => c.assunto), ['ship(ork-y): merge de b em main']);
-  assert.equal(l.reservas, null);
-  assert.deepEqual(l.fabrica!.arquivos, [{ caminho: 'maquinas/vps.json', texto: '{"contrato":"ork.fabrica-maquina/v1"}' }]);
+  // O GitHub segue como sempre: so o host.
+  assert.equal(identidadeDaForja('https://github.com:8443/o/r.git')!.porta, undefined);
+});
+
+test('forja: GitLab sem login não faz pedido; projeto sem acesso é forja.nao-achei', () => {
+  const sem = cliFalsa([{ quando: login, responde: falhou('x 127.0.0.1 has not been authenticated with glab') }]);
+  const r = lerDaForja({ tipo: 'gitlab', host: '127.0.0.1', repo: 'time/sub/app' }, PEDIDO, undefined,
+    chamadorDaApi(ALVO_GITLAB, { rodar: sem.rodar, logins: new Map() }));
+  assert.equal(!r.ok && r.erro.codigo, 'forja.sem-login');
+  assert.equal(sem.chamadas.filter((c) => c.args[0] === 'api').length, 0);
+  // Medido no CE 19.4: projeto inexistente ou sem acesso responde 200 com `project: null`.
+  const nulo = cliFalsa([{ quando: login, responde: okCli('') }, { quando: (c) => c.args.includes('graphql'), responde: http(200, { data: { project: null } }) }]);
+  const r2 = lerDaForja({ tipo: 'gitlab', host: '127.0.0.1', repo: 'time/sub/app' }, PEDIDO, undefined,
+    chamadorDaApi(ALVO_GITLAB, { rodar: nulo.rodar, logins: new Map() }));
+  assert.equal(!r2.ok && r2.erro.codigo, 'forja.nao-achei');
 });
 
 test('forja: erro tipado e sem segredo na saida', () => {
@@ -173,7 +216,7 @@ test('forja: erro tipado e sem segredo na saida', () => {
     return (r as { erro: { codigo: string; detalhe: string } }).erro;
   };
   assert.equal(ler({ status: null, stdout: '', stderr: '', erro: 'ENOENT' }).codigo, 'forja.ausente');
-  assert.equal(ler({ status: null, stdout: '', stderr: '', erro: 'ETIMEDOUT', sinal: 'SIGTERM' }).codigo, 'forja.tempo-esgotado');
+  assert.equal(ler({ status: null, stdout: '', stderr: '', erro: 'ETIMEDOUT', sinal: 'SIGTERM' }).codigo, 'forja.indisponivel');
   assert.equal(ler({ status: 4, stdout: '', stderr: 'To get started with GitHub CLI, please run:  gh auth login\n' +
     'Alternatively, populate the GH_TOKEN environment variable with a GitHub API authentication token.' }).codigo, 'forja.sem-login');
   const credencial = ler({ status: 1, stdout: '', stderr: 'HTTP 401: Bad credentials (https://api.github.com/graphql)\n' +
@@ -183,8 +226,8 @@ test('forja: erro tipado e sem segredo na saida', () => {
   const naoAchou = ler({ status: 1, stdout: JSON.stringify({ data: { repository: null }, errors: [{ type: 'NOT_FOUND',
     message: "Could not resolve to a Repository with the name 'orkastery/orkastery'." }] }),
     stderr: "gh: Could not resolve to a Repository with the name 'orkastery/orkastery'." });
-  assert.equal(naoAchou.codigo, 'forja.nao-encontrado');
-  assert.equal(ler({ status: 1, stdout: '', stderr: 'HTTP 502: Bad Gateway' }).codigo, 'forja.inacessivel');
+  assert.equal(naoAchou.codigo, 'forja.nao-achei');
+  assert.equal(ler({ status: 1, stdout: '', stderr: 'HTTP 502: Bad Gateway' }).codigo, 'forja.indisponivel');
   // Saida que nao e o formato esperado vira erro tipado, nunca lista vazia.
   assert.equal(ler({ status: 0, stdout: 'isto nao e json', stderr: '' }).codigo, 'forja.resposta-invalida');
   assert.equal(ler(ok({ data: { outra: 1 } })).codigo, 'forja.resposta-invalida');
@@ -209,21 +252,25 @@ test('forja: host explicito e listagem cortada declarada', () => {
   assert.deepEqual(gh.chamadas[0].args.slice(-2), ['--hostname', 'github.com']);
   assert.deepEqual([r.leitura.base!.parcial, r.leitura.reservas!.parcial, r.leitura.fabrica!.parcial], [false, false, false]);
   // GitLab: conexao com mais pagina e dita parcial, nunca lida como se estivesse inteira.
-  const gl = gravado([
-    ok({ data: { project: { repository: {
+  const respostas = [
+    { data: { project: { repository: {
       baseTopo: { lastCommit: { sha: SHA_BASE, committedDate: '2026-09-29T11:49:15Z' } },
       baseDir: { blobs: { pageInfo: { hasNextPage: true }, nodes: [{ name: 'RM-001-um.md', path: 'docs/roadmap/RM-001-um.md' }] } },
       reservasTopo: { lastCommit: null }, reservasDir: { blobs: { pageInfo: { hasNextPage: false }, nodes: [] } },
       fabricaTopo: { lastCommit: null }, fabricaDir: { blobs: { pageInfo: { hasNextPage: false }, nodes: [] } },
-    } } } }),
-    ok({ data: { project: { repository: {
+    } } } },
+    { data: { project: { repository: {
       base: { pageInfo: { hasNextPage: false }, nodes: [{ path: 'docs/roadmap/RM-001-um.md', rawTextBlob: '---\nid: RM-001\n---\n' }] },
-    } } } }),
-    ok([]),
-  ]);
-  const l = lerDaForja({ tipo: 'gitlab', host: 'gitlab.exemplo.org', repo: 'grupo/app' }, { ...PEDIDO, base: 'main' }, gl.executor);
+    } } } },
+  ];
+  const gl = cliFalsa([{ quando: login, responde: okCli('') },
+    { quando: (c) => c.args.includes('graphql'), responde: () => http(200, respostas.shift()) },
+    { quando: (c) => c.args.some((a) => a.includes('/repository/commits?')), responde: http(200, []) }]);
+  const l = lerDaForja({ tipo: 'gitlab', host: 'gitlab.exemplo.org', repo: 'grupo/app' }, { ...PEDIDO, base: 'main' }, undefined,
+    chamadorDaApi({ tipo: 'gitlab', host: 'gitlab.exemplo.org', porta: null, caminhoBase: '', ca: null }, { rodar: gl.rodar, logins: new Map() }));
   assert.ok(l.ok, JSON.stringify(l));
   assert.equal(l.leitura.base!.parcial, true);
-  assert.ok(gl.chamadas.every((c) => c.args.join(' ').endsWith('--hostname gitlab.exemplo.org')));
-  assert.match(JSON.parse(gl.chamadas[0].entrada).query, /blobs\(first: 100\) \{ pageInfo \{ hasNextPage \}/);
+  const apis = gl.chamadas.filter((c) => c.args[0] === 'api');
+  assert.ok(apis.every((c) => c.acrescentar?.GITLAB_HOST === 'gitlab.exemplo.org' && !c.args.includes('--hostname')));
+  assert.match(JSON.parse(apis[0].entrada!).query, /blobs\(first: 100\) \{ pageInfo \{ hasNextPage \}/);
 });

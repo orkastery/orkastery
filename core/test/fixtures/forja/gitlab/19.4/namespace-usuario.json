@@ -1,0 +1,42 @@
+{
+  "caso": "namespace-usuario",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "namespaces/pessoa"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-type": "application/json",
+    "date": "Wed, 14 Oct 2026 04:24:12 GMT",
+    "etag": "W/\"5f0b6f8c72fd291d35ccc8243df6061f\"",
+    "nel": "{\"max_age\": 0}",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Accept-Encoding, Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4WAEMVSJATGZE2MDB3VQQYK\",\"version\":\"1\"}",
+    "x-request-id": "01M4WAEMVSJATGZE2MDB3VQQYK",
+    "x-runtime": "0.075530"
+  },
+  "corpo": {
+    "id": 2,
+    "name": "Pessoa",
+    "path": "pessoa",
+    "kind": "user",
+    "full_path": "pessoa",
+    "parent_id": null,
+    "avatar_url": "https://www.gravatar.com/avatar/c57251049dca8f3fa4e1d60e83dd2bbcf9cf5b1a88a7320cb0b085f3d1faf835?s=80&d=identicon",
+    "web_url": "http://127.0.0.1/pessoa"
+  }
+}

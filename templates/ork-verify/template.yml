@@ -1,0 +1,34 @@
+# CI/CD Component do ork-verify (GitLab 17.0 ou mais novo). Com o repositorio do Orkastery espelhado na instancia:
+#
+#   include:
+#     - component: $CI_SERVER_FQDN/<grupo>/orkastery/ork-verify@<versao>
+#
+# As regras de pipeline de MR vao no .gitlab-ci.yml do projeto, fora do include: veja templates/gitlab/ork-verify.yml.
+# O job e o proprio sinal: nao publica status e nao usa token.
+spec:
+  inputs:
+    contexto:
+      description: "O nome do job: o check que o ork exige (ci.context)"
+      default: ork-verify
+    stage:
+      description: "O stage do job"
+      default: test
+    imagem:
+      description: "A imagem do job, com Node 20 ou mais novo"
+      default: node:22
+    versao_do_ork:
+      description: "A versao do @orkastery/cli que roda o CHECK (a que traz o suporte a GitLab e a proxima publicada, no minimo)"
+      default: "0.5.6"
+      regex: ^\d+\.\d+\.\d+$
+---
+"$[[ inputs.contexto ]]":
+  stage: $[[ inputs.stage ]]
+  image: $[[ inputs.imagem ]]
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+  script:
+    - npm install --global --no-audit --no-fund "@orkastery/cli@$[[ inputs.versao_do_ork ]]"
+    - ork ci run --branch "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_REF_NAME}"

@@ -818,7 +818,7 @@ test('remoto que nao e do github.com nao chama o gh', () => {
     const executor: ExecutorDoGh = () => { chamadas++; return { status: 0, stdout: '[]', stderr: '' }; };
     assert.equal(lerPrsDaForja(p.carregado, { quando: AGORA, executor }).ok, false);
     git(p.dir, 'remote', 'set-url', 'origin', 'https://gitlab.com/github.com/exemplo/simulado.git');
-    assert.equal(lerPrsDaForja(p.carregado, { quando: AGORA, executor }).ok, false, 'o host e ancorado, nao so citado no caminho');
+    assert.equal(lerPrsDaForja(p.carregado, { quando: AGORA, executor, rodar: () => ({ status: 1, stdout: '', stderr: 'You are not logged in' }) }).ok, false, 'o host e ancorado, nao so citado no caminho');
     assert.equal(chamadas, 0);
   } finally { p.limpar(); }
 });

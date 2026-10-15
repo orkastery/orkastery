@@ -1,0 +1,14 @@
+{
+  "caso": "statuses",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz/repository/commits/392d50a6b01f9e500d144adfc7a5cfcb6e7d0a07/statuses?all=true&per_page=100"
+  ],
+  "status": 0,
+  "corpo": []
+}

@@ -75,7 +75,7 @@ fontes:
 - **Alternativas, erros e recuperação:**
   - `--projeto` ambíguo ou desconhecido: a recusa `projeto.ambiguo` ou `projeto.desconhecido`, com os candidatos, e saída 4; caminho sem manifesto: `projeto.sem-manifesto`;
   - sem rede: vale a última cópia desta máquina, com a lacuna `<parte>.sem-leitura`; `--sem-remoto` pede isso de propósito;
-  - forja: `forja.ausente`, `forja.sem-login`, `forja.nao-encontrado`, `forja.tempo-esgotado`, `forja.inacessivel` e `forja.resposta-invalida`, com o detalhe redigido;
+  - forja: `forja.ausente`, `forja.sem-login`, `forja.nao-achei` (repositório que não existe ou não é visível), `forja.indisponivel` (prazo, rede, forja fora) e `forja.resposta-invalida`, com o detalhe redigido;
   - nenhum projeto conhecido: a lacuna `rede.sem-projeto` e saída 2;
   - um projeto que derruba a leitura vira `projeto.sem-leitura`: os outros projetos seguem;
   - estado local ilegível (um `thread.json` corrompido): `estado-local.sem-leitura`, e esta máquina entra com as threads legíveis;

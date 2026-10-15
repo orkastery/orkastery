@@ -1,0 +1,59 @@
+{
+  "caso": "roadmap-raiz",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "--method",
+    "POST",
+    "-H",
+    "Content-Type: application/json",
+    "graphql",
+    "--input",
+    "-"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "cabecalhos": {
+    "cache-control": "max-age=0, private, must-revalidate",
+    "connection": "keep-alive",
+    "content-length": "54",
+    "content-security-policy": "",
+    "content-type": "application/json; charset=utf-8",
+    "date": "Wed, 14 Oct 2026 04:34:03 GMT",
+    "etag": "W/\"f5c555c7949fc7081cb233d9d71aa680\"",
+    "permissions-policy": "interest-cohort=()",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx",
+    "strict-transport-security": "max-age=63072000",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-download-options": "noopen",
+    "x-frame-options": "SAMEORIGIN",
+    "x-gitlab-meta": "{\"correlation_id\":\"01M4WB0NXSR96WM3SX7E2B797R\",\"version\":\"1\"}",
+    "x-permitted-cross-domain-policies": "none",
+    "x-request-id": "01M4WB0NXSR96WM3SX7E2B797R",
+    "x-runtime": "0.067465",
+    "x-ua-compatible": "IE=edge",
+    "x-xss-protection": "1; mode=block"
+  },
+  "entrada": {
+    "query": "query($path: ID!) { project(fullPath: $path) { repository { rootRef } } }",
+    "variables": {
+      "path": "time/sub/app"
+    }
+  },
+  "corpo": {
+    "data": {
+      "project": {
+        "repository": {
+          "rootRef": "main"
+        }
+      }
+    }
+  }
+}

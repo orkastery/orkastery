@@ -24,11 +24,20 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import type { LimitesDosPedidos } from './forja/adaptador';
+import type { ForjaResolvida } from './forja/contrato';
+import { chamadorDaApi, RodarCli } from './forja/api';
+import { CLI_DA_FORJA } from './forja/cli';
+import { lerEnderecoDoRemoto } from './forja/endereco';
+import { rodarCli } from './forja/executor';
+import { resolverForja, sondasPadrao, SondasDaForja } from './forja/resolver';
+import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
+import { estadoDoCheck } from './forja/estado';
 import { remotoRedigido, remotoValido } from './branch-de-estado';
 import { conducaoDaThread } from './conducao';
 import { raizDoEstado } from './estado-thread';
-import { enderecoDoRemoto, identidadeDaForja, repositorioGithubNoHost } from './forja';
+import { enderecoDoRemoto, repositorioGithubNoHost } from './forja';
+import { textoDoCatalogo } from './locale';
 import { redigirSegredos } from './hitl';
 import { alvoDoPedido, estadoDoPedido, PedidoHitlQualquer } from './hitl-contract';
 import { quemDecide } from './hitl-classificacao';
@@ -52,19 +61,15 @@ export const VALIDADE_DO_RETRATO_MIN = 60;
 export const LIMITE_DE_PRS = 200;
 /** Quantos PRs recentes (de qualquer estado) a segunda leitura pede: so para achar o mesclado e o fechado. */
 export const LIMITE_DE_RECENTES = 100;
+const PRAZO_DO_GH_MS = 30000;
+/** Os tetos e o prazo de cada chamada da leitura de pedidos, que o adaptador de cada forja respeita. */
+export const LIMITES_DOS_PEDIDOS: LimitesDosPedidos = { abertos: LIMITE_DE_PRS, recentes: LIMITE_DE_RECENTES, candidatas: 10,
+  minimoDaConferenciaMs: 5000, prazoMs: PRAZO_DO_GH_MS };
 /** Retrato com data mais a frente do relogio do que isto nao vale (relogio adiantado ou arquivo mexido). */
 const FOLGA_DO_RELOGIO_MIN = 5;
 const ARQUIVO_DOS_PRS = 'prs.json';
-const PRAZO_DO_GH_MS = 30000;
 /** A leitura inteira da forja numa batida: cabe com folga nos 240 s que a varredura da ao subprocesso do pulse. */
 const ORCAMENTO_DA_LEITURA_MS = 60000;
-const CAMPOS_DOS_RECENTES = 'number,state,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository,url,createdAt,mergedAt';
-/** RM-059 (F7, D11 da ork-rm059pista): o estado de merge do PR aberto, que a pista de entrega mostra como conflito. */
-const CAMPOS_DO_GH = `${CAMPOS_DOS_RECENTES},statusCheckRollup,mergeable`;
-/** Quantas branches candidatas a "sem PR" sao conferidas uma a uma por batida; o resto fica "PR nao lido". */
-const LIMITE_DE_CANDIDATAS = 10;
-/** A conferencia de uma candidata so comeca com este tempo de sobra no orcamento; com menos, a branch fica sem conferir. */
-const MINIMO_DA_CONFERENCIA_MS = 5000;
 /** As fases que o ciclo despacha antes da entrega: depois de um bloco que para nelas, o passo e despachar, nao publicar. */
 const FASES_ANTES_DA_ENTREGA = ['GOAL', 'PLAN', 'GO', 'CHECK'];
 /** Os modos em que a #TAG ja autoriza o push (`autorizacaoDePush`, `core/src/ship.ts`). */
@@ -128,16 +133,11 @@ export const FORJA_SEM_LEITURA = 'forja sem leitura de PR';
 /** Quem roda o `gh`. Os testes trocam por uma resposta gravada e contam as chamadas. */
 export type ExecutorDoGh = (args: readonly string[], timeoutMs: number) => { status: number | null; stdout: string; stderr: string };
 
-/** O ambiente do `gh`: sem cor, sem prompt e sem host ou repositorio herdados (o host vai no `--repo`). */
-function ambienteDoGh(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, GH_PROMPT_DISABLED: '1', NO_COLOR: '1', CLICOLOR: '0', CLICOLOR_FORCE: '0' };
-  delete env.GH_HOST; delete env.GH_REPO; delete env.GH_FORCE_TTY;
-  return env;
-}
-
 export const ghPadrao: ExecutorDoGh = (args, timeoutMs) => {
-  const r = spawnSync('gh', [...args], { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, env: ambienteDoGh() });
-  return { status: r.status, stdout: r.stdout ?? '', stderr: r.error ? r.error.message : (r.stderr ?? '') };
+  const r = rodarCli({ cmd: 'gh', args, prazoMs: timeoutMs, maxBuffer: 16 * 1024 * 1024, procurarBinario: false,
+    acrescentar: { GH_PROMPT_DISABLED: '1', NO_COLOR: '1', CLICOLOR: '0', CLICOLOR_FORCE: '0' },
+    apagar: ['GH_HOST', 'GH_REPO', 'GH_FORCE_TTY'] });
+  return { status: r.status, stdout: r.stdout, stderr: r.mensagemDoErro ?? r.stderr };
 };
 
 /** Git local sem rede escondida: clone parcial nunca busca objeto durante uma leitura daqui. */
@@ -146,6 +146,10 @@ const git = (raiz: string, args: string[]) => exec('git', args, raiz, 60000, { .
 const SHA = /^[0-9a-f]{40}$/;
 const BRANCH = /^[A-Za-z0-9._/-]{1,200}$/;
 const REPOSITORIO = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
+/** O caminho do projeto no retrato: `dono/nome` no GitHub, o caminho completo com subgrupos no GitLab. */
+const CAMINHO_DO_PROJETO = /^[A-Za-z0-9_.-]{1,100}(?:\/[A-Za-z0-9_.-]{1,100}){1,19}$/;
+/** O caminho do projeto na forma, sem segmento `.` ou `..`. */
+const caminhoDoProjeto = (v: string): boolean => CAMINHO_DO_PROJETO.test(v) && v.split('/').every((p) => p !== '.' && p !== '..');
 /** O host do GitHub Enterprise guardado no retrato: rotulos alfanumericos separados por ponto, como na forja. */
 const HOST = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/;
 
@@ -190,10 +194,12 @@ function checkDaForja(c: unknown): { check: CheckDoPr; chave: string; inicio: st
   let situacao: SituacaoDoCheck;
   if (o.__typename === 'StatusContext' || (o.status === undefined && typeof o.state === 'string')) {
     const s = String(o.state ?? '').toUpperCase();
-    situacao = s === 'SUCCESS' ? 'verde' : s === 'FAILURE' || s === 'ERROR' ? 'vermelho' : 'pendente';
+    situacao = estadoDoCheck('commit-status', s, null) as SituacaoDoCheck;
   } else {
     const status = String(o.status ?? '').toUpperCase(), conclusao = String(o.conclusion ?? '').toUpperCase();
-    situacao = status !== 'COMPLETED' ? 'pendente' : ['SUCCESS', 'NEUTRAL', 'SKIPPED'].includes(conclusao) ? 'verde' : 'vermelho';
+    // O pulse mostra o job pulado de proposito como verde, como sempre: so o gate trata `bloqueado` como nao verde.
+    const estado = estadoDoCheck('check-run', status, conclusao);
+    situacao = estado === 'bloqueado' ? 'verde' : estado;
   }
   const concluidoEm = situacao === 'pendente' ? null : instante(o.completedAt) ?? instante(o.startedAt);
   return { check: { nome, situacao, concluidoEm }, chave, inicio: instante(o.startedAt) ?? instante(o.completedAt) ?? '' };
@@ -258,121 +264,155 @@ export function repositorioDoRemoto(raiz: string, remoto: string): string | null
  * `semLeitura` falso: a forja pode ter leitura, mas a conferencia desta batida falhou (o `gh` ausente, fora do prazo ou
  * sem resposta do host). Isso e "PR nao lido" desta batida, nunca o estado da forja (aviso da rodada 1 do CHECK).
  */
-type ForjaDosPrs = { leitura: true; host: string; repositorio: string } |
+type ForjaDosPrs = { leitura: true; forja: ForjaResolvida; hostDoRemoto: string | null } |
   { leitura: false; host: string | null; motivo: string; semLeitura: boolean };
 
+const githubResolvido = (f: { host: string; repositorio: string }): ForjaResolvida => ({ tipo: 'github', host: f.host, porta: null,
+  caminhoBase: '', sshHost: null, sshPorta: null, ca: null, repo: f.repositorio,
+  origem: { tipo: 'remoto', host: 'remoto', porta: 'padrao', caminhoBase: 'padrao' } });
+
 /**
- * RM-037 (fatia 5, A5): de onde o pulse le os PRs do remoto. O github.com, como sempre; o host proprio em que o `gh`
- * esta autenticado, que e um GitHub Enterprise (`gh auth status --hostname <host>`); ou nenhum: GitLab, caminho local,
- * ou host em que o `gh` nao tem login. Ficar sem leitura nao e falha desta batida (o "PR nao lido"): e o estado da
- * forja, que o pulse diz uma vez.
+ * As sondas do pulse: o GitHub pelo `gh auth status --hostname` de sempre (o host proprio em que o `gh` tem login e
+ * um GitHub Enterprise) e o GitLab pela sonda padrao (o `glab` com login no host responde o `metadata`). O `auth
+ * status` que falha por outro motivo que nao a falta de login (prazo, rede, `gh` ausente) fica em `falha`.
  */
-function forjaDosPrs(raiz: string, remoto: string, executor: ExecutorDoGh, prazoMs: number): ForjaDosPrs {
+function sondasDoPulse(executor: ExecutorDoGh, prazoMs: number, rodar: RodarCli, logins: Map<string, boolean>,
+  falha: { gh?: string; ghSemLogin?: boolean; glabSemLogin?: boolean }): SondasDaForja {
+  return {
+    github: (alvo) => {
+      if (alvo.caminhoBase) return 'nao-responde';
+      // Com porta propria, o login se confere no `host:porta` exato, pela sonda padrao: o `--hostname` nao leva porta.
+      if (alvo.porta !== null && alvo.porta !== 443) return sondasPadrao(rodar, logins).github!(alvo);
+      const auth = executor(['auth', 'status', '--hostname', alvo.host], prazoMs);
+      if (auth.status === 0) return 'responde';
+      // So a resposta de login ausente (o `gh` 2.46 diz "You are not logged into any accounts on <host>") e o estado
+      // da forja; prazo estourado, `gh` ausente ou host fora do ar sao falha desta batida.
+      if (auth.status === 1 && /\bnot logged in/i.test(`${auth.stdout}\n${auth.stderr}`)) { falha.ghSemLogin = true; return 'sem-login'; }
+      falha.gh = `gh auth status --hostname ${alvo.host} falhou (${auth.status === null ? 'sem código de saída' : `código ${auth.status}`}): ` +
+        (curto(redigirSegredos(auth.stderr || auth.stdout || ''), 120) ?? 'sem detalhe');
+      return 'nao-responde';
+    },
+    gitlab: (alvo) => {
+      const r = sondasPadrao(rodar, logins).gitlab!(alvo);
+      if (r === 'sem-login') falha.glabSemLogin = true;
+      return r;
+    },
+  };
+}
+
+/**
+ * De onde o pulse le os pedidos do remoto: a forja resolvida pelo bloco `forja:` do manifesto, pelo host conhecido ou
+ * pela sondagem so por CLI com login no host (nunca pelo nome do host). Ficar sem leitura (remoto sem forja, forja
+ * que nao se resolve, tipo sem a capacidade) nao e falha desta batida: e o estado da forja, que o pulse diz uma vez.
+ */
+function forjaDosPrs(carregado: ManifestoCarregado, remoto: string, executor: ExecutorDoGh, prazoMs: number, rodar: RodarCli,
+  logins: Map<string, boolean>, sondas?: SondasDaForja): ForjaDosPrs {
   // RM-047: remoto que nao e nome de remoto nao chega ao git; para o pulse, e forja sem leitura.
   if (!remotoValido(remoto)) {
     return { leitura: false, host: null, motivo: `o remoto ${remotoRedigido(remoto)} não é nome de remoto do git`, semLeitura: true };
   }
-  const url = git(raiz, ['remote', 'get-url', '--', remoto]);
+  const url = git(carregado.raiz, ['remote', 'get-url', '--', remoto]);
   if (!url.ok) return { leitura: false, host: null, motivo: `o remoto ${remoto} não está configurado neste checkout`, semLeitura: true };
-  const endereco = enderecoDoRemoto(url.stdout.trim());
+  const endereco = enderecoDoRemoto(url.stdout.trim()), lido = lerEnderecoDoRemoto(url.stdout.trim());
   // Caminho local, ou apelido de SSH sem dominio (`git@github-trabalho:dono/repo.git`): nao ha host para ler.
-  if (!endereco) {
+  if (!endereco || !lido) {
     return { leitura: false, host: null, motivo: `o remoto ${remoto} não tem host de forja (caminho local ou apelido de SSH)`, semLeitura: true };
   }
-  if (identidadeDaForja(url.stdout.trim())?.tipo === 'gitlab') {
-    return { leitura: false, host: endereco.host, motivo: `a forja de ${remoto} (${endereco.host}) é um GitLab, e o ork só lê PR do GitHub`,
-      semLeitura: true };
+  const falha: { gh?: string; ghSemLogin?: boolean; glabSemLogin?: boolean } = {};
+  // Sem o cache de 24 h: o pulse percebe na batida seguinte a CLI que perdeu o login no host.
+  const r = resolverForja({ endereco: lido, manifesto: carregado.manifesto.forja, sondas: sondas ?? sondasDoPulse(executor, prazoMs, rodar, logins, falha) });
+  if (!r.ok) {
+    if (falha.gh) return { leitura: false, host: endereco.host, semLeitura: false, motivo: falha.gh };
+    const erro = r.erro;
+    const motivo = erro.codigo === 'forja.desconhecida' && falha.ghSemLogin
+      ? textoDoCatalogo((m) => falha.glabSemLogin ? m.pulse.forjaSemLoginNasDuas(endereco.host, remoto) : m.pulse.forjaSemLogin('gh', endereco.host, remoto))
+      : textoDoCatalogo((m) => m.pulse.forjaNaoResolvida(remoto, m.forja.motivo(erro, null)));
+    return { leitura: false, host: endereco.host, semLeitura: true, motivo };
   }
-  const github = githubDoRemoto(raiz, remoto);
-  if (!github) {
+  const forja = r.valor;
+  if (forja.tipo === 'github' && !REPOSITORIO.test(forja.repo)) {
     return { leitura: false, host: endereco.host, motivo: `o remoto ${remoto} (${endereco.host}) não aponta um repositório dono/nome`,
       semLeitura: true };
   }
-  if (github.host === 'github.com') return { leitura: true, ...github };
-  const auth = executor(['auth', 'status', '--hostname', github.host], prazoMs);
-  if (auth.status === 0) return { leitura: true, ...github };
-  // So a resposta de login ausente (o `gh` 2.46 diz "You are not logged into any accounts on <host>") e o estado da
-  // forja; prazo estourado, `gh` ausente ou host fora do ar sao falha desta batida.
-  const semLogin = auth.status === 1 && /\bnot logged in/i.test(`${auth.stdout}\n${auth.stderr}`);
-  return { leitura: false, host: github.host, semLeitura: semLogin, motivo: semLogin
-    ? `o gh não está autenticado em ${github.host}, a forja de ${remoto}`
-    : `gh auth status --hostname ${github.host} falhou (${auth.status === null ? 'sem código de saída' : `código ${auth.status}`}): ` +
-      (curto(redigirSegredos(auth.stderr || auth.stdout || ''), 120) ?? 'sem detalhe') };
+  if (!adaptadorDaForja(forja.tipo).pedidosAbertos) {
+    return { leitura: false, host: endereco.host, semLeitura: true,
+      motivo: textoDoCatalogo((m) => m.pulse.forjaSemPedidos(forja.tipo, forja.host, remoto)) };
+  }
+  return { leitura: true, forja, hostDoRemoto: endereco.host };
 }
 
 /**
- * Le os PRs da base do repositorio do remoto em duas chamadas: os abertos (ate `LIMITE_DE_PRS`; e so a
- * lista deles que pode dizer "sem PR") e os recentes de qualquer estado (para achar o mesclado e o fechado).
- * O `gh` usa a autenticacao dele; nenhum token passa por aqui. RM-037 (fatia 5, A5): no GitHub Enterprise, o host
- * vai no `--repo`; forja sem leitura de PR nao chama o `gh pr list`.
+ * A forja do remoto como o pulse a resolve (o bloco `forja:`, o host conhecido, o cache ou a sondagem pela CLI com
+ * login), sem ler pedido nenhum: a pista a usa num host proprio, para seguir o caminho da forja certa. `erro` e a frase
+ * que a leitura dos pedidos diria.
+ */
+export function forjaDoRemotoDoPulse(carregado: ManifestoCarregado, remoto: string,
+  opcoes: { executor?: ExecutorDoGh; rodar?: RodarCli; sondas?: SondasDaForja } = {}): { ok: true; forja: ForjaResolvida } | { ok: false; erro: string } {
+  const lido = forjaDosPrs(carregado, remoto, opcoes.executor ?? ghPadrao, PRAZO_DO_GH_MS, opcoes.rodar ?? rodarCli, new Map(), opcoes.sondas);
+  return lido.leitura ? { ok: true, forja: lido.forja } : { ok: false, erro: lido.motivo };
+}
+
+/**
+ * Le os pedidos da base do projeto pela capacidade `pedidosAbertos` da forja resolvida: os abertos (so a lista deles
+ * pode dizer "sem PR"), os recentes de qualquer estado e as candidatas que nao apareceram. A CLI usa a autenticacao
+ * dela; nenhum token passa por aqui. Forja sem leitura de pedidos nao chama CLI nenhuma alem da sondagem.
  */
 export function lerPrsDaForja(carregado: ManifestoCarregado,
   opcoes: { quando?: string; executor?: ExecutorDoGh; remoto?: string; candidatas?: readonly string[]; orcamentoMs?: number;
     /** RM-059 (F7): o GitHub do remoto ja conhecido; os testes o fixam, porque o remoto deles e um repositorio bare local. */
-    forja?: { host: string; repositorio: string } } = {}): LeituraDePrs {
+    forja?: { host: string; repositorio: string };
+    /** A forja ja resolvida por quem chama. */
+    resolvida?: ForjaResolvida;
+    /** Quem roda a CLI da API (o `glab` e a sondagem); os testes trocam por uma CLI falsa. */
+    rodar?: RodarCli;
+    /** As sondas da resolucao; sem elas, as do pulse. */
+    sondas?: SondasDaForja } = {}): LeituraDePrs {
   const lidoEm = opcoes.quando ?? new Date().toISOString();
   const remoto = opcoes.remoto ?? carregado.manifesto.fabrica.remoto;
   const base = carregado.manifesto.worktree.base_branch;
   const orcamento = opcoes.orcamentoMs ?? ORCAMENTO_DA_LEITURA_MS, fimDaLeitura = Date.now() + orcamento;
   const resta = () => fimDaLeitura - Date.now();
-  const executor = opcoes.executor ?? ghPadrao;
-  const forja: ForjaDosPrs = opcoes.forja ? { leitura: true, ...opcoes.forja }
-    : forjaDosPrs(carregado.raiz, remoto, executor, Math.min(PRAZO_DO_GH_MS, Math.max(1, resta())));
-  if (!forja.leitura) return { ok: false, lidoEm, erro: forja.motivo, ...(forja.semLeitura ? { semLeitura: { remoto, host: forja.host } } : {}) };
-  const { host, repositorio } = forja;
-  const pedir = (args: string[]): unknown[] | string => {
-    if (resta() <= 0) return `gh pr list: orçamento de ${Math.round(orcamento / 1000)} s da leitura esgotado`;
-    const r = executor(['pr', 'list', `--repo=${host}/${repositorio}`, `--base=${base}`, ...args],
-      Math.min(PRAZO_DO_GH_MS, resta()));
-    if (r.status !== 0) {
-      const detalhe = curto(redigirSegredos(r.stderr || r.stdout || ''), 160) ?? 'sem detalhe';
-      return `gh pr list falhou (${r.status === null ? 'sem código de saída' : `código ${r.status}`}): ${detalhe}`;
+  const executor = opcoes.executor ?? ghPadrao, rodar = opcoes.rodar ?? rodarCli, logins = new Map<string, boolean>();
+  const lido: ForjaDosPrs = opcoes.resolvida ? { leitura: true, forja: opcoes.resolvida, hostDoRemoto: null }
+    : opcoes.forja ? { leitura: true, forja: githubResolvido(opcoes.forja), hostDoRemoto: null }
+    : forjaDosPrs(carregado, remoto, executor, Math.min(PRAZO_DO_GH_MS, Math.max(1, resta())), rodar, logins, opcoes.sondas);
+  if (!lido.leitura) return { ok: false, lidoEm, erro: lido.motivo, ...(lido.semLeitura ? { semLeitura: { remoto, host: lido.host } } : {}) };
+  const forja = lido.forja;
+  const lidos = exigirCapacidade(adaptadorDaForja(forja.tipo), 'pedidosAbertos')({ forja, base, candidatas: opcoes.candidatas ?? [],
+    contexto: carregado.manifesto.ci.context || 'ork-verify',
+    api: chamadorDaApi(forja, { rodar, logins }), executor, resta, orcamentoMs: orcamento, limites: LIMITES_DOS_PEDIDOS });
+  if (!lidos.ok) {
+    const erro = lidos.erro, cli = CLI_DA_FORJA[forja.tipo].cmd;
+    // O GitHub guarda a frase de sempre do `gh pr list` (o pulse e os snapshots a fixam); as outras dizem o motivo tipado.
+    if (forja.tipo === 'github') return { ok: false, lidoEm, erro: erro.detalhe };
+    // A CLI sem login no host e o estado da forja, dito uma vez, como o `gh` sem login no host proprio.
+    if (erro.codigo === 'forja.sem-login') {
+      return { ok: false, lidoEm, erro: textoDoCatalogo((m) => m.pulse.forjaSemLogin(cli, forja.host, remoto)),
+        semLeitura: { remoto, host: lido.hostDoRemoto ?? forja.host } };
     }
-    try {
-      const lista = JSON.parse(r.stdout) as unknown;
-      if (!Array.isArray(lista)) throw new Error('a resposta não é uma lista');
-      return lista;
-    } catch (e) {
-      return `resposta do gh pr list fora do formato: ${curto(redigirSegredos((e as Error).message), 120) ?? 'sem detalhe'}`;
-    }
-  };
-  try {
-    const porNumero = new Map<number, PrDaForja>();
-    const juntar = (lista: unknown[], comChecks: boolean) => {
-      for (const bruto of lista) {
-        const pr = prDaForja(bruto, base);
-        if (!pr || porNumero.has(pr.numero)) continue;
-        // S-b do CHECK (rodada 3): a leitura sem rollup nunca diz que o aberto nao tem checks.
-        if (!comChecks && pr.estado === 'aberto') pr.checks = [{ nome: 'checks não lidos', situacao: 'pendente', concluidoEm: null }];
-        porNumero.set(pr.numero, pr);
-      }
-    };
-    const abertos = pedir(['--state=open', `--limit=${LIMITE_DE_PRS}`, `--json=${CAMPOS_DO_GH}`]);
-    if (typeof abertos === 'string') return { ok: false, lidoEm, erro: abertos };
-    juntar(abertos, true);
-    const recentes = pedir(['--state=all', `--limit=${LIMITE_DE_RECENTES}`, `--json=${CAMPOS_DOS_RECENTES}`]);
-    if (typeof recentes === 'string') return { ok: false, lidoEm, erro: recentes };
-    juntar(recentes, false);
-    // R1 do CHECK (rodada 3): antes de dizer "sem PR", a branch candidata e conferida sozinha (o mesclado velho
-    // fica fora dos recentes). Acima do teto da batida, a branch fica sem conferir, e isso e "PR nao lido".
-    const achadas = new Set([...porNumero.values()].map((p) => p.branch));
-    const faltam = [...new Set(opcoes.candidatas ?? [])].filter((b) => BRANCH.test(b) && !achadas.has(b));
-    const semConferir: string[] = [];
-    for (const [i, branch] of faltam.entries()) {
-      // Acima do teto da batida, sem tempo para a conferencia inteira ou com ela falhando, a candidata fica sem conferir
-      // ("PR nao lido") e o que ja foi lido vale (sugestao da seguranca na rodada 4 do CHECK).
-      if (i >= LIMITE_DE_CANDIDATAS || resta() < MINIMO_DA_CONFERENCIA_MS) { semConferir.push(branch); continue; }
-      const daBranch = pedir(['--state=all', `--head=${branch}`, '--limit=5', `--json=${CAMPOS_DOS_RECENTES}`]);
-      try {
-        if (typeof daBranch === 'string') throw new Error(daBranch);
-        juntar(daBranch, false);
-      } catch { semConferir.push(branch); }
-    }
-    return { ok: true, retrato: { contrato: CONTRATO_PRS, lidoEm, repositorio, ...(host !== 'github.com' ? { host } : {}), base,
-      parcial: abertos.length >= LIMITE_DE_PRS, ...(semConferir.length ? { semConferir } : {}), prs: [...porNumero.values()] } };
-  } catch (e) {
-    return { ok: false, lidoEm, erro: `resposta do gh pr list fora do formato: ${curto(redigirSegredos((e as Error).message), 120) ?? 'sem detalhe'}` };
+    return { ok: false, lidoEm, erro: textoDoCatalogo((m) => m.forja.motivo(erro, forja.tipo)) };
   }
+  return { ok: true, retrato: { contrato: CONTRATO_PRS, lidoEm, repositorio: forja.repo, ...(forja.host !== 'github.com' ? { host: forja.host } : {}),
+    base, parcial: lidos.valor.parcial, ...(lidos.valor.semConferir.length ? { semConferir: lidos.valor.semConferir } : {}), prs: lidos.valor.prs } };
+}
+
+/**
+ * O host e o caminho do projeto no remoto, sem rede nem CLI: o que o retrato tem de bater. A resolucao roda sem
+ * sondas; sem tipo declarado e fora dos hosts conhecidos, valem o host (o declarado, senao o do remoto) e o caminho do
+ * remoto sem o caminho base.
+ */
+function forjaDoRemotoSemRede(carregado: ManifestoCarregado, remoto: string): { host: string; repositorio: string } | null {
+  if (!remotoValido(remoto)) return null;
+  const url = git(carregado.raiz, ['remote', 'get-url', '--', remoto]);
+  const endereco = url.ok ? lerEnderecoDoRemoto(url.stdout.trim()) : null;
+  if (!endereco) return null;
+  const m = carregado.manifesto.forja;
+  const r = resolverForja({ endereco, manifesto: m, sondas: {} });
+  if (r.ok) return { host: r.valor.host, repositorio: r.valor.repo };
+  if (r.erro.codigo !== 'forja.desconhecida') return null;
+  const prefixo = m?.caminho_base ? `${m.caminho_base.slice(1)}/` : '';
+  return { host: m?.host ?? endereco.host,
+    repositorio: prefixo && endereco.caminho.startsWith(prefixo) ? endereco.caminho.slice(prefixo.length) : endereco.caminho };
 }
 
 const dirDoMonitor = (raiz: string) => path.join(raizDoEstado(raiz), '.orkastery', 'monitor');
@@ -456,7 +496,7 @@ export function lerRetratoDePrs(raiz: string): RetratoDePrs | null {
   try {
     const r = JSON.parse(fs.readFileSync(path.join(dirDoMonitor(raiz), ARQUIVO_DOS_PRS), 'utf8')) as Record<string, unknown>;
     const lidoEm = instante(r.lidoEm);
-    if (r.contrato !== CONTRATO_PRS || !lidoEm || typeof r.repositorio !== 'string' || !REPOSITORIO.test(r.repositorio) ||
+    if (r.contrato !== CONTRATO_PRS || !lidoEm || typeof r.repositorio !== 'string' || !caminhoDoProjeto(r.repositorio) ||
         typeof r.base !== 'string' || typeof r.parcial !== 'boolean' || !Array.isArray(r.prs) ||
         (r.host !== undefined && !(typeof r.host === 'string' && HOST.test(r.host))) ||
         (r.semConferir !== undefined && !(Array.isArray(r.semConferir) && r.semConferir.every((b) => typeof b === 'string' && BRANCH.test(b))))) return null;
@@ -940,7 +980,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
   const semLeituraDaForja = !!prs && !prs.ok && !!prs.semLeitura;
   let retrato: RetratoDePrs | null = null, semRetrato = prs && !prs.ok ? (semLeituraDaForja ? FORJA_SEM_LEITURA : prs.erro) : 'sem leitura dos PRs';
   if (prs?.ok) {
-    const r = prs.retrato, atual = githubDoRemoto(raiz, remoto);
+    const r = prs.retrato, atual = forjaDoRemotoSemRede(carregado, remoto);
     // O retrato vale do mesmo host: o do GitHub Enterprise (`host`) ou, sem ele, o github.com.
     if (r.base !== baseBranch || !atual || r.repositorio !== atual.repositorio || (r.host ?? 'github.com') !== atual.host) {
       semRetrato = 'retrato de PRs de outro repositório ou base';

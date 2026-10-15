@@ -10,7 +10,7 @@
  *     thread ork-rm059pista);
  *  2. empurra sem forca o sha conferido, e nao a ref, com refspec explicito, e prova pelo `git ls-remote` (a prova do
  *     `ork ship`);
- *  3. reaproveita o PR aberto da branch ou abre um com o texto do `pr-body.md` da thread, e prova pela releitura da
+ *  3. reaproveita o PR (MR no GitLab) aberto da branch ou abre um com o texto do `pr-body.md` da thread, e prova pela releitura da
  *     lista;
  *  4. grava `ship_published` com a prova, so quando houve efeito; o push sem prova tambem vai. Repetido, ou com o PR
  *     ja mesclado no HEAD, devolve `ja-publicada`.
@@ -25,16 +25,24 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { branchValida, exigirRemoto } from './branch-de-estado';
-import { BundleCi, comandosDoBundle } from './ci';
-import { redigirSegredos } from './hitl';
+import { BundleCi, comandosDoBundle, consultarCi, ResultadoCi } from './ci';
+import { chamadorDaApi, OpcoesDaApi } from './forja/api';
+import { hostDaApi } from './forja/cli';
+import type { ErroDaForja, ForjaResolvida, TipoDeForja } from './forja/contrato';
+import { caminhoDosMrsDaBranch, projetoNaApi } from './forja/gitlab/pedidos';
+import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
+import { resolverForja, SondasDaForja } from './forja/resolver';
+import { dirDoCacheDaForja } from './forja/cache';
+import { deFora, umaLinha } from './forja/texto';
 import { lerClaims } from './claims';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { comandosDoTextoDoManifesto, ManifestoCarregado, NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
 import { tagDoModo } from './modos';
 import {
-  conducaoAgora, ExecutorDoGh, ghPadrao, githubDoRemoto, LIMITE_DE_PRS, lerPrsDaForja, PrDaForja, prDaForja, refsLocais,
+  conducaoAgora, ExecutorDoGh, forjaDoRemotoDoPulse, ghPadrao, LIMITE_DE_PRS, lerPrsDaForja, PrDaForja, refsLocais,
 } from './parado-no-condutor';
-import { mergeDaEntrega } from './entrega-pr';
+import { enderecoDoRemotoDaRaiz, forjaDaEntrega, mergeDaEntrega } from './entrega-pr';
+
 import { MODOS_QUE_AUTORIZAM_PUSH } from './ship';
 import { estadoDoArtefato, vereditoDoParecer } from './session-watcher-claude';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -60,8 +68,6 @@ const TETO_DO_CORPO = 64 * 1024;
 const PRAZO_DO_GH_MS = 45000;
 const PRAZO_DO_PUSH_MS = 180000;
 const PRAZO_DO_LS_REMOTE_MS = 60000;
-/** Os campos do `gh pr list` de uma branch: os do `prDaForja`, com o estado de merge do PR aberto. */
-const CAMPOS_DA_BRANCH = 'number,state,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository,url,createdAt,mergedAt,mergeable';
 
 /** Git local sem rede escondida nem pergunta de credencial no terminal. */
 function git(raiz: string, args: string[], prazoMs = 60000) {
@@ -69,16 +75,6 @@ function git(raiz: string, args: string[], prazoMs = 60000) {
 }
 
 const curto = (sha: string | null | undefined): string => (sha ? sha.slice(0, 7) : '-');
-
-/** Texto curto: uma linha, sem controle, com teto. */
-function umaLinha(texto: string, teto = 200): string {
-  return Array.from(texto.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim()).slice(0, teto).join('') || '-';
-}
-
-/** Texto de fora (stderr do git ou do gh): sem segredo, numa linha e com teto, antes de ir ao `--json` e ao ledger. */
-function deFora(texto: string, teto = 200): string {
-  return umaLinha(redigirSegredos(texto), teto);
-}
 
 // ---------------------------------------------------------------------------
 // As etapas e os fatos de uma thread.
@@ -308,19 +304,74 @@ function pontasNoRemoto(raiz: string, remoto: string): Map<string, string> | nul
 
 export interface Forja { host: string; repositorio: string }
 
-/** Os PRs de uma branch, da base do projeto, do mais novo para o mais velho. */
-function prsDaBranch(executor: ExecutorDoGh, forja: Forja, base: string, branch: string): { prs: PrDaForja[]; erro: string | null } {
-  const r = executor(['pr', 'list', `--repo=${forja.host}/${forja.repositorio}`, `--head=${branch}`, '--state=all', '--limit=10',
-    `--json=${CAMPOS_DA_BRANCH}`], PRAZO_DO_GH_MS);
-  if (r.status !== 0) return { prs: [], erro: deFora(r.stderr || r.stdout || `codigo ${r.status ?? '-'}`) };
-  try {
-    const lista = JSON.parse(r.stdout) as unknown;
-    if (!Array.isArray(lista)) throw new Error('a resposta nao e uma lista');
-    const prs = lista.map((p) => prDaForja(p, base)).filter((p): p is PrDaForja => !!p && p.branch === branch);
-    return { prs: prs.sort((a, b) => b.numero - a.numero), erro: null };
-  } catch (e) {
-    return { prs: [], erro: deFora((e as Error).message) };
-  }
+/**
+ * O tipo da forja sem rede nem CLI, para o comando que o dono roda: o fixado, o bloco `forja:`, o host conhecido ou a
+ * sondagem que ja esta no cache de 24 h. Remoto sem host (caminho local) segue o GitHub de sempre; host proprio que
+ * nada disso resolve da `null`, e o comando do dono mostra as duas forjas.
+ */
+function tipoSemRede(carregado: ManifestoCarregado, remoto: string, fixado?: TipoDeForja): TipoDeForja | null {
+  if (fixado) return fixado;
+  if (carregado.manifesto.forja?.tipo) return carregado.manifesto.forja.tipo;
+  const endereco = enderecoDoRemotoDaRaiz(carregado.raiz, remoto);
+  if (!endereco) return 'github';
+  const r = resolverForja({ endereco, manifesto: carregado.manifesto.forja, sondas: {}, cache: dirDoCacheDaForja(carregado.raiz) });
+  return r.ok ? r.valor.tipo : null;
+}
+
+/**
+ * Onde os pedidos da branch sao lidos e abertos: PR no GitHub, MR no GitLab. Os `passo*` sao a evidencia em `passos`
+ * e no ledger; no GitHub, os textos de sempre.
+ */
+interface PedidosDaEntrega {
+  tipo: TipoDeForja;
+  listar(base: string, branch: string): { prs: PrDaForja[]; erro: string | null };
+  abrir(base: string, branch: string, titulo: string, corpo: string): { status: number | null; stdout: string; stderr: string };
+  passoDaLista(branch: string): string;
+  passoDaCriacao(base: string, branch: string): string;
+  /** O comando do ensaio; `corpo` e o nome da fonte (`pr-body.md` ou `padrao`), nunca o texto. */
+  ensaioDaCriacao(base: string, branch: string, titulo: string, corpo: string): string;
+}
+
+function pedidosDoGithub(forja: Forja, executor: ExecutorDoGh): PedidosDaEntrega {
+  const gh = adaptadorDaForja('github');
+  return {
+    tipo: 'github',
+    listar: (base, branch) => exigirCapacidade(gh, 'pedidosDaBranch')({ ...forja, base, branch, executor, prazoMs: PRAZO_DO_GH_MS }),
+    abrir: (base, branch, titulo, corpo) => exigirCapacidade(gh, 'abrirPedido')({ ...forja, base, branch, titulo, corpo, executor,
+      prazoMs: PRAZO_DO_GH_MS }),
+    passoDaLista: (branch) => `gh pr list --head ${branch} --state all`,
+    passoDaCriacao: (base, branch) => `gh pr create --base ${base} --head ${branch}`,
+    ensaioDaCriacao: (base, branch, titulo, corpo) => `gh pr create --base ${base} --head ${branch} --title "${titulo}" --body-file <${corpo}>`,
+  };
+}
+
+/** O GitLab pela API com a CLI logada; o gh nunca roda aqui. */
+function pedidosDoGitlab(f: ForjaResolvida, opcoes: OpcoesDaApi): PedidosDaEntrega {
+  const gl = adaptadorDaForja('gitlab');
+  const semGh: ExecutorDoGh = () => ({ status: 1, stdout: '', stderr: 'o gh não fala com o GitLab' });
+  const comum = { host: hostDaApi(f), repositorio: f.repo, executor: semGh, prazoMs: PRAZO_DO_GH_MS, api: chamadorDaApi(f, opcoes) };
+  const projeto = projetoNaApi(f.repo);
+  return {
+    tipo: 'gitlab',
+    listar: (base, branch) => exigirCapacidade(gl, 'pedidosDaBranch')({ ...comum, base, branch }),
+    abrir: (base, branch, titulo, corpo) => exigirCapacidade(gl, 'abrirPedido')({ ...comum, base, branch, titulo, corpo }),
+    passoDaLista: (branch) => `glab api ${caminhoDosMrsDaBranch(f.repo, branch)}`,
+    passoDaCriacao: (base, branch) => `glab api --method POST ${projeto}/merge_requests (source_branch=${branch}, target_branch=${base})`,
+    ensaioDaCriacao: (base, branch, titulo, corpo) =>
+      `glab api --method POST ${projeto}/merge_requests (source_branch=${branch}, target_branch=${base}, title="${titulo}", description <${corpo}>)`,
+  };
+}
+
+/** Os pedidos da entrega: o GitHub fixo dos testes, a forja fixada, ou a resolvida do remoto. */
+function pedidosDaEntrega(carregado: ManifestoCarregado, remoto: string,
+  opcoes: { forja?: Forja; forjaResolvida?: ForjaResolvida; sondas?: SondasDaForja; api?: OpcoesDaApi; executorGh?: ExecutorDoGh }):
+  { ok: true; pedidos: PedidosDaEntrega } | { ok: false; erro: ErroDaForja | null } {
+  const executor = opcoes.executorGh ?? ghPadrao;
+  if (opcoes.forja) return { ok: true, pedidos: pedidosDoGithub(opcoes.forja, executor) };
+  const r = opcoes.forjaResolvida ? { ok: true as const, valor: opcoes.forjaResolvida } : forjaDaEntrega(carregado, remoto, opcoes.sondas);
+  if (!r.ok) return r;
+  return { ok: true, pedidos: r.valor.tipo === 'gitlab' ? pedidosDoGitlab(r.valor, opcoes.api ?? {})
+    : pedidosDoGithub({ host: r.valor.host, repositorio: r.valor.repo }, executor) };
 }
 
 // ---------------------------------------------------------------------------
@@ -334,7 +385,7 @@ function corpoDaThread(raiz: string, threadId: string): { arquivo: string; texto
     const st = fs.lstatSync(arquivo);
     if (!st.isFile() || st.size === 0 || st.size > TETO_DO_CORPO) return null;
     const texto = fs.readFileSync(arquivo, 'utf8');
-    // O corpo vai ao gh como argumento (A5 da revisao): com NUL ele nao passa, e vale o corpo padrao.
+    // O corpo vai ao gh por um arquivo temporario 600, nunca pelo argv; com NUL ele nao e texto de PR, e vale o corpo padrao.
     return texto.includes('\0') ? null : { arquivo, texto };
   } catch { return null; }
 }
@@ -361,10 +412,22 @@ export function entreAspas(s: string): string {
 
 /**
  * O que o dono roda no proprio terminal quando o modo da thread nao autoriza o push. A branch e a base vem do estado e do
- * manifesto, que podem ser do clone: cada parte vai entre aspas simples (A4 da revisao).
+ * manifesto, que podem ser do clone: cada parte vai entre aspas simples (A4 da revisao). No GitLab, a descricao vai pelo
+ * `--description-file` (ou o titulo, sem `pr-body.md`) e nunca pelo `--fill`, que empurra a branch e pode trocar o titulo;
+ * o `glab mr create` nao arma merge.
  */
-export function comandoDoDono(remoto: string, base: string, branch: string, titulo: string, comCorpo: string | null): string {
-  return `git push -u ${entreAspas(remoto)} ${entreAspas(branch)} && gh pr create --base ${entreAspas(base)} --head ${entreAspas(branch)} ` +
+export function comandoDoDono(remoto: string, base: string, branch: string, titulo: string, comCorpo: string | null,
+  tipo: TipoDeForja | null = 'github'): string {
+  if (tipo === null) {
+    const gh = comandoDoDono(remoto, base, branch, titulo, comCorpo, 'github'), glab = comandoDoDono(remoto, base, branch, titulo, comCorpo, 'gitlab');
+    return textoDoCatalogo((m) => m.ship.publicar.comandoDasDuasForjas(gh, glab));
+  }
+  const push = `git push -u ${entreAspas(remoto)} ${entreAspas(branch)}`;
+  if (tipo === 'gitlab') {
+    return `${push} && glab mr create --source-branch ${entreAspas(branch)} --target-branch ${entreAspas(base)} --title ${entreAspas(titulo)} ` +
+      `${comCorpo ? `--description-file ${entreAspas(comCorpo)}` : `--description ${entreAspas(titulo)}`} --yes`;
+  }
+  return `${push} && gh pr create --base ${entreAspas(base)} --head ${entreAspas(branch)} ` +
     `--title ${entreAspas(titulo)} ${comCorpo ? `--body-file ${entreAspas(comCorpo)}` : '--fill'}`;
 }
 
@@ -417,13 +480,19 @@ export interface OpcoesDaPublicacao {
   executorGh?: ExecutorDoGh;
   /** O GitHub do remoto; os testes o fixam, porque o remoto deles e um repositorio bare local. Nunca vem da CLI. */
   forja?: Forja;
+  /** A forja resolvida do remoto; os testes do GitLab a fixam, porque o remoto deles e um repositorio bare local. Nunca vem da CLI. */
+  forjaResolvida?: ForjaResolvida;
+  /** Como a API da forja roda (a CLI falsa dos testes). Nunca vem da CLI. */
+  api?: OpcoesDaApi;
+  /** As sondas do resolver; os testes as trocam. Nunca vem da CLI. */
+  sondas?: SondasDaForja;
   /** Quem roda o `git push`; os testes trocam para simular o push que sai com erro depois de chegar. Nunca vem da CLI. */
   executorGit?: (args: string[], prazoMs: number) => ResultadoExec;
   /**
    * RM-058 N5 (D11 da ork-rm058n5): a conferência de quem publica por cima (o arco #Noctum confere o envelope), chamada
    * imediatamente antes do push e imediatamente antes de abrir o PR. Devolve `null` para seguir ou a recusa com a correção:
    * antes do push, nada acontece; depois dele, o push que aconteceu vai ao ledger e o PR não é aberto. Nunca vem da CLI.
-   * Antes do PR, ela recebe o título e o corpo que vão ao `gh` (R4-B1 da rodada 4 do CHECK da N5: quem publica sozinho lê
+   * Antes do PR, ela recebe o título e o corpo que vão à forja (R4-B1 da rodada 4 do CHECK da N5: quem publica sozinho lê
    * o texto que fica público).
    */
   antesDoEfeito?: (efeito: 'push' | 'pr', pr?: { titulo: string; corpo: string }) => { recusa: string; correcao: string } | null;
@@ -439,7 +508,6 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   const remoto = exigirRemoto(opcoes.remoto ?? 'origin', 'ship');
   const quando = opcoes.quando ?? new Date().toISOString();
   const dryRun = opcoes.dryRun === true;
-  const executor = opcoes.executorGh ?? ghPadrao;
   const p = (m: Mensagens) => m.ship.publicar;
   const r: Publicacao = {
     contrato: CONTRATO_DA_PUBLICACAO, thread: threadId, modo: null, tag: null, acao: 'recusada', motivo: null,
@@ -474,7 +542,7 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   // 2. O modo que ja autoriza push (D1): fora dele, o push e do dono, e a correcao diz o comando dele.
   if (!MODOS_QUE_PUBLICAM.includes(t.modo)) {
     const comando = comandoDoDono(remoto, base, f.branch, tituloDoPr(t, corpo?.texto ?? null),
-      corpo ? path.relative(raiz, corpo.arquivo) : null);
+      corpo ? path.relative(raiz, corpo.arquivo) : null, tipoSemRede(carregado, remoto, opcoes.forja ? 'github' : opcoes.forjaResolvida?.tipo));
     return recusar('human.pending', textoDoCatalogo((m) => p(m).modoSemPush(tagDoModo(t.modo))),
       textoDoCatalogo((m) => p(m).modoSemPushCorrecao(comando)));
   }
@@ -503,21 +571,30 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   if (!git(raiz, ['remote', 'get-url', '--', remoto]).ok) {
     return recusar('runtime.unavailable', textoDoCatalogo((m) => p(m).semRemoto(remoto)), textoDoCatalogo((m) => p(m).semRemotoCorrecao));
   }
-  const forja = opcoes.forja ?? githubDoRemoto(raiz, remoto);
-  if (!forja) return recusar('runtime.unavailable', textoDoCatalogo((m) => p(m).semForja(remoto)), textoDoCatalogo((m) => p(m).semForjaCorrecao));
+  const daForja = pedidosDaEntrega(carregado, remoto, opcoes);
+  if (!daForja.ok) {
+    const erro = daForja.erro;
+    return recusar('runtime.unavailable', textoDoCatalogo((m) => p(m).semForja(remoto, erro ? m.forja.motivo(erro, null) : null)),
+      textoDoCatalogo((m) => p(m).semForjaCorrecao));
+  }
+  const pedidos = daForja.pedidos;
+  const noGitlab = pedidos.tipo === 'gitlab';
+  const rede = (m: Mensagens) => (noGitlab ? p(m).redeCorrecaoGitlab : p(m).redeCorrecao);
   // 9. A ponta no remoto e os PRs da branch, antes de qualquer efeito.
   const provaDoPush = `git ls-remote ${remoto} refs/heads/${f.branch}`;
   const antes = pontaNoRemoto(raiz, remoto, f.branch);
   r.passos.push(provaDoPush);
   if (antes.erro !== null) {
-    return recusar('runtime.unavailable', textoDoCatalogo((m) => p(m).lsRemoteFalhou(remoto, antes.erro ?? '-')), textoDoCatalogo((m) => p(m).redeCorrecao));
+    return recusar('runtime.unavailable', textoDoCatalogo((m) => p(m).lsRemoteFalhou(remoto, antes.erro ?? '-')), textoDoCatalogo(rede));
   }
   r.remotaAntes = antes.sha;
   r.remota = antes.sha;
-  const lidos = prsDaBranch(executor, forja, base, f.branch);
-  r.passos.push(`gh pr list --head ${f.branch} --state all`);
+  const lidos = pedidos.listar(base, f.branch);
+  r.passos.push(pedidos.passoDaLista(f.branch));
   if (lidos.erro !== null) {
-    return recusar('runtime.unavailable', textoDoCatalogo((m) => p(m).prsFalharam(lidos.erro ?? '-')), textoDoCatalogo((m) => p(m).redeCorrecao));
+    const erro = lidos.erro;
+    return recusar('runtime.unavailable', textoDoCatalogo((m) => noGitlab ? p(m).prsFalharamGitlab(erro) : p(m).prsFalharam(erro)),
+      textoDoCatalogo(rede));
   }
   const aberto = lidos.prs.find((x) => x.estado === 'aberto') ?? null;
   const mesclado = lidos.prs.find((x) => x.estado === 'mesclado' && x.head === head) ?? null;
@@ -526,11 +603,11 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   // A2 da revisao: o PR mesclado no HEAD ja e a entrega, com ou sem a branch no remoto (o GitHub pode te-la apagado).
   if (mesclado && !aberto) {
     return { ...r, acao: 'ja-publicada', pr: { numero: mesclado.numero, url: mesclado.url, criado: false, head: mesclado.head },
-      detalhe: textoDoCatalogo((m) => p(m).jaMesclado(mesclado.numero)), correcao: textoDoCatalogo((m) => p(m).registreAEntrega(t.id)) };
+      detalhe: textoDoCatalogo((m) => p(m).jaMesclado(mesclado.numero, noGitlab)), correcao: textoDoCatalogo((m) => p(m).registreAEntrega(t.id)) };
   }
   if (noRemoto && aberto) {
     return { ...r, acao: 'ja-publicada', pr: { numero: aberto.numero, url: aberto.url, criado: false, head: aberto.head },
-      detalhe: textoDoCatalogo((m) => p(m).jaPublicada(aberto.numero)) };
+      detalhe: textoDoCatalogo((m) => p(m).jaPublicada(aberto.numero, noGitlab)) };
   }
   // O remoto com commit que a branch local nao tem, ou que esta copia nem conhece (A3 da revisao): o push sem forca
   // seria recusado. Nunca forcar.
@@ -540,9 +617,10 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   }
   r.corpo = corpo ? 'pr-body.md' : 'padrao';
   const titulo = tituloDoPr(t, corpo?.texto ?? null);
-  // A5 da revisao: o corpo vai ao gh como texto, o mesmo que foi lido agora; o gh nunca reabre o arquivo.
+  // A5 da revisao: o corpo e o texto lido agora, gravado num arquivo temporario 600 so para o `gh pr create`
+  // (`--body-file`); o gh nunca reabre o `pr-body.md`.
   const textoDoCorpo = corpo?.texto ?? textoDoCatalogo((m) => p(m).corpoPadrao(tagDoModo(t.modo), f.branch, curto(head),
-    carregado.manifesto.ci.context || 'ork-verify'));
+    carregado.manifesto.ci.context || 'ork-verify', noGitlab));
   // B1 da revisao: o push leva o sha conferido, e nao a ref: o commit que chegue a branch depois das conferencias fica
   // fora desta publicacao.
   const refspec = `${head}:refs/heads/${f.branch}`;
@@ -550,10 +628,10 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   if (dryRun) {
     const passos = [...r.passos];
     if (!noRemoto) passos.push(`git push -- ${remoto} ${refspec}`, provaDoPush);
-    passos.push(aberto ? textoDoCatalogo((m) => p(m).passoReaproveita(aberto.numero))
-      : `gh pr create --base ${base} --head ${f.branch} --title "${titulo}" --body <${corpo ? 'pr-body.md' : 'padrao'}>`);
+    passos.push(aberto ? textoDoCatalogo((m) => p(m).passoReaproveita(aberto.numero, noGitlab))
+      : pedidos.ensaioDaCriacao(base, f.branch, titulo, corpo ? 'pr-body.md' : 'padrao'));
     return { ...r, acao: 'publicaria', passos, pr: aberto ? { numero: aberto.numero, url: aberto.url, criado: false, head: aberto.head } : null,
-      detalhe: textoDoCatalogo((m) => p(m).publicaria(curto(head), aberto?.numero ?? null)) };
+      detalhe: textoDoCatalogo((m) => p(m).publicaria(curto(head), aberto?.numero ?? null, noGitlab)) };
   }
 
   // A evidencia de cada efeito, com a prova ou a falta dela.
@@ -581,7 +659,7 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
       const erro = deFora(push.stderr || push.stdout || `codigo ${push.code}`, 300);
       const recusado = /rejected|non-fast-forward|fetch first|stale info|failed to update ref/i.test(erro);
       return recusar(recusado ? 'tree.blocked' : 'runtime.unavailable', textoDoCatalogo((m) => p(m).pushFalhou(remoto, f.branch, erro)),
-        textoDoCatalogo((m) => recusado ? p(m).remotoDivergiuCorrecao(remoto, f.branch) : p(m).redeCorrecao));
+        textoDoCatalogo((m) => recusado ? p(m).remotoDivergiuCorrecao(remoto, f.branch) : rede(m)));
     }
     if (!r.pushVerificado) {
       // B1 da revisao: o push aconteceu e o remoto nao mostra o HEAD; a tentativa vai ao ledger com o que ele respondeu.
@@ -601,17 +679,15 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
       if (pushFeito) gravar({ pr: null, prRecusado: conferido.recusa.slice(0, 300) });
       return recusar('policy.violation', conferido.recusa, conferido.correcao);
     }
-    const argv = ['pr', 'create', `--repo=${forja.host}/${forja.repositorio}`, `--base=${base}`, `--head=${f.branch}`, `--title=${titulo}`,
-      `--body=${textoDoCorpo}`];
-    const criado = executor(argv, PRAZO_DO_GH_MS);
-    r.passos.push(`gh pr create --base ${base} --head ${f.branch}`);
-    const relidos = prsDaBranch(executor, forja, base, f.branch);
-    r.passos.push(`gh pr list --head ${f.branch} --state all   (prova do PR)`);
+    const criado = pedidos.abrir(base, f.branch, titulo, textoDoCorpo);
+    r.passos.push(pedidos.passoDaCriacao(base, f.branch));
+    const relidos = pedidos.listar(base, f.branch);
+    r.passos.push(`${pedidos.passoDaLista(f.branch)}   (prova do PR)`);
     const achado = relidos.prs.find((x) => x.estado === 'aberto') ?? null;
     if (achado) pr = { numero: achado.numero, url: achado.url, criado: criado.status === 0, head: achado.head };
     else {
       erroDoPr = criado.status !== 0 ? deFora(criado.stderr || criado.stdout || `codigo ${criado.status ?? '-'}`)
-        : relidos.erro ?? textoDoCatalogo((m) => p(m).prSemReleitura);
+        : relidos.erro ?? textoDoCatalogo((m) => noGitlab ? p(m).prSemReleituraGitlab : p(m).prSemReleitura);
     }
   }
   r.pr = pr;
@@ -619,18 +695,19 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   // A evidencia: so com efeito (push ou PR novo), com a prova.
   if (pushFeito || pr?.criado || erroDoPr) {
     gravar({ pr: pr ? { numero: pr.numero, url: pr.url, criado: pr.criado, head: pr.head } : null,
-      ...(pr ? { provaDoPr: `gh pr list --head ${f.branch} --state all` } : {}), ...(erroDoPr ? { erroDoPr } : {}) });
+      ...(pr ? { provaDoPr: pedidos.passoDaLista(f.branch) } : {}), ...(erroDoPr ? { erroDoPr } : {}) });
   }
   if (erroDoPr) {
-    return recusar('runtime.unavailable', textoDoCatalogo((m) => p(m).prFalhou(curto(head), erroDoPr ?? '-')),
-      textoDoCatalogo((m) => p(m).prFalhouCorrecao(t.id)));
+    const erro = erroDoPr;
+    return recusar('runtime.unavailable', textoDoCatalogo((m) => noGitlab ? p(m).prFalhouGitlab(curto(head), erro) : p(m).prFalhou(curto(head), erro)),
+      textoDoCatalogo((m) => noGitlab ? p(m).prFalhouCorrecaoGitlab(t.id) : p(m).prFalhouCorrecao(t.id)));
   }
   // S7 da revisao: sem push e sem PR aberto por este processo, quem publicou foi outro; a entrega ja estava publicada.
   if (!pushFeito && !pr?.criado) {
-    return { ...r, acao: 'ja-publicada', motivo: null, correcao: '', detalhe: textoDoCatalogo((m) => p(m).jaPublicada(pr?.numero ?? 0)) };
+    return { ...r, acao: 'ja-publicada', motivo: null, correcao: '', detalhe: textoDoCatalogo((m) => p(m).jaPublicada(pr?.numero ?? 0, noGitlab)) };
   }
   return { ...r, acao: 'publicou', motivo: null, correcao: '',
-    detalhe: textoDoCatalogo((m) => p(m).publicou(curto(head), pr?.numero ?? 0, pr?.criado === true)) };
+    detalhe: textoDoCatalogo((m) => p(m).publicou(curto(head), pr?.numero ?? 0, pr?.criado === true, noGitlab)) };
 }
 
 /** As linhas da saida de texto do `ork ship publicar`, no locale ativo. */
@@ -647,7 +724,8 @@ export function linhasDaPublicacao(r: Publicacao): string[] {
       linhas.push(r.pushVerificado ? p.linhaPushProvado : p.linhaPushSemProva);
     }
   }
-  if (r.pr) linhas.push(p.linhaPr(r.pr.numero, r.pr.criado, r.pr.url ?? ''));
+  // O MR do GitLab se reconhece pelos passos, que dizem a CLI de cada forja.
+  if (r.pr) linhas.push(p.linhaPr(r.pr.numero, r.pr.criado, r.pr.url ?? '', r.passos.some((x) => x.startsWith('glab '))));
   if (r.corpo) linhas.push(p.linhaCorpo(r.corpo));
   if (r.acao === 'recusada') linhas.push(m.bloqueado(r.motivo ?? '-'), m.detalhe(remontar(r.detalhe)));
   else {
@@ -719,6 +797,11 @@ export interface OpcoesDaPista {
   thread?: string;
   executorGh?: ExecutorDoGh;
   forja?: Forja;
+  forjaResolvida?: ForjaResolvida;
+  api?: OpcoesDaApi;
+  sondas?: SondasDaForja;
+  /** A CI do head de um MR do GitLab; padrao: `consultarCi` no remoto. Nunca vem da CLI. */
+  ciDoHead?: (sha: string) => ResultadoCi;
 }
 
 /**
@@ -760,12 +843,63 @@ function entregaLocal(raiz: string, f: FatosDaThread, remotas: Map<string, strin
 /** Por que o PR de uma branch nao veio numa leitura que deu certo: a lista dos abertos cortada ou a branch sem conferir. */
 type CorteDaLeitura = 'parcial' | 'sem-conferir' | null;
 
+/** Quantas branches a pista confere uma a uma no GitLab por chamada; as outras ficam "sem conferir". */
+const MRS_CONFERIDOS_POR_LEITURA = 20;
+
+/** Os MRs das branches candidatas, uma leitura por branch; a primeira que falha deixa a lista sem leitura. */
+function lerMrsDasCandidatas(pedidos: PedidosDaEntrega, base: string, candidatas: readonly string[]):
+  { prs: PrDaForja[]; semConferir: string[] } | { erro: string } {
+  const prs: PrDaForja[] = [], semConferir: string[] = [];
+  for (const [i, branch] of [...new Set(candidatas)].entries()) {
+    if (i >= MRS_CONFERIDOS_POR_LEITURA) { semConferir.push(branch); continue; }
+    const lidos = pedidos.listar(base, branch);
+    if (lidos.erro !== null) return { erro: lidos.erro };
+    prs.push(...lidos.prs);
+  }
+  return { prs, semConferir };
+}
+
+/**
+ * A etapa `ci` do MR aberto pela CI do head. O mesmo mapa do rollup do GitHub: `success` e `bloqueado` (`manual`,
+ * `skipped`) sao verdes, vermelho e falhou, pendente e ausente esperam, e a leitura que falhou nao e lida.
+ */
+function etapaDaCiNoHead(ci: ResultadoCi, contexto: string, pr: PrDaForja): EtapaDaPista {
+  const c = (m: Mensagens) => m.ship.publicar;
+  if (ci.state === 'success' || (ci.state === 'failure' && ci.bloqueado)) {
+    return etapa('ci', 'feita', textoDoCatalogo((m) => c(m).ciVerde(contexto, curto(pr.head))));
+  }
+  if (ci.state === 'failure') return etapa('ci', 'falhou', textoDoCatalogo((m) => c(m).ciVermelho(contexto, pr.numero, true)));
+  if (ci.state === 'pending') return etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciEsperando(contexto, pr.numero, true)));
+  if (ci.state === 'missing') return etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciSemCheck(contexto, pr.numero, true)));
+  return etapa('ci', 'nao-lida', ci.detail);
+}
+
+/**
+ * O GitLab do remoto, quando e ele; `null` deixa a pista no caminho do GitHub de sempre. `erro` quando o remoto e do
+ * GitLab (pelo bloco `forja:` ou pelo host conhecido) e a forja nao resolveu: a pista diz "sem leitura", nunca "sem MR".
+ */
+function gitlabDaPista(carregado: ManifestoCarregado, remoto: string, opcoes: OpcoesDaPista): ForjaResolvida | { erro: ErroDaForja } | null {
+  if (opcoes.forja) return null;
+  if (opcoes.forjaResolvida) return opcoes.forjaResolvida.tipo === 'gitlab' ? opcoes.forjaResolvida : null;
+  // So o remoto que ja se sabe do GitLab, sem rede, passa pela resolucao aqui; o host proprio sem tipo e resolvido
+  // uma vez pela pista, como o pulse o resolveria, e o resto segue pelo caminho do GitHub.
+  if (tipoSemRede(carregado, remoto) !== 'gitlab') return null;
+  const r = forjaDaEntrega(carregado, remoto, opcoes.sondas);
+  if (r.ok) return r.valor.tipo === 'gitlab' ? r.valor : null;
+  return r.erro ? { erro: r.erro } : null;
+}
+
 /** O que a pista de uma thread diz, das leituras ja feitas. */
 function pistaDaThread(carregado: ManifestoCarregado, f: FatosDaThread, local: EntregaLocal, leitura: {
   remoto: string; base: string; remotasLidas: boolean; prs: PrDaForja[] | null; prsNaoLidos: string | null;
   corte: (branch: string) => CorteDaLeitura; ciExigido: boolean; contexto: string;
+  /** A forja do comando do dono; `null` quando ela nao se sabe sem rede. */
+  tipo?: TipoDeForja | null;
+  /** A etapa `ci` do PR aberto, quando a forja nao traz os checks na lista (o GitLab). */
+  ciDoPedido?: (pr: PrDaForja) => EtapaDaPista;
 }): PistaDaThread | null {
   const { t } = f;
+  const gl = leitura.tipo === 'gitlab';
   const raiz = carregado.raiz;
   const { remota, entregue, merge, mergeSemRegistro } = local;
   const pr = leitura.prs ? prDaBranchNaLista(leitura.prs, f.branch, f.head) : null;
@@ -796,23 +930,24 @@ function pistaDaThread(carregado: ManifestoCarregado, f: FatosDaThread, local: E
     ciEtapa = etapa('ci', 'nao-lida', texto);
     conflitoEtapa = etapa('conflito', 'nao-lida', texto);
   } else if (!pr || pr.estado === 'fechado') {
-    prEtapa = etapa('pr', 'pendente', pr ? textoDoCatalogo((m) => c(m).prFechado(pr.numero)) : textoDoCatalogo((m) => c(m).semPr));
+    prEtapa = etapa('pr', 'pendente', pr ? textoDoCatalogo((m) => c(m).prFechado(pr.numero, gl)) : textoDoCatalogo((m) => c(m).semPr));
     ciEtapa = etapa('ci', leitura.ciExigido ? 'pendente' : 'nao-se-aplica',
       textoDoCatalogo((m) => leitura.ciExigido ? c(m).ciSemPr : c(m).ciNaoExigido));
     conflitoEtapa = etapa('conflito', 'nao-se-aplica', textoDoCatalogo((m) => c(m).conflitoSemPr));
   } else if (pr.estado === 'mesclado') {
-    prEtapa = etapa('pr', 'feita', textoDoCatalogo((m) => c(m).prMesclado(pr.numero)));
+    prEtapa = etapa('pr', 'feita', textoDoCatalogo((m) => c(m).prMesclado(pr.numero, gl)));
     ciEtapa = etapa('ci', 'nao-se-aplica', textoDoCatalogo((m) => c(m).ciDoMesclado));
-    conflitoEtapa = etapa('conflito', 'feita', textoDoCatalogo((m) => c(m).prMesclado(pr.numero)));
+    conflitoEtapa = etapa('conflito', 'feita', textoDoCatalogo((m) => c(m).prMesclado(pr.numero, gl)));
   } else {
-    prEtapa = etapa('pr', 'feita', textoDoCatalogo((m) => pr.rascunho ? c(m).prRascunho(pr.numero) : c(m).prAberto(pr.numero)));
+    prEtapa = etapa('pr', 'feita', textoDoCatalogo((m) => pr.rascunho ? c(m).prRascunho(pr.numero, gl) : c(m).prAberto(pr.numero, gl)));
     const check = pr.checks.find((k) => k.nome === leitura.contexto);
     ciEtapa = !leitura.ciExigido ? etapa('ci', 'nao-se-aplica', textoDoCatalogo((m) => c(m).ciNaoExigido))
-      : !check ? etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciSemCheck(leitura.contexto, pr.numero)))
+      : leitura.ciDoPedido ? leitura.ciDoPedido(pr)
+      : !check ? etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciSemCheck(leitura.contexto, pr.numero, gl)))
       : check.situacao === 'verde' ? etapa('ci', 'feita', textoDoCatalogo((m) => c(m).ciVerde(leitura.contexto, curto(pr.head))))
-      : check.situacao === 'vermelho' ? etapa('ci', 'falhou', textoDoCatalogo((m) => c(m).ciVermelho(leitura.contexto, pr.numero)))
-      : etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciEsperando(leitura.contexto, pr.numero)));
-    conflitoEtapa = pr.conflito === true ? etapa('conflito', 'falhou', textoDoCatalogo((m) => c(m).conflito(pr.numero)))
+      : check.situacao === 'vermelho' ? etapa('ci', 'falhou', textoDoCatalogo((m) => c(m).ciVermelho(leitura.contexto, pr.numero, gl)))
+      : etapa('ci', 'pendente', textoDoCatalogo((m) => c(m).ciEsperando(leitura.contexto, pr.numero, gl)));
+    conflitoEtapa = pr.conflito === true ? etapa('conflito', 'falhou', textoDoCatalogo((m) => c(m).conflito(pr.numero, gl)))
       : pr.conflito === false ? etapa('conflito', 'feita', textoDoCatalogo((m) => c(m).semConflito))
       : etapa('conflito', 'nao-lida', textoDoCatalogo((m) => c(m).conflitoNaoCalculado));
   }
@@ -837,17 +972,17 @@ function pistaDaThread(carregado: ManifestoCarregado, f: FatosDaThread, local: E
   else if (branchEtapa.estado === 'pendente' || (prEtapa.estado === 'pendente')) {
     proximo = publicavel
       ? { acao: 'publicar', disponivel: true, comando: `ork ship publicar ${t.id}`,
-          texto: textoDoCatalogo((m) => pr?.estado === 'aberto' ? c(m).proximoPublicarNoPr(pr.numero) : c(m).proximoPublicar) }
+          texto: textoDoCatalogo((m) => pr?.estado === 'aberto' ? c(m).proximoPublicarNoPr(pr.numero, gl) : c(m).proximoPublicar) }
       : { acao: 'publicar', disponivel: false, texto: textoDoCatalogo((m) => c(m).proximoDoDono(t.id, tagDoModo(t.modo))),
           comando: comandoDoDono(leitura.remoto, leitura.base, f.branch, tituloDoPr(t, corpo?.texto ?? null),
-            corpo ? path.relative(raiz, corpo.arquivo) : null) };
+            corpo ? path.relative(raiz, corpo.arquivo) : null, leitura.tipo) };
   } else if (prEtapa.estado === 'nao-lida') proximo = nada(prEtapa.texto, `ork ship pista ${t.id}`);
-  else if (conflitoEtapa.estado === 'falhou') proximo = nada(textoDoCatalogo((m) => c(m).proximoConflito(pr?.numero ?? 0)));
-  else if (ciEtapa.estado === 'falhou') proximo = nada(textoDoCatalogo((m) => c(m).proximoCiVermelho(leitura.contexto, pr?.numero ?? 0)));
+  else if (conflitoEtapa.estado === 'falhou') proximo = nada(textoDoCatalogo((m) => c(m).proximoConflito(pr?.numero ?? 0, gl)));
+  else if (ciEtapa.estado === 'falhou') proximo = nada(textoDoCatalogo((m) => c(m).proximoCiVermelho(leitura.contexto, pr?.numero ?? 0, gl)));
   else if (ciEtapa.estado === 'pendente' || ciEtapa.estado === 'nao-lida') {
-    proximo = nada(textoDoCatalogo((m) => c(m).proximoEsperandoCi(leitura.contexto, pr?.numero ?? 0)),
+    proximo = nada(textoDoCatalogo((m) => c(m).proximoEsperandoCi(leitura.contexto, pr?.numero ?? 0, gl)),
       pr ? `ork ci status --sha ${pr.head}` : null);
-  } else proximo = nada(textoDoCatalogo((m) => pr?.rascunho ? c(m).proximoRascunho(pr.numero) : c(m).proximoMerge(pr?.numero ?? 0)));
+  } else proximo = nada(textoDoCatalogo((m) => pr?.rascunho ? c(m).proximoRascunho(pr.numero, gl) : c(m).proximoMerge(pr?.numero ?? 0, gl)));
 
   return {
     thread: t.id, nome: t.nome, modo: t.modo, tag: tagDoModo(t.modo), publicavel, conduzida: !!f.conducao, branch: f.branch, head: f.head,
@@ -883,17 +1018,55 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
   let prsNaoLidos: string | null = null;
   let parcial = false;
   let semConferir: ReadonlySet<string> = new Set<string>();
+  let ciDoPedido: ((pr: PrDaForja) => EtapaDaPista) | undefined;
+  let prsNaoLidosDoGitlab = false;
+  let doHostProprio: ForjaResolvida | undefined;
   if (candidatas.length) {
-    const leitura = lerPrsDaForja(carregado, { quando: lidoEm, executor: opcoes.executorGh, remoto, candidatas, forja: opcoes.forja });
-    if (leitura.ok) {
-      prs = leitura.retrato.prs;
-      parcial = leitura.retrato.parcial;
-      semConferir = new Set(leitura.retrato.semConferir ?? []);
-    } else {
+    let gitlab = gitlabDaPista(carregado, remoto, opcoes);
+    // Host proprio sem o bloco `forja:` (um GitLab como o de um piloto, ou um GitHub Enterprise): a forja e resolvida uma
+    // vez, como o pulse a resolve, e a leitura segue pela forja certa, com o mesmo criterio do gate no GitLab.
+    let naoResolvida: string | null = null;
+    if (!gitlab && !opcoes.forja && !opcoes.forjaResolvida && tipoSemRede(carregado, remoto) === null) {
+      const lido = forjaDoRemotoDoPulse(carregado, remoto, { executor: opcoes.executorGh, sondas: opcoes.sondas });
+      if (!lido.ok) naoResolvida = lido.erro;
+      else if (lido.forja.tipo === 'gitlab') gitlab = lido.forja;
+      else doHostProprio = lido.forja;
+    }
+    if (naoResolvida !== null) {
       prs = null;
-      prsNaoLidos = deFora(leitura.erro);
+      prsNaoLidos = deFora(naoResolvida);
+    } else if (gitlab && 'erro' in gitlab) {
+      prs = null;
+      prsNaoLidos = textoDoCatalogo((m) => m.forja.motivo(gitlab.erro, 'gitlab'));
+      prsNaoLidosDoGitlab = true;
+    } else if (gitlab) {
+      const lidos = lerMrsDasCandidatas(pedidosDoGitlab(gitlab, opcoes.api ?? {}), base, candidatas);
+      if ('erro' in lidos) {
+        prs = null;
+        prsNaoLidos = deFora(lidos.erro);
+      } else {
+        prs = lidos.prs;
+        semConferir = new Set(lidos.semConferir);
+      }
+      const ciDoHead = opcoes.ciDoHead ?? ((sha: string) => consultarCi(carregado, sha, remoto, undefined, undefined, opcoes.sondas, opcoes.api));
+      ciDoPedido = (pr) => etapaDaCiNoHead(ciDoHead(pr.head), contexto, pr);
+    } else {
+      const fixada = opcoes.forja ?? (opcoes.forjaResolvida?.tipo === 'github'
+        ? { host: hostDaApi(opcoes.forjaResolvida), repositorio: opcoes.forjaResolvida.repo } : undefined);
+      const leitura = lerPrsDaForja(carregado, { quando: lidoEm, executor: opcoes.executorGh, remoto, candidatas, forja: fixada,
+        resolvida: doHostProprio, sondas: opcoes.sondas });
+      if (leitura.ok) {
+        prs = leitura.retrato.prs;
+        parcial = leitura.retrato.parcial;
+        semConferir = new Set(leitura.retrato.semConferir ?? []);
+      } else {
+        prs = null;
+        prsNaoLidos = deFora(leitura.erro);
+      }
     }
   }
+  const tipo: TipoDeForja | null = ciDoPedido || prsNaoLidosDoGitlab ? 'gitlab' : doHostProprio ? 'github'
+    : tipoSemRede(carregado, remoto, opcoes.forja ? 'github' : opcoes.forjaResolvida?.tipo);
   // S8 da revisao (rodada 2): a candidata sem nenhum PR na leitura foi conferida uma a uma pelo `--head`, que a lista
   // cortada nao limita; so a que nao foi conferida, ou que so tem PR achado na lista cortada, fica em duvida.
   const comPrNaLeitura = new Set((prs ?? []).map((x) => x.branch));
@@ -902,7 +1075,7 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
     : parcial && !conferida(branch) ? 'parcial' : null);
   const pistas = fatos.flatMap((f) => {
     const local = locais.get(f.t.id);
-    const x = local ? pistaDaThread(carregado, f, local, { remoto, base, remotasLidas: remotas !== null, prs, prsNaoLidos, corte, ciExigido, contexto })
+    const x = local ? pistaDaThread(carregado, f, local, { remoto, base, remotasLidas: remotas !== null, prs, prsNaoLidos, corte, ciExigido, contexto, tipo, ciDoPedido })
       : null;
     return x ? [x] : [];
   });

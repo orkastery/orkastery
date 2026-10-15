@@ -501,7 +501,7 @@ function casosDeNetwork(casos: Record<string, string>, amb: Ambiente): void {
   const binDaForja = dirTemp('network-forja-bin', '<FORJABIN>');
   const script = scriptDaForjaFalsa();
   for (const cli of ['gh', 'glab', 'codex', 'openclaw']) fs.writeFileSync(path.join(binDaForja, cli), script, { mode: 0o755 });
-  const comForja = { PATH: `${binDaForja}:${amb.stub}:${amb.bin}`, FORJA_FAKE_DIR: forja };
+  const comForja = { PATH: `${binDaForja}:${amb.stub}:${amb.bin}`, GLAB_FAKE_DIR: forja };
   const casaA = dirTemp('network-casa-a', '<CASA_A>'), casaB = dirTemp('network-casa-b', '<CASA_B>');
   const comoA = { ...comForja, HOME: casaA, ORK_USUARIO_DIR: path.join(casaA, '.orkastery'), ORK_MAQUINA: '' };
   const comoB = { ...comForja, HOME: casaB, ORK_USUARIO_DIR: path.join(casaB, '.orkastery'), ORK_MAQUINA: '' };

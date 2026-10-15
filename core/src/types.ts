@@ -5,6 +5,8 @@
  * Nada aqui depende de LLM; tudo e deterministico e testavel.
  */
 
+import type { TipoDeForja } from './forja/contrato';
+
 /** As 6 fases canonicas do ciclo Orkastery. */
 export type Fase = 'GOAL' | 'PLAN' | 'GO' | 'CHECK' | 'SHIP' | 'MASTER';
 
@@ -211,6 +213,12 @@ export interface Manifesto {
      * do PR, e texto vazio declara que o repositorio nao tem CI (so o merge provado vale).
      */
     external_repositories: Record<string, string>;
+    /**
+     * Quem pode publicar o check exigido: o slug do app do check-run (`github-actions`), o produtor que o adaptador
+     * da ao job real da CI da forja (`gitlab-ci`) ou `status:<login>` para o commit status de uma conta. A conta de um
+     * app (`<slug>[bot]`) vale pelo slug. Ausente: o padrao da forja (`PRODUTORES_PADRAO`).
+     */
+    produtor?: string[];
   };
   concurrency: {
     max_parallel_threads: number;
@@ -321,6 +329,20 @@ export interface Manifesto {
    */
   conhecimento?: {
     dir: string;
+  };
+  /**
+   * O endereco e o tipo da forja do projeto, quando o remoto nao basta: host proprio, porta propria, instancia em
+   * subcaminho (`relative_url_root`), SSH em outro host ou outra porta, CA interna (o arquivo PEM). Ausente: tudo vem
+   * do remoto e da sondagem pela CLI com login no host.
+   */
+  forja?: {
+    tipo?: TipoDeForja;
+    host?: string;
+    porta?: number;
+    caminho_base?: string;
+    ssh_host?: string;
+    ssh_porta?: number;
+    ca?: string;
   };
   policies?: Record<string, string>;
 }

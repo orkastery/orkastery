@@ -148,6 +148,9 @@ const EXCECOES: { arquivo: string; trecho: string; razao: string }[] = [
   { arquivo: 'memoria-humana.ts', trecho: 'em ${e.ts}.', razao: 'registro de memória no OrkMind (D12)' },
   // I-45: chave do cache do radar em .orkastery/monitor/radar-encerradas.json; nunca vira texto.
   { arquivo: 'hitl.ts', trecho: '`${sid}|${s.startedAt ?? \'\'}`', razao: 'chave de maquina do cache de sessoes encerradas; o inicio da instancia so separa sessao retomada' },
+  // O catalogo nao importa o nucleo: o motivo do forja.limite leva o tentarEm em ISO e quem imprime localiza (localizarTexto).
+  { arquivo: 'locale-forja.ts', trecho: 'tente depois de ${e.tentarEm}', razao: 'motivo do forja.limite no catalogo sem import do nucleo; quem imprime localiza' },
+  { arquivo: 'locale-forja.ts', trecho: 'try again after ${e.tentarEm}', razao: 'motivo do forja.limite no catalogo sem import do nucleo; quem imprime localiza' },
 ];
 
 test('lint: nenhum UTC truncado por replace de T em core/src, scripts/ e monitor/', () => {

@@ -1,0 +1,26 @@
+{
+  "caso": "projeto-ee",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "-i",
+    "--hostname",
+    "127.0.0.1",
+    "projects/root%2Fmatriz"
+  ],
+  "status": 0,
+  "status_http": 200,
+  "sintetico": "campos do projeto gravado em 19.4-ci mais merge_pipelines_enabled e merge_trains_enabled, que so a edicao EE expoe (GET /projects/:id, docs.gitlab.com/api/projects). Trocar por uma gravacao EE.",
+  "corpo": {
+    "id": 1,
+    "path_with_namespace": "root/matriz",
+    "default_branch": "main",
+    "merge_method": "merge",
+    "squash_option": "default_off",
+    "only_allow_merge_if_pipeline_succeeds": false,
+    "merge_pipelines_enabled": true,
+    "merge_trains_enabled": false
+  }
+}

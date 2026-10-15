@@ -1,0 +1,23 @@
+{
+  "caso": "metadata",
+  "forja": "gitlab",
+  "host": "127.0.0.1",
+  "comando": [
+    "glab",
+    "api",
+    "--hostname",
+    "127.0.0.1",
+    "metadata"
+  ],
+  "status": 0,
+  "corpo": {
+    "version": "17.0.8",
+    "revision": "19a28eaa9dc",
+    "kas": {
+      "enabled": true,
+      "externalUrl": "ws://127.0.0.1/-/kubernetes-agent/",
+      "version": "17.0.8"
+    },
+    "enterprise": false
+  }
+}
