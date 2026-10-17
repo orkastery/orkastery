@@ -3,8 +3,8 @@
   "item": "RM-058",
   "por": "Codex condutor",
   "maquina": "vps",
-  "thread": "ork-rm058integra",
-  "nota": "Noctum obrigatorio na proxima versao, conforme pedido atual do dono; GO-FIX 8 e integracao/piloto pendentes",
+  "thread": "ork-rm058n3",
+  "nota": "N3 em GO-FIX; ork-rm058integra planeja integracao e pilotos em paralelo, sem alterar produto; mesma maquina e mesmo item",
   "desdeEm": "2026-10-17T02:10:18.150Z",
-  "atualizadaEm": "2026-10-17T02:21:10.681Z"
+  "atualizadaEm": "2026-10-17T02:21:21.320Z"
 }
