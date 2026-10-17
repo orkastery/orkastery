@@ -1,18 +1,40 @@
 {
   "contrato": "ork.fabrica-maquina/v1",
   "maquina": "vps",
-  "por": "Julio Pessoa",
+  "por": "Codex condutor",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-17T02:15:02.626Z",
+  "publicadoEm": "2026-10-17T02:21:12.822Z",
   "threads": [
+    {
+      "id": "ork-rm058integra",
+      "nome": "rm058integracao",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-058",
+      "branch": "ork/ork-rm058integra-full",
+      "atualizadaEm": "2026-10-17T02:21:10.104Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-17T02:21:10.118Z",
+        "motivo": "nenhuma sessão despachada na fase GOAL"
+      }
+    },
     {
       "id": "ork-rm058n3",
       "nome": "rm058n3",
       "modo": "#Auto",
       "fase": "GO",
       "status": "aberta",
-      "roadmap": "RM-058",
+      "roadmap": null,
       "branch": "ork/ork-rm058n3-full",
       "atualizadaEm": "2026-10-17T02:11:33.426Z",
       "entregue": null,
