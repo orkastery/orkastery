@@ -4,8 +4,30 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-19T07:27:02.886Z",
+  "publicadoEm": "2026-10-19T07:27:28.306Z",
   "threads": [
+    {
+      "id": "ork-rm037sha7",
+      "nome": "rm037sha7",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm037sha7-go",
+      "atualizadaEm": "2026-10-19T07:27:27.966Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-19T07:27:27.974Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    },
     {
       "id": "ork-rm058integra",
       "nome": "rm058integracao",
@@ -49,24 +71,6 @@
         "desdeEm": null,
         "motivo": null
       }
-    },
-    {
-      "id": "ork-rm064f3",
-      "nome": "rm064f3",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-rm064f3-full",
-      "atualizadaEm": "2026-10-19T07:27:02.551Z",
-      "entregue": "fe590b66",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "high",
-      "sessao": null
     }
   ]
 }
