@@ -25,7 +25,7 @@
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { branchValida, buscarBranch, git } from './branch-de-estado';
+import { branchValida, buscarBranch } from './branch-de-estado';
 import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
 import { tentarTravaExclusiva } from './fila-pesada';
 import { ManifestoCarregado } from './manifest';
@@ -285,7 +285,21 @@ function gitDaHistoria(raiz: string, args: string[]): { ok: boolean; stdout: str
   return { ok: r.status === 0 && !r.error, stdout: (r.stdout ?? '').toString() };
 }
 
-const ancestral = (raiz: string, de: string, para: string): boolean => git(raiz, ['merge-base', '--is-ancestor', de, para]).ok;
+/**
+ * A classe do G8-5, na prova da integração (N2 do CHECK-REVERIFY do GO-FIX 8): o `merge-base --is-ancestor` tem três saídas.
+ * A saída 1 é "não"; o git que falha (prazo, sinal, processo que não abre, saída 128) é "não sei", e a prova espera. A exceção
+ * é o commit que este clone não tem depois de buscar a base: ele não está nela, e a resposta é "não".
+ */
+function ancestral(raiz: string, de: string, para: string): 'sim' | 'nao' | 'ilegivel' {
+  const r = spawnSync('git', ['merge-base', '--is-ancestor', de, para], { cwd: raiz, encoding: 'utf8', timeout: 60_000 });
+  if (!r.error && r.status === 0) return 'sim';
+  if (!r.error && r.status === 1) return 'nao';
+  for (const sha of [de, para]) {
+    const existe = spawnSync('git', ['rev-parse', '--verify', '--quiet', `${sha}^{commit}`], { cwd: raiz, encoding: 'utf8', timeout: 60_000 });
+    if (!existe.error && existe.status === 1) return 'nao';
+  }
+  return 'ilegivel';
+}
 
 /** Os merges das vezes entregues deste destino no arco: as integrações que a prova de outra vez tem de respeitar. */
 function entreguesDoDestino(estado: EstadoDaCoordenacao, chave: string, fora?: number): string[] {
@@ -323,7 +337,7 @@ function commitDevolvido(raiz: string, merge: unknown): { lido: true; commit: st
  * cada entrega do destino posterior à base provada (`posteriores`); o merge que chegou à base dentro de outro merge, depois
  * de uma integração seguinte, não se prova. Achou: `provado`, com o commit. A fonte na base por outro caminho, como o merge
  * sobre a base de agora que o botão de uma forja faria, é `sem-prova`; a base sem a fonte é `ausente`; `null` quando a base
- * ou a história não se leem.
+ * ou a história não se leem, ou quando o git não diz se um commit desce do outro (N2 do CHECK-REVERIFY do GO-FIX 8).
  */
 export function provaDoMerge(carregado: ManifestoCarregado, remoto: string, base: string, candidato: { base: string; fonte: string },
   opcoes: OpcoesDaCoordenacao, posteriores: readonly string[] = []): ProvaDoMerge | null {
@@ -332,7 +346,9 @@ export function provaDoMerge(carregado: ManifestoCarregado, remoto: string, base
   try { lida = buscarBranch(raiz, remoto, base, 'noctum', opcoes.rede?.timeoutMs, opcoes.rede?.env); } catch { return null; }
   if (!lida.atualizado || !lida.ponta) return null;
   const ponta = lida.ponta;
-  if (!ancestral(raiz, candidato.fonte, ponta)) return { situacao: 'ausente', ponta };
+  const naBase = ancestral(raiz, candidato.fonte, ponta);
+  if (naBase === 'ilegivel') return null;
+  if (naBase === 'nao') return { situacao: 'ausente', ponta };
   const merges = gitDaHistoria(raiz, ['rev-list', '--ancestry-path', '--parents', `${candidato.base}..${ponta}`]);
   const primeiros = gitDaHistoria(raiz, ['rev-list', '--first-parent', `${candidato.base}..${ponta}`]);
   if (!merges.ok || !primeiros.ok) return null;
@@ -344,7 +360,9 @@ export function provaDoMerge(carregado: ManifestoCarregado, remoto: string, base
   // O avanço rápido: a própria fonte foi ponta da base, acima da base provada, e ela contém a base provada (a branch
   // atualizada com a base também).
   if (!merge && primeiros.stdout.split('\n').some(x => x.trim() === candidato.fonte)) {
-    if (!ancestral(raiz, candidato.base, candidato.fonte)) return { situacao: 'sem-prova', ponta };
+    const sobreABase = ancestral(raiz, candidato.base, candidato.fonte);
+    if (sobreABase === 'ilegivel') return null;
+    if (sobreABase === 'nao') return { situacao: 'sem-prova', ponta };
     merge = candidato.fonte;
   }
   // O avanço rápido vazio (S-R3C-8 da R3-C): a fonte é a própria base provada, a branch sem commit próprio, e não há o que
@@ -352,8 +370,14 @@ export function provaDoMerge(carregado: ManifestoCarregado, remoto: string, base
   if (!merge && candidato.fonte === candidato.base) merge = candidato.base;
   if (!merge) return { situacao: 'sem-prova', ponta };
   for (const x of posteriores) {
-    if (x === candidato.base || !ancestral(raiz, candidato.base, x)) continue;
-    if (!ancestral(raiz, merge, x) && !ancestral(raiz, x, merge)) return { situacao: 'sem-prova', ponta };
+    if (x === candidato.base) continue;
+    const depoisDaBase = ancestral(raiz, candidato.base, x);
+    if (depoisDaBase === 'ilegivel') return null;
+    if (depoisDaBase === 'nao') continue;
+    const antes = ancestral(raiz, merge, x);
+    const depois = antes === 'nao' ? ancestral(raiz, x, merge) : antes;
+    if (antes === 'ilegivel' || depois === 'ilegivel') return null;
+    if (antes === 'nao' && depois === 'nao') return { situacao: 'sem-prova', ponta };
   }
   return { situacao: 'provado', merge, ponta };
 }

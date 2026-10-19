@@ -954,3 +954,45 @@ test('I23: a trava local mantém a reconciliação e uma segunda integração lo
     assert.deepEqual([...lerCoordenacao(m.b.carregado, m.arco, op(m.b)).vezes.values()].flat().map(v => v.fim?.desfecho), ['entregue']);
   } finally { m.limpar(); }
 });
+
+test('I24: o merge-base que falha por um instante não vira fonte ausente: a repetição e a reconciliação esperam, e a vez fica', () => {
+  const gitReal = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  // N2 do CHECK-REVERIFY do GO-FIX 8: só o primeiro `merge-base --is-ancestor <fonte>` sai 128, como uma falha passageira.
+  const comFalha = <T>(fonte: string, executar: () => T): T => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'noctum-i24-'));
+    const falhou = path.join(dir, 'falhou');
+    const anterior = process.env.PATH;
+    try {
+      fs.writeFileSync(path.join(dir, 'git'), '#!/bin/sh\n' +
+        `if [ "$1" = merge-base ] && [ "$2" = --is-ancestor ] && [ "$3" = ${fonte} ] && [ ! -e '${falhou}' ]; then\n` +
+        `  : > '${falhou}'; echo "fatal: falha passageira SIMULADA" >&2; exit 128\n` +
+        'fi\n' +
+        `exec '${gitReal}' "$@"\n`, { mode: 0o700 });
+      process.env.PATH = `${dir}${path.delimiter}${anterior ?? ''}`;
+      const r = executar();
+      assert.ok(fs.existsSync(falhou), 'o git falhou uma vez');
+      return r;
+    } finally {
+      process.env.PATH = anterior;
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const m = cenario('noctum-i24');
+  try {
+    const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    const pedido = { ordem: 'O-b-1', destino: DESTINO, candidato: cb };
+    let merge = '';
+    recusa(() => integrarComVez(m.b.carregado, m.arco, pedido, (c) => {
+      merge = mergeSobreAProvada(m.b.dir)(c).merge;
+      throw new Error('SIMULADO: resposta perdida depois do push');
+    }, op(m.b)), 'noctum.integracao.nao-provada');
+    // A repetição acha a base andada pelo próprio merge, e o git não diz se a fonte está nela: a vez fica, sem invalidar.
+    assert.match(comFalha(cb.fonte, () => recusa(() => integrarComVez(m.b.carregado, m.arco, pedido, () => assert.fail('não integra de novo'), op(m.b)),
+      'noctum.integracao.nao-provada')), /a prova não sabe/);
+    // A reconciliação, com a mesma falha, não solta a vez; depois, com o git normal, registra a entrega.
+    const r = comFalha(cb.fonte, () => reconciliarIntegracao(m.b.carregado, m.arco, op(m.b)));
+    assert.deepEqual([r.soltas, r.registradas], [[], []]);
+    assert.deepEqual([...lerCoordenacao(m.a.carregado, m.arco, op(m.a)).vezes.values()].flat().map(v => v.fim), [null], 'a vez fica ativa');
+    assert.deepEqual(reconciliarIntegracao(m.b.carregado, m.arco, op(m.b)).registradas, [{ trabalho: 'b', merge }]);
+  } finally { m.limpar(); }
+});
