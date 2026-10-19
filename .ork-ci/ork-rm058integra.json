@@ -652,21 +652,6 @@
       "lint": []
     },
     {
-      "id": "C44",
-      "thread": "ork-rm058integra",
-      "fase": "GO",
-      "arquivo": "core/src/conducao-batida.ts",
-      "alegacao": "RM-058 integração (T1.2, D3 e D4): a batida não despacha, não retoma, não lê checks nem mescla a thread que um arco segura ou retém; cada pulo fica no retrato como espera, com o motivo noctum.guarda.thread-do-arco, sem linha no ledger da thread e fora da fila do dono no pulse (GS10, GS11 e GT2).",
-      "negativa": false,
-      "verificar": [
-        "test \"$(grep -cF 'anotar(ctx, item(' core/src/conducao-batida.ts)\" -ge 2 && grep -qF 'const arco = arcoDoPasso(raiz, ctx.arcos, t.id, eventos);' core/src/conducao-batida.ts && grep -qF 'if (i.motivo === MOTIVO_DA_GUARDA || i.motivo === MOTIVO_DO_ARCO_ILEGIVEL) continue;' core/src/conducao-batida.ts",
-        "node --test-reporter=tap --test-name-pattern='^(GS10|GS11|GT2):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - (GS10|GS11|GT2):/{p++} END{exit !(p>=3 && f==0)}'"
-      ],
-      "criadoEm": "2026-10-19T09:54:19.850Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C45",
       "thread": "ork-rm058integra",
       "fase": "GO",
@@ -783,21 +768,6 @@
         "node --test-reporter=tap core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - LG[0-9]+:/{p++} END{exit !(p>=10 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T10:05:19.520Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C54",
-      "thread": "ork-rm058integra",
-      "fase": "GO",
-      "arquivo": "core/src/noctum-fechamento.ts",
-      "alegacao": "RM-058 integração (T3 e T4, D7 e D8): a parada da supervisão fecha o arco com o motivo supervisao, depois do revogado e da hora e antes do custo; e a fila vazia não fecha o arco por cima do MASTER por omissão que a entrega do próprio arco deve (o ship_done com o arco na evidência, a thread aberta e sem MASTER ratificado, o envelope v2 e o trabalho sem isolamento): o fechamento espera o passo da entrega, que faz o MASTER, e fecha no mesmo tique. A entrega feita por fora do arco não segura o fechamento, e a hora não espera nenhum MASTER (LG4, LG5, LG14 e LG17).",
-      "negativa": true,
-      "verificar": [
-        "grep -qF \"if (parada) return { motivo: 'supervisao', detalhe:\" core/src/noctum-fechamento.ts && grep -qF \"const devidos = condicao?.motivo === 'fila-vazia' && fila && sup ? mastersDevidos(raiz, estado, fila, sup) : [];\" core/src/noctum-fechamento.ts",
-        "node --test-reporter=tap --test-name-pattern='^LG(4|5|14|17):' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - LG(4|5|14|17):/{p++} END{exit !(p>=4 && f==0)}'"
-      ],
-      "criadoEm": "2026-10-19T10:31:30.720Z",
       "estado": "verificado",
       "lint": []
     },
@@ -1025,14 +995,158 @@
       "criadoEm": "2026-10-19T11:38:44.314Z",
       "estado": "verificado",
       "lint": []
-    }
-  ],
-  "deferredClaims": [
+    },
     {
       "id": "C70",
-      "reason": "artifact-not-in-checkout"
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm058integra.json",
+      "alegacao": "RM-058 integração, fecho do GO: o bundle de CI da thread segue o contrato ork.ci-bundle/v1, é da thread e da branch dela com base main, leva as claims ativas da thread e só adia a do próprio bundle (enquanto ele não está versionado), roda o test:ci do manifesto e não tem caminho de máquina nem travessão.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs');const t=fs.readFileSync('.ork-ci/ork-rm058integra.json','utf8');const b=JSON.parse(t);const d=b.deferredClaims||[];const ok=b.schema==='ork.ci-bundle/v1'&&b.thread==='ork-rm058integra'&&b.branch==='ork/ork-rm058integra-full'&&b.base==='main'&&b.claims.length+d.length>=68&&b.claims.every(c=>c.thread==='ork-rm058integra')&&d.length<=1&&d.every(x=>x.id==='C70'&&x.reason==='artifact-not-in-checkout')&&b.commands.some(c=>c.command==='npm --prefix core run test:ci')&&!t.includes('/hom'+'e/')&&!t.includes(String.fromCharCode(0x2014));if(!ok){console.error('bundle fora do contrato');process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-19T11:59:20.711Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-fechamento.ts",
+      "alegacao": "RM-058 integração (T3, T4 e GO-FIX 1): a parada da supervisão fecha o arco com o motivo supervisao, depois do revogado e da hora e antes do custo, menos a parada pelo teto do arco em sessões, que fica com a regra do custo: as sessões admitidas terminam, nenhuma parada é pedida, e o arco fecha por custo quando a última acaba (LG19); a fila vazia não fecha por cima do MASTER por omissão que a entrega do arco deve (LG14 e LG17).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"if (parada && parada.motivo !== 'teto-do-arco') return { motivo: 'supervisao', detalhe:\" core/src/noctum-fechamento.ts && grep -qF \"const devidos = condicao?.motivo === 'fila-vazia' && fila && sup ? mastersDevidos(raiz, estado, fila, sup) : [];\" core/src/noctum-fechamento.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG(4|5|14|17|19):' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - LG(4|5|14|17|19):/{p++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:32:38.106Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-guarda.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, A2 do CHECK): no arco revogado, expirado ou encerrado, a thread que ainda é conduzida por uma sessão que o arco despachou segue guardada nos caminhos manuais (o ork ship da própria sessão recusa com noctum.guarda.thread-do-arco); sem sessão do arco em voo, a thread se entrega à mão como antes (GS5 e GS15, com dente por mutação).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'function sessaoDoArcoEmVoo(raiz: string, thread: string, estado: EstadoDoArco): string | null {' core/src/noctum-guarda.ts && grep -qF 'const sessao = lido ? sessaoDoArcoEmVoo(raiz, thread, lido.estado) : null;' core/src/noctum-guarda.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS(5|15):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS(5|15):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:38:31.378Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C73",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/scripts/checar-release-noctum.cjs",
+      "alegacao": "RM-058 integração (GO-FIX 1, S5 e S6 do CHECK): o portão exige de cada piloto arquivo, sha256 e arco distintos e a janela de ao menos as horas do plano (6, 12, 6 e 12); o --texto recusa o anúncio com até duas palavras entre o nome, o verbo e o particípio, só a negação antes do particípio libera, e os .md de adapters/ e core/assets/ entram na leitura (RG11 e RG12, com dente por mutação).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const HORAS_MINIMAS = { P1: 6, P2: 12, P3: 6, P4: 12 };' core/scripts/checar-release-noctum.cjs && grep -qF \"if (NEGACAO.test(texto.slice(inicio, m.index + m[0].length))) continue;\" core/scripts/checar-release-noctum.cjs",
+        "node --test-reporter=tap --test-name-pattern='^RG(11|12):' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - RG(11|12):/{p++} END{exit !(p>=2 && f==0)}' && node core/scripts/checar-release-noctum.cjs --texto"
+      ],
+      "criadoEm": "2026-10-19T12:40:18.340Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, S9 e S10 do CHECK): a recusa da supervisão sai 2 no ork noctum (também a que vem do meio do laço do condutor), a supervisão ilegível recusa o conduzir com 2 antes de criar a trava, com o motivo na saída de erro (CJ9, com dente por mutação), e a ajuda em inglês do aceite usa file nas três opções.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'e instanceof RecusaDoAceite || e instanceof RecusaDaSupervisao) {' core/src/noctum-cli.ts && grep -qF '        [--publicar <file>]                     writes the publishable version, without personal data' core/src/locale-ajuda.ts",
+        "node --test-reporter=tap --test-name-pattern='^CJ9:' core/dist-test/test/noctum-conduzir.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - CJ9:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:42:15.523Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C75",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/conducao-batida.ts",
+      "alegacao": "RM-058 integração (T1.2 e GO-FIX 1, A6 do CHECK): a batida não despacha, não retoma, não lê checks nem mescla a thread que um arco segura ou retém; cada pulo fica no retrato como espera, sem linha no ledger da thread; o da guarda comum fica fora da fila do dono no pulse (o relatório do arco o diz), e o do arco que não se lê vai à fila do dono, bloqueado, com o texto da guarda (GS10, GS11, GT2 e GT5).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF 'anotar(ctx, item(' core/src/conducao-batida.ts)\" -ge 2 && grep -qF 'const arco = arcoDoPasso(raiz, ctx.arcos, t.id, eventos);' core/src/conducao-batida.ts && grep -qF 'if (i.motivo === MOTIVO_DA_GUARDA) continue;' core/src/conducao-batida.ts && grep -qF 'const ilegivel = i.motivo === MOTIVO_DO_ARCO_ILEGIVEL;' core/src/conducao-batida.ts",
+        "node --test-reporter=tap --test-name-pattern='^(GS10|GS11|GT2|GT5):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - (GS10|GS11|GT2|GT5):/{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:52:24.548Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C76",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/varredura-acoes.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, A6 do CHECK): a varredura leva ao pulse, bloqueada e com o texto da guarda, a ação da thread cujo último despacho foi de um arco que não se lê (ele não tem relatório que a diga ao dono); a da thread que um arco legível segura segue fora do pulse e marcada só na varredura que age (GS12 e GT5).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'if (opcoes.comArco || arco.motivo === MOTIVO_DO_ARCO_ILEGIVEL) saida.push(' core/src/varredura-acoes.ts",
+        "node --test-reporter=tap --test-name-pattern='^(GS12|GT5):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - (GS12|GT5):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:52:28.189Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C77",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-modo.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, A3 do CHECK): o arco terminal sem reserva pendente fica quieto (o tique não chama mais o vigia) com o relatório entregue ou com a janela de entrega de 24 h acabada, quando o relatório não tenta mais (LG9 e LG20, com dente por mutação).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'return !!r.vencimentoEm && Date.parse(quando) >= Date.parse(r.vencimentoEm) + JANELA_DE_ENTREGA_MS;' core/src/noctum-modo.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG(9|20):' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - LG(9|20):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:52:31.530Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C78",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, A5 do CHECK): o condutor que acabou de gravar a baseline volta já ao passo, sem dormir a cadência medida do começo da iteração (LG21, com dente por mutação), e o sono dos outros passos segue o menor ate do despacho e da entrega (LG12).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"(ultimo.motivo === 'baseline-gravada' ? Date.parse(quando) : Date.parse(ultimo.ate))\" core/src/noctum-vigia.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG(12|21):' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - LG(12|21):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:52:34.834Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C79",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-baseline-do-arco.test.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, A4 do CHECK): o BL2 confere que a baseline do arco roda com a trava de despacho da máquina já solta, e os casos BL1 a BL6 passam sem pulo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"assert.equal(travaLivre, true, 'a baseline rodou fora da trava de despacho');\" core/test/noctum-baseline-do-arco.test.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-baseline-do-arco.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - BL[0-9]+:/{p++} END{exit !(p>=6 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:52:37.488Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
