@@ -369,6 +369,17 @@ export function reconciliarSessaoSemWatcher(carregado: ManifestoCarregado, threa
 
   try {
     const observado = observarSessao(carregado, sessao.sessionId, { threadId, agoraMs });
+    if (!observado.ocupado) {
+      const observadoEm = new Date(agoraMs).toISOString();
+      comLockDeSessao(dir, () => {
+        const atuais = lerLedger(dir);
+        if (!atuais.some(e => e.tipo === 'session_watcher_observed' && e.sessionId === sessao.sessionId &&
+            e.despachoEm === sessao.despachadaEm && e.ts === observadoEm)) {
+          registrar(dir, threadId, 'session_watcher_observed', { ts: observadoEm, fase: sessao.fase,
+            sessionId: sessao.sessionId, despachoEm: sessao.despachadaEm, origem: 'conducao.batida' });
+        }
+      });
+    }
     if (observado.concluido) return { thread: threadId, sessionId: sessao.sessionId,
       estado: 'concluida', detalhe: `runtime observado: ${observado.classificacao ?? 'terminal'}` };
     return { thread: threadId, sessionId: sessao.sessionId, estado: 'acompanhada',
@@ -377,11 +388,18 @@ export function reconciliarSessaoSemWatcher(carregado: ManifestoCarregado, threa
     // `observarSessao` já deixa o diagnóstico fechado no ledger. Só depois do limite a batida
     // transforma a ausência persistente de observação em parada; antes disso, apenas acompanha.
     eventos = lerLedger(dir);
-    const uteis = eventosDoIntervalo(eventos, exigirSessaoDespachada(sessao, sessao.sessionId)).filter(e =>
+    const doIntervalo = eventosDoIntervalo(eventos, exigirSessaoDespachada(sessao, sessao.sessionId));
+    const uteis = doIntervalo.filter(e =>
       ['runtime_heartbeat', 'runtime_event', 'runtime_stop', 'runtime_subagent_stop', 'commit',
         'mcp_git_committed', 'sessao_bloqueada', 'sessao_destravada'].includes(e.tipo));
-    const ultimoUtil = Math.max(Date.parse(sessao.despachadaEm),
-      ...uteis.map(e => Date.parse(e.ts)).filter(Number.isFinite));
+    const observacoesBoas = doIntervalo.filter(e => e.sessionId === sessao.sessionId &&
+      (e.tipo === 'session_watcher_observed' || e.tipo === 'session_watcher_error' && e.encerramento === 'recuperado'));
+    const ultimaObservacao = Math.max(Date.parse(sessao.despachadaEm),
+      ...[...uteis, ...observacoesBoas].map(e => Date.parse(e.ts)).filter(Number.isFinite));
+    const errosDaSerie = doIntervalo.filter(e => e.tipo === 'session_watcher_error' && e.sessionId === sessao.sessionId &&
+      e.encerramento !== 'recuperado').map(e => Date.parse(e.ts)).filter(ts => Number.isFinite(ts) && ts >= ultimaObservacao);
+    const primeiroErro = errosDaSerie.length > 0 ? Math.min(...errosDaSerie) : Number.NEGATIVE_INFINITY;
+    const ultimoUtil = Math.max(ultimaObservacao, primeiroErro);
     if (agoraMs - ultimoUtil < LIMITE_MORTE_MS) return { thread: threadId, sessionId: sessao.sessionId,
       estado: 'acompanhada', detalhe: 'fonte ainda indisponível dentro do limite de estabilidade' };
     const sessionId = sessao.sessionId;

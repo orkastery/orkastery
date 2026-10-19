@@ -25,10 +25,10 @@ import { RUNTIMES } from '../src/runtimes';
 
 const SID = '11111111-2222-4333-8444-555555555555';
 
-function sessaoCodex(nome: string) {
+function sessaoCodex(nome: string, idadeMs = 1_000) {
   const p = projetoTemporario(nome);
   const t = novaThread(p.carregado, { nome, modo: 'auto' }).thread;
-  const despachadaEm = new Date(Date.now() - 1_000).toISOString();
+  const despachadaEm = new Date(Date.now() - idadeMs).toISOString();
   t.sessoes.push({ sessionId: SID, slug: t.slug, fase: 'GO', bloco: 'GO', runtime: 'codex',
     despachadaEm, promptPath: '', promptSha256: 'a'.repeat(64), verificada: true });
   gravarThread(p.dir, t);
@@ -224,20 +224,47 @@ test('RM-064 T9: fonte indisponível por dez minutos vira parada tipada e idempo
     fs.mkdirSync(controlador, { recursive: true, mode: 0o700 });
     registrar(p.estado, p.t.id, 'phase_dispatch', { ts: p.despachadaEm, fase: 'GO', sessionId: SID,
       despachoEm: p.despachadaEm, controlador, cwd: p.dir, promptSha256: 'a'.repeat(64) });
-    const limite = Date.parse(p.despachadaEm) + 600_001;
-    // Na fronteira a sessão só é acompanhada: o prazo de parada não antecipa o fim de quem ainda pode estar rodando.
-    const antes = reconciliarSessaoSemWatcher(p.carregado, p.t.id, limite - 2);
+    const primeiroErro = Date.now();
+    registrar(p.estado, p.t.id, 'session_watcher_error', { ts: new Date(primeiroErro).toISOString(), fase: 'GO',
+      sessionId: SID, despachoEm: p.despachadaEm, motivo: 'runtime.unavailable', origem: 'sessions.watch' });
+    // Na fronteira da série atual a sessão só é acompanhada: o despacho antigo não antecipa a parada.
+    const antes = reconciliarSessaoSemWatcher(p.carregado, p.t.id, primeiroErro + 599_999);
     assert.equal(antes.estado, 'acompanhada');
     assert.equal(lerLedger(p.estado).filter((e) => e.tipo === 'phase_result').length, 0);
-    const r = reconciliarSessaoSemWatcher(p.carregado, p.t.id, limite);
+    const r = reconciliarSessaoSemWatcher(p.carregado, p.t.id, primeiroErro + 600_001);
     assert.equal(r.estado, 'parada');
     const eventos = lerLedger(p.estado);
     const resultado = eventos.find((e) => e.tipo === 'phase_result')!;
-    assert.deepEqual([resultado.classificacao, resultado.motivo, resultado.origem, resultado.morteLatenciaMs],
-      ['gate_blocked', 'runtime.unavailable', 'conducao.batida', 600_001]);
+    assert.deepEqual([resultado.classificacao, resultado.motivo, resultado.origem],
+      ['gate_blocked', 'runtime.unavailable', 'conducao.batida']);
+    assert.ok(Number(resultado.morteLatenciaMs) >= 600_000);
     assert.equal(eventos.filter((e) => e.tipo === 'gate_blocked').length, 1);
-    assert.equal(reconciliarSessaoSemWatcher(p.carregado, p.t.id, limite + 1).estado, 'ignorada');
+    assert.equal(reconciliarSessaoSemWatcher(p.carregado, p.t.id, primeiroErro + 600_002).estado, 'ignorada');
     assert.equal(lerLedger(p.estado).filter((e) => e.tipo === 'phase_result').length, 1);
+  } finally { p.limpar(); }
+});
+
+test('RM-064 T9: falha transitória conta da observação boa e a leitura seguinte ainda encontra o fim', () => {
+  const p = sessaoCodex('rm064-t9-observacao-boa', 30 * 60 * 1_000);
+  try {
+    const agora = Date.now();
+    prepararControllerEncerrado(p, Date.parse(p.despachadaEm) - 1_000);
+    const controlador = path.join(p.estado, 'sessoes', 'controller-simulado');
+    const fonte = { controlador, cwd: p.dir };
+    validarRegistroWatcher(p.dir, SID, fonte);
+    registrar(p.estado, p.t.id, 'session_sensor_registered', { fase: 'GO', sessionId: SID,
+      despachoEm: p.despachadaEm, ...fonte });
+    registrar(p.estado, p.t.id, 'session_watcher_observed', { ts: new Date(agora - 1_000).toISOString(), fase: 'GO',
+      sessionId: SID, despachoEm: p.despachadaEm, origem: 'conducao.batida' });
+    const estado = path.join(controlador, 'state.json');
+    const valido = fs.readFileSync(estado);
+    fs.writeFileSync(estado, '{');
+    const falha = reconciliarSessaoSemWatcher(p.carregado, p.t.id, agora);
+    assert.equal(falha.estado, 'acompanhada', 'uma leitura passageira não encerra a sessão observada há pouco');
+    assert.equal(lerLedger(p.estado).filter((e) => e.tipo === 'phase_result').length, 0);
+    fs.writeFileSync(estado, valido);
+    assert.equal(reconciliarSessaoSemWatcher(p.carregado, p.t.id, agora + 1_000).estado, 'concluida');
+    assert.equal(lerLedger(p.estado).filter((e) => e.tipo === 'phase_result' && e.ok).length, 1);
   } finally { p.limpar(); }
 });
 
