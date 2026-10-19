@@ -47,6 +47,7 @@ import { exec } from './util';
 import { AcaoPendente, agirNaVarredura, buscarBase, lerSessoes, MOTIVOS_DO_BLOQUEIO, MotivoDoBloqueio, OpcoesDaDeteccao,
   trabalhoNaWorktree, VarreduraQueAge } from './varredura-acoes';
 import { branchDaWorktree } from './worktree';
+import { reconciliarSessaoSemWatcher } from './session-watcher';
 
 export const CONTRATO_DA_BATIDA = 'ork.conducao-batida/v1' as const;
 export const ARQUIVO_DA_BATIDA = 'conducao-batida.json';
@@ -447,9 +448,6 @@ function despacharPassos(ctx: ContextoDaBatida, passos: PassoDoCondutor[], opcoe
       continue;
     }
     const fora = semAutorizacao(ctx.leitura, 'despachar');
-    // A retomada sem autorizacao nao vira item: o pulse ja leva o bloqueio da thread com o `ork retry run` (ou o
-    // `retry plan`), e um segundo item da mesma parada seria ruido no resumo do dono.
-    if (fora && p.acao === 'retomar') continue;
     if (fora) { anotar(ctx, item('dono', fora, p.porque)); continue; }
     if (p.acao === 'despachar' && fase) {
       let pedido: { texto: string } | null = null;
@@ -466,8 +464,10 @@ function despacharPassos(ctx: ContextoDaBatida, passos: PassoDoCondutor[], opcoe
     }
     const retomar = opcoes.retomar ?? retomadaPeloNucleo;
     const r = retomar(carregado, p.thread);
-    // O plano que nao e automatico ja e item do dono no pulse (o bloqueio, com o `retry plan`): a batida so o deixa.
-    if (!r.automatica) continue;
+    if (!r.automatica) {
+      anotar(ctx, item('dono', 'retomada-recusada', r.detalhe));
+      continue;
+    }
     anotar(ctx, r.ok ? item('feita', null, r.detalhe) : item('dono', 'retomada-recusada', r.detalhe));
   }
 }
@@ -526,6 +526,12 @@ export function conduzirBatida(carregado: ManifestoCarregado, opcoes: OpcoesDaBa
   const ctx: ContextoDaBatida = { carregado: doProjeto, raiz, quando, leitura, vivas: sessoes.vivas, canal: opcoes.canal ?? canalDoProcesso(),
     correlacao: `batida:${maquina}`, feitas: [], pendentes: [] };
   const threads = threadsAbertas(raiz);
+  // RM-064 T9: um watcher que falhou no despacho não pode ocultar o fim nativo da sessão.
+  // A reconciliação é local e fail-closed; a rodada seguinte deriva retomar ou pendência do dono.
+  for (const thread of threads) {
+    try { reconciliarSessaoSemWatcher(doProjeto, thread.id, Date.parse(quando)); }
+    catch { /* o diagnóstico da observação fica no ledger; uma thread não interrompe as outras */ }
+  }
   // 1. O merge dos PRs prontos: o que entra na base agora e registrado pela varredura nesta mesma batida.
   const forja = mesclarProntos(ctx, threads, opcoes);
   // 2. A varredura da F5, depois do merge e sobre a mesma leitura das sessoes.

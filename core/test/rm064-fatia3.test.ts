@@ -6,7 +6,7 @@ import { projetoTemporario } from './apoio';
 import { ParserCodex } from '../src/adapters/codex-events';
 import { dirThread, gravarThread, novaThread } from '../src/thread';
 import { lerLedger, registrar } from '../src/ledger';
-import { observarSessao, validarFonteWatcher, validarRegistroWatcher } from '../src/session-watcher';
+import { observarSessao, reconciliarSessaoSemWatcher, validarFonteWatcher, validarRegistroWatcher } from '../src/session-watcher';
 import { caminhoDoTrabalho, gravarRespostaFinalDaSessao } from '../src/trabalho-thread';
 
 const SID = '11111111-2222-4333-8444-555555555555';
@@ -83,4 +83,75 @@ test('RM-064 T9 parser: mensagem anterior também acompanha o terminal sem last_
     { type: 'event_msg', payload: { type: 'task_complete', turn_id: 'turno-1' } },
   ].map((e) => JSON.stringify(e) + '\n').join('');
   assert.equal(parser.push(eventos).at(-1)?.respostaFinal, 'Parecer final simulado.');
+});
+
+function prepararControllerEncerrado(p: ReturnType<typeof sessaoCodex>, baseMs: number): void {
+  const sessoes = path.join(p.estado, 'sessoes');
+  const controlador = path.join(sessoes, 'controller-simulado');
+  fs.mkdirSync(controlador, { recursive: true, mode: 0o700 });
+  fs.chmodSync(sessoes, 0o700);
+  const uid = process.getuid?.() ?? -1;
+  const identidade = (pid: number, cwd: string) => ({ pid, uid, inicio: '1', bootId: 'boot-simulado',
+    executavel: process.execPath, cwd });
+  const processoController = identidade(2_000_000_001, controlador);
+  const processoRuntime = identidade(2_000_000_002, p.dir);
+  const instancia = '99999999-8888-4777-8666-555555555555';
+  const vinculo = { thread: p.t.id, fase: 'GO', promptSha256: 'a'.repeat(64) };
+  const rollout = path.join(sessoes, 'rollout-simulado-controller.jsonl');
+  fs.writeFileSync(rollout, [
+    { type: 'session_meta', payload: { id: SID, cwd: p.dir } },
+    { type: 'event_msg', timestamp: new Date(baseMs + 1_100).toISOString(),
+      payload: { type: 'task_started', turn_id: 'turno-1' } },
+    { type: 'event_msg', timestamp: new Date(baseMs + 2_000).toISOString(),
+      payload: { type: 'task_complete', turn_id: 'turno-1', last_agent_message: 'Resposta recuperada pela batida.' } },
+  ].map((e) => JSON.stringify(e) + '\n').join(''), { mode: 0o600 });
+  const escrever = (nome: string, valor: unknown) => fs.writeFileSync(path.join(controlador, nome), JSON.stringify(valor), { mode: 0o600 });
+  escrever('launch.json', { contrato: 'ork.controller-launch/v1', instancia, vinculo, cwd: p.dir,
+    criadoEm: new Date(baseMs).toISOString() });
+  escrever('process-launch.json', { instancia, pid: processoController.pid, processoController });
+  escrever('state.json', { instancia, vinculo, cwd: p.dir, sessionId: SID, pid: processoController.pid,
+    processoController, processoRuntime, rollout, turno: 'turno-1', estado: 'completed',
+    terminal: { metodo: 'turn/completed', threadId: SID, turnId: 'turno-1', status: 'completed' },
+    processoEncerrado: { em: new Date(baseMs + 2_000).toISOString(), code: 0, signal: null } });
+  registrar(p.estado, p.t.id, 'phase_dispatch', { ts: p.despachadaEm, fase: 'GO', sessionId: SID,
+    despachoEm: p.despachadaEm, controlador, cwd: p.dir, promptSha256: 'a'.repeat(64) });
+}
+
+test('RM-064 T9: batida recompõe sensor ausente, lê task_complete e grava um único resultado', () => {
+  const p = sessaoCodex('rm064-t9-reconciliacao');
+  try {
+    const baseMs = Date.parse(p.despachadaEm) - 1_000;
+    prepararControllerEncerrado(p, baseMs);
+    const r = reconciliarSessaoSemWatcher(p.carregado, p.t.id, baseMs + 3_000);
+    assert.deepEqual([r.estado, r.sessionId], ['concluida', SID]);
+    const eventos = lerLedger(p.estado);
+    assert.equal(eventos.filter((e) => e.tipo === 'session_sensor_registered').length, 1);
+    const resultados = eventos.filter((e) => e.tipo === 'phase_result');
+    assert.equal(resultados.length, 1);
+    assert.deepEqual([resultados[0].ok, resultados[0].conclusaoNativa], [true, true]);
+    assert.equal(fs.readFileSync(path.join(p.estado, 'trabalho', `resposta-final-${SID}.md`), 'utf8'),
+      'Resposta recuperada pela batida.');
+    assert.equal(reconciliarSessaoSemWatcher(p.carregado, p.t.id, baseMs + 4_000).estado, 'ignorada');
+    assert.equal(lerLedger(p.estado).filter((e) => e.tipo === 'phase_result').length, 1);
+  } finally { p.limpar(); }
+});
+
+test('RM-064 T9: fonte indisponível por dez minutos vira parada tipada e idempotente', () => {
+  const p = sessaoCodex('rm064-t9-parada');
+  try {
+    const controlador = path.join(p.estado, 'sessoes', 'controller-incompleto');
+    fs.mkdirSync(controlador, { recursive: true, mode: 0o700 });
+    registrar(p.estado, p.t.id, 'phase_dispatch', { ts: p.despachadaEm, fase: 'GO', sessionId: SID,
+      despachoEm: p.despachadaEm, controlador, cwd: p.dir, promptSha256: 'a'.repeat(64) });
+    const limite = Date.parse(p.despachadaEm) + 600_001;
+    const r = reconciliarSessaoSemWatcher(p.carregado, p.t.id, limite);
+    assert.equal(r.estado, 'parada');
+    const eventos = lerLedger(p.estado);
+    const resultado = eventos.find((e) => e.tipo === 'phase_result')!;
+    assert.deepEqual([resultado.classificacao, resultado.motivo, resultado.origem, resultado.morteLatenciaMs],
+      ['gate_blocked', 'runtime.unavailable', 'conducao.batida', 600_001]);
+    assert.equal(eventos.filter((e) => e.tipo === 'gate_blocked').length, 1);
+    assert.equal(reconciliarSessaoSemWatcher(p.carregado, p.t.id, limite + 1).estado, 'ignorada');
+    assert.equal(lerLedger(p.estado).filter((e) => e.tipo === 'phase_result').length, 1);
+  } finally { p.limpar(); }
 });

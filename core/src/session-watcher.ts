@@ -224,6 +224,13 @@ function desfazerNaThreadRemovida(pasta: string, criadas: readonly string[]): vo
 export interface ResultadoWatcher { sessionId: string; thread: string; concluido: boolean; ocupado?: boolean; bytesLidos: number; classificacao?: string;
   /** I-34: observação claude-bg inconclusiva além do limite; o laço para sem gate. */
   encerrado?: boolean; espera?: string }
+
+export interface ResultadoReconciliacaoWatcher {
+  thread: string;
+  sessionId: string | null;
+  estado: 'ignorada' | 'acompanhada' | 'concluida' | 'parada';
+  detalhe: string;
+}
 interface OpcoesObservacao {
   agoraMs?: number; rollout?: string | null;
   /** Vínculo já resolvido pelo dispatcher, reconferido em cada leitura. */
@@ -309,6 +316,92 @@ export function observarSessao(carregado: ManifestoCarregado, sessionId: string,
   } catch (e) {
     if (threadId) tentarRegistrarErroWatcher(carregado.raiz, threadId, sessionId, e);
     throw e;
+  }
+}
+
+/**
+ * RM-064 T9: a batida não depende do processo watcher ter nascido. Para a última sessão
+ * despachada e verificada, recompõe a fonte do próprio despacho, observa o runtime diretamente
+ * e, depois do mesmo limite do watcher, registra uma parada tipada que o retry consegue tratar.
+ */
+export function reconciliarSessaoSemWatcher(carregado: ManifestoCarregado, threadId: string,
+  agoraMs = Date.now()): ResultadoReconciliacaoWatcher {
+  const thread = lerThread(carregado.raiz, threadId);
+  const sessao = thread.sessoes.at(-1);
+  const ignorada = (detalhe: string): ResultadoReconciliacaoWatcher => ({ thread: threadId,
+    sessionId: sessao?.sessionId ?? null, estado: 'ignorada', detalhe });
+  if (thread.status === 'fechada' || !sessao || sessao.verificada !== true ||
+      !['codex', 'claude-bg'].includes(sessao.runtime) || typeof sessao.despachadaEm !== 'string')
+    return ignorada('sem sessão despachada e verificada que o watcher possa reconciliar');
+  const dir = dirThread(carregado.raiz, threadId);
+  let eventos = lerLedger(dir);
+  if (eventos.some(e => e.tipo === 'phase_result' && e.sessionId === sessao.sessionId &&
+      (e.despachoEm === undefined || e.despachoEm === sessao.despachadaEm)))
+    return ignorada('sessão já possui phase_result');
+  const iniciado = eventos.filter(e => e.tipo === 'session_watcher_started' && e.sessionId === sessao.sessionId &&
+    e.despachoEm === sessao.despachadaEm).at(-1);
+  const identidade = iniciado?.identidade as IdentidadeProcesso | undefined;
+  if (identidade && iniciado?.pid === identidade.pid && estadoProcesso(identidade) === 'vivo')
+    return ignorada('watcher verificado continua vivo');
+
+  const registro = eventos.filter(e => e.tipo === 'session_sensor_registered' && e.sessionId === sessao.sessionId &&
+    e.despachoEm === sessao.despachadaEm).at(-1);
+  if (!registro && sessao.runtime === 'claude-bg') {
+    garantirFonteClaude(carregado.raiz, thread, exigirSessaoDespachada(sessao, sessao.sessionId));
+  } else if (!registro && sessao.runtime === 'codex') {
+    const despacho = eventos.filter(e => e.tipo === 'phase_dispatch' && e.sessionId === sessao.sessionId).at(-1);
+    const controlador = (despacho?.controlador ?? sessao.controlador) as string | undefined;
+    const cwd = despacho?.cwd as string | undefined;
+    if (controlador && cwd) {
+      const fonte = { controlador, cwd };
+      validarRegistroWatcher(carregado.raiz, sessao.sessionId, fonte);
+      comLockDeSessao(dir, () => {
+        const atuais = lerLedger(dir);
+        if (!atuais.some(e => e.tipo === 'session_sensor_registered' && e.sessionId === sessao.sessionId &&
+            e.despachoEm === sessao.despachadaEm)) {
+          registrar(dir, threadId, 'session_sensor_registered', { fase: sessao.fase, sessionId: sessao.sessionId,
+            despachoEm: sessao.despachadaEm, ...fonte, origem: 'conducao.batida',
+            ...(despacho?.perfil ? { perfil: despacho.perfil } : {}) });
+        }
+      });
+    }
+  }
+
+  try {
+    const observado = observarSessao(carregado, sessao.sessionId, { threadId, agoraMs });
+    if (observado.concluido) return { thread: threadId, sessionId: sessao.sessionId,
+      estado: 'concluida', detalhe: `runtime observado: ${observado.classificacao ?? 'terminal'}` };
+    return { thread: threadId, sessionId: sessao.sessionId, estado: 'acompanhada',
+      detalhe: observado.ocupado ? 'observação ocupada; nova batida repetirá' : 'runtime ainda sem terminal' };
+  } catch (erro) {
+    // `observarSessao` já deixa o diagnóstico fechado no ledger. Só depois do limite a batida
+    // transforma a ausência persistente de observação em parada; antes disso, apenas acompanha.
+    eventos = lerLedger(dir);
+    const uteis = eventosDoIntervalo(eventos, exigirSessaoDespachada(sessao, sessao.sessionId)).filter(e =>
+      ['runtime_heartbeat', 'runtime_event', 'runtime_stop', 'runtime_subagent_stop', 'commit',
+        'mcp_git_committed', 'sessao_bloqueada', 'sessao_destravada'].includes(e.tipo));
+    const ultimoUtil = Math.max(Date.parse(sessao.despachadaEm),
+      ...uteis.map(e => Date.parse(e.ts)).filter(Number.isFinite));
+    if (agoraMs - ultimoUtil < LIMITE_MORTE_MS) return { thread: threadId, sessionId: sessao.sessionId,
+      estado: 'acompanhada', detalhe: 'fonte ainda indisponível dentro do limite de estabilidade' };
+    const chave = createHash('sha256').update(sessao.sessionId + '|' + sessao.despachadaEm).digest('hex');
+    const sensorResultId = `codex:${chave}`;
+    comLockDeSessao(dir, () => {
+      const atuais = lerLedger(dir);
+      if (atuais.some(e => e.tipo === 'phase_result' && e.sessionId === sessao.sessionId &&
+          e.despachoEm === sessao.despachadaEm)) return;
+      const dados = { fase: sessao.fase, sessionId: sessao.sessionId, despachoEm: sessao.despachadaEm,
+        sensorResultId, classificacao: 'gate_blocked', motivo: 'runtime.unavailable', runtime: sessao.runtime,
+        fonte: 'conducao.batida: sessão verificada sem watcher e sem evento útil', fonteVencedora: null,
+        ok: false, conclusaoNativa: false, conclusaoNativaAusente: 'watcher ausente e fonte indisponível além do limite',
+        estado: 'bloqueada', observadoEm: new Date(agoraMs).toISOString(), gate: 'phase.dispatch',
+        origem: 'conducao.batida', morteLatenciaMs: agoraMs - ultimoUtil };
+      registrar(dir, threadId, 'sessao_morta', dados);
+      registrar(dir, threadId, 'gate_blocked', dados);
+      registrar(dir, threadId, 'phase_result', dados);
+    });
+    return { thread: threadId, sessionId: sessao.sessionId, estado: 'parada',
+      detalhe: 'sessão verificada sem watcher e sem evento útil além do limite' };
   }
 }
 
