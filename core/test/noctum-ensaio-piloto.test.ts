@@ -2,7 +2,9 @@
  * RM-058 (N6, T8 da ork-rm058n6): o ensaio do piloto (`core/scripts/ensaio-noctum.cjs`) roda sobre o `core/dist` num
  * processo filho, em pastas descartáveis, com o runtime, as contas, a parada e o canal simulados. O aceite da N6 vira
  * teste: o relógio controlado prova prazo e fuso, o teto com sessões em voo, a ausência de recibo e o reenvio sem
- * duplicação, e a correção explícita; a sabotagem prova que o ensaio reprova quando o canal duplica.
+ * duplicação, e a correção explícita; a sabotagem prova que o ensaio reprova quando o canal duplica. RM-058, integração
+ * (T7 da ork-rm058integra, D11): os cenários integrados (a cadeia ligada, o condutor que morre e a base que anda) e as marcas
+ * de simulação que o aceite do piloto recusa.
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -16,7 +18,8 @@ const ENSAIO = path.resolve(__dirname, '../../scripts/ensaio-noctum.cjs');
 
 interface Expectativa { texto: string; ok: boolean; detalhe?: string }
 interface Cenario { nome: string; titulo: string; ok: boolean; expectativas: Expectativa[] }
-interface Resultado { contrato: string; ok: boolean; raiz: string; mantida: boolean; sabotagem: string | null; cenarios: Cenario[] }
+interface Resultado { contrato: string; ok: boolean; simulado: boolean; marcas: Record<string, unknown>; raiz: string; mantida: boolean;
+  sabotagem: string | null; cenarios: Cenario[] }
 
 function ensaio(args: string[]) {
   const env = { ...process.env };
@@ -49,20 +52,20 @@ function provada(c: Cenario, padrao: RegExp): void {
   assert.equal(e.ok, true, `${c.nome}: ${e.texto}\n${e.detalhe ?? ''}`);
 }
 
-test('EP1: o ensaio inteiro sai 0 com todas as expectativas dos sete cenários, e a pasta descartável some no fim', { skip: semKernel }, () => {
+test('EP1: o ensaio inteiro sai 0 com todas as expectativas dos dez cenários, e a pasta descartável some no fim', { skip: semKernel }, () => {
   const { status, json, stderr } = ensaioCompleto();
   assert.equal(status, 0, stderr + JSON.stringify(json.cenarios.flatMap(c => c.expectativas.filter(e => !e.ok))));
   assert.equal(json.contrato, 'ork.noctum-ensaio/v1');
   assert.equal(json.ok, true);
   assert.deepEqual(json.cenarios.map(c => c.nome), ['ligar-o-modo', 'arco-curto', 'prazo-e-fuso', 'teto-com-sessoes-em-voo', 'teto-medido',
-    'sem-recibo-e-reenvio', 'correcao-explicita']);
+    'sem-recibo-e-reenvio', 'correcao-explicita', 'cadeia-ligada', 'condutor-morto', 'base-que-anda']);
   for (const c of json.cenarios) {
     assert.equal(c.ok, true, c.nome);
     assert.ok(c.expectativas.length >= 7, `${c.nome}: ${c.expectativas.length} expectativas`);
     // Cada cenário prova que nada de verdade rodou: as sentinelas do runtime, da forja e dos gateways ficaram paradas.
     provada(c, /^nenhum runtime, forja ou gateway de verdade foi chamado \(sentinelas claude, codex, gh/);
   }
-  assert.ok(json.cenarios.reduce((s, c) => s + c.expectativas.length, 0) >= 70);
+  assert.ok(json.cenarios.reduce((s, c) => s + c.expectativas.length, 0) >= 100);
   assert.equal(json.mantida, false);
   assert.equal(fs.existsSync(json.raiz), false, 'a pasta do ensaio foi apagada');
   assert.ok(!json.raiz.startsWith(path.resolve(__dirname, '../../..')), 'a pasta do ensaio nunca fica no repositório');
@@ -151,5 +154,50 @@ test('EP7: o ensaio reprova quando o canal duplica (sabotagem), e o uso errado s
   assert.equal(sabotagem.status, 2);
   const lista = ensaio(['--listar']);
   assert.equal(lista.status, 0);
-  assert.equal(lista.stdout.trim().split('\n').length, 7);
+  assert.equal(lista.stdout.trim().split('\n').length, 10);
+});
+
+test('EP8: a cadeia ligada vai do pedido do dono à integração na base, ao MASTER por omissão e ao relatório, pelo vigia e pelo condutor', { skip: semKernel }, () => {
+  const c = cenario('cadeia-ligada');
+  provada(c, /^o pedido do dono vira a thread #Auto do item, com o pedido guardado e a worktree/);
+  provada(c, /^no tique, o vigia não grava a baseline: o passo espera o condutor \(baseline-pendente\)/);
+  provada(c, /^o condutor grava a baseline real da thread e despacha o GOAL pelo runtime, com a linha do arco no pedido da sessão/);
+  provada(c, /^com o bloco concluído pela própria sessão, a entrega pede a revisão independente/);
+  provada(c, /^com a revisão PASSOU e o verify no SHA, a entrega publica: a branch no remoto de fixture e o PR na forja SIMULADA/);
+  provada(c, /^com o CI SIMULADO verde no SHA publicado, a entrega integra na base do remoto, e o ship_done leva a prova do push e o arco/);
+  provada(c, /^o tique seguinte faz o MASTER por omissão da entrega do arco \(a thread fecha\), e só então a fila vazia fecha o arco/);
+  provada(c, /^o relatório da manhã sai no horário pelo canal combinado e dá o t1 como entregue, com o push provado/);
+  provada(c, /^a cadeia inteira saiu sem falha de etapa no tique e sem exceção da entrega/);
+});
+
+test('EP9: o condutor que morre: o vigia assume, retoma a sessão morta, atualiza sem o verify, e o condutor relançado entrega', { skip: semKernel }, () => {
+  const c = cenario('condutor-morto');
+  provada(c, /^o condutor grava a baseline real de cada thread, despacha os dois trabalhos e sai no meio, com a trava solta/);
+  provada(c, /^com o condutor fora, o vigia assume no tique e retoma a sessão morta do t2 pelo passo do arco, numa sessão nova/);
+  provada(c, /^no mesmo tique, a entrega do vigia pede a revisão independente do t1/);
+  provada(c, /^a base anda e a atualização sai no tique, sobre a base nova, sem o verify: ele fica para o condutor/);
+  provada(c, /^no tique seguinte o verify espera o condutor: a entrega aguarda \(ocupada\)/);
+  provada(c, /^o condutor relançado roda o verify real no SHA atualizado, publica, integra na base nova e faz o MASTER por omissão/);
+  provada(c, /^o trabalho retomado segue em curso: o arco não fecha com o t2 na sessão nova/);
+});
+
+test('EP10: a base que anda: o condutor atualiza o candidato, roda o verify real no SHA novo, publica de novo e integra na base nova', { skip: semKernel }, () => {
+  const c = cenario('base-que-anda');
+  provada(c, /^o candidato chega publicado no remoto de fixture, com o PR aberto na forja SIMULADA/);
+  provada(c, /^com a base nova, o condutor atualiza o candidato sobre ela, com a linha da thread em "Não publicado" e o bundle regravado/);
+  provada(c, /^o condutor roda o verify real no SHA novo, na mesma atualização/);
+  provada(c, /^a entrega publica de novo o SHA atualizado: a branch do remoto anda até ele/);
+  provada(c, /^com o CI verde no SHA novo, a integração mescla na base nova, e o ship_done leva a prova do push/);
+  provada(c, /^o CI SIMULADO foi lido nos dois SHAs publicados, e nenhum outro PR foi aberto/);
+});
+
+test('EP11: o resultado do ensaio leva simulado e as marcas que o aceite do piloto recusa, também no recorte de um cenário', { skip: semKernel }, () => {
+  const { json } = ensaioCompleto();
+  assert.equal(json.simulado, true);
+  assert.deepEqual(json.marcas, { maquina: 'maquina-do-ensaio', remoto: 'fixture', forja: 'simulada', ci: 'simulado', runtime: 'simulado',
+    canal: 'simulado', sentinelas: ['claude', 'codex', 'gh', 'glab', 'openclaw', 'hermes'] });
+  const r = ensaio(['--cenario', 'base-que-anda', '--json']);
+  assert.equal(r.status, 0, r.stderr);
+  const recorte = JSON.parse(r.stdout) as Resultado;
+  assert.deepEqual([recorte.simulado, recorte.marcas], [true, json.marcas]);
 });
