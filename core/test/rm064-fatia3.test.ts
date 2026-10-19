@@ -254,6 +254,9 @@ test('RM-064 T9: falha transitória conta da observação boa e a leitura seguin
     validarRegistroWatcher(p.dir, SID, fonte);
     registrar(p.estado, p.t.id, 'session_sensor_registered', { fase: 'GO', sessionId: SID,
       despachoEm: p.despachadaEm, ...fonte });
+    // Uma série antiga, já superada pela observação boa, não pode antecipar a parada.
+    registrar(p.estado, p.t.id, 'session_watcher_error', { ts: new Date(agora - 20 * 60 * 1_000).toISOString(), fase: 'GO',
+      sessionId: SID, despachoEm: p.despachadaEm, motivo: 'runtime.unavailable', transitorio: true, origem: 'sessions.watch' });
     registrar(p.estado, p.t.id, 'session_watcher_observed', { ts: new Date(agora - 1_000).toISOString(), fase: 'GO',
       sessionId: SID, despachoEm: p.despachadaEm, origem: 'conducao.batida' });
     const estado = path.join(controlador, 'state.json');
@@ -265,6 +268,9 @@ test('RM-064 T9: falha transitória conta da observação boa e a leitura seguin
     fs.writeFileSync(estado, valido);
     assert.equal(reconciliarSessaoSemWatcher(p.carregado, p.t.id, agora + 1_000).estado, 'concluida');
     assert.equal(lerLedger(p.estado).filter((e) => e.tipo === 'phase_result' && e.ok).length, 1);
+    // A própria batida registra a leitura boa; é ela que fecha a série de erros da reconciliação.
+    assert.equal(lerLedger(p.estado).filter((e) => e.tipo === 'session_watcher_observed' && e.sessionId === SID &&
+      e.origem === 'conducao.batida' && e.ts === new Date(agora + 1_000).toISOString()).length, 1);
   } finally { p.limpar(); }
 });
 
