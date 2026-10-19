@@ -925,8 +925,8 @@ export function responderOrdem(carregado: ManifestoCarregado, arco: string, orde
 
 /**
  * G8-6: a vaga que outra chave da máquina tomou tem o despacho no log de outra raiz; daqui não se prova a parada dela. Vale
- * no fim e na conclusão (N1 da terceira passada do CHECK-REVERIFY): os dois tiram a última ordem viva do item, e outro
- * trabalho dele pode ir a outra máquina.
+ * no fim e na conclusão (N1 da terceira passada do CHECK-REVERIFY): os dois podem tirar a última ordem viva do item, e
+ * outro trabalho dele iria a outra máquina.
  */
 function exigirSemVagaDeOutraChave(estado: EstadoDaCoordenacao, o: OrdemDerivada, chave: string, eu: string): void {
   const deOutra = estado.vagas.find(v => v.ordem === o.ordem && !v.solta && v.chave !== chave);
@@ -1219,7 +1219,10 @@ export interface PlanoDeReconciliacao {
   concluidas: string[];
   /** As vagas soltas agora. */
   soltas: string[];
-  /** Ordens vencidas que ainda têm sessão viva nesta máquina: ficam isoladas até ela terminar (a N4 a para). */
+  /**
+   * Ordens vencidas que ainda têm sessão viva nesta máquina, ou a vez de integrar sem prova: ficam isoladas até ela terminar
+   * (a N4 a para). Também a ordem cuja thread local terminou com vaga viva de outra raiz desta máquina, que espera a raiz dela.
+   */
   aguardando: Array<{ ordem: string; porque: string }>;
   /** Os itens sem ordem viva desta máquina: a reserva do arco neles pode ser solta. */
   itensSemOrdemViva: string[];
