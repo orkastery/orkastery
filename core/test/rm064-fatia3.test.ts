@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { mock, test } from 'node:test';
+import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { projetoTemporario } from './apoio';
@@ -7,19 +8,20 @@ import { controllerSimulado, esperarCondicao } from './controller-simulado';
 import { encerrarController } from '../src/adapters/codex-controller';
 import { rodarFase } from '../src/phase';
 import { ParserCodex } from '../src/adapters/codex-events';
-import { dirThread, gravarThread, novaThread } from '../src/thread';
+import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { lerLedger, registrar } from '../src/ledger';
 import { observarSessao, prepararFonteWatcher, reconciliarSessaoSemWatcher, validarFonteWatcher,
   validarRegistroWatcher } from '../src/session-watcher';
 import { conduzirBatida } from '../src/conducao-batida';
 import { caminhoDoTrabalho, gravarRespostaFinalDaSessao } from '../src/trabalho-thread';
-import { configuracaoServidorMcp, politicasFilhoCodex, TOOLS_FILHO_CODEX } from '../src/mcp-install';
+import { configuracaoServidorMcp, instalarMcp, politicasFilhoCodex, TOOLS_FILHO_CODEX } from '../src/mcp-install';
 import { adicionarPerfil, desativarPerfil, lerPerfis, perfilDeDespacho, perfisDisponiveis, politicaDeRotacao,
   proximoPerfilDisponivel, proximoPerfilPorCarga } from '../src/runtime-profiles';
-import { proximoAlvo } from '../src/retry';
+import { proximoAlvo, redespachar } from '../src/retry';
 import { planoDoDegrau } from '../src/runtime-escada';
 import { editarBloco } from '../src/setup';
 import { instalarAdaptador } from '../src/hosts';
+import { RUNTIMES } from '../src/runtimes';
 
 const SID = '11111111-2222-4333-8444-555555555555';
 
@@ -249,6 +251,48 @@ test('RM-064 T8: sessão worktree recebe somente as mutações MCP exatas, sem a
   assert.deepEqual(Object.keys(politicas.tools).sort(), [...TOOLS_FILHO_CODEX].sort());
   assert.deepEqual(Object.values(politicas.tools).map((v) => (v as { approval_mode: string }).approval_mode),
     Array(TOOLS_FILHO_CODEX.length).fill('approve'));
+});
+
+test('RM-064 T8: retry pela escada leva o contexto MCP worktree ao Codex', () => {
+  const p = projetoTemporario('rm064-t8-retry-codex');
+  let f: ReturnType<typeof controllerSimulado> | undefined;
+  let controlador: string | undefined;
+  let restaurarAdaptador: (() => void) | undefined;
+  try {
+    const t = novaThread(p.carregado, { nome: 'retry codex', modo: 'auto', criarWorktree: true }).thread;
+    t.faseAtual = 'GO'; gravarThread(p.dir, t);
+    f = controllerSimulado(t.worktree!, { cenario: 'contexto-ok' });
+    instalarAdaptador('codex', { projeto: p.dir });
+    instalarMcp({ projeto: p.dir, host: 'codex', permissoesFilho: 'worktree' });
+    const adaptador = mock.method(RUNTIMES.codex, 'despachar', pedido => f!.dispatch({
+      contextoRuntime: pedido.contextoRuntime, vinculo: pedido.vinculo, prompt: pedido.prompt,
+      model: pedido.model, effort: pedido.effort, sandbox: pedido.sandbox,
+    }));
+    restaurarAdaptador = () => adaptador.mock.restore();
+    const texto = 'retry com contexto MCP SIMULADO';
+    const prompt = path.join(dirThread(p.dir, t.id), 'prompts', 'retry.md');
+    fs.mkdirSync(path.dirname(prompt), { recursive: true }); fs.writeFileSync(prompt, texto);
+    const r = redespachar(p.carregado, lerThread(p.dir, t.id), 'GO', prompt,
+      createHash('sha256').update(texto).digest('hex'), { runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.ok, true, r.detalhe); assert.ok(r.controlador); controlador = r.controlador;
+    const chamadas = fs.readFileSync(path.join(f.runtimeHome, 'params.jsonl'), 'utf8').trim().split('\n').map(x => JSON.parse(x));
+    const inicio = chamadas.find(x => x.method === 'thread/start')?.params;
+    const turno = chamadas.find(x => x.method === 'turn/start')?.params;
+    assert.ok(inicio?.config?.mcp_servers?.orkastery, 'retry Codex sem servidor MCP da thread');
+    const servidor = inicio.config.mcp_servers.orkastery as { args: string[]; tools: Record<string, { approval_mode: string }> };
+    assert.deepEqual(servidor.args.slice(servidor.args.indexOf('--child-permissions'), servidor.args.indexOf('--dispatch')),
+      ['--child-permissions', 'worktree', '--thread', t.id]);
+    assert.match(servidor.args[servidor.args.indexOf('--dispatch') + 1], /^[a-f0-9-]{36}$/);
+    assert.deepEqual(Object.keys(servidor.tools).sort(), [...TOOLS_FILHO_CODEX].sort());
+    assert.deepEqual(Object.values(servidor.tools).map(v => v.approval_mode), Array(TOOLS_FILHO_CODEX.length).fill('approve'));
+    assert.deepEqual(turno.sandboxPolicy.writableRoots, [t.worktree]);
+  } finally {
+    if (controlador) {
+      const launch = JSON.parse(fs.readFileSync(path.join(controlador, 'launch.json'), 'utf8'));
+      try { encerrarController(controlador, launch.vinculo, launch.instancia, 8000); } catch { /* fixture já terminal */ }
+    }
+    restaurarAdaptador?.(); f?.restaurar(); p.limpar();
+  }
 });
 
 test('RM-064 T10: perfil desativado não entra na escada, retry, carga nem fallback implícito', () => {

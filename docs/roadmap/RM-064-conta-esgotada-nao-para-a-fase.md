@@ -76,7 +76,7 @@ A conta A (assinatura Claude) esgotou a cota semanal entre 02h03 e 02h12, com vo
 | T5 Condução não divide o destino das fases | O passo que reage à cota é o `ork conducao batida` determinístico (RM-063 F7), chamado pela batida da máquina; quando há condutor LLM, o `ork doctor` avisa se ele divide runtime e conta com fases vivas | ensaio: esgotar a conta das fases não para a condução |
 | T6 A rede vê a parada | Máquina sem destino capaz publica as threads paradas na rede ([RM-053](RM-053-orkastery-network.md)); outra máquina com conta livre pode assumir pela reserva ([RM-047](RM-047-fabrica-em-varias-maquinas.md)), e o dono recebe o aviso em até 30 min | teste com duas máquinas falsas: a sem conta publica, a com conta assume pela reserva |
 | T7 Estado das contas sempre vivo | O `ork accounts check` expira a marcação vencida, distingue limite de sessão, semanal e de gasto definido pelo administrador, mede a cota quando o runtime a expõe e mostra, por conta, o que roda nela e quando volta; runtime sem adaptador instalado não entra como destino capaz | teste: marcação vencida volta a ativa; medida estruturada aparece; fallback sem adaptador é descartado |
-| T8 Estado gravável com privilégio mínimo | A sessão Codex recebe o MCP do Orkastery vinculado à própria thread e ao despacho, com perfil filho `worktree` e ferramentas de mutação enumeradas; o sandbox continua restrito à worktree e o núcleo valida cada escrita | teste: configuração da sessão contém somente os grants MCP previstos, sem ampliar sandbox nem raiz gravável |
+| T8 Estado gravável com privilégio mínimo | O despacho inicial e o redespacho Codex por `ork retry` ou pela escada recebem o MCP do Orkastery vinculado à própria thread e ao despacho, com perfil filho `worktree` e ferramentas de mutação enumeradas; o sandbox continua restrito à worktree e o núcleo valida cada escrita | teste: redespacho simulado contém somente os grants MCP previstos, sem ampliar sandbox nem raiz gravável |
 | T9 Fim visto mesmo sem watcher | O vínculo do sensor é registrado antes da prontidão eventual do runtime. Se o watcher não nascer ou morrer, a batida recompõe a fonte pelo despacho verificado, lê o terminal nativo, grava a resposta final privada em `trabalho/` e emite um único `phase_result`; sem evento útil por dez minutos, registra parada tipada para retry ou pendência do dono | teste com controller e rollout simulados: `task_complete` sem watcher vira um resultado idempotente; fonte indisponível na fronteira vira `runtime.unavailable` |
 | T10 Fora do rodízio em toda seleção | A escada, o retry, a fila e a distribuição por carga consomem a mesma lista de perfis disponíveis. Perfil desativado continua configurado, portanto não habilita ambiente implícito, mas nunca é escolhido | teste com perfis ativos e desativados: nenhum seletor automático devolve o perfil retirado pelo dono |
 
@@ -156,9 +156,10 @@ conseguiram gravar o estado fora da worktree; o watcher falhou antes de registra
 terminal e um perfil retirado do rodízio ainda apareceu entre os candidatos. O trabalho ficou somente na resposta da
 sessão e as threads continuaram conduzidas sem um resultado observável.
 
-- **T8:** o despacho Codex injeta o MCP vinculado à thread. O perfil filho `worktree` autoriza somente as ferramentas
-  enumeradas do núcleo; objetivo, plano, parecer, claims, commits, verify e entrega passam pelos contratos do Orkastery,
-  sem tornar a raiz do projeto gravável pelo sandbox.
+- **T8:** o despacho inicial e o redespacho Codex por `ork retry` ou pela escada injetam o MCP vinculado à thread e à
+  identidade do despacho. O perfil filho `worktree` autoriza somente as ferramentas enumeradas do núcleo; objetivo,
+  plano, parecer, claims, commits, verify e entrega passam pelos contratos do Orkastery, sem tornar a raiz do projeto
+  gravável pelo sandbox.
 - **T9:** o registro estrutural do sensor acontece antes de o rollout estar pronto. A validação profunda continua
   fail-closed no laço. A batida reconcilia a última sessão despachada e verificada quando o watcher não está vivo,
   recompõe uma fonte ausente pelo `phase_dispatch`, lê `task_complete` e o fechamento nativo, guarda a resposta final
