@@ -102,6 +102,20 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   ensaia o piloto local em repositórios descartáveis, com relógio controlado e runtime e canal simulados. O tique ainda
   chama o passo da N2: ligar o vigia e o condutor da N4 vem antes do primeiro piloto, que espera também os valores e a
   autorização do dono.
+- **#Noctum, integração numa máquina** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): a thread de um arco agendado ou
+  vigente só tem o SHIP e o MASTER pelo arco: `ork ship`, `ork ship publicar`, `ork ship registrar-pr` e
+  `ork conducao atualizar` recusam com `noctum.guarda.thread-do-arco` antes de qualquer git, a batida, a varredura, a
+  Sentinela e a máquina ociosa pulam a thread, e a sessão do arco recebe no pedido a linha que diz isso. O bloco com GO
+  pede a baseline em todo runtime, gravada pelo condutor. `ork noctum tique` passa a rodar o fechamento, o vigia da
+  supervisão (que reconcilia, aplica as paradas e, sem condutor vivo, dá o passo do despacho e o da entrega) e o
+  relatório, com os fatos da supervisão no relatório e no retrato; a parada da supervisão fecha o arco com o motivo
+  `supervisao`, e a fila vazia espera o MASTER por omissão que a entrega do arco deve. `ork noctum conduzir <arco>` roda o
+  condutor (sai 0, 2, 3 ou 4), e `ork noctum aceite <arco>` mede M1 a M10 e dá o veredito do piloto
+  (`ork.noctum-piloto/v1`), com a evidência simulada nunca aprovada e o arquivo publicável sem dado pessoal. Com
+  `ci.contexts` no manifesto, a prova do CI da entrega exige todos os contextos verdes. O ensaio ganha a cadeia ligada, o
+  condutor que morre e a base que anda. Muda para quem publica: a tag só publica com o aceite dos pilotos do #Noctum em
+  `docs/roadmap/evidencias/RM-058/aceite.json`, e o CI de documentação recusa o texto que anuncia o #Noctum como lançado,
+  entregue, validado ou disponível sem esse aceite. Nenhum piloto rodou: o #Noctum ainda não foi validado.
 
 - **Conta esgotada não para a fase, fatia 1** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)):
   o fim de cota vira evento da conta, interrompe com prova as sessões vinculadas, troca para outro perfil ou fallback
