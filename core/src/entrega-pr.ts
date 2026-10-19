@@ -25,6 +25,7 @@ import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
+import { ArcosDaRaiz, guardaDaThread, lerArcosDaRaiz, MotivoDaGuarda } from './noctum-guarda';
 import { dirThread, gravarThread, lerThread, listarIds } from './thread';
 import { exec } from './util';
 import { rodarCli } from './forja/executor';
@@ -33,14 +34,17 @@ import { ErroDoCatalogo, remontar, textoDoCatalogo } from './locale';
 
 export interface EntregaPorPr {
   thread: string;
-  /** RM-037 (fatia 3, defeito 6): `registraria` e o ensaio (`--dry-run`) que passou em tudo e nada gravou. */
-  acao: 'registrou' | 'registraria' | 'ja-registrada' | 'sem-merge' | 'recusada';
+  /**
+   * RM-037 (fatia 3, defeito 6): `registraria` e o ensaio (`--dry-run`) que passou em tudo e nada gravou. RM-058, integracao
+   * (T1.1): `pulada` e a thread de um arco #Noctum que o `--todas` deixa para o passo da entrega do arco.
+   */
+  acao: 'registrou' | 'registraria' | 'ja-registrada' | 'sem-merge' | 'recusada' | 'pulada';
   mergeSha: string | null;
   headSha: string | null;
   ci: ResultadoCi | null;
   motivo: string;
-  /** O porque estavel das recusas de entrega sem prova (so nelas). */
-  codigo?: 'entrega.sem-vinculo' | 'entrega.sem-leitura' | 'entrega.sem-head' | 'entrega.forja-mista';
+  /** O porque estavel das recusas de entrega sem prova (so nelas) e da guarda das threads do arco #Noctum (RM-058). */
+  codigo?: 'entrega.sem-vinculo' | 'entrega.sem-leitura' | 'entrega.sem-head' | 'entrega.forja-mista' | MotivoDaGuarda;
   /**
    * RM-044 (A3): as paginas do roadmap desta thread que o push da base vai reprovar em
    * `docs.paridade.merge` (merge ship(<thread>) na base com o `estado.codigo` fora de `Mesclado`).
@@ -105,13 +109,19 @@ function resultado(thread: string, acao: EntregaPorPr['acao'], motivo: string, e
  * a mesma entrega nao e registrada duas vezes.
  */
 export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: string,
-  opcoes: { remoto?: string; executorCi?: ExecutorCi; buscar?: boolean; publicar?: boolean; dryRun?: boolean } = {}): EntregaPorPr {
+  opcoes: { remoto?: string; executorCi?: ExecutorCi; buscar?: boolean; publicar?: boolean; dryRun?: boolean;
+    /** RM-058, integracao: os arcos ja lidos pelo `--todas`; nunca vem da CLI. */
+    arcos?: ArcosDaRaiz } = {}): EntregaPorPr {
   const raiz = carregado.raiz;
   // RM-047: o `--remoto` vem da linha de comando; so nome de remoto chega ao git, e depois do `--`.
   const remoto = exigirRemoto(opcoes.remoto ?? 'origin', 'ship');
   const base = carregado.manifesto.worktree.base_branch;
   const thread = lerThread(raiz, threadId);
   if (thread.status === 'fechada') return resultado(threadId, 'ja-registrada', textoDoCatalogo((m) => m.ship.prThreadFechada));
+  // RM-058, integracao (T1.1, D3 da ork-rm058integra): a entrega da thread de um arco #Noctum e do passo da entrega dele,
+  // com as provas dele; antes de qualquer git, e sem ledger.
+  const guarda = guardaDaThread(raiz, threadId, opcoes.arcos?.quando, { arcos: opcoes.arcos });
+  if (guarda) return resultado(threadId, 'recusada', guarda.texto, { codigo: guarda.motivo });
   if (opcoes.buscar !== false) {
     const busca = exec('git', ['fetch', '-q', '--', remoto, `+refs/heads/${base}:refs/remotes/${remoto}/${base}`], raiz);
     if (!busca.ok) {
@@ -246,6 +256,9 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
   if (!Number.isSafeInteger(n) || n < 1) return resultado(threadId, 'recusada', textoDoCatalogo((m) => m.ship.prNumeroInvalido(String(n))));
   const thread = lerThread(raiz, threadId);
   if (thread.status === 'fechada') return resultado(threadId, 'ja-registrada', textoDoCatalogo((m) => m.ship.prThreadFechada));
+  // RM-058, integracao (T1.1): a mesma guarda do PR local, antes de consultar a forja.
+  const guarda = guardaDaThread(raiz, threadId);
+  if (guarda) return resultado(threadId, 'recusada', guarda.texto, { codigo: guarda.motivo });
   const dir = dirThread(raiz, threadId);
   if (lerLedger(dir).some((e) => e.tipo === TIPOS_DE_EVENTO.shipConcluido && e.repositorio === repo && e.pr === n)) {
     return resultado(threadId, 'ja-registrada', textoDoCatalogo((m) => m.ship.prExternoJaTem(n, repo)));
@@ -354,10 +367,16 @@ export function registrarEntregasPorPr(carregado: ManifestoCarregado,
   if (!busca.ok) {
     return abertas.map((id) => resultado(id, 'recusada', textoDoCatalogo((m) => m.ship.prSemLeitura(remoto, base)), { codigo: 'entrega.sem-leitura' }));
   }
+  // RM-058, integracao (T1.1): os arcos lidos uma vez para o lote; a thread do arco e pulada com o motivo, e as outras seguem.
+  const arcos = lerArcosDaRaiz(carregado.raiz);
   const r = abertas
     .filter((id) => mergeDaEntrega(carregado.raiz, id, remoto, base) !== null)
     .map((id) => {
-      try { return registrarEntregaPorPr(carregado, id, { ...opcoes, buscar: false, publicar: false }); }
+      try {
+        const guarda = guardaDaThread(carregado.raiz, id, arcos.quando, { arcos });
+        if (guarda) return resultado(id, 'pulada', guarda.texto, { codigo: guarda.motivo });
+        return registrarEntregaPorPr(carregado, id, { ...opcoes, buscar: false, publicar: false, arcos });
+      }
       catch (e) { return resultado(id, 'recusada', e instanceof ErroDoCatalogo ? textoDoCatalogo(e.montar) : (e as Error).message); }
     });
   // Uma publicacao so para o lote inteiro, nao uma por thread.

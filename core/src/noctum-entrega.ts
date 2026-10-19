@@ -46,6 +46,7 @@ import { ARQUIVO_DO_CHANGELOG, entradasDaThread, linhasDaBasePerdidas, linhasRem
 import { ConteudoDoEnvelope, CONTRATO_ENVELOPE_V2, Destino, envelopeComTrabalhos, MotivoDeRecusaDoArco, RecusaDoArco, shaDoPedido,
   Trabalho } from './noctum-envelope';
 import { DecisoesDaSupervisao, fatosDaFila, LeitorDeReservas, montarFila, TrabalhoNaFila } from './noctum-fila';
+import { pedidoDoArco } from './noctum-guarda';
 import { blobEm, garantirObjetos, gitDaEntrega, MotivoDaEntrega, OpcoesDasProvas, pontaDaBaseNoRemoto, ProvasDaEntrega, provasDaEntrega,
   RecusaDaEntrega, textoDe } from './noctum-provas';
 import { contaForaAgora, EstadoDaSupervisao, lerSupervisao } from './noctum-supervisao';
@@ -359,7 +360,8 @@ function entradaDoTrabalho(carregado: ManifestoCarregado, estado: EstadoDoArco, 
   // A publicação só importa com o CI pendente: o ensaio do `publicarEntrega` lê o remoto e a forja sem efeito nenhum.
   const ciPendente = provas.provas.find(x => x.id === 'ci')?.motivo === 'noctum.entrega.ci-pendente';
   const publicacao = ciPendente ? (() => {
-    const r = publicarEntrega(carregado, t.id, { remoto, forja: opcoes.forja, executorGh: opcoes.executorGh, dryRun: true, quando: opcoes.quando });
+    const r = publicarEntrega(carregado, t.id, { remoto, forja: opcoes.forja, executorGh: opcoes.executorGh, dryRun: true, quando: opcoes.quando,
+      doArco: estado.arco });
     return { acao: r.acao, detalhe: r.detalhe };
   })() : null;
   return { t, entrada: { ...vazia, provas, atualizacaoRecusada, pushRecusado, publicacao }, destino: d.destino, base: ponta.sha };
@@ -746,7 +748,8 @@ function publicar(carregado: ManifestoCarregado, arco: string, estado: EstadoDoA
   const ids = { trabalho: trabalho.id, thread: lido.t.id };
   const envelope = conferirParaPublicar(carregado.raiz, arco, estado, lido.destino!, branchDaWorktree(lido.t), trabalho.id,
     lido.entrada.provas?.fonte ?? null, opcoes.relogio, rastro);
-  const r = publicarEntrega(carregado, lido.t.id, { remoto, forja: opcoes.forja, executorGh: opcoes.executorGh, antesDoEfeito: envelope.conferir });
+  const r = publicarEntrega(carregado, lido.t.id, { remoto, forja: opcoes.forja, executorGh: opcoes.executorGh, antesDoEfeito: envelope.conferir,
+    doArco: arco });
   const ate = depoisDe(opcoes.quando ?? new Date().toISOString(), ESPERA_DO_CI_MS);
   if (r.acao === 'publicou') return { acao: 'publicou', ...ids, pr: r.pr?.numero ?? null, head: r.head };
   if (r.acao === 'ja-publicada') return { acao: 'aguardar', ...ids, motivo: 'noctum.entrega.ci-pendente', detalhe: r.detalhe, ate };
@@ -851,8 +854,9 @@ function despacharRevisao(carregado: ManifestoCarregado, arco: string, trabalho:
     if (!pedido) return devolver('noctum.entrega.pedido-ausente', `a thread ${t.id} não guardou o pedido`, true);
     const antes = lerLedger(dirThread(raiz, t.id)).length;
     rastro.efeito = true;
-    const r = (opcoes.despachar ?? rodarFase)(carregado, t.id, { fase, prompt: pedido.texto, perfil: conta, canal: canalDoProcesso(),
-      correlacao: `noctum:${arco}`, baselinePeloDespacho: false });
+    // RM-058, integração (D5): a sessão da revisão recebe a linha do arco no pedido, como a do passo da N2.
+    const r = (opcoes.despachar ?? rodarFase)(carregado, t.id, { fase, prompt: pedidoDoArco(pedido.texto, arco), perfil: conta,
+      canal: canalDoProcesso(), correlacao: `noctum:${arco}`, baselinePeloDespacho: false });
     if (r.motivo === 'baseline.pendente') return devolver('noctum.entrega.baseline-ausente', 'o despacho do CHECK pediu a baseline', true);
     if (r.bloqueado) return devolver(r.motivo ?? 'noctum.entrega.despacho-recusado', r.erro ?? 'o núcleo recusou o despacho do CHECK', false);
     if (r.sessionId || r.idempotente) {

@@ -861,6 +861,20 @@ export function lerArco(raiz: string, arco: string, quando = new Date().toISOStr
   return log.linhas.length ? estadoDe(arco, derivar(log.linhas), quando) : null;
 }
 
+/** O estado do arco e o conteúdo da proposta que ainda espera o dono no prazo, de uma leitura só do log. */
+export interface ArcoComProposta { estado: EstadoDoArco; proposta: ConteudoDoEnvelope | null }
+
+/**
+ * RM-058, integração (D3 da ork-rm058integra): a guarda das threads do arco (`noctum-guarda.ts`) lê a lista de trabalhos
+ * do envelope vigente e a da proposta no prazo; o estado só traz o hash e o prazo dela. `null` quando o arco não existe.
+ */
+export function lerArcoComProposta(raiz: string, arco: string, quando = new Date().toISOString()): ArcoComProposta | null {
+  const log = lerLog(raiz, arco);
+  if (!log.linhas.length) return null;
+  const d = derivar(log.linhas), estado = estadoDe(arco, d, quando);
+  return { estado, proposta: estado.propostaPendente ? d.propostas.get(estado.propostaPendente.versao)!.conteudo : null };
+}
+
 /**
  * A conferência imediatamente antes de um efeito. Relê o disco, sem cache, e recusa na ordem:
  * ação excluída, estado adulterado (inclusive cauda incompleta), revogação, falta de autorização,

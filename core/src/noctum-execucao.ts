@@ -38,6 +38,7 @@ import { envelopeComTrabalhos, envelopeMultimaquina, RecusaDoArco } from './noct
 import { medidoParaReserva, medirArco, MedicaoDoArco, precisaMedir } from './noctum-medicao';
 import { CoordenacaoDaFila, DecisaoDaFila, DecisoesDaSupervisao, FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila,
   MOTIVO_DO_ERRO_NO_DESPACHO } from './noctum-fila';
+import { pedidoDoArco } from './noctum-guarda';
 import { OpcoesRun, resolverDespacho, ResultadoRun, rodarFase } from './phase';
 import { lerPerfis, perfilDisponivel } from './runtime-profiles';
 import { configDoBloco, lerSetup } from './setup';
@@ -309,7 +310,9 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
   // S5 do CHECK: a falha de dentro do núcleo pode ter aberto a sessão; ela sobe, e a reserva fica pendente e conta.
   const antes = eventosDaThread(raiz, thread.id)?.length ?? 0;
   const trio = c.trio ? { runtime: c.trio.runtime, ...(c.trio.model ? { model: c.trio.model } : {}), ...(c.trio.effort ? { effort: c.trio.effort } : {}) } : {};
-  const r = (opcoes.despachar ?? rodarFase)(carregado, thread.id, { fase: c.fase, prompt: pedido.texto, perfil: c.conta,
+  // RM-058, integração (D5 da ork-rm058integra): a sessão sabe que o SHIP e o MASTER da thread são do arco. A linha é fixa,
+  // e o mesmo pedido dá o mesmo prompt em toda chamada: o `rodarFase` segue idempotente.
+  const r = (opcoes.despachar ?? rodarFase)(carregado, thread.id, { fase: c.fase, prompt: pedidoDoArco(pedido.texto, arco), perfil: c.conta,
     canal: canalDoProcesso(), correlacao: `noctum:${arco}`, baselinePeloDespacho: false, ...trio });
   if (r.motivo === 'baseline.pendente') {
     concluirDespacho(raiz, arco, reserva, { motivo: 'baseline.pendente' });
