@@ -293,14 +293,19 @@ function montarApoio(raiz, n, sabotar) {
   /** As reservas da cópia local, simuladas: cada item do envelope está com esta máquina. */
   const reservas = (itens) => () => ({ leitura: 'copia-local', reservas: itens.map((item) => ({ item, maquina: MAQUINA, thread: null })) });
 
-  /** Um tique do arco no instante dado, com o runtime, as reservas, a parada e o git simulados. */
+  /**
+   * Um tique do arco no instante dado, com o runtime, as reservas, a parada e o git simulados. RM-058, integração (D7 da
+   * ork-rm058integra): o tique de produção chama o vigia da N4; os cenários da N6 passam o passo da N2 no lugar dele, como o
+   * tique os rodava, e os cenários integrados ligam o vigia e o condutor.
+   */
   function tique(proj, arco, rt, quando, itens, extra = {}) {
     rt.agora = quando;
+    const opcoesDoPasso = { maquina: MAQUINA, lerReservas: reservas(itens), despachar: rt.despachar, consultarSessoes: rt.consultarSessoes,
+      perfis: rt.perfis, abrirThread: (k, o) => comBaseline(proj, n.thread.novaThread(k, { ...o, criarWorktree: false }).thread),
+      gravarBaseline: () => { rt.baselines += 1; }, esperarVezMs: 5_000 };
     return n.modo.tiqueDoArco(proj.carregado, arco, { quando, maquina: MAQUINA, lerReservas: reservas(itens), parar: rt.parar,
       listarSessoes: rt.listarSessoes, git: () => null, ...extra,
-      opcoesDoPasso: { despachar: rt.despachar, consultarSessoes: rt.consultarSessoes, perfis: rt.perfis,
-        abrirThread: (k, o) => comBaseline(proj, n.thread.novaThread(k, { ...o, criarWorktree: false }).thread),
-        gravarBaseline: () => { rt.baselines += 1; }, esperarVezMs: 5_000 } });
+      passo: (k, a, q) => n.execucao.passoDoArco(k, a, { ...opcoesDoPasso, quando: q }) });
   }
 
   const registrar = (proj, threadId, tipo, dados) => n.ledger.registrar(n.thread.dirThread(proj.dir, threadId), threadId, tipo, dados);
@@ -501,8 +506,8 @@ function cenarioArcoCurto(c, a, n) {
   c.esperar('o custo traz as sessões medidas contra o teto do arco, de cada conta e do runtime, e separa as sessões abertas da reserva pendente',
     /• Teto do arco: 4 sessoes de 10 sessoes/.test(texto) && /• Teto da conta perfil-a: \d sessoes de 6 sessoes/.test(texto) &&
       /• Teto do runtime claude-bg: 4 sessoes de 8 sessoes/.test(texto) && /• Sessões abertas pelo arco: 3; reservas pendentes: 1 \(/.test(texto), texto);
-  c.esperar('a supervisão da N4, que o tique ainda não chama, aparece como fonte não lida, em vez de vazia',
-    /Não lido: .*a supervisão e a retomada da N4 não rodam neste arco: o tique ainda não chama o vigia/.test(texto), texto.slice(0, 600));
+  c.esperar('a supervisão da N4 é lida do log do arco pelo relatório: sem tique do vigia neste cenário, nada a dizer e nenhuma lacuna fixa',
+    !/o tique ainda não chama o vigia|a supervisão do arco não se lê/.test(texto), texto.slice(0, 600));
   const rDepois = tq(depois(vencimento, 10 * MIN));
   c.esperar('cada página chegou ao canal uma vez só, e o tique seguinte não manda nada de novo',
     canal.doArco('arco-curto').length === paginas.length && new Set(paginas).size === paginas.length && rDepois.relatorio.enviadas === 0 &&
@@ -800,6 +805,7 @@ function rodar(args) {
       conducao: doNucleo('conducao'), horario: doNucleo('horario'), hitlGates: doNucleo('hitl-gates'), envelope: doNucleo('noctum-envelope'),
       arco: doNucleo('noctum-arco'), modo: doNucleo('noctum-modo'), relatorio: doNucleo('noctum-relatorio'),
       fechamento: doNucleo('noctum-fechamento'), registro: doNucleo('noctum-registro'), filaPesada: doNucleo('fila-pesada'),
+      execucao: doNucleo('noctum-execucao'),
     };
     if (!n.filaPesada.kernelDisponivel()) throw new ErroDeUso('o ensaio exige a trava do kernel (/usr/bin/flock)');
     for (const def of CENARIOS.filter((x) => escolhidos.includes(x.nome))) {

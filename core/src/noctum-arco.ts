@@ -139,10 +139,12 @@ export interface DespachoDoArco extends ReservaDeDespacho {
 export interface ConsumoDoArco { arco: number; porConta: Record<string, number>; porRuntime: Record<string, number> }
 
 /**
- * RM-058 N6 (D2 e D8 da ork-rm058n6): por que o arco fechou, na ordem em que as condições valem. O fechamento é ato do
- * núcleo, não do dono: ele só registra que a hora, o teto ou a fila acabaram, e que a revogação do dono já foi tratada.
+ * RM-058 N6 (D2 e D8 da ork-rm058n6): por que o arco fechou. O fechamento é ato do núcleo, não do dono: ele só registra que
+ * a hora, o teto ou a fila acabaram, e que a revogação do dono já foi tratada. RM-058, integração (D7 da ork-rm058integra):
+ * `supervisao` é a parada da supervisão da N4 (o supervisor que falhou, o teto, a violação de custo ou o ambiente do
+ * despacho), que o fechamento lê do log dela depois do revogado e da hora e antes do custo.
  */
-export const MOTIVOS_DE_ENCERRAMENTO = ['revogado', 'hora', 'custo', 'fila-vazia'] as const;
+export const MOTIVOS_DE_ENCERRAMENTO = ['revogado', 'hora', 'custo', 'fila-vazia', 'supervisao'] as const;
 export type MotivoDeEncerramento = typeof MOTIVOS_DE_ENCERRAMENTO[number];
 
 /** O encerramento do arco como o log o conta: terminal, com a versão que valia quando ele fechou. */

@@ -14,8 +14,9 @@
  * trabalho fora (a hora final para as que passarem do fim). Em unidade contínua, o consumo segue enquanto a sessão roda:
  * a leitura que alcança o teto fecha o arco e para as sessões em voo.
  *
- * As condições valem nesta ordem: revogado, hora, custo, fila vazia (D8). Revogado, hora e teto em sessões não dependem
- * da fila nem da medição, e nenhuma falha delas segura esse fechamento. Com uma condição, o fechamento grava primeiro o
+ * As condições valem nesta ordem: revogado, hora, a parada da supervisão da N4 (RM-058, integração, D7 da
+ * ork-rm058integra), custo, fila vazia (D8). Revogado, hora, a parada e o teto em sessões não dependem da fila nem da
+ * medição, e nenhuma falha delas segura esse fechamento. Com uma condição, o fechamento grava primeiro o
  * `encerrado` no log do arco (`encerrarArco`): dali em diante nenhuma reserva de despacho nem efeito passa, e nenhuma
  * reserva devolvida reabre o arco. Só depois vêm o retrato do fechamento e o pedido de parada de cada sessão em voo, no
  * registro próprio da N6 (`fechamento.jsonl`). A parada é pedida uma vez por sessão, pelo controle da conta dela (o
@@ -40,6 +41,7 @@ import { envelopeComTrabalhos, RecusaDoArco, shaDoPedido, Unidade, UNIDADES } fr
 import { FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila } from './noctum-fila';
 import { ConsumoNaUnidade, consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco, textoDoConsumo } from './noctum-medicao';
 import { comRegistro, lerRegistro } from './noctum-registro';
+import { lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
 import { consultarContas, encerradaNaLista } from './sessoes-contas';
 import { pararSessao } from './sessoes';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -146,7 +148,7 @@ export interface ResultadoDoFechamento {
  * lacuna.
  */
 export function condicaoDeFechamento(estado: EstadoDoArco | null, fila: FilaDoArco | null, medicao: MedicaoDoArco | null,
-  quando: string, emVoo = 0): { motivo: MotivoDeEncerramento; detalhe: string } | null {
+  quando: string, emVoo = 0, parada: { motivo: string; detalhe: string } | null = null): { motivo: MotivoDeEncerramento; detalhe: string } | null {
   if (!estado || !estado.autorizadoPor || !estado.conteudo) return null;
   if (estado.encerramento) return { motivo: estado.encerramento.motivo, detalhe: estado.encerramento.detalhe };
   if (estado.situacao === 'revogado') return { motivo: 'revogado', detalhe: 'o dono revogou o arco pelo ingresso autenticado' };
@@ -155,6 +157,8 @@ export function condicaoDeFechamento(estado: EstadoDoArco | null, fila: FilaDoAr
     return { motivo: 'hora', detalhe: `o fim do envelope chegou (${formatarDataHora(fim, { fuso: estado.conteudo.janela.fuso, locale: 'pt-BR' })}, ` +
       `${estado.conteudo.janela.fuso}); nada o prorroga` };
   }
+  // RM-058, integração (D7): a supervisão parou o arco (o vigia nunca encerra; quem encerra é o fechamento, por ela).
+  if (parada) return { motivo: 'supervisao', detalhe: `a supervisão parou o arco (${parada.motivo}): ${parada.detalhe}` };
   const teto = estado.conteudo.orcamento.arco;
   if (teto.unidade === 'sessoes') {
     // Cada sessão admitida já está contada no teto: o arco fecha quando a última acaba, não por cima dela.
@@ -382,8 +386,11 @@ export function fecharSeDevido(carregado: ManifestoCarregado, arco: string, opco
   let agora = false;
   if (!estado.encerramento) {
     const emVooAgora = sessoesEmVooDoArco(raiz, estado).length;
-    // Revogado, hora e teto em sessões vêm primeiro e sem a fila nem a medição: nenhuma falha delas segura esse fechamento.
-    let condicao = condicaoDeFechamento(estado, null, null, quando, emVooAgora);
+    // RM-058, integração (D7): a parada da supervisão; o log dela que não se lê não segura o fechamento pelas outras condições.
+    let parada: { motivo: string; detalhe: string } | null = null;
+    try { parada = lerSupervisao(raiz, arco).parada; } catch (e) { if (!(e instanceof RecusaDaSupervisao)) throw e; }
+    // Revogado, hora, a parada e o teto em sessões vêm primeiro e sem a fila nem a medição: nenhuma falha delas segura esse fechamento.
+    let condicao = condicaoDeFechamento(estado, null, null, quando, emVooAgora, parada);
     let falhaDaMedicao = '';
     if (!condicao) {
       let fila: FilaDoArco | null = null;
@@ -395,7 +402,7 @@ export function fecharSeDevido(carregado: ManifestoCarregado, arco: string, opco
         try { medicao = medir(raiz, estado, quando); }
         catch (e) { falhaDaMedicao = `; a medição falhou (${(e as Error).message.slice(0, 200)})`; }
       }
-      condicao = condicaoDeFechamento(estado, fila, medicao, quando, emVooAgora);
+      condicao = condicaoDeFechamento(estado, fila, medicao, quando, emVooAgora, parada);
     }
     if (!condicao) return nada(`o arco segue: nenhuma condição de fechamento vale agora${falhaDaMedicao}`);
     // O terminal primeiro: daqui em diante nenhum despacho nem efeito passa.
