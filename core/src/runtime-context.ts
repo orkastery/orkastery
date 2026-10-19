@@ -17,6 +17,13 @@ export interface IdentidadeDeDespacho {
   role: 'executor' | 'reviewer';
 }
 export interface ContextoRuntime { projeto: string; host: 'claude-code' | 'codex'; threadId: string; transporteShip?: TransporteShipMcp; permissoesFilho?: PermissoesFilhoMcp; identidade?: IdentidadeDeDespacho }
+export interface CapacidadeDoRuntime {
+  runtime: string;
+  host: 'claude-code' | 'codex' | null;
+  preparado: boolean;
+  capaz: boolean;
+  motivo: string | null;
+}
 /** Correlação interna; nenhuma identidade de despacho concede poder de gate. */
 export function novaIdentidadeDeDespacho(threadId: string, fase: string): IdentidadeDeDespacho {
   return { schema: 'ork.dispatch-identity/v1', dispatchId: randomUUID(), threadId, role: fase === 'CHECK' ? 'reviewer' : 'executor' };
@@ -85,14 +92,75 @@ function raizCanonica(projeto: string): string {
   if (fs.existsSync(path.join(raiz, '.orkastery'))) dentro(raiz, path.join(raiz, '.orkastery'));
   return raiz;
 }
+
+function hostDoRuntime(runtime: string): 'claude-code' | 'codex' {
+  if (runtime === 'claude-bg') return 'claude-code';
+  if (runtime === 'codex') return 'codex';
+  throw Error('runtime.context.invalid: runtime desconhecido');
+}
+
+interface InstalacaoConferida {
+  instalacao: string;
+  arquivos: Map<string, string>;
+  conferidos: Map<string, Buffer>;
+  bootstrap: string;
+}
+
+/** Confere o recibo e todos os bytes do adaptador antes de considerar o runtime um destino. */
+function conferirInstalacaoDoHost(raiz: string, host: 'claude-code' | 'codex'): InstalacaoConferida {
+  const def = HOSTS[host];
+  const instalacao = path.join(raiz, def.destinoPadrao, def.subdir ?? '');
+  let recibo: Record<string, unknown>;
+  try { recibo = objeto(JSON.parse(ler(raiz, path.join(instalacao, 'INSTALADO.json'), 1048576).toString('utf8'))); }
+  catch { throw Error('runtime.context.installation: instale/verifique o adaptador do runtime neste projeto'); }
+  if (recibo.contrato !== 'ork.adapter-install/v1' || recibo.host !== host || !Array.isArray(recibo.arquivos) || recibo.arquivos.length > 512)
+    throw Error('runtime.context.installation: recibo instalado invalido');
+  const arquivos = new Map<string, string>();
+  // RM-059 (T0.7): os bytes ja conferidos da declaracao e do manifesto de cada mod, lidos uma vez so.
+  const conferidos = new Map<string, Buffer>();
+  for (const item of recibo.arquivos) {
+    const a = objeto(item);
+    if (typeof a.arquivo !== 'string' || path.isAbsolute(a.arquivo) || a.arquivo.split(/[\\/]/).includes('..') ||
+        typeof a.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(a.sha256) || arquivos.has(a.arquivo))
+      throw Error('runtime.context.installation: arquivo do recibo invalido');
+    const file = path.join(instalacao, a.arquivo);
+    if (!dentro(raiz, file).startsWith(instalacao + path.sep)) throw Error('runtime.context.installation: bytes instalados divergentes');
+    const bytes = ler(raiz, file, 1048576);
+    if (createHash('sha256').update(bytes).digest('hex') !== a.sha256) throw Error('runtime.context.installation: bytes instalados divergentes');
+    arquivos.set(a.arquivo, file);
+    if (DECLARACAO_OU_MANIFESTO_DE_MOD.test(a.arquivo)) conferidos.set(a.arquivo, bytes);
+  }
+  const bootstrap = arquivos.get('skills/core/orkastery-bootstrap/SKILL.md');
+  if (!bootstrap || (host === 'claude-code' && !arquivos.has('.claude-plugin/plugin.json')))
+    throw Error('runtime.context.installation: catalogo ou plugin incompleto');
+  return { instalacao, arquivos, conferidos, bootstrap };
+}
+
+/**
+ * Um projeto preparado so pode escolher runtimes cujo adaptador esteja instalado e integro.
+ * Projeto legado, sem entrada MCP do Orkastery, conserva a selecao anterior.
+ */
+export function capacidadeDoRuntimeNoProjeto(projeto: string, runtime: string): CapacidadeDoRuntime {
+  let host: 'claude-code' | 'codex' | null = null;
+  try {
+    const raiz = raizCanonica(projeto);
+    const perfil = preparado(raiz);
+    if (!perfil) return { runtime, host: null, preparado: false, capaz: true, motivo: null };
+    host = hostDoRuntime(runtime);
+    conferirInstalacaoDoHost(raiz, host);
+    return { runtime, host, preparado: true, capaz: true, motivo: null };
+  } catch (erro) {
+    return { runtime, host, preparado: true, capaz: false, motivo: (erro as Error).message };
+  }
+}
 /** Projeto sem entrada MCP Orkastery continua com o contrato legado. Nao instala nem altera arquivos. */
 export function contextoDoProjeto(projeto: string, runtime: string, cwd: string, threadId?: string): ContextoRuntime | undefined {
   const raiz = raizCanonica(projeto);
   const perfil=preparado(raiz);
   if (!perfil) return undefined;
-  if (!['claude-bg', 'codex'].includes(runtime)) throw Error('runtime.context.invalid: runtime desconhecido');
+  const host = hostDoRuntime(runtime);
   if (!threadId) throw Error('runtime.context.invalid: thread obrigatoria para sessao filha');
-  const contexto: ContextoRuntime = { projeto: raiz, host: runtime === 'codex' ? 'codex' : 'claude-code', threadId, transporteShip:perfil.transporteShip, permissoesFilho:perfil.permissoesFilho };
+  const contexto: ContextoRuntime = { projeto: raiz, host, threadId, transporteShip:perfil.transporteShip, permissoesFilho:perfil.permissoesFilho };
   validarContextoRuntime(contexto, cwd);
   return contexto;
 }
@@ -124,31 +192,7 @@ export function validarContextoRuntime(contexto: ContextoRuntime, cwd: string) {
     if(!worktreesDoGit(raiz).some(w=>w.dir===cwd && w.branch===branchDaWorktree(thread)))
       throw Error('runtime.context.worktree: worktree nao registrada na branch da thread');
   }
-  const def = HOSTS[contexto.host];
-  const instalacao = path.join(raiz, def.destinoPadrao, def.subdir ?? '');
-  let recibo: Record<string, unknown>;
-  try { recibo = objeto(JSON.parse(ler(raiz, path.join(instalacao, 'INSTALADO.json'), 1048576).toString('utf8'))); }
-  catch { throw Error('runtime.context.installation: instale/verifique o adaptador do runtime neste projeto'); }
-  if (recibo.contrato !== 'ork.adapter-install/v1' || recibo.host !== contexto.host || !Array.isArray(recibo.arquivos) || recibo.arquivos.length > 512)
-    throw Error('runtime.context.installation: recibo instalado invalido');
-  const arquivos = new Map<string, string>();
-  // RM-059 (T0.7): os bytes ja conferidos da declaracao e do manifesto de cada mod, lidos uma vez so.
-  const conferidos = new Map<string, Buffer>();
-  for (const item of recibo.arquivos) {
-    const a = objeto(item);
-    if (typeof a.arquivo !== 'string' || path.isAbsolute(a.arquivo) || a.arquivo.split(/[\\/]/).includes('..') ||
-        typeof a.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(a.sha256) || arquivos.has(a.arquivo))
-      throw Error('runtime.context.installation: arquivo do recibo invalido');
-    const file = path.join(instalacao, a.arquivo);
-    if (!dentro(raiz, file).startsWith(instalacao + path.sep)) throw Error('runtime.context.installation: bytes instalados divergentes');
-    const bytes = ler(raiz, file, 1048576);
-    if (createHash('sha256').update(bytes).digest('hex') !== a.sha256) throw Error('runtime.context.installation: bytes instalados divergentes');
-    arquivos.set(a.arquivo, file);
-    if (DECLARACAO_OU_MANIFESTO_DE_MOD.test(a.arquivo)) conferidos.set(a.arquivo, bytes);
-  }
-  const bootstrap = arquivos.get('skills/core/orkastery-bootstrap/SKILL.md');
-  if (!bootstrap || (contexto.host === 'claude-code' && !arquivos.has('.claude-plugin/plugin.json')))
-    throw Error('runtime.context.installation: catalogo ou plugin incompleto');
+  const { instalacao, arquivos, conferidos, bootstrap } = conferirInstalacaoDoHost(raiz, contexto.host);
   const modsDeFase = contexto.host === 'claude-code' ? modsDeFaseInstalados(raiz, instalacao, arquivos, conferidos) : [];
   // Capacidade derivada do bloco atual, nunca aceita como entrada do modelo.
   const permiteEditarProduto = permissoesFilho === 'worktree' && blocoDaThread(thread,thread.faseAtual).fases.includes('GO');

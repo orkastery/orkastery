@@ -214,8 +214,10 @@ export const RETRY_PT_BR = {
   escada: {
     degraus: { 'reerguer-daemon': 'reerguer o daemon do runtime', 'fallback-do-bloco': 'o fallback do bloco',
       'outro-perfil': 'outro perfil do runtime' } as Record<'reerguer-daemon' | 'fallback-do-bloco' | 'outro-perfil', string>,
-    pulos: { 'sem-fallback': 'o bloco nao tem fallback de runtime', 'fallback-sem-destino': 'nenhum alvo do fallback do bloco tem perfil disponivel',
-      'sem-outro-perfil': 'o runtime nao tem outro perfil disponivel' } as Record<'sem-fallback' | 'fallback-sem-destino' | 'sem-outro-perfil', string>,
+    pulos: { 'sem-fallback': 'o bloco nao tem fallback de runtime',
+      'adaptador-ausente': 'nenhum fallback tem adaptador instalado neste projeto',
+      'fallback-sem-destino': 'nenhum alvo do fallback do bloco tem perfil disponivel',
+      'sem-outro-perfil': 'o runtime nao tem outro perfil disponivel' } as Record<'sem-fallback' | 'adaptador-ausente' | 'fallback-sem-destino' | 'sem-outro-perfil', string>,
     resultados: { redespachada: 'redespachada', falhou: 'falhou', pulado: 'pulado', interrompido: 'interrompido' } as
       Record<'redespachada' | 'falhou' | 'pulado' | 'interrompido', string>,
     linhaDoDegrau: (n: number, tipo: string, resultado: string, motivo: string | null) =>
@@ -426,7 +428,8 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
   escada: {
     degraus: { 'reerguer-daemon': 'bring the runtime daemon back up', 'fallback-do-bloco': 'the block fallback',
       'outro-perfil': 'another runtime profile' },
-    pulos: { 'sem-fallback': 'the block has no runtime fallback', 'fallback-sem-destino': 'no target of the block fallback has an available profile',
+    pulos: { 'sem-fallback': 'the block has no runtime fallback', 'adaptador-ausente': 'no fallback has an adapter installed in this project',
+      'fallback-sem-destino': 'no target of the block fallback has an available profile',
       'sem-outro-perfil': 'the runtime has no other available profile' },
     resultados: { redespachada: 'dispatched again', falhou: 'failed', pulado: 'skipped', interrompido: 'interrupted' },
     linhaDoDegrau: (n, tipo, resultado, motivo) => `step ${n} (${tipo}): ${resultado}${motivo ? ` (${motivo})` : ''}`,

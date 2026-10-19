@@ -165,7 +165,7 @@ export function textoDoDiario(r: SentinelaResumo, diario: readonly SentinelaEntr
   const linhas: string[] = []
   linhas.push(pausada ? 'Sentinela pausada: o condutor externo conduz. Para voltar: /sentinela retomar.'
     : r.presenca === 'outra' ? 'Outra sessão conduz pela Sentinela nesta máquina; esta só olha.'
-    : r.presenca === 'minha' ? 'Sentinela conduzindo nesta máquina: o condutor externo cede o despacho e o retry.'
+    : r.presenca === 'minha' ? 'Sentinela conduzindo nesta máquina: o condutor externo cede o despacho e o retry, menos a retomada por cota.'
     : 'Sentinela ligada, sem a presença confirmada pelo núcleo ainda.')
   if (r.erro) linhas.push(`Última leitura do núcleo falhou: ${r.erro}`)
   if (r.passos.length > 0) {
