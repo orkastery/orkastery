@@ -874,6 +874,14 @@ test('K24: a chave que a emenda aposentou não fecha a ordem da chave nova; a ra
       'noctum.coordenacao.ordem-vencida'), /a vaga V-maquina-a-1 da ordem O-d-1 é de outra chave da máquina maquina-a/);
     assert.match(recusa(() => soltarVagaGlobal(t2.carregadoC, m2.arco, 'V-maquina-a-1', { consumiu: false, motivo: 'SIMULADO' }, opA),
       'noctum.coordenacao.ordem-vencida'), /a vaga V-maquina-a-1 é de outra chave da máquina maquina-a; só a raiz dela a solta/);
+    // A conclusão também tira a última ordem viva do item (N1 da terceira passada): pela interface e pelo plano, com a thread
+    // local terminada, a raiz nova espera a vaga da chave antiga.
+    assert.match(recusa(() => concluirOrdem(t2.carregadoC, m2.arco, 'O-d-1', { resultado: 'entregue', thread: null }, opA),
+      'noctum.coordenacao.ordem-vencida'), /a vaga V-maquina-a-1 da ordem O-d-1 é de outra chave da máquina maquina-a/);
+    const comThread = planejarReconciliacao(lerCoordenacao(t2.carregadoC, m2.arco, opA), 'maquina-a', { arcoVigente: true,
+      sessoesVivas: new Set(), threads: new Map([['d', { id: 'thread-d', entregue: true, fechada: true }]]), despachos: new Map(),
+      chave: identidadeDaMaquina(t2.c, 'maquina-a').chave });
+    assert.deepEqual([comThread.concluidas, comThread.aguardando.map(x => x.ordem)], [[], ['O-d-1']]);
     const e = lerCoordenacao(m2.b.carregado, m2.arco, opB);
     assert.deepEqual([e.ordens.get('O-a-1')!.estado, situacaoDoTrabalho(e, 'a')!.estado, e.ordens.get('O-d-1')!.estado,
       e.vagas.find(v => v.vaga === 'V-maquina-a-1')!.solta], ['encerrada', 'livre', 'aceita', null]);
