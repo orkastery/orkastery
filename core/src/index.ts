@@ -2137,6 +2137,12 @@ function comandoShip(args: Args): number {
   // e `--remoto` sem valor nao vira `origin` em silencio.
   if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
   const autorizar = args.opcoes['autorizar-push'];
+  // Security scan: `--allow-unscanned` exige quem autoriza; sem valor nao vira autorizacao em silencio.
+  const semScan = args.opcoes['allow-unscanned'];
+  if (semScan !== undefined && (typeof semScan !== 'string' || !semScan.trim())) {
+    console.error(m.allowUnscannedSemValor);
+    return 2;
+  }
   // RM-061 (F2b, G2): o que o ship grava (ledger, verificacao, mensagem do merge) nasce em pt-BR.
   const r = comLocale('pt-BR', () => ship(carregado, id, {
     para,
@@ -2145,6 +2151,7 @@ function comandoShip(args: Args): number {
     mensagem: texto(args.opcoes.mensagem),
     dryRun: args.opcoes['dry-run'] === true,
     autorizarPush: typeof autorizar === 'string' ? autorizar : undefined,
+    allowUnscanned: typeof semScan === 'string' ? semScan.trim() : undefined,
     semPush: args.opcoes['sem-push'] === true,
     // RM-058 N2 (A1 da rodada 2 do CHECK): o `--esperar` chega à fila pesada da verificação do ship, com aviso.
     ...((f) => ({ esperarFilaPesadaMs: f.esperarMs, avisoDaFilaPesada: { aoEsperar: f.aoEsperar, comandoDeEsperar: f.comandoDeEsperar } }))(

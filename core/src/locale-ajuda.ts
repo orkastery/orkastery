@@ -247,7 +247,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master <thread> --aceitar-omissao
         [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
         [--dry-run]                              Ensaio: as mesmas conferencias, sem gravar ship_done, fase nem fabrica
-        [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
+        [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--allow-unscanned <quem>] [--sem-push] [--dry-run]
   ship publicar <thread-id>                 Publica a branch e abre o PR com prova (ls-remote), so em #Auto e #Maestro
         [--dry-run] [--remoto R] [--json]        Ensaio confere tudo sem publicar; repetido, nao abre outro PR
   ship pista [<thread-id>] [--json]         Etapas da entrega, do CHECK ao ship_done, e o proximo passo do nucleo
@@ -653,7 +653,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
         [--remoto R] [--json]                    base and green CI on the PR head; then, ork master <thread> --aceitar-omissao
         [--repo <owner/name> --pr <n>]           PR merged in an external repository of ci.external_repositories
         [--dry-run]                              Rehearsal: the same checks, without writing ship_done, phase or factory
-        [--de <branch>] [--remoto origin] [--autorizar-push <who>] [--sem-push] [--dry-run]
+        [--de <branch>] [--remoto origin] [--autorizar-push <who>] [--allow-unscanned <who>] [--sem-push] [--dry-run]
   ship publicar <thread-id>                 Publishes the branch and opens the PR with proof (ls-remote), only in #Auto and #Maestro
         [--dry-run] [--remoto R] [--json]        The rehearsal checks everything without publishing; repeated, it opens no other PR
   ship pista [<thread-id>] [--json]         Delivery steps, from CHECK to ship_done, and the core's next step

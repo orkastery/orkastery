@@ -25,6 +25,9 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirEstado, ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
 import { avaliarPolicies, avisos, bloqueantes, linhasDeAviso, ViolacaoDePolicy } from './policies';
+import { raizDoEstado } from './estado-thread';
+import { readReport } from './security-scan/report';
+import { LOOP_CATEGORIES_ANY, LOOP_CATEGORIES_HIGH, type Category } from './security-scan/types';
 import { dirThread, gravarThread, lerThread } from './thread';
 import { Lease, MotivoGate, Thread } from './types';
 import { agora, exec, shaCurto } from './util';
@@ -56,6 +59,11 @@ export interface OpcoesShip {
    * passa os dois, com o `--esperar` em `esperarFilaPesadaMs`.
    */
   avisoDaFilaPesada?: Pick<NonNullable<ConducaoDoVerify['filaPesada']>, 'aoEsperar' | 'comandoDeEsperar'>;
+  /**
+   * Security scan: quem autoriza a entrega com categoria do laço sem varredura no SHA (`--allow-unscanned`). Vazio não
+   * autoriza; vai ao ledger como `ship_unscanned_authorized`.
+   */
+  allowUnscanned?: string;
   /** Executor interno confiável da consulta ao provedor de CI. */
   executorCi?: ExecutorCi;
   /**
@@ -472,6 +480,22 @@ export function detectarReversaoDaEntrega(
 }
 
 /**
+ * Loop categories (secret, dependency, sast, iac, workflow) not scanned for `sha` (spec 11.2): `[]` without
+ * `verify.security_scan` and with `ci.required_for_ship` (the scan is then in the CI bundle, which the independent CI
+ * check covers). Otherwise the report of `sha` decides: a loop tool `unavailable` or `failed` leaves its category
+ * unscanned (the spec says `unavailable`; a `failed` loop tool is equally not scanned, never clean), and no report at
+ * all leaves every loop category unscanned (no evidence is not clean). Sorted, distinct.
+ */
+export function unscannedCategories(carregado: ManifestoCarregado, sha: string): Category[] {
+  if (carregado.manifesto.verify.security_scan === undefined || carregado.manifesto.ci.required_for_ship) return [];
+  const loop: Category[] = [...LOOP_CATEGORIES_ANY, ...LOOP_CATEGORIES_HIGH];
+  const report = readReport(raizDoEstado(carregado.raiz), sha);
+  if (!report) return [...loop].sort();
+  const missing = report.tools.filter(t => loop.includes(t.category) && t.state !== 'ran').map(t => t.category);
+  return [...new Set(missing)].sort();
+}
+
+/**
  * Grava `rollback_done` quando a reversao e nova, e devolve o que encontrou.
  *
  * IDEMPOTENTE por `revertSha`: o ledger e append-only e o mesmo revert nao pode
@@ -686,6 +710,21 @@ export function ship(
       textoDoCatalogo((m) => m.ship.ciReprovou(remontar(ci.detail), shaDe, ci.context)),
       textoDoCatalogo((m) => m.ship.ciReprovouCorrecao(ci.context)),
     );
+  }
+
+  // Security scan (spec 11.2): com `verify.security_scan` e sem o scan no bundle do CI, categoria do laco sem varredura
+  // no SHA da candidata pede autorizacao humana, antes de qualquer push.
+  const naoVarridas = unscannedCategories(carregado, shaDe);
+  if (naoVarridas.length > 0) {
+    const quem = opcoes.allowUnscanned?.trim();
+    if (!quem) {
+      return bloquear(
+        'human.pending',
+        textoDoCatalogo((m) => m.ship.scanNaoVarrido(naoVarridas.join(', '), shaDe)),
+        textoDoCatalogo((m) => m.ship.scanNaoVarridoCorrecao(threadId)),
+      );
+    }
+    registrar(dir, threadId, TIPOS_DE_EVENTO.entregaSemScanAutorizada, { por: quem, categorias: naoVarridas, sha: shaDe });
   }
 
   // 4. Lease `main-tree`: so uma thread mergeia por vez.
