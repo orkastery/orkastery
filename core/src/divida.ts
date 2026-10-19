@@ -29,6 +29,7 @@ import {
   SeveridadeDeAchado,
 } from './types';
 import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, tabela } from './util';
+import { msg } from './locale';
 
 /** Diretorio do board de divida do projeto. */
 export function dirDivida(raiz: string): string {
@@ -59,9 +60,7 @@ export function gravarAchado(raiz: string, achado: Achado): void {
 export function exigirAchado(raiz: string, id: string): Achado {
   const achado = lerBoard(raiz).find((a) => a.id === id.toUpperCase());
   if (!achado) {
-    throw new Error(
-      `achado "${id}" nao existe no board de divida (${caminhoBoard(raiz)}). Veja: ork audit divida`
-    );
+    throw new Error(msg().thread.fromFinding.achadoNaoExiste(id, caminhoBoard(raiz)));
   }
   return achado;
 }
@@ -355,20 +354,19 @@ export function tabelaDaDivida(
 
 /** Detalhe de um achado, usado pelo `--from-finding` e por `ork audit show`. */
 export function textoDoAchado(a: Achado): string {
+  const m = msg().thread.fromFinding;
   const linhas: string[] = [];
-  linhas.push(`  ${a.id}  [${a.severidade}] ${a.pack}/${a.regra}  ${a.titulo}`);
-  linhas.push(`      evidencia   ${a.arquivo}${a.linha !== null ? ':' + a.linha : ''}`);
-  if (a.descricao) linhas.push(`      descricao   ${a.descricao}`);
-  linhas.push(`      claim       ${a.claim.id} [${a.claim.estado}] ${a.claim.alegacao}`);
-  linhas.push(
-    `      verificar   ${a.claim.verificar.join(' && ') || '(sem comando: o auditor nao comprovou o achado)'}`
-  );
-  linhas.push(`      impacto     ${a.proposta.impacto}`);
-  linhas.push(`      fix         ${a.proposta.fix}`);
-  linhas.push(`      irreversivel ${a.proposta.passoIrreversivel}`);
-  linhas.push(`      estimativa  ${a.proposta.estimativa}`);
-  linhas.push(`      destino     ${a.proposta.destino} (regime ${a.proposta.regime})`);
-  linhas.push(`      estado      ${a.estado}${a.thread ? ` (thread ${a.thread})` : ''}`);
+  linhas.push(m.achadoCabecalho(a.id, a.severidade, a.pack, a.regra, a.titulo));
+  linhas.push(m.evidencia(`${a.arquivo}${a.linha !== null ? ':' + a.linha : ''}`));
+  if (a.descricao) linhas.push(m.descricao(a.descricao));
+  linhas.push(m.claim(a.claim.id, a.claim.estado, a.claim.alegacao));
+  linhas.push(m.verificar(a.claim.verificar.join(' && ') || m.semComando));
+  linhas.push(m.impacto(a.proposta.impacto));
+  linhas.push(m.fix(a.proposta.fix));
+  linhas.push(m.irreversivel(a.proposta.passoIrreversivel));
+  linhas.push(m.estimativa(a.proposta.estimativa));
+  linhas.push(m.destino(a.proposta.destino, a.proposta.regime));
+  linhas.push(m.estado(a.estado, a.thread ?? null));
   return linhas.join('\n');
 }
 
@@ -379,23 +377,24 @@ export function textoDoAchado(a: Achado): string {
  * fix proposto, o passo irreversivel e a estimativa que o auditor levantou.
  */
 export function pedidoDoAchado(a: Achado): string {
+  const m = msg().thread.fromFinding;
   return [
-    `Achado de auditoria ${a.id} (pack ${a.pack}, regra ${a.regra}, severidade ${a.severidade}).`,
+    m.pedidoCabecalho(a.id, a.pack, a.regra, a.severidade),
     '',
-    `Titulo: ${a.titulo}`,
-    `Evidencia: ${a.arquivo}${a.linha !== null ? ':' + a.linha : ''}`,
-    a.descricao ? `Descricao: ${a.descricao}` : '',
-    `Alegacao do auditor (claim ${a.claim.id}, estado ${a.claim.estado}): ${a.claim.alegacao}`,
-    `Como reexecutar a evidencia: ${a.claim.verificar.join(' && ') || '(nao declarado pelo auditor)'}`,
+    m.pedidoTitulo(a.titulo),
+    m.pedidoEvidencia(`${a.arquivo}${a.linha !== null ? ':' + a.linha : ''}`),
+    a.descricao ? m.pedidoDescricao(a.descricao) : '',
+    m.pedidoClaim(a.claim.id, a.claim.estado, a.claim.alegacao),
+    m.pedidoVerificar(a.claim.verificar.join(' && ') || m.naoDeclarado),
     '',
-    'Proposta de ajuste levantada pela rodada:',
-    `  impacto       ${a.proposta.impacto}`,
-    `  fix sugerido  ${a.proposta.fix}`,
-    `  irreversivel  ${a.proposta.passoIrreversivel}`,
-    `  estimativa    ${a.proposta.estimativa}`,
+    m.proposta,
+    m.propostaImpacto(a.proposta.impacto),
+    m.propostaFix(a.proposta.fix),
+    m.propostaIrreversivel(a.proposta.passoIrreversivel),
+    m.propostaEstimativa(a.proposta.estimativa),
     '',
-    `Origem: rodada ${a.rodada}, produto ${a.produto}, estagio ${a.estagio}, postura ${a.postura}.`,
-    'O fix acima e proposta do auditor, nao decisao: valide no GOAL antes de implementar.',
+    m.origem(a.rodada, a.produto, a.estagio, a.postura),
+    m.propostaNaoDecisao,
   ]
     .filter((l) => l !== '')
     .join('\n');

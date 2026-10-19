@@ -11,6 +11,7 @@ import { EventoLedger } from './types';
 import { agora } from './util';
 import { randomUUID } from 'node:crypto';
 import { durableAppend } from './company-brain-journal';
+import { ErroDoCatalogo } from './locale';
 
 /** Tipos de evento do ledger. B0 abriu a lista; o B1 acrescenta os seus. */
 export const TIPOS_DE_EVENTO = {
@@ -184,7 +185,8 @@ export function exigirRastroDeDecisaoAutonoma(dados: Record<string, unknown>): v
   for (const campo of ['quemDecidiu', 'evidencia', 'razao']) {
     const v = dados[campo];
     if (typeof v !== 'string' || !v.trim() || v.length > 1000 || /[\x00-\x08\x0b-\x1f\x7f]/.test(v)) {
-      throw new Error(`decisão autônoma exige ${campo}: quem decidiu, com que evidência e por quê`);
+      // RM-061 F3c: a recusa sai do catalogo, na lingua de quem a le; o pt-BR e o de sempre.
+      throw new ErroDoCatalogo((m) => m.decisao.rastroObrigatorio(campo));
     }
   }
 }

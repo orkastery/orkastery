@@ -21,6 +21,7 @@ import { abrirPedidoGate } from '../src/hitl-gates';
 import { ehV2, ProfundidadeHitl, profundidadeDoModo, profundidadeDoPedido,
   validarPedidoHitlV1 } from '../src/hitl-contract';
 import { modoAposentado } from '../src/modos';
+import { comLocale } from '../src/locale';
 
 const pergunta = (extra: Partial<PerguntaAoDono> = {}): unknown => ({
   contrato: 'ork.hitl/v2', id: 'p-1', thread: 'ork-i41hitlinver', fase: 'GO', modo: 'auto',
@@ -70,6 +71,14 @@ test('a recusa de forma do contrato vira o motivo tipado, e só ela', () => {
     assert.ok(capturado, JSON.stringify(alteracao));
     assert.equal(motivoDaRecusaDeFormato(capturado), 'hitl.formato', JSON.stringify(alteracao));
   }
+  // RM-061 F3c: a recusa da decisao informada sai do catalogo; nascida com o locale em ingles, conserva o motivo tipado.
+  const decidido = { contrato: 'ork.hitl/v2', classe: 'decidido', id: '1ef53703-426f-4152-b308-533d1768ab25', thread: 'ork-x1', fase: 'GO',
+    modo: 'auto', criadoEm: '2026-10-15T00:00:00.000Z', profundidade: 'resumo', decidido: 'a decisao', porque: '', comoMudar: 'como mudar',
+    custoDeReverter: { agora: 'baixo', depois: 'medio' }, criterio: { tipo: 'medicao', referencia: 'npm test' } };
+  let emIngles: unknown;
+  comLocale('en', () => { try { validarPedidoHitlV2(decidido); } catch (e) { emIngles = e; } });
+  assert.match((emIngles as Error).message, /^HITL v2 request: /);
+  assert.equal(motivoDaRecusaDeFormato(emIngles), 'hitl.formato');
   // Contrato desconhecido não é erro de formato: inventar `hitl.formato` para tudo tornaria o
   // motivo tão genérico quanto a string solta que ele substitui.
   let outro: unknown;

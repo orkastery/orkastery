@@ -110,6 +110,34 @@ test('MCP schemas fechados recusam shell, raiz, traversal e resposta gerada pelo
   ] as [string,Record<string,unknown>][]) assert.equal((await call(c,name,args)).error,true,name);
   assert.deepEqual(fs.readFileSync(path.join(dirThread(p.dir,t.id),'ledger.jsonl')),before);
 }));
+test('RM-061 F3c: MCP decision_record usa a lingua do dono sem mudar o schema ou o codigo',async()=>{
+  const p=projetoTemporario('mcp-decision-locale');
+  ajustarManifesto(p,'owner:\n', 'owner:\n  language: en-US\n');
+  const t=novaThread(p.carregado,{nome:'decision locale',modo:'auto'}).thread;
+  const server=criarServidorMcp({projeto:p.dir,host:'codex',threadId:t.id});
+  const client=new Client({name:'decision-locale',version:'1'});
+  const [ct,st]=InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(st);await client.connect(ct);
+    const base={threadId:t.id,decidido:'x'.repeat(201),porque:'why',comoMudar:'change',custoAgora:'low',custoDepois:'low',
+      criterio:{tipo:'manifesto',referencia:'project.name'},quemDecidiu:'codex session',evidencia:'fixture'};
+    const longo=await call(client,'ork_decision_record',base);
+    assert.equal(longo.error,true);assert.match(longo.text,/HITL v2 request: informed decision: decidido has 201 characters; the limit is 200/);
+    const criterio=await call(client,'ork_decision_record',{...base,decidido:'use queue',criterio:{tipo:'manifesto',referencia:'missing.key'}});
+    assert.equal(criterio.error,true);assert.match(criterio.text,/the criterion does not resolve \(the manifest has no missing\.key key\)/);
+    const autor=await call(client,'ork_decision_record',{...base,decidido:'use queue',quemDecidiu:'owner'});
+    assert.equal(autor.error,true);assert.match(autor.text,/mcp\.decision\.author: quemDecidiu is the session that decided, never the owner/);
+    const roadmap=await call(client,'ork_network_roadmap',{});
+    assert.equal(roadmap.error,false,roadmap.text);
+    const respostaRoadmap=roadmap.data();
+    assert.match(respostaRoadmap.texto,/\nThreads by machine\n/);
+    assert.ok(respostaRoadmap.panorama.naoConsultado.some((x:string)=>/outros projetos desta máquina/.test(x)),
+      'o panorama/JSON continua em pt-BR enquanto o texto segue owner.language');
+    const preambulo=respostaRoadmap.texto.split('\n').slice(0,3);
+    assert.match(preambulo[0],/^Panorama da rede lido de /);assert.match(preambulo[1],/^Consultado: /);
+    assert.equal(preambulo[2],'Não consultado:');
+  } finally {await client.close();await server.close();p.limpar();}
+});
 test('MCP cria worktree real no projeto e status/observe nao inventam sessao ou gate',()=>fixture(async(p,c)=>{
   const created=await call(c,'ork_thread_new',{nome:'trabalho MCP',modo:'auto'});assert.equal(created.error,false,created.text);
   const t=created.data().thread;assert.ok(t.worktree.startsWith(p.dir+path.sep));assert.ok(fs.existsSync(path.join(t.worktree,'.git')));

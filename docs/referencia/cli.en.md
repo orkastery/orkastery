@@ -654,9 +654,9 @@ waiting (RM-058).
 
 | Command | What it does |
 | --- | --- |
-| `ork prompt list` | The prompt templates (built-in ones and the project's own) |
-| `ork prompt lint [--template ID]` | **Fails a broken template before it becomes a dispatch** |
-| `ork prompt render <thread> --fase F [--pedido "<texto>"] [--template ID]` | The exact prompt, with the sha256 that goes to the ledger. Without `--pedido`, it uses the request stored when the thread was created, checked against its sha256 (`thread.pedido.divergente` when the file was edited outside the core); a thread with no stored request proceeds with the example text (RM-059) |
+| `ork prompt list` | The prompt templates: every project template and, of the built-in ones, the one in the prompt language |
+| `ork prompt lint [--template ID]` | **Fails a broken template before it becomes a dispatch**. With an English-speaking owner, it warns about a project phase template without its `.en` counterpart, which is rendered in pt-BR (RM-061) |
+| `ork prompt render <thread> --fase F [--pedido "<texto>"] [--template ID]` | The exact prompt, with the sha256 that goes to the ledger, in the owner's declared language (`owner.language`; without it, pt-BR), as `ork phase run` writes it; `LANG` only changes the CLI text around it (RM-061). Without `--pedido`, it uses the request stored when the thread was created, checked against its sha256 (`thread.pedido.divergente` when the file was edited outside the core); a thread with no stored request proceeds with the example text (RM-059) |
 | `ork prompt render --exemplo --fase F --modo M` | Renders without any thread, to review the text |
 | `ork adapter list` | The host adapters (Layer 1) and the destination of each one |
 | `ork adapter show <host>` | The host's 3 installation pitfalls |

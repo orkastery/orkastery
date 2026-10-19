@@ -653,9 +653,9 @@ O `#Noctum` conduz um arco de muitas threads `#Auto` dentro do envelope que o do
 
 | Comando | O que faz |
 | --- | --- |
-| `ork prompt list` | Os templates de prompt (embutidos e os do projeto) |
-| `ork prompt lint [--template ID]` | **Reprova template quebrado antes de ele virar despacho** |
-| `ork prompt render <thread> --fase F [--pedido "<texto>"] [--template ID]` | O prompt exato, com o sha256 que vai ao ledger. Sem `--pedido`, usa o pedido guardado na criação da thread, conferido pelo sha256 (`thread.pedido.divergente` quando o arquivo foi editado fora do núcleo); thread sem pedido guardado segue com o texto de exemplo (RM-059) |
+| `ork prompt list` | Os templates de prompt: todos os do projeto e, dos embutidos, o da língua do prompt |
+| `ork prompt lint [--template ID]` | **Reprova template quebrado antes de ele virar despacho**. Com o dono em inglês, avisa o template de fase do projeto sem o par `.en`, que sai em pt-BR (RM-061) |
+| `ork prompt render <thread> --fase F [--pedido "<texto>"] [--template ID]` | O prompt exato, com o sha256 que vai ao ledger, na língua declarada do dono (`owner.language`; sem ela, pt-BR), como o `ork phase run`; o `LANG` só muda o texto do CLI em volta (RM-061). Sem `--pedido`, usa o pedido guardado na criação da thread, conferido pelo sha256 (`thread.pedido.divergente` quando o arquivo foi editado fora do núcleo); thread sem pedido guardado segue com o texto de exemplo (RM-059) |
 | `ork prompt render --exemplo --fase F --modo M` | Renderiza sem thread nenhuma, para revisar o texto |
 | `ork adapter list` | Os adaptadores de host (Camada 1) e o destino de cada um |
 | `ork adapter show <host>` | Os 3 pitfalls de instalação do host |

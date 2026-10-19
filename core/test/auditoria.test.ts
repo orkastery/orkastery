@@ -12,6 +12,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { comLocale } from '../src/locale';
 import {
   DESCRICAO_DO_MOTIVO_DE_AUDITORIA,
   ORDEM_DOS_PACKS,
@@ -57,7 +58,7 @@ import { exigirManifesto } from '../src/manifest';
 import { dirThread, lerThread } from '../src/thread';
 import { Estagio } from '../src/types';
 import { extrairSessionId } from '../src/adapters/claude-bg';
-import { commitar, projetoTemporario, ProjetoDeTeste } from './apoio';
+import { ajustarManifesto, commitar, projetoTemporario, ProjetoDeTeste } from './apoio';
 
 /** Meia-noite e meio-dia de um dia fixo, para a janela ociosa ser testavel sem esperar. */
 const MADRUGADA = new Date(2026, 8, 3, 2, 30);
@@ -424,7 +425,7 @@ test('o relatorio sempre traz o bloco obrigatorio de propostas, com achado ou se
   assert.ok(fs.existsSync(r.caminho));
 });
 
-test('ork thread new --from-finding abre a thread com evidencia, claim e proposta', (t) => {
+test('achado sustentado abre a thread com evidencia, claim e proposta', (t) => {
   const p = projetoNoEstagio('b5-fromfinding', 'nascente');
   t.after(p.limpar);
   commitar(p.dir, 'src/dupe.ts', 'export const a = 1;\nexport const a2 = 1;\n', 'duplicacao');
@@ -450,6 +451,13 @@ test('ork thread new --from-finding abre a thread com evidencia, claim e propost
   assert.ok(cedo.correcao.includes('ork audit verify'));
 
   assert.equal(verificarRodada(p.carregado, rodada.id).ok, true);
+
+  // RM-061 F3c: com o locale ativo em ingles e sem owner.language, o resultado impresso sai em ingles, e o pedido
+  // (dado que vai a arquivo) segue a lingua declarada do dono, pt-BR.
+  const english = comLocale('en', () => abrirThreadDoAchado(p.carregado, achado.id, { modo: 'classic', dryRun: true }));
+  assert.equal(english.ok, true);
+  assert.match(english.pedido, /^Achado de auditoria F1 \(pack reuse, regra RU1, severidade maior\)\./);
+  assert.equal(english.detalhe, 'dry run: no thread or board stamp was written');
 
   const r = abrirThreadDoAchado(p.carregado, achado.id, { modo: 'classic' });
   assert.equal(r.ok, true);
@@ -489,6 +497,57 @@ test('ork thread new --from-finding abre a thread com evidencia, claim e propost
   assert.equal(denovo.motivo, 'achado.ja-virou-thread');
   assert.equal(lerBoard(p.dir)[0].estado, 'virou-thread');
   assert.equal(lerBoard(p.dir)[0].thread, thread.id);
+});
+
+test('ork thread new --from-finding abre em dry-run ingles sem gravar a thread', (t) => {
+  const p = projetoNoEstagio('b5-fromfinding-locale', 'nascente');
+  t.after(p.limpar);
+  ajustarManifesto(p, 'owner:\n', 'owner:\n  language: en-US\n');
+  const rodada = rodarAuditoria(p.carregado, 'reuse', { quando: MADRUGADA, dryRun: true });
+  const achado = registrarAchadoDaRodada(p.carregado, rodada.id, {
+    regra: 'RU1', severidade: 'maior', titulo: 'duplicated helper', arquivo: 'src/dupe.ts:2',
+    alegacao: 'src/dupe.ts declares the value twice', verificar: ['true'], impacto: 'two sources of truth',
+    fix: 'keep one constant', irreversivel: 'none', estimativa: '1h',
+  });
+  carimbarAchado(p.dir, achado, { claim: { ...achado.claim, estado: 'verificado' } });
+  const antes = fs.readdirSync(path.join(p.dir, '.orkastery', 'threads')).sort();
+  const r = comLocale('en', () => abrirThreadDoAchado(p.carregado, achado.id, { modo: 'classic', dryRun: true }));
+  assert.equal(r.ok, true);
+  assert.equal((r.thread as { nome: string }).nome, 'duplicated helper');
+  assert.match(r.pedido, /^Audit finding F1 \(pack reuse, rule RU1, severity maior\)\./);
+  assert.match(r.pedido, /Adjustment proposed by the audit run:[\s\S]*suggested fix keep one constant/);
+  assert.equal(r.detalhe, 'dry run: no thread or board stamp was written');
+  assert.deepEqual(fs.readdirSync(path.join(p.dir, '.orkastery', 'threads')).sort(), antes);
+});
+
+test('ork thread new --from-finding grava o pedido na lingua declarada do dono, nunca na do locale ativo', (t) => {
+  // RM-061 F3c: o LANG de quem roda e o --json (que nao ativa locale) nao podem mudar o pedido-goal.md nem o
+  // pedidoDeGoal do achado.json, que viram o --prompt do GOAL.
+  const p = projetoNoEstagio('b5-fromfinding-dado', 'nascente');
+  t.after(p.limpar);
+  const rodada = rodarAuditoria(p.carregado, 'reuse', { quando: MADRUGADA, dryRun: true });
+  const achadoVerificado = (titulo: string) => {
+    const a = registrarAchadoDaRodada(p.carregado, rodada.id, {
+      regra: 'RU1', severidade: 'maior', titulo, arquivo: 'src/dupe.ts:2', alegacao: 'src/dupe.ts declara o valor duas vezes',
+      verificar: ['true'], impacto: 'duas fontes de verdade', fix: 'manter uma constante so', irreversivel: 'nenhum', estimativa: '1h',
+    });
+    carimbarAchado(p.dir, a, { claim: { ...a.claim, estado: 'verificado' } });
+    return a;
+  };
+  const gravado = (r: ReturnType<typeof abrirThreadDoAchado>): string => {
+    assert.equal(r.ok, true, r.detalhe);
+    const dir = dirThread(p.dir, (r.thread as { id: string }).id);
+    const pedido = fs.readFileSync(path.join(dir, 'pedido-goal.md'), 'utf8');
+    const doAchado = (JSON.parse(fs.readFileSync(path.join(dir, 'achado.json'), 'utf8')) as { pedidoDeGoal: string }).pedidoDeGoal;
+    assert.equal(doAchado + '\n', pedido, 'o achado.json e o pedido-goal.md guardam o mesmo pedido');
+    assert.equal(r.pedido + '\n', pedido, 'o pedido impresso e o gravado');
+    return pedido;
+  };
+  const semDono = comLocale('en', () => abrirThreadDoAchado(p.carregado, achadoVerificado('helper duplicado').id, { modo: 'classic' }));
+  assert.match(gravado(semDono), /^Achado de auditoria F\d+ \(pack reuse, regra RU1, severidade maior\)\./);
+  ajustarManifesto(p, 'owner:\n', 'owner:\n  language: en-US\n');
+  const comDono = comLocale('pt-BR', () => abrirThreadDoAchado(p.carregado, achadoVerificado('outro helper duplicado').id, { modo: 'classic' }));
+  assert.match(gravado(comDono), /^Audit finding F\d+ \(pack reuse, rule RU1, severity maior\)\./);
 });
 
 test('board de divida: ingestao em lote e a regra mecanica de recorrencia', (t) => {
