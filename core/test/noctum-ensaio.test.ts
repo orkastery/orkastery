@@ -8,6 +8,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { exec } from '../src/util';
 import { prepararIngressoSimulado } from './noctum-apoio';
@@ -60,11 +61,14 @@ function rodar(pedido: Record<string, unknown>): Promise<Saida> {
 }
 
 /** Os dois processos começam juntos, pelo arquivo de sinal. */
-async function juntos(m: DuasMaquinas, a: Record<string, unknown>, b: Record<string, unknown>): Promise<[Saida, Saida]> {
-  const sinal = path.join(path.dirname(m.remoto), `sinal-${Date.now()}-${Math.random().toString(16).slice(2)}`);
-  const corrida = Promise.all([rodar({ ...a, sinal }), rodar({ ...b, sinal })]);
-  fs.writeFileSync(sinal, '');
-  return corrida as Promise<[Saida, Saida]>;
+async function juntos(_m: DuasMaquinas, a: Record<string, unknown>, b: Record<string, unknown>): Promise<[Saida, Saida]> {
+  const isolado = fs.mkdtempSync(path.join(os.tmpdir(), 'noctum-ensaio-sinal-'));
+  const sinal = path.join(isolado, 'comecar');
+  try {
+    const corrida = Promise.all([rodar({ ...a, sinal }), rodar({ ...b, sinal })]);
+    fs.writeFileSync(sinal, '');
+    return await corrida as [Saida, Saida];
+  } finally { fs.rmSync(isolado, { recursive: true, force: true }); }
 }
 
 const base = (m: DuasMaquinas, quem: 'a' | 'b') => ({ dir: m[quem].dir, maquina: m[quem].nome, arco: m.arco });
@@ -184,11 +188,12 @@ test('R4: o executor cai com a sessão de pé: o item fica isolado e os outros s
     { id: 't1', item: 'RM-931', prioridade: 1, dependeDe: [], pedido: 'Fatia 1 SIMULADA, da B.', maquina: 'maquina-b' },
     { id: 't2', item: 'RM-932', prioridade: 2, dependeDe: [], pedido: 'Fatia 2 SIMULADA, da A.', maquina: 'maquina-a' },
   ] });
+  const isolado = fs.mkdtempSync(path.join(os.tmpdir(), 'noctum-r4-marca-'));
   try {
     assumirAutoridade(m.a.carregado, m.arco, op(m, 'a'));
     passoDaMaquina(m.b.carregado, m.arco, { ...op(m, 'b'), n2: n2Simulada() });
     passoDaMaquina(m.a.carregado, m.arco, { ...op(m, 'a'), n2: n2Simulada() });
-    const marca = path.join(path.dirname(m.remoto), 'marca-r4');
+    const marca = path.join(isolado, 'marca');
     const caiu = await rodar({ ...base(m, 'b'), modo: 'despachar-e-cair', marca });
     assert.equal(caiu.sinal, 'SIGKILL');
     assert.deepEqual(JSON.parse(fs.readFileSync(marca, 'utf8')), ['despachou', 't1'], 'a B despachou o t1 antes de cair');
@@ -216,13 +221,14 @@ test('R4: o executor cai com a sessão de pé: o item fica isolado e os outros s
     assert.equal(reservaDoItem(m.b.carregado, m.arco, 'RM-931', op(m, 'b'))!.livre, true, 'a reserva voltou');
     estado = lerCoordenacao(m.a.carregado, m.arco, op(m, 'a'));
     assert.equal(situacaoDoTrabalho(estado, 't1')!.estado, 'livre', 'com a prova, o t1 pode mudar de máquina');
-  } finally { m.limpar(); }
+  } finally { fs.rmSync(isolado, { recursive: true, force: true }); m.limpar(); }
 });
 
 test('R5: o executor partido não grava nem despacha; na volta rejeita a ordem vencida e não despacha de novo', { skip: semKernel }, () => {
   const m = cenario('noctum-r5', { lista: [
     { id: 't1', item: 'RM-941', prioridade: 1, dependeDe: [], pedido: 'Fatia 1 SIMULADA, da B.', maquina: 'maquina-b' },
   ] });
+  const isolado = fs.mkdtempSync(path.join(os.tmpdir(), 'noctum-r5-remoto-'));
   try {
     assumirAutoridade(m.a.carregado, m.arco, op(m, 'a'));
     const registro: string[] = [];
@@ -231,7 +237,7 @@ test('R5: o executor partido não grava nem despacha; na volta rejeita a ordem v
     const r1 = passoDaMaquina(m.b.carregado, m.arco, { ...op(m, 'b'), n2: n2Simulada(registro) });
     assert.ok(r1.acao === 'passo' && r1.passo.acao === 'despachou', JSON.stringify(r1.acao));
     // A partição: a B perde o remoto; a autoridade cancela a ordem dela nesse meio tempo.
-    exec('git', ['remote', 'set-url', 'origin', path.join(path.dirname(m.remoto), 'fora-do-ar.git')], m.b.dir);
+    exec('git', ['remote', 'set-url', 'origin', path.join(isolado, 'fora-do-ar.git')], m.b.dir);
     cancelarOrdem(m.a.carregado, m.arco, 'O-t1-1', 'SIMULADO: a B sumiu da rede', op(m, 'a'));
     const batidaAntes = lerCoordenacao(m.a.carregado, m.arco, op(m, 'a')).batidas.get('maquina-b');
     const partida = passoDaMaquina(m.b.carregado, m.arco, { ...op(m, 'b'), n2: n2Simulada(registro) });
@@ -251,7 +257,7 @@ test('R5: o executor partido não grava nem despacha; na volta rejeita a ordem v
     assert.equal(estado.ordens.get('O-t1-1')!.estado, 'encerrada');
     assert.match(String(estado.ordens.get('O-t1-1')!.recibos.encerrada!.motivo), /cancelada pela autoridade: SIMULADO: a B sumiu da rede/);
     assert.equal(situacaoDoTrabalho(estado, 't1')!.estado, 'livre');
-  } finally { m.limpar(); }
+  } finally { fs.rmSync(isolado, { recursive: true, force: true }); m.limpar(); }
 });
 
 test('R6: o merge chega à base e o integrador cai antes do registro: na volta a entrega é registrada sem integrar de novo', { skip: semKernel }, async () => {
@@ -294,10 +300,11 @@ test('R6: o merge chega à base e o integrador cai antes do registro: na volta a
 
 test('R7: a autoridade antiga, partida, perde a vez para a tomada forçada e na volta não emite mais nada', { skip: semKernel }, () => {
   const m = cenario('noctum-r7', { n: 2 });
+  const isolado = fs.mkdtempSync(path.join(os.tmpdir(), 'noctum-r7-remoto-'));
   try {
     assumirAutoridade(m.a.carregado, m.arco, op(m, 'a'));
     passoDaMaquina(m.a.carregado, m.arco, { ...op(m, 'a'), n2: n2Simulada() });
-    exec('git', ['remote', 'set-url', 'origin', path.join(path.dirname(m.remoto), 'fora-do-ar.git')], m.a.dir);
+    exec('git', ['remote', 'set-url', 'origin', path.join(isolado, 'fora-do-ar.git')], m.a.dir);
     const tarde = new Date(Date.now() + BATIDA_VENCIDA_MS + 60_000).toISOString();
     const g2 = assumirAutoridade(m.b.carregado, m.arco, { ...op(m, 'b', tarde), forcar: { motivo: 'SIMULADO: a autoridade sumiu' } });
     assert.equal(g2.geracao, 2);
@@ -307,7 +314,7 @@ test('R7: a autoridade antiga, partida, perde a vez para a tomada forçada e na 
     assert.ok(ra.acao === 'passo' && ra.relatorio.ordensEmitidas.length === 0 && ra.relatorio.autoridade?.maquina === 'maquina-b');
     recusa(() => emitirOrdem(m.a.carregado, m.arco, { trabalho: 't2', maquina: 'maquina-a' }, op(m, 'a', tarde)), 'noctum.coordenacao.geracao-vencida');
     assert.equal(lerCoordenacao(m.b.carregado, m.arco, op(m, 'b', tarde)).ordens.size, ordensAntes, 'a antiga não emitiu nada');
-  } finally { m.limpar(); }
+  } finally { fs.rmSync(isolado, { recursive: true, force: true }); m.limpar(); }
 });
 
 test('R8: a reserva decide o item: quem é de fora e pega antes impede o despacho; na corrida, um vencedor só', { skip: semKernel }, async () => {

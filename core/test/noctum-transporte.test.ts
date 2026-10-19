@@ -195,23 +195,25 @@ test('T5: história reescrita por push forçado e ramo apagado depois de visto r
 
 test('T6: sem o remoto nada é lido nem gravado, e a cópia local não vira fato', () => {
   const m = cenario('noctum-t6');
+  const isolado = fs.mkdtempSync(path.join(os.tmpdir(), 'noctum-t6-remoto-'));
   try {
     entrega(m, 'a', 'antes');
     lerRamo(m.b.carregado, m.arco);
-    exec('git', ['remote', 'set-url', 'origin', path.join(path.dirname(m.remoto), 'nao-existe.git')], m.b.dir);
+    exec('git', ['remote', 'set-url', 'origin', path.join(isolado, 'nao-existe.git')], m.b.dir);
     assert.match(recusa(() => lerRamo(m.b.carregado, m.arco), 'noctum.coordenacao.sem-remoto'), /sem leitura nova, nada é decidido/);
     recusa(() => entrega(m, 'b', 'partida'), 'noctum.coordenacao.sem-remoto');
     exec('git', ['remote', 'set-url', 'origin', m.remoto], m.b.dir);
     assert.deepEqual(lerRamo(m.b.carregado, m.arco).registros.map(r => r.dados.trabalho), ['antes'], 'a máquina partida não gravou nada');
     recusa(() => lerRamo(m.b.carregado, m.arco, { remoto: '-origin' }), 'noctum.coordenacao.sem-remoto');
-  } finally { m.limpar(); }
+  } finally { fs.rmSync(isolado, { recursive: true, force: true }); m.limpar(); }
 });
 
 test('T7: dois processos gravando ao mesmo tempo nunca perdem um registro do outro', async () => {
   const m = cenario('noctum-t7');
+  const isolado = fs.mkdtempSync(path.join(os.tmpdir(), 'noctum-t7-sinal-'));
   try {
     const dist = path.resolve(__dirname, '..');
-    const sinal = path.join(path.dirname(m.remoto), 'comecar');
+    const sinal = path.join(isolado, 'comecar');
     const script = (dir: string, maquina: string, prefixo: string) => `
       const fs = require('node:fs'); const path = require('node:path');
       const { gravarNoRamo } = require(path.join(${JSON.stringify(dist)}, 'src/noctum-transporte'));
@@ -234,7 +236,7 @@ test('T7: dois processos gravando ao mesmo tempo nunca perdem um registro do out
     await corrida;
     const trabalhos = lerRamo(exigirManifesto(m.a.dir), m.arco).registros.map(r => String(r.dados.trabalho)).sort();
     assert.deepEqual(trabalhos, ['a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3', 'b4']);
-  } finally { m.limpar(); }
+  } finally { fs.rmSync(isolado, { recursive: true, force: true }); m.limpar(); }
 });
 
 test('T8: registro de versão que esta máquina não autorizou, máquina fora do envelope e envelope v2 não gravam nem leem', () => {

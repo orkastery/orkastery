@@ -4,6 +4,8 @@
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { exec } from '../src/util';
 import { projetoTemporario } from './apoio';
@@ -64,8 +66,9 @@ test('M1: com o envelope v2, o passo da máquina é o passo da N2, como está', 
 
 test('M2: sem leitura nova do ramo, a máquina não grava, não despacha e espera', { skip: semKernel }, () => {
   const m = cenario('noctum-m2');
+  const isolado = fs.mkdtempSync(path.join(os.tmpdir(), 'noctum-m2-remoto-'));
   try {
-    exec('git', ['remote', 'set-url', 'origin', path.join(path.dirname(m.remoto), 'nao-existe.git')], m.b.dir);
+    exec('git', ['remote', 'set-url', 'origin', path.join(isolado, 'nao-existe.git')], m.b.dir);
     const r = passo(m.b);
     assert.ok(r.acao === 'aguardar' && r.motivo === 'noctum.coordenacao.sem-remoto', JSON.stringify(r.acao === 'aguardar' ? r.motivo : r.acao));
     assert.equal(lerArco(m.b.dir, m.arco)!.despachos.length, 0);
@@ -74,7 +77,7 @@ test('M2: sem leitura nova do ramo, a máquina não grava, não despacha e esper
     const estado = lerCoordenacao(m.a.carregado, m.arco, { maquina: 'maquina-a' });
     assert.equal(estado.batidas.has('maquina-b'), false, 'a B não gravou nada no ramo');
     assert.equal(estado.ordens.size, 0);
-  } finally { m.limpar(); }
+  } finally { fs.rmSync(isolado, { recursive: true, force: true }); m.limpar(); }
 });
 
 test('M3: a autoridade distribui, a máquina aceita, toma a reserva e a vaga global, e só despacha o que tem ordem dela', { skip: semKernel }, () => {
