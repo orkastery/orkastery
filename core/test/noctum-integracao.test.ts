@@ -676,7 +676,7 @@ test('I17: a prova lê a história de mais de 1 MiB; com o buffer estourado ela 
       daB = mergeSobreAProvada(m.b.dir)(c).merge;
       return { merge: daB };
     }, op(m.b)), 'noctum.integracao.nao-provada');
-    assert.match(motivo, /ou a história dela não se leram \(rede, buffer ou prazo\): a prova não sabe/);
+    assert.match(motivo, /ou a história dela não se leram \(rede, buffer, prazo ou falha do git\): a prova não sabe/);
     let estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a));
     assert.deepEqual([estado.entregas.size, [...estado.vezes.values()].flat().map(v => v.fim)], [0, [null]], 'a vez fica ativa');
     integracao.BUFFER_DA_HISTORIA = buffer;
