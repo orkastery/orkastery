@@ -465,3 +465,25 @@ test('LG18: com a fila vazia, o condutor segue enquanto a entrega faz efeito e s
     assert.equal(registro.length, 1);
   } finally { p.limpar(); }
 });
+
+test('LG19: a parada pelo teto do arco não fecha por cima da sessão admitida: ela termina, e o arco fecha por custo, sem parar nada', () => {
+  const p = projetoTemporario('lg19');
+  try {
+    abrirSemRelatorio(p, 'arco-lg19', { trabalhos: [A, C], contas: DUAS, tetoDoArco: 1 });
+    const registro: string[] = [];
+    const tique = () => tiqueDoArco(p.carregado, 'arco-lg19', { ...simuladas(), opcoesDoVigia: opcoesSimuladas(p.dir, ITENS, registro) });
+    const r1 = tique();
+    assert.ok(r1.passo?.acao === 'despachou' && r1.passo.trabalho === 'a', JSON.stringify(r1.passo));
+    const sessao = String(r1.passo.sessionId), thread = r1.passo.thread;
+    const r2 = tique();
+    assert.equal(lerSupervisao(p.dir, 'arco-lg19').parada?.motivo, 'teto-do-arco');
+    assert.deepEqual([r2.fechamento.fechado, r2.fechamento.paradas.length], [false, 0], JSON.stringify(r2.fechamento));
+    assert.equal(lerArco(p.dir, 'arco-lg19')?.encerramento ?? null, null, 'o arco segue aberto com a sessão admitida em voo');
+    assert.equal(registro.length, 1, 'nada novo despachado depois do teto');
+    // A sessão admitida termina: o arco fecha pelo custo, sem pedir parada a ninguém.
+    runtimeSimulado(p.dir).estado(sessao, 'completed');
+    registrar(dirThread(p.dir, thread), thread, 'phase_result', { fase: 'GOAL', sessionId: sessao, classificacao: 'fase_concluida', ok: true });
+    const r3 = tique();
+    assert.deepEqual([r3.fechamento.fechado, r3.fechamento.motivo, r3.fechamento.paradas.length], [true, 'custo', 0], JSON.stringify(r3.fechamento));
+  } finally { p.limpar(); }
+});

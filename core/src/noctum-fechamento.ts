@@ -15,7 +15,7 @@
  * a leitura que alcança o teto fecha o arco e para as sessões em voo.
  *
  * As condições valem nesta ordem: revogado, hora, a parada da supervisão da N4 (RM-058, integração, D7 da
- * ork-rm058integra), custo, fila vazia (D8). Revogado, hora, a parada e o teto em sessões não dependem da fila nem da
+ * ork-rm058integra; a parada pelo teto do arco fica com a regra do custo), custo, fila vazia (D8). Revogado, hora, a parada e o teto em sessões não dependem da fila nem da
  * medição, e nenhuma falha delas segura esse fechamento. Com uma condição, o fechamento grava primeiro o
  * `encerrado` no log do arco (`encerrarArco`): dali em diante nenhuma reserva de despacho nem efeito passa, e nenhuma
  * reserva devolvida reabre o arco. Só depois vêm o retrato do fechamento e o pedido de parada de cada sessão em voo, no
@@ -158,8 +158,10 @@ export function condicaoDeFechamento(estado: EstadoDoArco | null, fila: FilaDoAr
     return { motivo: 'hora', detalhe: `o fim do envelope chegou (${formatarDataHora(fim, { fuso: estado.conteudo.janela.fuso, locale: 'pt-BR' })}, ` +
       `${estado.conteudo.janela.fuso}); nada o prorroga` };
   }
-  // RM-058, integração (D7): a supervisão parou o arco (o vigia nunca encerra; quem encerra é o fechamento, por ela).
-  if (parada) return { motivo: 'supervisao', detalhe: `a supervisão parou o arco (${parada.motivo}): ${parada.detalhe}` };
+  // RM-058, integração (D7): a supervisão parou o arco (o vigia nunca encerra; quem encerra é o fechamento, por ela). A
+  // parada pelo teto do arco em sessões é a regra do custo logo abaixo: as sessões admitidas terminam, e o arco fecha
+  // quando a última acaba (A1 do CHECK); fechar por ela pediria a parada de trabalho já contado no teto.
+  if (parada && parada.motivo !== 'teto-do-arco') return { motivo: 'supervisao', detalhe: `a supervisão parou o arco (${parada.motivo}): ${parada.detalhe}` };
   const teto = estado.conteudo.orcamento.arco;
   if (teto.unidade === 'sessoes') {
     // Cada sessão admitida já está contada no teto: o arco fecha quando a última acaba, não por cima dela.
