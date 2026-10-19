@@ -617,20 +617,22 @@ test('M23: a ordem que perdeu a reserva com a vez de integrar abandonada também
       { id: 'c', item: 'RM-903', prioridade: 1, dependeDe: [], pedido: 'Fatia C SIMULADA.' },
       { id: 'a', item: 'RM-901', prioridade: 2, dependeDe: [], pedido: 'Fatia A SIMULADA.' },
     ]);
-    bater(m.b.carregado, m.arco, opB);
-    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'c', maquina: 'maquina-b' }, opA);
-    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, opA);
-    responderOrdem(m.b.carregado, m.arco, 'O-c-1', 'aceita', 'SIMULADO', opB);
-    responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', opB);
-    if (vez) {
-      const candidato = { branch: 'trabalho-c', fonte: '1'.repeat(40), base: '2'.repeat(40), provas: 'a'.repeat(64) };
-      gravarNaCoordenacao(m.b.carregado, m.arco, opB, () => ({ novos: [{ tipo: 'vez', chave: chaveDoDestino(destino), n: 1, destino, ordem: 'O-c-1',
-        trabalho: 'c', candidato }], resultado: null }));
-      vez(m);
-    }
-    pegarItem(m.a.dir, 'RM-903', { maquina: 'maquina-c', por: 'Pessoa SIMULADA', nota: 'tomada forçada SIMULADA', forcar: true,
-      motivo: 'SIMULADO: reserva tomada por fora' });
-    return m;
+    try {
+      bater(m.b.carregado, m.arco, opB);
+      emitirOrdem(m.a.carregado, m.arco, { trabalho: 'c', maquina: 'maquina-b' }, opA);
+      emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, opA);
+      responderOrdem(m.b.carregado, m.arco, 'O-c-1', 'aceita', 'SIMULADO', opB);
+      responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', opB);
+      if (vez) {
+        const candidato = { branch: 'trabalho-c', fonte: '1'.repeat(40), base: '2'.repeat(40), provas: 'a'.repeat(64) };
+        gravarNaCoordenacao(m.b.carregado, m.arco, opB, () => ({ novos: [{ tipo: 'vez', chave: chaveDoDestino(destino), n: 1, destino, ordem: 'O-c-1',
+          trabalho: 'c', candidato }], resultado: null }));
+        vez(m);
+      }
+      pegarItem(m.a.dir, 'RM-903', { maquina: 'maquina-c', por: 'Pessoa SIMULADA', nota: 'tomada forçada SIMULADA', forcar: true,
+        motivo: 'SIMULADO: reserva tomada por fora' });
+      return m;
+    } catch (e) { m.limpar(); throw e; }
   };
   // A vez abandonada pela autoridade (o caminho do I9): o fim da ordem do c é recusado com nao-provada, e o passo segue com o a.
   const m = preparar('noctum-m23', (x) => {
