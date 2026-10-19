@@ -6,7 +6,9 @@ import { projetoTemporario } from './apoio';
 import { ParserCodex } from '../src/adapters/codex-events';
 import { dirThread, gravarThread, novaThread } from '../src/thread';
 import { lerLedger, registrar } from '../src/ledger';
-import { observarSessao, reconciliarSessaoSemWatcher, validarFonteWatcher, validarRegistroWatcher } from '../src/session-watcher';
+import { observarSessao, prepararFonteWatcher, reconciliarSessaoSemWatcher, validarFonteWatcher,
+  validarRegistroWatcher } from '../src/session-watcher';
+import { conduzirBatida } from '../src/conducao-batida';
 import { caminhoDoTrabalho, gravarRespostaFinalDaSessao } from '../src/trabalho-thread';
 import { configuracaoServidorMcp, politicasFilhoCodex, TOOLS_FILHO_CODEX } from '../src/mcp-install';
 import { adicionarPerfil, desativarPerfil, lerPerfis, perfilDeDespacho, perfisDisponiveis, politicaDeRotacao,
@@ -68,6 +70,22 @@ test('RM-064 T9: registro estrutural antecede rollout pronto e a validação pro
     registrar(p.estado, p.t.id, 'session_sensor_registered', { fase: 'GO', sessionId: SID,
       despachoEm: p.despachadaEm, ...fonte });
     assert.equal(lerLedger(p.estado).filter((e) => e.tipo === 'session_sensor_registered').length, 1);
+  } finally { p.limpar(); }
+});
+
+test('RM-064 T9: a partida do despacho tolera só a fonte ainda não pronta e recusa vínculo divergente', () => {
+  const p = sessaoCodex('rm064-t9-partida');
+  try {
+    const sessoes = path.join(p.estado, 'sessoes');
+    const controlador = path.join(sessoes, 'controller-ainda-subindo');
+    const outro = path.join(sessoes, 'controller-de-outro-despacho');
+    [controlador, outro].forEach((d) => fs.mkdirSync(d, { recursive: true, mode: 0o700 }));
+    registrar(p.estado, p.t.id, 'phase_dispatch', { fase: 'GO', sessionId: SID, despachoEm: p.despachadaEm,
+      controlador, cwd: p.dir });
+    // Na sequência do incidente, o controller ainda não publicou o rollout quando o despacho registra a fonte.
+    assert.doesNotThrow(() => prepararFonteWatcher(p.dir, SID, { controlador, cwd: p.dir }));
+    assert.throws(() => prepararFonteWatcher(p.dir, SID, { controlador: outro, cwd: p.dir }),
+      /controlador registrado divergente do despacho/);
   } finally { p.limpar(); }
 });
 
@@ -143,6 +161,21 @@ test('RM-064 T9: batida recompõe sensor ausente, lê task_complete e grava um �
   } finally { p.limpar(); }
 });
 
+test('RM-064 T9: a própria batida reconcilia a sessão sem watcher antes de seguir', () => {
+  const p = sessaoCodex('rm064-t9-batida');
+  try {
+    const baseMs = Date.parse(p.despachadaEm) - 1_000;
+    prepararControllerEncerrado(p, baseMs);
+    conduzirBatida(p.carregado, { buscar: false, forja: null, fantasmas: () => [], vivas: () => [],
+      quando: new Date(baseMs + 3_000).toISOString(),
+      despachar: () => ({ ok: false, detalhe: 'sem despacho neste teste', sessionId: null }),
+      retomar: () => ({ automatica: false, ok: false, detalhe: 'sem retomada neste teste' }) });
+    const resultados = lerLedger(p.estado).filter((e) => e.tipo === 'phase_result');
+    assert.equal(resultados.length, 1, 'a batida registra o fim nativo que o watcher ausente perderia');
+    assert.deepEqual([resultados[0].sessionId, resultados[0].conclusaoNativa], [SID, true]);
+  } finally { p.limpar(); }
+});
+
 test('RM-064 T9: fonte indisponível por dez minutos vira parada tipada e idempotente', () => {
   const p = sessaoCodex('rm064-t9-parada');
   try {
@@ -151,6 +184,10 @@ test('RM-064 T9: fonte indisponível por dez minutos vira parada tipada e idempo
     registrar(p.estado, p.t.id, 'phase_dispatch', { ts: p.despachadaEm, fase: 'GO', sessionId: SID,
       despachoEm: p.despachadaEm, controlador, cwd: p.dir, promptSha256: 'a'.repeat(64) });
     const limite = Date.parse(p.despachadaEm) + 600_001;
+    // Na fronteira a sessão só é acompanhada: o prazo de parada não antecipa o fim de quem ainda pode estar rodando.
+    const antes = reconciliarSessaoSemWatcher(p.carregado, p.t.id, limite - 2);
+    assert.equal(antes.estado, 'acompanhada');
+    assert.equal(lerLedger(p.estado).filter((e) => e.tipo === 'phase_result').length, 0);
     const r = reconciliarSessaoSemWatcher(p.carregado, p.t.id, limite);
     assert.equal(r.estado, 'parada');
     const eventos = lerLedger(p.estado);
