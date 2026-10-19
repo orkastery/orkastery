@@ -389,9 +389,12 @@ export function arquivoDoBundle(threadId: string): string {
 
 /** Os comandos que o bundle leva ao runner; o `ork ship publicar` confere os do bundle no HEAD contra estes. */
 export function comandosDoBundle(carregado: ManifestoCarregado): { name: string; command: string }[] {
-  return carregado.manifesto.ci.command
-    ? [{ name: 'ci', command: carregado.manifesto.ci.command }]
-    : comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando }));
+  // O scan e obrigatorio no runner: la a ferramenta ausente reprova em vez de ficar `unavailable` em silencio.
+  const doManifesto = comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({
+    name: nome, command: nome === 'security_scan' ? `ORK_SECURITY_SCAN_REQUIRED=1 ${comando}` : comando,
+  }));
+  if (!carregado.manifesto.ci.command) return doManifesto;
+  return [{ name: 'ci', command: carregado.manifesto.ci.command }, ...doManifesto.filter((c) => c.name === 'security_scan')];
 }
 
 /**
