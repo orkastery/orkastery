@@ -8,9 +8,10 @@
  * `rodarFase`, que toma o lease de condução e é idempotente para a mesma fase e o mesmo prompt. O desfecho volta ao log do
  * arco (`concluirDespacho`): a recusa do núcleo devolve a sessão ao orçamento.
  *
- * A baseline que o bloco com GO no codex pede nunca roda entre a reserva e o lançamento (A1 do CHECK da ork-rm058n2): o
- * despacho recusa com `baseline.pendente`, a reserva volta, a trava de despacho é solta e só então a baseline é gravada;
- * o passo seguinte confere o envelope de novo e despacha. A falha de um candidato antes de lançar (abrir a thread, ler o
+ * A baseline que o bloco com GO pede nunca roda entre a reserva e o lançamento (A1 do CHECK da ork-rm058n2): o despacho
+ * recusa com `baseline.pendente`, a reserva volta, a trava de despacho é solta e só então a baseline é gravada; o passo
+ * seguinte confere o envelope de novo e despacha. Desde a integração (D6 da ork-rm058integra), vale em qualquer runtime,
+ * não só no codex: a entrega da N5 cobra a baseline de toda thread do arco. A falha de um candidato antes de lançar (abrir a thread, ler o
  * pedido) devolve a reserva e o passo segue para o próximo (A4). Do núcleo, só a recusa de antes do lançamento devolve a
  * reserva: a recusa dos portões, e a da conta, do limite de uso ou do impedimento do dono quando nenhuma sessão foi dita.
  * Quando o runtime pode ter aberto a sessão (a falha seca dele, o id dito antes da falha, o núcleo que voltou sem sessão
@@ -42,7 +43,7 @@ import { pedidoDoArco } from './noctum-guarda';
 import { OpcoesRun, resolverDespacho, ResultadoRun, rodarFase } from './phase';
 import { lerPerfis, perfilDisponivel } from './runtime-profiles';
 import { configDoBloco, lerSetup } from './setup';
-import { dirThread, lerThread, novaThread, OpcoesNovaThread, pedidoDaThread } from './thread';
+import { blocoDaThread, dirThread, lerThread, novaThread, OpcoesNovaThread, pedidoDaThread } from './thread';
 import { Fase, Thread } from './types';
 import { ConducaoDoVerify, gravarBaseline } from './verify';
 
@@ -135,6 +136,19 @@ const mensagem = (e: unknown): string => (e instanceof Error ? e.message : Strin
 /** Os eventos do ledger da thread, ou `null` quando ele não se lê. */
 function eventosDaThread(raiz: string, threadId: string): ReturnType<typeof lerLedger> | null {
   try { return lerLedger(dirThread(raiz, threadId)); } catch { return null; }
+}
+
+/**
+ * RM-058, integração (D6 da ork-rm058integra): a baseline do arco, em qualquer runtime. Fora do arco, o despacho só a
+ * exige no codex (`baselineDoDespachoNecessaria`, em `phase.ts`, que não muda); no arco, a entrega da N5 a cobra sempre
+ * (`noctum.entrega.baseline-ausente`), então o bloco que tem GO a partir da fase do despacho não sai sem ela. O ledger que
+ * não se lê não prova a baseline: o despacho espera.
+ */
+export function baselineDoArcoPendente(raiz: string, thread: Thread, fase: Fase): boolean {
+  const bloco = blocoDaThread(thread, fase);
+  if (!bloco.fases.slice(bloco.fases.indexOf(fase)).includes('GO')) return false;
+  const eventos = eventosDaThread(raiz, thread.id);
+  return eventos === null || !eventos.some(e => e.tipo === TIPOS_DE_EVENTO.baselineGravada);
 }
 
 type Recusado = Extract<ResultadoDoPasso, { acao: 'recusado' }>;
@@ -307,6 +321,12 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
     return { ...recusar(MOTIVO_DO_ERRO_NO_DESPACHO, mensagem(e), thread?.id ?? null), seguir: true };
   }
   if (!pedido) return { ...recusar('noctum.despacho.pedido-ausente', `a thread ${thread.id} não guardou o pedido`, thread.id), seguir: true };
+  // RM-058, integração (D6): sem a baseline do bloco com GO, em qualquer runtime, a reserva volta antes do lançamento, e a
+  // baseline roda fora da trava de despacho (`baselineForaDaTrava`); o vigia nunca a grava: ela fica para o condutor.
+  if (baselineDoArcoPendente(raiz, thread, c.fase)) {
+    concluirDespacho(raiz, arco, reserva, { motivo: 'baseline.pendente' });
+    return { acao: 'baseline', thread: thread.id, fila };
+  }
   // S5 do CHECK: a falha de dentro do núcleo pode ter aberto a sessão; ela sobe, e a reserva fica pendente e conta.
   const antes = eventosDaThread(raiz, thread.id)?.length ?? 0;
   const trio = c.trio ? { runtime: c.trio.runtime, ...(c.trio.model ? { model: c.trio.model } : {}), ...(c.trio.effort ? { effort: c.trio.effort } : {}) } : {};

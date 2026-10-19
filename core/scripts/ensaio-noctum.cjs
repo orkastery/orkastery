@@ -182,10 +182,19 @@ function montarApoio(raiz, n, sabotar) {
     return { nome, dir, carregado: n.manifest.exigirManifesto(dir) };
   }
 
-  /** A thread #Auto de um trabalho, como o dono a criaria, com o item e o pedido guardado. */
+  /**
+   * RM-058, integração (D6 da ork-rm058integra): a baseline SIMULADA que o condutor do arco grava antes do primeiro despacho
+   * do bloco com GO. Os cenários da N6 abrem as threads com ela, como o condutor as deixaria; o vigia nunca a grava.
+   */
+  const comBaseline = (proj, t) => {
+    n.ledger.registrar(n.thread.dirThread(proj.dir, t.id), t.id, 'baseline_recorded', { commit: 'SIMULADO', comandos: [], simulado: true });
+    return t;
+  };
+
+  /** A thread #Auto de um trabalho, como o dono a criaria, com o item e o pedido guardado (e a baseline do condutor). */
   function threadDoTrabalho(proj, numero, item) {
-    return n.thread.novaThread(proj.carregado, { nome: `ensaio trabalho ${numero}`, modo: 'auto', roadmap: item,
-      pedido: `Trabalho ${numero} SIMULADO do ensaio #Noctum.`, criarWorktree: false }).thread;
+    return comBaseline(proj, n.thread.novaThread(proj.carregado, { nome: `ensaio trabalho ${numero}`, modo: 'auto', roadmap: item,
+      pedido: `Trabalho ${numero} SIMULADO do ensaio #Noctum.`, criarWorktree: false }).thread);
   }
 
   const horarioNoFuso = (ms, fuso) => { const p = n.horario.partesLocais(ms, fuso); return `${p.hora}:${p.minuto}`; };
@@ -290,7 +299,7 @@ function montarApoio(raiz, n, sabotar) {
     return n.modo.tiqueDoArco(proj.carregado, arco, { quando, maquina: MAQUINA, lerReservas: reservas(itens), parar: rt.parar,
       listarSessoes: rt.listarSessoes, git: () => null, ...extra,
       opcoesDoPasso: { despachar: rt.despachar, consultarSessoes: rt.consultarSessoes, perfis: rt.perfis,
-        abrirThread: (k, o) => n.thread.novaThread(k, { ...o, criarWorktree: false }).thread,
+        abrirThread: (k, o) => comBaseline(proj, n.thread.novaThread(k, { ...o, criarWorktree: false }).thread),
         gravarBaseline: () => { rt.baselines += 1; }, esperarVezMs: 5_000 } });
   }
 
