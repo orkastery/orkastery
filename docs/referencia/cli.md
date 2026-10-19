@@ -644,8 +644,9 @@ O `#Noctum` conduz um arco de muitas threads `#Auto` dentro do envelope que o do
 | `ork noctum propor --arquivo <envelope.json> [--json]` | Grava a proposta do envelope e mostra o resumo, o hash e como autorizar; não autoriza nada |
 | `ork noctum responder <arco> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]` | O ingresso dos gateways: a autorização (`autorizar <sha256>`) ou a revogação (`revogar`) assinada, conferida no endereço do arco, com o recibo tipado `ork.noctum-ingresso/v1` |
 | `ork noctum status [<arco>] [--json]` | O retrato do arco: situação, janela, consumo medido por unidade com as lacunas, a fila, o fechamento e as paradas, e o relatório com os recibos e as lacunas; sem arco, a lista dos arcos |
-| `ork noctum tique <arco> [--json]` | O fechamento (hora, custo e fila vazia), o passo e o relatório, nessa ordem: o que o cron do dono chama no piloto |
+| `ork noctum tique <arco> [--json]` | O fechamento (revogação, hora, parada da supervisão, custo e fila vazia), o vigia e o relatório, nessa ordem: o que o cron do dono chama no piloto. O vigia reconcilia as sessões e aplica as paradas; sem condutor vivo, dá o passo do despacho e o da entrega, sem esperar a fila pesada (o verify fica para o condutor) |
 | `ork noctum relatorio <arco> [--json] [--reenviar telegram\|openclaw]` | O relatório da manhã no terminal (o recibo do canal `terminal` só vem em terminal interativo), ou o reenvio que o dono pede das páginas sem recibo |
+| `ork noctum conduzir <arco> [--json]` | O condutor do arco, que o cron do piloto relança: confere o arco antes da trava (terminado, ou parado pela supervisão, sai 0 sem tomar a trava nem gravar geração), segura a trava do condutor enquanto vive e chama o passo supervisionado (o despacho e a entrega) na cadência da fila. Sai 0 com o arco terminado ou parado, 2 em recusa (sem kernel, sem arco, nunca autorizado, supervisão que não se lê), 3 com outro condutor vivo e 4 com a geração perdida; `--json` dá o resultado com o `codigo` |
 
 ---
 

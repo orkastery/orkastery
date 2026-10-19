@@ -645,8 +645,9 @@ waiting (RM-058).
 | `ork noctum propor --arquivo <envelope.json> [--json]` | Records the envelope proposal and shows the summary, the hash and how to authorize it; it authorizes nothing |
 | `ork noctum responder <arco> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]` | The gateways' ingress: the signed authorization (`autorizar <sha256>`) or revocation (`revogar`), checked at the arc address, with the typed receipt `ork.noctum-ingresso/v1` |
 | `ork noctum status [<arco>] [--json]` | The arc snapshot: situation, window, measured usage per unit with the gaps, the queue, the closing and the stops, and the report with the receipts and the gaps; without an arc, the list of arcs |
-| `ork noctum tique <arco> [--json]` | The closing (time, cost and empty queue), the step and the report, in that order: what the owner's cron calls in the pilot |
+| `ork noctum tique <arco> [--json]` | The closing (revocation, time, supervision stop, cost and empty queue), the watcher and the report, in that order: what the owner's cron calls in the pilot. The watcher reconciles the sessions and applies the stops; with no live conductor, it takes the dispatch and delivery step without waiting for the heavy queue (the verify is left to the conductor) |
 | `ork noctum relatorio <arco> [--json] [--reenviar telegram\|openclaw]` | The morning report in the terminal (the `terminal` channel receipt only comes in an interactive terminal), or the resend the owner asks for of the pages without a receipt |
+| `ork noctum conduzir <arco> [--json]` | The arc conductor, which the pilot cron relaunches: checks the arc before the lock (ended, or stopped by the supervision, exits 0 without taking the lock or recording a generation), holds the conductor lock while it lives and calls the supervised step (dispatch and delivery) at the queue cadence. Exits 0 with the arc ended or stopped, 2 on refusal (no kernel, no arc, never authorized, unreadable supervision), 3 with another live conductor and 4 with the generation lost; `--json` gives the result with the `codigo` |
 
 ---
 

@@ -6,29 +6,87 @@
  *   ork noctum status [<arco>] [--json]                    o retrato do arco, com as lacunas; sem arco, a lista
  *   ork noctum tique <arco> [--json]                       fechamento, passo e relatório: o que o cron do dono chama
  *   ork noctum relatorio <arco> [--json] [--reenviar C]    o relatório no terminal, ou o reenvio que o dono pede
+ *   ork noctum conduzir <arco> [--json]                    o condutor do arco (RM-058, integração, D9): o cron do piloto o
+ *                                                          relança, e a trava do kernel prova o vivo
  *
  * Nenhum subcomando autoriza pelo terminal: o dono autoriza por ingresso autenticado (o gateway assinado, que chega
  * aqui pelo `responder`, ou o diálogo nativo do host pelo MCP). Recusa tipada sai na saída de erro, com código 2.
  */
 import * as fs from 'node:fs';
+import { kernelDisponivel } from './fila-pesada';
 import { lerRespostaStdin } from './hitl-gates';
 import { formatarDataHora } from './horario';
-import { exigirManifesto } from './manifest';
-import { lerArco, proporEnvelope } from './noctum-arco';
+import { exigirManifesto, ManifestoCarregado } from './manifest';
+import { lerArco, proporEnvelope, SituacaoDoArco } from './noctum-arco';
 import { CANAIS_DO_RELATORIO, RecusaDoArco } from './noctum-envelope';
 import { listarArcos, responderAoArco, retratoDoArco, textoDoRetrato, tiqueDoArco } from './noctum-modo';
 import { CanalComTransporte, reenviarRelatorio, relatorioNoTerminal } from './noctum-relatorio';
 import { RecusaDoRegistro } from './noctum-registro';
+import { lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
+import { conduzirArco, OpcoesDoVigia, ResultadoDoCondutor } from './noctum-vigia';
 
 export interface ArgsDoNoctum { posicionais: string[]; opcoes: Record<string, string | boolean> }
 
 export const USO_DO_NOCTUM = 'uso: ork noctum propor --arquivo <envelope.json> | responder <arco> --resposta-stdin --origem O --canal C ' +
-  '--por P --mensagem M [--conta X] | status [<arco>] [--json] | tique <arco> [--json] | relatorio <arco> [--json] [--reenviar <canal>]';
+  '--por P --mensagem M [--conta X] | status [<arco>] [--json] | tique <arco> [--json] | relatorio <arco> [--json] [--reenviar <canal>] | ' +
+  'conduzir <arco> [--json]';
 
 /** O pedido de abertura cabe numa leitura do dono: o envelope inteiro tem teto, como o pedido de cada trabalho. */
 const TETO_DO_ARQUIVO_DO_ENVELOPE = 64 * 1024;
 
 const texto = (v: string | boolean | undefined): string | undefined => typeof v === 'string' ? v : undefined;
+
+/**
+ * RM-058, integração (T5, D9): o código de saída do `ork noctum conduzir`. 0: o arco terminou ou parou (também quando já
+ * estava assim); 2: recusa (sem kernel, sem arco, nunca autorizado, o log da supervisão que não se lê); 3: outro condutor
+ * vivo segura a trava; 4: a geração foi tomada por outra instância.
+ */
+export type CodigoDoCondutor = 0 | 2 | 3 | 4;
+
+export type SaidaDoCondutor = (ResultadoDoCondutor
+  | { acao: 'terminal'; situacao: SituacaoDoArco; detalhe: string }
+  | { acao: 'parado'; motivo: string; detalhe: string }
+  | { acao: 'nunca-autorizado' | 'supervisao-ilegivel'; motivo: string; detalhe: string }) & { codigo: CodigoDoCondutor };
+
+const TERMINAIS: readonly SituacaoDoArco[] = ['expirado', 'revogado', 'encerrado'];
+
+/**
+ * O que o `ork noctum conduzir` roda: confere o arco antes da trava (o arco terminal, ou parado pela supervisão, sai 0 sem
+ * tomar a trava nem gravar geração) e então conduz pelo `conduzirArco`, com as dependências reais. Os testes passam as
+ * simuladas (o `dormir`, o `relogio`, o `maxPassos` e as do passo); o comando de terminal não tem opção de teste.
+ */
+export function conduzirPeloCli(carregado: ManifestoCarregado, arco: string,
+  opcoes: OpcoesDoVigia & { maxPassos?: number; dormir?: (ms: number) => void; relogio?: () => string } = {}): SaidaDoCondutor {
+  const { raiz } = carregado;
+  if (!kernelDisponivel()) return { acao: 'sem-kernel', detalhe: 'o condutor exige /usr/bin/flock', codigo: 2 };
+  const estado = lerArco(raiz, arco);
+  if (!estado) return { acao: 'sem-arco', detalhe: `o arco ${arco} não tem proposta`, codigo: 2 };
+  if (!estado.autorizadoPor) {
+    return { acao: 'nunca-autorizado', motivo: 'noctum.modo.sem-envelope', detalhe: `o arco ${arco} nunca foi autorizado pelo dono: o #Noctum não vale`,
+      codigo: 2 };
+  }
+  if (TERMINAIS.includes(estado.situacao)) {
+    return { acao: 'terminal', situacao: estado.situacao, detalhe: `o arco ${arco} está ${estado.situacao}: não há o que conduzir`, codigo: 0 };
+  }
+  let parada: { motivo: string; detalhe: string } | null;
+  try { parada = lerSupervisao(raiz, arco).parada; }
+  catch (e) {
+    if (e instanceof RecusaDaSupervisao) return { acao: 'supervisao-ilegivel', motivo: e.motivo, detalhe: e.message, codigo: 2 };
+    throw e;
+  }
+  if (parada) return { acao: 'parado', motivo: parada.motivo, detalhe: `a supervisão parou o arco ${arco}: ${parada.detalhe}`, codigo: 0 };
+  const r = conduzirArco(carregado, arco, opcoes);
+  const codigo: CodigoDoCondutor = r.acao === 'outro-condutor' ? 3 : r.acao === 'saiu' ? (r.ultimo?.acao === 'geracao-vencida' ? 4 : 0) : 2;
+  return { ...r, codigo };
+}
+
+/** A linha do condutor no terminal: o desfecho, com o motivo. */
+function textoDoCondutor(arco: string, r: SaidaDoCondutor): string {
+  if (r.acao !== 'saiu') return `Condutor do arco ${arco}: ${r.acao}${'motivo' in r ? ` (${r.motivo})` : ''}: ${r.detalhe}`;
+  const u = r.ultimo;
+  const ultimo = !u ? 'nenhum passo' : `${u.acao}${'motivo' in u && u.motivo ? ` (${u.motivo})` : ''}${'detalhe' in u && u.detalhe ? `: ${u.detalhe}` : ''}`;
+  return `Condutor do arco ${arco}: saiu na geração ${r.geracao}, depois de ${r.passos} passo(s); o último: ${ultimo}`;
+}
 
 function recusado(e: unknown): number {
   if (e instanceof RecusaDoArco || e instanceof RecusaDoRegistro) { console.error(e.message); return 2; }
@@ -131,6 +189,15 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
       if (!r) { console.error(`noctum.efeito.sem-autorizacao: o arco ${arco} não tem envelope autorizado`); return 2; }
       console.log(json ? JSON.stringify(r, null, 2) : r.paginas.join('\n\n'));
       return 0;
+    }
+    if (sub === 'conduzir') {
+      const arco = args.posicionais[2];
+      if (!arco || args.posicionais.length !== 3) { console.error(USO_DO_NOCTUM); return 2; }
+      const r = conduzirPeloCli(exigirManifesto(), arco);
+      if (json) console.log(JSON.stringify(r, null, 2));
+      else if (r.codigo === 2) console.error(textoDoCondutor(arco, r));
+      else console.log(textoDoCondutor(arco, r));
+      return r.codigo;
     }
   } catch (e) { return recusado(e); }
   console.error(USO_DO_NOCTUM);
