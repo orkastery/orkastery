@@ -46,8 +46,8 @@ import { aguardando, arcoDoPedido, enfileirar, exigirPedido, gravarPedido, janel
   PedidoComPerfil, vencidos } from './ratelimit';
 import { eventosDoIntervalo, fonteRegistrada, headDaWorktree, saidaDoArtefato } from './session-watcher-claude';
 import {
-  lerPerfis, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDoRegistro, perfisDoRuntime, PoliticaDeRotacao, politicaDeRotacao,
-  perfilDisponivel, PerfilDeRuntime, prazoDaFila, prazoDoRuntime, proximoPerfilDisponivel,
+  lerPerfis, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDoRegistro, perfisDisponiveis, perfisDoRuntime,
+  PoliticaDeRotacao, politicaDeRotacao, prazoDaFila, prazoDoRuntime, proximoPerfilDisponivel,
   validarPerfilDeDespacho,
 } from './runtime-profiles';
 import { MODOS } from './modos';
@@ -1886,15 +1886,14 @@ function destinosQueRecusaramOModelo(eventos: readonly EventoLedger[], fase: Fas
 function proximoDestinoDoModelo(raiz: string, runtime: string, model: string | null, fallback: readonly AlvoDeFallback[],
     recusados: ReadonlySet<string>): AlvoDaRotacao | null {
   const store = lerPerfisComContas(raiz);
-  const utilizavel = (p: PerfilDeRuntime) => !['desativado', 'provider-pago', 'sem-auth'].includes(p.estado) && perfilDisponivel(p);
   const mesmo = capacidadeDoRuntimeNoProjeto(raiz, runtime).capaz
-    ? perfisDoRuntime(store, runtime).find(p => utilizavel(p) && !recusados.has(chaveDoModelo(runtime, p.id, model))) : null;
+    ? perfisDisponiveis(store, runtime).find(p => !recusados.has(chaveDoModelo(runtime, p.id, model))) : null;
   if (mesmo) return { runtime, perfil: perfilDeDespacho(mesmo), model, effort: null };
   for (const f of fallback) {
     if (!capacidadeDoRuntimeNoProjeto(raiz, f.runtime).capaz) continue;
     const perfis = perfisDoRuntime(store, f.runtime);
     if (perfis.length) {
-      const p = perfis.find(x => utilizavel(x) && !recusados.has(chaveDoModelo(f.runtime, x.id, f.model)));
+      const p = perfisDisponiveis(store, f.runtime).find(x => !recusados.has(chaveDoModelo(f.runtime, x.id, f.model)));
       if (p) return { runtime: f.runtime, perfil: perfilDeDespacho(p), model: f.model, effort: f.effort ?? null };
       continue;
     }

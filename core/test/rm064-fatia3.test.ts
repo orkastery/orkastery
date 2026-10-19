@@ -8,6 +8,13 @@ import { dirThread, gravarThread, novaThread } from '../src/thread';
 import { lerLedger, registrar } from '../src/ledger';
 import { observarSessao, reconciliarSessaoSemWatcher, validarFonteWatcher, validarRegistroWatcher } from '../src/session-watcher';
 import { caminhoDoTrabalho, gravarRespostaFinalDaSessao } from '../src/trabalho-thread';
+import { configuracaoServidorMcp, politicasFilhoCodex, TOOLS_FILHO_CODEX } from '../src/mcp-install';
+import { adicionarPerfil, desativarPerfil, lerPerfis, perfilDeDespacho, perfisDisponiveis, politicaDeRotacao,
+  proximoPerfilDisponivel, proximoPerfilPorCarga } from '../src/runtime-profiles';
+import { proximoAlvo } from '../src/retry';
+import { planoDoDegrau } from '../src/runtime-escada';
+import { editarBloco } from '../src/setup';
+import { instalarAdaptador } from '../src/hosts';
 
 const SID = '11111111-2222-4333-8444-555555555555';
 
@@ -153,5 +160,49 @@ test('RM-064 T9: fonte indisponível por dez minutos vira parada tipada e idempo
     assert.equal(eventos.filter((e) => e.tipo === 'gate_blocked').length, 1);
     assert.equal(reconciliarSessaoSemWatcher(p.carregado, p.t.id, limite + 1).estado, 'ignorada');
     assert.equal(lerLedger(p.estado).filter((e) => e.tipo === 'phase_result').length, 1);
+  } finally { p.limpar(); }
+});
+
+test('RM-064 T8: sessão worktree recebe somente as mutações MCP exatas, sem ampliar o sandbox', () => {
+  const cfg = configuracaoServidorMcp('/projeto-simulado', 'codex', 'ork-fixture', 'github-ssh', 'worktree',
+    '11111111-2222-4333-8444-555555555555');
+  assert.deepEqual(cfg.args.slice(cfg.args.indexOf('--child-permissions')), ['--child-permissions', 'worktree',
+    '--thread', 'ork-fixture', '--dispatch', '11111111-2222-4333-8444-555555555555']);
+  assert.equal(cfg.args.some((a) => /writable|sandbox|danger/i.test(a)), false);
+  const politicas = politicasFilhoCodex({});
+  assert.deepEqual(Object.keys(politicas.tools).sort(), [...TOOLS_FILHO_CODEX].sort());
+  assert.deepEqual(Object.values(politicas.tools).map((v) => (v as { approval_mode: string }).approval_mode),
+    Array(TOOLS_FILHO_CODEX.length).fill('approve'));
+});
+
+test('RM-064 T10: perfil desativado não entra na escada, retry, carga nem fallback implícito', () => {
+  const p = sessaoCodex('rm064-t10-perfis');
+  try {
+    instalarAdaptador('codex', { projeto: p.dir });
+    instalarAdaptador('claude-code', { projeto: p.dir });
+    const dirs = ['claude-ativo', 'claude-fora', 'codex-fora'].map((n) => path.join(p.dir, n));
+    dirs.forEach((d) => fs.mkdirSync(d));
+    adicionarPerfil(p.dir, { id: 'claude-ativo', runtime: 'claude-bg', dir: dirs[0] });
+    adicionarPerfil(p.dir, { id: 'claude-fora', runtime: 'claude-bg', dir: dirs[1] });
+    adicionarPerfil(p.dir, { id: 'codex-fora', runtime: 'codex', dir: dirs[2] });
+    desativarPerfil(p.dir, 'claude-fora');
+    desativarPerfil(p.dir, 'codex-fora');
+    const store = lerPerfis(p.dir);
+    const politica = politicaDeRotacao(p.carregado.manifesto);
+    assert.deepEqual(perfisDisponiveis(store, 'claude-bg').map((x) => x.id), ['claude-ativo']);
+    assert.equal(proximoPerfilDisponivel(store, 'claude-bg', politica)?.id, 'claude-ativo');
+    assert.equal(proximoPerfilPorCarga(store, 'claude-bg', politica, new Map([['claude-fora', 0], ['claude-ativo', 9]]))?.id,
+      'claude-ativo');
+    const atual = perfilDeDespacho(store.perfis.find((x) => x.id === 'claude-ativo')!);
+    const fallback = [{ runtime: 'codex', model: 'gpt' }];
+    assert.equal(proximoAlvo(p.dir, { runtime: 'claude-bg', perfil: atual }, fallback,
+      { perfis: [], runtimesImplicitos: [] }, politica), null,
+    'perfil configurado e desativado bloqueia o ambiente implícito, sem virar destino');
+    const edicao = editarBloco(p.dir, 'auto', 1, { fallback: ['codex:gpt'] });
+    assert.equal(edicao.ok, true, JSON.stringify(edicao));
+    const despacho = { promptPath: 'prompt.md', promptSha256: 'a'.repeat(64), runtime: 'claude-bg', perfil: atual,
+      model: 'sonnet', effort: 'high' };
+    assert.deepEqual(planoDoDegrau(p.carregado, p.t, 'GO', 2, despacho, []), { pulo: 'fallback-sem-destino' });
+    assert.deepEqual(planoDoDegrau(p.carregado, p.t, 'GO', 3, despacho, []), { pulo: 'sem-outro-perfil' });
   } finally { p.limpar(); }
 });
