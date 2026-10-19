@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-19T17:45:03.284Z",
+  "publicadoEm": "2026-10-19T18:00:02.791Z",
   "threads": [
     {
       "id": "ork-rm058integra",
@@ -23,9 +23,9 @@
       "modelo": "opus",
       "esforco": "high",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-19T17:46:35.944Z",
+        "motivo": "sessão b3f69a32 encerrada (done)"
       }
     },
     {
