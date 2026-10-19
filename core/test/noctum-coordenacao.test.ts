@@ -3,18 +3,22 @@
  * fixture; contas, máquinas, itens e pedidos são SIMULADOS, e nada toca remoto, reserva ou raiz de verdade.
  */
 import { strict as assert } from 'node:assert';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { test } from 'node:test';
 import { autorizarPedido, prepararIngressoSimulado } from './noctum-apoio';
-import { duasMaquinas, DuasMaquinas, MaquinaDeTeste } from './noctum-maquinas-apoio';
+import { cloneDoRemoto, duasMaquinas, DuasMaquinas, gravarCru, MaquinaDeTeste } from './noctum-maquinas-apoio';
+import { exigirManifesto } from '../src/manifest';
 import { encerrarArco } from '../src/noctum-arco';
 import { RecusaDoArco } from '../src/noctum-envelope';
 import * as reservasDoRoadmap from '../src/roadmap-reservas';
 import { pegarItem, soltarItem } from '../src/roadmap-reservas';
-import { gravarNoRamo } from '../src/noctum-transporte';
+import { assinarDados, caminhoDoRegistro, DadosDoRegistro, gravarNoRamo, identidadeDaMaquina } from '../src/noctum-transporte';
+import { reconciliarIntegracao } from '../src/noctum-integracao';
 import {
   assumirAutoridade, bater, BATIDA_VENCIDA_MS, cancelarOrdem, cederAutoridade, concluirOrdem, distribuirOrdens, emitirOrdem,
   encerrarOrdem, entreguesNaRede, FatosLocaisDaMaquina, gravarNaCoordenacao, lerCoordenacao, motivoDaReservaDeFora, planejarReconciliacao,
-  reconciliarCoordenacao, registrosDosAbandonos, reservaDoItem, respostaAOrdem, responderOrdem, revogarNaRede, situacaoDoTrabalho,
+  reconciliarCoordenacao, registrosDosAbandonos, reservaDoItem, respostaAOrdem, responderOrdem, revogarNaRede, seloDaGeracao, situacaoDoTrabalho,
   soltarReservaDoArco, soltarVagaGlobal, tomarReservaDoTrabalho, tomarVagaGlobal,
 } from '../src/noctum-coordenacao';
 import { passar, revogarArco } from './noctum-apoio';
@@ -800,5 +804,160 @@ test('K23: o arco que o fechamento da N6 encerrou nesta máquina não começa na
     responderOrdem(m2.a.carregado, m2.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m2.a));
     assert.match(recusa(() => tomarVagaGlobal(m2.a.carregado, m2.arco, { ordem: 'O-a-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, op(m2.a)),
       'noctum.orcamento.sem-medicao'), /a soma entre máquinas só mede sessoes/);
+  } finally { m2.limpar(); }
+});
+
+test('K24: a chave que a emenda aposentou não fecha a ordem da chave nova; a raiz nova fecha a da antiga, e a antiga volta sem tocar na nova', () => {
+  const opA = { maquina: 'maquina-a' }, opB = { maquina: 'maquina-b' };
+  // A emenda troca a chave da maquina-a pela de outra raiz de estado (o clone C), autorizada na B e na C.
+  const trocar = (m: DuasMaquinas, nome: string) => {
+    const c = cloneDoRemoto(m.remoto, nome, 'Builder C');
+    const emenda = { ...m.pedido, maquinas: (m.pedido.maquinas as Array<{ nome: string; chave: string }>).map(x =>
+      x.nome === 'maquina-a' ? identidadeDaMaquina(c, 'maquina-a') : x) };
+    autorizarPedido(m.b.dir, m.arco, emenda);
+    autorizarPedido(c, m.arco, m.pedido);
+    autorizarPedido(c, m.arco, emenda);
+    return { c, carregadoC: exigirManifesto(c), emenda };
+  };
+  // A raiz antiga assina à mão, sob a versão antiga, cada registro preso à ordem que a chave nova aceitou: as máquinas reprovam.
+  const destino = { repositorio: 'exemplo/produto', base: 'main' };
+  const candidato = { branch: 'trabalho-a', fonte: '1'.repeat(40), base: '2'.repeat(40), provas: 'a'.repeat(64) };
+  const hostis: Array<[string, (ordem: string) => Record<string, unknown>]> = [
+    ['recibo', ordem => ({ tipo: 'recibo', ordem, recibo: 'encerrada', motivo: 'SIMULADO', checkpoint: { thread: null, vagasSoltas: [] } })],
+    ['entrega', ordem => ({ tipo: 'entrega', trabalho: 'a', ordem, destino, fonte: '1'.repeat(40), base: '2'.repeat(40), merge: '3'.repeat(40) })],
+    ['vaga', ordem => ({ tipo: 'vaga', vaga: 'V-maquina-a-9', conta: 0, runtime: 'claude-bg', ordem, trabalho: 'a', reserva: 9 })],
+    ['vaga-solta', () => ({ tipo: 'vaga-solta', vaga: 'V-maquina-a-1', consumiu: false, motivo: 'SIMULADO' })],
+    ['vez', ordem => ({ tipo: 'vez', chave: chaveDoDestino(destino), n: 2, destino, ordem, trabalho: 'a', candidato })],
+    ['vez-fim', () => ({ tipo: 'vez-fim', chave: chaveDoDestino(destino), n: 1, desfecho: 'desistiu', motivo: 'SIMULADO', merge: null })],
+  ];
+  for (const [tipo, campos] of hostis) {
+    const m = cenario(`noctum-k24-${tipo}`);
+    const t = trocar(m, `noctum-k24-${tipo}-c`);
+    try {
+      assumirAutoridade(m.b.carregado, m.arco, opB);
+      bater(t.carregadoC, m.arco, opA);
+      const ordem = emitirOrdem(m.b.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-a' }, opB);
+      responderOrdem(t.carregadoC, m.arco, ordem, 'aceita', 'SIMULADO', opA);
+      tomarVagaGlobal(t.carregadoC, m.arco, { ordem, conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, opA);
+      gravarNaCoordenacao(t.carregadoC, m.arco, opA, () => ({ novos: [{ tipo: 'vez', chave: chaveDoDestino(destino), n: 1, destino, ordem,
+        trabalho: 'a', candidato }], resultado: null }));
+      const dados = { contrato: 'ork.noctum-coordenacao/v1' as const, arco: m.arco, envelopeSha256: m.hash, por: 'maquina-a',
+        em: new Date().toISOString(), ...campos(ordem) } as DadosDoRegistro;
+      gravarCru(m.a.dir, [{ caminho: caminhoDoRegistro(dados), conteudo: JSON.stringify({ dados, assinatura: assinarDados(m.a.dir, dados) }) + '\n' }]);
+      assert.match(recusa(() => lerCoordenacao(m.b.carregado, m.arco, opB), 'noctum.coordenacao.adulterado'),
+        /assinado sob uma versão anterior à da ordem O-a-1, por uma chave diferente da que o envelope dela dá ao executor maquina-a/, tipo);
+    } finally { m.limpar(); fs.rmSync(path.dirname(t.c), { recursive: true, force: true }); }
+  }
+  const m2 = cenario('noctum-k24b');
+  let c2 = '';
+  try {
+    assumirAutoridade(m2.b.carregado, m2.arco, opB);
+    bater(m2.a.carregado, m2.arco, opA);
+    emitirOrdem(m2.b.carregado, m2.arco, { trabalho: 'a', maquina: 'maquina-a' }, opB);
+    emitirOrdem(m2.b.carregado, m2.arco, { trabalho: 'd', maquina: 'maquina-a' }, opB);
+    responderOrdem(m2.a.carregado, m2.arco, 'O-a-1', 'aceita', 'SIMULADO', opA);
+    responderOrdem(m2.a.carregado, m2.arco, 'O-d-1', 'aceita', 'SIMULADO', opA);
+    tomarVagaGlobal(m2.a.carregado, m2.arco, { ordem: 'O-d-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, opA);
+    const t2 = trocar(m2, 'noctum-k24b-c');
+    c2 = t2.c;
+    // A sucessão: sob a versão nova, a raiz que a emenda pôs no lugar fecha a ordem sem vaga que a chave antiga aceitou. A vaga
+    // da chave antiga tem o despacho no log da raiz antiga: o `seq` 1 recusado da raiz nova não é ela, e a ordem dela espera.
+    const plano = reconciliarCoordenacao(t2.carregadoC, m2.arco, { arcoVigente: true, sessoesVivas: new Set(), threads: new Map(),
+      despachos: new Map([[1, { desfecho: 'recusado' as const, sessionId: null }]]) }, opA);
+    assert.deepEqual([plano.encerradas, plano.soltas, plano.aguardando.map(x => x.ordem)], [['O-a-1'], [], ['O-d-1']]);
+    const e = lerCoordenacao(m2.b.carregado, m2.arco, opB);
+    assert.deepEqual([e.ordens.get('O-a-1')!.estado, situacaoDoTrabalho(e, 'a')!.estado, e.ordens.get('O-d-1')!.estado,
+      e.vagas.find(v => v.vaga === 'V-maquina-a-1')!.solta], ['encerrada', 'livre', 'aceita', null]);
+  } finally { m2.limpar(); if (c2) fs.rmSync(path.dirname(c2), { recursive: true, force: true }); }
+  const m3 = cenario('noctum-k24c');
+  let c3 = '';
+  try {
+    assumirAutoridade(m3.b.carregado, m3.arco, opB);
+    bater(m3.a.carregado, m3.arco, opA);
+    emitirOrdem(m3.b.carregado, m3.arco, { trabalho: 'a', maquina: 'maquina-a' }, opB);
+    responderOrdem(m3.a.carregado, m3.arco, 'O-a-1', 'aceita', 'SIMULADO', opA);
+    const t3 = trocar(m3, 'noctum-k24c-c');
+    c3 = t3.c;
+    autorizarPedido(m3.a.dir, m3.arco, t3.emenda);
+    bater(t3.carregadoC, m3.arco, opA);
+    emitirOrdem(m3.b.carregado, m3.arco, { trabalho: 'd', maquina: 'maquina-a' }, opB);
+    responderOrdem(t3.carregadoC, m3.arco, 'O-d-1', 'aceita', 'SIMULADO', opA);
+    const destino = { repositorio: 'exemplo/produto', base: 'main' };
+    gravarNaCoordenacao(t3.carregadoC, m3.arco, opA, () => ({ novos: [{ tipo: 'vez', chave: chaveDoDestino(destino), n: 1, destino,
+      ordem: 'O-d-1', trabalho: 'd', candidato: { branch: 'trabalho-d', fonte: '1'.repeat(40), base: '2'.repeat(40), provas: 'a'.repeat(64) } }],
+    resultado: null }));
+    cancelarOrdem(m3.b.carregado, m3.arco, 'O-d-1', 'SIMULADO: retomada', opB);
+    // A raiz antiga volta com a emenda autorizada: fecha, sob a versão antiga, a ordem dela e deixa a ordem e a vez da chave
+    // nova para a raiz nova. Pelo nome só, ela tentaria fechar as duas, e as máquinas reprovariam a gravação inteira.
+    assert.deepEqual(reconciliarIntegracao(m3.a.carregado, m3.arco, opA),
+      { registradas: [], soltas: [], emCurso: [], semProva: [], abandonadasConferidas: [] });
+    const plano = reconciliarCoordenacao(m3.a.carregado, m3.arco, { arcoVigente: true, sessoesVivas: new Set(), threads: new Map(),
+      despachos: new Map() }, opA);
+    assert.deepEqual(plano.encerradas, ['O-a-1']);
+    const e = lerCoordenacao(m3.b.carregado, m3.arco, opB);
+    assert.deepEqual([e.ordens.get('O-a-1')!.estado, e.ordens.get('O-d-1')!.estado, [...e.vezes.values()].flat()[0].fim],
+      ['encerrada', 'isolada', null]);
+  } finally { m3.limpar(); if (c3) fs.rmSync(path.dirname(c3), { recursive: true, force: true }); }
+});
+
+test('K25: o leitor reprova duas vezes ativas, recibos contraditórios e cessão sem a cessão anterior', () => {
+  const destino = { repositorio: 'exemplo/produto', base: 'main' };
+  const candidato = { branch: 'trabalho-a', fonte: '1'.repeat(40), base: '2'.repeat(40), provas: 'a'.repeat(64) };
+  const m = cenario('noctum-k25a');
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-a' }, op(m.a));
+    responderOrdem(m.a.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m.a));
+    gravarNoRamo(m.a.carregado, m.arco, op(m.a), () => ({ novos: [1, 2].map(n => ({ tipo: 'vez' as const,
+      chave: chaveDoDestino(destino), n, destino, ordem: 'O-a-1', trabalho: 'a', candidato })), resultado: null }));
+    assert.match(recusa(() => lerCoordenacao(m.b.carregado, m.arco, op(m.b)), 'noctum.coordenacao.adulterado'), /tem duas vezes ativas/);
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-k25b');
+  try {
+    assumirAutoridade(m2.a.carregado, m2.arco, op(m2.a));
+    bater(m2.b.carregado, m2.arco, op(m2.b));
+    emitirOrdem(m2.a.carregado, m2.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m2.a));
+    responderOrdem(m2.b.carregado, m2.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m2.b));
+    gravarNoRamo(m2.b.carregado, m2.arco, op(m2.b), () =>
+      ({ novos: [{ tipo: 'recibo', ordem: 'O-a-1', recibo: 'recusada', motivo: 'SIMULADO' }], resultado: null }));
+    assert.match(recusa(() => lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a)), 'noctum.coordenacao.adulterado'), /os recibos da ordem O-a-1 se contradizem/);
+  } finally { m2.limpar(); }
+  const m3 = cenario('noctum-k25c');
+  try {
+    assumirAutoridade(m3.a.carregado, m3.arco, op(m3.a));
+    gravarNoRamo(m3.b.carregado, m3.arco, op(m3.b), () => ({ novos: [{ tipo: 'autoridade', geracao: 2, modo: 'cessao',
+      motivo: 'SIMULADO: cessão forjada', anterior: { geracao: 1, maquina: 'maquina-a' }, selo: seloDaGeracao([]) }], resultado: null }));
+    assert.match(recusa(() => lerCoordenacao(m3.a.carregado, m3.arco, op(m3.a)), 'noctum.coordenacao.adulterado'),
+      /a geração 2 diz cessão sem a cessão da 1 para maquina-b/);
+  } finally { m3.limpar(); }
+});
+
+test('K26: os tetos da conta e do runtime somam as máquinas independentemente do teto do arco', () => {
+  const preparar = (m: DuasMaquinas, porConta: number, porRuntime: number) => {
+    const orcamento = m.pedido.orcamento as Record<string, unknown>;
+    const emenda = { ...m.pedido, orcamento: { ...orcamento, arco: { valor: 40, unidade: 'sessoes' },
+      porConta: [{ conta: 'perfil-a', teto: { valor: porConta, unidade: 'sessoes' } }],
+      porRuntime: [{ runtime: 'claude-bg', teto: { valor: porRuntime, unidade: 'sessoes' } }] } };
+    autorizarPedido(m.b.dir, m.arco, emenda);
+    autorizarPedido(m.a.dir, m.arco, emenda);
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-a' }, op(m.a));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'd', maquina: 'maquina-b' }, op(m.a));
+    responderOrdem(m.a.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m.a));
+    responderOrdem(m.b.carregado, m.arco, 'O-d-1', 'aceita', 'SIMULADO', op(m.b));
+    tomarVagaGlobal(m.a.carregado, m.arco, { ordem: 'O-a-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, op(m.a));
+  };
+  const m = cenario('noctum-k26a', { global: 2 });
+  try {
+    preparar(m, 1, 10);
+    assert.match(recusa(() => tomarVagaGlobal(m.b.carregado, m.arco, { ordem: 'O-d-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, op(m.b)),
+      'noctum.orcamento.esgotado'), /o teto da conta perfil-a é de 1 sessoes/);
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-k26b', { global: 2 });
+  try {
+    preparar(m2, 10, 1);
+    assert.match(recusa(() => tomarVagaGlobal(m2.b.carregado, m2.arco, { ordem: 'O-d-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, op(m2.b)),
+      'noctum.orcamento.esgotado'), /o teto do runtime claude-bg é de 1 sessoes/);
   } finally { m2.limpar(); }
 });

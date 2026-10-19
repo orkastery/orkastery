@@ -16,7 +16,7 @@ import {
 import { RecusaDoArco } from '../src/noctum-envelope';
 import * as transporte from '../src/noctum-transporte';
 import {
-  assumirAutoridade, bater, BATIDA_VENCIDA_MS, cancelarOrdem, chaveDoDestino, derivarCoordenacao, emitirOrdem, gravarNaCoordenacao, lerCoordenacao,
+  assumirAutoridade, bater, BATIDA_VENCIDA_MS, cancelarOrdem, chaveDoDestino, derivarCoordenacao, emitirOrdem, encerrarOrdem, gravarNaCoordenacao, lerCoordenacao,
   planejarReconciliacao, registrosDosAbandonos, responderOrdem, revogarNaRede, situacaoDoTrabalho,
 } from '../src/noctum-coordenacao';
 import * as integracaoDoModulo from '../src/noctum-integracao';
@@ -142,6 +142,9 @@ test('I5: o merge chegou à base e a máquina caiu antes do registro: a reconcil
     let estado = lerCoordenacao(m.b.carregado, m.arco, op(m.b));
     assert.equal(estado.entregas.size, 0);
     assert.equal([...estado.vezes.values()].flat()[0].fim, null, 'a vez ficou com a A');
+    // G8-1: com a vez ativa, o merge pode ter chegado à base, e o fim da ordem espera a reconciliação.
+    assert.match(recusa(() => encerrarOrdem(m.a.carregado, m.arco, 'O-a-1', { motivo: 'SIMULADO: sessão parada', checkpoint: {} }, op(m.a)),
+      'noctum.integracao.nao-provada'), /tem uma vez de integrar ativa/);
     // A B não integra no mesmo destino enquanto a vez da A está de pé.
     const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
     recusa(() => integrarComVez(m.b.carregado, m.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, integradorPorAvanco(m.b.dir), op(m.b)),
@@ -279,6 +282,8 @@ test('I9: a vez de quem não dá sinal é abandonada pela autoridade; o destino 
     }, op(m2.b)), 'noctum.integracao.nao-provada');
     const tarde = new Date(Date.now() + BATIDA_VENCIDA_MS + 60_000).toISOString();
     gravarNaCoordenacao(m2.a.carregado, m2.arco, op(m2.a, tarde), (l) => ({ novos: registrosDosAbandonos(derivarCoordenacao(l), 'maquina-a', tarde), resultado: null }));
+    assert.match(recusa(() => encerrarOrdem(m2.b.carregado, m2.arco, 'O-b-1', { motivo: 'SIMULADO: sessão parada', checkpoint: {} }, op(m2.b, tarde)),
+      'noctum.integracao.nao-provada'), /vez abandonada cuja base ainda precisa ser conferida/);
     const r = reconciliarIntegracao(m2.b.carregado, m2.arco, op(m2.b, tarde));
     assert.deepEqual([r.registradas, r.abandonadasConferidas.length], [[], 1]);
   } finally { m2.limpar(); }
@@ -469,6 +474,8 @@ test('I13: a forja que leva a fonte à base fora da cerca, com a vez ainda da m�
     assert.deepEqual([estado.entregas.size, situacaoDoTrabalho(estado, 'b')!.estado], [0, 'em-execucao']);
     // A autoridade cancela a ordem; sem prova, a reconciliação da B não a encerra, e o trabalho não muda de máquina.
     cancelarOrdem(m.a.carregado, m.arco, 'O-b-1', 'SIMULADO: inspeção', op(m.a));
+    assert.match(recusa(() => encerrarOrdem(m.b.carregado, m.arco, 'O-b-1', { motivo: 'SIMULADO: sessão parada', checkpoint: {} }, op(m.b)),
+      'noctum.integracao.base-nao-provada'), /o trabalho espera a inspeção do dono/);
     const plano = planejarReconciliacao(lerCoordenacao(m.b.carregado, m.arco, op(m.b)), 'maquina-b', { arcoVigente: true, sessoesVivas: new Set(),
       threads: new Map(), despachos: new Map() });
     assert.deepEqual(plano.encerradas, []);

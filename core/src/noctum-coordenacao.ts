@@ -30,7 +30,7 @@ import { createHash } from 'node:crypto';
 import { ManifestoCarregado } from './manifest';
 import { nomeDaMaquina } from './maquina';
 import {
-  CamposDoRegistro, CHAVE_DO_DESTINO, DadosDoRegistro, euNaVersaoVigente, gravarNoRamo, ID_DA_ORDEM, ID_DA_VAGA, LeituraDoRamo, lerRamo,
+  CamposDoRegistro, CHAVE_DO_DESTINO, DadosDoRegistro, euNaVersaoVigente, gravarNoRamo, ID_DA_ORDEM, ID_DA_VAGA, identidadeDaMaquina, LeituraDoRamo, lerRamo,
   NOME_DE_MAQUINA, OpcoesDoTransporte, RECIBOS, ResultadoDaGravacao, TipoDeRecibo, VersaoDoEnvelope,
 } from './noctum-transporte';
 import { listarReservas, pegarItem, quemSouEu, soltarItem } from './roadmap-reservas';
@@ -88,6 +88,8 @@ export interface VagaDerivada {
   trabalho: string;
   /** O `seq` da reserva local do despacho, no log do arco da máquina que segura. */
   reserva: number;
+  /** A chave que tomou a vaga, pela versão do envelope do registro (G8-6): só a raiz dela tem o despacho no log local. */
+  chave: string;
   desde: string;
   solta: { em: string; consumiu: boolean; motivo: string } | null;
 }
@@ -209,6 +211,34 @@ const checkpointValido = (v: unknown): v is CheckpointDoFim => objeto(v) && Obje
     v.vagasSoltas.every(x => typeof x === 'string' && ID_DA_VAGA.test(x))));
 
 /**
+ * G8-6 do CHECK de 15/10: a continuidade da chave nos registros presos a uma ordem (recibo, vaga, vaga solta, vez, fim da vez
+ * e entrega). Assinado sob uma versão anterior à da ordem, o registro só vale com a chave que a versão da ordem dá ao executor:
+ * a chave que uma emenda aposentou ainda fecha o que é dela sob a versão antiga (D18), mas não fecha, solta nem entrega a
+ * ordem emitida depois da troca. Sob a versão da ordem ou uma posterior vale a sucessão: a raiz que a emenda pôs no lugar
+ * fecha o que a chave antiga deixou. A ordem das versões é a das autorizações, a mesma que dá a vigente.
+ */
+function chaveContinua(versoes: readonly VersaoDoEnvelope[], registro: { envelopeSha256: string; por: string },
+  ordem: { envelopeSha256: string; maquina: string }): boolean {
+  const i = versoes.findIndex(v => v.envelopeSha256 === registro.envelopeSha256);
+  const j = versoes.findIndex(v => v.envelopeSha256 === ordem.envelopeSha256);
+  if (i < 0 || j < 0) return false;
+  if (i >= j) return true;
+  const chave = maquinasDe(versoes[i].conteudo).find(m => m.nome === registro.por)?.chave;
+  return chave !== undefined && chave === maquinasDe(versoes[j].conteudo).find(m => m.nome === ordem.maquina)?.chave;
+}
+
+/**
+ * A ordem é desta raiz, que assina como `eu`? A máquina dela tem o mesmo nome, e o que esta raiz assinar sobre ela passa na
+ * continuidade da chave (G8-6): a raiz assina sob a última versão em que está com a mesma chave, a vigente ou, depois de uma
+ * emenda que a tirou, a anterior (D18). A raiz antiga que volta depois de uma troca de chave deixa a ordem da nova para ela.
+ */
+export function ordemDaRaiz(estado: EstadoDaCoordenacao, o: OrdemDerivada, eu: { nome: string; chave: string }): boolean {
+  if (o.maquina !== eu.nome) return false;
+  const assina = [...estado.versoes].reverse().find(v => maquinasDe(v.conteudo).some(m => m.nome === eu.nome && m.chave === eu.chave));
+  return !!assina && chaveContinua(estado.versoes, { envelopeSha256: assina.envelopeSha256, por: eu.nome }, o);
+}
+
+/**
  * O estado da coordenação, derivado da leitura conferida. Confere o contrato de cada tipo e a coerência entre eles (quem
  * assina o quê, gerações contíguas e seladas, uma ordem viva por trabalho, uma vez ativa por destino, recibos que não se
  * contradizem); qualquer falha é `noctum.coordenacao.adulterado`. A mesma leitura deriva uma vez só.
@@ -226,6 +256,12 @@ function derivar(leitura: LeituraDoRamo): EstadoDaCoordenacao {
   const versoes = new Map(leitura.versoes.map(v => [v.envelopeSha256, v]));
   const vigente = leitura.versoes.at(-1)!;
   const daVersao = (d: DadosDoRegistro) => versoes.get(d.envelopeSha256)!.conteudo;
+  const exigirChaveDaOrdem = (d: DadosDoRegistro, caminho: string, o: OrdemDerivada): void => {
+    if (!chaveContinua(leitura.versoes, d, o)) {
+      throw adulterado(`${caminho} assinado sob uma versão anterior à da ordem ${o.ordem}, por uma chave diferente da que o envelope ` +
+        `dela dá ao executor ${o.maquina}`);
+    }
+  };
   const porTipo = (tipo: string) => leitura.registros.filter(r => r.dados.tipo === tipo);
   const daGeracao = new Map<number, string[]>();
   const selar = (g: number, id: string) => daGeracao.set(g, [...(daGeracao.get(g) ?? []), id]);
@@ -298,6 +334,7 @@ function derivar(leitura: LeituraDoRamo): EstadoDaCoordenacao {
     const o = ordens.get(d.ordem as string);
     if (!o) throw adulterado(`${caminho} de uma ordem que não existe`);
     if (o.maquina !== d.por) throw adulterado(`${caminho} assinado por quem não é o executor da ordem`);
+    exigirChaveDaOrdem(d, caminho, o);
     if ((d.recibo === 'concluida') !== (d.resultado !== undefined)) throw adulterado(`${caminho}: só a conclusão traz resultado, e sempre`);
     o.recibos[d.recibo as TipoDeRecibo] = d;
   }
@@ -329,6 +366,7 @@ function derivar(leitura: LeituraDoRamo): EstadoDaCoordenacao {
     if (!o || o.maquina !== d.por || o.trabalho !== d.trabalho || !o.recibos.aceita) {
       throw adulterado(`${caminho} de outra máquina, de outro trabalho ou de uma ordem que ela não aceitou`);
     }
+    exigirChaveDaOrdem(d, caminho, o);
     entregas.set(d.trabalho as string, d);
   }
 
@@ -344,11 +382,13 @@ function derivar(leitura: LeituraDoRamo): EstadoDaCoordenacao {
     if (!o || o.maquina !== d.por || o.trabalho !== d.trabalho || !o.recibos.aceita) {
       throw adulterado(`${caminho} de quem não é o executor da ordem, ou de uma ordem que ele não aceitou`);
     }
+    exigirChaveDaOrdem(d, caminho, o);
     const conteudo = daVersao(d);
     const conta = envelopeMultimaquina(conteudo) ? conteudo.capacidadeGlobal.porConta[d.conta as number]?.conta : undefined;
     if (!conta || !conteudo.orcamento.porRuntime.some(r => r.runtime === d.runtime)) throw adulterado(`${caminho} com conta ou runtime fora do envelope dela`);
     const v: VagaDerivada = { vaga: d.vaga as string, maquina: d.por, conta, runtime: d.runtime as string, ordem: d.ordem as string,
-      trabalho: d.trabalho as string, reserva: d.reserva as number, desde: d.em, solta: null };
+      trabalho: d.trabalho as string, reserva: d.reserva as number, chave: maquinasDe(conteudo).find(m => m.nome === d.por)!.chave, desde: d.em,
+      solta: null };
     vagas.push(v);
     porVaga.set(v.vaga, v);
   }
@@ -356,6 +396,7 @@ function derivar(leitura: LeituraDoRamo): EstadoDaCoordenacao {
     campos(d, caminho, { vaga: v => typeof v === 'string' && ID_DA_VAGA.test(v), consumiu: v => typeof v === 'boolean', motivo: v => linha(v) });
     const v = porVaga.get(d.vaga as string);
     if (!v || v.maquina !== d.por) throw adulterado(`${caminho} de uma vaga que não existe ou não é de quem solta`);
+    exigirChaveDaOrdem(d, caminho, ordens.get(v.ordem)!);
     v.solta = { em: d.em, consumiu: d.consumiu as boolean, motivo: d.motivo as string };
   }
   const consumo = { arco: 0, porConta: {} as Record<string, number>, porRuntime: {} as Record<string, number> };
@@ -380,6 +421,7 @@ function derivar(leitura: LeituraDoRamo): EstadoDaCoordenacao {
     if (!o || o.maquina !== d.por || o.trabalho !== d.trabalho || !o.recibos.aceita) {
       throw adulterado(`${caminho} de quem não é o executor da ordem, ou de uma ordem que ele não aceitou`);
     }
+    exigirChaveDaOrdem(d, caminho, o);
     vezes.set(d.chave as string, [...(vezes.get(d.chave as string) ?? []), { chave: d.chave as string, n: d.n as number, maquina: d.por,
       ordem: d.ordem as string, trabalho: d.trabalho as string, destino, candidato: d.candidato as CandidatoDeIntegracao, desde: d.em, fim: null }]);
   }
@@ -396,6 +438,8 @@ function derivar(leitura: LeituraDoRamo): EstadoDaCoordenacao {
       selar(d.geracao as number, `abandono:${String(d.chave)}/${String(d.n)}`);
     } else if (vez.maquina !== d.por || d.geracao !== undefined || d.sinalDoDono !== undefined) {
       throw adulterado(`${caminho} de uma vez que não é de quem a encerra`);
+    } else {
+      exigirChaveDaOrdem(d, caminho, ordens.get(vez.ordem)!);
     }
     vez.fim = { em: d.em, desfecho: d.desfecho as DesfechoDaVez, motivo: d.motivo as string, merge: (d.merge as string | null | undefined) ?? null, por: d.por };
   }
@@ -906,6 +950,16 @@ export function encerrarOrdem(carregado: ManifestoCarregado, arco: string, ordem
     if (o.maquina !== eu) throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} é da máquina ${o.maquina}`);
     if (o.estado === 'encerrada') return { novos: [], resultado: null };
     if (o.estado !== 'aceita' && o.estado !== 'isolada') throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} está ${o.estado}`);
+    const vezes = [...estado.vezes.values()].flat().filter(v => v.ordem === o.ordem);
+    if (vezes.some(v => !v.fim)) {
+      throw recusa('noctum.integracao.nao-provada', `a ordem ${ordem} tem uma vez de integrar ativa; o merge pode ter chegado à base, e a reconciliação decide antes do fim`);
+    }
+    if (!estado.entregas.has(o.trabalho) && vezes.some(v => v.fim?.desfecho === 'sem-prova')) {
+      throw recusa('noctum.integracao.base-nao-provada', `a ordem ${ordem} tem uma fonte que chegou à base fora da cerca; o trabalho espera a inspeção do dono`);
+    }
+    if (!estado.entregas.has(o.trabalho) && vezes.some(v => v.fim?.desfecho === 'abandonada')) {
+      throw recusa('noctum.integracao.nao-provada', `a ordem ${ordem} tem uma vez abandonada cuja base ainda precisa ser conferida pela reconciliação`);
+    }
     return { novos: [{ tipo: 'recibo', ordem, recibo: 'encerrada', motivo: doFim, checkpoint }], resultado: null };
   });
 }
@@ -1111,6 +1165,11 @@ export interface FatosLocaisDaMaquina {
   vezesConferidas?: ReadonlySet<string>;
   /** As vezes desta máquina cuja fonte a reconciliação achou na base por um merge fora da base provada (`chave/n`). */
   vezesSemProva?: ReadonlySet<string>;
+  /**
+   * A chave desta raiz (G8-6): com ela, a ordem que só outra chave da máquina pode fechar (a da raiz nova, para a raiz antiga
+   * que volta depois de uma troca de chave) fica fora do plano, e as vagas dela também. Sem ela, vale o nome.
+   */
+  chave?: string;
 }
 
 export interface PlanoDeReconciliacao {
@@ -1144,7 +1203,11 @@ function vagaViva(v: VagaDerivada, fatos: FatosLocaisDaMaquina): boolean {
  */
 export function planejarReconciliacao(estado: EstadoDaCoordenacao, eu: string, fatos: FatosLocaisDaMaquina): PlanoDeReconciliacao {
   const plano: PlanoDeReconciliacao = { novos: [], encerradas: [], concluidas: [], soltas: [], aguardando: [], itensSemOrdemViva: [] };
-  const minhas = estado.vagas.filter(v => v.maquina === eu && !v.solta);
+  const daRaiz = (o: OrdemDerivada): boolean => o.maquina === eu && (fatos.chave === undefined || ordemDaRaiz(estado, o, { nome: eu, chave: fatos.chave }));
+  // G8-6: a vaga que outra chave da máquina tomou (a da raiz antiga, depois de uma troca de chave) tem o despacho no log de
+  // outra raiz: aqui ela conta como viva, e só a raiz dela a solta.
+  const daChave = (v: VagaDerivada): boolean => v.maquina === eu && (fatos.chave === undefined || v.chave === fatos.chave);
+  const minhas = estado.vagas.filter(v => daChave(v) && !v.solta);
   const soltar = (v: VagaDerivada, motivo: string) => {
     if (plano.soltas.includes(v.vaga)) return;
     const d = fatos.despachos.get(v.reserva);
@@ -1152,7 +1215,7 @@ export function planejarReconciliacao(estado: EstadoDaCoordenacao, eu: string, f
     plano.soltas.push(v.vaga);
   };
   for (const o of estado.ordens.values()) {
-    if (o.maquina !== eu || (o.estado !== 'aceita' && o.estado !== 'isolada')) continue;
+    if (!daRaiz(o) || (o.estado !== 'aceita' && o.estado !== 'isolada')) continue;
     const th = fatos.threads.get(o.trabalho);
     if (th && (th.entregue || th.fechada)) {
       plano.novos.push({ tipo: 'recibo', ordem: o.ordem, recibo: 'concluida', motivo: `thread local ${th.entregue ? 'entregue' : 'fechada sem entrega'}`,
@@ -1182,8 +1245,8 @@ export function planejarReconciliacao(estado: EstadoDaCoordenacao, eu: string, f
       plano.aguardando.push({ ordem: o.ordem, porque: `${porque}; a vez de integrar dela foi abandonada pela autoridade, e o merge pode ter chegado à base` });
       continue;
     }
-    const dela = minhas.filter(v => v.ordem === o.ordem);
-    const vivas = dela.filter(v => vagaViva(v, fatos));
+    const dela = estado.vagas.filter(v => v.ordem === o.ordem && !v.solta);
+    const vivas = dela.filter(v => !daChave(v) || vagaViva(v, fatos));
     if (vivas.length) {
       plano.aguardando.push({ ordem: o.ordem, porque: `${porque}; ${vivas.length} sessão(ões) dela ainda viva(s) ou incerta(s) nesta máquina` });
       continue;
@@ -1209,8 +1272,9 @@ export function planejarReconciliacao(estado: EstadoDaCoordenacao, eu: string, f
 /** Grava o plano da reconciliação, refeito sobre a leitura nova a cada tentativa. */
 export function reconciliarCoordenacao(carregado: ManifestoCarregado, arco: string, fatos: FatosLocaisDaMaquina,
   opcoes: OpcoesDaCoordenacao = {}): PlanoDeReconciliacao {
+  const chave = fatos.chave ?? identidadeDaMaquina(carregado.raiz, opcoes.maquina).chave;
   return gravarNaCoordenacao(carregado, arco, opcoes, (leitura) => {
-    const plano = planejarReconciliacao(derivarCoordenacao(leitura), nomeDe(opcoes), fatos);
+    const plano = planejarReconciliacao(derivarCoordenacao(leitura), nomeDe(opcoes), { ...fatos, chave });
     return { novos: plano.novos, resultado: plano };
   }).resultado;
 }

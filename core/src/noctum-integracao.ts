@@ -33,10 +33,10 @@ import { nomeDaMaquina } from './maquina';
 import { conferirAntesDoEfeito } from './noctum-arco';
 import {
   CandidatoDeIntegracao, chaveDoDestino, derivarCoordenacao, EstadoDaCoordenacao, gravarNaCoordenacao, lerCoordenacao, OpcoesDaCoordenacao,
-  VezDerivada,
+  ordemDaRaiz, VezDerivada,
 } from './noctum-coordenacao';
 import { ID_DO_ARCO, RecusaDoArco } from './noctum-envelope';
-import { cabecasNoRemoto, euNaVersaoVigente } from './noctum-transporte';
+import { cabecasNoRemoto, euNaVersaoVigente, identidadeDaMaquina } from './noctum-transporte';
 
 export interface PedidoDeIntegracao {
   /** A ordem aceita desta máquina para o trabalho que vai ser integrado. */
@@ -401,9 +401,10 @@ export interface ReconciliacaoDaIntegracao {
  */
 export function reconciliarIntegracao(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDaCoordenacao = {}): ReconciliacaoDaIntegracao {
   const r: ReconciliacaoDaIntegracao = { registradas: [], soltas: [], emCurso: [], semProva: [], abandonadasConferidas: [] };
-  const eu = nomeDaMaquina(opcoes.maquina);
+  const eu = identidadeDaMaquina(carregado.raiz, opcoes.maquina);
   const estado = lerCoordenacao(carregado, arco, opcoes);
-  const todas = [...estado.vezes.values()].flat().filter(v => v.maquina === eu);
+  // G8-6: a vez da ordem que só outra chave da máquina pode fechar (a da raiz nova) fica para ela.
+  const todas = [...estado.vezes.values()].flat().filter(v => v.maquina === eu.nome && ordemDaRaiz(estado, estado.ordens.get(v.ordem)!, eu));
   const minhas = todas.filter(v => !v.fim);
   const abandonadas = todas.filter(v => v.fim?.desfecho === 'abandonada' && !estado.entregas.has(v.trabalho) &&
     ['aceita', 'isolada'].includes(estado.ordens.get(v.ordem)?.estado ?? ''));
