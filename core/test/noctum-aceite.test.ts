@@ -17,7 +17,7 @@ import { instancia } from './noctum-supervisao-apoio';
 import { partesLocais } from '../src/horario';
 import { registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { aceitarPorOmissao } from '../src/master';
-import { aceiteDoPiloto, CONTRATO_LIMIARES, gravarAceite, hashDoAceite, Injecao, LeitorDoGit, lerInjecoes, lerLimiares, OpcoesDoAceite, publicavel,
+import { aceiteDoPiloto, CONTRATO_LIMIARES, gitDaRaiz, gravarAceite, hashDoAceite, Injecao, LeitorDoGit, lerInjecoes, lerLimiares, OpcoesDoAceite, publicavel,
   RecusaDoAceite, ResultadoDoAceite } from '../src/noctum-aceite';
 import { autorizarPeloIngresso, concluirDespacho, encerrarArco, lerArco, proporEnvelope, reservarDespacho, textoDeAutorizacao } from '../src/noctum-arco';
 import { entregarRelatorioSeDevido, reenviarRelatorio, vencimentoDoRelatorio } from '../src/noctum-relatorio';
@@ -578,4 +578,63 @@ test('AC24: o despacho cuja sessão o runtime não confirmou dá simulado: sem o
     const r = aceite(pl);
     assert.deepEqual([r.simulacao.marcas, r.veredito], [[], 'aprovado']);
   } finally { pl.p.limpar(); }
+});
+test('AC25: o git real acha o commit que reverte o merge, pela data do commit; o git que não responde e o ledger que não se lê são lacuna, sem a marca do runtime', () => {
+  // CHECK 5: só leitores SIMULADOS exercitavam o `reversoes`; o intervalo invertido e a data do autor passavam.
+  const dir = dirTemporario('ac25-git');
+  try {
+    const git = (args: string[], env: Record<string, string> = {}): string => {
+      const r = spawnSync('git', ['-c', 'user.email=teste@orkastery.local', '-c', 'user.name=Teste Orkastery', '-c', 'commit.gpgsign=false', ...args],
+        { cwd: dir, encoding: 'utf8', env: { ...process.env, ...env } });
+      assert.equal(r.status, 0, r.stderr);
+      return r.stdout.trim();
+    };
+    git(['init', '-q', '-b', 'main']);
+    fs.writeFileSync(path.join(dir, 'a'), 'a\n');
+    git(['add', 'a']);
+    git(['commit', '-q', '-m', 'base']);
+    git(['checkout', '-q', '-b', 'tema']);
+    fs.writeFileSync(path.join(dir, 'b'), 'b\n');
+    git(['add', 'b']);
+    git(['commit', '-q', '-m', 'tema']);
+    git(['checkout', '-q', 'main']);
+    git(['merge', '-q', '--no-ff', 'tema', '-m', 'merge do tema']);
+    const merge = git(['rev-parse', 'HEAD']);
+    fs.writeFileSync(path.join(dir, 'c'), 'c\n');
+    git(['add', 'c']);
+    git(['commit', '-q', '-m', 'outro']);
+    const outro = git(['rev-parse', 'HEAD']);
+    // O autor escreveu o revert um dia antes; vale a data do commit que entrou na base.
+    git(['revert', '-m', '1', '--no-edit', merge], { GIT_AUTHOR_DATE: '2026-01-01T10:00:00Z', GIT_COMMITTER_DATE: '2026-01-02T05:00:00Z' });
+    const revert = git(['rev-parse', 'HEAD']);
+    git(['remote', 'add', 'origin', dir]);
+    const leitor = gitDaRaiz(dir);
+    const ponta = leitor.ponta('origin', 'main');
+    assert.equal(ponta, revert);
+    assert.deepEqual((leitor.reversoes!(merge, ponta!) ?? []).map(r => ({ sha: r.sha, em: new Date(r.em).toISOString() })),
+      [{ sha: revert, em: '2026-01-02T05:00:00.000Z' }]);
+    assert.deepEqual(leitor.reversoes!(outro, ponta!), [], 'o commit que ninguém reverteu');
+    assert.equal(leitor.reversoes!('0'.repeat(40), ponta!), null, 'o merge que não está nesta cópia');
+    assert.equal(leitor.reversoes!('--all', ponta!), null, 'só hexadecimal chega ao git log');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+
+  const pl = piloto('ac25', { semRuntime: true });
+  const [, b] = pl.threads;
+  const doB = path.join(dirThread(pl.p.dir, b), 'ledger.jsonl');
+  try {
+    // O git que não lê as reversões do merge do arco não é "nenhuma reversão": M1 fica em lacuna.
+    const mudo = aceite(pl, { git: { ...comReversoes({}), reversoes: () => null } });
+    assert.deepEqual([medida(mudo, 'M1').valor, criterio(mudo, 'A1').veredito], [null, 'incompleto']);
+    assert.match(medida(mudo, 'M1').lacunas.join('; '), /as reversões do merge 1{12} não se leram no git/);
+    // O ledger do b, cuja sessão não tem o phase_dispatch_verified, nem se abre: é lacuna, e não a marca do despacho sem sessão.
+    fs.rmSync(doB);
+    fs.mkdirSync(doB);
+    const r = aceite(pl);
+    assert.ok(!r.simulacao.marcas.some(m => /sem a sessão confirmada pelo runtime/.test(m)), r.simulacao.marcas.join('\n'));
+    assert.notEqual(r.veredito, 'simulado');
+    assert.notEqual(r.veredito, 'aprovado');
+  } finally {
+    fs.rmSync(doB, { recursive: true, force: true });
+    pl.p.limpar();
+  }
 });
