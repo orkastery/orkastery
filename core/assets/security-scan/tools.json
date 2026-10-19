@@ -10,7 +10,7 @@
       "versionArgs": [
         "version"
       ],
-      "versionPattern": "\\b8\\.30\\.\\d+\\b"
+      "versionPattern": "\\bv?8\\.30\\.\\d+\\b"
     },
     "network": "none",
     "baseMode": "commit-range",
@@ -474,7 +474,7 @@
     "args": [
       "sh",
       "-c",
-      "mkdir -p /tmp/lint && cp \"$2\" /tmp/lint/eslint.config.mjs && npm install --prefix /tmp/lint --ignore-scripts --no-audit --no-fund --no-save {install} >&2 && cd \"$3\" && /tmp/lint/node_modules/.bin/eslint --config /tmp/lint/eslint.config.mjs --format json --output-file \"$1\" .; rc=$?; [ $rc -le 1 ] || exit $rc; node -e 'if(!Array.isArray(JSON.parse(require(\"fs\").readFileSync(process.argv[1],\"utf8\"))))process.exit(3)' \"$1\" || exit 3",
+      "mkdir -p /tmp/lint && cp \"$2\" /tmp/lint/eslint.config.mjs && npm install --prefix /tmp/lint --ignore-scripts --no-audit --no-fund --no-save {install} >&2 && cd \"$3\" && /tmp/lint/node_modules/.bin/eslint --no-error-on-unmatched-pattern --config /tmp/lint/eslint.config.mjs --format json --output-file \"$1\" .; rc=$?; [ $rc -le 1 ] || exit $rc; node -e 'if(!Array.isArray(JSON.parse(require(\"fs\").readFileSync(process.argv[1],\"utf8\"))))process.exit(3)' \"$1\" || exit 3",
       "sh",
       "{out}/eslint.json",
       "{config}",
