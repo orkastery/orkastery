@@ -1294,21 +1294,6 @@
       "lint": []
     },
     {
-      "id": "C100",
-      "thread": "ork-rm058integra",
-      "fase": "GO",
-      "arquivo": "core/src/noctum-aceite.ts",
-      "alegacao": "RM-058 integração, GO-FIX 2 e 3 (I1 do CHECK 2; N5 e N6 do CHECK 3): no aceite só a entrega do arco conta (o ship_done com o arco na evidência e sem incorporadaPor outro-caminho), e o MASTER do arco é o aceite_por_omissao com o arco na evidência, gravado até o fim dele; o ship, o MASTER por omissão e a reversão de fora do arco durante a condução são atos do dono em M1; os pushes contam só na condução; o PR criado depois do arco e a reversão depois da janela de entrega do relatório não contam. O que o dono faz depois do arco não muda o aceite nem o hash (AC16, AC19 e AC20, com dente por mutação).",
-      "negativa": false,
-      "verificar": [
-        "grep -qF \"return ev?.arco === arco && ev.incorporadaPor !== 'outro-caminho';\" core/src/noctum-aceite.ts && grep -qF 'e.tipo === TIPOS_DE_EVENTO.aceitePorOmissao && masterDoArco(e) && Date.parse(e.ts) <= fimMs' core/src/noctum-aceite.ts && grep -qF 'Date.parse(x.createdAt) > fimMs' core/src/noctum-aceite.ts && grep -qF 'Date.parse(e.ts) <= Date.parse(vencimento) + JANELA_DE_ENTREGA_MS' core/src/noctum-aceite.ts",
-        "node --test-reporter=tap --test-name-pattern='^AC(16|19|20):' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC(16|19|20):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
-      ],
-      "criadoEm": "2026-10-19T15:03:51.000Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C102",
       "thread": "ork-rm058integra",
       "fase": "GO",
@@ -1350,21 +1335,6 @@
         "node --test-reporter=tap --test-name-pattern='^AC21:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC21:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T15:04:05.641Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C105",
-      "thread": "ork-rm058integra",
-      "fase": "GO",
-      "arquivo": "core/scripts/checar-release-noctum.cjs",
-      "alegacao": "RM-058 integração, GO-FIX 3 (N2 e N3 do CHECK 3): o --texto lê o nome com N maiúsculo (o comando ork noctum não conta como o produto), aceita o link do Markdown logo depois do nome e um inciso entre vírgulas, mas não a vírgula sozinha; pega o \"é lançado\"; a negação logo antes do nome só vale na mesma linha; e \"não só\", \"not only\" e \"not just\" não são negação (RG15, com dente por mutação). A árvore desta thread passa.",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'não(?![ \\t]+só' core/scripts/checar-release-noctum.cjs && grep -qF 'NEGACAO_ANTES = /(?<![\\p{L}\\p{N}])(?:não|nem|nunca|not|nor|never)[ \\t]+' core/scripts/checar-release-noctum.cjs && grep -qF 'lançad[oa]s?)(?![\\\\p{L}\\\\p{N}])`, ' core/scripts/checar-release-noctum.cjs",
-        "node --test-reporter=tap --test-name-pattern='^RG15:' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG15:/{p++} END{exit !(p>=1 && f==0 && s==0)}' && node core/scripts/checar-release-noctum.cjs --texto"
-      ],
-      "criadoEm": "2026-10-19T15:04:10.098Z",
       "estado": "verificado",
       "lint": []
     },
@@ -1424,7 +1394,7 @@
         "node --test-reporter=tap --test-name-pattern='^GS19:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GS19:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T16:11:33.415Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1439,7 +1409,7 @@
         "node --test-reporter=tap --test-name-pattern='^LG2[356]:' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - LG2[356]:/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T16:11:37.721Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1454,7 +1424,7 @@
         "node --test-reporter=tap --test-name-pattern='^AC(17|22):' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC(17|22):/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T16:11:42.537Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1469,7 +1439,127 @@
         "node --test-reporter=tap --test-name-pattern='^RG16:' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG16:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T16:11:46.002Z",
-      "estado": "pendente",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C113",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/scripts/checar-release-noctum.cjs",
+      "alegacao": "RM-058 integração, GO-FIX 4 (I1 e M3 do CHECK 4): o --texto do portão recusa o anúncio do #Noctum em qualquer caixa de letra (## #Noctum Is Now Available, ### #Noctum Foi Lançado, #NOCTUM IS RELEASED), com o N maiúsculo conferido só no nome, de modo que o comando ork noctum segue liberado em qualquer caixa; recusa também o link por referência e o inline com título, o não somente e o não apenas, o disponibilizado e o has shipped (RG17, com dente por mutação: a flag sem o i, o link por referência, o não só sozinho, o disponibilizado e o has shipped tirados derrubam o RG17).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^test\\('RG17:\" core/test/release-noctum.test.ts && grep -qF \"if (!NOME_DO_PRODUTO.test(m[0])) { re.lastIndex = m.index + 1; continue; }\" core/scripts/checar-release-noctum.cjs",
+        "node --test-reporter=tap --test-name-pattern='^RG17:' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG17:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:25:47.179Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C114",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/scripts/checar-release-noctum.cjs",
+      "alegacao": "RM-058 integração, GO-FIX 4 (M2 do CHECK 4): o portão de release recusa o piloto cujo arquivo publicável tem marcas de simulação (release.noctum.piloto-simulado), o arco repetido com espaço ou caixa diferente (release.noctum.piloto-repetido), o arquivo sem o fim do piloto (release.noctum.aceite-invalido) e a ratificação anterior ao fim do último piloto (release.noctum.sem-ratificacao); ratificado no fim do último piloto, confere (RG18, com dente por mutação: tirar a leitura das marcas, a normalização do arco ou a comparação da data derruba o RG18).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^test\\('RG18:\" core/test/release-noctum.test.ts && grep -qF \"if (Date.parse(rat.em) < fimDosPilotos) {\" core/scripts/checar-release-noctum.cjs",
+        "node --test-reporter=tap --test-name-pattern='^RG18:' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG18:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:25:51.169Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C115",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração, GO-FIX 4 (I2 do CHECK 4): em M1, a reversão é ato do dono quando desfaz uma entrega do arco (o mergeSha de um ship_done dele) e o commit que reverte é da condução, pela data do commit no git (LeitorDoGit.reversoes), mesmo com o rollback_done gravado depois do arco ou sem rollback_done nenhum; a detectada depois do arco sem a data no git é lacuna; a reversão de uma entrega anterior ao arco não conta em M1 nem pede a correção do relatório em M10 (AC23, com dente por mutação: contar pela detecção, tirar o filtro do mergeSha ou a busca no git derruba o AC23; AC19 refeito com o mergeSha).",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"^test\\('AC23:\" core/test/noctum-aceite.test.ts && grep -qF \"|| !mergesDoArco.has(e.mergeSha)) continue;\" core/src/noctum-aceite.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC(19|23):' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC(19|23):/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:25:55.623Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C116",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração, GO-FIX 4 (I3 do CHECK 4): o aceite marca o despacho sem sessão do runtime prometido na T8: a sessão que o arco diz ter despachado sem o phase_dispatch_verified com encontrada true, por uma fonte que não se diz simulada, no ledger da thread, dá a marca e o veredito simulado; confirmada pelo runtime, o aceite volta a aprovar (AC24, com dente por mutação: tirar a marca, o encontrada ou o filtro da fonte simulada derruba o AC24).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^test\\('AC24:\" core/test/noctum-aceite.test.ts && grep -qF \"sem a sessão confirmada pelo runtime\" core/src/noctum-aceite.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC24:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC24:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:25:59.366Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C117",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração, GO-FIX 4 (M4 do CHECK 4): a agenda de injeções recusa o alvo vazio ou só de espaço (noctum.aceite.injecoes-invalidas), que antes valia como a falha do arco inteiro (AC21, com dente por mutação: tirar a conferência do alvo vazio derruba o AC21).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"(typeof v.alvo !== 'string' || !v.alvo.trim())\" core/src/noctum-aceite.ts && grep -qF \"alvo: '' }\" core/test/noctum-aceite.test.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC21:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC21:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:26:02.730Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C118",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-guarda.test.ts",
+      "alegacao": "RM-058 integração, GO-FIX 4 (M1 do CHECK 4, a C99 com o caso): no arco revogado, a reserva pendente do trabalho de pedido, feita antes de a thread existir e ainda sem thread gravada, segura a thread que o arco abriu enquanto a sessão dela conduz (a guarda e o ork ship recusam com noctum.guarda.thread-do-arco); acabada a sessão, a thread se entrega à mão (GS20, com dente por mutação: tirar da guarda a reserva pendente sem thread derruba o GS20).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^test\\('GS20:\" core/test/noctum-guarda.test.ts && grep -qF \"(d.desfecho === 'pendente' && !(d.threadDespachada ?? d.thread))\" core/src/noctum-guarda.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS20:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GS20:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:26:06.301Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C119",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração, GO-FIX 4 (no lugar da C100, cuja alegação da reversão o I2 do CHECK 4 mudou): no aceite só a entrega do arco conta (o ship_done com o arco na evidência e sem incorporadaPor outro-caminho), e o MASTER do arco é o aceite_por_omissao com o arco na evidência, gravado até o fim dele; o ship e o MASTER por omissão de fora do arco durante a condução são atos do dono em M1, e a reversão de uma entrega do arco também, pela data do commit que reverte; os pushes contam só na condução; o PR criado depois do arco e a reversão com o commit depois do arco não mudam o aceite nem o hash; no M10 só a reversão de entrega do arco detectada até o fim da janela de entrega do relatório pede a correção (AC16, AC19, AC20 e AC23, com dente por mutação).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"return ev?.arco === arco && ev.incorporadaPor !== 'outro-caminho';\" core/src/noctum-aceite.ts && grep -qF 'e.tipo === TIPOS_DE_EVENTO.aceitePorOmissao && masterDoArco(e) && Date.parse(e.ts) <= fimMs' core/src/noctum-aceite.ts && grep -qF 'Date.parse(x.createdAt) > fimMs' core/src/noctum-aceite.ts && grep -qF 'Date.parse(r.detectadaEm) <= Date.parse(vencimento) + JANELA_DE_ENTREGA_MS' core/src/noctum-aceite.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC(16|19|20|23):' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC(16|19|20|23):/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:55:20.656Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C120",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/scripts/checar-release-noctum.cjs",
+      "alegacao": "RM-058 integração, GO-FIX 4 (no lugar da C105, cujo texto da negação o M3 do CHECK 4 mudou): o --texto lê o nome com N maiúsculo (o comando ork noctum não conta como o produto, em qualquer caixa), aceita o link do Markdown logo depois do nome e um inciso entre vírgulas, mas não a vírgula sozinha; pega o \"é lançado\"; a negação logo antes do nome só vale na mesma linha; e \"não só\", \"não somente\", \"não apenas\", \"not only\" e \"not just\" não são negação (RG15 e RG17, com dente por mutação). A árvore desta thread passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'não(?![ \\t]+(?:só|somente|apenas)' core/scripts/checar-release-noctum.cjs && grep -qF 'NEGACAO_ANTES = /(?<![\\p{L}\\p{N}])(?:não|nem|nunca|not|nor|never)[ \\t]+' core/scripts/checar-release-noctum.cjs && grep -qF 'lançad[oa]s?)(?![\\\\p{L}\\\\p{N}])`, ' core/scripts/checar-release-noctum.cjs",
+        "node --test-reporter=tap --test-name-pattern='^RG1[57]:' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG1[57]:/{p++} END{exit !(p>=2 && f==0 && s==0)}' && node core/scripts/checar-release-noctum.cjs --texto"
+      ],
+      "criadoEm": "2026-10-19T16:55:25.067Z",
+      "estado": "verificado",
       "lint": []
     }
   ],
