@@ -35,31 +35,31 @@
     "cobertura": 0.4113
   },
   "integrada": {
-    "descricao": "a F3c depois do merge da origin/main: a main sozinha e a main com a F3c, no mesmo contador; o fecho obrigatorio do GO (RM-016) ganhou o par ingles no catalogo dos prompts",
+    "descricao": "a F3c depois do merge da origin/main: a main sozinha e a main com a F3c, no mesmo contador; o fecho obrigatorio do GO (RM-016) ganhou o par ingles no catalogo dos prompts; medida de novo depois do merge da RM-064 fatia 2 (8d37c75f), que trouxe a linha do trabalho retomavel ao prompt",
     "main": {
-      "arvore": "1e88a93292b19a08dd65f0798846441982d122d2",
-      "arquivos": 300,
-      "literaisComTexto": 5427,
-      "emPosicaoDeSaida": 3046,
-      "arquivosComSaida": 191,
-      "catalogo": { "entradas": 1930 },
-      "cobertura": 0.3879
+      "arvore": "8d37c75f93962f1ac4c5fb6fbd1a2f2506b621cd",
+      "arquivos": 301,
+      "literaisComTexto": 5436,
+      "emPosicaoDeSaida": 3053,
+      "arquivosComSaida": 192,
+      "catalogo": { "entradas": 1948 },
+      "cobertura": 0.3895
     },
     "comF3c": {
-      "arvore": "a9f21527da5197423e93e00310bd438d345f570f",
-      "arquivos": 301,
-      "literaisComTexto": 5261,
-      "emPosicaoDeSaida": 2953,
-      "arquivosComSaida": 188,
-      "catalogo": { "entradas": 2139 },
-      "cobertura": 0.4201
+      "arvore": "2383460ba8bef38419264435c77a9cdba64a57ad",
+      "arquivos": 302,
+      "literaisComTexto": 5270,
+      "emPosicaoDeSaida": 2960,
+      "arquivosComSaida": 189,
+      "catalogo": { "entradas": 2157 },
+      "cobertura": 0.4215
     },
     "snapshotsPtBR": {
-      "nota": "iguais byte a byte aos da main integrada; F2b e F3b mudaram na main por outras threads (registrar-pr do ship, ork-rm064f1 e ork-worktreebase), nao pela F3c",
+      "nota": "iguais byte a byte aos da main integrada (8d37c75f); F2b e F3b mudaram na main por outras threads (registrar-pr do ship, ork-rm064f1, ork-worktreebase e ork-rm064f2), nao pela F3c",
       "core/test/fixtures/locale-f2a-pt-BR.json": "3c5592b9553235ba98f3a01c81369cdc9403ea3ab052c4142c50e0573926775f",
       "core/test/fixtures/locale-f2b-pt-BR.json": "2ed8a595fb69394c3c3ecc33a1e7890fb0c50198df1d33a97108554d40e74024",
       "core/test/fixtures/locale-f3a-pt-BR.json": "40fe60a9346b19bbca1fb5d9b68c0a2409542d41e5fa6a3271bc5cda753ee3cc",
-      "core/test/fixtures/locale-f3b-pt-BR.json": "42c8e95415ca8a39137f55eacf4c33a6629b24c69034e14b6924b8794943b62b"
+      "core/test/fixtures/locale-f3b-pt-BR.json": "278230a01c1cf41145de97e38c5d12a78e5cc5915ae6ecc79e2374045eda81ae"
     }
   },
   "snapshotsPtBR": {

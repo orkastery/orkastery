@@ -201,16 +201,16 @@ A F3b mede no mesmo contador, com o recibo em [`cobertura-f3b.json`](evidencias/
 
 A F3c mede no mesmo contador, com o recibo em [`cobertura-f3c.json`](evidencias/RM-061/cobertura-f3c.json):
 
-| Medida | Base carimbada da F3c (`d38070d5`) | F3c (`7576d416`) | `main` sem a F3c (`1e88a932`) | F3c integrada à `main` (`a9f21527`) |
+| Medida | Base carimbada da F3c (`d38070d5`) | F3c (`7576d416`) | `main` sem a F3c (`8d37c75f`) | F3c integrada à `main` (`2383460b`) |
 | --- | --- | --- | --- | --- |
-| Entradas do catálogo | 1.800 | 1.998 | 1.930 | 2.139 |
-| Literais de saída fora do catálogo | 2.946 | 2.860 | 3.046 | 2.953 |
-| Cobertura | 37,9% | 41,1% | 38,8% | 42,0% |
+| Entradas do catálogo | 1.800 | 1.998 | 1.948 | 2.157 |
+| Literais de saída fora do catálogo | 2.946 | 2.860 | 3.053 | 2.960 |
+| Cobertura | 37,9% | 41,1% | 38,9% | 42,2% |
 
 - **O que mudou:** o `.orkastery/.gitignore` gerado pelo `ork init`, as recusas humanas de `ork decisao registrar` no CLI e no MCP (validação HITL v2, critério e rastro), o texto humano de `ork network roadmap`, o resultado e o pedido gerado por `ork thread new --from-finding`, `ork prompt` e o prompt montado pelo `ork phase run` seguem a língua do dono. O prompt inglês preserva as seis fases, os cinco módulos, a `CENTRAL RULE` e o fecho obrigatório do GO da RM-016; o pt-BR continua no template original.
 - **Dado gerado e texto impresso:** o que o `ork` grava para depois (o prompt despachado, com sha256 no ledger, e o pedido do achado, que vira o `--prompt` do GOAL) segue só a língua declarada em `owner.language`, sem ela pt-BR: o `LANG` de quem roda e o `--json` não o mudam. O texto impresso segue o locale do CLI, e o `ork prompt render` mostra o prompt na língua do despacho.
 - **Templates do projeto:** com o dono em inglês, o template de fase do projeto vence o embutido e o `.en` vem antes no mesmo nível; sem o par `.en`, a fase sai em pt-BR, inteira, e o `ork prompt lint` avisa ([`prompts/README.md`](../../prompts/README.md)).
-- **Integração com a `main`:** o merge da `origin/main` (`1e88a932`) trouxe o template pt-BR v4 com o fecho obrigatório do GO. O fecho passou ao catálogo dos prompts (o pt-BR é o texto da `main`, byte a byte) e o template inglês acompanha a v4, com as mesmas variáveis, fases e ordem; um teste reprova a língua que ficar para trás. As duas colunas da direita medem a mesma `main` sem e com a F3c.
+- **Integração com a `main`:** o merge da `origin/main` (`1e88a932`) trouxe o template pt-BR v4 com o fecho obrigatório do GO. O fecho passou ao catálogo dos prompts (o pt-BR é o texto da `main`, byte a byte) e o template inglês acompanha a v4, com as mesmas variáveis, fases e ordem; um teste reprova a língua que ficar para trás. As duas colunas da direita medem a mesma `main` sem e com a F3c, medidas de novo depois do merge da RM-064 fatia 2 (`8d37c75f`), que trouxe a linha do trabalho retomável ao prompt: o template inglês ganhou a mesma linha, e o snapshot `locale-f3c-pt-BR.json` foi regerado pelos mesmos casos sobre essa `main`.
 - **Contratos preservados:** `ork network roadmap` mantém byte a byte as três linhas que os hosts e a prova de ativação leem; códigos do HITL v2, ledger e `--json` não mudam. O snapshot `locale-f3c-pt-BR.json` guarda 355 casos das cinco superfícies em pt-BR, gerados sobre a `main` de integração, e o teste os compara byte a byte. Os quatro snapshots pt-BR das fatias anteriores têm os hashes de antes na F3c e os da `main` na F3c integrada (F2b e F3b mudaram na `main` por outras threads); os dois conjuntos estão no recibo da cobertura.
 - **F3d:** ficam para a próxima fatia os demais comandos ainda fora da lista, os mods, as tools do OpenClaw e as cópias dos marketplaces. Ficam também, vistos na revisão independente da F3c: o detalhe das lacunas do `network roadmap` em inglês, que hoje sai genérico por tipo (o detalhe pt-BR segue no `--json`), o bloco de memória injetada no prompt inglês, ainda em pt-BR, e as recusas HITL v2 da classe pergunta, fora do catálogo. Essa separação mantém a F3c verificável sem misturar superfícies opcionais com os cinco itens pedidos.
 

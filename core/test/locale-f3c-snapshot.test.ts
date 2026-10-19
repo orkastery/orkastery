@@ -2,7 +2,7 @@
  * RM-061, fatia F3c: o texto pt-BR das cinco superficies da fatia (o `.gitignore` do estado, as recusas de `decisao
  * registrar`, o `network roadmap`, a ficha e o pedido do `--from-finding` e os prompts de fase com o `ork prompt`) fica
  * igual byte a byte ao da main de integracao. Os casos moram em `locale-f3c-casos.ts`; a fixture foi gerada uma vez por
- * eles sobre o codigo da main (`1e88a932`, antes da F3c) e este teste so compara. O nome comeca por "locale pt-BR
+ * eles sobre o codigo da main (`8d37c75f`, antes da F3c; regerada depois do merge da RM-064 fatia 2) e este teste so compara. O nome comeca por "locale pt-BR
  * F3c:" para a claim rodar so ele.
  */
 

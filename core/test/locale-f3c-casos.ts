@@ -6,7 +6,7 @@
  * ramos que a fatia toca; a matriz de prompts entra pelo sha256 e tres representantes entram por inteiro.
  *
  * A fixture `fixtures/locale-f3c-pt-BR.json` foi gerada UMA vez por estes casos sobre o codigo da main de integracao
- * (`1e88a932`, antes da F3c); o teste `locale-f3c-snapshot` so compara e nunca regrava. Pastas temporarias saem
+ * (`8d37c75f`, antes da F3c; regerada depois do merge da RM-064 fatia 2); o teste `locale-f3c-snapshot` so compara e nunca regrava. Pastas temporarias saem
  * normalizadas, igual na geracao e na comparacao. So entram funcoes que a main ja tinha, com a mesma assinatura.
  */
 
