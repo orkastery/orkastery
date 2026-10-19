@@ -982,21 +982,6 @@
       "lint": []
     },
     {
-      "id": "C72",
-      "thread": "ork-rm058integra",
-      "fase": "GO",
-      "arquivo": "core/src/noctum-guarda.ts",
-      "alegacao": "RM-058 integração (GO-FIX 1, A2 do CHECK): no arco revogado, expirado ou encerrado, a thread que ainda é conduzida por uma sessão que o arco despachou segue guardada nos caminhos manuais (o ork ship da própria sessão recusa com noctum.guarda.thread-do-arco); sem sessão do arco em voo, a thread se entrega à mão como antes (GS5 e GS15, com dente por mutação).",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'function sessaoDoArcoEmVoo(raiz: string, thread: string, estado: EstadoDoArco): string | null {' core/src/noctum-guarda.ts && grep -qF 'const sessao = lido ? sessaoDoArcoEmVoo(raiz, thread, lido.estado) : null;' core/src/noctum-guarda.ts",
-        "node --test-reporter=tap --test-name-pattern='^GS(5|15):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS(5|15):/{p++} END{exit !(p>=2 && f==0)}'"
-      ],
-      "criadoEm": "2026-10-19T12:38:31.378Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C74",
       "thread": "ork-rm058integra",
       "fase": "GO",
@@ -1290,7 +1275,7 @@
         "node --test-reporter=tap --test-name-pattern='^GS17:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GS17:/{p++} END{exit !(p>=1 && f==0 && s==0)}' && node --test --test-reporter=tap core/dist-test/test/ship-publicar.test.js core/dist-test/test/ork-pista.test.js | awk '/^# fail/{f=$3} /^# pass/{p=$3} END{exit !(p>=41 && f==0)}'"
       ],
       "criadoEm": "2026-10-19T14:52:26.838Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1305,7 +1290,7 @@
         "node --test-reporter=tap --test-name-pattern='^LG2[35]:' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - LG2[35]:/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T14:52:30.615Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1320,7 +1305,7 @@
         "node --test-reporter=tap --test-name-pattern='^GS1[568]:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GS1[568]:/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T14:52:35.117Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1335,7 +1320,7 @@
         "node --test-reporter=tap --test-name-pattern='^AC(16|19|20):' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC(16|19|20):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T15:03:51.000Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1350,7 +1335,7 @@
         "node --test-reporter=tap --test-name-pattern='^AC17:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC17:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T15:03:55.890Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1365,7 +1350,7 @@
         "node --test-reporter=tap --test-name-pattern='^LG14:' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - LG14:/{p++} END{exit !(p>=1 && f==0)}' && node --test --test-reporter=tap core/dist-test/test/master-omissao.test.js core/dist-test/test/master-omissao-alvo.test.js | awk '/^# fail/{f=$3} /^# pass/{p=$3} END{exit !(p>=17 && f==0)}'"
       ],
       "criadoEm": "2026-10-19T15:03:59.841Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1380,7 +1365,7 @@
         "node --test --test-reporter=tap core/dist-test/test/noctum-entrega.test.js core/dist-test/test/noctum-integracao-entrega.test.js | awk '/^# fail/{f=$3} /^# pass/{p=$3} END{exit !(p>=49 && f==0)}'"
       ],
       "criadoEm": "2026-10-19T15:04:02.727Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1395,7 +1380,7 @@
         "node --test-reporter=tap --test-name-pattern='^AC21:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC21:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T15:04:05.641Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1410,7 +1395,7 @@
         "node --test-reporter=tap --test-name-pattern='^RG15:' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG15:/{p++} END{exit !(p>=1 && f==0 && s==0)}' && node core/scripts/checar-release-noctum.cjs --texto"
       ],
       "criadoEm": "2026-10-19T15:04:10.098Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1425,7 +1410,7 @@
         "node core/dist/index.js docs verificar && node core/scripts/checar-release-noctum.cjs --texto"
       ],
       "criadoEm": "2026-10-19T15:04:15.544Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1439,6 +1424,21 @@
         "grep -qF 'so a negacao do verbo, entre o nome e o participio ou logo antes' .github/workflows/ci.yml && ! grep -qF 'a negacao na mesma oracao libera' .github/workflows/ci.yml && grep -qF 'run: node core/scripts/checar-release-noctum.cjs --texto' .github/workflows/ci.yml"
       ],
       "criadoEm": "2026-10-19T15:04:17.975Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C108",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-guarda.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, A2 do CHECK; a linha nova do GO-FIX 3): no arco revogado, expirado ou encerrado, a thread que ainda é conduzida por uma sessão que o arco despachou segue guardada nos caminhos manuais (o ork ship da própria sessão recusa com noctum.guarda.thread-do-arco); sem sessão do arco em voo, a thread se entrega à mão como antes (GS5 e GS15, com dente por mutação).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'function sessaoDoArcoEmVoo(raiz: string, thread: string, estado: EstadoDoArco): { sessionId: string } | { seq: number } | null {' core/src/noctum-guarda.ts && grep -qF 'const sessao = lido ? sessaoDoArcoEmVoo(raiz, thread, lido.estado) : null;' core/src/noctum-guarda.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS(5|15):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS(5|15):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T15:36:04.970Z",
       "estado": "pendente",
       "lint": []
     }
