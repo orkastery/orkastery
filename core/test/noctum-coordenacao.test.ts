@@ -878,9 +878,10 @@ test('K24: a chave que a emenda aposentou não fecha a ordem da chave nova; a ra
     // local terminada, a raiz nova espera a vaga da chave antiga.
     assert.match(recusa(() => concluirOrdem(t2.carregadoC, m2.arco, 'O-d-1', { resultado: 'entregue', thread: null }, opA),
       'noctum.coordenacao.ordem-vencida'), /a vaga V-maquina-a-1 da ordem O-d-1 é de outra chave da máquina maquina-a/);
-    const comThread = planejarReconciliacao(lerCoordenacao(t2.carregadoC, m2.arco, opA), 'maquina-a', { arcoVigente: true,
+    const planoComThread = () => planejarReconciliacao(lerCoordenacao(t2.carregadoC, m2.arco, opA), 'maquina-a', { arcoVigente: true,
       sessoesVivas: new Set(), threads: new Map([['d', { id: 'thread-d', entregue: true, fechada: true }]]), despachos: new Map(),
       chave: identidadeDaMaquina(t2.c, 'maquina-a').chave });
+    const comThread = planoComThread();
     assert.deepEqual([comThread.concluidas, comThread.aguardando.map(x => x.ordem)], [[], ['O-d-1']]);
     const e = lerCoordenacao(m2.b.carregado, m2.arco, opB);
     assert.deepEqual([e.ordens.get('O-a-1')!.estado, situacaoDoTrabalho(e, 'a')!.estado, e.ordens.get('O-d-1')!.estado,
@@ -888,6 +889,9 @@ test('K24: a chave que a emenda aposentou não fecha a ordem da chave nova; a ra
     // A raiz antiga volta com a emenda autorizada, prova a parada da sessão e solta a vaga dela; aí a raiz nova fecha a ordem.
     autorizarPedido(m2.a.dir, m2.arco, t2.emenda);
     soltarVagaGlobal(m2.a.carregado, m2.arco, 'V-maquina-a-1', { consumiu: false, motivo: 'SIMULADO: a sessão da raiz antiga parou' }, opA);
+    // Com a vaga antiga solta, o plano da raiz nova já conclui pela thread local (S1 da quarta passada).
+    const soltaAVaga = planoComThread();
+    assert.deepEqual([soltaAVaga.concluidas, soltaAVaga.aguardando.map(x => x.ordem)], [['O-d-1'], []]);
     encerrarOrdem(t2.carregadoC, m2.arco, 'O-d-1', { motivo: 'SIMULADO: retomada', checkpoint: {} }, opA);
     const depois = lerCoordenacao(m2.b.carregado, m2.arco, opB);
     assert.deepEqual([depois.ordens.get('O-d-1')!.estado, situacaoDoTrabalho(depois, 'd')!.estado,
