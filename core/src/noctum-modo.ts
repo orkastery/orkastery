@@ -32,8 +32,8 @@ import { OpcoesDoPasso, ResultadoDoPasso } from './noctum-execucao';
 import { fecharSeDevido, lerFechamento, OpcoesDoFechamento, ResultadoDoFechamento, textoDaParada, trabalhosDoArco } from './noctum-fechamento';
 import { fatosDaFila, LeitorDeReservas } from './noctum-fila';
 import { consumoDoEscopoNaUnidade, MedicaoDoArco, textoDoConsumo } from './noctum-medicao';
-import { entregarRelatorioSeDevido, FatosDaSupervisao, fatosDaSupervisao, medidorDoRelatorio, OpcoesDoRelatorio, ResultadoDaEntrega,
-  retratoDoRelatorio, RetratoDoRelatorio } from './noctum-relatorio';
+import { entregarRelatorioSeDevido, FatosDaSupervisao, fatosDaSupervisao, JANELA_DE_ENTREGA_MS, medidorDoRelatorio, OpcoesDoRelatorio,
+  ResultadoDaEntrega, retratoDoRelatorio, RetratoDoRelatorio } from './noctum-relatorio';
 import { RecusaDoRegistro } from './noctum-registro';
 import { RecusaDaSupervisao } from './noctum-supervisao';
 import { OpcoesDoVigia, ResultadoDoVigia, vigiarArco } from './noctum-vigia';
@@ -260,11 +260,19 @@ export interface ResultadoDoTique {
   falhas: FalhaDoTique[];
 }
 
-/** O arco terminal e quieto: nada pendente no log e o relatório entregue. O vigia não roda mais, e o log dele não cresce. */
+/**
+ * O arco terminal e quieto: nada pendente no log e o relatório entregue, ou a janela de entrega dele (24 h depois do
+ * vencimento) acabada, quando o relatório não tenta mais (A3 do CHECK: o canal sem transporte, o terminal nunca mostrado).
+ * O vigia não roda mais, e o log dele não cresce.
+ */
 function terminalQuieto(carregado: ManifestoCarregado, arco: string, estado: EstadoDoArco, quando: string): boolean {
   if (!['expirado', 'revogado', 'encerrado'].includes(estado.situacao)) return false;
   if (estado.despachos.some(d => d.desfecho === 'pendente')) return false;
-  try { return retratoDoRelatorio(carregado.raiz, arco, estado.conteudo, quando).versoes.at(-1)?.entregue === true; } catch { return false; }
+  try {
+    const r = retratoDoRelatorio(carregado.raiz, arco, estado.conteudo, quando);
+    if (r.versoes.at(-1)?.entregue === true) return true;
+    return !!r.vencimentoEm && Date.parse(quando) >= Date.parse(r.vencimentoEm) + JANELA_DE_ENTREGA_MS;
+  } catch { return false; }
 }
 
 /**

@@ -32,7 +32,7 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { comLocale, textoDoCatalogo } from './locale';
 import { ManifestoCarregado } from './manifest';
 import { aceitarPendentesPorOmissao, motivoForaDaOmissao } from './master';
-import { ArcoDoPasso, arcoDoPasso, lerArcosDaRaiz } from './noctum-guarda';
+import { ArcoDoPasso, arcoDoPasso, lerArcosDaRaiz, MOTIVO_DO_ARCO_ILEGIVEL } from './noctum-guarda';
 import { LIMIAR_PARADO_NO_CONDUTOR_MIN } from './parado-no-condutor';
 import { FantasmaTratado, limparFantasmas } from './sessoes';
 import { inventariarSessoes } from './sessoes-inventario';
@@ -332,7 +332,8 @@ export function acoesPendentes(carregado: ManifestoCarregado, opcoes: OpcoesDaDe
     if (!porThread.has(a.thread)) porThread.set(a.thread, arcoDoPasso(raiz, arcos, a.thread, ledgerDe(raiz, a.thread)));
     const arco = porThread.get(a.thread);
     if (arco?.efeito !== 'guarda') { saida.push(a); continue; }
-    if (opcoes.comArco) saida.push({ ...a, bloqueio: arco.detalhe, motivoDoBloqueio: 'thread-do-arco' });
+    // A6 do CHECK: o arco que nao se le nao tem relatorio que diga da thread ao dono; a acao fica no pulse, bloqueada.
+    if (opcoes.comArco || arco.motivo === MOTIVO_DO_ARCO_ILEGIVEL) saida.push({ ...a, bloqueio: arco.detalhe, motivoDoBloqueio: 'thread-do-arco' });
   }
   return saida;
 }

@@ -25,7 +25,7 @@ import { fatosDoRelatorio, linhasDoRelatorio, vencimentoDoRelatorio } from '../s
 import { dirDaSupervisao, gravarNaSupervisao, lerSupervisao } from '../src/noctum-supervisao';
 import { conduzirArco, OpcoesDoVigia, passoConduzido, ResultadoDoTique as TiqueDoVigia, ResultadoDoVigia } from '../src/noctum-vigia';
 import { ResultadoRun } from '../src/phase';
-import { dirThread, lerThread } from '../src/thread';
+import { dirThread, lerThread, novaThread } from '../src/thread';
 
 prepararIngressoSimulado();
 assert.ok(kernelDisponivel(), 'o tique do arco exige /usr/bin/flock');
@@ -485,5 +485,45 @@ test('LG19: a parada pelo teto do arco não fecha por cima da sessão admitida: 
     registrar(dirThread(p.dir, thread), thread, 'phase_result', { fase: 'GOAL', sessionId: sessao, classificacao: 'fase_concluida', ok: true });
     const r3 = tique();
     assert.deepEqual([r3.fechamento.fechado, r3.fechamento.motivo, r3.fechamento.paradas.length], [true, 'custo', 0], JSON.stringify(r3.fechamento));
+  } finally { p.limpar(); }
+});
+
+test('LG20: no arco terminal cujo relatório não sai (sem transporte), o vigia roda até a janela de entrega de 24 h acabar, e depois não', () => {
+  const p = projetoTemporario('lg20');
+  try {
+    abrirSemRelatorio(p, 'arco-lg20', { trabalhos: [A], contas: DUAS });
+    revogarArco(p.dir, 'arco-lg20');
+    const vencimento = vencimentoDoRelatorio(lerArco(p.dir, 'arco-lg20')!.conteudo!);
+    let chamadas = 0;
+    const vigia = (): ResultadoDoVigia => { chamadas += 1; return { acao: 'sem-arco', detalhe: 'vigia SIMULADO' }; };
+    // Sem o enviar simulado e sem transporte configurado: o relatório nunca tem recibo.
+    const tique = (quando: string) => tiqueDoArco(p.carregado, 'arco-lg20', { ...simuladas(), enviar: undefined, quando, vigia });
+    const r1 = tique(vencimento);
+    assert.deepEqual([chamadas, r1.relatorio.acao === 'entregue'], [1, false]);
+    tique(new Date(Date.parse(vencimento) + 23 * HORA).toISOString());
+    assert.equal(chamadas, 2, 'dentro da janela de entrega, o vigia segue');
+    const r3 = tique(new Date(Date.parse(vencimento) + 24 * HORA + 5 * 60_000).toISOString());
+    assert.deepEqual([chamadas, r3.vigia], [2, null], 'acabada a janela, o arco fica quieto e o log da supervisão não cresce');
+  } finally { p.limpar(); }
+});
+
+test('LG21: o condutor que acabou de gravar a baseline volta já ao passo, sem dormir a cadência', () => {
+  const p = projetoTemporario('lg21');
+  try {
+    abrirSemRelatorio(p, 'arco-lg21', { trabalhos: [A], contas: DUAS });
+    vigiaPresente(p, 'arco-lg21');
+    const registro: string[] = [], baselines: string[] = [];
+    // O instante da iteração ficou para trás (a baseline real leva minutos), e o `ate` do passo é o relógio depois dela.
+    const inicio = new Date(Date.now() - 30 * 60_000).toISOString();
+    const dormiu: number[] = [];
+    const c = conduzirArco(p.carregado, 'arco-lg21', { ...opcoesSimuladas(p.dir, ITENS, registro, { passo: {
+      abrirThread: (k, o) => novaThread(k, { ...o, criarWorktree: false }).thread,
+      gravarBaseline: (_k, t) => {
+        baselines.push(t);
+        registrar(dirThread(p.dir, t), t, 'baseline_recorded', { commit: 'SIMULADO', comandos: [], simulado: true });
+      } } as OpcoesDoVigia['passo'] }), maxPassos: 1, relogio: () => inicio, dormir: (ms) => { dormiu.push(ms); } });
+    assert.ok(c.acao === 'saiu' && c.ultimo?.acao === 'aguardar' && c.ultimo.motivo === 'baseline-gravada', JSON.stringify(c));
+    assert.equal(baselines.length, 1);
+    assert.deepEqual(dormiu, [0]);
   } finally { p.limpar(); }
 });

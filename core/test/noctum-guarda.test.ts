@@ -624,3 +624,30 @@ test('GS15: no arco revogado, a sessão que ele despachou e que ainda conduz a t
     assert.notEqual(ship(p.carregado, thread.id, { para: 'main', dryRun: true }).codigo, MOTIVO_DA_GUARDA);
   } finally { p.limpar(); }
 });
+
+test('GT5: o arco que não se lê não tem relatório: as ações das threads dele ficam no pulse, bloqueadas, com o texto da guarda', () => {
+  const p = projetoTemporario('gt5', true);
+  try {
+    const parada = comPedido(p, 'gt5 parada');
+    const masterDoArco = novaThread(p.carregado, { nome: 'gt5 master', modo: 'auto' }).thread.id;
+    abrirArco(p.dir, 'arco-gt5', { trabalhos: [daThread('w1', parada), daThread('w2', masterDoArco, 'RM-902', 2)] });
+    faseConcluida(p, parada, 'GOAL', 'noctum:arco-gt5');
+    despachoDaFase(p, masterDoArco, 'GO', 'noctum:arco-gt5');
+    registrar(dirThread(p.dir, masterDoArco), masterDoArco, TIPOS_DE_EVENTO.shipConcluido, { origem: 'pr', pr: 7, simulado: true });
+    // Uma linha com MAC que não confere: o log do arco reprova toda leitura.
+    const log = path.join(raizDoEstado(p.dir), '.orkastery', 'noctum', 'arcos', 'arco-gt5', 'arco.jsonl');
+    fs.appendFileSync(log, `${JSON.stringify({ dados: { seq: 99 }, mac: '0'.repeat(64) })}\n`);
+    autorizar(p, ['despachar', 'master']);
+    const chamadas: string[] = [];
+    const r = baterConducao(p.carregado, opcoesDaBatida(chamadas));
+    assert.equal(r.ocupada, false);
+    assert.deepEqual(chamadas, [], 'nada sai pela thread do arco que não se lê');
+    const daBatida = pendentesDaUltimaBatida(p.dir, new Date().toISOString()).filter(a => a.thread === parada);
+    assert.deepEqual(daBatida.map(a => [a.acao, a.motivoDoBloqueio]), [['despachar', 'thread-do-arco']]);
+    assert.match(daBatida[0].bloqueio ?? '', /^noctum\.guarda\.arco-ilegivel: o último despacho da thread .* foi do arco arco-gt5/);
+    const depois = new Date(Date.now() + 40 * MIN).toISOString();
+    const doPulse = acoesPendentes(p.carregado, { fantasmas: () => [], vivas: () => [], quando: depois }).filter(a => a.thread === masterDoArco);
+    assert.deepEqual(doPulse.map(a => [a.acao, a.motivoDoBloqueio]), [['master', 'thread-do-arco']]);
+    assert.match(doPulse[0].bloqueio ?? '', /^noctum\.guarda\.arco-ilegivel: /);
+  } finally { p.limpar(); }
+});

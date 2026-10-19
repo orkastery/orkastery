@@ -530,7 +530,9 @@ export function conduzirArco(carregado: ManifestoCarregado, arco: string,
       // A recusa que passa (a conta, a vaga, a condução, o orçamento esgotado na reserva) espera a cadência, que é quando
       // o vigia relê as contas; a que conta (a árvore, a policy) volta depois da pausa, e repetida isola o trabalho (RA2 da
       // rodada 3).
-      const doPasso = ultimo.acao === 'aguardar' ? Date.parse(ultimo.ate)
+      // A5 do CHECK: o passo que acabou de gravar a baseline volta já; o `ate` dele é o relógio depois da suíte, e medir a
+      // espera do começo da iteração faria o condutor dormir a cadência inteira antes de despachar.
+      const doPasso = ultimo.acao === 'aguardar' ? (ultimo.motivo === 'baseline-gravada' ? Date.parse(quando) : Date.parse(ultimo.ate))
         : ultimo.acao === 'recusado' ? Date.parse(quando) + (passageira(ultimo.motivo) ? parametros.cadenciaMs : PAUSA_DEPOIS_DA_RECUSA_MS)
         : Date.parse(quando);
       // RM-058, integração (D8): o menor `ate` do despacho e da entrega; a entrega que fez um efeito volta já, e a que não tem

@@ -6,10 +6,12 @@
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
 import { abrirArco, prepararIngressoSimulado, threadDoTrabalho } from './noctum-apoio';
 import { opcoesSimuladas } from './noctum-supervisao-apoio';
-import { ErroDaFilaPesada, kernelDisponivel } from '../src/fila-pesada';
+import { ErroDaFilaPesada, kernelDisponivel, tentarTravaExclusiva } from '../src/fila-pesada';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { lerArco } from '../src/noctum-arco';
 import { baselineDoArcoPendente, OpcoesDoPasso, passoDoArco } from '../src/noctum-execucao';
@@ -71,9 +73,17 @@ test('BL2: o condutor grava a baseline uma vez, fora da trava, e o passo seguint
   try {
     const thread = arcoComThread(p, 'arco-bl2');
     const registro: string[] = [], gravacoes: string[] = [];
-    const opcoes = passo(p, registro, { gravarBaseline: baselineSimulada(gravacoes) });
+    let travaLivre: boolean | null = null;
+    const opcoes = passo(p, registro, { gravarBaseline: (k, t, c) => {
+      // A4 do CHECK: a baseline roda com a trava de despacho da máquina já solta (outro arco despacha enquanto a suíte roda).
+      const fd = tentarTravaExclusiva(path.join(p.dir, '.orkastery', 'noctum', 'despacho.lock'));
+      travaLivre = fd !== null;
+      if (fd !== null) fs.closeSync(fd);
+      baselineSimulada(gravacoes)(k, t, c);
+    } });
     const r1 = passoDoArco(p.carregado, 'arco-bl2', opcoes);
     assert.ok(r1.acao === 'aguardar' && r1.motivo === 'baseline-gravada', JSON.stringify(r1));
+    assert.equal(travaLivre, true, 'a baseline rodou fora da trava de despacho');
     assert.deepEqual(gravacoes, [thread]);
     assert.deepEqual(registro, []);
     const r2 = passoDoArco(p.carregado, 'arco-bl2', opcoes);

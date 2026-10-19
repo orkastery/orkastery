@@ -660,13 +660,16 @@ export function pendentesDaUltimaBatida(raiz: string, quando: string): AcaoPende
   const saida: AcaoPendente[] = [];
   for (const i of r.pendentes) {
     if (i.acao !== 'merge' && i.acao !== 'despachar') continue;
-    // RM-058, integracao (T1.2): o pulo da thread de um arco #Noctum fica no retrato; quem diz dela ao dono e o relatorio do arco.
-    if (i.motivo === MOTIVO_DA_GUARDA || i.motivo === MOTIVO_DO_ARCO_ILEGIVEL) continue;
+    // RM-058, integracao (T1.2): o pulo da thread de um arco #Noctum fica no retrato; quem diz dela ao dono e o relatorio do
+    // arco. O arco que nao se le nao tem relatorio (A6 do CHECK): o pulo dele vai a fila do dono, com o texto da guarda.
+    if (i.motivo === MOTIVO_DA_GUARDA) continue;
+    const ilegivel = i.motivo === MOTIVO_DO_ARCO_ILEGIVEL;
     try { if (lerThread(raizDoEstado(raiz), i.thread).status === 'fechada') continue; } catch { continue; }
     // A espera que passa de 2 h (check obrigatorio parado, o GitHub sem o estado do merge) vira item do dono.
     const longa = i.resultado === 'espera' && !!i.desdeEm && Date.parse(quando) - Date.parse(i.desdeEm) > ESPERA_LONGA_MS;
-    const motivo = longa ? 'espera-longa' : i.motivo;
-    const bloqueio = ehBloqueio(motivo) ? textoDoCatalogo((m) => m.pulse.varredura.bloqueios[motivo as MotivoDoBloqueio]) : null;
+    const motivo = longa ? 'espera-longa' : ilegivel ? 'thread-do-arco' : i.motivo;
+    const bloqueio = ilegivel && !longa ? i.detalhe
+      : ehBloqueio(motivo) ? textoDoCatalogo((m) => m.pulse.varredura.bloqueios[motivo as MotivoDoBloqueio]) : null;
     const recusa = i.motivo && /-recusad[oa]$/.test(i.motivo) ? { em: r.consultadoEm, detalhe: i.detalhe } : null;
     saida.push({ acao: i.acao, thread: i.thread, fase: i.fase, sessionId: null, desdeEm: i.desdeEm, comando: i.comando, oQue: i.oQue,
       evidencia: i.evidencia, bloqueio, motivoDoBloqueio: bloqueio ? (motivo as MotivoDoBloqueio) : null, recusa });
