@@ -211,7 +211,7 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
 /** Comandos declarados em `verify:` no manifesto, na ordem canonica. */
 export function comandosDoManifesto(manifesto: Manifesto): { nome: string; comando: string }[] {
   const lista: { nome: string; comando: string }[] = [];
-  for (const nome of ['typecheck', 'build', 'test'] as const) {
+  for (const nome of ['typecheck', 'build', 'test', 'security_scan'] as const) {
     const comando = manifesto.verify[nome];
     if (comando && comando.trim() !== '') lista.push({ nome, comando });
   }

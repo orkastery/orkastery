@@ -190,10 +190,12 @@ export interface Manifesto {
     build?: string;
     test?: string;
     typecheck?: string;
+    /** Comando opcional do scan de seguranca; o 4o do verify, depois de typecheck, build e test. */
+    security_scan?: string;
     /** I-37 (D2): prazo default de cada comando de verificacao, em ms. */
     timeout_ms?: number;
     /** I-37 (D2): prazo de um comando do manifesto, que vence o default. */
-    timeout_ms_por_comando?: { build?: number; test?: number; typecheck?: number };
+    timeout_ms_por_comando?: { build?: number; test?: number; typecheck?: number; security_scan?: number };
     /**
      * I-54 (RM-037, D10): o preparo que `ork verify` roda UMA vez antes das claims (a compilacao).
      * Cada claim continua rodando o proprio comando inteiro; o preparo so deixa pronto o que ela
