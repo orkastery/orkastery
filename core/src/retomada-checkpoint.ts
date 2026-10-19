@@ -6,6 +6,7 @@ import { lerClaims } from './claims';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { cwdLocalOuNulo, diretorioDaThread } from './procedencia';
 import { dirThread } from './thread';
+import { formatarResumoDoTrabalho, ResumoDoTrabalho, resumirTrabalhoDaThread } from './trabalho-thread';
 import { EventoLedger, Fase, Thread } from './types';
 import { exec } from './util';
 
@@ -16,6 +17,7 @@ export interface PontoDeParada {
   claimsPendentes: string[];
   rodadaCheck: number;
   goFixEmCurso: number | null;
+  trabalho: ResumoDoTrabalho;
 }
 
 export interface PromptDeRetomada {
@@ -47,7 +49,8 @@ export function derivarPontoDeParada(raiz: string, thread: Thread, fase: Fase,
   const abertas = eventos.filter((e) => e.tipo === TIPOS_DE_EVENTO.fixAberto).map(numero).filter((n): n is number => n !== null);
   const fechadas = new Set(eventos.filter((e) => e.tipo === TIPOS_DE_EVENTO.reverifyConcluido).map(numero).filter((n): n is number => n !== null));
   const goFixEmCurso = abertas.filter((r) => !fechadas.has(r)).at(-1) ?? null;
-  return { fase, ultimoCommit, gitStatus, claimsPendentes, rodadaCheck, goFixEmCurso };
+  const trabalho = resumirTrabalhoDaThread(raiz, thread.id);
+  return { fase, ultimoCommit, gitStatus, claimsPendentes, rodadaCheck, goFixEmCurso, trabalho };
 }
 
 function secao(p: PontoDeParada, originalSha: string): string {
@@ -60,6 +63,8 @@ function secao(p: PontoDeParada, originalSha: string): string {
     `- Claims pendentes: ${p.claimsPendentes.length ? p.claimsPendentes.map((c) => `\`${c}\``).join(', ') : '(nenhuma)'}\n` +
     `- Rodadas de CHECK observadas: ${p.rodadaCheck}\n` +
     `- GO-FIX em curso: ${p.goFixEmCurso === null ? '(nenhum)' : `rodada ${p.goFixEmCurso}`}\n` +
+    `- Trabalho retomável: \`${p.trabalho.caminho}\`\n` +
+    `${formatarResumoDoTrabalho(p.trabalho)}\n` +
     `- \`git status --porcelain\`:\n\n\`\`\`text\n${status}\n\`\`\`\n\n`;
 }
 

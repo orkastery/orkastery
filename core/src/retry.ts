@@ -39,7 +39,7 @@ import { DAEMON_DO_CLAUDE } from './adapters/claude-bg';
 import { ManifestoCarregado } from './manifest';
 import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, perfilParaDespacho, resolverDespacho, slugDaSessao,
   baselineDoDespachoNecessaria, estadoParaDespacho, garantirBaselineDoDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
-import { ContextoRuntime, contextoDoProjeto, novaIdentidadeDeDespacho } from './runtime-context';
+import { capacidadeDoRuntimeNoProjeto, ContextoRuntime, contextoDoProjeto, novaIdentidadeDeDespacho } from './runtime-context';
 import { proximaRotacao } from './slug';
 import { avaliarPolicies, bloqueantes, motivoDominante } from './policies';
 import { aguardando, arcoDoPedido, enfileirar, exigirPedido, gravarPedido, janelaPadraoMs, lerFilaDeRetomada, marcarContaDaFalha,
@@ -1200,7 +1200,8 @@ function alvoDaRetomada(carregado: ManifestoCarregado, thread: Thread, pedido: P
   const principal = pedido.runtime ?? doBloco?.runtime ?? manifesto.runtime.adapter;
   const candidatos = [{ runtime: principal, model: pedido.model, effort: pedido.effort },
     ...alvosDeFallback(doBloco, doBloco?.runtime ?? manifesto.runtime.adapter).filter(f => f.runtime !== principal)
-      .map(f => ({ runtime: f.runtime, model: f.model as string | null, effort: f.effort ?? pedido.effort }))];
+      .map(f => ({ runtime: f.runtime, model: f.model as string | null, effort: f.effort ?? pedido.effort }))]
+    .filter(c => capacidadeDoRuntimeNoProjeto(raiz, c.runtime).capaz);
   const runtimes = candidatos.map(c => c.runtime);
   const store = lerPerfisComContas(raiz), politica = politicaDeRotacao(manifesto);
   for (const c of candidatos) {
@@ -1285,10 +1286,11 @@ export function proximoAlvo(raiz: string, atual: { runtime: string; perfil: Perf
   politica: PoliticaDeRotacao, agoraMs = Date.now()): AlvoDaRotacao | null {
   const store = lerPerfisComContas(raiz, agoraMs);
   const perfis = [...excluir.perfis, ...(atual.perfil ? [atual.perfil.id] : [])];
-  const mesmo = proximoPerfilDisponivel(store, atual.runtime, politica, { excluir: perfis, agoraMs });
+  const mesmo = capacidadeDoRuntimeNoProjeto(raiz, atual.runtime).capaz
+    ? proximoPerfilDisponivel(store, atual.runtime, politica, { excluir: perfis, agoraMs }) : null;
   if (mesmo) return { runtime: atual.runtime, perfil: perfilDeDespacho(mesmo), model: null, effort: null };
   for (const f of fallback) {
-    if (f.runtime === atual.runtime) continue;
+    if (f.runtime === atual.runtime || !capacidadeDoRuntimeNoProjeto(raiz, f.runtime).capaz) continue;
     if (perfisDoRuntime(store, f.runtime).length > 0) {
       const p = proximoPerfilDisponivel(store, f.runtime, politica, { excluir: perfis, agoraMs });
       if (p) return { runtime: f.runtime, perfil: perfilDeDespacho(p), model: f.model, effort: f.effort ?? null };
@@ -1764,7 +1766,8 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
   const promptOriginalSha = typeof despacho.promptOriginalSha256 === 'string' ? despacho.promptOriginalSha256 : despacho.promptSha256;
 
   const doBloco = configDoBloco(lerSetup(raiz), thread.modo, fase);
-  const fallback = alvosDeFallback(doBloco, doBloco?.runtime ?? manifesto.runtime.adapter);
+  const fallback = alvosDeFallback(doBloco, doBloco?.runtime ?? manifesto.runtime.adapter)
+    .filter(f => capacidadeDoRuntimeNoProjeto(raiz, f.runtime).capaz);
   const politica = politicaDeRotacao(manifesto);
   const falha = sinalDoGate(gate, motivo);
   // I-33 (D12): o observador ja marca o perfil no caminho terminal; remarcar empurraria o prazo a cada retry.
@@ -1884,9 +1887,11 @@ function proximoDestinoDoModelo(raiz: string, runtime: string, model: string | n
     recusados: ReadonlySet<string>): AlvoDaRotacao | null {
   const store = lerPerfisComContas(raiz);
   const utilizavel = (p: PerfilDeRuntime) => !['desativado', 'provider-pago', 'sem-auth'].includes(p.estado) && perfilDisponivel(p);
-  const mesmo = perfisDoRuntime(store, runtime).find(p => utilizavel(p) && !recusados.has(chaveDoModelo(runtime, p.id, model)));
+  const mesmo = capacidadeDoRuntimeNoProjeto(raiz, runtime).capaz
+    ? perfisDoRuntime(store, runtime).find(p => utilizavel(p) && !recusados.has(chaveDoModelo(runtime, p.id, model))) : null;
   if (mesmo) return { runtime, perfil: perfilDeDespacho(mesmo), model, effort: null };
   for (const f of fallback) {
+    if (!capacidadeDoRuntimeNoProjeto(raiz, f.runtime).capaz) continue;
     const perfis = perfisDoRuntime(store, f.runtime);
     if (perfis.length) {
       const p = perfis.find(x => utilizavel(x) && !recusados.has(chaveDoModelo(f.runtime, x.id, f.model)));
@@ -1955,7 +1960,8 @@ function trocarDestinoDoModelo(carregado: ManifestoCarregado, thread: Thread, pl
   }
   const recusados = new Set([...destinosQueRecusaramOModelo(eventos, fase), chaveDoModelo(runtime, perfil?.id ?? null, model)]);
   const doBloco = configDoBloco(lerSetup(raiz), thread.modo, fase);
-  const fallback = alvosDeFallback(doBloco, doBloco?.runtime ?? manifesto.runtime.adapter);
+  const fallback = alvosDeFallback(doBloco, doBloco?.runtime ?? manifesto.runtime.adapter)
+    .filter(f => capacidadeDoRuntimeNoProjeto(raiz, f.runtime).capaz);
   let atual = { runtime, perfil, model };
   let tentativas = plano.tentativas;
   for (;;) {

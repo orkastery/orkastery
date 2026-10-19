@@ -15,7 +15,7 @@
  *  - `despachar`: a fase seguinte que o nucleo calcula (`passosDoCondutor`, o mesmo passo da Sentinela), so com o pedido
  *    guardado na criacao da thread, e a retomada pelo retry com o prompt gravado (F3) quando o plano e automatico. A
  *    fase que precisa de LLM sai como sessao de fundo pelo `ork phase run`, nunca por cron LLM. Com a Sentinela ligada
- *    nesta maquina, o despacho e dela e a batida cede.
+ *    nesta maquina, o despacho comum e dela; a retomada por cota continua na batida da maquina.
  *
  * Nada aqui faz tag nem publicacao. Autorizacao ausente, vencida, de outra maquina ou sem a acao, check pendente ou
  * vermelho, PR em rascunho e trabalho na thread recusam com motivo tipado, e cada recusa vira item da fila do pulse
@@ -92,7 +92,7 @@ export interface BatidaDaConducao {
   busca: { ok: boolean; detalhe: string } | null;
   /** A leitura dos PRs da forja: `null` sem thread com branch a mesclar. */
   forja: { ok: boolean; detalhe: string } | null;
-  /** A Sentinela desta maquina conduz o despacho agora: a batida cede. */
+  /** A Sentinela desta maquina conduz o despacho agora: a batida cede tudo, menos a retomada por cota (RM-064 T5). */
   sentinela: boolean;
   feitas: ItemDaBatida[];
   pendentes: ItemDaBatida[];
@@ -129,6 +129,15 @@ export interface OpcoesDaBatida extends OpcoesDaDeteccao {
   despachar?: (carregado: ManifestoCarregado, thread: string, fase: Fase, prompt: string, canal: CanalDeConducao, correlacao: string) =>
     { ok: boolean; detalhe: string; sessionId: string | null };
   retomar?: (carregado: ManifestoCarregado, thread: string) => { automatica: boolean; ok: boolean; detalhe: string };
+}
+
+/**
+ * RM-064 T5: a Sentinela pode conduzir fases, mas a conta dela também pode esgotar. A reação ao sinal tipado de cota
+ * pertence à batida da máquina; todo o resto continua cedido, evitando dois condutores gerais concorrentes.
+ */
+export function passosDaBatida(passos: readonly PassoDoCondutor[], sentinela: boolean): PassoDoCondutor[] {
+  if (!sentinela) return [...passos];
+  return passos.filter((p) => p.acao === 'retomar' && p.bloqueio?.motivo === 'runtime.quota-exhausted');
 }
 
 // ---------------------------------------------------------------------------
@@ -524,14 +533,12 @@ export function conduzirBatida(carregado: ManifestoCarregado, opcoes: OpcoesDaBa
   const v = agirNaVarredura(doProjeto, { ...opcoes, quando, autorizacao: leitura, buscar: mesclou,
     fantasmas: () => sessoes.fantasmas, vivas: () => sessoes.vivas });
   daVarredura(v, ctx);
-  // 3. O despacho: com a Sentinela ligada nesta maquina, ela despacha e a batida cede.
+  // 3. O despacho comum: com a Sentinela ligada nesta maquina, ela conduz. Cota sempre fica com a batida.
   let sentinela = false;
   try { sentinela = presencaDaSentinela(raiz, { agora: new Date(quando), maquina })?.ativa === true; } catch { sentinela = false; }
-  if (!sentinela) {
-    let passos: PassoDoCondutor[] = [];
-    try { passos = passosDoCondutor(doProjeto, { quando }); } catch { passos = []; }
-    despacharPassos(ctx, passos, opcoes);
-  }
+  let passos: PassoDoCondutor[] = [];
+  try { passos = passosDoCondutor(doProjeto, { quando }); } catch { passos = []; }
+  despacharPassos(ctx, passosDaBatida(passos, sentinela), opcoes);
   const a = leitura.valida ? leitura.autorizacao : null;
   return {
     contrato: CONTRATO_DA_BATIDA, consultadoEm: quando, maquina,
@@ -653,7 +660,7 @@ export function textoDaBatida(r: RodadaDaBatida): string {
   const a = r.autorizacao;
   linhas.push(a.valida ? `Autorização durável de ${a.por} até ${a.ate}: a condução pode ${a.pode.join(', ')}.`
     : `Sem autorização durável válida (${a.motivo}): nada foi feito sozinho; o que andaria ficou com você.`);
-  if (r.sentinela) linhas.push('A Sentinela conduz o despacho nesta máquina agora: a batida cedeu o despacho e o retry.');
+  if (r.sentinela) linhas.push('A Sentinela conduz as fases nesta máquina agora; a batida manteve apenas a reação a cota.');
   if (r.forja && !r.forja.ok) linhas.push(`PRs não lidos: ${r.forja.detalhe}.`);
   if (r.busca && !r.busca.ok) linhas.push(`Base não trazida: ${r.busca.detalhe}.`);
   const andou = r.feitas;

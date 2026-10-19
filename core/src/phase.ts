@@ -56,6 +56,7 @@ import {
 } from './runtime-profiles';
 import { sessoesVivasPorPerfil } from './sessoes-contas';
 import { nomeDaMaquina } from './maquina';
+import { caminhoDoTrabalho, garantirDiretorioDoTrabalho } from './trabalho-thread';
 import { diretorioDaThread } from './procedencia';
 import { comandoDeConfirmacao, posturaAfrouxada, recusaDePostura } from './postura-local';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
@@ -348,6 +349,7 @@ export function valoresDoPrompt(
     base_branch: thread.base.branch,
     base_commit: thread.base.commit,
     diretorio: thread.worktree ?? '(raiz do projeto)',
+    trabalho: caminhoDoTrabalho(thread.id),
     pedido: pedido.trim(),
     fecho_go: bloco.fases.includes('GO') ? fechoDoGo(thread.id) : '',
     // Bloco B6: o bloco de memoria injetada deterministicamente. Vazio em toda thread sem
@@ -831,6 +833,7 @@ function rodarFaseSobLock(
   const thread = lerThread(raiz, threadId);
   const fase = opcoes.fase;
   const dir = dirThread(raiz, thread.id);
+  if (!opcoes.dryRun) garantirDiretorioDoTrabalho(raiz, thread.id);
   const slug = slugDaSessao(thread, fase);
   // Resolve UMA vez o trio runtime/modelo/esforco: o mesmo objeto vai ao runtime adapter,
   // ao ledger e a resposta do CLI. Resolver duas vezes e o caminho curto para o ledger

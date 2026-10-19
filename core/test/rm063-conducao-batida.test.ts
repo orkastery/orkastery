@@ -482,3 +482,37 @@ test('GO-FIX 10: o gh pr merge que responde sem a prova na base vai ao ledger co
     assert.deepEqual(tentativa.map((e) => [e.resultado, e.motivo]), [['recusada', 'merge-sem-prova']]);
   } finally { p.limpar(); }
 });
+
+test('RM-064 T5: com a Sentinela ligada, a batida retoma so a thread parada por cota e cede o despacho comum', () => {
+  const { p, thread } = cenario('rm064-t5-batida-cota', { pedido: 'implemente a fatia simulada', semProduto: true });
+  const comum = novaThread(p.carregado, { nome: 'fase comum', modo: 'auto', pedido: 'implemente outra fatia' }).thread;
+  try {
+    // A thread da cota: a sessao caiu por runtime.quota-exhausted depois do despacho; o passo do nucleo e a retomada.
+    const d = despacharNoLedger(p.dir, thread, 'GOAL', 4, false);
+    registrar(dirThread(p.dir, thread), thread, TIPOS_DE_EVENTO.despachoFalhou, { fase: 'GOAL', motivo: 'runtime.quota-exhausted',
+      sessionId: d.sessionId });
+    // A outra thread concluiu o GOAL: o passo comum e despachar o PLAN.
+    const o = despacharNoLedger(p.dir, comum.id, 'GOAL', 5, false);
+    concluirFase(p.dir, comum.id, 'GOAL', o.sessionId);
+    const retomadas: string[] = [];
+    const despachos: string[] = [];
+    const extra: OpcoesDaBatida = {
+      retomar: (_c, t) => { retomadas.push(t); return { automatica: true, ok: true, detalhe: 'retomada noutra conta' }; },
+      despachar: (_c, t, fase) => {
+        despachos.push(`${t}:${fase}`);
+        return { ok: true, detalhe: 'sessão 11111111', sessionId: '11111111-2222-3333-4444-555555555555' };
+      },
+    };
+    autorizar(p, ['despachar']);
+    baterSentinela(p.dir, { sessao: 'sessao-do-dono' });
+    const comSentinela = conduzirBatida(p.carregado, opcoesDe(ghFalso(p), extra));
+    assert.equal(comSentinela.sentinela, true);
+    assert.deepEqual([retomadas, despachos], [[thread], []], 'a batida fica so com a retomada por cota');
+    assert.deepEqual(comSentinela.feitas.filter((f) => f.thread === thread).map((f) => f.detalhe), ['retomada noutra conta']);
+    // Sem a Sentinela, a batida conduz os dois passos.
+    fs.rmSync(path.join(p.dir, '.orkastery', 'conducao'), { recursive: true, force: true });
+    const semSentinela = conduzirBatida(p.carregado, opcoesDe(ghFalso(p), extra));
+    assert.equal(semSentinela.sentinela, false);
+    assert.deepEqual([retomadas, despachos], [[thread, thread], [`${comum.id}:PLAN`]]);
+  } finally { p.limpar(); }
+});

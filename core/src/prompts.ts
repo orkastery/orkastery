@@ -305,7 +305,7 @@ id: fase-padrao
 versao: 4
 descricao: Prompt canonico de uma fase do ciclo GOAL..MASTER, com nomenclatura, modo de conducao, contexto da thread, memoria injetada e regras de evidencia.
 fases: [GOAL, PLAN, GO, CHECK, SHIP, MASTER]
-variaveis: [fase, thread, bloco, nome, ciclo_canonico, tag, blocos, pausas, linha_variante, regra_de_pausa, invariantes, slug, projeto_nome, projeto_abbrev, base_branch, base_commit, diretorio, pedido, fecho_go, memoria_injetada, regras_de_evidencia]
+variaveis: [fase, thread, bloco, nome, ciclo_canonico, tag, blocos, pausas, linha_variante, regra_de_pausa, invariantes, slug, projeto_nome, projeto_abbrev, base_branch, base_commit, diretorio, trabalho, pedido, fecho_go, memoria_injetada, regras_de_evidencia]
 ---
 # Orkastery, fase {{fase}} da thread {{thread}}
 
@@ -339,6 +339,7 @@ REGRA CENTRAL: o modo afrouxa a pausa, NUNCA a verificacao.
 - projeto: {{projeto_nome}} (abbrev {{projeto_abbrev}})
 - base carimbada: {{base_branch}} @ {{base_commit}}
 - diretorio de trabalho: {{diretorio}}
+- trabalho retomavel: {{trabalho}} (rascunhos de check e PR, pareceres e listas de prova)
 - estado da thread: .orkastery/threads/{{thread}}/thread.json
 - ledger: .orkastery/threads/{{thread}}/ledger.jsonl
 

@@ -308,6 +308,12 @@ const PT_BR = {
     contaFora: (estado: string, ate: string | null | undefined) => `${estado}${ate ? ` ate ${ate}` : ''}`,
     contasCorrecao: 'ork accounts check marca os perfis (sem-auth, provider-pago); ork accounts add refaz o login de assinatura ' +
       'pelo proprio CLI, nunca copiando credencial',
+    condutorCompartilha: (runtime: string, conta: string, fases: string) =>
+      `o condutor LLM (${runtime}, ${conta}) divide a conta com fases vivas: ${fases}`,
+    condutorSeparado: (runtime: string, conta: string) =>
+      `o condutor LLM (${runtime}, ${conta}) nao divide a conta com fase viva`,
+    contaDoAmbiente: 'ambiente do processo',
+    condutorCompartilhaCorrecao: 'rode o condutor em outra conta ou deixe a reacao a cota com `ork conducao batida`',
     embeddingPago: (variavel: string) => `memory.embedding.api_key_env declara ${variavel}, nome da lista de provider pago`,
     embeddingPagoCorrecao: 'use uma chave dedicada ao Orkastery com nome proprio, por exemplo ORKASTERY_EMBEDDING_API_KEY',
     embeddingSemVariavel: (provider: string) => `memory.embedding com provider ${provider} sem api_key_env`,
@@ -531,6 +537,7 @@ const EN: Mensagens = {
       'fila de rate limit': 'rate limit queue',
       'estado do projeto': 'project state',
       'contas por runtime': 'accounts per runtime',
+      'separacao da conducao': 'conduction account separation',
       'governanca de sessoes': 'session governance',
       'dono do .git': '.git owner',
       'onboarding memoria': 'onboarding memory',
@@ -616,6 +623,12 @@ const EN: Mensagens = {
     contaFora: (estado, ate) => `${estado}${ate ? ` until ${ate}` : ''}`,
     contasCorrecao: '`ork accounts check` marks the profiles (sem-auth, provider-pago); `ork accounts add` redoes the subscription ' +
       'login through the CLI itself, never copying a credential',
+    condutorCompartilha: (runtime, conta, fases) =>
+      `the LLM conductor (${runtime}, ${conta}) shares its account with live phases: ${fases}`,
+    condutorSeparado: (runtime, conta) =>
+      `the LLM conductor (${runtime}, ${conta}) does not share its account with a live phase`,
+    contaDoAmbiente: 'process environment',
+    condutorCompartilhaCorrecao: 'run the conductor on another account or leave quota reaction to `ork conducao batida`',
     embeddingPago: (variavel) => `memory.embedding.api_key_env declares ${variavel}, a name from the paid provider list`,
     embeddingPagoCorrecao: 'use a key dedicated to Orkastery, with its own name, for example ORKASTERY_EMBEDDING_API_KEY',
     embeddingSemVariavel: (provider) => `memory.embedding with provider ${provider} and no api_key_env`,
