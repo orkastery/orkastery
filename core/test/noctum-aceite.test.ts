@@ -47,7 +47,8 @@ interface Piloto { p: ProjetoDeTeste; arco: string; threads: string[]; inicio: s
  * Um piloto de fixture, de 8 h, que começa daqui a 1 h: dois trabalhos despachados, entregues com a prova do push e com o
  * MASTER por omissão, a falha F1 recuperada 3 min depois, o arco fechado na hora e o relatório entregue no horário.
  */
-function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; baseDeFora?: boolean; maquina?: string } = {}): Piloto {
+function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; baseDeFora?: boolean; maquina?: string; aberto?: boolean;
+  idempotente?: boolean; tiqueParado?: boolean } = {}): Piloto {
   const p = projetoTemporario(nome);
   const threads = ['a', 'b'].map((x, i) => novaThread(p.carregado, { nome: `piloto ${x}`, modo: 'auto', roadmap: `RM-97${i + 1}`,
     pedido: `Trabalho ${x} SIMULADO do piloto.`, criarWorktree: false }).thread.id);
@@ -67,6 +68,17 @@ function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; b
       conta: ['perfil-a', 'perfil-b'][i], revisao: false }, em(inicio, (5 + i) * MIN));
     concluirDespacho(p.dir, arco, r.seq, { thread, sessionId: `00000000-0000-4000-8888-00000000000${i + 1}`, idempotente: false }, em(inicio, (6 + i) * MIN));
   });
+  if (o.idempotente) {
+    // O passo despachou de novo e o runtime devolveu a sessão em curso: a reserva conclui idempotente, sem sessão nova.
+    const r = reservarDespacho(p.dir, { arco, envelopeSha256: sha, trabalho: 'a', thread: threads[0], fase: 'GOAL', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false }, em(inicio, 10 * MIN));
+    concluirDespacho(p.dir, arco, r.seq, { thread: threads[0], sessionId: '00000000-0000-4000-8888-000000000001', idempotente: true }, em(inicio, 11 * MIN));
+  }
+  if (o.tiqueParado) {
+    // A F9: o tique fica 20 min sem rodar e volta.
+    gravarNaSupervisao(p.carregado, arco, [{ tipo: 'tique_iniciado', quem: instancia('vigia', 2) }], em(inicio, 3 * HORA + 20 * MIN));
+    gravarNaSupervisao(p.carregado, arco, [{ tipo: 'tique_concluido', quem: instancia('vigia', 2), resumo: 'SIMULADO' }], em(inicio, 3 * HORA + 21 * MIN));
+  }
   gravarNaSupervisao(p.carregado, arco, [{ tipo: 'retomada_autorizada', trabalho: 'a', thread: threads[0], fase: 'GOAL', tentativa: 1,
     motivo: 'sessao-morta', sessao: null, prova: 'SIMULADO', aposReserva: 2 }], em(inicio, 2 * HORA + 3 * MIN));
   threads.forEach((thread, i) => {
@@ -77,8 +89,9 @@ function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; b
     }
     aceitarPorOmissao(p.dir, thread);
   });
-  encerrarArco(p.dir, arco, { motivo: 'hora', detalhe: 'o fim do envelope chegou (SIMULADO)' }, fim);
   const vencimento = vencimentoDoRelatorio(conteudo);
+  if (o.aberto) return { p, arco, threads, inicio, fim, vencimento };
+  encerrarArco(p.dir, arco, { motivo: 'hora', detalhe: 'o fim do envelope chegou (SIMULADO)' }, fim);
   const r = entregarRelatorioSeDevido(p.carregado, arco, { quando: vencimento, enviar: () => ({ estado: 'confirmado', referencia: 'mensagem-SIMULADA' }) });
   assert.equal(r.acao, 'entregue', JSON.stringify(r));
   return { p, arco, threads, inicio, fim, vencimento };
@@ -247,4 +260,43 @@ test('AC10: o mesmo arco dá o mesmo hash, no resultado e no arquivo completo do
     assert.deepEqual(Object.keys(a), ['contrato', 'arco', 'envelope', 'janela', 'encerramento', 'simulacao', 'medidas', 'criterios', 'veredito', 'lacunas'],
       'nenhum campo com o instante de quem roda');
   } finally { pl.p.limpar(); }
+});
+
+test('AC11: a agenda vazia é lacuna; a falha com alvo só se recupera pelo sinal dele; o tique parado conta em M4 e fica fora de M5', () => {
+  const pl = piloto('ac11', { tiqueParado: true });
+  try {
+    const vazia = aceite(pl, { injecoes: [] });
+    assert.deepEqual([medida(vazia, 'M4').valor, medida(vazia, 'M4').lacunas], [null, ['a agenda de injeções está vazia: nenhuma falha foi injetada']]);
+    assert.deepEqual([criterio(vazia, 'A4').veredito, vazia.veredito], ['incompleto', 'incompleto'], 'sem falha injetada, nada aprova');
+    const comAlvo = aceite(pl, { injecoes: [{ falha: 'F1', instante: em(pl.inicio, 2 * HORA), alvo: 'b' }] });
+    assert.equal(medida(comAlvo, 'M4').valor, 0, 'a retomada do a não recupera a falha injetada no b');
+    assert.equal(criterio(comAlvo, 'A4').veredito, 'reprovado');
+    const doTrabalho = aceite(pl, { injecoes: [{ falha: 'F1', instante: em(pl.inicio, 2 * HORA), alvo: 'a' }] });
+    assert.deepEqual([medida(doTrabalho, 'M4').valor, medida(doTrabalho, 'M5').valor], [1, 3]);
+    const parado = aceite(pl, { injecoes: [F1(pl), { falha: 'F9', instante: em(pl.inicio, 3 * HORA) }] });
+    assert.deepEqual([medida(parado, 'M4').valor, medida(parado, 'M5').valor], [2, 3], 'os 21 min da F9 não entram no tempo de recuperação');
+    assert.equal(criterio(parado, 'A4').veredito, 'aprovado');
+  } finally { pl.p.limpar(); }
+});
+
+test('AC12: o despacho idempotente não é efeito duplicado, o transporte simulado é lido da raiz do estado, e o arco aberto nunca aprova', () => {
+  const pl = piloto('ac12', { idempotente: true });
+  try {
+    const r = aceite(pl);
+    assert.deepEqual([medida(r, 'M7').valor, r.veredito], [0, 'aprovado'], JSON.stringify(medida(r, 'M7').evidencia));
+    const monitor = path.join(pl.p.dir, '.orkastery', 'monitor');
+    fs.mkdirSync(monitor, { recursive: true });
+    fs.writeFileSync(path.join(monitor, 'noctum-host.json'), JSON.stringify({ telegram: { executavel: process.execPath,
+      argumentos: [path.join(pl.p.dir, 'canal-simulado.cjs'), '{{mensagem}}'] } }));
+    const comCanal = aceite(pl);
+    assert.equal(comCanal.veredito, 'simulado');
+    assert.deepEqual(comCanal.simulacao.marcas, ['o transporte do canal do relatório é simulado (grava num arquivo local)']);
+  } finally { pl.p.limpar(); }
+  const aberto = piloto('ac12a', { aberto: true });
+  try {
+    const r = aceite(aberto);
+    assert.deepEqual([medida(r, 'M1').valor, medida(r, 'M1').lacunas[0]], [null, 'o arco ainda não fechou: a condução se mede no arco encerrado']);
+    assert.equal(criterio(r, 'A1').veredito, 'incompleto');
+    assert.notEqual(r.veredito, 'aprovado');
+  } finally { aberto.p.limpar(); }
 });

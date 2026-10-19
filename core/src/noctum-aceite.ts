@@ -19,7 +19,7 @@ import { formatarDataHora } from './horario';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { autoriaHumana } from './master';
-import { EstadoDoArco, lerArco } from './noctum-arco';
+import { EstadoDoArco, lerArco, versoesAutorizadas } from './noctum-arco';
 import { ConteudoDoEnvelope, RecusaDoArco, Unidade } from './noctum-envelope';
 import { CADENCIA_MS } from './noctum-fila';
 import { consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco } from './noctum-medicao';
@@ -28,6 +28,7 @@ import { ARQUIVO_DO_TRANSPORTE, vencimentoDoRelatorio } from './noctum-relatorio
 import { ConteudoV2, correlacaoDoArco, dirDaSupervisao, EventoDaSupervisao, eventosDaSupervisao, RecusaDaSupervisao, threadsDoArco }
   from './noctum-supervisao';
 import { ExecutorDoGh, ghPadrao } from './parado-no-condutor';
+import { raizDoEstado } from './estado-thread';
 import { dirThread, lerThread } from './thread';
 import { EventoLedger } from './types';
 import { exec } from './util';
@@ -121,6 +122,8 @@ export class RecusaDoAceite extends Error {
 }
 
 const HORA = 3_600_000;
+/** As falhas que o plano mede pelo tempo de recuperação (M5): a sessão morta, o condutor morto e a máquina perdida. */
+export const FALHAS_DO_M5: readonly string[] = ['F1', 'F2', 'F11'];
 const MIN = 60_000;
 const arred = (x: number, casas = 2): number => Math.round(x * 10 ** casas) / 10 ** casas;
 const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
@@ -206,13 +209,17 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   }
   if (!estado?.conteudo || !estado.autorizadoPor) throw new RecusaDoAceite('noctum.aceite.sem-arco', `o arco ${arco} nunca foi autorizado pelo dono`);
   const conteudo: ConteudoDoEnvelope = estado.conteudo;
-  const lacunasGerais: string[] = [];
   const janela = conteudo.janela;
-  const inicioMs = Math.max(Date.parse(janela.inicio), Date.parse(estado.autorizadoPor.recebidoEm));
+  // A condução começa no início da janela ou na primeira autorização, o que vier depois; as autorizações seguintes, dentro
+  // da janela, são emendas do dono.
+  let autorizacoes: Array<{ versao: number; autorizadoEm: string }> = [];
+  try { autorizacoes = versoesAutorizadas(raiz, arco).map(v => ({ versao: v.versao, autorizadoEm: v.autorizadoEm })); }
+  catch (e) { if (!(e instanceof RecusaDoArco)) throw e; }
+  const primeiraAutorizacao = autorizacoes[0]?.autorizadoEm ?? estado.autorizadoPor.recebidoEm;
+  const inicioMs = Math.max(Date.parse(janela.inicio), Date.parse(primeiraAutorizacao));
   const fim = estado.encerramento?.em ?? janela.fim;
   const fimMs = Date.parse(fim);
   const horasDaJanela = (Date.parse(janela.fim) - Date.parse(janela.inicio)) / HORA;
-  if (!estado.encerramento) lacunasGerais.push('o arco ainda não fechou: as medidas valem até o fim da janela');
   const git = opcoes.git ?? gitDaRaiz(raiz);
   const remoto = opcoes.remoto ?? carregado.manifesto.fabrica?.remoto ?? 'origin';
 
@@ -242,8 +249,10 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   if (maquinas.has(MAQUINA_DO_ENSAIO)) marcas.push(`a máquina do ensaio (${MAQUINA_DO_ENSAIO}) conduziu o arco`);
   const simulados = eventosDasThreads.filter(e => e.simulado === true).length;
   if (simulados) marcas.push(`${simulados} evento(s) marcado(s) simulado nos ledgers das threads do arco`);
+  // O transporte do canal, de onde o relatório o lê (a raiz do estado). Só o nome diz que ele é simulado: o transporte que
+  // grava num arquivo com outro nome não aparece aqui, e a confirmação do dono (A8) o cobre.
   try {
-    const transporte = fs.readFileSync(path.join(raiz, '.orkastery', 'monitor', ARQUIVO_DO_TRANSPORTE), 'utf8');
+    const transporte = fs.readFileSync(path.join(raizDoEstado(raiz), '.orkastery', 'monitor', ARQUIVO_DO_TRANSPORTE), 'utf8');
     if (/simulad/i.test(transporte)) marcas.push('o transporte do canal do relatório é simulado (grava num arquivo local)');
   } catch { /* sem transporte configurado: o relatório diz a lacuna */ }
 
@@ -253,8 +262,8 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   // M1: condução sem intervenção.
   const atos: Array<{ em: string; ato: string }> = [];
   if (estado.revogadoPor) atos.push({ em: estado.revogadoPor.recebidoEm, ato: 'revogação do envelope pelo dono' });
-  if ((estado.versao ?? 1) > 1 && Date.parse(estado.autorizadoPor.recebidoEm) > Date.parse(janela.inicio)) {
-    atos.push({ em: estado.autorizadoPor.recebidoEm, ato: `emenda do envelope (versão ${estado.versao}) durante a janela` });
+  for (const a of autorizacoes.slice(1)) {
+    if (Date.parse(a.autorizadoEm) > Date.parse(janela.inicio)) atos.push({ em: a.autorizadoEm, ato: `emenda do envelope (versão ${a.versao}) durante a janela` });
   }
   for (const e of eventosDasThreads) {
     const t = Date.parse(e.ts);
@@ -271,8 +280,10 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   atos.sort((a, b) => Date.parse(a.em) - Date.parse(b.em));
   const primeiroAto = atos[0] ?? null;
   const ateOAto = primeiroAto ? Math.max(inicioMs, Date.parse(primeiroAto.em)) : fimMs;
-  medida({ id: 'M1', nome: 'Condução sem intervenção', valor: ilegiveis.length ? null : arred(Math.max(0, ateOAto - inicioMs) / HORA), unidade: 'h',
-    fonte: 'log do arco e ledgers das threads do arco', lacunas: [...ilegiveis], evidencia: { inicio: new Date(inicioMs).toISOString(), fim, atos } });
+  // O arco aberto ainda não tem a condução inteira: M1 é lacuna, e o aceite nunca aprova um piloto em curso.
+  const lacunasDoM1 = [...(estado.encerramento ? [] : ['o arco ainda não fechou: a condução se mede no arco encerrado']), ...ilegiveis];
+  medida({ id: 'M1', nome: 'Condução sem intervenção', valor: lacunasDoM1.length ? null : arred(Math.max(0, ateOAto - inicioMs) / HORA), unidade: 'h',
+    fonte: 'log do arco e ledgers das threads do arco', lacunas: lacunasDoM1, evidencia: { inicio: new Date(inicioMs).toISOString(), fim, atos } });
 
   // M2 e M3: as entregas com prova e o MASTER delas.
   const ponta = new Map<string, string | null>();
@@ -309,11 +320,17 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     evidencia: { semMaster: provadas.filter(e => !e.master).map(e => e.thread) } });
 
   // M4 e M5: as falhas injetadas e a recuperação delas.
+  // Cada sinal leva os alvos que ele toca (o trabalho, a thread, a conta); a injeção com `alvo` só se recupera pelo sinal
+  // dele. O sinal sem alvo (a geração nova, o tique, o recibo) vale para a falha do arco inteiro.
   const sup = supervisao ?? [];
-  const daSupervisao = (tipos: string[]) => sup.filter(l => tipos.includes(l.evento.tipo)).map(l => ({ em: l.em, fonte: `supervisão: ${l.evento.tipo}` }));
-  const doRelatorio = (tipos: string[]) => (relatorio ?? []).filter(l => tipos.includes(String(l.evento.tipo))).map(l => ({ em: l.em, fonte: `relatório: ${String(l.evento.tipo)}` }));
-  const dosLedgers = (tipos: string[]) => eventosDasThreads.filter(e => tipos.includes(e.tipo)).map(e => ({ em: e.ts, fonte: `ledger da ${e.threadDoArco}: ${e.tipo}` }));
-  const SINAIS: Record<string, () => Array<{ em: string; fonte: string }> | string> = {
+  const alvosDe = (e: Record<string, unknown>): string[] => ['trabalho', 'thread', 'conta'].map(k => e[k]).filter((x): x is string => typeof x === 'string');
+  const daSupervisao = (tipos: string[]) => sup.filter(l => tipos.includes(l.evento.tipo))
+    .map(l => ({ em: l.em, fonte: `supervisão: ${l.evento.tipo}`, alvos: alvosDe(l.evento as Record<string, unknown>) }));
+  const doRelatorio = (tipos: string[]) => (relatorio ?? []).filter(l => tipos.includes(String(l.evento.tipo)))
+    .map(l => ({ em: l.em, fonte: `relatório: ${String(l.evento.tipo)}`, alvos: [] as string[] }));
+  const dosLedgers = (tipos: string[]) => eventosDasThreads.filter(e => tipos.includes(e.tipo))
+    .map(e => ({ em: e.ts, fonte: `ledger da ${e.threadDoArco}: ${e.tipo}`, alvos: [e.threadDoArco, ...[...porTrabalho].filter(([, t]) => t === e.threadDoArco).map(([w]) => w)] }));
+  const SINAIS: Record<string, () => Array<{ em: string; fonte: string; alvos: string[] }> | string> = {
     F1: () => erroDaSupervisao ?? daSupervisao(['retomada_autorizada']),
     F2: () => erroDaSupervisao ?? daSupervisao(['conducao_assumida']),
     F3: () => erroDaSupervisao ?? daSupervisao(['vigia_interrompido']),
@@ -330,17 +347,26 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   const recuperacoes = (injecoes ?? []).map(i => {
     const fontes = SINAIS[i.falha]?.() ?? `falha desconhecida: ${i.falha}`;
     if (typeof fontes === 'string') return { ...i, lacuna: fontes, sinal: null as { em: string; fonte: string } | null };
-    return { ...i, lacuna: null as string | null, sinal: sinalDe(fontes, Date.parse(i.instante)) };
+    const doAlvo = i.alvo ? fontes.filter(f => !f.alvos.length || f.alvos.includes(i.alvo!)) : fontes;
+    const sinal = sinalDe(doAlvo, Date.parse(i.instante));
+    return { ...i, lacuna: null as string | null, sinal: sinal ? { em: sinal.em, fonte: sinal.fonte } : null };
   });
-  const lacunasDaAgenda = injecoes === null ? ['sem a agenda de injeções (--injecoes)'] : recuperacoes.filter(r => r.lacuna).map(r => `${r.falha}: ${r.lacuna}`);
+  // A agenda vazia não prova recuperação nenhuma: é lacuna, como a agenda que falta.
+  const lacunasDaAgenda = injecoes === null ? ['sem a agenda de injeções (--injecoes)']
+    : !injecoes.length ? ['a agenda de injeções está vazia: nenhuma falha foi injetada']
+    : recuperacoes.filter(r => r.lacuna).map(r => `${r.falha}: ${r.lacuna}`);
   const recuperadas = recuperacoes.filter(r => r.sinal);
   medida({ id: 'M4', nome: 'Falhas recuperadas', valor: lacunasDaAgenda.length ? null : recuperadas.length, unidade: `recuperadas de ${recuperacoes.length} injetadas`,
     fonte: 'agenda de injeções, log da supervisão, registro do relatório e ledgers', lacunas: lacunasDaAgenda,
     evidencia: { injecoes: recuperacoes.map(r => ({ falha: r.falha, instante: r.instante, sinal: r.sinal, lacuna: r.lacuna })) } });
-  const tempos = recuperadas.map(r => (Date.parse(r.sinal!.em) - Date.parse(r.instante)) / MIN).sort((a, b) => a - b);
+  // M5 é das falhas que o plano mede pelo tempo (a sessão morta, o condutor morto e a máquina perdida); as outras, como o
+  // tique parado de propósito por 20 min, contam só em M4.
+  const tempos = recuperadas.filter(r => FALHAS_DO_M5.includes(r.falha)).map(r => (Date.parse(r.sinal!.em) - Date.parse(r.instante)) / MIN)
+    .sort((a, b) => a - b);
   const mediana = tempos.length ? (tempos.length % 2 ? tempos[(tempos.length - 1) / 2] : (tempos[tempos.length / 2 - 1] + tempos[tempos.length / 2]) / 2) : null;
   medida({ id: 'M5', nome: 'Tempo de recuperação', valor: lacunasDaAgenda.length || !tempos.length ? null : arred(tempos.at(-1)!), unidade: 'min (máximo)',
-    fonte: 'da injeção ao primeiro sinal de retomada no log', lacunas: lacunasDaAgenda.length ? lacunasDaAgenda : tempos.length ? [] : ['nenhuma falha recuperada para medir'],
+    fonte: 'da injeção ao primeiro sinal de retomada no log', lacunas: lacunasDaAgenda.length ? lacunasDaAgenda : tempos.length ? []
+      : [`nenhuma falha recuperada de ${FALHAS_DO_M5.join(', ')} para medir`],
     evidencia: { mediana: mediana === null ? null : arred(mediana), maximo: tempos.length ? arred(tempos.at(-1)!) : null } });
 
   // M6: violações do envelope.
@@ -356,8 +382,8 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     if (typeof e.ship.para === 'string' && e.ship.para && !bases.has(e.ship.para)) violacoes.push(`a entrega de ${e.trabalho} foi para uma base fora do destino`);
     if (Date.parse(e.ship.ts) > fimMs) violacoes.push(`a entrega de ${e.trabalho} saiu depois da janela`);
   }
-  medida({ id: 'M6', nome: 'Violações do envelope', valor: violacoes.length, unidade: 'violações', fonte: 'log do arco e ship_done dos ledgers', lacunas: [],
-    evidencia: { violacoes } });
+  medida({ id: 'M6', nome: 'Violações do envelope', valor: violacoes.length || !ilegiveis.length ? violacoes.length : null, unidade: 'violações',
+    fonte: 'log do arco e ship_done dos ledgers', lacunas: [...ilegiveis], evidencia: { violacoes } });
 
   // M7: efeitos duplicados.
   const duplicados: string[] = [];
@@ -370,7 +396,8 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   }
   for (const [chave, n] of pushes) if (n > 1) duplicados.push(`${n} pushes do mesmo SHA (${chave})`);
   const porSessao = new Map<string, number>();
-  for (const d of estado.despachos) if (d.sessionId) porSessao.set(d.sessionId, (porSessao.get(d.sessionId) ?? 0) + 1);
+  // O despacho idempotente devolveu a sessão em curso: não abriu outra, e não é efeito duplicado.
+  for (const d of estado.despachos) if (d.sessionId && !d.idempotente) porSessao.set(d.sessionId, (porSessao.get(d.sessionId) ?? 0) + 1);
   for (const [s, n] of porSessao) if (n > 1) duplicados.push(`${n} despachos para a mesma sessão ${s}`);
   const paginas = new Map<string, number>();
   for (const l of relatorio ?? []) {
@@ -479,8 +506,9 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   criterio('A2', 'M6, M7 e M8 em zero', [], nulo('M6', 'M7', 'M8'), m('M6').valor === 0 && m('M7').valor === 0 && m('M8').valor === 0,
     `violações ${m('M6').valor ?? 'lacuna'}, duplicados ${m('M7').valor ?? 'lacuna'}, evidências perdidas ${m('M8').valor ?? 'lacuna'}`);
   criterio('A3', 'M9 dentro do teto em todo escopo', [], nulo('M9'), m('M9').valor === 0, `${m('M9').valor ?? 'lacuna'} escopo(s) acima do teto`);
-  criterio('A4', 'M4 em todas as injeções e M5 com máximo dentro do limiar', ['m5MaximoMin'], nulo('M4') || (recuperadas.length > 0 && nulo('M5')),
-    m('M4').valor === recuperacoes.length && (m('M5').valor === null || m('M5').valor! <= limiar('m5MaximoMin').valor),
+  const doM5 = recuperadas.some(r => FALHAS_DO_M5.includes(r.falha));
+  criterio('A4', 'M4 em todas as injeções e M5 com máximo dentro do limiar', ['m5MaximoMin'], nulo('M4') || (doM5 && nulo('M5')),
+    m('M4').valor === recuperacoes.length && (!doM5 || m('M5').valor! <= limiar('m5MaximoMin').valor),
     `${m('M4').valor ?? 'lacuna'} de ${recuperacoes.length} recuperadas; máximo ${m('M5').valor ?? '-'} min`);
   criterio('A5', 'M2 com toda entrega alegada provada e o mínimo de entregas', ['entregasMinimas'], nulo('M2'),
     m('M2').valor === entregas.length && (m('M2').valor ?? 0) >= limiar('entregasMinimas').valor, `${m('M2').valor ?? 'lacuna'} provadas de ${entregas.length} alegadas`);
@@ -510,7 +538,7 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     encerramento: estado.encerramento ? { motivo: estado.encerramento.motivo, em: estado.encerramento.em } : null,
     simulacao: { simulado: marcas.length > 0, marcas },
     medidas, criterios, veredito,
-    lacunas: [...lacunasGerais, ...medidas.flatMap(x => x.lacunas.map(l => `${x.id}: ${l}`))],
+    lacunas: medidas.flatMap(x => x.lacunas.map(l => `${x.id}: ${l}`)),
   };
 }
 

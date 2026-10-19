@@ -1101,15 +1101,17 @@ export function concluirDespacho(raiz: string, arco: string, seq: number,
  * leitura confere cada um com as máquinas da versão que ele diz. A vigente é a última; o recibo do dono continua conferido
  * por `vigenteConferido`, antes de cada efeito.
  */
-export function versoesAutorizadas(raiz: string, arco: string): Array<{ versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope }> {
+export function versoesAutorizadas(raiz: string, arco: string):
+  Array<{ versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope; autorizadoEm: string }> {
   const log = lerLog(raiz, arco), d = derivar(log.linhas);
   const vistas = new Set<number>();
-  const versoes: Array<{ versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope }> = [];
+  const versoes: Array<{ versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope; autorizadoEm: string }> = [];
   for (const { evento: e } of log.linhas) {
     if (e.tipo !== 'autorizado' || vistas.has(e.versao)) continue;
     vistas.add(e.versao);
     const p = d.propostas.get(e.versao)!;
-    versoes.push({ versao: p.versao, envelopeSha256: p.envelopeSha256, conteudo: p.conteudo });
+    // RM-058, integração (T8, D12): o instante do ingresso de cada autorização, que o aceite do piloto lê.
+    versoes.push({ versao: p.versao, envelopeSha256: p.envelopeSha256, conteudo: p.conteudo, autorizadoEm: e.ingresso.recebidoEm });
   }
   return versoes;
 }
