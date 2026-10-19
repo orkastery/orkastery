@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-19T08:30:02.071Z",
+  "publicadoEm": "2026-10-19T08:58:44.113Z",
   "threads": [
     {
       "id": "ork-rm058integra",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-058",
       "branch": "ork/ork-rm058integra-full",
-      "atualizadaEm": "2026-10-19T04:15:22.282Z",
+      "atualizadaEm": "2026-10-19T08:58:43.838Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "opus",
       "esforco": "max",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-19T04:20:35.751Z",
-        "motivo": "sessão 728baa47 sem processo (fantasma)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
@@ -45,9 +45,9 @@
       "modelo": "opus",
       "esforco": "max",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-19T08:48:31.714Z",
+        "motivo": "sessão 4aa6f444 encerrada (stopped)"
       }
     }
   ]
