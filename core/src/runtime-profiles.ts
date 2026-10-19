@@ -701,6 +701,11 @@ export function perfilDisponivel(p: PerfilDeRuntime, agoraMs = Date.now()): bool
   return p.estado === 'esgotado' && p.esgotadoAte !== null && Date.parse(p.esgotadoAte) <= agoraMs;
 }
 
+/** Única lista de candidatos automáticos: estado configurado continua existindo, mas nunca vira destino. */
+export function perfisDisponiveis(store: StoreDePerfis, runtime: string, agoraMs = Date.now()): PerfilDeRuntime[] {
+  return perfisDoRuntime(store, runtime).filter((p) => perfilDisponivel(p, agoraMs));
+}
+
 /**
  * I-33 (D14, D16): politica de troca automatica entre perfis do MESMO runtime, lida do manifesto
  * (`runtime_profiles.rotate_same_runtime_on_quota` e `..._on_auth`). A troca entre runtimes pela
@@ -753,9 +758,9 @@ export function proximoPerfilPorCarga(store: StoreDePerfis, runtime: string, pol
   const daVez = proximoPerfilDisponivel(store, runtime, politica, opcoes);
   if (!daVez) return null;
   const agoraMs = opcoes.agoraMs ?? Date.now();
-  const candidatos = perfisDoRuntime(store, runtime)
+  const candidatos = perfisDisponiveis(store, runtime, agoraMs)
     .map((p, i) => ({ p, i }))
-    .filter(({ p }) => !(opcoes.excluir ?? []).includes(p.id) && perfilDisponivel(p, agoraMs));
+    .filter(({ p }) => !(opcoes.excluir ?? []).includes(p.id));
   const uso = (p: PerfilDeRuntime) => p.ultimoUso === null ? -Infinity : Date.parse(p.ultimoUso);
   candidatos.sort((x, y) => (carga.get(x.p.id) ?? 0) - (carga.get(y.p.id) ?? 0) || uso(x.p) - uso(y.p) || x.i - y.i);
   return candidatos[0]?.p ?? daVez;
