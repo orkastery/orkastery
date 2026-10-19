@@ -4,7 +4,7 @@
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -56,28 +56,36 @@ function dados(m: DuasMaquinas, extra: Record<string, unknown>): DadosDoRegistro
 
 const assinado = (raiz: string, d: DadosDoRegistro) => JSON.stringify({ dados: d, assinatura: assinarDados(raiz, d) }) + '\n';
 
-/** Faz só a primeira invocação do subcomando pedido falhar, sem compartilhar marca ou shim entre testes. */
-function comGitFalhandoUmaVez<T>(comando: 'merge-base' | 'show', executar: () => T): T {
+/**
+ * Faz só a n-ésima invocação do subcomando pedido falhar com a saída 128 de uma falha passageira, por um shim no PATH que
+ * chama o git de verdade (achado pelo PATH de antes) nas outras; nada é compartilhado entre testes.
+ */
+function comGitFalhando<T>(comando: 'merge-base' | 'show', vez: number, executar: () => T): T {
+  const git = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  assert.ok(git, 'o git do sistema');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `noctum-git-${comando}-`));
-  const marca = path.join(dir, 'falhou');
-  const shim = path.join(dir, 'git');
-  fs.writeFileSync(shim, '#!/bin/sh\n' +
-    'if [ "$1" = "$NOCTUM_TESTE_GIT_CMD" ] && [ ! -e "$NOCTUM_TESTE_GIT_MARCA" ]; then\n' +
-    '  : > "$NOCTUM_TESTE_GIT_MARCA"\n' +
-    '  echo "fatal: falha passageira SIMULADA" >&2\n' +
-    '  exit 128\n' +
-    'fi\n' +
-    'exec /usr/bin/git "$@"\n');
-  fs.chmodSync(shim, 0o700);
-  const anterior = { path: process.env.PATH, comando: process.env.NOCTUM_TESTE_GIT_CMD, marca: process.env.NOCTUM_TESTE_GIT_MARCA };
-  process.env.PATH = `${dir}${path.delimiter}${anterior.path ?? ''}`;
-  process.env.NOCTUM_TESTE_GIT_CMD = comando;
-  process.env.NOCTUM_TESTE_GIT_MARCA = marca;
-  try { return executar(); }
-  finally {
-    if (anterior.path === undefined) delete process.env.PATH; else process.env.PATH = anterior.path;
-    if (anterior.comando === undefined) delete process.env.NOCTUM_TESTE_GIT_CMD; else process.env.NOCTUM_TESTE_GIT_CMD = anterior.comando;
-    if (anterior.marca === undefined) delete process.env.NOCTUM_TESTE_GIT_MARCA; else process.env.NOCTUM_TESTE_GIT_MARCA = anterior.marca;
+  const anterior = { path: process.env.PATH, comando: process.env.NOCTUM_TESTE_GIT_CMD, vez: process.env.NOCTUM_TESTE_GIT_VEZ,
+    contador: process.env.NOCTUM_TESTE_GIT_CONTADOR };
+  try {
+    const shim = path.join(dir, 'git');
+    fs.writeFileSync(shim, '#!/bin/sh\n' +
+      'if [ "$1" = "$NOCTUM_TESTE_GIT_CMD" ]; then\n' +
+      '  n=$(( $(cat "$NOCTUM_TESTE_GIT_CONTADOR" 2>/dev/null || echo 0) + 1 ))\n' +
+      '  echo "$n" > "$NOCTUM_TESTE_GIT_CONTADOR"\n' +
+      '  if [ "$n" -eq "$NOCTUM_TESTE_GIT_VEZ" ]; then echo "fatal: falha passageira SIMULADA" >&2; exit 128; fi\n' +
+      'fi\n' +
+      `exec '${git}' "$@"\n`);
+    fs.chmodSync(shim, 0o700);
+    process.env.PATH = `${dir}${path.delimiter}${anterior.path ?? ''}`;
+    process.env.NOCTUM_TESTE_GIT_CMD = comando;
+    process.env.NOCTUM_TESTE_GIT_VEZ = String(vez);
+    process.env.NOCTUM_TESTE_GIT_CONTADOR = path.join(dir, 'vezes');
+    return executar();
+  } finally {
+    for (const [chave, valor] of [['PATH', anterior.path], ['NOCTUM_TESTE_GIT_CMD', anterior.comando], ['NOCTUM_TESTE_GIT_VEZ', anterior.vez],
+      ['NOCTUM_TESTE_GIT_CONTADOR', anterior.contador]] as const) {
+      if (valor === undefined) delete process.env[chave]; else process.env[chave] = valor;
+    }
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
@@ -219,7 +227,11 @@ test('T7: dois processos gravando ao mesmo tempo nunca perdem um registro do out
       const { gravarNoRamo } = require(path.join(${JSON.stringify(dist)}, 'src/noctum-transporte'));
       const { exigirManifesto } = require(path.join(${JSON.stringify(dist)}, 'src/manifest'));
       const carregado = exigirManifesto(${JSON.stringify(dir)});
-      while (!fs.existsSync(${JSON.stringify(sinal)})) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+      const prazo = Date.now() + 120000;
+      while (!fs.existsSync(${JSON.stringify(sinal)})) {
+        if (Date.now() > prazo) process.exit(3);
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+      }
       for (let i = 1; i <= 4; i++) {
         gravarNoRamo(carregado, ${JSON.stringify(m.arco)}, { maquina: ${JSON.stringify(maquina)} },
           () => ({ novos: [{ tipo: 'entrega', trabalho: ${JSON.stringify(prefixo)} + i, ordem: 'O-' + ${JSON.stringify(prefixo)} + i + '-1' }], resultado: null }));
@@ -438,27 +450,39 @@ test('T15: o teto de registros do arco vale também para quem grava: o registro 
   } finally { modulo.TETO_DE_REGISTROS = teto; m.limpar(); }
 });
 
-test('T16: falha passageira de merge-base ou show recusa a leitura sem marcar uma história íntegra', () => {
-  const exercitar = (modo: 'merge-base' | 'show'): void => {
-    const m = cenario(`noctum-t16-${modo}`);
-    const novos = (i: number) => modo === 'show'
+test('T16: falha passageira de merge-base ou show recusa a leitura sem marcar uma história íntegra nem andar a vista', () => {
+  // Os quatro pontos do git na conferência da vista: o merge-base para a frente (1ª chamada) e o para trás (2ª, com a ponta
+  // do remoto atrás da vista), e o show da batida na ponta nova (1º) e na última vista (2º).
+  const casos: Array<{ comando: 'merge-base' | 'show'; vez: number; atras?: boolean }> = [
+    { comando: 'merge-base', vez: 1 }, { comando: 'merge-base', vez: 2, atras: true }, { comando: 'show', vez: 1 }, { comando: 'show', vez: 2 },
+  ];
+  for (const caso of casos) {
+    const rotulo = `${caso.comando} ${caso.vez}`;
+    const m = cenario(`noctum-t16-${caso.comando}-${caso.vez}`);
+    const novos = (i: number) => caso.comando === 'show'
       ? [{ tipo: 'batida' as const }]
       : [{ tipo: 'entrega' as const, trabalho: `t${i}`, ordem: `O-t${i}-1` }];
-    const gravar = (i: number) => gravarNoRamo(m.a.carregado, m.arco, { maquina: m.a.nome }, () => ({ novos: novos(i), resultado: null }));
+    const gravar = (i: number) => gravarNoRamo(m.a.carregado, m.arco, { maquina: m.a.nome }, () => ({ novos: novos(i), resultado: null })).commit!;
+    const vista = () => (JSON.parse(fs.readFileSync(path.join(m.b.dir, '.orkastery', 'noctum', 'arcos', m.arco, 'coordenacao.json'), 'utf8')) as {
+      remotos: Record<string, { ponta: string; adulterado?: unknown }> }).remotos.origin;
     try {
-      gravar(1);
+      const primeiro = gravar(1);
       lerRamo(m.b.carregado, m.arco);
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
-      gravar(2);
-      const primeira = comGitFalhandoUmaVez(modo,
-        () => recusa(() => lerRamo(m.b.carregado, m.arco), 'noctum.coordenacao.adulterado'));
-      assert.match(primeira, /não se lê/);
+      const segundo = gravar(2);
+      if (caso.atras) {
+        // A B já viu a ponta nova; o remoto volta para a anterior, e a leitura de agora fica atrás da vista.
+        lerRamo(m.b.carregado, m.arco);
+        exec('git', ['push', '-q', '--force', 'origin', `${primeiro}:refs/heads/${BRANCH_DE_COORDENACAO}`], m.a.dir);
+      }
+      const antes = vista().ponta;
+      const primeira = comGitFalhando(caso.comando, caso.vez, () => recusa(() => lerRamo(m.b.carregado, m.arco), 'noctum.coordenacao.adulterado'));
+      assert.match(primeira, /não se lê/, rotulo);
+      assert.deepEqual([vista().ponta, vista().adulterado], [antes, undefined], `${rotulo}: a vista não anda nem fica marcada`);
+      if (caso.atras) exec('git', ['push', '-q', '--force', 'origin', `${segundo}:refs/heads/${BRANCH_DE_COORDENACAO}`], m.a.dir);
       const lida = lerRamo(m.b.carregado, m.arco);
-      assert.equal(lida.registros.length, modo === 'show' ? 1 : 2, 'a segunda leitura, com o git normal, passa');
-      const vista = JSON.parse(fs.readFileSync(path.join(m.b.dir, '.orkastery', 'noctum', 'arcos', m.arco, 'coordenacao.json'), 'utf8'));
-      assert.equal(vista.remotos.origin.adulterado, undefined, 'a falha passageira não fica marcada');
+      assert.equal(lida.registros.length, caso.comando === 'show' ? 1 : 2, `${rotulo}: a leitura seguinte, com o git normal, passa`);
+      assert.deepEqual([vista().ponta, vista().adulterado], [segundo, undefined], rotulo);
     } finally { m.limpar(); }
-  };
-  exercitar('merge-base');
-  exercitar('show');
+  }
 });

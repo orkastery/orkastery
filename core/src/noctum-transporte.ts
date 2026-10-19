@@ -437,7 +437,7 @@ function lerUmaVez(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDo
       // A3 da revisão: a emenda que a outra máquina já autorizou e esta ainda não é espera, não adulteração.
       if (!daVersao) {
         throw new RecusaDoArco('noctum.coordenacao.versao-nao-autorizada', `${caminho} é de uma versão do envelope que esta máquina ` +
-          'ainda não autorizou: se o dono autorizou uma emenda em outra máquina, autorize-a aqui; se não houve emenda, o ramo exige ' +
+          'ainda não autorizou: se o dono autorizou uma emenda em outra máquina, autorize-a aqui, na mesma ordem das outras máquinas; se não houve emenda, o ramo exige ' +
           'inspeção. Até lá, esta máquina não decide nem grava no ramo');
       }
       const chave = typeof d.por === 'string' ? daVersao.get(d.por) : undefined;
