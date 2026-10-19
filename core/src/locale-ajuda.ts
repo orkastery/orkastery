@@ -540,9 +540,9 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
                                             or stopped, 2 on refusal, 3 with another live conductor, 4 with the generation lost
   noctum aceite <arc> [--json]              The pilot acceptance: measures M1 to M10, the criteria and the verdict; exits 0
                                             only when approved, and simulated evidence (the rehearsal) never approves
-        [--injecoes <arquivo>]                  the schedule of injected failures, which M4 and M5 measure
-        [--limiares <arquivo>]                  the owner's thresholds; what is missing stays with the proposal, marked
-        [--publicar <arquivo>]                  writes the publishable version, without personal data
+        [--injecoes <file>]                     the schedule of injected failures, which M4 and M5 measure
+        [--limiares <file>]                     the owner's thresholds; what is missing stays with the proposal, marked
+        [--publicar <file>]                     writes the publishable version, without personal data
 
   claims add <thread-id> <file> --claim "<claim>" [--verificar "<command>"] [--fase F]
                                             Records a verifiable claim of the thread

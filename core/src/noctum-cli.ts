@@ -104,7 +104,11 @@ function textoDoAceite(r: ResultadoDoAceite, gravado: { arquivo: string; sha256:
 }
 
 function recusado(e: unknown): number {
-  if (e instanceof RecusaDoArco || e instanceof RecusaDoRegistro || e instanceof RecusaDoAceite) { console.error(e.message); return 2; }
+  // A recusa da supervisão (o log adulterado ou ocupado no meio do laço do condutor) também é recusa: sai 2, como o contrato diz.
+  if (e instanceof RecusaDoArco || e instanceof RecusaDoRegistro || e instanceof RecusaDoAceite || e instanceof RecusaDaSupervisao) {
+    console.error(e.message);
+    return 2;
+  }
   throw e;
 }
 

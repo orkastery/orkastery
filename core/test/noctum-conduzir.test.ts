@@ -177,3 +177,19 @@ test('CJ8: o comando real recusa com 2, na saída de erro, o uso sem arco e o ar
     assert.match(r.stderr, /^Condutor do arco arco-cj8: nunca-autorizado \(noctum\.modo\.sem-envelope\): o arco arco-cj8 nunca foi autorizado/);
   } finally { p.limpar(); }
 });
+
+test('CJ9: o log da supervisão que não se lê recusa com 2, antes de criar a trava, e o comando real diz o motivo na saída de erro', () => {
+  const p = projetoTemporario('cj9');
+  try {
+    abrirArco(p.dir, 'arco-cj9', { trabalhos: [A], contas: DUAS });
+    vigiaPresente(p, 'arco-cj9');
+    // O log da supervisão é privado (600); com outro modo, ele se lê como adulterado.
+    fs.chmodSync(path.join(dirDaSupervisao(p.dir, 'arco-cj9'), 'supervisao.jsonl'), 0o644);
+    const r = conduzirPeloCli(p.carregado, 'arco-cj9', SEM_DORMIR);
+    assert.ok(r.acao === 'supervisao-ilegivel' && r.codigo === 2 && r.motivo === 'noctum.supervisao.adulterada', JSON.stringify(r));
+    assert.equal(fs.existsSync(path.join(dirDaSupervisao(p.dir, 'arco-cj9'), 'condutor.lock')), false, 'a trava nem foi criada');
+    const c = cli(p, ['arco-cj9']);
+    assert.equal(c.status, 2, c.stdout + c.stderr);
+    assert.match(c.stderr, /^Condutor do arco arco-cj9: supervisao-ilegivel \(noctum\.supervisao\.adulterada\)/);
+  } finally { p.limpar(); }
+});
