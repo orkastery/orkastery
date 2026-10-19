@@ -8,23 +8,37 @@ export type BaseMode = 'worktree' | 'native-baseline' | 'commit-range';
 
 /**
  * One catalog entry (core/assets/security-scan/tools.json). `args` is the full argv, binary included; the container
- * runs it with the image entrypoint overridden by args[0], as a non-root user, with the repository mounted read-only
- * at {src} (the container working directory) and a writable output directory at {out}. Placeholders substituted by
- * the executor, inside any argument:
- *   {src}     repository root (HEAD or the temporary base worktree) inside the container
- *   {out}     output directory for the tool's report files
- *   {base}    base commit sha (Semgrep --baseline-commit, Gitleaks log-opts range)
- *   {config}  tool config: project `.ork-security/<file>` or the embedded default in `defaults/`
- *   {install} the `install` list, space separated (pinned packages installed inside the container)
+ * runs it with the image entrypoint overridden by args[0] (or `containerBin`), as a non-root user, with the repository
+ * mounted read-only at {src} (the container working directory) and a writable output directory at {out}. Placeholders
+ * substituted by the executor, inside any argument (and only these names):
+ *   {src}      repository root (HEAD or the temporary base worktree) inside the container
+ *   {out}      output directory for the tool's report files
+ *   {base}     base commit sha (Gitleaks git scan range; only `commit-range` tools use it)
+ *   {config}   tool config: project `.ork-security/<file>` or the embedded default in `defaults/`
+ *   {install}  the `install` list, space separated (pinned packages installed inside the container); present iff `install` is set
+ *   {stackDir} directory of the detected stack relative to {src}, '.' at the root (monorepo: `core` for core/package.json);
+ *              every per-stack tool uses it and runs once per detected (stack, dir) pair. Tools that read the whole tree
+ *              (Gitleaks, Trivy, zizmor, actionlint) run once at the root. Paths in a per-stack tool output are relative
+ *              to {stackDir} or absolute under {src}; the normalizer makes them relative to the repository root.
+ * `version` is the version of the tool the entry runs (for a tool installed inside a generic image, the installed
+ * package; for npm-audit, the npm shipped in the node image), not of the image.
+ * Semgrep runs on the HEAD tree and on the base worktree like the others (baseMode 'worktree'): `--baseline-commit`
+ * needs `git reset --hard` and the mount is read-only.
+ *
+ * Failure contract (enforced by the executor in Task 7 and the normalizers in Task 6): a tool is `ran` only when the
+ * process exits 0 AND every file in `expect.files` exists, parses as JSON of `expect.shape` ('stream' is a sequence of
+ * JSON values, as govulncheck emits), carries every `expect.requireKey` and none of `expect.failIfKey` with a non-empty
+ * value (npm audit `error`, Semgrep `errors`). Anything else is `failed`, never clean. Wrappers exit non-zero (3, or 4 for
+ * "nothing to scan") instead of masking a tool's exit code 1 when the output is not the expected JSON.
  */
 export interface ToolSpec {
   name: string; category: Category; stacks: Stack[] | 'all'; image: string; version: string;
   native?: { bin: string; versionArgs: string[]; versionPattern: string };
   network: 'none' | 'default'; baseMode: BaseMode; timeoutMs: number;
   severityMap?: Record<string, Severity>;
-  /** Command template; replaced by `argsByStack[stack]` when the tool has a variant for that stack. */
+  /** Command template used when there is no `argsByStack` variant for the stack; empty when every stack has a variant. */
   args: string[];
-  /** Per-stack variant of `args` (Semgrep rulesets). A stack without a variant uses `args`. */
+  /** Per-stack variant of `args` (Semgrep rulesets); the executor picks `argsByStack[stack] ?? args`. */
   argsByStack?: Partial<Record<Stack, string[]>>;
   /** Binary path inside the image when it is not on PATH (Ruff: /ruff); replaces args[0] in the container only. */
   containerBin?: string;
@@ -36,8 +50,8 @@ export interface ToolSpec {
   env?: Record<string, string>;
   /** When set, the executor writes the tool stdout to `{out}/<stdoutFile>` instead of the tool doing it. */
   stdoutFile?: string;
-  /** Exit codes that mean "ran" (findings found is not an error); default [0]. */
-  okExitCodes?: number[];
+  /** Output validity contract, see the failure contract above; file names are relative to {out}. */
+  expect: { files: string[]; shape: 'array' | 'object' | 'stream'; failIfKey?: string[]; requireKey?: string[] };
 }
 export interface RawFinding {
   tool: string; rule: string; category: Category; severity: Severity; stack?: Stack;

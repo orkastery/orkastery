@@ -49,7 +49,14 @@
         "0",
         "--no-banner"
       ]
-    ]
+    ],
+    "expect": {
+      "files": [
+        "gitleaks-dir.json",
+        "gitleaks-git.json"
+      ],
+      "shape": "array"
+    }
   },
   {
     "name": "semgrep",
@@ -65,31 +72,14 @@
       "versionPattern": "\\b1\\.181\\.\\d+\\b"
     },
     "network": "default",
-    "baseMode": "native-baseline",
+    "baseMode": "worktree",
     "timeoutMs": 900000,
     "severityMap": {
       "ERROR": "high",
       "WARNING": "medium",
       "INFO": "low"
     },
-    "args": [
-      "semgrep",
-      "scan",
-      "--metrics=off",
-      "--disable-version-check",
-      "--json",
-      "--output",
-      "{out}/semgrep.json",
-      "--baseline-commit",
-      "{base}",
-      "--config",
-      "p/typescript",
-      "--config",
-      "p/javascript",
-      "--config",
-      "p/nodejs",
-      "{src}"
-    ],
+    "args": [],
     "argsByStack": {
       "js": [
         "semgrep",
@@ -99,15 +89,13 @@
         "--json",
         "--output",
         "{out}/semgrep.json",
-        "--baseline-commit",
-        "{base}",
         "--config",
         "p/typescript",
         "--config",
         "p/javascript",
         "--config",
         "p/nodejs",
-        "{src}"
+        "{stackDir}"
       ],
       "python": [
         "semgrep",
@@ -117,11 +105,9 @@
         "--json",
         "--output",
         "{out}/semgrep.json",
-        "--baseline-commit",
-        "{base}",
         "--config",
         "p/python",
-        "{src}"
+        "{stackDir}"
       ],
       "go": [
         "semgrep",
@@ -131,16 +117,26 @@
         "--json",
         "--output",
         "{out}/semgrep.json",
-        "--baseline-commit",
-        "{base}",
         "--config",
         "p/golang",
-        "{src}"
+        "{stackDir}"
       ]
     },
     "env": {
       "HOME": "/tmp",
       "SEMGREP_ENABLE_VERSION_CHECK": "0"
+    },
+    "expect": {
+      "files": [
+        "semgrep.json"
+      ],
+      "shape": "object",
+      "failIfKey": [
+        "errors"
+      ],
+      "requireKey": [
+        "results"
+      ]
     }
   },
   {
@@ -182,6 +178,15 @@
     ],
     "env": {
       "HOME": "/tmp"
+    },
+    "expect": {
+      "files": [
+        "trivy-vuln.json"
+      ],
+      "shape": "object",
+      "requireKey": [
+        "SchemaVersion"
+      ]
     }
   },
   {
@@ -191,13 +196,13 @@
       "js"
     ],
     "image": "node@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5",
-    "version": "26.12.0",
+    "version": "11.20.0",
     "native": {
       "bin": "npm",
       "versionArgs": [
         "--version"
       ],
-      "versionPattern": "^\\d+\\.\\d+\\.\\d+"
+      "versionPattern": "^11\\.\\d+\\.\\d+"
     },
     "network": "default",
     "baseMode": "worktree",
@@ -212,18 +217,28 @@
     "args": [
       "sh",
       "-c",
-      "npm audit --package-lock-only --ignore-scripts --json > \"$1\"; rc=$?; [ $rc -le 1 ] || exit $rc",
+      "cd \"$2\" && npm audit --package-lock-only --ignore-scripts --json > \"$1\"; rc=$?; [ $rc -le 1 ] || exit $rc; node -e 'const o=JSON.parse(require(\"fs\").readFileSync(process.argv[1],\"utf8\"));if(o.error||!o.vulnerabilities)process.exit(3)' \"$1\" || exit 3",
       "sh",
-      "{out}/npm-audit.json"
+      "{out}/npm-audit.json",
+      "{stackDir}"
     ],
     "env": {
       "HOME": "/tmp",
       "npm_config_cache": "/tmp/npm-cache",
       "npm_config_update_notifier": "false"
     },
-    "okExitCodes": [
-      0
-    ]
+    "expect": {
+      "files": [
+        "npm-audit.json"
+      ],
+      "shape": "object",
+      "failIfKey": [
+        "error"
+      ],
+      "requireKey": [
+        "vulnerabilities"
+      ]
+    }
   },
   {
     "name": "pip-audit",
@@ -249,13 +264,23 @@
     "args": [
       "sh",
       "-c",
-      "pip install --quiet --no-cache-dir --only-binary=:all: --target /tmp/pa {install}; reqs=\"\"; for f in requirements*.txt; do [ -f \"$f\" ] && reqs=\"$reqs -r $f\"; done; [ -n \"$reqs\" ] || { echo \"no-requirements-file\" >&2; exit 3; }; PYTHONPATH=/tmp/pa python -m pip_audit --no-deps --disable-pip --format json --output \"$1\" $reqs; rc=$?; [ $rc -le 1 ] || exit $rc",
+      "cd \"$2\" || exit 3; pip install --quiet --no-cache-dir --only-binary=:all: --target /tmp/pa {install} || exit 3; reqs=\"\"; for f in requirements*.txt; do [ -f \"$f\" ] && reqs=\"$reqs -r $f\"; done; [ -n \"$reqs\" ] || { echo \"no-requirements-file\" >&2; exit 3; }; PYTHONPATH=/tmp/pa python -m pip_audit --no-deps --disable-pip --format json --output \"$1\" $reqs; rc=$?; [ $rc -le 1 ] || exit $rc; python -c 'import json,sys;sys.exit(0 if \"dependencies\" in json.load(open(sys.argv[1])) else 3)' \"$1\" || exit 3",
       "sh",
-      "{out}/pip-audit.json"
+      "{out}/pip-audit.json",
+      "{stackDir}"
     ],
     "env": {
       "HOME": "/tmp",
       "PIP_DISABLE_PIP_VERSION_CHECK": "1"
+    },
+    "expect": {
+      "files": [
+        "pip-audit.json"
+      ],
+      "shape": "object",
+      "requireKey": [
+        "dependencies"
+      ]
     }
   },
   {
@@ -285,15 +310,22 @@
     "args": [
       "sh",
       "-c",
-      "GOBIN=/tmp/bin go install {install} && /tmp/bin/govulncheck -format json ./... > \"$1\"",
+      "GOBIN=/tmp/bin go install {install} && cd \"$2\" && /tmp/bin/govulncheck -format json ./... > \"$1\"",
       "sh",
-      "{out}/govulncheck.json"
+      "{out}/govulncheck.json",
+      "{stackDir}"
     ],
     "env": {
       "HOME": "/tmp",
       "GOPATH": "/tmp/go",
       "GOCACHE": "/tmp/gocache",
       "GOFLAGS": "-buildvcs=false"
+    },
+    "expect": {
+      "files": [
+        "govulncheck.json"
+      ],
+      "shape": "stream"
     }
   },
   {
@@ -333,6 +365,15 @@
     ],
     "env": {
       "HOME": "/tmp"
+    },
+    "expect": {
+      "files": [
+        "trivy-config.json"
+      ],
+      "shape": "object",
+      "requireKey": [
+        "SchemaVersion"
+      ]
     }
   },
   {
@@ -366,7 +407,13 @@
       "json",
       "{src}"
     ],
-    "stdoutFile": "zizmor.json"
+    "stdoutFile": "zizmor.json",
+    "expect": {
+      "files": [
+        "zizmor.json"
+      ],
+      "shape": "array"
+    }
   },
   {
     "name": "actionlint",
@@ -388,16 +435,18 @@
       "*": "medium"
     },
     "args": [
-      "actionlint",
-      "-no-color",
-      "-format",
-      "{{json .}}"
+      "sh",
+      "-c",
+      "files=$(ls .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null); [ -n \"$files\" ] || { echo \"no-workflows\" >&2; exit 4; }; actionlint -no-color -format \"{{json .}}\" $files > \"$1\"; rc=$?; case $rc in 0) ;; 1) [ \"$(head -c1 \"$1\")\" = \"[\" ] || exit 3 ;; *) exit $rc ;; esac",
+      "sh",
+      "{out}/actionlint.json"
     ],
-    "stdoutFile": "actionlint.json",
-    "okExitCodes": [
-      0,
-      1
-    ]
+    "expect": {
+      "files": [
+        "actionlint.json"
+      ],
+      "shape": "array"
+    }
   },
   {
     "name": "eslint",
@@ -422,15 +471,22 @@
     "args": [
       "sh",
       "-c",
-      "mkdir -p /tmp/lint && cp \"$2\" /tmp/lint/eslint.config.mjs && npm install --prefix /tmp/lint --ignore-scripts --no-audit --no-fund --no-save {install} >&2 && /tmp/lint/node_modules/.bin/eslint --config /tmp/lint/eslint.config.mjs --format json --output-file \"$1\" .; rc=$?; [ $rc -le 1 ] || exit $rc",
+      "mkdir -p /tmp/lint && cp \"$2\" /tmp/lint/eslint.config.mjs && npm install --prefix /tmp/lint --ignore-scripts --no-audit --no-fund --no-save {install} >&2 && cd \"$3\" && /tmp/lint/node_modules/.bin/eslint --config /tmp/lint/eslint.config.mjs --format json --output-file \"$1\" .; rc=$?; [ $rc -le 1 ] || exit $rc; node -e 'if(!Array.isArray(JSON.parse(require(\"fs\").readFileSync(process.argv[1],\"utf8\"))))process.exit(3)' \"$1\" || exit 3",
       "sh",
       "{out}/eslint.json",
-      "{config}"
+      "{config}",
+      "{stackDir}"
     ],
     "env": {
       "HOME": "/tmp",
       "npm_config_cache": "/tmp/npm-cache",
       "npm_config_update_notifier": "false"
+    },
+    "expect": {
+      "files": [
+        "eslint.json"
+      ],
+      "shape": "array"
     }
   },
   {
@@ -458,18 +514,21 @@
       "ruff",
       "check",
       "--no-cache",
+      "--exit-zero",
       "--config",
       "{config}",
       "--output-format",
       "json",
-      "{src}"
+      "{stackDir}"
     ],
     "containerBin": "/ruff",
     "stdoutFile": "ruff.json",
-    "okExitCodes": [
-      0,
-      1
-    ]
+    "expect": {
+      "files": [
+        "ruff.json"
+      ],
+      "shape": "array"
+    }
   },
   {
     "name": "golangci-lint",
@@ -493,15 +552,13 @@
       "*": "low"
     },
     "args": [
-      "golangci-lint",
-      "run",
-      "--config",
-      "{config}",
-      "--issues-exit-code",
-      "0",
-      "--output.json.path",
+      "sh",
+      "-c",
+      "cd \"$2\" && golangci-lint run --config \"$3\" --issues-exit-code 0 --output.json.path \"$1\" ./...",
+      "sh",
       "{out}/golangci-lint.json",
-      "./..."
+      "{stackDir}",
+      "{config}"
     ],
     "env": {
       "HOME": "/tmp",
@@ -509,6 +566,12 @@
       "GOCACHE": "/tmp/gocache",
       "GOLANGCI_LINT_CACHE": "/tmp/golangci-cache",
       "GOFLAGS": "-buildvcs=false"
+    },
+    "expect": {
+      "files": [
+        "golangci-lint.json"
+      ],
+      "shape": "object"
     }
   },
   {
@@ -550,6 +613,15 @@
     ],
     "env": {
       "HOME": "/tmp"
+    },
+    "expect": {
+      "files": [
+        "trivy-license.json"
+      ],
+      "shape": "object",
+      "requireKey": [
+        "SchemaVersion"
+      ]
     }
   }
 ]
