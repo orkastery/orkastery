@@ -10,15 +10,16 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { projetoTemporario, ProjetoDeTeste } from './apoio';
+import { dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
 import { autorizarPedido, pedidoV2, prepararIngressoSimulado, TrabalhoSimulado } from './noctum-apoio';
+import { assinadoPara } from './noctum-n6-apoio';
 import { instancia } from './noctum-supervisao-apoio';
 import { partesLocais } from '../src/horario';
 import { registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { aceitarPorOmissao } from '../src/master';
 import { aceiteDoPiloto, CONTRATO_LIMIARES, gravarAceite, hashDoAceite, Injecao, LeitorDoGit, lerInjecoes, lerLimiares, OpcoesDoAceite, publicavel,
   RecusaDoAceite, ResultadoDoAceite } from '../src/noctum-aceite';
-import { concluirDespacho, encerrarArco, lerArco, reservarDespacho } from '../src/noctum-arco';
+import { autorizarPeloIngresso, concluirDespacho, encerrarArco, lerArco, proporEnvelope, reservarDespacho, textoDeAutorizacao } from '../src/noctum-arco';
 import { entregarRelatorioSeDevido, vencimentoDoRelatorio } from '../src/noctum-relatorio';
 import { gravarNaSupervisao } from '../src/noctum-supervisao';
 import { ExecutorDoGh } from '../src/parado-no-condutor';
@@ -43,12 +44,29 @@ const prsPorBranch = (n = 1): ExecutorDoGh => () => ({ status: 0, stderr: '',
 
 interface Piloto { p: ProjetoDeTeste; arco: string; threads: string[]; inicio: string; fim: string; vencimento: string }
 
+/** Propõe e autoriza o pedido no instante dado, pelo ingresso assinado SIMULADO. Devolve o hash do envelope. */
+function autorizarNoInstante(raiz: string, arco: string, pedido: Record<string, unknown>, quando: string): string {
+  const { envelopeSha256 } = proporEnvelope(raiz, pedido, quando);
+  autorizarPeloIngresso(raiz, arco, envelopeSha256, assinadoPara(arco, textoDeAutorizacao(envelopeSha256), quando), quando);
+  return envelopeSha256;
+}
+
+/** Muda o instante dos eventos de um tipo no ledger da thread (o MASTER que só chegaria depois do arco). */
+function moverEventos(raiz: string, thread: string, tipo: string, ts: string): void {
+  const arquivo = path.join(dirThread(raiz, thread), 'ledger.jsonl');
+  const eventos = fs.readFileSync(arquivo, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l) as { tipo: string; ts: string });
+  fs.writeFileSync(arquivo, eventos.map(e => JSON.stringify(e.tipo === tipo ? { ...e, ts } : e)).join('\n') + '\n');
+}
+
 /**
  * Um piloto de fixture, de 8 h, que começa daqui a 1 h: dois trabalhos despachados, entregues com a prova do push e com o
  * MASTER por omissão, a falha F1 recuperada 3 min depois, o arco fechado na hora e o relatório entregue no horário.
+ * `autorizarEm` e `emendaEm` são instantes depois do início da janela, em ms; `composicaoAtrasadaMin` e `reciboAtrasadoMin`,
+ * minutos depois do vencimento do relatório (com o recibo atrasado, a primeira tentativa falha, como na F7).
  */
 function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; baseDeFora?: boolean; maquina?: string; aberto?: boolean;
-  idempotente?: boolean; tiqueParado?: boolean } = {}): Piloto {
+  idempotente?: boolean; tiqueParado?: boolean; autorizarEm?: number; emendaEm?: number; composicaoAtrasadaMin?: number;
+  reciboAtrasadoMin?: number } = {}): Piloto {
   const p = projetoTemporario(nome);
   const threads = ['a', 'b'].map((x, i) => novaThread(p.carregado, { nome: `piloto ${x}`, modo: 'auto', roadmap: `RM-97${i + 1}`,
     pedido: `Trabalho ${x} SIMULADO do piloto.`, criarWorktree: false }).thread.id);
@@ -58,7 +76,7 @@ function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; b
   const janela = pedido.janela as { inicio: string; fim: string };
   const relatorioEm = partesLocais(Date.parse(janela.fim) + 30 * MIN, 'America/Sao_Paulo');
   pedido.relatorio = { horario: `${relatorioEm.hora}:${relatorioEm.minuto}`, canal: 'telegram' };
-  const sha = autorizarPedido(p.dir, arco, pedido);
+  const sha = o.autorizarEm === undefined ? autorizarPedido(p.dir, arco, pedido) : autorizarNoInstante(p.dir, arco, pedido, em(janela.inicio, o.autorizarEm));
   const conteudo = lerArco(p.dir, arco)!.conteudo!;
   const { inicio, fim } = conteudo.janela;
   const quem = o.maquina ? { ...instancia('condutor', 1), maquina: o.maquina } : instancia('condutor', 1);
@@ -89,10 +107,21 @@ function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; b
     }
     aceitarPorOmissao(p.dir, thread);
   });
+  if (o.emendaEm !== undefined) {
+    // A emenda do dono durante a janela: o teto do arco cai de 40 para 39 sessões.
+    const orcamento = pedido.orcamento as Record<string, unknown>;
+    autorizarNoInstante(p.dir, arco, { ...pedido, orcamento: { ...orcamento, arco: { valor: 39, unidade: 'sessoes' } } }, em(inicio, o.emendaEm));
+  }
   const vencimento = vencimentoDoRelatorio(conteudo);
   if (o.aberto) return { p, arco, threads, inicio, fim, vencimento };
   encerrarArco(p.dir, arco, { motivo: 'hora', detalhe: 'o fim do envelope chegou (SIMULADO)' }, fim);
-  const r = entregarRelatorioSeDevido(p.carregado, arco, { quando: vencimento, enviar: () => ({ estado: 'confirmado', referencia: 'mensagem-SIMULADA' }) });
+  const primeira = em(vencimento, (o.composicaoAtrasadaMin ?? 0) * MIN);
+  if (o.reciboAtrasadoMin !== undefined) {
+    // A F7: o canal está fora no horário; a versão 1 sai composta, e o reenvio confirma depois.
+    entregarRelatorioSeDevido(p.carregado, arco, { quando: primeira, enviar: () => ({ estado: 'falhou', motivo: 'o canal está fora (SIMULADO)' }) });
+  }
+  const r = entregarRelatorioSeDevido(p.carregado, arco, { quando: o.reciboAtrasadoMin === undefined ? primeira : em(vencimento, o.reciboAtrasadoMin * MIN),
+    enviar: () => ({ estado: 'confirmado', referencia: 'mensagem-SIMULADA' }) });
   assert.equal(r.acao, 'entregue', JSON.stringify(r));
   return { p, arco, threads, inicio, fim, vencimento };
 }
@@ -299,4 +328,105 @@ test('AC12: o despacho idempotente não é efeito duplicado, o transporte simula
     assert.equal(criterio(r, 'A1').veredito, 'incompleto');
     assert.notEqual(r.veredito, 'aprovado');
   } finally { aberto.p.limpar(); }
+});
+
+test('AC13: rodado numa worktree, o aceite lê o arco, os ledgers e o transporte do canal da raiz canônica do estado', () => {
+  const pl = piloto('ac13');
+  const wt = path.join(dirTemporario('ac13-worktree'), 'wt');
+  try {
+    assert.equal(spawnSync('git', ['worktree', 'add', '-q', '--detach', wt], { cwd: pl.p.dir, encoding: 'utf8' }).status, 0);
+    const monitor = path.join(pl.p.dir, '.orkastery', 'monitor');
+    fs.mkdirSync(monitor, { recursive: true });
+    fs.writeFileSync(path.join(monitor, 'noctum-host.json'), JSON.stringify({ telegram: { executavel: process.execPath,
+      argumentos: [path.join(pl.p.dir, 'canal-simulado.cjs'), '{{mensagem}}'] } }));
+    const r = aceiteDoPiloto({ ...pl.p.carregado, raiz: wt }, pl.arco, { git: gitDoGitHub(), executorGh: prsPorBranch(), injecoes: [F1(pl)] });
+    assert.deepEqual(r.medidas.map(m => [m.id, m.valor]), [['M1', 8], ['M2', 2], ['M3', 2], ['M4', 1], ['M5', 3], ['M6', 0], ['M7', 0], ['M8', 0],
+      ['M9', 0], ['M10', 1]]);
+    assert.deepEqual([r.veredito, r.simulacao.marcas], ['simulado', ['o transporte do canal do relatório é simulado (grava num arquivo local)']],
+      'o transporte mora na raiz do estado, não na worktree');
+  } finally {
+    spawnSync('git', ['worktree', 'remove', '--force', wt], { cwd: pl.p.dir });
+    fs.rmSync(path.dirname(wt), { recursive: true, force: true });
+    pl.p.limpar();
+  }
+});
+
+test('AC14: a condução começa na primeira autorização, e a emenda do dono durante a janela é ato que corta M1', () => {
+  const pl = piloto('ac14', { autorizarEm: MIN, emendaEm: 3 * HORA });
+  try {
+    const r = aceite(pl);
+    assert.deepEqual([medida(r, 'M1').valor, medida(r, 'M1').evidencia.inicio], [2.98, em(pl.inicio, MIN)],
+      'de 1 min depois do início (a autorização) até a emenda, às 3 h');
+    assert.deepEqual(medida(r, 'M1').evidencia.atos, [{ em: em(pl.inicio, 3 * HORA), ato: 'emenda do envelope (versão 2) durante a janela' }]);
+    assert.deepEqual([r.envelope.versao, criterio(r, 'A1').veredito, r.veredito], [2, 'reprovado', 'reprovado']);
+  } finally { pl.p.limpar(); }
+});
+
+test('AC15: o ledger com linha corrompida, ou que nem se abre, é lacuna em M1, M2, M6 e M7 e evidência perdida em M8, nunca zero', () => {
+  const pl = piloto('ac15');
+  const [a, b] = pl.threads;
+  const doA = path.join(dirThread(pl.p.dir, a), 'ledger.jsonl');
+  try {
+    fs.appendFileSync(path.join(dirThread(pl.p.dir, b), 'ledger.jsonl'), '{"tipo":"ship_done","ts":\n');
+    const r = aceite(pl);
+    assert.deepEqual(['M1', 'M2', 'M6', 'M7', 'M8'].map(id => medida(r, id).valor), [null, null, null, null, 1]);
+    assert.deepEqual(medida(r, 'M8').evidencia.perdidas, [`o ledger da thread ${b} tem linha corrompida`]);
+    assert.deepEqual([criterio(r, 'A2').veredito, criterio(r, 'I3').veredito, r.veredito], ['incompleto', 'reprovado', 'reprovado']);
+    // O ledger que nem se abre (uma pasta no lugar do arquivo) também.
+    fs.rmSync(doA);
+    fs.mkdirSync(doA);
+    const r2 = aceite(pl);
+    assert.equal(medida(r2, 'M8').valor, 2);
+    assert.match((medida(r2, 'M8').evidencia.perdidas as string[])[0], new RegExp(`^o ledger da thread ${a} não se lê`));
+  } finally {
+    // A limpeza do projeto lê os ledgers: a pasta sai antes.
+    fs.rmSync(doA, { recursive: true, force: true });
+    pl.p.limpar();
+  }
+});
+
+test('AC16: só a entrega do arco conta: o que o dono faz depois do arco não muda o aceite, e o merge de fora reconciliado na janela é ato dele', () => {
+  const pl = piloto('ac16');
+  try {
+    const antes = hashDoAceite(aceite(pl)).sha256;
+    const [a, b] = pl.threads;
+    // Depois do arco, o dono entrega o a de novo, à mão: dois pushes do mesmo SHA e o ship sem o arco na evidência.
+    for (const h of [1, 2]) registrar(dirThread(pl.p.dir, a), a, TIPOS_DE_EVENTO.shipPublicado, { ts: em(pl.fim, h * HORA), pushFeito: true, head: MERGE(7) });
+    registrar(dirThread(pl.p.dir, a), a, TIPOS_DE_EVENTO.shipConcluido, { ts: em(pl.fim, 3 * HORA), pushVerificado: true, mergeSha: MERGE(7), para: 'release' });
+    assert.equal(hashDoAceite(aceite(pl)).sha256, antes, 'o que o dono fez depois do arco não entra no aceite dele');
+    // O MASTER por omissão do b só chegou depois do arco: não é o do arco.
+    moverEventos(pl.p.dir, b, TIPOS_DE_EVENTO.aceitePorOmissao, em(pl.fim, HORA));
+    const semMaster = aceite(pl);
+    assert.deepEqual([medida(semMaster, 'M3').valor, medida(semMaster, 'M3').evidencia.semMaster, criterio(semMaster, 'A6').veredito], [1, [b], 'reprovado']);
+    // Na janela, o merge do b por outro caminho, que a entrega do arco reconciliou: é ato do dono, e não entrega do arco.
+    registrar(dirThread(pl.p.dir, b), b, TIPOS_DE_EVENTO.shipConcluido, { ts: em(pl.inicio, 6 * HORA), pushVerificado: true, mergeSha: MERGE(2), para: 'main',
+      evidencia: { arco: pl.arco, incorporadaPor: 'outro-caminho' } });
+    const r = aceite(pl);
+    assert.deepEqual(['M1', 'M2', 'M7'].map(id => medida(r, id).valor), [6, 2, 0]);
+    assert.deepEqual(medida(r, 'M1').evidencia.atos, [{ em: em(pl.inicio, 6 * HORA), ato: `entrega de fora do arco na thread ${b}` }]);
+    assert.equal(criterio(r, 'A1').veredito, 'reprovado');
+  } finally { pl.p.limpar(); }
+});
+
+test('AC17: com a F7 na agenda, o recibo que o reenvio traz dentro da janela de 24 h vale; sem ela, ou com a versão 1 composta tarde, reprova', () => {
+  const pl = piloto('ac17', { reciboAtrasadoMin: 120 });
+  try {
+    const comF7 = aceite(pl, { injecoes: [F1(pl), { falha: 'F7', instante: pl.vencimento }] });
+    assert.deepEqual([medida(comF7, 'M10').valor, medida(comF7, 'M4').valor, comF7.veredito], [1, 2, 'aprovado'], JSON.stringify(medida(comF7, 'M10').evidencia));
+    const semF7 = aceite(pl);
+    assert.deepEqual([medida(semF7, 'M10').valor, criterio(semF7, 'A7').veredito], [0, 'reprovado']);
+    assert.match(criterio(semF7, 'A7').detalhe, /o último recibo da versão 1 chegou depois do vencimento e de um tique/);
+  } finally { pl.p.limpar(); }
+  const tarde = piloto('ac17a', { composicaoAtrasadaMin: 30 });
+  try {
+    const r = aceite(tarde, { injecoes: [F1(tarde), { falha: 'F7', instante: tarde.vencimento }] });
+    assert.deepEqual([medida(r, 'M10').valor, criterio(r, 'A7').veredito], [0, 'reprovado']);
+    assert.equal(criterio(r, 'A7').detalhe, 'a versão 1 foi composta depois do vencimento e de um tique');
+  } finally { tarde.p.limpar(); }
+});
+
+test('AC18: os limiares recusam a chave desconhecida, em vez de deixar o critério com a proposta em silêncio', () => {
+  assert.throws(() => lerLimiares({ contrato: CONTRATO_LIMIARES, m1MinimoHora: 6 }), (e: unknown) => e instanceof RecusaDoAceite &&
+    e.motivo === 'noctum.aceite.limiares-invalidos' && /chave\(s\) desconhecida\(s\): m1MinimoHora;/.test(e.message));
+  assert.deepEqual(lerLimiares({ contrato: CONTRATO_LIMIARES, m1MinimoHoras: 6, atrasoDoRelatorioMin: 10 }), { m1MinimoHoras: 6, atrasoDoRelatorioMin: 10 });
 });

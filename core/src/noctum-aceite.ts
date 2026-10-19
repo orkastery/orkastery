@@ -24,7 +24,7 @@ import { ConteudoDoEnvelope, RecusaDoArco, Unidade } from './noctum-envelope';
 import { CADENCIA_MS } from './noctum-fila';
 import { consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco } from './noctum-medicao';
 import { lerRegistro, RecusaDoRegistro } from './noctum-registro';
-import { ARQUIVO_DO_TRANSPORTE, vencimentoDoRelatorio } from './noctum-relatorio';
+import { ARQUIVO_DO_TRANSPORTE, JANELA_DE_ENTREGA_MS, vencimentoDoRelatorio } from './noctum-relatorio';
 import { ConteudoV2, correlacaoDoArco, dirDaSupervisao, EventoDaSupervisao, eventosDaSupervisao, RecusaDaSupervisao, threadsDoArco }
   from './noctum-supervisao';
 import { ExecutorDoGh, ghPadrao } from './parado-no-condutor';
@@ -154,13 +154,21 @@ export function limiaresDaProposta(horas: number): Limiares {
   return { m1MinimoHoras: arred(horas), m5MaximoMin: 15, entregasMinimas: horas < 12 ? 2 : 4, margemDoTeto: 0, atrasoDoRelatorioMin: CADENCIA_MS / MIN };
 }
 
-/** Confere os limiares do dono (`--limiares`): o contrato e números não negativos; o que falta fica com a proposta. */
+/** As chaves dos limiares do dono, no contrato `ork.noctum-limiares/v1`. */
+export const CHAVES_DOS_LIMIARES = ['m1MinimoHoras', 'm5MaximoMin', 'entregasMinimas', 'margemDoTeto', 'atrasoDoRelatorioMin'] as const;
+
+/** Confere os limiares do dono (`--limiares`): o contrato, só as chaves conhecidas e números não negativos; o que falta fica com a proposta. */
 export function lerLimiares(bruto: unknown): Partial<Limiares> {
   if (!objeto(bruto) || bruto.contrato !== CONTRATO_LIMIARES) {
     throw new RecusaDoAceite('noctum.aceite.limiares-invalidos', `os limiares do dono são um JSON com contrato ${CONTRATO_LIMIARES}`);
   }
   const saida: Partial<Limiares> = {};
-  for (const chave of ['m1MinimoHoras', 'm5MaximoMin', 'entregasMinimas', 'margemDoTeto', 'atrasoDoRelatorioMin'] as const) {
+  // M8 do CHECK 2: a chave com erro de digitação não some em silêncio, deixando o critério com a proposta.
+  const desconhecidas = Object.keys(bruto).filter(k => k !== 'contrato' && !(CHAVES_DOS_LIMIARES as readonly string[]).includes(k));
+  if (desconhecidas.length) {
+    throw new RecusaDoAceite('noctum.aceite.limiares-invalidos', `chave(s) desconhecida(s): ${desconhecidas.join(', ')}; as válidas: ${CHAVES_DOS_LIMIARES.join(', ')}`);
+  }
+  for (const chave of CHAVES_DOS_LIMIARES) {
     const v = bruto[chave];
     if (v === undefined) continue;
     if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) throw new RecusaDoAceite('noctum.aceite.limiares-invalidos', `${chave} não é um número não negativo`);
@@ -238,7 +246,9 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     try { return { trabalho, thread, eventos: lerLedger(dirThread(raiz, thread)), erro: null }; }
     catch (e) { return { trabalho, thread, eventos: null, erro: `o ledger da thread ${thread} não se lê (${(e as Error).message.slice(0, 120)})` }; }
   });
-  const ilegiveis = ledgers.filter(l => l.erro).map(l => l.erro!);
+  // M7 do CHECK 2: a linha que não se lê vira `ledger_corrupted` na leitura, e o ato do dono ou a entrega podem estar nela.
+  const ilegiveis = [...ledgers.filter(l => l.erro).map(l => l.erro!),
+    ...ledgers.filter(l => l.eventos?.some(e => e.tipo === 'ledger_corrupted')).map(l => `o ledger da thread ${l.thread} tem linha corrompida`)];
   const eventosDasThreads: Array<EventoLedger & { threadDoArco: string }> = ledgers.flatMap(l => (l.eventos ?? []).map(e => ({ ...e, threadDoArco: l.thread })));
 
   // As marcas de simulação.
@@ -259,6 +269,15 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   const medidas: MedidaDoPiloto[] = [];
   const medida = (m: MedidaDoPiloto) => { medidas.push(m); return m; };
 
+  /**
+   * I1 do CHECK 2: a entrega do arco é o `ship_done` que a entrega dele gravou (o arco na evidência), e não a reconciliação
+   * de um merge feito por fora (`incorporadaPor: 'outro-caminho'`) nem o ship do dono depois do arco.
+   */
+  const doArco = (e: EventoLedger): boolean => {
+    const ev = e.evidencia as { arco?: unknown; incorporadaPor?: unknown } | undefined;
+    return ev?.arco === arco && ev.incorporadaPor !== 'outro-caminho';
+  };
+
   // M1: condução sem intervenção.
   const atos: Array<{ em: string; ato: string }> = [];
   if (estado.revogadoPor) atos.push({ em: estado.revogadoPor.recebidoEm, ato: 'revogação do envelope pelo dono' });
@@ -275,6 +294,8 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
       atos.push({ em: e.ts, ato: `MASTER do dono na thread ${e.threadDoArco}` });
     } else if (e.tipo === TIPOS_DE_EVENTO.faseDespachada && e.correlacao !== correlacaoDoArco(arco)) {
       atos.push({ em: e.ts, ato: `despacho de fora do arco na thread ${e.threadDoArco}` });
+    } else if (e.tipo === TIPOS_DE_EVENTO.shipConcluido && !doArco(e)) {
+      atos.push({ em: e.ts, ato: `entrega de fora do arco na thread ${e.threadDoArco}` });
     }
   }
   atos.sort((a, b) => Date.parse(a.em) - Date.parse(b.em));
@@ -291,7 +312,7 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   const entregas: Entrega[] = [];
   const lacunasDaEntrega: string[] = [...ilegiveis];
   for (const l of ledgers) {
-    const ships = (l.eventos ?? []).filter(e => e.tipo === TIPOS_DE_EVENTO.shipConcluido);
+    const ships = (l.eventos ?? []).filter(e => e.tipo === TIPOS_DE_EVENTO.shipConcluido && doArco(e));
     if (!ships.length) continue;
     const ship = ships[0];
     const sha = typeof ship.mergeSha === 'string' && ship.mergeSha ? ship.mergeSha : typeof ship.shaRemoto === 'string' ? ship.shaRemoto : null;
@@ -307,7 +328,8 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     }
     let fechada = false;
     try { fechada = lerThread(raiz, l.thread).status === 'fechada'; } catch { /* a thread ilegível não tem MASTER provado */ }
-    const master = fechada && (l.eventos ?? []).some(e => e.tipo === TIPOS_DE_EVENTO.masterConcluido || e.tipo === TIPOS_DE_EVENTO.aceitePorOmissao);
+    // O MASTER do arco é o por omissão que a entrega dele grava antes do fim; o da fábrica ou do dono depois do arco não conta.
+    const master = fechada && (l.eventos ?? []).some(e => e.tipo === TIPOS_DE_EVENTO.aceitePorOmissao && Date.parse(e.ts) <= fimMs);
     entregas.push({ trabalho: l.trabalho, thread: l.thread, ship, provada, motivo, master, duplicadas: ships.length - 1 });
   }
   const provadas = entregas.filter(e => e.provada === true);
@@ -316,7 +338,7 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     fonte: 'ship_done dos ledgers, ponta da base pelo git ls-remote e ancestralidade do merge', lacunas: lacunasDaEntrega,
     evidencia: { alegadas: entregas.length, entregas: entregas.map(e => ({ trabalho: e.trabalho, thread: e.thread, provada: e.provada, motivo: e.motivo })) } });
   medida({ id: 'M3', nome: 'MASTER por omissão', valor: semLeitura ? null : provadas.filter(e => e.master).length, unidade: `entregas com MASTER de ${provadas.length} provadas`,
-    fonte: 'master_done e aceite_por_omissao dos ledgers, e a thread fechada', lacunas: semLeitura ? ['as entregas não se provaram todas'] : [],
+    fonte: 'aceite_por_omissao dos ledgers antes do fim do arco, e a thread fechada', lacunas: semLeitura ? ['as entregas não se provaram todas'] : [],
     evidencia: { semMaster: provadas.filter(e => !e.master).map(e => e.thread) } });
 
   // M4 e M5: as falhas injetadas e a recuperação delas.
@@ -389,8 +411,10 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   const duplicados: string[] = [];
   for (const e of entregas) if (e.duplicadas) duplicados.push(`${e.duplicadas} ship_done a mais na thread ${e.thread}`);
   const pushes = new Map<string, number>();
+  // Só os pushes do arco, entre o início da condução e o fim dele: o push do dono antes ou depois do arco não é efeito dele.
   for (const e of eventosDasThreads) {
-    if (e.tipo !== TIPOS_DE_EVENTO.shipPublicado || e.pushFeito !== true || typeof e.head !== 'string') continue;
+    const t = Date.parse(e.ts);
+    if (e.tipo !== TIPOS_DE_EVENTO.shipPublicado || e.pushFeito !== true || typeof e.head !== 'string' || !(t >= inicioMs && t <= fimMs)) continue;
     const chave = `${e.threadDoArco} ${e.head}`;
     pushes.set(chave, (pushes.get(chave) ?? 0) + 1);
   }
@@ -476,9 +500,15 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   const falhasDoRelatorio: string[] = [];
   if (!v1) falhasDoRelatorio.push('a versão 1 não foi composta');
   else {
+    const tolerancia = (opcoes.limiares?.atrasoDoRelatorioMin ?? CADENCIA_MS / MIN) * MIN;
+    if (Date.parse(v1.em) > Date.parse(vencimento) + tolerancia) falhasDoRelatorio.push('a versão 1 foi composta depois do vencimento e de um tique');
     if (recibos.size < paginasDaV1) falhasDoRelatorio.push(`${paginasDaV1 - recibos.size} página(s) da versão 1 sem recibo`);
-    if (ultimoRecibo !== null && ultimoRecibo > Date.parse(vencimento) + (opcoes.limiares?.atrasoDoRelatorioMin ?? CADENCIA_MS / MIN) * MIN) {
-      falhasDoRelatorio.push('o último recibo da versão 1 chegou depois do vencimento e de um tique');
+    // I2 do CHECK 2: com a F7 na agenda (o canal fora no horário), o recibo vem depois, pelo reenvio a cada 5 min, dentro da
+    // janela de entrega de 24 h; sem ela, o recibo vem no horário, até um tique depois.
+    const comF7 = (opcoes.injecoes ?? []).some(i => i.falha === 'F7');
+    if (ultimoRecibo !== null && ultimoRecibo > Date.parse(vencimento) + (comF7 ? JANELA_DE_ENTREGA_MS : tolerancia)) {
+      falhasDoRelatorio.push(comF7 ? 'o último recibo da versão 1 chegou depois da janela de entrega de 24 h'
+        : 'o último recibo da versão 1 chegou depois do vencimento e de um tique');
     }
   }
   if (revertidas.length && !corrigida) falhasDoRelatorio.push(`${revertidas.length} entrega(s) revertida(s) sem a correção explícita`);
