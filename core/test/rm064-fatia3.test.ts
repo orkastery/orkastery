@@ -1,8 +1,11 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { projetoTemporario } from './apoio';
+import { controllerSimulado, esperarCondicao } from './controller-simulado';
+import { encerrarController } from '../src/adapters/codex-controller';
+import { rodarFase } from '../src/phase';
 import { ParserCodex } from '../src/adapters/codex-events';
 import { dirThread, gravarThread, novaThread } from '../src/thread';
 import { lerLedger, registrar } from '../src/ledger';
@@ -87,6 +90,42 @@ test('RM-064 T9: a partida do despacho tolera só a fonte ainda não pronta e re
     assert.throws(() => prepararFonteWatcher(p.dir, SID, { controlador: outro, cwd: p.dir }),
       /controlador registrado divergente do despacho/);
   } finally { p.limpar(); }
+});
+
+test('RM-064 T9: despacho com rollout ainda sem session_meta registra a fonte e inicia o watcher', () => {
+  const p = projetoTemporario('rm064-t9-despacho');
+  const f = controllerSimulado(p.dir);
+  const t = novaThread(p.carregado, { nome: 'despacho', modo: 'auto' }).thread;
+  t.faseAtual = 'GO'; gravarThread(p.dir, t);
+  const estado = dirThread(p.dir, t.id);
+  // Reproduz a corrida do incidente: na primeira validação profunda o controller ainda não publicou o session_meta.
+  const sensor = require('../src/adapters/codex-controller-sensor');
+  const original = sensor.registrarFonteController;
+  let primeira = true;
+  const corrida = mock.method(sensor, 'registrarFonteController', (dir: string, esperado: unknown) => {
+    if (primeira) { primeira = false; throw new Error('runtime.unavailable: rollout do controller sem session_meta conferível'); }
+    return original(dir, esperado);
+  });
+  let controlador: string | undefined;
+  try {
+    const r = rodarFase(p.carregado, t.id, { fase: 'GO', runtime: 'codex', model: 'modelo-SIMULADO',
+      prompt: 'FINALIZAR-SIMULADO: corrida da prontidão' });
+    assert.ok(r.sessionId, 'despacho sem sessão');
+    controlador = r.controlador ?? undefined;
+    assert.equal(primeira, false, 'a corrida simulada não foi exercitada');
+    const eventos = lerLedger(estado);
+    assert.equal(eventos.some((e) => e.tipo === 'session_watcher_error' && e.origem === 'phase.dispatch'), false);
+    assert.ok(eventos.some((e) => e.tipo === 'session_sensor_registered' && e.sessionId === r.sessionId));
+    assert.ok(eventos.some((e) => e.tipo === 'session_watcher_started' && e.sessionId === r.sessionId));
+    esperarCondicao(() => lerLedger(estado).some((e) => e.tipo === 'phase_result' && e.sessionId === r.sessionId), 40000);
+  } finally {
+    corrida.mock.restore();
+    if (controlador) {
+      const launch = JSON.parse(fs.readFileSync(path.join(controlador, 'launch.json'), 'utf8'));
+      try { encerrarController(controlador, launch.vinculo, launch.instancia, 8000); } catch { /* fixture já terminal */ }
+    }
+    f.restaurar(); p.limpar();
+  }
 });
 
 test('RM-064 T9 segurança: resposta final é limitada, privada e idempotente sem sobrescrita', () => {
