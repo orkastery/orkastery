@@ -27,4 +27,10 @@ test('locale pt-BR F3b: SHA7 só de letras é normalizado no contexto de commit 
     normalizar('commit ceedebe; merge deadbee; remoto cafeabc; @ faceade; a1b2c3d; acabada; decafed'),
     'commit <SHA7>; merge <SHA7>; remoto <SHA7>; @ <SHA7>; <SHA7>; acabada; decafed',
   );
+  // Os dois contextos que derrubaram o CI em 19/10 com sha só de letras (aaeecea e ebcbadb).
+  assert.equal(
+    normalizar('  branch ork/roadmap-reservas em aaeecea\nRede: pc-a publicou o retrato em x/y (ebcbadb, 1 tentativa(s)).\n'),
+    '  branch ork/roadmap-reservas em <SHA7>\nRede: pc-a publicou o retrato em x/y (<SHA7>, 1 tentativa(s)).\n',
+  );
+  assert.equal(normalizar('feito em acabada parte; (decafed) e em faceade cedo'), 'feito em acabada parte; (decafed) e em faceade cedo');
 });
