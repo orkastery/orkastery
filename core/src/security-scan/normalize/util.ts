@@ -1,6 +1,6 @@
 import * as crypto from 'node:crypto';
 import * as path from 'node:path';
-import { loadTools } from '../tools';
+import { loadTools as readCatalog } from '../tools';
 import type { RawFinding, Severity } from '../types';
 
 /**
@@ -10,6 +10,10 @@ import type { RawFinding, Severity } from '../types';
  */
 export type NormalizeContext = { root: string; stackDir: string };
 export type Normalizer = (output: string, ctx: NormalizeContext) => RawFinding[];
+
+let catalog: ReturnType<typeof readCatalog> | undefined;
+/** The catalog is read once per process: normalizers look a tool up for every finding. */
+const loadTools = (): ReturnType<typeof readCatalog> => (catalog ??= readCatalog());
 
 const DEFAULT_SEVERITY: Severity = 'medium';
 
@@ -58,6 +62,8 @@ export function parseReport(tool: string, output: string, catalogName = tool): u
     }
     value = JSON.parse(output);
   } catch (e) {
+    // A secret scanner's output may hold the secret: its parse error carries a fixed reason, never output content.
+    if (spec.category === 'secret') throw parseError(tool, 'invalid JSON');
     throw parseError(tool, output.trim() ? output : (e as Error).message);
   }
   if (shape === 'array') {

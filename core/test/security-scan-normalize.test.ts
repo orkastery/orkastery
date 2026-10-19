@@ -176,3 +176,13 @@ test('unmapped severity falls back to medium instead of throwing', () => {
   const out = NORMALIZERS.semgrep(JSON.stringify({ results: [{ check_id: 'r', path: 'a.js', start: { line: 1 }, extra: { message: 'm', severity: 'WEIRD' } }], errors: [] }), ROOT_CTX);
   assert.equal(out[0].severity, 'medium');
 });
+
+test('a secret tool parse error never echoes the output', () => {
+  const bad = `{"Secret":"${FAKE_SECRET}"`;
+  assert.throws(() => NORMALIZERS.gitleaks(bad, ROOT_CTX), (e: Error) => /security-scan\.parse: gitleaks/.test(e.message) && !e.message.includes(FAKE_SECRET));
+  assert.throws(() => NORMALIZERS.gitleaks(`{"Secret":"${FAKE_SECRET}"}`, ROOT_CTX), (e: Error) => !e.message.includes(FAKE_SECRET));
+});
+
+test('pip-audit severity comes from the catalog map', () => {
+  assert.deepEqual(loadTools().find(t => t.name === 'pip-audit')!.severityMap, { '*': 'high' });
+});

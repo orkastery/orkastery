@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { classify, fingerprintOf, matchesGlob } from '../src/security-scan/compare';
+import { classify, fingerprintOf, matchesGlob, mergeByFingerprint } from '../src/security-scan/compare';
 import { loadConfig, loadDismissals, type Dismissal } from '../src/security-scan/config';
 import type { RawFinding } from '../src/security-scan/types';
 
@@ -36,7 +36,7 @@ test('classify: only in HEAD is new, in both is existing, line shift stays exist
 
 test('classify: a second occurrence of the same fingerprint beyond the base count is new', () => {
   const r = classify([f({ line: 1 }), f({ line: 2 })], [f({ line: 9 })], [], []);
-  assert.deepEqual(r.findings.map(x => x.status), ['existing', 'new']);
+  assert.deepEqual(r.findings.map(x => x.status), ['new', 'existing']);
 });
 
 test('classify: dismissal by fingerprint wins over new and existing', () => {
@@ -104,4 +104,33 @@ test('loadDismissals: entry without reason or decisionRef throws with the finger
   assert.throws(() => loadDismissals(root), /security-scan\.dismissal-invalid: ccc/);
   fs.writeFileSync(file, 'not json');
   assert.throws(() => loadDismissals(root), /security-scan\.dismissal-invalid|config-invalid/);
+});
+
+test('classify: same-fingerprint occurrences pair with the base by nearest line', () => {
+  const r = classify([f({ line: 5 }), f({ line: 40 })], [f({ line: 38 })], [], []);
+  assert.deepEqual(r.findings.map(x => [x.line, x.status]), [[5, 'new'], [40, 'existing']]);
+});
+
+test('matchesGlob: a directory match covers everything under it (gitignore-like)', () => {
+  assert.equal(matchesGlob('src/a/b/c.js', 'src/*'), true);
+  assert.equal(matchesGlob('other/a.js', 'src/*'), false);
+});
+
+const secret = (line: number, snippet = 'h1'): RawFinding => f({ tool: 'gitleaks', category: 'secret', severity: 'critical', rule: 'k', line, snippet });
+
+test('mergeByFingerprint: max of the counts, dir entries preferred, no double count', () => {
+  const dir = [secret(7)];
+  const git = [secret(3)];
+  const merged = mergeByFingerprint([dir, git]);
+  assert.deepEqual(merged.map(x => x.line), [7]);
+  assert.deepEqual(mergeByFingerprint([[secret(1)], [secret(2), secret(3)]]).map(x => x.line), [2, 3]);
+  assert.deepEqual(mergeByFingerprint([[], [secret(4, 'h2')]]).map(x => x.line), [4]);
+});
+
+test('secret in base dir, HEAD dir and HEAD git: one existing, none new; new secret seen twice: exactly one new', () => {
+  const existing = classify(mergeByFingerprint([[secret(10)], [secret(3)]]), [secret(8)], [], []);
+  assert.deepEqual(existing.findings.map(x => x.status), ['existing']);
+  assert.ok(existing.findings.every(x => !x.loop));
+  const fresh = classify(mergeByFingerprint([[secret(10, 'h9')], [secret(3, 'h9')]]), [], [], []);
+  assert.deepEqual(fresh.findings.map(x => [x.status, x.loop]), [['new', true]]);
 });

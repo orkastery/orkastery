@@ -255,6 +255,9 @@
       ],
       "versionPattern": "\\b2\\.10\\.\\d+\\b"
     },
+    "severityMap": {
+      "*": "high"
+    },
     "network": "default",
     "baseMode": "worktree",
     "timeoutMs": 600000,
