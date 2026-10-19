@@ -4,28 +4,28 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-19T18:00:02.791Z",
+  "publicadoEm": "2026-10-19T18:15:24.660Z",
   "threads": [
     {
       "id": "ork-rm058integra",
       "nome": "rm058integracao",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-058",
       "branch": "ork/ork-rm058integra-full",
-      "atualizadaEm": "2026-10-19T17:37:44.676Z",
+      "atualizadaEm": "2026-10-19T18:15:24.200Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
-      "esforco": "high",
+      "esforco": "max",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-19T17:46:35.944Z",
-        "motivo": "sessão b3f69a32 encerrada (done)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
