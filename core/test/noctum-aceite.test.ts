@@ -20,7 +20,7 @@ import { aceitarPorOmissao } from '../src/master';
 import { aceiteDoPiloto, CONTRATO_LIMIARES, gravarAceite, hashDoAceite, Injecao, LeitorDoGit, lerInjecoes, lerLimiares, OpcoesDoAceite, publicavel,
   RecusaDoAceite, ResultadoDoAceite } from '../src/noctum-aceite';
 import { autorizarPeloIngresso, concluirDespacho, encerrarArco, lerArco, proporEnvelope, reservarDespacho, textoDeAutorizacao } from '../src/noctum-arco';
-import { entregarRelatorioSeDevido, vencimentoDoRelatorio } from '../src/noctum-relatorio';
+import { entregarRelatorioSeDevido, reenviarRelatorio, vencimentoDoRelatorio } from '../src/noctum-relatorio';
 import { gravarNaSupervisao } from '../src/noctum-supervisao';
 import { ExecutorDoGh } from '../src/parado-no-condutor';
 import { dirThread, novaThread } from '../src/thread';
@@ -62,11 +62,13 @@ function moverEventos(raiz: string, thread: string, tipo: string, ts: string): v
  * Um piloto de fixture, de 8 h, que começa daqui a 1 h: dois trabalhos despachados, entregues com a prova do push e com o
  * MASTER por omissão, a falha F1 recuperada 3 min depois, o arco fechado na hora e o relatório entregue no horário.
  * `autorizarEm` e `emendaEm` são instantes depois do início da janela, em ms; `composicaoAtrasadaMin` e `reciboAtrasadoMin`,
- * minutos depois do vencimento do relatório (com o recibo atrasado, a primeira tentativa falha, como na F7).
+ * minutos depois do vencimento do relatório (com o recibo atrasado, a primeira tentativa falha, como na F7, e o recibo vem
+ * do reenvio automático, ou do reenvio do dono com `reenvioDoDono`). Com `masterDeFora`, o MASTER por omissão do b não leva
+ * o arco: não foi a entrega do arco que o fez.
  */
 function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; baseDeFora?: boolean; maquina?: string; aberto?: boolean;
   idempotente?: boolean; tiqueParado?: boolean; autorizarEm?: number; emendaEm?: number; composicaoAtrasadaMin?: number;
-  reciboAtrasadoMin?: number } = {}): Piloto {
+  reciboAtrasadoMin?: number; reenvioDoDono?: boolean; masterDeFora?: boolean } = {}): Piloto {
   const p = projetoTemporario(nome);
   const threads = ['a', 'b'].map((x, i) => novaThread(p.carregado, { nome: `piloto ${x}`, modo: 'auto', roadmap: `RM-97${i + 1}`,
     pedido: `Trabalho ${x} SIMULADO do piloto.`, criarWorktree: false }).thread.id);
@@ -105,7 +107,7 @@ function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; b
     if (o.duasEntregas && i === 0) {
       registrar(dirThread(p.dir, thread), thread, TIPOS_DE_EVENTO.shipConcluido, { ts: em(inicio, 5 * HORA), ...prova, evidencia: { arco } });
     }
-    aceitarPorOmissao(p.dir, thread);
+    aceitarPorOmissao(p.dir, thread, o.masterDeFora && i === 1 ? undefined : { arco });
   });
   if (o.emendaEm !== undefined) {
     // A emenda do dono durante a janela: o teto do arco cai de 40 para 39 sessões.
@@ -120,8 +122,10 @@ function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; b
     // A F7: o canal está fora no horário; a versão 1 sai composta, e o reenvio confirma depois.
     entregarRelatorioSeDevido(p.carregado, arco, { quando: primeira, enviar: () => ({ estado: 'falhou', motivo: 'o canal está fora (SIMULADO)' }) });
   }
-  const r = entregarRelatorioSeDevido(p.carregado, arco, { quando: o.reciboAtrasadoMin === undefined ? primeira : em(vencimento, o.reciboAtrasadoMin * MIN),
-    enviar: () => ({ estado: 'confirmado', referencia: 'mensagem-SIMULADA' }) });
+  const confirmado = () => ({ estado: 'confirmado' as const, referencia: 'mensagem-SIMULADA' });
+  const quandoDoRecibo = o.reciboAtrasadoMin === undefined ? primeira : em(vencimento, o.reciboAtrasadoMin * MIN);
+  const r = o.reenvioDoDono ? reenviarRelatorio(p.carregado, arco, 'telegram', { quando: quandoDoRecibo, enviar: confirmado })
+    : entregarRelatorioSeDevido(p.carregado, arco, { quando: quandoDoRecibo, enviar: confirmado });
   assert.equal(r.acao, 'entregue', JSON.stringify(r));
   return { p, arco, threads, inicio, fim, vencimento };
 }
@@ -408,8 +412,8 @@ test('AC16: só a entrega do arco conta: o que o dono faz depois do arco não mu
   } finally { pl.p.limpar(); }
 });
 
-test('AC17: com a F7 na agenda, o recibo que o reenvio traz dentro da janela de 24 h vale; sem ela, ou com a versão 1 composta tarde, reprova', () => {
-  const pl = piloto('ac17', { reciboAtrasadoMin: 120 });
+test('AC17: com a F7 na agenda, vale o recibo que o reenvio automático traz no ciclo dele; o do reenvio do dono, o tardio, a composição tarde e a falta da F7 reprovam', () => {
+  const pl = piloto('ac17', { reciboAtrasadoMin: 10 });
   try {
     const comF7 = aceite(pl, { injecoes: [F1(pl), { falha: 'F7', instante: pl.vencimento }] });
     assert.deepEqual([medida(comF7, 'M10').valor, medida(comF7, 'M4').valor, comF7.veredito], [1, 2, 'aprovado'], JSON.stringify(medida(comF7, 'M10').evidencia));
@@ -417,6 +421,19 @@ test('AC17: com a F7 na agenda, o recibo que o reenvio traz dentro da janela de 
     assert.deepEqual([medida(semF7, 'M10').valor, criterio(semF7, 'A7').veredito], [0, 'reprovado']);
     assert.match(criterio(semF7, 'A7').detalhe, /o último recibo da versão 1 chegou depois do vencimento e de um tique/);
   } finally { pl.p.limpar(); }
+  // N1 do CHECK 3: o recibo que só o reenvio pedido pelo dono trouxe não é recuperação da F7 nem envio no horário.
+  const doDono = piloto('ac17b', { reciboAtrasadoMin: 120, reenvioDoDono: true });
+  try {
+    const r = aceite(doDono, { injecoes: [F1(doDono), { falha: 'F7', instante: doDono.vencimento }] });
+    assert.deepEqual([medida(r, 'M10').valor, medida(r, 'M4').valor, criterio(r, 'A7').veredito, criterio(r, 'A4').veredito],
+      [0, 1, 'reprovado', 'reprovado'], JSON.stringify(medida(r, 'M10').evidencia));
+    assert.match(criterio(r, 'A7').detalhe, /página\(s\) da versão 1 sem recibo do envio automático/);
+  } finally { doDono.p.limpar(); }
+  const tardio = piloto('ac17c', { reciboAtrasadoMin: 120 });
+  try {
+    const r = aceite(tardio, { injecoes: [F1(tardio), { falha: 'F7', instante: tardio.vencimento }] });
+    assert.deepEqual([medida(r, 'M10').valor, criterio(r, 'A7').detalhe], [0, 'o último recibo da versão 1 chegou depois do ciclo de reenvio automático']);
+  } finally { tardio.p.limpar(); }
   const tarde = piloto('ac17a', { composicaoAtrasadaMin: 30 });
   try {
     const r = aceite(tarde, { injecoes: [F1(tarde), { falha: 'F7', instante: tarde.vencimento }] });
@@ -429,4 +446,43 @@ test('AC18: os limiares recusam a chave desconhecida, em vez de deixar o critér
   assert.throws(() => lerLimiares({ contrato: CONTRATO_LIMIARES, m1MinimoHora: 6 }), (e: unknown) => e instanceof RecusaDoAceite &&
     e.motivo === 'noctum.aceite.limiares-invalidos' && /chave\(s\) desconhecida\(s\): m1MinimoHora;/.test(e.message));
   assert.deepEqual(lerLimiares({ contrato: CONTRATO_LIMIARES, m1MinimoHoras: 6, atrasoDoRelatorioMin: 10 }), { m1MinimoHoras: 6, atrasoDoRelatorioMin: 10 });
+});
+
+test('AC19: a reversão e o PR que o dono faz depois do arco não mudam o aceite; a reversão durante a condução é ato dele', () => {
+  const pl = piloto('ac19');
+  try {
+    const antes = hashDoAceite(aceite(pl)).sha256;
+    const [a] = pl.threads;
+    // Passada a janela de entrega do relatório, o dono reverte a entrega do a e abre outro PR na branch dele.
+    registrar(dirThread(pl.p.dir, a), a, TIPOS_DE_EVENTO.rollbackConcluido, { ts: em(pl.vencimento, 25 * HORA) });
+    const comPrDepois: ExecutorDoGh = () => ({ status: 0, stderr: '', stdout: JSON.stringify([
+      { number: 1, state: 'MERGED', headRefOid: 'a'.repeat(40), createdAt: em(pl.inicio, HORA) },
+      { number: 2, state: 'OPEN', headRefOid: 'b'.repeat(40), createdAt: em(pl.fim, 2 * HORA) }]) });
+    assert.equal(hashDoAceite(aceite(pl, { executorGh: comPrDepois })).sha256, antes, 'o que o dono fez depois do arco não entra no aceite');
+    registrar(dirThread(pl.p.dir, a), a, TIPOS_DE_EVENTO.rollbackConcluido, { ts: em(pl.inicio, 6 * HORA) });
+    const r = aceite(pl);
+    assert.deepEqual(medida(r, 'M1').evidencia.atos, [{ em: em(pl.inicio, 6 * HORA), ato: `reversão de entrega na thread ${a}` }]);
+    assert.equal(medida(r, 'M1').valor, 6);
+  } finally { pl.p.limpar(); }
+});
+
+test('AC20: o MASTER do arco é o por omissão que a entrega dele marca; o de fora do arco não conta em M3 e, na condução, é ato do dono', () => {
+  const pl = piloto('ac20', { masterDeFora: true });
+  try {
+    const [a, b] = pl.threads;
+    const r = aceite(pl);
+    assert.deepEqual([medida(r, 'M3').valor, medida(r, 'M3').evidencia.semMaster, criterio(r, 'A6').veredito], [1, [b], 'reprovado']);
+    registrar(dirThread(pl.p.dir, a), a, TIPOS_DE_EVENTO.aceitePorOmissao, { ts: em(pl.inicio, 6 * HORA), fase: 'MASTER' });
+    const r2 = aceite(pl);
+    assert.deepEqual(medida(r2, 'M1').evidencia.atos, [{ em: em(pl.inicio, 6 * HORA), ato: `MASTER por omissão de fora do arco na thread ${a}` }]);
+  } finally { pl.p.limpar(); }
+});
+
+test('AC21: a agenda de injeções recusa a chave desconhecida e o alvo que não é texto, em vez de virar injeção sem alvo', () => {
+  const instante = new Date().toISOString();
+  for (const linha of [{ falha: 'F1', instante, Alvo: 'w2' }, { falha: 'F1', instante, alvo: 2 }]) {
+    assert.throws(() => lerInjecoes(JSON.stringify(linha)), (e: unknown) => e instanceof RecusaDoAceite && e.motivo === 'noctum.aceite.injecoes-invalidas' &&
+      /só aceita falha, instante e alvo \(texto\)/.test(e.message), JSON.stringify(linha));
+  }
+  assert.deepEqual(lerInjecoes(JSON.stringify({ falha: 'F1', instante, alvo: 'w2' })), [{ falha: 'F1', instante, alvo: 'w2' }]);
 });

@@ -379,7 +379,9 @@ test('LG14: sem condutor, o tique faz o MASTER por omissão da entrega do arco, 
     const passo = doVigia(r.vigia).passo;
     assert.ok(passo?.acao === 'encerrar' && passo.entrega?.acao === 'master' && passo.entrega.thread === thread, JSON.stringify(passo));
     assert.equal(lerThread(p.dir, thread).status, 'fechada');
-    assert.equal(lerLedger(dirThread(p.dir, thread)).filter(e => e.tipo === TIPOS_DE_EVENTO.aceitePorOmissao).length, 1);
+    // N6 do CHECK 3: o MASTER por omissão que a entrega do arco faz leva o arco na evidência; é por ele que o aceite o conta.
+    assert.deepEqual(lerLedger(dirThread(p.dir, thread)).filter(e => e.tipo === TIPOS_DE_EVENTO.aceitePorOmissao)
+      .map(e => (e.evidencia as { arco?: string } | undefined)?.arco), ['arco-lg14']);
     assert.deepEqual([r.fechamento.fechado, r.fechamento.agora, r.fechamento.motivo], [true, true, 'fila-vazia']);
     assert.equal(registro.length, 1, 'nada novo despachado');
   } finally { p.limpar(); }

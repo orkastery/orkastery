@@ -24,7 +24,7 @@ import { ConteudoDoEnvelope, RecusaDoArco, Unidade } from './noctum-envelope';
 import { CADENCIA_MS } from './noctum-fila';
 import { consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco } from './noctum-medicao';
 import { lerRegistro, RecusaDoRegistro } from './noctum-registro';
-import { ARQUIVO_DO_TRANSPORTE, JANELA_DE_ENTREGA_MS, vencimentoDoRelatorio } from './noctum-relatorio';
+import { ARQUIVO_DO_TRANSPORTE, INTERVALO_ENTRE_TENTATIVAS_MS, JANELA_DE_ENTREGA_MS, MAXIMO_DE_TENTATIVAS, vencimentoDoRelatorio } from './noctum-relatorio';
 import { ConteudoV2, correlacaoDoArco, dirDaSupervisao, EventoDaSupervisao, eventosDaSupervisao, RecusaDaSupervisao, threadsDoArco }
   from './noctum-supervisao';
 import { ExecutorDoGh, ghPadrao } from './parado-no-condutor';
@@ -187,6 +187,12 @@ export function lerInjecoes(texto: string): Injecao[] {
     if (!objeto(v) || typeof v.falha !== 'string' || !/^F([1-9]|1[01])$/.test(v.falha) || typeof v.instante !== 'string' || !Number.isFinite(Date.parse(v.instante))) {
       throw new RecusaDoAceite('noctum.aceite.injecoes-invalidas', `a linha ${i + 1} da agenda precisa de falha (F1 a F11) e instante (ISO)`);
     }
+    // N7 do CHECK 3: a chave com erro de digitação ("Alvo") ou o alvo que não é texto não viram injeção sem alvo em silêncio.
+    const desconhecidas = Object.keys(v).filter(k => !['falha', 'instante', 'alvo'].includes(k));
+    if (desconhecidas.length || (v.alvo !== undefined && typeof v.alvo !== 'string')) {
+      throw new RecusaDoAceite('noctum.aceite.injecoes-invalidas', `a linha ${i + 1} da agenda só aceita falha, instante e alvo (texto)` +
+        `${desconhecidas.length ? `; chave(s) desconhecida(s): ${desconhecidas.join(', ')}` : ''}`);
+    }
     saida.push({ falha: v.falha, instante: new Date(v.instante).toISOString(), ...(typeof v.alvo === 'string' ? { alvo: v.alvo } : {}) });
   }
   return saida;
@@ -240,6 +246,17 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   let erroDoRelatorio: string | null = null;
   try { relatorio = lerRegistro<Record<string, unknown>>(raiz, arco, 'relatorio'); }
   catch (e) { if (!(e instanceof RecusaDoRegistro)) throw e; erroDoRelatorio = `o registro do relatório não se lê (${e.motivo})`; }
+  // N1 do CHECK 3: o recibo que o reenvio do dono trouxe (a tentativa anterior da mesma página com `forcado`) não é do envio
+  // automático: não conta no M10 nem como sinal da F7.
+  const confirmacoesAutomaticas: Array<{ em: string; evento: Record<string, unknown> }> = [];
+  {
+    const forcada = new Map<string, boolean>();
+    for (const l of relatorio ?? []) {
+      const chave = `${String(l.evento.versao)} ${String(l.evento.pagina)} ${String(l.evento.canal)}`;
+      if (l.evento.tipo === 'envio_tentado') forcada.set(chave, l.evento.forcado === true);
+      else if (l.evento.tipo === 'envio_confirmado' && forcada.get(chave) !== true) confirmacoesAutomaticas.push(l);
+    }
+  }
   const comTrabalhos = 'trabalhos' in conteudo && Array.isArray((conteudo as ConteudoV2).trabalhos);
   const porTrabalho = comTrabalhos ? threadsDoArco(raiz, conteudo as ConteudoV2, estado) : new Map<string, string>();
   const ledgers: LedgerDaThread[] = [...porTrabalho].map(([trabalho, thread]) => {
@@ -277,6 +294,8 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     const ev = e.evidencia as { arco?: unknown; incorporadaPor?: unknown } | undefined;
     return ev?.arco === arco && ev.incorporadaPor !== 'outro-caminho';
   };
+  /** N6 do CHECK 3: o MASTER por omissão do arco é o que a entrega dele marca com o arco na evidência. */
+  const masterDoArco = (e: EventoLedger): boolean => (e.evidencia as { arco?: unknown } | undefined)?.arco === arco;
 
   // M1: condução sem intervenção.
   const atos: Array<{ em: string; ato: string }> = [];
@@ -296,6 +315,10 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
       atos.push({ em: e.ts, ato: `despacho de fora do arco na thread ${e.threadDoArco}` });
     } else if (e.tipo === TIPOS_DE_EVENTO.shipConcluido && !doArco(e)) {
       atos.push({ em: e.ts, ato: `entrega de fora do arco na thread ${e.threadDoArco}` });
+    } else if (e.tipo === TIPOS_DE_EVENTO.aceitePorOmissao && !masterDoArco(e)) {
+      atos.push({ em: e.ts, ato: `MASTER por omissão de fora do arco na thread ${e.threadDoArco}` });
+    } else if (e.tipo === TIPOS_DE_EVENTO.rollbackConcluido) {
+      atos.push({ em: e.ts, ato: `reversão de entrega na thread ${e.threadDoArco}` });
     }
   }
   atos.sort((a, b) => Date.parse(a.em) - Date.parse(b.em));
@@ -329,7 +352,7 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     let fechada = false;
     try { fechada = lerThread(raiz, l.thread).status === 'fechada'; } catch { /* a thread ilegível não tem MASTER provado */ }
     // O MASTER do arco é o por omissão que a entrega dele grava antes do fim; o da fábrica ou do dono depois do arco não conta.
-    const master = fechada && (l.eventos ?? []).some(e => e.tipo === TIPOS_DE_EVENTO.aceitePorOmissao && Date.parse(e.ts) <= fimMs);
+    const master = fechada && (l.eventos ?? []).some(e => e.tipo === TIPOS_DE_EVENTO.aceitePorOmissao && masterDoArco(e) && Date.parse(e.ts) <= fimMs);
     entregas.push({ trabalho: l.trabalho, thread: l.thread, ship, provada, motivo, master, duplicadas: ships.length - 1 });
   }
   const provadas = entregas.filter(e => e.provada === true);
@@ -338,7 +361,7 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     fonte: 'ship_done dos ledgers, ponta da base pelo git ls-remote e ancestralidade do merge', lacunas: lacunasDaEntrega,
     evidencia: { alegadas: entregas.length, entregas: entregas.map(e => ({ trabalho: e.trabalho, thread: e.thread, provada: e.provada, motivo: e.motivo })) } });
   medida({ id: 'M3', nome: 'MASTER por omissão', valor: semLeitura ? null : provadas.filter(e => e.master).length, unidade: `entregas com MASTER de ${provadas.length} provadas`,
-    fonte: 'aceite_por_omissao dos ledgers antes do fim do arco, e a thread fechada', lacunas: semLeitura ? ['as entregas não se provaram todas'] : [],
+    fonte: 'aceite_por_omissao com o arco na evidência, antes do fim do arco, e a thread fechada', lacunas: semLeitura ? ['as entregas não se provaram todas'] : [],
     evidencia: { semMaster: provadas.filter(e => !e.master).map(e => e.thread) } });
 
   // M4 e M5: as falhas injetadas e a recuperação delas.
@@ -348,8 +371,6 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   const alvosDe = (e: Record<string, unknown>): string[] => ['trabalho', 'thread', 'conta'].map(k => e[k]).filter((x): x is string => typeof x === 'string');
   const daSupervisao = (tipos: string[]) => sup.filter(l => tipos.includes(l.evento.tipo))
     .map(l => ({ em: l.em, fonte: `supervisão: ${l.evento.tipo}`, alvos: alvosDe(l.evento as Record<string, unknown>) }));
-  const doRelatorio = (tipos: string[]) => (relatorio ?? []).filter(l => tipos.includes(String(l.evento.tipo)))
-    .map(l => ({ em: l.em, fonte: `relatório: ${String(l.evento.tipo)}`, alvos: [] as string[] }));
   const dosLedgers = (tipos: string[]) => eventosDasThreads.filter(e => tipos.includes(e.tipo))
     .map(e => ({ em: e.ts, fonte: `ledger da ${e.threadDoArco}: ${e.tipo}`, alvos: [e.threadDoArco, ...[...porTrabalho].filter(([, t]) => t === e.threadDoArco).map(([w]) => w)] }));
   const SINAIS: Record<string, () => Array<{ em: string; fonte: string; alvos: string[] }> | string> = {
@@ -359,7 +380,7 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     F4: () => dosLedgers([TIPOS_DE_EVENTO.verificacao, TIPOS_DE_EVENTO.shipPublicado, TIPOS_DE_EVENTO.shipConcluido]),
     F5: () => dosLedgers([TIPOS_DE_EVENTO.shipConcluido]),
     F6: () => erroDaSupervisao ?? daSupervisao(['conta_fora']),
-    F7: () => erroDoRelatorio ?? doRelatorio(['envio_confirmado']),
+    F7: () => erroDoRelatorio ?? confirmacoesAutomaticas.map(l => ({ em: l.em, fonte: 'relatório: envio_confirmado', alvos: [] as string[] })),
     F8: () => erroDaSupervisao ?? daSupervisao(['efeito_reconciliado']),
     F9: () => erroDaSupervisao ?? daSupervisao(['tique_concluido']),
     F10: () => 'a partição entre máquinas é medida com a coordenação da N3 (bloco B)',
@@ -438,11 +459,12 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
       let branch: string | null = null;
       try { branch = branchDaWorktree(lerThread(raiz, e.thread)); } catch { branch = null; }
       if (!branch) continue;
-      const r = gh(['pr', 'list', `--repo=${repositorio}`, `--head=${branch}`, '--state=all', '--json=number,state,headRefOid'], 30_000);
-      let prs: Array<{ number: number; state: string }> | null = null;
+      const r = gh(['pr', 'list', `--repo=${repositorio}`, `--head=${branch}`, '--state=all', '--json=number,state,headRefOid,createdAt'], 30_000);
+      let prs: Array<{ number: number; state: string; createdAt?: string }> | null = null;
       try { prs = r.status === 0 ? JSON.parse(r.stdout) : null; } catch { prs = null; }
       if (!Array.isArray(prs)) { lacunasDaForja.push(`os PRs da branch ${branch} não se leram na forja`); continue; }
-      const validos = prs.filter(x => x.state !== 'CLOSED');
+      // N5 do CHECK 3: o PR que o dono abriu depois do arco não é efeito dele.
+      const validos = prs.filter(x => x.state !== 'CLOSED' && !(typeof x.createdAt === 'string' && Date.parse(x.createdAt) > fimMs));
       if (validos.length > 1) duplicados.push(`${validos.length} PRs da mesma branch ${branch}`);
     }
   }
@@ -492,22 +514,26 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   const composicoes = (relatorio ?? []).filter(l => l.evento.tipo === 'composto');
   const v1 = composicoes.find(l => l.evento.versao === 1) ?? null;
   const paginasDaV1 = v1 && Array.isArray(v1.evento.paginas) ? v1.evento.paginas.length : 0;
-  const confirmadasDaV1 = (relatorio ?? []).filter(l => l.evento.tipo === 'envio_confirmado' && l.evento.versao === 1);
+  const confirmadasDaV1 = confirmacoesAutomaticas.filter(l => l.evento.versao === 1);
   const recibos = new Set(confirmadasDaV1.map(l => l.evento.pagina));
   const ultimoRecibo = confirmadasDaV1.map(l => Date.parse(l.em)).sort((a, b) => a - b).at(-1) ?? null;
-  const revertidas = eventosDasThreads.filter(e => e.tipo === TIPOS_DE_EVENTO.rollbackConcluido && v1 && Date.parse(e.ts) >= Date.parse(v1.em));
+  // N5 do CHECK 3: a reversão depois da janela de entrega do relatório não é falha dele (a correção já não sai).
+  const revertidas = eventosDasThreads.filter(e => e.tipo === TIPOS_DE_EVENTO.rollbackConcluido && v1 && Date.parse(e.ts) >= Date.parse(v1.em) &&
+    Date.parse(e.ts) <= Date.parse(vencimento) + JANELA_DE_ENTREGA_MS);
   const corrigida = composicoes.some(l => l.evento.motivo === 'correcao');
   const falhasDoRelatorio: string[] = [];
   if (!v1) falhasDoRelatorio.push('a versão 1 não foi composta');
   else {
     const tolerancia = (opcoes.limiares?.atrasoDoRelatorioMin ?? CADENCIA_MS / MIN) * MIN;
     if (Date.parse(v1.em) > Date.parse(vencimento) + tolerancia) falhasDoRelatorio.push('a versão 1 foi composta depois do vencimento e de um tique');
-    if (recibos.size < paginasDaV1) falhasDoRelatorio.push(`${paginasDaV1 - recibos.size} página(s) da versão 1 sem recibo`);
-    // I2 do CHECK 2: com a F7 na agenda (o canal fora no horário), o recibo vem depois, pelo reenvio a cada 5 min, dentro da
-    // janela de entrega de 24 h; sem ela, o recibo vem no horário, até um tique depois.
+    if (recibos.size < paginasDaV1) falhasDoRelatorio.push(`${paginasDaV1 - recibos.size} página(s) da versão 1 sem recibo do envio automático`);
+    // I2 do CHECK 2 e N1 do CHECK 3: com a F7 na agenda (o canal fora no horário), o recibo vem pelo reenvio automático, no
+    // ciclo dele (as tentativas a cada 5 min, cada uma até um tique depois); sem ela, no horário, até um tique depois. O
+    // reenvio que o dono pede já ficou de fora dos recibos.
     const comF7 = (opcoes.injecoes ?? []).some(i => i.falha === 'F7');
-    if (ultimoRecibo !== null && ultimoRecibo > Date.parse(vencimento) + (comF7 ? JANELA_DE_ENTREGA_MS : tolerancia)) {
-      falhasDoRelatorio.push(comF7 ? 'o último recibo da versão 1 chegou depois da janela de entrega de 24 h'
+    const cicloAutomatico = tolerancia + (MAXIMO_DE_TENTATIVAS - 1) * (INTERVALO_ENTRE_TENTATIVAS_MS + tolerancia);
+    if (ultimoRecibo !== null && ultimoRecibo > Date.parse(vencimento) + (comF7 ? cicloAutomatico : tolerancia)) {
+      falhasDoRelatorio.push(comF7 ? 'o último recibo da versão 1 chegou depois do ciclo de reenvio automático'
         : 'o último recibo da versão 1 chegou depois do vencimento e de um tique');
     }
   }

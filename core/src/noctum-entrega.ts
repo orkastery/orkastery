@@ -476,7 +476,7 @@ function executar(carregado: ManifestoCarregado, arco: string, estado: EstadoDoA
   try {
     switch (acao) {
       case 'master': {
-        const a = aceitarPorOmissao(carregado.raiz, lido.t.id);
+        const a = aceitarPorOmissao(carregado.raiz, lido.t.id, { arco });
         return { resultado: { acao: 'master', ...ids, indice: a.indice.valor }, efeito: true };
       }
       case 'reconciliar': {
