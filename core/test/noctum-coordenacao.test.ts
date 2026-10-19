@@ -881,22 +881,26 @@ test('K24: a chave que a emenda aposentou não fecha a ordem da chave nova; a ra
     autorizarPedido(m3.a.dir, m3.arco, t3.emenda);
     bater(t3.carregadoC, m3.arco, opA);
     emitirOrdem(m3.b.carregado, m3.arco, { trabalho: 'd', maquina: 'maquina-a' }, opB);
+    emitirOrdem(m3.b.carregado, m3.arco, { trabalho: 'e', maquina: 'maquina-a' }, opB);
     responderOrdem(t3.carregadoC, m3.arco, 'O-d-1', 'aceita', 'SIMULADO', opA);
+    responderOrdem(t3.carregadoC, m3.arco, 'O-e-1', 'aceita', 'SIMULADO', opA);
     const destino = { repositorio: 'exemplo/produto', base: 'main' };
     gravarNaCoordenacao(t3.carregadoC, m3.arco, opA, () => ({ novos: [{ tipo: 'vez', chave: chaveDoDestino(destino), n: 1, destino,
       ordem: 'O-d-1', trabalho: 'd', candidato: { branch: 'trabalho-d', fonte: '1'.repeat(40), base: '2'.repeat(40), provas: 'a'.repeat(64) } }],
     resultado: null }));
     cancelarOrdem(m3.b.carregado, m3.arco, 'O-d-1', 'SIMULADO: retomada', opB);
-    // A raiz antiga volta com a emenda autorizada: fecha, sob a versão antiga, a ordem dela e deixa a ordem e a vez da chave
-    // nova para a raiz nova. Pelo nome só, ela tentaria fechar as duas, e as máquinas reprovariam a gravação inteira.
+    cancelarOrdem(m3.b.carregado, m3.arco, 'O-e-1', 'SIMULADO: retomada', opB);
+    // A raiz antiga volta com a emenda autorizada: fecha, sob a versão antiga, a ordem dela e deixa as ordens e a vez da chave
+    // nova para a raiz nova. Pelo nome só, ela tentaria fechar a O-e-1 (cancelada, sem vez nem vaga) e resolver a vez da
+    // O-d-1, e as máquinas reprovariam a gravação inteira.
     assert.deepEqual(reconciliarIntegracao(m3.a.carregado, m3.arco, opA),
       { registradas: [], soltas: [], emCurso: [], semProva: [], abandonadasConferidas: [] });
     const plano = reconciliarCoordenacao(m3.a.carregado, m3.arco, { arcoVigente: true, sessoesVivas: new Set(), threads: new Map(),
       despachos: new Map() }, opA);
     assert.deepEqual(plano.encerradas, ['O-a-1']);
     const e = lerCoordenacao(m3.b.carregado, m3.arco, opB);
-    assert.deepEqual([e.ordens.get('O-a-1')!.estado, e.ordens.get('O-d-1')!.estado, [...e.vezes.values()].flat()[0].fim],
-      ['encerrada', 'isolada', null]);
+    assert.deepEqual([e.ordens.get('O-a-1')!.estado, e.ordens.get('O-d-1')!.estado, e.ordens.get('O-e-1')!.estado,
+      [...e.vezes.values()].flat()[0].fim], ['encerrada', 'isolada', 'isolada', null]);
   } finally { m3.limpar(); if (c3) fs.rmSync(path.dirname(c3), { recursive: true, force: true }); }
 });
 
