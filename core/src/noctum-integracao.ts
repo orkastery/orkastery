@@ -197,8 +197,8 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
       if (prova?.situacao === 'sem-prova') semProva(carregado, arco, chave, n, alvo, candidato, prova.ponta, opcoes);
       if (base && prova === null && repeticao) {
         // S-R3D-3 da R3-D: na repetição, o merge desta vez pode ser o que fez a base andar, e a história que não se lê (rede,
-        // buffer ou prazo) não diz; a vez fica até a reconciliação, como no passo 5 (D45), em vez de invalidar o candidato.
-        throw recusa('noctum.integracao.nao-provada', `a base ${alvo.base} andou, e ela ou a história dela não se leram (rede, buffer ou prazo): ` +
+        // buffer, prazo ou falha do git) não diz; a vez fica até a reconciliação, como no passo 5 (D45), sem invalidar o candidato.
+        throw recusa('noctum.integracao.nao-provada', `a base ${alvo.base} andou, e ela ou a história dela não se leram (rede, buffer, prazo ou falha do git): ` +
           'a prova não sabe se o merge desta vez chegou, e a vez fica até a reconciliação');
       }
       const motivo = `a base ${alvo.base} está em ${base?.slice(0, 12) ?? 'nada'}, e o candidato foi provado sobre ${candidato.base.slice(0, 12)}`;
@@ -235,8 +235,8 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
     catch (e) { throw recusa('noctum.integracao.nao-provada', `o ramo de coordenação não se leu depois do merge (${primeiraLinha(e)}); a vez fica até a reconciliação`); }
     const prova = provaDoMerge(carregado, remoto, alvo.base, candidato, opcoes, [...new Set([...posteriores, ...depoisDoEfeito])]);
     if (prova === null) {
-      // S-R3C-5 da R3-C: a base ou a história dela não se leram (rede, buffer ou prazo); a prova não sabe, e a vez espera.
-      throw recusa('noctum.integracao.nao-provada', `a base ${alvo.base} ou a história dela não se leram (rede, buffer ou prazo): a prova não sabe, e a vez fica até a reconciliação`);
+      // S-R3C-5 da R3-C: a base ou a história dela não se leram (rede, buffer, prazo ou falha do git); a prova não sabe, e a vez espera.
+      throw recusa('noctum.integracao.nao-provada', `a base ${alvo.base} ou a história dela não se leram (rede, buffer, prazo ou falha do git): a prova não sabe, e a vez fica até a reconciliação`);
     }
     if (prova.situacao === 'sem-prova') semProva(carregado, arco, chave, n, alvo, candidato, prova.ponta, opcoes);
     if (prova.situacao !== 'provado') {
@@ -288,9 +288,11 @@ function gitDaHistoria(raiz: string, args: string[]): { ok: boolean; stdout: str
 /**
  * A classe do G8-5, na prova da integração (N2 do CHECK-REVERIFY do GO-FIX 8): o `merge-base --is-ancestor` tem três saídas.
  * A saída 1 é "não"; o git que falha (prazo, sinal, processo que não abre, saída 128) é "não sei", e a prova espera. A exceção
- * é o commit que este clone não tem depois de buscar a base: ele não está nela, e a resposta é "não".
+ * é o commit que este clone não tem depois de buscar a base: ele não está nela, e a resposta é "não". O nome diz a regra que o
+ * `ancestral` do transporte não tem. Limite: o `rev-parse` que não abre o objeto também sai 1, e a falha dupla (o `merge-base`
+ * que falha e o objeto que não abre logo depois) vira "não".
  */
-function ancestral(raiz: string, de: string, para: string): 'sim' | 'nao' | 'ilegivel' {
+function ancestralNaBase(raiz: string, de: string, para: string): 'sim' | 'nao' | 'ilegivel' {
   const r = spawnSync('git', ['merge-base', '--is-ancestor', de, para], { cwd: raiz, encoding: 'utf8', timeout: 60_000 });
   if (!r.error && r.status === 0) return 'sim';
   if (!r.error && r.status === 1) return 'nao';
@@ -346,7 +348,7 @@ export function provaDoMerge(carregado: ManifestoCarregado, remoto: string, base
   try { lida = buscarBranch(raiz, remoto, base, 'noctum', opcoes.rede?.timeoutMs, opcoes.rede?.env); } catch { return null; }
   if (!lida.atualizado || !lida.ponta) return null;
   const ponta = lida.ponta;
-  const naBase = ancestral(raiz, candidato.fonte, ponta);
+  const naBase = ancestralNaBase(raiz, candidato.fonte, ponta);
   if (naBase === 'ilegivel') return null;
   if (naBase === 'nao') return { situacao: 'ausente', ponta };
   const merges = gitDaHistoria(raiz, ['rev-list', '--ancestry-path', '--parents', `${candidato.base}..${ponta}`]);
@@ -360,7 +362,7 @@ export function provaDoMerge(carregado: ManifestoCarregado, remoto: string, base
   // O avanço rápido: a própria fonte foi ponta da base, acima da base provada, e ela contém a base provada (a branch
   // atualizada com a base também).
   if (!merge && primeiros.stdout.split('\n').some(x => x.trim() === candidato.fonte)) {
-    const sobreABase = ancestral(raiz, candidato.base, candidato.fonte);
+    const sobreABase = ancestralNaBase(raiz, candidato.base, candidato.fonte);
     if (sobreABase === 'ilegivel') return null;
     if (sobreABase === 'nao') return { situacao: 'sem-prova', ponta };
     merge = candidato.fonte;
@@ -371,11 +373,11 @@ export function provaDoMerge(carregado: ManifestoCarregado, remoto: string, base
   if (!merge) return { situacao: 'sem-prova', ponta };
   for (const x of posteriores) {
     if (x === candidato.base) continue;
-    const depoisDaBase = ancestral(raiz, candidato.base, x);
+    const depoisDaBase = ancestralNaBase(raiz, candidato.base, x);
     if (depoisDaBase === 'ilegivel') return null;
     if (depoisDaBase === 'nao') continue;
-    const antes = ancestral(raiz, merge, x);
-    const depois = antes === 'nao' ? ancestral(raiz, x, merge) : antes;
+    const antes = ancestralNaBase(raiz, merge, x);
+    const depois = antes === 'nao' ? ancestralNaBase(raiz, x, merge) : antes;
     if (antes === 'ilegivel' || depois === 'ilegivel') return null;
     if (antes === 'nao' && depois === 'nao') return { situacao: 'sem-prova', ponta };
   }
