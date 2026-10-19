@@ -174,6 +174,7 @@ function reconciliarMaquinaComTravaTomada(carregado: ManifestoCarregado, arco: s
 /** A retomada exportada toma a mesma trava do passo; assim, N4 e o passo nunca reconciliam esta máquina em paralelo. */
 export function reconciliarMaquina(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoPassoDaMaquina = {}):
   { integracao: ReconciliacaoDaIntegracao; reconciliacao: PlanoDeReconciliacao; reservasSoltas: string[] } {
+  if (!kernelDisponivel()) throw new RecusaDoArco('noctum.coordenacao.concorrencia', 'sem /usr/bin/flock não há a trava da máquina, e a reconciliação não roda');
   const trava = vezDaMaquina(carregado.raiz, 0);
   if (trava === null) throw new RecusaDoArco('noctum.coordenacao.concorrencia', 'outro passo ou reconciliação desta máquina está em curso');
   try { return reconciliarMaquinaComTravaTomada(carregado, arco, opcoes); }
@@ -288,7 +289,12 @@ export function passoDaMaquina(carregado: ManifestoCarregado, arco: string, opco
       if (r.motivo !== 'noctum.coordenacao.sem-remoto' && !estado.vagas.some(v => v.ordem === o.ordem)) {
         const motivo = r.motivo === 'noctum.reserva.item-invalido'
           ? `noctum.reserva.item-invalido: o item ${o.item} não está no roadmap desta máquina` : motivoDaReservaDeFora(o.item);
-        encerrarOrdem(carregado, arco, o.ordem, { motivo, checkpoint: { thread, vagasSoltas: [] } }, op);
+        try { encerrarOrdem(carregado, arco, o.ordem, { motivo, checkpoint: { thread, vagasSoltas: [] } }, op); }
+        catch (e) {
+          // N1 do CHECK-REVERIFY do GO-FIX 8: a ordem cuja vez de integrar ainda não tem prova espera a reconciliação (ou a
+          // inspeção do dono), e o passo segue com as outras ordens desta máquina.
+          if (!(e instanceof RecusaDoArco) || (e.motivo !== 'noctum.integracao.nao-provada' && e.motivo !== 'noctum.integracao.base-nao-provada')) throw e;
+        }
       }
     }
     relatorio.trabalhos = [...permitidos].sort();

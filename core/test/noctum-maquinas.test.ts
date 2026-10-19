@@ -12,11 +12,13 @@ import { projetoTemporario } from './apoio';
 import { abrirArco, autorizarPedido, prepararIngressoSimulado, revogarArco, TrabalhoSimulado } from './noctum-apoio';
 import { commitar } from './apoio';
 import { duasMaquinas, DuasMaquinas, entregarThread, MaquinaDeTeste, n2Simulada } from './noctum-maquinas-apoio';
+import * as filaPesada from '../src/fila-pesada';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { encerrarArco, lerArco } from '../src/noctum-arco';
 import * as coordenacao from '../src/noctum-coordenacao';
 import {
-  assumirAutoridade, cancelarOrdem, emitirOrdem, lerCoordenacao, motivoDaReservaDeFora, reservaDoItem, responderOrdem, situacaoDoTrabalho,
+  assumirAutoridade, bater, cancelarOrdem, chaveDoDestino, emitirOrdem, gravarNaCoordenacao, lerCoordenacao, motivoDaReservaDeFora, reservaDoItem,
+  responderOrdem, situacaoDoTrabalho,
 } from '../src/noctum-coordenacao';
 import { BRANCH_DE_COORDENACAO } from '../src/noctum-transporte';
 import { RecusaDoArco } from '../src/noctum-envelope';
@@ -535,25 +537,68 @@ test('M20: a reserva tomada por fora não encerra a ordem cuja sessão já está
   } finally { m.limpar(); }
 });
 
-test('M21: a reconciliação exportada usa a mesma trava do passo e recusa outra reconciliação simultânea', { skip: semKernel }, () => {
-  const m = cenario('noctum-m21');
+test('M21: a reconciliação exportada usa a trava do passo: recusa outra reconciliação e o passo em curso desta máquina', { skip: semKernel }, () => {
   const original = reservasDoRoadmap.listarReservas;
-  let concorrencia: unknown = null;
-  let sondou = false;
-  try {
+  // Dentro da primeira leitura das reservas de quem já segura a trava da máquina, a reconciliação exportada é tentada.
+  const tentarDentro = (m: DuasMaquinas, segurando: () => unknown): unknown => {
+    let concorrencia: unknown = null;
+    let sondou = false;
     (reservasDoRoadmap as { listarReservas: typeof original }).listarReservas = (raiz, opcoes) => {
       if (!sondou) {
         sondou = true;
-        try { reconciliarMaquina(m.b.carregado, m.arco, { maquina: 'maquina-b' }); }
-        catch (e) { concorrencia = e; }
+        try { reconciliarMaquina(m.b.carregado, m.arco, { maquina: 'maquina-b' }); } catch (e) { concorrencia = e; }
       }
       return original(raiz, opcoes);
     };
-    reconciliarMaquina(m.b.carregado, m.arco, { maquina: 'maquina-b' });
-    assert.ok(concorrencia instanceof RecusaDoArco && concorrencia.motivo === 'noctum.coordenacao.concorrencia',
-      String(concorrencia));
-  } finally {
-    (reservasDoRoadmap as { listarReservas: typeof original }).listarReservas = original;
-    m.limpar();
+    try { segurando(); } finally { (reservasDoRoadmap as { listarReservas: typeof original }).listarReservas = original; }
+    return concorrencia;
+  };
+  const quem: Array<[string, (m: DuasMaquinas) => unknown]> = [
+    ['reconciliacao', m => reconciliarMaquina(m.b.carregado, m.arco, { maquina: 'maquina-b' })],
+    ['passo', m => passo(m.b)],
+  ];
+  for (const [nome, segurando] of quem) {
+    const m = cenario(`noctum-m21-${nome}`);
+    try {
+      const e = tentarDentro(m, () => segurando(m));
+      assert.ok(e instanceof RecusaDoArco && e.motivo === 'noctum.coordenacao.concorrencia', `${nome}: ${String(e)}`);
+    } finally { m.limpar(); }
   }
+  // Sem /usr/bin/flock não há a trava, e a recusa diz a causa, em vez de culpar outro passo.
+  const m = cenario('noctum-m21-sem-flock');
+  const kernel = filaPesada.kernelDisponivel;
+  try {
+    (filaPesada as { kernelDisponivel: typeof kernel }).kernelDisponivel = () => false;
+    assert.throws(() => reconciliarMaquina(m.b.carregado, m.arco, { maquina: 'maquina-b' }),
+      (e: unknown) => e instanceof RecusaDoArco && e.motivo === 'noctum.coordenacao.concorrencia' && /sem \/usr\/bin\/flock/.test(e.message));
+  } finally { (filaPesada as { kernelDisponivel: typeof kernel }).kernelDisponivel = kernel; m.limpar(); }
+});
+
+test('M22: a ordem que perdeu a reserva com a vez de integrar sem prova espera, e o passo segue com a outra ordem', { skip: semKernel }, () => {
+  const m = cenario('noctum-m22', 2, [
+    { id: 'c', item: 'RM-903', prioridade: 1, dependeDe: [], pedido: 'Fatia C SIMULADA.' },
+    { id: 'a', item: 'RM-901', prioridade: 2, dependeDe: [], pedido: 'Fatia A SIMULADA.' },
+  ]);
+  const opA = { maquina: 'maquina-a' }, opB = { maquina: 'maquina-b' };
+  try {
+    bater(m.b.carregado, m.arco, opB);
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'c', maquina: 'maquina-b' }, opA);
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, opA);
+    responderOrdem(m.b.carregado, m.arco, 'O-c-1', 'aceita', 'SIMULADO', opB);
+    responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', opB);
+    // A vez de integrar do c terminou sem prova (a fonte chegou à base fora da cerca), sem vaga nenhuma da ordem.
+    const destino = { repositorio: 'exemplo/produto', base: 'main' };
+    const candidato = { branch: 'trabalho-c', fonte: '1'.repeat(40), base: '2'.repeat(40), provas: 'a'.repeat(64) };
+    gravarNaCoordenacao(m.b.carregado, m.arco, opB, () => ({ novos: [{ tipo: 'vez', chave: chaveDoDestino(destino), n: 1, destino, ordem: 'O-c-1',
+      trabalho: 'c', candidato }], resultado: null }));
+    gravarNaCoordenacao(m.b.carregado, m.arco, opB, () => ({ novos: [{ tipo: 'vez-fim', chave: chaveDoDestino(destino), n: 1, desfecho: 'sem-prova',
+      motivo: 'base-nao-provada: SIMULADO', merge: null }], resultado: null }));
+    pegarItem(m.a.dir, 'RM-903', { maquina: 'maquina-c', por: 'Pessoa SIMULADA', nota: 'tomada forçada SIMULADA', forcar: true,
+      motivo: 'SIMULADO: reserva tomada por fora' });
+    // O fim da ordem do c é recusado (o trabalho espera a inspeção do dono), e o passo segue: o a despacha.
+    const rb = passo(m.b);
+    assert.equal(despachou(rb)?.trabalho, 'a', JSON.stringify(rb.acao === 'aguardar' ? [rb.motivo, rb.detalhe] : rb.acao));
+    assert.ok(rb.acao === 'passo' && rb.relatorio.reservas.some(x => x.ordem === 'O-c-1' && x.motivo === 'noctum.reserva.de-outra-maquina'));
+    assert.equal(lerCoordenacao(m.b.carregado, m.arco, opB).ordens.get('O-c-1')!.estado, 'aceita');
+  } finally { m.limpar(); }
 });
