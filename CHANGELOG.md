@@ -271,8 +271,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   autorizou é espera, e o retrato da rede é descoberta, nunca autorização. `core/src/noctum-coordenacao.ts` dá a autoridade por geração,
   com cada geração nova selando os registros da anterior (o que a vencida gravar depois reprova a leitura), uma ordem
   viva por trabalho, a transferência só com prova (inclusive a prova da vez de integrar; sem ela, o item fica isolado e
-  os outros seguem), sem deixar a chave que uma emenda aposentou fechar, soltar ou entregar a ordem emitida sob a versão da troca ou uma posterior,
-  a revogação do dono numa máquina valendo em todas, o abandono da vez de integrar de quem não dá sinal e a vaga
+  os outros seguem), sem deixar a chave que uma emenda aposentou fechar, soltar ou entregar a ordem emitida sob a versão da troca ou uma posterior
+  (com as emendas autorizadas na mesma ordem em todas as máquinas, sem volta a um envelope de antes), a revogação do dono
+  numa máquina valendo em todas, o abandono da vez de integrar de quem não dá sinal e a vaga
   global, que soma as máquinas no limite da conta e nos tetos do arco; a reserva do item é a da RM-047, revalidada
   depois de tomar, e decide para qual máquina a ordem vai, ou se ela espera a reserva de fora ser solta,
   sem levar ao ramo quem reservou. `core/src/noctum-integracao.ts` deixa um integrador por destino entre máquinas, invalida o
