@@ -121,7 +121,7 @@ test('RG7: sem o aceite, "o #Noctum foi lançado" no README recusa o texto, com 
   });
 });
 
-test('RG8: a negação na mesma oração libera, e a evidência dos pilotos fica de fora', () => {
+test('RG8: a negação do verbo libera, entre o nome e o particípio ou logo antes do nome, e a evidência dos pilotos fica de fora', () => {
   emPasta('rg8', (raiz) => {
     fs.writeFileSync(path.join(raiz, 'README.md'), '# Produto\n\nO #Noctum ainda não foi validado por pilotos reais.\n\n' +
       'Sem o aceite, o #Noctum não é entregue a ninguém. Nem o Noctum está disponível sem envelope.\n');
@@ -191,5 +191,49 @@ test('RG12: o anúncio com advérbio e a negação depois do particípio recusam
     const r = rodar(raiz, '--texto');
     assert.equal(r.status, 1);
     assert.match(r.stderr, /adapters\/hermes\/README\.md:3: #Noctum está disponível/);
+  });
+});
+
+test('RG13: o nome em Markdown, a vírgula e a negação longe do nome não escondem o anúncio; o README do pacote e os marketplaces entram; a descrição correta passa', () => {
+  emPasta('rg13', (raiz) => {
+    const recusadas = ['- **#Noctum** está disponível para todos ([RM-058](docs/roadmap/RM-058-modo-noctum.md)).', 'O `#Noctum` foi validado nos quatro pilotos.',
+      '**Noctum** is now available.', 'O #Noctum, enfim, foi lançado.', 'Sem custo extra, o #Noctum já está disponível.', 'Não é segredo: o #Noctum foi validado.'];
+    for (const frase of recusadas) {
+      fs.writeFileSync(path.join(raiz, 'README.md'), `# Produto\n\n${frase}\n`);
+      const r = rodar(raiz, '--texto');
+      assert.equal(r.status, 1, `deveria recusar: ${frase}`);
+      assert.match(r.stderr, /README\.md:3: /);
+    }
+    // A descrição do que o #Noctum faz e a negação, com a quebra de linha do Markdown antes do nome, passam.
+    fs.writeFileSync(path.join(raiz, 'README.md'), '# Produto\n\nO relatório da manhã do #Noctum é entregue às 07:00 no canal do dono.\n' +
+      'O envelope do #Noctum é validado pelo núcleo antes de cada efeito.\n\nO modo noturno, o\n#Noctum, ainda não foi validado. Nem o #Noctum está disponível.\n');
+    const certo = rodar(raiz, '--texto');
+    assert.equal(certo.status, 0, certo.stderr);
+    // O README do pacote e as fontes da listagem dos marketplaces são texto público.
+    fs.mkdirSync(path.join(raiz, 'core'), { recursive: true });
+    fs.writeFileSync(path.join(raiz, 'core', 'README.md'), '# Pacote\n\nThe #Noctum is available.\n');
+    fs.mkdirSync(path.join(raiz, 'marketplaces', 'fontes'), { recursive: true });
+    fs.writeFileSync(path.join(raiz, 'marketplaces', 'fontes', 'listagem.json'), '{\n  "descricao": "O #Noctum foi lançado."\n}\n');
+    const r = rodar(raiz, '--texto');
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /core\/README\.md:3: #Noctum is available/);
+    assert.match(r.stderr, /marketplaces\/fontes\/listagem\.json:2: #Noctum foi lançado/);
+  });
+});
+
+test('RG14: o sha256 repetido e o arco repetido recusam, cada um pelo seu campo', () => {
+  emPasta('rg14', (raiz) => {
+    // O mesmo arquivo com outro nome: o mesmo sha256.
+    aceite(raiz, (a) => { a.pilotos[2].sha256 = a.pilotos[0].sha256; });
+    fs.copyFileSync(path.join(raiz, PASTA, 'piloto-1.json'), path.join(raiz, PASTA, 'piloto-3.json'));
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-repetido: os pilotos P1 e P3 têm o mesmo sha256/);
+    // O mesmo piloto com um espaço a mais: outro sha256, o mesmo arco.
+    aceite(raiz);
+    const texto = `${fs.readFileSync(path.join(raiz, PASTA, 'piloto-1.json'), 'utf8')} `;
+    fs.writeFileSync(path.join(raiz, PASTA, 'piloto-3.json'), texto);
+    const a = JSON.parse(fs.readFileSync(path.join(raiz, PASTA, 'aceite.json'), 'utf8'));
+    a.pilotos[2].sha256 = createHash('sha256').update(texto).digest('hex');
+    fs.writeFileSync(path.join(raiz, PASTA, 'aceite.json'), JSON.stringify(a));
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-repetido: os pilotos P1 e P3 têm o mesmo arco \(arco-piloto-1\)/);
   });
 });

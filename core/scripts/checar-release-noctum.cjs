@@ -12,11 +12,13 @@
  * Cada piloto exigido tem o arquivo, o sha256 e o arco dele, distintos dos outros, e a janela de ao menos as horas do plano
  * (`HORAS_MINIMAS`): o mesmo piloto não vale por quatro.
  *
- * Com `--texto`, no job de documentação: procura em `README.md`, `README.pt-BR.md`, `CHANGELOG.md` e nos `.md` de `docs/`
- * (fora `docs/roadmap/evidencias/`), de `adapters/` e de `core/assets/` a forma que anuncia o #Noctum como lançado,
- * entregue, validado ou disponível, em pt-BR e em inglês, com até duas palavras entre o nome, o verbo e o particípio (o
- * advérbio: "já foi validado", "is now available"); só a negação antes do particípio, na mesma oração, libera. Com o aceite
- * válido, o texto passa.
+ * Com `--texto`, no job de documentação: procura em `README.md`, `README.pt-BR.md`, `CHANGELOG.md`, `core/README.md` (o do
+ * pacote), nos `.md` de `docs/` (fora `docs/roadmap/evidencias/`), de `adapters/` e de `core/assets/`, e nos `.md` e `.json`
+ * de `marketplaces/` a forma que anuncia o #Noctum como lançado, entregue, validado ou disponível, em pt-BR e em inglês: o
+ * nome, com ou sem a marcação do Markdown, e até duas palavras entre ele, o verbo e o particípio (o advérbio: "já foi
+ * validado", "is now available", ", enfim,"). Só libera a negação entre o nome e o particípio ("ainda não foi validado") ou
+ * logo antes do nome ("nem o #Noctum está"); a de longe ("Não é segredo: o #Noctum foi validado") e a de depois não. Com o
+ * aceite válido, o texto passa.
  *
  *   node core/scripts/checar-release-noctum.cjs [--texto] [raiz]
  *
@@ -38,17 +40,22 @@ const ALCANCE = 'toda-versao';
 const PILOTOS_EXIGIDOS = ['P1', 'P2', 'P3', 'P4'];
 /** As horas mínimas da janela de cada piloto, as do plano. */
 const HORAS_MINIMAS = { P1: 6, P2: 12, P3: 6, P4: 12 };
-const DO_TEXTO = ['README.md', 'README.pt-BR.md', 'CHANGELOG.md'];
-/** As pastas cujos `.md` o `--texto` lê; a evidência dos pilotos fica de fora. */
-const PASTAS_DO_TEXTO = ['docs', 'adapters', path.join('core', 'assets')];
-/** Até duas palavras entre o nome, o verbo e o particípio: o advérbio ("já foi validado", "is now available"). */
-const ENTRE = '(?:\\s+[\\p{L}-]+){0,2}?\\s+';
-/** Em pt-BR: foi, está ou é com lançado, entregue, validado ou disponível. */
-const AFIRMACAO_PT = new RegExp(`#?Noctum${ENTRE}(?:foi|está|é)${ENTRE}(?:lançad[oa]s?|entregues?|validad[oa]s?|disponíve(?:l|is))(?![\\p{L}\\p{N}])`, 'giu');
-/** Em inglês: is, was ou has been com released, shipped, validated, launched ou available. */
-const AFIRMACAO_EN = new RegExp(`#?Noctum${ENTRE}(?:is|was|has\\s+been)${ENTRE}(?:released|shipped|validated|launched|available)(?![\\p{L}\\p{N}])`, 'giu');
-/** A negação na mesma oração: não, ainda não, nem, sem; not, yet to. */
-const NEGACAO = /(?<![\p{L}\p{N}])(?:não|nem|sem|not|yet\s+to)(?![\p{L}\p{N}])/iu;
+/** Os arquivos de texto público da raiz e do pacote. */
+const DO_TEXTO = ['README.md', 'README.pt-BR.md', 'CHANGELOG.md', path.join('core', 'README.md')];
+/** As pastas que o `--texto` lê e as extensões de cada uma; a evidência dos pilotos fica de fora. */
+const PASTAS_DO_TEXTO = [['docs', ['.md']], ['adapters', ['.md']], [path.join('core', 'assets'), ['.md']], ['marketplaces', ['.md', '.json']]];
+/** O separador das palavras: espaço, quebra de linha, vírgula, parênteses e a marcação do Markdown (`**#Noctum**`, `` `#Noctum` ``). */
+const SEP = '[\\s,()*_`]+';
+/** Até duas palavras entre o nome, o verbo e o particípio: o advérbio ("já foi validado", "is now available", ", enfim,"). */
+const ENTRE = `(?:${SEP}[\\p{L}-]+){0,2}?${SEP}`;
+/** Em pt-BR: foi, foram, está ou estão com lançado, entregue, validado ou disponível. "É entregue às 07:00" descreve, e passa. */
+const AFIRMACAO_PT = new RegExp(`#?Noctum${ENTRE}(?:foi|foram|está|estão)${ENTRE}(?:lançad[oa]s?|entregues?|validad[oa]s?|disponíve(?:l|is))(?![\\p{L}\\p{N}])`, 'giu');
+/** Em inglês: is, are, was, were, has been ou have been com released, shipped, validated, launched ou available. */
+const AFIRMACAO_EN = new RegExp(`#?Noctum${ENTRE}(?:is|are|was|were|ha(?:s|ve)\\s+been)${ENTRE}(?:released|shipped|validated|launched|available)(?![\\p{L}\\p{N}])`, 'giu');
+/** A negação do verbo, entre o nome e o particípio. "Sem" fica de fora: "sem custo extra, já está disponível" anuncia. */
+const NEGACAO = /(?<![\p{L}\p{N}])(?:não|nem|nunca|not|never|yet\s+to)(?![\p{L}\p{N}])/iu;
+/** A negação logo antes do nome, quando muito com o artigo: "nem o #Noctum está disponível". */
+const NEGACAO_ANTES = /(?<![\p{L}\p{N}])(?:não|nem|nunca|not|nor|never)\s+(?:(?:o|a|the)\s+)?[*_`]*$/iu;
 
 class Recusa extends Error {
   constructor(motivo, detalhe) { super(`${motivo}: ${detalhe}`); this.motivo = motivo; }
@@ -118,19 +125,19 @@ function conferirAceite(raiz) {
 function arquivosDoTexto(raiz) {
   const saida = DO_TEXTO.filter((x) => fs.existsSync(path.join(raiz, x)));
   const evidencias = path.join('docs', 'roadmap', 'evidencias') + path.sep;
-  const andar = (rel) => {
+  const andar = (rel, extensoes) => {
     for (const e of fs.readdirSync(path.join(raiz, rel), { withFileTypes: true })) {
       const filho = path.join(rel, e.name);
       if ((filho + path.sep).startsWith(evidencias)) continue;
-      if (e.isDirectory()) andar(filho);
-      else if (e.isFile() && e.name.endsWith('.md')) saida.push(filho);
+      if (e.isDirectory()) andar(filho, extensoes);
+      else if (e.isFile() && extensoes.includes(path.extname(e.name))) saida.push(filho);
     }
   };
-  for (const pasta of PASTAS_DO_TEXTO) if (fs.existsSync(path.join(raiz, pasta))) andar(pasta);
+  for (const [pasta, extensoes] of PASTAS_DO_TEXTO) if (fs.existsSync(path.join(raiz, pasta))) andar(pasta, extensoes);
   return saida;
 }
 
-/** As afirmações sem negação antes do particípio, na mesma oração: `arquivo:linha: trecho`. */
+/** As afirmações sem a negação do verbo: `arquivo:linha: trecho`. */
 function afirmacoes(raiz) {
   const achados = [];
   for (const rel of arquivosDoTexto(raiz)) {
@@ -138,10 +145,10 @@ function afirmacoes(raiz) {
     for (const re of [AFIRMACAO_PT, AFIRMACAO_EN]) {
       re.lastIndex = 0;
       for (let m = re.exec(texto); m; m = re.exec(texto)) {
-        // Só a negação que vem antes do particípio, na mesma oração, desdiz o anúncio ("ainda não foi validado"); a que vem
-        // depois ("foi validado sem nenhuma falha", "released, not just announced") não.
-        const inicio = Math.max(texto.lastIndexOf('\n', m.index), ...['.', '!', '?', ';'].map((p) => texto.lastIndexOf(p, m.index))) + 1;
-        if (NEGACAO.test(texto.slice(inicio, m.index + m[0].length))) continue;
+        // Só a negação entre o nome e o particípio ("ainda não foi validado") ou logo antes do nome ("nem o #Noctum está")
+        // desdiz o anúncio. A de longe ("Não é segredo: o #Noctum foi validado", "Sem custo extra, o #Noctum já está") e a
+        // de depois ("foi validado sem nenhuma falha", "released, not just announced") não.
+        if (NEGACAO.test(m[0]) || NEGACAO_ANTES.test(texto.slice(Math.max(0, m.index - 40), m.index))) continue;
         const linha = texto.slice(0, m.index).split('\n').length;
         achados.push(`${rel.split(path.sep).join('/')}:${linha}: ${m[0]}`);
       }
