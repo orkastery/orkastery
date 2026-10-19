@@ -955,28 +955,36 @@ test('I23: a trava local mantém a reconciliação e uma segunda integração lo
   } finally { m.limpar(); }
 });
 
-test('I24: o merge-base que falha por um instante não vira fonte ausente: a repetição e a reconciliação esperam, e a vez fica', () => {
+/**
+ * O git que falha por um instante (N2 do CHECK-REVERIFY do GO-FIX 8): cada condição do shell faz sair 128, uma vez só, a
+ * primeira chamada em que ela vale depois que a condição anterior falhou; o resto vai ao git de verdade.
+ */
+function comGitFalhando<T>(condicoes: readonly string[], executar: () => T): T {
   const gitReal = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'noctum-git-falha-'));
+  const anterior = process.env.PATH;
+  try {
+    fs.writeFileSync(path.join(dir, 'git'), `#!/bin/sh\nD='${dir}'\n` + condicoes.map((c, i) =>
+      `if [ ! -e "$D/falhou-${i}" ]${i ? ` && [ -e "$D/falhou-${i - 1}" ]` : ''} && ${c}; then\n` +
+      `  : > "$D/falhou-${i}"; echo "fatal: falha passageira SIMULADA" >&2; exit 128\nfi\n`).join('') +
+      `exec '${gitReal}' "$@"\n`, { mode: 0o700 });
+    process.env.PATH = `${dir}${path.delimiter}${anterior ?? ''}`;
+    const r = executar();
+    condicoes.forEach((c, i) => assert.ok(fs.existsSync(path.join(dir, `falhou-${i}`)), `o git falhou uma vez em ${c}`));
+    return r;
+  } finally {
+    if (anterior === undefined) delete process.env.PATH; else process.env.PATH = anterior;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** A condição do shim para `git merge-base --is-ancestor <de> <para>`; sem `para`, vale qualquer ponta. */
+const mergeBase = (de: string, para?: string): string =>
+  `[ "$1" = merge-base ] && [ "$2" = --is-ancestor ] && [ "$3" = ${de} ]${para ? ` && [ "$4" = ${para} ]` : ''}`;
+
+test('I24: o merge-base que falha por um instante não vira fonte ausente: a repetição e a reconciliação esperam, e a vez fica', () => {
   // N2 do CHECK-REVERIFY do GO-FIX 8: só o primeiro `merge-base --is-ancestor <fonte>` sai 128, como uma falha passageira.
-  const comFalha = <T>(fonte: string, executar: () => T): T => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'noctum-i24-'));
-    const falhou = path.join(dir, 'falhou');
-    const anterior = process.env.PATH;
-    try {
-      fs.writeFileSync(path.join(dir, 'git'), '#!/bin/sh\n' +
-        `if [ "$1" = merge-base ] && [ "$2" = --is-ancestor ] && [ "$3" = ${fonte} ] && [ ! -e '${falhou}' ]; then\n` +
-        `  : > '${falhou}'; echo "fatal: falha passageira SIMULADA" >&2; exit 128\n` +
-        'fi\n' +
-        `exec '${gitReal}' "$@"\n`, { mode: 0o700 });
-      process.env.PATH = `${dir}${path.delimiter}${anterior ?? ''}`;
-      const r = executar();
-      assert.ok(fs.existsSync(falhou), 'o git falhou uma vez');
-      return r;
-    } finally {
-      process.env.PATH = anterior;
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  };
+  const comFalha = <T>(fonte: string, executar: () => T): T => comGitFalhando([mergeBase(fonte)], executar);
   const m = cenario('noctum-i24');
   try {
     const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
@@ -995,4 +1003,56 @@ test('I24: o merge-base que falha por um instante não vira fonte ausente: a rep
     assert.deepEqual([...lerCoordenacao(m.a.carregado, m.arco, op(m.a)).vezes.values()].flat().map(v => v.fim), [null], 'a vez fica ativa');
     assert.deepEqual(reconciliarIntegracao(m.b.carregado, m.arco, op(m.b)).registradas, [{ trabalho: 'b', merge }]);
   } finally { m.limpar(); }
+});
+
+test('I25: a falha passageira do git nas outras portas da prova também espera: o avanço rápido, a linha das entregas seguintes e o commit que não se confere', () => {
+  const m = cenario('noctum-i25');
+  try {
+    // O avanço rápido (aviso 1 da segunda passada do CHECK-REVERIFY): o git falha uma vez em `<base provada> <fonte>`, a prova
+    // não sabe, e a vez fica, em vez de terminar sem prova; com o git normal, a reconciliação registra a entrega.
+    const ca = candidato(branchDeTrabalho(m.a.dir, 'trabalho-a', 'a.txt', 'A SIMULADO\n'), 'a');
+    assert.match(comGitFalhando([mergeBase(ca.base, ca.fonte)], () => recusa(() => integrarComVez(m.a.carregado, m.arco,
+      { ordem: 'O-a-1', destino: DESTINO, candidato: ca }, integradorPorAvanco(m.a.dir), op(m.a)), 'noctum.integracao.nao-provada')), /a prova não sabe/);
+    assert.deepEqual([...lerCoordenacao(m.b.carregado, m.arco, op(m.b)).vezes.values()].flat().map(v => v.fim), [null], 'a vez fica ativa');
+    assert.deepEqual(reconciliarIntegracao(m.a.carregado, m.arco, op(m.a)).registradas, [{ trabalho: 'a', merge: ca.fonte }]);
+  } finally { m.limpar(); }
+  const m2 = cenario('noctum-i25b');
+  try {
+    // A linha das entregas seguintes (a D42), no cenário do I14: com a vez da B abandonada, a A integra no meio, e a B mescla
+    // a base nova por cima do push recusado. O git falha uma vez em cada conferência da linha, e a reconciliação espera, sem
+    // entrega falsa nem fim sem prova antes da hora; com o git normal, a vez da B termina sem prova.
+    const cb = candidato(branchDeTrabalho(m2.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    const ca = candidato(branchDeTrabalho(m2.a.dir, 'trabalho-a', 'a.txt', 'A SIMULADO\n'), 'a');
+    const tarde = new Date(Date.now() + BATIDA_VENCIDA_MS + 60_000).toISOString();
+    let daA = '';
+    recusa(() => integrarComVez(m2.b.carregado, m2.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, mergeEPull(m2.b.dir, () => {
+      gravarNaCoordenacao(m2.a.carregado, m2.arco, op(m2.a, tarde), (l) => ({ novos: registrosDosAbandonos(derivarCoordenacao(l), 'maquina-a', tarde), resultado: null }));
+      daA = integrarComVez(m2.a.carregado, m2.arco, { ordem: 'O-a-1', destino: DESTINO, candidato: ca }, mergeSobreAProvada(m2.a.dir), op(m2.a, tarde)).merge;
+    }), op(m2.b)), 'noctum.integracao.base-nao-provada');
+    const daB = exec('git', ['rev-list', '--parents', '--all'], m2.b.dir).stdout.split('\n').map(l => l.trim().split(' '))
+      .find(([, ...pais]) => pais.join(' ') === `${cb.base} ${cb.fonte}`)![0];
+    for (const condicao of [mergeBase(cb.base, daA), mergeBase(daB, daA), mergeBase(daA, daB)]) {
+      const r = comGitFalhando([condicao], () => reconciliarIntegracao(m2.b.carregado, m2.arco, op(m2.b, tarde)));
+      assert.deepEqual([r.registradas, r.semProva, r.soltas], [[], [], []], condicao);
+    }
+    const rec = reconciliarIntegracao(m2.b.carregado, m2.arco, op(m2.b, tarde));
+    assert.deepEqual([rec.registradas, rec.semProva], [[], [`${chaveDoDestino(DESTINO)}/1`]]);
+    assert.deepEqual([...lerCoordenacao(m2.a.carregado, m2.arco, op(m2.a, tarde)).entregas.keys()], ['a']);
+  } finally { m2.limpar(); }
+  const m3 = cenario('noctum-i25c');
+  try {
+    // A falha dupla: o merge-base da fonte sai 128, e o rev-parse dela logo depois também. Só a saída 1 diz que o commit não
+    // está neste clone; a repetição espera, sem invalidar o candidato, e a reconciliação registra a entrega.
+    const cb = candidato(branchDeTrabalho(m3.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    const pedido = { ordem: 'O-b-1', destino: DESTINO, candidato: cb };
+    let merge = '';
+    recusa(() => integrarComVez(m3.b.carregado, m3.arco, pedido, (c) => {
+      merge = mergeSobreAProvada(m3.b.dir)(c).merge;
+      throw new Error('SIMULADO: resposta perdida depois do push');
+    }, op(m3.b)), 'noctum.integracao.nao-provada');
+    const revParse = `[ "$1" = rev-parse ] && [ "$4" = "${cb.fonte}^{commit}" ]`;
+    assert.match(comGitFalhando([mergeBase(cb.fonte), revParse], () => recusa(() => integrarComVez(m3.b.carregado, m3.arco, pedido,
+      () => assert.fail('não integra de novo'), op(m3.b)), 'noctum.integracao.nao-provada')), /a prova não sabe/);
+    assert.deepEqual(reconciliarIntegracao(m3.b.carregado, m3.arco, op(m3.b)).registradas, [{ trabalho: 'b', merge }]);
+  } finally { m3.limpar(); }
 });
