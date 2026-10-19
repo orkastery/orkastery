@@ -17,6 +17,10 @@
  * proposta no prazo (o nunca autorizado fica `proposto` para sempre), o expirado, o revogado e o encerrado não guardam. O
  * arco que não se lê recusa só a thread cujo último despacho tem a correlação dele (`noctum.guarda.arco-ilegivel`); as
  * outras seguem. Sem nenhum arco nesta raiz, nada é lido além da pasta dos arcos: quem não usa o #Noctum não paga nada.
+ *
+ * Nos caminhos automáticos (T1.2, D4), a batida, a varredura, a Sentinela e a máquina ociosa leem o campo `arco` do passo
+ * do condutor (`arcoDoPasso`): a guarda segura toda ação; a retenção, a do arco terminal que despachou a thread por último,
+ * segura o despacho, a retomada e o merge até um despacho fora do arco ou um arco novo, autorizado depois, que a liste.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -26,6 +30,7 @@ import { Mensagens, textoDoCatalogo } from './locale';
 import { ArcoComProposta, lerArcoComProposta, SituacaoDoArco } from './noctum-arco';
 import { ConteudoDoEnvelope, ID_DO_ARCO, RecusaDoArco, shaDoPedido } from './noctum-envelope';
 import { dirThread, lerThread } from './thread';
+import { EventoLedger } from './types';
 
 export const MOTIVO_DA_GUARDA = 'noctum.guarda.thread-do-arco' as const;
 export const MOTIVO_DO_ARCO_ILEGIVEL = 'noctum.guarda.arco-ilegivel' as const;
@@ -80,10 +85,8 @@ export function lerArcosDaRaiz(raiz: string, quando = new Date().toISOString()):
   return arcos;
 }
 
-/** O arco da correlação `noctum:<arco>` do último `phase_dispatch` da thread; `null` sem despacho ou com outra correlação. */
-export function arcoDoUltimoDespacho(raiz: string, thread: string): string | null {
-  let eventos: ReturnType<typeof lerLedger>;
-  try { eventos = lerLedger(dirThread(raiz, thread)); } catch { return null; }
+/** O arco da correlação `noctum:<arco>` do último `phase_dispatch` entre os eventos dados; `null` sem ele. */
+export function arcoDosEventos(eventos: readonly EventoLedger[]): string | null {
   for (let i = eventos.length - 1; i >= 0; i--) {
     if (eventos[i].tipo !== TIPOS_DE_EVENTO.faseDespachada) continue;
     const c = eventos[i].correlacao;
@@ -91,6 +94,11 @@ export function arcoDoUltimoDespacho(raiz: string, thread: string): string | nul
     return ID_DO_ARCO.test(arco) ? arco : null;
   }
   return null;
+}
+
+/** O arco da correlação `noctum:<arco>` do último `phase_dispatch` da thread; `null` sem despacho ou com outra correlação. */
+export function arcoDoUltimoDespacho(raiz: string, thread: string): string | null {
+  try { return arcoDosEventos(lerLedger(dirThread(raiz, thread))); } catch { return null; }
 }
 
 /** O item e o sha256 do pedido da thread, para o trabalho de pedido; a thread que não se lê não casa com nenhum. */
@@ -153,6 +161,55 @@ export function guardaDaThread(raiz: string, thread: string, quando = new Date()
   return recusa(MOTIVO_DA_GUARDA, thread, v.arco, v.situacao, v.origem,
     (m) => m.ship.guarda.doArco(thread, v.arco, m.ship.guarda.situacoes[v.situacao] ?? v.situacao, m.ship.guarda.origens[v.origem] ?? v.origem),
     (m) => m.ship.guarda.doArcoCorrecao(v.arco));
+}
+
+/** As situações do arco que já terminou: nada novo sai dele, e a retenção vale (D4). */
+const TERMINAIS: readonly SituacaoDoArco[] = ['expirado', 'revogado', 'encerrado'];
+
+/** O vínculo da thread com um arco, como os caminhos automáticos o leem no passo do condutor (T1.2, D3 e D4). */
+export interface ArcoDoPasso {
+  arco: string;
+  /** `null` no arco que não se lê. */
+  situacao: SituacaoDoArco | null;
+  /**
+   * `guarda`: o arco agendado, vigente ou com a proposta no prazo (ou o que não se lê) segura toda ação automática.
+   * `retencao`: o arco terminal despachou a thread por último; o despacho, a retomada e o merge esperam um despacho fora do
+   * arco ou um arco novo, autorizado depois dele, que a liste; registrar, master e limpar seguem.
+   */
+  efeito: 'guarda' | 'retencao';
+  motivo: MotivoDaGuarda;
+  detalhe: string;
+}
+
+/**
+ * O arco que segura ou retém a thread nos caminhos automáticos, ou `null`. `eventos` é o ledger da thread que o chamador
+ * já leu (o passo do condutor lê todos), e `arcos` é a leitura única desta raiz.
+ */
+export function arcoDoPasso(raiz: string, arcos: ArcosDaRaiz, thread: string, eventos: readonly EventoLedger[]): ArcoDoPasso | null {
+  if (!arcos.lidos.size && !arcos.ilegiveis.size) return null;
+  const ultimo = arcoDosEventos(eventos);
+  const ilegivel = ultimo === null ? undefined : arcos.ilegiveis.get(ultimo);
+  if (ultimo !== null && ilegivel !== undefined) {
+    return { arco: ultimo, situacao: null, efeito: 'guarda', motivo: MOTIVO_DO_ARCO_ILEGIVEL,
+      detalhe: textoDoCatalogo((m) => m.ship.guarda.arcoIlegivel(thread, ultimo, ilegivel)) };
+  }
+  const vinculos = vinculosDaThread(raiz, arcos, thread, ultimo);
+  const g = vinculos.find(guardaOsCaminhosManuais);
+  if (g) {
+    return { arco: g.arco, situacao: g.situacao, efeito: 'guarda', motivo: MOTIVO_DA_GUARDA,
+      detalhe: textoDoCatalogo((m) => m.ship.guarda.doArco(thread, g.arco, m.ship.guarda.situacoes[g.situacao] ?? g.situacao,
+        m.ship.guarda.origens[g.origem] ?? g.origem)) };
+  }
+  const doUltimo = ultimo === null ? undefined : arcos.lidos.get(ultimo);
+  if (ultimo === null || !doUltimo || !TERMINAIS.includes(doUltimo.estado.situacao)) return null;
+  // Um arco novo, autorizado depois deste, que lista a thread (na lista dele ou no log de despachos) acaba a retenção.
+  const desde = Date.parse(doUltimo.estado.autorizadoPor?.recebidoEm ?? '');
+  const novo = vinculos.some(v => v.arco !== ultimo && (v.origem === 'envelope' || v.origem === 'despacho') &&
+    Date.parse(arcos.lidos.get(v.arco)?.estado.autorizadoPor?.recebidoEm ?? '') > desde);
+  if (novo) return null;
+  const situacao = doUltimo.estado.situacao;
+  return { arco: ultimo, situacao, efeito: 'retencao', motivo: MOTIVO_DA_GUARDA,
+    detalhe: textoDoCatalogo((m) => m.ship.guarda.retencao(thread, ultimo, m.ship.guarda.situacoes[situacao] ?? situacao)) };
 }
 
 /**

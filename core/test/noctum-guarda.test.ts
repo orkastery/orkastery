@@ -1,7 +1,8 @@
 /**
- * RM-058, integração (T1.1 da ork-rm058integra, D3 e D5): a guarda das threads do arco #Noctum nos caminhos de entrega de
- * fora do arco. Os nomes começam por GS. Arcos, itens, pedidos, contas, PRs e provas são SIMULADOS; o remoto é um repositório
- * bare local, e o `gh` é um falso que guarda os PRs na memória.
+ * RM-058, integração (T1.1 e T1.2 da ork-rm058integra, D3, D4 e D5): a guarda das threads do arco #Noctum nos caminhos de
+ * entrega e de condução de fora do arco. Os nomes começam por GS (a guarda) e GT (a retenção depois do arco). Arcos, itens,
+ * pedidos, contas, PRs, sessões e provas são SIMULADOS; o remoto é um repositório bare local, e o `gh` é um falso que guarda
+ * os PRs na memória.
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -9,9 +10,17 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { commitar, envPtBr, projetoTemporario, ProjetoDeTeste, shaNoRemotoDeTeste } from './apoio';
-import { abrirArco, pedidoV2, prepararIngressoSimulado, revogarArco, TrabalhoSimulado } from './noctum-apoio';
+import { abrirArco, passar, pedidoV2, prepararIngressoSimulado, revogarArco, TrabalhoSimulado } from './noctum-apoio';
 import { assinadoPara, HORA, MIN } from './noctum-n6-apoio';
 import { atualizarBranchDaThread } from '../src/atualizar-branch';
+import { caminhoDaAutorizacao, CONTRATO_DA_AUTORIZACAO } from '../src/autorizacao-duravel';
+import { BatidaDaConducao, baterConducao, conduzirBatida, lerRetratoDaBatida, OpcoesDaBatida, pendentesDaUltimaBatida } from '../src/conducao-batida';
+import { passosDoCondutor, statusDaSentinela, textoDoStatusDaSentinela } from '../src/conducao-sentinela';
+import { maquinaOciosa } from '../src/maquina-ociosa';
+import { nomeDaMaquina } from '../src/maquina';
+import { fatosDaFila, montarFila } from '../src/noctum-fila';
+import { CONTRATO_RESERVA } from '../src/roadmap-reservas';
+import { acoesPendentes, agirNaVarredura } from '../src/varredura-acoes';
 import { prepararBundleCi } from '../src/ci';
 import { registrarEntregaExternaPorPr, registrarEntregaPorPr, registrarEntregasPorPr } from '../src/entrega-pr';
 import { kernelDisponivel } from '../src/fila-pesada';
@@ -19,7 +28,7 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { comLocale } from '../src/locale';
 import { autorizarPeloIngresso, encerrarArco, lerArco, proporEnvelope, textoDeAutorizacao } from '../src/noctum-arco';
 import { passoDoArco, OpcoesDoPasso, ResultadoDoPasso } from '../src/noctum-execucao';
-import { guardaDaThread, linhaDoArco, MOTIVO_DA_GUARDA, MOTIVO_DO_ARCO_ILEGIVEL, pedidoDoArco } from '../src/noctum-guarda';
+import { arcoDoPasso, guardaDaThread, lerArcosDaRaiz, linhaDoArco, MOTIVO_DA_GUARDA, MOTIVO_DO_ARCO_ILEGIVEL, pedidoDoArco } from '../src/noctum-guarda';
 import { ExecutorDoGh } from '../src/parado-no-condutor';
 import { ResultadoRun } from '../src/phase';
 import { ship } from '../src/ship';
@@ -310,6 +319,246 @@ test('GS9: a linha do arco chega ao pedido do despacho, com o texto fixo e igual
   assert.equal(prompts[0], pedidoDoArco(pedido, 'arco-gs9'));
   assert.ok(prompts[0].endsWith(`\n\n${linhaDoArco('arco-gs9')}`));
   assert.equal(prompts[1], prompts[0], 'o mesmo arco e o mesmo pedido dão o mesmo prompt');
+});
+
+// ---------------------------------------------------------------------------
+// T1.2: os caminhos automáticos (a batida, a varredura, a Sentinela e a máquina ociosa) e a retenção depois do arco.
+// ---------------------------------------------------------------------------
+
+/** A autorização durável SIMULADA desta máquina, com as ações dadas. */
+function autorizar(p: ProjetoDeTeste, pode: string[]): void {
+  const arquivo = caminhoDaAutorizacao(p.dir);
+  fs.mkdirSync(path.dirname(arquivo), { recursive: true });
+  fs.writeFileSync(arquivo, JSON.stringify({ contrato: CONTRATO_DA_AUTORIZACAO, maquina: nomeDaMaquina(), projeto: p.carregado.manifesto.project.name,
+    por: 'Dona Simulada', concedidaEm: new Date(Date.now() - HORA).toISOString(), ate: new Date(Date.now() + 24 * HORA).toISOString(), pode }));
+}
+
+let sessoesDoTeste = 0;
+const novaSessao = () => `00000000-0000-4000-8000-${String(910000 + ++sessoesDoTeste).padStart(12, '0')}`;
+
+/** O despacho da fase como o `phase run` o deixa no ledger, com a correlação dada (`null`: de fora do arco) e o instante. */
+function despachoDaFase(p: ProjetoDeTeste, thread: string, fase: string, correlacao: string | null, ts?: string): string {
+  const sessionId = novaSessao();
+  registrar(dirThread(p.dir, thread), thread, TIPOS_DE_EVENTO.faseDespachada, { fase, sessionId, runtime: 'claude-bg', pausaAoFim: false,
+    ...(correlacao ? { correlacao } : {}), ...(ts ? { ts } : {}) });
+  return sessionId;
+}
+
+/** A fase despachada e concluída pela sessão: o passo do núcleo é a fase seguinte. */
+function faseConcluida(p: ProjetoDeTeste, thread: string, fase: string, correlacao: string | null): void {
+  const sessionId = despachoDaFase(p, thread, fase, correlacao);
+  registrar(dirThread(p.dir, thread), thread, 'phase_result', { fase, sessionId, classificacao: 'fase_concluida', ok: true });
+}
+
+/** O despacho que falhou antes de abrir sessão: o passo do núcleo é a retomada pelo retry. */
+function despachoFalho(p: ProjetoDeTeste, thread: string, correlacao: string | null): void {
+  const sessionId = despachoDaFase(p, thread, 'GOAL', correlacao);
+  registrar(dirThread(p.dir, thread), thread, TIPOS_DE_EVENTO.despachoFalhou, { fase: 'GOAL', motivo: 'runtime.unavailable', sessionId });
+}
+
+/** A batida com o despacho e a retomada simulados, sem forja e sem sessões; `chamadas` guarda a thread e o que saiu. */
+function opcoesDaBatida(chamadas: string[], extra: OpcoesDaBatida = {}): OpcoesDaBatida {
+  return { buscar: false, forja: null, fantasmas: () => [], vivas: () => [],
+    despachar: (_k, t, fase) => { chamadas.push(`${t}:${fase}`); return { ok: true, detalhe: 'sessão SIMULADA', sessionId: novaSessao() }; },
+    retomar: (_k, t) => { chamadas.push(`${t}:retomar`); return { automatica: true, ok: true, detalhe: 'retomada SIMULADA' }; }, ...extra };
+}
+
+const comPedido = (p: ProjetoDeTeste, nome: string, roadmap?: string) =>
+  novaThread(p.carregado, { nome, modo: 'auto', pedido: `Pedido SIMULADO de ${nome}.`, ...(roadmap ? { roadmap } : {}) }).thread.id;
+
+test('GS10: a batida pula a thread do arco vigente no despachar e no retomar, com o motivo no retrato, sem ledger e fora do pulse', () => {
+  const p = projetoTemporario('gs10');
+  try {
+    const doArco = comPedido(p, 'gs10 do arco'), retomada = comPedido(p, 'gs10 retomada'), deFora = comPedido(p, 'gs10 de fora');
+    faseConcluida(p, doArco, 'GOAL', 'noctum:arco-gs10');
+    despachoFalho(p, retomada, 'noctum:arco-gs10');
+    faseConcluida(p, deFora, 'GOAL', null);
+    abrirArco(p.dir, 'arco-gs10', { trabalhos: [daThread('w1', doArco), daThread('w2', retomada, 'RM-902', 2)] });
+    autorizar(p, ['despachar']);
+    const antes = [eventos(p, doArco), eventos(p, retomada)];
+    const chamadas: string[] = [];
+    const r = baterConducao(p.carregado, opcoesDaBatida(chamadas));
+    assert.equal(r.ocupada, false);
+    assert.deepEqual(chamadas, [`${deFora}:PLAN`], 'só a thread de fora do arco sai');
+    const pulos = (r as BatidaDaConducao).pendentes.filter(x => x.thread !== deFora);
+    assert.deepEqual(pulos.map(x => [x.thread, x.acao, x.resultado, x.motivo]).sort(),
+      [[doArco, 'despachar', 'espera', MOTIVO_DA_GUARDA], [retomada, 'despachar', 'espera', MOTIVO_DA_GUARDA]].sort());
+    assert.ok(pulos.every(x => /arco-gs10 \(vigente, pela lista do envelope\)/.test(x.detalhe)), JSON.stringify(pulos));
+    assert.deepEqual([eventos(p, doArco), eventos(p, retomada)], antes, 'o pulo não vai ao ledger da thread');
+    assert.equal(lerRetratoDaBatida(p.dir)?.pendentes.filter(x => x.motivo === MOTIVO_DA_GUARDA).length, 2, 'o pulo fica no retrato');
+    assert.deepEqual(pendentesDaUltimaBatida(p.dir, new Date().toISOString()).filter(x => x.thread !== deFora), [],
+      'nem vai à fila do dono no pulse: o relatório do arco diz dele');
+  } finally { p.limpar(); }
+});
+
+test('GS11: a batida não lê checks, não mescla nem atualiza o PR da thread do arco, e diz o pulo no retrato; o PR de fora segue', () => {
+  const p = projetoTemporario('gs11', true);
+  try {
+    const doArco = novaThread(p.carregado, { nome: 'gs11 pr do arco', modo: 'auto' }).thread;
+    const deFora = novaThread(p.carregado, { nome: 'gs11 pr de fora', modo: 'auto' }).thread;
+    abrirArco(p.dir, 'arco-gs11', { trabalhos: [daThread('w1', doArco.id)] });
+    autorizar(p, ['merge']);
+    const prs = [doArco, deFora].map((t, i) => ({ number: 300 + i, title: `ship(${t.id}): SIMULADO`, headRefName: branchDaWorktree(t),
+      headRefOid: String(i + 1).repeat(40), baseRefName: 'main', isDraft: false, isCrossRepository: false, mergeable: 'MERGEABLE',
+      mergeStateStatus: 'CLEAN', url: `https://github.com/exemplo/produto/pull/${300 + i}` }));
+    const chamadas: string[][] = [];
+    const executorGh: ExecutorDoGh = (args) => {
+      chamadas.push([...args]);
+      if (args[0] === 'pr' && args[1] === 'list') return { status: 0, stdout: JSON.stringify(prs), stderr: '' };
+      if (args[0] === 'pr' && args[1] === 'checks') return { status: 0, stdout: '[]', stderr: '' };
+      return { status: 1, stdout: '', stderr: `gh falso: ${args.join(' ')}` };
+    };
+    const r = conduzirBatida(p.carregado, { buscar: false, forja: FORJA, executorGh, fantasmas: () => [], vivas: () => [] });
+    const pulo = r.pendentes.find(x => x.thread === doArco.id);
+    assert.deepEqual([pulo?.acao, pulo?.resultado, pulo?.motivo, pulo?.pr], ['merge', 'espera', MOTIVO_DA_GUARDA, 300]);
+    assert.deepEqual(chamadas.filter(c => c[1] !== 'list' && c[2] === '300'), [], 'nem checks nem merge do PR do arco');
+    assert.ok(chamadas.some(c => c[1] === 'checks' && c[2] === '301'), 'o PR de fora segue o caminho de sempre');
+    assert.equal(r.pendentes.find(x => x.thread === deFora.id)?.motivo, 'sem-checks-obrigatorios');
+  } finally { p.limpar(); }
+});
+
+test('GS12: a varredura não registra, não fecha pelo MASTER nem solta a sessão da thread do arco; o pulo fica no retrato e fora do pulse', () => {
+  const p = projetoTemporario('gs12', true);
+  try {
+    const registrarDoArco = mescladaNoRemoto(p, 'gs12-registrar');
+    const masterDoArco = novaThread(p.carregado, { nome: 'gs12 master', modo: 'auto' }).thread.id;
+    const deFora = mescladaNoRemoto(p, 'gs12-fora');
+    const fantasma = despachoDaFase(p, masterDoArco, 'GO', 'noctum:arco-gs12');
+    registrar(dirThread(p.dir, masterDoArco), masterDoArco, TIPOS_DE_EVENTO.shipConcluido, { origem: 'pr', pr: 7, simulado: true });
+    abrirArco(p.dir, 'arco-gs12', { trabalhos: [daThread('w1', registrarDoArco), daThread('w2', masterDoArco, 'RM-902', 2)] });
+    autorizar(p, ['limpar', 'registrar', 'master']);
+    const depois = new Date(Date.now() + 40 * MIN).toISOString();
+    const sessoes = { fantasmas: () => [{ sessionId: fantasma, perfil: null, thread: masterDoArco, fase: 'GO', acao: 'solto' as const }],
+      vivas: () => [] };
+    exec('git', ['fetch', '-q', 'origin', '+refs/heads/main:refs/remotes/origin/main'], p.dir);
+    const doArco = (l: ReturnType<typeof acoesPendentes>) => l.filter(a => a.thread === registrarDoArco || a.thread === masterDoArco)
+      .map(a => [a.acao, a.thread, a.motivoDoBloqueio]).sort();
+    assert.deepEqual(doArco(acoesPendentes(p.carregado, { ...sessoes, quando: depois, comArco: true })),
+      [['limpar', masterDoArco, 'thread-do-arco'], ['master', masterDoArco, 'thread-do-arco'], ['registrar', registrarDoArco, 'thread-do-arco']].sort());
+    assert.deepEqual(doArco(acoesPendentes(p.carregado, { ...sessoes, quando: depois })), [], 'o pulse não leva a ação da thread do arco ao dono');
+    const r = baterConducao(p.carregado, { ...opcoesDaBatida([]), ...sessoes, quando: depois });
+    assert.equal(r.ocupada, false);
+    const b = r as BatidaDaConducao;
+    assert.deepEqual(b.feitas.map(f => [f.acao, f.thread]), [['registrar', deFora]], 'a de fora segue');
+    assert.deepEqual(b.pendentes.filter(x => x.thread !== deFora).map(x => [x.acao, x.resultado, x.motivo]).sort(),
+      [['limpar', 'espera', MOTIVO_DA_GUARDA], ['master', 'espera', MOTIVO_DA_GUARDA], ['registrar', 'espera', MOTIVO_DA_GUARDA]].sort());
+    assert.equal(lerLedger(dirThread(p.dir, registrarDoArco)).some(e => e.tipo === TIPOS_DE_EVENTO.shipConcluido), false);
+    assert.equal(lerThread(p.dir, masterDoArco).status, 'aberta', 'nenhum MASTER por fora');
+    assert.equal(lerLedger(dirThread(p.dir, masterDoArco)).some(e => e.tipo === 'sessao_morta'), false, 'nenhuma sessão solta por fora');
+  } finally { p.limpar(); }
+});
+
+test('GS13: o status da Sentinela dá nada com o motivo à thread do arco, e o passo do núcleo, que a fila do arco lê, segue na fase seguinte', () => {
+  const p = projetoTemporario('gs13');
+  try {
+    const doArco = comPedido(p, 'gs13 do arco', 'RM-913');
+    faseConcluida(p, doArco, 'GOAL', 'noctum:arco-gs13');
+    abrirArco(p.dir, 'arco-gs13', { trabalhos: [daThread('w1', doArco, 'RM-913')] });
+    const passo = passosDoCondutor(p.carregado).find(x => x.thread === doArco)!;
+    assert.deepEqual([passo.acao, passo.fase, passo.arco?.efeito, passo.arco?.arco], ['despachar', 'PLAN', 'guarda', 'arco-gs13']);
+    const status = statusDaSentinela(p.carregado);
+    const naSentinela = status.threads.find(x => x.thread === doArco)!;
+    assert.deepEqual([naSentinela.acao, naSentinela.fase], ['nada', null]);
+    assert.match(naSentinela.porque, /^noctum\.guarda\.thread-do-arco: a thread .* é trabalho do arco arco-gs13/);
+    assert.ok(textoDoStatusDaSentinela(status).split('\n').some(l => l.includes(doArco) && /\bnada\b/.test(l) && l.includes(MOTIVO_DA_GUARDA)));
+    const fila = montarFila(fatosDaFila(p.carregado, 'arco-gs13', { maquina: 'maquina-simulada',
+      lerReservas: () => ({ leitura: 'copia-local', reservas: [{ item: 'RM-913', maquina: 'maquina-simulada', thread: null }] }) }));
+    assert.deepEqual([fila.trabalhos[0].thread, fila.trabalhos[0].fase], [doArco, 'PLAN'], 'a fila do arco vê a fase seguinte da própria thread');
+    assert.deepEqual(fila.candidatos.map(c => c.id), ['w1']);
+  } finally { p.limpar(); }
+});
+
+test('GS14: a máquina ociosa não sugere a thread do arco nem o item que o arco ainda vai abrir; o de fora segue sugerido', () => {
+  const p = projetoTemporario('gs14');
+  try {
+    const doArco = comPedido(p, 'gs14 do arco', 'RM-941');
+    const deFora = comPedido(p, 'gs14 de fora', 'RM-943');
+    abrirArco(p.dir, 'arco-gs14', { trabalhos: [daThread('w1', doArco, 'RM-941'),
+      { id: 'w2', item: 'RM-942', prioridade: 2, dependeDe: [], pedido: 'Fatia SIMULADA que o arco abre.' }] });
+    const reserva = (item: string, i: number) => ({ contrato: CONTRATO_RESERVA, item, por: 'Dona Simulada', maquina: 'maquina-gs14', thread: null,
+      nota: null, desdeEm: new Date(Date.now() - (3 - i) * HORA).toISOString(), atualizadaEm: new Date().toISOString() });
+    const r = maquinaOciosa(p.carregado, { maquina: 'maquina-gs14', reservas: () => ['RM-941', 'RM-942', 'RM-943'].map(reserva),
+      ocupadas: () => 0, passos: () => [] });
+    assert.deepEqual(r?.sugeridas.map(s => [s.item, s.thread]), [['RM-943', deFora]]);
+    assert.equal(r?.reservados, 1);
+  } finally { p.limpar(); }
+});
+
+test('GT1: fechado o arco por custo, a batida não despacha nem retoma a thread que ele despachou por último, e a Sentinela diz nada', () => {
+  const p = projetoTemporario('gt1');
+  try {
+    const parada = comPedido(p, 'gt1 parada'), retomada = comPedido(p, 'gt1 retomada');
+    abrirArco(p.dir, 'arco-gt1', { trabalhos: [daThread('w1', parada), daThread('w2', retomada, 'RM-902', 2)] });
+    faseConcluida(p, parada, 'GOAL', 'noctum:arco-gt1');
+    despachoFalho(p, retomada, 'noctum:arco-gt1');
+    encerrarArco(p.dir, 'arco-gt1', { motivo: 'custo', detalhe: 'teto SIMULADO alcançado' });
+    autorizar(p, ['despachar']);
+    const chamadas: string[] = [];
+    const r = conduzirBatida(p.carregado, opcoesDaBatida(chamadas));
+    assert.deepEqual(chamadas, [], 'nada sai fora do orçamento do arco');
+    assert.deepEqual(r.pendentes.map(x => [x.thread, x.resultado, x.motivo]).sort(),
+      [[parada, 'espera', MOTIVO_DA_GUARDA], [retomada, 'espera', MOTIVO_DA_GUARDA]].sort());
+    assert.ok(r.pendentes.every(x => /o arco arco-gt1 \(encerrado\) despachou a thread .* por último/.test(x.detalhe)), JSON.stringify(r.pendentes));
+    const naSentinela = statusDaSentinela(p.carregado).threads.find(x => x.thread === parada)!;
+    assert.deepEqual([naSentinela.acao, naSentinela.arco?.efeito], ['nada', 'retencao']);
+    assert.equal(guardaDaThread(p.dir, parada), null, 'nos caminhos manuais, o arco terminal não guarda');
+  } finally { p.limpar(); }
+});
+
+test('GT2: depois de um despacho fora do arco, a retenção acaba, e a batida volta a despachar a thread', () => {
+  const p = projetoTemporario('gt2');
+  try {
+    const t = comPedido(p, 'gt2 thread');
+    abrirArco(p.dir, 'arco-gt2', { trabalhos: [daThread('w1', t)] });
+    faseConcluida(p, t, 'GOAL', 'noctum:arco-gt2');
+    revogarArco(p.dir, 'arco-gt2');
+    autorizar(p, ['despachar']);
+    const chamadas: string[] = [];
+    conduzirBatida(p.carregado, opcoesDaBatida(chamadas));
+    assert.deepEqual(chamadas, [], 'retida pelo arco revogado');
+    // O dono despacha o PLAN por fora do arco, e a sessão o conclui: o último despacho não é mais do arco.
+    passar(5);
+    faseConcluida(p, t, 'PLAN', null);
+    const r = conduzirBatida(p.carregado, opcoesDaBatida(chamadas));
+    assert.deepEqual(chamadas, [`${t}:GO`]);
+    assert.deepEqual(r.pendentes.filter(x => x.motivo === MOTIVO_DA_GUARDA), []);
+  } finally { p.limpar(); }
+});
+
+test('GT3: com o arco terminal, a varredura registra a entrega e fecha pelo MASTER a thread que ele despachou por último', () => {
+  const p = projetoTemporario('gt3', true);
+  try {
+    const t = mescladaNoRemoto(p, 'gt3');
+    // O GO que o arco despachou antes do PR (a varredura não registra por cima de trabalho novo depois dele).
+    despachoDaFase(p, t, 'GO', 'noctum:arco-gt3', new Date(Date.now() - HORA).toISOString());
+    abrirArco(p.dir, 'arco-gt3', { trabalhos: [daThread('w1', t)] });
+    revogarArco(p.dir, 'arco-gt3');
+    assert.equal(arcoDoPasso(p.dir, lerArcosDaRaiz(p.dir), t, lerLedger(dirThread(p.dir, t)))?.efeito, 'retencao');
+    autorizar(p, ['registrar', 'master']);
+    const r1 = agirNaVarredura(p.carregado, { fantasmas: () => [], vivas: () => [] });
+    assert.deepEqual(r1.feitas.map(f => [f.acao, f.thread, f.resultado]), [['registrar', t, 'feita']]);
+    const depois = new Date(Date.now() + 31 * MIN).toISOString();
+    const r2 = agirNaVarredura(p.carregado, { fantasmas: () => [], vivas: () => [], quando: depois, buscar: false });
+    assert.deepEqual(r2.feitas.map(f => [f.acao, f.thread, f.resultado]), [['master', t, 'feita']]);
+    assert.equal(lerThread(p.dir, t).status, 'fechada');
+  } finally { p.limpar(); }
+});
+
+test('GT4: o arco novo que lista a thread a guarda enquanto vale e, terminal, acaba a retenção do arco antigo', () => {
+  const p = projetoTemporario('gt4');
+  try {
+    const t = comPedido(p, 'gt4 thread');
+    abrirArco(p.dir, 'arco-gt4a', { trabalhos: [daThread('w1', t)] });
+    faseConcluida(p, t, 'GOAL', 'noctum:arco-gt4a');
+    encerrarArco(p.dir, 'arco-gt4a', { motivo: 'hora', detalhe: 'janela SIMULADA terminou' });
+    const doPasso = () => arcoDoPasso(p.dir, lerArcosDaRaiz(p.dir), t, lerLedger(dirThread(p.dir, t)));
+    assert.deepEqual([doPasso()?.arco, doPasso()?.efeito], ['arco-gt4a', 'retencao']);
+    passar(5);
+    abrirArco(p.dir, 'arco-gt4b', { trabalhos: [daThread('w1', t)] });
+    assert.deepEqual([doPasso()?.arco, doPasso()?.efeito], ['arco-gt4b', 'guarda'], 'o arco novo vigente guarda');
+    revogarArco(p.dir, 'arco-gt4b');
+    assert.equal(doPasso(), null, 'o arco novo, autorizado depois, acabou a retenção do antigo');
+  } finally { p.limpar(); }
 });
 
 // ---------------------------------------------------------------------------

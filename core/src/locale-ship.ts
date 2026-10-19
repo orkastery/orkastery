@@ -176,6 +176,9 @@ export const SHIP_PT_BR = {
     arcoIlegivel: (thread: string, arco: string, motivo: string) =>
       `noctum.guarda.arco-ilegivel: o último despacho da thread ${thread} foi do arco ${arco}, e o arco não se lê (${motivo})`,
     arcoIlegivelCorrecao: (arco: string) => `inspecione o arco antes de entregar a thread por fora dele (ork noctum status ${arco})`,
+    retencao: (thread: string, arco: string, situacao: string) =>
+      `noctum.guarda.thread-do-arco: o arco ${arco} (${situacao}) despachou a thread ${thread} por último; a batida e a Sentinela ` +
+      'não a despacham, não a retomam nem a mesclam até um despacho fora do arco ou um arco novo que a liste',
   },
   // RM-059 (F7, T7.1): `ork ship publicar` e `ork ship pista`. O detalhe, a correcao e o texto das etapas vao ao
   // `--json` e ao ledger em pt-BR; a impressao os remonta no locale do comando.
@@ -473,6 +476,9 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     arcoIlegivel: (thread, arco, motivo) =>
       `noctum.guarda.arco-ilegivel: the last dispatch of thread ${thread} came from arc ${arco}, and the arc cannot be read (${motivo})`,
     arcoIlegivelCorrecao: (arco) => `inspect the arc before delivering the thread outside it (ork noctum status ${arco})`,
+    retencao: (thread, arco, situacao) =>
+      `noctum.guarda.thread-do-arco: arc ${arco} (${situacao}) dispatched thread ${thread} last; the beat and the Sentinel ` +
+      'do not dispatch, resume or merge it until a dispatch outside the arc or a new arc that lists it',
   },
   publicar: {
     uso: 'usage: ork ship publicar <thread-id> [--dry-run] [--remoto R] [--json]',

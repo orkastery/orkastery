@@ -147,6 +147,7 @@ export const PULSE_PT_BR = {
       'check-pendente': 'o CHECK da thread não passou (veredito PASSOU) depois do último commit de produto do PR',
       'pendencia-do-dono': 'a thread espera você (pausada, pausa prevista, pergunta ou escalação aberta)',
       'espera-longa': 'a batida espera há mais de 2 h (check obrigatório pendente ou o GitHub sem o estado do merge)',
+      'thread-do-arco': 'a thread é trabalho de um arco #Noctum: a entrega e o MASTER dela são do passo da entrega do arco',
     },
     comBloqueio: (oQue: string, bloqueio: string) => `${oQue}. A varredura não faz isso sozinha agora: ${bloqueio}`,
     comBloqueioRecomendacao: (thread: string, comando: string) =>
@@ -305,6 +306,7 @@ export const PULSE_EN: typeof PULSE_PT_BR = {
       'check-pendente': 'the thread CHECK did not pass (verdict PASSOU) after the last product commit of the PR',
       'pendencia-do-dono': 'the thread waits for you (paused, planned pause, open question or escalation)',
       'espera-longa': 'the beat has been waiting for more than 2 h (a required check pending, or GitHub without the merge state)',
+      'thread-do-arco': 'the thread is work of a #Noctum arc: its delivery and MASTER belong to the arc delivery step',
     },
     comBloqueio: (oQue, bloqueio) => `${oQue}. The sweep does not do this on its own now: ${bloqueio}`,
     comBloqueioRecomendacao: (thread, comando) =>

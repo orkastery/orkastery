@@ -21,6 +21,7 @@ import { lerLedger } from './ledger';
 import { textoDoCatalogo } from './locale';
 import { ManifestoCarregado } from './manifest';
 import { nomeDaMaquina } from './maquina';
+import { arcoDoPasso, guardaOsCaminhosManuais, lerArcosDaRaiz } from './noctum-guarda';
 import { pendenciaDoDono } from './parado-no-condutor';
 import { ReservaDeItem, reservasLocais } from './roadmap-reservas';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -117,17 +118,30 @@ export function maquinaOciosa(carregado: ManifestoCarregado, opcoes: OpcoesDaOci
   if (!reservas.length) return null;
   const threads: Thread[] = [];
   for (const id of listarIds(raiz)) { try { threads.push(lerThread(raiz, id)); } catch { /* thread ilegivel fica de fora */ } }
+  // RM-058, integracao (T1.2): o trabalho de um arco #Noctum nao e sugerido. A thread que o arco segura ou retem fica com
+  // ele, e o item da lista de um arco que guarda (sem thread aberta ainda) e o arco que abre.
+  const arcos = lerArcosDaRaiz(raiz, quando);
+  const itensDosArcos = new Set<string>();
+  for (const { estado, proposta } of arcos.lidos.values()) {
+    const guarda = guardaOsCaminhosManuais({ arco: estado.arco, situacao: estado.situacao, origem: 'envelope' });
+    for (const w of guarda ? estado.conteudo?.trabalhos ?? [] : []) itensDosArcos.add(w.item);
+    for (const w of estado.situacao === 'proposto' || guarda ? proposta?.trabalhos ?? [] : []) itensDosArcos.add(w.item);
+  }
   const paradas: { r: ReservaDeItem; t: Thread | null }[] = [];
   for (const r of reservas) {
     const t = threadDoItem(threads, r);
     if (t?.status === 'fechada') continue;
+    if (!t && itensDosArcos.has(r.item)) continue;
     if (t) {
       let conduzida = true;
       try { conduzida = conducaoDaThread(raiz, t.id, { agora: new Date(quando) }) !== null; } catch { conduzida = true; }
       if (conduzida) continue;
+      let eventos: ReturnType<typeof lerLedger> = [];
+      try { eventos = lerLedger(dirThread(raiz, t.id)); } catch { eventos = []; }
       let doDono: string | null = null;
-      try { doDono = pendenciaDoDono(t, lerLedger(dirThread(raiz, t.id)), quando); } catch { doDono = null; }
+      try { doDono = pendenciaDoDono(t, eventos, quando); } catch { doDono = null; }
       if (doDono) continue;
+      if (arcoDoPasso(raiz, arcos, t.id, eventos)) continue;
     }
     paradas.push({ r, t });
   }
