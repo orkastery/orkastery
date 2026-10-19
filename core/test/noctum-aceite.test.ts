@@ -33,10 +33,14 @@ const MERGE = (n: number): string => String(n).repeat(40);
 const PONTA = 'f'.repeat(40);
 const em = (base: string, ms: number): string => new Date(Date.parse(base) + ms).toISOString();
 
-/** O git de um remoto do GitHub, SIMULADO: a ponta da base e os merges que estão nela. */
-function gitDoGitHub(naBase: ReadonlySet<string> = new Set([MERGE(1), MERGE(2)]), ponta: string | null = PONTA): LeitorDoGit {
-  return { url: () => 'https://github.com/exemplo/produto.git', ponta: () => ponta, ancestral: (sha) => naBase.has(sha) };
+type Reversoes = Record<string, Array<{ sha: string; em: string }>>;
+
+/** O git de um remoto do GitHub, SIMULADO: a ponta da base, os merges que estão nela e os commits que revertem cada merge. */
+function gitDoGitHub(naBase: ReadonlySet<string> = new Set([MERGE(1), MERGE(2)]), ponta: string | null = PONTA, reversoes: Reversoes = {}): LeitorDoGit {
+  return { url: () => 'https://github.com/exemplo/produto.git', ponta: () => ponta, ancestral: (sha) => naBase.has(sha),
+    reversoes: (sha) => reversoes[sha] ?? [] };
 }
+const comReversoes = (reversoes: Reversoes): LeitorDoGit => gitDoGitHub(undefined, undefined, reversoes);
 
 /** A forja SIMULADA: os PRs que cada branch tem. */
 const prsPorBranch = (n = 1): ExecutorDoGh => () => ({ status: 0, stderr: '',
@@ -64,11 +68,12 @@ function moverEventos(raiz: string, thread: string, tipo: string, ts: string): v
  * `autorizarEm` e `emendaEm` são instantes depois do início da janela, em ms; `composicaoAtrasadaMin` e `reciboAtrasadoMin`,
  * minutos depois do vencimento do relatório (com o recibo atrasado, a primeira tentativa falha, como na F7, e o recibo vem
  * do reenvio automático, ou do reenvio do dono com `reenvioDoDono`). Com `masterDeFora`, o MASTER por omissão do b não leva
- * o arco: não foi a entrega do arco que o fez.
+ * o arco: não foi a entrega do arco que o fez. Cada sessão tem o `phase_dispatch_verified` que o `phase run` grava quando o
+ * runtime a lista; com `semRuntime`, a do b não tem.
  */
 function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; baseDeFora?: boolean; maquina?: string; aberto?: boolean;
   idempotente?: boolean; tiqueParado?: boolean; autorizarEm?: number; emendaEm?: number; composicaoAtrasadaMin?: number;
-  reciboAtrasadoMin?: number; reenvioDoDono?: boolean; masterDeFora?: boolean } = {}): Piloto {
+  reciboAtrasadoMin?: number; reenvioDoDono?: boolean; masterDeFora?: boolean; semRuntime?: boolean } = {}): Piloto {
   const p = projetoTemporario(nome);
   const threads = ['a', 'b'].map((x, i) => novaThread(p.carregado, { nome: `piloto ${x}`, modo: 'auto', roadmap: `RM-97${i + 1}`,
     pedido: `Trabalho ${x} SIMULADO do piloto.`, criarWorktree: false }).thread.id);
@@ -86,7 +91,12 @@ function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; b
   threads.forEach((thread, i) => {
     const r = reservarDespacho(p.dir, { arco, envelopeSha256: sha, trabalho: ['a', 'b'][i], thread, fase: 'GOAL', runtime: 'claude-bg',
       conta: ['perfil-a', 'perfil-b'][i], revisao: false }, em(inicio, (5 + i) * MIN));
-    concluirDespacho(p.dir, arco, r.seq, { thread, sessionId: `00000000-0000-4000-8888-00000000000${i + 1}`, idempotente: false }, em(inicio, (6 + i) * MIN));
+    const sessionId = `00000000-0000-4000-8888-00000000000${i + 1}`;
+    concluirDespacho(p.dir, arco, r.seq, { thread, sessionId, idempotente: false }, em(inicio, (6 + i) * MIN));
+    if (!(o.semRuntime && i === 1)) {
+      registrar(dirThread(p.dir, thread), thread, TIPOS_DE_EVENTO.despachoVerificado, { ts: em(inicio, (6 + i) * MIN), fase: 'GOAL', sessionId,
+        fonte: 'claude agents --json', encontrada: true });
+    }
   });
   if (o.idempotente) {
     // O passo despachou de novo e o runtime devolveu a sessão em curso: a reserva conclui idempotente, sem sessão nova.
@@ -454,13 +464,16 @@ test('AC19: a reversão e o PR que o dono faz depois do arco não mudam o aceite
     const antes = hashDoAceite(aceite(pl)).sha256;
     const [a] = pl.threads;
     // Passada a janela de entrega do relatório, o dono reverte a entrega do a e abre outro PR na branch dele.
-    registrar(dirThread(pl.p.dir, a), a, TIPOS_DE_EVENTO.rollbackConcluido, { ts: em(pl.vencimento, 25 * HORA) });
+    const depois = { sha: 'e'.repeat(40), em: em(pl.vencimento, 25 * HORA) };
+    registrar(dirThread(pl.p.dir, a), a, TIPOS_DE_EVENTO.rollbackConcluido, { ts: depois.em, mergeSha: MERGE(1), revertSha: depois.sha, para: 'main' });
     const comPrDepois: ExecutorDoGh = () => ({ status: 0, stderr: '', stdout: JSON.stringify([
       { number: 1, state: 'MERGED', headRefOid: 'a'.repeat(40), createdAt: em(pl.inicio, HORA) },
       { number: 2, state: 'OPEN', headRefOid: 'b'.repeat(40), createdAt: em(pl.fim, 2 * HORA) }]) });
-    assert.equal(hashDoAceite(aceite(pl, { executorGh: comPrDepois })).sha256, antes, 'o que o dono fez depois do arco não entra no aceite');
-    registrar(dirThread(pl.p.dir, a), a, TIPOS_DE_EVENTO.rollbackConcluido, { ts: em(pl.inicio, 6 * HORA) });
-    const r = aceite(pl);
+    assert.equal(hashDoAceite(aceite(pl, { executorGh: comPrDepois, git: comReversoes({ [MERGE(1)]: [depois] }) })).sha256, antes,
+      'o que o dono fez depois do arco não entra no aceite');
+    const durante = { sha: 'd'.repeat(40), em: em(pl.inicio, 6 * HORA) };
+    registrar(dirThread(pl.p.dir, a), a, TIPOS_DE_EVENTO.rollbackConcluido, { ts: durante.em, mergeSha: MERGE(1), revertSha: durante.sha, para: 'main' });
+    const r = aceite(pl, { git: comReversoes({ [MERGE(1)]: [durante, depois] }) });
     assert.deepEqual(medida(r, 'M1').evidencia.atos, [{ em: em(pl.inicio, 6 * HORA), ato: `reversão de entrega na thread ${a}` }]);
     assert.equal(medida(r, 'M1').valor, 6);
   } finally { pl.p.limpar(); }
@@ -480,7 +493,8 @@ test('AC20: o MASTER do arco é o por omissão que a entrega dele marca; o de fo
 
 test('AC21: a agenda de injeções recusa a chave desconhecida e o alvo que não é texto, em vez de virar injeção sem alvo', () => {
   const instante = new Date().toISOString();
-  for (const linha of [{ falha: 'F1', instante, Alvo: 'w2' }, { falha: 'F1', instante, alvo: 2 }]) {
+  // M4 do CHECK 4: o alvo vazio valeria como o arco inteiro.
+  for (const linha of [{ falha: 'F1', instante, Alvo: 'w2' }, { falha: 'F1', instante, alvo: 2 }, { falha: 'F1', instante, alvo: '' }, { falha: 'F1', instante, alvo: ' ' }]) {
     assert.throws(() => lerInjecoes(JSON.stringify(linha)), (e: unknown) => e instanceof RecusaDoAceite && e.motivo === 'noctum.aceite.injecoes-invalidas' &&
       /só aceita falha, instante e alvo \(texto\)/.test(e.message), JSON.stringify(linha));
   }
@@ -499,4 +513,69 @@ test('AC22: com a F7 na agenda, o recibo vale até o fim do ciclo de reenvio aut
     const r = aceite(fora, { injecoes: [F1(fora), { falha: 'F7', instante: fora.vencimento }] });
     assert.deepEqual([medida(r, 'M10').valor, criterio(r, 'A7').detalhe], [0, 'o último recibo da versão 1 chegou depois do ciclo de reenvio automático']);
   } finally { fora.p.limpar(); }
+});
+
+test('AC23: a reversão de uma entrega do arco é ato do dono pela data do commit, também detectada depois do arco ou só no git; a de uma entrega anterior ao arco não é', () => {
+  // I2 do CHECK 4: o aceite contava o rollback_done pelo instante da detecção, e de qualquer merge.
+  const pl = piloto('ac23');
+  try {
+    const [a] = pl.threads;
+    const durante = { sha: 'd'.repeat(40), em: em(pl.inicio, 6 * HORA) };
+    // O dono reverte a entrega do a às 6 h da condução; o núcleo só a detecta no MASTER do dia seguinte.
+    registrar(dirThread(pl.p.dir, a), a, TIPOS_DE_EVENTO.rollbackConcluido, { ts: em(pl.fim, 30 * HORA), mergeSha: MERGE(1), revertSha: durante.sha, para: 'main' });
+    const r = aceite(pl, { git: comReversoes({ [MERGE(1)]: [durante] }) });
+    assert.deepEqual(medida(r, 'M1').evidencia.atos, [{ em: durante.em, ato: `reversão de entrega na thread ${a}` }]);
+    assert.deepEqual([medida(r, 'M1').valor, criterio(r, 'A1').veredito, r.veredito], [6, 'reprovado', 'reprovado']);
+    // Sem a data do commit no git, a detecção depois do arco não prova quando a reversão foi: lacuna, e o aceite não aprova.
+    const semData = aceite(pl);
+    assert.deepEqual([medida(semData, 'M1').valor, criterio(semData, 'A1').veredito], [null, 'incompleto']);
+    assert.match(medida(semData, 'M1').lacunas.join('; '), /a reversão d{12} do merge 1{12} não tem a data do commit no git/);
+  } finally { pl.p.limpar(); }
+  const soNoGit = piloto('ac23b');
+  try {
+    // Ninguém rodou o ship nem o MASTER do b depois da reversão: só o git a mostra.
+    const reversao = { sha: 'c'.repeat(40), em: em(soNoGit.inicio, 7 * HORA) };
+    const r = aceite(soNoGit, { git: comReversoes({ [MERGE(2)]: [reversao] }) });
+    assert.deepEqual(medida(r, 'M1').evidencia.atos, [{ em: reversao.em, ato: `reversão de entrega na thread ${soNoGit.threads[1]}` }]);
+    assert.equal(medida(r, 'M1').valor, 7);
+    // A reversão depois do arco, achada no git, não é ato da condução.
+    const depois = aceite(soNoGit, { git: comReversoes({ [MERGE(2)]: [{ sha: 'c'.repeat(40), em: em(soNoGit.fim, HORA) }] }) });
+    assert.deepEqual([medida(depois, 'M1').valor, depois.veredito], [8, 'aprovado']);
+  } finally { soNoGit.p.limpar(); }
+  const anterior = piloto('ac23c');
+  try {
+    const antes = hashDoAceite(aceite(anterior)).sha256;
+    const [a] = anterior.threads;
+    // A entrega de antes do arco, revertida e detectada na condução e na janela do relatório: não é ato do arco nem pede a
+    // correção do relatório.
+    registrar(dirThread(anterior.p.dir, a), a, TIPOS_DE_EVENTO.rollbackConcluido, { ts: em(anterior.inicio, 6 * HORA), mergeSha: MERGE(9),
+      revertSha: 'b'.repeat(40), para: 'main' });
+    registrar(dirThread(anterior.p.dir, a), a, TIPOS_DE_EVENTO.rollbackConcluido, { ts: em(anterior.vencimento, HORA), mergeSha: MERGE(9),
+      revertSha: 'a'.repeat(40), para: 'main' });
+    assert.equal(hashDoAceite(aceite(anterior, { git: comReversoes({ [MERGE(9)]: [{ sha: 'b'.repeat(40), em: em(anterior.inicio, 6 * HORA) }] }) })).sha256, antes,
+      'a reversão de uma entrega que não é do arco não muda o aceite dele');
+  } finally { anterior.p.limpar(); }
+});
+
+test('AC24: o despacho cuja sessão o runtime não confirmou dá simulado: sem o phase_dispatch_verified, não encontrada ou por fonte simulada', () => {
+  // I3 do CHECK 4: a marca "despacho sem sessão do runtime" da T8 não existia.
+  const pl = piloto('ac24', { semRuntime: true });
+  try {
+    const [, b] = pl.threads;
+    const sessionId = '00000000-0000-4000-8888-000000000002';
+    const marca = /^1 despacho\(s\) do arco sem a sessão confirmada pelo runtime \(reserva \d+\)$/;
+    const semEvento = aceite(pl);
+    assert.equal(semEvento.veredito, 'simulado');
+    assert.equal(semEvento.simulacao.marcas.length, 1);
+    assert.match(semEvento.simulacao.marcas[0], marca);
+    const verificar = (fonte: string, encontrada: boolean) => registrar(dirThread(pl.p.dir, b), b, TIPOS_DE_EVENTO.despachoVerificado,
+      { ts: em(pl.inicio, 8 * MIN), fase: 'GOAL', sessionId, fonte, encontrada });
+    verificar('claude agents --json', false);
+    assert.match(aceite(pl).simulacao.marcas.join('\n'), marca, 'a sessão que o runtime não listou não confirma');
+    verificar('claude agents --json (SIMULADO)', true);
+    assert.match(aceite(pl).simulacao.marcas.join('\n'), marca, 'a fonte simulada não confirma');
+    verificar('claude agents --json', true);
+    const r = aceite(pl);
+    assert.deepEqual([r.simulacao.marcas, r.veredito], [[], 'aprovado']);
+  } finally { pl.p.limpar(); }
 });

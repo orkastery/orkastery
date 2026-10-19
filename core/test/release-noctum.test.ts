@@ -25,7 +25,10 @@ function aceite(raiz: string, mexer: (a: { contrato: string; pilotos: Piloto[]; 
   fs.mkdirSync(path.join(raiz, PASTA), { recursive: true });
   const pilotos = ['P1', 'P2', 'P3', 'P4'].map((id, i) => {
     const arquivo = `piloto-${i + 1}.json`;
-    const texto = `${JSON.stringify({ contrato: 'ork.noctum-piloto/v1', arco: `arco-piloto-${i + 1}`, janela: { horas: [6, 12, 6, 12][i] },
+    const horas = [6, 12, 6, 12][i];
+    const inicio = Date.parse(`2025-12-0${i + 1}T00:00:00.000Z`);
+    const janela = { inicio: new Date(inicio).toISOString(), fim: new Date(inicio + horas * 3_600_000).toISOString(), horas };
+    const texto = `${JSON.stringify({ contrato: 'ork.noctum-piloto/v1', arco: `arco-piloto-${i + 1}`, janela,
       simulacao: { simulado: false, marcas: [] }, veredito: 'aprovado', publicavel: true, sha256DoCompleto: 'c'.repeat(64) }, null, 2)}\n`;
     fs.writeFileSync(path.join(raiz, PASTA, arquivo), texto);
     return { id, arquivo, sha256: createHash('sha256').update(texto).digest('hex'), simulado: false, veredito: 'aprovado' };
@@ -283,5 +286,44 @@ test('RG16: o arquivo publicável que não diz aprovado ou não é o publicável
     assert.match(rodar(raiz).stderr, /^release\.noctum\.aceite-invalido: piloto-1\.json não é o aceite publicável/);
     aceite(raiz, (a) => { a.ratificacao = { por: 'dono-do-projeto', recibo: 'ingresso:telegram:SIMULADO-1', em: 'depois dos pilotos' }; });
     assert.match(rodar(raiz).stderr, /^release\.noctum\.sem-ratificacao/);
+  });
+});
+
+test('RG17: o anúncio em qualquer caixa recusa, e o link por referência ou com título, o "não somente", o "disponibilizado" e o "has shipped" também', () => {
+  // I1 do CHECK 4: o GO-FIX 3 tirou a flag i da frase inteira, e o título em Title Case passava; o comando segue liberado.
+  emPasta('rg17', (raiz) => {
+    fs.writeFileSync(path.join(raiz, 'README.md'), '# Produto\n\n`ork noctum aceite` Is Available in the CLI.\nO `ork noctum conduzir` Está Disponível.\n' +
+      'O #Noctum ainda não foi validado.\n');
+    const certo = rodar(raiz, '--texto');
+    assert.equal(certo.status, 0, certo.stderr);
+    // M3 do CHECK 4: os furos baratos do vocabulário e do link.
+    const recusadas = ['## #Noctum Is Now Available', '### #Noctum Foi Lançado', '#NOCTUM IS RELEASED', 'O #Noctum Já Está Disponível.',
+      '[#Noctum][rm058] já está disponível.', '[#Noctum](docs/x.md "a página") já está disponível.', 'O #Noctum não somente foi validado.',
+      'O #Noctum não apenas foi validado como está disponível.', 'O #Noctum foi disponibilizado.', '#Noctum has shipped.', 'ork noctum, #Noctum foi lançado.'];
+    for (const frase of recusadas) {
+      fs.writeFileSync(path.join(raiz, 'README.md'), `# Produto\n\n${frase}\n`);
+      const r = rodar(raiz, '--texto');
+      assert.equal(r.status, 1, `deveria recusar: ${frase}`);
+      assert.match(r.stderr, /README\.md:3: /);
+    }
+  });
+});
+
+test('RG18: as marcas da simulação, o arco repetido com espaço ou caixa e a ratificação anterior ao fim dos pilotos recusam', () => {
+  // M2 do CHECK 4: o script lia só o booleano da simulação, comparava o arco cru e aceitava a ratificação de antes dos pilotos.
+  emPasta('rg18', (raiz) => {
+    aceite(raiz);
+    mexerNoPublicavel(raiz, 2, (r) => { (r.simulacao as { marcas: string[] }).marcas = ['a máquina do ensaio conduziu o arco']; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-simulado: o piloto P3 é simulado/);
+    aceite(raiz);
+    mexerNoPublicavel(raiz, 3, (r) => { r.arco = 'Arco-Piloto-1 '; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-repetido: os pilotos P1 e P4 têm o mesmo arco/);
+    aceite(raiz);
+    mexerNoPublicavel(raiz, 0, (r) => { delete r.janela; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.aceite-invalido: piloto-1\.json não diz quando o piloto P1 acabou/);
+    aceite(raiz, (a) => { a.ratificacao = { por: 'dono-do-projeto', recibo: 'ingresso:telegram:SIMULADO-1', em: '2025-12-04T11:00:00.000Z' }; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.sem-ratificacao: a ratificação \(2025-12-04T11:00:00\.000Z\) é anterior ao fim dos pilotos \(2025-12-04T12:00:00\.000Z\)/);
+    aceite(raiz, (a) => { a.ratificacao = { por: 'dono-do-projeto', recibo: 'ingresso:telegram:SIMULADO-1', em: '2025-12-04T12:00:00.000Z' }; });
+    assert.equal(rodar(raiz).status, 0, 'ratificado no fim do último piloto, confere');
   });
 });

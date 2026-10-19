@@ -5,20 +5,22 @@
  * A regra do dono: a próxima versão do pacote só sai com o #Noctum validado por pilotos reais. Na tag, o job que publica
  * roda este checador antes do `npm publish`: ele lê `docs/roadmap/evidencias/RM-058/aceite.json` (contrato
  * `ork.noctum-aceite/v1`) e confere cada piloto exigido (o arquivo publicável na mesma pasta, o sha256 dele, `simulado:
- * false` e o veredito `aprovado`) e a ratificação do dono, com a referência do recibo do ingresso tipado. O alcance é toda
+ * false` sem marcas e o veredito `aprovado`) e a ratificação do dono, com a referência do recibo do ingresso tipado e a
+ * data, que não vem antes do fim do último piloto. O alcance é toda
  * versão (`ALCANCE`), até o dono responder o item 8 do pacote de decisões da RM-058; os pilotos exigidos são os quatro do
  * plano (`PILOTOS_EXIGIDOS`), até ele responder o item 10.
  *
- * Cada piloto exigido tem o arquivo, o sha256 e o arco dele, distintos dos outros, e a janela de ao menos as horas do plano
+ * Cada piloto exigido tem o arquivo, o sha256 e o arco dele (sem espaço nem caixa), distintos dos outros, e a janela de ao menos as horas do plano
  * (`HORAS_MINIMAS`): o mesmo piloto não vale por quatro.
  *
  * Com `--texto`, no job de documentação: procura em `README.md`, `README.pt-BR.md`, `CHANGELOG.md`, `core/README.md` (o do
  * pacote), nos `.md` de `docs/` (fora `docs/roadmap/evidencias/`), de `adapters/` e de `core/assets/`, e nos `.md` e `.json`
  * de `marketplaces/` a forma que anuncia o #Noctum como lançado, entregue, validado ou disponível, em pt-BR e em inglês: o
- * nome com N maiúsculo (o comando `ork noctum` não é o produto), com ou sem a marcação e o link do Markdown, e até duas
- * palavras entre ele, o verbo e o particípio (o advérbio: "já foi validado", "is now available"), ou um inciso entre
- * vírgulas (", enfim,"). Só libera a negação entre o nome e o particípio ("ainda não foi validado") ou logo antes do nome,
- * na mesma linha ("nem o #Noctum está"); a de longe ("Não é segredo: o #Noctum foi validado"), a de depois e "não só" não.
+ * nome com N maiúsculo (o comando `ork noctum` não é o produto), com ou sem a marcação e o link do Markdown (inline, com
+ * título ou por referência), e até duas palavras entre ele, o verbo e o particípio (o advérbio: "já foi validado", "is now
+ * available"), ou um inciso entre vírgulas (", enfim,"), em qualquer caixa ("## #Noctum Is Now Available"). Só libera a
+ * negação entre o nome e o particípio ("ainda não foi validado") ou logo antes do nome, na mesma linha ("nem o #Noctum
+ * está"); a de longe ("Não é segredo: o #Noctum foi validado"), a de depois, "não só", "não somente" e "não apenas" não.
  * Com o aceite válido, o texto passa.
  *
  *   node core/scripts/checar-release-noctum.cjs [--texto] [raiz]
@@ -52,18 +54,31 @@ const SEP = '[\\s()*_`]+';
  * entre vírgulas (", enfim,"). A vírgula sozinha não liga o nome ao verbo: "No #Noctum, o relatório está disponível" passa.
  */
 const ENTRE = `(?:(?:${SEP}[\\p{L}-]+){0,2}?${SEP}|[*_\`]*,\\s*[\\p{L}-]+(?:\\s+[\\p{L}-]+)?\\s*,\\s*)`;
-/** O nome, com N maiúsculo (o comando `ork noctum` não é o produto), e o link do Markdown logo depois (`[#Noctum](...)`). */
-const NOME = '#?Noctum(?:\\]\\([^)\\s]*\\))?';
 /**
- * Em pt-BR: foi, foram, está ou estão com lançado, entregue, validado ou disponível, e é ou são com lançado. "É entregue às
- * 07:00" e "é validado pelo núcleo" descrevem, e passam.
+ * O nome e o link do Markdown logo depois: o inline, também com título (`[#Noctum](... "título")`), e o por referência
+ * (`[#Noctum][x]`). O N maiúsculo do nome é conferido em `afirmacoes`, porque o resto da frase não distingue caixa.
  */
-const AFIRMACAO_PT = new RegExp(`${NOME}${ENTRE}(?:(?:foi|foram|está|estão)${ENTRE}(?:lançad[oa]s?|entregues?|validad[oa]s?|disponíve(?:l|is))|` +
-  `(?:é|são)${ENTRE}lançad[oa]s?)(?![\\p{L}\\p{N}])`, 'gu');
-/** Em inglês: is, are, was, were, has been ou have been com released, shipped, validated, launched ou available. */
-const AFIRMACAO_EN = new RegExp(`${NOME}${ENTRE}(?:is|are|was|were|ha(?:s|ve)\\s+been)${ENTRE}(?:released|shipped|validated|launched|available)(?![\\p{L}\\p{N}])`, 'gu');
-/** A negação do verbo, entre o nome e o particípio. "Sem" fica de fora ("sem custo extra, já está disponível" anuncia), e "não só", "not only" e "not just" também. */
-const NEGACAO = /(?<![\p{L}\p{N}])(?:não(?![ \t]+só(?![\p{L}\p{N}]))|nem|nunca|not(?![ \t]+(?:only|just)(?![\p{L}\p{N}]))|never|yet\s+to)(?![\p{L}\p{N}])/iu;
+const NOME = '#?Noctum(?:\\]\\([^)\\n]*\\)|\\]\\[[^\\]\\n]*\\])?';
+/**
+ * Em pt-BR: foi, foram, está ou estão com lançado, entregue, validado, disponibilizado ou disponível, e é ou são com
+ * lançado. "É entregue às 07:00" e "é validado pelo núcleo" descrevem, e passam. Sem distinção de caixa, como o título em
+ * Title Case ("## #Noctum Foi Lançado").
+ */
+const AFIRMACAO_PT = new RegExp(`${NOME}${ENTRE}(?:(?:foi|foram|está|estão)${ENTRE}(?:lançad[oa]s?|entregues?|validad[oa]s?|disponibilizad[oa]s?|` +
+  `disponíve(?:l|is))|(?:é|são)${ENTRE}lançad[oa]s?)(?![\\p{L}\\p{N}])`, 'giu');
+/**
+ * Em inglês: is, are, was, were, has been ou have been com released, shipped, validated, launched ou available, e has ou have
+ * com shipped, launched ou released ("has shipped"). Sem distinção de caixa ("## #Noctum Is Now Available").
+ */
+const AFIRMACAO_EN = new RegExp(`${NOME}${ENTRE}(?:(?:is|are|was|were|ha(?:s|ve)\\s+been)${ENTRE}(?:released|shipped|validated|launched|available)|` +
+  `ha(?:s|ve)${ENTRE}(?:shipped|launched|released))(?![\\p{L}\\p{N}])`, 'giu');
+/**
+ * A negação do verbo, entre o nome e o particípio. "Sem" fica de fora ("sem custo extra, já está disponível" anuncia), e
+ * "não só", "não somente", "não apenas", "not only" e "not just" também.
+ */
+const NEGACAO = /(?<![\p{L}\p{N}])(?:não(?![ \t]+(?:só|somente|apenas)(?![\p{L}\p{N}]))|nem|nunca|not(?![ \t]+(?:only|just)(?![\p{L}\p{N}]))|never|yet\s+to)(?![\p{L}\p{N}])/iu;
+/** O nome do produto, com N maiúsculo, no começo do trecho: o comando `ork noctum` não é o produto. */
+const NOME_DO_PRODUTO = /^#?N/u;
 /** A negação logo antes do nome, na mesma linha, quando muito com o artigo: "nem o #Noctum está disponível". */
 const NEGACAO_ANTES = /(?<![\p{L}\p{N}])(?:não|nem|nunca|not|nor|never)[ \t]+(?:(?:o|a|the)[ \t]+)?[*_`\[]*$/iu;
 
@@ -92,6 +107,7 @@ function conferirAceite(raiz) {
     if (outro) throw new Recusa('release.noctum.piloto-repetido', `os pilotos ${outro} e ${id} têm o mesmo ${campo} (${String(valor).slice(0, 40)}): cada piloto vale uma vez`);
     vistos[campo].set(valor, id);
   };
+  let fimDosPilotos = -Infinity;
   for (const id of PILOTOS_EXIGIDOS) {
     const p = aceite.pilotos.find((x) => objeto(x) && x.id === id);
     if (!p) throw new Recusa('release.noctum.piloto-faltando', `o piloto ${id} não está no aceite (exigidos: ${PILOTOS_EXIGIDOS.join(', ')})`);
@@ -109,15 +125,22 @@ function conferirAceite(raiz) {
     if (!objeto(r) || r.contrato !== CONTRATO_PILOTO || r.publicavel !== true) {
       throw new Recusa('release.noctum.aceite-invalido', `${p.arquivo} não é o aceite publicável do piloto (${CONTRATO_PILOTO}, gerado por ork noctum aceite --publicar)`);
     }
-    if (p.simulado !== false || !objeto(r.simulacao) || r.simulacao.simulado !== false) {
+    // M2 do CHECK 4: as marcas da simulação também, e não só o booleano.
+    if (p.simulado !== false || !objeto(r.simulacao) || r.simulacao.simulado !== false || !Array.isArray(r.simulacao.marcas) || r.simulacao.marcas.length) {
       throw new Recusa('release.noctum.piloto-simulado', `o piloto ${id} é simulado: o ensaio nunca vale como piloto`);
     }
     if (p.veredito !== 'aprovado' || r.veredito !== 'aprovado') {
       throw new Recusa('release.noctum.piloto-nao-aprovado', `o piloto ${id} tem o veredito ${String(r.veredito)}, e não aprovado`);
     }
+    // M2 do CHECK 4: o arco sem espaço nem caixa diferente, para "arco-1 " não contar como outro piloto.
+    if (typeof r.arco !== 'string' || !r.arco.trim()) throw new Recusa('release.noctum.aceite-invalido', `${p.arquivo} não diz o arco do piloto ${id}`);
     repetido('arquivo', p.arquivo, id);
     repetido('sha256', real, id);
-    repetido('arco', r.arco, id);
+    repetido('arco', r.arco.trim().toLowerCase(), id);
+    const fimDoPiloto = Date.parse(objeto(r.encerramento) && typeof r.encerramento.em === 'string' ? r.encerramento.em
+      : objeto(r.janela) && typeof r.janela.fim === 'string' ? r.janela.fim : '');
+    if (!Number.isFinite(fimDoPiloto)) throw new Recusa('release.noctum.aceite-invalido', `${p.arquivo} não diz quando o piloto ${id} acabou (janela.fim)`);
+    fimDosPilotos = Math.max(fimDosPilotos, fimDoPiloto);
     const horas = objeto(r.janela) && typeof r.janela.horas === 'number' ? r.janela.horas : null;
     if (horas === null || horas < HORAS_MINIMAS[id]) {
       throw new Recusa('release.noctum.piloto-curto', `o piloto ${id} pede ao menos ${HORAS_MINIMAS[id]} h de janela, e o arquivo ${p.arquivo} diz ${horas ?? 'nenhuma'}`);
@@ -127,6 +150,10 @@ function conferirAceite(raiz) {
   if (!objeto(rat) || typeof rat.por !== 'string' || !rat.por.trim() || typeof rat.recibo !== 'string' || !rat.recibo.trim() ||
     typeof rat.em !== 'string' || !Number.isFinite(Date.parse(rat.em))) {
     throw new Recusa('release.noctum.sem-ratificacao', 'falta a ratificação do dono: quem (por), a referência do recibo do ingresso tipado (recibo) e quando (em)');
+  }
+  // M2 do CHECK 4: o dono ratifica o que os pilotos mostraram, e não antes de o último acabar.
+  if (Date.parse(rat.em) < fimDosPilotos) {
+    throw new Recusa('release.noctum.sem-ratificacao', `a ratificação (${rat.em}) é anterior ao fim dos pilotos (${new Date(fimDosPilotos).toISOString()})`);
   }
   return { pilotos: PILOTOS_EXIGIDOS, por: rat.por };
 }
@@ -155,6 +182,9 @@ function afirmacoes(raiz) {
     for (const re of [AFIRMACAO_PT, AFIRMACAO_EN]) {
       re.lastIndex = 0;
       for (let m = re.exec(texto); m; m = re.exec(texto)) {
+        // I1 do CHECK 4: a frase não distingue caixa, e o nome sim. O trecho do `ork noctum` volta a busca uma letra adiante,
+        // para o nome com N maiúsculo que vier dentro dele.
+        if (!NOME_DO_PRODUTO.test(m[0])) { re.lastIndex = m.index + 1; continue; }
         // Só a negação entre o nome e o particípio ("ainda não foi validado") ou logo antes do nome ("nem o #Noctum está")
         // desdiz o anúncio. A de longe ("Não é segredo: o #Noctum foi validado", "Sem custo extra, o #Noctum já está") e a
         // de depois ("foi validado sem nenhuma falha", "released, not just announced") não.

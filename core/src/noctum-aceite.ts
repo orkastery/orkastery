@@ -6,7 +6,8 @@
  * ou `proposta`), e o veredito (`aprovado`, `reprovado`, `incompleto` ou `simulado`).
  *
  * Medida que não se lê é lacuna, nunca zero, e o critério com lacuna fica incompleto. Qualquer marca de simulação (a máquina
- * do ensaio, o remoto de fixture, evento marcado `simulado`, o canal que grava num arquivo local) dá `simulado`, e o veredito
+ * do ensaio, o remoto de fixture, evento marcado `simulado`, o canal que grava num arquivo local, o despacho cuja sessão o
+ * runtime não confirmou) dá `simulado`, e o veredito
  * nunca é `aprovado`: o ensaio não vale como piloto. O resultado não traz o instante de quem roda: o mesmo arco dá o mesmo
  * hash. `publicavel` troca caminho absoluto, e-mail, id de sessão, conta, máquina e o dono do repositório por rótulos
  * estáveis; o arquivo completo fica no estado, ao lado do log do arco.
@@ -14,6 +15,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
+import { shaValido } from './branch-de-estado';
 import { repositorioGitHub } from './ci';
 import { formatarDataHora } from './horario';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
@@ -103,6 +105,11 @@ export interface LeitorDoGit {
   ponta(remoto: string, base: string): string | null;
   /** O sha é ancestral da ponta nesta cópia? `null` quando o git não sabe (o objeto não está aqui). */
   ancestral(sha: string, ponta: string): boolean | null;
+  /**
+   * Os commits entre o merge e a ponta que dizem "This reverts commit <sha>", com a data de cada um; `null` quando o git não
+   * sabe. Sem o método (um leitor de teste), o aceite fica só com as reversões que o núcleo gravou no ledger.
+   */
+  reversoes?(sha: string, ponta: string): Array<{ sha: string; em: string }> | null;
 }
 
 export interface OpcoesDoAceite {
@@ -140,6 +147,14 @@ export function gitDaRaiz(raiz: string): LeitorDoGit {
     ancestral: (sha, ponta) => {
       const r = exec('git', ['merge-base', '--is-ancestor', sha, ponta], raiz, 30_000);
       return r.code === 0 ? true : r.code === 1 ? false : null;
+    },
+    reversoes: (sha, ponta) => {
+      // O sha vem do ledger: só hexadecimal chega ao `git log`, como na detecção do `ship`.
+      if (!shaValido(sha) || !shaValido(ponta)) return null;
+      const r = exec('git', ['log', '--fixed-strings', `--grep=This reverts commit ${sha}`, '--format=%H%x1f%cI%x1e', '--end-of-options', `${sha}..${ponta}`],
+        raiz, 60_000);
+      if (!r.ok) return null;
+      return r.stdout.split('\x1e').map(x => x.trim().split('\x1f')).filter(([h, d]) => h && d).map(([h, d]) => ({ sha: h, em: d }));
     },
   };
 }
@@ -189,7 +204,8 @@ export function lerInjecoes(texto: string): Injecao[] {
     }
     // N7 do CHECK 3: a chave com erro de digitação ("Alvo") ou o alvo que não é texto não viram injeção sem alvo em silêncio.
     const desconhecidas = Object.keys(v).filter(k => !['falha', 'instante', 'alvo'].includes(k));
-    if (desconhecidas.length || (v.alvo !== undefined && typeof v.alvo !== 'string')) {
+    // M4 do CHECK 4: o alvo vazio também, que valeria como o arco inteiro.
+    if (desconhecidas.length || (v.alvo !== undefined && (typeof v.alvo !== 'string' || !v.alvo.trim()))) {
       throw new RecusaDoAceite('noctum.aceite.injecoes-invalidas', `a linha ${i + 1} da agenda só aceita falha, instante e alvo (texto)` +
         `${desconhecidas.length ? `; chave(s) desconhecida(s): ${desconhecidas.join(', ')}` : ''}`);
     }
@@ -276,6 +292,15 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   if (maquinas.has(MAQUINA_DO_ENSAIO)) marcas.push(`a máquina do ensaio (${MAQUINA_DO_ENSAIO}) conduziu o arco`);
   const simulados = eventosDasThreads.filter(e => e.simulado === true).length;
   if (simulados) marcas.push(`${simulados} evento(s) marcado(s) simulado nos ledgers das threads do arco`);
+  // I3 do CHECK 4: o despacho sem sessão do runtime. Cada sessão que o arco diz ter despachado tem, no ledger da thread, o
+  // `phase_dispatch_verified` que o `phase run` grava quando o runtime a lista (`encontrada: true`), por uma fonte que não
+  // se diz simulada. O ledger que não se lê já é lacuna, e não marca.
+  const confirmadas = new Set(eventosDasThreads.filter(e => e.tipo === TIPOS_DE_EVENTO.despachoVerificado && e.encontrada === true &&
+    typeof e.sessionId === 'string' && !(typeof e.fonte === 'string' && /simulad/i.test(e.fonte))).map(e => `${e.threadDoArco} ${String(e.sessionId)}`));
+  const lidas = new Set(ledgers.filter(l => l.eventos).map(l => l.thread));
+  const semSessao = [...new Set(estado.despachos.filter(d => d.sessionId && lidas.has(d.threadDespachada ?? d.thread ?? '') &&
+    !confirmadas.has(`${d.threadDespachada ?? d.thread} ${d.sessionId}`)).map(d => d.seq))];
+  if (semSessao.length) marcas.push(`${semSessao.length} despacho(s) do arco sem a sessão confirmada pelo runtime (reserva ${semSessao.join(', ')})`);
   // O transporte do canal, de onde o relatório o lê (a raiz do estado). Só o nome diz que ele é simulado: o transporte que
   // grava num arquivo com outro nome não aparece aqui, e a confirmação do dono (A8) o cobre.
   try {
@@ -297,8 +322,51 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   /** N6 do CHECK 3: o MASTER por omissão do arco é o que a entrega dele marca com o arco na evidência. */
   const masterDoArco = (e: EventoLedger): boolean => (e.evidencia as { arco?: unknown } | undefined)?.arco === arco;
 
+  const ponta = new Map<string, string | null>();
+  const pontaDa = (base: string) => { if (!ponta.has(base)) ponta.set(base, git.ponta(remoto, base)); return ponta.get(base)!; };
+  const baseDoShip = (ship: EventoLedger): string =>
+    typeof ship.para === 'string' && ship.para ? ship.para : comTrabalhos ? conteudo.destinos[0]?.base ?? 'main' : 'main';
+
+  /**
+   * I2 do CHECK 4: a reversão de uma entrega do arco (o `mergeSha` de um `ship_done` dele; a de uma entrega anterior ao arco
+   * não conta), com o instante do commit que reverte. O núcleo grava o `rollback_done` quando a detecta (no `ork ship` e no
+   * MASTER), e esse instante pode vir depois do arco; o aceite procura também no git a reversão que ninguém detectou ainda.
+   * A detectada depois do arco, sem a data do commit no git, é lacuna: não se sabe se foi na condução.
+   */
+  const mergesDoArco = new Map<string, { thread: string; base: string }>();
+  for (const l of ledgers) {
+    for (const e of l.eventos ?? []) {
+      if (e.tipo === TIPOS_DE_EVENTO.shipConcluido && doArco(e) && typeof e.mergeSha === 'string' && e.mergeSha && !mergesDoArco.has(e.mergeSha)) {
+        mergesDoArco.set(e.mergeSha, { thread: l.thread, base: baseDoShip(e) });
+      }
+    }
+  }
+  const reversoes = new Map<string, { em: string | null; detectadaEm: string | null; thread: string; mergeSha: string }>();
+  const lacunasDaReversao: string[] = [];
+  for (const [mergeSha, { thread, base }] of mergesDoArco) {
+    const p = git.reversoes ? pontaDa(base) : null;
+    const achadas = p ? git.reversoes!(mergeSha, p) : [];
+    if (achadas === null) { lacunasDaReversao.push(`as reversões do merge ${mergeSha.slice(0, 12)} não se leram no git`); continue; }
+    for (const r of achadas) {
+      const t = Date.parse(r.em);
+      if (Number.isFinite(t)) reversoes.set(r.sha, { em: new Date(t).toISOString(), detectadaEm: null, thread, mergeSha });
+    }
+  }
+  for (const e of eventosDasThreads) {
+    if (e.tipo !== TIPOS_DE_EVENTO.rollbackConcluido || typeof e.mergeSha !== 'string' || !mergesDoArco.has(e.mergeSha)) continue;
+    const chave = typeof e.revertSha === 'string' && e.revertSha ? e.revertSha : `${e.threadDoArco} ${e.ts}`;
+    reversoes.set(chave, { em: reversoes.get(chave)?.em ?? null, detectadaEm: e.ts, thread: e.threadDoArco, mergeSha: e.mergeSha });
+  }
+
   // M1: condução sem intervenção.
   const atos: Array<{ em: string; ato: string }> = [];
+  for (const [revertSha, r] of reversoes) {
+    // Sem a data do commit, a detecção até o fim do arco prova que a reversão foi nele; a de depois não prova nada.
+    const em = r.em ?? (r.detectadaEm && Date.parse(r.detectadaEm) <= fimMs ? r.detectadaEm : null);
+    if (em === null) { lacunasDaReversao.push(`a reversão ${revertSha.slice(0, 12)} do merge ${r.mergeSha.slice(0, 12)} não tem a data do commit no git`); continue; }
+    const t = Date.parse(em);
+    if (t >= inicioMs && t <= fimMs) atos.push({ em, ato: `reversão de entrega na thread ${r.thread}` });
+  }
   if (estado.revogadoPor) atos.push({ em: estado.revogadoPor.recebidoEm, ato: 'revogação do envelope pelo dono' });
   for (const a of autorizacoes.slice(1)) {
     if (Date.parse(a.autorizadoEm) > Date.parse(janela.inicio)) atos.push({ em: a.autorizadoEm, ato: `emenda do envelope (versão ${a.versao}) durante a janela` });
@@ -317,21 +385,17 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
       atos.push({ em: e.ts, ato: `entrega de fora do arco na thread ${e.threadDoArco}` });
     } else if (e.tipo === TIPOS_DE_EVENTO.aceitePorOmissao && !masterDoArco(e)) {
       atos.push({ em: e.ts, ato: `MASTER por omissão de fora do arco na thread ${e.threadDoArco}` });
-    } else if (e.tipo === TIPOS_DE_EVENTO.rollbackConcluido) {
-      atos.push({ em: e.ts, ato: `reversão de entrega na thread ${e.threadDoArco}` });
     }
   }
   atos.sort((a, b) => Date.parse(a.em) - Date.parse(b.em));
   const primeiroAto = atos[0] ?? null;
   const ateOAto = primeiroAto ? Math.max(inicioMs, Date.parse(primeiroAto.em)) : fimMs;
   // O arco aberto ainda não tem a condução inteira: M1 é lacuna, e o aceite nunca aprova um piloto em curso.
-  const lacunasDoM1 = [...(estado.encerramento ? [] : ['o arco ainda não fechou: a condução se mede no arco encerrado']), ...ilegiveis];
+  const lacunasDoM1 = [...(estado.encerramento ? [] : ['o arco ainda não fechou: a condução se mede no arco encerrado']), ...ilegiveis, ...lacunasDaReversao];
   medida({ id: 'M1', nome: 'Condução sem intervenção', valor: lacunasDoM1.length ? null : arred(Math.max(0, ateOAto - inicioMs) / HORA), unidade: 'h',
     fonte: 'log do arco e ledgers das threads do arco', lacunas: lacunasDoM1, evidencia: { inicio: new Date(inicioMs).toISOString(), fim, atos } });
 
   // M2 e M3: as entregas com prova e o MASTER delas.
-  const ponta = new Map<string, string | null>();
-  const pontaDa = (base: string) => { if (!ponta.has(base)) ponta.set(base, git.ponta(remoto, base)); return ponta.get(base)!; };
   const entregas: Entrega[] = [];
   const lacunasDaEntrega: string[] = [...ilegiveis];
   for (const l of ledgers) {
@@ -339,7 +403,7 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     if (!ships.length) continue;
     const ship = ships[0];
     const sha = typeof ship.mergeSha === 'string' && ship.mergeSha ? ship.mergeSha : typeof ship.shaRemoto === 'string' ? ship.shaRemoto : null;
-    const base = typeof ship.para === 'string' && ship.para ? ship.para : comTrabalhos ? conteudo.destinos[0]?.base ?? 'main' : 'main';
+    const base = baseDoShip(ship);
     let provada: boolean | null = false, motivo = '';
     if (ship.pushVerificado !== true || !sha) motivo = 'ship_done sem a prova do push';
     else {
@@ -517,9 +581,10 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   const confirmadasDaV1 = confirmacoesAutomaticas.filter(l => l.evento.versao === 1);
   const recibos = new Set(confirmadasDaV1.map(l => l.evento.pagina));
   const ultimoRecibo = confirmadasDaV1.map(l => Date.parse(l.em)).sort((a, b) => a - b).at(-1) ?? null;
-  // N5 do CHECK 3: a reversão depois da janela de entrega do relatório não é falha dele (a correção já não sai).
-  const revertidas = eventosDasThreads.filter(e => e.tipo === TIPOS_DE_EVENTO.rollbackConcluido && v1 && Date.parse(e.ts) >= Date.parse(v1.em) &&
-    Date.parse(e.ts) <= Date.parse(vencimento) + JANELA_DE_ENTREGA_MS);
+  // N5 do CHECK 3: a reversão que o núcleo detectou depois da janela de entrega do relatório não é falha dele (a correção já
+  // não sai). I2 do CHECK 4: só a reversão de uma entrega do arco pede a correção.
+  const revertidas = [...reversoes.values()].filter(r => r.detectadaEm !== null && v1 && Date.parse(r.detectadaEm) >= Date.parse(v1.em) &&
+    Date.parse(r.detectadaEm) <= Date.parse(vencimento) + JANELA_DE_ENTREGA_MS);
   const corrigida = composicoes.some(l => l.evento.motivo === 'correcao');
   const falhasDoRelatorio: string[] = [];
   if (!v1) falhasDoRelatorio.push('a versão 1 não foi composta');

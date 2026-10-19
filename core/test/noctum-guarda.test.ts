@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { commitar, envPtBr, projetoTemporario, ProjetoDeTeste, shaNoRemotoDeTeste } from './apoio';
-import { abrirArco, passar, pedidoV2, prepararIngressoSimulado, revogarArco, TrabalhoSimulado } from './noctum-apoio';
+import { abrirArco, passar, pedidoV2, prepararIngressoSimulado, revogarArco, threadDoTrabalho, TrabalhoSimulado } from './noctum-apoio';
 import { assinadoPara, HORA, MIN } from './noctum-n6-apoio';
 import { atualizarBranchDaThread } from '../src/atualizar-branch';
 import { caminhoDaAutorizacao, CONTRATO_DA_AUTORIZACAO } from '../src/autorizacao-duravel';
@@ -738,5 +738,29 @@ test('GS19: o arco agendado (autorizado, antes do início da janela) guarda a th
     assert.deepEqual([r.ok, r.codigo], [false, MOTIVO_DA_GUARDA]);
     assert.match(r.detalhe, /é trabalho do arco arco-gs19 \(agendado, pela lista do envelope\)/);
     assert.equal(eventos(p, thread.id), antes, 'a recusa não vai ao ledger da thread');
+  } finally { p.limpar(); }
+});
+
+test('GS20: no arco revogado, a reserva pendente do trabalho de pedido, feita antes de a thread existir, segura a thread que o arco abriu', () => {
+  // M1 do CHECK 4: tirar da guarda a reserva pendente ainda sem thread gravada passava em todos os GS.
+  const p = projetoTemporario('gs20', true);
+  try {
+    const pedido = 'Fatia SIMULADA que o arco abre por pedido.';
+    const sha = abrirArco(p.dir, 'arco-gs20', { trabalhos: [{ id: 'w1', item: 'RM-920', prioridade: 1, dependeDe: [], pedido }] });
+    const r = reservarDespacho(p.dir, { arco: 'arco-gs20', envelopeSha256: sha, trabalho: 'w1', thread: null, fase: 'GOAL', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    // O condutor abriu a thread do pedido e o runtime abriu a sessão; o condutor morreu antes de concluir a reserva.
+    passar(5);
+    const aberta = threadDoTrabalho(p.carregado, 'pedido do arco', 'RM-920', pedido);
+    const sessao = despachoDaFase(p, aberta.id, 'GOAL', 'noctum:arco-gs20');
+    revogarArco(p.dir, 'arco-gs20');
+    const reserva = lerArco(p.dir, 'arco-gs20')!.despachos.find(d => d.seq === r.seq)!;
+    assert.deepEqual([reserva.desfecho, reserva.thread ?? null], ['pendente', null], 'a reserva segue pendente e sem a thread gravada');
+    const g = guardaDaThread(p.dir, aberta.id);
+    assert.deepEqual([g?.motivo, g?.situacao], [MOTIVO_DA_GUARDA, 'revogado']);
+    assert.match(g!.texto, new RegExp(`a sessão ${sessao} que ele despachou ainda conduz a thread`));
+    assert.equal(ship(p.carregado, aberta.id, { para: 'main', dryRun: true }).codigo, MOTIVO_DA_GUARDA, 'o ship da sessão da reserva pendente recusa');
+    registrar(dirThread(p.dir, aberta.id), aberta.id, 'phase_result', { fase: 'GOAL', sessionId: sessao, classificacao: 'fase_concluida', ok: true });
+    assert.equal(guardaDaThread(p.dir, aberta.id), null, 'acabada a sessão, a thread se entrega à mão');
   } finally { p.limpar(); }
 });
