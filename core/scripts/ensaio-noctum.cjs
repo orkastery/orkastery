@@ -1151,10 +1151,14 @@ function cenarioCondutorMorto(c, a, n) {
       n.thread.lerThread(m.proj.dir, t1.id).status === 'fechada',
     JSON.stringify({ k2: resumoDoPasso(k2.ultimo), reais: reais.map((e) => e.commit), para: atualizou?.para, ship: ship.length,
       status: n.thread.lerThread(m.proj.dir, t1.id).status }));
-  c.esperar('o trabalho retomado segue em curso: o arco não fecha com o t2 na sessão nova',
-    !n.arco.lerArco(m.proj.dir, 'arco-morto', em(21)).encerramento && m.rt.estados.get(retomada.sessionId) === 'working',
-    JSON.stringify({ encerramento: n.arco.lerArco(m.proj.dir, 'arco-morto', em(21)).encerramento, estados: [...m.rt.estados], paradas: m.rt.paradas,
-      despachos: m.rt.despachos.map((d) => [d.thread, d.fase, d.sessionId.slice(-3)]) }));
+  // M4 do CHECK 2: só o tique fecha o arco; um tique depois do condutor relançado, com o t1 entregue e o t2 na sessão nova,
+  // não o fecha pela fila vazia nem pede a parada do t2.
+  const r4 = m.tique('arco-morto', itens, em(21));
+  c.esperar('o trabalho retomado segue em curso: o arco não fecha com o t2 na sessão nova, nem no tique depois do condutor, e o t2 não é parado',
+    r4.fechamento.fechado === false && !n.arco.lerArco(m.proj.dir, 'arco-morto', em(21)).encerramento &&
+      m.rt.estados.get(retomada.sessionId) === 'working' && !m.rt.paradas.includes(retomada.sessionId),
+    JSON.stringify({ fechamento: r4.fechamento.detalhe, encerramento: n.arco.lerArco(m.proj.dir, 'arco-morto', em(21)).encerramento,
+      estados: [...m.rt.estados], paradas: m.rt.paradas, despachos: m.rt.despachos.map((d) => [d.thread, d.fase, d.sessionId.slice(-3)]) }));
 }
 
 /**

@@ -178,7 +178,7 @@ test('EP9: o condutor que morre: o vigia assume, retoma a sessão morta, atualiz
   provada(c, /^a base anda e a atualização sai no tique, sobre a base nova, sem o verify: ele fica para o condutor/);
   provada(c, /^no tique seguinte o verify espera o condutor: a entrega aguarda \(ocupada\)/);
   provada(c, /^o condutor relançado roda o verify real no SHA atualizado, publica, integra na base nova e faz o MASTER por omissão/);
-  provada(c, /^o trabalho retomado segue em curso: o arco não fecha com o t2 na sessão nova/);
+  provada(c, /^o trabalho retomado segue em curso: o arco não fecha com o t2 na sessão nova, nem no tique depois do condutor, e o t2 não é parado/);
 });
 
 test('EP10: a base que anda: o condutor atualiza o candidato, roda o verify real no SHA novo, publica de novo e integra na base nova', { skip: semKernel }, () => {
