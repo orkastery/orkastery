@@ -21,7 +21,7 @@ import { proximoAlvo, redespachar } from '../src/retry';
 import { planoDoDegrau } from '../src/runtime-escada';
 import { editarBloco } from '../src/setup';
 import { instalarAdaptador } from '../src/hosts';
-import { RUNTIMES } from '../src/runtimes';
+import { PedidoDeDespacho, RUNTIMES } from '../src/runtimes';
 
 const SID = '11111111-2222-4333-8444-555555555555';
 
@@ -310,7 +310,7 @@ test('RM-064 T8: retry pela escada leva o contexto MCP worktree ao Codex', () =>
     f = controllerSimulado(t.worktree!, { cenario: 'contexto-ok' });
     instalarAdaptador('codex', { projeto: p.dir });
     instalarMcp({ projeto: p.dir, host: 'codex', permissoesFilho: 'worktree' });
-    const adaptador = mock.method(RUNTIMES.codex, 'despachar', pedido => f!.dispatch({
+    const adaptador = mock.method(RUNTIMES.codex, 'despachar', (pedido: PedidoDeDespacho) => f!.dispatch({
       contextoRuntime: pedido.contextoRuntime, vinculo: pedido.vinculo, prompt: pedido.prompt,
       model: pedido.model, effort: pedido.effort, sandbox: pedido.sandbox,
     }));

@@ -902,6 +902,7 @@ function redespacharSobLock(
       sinal: null,
       perfil: perfil ?? null,
       comando: resultado.comando,
+      controlador: resultado.controlador,
       dryRun: false,
     };
   } finally {
