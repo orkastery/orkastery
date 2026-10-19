@@ -352,9 +352,10 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
       if (Number.isFinite(t)) reversoes.set(r.sha, { em: new Date(t).toISOString(), detectadaEm: null, thread, mergeSha });
     }
   }
-  for (const e of eventosDasThreads) {
+  for (const [i, e] of eventosDasThreads.entries()) {
     if (e.tipo !== TIPOS_DE_EVENTO.rollbackConcluido || typeof e.mergeSha !== 'string' || !mergesDoArco.has(e.mergeSha)) continue;
-    const chave = typeof e.revertSha === 'string' && e.revertSha ? e.revertSha : `${e.threadDoArco} ${e.ts}`;
+    // O registro sem o sha do revert é uma reversão por si: a chave é a posição dele na leitura.
+    const chave = typeof e.revertSha === 'string' && e.revertSha ? e.revertSha : `registro-${i}`;
     reversoes.set(chave, { em: reversoes.get(chave)?.em ?? null, detectadaEm: e.ts, thread: e.threadDoArco, mergeSha: e.mergeSha });
   }
 
