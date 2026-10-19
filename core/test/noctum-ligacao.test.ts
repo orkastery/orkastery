@@ -46,9 +46,11 @@ function simuladas(enviadas: string[] = []): OpcoesDoTique {
  * O arco aberto com o relatório 8 h adiante: nenhum tique do teste o entrega, em hora nenhuma do dia (o do apoio vence às
  * 07:30, e a janela de teste começa uma hora antes de agora).
  */
-function abrirSemRelatorio(p: ProjetoDeTeste, arco: string, o: Parameters<typeof abrirArco>[2]): void {
+function abrirSemRelatorio(p: ProjetoDeTeste, arco: string, o: Parameters<typeof abrirArco>[2]): Record<string, unknown> {
   const daqui8h = partesLocais(Date.now() + 8 * HORA, 'America/Sao_Paulo');
-  autorizarPedido(p.dir, arco, { ...pedidoV2(arco, o), relatorio: { horario: `${daqui8h.hora}:${daqui8h.minuto}`, canal: 'telegram' } });
+  const pedido = { ...pedidoV2(arco, o), relatorio: { horario: `${daqui8h.hora}:${daqui8h.minuto}`, canal: 'telegram' } };
+  autorizarPedido(p.dir, arco, pedido);
+  return pedido;
 }
 
 const doVigia = (v: ResultadoDoVigia | null): TiqueDoVigia => { assert.equal(v?.acao, 'tique', JSON.stringify(v)); return v as TiqueDoVigia; };
@@ -525,5 +527,50 @@ test('LG21: o condutor que acabou de gravar a baseline volta já ao passo, sem d
     assert.ok(c.acao === 'saiu' && c.ultimo?.acao === 'aguardar' && c.ultimo.motivo === 'baseline-gravada', JSON.stringify(c));
     assert.equal(baselines.length, 1);
     assert.deepEqual(dormiu, [0]);
+  } finally { p.limpar(); }
+});
+
+test('LG22: a parada pelo teto segue terminal: depois da emenda que subiu o teto, o arco fecha pela supervisão quando a sessão admitida acaba', () => {
+  const p = projetoTemporario('lg22');
+  try {
+    const pedido = abrirSemRelatorio(p, 'arco-lg22', { trabalhos: [A, C], contas: DUAS, tetoDoArco: 1 });
+    const registro: string[] = [];
+    const tique = () => tiqueDoArco(p.carregado, 'arco-lg22', { ...simuladas(), opcoesDoVigia: opcoesSimuladas(p.dir, ITENS, registro) });
+    const r1 = tique();
+    assert.ok(r1.passo?.acao === 'despachou', JSON.stringify(r1.passo));
+    const sessao = String(r1.passo.sessionId), thread = r1.passo.thread;
+    tique();
+    assert.equal(lerSupervisao(p.dir, 'arco-lg22').parada?.motivo, 'teto-do-arco');
+    // O dono sobe o teto do arco para 3 sessões depois da parada: o consumo (1) fica abaixo dele.
+    autorizarPedido(p.dir, 'arco-lg22', { ...pedido, orcamento: { ...(pedido.orcamento as Record<string, unknown>), arco: { valor: 3, unidade: 'sessoes' } } });
+    assert.deepEqual([lerArco(p.dir, 'arco-lg22')!.versao, lerArco(p.dir, 'arco-lg22')!.consumo.arco], [2, 1]);
+    const r2 = tique();
+    assert.equal(r2.fechamento.fechado, false, 'com a sessão admitida em voo, o arco espera');
+    runtimeSimulado(p.dir).estado(sessao, 'completed');
+    registrar(dirThread(p.dir, thread), thread, 'phase_result', { fase: 'GOAL', sessionId: sessao, classificacao: 'fase_concluida', ok: true });
+    const r3 = tique();
+    assert.deepEqual([r3.fechamento.fechado, r3.fechamento.motivo, r3.fechamento.paradas.length], [true, 'supervisao', 0], JSON.stringify(r3.fechamento));
+    assert.match(r3.fechamento.detalhe, /teto-do-arco.*nenhuma sessão admitida segue em voo/);
+    assert.equal(registro.length, 1, 'a emenda não reabre o despacho');
+  } finally { p.limpar(); }
+});
+
+test('LG23: com a parada pelo teto, a sessão admitida que morre sem resultado vira sessao_morta, sem retomada, e o arco fecha pelo custo', () => {
+  const p = projetoTemporario('lg23');
+  try {
+    abrirSemRelatorio(p, 'arco-lg23', { trabalhos: [A, C], contas: DUAS, tetoDoArco: 1 });
+    const registro: string[] = [];
+    const tique = (quando?: string) => tiqueDoArco(p.carregado, 'arco-lg23', { ...simuladas(), quando, opcoesDoVigia: opcoesSimuladas(p.dir, ITENS, registro) });
+    const r1 = tique();
+    assert.ok(r1.passo?.acao === 'despachou', JSON.stringify(r1.passo));
+    const sessao = String(r1.passo.sessionId), thread = r1.passo.thread;
+    tique();
+    assert.equal(lerSupervisao(p.dir, 'arco-lg23').parada?.motivo, 'teto-do-arco');
+    // A sessão morre sem phase_result (o observador também caiu); passada a carência, o vigia prova a morte.
+    runtimeSimulado(p.dir).estado(sessao, 'failed');
+    const r2 = tique(new Date(Date.now() + 30 * 60_000).toISOString());
+    assert.deepEqual([r2.fechamento.fechado, r2.fechamento.motivo, r2.fechamento.paradas.length], [true, 'custo', 0], JSON.stringify(r2.fechamento));
+    assert.ok(lerLedger(dirThread(p.dir, thread)).some(e => e.tipo === 'sessao_morta' && e.sessionId === sessao), 'a morte provada fica no ledger');
+    assert.deepEqual([lerSupervisao(p.dir, 'arco-lg23').retomadas.length, registro.length], [0, 1], 'nada retomado nem despachado depois do teto');
   } finally { p.limpar(); }
 });

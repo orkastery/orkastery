@@ -174,6 +174,11 @@ export function condicaoDeFechamento(estado: EstadoDoArco | null, fila: FilaDoAr
       return { motivo: 'custo', detalhe: `o teto do arco é de ${teto.valor} ${teto.unidade} e o consumo medido é ${textoDoConsumo(c)}` };
     }
   }
+  // N2 do CHECK 2: a parada pelo teto segue terminal com o consumo abaixo dele (a reserva devolvida, a emenda que subiu o teto
+  // depois da parada): sem sessão admitida em voo, o arco fecha pela supervisão, em vez de ficar parado e aberto até a hora.
+  if (parada && emVoo === 0) {
+    return { motivo: 'supervisao', detalhe: `a supervisão parou o arco (${parada.motivo}): ${parada.detalhe}; nenhuma sessão admitida segue em voo` };
+  }
   if (estado.situacao === 'agendado') return null;
   if (fila?.situacao === 'vazia' && fila.decisao.acao === 'encerrar' && fila.decisao.motivo === 'fila-vazia') {
     // A entrega registrada (`ship_done`) pode vir sem a prova do push; o relatório diz qual tem prova.

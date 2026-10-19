@@ -415,7 +415,16 @@ function reconciliarSobATravaDeDespacho(carregado: ManifestoCarregado, arco: str
       if (d.isolamento && isolar(carregado, arco, d.trabalho, d.thread, d.isolamento.motivo, d.isolamento.detalhe, quando)) contagem.isolados += 1;
     }
     const estado = lerArco(raiz, arco, quando)!;
-    if (estado.situacao !== 'vigente' || lerSupervisao(raiz, arco).parada) return;
+    const sup = lerSupervisao(raiz, arco);
+    // N2 do CHECK 2: com a parada pelo teto, o arco espera as sessões admitidas. A que o runtime prova morta sem resultado no
+    // ledger vira `sessao_morta`, sem retomada nem parada, e o fechamento pelo teto não fica preso a ela até a hora.
+    if (estado.situacao === 'vigente' && sup.parada?.motivo === 'teto-do-arco') {
+      for (const d of decidirSessoes(raiz, arco, conteudo, estado, sup, leitura, quando)) {
+        if (d.acao === 'retomar' && d.morta) registrarMorte(raiz, d.thread, d.morta, d.prova);
+      }
+      return;
+    }
+    if (estado.situacao !== 'vigente' || sup.parada) return;
     aplicarSessoes(carregado, arco, conteudo, leitura, quando, opcoes, lacunas, contagem, consultar);
     // B4 do CHECK: o trabalho que o núcleo recusa seguidas vezes pelo mesmo tipo de motivo (a árvore, a policy, o erro
     // antes de lançar) não volta a noite toda: no teto, e com a série durando ao menos uma cadência, é isolado. O soluço
