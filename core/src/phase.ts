@@ -14,7 +14,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { esperarVaga, vagaDoDespacho, VagaRecusada } from './board';
 import { ConducaoDoVerify, gravarBaseline } from './verify';
-import { iniciarWatcher, validarRegistroWatcher } from './session-watcher';
+import { iniciarWatcher, prepararFonteWatcher } from './session-watcher';
 import { fonteClaudeDoDespacho, headDaWorktree } from './session-watcher-claude';
 import { ManifestoCarregado, exigirManifesto } from './manifest';
 import { grafoLigado } from './mcp-grafo';
@@ -645,7 +645,7 @@ function registrarObservacao(ctx: ContextoDeDespacho, sessao: SessaoDaThread, di
       : sensores?.logPath ? { logPath: sensores.logPath, processoPath: sensores.processoPath, reciboPath: sensores.reciboPath, ...head }
       : controlador ? { controlador, cwd: ctx.cwd, ...head } : null;
     if (!fonte) return;
-    validarRegistroWatcher(ctx.raiz, sessao.sessionId, fonte);
+    prepararFonteWatcher(ctx.raiz, sessao.sessionId, fonte);
     const eventos = lerLedger(dir);
     if (!eventos.some(e => e.tipo === 'session_sensor_registered' && mesmoDespacho(e))) {
       registrar(dir, ctx.thread.id, 'session_sensor_registered', { fase: ctx.fase,

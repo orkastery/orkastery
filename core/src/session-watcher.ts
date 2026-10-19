@@ -384,7 +384,8 @@ export function reconciliarSessaoSemWatcher(carregado: ManifestoCarregado, threa
       ...uteis.map(e => Date.parse(e.ts)).filter(Number.isFinite));
     if (agoraMs - ultimoUtil < LIMITE_MORTE_MS) return { thread: threadId, sessionId: sessao.sessionId,
       estado: 'acompanhada', detalhe: 'fonte ainda indisponível dentro do limite de estabilidade' };
-    const chave = createHash('sha256').update(sessao.sessionId + '|' + sessao.despachadaEm).digest('hex');
+    const sessionId = sessao.sessionId;
+    const chave = createHash('sha256').update(sessionId + '|' + sessao.despachadaEm).digest('hex');
     const sensorResultId = `codex:${chave}`;
     comLockDeSessao(dir, () => {
       const atuais = lerLedger(dir);
@@ -701,6 +702,18 @@ export function validarFonteWatcher(raiz: string, sessionId: string, fonte?: Reg
       sessionId, cwd, despachoEm: sessao.despachadaEm,
       vinculo: { thread: thread.id, fase: sessao.fase, promptSha256: sessao.promptSha256 } });
     lerSnapshotController(fixada);
+  }
+}
+
+/**
+ * No despacho, fixa a fonte que já está pronta e recusa corrupção permanente antes de
+ * registrar ou iniciar o watcher. A publicação ainda incompleta do controller é deixada
+ * para o laço do watcher, que repete a mesma validação profunda com prazo e diagnóstico.
+ */
+export function prepararFonteWatcher(raiz: string, sessionId: string, fonte?: RegistroSensor): void {
+  try { validarFonteWatcher(raiz, sessionId, fonte); }
+  catch (e) {
+    if (!diagnosticoWatcher(e).transitorio) throw e;
   }
 }
 

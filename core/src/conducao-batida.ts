@@ -448,6 +448,9 @@ function despacharPassos(ctx: ContextoDaBatida, passos: PassoDoCondutor[], opcoe
       continue;
     }
     const fora = semAutorizacao(ctx.leitura, 'despachar');
+    // A retomada sem autorização não vira item: o pulse já leva o bloqueio da thread com o `ork retry run` (ou o
+    // `retry plan`), e um segundo item da mesma parada seria ruído no resumo do dono.
+    if (fora && p.acao === 'retomar') continue;
     if (fora) { anotar(ctx, item('dono', fora, p.porque)); continue; }
     if (p.acao === 'despachar' && fase) {
       let pedido: { texto: string } | null = null;
@@ -464,10 +467,8 @@ function despacharPassos(ctx: ContextoDaBatida, passos: PassoDoCondutor[], opcoe
     }
     const retomar = opcoes.retomar ?? retomadaPeloNucleo;
     const r = retomar(carregado, p.thread);
-    if (!r.automatica) {
-      anotar(ctx, item('dono', 'retomada-recusada', r.detalhe));
-      continue;
-    }
+    // O plano que não é automático já é item do dono no pulse (o bloqueio, com o `retry plan`): a batida só o deixa.
+    if (!r.automatica) continue;
     anotar(ctx, r.ok ? item('feita', null, r.detalhe) : item('dono', 'retomada-recusada', r.detalhe));
   }
 }
