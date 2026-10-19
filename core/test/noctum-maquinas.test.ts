@@ -22,7 +22,7 @@ import * as reservasDoRoadmap from '../src/roadmap-reservas';
 import { pegarItem, soltarItem } from '../src/roadmap-reservas';
 import { OpcoesDoPasso, passoDoArco } from '../src/noctum-execucao';
 import { ResultadoRun } from '../src/phase';
-import { passoDaMaquina, ResultadoDoPassoDaMaquina } from '../src/noctum-maquinas';
+import { passoDaMaquina, reconciliarMaquina, ResultadoDoPassoDaMaquina } from '../src/noctum-maquinas';
 import { dirThread, gravarThread, lerThread, listarIds } from '../src/thread';
 import { FatosDaFila, montarFila } from '../src/noctum-fila';
 import { passageira } from '../src/noctum-vigia';
@@ -510,4 +510,47 @@ test('M19: a máquina em que a N6 encerrou o arco para de bater, encerra a ordem
     const g2 = assumirAutoridade(m2.b.carregado, m2.arco, { maquina: 'maquina-b', quando: em(16), forcar: { motivo: 'SIMULADO: a autoridade encerrou' } });
     assert.deepEqual([g2.geracao, g2.maquina, g2.modo], [2, 'maquina-b', 'forcada']);
   } finally { m2.limpar(); }
+});
+
+test('M20: a reserva tomada por fora não encerra a ordem cuja sessão já está em execução', { skip: semKernel }, () => {
+  const m = cenario('noctum-m20');
+  try {
+    passo(m.b);
+    assert.equal(despachou(passo(m.a))?.trabalho, 'a');
+    assert.equal(despachou(passo(m.b))?.trabalho, 'c');
+    pegarItem(m.a.dir, 'RM-903', {
+      maquina: 'maquina-c', por: 'Pessoa SIMULADA', nota: 'tomada forçada SIMULADA', forcar: true, motivo: 'SIMULADO: conferir a guarda da sessão viva',
+    });
+    // A B perde a reserva do item, mas a sessão do c já está em execução, com a vaga dela: a ordem fica, e o c não muda de máquina.
+    const rb = passo(m.b);
+    assert.ok(rb.acao === 'passo' && rb.relatorio.reservas.some(x => x.ordem === 'O-c-1' && !x.ok && x.motivo === 'noctum.reserva.de-outra-maquina'),
+      JSON.stringify(rb.acao === 'passo' ? rb.relatorio.reservas : rb));
+    const estado = lerCoordenacao(m.b.carregado, m.arco, { maquina: 'maquina-b' });
+    assert.equal(estado.ordens.get('O-c-1')!.estado, 'aceita');
+    assert.equal(situacaoDoTrabalho(estado, 'c')!.estado, 'em-execucao');
+    assert.equal(estado.vagas.some(v => v.ordem === 'O-c-1' && v.solta === null), true);
+  } finally { m.limpar(); }
+});
+
+test('M21: a reconciliação exportada usa a mesma trava do passo e recusa outra reconciliação simultânea', { skip: semKernel }, () => {
+  const m = cenario('noctum-m21');
+  const original = reservasDoRoadmap.listarReservas;
+  let concorrencia: unknown = null;
+  let sondou = false;
+  try {
+    (reservasDoRoadmap as { listarReservas: typeof original }).listarReservas = (raiz, opcoes) => {
+      if (!sondou) {
+        sondou = true;
+        try { reconciliarMaquina(m.b.carregado, m.arco, { maquina: 'maquina-b' }); }
+        catch (e) { concorrencia = e; }
+      }
+      return original(raiz, opcoes);
+    };
+    reconciliarMaquina(m.b.carregado, m.arco, { maquina: 'maquina-b' });
+    assert.ok(concorrencia instanceof RecusaDoArco && concorrencia.motivo === 'noctum.coordenacao.concorrencia',
+      String(concorrencia));
+  } finally {
+    (reservasDoRoadmap as { listarReservas: typeof original }).listarReservas = original;
+    m.limpar();
+  }
 });

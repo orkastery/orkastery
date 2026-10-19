@@ -148,7 +148,7 @@ export function fatosLocaisDaMaquina(carregado: ManifestoCarregado, arco: string
  * sem integrar de novo, e só então a ordem dela pode encerrar), depois as ordens e as vagas, e por fim as reservas do arco
  * nos itens sem ordem viva desta máquina. Lança a recusa tipada da leitura (sem remoto, adulterado).
  */
-export function reconciliarMaquina(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoPassoDaMaquina = {}):
+function reconciliarMaquinaComTravaTomada(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoPassoDaMaquina):
   { integracao: ReconciliacaoDaIntegracao; reconciliacao: PlanoDeReconciliacao; reservasSoltas: string[] } {
   const quando = opcoes.quando ?? new Date().toISOString();
   const integracao = reconciliarIntegracao(carregado, arco, opcoes);
@@ -169,6 +169,15 @@ export function reconciliarMaquina(carregado: ManifestoCarregado, arco: string, 
     }
   }
   return { integracao, reconciliacao, reservasSoltas };
+}
+
+/** A retomada exportada toma a mesma trava do passo; assim, N4 e o passo nunca reconciliam esta máquina em paralelo. */
+export function reconciliarMaquina(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoPassoDaMaquina = {}):
+  { integracao: ReconciliacaoDaIntegracao; reconciliacao: PlanoDeReconciliacao; reservasSoltas: string[] } {
+  const trava = vezDaMaquina(carregado.raiz, 0);
+  if (trava === null) throw new RecusaDoArco('noctum.coordenacao.concorrencia', 'outro passo ou reconciliação desta máquina está em curso');
+  try { return reconciliarMaquinaComTravaTomada(carregado, arco, opcoes); }
+  finally { fs.closeSync(trava); }
 }
 
 const aguardar = (motivo: string, detalhe: string, relatorio: RelatorioDaMaquina): ResultadoDoPassoDaMaquina =>
@@ -194,7 +203,8 @@ export function passoDaMaquina(carregado: ManifestoCarregado, arco: string, opco
   const op: OpcoesDaCoordenacao = { remoto: opcoes.remoto, maquina: opcoes.maquina, quando, rede: opcoes.rede };
   try {
     // 1. A reconciliação do que é desta máquina; vale até fora do envelope vigente e com o arco revogado.
-    const rec = reconciliarMaquina(carregado, arco, { ...op, consultarSessoes: opcoes.consultarSessoes ?? opcoes.n2?.consultarSessoes });
+    const rec = reconciliarMaquinaComTravaTomada(carregado, arco,
+      { ...op, consultarSessoes: opcoes.consultarSessoes ?? opcoes.n2?.consultarSessoes });
     Object.assign(relatorio, { integracao: rec.integracao, reconciliacao: rec.reconciliacao, reservasSoltas: rec.reservasSoltas });
     let estado = lerCoordenacao(carregado, arco, op);
     relatorio.autoridade = estado.autoridade;
