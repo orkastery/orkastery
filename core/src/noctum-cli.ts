@@ -8,6 +8,8 @@
  *   ork noctum relatorio <arco> [--json] [--reenviar C]    o relatório no terminal, ou o reenvio que o dono pede
  *   ork noctum conduzir <arco> [--json]                    o condutor do arco (RM-058, integração, D9): o cron do piloto o
  *                                                          relança, e a trava do kernel prova o vivo
+ *   ork noctum aceite <arco> [--json] [--injecoes A]       o aceite do piloto (D12): as medidas M1 a M10, os critérios e o
+ *        [--limiares A] [--publicar A]                     veredito, o arquivo completo no estado e o publicável
  *
  * Nenhum subcomando autoriza pelo terminal: o dono autoriza por ingresso autenticado (o gateway assinado, que chega
  * aqui pelo `responder`, ou o diálogo nativo do host pelo MCP). Recusa tipada sai na saída de erro, com código 2.
@@ -15,6 +17,8 @@
 import * as fs from 'node:fs';
 import { kernelDisponivel } from './fila-pesada';
 import { lerRespostaStdin } from './hitl-gates';
+import { aceiteDoPiloto, gravarAceite, Injecao, lerInjecoes, lerLimiares, Limiares, publicavel, RecusaDoAceite, ResultadoDoAceite,
+  sensiveisDoArco } from './noctum-aceite';
 import { formatarDataHora } from './horario';
 import { exigirManifesto, ManifestoCarregado } from './manifest';
 import { lerArco, proporEnvelope, SituacaoDoArco } from './noctum-arco';
@@ -29,7 +33,7 @@ export interface ArgsDoNoctum { posicionais: string[]; opcoes: Record<string, st
 
 export const USO_DO_NOCTUM = 'uso: ork noctum propor --arquivo <envelope.json> | responder <arco> --resposta-stdin --origem O --canal C ' +
   '--por P --mensagem M [--conta X] | status [<arco>] [--json] | tique <arco> [--json] | relatorio <arco> [--json] [--reenviar <canal>] | ' +
-  'conduzir <arco> [--json]';
+  'conduzir <arco> [--json] | aceite <arco> [--json] [--injecoes <arquivo>] [--limiares <arquivo>] [--publicar <arquivo>]';
 
 /** O pedido de abertura cabe numa leitura do dono: o envelope inteiro tem teto, como o pedido de cada trabalho. */
 const TETO_DO_ARQUIVO_DO_ENVELOPE = 64 * 1024;
@@ -88,8 +92,19 @@ function textoDoCondutor(arco: string, r: SaidaDoCondutor): string {
   return `Condutor do arco ${arco}: saiu na geração ${r.geracao}, depois de ${r.passos} passo(s); o último: ${ultimo}`;
 }
 
+/** O aceite no terminal: o veredito, as marcas de simulação, as medidas, os critérios e onde ficou o arquivo completo. */
+function textoDoAceite(r: ResultadoDoAceite, gravado: { arquivo: string; sha256: string }): string {
+  const valor = (v: number | null, unidade: string) => v === null ? 'lacuna' : `${v} ${unidade}`;
+  return [`Aceite do piloto do arco ${r.arco}: ${r.veredito} (sha256 ${gravado.sha256.slice(0, 12)})`,
+    ...(r.simulacao.simulado ? ['Simulado, nunca vale como piloto:', ...r.simulacao.marcas.map(x => `  • ${x}`)] : []),
+    'Medidas:', ...r.medidas.map(x => `  ${x.id} ${x.nome}: ${valor(x.valor, x.unidade)}${x.lacunas.length ? ` (lacunas: ${x.lacunas.join('; ')})` : ''}`),
+    'Critérios:', ...r.criterios.map(c => `  ${c.id} [${c.veredito}] ${c.texto}` +
+      `${c.limiar ? ` (limiar ${Object.entries(c.limiar).map(([k, v]) => `${k}=${v}`).join(', ')}, ${c.origemDoLimiar})` : ''}: ${c.detalhe}`),
+    `Arquivo completo: ${gravado.arquivo}`].join('\n');
+}
+
 function recusado(e: unknown): number {
-  if (e instanceof RecusaDoArco || e instanceof RecusaDoRegistro) { console.error(e.message); return 2; }
+  if (e instanceof RecusaDoArco || e instanceof RecusaDoRegistro || e instanceof RecusaDoAceite) { console.error(e.message); return 2; }
   throw e;
 }
 
@@ -198,6 +213,29 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
       else if (r.codigo === 2) console.error(textoDoCondutor(arco, r));
       else console.log(textoDoCondutor(arco, r));
       return r.codigo;
+    }
+    if (sub === 'aceite') {
+      const arco = args.posicionais[2];
+      const arquivo = (nome: string): string | null | false => args.opcoes[nome] === undefined ? null : texto(args.opcoes[nome]) ?? false;
+      const [injecoes, limiares, publicar] = [arquivo('injecoes'), arquivo('limiares'), arquivo('publicar')];
+      if (!arco || args.posicionais.length !== 3 || injecoes === false || limiares === false || publicar === false) { console.error(USO_DO_NOCTUM); return 2; }
+      let agenda: Injecao[] | null = null, doDono: Partial<Limiares> | null = null;
+      try {
+        if (injecoes) agenda = lerInjecoes(fs.readFileSync(injecoes, 'utf8'));
+        if (limiares) doDono = lerLimiares(JSON.parse(fs.readFileSync(limiares, 'utf8')));
+      } catch (e) {
+        if (e instanceof RecusaDoAceite) throw e;
+        console.error(`noctum.aceite.arquivo: ${(e as Error).message.slice(0, 200)}`);
+        return 2;
+      }
+      const carregado = exigirManifesto();
+      // RM-058, integração (T8, D12): o arquivo completo fica no estado; o publicável vai aonde o dono pedir.
+      const r = aceiteDoPiloto(carregado, arco, { injecoes: agenda, limiares: doDono });
+      const gravado = gravarAceite(carregado.raiz, r);
+      if (publicar) fs.writeFileSync(publicar, `${JSON.stringify(publicavel(r, gravado.sha256, sensiveisDoArco(carregado, arco)), null, 2)}\n`);
+      if (json) console.log(JSON.stringify({ ...r, sha256: gravado.sha256, arquivo: gravado.arquivo }, null, 2));
+      else console.log(textoDoAceite(r, gravado));
+      return r.veredito === 'aprovado' ? 0 : 1;
     }
   } catch (e) { return recusado(e); }
   console.error(USO_DO_NOCTUM);

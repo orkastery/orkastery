@@ -379,6 +379,15 @@ export function lerSupervisao(raiz: string, arco: string): EstadoDaSupervisao {
   return derivar(arco, lerLog(raiz, arco).linhas);
 }
 
+/**
+ * RM-058, integração (T8 da ork-rm058integra, D12): os eventos do log da supervisão, conferidos como na leitura do estado,
+ * cada um com o instante dele. O aceite do piloto mede por eles a recuperação de cada falha injetada (a geração nova, a
+ * retomada, o vigia interrompido), que o estado derivado guarda só pela última.
+ */
+export function eventosDaSupervisao(raiz: string, arco: string): Array<{ em: string; evento: EventoDaSupervisao }> {
+  return lerLog(raiz, arco).linhas.map(l => ({ em: l.em, evento: l.evento }));
+}
+
 function derivar(arco: string, linhas: readonly DadosDaLinha[]): EstadoDaSupervisao {
   const s: EstadoDaSupervisao = { contrato: CONTRATO_SUPERVISAO, arco, linhas: linhas.length, parametros: null, geracao: null,
     batidas: { condutor: null, vigia: null }, tiqueAberto: null, interrupcoesSeguidas: 0, retomadas: [], sessoesParadas: [],
