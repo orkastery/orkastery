@@ -271,7 +271,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   autorizou é espera, e o retrato da rede é descoberta, nunca autorização. `core/src/noctum-coordenacao.ts` dá a autoridade por geração,
   com cada geração nova selando os registros da anterior (o que a vencida gravar depois reprova a leitura), uma ordem
   viva por trabalho, a transferência só com prova (inclusive a prova da vez de integrar; sem ela, o item fica isolado e
-  os outros seguem), sem deixar a chave que uma emenda aposentou fechar, soltar ou entregar a ordem emitida depois da troca,
+  os outros seguem), sem deixar a chave que uma emenda aposentou fechar, soltar ou entregar a ordem emitida sob a versão da troca ou uma posterior,
   a revogação do dono numa máquina valendo em todas, o abandono da vez de integrar de quem não dá sinal e a vaga
   global, que soma as máquinas no limite da conta e nos tetos do arco; a reserva do item é a da RM-047, revalidada
   depois de tomar, e decide para qual máquina a ordem vai, ou se ela espera a reserva de fora ser solta,
@@ -279,9 +279,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   candidato quando a base ou a fonte mudam e só registra a entrega do merge feito sobre a base provada e devolvido pelo
   integrador (a fonte igual à base provada entrega com a base, como a já incorporada do `ork ship`, e o passo da
   entrega da N5 bloqueia antes a branch sem commit próprio desde a partida da thread); o `integradorDaEntrega` da N5
-  devolve o merge, e não a ponta com os docs derivados, e o git que não roda ou a história que não se lê deixam a vez
+  devolve o merge, e não a ponta com os docs derivados, e o git que não roda ou falha e a história que não se lê deixam a vez
   até a reconciliação; a repetição sem ler os HEADs também preserva a vez, e a entrega registrada por uma vez abandonada
-  entra na linha que prova as integrações seguintes. `core/src/noctum-maquinas.ts` reconcilia a máquina que volta, sob a
+  entra na linha que prova as integrações seguintes; o passo segue quando a ordem que perdeu a reserva espera essa prova,
+  e a reserva do arco só se solta sem ordem viva da máquina no item, relida na hora. `core/src/noctum-maquinas.ts` reconcilia a máquina que volta, sob a
   mesma trava local do passo e sem entrega em duplicidade, fecha o que é da máquina
   que uma emenda tirou do arco e chama o passo da N2 só com o que tem ordem dela, com a entrega e o fim sem entrega das
   outras máquinas valendo antes da thread local. Um ensaio com dois executores em
