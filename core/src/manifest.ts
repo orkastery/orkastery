@@ -306,6 +306,27 @@ function lerProdutores(v: ValorYaml | undefined, erros: string[]): string[] | un
   return saida.length ? saida : undefined;
 }
 
+/**
+ * RM-058, integração (T6, D10 da ork-rm058integra): `ci.contexts`, os checks que a proteção da base exige, um por nome, na
+ * ordem. Lista vazia, item que não é texto de uma linha e nome repetido são erro do manifesto: a prova do CI nunca fica
+ * verde por um contexto que ninguém publica, e nunca se adivinha qual faltou.
+ */
+function lerContextos(v: ValorYaml | undefined, erros: string[]): string[] | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (!Array.isArray(v) || v.length === 0 || v.length > 20) {
+    erros.push('ci.contexts deve ser uma lista de 1 a 20 contextos de CI (os checks que a proteção da base exige), como ["ork-verify"]');
+    return undefined;
+  }
+  const saida: string[] = [];
+  for (const x of v) {
+    const t = typeof x === 'string' ? x.trim() : '';
+    if (!t || t.length > 200 || /[\r\n]/.test(t)) { erros.push(`ci.contexts: ${exibir(x)} não é o nome de um contexto de CI (texto de uma linha)`); continue; }
+    if (saida.includes(t)) { erros.push(`ci.contexts: "${t}" aparece duas vezes`); continue; }
+    saida.push(t);
+  }
+  return saida.length === v.length ? saida : undefined;
+}
+
 /** Mesmo contrato na leitura do YAML e nos consumidores de manifesto em memoria. */
 export function validarOptInPlaybook(valor: unknown): boolean {
   if (valor === undefined) return false;
@@ -494,6 +515,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
 
   const forja = lerBlocoForja(dados.forja, erros, avisos);
   const produtores = lerProdutores(ci.produtor, erros);
+  const contextos = lerContextos(ci.contexts, erros);
 
   const abbrev = texto(project.abbrev, '');
   const checkAbbrev = validarAbbrev(abbrev);
@@ -662,6 +684,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     ci: {
       required_for_ship: booleano(ci.required_for_ship, false),
       context: texto(ci.context, 'ork-verify'),
+      ...(contextos ? { contexts: contextos } : {}),
       command: ci.command === null || ci.command === undefined ? undefined : texto(ci.command, ''),
       external_repositories: repositoriosExternos(ci.external_repositories, erros),
       ...(produtores ? { produtor: produtores } : {}),
