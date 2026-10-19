@@ -1279,21 +1279,6 @@
       "lint": []
     },
     {
-      "id": "C98",
-      "thread": "ork-rm058integra",
-      "fase": "GO",
-      "arquivo": "core/src/noctum-vigia.ts",
-      "alegacao": "RM-058 integração, GO-FIX 3 (M1 do CHECK 3): sob a parada pelo teto, o vigia prova pela listagem do runtime a morte de cada sessão do arco em voo, passada a carência desde a última atividade dela, e a grava como sessao_morta sem retomada nem despacho, seja qual for o trabalho (isolado, com as retomadas esgotadas ou na fase da entrega); o arco fecha pelo custo (LG23 e LG25, com dente por mutação).",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'function registrarMortesSobAParada(raiz: string, estado: EstadoDoArco, leitura: LeituraDoRuntime, parametros: ParametrosDaSupervisao,' core/src/noctum-vigia.ts && grep -qF 'registrarMortesSobAParada(raiz, estado, leitura, sup.parametros!, quando);' core/src/noctum-vigia.ts",
-        "node --test-reporter=tap --test-name-pattern='^LG2[35]:' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - LG2[35]:/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
-      ],
-      "criadoEm": "2026-10-19T14:52:30.615Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C99",
       "thread": "ork-rm058integra",
       "fase": "GO",
@@ -1320,21 +1305,6 @@
         "node --test-reporter=tap --test-name-pattern='^AC(16|19|20):' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC(16|19|20):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T15:03:51.000Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C101",
-      "thread": "ork-rm058integra",
-      "fase": "GO",
-      "arquivo": "core/src/noctum-aceite.ts",
-      "alegacao": "RM-058 integração, GO-FIX 3 (N1 do CHECK 3, que refaz o I2 do CHECK 2): em M10 e no sinal da F7 só conta o recibo do envio automático, e o que veio depois da tentativa forçada (o reenvio que o dono pede) fica de fora; a versão 1 precisa ser composta até um tique depois do vencimento; com a F7 na agenda, o recibo vale até o fim do ciclo de reenvio automático (as tentativas a cada 5 min, cada uma até um tique depois), e sem ela até um tique depois do vencimento (AC17, com dente por mutação).",
-      "negativa": false,
-      "verificar": [
-        "grep -qF \"else if (l.evento.tipo === 'envio_confirmado' && forcada.get(chave) !== true) confirmacoesAutomaticas.push(l);\" core/src/noctum-aceite.ts && grep -qF '(comF7 ? cicloAutomatico : tolerancia)' core/src/noctum-aceite.ts && grep -qF 'const cicloAutomatico = tolerancia + (MAXIMO_DE_TENTATIVAS - 1) * (INTERVALO_ENTRE_TENTATIVAS_MS + tolerancia);' core/src/noctum-aceite.ts",
-        "node --test-reporter=tap --test-name-pattern='^AC17:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC17:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
-      ],
-      "criadoEm": "2026-10-19T15:03:55.890Z",
       "estado": "verificado",
       "lint": []
     },
@@ -1439,6 +1409,66 @@
         "node --test-reporter=tap --test-name-pattern='^GS(5|15):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS(5|15):/{p++} END{exit !(p>=2 && f==0)}'"
       ],
       "criadoEm": "2026-10-19T15:36:04.970Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C109",
+      "thread": "ork-rm058integra",
+      "fase": "CHECK",
+      "arquivo": "core/test/noctum-guarda.test.ts",
+      "alegacao": "RM-058 integração, CHECK 4: o arco agendado (autorizado, antes do início da janela) guarda a thread da lista; o ork ship a recusa com noctum.guarda.thread-do-arco, situação agendado e origem envelope, sem ledger (GS19, com dente por mutação: tirar o agendado de guardaOsCaminhosManuais derruba o GS19, e antes dele passava em todos os GS).",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"^test\\('GS19:\" core/test/noctum-guarda.test.ts && grep -qF \"return v.situacao === 'agendado' || v.situacao === 'vigente'\" core/src/noctum-guarda.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS19:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GS19:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:11:33.415Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C110",
+      "thread": "ork-rm058integra",
+      "fase": "CHECK",
+      "arquivo": "core/test/noctum-ligacao.test.ts",
+      "alegacao": "RM-058 integração, CHECK 4 (no lugar da C98, que passava sem a prova do runtime e sem a carência): sob a parada pelo teto, o vigia grava como sessao_morta, sem retomada nem despacho, só a sessão do arco em voo que o runtime prova morta e cuja última atividade passou da carência, seja qual for o trabalho (isolado, com as retomadas esgotadas ou na fase da entrega); a viva e a morta ainda na carência seguem em voo, e o arco espera; com a morte provada, fecha pelo custo (LG23, LG25 e LG26, com dente por mutação: tirar a prova ou a carência derruba o LG26).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'registrarMortesSobAParada(raiz, estado, leitura, sup.parametros!, quando);' core/src/noctum-vigia.ts && grep -qF \"if (p.estado !== 'morta' || Date.parse(quando) - ultimaAtividade < parametros.carenciaMs) continue;\" core/src/noctum-vigia.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG2[356]:' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - LG2[356]:/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:11:37.721Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C111",
+      "thread": "ork-rm058integra",
+      "fase": "CHECK",
+      "arquivo": "core/test/noctum-aceite.test.ts",
+      "alegacao": "RM-058 integração, CHECK 4 (no lugar da C101, que passava com o ciclo de uma tentativa a mais): em M10 e no sinal da F7 só conta o recibo do envio automático, e o que veio depois da tentativa forçada (o reenvio que o dono pede) fica de fora; a versão 1 precisa ser composta até um tique depois do vencimento; com a F7 na agenda, o recibo vale até o fim do ciclo de reenvio automático (um tique e quatro intervalos de 5 min, cada um com um tique: 45 min com o tique de 5 min) e não depois, e sem ela até um tique depois do vencimento (AC17 e AC22, com dente por mutação: a tentativa a mais e o tique inicial a menos derrubam o AC22).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"else if (l.evento.tipo === 'envio_confirmado' && forcada.get(chave) !== true) confirmacoesAutomaticas.push(l);\" core/src/noctum-aceite.ts && grep -qF 'const cicloAutomatico = tolerancia + (MAXIMO_DE_TENTATIVAS - 1) * (INTERVALO_ENTRE_TENTATIVAS_MS + tolerancia);' core/src/noctum-aceite.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC(17|22):' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC(17|22):/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:11:42.537Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C112",
+      "thread": "ork-rm058integra",
+      "fase": "CHECK",
+      "arquivo": "core/test/release-noctum.test.ts",
+      "alegacao": "RM-058 integração, CHECK 4: o portão de release recusa o piloto cujo arquivo publicável não diz aprovado, mesmo com o aceite dizendo aprovado (release.noctum.piloto-nao-aprovado), o arquivo que não é o publicável (publicavel diferente de true, release.noctum.aceite-invalido) e a ratificação sem data válida (release.noctum.sem-ratificacao) (RG16, com dente por mutação: tirar cada uma das três conferências derruba o RG16, e antes dele passava em todos os RG).",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"^test\\('RG16:\" core/test/release-noctum.test.ts && grep -qF \"if (p.veredito !== 'aprovado' || r.veredito !== 'aprovado') {\" core/scripts/checar-release-noctum.cjs",
+        "node --test-reporter=tap --test-name-pattern='^RG16:' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG16:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:11:46.002Z",
       "estado": "pendente",
       "lint": []
     }
