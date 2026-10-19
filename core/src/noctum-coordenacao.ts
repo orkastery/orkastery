@@ -924,6 +924,19 @@ export function responderOrdem(carregado: ManifestoCarregado, arco: string, orde
 }
 
 /**
+ * G8-6: a vaga que outra chave da máquina tomou tem o despacho no log de outra raiz; daqui não se prova a parada dela. Vale
+ * no fim e na conclusão (N1 da terceira passada do CHECK-REVERIFY): os dois tiram a última ordem viva do item, e outro
+ * trabalho dele pode ir a outra máquina.
+ */
+function exigirSemVagaDeOutraChave(estado: EstadoDaCoordenacao, o: OrdemDerivada, chave: string, eu: string): void {
+  const deOutra = estado.vagas.find(v => v.ordem === o.ordem && !v.solta && v.chave !== chave);
+  if (deOutra) {
+    throw recusa('noctum.coordenacao.ordem-vencida', `a vaga ${deOutra.vaga} da ordem ${o.ordem} é de outra chave da máquina ${eu}; ` +
+      'só a raiz dela prova a parada da sessão');
+  }
+}
+
+/**
  * O executor conclui a ordem pela thread local: entregue ou fechada sem entrega. Vale também depois do cancelamento e
  * depois de uma emenda que tirou esta máquina do arco (A4 da revisão: o fim sai sob a versão em que ela estava).
  */
@@ -942,6 +955,7 @@ export function concluirOrdem(carregado: ManifestoCarregado, arco: string, ordem
     if (!ordemDaRaiz(estado, o, { nome: eu, chave })) throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} é de outra chave da máquina ${eu}`);
     if (o.estado === 'concluida') return { novos: [], resultado: null };
     if (o.estado !== 'aceita' && o.estado !== 'isolada') throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} está ${o.estado}`);
+    exigirSemVagaDeOutraChave(estado, o, chave, eu);
     return { novos: [{ tipo: 'recibo', ordem, recibo: 'concluida', motivo: 'thread local ' + conclusao.resultado, resultado: conclusao.resultado,
       thread: conclusao.thread }], resultado: null };
   });
@@ -969,12 +983,7 @@ export function encerrarOrdem(carregado: ManifestoCarregado, arco: string, ordem
     if (!ordemDaRaiz(estado, o, { nome: eu, chave })) throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} é de outra chave da máquina ${eu}`);
     if (o.estado === 'encerrada') return { novos: [], resultado: null };
     if (o.estado !== 'aceita' && o.estado !== 'isolada') throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} está ${o.estado}`);
-    // G8-6: a vaga que outra chave da máquina tomou tem o despacho no log de outra raiz; daqui não se prova a parada dela.
-    const deOutra = estado.vagas.find(v => v.ordem === o.ordem && !v.solta && v.chave !== chave);
-    if (deOutra) {
-      throw recusa('noctum.coordenacao.ordem-vencida', `a vaga ${deOutra.vaga} da ordem ${ordem} é de outra chave da máquina ${eu}; ` +
-        'só a raiz dela prova a parada da sessão');
-    }
+    exigirSemVagaDeOutraChave(estado, o, chave, eu);
     const espera = esperaDaVez(estado, o);
     if (espera === 'ativa') {
       throw recusa('noctum.integracao.nao-provada', `a ordem ${ordem} tem uma vez de integrar ativa; o merge pode ter chegado à base, e a reconciliação decide antes do fim`);
@@ -1230,8 +1239,8 @@ function vagaViva(v: VagaDerivada, fatos: FatosLocaisDaMaquina): boolean {
 /**
  * O plano puro da reconciliação desta máquina: conclui as ordens cuja thread local terminou, encerra as vencidas sem sessão
  * viva (soltando as vagas delas) e solta as vagas cujo despacho local foi recusado ou cuja sessão acabou. A pendente fica,
- * contada, até a N4, e a vaga que outra chave da máquina tomou conta como viva (G8-6). Os itens para soltar a reserva são os
- * das ordens desta máquina, de qualquer versão do envelope.
+ * contada, até a N4, e a vaga que outra chave da máquina tomou conta como viva (G8-6), também na conclusão. Os itens para
+ * soltar a reserva são os das ordens desta máquina, de qualquer versão do envelope.
  */
 export function planejarReconciliacao(estado: EstadoDaCoordenacao, eu: string, fatos: FatosLocaisDaMaquina): PlanoDeReconciliacao {
   const plano: PlanoDeReconciliacao = { novos: [], encerradas: [], concluidas: [], soltas: [], aguardando: [], itensSemOrdemViva: [] };
@@ -1250,6 +1259,13 @@ export function planejarReconciliacao(estado: EstadoDaCoordenacao, eu: string, f
     if (!daRaiz(o) || (o.estado !== 'aceita' && o.estado !== 'isolada')) continue;
     const th = fatos.threads.get(o.trabalho);
     if (th && (th.entregue || th.fechada)) {
+      // N1 da terceira passada do CHECK-REVERIFY: a conclusão também libera o item, e a vaga viva de outra chave da máquina
+      // espera a raiz dela, como no fim.
+      const deOutraChave = estado.vagas.filter(v => v.ordem === o.ordem && !v.solta && !daChave(v));
+      if (deOutraChave.length) {
+        plano.aguardando.push({ ordem: o.ordem, porque: `a thread local terminou, e a ordem tem ${deOutraChave.length} vaga(s) viva(s) de outra raiz desta máquina` });
+        continue;
+      }
       plano.novos.push({ tipo: 'recibo', ordem: o.ordem, recibo: 'concluida', motivo: `thread local ${th.entregue ? 'entregue' : 'fechada sem entrega'}`,
         resultado: th.entregue ? 'entregue' : 'encerrado-sem-entrega', thread: th.id });
       plano.concluidas.push(o.ordem);
