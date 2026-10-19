@@ -22,9 +22,13 @@ export interface TerminalCodex extends ClassificacaoCodex {
   numeroTurno?: number; timestampFonte?: 'evento' | 'observacao';
   /** I-33 (D12): falha da CONTA no erro estruturado do proprio runtime, nunca no texto do agente. */
   falhaDeConta?: SinalDeFalhaDeConta;
+  /** Ultima resposta do agente, limitada; consumidores persistem fora do ledger. */
+  respostaFinal?: string;
 }
 export interface EstadoParserCodex {
   turnId: string | null; turnIdOrigem?: OrigemTurnId | null; mensagem: ClassificacaoCodex | null;
+  /** Texto da ultima mensagem, limitado para que o cursor permaneça finito. */
+  mensagemTexto?: string | null;
   tokens: TokensCodex; invalido: boolean; turnos: number;
   turnoAberto?: boolean;
   turnoIniciadoEm?: string | null;
@@ -100,6 +104,15 @@ function tokens(v: unknown, fonte: string, escopo: TokensCodex['escopo']): Token
 }
 
 export const LIMITE_LINHA_CODEX = 1024 * 1024;
+export const LIMITE_RESPOSTA_CODEX = 256 * 1024;
+
+function limitarResposta(texto: unknown): string | null {
+  if (typeof texto !== 'string' || !texto.trim()) return null;
+  const bruto = Buffer.from(texto, 'utf8');
+  if (bruto.byteLength <= LIMITE_RESPOSTA_CODEX) return texto;
+  return bruto.subarray(0, LIMITE_RESPOSTA_CODEX).toString('utf8').replace(/\uFFFD$/, '');
+}
+
 export class ParserCodex {
   private pendente = Buffer.alloc(0);
   private descartando = false;
@@ -153,7 +166,7 @@ export class ParserCodex {
       const daFonte = typeof p.turn_id === 'string' && p.turn_id ? p.turn_id : null;
       this.estado.turnId = daFonte ?? `stream-${this.estado.turnos}`;
       this.estado.turnIdOrigem = daFonte === null ? 'gerado' : 'explicito';
-      this.estado.mensagem = null; this.estado.tokens = indisponivel();
+      this.estado.mensagem = null; this.estado.mensagemTexto = null; this.estado.tokens = indisponivel();
       this.eventosValidos++; return null;
     }
     const turnId = e.type === 'token_usage_record' ? e.payload?.turn_id : p.turn_id;
@@ -172,7 +185,9 @@ export class ParserCodex {
     const mensagem = resposta ?? (p.type === 'item.completed' && p.item?.type === 'agent_message' ? p.item.text :
       p.type === 'agent_message' ? p.message : undefined);
     if (mensagem !== undefined) {
-      this.estado.mensagem = classificarMensagem(mensagem); this.eventosValidos++; return null;
+      this.estado.mensagem = classificarMensagem(mensagem);
+      this.estado.mensagemTexto = limitarResposta(mensagem);
+      this.eventosValidos++; return null;
     }
     if (!['turn.completed', 'turn.failed', 'task_complete', 'task_failed'].includes(p.type)) return null;
     this.eventosValidos++;
@@ -182,8 +197,8 @@ export class ParserCodex {
     const falhou = p.type === 'turn.failed' || p.type === 'task_failed' || comErro;
     const conta = comErro ? falhaDeContaDoErroCodex(p.error, agoraMs) : null;
     const explicito = motivo(p.motivo ?? p.reason);
-    const mensagemFinal = typeof p.last_agent_message === 'string' && p.last_agent_message.trim()
-      ? classificarMensagem(p.last_agent_message) : this.estado.mensagem ?? sucesso();
+    const textoFinal = limitarResposta(p.last_agent_message) ?? this.estado.mensagemTexto ?? null;
+    const mensagemFinal = textoFinal !== null ? classificarMensagem(textoFinal) : this.estado.mensagem ?? sucesso();
     const classificacao: ClassificacaoCodex = this.estado.invalido ? falha()
       : conta ? { classificacao: 'gate_blocked', motivo: conta.motivo } : explicito ??
       (mensagemFinal.classificacao !== 'fase_concluida' ? mensagemFinal : falhou ? falha() : sucesso());
@@ -193,6 +208,7 @@ export class ParserCodex {
       numeroTurno: this.estado.turnos, timestampFonte: e.timestamp ? 'evento' : 'observacao',
       fonte: e.type === 'event_msg' ? `rollout.${p.type}` : `stream.${p.type}`,
       tokens: structuredClone(this.estado.tokens),
-      duracaoMs: Number.isFinite(p.duration_ms) && p.duration_ms >= 0 ? p.duration_ms : null };
+      duracaoMs: Number.isFinite(p.duration_ms) && p.duration_ms >= 0 ? p.duration_ms : null,
+      ...(textoFinal !== null ? { respostaFinal: textoFinal } : {}) };
   }
 }

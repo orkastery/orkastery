@@ -1,5 +1,5 @@
 /** RM-064 T4: o trabalho pequeno da sessão acompanha a thread entre contas. */
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dirThread } from './thread';
@@ -25,6 +25,10 @@ export interface ResumoDoTrabalho {
 export interface OpcoesDoResumoDoTrabalho {
   /** Ponto de sincronização usado só por provas de troca da entrada entre inspeção e abertura. */
   antesDeAbrir?: (arquivo: string) => void;
+}
+
+export interface RespostaFinalPersistida extends ArquivoDoTrabalho {
+  truncada: boolean;
 }
 
 /** Caminho real no estado canônico. O prompt usa a forma relativa e portátil de `caminhoDoTrabalho`. */
@@ -65,6 +69,43 @@ export function garantirDiretorioDoTrabalho(raiz: string, threadId: string): str
 
 function nomeSeguro(nome: string): string {
   return nome.replace(/[\u0000-\u001f\u007f]/g, '?');
+}
+
+/**
+ * Persiste a resposta do runtime na pasta privada da thread. O ledger recebe somente este recibo:
+ * conteúdo de agente pode conter detalhes grandes ou sensíveis e nunca é copiado para o evento.
+ */
+export function gravarRespostaFinalDaSessao(raiz: string, threadId: string, sessionId: string,
+  texto: string): RespostaFinalPersistida {
+  if (!/^[a-zA-Z0-9-]{1,128}$/.test(sessionId)) throw new Error('id de sessão inválido para resposta final');
+  const aberto = abrirDiretorioDoTrabalho(raiz, threadId);
+  const bruto = Buffer.from(texto, 'utf8');
+  const truncada = bruto.byteLength > LIMITE_DE_ARQUIVO_DO_TRABALHO;
+  const conteudo = truncada
+    ? Buffer.from(bruto.subarray(0, LIMITE_DE_ARQUIVO_DO_TRABALHO).toString('utf8').replace(/\uFFFD$/, ''), 'utf8')
+    : bruto;
+  const arquivo = `resposta-final-${sessionId}.md`;
+  const alvo = path.join(aberto.diretorio, arquivo);
+  const temporario = path.join(aberto.diretorio, `.${arquivo}.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    fs.writeFileSync(temporario, conteudo, { mode: 0o600, flag: 'wx' });
+    fs.chmodSync(temporario, 0o600);
+    try { fs.linkSync(temporario, alvo); }
+    catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+      const existente = lerArquivoSeguro(aberto.real, alvo, {});
+      if (existente.estado !== 'ok' || !existente.conteudo.equals(conteudo))
+        throw new Error('resposta final já existe com conteúdo divergente');
+    }
+    const persistido = lerArquivoSeguro(aberto.real, alvo, {});
+    if (persistido.estado !== 'ok') throw new Error('resposta final não pôde ser reconferida');
+    fs.chmodSync(alvo, 0o600);
+    return { arquivo, bytes: persistido.conteudo.byteLength,
+      sha256: createHash('sha256').update(persistido.conteudo).digest('hex'), truncada };
+  } finally {
+    try { fs.rmSync(temporario, { force: true }); } catch { /* temporário já ausente */ }
+    fs.closeSync(aberto.fd);
+  }
 }
 
 const contido = (base: string, alvo: string): boolean => alvo === base || alvo.startsWith(base + path.sep);

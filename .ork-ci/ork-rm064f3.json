@@ -1,0 +1,323 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm064f3",
+  "branch": "ork/ork-rm064f3-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm064f3",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm064-fatia3.test.ts",
+      "alegacao": "Watcher ausente é reconciliado pelo runtime: task_complete produz um phase_result único, guarda a resposta final privada e a batida tipa a parada após dez minutos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm064-fatia3.test.js"
+      ],
+      "criadoEm": "2026-10-19T04:05:00.758Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm064f3",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm064-fatia3.test.ts",
+      "alegacao": "Perfis desativados nunca entram na escada, na fila, na escolha por carga nem no fallback.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm064-fatia3.test.js"
+      ],
+      "criadoEm": "2026-10-19T04:05:00.874Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm064f3",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+      "alegacao": "RM-064 e CHANGELOG documentam T8 a T10 em linguagem genérica e não anunciam o Noctum como lançado ou validado.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'T8|T9|T10' docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md >/dev/null && grep -E 'Não publicado|Nao publicado' CHANGELOG.md >/dev/null && ! grep -E '#Noctum.*(lançado|entregue|validado)' docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-19T04:05:00.922Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm064f3",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "O despacho registra a fonte de observacao antes da prontidao eventual do watcher, sem perder o vinculo verificavel da sessao.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm064-fatia3.test.js"
+      ],
+      "criadoEm": "2026-10-19T04:08:49.376Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm064f3",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/codex-controller-sensor.ts",
+      "alegacao": "A reconciliacao tardia aceita um controller Codex encerrado somente quando as identidades nativas e o encerramento registrado permanecem verificaveis.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm064-fatia3.test.js"
+      ],
+      "criadoEm": "2026-10-19T04:08:49.418Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm064f3",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado registra a fatia 3 da RM-064 sem afirmar lançamento ou validação do Noctum.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'Não publicado|Nao publicado' CHANGELOG.md >/dev/null && grep -E 'Conta esgotada não para a fase, fatia 3' CHANGELOG.md >/dev/null && ! grep -E '#Noctum.*(lançado|entregue|validado)' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-19T04:18:43.561Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm064f3",
+      "fase": "GO",
+      "arquivo": "core/src/conducao-batida.ts",
+      "alegacao": "A reconciliação T9 não duplica no retrato da batida o retry que o pulse já apresenta quando falta autorização ou plano automático.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm063-conducao-batida.test.js"
+      ],
+      "criadoEm": "2026-10-19T05:17:13.219Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm064f3",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado registra a correção de fixação fail-closed e deduplicação do retry sem anunciar o Noctum como lançado ou validado.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'fatia 3.*fixa a fonte válida.*sem duplicar o retry do pulse' CHANGELOG.md >/dev/null && ! grep -E '#Noctum.*(lançado|entregue|validado)' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-19T05:17:13.260Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm064f3",
+      "fase": "CHECK",
+      "arquivo": "core/src/adapters/codex-events.ts",
+      "alegacao": "O parser Codex leva ao terminal a última resposta do agente mesmo quando o task_complete chega sem last_agent_message; sem isso o teste do parser reprova.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test-name-pattern='T9 parser' core/dist-test/test/rm064-fatia3.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-19T05:48:01.013Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm064f3",
+      "fase": "CHECK",
+      "arquivo": "core/src/trabalho-thread.ts",
+      "alegacao": "A resposta final vai a trabalho/resposta-final-<sessão>.md em modo 0600, truncada em 256 KiB, sem sobrescrever conteúdo divergente, e o ledger recebe só caminho, sha256, bytes e truncamento.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test-name-pattern='resposta final' core/dist-test/test/rm064-fatia3.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-19T05:48:01.688Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm064f3",
+      "fase": "CHECK",
+      "arquivo": "core/src/session-watcher.ts",
+      "alegacao": "Sem watcher, a reconciliação recompõe a fonte pelo despacho, grava um único phase_result do task_complete, tolera na partida só a fonte ainda não pronta e só para a sessão depois de dez minutos sem fonte nem evento útil.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test-name-pattern='batida recomp|dez minutos|partida do despacho' core/dist-test/test/rm064-fatia3.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-19T05:48:02.323Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm064f3",
+      "fase": "CHECK",
+      "arquivo": "core/src/conducao-batida.ts",
+      "alegacao": "A batida chama a reconciliação antes de seguir: com controller encerrado e sem watcher, o fim nativo vira um phase_result na mesma batida.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test-name-pattern='batida reconcilia' core/dist-test/test/rm064-fatia3.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-19T05:48:02.775Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm064f3",
+      "fase": "CHECK",
+      "arquivo": "core/src/runtime-profiles.ts",
+      "alegacao": "perfisDisponiveis e a escolha por carga nunca devolvem perfil desativado, mesmo com carga menor que a do perfil ativo.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test-name-pattern='RM-064 T10' core/dist-test/test/rm064-fatia3.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-19T05:48:03.207Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm064f3",
+      "fase": "CHECK",
+      "arquivo": "core/src/runtime-escada.ts",
+      "alegacao": "Os degraus fallback-do-bloco e outro-perfil da escada pulam perfil desativado e o desativado configurado não libera o ambiente implícito.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test-name-pattern='RM-064 T10' core/dist-test/test/rm064-fatia3.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-19T05:48:03.606Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm064f3",
+      "fase": "CHECK",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "O fallback por modelo recusado usa o filtro comum perfisDisponiveis no mesmo runtime e na ordem de fallback, sem filtro local de estado (prova estrutural: a troca é refatoração equivalente).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE 'perfisDisponiveis\\(store, (runtime|f\\.runtime)\\)' core/src/retry.ts)\" -ge 2 && ! grep -qE \"'desativado', 'provider-pago', 'sem-auth'\" core/src/retry.ts"
+      ],
+      "criadoEm": "2026-10-19T05:48:03.988Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm064f3",
+      "fase": "CHECK",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "O despacho Codex cuja primeira leitura do rollout ainda não tem session_meta registra a fonte, inicia o watcher e chega ao phase_result sem session_watcher_error do despacho.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test-name-pattern='despacho com rollout' core/dist-test/test/rm064-fatia3.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-19T05:49:32.310Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm064f3",
+      "fase": "GO",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "O redespacho Codex por ork retry e pela escada recebe o mesmo contexto MCP worktree do phase run, vinculado à thread e à identidade do despacho, com os grants exatos e sem ampliar writableRoots.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test-name-pattern='retry pela escada' core/dist-test/test/rm064-fatia3.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-19T06:09:36.754Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm064f3",
+      "fase": "GO",
+      "arquivo": "core/src/session-watcher.ts",
+      "alegacao": "A reconciliação sem watcher conta os dez minutos desde a última observação boa ou o primeiro erro da série atual; uma falha transitória não grava phase_result e a leitura seguinte ainda recupera o terminal real.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test-name-pattern='fonte indisponível|falha transitória conta' core/dist-test/test/rm064-fatia3.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [2-9][0-9]* # fail 0|# pass 2 # fail 0'"
+      ],
+      "criadoEm": "2026-10-19T06:13:42.726Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm064f3",
+      "fase": "GO",
+      "arquivo": "core/src/session-watcher.ts",
+      "alegacao": "Falha permanente ao recompor o vínculo do sensor é registrada como session_watcher_error e, persistindo por dez minutos, produz um único phase_result runtime.unavailable em vez de sumir na batida.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test-name-pattern='vínculo permanente divergente' core/dist-test/test/rm064-fatia3.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-19T06:17:00.621Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm064f3",
+      "fase": "GO",
+      "arquivo": "core/test/rm064-fatia3.test.ts",
+      "alegacao": "O redespacho pela escada para o Codex leva o MCP da thread com permissões de worktree, as tools exatas do filho e o sandbox só na worktree; reprova com o teste vermelho ou ausente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='RM-064 T8: retry pela escada leva o contexto MCP worktree ao Codex' core/dist-test/test/rm064-fatia3.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - RM-064 T8: retry pela escada leva o contexto MCP worktree ao Codex' && ! printf '%s\\n' \"$out\" | grep -qE '^not ok'"
+      ],
+      "criadoEm": "2026-10-19T06:20:59.772Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm064f3",
+      "fase": "GO",
+      "arquivo": "core/test/rm064-fatia3.test.ts",
+      "alegacao": "Uma falha transitória de leitura conta o prazo da parada a partir da última observação boa, e a leitura seguinte ainda encontra o fim real da sessão; reprova com o teste vermelho ou ausente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='RM-064 T9: falha transitória conta da observação boa e a leitura seguinte ainda encontra o fim' core/dist-test/test/rm064-fatia3.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - RM-064 T9: falha transitória conta da observação boa e a leitura seguinte ainda encontra o fim' && ! printf '%s\\n' \"$out\" | grep -qE '^not ok'"
+      ],
+      "criadoEm": "2026-10-19T06:21:00.179Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm064f3",
+      "fase": "GO",
+      "arquivo": "core/test/rm064-fatia3.test.ts",
+      "alegacao": "O vínculo permanente divergente ao recompor a fonte vira diagnóstico e parada tipada, em vez de sumir na batida; reprova com o teste vermelho ou ausente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='RM-064 T9: vínculo permanente divergente vira diagnóstico e parada tipada' core/dist-test/test/rm064-fatia3.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - RM-064 T9: vínculo permanente divergente vira diagnóstico e parada tipada' && ! printf '%s\\n' \"$out\" | grep -qE '^not ok'"
+      ],
+      "criadoEm": "2026-10-19T06:21:00.575Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

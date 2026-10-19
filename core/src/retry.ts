@@ -46,8 +46,8 @@ import { aguardando, arcoDoPedido, enfileirar, exigirPedido, gravarPedido, janel
   PedidoComPerfil, vencidos } from './ratelimit';
 import { eventosDoIntervalo, fonteRegistrada, headDaWorktree, saidaDoArtefato } from './session-watcher-claude';
 import {
-  lerPerfis, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDoRegistro, perfisDoRuntime, PoliticaDeRotacao, politicaDeRotacao,
-  perfilDisponivel, PerfilDeRuntime, prazoDaFila, prazoDoRuntime, proximoPerfilDisponivel,
+  lerPerfis, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDoRegistro, perfisDisponiveis, perfisDoRuntime,
+  PoliticaDeRotacao, politicaDeRotacao, prazoDaFila, prazoDoRuntime, proximoPerfilDisponivel,
   validarPerfilDeDespacho,
 } from './runtime-profiles';
 import { MODOS } from './modos';
@@ -771,19 +771,16 @@ function redespacharSobLock(
       if (!tomadaPrevia && conducao) { pendente.retida = conducao; conducao = null; }
       return pendente;
     }
-    // D14 (GO-FIX 2): a retomada claude-bg abre com a mesma colaboração e o mesmo contexto de
-    // runtime do `ork phase run`; sem eles, o PLAN retomado saía sem negar Edit, Write e
-    // NotebookEdit e sem a allowlist do núcleo. O ramo Codex não muda.
+    // RM-064 T8: toda retomada abre com o mesmo contexto de runtime do `ork phase run`.
+    // Sem ele, a escada que troca para Codex perde o MCP vinculado à thread e ao despacho.
     let contextoRuntime: ContextoRuntime | undefined;
-    if (runtime === 'claude-bg') {
-      try { contextoRuntime = contextoDoProjeto(raiz, runtime, cwd, thread.id); }
-      catch (e) {
-        const erro = (e as Error).message;
-        return { ...vazio, ok: false, motivo: 'runtime.unavailable',
-          detalhe: textoDoCatalogo((m) => m.retry.runtimeIndisponivel(erro)), dryRun: opcoes.dryRun === true };
-      }
-      if (contextoRuntime) contextoRuntime.identidade = identidade;
+    try { contextoRuntime = contextoDoProjeto(raiz, runtime, cwd, thread.id); }
+    catch (e) {
+      const erro = (e as Error).message;
+      return { ...vazio, ok: false, motivo: 'runtime.unavailable',
+        detalhe: textoDoCatalogo((m) => m.retry.runtimeIndisponivel(erro)), dryRun: opcoes.dryRun === true };
     }
+    if (contextoRuntime) contextoRuntime.identidade = identidade;
     // I-33 (D4, D7): a retomada escolhe o perfil como o `ork phase run`, com o login conferido.
     let escolha: EscolhaDePerfil;
     try { escolha = perfilParaDespacho(carregado, thread, fase, runtime, { perfil: opcoes.perfil ?? undefined, dryRun: opcoes.dryRun,
@@ -810,7 +807,8 @@ function redespacharSobLock(
       vinculo: { thread: thread.id, fase, promptSha256: promptExecutadoSha },
       ...(perfil ? { perfil } : {}),
       // RM-037 (defeito 2): o modo plano segue a mesma regra do `ork phase run`, pelo bloco.
-      ...(runtime === 'claude-bg' ? { contextoRuntime, ...(modoDaSessaoDoBloco(thread, fase).plano ? { colaboracao: 'plan' as const } : {}) } : {}),
+      contextoRuntime,
+      ...(runtime === 'claude-bg' && modoDaSessaoDoBloco(thread, fase).plano ? { colaboracao: 'plan' as const } : {}),
       // I-36 (D4): a sessao retomada herda a identidade do despacho e o canal, como no `ork phase run`.
       ambienteExtra: ambienteDaConducao(identidade.dispatchId, thread.id, canal),
     });
@@ -904,6 +902,7 @@ function redespacharSobLock(
       sinal: null,
       perfil: perfil ?? null,
       comando: resultado.comando,
+      controlador: resultado.controlador,
       dryRun: false,
     };
   } finally {
@@ -1886,15 +1885,14 @@ function destinosQueRecusaramOModelo(eventos: readonly EventoLedger[], fase: Fas
 function proximoDestinoDoModelo(raiz: string, runtime: string, model: string | null, fallback: readonly AlvoDeFallback[],
     recusados: ReadonlySet<string>): AlvoDaRotacao | null {
   const store = lerPerfisComContas(raiz);
-  const utilizavel = (p: PerfilDeRuntime) => !['desativado', 'provider-pago', 'sem-auth'].includes(p.estado) && perfilDisponivel(p);
   const mesmo = capacidadeDoRuntimeNoProjeto(raiz, runtime).capaz
-    ? perfisDoRuntime(store, runtime).find(p => utilizavel(p) && !recusados.has(chaveDoModelo(runtime, p.id, model))) : null;
+    ? perfisDisponiveis(store, runtime).find(p => !recusados.has(chaveDoModelo(runtime, p.id, model))) : null;
   if (mesmo) return { runtime, perfil: perfilDeDespacho(mesmo), model, effort: null };
   for (const f of fallback) {
     if (!capacidadeDoRuntimeNoProjeto(raiz, f.runtime).capaz) continue;
     const perfis = perfisDoRuntime(store, f.runtime);
     if (perfis.length) {
-      const p = perfis.find(x => utilizavel(x) && !recusados.has(chaveDoModelo(f.runtime, x.id, f.model)));
+      const p = perfisDisponiveis(store, f.runtime).find(x => !recusados.has(chaveDoModelo(f.runtime, x.id, f.model)));
       if (p) return { runtime: f.runtime, perfil: perfilDeDespacho(p), model: f.model, effort: f.effort ?? null };
       continue;
     }

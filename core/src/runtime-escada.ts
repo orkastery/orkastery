@@ -27,7 +27,7 @@ import { textoDoCatalogo } from './locale';
 import { ManifestoCarregado } from './manifest';
 import { MODOS } from './modos';
 import {
-  diretorioEfetivo, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, perfisDoRuntime, runtimeComPerfil,
+  diretorioEfetivo, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfisDisponiveis, perfisDoRuntime, runtimeComPerfil,
   validarPerfilDeDespacho,
 } from './runtime-profiles';
 import { alvosDaOrdemDeFallback, configDoBloco, lerSetup } from './setup';
@@ -188,7 +188,7 @@ export function planoDoDegrau(carregado: ManifestoCarregado, thread: Thread, fas
       const perfis = perfisDoRuntime(store, f.runtime);
       const effort = f.effort ?? despacho.effort;
       if (perfis.length === 0) return { destino: { runtime: f.runtime, perfil: null, model: f.model, effort } };
-      const p = perfis.find((x) => perfilDisponivel(x, agoraMs));
+      const p = perfisDisponiveis(store, f.runtime, agoraMs)[0];
       if (p) return { destino: { runtime: f.runtime, perfil: p.id, model: f.model, effort } };
     }
     return { pulo: 'fallback-sem-destino' };
@@ -207,8 +207,8 @@ export function planoDoDegrau(carregado: ManifestoCarregado, thread: Thread, fas
   if (runtimeComPerfil(despacho.runtime)) {
     try { dirOriginal = diretorioEfetivo(despacho.runtime, contaDeOrigem); } catch { dirOriginal = null; }
   }
-  const outro = perfisDoRuntime(store, despacho.runtime).find((p) => {
-    if (p.id === contaDeOrigem?.id || jaTentados.has(p.id) || !perfilDisponivel(p, agoraMs)) return false;
+  const outro = perfisDisponiveis(store, despacho.runtime, agoraMs).find((p) => {
+    if (p.id === contaDeOrigem?.id || jaTentados.has(p.id)) return false;
     const d = perfilDeDespacho(p);
     return !dirOriginal || (d.configDir ?? d.codexHome) !== dirOriginal;
   });
