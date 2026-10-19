@@ -239,6 +239,21 @@ export function ordemDaRaiz(estado: EstadoDaCoordenacao, o: OrdemDerivada, eu: {
 }
 
 /**
+ * G8-1: o que a vez de integrar diz do fim de uma ordem, a mesma regra no `encerrarOrdem` e no plano da reconciliação. A
+ * vez ativa espera, porque o merge pode ter chegado à base; sem entrega do trabalho, a fonte que chegou sem prova espera a
+ * inspeção do dono, e a vez abandonada espera a reconciliação ler a base sem a fonte (`conferidas`, que só ela tem).
+ */
+function esperaDaVez(estado: EstadoDaCoordenacao, o: OrdemDerivada, conferidas?: ReadonlySet<string>, semProva?: ReadonlySet<string>):
+  'ativa' | 'sem-prova' | 'abandonada' | null {
+  const dasVezes = [...estado.vezes.values()].flat().filter(v => v.ordem === o.ordem);
+  if (dasVezes.some(v => !v.fim)) return 'ativa';
+  if (estado.entregas.has(o.trabalho)) return null;
+  if (dasVezes.some(v => v.fim?.desfecho === 'sem-prova' || semProva?.has(`${v.chave}/${v.n}`))) return 'sem-prova';
+  if (dasVezes.some(v => v.fim?.desfecho === 'abandonada' && !conferidas?.has(`${v.chave}/${v.n}`))) return 'abandonada';
+  return null;
+}
+
+/**
  * O estado da coordenação, derivado da leitura conferida. Confere o contrato de cada tipo e a coerência entre eles (quem
  * assina o quê, gerações contíguas e seladas, uma ordem viva por trabalho, uma vez ativa por destino, recibos que não se
  * contradizem); qualquer falha é `noctum.coordenacao.adulterado`. A mesma leitura deriva uma vez só.
@@ -918,11 +933,13 @@ export function concluirOrdem(carregado: ManifestoCarregado, arco: string, ordem
     throw recusa('noctum.envelope.invalido', 'a conclusão é entregue ou encerrado-sem-entrega');
   }
   if (conclusao.thread !== null && !linha(conclusao.thread, 80)) throw recusa('noctum.envelope.invalido', 'a thread da conclusão vai em uma linha de até 80 caracteres');
+  const chave = identidadeDaMaquina(carregado.raiz, opcoes.maquina).chave;
   gravarNaCoordenacao(carregado, arco, opcoes, (leitura) => {
     const estado = derivarCoordenacao(leitura);
     const eu = nomeDe(opcoes);
     const o = exigirOrdem(estado, ordem);
     if (o.maquina !== eu) throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} é da máquina ${o.maquina}`);
+    if (!ordemDaRaiz(estado, o, { nome: eu, chave })) throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} é de outra chave da máquina ${eu}`);
     if (o.estado === 'concluida') return { novos: [], resultado: null };
     if (o.estado !== 'aceita' && o.estado !== 'isolada') throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} está ${o.estado}`);
     return { novos: [{ tipo: 'recibo', ordem, recibo: 'concluida', motivo: 'thread local ' + conclusao.resultado, resultado: conclusao.resultado,
@@ -943,21 +960,29 @@ export function encerrarOrdem(carregado: ManifestoCarregado, arco: string, ordem
   }
   const checkpoint = { thread: fim.checkpoint.thread ?? null, vagasSoltas: fim.checkpoint.vagasSoltas ?? [] };
   const doFim = motivoPublico(fim.motivo, 'o fim da ordem');
+  const chave = identidadeDaMaquina(carregado.raiz, opcoes.maquina).chave;
   gravarNaCoordenacao(carregado, arco, opcoes, (leitura) => {
     const estado = derivarCoordenacao(leitura);
     const eu = nomeDe(opcoes);
     const o = exigirOrdem(estado, ordem);
     if (o.maquina !== eu) throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} é da máquina ${o.maquina}`);
+    if (!ordemDaRaiz(estado, o, { nome: eu, chave })) throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} é de outra chave da máquina ${eu}`);
     if (o.estado === 'encerrada') return { novos: [], resultado: null };
     if (o.estado !== 'aceita' && o.estado !== 'isolada') throw recusa('noctum.coordenacao.ordem-vencida', `a ordem ${ordem} está ${o.estado}`);
-    const vezes = [...estado.vezes.values()].flat().filter(v => v.ordem === o.ordem);
-    if (vezes.some(v => !v.fim)) {
+    // G8-6: a vaga que outra chave da máquina tomou tem o despacho no log de outra raiz; daqui não se prova a parada dela.
+    const deOutra = estado.vagas.find(v => v.ordem === o.ordem && !v.solta && v.chave !== chave);
+    if (deOutra) {
+      throw recusa('noctum.coordenacao.ordem-vencida', `a vaga ${deOutra.vaga} da ordem ${ordem} é de outra chave da máquina ${eu}; ` +
+        'só a raiz dela prova a parada da sessão');
+    }
+    const espera = esperaDaVez(estado, o);
+    if (espera === 'ativa') {
       throw recusa('noctum.integracao.nao-provada', `a ordem ${ordem} tem uma vez de integrar ativa; o merge pode ter chegado à base, e a reconciliação decide antes do fim`);
     }
-    if (!estado.entregas.has(o.trabalho) && vezes.some(v => v.fim?.desfecho === 'sem-prova')) {
+    if (espera === 'sem-prova') {
       throw recusa('noctum.integracao.base-nao-provada', `a ordem ${ordem} tem uma fonte que chegou à base fora da cerca; o trabalho espera a inspeção do dono`);
     }
-    if (!estado.entregas.has(o.trabalho) && vezes.some(v => v.fim?.desfecho === 'abandonada')) {
+    if (espera === 'abandonada') {
       throw recusa('noctum.integracao.nao-provada', `a ordem ${ordem} tem uma vez abandonada cuja base ainda precisa ser conferida pela reconciliação`);
     }
     return { novos: [{ tipo: 'recibo', ordem, recibo: 'encerrada', motivo: doFim, checkpoint }], resultado: null };
@@ -1064,11 +1089,14 @@ export function tomarVagaGlobal(carregado: ManifestoCarregado, arco: string, p: 
 export function soltarVagaGlobal(carregado: ManifestoCarregado, arco: string, vaga: string, soltura: { consumiu: boolean; motivo: string },
   opcoes: OpcoesDaCoordenacao = {}): void {
   const daSoltura = motivoPublico(soltura.motivo, 'a soltura da vaga');
+  const chave = identidadeDaMaquina(carregado.raiz, opcoes.maquina).chave;
   gravarNaCoordenacao(carregado, arco, opcoes, (leitura) => {
     const estado = derivarCoordenacao(leitura);
     const eu = nomeDe(opcoes);
     const v = estado.vagas.find(x => x.vaga === vaga);
     if (!v || v.maquina !== eu) throw recusa('noctum.coordenacao.ordem-vencida', `a vaga ${vaga} não é desta máquina`);
+    // G8-6: só a raiz da chave que tomou a vaga tem o despacho dela no log local, e só ela a solta.
+    if (v.chave !== chave) throw recusa('noctum.coordenacao.ordem-vencida', `a vaga ${vaga} é de outra chave da máquina ${eu}; só a raiz dela a solta`);
     if (v.solta) return { novos: [], resultado: null };
     return { novos: [{ tipo: 'vaga-solta', vaga, consumiu: soltura.consumiu, motivo: daSoltura }], resultado: null };
   });
@@ -1142,6 +1170,9 @@ export function soltarReservaDoArco(carregado: ManifestoCarregado, arco: string,
   const agora = reservaDoItem(carregado, arco, item, opcoes);
   if (!agora?.doArco) return false;
   const eu = nomeDe(opcoes);
+  // A sonda D do CHECK de 15/10: o item que ganhou ordem viva desta máquina depois do plano da reconciliação fica com a
+  // reserva, mesmo para quem compõe a reconciliação fora da trava da máquina; a leitura é nova.
+  if ([...lerCoordenacao(carregado, arco, opcoes).ordens.values()].some(o => o.maquina === eu && o.item === item && ordemViva(o))) return false;
   return soltarItem(carregado.raiz, item, { remoto: opcoes.remoto ?? carregado.manifesto.fabrica.remoto, maquina: eu, rede: opcoes.rede }).acao === 'soltou';
 }
 
@@ -1199,7 +1230,8 @@ function vagaViva(v: VagaDerivada, fatos: FatosLocaisDaMaquina): boolean {
 /**
  * O plano puro da reconciliação desta máquina: conclui as ordens cuja thread local terminou, encerra as vencidas sem sessão
  * viva (soltando as vagas delas) e solta as vagas cujo despacho local foi recusado ou cuja sessão acabou. A pendente fica,
- * contada, até a N4. Os itens para soltar a reserva são os das ordens desta máquina, de qualquer versão do envelope.
+ * contada, até a N4, e a vaga que outra chave da máquina tomou conta como viva (G8-6). Os itens para soltar a reserva são os
+ * das ordens desta máquina, de qualquer versão do envelope.
  */
 export function planejarReconciliacao(estado: EstadoDaCoordenacao, eu: string, fatos: FatosLocaisDaMaquina): PlanoDeReconciliacao {
   const plano: PlanoDeReconciliacao = { novos: [], encerradas: [], concluidas: [], soltas: [], aguardando: [], itensSemOrdemViva: [] };
@@ -1228,27 +1260,21 @@ export function planejarReconciliacao(estado: EstadoDaCoordenacao, eu: string, f
         : estado.revogada ? `o arco foi revogado na máquina ${estado.revogada.por}`
           : !fatos.arcoVigente ? 'o arco não está vigente nesta máquina' : null;
     if (!porque) continue;
-    // Uma vez de integrar ativa é um merge que pode ter acontecido: a reconciliação da integração decide antes (D13).
-    const dasVezes = [...estado.vezes.values()].flat().filter(v => v.ordem === o.ordem);
-    if (dasVezes.some(v => !v.fim)) {
-      plano.aguardando.push({ ordem: o.ordem, porque: `${porque}; a vez de integrar dela está ativa, e o merge pode ter chegado à base` });
-      continue;
-    }
-    // B-R2A-1 da rodada 2: a fonte que chegou à base sem prova sobre a base provada não é refeita em outra máquina: a ordem
-    // fica, e o trabalho espera a inspeção do dono.
-    if (!estado.entregas.has(o.trabalho) && dasVezes.some(v => v.fim?.desfecho === 'sem-prova' || fatos.vezesSemProva?.has(`${v.chave}/${v.n}`))) {
-      plano.aguardando.push({ ordem: o.ordem, porque: `${porque}; a fonte dela chegou à base por um merge fora da base provada, e o trabalho espera a inspeção` });
-      continue;
-    }
-    if (!estado.entregas.has(o.trabalho) &&
-        dasVezes.some(v => v.fim?.desfecho === 'abandonada' && !fatos.vezesConferidas?.has(`${v.chave}/${v.n}`))) {
-      plano.aguardando.push({ ordem: o.ordem, porque: `${porque}; a vez de integrar dela foi abandonada pela autoridade, e o merge pode ter chegado à base` });
+    // Uma vez de integrar ativa é um merge que pode ter acontecido: a reconciliação da integração decide antes (D13). B-R2A-1
+    // da rodada 2: a fonte que chegou à base sem prova sobre a base provada não é refeita em outra máquina, e o trabalho espera
+    // a inspeção do dono. A vez abandonada espera a base lida sem a fonte (A7 da revisão).
+    const espera = esperaDaVez(estado, o, fatos.vezesConferidas, fatos.vezesSemProva);
+    if (espera) {
+      const daVez = { ativa: 'a vez de integrar dela está ativa, e o merge pode ter chegado à base',
+        'sem-prova': 'a fonte dela chegou à base por um merge fora da base provada, e o trabalho espera a inspeção',
+        abandonada: 'a vez de integrar dela foi abandonada pela autoridade, e o merge pode ter chegado à base' }[espera];
+      plano.aguardando.push({ ordem: o.ordem, porque: `${porque}; ${daVez}` });
       continue;
     }
     const dela = estado.vagas.filter(v => v.ordem === o.ordem && !v.solta);
     const vivas = dela.filter(v => !daChave(v) || vagaViva(v, fatos));
     if (vivas.length) {
-      plano.aguardando.push({ ordem: o.ordem, porque: `${porque}; ${vivas.length} sessão(ões) dela ainda viva(s) ou incerta(s) nesta máquina` });
+      plano.aguardando.push({ ordem: o.ordem, porque: `${porque}; ${vivas.length} sessão(ões) dela ainda viva(s), incerta(s) ou de outra raiz desta máquina` });
       continue;
     }
     for (const v of dela) soltar(v, 'fim da ordem');

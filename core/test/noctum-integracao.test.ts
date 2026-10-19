@@ -267,6 +267,9 @@ test('I9: a vez de quem não dá sinal é abandonada pela autoridade; o destino 
     const r = reconciliarIntegracao(m.b.carregado, m.arco, op(m.b, tarde));
     assert.deepEqual(r.registradas.map(x => x.trabalho), ['b']);
     assert.equal(mainNoRemoto(m), feito.merge, 'nada foi integrado de novo');
+    // Com a entrega registrada, a vez abandonada não segura mais o fim da ordem.
+    encerrarOrdem(m.b.carregado, m.arco, 'O-b-1', { motivo: 'SIMULADO: fim depois da entrega', checkpoint: {} }, op(m.b, tarde));
+    assert.equal(lerCoordenacao(m.a.carregado, m.arco, op(m.a, tarde)).ordens.get('O-b-1')!.estado, 'encerrada');
     estado = lerCoordenacao(m.a.carregado, m.arco, op(m.a, tarde));
     assert.deepEqual([situacaoDoTrabalho(estado, 'a')!.estado, situacaoDoTrabalho(estado, 'b')!.estado], ['entregue', 'entregue']);
     assert.deepEqual([...estado.vezes.values()].flat().map(v => [v.maquina, v.fim?.desfecho, v.fim?.por]),

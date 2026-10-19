@@ -241,8 +241,10 @@ test('K6: a reserva do item é tomada pelo executor da ordem aceita, revalidada,
     // A reserva que o dono tomou à mão nesta máquina vale para o arco daqui, como na N2, e o arco nunca a solta.
     assert.deepEqual(tomarReservaDoTrabalho(m.a.carregado, m.arco, 'O-g-1', null, op(m.a)), { ok: true, acao: 'revalidada' });
     assert.equal(soltarReservaDoArco(m.a.carregado, m.arco, 'RM-907', op(m.a)), false, 'a do dono tem outra nota');
-    // Só a reserva do arco, desta máquina, é solta.
+    // Só a reserva do arco, desta máquina, é solta, e só sem ordem viva dela no item (K27).
     assert.equal(soltarReservaDoArco(m.a.carregado, m.arco, 'RM-901', op(m.a)), false, 'a do RM-901 é da B');
+    assert.equal(soltarReservaDoArco(m.b.carregado, m.arco, 'RM-901', op(m.b)), false, 'a O-a-1 está viva');
+    encerrarOrdem(m.b.carregado, m.arco, 'O-a-1', { motivo: 'SIMULADO: fim', checkpoint: {} }, op(m.b));
     assert.equal(soltarReservaDoArco(m.b.carregado, m.arco, 'RM-901', op(m.b)), true);
     assert.equal(reservaDoItem(m.b.carregado, m.arco, 'RM-901', op(m.b))!.livre, true);
   } finally { m.limpar(); }
@@ -832,8 +834,10 @@ test('K24: a chave que a emenda aposentou não fecha a ordem da chave nova; a ra
   ];
   for (const [tipo, campos] of hostis) {
     const m = cenario(`noctum-k24-${tipo}`);
-    const t = trocar(m, `noctum-k24-${tipo}-c`);
+    let c1 = '';
     try {
+      const t = trocar(m, `noctum-k24-${tipo}-c`);
+      c1 = t.c;
       assumirAutoridade(m.b.carregado, m.arco, opB);
       bater(t.carregadoC, m.arco, opA);
       const ordem = emitirOrdem(m.b.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-a' }, opB);
@@ -846,7 +850,7 @@ test('K24: a chave que a emenda aposentou não fecha a ordem da chave nova; a ra
       gravarCru(m.a.dir, [{ caminho: caminhoDoRegistro(dados), conteudo: JSON.stringify({ dados, assinatura: assinarDados(m.a.dir, dados) }) + '\n' }]);
       assert.match(recusa(() => lerCoordenacao(m.b.carregado, m.arco, opB), 'noctum.coordenacao.adulterado'),
         /assinado sob uma versão anterior à da ordem O-a-1, por uma chave diferente da que o envelope dela dá ao executor maquina-a/, tipo);
-    } finally { m.limpar(); fs.rmSync(path.dirname(t.c), { recursive: true, force: true }); }
+    } finally { m.limpar(); if (c1) fs.rmSync(path.dirname(c1), { recursive: true, force: true }); }
   }
   const m2 = cenario('noctum-k24b');
   let c2 = '';
@@ -865,6 +869,11 @@ test('K24: a chave que a emenda aposentou não fecha a ordem da chave nova; a ra
     const plano = reconciliarCoordenacao(t2.carregadoC, m2.arco, { arcoVigente: true, sessoesVivas: new Set(), threads: new Map(),
       despachos: new Map([[1, { desfecho: 'recusado' as const, sessionId: null }]]) }, opA);
     assert.deepEqual([plano.encerradas, plano.soltas, plano.aguardando.map(x => x.ordem)], [['O-a-1'], [], ['O-d-1']]);
+    // Pela interface da N4 também: a raiz nova não prova a parada da sessão da vaga antiga nem a solta.
+    assert.match(recusa(() => encerrarOrdem(t2.carregadoC, m2.arco, 'O-d-1', { motivo: 'SIMULADO: retomada', checkpoint: {} }, opA),
+      'noctum.coordenacao.ordem-vencida'), /a vaga V-maquina-a-1 da ordem O-d-1 é de outra chave da máquina maquina-a/);
+    assert.match(recusa(() => soltarVagaGlobal(t2.carregadoC, m2.arco, 'V-maquina-a-1', { consumiu: false, motivo: 'SIMULADO' }, opA),
+      'noctum.coordenacao.ordem-vencida'), /a vaga V-maquina-a-1 é de outra chave da máquina maquina-a; só a raiz dela a solta/);
     const e = lerCoordenacao(m2.b.carregado, m2.arco, opB);
     assert.deepEqual([e.ordens.get('O-a-1')!.estado, situacaoDoTrabalho(e, 'a')!.estado, e.ordens.get('O-d-1')!.estado,
       e.vagas.find(v => v.vaga === 'V-maquina-a-1')!.solta], ['encerrada', 'livre', 'aceita', null]);
@@ -898,9 +907,16 @@ test('K24: a chave que a emenda aposentou não fecha a ordem da chave nova; a ra
     const plano = reconciliarCoordenacao(m3.a.carregado, m3.arco, { arcoVigente: true, sessoesVivas: new Set(), threads: new Map(),
       despachos: new Map() }, opA);
     assert.deepEqual(plano.encerradas, ['O-a-1']);
+    // Pela interface da N4, a recusa diz que a ordem é de outra chave da máquina.
+    assert.match(recusa(() => encerrarOrdem(m3.a.carregado, m3.arco, 'O-e-1', { motivo: 'SIMULADO', checkpoint: {} }, opA),
+      'noctum.coordenacao.ordem-vencida'), /a ordem O-e-1 é de outra chave da máquina maquina-a/);
+    assert.match(recusa(() => concluirOrdem(m3.a.carregado, m3.arco, 'O-e-1', { resultado: 'encerrado-sem-entrega', thread: null }, opA),
+      'noctum.coordenacao.ordem-vencida'), /a ordem O-e-1 é de outra chave da máquina maquina-a/);
     const e = lerCoordenacao(m3.b.carregado, m3.arco, opB);
     assert.deepEqual([e.ordens.get('O-a-1')!.estado, e.ordens.get('O-d-1')!.estado, e.ordens.get('O-e-1')!.estado,
       [...e.vezes.values()].flat()[0].fim], ['encerrada', 'isolada', 'isolada', null]);
+    // A raiz nova resolve a vez dela pela base: a fonte que nem existe neste clone, depois de buscar a base, não está nela.
+    assert.deepEqual(reconciliarIntegracao(t3.carregadoC, m3.arco, opA).soltas, [`${chaveDoDestino(destino)}/1`]);
   } finally { m3.limpar(); if (c3) fs.rmSync(path.dirname(c3), { recursive: true, force: true }); }
 });
 
@@ -964,4 +980,68 @@ test('K26: os tetos da conta e do runtime somam as máquinas independentemente d
     assert.match(recusa(() => tomarVagaGlobal(m2.b.carregado, m2.arco, { ordem: 'O-d-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, op(m2.b)),
       'noctum.orcamento.esgotado'), /o teto do runtime claude-bg é de 1 sessoes/);
   } finally { m2.limpar(); }
+});
+
+test('K27: a soltura da reserva do arco relê a coordenação: o item que ganhou ordem viva depois do plano fica reservado', () => {
+  const m = cenario('noctum-k27');
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+    bater(m.b.carregado, m.arco, op(m.b));
+    emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a));
+    cancelarOrdem(m.a.carregado, m.arco, 'O-a-1', 'SIMULADO: antes do aceite', op(m.a));
+    // A sonda D do CHECK de 15/10: o plano da B diz o item sem ordem viva; antes da soltura, a ordem nova chega e é aceita.
+    const plano = reconciliarCoordenacao(m.b.carregado, m.arco, { arcoVigente: true, sessoesVivas: new Set(), threads: new Map(),
+      despachos: new Map() }, op(m.b));
+    assert.deepEqual(plano.itensSemOrdemViva, ['RM-901']);
+    assert.equal(emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a)), 'O-a-2');
+    responderOrdem(m.b.carregado, m.arco, 'O-a-2', 'aceita', 'SIMULADO', op(m.b));
+    assert.deepEqual(tomarReservaDoTrabalho(m.b.carregado, m.arco, 'O-a-2', null, op(m.b)), { ok: true, acao: 'pegou' });
+    assert.equal(soltarReservaDoArco(m.b.carregado, m.arco, 'RM-901', op(m.b)), false, 'a O-a-2 está viva');
+    assert.deepEqual(reservaDoItem(m.b.carregado, m.arco, 'RM-901', op(m.b)), { livre: false, minha: true, doArco: true });
+  } finally { m.limpar(); }
+});
+
+test('K28: o leitor reprova a vaga solta por outra máquina, gerações e ordens não contíguas, o resultado fora da conclusão, o fim de vez que não existe e a ordem para a máquina errada', () => {
+  const destino = { repositorio: 'exemplo/produto', base: 'main' };
+  // Cada caso grava pelo transporte, sem a régua de quem grava, o que um núcleo divergente gravaria, e a outra máquina lê.
+  const casos: Array<[string, (m: DuasMaquinas) => void, RegExp]> = [
+    ['vaga-solta', (m) => {
+      emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-a' }, op(m.a));
+      responderOrdem(m.a.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m.a));
+      tomarVagaGlobal(m.a.carregado, m.arco, { ordem: 'O-a-1', conta: 'perfil-a', runtime: 'claude-bg', reserva: 1 }, op(m.a));
+      gravarNoRamo(m.b.carregado, m.arco, op(m.b), () => ({ novos: [{ tipo: 'vaga-solta', vaga: 'V-maquina-a-1', consumiu: false, motivo: 'SIMULADO' }],
+        resultado: null }));
+    }, /de uma vaga que não existe ou não é de quem solta/],
+    ['geracoes', (m) => {
+      gravarNoRamo(m.b.carregado, m.arco, op(m.b), () => ({ novos: [{ tipo: 'autoridade', geracao: 3, modo: 'forcada', motivo: 'SIMULADO',
+        anterior: { geracao: 2, maquina: 'maquina-a' }, selo: seloDaGeracao([]), batidaDaAnterior: null }], resultado: null }));
+    }, /as gerações da autoridade não são contíguas \(falta a 2\)/],
+    ['resultado', (m) => {
+      emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: 'maquina-b' }, op(m.a));
+      responderOrdem(m.b.carregado, m.arco, 'O-a-1', 'aceita', 'SIMULADO', op(m.b));
+      gravarNoRamo(m.b.carregado, m.arco, op(m.b), () => ({ novos: [{ tipo: 'recibo', ordem: 'O-a-1', recibo: 'encerrada', motivo: 'SIMULADO',
+        resultado: 'entregue' }], resultado: null }));
+    }, /só a conclusão traz resultado, e sempre/],
+    ['vez', (m) => {
+      gravarNoRamo(m.b.carregado, m.arco, op(m.b), () => ({ novos: [{ tipo: 'vez-fim', chave: chaveDoDestino(destino), n: 1, desfecho: 'desistiu',
+        motivo: 'SIMULADO', merge: null }], resultado: null }));
+    }, /de uma vez que não existe/],
+    ['ordens', (m) => {
+      gravarNoRamo(m.a.carregado, m.arco, op(m.a), () => ({ novos: [{ tipo: 'ordem', ordem: 'O-a-2', trabalho: 'a', item: 'RM-901',
+        maquina: 'maquina-a', geracao: 1, n: 2 }], resultado: null }));
+    }, /as ordens do trabalho a não são contíguas/],
+    ['maquina', (m) => {
+      gravarNoRamo(m.a.carregado, m.arco, op(m.a), () => ({ novos: [{ tipo: 'ordem', ordem: 'O-c-1', trabalho: 'c', item: 'RM-903',
+        maquina: 'maquina-a', geracao: 1, n: 1 }], resultado: null }));
+    }, /para uma máquina que o envelope dela não admite nesse trabalho/],
+  ];
+  for (const [nome, gravar, esperado] of casos) {
+    const m = cenario(`noctum-k28-${nome}`);
+    try {
+      assumirAutoridade(m.a.carregado, m.arco, op(m.a));
+      bater(m.b.carregado, m.arco, op(m.b));
+      gravar(m);
+      assert.match(recusa(() => lerCoordenacao(m.b.carregado, m.arco, op(m.b)), 'noctum.coordenacao.adulterado'), esperado, nome);
+    } finally { m.limpar(); }
+  }
 });
