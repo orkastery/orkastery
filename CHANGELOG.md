@@ -273,7 +273,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Snapshot pt-BR estável com sha só de letras** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o
   teste `locale pt-BR F3b` caía quando o commit gerado no teste saía só com letras (`aaeecea`, `ebcbadb`) em dois
-  contextos que o normalizador não reconhecia, "branch <b> em <sha>" e "(<sha>, N tentativa(s))". Os dois
+  contextos que o normalizador não reconhecia, `branch <b> em <sha>` e `(<sha>, N tentativa(s))`. Os dois
   contextos viram `<SHA7>`, sem engolir palavra comum no meio da frase.
 - **Codex e Claude Code fecham o GO com os mesmos artefatos** ([RM-016](docs/roadmap/RM-016-experiencia-do-builder.md)): o prompt canônico agora exige `verify`, build, bundle de CI, commit `ci(<thread>): bundle ...` e `pr-body.md` nos dois runtimes.
 - **Parecer reprovado volta a ser legível na retomada** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)): o leitor do CHECK reconhece `Veredito: REPROVOU` como reprovação, além dos três termos já aceitos.
