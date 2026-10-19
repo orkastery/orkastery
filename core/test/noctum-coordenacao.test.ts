@@ -877,6 +877,13 @@ test('K24: a chave que a emenda aposentou não fecha a ordem da chave nova; a ra
     const e = lerCoordenacao(m2.b.carregado, m2.arco, opB);
     assert.deepEqual([e.ordens.get('O-a-1')!.estado, situacaoDoTrabalho(e, 'a')!.estado, e.ordens.get('O-d-1')!.estado,
       e.vagas.find(v => v.vaga === 'V-maquina-a-1')!.solta], ['encerrada', 'livre', 'aceita', null]);
+    // A raiz antiga volta com a emenda autorizada, prova a parada da sessão e solta a vaga dela; aí a raiz nova fecha a ordem.
+    autorizarPedido(m2.a.dir, m2.arco, t2.emenda);
+    soltarVagaGlobal(m2.a.carregado, m2.arco, 'V-maquina-a-1', { consumiu: false, motivo: 'SIMULADO: a sessão da raiz antiga parou' }, opA);
+    encerrarOrdem(t2.carregadoC, m2.arco, 'O-d-1', { motivo: 'SIMULADO: retomada', checkpoint: {} }, opA);
+    const depois = lerCoordenacao(m2.b.carregado, m2.arco, opB);
+    assert.deepEqual([depois.ordens.get('O-d-1')!.estado, situacaoDoTrabalho(depois, 'd')!.estado,
+      depois.vagas.find(v => v.vaga === 'V-maquina-a-1')!.solta !== null], ['encerrada', 'livre', true]);
   } finally { m2.limpar(); if (c2) fs.rmSync(path.dirname(c2), { recursive: true, force: true }); }
   const m3 = cenario('noctum-k24c');
   let c3 = '';
