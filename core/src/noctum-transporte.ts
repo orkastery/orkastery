@@ -183,9 +183,9 @@ const regravavel = (arco: string, caminho: string): boolean => new RegExp(`^arco
 // Git sem limite de saída pequeno: a árvore do arco e os blobs vêm de uma vez.
 // ---------------------------------------------------------------------------
 
-function gitBruto(raiz: string, args: string[], entrada?: string): { ok: boolean; saida: Buffer; erro: string } {
+function gitBruto(raiz: string, args: string[], entrada?: string): { ok: boolean; status: number | null; saida: Buffer; erro: string } {
   const r = spawnSync('git', args, { cwd: raiz, input: entrada, maxBuffer: 256 * 1024 * 1024, timeout: 60000 });
-  return { ok: r.status === 0 && !r.error, saida: r.stdout ?? Buffer.alloc(0), erro: (r.stderr ?? Buffer.alloc(0)).toString('utf8') };
+  return { ok: r.status === 0 && !r.error, status: r.status, saida: r.stdout ?? Buffer.alloc(0), erro: (r.stderr ?? Buffer.alloc(0)).toString('utf8') };
 }
 
 /**
@@ -295,13 +295,18 @@ function comTravaDaVista<T>(dir: string, executar: () => T): T {
   }
 }
 
-const ancestral = (raiz: string, antigo: string, novo: string): boolean =>
-  gitBruto(raiz, ['merge-base', '--is-ancestor', antigo, novo]).ok;
+const ancestral = (raiz: string, antigo: string, novo: string): 'sim' | 'nao' | 'ilegivel' => {
+  const r = gitBruto(raiz, ['merge-base', '--is-ancestor', antigo, novo]);
+  if (r.ok) return 'sim';
+  return r.status === 1 ? 'nao' : 'ilegivel';
+};
 
 /** O `em` de um registro numa ponta, para comparar a batida antiga com a nova. */
-function emDoRegistro(raiz: string, ponta: string, caminho: string): number {
+function emDoRegistro(raiz: string, ponta: string, caminho: string): { lido: boolean; em: number } {
   const r = gitBruto(raiz, ['show', `${ponta}:${caminho}`]);
-  try { return Date.parse(String((JSON.parse(r.saida.toString('utf8')) as { dados: { em: string } }).dados.em)); } catch { return NaN; }
+  if (!r.ok) return { lido: false, em: NaN };
+  try { return { lido: true, em: Date.parse(String((JSON.parse(r.saida.toString('utf8')) as { dados: { em: string } }).dados.em)) }; }
+  catch { return { lido: true, em: NaN }; }
 }
 
 /**
@@ -316,7 +321,9 @@ function violacaoDeAcrescimo(raiz: string, arco: string, de: string, para: strin
     const [status, caminho] = [partes[i], partes[i + 1]];
     if (status === 'A') continue;
     if (status === 'M' && regravavel(arco, caminho)) {
-      if (!(emDoRegistro(raiz, para, caminho) >= emDoRegistro(raiz, de, caminho))) return `a batida ${caminho} voltou no tempo depois de vista`;
+      const nova = emDoRegistro(raiz, para, caminho), antiga = emDoRegistro(raiz, de, caminho);
+      if (!nova.lido || !antiga.lido) return 'ilegivel';
+      if (!(nova.em >= antiga.em)) return `a batida ${caminho} voltou no tempo depois de vista`;
       continue;
     }
     return `o registro ${caminho} foi ${status === 'D' ? 'apagado' : 'alterado'} depois de visto`;
@@ -350,8 +357,12 @@ function relacaoComAVista(raiz: string, dir: string, remoto: string, arco: strin
   };
   if (ponta === null) return reprovar(`o ramo ${BRANCH_DE_COORDENACAO} sumiu do remoto ${remoto} depois de visto`);
   if (ponta === antiga) return 'ok';
-  if (ancestral(raiz, antiga, ponta)) { conferir(antiga, ponta); return 'ok'; }
-  if (ancestral(raiz, ponta, antiga)) { conferir(ponta, antiga); return 'atras'; }
+  const adiante = ancestral(raiz, antiga, ponta);
+  if (adiante === 'ilegivel') throw adulterado('a relação entre a última ponta vista e a nova não se lê');
+  if (adiante === 'sim') { conferir(antiga, ponta); return 'ok'; }
+  const atras = ancestral(raiz, ponta, antiga);
+  if (atras === 'ilegivel') throw adulterado('a relação entre a nova ponta e a última vista não se lê');
+  if (atras === 'sim') { conferir(ponta, antiga); return 'atras'; }
   return reprovar(`a história do ramo foi reescrita: a ponta ${ponta.slice(0, 12)} não desce da última vista ${antiga.slice(0, 12)}`);
 }
 

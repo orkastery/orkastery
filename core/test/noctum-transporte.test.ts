@@ -6,6 +6,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { exec } from '../src/util';
 import * as branchDeEstado from '../src/branch-de-estado';
@@ -54,6 +55,32 @@ function dados(m: DuasMaquinas, extra: Record<string, unknown>): DadosDoRegistro
 }
 
 const assinado = (raiz: string, d: DadosDoRegistro) => JSON.stringify({ dados: d, assinatura: assinarDados(raiz, d) }) + '\n';
+
+/** Faz só a primeira invocação do subcomando pedido falhar, sem compartilhar marca ou shim entre testes. */
+function comGitFalhandoUmaVez<T>(comando: 'merge-base' | 'show', executar: () => T): T {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `noctum-git-${comando}-`));
+  const marca = path.join(dir, 'falhou');
+  const shim = path.join(dir, 'git');
+  fs.writeFileSync(shim, '#!/bin/sh\n' +
+    'if [ "$1" = "$NOCTUM_TESTE_GIT_CMD" ] && [ ! -e "$NOCTUM_TESTE_GIT_MARCA" ]; then\n' +
+    '  : > "$NOCTUM_TESTE_GIT_MARCA"\n' +
+    '  echo "fatal: falha passageira SIMULADA" >&2\n' +
+    '  exit 128\n' +
+    'fi\n' +
+    'exec /usr/bin/git "$@"\n');
+  fs.chmodSync(shim, 0o700);
+  const anterior = { path: process.env.PATH, comando: process.env.NOCTUM_TESTE_GIT_CMD, marca: process.env.NOCTUM_TESTE_GIT_MARCA };
+  process.env.PATH = `${dir}${path.delimiter}${anterior.path ?? ''}`;
+  process.env.NOCTUM_TESTE_GIT_CMD = comando;
+  process.env.NOCTUM_TESTE_GIT_MARCA = marca;
+  try { return executar(); }
+  finally {
+    if (anterior.path === undefined) delete process.env.PATH; else process.env.PATH = anterior.path;
+    if (anterior.comando === undefined) delete process.env.NOCTUM_TESTE_GIT_CMD; else process.env.NOCTUM_TESTE_GIT_CMD = anterior.comando;
+    if (anterior.marca === undefined) delete process.env.NOCTUM_TESTE_GIT_MARCA; else process.env.NOCTUM_TESTE_GIT_MARCA = anterior.marca;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 test('T1: a chave da máquina é Ed25519, estável por raiz de estado e diferente entre raízes', () => {
   const m = cenario('noctum-t1');
@@ -399,5 +426,37 @@ test('T15: o teto de registros do arco vale também para quem grava: o registro 
     assert.equal(ponta(), antes);
     assert.deepEqual([lerRamo(m.a.carregado, m.arco, { maquina: 'maquina-a' }).registros.length,
       lerRamo(m.b.carregado, m.arco, { maquina: 'maquina-b' }).registros.length], [3, 3]);
+    // MA da revisão: um escritor hostil pode ignorar o teto; cada leitor também precisa rejeitar o quarto arquivo.
+    gravarCru(m.a.dir, [{ caminho: `arcos/${m.arco}/entregas/t4.json`,
+      conteudo: assinado(m.a.dir, dados(m, { trabalho: 't4', ordem: 'O-t4-1' })) }]);
+    for (const maquina of [m.a, m.b]) {
+      assert.match(recusa(() => lerRamo(maquina.carregado, m.arco, { maquina: maquina.nome }), 'noctum.coordenacao.adulterado'),
+        /o arco tem 4 registros, acima de 3/);
+    }
   } finally { modulo.TETO_DE_REGISTROS = teto; m.limpar(); }
+});
+
+test('T16: falha passageira de merge-base ou show recusa a leitura sem marcar uma história íntegra', () => {
+  const exercitar = (modo: 'merge-base' | 'show'): void => {
+    const m = cenario(`noctum-t16-${modo}`);
+    const novos = (i: number) => modo === 'show'
+      ? [{ tipo: 'batida' as const }]
+      : [{ tipo: 'entrega' as const, trabalho: `t${i}`, ordem: `O-t${i}-1` }];
+    const gravar = (i: number) => gravarNoRamo(m.a.carregado, m.arco, { maquina: m.a.nome }, () => ({ novos: novos(i), resultado: null }));
+    try {
+      gravar(1);
+      lerRamo(m.b.carregado, m.arco);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+      gravar(2);
+      const primeira = comGitFalhandoUmaVez(modo,
+        () => recusa(() => lerRamo(m.b.carregado, m.arco), 'noctum.coordenacao.adulterado'));
+      assert.match(primeira, /não se lê/);
+      const lida = lerRamo(m.b.carregado, m.arco);
+      assert.equal(lida.registros.length, modo === 'show' ? 1 : 2, 'a segunda leitura, com o git normal, passa');
+      const vista = JSON.parse(fs.readFileSync(path.join(m.b.dir, '.orkastery', 'noctum', 'arcos', m.arco, 'coordenacao.json'), 'utf8'));
+      assert.equal(vista.remotos.origin.adulterado, undefined, 'a falha passageira não fica marcada');
+    } finally { m.limpar(); }
+  };
+  exercitar('merge-base');
+  exercitar('show');
 });
