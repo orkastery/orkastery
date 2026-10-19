@@ -28,6 +28,7 @@ import { raizDoEstado } from './estado-thread';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { Mensagens, textoDoCatalogo } from './locale';
 import { ArcoComProposta, EstadoDoArco, lerArcoComProposta, SituacaoDoArco } from './noctum-arco';
+import { sessoesEmVooDoArco } from './noctum-fechamento';
 import { ConteudoDoEnvelope, ID_DO_ARCO, RecusaDoArco, shaDoPedido } from './noctum-envelope';
 import { dirThread, lerThread } from './thread';
 import { EventoLedger } from './types';
@@ -179,20 +180,14 @@ export function guardaDaThread(raiz: string, thread: string, quando = new Date()
 /** As situações do arco que já terminou: nada novo sai dele, e a retenção vale (D4). */
 const TERMINAIS: readonly SituacaoDoArco[] = ['expirado', 'revogado', 'encerrado'];
 
-/** Os eventos que provam o fim de uma sessão no ledger da thread (os mesmos do fechamento). */
-const FIM_DA_SESSAO: readonly string[] = ['phase_result', 'sessao_morta', 'session_superseded'];
-
 /**
- * A2 do CHECK: a sessão que o arco despachou nesta thread e que ainda não acabou (sem resultado, morte nem superação no
- * ledger), ou `null`. O ledger que não se lê não prova o fim: a sessão conta como em voo, e a guarda falha fechada.
+ * A2 do CHECK: a sessão que o arco despachou nesta thread e que ainda não acabou, ou `null`. É a conta do fechamento
+ * (`sessoesEmVooDoArco`): a sessão concluída sem resultado, morte nem superação no ledger, e a da reserva pendente, que o
+ * runtime abriu antes de o condutor morrer (N4 do CHECK 2). O ledger que não se lê não prova o fim: a guarda falha fechada.
  */
 function sessaoDoArcoEmVoo(raiz: string, thread: string, estado: EstadoDoArco): string | null {
-  const sessoes = [...new Set(estado.despachos.filter(d => d.desfecho === 'concluido' && d.sessionId && (d.threadDespachada ?? d.thread) === thread)
-    .map(d => d.sessionId!))];
-  if (!sessoes.length) return null;
-  let eventos: EventoLedger[] | null;
-  try { eventos = lerLedger(dirThread(raiz, thread)); } catch { eventos = null; }
-  return sessoes.find(s => !eventos?.some(e => FIM_DA_SESSAO.includes(e.tipo) && e.sessionId === s)) ?? null;
+  const s = sessoesEmVooDoArco(raiz, estado).find(x => x.thread === thread);
+  return s ? s.sessionId ?? `seq ${s.seq}` : null;
 }
 
 /** O vínculo da thread com um arco, como os caminhos automáticos o leem no passo do condutor (T1.2, D3 e D4). */

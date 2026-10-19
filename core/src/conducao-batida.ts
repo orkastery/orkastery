@@ -665,10 +665,11 @@ export function pendentesDaUltimaBatida(raiz: string, quando: string): AcaoPende
     if (i.motivo === MOTIVO_DA_GUARDA) continue;
     const ilegivel = i.motivo === MOTIVO_DO_ARCO_ILEGIVEL;
     try { if (lerThread(raizDoEstado(raiz), i.thread).status === 'fechada') continue; } catch { continue; }
-    // A espera que passa de 2 h (check obrigatorio parado, o GitHub sem o estado do merge) vira item do dono.
+    // A espera que passa de 2 h (check obrigatorio parado, o GitHub sem o estado do merge) vira item do dono. O arco que nao
+    // se le fica com o texto da guarda mesmo depois de 2 h (N3 do CHECK 2): a espera longa diria outra causa.
     const longa = i.resultado === 'espera' && !!i.desdeEm && Date.parse(quando) - Date.parse(i.desdeEm) > ESPERA_LONGA_MS;
-    const motivo = longa ? 'espera-longa' : ilegivel ? 'thread-do-arco' : i.motivo;
-    const bloqueio = ilegivel && !longa ? i.detalhe
+    const motivo = ilegivel ? 'thread-do-arco' : longa ? 'espera-longa' : i.motivo;
+    const bloqueio = ilegivel ? i.detalhe
       : ehBloqueio(motivo) ? textoDoCatalogo((m) => m.pulse.varredura.bloqueios[motivo as MotivoDoBloqueio]) : null;
     const recusa = i.motivo && /-recusad[oa]$/.test(i.motivo) ? { em: r.consultadoEm, detalhe: i.detalhe } : null;
     saida.push({ acao: i.acao, thread: i.thread, fase: i.fase, sessionId: null, desdeEm: i.desdeEm, comando: i.comando, oQue: i.oQue,

@@ -651,3 +651,46 @@ test('GT5: o arco que não se lê não tem relatório: as ações das threads de
     assert.match(doPulse[0].bloqueio ?? '', /^noctum\.guarda\.arco-ilegivel: /);
   } finally { p.limpar(); }
 });
+
+test('GS16: no arco revogado, a sessão aberta cuja reserva ficou pendente (o condutor morreu antes de concluir) também não entrega', () => {
+  const p = projetoTemporario('gs16', true);
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'reserva pendente', modo: 'auto' });
+    const sha = abrirArco(p.dir, 'arco-gs16', { trabalhos: [daThread('w1', thread.id)] });
+    reservarDespacho(p.dir, { arco: 'arco-gs16', envelopeSha256: sha, trabalho: 'w1', thread: thread.id, fase: 'CHECK', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    // O runtime abriu a sessão com a correlação do arco, e o condutor morreu antes de concluir a reserva.
+    passar(5);
+    const sessao = despachoDaFase(p, thread.id, 'CHECK', 'noctum:arco-gs16');
+    revogarArco(p.dir, 'arco-gs16');
+    const g = guardaDaThread(p.dir, thread.id);
+    assert.deepEqual([g?.motivo, g?.situacao], [MOTIVO_DA_GUARDA, 'revogado']);
+    assert.match(g!.texto, new RegExp(`a sessão ${sessao} que ele despachou ainda conduz a thread`));
+    assert.equal(ship(p.carregado, thread.id, { para: 'main', dryRun: true }).codigo, MOTIVO_DA_GUARDA, 'o ship da sessão da reserva pendente recusa');
+    registrar(dirThread(p.dir, thread.id), thread.id, 'phase_result', { fase: 'CHECK', sessionId: sessao, classificacao: 'fase_concluida', ok: true });
+    assert.equal(guardaDaThread(p.dir, thread.id), null, 'acabada a sessão, a thread se entrega à mão');
+  } finally { p.limpar(); }
+});
+
+test('GT6: depois de 2 h, o pulo do arco que não se lê segue no pulse com o texto da guarda, e não vira espera longa', () => {
+  const p = projetoTemporario('gt6');
+  try {
+    const parada = comPedido(p, 'gt6 parada');
+    abrirArco(p.dir, 'arco-gt6', { trabalhos: [daThread('w1', parada)] });
+    // O GOAL acabou há 3 h: o despacho do GO espera desde então.
+    const ha3h = new Date(Date.now() - 3 * HORA).toISOString();
+    const sessionId = despachoDaFase(p, parada, 'GOAL', 'noctum:arco-gt6', ha3h);
+    registrar(dirThread(p.dir, parada), parada, 'phase_result', { fase: 'GOAL', sessionId, classificacao: 'fase_concluida', ok: true, ts: ha3h });
+    const log = path.join(raizDoEstado(p.dir), '.orkastery', 'noctum', 'arcos', 'arco-gt6', 'arco.jsonl');
+    fs.appendFileSync(log, `${JSON.stringify({ dados: { seq: 99 }, mac: '0'.repeat(64) })}\n`);
+    autorizar(p, ['despachar']);
+    const chamadas: string[] = [];
+    assert.equal(baterConducao(p.carregado, opcoesDaBatida(chamadas)).ocupada, false);
+    assert.deepEqual(chamadas, []);
+    const item = lerRetratoDaBatida(p.dir)!.pendentes.find(i => i.thread === parada);
+    assert.equal(item?.desdeEm, ha3h, 'o despacho espera desde o fim do GOAL, há 3 h');
+    const daBatida = pendentesDaUltimaBatida(p.dir, new Date().toISOString()).filter(a => a.thread === parada);
+    assert.deepEqual(daBatida.map(a => [a.acao, a.motivoDoBloqueio]), [['despachar', 'thread-do-arco']]);
+    assert.match(daBatida[0].bloqueio ?? '', /^noctum\.guarda\.arco-ilegivel: /);
+  } finally { p.limpar(); }
+});
