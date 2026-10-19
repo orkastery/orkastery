@@ -1,0 +1,29 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm037sha7b",
+  "branch": "ork/ork-rm037sha7b-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm037sha7b",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3b-casos.ts",
+      "alegacao": "O normalizador do snapshot pt-BR troca por <SHA7> o sha só de letras em todo contexto de sha da fixture (entre parênteses, para, ship_done, seta, -> e --is-ancestor, além de em, @, commit, merge e remoto), sem engolir palavra fora deles; reprova com o teste vermelho ou ausente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='SHA7 só de letras' core/dist-test/test/locale-f3b-snapshot.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale pt-BR F3b: SHA7 só de letras' && ! printf '%s\\n' \"$out\" | grep -qE '^not ok'"
+      ],
+      "criadoEm": "2026-10-19T19:21:32.054Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

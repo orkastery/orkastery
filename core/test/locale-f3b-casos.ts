@@ -67,7 +67,9 @@ export function normalizar(texto: string): string {
     // Os outros contextos de commit que o CLI imprime: "branch <b> em <sha>" e "(<sha>, N tentativa(s))". Só com o
     // sha fechando o trecho, para "em acabada" ou "(decafed)" no meio de uma frase continuarem como estão.
     .replace(/(\bem\s+)[0-9a-f]{7}(?=\n|$)/gm, '$1<SHA7>')
-    .replace(/\(([0-9a-f]{7})(?=, \d+ tentativa)/g, '(<SHA7>')
+    // Entre parênteses o CLI só imprime sha: "(<sha>)", "(<sha>, N tentativa(s))", "(<sha>);". E as setas e verbos que
+    // levam um sha: "avancou para <sha>", "(ship_done <sha>)", "x → <sha>", "<sha> -> <sha>", "--is-ancestor <sha>".
+    .replace(/(\(|\b(?:para|ship_done|ancestor)\s+|(?:→|->)\s*)[0-9a-f]{7}(?=[\s),;.]|$)/gm, '$1<SHA7>')
     // Com um dígito, 7 ou 8 hexadecimais não se confundem com uma palavra comum.
     .replace(/\b(?=[a-f]*\d)[0-9a-f]{7,8}\b/g, '<SHA7>')
     .replace(/\b(ha|há) (?:menos de )?\d+ ?(?:h\d{2}|min|s|h|d)\b/g, '$1 <DURACAO>')
