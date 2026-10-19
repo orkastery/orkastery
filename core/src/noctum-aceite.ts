@@ -15,6 +15,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { repositorioGitHub } from './ci';
+import { formatarDataHora } from './horario';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { autoriaHumana } from './master';
@@ -497,7 +498,8 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   criterios.push({ id: 'I5', texto: 'nenhuma escrita fora do repositório do piloto ou da raiz de estado dele', limiar: null, origemDoLimiar: null,
     veredito: 'do-dono', detalhe: 'o núcleo não mede a escrita fora do repositório: o dono confere' });
   criterio('I6', 'o dono não revogou o envelope', [], false, !estado.revogadoPor && estado.encerramento?.motivo !== 'revogado',
-    estado.revogadoPor ? `revogado em ${estado.revogadoPor.recebidoEm}` : 'sem revogação');
+    estado.revogadoPor ? `revogado em ${formatarDataHora(estado.revogadoPor.recebidoEm, { fuso: janela.fuso, agora: fim, locale: 'pt-BR' })} (${janela.fuso})`
+      : 'sem revogação');
 
   const veredito: VereditoDoPiloto = marcas.length ? 'simulado' : criterios.some(c => c.veredito === 'reprovado') ? 'reprovado'
     : criterios.some(c => c.veredito === 'incompleto') ? 'incompleto' : 'aprovado';
