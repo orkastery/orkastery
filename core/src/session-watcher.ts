@@ -18,6 +18,7 @@ import { SinalDeFalhaDeConta } from './types';
 import { ConsultaAgentesNativos } from './adapters/claude-bg';
 import { eventosDoIntervalo, garantirFonteClaude, INTERVALO_WATCH_CLAUDE_MS, observarClaudeSobLock, THREAD_REMOVIDA, validarFonteClaude } from './session-watcher-claude';
 import { reconciliarContaEsgotada } from './conta-esgotada';
+import { caminhoDoTrabalho, gravarRespostaFinalDaSessao } from './trabalho-thread';
 
 /** Falhas operacionais e bloqueios sem retry automático não alegam conclusão do produto. */
 function bloqueioPreservado(terminal: TerminalCodex): boolean {
@@ -260,6 +261,9 @@ function diagnosticoWatcher(e: unknown): { erro: string; transitorio: boolean; c
     erro: 'estado canônico temporariamente sem vínculo; auditoria será repetida', transitorio: true };
   if (['ENOENT', 'EAGAIN', 'EBUSY', 'EINTR'].includes(erro?.code ?? ''))
     return { ...base, categoria, erro: `leitura temporariamente indisponível (${erro.code})`, transitorio: true };
+  if (mensagem === 'runtime.unavailable: rollout do controller ausente' ||
+      mensagem === 'runtime.unavailable: rollout do controller sem session_meta conferível')
+    return { ...base, categoria, erro: 'fonte do runtime ainda não está pronta', transitorio: true };
   if (e instanceof SyntaxError || /^JSON invalido em /.test(erro?.message ?? '') ||
       metadado)
     return { ...base, categoria: metadado ? categoria : 'json.invalido', erro: 'metadado JSON indisponível ou incompleto', transitorio: true };
@@ -514,6 +518,8 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
       // É bloqueio, nunca conclusão; o retry deriva checkpoint quando já houve produção.
       if (conta) terminal = { ...terminal, classificacao: 'gate_blocked', motivo: conta.falha.motivo, falhaDeConta: conta.falha,
         fonte: `${conta.fonte}: ${conta.falha.motivo} (${conta.falha.trecho})` };
+      const respostaFinal = terminal.respostaFinal
+        ? gravarRespostaFinalDaSessao(carregado.raiz, thread.id, sessionId, terminal.respostaFinal) : null;
       const dados = { fase: sessao.fase, sessionId, despachoEm: sessao.despachadaEm, sensorResultId: resultadoId,
         classificacao: terminal.classificacao, motivo: terminal.motivo, runtime: 'codex', fonte: terminal.fonte,
         fonteVencedora: incompleto || invalido || aberto || descorrelacionado ? null : terminais[0]?.nome ?? null,
@@ -527,6 +533,8 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         estado: terminal.classificacao === 'fase_concluida' ? 'concluida' : 'bloqueada',
         observadoEm: terminal.timestamp, gate: 'phase.dispatch', origem: 'sessions.watch',
         morteLatenciaMs: morte ? now - cursor.progressoEm! : null, ...(perfil ? { perfil } : {}),
+        ...(respostaFinal ? { respostaFinal: { arquivo: caminhoDoTrabalho(thread.id) + respostaFinal.arquivo,
+          sha256: respostaFinal.sha256, bytes: respostaFinal.bytes, truncada: respostaFinal.truncada } } : {}),
         ...(conta ? { falhaDeConta: { motivo: conta.falha.motivo, resetEm: conta.falha.resetEm, fonte: conta.falha.fonte,
           trecho: conta.falha.trecho } } : {}) };
       const tipo = semTerminal && morte && !incompleto && !conta ? 'sessao_morta' : terminal.classificacao;
@@ -558,8 +566,11 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
   }
 }
 
-/** Valida a fonte antes de registro, stderr ou spawn; tambem usada na recuperacao. */
-export function validarFonteWatcher(raiz: string, sessionId: string, fonte?: RegistroSensor): void {
+/** Valida vínculo, variante e perfil sem exigir que o runtime já tenha publicado seus metadados. */
+export function validarRegistroWatcher(raiz: string, sessionId: string, fonte?: RegistroSensor): {
+  thread: ReturnType<typeof resolverSessao>['thread']; sessao: ReturnType<typeof exigirSessaoDespachada>;
+  dir: string; eventos: ReturnType<typeof lerLedger>; registro: RegistroSensor;
+} {
   const { thread, sessao: registrada } = resolverSessao(raiz, sessionId);
   const sessao = exigirSessaoDespachada(registrada, sessionId);
   const dir = dirThread(raiz, thread.id);
@@ -571,8 +582,17 @@ export function validarFonteWatcher(raiz: string, sessionId: string, fonte?: Reg
   // I-33 (D4): perfil invalido ou divergente do despacho reprova antes de observar pela conta errada.
   perfilDoRegistro([...eventos, ...(fonte ? [{ tipo: 'session_sensor_registered', sessionId,
     despachoEm: sessao.despachadaEm, ...fonte }] : [])], sessao);
+  if (registro.nativo !== undefined && sessao.runtime !== 'claude-bg')
+    throw new Error('fonte nativa claude-agents em sessão de outro runtime');
+  if (registro.controlador && sessao.runtime !== 'codex')
+    throw new Error('fonte do controller Codex em sessão de outro runtime');
+  return { thread, sessao, dir, eventos, registro };
+}
+
+/** Validação profunda feita pelo laço: prontidão eventual nunca impede o registro do vínculo. */
+export function validarFonteWatcher(raiz: string, sessionId: string, fonte?: RegistroSensor): void {
+  const { thread, sessao, dir, eventos, registro } = validarRegistroWatcher(raiz, sessionId, fonte);
   if (registro.nativo !== undefined) {
-    if (sessao.runtime !== 'claude-bg') throw new Error('fonte nativa claude-agents em sessão de outro runtime');
     validarFonteClaude(eventos, sessionId, registro as Parameters<typeof validarFonteClaude>[2]);
     return;
   }
@@ -597,7 +617,7 @@ export function iniciarWatcher(raiz: string, sessionId: string): number {
   const dir = dirThread(raiz, thread.id);
   // I-34: sessão claude-bg despachada antes do registro nativo ganha a fonte derivada do despacho.
   if (sessao.runtime === 'claude-bg') garantirFonteClaude(raiz, thread, sessao);
-  validarFonteWatcher(raiz, sessionId);
+  validarRegistroWatcher(raiz, sessionId);
   const anterior = lerLedger(dir).filter(e => e.tipo === 'session_watcher_started' &&
     e.sessionId === sessionId && e.despachoEm === sessao.despachadaEm).at(-1);
   const identidadeAnterior = anterior?.identidade as IdentidadeProcesso | undefined;
@@ -652,7 +672,7 @@ async function acompanhar(): Promise<void> {
   try {
     const readyPath = process.argv[5], token = process.argv[6];
     if (readyPath && token) {
-      validarFonteWatcher(carregado.raiz, sessionId);
+      validarRegistroWatcher(carregado.raiz, sessionId);
       const sessao = exigirSessaoDespachada(resolverSessao(carregado.raiz, sessionId, threadId).sessao, sessionId);
       const identidade = identidadeProcesso(process.pid);
       if (!identidade) throw new Error('watcher sem identidade propria');
