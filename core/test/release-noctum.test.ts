@@ -25,8 +25,8 @@ function aceite(raiz: string, mexer: (a: { contrato: string; pilotos: Piloto[]; 
   fs.mkdirSync(path.join(raiz, PASTA), { recursive: true });
   const pilotos = ['P1', 'P2', 'P3', 'P4'].map((id, i) => {
     const arquivo = `piloto-${i + 1}.json`;
-    const texto = `${JSON.stringify({ contrato: 'ork.noctum-piloto/v1', arco: `arco-piloto-${i + 1}`, simulacao: { simulado: false, marcas: [] },
-      veredito: 'aprovado', publicavel: true, sha256DoCompleto: 'c'.repeat(64) }, null, 2)}\n`;
+    const texto = `${JSON.stringify({ contrato: 'ork.noctum-piloto/v1', arco: `arco-piloto-${i + 1}`, janela: { horas: [6, 12, 6, 12][i] },
+      simulacao: { simulado: false, marcas: [] }, veredito: 'aprovado', publicavel: true, sha256DoCompleto: 'c'.repeat(64) }, null, 2)}\n`;
     fs.writeFileSync(path.join(raiz, PASTA, arquivo), texto);
     return { id, arquivo, sha256: createHash('sha256').update(texto).digest('hex'), simulado: false, veredito: 'aprovado' };
   });
@@ -154,4 +154,42 @@ test('RG10: a árvore desta thread passa no --texto, o alcance é toda versão, 
     /run: node core\/scripts\/checar-release-noctum\.cjs\n[\s\S]*run: npm publish/);
   assert.match(fs.readFileSync(path.join(RAIZ_DO_REPO, '.github/workflows/ci.yml'), 'utf8'), /run: node core\/scripts\/checar-release-noctum\.cjs --texto/);
   assert.equal(rodar(RAIZ_DO_REPO, '--outra').status, 2);
+});
+
+test('RG11: o mesmo piloto não vale por quatro, e o piloto de 12 h com janela curta recusa', () => {
+  emPasta('rg11', (raiz) => {
+    aceite(raiz, (a) => { for (const p of a.pilotos) { p.arquivo = a.pilotos[0].arquivo; p.sha256 = a.pilotos[0].sha256; } });
+    const r = rodar(raiz);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /^release\.noctum\.piloto-repetido: os pilotos P1 e P2 têm o mesmo arquivo/);
+    aceite(raiz);
+    const arquivo = path.join(raiz, PASTA, 'piloto-2.json');
+    const texto = fs.readFileSync(arquivo, 'utf8').replace('"horas": 12', '"horas": 6');
+    fs.writeFileSync(arquivo, texto);
+    const a = JSON.parse(fs.readFileSync(path.join(raiz, PASTA, 'aceite.json'), 'utf8'));
+    a.pilotos[1].sha256 = createHash('sha256').update(texto).digest('hex');
+    fs.writeFileSync(path.join(raiz, PASTA, 'aceite.json'), JSON.stringify(a));
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-curto: o piloto P2 pede ao menos 12 h de janela, e o arquivo piloto-2\.json diz 6/);
+  });
+});
+
+test('RG12: o anúncio com advérbio e a negação depois do particípio recusam; a negação antes libera; os README dos adaptadores entram', () => {
+  emPasta('rg12', (raiz) => {
+    const recusadas = ['O #Noctum já foi validado por pilotos reais.', '#Noctum is now available in 0.6.0.',
+      'O #Noctum foi validado sem nenhuma falha nos pilotos.', 'O #Noctum foi entregue e não depende mais do dono.',
+      '#Noctum has been released, not just announced.'];
+    for (const [i, frase] of recusadas.entries()) {
+      fs.writeFileSync(path.join(raiz, 'README.md'), `# Produto\n\n${frase}\n`);
+      const r = rodar(raiz, '--texto');
+      assert.equal(r.status, 1, `deveria recusar: ${frase}`);
+      assert.match(r.stderr, /README\.md:3: /, `${i}: ${r.stderr}`);
+    }
+    fs.writeFileSync(path.join(raiz, 'README.md'), '# Produto\n\nO #Noctum ainda não foi validado. The #Noctum is not yet released.\n');
+    assert.equal(rodar(raiz, '--texto').status, 0);
+    fs.mkdirSync(path.join(raiz, 'adapters', 'hermes'), { recursive: true });
+    fs.writeFileSync(path.join(raiz, 'adapters', 'hermes', 'README.md'), '# Hermes\n\nO #Noctum está disponível neste gateway.\n');
+    const r = rodar(raiz, '--texto');
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /adapters\/hermes\/README\.md:3: #Noctum está disponível/);
+  });
 });
