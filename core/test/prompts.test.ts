@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
+  avisosDeLingua,
   carregarTemplates,
   exigirTemplate,
   lintTemplate,
@@ -19,14 +20,21 @@ import {
   renderizar,
   SECOES_OBRIGATORIAS,
   TEMPLATE_FASE_PADRAO,
+  TEMPLATE_FASE_PADRAO_EN,
   templateDaFase,
   threadDeExemplo,
   variaveisUsadas,
 } from '../src/prompts';
-import { CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, REGRA_DAS_ESPERAS, rodarFase, valoresDoPrompt } from '../src/phase';
-import { FASES } from '../src/types';
-import { projetoTemporario } from './apoio';
+import {
+  CONTRATO_DAS_FASES, fasesDoCicloNoPrompt, montarPrompt, montarPromptComMemoria, REGRA_DAS_ESPERAS, rodarFase, valoresDoPrompt,
+} from '../src/phase';
+import { FASES, Modo } from '../src/types';
+import { ajustarManifesto, projetoTemporario } from './apoio';
 import { novaThread } from '../src/thread';
+import { abrirMemoria } from '../src/memoria';
+import { MODOS_LEGADOS } from '../src/modos';
+import { PAUSA_SOBRE_EN } from '../src/locale-thread';
+import { linhasEmPortugues } from './locale-apoio';
 
 const RAIZ_DO_PRODUTO = path.resolve(__dirname, '../../..');
 
@@ -38,6 +46,115 @@ test('o template versionado em prompts/ e identico ao embutido no ork', () => {
     TEMPLATE_FASE_PADRAO,
     'a copia versionada divergiu do embutido: regere com `node -e` a partir de TEMPLATE_FASE_PADRAO'
   );
+  const english = fs.readFileSync(path.join(RAIZ_DO_PRODUTO, 'prompts', 'fase-padrao.en.md'), 'utf8').replace(/\n$/, '');
+  assert.equal(english, TEMPLATE_FASE_PADRAO_EN, 'a copia inglesa divergiu do template embutido');
+  // RM-061 F3c: as duas linguas andam juntas. Variavel ou versao nova no pt-BR (o `fecho_go` da RM-016 levou a v4)
+  // entra no ingles no mesmo lugar, para o prompt ingles nunca perder um modulo que o pt-BR ganhou.
+  const pt = parseTemplate(TEMPLATE_FASE_PADRAO, 'embutido'), en = parseTemplate(TEMPLATE_FASE_PADRAO_EN, 'embutido');
+  assert.equal(en.versao, pt.versao);
+  assert.deepEqual(en.fases, pt.fases);
+  assert.deepEqual(en.variaveis, pt.variaveis);
+  assert.deepEqual(variaveisUsadas(en.corpo), variaveisUsadas(pt.corpo));
+});
+
+test('RM-061 F3c: o prompt ingles cobre as seis fases, os cinco modulos e a regra central', () => {
+  assert.equal(templateDaFase('GOAL', RAIZ_DO_PRODUTO, 'en').id, 'fase-padrao.en');
+  for (const fase of FASES) {
+    const prompt = montarPrompt(threadDeExemplo('auto', fase), fase, 'Map the smallest safe slice.', RAIZ_DO_PRODUTO, '', 'en');
+    assert.match(prompt, new RegExp(`^# Orkastery, ${fase} phase of thread`, 'm'));
+    for (const secao of ['## Canonical cycle', '## Conduction mode:', '## Thread context', '## Builder request', '## Evidence rules']) {
+      assert.ok(prompt.includes(secao), `${fase}: ${secao}`);
+    }
+    assert.ok(prompt.includes('CENTRAL RULE: the mode relaxes the pause, NEVER verification.'));
+    assert.ok(prompt.includes(`${fase} (F`), fase);
+    assert.ok(prompt.includes('No self-report: every claim includes the command that proves it and its real output.'));
+    assert.ok(!prompt.includes('REGRA CENTRAL:'));
+    assert.ok(!prompt.includes('Ciclo canonico'));
+  }
+});
+
+test('RM-061 F3c: o prompt ingles de todo modo e fase sai sem linha em pt-BR, inclusive a da pausa', () => {
+  for (const modo of MODOS_LEGADOS) {
+    const thread = threadDeExemplo(modo as Modo, 'GOAL');
+    for (const fase of thread.fases) {
+      const prompt = montarPrompt({ ...thread, faseAtual: fase }, fase, 'Map the change.', RAIZ_DO_PRODUTO, '', 'en');
+      assert.deepEqual(linhasEmPortugues(prompt, [thread.nome, thread.id, thread.slug]), [], `${modo}/${fase}`);
+    }
+  }
+  // Todo assunto de pausa dos modos tem par em ingles (premissas no #Maestro e no #Ork; o push antecipado no #Classic).
+  const pausas = MODOS_LEGADOS.flatMap((m) => threadDeExemplo(m as Modo, 'GOAL').blocos.filter((b) => b.pausa).map((b) => b.pausaSobre));
+  for (const sobre of new Set(pausas)) assert.ok(Object.hasOwn(PAUSA_SOBRE_EN, sobre), sobre);
+});
+
+test('RM-061 F3c: com o dono em ingles, o template do projeto vence o embutido, e sem par .en a fase sai em pt-BR com aviso', () => {
+  const projeto = projetoTemporario('prompt-projeto-en');
+  try {
+    const dir = path.join(projeto.dir, 'prompts');
+    fs.mkdirSync(dir, { recursive: true });
+    const proprio = TEMPLATE_FASE_PADRAO.replace('id: fase-padrao', 'id: fase-goal')
+      .replace('# Orkastery, fase {{fase}} da thread {{thread}}', '# Orkastery no projeto X, fase {{fase}} da thread {{thread}}');
+    fs.writeFileSync(path.join(dir, 'fase-goal.md'), proprio + '\n', 'utf8');
+    assert.equal(templateDaFase('GOAL', projeto.dir, 'en').id, 'fase-goal');
+    assert.equal(templateDaFase('PLAN', projeto.dir, 'en').id, 'fase-padrao.en');
+    assert.equal(templateDaFase('GOAL', projeto.dir, 'pt-BR').id, 'fase-goal');
+    const exemplo = threadDeExemplo('classic', 'GOAL');
+    // Sem o par `.en`, a fase usa o template do projeto, e os valores falam a lingua dele: nada de prompt misturado.
+    const goal = montarPrompt(exemplo, 'GOAL', 'Map it.', projeto.dir, '', 'en');
+    assert.match(goal, /^# Orkastery no projeto X, fase GOAL da thread/m);
+    assert.match(goal, /^> GOAL \(F1\): objetivo verificavel/m);
+    assert.doesNotMatch(goal, /CENTRAL RULE|## Canonical cycle|Does not implement/);
+    assert.match(montarPrompt(exemplo, 'PLAN', 'Plan it.', projeto.dir, '', 'en'), /^# Orkastery, PLAN phase of thread/m);
+    const avisos = avisosDeLingua(carregarTemplates(projeto.dir), 'en');
+    assert.deepEqual(avisos.map((a) => [a.template, a.regra, a.gravidade]), [['fase-goal', 'idioma', 'aviso']]);
+    assert.deepEqual(avisosDeLingua(carregarTemplates(projeto.dir), 'pt-BR'), []);
+    // Com o par `.en` do projeto, a fase volta ao ingles e o aviso some.
+    fs.writeFileSync(path.join(dir, 'fase-goal.en.md'), TEMPLATE_FASE_PADRAO_EN.replace('id: fase-padrao.en', 'id: fase-goal.en') + '\n', 'utf8');
+    assert.equal(templateDaFase('GOAL', projeto.dir, 'en').id, 'fase-goal.en');
+    assert.deepEqual(lintTemplate(templateDaFase('GOAL', projeto.dir, 'en')), []);
+    assert.deepEqual(avisosDeLingua(carregarTemplates(projeto.dir), 'en'), []);
+    // O `fase-padrao` do projeto sem o par `.en` vale para o dono em ingles, e o aviso diz isso.
+    fs.rmSync(path.join(dir, 'fase-goal.md')); fs.rmSync(path.join(dir, 'fase-goal.en.md'));
+    fs.writeFileSync(path.join(dir, 'fase-padrao.md'), TEMPLATE_FASE_PADRAO + '\n', 'utf8');
+    const padraoDoProjeto = templateDaFase('PLAN', projeto.dir, 'en');
+    assert.equal(padraoDoProjeto.id, 'fase-padrao');
+    assert.notEqual(padraoDoProjeto.origem, 'embutido');
+    assert.deepEqual(avisosDeLingua(carregarTemplates(projeto.dir), 'en').map((a) => a.template), ['fase-padrao']);
+  } finally {
+    projeto.limpar();
+  }
+});
+
+test('RM-061 F3c: o phase run monta o prompt na lingua atual do dono', () => {
+  const p = projetoTemporario('prompt-owner-language');
+  try {
+    ajustarManifesto(p, 'owner:\n', 'owner:\n  language: en-US\n');
+    const { thread } = novaThread(p.carregado, { nome: 'english-owner', modo: 'auto' });
+    const { prompt } = montarPromptComMemoria(p.carregado, thread, 'GOAL', 'Map the change.', abrirMemoria(p.carregado));
+    assert.match(prompt, /^# Orkastery, GOAL phase of thread/m);
+    assert.match(prompt, /## Builder request\nMap the change\./);
+    assert.match(prompt, /CENTRAL RULE: the mode relaxes the pause, NEVER verification\./);
+    assert.doesNotMatch(prompt, /## Pedido do builder|REGRA CENTRAL:/);
+  } finally {
+    p.limpar();
+  }
+});
+
+test('RM-061 F3c: sem owner.language, o prompt despachado segue em pt-BR com qualquer LANG (dado da F2a)', () => {
+  const p = projetoTemporario('prompt-sem-owner-language');
+  const lcAll = process.env.LC_ALL, lang = process.env.LANG;
+  try {
+    process.env.LC_ALL = 'en_US.UTF-8'; process.env.LANG = 'en_US.UTF-8';
+    const { thread } = novaThread(p.carregado, { nome: 'sem-lingua', modo: 'auto' });
+    const { prompt } = montarPromptComMemoria(p.carregado, thread, 'GOAL', 'Mapear a mudanca.', abrirMemoria(p.carregado));
+    assert.match(prompt, /^# Orkastery, fase GOAL da thread/m);
+    assert.match(prompt, /## Pedido do builder\nMapear a mudanca\./);
+    assert.match(prompt, /REGRA CENTRAL: o modo afrouxa a pausa, NUNCA a verificacao\./);
+    assert.doesNotMatch(prompt, /CENTRAL RULE|## Builder request/);
+  } finally {
+    if (lcAll === undefined) delete process.env.LC_ALL; else process.env.LC_ALL = lcAll;
+    if (lang === undefined) delete process.env.LANG; else process.env.LANG = lang;
+    p.limpar();
+  }
 });
 
 test('o lint aprova os templates do produto e reprova o que perde o contrato', () => {
@@ -197,5 +314,33 @@ test('RM-016: Claude Code e Codex recebem o mesmo fecho obrigatório no prompt r
       assert.ok(prompt.includes(`\`.orkastery/threads/${thread.id}/pr-body.md\``));
       assert.match(prompt, /O rito é idêntico em Claude Code e Codex/);
     } finally { projeto.limpar(); }
+  }
+});
+
+test('RM-061 F3c: com o dono em ingles, o GO dos dois runtimes recebe o mesmo fecho obrigatorio da RM-016', () => {
+  for (const runtime of ['claude-bg', 'codex']) {
+    const projeto = projetoTemporario(`prompt-fecho-en-${runtime}`);
+    try {
+      ajustarManifesto(projeto, 'owner:\n', 'owner:\n  language: en-US\n');
+      const { thread } = novaThread(projeto.carregado, { nome: `closing ${runtime}`, modo: 'fast' });
+      const r = rodarFase(projeto.carregado, thread.id, {
+        fase: 'GO', prompt: 'implement the slice', runtime, model: 'modelo-simulado', effort: 'high', dryRun: true,
+      });
+      assert.equal(r.runtime, runtime);
+      const prompt = fs.readFileSync(r.promptPath, 'utf8');
+      assert.match(prompt, /\n## Mandatory GO closing\n\nBefore ending a block that includes GO, run /);
+      assert.ok(prompt.includes(`\`ork verify ${thread.id}\``));
+      assert.ok(prompt.includes(`\`ork ci prepare ${thread.id}\``));
+      assert.ok(prompt.includes(`\`ci(${thread.id}): bundle ...\``));
+      assert.ok(prompt.includes(`\`.orkastery/threads/${thread.id}/pr-body.md\``));
+      assert.match(prompt, /The ritual is identical in Claude Code and Codex\. It closes GO, but it does not authorize SHIP/);
+      assert.doesNotMatch(prompt, /Fecho obrigatório do GO|O rito é idêntico/);
+    } finally { projeto.limpar(); }
+  }
+  // Bloco sem GO: o fecho fica fora nas duas linguas, e a linha vazia da variavel some.
+  for (const locale of ['pt-BR', 'en'] as const) {
+    const goal = montarPrompt(threadDeExemplo('classic', 'GOAL'), 'GOAL', 'pedido', RAIZ_DO_PRODUTO, '', locale);
+    assert.doesNotMatch(goal, /Fecho obrigatório do GO|Mandatory GO closing/, locale);
+    assert.ok(!goal.includes('\n\n\n'), `${locale}: sobrou linha vazia`);
   }
 });

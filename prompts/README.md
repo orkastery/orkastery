@@ -15,13 +15,29 @@ compilador. Aqui o texto virou arquivo, com frontmatter, versao e lint.
 
 ## Como a resolucao funciona
 
+A lingua do prompt e a declarada pelo dono em `owner.language` (sem ela, pt-BR), a mesma do
+`ork phase run`: o `LANG` de quem roda nao a muda, e o `ork prompt render` mostra o prompt que o
+despacho grava. Em pt-BR:
+
 1. `prompts/fase-<minuscula>.md` do projeto, se existir (por exemplo `prompts/fase-goal.md`);
 2. senao, `prompts/fase-padrao.md` do projeto;
 3. senao, o template embutido no `ork`.
 
-O `fase-padrao.md` deste repositorio e identico, byte a byte, ao embutido, e ha teste que
-reprova a divergencia. Isso e de proposito: o arquivo existe para ser lido e revisado, nao para
-virar uma segunda fonte de verdade que ninguem compara com a primeira.
+Com o dono em ingles (RM-061), o template do projeto vence o embutido e o da fase vence o
+padrao; no mesmo nivel, o par `.en` vem antes:
+
+1. `prompts/fase-<minuscula>.en.md`, depois `prompts/fase-<minuscula>.md`;
+2. `prompts/fase-padrao.en.md`, depois `prompts/fase-padrao.md`;
+3. o `fase-padrao.en` embutido.
+
+Os valores do prompt falam a lingua do template escolhido: o template do projeto sem o par
+`.en` sai inteiro em pt-BR, e o `ork prompt lint` avisa. O `ork prompt list` e o `lint` mostram
+todos os templates do projeto e, dos embutidos, o da lingua do prompt.
+
+O `fase-padrao.md` deste repositorio e identico, byte a byte, ao embutido, e o
+`fase-padrao.en.md` ao embutido ingles; ha teste que reprova a divergencia e que exige as mesmas
+versao, fases e variaveis nas duas linguas. Isso e de proposito: o arquivo existe para ser lido e
+revisado, nao para virar uma segunda fonte de verdade que ninguem compara com a primeira.
 
 ## O que o lint cobra
 

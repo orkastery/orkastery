@@ -80,6 +80,7 @@ import { NETWORK_EN, NETWORK_PT_BR } from './locale-network';
 import { RESERVAS_EN, RESERVAS_PT_BR } from './locale-reservas';
 import { DOCS_EN, DOCS_PT_BR } from './locale-docs';
 import { ADAPTER_EN, ADAPTER_PT_BR } from './locale-adapter';
+import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
 import { CONHECIMENTO_EN, CONHECIMENTO_PT_BR } from './locale-conhecimento';
 import { FORJA_EN, FORJA_PT_BR } from './locale-forja';
 
@@ -92,7 +93,7 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
  * `experiencia uninstall`. A F2b (G3) acrescenta `verify` (com `--baseline`),
  * `ship`, `ship registrar-pr`, `retry plan`, `retry run`, `master` (o indice), `master aceitar-omissao` e
  * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`. A F3a (D5) acrescenta `docs init`, e a
- * F3b (D1), o resto da lista do dono, fora `decisao registrar` (G5) e `network roadmap` (G6). O conhecimento escrito
+ * F3b (D1), o resto da lista do dono; a F3c completa `decisao registrar` e `network roadmap`. O conhecimento escrito
  * (RM-026 K7, fatia 2) nasce coberto: `conhecimento listar|mostrar|colecoes|verificar` e o uso errado dele.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
@@ -102,15 +103,15 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   // F3b (D1): o resto do CLI, na ordem do pedido.
   'thread list', 'thread close', 'thread entrega', 'worktree ensure', 'worktree sync', 'worktree audit', 'worktree release', 'worktree ?',
   'claims add', 'claims conferir', 'claims verificar', 'claims retirar', 'claims ausente', 'claims list', 'claims ?',
-  // G5: `decisao registrar` segue em pt-BR (as recusas sao do contrato HITL v2).
-  'decisao placar', 'decisao ?',
+  'decisao registrar', 'decisao placar', 'decisao ?',
   'accounts list', 'accounts add', 'accounts remove', 'accounts check', 'accounts esgotamentos', 'accounts ?',
-  // G6: `network roadmap` segue em pt-BR (o texto e contrato com os hosts e com a prova de ativacao).
-  'network status', 'network entrar', 'network sair', 'network publicar', 'network ?',
+  // F3c preserva as tres linhas contratuais do panorama; o restante do texto segue o locale.
+  'network status', 'network entrar', 'network sair', 'network publicar', 'network roadmap', 'network ?',
   'roadmap reservas', 'roadmap pegar', 'roadmap soltar', 'roadmap feat', 'roadmap ?',
   // O contrato que o `docs verificar` le nas paginas (chaves, valores, secoes, marcadores) segue em pt-BR; so a mensagem muda.
   'docs verificar', 'docs sincronizar', 'docs ?',
   'adapter list', 'adapter show', 'adapter install', 'adapter ?',
+  'prompt list', 'prompt lint', 'prompt render', 'prompt ?',
   'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?'];
 
 
@@ -129,6 +130,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['accounts', { padrao: 'list', conhecidos: ['list', 'add', 'remove', 'check', 'esgotamentos'] }],
   ['network', { padrao: 'status', conhecidos: ['status', 'entrar', 'sair', 'publicar', 'roadmap'] }],
   ['adapter', { padrao: 'list', conhecidos: ['list', 'show', 'install'] }],
+  ['prompt', { padrao: 'list', conhecidos: ['list', 'lint', 'render'] }],
   ['conhecimento', { padrao: 'listar', conhecidos: ['listar', 'mostrar', 'colecoes', 'verificar'] }],
 ]);
 
@@ -166,7 +168,6 @@ function chaveDoMaster(bruto: string | undefined, opcoes: Readonly<Record<string
 export function cobreLocale(posicionais: readonly (string | undefined)[], opcoes: Readonly<Record<string, unknown>>): boolean {
   if (opcoes.json !== undefined) return false;
   if (posicionais[0] === 'doctor' && opcoes.modo !== undefined) return false;
-  if (opcoes['from-finding'] !== undefined || opcoes['do-achado'] !== undefined) return false;
   return COMANDOS_COM_LOCALE.includes(chaveDoLocale(posicionais, opcoes));
 }
 
@@ -191,6 +192,15 @@ export function resolverLocale(ownerLanguage?: unknown, env: NodeJS.ProcessEnv =
     if (v && v.trim()) return { locale: localeDe(v) ?? LOCALE_PADRAO, origem: nome };
   }
   return { locale: LOCALE_PADRAO, origem: 'padrao' };
+}
+
+/**
+ * RM-061 F3c: a lingua do que o `ork` gera e grava para depois (o prompt despachado, o pedido do achado): so a
+ * declarada pelo dono em `owner.language`; sem ela, pt-BR. Nunca o locale de quem roda, nem o `--json`: o mesmo
+ * projeto grava o mesmo dado em qualquer maquina. O texto impresso segue o locale do CLI.
+ */
+export function linguaDeclaradaDoDono(ownerLanguage?: unknown): Locale {
+  return resolverLocale(ownerLanguage, {}).locale;
 }
 
 let ativo: Locale = LOCALE_PADRAO;
@@ -475,6 +485,7 @@ const PT_BR = {
   reservas: RESERVAS_PT_BR,
   docs: DOCS_PT_BR,
   adapter: ADAPTER_PT_BR,
+  prompts: PROMPTS_PT_BR,
   conhecimento: CONHECIMENTO_PT_BR,
   forja: FORJA_PT_BR,
   init: {
@@ -777,6 +788,7 @@ const EN: Mensagens = {
   reservas: RESERVAS_EN,
   docs: DOCS_EN,
   adapter: ADAPTER_EN,
+  prompts: PROMPTS_EN,
   conhecimento: CONHECIMENTO_EN,
   forja: FORJA_EN,
   init: {

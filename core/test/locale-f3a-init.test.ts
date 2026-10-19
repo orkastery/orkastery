@@ -9,9 +9,11 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { ativarLocale } from '../src/locale';
-import { manifestoYaml } from '../src/init';
+import { init, manifestoYaml } from '../src/init';
+import { exec } from '../src/util';
 import { blocoAgentsMd, FIM_AGENTS_ORK, INICIO_AGENTS_ORK } from '../src/agents-md';
 import { carregarManifesto, LIMITE_MANIFESTO_BYTES } from '../src/manifest';
 import { lerYaml } from '../src/yaml';
@@ -22,6 +24,8 @@ const FIXTURE = path.resolve(__dirname, '../../test/fixtures/locale-f3a-pt-BR.js
 const snapshot = (): Record<string, string> => JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string>;
 const C = { LANG: 'C.UTF-8' };
 const ES = { LANG: 'es_ES.UTF-8' };
+const GITIGNORE_PT_BR = '# Criado pelo ork: esta pasta é da máquina, não do repositório.\n*\n';
+const GITIGNORE_EN = '# Created by ork: this folder belongs to the machine, not the repository.\n*\n';
 
 /** O YAML sem as linhas de comentario: o dado que o nucleo le. */
 const semComentarios = (yaml: string): string => yaml.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
@@ -60,6 +64,7 @@ test('locale F3a init: com LANG ingles, o orkastery.yaml sai com os comentarios 
     const carregado = carregarManifesto(c.dir);
     assert.ok(carregado && carregado.erros.length === 0, 'o manifesto em ingles carrega sem erro');
     confereAgentsIngles(ler(c.dir, 'AGENTS.md'));
+    assert.equal(ler(c.dir, '.orkastery/.gitignore'), GITIGNORE_EN);
   } finally { c.limpar(); }
 });
 
@@ -87,6 +92,7 @@ test('locale F3a init (negativo): C.UTF-8, es_ES.UTF-8 e owner.language pt-BR co
       assert.equal(ork(c, locale, false, 'init', '--name', 'loja', '--abbrev', 'loj').status, 0, nome);
       assert.equal(ler(c.dir, 'orkastery.yaml'), s['cli: ork init, orkastery.yaml'], `${nome}: yaml`);
       assert.equal(ler(c.dir, 'AGENTS.md'), s['cli: ork init, AGENTS.md'], `${nome}: AGENTS.md`);
+      assert.equal(ler(c.dir, '.orkastery/.gitignore'), GITIGNORE_PT_BR, `${nome}: gitignore`);
     } finally { c.limpar(); }
   }
   const c = cenario('f3a-init-pt-owner', false);
@@ -99,7 +105,31 @@ test('locale F3a init (negativo): C.UTF-8, es_ES.UTF-8 e owner.language pt-BR co
     assert.match(r.stdout, /^Manifesto criado: /);
     assert.equal(ler(c.dir, 'orkastery.yaml'), s['cli: ork init, orkastery.yaml']);
     assert.equal(ler(c.dir, 'AGENTS.md'), s['cli: ork init, AGENTS.md']);
+    // O `.gitignore` do estado fica na lingua de quando nasceu: o init nunca o sobrescreve (fatia 2 do ensaio da 0.5.0),
+    // e o do primeiro init, em ingles, continua. Sem ele, o init o recria na lingua do dono, pt-BR, mesmo com LANG ingles.
+    const gitignore = path.join(c.dir, '.orkastery', '.gitignore');
+    assert.equal(fs.readFileSync(gitignore, 'utf8'), GITIGNORE_EN);
+    fs.rmSync(gitignore);
+    fs.writeFileSync(yaml, ler(c.dir, 'orkastery.yaml').replace('  # language: pt-BR  # ausente: locale do sistema', '  language: pt-BR'));
+    assert.equal(ork(c, EN, false, 'init', '--force', '--name', 'loja', '--abbrev', 'loj').status, 0);
+    assert.equal(fs.readFileSync(gitignore, 'utf8'), GITIGNORE_PT_BR);
   } finally { c.limpar(); }
+});
+
+test('locale F3a init gitignore: o arquivo do estado nasce na lingua pedida, com o * de sempre, e nunca e sobrescrito', () => {
+  // RM-061 F3c: a mesma prova dos testes pelo CLI, no proprio processo.
+  for (const [locale, esperado] of [['en', GITIGNORE_EN], ['pt-BR', GITIGNORE_PT_BR]] as const) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `ork-f3a-gitignore-${locale}-`));
+    try {
+      assert.equal(exec('git', ['init', '-q', '-b', 'main'], dir).ok, true);
+      init(dir, { nome: 'loja', abbrev: 'loj', locale });
+      const arquivo = path.join(dir, '.orkastery', '.gitignore');
+      assert.equal(fs.readFileSync(arquivo, 'utf8'), esperado, locale);
+      fs.writeFileSync(arquivo, '# do usuario\n*\n');
+      init(dir, { nome: 'loja', abbrev: 'loj', locale: locale === 'en' ? 'pt-BR' : 'en', force: true });
+      assert.equal(fs.readFileSync(arquivo, 'utf8'), '# do usuario\n*\n', `${locale}: o init nunca sobrescreve`);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  }
 });
 
 test('locale F3a init (negativo): o gerador chamado como funcao segue em pt-BR com o locale ativo em ingles', () => {
@@ -120,6 +150,7 @@ test('locale F3a init: com --json o texto impresso sai do locale, mas os arquivo
     assert.equal(r.status, 0, r.stderr);
     confereYamlIngles(ler(c.dir, 'orkastery.yaml'), snapshot()['cli: ork init, orkastery.yaml']);
     confereAgentsIngles(ler(c.dir, 'AGENTS.md'));
+    assert.equal(ler(c.dir, '.orkastery/.gitignore'), GITIGNORE_EN);
   } finally { c.limpar(); }
 });
 

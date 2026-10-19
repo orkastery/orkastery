@@ -259,6 +259,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   pelo transporte do pulse; `#OrkFabrica` responde o `ork fabrica`. A etapa `maestro` do onboarding grava o canal do
   dono e, junto, o `pulse-host.json` pronto do host; com os dois hosts configurados, a falha do transporte tenta o outro
   e aparece no `ork doctor` ("transporte do pulse"). O doctor também reprova a batida parada com a linha no crontab.
+- **CLI em inglês e pt-BR, fatia F3c** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): o
+  `.orkastery/.gitignore` gerado pelo `ork init`, as recusas humanas de `ork decisao registrar` no CLI e no MCP, o
+  texto humano de `ork network roadmap`, `ork thread new --from-finding`, `ork prompt` e o prompt montado pelo
+  `ork phase run` seguem a língua do dono. O que é gravado para depois (o prompt despachado e o pedido do achado)
+  segue só `owner.language`, sem ela pt-BR, e o `ork prompt render` mostra esse prompt; o template de fase do projeto
+  vence o embutido, e o lint avisa o que não tem o par `.en`. As linhas de contrato do panorama da rede, os códigos
+  HITL v2, o ledger, o `--json` e os snapshots pt-BR permanecem iguais; o prompt inglês conserva as seis fases, os
+  cinco módulos, a `CENTRAL RULE` e o fecho obrigatório do GO.
 
 ### Corrigido
 

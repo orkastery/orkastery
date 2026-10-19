@@ -12,6 +12,7 @@ import { decisoesParaODono } from '../src/decisao-autonoma';
 import { registrarPedidoHitl } from '../src/hitl-gates';
 import { lerLedger } from '../src/ledger';
 import { dirThread, gravarThread, novaThread } from '../src/thread';
+import { msg } from '../src/locale';
 import { projetoTemporario } from './apoio';
 
 // RM-059 (fatia F5): a Mesa do Dono (`ork-mesa`) testada sem o Claude Code. O sandbox do `ork verify` e o runner do
@@ -467,7 +468,13 @@ test('D7: cada ferramenta da lista fechada existe no servidor; so a de leitura e
   assert.match(registro('ork_hitl_pending'), /annotations:\{readOnlyHint:true/);
   assert.match(registro('ork_request_decision'), /inputSchema:daDecisao/);
   assert.match(servidor, /const daDecisao = daThread\.extend\(\{ pedidoId: identidade \}\)\.strict\(\);/);
-  assert.match(registro('ork_decision_record'), /quemDecidiu e a sessao que decidiu, nunca o dono/);
+  // RM-061 F3c: a recusa de autoria passou ao catalogo da decisao; o servidor ainda a lanca antes de registrar, e o
+  // texto pt-BR e o de antes, byte a byte.
+  const decisao = registro('ork_decision_record');
+  assert.ok(decisao.includes('(?:dono|owner|builder|maestro)\\b/i.test(e.quemDecidiu))'), 'o servidor confere o autor');
+  assert.ok(decisao.includes('throw new ErroDoCatalogo((m)=>m.decisao.autorMcp)'), 'e recusa o dono como autor');
+  assert.ok(decisao.indexOf('m.decisao.autorMcp') < decisao.indexOf('registrarDecisao('), 'antes de registrar');
+  assert.equal(msg('pt-BR').decisao.autorMcp, 'mcp.decision.author: quemDecidiu e a sessao que decidiu, nunca o dono');
 });
 
 test('o modulo de ganchos nao le disco, ambiente nem processo, e nenhum modulo puro importa valor de fora', () => {
