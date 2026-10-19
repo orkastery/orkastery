@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { loadTools } from './tools';
 import type { Stack } from './types';
 
 export interface Dismissal {
@@ -26,6 +27,12 @@ export function loadConfig(root: string): ScanConfig {
   if (raw === undefined) return { exclude: [], tools: {}, stacks: { add: [], remove: [] } };
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) throw Error('security-scan.config-invalid: config.json: expected an object');
   const c = raw as { exclude?: unknown; tools?: Record<string, { disabled?: string; version?: string }>; stacks?: { add?: unknown; remove?: unknown } };
+  // Swapping a tool version is not supported in this version: a declared version other than the catalog's is an error,
+  // never silently ignored (the scan would claim a version it did not run).
+  const catalog = new Map(loadTools().map(t => [t.name, t.version]));
+  for (const [name, t] of Object.entries(c.tools ?? {})) {
+    if (t?.version !== undefined && t.version !== catalog.get(name)) throw Error(`security-scan.config-invalid: tools.${name}.version`);
+  }
   return {
     exclude: strings(c.exclude, 'config.json', 'exclude'),
     tools: c.tools ?? {},

@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
@@ -94,7 +94,10 @@ test('chooseExecutor: Docker first, then the native binary with the accepted ver
   assert.deepEqual(chooseExecutor(gitleaks, probe({ nativeVersion: () => '8.24.0' })), { kind: 'unavailable', reason: 'binary-version-mismatch' });
   assert.deepEqual(chooseExecutor(gitleaks, NO_DOCKER_NO_BINARY), { kind: 'unavailable', reason: 'docker-missing' });
   assert.deepEqual(chooseExecutor(gitleaks, probe({ dockerCli: () => true })), { kind: 'unavailable', reason: 'docker-daemon-down' });
-  assert.deepEqual(chooseExecutor(eslint, NO_DOCKER_NO_BINARY), { kind: 'unavailable', reason: 'binary-missing' });
+  assert.deepEqual(chooseExecutor(eslint, NO_DOCKER_NO_BINARY), { kind: 'unavailable', reason: 'docker-missing' });
+  assert.deepEqual(chooseExecutor(eslint, probe({ dockerCli: () => true })), { kind: 'unavailable', reason: 'docker-daemon-down' });
+  const pipAudit = loadTools().find(t => t.name === 'pip-audit')!;
+  assert.equal(pipAudit.native, undefined, 'a tool that installs packages has no native entry');
 });
 
 test('without Docker and without binaries every tool is unavailable and the report has no finding', () => {
@@ -109,7 +112,7 @@ test('without Docker and without binaries every tool is unavailable and the repo
   for (const t of report.tools) {
     assert.equal(t.state, 'unavailable', t.name);
     assert.equal(t.executor, null, t.name);
-    assert.equal(t.reason, t.name === 'eslint' ? 'binary-missing' : 'docker-missing', t.name);
+    assert.equal(t.reason, 'docker-missing', t.name);
     assert.equal(total(t.counts), 0, t.name);
   }
   assert.deepEqual(report.findings, []);
@@ -238,12 +241,14 @@ test('Review Focus 3: without origin/<base> nor a local base branch every tool f
   assert.ok(bad.tools.every(t => t.state === 'failed' && t.reason === 'base-unresolved'));
 });
 
-test('a local base branch is the fallback when there is no remote', () => {
+test('a local base branch is the fallback when there is no remote; a scan from a subdirectory scans the repository', () => {
   const r = repo('secscan-local');
   fake = installFakeTools();
-  const report = runScan({ root: r.dir, stateRoot: r.dir });
+  const report = runScan({ root: path.join(r.dir, 'src'), stateRoot: r.dir });
   assert.equal(report.base, r.base);
+  assert.deepEqual(report.stacks, ['js']);
   assert.ok(report.tools.every(t => t.state === 'ran'));
+  assert.ok(report.findings.some(f => f.tool === 'gitleaks' && f.file === 'src/config.js'));
 });
 
 test('Review Focus 5: a tool that hangs past timeoutMs fails with timeout, its container is removed and the run returns', () => {
@@ -268,6 +273,8 @@ test('config.tools.<name>.disabled makes the tool unavailable/disabled', () => {
   const r = repo('secscan-disabled', { origin: true });
   fs.mkdirSync(path.join(r.dir, '.ork-security'));
   fs.writeFileSync(path.join(r.dir, '.ork-security', 'config.json'), JSON.stringify({ tools: { eslint: { disabled: 'lint runs in CI' } } }));
+  git(r.dir, 'add', '-A');
+  git(r.dir, 'commit', '-q', '-m', 'config');
   fake = installFakeTools();
   const report = runScan({ root: r.dir, stateRoot: r.dir });
   const eslint = tool(report, 'eslint');
@@ -281,6 +288,8 @@ test('config.tools.<name>.disabled makes the tool unavailable/disabled', () => {
 test('workflow tools: .gitlab-ci.yml without .github/workflows is unavailable/unsupported-ci; no CI at all is ran with nothing', () => {
   const r = repo('secscan-gitlab', { origin: true });
   fs.rmSync(path.join(r.dir, '.github'), { recursive: true });
+  git(r.dir, 'add', '-A');
+  git(r.dir, 'commit', '-q', '-m', 'no workflows');
   fake = installFakeTools();
   const none = runScan({ root: r.dir, stateRoot: r.dir });
   for (const name of ['zizmor', 'actionlint']) {
@@ -288,6 +297,8 @@ test('workflow tools: .gitlab-ci.yml without .github/workflows is unavailable/un
     assert.equal(total(tool(none, name).counts), 0, name);
   }
   fs.writeFileSync(path.join(r.dir, '.gitlab-ci.yml'), 'test:\n  script: [echo ok]\n');
+  git(r.dir, 'add', '-A');
+  git(r.dir, 'commit', '-q', '-m', 'gitlab ci');
   const gl = runScan({ root: r.dir, stateRoot: r.dir });
   for (const name of ['zizmor', 'actionlint']) {
     assert.equal(tool(gl, name).state, 'unavailable', name);
@@ -301,10 +312,10 @@ test('Docker daemon down, image pull failure, tool failure and output that break
   process.env.ORK_FAKE_DOCKER_MODE = 'daemon-down';
   // The real probe asks the fake `docker`; native versions are pinned to "absent" so host binaries do not count.
   const down = runScan({ root: r.dir, stateRoot: r.dir, probe: { ...defaultProbe(), nativeVersion: () => null } });
-  assert.ok(down.tools.every(t => t.state === 'unavailable' && (t.reason === 'docker-daemon-down' || t.name === 'eslint')), JSON.stringify(down.tools.map(t => t.reason)));
+  assert.ok(down.tools.every(t => t.state === 'unavailable' && t.reason === 'docker-daemon-down'), JSON.stringify(down.tools.map(t => t.reason)));
 
   process.env.ORK_FAKE_DOCKER_MODE = 'pull-fails';
-  const pull = runScan({ root: r.dir, stateRoot: r.dir });
+  const pull = runScan({ root: r.dir, stateRoot: r.dir, probe: { ...defaultProbe(), nativeVersion: () => null } });
   assert.ok(pull.tools.every(t => t.state === 'unavailable' && t.reason === 'image-pull-failed'));
 
   delete process.env.ORK_FAKE_DOCKER_MODE;
@@ -334,4 +345,128 @@ test('pip-audit without a requirements file is unavailable/no-requirements-file'
   assert.equal(pa.state, 'unavailable');
   assert.equal(pa.reason, 'no-requirements-file');
   assert.equal(tool(report, 'ruff').state, 'ran');
+});
+
+test('only committed content is scanned: an untracked or ignored file in the working directory is not a finding', () => {
+  const r = repo('secscan-untracked', { origin: true });
+  // HEAD without the fixture marker: the committed tree answers with the clean recordings.
+  git(r.dir, 'rm', '-q', '.fake-case');
+  fs.writeFileSync(path.join(r.dir, '.gitignore'), '.fake-case\n');
+  git(r.dir, 'add', '-A');
+  git(r.dir, 'commit', '-q', '-m', 'ignore the marker');
+  // The marker (and a copy of the secret) only in the working directory: ignored first, then untracked.
+  fs.writeFileSync(path.join(r.dir, '.fake-case'), 'js\n');
+  fs.writeFileSync(path.join(r.dir, 'leak.js'), `const apiKey = '${FAKE_SECRET}';\n`);
+  fake = installFakeTools();
+  const ignored = runScan({ root: r.dir, stateRoot: r.dir });
+  assert.ok(ignored.tools.every(t => t.state === 'ran'));
+  assert.deepEqual(ignored.findings.filter(f => f.tool === 'gitleaks'), []);
+  fs.writeFileSync(path.join(r.dir, '.gitignore'), '');
+  const untracked = runScan({ root: r.dir, stateRoot: r.dir });
+  assert.deepEqual(untracked.findings.filter(f => f.tool === 'gitleaks'), []);
+  assert.ok(!untracked.findings.some(f => f.status === 'new' && f.loop));
+});
+
+test('the base cache misses when the tool spec (install) or the tool config content changes', () => {
+  const r = repo('secscan-cache-key', { origin: true });
+  fake = installFakeTools();
+  const baseRuns = (from: number, tool: string): number => fake!.calls().slice(from)
+    .filter(c => c.args[0] === 'run' && c.args.some(a => a.endsWith(`/${tool}.json`) || a.endsWith(`/${tool}-dir.json`))).length;
+  runScan({ root: r.dir, stateRoot: r.dir });
+  let mark = fake.calls().length;
+  runScan({ root: r.dir, stateRoot: r.dir });
+  assert.equal(baseRuns(mark, 'eslint'), 1, 'cached: only the HEAD run');
+  assert.equal(baseRuns(mark, 'gitleaks'), 1);
+
+  mark = fake.calls().length;
+  const tools = loadTools().map(t => (t.name === 'eslint' ? { ...t, install: [...(t.install ?? []), 'eslint-plugin-x@1.0.0'] } : t));
+  runScan({ root: r.dir, stateRoot: r.dir, tools });
+  assert.equal(baseRuns(mark, 'eslint'), 2, 'install changed: the base runs again');
+
+  fs.mkdirSync(path.join(r.dir, '.ork-security'));
+  fs.writeFileSync(path.join(r.dir, '.ork-security', 'gitleaks.toml'), '[extend]\nuseDefault = true\n');
+  git(r.dir, 'add', '-A');
+  git(r.dir, 'commit', '-q', '-m', 'project gitleaks config');
+  mark = fake.calls().length;
+  runScan({ root: r.dir, stateRoot: r.dir });
+  assert.equal(baseRuns(mark, 'gitleaks'), 2, 'config content changed: the base runs again');
+  assert.equal(baseRuns(mark, 'semgrep'), 1, 'other tools still come from the cache');
+});
+
+test('config.tools.<name>.version other than the catalog version is a config error', () => {
+  const r = repo('secscan-version', { origin: true });
+  fs.mkdirSync(path.join(r.dir, '.ork-security'));
+  fs.writeFileSync(path.join(r.dir, '.ork-security', 'config.json'), JSON.stringify({ tools: { semgrep: { version: '1.0.0' } } }));
+  git(r.dir, 'add', '-A');
+  git(r.dir, 'commit', '-q', '-m', 'version');
+  fake = installFakeTools();
+  assert.throws(() => runScan({ root: r.dir, stateRoot: r.dir }), /security-scan\.config-invalid: tools\.semgrep\.version/);
+  const wts = git(r.dir, 'worktree', 'list', '--porcelain').split('\n').filter(l => l.startsWith('worktree '));
+  assert.equal(wts.length, 1, 'the HEAD worktree is removed on the error path too');
+});
+
+test('an image that cannot be pulled falls back to the native binary', () => {
+  const r = repo('secscan-pull-native', { origin: true });
+  fake = installFakeTools(['docker', 'gitleaks']);
+  process.env.ORK_FAKE_DOCKER_MODE = 'pull-fails';
+  const report = runScan({ root: r.dir, stateRoot: r.dir, probe: { ...defaultProbe(), nativeVersion: bin => (bin === 'gitleaks' ? 'v8.30.1' : null) } });
+  const gl = tool(report, 'gitleaks');
+  assert.equal(gl.state, 'ran', gl.reason);
+  assert.equal(gl.executor, 'native');
+  assert.equal(gl.version, 'v8.30.1');
+  assert.equal(tool(report, 'semgrep').reason, 'image-pull-failed');
+});
+
+test('a failure on the base side carries the base- prefix', () => {
+  const r = repo('secscan-base-fail', { origin: true });
+  fake = installFakeTools();
+  process.env.ORK_FAKE_DOCKER_FAIL = 'semgrep@empty';
+  const report = runScan({ root: r.dir, stateRoot: r.dir });
+  const sg = tool(report, 'semgrep');
+  assert.equal(sg.state, 'failed');
+  assert.equal(sg.reason, 'base-exit-2: fake failure');
+  assert.ok(report.findings.every(f => f.tool !== 'semgrep'));
+});
+
+test('deadlineMs bounds the whole round: the hanging tool and every tool after it fail with timeout', () => {
+  const r = repo('secscan-deadline', { origin: true });
+  fake = installFakeTools();
+  process.env.ORK_FAKE_DOCKER_SLEEP = 'gitleaks';
+  const started = Date.now();
+  const report = runScan({ root: r.dir, stateRoot: r.dir, deadlineMs: 2500 });
+  const took = Date.now() - started;
+  assert.ok(took < 2500 + 6000, `returned in ${took} ms`);
+  assert.ok(report.tools.every(t => t.state === 'failed' && t.reason === 'timeout'), JSON.stringify(report.tools.map(t => [t.name, t.reason])));
+  assert.equal(fake.calls().filter(c => c.args[0] === 'run').length, 1, 'nothing starts once the deadline is spent');
+});
+
+test('a round killed by SIGTERM leaves no worktree, no raw output dir and no container behind', async () => {
+  const r = repo('secscan-sigterm', { origin: true });
+  fake = installFakeTools();
+  const tmp = dirTemporario('secscan-sigterm-tmp');
+  cleanups.push(() => fs.rmSync(tmp, { recursive: true, force: true }));
+  const runner = path.join(tmp, 'runner.cjs');
+  fs.writeFileSync(runner, `require(${JSON.stringify(path.resolve(__dirname, '..', 'src', 'security-scan', 'run.js'))})`
+    + `.runScan({ root: process.argv[2], stateRoot: process.argv[2] });\n`);
+  const scratch = path.join(tmp, 'scratch');
+  fs.mkdirSync(scratch);
+  const child = spawn(process.execPath, [runner, r.dir], {
+    detached: true, stdio: 'ignore', env: { ...process.env, ORK_FAKE_DOCKER_SLEEP: 'gitleaks', TMPDIR: scratch },
+  });
+  const exited = new Promise<NodeJS.Signals | number | null>(res => child.on('exit', (code, sig) => res(sig ?? code)));
+  const wait = async (cond: () => boolean, ms: number): Promise<boolean> => {
+    for (const end = Date.now() + ms; Date.now() < end;) { if (cond()) return true; await new Promise(res => setTimeout(res, 100)); }
+    return cond();
+  };
+  const sleeping = () => fake!.calls().some(c => c.args[0] === 'run' && c.args.some(a => a.includes('zricethezav/gitleaks')));
+  assert.ok(await wait(sleeping, 20000), 'the round reached the hanging tool');
+  const leftovers = () => fs.readdirSync(scratch).filter(n => n.startsWith('ork-security-scan-'));
+  assert.ok(leftovers().some(n => n.includes('-tree-')) && leftovers().some(n => n.includes('-out-')), 'mid-round state exists');
+  process.kill(-child.pid!, 'SIGTERM');
+  assert.equal(await exited, 'SIGTERM', 'the runner dies on the signal (conventional 128+15)');
+  const worktrees = () => git(r.dir, 'worktree', 'list', '--porcelain').split('\n').filter(l => l.startsWith('worktree ')).length;
+  assert.ok(await wait(() => worktrees() === 1 && leftovers().length === 0, 15000), `left behind: ${leftovers().join(', ')}; worktrees ${worktrees()}`);
+  const run = fake.calls().find(c => c.args[0] === 'run' && c.args.some(a => a.includes('zricethezav/gitleaks')))!.args;
+  const container = run[run.indexOf('--name') + 1];
+  assert.ok(fake.calls().some(c => c.args[0] === 'rm' && c.args.includes(container)), 'the running container is removed');
 });

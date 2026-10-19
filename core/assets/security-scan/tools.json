@@ -248,13 +248,6 @@
     ],
     "image": "python@sha256:2699b90f4d562a22e2dd076c82f964032f64814204bff36d271a54ba4cc2c7e2",
     "version": "2.10.1",
-    "native": {
-      "bin": "pip-audit",
-      "versionArgs": [
-        "--version"
-      ],
-      "versionPattern": "\\b2\\.10\\.\\d+\\b"
-    },
     "severityMap": {
       "*": "high"
     },
@@ -294,13 +287,6 @@
     ],
     "image": "golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d",
     "version": "1.9.0",
-    "native": {
-      "bin": "govulncheck",
-      "versionArgs": [
-        "-version"
-      ],
-      "versionPattern": "\\bv?1\\.9\\.\\d+\\b"
-    },
     "network": "default",
     "baseMode": "worktree",
     "timeoutMs": 900000,

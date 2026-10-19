@@ -16,7 +16,8 @@
  *   ORK_FAKE_DOCKER_LOG             file where each call is appended as a JSON line {as, args}
  *   ORK_FAKE_DOCKER_MODE            `daemon-down` (info fails) or `pull-fails` (image absent and pull fails)
  *   ORK_FAKE_DOCKER_SLEEP           catalog tool name that sleeps 60 s before answering
- *   ORK_FAKE_DOCKER_FAIL            catalog tool name that exits 2 without output
+ *   ORK_FAKE_DOCKER_FAIL            catalog tool name that exits 2 without output; `<tool>@<case>` only for that case
+ *                                   (`semgrep@empty` fails on the clean base and runs on the fixture HEAD)
  *   ORK_FAKE_DOCKER_GARBAGE         catalog tool name whose report file is not JSON
  *   ORK_FAKE_DOCKER_ZERO_COMMITS=1  Gitleaks `git` reports 0 commits scanned whatever the range holds
  */
@@ -99,7 +100,6 @@ function identify(candidates: ToolSpec[], args: string[]): { tool: ToolSpec; fil
 /** Emulates one tool run; `src` is the host path of the scanned tree, `out` maps an out arg to a host path. */
 function emulate(tool: ToolSpec, file: string, outHost: string | undefined, args: string[], src: string, native: boolean): number {
   if (process.env.ORK_FAKE_DOCKER_SLEEP === tool.name) sleep(60000);
-  if (process.env.ORK_FAKE_DOCKER_FAIL === tool.name) { process.stderr.write('fake failure\n'); return 2; }
   const stackDir = (() => {
     // Per-stack wrappers pass {stackDir} as a positional parameter; Semgrep and Ruff as the last argument.
     const last = args[args.length - 1];
@@ -111,6 +111,8 @@ function emulate(tool: ToolSpec, file: string, outHost: string | undefined, args
   }
   const caseFile = path.join(src, '.fake-case');
   const kase = fs.existsSync(caseFile) ? fs.readFileSync(caseFile, 'utf8').trim() : 'empty';
+  const fail = process.env.ORK_FAKE_DOCKER_FAIL;
+  if (fail === tool.name || fail === `${tool.name}@${kase}`) { process.stderr.write('fake failure\n'); return 2; }
   const ext = path.extname(file);
   const recorded = [kase, 'empty'].map(k => path.join(RECORDED, `${path.basename(file, ext)}.${k}${ext}`)).find(fs.existsSync);
   if (!recorded) { process.stderr.write(`no recording for ${file}\n`); return 9; }
