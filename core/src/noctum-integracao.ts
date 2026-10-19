@@ -177,6 +177,10 @@ export function integrarComVez(carregado: ManifestoCarregado, arco: string, pedi
     let cabecas: Map<string, string | null>;
     try { cabecas = cabecasNoRemoto(carregado, [alvo.base, candidato.branch], opcoes); }
     catch (e) {
+      if (repeticao) {
+        throw recusa('noctum.integracao.nao-provada', `os HEADs não se leram no remoto durante a repetição (${primeiraLinha(e)}); ` +
+          'o merge anterior pode ter chegado, e a vez fica até a reconciliação');
+      }
       encerrarSemEsconder(carregado, arco, chave, n, { desfecho: 'desistiu', motivo: 'os HEADs não se leram no remoto' }, opcoes);
       throw e;
     }
@@ -285,8 +289,15 @@ const ancestral = (raiz: string, de: string, para: string): boolean => git(raiz,
 
 /** Os merges das vezes entregues deste destino no arco: as integrações que a prova de outra vez tem de respeitar. */
 function entreguesDoDestino(estado: EstadoDaCoordenacao, chave: string, fora?: number): string[] {
-  return (estado.vezes.get(chave) ?? []).filter(v => v.n !== fora && v.fim?.desfecho === 'entregue' && typeof v.fim.merge === 'string')
+  const dasVezes = (estado.vezes.get(chave) ?? []).filter(v => v.n !== fora && v.fim?.desfecho === 'entregue' && typeof v.fim.merge === 'string')
     .map(v => v.fim!.merge as string);
+  const registradas = [...estado.entregas.values()].filter((d) => {
+    const destino = d.destino as { repositorio?: unknown; base?: unknown } | undefined;
+    return destino && typeof destino.repositorio === 'string' && typeof destino.base === 'string' && chaveDoDestino({
+      repositorio: destino.repositorio, base: destino.base,
+    }) === chave && typeof d.merge === 'string';
+  }).map(d => d.merge as string);
+  return [...new Set([...dasVezes, ...registradas])];
 }
 
 /**

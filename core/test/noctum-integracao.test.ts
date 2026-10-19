@@ -558,6 +558,25 @@ test('I14: o merge da base nova por cima de um push recusado não vira entrega, 
     }, true), op(m3.b)), 'noctum.integracao.base-nao-provada');
     assert.deepEqual([...lerCoordenacao(m3.a.carregado, m3.arco, op(m3.a, tarde)).entregas.keys()], ['a']);
   } finally { m3.limpar(); }
+  const m4 = cenario('noctum-i14d');
+  try {
+    // G8-3: a entrega da B nasce na volta de uma vez abandonada. Ela também pertence à linha das entregas seguintes da D42.
+    const cb = candidato(branchDeTrabalho(m4.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    const ca = candidato(branchDeTrabalho(m4.a.dir, 'trabalho-a', 'a.txt', 'A SIMULADO\n'), 'a');
+    recusa(() => integrarComVez(m4.b.carregado, m4.arco, { ordem: 'O-b-1', destino: DESTINO, candidato: cb }, () => {
+      throw new Error('SIMULADO: a B caiu antes do push');
+    }, op(m4.b)), 'noctum.integracao.nao-provada');
+    const tarde = new Date(Date.now() + BATIDA_VENCIDA_MS + 60_000).toISOString();
+    gravarNaCoordenacao(m4.a.carregado, m4.arco, op(m4.a, tarde), (l) =>
+      ({ novos: registrosDosAbandonos(derivarCoordenacao(l), 'maquina-a', tarde), resultado: null }));
+    recusa(() => integrarComVez(m4.a.carregado, m4.arco, { ordem: 'O-a-1', destino: DESTINO, candidato: ca },
+      mergeEPull(m4.a.dir, () => {
+        mergeSobreAProvada(m4.b.dir)({ remoto: 'origin', destino: DESTINO, candidato: cb });
+        assert.deepEqual(reconciliarIntegracao(m4.b.carregado, m4.arco, op(m4.b, tarde)).registradas.map(x => x.trabalho), ['b']);
+      }, true), op(m4.a, tarde)), 'noctum.integracao.base-nao-provada');
+    const estado = lerCoordenacao(m4.a.carregado, m4.arco, op(m4.a, tarde));
+    assert.deepEqual([...estado.entregas.keys()], ['b'], 'o merge da A não se provou por cima da entrega da vez abandonada');
+  } finally { m4.limpar(); }
 });
 
 test('I15: a repetição que acha a fonte da forja na base não deixa o trabalho ser refeito; o avanço rápido exige a fonte com a base provada', () => {
@@ -891,4 +910,44 @@ test('I21: a prova que não sabe espera a reconciliação: o git que não roda n
     assert.equal(chamou, false);
     assert.deepEqual([...lerCoordenacao(m3.a.carregado, m3.arco, op(m3.a)).vezes.values()].flat().map(v => v.fim?.desfecho), ['invalidado']);
   } finally { m3.limpar(); }
+});
+
+test('I22: a repetição sem ls-remote deixa a vez para a reconciliação, que registra o merge sem integrar de novo', () => {
+  const m = cenario('noctum-i22');
+  const original = transporte.cabecasNoRemoto;
+  try {
+    const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
+    const pedido = { ordem: 'O-b-1', destino: DESTINO, candidato: cb };
+    let merge = '';
+    recusa(() => integrarComVez(m.b.carregado, m.arco, pedido, (c) => {
+      merge = mergeSobreAProvada(m.b.dir)(c).merge;
+      throw new Error('SIMULADO: resposta perdida depois do push');
+    }, op(m.b)), 'noctum.integracao.nao-provada');
+    (transporte as { cabecasNoRemoto: typeof original }).cabecasNoRemoto = () => {
+      throw new RecusaDoArco('noctum.coordenacao.sem-remoto', 'SIMULADO: ls-remote fora');
+    };
+    const motivo = recusa(() => integrarComVez(m.b.carregado, m.arco, pedido, () => assert.fail('não integra de novo'), op(m.b)),
+      'noctum.integracao.nao-provada');
+    assert.match(motivo, /os HEADs não se leram no remoto durante a repetição/);
+    (transporte as { cabecasNoRemoto: typeof original }).cabecasNoRemoto = original;
+    assert.deepEqual([...lerCoordenacao(m.a.carregado, m.arco, op(m.a)).vezes.values()].flat().map(v => v.fim), [null], 'a vez segue ativa');
+    assert.deepEqual(reconciliarIntegracao(m.b.carregado, m.arco, op(m.b)).registradas, [{ trabalho: 'b', merge }]);
+  } finally { (transporte as { cabecasNoRemoto: typeof original }).cabecasNoRemoto = original; m.limpar(); }
+});
+
+test('I23: a trava local mantém a reconciliação e uma segunda integração longe da vez em uso', () => {
+  const m = cenario('noctum-i23');
+  try {
+    const ca = candidato(branchDeTrabalho(m.a.dir, 'trabalho-a', 'a.txt', 'A SIMULADO\n'), 'a');
+    const pedido = { ordem: 'O-a-1', destino: DESTINO, candidato: ca };
+    let emCurso: string[] = [], segunda = '';
+    integrarComVez(m.a.carregado, m.arco, pedido, (c) => {
+      emCurso = reconciliarIntegracao(m.a.carregado, m.arco, op(m.a)).emCurso;
+      segunda = recusa(() => integrarComVez(m.a.carregado, m.arco, pedido, integradorPorAvanco(m.a.dir), op(m.a)), 'noctum.integracao.ocupada');
+      return integradorPorAvanco(m.a.dir)(c);
+    }, op(m.a));
+    assert.deepEqual(emCurso, [`${chaveDoDestino(DESTINO)}/1`]);
+    assert.match(segunda, /outro processo desta máquina integra neste arco agora/);
+    assert.deepEqual([...lerCoordenacao(m.b.carregado, m.arco, op(m.b)).vezes.values()].flat().map(v => v.fim?.desfecho), ['entregue']);
+  } finally { m.limpar(); }
 });
