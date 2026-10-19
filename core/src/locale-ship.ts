@@ -179,6 +179,12 @@ export const SHIP_PT_BR = {
     retencao: (thread: string, arco: string, situacao: string) =>
       `noctum.guarda.thread-do-arco: o arco ${arco} (${situacao}) despachou a thread ${thread} por último; a batida e a Sentinela ` +
       'não a despacham, não a retomam nem a mesclam até um despacho fora do arco ou um arco novo que a liste',
+    // A2 do CHECK: o arco terminou, e a sessão que ele despachou ainda conduz a thread.
+    sessaoDoArco: (thread: string, arco: string, situacao: string, sessao: string) =>
+      `noctum.guarda.thread-do-arco: o arco ${arco} está ${situacao}, e a sessão ${sessao} que ele despachou ainda conduz a thread ${thread}: ` +
+      'ela não entrega fora do arco',
+    sessaoDoArcoCorrecao: (arco: string) =>
+      `espere a parada que o fechamento do arco pede, ou pare a sessão; sem sessão do arco em voo, a thread se entrega à mão (ork noctum status ${arco})`,
   },
   // RM-059 (F7, T7.1): `ork ship publicar` e `ork ship pista`. O detalhe, a correcao e o texto das etapas vao ao
   // `--json` e ao ledger em pt-BR; a impressao os remonta no locale do comando.
@@ -479,6 +485,11 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     retencao: (thread, arco, situacao) =>
       `noctum.guarda.thread-do-arco: arc ${arco} (${situacao}) dispatched thread ${thread} last; the beat and the Sentinel ` +
       'do not dispatch, resume or merge it until a dispatch outside the arc or a new arc that lists it',
+    sessaoDoArco: (thread, arco, situacao, sessao) =>
+      `noctum.guarda.thread-do-arco: arc ${arco} is ${situacao}, and session ${sessao} that it dispatched still conducts thread ${thread}: ` +
+      'it does not deliver outside the arc',
+    sessaoDoArcoCorrecao: (arco) =>
+      `wait for the stop that the arc closing requests, or stop the session; with no arc session in flight, the thread is delivered by hand (ork noctum status ${arco})`,
   },
   publicar: {
     uso: 'usage: ork ship publicar <thread-id> [--dry-run] [--remoto R] [--json]',

@@ -27,7 +27,7 @@ import * as path from 'node:path';
 import { raizDoEstado } from './estado-thread';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { Mensagens, textoDoCatalogo } from './locale';
-import { ArcoComProposta, lerArcoComProposta, SituacaoDoArco } from './noctum-arco';
+import { ArcoComProposta, EstadoDoArco, lerArcoComProposta, SituacaoDoArco } from './noctum-arco';
 import { ConteudoDoEnvelope, ID_DO_ARCO, RecusaDoArco, shaDoPedido } from './noctum-envelope';
 import { dirThread, lerThread } from './thread';
 import { EventoLedger } from './types';
@@ -156,8 +156,21 @@ export function guardaDaThread(raiz: string, thread: string, quando = new Date()
     return recusa(MOTIVO_DO_ARCO_ILEGIVEL, thread, ultimo, null, 'correlacao', (m) => m.ship.guarda.arcoIlegivel(thread, ultimo, ilegivel),
       (m) => m.ship.guarda.arcoIlegivelCorrecao(ultimo));
   }
-  const v = vinculosDaThread(raiz, arcos, thread, ultimo).find(x => x.arco !== opcoes.doArco && guardaOsCaminhosManuais(x));
-  if (!v) return null;
+  const vinculos = vinculosDaThread(raiz, arcos, thread, ultimo);
+  const v = vinculos.find(x => x.arco !== opcoes.doArco && guardaOsCaminhosManuais(x));
+  if (!v) {
+    // A2 do CHECK: no arco que terminou (revogado, expirado ou encerrado), a sessão que ele despachou e que ainda conduz a
+    // thread não entrega fora dele; sem sessão dele em voo, a thread se entrega à mão, como antes.
+    for (const t of vinculos.filter(x => x.arco !== opcoes.doArco && TERMINAIS.includes(x.situacao))) {
+      const lido = arcos.lidos.get(t.arco);
+      const sessao = lido ? sessaoDoArcoEmVoo(raiz, thread, lido.estado) : null;
+      if (!sessao) continue;
+      return recusa(MOTIVO_DA_GUARDA, thread, t.arco, t.situacao, t.origem,
+        (m) => m.ship.guarda.sessaoDoArco(thread, t.arco, m.ship.guarda.situacoes[t.situacao] ?? t.situacao, sessao),
+        (m) => m.ship.guarda.sessaoDoArcoCorrecao(t.arco));
+    }
+    return null;
+  }
   return recusa(MOTIVO_DA_GUARDA, thread, v.arco, v.situacao, v.origem,
     (m) => m.ship.guarda.doArco(thread, v.arco, m.ship.guarda.situacoes[v.situacao] ?? v.situacao, m.ship.guarda.origens[v.origem] ?? v.origem),
     (m) => m.ship.guarda.doArcoCorrecao(v.arco));
@@ -165,6 +178,22 @@ export function guardaDaThread(raiz: string, thread: string, quando = new Date()
 
 /** As situações do arco que já terminou: nada novo sai dele, e a retenção vale (D4). */
 const TERMINAIS: readonly SituacaoDoArco[] = ['expirado', 'revogado', 'encerrado'];
+
+/** Os eventos que provam o fim de uma sessão no ledger da thread (os mesmos do fechamento). */
+const FIM_DA_SESSAO: readonly string[] = ['phase_result', 'sessao_morta', 'session_superseded'];
+
+/**
+ * A2 do CHECK: a sessão que o arco despachou nesta thread e que ainda não acabou (sem resultado, morte nem superação no
+ * ledger), ou `null`. O ledger que não se lê não prova o fim: a sessão conta como em voo, e a guarda falha fechada.
+ */
+function sessaoDoArcoEmVoo(raiz: string, thread: string, estado: EstadoDoArco): string | null {
+  const sessoes = [...new Set(estado.despachos.filter(d => d.desfecho === 'concluido' && d.sessionId && (d.threadDespachada ?? d.thread) === thread)
+    .map(d => d.sessionId!))];
+  if (!sessoes.length) return null;
+  let eventos: EventoLedger[] | null;
+  try { eventos = lerLedger(dirThread(raiz, thread)); } catch { eventos = null; }
+  return sessoes.find(s => !eventos?.some(e => FIM_DA_SESSAO.includes(e.tipo) && e.sessionId === s)) ?? null;
+}
 
 /** O vínculo da thread com um arco, como os caminhos automáticos o leem no passo do condutor (T1.2, D3 e D4). */
 export interface ArcoDoPasso {

@@ -26,7 +26,7 @@ import { registrarEntregaExternaPorPr, registrarEntregaPorPr, registrarEntregasP
 import { kernelDisponivel } from '../src/fila-pesada';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { comLocale } from '../src/locale';
-import { autorizarPeloIngresso, encerrarArco, lerArco, proporEnvelope, textoDeAutorizacao } from '../src/noctum-arco';
+import { autorizarPeloIngresso, concluirDespacho, encerrarArco, lerArco, proporEnvelope, reservarDespacho, textoDeAutorizacao } from '../src/noctum-arco';
 import { passoDoArco, OpcoesDoPasso, ResultadoDoPasso } from '../src/noctum-execucao';
 import { arcoDoPasso, guardaDaThread, lerArcosDaRaiz, linhaDoArco, MOTIVO_DA_GUARDA, MOTIVO_DO_ARCO_ILEGIVEL, pedidoDoArco } from '../src/noctum-guarda';
 import { ExecutorDoGh } from '../src/parado-no-condutor';
@@ -604,3 +604,23 @@ function autorizarEmenda(p: ProjetoDeTeste, arco: string, pedido: Record<string,
   const { envelopeSha256 } = proporEnvelope(p.dir, pedido, agora);
   autorizarPeloIngresso(p.dir, arco, envelopeSha256, assinadoPara(arco, textoDeAutorizacao(envelopeSha256), agora), agora);
 }
+
+test('GS15: no arco revogado, a sessão que ele despachou e que ainda conduz a thread não entrega; acabada a sessão, a thread se entrega à mão', () => {
+  const p = projetoTemporario('gs15', true);
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'sessao em voo', modo: 'auto' });
+    const sha = abrirArco(p.dir, 'arco-gs15', { trabalhos: [daThread('w1', thread.id)] });
+    const r = reservarDespacho(p.dir, { arco: 'arco-gs15', envelopeSha256: sha, trabalho: 'w1', thread: thread.id, fase: 'CHECK', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    const sessao = '00000000-0000-4000-8000-000000001515';
+    concluirDespacho(p.dir, 'arco-gs15', r.seq, { thread: thread.id, sessionId: sessao, idempotente: false });
+    revogarArco(p.dir, 'arco-gs15');
+    const g = guardaDaThread(p.dir, thread.id);
+    assert.deepEqual([g?.motivo, g?.situacao], [MOTIVO_DA_GUARDA, 'revogado']);
+    assert.match(g!.texto, /a sessão 00000000-0000-4000-8000-000000001515 que ele despachou ainda conduz a thread/);
+    assert.equal(ship(p.carregado, thread.id, { para: 'main', dryRun: true }).codigo, MOTIVO_DA_GUARDA, 'o ship da sessão do arco revogado recusa');
+    registrar(dirThread(p.dir, thread.id), thread.id, 'phase_result', { fase: 'CHECK', sessionId: sessao, classificacao: 'fase_concluida', ok: true });
+    assert.equal(guardaDaThread(p.dir, thread.id), null, 'acabada a sessão, a thread se entrega à mão');
+    assert.notEqual(ship(p.carregado, thread.id, { para: 'main', dryRun: true }).codigo, MOTIVO_DA_GUARDA);
+  } finally { p.limpar(); }
+});
