@@ -434,7 +434,7 @@
         "node -e \"const fs=require('fs');const b=JSON.parse(fs.readFileSync('.ork-ci/ork-rm061f3c.json','utf8'));if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm061f3c'||b.claims.some(c=>c.estado!=='verificado')||b.commands.length!==1||b.commands[0].command!=='npm --prefix core run test:ci')process.exit(1)\""
       ],
       "criadoEm": "2026-10-14T10:31:21.178Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -714,10 +714,11 @@
       "alegacao": "O pt-BR das cinco superfícies da F3c (gitignore do init, recusas de decisao registrar no CLI e no MCP, network roadmap, ficha e pedido do from-finding, prompts e ork prompt) é igual byte a byte ao da main de integração 8d37c75f, pela fixture gerada sobre ela; reprova com o teste vermelho ou ausente.",
       "negativa": false,
       "verificar": [
+        "npm --prefix core run build:test && out=$(node --test --test-name-pattern='locale pt-BR F3c' core/dist-test/test/locale-f3c-snapshot.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale pt-BR F3c'",
         "npm --prefix core run build:test && out=$(node --test --test-name-pattern='locale pt-BR F3c' core/dist-test/test/locale-f3c-snapshot.test.js 2>&1) && printf '%s\\n' \"$out\" | grep -qE '^ok [0-9]+ - locale pt-BR F3c'"
       ],
       "criadoEm": "2026-10-19T04:04:02.865Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -728,10 +729,11 @@
       "alegacao": "A página da RM-061 registra a cobertura da F3c integrada à main com a RM-064 fatia 2 (2.157 entradas, 0,4215 no contador, 42,2%) ao lado das medidas anteriores e separa o restante como F3d.",
       "negativa": false,
       "verificar": [
+        "node core/scripts/contar-mensagens-de-saida.cjs --json | grep -E '\"cobertura\": 0.4215' >/dev/null && grep -E '\\| Entradas do catálogo \\| 1.800 \\| 1.998 \\| 1.948 \\| 2.157 \\|' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md >/dev/null && grep -E '\\| Cobertura \\| 37,9% \\| 41,1% \\| 38,9% \\| 42,2% \\|' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md >/dev/null && grep -E '^- \\*\\*F3d:\\*\\*' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md >/dev/null",
         "node core/scripts/contar-mensagens-de-saida.cjs --json | grep -E '\"cobertura\": 0.4215' >/dev/null && grep -E '\\| Entradas do catálogo \\| 1.800 \\| 1.998 \\| 1.948 \\| 2.157 \\|' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md >/dev/null && grep -E '\\| Cobertura \\| 37,9% \\| 41,1% \\| 38,9% \\| 42,2% \\|' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md >/dev/null && grep -E '^- \\*\\*F3d:\\*\\*' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md >/dev/null"
       ],
       "criadoEm": "2026-10-19T04:04:03.285Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -742,10 +744,11 @@
       "alegacao": "O recibo da F3c guarda a medida da main integrada com a RM-064 fatia 2 (0,3895 sem a F3c; 0,4215 e 2.157 entradas com ela) e os quatro hashes dos snapshots pt-BR, iguais aos arquivos da árvore.",
       "negativa": false,
       "verificar": [
+        "node -e \"const fs=require('fs'),c=require('crypto');const e=JSON.parse(fs.readFileSync('docs/roadmap/evidencias/RM-061/cobertura-f3c.json','utf8'));const i=e.integrada;if(i.main.cobertura!==0.3895||i.comF3c.cobertura!==0.4215||i.comF3c.catalogo.entradas!==2157)process.exit(1);const s=Object.entries(i.snapshotsPtBR).filter(([f])=>f!=='nota');if(s.length!==4||s.some(([f,h])=>c.createHash('sha256').update(fs.readFileSync(f)).digest('hex')!==h))process.exit(1)\"",
         "node -e \"const fs=require('fs'),c=require('crypto');const e=JSON.parse(fs.readFileSync('docs/roadmap/evidencias/RM-061/cobertura-f3c.json','utf8'));const i=e.integrada;if(i.main.cobertura!==0.3895||i.comF3c.cobertura!==0.4215||i.comF3c.catalogo.entradas!==2157)process.exit(1);const s=Object.entries(i.snapshotsPtBR).filter(([f])=>f!=='nota');if(s.length!==4||s.some(([f,h])=>c.createHash('sha256').update(fs.readFileSync(f)).digest('hex')!==h))process.exit(1)\""
       ],
       "criadoEm": "2026-10-19T04:04:03.661Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
