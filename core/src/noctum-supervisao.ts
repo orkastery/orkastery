@@ -108,7 +108,8 @@ export type MotivoDaRetomada = 'sessao-morta' | 'fim-de-turno-sem-resultado' | '
 /** As contas que o arco tira da seleção (D13). Subteto, perfil ausente e desativado são relidos a cada passo, sem linha. */
 export type MotivoDaConta = 'cota' | 'cota-sem-reset' | 'limite-de-uso' | 'auth';
 export type MotivoDoIsolamento = 'reserva-incerta' | 'retomadas-esgotadas' | 'sem-primeiro-turno' | 'sessao-presa' | 'condutor-externo' |
-  'sessao-fora-do-registro' | 'efeito-divergente' | 'efeito-sem-leitura' | 'efeito-esgotado' | 'erro-repetido' | 'recusas-repetidas';
+  'sessao-fora-do-registro' | 'efeito-divergente' | 'efeito-sem-leitura' | 'efeito-esgotado' | 'erro-repetido' | 'recusas-repetidas' |
+  'baseline-falhou';
 export type MotivoDaParada = 'supervisor-falhou' | 'teto-do-arco' | 'violacao-de-custo' | 'ambiente-do-despacho';
 export type DesfechoDoEfeito = 'confirmado' | 'ausente' | 'divergente' | 'sem-leitura';
 

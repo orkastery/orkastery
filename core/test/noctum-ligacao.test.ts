@@ -14,6 +14,7 @@ import { projetoTemporario, ProjetoDeTeste } from './apoio';
 import { abrirArco, autorizarPedido, pedidoV2, prepararIngressoSimulado, revogarArco, TrabalhoSimulado } from './noctum-apoio';
 import { instancia, MAQUINA, opcoesSimuladas, parametrosDoTeste, runtimeSimulado } from './noctum-supervisao-apoio';
 import { HORA } from './noctum-n6-apoio';
+import { ErroDoCatalogo } from '../src/locale';
 import { ErroDaFilaPesada, kernelDisponivel, tentarTravaExclusiva } from '../src/fila-pesada';
 import { partesLocais } from '../src/horario';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
@@ -572,5 +573,29 @@ test('LG23: com a parada pelo teto, a sessão admitida que morre sem resultado v
     assert.deepEqual([r2.fechamento.fechado, r2.fechamento.motivo, r2.fechamento.paradas.length], [true, 'custo', 0], JSON.stringify(r2.fechamento));
     assert.ok(lerLedger(dirThread(p.dir, thread)).some(e => e.tipo === 'sessao_morta' && e.sessionId === sessao), 'a morte provada fica no ledger');
     assert.deepEqual([lerSupervisao(p.dir, 'arco-lg23').retomadas.length, registro.length], [0, 1], 'nada retomado nem despachado depois do teto');
+  } finally { p.limpar(); }
+});
+
+test('LG24: a baseline que falha sem ser espera (o comando que não existe na worktree nova) não derruba o condutor: o trabalho fica isolado com a causa, e o outro despacha', () => {
+  const p = projetoTemporario('lg24');
+  try {
+    abrirSemRelatorio(p, 'arco-lg24', { trabalhos: [A, C], contas: DUAS });
+    vigiaPresente(p, 'arco-lg24');
+    const registro: string[] = [];
+    const c = conduzirArco(p.carregado, 'arco-lg24', { ...opcoesSimuladas(p.dir, ITENS, registro, { passo: {
+      abrirThread: (k, o) => novaThread(k, { ...o, criarWorktree: false }).thread,
+      gravarBaseline: (_k, t) => {
+        // A do A falha como o npm sem a dependência na worktree nova; a do C grava.
+        if (lerThread(p.dir, t).roadmap === A.item) {
+          throw new ErroDoCatalogo((m) => m.verify.baselineDependenciaAusente('build', 127, 'npm --prefix core run build'));
+        }
+        registrar(dirThread(p.dir, t), t, 'baseline_recorded', { commit: 'SIMULADO', comandos: [], simulado: true });
+      } } as OpcoesDoVigia['passo'] }), maxPassos: 3, dormir: () => {} });
+    assert.ok(c.acao === 'saiu' && c.ultimo?.acao === 'despachou', JSON.stringify(c));
+    const isolado = lerSupervisao(p.dir, 'arco-lg24').isolados.get('a');
+    assert.equal(isolado?.motivo, 'baseline-falhou');
+    assert.match(isolado?.detalhe ?? '', /^baseline\.dependencia-ausente: build nao executou porque o comando nao existe \(codigo 127\)/);
+    assert.equal(registro.length, 1, 'o C despachou depois do isolamento do A');
+    assert.ok(c.ultimo?.acao === 'despachou' && c.ultimo.trabalho === 'c');
   } finally { p.limpar(); }
 });

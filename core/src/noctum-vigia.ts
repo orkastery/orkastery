@@ -37,7 +37,7 @@ import { nomeDaMaquina } from './maquina';
 import { concluirDespacho, EstadoDoArco, lerArco, SituacaoDoArco } from './noctum-arco';
 import { LeituraDeSessoes } from './noctum-capacidade';
 import { envelopeComTrabalhos } from './noctum-envelope';
-import { OpcoesDoPasso, passoDoArco, ResultadoDoPasso } from './noctum-execucao';
+import { MOTIVO_DA_BASELINE_FALHA, OpcoesDoPasso, passoDoArco, ResultadoDoPasso } from './noctum-execucao';
 import { DecisoesDaSupervisao } from './noctum-fila';
 import { OpcoesDaEntrega, passoDaEntrega, ResultadoDaEntrega } from './noctum-entrega';
 import { decidirPedidos, decidirReservas, decidirSessoes, efeitosAbertos, LeitorDoRemoto, LeituraDoRuntime, listagemCompleta, ParadaDeSessao,
@@ -249,6 +249,9 @@ export function passoConduzido(carregado: ManifestoCarregado, arco: string, quem
     ...(visao ? { perfis: () => visao.perfis } : {}),
     ...(conteudo && estado ? { alvos: (fase, runtime, modo) => alvosDaFase(carregado, conteudo, estado, fase, runtime, modo) } : {}),
     supervisao: decisoesDaSupervisao(sup, estado) } as OpcoesDoPasso);
+  // N1 do CHECK 2: a baseline do trabalho que falhou sem ser espera isola o trabalho, com a causa: os outros seguem, e o
+  // tique e o relatório dizem por quê.
+  if (r.acao === 'recusado' && r.motivo === MOTIVO_DA_BASELINE_FALHA) isolar(carregado, arco, r.trabalho, r.thread, 'baseline-falhou', r.detalhe, quando);
   if (r.acao === 'recusado' && recusaDeAmbiente(r.detalhe)) {
     const depois = gravarNaSupervisao(carregado, arco, [{ tipo: 'recusa_de_ambiente', trabalho: r.trabalho, thread: r.thread,
       detalhe: r.detalhe.slice(0, 300) }], quando);

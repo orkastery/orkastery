@@ -153,7 +153,13 @@ export function baselineDoArcoPendente(raiz: string, thread: Thread, fase: Fase)
 
 type Recusado = Extract<ResultadoDoPasso, { acao: 'recusado' }>;
 /** O despacho que parou na baseline: a reserva já voltou, e a baseline roda depois de soltar a trava de despacho. */
-interface BaselinePendente { acao: 'baseline'; thread: string; fila: FilaDoArco }
+interface BaselinePendente { acao: 'baseline'; trabalho: string; thread: string; fase: Fase; fila: FilaDoArco }
+
+/**
+ * RM-058, integração (N1 do CHECK 2): a baseline do arco que falhou sem ser espera (o comando que não existe na worktree nova,
+ * a worktree quebrada). O passo devolve a recusa tipada deste trabalho, e a supervisão o isola com a causa.
+ */
+export const MOTIVO_DA_BASELINE_FALHA = 'noctum.baseline.falhou';
 /** A recusa que é só deste candidato: o passo segue para o próximo. */
 type RecusaDoCandidato = Recusado & { seguir: true };
 
@@ -274,7 +280,12 @@ function baselineForaDaTrava(carregado: ManifestoCarregado, arco: string, p: Bas
   try {
     (opcoes.gravarBaseline ?? ((k, t, c) => { gravarBaseline(k, t, undefined, c, 'phase.run'); }))(carregado, p.thread, conducao);
   } catch (e) {
-    if (!(e instanceof ErroDaFilaPesada) && !(e instanceof ErroDeConducao)) throw e;
+    // N1 do CHECK 2: a falha que não é espera não derruba o passo (nem o condutor, nem o CLI): volta como a recusa deste
+    // trabalho, que não passa sozinha, e a supervisão o isola; os outros trabalhos seguem.
+    if (!(e instanceof ErroDaFilaPesada) && !(e instanceof ErroDeConducao)) {
+      return { acao: 'recusado', trabalho: p.trabalho, thread: p.thread, fase: p.fase, motivo: MOTIVO_DA_BASELINE_FALHA, detalhe: mensagem(e),
+        reserva: null, fila: p.fila };
+    }
     return { acao: 'aguardar', ate: cadencia, motivo: 'baseline-pendente', detalhe: mensagem(e), fila: p.fila };
   }
   return { acao: 'aguardar', ate: new Date().toISOString(), motivo: 'baseline-gravada', fila: p.fila,
@@ -325,7 +336,7 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
   // baseline roda fora da trava de despacho (`baselineForaDaTrava`); o vigia nunca a grava: ela fica para o condutor.
   if (baselineDoArcoPendente(raiz, thread, c.fase)) {
     concluirDespacho(raiz, arco, reserva, { motivo: 'baseline.pendente' });
-    return { acao: 'baseline', thread: thread.id, fila };
+    return { acao: 'baseline', trabalho: c.trabalho, thread: thread.id, fase: c.fase, fila };
   }
   // S5 do CHECK: a falha de dentro do núcleo pode ter aberto a sessão; ela sobe, e a reserva fica pendente e conta.
   const antes = eventosDaThread(raiz, thread.id)?.length ?? 0;
@@ -336,7 +347,7 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
     canal: canalDoProcesso(), correlacao: `noctum:${arco}`, baselinePeloDespacho: false, ...trio });
   if (r.motivo === 'baseline.pendente') {
     concluirDespacho(raiz, arco, reserva, { motivo: 'baseline.pendente' });
-    return { acao: 'baseline', thread: thread.id, fila };
+    return { acao: 'baseline', trabalho: c.trabalho, thread: thread.id, fase: c.fase, fila };
   }
   // A recusa dos portões do núcleo vem antes de chamar o runtime: nada abriu, e a sessão volta ao orçamento.
   if (r.bloqueado) return recusar(String(r.motivo ?? 'despacho.bloqueado'), r.erro ?? 'o núcleo recusou o despacho', thread.id);
