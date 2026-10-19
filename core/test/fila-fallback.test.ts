@@ -17,6 +17,9 @@ import { lerFilaDeRetomada, PedidoComPerfil } from '../src/ratelimit';
 import { executarRetry, retomarFila } from '../src/retry';
 import { adicionarPerfil, lerPerfis, marcarFalhaDePerfil } from '../src/runtime-profiles';
 import { editarBloco } from '../src/setup';
+import { instalarAdaptador } from '../src/hosts';
+import { instalarMcp } from '../src/mcp-install';
+import { capacidadeDoRuntimeNoProjeto } from '../src/runtime-context';
 import { dirThread, novaThread } from '../src/thread';
 
 const PROMPT = 'FINALIZAR-SIMULADO: fatia da fila';
@@ -98,5 +101,24 @@ test('A4 sem runtime liberado: o pedido volta a fila com prazo posterior a retom
     assert.equal(depois.liberaEm, lerPerfis(c.p.dir).perfis.find(q => q.id === 'a')?.esgotadoAte, 'o proximo prazo e o do claude-bg (a)');
     assert.deepEqual(retomarFila(c.p.carregado, { quando: c.pedido.liberaEm }), [], 'na mesma janela nada vence de novo');
     assert.equal(lerLedger(c.dir).filter(e => e.tipo === 'phase_dispatch').length, 0);
+  } finally { c.limpar(); }
+});
+
+test('RM-064 T7: em projeto preparado, a fila nao retoma no fallback cujo adaptador nao esta instalado', () => {
+  const c = cenario('fila-sem-adaptador');
+  try {
+    // O projeto passa a ter o contexto de adaptadores: o do Claude Code instalado, o do Codex nao.
+    instalarMcp({ projeto: c.p.dir, host: 'codex' });
+    instalarAdaptador('claude-code', { projeto: c.p.dir });
+    assert.deepEqual([capacidadeDoRuntimeNoProjeto(c.p.dir, 'claude-bg').capaz, capacidadeDoRuntimeNoProjeto(c.p.dir, 'codex').capaz],
+      [true, false]);
+    // O prazo do codex x vence e o perfil fica livre; mesmo assim ele nao e destino, porque o runtime nao e capaz.
+    marcarFalhaDePerfil(c.p.dir, 'x', { estado: 'esgotado', esgotadoAte: new Date(Date.now() - 1000).toISOString(),
+      motivo: 'runtime.quota-exhausted', detalhe: 'prazo vencido no teste' });
+    const [retomada] = retomarFila(c.p.carregado, { quando: c.pedido.liberaEm });
+    assert.equal(retomada.despachada, false, retomada.detalhe);
+    assert.match(retomada.detalhe, /nenhum perfil da vez disponivel em claude-bg$/, 'so o runtime capaz foi considerado');
+    assert.equal(lerLedger(c.dir).some(e => e.runtime === 'codex' && (e.tipo === 'phase_dispatch' || e.tipo === 'phase_dispatch_failed')), false,
+      'nenhuma tentativa no codex sem adaptador');
   } finally { c.limpar(); }
 });

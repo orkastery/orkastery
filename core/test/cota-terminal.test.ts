@@ -566,6 +566,34 @@ test('defeitosdeco D-6: sem outro perfil com o modelo, o retry vai ao fallback d
   } finally { p.limpar(); claude.restaurar(); }
 });
 
+// RM-064 (T7): em projeto preparado, o fallback cujo adaptador nao esta instalado nao e destino da troca por modelo.
+import { instalarAdaptador } from '../src/hosts';
+import { instalarMcp } from '../src/mcp-install';
+
+test('RM-064 T7: em projeto preparado, a troca por modelo nao vai ao fallback cujo adaptador nao esta instalado', () => {
+  const p = projetoTemporario('modelo-sem-adaptador');
+  const claude = runtimePorConta('modelo-sem-adaptador');
+  try {
+    const contaA = claude.conta(p.dir, 'a');
+    ignorarStubs(p.dir);
+    instalarMcp({ projeto: p.dir, host: 'codex' });
+    instalarAdaptador('claude-code', { projeto: p.dir });
+    const t = novaThread(p.carregado, { nome: 'modelo sem adaptador', modo: 'auto' }).thread;
+    const bloco = editarBloco(p.dir, 'auto', 1, { fallback: ['codex:modelo-SIMULADO:high'] }, 'fixture');
+    assert.equal(bloco.ok, true, bloco.erro);
+    const dir = dirThread(p.dir, t.id);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO', model: 'fable-5-1' });
+    assert.equal(r.verificada, true, r.erro);
+    erroNaTranscricao(contaA, p.dir, r.sessionId as string, 'model_not_found', MODELO_INACESSIVEL('fable-5-1'));
+    claude.estadoDaSessao('failed');
+    esperarResultado(p.carregado, dir, r.sessionId as string);
+    const ensaio = executarRetry(p.carregado, t.id, { dryRun: true });
+    assert.equal(ensaio.redespacho, null, ensaio.detalhe);
+    assert.match(ensaio.detalhe, /o bloco nao tem outro destino/);
+    assert.equal(lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').length, 1, 'nada foi despachado no codex');
+  } finally { p.limpar(); claude.restaurar(); }
+});
+
 // GO-FIX (R3, R4 do CHECK): o texto do agente nao aciona a troca; a recusa sincrona do redespacho conta
 // como destino que recusou; e, na rotacao por cota, a recusa do modelo nao troca o motivo da fila.
 import { aguardando as pedidosAguardando, PedidoComPerfil } from '../src/ratelimit';

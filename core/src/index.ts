@@ -192,8 +192,9 @@ import { exigirModoVivo, extrairTagAposentadaDoPedido, extrairTagDoPedido, MODOS
 import { migrarModosAposentados, textoDaMigracaoModos } from './modos-migracao';
 import { editarBloco, lerSetup, resetarSetup, textoDaEntrevista, textoDoSetup, versionarSetup } from './setup';
 import {
-  adicionarPerfil, desativarPerfil, lerPerfis, lerPerfisComContas, linhasDePerfis, marcarFalhaDePerfil, perfilDeDespacho, PerfilDeDespacho,
-  perfisComHorario, prepararDiretorioDoPerfil, reativarPerfil, registrarConferenciaInconclusiva, VARIAVEL_DO_PERFIL,
+  adicionarPerfil, desativarPerfil, expirarPerfisVencidos, lerPerfis, lerPerfisComContas, linhasDePerfis,
+  marcarFalhaDePerfil, perfilDeDespacho, PerfilDeDespacho, perfisComHorario, prepararDiretorioDoPerfil, reativarPerfil,
+  registrarConferenciaInconclusiva, tipoDeLimiteDoPerfil, VARIAVEL_DO_PERFIL,
 } from './runtime-profiles';
 import { ambienteDoPerfil as ambienteDoPerfilClaude, conferirAuth as conferirAuthClaude } from './adapters/claude-bg';
 import { ambienteDoDespacho as ambienteDoDespachoCodex, conferirAuth as conferirAuthCodex } from './adapters/codex';
@@ -780,8 +781,10 @@ function comandoAccounts(args: Args): number {
   }
   if (sub === 'check') {
     const alvo = args.posicionais[2];
+    const expirados = new Set(comLocale('pt-BR', () => expirarPerfisVencidos(raiz)).map(p => p.id));
     const perfis = lerPerfis(raiz).perfis.filter(p => p.estado !== 'desativado' && (alvo === undefined || p.id === alvo));
     if (alvo !== undefined && perfis.length === 0) { console.error(ma.perfilAtivoNaoExiste(alvo)); return 1; }
+    const inventario = inventariarSessoes(raiz, { global: true });
     let falhas = 0;
     for (const p of perfis) {
       const auth = conferir(perfilDeDespacho(p));
@@ -795,9 +798,22 @@ function comandoAccounts(args: Args): number {
         }
       });
       if (!auth.ok) falhas++;
-      console.log(ma.resultadoCheck(p.id, p.runtime, auth.ok ? ma.conferido
+      const atual = lerPerfis(raiz).perfis.find(x => x.id === p.id) ?? p;
+      const sessoes = inventario.sessoes.filter(s => s.viva && s.runtime === p.runtime && s.perfil === p.id);
+      const cargas = [...new Set(sessoes.flatMap(s => s.vinculos.length
+        ? s.vinculos.map(v => `${v.thread}:${v.fase}`) : [ma.sessaoSemVinculo(s.sessionId.slice(0, 8))]))];
+      const carga = !inventario.ok ? ma.cargaInconclusiva : cargas.length ? ma.cargaDaConta(cargas.join(', ')) : ma.cargaVazia;
+      const volta = atual.esgotadoAte ?? auth.cota?.resetEm ?? null;
+      const operacional = [
+        ma.limiteDaConta(ma.tipoDeLimite(tipoDeLimiteDoPerfil(atual))),
+        ma.cotaDaConta(auth.cota ? ma.cotaMedida(auth.cota.usada, auth.cota.limite, auth.cota.unidade) : ma.cotaIndisponivel),
+        carga,
+        volta ? ma.voltaEm(formatarDataHoraRotulada(volta)) : ma.voltaSemMedida,
+        ...(expirados.has(p.id) ? [ma.marcaExpirada] : []),
+      ].join('; ');
+      console.log(`${ma.resultadoCheck(p.id, p.runtime, auth.ok ? ma.conferido
         : auth.transitorio ? ma.inconclusivaCheck(detalhe(auth))
-        : auth.pago ? ma.pagoCheck(detalhe(auth)) : ma.semLoginCheck(detalhe(auth))));
+        : auth.pago ? ma.pagoCheck(detalhe(auth)) : ma.semLoginCheck(detalhe(auth)))}; ${operacional}`);
     }
     console.log('');
     imprimir();

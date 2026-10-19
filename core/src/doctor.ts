@@ -20,10 +20,10 @@ import { CHAVE_DO_FUSO, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso
   rotuloDoFuso } from './horario';
 import { Check } from './types';
 import { branchDoHead, exec, noPath, simbolo } from './util';
-import { inventariarSessoes } from './sessoes-inventario';
+import { inventariarSessoes, InventarioDeSessoes } from './sessoes-inventario';
 import { raizDoEstado } from './estado-thread';
 import { memoryState } from './project-state';
-import { ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
+import { ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO, ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
 import { StatusDeAuth } from './adapters/claude-bg';
 import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, RUNTIMES_COM_PERFIL } from './runtime-profiles';
 import { sondasDeAmbiente } from './preflight';
@@ -34,6 +34,38 @@ import { COMANDO_CONFIRMAR_WORKTREE, recusaDePastaDasWorktrees } from './worktre
 import { avisoDaFabricaPedida, nomeDaMaquina } from './maquina';
 import { checarRede } from './doctor-rede';
 import { msg, nomeDoCheck } from './locale';
+
+const real = (dir: string): string => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
+
+/**
+ * RM-064 T5: avisa quando o LLM que roda o doctor usa a mesma conta das fases vivas. Sessão de fase
+ * despachada pelo `ork` (com a identidade do despacho no ambiente) não é o condutor e não entra na comparação.
+ */
+export function checarSeparacaoDaConducao(raiz: string, inventario: InventarioDeSessoes,
+  env: NodeJS.ProcessEnv = process.env): Check | null {
+  const runtime = env.CLAUDECODE ? 'claude-bg' : env.CODEX_THREAD_ID ? 'codex' : null;
+  const despachada = (env[ENV_IDENTIDADE_DE_DESPACHO] ?? '').trim() || (env[ENV_THREAD_DO_DESPACHO] ?? '').trim();
+  if (!runtime || despachada) return null;
+  const dirAtual = runtime === 'claude-bg' ? env.CLAUDE_CONFIG_DIR : env.CODEX_HOME;
+  let perfil: string | null = null;
+  try {
+    if (dirAtual) {
+      const p = lerPerfisComContas(raiz).perfis.find((x) => x.runtime === runtime &&
+        real((perfilDeDespacho(x).configDir ?? perfilDeDespacho(x).codexHome) as string) === real(dirAtual));
+      perfil = p?.id ?? null;
+    }
+  } catch { /* o check de contas relata o store inválido; aqui não inventamos perfil */ }
+  const fases = inventario.sessoes.filter((s) => s.viva && s.runtime === runtime && s.perfil === perfil && s.vinculos.length > 0)
+    .flatMap((s) => s.vinculos.map((v) => `${v.thread}:${v.fase}`));
+  const conta = perfil ?? msg().doctor.contaDoAmbiente;
+  return {
+    nome: 'separacao da conducao',
+    nivel: fases.length ? 'warn' : 'ok',
+    detalhe: fases.length ? msg().doctor.condutorCompartilha(runtime, conta, fases.slice(0, 3).join(', '))
+      : msg().doctor.condutorSeparado(runtime, conta),
+    correcao: fases.length ? msg().doctor.condutorCompartilhaCorrecao : undefined,
+  };
+}
 
 /**
  * Ensaio de 03/10/2026 (RM-049): o manifesto e achado subindo a partir do diretorio atual. Um
@@ -604,6 +636,8 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
 
     {
       const inventario = inventariarSessoes(carregado.raiz, { global: true, todas: true });
+      const separacao = checarSeparacaoDaConducao(carregado.raiz, inventario);
+      if (separacao) checks.push(separacao);
       // Fatia 2 do ensaio da 0.5.0 (P1): binario ausente e fonte ausente, dita no detalhe.
       const ausentes = inventario.fontes.filter((f) => f.ausente).map((f) => f.origem);
       checks.push({

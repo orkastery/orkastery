@@ -72,10 +72,10 @@ A conta A (assinatura Claude) esgotou a cota semanal entre 02h03 e 02h12, com vo
 | T1 Esgotamento é evento da conta | O sensor reconhece o fim de cota dentro da sessão viva (a fala do runtime, o código de erro, os hooks `StopFailure` e de notificação) e grava `runtime.quota-exhausted` com o horário de volta. O perfil fica esgotado até lá, e o ork lista todas as sessões vivas do perfil, em todos os projetos da máquina ([RM-040](RM-040-estado-de-conta-compartilhado.md)) | teste com runtime falso que para no meio da fase com a fala de limite: as sessões do perfil viram `runtime.quota-exhausted`, nenhuma fica "parada com job vivo" |
 | T2 Troca sozinha, dentro da autorização | Para cada thread afetada, o ork encerra a sessão morta e redespacha no próximo destino capaz: outra conta do mesmo runtime, logada e ativa; depois o fallback do bloco; sem destino, fila até o horário de volta. Em #Auto e #Noctum, com a autorização durável da RM-063 F7, sem perguntar; fora dela, um pedido ao dono com a alternativa recomendada já pronta (RM-057) | teste com dois perfis claude-bg e um codex: esgotar o primeiro move as threads para o segundo; esgotar os dois move para o codex; sem destino, fila e um aviso |
 | T3 Retomada, não recomeço | O redespacho no meio de um bloco leva o ponto de parada derivado do ledger e do git (fase, último commit, claims, rodada do CHECK, GO-FIX em curso) numa seção própria do prompt, e não repete GOAL nem PLAN; o prompt original segue gravado com o sha256 | teste: thread parada no CHECK é retomada no CHECK, com o GOAL e o PLAN intactos |
-| T4 Trabalho da sessão mora na thread | Rascunhos, pareceres de revisão e listas de prova vão para a pasta da thread (`.orkastery/threads/<id>/trabalho/`), não só para o diretório do job da conta; na troca, o ork leva o que for pequeno e diz o que ficou | teste: o parecer gravado pela sessão A é lido pela sessão B de outra conta |
-| T5 Condução não divide o destino das fases | O passo que reage à cota é o `ork conducao batida` determinístico (RM-063 F7), chamado pela batida da máquina; o condutor LLM, quando houver, roda em conta diferente da das fases ou troca de conta pelas mesmas regras | ensaio: esgotar a conta das fases não para a condução |
+| T4 Trabalho da sessão mora na thread | Rascunhos, pareceres de revisão e listas de prova vão para a pasta da thread (`.orkastery/threads/<id>/trabalho/`), não só para o diretório do job da conta; na troca, o ork leva o caminho e um resumo limitado do que está lá | teste: o parecer gravado pela sessão A é lido pela sessão B de outra conta |
+| T5 Condução não divide o destino das fases | O passo que reage à cota é o `ork conducao batida` determinístico (RM-063 F7), chamado pela batida da máquina; quando há condutor LLM, o `ork doctor` avisa se ele divide runtime e conta com fases vivas | ensaio: esgotar a conta das fases não para a condução |
 | T6 A rede vê a parada | Máquina sem destino capaz publica as threads paradas na rede ([RM-053](RM-053-orkastery-network.md)); outra máquina com conta livre pode assumir pela reserva ([RM-047](RM-047-fabrica-em-varias-maquinas.md)), e o dono recebe o aviso em até 30 min | teste com duas máquinas falsas: a sem conta publica, a com conta assume pela reserva |
-| T7 Estado das contas sempre vivo | O `ork accounts check` expira a marcação vencida, mede a cota quando o runtime expõe e mostra, por conta, o que roda nela e quando volta; o Clima de Cota ([RM-059](RM-059-conducao-dentro-do-claude-code.md)) aciona a T2 antes do fim, não só avisa | teste: marcação vencida volta a ativa; conta perto do fim recebe só fases curtas |
+| T7 Estado das contas sempre vivo | O `ork accounts check` expira a marcação vencida, distingue limite de sessão, semanal e de gasto definido pelo administrador, mede a cota quando o runtime a expõe e mostra, por conta, o que roda nela e quando volta; runtime sem adaptador instalado não entra como destino capaz | teste: marcação vencida volta a ativa; medida estruturada aparece; fallback sem adaptador é descartado |
 
 - **Entregáveis e critérios de aceite:** cada frente com a prova da tabela. O critério do item é o ensaio de esgotamento: com duas contas Claude e uma Codex, esgotar a primeira no meio do GO de três threads, e as três voltam a andar na segunda em até 10 min, do ponto onde pararam, sem o dono; esgotar também a segunda, e elas seguem no Codex; sem nenhum destino, ficam na fila até a volta da cota, com um aviso só.
 - **Piloto, medição e critérios de expansão/interrupção:** 14 dias na VPS e na maquina-b, com o #Noctum ligado; interrompe se houver despacho em conta fora do rodízio ou duas sessões na mesma worktree.
@@ -113,7 +113,38 @@ node core/dist-test/test/rotacao-retry.test.js
 node core/dist-test/test/rm064-retomada-checkpoint.test.js
 ```
 
-Limites desta fatia: T4 a T7 continuam pendentes; a enumeração entre máquinas pertence à T6. Uma fonte de inventário incompleta ou um controller Codex sem vínculo mantém a thread bloqueada, sem inferir parada nem criar uma segunda sessão na worktree. Não há implantação nesta fatia.
+Limites da fatia 1 ao ser entregue: T4 a T7 continuavam pendentes; a enumeração entre máquinas pertence à T6. Uma fonte de inventário incompleta ou um controller Codex sem vínculo mantém a thread bloqueada, sem inferir parada nem criar uma segunda sessão na worktree. Não houve implantação nessa fatia.
+
+### Fatia 2: T4, T5 e T7
+
+- **T4:** cada thread tem a pasta retomável `.orkastery/threads/<id>/trabalho/`, criada com modo `0700` quando a fase é despachada. O prompt de toda fase entrega esse caminho; o checkpoint da retomada também resume os arquivos regulares pequenos por nome, tamanho e `sha256`. Arquivo grande, link simbólico, profundidade e volume excedentes são contados, mas não copiados nem injetados no prompt, e com a lista ou o orçamento cheios o resto da pasta só é contado, sem ser aberto. Para a sessão que grava fora da worktree, o diretório do job deixa de ser o único lugar dos rascunhos de parecer e de corpo do PR, dos pareceres e das listas de prova; o `pr-body.md` final continua na pasta da thread.
+- **T5:** com a Sentinela ativa, `ork conducao batida` continua responsável pela retomada tipada de `runtime.quota-exhausted`; os demais passos permanecem com a Sentinela. O `ork doctor` compara o runtime e o perfil do condutor LLM com as fases vivas e avisa quando dividem a mesma conta; a sessão de fase despachada pelo `ork` não entra nessa conta como condutor.
+- **T7:** `ork accounts check` persiste a expiração de marca vencida antes de conferir a autenticação, classifica o tipo de limite (o limite de gasto dito por extenso vence o semanal do prazo de volta), relata cota estruturada somente quando o runtime a fornece, lista a carga viva da conta e mostra o prazo de volta. Os rótulos dessa linha, e o nome da unidade que o runtime não informa, seguem a língua da CLI (`owner.language` ou o locale): `limite`, `cota`, `roda agora`, `volta` e `unidades` em pt-BR; `limit`, `quota`, `running now`, `returns` e `units` em inglês. Em projeto preparado pelo MCP, a fila, a rotação e a escada só consideram um fallback depois de conferir o recibo e os bytes do adaptador desse runtime.
+
+Provas focadas:
+
+```sh
+npm --prefix core run build
+npm --prefix core run build:test
+node core/dist-test/test/rm064-fatia2.test.js
+node core/dist-test/test/rm064-conta-esgotada.test.js
+node core/dist-test/test/rotacao-retry.test.js
+node core/dist-test/test/locale-accounts.test.js
+node core/dist-test/test/locale-f3b-snapshot.test.js
+node --test --test-name-pattern='RM-064' core/dist-test/test/rm063-conducao-batida.test.js
+node --test --test-name-pattern='RM-064' core/dist-test/test/fila-fallback.test.js
+node --test --test-name-pattern='RM-064' core/dist-test/test/cota-terminal.test.js
+```
+
+Limites desta fatia:
+
+- A pasta de T4 fica na raiz do estado, fora da worktree. A sessão Codex no sandbox `workspace-write` só grava na worktree e não alcança `trabalho/`.
+- No Claude Code, a gravação ali depende das permissões da sessão: o despacho só pré-aprova edição dentro da worktree, e a sessão que retomou esta fatia em modo automático gravou a sua lista de provas em `trabalho/`. Quem não puder gravar segue com os rascunhos no diretório do job e no resumo da sessão.
+- Garantir a pasta a todo perfil muda sandbox e permissão, decisão do dono, e não entrou nesta fatia.
+- O resumo de T4 aponta para o trabalho na mesma raiz de estado; ele não transporta conteúdo entre máquinas.
+- O aviso de T5 diagnostica a conta compartilhada, mas não move o condutor LLM.
+- Sem medida estruturada, T7 mostra cota indisponível em vez de estimar ou inventar zero. Projeto legado sem MCP mantém a seleção anterior.
+- A assunção entre máquinas continua na T6, reservada para a fatia 3. Não há implantação nesta fatia.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -135,7 +166,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: condutor da VPS; A: Julio; C: condutor da maquina-b (RM-063); I: —.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** condutor da VPS (#Fast para a página); revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** despachar a fatia 1 (T1, T2, T3) depois das fatias do #Noctum em curso. Responsável: condutor da VPS; prazo: 16/10/2026.
+- **Próxima ação, responsável:** concluir a fatia 3 (T6, com a rede). Responsável: condutor da iniciativa.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
