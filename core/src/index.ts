@@ -4,6 +4,7 @@ import { ID_DE_DOCUMENTO, NOME_DE_COLECAO } from './conhecimento';
 import { CONSULTAS_DO_CONHECIMENTO, consultaRespondeu, consultarConhecimento, PedidoDoConhecimento, textoDoConhecimento } from './conhecimento-consulta';
 import { raizDoEstado } from './estado-thread';
 import { checarAnalisadoresDoGrafo, executarGrafo } from './intelligence-graph-cli';
+import { executarSecurityScan } from './security-scan/cli';
 import { lerEntradaDaThread } from './mcp-grafo';
 import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
@@ -4585,6 +4586,12 @@ function executarComando(argvBruto: string[]): number {
         { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, versao: VERSAO_DO_ORK,
           contextoDaThread: (id) => lerEntradaDaThread(carregado.raiz, id),
           escrever: (texto) => console.log(texto) });
+    }
+    case 'security-scan': {
+      // Relatorio por SHA no estado da arvore principal; o argv cru depois do comando (o parser e estrito).
+      const carregado = exigirManifesto();
+      return executarSecurityScan(argv.slice(argv.indexOf('security-scan') + 1),
+        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), escrever: (texto) => console.log(texto) });
     }
     case 'ship':
       return comandoShip(args);

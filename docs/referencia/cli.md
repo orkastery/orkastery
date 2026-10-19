@@ -290,6 +290,22 @@ há, `1` quando o runtime não respondeu).
 
 ---
 
+## Varredura de segurança
+
+| Comando | O que faz |
+| --- | --- |
+| `ork security-scan [--base <ref>] [--json]` | Varre o HEAD (conteúdo versionado, numa worktree destacada) com as ferramentas do catálogo (segredos, dependências, SAST, IaC, workflows, qualidade e licença) e compara com a base: `new`, `existing` ou `dismissed` por impressão digital. A base é `--base`, ou o merge-base com `<remoto>/<worktree.base_branch>`. Grava `report.json` e `report.md` em `.orkastery/security-scan/<sha>/` da árvore principal (também numa worktree de thread). Sem `--json`, imprime o resumo e termina com o caminho do `report.md`; com `--json`, imprime o `ScanReport` e não há linha de caminho. Opção desconhecida sai 2 |
+
+Sai 1 quando há achado `new` no laço (todo segredo novo; dependência, SAST, IaC e workflow novos em `high` ou
+`critical`; qualidade e licença nunca entram) e quando uma dispensa ou a config de `.ork-security/` é inválida (a
+mensagem nomeia a entrada; nada é varrido). Com `ORK_SECURITY_SCAN_REQUIRED=1`, ferramenta de categoria do laço
+`unavailable` ou `failed` também sai 1; sem ela, só aparece no relatório. Ferramenta indisponível ou que falhou nunca
+conta como limpa. `ORK_SECURITY_SCAN_DEADLINE_MS` limita a rodada inteira (cada ferramenta recebe o que resta do prazo).
+Nenhum valor de segredo vai ao relatório nem ao stdout.
+
+No manifesto, `verify.security_scan` declara o comando que o `ork verify` roda (por exemplo `ork security-scan`), e
+`verify.timeout_ms_por_comando.security_scan` dá o prazo dele. Sem `verify.security_scan`, nada muda.
+
 ## Verdade: claims, verify e gates
 
 | Comando | O que faz |

@@ -291,6 +291,22 @@ is nothing, `1` when the runtime did not respond).
 
 ---
 
+## Security scan
+
+| Command | What it does |
+| --- | --- |
+| `ork security-scan [--base <ref>] [--json]` | Scans the HEAD (versioned content, in a detached worktree) with the catalog tools (secrets, dependencies, SAST, IaC, workflows, quality and license) and compares it with the base: `new`, `existing` or `dismissed` by fingerprint. The base is `--base`, or the merge-base with `<remote>/<worktree.base_branch>`. Writes `report.json` and `report.md` to `.orkastery/security-scan/<sha>/` of the main tree (also from a thread worktree). Without `--json`, prints the summary and ends with the path of `report.md`; with `--json`, prints the `ScanReport` and there is no path line. An unknown option exits 2 |
+
+Exits 1 when there is a `new` finding in the loop (every new secret; new dependency, SAST, IaC and workflow findings at
+`high` or `critical`; quality and license never enter) and when a dismissal or the `.ork-security/` config is invalid
+(the message names the entry; nothing is scanned). With `ORK_SECURITY_SCAN_REQUIRED=1`, a loop-category tool that is
+`unavailable` or `failed` also exits 1; without it, it only shows in the report. An unavailable or failed tool never
+counts as clean. `ORK_SECURITY_SCAN_DEADLINE_MS` bounds the whole round (each tool gets what is left of the budget).
+No secret value reaches the report or stdout.
+
+In the manifest, `verify.security_scan` declares the command `ork verify` runs (for example `ork security-scan`), and
+`verify.timeout_ms_por_comando.security_scan` gives its time limit. Without `verify.security_scan`, nothing changes.
+
 ## Truth: claims, verify and gates
 
 | Command | What it does |
