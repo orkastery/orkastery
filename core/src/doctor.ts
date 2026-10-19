@@ -18,6 +18,10 @@ import { lerFilaDeRetomada } from './ratelimit';
 import { validarAbbrev } from './slug';
 import { CHAVE_DO_FUSO, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTexto, normalizarFuso,
   rotuloDoFuso } from './horario';
+import { chooseExecutor, defaultProbe, type Probe } from './security-scan/executor';
+import { detectStacks } from './security-scan/detect';
+import { loadTools, toolsFor } from './security-scan/tools';
+import { LOOP_CATEGORIES_ANY, LOOP_CATEGORIES_HIGH } from './security-scan/types';
 import { Check } from './types';
 import { branchDoHead, exec, noPath, simbolo } from './util';
 import { inventariarSessoes, InventarioDeSessoes } from './sessoes-inventario';
@@ -373,6 +377,26 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
 }
 
 /**
+ * Check `security scan` (spec section 11): only when `verify.security_scan` is declared. `ok` with Docker (CLI and daemon);
+ * without it, `ok` only when every loop-category tool for the detected stacks has an acceptable native binary (pip-audit
+ * and govulncheck have none, so a Python or Go repo always lands on `warn`). Never `fail`: a missing scanner is the
+ * `unavailable` of the ship gate, not a broken machine. The probe is injectable so tests never touch a real Docker.
+ */
+export function checarSecurityScan(carregado: ManifestoCarregado | null, probe: Probe = defaultProbe()): Check | null {
+  if (!carregado || carregado.manifesto.verify.security_scan === undefined) return null;
+  const nome = 'security scan';
+  const m = msg().doctor;
+  const tools = toolsFor(detectStacks(carregado.raiz).map(s => s.stack), loadTools());
+  const loop: readonly string[] = [...LOOP_CATEGORIES_ANY, ...LOOP_CATEGORIES_HIGH];
+  const faltando = tools.filter(t => loop.includes(t.category) && chooseExecutor(t, probe).kind === 'unavailable');
+  if (probe.dockerCli() && probe.dockerDaemon()) return { nome, nivel: 'ok', detalhe: m.securityScanDocker };
+  if (faltando.length === 0) return { nome, nivel: 'ok', detalhe: m.securityScanNativo };
+  const lista = faltando.map(t => `${t.category}/${t.name}`).join(', ');
+  const nativos = [...new Set(tools.filter(t => t.native && !t.install).map(t => t.native!.bin))].join(', ');
+  return { nome, nivel: 'warn', detalhe: m.securityScanSemFerramenta(lista), correcao: m.securityScanCorrecao(nativos) };
+}
+
+/**
  * Roda todos os checks a partir do diretorio informado. RM-031: `analisadores` e o check do grafo
  * (`checarAnalisadoresDoGrafo` do CLI do grafo), que o `index.ts` passa: fora da familia do grafo so
  * ele e o worker do MCP a abrem (fronteira do KG1), e o doctor nao a importa.
@@ -420,6 +444,8 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
   // Fatia 2 do ensaio da 0.5.0 (P1): o manifesto e lido antes dos runtimes, porque e o setup dos
   // modos permitidos que diz se o `claude` e obrigatorio; a ordem das linhas do relatorio nao muda.
   const carregado = carregarManifesto(dirInicial);
+  const scan = checarSecurityScan(carregado);
+  if (scan) checks.push(scan);
   const claude = adapter.disponivel();
   const v = claude ? adapter.versao() : null;
   checks.push(checarRuntimeClaude(carregado, claude, v,
