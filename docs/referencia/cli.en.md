@@ -650,6 +650,11 @@ waiting (RM-058).
 | `ork noctum conduzir <arco> [--json]` | The arc conductor, which the pilot cron relaunches: checks the arc before the lock (ended, or stopped by the supervision, exits 0 without taking the lock or recording a generation), holds the conductor lock while it lives and calls the supervised step (dispatch and delivery) at the queue cadence. Exits 0 with the arc ended or stopped, 2 on refusal (no kernel, no arc, never authorized, unreadable supervision), 3 with another live conductor and 4 with the generation lost; `--json` gives the result with the `codigo` |
 | `ork noctum aceite <arco> [--json] [--injecoes <arquivo>] [--limiares <arquivo>] [--publicar <arquivo>]` | The pilot acceptance (`ork.noctum-piloto/v1`): reads the arc log, the supervision, the report register, the ledgers of the arc threads, the remote and the forge, and gives measures M1 to M10 (one that cannot be read is a gap, never zero), criteria A1 to A8 and I1 to I6 with the threshold and its origin (the owner's, through `--limiares`, or the proposal, marked) and the verdict: `aprovado`, `reprovado`, `incompleto` or `simulado` (rehearsal evidence never approves). The full file stays in the state, next to the arc log; `--publicar` writes the version without absolute paths, e-mails, session ids, accounts or machines, with the sha256 of the full one. Exits 0 only with `aprovado`, 1 with another verdict and 2 on refusal |
 
+The `ork noctum aceite` files:
+
+- `--injecoes`: the schedule of the failures the rehearsal or the pilot injected, in JSONL, one per line: `{"falha": "F1", "instante": "<ISO instant>", "alvo": "<work>"}`. `falha` goes from `F1` to `F11`, `instante` is ISO, and `alvo` (optional) is the work id, the thread or the account: a failure with a target only recovers through its own signal. An empty schedule is a gap, and with `F7` in the schedule the report receipt that the resend brings counts until the 24 h delivery window.
+- `--limiares`: the owner's thresholds, in a JSON with `"contrato": "ork.noctum-limiares/v1"` and only the keys `m1MinimoHoras`, `m5MaximoMin`, `entregasMinimas`, `margemDoTeto` and `atrasoDoRelatorioMin`, non-negative numbers. An unknown key is refused with `noctum.aceite.limiares-invalidos`; a missing one stays with the proposal, marked as such.
+
 ---
 
 ## Prompts and adapters

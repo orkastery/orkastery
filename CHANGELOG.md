@@ -106,14 +106,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   vigente só tem o SHIP e o MASTER pelo arco: `ork ship`, `ork ship publicar`, `ork ship registrar-pr` e
   `ork conducao atualizar` recusam com `noctum.guarda.thread-do-arco` antes de qualquer git, a batida, a varredura, a
   Sentinela e a máquina ociosa pulam a thread, e a sessão do arco recebe no pedido a linha que diz isso. O bloco com GO
-  pede a baseline em todo runtime, gravada pelo condutor. `ork noctum tique` passa a rodar o fechamento, o vigia da
-  supervisão (que reconcilia, aplica as paradas e, sem condutor vivo, dá o passo do despacho e o da entrega) e o
-  relatório, com os fatos da supervisão no relatório e no retrato; a parada da supervisão fecha o arco com o motivo
-  `supervisao`, e a fila vazia espera o MASTER por omissão que a entrega do arco deve. `ork noctum conduzir <arco>` roda o
-  condutor (sai 0, 2, 3 ou 4), e `ork noctum aceite <arco>` mede M1 a M10 e dá o veredito do piloto
-  (`ork.noctum-piloto/v1`), com a evidência simulada nunca aprovada e o arquivo publicável sem dado pessoal. Com
-  `ci.contexts` no manifesto, a prova do CI da entrega exige todos os contextos verdes. O ensaio ganha a cadeia ligada, o
-  condutor que morre e a base que anda. Muda para quem publica: a tag só publica com o aceite dos pilotos do #Noctum em
+  pede a baseline em todo runtime, gravada pelo condutor; a que falha sem ser espera isola o trabalho com a causa.
+  `ork noctum tique` passa a rodar o fechamento, o vigia da supervisão (que reconcilia, aplica as paradas e, sem condutor
+  vivo, dá o passo do despacho e o da entrega) e o relatório, com os fatos da supervisão no relatório e no retrato; a
+  parada da supervisão fecha o arco com o motivo `supervisao`, menos a parada pelo teto, que espera as sessões admitidas e
+  fecha quando a última acaba, e a fila vazia espera o MASTER por omissão que a entrega do arco deve. `ork noctum conduzir
+  <arco>` roda o condutor (sai 0, 2, 3 ou 4), e `ork noctum aceite <arco>` mede M1 a M10 e dá o veredito do piloto
+  (`ork.noctum-piloto/v1`), contando só a entrega do arco, com a evidência simulada nunca aprovada e o arquivo publicável
+  sem dado pessoal. Com `ci.contexts` no manifesto, a prova do CI da entrega exige todos os contextos verdes. O ensaio
+  ganha a cadeia ligada, o condutor que morre e a base que anda. Muda para quem publica: a tag só publica com o aceite dos pilotos do #Noctum em
   `docs/roadmap/evidencias/RM-058/aceite.json`, e o CI de documentação recusa o texto que anuncia o #Noctum como lançado,
   entregue, validado ou disponível sem esse aceite. Nenhum piloto rodou: o #Noctum ainda não foi validado.
 

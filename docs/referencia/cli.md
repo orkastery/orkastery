@@ -649,6 +649,11 @@ O `#Noctum` conduz um arco de muitas threads `#Auto` dentro do envelope que o do
 | `ork noctum conduzir <arco> [--json]` | O condutor do arco, que o cron do piloto relança: confere o arco antes da trava (terminado, ou parado pela supervisão, sai 0 sem tomar a trava nem gravar geração), segura a trava do condutor enquanto vive e chama o passo supervisionado (o despacho e a entrega) na cadência da fila. Sai 0 com o arco terminado ou parado, 2 em recusa (sem kernel, sem arco, nunca autorizado, supervisão que não se lê), 3 com outro condutor vivo e 4 com a geração perdida; `--json` dá o resultado com o `codigo` |
 | `ork noctum aceite <arco> [--json] [--injecoes <arquivo>] [--limiares <arquivo>] [--publicar <arquivo>]` | O aceite do piloto (`ork.noctum-piloto/v1`): lê o log do arco, a supervisão, o registro do relatório, os ledgers das threads do arco, o remoto e a forja, e dá as medidas M1 a M10 (a que não se lê é lacuna, nunca zero), os critérios A1 a A8 e I1 a I6 com o limiar e a origem dele (do dono, por `--limiares`, ou a proposta, marcada) e o veredito: `aprovado`, `reprovado`, `incompleto` ou `simulado` (a evidência do ensaio nunca aprova). O arquivo completo fica no estado, ao lado do log do arco; `--publicar` grava a versão sem caminho absoluto, e-mail, id de sessão, conta nem máquina, com o sha256 do completo. Sai 0 só com `aprovado`, 1 com outro veredito e 2 em recusa |
 
+Os arquivos do `ork noctum aceite`:
+
+- `--injecoes`: a agenda das falhas que o ensaio ou o piloto injetou, em JSONL, uma por linha: `{"falha": "F1", "instante": "<instante ISO>", "alvo": "<trabalho>"}`. `falha` vai de `F1` a `F11`, `instante` é ISO, e `alvo` (opcional) é o id do trabalho, a thread ou a conta: a falha com alvo só se recupera pelo sinal dele. A agenda vazia é lacuna, e com a `F7` na agenda o recibo do relatório que o reenvio traz vale até a janela de entrega de 24 h.
+- `--limiares`: os limiares do dono, num JSON com `"contrato": "ork.noctum-limiares/v1"` e só as chaves `m1MinimoHoras`, `m5MaximoMin`, `entregasMinimas`, `margemDoTeto` e `atrasoDoRelatorioMin`, números não negativos. A chave desconhecida recusa com `noctum.aceite.limiares-invalidos`; a que falta fica com a proposta, marcada como tal.
+
 ---
 
 ## Prompts e adaptadores
