@@ -968,7 +968,7 @@ function comGitFalhando<T>(condicoes: readonly string[], executar: () => T): T {
       `if [ ! -e "$D/falhou-${i}" ]${i ? ` && [ -e "$D/falhou-${i - 1}" ]` : ''} && ${c}; then\n` +
       `  : > "$D/falhou-${i}"; echo "fatal: falha passageira SIMULADA" >&2; exit 128\nfi\n`).join('') +
       `exec '${gitReal}' "$@"\n`, { mode: 0o700 });
-    process.env.PATH = `${dir}${path.delimiter}${anterior ?? ''}`;
+    process.env.PATH = [dir, anterior].filter(Boolean).join(path.delimiter);
     const r = executar();
     condicoes.forEach((c, i) => assert.ok(fs.existsSync(path.join(dir, `falhou-${i}`)), `o git falhou uma vez em ${c}`));
     return r;
@@ -1033,7 +1033,7 @@ test('I25: a falha passageira do git nas outras portas da prova também espera: 
       .find(([, ...pais]) => pais.join(' ') === `${cb.base} ${cb.fonte}`)![0];
     for (const condicao of [mergeBase(cb.base, daA), mergeBase(daB, daA), mergeBase(daA, daB)]) {
       const r = comGitFalhando([condicao], () => reconciliarIntegracao(m2.b.carregado, m2.arco, op(m2.b, tarde)));
-      assert.deepEqual([r.registradas, r.semProva, r.soltas], [[], [], []], condicao);
+      assert.deepEqual([r.registradas, r.semProva, r.soltas, r.abandonadasConferidas, r.emCurso], [[], [], [], [], []], condicao);
     }
     const rec = reconciliarIntegracao(m2.b.carregado, m2.arco, op(m2.b, tarde));
     assert.deepEqual([rec.registradas, rec.semProva], [[], [`${chaveDoDestino(DESTINO)}/1`]]);
