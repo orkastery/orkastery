@@ -1561,6 +1561,21 @@
       "criadoEm": "2026-10-19T16:55:25.067Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C121",
+      "thread": "ork-rm058integra",
+      "fase": "CHECK",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração, CHECK 5: o leitor real do git do aceite (gitDaRaiz().reversoes) acha, num repositório git de verdade, o commit que reverte o merge com a data do commit e não a do autor, devolve lista vazia para o commit que ninguém reverteu e null para o merge ausente ou o sha que não é hexadecimal; o git que não responde às reversões de um merge do arco deixa M1 em lacuna, e o ledger que não se abre não ganha a marca do despacho sem sessão do runtime (AC25, com dente por mutação: o intervalo invertido, a data do autor, o null engolido e a marca no ledger ilegível derrubam o AC25).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^test\\('AC25:\" core/test/noctum-aceite.test.ts && grep -qF \"'--format=%H%x1f%cI%x1e', '--end-of-options', \\`\\${sha}..\\${ponta}\\`\" core/src/noctum-aceite.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC25:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC25:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T17:37:44.675Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
   "deferredClaims": [],
