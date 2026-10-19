@@ -86,7 +86,11 @@ export const GITIGNORE_DA_MAQUINA = '# Criado pelo ork: esta pasta é da máquin
  * nao cria quando o repositorio ja rastreia algo nela: o projeto que versiona o proprio estado segue
  * versionando. Devolve se criou.
  */
-export function ignorarPastaNoGit(dir: string, raizDoRepo: string): boolean {
+export function ignorarPastaNoGit(
+  dir: string,
+  raizDoRepo: string,
+  conteudo: string = GITIGNORE_DA_MAQUINA
+): boolean {
   const relativo = path.relative(raizDoRepo, dir);
   if (!relativo || relativo.startsWith('..') || path.isAbsolute(relativo)) return false;
   const arquivo = path.join(dir, '.gitignore');
@@ -94,7 +98,7 @@ export function ignorarPastaNoGit(dir: string, raizDoRepo: string): boolean {
   const rastreados = exec('git', ['ls-files', '-z', '--', relativo], raizDoRepo);
   if (rastreados.ok && rastreados.stdout.length > 0) return false;
   fs.mkdirSync(dir, { recursive: true });
-  try { fs.writeFileSync(arquivo, GITIGNORE_DA_MAQUINA, { flag: 'wx' }); } catch { return false; }
+  try { fs.writeFileSync(arquivo, conteudo, { flag: 'wx' }); } catch { return false; }
   return true;
 }
 

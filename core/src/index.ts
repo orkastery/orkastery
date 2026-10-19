@@ -143,7 +143,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, linguaDeclaradaDoDono, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
 import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
@@ -209,8 +209,10 @@ import { baterConducao, textoDaBatida } from './conducao-batida';
 import { entregarPeloTransporte } from './pulse-delivery';
 import { descreverSlug, hashDoPrompt, montarPrompt, rodarFase, tabelaDoLedger, valoresDoPrompt } from './phase';
 import {
+  avisosDeLingua,
   carregarTemplates,
   exigirTemplate,
+  idiomaDoTemplate,
   lintTemplate,
   ProblemaDeTemplate,
   renderizar,
@@ -385,6 +387,7 @@ function comandoThread(args: Args): number {
     // O nome posicional passa a ser opcional, porque o titulo do achado ja serve de nome.
     const doAchado = texto(args.opcoes['from-finding']) ?? texto(args.opcoes['do-achado']);
     if (doAchado) {
+      const mf = msg().thread.fromFinding;
       const brutoModoAchado = texto(args.opcoes.modo) ?? texto(args.opcoes.mode);
       let modoAchado: Modo | undefined;
       // RM-058 N6 (D1): thread em modo #Noctum não existe; a recusa diz se falta o envelope ou se a lista do arco é fechada.
@@ -410,11 +413,12 @@ function comandoThread(args: Args): number {
         dryRun: args.opcoes['dry-run'] === true,
       });
       if (!r.ok) {
-        console.error(`Thread a partir do achado ${r.achado.id} RECUSADA.`);
-        console.error(`  ${DESCRICAO_DO_MOTIVO_DE_AUDITORIA[r.motivo ?? 'claims.failed']}`);
-        console.error(`  motivo tipado: ${r.motivo}`);
-        console.error(`  detalhe: ${r.detalhe}`);
-        console.error(`  correcao: ${r.correcao}`);
+        const motivo = r.motivo ?? 'claims.failed';
+        console.error(mf.recusada(r.achado.id));
+        console.error(`  ${mf.descricaoDoMotivo(motivo, DESCRICAO_DO_MOTIVO_DE_AUDITORIA[motivo])}`);
+        console.error(mf.motivoTipado(r.motivo));
+        console.error(mf.detalhe(r.detalhe));
+        console.error(mf.correcao(r.correcao));
         return 1;
       }
       const gravadaDoAchado = args.opcoes['dry-run'] !== true;
@@ -423,8 +427,8 @@ function comandoThread(args: Args): number {
       if (avisoDoRegistroDoAchado) console.error(avisoDoRegistroDoAchado);
       console.log(
         gravadaDoAchado
-          ? `Thread criada a partir do achado ${r.achado.id}.`
-          : 'Simulacao (--dry-run), nada foi gravado.'
+          ? mf.criada(r.achado.id)
+          : mf.simulacao
       );
       console.log(textoDoAchado(r.achado));
       console.log('');
@@ -457,16 +461,14 @@ function comandoThread(args: Args): number {
         );
       }
       if (gravadaDoAchado && r.thread) {
-        console.log(`  origem do GOAL: .orkastery/threads/${r.thread.id}/achado.json`);
+        console.log(mf.origemDoGoal(r.thread.id));
         console.log('');
-        console.log('Pedido de GOAL ja montado a partir do achado:');
+        console.log(mf.pedidoMontado);
         console.log('');
         console.log(r.pedido);
         console.log('');
-        console.log('Proximo passo:');
-        console.log(
-          `  ork phase run ${r.thread.id} GOAL --prompt "$(cat .orkastery/threads/${r.thread.id}/pedido-goal.md)"`
-        );
+        console.log(mf.proximoPasso);
+        console.log(mf.comandoDoProximoPasso(r.thread.id));
       }
       return 0;
     }
@@ -1256,14 +1258,14 @@ function comandoDecisao(args: Args): number {
   if (sub === 'registrar') {
     const campo = (nome: string): string => {
       const v = texto(args.opcoes[nome]);
-      if (!v) throw new Error(`decisao registrar exige --${nome}`);
+      if (!v) throw new ErroDoCatalogo((m) => m.decisao.exigeFlag(nome));
       return v;
     };
-    if (!id) throw new Error('uso: ork decisao registrar <thread-id> --decidido D --porque P ...');
+    if (!id) throw new ErroDoCatalogo((m) => m.decisao.usoRegistrar);
     const bruto = campo('criterio'), separador = bruto.indexOf(':');
     const tipo = bruto.slice(0, separador) as TipoDeCriterio, referencia = bruto.slice(separador + 1);
     if (separador < 1 || !['manifesto', 'ledger', 'medicao'].includes(tipo) || !referencia.trim()) {
-      throw new Error('decisao registrar: --criterio manifesto:CHAVE, ledger:REF ou medicao:COMANDO');
+      throw new ErroDoCatalogo((m) => m.decisao.criterioUso);
     }
     const entrada = {
       decidido: campo('decidido'), porque: campo('porque'), comoMudar: campo('como-mudar'),
@@ -3125,7 +3127,7 @@ function comandoRoadmap(args: Args): number {
 function comandoNetworkRoadmap(args: Args): number {
   const pedido = texto(args.opcoes.projeto);
   if (args.posicionais[1] !== 'roadmap' || args.posicionais.length > 2 || (args.opcoes.projeto !== undefined && !pedido)) {
-    console.error('uso: ork network roadmap [--projeto <caminho|github:dono/repo|gitlab:grupo/repo|nome>] [--json] [--sem-remoto]');
+    console.error(msg().network.roadmap.uso);
     return 2;
   }
   try {
@@ -3238,17 +3240,26 @@ function comandoPrompt(args: Args): number {
   const sub = args.posicionais[1] ?? 'list';
   const carregado = carregarManifesto();
   const raiz = carregado?.raiz;
+  const mp = msg().prompts.cli;
+  // RM-061 F3c: o template e a lingua do prompt sao os do despacho (a lingua declarada do dono, `owner.language`;
+  // sem ela, pt-BR), para o render mostrar o que o `phase run` grava; so o texto do CLI em volta segue o locale ativo.
+  // Os templates do projeto sempre aparecem; dos embutidos, o da lingua do prompt.
+  const linguaDoPrompt = linguaDeclaradaDoDono(carregado?.manifesto.owner?.language);
+  const templatesDaLingua = () => carregarTemplates(raiz).filter(
+    (t) => t.origem !== 'embutido' || (linguaDoPrompt === 'en' ? t.id.endsWith('.en') : !t.id.endsWith('.en'))
+  );
 
   if (sub === 'list') {
-    console.log(tabelaDeTemplates(carregarTemplates(raiz)));
+    console.log(tabelaDeTemplates(templatesDaLingua()));
     return 0;
   }
 
   if (sub === 'lint') {
     const id = texto(args.opcoes.template);
-    const templates = id ? [exigirTemplate(id, raiz)] : carregarTemplates(raiz);
-    const problemas: ProblemaDeTemplate[] = templates.flatMap((t) => lintTemplate(t));
-    console.log(`Lint dos templates de prompt${raiz ? ` (projeto ${raiz})` : ' (somente embutidos)'}`);
+    const templates = id ? [exigirTemplate(id, raiz)] : templatesDaLingua();
+    const problemas: ProblemaDeTemplate[] = [...templates.flatMap((t) => lintTemplate(t)),
+      ...(id ? [] : avisosDeLingua(templates, linguaDoPrompt))];
+    console.log(mp.lintTitulo(raiz ?? null));
     console.log('');
     console.log(textoDoLint(problemas, templates.length));
     return problemas.some((p) => p.gravidade === 'erro') ? 2 : 0;
@@ -3256,7 +3267,7 @@ function comandoPrompt(args: Args): number {
 
   if (sub === 'render') {
     const fase = exigirFaseCanonica(texto(args.opcoes.fase) ?? args.posicionais[3]);
-    const pedido = texto(args.opcoes.pedido) ?? '<pedido do builder>';
+    const pedido = texto(args.opcoes.pedido) ?? mp.pedidoExemplo;
     const idTemplate = texto(args.opcoes.template);
 
     // Modo exemplo: renderiza sem thread nenhuma, para revisar o texto de um modo antes de
@@ -3267,10 +3278,10 @@ function comandoPrompt(args: Args): number {
       try { modo = exigirModoVivo(bruto); }
       catch (e) { console.error((e as Error).message); return 2; }
       const exemplo = threadDeExemplo(modo, fase, carregado?.manifesto.project);
-      const template = idTemplate ? exigirTemplate(idTemplate, raiz) : templateDaFase(fase, raiz);
-      const prompt = renderizar(template, valoresDoPrompt(exemplo, fase, pedido));
-      console.log(`# template ${template.id} v${template.versao} (origem: ${template.origem})`);
-      console.log(`# thread de EXEMPLO (nada foi gravado), modo ${MODOS[modo].tag}, sha256 ${hashDoPrompt(prompt)}`);
+      const template = idTemplate ? exigirTemplate(idTemplate, raiz) : templateDaFase(fase, raiz, linguaDoPrompt);
+      const prompt = renderizar(template, valoresDoPrompt(exemplo, fase, pedido, '', idiomaDoTemplate(template)));
+      console.log(mp.cabecalhoTemplate(template.id, template.versao, template.origem));
+      console.log(mp.cabecalhoExemplo(MODOS[modo].tag, hashDoPrompt(prompt)));
       console.log('');
       console.log(prompt);
       return 0;
@@ -3279,8 +3290,8 @@ function comandoPrompt(args: Args): number {
     const obrigatorio = exigirManifesto();
     const threadId = args.posicionais[2];
     if (!threadId) {
-      console.error('uso: ork prompt render <thread-id> <FASE> --pedido "<texto>"');
-      console.error('     ork prompt render --exemplo --fase GOAL --modo auto --pedido "<texto>"');
+      console.error(mp.usoRenderThread);
+      console.error(mp.usoRenderExemplo);
       return 2;
     }
     const thread = lerThread(obrigatorio.raiz, threadId);
@@ -3288,19 +3299,19 @@ function comandoPrompt(args: Args): number {
     // guardado segue com o texto de exemplo, como antes.
     const guardado = texto(args.opcoes.pedido) === undefined ? pedidoDaThread(obrigatorio.raiz, thread) : null;
     const pedidoDaFase = guardado?.texto ?? pedido;
-    const template = idTemplate ? exigirTemplate(idTemplate, obrigatorio.raiz) : templateDaFase(fase, obrigatorio.raiz);
+    const template = idTemplate ? exigirTemplate(idTemplate, obrigatorio.raiz) : templateDaFase(fase, obrigatorio.raiz, linguaDoPrompt);
     const prompt = idTemplate
-      ? renderizar(template, valoresDoPrompt(thread, fase, pedidoDaFase))
-      : montarPrompt(thread, fase, pedidoDaFase, obrigatorio.raiz);
-    console.log(`# template ${template.id} v${template.versao} (origem: ${template.origem})`);
-    console.log(`# thread ${thread.id}, fase ${fase}, sha256 ${hashDoPrompt(prompt)}`);
-    if (guardado) console.log(`# pedido guardado na criacao da thread (sha256 ${shaCurto(guardado.sha256)})`);
+      ? renderizar(template, valoresDoPrompt(thread, fase, pedidoDaFase, '', idiomaDoTemplate(template)))
+      : montarPrompt(thread, fase, pedidoDaFase, obrigatorio.raiz, '', linguaDoPrompt);
+    console.log(mp.cabecalhoTemplate(template.id, template.versao, template.origem));
+    console.log(mp.cabecalhoThread(thread.id, fase, hashDoPrompt(prompt)));
+    if (guardado) console.log(mp.pedidoGuardado(shaCurto(guardado.sha256)));
     console.log('');
     console.log(prompt);
     return 0;
   }
 
-  console.error(`subcomando desconhecido: prompt ${sub}`);
+  console.error(mp.subcomandoDesconhecido(sub));
   return 2;
 }
 
@@ -3308,7 +3319,7 @@ function comandoPrompt(args: Args): number {
 function exigirFaseCanonica(bruto: string | undefined): Fase {
   const alvo = (bruto ?? '').toUpperCase();
   if (!(FASES as readonly string[]).includes(alvo)) {
-    throw new Error(`fase "${bruto ?? ''}" fora do ciclo canonico (${FASES.join(' ')})`);
+    throw new Error(msg().prompts.cli.faseForaDoCiclo(bruto ?? '', FASES.join(' ')));
   }
   return alvo as Fase;
 }
@@ -4255,8 +4266,8 @@ function executarComando(argvBruto: string[]): number {
   }
 
   // CLI por locale (RM-061, EN1 e EN7): a escolha do onboarding (owner.language) ou o LC_ALL/LC_MESSAGES/LANG
-  // decidem a lingua do TEXTO dos comandos cobertos (`cobreLocale`); `--json` e contrato, e os recortes da D2
-  // da F2a (`doctor --modo`, `thread new --from-finding` e os subcomandos fora da lista) ficam em pt-BR.
+  // decidem a lingua do TEXTO dos comandos cobertos (`cobreLocale`); `--json` e contrato, e os recortes ainda
+  // fora do catalogo (`doctor --modo` e os subcomandos fora da lista) ficam em pt-BR.
   if (cobreLocale(args.posicionais, args.opcoes)) {
     ativarLocale(resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale);
     ligarRemontagem(true);

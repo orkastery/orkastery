@@ -11,10 +11,25 @@ import { test } from 'node:test';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { chaveDoLocale, cobreLocale } from '../src/locale';
+import { chaveDoLocale, cobreLocale, comLocale } from '../src/locale';
+import { pedidoDoAchado, textoDoAchado } from '../src/divida';
 import { cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 
 const SEM_DATA = (t: string) => t.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>');
+
+test('locale en F3c thread: achado e pedido do from-finding saem pelo catalogo tipado', () => {
+  const achado = { id: 'F1', severidade: 'maior', pack: 'reuse', regra: 'RU1', titulo: 'duplicate helper', arquivo: 'src/a.ts', linha: 2,
+    descricao: 'same helper twice', rodada: 'audit-1', produto: 'sample', estagio: 'nascente', postura: 'advisory', estado: 'aberto', thread: null,
+    claim: { id: 'C1', estado: 'verificado', alegacao: 'duplicate exists', verificar: ['grep -E duplicate src/a.ts'] },
+    proposta: { impacto: 'two sources', fix: 'keep one', passoIrreversivel: 'none', estimativa: '1h', destino: 'roadmap', regime: 'proposal' } } as never;
+  const detalhe = comLocale('en', () => textoDoAchado(achado));
+  const pedido = comLocale('en', () => pedidoDoAchado(achado));
+  assert.match(detalhe, /\n {6}evidence {4}src\/a\.ts:2\n/);
+  assert.match(detalhe, /\n {6}destination roadmap \(proposal regime\)\n/);
+  assert.match(pedido, /^Audit finding F1 \(pack reuse, rule RU1, severity maior\)\./);
+  assert.match(pedido, /The fix above is the auditor's proposal, not a decision/);
+  assert.equal(comLocale('pt-BR', () => textoDoAchado(achado)).split('\n')[1], '      evidencia   src/a.ts:2');
+});
 
 test('locale en F3b thread: thread list sai em ingles, com o status pelo id e o --json igual', () => {
   const c = cenario('thread-f3b-lista');
@@ -98,7 +113,7 @@ test('locale en F3b thread: as recusas de close e entrega saem em ingles e o que
   } finally { c.limpar(); }
 });
 
-test('locale en F3b thread (negativo): thread new --from-finding segue em pt-BR, byte a byte', () => {
+test('locale en F3c thread: thread new --from-finding entra na rota de locale', () => {
   assert.equal(chaveDoLocale(['thread', 'list'], {}), 'thread list');
   assert.equal(chaveDoLocale(['thread', 'close', 'x'], {}), 'thread close');
   assert.equal(chaveDoLocale(['thread', 'entrega', 'x'], {}), 'thread entrega');
@@ -106,13 +121,12 @@ test('locale en F3b thread (negativo): thread new --from-finding segue em pt-BR,
     assert.ok(cobreLocale([...posicionais], opcoes), posicionais.join(' '));
   }
   assert.equal(cobreLocale(['thread', 'list'], { json: true }), false);
-  assert.equal(cobreLocale(['thread', 'new'], { 'from-finding': 'F1' }), false);
+  assert.ok(cobreLocale(['thread', 'new'], { 'from-finding': 'F1' }));
+  assert.ok(cobreLocale(['thread', 'new'], { 'do-achado': 'F1' }));
   const c = cenario('thread-f3b-achado');
   try {
-    const pt = ork(c, PT, false, 'thread', 'new', '--from-finding', 'nao-existe');
     const en = ork(c, EN, false, 'thread', 'new', '--from-finding', 'nao-existe');
-    assert.notEqual(pt.status, 0);
-    assert.equal(en.stdout, pt.stdout);
-    assert.equal(en.stderr, pt.stderr);
+    assert.notEqual(en.status, 0);
+    assert.match(en.stderr, /^error: finding "nao-existe" does not exist on the debt board/);
   } finally { c.limpar(); }
 });

@@ -264,6 +264,9 @@ export function init(
   gravar(caminho, manifestoYaml(deteccao, opcoes.locale));
   const estado = path.join(deteccao.raiz, DIR_ESTADO);
   fs.mkdirSync(path.join(estado, 'threads'), { recursive: true });
-  // Fatia 2 do ensaio da 0.5.0 (P3): o estado e da maquina; fica fora do git sem mexer no `.gitignore` do usuario.
-  return { caminho, criado: true, deteccao, estadoIgnorado: ignorarPastaNoGit(estado, deteccao.raiz) };
+  // RM-061 F3c: so o arquivo do estado criado pelo `init` segue a lingua pedida. O `*` e a protecao
+  // contra sobrescrita continuam no util; a pasta de worktrees preserva o default historico.
+  const locale = opcoes.locale ?? LOCALE_PADRAO;
+  const gitignore = `# ${msg(locale).gerados.gitignoreDaMaquina}\n*\n`;
+  return { caminho, criado: true, deteccao, estadoIgnorado: ignorarPastaNoGit(estado, deteccao.raiz, gitignore) };
 }

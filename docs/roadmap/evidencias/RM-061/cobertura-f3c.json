@@ -1,0 +1,72 @@
+{
+  "schema": "ork.locale-cobertura-evidencia/v1",
+  "item": "RM-061",
+  "fatia": "F3c",
+  "thread": "ork-rm061f3c",
+  "contador": "core/scripts/contar-mensagens-de-saida.cjs",
+  "metodo": "o mesmo das fatias anteriores: literais com texto de pessoa em posicao de saida, fora do catalogo, e folhas do catalogo ingles; cobertura = entradas / (entradas + literais de saida)",
+  "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json",
+  "antes": {
+    "arvore": "d38070d5321662aaa5fed03e8138f64b1c7b2289",
+    "descricao": "base carimbada da F3c, com F1, F2a, F2b, F3a e F3b",
+    "catalogo": { "entradas": 1800 },
+    "emPosicaoDeSaida": 2946,
+    "cobertura": 0.3793
+  },
+  "depois": {
+    "arvore": "7576d416bc5e92184da8308c263e0ca75a8c38a5",
+    "descricao": "F3c: gitignore gerado, decisoes HITL, network roadmap, thread a partir de achado e prompts de fase na lingua do dono",
+    "schema": "ork.locale-cobertura/v1",
+    "arquivos": 271,
+    "literaisComTexto": 5138,
+    "emPosicaoDeSaida": 2860,
+    "arquivosComSaida": 174,
+    "catalogo": {
+      "entradas": 1998,
+      "familiasNovasOuAmpliadas": [
+        "locale-decisao.ts",
+        "locale-gerados.ts",
+        "locale-network.ts",
+        "locale-prompts.ts",
+        "locale-thread.ts",
+        "locale.ts"
+      ]
+    },
+    "cobertura": 0.4113
+  },
+  "integrada": {
+    "descricao": "a F3c depois do merge da origin/main: a main sozinha e a main com a F3c, no mesmo contador; o fecho obrigatorio do GO (RM-016) ganhou o par ingles no catalogo dos prompts; medida de novo depois do merge da RM-064 fatia 2 (8d37c75f), que trouxe a linha do trabalho retomavel ao prompt",
+    "main": {
+      "arvore": "8d37c75f93962f1ac4c5fb6fbd1a2f2506b621cd",
+      "arquivos": 301,
+      "literaisComTexto": 5436,
+      "emPosicaoDeSaida": 3053,
+      "arquivosComSaida": 192,
+      "catalogo": { "entradas": 1948 },
+      "cobertura": 0.3895
+    },
+    "comF3c": {
+      "arvore": "2383460ba8bef38419264435c77a9cdba64a57ad",
+      "arquivos": 302,
+      "literaisComTexto": 5270,
+      "emPosicaoDeSaida": 2960,
+      "arquivosComSaida": 189,
+      "catalogo": { "entradas": 2157 },
+      "cobertura": 0.4215
+    },
+    "snapshotsPtBR": {
+      "nota": "iguais byte a byte aos da main integrada (8d37c75f); F2b e F3b mudaram na main por outras threads (registrar-pr do ship, ork-rm064f1, ork-worktreebase e ork-rm064f2), nao pela F3c",
+      "core/test/fixtures/locale-f2a-pt-BR.json": "3c5592b9553235ba98f3a01c81369cdc9403ea3ab052c4142c50e0573926775f",
+      "core/test/fixtures/locale-f2b-pt-BR.json": "2ed8a595fb69394c3c3ecc33a1e7890fb0c50198df1d33a97108554d40e74024",
+      "core/test/fixtures/locale-f3a-pt-BR.json": "40fe60a9346b19bbca1fb5d9b68c0a2409542d41e5fa6a3271bc5cda753ee3cc",
+      "core/test/fixtures/locale-f3b-pt-BR.json": "278230a01c1cf41145de97e38c5d12a78e5cc5915ae6ecc79e2374045eda81ae"
+    }
+  },
+  "snapshotsPtBR": {
+    "core/test/fixtures/locale-f2a-pt-BR.json": "3c5592b9553235ba98f3a01c81369cdc9403ea3ab052c4142c50e0573926775f",
+    "core/test/fixtures/locale-f2b-pt-BR.json": "6d7500a22320d57125965837180ea2b80139a4ae21a3cb27963e3bc5991720ab",
+    "core/test/fixtures/locale-f3a-pt-BR.json": "40fe60a9346b19bbca1fb5d9b68c0a2409542d41e5fa6a3271bc5cda753ee3cc",
+    "core/test/fixtures/locale-f3b-pt-BR.json": "8a2450186f778d66baf01475abef091296273561651fc3e6fa97f92b17d0405c"
+  },
+  "nota": "os demais comandos, os mods, as tools do OpenClaw e as copias dos marketplaces seguem para a F3d"
+}

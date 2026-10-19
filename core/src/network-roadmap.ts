@@ -57,6 +57,7 @@ import { dirThread, lerThread, listarIds } from './thread';
 import { Thread } from './types';
 import { VERSAO_DO_ORK } from './versao';
 import { lerYaml, ValorYaml } from './yaml';
+import { msg } from './locale';
 
 export const CONTRATO_PANORAMA_DA_REDE = 'ork.network-roadmap/v1' as const;
 /** O registro de projetos da RM-052, lido como ela o grava. */
@@ -193,8 +194,10 @@ export class ErroDoPedidoDeProjeto extends Error {
   }
 
   get texto(): string {
-    return [`${this.codigo}: ${this.detalhe}`, ...(this.candidatos.length ? ['Candidatos:', ...this.candidatos.map((c) => `  • ${c}`)] : []),
-      this.correcao].join('\n');
+    const m = msg().network.roadmap;
+    return [`${this.codigo}: ${m.recusaDetalhe(this.codigo, this.detalhe)}`,
+      ...(this.candidatos.length ? [m.candidatos, ...this.candidatos.map((c) => `  • ${c}`)] : []),
+      m.recusaCorrecao(this.codigo, this.correcao)].join('\n');
   }
 }
 
@@ -1141,79 +1144,88 @@ function descreverProjeto(x: ProjetoNoPanorama['projeto']): string {
 }
 
 function linhaDaFonte(f: FonteLida, quando: string, fuso: string): string {
-  const parte = { roadmap: 'roadmap', reservas: 'reservas', fabrica: 'fábrica', 'estado-local': 'esta máquina' }[f.parte];
-  const lido = f.lidoEm === quando ? 'lido agora' : `lido ${formatarDataHora(f.lidoEm, { fuso })}`;
-  if (f.origem === 'estado-local') return `• ${parte}: estado local em ${f.onde}, ${lido}`;
-  if (!f.existe) return `• ${parte}: ${f.onde} não existe, ${lido}`;
-  const alvo = f.parte === 'roadmap' ? `${DIR_ROADMAP} em ${f.onde}` : f.onde;
-  return `• ${parte}: ${alvo} @ ${(f.commit ?? '').slice(0, 7)} (commit de ${formatarDataHora(f.dataDoCommit, { fuso })}), ` +
-    (f.atualizado ? lido : 'última cópia desta máquina, sem leitura nova');
+  const m = msg().network.roadmap;
+  const parte = m.fonteParte(f.parte);
+  const lido = f.lidoEm === quando ? m.lidoAgora : m.lidoEm(formatarDataHora(f.lidoEm, { fuso }));
+  if (f.origem === 'estado-local') return m.fonteLocal(parte, f.onde, lido);
+  if (!f.existe) return m.fonteInexistente(parte, f.onde, lido);
+  const alvo = f.parte === 'roadmap' ? m.alvoDoRoadmap(f.onde) : f.onde;
+  return m.fonteCommit(parte, alvo, (f.commit ?? '').slice(0, 7), formatarDataHora(f.dataDoCommit, { fuso }),
+    f.atualizado ? lido : m.ultimaCopia);
 }
 
 function linhasDasMaquinas(x: ProjetoNoPanorama, fuso: string): string[] {
-  if (x.maquinas === null) return ['• não lidas: veja as lacunas'];
-  if (x.maquinas.length === 0) return ['• nenhuma máquina publicou em ork/fabrica-estado'];
+  const m = msg().network.roadmap;
+  if (x.maquinas === null) return [m.maquinasNaoLidas];
+  if (x.maquinas.length === 0) return [m.nenhumaMaquinaNaFabrica];
   return x.maquinas.flatMap((m) => {
-    const quem = `${m.maquina}${m.estaMaquina ? ' (esta máquina)' : ''}`;
+    const quem = `${m.maquina}${m.estaMaquina ? msg().network.roadmap.estaMaquina : ''}`;
     // Fatia 3: a maquina so da rede por pessoa; as threads dela neste projeto nao foram lidas.
     if (m.origem === 'rede') {
-      return [`• ${quem}: threads não lidas, na rede por pessoa (retrato de ${formatarDataHora(m.publicadoEm, { fuso })}, ` +
-        `há ${duracaoCurta(m.idadeMin)}${m.semBatida ? ', SEM BATIDA' : ''}) e sem retrato em ${BRANCH_DA_FABRICA}`];
+      return [msg().network.roadmap.maquinaSoNaRede(quem, formatarDataHora(m.publicadoEm, { fuso }),
+        duracaoCurta(m.idadeMin), m.semBatida, BRANCH_DA_FABRICA)];
     }
-    const batida = m.origem === 'estado-local' ? 'estado local lido agora'
-      : `retrato de ${formatarDataHora(m.publicadoEm, { fuso })} (há ${duracaoCurta(m.idadeMin)})${m.semBatida ? ', SEM BATIDA' : ''}`;
-    const cabeca = `• ${quem}: ${m.ativas.length} ativa(s)${m.entreguesSemMaster ? `, ${m.entreguesSemMaster} entregue(s) sem MASTER` : ''}, ${batida}`;
+    const rm = msg().network.roadmap;
+    const batida = m.origem === 'estado-local' ? rm.estadoLocalAgora
+      : rm.retrato(formatarDataHora(m.publicadoEm, { fuso }), duracaoCurta(m.idadeMin), m.semBatida);
+    const cabeca = rm.resumoMaquina(quem, m.ativas.length, m.entreguesSemMaster, batida);
     // RM-037 (rm037noite, defeito 4): o runtime e o modelo de cada thread, quando o retrato os traz.
-    return [cabeca, ...m.ativas.map((t) => `  ${t.id} · ${t.modo} · ${t.fase} · ${t.roadmap ?? 'sem item'}` +
+    return [cabeca, ...m.ativas.map((t) => `  ${t.id} · ${t.modo} · ${t.fase} · ${t.roadmap ?? rm.semItem}` +
       (t.runtime || t.modelo ? ` · ${runtimeDaThread(t)}` : '') +
-      (t.esperaVoce ? ` · espera você: ${t.pergunta ?? 'veredito'}` : ''))];
+      (t.esperaVoce ? rm.esperaVoce(t.pergunta ?? rm.veredito) : ''))];
   });
 }
 
 function linhasDasReservas(x: ProjetoNoPanorama, fuso: string): string[] {
-  if (x.reservas === null) return ['• não lidas: veja as lacunas'];
-  if (x.reservas.length === 0) return ['• nenhuma reserva em ork/roadmap-reservas'];
-  return x.reservas.map((r) => `  ${r.item} · ${r.maquina} · ${r.thread ?? 'sem thread'} · desde ${formatarDataHora(r.desdeEm, { fuso })}`);
+  const m = msg().network.roadmap;
+  if (x.reservas === null) return [m.reservasNaoLidas];
+  if (x.reservas.length === 0) return [m.nenhumaReserva];
+  return x.reservas.map((r) => m.reserva(r.item, r.maquina, r.thread ?? m.semThread, formatarDataHora(r.desdeEm, { fuso })));
 }
 
 /** Fatia 3: a casa da rede por pessoa e as maquinas dela, com a batida e os projetos que declaram. */
 function linhasDaRede(r: RedeNoPanorama, quando: string, fuso: string): string[] {
-  const lido = r.lidoEm === quando ? 'lida agora' : `lida ${formatarDataHora(r.lidoEm, { fuso })}`;
-  const casa = !r.casa ? '• casa: nenhuma achada (veja as lacunas)'
-    : r.atualizado === null ? `• casa: ${r.casa}, não lida (veja as lacunas)`
-      : `• casa: ${r.casa} @ ${r.ponta ? r.ponta.slice(0, 7) : 'sem commit'}, ${r.atualizado ? lido : 'última cópia desta máquina, sem leitura nova'}`;
-  if (r.membros.length === 0) return [casa, '• nenhum retrato lido na casa; isso não quer dizer que não há máquinas: veja as lacunas'];
-  return [casa, ...r.membros.map((m) => `• ${m.maquina}${m.estaMaquina ? ' (esta máquina)' : ''}: retrato de ` +
-    `${formatarDataHora(m.publicadoEm, { fuso })}${m.idadeMin === null ? ' (batida ilegível)' : ` (há ${duracaoCurta(m.idadeMin)})`}` +
-    `${m.semBatida ? ', SEM BATIDA' : ''}${m.versaoOrk ? `, ork ${m.versaoOrk}` : ''}, ` +
-    (m.projetos.length ? `projetos: ${m.projetos.join(', ')}` : 'nenhum projeto declarado aqui'))];
+  const x = msg().network.roadmap;
+  const lido = r.lidoEm === quando ? x.redeLidaAgora : x.redeLidaEm(formatarDataHora(r.lidoEm, { fuso }));
+  const casa = !r.casa ? x.casaAusente
+    : r.atualizado === null ? x.casaNaoLida(r.casa)
+      : x.casaLida(r.casa, r.ponta ? r.ponta.slice(0, 7) : x.semCommit, r.atualizado ? lido : x.casaUltimaCopia);
+  if (r.membros.length === 0) return [casa, x.nenhumRetrato];
+  return [casa, ...r.membros.map((m) => x.membro(m.maquina, m.estaMaquina ? x.estaMaquina : '',
+    formatarDataHora(m.publicadoEm, { fuso }), m.idadeMin === null ? x.batidaIlegivel : x.idade(duracaoCurta(m.idadeMin)),
+    m.semBatida, m.versaoOrk ? x.versao(m.versaoOrk) : '', m.projetos.length ? x.projetos(m.projetos.join(', ')) : x.nenhumProjeto))];
 }
 
-const linhaDaLacuna = (l: LacunaDaRede): string => `• ${l.tipo}${l.alvo ? ` (${l.alvo})` : ''}: ${l.detalhe}. O que fazer: ${l.correcao}.`;
+const linhaDaLacuna = (l: LacunaDaRede): string => {
+  const m = msg().network.roadmap;
+  return m.lacuna(l.tipo, l.alvo ? ` (${l.alvo})` : '', m.lacunaDetalhe(l.tipo, l.parte, l.alvo, l.detalhe),
+    m.lacunaCorrecao(l.tipo, l.correcao));
+};
 
 /** O texto de `ork network roadmap`: o consultado e o nao consultado no alto, e cada parte com a fonte e a hora. */
 export function textoDoPanoramaDaRede(p: PanoramaDaRede): string {
-  if (p.contrato !== CONTRATO_PANORAMA_DA_REDE) throw new Error('panorama da rede: contrato inválido');
+  const m = msg().network.roadmap;
+  if (p.contrato !== CONTRATO_PANORAMA_DA_REDE) throw new Error(m.contratoInvalido);
   const h = partesLocais(p.consultadoEm, p.fuso);
   const linhas = [
     `Panorama da rede lido de ${p.maquina} (${h.dia}/${h.mes}, ${h.hora}:${h.minuto})`,
     p.projetos.length ? `Consultado: ${p.projetos.map((x) => descreverProjeto(x.projeto)).join('; ')}` : 'Consultado: nenhum projeto.',
-    'Não consultado:', ...(p.naoConsultado.length ? p.naoConsultado.map((n) => `• ${n}`) : ['• nada fora do pedido']),
+    'Não consultado:', ...(p.naoConsultado.length ? p.naoConsultado.map(m.naoConsultado) : [m.nadaForaDoPedido]),
   ];
-  if (p.rede) linhas.push('', 'Rede por pessoa (RM-053)', ...linhasDaRede(p.rede, p.consultadoEm, p.fuso));
-  if (p.lacunas.length) linhas.push('', 'Lacunas da consulta', ...p.lacunas.map(linhaDaLacuna));
+  if (p.rede) linhas.push('', m.redePorPessoa, ...linhasDaRede(p.rede, p.consultadoEm, p.fuso));
+  if (p.lacunas.length) linhas.push('', m.lacunasDaConsulta, ...p.lacunas.map(linhaDaLacuna));
   for (const x of p.projetos) {
     // Cada projeto no fuso do dono dele (achado 5 da rodada 2): a legenda do bloco diz quando difere.
     const fuso = x.projeto.fuso;
     linhas.push('', '────────', '');
     // Fatia 2 do ensaio (P7): o fuso ja sai no fim do panorama (e no bloco, quando difere): sem a legenda do status.
     linhas.push(x.roadmap ? textoDoStatusDoRoadmap(x.roadmap, fuso, { legenda: false })
-      : `Roadmap do ${x.projeto.nome}: não lido (${x.lacunas.map((l) => l.tipo).filter((t) => t !== 'projeto.sem-clone').join(', ') || 'sem fonte'}).`);
-    linhas.push('', 'Threads por máquina', ...linhasDasMaquinas(x, fuso));
-    linhas.push('', 'Reservas', ...linhasDasReservas(x, fuso));
-    linhas.push('', 'Fontes', ...(x.fontes.length ? x.fontes.map((f) => linhaDaFonte(f, p.consultadoEm, fuso)) : ['• nenhuma fonte lida']));
-    linhas.push('', 'Lacunas', ...(x.lacunas.length ? x.lacunas.map(linhaDaLacuna) : ['• nenhuma: todas as fontes foram lidas agora']));
-    if (fuso !== p.fuso) linhas.push('', `Neste projeto: ${legendaDoFuso(fuso)}`);
+      : m.roadmapNaoLido(x.projeto.nome, x.lacunas.map((l) => l.tipo).filter((t) => t !== 'projeto.sem-clone').join(', ') || m.semFonte));
+    linhas.push('', m.threadsPorMaquina, ...linhasDasMaquinas(x, fuso));
+    linhas.push('', m.reservas, ...linhasDasReservas(x, fuso));
+    linhas.push('', m.fontes, ...(x.fontes.length ? x.fontes.map((f) => linhaDaFonte(f, p.consultadoEm, fuso)) : [m.nenhumaFonte]));
+    linhas.push('', m.lacunas, ...(x.lacunas.length ? x.lacunas.map(linhaDaLacuna) : [m.nenhumaLacuna]));
+    if (fuso !== p.fuso) linhas.push('', m.nesteProjeto(legendaDoFuso(fuso)));
   }
   linhas.push('', legendaDoFuso(p.fuso));
   return linhas.join('\n');

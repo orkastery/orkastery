@@ -51,6 +51,7 @@ import { consultaDoProjeto, ErroDeProjeto, FORA_DA_CONSULTA, PADRAO_DO_NOME_DE_P
 import { registrarConsultasExperiencia } from './mcp-experiencia';
 import { grafoLigado, registrarConsultasDoGrafo } from './mcp-grafo';
 import { registrarConsultasDoConhecimento } from './mcp-conhecimento';
+import { comLocale, ErroDoCatalogo, resolverLocale } from './locale';
 
 const identidade = z.string().min(1).max(80).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 const daThread = z.object({ threadId: identidade }).strict();
@@ -396,15 +397,18 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       reverte:z.string().min(1).max(80).optional()}).strict(),
     annotations:{readOnlyHint:false,destructiveHint:false}},async({threadId,...e})=>{
       thread(threadId);livre(threadId);
-      // A sessao decide por ela: o rastro nao pode nascer assinado em nome do dono.
-      if(/^\s*(?:o\s+|a\s+)?(?:dono|owner|builder|maestro)\b/i.test(e.quemDecidiu))
-        throw Error('mcp.decision.author: quemDecidiu e a sessao que decidiu, nunca o dono');
+      const locale=resolverLocale(carregar().manifesto.owner?.language).locale;
       let registro:ReturnType<typeof registrarDecisao>;
       try {
-        registro=registrarDecisao(raiz,threadId,{decidido:e.decidido,porque:e.porque,comoMudar:e.comoMudar,
-          custoDeReverter:{agora:e.custoAgora,depois:e.custoDepois},criterio:e.criterio,quemDecidiu:e.quemDecidiu,
-          evidencia:e.evidencia,...(e.razao?{razao:e.razao}:{}),...(e.reverte?{reverte:e.reverte}:{}),origem:'mcp',host:opcoes.host,
-          despacho:opcoes.dispatchId??null});
+        registro=comLocale(locale,()=>{
+          // A sessao decide por ela: o rastro nao pode nascer assinado em nome do dono.
+          if(/^\s*(?:o\s+|a\s+)?(?:dono|owner|builder|maestro)\b/i.test(e.quemDecidiu))
+            throw new ErroDoCatalogo((m)=>m.decisao.autorMcp);
+          return registrarDecisao(raiz,threadId,{decidido:e.decidido,porque:e.porque,comoMudar:e.comoMudar,
+            custoDeReverter:{agora:e.custoAgora,depois:e.custoDepois},criterio:e.criterio,quemDecidiu:e.quemDecidiu,
+            evidencia:e.evidencia,...(e.razao?{razao:e.razao}:{}),...(e.reverte?{reverte:e.reverte}:{}),origem:'mcp',host:opcoes.host,
+            despacho:opcoes.dispatchId??null});
+        });
       } catch(erro) {throw Error(recusaNaSuperficie((erro as Error).message,CAMPOS_DA_DECISAO_NO_MCP));}
       const {pedido,evento}=registro;
       return resposta({ok:true,pedidoId:pedido.id,eventId:evento.eventId,fase:pedido.fase,reciboOficial:false});
@@ -444,9 +448,11 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
    */
   registrarTool('ork_network_roadmap',{description:'Roadmap da rede do projeto servido, somente leitura: o status report do roadmap (RM-048) com as threads de TODAS as maquinas, as reservas, as threads por maquina com a idade da batida, a fonte e a hora de cada parte e as lacunas tipadas. E a fonte do status do roadmap: transporte o texto como vem, sem reescrever nem resumir. Lacuna e "Nao consultado" sao o que nao foi lido: nunca conclua "roadmap vazio" nem "nenhuma maquina publicou" a partir deles. Este servidor le so o projeto fixado; os outros projetos vem do CLI ork network roadmap.',
     inputSchema:z.object({}).strict(),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:true}},async () => {
-      carregar();
-      const panorama=montarPanoramaDaRede({fixado:raiz});
-      return resposta({texto:textoDoPanoramaDaRede(panorama),panorama});
+      const c=carregar();
+      // O panorama devolvido continua no contrato pt-BR; somente o texto humano segue o dono.
+      const panorama=comLocale('pt-BR',()=>montarPanoramaDaRede({fixado:raiz}));
+      const locale=resolverLocale(c.manifesto.owner?.language).locale;
+      return resposta({texto:comLocale(locale,()=>textoDoPanoramaDaRede(panorama)),panorama});
     });
   /**
    * RM-054 (fatia 3): as maquinas da pessoa (RM-053, `ork.rede-status/v1`), com a fonte, a batida e as

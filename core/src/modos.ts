@@ -8,15 +8,13 @@
 
 import { BlocoDeLoop, DIGITO_DA_FASE, DefinicaoDeModo, Fase, FASES, Modo, ModoAposentado, ModoLegado } from './types';
 import { msg } from './locale';
+import { PROMPTS_PT_BR } from './locale-prompts';
 
-/** Invariantes que valem em TODOS os modos, inclusive `#Auto`. */
-export const INVARIANTES: readonly string[] = [
-  'Claims, verify e policies rodam identicos em todos os modos.',
-  'Policy `block` pausa qualquer modo, inclusive #Auto.',
-  'Escalacao tipada para humano pausa qualquer modo, inclusive #Auto.',
-  'Toda entrega fecha com indice derivado do ledger; a nota humana, quando vier, sobrescreve.',
-  'Toda decisao autonoma vai ao ledger com quem decidiu, evidencia e razao.',
-];
+/**
+ * Invariantes que valem em TODOS os modos, inclusive `#Auto`. RM-061 F3c: o texto mora no catalogo dos prompts (o
+ * pt-BR e a fonte, o ingles e tipado por ele); a tabela do `ork modos` e o prompt de fase leem o mesmo.
+ */
+export const INVARIANTES: readonly string[] = PROMPTS_PT_BR.invariantes;
 
 /** Monta a parte 3 do slug para um conjunto de fases (visao, secao 3.4). */
 export function slugDasFases(fases: Fase[]): string {

@@ -11,8 +11,10 @@ import * as path from 'node:path';
 import { linhaDeConducao, quemConduz } from '../src/conducao-texto';
 import { descreverSlug } from '../src/phase';
 import { definirFusoDoDono } from '../src/horario';
-import { ativarLocale } from '../src/locale';
+import { ativarLocale, mensagemDoErro, msg } from '../src/locale';
+import { main } from '../src/index';
 import { ConducaoAtual } from '../src/types';
+import { ajustarManifesto, projetoTemporario } from './apoio';
 import { Cenario, cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 
 function conducao(dono: object, operacao: string, sessao: string | null): ConducaoAtual {
@@ -123,15 +125,23 @@ test('locale en F2a thread: o dado gravado por thread new e o --json do status n
   } finally { pt.limpar(); en.limpar(); }
 });
 
-test('locale en F2a thread: thread new --from-finding segue em pt-BR com LANG=en_US', () => {
-  const c = cenario('thread-negativo');
+test('locale en F3c thread: thread new --from-finding traduz a recusa com LANG=en_US', () => {
+  const p = projetoTemporario('thread-f3c-negativo');
+  ajustarManifesto(p, 'owner:\n', 'owner:\n  language: en-US\n');
+  const cwd = process.cwd(), log = console.log, error = console.error;
   try {
-    assert.equal(ork(c, PT, true, 'thread', 'new', 'Lista', '--modo', 'auto', '--sem-worktree').status, 0);
-    // A F3b levou `thread list` ao catalogo (locale-thread-f3b); o achado de auditoria segue fora (G2 da F3b).
-    for (const args of [['thread', 'new', 'x', '--from-finding', 'A9']]) {
-      const pt = ork(c, PT, true, ...args), en = ork(c, EN, true, ...args);
-      assert.equal(en.stdout, pt.stdout, args.join(' '));
-      assert.equal(en.stderr, pt.stderr, args.join(' '));
-    }
-  } finally { c.limpar(); }
+    process.chdir(p.dir);
+    let stdout = '', stderr = '', status: number;
+    console.log = (...v: unknown[]) => { stdout += v.map(String).join(' ') + '\n'; };
+    console.error = (...v: unknown[]) => { stderr += v.map(String).join(' ') + '\n'; };
+    try { status = main(['thread', 'new', 'x', '--from-finding', 'A9']); }
+    catch (e) { console.error(msg().cli.erro(mensagemDoErro(e))); status = 1; }
+    assert.notEqual(status, 0);
+    assert.equal(stdout, '');
+    assert.match(stderr, /^error: finding "A9" does not exist on the debt board/);
+    assert.doesNotMatch(stderr, /achado|nao existe|Veja:/);
+    assert.deepEqual(linhasEmPortugues(stderr), []);
+  } finally {
+    console.log = log; console.error = error; process.chdir(cwd); ativarLocale(undefined); p.limpar();
+  }
 });
