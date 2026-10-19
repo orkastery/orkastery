@@ -622,3 +622,30 @@ test('LG25: com a parada pelo teto, a sessão admitida de um trabalho isolado qu
     assert.equal(registro.length, 1, 'nada retomado nem despachado depois do teto');
   } finally { p.limpar(); }
 });
+
+test('LG26: com a parada pelo teto, a sessão que o runtime diz viva e a morta ainda na carência não viram sessao_morta, e o arco espera', () => {
+  // CHECK 4: o LG23 e o LG25 seguiam verdes sem a prova do runtime e sem a carência no registro das mortes sob a parada.
+  const p = projetoTemporario('lg26');
+  try {
+    abrirSemRelatorio(p, 'arco-lg26', { trabalhos: [A, C], contas: DUAS, tetoDoArco: 1 });
+    const registro: string[] = [];
+    const tique = (quando?: string) => tiqueDoArco(p.carregado, 'arco-lg26', { ...simuladas(), quando, opcoesDoVigia: opcoesSimuladas(p.dir, ITENS, registro) });
+    const r1 = tique();
+    assert.ok(r1.passo?.acao === 'despachou', JSON.stringify(r1.passo));
+    const sessao = String(r1.passo.sessionId), thread = r1.passo.thread;
+    tique();
+    assert.equal(lerSupervisao(p.dir, 'arco-lg26').parada?.motivo, 'teto-do-arco');
+    const mortas = () => lerLedger(dirThread(p.dir, thread)).filter(e => e.tipo === 'sessao_morta' && e.sessionId === sessao).length;
+    // Viva no runtime, passada a carência: segue em voo, e o arco não fecha por cima dela.
+    const r2 = tique(new Date(Date.now() + 30 * 60_000).toISOString());
+    assert.deepEqual([mortas(), r2.fechamento.fechado], [0, false], JSON.stringify(r2.fechamento));
+    // Morta no runtime, mas a última atividade ainda está na carência: o vigia não a registra.
+    runtimeSimulado(p.dir).estado(sessao, 'failed');
+    const r3 = tique();
+    assert.deepEqual([mortas(), r3.fechamento.fechado], [0, false], JSON.stringify(r3.fechamento));
+    // Passada a carência, a morte provada fecha o arco pelo custo.
+    const r4 = tique(new Date(Date.now() + 30 * 60_000).toISOString());
+    assert.deepEqual([mortas(), r4.fechamento.fechado, r4.fechamento.motivo], [1, true, 'custo'], JSON.stringify(r4.fechamento));
+    assert.equal(registro.length, 1, 'nada retomado nem despachado depois do teto');
+  } finally { p.limpar(); }
+});

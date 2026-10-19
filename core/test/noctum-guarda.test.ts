@@ -723,3 +723,20 @@ test('GS18: no arco revogado, a reserva pendente sem o id da sessão segura a th
     assert.equal(guardaDaThread(p.dir, thread.id), null, 'devolvida a reserva, a thread se entrega à mão');
   } finally { p.limpar(); }
 });
+
+test('GS19: o arco agendado (autorizado, antes do início da janela) guarda a thread da lista, no ork ship e na guarda', () => {
+  // CHECK 4: a guarda do agendado não tinha caso; tirá-la de guardaOsCaminhosManuais passava em todos os GS.
+  const p = projetoTemporario('gs19', true);
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'agendada', modo: 'auto' });
+    abrirArco(p.dir, 'arco-gs19', { trabalhos: [daThread('w1', thread.id)], deslocamentoH: 2 });
+    assert.equal(lerArco(p.dir, 'arco-gs19')?.situacao, 'agendado');
+    const g = guardaDaThread(p.dir, thread.id);
+    assert.deepEqual([g?.motivo, g?.situacao, g?.origem], [MOTIVO_DA_GUARDA, 'agendado', 'envelope']);
+    const antes = eventos(p, thread.id);
+    const r = ship(p.carregado, thread.id, { para: 'main' });
+    assert.deepEqual([r.ok, r.codigo], [false, MOTIVO_DA_GUARDA]);
+    assert.match(r.detalhe, /é trabalho do arco arco-gs19 \(agendado, pela lista do envelope\)/);
+    assert.equal(eventos(p, thread.id), antes, 'a recusa não vai ao ledger da thread');
+  } finally { p.limpar(); }
+});

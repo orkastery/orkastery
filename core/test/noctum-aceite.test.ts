@@ -486,3 +486,17 @@ test('AC21: a agenda de injeções recusa a chave desconhecida e o alvo que não
   }
   assert.deepEqual(lerInjecoes(JSON.stringify({ falha: 'F1', instante, alvo: 'w2' })), [{ falha: 'F1', instante, alvo: 'w2' }]);
 });
+
+test('AC22: com a F7 na agenda, o recibo vale até o fim do ciclo de reenvio automático (45 min com o tique de 5 min), e não depois', () => {
+  // CHECK 4: o AC17 tinha recibos em 10 e 120 min, e a conta do ciclo com uma tentativa a mais passava nele.
+  const dentro = piloto('ac22a', { reciboAtrasadoMin: 44 });
+  try {
+    const r = aceite(dentro, { injecoes: [F1(dentro), { falha: 'F7', instante: dentro.vencimento }] });
+    assert.deepEqual([medida(r, 'M10').valor, criterio(r, 'A7').veredito], [1, 'aprovado'], JSON.stringify(medida(r, 'M10').evidencia));
+  } finally { dentro.p.limpar(); }
+  const fora = piloto('ac22b', { reciboAtrasadoMin: 50 });
+  try {
+    const r = aceite(fora, { injecoes: [F1(fora), { falha: 'F7', instante: fora.vencimento }] });
+    assert.deepEqual([medida(r, 'M10').valor, criterio(r, 'A7').detalhe], [0, 'o último recibo da versão 1 chegou depois do ciclo de reenvio automático']);
+  } finally { fora.p.limpar(); }
+});

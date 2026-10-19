@@ -258,3 +258,30 @@ test('RG15: o comando ork noctum e a vírgula que troca o sujeito passam; o link
     }
   });
 });
+
+/** Reescreve o arquivo publicável do piloto de índice `i` com `mexer` e põe o sha256 novo no aceite. */
+function mexerNoPublicavel(raiz: string, i: number, mexer: (r: Record<string, unknown>) => void): void {
+  const arquivo = path.join(raiz, PASTA, `piloto-${i + 1}.json`);
+  const r = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as Record<string, unknown>;
+  mexer(r);
+  const texto = `${JSON.stringify(r, null, 2)}\n`;
+  fs.writeFileSync(arquivo, texto);
+  const a = JSON.parse(fs.readFileSync(path.join(raiz, PASTA, 'aceite.json'), 'utf8'));
+  a.pilotos[i].sha256 = createHash('sha256').update(texto).digest('hex');
+  fs.writeFileSync(path.join(raiz, PASTA, 'aceite.json'), JSON.stringify(a, null, 2));
+}
+
+test('RG16: o arquivo publicável que não diz aprovado ou não é o publicável recusa, mesmo com o aceite dizendo aprovado; a ratificação sem data válida também', () => {
+  // CHECK 4: o RG5 só mexia no veredito do aceite; o do arquivo, o publicavel e a data da ratificação não tinham caso.
+  emPasta('rg16', (raiz) => {
+    aceite(raiz);
+    assert.equal(rodar(raiz).status, 0, 'o aceite de fixture confere');
+    mexerNoPublicavel(raiz, 1, (r) => { r.veredito = 'reprovado'; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-nao-aprovado: o piloto P2 tem o veredito reprovado/);
+    aceite(raiz);
+    mexerNoPublicavel(raiz, 0, (r) => { r.publicavel = false; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.aceite-invalido: piloto-1\.json não é o aceite publicável/);
+    aceite(raiz, (a) => { a.ratificacao = { por: 'dono-do-projeto', recibo: 'ingresso:telegram:SIMULADO-1', em: 'depois dos pilotos' }; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.sem-ratificacao/);
+  });
+});
