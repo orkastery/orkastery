@@ -748,7 +748,7 @@
         "node -e \"const fs=require('fs');const b=JSON.parse(fs.readFileSync('.ork-ci/ork-rm061f3c.json','utf8'));if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm061f3c'||b.claims.filter(c=>c.id!=='C74').some(c=>c.estado!=='verificado')||b.commands.length!==1||b.commands[0].command!=='npm --prefix core run test:ci')process.exit(1)\""
       ],
       "criadoEm": "2026-10-19T04:33:04.715Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
