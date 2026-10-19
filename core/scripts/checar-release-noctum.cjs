@@ -15,10 +15,11 @@
  * Com `--texto`, no job de documentação: procura em `README.md`, `README.pt-BR.md`, `CHANGELOG.md`, `core/README.md` (o do
  * pacote), nos `.md` de `docs/` (fora `docs/roadmap/evidencias/`), de `adapters/` e de `core/assets/`, e nos `.md` e `.json`
  * de `marketplaces/` a forma que anuncia o #Noctum como lançado, entregue, validado ou disponível, em pt-BR e em inglês: o
- * nome, com ou sem a marcação do Markdown, e até duas palavras entre ele, o verbo e o particípio (o advérbio: "já foi
- * validado", "is now available", ", enfim,"). Só libera a negação entre o nome e o particípio ("ainda não foi validado") ou
- * logo antes do nome ("nem o #Noctum está"); a de longe ("Não é segredo: o #Noctum foi validado") e a de depois não. Com o
- * aceite válido, o texto passa.
+ * nome com N maiúsculo (o comando `ork noctum` não é o produto), com ou sem a marcação e o link do Markdown, e até duas
+ * palavras entre ele, o verbo e o particípio (o advérbio: "já foi validado", "is now available"), ou um inciso entre
+ * vírgulas (", enfim,"). Só libera a negação entre o nome e o particípio ("ainda não foi validado") ou logo antes do nome,
+ * na mesma linha ("nem o #Noctum está"); a de longe ("Não é segredo: o #Noctum foi validado"), a de depois e "não só" não.
+ * Com o aceite válido, o texto passa.
  *
  *   node core/scripts/checar-release-noctum.cjs [--texto] [raiz]
  *
@@ -44,18 +45,27 @@ const HORAS_MINIMAS = { P1: 6, P2: 12, P3: 6, P4: 12 };
 const DO_TEXTO = ['README.md', 'README.pt-BR.md', 'CHANGELOG.md', path.join('core', 'README.md')];
 /** As pastas que o `--texto` lê e as extensões de cada uma; a evidência dos pilotos fica de fora. */
 const PASTAS_DO_TEXTO = [['docs', ['.md']], ['adapters', ['.md']], [path.join('core', 'assets'), ['.md']], ['marketplaces', ['.md', '.json']]];
-/** O separador das palavras: espaço, quebra de linha, vírgula, parênteses e a marcação do Markdown (`**#Noctum**`, `` `#Noctum` ``). */
-const SEP = '[\\s,()*_`]+';
-/** Até duas palavras entre o nome, o verbo e o particípio: o advérbio ("já foi validado", "is now available", ", enfim,"). */
-const ENTRE = `(?:${SEP}[\\p{L}-]+){0,2}?${SEP}`;
-/** Em pt-BR: foi, foram, está ou estão com lançado, entregue, validado ou disponível. "É entregue às 07:00" descreve, e passa. */
-const AFIRMACAO_PT = new RegExp(`#?Noctum${ENTRE}(?:foi|foram|está|estão)${ENTRE}(?:lançad[oa]s?|entregues?|validad[oa]s?|disponíve(?:l|is))(?![\\p{L}\\p{N}])`, 'giu');
+/** O separador das palavras: espaço, quebra de linha, parênteses e a marcação do Markdown (`**#Noctum**`, `` `#Noctum` ``). */
+const SEP = '[\\s()*_`]+';
+/**
+ * Até duas palavras entre o nome, o verbo e o particípio (o advérbio: "já foi validado", "is now available"), ou um inciso
+ * entre vírgulas (", enfim,"). A vírgula sozinha não liga o nome ao verbo: "No #Noctum, o relatório está disponível" passa.
+ */
+const ENTRE = `(?:(?:${SEP}[\\p{L}-]+){0,2}?${SEP}|[*_\`]*,\\s*[\\p{L}-]+(?:\\s+[\\p{L}-]+)?\\s*,\\s*)`;
+/** O nome, com N maiúsculo (o comando `ork noctum` não é o produto), e o link do Markdown logo depois (`[#Noctum](...)`). */
+const NOME = '#?Noctum(?:\\]\\([^)\\s]*\\))?';
+/**
+ * Em pt-BR: foi, foram, está ou estão com lançado, entregue, validado ou disponível, e é ou são com lançado. "É entregue às
+ * 07:00" e "é validado pelo núcleo" descrevem, e passam.
+ */
+const AFIRMACAO_PT = new RegExp(`${NOME}${ENTRE}(?:(?:foi|foram|está|estão)${ENTRE}(?:lançad[oa]s?|entregues?|validad[oa]s?|disponíve(?:l|is))|` +
+  `(?:é|são)${ENTRE}lançad[oa]s?)(?![\\p{L}\\p{N}])`, 'gu');
 /** Em inglês: is, are, was, were, has been ou have been com released, shipped, validated, launched ou available. */
-const AFIRMACAO_EN = new RegExp(`#?Noctum${ENTRE}(?:is|are|was|were|ha(?:s|ve)\\s+been)${ENTRE}(?:released|shipped|validated|launched|available)(?![\\p{L}\\p{N}])`, 'giu');
-/** A negação do verbo, entre o nome e o particípio. "Sem" fica de fora: "sem custo extra, já está disponível" anuncia. */
-const NEGACAO = /(?<![\p{L}\p{N}])(?:não|nem|nunca|not|never|yet\s+to)(?![\p{L}\p{N}])/iu;
-/** A negação logo antes do nome, quando muito com o artigo: "nem o #Noctum está disponível". */
-const NEGACAO_ANTES = /(?<![\p{L}\p{N}])(?:não|nem|nunca|not|nor|never)\s+(?:(?:o|a|the)\s+)?[*_`]*$/iu;
+const AFIRMACAO_EN = new RegExp(`${NOME}${ENTRE}(?:is|are|was|were|ha(?:s|ve)\\s+been)${ENTRE}(?:released|shipped|validated|launched|available)(?![\\p{L}\\p{N}])`, 'gu');
+/** A negação do verbo, entre o nome e o particípio. "Sem" fica de fora ("sem custo extra, já está disponível" anuncia), e "não só", "not only" e "not just" também. */
+const NEGACAO = /(?<![\p{L}\p{N}])(?:não(?![ \t]+só(?![\p{L}\p{N}]))|nem|nunca|not(?![ \t]+(?:only|just)(?![\p{L}\p{N}]))|never|yet\s+to)(?![\p{L}\p{N}])/iu;
+/** A negação logo antes do nome, na mesma linha, quando muito com o artigo: "nem o #Noctum está disponível". */
+const NEGACAO_ANTES = /(?<![\p{L}\p{N}])(?:não|nem|nunca|not|nor|never)[ \t]+(?:(?:o|a|the)[ \t]+)?[*_`\[]*$/iu;
 
 class Recusa extends Error {
   constructor(motivo, detalhe) { super(`${motivo}: ${detalhe}`); this.motivo = motivo; }

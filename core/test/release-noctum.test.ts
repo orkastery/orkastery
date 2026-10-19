@@ -237,3 +237,24 @@ test('RG14: o sha256 repetido e o arco repetido recusam, cada um pelo seu campo'
     assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-repetido: os pilotos P1 e P3 têm o mesmo arco \(arco-piloto-1\)/);
   });
 });
+
+test('RG15: o comando ork noctum e a vírgula que troca o sujeito passam; o link, o é lançado, a negação de outra linha e o não só recusam', () => {
+  emPasta('rg15', (raiz) => {
+    // N2 do CHECK 3: o comando não é o produto, e a vírgula sozinha não liga o nome ao verbo de outro sujeito.
+    fs.writeFileSync(path.join(raiz, 'README.md'), '# Produto\n\nO `ork noctum conduzir` está disponível para o cron do piloto.\n' +
+      '`ork noctum aceite` is available in the CLI.\nO comando `ork noctum aceite` foi entregue nesta thread.\n' +
+      'No #Noctum, o relatório está disponível no terminal.\n');
+    const certo = rodar(raiz, '--texto');
+    assert.equal(certo.status, 0, certo.stderr);
+    // N3 do CHECK 3: os furos que deixavam o anúncio passar.
+    const recusadas = ['[#Noctum](docs/roadmap/RM-058-modo-noctum.md) já está disponível.', 'O #Noctum é lançado nesta versão.',
+      '## O que ainda não\n\nO #Noctum foi validado nos quatro pilotos.', 'O #Noctum não só foi validado como está disponível.',
+      '#Noctum is not only validated but also available.'];
+    for (const frase of recusadas) {
+      fs.writeFileSync(path.join(raiz, 'README.md'), `# Produto\n\n${frase}\n`);
+      const r = rodar(raiz, '--texto');
+      assert.equal(r.status, 1, `deveria recusar: ${frase}`);
+      assert.match(r.stderr, /README\.md:\d+: /);
+    }
+  });
+});

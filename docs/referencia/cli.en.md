@@ -652,7 +652,7 @@ waiting (RM-058).
 
 The `ork noctum aceite` files:
 
-- `--injecoes`: the schedule of the failures the rehearsal or the pilot injected, in JSONL, one per line: `{"falha": "F1", "instante": "<ISO instant>", "alvo": "<work>"}`. `falha` goes from `F1` to `F11`, `instante` is ISO, and `alvo` (optional) is the work id, the thread or the account: a failure with a target only recovers through its own signal. An empty schedule is a gap, and with `F7` in the schedule the report receipt that the resend brings counts until the 24 h delivery window.
+- `--injecoes`: the schedule of the failures the rehearsal or the pilot injected, in JSONL, one per line: `{"falha": "F1", "instante": "<ISO instant>", "alvo": "<work>"}`. `falha` goes from `F1` to `F11`, `instante` is ISO, and `alvo` (optional) is the work id, the thread or the account: a failure with a target only recovers through a signal that touches that target or through a signal of the whole arc (the new generation, the interrupted watcher, the receipt, the tick). Any other key, or a target that is not text, is refused. An empty schedule is a gap. With `F7` in the schedule, the receipt that the automatic resend brings within its cycle counts (five attempts, one every 5 min); the one from the resend the owner asks for (`--reenviar`) does not.
 - `--limiares`: the owner's thresholds, in a JSON with `"contrato": "ork.noctum-limiares/v1"` and only the keys `m1MinimoHoras`, `m5MaximoMin`, `entregasMinimas`, `margemDoTeto` and `atrasoDoRelatorioMin`, non-negative numbers. An unknown key is refused with `noctum.aceite.limiares-invalidos`; a missing one stays with the proposal, marked as such.
 
 ---
