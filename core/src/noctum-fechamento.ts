@@ -36,12 +36,13 @@
 import { formatarDataHora } from './horario';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
+import { masterRatificado } from './master';
 import { DespachoDoArco, encerrarArco, EncerramentoDoArco, EstadoDoArco, lerArco, MotivoDeEncerramento } from './noctum-arco';
-import { envelopeComTrabalhos, RecusaDoArco, shaDoPedido, Unidade, UNIDADES } from './noctum-envelope';
+import { CONTRATO_ENVELOPE_V2, envelopeComTrabalhos, RecusaDoArco, shaDoPedido, Unidade, UNIDADES } from './noctum-envelope';
 import { FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila } from './noctum-fila';
 import { ConsumoNaUnidade, consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco, textoDoConsumo } from './noctum-medicao';
 import { comRegistro, lerRegistro } from './noctum-registro';
-import { lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
+import { EstadoDaSupervisao, lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
 import { consultarContas, encerradaNaLista } from './sessoes-contas';
 import { pararSessao } from './sessoes';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -178,6 +179,25 @@ export function condicaoDeFechamento(estado: EstadoDoArco | null, fila: FilaDoAr
       'de um que fechou sem entrega; nada sobra para este arco' };
   }
   return null;
+}
+
+/**
+ * RM-058, integração (T4, D8): as threads que este arco entregou (o `ship_done` da entrega dele, com o arco na evidência) e
+ * cujo MASTER por omissão a entrega dele ainda faz, como em `noctum-entrega.ts`: o envelope `v2`, o trabalho sem isolamento,
+ * a thread aberta e sem MASTER ratificado. A thread que não se lê não segura o fechamento: a fila já a mostra.
+ */
+function mastersDevidos(raiz: string, estado: EstadoDoArco, fila: FilaDoArco, sup: EstadoDaSupervisao): string[] {
+  if (estado.conteudo?.contrato !== CONTRATO_ENVELOPE_V2) return [];
+  const devidos: string[] = [];
+  for (const t of fila.trabalhos) {
+    if (t.estado !== 'entregue' || !t.thread || sup.isolados.has(t.id)) continue;
+    try {
+      const doArco = lerLedger(dirThread(raiz, t.thread)).some(e => e.tipo === TIPOS_DE_EVENTO.shipConcluido &&
+        (e.evidencia as { arco?: unknown } | undefined)?.arco === estado.arco);
+      if (doArco && lerThread(raiz, t.thread).status !== 'fechada' && !masterRatificado(raiz, t.thread)) devidos.push(t.thread);
+    } catch { /* a leitura que falhou não prende o arco aberto */ }
+  }
+  return devidos;
 }
 
 const gitDoDisco = (cwd: string, args: string[]): string | null => {
@@ -387,8 +407,9 @@ export function fecharSeDevido(carregado: ManifestoCarregado, arco: string, opco
   if (!estado.encerramento) {
     const emVooAgora = sessoesEmVooDoArco(raiz, estado).length;
     // RM-058, integração (D7): a parada da supervisão; o log dela que não se lê não segura o fechamento pelas outras condições.
-    let parada: { motivo: string; detalhe: string } | null = null;
-    try { parada = lerSupervisao(raiz, arco).parada; } catch (e) { if (!(e instanceof RecusaDaSupervisao)) throw e; }
+    let sup: EstadoDaSupervisao | null = null;
+    try { sup = lerSupervisao(raiz, arco); } catch (e) { if (!(e instanceof RecusaDaSupervisao)) throw e; }
+    const parada = sup?.parada ?? null;
     // Revogado, hora, a parada e o teto em sessões vêm primeiro e sem a fila nem a medição: nenhuma falha delas segura esse fechamento.
     let condicao = condicaoDeFechamento(estado, null, null, quando, emVooAgora, parada);
     let falhaDaMedicao = '';
@@ -403,6 +424,12 @@ export function fecharSeDevido(carregado: ManifestoCarregado, arco: string, opco
         catch (e) { falhaDaMedicao = `; a medição falhou (${(e as Error).message.slice(0, 200)})`; }
       }
       condicao = condicaoDeFechamento(estado, fila, medicao, quando, emVooAgora, parada);
+      // RM-058, integração (T4, D8): a fila vazia não fecha o arco por cima do MASTER por omissão que a entrega dele ainda
+      // deve; o passo seguinte o faz, e o fechamento vem depois. A hora, a parada e o teto fecharam antes, sem esperar.
+      const devidos = condicao?.motivo === 'fila-vazia' && fila && sup ? mastersDevidos(raiz, estado, fila, sup) : [];
+      if (devidos.length) {
+        return nada(`o arco segue: a fila está vazia, mas a entrega do arco ainda faz o MASTER por omissão de ${devidos.join(', ')}`);
+      }
     }
     if (!condicao) return nada(`o arco segue: nenhuma condição de fechamento vale agora${falhaDaMedicao}`);
     // O terminal primeiro: daqui em diante nenhum despacho nem efeito passa.
