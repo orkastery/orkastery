@@ -599,3 +599,24 @@ test('LG24: a baseline que falha sem ser espera (o comando que não existe na wo
     assert.ok(c.ultimo?.acao === 'despachou' && c.ultimo.trabalho === 'c');
   } finally { p.limpar(); }
 });
+
+test('LG25: com a parada pelo teto, a sessão admitida de um trabalho isolado que morre sem resultado também vira sessao_morta, e o arco fecha pelo custo', () => {
+  const p = projetoTemporario('lg25');
+  try {
+    abrirSemRelatorio(p, 'arco-lg25', { trabalhos: [A, C], contas: DUAS, tetoDoArco: 1 });
+    const registro: string[] = [];
+    const tique = (quando?: string) => tiqueDoArco(p.carregado, 'arco-lg25', { ...simuladas(), quando, opcoesDoVigia: opcoesSimuladas(p.dir, ITENS, registro) });
+    const r1 = tique();
+    assert.ok(r1.passo?.acao === 'despachou', JSON.stringify(r1.passo));
+    const sessao = String(r1.passo.sessionId), thread = r1.passo.thread;
+    tique();
+    assert.equal(lerSupervisao(p.dir, 'arco-lg25').parada?.motivo, 'teto-do-arco');
+    // M1 do CHECK 3: o trabalho já isolado não passa pela decisão de retomar, e a sessão dele ainda conta como em voo.
+    gravarNaSupervisao(p.carregado, 'arco-lg25', [{ tipo: 'isolado', trabalho: 'a', thread, motivo: 'sessao-presa', detalhe: 'SIMULADO' }]);
+    runtimeSimulado(p.dir).estado(sessao, 'failed');
+    const r2 = tique(new Date(Date.now() + 30 * 60_000).toISOString());
+    assert.deepEqual([r2.fechamento.fechado, r2.fechamento.motivo, r2.fechamento.paradas.length], [true, 'custo', 0], JSON.stringify(r2.fechamento));
+    assert.ok(lerLedger(dirThread(p.dir, thread)).some(e => e.tipo === 'sessao_morta' && e.sessionId === sessao), 'a morte provada fica no ledger');
+    assert.equal(registro.length, 1, 'nada retomado nem despachado depois do teto');
+  } finally { p.limpar(); }
+});

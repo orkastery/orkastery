@@ -185,6 +185,12 @@ export const SHIP_PT_BR = {
       'ela não entrega fora do arco',
     sessaoDoArcoCorrecao: (arco: string) =>
       `espere a parada que o fechamento do arco pede, ou pare a sessão; sem sessão do arco em voo, a thread se entrega à mão (ork noctum status ${arco})`,
+    // M3 do CHECK 3: a reserva pendente sem o id da sessão; não há sessão a parar, e quem a resolve é o vigia.
+    reservaDoArco: (thread: string, arco: string, situacao: string, seq: number) =>
+      `noctum.guarda.thread-do-arco: o arco ${arco} está ${situacao}, e a reserva ${seq} que ele fez para a thread ${thread} pode ter aberto ` +
+      'uma sessão sem id: ela não entrega fora do arco',
+    reservaDoArcoCorrecao: (arco: string) =>
+      `espere o vigia reconciliar a reserva (ele a conclui com a sessão ou a devolve); sem sessão do arco em voo, a thread se entrega à mão (ork noctum status ${arco})`,
   },
   // RM-059 (F7, T7.1): `ork ship publicar` e `ork ship pista`. O detalhe, a correcao e o texto das etapas vao ao
   // `--json` e ao ledger em pt-BR; a impressao os remonta no locale do comando.
@@ -490,6 +496,11 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
       'it does not deliver outside the arc',
     sessaoDoArcoCorrecao: (arco) =>
       `wait for the stop that the arc closing requests, or stop the session; with no arc session in flight, the thread is delivered by hand (ork noctum status ${arco})`,
+    reservaDoArco: (thread, arco, situacao, seq) =>
+      `noctum.guarda.thread-do-arco: arc ${arco} is ${situacao}, and reservation ${seq} that it made for thread ${thread} may have opened ` +
+      'a session without an id: it does not deliver outside the arc',
+    reservaDoArcoCorrecao: (arco) =>
+      `wait for the watcher to reconcile the reservation (it concludes it with the session or returns it); with no arc session in flight, the thread is delivered by hand (ork noctum status ${arco})`,
   },
   publicar: {
     uso: 'usage: ork ship publicar <thread-id> [--dry-run] [--remoto R] [--json]',

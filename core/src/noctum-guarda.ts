@@ -28,7 +28,7 @@ import { raizDoEstado } from './estado-thread';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { Mensagens, textoDoCatalogo } from './locale';
 import { ArcoComProposta, EstadoDoArco, lerArcoComProposta, SituacaoDoArco } from './noctum-arco';
-import { sessoesEmVooDoArco } from './noctum-fechamento';
+import { sessoesEmVooDoArco } from './noctum-sessoes-em-voo';
 import { ConteudoDoEnvelope, ID_DO_ARCO, RecusaDoArco, shaDoPedido } from './noctum-envelope';
 import { dirThread, lerThread } from './thread';
 import { EventoLedger } from './types';
@@ -166,8 +166,13 @@ export function guardaDaThread(raiz: string, thread: string, quando = new Date()
       const lido = arcos.lidos.get(t.arco);
       const sessao = lido ? sessaoDoArcoEmVoo(raiz, thread, lido.estado) : null;
       if (!sessao) continue;
+      if ('seq' in sessao) {
+        return recusa(MOTIVO_DA_GUARDA, thread, t.arco, t.situacao, t.origem,
+          (m) => m.ship.guarda.reservaDoArco(thread, t.arco, m.ship.guarda.situacoes[t.situacao] ?? t.situacao, sessao.seq),
+          (m) => m.ship.guarda.reservaDoArcoCorrecao(t.arco));
+      }
       return recusa(MOTIVO_DA_GUARDA, thread, t.arco, t.situacao, t.origem,
-        (m) => m.ship.guarda.sessaoDoArco(thread, t.arco, m.ship.guarda.situacoes[t.situacao] ?? t.situacao, sessao),
+        (m) => m.ship.guarda.sessaoDoArco(thread, t.arco, m.ship.guarda.situacoes[t.situacao] ?? t.situacao, sessao.sessionId),
         (m) => m.ship.guarda.sessaoDoArcoCorrecao(t.arco));
     }
     return null;
@@ -183,11 +188,14 @@ const TERMINAIS: readonly SituacaoDoArco[] = ['expirado', 'revogado', 'encerrado
 /**
  * A2 do CHECK: a sessão que o arco despachou nesta thread e que ainda não acabou, ou `null`. É a conta do fechamento
  * (`sessoesEmVooDoArco`): a sessão concluída sem resultado, morte nem superação no ledger, e a da reserva pendente, que o
- * runtime abriu antes de o condutor morrer (N4 do CHECK 2). O ledger que não se lê não prova o fim: a guarda falha fechada.
+ * runtime abriu antes de o condutor morrer (N4 do CHECK 2), com o id que ele disse ou, sem id, a reserva (M3 do CHECK 3).
+ * O ledger que não se lê não prova o fim: a guarda falha fechada. Só os despachos desta thread entram, e a reserva pendente
+ * ainda sem thread gravada (M2 do CHECK 3): a guarda não lê os ledgers do arco inteiro a cada consulta.
  */
-function sessaoDoArcoEmVoo(raiz: string, thread: string, estado: EstadoDoArco): string | null {
-  const s = sessoesEmVooDoArco(raiz, estado).find(x => x.thread === thread);
-  return s ? s.sessionId ?? `seq ${s.seq}` : null;
+function sessaoDoArcoEmVoo(raiz: string, thread: string, estado: EstadoDoArco): { sessionId: string } | { seq: number } | null {
+  const despachos = estado.despachos.filter(d => (d.threadDespachada ?? d.thread) === thread || (d.desfecho === 'pendente' && !(d.threadDespachada ?? d.thread)));
+  const s = sessoesEmVooDoArco(raiz, { ...estado, despachos }).find(x => x.thread === thread);
+  return !s ? null : s.sessionId ? { sessionId: s.sessionId } : { seq: s.seq };
 }
 
 /** O vínculo da thread com um arco, como os caminhos automáticos o leem no passo do condutor (T1.2, D3 e D4). */

@@ -50,6 +50,7 @@ import { cancelarPedido } from './retry';
 import { ambienteDoPerfil } from './adapters/claude-bg';
 import { lerPerfis, lerPerfisComContas, perfilDeDespacho, StoreDePerfis } from './runtime-profiles';
 import { consultarContas } from './sessoes-contas';
+import { sessoesEmVooDoArco } from './noctum-sessoes-em-voo';
 import { dirThread } from './thread';
 import { EventoLedger } from './types';
 import { exec } from './util';
@@ -273,6 +274,27 @@ export function passoConduzido(carregado: ManifestoCarregado, arco: string, quem
   }
 }
 
+/**
+ * M1 do CHECK 3: sob a parada pelo teto, cada sessão do arco em voo que o runtime prova morta, passada a carência desde a
+ * última atividade dela, vira `sessao_morta`, seja qual for o trabalho (isolado, com as retomadas esgotadas ou na fase da
+ * entrega): a decisão de retomar não importa com o arco parado.
+ */
+function registrarMortesSobAParada(raiz: string, estado: EstadoDoArco, leitura: LeituraDoRuntime, parametros: ParametrosDaSupervisao,
+  quando: string): void {
+  for (const s of sessoesEmVooDoArco(raiz, estado)) {
+    if (!s.sessionId || !s.thread) continue;
+    let eventos: EventoLedger[];
+    try { eventos = lerLedger(dirThread(raiz, s.thread)); } catch { continue; }
+    const despacho = eventos.filter(e => e.tipo === 'phase_dispatch' && e.sessionId === s.sessionId).at(-1);
+    if (!despacho) continue;
+    const p = provaDaSessao(leitura, s.sessionId, s.conta, s.runtime, despacho.ts, parametros.ausenciaMinimaMs);
+    const ultimaAtividade = Math.max(...eventos.filter(e => e.sessionId === s.sessionId).map(e => Date.parse(e.ts)).filter(Number.isFinite));
+    if (p.estado !== 'morta' || Date.parse(quando) - ultimaAtividade < parametros.carenciaMs) continue;
+    registrarMorte(raiz, s.thread, { sessionId: s.sessionId, runtime: s.runtime, perfil: s.conta },
+      `a sessão ${s.sessionId} acabou sem resultado com o arco parado pelo teto: ${p.detalhe}`);
+  }
+}
+
 /** Grava `sessao_morta` no ledger da thread, uma vez por sessão: é o que solta a condução e a vaga (D10). */
 function registrarMorte(raiz: string, thread: string, m: { sessionId: string; runtime: string; perfil: string | null }, prova: string): void {
   const dir = dirThread(raiz, thread);
@@ -422,9 +444,7 @@ function reconciliarSobATravaDeDespacho(carregado: ManifestoCarregado, arco: str
     // N2 do CHECK 2: com a parada pelo teto, o arco espera as sessões admitidas. A que o runtime prova morta sem resultado no
     // ledger vira `sessao_morta`, sem retomada nem parada, e o fechamento pelo teto não fica preso a ela até a hora.
     if (estado.situacao === 'vigente' && sup.parada?.motivo === 'teto-do-arco') {
-      for (const d of decidirSessoes(raiz, arco, conteudo, estado, sup, leitura, quando)) {
-        if (d.acao === 'retomar' && d.morta) registrarMorte(raiz, d.thread, d.morta, d.prova);
-      }
+      registrarMortesSobAParada(raiz, estado, leitura, sup.parametros!, quando);
       return;
     }
     if (estado.situacao !== 'vigente' || sup.parada) return;

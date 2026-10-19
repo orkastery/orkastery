@@ -694,3 +694,32 @@ test('GT6: depois de 2 h, o pulo do arco que não se lê segue no pulse com o te
     assert.match(daBatida[0].bloqueio ?? '', /^noctum\.guarda\.arco-ilegivel: /);
   } finally { p.limpar(); }
 });
+
+test('GS17: a guarda não fecha ciclo de import com o ship: carregado o ship antes, o ship publicar tem os modos que publicam', () => {
+  // B1 do CHECK 3: a guarda importava o fechamento, e o ciclo ship -> guarda -> fechamento -> master -> ship deixava a
+  // constante do ship publicar sem valor no processo do ork, onde o ship carrega primeiro.
+  const src = path.resolve(__dirname, '../src');
+  const r = spawnSync(process.execPath, ['-e', `require(${JSON.stringify(path.join(src, 'ship.js'))});` +
+    `const p = require(${JSON.stringify(path.join(src, 'ship-publicar.js'))});` +
+    'process.stdout.write(JSON.stringify(p.MODOS_QUE_PUBLICAM ?? null));'], { encoding: 'utf8', timeout: 60_000 });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(r.stdout), ['maestro', 'auto']);
+});
+
+test('GS18: no arco revogado, a reserva pendente sem o id da sessão segura a thread com o texto da reserva, e devolvida, a solta', () => {
+  const p = projetoTemporario('gs18', true);
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'reserva sem id', modo: 'auto' });
+    const sha = abrirArco(p.dir, 'arco-gs18', { trabalhos: [daThread('w1', thread.id)] });
+    const r = reservarDespacho(p.dir, { arco: 'arco-gs18', envelopeSha256: sha, trabalho: 'w1', thread: thread.id, fase: 'CHECK', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    // O runtime pode ter aberto a sessão sem dizer o id: não há sessão a parar, e quem resolve é o vigia.
+    revogarArco(p.dir, 'arco-gs18');
+    const g = guardaDaThread(p.dir, thread.id);
+    assert.deepEqual([g?.motivo, g?.situacao], [MOTIVO_DA_GUARDA, 'revogado']);
+    assert.match(g!.detalhe, new RegExp(`a reserva ${r.seq} que ele fez para a thread ${thread.id} pode ter aberto uma sessão sem id`));
+    assert.match(g!.correcao, /^espere o vigia reconciliar a reserva/);
+    concluirDespacho(p.dir, 'arco-gs18', r.seq, { motivo: 'noctum.reconciliacao.sem-sessao' });
+    assert.equal(guardaDaThread(p.dir, thread.id), null, 'devolvida a reserva, a thread se entrega à mão');
+  } finally { p.limpar(); }
+});
