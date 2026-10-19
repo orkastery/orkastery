@@ -268,6 +268,25 @@ test('RM-064 T9: falha transitória conta da observação boa e a leitura seguin
   } finally { p.limpar(); }
 });
 
+test('RM-064 T9: vínculo permanente divergente vira diagnóstico e parada tipada', () => {
+  const p = sessaoCodex('rm064-t9-vinculo-divergente', 30 * 60 * 1_000);
+  try {
+    // A recomposição não pode aceitar um controller que o despacho registrou fora da pasta canônica de sessões.
+    registrar(p.estado, p.t.id, 'phase_dispatch', { ts: p.despachadaEm, fase: 'GO', sessionId: SID,
+      despachoEm: p.despachadaEm, controlador: p.dir, cwd: p.dir, promptSha256: 'a'.repeat(64) });
+    const primeira = reconciliarSessaoSemWatcher(p.carregado, p.t.id, Date.now());
+    assert.equal(primeira.estado, 'acompanhada');
+    const diagnosticos = lerLedger(p.estado).filter(e => e.tipo === 'session_watcher_error' && e.sessionId === SID);
+    assert.equal(diagnosticos.length, 1, 'falha permanente de recomposição precisa ficar no ledger');
+    assert.equal(diagnosticos[0].transitorio, false);
+    const r = reconciliarSessaoSemWatcher(p.carregado, p.t.id, Date.parse(diagnosticos[0].ts) + 600_001);
+    assert.equal(r.estado, 'parada');
+    const resultado = lerLedger(p.estado).find(e => e.tipo === 'phase_result')!;
+    assert.deepEqual([resultado.motivo, resultado.origem, resultado.conclusaoNativa],
+      ['runtime.unavailable', 'conducao.batida', false]);
+  } finally { p.limpar(); }
+});
+
 test('RM-064 T8: sessão worktree recebe somente as mutações MCP exatas, sem ampliar o sandbox', () => {
   const cfg = configuracaoServidorMcp('/projeto-simulado', 'codex', 'ork-fixture', 'github-ssh', 'worktree',
     '11111111-2222-4333-8444-555555555555');

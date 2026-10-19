@@ -344,30 +344,29 @@ export function reconciliarSessaoSemWatcher(carregado: ManifestoCarregado, threa
   if (identidade && iniciado?.pid === identidade.pid && estadoProcesso(identidade) === 'vivo')
     return ignorada('watcher verificado continua vivo');
 
-  const registro = eventos.filter(e => e.tipo === 'session_sensor_registered' && e.sessionId === sessao.sessionId &&
-    e.despachoEm === sessao.despachadaEm).at(-1);
-  if (!registro && sessao.runtime === 'claude-bg') {
-    garantirFonteClaude(carregado.raiz, thread, exigirSessaoDespachada(sessao, sessao.sessionId));
-  } else if (!registro && sessao.runtime === 'codex') {
-    const despacho = eventos.filter(e => e.tipo === 'phase_dispatch' && e.sessionId === sessao.sessionId).at(-1);
-    const controlador = (despacho?.controlador ?? sessao.controlador) as string | undefined;
-    const cwd = despacho?.cwd as string | undefined;
-    if (controlador && cwd) {
-      const fonte = { controlador, cwd };
-      validarRegistroWatcher(carregado.raiz, sessao.sessionId, fonte);
-      comLockDeSessao(dir, () => {
-        const atuais = lerLedger(dir);
-        if (!atuais.some(e => e.tipo === 'session_sensor_registered' && e.sessionId === sessao.sessionId &&
-            e.despachoEm === sessao.despachadaEm)) {
-          registrar(dir, threadId, 'session_sensor_registered', { fase: sessao.fase, sessionId: sessao.sessionId,
-            despachoEm: sessao.despachadaEm, ...fonte, origem: 'conducao.batida',
-            ...(despacho?.perfil ? { perfil: despacho.perfil } : {}) });
-        }
-      });
-    }
-  }
-
   try {
+    const registro = eventos.filter(e => e.tipo === 'session_sensor_registered' && e.sessionId === sessao.sessionId &&
+      e.despachoEm === sessao.despachadaEm).at(-1);
+    if (!registro && sessao.runtime === 'claude-bg') {
+      garantirFonteClaude(carregado.raiz, thread, exigirSessaoDespachada(sessao, sessao.sessionId));
+    } else if (!registro && sessao.runtime === 'codex') {
+      const despacho = eventos.filter(e => e.tipo === 'phase_dispatch' && e.sessionId === sessao.sessionId).at(-1);
+      const controlador = (despacho?.controlador ?? sessao.controlador) as string | undefined;
+      const cwd = despacho?.cwd as string | undefined;
+      if (controlador && cwd) {
+        const fonte = { controlador, cwd };
+        validarRegistroWatcher(carregado.raiz, sessao.sessionId, fonte);
+        comLockDeSessao(dir, () => {
+          const atuais = lerLedger(dir);
+          if (!atuais.some(e => e.tipo === 'session_sensor_registered' && e.sessionId === sessao.sessionId &&
+              e.despachoEm === sessao.despachadaEm)) {
+            registrar(dir, threadId, 'session_sensor_registered', { fase: sessao.fase, sessionId: sessao.sessionId,
+              despachoEm: sessao.despachadaEm, ...fonte, origem: 'conducao.batida',
+              ...(despacho?.perfil ? { perfil: despacho.perfil } : {}) });
+          }
+        });
+      }
+    }
     const observado = observarSessao(carregado, sessao.sessionId, { threadId, agoraMs });
     if (!observado.ocupado) {
       const observadoEm = new Date(agoraMs).toISOString();
@@ -385,8 +384,9 @@ export function reconciliarSessaoSemWatcher(carregado: ManifestoCarregado, threa
     return { thread: threadId, sessionId: sessao.sessionId, estado: 'acompanhada',
       detalhe: observado.ocupado ? 'observação ocupada; nova batida repetirá' : 'runtime ainda sem terminal' };
   } catch (erro) {
-    // `observarSessao` já deixa o diagnóstico fechado no ledger. Só depois do limite a batida
-    // transforma a ausência persistente de observação em parada; antes disso, apenas acompanha.
+    // `observarSessao` diagnostica sua própria falha; a recomposição estrutural passa pelo mesmo
+    // recibo. Só depois do limite a batida transforma a ausência persistente em parada.
+    tentarRegistrarErroWatcher(carregado.raiz, threadId, sessao.sessionId, erro);
     eventos = lerLedger(dir);
     const doIntervalo = eventosDoIntervalo(eventos, exigirSessaoDespachada(sessao, sessao.sessionId));
     const uteis = doIntervalo.filter(e =>
