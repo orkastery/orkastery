@@ -85,6 +85,7 @@ import { CONHECIMENTO_EN, CONHECIMENTO_PT_BR } from './locale-conhecimento';
 import { FORJA_EN, FORJA_PT_BR } from './locale-forja';
 import { SETUP_EN, SETUP_PT_BR } from './locale-setup';
 import { PROJETOS_EN, PROJETOS_PT_BR } from './locale-projetos';
+import { OPERACAO_RESTANTE_EN, OPERACAO_RESTANTE_PT_BR } from './locale-operacao-restante';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -495,6 +496,7 @@ const PT_BR = {
   conhecimento: CONHECIMENTO_PT_BR,
   forja: FORJA_PT_BR,
   operacao: {
+    restante: OPERACAO_RESTANTE_PT_BR,
     modos: {
       titulo: 'Modos de conducao (a #TAG vai no proprio pedido ao orquestrador)',
       cabecalho: ['#TAG', 'BLOCOS', 'PAUSAS', 'CICLO'] as readonly string[],
@@ -934,6 +936,7 @@ const EN: Mensagens = {
   conhecimento: CONHECIMENTO_EN,
   forja: FORJA_EN,
   operacao: {
+    restante: OPERACAO_RESTANTE_EN,
     modos: {
       titulo: 'Conduction modes (put the #TAG in the request to the orchestrator)',
       cabecalho: ['#TAG', 'BLOCKS', 'PAUSES', 'CYCLE'],

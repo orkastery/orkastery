@@ -12,22 +12,24 @@ import { tabela } from './util';
 import { raizDoEstado } from './estado-thread';
 import { lerLedger, registrar } from './ledger';
 import { dirThread, lerThread } from './thread';
+import { msg } from './locale';
 
 export function textoDoInventario(r: InventarioDeSessoes): string {
+  const m = msg().operacao.restante.sessions.inventario;
   const linhas = [
-    `Inventário ${r.escopo.global ? 'global' : 'do projeto'} da conta ${r.escopo.usuario}; histórico: ${r.escopo.historico ? 'incluído' : 'omitido'}.`,
-    `Fontes: ${r.fontes.map(f => `${f.origem} (${f.ausente ? 'ausente' : f.ok ? 'ok' : 'FALHA'})`).join('; ')}`,
-    `Total: ${r.total}; sem thread: ${r.semThread}; ambíguas: ${r.ambiguas}; fantasmas: ${r.fantasmas}; consulta: ${r.ok ? 'válida' : 'INCOMPLETA'}.`,
+    m.abertura(r.escopo.global, r.escopo.usuario, r.escopo.historico),
+    m.fontes(r.fontes.map(f => `${f.origem} (${f.ausente ? m.fonteEstado.ausente : f.ok ? m.fonteEstado.ok : m.fonteEstado.falha})`).join('; ')),
+    m.resumo(r.total, r.semThread, r.ambiguas, r.fantasmas, r.ok),
   ];
   // RM-056 (D4): a coluna PERFIL e o id do perfil (`processo` sem perfil), nunca o diretorio da conta.
-  if (r.sessoes.length) linhas.push(tabela(['ID', 'RUNTIME', 'PERFIL', 'ESTADO', 'THREAD/FASE'],
-    r.sessoes.map(s => [s.sessionId, s.runtime, s.perfil ?? 'processo',
-      `${s.state ?? s.status ?? 'unknown'}${s.fantasma ? ' (fantasma)' : ''}`,
-      s.vinculos.map(v => `${v.thread}/${v.fase}`).join(', ') || '(fora do ork)'])));
-  if (r.fantasmas > 0) linhas.push('Fantasma: registro sem processo vivo, não ocupa vaga; `ork sessions limpar-fantasmas` solta o vínculo do ork sem tocar no runtime.');
-  for (const f of r.fontes.filter(f => !f.ok)) linhas.push(`Falha: ${f.detalhe}`);
+  if (r.sessoes.length) linhas.push(tabela([...m.colunas],
+    r.sessoes.map(s => [s.sessionId, s.runtime, s.perfil ?? m.processo,
+      `${s.state ?? s.status ?? m.desconhecido}${s.fantasma ? ` (${m.fantasma})` : ''}`,
+      s.vinculos.map(v => `${v.thread}/${v.fase}`).join(', ') || m.fora])));
+  if (r.fantasmas > 0) linhas.push(m.explicacaoFantasma);
+  for (const f of r.fontes.filter(f => !f.ok)) linhas.push(m.falha(f.detalhe));
   // Fatia 2 do ensaio da 0.5.0 (P1): a fonte ausente nao e falha, mas diz o que falta e como ter.
-  for (const f of r.fontes.filter(f => f.ausente)) linhas.push(`Ausente: ${f.detalhe}${f.correcao ? `; correção: ${f.correcao}` : ''}`);
+  for (const f of r.fontes.filter(f => f.ausente)) linhas.push(m.ausente(f.detalhe, f.correcao ?? null));
   return linhas.join('\n');
 }
 
@@ -41,6 +43,7 @@ export function tabelaDeSessoes(raiz: string, todas = false): string {
  * viva). So uma conta pode responder; duas viram recusa, nenhuma mantem a mensagem de antes.
  */
 function localizarSessao(chave: string, raiz?: string | null): { achada: adapter.SessaoNaConta } | { texto: string; codigo: number } {
+  const m = msg().operacao.restante.sessions.localizar;
   let perfis: PerfilDeDespacho[] = [];
   const falhas: string[] = [];
   if (raiz) {
@@ -52,10 +55,9 @@ function localizarSessao(chave: string, raiz?: string | null): { achada: adapter
   if (r.achadas.length === 1) return { achada: r.achadas[0] };
   if (r.achadas.length > 1) {
     const contas = r.achadas.map(a => `${a.perfil?.id ?? 'processo'} (${a.sessao.sessionId})`).join(', ');
-    return { texto: `sessao "${chave}" encontrada em mais de uma conta: ${contas}; use o id completo`, codigo: 1 };
+    return { texto: m.ambigua(chave, contas), codigo: 1 };
   }
-  return { texto: `sessao "${chave}" nao encontrada no runtime` + (falhas.length ? `; contas sem resposta: ${falhas.join('; ')}` : ''),
-    codigo: 1 };
+  return { texto: m.ausente(chave, falhas.join('; ')), codigo: 1 };
 }
 
 /** Logs de uma sessao pelo id curto, id completo ou nome, lidos na conta onde ela esta. */
@@ -73,7 +75,7 @@ export function pararSessao(chave: string, raiz?: string | null): { texto: strin
   if (!('achada' in l)) return l;
   const { sessao, perfil, ambiente } = l.achada;
   const r = adapter.pararAchada(sessao, ambiente);
-  return { texto: r.texto || `sessao ${sessao.sessionId} parada${perfil ? ` (perfil ${perfil.id})` : ''}`, codigo: r.ok ? 0 : 1 };
+  return { texto: r.texto || msg().operacao.restante.sessions.localizar.parada(sessao.sessionId, perfil?.id ?? null), codigo: r.ok ? 0 : 1 };
 }
 
 /** Comando de attach (precisa de TTY, entao o CLI imprime em vez de executar). */
@@ -151,17 +153,17 @@ export function sessoesSemFim(raiz: string, threadId: string): string[] {
 }
 
 export function textoDaLimpeza(r: ReturnType<typeof limparFantasmas>): string {
-  if (r.itens.length === 0) return `Nenhuma sessão fantasma${r.ok ? '' : ' nas contas que responderam'}.` +
-    r.falhas.map(f => `\nFalha: ${f}`).join('');
+  const m = msg().operacao.restante.sessions.limpeza;
+  if (r.itens.length === 0) return m.nenhuma(!r.ok) + r.falhas.map(f => `\n${m.falha(f)}`).join('');
   const verbo: Record<FantasmaTratado['acao'], string> = {
-    solto: r.dryRun ? 'soltaria (sessao_morta no ledger)' : 'solto: sessao_morta no ledger',
-    'ja-solto': 'já encerrada no ledger', 'sem-thread': 'fora do ork: nada a soltar',
-    'outro-projeto': 'vínculo de outro projeto: rode lá',
+    solto: r.dryRun ? m.acoes.soltaria : m.acoes.solto,
+    'ja-solto': m.acoes.jaSolto, 'sem-thread': m.acoes.semThread,
+    'outro-projeto': m.acoes.outroProjeto,
   };
   return [
-    `Sessões fantasma (sem pid e sem processo)${r.dryRun ? ', ensaio: nada foi gravado' : ''}. O runtime não foi tocado.`,
-    tabela(['ID', 'PERFIL', 'THREAD/FASE', 'AÇÃO'], r.itens.map(i => [i.sessionId, i.perfil ?? 'processo',
+    m.abertura(r.dryRun),
+    tabela([...m.colunas], r.itens.map(i => [i.sessionId, i.perfil ?? m.processo,
       i.thread ? `${i.thread}/${i.fase}` : '-', verbo[i.acao]])),
-    ...r.falhas.map(f => `Falha: ${f}`),
+    ...r.falhas.map(f => m.falha(f)),
   ].join('\n');
 }

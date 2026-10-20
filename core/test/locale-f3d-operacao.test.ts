@@ -8,6 +8,8 @@ import { linhasEmPortugues } from './locale-apoio';
 import { CADENCIAS, textoDaCadencia } from '../src/pulse-cadencia';
 import { textoDasEstatisticas, LedgerStats } from '../src/ledger-stats';
 import { tabelaDaPolitica, textoDaRetomada } from '../src/retry';
+import { textoDaLimpeza, textoDoInventario } from '../src/sessoes';
+import { textoDoRadar } from '../src/hitl';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -84,4 +86,26 @@ test('F3d: retry complementar cobre policy, parse, fila, retomada e cancelamento
   assert.match(en, /No rate-limit queue request/);
   assert.match(en, /Request rl-1 cancelled/);
   assert.deepEqual(linhasEmPortugues(en), []);
+});
+
+test('F3d: sessions localiza inventario, limpeza e radar sem mudar os dados observados', () => {
+  const inventario = {
+    escopo: { global: false, usuario: 'builder', historico: true },
+    fontes: [{ origem: 'claude-bg', ok: true, ausente: false, detalhe: '' }],
+    total: 0, semThread: 0, ambiguas: 0, fantasmas: 0, ok: true, sessoes: [],
+  } as any;
+  const radar = {
+    resumo: { total: 0, precisamDeHumano: 0, hitl: 0, abandonadas: 0, falhas: 0,
+      desconhecidas: 0, trabalhando: 0, acimaDoLimite: 0, foraDoOrk: 0 },
+    atencaoMin: 15, runtimeConsultado: true, runtimeDetalhe: '', logsLidos: true, sessoes: [],
+  } as any;
+  const pt = comLocale('pt-BR', () => [textoDoInventario(inventario),
+    textoDaLimpeza({ ok: true, dryRun: false, itens: [], falhas: [] }), textoDoRadar(radar)].join('\n'));
+  const en = comLocale('en', () => [textoDoInventario(inventario),
+    textoDaLimpeza({ ok: true, dryRun: false, itens: [], falhas: [] }), textoDoRadar(radar)].join('\n'));
+  assert.match(pt, /Inventário do projeto/);
+  assert.match(en, /Project inventory/);
+  assert.match(en, /No ghost session/);
+  assert.match(en, /Runtime session radar/);
+  assert.deepEqual(linhasEmPortugues(en, ['claude-bg']), []);
 });
