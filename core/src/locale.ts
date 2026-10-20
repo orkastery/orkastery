@@ -128,7 +128,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'lease list', 'lease acquire', 'lease take', 'lease release', 'lease ?',
   'board list', 'board plan', 'board plano', 'board reap', 'board ?',
   'orquestracao status', 'orquestracao ?', 'monitor', 'licoes', 'demo',
-  'fabrica list', 'fabrica publicar', 'fabrica entrar', 'fabrica sair', 'fabrica batida', 'fabrica ?'];
+  'fabrica list', 'fabrica publicar', 'fabrica entrar', 'fabrica sair', 'fabrica batida', 'fabrica ?', 'eval'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */

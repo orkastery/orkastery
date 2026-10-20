@@ -23,6 +23,7 @@ import { textoDoMonitor } from '../src/orquestracao';
 import { textoDasLicoes } from '../src/licoes';
 import { textoDaFabrica, textoDasOutrasMaquinas } from '../src/fabrica-estado';
 import { textoDoEstadoDaBatida } from '../src/fabrica-batida';
+import { textoDoEval } from '../src/evalrunner';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -274,4 +275,19 @@ test('F3d: fabrica e batida localizam os estados de leitura sem mudar contratos'
   for (const sub of ['list', 'publicar', 'entrar', 'sair', 'batida'])
     assert.equal(cobreLocale(['fabrica', sub], {}), true, sub);
   assert.equal(cobreLocale(['fabrica', 'outro'], {}), true);
+});
+
+test('F3d: eval localiza o parecer e mantem codigos de falha', () => {
+  const resultado = { catalogo: '/tmp/catalog', skills: [], canarios: [], totalDeCasos: 0,
+    totalDeAssercoes: 0, metadeComportamental: 'unavailable', ok: false,
+    falhas: [{ codigo: 'fixture-invalida', detalhe: 'dado preservado' }] } as any;
+  const pt = comLocale('pt-BR', () => textoDoEval(resultado));
+  const en = comLocale('en', () => textoDoEval(resultado));
+  assert.match(pt, /^ork eval, catalogo em/);
+  assert.match(en, /^ork eval, catalog at/);
+  assert.match(en, /Failures/);
+  assert.match(en, /\[fixture-invalida\]/);
+  assert.match(en, /behavioral half/);
+  assert.match(en, /VERDICT: red/);
+  assert.equal(cobreLocale(['eval'], {}), true);
 });
