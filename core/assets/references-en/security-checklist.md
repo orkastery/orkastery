@@ -27,8 +27,8 @@ flowchart TB
 
 | # | Check | How it is proven |
 |---|---|---|
-| 1 | No secret in the working tree: token, API key, password, private key block, connection string and high-entropy string that looks like a credential, including `.env` files, test fixtures and example configs. | Reading of the branch diff plus a scan of the tree. The report names the tool used or says the pass was manual. |
-| 2 | No secret in the history behind the branch. A secret committed and later deleted is still leaked. | `git log -p <base>..HEAD` over the whole range, not just the tree. Blocker until the credential is rotated and the history cleaned, with the rotation verified, not promised. |
+| 1 | No secret in the working tree: token, API key, password, private key block, connection string and high-entropy string that looks like a credential, including `.env` files, test fixtures and example configs. | Reading of the branch diff plus a scan of the tree. The report names the tool used or says the pass was manual. With `verify.security_scan` declared, the evidence is the `security_scan` (Gitleaks on the tree); the manual pass is only valid with the scan declared `unavailable`. |
+| 2 | No secret in the history behind the branch. A secret committed and later deleted is still leaked. | `git log -p <base>..HEAD` over the whole range, not just the tree. Blocker until the credential is rotated and the history cleaned, with the rotation verified, not promised. With `verify.security_scan` declared, the `security_scan` also scans the commits of `<base>..HEAD`; the manual pass is only valid with the scan declared `unavailable`. |
 | 3 | No real credential in a dispatched prompt. The `phase.dispatch` gate of `ork` evaluates the `segredo_em_prompt` policy BEFORE writing the prompt to disk: a rejected prompt never comes to exist as a file, because writing a prompt with a credential creates a second leak inside the repository itself. | `ork phase run` exits with typed reason `policy.violation`; the ledger records the pattern name and the line, never the matched excerpt. |
 | 4 | No real credential in a thread artifact, the ledger, captured command output or the audit report itself. A leak report that prints the secret is a second leak. | Reading of the artifacts the thread produced. A redacted placeholder passes and is declared as such; a credential is referenced by location and redacted form. |
 
@@ -46,7 +46,7 @@ flowchart TB
 | # | Check | How it is proven |
 |---|---|---|
 | 9 | No new dependency without justification in the PLAN. A dependency that comes in without a task is scope creep with an attack surface. | Diff of the package manifest files against the PLAN tasks. |
-| 10 | Known vulnerabilities in the declared dependencies were looked up, and the result is in the report with the date and the tool. Where there is no tool, the item comes out `unavailable` with the reason. | `npm audit` where a production dependency is declared. |
+| 10 | Known vulnerabilities in the declared dependencies were looked up, and the result is in the report with the date and the tool. Where there is no tool, the item comes out `unavailable` with the reason. | `npm audit` where a production dependency is declared. With `verify.security_scan` declared, the evidence is the `security_scan` (dependencies and govulncheck `reachable`); the manual pass is only valid with the scan declared `unavailable`. |
 
 ## Repository artifacts
 

@@ -1,0 +1,7 @@
+{
+  "exclude": [
+    "eval/fixtures/security-scan/**",
+    "eval/fixtures/superficie-de-rede/**",
+    "core/test/fixtures/security-scan/**"
+  ]
+}

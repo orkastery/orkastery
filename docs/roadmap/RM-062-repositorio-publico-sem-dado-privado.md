@@ -6,18 +6,18 @@ categoria: melhoria
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-20T00:41:35-03:00
+atualizado_em: 2026-10-20T15:46:52-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: f5c8db2
     pr: null
   testes:
     f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4)
@@ -37,7 +37,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -140,7 +140,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-20 | Julio |
 | Documentação | Em revisão | — | 2026-10-20 | Julio |
-| Código | Branch criada | — | 2026-10-20 | Julio |
+| Código | Mesclado | commit `f5c8db2` | 2026-10-20 | Julio |
 | Testes | Em execução | f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4) · f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7) | 2026-10-20 | Julio |
 | Deploy | Não implantado | — | 2026-10-20 | Julio |
 | Exposição | Flag desligada | — | 2026-10-20 | Julio |

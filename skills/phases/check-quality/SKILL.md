@@ -55,6 +55,18 @@ e `web-performance-auditor`. Cada um roda no seu escopo e devolve achados catego
    reexecucao completa, nunca parcial.
 6. **Um veredito unico**, no diretorio da thread, com todo aviso aceito carregando seu registro.
 
+## Com `verify.security_scan` declarado
+
+Sem `verify.security_scan`, nada desta secao vale e o CHECK e o de sempre. Com a chave, o `ork verify` roda `ork security-scan` e o veredito consolida o scan:
+
+1. Leia `report.md` e `report.json` em `.orkastery/security-scan/<sha>/`, na arvore principal; o SHA e o do HEAD verificado.
+2. Zero bloqueadores de seguranca passa a ser: nenhum achado `new` do laco sem veredito resolvido do `security-auditor` (real corrigido, falso positivo dispensado com decisao registrada, ou inconclusivo com o `ork gate request` respondido).
+3. Achado `new` com `loop: false` (`warn` no relatorio, como qualidade, licenca ou severidade abaixo do corte) vai ao eixo certo como aviso registrado, com o nome de quem aceitou, nunca como bloqueador escondido.
+4. Ferramenta `unavailable` ou `failed` e declarada no veredito e nunca conta como limpa; com `ORK_SECURITY_SCAN_REQUIRED=1` ela faz o scan sair 1.
+5. Correcao vinda do scan volta pelo GO-FIX, com a skill `security-remediation`; a prova e o `ork fix reverify`, que reexecuta o verify e o scan.
+6. O veredito por achado chega ao GO-FIX pela claim do CHECK (`--fase CHECK`), uma por achado real ou falso positivo, como a skill `security-auditor` diz. O `ork fix open <thread>` reexecuta o verify e abre uma correcao por claim reprovada, tipo B para o real (`claims.failed`) e tipo A para o falso positivo (`claims.unverifiable`), ao lado da correcao tipo B do comando `security_scan`; o `ork fix list <thread>` as mostra ao GO-FIX com o texto do veredito.
+7. Inconclusivo nao abre o pedido de dentro da sessao do CHECK: o `ork gate request` recusa enquanto o observador nao grava a conclusao da fase (`a conclusao da fase precisa estar registrada antes da pausa`), e `--motivo` so aceita escalacao tipada ja registrada no ledger (`escalacao tipada nao comprovada`). A pergunta curta vai ao parecer, a sessao termina, e quem conduz roda `ork gate request <thread> --formato telegram`, que abre a pausa do fim do bloco que termina no CHECK, com o parecer nas evidencias. Entre os modos vivos, so o #Classic tem essa pausa (bloco GO-CHECK); #Look e #Ork tambem pausavam no CHECK, mas estao aposentados (I-43) e o pedido recusa para eles. O pedido leva a pergunta generica do gate (`Qual e o veredito sobre evidencias...?`): quem conduz aponta ao dono a pergunta do parecer, com o id do achado. A resposta do dono vira claim do CHECK como a skill `security-auditor` diz, antes do `ork fix open`. Em modo sem essa pausa (#Maestro, #Auto), o pedido recusa (`modo nao preve pausa humana nesta fase`): o veredito e BLOQUEADO, com a pergunta escrita, e nada segue ate o dono responder.
+
 ## O que o nucleo verifica por voce
 
 Os motivos tipados do `ork` fazem o veredito parar de ser conversa: `claims.failed`,
@@ -81,6 +93,8 @@ a pausa, nunca a verificacao**. Cada um deles tem uma acao de retry deterministi
 - Correcao tipo B seguida de reexecucao parcial.
 - Aviso aceito sem nome de quem aceitou.
 - CHECK rodado sem baseline para comparar.
+- Achado `new` do laco sem veredito dado como zero bloqueadores.
+- Inconclusivo de achado `new` do scan levado por `ork gate request` de dentro da sessao do CHECK, ou com `--motivo` de texto livre.
 
 ## Verificacao antes de sair da fase
 

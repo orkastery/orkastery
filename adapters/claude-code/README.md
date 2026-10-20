@@ -332,7 +332,7 @@ tres e o `--dry-run` mostra o que ele vai fazer sobre cada um.
    (`core/`, `phases/`, `reviewers/`, ...) que este catalogo usa. Por isso `plugin.json` declara os
    caminhos um a um. O teste compara esses caminhos com o catálogo fonte e exige
    `onboarding`, acrescentada por I15. Neste catálogo, `claude plugin details orkastery`
-   deve reportar 28 entradas: 20 skills e 8 comandos (a linha `Skills (28)`). O startup registra
+   deve reportar 29 entradas: 21 skills e 8 comandos (a linha `Skills (29)`). O startup registra
    separadamente skills e comandos. As provas anteriores, com 17 e 18 skills, são históricas.
    Confira também os seis agentes e seis eventos de hooks, sem erros de carregamento.
 

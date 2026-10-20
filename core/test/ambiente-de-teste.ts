@@ -15,13 +15,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-export type DependenciaDeTeste = 'codex-sandbox' | 'orkmind' | 'postgres';
+export type DependenciaDeTeste = 'codex-sandbox' | 'orkmind' | 'postgres' | 'docker';
 
 export const VARIAVEL_EXIGE_AMBIENTE = 'ORK_TESTE_EXIGE_AMBIENTE';
 
 export const MOTIVO_DA_FALTA: Readonly<Record<DependenciaDeTeste, string>> = {
   'codex-sandbox': 'codex do sandbox ausente em /usr/bin/codex',
   orkmind: 'interpretador do OrkMind ausente (orkmind fora do PATH)',
+  docker: 'Docker ausente ou com o daemon parado (docker info falha)',
   postgres: 'PostgreSQL ausente (Docker com a imagem pgvector/pgvector:pg16)',
 };
 
@@ -45,11 +46,17 @@ function postgresDaFixture(): boolean {
   return r.status === 0 && /^sha256:[a-f0-9]{64}$/.test(r.stdout.trim());
 }
 
+function dockerComDaemon(): boolean {
+  const r = spawnSync('docker', ['info', '--format', '{{.ServerVersion}}'],
+    { encoding: 'utf8', timeout: 20_000, env: { PATH: process.env.PATH, HOME: process.env.HOME } });
+  return r.status === 0 && r.stdout.trim() !== '';
+}
+
 const cache = new Map<DependenciaDeTeste, boolean>();
 export const sondaReal: Sonda = (dependencia) => {
   if (!cache.has(dependencia)) {
     const presente = dependencia === 'codex-sandbox' ? codexDoSandbox()
-      : dependencia === 'orkmind' ? interpretadorOrkMind() : postgresDaFixture();
+      : dependencia === 'orkmind' ? interpretadorOrkMind() : dependencia === 'docker' ? dockerComDaemon() : postgresDaFixture();
     cache.set(dependencia, presente);
   }
   return cache.get(dependencia)!;

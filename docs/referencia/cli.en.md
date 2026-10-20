@@ -14,7 +14,7 @@ usable as a pipeline gate.
 
 | Command | What it does |
 | --- | --- |
-| `ork doctor` | What holds on this machine now. **Exits nonzero if blocked**, never because of a `warn`. With an open thread in the project and no beat of this project in the crontab, it fails with or without `pulse-host.json`, and the fix is `ork fabrica batida instalar`; a round of up to 30 min in `hitl.log` proves the beat of another scheduler (RM-063). With the line in the crontab, a last round more than 30 min ago also fails: the beat stopped. The "pulse transport" check tells the last delivery of the summary: through the other configured host is a warning; through none, a failure. The forge section checks the forge of the `origin` remote (identity, reach, TLS, base path, CLI, login, server, token scope, project and capabilities); without a forge remote and without the `forja:` block, it does not show. See [the forge contract](contratos/forja.md) |
+| `ork doctor` | What holds on this machine now. **Exits nonzero if blocked**, never because of a `warn`. With an open thread in the project and no beat of this project in the crontab, it fails with or without `pulse-host.json`, and the fix is `ork fabrica batida instalar`; a round of up to 30 min in `hitl.log` proves the beat of another scheduler (RM-063). With the line in the crontab, a last round more than 30 min ago also fails: the beat stopped. The "pulse transport" check tells the last delivery of the summary: through the other configured host is a warning; through none, a failure. The forge section checks the forge of the `origin` remote (identity, reach, TLS, base path, CLI, login, server, token scope, project and capabilities); without a forge remote and without the `forja:` block, it does not show. With `verify.security_scan` declared, the "security scan" check is `ok` with Docker (CLI and daemon) or with a native binary for every loop tool, and `warn` (never `fail`) when some tool would be `unavailable`: the fix says to install Docker. See [the forge contract](contratos/forja.md) |
 | `ork doctor --json [--forja]` | The same checks in the `ork.doctor/v1` contract (verdict, failures, warnings, project, machine) and the factory beat: open threads, crontab line, last round and its age, `atrasada` and the ready `aviso` for the owner. It is what the host beat (OpenClaw and Hermes) reads deterministically (RM-063). The forge section runs only with `--forja`; without the flag, the JSON says `forja: nao-medida` (with it, `forja: medida`) |
 | `ork demo [--manter] [--dir D]` | The promise in 30 s: in a temporary repository, `ork verify` fails the agent's false claim and accepts the corrected one; offline, with no account or model (I-56) |
 | `ork init [--force] [--name N] [--abbrev A]` | Generates the repository's `orkastery.yaml` |
@@ -290,6 +290,33 @@ previous scan and prints only what is new (exits `10` when there is something ne
 is nothing, `1` when the runtime did not respond).
 
 ---
+
+## Security scan
+
+| Command | What it does |
+| --- | --- |
+| `ork security-scan [--base <ref>] [--json]` | Scans the HEAD (versioned content, in a detached worktree) with the catalog tools (secrets, dependencies, SAST, IaC, workflows, quality and license) and compares it with the base: `new`, `existing` or `dismissed` by fingerprint. The base is `--base`, or the merge-base with `<remote>/<worktree.base_branch>`. Writes `report.json` and `report.md` to `.orkastery/security-scan/<sha>/` of the main tree (also from a thread worktree). Without `--json`, prints the summary and ends with the path of `report.md`; with `--json`, prints the `ScanReport` and there is no path line. An unknown option exits 2 |
+
+Exits 1 when there is a `new` finding in the loop (every new secret; new dependency, SAST, IaC and workflow findings at
+`high` or `critical`; quality and license never enter) and when a dismissal or the `.ork-security/` config is invalid
+(the message names the entry; nothing is scanned). With `ORK_SECURITY_SCAN_REQUIRED=1`, a loop-category tool that is
+`unavailable` or `failed` also exits 1; without it, it only shows in the report. An unavailable or failed tool never
+counts as clean. Two reasons are declared in the report without counting as an unscanned category, here or in the
+`ork ship` gate: `unsupported-ci` (`.gitlab-ci.yml` with no GitHub Actions workflow: GitLab CI is left unscanned, only
+declared) and `no-requirements-file` (`pip-audit` without `requirements*.txt`), the latter only when another tool of the
+same category ran. `ORK_SECURITY_SCAN_DEADLINE_MS` bounds the whole round (each tool gets what is left of the budget);
+`ork verify` and `ork ci run` export it when running `security_scan`, as its time limit minus `min(300 s, limit/4)`.
+No secret value reaches the report or stdout.
+
+Tool states in the report: `ran`, `failed` and `unavailable`. A Semgrep `ran` may carry a `partial-*` reason
+(`partial-timeout: <n>`, `partial-parsing: <n>`): one rule or one fragment of a file was skipped (a `warn`-level error)
+and the rest was scanned, and the findings obtained count. If every rule times out, the tool still reads `ran`, with only
+the count in the reason: check the reason before treating the `sast` category as covered. An error of another type or of
+`error` level leaves the tool `failed`.
+
+In the manifest, `verify.security_scan` declares the command `ork verify` runs (for example `ork security-scan`), and
+`verify.timeout_ms_por_comando.security_scan` gives its time limit (`ork init` writes 900000 next to the key), which
+also applies to a claim whose `--verificar` is that same command. Without `verify.security_scan`, nothing changes.
 
 ## Truth: claims, verify and gates
 
@@ -607,10 +634,10 @@ waiting (RM-058).
 
 | Command | What it does |
 | --- | --- |
-| `ork ship <thread> --para <branch>` | `--no-ff` merge serialized by lease, and a **proven** push. A push refused by the base branch protection: `entrega.base-protegida`, with the PR/MR guidance. See [the forge contract](contratos/forja.md#entrega) |
+| `ork ship <thread> --para <branch>` | `--no-ff` merge serialized by lease, and a **proven** push. A push refused by the base branch protection: `entrega.base-protegida`, with the PR/MR guidance. With `verify.security_scan` declared and without `ci.required_for_ship`, a loop category (secret, dependency, sast, iac, workflow) not scanned at the candidate SHA (tool `unavailable` or failed, except `unsupported-ci` and `no-requirements-file`, or no report) stops with `human.pending` before any push; `--allow-unscanned "<who>"` ships anyway and records `ship_unscanned_authorized` in the ledger (with `--dry-run`, it only says what it would record). See [the forge contract](contratos/forja.md#entrega) |
 | `ork ship registrar-pr <thread>\|--todas [--remoto R] [--json] [--dry-run]` | A delivery made through a PR becomes `ship_done`: the `ship(<thread>)` merge contained in the remote tip and green CI on the PR head; then `ork master <thread> --aceitar-omissao` closes only that thread (I-57; RM-008). With `--dry-run`, also with `--repo --pr`, it runs the same checks and answers `registraria`, without writing `ship_done`, without changing the phase and without publishing the factory (RM-037) |
 | `ork ship registrar-pr <thread> --repo <dono/nome ou grupo/sub/projeto> --pr <n>` | A PR merged in an external repository declared in `ci.external_repositories` becomes `ship_done`: the PR merged into the repository's default branch, with the thread id in the title, body or branch, and the merge contained in the tip of the base, both checked through the GitHub API, or the project's GitLab (with subgroups; `--pr` is the MR `iid`), and the declared check green on the PR head (an empty check declares a repository without CI). An undeclared repository is refused, and so is a remote that names an unresolved forge (`entrega.sem-leitura`: declare `forja.tipo` or log in to the CLI), with no fallback host (RM-037) |
-| ↳ options | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]` |
+| ↳ options | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--allow-unscanned <who>] [--sem-push] [--dry-run]` |
 | `ork ship publicar <thread> [--dry-run] [--remoto R] [--json]` | Publishes the thread branch and opens the PR (MR on GitLab), with proof, only in the mode that already authorizes the push (#Auto and #Maestro). Before any effect, it checks the open thread, nobody conducting it, the branch with product, the CHECK with verdict `PASSOU` after the last product commit, the last green `ork verify` at HEAD (or only the bundle after it), the bundle `.ork-ci/<thread>.json` with the active claims and their commands, the remote's forge (GitHub or GitLab) and the branch PRs (MRs). It pushes the checked sha without force, proves it with `git ls-remote` (only the exact ref), reuses the open PR (MR) or opens one with the text of the thread's `pr-body.md` (title `ship(<thread>): ...`) and writes `ship_published`, also for a push left without proof. A refusal before any effect writes nothing; repeated, or with the PR already merged at HEAD, it answers `ja-publicada`. It does not accept `--autorizar-push`: outside #Auto and #Maestro the push belongs to the owner, and the fix gives the owner's command (on GitLab, `glab mr create … --description-file`). An Enterprise remote with no `forja:` block and no CLI login is refused before any write (`forja.desconhecida`) (RM-059) |
 | `ork ship pista [<thread>] [--remoto R] [--json]` | The lane of each open thread already in delivery (`ork.ship-pista/v1`): the steps CHECK, verify, bundle, branch, PR (MR on GitLab), CI, conflict and `ship_done`, and the next step with the action the core declares available (`publicar` or `registrar`) and the command. One read of the remote and one of the PRs (MRs), only for the threads already in delivery; a cut list leaves as not read the PR that was not checked one by one. It writes nothing (RM-059) |
 | `ork master <thread> --score 0-5 --justificativa "<texto>" --por <seu-nome>` | Closes the thread: POSTMORTEM, MASTER log and score; without a human `--por`, it refuses. Terminal only: from a host process it is refused with `master.prova-de-canal` |

@@ -1,0 +1,2 @@
+# golangci-lint default linters; project rules go in .ork-security/.golangci.yml
+version: "2"
