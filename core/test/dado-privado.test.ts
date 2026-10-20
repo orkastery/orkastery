@@ -414,17 +414,21 @@ test('DP18: o diff lê conteúdo binário e texto marcado -diff sem textconv', (
   const arquivoDaLista = lista(TERMO_FICTICIO);
   const dir = repo('diff-binario', { 'base.txt': 'limpo\n' });
   const base = git(dir, 'rev-parse', 'HEAD');
+  // Um driver de textconv da configuração local que devolve vazio: com ele, o `git diff` comum esconde o conteúdo.
+  git(dir, 'config', 'diff.vazio.textconv', 'true');
   fs.writeFileSync(path.join(dir, 'dados.bin'), Buffer.concat([
     Buffer.from([0, 1, 2]), Buffer.from(` ${TERMO_FICTICIO} ${EMAIL_FICTICIO}\n`),
   ]));
   escrever(dir, {
-    '.gitattributes': 'notas.txt -diff\n',
+    '.gitattributes': 'notas.txt -diff\nconvertido.txt diff=vazio\n',
+    'convertido.txt': `${TERMO_FICTICIO} ${EMAIL_FICTICIO}\n`,
     'notas.txt': `${TERMO_FICTICIO} ${EMAIL_FICTICIO}\n`,
   });
   git(dir, 'add', '-A');
-  git(dir, 'commit', '-q', '-m', 'binario e menos diff');
+  git(dir, 'commit', '-q', '-m', 'binario, menos diff e textconv');
   const v = varrerDiff(contexto(dir, arquivoDaLista), { sha: base, ref: 'main' });
   assert.deepEqual(v.achados.map((a) => [a.arquivo, a.padrao]), [
+    ['convertido.txt', 'lista-local'], ['convertido.txt', 'email'],
     ['dados.bin', 'lista-local'], ['dados.bin', 'email'],
     ['notas.txt', 'lista-local'], ['notas.txt', 'email'],
   ]);
