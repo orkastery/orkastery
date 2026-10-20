@@ -36,6 +36,36 @@ export type FalhaDaDsn =
   | 'dsn.arquivo-inseguro'
   | 'dsn.arquivo-invalido';
 
+/**
+ * Por que o arquivo da DSN foi recusado. O texto pt-BR de cada causa mora em `textoDaCausa`; o catálogo do `ork doctor`
+ * o repete nas duas línguas, e um teste confere que o pt-BR dos dois é o mesmo.
+ */
+export type CausaDaDsn = 'forma' | 'nao-existe' | 'nao-abre' | 'link' | 'nao-e-arquivo' | 'plataforma' | 'dono' |
+  'permissao' | 'tamanho' | 'vazio' | 'linhas' | 'controle' | 'nome-valor' | 'leitura';
+
+export const CAUSAS_DA_DSN: readonly CausaDaDsn[] = ['forma', 'nao-existe', 'nao-abre', 'link', 'nao-e-arquivo',
+  'plataforma', 'dono', 'permissao', 'tamanho', 'vazio', 'linhas', 'controle', 'nome-valor', 'leitura'];
+
+/** O texto pt-BR da causa, sem o valor; `permissao` só entra na causa `permissao`. */
+export function textoDaCausa(causa: CausaDaDsn, permissao = ''): string {
+  switch (causa) {
+    case 'forma': return `memory.database_url_file fora da forma ${PREFIXO_DO_ARQUIVO_DA_DSN}<nome> (valor omitido)`;
+    case 'nao-existe': return 'não existe';
+    case 'nao-abre': return 'não foi possível abrir para leitura';
+    case 'link': return 'link simbólico não é aceito';
+    case 'nao-e-arquivo': return 'não é arquivo comum';
+    case 'plataforma': return 'esta plataforma não confere dono nem permissão';
+    case 'dono': return 'o dono não é o usuário que roda o ork';
+    case 'permissao': return `permissão ${permissao} mais aberta que 0600`;
+    case 'tamanho': return 'maior que 4 KiB';
+    case 'vazio': return 'vazio';
+    case 'linhas': return 'mais de uma linha';
+    case 'controle': return 'caractere de controle';
+    case 'nome-valor': return 'formato NOME=valor de arquivo de ambiente; grave só a DSN';
+    case 'leitura': return 'não foi possível ler';
+  }
+}
+
 /** A DSN da memória e de onde ela veio. */
 export interface DsnDaMemoria {
   fonte: FonteDaDsn;
@@ -46,6 +76,8 @@ export interface DsnDaMemoria {
   falha: FalhaDaDsn | null;
   /** Por que a fonte falhou, sem o valor; vazio quando ela vale. */
   detalhe: string;
+  /** A causa da recusa do arquivo, quando o arquivo é a fonte e falhou. */
+  causa?: CausaDaDsn;
   /** A permissão do arquivo aberto (`0600`, `0400`), quando o arquivo é a fonte. */
   permissao?: string;
 }
@@ -103,52 +135,49 @@ export function resolverDsn(memory: { database_url_env?: string; database_url_fi
 function lerArquivoDaDsn(declarado: string, env: NodeJS.ProcessEnv, uid: number | null): DsnDaMemoria {
   if (!arquivoDaDsnValido(declarado)) {
     return { fonte: 'arquivo', rotulo: `${PREFIXO_DO_ARQUIVO_DA_DSN}<nome>`, dsn: '', falha: 'dsn.arquivo-invalido',
-      detalhe: `memory.database_url_file fora da forma ${PREFIXO_DO_ARQUIVO_DA_DSN}<nome> (valor omitido)` };
+      detalhe: textoDaCausa('forma'), causa: 'forma' };
   }
   const nome = declarado.slice(PREFIXO_DO_ARQUIVO_DA_DSN.length);
   const rotulo = rotuloDoArquivoDaDsn(nome, env);
   const caminho = path.join(pastaDoUsuario(env), PASTA_DE_SEGREDOS, nome);
-  const falhou = (falha: FalhaDaDsn, motivo: string, permissao?: string): DsnDaMemoria =>
-    ({ fonte: 'arquivo', rotulo, dsn: '', falha, detalhe: `${rotulo}: ${motivo}`, ...(permissao ? { permissao } : {}) });
+  const falhou = (falha: FalhaDaDsn, causa: CausaDaDsn, permissao?: string): DsnDaMemoria =>
+    ({ fonte: 'arquivo', rotulo, dsn: '', falha, detalhe: `${rotulo}: ${textoDaCausa(causa, permissao)}`, causa,
+      ...(permissao ? { permissao } : {}) });
   let antes: fs.Stats;
   try {
     antes = fs.lstatSync(caminho);
   } catch (e) {
-    return ['ENOENT', 'ENOTDIR'].includes(codigoDoErro(e)) ? falhou('dsn.arquivo-ausente', 'não existe')
-      : falhou('dsn.arquivo-ausente', 'não foi possível abrir');
+    return falhou('dsn.arquivo-ausente', ['ENOENT', 'ENOTDIR'].includes(codigoDoErro(e)) ? 'nao-existe' : 'nao-abre');
   }
-  if (antes.isSymbolicLink()) return falhou('dsn.arquivo-invalido', 'link simbólico não é aceito');
-  if (!antes.isFile()) return falhou('dsn.arquivo-invalido', 'não é arquivo comum');
+  if (antes.isSymbolicLink()) return falhou('dsn.arquivo-invalido', 'link');
+  if (!antes.isFile()) return falhou('dsn.arquivo-invalido', 'nao-e-arquivo');
   let fd: number | null = null;
   try {
     try {
       fd = fs.openSync(caminho, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
     } catch (e) {
       const codigo = codigoDoErro(e);
-      return codigo === 'ELOOP' ? falhou('dsn.arquivo-invalido', 'link simbólico não é aceito')
-        : codigo === 'ENOENT' ? falhou('dsn.arquivo-ausente', 'não existe')
-          : falhou('dsn.arquivo-ausente', 'não foi possível abrir para leitura');
+      return codigo === 'ELOOP' ? falhou('dsn.arquivo-invalido', 'link')
+        : falhou('dsn.arquivo-ausente', codigo === 'ENOENT' ? 'nao-existe' : 'nao-abre');
     }
     const st = fs.fstatSync(fd);
-    if (!st.isFile()) return falhou('dsn.arquivo-invalido', 'não é arquivo comum');
+    if (!st.isFile()) return falhou('dsn.arquivo-invalido', 'nao-e-arquivo');
     const permissao = (st.mode & 0o777).toString(8).padStart(4, '0');
-    if (uid === null) return falhou('dsn.arquivo-inseguro', 'esta plataforma não confere dono nem permissão', permissao);
-    if (st.uid !== uid) return falhou('dsn.arquivo-inseguro', 'o dono não é o usuário que roda o ork', permissao);
-    if ((st.mode & 0o177) !== 0) return falhou('dsn.arquivo-inseguro', `permissão ${permissao} mais aberta que 0600`, permissao);
-    if (st.size > LIMITE_DO_ARQUIVO_DA_DSN) return falhou('dsn.arquivo-invalido', 'maior que 4 KiB', permissao);
+    if (uid === null) return falhou('dsn.arquivo-inseguro', 'plataforma', permissao);
+    if (st.uid !== uid) return falhou('dsn.arquivo-inseguro', 'dono', permissao);
+    if ((st.mode & 0o177) !== 0) return falhou('dsn.arquivo-inseguro', 'permissao', permissao);
+    if (st.size > LIMITE_DO_ARQUIVO_DA_DSN) return falhou('dsn.arquivo-invalido', 'tamanho', permissao);
     const bruto = fs.readFileSync(fd);
-    if (bruto.length > LIMITE_DO_ARQUIVO_DA_DSN) return falhou('dsn.arquivo-invalido', 'maior que 4 KiB', permissao);
+    if (bruto.length > LIMITE_DO_ARQUIVO_DA_DSN) return falhou('dsn.arquivo-invalido', 'tamanho', permissao);
     const dsn = bruto.toString('utf8').trim();
     if (!dsn) return falhou('dsn.arquivo-invalido', 'vazio', permissao);
-    if (/[\r\n]/.test(dsn)) return falhou('dsn.arquivo-invalido', 'mais de uma linha', permissao);
+    if (/[\r\n]/.test(dsn)) return falhou('dsn.arquivo-invalido', 'linhas', permissao);
     // eslint-disable-next-line no-control-regex
-    if (/[\x00-\x1f\x7f]/.test(dsn)) return falhou('dsn.arquivo-invalido', 'caractere de controle', permissao);
-    if (/^[A-Z_][A-Z0-9_]*=/.test(dsn)) {
-      return falhou('dsn.arquivo-invalido', 'formato NOME=valor de arquivo de ambiente; grave só a DSN', permissao);
-    }
+    if (/[\x00-\x1f\x7f]/.test(dsn)) return falhou('dsn.arquivo-invalido', 'controle', permissao);
+    if (/^[A-Z_][A-Z0-9_]*=/.test(dsn)) return falhou('dsn.arquivo-invalido', 'nome-valor', permissao);
     return { fonte: 'arquivo', rotulo, dsn, falha: null, detalhe: '', permissao };
   } catch {
-    return falhou('dsn.arquivo-ausente', 'não foi possível ler');
+    return falhou('dsn.arquivo-ausente', 'leitura');
   } finally {
     if (fd !== null) fs.closeSync(fd);
   }

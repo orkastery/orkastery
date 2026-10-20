@@ -23,7 +23,8 @@ import { branchDoHead, exec, noPath, simbolo } from './util';
 import { inventariarSessoes, InventarioDeSessoes } from './sessoes-inventario';
 import { raizDoEstado } from './estado-thread';
 import { memoryState } from './project-state';
-import { ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO, ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
+import { ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos, sessaoDespachada } from './runtime-ambiente';
+import { resolverDsn, variaveisComDsn, variaveisComUrlComSenha } from './dsn-da-memoria';
 import { StatusDeAuth } from './adapters/claude-bg';
 import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, RUNTIMES_COM_PERFIL } from './runtime-profiles';
 import { sondasDeAmbiente } from './preflight';
@@ -44,8 +45,7 @@ const real = (dir: string): string => { try { return fs.realpathSync(dir); } cat
 export function checarSeparacaoDaConducao(raiz: string, inventario: InventarioDeSessoes,
   env: NodeJS.ProcessEnv = process.env): Check | null {
   const runtime = env.CLAUDECODE ? 'claude-bg' : env.CODEX_THREAD_ID ? 'codex' : null;
-  const despachada = (env[ENV_IDENTIDADE_DE_DESPACHO] ?? '').trim() || (env[ENV_THREAD_DO_DESPACHO] ?? '').trim();
-  if (!runtime || despachada) return null;
+  if (!runtime || sessaoDespachada(env)) return null;
   const dirAtual = runtime === 'claude-bg' ? env.CLAUDE_CONFIG_DIR : env.CODEX_HOME;
   let perfil: string | null = null;
   try {
@@ -161,7 +161,8 @@ export function checarChaveDeEmbedding(carregado: ManifestoCarregado, env: NodeJ
       correcao: msg().doctor.embeddingSemVariavelCorrecao };
   }
   const valor = (env[variavel] ?? '').trim();
-  const dsn = carregado.manifesto.memory.database_url_env ? (env[carregado.manifesto.memory.database_url_env] ?? '') : '';
+  // RM-068: a DSN da fonte declarada (a variavel ou o arquivo da pasta de segredos), pelo resolvedor unico.
+  const dsn = resolverDsn(carregado.manifesto.memory, { env }).dsn;
   if (valor !== '' && !chaveDeEmbeddingAceita(valor, dsn)) {
     return { nome, nivel: 'fail', detalhe: msg().doctor.embeddingRecusada(variavel), correcao: msg().doctor.embeddingRecusadaCorrecao(variavel) };
   }
@@ -169,6 +170,45 @@ export function checarChaveDeEmbedding(carregado: ManifestoCarregado, env: NodeJ
     return { nome, nivel: 'ok', detalhe: msg().doctor.embeddingPresente(variavel, config.provider, config.model) };
   }
   return { nome, nivel: 'warn', detalhe: msg().doctor.embeddingAusente(variavel), correcao: msg().doctor.embeddingAusenteCorrecao(variavel) };
+}
+
+/**
+ * RM-068 (G5): de onde vem a DSN da memoria, a variavel pelo NOME ou o arquivo pelo rotulo com `~`, nunca o valor. So
+ * com `memory.mode: orkmind` e uma fonte declarada; a falha e aviso, porque memoria degradada nao bloqueia despacho.
+ */
+export function checarFonteDaDsn(carregado: ManifestoCarregado, env: NodeJS.ProcessEnv = process.env): Check | null {
+  const memoria = carregado.manifesto.memory;
+  if (memoria.mode !== 'orkmind') return null;
+  const r = resolverDsn(memoria, { env });
+  const nome = 'fonte da DSN';
+  if (r.fonte === 'nenhuma') return null;
+  if (r.fonte === 'ambiente') {
+    return r.falha
+      ? { nome, nivel: 'warn', detalhe: msg().doctor.dsnVariavelAusente(r.rotulo), correcao: msg().doctor.dsnVariavelAusenteCorrecao(r.rotulo) }
+      : { nome, nivel: 'ok', detalhe: msg().doctor.dsnDaVariavel(r.rotulo) };
+  }
+  if (!r.falha) return { nome, nivel: 'ok', detalhe: msg().doctor.dsnDoArquivo(r.rotulo, r.permissao ?? '') };
+  return { nome, nivel: 'warn', detalhe: msg().doctor.dsnArquivoFalhou(r.rotulo, r.falha, msg().doctor.dsnCausa(r.causa ?? '', r.permissao ?? '')),
+    correcao: msg().doctor.dsnArquivoCorrecao(r.falha, r.rotulo) };
+}
+
+/**
+ * RM-068 (G6, D8): a DSN no ambiente DESTE processo, pelo NOME da variavel, nunca o valor. Numa sessao despachada, as
+ * variaveis com a DSN do projeto e toda URL com senha: o agente as le com `env`. Fora dela, so com a fonte de arquivo
+ * lida, as variaveis que repetem a DSN do arquivo. Nos outros casos (fonte de ambiente fora do despacho), nenhum check.
+ */
+export function checarDsnNoAmbiente(carregado: ManifestoCarregado, env: NodeJS.ProcessEnv = process.env): Check | null {
+  const despachada = sessaoDespachada(env);
+  const r = resolverDsn(carregado.manifesto.memory, { env });
+  if (!despachada && !(r.fonte === 'arquivo' && r.dsn)) return null;
+  const nome = 'DSN no ambiente';
+  const doProjeto = r.dsn ? variaveisComDsn(env, r.dsn) : [];
+  const comSenha = despachada ? variaveisComUrlComSenha(env).filter((n) => !doProjeto.includes(n)) : [];
+  if (doProjeto.length === 0 && comSenha.length === 0) {
+    return { nome, nivel: 'ok', detalhe: despachada ? msg().doctor.dsnSessaoLimpa : msg().doctor.dsnProcessoLimpo };
+  }
+  return { nome, nivel: 'warn', detalhe: despachada ? msg().doctor.dsnNaSessao(doProjeto, comSenha) : msg().doctor.dsnNoProcesso(doProjeto),
+    correcao: msg().doctor.dsnNoAmbienteCorrecao };
 }
 
 /** Acima disso a conferencia do dono do `.git` fica parcial (aviso), para o doctor nao pesar. */
@@ -577,10 +617,17 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
         estado.pedido === 'orkmind' && estado.efetivo === 'files'
           ? msg().doctor.regimeDegradado(estado.motivo, estado.detalhe)
           : estado.efetivo === 'orkmind'
-            ? msg().doctor.regimeOrkmind(estado.tenant, estado.variavel)
+            ? estado.fonteDaDsn === 'arquivo'
+              ? msg().doctor.regimeOrkmindPorArquivo(estado.tenant, estado.arquivoDaDsn ?? '')
+              : msg().doctor.regimeOrkmind(estado.tenant, estado.variavel)
             : msg().doctor.memoriaFiles,
       correcao: estado.pedido === 'orkmind' && estado.efetivo === 'files' ? estado.correcao : undefined,
     });
+    // RM-068: a fonte da DSN e a DSN no ambiente, so quando ha o que dizer (fonte declarada ou sessao despachada).
+    const fonteDaDsn = checarFonteDaDsn(context.loaded);
+    if (fonteDaDsn) checks.push(fonteDaDsn);
+    const dsnNoAmbiente = checarDsnNoAmbiente(context.loaded);
+    if (dsnNoAmbiente) checks.push(dsnNoAmbiente);
 
     checks.push(checarChaveDeEmbedding(context.loaded));
 
