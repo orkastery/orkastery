@@ -8,6 +8,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Barreira de dado privado (RM-062, F1 e F2)**: `ork privado varrer` varre as linhas e os nomes de arquivo
+  versionados atrás de caminho de home, e-mail fora da lista permitida, hostname no formato de máquina e os termos de
+  uma lista local que fica fora do git (`termos-privados.txt` em `~/.orkastery/` e em `.orkastery/` do projeto, ou o
+  arquivo de `ORK_TERMOS_PRIVADOS`); sem a lista, só os padrões genéricos, e a saída diz isso. O relatório diz
+  arquivo, linha, coluna e padrão, nunca o valor, e mascara o nome de arquivo com achado. As exceções e os e-mails
+  permitidos ficam em `orkastery.privado.json`, revisados em PR. Com a policy `dado_privado` no manifesto, o
+  `ork verify` varre o diff da thread (reprova com `policy.violation` em `block`; grava `policy_warn` em `warn`) e o
+  `ork ci prepare` recusa gerar o bundle com achado; sem a policy, os dois não mudam. No CI do núcleo, a varredura é
+  um passo do job `documentacao`, e as fixtures da API do GitHub, um teste da rede e um bundle antigo deixaram de levar
+  dado pessoal do dono.
 - **SHIP do MCP por qualquer forja**: dois transportes novos no `ork mcp install --ship-transport`. `forja-ssh` aceita
   host e porta da forja (inclusive `forja.ssh_host`/`ssh_porta`), fixa na instalação a chave do servidor confirmada
   pelo `known_hosts` da pessoa ou por `--ssh-fingerprint`, e confere a chave a cada push com
