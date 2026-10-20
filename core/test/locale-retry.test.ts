@@ -12,8 +12,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Cenario, cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 import { comVerify, dadoDoLedger } from './locale-f2b-apoio';
-import { msg } from '../src/locale';
-import { POLITICA_DE_RETRY } from '../src/retry';
+import { comLocale, msg } from '../src/locale';
+import { POLITICA_DE_RETRY, tabelaDaPolitica } from '../src/retry';
 
 /** O detalhe do gate foi gravado pelo verify (dado do ledger, pt-BR) e a claim e de quem a registrou. */
 const DADOS = ['C1: comando "false" saiu com codigo 1', 'reprova sempre'];
@@ -100,13 +100,19 @@ test('locale en F2b retry: a politica tem ingles para os 26 motivos, e o --json 
   } finally { a.limpar(); b.limpar(); }
 });
 
-test('locale en F2b retry: retry list, policy e parse seguem pt-BR com LANG en', () => {
-  const c = cenario('retry-fora');
-  try {
-    for (const args of [['retry', 'list'], ['retry', 'policy'], ['retry', 'policy', '--motivo', 'claims.failed'], ['retry', 'parse', '--stderr', 'nada']]) {
-      const pt = ork(c, PT, false, ...args), en = ork(c, EN, false, ...args);
-      assert.equal(en.stdout, pt.stdout, args.join(' '));
-      assert.equal(en.stderr, pt.stderr, args.join(' '));
-    }
-  } finally { c.limpar(); }
+test('locale en F3d retry complementar: policy, parse, list, resume e cancel tem catalogo bilingue', () => {
+  const pt = msg('pt-BR').retry.complementar;
+  const en = msg('en').retry.complementar;
+  assert.notEqual(en.usoParse, pt.usoParse);
+  assert.notEqual(en.usoCancel, pt.usoCancel);
+  assert.notEqual(en.filaVazia, pt.filaVazia);
+  assert.notEqual(en.retomadaVazia, pt.retomadaVazia);
+  assert.notEqual(en.desconhecido('x'), pt.desconhecido('x'));
+
+  const politicaPt = comLocale('pt-BR', () => tabelaDaPolitica());
+  const politicaEn = comLocale('en', () => tabelaDaPolitica());
+  assert.match(politicaPt, /^POLITICA DE RETRY/m);
+  assert.match(politicaEn, /^RETRY POLICY/m);
+  assert.match(politicaEn, /reason.*action.*automatic.*fix/m);
+  assert.doesNotMatch(politicaEn, /motivo|acao|automatica|correcao/i);
 });
