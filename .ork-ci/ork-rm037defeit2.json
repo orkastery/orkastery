@@ -645,7 +645,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-defeitos2010-ociosa.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=9 && f==0)}' && node --test-reporter=tap core/dist-test/test/session-watcher-claude.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=25 && f==0)}'"
       ],
       "criadoEm": "2026-10-20T11:16:42.795Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -659,7 +659,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^defeito 4 \\(CHECK 3\\): o sensor grava' core/dist-test/test/rm037-defeitos2010-ociosa.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}' && node --test-reporter=tap core/dist-test/test/session-events.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=7 && f==0)}'"
       ],
       "criadoEm": "2026-10-20T11:16:46.167Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -673,7 +673,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^defeito 4 \\(CHECK 3\\): o hook do Stop' core/dist-test/test/rm037-defeitos2010-ociosa.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}' && node --test-reporter=tap core/dist-test/test/claude-sensors.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=4 && f==0)}'"
       ],
       "criadoEm": "2026-10-20T11:16:49.489Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -687,7 +687,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm037-defeitos2010.json M12"
       ],
       "criadoEm": "2026-10-20T11:16:51.666Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -701,7 +701,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm037-defeitos2010.json M13"
       ],
       "criadoEm": "2026-10-20T11:16:53.363Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -715,7 +715,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=9 && f==0)}' && node --test-reporter=tap core/dist-test/test/thread.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=10 && f==0)}'"
       ],
       "criadoEm": "2026-10-20T11:28:47.002Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -729,7 +729,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^defeito 2 \\(CHECK 3\\): (a thread aberta com o preparo adiado|o preparo adiado que falha)' core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=2 && f==0)}' && node --test-reporter=tap core/dist-test/test/verify.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=7 && f==0)}'"
       ],
       "criadoEm": "2026-10-20T11:28:50.611Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -744,7 +744,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^defeito 2 \\(CHECK 3\\): a thread aberta com o preparo adiado' core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
       ],
       "criadoEm": "2026-10-20T11:28:53.533Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -758,7 +758,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^defeito 2 \\(CHECK 3\\): a recusa do preparo adiado' core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}' && node --test-reporter=tap core/dist-test/test/locale-f2b-snapshot.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
       ],
       "criadoEm": "2026-10-20T11:28:56.724Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -772,7 +772,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm037-defeitos2010.json M15"
       ],
       "criadoEm": "2026-10-20T11:28:58.618Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -786,7 +786,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-defeitos2010-arco.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}' && node --test-reporter=tap core/dist-test/test/noctum-baseline-do-arco.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=6 && f==0)}' && node --test-reporter=tap core/dist-test/test/noctum-execucao.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=18 && f==0)}'"
       ],
       "criadoEm": "2026-10-20T11:30:40.418Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -800,7 +800,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm037-defeitos2010.json M14"
       ],
       "criadoEm": "2026-10-20T11:30:42.546Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -814,7 +814,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm037-defeitos2010.json M16"
       ],
       "criadoEm": "2026-10-20T11:30:44.401Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -829,7 +829,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^QM(?:1|7|8|9):' core/dist-test/test/noctum-mutante.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=4 && f==0)}'"
       ],
       "criadoEm": "2026-10-20T11:33:10.582Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -843,7 +843,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^QM(?:7|8|9):' core/dist-test/test/noctum-mutante.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=3 && f==0)}'"
       ],
       "criadoEm": "2026-10-20T11:33:13.759Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -857,7 +857,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm037-defeitos2010.json M17"
       ],
       "criadoEm": "2026-10-20T11:33:15.625Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -872,7 +872,7 @@
         "awk '/^## Não publicado/{s=1;next} /^## /{s=0} s && /worktree_dependencias_pendentes/{a=1} s && /background_tasks/{b=1} END{exit !(a&&b)}' CHANGELOG.md && core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-037-verify-rapido-e-confiavel.md CHANGELOG.md docs/guias/verificacao.md"
       ],
       "criadoEm": "2026-10-20T11:34:56.596Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -886,7 +886,7 @@
         "node -e \"const fs=require('node:fs');const t=fs.readFileSync('.ork-ci/ork-rm037defeit2.json','utf8');const b=JSON.parse(t);const ids=new Set(b.claims.map(c=>c.id));const novas=[];for(let i=51;i<=68;i++)novas.push('C'+i);const fora=['C4','C25','C35','C46','C47','C50'];const ms=[];for(let i=1;i<=17;i++)ms.push('M'+i);const ok=b.schema==='ork.ci-bundle/v1'&&b.thread==='ork-rm037defeit2'&&b.branch==='ork/ork-rm037defeit2-full'&&b.base==='main'&&novas.every(x=>ids.has(x))&&!fora.some(x=>ids.has(x))&&(b.deferredClaims||[]).length===0&&ms.every(m=>b.claims.some(c=>c.verificar.some(v=>v.endsWith('rm037-defeitos2010.json '+m))))&&!t.includes('/hom'+'e/')&&!/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,}/.test(t);if(!ok)process.exit(1)\""
       ],
       "criadoEm": "2026-10-20T11:38:10.898Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -900,7 +900,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^locale pt-BR F3b:' core/dist-test/test/locale-f3b-snapshot.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=2 && f==0)}'"
       ],
       "criadoEm": "2026-10-20T11:56:44.773Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -914,7 +914,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^defeito 2 \\(CHECK 3\\): o verify com executor proprio' core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}' && node --test-reporter=tap core/dist-test/test/verify.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=7 && f==0)}'"
       ],
       "criadoEm": "2026-10-20T11:57:47.269Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
