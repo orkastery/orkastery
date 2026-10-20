@@ -108,7 +108,8 @@ export type MotivoDaRetomada = 'sessao-morta' | 'fim-de-turno-sem-resultado' | '
 /** As contas que o arco tira da seleção (D13). Subteto, perfil ausente e desativado são relidos a cada passo, sem linha. */
 export type MotivoDaConta = 'cota' | 'cota-sem-reset' | 'limite-de-uso' | 'auth';
 export type MotivoDoIsolamento = 'reserva-incerta' | 'retomadas-esgotadas' | 'sem-primeiro-turno' | 'sessao-presa' | 'condutor-externo' |
-  'sessao-fora-do-registro' | 'efeito-divergente' | 'efeito-sem-leitura' | 'efeito-esgotado' | 'erro-repetido' | 'recusas-repetidas';
+  'sessao-fora-do-registro' | 'efeito-divergente' | 'efeito-sem-leitura' | 'efeito-esgotado' | 'erro-repetido' | 'recusas-repetidas' |
+  'baseline-falhou';
 export type MotivoDaParada = 'supervisor-falhou' | 'teto-do-arco' | 'violacao-de-custo' | 'ambiente-do-despacho';
 export type DesfechoDoEfeito = 'confirmado' | 'ausente' | 'divergente' | 'sem-leitura';
 
@@ -377,6 +378,15 @@ export function parametrosDoArco(carregado: ManifestoCarregado, arco: string, qu
 /** O estado da supervisão, relido do disco. Arco sem log de supervisão devolve o estado vazio. */
 export function lerSupervisao(raiz: string, arco: string): EstadoDaSupervisao {
   return derivar(arco, lerLog(raiz, arco).linhas);
+}
+
+/**
+ * RM-058, integração (T8 da ork-rm058integra, D12): os eventos do log da supervisão, conferidos como na leitura do estado,
+ * cada um com o instante dele. O aceite do piloto mede por eles a recuperação de cada falha injetada (a geração nova, a
+ * retomada, o vigia interrompido), que o estado derivado guarda só pela última.
+ */
+export function eventosDaSupervisao(raiz: string, arco: string): Array<{ em: string; evento: EventoDaSupervisao }> {
+  return lerLog(raiz, arco).linhas.map(l => ({ em: l.em, evento: l.evento }));
 }
 
 function derivar(arco: string, linhas: readonly DadosDaLinha[]): EstadoDaSupervisao {

@@ -139,10 +139,12 @@ export interface DespachoDoArco extends ReservaDeDespacho {
 export interface ConsumoDoArco { arco: number; porConta: Record<string, number>; porRuntime: Record<string, number> }
 
 /**
- * RM-058 N6 (D2 e D8 da ork-rm058n6): por que o arco fechou, na ordem em que as condições valem. O fechamento é ato do
- * núcleo, não do dono: ele só registra que a hora, o teto ou a fila acabaram, e que a revogação do dono já foi tratada.
+ * RM-058 N6 (D2 e D8 da ork-rm058n6): por que o arco fechou. O fechamento é ato do núcleo, não do dono: ele só registra que
+ * a hora, o teto ou a fila acabaram, e que a revogação do dono já foi tratada. RM-058, integração (D7 da ork-rm058integra):
+ * `supervisao` é a parada da supervisão da N4 (o supervisor que falhou, o teto, a violação de custo ou o ambiente do
+ * despacho), que o fechamento lê do log dela depois do revogado e da hora e antes do custo.
  */
-export const MOTIVOS_DE_ENCERRAMENTO = ['revogado', 'hora', 'custo', 'fila-vazia'] as const;
+export const MOTIVOS_DE_ENCERRAMENTO = ['revogado', 'hora', 'custo', 'fila-vazia', 'supervisao'] as const;
 export type MotivoDeEncerramento = typeof MOTIVOS_DE_ENCERRAMENTO[number];
 
 /** O encerramento do arco como o log o conta: terminal, com a versão que valia quando ele fechou. */
@@ -861,6 +863,20 @@ export function lerArco(raiz: string, arco: string, quando = new Date().toISOStr
   return log.linhas.length ? estadoDe(arco, derivar(log.linhas), quando) : null;
 }
 
+/** O estado do arco e o conteúdo da proposta que ainda espera o dono no prazo, de uma leitura só do log. */
+export interface ArcoComProposta { estado: EstadoDoArco; proposta: ConteudoDoEnvelope | null }
+
+/**
+ * RM-058, integração (D3 da ork-rm058integra): a guarda das threads do arco (`noctum-guarda.ts`) lê a lista de trabalhos
+ * do envelope vigente e a da proposta no prazo; o estado só traz o hash e o prazo dela. `null` quando o arco não existe.
+ */
+export function lerArcoComProposta(raiz: string, arco: string, quando = new Date().toISOString()): ArcoComProposta | null {
+  const log = lerLog(raiz, arco);
+  if (!log.linhas.length) return null;
+  const d = derivar(log.linhas), estado = estadoDe(arco, d, quando);
+  return { estado, proposta: estado.propostaPendente ? d.propostas.get(estado.propostaPendente.versao)!.conteudo : null };
+}
+
 /**
  * A conferência imediatamente antes de um efeito. Relê o disco, sem cache, e recusa na ordem:
  * ação excluída, estado adulterado (inclusive cauda incompleta), revogação, falta de autorização,
@@ -1085,15 +1101,17 @@ export function concluirDespacho(raiz: string, arco: string, seq: number,
  * leitura confere cada um com as máquinas da versão que ele diz. A vigente é a última; o recibo do dono continua conferido
  * por `vigenteConferido`, antes de cada efeito.
  */
-export function versoesAutorizadas(raiz: string, arco: string): Array<{ versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope }> {
+export function versoesAutorizadas(raiz: string, arco: string):
+  Array<{ versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope; autorizadoEm: string }> {
   const log = lerLog(raiz, arco), d = derivar(log.linhas);
   const vistas = new Set<number>();
-  const versoes: Array<{ versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope }> = [];
+  const versoes: Array<{ versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope; autorizadoEm: string }> = [];
   for (const { evento: e } of log.linhas) {
     if (e.tipo !== 'autorizado' || vistas.has(e.versao)) continue;
     vistas.add(e.versao);
     const p = d.propostas.get(e.versao)!;
-    versoes.push({ versao: p.versao, envelopeSha256: p.envelopeSha256, conteudo: p.conteudo });
+    // RM-058, integração (T8, D12): o instante do ingresso de cada autorização, que o aceite do piloto lê.
+    versoes.push({ versao: p.versao, envelopeSha256: p.envelopeSha256, conteudo: p.conteudo, autorizadoEm: e.ingresso.recebidoEm });
   }
   return versoes;
 }

@@ -205,6 +205,11 @@ export interface Manifesto {
   ci: {
     required_for_ship: boolean;
     context: string;
+    /**
+     * RM-058, integração (T6, D10 da ork-rm058integra): os contextos que a proteção da base exige, todos verdes no SHA fonte
+     * para a prova do CI da entrega do arco #Noctum. Ausente, vale `[context]`. O `ork ship` segue lendo só o `context`.
+     */
+    contexts?: string[];
     /** Comando hermético do runner; ausente reutiliza os comandos integrais de verify. */
     command?: string;
     /**

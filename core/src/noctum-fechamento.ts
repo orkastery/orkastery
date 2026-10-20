@@ -14,8 +14,10 @@
  * trabalho fora (a hora final para as que passarem do fim). Em unidade contínua, o consumo segue enquanto a sessão roda:
  * a leitura que alcança o teto fecha o arco e para as sessões em voo.
  *
- * As condições valem nesta ordem: revogado, hora, custo, fila vazia (D8). Revogado, hora e teto em sessões não dependem
- * da fila nem da medição, e nenhuma falha delas segura esse fechamento. Com uma condição, o fechamento grava primeiro o
+ * As condições valem nesta ordem: revogado, hora, a parada da supervisão da N4 (RM-058, integração, D7 da
+ * ork-rm058integra; a parada pelo teto do arco fica com a regra do custo e, sem sessão admitida em voo e com o consumo
+ * abaixo do teto, fecha pela supervisão: N2 do CHECK 2), custo, fila vazia (D8). Revogado, hora, a parada e o teto em sessões não dependem da fila nem da
+ * medição, e nenhuma falha delas segura esse fechamento. Com uma condição, o fechamento grava primeiro o
  * `encerrado` no log do arco (`encerrarArco`): dali em diante nenhuma reserva de despacho nem efeito passa, e nenhuma
  * reserva devolvida reabre o arco. Só depois vêm o retrato do fechamento e o pedido de parada de cada sessão em voo, no
  * registro próprio da N6 (`fechamento.jsonl`). A parada é pedida uma vez por sessão, pelo controle da conta dela (o
@@ -35,14 +37,17 @@
 import { formatarDataHora } from './horario';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
-import { DespachoDoArco, encerrarArco, EncerramentoDoArco, EstadoDoArco, lerArco, MotivoDeEncerramento } from './noctum-arco';
-import { envelopeComTrabalhos, RecusaDoArco, shaDoPedido, Unidade, UNIDADES } from './noctum-envelope';
+import { masterRatificado } from './master';
+import { encerrarArco, EncerramentoDoArco, EstadoDoArco, lerArco, MotivoDeEncerramento } from './noctum-arco';
+import { CONTRATO_ENVELOPE_V2, RecusaDoArco, Unidade, UNIDADES } from './noctum-envelope';
 import { FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila } from './noctum-fila';
 import { ConsumoNaUnidade, consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco, textoDoConsumo } from './noctum-medicao';
 import { comRegistro, lerRegistro } from './noctum-registro';
+import { EstadoDaSupervisao, lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
+import { SessaoEmVoo, sessoesEmVooDoArco } from './noctum-sessoes-em-voo';
 import { consultarContas, encerradaNaLista } from './sessoes-contas';
 import { pararSessao } from './sessoes';
-import { dirThread, lerThread, listarIds } from './thread';
+import { dirThread, lerThread } from './thread';
 import { Fase } from './types';
 import { exec } from './util';
 
@@ -102,17 +107,14 @@ export interface RetratoDoFechamento {
   };
 }
 
+// N4 do CHECK 2: as sessões em voo moram num módulo sem dependência pesada, que a guarda também lê sem ciclo de import.
+export { sessoesEmVooDoArco };
+export type { SessaoEmVoo };
+
 type EventoDoFechamento =
   | { tipo: 'fechado'; retrato: RetratoDoFechamento }
   | { tipo: 'parada_pedida'; parada: ParadaDeSessao }
   | { tipo: 'parada_conferida'; conferencia: ConferenciaDaParada };
-
-/** A sessão em voo que o fechamento manda parar. */
-export interface SessaoEmVoo {
-  seq: number; sessionId: string | null; trabalho: string; thread: string | null; runtime: string; conta: string;
-  /** Veio de uma reserva pendente (o id, quando há, é o que a falha do runtime disse no ledger da thread). */
-  daReservaPendente?: boolean;
-}
 
 export interface OpcoesDoFechamento {
   quando?: string;
@@ -143,10 +145,11 @@ export interface ResultadoDoFechamento {
  * A condição de fechamento no instante dado, pura, na ordem da D8. `null` quando o arco segue (ou nunca foi autorizado).
  * O custo só fecha com o teto do arco provado alcançado: em `sessoes`, pelas reservas não recusadas e sem sessão admitida
  * em voo (`emVoo`, as sessões e reservas pendentes que ainda podem rodar); em outra unidade, pelo consumo medido sem
- * lacuna.
+ * lacuna. A parada pelo teto do arco espera as sessões admitidas e, sem nenhuma em voo, fecha pelo custo com o consumo no
+ * teto, ou pela supervisão abaixo dele (a reserva devolvida, a emenda que subiu o teto depois da parada).
  */
 export function condicaoDeFechamento(estado: EstadoDoArco | null, fila: FilaDoArco | null, medicao: MedicaoDoArco | null,
-  quando: string, emVoo = 0): { motivo: MotivoDeEncerramento; detalhe: string } | null {
+  quando: string, emVoo = 0, parada: { motivo: string; detalhe: string } | null = null): { motivo: MotivoDeEncerramento; detalhe: string } | null {
   if (!estado || !estado.autorizadoPor || !estado.conteudo) return null;
   if (estado.encerramento) return { motivo: estado.encerramento.motivo, detalhe: estado.encerramento.detalhe };
   if (estado.situacao === 'revogado') return { motivo: 'revogado', detalhe: 'o dono revogou o arco pelo ingresso autenticado' };
@@ -155,6 +158,10 @@ export function condicaoDeFechamento(estado: EstadoDoArco | null, fila: FilaDoAr
     return { motivo: 'hora', detalhe: `o fim do envelope chegou (${formatarDataHora(fim, { fuso: estado.conteudo.janela.fuso, locale: 'pt-BR' })}, ` +
       `${estado.conteudo.janela.fuso}); nada o prorroga` };
   }
+  // RM-058, integração (D7): a supervisão parou o arco (o vigia nunca encerra; quem encerra é o fechamento, por ela). A
+  // parada pelo teto do arco em sessões é a regra do custo logo abaixo: as sessões admitidas terminam, e o arco fecha
+  // quando a última acaba (A1 do CHECK); fechar por ela pediria a parada de trabalho já contado no teto.
+  if (parada && parada.motivo !== 'teto-do-arco') return { motivo: 'supervisao', detalhe: `a supervisão parou o arco (${parada.motivo}): ${parada.detalhe}` };
   const teto = estado.conteudo.orcamento.arco;
   if (teto.unidade === 'sessoes') {
     // Cada sessão admitida já está contada no teto: o arco fecha quando a última acaba, não por cima dela.
@@ -167,6 +174,11 @@ export function condicaoDeFechamento(estado: EstadoDoArco | null, fila: FilaDoAr
       return { motivo: 'custo', detalhe: `o teto do arco é de ${teto.valor} ${teto.unidade} e o consumo medido é ${textoDoConsumo(c)}` };
     }
   }
+  // N2 do CHECK 2: a parada pelo teto segue terminal com o consumo abaixo dele (a reserva devolvida, a emenda que subiu o teto
+  // depois da parada): sem sessão admitida em voo, o arco fecha pela supervisão, em vez de ficar parado e aberto até a hora.
+  if (parada && emVoo === 0) {
+    return { motivo: 'supervisao', detalhe: `a supervisão parou o arco (${parada.motivo}): ${parada.detalhe}; nenhuma sessão admitida segue em voo` };
+  }
   if (estado.situacao === 'agendado') return null;
   if (fila?.situacao === 'vazia' && fila.decisao.acao === 'encerrar' && fila.decisao.motivo === 'fila-vazia') {
     // A entrega registrada (`ship_done`) pode vir sem a prova do push; o relatório diz qual tem prova.
@@ -174,6 +186,25 @@ export function condicaoDeFechamento(estado: EstadoDoArco | null, fila: FilaDoAr
       'de um que fechou sem entrega; nada sobra para este arco' };
   }
   return null;
+}
+
+/**
+ * RM-058, integração (T4, D8): as threads que este arco entregou (o `ship_done` da entrega dele, com o arco na evidência) e
+ * cujo MASTER por omissão a entrega dele ainda faz, como em `noctum-entrega.ts`: o envelope `v2`, o trabalho sem isolamento,
+ * a thread aberta e sem MASTER ratificado. A thread que não se lê não segura o fechamento: a fila já a mostra.
+ */
+function mastersDevidos(raiz: string, estado: EstadoDoArco, fila: FilaDoArco, sup: EstadoDaSupervisao): string[] {
+  if (estado.conteudo?.contrato !== CONTRATO_ENVELOPE_V2) return [];
+  const devidos: string[] = [];
+  for (const t of fila.trabalhos) {
+    if (t.estado !== 'entregue' || !t.thread || sup.isolados.has(t.id)) continue;
+    try {
+      const doArco = lerLedger(dirThread(raiz, t.thread)).some(e => e.tipo === TIPOS_DE_EVENTO.shipConcluido &&
+        (e.evidencia as { arco?: unknown } | undefined)?.arco === estado.arco);
+      if (doArco && lerThread(raiz, t.thread).status !== 'fechada' && !masterRatificado(raiz, t.thread)) devidos.push(t.thread);
+    } catch { /* a leitura que falhou não prende o arco aberto */ }
+  }
+  return devidos;
 }
 
 const gitDoDisco = (cwd: string, args: string[]): string | null => {
@@ -196,70 +227,6 @@ function pararPeloNucleo(raiz: string): (s: SessaoEmVoo) => { ok: boolean; detal
     const r = pararSessao(s.sessionId, raiz);
     return { ok: r.codigo === 0, detalhe: r.texto.slice(0, 300) };
   };
-}
-
-const FIM_DA_SESSAO: readonly string[] = ['phase_result', 'sessao_morta', 'session_superseded'];
-
-/**
- * A thread de uma reserva: a do log do arco ou, no trabalho de pedido que o arco abriu depois de reservar, a única que
- * casa com o item e o sha256 do pedido (a mesma regra da fila). Ambígua ou ilegível: nenhuma.
- */
-function threadDaReserva(raiz: string, estado: EstadoDoArco, d: DespachoDoArco): string | null {
-  const gravada = d.threadDespachada ?? d.thread;
-  if (gravada) return gravada;
-  const t = estado.conteudo && envelopeComTrabalhos(estado.conteudo) ? estado.conteudo.trabalhos.find(x => x.id === d.trabalho) : undefined;
-  if (!t?.pedido) return null;
-  const sha = shaDoPedido(t.pedido);
-  const casam: string[] = [];
-  for (const id of listarIds(raiz)) {
-    try { const th = lerThread(raiz, id); if (th.roadmap === t.item && th.pedido?.sha256 === sha) casam.push(id); }
-    catch { return null; }
-  }
-  return casam.length === 1 ? casam[0] : null;
-}
-
-/**
- * As sessões do arco que podem estar em voo: a sessão concluída sem resultado no ledger e a reserva pendente. A reserva
- * pendente leva o id que a falha do runtime disse depois dela (o `claude --bg` que diz o id e sai com erro deixa a sessão
- * aberta), e fica sem id quando nada foi dito.
- */
-export function sessoesEmVooDoArco(raiz: string, estado: EstadoDoArco): SessaoEmVoo[] {
-  const vistas = new Set<string>();
-  const emVoo: SessaoEmVoo[] = [];
-  const ledgers = new Map<string, ReturnType<typeof lerLedger> | null>();
-  const eventosDe = (thread: string | null): ReturnType<typeof lerLedger> | null => {
-    if (!thread) return null;
-    if (!ledgers.has(thread)) {
-      let e: ReturnType<typeof lerLedger> | null;
-      try { e = lerLedger(dirThread(raiz, thread)); } catch { e = null; }
-      ledgers.set(thread, e);
-    }
-    return ledgers.get(thread)!;
-  };
-  // Ledger que não se lê: a sessão pode estar em voo; o fechamento pede a parada em vez de presumir o fim.
-  const acabou = (eventos: ReturnType<typeof lerLedger> | null, sid: string) =>
-    !!eventos?.some(e => FIM_DA_SESSAO.includes(e.tipo) && e.sessionId === sid);
-  for (const d of estado.despachos) {
-    if (d.desfecho === 'recusado') continue;
-    if (d.desfecho === 'pendente') {
-      const thread = threadDaReserva(raiz, estado, d);
-      const eventos = eventosDe(thread);
-      const dita = eventos?.filter(e => (e.tipo === TIPOS_DE_EVENTO.despachoFalhou || e.tipo === TIPOS_DE_EVENTO.faseDespachada) &&
-        typeof e.sessionId === 'string' && Date.parse(e.ts) >= Date.parse(d.reservadoEm)).at(-1);
-      const sessionId = typeof dita?.sessionId === 'string' ? dita.sessionId : null;
-      if (sessionId && (vistas.has(sessionId) || acabou(eventos, sessionId))) { vistas.add(sessionId); continue; }
-      if (sessionId) vistas.add(sessionId);
-      emVoo.push({ seq: d.seq, sessionId, trabalho: d.trabalho, thread, runtime: d.runtime, conta: d.conta, daReservaPendente: true });
-      continue;
-    }
-    if (!d.sessionId || vistas.has(d.sessionId)) continue;
-    vistas.add(d.sessionId);
-    const thread = d.threadDespachada ?? d.thread;
-    if (!acabou(eventosDe(thread), d.sessionId)) {
-      emVoo.push({ seq: d.seq, sessionId: d.sessionId, trabalho: d.trabalho, thread, runtime: d.runtime, conta: d.conta });
-    }
-  }
-  return emVoo;
 }
 
 function trabalhosNaRetomada(raiz: string, fila: FilaDoArco | null, git: (cwd: string, args: string[]) => string | null): TrabalhoNaRetomada[] {
@@ -382,8 +349,12 @@ export function fecharSeDevido(carregado: ManifestoCarregado, arco: string, opco
   let agora = false;
   if (!estado.encerramento) {
     const emVooAgora = sessoesEmVooDoArco(raiz, estado).length;
-    // Revogado, hora e teto em sessões vêm primeiro e sem a fila nem a medição: nenhuma falha delas segura esse fechamento.
-    let condicao = condicaoDeFechamento(estado, null, null, quando, emVooAgora);
+    // RM-058, integração (D7): a parada da supervisão; o log dela que não se lê não segura o fechamento pelas outras condições.
+    let sup: EstadoDaSupervisao | null = null;
+    try { sup = lerSupervisao(raiz, arco); } catch (e) { if (!(e instanceof RecusaDaSupervisao)) throw e; }
+    const parada = sup?.parada ?? null;
+    // Revogado, hora, a parada e o teto em sessões vêm primeiro e sem a fila nem a medição: nenhuma falha delas segura esse fechamento.
+    let condicao = condicaoDeFechamento(estado, null, null, quando, emVooAgora, parada);
     let falhaDaMedicao = '';
     if (!condicao) {
       let fila: FilaDoArco | null = null;
@@ -395,7 +366,13 @@ export function fecharSeDevido(carregado: ManifestoCarregado, arco: string, opco
         try { medicao = medir(raiz, estado, quando); }
         catch (e) { falhaDaMedicao = `; a medição falhou (${(e as Error).message.slice(0, 200)})`; }
       }
-      condicao = condicaoDeFechamento(estado, fila, medicao, quando, emVooAgora);
+      condicao = condicaoDeFechamento(estado, fila, medicao, quando, emVooAgora, parada);
+      // RM-058, integração (T4, D8): a fila vazia não fecha o arco por cima do MASTER por omissão que a entrega dele ainda
+      // deve; o passo seguinte o faz, e o fechamento vem depois. A hora, a parada e o teto fecharam antes, sem esperar.
+      const devidos = condicao?.motivo === 'fila-vazia' && fila && sup ? mastersDevidos(raiz, estado, fila, sup) : [];
+      if (devidos.length) {
+        return nada(`o arco segue: a fila está vazia, mas a entrega do arco ainda faz o MASTER por omissão de ${devidos.join(', ')}`);
+      }
     }
     if (!condicao) return nada(`o arco segue: nenhuma condição de fechamento vale agora${falhaDaMedicao}`);
     // O terminal primeiro: daqui em diante nenhum despacho nem efeito passa.

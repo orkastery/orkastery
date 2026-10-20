@@ -27,6 +27,7 @@ import { comandosDoBundle, consultarCi, consultarCiDoRepositorio, ExecutorCi, Re
 import { lerClaims } from './claims';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
+import { Manifesto } from './types';
 import { ARQUIVO_DO_CHANGELOG, conferirChangelog, ConferenciaDoChangelog, entradasDaThread, pedeLinha, posicionarEntradas,
   resolverConflitosAditivos } from './noctum-changelog';
 import { canonico } from './noctum-envelope';
@@ -135,6 +136,11 @@ export interface FatosDaEntrega {
   claims: Array<{ id: string; mutante: boolean }>;
   ciExigido: boolean;
   ci: ResultadoCi | null;
+  /**
+   * RM-058, integração (T6, D10 da ork-rm058integra): um resultado por contexto de `ci.contexts`, na ordem, quando o
+   * manifesto exige mais de um; `ci` é o primeiro. Com um contexto só, a prova é a de sempre.
+   */
+  cis?: ResultadoCi[];
   arquivos: string[];
   /**
    * O diff de três pontos (os arquivos) e a história da base até a fonte (as linhas de cada commit e as mensagens) saíram
@@ -365,18 +371,43 @@ function provaDaRevisao(f: FatosDaEntrega): ProvaDaEntrega {
   return prova('revisao', null, `CHECK independente ${r.sessionId.slice(0, 8)} (${r.runtime}) com PASSOU em ${curto(r.revisado)}`, ev);
 }
 
+/** RM-058, integração (D10): os contextos que a prova do CI confere, na ordem: `ci.contexts`, ou `[ci.context]`. */
+export function contextosDoCi(manifesto: Manifesto): string[] {
+  return manifesto.ci.contexts?.length ? [...manifesto.ci.contexts] : [manifesto.ci.context || 'ork-verify'];
+}
+
+/** A prova de um contexto do CI no SHA fonte, como sempre foi com um contexto só. */
+function provaDoContexto(f: FatosDaEntrega, ci: ResultadoCi): ProvaDaEntrega {
+  const ev = { sha: ci.sha, context: ci.context, state: ci.state, url: ci.url };
+  if (ci.sha !== f.fonte) return prova('ci', 'noctum.entrega.ci-pendente', `o check lido é de outro SHA (${curto(ci.sha)})`, ev);
+  switch (ci.state) {
+    case 'success': return prova('ci', null, `${ci.context} verde em ${curto(ci.sha)}`, ev);
+    case 'failure': return prova('ci', 'noctum.entrega.ci-vermelho', `${ci.context} vermelho em ${curto(ci.sha)}`, ev);
+    case 'pending': case 'missing': return prova('ci', 'noctum.entrega.ci-pendente', `${ci.context} ainda sem verde em ${curto(ci.sha)} (${ci.state})`, ev);
+    case 'disabled': return prova('ci', 'noctum.entrega.ci-ausente', 'o CI não é exigido neste projeto', ev);
+    default: return prova('ci', 'noctum.entrega.ci-sem-leitura', `a consulta do CI falhou: ${ci.detail.slice(0, 200)}`, ev);
+  }
+}
+
+/**
+ * A ordem em que um contexto decide a prova de vários (D10): o vermelho bloqueia, o CI desligado também, a leitura que
+ * falhou e o pendente (ou ausente) esperam; só com todos verdes no SHA fonte a prova vale.
+ */
+const ORDEM_DOS_CONTEXTOS: readonly MotivoDaEntrega[] = ['noctum.entrega.ci-vermelho', 'noctum.entrega.ci-ausente',
+  'noctum.entrega.ci-sem-leitura', 'noctum.entrega.ci-pendente'];
+
 function provaDoCi(f: FatosDaEntrega): ProvaDaEntrega {
   if (!f.ciExigido) return prova('ci', 'noctum.entrega.ci-ausente', 'o manifesto não exige CI (ci.required_for_ship): o arco não integra sem CI obrigatório');
-  if (!f.ci) return prova('ci', 'noctum.entrega.ci-sem-leitura', 'o check do CI não foi lido');
-  const ev = { sha: f.ci.sha, context: f.ci.context, state: f.ci.state, url: f.ci.url };
-  if (f.ci.sha !== f.fonte) return prova('ci', 'noctum.entrega.ci-pendente', `o check lido é de outro SHA (${curto(f.ci.sha)})`, ev);
-  switch (f.ci.state) {
-    case 'success': return prova('ci', null, `${f.ci.context} verde em ${curto(f.ci.sha)}`, ev);
-    case 'failure': return prova('ci', 'noctum.entrega.ci-vermelho', `${f.ci.context} vermelho em ${curto(f.ci.sha)}`, ev);
-    case 'pending': case 'missing': return prova('ci', 'noctum.entrega.ci-pendente', `${f.ci.context} ainda sem verde em ${curto(f.ci.sha)} (${f.ci.state})`, ev);
-    case 'disabled': return prova('ci', 'noctum.entrega.ci-ausente', 'o CI não é exigido neste projeto', ev);
-    default: return prova('ci', 'noctum.entrega.ci-sem-leitura', `a consulta do CI falhou: ${f.ci.detail.slice(0, 200)}`, ev);
+  const lidos = f.cis?.length ? f.cis : f.ci ? [f.ci] : [];
+  if (!lidos.length) return prova('ci', 'noctum.entrega.ci-sem-leitura', 'o check do CI não foi lido');
+  if (lidos.length === 1) return provaDoContexto(f, lidos[0]);
+  const cada = lidos.map(ci => provaDoContexto(f, ci));
+  const ev = { sha: f.fonte, contextos: lidos.map(ci => ({ context: ci.context, sha: ci.sha, state: ci.state, url: ci.url })) };
+  for (const motivo of ORDEM_DOS_CONTEXTOS) {
+    const decide = cada.find(x => x.motivo === motivo);
+    if (decide) return prova('ci', motivo, decide.detalhe, ev);
   }
+  return prova('ci', null, `${lidos.length} contextos verdes em ${curto(f.fonte)}: ${lidos.map(ci => ci.context).join(', ')}`, ev);
 }
 
 /** As provas da entrega sobre os fatos, sem disco nem rede. */
@@ -798,9 +829,13 @@ export function lerFatosDaEntrega(carregado: ManifestoCarregado, threadId: strin
     fatos.bundle = { ok: b.estado === 'feita', texto: b.texto };
   }
   if (fatos.ciExigido) {
-    const contexto = manifesto.ci.context || 'ork-verify';
-    fatos.ci = opcoes.forja ? consultarCiDoRepositorio(opcoes.forja.repositorio, fonte, contexto, opcoes.executorCi)
-      : consultarCi(carregado, fonte, remoto, opcoes.executorCi);
+    // RM-058, integração (D10): cada contexto que a proteção da base exige, no SHA fonte; o `consultarCi` lê o contexto do
+    // manifesto, então cada consulta leva o manifesto com aquele contexto.
+    const lidos = contextosDoCi(manifesto).map(contexto => opcoes.forja
+      ? consultarCiDoRepositorio(opcoes.forja.repositorio, fonte, contexto, opcoes.executorCi)
+      : consultarCi({ ...carregado, manifesto: { ...manifesto, ci: { ...manifesto.ci, context: contexto } } }, fonte, remoto, opcoes.executorCi));
+    fatos.ci = lidos[0];
+    if (lidos.length > 1) fatos.cis = lidos;
   }
   if (!base.sha) return fatos;
   const integrada = git(raiz, ['merge-base', '--is-ancestor', base.sha, fonte]);

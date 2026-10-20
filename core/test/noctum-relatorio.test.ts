@@ -129,7 +129,8 @@ test('RL3: os sete grupos na ordem da página, cada fato do núcleo, #HITL só n
     assert.match(texto, /  a\) Mesclar depois do CI: entra hoje \(Recomendação: o CI cobre o risco\)/);
     assert.match(texto, /Usar a fila local\. Porque: é a fatia pedida\. Como reverter: trocar a fonte da fila\./);
     assert.match(texto, /Teto do arco: 0 sessoes de 40 sessoes/);
-    assert.match(texto, /Não lido: .*a supervisão e a retomada da N4 não rodam neste arco: o tique ainda não chama o vigia/);
+    // RM-058, integração (T3): sem a interface, o relatório lê o log da supervisão do arco; sem tique do vigia, nada a dizer.
+    assert.doesNotMatch(texto, /o tique ainda não chama o vigia|a supervisão do arco não se lê/);
     assert.match(texto, /📝 Correções\n• nada/);
     assert.match(texto, /Próximo trabalho elegível: t2 \(RM-902\), fase GOAL/);
     assert.doesNotMatch(texto, /\d{4}-\d{2}-\d{2}T/, 'nenhum ISO cru para a pessoa');

@@ -75,6 +75,19 @@ uma um slug de app, um nome de job ou `status:<login>` (letras, dígitos, `_`, `
 por letra ou dígito); repetidas contam uma vez. Lista vazia, com mais de 20 ou com entrada inválida é erro do
 manifesto: nunca se adivinha quem aprova.
 
+## Vários contextos exigidos
+
+`ci.contexts` (RM-058, integração) lista, na ordem, os checks que a proteção da base exige; neste repositório, os
+quatro da `main`. A prova do CI da entrega do arco #Noctum consulta cada um no SHA fonte: todos verdes passam; um
+vermelho bloqueia, com o contexto no detalhe; um pendente ou ausente espera, no limite da espera de sempre; a leitura
+que falha também espera. Sem a chave, vale `[ci.context]`, como antes.
+
+`ci.contexts` é validado na leitura do manifesto: de 1 a 20 nomes, cada um um texto de uma linha com até 200
+caracteres, sem repetição. Lista vazia, item que não é texto ou nome repetido é erro do manifesto.
+
+**Limite dito:** o `ork ship` e o `ork ci status` seguem lendo só o `ci.context`; só a prova da entrega do arco lê a
+lista.
+
 ## A CI no GitLab
 
 `ork ci status` e o gate do `ork ship` leem a CI pela forja resolvida (o mesmo resolvedor do restante do contrato).
