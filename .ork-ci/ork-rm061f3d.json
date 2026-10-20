@@ -3040,6 +3040,34 @@
       "criadoEm": "2026-10-20T10:34:35.313Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C212",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-061/cobertura-f3d.json",
+      "alegacao": "GO-FIX 4 (integração com a main): o recibo da cobertura registra em integrada.goFix4 a medida no mesmo contador na integração final, com a main em aa3681fe (o #186 e o #185): a F3d integrada com 3.444 entradas e 58,27%, cada cobertura igual a entradas / (entradas + literais de saída) nas quatro árvores do bloco, e o sha256 da fixture pt-BR da F3d regerada sobre a main.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs'),c=require('crypto'); const g=require('./docs/roadmap/evidencias/RM-061/cobertura-f3d.json').integrada.goFix4; const f='core/test/fixtures/locale-f3d-pt-BR.json'; const h=c.createHash('sha256').update(fs.readFileSync(f)).digest('hex'); const ok=(m)=>/^[0-9a-f]{40}$/.test(m.arvore)&&m.cobertura===Math.round(m.catalogo.entradas/(m.catalogo.entradas+m.emPosicaoDeSaida)*1e4)/1e4; if(![g.main,g.comF3d,g.caminho.mainCom186,g.caminho.comF3dEm186].every(ok)||g.main.arvore!=='aa3681fe5159432ff7a148476c9de3b1a402f068'||g.comF3d.cobertura!==0.5827||g.comF3d.catalogo.entradas!==3444||g.snapshotsPtBR[f]!==h) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-20T22:12:03.651Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C213",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "GO-FIX 4 (integração com a main): a página da RM-061 registra o GO-FIX 4 (a queda do CI pela versão do Node na amostra do grafo, o caso que passa a escolher pelo rótulo e os merges do #186 e do #185) com as coberturas e contagens do bloco integrada.goFix4 do recibo, e põe na lista da F3e o que o security-scan deixa fora do catálogo: o detalhe de security-scan.config-invalid e os motivos security-scan.parse, em inglês também com o CLI em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const p=require(\"fs\").readFileSync(\"docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md\",\"utf8\"); const g=require(\"./docs/roadmap/evidencias/RM-061/cobertura-f3d.json\").integrada.goFix4; const pct=(x)=>(x*100).toFixed(2).replace(\".\",\",\")+\"%\"; const mil=(n)=>String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g,\".\"); const i=p.indexOf(\"**Seguem em pt-BR, para a F3e:**\"), j=p.indexOf(\"**Fora da F3e:**\"); const sec=p.slice(i,j); const k=p.indexOf(\"- **GO-FIX 4:**\"); const b=k<0?\"\":p.slice(k,p.indexOf(\"\\n\",k)); if(i<0||j<i||!sec.includes(\"`security-scan.config-invalid`\")||!sec.includes(\"`security-scan.parse`\")||!sec.includes(mil(g.comF3d.emPosicaoDeSaida))||!b.includes(\"a aresta de menor rótulo da amostra inteira\")||!b.includes(\"#185\")||!b.includes(pct(g.main.cobertura))||!b.includes(pct(g.comF3d.cobertura))||!b.includes(mil(g.main.catalogo.entradas))||!b.includes(mil(g.comF3d.catalogo.entradas))||!b.includes(mil(g.comF3d.emPosicaoDeSaida))) process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-20T22:12:09.364Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
@@ -3047,6 +3075,10 @@
     {
       "name": "ci",
       "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
     }
   ]
 }
