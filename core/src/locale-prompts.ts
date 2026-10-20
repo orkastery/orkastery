@@ -15,6 +15,19 @@ export interface MensagensDePrompts {
   /** RM-016: o rito de saida do GO, igual em Claude Code e Codex, na lingua do prompt. */
   fechoDoGo: (thread: string) => string;
   contextoDoGrafo: (thread: string) => string;
+  memoria: {
+    titulo: (regime: string) => string;
+    explicacao: string;
+    decisaoFechada: (id: string, por: string) => string;
+    decisaoSemantica: (id: string) => string;
+    decisaoSemId: string;
+    licaoDaThread: (thread: string) => string;
+    licoesDoProduto: string;
+    regraMandatoria: (titulo: string) => string;
+    grupos: Readonly<Record<'decision' | 'learning' | 'rule' | 'handoff' | 'roadmap', string>>;
+    mandatory: string;
+    origem: (location: string) => string;
+  };
   secoesObrigatorias: readonly string[];
   regraCentral: string;
   cli: {
@@ -103,6 +116,21 @@ export const PROMPTS_PT_BR: MensagensDePrompts = {
     'As tools ork_grafo_vizinhos, ork_grafo_chamadores, ork_grafo_importadores e ork_grafo_caminho permitem aprofundar. ' +
     'Sem indice do HEAD, rode ork grafo indexar. O grafo e parcial e descreve o HEAD; ' +
     'aresta com arvore: modificada vem de fonte que mudou depois dele: confira o arquivo antes de usar.\n',
+  memoria: {
+    titulo: (regime) => `## Memoria injetada (regime ${regime})`,
+    explicacao: 'Recuperacao deterministica por tag. Todo item declara de onde veio: nada entra neste prompt sem proveniencia. ' +
+      'O que NAO esta aqui esta nos ponteiros do handoff, recuperavel por `ork recall`.',
+    decisaoFechada: (id, por) => `Decisao ${id} (fechada por ${por})`,
+    decisaoSemantica: (id) => `Decisao ${id} (memoria semantica)`,
+    decisaoSemId: 'Decisao fechada (memoria semantica)',
+    licaoDaThread: (thread) => `Licao da thread ${thread}`,
+    licoesDoProduto: 'Licoes das threads fechadas deste produto (POSTMORTEM e MASTER)',
+    regraMandatoria: (titulo) => `Regra mandatoria: ${titulo}`,
+    grupos: { decision: 'Decisoes fechadas desta thread (entram em TODA fase)', learning: 'Licoes de threads anteriores deste produto',
+      rule: 'Regras mandatorias do ecossistema', handoff: 'Handoffs anteriores', roadmap: 'Roadmap' },
+    mandatory: ' [MANDATORY]',
+    origem: (location) => `origem: ${location}`,
+  },
   secoesObrigatorias: ['## Ciclo canonico', '## Modo de conducao', '## Contexto da thread', '## Pedido do builder', '## Regras de evidencia'],
   regraCentral: 'REGRA CENTRAL: o modo afrouxa a pausa, NUNCA a verificacao.',
   cli: {
@@ -180,6 +208,21 @@ export const PROMPTS_EN: MensagensDePrompts = {
     'The ork_grafo_vizinhos, ork_grafo_chamadores, ork_grafo_importadores, and ork_grafo_caminho tools allow deeper queries. ' +
     'If HEAD has no index, run ork grafo indexar. The graph is partial and describes HEAD; an edge marked arvore: modificada comes from a source ' +
     'that changed after HEAD, so inspect the file before using it.\n',
+  memoria: {
+    titulo: (regime) => `## Injected memory (${regime} regime)`,
+    explicacao: 'Deterministic retrieval by tag. Every item declares its source: nothing enters this prompt without provenance. ' +
+      'What is NOT here remains in the handoff pointers and can be retrieved with `ork recall`.',
+    decisaoFechada: (id, por) => `Decision ${id} (closed by ${por})`,
+    decisaoSemantica: (id) => `Decision ${id} (semantic memory)`,
+    decisaoSemId: 'Closed decision (semantic memory)',
+    licaoDaThread: (thread) => `Lesson from thread ${thread}`,
+    licoesDoProduto: 'Lessons from closed threads in this product (POSTMORTEM and MASTER)',
+    regraMandatoria: (titulo) => `Mandatory rule: ${titulo}`,
+    grupos: { decision: 'Closed decisions from this thread (included in EVERY phase)', learning: 'Lessons from previous product threads',
+      rule: 'Mandatory ecosystem rules', handoff: 'Previous handoffs', roadmap: 'Roadmap' },
+    mandatory: ' [MANDATORY]',
+    origem: (location) => `source: ${location}`,
+  },
   secoesObrigatorias: ['## Canonical cycle', '## Conduction mode', '## Thread context', '## Builder request', '## Evidence rules'],
   regraCentral: 'CENTRAL RULE: the mode relaxes the pause, NEVER verification.',
   cli: {

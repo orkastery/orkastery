@@ -27,6 +27,8 @@ import { CONTRATO_ONBOARDING, ETAPAS_ONBOARDING, jsonCanonico, lerOnboarding } f
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { publicarGatesHumanos, ResultadoDeMemoriaHumana } from './memoria-humana';
+import { localeAtivo, Locale } from './locale';
+import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
 import { caminhoPostmortem, lerMasterLog } from './master';
 import { tagDoModo } from './modos';
 import {
@@ -897,10 +899,12 @@ export function injecaoDaFase(
   carregado: ManifestoCarregado,
   memoria: Memoria,
   thread: Thread,
-  fase: Fase
+  fase: Fase,
+  locale: Locale = localeAtivo()
 ): InjecaoDeMemoria {
   carregado = memoryState(carregado).loaded;
   const { manifesto } = carregado;
+  const m = (locale === 'en' ? PROMPTS_EN : PROMPTS_PT_BR).memoria;
   const itens: ItemDeInjecao[] = [];
   const caminhoThread = `.orkastery/threads/${thread.id}/thread.json`;
   let n = 0;
@@ -917,7 +921,7 @@ export function injecaoDaFase(
     vistas.add(d.id);
     add({
       colecao: 'decision',
-      titulo: `Decisao ${d.id} (fechada por ${d.decididaPor})`,
+      titulo: m.decisaoFechada(d.id, d.decididaPor),
       conteudo: d.texto,
       origem: 'thread.json',
       location: `${caminhoThread}#json:decisoes.${d.id}`,
@@ -931,7 +935,7 @@ export function injecaoDaFase(
       if (id) vistas.add(id);
       add({
         colecao: 'decision',
-        titulo: id ? `Decisao ${id} (memoria semantica)` : 'Decisao fechada (memoria semantica)',
+        titulo: id ? m.decisaoSemantica(id) : m.decisaoSemId,
         conteudo: e.content,
         origem: 'orkmind',
         location: enderecoDeMemoria('decision', e.id),
@@ -949,7 +953,7 @@ export function injecaoDaFase(
       licoes += 1;
       add({
         colecao: 'learning',
-        titulo: `Licao da thread ${threadDaEntrada(e) ?? '(anterior)'}`,
+        titulo: m.licaoDaThread(threadDaEntrada(e) ?? (locale === 'en' ? '(previous)' : '(anterior)')),
         conteudo: e.content,
         origem: 'orkmind',
         location: enderecoDeMemoria('learning', e.id),
@@ -967,7 +971,7 @@ export function injecaoDaFase(
       licoes += 1;
       add({
         colecao: 'learning',
-        titulo: 'Licoes das threads fechadas deste produto (POSTMORTEM e MASTER)',
+        titulo: m.licoesDoProduto,
         conteudo: texto,
         origem: 'postmortem',
         location: '.orkastery/threads/*/POSTMORTEM.json',
@@ -985,7 +989,7 @@ export function injecaoDaFase(
       regras += 1;
       add({
         colecao: 'rule',
-        titulo: `Regra mandatoria: ${primeiraLinha(e.content).slice(0, 70)}`,
+        titulo: m.regraMandatoria(primeiraLinha(e.content).slice(0, 70)),
         conteudo: e.content,
         origem: 'orkmind',
         location: enderecoDeMemoria('rule', e.id),
@@ -1002,7 +1006,7 @@ export function injecaoDaFase(
     decisoes,
     licoes,
     regras,
-    texto: textoDaInjecao(itens, memoria.regime),
+    texto: textoDaInjecao(itens, memoria.regime, locale),
   };
 }
 
@@ -1012,36 +1016,26 @@ export function injecaoDaFase(
  * Vazio quando nao ha item: a linha da variavel some do prompt e o texto fica byte a byte
  * igual ao que o B4 ja despachava. Uma thread sem decisao fechada nao ganha secao vazia.
  */
-export function textoDaInjecao(itens: ItemDeInjecao[], regime: RegimeDeMemoria): string {
+export function textoDaInjecao(itens: ItemDeInjecao[], regime: RegimeDeMemoria, locale: Locale = localeAtivo()): string {
   if (itens.length === 0) return '';
+  const m = (locale === 'en' ? PROMPTS_EN : PROMPTS_PT_BR).memoria;
   const linhas: string[] = [];
   linhas.push('');
-  linhas.push(`## Memoria injetada (regime ${regime})`);
-  linhas.push(
-    'Recuperacao deterministica por tag. Todo item declara de onde veio: nada entra neste ' +
-      'prompt sem proveniencia. O que NAO esta aqui esta nos ponteiros do handoff, ' +
-      'recuperavel por `ork recall`.'
-  );
+  linhas.push(m.titulo(regime));
+  linhas.push(m.explicacao);
   const porColecao: Record<string, ItemDeInjecao[]> = {};
   for (const i of itens) (porColecao[i.colecao] ??= []).push(i);
-  const rotulos: Record<string, string> = {
-    decision: 'Decisoes fechadas desta thread (entram em TODA fase)',
-    learning: 'Licoes de threads anteriores deste produto',
-    rule: 'Regras mandatorias do ecossistema',
-    handoff: 'Handoffs anteriores',
-    roadmap: 'Roadmap',
-  };
   for (const colecao of ['decision', 'learning', 'rule', 'handoff', 'roadmap']) {
     const doGrupo = porColecao[colecao];
     if (!doGrupo || doGrupo.length === 0) continue;
     linhas.push('');
-    linhas.push(`### ${rotulos[colecao] ?? colecao} (${doGrupo.length})`);
+    linhas.push(`### ${m.grupos[colecao as keyof typeof m.grupos] ?? colecao} (${doGrupo.length})`);
     for (const i of doGrupo) {
-      linhas.push(`- ${i.titulo}${i.mandatory ? ' [MANDATORY]' : ''}`);
+      linhas.push(`- ${i.titulo}${i.mandatory ? m.mandatory : ''}`);
       for (const l of i.conteudo.split('\n')) {
         if (l.trim() !== '') linhas.push(`  ${l}`);
       }
-      linhas.push(`  origem: ${i.location}`);
+      linhas.push(`  ${m.origem(i.location)}`);
     }
   }
   return linhas.join('\n');
