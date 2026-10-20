@@ -117,6 +117,25 @@ test('defeito 4: busy (tarefa em segundo plano), status ausente, sem Stop ou com
   }
 });
 
+/**
+ * CHECK 3 da ork-rm037defeit2: o `status` que o Claude Code 2.1.304 dá à sessão que encerrou o turno com Bash em segundo
+ * plano é `shell`, e não `busy` (medido na própria sessão do CHECK: `working`, `tempo: idle`, `status: shell` enquanto o
+ * Bash rodava); `waiting` é a pergunta ou a permissão aberta. Nenhum dos dois é a ociosidade que solta a condução.
+ */
+test('defeito 4 (CHECK 3): shell (Bash em segundo plano) e waiting depois do Stop continuam esperando', () => {
+  for (const status of ['shell', 'waiting']) {
+    const f = fixture();
+    try {
+      f.gravarArtefato(); f.evento('stop', 20);
+      const registro: Partial<RegistroAgenteClaude> = { state: 'working', status, pid: process.pid };
+      assert.equal(f.observar(30, registro).concluido, false, status);
+      assert.equal(f.observar(3600, registro).concluido, false, status);
+      assert.equal(f.resultados().length, 0, status);
+      assert.equal(f.conduzida(), true, status);
+    } finally { f.limpar(); }
+  }
+});
+
 test('defeito 4: a contagem recomeca quando a sessao volta a trabalhar, e nunca conta de antes do Stop', () => {
   const f = fixture();
   try {
