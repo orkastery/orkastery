@@ -606,7 +606,8 @@ const PT_BR = {
       tokens: (total: number, input: number, cached: number, output: number) =>
         `  tokens           ${total} total; input ${input} (cached ${cached}); output ${output}`,
       semCobertura: 'sem cobertura',
-      custo: (valor: string) => `  custo referencia ${valor} — estimativa por tarifa publica, nao gasto/fatura`,
+      // GO-FIX 1: o travessao da base vira parenteses nas duas linguas (o catalogo nao leva U+2014).
+      custo: (valor: string) => `  custo referencia ${valor} (estimativa por tarifa publica, nao gasto/fatura)`,
       espera: (horas: string, abertas: number) => `  espera humana    ${horas} h; ${abertas} aberta(s)`,
       semResposta: 'sem resposta medida',
       metaDentro: ' (dentro da meta de 5 min)', metaFora: ' (acima da meta de 5 min)',
@@ -1047,7 +1048,7 @@ const EN: Mensagens = {
       execucao: (hours, measured, missing) => `  execution        ${hours} h (${measured} measured; ${missing} missing)`,
       tokens: (total, input, cached, output) => `  tokens           ${total} total; input ${input} (cached ${cached}); output ${output}`,
       semCobertura: 'no coverage',
-      custo: (value) => `  reference cost   ${value} — estimate from public rates, not spend or billing`,
+      custo: (value) => `  reference cost   ${value} (estimate from public rates, not spend or billing)`,
       espera: (hours, open) => `  human wait       ${hours} h; ${open} open`,
       semResposta: 'no measured response',
       metaDentro: ' (within the 5 min target)', metaFora: ' (above the 5 min target)',
