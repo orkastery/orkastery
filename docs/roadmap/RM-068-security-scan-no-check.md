@@ -67,7 +67,7 @@ sdlc:
 
 | Medido | Resultado |
 | --- | --- |
-| Suíte do núcleo no HEAD da branch | 5009 testes, 0 falhas (base `f0396f69`: 4903 testes, 4901 passam, 2 pulados, 0 falhas) |
+| Suíte do núcleo no HEAD da branch | 5021 testes, 5019 passam, 2 pulados, 0 falhas (base `f0396f69`: 4903 testes, 4901 passam, 2 pulados, 0 falhas) |
 | Scan do Orkastery no HEAD da branch (base = HEAD, com e sem `REQUIRED=1`) | saída 0; 0 novos, 22496 `existing` (a maior parte `quality`, fora do laço); as 9 ferramentas `ran`, Semgrep com `partial-parsing: 1`; de 162 a 270 s por rodada nas medições da branch |
 | Integração com Docker real, 3 stacks | 4 de 4 em cerca de 277 s; as 9 ferramentas rodam em cada stack |
 | Ponta a ponta, thread `#Classic` real | 2 rodadas do laço; segredo real e falso positivo atestados; dispensa registrada; reverify passa |
