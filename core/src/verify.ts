@@ -42,6 +42,8 @@ import { comRecursoPesado, OcupanteDaFila, UsoDaFilaPesada } from './fila-pesada
 import { redigirCredenciaisUrl } from './redacao-url';
 import { canalDoProcesso, comConducao, ConducaoTomada, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
 import { diretorioDaThread } from './procedencia';
+import { BarreiraDaThread, barreiraDaThread, resumoNoLedger } from './dado-privado';
+import { avisos as avisosDePolicy, bloqueantes as bloqueantesDePolicy } from './policies';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -354,6 +356,8 @@ export interface ResultadoVerify {
   instabilidade: RegistroLido;
   /** RM-058 N2: a vez na fila de recursos pesados que a rodada segurou. */
   filaPesada: UsoDaFilaPesada;
+  /** RM-062 (F2): a barreira de dado privado do diff da thread; `null` sem a policy `dado_privado` no manifesto. */
+  dadoPrivado?: BarreiraDaThread | null;
   motivos: MotivoGate[];
   /** True quando nenhum motivo BLOQUEANTE apareceu. */
   ok: boolean;
@@ -515,6 +519,10 @@ function verificarSobConducao(
     ? []
     : comandosDoManifesto(manifesto).map((c) => executor(c.nome, c.comando, cwd));
 
+  // RM-062 (F2): a barreira de dado privado no diff da thread, so com a policy `dado_privado` no manifesto.
+  const dadoPrivado = barreiraDaThread(carregado, thread, cwd, 'verify');
+  const dadoPrivadoBloqueia = bloqueantesDePolicy(dadoPrivado?.violacoes ?? []);
+
   const baseline = thread.baseline ?? null;
   const regressoes: ResultadoDeComando[] = [];
   const preExistentes: ResultadoDeComando[] = [];
@@ -557,6 +565,7 @@ function verificarSobConducao(
   if (produtoAlterado || naoExecutados.length > 0 || claims.some((c) => c.motivo === 'verify.sem-veredito')) {
     motivos.push('verify.sem-veredito');
   }
+  if (dadoPrivadoBloqueia.length > 0) motivos.push('policy.violation');
 
   const bloqueantes = motivos.filter((m) => m !== 'claims.unverifiable');
   const ok = bloqueantes.length === 0;
@@ -594,7 +603,15 @@ function verificarSobConducao(
     conducao: { identidade: conducao.identidade, reentrada: conducao.reentrada },
     // RM-058 N2: se a rodada esperou a vez na fila pesada, e quanto.
     filaPesada,
+    // RM-062 (F2): contagens, padroes e onde; nunca o valor casado nem o termo da lista local.
+    ...(dadoPrivado ? { dadoPrivado: resumoNoLedger(dadoPrivado) } : {}),
   });
+
+  // RM-062 (F2): em `warn`, a barreira registra e segue, como toda policy de aviso.
+  for (const v of avisosDePolicy(dadoPrivado?.violacoes ?? [])) {
+    registrar(dir, threadId, TIPOS_DE_EVENTO.politicaAviso, { gate: 'verify', policy: v.policy, motivo: v.motivo,
+      detalhe: v.detalhe, correcao: v.correcao, modo: thread.modo });
+  }
 
   for (const motivo of bloqueantes) {
     registrarGateBloqueado(dir, threadId, {
@@ -618,7 +635,9 @@ function verificarSobConducao(
                   ...naoExecutados.map((c) => `${c.nome} nao foi executado`),
                   ...claims.filter((c) => c.motivo === 'verify.sem-veredito').map((c) => `${c.claim.id}: ${c.detalhe}`)]
                   .filter(Boolean).join('; ')
-                : `falha sem baseline em: ${falhasSemBaseline.map((r) => r.nome).join(', ')}`,
+                : motivo === 'policy.violation'
+                  ? dadoPrivadoBloqueia.map((v) => `policy ${v.policy}: ${v.detalhe}`).join('; ')
+                  : `falha sem baseline em: ${falhasSemBaseline.map((r) => r.nome).join(', ')}`,
       evidencia: `reexecucao no HEAD ${commit} em ${cwd}`,
       correcao:
         motivo === 'claims.failed'
@@ -627,7 +646,9 @@ function verificarSobConducao(
             ? 'rode `ork verify` de novo; se estourar sempre, suba verify.timeout_ms no manifesto ou divida o comando'
             : motivo === 'verify.sem-veredito'
               ? 'rode `ork verify` de novo, sem editar a worktree durante a rodada'
-              : 'corrija a regressao, ou grave a baseline antes do GO com `ork verify <thread> --baseline`',
+              : motivo === 'policy.violation'
+                ? dadoPrivadoBloqueia.map((v) => v.correcao).join('; ')
+                : 'corrija a regressao, ou grave a baseline antes do GO com `ork verify <thread> --baseline`',
     });
   }
 
@@ -646,6 +667,7 @@ function verificarSobConducao(
     steal,
     instabilidade,
     filaPesada,
+    dadoPrivado,
     motivos,
     ok,
   };
@@ -711,7 +733,24 @@ export function textoDoVerify(r: ResultadoVerify): string {
     for (const c of r.preExistentes) linhas.push(m.preExistente(c.nome, c.comando));
     for (const c of r.falhasSemBaseline) linhas.push(m.falhaSemBaseline(c.nome, c.comando));
   }
+  if (r.dadoPrivado) linhas.push('', ...textoDaBarreira(r.dadoPrivado));
   linhas.push('');
   linhas.push(r.ok ? m.verdade : m.reprovado(r.motivos.join(', ')));
   return linhas.join('\n');
+}
+
+/** RM-062 (F2): a secao da barreira de dado privado, sem valor casado nem termo; ate 20 achados. */
+function textoDaBarreira(b: BarreiraDaThread): string[] {
+  const m = msg().verify;
+  const v = b.varredura;
+  const escopo = v.escopo.map((e) => e.tipo === 'diff' ? m.dadoPrivadoEscopoDiff(e.base.slice(0, 12), e.ref)
+    : e.tipo === 'arvore' ? m.dadoPrivadoEscopoArvore : m.dadoPrivadoEscopoTexto(e.nome)).join(' + ');
+  const linhas = [m.dadoPrivadoTitulo(b.severidade), m.dadoPrivadoEscopo(escopo, v.arquivos, v.linhas, v.nomes),
+    v.listaLocal.presente ? m.dadoPrivadoListaPresente(v.listaLocal.termos, v.listaLocal.lidos.join(', '))
+      : m.dadoPrivadoListaAusente(v.listaLocal.procurada.join(', '))];
+  if (v.erro) return [...linhas, m.dadoPrivadoErro(v.erro)];
+  linhas.push(m.dadoPrivadoAchados(v.achados.length));
+  for (const a of v.achados.slice(0, 20)) linhas.push(m.dadoPrivadoAchado(a.arquivo, a.linha, a.coluna, a.padrao, a.termo));
+  if (v.achados.length > 20) linhas.push(m.dadoPrivadoMais(v.achados.length - 20));
+  return linhas;
 }

@@ -1,0 +1,141 @@
+/**
+ * RM-062 (F2): a barreira de dado privado no `ork verify` (DV), pela policy `dado_privado`.
+ * Todo valor daqui é inventado; o arquivo entra nas exceções versionadas por caminho, só para os padrões genéricos.
+ */
+import { strict as assert } from 'node:assert';
+import { test } from 'node:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { ajustarManifesto, commitar, dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
+import { lerLedger } from '../src/ledger';
+import { dirThread, lerThread, novaThread } from '../src/thread';
+import { textoDoVerify, verificar } from '../src/verify';
+import { garantirWorktree } from '../src/worktree';
+
+const HOME_FICTICIA = '/home/fulana-de-teste';
+const EMAIL_FICTICIO = 'contato@empresa-ficticia.com.br';
+const TERMO_FICTICIO = 'tralala-quarenta-e-dois';
+const VALORES = [HOME_FICTICIA, 'fulana-de-teste', EMAIL_FICTICIO, 'empresa-ficticia', TERMO_FICTICIO];
+
+/** Um projeto com a policy declarada (ou não) e uma thread com worktree. */
+function cenario(nome: string, severidade: 'block' | 'warn' | 'off' | null): { p: ProjetoDeTeste; id: string; wt: string } {
+  const p = projetoTemporario(`dado-privado-${nome}`);
+  if (severidade) {
+    ajustarManifesto(p, /^policies:\n/m, `policies:\n  dado_privado: ${severidade}\n`);
+  }
+  const { thread } = novaThread(p.carregado, { nome, modo: 'auto' });
+  garantirWorktree(p.carregado, thread.id);
+  return { p, id: thread.id, wt: lerThread(p.dir, thread.id).worktree as string };
+}
+
+/** Roda `corpo` com a lista local de `termos` (ou ausente: a variável aponta para um arquivo que não existe). */
+function comLista<T>(termos: string[] | null, corpo: () => T): T {
+  const antes = process.env.ORK_TERMOS_PRIVADOS;
+  const pasta = dirTemporario('dado-privado-lista');
+  const arquivo = path.join(pasta, 'termos-privados.txt');
+  if (termos) fs.writeFileSync(arquivo, termos.join('\n') + '\n');
+  process.env.ORK_TERMOS_PRIVADOS = arquivo;
+  try { return corpo(); } finally {
+    if (antes === undefined) delete process.env.ORK_TERMOS_PRIVADOS; else process.env.ORK_TERMOS_PRIVADOS = antes;
+    fs.rmSync(pasta, { recursive: true, force: true });
+  }
+}
+
+function semValores(texto: string, onde: string): void {
+  for (const v of VALORES) assert.equal(texto.toLowerCase().includes(v.toLowerCase()), false, `${onde} repetiu ${v.slice(0, 3)}...`);
+}
+
+test('DV1: com dado_privado em block, achado no diff da thread reprova o verify com policy.violation, sem o valor', () => {
+  const { p, id, wt } = cenario('dv1', 'block');
+  try {
+    commitar(wt, 'docs/nota.md', `# nota\nrodou em ${HOME_FICTICIA}/projeto\n`, 'nota');
+    const r = comLista(null, () => verificar(p.carregado, id, { soClaims: true }));
+    assert.equal(r.ok, false);
+    assert.deepEqual(r.motivos, ['policy.violation']);
+    assert.deepEqual(r.dadoPrivado?.varredura.achados, [{ arquivo: 'docs/nota.md', linha: 2, coluna: 10, padrao: 'home' }]);
+    const eventos = lerLedger(dirThread(p.dir, id));
+    const run = eventos.filter((e) => e.tipo === 'verify_run').at(-1)!;
+    const resumo = run.dadoPrivado as { policy: string; achados: number; onde: string[]; padroes: string[] };
+    assert.equal(resumo.policy, 'block');
+    assert.equal(resumo.achados, 1);
+    assert.deepEqual(resumo.onde, ['docs/nota.md:2']);
+    assert.deepEqual(resumo.padroes, ['home']);
+    const bloqueio = eventos.filter((e) => e.tipo === 'gate_blocked').at(-1)!;
+    assert.equal(bloqueio.gate, 'verify');
+    assert.equal(bloqueio.motivo, 'policy.violation');
+    assert.match(String(bloqueio.detalhe), /policy dado_privado: 1 achado\(s\) de dado privado \(home\) .*docs\/nota\.md:2/);
+    assert.match(String(bloqueio.correcao), /orkastery\.privado\.json/);
+    const texto = textoDoVerify(r);
+    assert.match(texto, /Dado privado \(policy dado_privado em block\):/);
+    assert.match(texto, / {4}docs\/nota\.md:2:10 {2}home/);
+    semValores(texto, 'o texto do verify');
+    semValores(fs.readFileSync(path.join(dirThread(p.dir, id), 'ledger.jsonl'), 'utf8'), 'o ledger');
+  } finally { p.limpar(); }
+});
+
+test('DV2: com dado_privado em warn, o verify segue verde, grava policy_warn e mostra o aviso', () => {
+  const { p, id, wt } = cenario('dv2', 'warn');
+  try {
+    commitar(wt, 'a.txt', `${EMAIL_FICTICIO}\n`, 'email');
+    const r = comLista(null, () => verificar(p.carregado, id, { soClaims: true }));
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.motivos, []);
+    const aviso = lerLedger(dirThread(p.dir, id)).filter((e) => e.tipo === 'policy_warn').at(-1)!;
+    assert.equal(aviso.gate, 'verify');
+    assert.equal(aviso.policy, 'dado_privado');
+    assert.match(String(aviso.detalhe), /1 achado\(s\) de dado privado \(email\)/);
+    assert.match(textoDoVerify(r), /Dado privado \(policy dado_privado em warn\):/);
+  } finally { p.limpar(); }
+});
+
+test('DV3: sem a policy, ou com ela em off, o verify não varre nada e o ledger não muda', () => {
+  for (const severidade of [null, 'off'] as const) {
+    const { p, id, wt } = cenario(`dv3-${severidade ?? 'sem'}`, severidade);
+    try {
+      commitar(wt, 'a.txt', `${HOME_FICTICIA}\n`, 'home');
+      const r = comLista(null, () => verificar(p.carregado, id, { soClaims: true }));
+      assert.equal(r.ok, true);
+      assert.equal(r.dadoPrivado, null);
+      const run = lerLedger(dirThread(p.dir, id)).filter((e) => e.tipo === 'verify_run').at(-1)!;
+      assert.equal('dadoPrivado' in run, false);
+      assert.equal(textoDoVerify(r).includes('Dado privado'), false);
+    } finally { p.limpar(); }
+  }
+});
+
+test('DV4: sem a lista local, o verify diz que só os padrões genéricos rodaram; com ela, o termo reprova sem sair', () => {
+  const { p, id, wt } = cenario('dv4', 'block');
+  try {
+    commitar(wt, 'notas.txt', `a máquina ${TERMO_FICTICIO} rodou\n`, 'termo');
+    const sem = comLista(null, () => verificar(p.carregado, id, { soClaims: true }));
+    assert.equal(sem.ok, true);
+    assert.match(textoDoVerify(sem), /lista local {2}ausente \(procurada em [^)]*termos-privados\.txt\): so os padroes genericos \(home, email, hostname\)/);
+    assert.equal(sem.dadoPrivado?.varredura.listaLocal.presente, false);
+    const com = comLista([TERMO_FICTICIO], () => verificar(p.carregado, id, { soClaims: true }));
+    assert.equal(com.ok, false);
+    assert.deepEqual(com.dadoPrivado?.varredura.achados.map((a) => [a.arquivo, a.linha, a.padrao, a.termo]),
+      [['notas.txt', 1, 'lista-local', 1]]);
+    const texto = textoDoVerify(com);
+    assert.match(texto, /lista local {2}1 termo\(s\) de /);
+    assert.match(texto, /notas\.txt:1:11 {2}lista-local \(termo 1\)/);
+    semValores(texto, 'o texto do verify');
+    semValores(fs.readFileSync(path.join(dirThread(p.dir, id), 'ledger.jsonl'), 'utf8'), 'o ledger');
+  } finally { p.limpar(); }
+});
+
+test('DV5: o arquivo não rastreado e o nome acrescentado entram; a linha que já estava na base não', () => {
+  const p = projetoTemporario('dado-privado-dv5');
+  try {
+    ajustarManifesto(p, /^policies:\n/m, 'policies:\n  dado_privado: block\n');
+    commitar(p.dir, 'antigo.txt', `${EMAIL_FICTICIO}\n`, 'linha da base');
+    const { thread } = novaThread(p.carregado, { nome: 'dv5', modo: 'auto' });
+    garantirWorktree(p.carregado, thread.id);
+    const wt = lerThread(p.dir, thread.id).worktree as string;
+    commitar(wt, `evidencia/${TERMO_FICTICIO}.json`, '{}\n', 'nome com o termo');
+    fs.writeFileSync(path.join(wt, 'solto.txt'), `nada\n${HOME_FICTICIA}\n`);
+    const r = comLista([TERMO_FICTICIO], () => verificar(p.carregado, thread.id, { soClaims: true }));
+    assert.deepEqual(r.dadoPrivado?.varredura.achados.map((a) => `${a.arquivo}:${a.linha ?? 'nome'}:${a.padrao}`),
+      ['evidencia/[omitido].json:nome:lista-local', 'solto.txt:2:home']);
+    assert.equal(r.ok, false);
+  } finally { p.limpar(); }
+});

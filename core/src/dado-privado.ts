@@ -18,6 +18,10 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { exec } from './util';
 import { pastaDoUsuario } from './maquina';
+import { raizDoEstado } from './estado-thread';
+import type { ManifestoCarregado } from './manifest';
+import { avaliarPolicies, FatosDoDadoPrivado, severidadeDeclarada, ViolacaoDePolicy } from './policies';
+import type { Thread } from './types';
 
 export const CONTRATO_DAS_EXCECOES = 'ork.privado/v1' as const;
 export const CONTRATO_DA_VARREDURA = 'ork.privado-varredura/v1' as const;
@@ -677,4 +681,68 @@ export function relatorioDoDadoPrivado(v: Varredura): string[] {
   linhas.push(`  achados      ${v.achados.length}${v.achados.length ? ' (o valor casado nunca é impresso)' : ''}`);
   for (const a of v.achados) linhas.push(`    ${linhaDoAchado(a)}`);
   return linhas;
+}
+
+// ---------------------------------------------------------------------------
+// A barreira da thread (F2): a policy `dado_privado` no `ork verify` e no `ork ci prepare`
+// ---------------------------------------------------------------------------
+
+/** Até quantos `arquivo:linha` vão ao detalhe da policy e ao ledger. */
+const ONDE_NO_DETALHE = 10;
+const ONDE_NO_LEDGER = 50;
+
+/** O `arquivo:linha` de um achado, ou `arquivo (nome)`; o caminho já vem mascarado. */
+export function ondeDoAchado(a: Achado): string {
+  return a.linha === null ? `${a.arquivo} (nome)` : `${a.arquivo}:${a.linha}`;
+}
+
+function padroesAchados(v: Varredura): string[] {
+  return [...new Set(v.achados.map((a) => a.padrao))];
+}
+
+/** Os fatos da varredura para a policy, sem valor casado nem termo. */
+export function fatosDaVarredura(v: Varredura): FatosDoDadoPrivado {
+  return { achados: v.achados.length, padroes: padroesAchados(v), onde: v.achados.slice(0, ONDE_NO_DETALHE).map(ondeDoAchado),
+    listaLocal: v.listaLocal.presente, escopo: textoDoEscopo(v), erro: v.erro };
+}
+
+export interface BarreiraDaThread {
+  severidade: 'block' | 'warn';
+  varredura: Varredura;
+  violacoes: ViolacaoDePolicy[];
+}
+
+/** O que vai ao ledger: escopo, contagens, padrões e onde; nunca o valor casado nem o termo. */
+export function resumoNoLedger(b: BarreiraDaThread): Record<string, unknown> {
+  const v = b.varredura;
+  return { policy: b.severidade, escopo: v.escopo, arquivos: v.arquivos, linhas: v.linhas, nomes: v.nomes,
+    listaLocal: { presente: v.listaLocal.presente, termos: v.listaLocal.termos }, achados: v.achados.length,
+    padroes: padroesAchados(v), onde: v.achados.slice(0, ONDE_NO_LEDGER).map(ondeDoAchado), erro: v.erro };
+}
+
+function estadoDoProjeto(raiz: string): string | null {
+  try { return raizDoEstado(raiz); } catch { return null; }
+}
+
+/**
+ * RM-062 (F2): a barreira no diretório de trabalho da thread. Com `policies.dado_privado` declarada fora de `off`,
+ * varre o diff da thread contra a base (D7; sem base, a árvore inteira), mais o que `extra` varrer (o bundle do `ci
+ * prepare`), e avalia a policy no gate. Fora do manifesto, `null`: nada roda.
+ */
+export function barreiraDaThread(carregado: ManifestoCarregado, thread: Pick<Thread, 'id' | 'modo' | 'base'>, cwd: string,
+  gate: 'verify' | 'ci.prepare', opcoes: { extra?: (c: ContextoDaVarredura) => Varredura; ignorar?: readonly string[];
+    env?: NodeJS.ProcessEnv } = {}): BarreiraDaThread | null {
+  const severidade = severidadeDeclarada(carregado.manifesto, 'dado_privado');
+  if (severidade === null || severidade === 'off') return null;
+  const c = contextoDaVarredura(cwd, estadoDoProjeto(carregado.raiz), opcoes.env);
+  let varredura: Varredura;
+  if (!c.ok) varredura = varreduraComErro(c.erro, c.lista);
+  else {
+    const base = baseDaThread(cwd, carregado.manifesto.worktree.base_branch, thread.base?.commit);
+    varredura = base ? varrerDiff(c.valor, base, { ignorar: opcoes.ignorar }) : varrerArvore(c.valor);
+    if (opcoes.extra) varredura = juntarVarreduras(varredura, opcoes.extra(c.valor));
+  }
+  const violacoes = avaliarPolicies(carregado.manifesto, { gate, threadId: thread.id, modo: thread.modo,
+    dadoPrivado: fatosDaVarredura(varredura) });
+  return { severidade, varredura, violacoes };
 }

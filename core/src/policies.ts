@@ -55,6 +55,26 @@ export interface ContextoDePolicy {
    * prazo do verify. Ausente quando passou ou nao rodou; sem o fato, a regra nao avalia.
    */
   provaLocalReprovada?: { claim: string; comando: string; code: number; estourou: boolean; prazoMs: number; semDiretorio?: string };
+  /**
+   * RM-062 (F2), gates `verify` e `ci.prepare`: o resultado da varredura de dado privado, sem o valor casado. Sem o
+   * fato, a regra nao avalia (com a policy fora do manifesto, ninguem varre).
+   */
+  dadoPrivado?: FatosDoDadoPrivado;
+}
+
+/** RM-062 (F2): o que a policy `dado_privado` sabe da varredura. Nenhum campo leva o valor casado nem o termo. */
+export interface FatosDoDadoPrivado {
+  achados: number;
+  /** Os padroes achados, sem repeticao (`home`, `email`, `hostname`, `lista-local`). */
+  padroes: string[];
+  /** Ate dez `arquivo:linha` (ou `arquivo (nome)`), com o caminho ja mascarado. */
+  onde: string[];
+  /** A lista local de termos privados foi lida. */
+  listaLocal: boolean;
+  /** O que foi varrido, em uma frase (o diff contra a base, o bundle). */
+  escopo: string;
+  /** A varredura nao rodou: arquivo de excecoes fora do contrato, lista local versionada ou git sem resposta. */
+  erro: string | null;
 }
 
 export interface ViolacaoDePolicy {
@@ -158,6 +178,13 @@ export const POLICIES_CONHECIDAS: Readonly<Record<string, { quando: PontoDeGate[
     quando: ['claims.add'],
     descricao: 'a mesma conferencia de claim_sem_prova_local, com o nome que o ork licoes propoe',
   },
+  // RM-062 (F2): a barreira de dado privado. Declarada, o `ork verify` varre o diff da thread e o `ork ci prepare`, o
+  // diff e o bundle; fora do manifesto, nenhum dos dois varre nada (projeto privado nao paga pelo que nao pediu).
+  dado_privado: {
+    quando: ['verify', 'ci.prepare'],
+    descricao: 'reprova (ou avisa) quando o diff da thread ou o bundle de CI leva caminho de home, e-mail fora da lista, ' +
+      'hostname de maquina ou termo da lista local',
+  },
 };
 
 /** RM-008 (B8): as policies que conferem a claim no registro (um aviso so, como verify_regression e verify_failed). */
@@ -187,6 +214,12 @@ function correcaoSemBranchDaThread(threadId?: string, base?: string): string {
 function severidade(bruta: string | undefined): Severidade {
   if (bruta === 'block' || bruta === 'warn' || bruta === 'off') return bruta;
   return 'warn';
+}
+
+/** RM-062 (F2): a severidade da policy como o manifesto a declara, ou `null` quando ele nao a declara. */
+export function severidadeDeclarada(manifesto: Manifesto, nome: string): Severidade | null {
+  const bruta = manifesto.policies?.[nome];
+  return bruta === undefined ? null : severidade(bruta);
 }
 
 /** Policies declaradas no manifesto que o `ork` nao sabe executar. */
@@ -329,6 +362,26 @@ export function avaliarPolicies(manifesto: Manifesto, ctx: ContextoDePolicy): Vi
               `se a alegacao nao vale, ork claims retirar ${id} ${r.claim} --motivo "<motivo>"`,
         });
       }
+      continue;
+    }
+
+    if (nome === 'dado_privado') {
+      const f = ctx.dadoPrivado;
+      if (!f || (f.achados === 0 && !f.erro)) continue;
+      const lista = f.listaLocal ? 'com a lista local' : 'lista local ausente: so os padroes genericos';
+      violacoes.push({
+        policy: nome,
+        severidade: sev,
+        motivo: 'policy.violation',
+        detalhe: f.erro
+          ? `a varredura de dado privado nao rodou: ${f.erro}`
+          : `${f.achados} achado(s) de dado privado (${f.padroes.join(', ')}) no ${f.escopo}, ${lista}: ` +
+            `${f.onde.join(', ')}${f.achados > f.onde.length ? ', ...' : ''} (o valor casado nunca e impresso)`,
+        correcao: f.erro
+          ? 'corrija o orkastery.privado.json (ou tire a lista local do git) e rode de novo'
+          : 'troque o dado pelo generico (maquina-a, /home/usuario, pessoa@exemplo.invalid) ou, se for exemplo inventado, ' +
+            'ponha a excecao com motivo em orkastery.privado.json, revisada em PR; confira com ork privado varrer --base <base>',
+      });
       continue;
     }
 
