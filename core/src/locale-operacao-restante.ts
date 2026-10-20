@@ -71,6 +71,38 @@ export const OPERACAO_RESTANTE_PT_BR = {
       desdeObservacao: 'desde a primeira observação', idade: 'idade da sessao', desdeInicio: 'desde que a sessao comecou',
     },
   },
+  gate: {
+    usoContext: 'uso: ork gate context <thread> <pedido> [--native-offer-stdin]',
+    requestThread: 'gate request exige thread',
+    formato: 'gate request: --formato telegram|terminal',
+    answer: 'gate answer exige thread, pedido e --resposta-stdin',
+    usoNext: 'uso: ork gate next <thread-id> [--proximo FASE] [--ocupacao 0..1]',
+    approveAposentado: 'gate approve aposentado: aprovação sem pedido é recusada. Use ork gate request <thread-id> e responda pelo ingresso humano autenticado.',
+    registrado: (thread: string) => `Autorizacao humana registrada no ledger da thread ${thread}.`,
+    sobre: (valor: string) => `  sobre          ${valor}`,
+    autorizado: (valor: string) => `  autorizado por ${valor}`,
+    quando: (valor: string) => `  quando         ${valor}`,
+    desconhecido: (sub: string | undefined) => `subcomando desconhecido: gate ${sub}`,
+    tokens: {
+      titulo: (thread: string) => `ork gate next: thread ${thread}`,
+      ocupacao: (valor: string) => `  ocupacao       ${valor}`,
+      naoMedivel: 'nao medivel',
+      fonte: (valor: string) => `  fonte          ${valor}`,
+      detalhe: (valor: string) => `                 ${valor}`,
+      limiares: (rotate: number, force: number) =>
+        `  limiares       rotate_above ${rotate} | force_rotate_above ${force}`,
+      proximo: (fase: string | null, peso: string) => `  proximo passo  ${fase} (${peso})`,
+      pesado: 'pesado', leve: 'leve',
+      veredito: (valor: string, fonte: string) => `VEREDITO: ${valor}  (decidido por ${fonte})`,
+      razao: (valor: string) => `  razao: ${valor}`,
+      slug: (valor: string) => `  slug da nova sessao: ${valor}`,
+      handoff: (thread: string, fase: string | null) => `  proximo passo: ork handoff export ${thread} --proxima-fase ${fase}`,
+      ledger: (thread: string) => `Registrado no ledger como token_gate: ork phase list ${thread}`,
+      localizarDetalhe: (_fonte: string, valor: string) => valor,
+      localizarRazao: (_ocupacao: number | null, _rotate: number, _force: number, _pesado: boolean,
+        _refazer: boolean, _proximo: string | null, valor: string) => valor,
+    },
+  },
 };
 
 export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
@@ -137,6 +169,61 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
       sessaoFora: 'session outside ork',
       paradaDesconhecida: 'unknown; record with --registrar',
       desdeObservacao: 'since the first observation', idade: 'session age', desdeInicio: 'since the session started',
+    },
+  },
+  gate: {
+    usoContext: 'usage: ork gate context <thread> <request> [--native-offer-stdin]',
+    requestThread: 'gate request requires a thread',
+    formato: 'gate request: --formato telegram|terminal',
+    answer: 'gate answer requires thread, request, and --resposta-stdin',
+    usoNext: 'usage: ork gate next <thread-id> [--proximo PHASE] [--ocupacao 0..1]',
+    approveAposentado: 'gate approve is retired: approval without a request is refused. Use ork gate request <thread-id> and answer through authenticated human ingress.',
+    registrado: (thread) => `Human authorization recorded in the ledger of thread ${thread}.`,
+    sobre: (value) => `  subject       ${value}`,
+    autorizado: (value) => `  authorized by ${value}`,
+    quando: (value) => `  when          ${value}`,
+    desconhecido: (sub) => `unknown subcommand: gate ${sub}`,
+    tokens: {
+      titulo: (thread) => `ork gate next: thread ${thread}`,
+      ocupacao: (value) => `  occupancy     ${value}`,
+      naoMedivel: 'not measurable',
+      fonte: (value) => `  source        ${value}`,
+      detalhe: (value) => `                 ${value}`,
+      limiares: (rotate, force) =>
+        `  thresholds     rotate_above ${rotate} | force_rotate_above ${force}`,
+      proximo: (phase, weight) => `  next step     ${phase} (${weight})`,
+      pesado: 'heavy', leve: 'light',
+      veredito: (value, source) => `VERDICT: ${value}  (decided by ${source})`,
+      razao: (value) => `  reason: ${value}`,
+      slug: (value) => `  new session slug: ${value}`,
+      handoff: (thread, phase) => `  next step: ork handoff export ${thread} --proxima-fase ${phase}`,
+      ledger: (thread) => `Recorded in the ledger as token_gate: ork phase list ${thread}`,
+      localizarDetalhe: (source, value) => {
+        if (source === 'unavailable' && value.startsWith('transcript informado nao existe: '))
+          return value.replace('transcript informado nao existe: ', 'provided transcript does not exist: ');
+        if (source === 'estimated') return value
+          .replace(/^estimativa por tamanho: /, 'size estimate: ')
+          .replace(/ bytes por token = ~/, ' bytes per token = ~')
+          .replace(/ tokens de uma janela nominal de /, ' tokens in a nominal window of ');
+        if (source === 'runtime_reported') return value.replace(/^uso de contexto lido do runtime para a sessao /,
+          'context usage read from the runtime for session ');
+        if (source === 'informada') return value.replace(/^ocupacao ([\d.]+)% declarada pelo chamador como fonte /,
+          '$1% occupancy declared by the caller as source ');
+        return value.replace('o adapter claude-bg nao expoe uso de contexto nesta versao do runtime; nenhuma outra fonte foi informada',
+          'the claude-bg adapter does not expose context usage in this runtime version; no other source was provided');
+      },
+      localizarRazao: (occupancy, rotate, force, heavy, redo, next, value) => {
+        if (occupancy === null) return 'window occupancy is not measurable (source unavailable): rotation is NOT decided from ' +
+          'missing data. Continue in the same session and rotate by explicit decision if needed.';
+        const pct = (occupancy * 100).toFixed(1);
+        if (occupancy >= force) return `occupancy ${pct}% >= force_rotate_above (${(force * 100).toFixed(0)}%): ` +
+          'always rotate, regardless of the weight of the next step.';
+        if (occupancy >= rotate && heavy) return `occupancy ${pct}% >= rotate_above (${(rotate * 100).toFixed(0)}%) and the next step is heavy ` +
+          `(${redo ? 'redo failed phase' : next}): more window means more accuracy.`;
+        if (occupancy >= rotate) return `occupancy ${pct}% >= rotate_above, but the next step (${next}) is not heavy: continue in the same session.`;
+        if (Number.isFinite(occupancy)) return `occupancy ${pct}% below rotate_above (${(rotate * 100).toFixed(0)}%): continue in the same session.`;
+        return value;
+      },
     },
   },
 };

@@ -1636,11 +1636,12 @@ function textoDoGateCurto(raiz: string, pedido: PedidoHitlQualquer, canal: 'tele
 function comandoGate(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const mg = msg().operacao.restante.gate;
   if (sub === 'context') {
     const id = args.posicionais[2], pedido = args.posicionais[3];
     if (!id || !pedido || args.posicionais.length !== 4 ||
         Object.entries(args.opcoes).some(([k, v]) => k !== 'native-offer-stdin' || v !== true))
-      throw Error('uso: ork gate context <thread> <pedido> [--native-offer-stdin]');
+      throw Error(mg.usoContext);
     const view = contextoDoPedidoNativo(carregado.raiz, id, pedido);
     const callback = args.opcoes['native-offer-stdin'] ? readNativeOfferStdin() : undefined;
     console.log(JSON.stringify({ ...view, canais: ofertaDoPedido(view.pedido, [],
@@ -1650,9 +1651,9 @@ function comandoGate(args: Args): number {
   }
   if (sub === 'request') {
     const id = args.posicionais[2];
-    if (!id) throw new Error('gate request exige thread');
+    if (!id) throw new Error(mg.requestThread);
     const formato = texto(args.opcoes.formato);
-    if (formato !== undefined && formato !== 'telegram' && formato !== 'terminal') throw new Error('gate request: --formato telegram|terminal');
+    if (formato !== undefined && formato !== 'telegram' && formato !== 'terminal') throw new Error(mg.formato);
     const pedido = abrirPedidoGate(carregado.raiz, id, texto(args.opcoes.motivo));
     // RM-048 (D1): com --formato, o que sai e o pedido no contrato curto, pronto para o canal, com
     // o codigo estavel na ultima linha. Sem ele, o JSON de sempre, para quem integra.
@@ -1661,7 +1662,7 @@ function comandoGate(args: Args): number {
   }
   if (sub === 'answer') {
     const id = args.posicionais[2], pedido = args.posicionais[3];
-    if (!id || !pedido || args.opcoes['resposta-stdin'] !== true || args.opcoes.resposta !== undefined) throw new Error('gate answer exige thread, pedido e --resposta-stdin');
+    if (!id || !pedido || args.opcoes['resposta-stdin'] !== true || args.opcoes.resposta !== undefined) throw new Error(mg.answer);
     const r = lerRespostaStdin({ por: texto(args.opcoes.por), mensagem: texto(args.opcoes.mensagem),
       origem: texto(args.opcoes.origem), canal: texto(args.opcoes.canal), conta: texto(args.opcoes.conta) });
     console.log(JSON.stringify(responderGate(carregado.raiz, id, pedido, r)));
@@ -1670,7 +1671,7 @@ function comandoGate(args: Args): number {
   if (sub === 'next') {
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork gate next <thread-id> [--proximo FASE] [--ocupacao 0..1]');
+      console.error(mg.usoNext);
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
@@ -1694,18 +1695,18 @@ function comandoGate(args: Args): number {
     const sobre = args.posicionais[3];
     const por = texto(args.opcoes.por) ?? texto(args.opcoes.quem);
     if (!id || !sobre || !por) {
-      console.error('gate approve aposentado: aprovação sem pedido é recusada. Use ork gate request <thread-id> e responda pelo ingresso humano autenticado.');
+      console.error(mg.approveAposentado);
       return 2;
     }
     lerThread(carregado.raiz, id);
     const e = aprovarGateHumano(carregado.raiz, id, sobre, por, texto(args.opcoes.obs));
-    console.log(`Autorizacao humana registrada no ledger da thread ${id}.`);
-    console.log(`  sobre          ${sobre}`);
-    console.log(`  autorizado por ${por}`);
-    console.log(`  quando         ${formatarDataHoraRotulada(e.ts)}`);
+    console.log(mg.registrado(id));
+    console.log(mg.sobre(sobre));
+    console.log(mg.autorizado(por));
+    console.log(mg.quando(formatarDataHoraRotulada(e.ts)));
     return 0;
   }
-  console.error(`subcomando desconhecido: gate ${sub}`);
+  console.error(mg.desconhecido(sub));
   return 2;
 }
 

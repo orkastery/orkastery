@@ -10,6 +10,7 @@ import { textoDasEstatisticas, LedgerStats } from '../src/ledger-stats';
 import { tabelaDaPolitica, textoDaRetomada } from '../src/retry';
 import { textoDaLimpeza, textoDoInventario } from '../src/sessoes';
 import { textoDoRadar } from '../src/hitl';
+import { textoDoGateDeTokens } from '../src/tokens';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -113,4 +114,27 @@ test('F3d: sessions localiza inventario, limpeza e radar sem mudar os dados obse
     'reconcile', 'supersede', 'adopt', 'logs', 'stop', 'attach']) {
     assert.equal(cobreLocale(['sessions', sub], {}), true, chaveDoLocale(['sessions', sub], {}));
   }
+});
+
+test('F3d: gate localiza usos, autorizacao e o parecer de tokens', () => {
+  const veredito = {
+    thread: 'ork-x', medida: { ocupacao: 0.8, fonte: 'informada',
+      detalhe: 'ocupacao 80.0% declarada pelo chamador como fonte informada' },
+    proximoPasso: 'GO', passoPesado: true, veredito: 'new-session', decididoPor: 'medicao',
+    razao: 'ocupacao 80.0% >= rotate_above (70%) e o proximo passo e pesado (GO): mais janela significa mais acuracia.',
+    slugSugerido: 'ork-x-go-2', limiares: { rotate_above: 0.7, force_rotate_above: 0.9 },
+    decididoEm: '2026-10-20T12:00:00.000Z',
+  } as any;
+  const pt = comLocale('pt-BR', () => textoDoGateDeTokens(veredito));
+  const en = comLocale('en', () => textoDoGateDeTokens(veredito));
+  assert.match(pt, /ocupacao       80.0%/);
+  assert.match(pt, /VEREDITO: new-session/);
+  assert.match(en, /occupancy     80.0%/);
+  assert.match(en, /80.0% occupancy declared by the caller/);
+  assert.match(en, /VERDICT: new-session/);
+  assert.match(en, /next step is heavy/);
+  assert.match(en, /Recorded in the ledger as token_gate/);
+  assert.deepEqual(linhasEmPortugues(en), []);
+  for (const sub of ['context', 'request', 'answer', 'next', 'approve'])
+    assert.equal(cobreLocale(['gate', sub], {}), true, sub);
 });
