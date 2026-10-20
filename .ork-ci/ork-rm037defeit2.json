@@ -930,6 +930,21 @@
       "criadoEm": "2026-10-20T14:30:53.258Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C73",
+      "thread": "ork-rm037defeit2",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "GO-FIX 6, merge da main com o #186 (RM-068): em core/src/verify.ts o executorDaRodada da baseline e do verify cai no executorDoManifesto. A baseline gravada sem executor passa ao security_scan o prazo interno (ORK_SECURITY_SCAN_DEADLINE_MS) e segue com o prazo do manifesto por comando e a medida do steal da RM-037; o verify passa o prazo interno ao scan e o prazo do scan a claim que roda o comando dele. Tirar o executorDoManifesto do executorDaRodada (o scan sai sem o prazo interno) ou a medida do steal reprova a claim.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node -e 'const a=require(\"node:assert/strict\");const {projetoTemporario}=require(\"./core/dist-test/test/apoio.js\");const {novaThread}=require(\"./core/dist-test/src/thread.js\");const {gravarBaseline}=require(\"./core/dist-test/src/verify.js\");const p=projetoTemporario(\"gofix6-scan-baseline\");try{const {thread}=novaThread(p.carregado,{nome:\"scan na baseline\",modo:\"auto\"});p.carregado.manifesto.verify={test:\"sleep 3\",security_scan:\"echo deadline=$ORK_SECURITY_SCAN_DEADLINE_MS\",timeout_ms:20000,timeout_ms_por_comando:{test:1000,security_scan:40000}};const b=gravarBaseline(p.carregado,thread.id);const s=b.comandos.find(c=>c.nome===\"security_scan\");const t=b.comandos.find(c=>c.nome===\"test\");a.equal(s.prazoMs,40000);a.match(s.resumo,/^deadline=30000$/m);a.equal(t.prazoMs,1000);a.equal(t.causa,\"timeout\");a.ok(Object.hasOwn(s,\"stealPct\")&&Object.hasOwn(t,\"stealPct\"));console.log(\"baseline: prazo interno do scan, prazo do manifesto e steal\")}finally{p.limpar()}'",
+        "node --test-reporter=tap core/dist-test/test/security-scan-deadline.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T18:27:46.837Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
@@ -937,6 +952,10 @@
     {
       "name": "ci",
       "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
     }
   ]
 }
