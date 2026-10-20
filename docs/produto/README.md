@@ -60,6 +60,6 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada página.
 | [FEAT-037](FEAT-037-perfil-carga-e-sessoes-das-contas.md) | Perfil por despacho, rodízio por carga e sessões de cada conta | feature | em desenvolvimento | MOD-03 | 2026-10-01 |
 | [FEAT-038](FEAT-038-conhecimento-escrito.md) | Conhecimento escrito | feature | em desenvolvimento | MOD-05 | 2026-10-12 |
 | [FEAT-039](FEAT-039-gitlab-com-paridade-ao-github.md) | GitLab com paridade ao GitHub | feature | em desenvolvimento | MOD-02 | 2026-10-14 |
-| [FEAT-040](FEAT-040-security-scan-no-check.md) | Security scan no CHECK | feature | em desenvolvimento | MOD-02 | 2026-10-20 |
+| [FEAT-041](FEAT-041-security-scan-no-check.md) | Security scan no CHECK | feature | em desenvolvimento | MOD-02 | 2026-10-20 |
 
 <!-- ork-docs:indice:fim -->

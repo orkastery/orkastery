@@ -1,5 +1,5 @@
 ---
-id: FEAT-040
+id: FEAT-041
 tipo: feature
 titulo: Security scan no CHECK
 estado: em desenvolvimento
@@ -62,11 +62,9 @@ fontes:
     - ork ci prepare
 ---
 
-# FEAT-040: Security scan no CHECK
+# FEAT-041: Security scan no CHECK
 
 > **Em uma frase:** o `ork verify` roda ferramentas de segurança e qualidade de código no HEAD e na base antes do push para a `main`, e achado crítico novo dispara a triagem do CHECK e a correção do GO-FIX, em qualquer projeto conduzido pelo `ork`.
-
-<!-- Número provisório: o FEAT-040 e o RM-068 são os próximos livres na main do upstream em 20/10/2026; a reserva real sai do `ork roadmap pegar` e do `ork roadmap feat` na hora do PR, e esta página e a do RM trocam de número depois dela. -->
 
 - **Estado:** em desenvolvimento · **Verificado em:** 2026-10-20 · **Versão:** forja/security-scan@0da6b260, por PR
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-02](MOD-02-verdade-e-entrega.md)

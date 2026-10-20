@@ -4,7 +4,7 @@ tipo: roadmap
 titulo: Security scan no CHECK
 categoria: iniciativa
 pai: null
-features: [FEAT-040]
+features: [FEAT-041]
 owner: Paschoal
 atualizado_em: 2026-10-20T12:00:00-03:00
 estado:
@@ -25,8 +25,6 @@ sdlc:
 ---
 
 # RM-068: Security scan no CHECK
-
-<!-- Número provisório (RM-068, FEAT-040): o item real sai do `ork roadmap pegar` na hora do PR, e as duas páginas trocam de número depois dele. -->
 
 > **Em uma frase:** o `ork verify` roda ferramentas de segurança e qualidade de código no HEAD e na base antes do push, e achado crítico novo dispara a triagem do CHECK e a correção do GO-FIX, no Orkastery e nas apps que o `ork` conduz.
 
@@ -60,7 +58,7 @@ sdlc:
   - **Skills:** `security-auditor` e `check-quality` ajustadas, `security-remediation` nova e `go-implementation` apontando para ela.
   - **O próprio Orkastery** declara o scan, com as fixtures vulneráveis excluídas.
 - **Fora de escopo:** CodeQL, SBOM e DAST; `workflow` para GitLab CI (sai `unavailable` com `unsupported-ci`, declarado e não contado como não varrido); stacks além das três; a recorrência de achado `warn` entre threads no estágio `maduro`; autorização antecipada do `#Classic` para entrega sem varredura; troca de versão de ferramenta pela config.
-- **Entregáveis e critérios de aceite:** cada comportamento com teste hermético (saídas reais gravadas de cada ferramenta e um `docker` falso no `PATH`), um teste de integração com Docker real por stack, o scan do próprio repositório contra a base real e a página [FEAT-040](../produto/FEAT-040-security-scan-no-check.md). O critério do item é a prova ponta a ponta: numa thread `#Classic` real, o verify reprova, o CHECK atesta um segredo real e um falso positivo, o GO-FIX corrige, a dispensa é registrada e o reverify passa.
+- **Entregáveis e critérios de aceite:** cada comportamento com teste hermético (saídas reais gravadas de cada ferramenta e um `docker` falso no `PATH`), um teste de integração com Docker real por stack, o scan do próprio repositório contra a base real e a página [FEAT-041](../produto/FEAT-041-security-scan-no-check.md). O critério do item é a prova ponta a ponta: numa thread `#Classic` real, o verify reprova, o CHECK atesta um segredo real e um falso positivo, o GO-FIX corrige, a dispensa é registrada e o reverify passa.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto numa app de teste em JavaScript (abaixo). Expande por stack pelo catálogo; interrompe se algum caminho de falha da ferramenta aprovar o gate ou se um valor de segredo aparecer numa saída.
 
 ### Evidências
@@ -120,7 +118,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: Paschoal; A: Julio; C: nenhum; I: nenhum.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente de código na implementação, nas provas e nas revisões, com Paschoal no comando; revisor humano: Julio, no PR.
-- **Próxima ação, responsável e prazo:** abrir o PR, trocar o número provisório pelo reservado e aguardar a revisão do mantenedor. Sem data definida.
+- **Próxima ação, responsável e prazo:** abrir o PR e aguardar a revisão do mantenedor. Sem data definida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
