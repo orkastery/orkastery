@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-20T16:45:02.857Z",
+  "publicadoEm": "2026-10-20T16:53:28.065Z",
   "threads": [
     {
       "id": "ork-dsnforadoamb",
@@ -32,22 +32,22 @@
       "id": "ork-rm037defeit2",
       "nome": "rm037defeitos2010",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-037",
       "branch": "ork/ork-rm037defeit2-full",
-      "atualizadaEm": "2026-10-20T15:32:41.278Z",
+      "atualizadaEm": "2026-10-20T16:53:27.079Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "max",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-20T15:57:28.827Z",
-        "motivo": "sessão 01a159f1 encerrada (completed)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
