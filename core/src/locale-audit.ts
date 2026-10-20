@@ -1,4 +1,10 @@
 /** RM-061 F3d: moldura humana do ciclo de auditoria; ids, caminhos e JSON nao mudam. */
+
+/** O uso do subcomando pedido, so quando ele e chave propria do mapa (nunca um membro do prototipo do objeto). */
+function usoDe(usos: Record<string, string>, sub: string): string | undefined {
+  return Object.hasOwn(usos, sub) ? usos[sub] : undefined;
+}
+
 export const AUDIT_PT_BR = {
   packs: {
     titulo: (estagio?: string) => `Packs de auditoria periodica${estagio ? ` (estagio declarado do projeto: ${estagio})` : ''}`,
@@ -106,7 +112,8 @@ export const AUDIT_PT_BR = {
     jaRegistrados: (ids: string) => `  ja registrados nesta rodada: ${ids}`,
     recusadoSuperficie: (regra: string, arquivo: string, linha: number, erro: string) => `  RECUSADO ${regra} ${arquivo}:${linha}: ${erro}`,
   },
-  uso: (sub: string) => ({ run: 'uso: ork audit run <pack> [--profile P] [--since Nd]', show: 'uso: ork audit show <rodada> [--ledger]', prompt: 'uso: ork audit prompt <pack> [--since Nd]', ingest: 'uso: ork audit ingest <rodada> --arquivo <achados.json>', verify: 'uso: ork audit verify <rodada>', report: 'uso: ork audit report <rodada> [--publicar]' } as Record<string, string>)[sub] ?? `subcomando desconhecido: audit ${sub}`,
+  // GO-FIX 3: so a propria chave do mapa conta; `constructor` ou `toString` do prototipo eram impressos no lugar da recusa.
+  uso: (sub: string) => usoDe({ run: 'uso: ork audit run <pack> [--profile P] [--since Nd]', show: 'uso: ork audit show <rodada> [--ledger]', prompt: 'uso: ork audit prompt <pack> [--since Nd]', ingest: 'uso: ork audit ingest <rodada> --arquivo <achados.json>', verify: 'uso: ork audit verify <rodada>', report: 'uso: ork audit report <rodada> [--publicar]' }, sub) ?? `subcomando desconhecido: audit ${sub}`,
   erro: { estagio: (v: string) => `estagio invalido: "${v}". Use: nascente | crescendo | maduro`, pack: (v: string, lista: string) => `pack desconhecido: "${v}". Use um de: ${lista}`, regra: (v: string, lista: string) => `regra desconhecida: "${v}". Use uma de: ${lista}`, limite: (v: string) => `--limite invalido: "${v}". Use um inteiro >= 1.` },
 };
 
@@ -190,6 +197,6 @@ export const AUDIT_EN: typeof AUDIT_PT_BR = {
     rodadaRegistrada: (id, n) => `Run ${id}: ${n} finding(s) recorded in the debt board.`, jaRegistrados: (ids) => `  already recorded in this run: ${ids}`,
     recusadoSuperficie: (rule, file, line, error) => `  REJECTED ${rule} ${file}:${line}: ${error}`,
   },
-  uso: (sub) => ({ run: 'usage: ork audit run <pack> [--profile P] [--since Nd]', show: 'usage: ork audit show <run> [--ledger]', prompt: 'usage: ork audit prompt <pack> [--since Nd]', ingest: 'usage: ork audit ingest <run> --arquivo <findings.json>', verify: 'usage: ork audit verify <run>', report: 'usage: ork audit report <run> [--publicar]' } as Record<string, string>)[sub] ?? `unknown subcommand: audit ${sub}`,
+  uso: (sub) => usoDe({ run: 'usage: ork audit run <pack> [--profile P] [--since Nd]', show: 'usage: ork audit show <run> [--ledger]', prompt: 'usage: ork audit prompt <pack> [--since Nd]', ingest: 'usage: ork audit ingest <run> --arquivo <findings.json>', verify: 'usage: ork audit verify <run>', report: 'usage: ork audit report <run> [--publicar]' }, sub) ?? `unknown subcommand: audit ${sub}`,
   erro: { estagio: (v) => `invalid stage: "${v}". Use: nascente | crescendo | maduro`, pack: (v, list) => `unknown pack: "${v}". Use one of: ${list}`, regra: (v, list) => `unknown rule: "${v}". Use one of: ${list}`, limite: (v) => `invalid --limite: "${v}". Use an integer >= 1.` },
 };

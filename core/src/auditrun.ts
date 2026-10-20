@@ -964,7 +964,7 @@ export function textoDaRodada(raiz: string, id: string): string {
   L.push(m.campo(m.campos.custo, m.custo(r.custo.effort, r.custo.model)));
   L.push(m.campo(m.campos.janela, r.custo.janela.detalhe));
   if (r.custo.autorizadaPor) L.push(m.campo(m.campos.autorizada, m.autorizada(r.custo.autorizadaPor)));
-  L.push(m.campo(m.campos.runtime, `${r.runtime}, session ${r.sessionId ?? m.sessaoAusente}`));
+  L.push(m.campo(m.campos.runtime, `${r.runtime}, ${m.detalhes.sessao(r.sessionId ?? m.sessaoAusente)}`));
   L.push(m.campo(m.campos.prompt, `${r.promptPath} (sha256 ${r.promptSha256 || m.promptAusente})`));
   L.push(m.campo(m.campos.status, `${r.status}${r.motivo ? ` ${m.motivo(r.motivo)}` : ''}`));
   if (r.superficie) {
