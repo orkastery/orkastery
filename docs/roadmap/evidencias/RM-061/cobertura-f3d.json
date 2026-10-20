@@ -61,6 +61,19 @@
     "contador": {
       "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json",
       "resultado": "medicao concluida"
+    },
+    "suiteIntegral": {
+      "comando": "timeout 2400 npm --prefix core test",
+      "resultado": "timeout 124; 16 arquivos chegaram a concluir antes do travamento, 7 aprovados e 9 reprovados; a suite nao produziu resumo final",
+      "impedimentoDoSandbox": "spawnSync /bin/sh devolveu EPERM; testes que reexecutam comandos nao provaram seus resultados neste runtime"
+    },
+    "verifyNativo": {
+      "commit": "ecc5caf0c190c4d32423285b12bef12d30a176b8",
+      "ok": false,
+      "motivos": ["claims.failed", "verify.regression", "verify.sem-veredito"],
+      "claims": { "total": 161, "verificadas": 86 },
+      "executor": "codex-sandbox",
+      "prazoTotalMs": 180000
     }
   },
   "pendencias": [

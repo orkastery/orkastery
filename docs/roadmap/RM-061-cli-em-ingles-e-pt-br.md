@@ -225,6 +225,7 @@ A F3d mede no mesmo contador, com o recibo em [`cobertura-f3d.json`](evidencias/
 - **Comandos cobertos:** além das três lacunas da revisão, entram `modos`, `ciclos`, `setup`, `projetos`, as rotas complementares de `pulse`, `ledger`, `portfolio`, `creation`, `objective`, `ci`, `retry`, `sessions`, `gate`, `fix`, `handoff`, `recall`, `lease`, `board`, `orquestracao`, `monitor`, `licoes`, `demo`, `fabrica`, `eval`, `memory`, `mcp install`, `master`, `conducao`, `grafo` e `audit`.
 - **Contratos preservados:** comandos, flags, ids, códigos tipados, ledger e `--json` não são traduzidos. Os quatro snapshots pt-BR anteriores conservaram os mesmos hashes byte a byte; cada família nova tem exercício em pt-BR e inglês no teste focado da F3d.
 - **Fora da régua:** o contador mede `core/src`. As superfícies derivadas que ficaram pendentes não seriam representadas com honestidade pela porcentagem e ganham trabalho próprio de geração e paridade.
+- **Verificação desta sessão:** o teste focado da F3d aprovou 22 de 22 casos. A suíte integral expirou em 2.400 segundos depois de concluir 16 arquivos (7 aprovados e 9 reprovados), e o diagnóstico mínimo confirmou `spawnSync /bin/sh` com `EPERM`; por isso ela não é declarada verde. O `ork verify` nativo também encerrou sem veredito depois de verificar 86 de 161 claims. O CHECK independente precisa repetir a suíte e o verify fora deste sandbox.
 
 ## Responsabilidades e histórico
 
