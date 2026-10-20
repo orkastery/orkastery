@@ -316,8 +316,10 @@ is nothing, `1` when the runtime did not respond).
 
 `--baseline` records the state of the world **before GO**. It is what makes it possible to separate `verify.regression`
 (a defect of this thread) from pre-existing debt. It runs with the same per-command deadline as verify
-(`verify.timeout_ms_por_comando`, then `verify.timeout_ms`) and the same steal measurement; a command without a verdict
-in it (deadline exceeded, clock under steal, or a command that did not run) is shown as `NO VERDICT` and does not count as
+(`verify.timeout_ms_por_comando`, then `verify.timeout_ms`) and the same steal measurement. Only the command's own normal
+exit (exit code 1 to 123) has a verdict; a command without a verdict in it (deadline exceeded, killed by a signal, clock
+under steal, a command that did not run, or no exit code)
+is shown as `NO VERDICT` and does not count as
 "already failing": its failure in verify is a failure without a baseline (`verify.failed`). A command missing from the
 worktree refuses the baseline with `baseline.dependencia-ausente`, which states the `worktree.dependencias` command (RM-037).
 

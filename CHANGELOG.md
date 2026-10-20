@@ -324,9 +324,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Defeitos de condução de 19 e 20/10/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): a
   baseline (`ork verify --baseline`) roda com o mesmo prazo de cada comando do verify
-  (`verify.timeout_ms_por_comando`) e a mesma medida do steal, e o comando sem veredito nela (estouro, relógio sob
-  steal, comando que não rodou) sai `SEM VEREDITO` e nunca vale como "já falhava": a falha dele no verify é falha sem
-  baseline (`verify.failed`). Nova chave `worktree.dependencias` no manifesto: o `ork` roda o comando dentro de toda
+  (`verify.timeout_ms_por_comando`) e a mesma medida do steal, e o comando sem veredito nela (estouro, morte por sinal,
+  relógio sob steal, comando que não rodou, falta do código de saída) sai `SEM VEREDITO` e nunca vale como "já
+  falhava": só o término normal do próprio comando, com código de saída de 1 a 123, tem veredito, e a falha dele no
+  verify é falha sem baseline (`verify.failed`). O `core/scripts/mutante.cjs` aceita `arquivo` (um roteiro de
+  `core/scripts` ou um apoio compilado de `core/dist-test/test`) no lugar de `modulo`. Nova chave `worktree.dependencias` no manifesto: o `ork` roda o comando dentro de toda
   worktree nova (`ork thread new`, `ork worktree ensure`, `ork_thread_new`), grava `worktree_dependencias` no ledger e,
   se falhar, avisa com o comando exato sem desfazer a thread; a recusa `baseline.dependencia-ausente` diz esse
   comando. A sessão claude-bg que deu a resposta final e ficou ociosa no prompt (`working` com `status: idle`) por

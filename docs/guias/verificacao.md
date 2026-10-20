@@ -110,12 +110,15 @@ Sem nada no manifesto, vale 600 s. O `ork_verify` do MCP usa o mesmo prazo, até
 300 s por comando e 180 s no total da chamada.
 
 A baseline (`ork verify <thread> --baseline`, e a que o `ork phase run` grava no despacho codex) roda pelo
-mesmo executor: o mesmo prazo de cada comando e a mesma medida do steal. Um comando sem veredito na baseline
-(estouro do prazo, reprovação só de teste com relógio sob steal, ou comando que não rodou) não vale como "já
+mesmo executor: o mesmo prazo de cada comando e a mesma medida do steal. Só o término normal do próprio comando
+(`causa: exit`, com código de saída de 1 a 123) vale como "já falhava". Um comando sem veredito na baseline
+(estouro do prazo, morte por sinal, o 124 do `timeout` de dentro do comando, falta do código de saída,
+reprovação só de teste com relógio sob steal, ou comando que não rodou) não vale como "já
 falhava": a saída do `--baseline` diz `SEM VEREDITO` e como regravar, e a falha dele no verify sai como falha
 sem baseline (`verify.failed`), nunca como dívida pré-existente. Até 20/10/2026 a baseline rodava com o teto
 padrão de 600 s mesmo com o manifesto dando mais, e uma suíte mais longa que isso era gravada como "já
-falhava" (RM-037).
+falhava" (RM-037). Um limite fica: o `timeout` do uutils devolve o SIGTERM, o SIGINT e o SIGHUP do processo
+que ele vigia como saída 15, 2 e 1, iguais a uma saída do comando, e eles contam como término normal.
 
 A worktree nova não traz o que o git ignora (o `node_modules`, por exemplo). Com `worktree.dependencias` no
 manifesto, o `ork` roda esse comando dentro de toda worktree que cria e grava `worktree_dependencias` no ledger;

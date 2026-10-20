@@ -315,8 +315,10 @@ há, `1` quando o runtime não respondeu).
 
 `--baseline` grava o estado do mundo **antes do GO**. E o que permite separar `verify.regression`
 (defeito desta thread) de dívida pré-existente. Ela roda com o mesmo prazo de cada comando do verify
-(`verify.timeout_ms_por_comando`, depois `verify.timeout_ms`) e a mesma medida do steal; o comando sem veredito nela
-(estouro do prazo, relógio sob steal ou comando que não rodou) sai como `SEM VEREDITO` e não vale como "já falhava":
+(`verify.timeout_ms_por_comando`, depois `verify.timeout_ms`) e a mesma medida do steal. Só o término normal do
+próprio comando (código de saída de 1 a 123) tem veredito; o comando sem veredito nela (estouro do prazo, morte por
+sinal, relógio sob steal, comando que não rodou ou falta do código de saída)
+sai como `SEM VEREDITO` e não vale como "já falhava":
 a falha dele no verify é falha sem baseline (`verify.failed`). O comando que não existe na worktree recusa a baseline
 com `baseline.dependencia-ausente`, que diz o comando de `worktree.dependencias` (RM-037).
 
