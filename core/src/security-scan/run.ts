@@ -36,7 +36,7 @@ import { raizDoEstado } from '../estado-thread';
 import { carregarManifesto } from '../manifest';
 import { classify, mergeByFingerprint } from './compare';
 import { loadConfig, loadDismissals, type ScanConfig } from './config';
-import { detectStacks, type StackDir } from './detect';
+import { detectStacks, hasStackManifest, type StackDir } from './detect';
 import {
   chooseExecutor, CONFIG_FILES, defaultProbe, defaultsDir, ensureImage, nativeVersionOf, runDocker, runNative,
   type InvocationResult, type Probe, type UnavailableReason,
@@ -62,7 +62,8 @@ export const SCAN_CACHE_VERSION = 1;
 
 /** `reason` on `ran` is the tolerated partial coverage (`partial-timeout: 2`), see `expect.tolerate`. */
 type Outcome = { kind: 'ran'; findings: RawFinding[]; reason?: string } | { kind: 'failed' | 'unavailable'; reason: string };
-interface Unit { stack?: Stack; dir: string }
+/** `forced`: the pair comes from `config.stacks.add` (root, no manifest needed), not from detection. */
+interface Unit { stack?: Stack; dir: string; forced?: boolean }
 
 const STATUSES: FindingStatus[] = ['new', 'existing', 'dismissed'];
 const SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
@@ -95,19 +96,19 @@ function resolveBase(root: string, stateRoot: string, ref: string | undefined): 
 }
 
 /** Detected (stack, dir) pairs adjusted by `config.stacks`: `remove` drops a stack, `add` forces it at the root. */
-function stackPairs(root: string, config: ScanConfig): StackDir[] {
-  const pairs = detectStacks(root).filter(p => !config.stacks.remove.includes(p.stack));
-  for (const s of config.stacks.add) if (!pairs.some(p => p.stack === s)) pairs.push({ stack: s, dir: '.' });
+function stackPairs(root: string, config: ScanConfig): Array<StackDir & { forced?: boolean }> {
+  const pairs: Array<StackDir & { forced?: boolean }> = detectStacks(root).filter(p => !config.stacks.remove.includes(p.stack));
+  for (const s of config.stacks.add) if (!pairs.some(p => p.stack === s)) pairs.push({ stack: s, dir: '.', forced: true });
   return pairs;
 }
 
 const usesStackDir = (t: ToolSpec): boolean => !!t.argsByStack || t.args.some(a => a.includes('{stackDir}'));
 const argvFor = (t: ToolSpec, stack?: Stack): string[] => (stack && t.argsByStack?.[stack]) || t.args;
 
-function unitsOf(t: ToolSpec, pairs: StackDir[]): Unit[] {
+function unitsOf(t: ToolSpec, pairs: Array<StackDir & { forced?: boolean }>): Unit[] {
   if (!usesStackDir(t)) return [{ dir: '.' }];
   return pairs.filter(p => (t.stacks === 'all' || t.stacks.includes(p.stack)) && argvFor(t, p.stack).length > 0)
-    .map(p => ({ stack: p.stack, dir: p.dir }));
+    .map(p => ({ stack: p.stack, dir: p.dir, ...(p.forced ? { forced: true } : {}) }));
 }
 
 const hasWorkflows = (tree: string): boolean => {
@@ -243,8 +244,10 @@ function scanBase(t: ToolSpec, executor: Executor, unit: Unit, ctx: Context, hea
   const tree = ctx.baseTree;
   if (unit.dir !== '.' && !fs.existsSync(path.join(tree, unit.dir))) return { kind: 'ran', findings: [] };
   if (t.category === 'workflow' && !hasWorkflows(tree)) return { kind: 'ran', findings: [] };
-  // A stack the base does not have yet (a project adopting it in this change): nothing to scan on the base, not a failure.
-  if (unit.stack && !detectStacks(tree).some(p => p.stack === unit.stack && p.dir === unit.dir)) return { kind: 'ran', findings: [] };
+  // A detected stack whose manifest is absent from the base at that dir (a project adopting it, or moving it, in this
+  // change): nothing to scan on the base, not a failure. A stack forced by `config.stacks.add` has no manifest by design
+  // and is always scanned. A manifest moved from `a/` to `b/` leaves `b/` empty on the base, so its findings are `new`.
+  if (unit.stack && !unit.forced && !hasStackManifest(tree, unit.stack, unit.dir)) return { kind: 'ran', findings: [] };
   const { outcome } = scanTree(t, executor, tree, unit, ctx, false);
   if (outcome.kind === 'unavailable') return { kind: 'ran', findings: [] };
   if (outcome.kind === 'ran') {

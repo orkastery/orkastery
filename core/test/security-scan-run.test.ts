@@ -503,3 +503,67 @@ test('a round killed by SIGTERM leaves no worktree, no raw output dir and no con
   const container = run[run.indexOf('--name') + 1];
   assert.ok(fake.calls().some(c => c.args[0] === 'rm' && c.args.includes(container)), 'the running container is removed');
 });
+
+/** A repo with explicit base and HEAD file sets (paths relative to the root); `.fake-case` selects the recorded outputs. */
+function twoCommitRepo(name: string, baseFiles: Record<string, string>, headFiles: Record<string, string>, removed: string[] = []): Repo {
+  const dir = dirTemporario(name);
+  cleanups.push(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const put = (files: Record<string, string>) => {
+    for (const [f, body] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true });
+      fs.writeFileSync(path.join(dir, f), body);
+    }
+  };
+  git(dir, 'init', '-q', '-b', 'main');
+  put(baseFiles);
+  git(dir, 'add', '-A'); git(dir, 'commit', '-q', '-m', 'base');
+  const base = git(dir, 'rev-parse', 'HEAD');
+  for (const f of removed) fs.rmSync(path.join(dir, f), { recursive: true, force: true });
+  put(headFiles);
+  git(dir, 'add', '-A'); git(dir, 'commit', '-q', '-m', 'head');
+  return { dir, base, head: git(dir, 'rev-parse', 'HEAD'), cleanup: () => {} };
+}
+
+const runsWith = (f: FakeTools, file: string): number =>
+  f.calls().filter(c => c.as === 'docker' && c.args[0] === 'run' && c.args.some(a => a.includes(file))).length;
+
+test('base without the stack manifest: the base side is an empty ran (not failed) and the HEAD findings are new', () => {
+  const r = twoCommitRepo('secscan-nomanifest', { 'README.md': '# base\n' },
+    { ...CLEAN_JS, 'src/a.js': 'x\n', '.fake-case': 'js\n' });
+  fake = installFakeTools();
+  const report = runScan({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const npm = tool(report, 'npm-audit');
+  assert.equal(npm.state, 'ran', npm.reason);
+  assert.ok(report.findings.filter(f => f.tool === 'npm-audit').every(f => f.status === 'new'));
+  assert.equal(runsWith(fake, 'npm-audit.json'), 1, 'only the HEAD runs: the base has nothing to scan');
+});
+
+test('base with the manifest: the base side is scanned as before', () => {
+  const r = twoCommitRepo('secscan-manifest', CLEAN_JS, { 'src/a.js': 'x\n', '.fake-case': 'js\n' });
+  fake = installFakeTools();
+  const report = runScan({ root: r.dir, stateRoot: r.dir, base: r.base });
+  assert.equal(tool(report, 'npm-audit').state, 'ran');
+  assert.equal(runsWith(fake, 'npm-audit.json'), 2, 'HEAD and base');
+});
+
+test('manifest moved from a/ to b/ (b/ exists on the base without it): the base unit is empty, so the findings of b/ are new', () => {
+  const r = twoCommitRepo('secscan-moved', { 'a/package.json': CLEAN_JS['package.json'], 'a/package-lock.json': CLEAN_JS['package-lock.json'], 'b/README.md': '# b\n' },
+    { 'b/package.json': CLEAN_JS['package.json'], 'b/package-lock.json': CLEAN_JS['package-lock.json'], '.fake-case': 'js\n' }, ['a']);
+  fake = installFakeTools();
+  const report = runScan({ root: r.dir, stateRoot: r.dir, base: r.base });
+  assert.deepEqual(report.stacks, ['js']);
+  assert.equal(tool(report, 'npm-audit').state, 'ran');
+  const f = report.findings.filter(x => x.tool === 'npm-audit');
+  assert.ok(f.length > 0 && f.every(x => x.status === 'new'), 'moving a manifest makes its findings new (conservative, pinned)');
+  assert.equal(runsWith(fake, 'npm-audit.json'), 1);
+});
+
+test('a stack forced by config.stacks.add has no manifest and its base is still scanned', () => {
+  const config = { '.ork-security/config.json': JSON.stringify({ stacks: { add: ['go'] } }) };
+  const r = twoCommitRepo('secscan-forced', { 'README.md': '# base\n', ...config }, { '.fake-case': 'go\n' });
+  fake = installFakeTools();
+  const report = runScan({ root: r.dir, stateRoot: r.dir, base: r.base });
+  assert.deepEqual(report.stacks, ['go']);
+  assert.equal(tool(report, 'govulncheck').state, 'ran', tool(report, 'govulncheck').reason);
+  assert.equal(runsWith(fake, 'govulncheck.json'), 2, 'HEAD and base');
+});

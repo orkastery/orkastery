@@ -53,3 +53,8 @@ export function detectStacks(root: string): StackDir[] {
   }
   return result;
 }
+
+/** Whether `dir` (relative to `root`) holds a manifest of `stack`, by the same marker file names `detectStacks` uses. */
+export function hasStackManifest(root: string, stack: Stack, dir: string): boolean {
+  return stacksIn(path.join(root, dir)).includes(stack);
+}

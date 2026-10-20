@@ -58,9 +58,7 @@ afterEach(() => {
   if (savedCache === undefined) delete process.env.XDG_CACHE_HOME; else process.env.XDG_CACHE_HOME = savedCache;
 });
 
-// The probe repeats what the scan needs: the docker CLI and a reachable daemon (typed skip, RM-037).
-const dockerOk = (): boolean => spawnSync('docker', ['info', '--format', '{{.ServerVersion}}'], { timeout: 20000 }).status === 0;
-const semDocker = (): string | false => semAmbiente(['postgres'], { sonda: () => dockerOk() });
+const semDocker = (): string | false => semAmbiente(['docker']);
 
 for (const stack of ['js', 'python', 'go'] as const) {
   test(`real Docker: the ${stack} fixture yields new loop findings in secret, dependency, sast and workflow`,
