@@ -45,7 +45,10 @@ export function dirFixo(prefixo: string, marcador: string): string {
 export function normalizar(texto: string): string {
   let t = texto;
   for (const [dir, marcador] of [...marcadores].sort((a, b) => b[0].length - a[0].length)) t = t.split(dir).join(marcador);
-  return normalizarDaF3b(t).replace(/\bpid \d+\b/g, 'pid <PID>');
+  // Antes da F3b: pid de 7 ou 8 digitos (a maquina passa de 1.000.000) parece sha curto para ela, e o sha curto so de
+  // letras depois de `HEAD` ela nao reconhece.
+  t = t.replace(/\bpid \d+\b/g, 'pid <PID>').replace(/\b(HEAD )[0-9a-f]{7,8}\b/g, '$1<SHA7>');
+  return normalizarDaF3b(t);
 }
 
 export function limparTudo(): void {
