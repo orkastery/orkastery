@@ -1071,11 +1071,12 @@ export function assumirConducao(raiz: string, threadId: string,
 
 /** Texto de `ork conducao status`. */
 export function textoDoStatusDaConducao(threadId: string, atual: ConducaoAtual | null): string {
-  if (!atual) return `Thread ${threadId}: ninguem conduz agora. Qualquer canal pode despachar ou verificar.`;
-  const linhas = [`Thread ${threadId}: ${linhaDeConducao(atual)}`];
-  if (atual.promptSha256) linhas.push(`  prompt sha256 ${atual.promptSha256.slice(0, 12)}`);
-  linhas.push(`  prazo do lease (metadado, nao prova): ${formatarDataHoraRotulada(atual.expiraEm)}`);
-  if (atual.sessao) linhas.push(`  acompanhar: ork sessions logs ${atual.sessao.slice(0, 8)}`);
-  linhas.push(`  assumir: ork conducao assumir ${threadId} --por <voce> --motivo "<por que>"`);
+  const m = msg().conducao.status;
+  if (!atual) return m.livre(threadId);
+  const linhas = [m.titulo(threadId, linhaDeConducao(atual))];
+  if (atual.promptSha256) linhas.push(m.prompt(atual.promptSha256.slice(0, 12)));
+  linhas.push(m.prazo(formatarDataHoraRotulada(atual.expiraEm)));
+  if (atual.sessao) linhas.push(m.acompanhar(atual.sessao.slice(0, 8)));
+  linhas.push(m.assumir(threadId));
   return linhas.join('\n');
 }
