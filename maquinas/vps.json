@@ -4,8 +4,30 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-20T15:32:41.781Z",
+  "publicadoEm": "2026-10-20T15:32:49.637Z",
   "threads": [
+    {
+      "id": "ork-dsnforadoamb",
+      "nome": "dsnforadoambiente",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-dsnforadoamb-full",
+      "atualizadaEm": "2026-10-20T15:32:49.029Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-20T15:32:49.092Z",
+        "motivo": "nenhuma sessão despachada na fase GOAL"
+      }
+    },
     {
       "id": "ork-rm037defeit2",
       "nome": "rm037defeitos2010",
