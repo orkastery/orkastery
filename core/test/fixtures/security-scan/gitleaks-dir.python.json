@@ -1,0 +1,22 @@
+[
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "StartLine": 2,
+  "EndLine": 2,
+  "StartColumn": 2,
+  "EndColumn": 45,
+  "Match": "API_KEY = \"m4Xv8Qz2LkR7wTn3Bc9YdHs6JfP1aGe5\"",
+  "Secret": "m4Xv8Qz2LkR7wTn3Bc9YdHs6JfP1aGe5",
+  "File": "/src/app/config.py",
+  "SymlinkFile": "",
+  "Commit": "",
+  "Entropy": 5,
+  "Author": "",
+  "Email": "",
+  "Date": "",
+  "Message": "",
+  "Tags": [],
+  "Fingerprint": "/src/app/config.py:generic-api-key:2"
+ }
+]

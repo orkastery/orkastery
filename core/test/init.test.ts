@@ -101,6 +101,7 @@ test('o YAML gerado e lido pelo parser do proprio nucleo', () => {
     baseBranch: 'main',
     gerenciador: 'npm',
     verify: { test: 'npm test' },
+    stacks: ['js'],
   });
   const dados = lerYaml(yaml) as Record<string, Record<string, unknown>>;
   assert.equal(dados.project.name, 'orkastery');

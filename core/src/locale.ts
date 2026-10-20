@@ -73,6 +73,7 @@ import { ROADMAP_EN, ROADMAP_PT_BR } from './locale-roadmap';
 import { GERADOS_EN, GERADOS_PT_BR } from './locale-gerados';
 import { WORKTREE_EN, WORKTREE_PT_BR } from './locale-worktree';
 import { ESTADO_EN, ESTADO_PT_BR } from './locale-estado';
+import { SECURITY_SCAN_EN, SECURITY_SCAN_PT_BR } from './locale-security-scan';
 import { CLAIMS_EN, CLAIMS_PT_BR } from './locale-claims';
 import { DECISAO_EN, DECISAO_PT_BR } from './locale-decisao';
 import { ACCOUNTS_EN, ACCOUNTS_PT_BR } from './locale-accounts';
@@ -112,7 +113,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'docs verificar', 'docs sincronizar', 'docs ?',
   'adapter list', 'adapter show', 'adapter install', 'adapter ?',
   'prompt list', 'prompt lint', 'prompt render', 'prompt ?',
-  'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?'];
+  'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?', 'security-scan'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -258,6 +259,11 @@ const PT_BR = {
     instaleNode: 'instale Node 20 ou superior',
     gitAusente: 'nao encontrado no PATH',
     instaleGit: 'instale o git',
+    securityScanDocker: 'Docker disponivel: as ferramentas do security scan rodam em container',
+    securityScanNativo: 'sem Docker; todas as ferramentas do laco tem binario nativo aceito',
+    securityScanSemFerramenta: (lista: string) => `sem Docker, nao rodariam (unavailable): ${lista}`,
+    securityScanCorrecao: (nativos: string) =>
+      `instale o Docker (CLI e daemon ativo); alternativa, instale os binarios nativos na versao do catalogo: ${nativos}. pip-audit e govulncheck so rodam no Docker`,
     branch: (branch: string, semCommit: boolean) => `branch ${branch}${semCommit ? ' (sem commit)' : ''}`,
     foraDeRepo: 'fora de um repositorio git',
     rodeDentroDeRepo: 'rode o ork dentro de um repositorio git',
@@ -520,6 +526,7 @@ const PT_BR = {
   gerados: GERADOS_PT_BR,
   worktree: WORKTREE_PT_BR,
   estado: ESTADO_PT_BR,
+  securityScan: SECURITY_SCAN_PT_BR,
   claims: CLAIMS_PT_BR,
   decisao: DECISAO_PT_BR,
   accounts: ACCOUNTS_PT_BR,
@@ -619,6 +626,11 @@ const EN: Mensagens = {
     instaleNode: 'install Node 20 or later',
     gitAusente: 'not found on PATH',
     instaleGit: 'install git',
+    securityScanDocker: 'Docker available: the security scan tools run in containers',
+    securityScanNativo: 'no Docker; every loop tool has an accepted native binary',
+    securityScanSemFerramenta: (lista) => `without Docker these would be unavailable: ${lista}`,
+    securityScanCorrecao: (nativos) =>
+      `install Docker (CLI and a running daemon); alternatively install the native binaries at the catalog version: ${nativos}. pip-audit and govulncheck only run in Docker`,
     branch: (branch, semCommit) => `branch ${branch}${semCommit ? ' (no commit)' : ''}`,
     foraDeRepo: 'outside a git repository',
     rodeDentroDeRepo: 'run `ork` inside a git repository',
@@ -865,6 +877,7 @@ const EN: Mensagens = {
   gerados: GERADOS_EN,
   worktree: WORKTREE_EN,
   estado: ESTADO_EN,
+  securityScan: SECURITY_SCAN_EN,
   claims: CLAIMS_EN,
   decisao: DECISAO_EN,
   accounts: ACCOUNTS_EN,

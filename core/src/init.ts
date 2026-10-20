@@ -13,6 +13,8 @@ import { normalizarAbbrev } from './slug';
 import { branchDoHead, exec, gravar, ignorarPastaNoGit } from './util';
 import { FUSO_DE_BRASILIA } from './horario';
 import { ORDEM_DOS_MODOS } from './modos';
+import { detectStacks } from './security-scan/detect';
+import type { Stack } from './security-scan/types';
 
 /** O proximo passo do `ork init` em pt-BR; o texto do CLI sai pelo catalogo (`msg().init.proximoPasso`). */
 export const PROXIMO_PASSO_INIT = msg('pt-BR').init.proximoPasso;
@@ -24,6 +26,8 @@ export interface Deteccao {
   baseBranch: string;
   gerenciador: string;
   verify: { build?: string; test?: string; typecheck?: string };
+  /** Stacks detected (JS/TS, Python, Go), deduplicated; non-empty enables `verify.security_scan` in the new manifest. */
+  stacks: Stack[];
 }
 
 /** Raiz do repositorio git, resolvendo tambem o caso de worktree. */
@@ -110,6 +114,7 @@ export function detectar(dirInicial: string, nomeForcado?: string, abbrevForcada
     baseBranch: baseBranchDetectada(raiz),
     gerenciador: gerenciadorDetectado(raiz),
     verify: verifyDetectado(raiz),
+    stacks: [...new Set(detectStacks(raiz).map((e) => e.stack))],
   };
 }
 
@@ -172,6 +177,10 @@ verify:
 ${linhaVerify('build', d.verify.build)}
 ${linhaVerify('test', d.verify.test)}
 ${linhaVerify('typecheck', d.verify.typecheck)}
+${comentario(c.securityScan)}
+  ${d.stacks.length > 0 ? '' : '# '}security_scan: "ork security-scan"
+  ${d.stacks.length > 0 ? '' : '# '}timeout_ms_por_comando:
+  ${d.stacks.length > 0 ? '' : '# '}  security_scan: 900000
 
 ci:
 ${comentario(c.ci)}

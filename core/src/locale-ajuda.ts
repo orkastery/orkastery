@@ -240,12 +240,14 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   grafo amostra [--por-estrato N]           Amostra de arestas para auditoria manual; --conferir ARQ confere a auditada
   grafo limpar [--tudo] [--json]            Apaga os indices que nao sao do HEAD e as sobras com mais de uma hora
 
+  security-scan [--base <ref>] [--json]     Varredura de seguranca do HEAD contra a base: relatorio por SHA em
+                                            .orkastery/security-scan/<sha>/; sai 1 com achado novo no laco
   ship <thread-id> --para <branch>          Merge --no-ff serializado por lease e push PROVADO
   ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
         [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master <thread> --aceitar-omissao
         [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
         [--dry-run]                              Ensaio: as mesmas conferencias, sem gravar ship_done, fase nem fabrica
-        [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
+        [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--allow-unscanned <quem>] [--sem-push] [--dry-run]
   ship publicar <thread-id>                 Publica a branch e abre o PR com prova (ls-remote), so em #Auto e #Maestro
         [--dry-run] [--remoto R] [--json]        Ensaio confere tudo sem publicar; repetido, nao abre outro PR
   ship pista [<thread-id>] [--json]         Etapas da entrega, do CHECK ao ship_done, e o proximo passo do nucleo
@@ -645,12 +647,14 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   grafo amostra [--por-estrato N]           Sample of edges for manual audit; --conferir FILE checks the audited one
   grafo limpar [--tudo] [--json]            Deletes the indexes that are not from HEAD and leftovers older than one hour
 
+  security-scan [--base <ref>] [--json]     Security scan of the HEAD against the base: report by SHA in
+                                            .orkastery/security-scan/<sha>/; exits 1 on a new finding in the loop
   ship <thread-id> --para <branch>          Serialized --no-ff merge by lease and PROVEN push
   ship registrar-pr <thread-id>|--todas    A delivery made by PR becomes ship_done: ship(<thread>) merge on the remote
         [--remoto R] [--json]                    base and green CI on the PR head; then, ork master <thread> --aceitar-omissao
         [--repo <owner/name> --pr <n>]           PR merged in an external repository of ci.external_repositories
         [--dry-run]                              Rehearsal: the same checks, without writing ship_done, phase or factory
-        [--de <branch>] [--remoto origin] [--autorizar-push <who>] [--sem-push] [--dry-run]
+        [--de <branch>] [--remoto origin] [--autorizar-push <who>] [--allow-unscanned <who>] [--sem-push] [--dry-run]
   ship publicar <thread-id>                 Publishes the branch and opens the PR with proof (ls-remote), only in #Auto and #Maestro
         [--dry-run] [--remoto R] [--json]        The rehearsal checks everything without publishing; repeated, it opens no other PR
   ship pista [<thread-id>] [--json]         Delivery steps, from CHECK to ship_done, and the core's next step

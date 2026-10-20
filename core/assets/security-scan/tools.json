@@ -1,0 +1,625 @@
+[
+  {
+    "name": "gitleaks",
+    "category": "secret",
+    "stacks": "all",
+    "image": "zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f",
+    "version": "8.30.1",
+    "native": {
+      "bin": "gitleaks",
+      "versionArgs": [
+        "version"
+      ],
+      "versionPattern": "\\bv?8\\.30\\.\\d+\\b"
+    },
+    "network": "none",
+    "baseMode": "commit-range",
+    "timeoutMs": 300000,
+    "severityMap": {
+      "*": "critical"
+    },
+    "args": [
+      "gitleaks",
+      "dir",
+      "{src}",
+      "--config",
+      "{config}",
+      "--report-format",
+      "json",
+      "--report-path",
+      "{out}/gitleaks-dir.json",
+      "--exit-code",
+      "0",
+      "--no-banner"
+    ],
+    "extraArgs": [
+      [
+        "gitleaks",
+        "git",
+        "{src}",
+        "--config",
+        "{config}",
+        "--log-opts",
+        "{base}..HEAD",
+        "--report-format",
+        "json",
+        "--report-path",
+        "{out}/gitleaks-git.json",
+        "--exit-code",
+        "0",
+        "--no-banner"
+      ]
+    ],
+    "expect": {
+      "files": [
+        "gitleaks-dir.json",
+        "gitleaks-git.json"
+      ],
+      "shape": "array"
+    }
+  },
+  {
+    "name": "semgrep",
+    "category": "sast",
+    "stacks": "all",
+    "image": "semgrep/semgrep@sha256:81474464c1f07483ba0682a44787fd93c91397419762a04abe2bafaae396304b",
+    "version": "1.181.0",
+    "native": {
+      "bin": "semgrep",
+      "versionArgs": [
+        "--version"
+      ],
+      "versionPattern": "\\b1\\.181\\.\\d+\\b"
+    },
+    "network": "default",
+    "baseMode": "worktree",
+    "timeoutMs": 900000,
+    "severityMap": {
+      "ERROR": "high",
+      "WARNING": "medium",
+      "INFO": "low"
+    },
+    "args": [],
+    "argsByStack": {
+      "js": [
+        "semgrep",
+        "scan",
+        "--metrics=off",
+        "--disable-version-check",
+        "--json",
+        "--output",
+        "{out}/semgrep.json",
+        "--config",
+        "p/typescript",
+        "--config",
+        "p/javascript",
+        "--config",
+        "p/nodejs",
+        "{stackDir}"
+      ],
+      "python": [
+        "semgrep",
+        "scan",
+        "--metrics=off",
+        "--disable-version-check",
+        "--json",
+        "--output",
+        "{out}/semgrep.json",
+        "--config",
+        "p/python",
+        "{stackDir}"
+      ],
+      "go": [
+        "semgrep",
+        "scan",
+        "--metrics=off",
+        "--disable-version-check",
+        "--json",
+        "--output",
+        "{out}/semgrep.json",
+        "--config",
+        "p/golang",
+        "{stackDir}"
+      ]
+    },
+    "env": {
+      "HOME": "/tmp",
+      "SEMGREP_ENABLE_VERSION_CHECK": "0"
+    },
+    "expect": {
+      "files": [
+        "semgrep.json"
+      ],
+      "shape": "object",
+      "failIfKey": [
+        "errors"
+      ],
+      "requireKey": [
+        "results"
+      ],
+      "tolerate": {
+        "key": "errors",
+        "level": "warn",
+        "types": [
+          "Timeout",
+          "PartialParsing"
+        ]
+      }
+    }
+  },
+  {
+    "name": "trivy-vuln",
+    "category": "dependency",
+    "stacks": "all",
+    "image": "aquasec/trivy@sha256:2416d1f74045b57274df1a340eee6b510cacd73c66a6ccb8da092b117eb7d222",
+    "version": "0.76.0",
+    "native": {
+      "bin": "trivy",
+      "versionArgs": [
+        "--version"
+      ],
+      "versionPattern": "\\b0\\.76\\.\\d+\\b"
+    },
+    "network": "default",
+    "baseMode": "worktree",
+    "timeoutMs": 600000,
+    "severityMap": {
+      "CRITICAL": "critical",
+      "HIGH": "high",
+      "MEDIUM": "medium",
+      "LOW": "low",
+      "UNKNOWN": "info"
+    },
+    "args": [
+      "trivy",
+      "fs",
+      "--scanners",
+      "vuln",
+      "--cache-dir",
+      "/tmp/trivy-cache",
+      "--quiet",
+      "--format",
+      "json",
+      "--output",
+      "{out}/trivy-vuln.json",
+      "{src}"
+    ],
+    "env": {
+      "HOME": "/tmp"
+    },
+    "expect": {
+      "files": [
+        "trivy-vuln.json"
+      ],
+      "shape": "object",
+      "requireKey": [
+        "SchemaVersion"
+      ]
+    }
+  },
+  {
+    "name": "npm-audit",
+    "category": "dependency",
+    "stacks": [
+      "js"
+    ],
+    "image": "node@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5",
+    "version": "11.20.0",
+    "native": {
+      "bin": "npm",
+      "versionArgs": [
+        "--version"
+      ],
+      "versionPattern": "^11\\.\\d+\\.\\d+"
+    },
+    "network": "default",
+    "baseMode": "worktree",
+    "timeoutMs": 300000,
+    "severityMap": {
+      "critical": "critical",
+      "high": "high",
+      "moderate": "medium",
+      "low": "low",
+      "info": "info"
+    },
+    "args": [
+      "sh",
+      "-c",
+      "cd \"$2\" && npm audit --package-lock-only --ignore-scripts --json > \"$1\"; rc=$?; [ $rc -le 1 ] || exit $rc; node -e 'const o=JSON.parse(require(\"fs\").readFileSync(process.argv[1],\"utf8\"));if(o.error||!o.vulnerabilities)process.exit(3)' \"$1\" || exit 3",
+      "sh",
+      "{out}/npm-audit.json",
+      "{stackDir}"
+    ],
+    "env": {
+      "HOME": "/tmp",
+      "npm_config_cache": "/tmp/npm-cache",
+      "npm_config_update_notifier": "false"
+    },
+    "expect": {
+      "files": [
+        "npm-audit.json"
+      ],
+      "shape": "object",
+      "failIfKey": [
+        "error"
+      ],
+      "requireKey": [
+        "vulnerabilities"
+      ]
+    }
+  },
+  {
+    "name": "pip-audit",
+    "category": "dependency",
+    "stacks": [
+      "python"
+    ],
+    "image": "python@sha256:2699b90f4d562a22e2dd076c82f964032f64814204bff36d271a54ba4cc2c7e2",
+    "version": "2.10.1",
+    "severityMap": {
+      "*": "high"
+    },
+    "network": "default",
+    "baseMode": "worktree",
+    "timeoutMs": 600000,
+    "install": [
+      "pip-audit==2.10.1"
+    ],
+    "args": [
+      "sh",
+      "-c",
+      "cd \"$2\" || exit 3; pip install --quiet --no-cache-dir --only-binary=:all: --target /tmp/pa {install} || exit 3; reqs=\"\"; for f in requirements*.txt; do [ -f \"$f\" ] && reqs=\"$reqs -r $f\"; done; [ -n \"$reqs\" ] || { echo \"no-requirements-file\" >&2; exit 3; }; PYTHONPATH=/tmp/pa python -m pip_audit --no-deps --disable-pip --format json --output \"$1\" $reqs; rc=$?; [ $rc -le 1 ] || exit $rc; python -c 'import json,sys;sys.exit(0 if \"dependencies\" in json.load(open(sys.argv[1])) else 3)' \"$1\" || exit 3",
+      "sh",
+      "{out}/pip-audit.json",
+      "{stackDir}"
+    ],
+    "env": {
+      "HOME": "/tmp",
+      "PIP_DISABLE_PIP_VERSION_CHECK": "1"
+    },
+    "expect": {
+      "files": [
+        "pip-audit.json"
+      ],
+      "shape": "object",
+      "requireKey": [
+        "dependencies"
+      ]
+    }
+  },
+  {
+    "name": "govulncheck",
+    "category": "dependency",
+    "stacks": [
+      "go"
+    ],
+    "image": "golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d",
+    "version": "1.9.0",
+    "network": "default",
+    "baseMode": "worktree",
+    "timeoutMs": 900000,
+    "severityMap": {
+      "*": "high"
+    },
+    "install": [
+      "golang.org/x/vuln/cmd/govulncheck@v1.9.0"
+    ],
+    "args": [
+      "sh",
+      "-c",
+      "GOBIN=/tmp/bin go install {install} && cd \"$2\" && /tmp/bin/govulncheck -format json ./... > \"$1\"",
+      "sh",
+      "{out}/govulncheck.json",
+      "{stackDir}"
+    ],
+    "env": {
+      "HOME": "/tmp",
+      "GOPATH": "/tmp/go",
+      "GOCACHE": "/tmp/gocache",
+      "GOFLAGS": "-buildvcs=false"
+    },
+    "expect": {
+      "files": [
+        "govulncheck.json"
+      ],
+      "shape": "stream"
+    }
+  },
+  {
+    "name": "trivy-config",
+    "category": "iac",
+    "stacks": "all",
+    "image": "aquasec/trivy@sha256:2416d1f74045b57274df1a340eee6b510cacd73c66a6ccb8da092b117eb7d222",
+    "version": "0.76.0",
+    "native": {
+      "bin": "trivy",
+      "versionArgs": [
+        "--version"
+      ],
+      "versionPattern": "\\b0\\.76\\.\\d+\\b"
+    },
+    "network": "default",
+    "baseMode": "worktree",
+    "timeoutMs": 600000,
+    "severityMap": {
+      "CRITICAL": "critical",
+      "HIGH": "high",
+      "MEDIUM": "medium",
+      "LOW": "low",
+      "UNKNOWN": "info"
+    },
+    "args": [
+      "trivy",
+      "config",
+      "--cache-dir",
+      "/tmp/trivy-cache",
+      "--quiet",
+      "--format",
+      "json",
+      "--output",
+      "{out}/trivy-config.json",
+      "{src}"
+    ],
+    "env": {
+      "HOME": "/tmp"
+    },
+    "expect": {
+      "files": [
+        "trivy-config.json"
+      ],
+      "shape": "object",
+      "requireKey": [
+        "SchemaVersion"
+      ]
+    }
+  },
+  {
+    "name": "zizmor",
+    "category": "workflow",
+    "stacks": "all",
+    "image": "ghcr.io/zizmorcore/zizmor@sha256:42d409dbb851d4c5d35a058cf042b828bea1e3f2884378c526eb0974780e18d9",
+    "version": "1.31.1",
+    "native": {
+      "bin": "zizmor",
+      "versionArgs": [
+        "--version"
+      ],
+      "versionPattern": "\\b1\\.31\\.\\d+\\b"
+    },
+    "network": "none",
+    "baseMode": "worktree",
+    "timeoutMs": 120000,
+    "severityMap": {
+      "HIGH": "high",
+      "MEDIUM": "medium",
+      "LOW": "low",
+      "INFORMATIONAL": "info",
+      "UNKNOWN": "info"
+    },
+    "args": [
+      "zizmor",
+      "--offline",
+      "--no-exit-codes",
+      "--format",
+      "json",
+      "{src}"
+    ],
+    "stdoutFile": "zizmor.json",
+    "expect": {
+      "files": [
+        "zizmor.json"
+      ],
+      "shape": "array"
+    }
+  },
+  {
+    "name": "actionlint",
+    "category": "workflow",
+    "stacks": "all",
+    "image": "rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667",
+    "version": "1.7.12",
+    "native": {
+      "bin": "actionlint",
+      "versionArgs": [
+        "-version"
+      ],
+      "versionPattern": "\\b1\\.7\\.\\d+\\b"
+    },
+    "network": "none",
+    "baseMode": "worktree",
+    "timeoutMs": 120000,
+    "severityMap": {
+      "*": "medium"
+    },
+    "args": [
+      "sh",
+      "-c",
+      "files=$(ls .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null); [ -n \"$files\" ] || { echo \"no-workflows\" >&2; exit 4; }; actionlint -no-color -format \"{{json .}}\" $files > \"$1\"; rc=$?; case $rc in 0) ;; 1) [ \"$(head -c1 \"$1\")\" = \"[\" ] || exit 3 ;; *) exit $rc ;; esac",
+      "sh",
+      "{out}/actionlint.json"
+    ],
+    "expect": {
+      "files": [
+        "actionlint.json"
+      ],
+      "shape": "array"
+    }
+  },
+  {
+    "name": "eslint",
+    "category": "quality",
+    "stacks": [
+      "js"
+    ],
+    "image": "node@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5",
+    "version": "10.13.0",
+    "network": "default",
+    "baseMode": "worktree",
+    "timeoutMs": 900000,
+    "severityMap": {
+      "2": "medium",
+      "1": "low"
+    },
+    "install": [
+      "eslint@10.13.0",
+      "typescript-eslint@8.71.2",
+      "typescript@5.9.3"
+    ],
+    "args": [
+      "sh",
+      "-c",
+      "mkdir -p /tmp/lint && cp \"$2\" /tmp/lint/eslint.config.mjs && npm install --prefix /tmp/lint --ignore-scripts --no-audit --no-fund --no-save {install} >&2 && cd \"$3\" && /tmp/lint/node_modules/.bin/eslint --no-error-on-unmatched-pattern --config /tmp/lint/eslint.config.mjs --format json --output-file \"$1\" .; rc=$?; [ $rc -le 1 ] || exit $rc; node -e 'if(!Array.isArray(JSON.parse(require(\"fs\").readFileSync(process.argv[1],\"utf8\"))))process.exit(3)' \"$1\" || exit 3",
+      "sh",
+      "{out}/eslint.json",
+      "{config}",
+      "{stackDir}"
+    ],
+    "env": {
+      "HOME": "/tmp",
+      "npm_config_cache": "/tmp/npm-cache",
+      "npm_config_update_notifier": "false",
+      "NODE_OPTIONS": "--max-old-space-size=6144"
+    },
+    "expect": {
+      "files": [
+        "eslint.json"
+      ],
+      "shape": "array"
+    }
+  },
+  {
+    "name": "ruff",
+    "category": "quality",
+    "stacks": [
+      "python"
+    ],
+    "image": "ghcr.io/astral-sh/ruff@sha256:eae3102808b46de58204237a3433001cae4d45d832f31be1c8121f7145a62661",
+    "version": "0.17.1",
+    "native": {
+      "bin": "ruff",
+      "versionArgs": [
+        "--version"
+      ],
+      "versionPattern": "\\b0\\.17\\.\\d+\\b"
+    },
+    "network": "none",
+    "baseMode": "worktree",
+    "timeoutMs": 120000,
+    "severityMap": {
+      "*": "low"
+    },
+    "args": [
+      "ruff",
+      "check",
+      "--no-cache",
+      "--exit-zero",
+      "--config",
+      "{config}",
+      "--output-format",
+      "json",
+      "{stackDir}"
+    ],
+    "containerBin": "/ruff",
+    "stdoutFile": "ruff.json",
+    "expect": {
+      "files": [
+        "ruff.json"
+      ],
+      "shape": "array"
+    }
+  },
+  {
+    "name": "golangci-lint",
+    "category": "quality",
+    "stacks": [
+      "go"
+    ],
+    "image": "golangci/golangci-lint@sha256:2ba875b990f1d8501ad4ec19be1ea0701e316ec3a4b764f7b129f62f01318bbf",
+    "version": "2.15.0",
+    "native": {
+      "bin": "golangci-lint",
+      "versionArgs": [
+        "--version"
+      ],
+      "versionPattern": "\\b2\\.15\\.\\d+\\b"
+    },
+    "network": "default",
+    "baseMode": "worktree",
+    "timeoutMs": 900000,
+    "severityMap": {
+      "*": "low"
+    },
+    "args": [
+      "sh",
+      "-c",
+      "cd \"$2\" && golangci-lint run --config \"$3\" --issues-exit-code 0 --output.json.path \"$1\" ./...",
+      "sh",
+      "{out}/golangci-lint.json",
+      "{stackDir}",
+      "{config}"
+    ],
+    "env": {
+      "HOME": "/tmp",
+      "GOPATH": "/tmp/go",
+      "GOCACHE": "/tmp/gocache",
+      "GOLANGCI_LINT_CACHE": "/tmp/golangci-cache",
+      "GOFLAGS": "-buildvcs=false"
+    },
+    "expect": {
+      "files": [
+        "golangci-lint.json"
+      ],
+      "shape": "object"
+    }
+  },
+  {
+    "name": "trivy-license",
+    "category": "license",
+    "stacks": "all",
+    "image": "aquasec/trivy@sha256:2416d1f74045b57274df1a340eee6b510cacd73c66a6ccb8da092b117eb7d222",
+    "version": "0.76.0",
+    "native": {
+      "bin": "trivy",
+      "versionArgs": [
+        "--version"
+      ],
+      "versionPattern": "\\b0\\.76\\.\\d+\\b"
+    },
+    "network": "default",
+    "baseMode": "worktree",
+    "timeoutMs": 600000,
+    "severityMap": {
+      "CRITICAL": "critical",
+      "HIGH": "high",
+      "MEDIUM": "medium",
+      "LOW": "low",
+      "UNKNOWN": "info"
+    },
+    "args": [
+      "trivy",
+      "fs",
+      "--scanners",
+      "license",
+      "--cache-dir",
+      "/tmp/trivy-cache",
+      "--quiet",
+      "--format",
+      "json",
+      "--output",
+      "{out}/trivy-license.json",
+      "{src}"
+    ],
+    "env": {
+      "HOME": "/tmp"
+    },
+    "expect": {
+      "files": [
+        "trivy-license.json"
+      ],
+      "shape": "object",
+      "requireKey": [
+        "SchemaVersion"
+      ]
+    }
+  }
+]

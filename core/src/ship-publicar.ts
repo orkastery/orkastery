@@ -234,7 +234,7 @@ export function manifestoDaBranch(carregado: ManifestoCarregado, head: string | 
     const doHead = comandosDoTextoDoManifesto(r.stdout);
     if (!doHead) return carregado;
     return { ...carregado, manifesto: { ...carregado.manifesto,
-      verify: { ...carregado.manifesto.verify, typecheck: doHead.typecheck, build: doHead.build, test: doHead.test },
+      verify: { ...carregado.manifesto.verify, typecheck: doHead.typecheck, build: doHead.build, test: doHead.test, security_scan: doHead.securityScan },
       ci: { ...carregado.manifesto.ci, command: doHead.ciCommand } } };
   }
   return carregado;
