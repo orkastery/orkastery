@@ -35,7 +35,7 @@ function comLista<T>(termos: string[] | null, corpo: () => T): T {
   const antes = process.env.ORK_TERMOS_PRIVADOS;
   const pasta = dirTemporario('dado-privado-lista');
   const arquivo = path.join(pasta, 'termos-privados.txt');
-  if (termos) fs.writeFileSync(arquivo, termos.join('\n') + '\n');
+  if (termos) fs.writeFileSync(arquivo, termos.join('\n') + '\n', { mode: 0o600 });
   process.env.ORK_TERMOS_PRIVADOS = arquivo;
   try { return corpo(); } finally {
     if (antes === undefined) delete process.env.ORK_TERMOS_PRIVADOS; else process.env.ORK_TERMOS_PRIVADOS = antes;
@@ -111,7 +111,7 @@ test('DV4: sem a lista local, o verify diz que só os padrões genéricos rodara
     commitar(wt, 'notas.txt', `a máquina ${TERMO_FICTICIO} rodou\n`, 'termo');
     const sem = comLista(null, () => verificar(p.carregado, id, { soClaims: true }));
     assert.equal(sem.ok, true);
-    assert.match(textoDoVerify(sem), /lista local {2}ausente \(procurada em [^)]*termos-privados\.txt\): so os padroes genericos \(home, email, hostname\)/);
+    assert.match(textoDoVerify(sem), /lista local {2}ausente \(procurada em arquivo indicado por ORK_TERMOS_PRIVADOS\): so os padroes genericos \(home, email, hostname\)/);
     assert.equal(sem.dadoPrivado?.varredura.listaLocal.presente, false);
     const com = comLista([TERMO_FICTICIO], () => verificar(p.carregado, id, { soClaims: true }));
     assert.equal(com.ok, false);

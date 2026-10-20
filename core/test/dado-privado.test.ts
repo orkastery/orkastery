@@ -49,7 +49,7 @@ function escrever(dir: string, arquivos: Record<string, string>): void {
 /** Uma lista local num arquivo fora do repositório. */
 function lista(...termos: string[]): string {
   const arquivo = path.join(dirTemporario('dado-privado-lista'), 'termos-privados.txt');
-  fs.writeFileSync(arquivo, termos.join('\n') + '\n');
+  fs.writeFileSync(arquivo, termos.join('\n') + '\n', { mode: 0o600 });
   return arquivo;
 }
 
@@ -118,9 +118,9 @@ test('DP4: sem a lista local, os padrões genéricos seguem e a saída diz que e
     const v = varrerArvore(c.valor);
     assert.deepEqual(padroes(v), ['email']);
     assert.equal(v.listaLocal.presente, false);
-    assert.deepEqual(v.listaLocal.procurada, [`~/.ork-teste-inexistente-${process.pid}/termos-privados.txt`, '.orkastery/termos-privados.txt']);
+    assert.deepEqual(v.listaLocal.procurada, ['~/.orkastery/termos-privados.txt', '.orkastery/termos-privados.txt']);
     const texto = relatorioDoDadoPrivado(v).join('\n');
-    assert.match(texto, /lista local {2}ausente \(procurada em ~\/\.ork-teste-inexistente-\d+\/termos-privados\.txt e \.orkastery\/termos-privados\.txt\); só os padrões genéricos \(home, email, hostname\)/);
+    assert.match(texto, /lista local {2}ausente \(procurada em ~\/\.orkastery\/termos-privados\.txt e \.orkastery\/termos-privados\.txt\); só os padrões genéricos \(home, email, hostname\)/);
   } finally {
     if (antes === undefined) delete process.env.ORK_USUARIO_DIR; else process.env.ORK_USUARIO_DIR = antes;
   }
@@ -129,23 +129,24 @@ test('DP4: sem a lista local, os padrões genéricos seguem e a saída diz que e
 test('DP5: a lista local: a variável troca os caminhos, termo curto é ignorado e contado, # comenta, sem caixa, e a lista versionada é recusada', () => {
   const pasta = dirTemporario('dado-privado-lista-pasta');
   const arquivo = path.join(pasta, 'meus-termos.txt');
-  fs.writeFileSync(arquivo, `# comentário com ${TERMO_FICTICIO}\nab\n\n  Orion-Ficticio  \norion-ficticio\nxyzzy\n`);
+  fs.writeFileSync(arquivo, `# comentário com ${TERMO_FICTICIO}\nab\n\n  Orion-Ficticio  \norion-ficticio\nxyzzy\n`, { mode: 0o600 });
   const l = lerListaLocal(null, null, { ORK_TERMOS_PRIVADOS: arquivo });
   assert.deepEqual(l.termos, ['orion-ficticio', 'xyzzy']);
   assert.equal(l.ignorados, 1);
   assert.equal(l.presente, true);
   assert.equal(l.procurada.length, 1);
-  assert.ok(l.procurada[0].endsWith('/meus-termos.txt'));
+  assert.deepEqual(l.procurada, ['arquivo indicado por ORK_TERMOS_PRIVADOS']);
   const dir = repo('lista-caixa', { 'a.txt': 'servidor ORION-FICTICIO na sala\n' });
   assert.deepEqual(varrerArvore(contexto(dir, arquivo)).achados.map(linhaDoAchado), ['a.txt:1:10  lista-local (termo 1)']);
   // A lista dentro do repositório e versionada: a varredura recusa, sem varrer.
   const versionada = repo('lista-versionada', { 'config/termos-privados.txt': 'xyzzy\n' });
+  fs.chmodSync(path.join(versionada, 'config/termos-privados.txt'), 0o600);
   const c = contextoDaVarredura(versionada, null, { ORK_TERMOS_PRIVADOS: path.join(versionada, 'config/termos-privados.txt') });
   assert.equal(c.ok, false);
-  assert.match(c.ok ? '' : c.erro, /lista local de termos privados está versionada \(config\/termos-privados\.txt\)/);
+  assert.match(c.ok ? '' : c.erro, /lista local de termos privados está versionada \(1 arquivo\(s\)\)/);
 });
 
-test('DP6: e-mail: domínio de exemplo, credencial de URL, remoto SSH e escape não são achado; mailto é; a lista permitida silencia só o que casa', () => {
+test('DP6: e-mail: prefixos de campo e caminho são achados; domínio de exemplo, credencial de URL, remoto SSH e escape não são', () => {
   const dir = repo('email', {
     'a.txt': [
       'exemplo: pessoa@example.com, outra@sub.example.org, alguem@empresa.invalid, x@maquina.test, y@host.localhost',
@@ -156,11 +157,14 @@ test('DP6: e-mail: domínio de exemplo, credencial de URL, remoto SSH e escape n
       'escreva para <mailto:dono@empresa-ficticia.com.br>',
       'robo: noreply@ferramenta-ficticia.com e suporte@ferramenta-ficticia.com',
       'consulta https://site-ficticio.com.br/?email=pessoa@empresa-ficticia.com.br na URL',
+      'campo:contato@empresa-ficticia.com.br e pasta/contato@empresa-ficticia.com.br',
     ].join('\n') + '\n',
-    [ARQUIVO_DAS_EXCECOES]: JSON.stringify({ contrato: 'ork.privado/v1', emailsPermitidos: ['noreply@*'] }),
+    [ARQUIVO_DAS_EXCECOES]: JSON.stringify({ contrato: 'ork.privado/v1',
+      emailsPermitidos: [{ valor: 'noreply@ferramenta-ficticia.com', motivo: 'endereço inventado do robô' }] }),
   });
   const v = varrerArvore(contexto(dir));
-  assert.deepEqual(v.achados.map(linhaDoAchado), ['a.txt:6:22  email', 'a.txt:7:41  email', 'a.txt:8:46  email']);
+  assert.deepEqual(v.achados.map(linhaDoAchado), ['a.txt:6:22  email', 'a.txt:7:41  email', 'a.txt:8:46  email',
+    'a.txt:9:7  email', 'a.txt:9:47  email']);
 });
 
 test('DP7: home: as formas escapadas, /Users e C:\\Users são achado; usuário de sistema, marcador e URL não', () => {
@@ -197,7 +201,8 @@ test('DP9: exceção por caminho, por padrão e por valor silencia só o que diz
     [ARQUIVO_DAS_EXCECOES]: JSON.stringify({
       contrato: 'ork.privado/v1',
       excecoes: [
-        { padrao: '*', caminho: 'core/test/**', motivo: 'fixtures inventadas' },
+        { padrao: 'home', caminho: 'core/test/**', valor: HOME_FICTICIA, motivo: 'home inventada da fixture' },
+        { padrao: 'email', caminho: 'core/test/**', valor: EMAIL_FICTICIO, motivo: 'e-mail inventado da fixture' },
         { padrao: 'home', valor: HOME_FICTICIA, motivo: 'exemplo de documentação' },
         { padrao: 'hostname', caminho: 'docs/*.md', valor: 'fulana-*', motivo: 'máquina inventada do guia' },
         { padrao: 'email', valor: `${TERMO_FICTICIO}@x.com.br`, motivo: 'o arquivo de exceções só passa pela lista local' },
@@ -208,7 +213,7 @@ test('DP9: exceção por caminho, por padrão e por valor silencia só o que diz
   assert.deepEqual(v.achados.map(linhaDoAchado), [
     'core/test/fixture.ts:1:55  lista-local (termo 1)',
     'docs/guia.md:1:23  home',
-    `${ARQUIVO_DAS_EXCECOES}:22:17  lista-local (termo 1)`,
+    `${ARQUIVO_DAS_EXCECOES}:29:17  lista-local (termo 1)`,
   ]);
 });
 
@@ -217,9 +222,14 @@ test('DP10: arquivo de exceções fora do contrato recusa a varredura com o moti
     [{ contrato: 'ork.privado/v9' }, /"contrato" tem de ser "ork\.privado\/v1"/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', valor: '/home/x' }] }, /excecoes\[0\] sem motivo/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'telefone', valor: 'x', motivo: 'm' }] }, /excecoes\[0\]\.padrao tem de ser/],
-    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', motivo: 'm' }] }, /excecoes\[0\] sem caminho nem valor/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: '*', valor: '/home/x', motivo: 'm' }] }, /excecoes\[0\]\.padrao tem de ser/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', motivo: 'm' }] }, /excecoes\[0\] sem valor\/trecho/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', valor: '*', motivo: 'm' }] }, /valor não pode ser curinga global/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', caminho: '**', valor: '/home/x', motivo: 'm' }] }, /caminho não pode ser curinga global/],
     [{ contrato: 'ork.privado/v1', extra: 1 }, /chave desconhecida: extra/],
-    [{ contrato: 'ork.privado/v1', emailsPermitidos: ['sem-arroba'] }, /emailsPermitidos\[0\] não é endereço/],
+    [{ contrato: 'ork.privado/v1', emailsPermitidos: ['antigo@example.com'] }, /emailsPermitidos\[0\] não é um objeto/],
+    [{ contrato: 'ork.privado/v1', emailsPermitidos: [{ valor: '*@empresa.test', motivo: 'amplo' }] }, /endereço exato, sem curinga/],
+    [{ contrato: 'ork.privado/v1', emailsPermitidos: [{ valor: 'robo@empresa.test' }] }, /emailsPermitidos\[0\] sem motivo/],
   ];
   for (const [conteudo, motivo] of casos) {
     const dir = repo('excecoes-invalidas', { [ARQUIVO_DAS_EXCECOES]: JSON.stringify(conteudo) });
@@ -232,19 +242,23 @@ test('DP10: arquivo de exceções fora do contrato recusa a varredura com o moti
   assert.match(c.ok ? '' : c.erro, /orkastery\.privado\.json fora do contrato ork\.privado\/v1: não é JSON/);
 });
 
-test('DP11: exceção sem uso aparece como aviso na varredura da árvore, sem reprovar, e não no diff', () => {
+test('DP11: exceção sem uso aparece só pelo índice e padrão, sem serializar valor, caminho ou e-mail', () => {
   const dir = repo('sem-uso', {
     'a.txt': `${HOME_FICTICIA}\n`,
-    [ARQUIVO_DAS_EXCECOES]: JSON.stringify({ contrato: 'ork.privado/v1', emailsPermitidos: ['*@antiga-ficticia.com'], excecoes: [
+    [ARQUIVO_DAS_EXCECOES]: JSON.stringify({ contrato: 'ork.privado/v1',
+      emailsPermitidos: [{ valor: 'arquivo-sensivel@antiga-ficticia.test', motivo: 'endereço inventado que saiu' }], excecoes: [
       { padrao: 'home', valor: HOME_FICTICIA, motivo: 'exemplo' },
       { padrao: 'hostname', valor: 'velha-pc', motivo: 'exemplo que saiu' },
     ] }),
   });
   const v = varrerArvore(contexto(dir));
   assert.deepEqual(v.achados, []);
-  assert.deepEqual(v.excecoes.semUso, ['excecoes[1] hostname valor velha-pc', 'emailsPermitidos[0] *@antiga-ficticia.com']);
+  assert.deepEqual(v.excecoes.semUso, ['excecoes[1] hostname', 'emailsPermitidos[0] email']);
   const texto = relatorioDoDadoPrivado(v).join('\n');
-  assert.match(texto, /aviso {8}exceção sem uso, revise no PR: excecoes\[1\] hostname valor velha-pc/);
+  assert.match(texto, /aviso {8}exceção sem uso, revise no PR: excecoes\[1\] hostname/);
+  for (const privado of ['velha-pc', 'arquivo-sensivel@antiga-ficticia.test']) {
+    assert.equal((texto + JSON.stringify(v)).includes(privado), false);
+  }
   const base = git(dir, 'rev-parse', 'HEAD');
   assert.equal(relatorioDoDadoPrivado(varrerDiff(contexto(dir), { sha: base, ref: 'main' })).join('\n').includes('sem uso'), false);
 });
@@ -299,7 +313,7 @@ test('DP13: a base da thread: merge-base com origin/<base>, senão a base local,
   assert.equal(baseDaThread(dir, 'base-que-nao-existe'), null);
 });
 
-test('DP14: texto avulso é varrido com o nome dado; binário só pelo nome; link simbólico pelo alvo, sem segui-lo', () => {
+test('DP14: texto avulso e conteúdo binário são varridos; link simbólico é lido pelo alvo, sem segui-lo', () => {
   const arquivoDaLista = lista(TERMO_FICTICIO);
   const dir = repo('texto', {});
   const c = contexto(dir, arquivoDaLista);
@@ -316,5 +330,53 @@ test('DP14: texto avulso é varrido com o nome dado; binário só pelo nome; lin
     'alvo-fora.txt:1:1  email',
     'atalho:1:1  home',
     'binario-[omitido].bin  nome do arquivo: lista-local (termo 1)',
+    'binario-[omitido].bin:1:4  lista-local (termo 1)',
   ]);
+});
+
+test('DP15: exceção por caminho e padrão cobre só o trecho dito e não esconde outro vazamento no arquivo', () => {
+  const dir = repo('excecao-granular', {
+    'core/test/fixture.ts': `${EMAIL_FICTICIO}\nvazamento@empresa-ficticia.com.br\n`,
+    [ARQUIVO_DAS_EXCECOES]: JSON.stringify({ contrato: 'ork.privado/v1', excecoes: [
+      { padrao: 'email', caminho: 'core/test/*.ts', valor: EMAIL_FICTICIO, motivo: 'endereço inventado da fixture' },
+    ] }),
+  });
+  assert.deepEqual(varrerArvore(contexto(dir)).achados.map(linhaDoAchado), ['core/test/fixture.ts:2:1  email']);
+});
+
+test('DP16: a lista local exige arquivo comum do usuário com 0600 e nunca expõe o caminho indicado nem seu conteúdo', () => {
+  const pasta = dirTemporario('dado-privado-lista-segura');
+  const termo = 'marcador-privado-ficticio';
+  const arquivo = path.join(pasta, `${termo}.txt`);
+  fs.writeFileSync(arquivo, `${termo}\n`, { mode: 0o600 });
+  const limpa = repo('lista-segura', { 'a.txt': 'limpo\n' });
+  const aceita = contextoDaVarredura(limpa, null, { ORK_TERMOS_PRIVADOS: arquivo });
+  assert.ok(aceita.ok);
+  const serializado = JSON.stringify(varrerArvore(aceita.valor)) + relatorioDoDadoPrivado(varrerArvore(aceita.valor)).join('\n');
+  assert.equal(serializado.includes(termo), false);
+  assert.match(serializado, /ORK_TERMOS_PRIVADOS/);
+
+  fs.chmodSync(arquivo, 0o644);
+  const permissao = contextoDaVarredura(limpa, null, { ORK_TERMOS_PRIVADOS: arquivo });
+  assert.equal(permissao.ok, false);
+  assert.match(permissao.ok ? '' : permissao.erro, /permissão tem de ser 0600/);
+  assert.equal(JSON.stringify(permissao).includes(termo), false);
+
+  fs.chmodSync(arquivo, 0o600);
+  const link = path.join(pasta, 'atalho.txt');
+  fs.symlinkSync(arquivo, link);
+  const simbolico = contextoDaVarredura(limpa, null, { ORK_TERMOS_PRIVADOS: link });
+  assert.equal(simbolico.ok, false);
+  assert.match(simbolico.ok ? '' : simbolico.erro, /link simbólico não é aceito/);
+
+  const getuid = process.getuid;
+  const uidAtual = typeof getuid === 'function' ? getuid() : 1000;
+  Object.defineProperty(process, 'getuid', { configurable: true, value: () => uidAtual + 1 });
+  try {
+    const outroDono = lerListaLocal(null, null, { ORK_TERMOS_PRIVADOS: arquivo });
+    assert.match(outroDono.recusada ?? '', /dono não é o usuário atual/);
+    assert.equal(outroDono.presente, false);
+  } finally {
+    Object.defineProperty(process, 'getuid', { configurable: true, value: getuid });
+  }
 });

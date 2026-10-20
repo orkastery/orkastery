@@ -96,7 +96,7 @@ test('DC4: sem a lista local diz que ela está ausente; com ela o termo reprova;
   assert.match(sem.saida, /lista local {2}ausente \(procurada em [^)]*\); só os padrões genéricos \(home, email, hostname\)/);
   const pasta = dirTemporario('dado-privado-cli-lista');
   const arquivoDaLista = path.join(pasta, 'termos-privados.txt');
-  fs.writeFileSync(arquivoDaLista, `${TERMO_FICTICIO}\n`);
+  fs.writeFileSync(arquivoDaLista, `${TERMO_FICTICIO}\n`, { mode: 0o600 });
   const com = ork(dir, [], arquivoDaLista);
   assert.equal(com.code, 1, com.saida);
   assert.match(com.saida, /^ {4}evidencia\/\[omitido\]\.json {2}nome do arquivo: lista-local \(termo 1\)$/m);
