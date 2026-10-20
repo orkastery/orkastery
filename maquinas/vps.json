@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-20T11:45:02.056Z",
+  "publicadoEm": "2026-10-20T11:57:18.591Z",
   "threads": [
     {
       "id": "ork-rm037defeit2",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-037",
       "branch": "ork/ork-rm037defeit2-full",
-      "atualizadaEm": "2026-10-20T11:38:10.898Z",
+      "atualizadaEm": "2026-10-20T11:56:44.774Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -54,23 +54,19 @@
       "id": "ork-rm062barreir",
       "nome": "rm062barreira",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-062",
       "branch": "ork/ork-rm062barreir-full",
-      "atualizadaEm": "2026-10-20T10:37:06.257Z",
-      "entregue": null,
+      "atualizadaEm": "2026-10-20T11:57:18.205Z",
+      "entregue": "f5c8db22",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "codex",
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-20T10:50:16.923Z",
-        "motivo": "sessão 01a158e2 encerrada (completed)"
-      }
+      "sessao": null
     }
   ]
 }
