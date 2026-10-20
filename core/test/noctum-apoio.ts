@@ -14,8 +14,8 @@ import { CONTRATO_ENVELOPE_V2 } from '../src/noctum-envelope';
 import { registrarConducaoDaSessao } from '../src/conducao';
 import { registrar } from '../src/ledger';
 import { ManifestoCarregado } from '../src/manifest';
-import { dirThread, novaThread } from '../src/thread';
-import { Fase } from '../src/types';
+import { dirThread, novaThread, OpcoesNovaThread } from '../src/thread';
+import { Fase, Thread } from '../src/types';
 
 const CHAVE = 'chave-do-hermes-SIMULADA-somente-nos-testes-0000';
 
@@ -93,6 +93,22 @@ export function passar(ms: number): void {
 export function revogarArco(raiz: string, arco: string): void {
   const agora = new Date().toISOString();
   revogarPeloIngresso(raiz, arco, assinado(arco, TEXTO_DE_REVOGACAO, agora), agora);
+}
+
+/**
+ * RM-058, integração (D6 da ork-rm058integra): a baseline SIMULADA que o condutor do arco grava antes do primeiro despacho
+ * do bloco com GO, só o evento do núcleo, sem rodar a suíte. Os testes que não provam a baseline abrem a thread do trabalho
+ * com ela, como o condutor a deixaria; os casos BL e o X1 provam o caminho dela.
+ */
+export function baselineSimulada(raiz: string, threadId: string): void {
+  registrar(dirThread(raiz, threadId), threadId, 'baseline_recorded', { commit: 'SIMULADO', comandos: [], simulado: true });
+}
+
+/** A thread que o passo do arco abre nos testes, sem worktree e com a baseline SIMULADA do condutor. */
+export function abrirComBaseline(carregado: ManifestoCarregado, o: OpcoesNovaThread): Thread {
+  const t = novaThread(carregado, { ...o, criarWorktree: false }).thread;
+  baselineSimulada(carregado.raiz, t.id);
+  return t;
 }
 
 /** A thread de um trabalho, como o arco ou o dono a criaria: #Auto, com o item e o pedido guardado. */

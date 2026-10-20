@@ -27,8 +27,10 @@
  * relatório é mostrado num terminal interativo pelo `ork noctum relatorio`. Sem recibo, a lacuna aparece no retrato do arco
  * (`retratoDoRelatorio`) e nas correções da versão seguinte.
  *
- * Interfaces para as fatias que correm em paralelo (D6): a supervisão da N4 entra por `supervisao` (sem ela, a fonte
- * aparece como não lida); a entrega da N5 é lida dos fatos que o ledger da thread já guarda (`ship_done`, `rollback_done`).
+ * Interfaces para as fatias que correm em paralelo (D6): a supervisão da N4 entra por `supervisao`; desde a integração
+ * (T3 da ork-rm058integra), sem ela vale a leitura do log da supervisão do arco (`fatosDaSupervisao`), e o log que não se
+ * lê vira lacuna com o motivo. A entrega da N5 é lida dos fatos que o ledger da thread já guarda (`ship_done`,
+ * `rollback_done`).
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -45,6 +47,7 @@ import { lerFechamento, textoDaParada, trabalhosDoArco } from './noctum-fechamen
 import { fatosDaFila, FilaDoArco, LeitorDeReservas } from './noctum-fila';
 import { ConsumoNaUnidade, consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco, precisaMedir, textoDoConsumo } from './noctum-medicao';
 import { comRegistro, lerRegistro, LinhaDoRegistro, RecusaDoRegistro } from './noctum-registro';
+import { contaForaAgora, lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
 import { exigirHostLocal } from './procedencia';
 import { dirThread } from './thread';
 import { EventoLedger } from './types';
@@ -73,8 +76,39 @@ export interface LinhaDeCusto { escopo: string; unidade: Unidade; teto: number; 
 export interface Correcao { trabalho: string | null; informado: string; confirmado: string; fonte: string; impacto: string }
 export interface PedidoAoDono { id: string; thread: string; pergunta: string; alternativas: AlternativaDoLote[] }
 
-/** A supervisão da N4, por interface (D6): os trabalhos isolados e as contas que o arco tirou. */
-export interface FatosDaSupervisao { isolados: Array<{ trabalho: string; motivo: string }>; contasFora: Array<{ conta: string; motivo: string }> }
+/**
+ * A supervisão da N4, por interface (D6): os trabalhos isolados e as contas que o arco tirou. RM-058, integração (T3): as
+ * retomadas que ela autorizou, as sessões que ela parou e a parada do arco, quando a leitura vem do log dela.
+ */
+export interface FatosDaSupervisao {
+  isolados: Array<{ trabalho: string; motivo: string }>;
+  contasFora: Array<{ conta: string; motivo: string }>;
+  retomadas?: string[];
+  sessoesParadas?: string[];
+  parada?: string | null;
+}
+
+/** As contas fora, em palavras: o motivo tipado da supervisão vira o que aconteceu com a conta. */
+const CONTA_FORA_EM_TEXTO: Readonly<Record<string, string>> = Object.freeze({ 'cota': 'cota esgotada', 'cota-sem-reset': 'cota esgotada, sem reset dito',
+  'limite-de-uso': 'limite de uso', 'auth': 'login perdido' });
+
+/**
+ * RM-058, integração (T3, D7 da ork-rm058integra): os fatos da supervisão do arco, lidos do log dela no instante dado: os
+ * isolados com o motivo, as contas ainda fora, as retomadas autorizadas, as sessões paradas e a parada. Sem log, nada a
+ * dizer; o log que não se lê lança a recusa tipada (`RecusaDaSupervisao`), que quem chama diz como lacuna.
+ */
+export function fatosDaSupervisao(raiz: string, arco: string, quando = new Date().toISOString()): FatosDaSupervisao {
+  const s = lerSupervisao(raiz, arco);
+  return {
+    isolados: [...s.isolados.values()].map(i => ({ trabalho: i.trabalho, motivo: `${i.motivo}: ${i.detalhe}` })),
+    contasFora: [...s.contasFora.values()].filter(c => contaForaAgora(s, c.conta, quando))
+      .map(c => ({ conta: c.conta, motivo: CONTA_FORA_EM_TEXTO[c.motivo] ?? c.motivo })),
+    retomadas: s.retomadas.map(r => `${r.trabalho} (thread ${r.thread}): retomada ${r.tentativa} na fase ${r.fase} (${r.motivo})`),
+    sessoesParadas: s.sessoesParadas.map(x => `sessão ${x.sessionId} (${x.trabalho}): ${x.confirmada ? 'parada confirmada' : 'parada não confirmada'} ` +
+      `(${x.motivo})`),
+    parada: s.parada ? `${s.parada.motivo}: ${s.parada.detalhe}` : null,
+  };
+}
 
 export interface FatosDoRelatorio {
   arco: string;
@@ -96,6 +130,10 @@ export interface FatosDoRelatorio {
   reservasPendentes: number;
   paradas: string[];
   contasFora: string[];
+  /** RM-058, integração (T3): as retomadas que a supervisão autorizou, as sessões que ela parou e a parada do arco. */
+  retomadas: string[];
+  sessoesParadas: string[];
+  paradaDaSupervisao: string | null;
   correcoes: Correcao[];
   precisaDeVoce: PedidoAoDono[];
   /** O trabalho que espera o dono fora do lote do arco (a pendência da própria thread): sem id do lote, sem `#HITL`. */
@@ -127,7 +165,7 @@ export interface OpcoesDoRelatorio {
   lerReservas?: LeitorDeReservas;
   /** A medição; em produção, `medirArco` sobre o disco. */
   medir?: (raiz: string, estado: EstadoDoArco, quando: string) => MedicaoDoArco;
-  /** A supervisão da N4; sem ela, a fonte aparece como não lida. */
+  /** A supervisão da N4; sem ela, a leitura do log da supervisão do arco (`fatosDaSupervisao`). */
   supervisao?: (raiz: string, arco: string) => FatosDaSupervisao | null;
   /** O envio por canal; em produção, o transporte local do `noctum-host.json`. */
   enviar?: (canal: CanalComTransporte, texto: string) => ResultadoDoEnvio;
@@ -137,7 +175,7 @@ const sha = (s: string): string => createHash('sha256').update(s).digest('hex');
 /** O texto como frase: sem espaço sobrando e com um ponto só no fim. */
 const frase = (s: string): string => `${s.trim().replace(/[.\s]+$/u, '')}.`;
 const MOTIVO_EM_TEXTO: Readonly<Record<string, string>> = Object.freeze({ revogado: 'revogação do dono', hora: 'hora final',
-  custo: 'teto do arco', 'fila-vazia': 'fila vazia' });
+  custo: 'teto do arco', 'fila-vazia': 'fila vazia', supervisao: 'parada da supervisão' });
 /** Os dois fatos que desmentem uma entrega já informada; o resto (lacuna, thread ilegível) nunca vira correção. */
 const CAUSA_REVERTIDA = 'entrega revertida na base';
 const CHECKPOINT_SEM_PROVA = 'entrega registrada sem a prova do push no remoto';
@@ -235,9 +273,11 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
     if (!(e instanceof RecusaDoRegistro)) throw e;
     lacunas.push(`o registro do fechamento não se lê (${e.motivo})`);
   }
-  const supervisao = opcoes.supervisao ? opcoes.supervisao(raiz, arco) : null;
-  if (!opcoes.supervisao) lacunas.push('a supervisão e a retomada da N4 não rodam neste arco: o tique ainda não chama o vigia');
-  else if (!supervisao) lacunas.push('a supervisão da N4 não respondeu');
+  // RM-058, integração (T3): sem a interface, o log da supervisão do arco; o que não se lê vira lacuna com o motivo.
+  let supervisao: FatosDaSupervisao | null = null;
+  try { supervisao = (opcoes.supervisao ?? ((r: string, a: string) => fatosDaSupervisao(r, a, quando)))(raiz, arco); }
+  catch (e) { if (!(e instanceof RecusaDaSupervisao)) throw e; lacunas.push(`a supervisão do arco não se lê (${e.motivo})`); }
+  if (opcoes.supervisao && !supervisao) lacunas.push('a supervisão da N4 não respondeu');
   const cache = new Map<string, EventoLedger[] | null>();
   const fechado = estado.encerramento !== null || ['revogado', 'expirado', 'encerrado'].includes(estado.situacao);
   const entregues: ItemEntregue[] = [], emCurso: ItemEmCurso[] = [], impedidos: ItemImpedido[] = [];
@@ -313,6 +353,7 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
     reservasPendentes: estado.despachos.filter(d => d.desfecho === 'pendente').length,
     paradas: (fechamento?.paradas ?? []).map(p => textoDaParada(p, fechamento!.conferencias)),
     contasFora: (supervisao?.contasFora ?? []).map(c => `a conta ${c.conta} saiu do arco: ${c.motivo}`),
+    retomadas: supervisao?.retomadas ?? [], sessoesParadas: supervisao?.sessoesParadas ?? [], paradaDaSupervisao: supervisao?.parada ?? null,
     correcoes: [],
     precisaDeVoce: estado.decisoes.map(d => ({ id: d.id, thread: d.thread, pergunta: d.pergunta, alternativas: d.alternativas })), foraDoLote,
     proximo: candidato ? `${candidato.id} (${candidato.item}), ${candidato.estado === 'abrir' ? 'abre a thread pelo GOAL' : `fase ${candidato.fase}`}` +
@@ -333,11 +374,16 @@ export function linhasDoRelatorio(f: FatosDoRelatorio, versao: number): string[]
   if (f.lacunas.length) l.push(`Não lido: ${f.lacunas.join('; ')}.`);
   l.push('', '✅ Entregue', ...(f.entregues.length ? f.entregues.map(e => `• ${e.trabalho} (${e.item}): thread ${e.thread}` +
     `${e.pr !== null ? `, PR #${e.pr}` : ''}${e.merge ? `, merge ${e.merge.slice(0, 8)}` : ''}, push provado (${e.push}), ${e.master}`) : nada));
-  l.push('', '🔄 Em curso', ...(f.emCurso.length || f.paradas.length ? [...f.emCurso.map(e => `• ${e.trabalho} (${e.item}): ` +
+  const daSupervisao = [...f.retomadas.map(r => `• retomada autorizada pela supervisão: ${r}`),
+    ...f.sessoesParadas.map(s => `• pela supervisão, ${s}`)];
+  l.push('', '🔄 Em curso', ...(f.emCurso.length || f.paradas.length || daSupervisao.length ? [...f.emCurso.map(e => `• ${e.trabalho} (${e.item}): ` +
     `${e.thread ? `thread ${e.thread}, ` : ''}checkpoint: ${e.checkpoint}; retoma: ${e.retomada}; próximo passo: ${e.proximo}` +
-    `${e.reserva ? `; ${e.reserva}` : ''}`), ...f.paradas.map(p => `• no fechamento, ${p}`)] : nada));
-  l.push('', '⏸️ Impedido', ...(f.impedidos.length ? f.impedidos.map(i => `• ${i.trabalho} (${i.item}): ${i.causa} (${i.detalhe}); ` +
-    `alcance: ${i.alcance}; tentativas: ${i.tentativas}${i.hitl ? `; ${i.hitl} #HITL` : ''}`) : nada));
+    `${e.reserva ? `; ${e.reserva}` : ''}`), ...f.paradas.map(p => `• no fechamento, ${p}`), ...daSupervisao] : nada));
+  // A parada da supervisão que ainda não fechou o arco (o fechamento a lê no tique seguinte) vai ao Impedido, com alcance do arco.
+  const parada = f.paradaDaSupervisao && f.encerramento?.motivo !== 'supervisao'
+    ? [`• o arco: parado pela supervisão (${f.paradaDaSupervisao}); alcance: arco`] : [];
+  l.push('', '⏸️ Impedido', ...(f.impedidos.length || parada.length ? [...parada, ...f.impedidos.map(i => `• ${i.trabalho} (${i.item}): ${i.causa} (${i.detalhe}); ` +
+    `alcance: ${i.alcance}; tentativas: ${i.tentativas}${i.hitl ? `; ${i.hitl} #HITL` : ''}`)] : nada));
   const decisoes = f.decisoes.slice(0, 10);
   l.push('', '🧭 Decidi no envelope', ...(decisoes.length ? [...decisoes.map(d => `• ${d.thread}: ${frase(d.decidido)} Porque: ${frase(d.porque)} ` +
     `Como reverter: ${frase(d.comoMudar)} Evidência: ${frase(d.evidencia)}`), ...(f.decisoes.length > decisoes.length

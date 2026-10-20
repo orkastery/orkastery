@@ -14,10 +14,10 @@ import { registrarConducaoDaSessao } from '../src/conducao';
 import { registrar } from '../src/ledger';
 import { OpcoesDoPasso } from '../src/noctum-execucao';
 import { ResultadoRun } from '../src/phase';
-import { dirThread, novaThread } from '../src/thread';
+import { dirThread } from '../src/thread';
 import { exec } from '../src/util';
 import { commitar, dirTemporario, projetoTemporario } from './apoio';
-import { autorizarPedido, OpcoesDoArco, pedidoV2, TrabalhoSimulado } from './noctum-apoio';
+import { abrirComBaseline, autorizarPedido, OpcoesDoArco, pedidoV2, TrabalhoSimulado } from './noctum-apoio';
 
 /** Uma chave pública Ed25519 SIMULADA e estável, derivada só do nome dado (SPKI DER em base64). */
 export function chaveSimulada(semente: string): string {
@@ -202,7 +202,8 @@ export function n2Simulada(registro: string[] = []) {
     consultarSessoes: SEM_SESSOES,
     perfis: () => [{ id: 'perfil-a', runtime: 'claude-bg' }],
     despachar: despachoSimulado(registro),
-    abrirThread: ((carregado, o) => novaThread(carregado, { ...o, criarWorktree: false }).thread) as NonNullable<OpcoesDoPasso['abrirThread']>,
+    // RM-058, integração (D6): a thread aberta pelo passo já tem a baseline SIMULADA do condutor.
+    abrirThread: abrirComBaseline as NonNullable<OpcoesDoPasso['abrirThread']>,
   };
 }
 

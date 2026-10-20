@@ -143,9 +143,10 @@ test('A3: o módulo não exporta escritor de autorização sem prova; o diálogo
   // RM-058 N2: reservarDespacho e concluirDespacho gravam despacho, nunca autorização (A30 prova que sem ela nada passa).
   // RM-058 N3: versoesAutorizadas só lê o log, para a coordenação conferir registros de versões anteriores.
   // RM-058 N6: encerrarArco grava o fechamento, terminal, nunca autorização (o EC1 prova que depois dele nada passa).
+  // RM-058 integração: lerArcoComProposta só lê o log, para a guarda das threads do arco ver a lista da proposta no prazo.
   assert.deepEqual(Object.keys(arcoMod).sort(), ['ALVO_DO_NOCTUM', 'CONTRATO_ARCO', 'MOTIVOS_DE_ENCERRAMENTO', 'PRAZO_PARA_AUTORIZAR_MIN',
     'TEXTO_DE_REVOGACAO', 'autorizarPeloIngresso', 'concluirDespacho', 'conferirAntesDoEfeito', 'contextoDoArco', 'criarDialogoDoArco',
-    'encerrarArco', 'enderecoDoArco', 'enfileirarDecisao', 'hashDaRevogacao', 'idDaDecisao', 'lerArco', 'proporEnvelope',
+    'encerrarArco', 'enderecoDoArco', 'enfileirarDecisao', 'hashDaRevogacao', 'idDaDecisao', 'lerArco', 'lerArcoComProposta', 'proporEnvelope',
     'reservarDespacho', 'revogarPeloIngresso', 'textoDeAutorizacao', 'versoesAutorizadas']);
 });
 

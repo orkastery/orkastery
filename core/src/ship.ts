@@ -38,6 +38,7 @@ import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { chaveRecusadaDaConfigDeRede, criarGitdirDoPush, enderecoDoOrigin, protocoloDaConfigDeRede, urlDaConfigDeRede } from './mcp-ship-transporte';
 import { branchValida, exigirRemoto, shaValido } from './branch-de-estado';
 import { ErroDoCatalogo, Mensagens, msg, remontar, textoDoCatalogo } from './locale';
+import { guardaDaThread, MotivoDaGuarda } from './noctum-guarda';
 
 export interface OpcoesShip {
   /** Revalidação interna confiável; nunca exposta pela CLI/MCP como argumento. */
@@ -101,8 +102,11 @@ export interface ResultadoShip {
   ok: boolean;
   bloqueado: boolean;
   motivo: MotivoGate | null;
-  /** O porque estavel da recusa do push, quando ha um; o motivo do gate continua `runtime.unavailable`. */
-  codigo?: 'entrega.base-protegida' | 'transport.mudou-no-push';
+  /**
+   * O porque estavel da recusa do push, quando ha um; o motivo do gate continua `runtime.unavailable`. RM-058, integracao
+   * (T1.1): a thread de um arco #Noctum recusada pela guarda, com o motivo `policy.violation`.
+   */
+  codigo?: 'entrega.base-protegida' | 'transport.mudou-no-push' | MotivoDaGuarda;
   detalhe: string;
   correcao: string;
   thread: string;
@@ -513,6 +517,16 @@ export function ship(
   const urlFixada = opcoes.urlFixada === undefined ? null : validarUrlFixada(opcoes.urlFixada, configDoRemoto);
   // Nos passos, o gitdir privado e a URL fixada vao por nome: o caminho temporario nao diz nada a quem le.
   const r = baseDoResultado(thread, de, opcoes);
+
+  // RM-058, integracao (T1.1, D3 da ork-rm058integra): a thread de um arco #Noctum que a guarda e entregue pelo passo da
+  // entrega do arco, nunca por aqui (nem pelo `ork_ship` do MCP, que chama este mesmo ship). A recusa vem antes de qualquer
+  // git e nao vai ao ledger da thread: um `ship_blocked` ou um gate por uma tentativa de fora pesaria no indice da thread e
+  // apareceria como pausa do dono na fila do arco.
+  const guarda = guardaDaThread(raiz, threadId);
+  if (guarda) {
+    return { ...r, autorizacao: autorizacaoDePush(raiz, thread, opcoes), bloqueado: true, ok: false, motivo: 'policy.violation',
+      codigo: guarda.motivo, detalhe: guarda.detalhe, correcao: guarda.correcao };
+  }
 
   // I-43 (T7): antes de qualquer coisa, se a entrega ANTERIOR desta thread foi
   // revertida na base, isso vira `rollback_done`. E o insumo de maior peso do indice

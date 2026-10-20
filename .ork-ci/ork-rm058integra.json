@@ -1,0 +1,1588 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm058integra",
+  "branch": "ork/ork-rm058integra-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-modo.ts",
+      "alegacao": "Premissa reproduzida na base 1e88a932: o tique do arco chama o passoDoArco da N2, e nenhum arquivo de core/src fora de noctum-vigia.ts e noctum-entrega.ts cita vigiarArco, conduzirArco ou passoDaEntrega; o vigia e o condutor da N4 e o passo da entrega da N5 não têm chamador.",
+      "negativa": true,
+      "verificar": [
+        "git show 1e88a93292b19a08dd65f0798846441982d122d2:core/src/noctum-modo.ts | grep -qF 'passoDoArco(k, a,' && test -z \"$(git grep -lE 'vigiarArco|conduzirArco|passoDaEntrega' 1e88a93292b19a08dd65f0798846441982d122d2 -- core/src | grep -vE 'noctum-vigia.ts|noctum-entrega.ts')\""
+      ],
+      "criadoEm": "2026-10-17T02:45:00.850Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1e88a93292b19a08dd65f0798846441982d122d2",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-relatorio.ts",
+      "alegacao": "Premissa reproduzida na base 1e88a932: o relatório da manhã traz a lacuna fixa de que o tique ainda não chama o vigia, e os motivos de encerramento do arco são só revogado, hora, custo e fila-vazia, então a parada da supervisão da N4 não fecha o arco.",
+      "negativa": false,
+      "verificar": [
+        "git show 1e88a93292b19a08dd65f0798846441982d122d2:core/src/noctum-relatorio.ts | grep -qF 'o tique ainda não chama o vigia' && git show 1e88a93292b19a08dd65f0798846441982d122d2:core/src/noctum-arco.ts | grep -qF \"MOTIVOS_DE_ENCERRAMENTO = ['revogado', 'hora', 'custo', 'fila-vazia'] as const\""
+      ],
+      "criadoEm": "2026-10-17T02:45:03.637Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1e88a93292b19a08dd65f0798846441982d122d2",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "Premissa reproduzida na base 1e88a932: o despacho só exige a baseline no runtime codex, e a prova da entrega da N5 bloqueia com noctum.entrega.baseline-ausente em qualquer runtime, então uma thread claude-bg do arco sem baseline para na entrega.",
+      "negativa": false,
+      "verificar": [
+        "git show 1e88a93292b19a08dd65f0798846441982d122d2:core/src/phase.ts | grep -qF \"if (runtime !== 'codex' || manifesto.runtime.sandbox === 'danger-full-access') return false;\" && git show 1e88a93292b19a08dd65f0798846441982d122d2:core/src/noctum-provas.ts | grep -qF 'noctum.entrega.baseline-ausente'"
+      ],
+      "criadoEm": "2026-10-17T02:45:06.372Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1e88a93292b19a08dd65f0798846441982d122d2",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "Premissa reproduzida na base 1e88a932: core/src/ship.ts (o mesmo ship() do ork_ship do MCP) não cita noctum nem arco, e a batida da RM-063 não lê arco (nem lerArco, threadsDoArco ou listarArcos); só o publicarEntrega tem a conferência antesDoEfeito do arco.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(git show 1e88a93292b19a08dd65f0798846441982d122d2:core/src/ship.ts | grep -ciE 'noctum|arco')\" = 0 && test \"$(git show 1e88a93292b19a08dd65f0798846441982d122d2:core/src/ship-publicar.ts | grep -cF 'antesDoEfeito')\" -ge 1 && test \"$(git show 1e88a93292b19a08dd65f0798846441982d122d2:core/src/conducao-batida.ts | grep -cE 'lerArco|threadsDoArco|listarArcos')\" = 0"
+      ],
+      "criadoEm": "2026-10-17T02:45:09.847Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1e88a93292b19a08dd65f0798846441982d122d2",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-provas.ts",
+      "alegacao": "Premissa reproduzida na base 1e88a932: a prova do CI da entrega da N5 lê um contexto só, o ci.context do manifesto ou ork-verify, enquanto a proteção de uma base pode exigir vários.",
+      "negativa": false,
+      "verificar": [
+        "git show 1e88a93292b19a08dd65f0798846441982d122d2:core/src/noctum-provas.ts | grep -qF \"const contexto = manifesto.ci.context || 'ork-verify';\""
+      ],
+      "criadoEm": "2026-10-17T02:45:12.074Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1e88a93292b19a08dd65f0798846441982d122d2",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "Premissa reproduzida na base 1e88a932: o ork noctum não tem os subcomandos conduzir, vigiar, maquina nem aceite, e o workflow publicar.yml não cita o #Noctum, então nada impede publicar versão sem o aceite do modo.",
+      "negativa": false,
+      "verificar": [
+        "test -z \"$(git show 1e88a93292b19a08dd65f0798846441982d122d2:core/src/noctum-cli.ts | grep -E \"sub === '(conduzir|vigiar|maquina|aceite)'\")\" && test -z \"$(git grep -il 'noctum' 1e88a93292b19a08dd65f0798846441982d122d2 -- .github/workflows/publicar.yml)\""
+      ],
+      "criadoEm": "2026-10-17T02:45:14.816Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1e88a93292b19a08dd65f0798846441982d122d2",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-guarda.ts",
+      "alegacao": "Prospectiva do bloco A (T1), falha antes do GO: ork ship, o ork_ship do MCP, ork ship publicar e ork ship registrar-pr recusam com motivo tipado a thread que é trabalho de um arco proposto, agendado ou vigente; a de arco terminal e a de fora do arco seguem como estavam; a batida e a Sentinela da RM-063 pulam a thread do arco em cada ação, com o motivo no retrato; e o ork conducao atualizar recusa. Ao menos 8 casos GS, sem falha nem pulo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GS[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-17T02:45:45.013Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "Prospectiva do bloco A (T2), falha antes do GO: o passo do arco devolve a baseline pendente para o bloco com GO sem baseline_recorded em qualquer runtime, inclusive claude-bg; o condutor a grava fora da trava de despacho e o vigia nunca a roda; fora do arco, o ork phase run segue exigindo a baseline só no codex. Ao menos 4 casos BL, sem falha nem pulo.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-baseline-do-arco.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - BL[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-17T02:45:47.994Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "Prospectiva do bloco A (T5), falha antes do GO: ork noctum conduzir arco segura a trava do condutor, roda o passo do despacho e o da entrega na cadência e sai com código e motivo tipados para outro condutor, kernel ausente, arco encerrado ou parado e geração perdida. Ao menos 4 casos CJ, sem falha nem pulo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-conduzir.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - CJ[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-17T02:45:54.973Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-provas.ts",
+      "alegacao": "Prospectiva do bloco A (T6), falha antes do GO: a prova do CI da entrega exige verde no SHA fonte em cada contexto de ci.contexts do manifesto; sem a chave, vale ci.context como lista de um; um contexto vermelho bloqueia e um pendente espera; e o orkastery.yaml lista os contextos que a proteção da main exige. Ao menos 4 casos PC, sem falha nem pulo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-ci-contextos.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - PC[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}' && grep -qF 'contexts:' orkastery.yaml"
+      ],
+      "criadoEm": "2026-10-17T02:45:57.972Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/ensaio-noctum.cjs",
+      "alegacao": "Prospectiva do bloco A (T7), falha antes do GO: o ensaio integrado, ainda simulado e dito como simulado, leva um arco v2 do pedido ao ship_done na base do remoto de fixture e ao MASTER por omissão, com o condutor morto (o vigia segue), uma sessão morta (retomada) e a base que anda (atualização); os cenários cadeia-ligada, condutor-morto e base-que-anda saem 0, e os testes EP chegam a ao menos 10, sem falha nem pulo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-ensaio-piloto.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - EP[0-9]+:/{p++} END{exit !(p>=10 && f==0 && s==0)}' && node core/scripts/ensaio-noctum.cjs --cenario cadeia-ligada --cenario condutor-morto --cenario base-que-anda --resumo"
+      ],
+      "criadoEm": "2026-10-17T02:46:01.648Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "Prospectiva do bloco A (T8), falha antes do GO: ork noctum aceite arco --json dá o contrato ork.noctum-piloto/v1 com as medidas M1 a M10 e o veredito por critério, recusa como simulada a evidência do ensaio (máquina, remoto, canal ou despacho simulados), e o arquivo publicável não traz caminho absoluto, e-mail, id de sessão nem nome de conta. Ao menos 8 casos AC, sem falha nem pulo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-17T02:46:04.643Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/publicar.yml",
+      "alegacao": "Prospectiva do bloco A (T9), falha antes do GO: core/scripts/checar-release-noctum.cjs sai diferente de 0 sem um docs/roadmap/evidencias/RM-058/aceite.json válido (contrato ork.noctum-aceite/v1, pilotos exigidos aceitos, nenhum simulado e a referência da ratificação do dono), o publicar.yml o roda antes do npm publish, e o CI recusa texto que anuncia o #Noctum como lançado, entregue ou validado sem o aceite. Ao menos 6 casos RG, sem falha nem pulo.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG[0-9]+:/{p++} END{exit !(p>=6 && f==0 && s==0)}' && grep -qF 'node core/scripts/checar-release-noctum.cjs' .github/workflows/publicar.yml"
+      ],
+      "criadoEm": "2026-10-17T02:46:08.228Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "Prospectiva do bloco A (T10), falha antes do GO: a página da RM-058 traz a seção Integração e pilotos (o que ficou ligado, os limites, o roteiro dos pilotos e a proposta de envelope), a referência do CLI em pt-BR e em inglês traz ork noctum conduzir e ork noctum aceite, e a página, o índice, as duas referências e o CHANGELOG passam no markdownlint-cli2, no ork docs verificar --pr e no checar-changelog contra a origin/main.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && grep -qF '### Integração e pilotos' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'ork noctum conduzir' docs/referencia/cli.md && grep -qF 'ork noctum conduzir' docs/referencia/cli.en.md && grep -qF 'ork noctum aceite' docs/referencia/cli.md && grep -qF 'ork noctum aceite' docs/referencia/cli.en.md && core/node_modules/.bin/markdownlint-cli2 --no-globs docs/roadmap/RM-058-modo-noctum.md docs/roadmap/README.md docs/referencia/cli.md docs/referencia/cli.en.md CHANGELOG.md && node core/dist/index.js docs verificar --pr && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-17T02:46:12.328Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "Portão do GO (T0), falha antes da N3: o merge ship(ork-rm058n3) está na origin/main e é ancestral da HEAD desta thread, então o bloco A parte da base com a N3 mesclada. Em 19/10 a origin/main não tem esse merge e o comando sai 1; com ship(ork-rm058n5) e ship(ork-rm058n6) no lugar, o mesmo comando sai 0.",
+      "negativa": false,
+      "verificar": [
+        "c=$(git log -1 --format=%H --grep='^ship(ork-rm058n3)' origin/main) && test -n \"$c\" && git merge-base --is-ancestor \"$c\" HEAD"
+      ],
+      "criadoEm": "2026-10-19T03:39:16.990Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": "core/src/conducao-batida.ts",
+      "alegacao": "Prospectiva do bloco A (T1.2), falha antes do GO: com o arco terminal, a batida e a Sentinela não despacham, não retomam e não mesclam a thread cujo último despacho foi do arco (correlação noctum:<arco>), até um despacho fora do arco ou um arco novo a listar; registrar, master e limpar seguem como estavam. Ao menos 3 casos GT, sem falha nem pulo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GT[0-9]+:/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T03:39:21.279Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm058integra",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "Prospectiva do bloco A (T9), falha antes do GO: o job de documentação do CI roda node core/scripts/checar-release-noctum.cjs --texto, que recusa texto público anunciando o #Noctum como lançado, entregue ou validado sem o aceite registrado, e a árvore da thread passa nessa conferência.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && grep -qF 'node core/scripts/checar-release-noctum.cjs --texto' .github/workflows/ci.yml && node core/scripts/checar-release-noctum.cjs --texto"
+      ],
+      "criadoEm": "2026-10-19T03:39:24.890Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "RM-058 integração (T1.1, D3): o ship(), o mesmo do ork ship e do ork_ship do MCP, recusa a thread de um arco #Noctum vigente, agendado ou com proposta no prazo antes de qualquer git, com motivo policy.violation, o código noctum.guarda.thread-do-arco (ou arco-ilegivel) e sem gravar no ledger da thread; a de arco terminal e a de fora seguem (GS1, GS5 e GS8).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const guarda = guardaDaThread(raiz, threadId);' core/src/ship.ts && grep -qF 'codigo: guarda.motivo, detalhe: guarda.detalhe, correcao: guarda.correcao' core/src/ship.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS(1|5|8):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS(1|5|8):/{p++} END{exit !(p>=3 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:19:15.421Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/ship-publicar.ts",
+      "alegacao": "RM-058 integração (T1.1, D3): o publicarEntrega (ork ship publicar) recusa a thread de um arco que a guarda, no ensaio e no efeito, sem push, sem PR e sem ledger; só o próprio arco, pelo campo doArco do passo da entrega, a publica (GS2).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const guarda = guardaDaThread(raiz, t.id, quando, { doArco: opcoes.doArco });' core/src/ship-publicar.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS2:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS2:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:19:18.064Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/entrega-pr.ts",
+      "alegacao": "RM-058 integração (T1.1, D3): o ork ship registrar-pr recusa a thread de um arco que a guarda (o PR local e o externo), antes de consultar o remoto ou a forja, e o --todas a pula com o motivo (ação pulada) enquanto as outras seguem (GS3).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"if (guarda) return resultado(id, 'pulada', guarda.texto, { codigo: guarda.motivo });\" core/src/entrega-pr.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS3:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS3:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:19:20.713Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/atualizar-branch.ts",
+      "alegacao": "RM-058 integração (T1.1, D3): o ork conducao atualizar (e a atualização de PR da batida, que o chama) recusa a thread de um arco que a guarda antes de tocar na worktree, com o motivo tipado (GS4).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'if (guarda) return recusa(guarda.motivo, guarda.texto);' core/src/atualizar-branch.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS4:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS4:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:19:23.114Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-entrega.ts",
+      "alegacao": "RM-058 integração (T1.1, D3 e D5): o passo da entrega da N5 publica a própria thread com doArco, no ensaio e no efeito, e a sessão do CHECK de revisão recebe a linha do arco no pedido; a suíte da entrega da N5 segue verde com a guarda ligada.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF 'doArco: ' core/src/noctum-entrega.ts)\" -ge 2 && grep -qF 'prompt: pedidoDoArco(pedido.texto, arco)' core/src/noctum-entrega.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-entrega.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:19:25.959Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "RM-058 integração (T1.1, D5): o passo do arco anexa ao pedido de toda sessão que despacha a linha fixa do arco (o SHIP e o MASTER são do arco; sem push, PR nem merge), igual em toda chamada; a thread que ele abre por pedido fica guardada (GS7 e GS9).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'prompt: pedidoDoArco(pedido.texto, arco)' core/src/noctum-execucao.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS(7|9):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS(7|9):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:19:28.615Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/locale-ship.ts",
+      "alegacao": "RM-058 integração (T1.1): a recusa da guarda das threads do arco está no catálogo do ship em pt-BR e em inglês, com o motivo tipado no começo, e o registrar-pr tem a ação pulada nas duas línguas (GS1 remonta em inglês).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'noctum.guarda.thread-do-arco: a thread ${thread} é trabalho do arco' core/src/locale-ship.ts && grep -qF 'noctum.guarda.thread-do-arco: thread ${thread} is work of arc' core/src/locale-ship.ts && grep -qF \"'pulada': 'skipped'\" core/src/locale-ship.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS1:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS1:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:19:31.663Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-arco.ts",
+      "alegacao": "RM-058 integração (T1.1, D3): lerArcoComProposta dá, de uma leitura só do log do arco, o estado e o conteúdo da proposta que espera o dono no prazo; a guarda lê dela a lista da proposta, que guarda até o prazo e não depois (GS6).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function lerArcoComProposta(raiz: string, arco: string' core/src/noctum-arco.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS6:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS6:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:19:34.216Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-guarda.test.ts",
+      "alegacao": "RM-058 integração (T1.1): o arquivo traz ao menos os casos GS1 a GS9 da guarda nos caminhos manuais, e todos passam sem pulo.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('GS[0-9]+:\" core/test/noctum-guarda.test.ts)\" -ge 9",
+        "node --test-reporter=tap core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GS[0-9]+:/{p++} END{exit !(p>=9 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:19:36.372Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-arco.test.ts",
+      "alegacao": "RM-058 integração (correção da T1.1): o A3 do arco lista lerArcoComProposta, que só lê o log; o módulo segue sem escritor de autorização sem prova, e o arquivo inteiro passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'lerArco', 'lerArcoComProposta', 'proporEnvelope',\" core/test/noctum-arco.test.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-arco.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - A[0-9]+:/{p++} END{exit !(p>=31 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:36:55.446Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-baseline-do-arco.test.ts",
+      "alegacao": "RM-058 integração (T2, D6): os casos BL1 a BL6 provam a baseline do arco em todo runtime: a reserva volta sem despacho, o condutor grava uma vez e o passo seguinte despacha, o vigia nunca grava, a thread com baseline despacha direto, o CHECK de revisão não pede e fora do arco o claude-bg segue sem pedir.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('BL[0-9]+:\" core/test/noctum-baseline-do-arco.test.ts)\" -ge 6",
+        "node --test-reporter=tap core/dist-test/test/noctum-baseline-do-arco.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - BL[0-9]+:/{p++} END{exit !(p>=6 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:36:58.300Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-apoio.ts",
+      "alegacao": "RM-058 integração (T2, D6): o apoio dos testes do arco tem a baseline SIMULADA do condutor (baselineSimulada e abrirComBaseline), só o evento do núcleo; os testes do passo da N2 seguem verdes com ela, e o X1 passa pela baseline real.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function baselineSimulada(raiz: string, threadId: string): void {' core/test/noctum-apoio.ts && grep -qF 'export function abrirComBaseline(' core/test/noctum-apoio.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-execucao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - X[0-9]+:/{p++} END{exit !(p>=18 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:37:01.101Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-execucao.test.ts",
+      "alegacao": "RM-058 integração (T2, D6): o X1 e o X13, pelo phase run real, esperam a baseline gravada pelo núcleo fora da trava antes do primeiro GOAL de cada thread; os X1 a X18 seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF \"motivo === 'baseline-gravada'\" core/test/noctum-execucao.test.ts)\" -ge 3",
+        "node --test-reporter=tap core/dist-test/test/noctum-execucao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - X[0-9]+:/{p++} END{exit !(p>=18 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:37:03.548Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-maquinas-apoio.ts",
+      "alegacao": "RM-058 integração (T2, D6): a N2 simulada do passo da máquina abre a thread com a baseline SIMULADA do condutor, e as suítes da máquina e do ensaio entre máquinas da N3 seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'abrirThread: abrirComBaseline as' core/test/noctum-maquinas-apoio.ts",
+        "node --test --test-reporter=tap core/dist-test/test/noctum-maquinas.test.js core/dist-test/test/noctum-ensaio.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=32 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:37:06.097Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-supervisao-apoio.ts",
+      "alegacao": "RM-058 integração (T2, D6): as opções simuladas do vigia e do condutor abrem a thread com a baseline SIMULADA do condutor, e a suíte do vigia da N4 segue verde.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'abrirThread: abrirComBaseline, ...extra.passo' core/test/noctum-supervisao-apoio.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-vigia.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - G[0-9]+:/{p++} END{exit !(p>=23 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:37:08.497Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-medicao.test.ts",
+      "alegacao": "RM-058 integração (T2, D6): o ME9 abre a thread com a baseline SIMULADA do condutor e segue medindo uma vez por passo; a suíte da medição passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'abrirThread: abrirComBaseline,' core/test/noctum-medicao.test.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-medicao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - ME[0-9]+:/{p++} END{exit !(p>=15 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:37:10.799Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/scripts/ensaio-noctum.cjs",
+      "alegacao": "RM-058 integração (T2, D6): o ensaio da N6 abre as threads com a baseline SIMULADA do condutor (o vigia nunca a grava), e os sete cenários seguem saindo 0 sem pedir baseline.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"n.ledger.registrar(n.thread.dirThread(proj.dir, t.id), t.id, 'baseline_recorded'\" core/scripts/ensaio-noctum.cjs",
+        "node --test-reporter=tap core/dist-test/test/noctum-ensaio-piloto.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - EP[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:37:13.236Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-ligacao.test.ts",
+      "alegacao": "Prospectiva do bloco A (T11), sem regressão, no lugar da C16 retirada: as suítes do #Noctum inteiras (N1 a N6, a N3 e as novas desta thread), rodadas pelo node --test, não têm nenhum not ok nem caso pulado, com ao menos os 327 casos que a base 1e88a932 já tinha.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap core/dist-test/test/noctum-*.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - /{p++} END{exit !(p>=327 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:38:02.997Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "RM-058 integração (T6, D10): o manifesto tipa ci.contexts, a lista opcional dos checks que a proteção da base exige; sem ela, vale [ci.context], e o ork ship segue no ci.context (PC4 e PC6).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'contexts?: string[];' core/src/types.ts",
+        "node --test-reporter=tap --test-name-pattern='^PC(4|6):' core/dist-test/test/noctum-ci-contextos.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - PC(4|6):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:40:11.239Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "RM-058 integração (T6, D10): a leitura do manifesto aceita ci.contexts de 1 a 20 nomes de uma linha, sem repetição, e recusa lista vazia, item que não é texto e nome repetido como erro do manifesto (PC5).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'function lerContextos(v: ValorYaml | undefined, erros: string[]): string[] | undefined {' core/src/manifest.ts",
+        "node --test-reporter=tap --test-name-pattern='^PC5:' core/dist-test/test/noctum-ci-contextos.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - PC5:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:40:13.742Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "RM-058 integração (T6, D10): o manifesto do projeto lista em ci.contexts os quatro checks que a proteção da main exige e mantém ci.context: ork-verify para o ork ship (PC6).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '    - \"nucleo ork (build, testes, canarios) (22)\"' orkastery.yaml && grep -qF '  context: ork-verify' orkastery.yaml",
+        "node --test-reporter=tap --test-name-pattern='^PC6:' core/dist-test/test/noctum-ci-contextos.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - PC6:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:40:16.190Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/forja.md",
+      "alegacao": "RM-058 integração (T6, D10): a referência do contrato da forja diz o ci.contexts, a ordem em que um contexto decide a prova, a validação e o limite dito de que o ork ship e o ork ci status seguem no ci.context.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '## Vários contextos exigidos' docs/referencia/contratos/forja.md && grep -qF '**Limite dito:** o `ork ship` e o `ork ci status` seguem lendo só o `ci.context`' docs/referencia/contratos/forja.md",
+        "core/node_modules/.bin/markdownlint-cli2 --no-globs docs/referencia/contratos/forja.md"
+      ],
+      "criadoEm": "2026-10-19T09:40:18.480Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-ci-contextos.test.ts",
+      "alegacao": "RM-058 integração (T6): o arquivo traz os casos PC1 a PC6 da prova do CI com vários contextos, e todos passam sem pulo.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('PC[0-9]+:\" core/test/noctum-ci-contextos.test.ts)\" -ge 6",
+        "node --test-reporter=tap core/dist-test/test/noctum-ci-contextos.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - PC[0-9]+:/{p++} END{exit !(p>=6 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:40:20.881Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/conducao-sentinela.ts",
+      "alegacao": "RM-058 integração (T1.2, D3 e D4): o passo do condutor ganha o campo arco (guarda ou retenção) sem mudar o passo que a fila do arco lê, e o status da Sentinela dá nada com o motivo à thread que o arco segura ou retém, então a Sentinela não a despacha (GS13 e GT1).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function passoDeQuemAge(p: PassoDoCondutor): PassoDoCondutor {' core/src/conducao-sentinela.ts && grep -qF '.map(passoDeQuemAge)' core/src/conducao-sentinela.ts",
+        "node --test-reporter=tap --test-name-pattern='^(GS13|GT1):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - (GS13|GT1):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:54:16.107Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/varredura-acoes.ts",
+      "alegacao": "RM-058 integração (T1.2, D3 e D4): a varredura não registra, não fecha pelo MASTER nem solta sessão da thread que um arco segura (bloqueio thread-do-arco no retrato, e fora da fila do pulse); com o arco terminal, registrar e master seguem (GS12 e GT3).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'espera-longa', 'thread-do-arco'] as const;\" core/src/varredura-acoes.ts && grep -qF 'comArco: true });' core/src/varredura-acoes.ts",
+        "node --test-reporter=tap --test-name-pattern='^(GS12|GT3):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - (GS12|GT3):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:54:22.700Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/maquina-ociosa.ts",
+      "alegacao": "RM-058 integração (T1.2): a máquina ociosa não sugere a thread que um arco segura ou retém, nem o item da lista de um arco que guarda e que ele ainda vai abrir; o trabalho de fora segue sugerido (GS14).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'if (arcoDoPasso(raiz, arcos, t.id, eventos)) continue;' core/src/maquina-ociosa.ts && grep -qF 'if (!t && itensDosArcos.has(r.item)) continue;' core/src/maquina-ociosa.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS14:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS14:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:54:25.500Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/locale-pulse.ts",
+      "alegacao": "RM-058 integração (T1.2): o bloqueio thread-do-arco da varredura tem texto no catálogo do pulse em pt-BR e em inglês, e os testes do catálogo do pulse seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'thread-do-arco': 'a thread é trabalho de um arco #Noctum\" core/src/locale-pulse.ts && grep -qF \"'thread-do-arco': 'the thread is work of a #Noctum arc\" core/src/locale-pulse.ts",
+        "node --test-reporter=tap core/dist-test/test/locale-pulse.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T09:54:28.250Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-relatorio.ts",
+      "alegacao": "RM-058 integração (T3): o relatório lê os fatos da supervisão do log do arco (isolados, contas fora, retomadas, sessões paradas e parada) quando ninguém os passa, sem a lacuna fixa de antes, e o log que não se lê vira lacuna com o motivo (LG6 e LG8).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function fatosDaSupervisao(raiz: string, arco: string, quando = new Date().toISOString()): FatosDaSupervisao {' core/src/noctum-relatorio.ts && test \"$(grep -c 'o tique ainda não chama o vigia' core/src/noctum-relatorio.ts)\" = 0",
+        "node --test-reporter=tap --test-name-pattern='^LG(6|8):' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - LG(6|8):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T10:05:04.863Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-arco.ts",
+      "alegacao": "RM-058 integração (T3, D7): MOTIVOS_DE_ENCERRAMENTO ganha supervisao, e o arco encerrado por ela é terminal como os outros (LG4 e LG5).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"export const MOTIVOS_DE_ENCERRAMENTO = ['revogado', 'hora', 'custo', 'fila-vazia', 'supervisao'] as const;\" core/src/noctum-arco.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG(4|5):' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - LG(4|5):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T10:05:15.029Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-relatorio.test.ts",
+      "alegacao": "RM-058 integração (T3): o RL3 confere que, sem a interface da supervisão, o relatório não traz mais a lacuna fixa do tique sem vigia, e os testes do relatório seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'assert.doesNotMatch(texto, /o tique ainda não chama o vigia|a supervisão do arco não se lê/);' core/test/noctum-relatorio.test.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-relatorio.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RL[0-9]+:/{p++} END{exit !(p>=10 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T10:05:17.539Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-ligacao.test.ts",
+      "alegacao": "RM-058 integração (T3): o arquivo traz ao menos os casos LG1 a LG10 do tique ligado à supervisão, e todos passam sem pulo.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('LG[0-9]+:\" core/test/noctum-ligacao.test.ts)\" -ge 10",
+        "node --test-reporter=tap core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - LG[0-9]+:/{p++} END{exit !(p>=10 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T10:05:19.520Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "RM-058 integração (T4, D8): o passo supervisionado chama a entrega da N5 depois do despacho, relida a supervisão (sem a parada e com a geração ainda desta instância), também no passo que encerra pela fila vazia; o condutor dorme até o menor ate do despacho e da entrega, nunca além da cadência, volta já depois de um efeito da entrega e só sai pela fila vazia quando a entrega não fez efeito; no tique do vigia, a entrega não espera a fila pesada nem a trava (esperarMs 0), o verify fica para o condutor com o motivo fila-pesada.ocupada, e a exceção da entrega vira lacuna sem derrubar o tique nem o laço (LG11 a LG18, com dente por mutação).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'const relida = lerSupervisao(raiz, arco);' core/src/noctum-vigia.ts && grep -qF 'entrega: { ...opcoes.entrega, esperarMs: 0, verificar: (k, thread) => verifyFicaParaOCondutor(k, thread) } });' core/src/noctum-vigia.ts && grep -qF \"if ((ultimo.acao === 'encerrar' && !fezEfeito(ultimo.entrega))\" core/src/noctum-vigia.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG1[1-8]:' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - LG1[1-8]:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T10:31:35.554Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "RM-058 integração (T5, D9): conduzirPeloCli confere o arco antes da trava (terminal, ou parado pela supervisão, sai 0 sem tentar a trava nem gravar geração; sem arco, nunca autorizado ou com a supervisão que não se lê, sai 2) e conduz pelo conduzirArco, com 3 para outro condutor vivo e 4 para a geração perdida; o comando real sai 3 com a trava presa por outro processo e dá a recusa com 2 na saída de erro (CJ1 a CJ8, com dente por mutação).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"if (sub === 'conduzir') {\" core/src/noctum-cli.ts && grep -qF \"const codigo: CodigoDoCondutor = r.acao === 'outro-condutor' ? 3 : r.acao === 'saiu' ? (r.ultimo?.acao === 'geracao-vencida' ? 4 : 0) : 2;\" core/src/noctum-cli.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-conduzir.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - CJ[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T10:43:52.813Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "RM-058 integração (T5): a ajuda em pt-BR e em inglês declara o noctum conduzir com os códigos de saída e o tique com o vigia, e a ajuda inglesa segue com as mesmas linhas de comando e as mesmas flags da portuguesa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '  noctum conduzir <arco> [--json]           O condutor do arco, que o cron do piloto relança' core/src/locale-ajuda.ts && grep -qF '  noctum conduzir <arc> [--json]            The arc conductor, which the pilot cron relaunches' core/src/locale-ajuda.ts && grep -qF 'Fechamento, vigia e relatório do arco, nessa ordem' core/src/locale-ajuda.ts",
+        "node --test core/dist-test/test/locale-ajuda.test.js"
+      ],
+      "criadoEm": "2026-10-19T10:43:55.716Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "RM-058 integração (T5): a referência do CLI em pt-BR documenta o ork noctum conduzir (a conferência antes da trava, a trava e os códigos 0, 2, 3 e 4) e o tique com o vigia, e a paridade da referência com a ajuda segue (rm044).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '| `ork noctum conduzir <arco> [--json]` | O condutor do arco, que o cron do piloto relança' docs/referencia/cli.md && grep -qF 'o vigia e o relatório, nessa ordem' docs/referencia/cli.md",
+        "node --test core/dist-test/test/rm044-paridade-cli-md.test.js"
+      ],
+      "criadoEm": "2026-10-19T10:43:58.219Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "RM-058 integração (T5): a referência do CLI em inglês documenta o ork noctum conduzir e o tique com o vigia, na mesma linha da referência em pt-BR, e a conferência da referência inglesa segue verde.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '| `ork noctum conduzir <arco> [--json]` | The arc conductor, which the pilot cron relaunches' docs/referencia/cli.en.md && grep -qF 'the watcher and the report, in that order' docs/referencia/cli.en.md",
+        "node --test core/dist-test/test/locale-f3a-referencia.test.js"
+      ],
+      "criadoEm": "2026-10-19T10:44:00.585Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-conduzir.test.ts",
+      "alegacao": "RM-058 integração (T5): o arquivo traz os casos CJ1 a CJ8 do condutor pelo CLI (a trava presa, o arco nunca autorizado, o terminal, a parada, a geração perdida, a fila vazia com o MASTER e o comando real), e todos passam sem pulo.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('CJ[0-9]+:\" core/test/noctum-conduzir.test.ts)\" -ge 8",
+        "node --test-reporter=tap core/dist-test/test/noctum-conduzir.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - CJ[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T10:44:03.161Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/scripts/ensaio-noctum.cjs",
+      "alegacao": "RM-058 integração (T7, D11): o ensaio ganha os cenários cadeia-ligada, condutor-morto e base-que-anda, pelo vigia e pelo condutor de produção, com a entrega da N5, a baseline e o verify reais, um remoto bare de fixture e a forja, o CI, o runtime e as sessões simulados; o resultado leva simulado: true e as marcas que o aceite do piloto recusa. Os três cenários aprovam, e os mutantes da entrega no passo, do MASTER antes do fechamento e do verify no tique os reprovam.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"const MARCAS_DE_SIMULACAO = { maquina: MAQUINA, remoto: 'fixture', forja: 'simulada', ci: 'simulado', runtime: 'simulado', canal: 'simulado',\" core/scripts/ensaio-noctum.cjs && grep -qF \"const resultado = { contrato: CONTRATO, ok: false, simulado: true, marcas: MARCAS_DE_SIMULACAO,\" core/scripts/ensaio-noctum.cjs",
+        "node core/scripts/ensaio-noctum.cjs --cenario cadeia-ligada --cenario condutor-morto --cenario base-que-anda --resumo"
+      ],
+      "criadoEm": "2026-10-19T11:02:05.564Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-ensaio-piloto.test.ts",
+      "alegacao": "RM-058 integração (T7): os casos EP1 a EP11 passam sem pulo, com um caso por cenário integrado (EP8 a EP10) e o das marcas de simulação no resultado (EP11), e o ensaio inteiro tem os dez cenários.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('EP[0-9]+:\" core/test/noctum-ensaio-piloto.test.ts)\" -ge 11",
+        "node --test-reporter=tap core/dist-test/test/noctum-ensaio-piloto.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - EP[0-9]+:/{p++} END{exit !(p>=11 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T11:02:08.157Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração (T8, D12): aceiteDoPiloto dá o contrato ork.noctum-piloto/v1 com M1 a M10 (a medida que não se lê é lacuna, nunca zero), os critérios A1 a A8 e I1 a I6 com o limiar e a origem (dono ou proposta) e o veredito; a marca de simulação (remoto de fixture, máquina do ensaio, evento simulado, canal simulado) dá simulado e nunca aprovado; o ship_done sem a prova do push não conta em M2 e vira evidência perdida; o publicável troca caminho, e-mail, sessão, conta, máquina e repositório por rótulos; o mesmo arco dá o mesmo hash (AC1 a AC10, com dente por mutação).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"export const CONTRATO_PILOTO = 'ork.noctum-piloto/v1' as const;\" core/src/noctum-aceite.ts && grep -qF \"const veredito: VereditoDoPiloto = marcas.length ? 'simulado'\" core/src/noctum-aceite.ts && grep -qF \"if (ship.pushVerificado !== true || !sha) motivo = 'ship_done sem a prova do push';\" core/src/noctum-aceite.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC[0-9]+:/{p++} END{exit !(p>=10 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T11:17:37.842Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-aceite.test.ts",
+      "alegacao": "RM-058 integração (T8): o arquivo traz os casos AC1 a AC10 do aceite do piloto (as medidas do arco de fixture, os limiares do dono e da proposta, a evidência simulada, a lacuna, o publicável, a agenda de injeções, a interrupção, o ship_done sem prova, o comando real e o hash estável), e todos passam sem pulo.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('AC[0-9]+:\" core/test/noctum-aceite.test.ts)\" -ge 10",
+        "node --test-reporter=tap core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC[0-9]+:/{p++} END{exit !(p>=10 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T11:17:40.838Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-supervisao.ts",
+      "alegacao": "RM-058 integração (T8): eventosDaSupervisao devolve os eventos do log da supervisão, conferidos como na leitura do estado, cada um com o instante; o aceite mede por eles a recuperação das falhas (AC1 e AC6), e as suítes da supervisão e do vigia seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function eventosDaSupervisao(raiz: string, arco: string): Array<{ em: string; evento: EventoDaSupervisao }> {' core/src/noctum-supervisao.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC(1|6):' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - AC(1|6):/{p++} END{exit !(p>=2 && f==0)}' && node --test core/dist-test/test/noctum-supervisao.test.js"
+      ],
+      "criadoEm": "2026-10-19T11:17:43.737Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/release-noctum.test.ts",
+      "alegacao": "RM-058 integração (T9): o arquivo traz os casos RG1 a RG10 do portão de release e do texto (sem aceite, piloto simulado, piloto faltando, sha256 divergente, sem ratificação, aceite válido, anúncio em pt-BR e em inglês, negação e a árvore desta thread), e todos passam sem pulo.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('RG[0-9]+:\" core/test/release-noctum.test.ts)\" -ge 10",
+        "node --test-reporter=tap core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG[0-9]+:/{p++} END{exit !(p>=10 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T11:22:23.700Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-058 integração (T10): \"Não publicado\" do CHANGELOG traz a linha da integração numa máquina (a guarda, a baseline, o tique com o vigia, o condutor, o aceite, o CI de todos os contextos, o ensaio e o portão da tag), sem anunciar o #Noctum como lançado, entregue, validado ou disponível, e o checador do CHANGELOG e o do texto passam.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF -- '- **#Noctum, integração numa máquina** ([RM-058](docs/roadmap/RM-058-modo-noctum.md))' CHANGELOG.md && awk '/^## Não publicado/{p=1;next} /^## \\[/{p=0} p' CHANGELOG.md | grep -qF '#Noctum, integração numa máquina'",
+        "node core/scripts/checar-release-noctum.cjs --texto"
+      ],
+      "criadoEm": "2026-10-19T11:25:58.053Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "RM-058 integração (T11): o retrato byte a byte da ajuda em pt-BR acompanha a ajuda nova (o tique com o vigia, o conduzir e o aceite), só nas cinco entradas da ajuda, e o teste F2a passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'noctum conduzir <arco> [--json]           O condutor do arco, que o cron do piloto relança' core/test/fixtures/locale-f2a-pt-BR.json && grep -qF 'noctum aceite <arco> [--json]             O aceite do piloto' core/test/fixtures/locale-f2a-pt-BR.json",
+        "node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-19T11:38:44.314Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm058integra.json",
+      "alegacao": "RM-058 integração, fecho do GO: o bundle de CI da thread segue o contrato ork.ci-bundle/v1, é da thread e da branch dela com base main, leva as claims ativas da thread e só adia a do próprio bundle (enquanto ele não está versionado), roda o test:ci do manifesto e não tem caminho de máquina nem travessão.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs');const t=fs.readFileSync('.ork-ci/ork-rm058integra.json','utf8');const b=JSON.parse(t);const d=b.deferredClaims||[];const ok=b.schema==='ork.ci-bundle/v1'&&b.thread==='ork-rm058integra'&&b.branch==='ork/ork-rm058integra-full'&&b.base==='main'&&b.claims.length+d.length>=68&&b.claims.every(c=>c.thread==='ork-rm058integra')&&d.length<=1&&d.every(x=>x.id==='C70'&&x.reason==='artifact-not-in-checkout')&&b.commands.some(c=>c.command==='npm --prefix core run test:ci')&&!t.includes('/hom'+'e/')&&!t.includes(String.fromCharCode(0x2014));if(!ok){console.error('bundle fora do contrato');process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-19T11:59:20.711Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-fechamento.ts",
+      "alegacao": "RM-058 integração (T3, T4 e GO-FIX 1): a parada da supervisão fecha o arco com o motivo supervisao, depois do revogado e da hora e antes do custo, menos a parada pelo teto do arco em sessões, que fica com a regra do custo: as sessões admitidas terminam, nenhuma parada é pedida, e o arco fecha por custo quando a última acaba (LG19); a fila vazia não fecha por cima do MASTER por omissão que a entrega do arco deve (LG14 e LG17).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"if (parada && parada.motivo !== 'teto-do-arco') return { motivo: 'supervisao', detalhe:\" core/src/noctum-fechamento.ts && grep -qF \"const devidos = condicao?.motivo === 'fila-vazia' && fila && sup ? mastersDevidos(raiz, estado, fila, sup) : [];\" core/src/noctum-fechamento.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG(4|5|14|17|19):' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - LG(4|5|14|17|19):/{p++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:32:38.106Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, S9 e S10 do CHECK): a recusa da supervisão sai 2 no ork noctum (também a que vem do meio do laço do condutor), a supervisão ilegível recusa o conduzir com 2 antes de criar a trava, com o motivo na saída de erro (CJ9, com dente por mutação), e a ajuda em inglês do aceite usa file nas três opções.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'e instanceof RecusaDoAceite || e instanceof RecusaDaSupervisao) {' core/src/noctum-cli.ts && grep -qF '        [--publicar <file>]                     writes the publishable version, without personal data' core/src/locale-ajuda.ts",
+        "node --test-reporter=tap --test-name-pattern='^CJ9:' core/dist-test/test/noctum-conduzir.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - CJ9:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:42:15.523Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C75",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/conducao-batida.ts",
+      "alegacao": "RM-058 integração (T1.2 e GO-FIX 1, A6 do CHECK): a batida não despacha, não retoma, não lê checks nem mescla a thread que um arco segura ou retém; cada pulo fica no retrato como espera, sem linha no ledger da thread; o da guarda comum fica fora da fila do dono no pulse (o relatório do arco o diz), e o do arco que não se lê vai à fila do dono, bloqueado, com o texto da guarda (GS10, GS11, GT2 e GT5).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF 'anotar(ctx, item(' core/src/conducao-batida.ts)\" -ge 2 && grep -qF 'const arco = arcoDoPasso(raiz, ctx.arcos, t.id, eventos);' core/src/conducao-batida.ts && grep -qF 'if (i.motivo === MOTIVO_DA_GUARDA) continue;' core/src/conducao-batida.ts && grep -qF 'const ilegivel = i.motivo === MOTIVO_DO_ARCO_ILEGIVEL;' core/src/conducao-batida.ts",
+        "node --test-reporter=tap --test-name-pattern='^(GS10|GS11|GT2|GT5):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - (GS10|GS11|GT2|GT5):/{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:52:24.548Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C76",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/varredura-acoes.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, A6 do CHECK): a varredura leva ao pulse, bloqueada e com o texto da guarda, a ação da thread cujo último despacho foi de um arco que não se lê (ele não tem relatório que a diga ao dono); a da thread que um arco legível segura segue fora do pulse e marcada só na varredura que age (GS12 e GT5).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'if (opcoes.comArco || arco.motivo === MOTIVO_DO_ARCO_ILEGIVEL) saida.push(' core/src/varredura-acoes.ts",
+        "node --test-reporter=tap --test-name-pattern='^(GS12|GT5):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - (GS12|GT5):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:52:28.189Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C77",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-modo.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, A3 do CHECK): o arco terminal sem reserva pendente fica quieto (o tique não chama mais o vigia) com o relatório entregue ou com a janela de entrega de 24 h acabada, quando o relatório não tenta mais (LG9 e LG20, com dente por mutação).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'return !!r.vencimentoEm && Date.parse(quando) >= Date.parse(r.vencimentoEm) + JANELA_DE_ENTREGA_MS;' core/src/noctum-modo.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG(9|20):' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - LG(9|20):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:52:31.530Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C78",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, A5 do CHECK): o condutor que acabou de gravar a baseline volta já ao passo, sem dormir a cadência medida do começo da iteração (LG21, com dente por mutação), e o sono dos outros passos segue o menor ate do despacho e da entrega (LG12).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"(ultimo.motivo === 'baseline-gravada' ? Date.parse(quando) : Date.parse(ultimo.ate))\" core/src/noctum-vigia.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG(12|21):' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - LG(12|21):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:52:34.834Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C79",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-baseline-do-arco.test.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, A4 do CHECK): o BL2 confere que a baseline do arco roda com a trava de despacho da máquina já solta, e os casos BL1 a BL6 passam sem pulo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"assert.equal(travaLivre, true, 'a baseline rodou fora da trava de despacho');\" core/test/noctum-baseline-do-arco.test.ts",
+        "node --test-reporter=tap core/dist-test/test/noctum-baseline-do-arco.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - BL[0-9]+:/{p++} END{exit !(p>=6 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T12:52:37.488Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C82",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração, GO-FIX 2 (M7 e M8 do CHECK 2): o ledger com linha corrompida, como o que nem se abre, é lacuna em M1, M2, M6 e M7 e evidência perdida em M8, nunca zero (AC15); e lerLimiares recusa a chave desconhecida com noctum.aceite.limiares-invalidos, em vez de deixar o critério com a proposta em silêncio (AC18). Os dois com dente por mutação.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"ledgers.filter(l => l.eventos?.some(e => e.tipo === 'ledger_corrupted'))\" core/src/noctum-aceite.ts && grep -qF 'chave(s) desconhecida(s): ' core/src/noctum-aceite.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC1[58]:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC1[58]:/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T13:52:27.102Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-aceite.test.ts",
+      "alegacao": "RM-058 integração, GO-FIX 2 (M2 do CHECK 2): o arquivo traz AC13 (rodado numa worktree, o aceite lê o arco, os ledgers e o transporte do canal da raiz canônica do estado) e AC14 (a condução começa na primeira autorização, e a emenda do dono durante a janela é ato que corta M1), além de AC15 a AC18; os 18 casos AC passam sem pulo.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('AC[0-9]+:\" core/test/noctum-aceite.test.ts)\" -ge 18",
+        "node --test-reporter=tap core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC[0-9]+:/{p++} END{exit !(p>=18 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T13:52:29.992Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/scripts/checar-release-noctum.cjs",
+      "alegacao": "RM-058 integração (T9, D13, GO-FIX 1 e 2): o portão de release só lê arquivos e, na tag, sai 0 só com o aceite dos quatro pilotos exigidos (arquivo publicável na pasta da evidência, sha256 que bate, não simulado, aprovado), cada um com arquivo, sha256 e arco distintos e a janela de ao menos 6, 12, 6 e 12 h, e com a ratificação do dono; o alcance padrão é toda versão. Com --texto, sem o aceite, recusa o anúncio do #Noctum como lançado, entregue, validado ou disponível, com o nome em Markdown, vírgula e até duas palavras entre o nome, o verbo e o particípio; só libera a negação entre o nome e o particípio ou logo antes do nome; lê também core/README.md e os .md e .json de marketplaces/ (RG1 a RG14, com dente por mutação).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"const ALCANCE = 'toda-versao';\" core/scripts/checar-release-noctum.cjs && grep -qF \"const PILOTOS_EXIGIDOS = ['P1', 'P2', 'P3', 'P4'];\" core/scripts/checar-release-noctum.cjs && grep -qF 'const HORAS_MINIMAS = { P1: 6, P2: 12, P3: 6, P4: 12 };' core/scripts/checar-release-noctum.cjs && grep -qF 'if (NEGACAO.test(m[0]) || NEGACAO_ANTES.test(texto.slice(Math.max(0, m.index - 40), m.index))) continue;' core/scripts/checar-release-noctum.cjs",
+        "node --test-reporter=tap core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG[0-9]+:/{p++} END{exit !(p>=14 && f==0 && s==0)}' && node core/scripts/checar-release-noctum.cjs --texto"
+      ],
+      "criadoEm": "2026-10-19T13:57:52.803Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C85",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/release-noctum.test.ts",
+      "alegacao": "RM-058 integração, GO-FIX 2 (I3, M3 e M5 do CHECK 2): o arquivo traz RG13 (o nome em Markdown, a vírgula e a negação longe do nome não escondem o anúncio; o README do pacote e as fontes dos marketplaces entram; a descrição correta, como o relatório que é entregue às 07:00, passa) e RG14 (o sha256 repetido e o arco repetido recusam, cada um pelo seu campo), e os dois passam sem pulo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^test\\('RG13:\" core/test/release-noctum.test.ts && grep -qE \"^test\\('RG14:\" core/test/release-noctum.test.ts",
+        "node --test-reporter=tap --test-name-pattern='^RG1[34]:' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG1[34]:/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T13:57:56.098Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C86",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-fechamento.ts",
+      "alegacao": "RM-058 integração, GO-FIX 2 (N2 do CHECK 2): a parada pelo teto do arco segue terminal com o consumo abaixo do teto (a emenda que subiu o teto depois da parada, a reserva devolvida): sem sessão admitida em voo, o arco fecha pela supervisão, sem parar nada (LG22); e, com essa parada, o vigia registra como sessao_morta a sessão admitida que o runtime prova morta sem resultado, sem retomada nem despacho, e o arco fecha pelo custo (LG23). Os dois com dente por mutação, e o LG19 segue.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'if (parada && emVoo === 0) {' core/src/noctum-fechamento.ts && grep -qF \"if (estado.situacao === 'vigente' && sup.parada?.motivo === 'teto-do-arco') {\" core/src/noctum-vigia.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG(19|22|23):' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - LG(19|22|23):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T14:06:52.968Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C87",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/conducao-batida.ts",
+      "alegacao": "RM-058 integração, GO-FIX 2 (N3 do CHECK 2): no pulse, o pulo do arco que não se lê segue bloqueado com o texto da guarda mesmo depois de 2 h de espera, sem virar espera longa (GT6, com dente por mutação); GT5 segue.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"const motivo = ilegivel ? 'thread-do-arco' : longa ? 'espera-longa' : i.motivo;\" core/src/conducao-batida.ts && grep -qF 'const bloqueio = ilegivel ? i.detalhe' core/src/conducao-batida.ts",
+        "node --test-reporter=tap --test-name-pattern='^GT[56]:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GT[56]:/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T14:06:56.264Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C89",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-modo.ts",
+      "alegacao": "Prospectiva do bloco A (T3 e T4), com a ressalva do teto (N5 do CHECK 2): o tique roda o fechamento, o vigia da N4 (reconciliação, paradas e, só com o condutor ausente, o passo do despacho e o passo da entrega da N5) e o relatório com os fatos da supervisão, sem a lacuna fixa; com o condutor vivo o tique não dá passo; o condutor chama o passo da entrega na cadência; a parada da supervisão fecha o arco com o motivo supervisao, o retrato e o pedido de parada das sessões em voo, menos a parada pelo teto do arco, que espera as sessões admitidas e fecha quando a última acaba, sem pedir parada (pelo custo, ou pela supervisão com o consumo abaixo do teto); e a recusa de uma etapa segue isolada. Ao menos 12 casos LG, sem falha nem pulo, e os MO1 a MO12 da N6 inteiros.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - LG[0-9]+:/{p++} END{exit !(p>=12 && f==0 && s==0)}' && node --test-reporter=tap core/dist-test/test/noctum-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - MO[0-9]+:/{p++} END{exit !(p>=12 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T14:07:04.756Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C90",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-modo.ts",
+      "alegacao": "RM-058 integração (T3, D7), com a ressalva do teto (N5 do CHECK 2): o tique do arco roda o fechamento, o vigia da N4 e o relatório; o vigia só dá passo com o condutor ausente e não roda antes da janela nem no arco terminal quieto; a parada dele fecha o arco no mesmo tique, menos a parada pelo teto do arco, que fecha quando a última sessão admitida acaba (LG19, LG22 e LG23); o retrato traz os fatos da supervisão; e os MO1 a MO12 seguem (LG1, LG2, LG7, LG9 e LG10).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'vigia = isolada(' core/src/noctum-modo.ts && grep -qF 'vigia: ResultadoDoVigia | null;' core/src/noctum-modo.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG(1|2|7|9|10|19|22|23):' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - LG(1|2|7|9|10|19|22|23):/{p++} END{exit !(p>=8 && f==0)}' && node --test-reporter=tap core/dist-test/test/noctum-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - MO[0-9]+:/{p++} END{exit !(p>=12 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T14:07:08.887Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C91",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "RM-058 integração, GO-FIX 2 (N1 do CHECK 2): a baseline do arco que falha sem ser espera (o comando que não existe na worktree nova, que o núcleo recusa como baseline.dependencia-ausente, ou a worktree quebrada) não derruba o passo, o condutor nem o CLI: volta como a recusa noctum.baseline.falhou do trabalho, a supervisão o isola com o motivo baseline-falhou e a causa no detalhe, e os outros trabalhos despacham (LG24, com dente por mutação).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"export const MOTIVO_DA_BASELINE_FALHA = 'noctum.baseline.falhou';\" core/src/noctum-execucao.ts && grep -qF \"isolar(carregado, arco, r.trabalho, r.thread, 'baseline-falhou', r.detalhe, quando)\" core/src/noctum-vigia.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG24:' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - LG24:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T14:13:25.600Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C92",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/scripts/ensaio-noctum.cjs",
+      "alegacao": "RM-058 integração, GO-FIX 2 (M4 do CHECK 2): no cenário do condutor que morre, um tique roda depois do condutor relançado, e a última expectativa prova que ele não fecha o arco com o t2 na sessão nova nem pede a parada dela (EP9; o mutante do fechamento que fecha com um trabalho entregue e o t2 em voo cai nessa expectativa).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"const r4 = m.tique('arco-morto', itens, em(21));\" core/scripts/ensaio-noctum.cjs && grep -qF 'nem no tique depois do condutor, e o t2 não é parado' core/test/noctum-ensaio-piloto.test.ts",
+        "node --test-reporter=tap --test-name-pattern='^EP9:' core/dist-test/test/noctum-ensaio-piloto.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - EP9:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T14:15:53.722Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C94",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "RM-058 integração, GO-FIX 2 (M8 do CHECK 2): a referência do CLI, em pt-BR e em inglês, documenta o formato de --injecoes do ork noctum aceite (JSONL com falha de F1 a F11, instante ISO e alvo opcional, que só se recupera pelo sinal dele) e o de --limiares (o contrato ork.noctum-limiares/v1 com as cinco chaves, números não negativos; a chave desconhecida recusa).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '\"contrato\": \"ork.noctum-limiares/v1\"' docs/referencia/cli.md && grep -qF '\"contrato\": \"ork.noctum-limiares/v1\"' docs/referencia/cli.en.md && grep -qF '`m1MinimoHoras`, `m5MaximoMin`, `entregasMinimas`, `margemDoTeto` e `atrasoDoRelatorioMin`' docs/referencia/cli.md && grep -qF '`m1MinimoHoras`, `m5MaximoMin`, `entregasMinimas`, `margemDoTeto` and `atrasoDoRelatorioMin`' docs/referencia/cli.en.md && grep -qF 'vai de `F1` a `F11`' docs/referencia/cli.md && grep -qF 'goes from `F1` to `F11`' docs/referencia/cli.en.md"
+      ],
+      "criadoEm": "2026-10-19T14:19:03.186Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C95",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "RM-058 integração, GO-FIX 2 (M8 do CHECK 2): a referência do CLI em inglês documenta os formatos de --injecoes e --limiares do ork noctum aceite, com o mesmo conteúdo da referência em pt-BR, e o docs verificar segue sem erro de paridade.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'The `ork noctum aceite` files:' docs/referencia/cli.en.md && grep -qF 'Os arquivos do `ork noctum aceite`:' docs/referencia/cli.md && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-19T14:19:05.486Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C96",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-058 integração, GO-FIX 2: a linha da integração numa máquina em \"Não publicado\" diz as mudanças de comportamento das correções (a baseline que falha isola o trabalho, a parada pelo teto espera as sessões admitidas, o aceite conta só a entrega do arco), sem anunciar o #Noctum como lançado, entregue, validado ou disponível, e o checador do CHANGELOG e o do texto passam.",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## Não publicado/{p=1;next} /^## \\[/{p=0} p' CHANGELOG.md | grep -qF 'a que falha sem ser espera isola o trabalho com a causa' && awk '/^## Não publicado/{p=1;next} /^## \\[/{p=0} p' CHANGELOG.md | grep -qF 'menos a parada pelo teto, que espera as sessões admitidas' && awk '/^## Não publicado/{p=1;next} /^## \\[/{p=0} p' CHANGELOG.md | grep -qF 'contando só a entrega do arco'",
+        "node core/scripts/checar-release-noctum.cjs --texto"
+      ],
+      "criadoEm": "2026-10-19T14:19:08.651Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C97",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-sessoes-em-voo.ts",
+      "alegacao": "RM-058 integração, GO-FIX 3 (B1 do CHECK 3): as sessões em voo do arco moram em noctum-sessoes-em-voo.ts, que só lê o log do arco, os ledgers e as threads; a guarda, o fechamento e o vigia o importam, e a guarda não importa o fechamento. O ciclo ship, noctum-guarda, noctum-fechamento, master, ship saiu: com o ship carregado antes, o ship-publicar tem MODOS_QUE_PUBLICAM (GS17, com dente por mutação), e as suítes do ship publicar e da Pista seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"import { sessoesEmVooDoArco } from './noctum-sessoes-em-voo';\" core/src/noctum-guarda.ts && ! grep -qF \"from './noctum-fechamento'\" core/src/noctum-guarda.ts && grep -qF 'export function sessoesEmVooDoArco(raiz: string, estado: EstadoDoArco): SessaoEmVoo[] {' core/src/noctum-sessoes-em-voo.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS17:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GS17:/{p++} END{exit !(p>=1 && f==0 && s==0)}' && node --test --test-reporter=tap core/dist-test/test/ship-publicar.test.js core/dist-test/test/ork-pista.test.js | awk '/^# fail/{f=$3} /^# pass/{p=$3} END{exit !(p>=41 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T14:52:26.838Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C99",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-guarda.ts",
+      "alegacao": "RM-058 integração, GO-FIX 3 (M2 e M3 do CHECK 3, e o N4 do CHECK 2): no arco terminal, a guarda conta as sessões em voo pela função do fechamento sobre os despachos da thread (e a reserva pendente ainda sem thread gravada), sem ler os ledgers do arco inteiro; a sessão aberta da reserva pendente segura o ork ship, e a reserva pendente sem o id da sessão recusa com o texto da reserva, que manda esperar o vigia reconciliá-la; devolvida a reserva, a thread se entrega à mão (GS15, GS16 e GS18, com dente por mutação).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const despachos = estado.despachos.filter(d => (d.threadDespachada ?? d.thread) === thread' core/src/noctum-guarda.ts && grep -qF 'reservaDoArco: (thread: string, arco: string, situacao: string, seq: number) =>' core/src/locale-ship.ts && grep -qF 'reservaDoArcoCorrecao: (arco) =>' core/src/locale-ship.ts && ! grep -qF 'FIM_DA_SESSAO' core/src/noctum-guarda.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS1[568]:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GS1[568]:/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T14:52:35.117Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C102",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/master.ts",
+      "alegacao": "RM-058 integração, GO-FIX 3 (N6 do CHECK 3): aceitarPorOmissao aceita a origem do arco e grava o arco na evidência do aceite_por_omissao; a entrega do arco a passa, e o MASTER que ela faz leva o arco (LG14, com dente por mutação). Sem a origem, o evento sai como antes, e as suítes do MASTER por omissão seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function aceitarPorOmissao(raiz: string, id: string, origem?: { arco: string }): AceitePorOmissao {' core/src/master.ts && grep -qF 'aceitarPorOmissao(carregado.raiz, lido.t.id, { arco })' core/src/noctum-entrega.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG14:' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - LG14:/{p++} END{exit !(p>=1 && f==0)}' && node --test --test-reporter=tap core/dist-test/test/master-omissao.test.js core/dist-test/test/master-omissao-alvo.test.js | awk '/^# fail/{f=$3} /^# pass/{p=$3} END{exit !(p>=17 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T15:03:59.841Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C103",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-entrega.ts",
+      "alegacao": "RM-058 integração, GO-FIX 3 (N6 do CHECK 3): a entrega do arco faz o MASTER por omissão com a origem do arco, e o aceite_por_omissao que ela grava leva o arco na evidência; as suítes da entrega e da integração da entrega seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'aceitarPorOmissao(carregado.raiz, lido.t.id, { arco })' core/src/noctum-entrega.ts",
+        "node --test --test-reporter=tap core/dist-test/test/noctum-entrega.test.js core/dist-test/test/noctum-integracao-entrega.test.js | awk '/^# fail/{f=$3} /^# pass/{p=$3} END{exit !(p>=49 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T15:04:02.727Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C104",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração, GO-FIX 3 (N7 do CHECK 3): lerInjecoes recusa com noctum.aceite.injecoes-invalidas a linha da agenda com chave desconhecida (como Alvo) ou com alvo que não é texto, em vez de virar injeção sem alvo (AC21, com dente por mutação).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"const desconhecidas = Object.keys(v).filter(k => !['falha', 'instante', 'alvo'].includes(k));\" core/src/noctum-aceite.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC21:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC21:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T15:04:05.641Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C106",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "RM-058 integração, GO-FIX 3: a página traz as faixas de evidência das três rodadas (GS1 a GS18 e GT1 a GT6, LG1 a LG25, CJ1 a CJ9, AC1 a AC21, RG1 a RG15) no frontmatter e na seção Integração e pilotos, a linha do histórico das correções, as regras novas do aceite (o MASTER marcado com o arco, o recibo da F7 só do reenvio automático) e do portão, e os limites ditos (as duas máquinas em P3 e P4, a baseline sem dependência instalada, a parada pelo teto terminal e o sujeito que o --texto não distingue); o docs verificar e o --texto passam.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cF '(GS1 a GS18 e GT1 a GT6)' docs/roadmap/RM-058-modo-noctum.md)\" -ge 2 && ! grep -qF '(GS1 a GS16 e GT1 a GT6)' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'o portão não confere quantas máquinas conduziram P3 e P4' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'a baseline do arco roda na worktree como o núcleo a cria' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'Integração corrigida pelas três rodadas do CHECK independente' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'o MASTER do arco é o por omissão que a entrega dele marca com o arco' docs/roadmap/RM-058-modo-noctum.md",
+        "node core/dist/index.js docs verificar && node core/scripts/checar-release-noctum.cjs --texto"
+      ],
+      "criadoEm": "2026-10-19T15:04:15.544Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C107",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "RM-058 integração, GO-FIX 3 (N4 do CHECK 3): o comentário do passo do texto do #Noctum no CI de documentação diz a regra vigente (só a negação do verbo, entre o nome e o particípio ou logo antes do nome, libera), e o passo segue chamando o portão com --texto.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'so a negacao do verbo, entre o nome e o participio ou logo antes' .github/workflows/ci.yml && ! grep -qF 'a negacao na mesma oracao libera' .github/workflows/ci.yml && grep -qF 'run: node core/scripts/checar-release-noctum.cjs --texto' .github/workflows/ci.yml"
+      ],
+      "criadoEm": "2026-10-19T15:04:17.975Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C108",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-guarda.ts",
+      "alegacao": "RM-058 integração (GO-FIX 1, A2 do CHECK; a linha nova do GO-FIX 3): no arco revogado, expirado ou encerrado, a thread que ainda é conduzida por uma sessão que o arco despachou segue guardada nos caminhos manuais (o ork ship da própria sessão recusa com noctum.guarda.thread-do-arco); sem sessão do arco em voo, a thread se entrega à mão como antes (GS5 e GS15, com dente por mutação).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'function sessaoDoArcoEmVoo(raiz: string, thread: string, estado: EstadoDoArco): { sessionId: string } | { seq: number } | null {' core/src/noctum-guarda.ts && grep -qF 'const sessao = lido ? sessaoDoArcoEmVoo(raiz, thread, lido.estado) : null;' core/src/noctum-guarda.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS(5|15):' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GS(5|15):/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-19T15:36:04.970Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C109",
+      "thread": "ork-rm058integra",
+      "fase": "CHECK",
+      "arquivo": "core/test/noctum-guarda.test.ts",
+      "alegacao": "RM-058 integração, CHECK 4: o arco agendado (autorizado, antes do início da janela) guarda a thread da lista; o ork ship a recusa com noctum.guarda.thread-do-arco, situação agendado e origem envelope, sem ledger (GS19, com dente por mutação: tirar o agendado de guardaOsCaminhosManuais derruba o GS19, e antes dele passava em todos os GS).",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"^test\\('GS19:\" core/test/noctum-guarda.test.ts && grep -qF \"return v.situacao === 'agendado' || v.situacao === 'vigente'\" core/src/noctum-guarda.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS19:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GS19:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:11:33.415Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C110",
+      "thread": "ork-rm058integra",
+      "fase": "CHECK",
+      "arquivo": "core/test/noctum-ligacao.test.ts",
+      "alegacao": "RM-058 integração, CHECK 4 (no lugar da C98, que passava sem a prova do runtime e sem a carência): sob a parada pelo teto, o vigia grava como sessao_morta, sem retomada nem despacho, só a sessão do arco em voo que o runtime prova morta e cuja última atividade passou da carência, seja qual for o trabalho (isolado, com as retomadas esgotadas ou na fase da entrega); a viva e a morta ainda na carência seguem em voo, e o arco espera; com a morte provada, fecha pelo custo (LG23, LG25 e LG26, com dente por mutação: tirar a prova ou a carência derruba o LG26).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'registrarMortesSobAParada(raiz, estado, leitura, sup.parametros!, quando);' core/src/noctum-vigia.ts && grep -qF \"if (p.estado !== 'morta' || Date.parse(quando) - ultimaAtividade < parametros.carenciaMs) continue;\" core/src/noctum-vigia.ts",
+        "node --test-reporter=tap --test-name-pattern='^LG2[356]:' core/dist-test/test/noctum-ligacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - LG2[356]:/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:11:37.721Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C111",
+      "thread": "ork-rm058integra",
+      "fase": "CHECK",
+      "arquivo": "core/test/noctum-aceite.test.ts",
+      "alegacao": "RM-058 integração, CHECK 4 (no lugar da C101, que passava com o ciclo de uma tentativa a mais): em M10 e no sinal da F7 só conta o recibo do envio automático, e o que veio depois da tentativa forçada (o reenvio que o dono pede) fica de fora; a versão 1 precisa ser composta até um tique depois do vencimento; com a F7 na agenda, o recibo vale até o fim do ciclo de reenvio automático (um tique e quatro intervalos de 5 min, cada um com um tique: 45 min com o tique de 5 min) e não depois, e sem ela até um tique depois do vencimento (AC17 e AC22, com dente por mutação: a tentativa a mais e o tique inicial a menos derrubam o AC22).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"else if (l.evento.tipo === 'envio_confirmado' && forcada.get(chave) !== true) confirmacoesAutomaticas.push(l);\" core/src/noctum-aceite.ts && grep -qF 'const cicloAutomatico = tolerancia + (MAXIMO_DE_TENTATIVAS - 1) * (INTERVALO_ENTRE_TENTATIVAS_MS + tolerancia);' core/src/noctum-aceite.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC(17|22):' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC(17|22):/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:11:42.537Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C112",
+      "thread": "ork-rm058integra",
+      "fase": "CHECK",
+      "arquivo": "core/test/release-noctum.test.ts",
+      "alegacao": "RM-058 integração, CHECK 4: o portão de release recusa o piloto cujo arquivo publicável não diz aprovado, mesmo com o aceite dizendo aprovado (release.noctum.piloto-nao-aprovado), o arquivo que não é o publicável (publicavel diferente de true, release.noctum.aceite-invalido) e a ratificação sem data válida (release.noctum.sem-ratificacao) (RG16, com dente por mutação: tirar cada uma das três conferências derruba o RG16, e antes dele passava em todos os RG).",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"^test\\('RG16:\" core/test/release-noctum.test.ts && grep -qF \"if (p.veredito !== 'aprovado' || r.veredito !== 'aprovado') {\" core/scripts/checar-release-noctum.cjs",
+        "node --test-reporter=tap --test-name-pattern='^RG16:' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG16:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:11:46.002Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C113",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/scripts/checar-release-noctum.cjs",
+      "alegacao": "RM-058 integração, GO-FIX 4 (I1 e M3 do CHECK 4): o --texto do portão recusa o anúncio do #Noctum em qualquer caixa de letra (## #Noctum Is Now Available, ### #Noctum Foi Lançado, #NOCTUM IS RELEASED), com o N maiúsculo conferido só no nome, de modo que o comando ork noctum segue liberado em qualquer caixa; recusa também o link por referência e o inline com título, o não somente e o não apenas, o disponibilizado e o has shipped (RG17, com dente por mutação: a flag sem o i, o link por referência, o não só sozinho, o disponibilizado e o has shipped tirados derrubam o RG17).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^test\\('RG17:\" core/test/release-noctum.test.ts && grep -qF \"if (!NOME_DO_PRODUTO.test(m[0])) { re.lastIndex = m.index + 1; continue; }\" core/scripts/checar-release-noctum.cjs",
+        "node --test-reporter=tap --test-name-pattern='^RG17:' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG17:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:25:47.179Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C114",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/scripts/checar-release-noctum.cjs",
+      "alegacao": "RM-058 integração, GO-FIX 4 (M2 do CHECK 4): o portão de release recusa o piloto cujo arquivo publicável tem marcas de simulação (release.noctum.piloto-simulado), o arco repetido com espaço ou caixa diferente (release.noctum.piloto-repetido), o arquivo sem o fim do piloto (release.noctum.aceite-invalido) e a ratificação anterior ao fim do último piloto (release.noctum.sem-ratificacao); ratificado no fim do último piloto, confere (RG18, com dente por mutação: tirar a leitura das marcas, a normalização do arco ou a comparação da data derruba o RG18).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^test\\('RG18:\" core/test/release-noctum.test.ts && grep -qF \"if (Date.parse(rat.em) < fimDosPilotos) {\" core/scripts/checar-release-noctum.cjs",
+        "node --test-reporter=tap --test-name-pattern='^RG18:' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG18:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:25:51.169Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C115",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração, GO-FIX 4 (I2 do CHECK 4): em M1, a reversão é ato do dono quando desfaz uma entrega do arco (o mergeSha de um ship_done dele) e o commit que reverte é da condução, pela data do commit no git (LeitorDoGit.reversoes), mesmo com o rollback_done gravado depois do arco ou sem rollback_done nenhum; a detectada depois do arco sem a data no git é lacuna; a reversão de uma entrega anterior ao arco não conta em M1 nem pede a correção do relatório em M10 (AC23, com dente por mutação: contar pela detecção, tirar o filtro do mergeSha ou a busca no git derruba o AC23; AC19 refeito com o mergeSha).",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"^test\\('AC23:\" core/test/noctum-aceite.test.ts && grep -qF \"|| !mergesDoArco.has(e.mergeSha)) continue;\" core/src/noctum-aceite.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC(19|23):' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC(19|23):/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:25:55.623Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C116",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração, GO-FIX 4 (I3 do CHECK 4): o aceite marca o despacho sem sessão do runtime prometido na T8: a sessão que o arco diz ter despachado sem o phase_dispatch_verified com encontrada true, por uma fonte que não se diz simulada, no ledger da thread, dá a marca e o veredito simulado; confirmada pelo runtime, o aceite volta a aprovar (AC24, com dente por mutação: tirar a marca, o encontrada ou o filtro da fonte simulada derruba o AC24).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^test\\('AC24:\" core/test/noctum-aceite.test.ts && grep -qF \"sem a sessão confirmada pelo runtime\" core/src/noctum-aceite.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC24:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC24:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:25:59.366Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C117",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração, GO-FIX 4 (M4 do CHECK 4): a agenda de injeções recusa o alvo vazio ou só de espaço (noctum.aceite.injecoes-invalidas), que antes valia como a falha do arco inteiro (AC21, com dente por mutação: tirar a conferência do alvo vazio derruba o AC21).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"(typeof v.alvo !== 'string' || !v.alvo.trim())\" core/src/noctum-aceite.ts && grep -qF \"alvo: '' }\" core/test/noctum-aceite.test.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC21:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC21:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:26:02.730Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C118",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-guarda.test.ts",
+      "alegacao": "RM-058 integração, GO-FIX 4 (M1 do CHECK 4, a C99 com o caso): no arco revogado, a reserva pendente do trabalho de pedido, feita antes de a thread existir e ainda sem thread gravada, segura a thread que o arco abriu enquanto a sessão dela conduz (a guarda e o ork ship recusam com noctum.guarda.thread-do-arco); acabada a sessão, a thread se entrega à mão (GS20, com dente por mutação: tirar da guarda a reserva pendente sem thread derruba o GS20).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^test\\('GS20:\" core/test/noctum-guarda.test.ts && grep -qF \"(d.desfecho === 'pendente' && !(d.threadDespachada ?? d.thread))\" core/src/noctum-guarda.ts",
+        "node --test-reporter=tap --test-name-pattern='^GS20:' core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GS20:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:26:06.301Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C119",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração, GO-FIX 4 (no lugar da C100, cuja alegação da reversão o I2 do CHECK 4 mudou): no aceite só a entrega do arco conta (o ship_done com o arco na evidência e sem incorporadaPor outro-caminho), e o MASTER do arco é o aceite_por_omissao com o arco na evidência, gravado até o fim dele; o ship e o MASTER por omissão de fora do arco durante a condução são atos do dono em M1, e a reversão de uma entrega do arco também, pela data do commit que reverte; os pushes contam só na condução; o PR criado depois do arco e a reversão com o commit depois do arco não mudam o aceite nem o hash; no M10 só a reversão de entrega do arco detectada até o fim da janela de entrega do relatório pede a correção (AC16, AC19, AC20 e AC23, com dente por mutação).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"return ev?.arco === arco && ev.incorporadaPor !== 'outro-caminho';\" core/src/noctum-aceite.ts && grep -qF 'e.tipo === TIPOS_DE_EVENTO.aceitePorOmissao && masterDoArco(e) && Date.parse(e.ts) <= fimMs' core/src/noctum-aceite.ts && grep -qF 'Date.parse(x.createdAt) > fimMs' core/src/noctum-aceite.ts && grep -qF 'Date.parse(r.detectadaEm) <= Date.parse(vencimento) + JANELA_DE_ENTREGA_MS' core/src/noctum-aceite.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC(16|19|20|23):' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC(16|19|20|23):/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T16:55:20.656Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C120",
+      "thread": "ork-rm058integra",
+      "fase": "GO",
+      "arquivo": "core/scripts/checar-release-noctum.cjs",
+      "alegacao": "RM-058 integração, GO-FIX 4 (no lugar da C105, cujo texto da negação o M3 do CHECK 4 mudou): o --texto lê o nome com N maiúsculo (o comando ork noctum não conta como o produto, em qualquer caixa), aceita o link do Markdown logo depois do nome e um inciso entre vírgulas, mas não a vírgula sozinha; pega o \"é lançado\"; a negação logo antes do nome só vale na mesma linha; e \"não só\", \"não somente\", \"não apenas\", \"not only\" e \"not just\" não são negação (RG15 e RG17, com dente por mutação). A árvore desta thread passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'não(?![ \\t]+(?:só|somente|apenas)' core/scripts/checar-release-noctum.cjs && grep -qF 'NEGACAO_ANTES = /(?<![\\p{L}\\p{N}])(?:não|nem|nunca|not|nor|never)[ \\t]+' core/scripts/checar-release-noctum.cjs && grep -qF 'lançad[oa]s?)(?![\\\\p{L}\\\\p{N}])`, ' core/scripts/checar-release-noctum.cjs",
+        "node --test-reporter=tap --test-name-pattern='^RG1[57]:' core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RG1[57]:/{p++} END{exit !(p>=2 && f==0 && s==0)}' && node core/scripts/checar-release-noctum.cjs --texto"
+      ],
+      "criadoEm": "2026-10-19T16:55:25.067Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C121",
+      "thread": "ork-rm058integra",
+      "fase": "CHECK",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "RM-058 integração, CHECK 5: o leitor real do git do aceite (gitDaRaiz().reversoes) acha, num repositório git de verdade, o commit que reverte o merge com a data do commit e não a do autor, devolve lista vazia para o commit que ninguém reverteu e null para o merge ausente ou o sha que não é hexadecimal; o git que não responde às reversões de um merge do arco deixa M1 em lacuna, e o ledger que não se abre não ganha a marca do despacho sem sessão do runtime (AC25, com dente por mutação: o intervalo invertido, a data do autor, o null engolido e a marca no ledger ilegível derrubam o AC25).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^test\\('AC25:\" core/test/noctum-aceite.test.ts && grep -qF \"'--format=%H%x1f%cI%x1e', '--end-of-options', \\`\\${sha}..\\${ponta}\\`\" core/src/noctum-aceite.ts",
+        "node --test-reporter=tap --test-name-pattern='^AC25:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC25:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-19T17:37:44.675Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
