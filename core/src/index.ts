@@ -1125,10 +1125,11 @@ function comandoLedger(args: Args): number {
  * como falha acionavel, sem precisar interpretar texto.
  */
 function comandoSessionsHitl(args: Args, raiz: string): number {
+  const ms = msg().operacao.restante.sessions;
   const bruto = texto(args.opcoes.atencao);
   const atencaoMin = bruto === undefined ? undefined : Number(bruto);
   if (atencaoMin !== undefined && (!Number.isFinite(atencaoMin) || atencaoMin < 0)) {
-    console.error(`--atencao espera minutos (inteiro >= 0), recebeu "${bruto}"`);
+    console.error(ms.atencao(bruto ?? ''));
     return 2;
   }
   const radar = varrerSessoes({
@@ -1149,26 +1150,27 @@ function comandoSessionsHitl(args: Args, raiz: string): number {
 }
 
 function comandoSessions(args: Args): number {
+  const ms = msg().operacao.restante.sessions;
   const sub = args.posicionais[1];
   const carregado = carregarManifesto();
   const raiz = carregado?.raiz ?? diretorioDoProjeto();
   if (sub === 'watch') {
     const id = texto(args.opcoes.thread);
-    if (!carregado || !id) { console.error('uso: ork sessions watch --thread T [--sessao ID] [--once]'); return 2; }
+    if (!carregado || !id) { console.error(ms.usoWatch); return 2; }
     const thread = lerThread(raiz, id);
     const sessionId = texto(args.opcoes.sessao) ?? thread.sessoes.at(-1)?.sessionId;
-    if (!sessionId || !thread.sessoes.some(s => s.sessionId === sessionId)) throw new Error('sessão não pertence à thread');
+    if (!sessionId || !thread.sessoes.some(s => s.sessionId === sessionId)) throw new Error(ms.sessaoDaThread);
     console.log(JSON.stringify(args.opcoes.once === true ? observarSessao(carregado, sessionId) : { pid: iniciarWatcher(raiz, sessionId) }));
     return 0;
   }
   if (sub === 'event') {
     const tipo = texto(args.opcoes.tipo), sessao = texto(args.opcoes.sessao);
     if (!carregado || !tipo || !sessao) {
-      console.error('uso: ork sessions event --tipo <tipo> --sessao <id> < payload.json (máximo 16384 bytes)');
+      console.error(ms.usoEvent);
       return 2;
     }
     try { console.log(JSON.stringify(ingerirEvento(raiz, sessao, tipo, lerPayloadSensor()))); return 0; }
-    catch (e) { console.error(`evento recusado: ${(e as Error).message}`); return 1; }
+    catch (e) { console.error(ms.eventoRecusado((e as Error).message)); return 1; }
   }
   if (sub === undefined || sub === 'list') {
     const r = inventariarSessoes(raiz, { todas: args.opcoes.all === true, global: args.opcoes.global === true });
@@ -1176,7 +1178,7 @@ function comandoSessions(args: Args): number {
     return !r.ok || (args.opcoes['exigir-limpo'] === true && r.semThread > 0) ? 1 : 0;
   }
   if (sub === 'limpar-fantasmas') {
-    if (!carregado) { console.error('ork sessions limpar-fantasmas precisa de um projeto (orkastery.yaml)'); return 2; }
+    if (!carregado) { console.error(ms.exigeProjeto); return 2; }
     const r = limparFantasmas(raiz, { dryRun: args.opcoes['dry-run'] === true });
     console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaLimpeza(r));
     return r.ok ? 0 : 1;
@@ -1187,13 +1189,13 @@ function comandoSessions(args: Args): number {
   if (sub === 'request') {
     const id = args.posicionais[2], sessionId = args.posicionais[3];
     const fase = texto(args.opcoes.fase), runtime = texto(args.opcoes.runtime), pergunta = texto(args.opcoes.pergunta);
-    if (!id || !sessionId || !fase || !FASES.includes(fase as Fase) || !runtime) throw new Error('sessions request exige thread, UUID, --fase e --runtime; --pergunta só confere o conteúdo nativo');
+    if (!id || !sessionId || !fase || !FASES.includes(fase as Fase) || !runtime) throw new Error(ms.request);
     console.log(JSON.stringify(abrirPedidoSessao(raiz, id, sessionId, { fase: fase as Fase, runtime, pergunta, prazo: texto(args.opcoes.prazo) })));
     return 0;
   }
   if (sub === 'answer') {
     const id = args.posicionais[2], pedido = args.posicionais[3];
-    if (!id || !pedido || args.opcoes.stdin !== true) throw new Error('sessions answer exige thread, pedido e envelope autenticado em --stdin');
+    if (!id || !pedido || args.opcoes.stdin !== true) throw new Error(ms.answer);
     const r = lerRespostaStdin({ origem: texto(args.opcoes.origem), por: texto(args.opcoes.por),
       mensagem: texto(args.opcoes.mensagem), canal: texto(args.opcoes.canal), conta: texto(args.opcoes.conta) });
     console.log(JSON.stringify(responderSessao(raiz, id, pedido, r)));
@@ -1203,7 +1205,7 @@ function comandoSessions(args: Args): number {
     // FX3: fecha um envio pendente so com (thread, pedido). Nao reenvia e nao re-elicita:
     // pergunta ao receptor, pelo recibo correlacionado, se ele recebeu aquele envioId.
     const id = args.posicionais[2], pedido = args.posicionais[3];
-    if (!id || !pedido) throw new Error('sessions reconcile exige thread e pedido');
+    if (!id || !pedido) throw new Error(ms.reconcile);
     const r = reconciliarEnvioDeSessao(raiz, id, pedido);
     console.log(JSON.stringify(r));
     return r.estado === 'entregue' ? 0 : 1;
@@ -1211,13 +1213,13 @@ function comandoSessions(args: Args): number {
   if (sub === 'supersede') {
     const id = args.posicionais[2], sessionId = args.posicionais[3];
     const fase = texto(args.opcoes.fase), runtime = texto(args.opcoes.runtime);
-    if (!id || !sessionId || !fase || !FASES.includes(fase as Fase) || !runtime) throw new Error('sessions supersede exige thread, UUID, --fase e --runtime');
+    if (!id || !sessionId || !fase || !FASES.includes(fase as Fase) || !runtime) throw new Error(ms.supersede);
     console.log(JSON.stringify(superarSessao(raiz, id, sessionId, fase as Fase, runtime)));
     return 0;
   }
   const chave = args.posicionais[2];
   if (!chave) {
-    console.error(`uso: ork sessions ${sub} <sessao>`);
+    console.error(ms.usoSub(sub));
     return 2;
   }
   if (sub === 'adopt') {
@@ -1242,7 +1244,7 @@ function comandoSessions(args: Args): number {
     console.log(r.texto);
     return r.codigo;
   }
-  console.error(`subcomando desconhecido: sessions ${sub}`);
+  console.error(ms.desconhecido(sub));
   return 2;
 }
 

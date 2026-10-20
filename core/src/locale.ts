@@ -119,7 +119,10 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?',
   // F3d: familias restantes, acrescentadas somente quando a familia inteira entra no catalogo.
   'modos', 'ciclos', 'setup', 'projetos', 'pulse cadencia', 'pulse responder', 'ledger',
-  'portfolio', 'creation', 'objective', 'ci'];
+  'portfolio', 'creation', 'objective', 'ci',
+  'sessions watch', 'sessions event', 'sessions list', 'sessions limpar-fantasmas', 'sessions hitl',
+  'sessions request', 'sessions answer', 'sessions reconcile', 'sessions supersede', 'sessions adopt',
+  'sessions logs', 'sessions stop', 'sessions attach', 'sessions ?'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -139,6 +142,8 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['adapter', { padrao: 'list', conhecidos: ['list', 'show', 'install'] }],
   ['prompt', { padrao: 'list', conhecidos: ['list', 'lint', 'render'] }],
   ['conhecimento', { padrao: 'listar', conhecidos: ['listar', 'mostrar', 'colecoes', 'verificar'] }],
+  ['sessions', { padrao: 'list', conhecidos: ['watch', 'event', 'list', 'limpar-fantasmas', 'hitl', 'request', 'answer',
+    'reconcile', 'supersede', 'adopt', 'logs', 'stop', 'attach'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */

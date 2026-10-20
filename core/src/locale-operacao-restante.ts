@@ -18,7 +18,7 @@ export const OPERACAO_RESTANTE_PT_BR = {
     reconcile: 'sessions reconcile exige thread e pedido',
     supersede: 'sessions supersede exige thread, UUID, --fase e --runtime',
     usoSub: (sub: string) => `uso: ork sessions ${sub} <sessao>`,
-    desconhecido: (sub: string) => `subcomando desconhecido: sessions ${sub}`,
+    desconhecido: (sub: string | undefined) => `subcomando desconhecido: sessions ${sub}`,
     inventario: {
       abertura: (global: boolean, usuario: string, historico: boolean) =>
         `Inventário ${global ? 'global' : 'do projeto'} da conta ${usuario}; histórico: ${historico ? 'incluído' : 'omitido'}.`,

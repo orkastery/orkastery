@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { comLocale, msg } from '../src/locale';
+import { chaveDoLocale, comLocale, cobreLocale, msg } from '../src/locale';
 import { tabelaDeModos } from '../src/modos';
 import { textoDaMigracaoModos } from '../src/modos-migracao';
 import { tabelaDeVariantes } from '../src/ciclos';
@@ -108,4 +108,9 @@ test('F3d: sessions localiza inventario, limpeza e radar sem mudar os dados obse
   assert.match(en, /No ghost session/);
   assert.match(en, /Runtime session radar/);
   assert.deepEqual(linhasEmPortugues(en, ['claude-bg']), []);
+
+  for (const sub of ['watch', 'event', 'list', 'limpar-fantasmas', 'hitl', 'request', 'answer',
+    'reconcile', 'supersede', 'adopt', 'logs', 'stop', 'attach']) {
+    assert.equal(cobreLocale(['sessions', sub], {}), true, chaveDoLocale(['sessions', sub], {}));
+  }
 });
