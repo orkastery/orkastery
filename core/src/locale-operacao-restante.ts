@@ -403,6 +403,31 @@ export const OPERACAO_RESTANTE_PT_BR = {
     veredito: (ok: boolean) => `VEREDITO: ${ok ? 'verde' : 'vermelho'}`,
   },
   memory: {
+    cli: {
+      inventario: (tenant: string, incluidos: number, excluidos: number) =>
+        `Inventario do tenant ${tenant}: ${incluidos} incluidos, ${excluidos} excluidos.`,
+      fonte: (incluir: boolean, arquivo: string, motivo: string) =>
+        `  ${incluir ? 'incluir' : 'excluir'} ${arquivo}: ${motivo}`,
+      migracao: (tenant: string, confirmados: number, falhas: number, excluidos: number) =>
+        `Migracao do tenant ${tenant}: ${confirmados} confirmados, ${falhas} falhas, ${excluidos} excluidos.`,
+      tagsUso: 'uso: ork memory search --tags \'{"project":["orkastery"],"skill":["orkastery-decision"]}\'',
+      tagsInvalidas: (erro: string) => `--tags nao e JSON valido: ${erro}`,
+      files: (motivo: string) => `memory.query.files: ${motivo}; resultado nao comprova ausencia na memoria semantica`,
+      buscaTag: (regime: string) => `Busca deterministica por tag (regime ${regime})`,
+      correcao: (valor: string) => `  correcao: ${valor}`,
+      entradas: (n: number) => `  ${n} entrada(s)`,
+      indexUso: 'uso: ork memory index [--modelo primario|fallback|todos] [--dry-run] [--json]',
+      indexFalha: (regime: string, motivo: string, correcao: string) =>
+        `memory.index: regime ${regime} (${motivo}); ${correcao}`,
+      universoFalhou: (motivo: string, detalhe: string) => `memory.index: ${motivo}; ${detalhe}`,
+      universoDetalhe: 'o universo da busca nao foi lido inteiro; nada foi embedado',
+      desconhecido: (sub: string) => `subcomando desconhecido: memory ${sub}`,
+      textoExclusivo: 'memory.search.texto-exclusivo: --texto nao combina com --tags, --thread, --restrito nem --janela',
+      textoUso: (modos: string, colecoes: string, limite: number) =>
+        `uso: ork memory search --texto "<frase>" [--modo ${modos}] [--colecao ${colecoes}] [--limite 1..${limite}] [--json]`,
+      buscaUniversoDetalhe: 'o universo da busca nao foi lido inteiro; nada foi buscado',
+      syncDetalhe: 'sync nao executado; colisao legada nao foi reavaliada',
+    },
     estado: {
       titulo: 'Regime de memoria do projeto', pedido: (v: string) => `  pedido no manifesto   ${v}`,
       efetivo: (v: string) => `  regime efetivo        ${v}`, tenant: (v: string) => `  tenant                ${v}`,
@@ -881,6 +906,28 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
     veredito: (ok) => `VERDICT: ${ok ? 'green' : 'red'}`,
   },
   memory: {
+    cli: {
+      inventario: (tenant, included, excluded) => `Tenant ${tenant} inventory: ${included} included, ${excluded} excluded.`,
+      fonte: (include, file, reason) => `  ${include ? 'include' : 'exclude'} ${file}: ${reason}`,
+      migracao: (tenant, confirmed, failures, excluded) =>
+        `Tenant ${tenant} migration: ${confirmed} confirmed, ${failures} failures, ${excluded} excluded.`,
+      tagsUso: 'usage: ork memory search --tags \'{"project":["orkastery"],"skill":["orkastery-decision"]}\'',
+      tagsInvalidas: (error) => `--tags is not valid JSON: ${error}`,
+      files: (reason) => `memory.query.files: ${reason}; the result does not prove absence from semantic memory`,
+      buscaTag: (regime) => `Deterministic search by tag (${regime} regime)`,
+      correcao: (value) => `  fix: ${value}`,
+      entradas: (n) => `  ${n} entry(ies)`,
+      indexUso: 'usage: ork memory index [--modelo primario|fallback|todos] [--dry-run] [--json]',
+      indexFalha: (regime, reason, fix) => `memory.index: ${regime} regime (${reason}); ${fix}`,
+      universoFalhou: (reason, detail) => `memory.index: ${reason}; ${detail}`,
+      universoDetalhe: 'the search universe was not read in full; nothing was embedded',
+      desconhecido: (sub) => `unknown subcommand: memory ${sub}`,
+      textoExclusivo: 'memory.search.texto-exclusivo: --texto cannot be combined with --tags, --thread, --restrito, or --janela',
+      textoUso: (modes, collections, limit) =>
+        `usage: ork memory search --texto "<phrase>" [--modo ${modes}] [--colecao ${collections}] [--limite 1..${limit}] [--json]`,
+      buscaUniversoDetalhe: 'the search universe was not read in full; nothing was searched',
+      syncDetalhe: 'sync was not executed; the legacy collision was not reevaluated',
+    },
     estado: {
       titulo: 'Project memory regime', pedido: (v) => `  requested in manifest ${v}`,
       efetivo: (v) => `  effective regime      ${v}`, tenant: (v) => `  tenant                ${v}`,

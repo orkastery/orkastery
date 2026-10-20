@@ -143,7 +143,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, linguaDeclaradaDoDono, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, linguaDeclaradaDoDono, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale, textoDoCatalogo } from './locale';
 import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
@@ -3882,13 +3882,14 @@ function comandoMemory(args: Args): number {
   const candidate = exigirManifesto();
   const carregado = memoryState(candidate).loaded;
   const sub = args.posicionais[1] ?? 'status';
+  const mm = msg().operacao.restante.memory.cli;
   const escopo = texto(args.opcoes.escopo)?.split(',').map(s => s.trim());
   if (sub === 'inventory' || (sub === 'migrate' && args.opcoes['dry-run'] === true)) {
     const r = inventariarHandoffs(carregado, escopo);
     if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
     else {
-      console.log(`Inventario do tenant ${r.tenant}: ${r.incluidos} incluidos, ${r.excluidos} excluidos.`);
-      for (const f of r.fontes) console.log(`  ${f.incluir ? 'incluir' : 'excluir'} ${f.arquivo}: ${f.motivo}`);
+      console.log(mm.inventario(r.tenant, r.incluidos, r.excluidos));
+      for (const f of r.fontes) console.log(mm.fonte(f.incluir, f.arquivo, f.motivo));
     }
     return r.fontes.some(f => f.bloqueante) ? 1 : 0;
   }
@@ -3902,7 +3903,7 @@ function comandoMemory(args: Args): number {
     const r = migrarHandoffs(carregado, { operadora, escopo });
     if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
     else {
-      console.log(`Migracao do tenant ${r.inventario.tenant}: ${r.resultados.filter(i => i.ok).length} confirmados, ${r.falhas} falhas, ${r.inventario.excluidos} excluidos.`);
+      console.log(mm.migracao(r.inventario.tenant, r.resultados.filter(i => i.ok).length, r.falhas, r.inventario.excluidos));
       for (const item of r.resultados) console.log(`  ${item.arquivo}: ${item.ok ? item.gravacao?.id : item.erro}`);
     }
     return r.ok ? 0 : 1;
@@ -3939,12 +3940,12 @@ function comandoMemory(args: Args): number {
         const motivo = error instanceof Error
           ? /^(?:write\.activation|scope|memory)\.[a-z.-]+/.exec(error.message)?.[0] ?? 'write.activation.invalid'
           : 'write.activation.invalid';
-        const detalhe = 'sync nao executado; colisao legada nao foi reavaliada';
+        const detalhe = comLocale('pt-BR', () => textoDoCatalogo(m => m.operacao.restante.memory.cli.syncDetalhe));
         if (args.opcoes.json === true) console.log(JSON.stringify({
           regime: memoria.regime, estado: memoria.estado, thread: threadId ?? null, perfil,
           publicacao: { estado: 'pendente', motivo }, falhas: 1, gravadas: [], erro: motivo, detalhe,
         }, null, 2));
-        console.error(`${motivo}: ${detalhe}`);
+        console.error(`${motivo}: ${remontar(detalhe)}`);
         return 1;
       }
     }
@@ -3968,16 +3969,14 @@ function comandoMemory(args: Args): number {
     const janela = limiteDeLeitura(args.opcoes.janela);
     const tagsBrutas = texto(args.opcoes.tags);
     if (!tagsBrutas) {
-      console.error(
-        'uso: ork memory search --tags \'{"project":["orkastery"],"skill":["orkastery-decision"]}\''
-      );
+      console.error(mm.tagsUso);
       return 2;
     }
     let tags: Record<string, string[]>;
     try {
       tags = JSON.parse(tagsBrutas) as Record<string, string[]>;
     } catch (e) {
-      console.error(`--tags nao e JSON valido: ${(e as Error).message}`);
+      console.error(mm.tagsInvalidas((e as Error).message));
       return 2;
     }
     const colecao = texto(args.opcoes.colecao) ?? texto(args.opcoes.collection);
@@ -3992,16 +3991,16 @@ function comandoMemory(args: Args): number {
       tags,
       limite,
     });
-    if (threadId && memoria.regime === 'files') console.error(`memory.query.files: ${memoria.estado.motivo}; resultado nao comprova ausencia na memoria semantica`);
+    if (threadId && memoria.regime === 'files') console.error(mm.files(`${memoria.estado.motivo}`));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify(entradas, null, 2));
       return 0;
     }
-    console.log(`Busca deterministica por tag (regime ${memoria.regime})`);
+    console.log(mm.buscaTag(memoria.regime));
     console.log('');
     if (memoria.regime === 'files') {
       console.log(`  ${memoria.estado.detalhe}`);
-      console.log(`  correcao: ${memoria.estado.correcao}`);
+      console.log(mm.correcao(memoria.estado.correcao));
       return 0;
     }
     for (const e of entradas) {
@@ -4009,21 +4008,21 @@ function comandoMemory(args: Args): number {
       console.log(`      ${e.content.split('\n')[0].slice(0, 100)}`);
     }
     console.log('');
-    console.log(`  ${entradas.length} entrada(s)`);
+    console.log(mm.entradas(entradas.length));
     return 0;
   }
 
   if (sub === 'index') {
     const modelo = texto(args.opcoes.modelo) ?? 'primario';
     if (!['primario', 'fallback', 'todos'].includes(modelo)) {
-      console.error('uso: ork memory index [--modelo primario|fallback|todos] [--dry-run] [--json]');
+      console.error(mm.indexUso);
       return 2;
     }
     const memoria = abrirMemoria(carregado);
     if (!memoria.ativo) {
       const falha = { motivo: memoria.estado.motivo, detalhe: memoria.estado.detalhe, correcao: memoria.estado.correcao };
       if (args.opcoes.json === true) console.log(JSON.stringify(falha, null, 2));
-      else console.error(`memory.index: regime ${memoria.regime} (${memoria.estado.motivo}); ${memoria.estado.correcao}`);
+      else console.error(mm.indexFalha(memoria.regime, `${memoria.estado.motivo}`, memoria.estado.correcao));
       return 1;
     }
     const config = configDeEmbedding(carregado.manifesto);
@@ -4033,9 +4032,9 @@ function comandoMemory(args: Args): number {
     let universo: UniversoDaBusca;
     try { universo = universoDaBusca(memoria, memoria.estado.tenant); } catch (erro) {
       const motivo = codigoDaFalha(erro);
-      const detalhe = 'o universo da busca nao foi lido inteiro; nada foi embedado';
+      const detalhe = mm.universoDetalhe;
       if (args.opcoes.json === true) console.log(JSON.stringify({ motivo, detalhe }, null, 2));
-      else console.error(`memory.index: ${motivo}; ${detalhe}`);
+      else console.error(mm.universoFalhou(motivo, detalhe));
       return 1;
     }
     const alvos: AlvoDeEmbedding[] = modelo === 'todos' ? ['primario', 'fallback'] : [modelo as AlvoDeEmbedding];
@@ -4053,7 +4052,7 @@ function comandoMemory(args: Args): number {
     return resultados.some(r => !r.dryRun && r.motivo) ? 1 : 0;
   }
 
-  console.error(`subcomando desconhecido: memory ${sub}`);
+  console.error(mm.desconhecido(sub));
   return 2;
 }
 
@@ -4069,10 +4068,11 @@ export function avisoRoadmapSemAssociacao(nome: string, roadmap?: string): strin
  * Nao combina com --tags nem com a leitura restrita por thread nesta versao (erro tipado).
  */
 function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
+  const mm = msg().operacao.restante.memory.cli;
   const frase = texto(args.opcoes.texto);
   if (args.opcoes.tags !== undefined || args.opcoes.thread !== undefined || args.opcoes.restrito !== undefined ||
       args.opcoes.janela !== undefined) {
-    console.error('memory.search.texto-exclusivo: --texto nao combina com --tags, --thread, --restrito nem --janela');
+    console.error(mm.textoExclusivo);
     return 2;
   }
   const modo = (texto(args.opcoes.modo) ?? 'hibrido') as ModoDeBusca;
@@ -4082,7 +4082,7 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
   if (!textoDeBuscaValido(frase) || !MODOS_DE_BUSCA.includes(modo) ||
       (colecao !== undefined && !COLECOES_DO_ORK.includes(colecao as ColecaoDoOrk)) ||
       !Number.isInteger(limite) || limite < 1 || limite > LIMITE_MAXIMO_DA_BUSCA) {
-    console.error(`uso: ork memory search --texto "<frase>" [--modo ${MODOS_DE_BUSCA.join('|')}] [--colecao ${COLECOES_DO_ORK.join('|')}] [--limite 1..${LIMITE_MAXIMO_DA_BUSCA}] [--json]`);
+    console.error(mm.textoUso(MODOS_DE_BUSCA.join('|'), COLECOES_DO_ORK.join('|'), LIMITE_MAXIMO_DA_BUSCA));
     return 2;
   }
   const memoria = abrirMemoria(carregado);
@@ -4099,7 +4099,7 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
     r = { ...vazio, motivo: memoria.estado.motivo, detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}` };
   } else if (!universo) {
     // RM-038: sem o universo inteiro nao ha busca; o motivo tipado sai, nunca um resultado parcial.
-    r = { ...vazio, motivo: falhaDoUniverso, detalhe: 'o universo da busca nao foi lido inteiro; nada foi buscado' };
+    r = { ...vazio, motivo: falhaDoUniverso, detalhe: mm.buscaUniversoDetalhe };
   } else {
     const driver = configDoManifesto(carregado.manifesto);
     const transporte = new DriverCliOrkMind(driver);

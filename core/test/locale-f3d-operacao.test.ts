@@ -315,4 +315,7 @@ test('F3d: memory localiza estado, indice e busca mantendo dados e codigos', () 
   assert.match(en, /Search by meaning/);
   assert.match(en, /dsn\.env-ausente/);
   assert.match(en, /dado preservado/);
+  for (const sub of ['status', 'inventory', 'migrate', 'sync', 'search', 'index'])
+    assert.equal(cobreLocale(['memory', sub], {}), true, sub);
+  assert.equal(cobreLocale(['memory', 'outro'], {}), true);
 });
