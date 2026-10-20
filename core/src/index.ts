@@ -1094,9 +1094,10 @@ function comandoPhase(args: Args): number {
 function comandoLedger(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const m = msg().operacao.ledger;
   if (sub === 'stats') {
     const desde = texto(args.opcoes.desde);
-    if (!desde) throw Error('uso: ork ledger stats --desde 7d [--ate ISO] [--thread T] [--modo M] [--runtime R] [--json]');
+    if (!desde) throw Error(m.usoStats);
     const r = coletarEstatisticas(carregado.raiz, { desde, ate: texto(args.opcoes.ate), thread: texto(args.opcoes.thread), modo: texto(args.opcoes.modo), runtime: texto(args.opcoes.runtime) });
     console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDasEstatisticas(r));
     return 0;
@@ -1104,12 +1105,12 @@ function comandoLedger(args: Args): number {
   if (sub === 'estimate') {
     const thread = args.posicionais[2], semIa = Number(texto(args.opcoes['sem-ia'])), iaSemOrk = Number(texto(args.opcoes['ia-sem-ork']));
     const por = texto(args.opcoes.por), metodo = texto(args.opcoes.metodo), premissas = texto(args.opcoes.premissas);
-    if (!thread || !por || !metodo || !premissas) throw Error('uso: ork ledger estimate <thread-id> --sem-ia H --ia-sem-ork H --por Q --metodo M --premissas P [--incerteza I]');
+    if (!thread || !por || !metodo || !premissas) throw Error(m.usoEstimate);
     const e = registrarEstimativaPlano(carregado.raiz, thread, { semIaHoras: semIa, iaSemOrkHoras: iaSemOrk, por, metodo, premissas, incerteza: texto(args.opcoes.incerteza) });
-    console.log(args.opcoes.json === true ? JSON.stringify(e, null, 2) : `Estimativa PLAN registrada em ${thread}: sem IA ${semIa} h; IA sem Orkastery ${iaSemOrk} h.`);
+    console.log(args.opcoes.json === true ? JSON.stringify(e, null, 2) : m.estimativa(thread, semIa, iaSemOrk));
     return 0;
   }
-  throw Error('uso: ork ledger stats|estimate ...');
+  throw Error(m.uso);
 }
 
 /**

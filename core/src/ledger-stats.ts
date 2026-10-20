@@ -6,6 +6,7 @@ import { EventoLedger } from './types';
 import { exec } from './util';
 import { formatarDataHora, formatarDataHoraRotulada } from './horario';
 import { EsperaDeHitl, esperasDeHitl, resumirTempoParado, TempoParadoPorHitl } from './hitl-tempo-parado';
+import { msg } from './locale';
 
 interface TarifaModelo { product: string; input: number; cachedInput: number; output: number; source: string }
 interface Tarifas { schema: string; verifiedAt: string; currency: 'USD'; unitTokens: number; nature: 'estimated_reference'; models: Record<string, TarifaModelo> }
@@ -219,29 +220,30 @@ export function registrarEstimativaPlano(raiz: string, threadId: string, dados: 
   return registrar(dirThread(raiz, threadId), threadId, 'plan_estimate', { fase: 'PLAN', unidade: 'hours', semIaHoras: dados.semIaHoras, iaSemOrkHoras: dados.iaSemOrkHoras, por: dados.por, metodo: dados.metodo, premissas: dados.premissas, incerteza: dados.incerteza ?? 'nao informada', head: head.stdout.trim() });
 }
 
-const minutos = (ms: number | null): string => ms === null ? 'sem resposta medida' : `${(ms / 60_000).toFixed(1)} min`;
+const minutos = (ms: number | null): string => ms === null ? msg().operacao.ledger.semResposta : `${(ms / 60_000).toFixed(1)} min`;
 
 /** RM-057: uma linha, com a meta ao lado da mediana, para o dono ver o tempo parado sem abrir o JSON. */
 export function linhaDoHitlDeConducao(h: TempoParadoPorHitl): string {
-  const meta = h.dentroDaMeta === null ? '' : h.dentroDaMeta ? ' (dentro da meta de 5 min)' : ' (acima da meta de 5 min)';
-  return `  HITL de conducao ${h.pedidos} pergunta(s); parado ${(h.paradoMs / 3_600_000).toFixed(2)} h; ` +
-    `mediana ${minutos(h.medianaRespostaMs)}${meta}; ${h.abertos} aberta(s); ` +
-    `texto fora da excecao ${h.emTexto.foraDaExcecao}`;
+  const m = msg().operacao.ledger;
+  const meta = h.dentroDaMeta === null ? '' : h.dentroDaMeta ? m.metaDentro : m.metaFora;
+  return m.hitl(h.pedidos, (h.paradoMs / 3_600_000).toFixed(2), minutos(h.medianaRespostaMs), meta,
+    h.abertos, h.emTexto.foraDaExcecao);
 }
 
 export function textoDasEstatisticas(r: LedgerStats): string {
-  const dinheiro = r.custoReferencia.valor === null ? 'sem cobertura' : `USD ${r.custoReferencia.valor.toFixed(6)}`;
+  const m = msg().operacao.ledger;
+  const dinheiro = r.custoReferencia.valor === null ? m.semCobertura : `USD ${r.custoReferencia.valor.toFixed(6)}`;
   return [
-    `Ledger stats  ${formatarDataHora(r.periodo.desde)} ate ${formatarDataHoraRotulada(r.periodo.ate)} ${r.periodo.intervalo}`,
-    `  threads/sessoes  ${r.threads} / ${r.sessoes.concluidas} concluidas (${r.sessoes.despachadas} despachos)`,
-    `  throughput       ${r.throughput.ships} ship(s); ${r.sessoes.retries} retry(ies)`,
-    `  execucao         ${r.execucao.horas.toFixed(2)} h (${r.execucao.cobertura.medidas} medidas; ${r.execucao.cobertura.semMedida} ausentes)`,
-    `  tokens           ${r.tokens.total} total; input ${r.tokens.input} (cached ${r.tokens.cachedInput}); output ${r.tokens.output}`,
-    `  custo referencia ${dinheiro} — estimativa por tarifa publica, nao gasto/fatura`,
-    `  espera humana    ${(r.esperaHumana.milissegundos / 3_600_000).toFixed(2)} h; ${r.esperaHumana.abertas} aberta(s)`,
+    m.periodo(formatarDataHora(r.periodo.desde), formatarDataHoraRotulada(r.periodo.ate), r.periodo.intervalo),
+    m.sessoes(r.threads, r.sessoes.concluidas, r.sessoes.despachadas),
+    m.throughput(r.throughput.ships, r.sessoes.retries),
+    m.execucao(r.execucao.horas.toFixed(2), r.execucao.cobertura.medidas, r.execucao.cobertura.semMedida),
+    m.tokens(r.tokens.total, r.tokens.input, r.tokens.cachedInput, r.tokens.output),
+    m.custo(dinheiro),
+    m.espera((r.esperaHumana.milissegundos / 3_600_000).toFixed(2), r.esperaHumana.abertas),
     linhaDoHitlDeConducao(r.hitlDeConducao),
-    `  riscos evitados  ${r.riscosPreventivos.total} gate(s) preventivo(s)`,
-    `  estimativas PLAN ${r.estimativasPlano.amostras} amostra(s)`,
-    ...r.qualidade.observacoes.map(o => `  cobertura         ${o}`),
+    m.riscos(r.riscosPreventivos.total),
+    m.estimativas(r.estimativasPlano.amostras),
+    ...r.qualidade.observacoes.map(o => m.cobertura(m.observacao(o))),
   ].join('\n');
 }

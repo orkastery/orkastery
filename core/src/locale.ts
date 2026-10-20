@@ -116,7 +116,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'prompt list', 'prompt lint', 'prompt render', 'prompt ?',
   'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?',
   // F3d: familias restantes, acrescentadas somente quando a familia inteira entra no catalogo.
-  'modos', 'ciclos', 'setup', 'projetos', 'pulse cadencia', 'pulse responder'];
+  'modos', 'ciclos', 'setup', 'projetos', 'pulse cadencia', 'pulse responder', 'ledger'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -552,6 +552,32 @@ const PT_BR = {
       responderUso: 'pulse responder exige --resposta-stdin e o envelope do ingresso autenticado',
       responderFormato: 'pulse responder: --formato telegram|terminal',
     },
+    ledger: {
+      usoStats: 'uso: ork ledger stats --desde 7d [--ate ISO] [--thread T] [--modo M] [--runtime R] [--json]',
+      usoEstimate: 'uso: ork ledger estimate <thread-id> --sem-ia H --ia-sem-ork H --por Q --metodo M --premissas P [--incerteza I]',
+      uso: 'uso: ork ledger stats|estimate ...',
+      estimativa: (thread: string, semIa: number, ia: number) =>
+        `Estimativa PLAN registrada em ${thread}: sem IA ${semIa} h; IA sem Orkastery ${ia} h.`,
+      periodo: (desde: string, ate: string, intervalo: string) => `Ledger stats  ${desde} ate ${ate} ${intervalo}`,
+      sessoes: (threads: number, concluidas: number, despachos: number) =>
+        `  threads/sessoes  ${threads} / ${concluidas} concluidas (${despachos} despachos)`,
+      throughput: (ships: number, retries: number) => `  throughput       ${ships} ship(s); ${retries} retry(ies)`,
+      execucao: (horas: string, medidas: number, ausentes: number) =>
+        `  execucao         ${horas} h (${medidas} medidas; ${ausentes} ausentes)`,
+      tokens: (total: number, input: number, cached: number, output: number) =>
+        `  tokens           ${total} total; input ${input} (cached ${cached}); output ${output}`,
+      semCobertura: 'sem cobertura',
+      custo: (valor: string) => `  custo referencia ${valor} — estimativa por tarifa publica, nao gasto/fatura`,
+      espera: (horas: string, abertas: number) => `  espera humana    ${horas} h; ${abertas} aberta(s)`,
+      semResposta: 'sem resposta medida',
+      metaDentro: ' (dentro da meta de 5 min)', metaFora: ' (acima da meta de 5 min)',
+      hitl: (pedidos: number, horas: string, mediana: string, meta: string, abertas: number, fora: number) =>
+        `  HITL de conducao ${pedidos} pergunta(s); parado ${horas} h; mediana ${mediana}${meta}; ${abertas} aberta(s); texto fora da excecao ${fora}`,
+      riscos: (total: number) => `  riscos evitados  ${total} gate(s) preventivo(s)`,
+      estimativas: (total: number) => `  estimativas PLAN ${total} amostra(s)`,
+      cobertura: (texto: string) => `  cobertura         ${texto}`,
+      observacao: (texto: string) => texto,
+    },
   },
   setup: SETUP_PT_BR,
   projetos: PROJETOS_PT_BR,
@@ -917,6 +943,33 @@ const EN: Mensagens = {
       padrao: 'No saved tag: the default cadence applies.',
       responderUso: 'pulse responder requires --resposta-stdin and the authenticated ingress envelope',
       responderFormato: 'pulse responder: --formato telegram|terminal',
+    },
+    ledger: {
+      usoStats: 'usage: ork ledger stats --desde 7d [--ate ISO] [--thread T] [--modo M] [--runtime R] [--json]',
+      usoEstimate: 'usage: ork ledger estimate <thread-id> --sem-ia H --ia-sem-ork H --por Q --metodo M --premissas P [--incerteza I]',
+      uso: 'usage: ork ledger stats|estimate ...',
+      estimativa: (thread, noAi, aiWithoutOrk) =>
+        `PLAN estimate recorded in ${thread}: no AI ${noAi} h; AI without Orkastery ${aiWithoutOrk} h.`,
+      periodo: (from, to, interval) => `Ledger stats  ${from} to ${to} ${interval}`,
+      sessoes: (threads, completed, dispatches) =>
+        `  threads/sessions ${threads} / ${completed} completed (${dispatches} dispatches)`,
+      throughput: (ships, retries) => `  throughput       ${ships} ship(s); ${retries} retry(ies)`,
+      execucao: (hours, measured, missing) => `  execution        ${hours} h (${measured} measured; ${missing} missing)`,
+      tokens: (total, input, cached, output) => `  tokens           ${total} total; input ${input} (cached ${cached}); output ${output}`,
+      semCobertura: 'no coverage',
+      custo: (value) => `  reference cost   ${value} — estimate from public rates, not spend or billing`,
+      espera: (hours, open) => `  human wait       ${hours} h; ${open} open`,
+      semResposta: 'no measured response',
+      metaDentro: ' (within the 5 min target)', metaFora: ' (above the 5 min target)',
+      hitl: (requests, hours, median, target, open, outside) =>
+        `  conduction HITL ${requests} question(s); stopped ${hours} h; median ${median}${target}; ${open} open; text outside exception ${outside}`,
+      riscos: (total) => `  risks prevented  ${total} preventive gate(s)`,
+      estimativas: (total) => `  PLAN estimates   ${total} sample(s)`,
+      cobertura: (text) => `  coverage         ${text}`,
+      observacao: (text) => text
+        .replace(/sessao\(oes\) sem medicao de tokens$/, 'session(s) without token measurement')
+        .replace(/sessao\(oes\) com tokens, mas sem tarifa de referencia$/, 'session(s) with tokens but no reference rate')
+        .replace(/linha\(s\) de ledger corrompida\(s\) ignorada\(s\)$/, 'corrupt ledger line(s) ignored'),
     },
   },
   setup: SETUP_EN,
