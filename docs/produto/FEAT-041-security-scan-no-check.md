@@ -8,7 +8,7 @@ roadmap: [RM-068]
 owner: Paschoal
 aprovador: Julio
 verificado_em: 2026-10-20T12:00:00-03:00
-versao: forja/security-scan@0da6b260
+versao: main@6d9c0f5d
 fontes:
   codigo:
     - core/src/security-scan/cli.ts
@@ -66,7 +66,7 @@ fontes:
 
 > **Em uma frase:** o `ork verify` roda ferramentas de segurança e qualidade de código no HEAD e na base antes do push para a `main`, e achado crítico novo dispara a triagem do CHECK e a correção do GO-FIX, em qualquer projeto conduzido pelo `ork`.
 
-- **Estado:** em desenvolvimento · **Verificado em:** 2026-10-20 · **Versão:** forja/security-scan@0da6b260, por PR
+- **Estado:** em desenvolvimento · **Verificado em:** 2026-10-20 · **Versão:** main@6d9c0f5d (PR #186); sem release no npm, a publicação espera a aceitação dos pilotos do #Noctum
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-02](MOD-02-verdade-e-entrega.md)
 - **Roadmap:** [RM-068](../roadmap/RM-068-security-scan-no-check.md)
 - **Dono da página / aprovador:** Paschoal / Julio
@@ -132,10 +132,11 @@ fontes:
 - **Observabilidade:** o `report.md` mostra ferramenta, executor, estado e motivo; o `ork doctor` ganha o check "security scan" (`ok` com Docker ou com todos os binários do laço, `warn` nunca `fail` quando alguma ferramenta ficaria `unavailable`).
 - **Acesso, privacidade e conformidade:** repositório montado só para leitura, usuário não root, rede só nas ferramentas que a pedem; Semgrep com métricas desligadas e sem `--config auto`; imagens por digest. As imagens e o conjunto de regras do Semgrep têm termos de uso próprios, dos fornecedores.
 - **Dependências e rollback:** nenhuma dependência nova no pacote; as ferramentas são executáveis externos. Para desligar, retire `verify.security_scan` do manifesto: o comportamento volta ao anterior.
-- **Código, PR, testes e release:** branch `forja/security-scan`, por PR único; a suíte inteira e o scan do próprio repositório estão na descrição do PR.
+- **Código, PR, testes e release:** PR #186 (merge `6d9c0f5d`, cabeça da branch `34f019b1`), na `main`; a suíte inteira e o scan do próprio repositório estão na descrição do PR. Sem release no npm: o workflow de publicação espera a aceitação dos pilotos do #Noctum.
 
 ## Histórico
 
 | Data | Mudança | Autor/revisor | Evidência ou decisão |
 | --- | --- | --- | --- |
 | 2026-10-20 | Página criada com o scan implementado na branch | Paschoal (com agente) / Julio, revisão pendente | branch `forja/security-scan` |
+| 2026-10-20 | Mesclado na main pelo PR #186, ainda sem release no npm | Paschoal (com agente), mesclado pelo autor | merge `6d9c0f5d` |
