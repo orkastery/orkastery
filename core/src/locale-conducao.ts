@@ -78,7 +78,7 @@ export const CONDUCAO_EN: typeof CONDUCAO_PT_BR = {
     assumir: (thread) => `  take over: ork conducao assumir ${thread} --por <you> --motivo "<why>"`,
   },
   recusa: {
-    esperar: 'Wait your turn: repeats this request and continues automatically when the current conduction ends (up to 30 min).',
+    esperar: 'Wait your turn: the command below repeats this request and proceeds on its own once the current conduction ends (waiting up to 30 min).',
     acompanhar: 'Follow who is conducting, without changing anything.',
     assumir: 'Take over conduction: ends the current one through its own runtime and records in the ledger who took over, from which channel, and why.',
     titulo: (thread) => `Request not executed: thread ${thread} is already being conducted, and two executions in the same worktree corrupt each other (as happened on 2026-09-19).`,

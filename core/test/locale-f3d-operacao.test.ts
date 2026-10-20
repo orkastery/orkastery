@@ -431,6 +431,18 @@ test('F3d: os resumos e a recusa de conducao saem completos nas duas linguas', (
     '--ate <date> --pode merge,registrar,master,despachar [--por <your name>]']), []);
 });
 
+test('F3d (GO-FIX 2): esperar a vez e frase natural em ingles, logo acima do comando que ela descreve', () => {
+  // CHECK da F3d, achado 4: a explicacao tinha o verbo sem sujeito; o pt-BR fica como era, byte a byte.
+  assert.equal(msg('en').conducao.recusa.esperar, 'Wait your turn: the command below repeats this request and '
+    + 'proceeds on its own once the current conduction ends (waiting up to 30 min).');
+  assert.equal(msg('pt-BR').conducao.recusa.esperar,
+    'Esperar a vez: repete este pedido e segue sozinho quando a conducao atual terminar (ate 30 min).');
+  const texto = (locale: 'pt-BR' | 'en') => comLocale(locale, () => recusaDeConducao('ork-x', null,
+    { canal: 'cli', operacao: 'phase.run', fase: 'GO' } as any).texto);
+  assert.match(texto('en'), /\n {2}1\. Wait your turn: the command below repeats this request [^\n]+\n {5}ork phase run ork-x GO /);
+  assert.match(texto('pt-BR'), /\n {2}1\. Esperar a vez: repete este pedido [^\n]+\n {5}ork phase run ork-x GO /);
+});
+
 test('F3d: grafo localiza uso e resposta humana sem alterar o contrato JSON', () => {
   const resposta = { consulta: { tipo: 'vizinhos', alvo: 'src/a.ts', profundidade: 1, sentido: 'ambos',
       tipos: ['contains'], limite: 10 },
