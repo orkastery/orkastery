@@ -324,7 +324,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   3.367 entradas, 2.306 literais de saída ainda fora do catálogo e 59,35% de cobertura no mesmo contador. Os
   quatro snapshots pt-BR anteriores mantêm os hashes byte a byte; `--json`, ledger, ids, códigos, comandos e
   flags continuam contratos não traduzidos. Mods, tools do OpenClaw e cópias dos marketplaces ficam para um
-  trabalho próprio de geração reproduzível e paridade, sem tradução parcial.
+  trabalho próprio de geração reproduzível e paridade, sem tradução parcial. Depois do merge da `main`, a mesma
+  medida dá 58,63% (41,26% na `main` sozinha). A família do grafo segue sem importar o catálogo (o `index.ts`
+  passa a redação no locale do comando), o `ork ci prepare` grava o lint em pt-BR no ledger em qualquer língua, e
+  o custo de referência do `ork ledger` troca o travessão por parênteses.
 
 ### Corrigido
 

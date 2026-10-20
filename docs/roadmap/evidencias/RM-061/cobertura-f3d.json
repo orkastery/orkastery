@@ -12,7 +12,9 @@
     "arquivos": 306,
     "literaisComTexto": 5573,
     "emPosicaoDeSaida": 3041,
-    "catalogo": { "entradas": 2157 },
+    "catalogo": {
+      "entradas": 2157
+    },
     "cobertura": 0.415
   },
   "depois": {
@@ -70,16 +72,96 @@
     "verifyNativo": {
       "commit": "ecc5caf0c190c4d32423285b12bef12d30a176b8",
       "ok": false,
-      "motivos": ["claims.failed", "verify.regression", "verify.sem-veredito"],
-      "claims": { "total": 161, "verificadas": 86 },
+      "motivos": [
+        "claims.failed",
+        "verify.regression",
+        "verify.sem-veredito"
+      ],
+      "claims": {
+        "total": 161,
+        "verificadas": 86
+      },
       "executor": "codex-sandbox",
       "prazoTotalMs": 180000
     }
   },
   "pendencias": [
     {
-      "superficies": ["mods", "tools do OpenClaw", "copias dos marketplaces"],
+      "superficies": [
+        "mods",
+        "tools do OpenClaw",
+        "copias dos marketplaces"
+      ],
       "motivo": "artefatos derivados precisam de catalogo de origem, geracao reproduzivel e fixtures de paridade proprias; uma traducao parcial quebraria o contrato de copia intacta"
     }
-  ]
+  ],
+  "integrada": {
+    "descricao": "a F3d com o GO-FIX 1 depois do merge da origin/main (97c2a446), no mesmo contador: a main sozinha, a main com a F3d antes do GO-FIX 1 e com ele. O merge trouxe 21 entradas ao catalogo e literais novos da main; o GO-FIX 1 somou tres textos do ci ao catalogo e devolveu o pt-BR do grafo a familia (fronteira do KG3), que o contador conta como literal de saida",
+    "main": {
+      "arvore": "97c2a446b94aa2fdd5db2767ee3bb46378c4f251",
+      "arquivos": 309,
+      "literaisComTexto": 5729,
+      "emPosicaoDeSaida": 3101,
+      "arquivosComSaida": 195,
+      "catalogo": {
+        "entradas": 2178
+      },
+      "cobertura": 0.4126
+    },
+    "comF3dAntesDoGoFix": {
+      "arvore": "5713b3fc5e2164190a6d6018241ad19f7b7127d8",
+      "arquivos": 315,
+      "literaisComTexto": 4847,
+      "emPosicaoDeSaida": 2366,
+      "arquivosComSaida": 191,
+      "catalogo": {
+        "entradas": 3388
+      },
+      "cobertura": 0.5888
+    },
+    "comF3d": {
+      "arvore": "bad54969567e293410717062a3334d6be16c27c0",
+      "arquivos": 315,
+      "literaisComTexto": 4885,
+      "emPosicaoDeSaida": 2393,
+      "arquivosComSaida": 192,
+      "catalogo": {
+        "entradas": 3391
+      },
+      "cobertura": 0.5863
+    },
+    "snapshotsPtBR": {
+      "nota": "iguais byte a byte aos da main integrada (97c2a446); o F2a mudou na main pela ork-rm058integra (981558bb), nao pela F3d",
+      "core/test/fixtures/locale-f2a-pt-BR.json": "6925f6e1c41faa1fd1cdfe31d761d9ccccdbfd7ac04ba4c73a6912c8ec2d3d00",
+      "core/test/fixtures/locale-f2b-pt-BR.json": "2ed8a595fb69394c3c3ecc33a1e7890fb0c50198df1d33a97108554d40e74024",
+      "core/test/fixtures/locale-f3a-pt-BR.json": "40fe60a9346b19bbca1fb5d9b68c0a2409542d41e5fa6a3271bc5cda753ee3cc",
+      "core/test/fixtures/locale-f3b-pt-BR.json": "278230a01c1cf41145de97e38c5d12a78e5cc5915ae6ecc79e2374045eda81ae",
+      "core/test/fixtures/locale-f3c-pt-BR.json": "012f91eb89f2f016cc8d3edaeec927b316d1d536c1d0398e2245a435b3e51f27"
+    }
+  },
+  "goFix1": {
+    "descricao": "a suite inteira fora do sandbox, com a saida em arquivo, antes e depois das correcoes do GO-FIX 1; o verify oficial chamou as 15 falhas de pre-existentes porque a baseline da thread gravou o test estourado em 600 s",
+    "comando": "timeout 2400 npm --prefix core test > arquivo 2>&1",
+    "antes": {
+      "arvore": "5713b3fc5e2164190a6d6018241ad19f7b7127d8",
+      "tests": 5341,
+      "pass": 5325,
+      "fail": 15,
+      "skipped": 1
+    },
+    "causas": {
+      "fronteiraDoGrafo": "a consulta e o CLI do grafo importavam o catalogo de locale (KG3 e KG5); o pt-BR volta a familia e o index.ts passa a redacao no locale do comando, com teste de paridade",
+      "catalogo": "um travessao U+2014 no custo de referencia do ork ledger e 58 folhas inglesas iguais ao pt-BR sem a declaracao do teste",
+      "ciPrepare": "o lint do bundle ia ao ledger na lingua do comando; agora grava em pt-BR e imprime no locale do comando",
+      "sondasNegativas": "nove testes negativos usavam como sonda uma rota que a F3d levou a lista de proposito",
+      "testeDaF3d": "o teste do retry esperava um titulo que a tabela da politica nunca teve"
+    },
+    "depois": {
+      "arvore": "bad54969567e293410717062a3334d6be16c27c0",
+      "tests": 5345,
+      "pass": 5344,
+      "fail": 0,
+      "skipped": 1
+    }
+  }
 }

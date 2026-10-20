@@ -216,16 +216,17 @@ A F3c mede no mesmo contador, com o recibo em [`cobertura-f3c.json`](evidencias/
 
 A F3d mede no mesmo contador, com o recibo em [`cobertura-f3d.json`](evidencias/RM-061/cobertura-f3d.json):
 
-| Medida | Base carimbada da F3d (`79d3ebf9`) | F3d (`8520da95`) |
-| --- | --- | --- |
-| Entradas do catálogo | 2.157 | 3.367 |
-| Literais de saída fora do catálogo | 3.041 | 2.306 |
-| Cobertura | 41,5% | 59,35% |
+| Medida | Base carimbada da F3d (`79d3ebf9`) | F3d (`8520da95`) | `main` (`97c2a446`) | F3d integrada, com o GO-FIX 1 (`bad54969`) |
+| --- | --- | --- | --- | --- |
+| Entradas do catálogo | 2.157 | 3.367 | 2.178 | 3.391 |
+| Literais de saída fora do catálogo | 3.041 | 2.306 | 3.101 | 2.393 |
+| Cobertura | 41,5% | 59,35% | 41,26% | 58,63% |
 
 - **Comandos cobertos:** além das três lacunas da revisão, entram `modos`, `ciclos`, `setup`, `projetos`, as rotas complementares de `pulse`, `ledger`, `portfolio`, `creation`, `objective`, `ci`, `retry`, `sessions`, `gate`, `fix`, `handoff`, `recall`, `lease`, `board`, `orquestracao`, `monitor`, `licoes`, `demo`, `fabrica`, `eval`, `memory`, `mcp install`, `master`, `conducao`, `grafo` e `audit`.
 - **Contratos preservados:** comandos, flags, ids, códigos tipados, ledger e `--json` não são traduzidos. Os quatro snapshots pt-BR anteriores conservaram os mesmos hashes byte a byte; cada família nova tem exercício em pt-BR e inglês no teste focado da F3d.
 - **Fora da régua:** o contador mede `core/src`. As superfícies derivadas que ficaram pendentes não seriam representadas com honestidade pela porcentagem e ganham trabalho próprio de geração e paridade.
 - **Verificação desta sessão:** o teste focado da F3d aprovou 22 de 22 casos. A suíte integral expirou em 2.400 segundos depois de concluir 16 arquivos (7 aprovados e 9 reprovados), e o diagnóstico mínimo confirmou `spawnSync /bin/sh` com `EPERM`; por isso ela não é declarada verde. O `ork verify` nativo também encerrou sem veredito depois de verificar 86 de 161 claims. O CHECK independente precisa repetir a suíte e o verify fora deste sandbox.
+- **GO-FIX 1:** a suíte inteira, rodada fora do sandbox depois do merge da `main` (`97c2a446`), saiu com 15 falhas em 5.341 testes, que o verify oficial chamou de pré-existentes porque a baseline da thread gravou o `test` estourado em 600 s. As causas: a consulta e o CLI do grafo importavam o catálogo e quebravam a fronteira do KG3 e do KG5 (o pt-BR volta a morar na família, e o `index.ts` passa a redação no locale do comando); o catálogo tinha um travessão e 58 folhas iguais ao pt-BR sem a declaração do teste; o `ci prepare` gravava o lint no ledger na língua do comando (agora grava em pt-BR e imprime no locale); nove testes negativos usavam como sonda uma rota que a F3d levou à lista; e um teste da própria F3d esperava um título que a tabela da política nunca teve. Depois do GO-FIX 1, a mesma suíte sai com 0 falha em 5.345 testes. As duas colunas da direita medem a `main` sem e com a F3d: o pt-BR do grafo de volta à família conta como literal de saída, e a cobertura integrada fica em 58,63%.
 
 ## Responsabilidades e histórico
 
@@ -241,3 +242,4 @@ A F3d mede no mesmo contador, com o recibo em [`cobertura-f3d.json`](evidencias/
 | 2026-10-12 | F3 dividida em F3a e F3b; a F3a leva os arquivos gerados à língua do dono, cria a referência do CLI em inglês e mede a cobertura | Thread `ork-rm061f3a` e o recibo `cobertura-f3a.json` | Fábrica, pelo pedido do dono |
 | 2026-10-12 | A F3b leva ao catálogo o resto da lista do dono e instala as skills na língua do dono; os prompts, `decisao registrar` e `network roadmap` ficam para a F3c | Thread `ork-rm061f3b` e o recibo `cobertura-f3b.json` | Fábrica, pelo pedido do dono |
 | 2026-10-15 | A F3c leva à língua do dono o `.orkastery/.gitignore`, `decisao registrar`, `network roadmap`, `thread new --from-finding` e os prompts de fase, com o fecho do GO em inglês depois do merge da `main`; os demais comandos, mods, tools do OpenClaw e marketplaces ficam para a F3d | Thread `ork-rm061f3c` e o recibo `cobertura-f3c.json` | Fábrica, pelo pedido do dono |
+| 2026-10-20 | A F3d leva ao catálogo os demais comandos do CLI principal e as três lacunas da revisão da F3c; o GO-FIX 1 corrige as 15 falhas que a suíte inteira mostrou depois do merge da `main`; mods, tools do OpenClaw e marketplaces ficam pendentes | Thread `ork-rm061f3d` e o recibo `cobertura-f3d.json` | Fábrica, pelo pedido do dono |
