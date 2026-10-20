@@ -1,5 +1,5 @@
 /**
- * RM-068 (ork-dsnforadoamb): a DSN da memória fora do ambiente dos agentes.
+ * RM-069 (ork-dsnforadoamb): a DSN da memória fora do ambiente dos agentes.
  *
  * Os casos `DM` provam o resolvedor (`core/src/dsn-da-memoria.ts`) e a chave `memory.database_url_file` do manifesto
  * (T2); os casos `DR`, os consumidores pelo resolvedor e a degradação tipada (T3). Toda DSN é inventada, a pasta do

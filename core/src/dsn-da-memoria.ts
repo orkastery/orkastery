@@ -1,5 +1,5 @@
 /**
- * RM-068: a DSN da memória fora do ambiente dos agentes. Domicílio único de onde a DSN vem (a variável de ambiente
+ * RM-069: a DSN da memória fora do ambiente dos agentes. Domicílio único de onde a DSN vem (a variável de ambiente
  * nomeada em `memory.database_url_env`, ou o arquivo da pasta de segredos do `ork` nomeado em
  * `memory.database_url_file`), de como o arquivo é lido e de como o `ork doctor` procura DSN no ambiente sem imprimir
  * valor.

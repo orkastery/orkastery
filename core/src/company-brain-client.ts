@@ -29,7 +29,7 @@ export function brainClient(loaded: ManifestoCarregado, execute: typeof spawnSyn
   return raw => {
     const request = validateRequest(raw);
     const unavailable = (error: string): BrainResponse => ({ schema:BRAIN_API,state:'unavailable',error });
-    // RM-068: a DSN pelo resolvedor unico, no momento do pedido (a variavel ou o arquivo da pasta de segredos).
+    // RM-069: a DSN pelo resolvedor unico, no momento do pedido (a variavel ou o arquivo da pasta de segredos).
     const dsn = resolverDsn(config).dsn;
     if (config.mode !== 'orkmind' || (!dsn && request.operation !== 'capabilities')) return unavailable('brain.configuration.missing');
     const payload = request.payload as any;

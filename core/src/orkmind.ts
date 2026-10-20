@@ -405,10 +405,10 @@ export interface ConfigDoDriver {
   variavel: string;
   /** Valor da DSN lido da fonte declarada (ambiente ou arquivo). Vazio quer dizer "nao ligue". */
   dsn: string;
-  /** RM-068: de onde a DSN veio (`resolverDsn`); o rotulo e o NOME da variavel ou o arquivo com `~`. */
+  /** RM-069: de onde a DSN veio (`resolverDsn`); o rotulo e o NOME da variavel ou o arquivo com `~`. */
   fonteDaDsn?: FonteDaDsn;
   rotuloDaDsn?: string;
-  /** RM-068: por que a fonte nao deu DSN e o detalhe, sem o valor. */
+  /** RM-069: por que a fonte nao deu DSN e o detalhe, sem o valor. */
   falhaDaDsn?: FalhaDaDsn | null;
   detalheDaDsn?: string;
   timeoutMs: number;
@@ -461,7 +461,7 @@ export class DriverCliOrkMind implements DriverDeMemoria {
   }
 
   private contemSegredo(valor: unknown): boolean {
-    // RM-068 (D6): a DSN e a senha dela pelos fragmentos de domicilio unico.
+    // RM-069 (D6): a DSN e a senha dela pelos fragmentos de domicilio unico.
     const proibidos = fragmentosDaDsn(this.config.dsn);
     const nome = this.config.variavelDaChaveDeEmbedding ?? '';
     const chave = nome ? (process.env[nome] ?? '').trim() : '';
@@ -918,7 +918,7 @@ export class DriverEmMemoria implements DriverDeMemoria {
 }
 
 /**
- * Config de memoria efetiva a partir do manifesto, ja com o tenant resolvido. RM-068: a DSN vem da fonte declarada
+ * Config de memoria efetiva a partir do manifesto, ja com o tenant resolvido. RM-069: a DSN vem da fonte declarada
  * (a variavel de `database_url_env` ou o arquivo de `database_url_file`) pelo resolvedor unico, lida a cada chamada (D12).
  */
 export function configDoManifesto(manifesto: Manifesto,
@@ -984,7 +984,7 @@ export function resolverRegime(
     dsnPresente: config.dsn.trim() !== '',
     cli: config.cli,
     tenant: config.tenant,
-    // RM-068 (D5): a fonte da DSN, aditiva; o arquivo so pelo rotulo com `~`.
+    // RM-069 (D5): a fonte da DSN, aditiva; o arquivo so pelo rotulo com `~`.
     fonteDaDsn: config.fonteDaDsn ?? 'nenhuma',
     ...(config.fonteDaDsn === 'arquivo' ? { arquivoDaDsn: config.rotuloDaDsn } : {}),
   };
@@ -1012,7 +1012,7 @@ export function resolverRegime(
       'memory.database_url_file e memory.database_url_env vazios: sem base declarada o ork nao conecta em base nenhuma'
     );
   }
-  // RM-068: o arquivo que falha degrada com o motivo dele e nunca cai para a variavel.
+  // RM-069: o arquivo que falha degrada com o motivo dele e nunca cai para a variavel.
   if (config.dsn.trim() === '' && !driver && config.fonteDaDsn === 'arquivo') {
     return degradar(
       config.falhaDaDsn ?? 'dsn.arquivo-ausente',

@@ -381,7 +381,7 @@ const PT_BR = {
     fonteDaMemoria: (fonte: string, divergente: boolean) => `${fonte}${divergente ? ' (cópia da worktree divergente preservada)' : ''}`,
     regimeDegradado: (motivo: string | null, detalhe: string) => `pedido orkmind, efetivo files (${motivo}): ${detalhe}`,
     regimeOrkmind: (tenant: string | null, variavel: string | null) => `orkmind ativo no tenant "${tenant}" pela variavel ${variavel}`,
-    // RM-068: a fonte da DSN e a DSN no ambiente, pelo nome da variavel ou pelo rotulo do arquivo, nunca o valor.
+    // RM-069: a fonte da DSN e a DSN no ambiente, pelo nome da variavel ou pelo rotulo do arquivo, nunca o valor.
     regimeOrkmindPorArquivo: (tenant: string | null, arquivo: string) => `orkmind ativo no tenant "${tenant}" pelo arquivo ${arquivo}`,
     dsnDaVariavel: (variavel: string) => `variável de ambiente ${variavel}, presente (valor nunca impresso)`,
     dsnVariavelAusente: (variavel: string) => `variável de ambiente ${variavel} ausente: a memória cai para files`,

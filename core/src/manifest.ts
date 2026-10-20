@@ -602,10 +602,10 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
         'string de conexao (base propria por tenant, sem fallback para base alheia)'
     );
   } else if (variavelDaDsn !== '' && !/^[A-Z][A-Z0-9_]*$/.test(variavelDaDsn)) {
-    // RM-068 (D3): o valor nao entra no erro; uma DSN `chave=valor` colada aqui sairia inteira.
+    // RM-069 (D3): o valor nao entra no erro; uma DSN `chave=valor` colada aqui sairia inteira.
     erros.push('memory.database_url_env invalido (valor omitido): esperado nome de variavel de ambiente, [A-Z][A-Z0-9_]*');
   }
-  // RM-068 (G2, G3): a fonte de arquivo so nomeia arquivo da pasta de segredos do `ork`, e nunca junto da variavel.
+  // RM-069 (G2, G3): a fonte de arquivo so nomeia arquivo da pasta de segredos do `ork`, e nunca junto da variavel.
   const arquivoDaDsn = texto(memory.database_url_file, '').trim();
   if (arquivoDaDsn.includes('://')) {
     erros.push(

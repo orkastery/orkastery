@@ -11,7 +11,7 @@ export type AdminTransport=(operation:'plan'|'apply'|'rollback',payload:unknown)
 export function brainAdmin(c:ManifestoCarregado):AdminTransport{
   const config=memoryState(c).loaded.manifesto.memory;
   return(operation,payload)=>{
-    // RM-068: a DSN pelo resolvedor unico (a variavel ou o arquivo da pasta de segredos).
+    // RM-069: a DSN pelo resolvedor unico (a variavel ou o arquivo da pasta de segredos).
     const dsn=resolverDsn(config).dsn;
     if(config.mode!=='orkmind'||!dsn)throw Error('brain.configuration.missing');
     // RM-047: cwd fora do clone; um nome de interpretador em memory.cli não acha arquivo do repositório.

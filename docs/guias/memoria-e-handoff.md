@@ -199,7 +199,7 @@ ork memory search --colecao handoff --tags '{"project":["orkastery"],"skill":["G
 Com `memory.database_url_env`, a DSN mora no ambiente do processo e, por isso, no ambiente de toda
 sessão de agente que o herda: um `env` dentro da sessão a mostra. A segunda fonte tira a DSN de
 lá: um arquivo na pasta de segredos do `ork`, lido no momento do uso
-([RM-068](../roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md)).
+([RM-069](../roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md)).
 
 ```yaml
 memory:

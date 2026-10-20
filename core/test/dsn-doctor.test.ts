@@ -1,5 +1,5 @@
 /**
- * RM-068 (ork-dsnforadoamb, T4): o `ork doctor` diz a fonte da DSN da memória e acusa a DSN no ambiente, pelo NOME
+ * RM-069 (ork-dsnforadoamb, T4): o `ork doctor` diz a fonte da DSN da memória e acusa a DSN no ambiente, pelo NOME
  * da variável e nunca pelo valor.
  *
  * Os casos `DD` chamam os checks com o ambiente injetado e rodam o CLI com ambiente montado do zero (`HOME`

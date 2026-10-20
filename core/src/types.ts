@@ -288,7 +288,7 @@ export interface Manifesto {
      */
     database_url_env: string;
     /**
-     * RM-068: CAMINHO do arquivo com a DSN, so na forma `~/.orkastery/segredos/<nome>` (a pasta de segredos do `ork`),
+     * RM-069: CAMINHO do arquivo com a DSN, so na forma `~/.orkastery/segredos/<nome>` (a pasta de segredos do `ork`),
      * nunca a DSN. Exclusivo com `database_url_env`; ausente ou vazio quer dizer "nao declarado".
      */
     database_url_file?: string;
@@ -1357,7 +1357,7 @@ export type MotivoDeDegradacao =
   | 'modo.desconhecido'
   | 'dsn.nao-declarado'
   | 'dsn.env-ausente'
-  // RM-068 (D4): a fonte de arquivo (`memory.database_url_file`) ausente, insegura ou invalida; nunca cai para a variavel.
+  // RM-069 (D4): a fonte de arquivo (`memory.database_url_file`) ausente, insegura ou invalida; nunca cai para a variavel.
   | 'dsn.arquivo-ausente'
   | 'dsn.arquivo-inseguro'
   | 'dsn.arquivo-invalido'
@@ -1567,15 +1567,15 @@ export interface EstadoDaMemoria {
   dsnPresente: boolean;
   cli: string;
   tenant: string;
-  /** RM-068 (D5): de onde a DSN vem; aditivo e opcional, como `embeddings`. */
+  /** RM-069 (D5): de onde a DSN vem; aditivo e opcional, como `embeddings`. */
   fonteDaDsn?: FonteDaDsn;
-  /** RM-068 (D5): o arquivo da DSN pelo rotulo com `~`, so com a fonte de arquivo; nunca o caminho real. */
+  /** RM-069 (D5): o arquivo da DSN pelo rotulo com `~`, so com a fonte de arquivo; nunca o caminho real. */
   arquivoDaDsn?: string;
   /** I-38 (D6): aditivo e opcional; consumidores antigos leem o estado sem ele. */
   embeddings?: EstadoDeEmbeddings;
 }
 
-/** RM-068: a fonte da DSN da memoria (`memory.database_url_env`, `memory.database_url_file` ou nenhuma). */
+/** RM-069: a fonte da DSN da memoria (`memory.database_url_env`, `memory.database_url_file` ou nenhuma). */
 export type FonteDaDsn = 'ambiente' | 'arquivo' | 'nenhuma';
 
 /** Resultado de uma gravacao na memoria semantica. */

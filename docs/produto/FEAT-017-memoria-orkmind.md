@@ -4,7 +4,7 @@ tipo: feature
 titulo: Memória no OrkMind com degradação honesta
 estado: vigente
 pai: MOD-05
-roadmap: [RM-006, RM-038, RM-068]
+roadmap: [RM-006, RM-038, RM-069]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-10-01T02:30:00-03:00
@@ -75,7 +75,7 @@ fontes:
 
 ## Operação e controle
 
-- **Configuração:** `memory: orkmind` e uma fonte da DSN no manifesto, nunca o valor: `memory.database_url_env` (o NOME da variável) ou `memory.database_url_file` (um arquivo `0600` do dono em `~/.orkastery/segredos/`, fora do ambiente dos agentes), exclusivas ([RM-068](../roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md)). Arquivo ausente, inseguro ou inválido degrada com `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` ou `dsn.arquivo-invalido`. Embeddings no bloco `memory.embedding` (provider, modelo, dimensão, NOME da variável da chave, fallback local, teto de tokens); sem o bloco, desligados. Veja [a busca por significado](../guias/memoria-e-handoff.md#busca-por-significado-embeddings).
+- **Configuração:** `memory: orkmind` e uma fonte da DSN no manifesto, nunca o valor: `memory.database_url_env` (o NOME da variável) ou `memory.database_url_file` (um arquivo `0600` do dono em `~/.orkastery/segredos/`, fora do ambiente dos agentes), exclusivas ([RM-069](../roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md)). Arquivo ausente, inseguro ou inválido degrada com `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` ou `dsn.arquivo-invalido`. Embeddings no bloco `memory.embedding` (provider, modelo, dimensão, NOME da variável da chave, fallback local, teto de tokens); sem o bloco, desligados. Veja [a busca por significado](../guias/memoria-e-handoff.md#busca-por-significado-embeddings).
 - **Custo:** estimado por `ork memory index --dry-run`; a fatura fica no painel do provider. O texto indexado sai para o OpenRouter.
 - **Publicado:** a busca por significado da [RM-038](../roadmap/RM-038-busca-semantica-na-memoria.md) entrou pelo PR #30 (merge `1041f1b`) e está na versão 0.5.0.
 - **Rollback:** `ork activation disable`. A busca por significado desliga com `memory.embedding.provider: none`; o índice local é derivado e pode ser apagado de `.orkastery/memoria/vetores/`.

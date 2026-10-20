@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
-- **DSN da memória fora do ambiente dos agentes (RM-068)**: `memory.database_url_file` declara a DSN da memória por
+- **DSN da memória fora do ambiente dos agentes (RM-069)**: `memory.database_url_file` declara a DSN da memória por
   um arquivo da pasta de segredos do `ork` (`~/.orkastery/segredos/<nome>`, que segue `ORKASTERY_HOME`), em vez da
   variável de `memory.database_url_env`; as duas fontes são exclusivas e o `ork` nunca cai de uma para a outra. O
   arquivo só é lido como arquivo comum do usuário que roda o `ork`, sem link simbólico, sem bit de permissão fora de

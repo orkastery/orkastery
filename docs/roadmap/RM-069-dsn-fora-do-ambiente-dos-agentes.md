@@ -1,5 +1,5 @@
 ---
-id: RM-068
+id: RM-069
 tipo: roadmap
 titulo: DSN com senha fora do ambiente dos agentes
 categoria: melhoria
@@ -29,7 +29,7 @@ sdlc:
   status: aberta
 ---
 
-# RM-068: DSN com senha fora do ambiente dos agentes
+# RM-069: DSN com senha fora do ambiente dos agentes
 
 > **Em uma frase:** o `ork` lê a DSN da memória de um arquivo `0600` do dono em `~/.orkastery/segredos/`, para o host deixar de exportá-la e nenhuma sessão de agente ter a senha do banco em `env`.
 

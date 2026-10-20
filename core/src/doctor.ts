@@ -161,7 +161,7 @@ export function checarChaveDeEmbedding(carregado: ManifestoCarregado, env: NodeJ
       correcao: msg().doctor.embeddingSemVariavelCorrecao };
   }
   const valor = (env[variavel] ?? '').trim();
-  // RM-068: a DSN da fonte declarada (a variavel ou o arquivo da pasta de segredos), pelo resolvedor unico.
+  // RM-069: a DSN da fonte declarada (a variavel ou o arquivo da pasta de segredos), pelo resolvedor unico.
   const dsn = resolverDsn(carregado.manifesto.memory, { env }).dsn;
   if (valor !== '' && !chaveDeEmbeddingAceita(valor, dsn)) {
     return { nome, nivel: 'fail', detalhe: msg().doctor.embeddingRecusada(variavel), correcao: msg().doctor.embeddingRecusadaCorrecao(variavel) };
@@ -173,7 +173,7 @@ export function checarChaveDeEmbedding(carregado: ManifestoCarregado, env: NodeJ
 }
 
 /**
- * RM-068 (G5): de onde vem a DSN da memoria, a variavel pelo NOME ou o arquivo pelo rotulo com `~`, nunca o valor. So
+ * RM-069 (G5): de onde vem a DSN da memoria, a variavel pelo NOME ou o arquivo pelo rotulo com `~`, nunca o valor. So
  * com `memory.mode: orkmind` e uma fonte declarada; a falha e aviso, porque memoria degradada nao bloqueia despacho.
  */
 export function checarFonteDaDsn(carregado: ManifestoCarregado, env: NodeJS.ProcessEnv = process.env): Check | null {
@@ -193,7 +193,7 @@ export function checarFonteDaDsn(carregado: ManifestoCarregado, env: NodeJS.Proc
 }
 
 /**
- * RM-068 (G6, D8): a DSN no ambiente DESTE processo, pelo NOME da variavel, nunca o valor. Numa sessao despachada, as
+ * RM-069 (G6, D8): a DSN no ambiente DESTE processo, pelo NOME da variavel, nunca o valor. Numa sessao despachada, as
  * variaveis com a DSN do projeto e toda URL com senha: o agente as le com `env`. Fora dela, so com a fonte de arquivo
  * lida, as variaveis que repetem a DSN do arquivo. Nos outros casos (fonte de ambiente fora do despacho), nenhum check.
  */
@@ -623,7 +623,7 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
             : msg().doctor.memoriaFiles,
       correcao: estado.pedido === 'orkmind' && estado.efetivo === 'files' ? estado.correcao : undefined,
     });
-    // RM-068: a fonte da DSN e a DSN no ambiente, so quando ha o que dizer (fonte declarada ou sessao despachada).
+    // RM-069: a fonte da DSN e a DSN no ambiente, so quando ha o que dizer (fonte declarada ou sessao despachada).
     const fonteDaDsn = checarFonteDaDsn(context.loaded);
     if (fonteDaDsn) checks.push(fonteDaDsn);
     const dsnNoAmbiente = checarDsnNoAmbiente(context.loaded);

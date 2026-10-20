@@ -78,7 +78,7 @@ memory:
 ```
 
 A DSN também pode vir de um arquivo, para não ficar no ambiente que as sessões de agente herdam
-([RM-068](docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md)):
+([RM-069](docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md)):
 
 ```yaml
 memory:
