@@ -3457,17 +3457,17 @@ function comandoAudit(args: Args): number {
     const raiz = carregarManifesto()?.raiz;
     const templates = carregarTemplatesDeAuditoria(raiz);
     const problemas = templates.flatMap((t) => lintTemplateDeAuditoria(t));
-    console.log(`Lint dos templates de auditoria${raiz ? ` (projeto ${raiz})` : ' (somente embutidos)'}`);
+    console.log(m.cli.lintTitulo(raiz));
     console.log('');
     for (const p of problemas) {
-      console.log(`  [${p.gravidade}] ${p.template} :: ${p.regra}`);
-      console.log(`           ${p.detalhe}`);
+      console.log(m.cli.lintItem(p.gravidade, p.template, p.regra));
+      console.log(m.cli.lintDetalhe(p.detalhe));
     }
-    if (problemas.length === 0) console.log(`  nenhum problema em ${templates.length} template(s)`);
+    if (problemas.length === 0) console.log(m.cli.lintOk(templates.length));
     console.log('');
     console.log(
-      `templates: ${templates.length} | erros: ${problemas.filter((p) => p.gravidade === 'erro').length} | ` +
-        `avisos: ${problemas.filter((p) => p.gravidade === 'aviso').length}`
+      m.cli.lintResumo(templates.length, problemas.filter((p) => p.gravidade === 'erro').length,
+        problemas.filter((p) => p.gravidade === 'aviso').length)
     );
     return problemas.some((p) => p.gravidade === 'erro') ? 2 : 0;
   }
@@ -3478,7 +3478,7 @@ function comandoAudit(args: Args): number {
     const pack = parsePack(args.posicionais[2]);
     if (!pack) {
       console.error(m.uso('run'));
-      console.error(`  packs: ${ORDEM_DOS_PACKS.join(', ')}`);
+      console.error(m.cli.packs(ORDEM_DOS_PACKS.join(', ')));
       return 2;
     }
     const autorizar = args.opcoes.agora;
@@ -3493,15 +3493,15 @@ function comandoAudit(args: Args): number {
       forcar: args.opcoes.forcar === true || args.opcoes.force === true,
     });
     if (r.status === 'bloqueada') {
-      console.error(`Rodada de auditoria ${r.id} BLOQUEADA.`);
+      console.error(m.cli.bloqueada(r.id));
       console.error(`  ${DESCRICAO_DO_MOTIVO_DE_AUDITORIA[r.motivo ?? 'runtime.unavailable']}`);
-      console.error(`  motivo tipado: ${r.motivo}`);
-      console.error(`  detalhe: ${r.detalhe}`);
-      console.error(`  estado da rodada: .orkastery/audits/${r.id}/run.json`);
+      console.error(m.cli.motivo(String(r.motivo)));
+      console.error(m.cli.detalhe(r.detalhe));
+      console.error(m.cli.estado(r.id));
       return 1;
     }
     if (r.status === 'ensaio') {
-      console.log(`Simulacao (--dry-run) da rodada ${r.id}: nada foi despachado.`);
+      console.log(m.cli.ensaio(r.id));
       console.log(`  pack        ${r.pack} (postura ${r.postura} no estagio ${r.estagio})`);
       console.log(`  escopo      ${r.escopo.detalhe}`);
       console.log(`  graphify    ${r.escopo.graphify}`);
@@ -3513,12 +3513,12 @@ function comandoAudit(args: Args): number {
       if (r.superficie) {
         console.log(`  superficie  ${r.superficie.detalhe}`);
         console.log(
-          `              nada registrado no board (--dry-run). Para gravar: ork audit surface --registrar ${r.id}`
+          m.cli.superficieDry(r.id)
         );
       }
       return 0;
     }
-    console.log(`Rodada de auditoria ${r.id} despachada pelo runtime adapter ${r.runtime}.`);
+    console.log(m.cli.despachada(r.id, r.runtime));
     console.log(`  pack        ${r.pack} (${PACKS[r.pack].titulo})`);
     console.log(`  produto     ${r.produto} (perfil ${r.perfil}), estagio ${r.estagio}, postura ${r.postura}`);
     console.log(`  escopo      ${r.escopo.detalhe}`);
@@ -3527,26 +3527,23 @@ function comandoAudit(args: Args): number {
     console.log(`  janela      ${r.custo.janela.detalhe}`);
     console.log(`  sessionId   ${r.sessionId}`);
     console.log(`  prompt      ${r.promptPath} (sha256 ${r.promptSha256})`);
-    console.log(`  verificada no runtime: ${r.verificada ? 'sim' : 'NAO (confira `ork sessions`)'}`);
+    console.log(m.cli.verificada(r.verificada));
     if (r.superficie) {
       console.log(`  superficie  ${r.superficie.detalhe}`);
       console.log(
-        `              ${r.superficie.registrados} achado(s) de superficie ja no board de divida` +
-          (r.superficie.aConfirmar > 0
-            ? `, ${r.superficie.aConfirmar} com confianca baixa (pedem confirmacao humana)`
-            : '')
+        m.cli.superficieBoard(r.superficie.registrados, r.superficie.aConfirmar)
       );
     }
     console.log('');
-    console.log('A rodada termina em PROPOSTA para o roadmap, nunca em correcao aplicada.');
-    console.log(`Depois dos achados: ork audit verify ${r.id} && ork audit report ${r.id}`);
+    console.log(m.cli.proposta);
+    console.log(m.cli.depois(r.id));
     return r.verificada ? 0 : 1;
   }
 
   if (sub === 'list') {
     console.log(tabelaDeRodadas(carregado.raiz));
     console.log('');
-    console.log(`Board de divida: ${resumoDoBoard(carregado.raiz)}`);
+    console.log(m.cli.board(resumoDoBoard(carregado.raiz)));
     return 0;
   }
 
@@ -3570,7 +3567,7 @@ function comandoAudit(args: Args): number {
     const pack = parsePack(args.posicionais[2]);
     if (!pack) {
       console.error(m.uso('prompt'));
-      console.error(`  packs: ${ORDEM_DOS_PACKS.join(', ')}`);
+      console.error(m.cli.packs(ORDEM_DOS_PACKS.join(', ')));
       return 2;
     }
     const { raiz, manifesto } = carregado;
@@ -3611,12 +3608,12 @@ function comandoAudit(args: Args): number {
       return 2;
     }
     const r = ingerirAchados(carregado, id, arquivo);
-    console.log(`Ingestao da rodada ${r.rodada}: ${r.registrados.length} achado(s) no board de divida.`);
+    console.log(m.cli.ingestao(r.rodada, r.registrados.length));
     // Bloco B6: cada proposta enderecada ao roadmap tambem vai para a colecao `roadmap`.
     if (r.registrados.length > 0) {
       const naMemoria = publicarPropostas(carregado, r.registrados);
       if (naMemoria.regime === 'orkmind') {
-        console.log(`Memoria (orkmind): propostas na colecao roadmap, ${naMemoria.detalhe}.`);
+        console.log(m.cli.memoriaMuitas(naMemoria.detalhe));
       }
     }
     for (const a of r.registrados) {
@@ -3625,19 +3622,18 @@ function comandoAudit(args: Args): number {
     if (r.duplicados.length > 0) {
       console.log('');
       console.log(
-        'Ja registrados nesta rodada, ignorados (a ingestao e idempotente): ' +
-          r.duplicados.map((a) => a.id).join(', ')
+        m.cli.duplicados(r.duplicados.map((a) => a.id).join(', '))
       );
     }
     if (r.recusados.length > 0) {
       console.log('');
-      console.error(`RECUSADOS (${r.recusados.length}):`);
+      console.error(m.cli.recusados(r.recusados.length));
       for (const rec of r.recusados) {
-        console.error(`  achado #${rec.indice + 1}: ${rec.erro}`);
+        console.error(m.cli.recusado(rec.indice + 1, rec.erro));
       }
     }
     console.log('');
-    console.log(`Prove os achados antes de qualquer thread: ork audit verify ${r.rodada}`);
+    console.log(m.cli.prove(r.rodada));
     return r.recusados.length > 0 ? 1 : 0;
   }
 
@@ -3665,11 +3661,11 @@ function comandoAudit(args: Args): number {
         irreversivel: texto(args.opcoes.irreversivel) ?? 'nenhum',
         estimativa: texto(args.opcoes.estimativa),
       });
-      console.log(`Achado ${achado.id} registrado no board de divida da rodada ${id}.`);
+      console.log(m.cli.achadoRegistrado(achado.id, id));
       console.log(textoDoAchado(achado));
       const naMemoria = publicarPropostas(carregado, [achado]);
       if (naMemoria.regime === 'orkmind') {
-        console.log(`Memoria (orkmind): proposta na colecao roadmap, ${naMemoria.detalhe}.`);
+        console.log(m.cli.memoriaUma(naMemoria.detalhe));
       }
       return 0;
     }
@@ -3683,16 +3679,16 @@ function comandoAudit(args: Args): number {
         return 2;
       }
       if (estado === 'virou-thread') {
-        console.error('o estado `virou-thread` e carimbado pelo proprio `ork thread new --from-finding`.');
+        console.error(m.cli.estadoReservado);
         return 2;
       }
       const achado = exigirAchado(carregado.raiz, id);
       const atualizado = carimbarAchado(carregado.raiz, achado, { estado });
-      console.log(`Achado ${atualizado.id} agora esta ${atualizado.estado}.`);
+      console.log(m.cli.achadoEstado(atualizado.id, atualizado.estado));
       console.log(textoDoAchado(atualizado));
       return 0;
     }
-    console.error(`subcomando desconhecido: audit finding ${acao ?? ''}`);
+    console.error(m.cli.findingDesconhecido(acao ?? ''));
     return 2;
   }
 
@@ -3703,29 +3699,29 @@ function comandoAudit(args: Args): number {
       return 2;
     }
     const v = verificarRodada(carregado, id);
-    console.log(`Claims dos achados da rodada ${v.rodada}, reexecutadas no HEAD real.`);
-    console.log(`  HEAD real   ${v.commit}`);
-    console.log(`  diretorio   ${v.cwd}`);
+    console.log(m.cli.verifyTitulo(v.rodada));
+    console.log(m.cli.verifyHead(v.commit));
+    console.log(m.cli.verifyDir(v.cwd));
     console.log('');
     if (v.resultados.length === 0) {
-      console.log('  (nenhum achado aberto nesta rodada)');
+      console.log(m.cli.verifyVazio);
     }
     for (const r of v.resultados) {
-      console.log(`  ${r.claim.id}  verificado: ${r.verificado ? 'sim' : 'NAO'}  ${r.claim.alegacao}`);
-      console.log(`      arquivo: ${r.claim.arquivo}`);
+      console.log(m.cli.verifyClaim(r.claim.id, r.verificado, r.claim.alegacao));
+      console.log(m.cli.arquivo(r.claim.arquivo));
       console.log(
-        `      ${r.claim.verificar.length > 0 ? `comando(s): ${r.claim.verificar.join(' && ')}` : 'sem comando de verificacao'}`
+        r.claim.verificar.length > 0 ? m.cli.comandos(r.claim.verificar.join(' && ')) : m.cli.semComando
       );
-      if (!r.verificado) console.log(`      motivo tipado: ${r.motivo} (${r.detalhe})`);
+      if (!r.verificado) console.log(m.cli.motivoDetalhe(String(r.motivo), r.detalhe));
     }
     console.log('');
     console.log(
       v.ok
-        ? 'Veredito: ACHADOS SUSTENTADOS (o auditor provou o que alegou).'
-        : `Veredito: REPROVADO. Motivos tipados: ${v.motivos.join(', ')}`
+        ? m.cli.vereditoOk
+        : m.cli.vereditoRuim(v.motivos.join(', '))
     );
     if (v.motivos.includes('claims.unverifiable')) {
-      console.log('  aviso: achado sem comando de verificacao avisa e nao bloqueia (regra do gate do B1).');
+      console.log(m.cli.unverifiable);
     }
     return v.ok ? 0 : 1;
   }
@@ -3738,8 +3734,8 @@ function comandoAudit(args: Args): number {
     }
     const r = relatorioDaRodada(carregado, id, { publicar: args.opcoes.publicar === true });
     console.log(r.texto);
-    console.log(`(relatorio gravado em ${r.caminho})`);
-    if (r.publicado) console.log(`(publicado em ${r.publicado})`);
+    console.log(m.cli.relatorio(r.caminho));
+    if (r.publicado) console.log(m.cli.publicado(r.publicado));
     return 0;
   }
 
@@ -3782,16 +3778,16 @@ function comandoAudit(args: Args): number {
       const r = varrerSuperficieDaRodada(carregado, rodadaAlvo, { registrar: true, limitePorRegra: limite });
       console.log(textoDaVarredura(r.resultado));
       console.log('');
-      console.log(`Rodada ${r.rodada}: ${r.registrados.length} achado(s) registrado(s) no board de divida.`);
+      console.log(m.cli.rodadaRegistrada(r.rodada, r.registrados.length));
       for (const a of r.registrados) console.log(`  ${a.id}  ${a.regra}  ${a.arquivo}:${a.linha}  ${a.titulo}`);
       if (r.duplicados.length > 0) {
-        console.log(`  ja registrados nesta rodada: ${r.duplicados.map((a) => a.id).join(', ')}`);
+        console.log(m.cli.jaRegistrados(r.duplicados.map((a) => a.id).join(', ')));
       }
       for (const rec of r.recusados) {
-        console.error(`  RECUSADO ${rec.achado.regra} ${rec.achado.arquivo}:${rec.achado.linha}: ${rec.erro}`);
+        console.error(m.cli.recusadoSuperficie(rec.achado.regra, rec.achado.arquivo, rec.achado.linha, rec.erro));
       }
       console.log('');
-      console.log(`Prove os achados antes de qualquer thread: ork audit verify ${r.rodada}`);
+      console.log(m.cli.prove(r.rodada));
       if (r.recusados.length > 0) return 1;
       return r.registrados.length > 0 ? 1 : 0;
     }
