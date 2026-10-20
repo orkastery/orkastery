@@ -217,13 +217,21 @@ memory:
   `~/.orkastery` é a pasta do usuário do `ork`, que segue `ORKASTERY_HOME` (e `ORK_USUARIO_DIR`).
   O manifesto vem do repositório e não escolhe outro arquivo do dono (veja a
   [fronteira de confiança](../referencia/fronteira-de-confianca.md)).
-- **A regra do arquivo.** Arquivo comum, do usuário que roda o `ork`, sem link simbólico, sem bit
-  de permissão fora de `0600` (`0600` e `0400` passam), com até 4 KiB e uma linha só com a DSN,
-  nunca a forma `NOME=valor` de um arquivo de ambiente. Cada uso lê o arquivo de novo: trocar a
-  DSN vale no próximo comando, inclusive no `ork mcp serve`, sem reiniciar.
+- **A regra do arquivo.** Arquivo comum, do usuário que roda o `ork`, com permissão `0600` ou
+  `0400` exata (setuid, setgid e sticky não passam), com até 4 KiB e uma linha só com a DSN
+  (`esquema://...`, em UTF-8, sem espaço e sem caractere de controle), nunca a forma `NOME=valor`
+  de um arquivo de ambiente. Só um fim de linha no fim e o espaço comum em volta são aparados.
+  Nem o arquivo, nem a pasta de segredos, nem a pasta do usuário do `ork` podem ser link
+  simbólico: o `ork` confere cada uma antes de abrir o arquivo. Cada uso lê o arquivo de novo:
+  trocar a DSN vale no próximo comando, inclusive no `ork mcp serve`, sem reiniciar.
 - **Degradação.** Arquivo ausente, inseguro ou inválido leva o regime a `files`, com
   `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` ou `dsn.arquivo-invalido` e a correção. Nenhum
   erro, detalhe, ledger ou bundle repete o valor, e o arquivo sai sempre pelo caminho com `~`.
+- **Barreira de saída.** A resposta do processo filho (o OrkMind e o Company Brain) que repita a
+  DSN ou a senha dela, de qualquer tamanho, é recusada inteira, com `memory.transport.secret`,
+  `brain.transport.secret` ou `brain.migration.secret` e sem o valor, nas duas fontes. Com senha
+  curta ou comum, a resposta legítima que tiver o mesmo trecho também é recusada: use senha longa
+  e aleatória.
 
 Para gravar o arquivo sem a DSN passar pelo histórico do shell (cole a DSN e feche com Ctrl-D):
 

@@ -87,10 +87,12 @@ memory:
 
 O manifesto só aceita arquivo da pasta de segredos do `ork` (`~/.orkastery/segredos/<nome>`), e as
 duas fontes são exclusivas. O arquivo só é lido como arquivo comum do usuário que roda o `ork`, sem
-link simbólico e sem bit de permissão fora de `0600`. O `ork doctor` diz qual fonte vale, sem o
-valor, e acusa pelo nome a DSN e as URLs com senha no ambiente de uma sessão despachada. O agente
-roda com o mesmo usuário e pode ler o arquivo: o que muda é que a senha deixa de aparecer em `env`,
-na transcrição e no contexto do modelo.
+link simbólico no caminho (nem na pasta de segredos, nem na pasta do usuário do `ork`), com
+permissão `0600` ou `0400` exata e só com a DSN numa linha. A resposta do processo filho que repita
+a DSN ou a senha dela, de qualquer tamanho, é recusada inteira, com um código sem o valor. O
+`ork doctor` diz qual fonte vale, sem o valor, e acusa pelo nome a DSN e as URLs com senha no
+ambiente de uma sessão despachada. O agente roda com o mesmo usuário e pode ler o arquivo: o que
+muda é que a senha deixa de aparecer em `env`, na transcrição e no contexto do modelo.
 
 Fonte não declarada, vazia ou recusada **não** vira "usa a base padrão": vira degradação para o
 regime `files`, com motivo tipado. Essa regra vem de um incidente real de vazamento de memória

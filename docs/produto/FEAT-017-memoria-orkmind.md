@@ -22,6 +22,7 @@ fontes:
     - core/test/degradacao.test.ts
     - core/test/dsn-da-memoria.test.ts
     - core/test/dsn-doctor.test.ts
+    - core/test/dsn-saida.test.ts
     - core/test/memoria-embeddings-estado.test.ts
     - core/test/indice-vetorial.test.ts
     - core/test/busca-semantica.test.ts
@@ -60,7 +61,7 @@ fontes:
   4. `ork memory index` indexa o tenant num índice vetorial local e derivado, idempotente; `--dry-run` estima tokens e custo sem chamar o provider.
   5. `ork memory search --texto "<frase>"` busca por significado (vetor e FTS por RRF) dentro do tenant, com `deterministico: false`.
 
-- **Alternativas, erros e recuperação:** DSN ausente gera `memory_degraded` motivo `dsn.env-ausente` (variável) ou `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` e `dsn.arquivo-invalido` (arquivo), sem cair para outra fonte; escrita desligada fica pendente com `write.activation.disabled`. Embedding indisponível é motivo `embeddings.*` (chave ausente, provider fora, timeout, modelo local ausente, índice ausente, espaço vetorial divergente, orçamento excedido) e nunca derruba o regime: a busca por significado cai para o fallback local ou para FTS e declara a origem.
+- **Alternativas, erros e recuperação:** DSN ausente gera `memory_degraded` motivo `dsn.env-ausente` (variável) ou `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` e `dsn.arquivo-invalido` (arquivo), sem cair para outra fonte; a resposta do processo filho que repete a DSN ou a senha dela é recusada inteira com `memory.transport.secret`, `brain.transport.secret` ou `brain.migration.secret`, sem o valor; escrita desligada fica pendente com `write.activation.disabled`. Embedding indisponível é motivo `embeddings.*` (chave ausente, provider fora, timeout, modelo local ausente, índice ausente, espaço vetorial divergente, orçamento excedido) e nunca derruba o regime: a busca por significado cai para o fallback local ou para FTS e declara a origem.
 - **Pós-condições:** entradas no OrkMind com proveniência (`source`, `project`, `producer`).
 - **Regras de negócio:** BR-017-01: regra crítica (`mandatory`) só nasce de humano autenticado. BR-017-02: sem fallback para outra base. BR-017-03: vetores de modelos ou dimensões diferentes nunca se comparam. BR-017-04: a busca por significado nunca devolve entrada de outro tenant e nunca entra no prompt sozinha.
 - **Critérios de aceite e testes:** Dada a DSN ausente, quando a memória abre, então o regime é `files` com o motivo tipado (`core/test/degradacao.test.ts`). Dada a chave de embedding ausente, quando a memória abre, então o regime segue `orkmind` e o estado de embeddings diz `embeddings.chave-ausente` (`core/test/memoria-embeddings-estado.test.ts`). Reindexar sem mudança não embeda nada (`core/test/indice-vetorial.test.ts`); a busca nunca devolve outro tenant (`core/test/busca-semantica.test.ts`).
