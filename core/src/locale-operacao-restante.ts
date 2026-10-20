@@ -208,6 +208,36 @@ export const OPERACAO_RESTANTE_PT_BR = {
     usoRelease: 'uso: ork lease release <nome> [--thread <thread-id>] [--forcar]',
     desconhecido: (sub: string | undefined) => `subcomando desconhecido: lease ${sub}`,
   },
+  board: {
+    reapVazio: 'Nenhuma vaga a devolver: toda thread aberta tem procura ativa ou esta pronta para rodar.',
+    reapTitulo: (total: number, fuso: string) => `Vagas devolvidas por falta de procura ativa: ${total}. ${fuso}`,
+    reapMarca: { gravada: 'slot_released gravado no ledger', anterior: 'ja registrado antes (idempotente)' },
+    detalhe: (valor: string) => `    detalhe  : ${valor}`,
+    evidencia: (valor: string) => `    evidencia: ${valor}`,
+    filaItem: (n: number, thread: string, nome: string, colide: string, por: string, desde: string) =>
+      `  ${n}. ${thread} quer ${nome} (colide com ${colide}, thread ${por}) desde ${desde}`,
+    planoTitulo: (fuso: string) => `Escalonador por maquina. ${fuso}`,
+    limite: (max: number, andamento: number) => `  limite de paralelismo: ${max} (concurrency.max_parallel_threads) | ` +
+      `em andamento agora (procura ativa): ${andamento}`,
+    nenhumaThread: '  Nenhuma thread no projeto.',
+    colunasPlano: ['THREAD', 'SLUG', 'MODO', 'FASE', 'SITUACAO', 'MOTIVO', 'DETALHE'] as readonly string[],
+    correcoes: '  Correcoes acionaveis:',
+    merge: 'Merge queue (lease main-tree, o unico gate de merge)',
+    mergeVazia: '  vazia: nenhuma thread esperando para mergear',
+    regiao: 'Fila por colisao de regiao',
+    regiaoVazia: '  vazia: nenhuma colisao de path, board ou porta',
+    titulo: (projeto: string, threads: number, perfis: number, nomes: string) =>
+      `Board do Orkastery, projeto ${projeto} (${threads} thread(s) em ${perfis} perfil(is): ${nomes})`,
+    vazio: '  Nenhuma thread ainda. Crie uma com: ork thread new "<nome>" --modo default',
+    colunas: ['PERFIL', 'ID', 'SLUG', 'MODO', 'FASE', 'STATUS', 'PAUSAS', 'SCORE', 'WORKTREE', 'LEASES'] as readonly string[],
+    conducao: 'Conducao agora', variantes: '  Variantes de ciclo em uso:',
+    batch: (total: number) => `Fila de batch scoring: ${total} thread(s) esperando score humano`,
+    batchVeja: '  veja em: ork master (com o indice derivado do ledger)',
+    desconhecido: (sub: string) => `subcomando desconhecido: board ${sub}`,
+    uso: 'uso: ork board [list|plan|reap] [--all] [--por <quem>] [--json]',
+    semRemoto: (projeto: string, remoto: string) =>
+      `Outras maquinas: o projeto ${projeto} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`,
+  },
 };
 
 export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
@@ -430,5 +460,35 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
     correcao: (value) => `  fix: ${value}`,
     usoRelease: 'usage: ork lease release <name> [--thread <thread-id>] [--forcar]',
     desconhecido: (sub) => `unknown subcommand: lease ${sub}`,
+  },
+  board: {
+    reapVazio: 'No slot to return: every open thread is actively seeking work or ready to run.',
+    reapTitulo: (total, zone) => `Slots returned for lack of active demand: ${total}. ${zone}`,
+    reapMarca: { gravada: 'slot_released recorded in the ledger', anterior: 'already recorded (idempotent)' },
+    detalhe: (value) => `    detail    : ${value}`,
+    evidencia: (value) => `    evidence  : ${value}`,
+    filaItem: (n, thread, name, collision, by, since) =>
+      `  ${n}. ${thread} wants ${name} (collides with ${collision}, thread ${by}) since ${since}`,
+    planoTitulo: (zone) => `Per-machine scheduler. ${zone}`,
+    limite: (max, running) => `  parallelism limit: ${max} (concurrency.max_parallel_threads) | ` +
+      `running now (active demand): ${running}`,
+    nenhumaThread: '  No thread in the project.',
+    colunasPlano: ['THREAD', 'SLUG', 'MODE', 'PHASE', 'SITUATION', 'REASON', 'DETAIL'],
+    correcoes: '  Actionable fixes:',
+    merge: 'Merge queue (lease main-tree, the only merge gate)',
+    mergeVazia: '  empty: no thread waiting to merge',
+    regiao: 'Region collision queue',
+    regiaoVazia: '  empty: no path, board, or port collision',
+    titulo: (project, threads, profiles, names) =>
+      `Orkastery board, project ${project} (${threads} thread(s) in ${profiles} profile(s): ${names})`,
+    vazio: '  No thread yet. Create one with: ork thread new "<name>" --modo default',
+    colunas: ['PROFILE', 'ID', 'SLUG', 'MODE', 'PHASE', 'STATUS', 'PAUSES', 'SCORE', 'WORKTREE', 'LEASES'],
+    conducao: 'Conduction now', variantes: '  Cycle variants in use:',
+    batch: (total) => `Batch scoring queue: ${total} thread(s) waiting for a human score`,
+    batchVeja: '  see: ork master (with the ledger-derived index)',
+    desconhecido: (sub) => `unknown subcommand: board ${sub}`,
+    uso: 'usage: ork board [list|plan|reap] [--all] [--por <who>] [--json]',
+    semRemoto: (project, remote) =>
+      `Other machines: project ${project} has no ${remote} remote; nothing was read from ork/fabrica-estado.`,
   },
 };

@@ -2402,6 +2402,7 @@ function comandoBoard(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
   const todos = args.opcoes.all === true || args.opcoes.todos === true;
+  const mb = msg().operacao.restante.board;
   if (sub === 'plan' || sub === 'plano') {
     const plano = planejar(carregado);
     const consulta = consultaDoBoard(carregado, { plano: true, todos: false });
@@ -2410,14 +2411,14 @@ function comandoBoard(args: Args): number {
     return 0;
   }
   if (sub === 'reap') {
-    const devolvidas = devolverVagas(carregado, { por: texto(args.opcoes.por) });
+    const devolvidas = comLocale('pt-BR', () => devolverVagas(carregado, { por: texto(args.opcoes.por) }));
     if (args.opcoes.json === true) console.log(JSON.stringify(devolvidas, null, 2));
     else console.log(textoDoReap(devolvidas));
     return 0;
   }
   if (sub !== undefined && sub !== 'list') {
-    console.error(`subcomando desconhecido: board ${sub}`);
-    console.error('uso: ork board [list|plan|reap] [--all] [--por <quem>] [--json]');
+    console.error(mb.desconhecido(sub));
+    console.error(mb.uso);
     return 2;
   }
   const consulta = consultaDoBoard(carregado, { plano: false, todos });
@@ -2433,7 +2434,7 @@ function comandoBoard(args: Args): number {
     console.log('');
     // RM-052: sem o remoto, nada foi lido; dizer "nenhuma publicou" seria a frase do incidente de 29/09.
     if (consulta.projeto.remoto === null) {
-      console.log(`Outras maquinas: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${carregado.manifesto.fabrica.remoto}; nada foi lido de ork/fabrica-estado.`);
+      console.log(mb.semRemoto(carregado.manifesto.project.name, carregado.manifesto.fabrica.remoto));
     } else {
       const painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto,
         semRemoto: args.opcoes['sem-remoto'] === true });

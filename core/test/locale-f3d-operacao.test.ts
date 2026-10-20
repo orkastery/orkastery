@@ -18,6 +18,7 @@ import { tabelaDeLeases } from '../src/leases';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { textoDoPlano, textoDoReap } from '../src/board';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -190,4 +191,19 @@ test('F3d: lease localiza a listagem vazia e todas as rotas públicas', () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('F3d: board localiza o plano, reap e rotas sem alterar o plano', () => {
+  const plano = { decididoEm: '2026-10-20T12:00:00.000Z', maxParalelas: 2, emAndamento: 0,
+    vagas: [], filaDeMerge: [], filaDeRegiao: [] } as any;
+  const pt = comLocale('pt-BR', () => [textoDoPlano(plano), textoDoReap([])].join('\n'));
+  const en = comLocale('en', () => [textoDoPlano(plano), textoDoReap([])].join('\n'));
+  assert.match(pt, /Escalonador por maquina/);
+  assert.match(en, /Per-machine scheduler/);
+  assert.match(en, /parallelism limit: 2/);
+  assert.match(en, /Merge queue .*the only merge gate/);
+  assert.match(en, /No slot to return/);
+  assert.deepEqual(linhasEmPortugues(en), []);
+  for (const sub of ['list', 'plan', 'plano', 'reap'])
+    assert.equal(cobreLocale(['board', sub], {}), true, sub);
 });
