@@ -4,24 +4,24 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-20T08:00:03.250Z",
+  "publicadoEm": "2026-10-20T08:12:57.320Z",
   "threads": [
     {
       "id": "ork-rm037defeit2",
       "nome": "rm037defeitos2010",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-037",
       "branch": "ork/ork-rm037defeit2-full",
-      "atualizadaEm": "2026-10-20T07:54:21.432Z",
+      "atualizadaEm": "2026-10-20T08:12:56.948Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "max",
       "sessao": {
         "viva": true,
         "desdeEm": null,
@@ -58,7 +58,7 @@
       "status": "aberta",
       "roadmap": "RM-062",
       "branch": "ork/ork-rm062barreir-full",
-      "atualizadaEm": "2026-10-20T07:58:42.253Z",
+      "atualizadaEm": "2026-10-20T08:00:08.559Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -67,9 +67,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-20T08:05:40.046Z",
+        "motivo": "sessão 01a15845 encerrada (completed)"
       }
     }
   ]
