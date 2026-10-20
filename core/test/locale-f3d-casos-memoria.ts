@@ -328,7 +328,22 @@ function casosDoGrafoCli(casos: Casos, amb: Ambiente): void {
   const ok = path.join(repo, '.orkastery', 'amostra-ok.json');
   const ruim = path.join(repo, '.orkastery', 'amostra-ruim.json');
   fs.writeFileSync(ok, JSON.stringify({ ...amostra, arestas: auditada }, null, 2));
-  fs.writeFileSync(ruim, JSON.stringify({ ...amostra, arestas: auditada.map((a, i) => i === 0 ? { ...a, veredito: null, nota: null }
+  // A amostra de uma aresta por estrato escolhe pelo `edge_id`, que muda com a versao do Node (ela entra no snapshot): a
+  // reprovada leva, de cada estrato, a aresta de menor rotulo da amostra inteira, para o texto valer em qualquer Node.
+  const inteira = JSON.parse(ork(repo, amb, 'grafo', 'amostra', '--por-estrato', '99').stdout) as { arestas: Array<Record<string, unknown>> };
+  const ponta = (l: unknown): string => {
+    const { kind, path: arquivo, fragment } = l as { kind: string; path: string; fragment: string | null };
+    return `${kind}:${arquivo}${fragment === null ? '' : `#${fragment}`}`;
+  };
+  const rotulo = (a: Record<string, unknown>): string => `${String(a.kind)} ${ponta(a.from)} -> ${ponta(a.to)}`;
+  const menorPorEstrato = new Map<string, Record<string, unknown>>();
+  for (const a of inteira.arestas) {
+    const atual = menorPorEstrato.get(String(a.estrato));
+    if (!atual || rotulo(a) < rotulo(atual)) menorPorEstrato.set(String(a.estrato), a);
+  }
+  const estaveis: Array<Record<string, unknown>> = [...menorPorEstrato.values()]
+    .map((a) => ({ ...a, veredito: 'supported', nota: 'conferida no trecho' }));
+  fs.writeFileSync(ruim, JSON.stringify({ ...amostra, arestas: estaveis.map((a, i) => i === 0 ? { ...a, veredito: null, nota: null }
     : i === 1 ? { ...a, to: { ...(a.to as object), fragment: 'nada' } }
       : i === 2 ? { ...a, evidencia: { ...(a.evidencia as object), trecho_sha256: '0'.repeat(64) } } : a) }, null, 2));
   caso(casos, 'cli grafo: amostra conferida', () => g('amostra', '--conferir', ok));
