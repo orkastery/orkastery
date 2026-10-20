@@ -775,30 +775,28 @@ function comandoDeAcompanhar(threadId: string, atual: ConducaoAtual | null): str
  */
 export function recusaDeConducao(threadId: string, atual: ConducaoAtual | null, pedido: PedidoDeConducao,
   opcoes: { agora?: string } = {}): RecusaDeConducao {
+  const m = msg().conducao.recusa;
   const conducao = atual
     ? { ...atual, desdeLocal: formatarDataHoraRotulada(atual.desde, opcoes), linha: linhaDeConducao(atual, opcoes) }
     : null;
   const acoes: AcaoDaRecusa[] = [
-    { acao: 'esperar', comando: comandoDeEsperar(threadId, pedido),
-      explicacao: 'Esperar a vez: repete este pedido e segue sozinho quando a conducao atual terminar (ate 30 min).' },
-    { acao: 'acompanhar', comando: comandoDeAcompanhar(threadId, atual),
-      explicacao: 'Acompanhar quem conduz, sem mexer em nada.' },
-    { acao: 'assumir', comando: `ork conducao assumir ${threadId} --por <voce> --motivo "<por que>"`,
-      explicacao: 'Assumir a conducao: encerra a atual pelo proprio runtime e registra no ledger quem assumiu, de qual canal e por que.' },
+    { acao: 'esperar', comando: comandoDeEsperar(threadId, pedido), explicacao: m.esperar },
+    { acao: 'acompanhar', comando: comandoDeAcompanhar(threadId, atual), explicacao: m.acompanhar },
+    { acao: 'assumir', comando: m.comandoAssumir(threadId),
+      explicacao: m.assumir },
   ];
   const linhas = [
-    `Pedido nao executado: a thread ${threadId} ja esta sendo conduzida agora, e duas execucoes na mesma worktree ` +
-      'se corrompem (foi o que aconteceu em 19/09/2026).',
+    m.titulo(threadId),
   ];
   if (conducao) {
-    linhas.push(`  Quem conduz: canal ${conducao.canal}, ${quemConduz(conducao)}, fase ${conducao.fase ?? '-'}, desde ${conducao.desdeLocal}.`);
-    if (conducao.promptSha256) linhas.push(`  Pedido em curso: prompt sha256 ${conducao.promptSha256.slice(0, 12)}.`);
+    linhas.push(m.quem(conducao.canal, quemConduz(conducao), conducao.fase ?? '-', conducao.desdeLocal));
+    if (conducao.promptSha256) linhas.push(m.prompt(conducao.promptSha256.slice(0, 12)));
   } else {
-    linhas.push('  Outra operacao esta tomando a conducao neste instante; o registro dela ainda nao apareceu.');
+    linhas.push(m.entrando);
   }
-  linhas.push(`  Pedido recusado: ${NOME_DA_OPERACAO[pedido.operacao]}${pedido.fase ? ` da fase ${pedido.fase}` : ''}, pelo canal ${pedido.canal}.`);
-  linhas.push('O que voce pode fazer:');
-  acoes.forEach((a, i) => { linhas.push(`  ${i + 1}. ${a.explicacao}`); linhas.push(`     ${a.comando}`); });
+  linhas.push(m.pedido(msg().thread.operacoes[pedido.operacao], pedido.fase ?? null, pedido.canal));
+  linhas.push(m.opcoes);
+  acoes.forEach((a, i) => { linhas.push(m.passo(i + 1, a.explicacao)); linhas.push(`     ${a.comando}`); });
   return {
     contrato: 'ork.conducao-recusa/v1',
     motivo: 'conducao.em-andamento',
@@ -1064,8 +1062,7 @@ export function assumirConducao(raiz: string, threadId: string,
       worktree: estadoDaWorktree(raiz, threadId),
     });
     return { ok: true, thread: threadId, anterior, mecanismo,
-      detalhe: `conducao assumida por ${por} pelo canal ${opcoes.canal}; a proxima operacao desse canal usa a reserva ate ` +
-        `${formatarDataHoraRotulada(reserva.expiraEm)}` };
+      detalhe: msg().conducao.cli.detalheAssumida(por, opcoes.canal, formatarDataHoraRotulada(reserva.expiraEm)) };
   } finally { fs.closeSync(fd); }
 }
 

@@ -8,6 +8,18 @@ export const CONDUCAO_PT_BR = {
     acompanhar: (sessao: string) => `  acompanhar: ork sessions logs ${sessao}`,
     assumir: (thread: string) => `  assumir: ork conducao assumir ${thread} --por <voce> --motivo "<por que>"`,
   },
+  recusa: {
+    esperar: 'Esperar a vez: repete este pedido e segue sozinho quando a conducao atual terminar (ate 30 min).',
+    acompanhar: 'Acompanhar quem conduz, sem mexer em nada.',
+    assumir: 'Assumir a conducao: encerra a atual pelo proprio runtime e registra no ledger quem assumiu, de qual canal e por que.',
+    titulo: (thread: string) => `Pedido nao executado: a thread ${thread} ja esta sendo conduzida agora, e duas execucoes na mesma worktree se corrompem (foi o que aconteceu em 19/09/2026).`,
+    quem: (canal: string, dono: string, fase: string, desde: string) => `  Quem conduz: canal ${canal}, ${dono}, fase ${fase}, desde ${desde}.`,
+    prompt: (sha: string) => `  Pedido em curso: prompt sha256 ${sha}.`,
+    entrando: '  Outra operacao esta tomando a conducao neste instante; o registro dela ainda nao apareceu.',
+    pedido: (operacao: string, fase: string | null, canal: string) => `  Pedido recusado: ${operacao}${fase ? ` da fase ${fase}` : ''}, pelo canal ${canal}.`,
+    opcoes: 'O que voce pode fazer:', passo: (n: number, explicacao: string) => `  ${n}. ${explicacao}`,
+    comandoAssumir: (thread: string) => `ork conducao assumir ${thread} --por <voce> --motivo "<por que>"`,
+  },
   sentinela: {
     desligada: (maquina: string) => `Sentinela: desligada na maquina ${maquina}; o condutor externo conduz.`,
     ligada: (maquina: string, canal: string, sessao: string) => `Sentinela: ligada na maquina ${maquina}, canal ${canal}, sessao ${sessao}; o condutor externo cede o despacho e o retry, menos a retomada por cota.`,
@@ -22,6 +34,9 @@ export const CONDUCAO_PT_BR = {
     concedida: (em: string, maquina: string, projeto: string, nota: string) => `  concedida em ${em} na máquina ${maquina}, projeto ${projeto}${nota ? `; nota: ${nota}` : ''}`,
     arquivo: (arquivo: string, sha: string) => `  arquivo ${arquivo} (sha256 ${sha})`,
     limite: '  Tag e publicação nunca entram. O prazo é do dono: depois dele, nada é feito sozinho.',
+    linhaValida: (por: string, ate: string, pode: string) => `autorização durável de ${por} até ${ate}: a varredura pode ${pode}`,
+    linhaAusente: 'sem autorização durável: as ações da varredura viram itens da fila do pulse, com o comando pronto',
+    linhaInvalida: (motivo: string, detalhe: string) => `autorização durável sem valor (${motivo}: ${detalhe}); as ações da varredura viram itens da fila do pulse`,
   },
   batida: {
     ocupada: (detalhe: string) => `Outra batida da condução está agindo nesta máquina agora (${detalhe}); o resultado dela sai no próximo resumo.`,
@@ -51,6 +66,7 @@ export const CONDUCAO_PT_BR = {
     batidaUso: 'uso: ork conducao batida [--entregar] [--json]', pulseAviso: 'aviso: o transporte do pulse não confirmou a retomada (veja ork doctor)', pulseFalha: (erro: string) => `aviso: retomada sem transporte do pulse (${erro})`,
     atualizarUso: 'uso: ork conducao atualizar <thread-id> [--enviar] [--esperar [min]] [--json]', statusUso: 'uso: ork conducao status <thread-id> [--json]',
     assumirUso: 'uso: ork conducao assumir <thread-id> --por <quem> --motivo "<por que>" [--canal C]', assumida: (ok: boolean, detalhe: string) => `${ok ? 'Conducao assumida.' : 'Handoff recusado.'} ${detalhe}`,
+    detalheAssumida: (por: string, canal: string, ate: string) => `conducao assumida por ${por} pelo canal ${canal}; a proxima operacao desse canal usa a reserva ate ${ate}`,
     uso: 'uso: ork conducao status|assumir|atualizar <thread-id> | ork conducao autorizar|autorizacao|batida | ork conducao sentinela status|bater|desligar',
   },
 };
@@ -60,6 +76,18 @@ export const CONDUCAO_EN: typeof CONDUCAO_PT_BR = {
     livre: (thread) => `Thread ${thread}: nobody is conducting it now. Any channel may dispatch or verify.`, titulo: (thread, line) => `Thread ${thread}: ${line}`,
     prompt: (sha) => `  prompt sha256 ${sha}`, prazo: (date) => `  lease deadline (metadata, not proof): ${date}`, acompanhar: (session) => `  follow: ork sessions logs ${session}`,
     assumir: (thread) => `  take over: ork conducao assumir ${thread} --por <you> --motivo "<why>"`,
+  },
+  recusa: {
+    esperar: 'Wait your turn: repeats this request and continues automatically when the current conduction ends (up to 30 min).',
+    acompanhar: 'Follow who is conducting, without changing anything.',
+    assumir: 'Take over conduction: ends the current one through its own runtime and records in the ledger who took over, from which channel, and why.',
+    titulo: (thread) => `Request not executed: thread ${thread} is already being conducted, and two executions in the same worktree corrupt each other (as happened on 2026-09-19).`,
+    quem: (channel, owner, phase, since) => `  Conducted by: channel ${channel}, ${owner}, phase ${phase}, since ${since}.`,
+    prompt: (sha) => `  Request in progress: prompt sha256 ${sha}.`,
+    entrando: '  Another operation is taking conduction at this moment; its record has not appeared yet.',
+    pedido: (operation, phase, channel) => `  Rejected request: ${operation}${phase ? ` for phase ${phase}` : ''}, through channel ${channel}.`,
+    opcoes: 'What you can do:', passo: (n, explanation) => `  ${n}. ${explanation}`,
+    comandoAssumir: (thread) => `ork conducao assumir ${thread} --por <you> --motivo "<why>"`,
   },
   sentinela: {
     desligada: (machine) => `Sentinel: off on machine ${machine}; the external conductor is active.`,
@@ -73,6 +101,9 @@ export const CONDUCAO_EN: typeof CONDUCAO_PT_BR = {
     valida: (by, until, allowed) => `Durable authorization by ${by} until ${until}: conduction may ${allowed}.`,
     concedida: (at, machine, project, note) => `  granted at ${at} on machine ${machine}, project ${project}${note ? `; note: ${note}` : ''}`,
     arquivo: (file, sha) => `  file ${file} (sha256 ${sha})`, limite: '  Tags and publication are never included. The deadline belongs to the owner: after it, nothing is done automatically.',
+    linhaValida: (by, until, allowed) => `durable authorization by ${by} until ${until}: the sweep may ${allowed}`,
+    linhaAusente: 'no durable authorization: sweep actions become pulse queue items with a ready command',
+    linhaInvalida: (reason, detail) => `invalid durable authorization (${reason}: ${detail}); sweep actions become pulse queue items`,
   },
   batida: {
     ocupada: (detail) => `Another conduction heartbeat is acting on this machine now (${detail}); its result will appear in the next summary.`,
@@ -99,6 +130,7 @@ export const CONDUCAO_EN: typeof CONDUCAO_PT_BR = {
     batidaUso: 'usage: ork conducao batida [--entregar] [--json]', pulseAviso: 'warning: the pulse transport did not confirm recovery (see ork doctor)', pulseFalha: (error) => `warning: recovery without pulse transport (${error})`,
     atualizarUso: 'usage: ork conducao atualizar <thread-id> [--enviar] [--esperar [min]] [--json]', statusUso: 'usage: ork conducao status <thread-id> [--json]',
     assumirUso: 'usage: ork conducao assumir <thread-id> --por <who> --motivo "<why>" [--canal C]', assumida: (ok, detail) => `${ok ? 'Conduction taken over.' : 'Handoff rejected.'} ${detail}`,
+    detalheAssumida: (by, channel, until) => `conduction taken over by ${by} through channel ${channel}; the next operation from that channel uses the reservation until ${until}`,
     uso: 'usage: ork conducao status|assumir|atualizar <thread-id> | ork conducao autorizar|autorizacao|batida | ork conducao sentinela status|bater|desligar',
   },
 };

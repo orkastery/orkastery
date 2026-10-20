@@ -29,6 +29,11 @@ import { textoDoIndice } from '../src/indice-vetorial';
 import { textoDaBuscaPorSignificado } from '../src/busca-semantica';
 import { textoInstalacaoMcp } from '../src/mcp-install';
 import { tabelaDeClasses } from '../src/master';
+import { recusaDeConducao, textoDoStatusDaConducao } from '../src/conducao';
+import { textoDaBatida } from '../src/conducao-batida';
+import { textoDoStatusDaSentinela } from '../src/conducao-sentinela';
+import { linhaDaAutorizacao, textoDaAutorizacao } from '../src/autorizacao-duravel';
+import { textoDaAtualizacao } from '../src/atualizar-branch';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -366,4 +371,32 @@ test('F3d: todas as rotas de conducao ativam o catálogo bilíngue', () => {
   for (const sub of ['status', 'assumir', 'atualizar', 'autorizar', 'autorizacao', 'batida', 'sentinela'])
     assert.equal(cobreLocale(['conducao', sub], {}), true, sub);
   assert.equal(cobreLocale(['conducao', 'outro'], {}), true);
+});
+
+test('F3d: os resumos e a recusa de conducao saem completos nas duas linguas', () => {
+  const atual = { thread: 'ork-x', canal: 'cli', sessao: null, fase: 'GO',
+    desde: '2026-10-20T12:00:00.000Z', promptSha256: 'a'.repeat(64), operacao: 'phase.run',
+    dono: { tipo: 'reserva', por: 'builder', maquina: 'box' }, expiraEm: '2026-10-20T13:00:00.000Z',
+    identidade: 'id' } as any;
+  const autorizacao = { valida: false, arquivo: '/tmp/autorizacao.json',
+    motivo: 'autorizacao.ausente', detalhe: 'dado preservado' } as any;
+  const gerar = () => [textoDoStatusDaConducao('ork-x', null),
+    recusaDeConducao('ork-x', atual, { canal: 'cli', operacao: 'phase.run', fase: 'GO' } as any,
+      { agora: '2026-10-20T12:30:00.000Z' }).texto,
+    textoDaBatida({ ocupada: true, detalhe: 'dado preservado' } as any),
+    textoDoStatusDaSentinela({ maquina: 'box', presenca: null, threads: [] } as any),
+    textoDaAutorizacao(autorizacao), linhaDaAutorizacao(autorizacao),
+    textoDaAtualizacao({ contrato: 'ork.branch-atualizada/v1', thread: 'ork-x', branch: 'ork/x',
+      base: 'main', acao: 'ja-atualizada', sha: 'a'.repeat(40), enviada: false } as any)].join('\n');
+  const pt = comLocale('pt-BR', gerar);
+  const en = comLocale('en', gerar);
+  assert.match(pt, /ninguem conduz agora/);
+  assert.match(en, /nobody is conducting/);
+  assert.match(en, /Request not executed/);
+  assert.match(en, /What you can do/);
+  assert.match(en, /Another conduction heartbeat/);
+  assert.match(en, /No valid durable authorization/);
+  assert.match(en, /already contains main/);
+  assert.deepEqual(linhasEmPortugues(en, ['dado preservado', 'Não publicado',
+    '--ate <date> --pode merge,registrar,master,despachar [--por <your name>]']), []);
 });

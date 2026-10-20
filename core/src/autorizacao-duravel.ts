@@ -161,14 +161,15 @@ export function referenciaDaAutorizacao(leitura: LeituraDaAutorizacao): Record<s
 
 /** Uma linha para o `ork fabrica batida status` e para o pulse. */
 export function linhaDaAutorizacao(leitura: LeituraDaAutorizacao, agora: string = new Date().toISOString()): string {
+  const m = msg().conducao.autorizacao;
   if (leitura.valida) {
     const a = leitura.autorizacao;
-    return `autorização durável de ${a.por} até ${formatarDataHoraRotulada(a.ate, { agora })}: a varredura pode ${a.pode.join(', ')}`;
+    return m.linhaValida(a.por, formatarDataHoraRotulada(a.ate, { agora }), a.pode.join(', '));
   }
   if (leitura.motivo === 'autorizacao.ausente') {
-    return 'sem autorização durável: as ações da varredura viram itens da fila do pulse, com o comando pronto';
+    return m.linhaAusente;
   }
-  return `autorização durável sem valor (${leitura.motivo}: ${leitura.detalhe}); as ações da varredura viram itens da fila do pulse`;
+  return m.linhaInvalida(leitura.motivo, leitura.detalhe);
 }
 
 // ---------------------------------------------------------------------------
