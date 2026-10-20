@@ -65,7 +65,7 @@ Without `verify.security_scan`, nothing in this section applies and CHECK is the
 4. A tool `unavailable` or `failed` is declared in the verdict and never counts as clean; with `ORK_SECURITY_SCAN_REQUIRED=1` it makes the scan exit 1.
 5. A fix coming from the scan goes back through GO-FIX, with the `security-remediation` skill; the proof is `ork fix reverify`, which reruns verify and the scan.
 6. The per-finding verdict reaches GO-FIX through the CHECK claim (`--fase CHECK`), one per real or false-positive finding, as the `security-auditor` skill says. `ork fix open <thread>` reruns verify and opens one correction per failed claim, type B for a real one (`claims.failed`) and type A for a false positive (`claims.unverifiable`), next to the type B correction of the `security_scan` command; `ork fix list <thread>` shows them to GO-FIX with the verdict text.
-7. Inconclusive does not open the request from inside the CHECK session: `ork gate request` refuses while the observer has not recorded the phase conclusion (`a conclusao da fase precisa estar registrada antes da pausa`), and `--motivo` only accepts a typed escalation already recorded in the ledger (`escalacao tipada nao comprovada`). The short question goes into the report, the session ends, and whoever conducts runs `ork gate request <thread> --formato telegram`, which opens the pause at the end of the #Classic GO-CHECK block with the report in the evidence. In a mode without that pause (#Maestro, #Auto), the request refuses (`modo nao preve pausa humana nesta fase`): the verdict is BLOQUEADO, with the question written, and nothing proceeds until the owner answers.
+7. Inconclusive does not open the request from inside the CHECK session: `ork gate request` refuses while the observer has not recorded the phase conclusion (`a conclusao da fase precisa estar registrada antes da pausa`), and `--motivo` only accepts a typed escalation already recorded in the ledger (`escalacao tipada nao comprovada`). The short question goes into the report, the session ends, and whoever conducts runs `ork gate request <thread> --formato telegram`, which opens the pause at the end of the block that ends at CHECK, with the report in the evidence. Among the live modes, only #Classic has that pause (GO-CHECK block); #Look and #Ork also paused at CHECK, but they are retired (I-43) and the request refuses for them. The request carries the gate's generic question (`Qual e o veredito sobre evidencias...?`): whoever conducts points the owner to the report's question, with the finding id. The owner's answer becomes a CHECK claim as the `security-auditor` skill says, before `ork fix open`. In a mode without that pause (#Maestro, #Auto), the request refuses (`modo nao preve pausa humana nesta fase`): the verdict is BLOQUEADO, with the question written, and nothing proceeds until the owner answers.
 
 ## What the core checks for you
 
@@ -94,7 +94,7 @@ the pause, never the verification**. Each one has a deterministic retry action i
 - A warning accepted without the name of who accepted it.
 - CHECK run without a baseline to compare against.
 - A `new` loop finding without a verdict passed off as zero blockers.
-- `ork gate request` run from inside the CHECK session, or with a free-text `--motivo`.
+- An inconclusive `new` scan finding carried by `ork gate request` from inside the CHECK session, or with a free-text `--motivo`.
 
 ## Verification before leaving the phase
 

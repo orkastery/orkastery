@@ -78,13 +78,23 @@
         },
         {
           "tipo": "contem",
-          "valor": "`git ls-remote --heads <remoto> <branch>` vazio",
-          "porque": "a prova de que a branch nao foi publicada antes de reescrever"
+          "valor": "Branch ja publicada nao se reescreve",
+          "porque": "o limite da reescrita"
         },
         {
           "tipo": "contem",
-          "valor": "Branch ja publicada nao se reescreve",
-          "porque": "o limite da reescrita"
+          "valor": "sai 0 e vazio para cada `git remote`",
+          "porque": "a prova de que a branch nao foi publicada em remoto nenhum"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`git merge-base --is-ancestor <base> <alvo>`",
+          "porque": "o alvo da reescrita fica dentro da thread"
+        },
+        {
+          "tipo": "contem",
+          "valor": "a saida e uma dispensa que cita a rotacao declarada, decidida pelo dono",
+          "porque": "o caminho da branch publicada"
         }
       ]
     },
@@ -104,6 +114,11 @@
           "tipo": "contem",
           "valor": "`ork claims verificar <thread> <claim> --comando \"<comando>\"`",
           "porque": "o comando real que fecha a correcao tipo A"
+        },
+        {
+          "tipo": "contem",
+          "valor": "o tipo B fecha quando o scan reexecutado sai sem achado `new` do laco",
+          "porque": "o julgamento real da claim do achado"
         }
       ]
     }

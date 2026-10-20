@@ -47,11 +47,12 @@ Without `verify.security_scan`, this skill does what it always did: the whole ch
    - **false positive:** type A correction, `acrescentar <fingerprint> ao .ork-security/dismissals.json, motivo <m>`, plus `ork decisao registrar`;
    - **inconclusive:** no correction; the short question goes into the report, the verdict is not PASSOU and the finding stays open until the owner answers through `ork gate request` (the path is in the `check-quality` skill).
 4. **The verdict reaches GO-FIX as a CHECK claim, one per finding.** `ork fix open` derives the GO-FIX spec only from `ork verify`, and verify re-runs the claims: each failed claim becomes a correction carrying its text.
-   - real: `ork claims add <thread> <arquivo> --fase CHECK --claim "<veredito>" --verificar "<comando de verify.security_scan>"`; the command fails on HEAD and the correction is born type B (`claims.failed`);
-   - false positive: `ork claims add <thread> .ork-security/dismissals.json --fase CHECK --claim "<veredito>"`, without `--verificar`; the claim with no command is born type A (`claims.unverifiable`). The text carries no absolute term (`nenhum`, `nunca`, `sempre`, `zero`, `todos`, `nao ha`): a negative claim with no command fails and becomes type B;
-   - the `<veredito>` carries the finding id, the tool, the rule, `arquivo:linha`, the `fingerprint`, the type and the correction, and for a false positive the reason and the `eventId` of `ork decisao registrar`.
+   - real: `ork claims add <thread> <arquivo> --fase CHECK --claim "<veredito>" --verificar "<comando de verify.security_scan>"`; the command fails on HEAD and the correction is born type B (`claims.failed`). The claim fails and passes with the whole scan, not with this finding (the `fingerprint` stays in the text), costs one extra HEAD scan per claim at every verify and goes into the `.ork-ci` bundle with the other claims;
+   - false positive: `ork claims add <thread> .ork-security/dismissals.json --fase CHECK --claim "<veredito>"`, without `--verificar`; the claim with no command is born type A (`claims.unverifiable`). A claim the core reads as negative fails with no command and becomes type B without warning: `ehAlegacaoNegativa` in `core/src/claims.ts` looks, without accents and even inside words, for `nenhum`, `nenhuma`, `nunca`, `sempre`, `zero`, `todos`, `todas`, `nao ha`, `nao existe`, `nao resta`, `sem nenhum`, `100%`, `totalmente`, `completamente` (`metodos` contains `todos`). Check the `ork claims add` output: the false positive only holds with the `negativa` line at `nao` and the `estado` line at `nao-verificavel`; otherwise, `ork claims retirar <thread> <claim> --motivo "<motivo>"` and register it again with neutral wording;
+   - the `<veredito>` carries the finding id, the tool, the rule, `arquivo:linha`, the `fingerprint`, the type and the correction, and for a false positive the reason and the `eventId` of `ork decisao registrar`;
+   - the owner's answer to an inconclusive finding becomes a claim the same way, registered by whoever conducts or by a new CHECK, before `ork fix open`.
 5. **The auditor does not edit:** neither code nor `.ork-security/dismissals.json`. It returns the verdict, and whoever writes the fix is GO.
-6. **The auditor does not print secret material.** With a Gitleaks finding, no `git log -p`, `git show`, `cat` or diff of the finding's file or commit: the output goes to the transcript and to the provider, and it is a second leak. What counts is the report's `rule`, `arquivo:linha` and `fingerprint`.
+6. **Secret material never goes to the session output.** With a `new` Gitleaks finding, the finding's line and the content of the commit that brought it do not go to the output through any tool: Read, `sed`, `head`, `grep -n`, editor, `git log -p`, `git show`, `cat`, diff. The output goes to the transcript and to the provider, and it is a second leak. What counts is the report's `rule`, `arquivo:linha` and `fingerprint`. Context is read without the finding's line (`awk -v n=<linha> 'NR>=n-5 && NR<=n+5 && NR!=n' <arquivo>`), and comparing the value with another is done by hash (`sha256sum`), printing neither.
 7. `existing` and `dismissed` go in the report as declared debt, never as a new blocker.
 
 ## What the core checks for you
@@ -81,8 +82,8 @@ branch. All three reject in any mode.
 - A new dependency without justification in the PLAN.
 - A Gitleaks secret value pasted in the correction, the verdict or the ledger.
 - A `new` loop finding without a verdict, or a `failed` tool counted as clean.
-- `git log -p`, `git show`, `cat` or a diff of a file or commit with a Gitleaks finding run by the auditor.
-- A per-finding verdict only in the report, without the CHECK claim that carries it to `ork fix open`.
+- The line or commit of a `new` Gitleaks finding in the session output, through any tool (Read, `sed`, `grep -n`, `git log -p`, `git show`, `cat`, diff).
+- A verdict on a `new` scan finding only in the report, without the CHECK claim that carries it to `ork fix open`.
 
 ## Verification before leaving the audit
 

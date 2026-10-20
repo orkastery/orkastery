@@ -139,6 +139,21 @@
           "tipo": "contem",
           "valor": "`modo nao preve pausa humana nesta fase`",
           "porque": "o modo sem pausa no CHECK"
+        },
+        {
+          "tipo": "contem",
+          "valor": "quem conduz aponta ao dono a pergunta do parecer",
+          "porque": "o pedido do gate leva so a pergunta generica"
+        },
+        {
+          "tipo": "contem",
+          "valor": "A resposta do dono vira claim do CHECK",
+          "porque": "a resposta chega ao GO-FIX pelo mesmo caminho"
+        },
+        {
+          "tipo": "contem",
+          "valor": "#Look e #Ork tambem pausavam no CHECK, mas estao aposentados (I-43)",
+          "porque": "a lista de modos com a pausa"
         }
       ]
     },

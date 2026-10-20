@@ -162,18 +162,23 @@
       "tipo": "racionalizacao",
       "gravidade": "maior",
       "cenario": "O Gitleaks achou um segredo e o auditor quer olhar o commit para entender o contexto.",
-      "esperado": "Recusado: com achado do Gitleaks o auditor nao roda comando que imprime o arquivo ou o commit; usa regra, arquivo:linha e fingerprint.",
+      "esperado": "Recusado: a linha e o commit do achado nao vao a saida da sessao por ferramenta nenhuma; o contexto se le sem a linha e a comparacao e por hash.",
       "racionalizacao": "Rodo `git log -p` no commit para ver o contexto do achado.",
       "assercoes": [
         {
           "tipo": "contem",
-          "valor": "nada de `git log -p`, `git show`, `cat` ou diff do arquivo ou do commit do achado",
-          "porque": "a proibicao explicita, fora da tabela"
+          "valor": "nao vao a saida por ferramenta nenhuma: Read, `sed`, `head`, `grep -n`, editor, `git log -p`, `git show`, `cat`, diff",
+          "porque": "a regra pelo resultado, nao por lista de comandos"
         },
         {
           "tipo": "contem",
-          "valor": "- `git log -p`, `git show`, `cat` ou diff de arquivo ou commit com achado do Gitleaks rodado pelo auditor.",
-          "porque": "a bandeira vermelha"
+          "valor": "O contexto se le sem a linha do achado",
+          "porque": "o caminho permitido para o contexto"
+        },
+        {
+          "tipo": "contem",
+          "valor": "- Linha ou commit de achado `new` do Gitleaks na saida da sessao, por qualquer ferramenta (Read,",
+          "porque": "a bandeira vermelha inclui o Read"
         }
       ]
     },
@@ -196,8 +201,18 @@
         },
         {
           "tipo": "contem",
-          "valor": "alegacao negativa sem comando reprova e vira tipo B",
-          "porque": "o texto que mudaria o tipo"
+          "valor": "o falso positivo so vale com a linha `negativa` em `nao` e a linha `estado` em `nao-verificavel`",
+          "porque": "a conferencia pela saida do `ork claims add`"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`ork claims retirar <thread> <claim> --motivo \"<motivo>\"` e registre de novo com texto neutro",
+          "porque": "a saida quando o texto virou negativa"
+        },
+        {
+          "tipo": "contem",
+          "valor": "A claim reprova e passa com o scan inteiro, nao com este achado",
+          "porque": "o limite do julgamento da claim do real"
         }
       ]
     }
