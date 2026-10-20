@@ -362,6 +362,40 @@ export function runtimeFalso(nome: string): RuntimeFalso {
   };
 }
 
+/**
+ * RM-037 (defeito 3 de 19 e 20/10/2026): o runtime de uma maquina sem nenhuma sessao, para o CLI que o teste chama nao
+ * ler o de quem roda a suite. O `ork roadmap status`, o `ork maestro` e o pulse montam o radar com o
+ * `claude agents --json --all` da conta e um `claude logs` por sessao parada, com orcamento de ate 120 s: numa maquina
+ * com dezenas de sessoes e a CPU ocupada, isso passava do prazo do `spawnSync` do teste. O `claude` daqui lista nenhuma
+ * sessao, e o `CODEX_HOME` vazio deixa de fora os rollouts do Codex. Nao muda o `process.env`: o env volta para o spawn.
+ */
+export interface RuntimeVazio {
+  dir: string;
+  /** `PATH` com o `claude` vazio na frente e `CODEX_HOME` vazio, para espalhar no env do spawn. */
+  env: { PATH: string; CODEX_HOME: string };
+  limpar: () => void;
+}
+
+export function runtimeVazio(nome: string): RuntimeVazio {
+  const dir = dirTemporario(`runtime-vazio-${nome}`);
+  fs.writeFileSync(path.join(dir, 'claude'), [
+    '#!/bin/sh',
+    'if [ "$1" = "--version" ]; then echo "0.0.0 (runtime vazio de teste)"; exit 0; fi',
+    'if [ "$1" = "agents" ]; then echo \'[]\'; exit 0; fi',
+    'if [ "$1" = "logs" ]; then echo "Couldn\'t read logs for $2 - job not found - it may have already exited" >&2; exit 1; fi',
+    'echo "runtime vazio de teste: claude $1 nao existe aqui" >&2',
+    'exit 1',
+    '',
+  ].join('\n'), { encoding: 'utf8', mode: 0o755 });
+  const codexHome = path.join(dir, 'codex-home');
+  fs.mkdirSync(codexHome);
+  return {
+    dir,
+    env: { PATH: `${dir}${path.delimiter}${process.env.PATH ?? ''}`, CODEX_HOME: codexHome },
+    limpar: () => fs.rmSync(dir, { recursive: true, force: true }),
+  };
+}
+
 /** Troca um trecho do `orkastery.yaml` do projeto de teste e recarrega o manifesto. */
 /**
  * I-33 (D14, D16): liga EXPLICITAMENTE a troca automatica por cota entre perfis do MESMO runtime.
