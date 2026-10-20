@@ -301,7 +301,11 @@ Exits 1 when there is a `new` finding in the loop (every new secret; new depende
 `high` or `critical`; quality and license never enter) and when a dismissal or the `.ork-security/` config is invalid
 (the message names the entry; nothing is scanned). With `ORK_SECURITY_SCAN_REQUIRED=1`, a loop-category tool that is
 `unavailable` or `failed` also exits 1; without it, it only shows in the report. An unavailable or failed tool never
-counts as clean. `ORK_SECURITY_SCAN_DEADLINE_MS` bounds the whole round (each tool gets what is left of the budget).
+counts as clean. Two reasons are declared in the report without counting as an unscanned category, here or in the
+`ork ship` gate: `unsupported-ci` (`.gitlab-ci.yml` with no GitHub Actions workflow: GitLab CI is left unscanned, only
+declared) and `no-requirements-file` (`pip-audit` without `requirements*.txt`), the latter only when another tool of the
+same category ran. `ORK_SECURITY_SCAN_DEADLINE_MS` bounds the whole round (each tool gets what is left of the budget);
+`ork verify` and `ork ci run` export it when running `security_scan`, as its time limit minus `min(300 s, limit/4)`.
 No secret value reaches the report or stdout.
 
 Tool states in the report: `ran`, `failed` and `unavailable`. A Semgrep `ran` may carry a `partial-*` reason
@@ -311,7 +315,8 @@ the count in the reason: check the reason before treating the `sast` category as
 `error` level leaves the tool `failed`.
 
 In the manifest, `verify.security_scan` declares the command `ork verify` runs (for example `ork security-scan`), and
-`verify.timeout_ms_por_comando.security_scan` gives its time limit. Without `verify.security_scan`, nothing changes.
+`verify.timeout_ms_por_comando.security_scan` gives its time limit (`ork init` writes 900000 next to the key), which
+also applies to a claim whose `--verificar` is that same command. Without `verify.security_scan`, nothing changes.
 
 ## Truth: claims, verify and gates
 
@@ -629,7 +634,7 @@ waiting (RM-058).
 
 | Command | What it does |
 | --- | --- |
-| `ork ship <thread> --para <branch>` | `--no-ff` merge serialized by lease, and a **proven** push. A push refused by the base branch protection: `entrega.base-protegida`, with the PR/MR guidance. With `verify.security_scan` declared and without `ci.required_for_ship`, a loop category (secret, dependency, sast, iac, workflow) not scanned at the candidate SHA (tool `unavailable` or failed, or no report) stops with `human.pending` before any push; `--allow-unscanned "<who>"` ships anyway and records `ship_unscanned_authorized` in the ledger. See [the forge contract](contratos/forja.md#entrega) |
+| `ork ship <thread> --para <branch>` | `--no-ff` merge serialized by lease, and a **proven** push. A push refused by the base branch protection: `entrega.base-protegida`, with the PR/MR guidance. With `verify.security_scan` declared and without `ci.required_for_ship`, a loop category (secret, dependency, sast, iac, workflow) not scanned at the candidate SHA (tool `unavailable` or failed, except `unsupported-ci` and `no-requirements-file`, or no report) stops with `human.pending` before any push; `--allow-unscanned "<who>"` ships anyway and records `ship_unscanned_authorized` in the ledger (with `--dry-run`, it only says what it would record). See [the forge contract](contratos/forja.md#entrega) |
 | `ork ship registrar-pr <thread>\|--todas [--remoto R] [--json] [--dry-run]` | A delivery made through a PR becomes `ship_done`: the `ship(<thread>)` merge contained in the remote tip and green CI on the PR head; then `ork master <thread> --aceitar-omissao` closes only that thread (I-57; RM-008). With `--dry-run`, also with `--repo --pr`, it runs the same checks and answers `registraria`, without writing `ship_done`, without changing the phase and without publishing the factory (RM-037) |
 | `ork ship registrar-pr <thread> --repo <dono/nome ou grupo/sub/projeto> --pr <n>` | A PR merged in an external repository declared in `ci.external_repositories` becomes `ship_done`: the PR merged into the repository's default branch, with the thread id in the title, body or branch, and the merge contained in the tip of the base, both checked through the GitHub API, or the project's GitLab (with subgroups; `--pr` is the MR `iid`), and the declared check green on the PR head (an empty check declares a repository without CI). An undeclared repository is refused, and so is a remote that names an unresolved forge (`entrega.sem-leitura`: declare `forja.tipo` or log in to the CLI), with no fallback host (RM-037) |
 | ↳ options | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--allow-unscanned <who>] [--sem-push] [--dry-run]` |

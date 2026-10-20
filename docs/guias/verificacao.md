@@ -774,7 +774,7 @@ muda: verify, CI, SHIP e skills se comportam como antes. O `ork init` grava a ch
 | `sast` | Semgrep (regras por stack, métricas desligadas) |
 | `dependency` | Trivy; `npm audit` (JS), `pip-audit` (Python), `govulncheck` (Go) |
 | `iac` | Trivy config |
-| `workflow` | zizmor e actionlint (só GitHub Actions: `.gitlab-ci.yml` sai `unavailable` com `unsupported-ci`) |
+| `workflow` | zizmor e actionlint (só GitHub Actions: `.gitlab-ci.yml` sai `unavailable` com `unsupported-ci`, declarado mas não contado como não varrido) |
 | `quality` | ESLint (JS), Ruff (Python), golangci-lint (Go) |
 | `license` | Trivy license |
 
@@ -818,9 +818,16 @@ entregue, a reescrita do histórico dela.
 | --- | --- |
 | achado `new` no laço | 1 |
 | dispensa sem `reason` ou `decisionRef`, ou config inválida em `.ork-security/` (a mensagem nomeia a entrada; nada é varrido) | 1 |
-| `ORK_SECURITY_SCAN_REQUIRED=1` e ferramenta de categoria do laço `unavailable` ou `failed` | 1 |
+| `ORK_SECURITY_SCAN_REQUIRED=1` e ferramenta de categoria do laço `unavailable` ou `failed` (salvo "nada a varrer", abaixo) | 1 |
 | opção desconhecida | 2 |
 | qualquer outro caso, inclusive sem Docker nem binário (o relatório diz `unavailable`) | 0 |
+
+**Nada a varrer.** Dois motivos ficam declarados no relatório como `unavailable`, mas não contam como categoria não
+varrida, nem no código de saída com `ORK_SECURITY_SCAN_REQUIRED=1` nem no gate do SHIP: `unsupported-ci` (o projeto tem
+`.gitlab-ci.yml` e nenhum workflow do GitHub Actions; não há analisador de GitLab CI, e o workflow dele fica sem
+varredura, só declarado) e `no-requirements-file` (o `pip-audit` sem `requirements*.txt`), este só quando outra
+ferramenta da mesma categoria rodou na rodada. Contados, deixariam todo projeto GitLab vermelho para sempre e todo SHIP
+pedindo autorização.
 
 ### A pasta `.ork-security/`
 
@@ -837,16 +844,26 @@ Nada nela é obrigatório; a pasta nasce na primeira dispensa ou exclusão.
 
 Sem Docker nem binário, o scan local sai 0 com a ferramenta `unavailable`, e o `ork doctor` já avisou antes (`warn`,
 nunca `fail`). Isso não vira "limpo" no SHIP. Com `verify.security_scan` declarado e **sem** `ci.required_for_ship`, se
-alguma categoria do laço não foi varrida no SHA da candidata (ferramenta `unavailable` ou `failed`, ou nenhum
-relatório), o `ork ship` para com `human.pending` antes de qualquer push e diz quais categorias. A entrega só segue com
+alguma categoria do laço não foi varrida no SHA da candidata (ferramenta `unavailable` ou `failed`, salvo "nada a
+varrer", ou nenhum relatório), o `ork ship` para com `human.pending` antes de qualquer push e diz quais categorias. A entrega só segue com
 autorização de uma pessoa:
 
 ```bash
 ork ship <thread> --para main --allow-unscanned "<quem autoriza>"
 ```
 
-O ledger grava `ship_unscanned_authorized` com quem, quando e as categorias. Com `ci.required_for_ship` o gate não
-repete a pergunta: o scan está no CHECK independente.
+O ledger grava `ship_unscanned_authorized` com quem, quando e as categorias. O `--dry-run` não grava nada: só diz, nos
+passos, o que o SHIP real autorizaria. Com `ci.required_for_ship` o gate não repete a pergunta: o scan está no CHECK
+independente.
+
+### O prazo da rodada
+
+O `ork verify` (comandos e baseline) e o `ork ci run` passam ao scan `ORK_SECURITY_SCAN_DEADLINE_MS` igual ao prazo do
+`security_scan` menos `min(300 s, prazo/4)`. A rodada para dentro desse limite, com a ferramenta que não coube em
+`failed` e `timeout`, e a margem cobre o que o scan não limita (worktree, sondas, remoção de container): o relatório sai
+antes de o verify matar o comando. A claim cujo `--verificar` é o próprio comando de `verify.security_scan` roda com o
+mesmo prazo e a mesma variável, e não com o prazo padrão de claim. O `ork init` grava
+`timeout_ms_por_comando.security_scan: 900000` junto da chave.
 
 ### O scan no CI
 

@@ -54,12 +54,12 @@ sdlc:
 - **Incluído:**
   - **Motor** (`core/src/security-scan/`): catálogo de 13 ferramentas com imagem por digest, detecção de JS/TS, Python e Go, executor Docker, nativo ou indisponível, normalização, comparação por impressão digital e relatório `ork.security-scan/v1` por SHA.
   - **Comando e manifesto:** `ork security-scan`, `verify.security_scan` com prazo próprio, `ork init` que grava a chave, `.ork-security/` para exclusões e dispensas.
-  - **Gate do SHIP:** sem Docker nem binário e sem CHECK independente exigido, o `ork ship` para com `human.pending`; `--allow-unscanned "<quem>"` entrega e registra `ship_unscanned_authorized`.
+  - **Gate do SHIP:** sem Docker nem binário e sem CHECK independente exigido, o `ork ship` para com `human.pending`; `--allow-unscanned "<quem>"` entrega e registra `ship_unscanned_authorized`. `unsupported-ci` e `no-requirements-file` (com outra ferramenta da categoria rodando) são declarados e não param o SHIP nem reprovam com `REQUIRED=1`.
   - **CI:** o `security_scan` entra no bundle com `ORK_SECURITY_SCAN_REQUIRED=1`.
   - **`ork doctor`:** o check "security scan".
   - **Skills:** `security-auditor` e `check-quality` ajustadas, `security-remediation` nova e `go-implementation` apontando para ela.
   - **O próprio Orkastery** declara o scan, com as fixtures vulneráveis excluídas.
-- **Fora de escopo:** CodeQL, SBOM e DAST; `workflow` para GitLab CI (sai `unavailable` com `unsupported-ci`); stacks além das três; a recorrência de achado `warn` entre threads no estágio `maduro`; autorização antecipada do `#Classic` para entrega sem varredura; troca de versão de ferramenta pela config.
+- **Fora de escopo:** CodeQL, SBOM e DAST; `workflow` para GitLab CI (sai `unavailable` com `unsupported-ci`, declarado e não contado como não varrido); stacks além das três; a recorrência de achado `warn` entre threads no estágio `maduro`; autorização antecipada do `#Classic` para entrega sem varredura; troca de versão de ferramenta pela config.
 - **Entregáveis e critérios de aceite:** cada comportamento com teste hermético (saídas reais gravadas de cada ferramenta e um `docker` falso no `PATH`), um teste de integração com Docker real por stack, o scan do próprio repositório contra a base real e a página [FEAT-040](../produto/FEAT-040-security-scan-no-check.md). O critério do item é a prova ponta a ponta: numa thread `#Classic` real, o verify reprova, o CHECK atesta um segredo real e um falso positivo, o GO-FIX corrige, a dispensa é registrada e o reverify passa.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto numa app de teste em JavaScript (abaixo). Expande por stack pelo catálogo; interrompe se algum caminho de falha da ferramenta aprovar o gate ou se um valor de segredo aparecer numa saída.
 

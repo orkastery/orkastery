@@ -300,7 +300,11 @@ Sai 1 quando há achado `new` no laço (todo segredo novo; dependência, SAST, I
 `critical`; qualidade e licença nunca entram) e quando uma dispensa ou a config de `.ork-security/` é inválida (a
 mensagem nomeia a entrada; nada é varrido). Com `ORK_SECURITY_SCAN_REQUIRED=1`, ferramenta de categoria do laço
 `unavailable` ou `failed` também sai 1; sem ela, só aparece no relatório. Ferramenta indisponível ou que falhou nunca
-conta como limpa. `ORK_SECURITY_SCAN_DEADLINE_MS` limita a rodada inteira (cada ferramenta recebe o que resta do prazo).
+conta como limpa. Dois motivos são declarados no relatório sem contar como categoria não varrida, nem aqui nem no gate do
+`ork ship`: `unsupported-ci` (`.gitlab-ci.yml` sem workflow do GitHub Actions: o GitLab CI fica sem varredura, só
+declarado) e `no-requirements-file` (o `pip-audit` sem `requirements*.txt`), este só quando outra ferramenta da mesma
+categoria rodou. `ORK_SECURITY_SCAN_DEADLINE_MS` limita a rodada inteira (cada ferramenta recebe o que resta do prazo);
+o `ork verify` e o `ork ci run` a exportam ao rodar o `security_scan`, com o prazo dele menos `min(300 s, prazo/4)`.
 Nenhum valor de segredo vai ao relatório nem ao stdout.
 
 Estados de ferramenta no relatório: `ran`, `failed` e `unavailable`. O Semgrep `ran` pode levar um motivo `partial-*`
@@ -310,7 +314,8 @@ com a contagem no motivo: confira o motivo antes de tratar a categoria `sast` co
 nível `error` deixa a ferramenta `failed`.
 
 No manifesto, `verify.security_scan` declara o comando que o `ork verify` roda (por exemplo `ork security-scan`), e
-`verify.timeout_ms_por_comando.security_scan` dá o prazo dele. Sem `verify.security_scan`, nada muda.
+`verify.timeout_ms_por_comando.security_scan` dá o prazo dele (o `ork init` grava 900000 junto da chave), que vale
+também para a claim cujo `--verificar` é esse mesmo comando. Sem `verify.security_scan`, nada muda.
 
 ## Verdade: claims, verify e gates
 
@@ -628,7 +633,7 @@ recursos pesados, com aviso no stderr enquanto espera (RM-058).
 
 | Comando | O que faz |
 | --- | --- |
-| `ork ship <thread> --para <branch>` | Merge `--no-ff` serializado por lease, e push **provado**. Push recusado pela proteção da base: `entrega.base-protegida`, com a orientação do PR/MR. Com `verify.security_scan` declarado e sem `ci.required_for_ship`, categoria do laço (secret, dependency, sast, iac, workflow) sem varredura no SHA da candidata (ferramenta `unavailable` ou com falha, ou sem relatório) para com `human.pending` antes de qualquer push; `--allow-unscanned "<quem>"` entrega mesmo assim e grava `ship_unscanned_authorized` no ledger. Ver [o contrato da forja](contratos/forja.md#entrega) |
+| `ork ship <thread> --para <branch>` | Merge `--no-ff` serializado por lease, e push **provado**. Push recusado pela proteção da base: `entrega.base-protegida`, com a orientação do PR/MR. Com `verify.security_scan` declarado e sem `ci.required_for_ship`, categoria do laço (secret, dependency, sast, iac, workflow) sem varredura no SHA da candidata (ferramenta `unavailable` ou com falha, salvo `unsupported-ci` e `no-requirements-file`, ou sem relatório) para com `human.pending` antes de qualquer push; `--allow-unscanned "<quem>"` entrega mesmo assim e grava `ship_unscanned_authorized` no ledger (com `--dry-run`, só diz o que gravaria). Ver [o contrato da forja](contratos/forja.md#entrega) |
 | `ork ship registrar-pr <thread>\|--todas [--remoto R] [--json] [--dry-run]` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master <thread> --aceitar-omissao` fecha só ela (I-57; RM-008). Com `--dry-run`, também com `--repo --pr`, faz as mesmas conferências e responde `registraria`, sem gravar `ship_done`, sem mudar a fase e sem publicar a fábrica (RM-037) |
 | `ork ship registrar-pr <thread> --repo <dono/nome ou grupo/sub/projeto> --pr <n>` | PR mesclado em repositório externo declarado em `ci.external_repositories` vira `ship_done`: o PR mesclado na branch padrão do repositório, com o id da thread no título, no corpo ou na branch, e o merge dentro da ponta da base, conferidos pela API do GitHub, ou do GitLab do projeto (com subgrupos; `--pr` é o `iid` do MR), e o check declarado verde no head do PR (vazio declara repositório sem CI). Repositório não declarado é recusado; remoto que nomeia uma forja não resolvida também (`entrega.sem-leitura`: declare `forja.tipo` ou faça login na CLI), sem host de reserva (RM-037) |
 | ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--allow-unscanned <quem>] [--sem-push] [--dry-run]` |
