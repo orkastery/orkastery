@@ -1,0 +1,161 @@
+{
+  "skill": "security-remediation",
+  "casos": [
+    {
+      "id": "security-remediation/prova-e-o-scan-reexecutado",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "Um achado `new` do security scan foi triado como real e a correcao chegou ao GO.",
+      "esperado": "A correcao mexe so no achado e a prova e o scan reexecutado por `ork fix reverify`, nunca a narrativa.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "A prova e o scan reexecutado",
+          "porque": "a regra que troca relato por medicao"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`ork fix reverify`",
+          "porque": "o comando que reexecuta o verify e o scan"
+        }
+      ]
+    },
+    {
+      "id": "security-remediation/tirei-o-segredo-do-codigo",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente removeu o segredo do arquivo e declara o achado resolvido.",
+      "esperado": "Recusado: tirar do codigo nao encerra o achado, falta a rotacao declarada ao dono da credencial.",
+      "racionalizacao": "Tirei o segredo do codigo, esta resolvido.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "rotacao",
+          "porque": "a rotacao declarada e parte da correcao de segredo"
+        },
+        {
+          "tipo": "contem",
+          "valor": "o historico nao e limpo por corrigir o codigo",
+          "porque": "apagar da arvore nao apaga do historico"
+        }
+      ]
+    },
+    {
+      "id": "security-remediation/achado-em-arquivo-excluido",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O achado aponta um arquivo que a config do scan exclui.",
+      "esperado": "Nao se corrige arquivo excluido: o caso volta a triagem, e a exclusao e decisao registrada, nao atalho.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Arquivo excluido nao se corrige",
+          "porque": "a borda: excluido nao e consertado nem dispensado em silencio"
+        },
+        {
+          "tipo": "contem",
+          "valor": "mudar a exclusao e decisao registrada",
+          "porque": "a exclusao nao e atalho nem corrigida em silencio"
+        }
+      ]
+    },
+    {
+      "id": "security-remediation/segredo-sai-do-historico-da-thread",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "Um segredo real entrou num commit da thread, a branch nao foi publicada, e o achado continua `new` depois de um commit que apaga a linha.",
+      "esperado": "O commit que trouxe o segredo sai de `<base>..HEAD` pela reescrita do historico nao publicado da thread, sem push forcado, e a rotacao continua declarada; branch publicada nao se reescreve.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Segredo que entrou na thread sai do historico da thread",
+          "porque": "a regra que tira o commit do intervalo que o Gitleaks varre"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Nunca so apague a linha num commit novo",
+          "porque": "o atalho que deixa o achado `new`"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Branch ja publicada nao se reescreve",
+          "porque": "o limite da reescrita"
+        },
+        {
+          "tipo": "contem",
+          "valor": "sai 0 e vazio para cada `git remote`",
+          "porque": "a prova de que a branch nao foi publicada em remoto nenhum"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`git merge-base --is-ancestor <base> <alvo>`",
+          "porque": "o alvo da reescrita fica dentro da thread"
+        },
+        {
+          "tipo": "contem",
+          "valor": "a saida e uma dispensa que cita a rotacao declarada, decidida pelo dono",
+          "porque": "o caminho da branch publicada"
+        }
+      ]
+    },
+    {
+      "id": "security-remediation/uma-correcao-por-achado",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "O CHECK triou um achado real e um falso positivo e o GO-FIX recebeu a spec do `ork fix open`.",
+      "esperado": "O GO-FIX le uma correcao por achado com o tipo e o texto do veredito e fecha o tipo A anexando o comando que prova a dispensa.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "uma correcao por claim do CHECK, com o tipo e o texto do veredito (`ork fix list <thread>`)",
+          "porque": "o veredito por achado chega ao GO-FIX"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`ork claims verificar <thread> <claim> --comando \"<comando>\"`",
+          "porque": "o comando real que fecha a correcao tipo A"
+        },
+        {
+          "tipo": "contem",
+          "valor": "o tipo B fecha quando o scan reexecutado sai sem achado `new` do laco",
+          "porque": "o julgamento real da claim do achado"
+        }
+      ]
+    },
+    {
+      "id": "security-remediation/edita-sem-ler-e-commita-antes-do-scan",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O GO vai remover um segredo real e quer abrir o arquivo para ver a linha antes de editar, e reexecutar o scan antes do commit.",
+      "esperado": "Recusado: quem corrige tambem nunca imprime o valor; edita pelo numero da linha, confere pelo fingerprint no scan, e o scan so le o HEAD commitado.",
+      "racionalizacao": "Abro o arquivo so para conferir a linha antes de apagar.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "**Quem corrige tambem nunca imprime o valor.**",
+          "porque": "a regra do auditor repetida para o GO"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`sed -i '<n>d' <arquivo>`",
+          "porque": "a edicao sem leitura"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`sed -i '<n>s/.*/<substituto>/' <arquivo>`",
+          "porque": "a troca sem leitura"
+        },
+        {
+          "tipo": "contem",
+          "valor": "o `fingerprint` do achado sai do relatorio novo",
+          "porque": "a conferencia pelo scan"
+        },
+        {
+          "tipo": "contem",
+          "valor": "**O scan le so o HEAD commitado:**",
+          "porque": "correcao ou dispensa fora de commit e invisivel"
+        }
+      ]
+    }
+  ]
+}

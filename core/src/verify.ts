@@ -80,6 +80,44 @@ export function prazoDoComando(manifesto: Manifesto, nome: string): number {
   return porComando?.[nome] ?? manifesto.verify.timeout_ms ?? TIMEOUT_VERIFY_MS;
 }
 
+/** Teto da margem que o `security_scan` reserva, dentro do proprio prazo, para os passos que ele nao limita. */
+export const MARGEM_MAX_DO_SCAN_MS = 300_000;
+
+/**
+ * O prazo interno da rodada do scan (`ORK_SECURITY_SCAN_DEADLINE_MS`): o prazo do comando menos a margem
+ * `min(300 s, prazo/4)`, que cobre worktree add, sondas e `docker rm`. Assim a rodada termina, com `failed/timeout`
+ * declarado, antes de o `timeout(1)` do verify matar o comando sem relatorio.
+ */
+export function prazoInternoDoScan(prazoMs: number): number {
+  return prazoMs - Math.min(MARGEM_MAX_DO_SCAN_MS, Math.floor(prazoMs / 4));
+}
+
+/**
+ * O comando roda o `security_scan`: pelo nome (verify, bundle do CI) ou por ser, na claim, o mesmo comando declarado em
+ * `verify.security_scan`. Sem a chave, nada e scan.
+ */
+export function ehComandoDoScan(manifesto: Manifesto, nome: string, comando: string): boolean {
+  if (nome === 'security_scan') return true;
+  const scan = manifesto.verify.security_scan?.trim();
+  return !!scan && comando.trim() === scan;
+}
+
+/** O prazo de um comando do manifesto ou de uma claim: a claim que roda o scan ganha o prazo do `security_scan`. */
+export function prazoDaExecucao(manifesto: Manifesto, nome: string, comando: string): number {
+  return prazoDoComando(manifesto, ehComandoDoScan(manifesto, nome, comando) ? 'security_scan' : nome);
+}
+
+/** O executor resolvido pelo manifesto: prazo de cada comando e, no scan, o prazo interno no ambiente. */
+export function executorDoManifesto(manifesto: Manifesto): ExecutorVerify {
+  return (nome, comando, cwd) => {
+    const prazo = prazoDaExecucao(manifesto, nome, comando);
+    const extra = ehComandoDoScan(manifesto, nome, comando)
+      ? { ORK_SECURITY_SCAN_DEADLINE_MS: String(prazoInternoDoScan(prazo)) }
+      : undefined;
+    return executar(nome, comando, cwd, prazo, extra);
+  };
+}
+
 /**
  * Executa um comando de verificacao pelo shell, no diretorio de trabalho da thread.
  *
@@ -90,10 +128,10 @@ export function prazoDoComando(manifesto: Manifesto, nome: string): number {
  * O estouro continua saindo como `code: -1`, o contrato de antes.
  */
 export function executar(nome: string, comando: string, cwd: string,
-  tetoMs = TIMEOUT_VERIFY_MS): ResultadoDeComando {
+  tetoMs = TIMEOUT_VERIFY_MS, ambienteExtra?: Record<string, string>): ResultadoDeComando {
   const comGrupo = existsSync(TIMEOUT_BIN);
   const inicio = Date.now();
-  const ambiente = ambienteDoVerify();
+  const ambiente = { ...ambienteDoVerify(), ...ambienteExtra };
   const r = comGrupo
     ? exec(TIMEOUT_BIN, ['--kill-after=15', `${Math.ceil(tetoMs / 1000)}`, 'bash', '-c', comando],
       cwd, tetoMs + 30_000, ambiente)
@@ -212,7 +250,7 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
 /** Comandos declarados em `verify:` no manifesto, na ordem canonica. */
 export function comandosDoManifesto(manifesto: Manifesto): { nome: string; comando: string }[] {
   const lista: { nome: string; comando: string }[] = [];
-  for (const nome of ['typecheck', 'build', 'test'] as const) {
+  for (const nome of ['typecheck', 'build', 'test', 'security_scan'] as const) {
     const comando = manifesto.verify[nome];
     if (comando && comando.trim() !== '') lista.push({ nome, comando });
   }
@@ -287,7 +325,7 @@ function pedidoDoVerify(carregado: ManifestoCarregado, threadId: string, operaca
 /** O executor que renova o prazo da conducao antes de cada comando (D3). */
 function executorSobConducao(base: ExecutorVerify, manifesto: Manifesto, conducao: ConducaoTomada): ExecutorVerify {
   return (nome, comando, cwd) => {
-    conducao.renovar(prazoDoComando(manifesto, nome));
+    conducao.renovar(prazoDaExecucao(manifesto, nome, comando));
     return base(nome, comando, cwd);
   };
 }
@@ -301,14 +339,14 @@ export type OrigemDaBaseline = 'cli' | 'phase.run';
 
 /**
  * RM-037 (defeitos de 19 e 20/10/2026, defeito 1): o executor de uma rodada, o mesmo no verify e na baseline. O prazo
- * de cada comando sai do manifesto (`prazoDoComando`), e o steal e medido na janela de cada um, com os testes de relogio
- * do registro de instabilidade da arvore verificada. A baseline rodava pelo `executar` com o teto padrao de 600 s: em
- * 20/10 a suite desta VPS passou disso, e o `test` foi gravado como "ja falhava" com o manifesto dando 2400 s.
+ * de cada comando sai do manifesto (`executorDoManifesto`, que tambem da ao scan o prazo interno), e o steal e medido na
+ * janela de cada um, com os testes de relogio do registro de instabilidade da arvore verificada. A baseline rodava pelo
+ * `executar` com o teto padrao de 600 s: em 20/10 a suite desta VPS passou disso, e o `test` foi gravado como "ja
+ * falhava" com o manifesto dando 2400 s.
  */
 export function executorDaRodada(manifesto: Manifesto, instabilidade: RegistroLido, base?: ExecutorVerify,
   leitor: LeitorProcStat = lerProcStat): ExecutorVerify {
-  return executorComSteal(base ?? ((nome, comando, cwd) => executar(nome, comando, cwd, prazoDoComando(manifesto, nome))),
-    leitor, testesDeRelogioVigentes(instabilidade));
+  return executorComSteal(base ?? executorDoManifesto(manifesto), leitor, testesDeRelogioVigentes(instabilidade));
 }
 
 /** O que um comando da baseline prova sobre o codigo do HEAD em que ela foi gravada. */

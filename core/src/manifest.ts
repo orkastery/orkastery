@@ -111,12 +111,12 @@ function prazosDoVerify(verify: Record<string, ValorYaml>, erros: string[]): Pic
   const brutos = mapa(verify.timeout_ms_por_comando);
   const porComando: NonNullable<Manifesto['verify']['timeout_ms_por_comando']> = {};
   for (const nome of Object.keys(brutos)) {
-    if (!['build', 'test', 'typecheck'].includes(nome)) {
-      erros.push(`verify.timeout_ms_por_comando.${nome}: so build, test e typecheck tem prazo proprio`);
+    if (!['build', 'test', 'typecheck', 'security_scan'].includes(nome)) {
+      erros.push(`verify.timeout_ms_por_comando.${nome}: so build, test, typecheck e security_scan tem prazo proprio`);
       continue;
     }
     const n = prazo(`verify.timeout_ms_por_comando.${nome}`, brutos[nome]);
-    if (n !== undefined) porComando[nome as 'build' | 'test' | 'typecheck'] = n;
+    if (n !== undefined) porComando[nome as 'build' | 'test' | 'typecheck' | 'security_scan'] = n;
   }
   if (Object.keys(porComando).length > 0) saida.timeout_ms_por_comando = porComando;
   return saida;
@@ -694,6 +694,10 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
         verify.typecheck === null || verify.typecheck === undefined
           ? undefined
           : texto(verify.typecheck, ''),
+      security_scan:
+        verify.security_scan === null || verify.security_scan === undefined
+          ? undefined
+          : texto(verify.security_scan, ''),
       // I-54 (RM-037, D10): o preparo unico da rodada de verify, quando declarado.
       ...(typeof verify.preparo === 'string' && verify.preparo.trim() ? { preparo: verify.preparo.trim() } : {}),
     },
@@ -784,6 +788,7 @@ export interface ComandosDoManifesto {
   typecheck: string | undefined;
   build: string | undefined;
   test: string | undefined;
+  securityScan: string | undefined;
   ciCommand: string | undefined;
 }
 
@@ -800,7 +805,7 @@ export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto |
   }
   const verify = mapa(dados.verify), ci = mapa(dados.ci);
   const opcional = (v: ValorYaml | undefined): string | undefined => (v === null || v === undefined ? undefined : texto(v, ''));
-  return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test), ciCommand: opcional(ci.command) };
+  return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test), securityScan: opcional(verify.security_scan), ciCommand: opcional(ci.command) };
 }
 
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */

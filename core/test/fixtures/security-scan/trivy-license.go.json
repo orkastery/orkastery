@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.76.0"
+  },
+  "ReportID": "01a1556a-98fb-7ab1-9baf-81b97e6a0e9b",
+  "CreatedAt": "2026-10-19T18:26:51.771702209Z",
+  "ArtifactName": "/src",
+  "ArtifactType": "filesystem",
+  "Results": [
+    {
+      "Target": "go.mod",
+      "Class": "lang-pkgs",
+      "Type": "gomod",
+      "Packages": [
+        {
+          "ID": "example.com/fixture-go",
+          "Name": "example.com/fixture-go",
+          "Identifier": {
+            "PURL": "pkg:golang/example.com/fixture-go",
+            "UID": "7382af78f3003c9f"
+          },
+          "Relationship": "root",
+          "DependsOn": [
+            "golang.org/x/text@v0.3.7"
+          ],
+          "AnalyzedBy": "gomod"
+        },
+        {
+          "ID": "golang.org/x/text@v0.3.7",
+          "Name": "golang.org/x/text",
+          "Identifier": {
+            "PURL": "pkg:golang/golang.org/x/text@v0.3.7",
+            "UID": "19874b6b649f3b9"
+          },
+          "Version": "v0.3.7",
+          "Relationship": "direct",
+          "AnalyzedBy": "gomod"
+        }
+      ]
+    }
+  ]
+}

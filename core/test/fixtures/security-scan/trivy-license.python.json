@@ -1,0 +1,34 @@
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.76.0"
+  },
+  "ReportID": "01a1556a-9665-7b55-af8d-12cdb349fff9",
+  "CreatedAt": "2026-10-19T18:26:51.10974422Z",
+  "ArtifactName": "/src",
+  "ArtifactType": "filesystem",
+  "Results": [
+    {
+      "Target": "requirements.txt",
+      "Class": "lang-pkgs",
+      "Type": "pip",
+      "Packages": [
+        {
+          "Name": "requests",
+          "Identifier": {
+            "PURL": "pkg:pypi/requests@2.19.1",
+            "UID": "6b8f68713f18af0c"
+          },
+          "Version": "2.19.1",
+          "Locations": [
+            {
+              "StartLine": 1,
+              "EndLine": 1
+            }
+          ],
+          "AnalyzedBy": "pip"
+        }
+      ]
+    }
+  ]
+}

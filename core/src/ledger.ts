@@ -38,6 +38,8 @@ export const TIPOS_DE_EVENTO = {
   shipIniciado: 'ship_started',
   shipConcluido: 'ship_done',
   shipBloqueado: 'ship_blocked',
+  // Security scan: a loop category was not scanned for the candidate SHA and a human authorized the delivery anyway.
+  entregaSemScanAutorizada: 'ship_unscanned_authorized',
   // RM-059 (F7, T7.1): o `ork ship publicar` publicou a branch ou abriu o PR, com a prova do `ls-remote`.
   shipPublicado: 'ship_published',
   /**

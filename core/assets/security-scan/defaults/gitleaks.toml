@@ -1,0 +1,3 @@
+# Extends the gitleaks default ruleset; project rules go in .ork-security/gitleaks.toml
+[extend]
+useDefault = true

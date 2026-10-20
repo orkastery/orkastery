@@ -1,0 +1,22 @@
+[
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "StartLine": 4,
+  "EndLine": 4,
+  "StartColumn": 8,
+  "EndColumn": 50,
+  "Match": "apiKey = \"h5Tz3WmX8vB2nR7qLp4YdKs9JfC1aGe6\"",
+  "Secret": "h5Tz3WmX8vB2nR7qLp4YdKs9JfC1aGe6",
+  "File": "config.go",
+  "SymlinkFile": "",
+  "Commit": "c03c713f006c494d1b48e2f107418966e24e209e",
+  "Entropy": 5,
+  "Author": "fixture",
+  "Email": "f@example.invalid",
+  "Date": "2026-10-19T18:19:48Z",
+  "Message": "head",
+  "Tags": [],
+  "Fingerprint": "c03c713f006c494d1b48e2f107418966e24e209e:config.go:generic-api-key:4"
+ }
+]

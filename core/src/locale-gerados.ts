@@ -35,6 +35,7 @@ export const GERADOS_PT_BR = {
     porThread: 'true: o ork thread new cria a worktree e a branch da thread sem flag (--sem-worktree cria sem);\n' +
       'false ou ausente: só com --worktree auto',
     naoDetectado: 'nao detectado',
+    securityScan: 'varredura de seguranca no verify; ativa quando ha JS/TS, Python ou Go, comentada sem stack',
     ci: 'Ative depois de publicar o workflow e tornar ork-verify um check obrigatório.',
     ciComando: 'perfil hermético opcional do runner; sem ele, usa verify acima',
     staleAfter: 'thread despachada sem atividade (ledger parado, sessao nao-working) por mais que\n' +
@@ -114,6 +115,7 @@ export const GERADOS_EN: typeof GERADOS_PT_BR = {
     porThread: 'true: ork thread new creates the thread worktree and branch without a flag (--sem-worktree skips them);\n' +
       'false or absent: only with --worktree auto',
     naoDetectado: 'not detected',
+    securityScan: 'security scan in verify; on when JS/TS, Python or Go is found, commented out otherwise',
     ci: 'Turn it on after you publish the workflow and make ork-verify a required check.',
     ciComando: 'optional hermetic profile of the runner; without it, the verify commands above run',
     staleAfter: 'a dispatched thread with no activity (idle ledger, session not working) for longer than\n' +

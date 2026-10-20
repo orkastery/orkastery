@@ -123,6 +123,7 @@ const ENTRADAS: { arquivo: string; registra?: 'no main' | 'na entrada'; razao?: 
   { arquivo: 'core/src/adapters/codex-runner.ts', razao: '--run supervisiona o codex e grava recibo JSON' },
   { arquivo: 'core/src/adapters/codex-controller-worker.ts', razao: 'servidor e cliente JSON-RPC do controller do codex' },
   { arquivo: 'monitor/pulse-scope.cjs', razao: 'imprime a allowlist de threads do escopo do pulse' },
+  { arquivo: 'core/src/security-scan/guard.ts', razao: 'reaper e lançador do security-scan: limpam worktrees, containers e grupos de processo, sem imprimir texto' },
 ];
 
 function entradasDoRepositorio(): string[] {

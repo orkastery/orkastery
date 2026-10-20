@@ -25,6 +25,9 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirEstado, ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
 import { avaliarPolicies, avisos, bloqueantes, linhasDeAviso, ViolacaoDePolicy } from './policies';
+import { raizDoEstado } from './estado-thread';
+import { readReport, unscannedLoopTools } from './security-scan/report';
+import { LOOP_CATEGORIES, type Category } from './security-scan/types';
 import { dirThread, gravarThread, lerThread } from './thread';
 import { Lease, MotivoGate, Thread } from './types';
 import { agora, exec, shaCurto } from './util';
@@ -56,6 +59,11 @@ export interface OpcoesShip {
    * passa os dois, com o `--esperar` em `esperarFilaPesadaMs`.
    */
   avisoDaFilaPesada?: Pick<NonNullable<ConducaoDoVerify['filaPesada']>, 'aoEsperar' | 'comandoDeEsperar'>;
+  /**
+   * Security scan: quem autoriza a entrega com categoria do laço sem varredura no SHA (`--allow-unscanned`). Vazio não
+   * autoriza; vai ao ledger como `ship_unscanned_authorized`.
+   */
+  allowUnscanned?: string;
   /** Executor interno confiável da consulta ao provedor de CI. */
   executorCi?: ExecutorCi;
   /**
@@ -472,6 +480,22 @@ export function detectarReversaoDaEntrega(
 }
 
 /**
+ * Loop categories (secret, dependency, sast, iac, workflow) not scanned for `sha` (spec 11.2): `[]` without
+ * `verify.security_scan` and with `ci.required_for_ship` (the scan is then in the CI bundle, which the independent CI
+ * check covers). Otherwise the report of `sha` decides: a loop tool `unavailable` or `failed` leaves its category
+ * unscanned (the spec says `unavailable`; a `failed` loop tool is equally not scanned, never clean), except the
+ * "nothing to scan" reasons excused by `isExcusedUnscanned` (same rule as the exit code), and no report at all leaves
+ * every loop category unscanned (no evidence is not clean). Sorted, distinct.
+ */
+export function unscannedCategories(carregado: ManifestoCarregado, sha: string): Category[] {
+  if (carregado.manifesto.verify.security_scan === undefined || carregado.manifesto.ci.required_for_ship) return [];
+  const report = readReport(raizDoEstado(carregado.raiz), sha);
+  if (!report) return [...LOOP_CATEGORIES].sort();
+  const missing = unscannedLoopTools(report).map(t => t.category);
+  return [...new Set(missing)].sort();
+}
+
+/**
  * Grava `rollback_done` quando a reversao e nova, e devolve o que encontrou.
  *
  * IDEMPOTENTE por `revertSha`: o ledger e append-only e o mesmo revert nao pode
@@ -688,6 +712,24 @@ export function ship(
     );
   }
 
+  // Security scan (spec 11.2): com `verify.security_scan` e sem o scan no bundle do CI, categoria do laco sem varredura
+  // no SHA da candidata pede autorizacao humana, antes de qualquer push.
+  const naoVarridas = unscannedCategories(carregado, shaDe);
+  let autorizariaSemScan: string | null = null;
+  if (naoVarridas.length > 0) {
+    const quem = opcoes.allowUnscanned?.trim();
+    if (!quem) {
+      return bloquear(
+        'human.pending',
+        textoDoCatalogo((m) => m.ship.scanNaoVarrido(naoVarridas.join(', '), shaDe)),
+        textoDoCatalogo((m) => m.ship.scanNaoVarridoCorrecao(threadId)),
+      );
+    }
+    // O ensaio nao grava a autorizacao: so diz, nos passos, o que o ship real gravaria.
+    if (r.dryRun) autorizariaSemScan = textoDoCatalogo((m) => m.ship.passoAutorizariaSemScan(quem, naoVarridas.join(', '), shaDe));
+    else registrar(dir, threadId, TIPOS_DE_EVENTO.entregaSemScanAutorizada, { por: quem, categorias: naoVarridas, sha: shaDe });
+  }
+
   // 4. Lease `main-tree`: so uma thread mergeia por vez.
   if (r.dryRun) {
     const ocupado = leasesColidentes(raiz, LEASE_MAIN_TREE)[0] ?? null;
@@ -705,6 +747,7 @@ export function ship(
       ? (m: Mensagens): string => opcoes.semPush ? m.ship.semPushPorFlag : m.ship.semRemoto(remoto) : null;
     r.passos = [
       r.detalhe,
+      ...(autorizariaSemScan ? [autorizariaSemScan] : []),
       textoDoCatalogo((m) => m.ship.passoMerge(de)),
       ...(semPushNoReal ? [textoDoCatalogo((m) => m.ship.passoSemPush(semPushNoReal(m)))] : [
         `git push ${remoto} ${para}`,

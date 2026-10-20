@@ -34,10 +34,10 @@ export const ARQUIVOS_DO_DOCS_INIT = [
 export const DETECCOES: Readonly<Record<string, Deteccao>> = {
   completa: {
     raiz: '/projeto', nome: 'loja', abbrev: 'loj', baseBranch: 'main', gerenciador: 'npm',
-    verify: { build: 'npm run build', test: 'npm test', typecheck: 'npm run typecheck' },
+    verify: { build: 'npm run build', test: 'npm test', typecheck: 'npm run typecheck' }, stacks: ['js'],
   },
-  vazia: { raiz: '/projeto', nome: 'site', abbrev: 'sit', baseBranch: 'master', gerenciador: 'pnpm', verify: {} },
-  parcial: { raiz: '/projeto', nome: 'api', abbrev: 'api', baseBranch: 'trunk', gerenciador: 'yarn', verify: { test: 'yarn --prefix core test' } },
+  vazia: { raiz: '/projeto', nome: 'site', abbrev: 'sit', baseBranch: 'master', gerenciador: 'pnpm', verify: {}, stacks: [] },
+  parcial: { raiz: '/projeto', nome: 'api', abbrev: 'api', baseBranch: 'trunk', gerenciador: 'yarn', verify: { test: 'yarn --prefix core test' }, stacks: [] },
 };
 
 /** O diretorio das skills que o bloco da experiencia aponta, por host. */

@@ -29,6 +29,7 @@
     "./skills/phases/goal-definition",
     "./skills/phases/master-metrics",
     "./skills/phases/plan-specification",
+    "./skills/phases/security-remediation",
     "./skills/phases/ship-release",
     "./skills/reviewers/code-reviewer",
     "./skills/reviewers/security-auditor",

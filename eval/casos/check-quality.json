@@ -98,6 +98,83 @@
           "porque": "a regra dos motivos tipados"
         }
       ]
+    },
+    {
+      "id": "check-quality/zero-bloqueadores-com-scan",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O scan do CHECK tem achado `new` do laco sem veredito de triagem e um achado `warn`.",
+      "esperado": "Nao ha zero bloqueadores: falta o veredito. O `warn` vai ao eixo certo como aviso registrado.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "nenhum achado `new` do laco sem veredito resolvido",
+          "porque": "a definicao de zero bloqueadores com o scan"
+        },
+        {
+          "tipo": "contem",
+          "valor": "aviso registrado",
+          "porque": "o warn nao e descartado"
+        }
+      ]
+    },
+    {
+      "id": "check-quality/inconclusivo-pelo-gate-da-pausa",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O auditor deu inconclusivo a um achado `new` do laco e a sessao do CHECK tenta abrir o pedido ao dono.",
+      "esperado": "O pedido sai depois da sessao, pelo `ork gate request` da pausa do bloco; de dentro da sessao ou com motivo livre ele recusa, e sem a pausa o veredito e BLOQUEADO.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Inconclusivo nao abre o pedido de dentro da sessao do CHECK",
+          "porque": "a recusa medida na prova ponta a ponta"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`ork gate request <thread> --formato telegram`",
+          "porque": "o comando que abre a pausa ao dono"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`modo nao preve pausa humana nesta fase`",
+          "porque": "o modo sem pausa no CHECK"
+        },
+        {
+          "tipo": "contem",
+          "valor": "quem conduz aponta ao dono a pergunta do parecer",
+          "porque": "o pedido do gate leva so a pergunta generica"
+        },
+        {
+          "tipo": "contem",
+          "valor": "A resposta do dono vira claim do CHECK",
+          "porque": "a resposta chega ao GO-FIX pelo mesmo caminho"
+        },
+        {
+          "tipo": "contem",
+          "valor": "#Look e #Ork tambem pausavam no CHECK, mas estao aposentados (I-43)",
+          "porque": "a lista de modos com a pausa"
+        }
+      ]
+    },
+    {
+      "id": "check-quality/veredito-por-achado-no-fix-open",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "O CHECK reprovou pelo scan com um achado real e um falso positivo triados.",
+      "esperado": "O `ork fix open` abre uma correcao por claim do CHECK, tipo B para o real e tipo A para o falso positivo.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "`ork fix open <thread>` reexecuta o verify e abre uma correcao por claim reprovada",
+          "porque": "o mecanismo real do veredito por achado"
+        },
+        {
+          "tipo": "contem",
+          "valor": "tipo A para o falso positivo (`claims.unverifiable`)",
+          "porque": "o tipo que a claim sem comando produz"
+        }
+      ]
     }
   ]
 }

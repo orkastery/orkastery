@@ -332,7 +332,7 @@ three, and `--dry-run` shows what it will do about each one.
    (`core/`, `phases/`, `reviewers/`, ...) that this catalog uses. That is why `plugin.json` declares the
    paths one by one. The test compares those paths with the source catalog and requires
    `onboarding`, added by I15. In this catalog, `claude plugin details orkastery`
-   must report 28 entries: 20 skills and 8 commands (the `Skills (28)` line). Startup registers
+   must report 29 entries: 21 skills and 8 commands (the `Skills (29)` line). Startup registers
    skills and commands separately. The earlier proofs, with 17 and 18 skills, are historical.
    Also check the six agents and six hook events, with no loading errors.
 

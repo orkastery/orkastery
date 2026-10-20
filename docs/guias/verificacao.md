@@ -784,7 +784,124 @@ Quando nenhuma fonte sabe medir a ocupação do contexto, o gate de tokens sai `
 
 ---
 
-## 8. Os canários: testar a condução, não só as funções
+## 8. Security scan: segurança e qualidade pelo comando, não pela leitura
+
+Com `verify.security_scan` declarado no manifesto, o `ork verify` roda `ork security-scan` como o quarto comando
+(depois de `build`, `test` e `typecheck`). Quem julga é a ferramenta, e o agente só lê o resultado. Sem a chave, nada
+muda: verify, CI, SHIP e skills se comportam como antes. O `ork init` grava a chave sozinho quando acha uma stack
+(JavaScript/TypeScript, Python ou Go). Referência dos comandos e das variáveis em
+[`docs/referencia/cli.md`](../referencia/cli.md#varredura-de-segurança).
+
+### O que roda
+
+| Categoria | Ferramentas |
+| --- | --- |
+| `secret` | Gitleaks |
+| `sast` | Semgrep (regras por stack, métricas desligadas) |
+| `dependency` | Trivy; `npm audit` (JS), `pip-audit` (Python), `govulncheck` (Go) |
+| `iac` | Trivy config |
+| `workflow` | zizmor e actionlint (só GitHub Actions: `.gitlab-ci.yml` sai `unavailable` com `unsupported-ci`, declarado mas não contado como não varrido) |
+| `quality` | ESLint (JS), Ruff (Python), golangci-lint (Go) |
+| `license` | Trivy license |
+
+As ferramentas rodam pelas imagens oficiais, fixadas por digest, com o repositório montado só para leitura. Sem Docker,
+o `ork` usa o binário nativo da versão aceita; sem os dois, a ferramenta fica `unavailable`. Nada é instalado no host.
+Repositório com mais de uma stack, ou com o manifesto numa subpasta (`core/package.json`), roda o conjunto de cada uma.
+
+### Base contra HEAD
+
+O scan roda no conteúdo versionado do HEAD e no da base (o merge-base com a branch base do manifesto, ou `--base`), cada
+um numa worktree destacada que some no fim. Cada achado leva uma impressão digital que não depende do número da linha
+nem, para segredo, do valor (só do hash dele). O estado sai de comparar as duas listas:
+
+- `new`: está no HEAD e não na base;
+- `existing`: está nos dois (dívida que a thread não criou);
+- `dismissed`: casa uma dispensa de `.ork-security/dismissals.json`.
+
+A base ausente (clone raso sem histórico, por exemplo) nunca é limpa: todas as ferramentas saem `failed` com
+`base-unresolved`. O relatório fica em `.orkastery/security-scan/<sha>/` da árvore principal (`report.json`, contrato
+`ork.security-scan/v1`, e `report.md`) e nunca grava o valor de um segredo.
+
+### O que entra no laço
+
+| Categoria | Entra no laço | Fica em aviso |
+| --- | --- | --- |
+| `secret` | todo achado `new` | nenhum |
+| `dependency`, `sast`, `iac`, `workflow` | `new` com `high` ou `critical` | `new` com `medium`, `low` e `info` |
+| `quality`, `license` | nenhum | todo achado `new` |
+
+`existing` e `dismissed` nunca entram. Achado `new` do laço faz o `ork security-scan` sair 1 e o `ork verify` reprovar
+como qualquer comando que falha. Daí segue o laço de sempre: o CHECK (uma sessão que não é a do GO) lê o `report.json`
+com o `security-auditor` e dá um veredito por achado. Real: correção tipo B, com a skill `security-remediation`.
+Falso positivo: correção tipo A, uma dispensa gravada com `ork decisao registrar`. Inconclusivo: pergunta ao dono. O
+`ork fix reverify` roda o scan de novo, e o laço escala ao humano em `retry.max_tentativas`, como em qualquer correção.
+Segredo corrigido no código não limpa o histórico: a skill exige rotação declarada ao dono e, se a thread ainda não foi
+entregue, a reescrita do histórico dela.
+
+### Códigos de saída
+
+| Situação | Saída |
+| --- | --- |
+| achado `new` no laço | 1 |
+| dispensa sem `reason` ou `decisionRef`, ou config inválida em `.ork-security/` (a mensagem nomeia a entrada; nada é varrido) | 1 |
+| `ORK_SECURITY_SCAN_REQUIRED=1` e ferramenta de categoria do laço `unavailable` ou `failed` (salvo "nada a varrer", abaixo) | 1 |
+| opção desconhecida | 2 |
+| qualquer outro caso, inclusive sem Docker nem binário (o relatório diz `unavailable`) | 0 |
+
+**Nada a varrer.** Dois motivos ficam declarados no relatório como `unavailable`, mas não contam como categoria não
+varrida, nem no código de saída com `ORK_SECURITY_SCAN_REQUIRED=1` nem no gate do SHIP: `unsupported-ci` (o projeto tem
+`.gitlab-ci.yml` e nenhum workflow do GitHub Actions; não há analisador de GitLab CI, e o workflow dele fica sem
+varredura, só declarado) e `no-requirements-file` (o `pip-audit` sem `requirements*.txt`), este só quando outra
+ferramenta da mesma categoria rodou na rodada. Contados, deixariam todo projeto GitLab vermelho para sempre e todo SHIP
+pedindo autorização.
+
+### A pasta `.ork-security/`
+
+Nada nela é obrigatório; a pasta nasce na primeira dispensa ou exclusão.
+
+- `dismissals.json`: lista de `{ fingerprint, tool, rule, file, reason, decidedBy, decisionRef, date }`. `reason` e
+  `decisionRef` (o registro de `ork decisao registrar`) são obrigatórios.
+- `config.json`: `exclude` (globs; o caminho excluído não gera achado e aparece listado no relatório), `tools` (desligar
+  uma ferramenta, com o motivo) e `stacks` (`add` e `remove`, para forçar ou retirar uma stack detectada). Trocar a
+  versão de uma ferramenta não é suportado nesta versão: declarar uma versão diferente da do catálogo é erro.
+- Config própria de ferramenta (por exemplo `gitleaks.toml`): quando existe, vale; quando não, o `ork` usa a embutida.
+
+### Sem Docker: o gate do SHIP
+
+Sem Docker nem binário, o scan local sai 0 com a ferramenta `unavailable`, e o `ork doctor` já avisou antes (`warn`,
+nunca `fail`). Isso não vira "limpo" no SHIP. Com `verify.security_scan` declarado e **sem** `ci.required_for_ship`, se
+alguma categoria do laço não foi varrida no SHA da candidata (ferramenta `unavailable` ou `failed`, salvo "nada a
+varrer", ou nenhum relatório), o `ork ship` para com `human.pending` antes de qualquer push e diz quais categorias. A entrega só segue com
+autorização de uma pessoa:
+
+```bash
+ork ship <thread> --para main --allow-unscanned "<quem autoriza>"
+```
+
+O ledger grava `ship_unscanned_authorized` com quem, quando e as categorias. O `--dry-run` não grava nada: só diz, nos
+passos, o que o SHIP real autorizaria. Com `ci.required_for_ship` o gate não repete a pergunta: o scan está no CHECK
+independente.
+
+### O prazo da rodada
+
+O `ork verify` (comandos e baseline) e o `ork ci run` passam ao scan `ORK_SECURITY_SCAN_DEADLINE_MS` igual ao prazo do
+`security_scan` menos `min(300 s, prazo/4)`. A rodada para dentro desse limite, com a ferramenta que não coube em
+`failed` e `timeout`, e a margem cobre o que o scan não limita (worktree, sondas, remoção de container): o relatório sai
+antes de o verify matar o comando. A claim cujo `--verificar` é o próprio comando de `verify.security_scan` roda com o
+mesmo prazo e a mesma variável, e não com o prazo padrão de claim. O `ork init` grava
+`timeout_ms_por_comando.security_scan: 900000` junto da chave.
+
+### O scan no CI
+
+No bundle do CI, o `ork ci prepare` leva o `security_scan` junto do `ci.command` (ou entre os comandos do verify, quando
+não há `ci.command`), com `ORK_SECURITY_SCAN_REQUIRED=1`. No runner a ferramenta ausente ou com falha reprova o check em
+vez de ficar `unavailable` em silêncio, e a thread volta pelo laço com o relatório do CI como fonte. Dê ao
+`verify.timeout_ms_por_comando.security_scan` folga para o pull frio das imagens e o Semgrep: uma rodada completa mediu de
+160 a 270 s no próprio Orkastery (fria e quente), e o manifesto dele declara 840000 ms.
+
+---
+
+## 9. Os canários: testar a condução, não só as funções
 
 209 testes de unidade cobrem o código. Os **canários** cobrem outra coisa: os jeitos conhecidos
 de a condução falhar como sistema.
