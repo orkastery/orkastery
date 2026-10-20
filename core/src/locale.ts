@@ -83,6 +83,7 @@ import { ADAPTER_EN, ADAPTER_PT_BR } from './locale-adapter';
 import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
 import { CONHECIMENTO_EN, CONHECIMENTO_PT_BR } from './locale-conhecimento';
 import { FORJA_EN, FORJA_PT_BR } from './locale-forja';
+import { SETUP_EN, SETUP_PT_BR } from './locale-setup';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -114,7 +115,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'prompt list', 'prompt lint', 'prompt render', 'prompt ?',
   'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?',
   // F3d: familias restantes, acrescentadas somente quando a familia inteira entra no catalogo.
-  'modos', 'ciclos'];
+  'modos', 'ciclos', 'setup'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -534,6 +535,7 @@ const PT_BR = {
       fecho: 'A variante muda como a thread NASCE. Verificacao e gates nao mudam.',
     },
   },
+  setup: SETUP_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -881,6 +883,7 @@ const EN: Mensagens = {
       fecho: 'The variant changes how the thread STARTS. Verification and gates do not change.',
     },
   },
+  setup: SETUP_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

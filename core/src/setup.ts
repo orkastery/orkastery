@@ -33,6 +33,7 @@ import {
   LimitesDeBloco, Manifesto, Modo, ModoLegado, PrazoDeBloco, SetupDeConducao, SetupDeModo,
 } from './types';
 import { agora, gravarJson, lerJson, tabela } from './util';
+import { msg } from './locale';
 
 export const CONTRATO_DO_SETUP = 'ork.setup/v1';
 export const NOME_SETUP = 'setup.json';
@@ -45,7 +46,7 @@ const CAMPOS_LIMITES = ['duracaoMs', 'maxChildren', 'maxDepth', 'maxRetries'] as
 
 function objeto(valor: unknown, campo: string): Record<string, unknown> {
   if (!valor || typeof valor !== 'object' || Array.isArray(valor)) {
-    throw new Error(`${campo} deve ser objeto`);
+    throw new Error(msg().setup.objeto(campo));
   }
   return valor as Record<string, unknown>;
 }
@@ -53,7 +54,7 @@ function objeto(valor: unknown, campo: string): Record<string, unknown> {
 function camposExatos(valor: Record<string, unknown>, campos: readonly string[], campo: string): void {
   if (Object.keys(valor).length !== campos.length ||
       campos.some(c => !Object.hasOwn(valor, c))) {
-    throw new Error(`${campo} deve conter somente ${campos.join(', ')}`);
+    throw new Error(msg().setup.camposExatos(campo, campos.join(', ')));
   }
 }
 
@@ -72,9 +73,9 @@ export function validarFallback(lista: readonly string[], principal: string): st
   const vistos = new Set<string>([principal]);
   return lista.map((item) => {
     const m = ENTRADA_DE_FALLBACK.exec(item.trim());
-    if (!m) throw new Error(`fallback invalido: "${item}" (use runtime:modelo[:esforco], por exemplo codex:gpt-5.5)`);
-    if (!runtimeConhecido(m[1])) throw new Error(`fallback com runtime desconhecido: "${m[1]}" (homologados: ${ORDEM_DOS_RUNTIMES.join(', ')})`);
-    if (vistos.has(m[1])) throw new Error(`fallback repete o runtime ${m[1]} (o runtime do bloco e cada fallback aparecem uma vez)`);
+    if (!m) throw new Error(msg().setup.fallbackInvalido(item));
+    if (!runtimeConhecido(m[1])) throw new Error(msg().setup.fallbackDesconhecido(m[1], ORDEM_DOS_RUNTIMES.join(', ')));
+    if (vistos.has(m[1])) throw new Error(msg().setup.fallbackRepetido(m[1]));
     vistos.add(m[1]);
     return item.trim();
   });
@@ -123,7 +124,7 @@ export function validarLimitesDeBloco(valor: unknown): LimitesDeBloco {
     const n = limites[campo];
     if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < (campo === 'duracaoMs' ? 1 : 0) ||
         (campo === 'duracaoMs' && n > MAX_INSTANTE_MS)) {
-      throw new Error(`limites.${campo} deve ser inteiro ${campo === 'duracaoMs' ? 'positivo' : 'nao negativo'}, finito e representavel`);
+      throw new Error(msg().setup.limiteInvalido(campo, campo === 'duracaoMs'));
     }
   }
   return {
@@ -138,7 +139,7 @@ function validarConfigComLimites(config: Record<string, unknown>): void {
   if (typeof config.runtime !== 'string' || !runtimeConhecido(config.runtime) ||
       typeof config.model !== 'string' || config.model.trim() === '' ||
       typeof config.effort !== 'string' || config.effort.trim() === '') {
-    throw new Error('bloco com limites exige runtime conhecido, model e effort explicitos validos');
+    throw new Error(msg().setup.blocoComLimites);
   }
 }
 
@@ -146,19 +147,19 @@ function validarConfigComLimites(config: Record<string, unknown>): void {
 function validarEstruturaSetup(valor: unknown): asserts valor is Partial<SetupDeConducao> {
   const setup = objeto(valor, 'setup');
   if (setup.contrato !== undefined && setup.contrato !== CONTRATO_DO_SETUP) {
-    throw new Error('contrato de setup incompativel');
+    throw new Error(msg().setup.contratoIncompativel);
   }
   if (setup.modos === undefined) return;
   for (const [modo, valorModo] of Object.entries(objeto(setup.modos, 'setup.modos'))) {
     const configModo = objeto(valorModo, `setup.modos.${modo}`);
     if (configModo.blocos === undefined) continue;
-    if (!Array.isArray(configModo.blocos)) throw new Error(`blocos de ${modo} devem ser array`);
+    if (!Array.isArray(configModo.blocos)) throw new Error(msg().setup.blocosArray(modo));
     for (const [i, valorBloco] of configModo.blocos.entries()) {
       const config = objeto(valorBloco, `bloco ${modo}/${i + 1}`);
       validarConfigComLimites(config);
       if (Object.hasOwn(config, 'limites') && (setup.contrato !== CONTRATO_DO_SETUP ||
           !(ORDEM_DOS_MODOS as readonly string[]).includes(modo) || i >= MODOS[modo as Modo].blocos.length)) {
-        throw new Error('limites exigem contrato e bloco de modo conhecidos');
+        throw new Error(msg().setup.limitesConhecidos);
       }
     }
   }
@@ -239,7 +240,7 @@ export function lerSetup(raiz: string): SetupDeConducao {
   try {
     bruto = lerJson<unknown>(caminho);
   } catch (e) {
-    throw new Error(`setup invalido (${caminho}): ${(e as Error).message}`);
+    throw new Error(msg().setup.setupInvalido(caminho, (e as Error).message));
   }
   validarEstruturaSetup(bruto);
   const modosBrutos = (bruto.modos ?? {}) as Partial<Record<Modo, SetupDeModo>>;
@@ -290,7 +291,7 @@ export function gravarSetup(raiz: string, setup: SetupDeConducao): string {
  */
 export function versionarSetup(raiz: string, por = 'owner'): { caminho: string; setup: SetupDeConducao } {
   const caminho = caminhoSetupVersionado(raiz);
-  if (fs.existsSync(caminho)) throw new Error(`setup.versionado: ${NOME_SETUP_VERSIONADO} ja existe neste checkout; edite com ork setup <modo> --bloco N`);
+  if (fs.existsSync(caminho)) throw new Error(msg().setup.versionadoExiste(NOME_SETUP_VERSIONADO));
   const origem = origemDoSetup(raiz);
   const setup = lerSetup(raiz);
   validarEstruturaSetup(setup);
@@ -325,12 +326,12 @@ export function limitesDoBloco(
   if (!Array.isArray(permitidos) || permitidos.length === 0 ||
       permitidos.some(m => !(ORDEM_DOS_MODOS as readonly string[]).includes(m)) ||
       !(permitidos as readonly string[]).includes(modo)) {
-    throw new Error('playbook ativo exige modo permitido valido');
+    throw new Error(msg().setup.playbookModo);
   }
   for (const permitido of permitidos) {
     const blocos = setup.modos?.[permitido]?.blocos;
     if (!blocos || blocos.length !== MODOS[permitido].blocos.length) {
-      throw new Error(`playbook ativo exige todos os blocos de ${permitido}`);
+      throw new Error(msg().setup.playbookBlocos(permitido));
     }
     for (const config of blocos) {
       validarConfigComLimites(objeto(config, 'config do bloco'));
@@ -338,13 +339,13 @@ export function limitesDoBloco(
     }
   }
   const config = configDoBloco(setup, modo, fase);
-  if (!config) throw new Error(`fase ${fase} fora do modo ${modo}`);
+  if (!config) throw new Error(msg().setup.faseFora(fase, modo));
   return validarLimitesDeBloco(config.limites);
 }
 
 function instante(valor: unknown, campo: string): number {
   if (typeof valor !== 'number' || !Number.isSafeInteger(valor) || valor < 0 || valor > MAX_INSTANTE_MS) {
-    throw new Error(`${campo} deve ser instante inteiro nao negativo e representavel`);
+    throw new Error(msg().setup.instante(campo));
   }
   return valor;
 }
@@ -358,20 +359,20 @@ function validarIdentidade(valor: unknown): IdentidadeDoPrazo {
   camposExatos(id, ['threadId', 'execucaoId', 'modo', 'bloco'], 'identidade');
   for (const campo of ['threadId', 'execucaoId']) {
     if (typeof id[campo] !== 'string' || (id[campo] as string).trim() === '') {
-      throw new Error(`identidade.${campo} deve ser texto nao vazio`);
+      throw new Error(msg().setup.identidadeTexto(campo));
     }
   }
   if (!(ORDEM_DOS_MODOS as readonly unknown[]).includes(id.modo) ||
       typeof id.bloco !== 'number' || !Number.isSafeInteger(id.bloco) ||
       id.bloco < 1 || id.bloco > MODOS[id.modo as Modo].blocos.length) {
-    throw new Error('identidade de modo/bloco invalida');
+    throw new Error(msg().setup.identidadeModo);
   }
   return { threadId: id.threadId as string, execucaoId: id.execucaoId as string, modo: id.modo as Modo, bloco: id.bloco };
 }
 
 function semAmpliacao(limites: LimitesDeBloco, origem: LimitesDeBloco): void {
   for (const campo of CAMPOS_LIMITES) {
-    if (limites[campo] > origem[campo]) throw new Error(`heranca nao pode ampliar limites.${campo}`);
+    if (limites[campo] > origem[campo]) throw new Error(msg().setup.herancaAmplia(campo));
   }
 }
 
@@ -387,7 +388,7 @@ export function iniciarPrazoDoBloco(
   if (limites === null) return null;
   const id = validarIdentidade(identidade);
   if (!(MODOS[id.modo].blocos[id.bloco - 1].fases as readonly string[]).includes(fase)) {
-    throw new Error('identidade do bloco diverge da fase selecionada');
+    throw new Error(msg().setup.identidadeFase);
   }
   const inicio = instante(agoraMs, 'iniciadaEmMs');
   const deadline = somarPrazo(inicio, limites.duracaoMs);
@@ -401,11 +402,11 @@ function validarPrazo(valor: unknown, esperada: IdentidadeDoPrazo): PrazoDeBloco
   const p = objeto(valor, 'prazo');
   camposExatos(p, ['versao', 'identidade', 'iniciadaEmMs', 'deadlineOriginalMs',
     'limitesOriginais', 'deadlineMs', 'limites', 'observadoEmMs'], 'prazo');
-  if (p.versao !== 1) throw new Error('versao de prazo incompativel');
+  if (p.versao !== 1) throw new Error(msg().setup.prazoVersao);
   const identidade = validarIdentidade(p.identidade);
   const idEsperada = validarIdentidade(esperada);
   if ((Object.keys(identidade) as (keyof IdentidadeDoPrazo)[]).some(c => identidade[c] !== idEsperada[c])) {
-    throw new Error('identidade da execucao divergente');
+    throw new Error(msg().setup.identidadeDivergente);
   }
   const limitesOriginais = validarLimitesDeBloco(p.limitesOriginais);
   const limites = validarLimitesDeBloco(p.limites);
@@ -416,7 +417,7 @@ function validarPrazo(valor: unknown, esperada: IdentidadeDoPrazo): PrazoDeBloco
   const deadlineMs = instante(p.deadlineMs, 'deadlineMs');
   if (deadlineOriginalMs !== somarPrazo(iniciadaEmMs, limitesOriginais.duracaoMs) ||
       deadlineMs !== somarPrazo(iniciadaEmMs, limites.duracaoMs) || observadoEmMs < iniciadaEmMs) {
-    throw new Error('origem/deadline do prazo inconsistente');
+    throw new Error(msg().setup.prazoInconsistente);
   }
   return { versao: 1, identidade, iniciadaEmMs, deadlineOriginalMs, limitesOriginais, deadlineMs, limites, observadoEmMs };
 }
@@ -432,15 +433,15 @@ export function consumirPrazoDoBloco(
 ): ConsumoDoPrazo {
   const prazo = validarPrazo(snapshot, identidadeEsperada);
   const agoraValidado = instante(agoraMs, 'agoraMs');
-  if (agoraValidado < prazo.observadoEmMs) throw new Error('relogio regressivo no prazo');
+  if (agoraValidado < prazo.observadoEmMs) throw new Error(msg().setup.relogioRegressivo);
   const a = objeto(atividade, 'atividade');
   if (a.tipo === 'trabalho') {
     camposExatos(a, ['tipo'], 'atividade');
   } else if (a.tipo === 'espera_lease' || a.tipo === 'espera_score') {
     camposExatos(a, ['tipo', 'processosAtivos'], 'atividade');
-    if (a.processosAtivos !== 0) throw new Error('espera exige ausencia comprovada de processos ativos');
+    if (a.processosAtivos !== 0) throw new Error(msg().setup.esperaComProcesso);
   } else {
-    throw new Error('atividade de prazo desconhecida');
+    throw new Error(msg().setup.atividadeDesconhecida);
   }
   prazo.observadoEmMs = agoraValidado;
   const restanteMs = Math.max(0, prazo.deadlineMs - agoraValidado);
@@ -456,12 +457,12 @@ export function herdarPrazoDoBloco(
   limitesSolicitados?: LimitesDeBloco
 ): PrazoDeBloco {
   const consumo = consumirPrazoDoBloco(origem, identidadeEsperada, agoraMs);
-  if (consumo.estado !== 'ativo') throw new Error('prazo expirado: heranca recusada');
+  if (consumo.estado !== 'ativo') throw new Error(msg().setup.prazoExpirado);
   const prazo = consumo.prazo;
   const limites = validarLimitesDeBloco(limitesSolicitados === undefined ? prazo.limites : limitesSolicitados);
   semAmpliacao(limites, prazo.limites);
   const deadlineMs = somarPrazo(prazo.iniciadaEmMs, limites.duracaoMs);
-  if (deadlineMs <= agoraMs) throw new Error('prazo reduzido ja expirado');
+  if (deadlineMs <= agoraMs) throw new Error(msg().setup.prazoReduzido);
   return { ...prazo, limites, deadlineMs };
 }
 
@@ -530,20 +531,20 @@ export function editarBloco(
   if (!Number.isInteger(bloco) || bloco < 1 || bloco > def.blocos.length) {
     return {
       ...base,
-      erro: `bloco ${bloco} nao existe no modo ${def.tag}: ele tem ${def.blocos.length} bloco(s)`,
+      erro: msg().setup.blocoInexistente(bloco, def.tag, def.blocos.length),
     };
   }
   if (edicao.runtime !== undefined && !runtimeConhecido(edicao.runtime)) {
     return {
       ...base,
-      erro: `runtime desconhecido: "${edicao.runtime}" (homologados: ${ORDEM_DOS_RUNTIMES.join(', ')})`,
+      erro: msg().setup.runtimeDesconhecido(edicao.runtime, ORDEM_DOS_RUNTIMES.join(', ')),
     };
   }
   const atual = setup.modos[modo].blocos[bloco - 1];
   if (edicao.runtime !== undefined && edicao.runtime !== atual.runtime && !edicao.model?.trim())
-    return { ...base, erro: 'setup.model.required: para mudar o runtime do bloco, informe --runtime e --model juntos; nenhuma configuracao foi gravada.' };
+    return { ...base, erro: msg().setup.modeloComRuntime };
   if (!(edicao.model ?? atual.model).trim())
-    return { ...base, erro: 'setup.model.required: modelo pendente neste bloco; informe --model antes de salvar.' };
+    return { ...base, erro: msg().setup.modeloPendente };
   const de = { ...atual };
   const runtimeNovo = edicao.runtime ?? atual.runtime;
   let fallback: string[];
@@ -617,15 +618,15 @@ export function registrarSetupNoLedger(raiz: string, dados: Record<string, unkno
 export function linhaDaOrigemDoSetup(raiz: string): string {
   const origem = origemDoSetup(raiz);
   if (origem === 'versionado') {
-    return `Setup versionado em ${NOME_SETUP_VERSIONADO}: vale para todas as maquinas e muda por PR.` +
-      (fs.existsSync(caminhoSetupLocal(raiz)) ? ' O .orkastery/setup.json local desta maquina fica ignorado.' : '');
+    return msg().setup.origem.versionado(NOME_SETUP_VERSIONADO, fs.existsSync(caminhoSetupLocal(raiz)));
   }
-  if (origem === 'local') return 'Setup local desta maquina (.orkastery/setup.json). Para valer em todas: ork setup versionar.';
-  return 'Nenhum setup gravado: vale o default. Para valer em todas as maquinas: ork setup versionar.';
+  if (origem === 'local') return msg().setup.origem.local;
+  return msg().setup.origem.padrao;
 }
 
 /** Tabela de um modo: cada bloco com sua config e a marca do que saiu do default. */
 export function textoDoSetup(raiz: string, modo: Modo): string {
+  const m = msg().setup.tabela;
   const def = definicaoDoModo(modo);
   const setup = lerSetup(raiz);
   const linhas = def.blocos.map((b, i) => {
@@ -634,22 +635,22 @@ export function textoDoSetup(raiz: string, modo: Modo): string {
       String(i + 1),
       b.fases.join('-'),
       cfg.runtime,
-      cfg.model || '(modelo pendente)',
+      cfg.model || m.modeloPendente,
       cfg.effort,
       (cfg as ConfigDeBlocoComFallback).fallback?.join(', ') || '-',
-      ehPadrao(cfg, modo) ? 'default' : 'customizado',
+      ehPadrao(cfg, modo) ? m.default : m.customizado,
     ];
   });
   const saida: string[] = [];
-  saida.push(`Setup do modo ${def.tag} (${def.blocos.length} bloco(s), ${def.pausas} pausa(s))`);
+  saida.push(m.titulo(def.tag, def.blocos.length, def.pausas));
   saida.push('');
-  saida.push(tabela(['BLOCO', 'FASES', 'RUNTIME', 'MODEL', 'EFFORT', 'FALLBACK', 'ORIGEM'], linhas));
+  saida.push(tabela([...m.cabecalho], linhas));
   saida.push('');
-  saida.push(`Editar:  ork setup ${modo} --bloco N --runtime R --model M --effort E`);
-  saida.push(`Fallback: ork setup ${modo} --bloco N --fallback runtime:modelo[:esforco],...   (--fallback "" remove)`);
+  saida.push(m.editar(modo));
+  saida.push(m.fallback(modo));
   const padrao = blocoPadraoDoModo(modo);
-  saida.push(`Resetar: ork setup ${modo} --reset   (volta para ${padrao.runtime}/${padrao.model}/${padrao.effort})`);
-  saida.push(`Runtimes homologados: ${ORDEM_DOS_RUNTIMES.join(', ')}`);
+  saida.push(m.resetar(modo, `${padrao.runtime}/${padrao.model}/${padrao.effort}`));
+  saida.push(m.runtimes(ORDEM_DOS_RUNTIMES.join(', ')));
   saida.push('');
   saida.push(linhaDaOrigemDoSetup(raiz));
   return saida.join('\n');
@@ -663,35 +664,34 @@ export function textoDoSetup(raiz: string, modo: Modo): string {
  * o owner disser que concluiu, e todo bloco nao respondido fica no default.
  */
 export function textoDaEntrevista(raiz: string): string {
+  const m = msg().setup.entrevista;
   const setup = lerSetup(raiz);
   const saida: string[] = [];
-  saida.push('Entrevista #setup: runtime + modelo + esforco por bloco de cada modo');
+  saida.push(m.titulo);
   saida.push('');
-  saida.push(`Ordem das perguntas: ${ORDEM_DOS_MODOS.map((m) => MODOS[m].tag).join(' -> ')}.`);
-  saida.push('A entrevista termina quando todos os modos forem cobertos OU quando o owner');
-  saida.push('disser que concluiu: o que nao for respondido fica no default.');
+  saida.push(m.ordem(ORDEM_DOS_MODOS.map((modo) => MODOS[modo].tag).join(' -> ')));
+  saida.push(m.termina1);
+  saida.push(m.termina2);
   const proprios = ORDEM_DOS_MODOS.filter((m) => !ehPadrao(blocoPadraoDoModo(m)));
-  saida.push(`Default pos-instalacao: ${BLOCO_PADRAO.runtime}/${BLOCO_PADRAO.model}/${BLOCO_PADRAO.effort} em todos os blocos` +
-    (proprios.length ? `, menos ${proprios.map((m) => {
-      const b = blocoPadraoDoModo(m);
-      return `${MODOS[m].tag} (${b.runtime}/${b.model}/${b.effort}${b.fallback?.length ? `, fallback ${b.fallback.join(', ')}` : ''})`;
-    }).join(', ')}.` : '.'));
+  saida.push(m.default(`${BLOCO_PADRAO.runtime}/${BLOCO_PADRAO.model}/${BLOCO_PADRAO.effort}`,
+    proprios.length ? m.excecoes(proprios.map((modo) => {
+      const b = blocoPadraoDoModo(modo);
+      return `${MODOS[modo].tag} (${b.runtime}/${b.model}/${b.effort}${b.fallback?.length ? `, fallback ${b.fallback.join(', ')}` : ''})`;
+    }).join(', ')) : '.'));
   saida.push('');
   for (const modo of ORDEM_DOS_MODOS) {
     const def = MODOS[modo];
     saida.push(`${def.tag}`);
     def.blocos.forEach((b, i) => {
       const cfg = setup.modos[modo].blocos[i];
-      const marca = ehPadrao(cfg, modo) ? '' : '  <- customizado';
-      saida.push(
-        `  bloco ${i + 1}: ${b.fases.join('-')}  [${cfg.runtime}/${cfg.model || '(modelo pendente)'}/${cfg.effort}]${marca}`
-      );
+      const marca = ehPadrao(cfg, modo) ? '' : m.customizado;
+      saida.push(m.bloco(i + 1, b.fases.join('-'), `${cfg.runtime}/${cfg.model || m.modeloPendente}/${cfg.effort}`, marca));
     });
   }
   saida.push('');
-  saida.push('Ver um modo:  ork setup <modo>');
-  saida.push('Editar bloco: ork setup <modo> --bloco N --runtime R --model M --effort E');
-  saida.push('Resetar tudo: ork setup --reset');
+  saida.push(m.ver);
+  saida.push(m.editar);
+  saida.push(m.resetar);
   saida.push('');
   saida.push(linhaDaOrigemDoSetup(raiz));
   return saida.join('\n');

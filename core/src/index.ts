@@ -836,13 +836,14 @@ function comandoSetup(args: Args): number {
   const raiz = carregado.raiz;
   const modoBruto = args.posicionais[1];
   const por = texto(args.opcoes.por) ?? 'owner';
+  const ms = msg().setup.cli;
 
   if (modoBruto === 'versionar') {
     // I-52 (RM-047): o setup que vale agora vai para orkastery.setup.json, para entrar por PR.
     const r = versionarSetup(raiz, por);
     if (args.opcoes.json === true) { console.log(JSON.stringify({ caminho: r.caminho, setup: r.setup }, null, 2)); return 0; }
-    console.log(`Setup versionado em ${r.caminho}.`);
-    console.log('  Leve para o repositorio por PR: dali em diante ele vale em todas as maquinas, e ork setup <modo> --bloco N passa a editar este arquivo.');
+    console.log(ms.versionado(r.caminho));
+    console.log(ms.levePorPr);
     return 0;
   }
   if (modoBruto === 'worktree') {
@@ -852,17 +853,17 @@ function comandoSetup(args: Args): number {
     if (acao === 'confirmar') {
       const local = confirmarWorktreeLocal(raiz, carregado.manifesto, por, args.posicionais[3]);
       if (json) { console.log(JSON.stringify(local, null, 2)); return 0; }
-      console.log(`Pasta das worktrees "${local.dir}" confirmada nesta maquina para ${local.raiz}.`);
-      console.log(`  Gravada em .orkastery/private/${ARQUIVO_WORKTREE_LOCAL} (local, fora do git). Para desfazer: ork setup worktree revogar.`);
+      console.log(ms.worktreeConfirmada(local.dir, local.raiz));
+      console.log(ms.worktreeGravada(ARQUIVO_WORKTREE_LOCAL));
       return 0;
     }
     if (acao === 'revogar') {
       const havia = revogarWorktreeLocal(raiz);
       if (json) { console.log(JSON.stringify({ revogada: havia }, null, 2)); return 0; }
-      console.log(havia ? 'Confirmacao local da pasta das worktrees revogada.' : 'Nao havia confirmacao local da pasta das worktrees.');
+      console.log(havia ? ms.worktreeRevogada : ms.worktreeNaoHavia);
       return 0;
     }
-    if (acao !== undefined) { console.error(`subcomando desconhecido: setup worktree ${acao} (use confirmar [<dir>] ou revogar)`); return 2; }
+    if (acao !== undefined) { console.error(ms.worktreeSubcomando(acao)); return 2; }
     const pedida = pastaDasWorktreesPedida(raiz, carregado.manifesto);
     const local = lerWorktreeLocal(raiz);
     const recusa = recusaDePastaDasWorktrees(raiz, carregado.manifesto);
@@ -871,9 +872,9 @@ function comandoSetup(args: Args): number {
         confirmadaNestaMaquina: local.local?.dir ?? null, criacao: recusa === null ? 'permitida' : 'recusada' }, null, 2));
       return 0;
     }
-    console.log(`worktree.dir no orkastery.yaml: ${carregado.manifesto.worktree.dir} (${pedida.dir}, ${pedida.dentro ? 'dentro' : 'fora'} da raiz)`);
-    console.log(`confirmacao local desta maquina: ${local.local ? local.local.dir : `nenhuma (${local.motivo})`}`);
-    console.log(recusa === null ? 'criacao de worktree: permitida' : `criacao de worktree: recusada. ${COMANDO_CONFIRMAR_WORKTREE}`);
+    console.log(ms.worktreeManifesto(carregado.manifesto.worktree.dir, pedida.dir, pedida.dentro));
+    console.log(ms.confirmacaoLocal(local.local ? local.local.dir : ms.nenhumaConfirmacao(String(local.motivo))));
+    console.log(recusa === null ? ms.criacaoPermitida : ms.criacaoRecusada(COMANDO_CONFIRMAR_WORKTREE));
     return 0;
   }
   if (modoBruto === 'sandbox') {
@@ -882,20 +883,20 @@ function comandoSetup(args: Args): number {
     const json = args.opcoes.json === true;
     if (acao === 'confirmar') {
       const postura = args.posicionais[3];
-      if (!postura) { console.error('uso: ork setup sandbox confirmar <read-only|workspace-write|danger-full-access> [--por Q]'); return 2; }
+      if (!postura) { console.error(ms.sandboxUso); return 2; }
       const p = confirmarPosturaLocal(raiz, postura, por);
       if (json) { console.log(JSON.stringify(p, null, 2)); return 0; }
-      console.log(`Postura de sandbox "${p.sandbox}" confirmada nesta maquina para ${p.raiz}.`);
-      console.log(`  Gravada em ${caminhoDaPosturaLocal(raiz)} (local, fora do git). Para desfazer: ork setup sandbox revogar.`);
+      console.log(ms.sandboxConfirmada(p.sandbox, p.raiz));
+      console.log(ms.sandboxGravada(caminhoDaPosturaLocal(raiz)));
       return 0;
     }
     if (acao === 'revogar') {
       const havia = revogarPosturaLocal(raiz);
       if (json) { console.log(JSON.stringify({ revogada: havia }, null, 2)); return 0; }
-      console.log(havia ? 'Confirmacao local da postura de sandbox revogada.' : 'Nao havia confirmacao local de postura de sandbox.');
+      console.log(havia ? ms.sandboxRevogada : ms.sandboxNaoHavia);
       return 0;
     }
-    if (acao !== undefined) { console.error(`subcomando desconhecido: setup sandbox ${acao} (use confirmar <postura> ou revogar)`); return 2; }
+    if (acao !== undefined) { console.error(ms.sandboxSubcomando(acao)); return 2; }
     const pedida = carregado.manifesto.runtime.sandbox;
     const local = lerPosturaLocal(raiz);
     const recusa = recusaDePostura(raiz, carregado.manifesto, 'codex');
@@ -904,16 +905,16 @@ function comandoSetup(args: Args): number {
         confirmadaNestaMaquina: local.postura?.sandbox ?? null, despachoCodex: recusa === null ? 'permitido' : 'recusado' }, null, 2));
       return 0;
     }
-    console.log(`runtime.sandbox no orkastery.yaml: ${pedida}`);
-    console.log(`confirmacao local desta maquina: ${local.postura ? local.postura.sandbox : `nenhuma (${local.motivo})`}`);
-    console.log(recusa === null ? 'despacho pelo codex: permitido' : `despacho pelo codex: recusado. ${comandoDeConfirmacao(pedida)}`);
+    console.log(ms.sandboxManifesto(pedida));
+    console.log(ms.confirmacaoLocal(local.postura ? local.postura.sandbox : ms.nenhumaConfirmacao(String(local.motivo))));
+    console.log(recusa === null ? ms.despachoPermitido : ms.despachoRecusado(comandoDeConfirmacao(pedida)));
     return 0;
   }
   if (!modoBruto) {
     if (args.opcoes.reset === true) {
       resetarSetup(raiz, undefined, por);
       if (args.opcoes.json === true) { console.log(JSON.stringify(lerSetup(raiz), null, 2)); return 0; }
-      console.log('Setup resetado: todos os blocos de todos os modos voltaram ao default.');
+      console.log(ms.resetado);
       console.log(textoDaEntrevista(raiz));
       return 0;
     }
@@ -923,14 +924,14 @@ function comandoSetup(args: Args): number {
 
   const modo = parseModo(modoBruto);
   if (!modo) {
-    console.error(`modo de conducao desconhecido: "${modoBruto}" (aceitos: ${ORDEM_DOS_MODOS.join(', ')})`);
+    console.error(ms.modoDesconhecido(modoBruto, ORDEM_DOS_MODOS.join(', ')));
     return 2;
   }
 
   if (args.opcoes.reset === true) {
     resetarSetup(raiz, modo, por);
     if (args.opcoes.json === true) { console.log(JSON.stringify(lerSetup(raiz).modos[modo], null, 2)); return 0; }
-    console.log(`Setup do modo ${MODOS[modo].tag} resetado para o default.`);
+    console.log(ms.modoResetado(MODOS[modo].tag));
     console.log('');
     console.log(textoDoSetup(raiz, modo));
     return 0;
@@ -944,25 +945,23 @@ function comandoSetup(args: Args): number {
   const fallbackBruto = args.opcoes.fallback === true ? '' : texto(args.opcoes.fallback);
   const fallback = fallbackBruto === undefined ? undefined : fallbackBruto.split(',').map(s => s.trim()).filter(s => s !== '');
   if (bloco === undefined && (runtime !== undefined || model !== undefined || effort !== undefined || fallback !== undefined)) {
-    console.error('para editar, informe o bloco: ork setup <modo> --bloco N [--runtime R] [--model M] [--effort E] [--fallback R:M,...]');
+    console.error(ms.informeBloco);
     return 2;
   }
   if (bloco !== undefined) {
     if (runtime === undefined && model === undefined && effort === undefined && fallback === undefined) {
-      console.error('nada para editar: informe --runtime, --model, --effort e/ou --fallback junto de --bloco');
+      console.error(ms.nadaParaEditar);
       return 2;
     }
     const r = editarBloco(raiz, modo, Number(bloco), { runtime, model, effort, ...(fallback !== undefined ? { fallback } : {}) }, por);
     if (!r.ok) {
-      console.error(`edicao recusada: ${r.erro}`);
+      console.error(ms.edicaoRecusada(r.erro ?? ''));
       return 1;
     }
     if (args.opcoes.json === true) { console.log(JSON.stringify(r.setup.modos[modo], null, 2)); return 0; }
-    console.log(
-      `Bloco ${r.bloco} do modo ${MODOS[modo].tag}: ` +
-        `${r.de?.runtime}/${r.de?.model}/${r.de?.effort} -> ${r.para?.runtime}/${r.para?.model}/${r.para?.effort}`
-    );
-    console.log(`  gravado em ${r.caminho}; evento setup_configured no ledger do projeto`);
+    console.log(ms.blocoAlterado(r.bloco, MODOS[modo].tag,
+      `${r.de?.runtime}/${r.de?.model}/${r.de?.effort}`, `${r.para?.runtime}/${r.para?.model}/${r.para?.effort}`));
+    console.log(ms.gravado(r.caminho));
     console.log('');
     console.log(textoDoSetup(raiz, modo));
     return 0;
