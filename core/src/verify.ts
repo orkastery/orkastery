@@ -313,14 +313,32 @@ export type VereditoDaBaseline = 'passava' | 'ja-falhava' | 'sem-veredito';
 
 /**
  * RM-037 (defeito 1 de 19 e 20/10/2026): so a falha com veredito vale como "ja falhava". Estouro do prazo, reprovacao
- * so de teste com relogio sob steal e comando que nem rodou dizem que a maquina decidiu, e nao o codigo; uma falha
- * atual desse comando nao pode passar por divida anterior. A baseline de antes da I-37 nao tem `causa`, e nela o estouro
- * saia como `code: -1`.
+ * so de teste com relogio sob steal, morte por sinal e comando que nem rodou dizem que a maquina decidiu, e nao o
+ * codigo; uma falha atual desse comando nao pode passar por divida anterior.
  */
 export function vereditoDaBaseline(c: ResultadoDeComando): VereditoDaBaseline {
   if (c.ok) return 'passava';
-  if (semVereditoPorTempo(c) || c.executado === false || (c.causa === undefined && c.code === -1)) return 'sem-veredito';
-  return 'ja-falhava';
+  if (semVereditoPorTempo(c) || c.executado === false) return 'sem-veredito';
+  return terminoNormal(c) ? 'ja-falhava' : 'sem-veredito';
+}
+
+/**
+ * Achado 1 do CHECK da RM-037 (20/10/2026): o maior codigo de saida que e do proprio comando. De 124 em diante, quem fala
+ * e quem nao deixou o comando terminar: 124 e o prazo do `timeout(1)` de dentro do comando (o de fora so o conta como
+ * estouro quando o tempo dele chegou), 125 e 126 sao o `timeout(1)` ou o shell que nao rodaram o comando, 127 o comando
+ * que nao existe, e de 128 em diante vem a morte por sinal (128 + sinal, do shell e do GNU `timeout`).
+ */
+const MAIOR_CODIGO_DO_COMANDO = 123;
+
+/**
+ * O comando terminou sozinho e disse o codigo: `causa: exit` (ou nenhuma, na baseline de antes da I-37, em que o estouro
+ * saia como `code: -1`) com codigo de 1 a 123. Sinal, falta do codigo de saida e os codigos de quem nao deixou o
+ * comando terminar nao provam nada do codigo do HEAD. O `timeout(1)` do uutils devolve so o numero do sinal que ele
+ * trata (15 no SIGTERM), igual a uma saida do comando: esse fica de fora, como na `causaDoEncerramento`.
+ */
+function terminoNormal(c: ResultadoDeComando): boolean {
+  return (c.causa === undefined || c.causa === 'exit') && Number.isInteger(c.code) && c.code >= 1
+    && c.code <= MAIOR_CODIGO_DO_COMANDO;
 }
 
 /** `ork verify --baseline`: grava o estado do mundo ANTES do GO. Sem `executor`, o da rodada (`executorDaRodada`). */
@@ -654,7 +672,8 @@ function verificarSobConducao(
                 : `falha sem baseline em: ${falhasSemBaseline.map((r) => r.nome).join(', ')}` + (falhasSemBaseline
                   .some((r) => baselineSemVeredito.includes(r.nome))
                   ? `; a baseline nao teve veredito de ${falhasSemBaseline.filter((r) => baselineSemVeredito.includes(r.nome))
-                    .map((r) => r.nome).join(', ')} (estouro do prazo, relogio sob steal ou comando que nao rodou)` : ''),
+                    .map((r) => r.nome).join(', ')} (estouro do prazo, sinal, relogio sob steal, comando que nao rodou ou sem ` +
+                    'codigo de saida do proprio comando)' : ''),
       evidencia: `reexecucao no HEAD ${commit} em ${cwd}`,
       correcao:
         motivo === 'claims.failed'

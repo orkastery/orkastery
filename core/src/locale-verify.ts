@@ -18,8 +18,8 @@ export const VERIFY_PT_BR = {
       : 'instale ou prepare as dependencias antes de gravar a baseline; para o ork preparar toda worktree nova, declare o ' +
         'comando em worktree.dependencias no manifesto'),
   baselineCommit: (commit: string) => `  commit ${commit}`,
-  // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito (estouro, relogio sob steal, nao rodou) nao vale como
-  // "ja falhava"; `situacao` e a do comando, no locale da impressao.
+  // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito (estouro, sinal, relogio sob steal, nao rodou) nao vale
+  // como "ja falhava"; `situacao` e a do comando, no locale da impressao.
   baselineComando: (nome: string, veredito: 'passava' | 'ja-falhava' | 'sem-veredito', code: number, comando: string,
     situacao: string) => `  ${nome.padEnd(10)} ${veredito === 'passava' ? 'passava' : veredito === 'ja-falhava'
     ? `ja falhava (codigo ${code})` : `SEM VEREDITO, ${situacao}: nao vale como "ja falhava"`}  ${comando}`,

@@ -95,6 +95,61 @@ test('defeito 1: baseline antiga com -1 sem causa, comando que nao rodou e relog
   } finally { p.limpar(); }
 });
 
+// Achado 1 do CHECK: o comando da baseline morto por sinal virava "ja falhava", e a falha de hoje passava por divida
+// anterior com `ok: true`. So o termino normal do proprio comando, com codigo de saida de 1 a 123, tem veredito.
+test('defeito 1: so o termino normal do proprio comando vale como ja falhava; sinal, 124 do timeout de dentro, comando que nao rodou e falta do codigo de saida ficam sem veredito', () => {
+  const veredito = (extra: Partial<ResultadoDeComando>) => vereditoDaBaseline(resultado('test', 'x', { ok: false, ...extra }));
+  // Morte por sinal: o `signal` do processo (codigo -1) e o 128 + sinal do shell e do `timeout(1)`.
+  assert.equal(veredito({ code: -1, causa: 'sinal' }), 'sem-veredito');
+  assert.equal(veredito({ code: 143, causa: 'sinal' }), 'sem-veredito');
+  assert.equal(veredito({ code: 137, causa: 'sinal' }), 'sem-veredito');
+  // Sem o grupo do `timeout(1)` o 128 + sinal sai como `exit`, e a baseline antiga nao tem causa.
+  assert.equal(veredito({ code: 143, causa: 'exit' }), 'sem-veredito');
+  assert.equal(veredito({ code: 137, causa: undefined }), 'sem-veredito');
+  // O prazo do `timeout(1)` de dentro do comando, que o de fora nao conta como estouro.
+  assert.equal(veredito({ code: 124, causa: 'exit' }), 'sem-veredito');
+  // O comando que nao rodou: o `timeout(1)` que falhou, o shell que nao executou e o comando que nao existe.
+  assert.equal(veredito({ code: 125, causa: 'exit' }), 'sem-veredito');
+  assert.equal(veredito({ code: 126, causa: 'exit' }), 'sem-veredito');
+  assert.equal(veredito({ code: 127, causa: 'nao-encontrado' }), 'sem-veredito');
+  // Sem codigo de saida.
+  assert.equal(veredito({ code: null as never, causa: undefined }), 'sem-veredito');
+  assert.equal(veredito({ code: undefined as never, causa: undefined }), 'sem-veredito');
+  assert.equal(veredito({ code: 0, causa: 'exit' }), 'sem-veredito');
+  // O termino normal que falhou continua divida anterior.
+  for (const code of [1, 2, 123]) assert.equal(veredito({ code, causa: 'exit' }), 'ja-falhava', `codigo ${code}`);
+  assert.equal(veredito({ code: 1, causa: undefined }), 'ja-falhava', 'baseline antiga com termino normal');
+});
+
+test('defeito 1: a baseline morta por sinal ou pelo timeout de dentro do comando nunca vira ja falhava; a falha de hoje sai como verify.failed', () => {
+  const p = projetoTemporario('rm037d2010-sinal');
+  try {
+    // Pelo executor de verdade. O SIGTERM vai a um filho do shell, que devolve 143: quando o morto e o proprio shell, o
+    // `timeout(1)` do uutils devolve so o numero do sinal, igual a uma saida do comando (limite descrito na RM-037).
+    const casos = [
+      { nome: 'sigkill no shell', comando: 'kill -KILL $$', causa: 'sinal', code: -1 },
+      { nome: 'sigterm no filho', comando: "sh -c 'kill -TERM $$'; exit $?", causa: 'sinal', code: 143 },
+      { nome: 'sigkill no filho', comando: "sh -c 'kill -KILL $$'; exit $?", causa: 'sinal', code: 137 },
+      { nome: 'timeout de dentro', comando: 'timeout 1 sleep 5', causa: 'exit', code: 124 },
+    ];
+    for (const caso of casos) {
+      p.carregado.manifesto.verify = { build: 'true', test: caso.comando };
+      const { thread } = novaThread(p.carregado, { nome: caso.nome, modo: 'auto' });
+      const t = gravarBaseline(p.carregado, thread.id).comandos.find((c) => c.nome === 'test')!;
+      assert.deepEqual({ ok: t.ok, causa: t.causa, code: t.code }, { ok: false, causa: caso.causa, code: caso.code }, caso.nome);
+      assert.equal(vereditoDaBaseline(t), 'sem-veredito', caso.nome);
+      const evento = lerLedger(dirThread(p.dir, thread.id)).find((e) => e.tipo === 'baseline_recorded')!;
+      assert.deepEqual(evento.semVeredito, ['test'], caso.nome);
+      p.carregado.manifesto.verify = { build: 'true', test: 'exit 1' };
+      const r = verificar(p.carregado, thread.id);
+      assert.deepEqual(r.preExistentes.map((c) => c.nome), [], `${caso.nome}: a falha de hoje nao passa por divida anterior`);
+      assert.deepEqual(r.falhasSemBaseline.map((c) => c.nome), ['test'], caso.nome);
+      assert.ok(r.motivos.includes('verify.failed'), caso.nome);
+      assert.equal(r.ok, false, caso.nome);
+    }
+  } finally { p.limpar(); }
+});
+
 test('defeito 1: ork verify --baseline diz sem veredito, o motivo e como regravar; o handoff tambem', () => {
   const p = projetoTemporario('rm037d2010-cli');
   const casa = dirTemporario('rm037d2010-cli-casa');
@@ -111,7 +166,7 @@ test('defeito 1: ork verify --baseline diz sem veredito, o motivo e como regrava
     const { handoff } = exportarHandoff(p.carregado, thread.id);
     const item = handoff.inline.find((i) => i.titulo === 'Baseline gravada antes do GO');
     assert.ok(item, 'o handoff traz a baseline');
-    assert.match(item!.conteudo, /test: sem veredito \(estouro, relogio sob steal ou nao rodou: nao vale como ja falhava\)/);
+    assert.match(item!.conteudo, /test: sem veredito \(estouro, sinal, relogio sob steal ou nao rodou: nao vale como ja falhava\)/);
   } finally { p.limpar(); fs.rmSync(casa, { recursive: true, force: true }); }
 });
 

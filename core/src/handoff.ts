@@ -51,7 +51,7 @@ import { caminhoContidoOuNulo, exigirCaminhoContido } from './procedencia';
 const ROTULO_DA_BASELINE: Record<VereditoDaBaseline, string> = {
   passava: 'passava',
   'ja-falhava': 'ja falhava',
-  'sem-veredito': 'sem veredito (estouro, relogio sob steal ou nao rodou: nao vale como ja falhava)',
+  'sem-veredito': 'sem veredito (estouro, sinal, relogio sob steal ou nao rodou: nao vale como ja falhava)',
 };
 
 /** sha256 de um arquivo em disco, a prova de proveniencia de cada item. */
