@@ -351,3 +351,19 @@ test('F3d: MASTER complementar localiza classes, score e a recusa da fila aposen
   assert.equal(cobreLocale(['master', 'ork-x'], { score: '4' }), true);
   assert.equal(cobreLocale(['master', 'audit'], {}), false);
 });
+
+test('F3d: todas as rotas de conducao ativam o catálogo bilíngue', () => {
+  const pt = comLocale('pt-BR', () => msg().conducao.cli.assumida(true, 'detalhe preservado'));
+  const en = comLocale('en', () => [msg().conducao.cli.assumida(true, 'detail preserved'),
+    msg().conducao.status.livre('ork-x'), msg().conducao.sentinela.nenhuma,
+    msg().conducao.autorizacao.semEfeito, msg().conducao.batida.nada].join('\n'));
+  assert.match(pt, /^Conducao assumida\./);
+  assert.match(en, /^Conduction taken over\./);
+  assert.match(en, /nobody is conducting/);
+  assert.match(en, /no open thread/);
+  assert.match(en, /Nothing advanced again/);
+  assert.deepEqual(linhasEmPortugues(en), []);
+  for (const sub of ['status', 'assumir', 'atualizar', 'autorizar', 'autorizacao', 'batida', 'sentinela'])
+    assert.equal(cobreLocale(['conducao', sub], {}), true, sub);
+  assert.equal(cobreLocale(['conducao', 'outro'], {}), true);
+});

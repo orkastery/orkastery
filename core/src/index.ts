@@ -1514,6 +1514,7 @@ function comandoVerify(args: Args): number {
  * `status --json` para ceder o despacho enquanto a presenca vale. Nada aqui despacha.
  */
 function comandoSentinela(carregado: ManifestoCarregado, args: Args): number {
+  const m = msg().conducao.cli;
   const acao = args.posicionais[2] ?? 'status';
   const json = args.opcoes.json === true;
   if (acao === 'status') {
@@ -1521,22 +1522,20 @@ function comandoSentinela(carregado: ManifestoCarregado, args: Args): number {
     console.log(json ? JSON.stringify(s, null, 2) : textoDoStatusDaSentinela(s));
     return 0;
   }
-  if (acao !== 'bater' && acao !== 'desligar') throw new Error('uso: ork conducao sentinela status|bater|desligar [--sessao <id>] [--json]');
+  if (acao !== 'bater' && acao !== 'desligar') throw new Error(m.sentinelaUso);
   const sessao = texto(args.opcoes.sessao);
-  if (!sessao) throw new Error(`uso: ork conducao sentinela ${acao} --sessao <id> [--json]`);
+  if (!sessao) throw new Error(m.sentinelaSessao(acao));
   if (acao === 'bater') {
     const r = baterSentinela(carregado.raiz, { sessao });
     const curta = r.presenca.sessao.slice(0, 8);
     console.log(json ? JSON.stringify(r, null, 2) : r.ok
-      ? `Sentinela ${r.ligou ? 'ligada' : 'renovada'} na maquina ${r.presenca.maquina} pela sessao ${curta}; vale 3 min sem batida.`
-      : `Outra sessao (${curta}) conduz pela Sentinela na maquina ${r.presenca.maquina}; esta fica so olhando.`);
+      ? m.sentinelaLigada(r.ligou, r.presenca.maquina, curta)
+      : m.sentinelaOutra(curta, r.presenca.maquina));
     return r.ok ? 0 : 3;
   }
   const motivo = texto(args.opcoes.motivo);
   const r = desligarSentinela(carregado.raiz, { sessao, ...(motivo ? { motivo } : {}) });
-  console.log(json ? JSON.stringify(r, null, 2) : r.desligada
-    ? 'Sentinela desligada nesta maquina; o condutor externo volta a conduzir.'
-    : 'Nada a desligar: a presenca nesta maquina nao e desta sessao.');
+  console.log(json ? JSON.stringify(r, null, 2) : r.desligada ? m.sentinelaOff : m.sentinelaNada);
   return 0;
 }
 
@@ -1545,41 +1544,43 @@ function comandoSentinela(carregado: ManifestoCarregado, args: Args): number {
  * (`ork.autorizacao-duravel/v1`, fora do git): o que a batida da conducao pode fazer sozinha e ate quando.
  */
 function comandoAutorizacao(carregado: ManifestoCarregado, args: Args, sub: 'autorizar' | 'autorizacao'): number {
+  const m = msg().conducao.cli;
   const json = args.opcoes.json === true;
   const projeto = carregado.manifesto.project.name;
   if (sub === 'autorizacao') {
-    if (args.posicionais.length > 2) throw new Error('uso: ork conducao autorizacao [--json]');
+    if (args.posicionais.length > 2) throw new Error(m.autorizacaoUso);
     const leitura = lerAutorizacao(carregado.raiz, { projeto });
     console.log(json ? JSON.stringify(leitura, null, 2) : textoDaAutorizacao(leitura));
     return 0;
   }
   const ate = texto(args.opcoes.ate), pode = texto(args.opcoes.pode);
   if (!ate || !pode || args.posicionais.length > 2) {
-    throw new Error('uso: ork conducao autorizar --ate <data> --pode merge,registrar,master,despachar [--por Q] [--nota N] [--json]');
+    throw new Error(m.autorizarUso);
   }
   const r = gravarAutorizacao(carregado.raiz, { ate, pode, por: texto(args.opcoes.por), nota: texto(args.opcoes.nota), projeto,
     fuso: fusoDoManifesto(carregado).fuso, canal: conducaoDoCli(args).canal });
   if (!r.ok) {
-    console.log(json ? JSON.stringify(r, null, 2) : `Autorização recusada (${r.motivo}): ${r.detalhe}`);
+    console.log(json ? JSON.stringify(r, null, 2) : m.autorizacaoRecusada(r.motivo, r.detalhe));
     return 1;
   }
   const a = r.anterior;
   console.log(json ? JSON.stringify({ ok: true, leitura: r.leitura, anterior: a }, null, 2) : [
-    `Autorização gravada. ${linhaDaAutorizacao(r.leitura)}.`,
-    ...(a ? [`  substitui a de ${a.por} até ${formatarDataHoraRotulada(a.ate)} (${a.pode.join(', ')})`] : []),
-    `  arquivo ${r.leitura.arquivo}, fora do git; para revogar, apague o arquivo.`].join('\n'));
+    m.autorizacaoGravada(linhaDaAutorizacao(r.leitura)),
+    ...(a ? [m.substitui(a.por, formatarDataHoraRotulada(a.ate), a.pode.join(', '))] : []),
+    m.arquivo(r.leitura.arquivo)].join('\n'));
   return 0;
 }
 
 function comandoConducao(args: Args): number {
   const carregado = exigirManifesto();
+  const m = msg().conducao.cli;
   const sub = args.posicionais[1];
   const id = args.posicionais[2];
   if (sub === 'sentinela') return comandoSentinela(carregado, args);
   if (sub === 'autorizar' || sub === 'autorizacao') return comandoAutorizacao(carregado, args, sub);
   if (sub === 'batida') {
     // RM-063 (F7): o passo deterministico da conducao, o mesmo que a varredura do cron roda depois do resumo.
-    if (args.posicionais.length > 2) throw new Error('uso: ork conducao batida [--entregar] [--json]');
+    if (args.posicionais.length > 2) throw new Error(m.batidaUso);
     const r = baterConducao(carregado, { canal: conducaoDoCli(args).canal });
     const textoDaRodada = textoDaBatida(r);
     console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaRodada);
@@ -1589,14 +1590,14 @@ function comandoConducao(args: Args): number {
       const mensagem = `🔁 Orkastery, retomada em ${nomeDaMaquina()}:\n${textoDaRodada}`.slice(0, 3900);
       try {
         const e = entregarPeloTransporte(carregado.raiz, mensagem, { oQue: 'a retomada' });
-        if (!e.ok) console.error('aviso: o transporte do pulse não confirmou a retomada (veja ork doctor)');
-      } catch (e) { console.error(`aviso: retomada sem transporte do pulse (${(e as Error).message})`); }
+        if (!e.ok) console.error(m.pulseAviso);
+      } catch (e) { console.error(m.pulseFalha((e as Error).message)); }
     }
     return r.ocupada ? 3 : 0;
   }
   if (sub === 'atualizar') {
     // RM-063 (F7): o merge da base remota na branch da thread, com a reconciliacao do CHANGELOG; conflito em codigo aborta.
-    if (!id || args.posicionais.length > 3) throw new Error('uso: ork conducao atualizar <thread-id> [--enviar] [--esperar [min]] [--json]');
+    if (!id || args.posicionais.length > 3) throw new Error(m.atualizarUso);
     lerThread(carregado.raiz, id);
     const doCli = conducaoDoCli(args);
     const r = atualizarBranchDaThread(carregado, id, { enviar: args.opcoes.enviar === true, canal: doCli.canal, correlacao: doCli.correlacao,
@@ -1605,7 +1606,7 @@ function comandoConducao(args: Args): number {
     return r.acao === 'mesclada' || r.acao === 'ja-atualizada' ? 0 : r.acao === 'recusada' && r.motivo === 'conduzida' ? 3 : 1;
   }
   if (sub === 'status') {
-    if (!id) throw new Error('uso: ork conducao status <thread-id> [--json]');
+    if (!id) throw new Error(m.statusUso);
     lerThread(carregado.raiz, id);
     liberarSeOrfa(carregado.raiz, id);
     const atual = conducaoDaThread(carregado.raiz, id);
@@ -1614,13 +1615,12 @@ function comandoConducao(args: Args): number {
   }
   if (sub === 'assumir') {
     const por = texto(args.opcoes.por), motivo = texto(args.opcoes.motivo);
-    if (!id || !por || !motivo) throw new Error('uso: ork conducao assumir <thread-id> --por <quem> --motivo "<por que>" [--canal C]');
+    if (!id || !por || !motivo) throw new Error(m.assumirUso);
     const r = assumirConducao(carregado.raiz, id, { por, motivo, canal: conducaoDoCli(args).canal });
-    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : `${r.ok ? 'Conducao assumida.' : 'Handoff recusado.'} ${r.detalhe}`);
+    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : m.assumida(r.ok, r.detalhe));
     return r.ok ? 0 : 3;
   }
-  throw new Error('uso: ork conducao status|assumir|atualizar <thread-id> | ork conducao autorizar|autorizacao|batida | ' +
-    'ork conducao sentinela status|bater|desligar');
+  throw new Error(m.uso);
 }
 
 /** RM-048 (D1): o gate aberto no contrato curto, com o codigo estavel e o "desde" do ledger. */
