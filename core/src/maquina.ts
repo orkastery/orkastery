@@ -17,6 +17,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { msg } from './locale';
 
 export const CONTRATO_CONFIG_DA_MAQUINA = 'ork.maquina/v1' as const;
 const ARQUIVO = 'maquina.json';
@@ -86,6 +87,5 @@ export function fabricaCompartilhada(manifesto: { fabrica?: { compartilhada?: bo
  */
 export function avisoDaFabricaPedida(manifesto: { fabrica?: { compartilhada?: boolean } }): string | null {
   if (manifesto.fabrica?.compartilhada !== true || fabricaCompartilhada(manifesto)) return null;
-  return 'fabrica.nao-confirmada: o orkastery.yaml pede fabrica.compartilhada: true, mas quem liga a publicacao ' +
-    'do retrato desta maquina e a propria maquina, nao o repositorio. Nada foi publicado. Para entrar: ork fabrica entrar';
+  return msg().operacao.restante.fabrica.pedida;
 }

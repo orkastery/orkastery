@@ -302,6 +302,49 @@ export const OPERACAO_RESTANTE_PT_BR = {
     proximo: 'No seu projeto: ork init, depois ork thread new "<pedido>" --modo auto.',
     mantido: (dir: string) => `(o repositorio da demo ficou em ${dir})`,
   },
+  fabrica: {
+    estaMaquina: ' (esta maquina)',
+    maquina: (nome: string, propria: string, por: string, publicado: string, ativas: number, entregues: number) =>
+      `${nome}${propria}, ${por}, publicado ${publicado}: ${ativas} thread(s) ativa(s)` +
+      (entregues ? `, ${entregues} entregue(s) sem MASTER` : ''),
+    colunas: ['THREAD', 'MODO', 'FASE', 'RUNTIME', 'ITEM', 'ESPERA VOCE', 'SESSAO'] as readonly string[],
+    espera: (valor: string) => `sim: ${valor}`,
+    veredito: 'veredito',
+    copia: 'AVISO: sem leitura nova do remoto; esta e a ultima copia lida nesta maquina.',
+    nenhuma: (branch: string) => `Nenhuma maquina publicou ainda em ${branch}. Publique esta com: ork fabrica publicar`,
+    origens: { atual: 'lido agora', copia: 'ultima copia local' },
+    outrasNenhuma: (branch: string, origem: string) => `Outras maquinas (${branch}, ${origem}): nenhuma publicou ainda.`,
+    outras: (branch: string, origem: string) => `Outras maquinas (${branch}, ${origem}):`,
+    pedida: 'fabrica.nao-confirmada: o orkastery.yaml pede fabrica.compartilhada: true, mas quem liga a publicacao ' +
+      'do retrato desta maquina e a propria maquina, nao o repositorio. Nada foi publicado. Para entrar: ork fabrica entrar',
+    batida: {
+      titulo: (maquina: string, projeto: string) => `Batida da fábrica em ${maquina}, projeto ${projeto}`,
+      naoLido: (motivo: string) => `  crontab: não lido (${motivo}); não dá para dizer se a batida está instalada`,
+      naoInstalada: '  instalada: não; instale com: ork fabrica batida instalar',
+      horarioIlegivel: 'com horário que o ork não lê', aCada: (min: number) => `a cada ${min} min`,
+      instalada: (ritmo: string, gerenciada: boolean) =>
+        `  instalada: sim, ${ritmo}${gerenciada ? ', pelo ork fabrica batida instalar' : ', por linha posta à mão'}`,
+      linha: (valor: string) => `  linha: ${valor}`,
+      semRodada: '  última rodada: nenhuma registrada (.orkastery/monitor/hitl.log)',
+      rodada: (hora: string, min: number, estado: string, detalhe: string) =>
+        `  última rodada: ${hora} (há ${min} min), ${estado}: ${detalhe}`,
+      codigo: (code: number | null) => code === 0 ? 'ok' : `código ${code ?? '?'}`,
+      semDetalhe: 'sem detalhe',
+      atrasada: (min: number) =>
+        `  atrasada: nenhuma rodada há ${min} min com a batida instalada; confira crontab -l e o hitl.log`,
+      jaInstalada: (projeto: string, linha: string | null) =>
+        `Batida já instalada para ${projeto}; nada mudou no crontab.\n  linha: ${linha}`,
+      instalou: (projeto: string, evento: string | null) =>
+        `Batida instalada para ${projeto} (evento ${evento} no ledger da máquina).`,
+      removeu: (projeto: string, evento: string | null) =>
+        `Batida removida de ${projeto} (evento ${evento} no ledger da máquina).`,
+      nenhumaInstalada: (projeto: string) =>
+        `Nenhuma batida do ork instalada para ${projeto}; nada mudou no crontab.`,
+      saiu: (linha: string) => `  saiu: ${linha}`,
+      ficou: (linha: string) => `  ficou (posta à mão, não é do ork): ${linha}`,
+      confira: '  confira com: ork fabrica batida status',
+    },
+  },
 };
 
 export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
@@ -614,5 +657,42 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
     principio: 'No claim counts without the command that judges it, rerun on the real commit.',
     proximo: 'In your project: ork init, then ork thread new "<request>" --modo auto.',
     mantido: (dir) => `(the demo repository was kept at ${dir})`,
+  },
+  fabrica: {
+    estaMaquina: ' (this machine)',
+    maquina: (name, own, by, published, active, delivered) =>
+      `${name}${own}, ${by}, published ${published}: ${active} active thread(s)` +
+      (delivered ? `, ${delivered} delivered without MASTER` : ''),
+    colunas: ['THREAD', 'MODE', 'PHASE', 'RUNTIME', 'ITEM', 'WAITS FOR YOU', 'SESSION'],
+    espera: (value) => `yes: ${value}`,
+    veredito: 'verdict',
+    copia: 'WARNING: no fresh read from the remote; this is the last copy read on this machine.',
+    nenhuma: (branch) => `No machine has published to ${branch} yet. Publish this one with: ork fabrica publicar`,
+    origens: { atual: 'read now', copia: 'last local copy' },
+    outrasNenhuma: (branch, source) => `Other machines (${branch}, ${source}): none has published yet.`,
+    outras: (branch, source) => `Other machines (${branch}, ${source}):`,
+    pedida: 'fabrica.nao-confirmada: orkastery.yaml requests fabrica.compartilhada: true, but publication of this ' +
+      'machine snapshot is enabled by the machine itself, not the repository. Nothing was published. To join: ork fabrica entrar',
+    batida: {
+      titulo: (machine, project) => `Factory heartbeat on ${machine}, project ${project}`,
+      naoLido: (reason) => `  crontab: not read (${reason}); cannot tell whether the heartbeat is installed`,
+      naoInstalada: '  installed: no; install with: ork fabrica batida instalar',
+      horarioIlegivel: 'on a schedule ork cannot read', aCada: (min) => `every ${min} min`,
+      instalada: (pace, managed) =>
+        `  installed: yes, ${pace}${managed ? ', by ork fabrica batida instalar' : ', by a manually added line'}`,
+      linha: (value) => `  line: ${value}`,
+      semRodada: '  last run: none recorded (.orkastery/monitor/hitl.log)',
+      rodada: (time, min, state, detail) => `  last run: ${time} (${min} min ago), ${state}: ${detail}`,
+      codigo: (code) => code === 0 ? 'ok' : `code ${code ?? '?'}`,
+      semDetalhe: 'no detail',
+      atrasada: (min) => `  late: no run for ${min} min with the heartbeat installed; check crontab -l and hitl.log`,
+      jaInstalada: (project, line) => `Heartbeat already installed for ${project}; crontab did not change.\n  line: ${line}`,
+      instalou: (project, event) => `Heartbeat installed for ${project} (event ${event} in the machine ledger).`,
+      removeu: (project, event) => `Heartbeat removed from ${project} (event ${event} in the machine ledger).`,
+      nenhumaInstalada: (project) => `No ork heartbeat installed for ${project}; crontab did not change.`,
+      saiu: (line) => `  removed: ${line}`,
+      ficou: (line) => `  kept (manually added, not owned by ork): ${line}`,
+      confira: '  check with: ork fabrica batida status',
+    },
   },
 };

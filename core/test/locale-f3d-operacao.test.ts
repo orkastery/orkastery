@@ -21,6 +21,8 @@ import { join } from 'node:path';
 import { textoDoPlano, textoDoReap } from '../src/board';
 import { textoDoMonitor } from '../src/orquestracao';
 import { textoDasLicoes } from '../src/licoes';
+import { textoDaFabrica, textoDasOutrasMaquinas } from '../src/fabrica-estado';
+import { textoDoEstadoDaBatida } from '../src/fabrica-batida';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -253,4 +255,20 @@ test('F3d: demo oferece a mesma narrativa nas duas linguas', () => {
   assert.match(en.vereditoDepois(true, ''), /CLAIM SUPPORTED/);
   assert.match(en.proximo, /In your project/);
   assert.equal(cobreLocale(['demo'], {}), true);
+});
+
+test('F3d: fabrica e batida localizam os estados de leitura sem mudar contratos', () => {
+  const painel = { maquinas: [], atualizado: false, ponta: null } as any;
+  const batida = { maquina: 'box', projeto: 'demo', leitura: { ok: true }, instalada: false,
+    intervaloMin: null, gerenciada: null, manuais: [], ultimaRodada: null, autorizacao: null } as any;
+  const pt = comLocale('pt-BR', () => [textoDaFabrica(painel, 'box'),
+    textoDasOutrasMaquinas(painel, 'box'), textoDoEstadoDaBatida(batida)].join('\n'));
+  const en = comLocale('en', () => [textoDaFabrica(painel, 'box'),
+    textoDasOutrasMaquinas(painel, 'box'), textoDoEstadoDaBatida(batida)].join('\n'));
+  assert.match(pt, /Nenhuma maquina publicou/);
+  assert.match(en, /No machine has published/);
+  assert.match(en, /Other machines/);
+  assert.match(en, /Factory heartbeat/);
+  assert.match(en, /installed: no/);
+  assert.deepEqual(linhasEmPortugues(en, ['ork/fabrica-estado']), []);
 });

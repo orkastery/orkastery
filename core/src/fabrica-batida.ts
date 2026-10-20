@@ -31,6 +31,7 @@ import { formatarHora, legendaDoFuso } from './horario';
 import { noPath } from './util';
 import { exigirHostLocal } from './procedencia';
 import { lerAutorizacao, linhaDaAutorizacao } from './autorizacao-duravel';
+import { msg } from './locale';
 
 /** O comentario no fim da linha que o `ork` instalou; o `sh` do cron o ignora. */
 export const MARCA_DA_BATIDA = '# ork-batida';
@@ -296,21 +297,21 @@ export function removerBatida(raizDoProjeto: string, opcoes: { executor?: Execut
 }
 
 export function textoDoEstadoDaBatida(e: EstadoDaBatida, quando: string = new Date().toISOString()): string {
-  const linhas = [`Batida da fábrica em ${e.maquina}, projeto ${e.projeto}`];
-  if (!e.leitura.ok) linhas.push(`  crontab: não lido (${e.leitura.motivo}); não dá para dizer se a batida está instalada`);
-  else if (!e.instalada) linhas.push('  instalada: não; instale com: ork fabrica batida instalar');
+  const m = msg().operacao.restante.fabrica.batida;
+  const linhas = [m.titulo(e.maquina, e.projeto)];
+  if (!e.leitura.ok) linhas.push(m.naoLido(e.leitura.motivo));
+  else if (!e.instalada) linhas.push(m.naoInstalada);
   else {
-    const ritmo = e.intervaloMin === null ? 'com horário que o ork não lê' : `a cada ${e.intervaloMin} min`;
-    linhas.push(`  instalada: sim, ${ritmo}${e.gerenciada ? ', pelo ork fabrica batida instalar' : ', por linha posta à mão'}`);
-    for (const l of [...(e.gerenciada ? [e.gerenciada] : []), ...e.manuais]) linhas.push(`  linha: ${l}`);
+    const ritmo = e.intervaloMin === null ? m.horarioIlegivel : m.aCada(e.intervaloMin);
+    linhas.push(m.instalada(ritmo, !!e.gerenciada));
+    for (const l of [...(e.gerenciada ? [e.gerenciada] : []), ...e.manuais]) linhas.push(m.linha(l));
   }
   const r = e.ultimaRodada;
-  if (!r) linhas.push('  última rodada: nenhuma registrada (.orkastery/monitor/hitl.log)');
+  if (!r) linhas.push(m.semRodada);
   else {
-    linhas.push(`  última rodada: ${formatarHora(r.em, { agora: quando })} (há ${r.haMin} min), ` +
-      `${r.code === 0 ? 'ok' : `código ${r.code ?? '?'}`}: ${r.detalhe || 'sem detalhe'}`);
+    linhas.push(m.rodada(formatarHora(r.em, { agora: quando }), r.haMin, m.codigo(r.code), r.detalhe || m.semDetalhe));
     if (e.instalada && r.haMin > ATRASO_DA_BATIDA_MIN) {
-      linhas.push(`  atrasada: nenhuma rodada há ${r.haMin} min com a batida instalada; confira crontab -l e o hitl.log`);
+      linhas.push(m.atrasada(r.haMin));
     }
   }
   if (e.autorizacao) linhas.push(`  ${e.autorizacao.linha}`);
@@ -319,13 +320,12 @@ export function textoDoEstadoDaBatida(e: EstadoDaBatida, quando: string = new Da
 }
 
 export function textoDoResultadoDaBatida(r: ResultadoDaBatida): string {
+  const m = msg().operacao.restante.fabrica.batida;
   switch (r.acao) {
-    case 'ja-instalada': return `Batida já instalada para ${r.projeto}; nada mudou no crontab.\n  linha: ${r.linha}`;
-    case 'instalou': return [`Batida instalada para ${r.projeto} (evento ${r.eventId} no ledger da máquina).`, `  linha: ${r.linha}`,
-      ...r.retiradas.map((l) => `  saiu: ${l}`), '  confira com: ork fabrica batida status'].join('\n');
-    case 'removeu': return [`Batida removida de ${r.projeto} (evento ${r.eventId} no ledger da máquina).`,
-      ...r.retiradas.map((l) => `  saiu: ${l}`), ...r.manuais.map((l) => `  ficou (posta à mão, não é do ork): ${l}`)].join('\n');
-    case 'nao-instalada': return [`Nenhuma batida do ork instalada para ${r.projeto}; nada mudou no crontab.`,
-      ...r.manuais.map((l) => `  ficou (posta à mão, não é do ork): ${l}`)].join('\n');
+    case 'ja-instalada': return m.jaInstalada(r.projeto, r.linha);
+    case 'instalou': return [m.instalou(r.projeto, r.eventId), m.linha(r.linha!),
+      ...r.retiradas.map(m.saiu), m.confira].join('\n');
+    case 'removeu': return [m.removeu(r.projeto, r.eventId), ...r.retiradas.map(m.saiu), ...r.manuais.map(m.ficou)].join('\n');
+    case 'nao-instalada': return [m.nenhumaInstalada(r.projeto), ...r.manuais.map(m.ficou)].join('\n');
   }
 }
