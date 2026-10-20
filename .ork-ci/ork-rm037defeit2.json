@@ -1,0 +1,507 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm037defeit2",
+  "branch": "ork/ork-rm037defeit2-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "Defeito 1 de 19 e 20/10/2026: a baseline roda pelo mesmo executor do verify (o prazo do manifesto por comando, verify.timeout_ms_por_comando e depois verify.timeout_ms, e a medida do steal), e o comando sem veredito na baseline (estouro, relógio sob steal, comando que não rodou, código -1 sem causa) nunca vale como já falhava: a falha atual sai em falhasSemBaseline com verify.failed, e o verify_run e o gate dizem que a baseline não teve veredito.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-defeitos2010-baseline.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:36:04.414Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-verify.ts",
+      "alegacao": "Defeito 1: a linha da baseline diz SEM VEREDITO com a situação do comando e que ele não vale como já falhava, com a linha de como regravar, nas duas línguas; passava e ja falhava saem byte a byte como antes (snapshot pt-BR da F2b).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='duas linguas' core/dist-test/test/rm037-defeitos2010-baseline.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}' && node --test-reporter=tap core/dist-test/test/locale-f2b-snapshot.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:36:07.378Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Defeito 1: ork verify --baseline imprime cada comando pelo linhasDaBaseline: o que estourou o prazo do manifesto sai SEM VEREDITO, com a linha do que fazer, e o comando sai 0; a saída de quem já falhava continua dizendo onde ver a saída.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='ork verify --baseline' core/dist-test/test/rm037-defeitos2010-baseline.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}' && node --test-reporter=tap core/dist-test/test/ensaio-0310-achados.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=7 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:36:10.362Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/handoff.ts",
+      "alegacao": "Defeito 1: o handoff diz sem veredito para o comando da baseline que estourou, relógio sob steal ou não rodou, e não ja falhava.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'sem-veredito': 'sem veredito (estouro, relogio sob steal ou nao rodou: nao vale como ja falhava)'\" core/src/handoff.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/handoff.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:36:12.700Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-defeitos2010-baseline.test.ts",
+      "alegacao": "Mutante M1 (defeito 1): com a baseline de volta ao executor de teto fixo de 600 s, o teste do prazo do manifesto cai; o controle sem a troca passa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm037-defeitos2010.json M1"
+      ],
+      "criadoEm": "2026-10-20T06:36:14.625Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm037-defeitos2010.json",
+      "alegacao": "Mutante M2 (defeito 1): com a comparação de antes (só a falta da baseline vira falha sem baseline), caem os testes do estouro e da baseline antiga; o controle sem a troca passa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm037-defeitos2010.json M2"
+      ],
+      "criadoEm": "2026-10-20T06:36:16.440Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/dependencias-da-worktree.ts",
+      "alegacao": "Defeito 2 de 19 e 20/10/2026: com worktree.dependencias no manifesto, ork thread new --worktree auto roda o comando dentro da worktree nova, depois da trava de criação, grava worktree_dependencias depois do worktree_created e a baseline passa; o preparo que falha não desfaz a thread; sem a chave nada roda nem se grava.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=6 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:43:18.996Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/thread.ts",
+      "alegacao": "Mutante M3 (defeito 2): com a worktree nova de volta a nascer sem o preparo de worktree.dependencias, o teste do ork thread new cai; o controle sem a troca passa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm037-defeitos2010.json M3"
+      ],
+      "criadoEm": "2026-10-20T06:43:20.837Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "Mutante M4 (defeito 2): com a recusa baseline.dependencia-ausente de volta a não dizer o comando do preparo, o teste do preparo que falha cai; o controle sem a troca passa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm037-defeitos2010.json M4"
+      ],
+      "criadoEm": "2026-10-20T06:43:22.675Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/worktree.ts",
+      "alegacao": "Defeito 2: ork worktree ensure recria a worktree sem o que o git ignora e roda o preparo de worktree.dependencias de novo; com a worktree de pé, só confere e nada roda.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='worktree ensure recria' core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}' && node --test-reporter=tap core/dist-test/test/worktree.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=11 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:43:25.240Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "Defeito 2: o manifesto aceita worktree.dependencias só como texto, com o comando aparado; vazio é o mesmo que nenhum, e outro tipo é erro do manifesto.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='manifesto aceita' core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}' && node --test-reporter=tap core/dist-test/test/manifesto-modos.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=5 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:43:27.977Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "Defeito 2: o tipo do manifesto tem worktree.dependencias opcional, o comando que prepara toda worktree nova.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE '^    dependencias\\?: string;$' core/src/types.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='sem a chave' core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:43:30.189Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/ledger.ts",
+      "alegacao": "Defeito 2: o tipo de evento worktree_dependencias existe no ledger e o preparo o grava com o comando, o código, a causa, o prazo e a duração.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"worktreeDependencias: 'worktree_dependencias'\" core/src/ledger.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='thread new --worktree auto roda' core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:43:32.588Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-worktree.ts",
+      "alegacao": "Defeito 2: o preparo ok diz o comando e o tempo; o que falha diz o código ou o estouro, a última linha da saída e o comando exato com o diretório, e que a thread fica; nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='duas linguas' core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}' && node --test-reporter=tap core/dist-test/test/locale-worktree.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:43:35.237Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Defeito 2: ork thread new e ork worktree ensure dizem o resultado do preparo das dependências: ok no stdout com o comando e o tempo; falha no stderr com o comando exato, e a saída continua 0.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='(thread new --worktree auto roda|o preparo que falha|worktree ensure recria)' core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=3 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:43:37.587Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-verify.ts",
+      "alegacao": "Defeito 2: a recusa baseline.dependencia-ausente diz o comando do preparo do manifesto (worktree.dependencias), ou como declará-lo quando ele não existe; o começo da mensagem é o de antes.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='(o preparo que falha|sem a chave)' core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=2 && f==0)}' && node --test-reporter=tap core/dist-test/test/verify.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=7 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:43:40.440Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "Defeito 2: o manifesto deste projeto declara o preparo do core em toda worktree nova (npm ci pelo cache primeiro), e o núcleo o lê sem erro.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'dependencias: \"npm --prefix core ci --prefer-offline --no-audit --no-fund\"' orkastery.yaml",
+        "npm --prefix core run build && node -e \"const c=require('./core/dist/manifest').carregarManifesto('.');if(!c||c.erros.length||c.manifesto.worktree.dependencias!=='npm --prefix core ci --prefer-offline --no-audit --no-fund'){console.error(c&&c.erros);process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-20T06:43:42.984Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-defeitos2010-dependencias.test.ts",
+      "alegacao": "Os testes do defeito 2 passam sem rede: o build do projeto de teste depende de deps/ferramenta, que o .gitignore deixa fora do git e o preparo declarado cria na worktree nova.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"const PREPARO = 'mkdir -p deps && ln -sf /bin/true deps/ferramenta';\" core/test/rm037-defeitos2010-dependencias.test.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-defeitos2010-dependencias.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=6 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:43:45.650Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/prova-ativacao.cjs",
+      "alegacao": "Defeito 3 de 19 e 20/10/2026: o roteiro da prova de ativação mede o registro de projetos da casa do ork da prova, pela regra do núcleo (pastaDoUsuario: ORK_USUARIO_DIR, depois ORKASTERY_HOME, depois ~/.orkastery): outra sessão regravando o registro de ~/.orkastery não reprova a prova, e o mesmo escritor no registro medido reprova global.intocado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"const { pastaDoUsuario } = require(path.join(repo, 'core/dist/maquina'));\" core/scripts/prova-ativacao.cjs",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='registro da casa do ork' core/dist-test/test/rm037-defeitos2010-hermeticos.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:47:50.155Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/test/prova-ativacao-apoio.ts",
+      "alegacao": "Defeito 3: o codex falso do roteiro (B11) dá ao roteiro HOME, ORK_USUARIO_DIR e ORKASTERY_HOME do próprio teste: um escritor no registro de projetos e no ~/.codex do HOME de quem roda a suíte não reprova o teste do roteiro.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='HOME e casa proprios' core/dist-test/test/rm037-defeitos2010-hermeticos.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:47:52.572Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/test/prova-ativacao-roteiro.test.ts",
+      "alegacao": "Defeito 3: o teste do roteiro passa, 3 de 3, com o codex falso do módulo de apoio e a casa do próprio teste.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/prova-ativacao-roteiro.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=3 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:47:54.553Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/test/apoio.ts",
+      "alegacao": "Defeito 3: runtimeVazio dá ao spawn do teste um claude que lista nenhuma sessão e um CODEX_HOME vazio, sem mudar o process.env do teste.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'export function runtimeVazio(nome: string): RuntimeVazio {' core/test/apoio.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='claude da maquina' core/dist-test/test/rm037-defeitos2010-hermeticos.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:47:56.891Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/test/projeto-alvo-cli.test.ts",
+      "alegacao": "Defeito 3: o projeto-alvo-cli chama o CLI com o runtime vazio na frente do PATH: o claude da máquina de quem roda a suíte não é chamado nenhuma vez, e os três testes passam.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/projeto-alvo-cli.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=3 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:47:59.004Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-defeitos2010-hermeticos.test.ts",
+      "alegacao": "Defeito 3: os três testes de hermeticidade passam: o roteiro com outra sessão regravando o registro, o teste do roteiro com o HOME de quem roda sujo e o projeto-alvo-cli com o claude da máquina gravando cada chamada (nenhuma).",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-defeitos2010-hermeticos.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=3 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:48:01.227Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-claude.ts",
+      "alegacao": "Defeito 4 de 19 e 20/10/2026: a sessão claude-bg working com status idle, processo vivo, Stop correlacionado sem atividade depois e sem bloqueio pendente, passado OCIOSA_DEPOIS_DO_STOP_MS (5 min) desde a primeira leitura ociosa e nunca de antes do Stop, vira fim do turno pela prova do ork (fase_concluida com ela; human.pending, ou artifact.missing no PLAN, sem ela), e o phase_result solta a condução; busy (tarefa em segundo plano), status ausente, sem Stop, ou com atividade ou permissão pedida depois do Stop continuam esperando.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/rm037-defeitos2010-ociosa.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=4 && f==0)}' && node --test-reporter=tap core/dist-test/test/session-watcher-claude.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=25 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:53:16.352Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-defeitos2010-ociosa.test.ts",
+      "alegacao": "Mutante M5 (defeito 4): com working/idle depois do Stop de volta a ser sessão trabalhando para sempre (só o done do runtime encerra), o teste do fim do turno cai; o controle sem a troca passa.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm037-defeitos2010.json M5"
+      ],
+      "criadoEm": "2026-10-20T06:53:18.241Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm037-defeitos2010.json",
+      "alegacao": "Mutante M6 (defeito 4): com o prazo da ociosidade contando da primeira leitura mesmo de antes de um Stop novo, o teste da contagem cai; o controle sem a troca passa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm037-defeitos2010.json M6"
+      ],
+      "criadoEm": "2026-10-20T06:53:19.876Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+      "alegacao": "A página da RM-037 traz o lote Defeitos de condução de 19 e 20/10/2026 (thread ork-rm037defeit2), com os quatro defeitos, a causa de cada um (a do quarto, do runtime, com a linha do daemon), os testes rm037-defeitos2010 e os mutantes, o que ficou para depois e a thread no frontmatter.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF -e '- **Defeitos de condução de 19 e 20/10/2026 (thread `ork-rm037defeit2`):**' docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -qF -e '- **Fica para depois do lote de 19 e 20/10/2026 (thread `ork-rm037defeit2`):**' docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -qF 'thread: ork-rm037defeit2' docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -qF '`bg retire <id>: idle-prompt, idle 60m`' docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-037-verify-rapido-e-confiavel.md CHANGELOG.md docs/guias/verificacao.md"
+      ],
+      "criadoEm": "2026-10-20T06:57:39.806Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap, gerado do frontmatter, traz a RM-037 com a data do lote de 19 e 20/10/2026.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '| [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-10-20 |' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-20T06:57:41.663Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG traz em Não publicado a linha dos defeitos de condução de 19 e 20/10/2026, com a chave worktree.dependencias, e o checador do CI aceita o PR.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main",
+        "awk '/^## Não publicado/{s=1;next} /^## /{s=0} s && /Defeitos de condução de 19 e 20\\/10\\/2026/{f=1} END{exit !f}' CHANGELOG.md && awk '/^## Não publicado/{s=1;next} /^## /{s=0} s && /worktree\\.dependencias/{f=1} END{exit !f}' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-20T06:57:44.292Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "O guia de verificação diz que a baseline roda pelo executor do verify e que o comando sem veredito nela não vale como já falhava, mostra a chave worktree.dependencias, e a tabela do observador traz a linha da sessão working com status idle depois do Stop.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ou comando que não rodou) não vale como \"já' docs/guias/verificacao.md && grep -qF '| `working` com `status: idle` e processo vivo, depois de Stop correlacionado' docs/guias/verificacao.md && grep -qF 'dependencias: \"npm --prefix core ci --prefer-offline --no-audit --no-fund\"' docs/guias/verificacao.md"
+      ],
+      "criadoEm": "2026-10-20T06:57:47.105Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência do CLI em pt-BR diz que a baseline usa o prazo e o steal do verify e que o comando sem veredito nela sai SEM VEREDITO e não vale como já falhava, e que ork thread new e ork worktree ensure rodam o worktree.dependencias na worktree nova; a versão em inglês anda junto.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'sai como `SEM VEREDITO` e não vale como \"já falhava\"' docs/referencia/cli.md && grep -qF 'a worktree recriada roda o `worktree.dependencias` do manifesto, como a nova (RM-037)' docs/referencia/cli.md",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/locale-f3a-referencia.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=4 && f==0)}' && node --test-reporter=tap core/dist-test/test/rm044-paridade-cli-md.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:57:50.797Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência do CLI em inglês diz o mesmo que a de pt-BR sobre a baseline sem veredito e sobre o worktree.dependencias na worktree nova e na recriada.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'is shown as `NO VERDICT` and does not count as' docs/referencia/cli.en.md && grep -qF 'like a new one (RM-037)' docs/referencia/cli.en.md && grep -qF 'and shows on the `dependencies` line' docs/referencia/cli.en.md",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/locale-f3a-referencia.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T06:57:53.678Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-007-worktree-e-leases.md",
+      "alegacao": "A feature de worktree e leases traz o preparo de worktree.dependencias no fluxo, o evento worktree_dependencias e o módulo e o teste novos nas fontes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '`worktree_created`, `worktree_dependencias`' docs/produto/FEAT-007-worktree-e-leases.md && grep -qF 'core/src/dependencias-da-worktree.ts' docs/produto/FEAT-007-worktree-e-leases.md && grep -qF 'core/test/rm037-defeitos2010-dependencias.test.ts' docs/produto/FEAT-007-worktree-e-leases.md"
+      ],
+      "criadoEm": "2026-10-20T06:57:55.949Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C35",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
