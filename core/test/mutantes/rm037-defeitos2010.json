@@ -100,6 +100,24 @@
       "para": "const desde = cursor.ociosaDesde;",
       "teste": "rm037-defeitos2010-ociosa",
       "nome": "^defeito 4: a contagem recomeca"
+    },
+    {
+      "id": "M12",
+      "descricao": "defeito 4 (CHECK 3): a ociosidade depois do Stop volta a encerrar o turno com despertar agendado ou tarefa em segundo plano pendente",
+      "modulo": "session-watcher-claude",
+      "de": "const pendente = trabalhoPendenteDoStop(stop);",
+      "para": "const pendente = null;",
+      "teste": "rm037-defeitos2010-ociosa",
+      "nome": "^defeito 4 \\(CHECK 3\\): o Stop com despertar"
+    },
+    {
+      "id": "M13",
+      "descricao": "defeito 4 (CHECK 3): o Stop sem as contagens (hook ou runtime de antes) volta a valer como nada pendente",
+      "modulo": "session-watcher-claude",
+      "de": "if (tarefas === 0 && despertares === 0)",
+      "para": "if (!tarefas && !despertares)",
+      "teste": "rm037-defeitos2010-ociosa",
+      "nome": "^defeito 4 \\(CHECK 3\\): o Stop sem as contagens"
     }
   ]
 }

@@ -30,8 +30,10 @@ export const INTERVALO_WATCH_CLAUDE_MS = 5000;
  * RM-037 (defeitos de 19 e 20/10/2026, defeito 4): quanto a sessão fica ociosa no prompt (`working` com `status: idle`)
  * depois do Stop correlacionado até o observador tomar o turno por encerrado. O Claude Code mantém `working` a sessão cuja
  * resposta final ele lê como "ainda há passo" e só a encerra (`done`) depois de 60 min ociosa (`bg retire <id>:
- * idle-prompt, idle 60m` no log do daemon, medido em 20/10/2026), e nesse tempo a sessão segurava a condução. A que
- * espera tarefa em segundo plano aparece `busy`, e a passagem do fim de uma tarefa ao turno seguinte leva segundos.
+ * idle-prompt, idle 60m` no log do daemon, medido em 20/10/2026), e nesse tempo a sessão segurava a condução. O `status`
+ * ocioso não basta (CHECK 3 da ork-rm037defeit2, medido no Claude Code 2.1.304): com só um despertar agendado a sessão
+ * aparece `idle` e volta a escrever quando ele dispara. Só conta a ociosidade depois do Stop que disse zero tarefa em
+ * segundo plano e zero despertar (`trabalhoPendenteDoStop`).
  */
 export const OCIOSA_DEPOIS_DO_STOP_MS = 5 * 60 * 1000;
 const LIMITE_EVIDENCIA_BYTES = 4096;
@@ -153,6 +155,22 @@ export function stopCorrelacionado(eventos: readonly EventoLedger[],
 }
 
 /**
+ * RM-037 (CHECK 3 da ork-rm037defeit2): o trabalho que o Stop disse que ainda vai acordar a sessão, ou `null` quando ele
+ * gravou as duas contagens (`backgroundTasks` e `sessionCrons`, da entrada do hook) e as duas são zero. No Claude Code
+ * 2.1.304 o `status` fica `shell` com Bash em segundo plano e `idle` com despertar agendado (`CronCreate`,
+ * `ScheduleWakeup`, `/loop`) ou tarefa MCP. O Stop sem as contagens (hook ou runtime de antes) não prova que nada vai
+ * voltar: a sessão segue esperando, como antes desta regra, o `done` do runtime.
+ */
+export function trabalhoPendenteDoStop(stop: EventoLedger): string | null {
+  const { backgroundTasks: tarefas, sessionCrons: despertares } = stop;
+  if (tarefas === 0 && despertares === 0) return null;
+  if (typeof tarefas !== 'number' || typeof despertares !== 'number') {
+    return 'o Stop não disse se há tarefa em segundo plano ou despertar agendado (sem background_tasks e session_crons)';
+  }
+  return `o Stop registrou ${tarefas} tarefa(s) em segundo plano e ${despertares} despertar(es) agendado(s)`;
+}
+
+/**
  * O último entre bloqueio, destravamento e Stop da sessão, depois do despacho, é bloqueio?
  * O Stop resolve o bloqueio anterior: o turno só termina depois que o prompt de permissão
  * foi respondido (aprovado ou negado), e o estado nativo `done` confirma que não há espera.
@@ -266,18 +284,25 @@ export function classificarSessaoClaude(e: EntradaClassificacao): ClassificacaoC
         return esperaHumana();
       }
       delete cursor.bloqueadoDesde;
-      // RM-037 (defeito 4 de 19 e 20/10/2026): turno encerrado pelo Stop e a sessão ociosa no prompt, sem tarefa em
-      // segundo plano (`status: idle`; a espera por tarefa é `busy`). O runtime só a encerra depois de 60 min; passado
-      // `OCIOSA_DEPOIS_DO_STOP_MS` sem atividade, vale a prova do `ork`, como no `done`. O prazo conta da primeira leitura
-      // ociosa e nunca de antes do Stop: a sessão que voltou e parou de novo recomeça a contagem.
+      // RM-037 (defeito 4 de 19 e 20/10/2026): turno encerrado pelo Stop e a sessão ociosa no prompt (`status: idle`). O
+      // runtime só a encerra depois de 60 min; passado `OCIOSA_DEPOIS_DO_STOP_MS` sem atividade, vale a prova do `ork`, como
+      // no `done`, mas só depois do Stop que disse zero tarefa em segundo plano e zero despertar agendado (CHECK 3): o
+      // despertar deixa a sessão `idle` até disparar. O prazo conta da primeira leitura ociosa e nunca de antes do Stop: a
+      // sessão que voltou e parou de novo recomeça a contagem.
       if (estado === 'working' && r.status === 'idle' && stop && !bloqueioPendente(e.eventos, e.sessao)) {
+        const pendente = trabalhoPendenteDoStop(stop);
+        if (pendente !== null) {
+          delete cursor.ociosaDesde;
+          return espera(`turno encerrado pelo Stop com a sessão ociosa no prompt (working/idle), mas ${pendente}; ` +
+            'a ociosidade não encerra o turno');
+        }
         cursor.ociosaDesde ??= agora;
         const desde = Math.max(cursor.ociosaDesde, Date.parse(stop.ts) || 0);
         if (agora - desde < OCIOSA_DEPOIS_DO_STOP_MS) {
           return espera('turno encerrado pelo Stop com a sessão ociosa no prompt (working/idle); aguardando o prazo da ociosidade');
         }
         return concluir(`Stop correlacionado e sessão ociosa no prompt (working/idle) por ${OCIOSA_DEPOIS_DO_STOP_MS / 60000} min, ` +
-          'sem tarefa em segundo plano', false);
+          'sem tarefa em segundo plano nem despertar agendado no Stop', false);
       }
       delete cursor.ociosaDesde;
       return espera(estado === 'blocked' ? 'sessão bloqueada à espera humana' : 'sessão trabalhando');
