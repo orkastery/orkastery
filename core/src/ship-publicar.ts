@@ -43,6 +43,7 @@ import {
 } from './parado-no-condutor';
 import { enderecoDoRemotoDaRaiz, forjaDaEntrega, mergeDaEntrega } from './entrega-pr';
 
+import { guardaDaThread, MotivoDaGuarda } from './noctum-guarda';
 import { MODOS_QUE_AUTORIZAM_PUSH } from './ship';
 import { estadoDoArtefato, vereditoDoParecer } from './session-watcher-claude';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -470,6 +471,8 @@ export interface Publicacao {
   /** Os comandos realmente executados, na ordem (no ensaio, os que o real executaria). */
   passos: string[];
   dryRun: boolean;
+  /** RM-058, integração (T1.1): a recusa da guarda das threads do arco #Noctum, com o motivo `policy.violation`. */
+  codigo?: MotivoDaGuarda;
 }
 
 export interface OpcoesDaPublicacao {
@@ -496,6 +499,11 @@ export interface OpcoesDaPublicacao {
    * o texto que fica público).
    */
   antesDoEfeito?: (efeito: 'push' | 'pr', pr?: { titulo: string; corpo: string }) => { recusa: string; correcao: string } | null;
+  /**
+   * RM-058, integração (T1.1, D3 da ork-rm058integra): o arco que publica a própria thread, pelo passo da entrega da N5, no
+   * ensaio e no efeito. A thread de um arco que a guarda só é publicada por ele; sem isto, a guarda recusa. Nunca vem da CLI.
+   */
+  doArco?: string;
 }
 
 /**
@@ -532,6 +540,10 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   if (t.status === 'fechada') {
     return recusar('artifact.missing', textoDoCatalogo((m) => p(m).threadFechada(t.id)), textoDoCatalogo((m) => p(m).threadFechadaCorrecao));
   }
+  // RM-058, integração (T1.1, D3 da ork-rm058integra): a thread de um arco #Noctum que a guarda só é publicada pelo próprio
+  // arco (`doArco`). Antes de qualquer git, e sem ledger, como as outras recusas daqui.
+  const guarda = guardaDaThread(raiz, t.id, quando, { doArco: opcoes.doArco });
+  if (guarda) return { ...recusar('policy.violation', guarda.detalhe, guarda.correcao), codigo: guarda.motivo };
   const refs = refsLocais(raiz, remoto);
   const baseRef = refDaBase(refs, remoto, base);
   const f = fatosDaThread(carregado, t, refs, baseRef, quando);

@@ -32,6 +32,7 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { comLocale, textoDoCatalogo } from './locale';
 import { ManifestoCarregado } from './manifest';
 import { aceitarPendentesPorOmissao, motivoForaDaOmissao } from './master';
+import { ArcoDoPasso, arcoDoPasso, lerArcosDaRaiz, MOTIVO_DO_ARCO_ILEGIVEL } from './noctum-guarda';
 import { LIMIAR_PARADO_NO_CONDUTOR_MIN } from './parado-no-condutor';
 import { FantasmaTratado, limparFantasmas } from './sessoes';
 import { inventariarSessoes } from './sessoes-inventario';
@@ -56,7 +57,7 @@ export type AcaoDaVarredura = typeof ACOES_DA_VARREDURA[number];
 export const MOTIVOS_DO_BLOQUEIO = ['conduzida', 'sessao-viva', 'sessoes-sem-leitura', 'worktree-suja', 'branch-com-commits',
   'trabalho-novo', 'git-sem-resposta', 'pr-rascunho', 'checks-vermelhos', 'sem-checks-obrigatorios', 'pr-bloqueado',
   'pr-instavel', 'conflito-em-codigo', 'branch-nao-publicada', 'sem-prompt-gravado', 'check-pendente', 'pendencia-do-dono',
-  'espera-longa'] as const;
+  'espera-longa', 'thread-do-arco'] as const;
 export type MotivoDoBloqueio = typeof MOTIVOS_DO_BLOQUEIO[number];
 
 export interface AcaoPendente {
@@ -307,18 +308,34 @@ export function lerSessoes(raiz: string, opcoes: OpcoesDaDeteccao): { fantasmas:
 /**
  * As acoes que a varredura faria agora, sem fazer nenhuma. Leitura pura (o git da copia local, o ledger, o runtime pelo
  * inventario), na ordem em que a execucao as faz: `limpar`, `registrar`, `master`.
+ *
+ * RM-058, integracao (T1.2, D3): a thread que um arco #Noctum segura nao tem acao de fora. Por padrao (o pulse) ela some da
+ * lista, porque quem diz dela ao dono e o relatorio do arco; com `comArco` (a varredura que age), ela fica com o bloqueio
+ * `thread-do-arco`, para o retrato da batida dizer o pulo. A retencao depois do arco nao segura estas tres acoes (D4).
  */
-export function acoesPendentes(carregado: ManifestoCarregado, opcoes: OpcoesDaDeteccao = {}): AcaoPendente[] {
+export function acoesPendentes(carregado: ManifestoCarregado, opcoes: OpcoesDaDeteccao & { comArco?: boolean } = {}): AcaoPendente[] {
   const raiz = raizDoEstado(carregado.raiz);
   const quando = opcoes.quando ?? new Date().toISOString();
   const doProjeto = { ...carregado, raiz };
   const threads = lerThreads(raiz);
   const { fantasmas, vivas } = lerSessoes(raiz, opcoes);
-  return [
+  const todas = [
     ...pendentesDeLimpar(raiz, new Map(threads.map((t) => [t.id, t])), fantasmas, quando),
     ...pendentesDeRegistrar(doProjeto, threads, quando, vivas),
     ...pendentesDeMaster(doProjeto, threads, quando, vivas),
   ];
+  const arcos = lerArcosDaRaiz(raiz, quando);
+  if (!arcos.lidos.size && !arcos.ilegiveis.size) return todas;
+  const porThread = new Map<string, ArcoDoPasso | null>();
+  const saida: AcaoPendente[] = [];
+  for (const a of todas) {
+    if (!porThread.has(a.thread)) porThread.set(a.thread, arcoDoPasso(raiz, arcos, a.thread, ledgerDe(raiz, a.thread)));
+    const arco = porThread.get(a.thread);
+    if (arco?.efeito !== 'guarda') { saida.push(a); continue; }
+    // A6 do CHECK: o arco que nao se le nao tem relatorio que diga da thread ao dono; a acao fica no pulse, bloqueada.
+    if (opcoes.comArco || arco.motivo === MOTIVO_DO_ARCO_ILEGIVEL) saida.push({ ...a, bloqueio: arco.detalhe, motivoDoBloqueio: 'thread-do-arco' });
+  }
+  return saida;
 }
 
 export interface AcaoFeita {
@@ -367,7 +384,7 @@ export function agirNaVarredura(carregado: ManifestoCarregado, opcoes: OpcoesDaV
   const leitura = opcoes.autorizacao ?? lerAutorizacao(raiz, { projeto: carregado.manifesto.project.name, agora: new Date(quando) });
   const busca = opcoes.buscar === false ? null : buscarBase(carregado);
   const sessoes = lerSessoes(raiz, opcoes);
-  const pendentes = acoesPendentes(carregado, { quando, fantasmas: () => sessoes.fantasmas, vivas: () => sessoes.vivas });
+  const pendentes = acoesPendentes(carregado, { quando, fantasmas: () => sessoes.fantasmas, vivas: () => sessoes.vivas, comArco: true });
   const feitas: AcaoFeita[] = [];
   const ficam: AcaoPendente[] = [];
   const referencia = referenciaDaAutorizacao(leitura);

@@ -55,6 +55,13 @@ ci:
   # O SHIP consulta o check obrigatório no SHA candidato antes de tomar o lease da base.
   required_for_ship: true
   context: ork-verify
+  # RM-058 (integração, D10): os quatro checks que a proteção da main exige. A prova do CI da entrega
+  # do arco #Noctum exige todos verdes no SHA fonte; o ork ship segue lendo só o context acima.
+  contexts:
+    - "documentacao (markdownlint e paridade)"
+    - "nucleo ork (build, testes, canarios) (20)"
+    - "nucleo ork (build, testes, canarios) (22)"
+    - "ork-verify"
   # O runner hospedado não oferece OrkMind/PostgreSQL local nem user namespaces. A suíte
   # hermética mantém essas integrações na verificação integral da estação de desenvolvimento.
   command: "npm --prefix core run test:ci"

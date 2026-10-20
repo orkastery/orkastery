@@ -9,14 +9,14 @@ import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dirTemporario, projetoTemporario, runtimePorConta } from './apoio';
-import { abrirArco, concluirFase, despachar as despacharNaThread, entregar, gravarArtefato, prepararIngressoSimulado, revogarArco, stopSemResultado,
-  TrabalhoSimulado } from './noctum-apoio';
+import { abrirArco, abrirComBaseline, baselineSimulada, concluirFase, despachar as despacharNaThread, entregar, gravarArtefato,
+  prepararIngressoSimulado, revogarArco, stopSemResultado, TrabalhoSimulado } from './noctum-apoio';
 import { passoDoArco, OpcoesDoPasso, ResultadoDoPasso } from '../src/noctum-execucao';
 import { lerArco, reservarDespacho } from '../src/noctum-arco';
 import { RecusaDoArco } from '../src/noctum-envelope';
 import { registrarConducaoDaSessao } from '../src/conducao';
 import { ErroDaFilaPesada, kernelDisponivel, tentarTravaExclusiva } from '../src/fila-pesada';
-import { registrar } from '../src/ledger';
+import { lerLedger, registrar } from '../src/ledger';
 import { OpcoesRun, ResultadoRun } from '../src/phase';
 import { caminhoThread, dirThread, lerThread, listarIds, novaThread } from '../src/thread';
 
@@ -53,7 +53,8 @@ function despachoSimulado(registro: string[] = []): NonNullable<OpcoesDoPasso['d
   };
 }
 
-const semWorktree: NonNullable<OpcoesDoPasso['abrirThread']> = (carregado, o) => novaThread(carregado, { ...o, criarWorktree: false }).thread;
+// RM-058, integração (D6): a thread que o arco abre aqui já tem a baseline SIMULADA do condutor; o X1 e a BL provam o caminho dela.
+const semWorktree: NonNullable<OpcoesDoPasso['abrirThread']> = abrirComBaseline;
 
 function passo(p: Projeto, arco: string, x: OpcoesDoPasso & { itens?: string[] } = {}): ResultadoDoPasso {
   return passoDoArco(p.carregado, arco, { maquina: MAQUINA, lerReservas: reservadas(x.itens ?? ['RM-901', 'RM-902', 'RM-903']),
@@ -75,6 +76,10 @@ test('X1: de ponta a ponta pelo phase run real: abre e despacha na ordem, espera
     abrirArco(p.dir, 'arco-x1', { trabalhos: AB, maquina: 2, contas: [{ conta: 'perfil-a', sessoes: 2 }] });
     // Sem despachante injetado: rodarFase, novaThread com worktree e a leitura real das sessões e do store de perfis.
     const real = (x: OpcoesDoPasso = {}) => passoDoArco(p.carregado, 'arco-x1', { maquina: MAQUINA, lerReservas: reservadas(['RM-901', 'RM-902']), ...x });
+    // RM-058, integração (D6): o bloco com GO pede a baseline também no claude-bg; o núcleo a grava fora da trava, e o passo
+    // seguinte confere o envelope de novo e despacha.
+    const r0 = real();
+    assert.ok(r0.acao === 'aguardar' && r0.motivo === 'baseline-gravada', JSON.stringify(r0));
     const r1 = real();
     assert.equal(r1.acao, 'despachou', JSON.stringify(r1.acao === 'aguardar' || r1.acao === 'recusado' ? r1 : r1.acao));
     assert.ok(r1.acao === 'despachou');
@@ -84,9 +89,9 @@ test('X1: de ponta a ponta pelo phase run real: abre e despacha na ordem, espera
     const ta = lerThread(p.dir, r1.thread);
     assert.equal(ta.roadmap, 'RM-901');
     assert.ok(ta.worktree, 'a thread aberta pelo arco tem worktree');
+    assert.equal(lerLedger(dirThread(p.dir, ta.id)).filter(e => e.tipo === 'baseline_recorded').length, 1, 'a baseline real, uma vez');
     const estado = lerArco(p.dir, 'arco-x1')!;
-    assert.equal(estado.despachos.length, 1);
-    assert.equal(estado.despachos[0].desfecho, 'concluido');
+    assert.deepEqual(estado.despachos.map(d => `${d.desfecho}:${d.motivo ?? ''}`), ['recusado:baseline.pendente', 'concluido:']);
     assert.equal(estado.consumo.arco, 1);
     // A segue em curso e B depende dela: nada a despachar, o passo espera a cadência.
     const r2 = real();
@@ -96,6 +101,8 @@ test('X1: de ponta a ponta pelo phase run real: abre e despacha na ordem, espera
     gravarArtefato(p.dir, ta.id, 'check.md');
     concluirFase(p.dir, ta.id, 'GOAL', String(r1.sessionId));
     entregar(p.dir, ta.id);
+    const r3b = real();
+    assert.ok(r3b.acao === 'aguardar' && r3b.motivo === 'baseline-gravada', JSON.stringify(r3b));
     const r3 = real();
     assert.ok(r3.acao === 'despachou' && r3.trabalho === 'b', JSON.stringify(r3.acao));
     entregar(p.dir, r3.acao === 'despachou' ? r3.thread : '');
@@ -157,7 +164,11 @@ test('X4: dois processos concorrentes com capacidade 1 despacham uma vez só', {
         lerReservas: () => ({ leitura: 'copia-local', reservas: ['RM-901', 'RM-903'].map(item => ({ item, maquina: ${JSON.stringify(MAQUINA)}, thread: null })) }),
         consultarSessoes: () => ({ sessoes: [], fontes: [{ origem: 'simulada', ok: true, detalhe: '' }], contas: [{ runtime: 'claude-bg', perfil: null }] }),
         perfis: () => [{ id: 'perfil-a', runtime: 'claude-bg' }],
-        abrirThread: (k, o) => novaThread(k, { ...o, criarWorktree: false }).thread,
+        abrirThread: (k, o) => {
+          const t = novaThread(k, { ...o, criarWorktree: false }).thread;
+          registrar(dirThread(k.raiz, t.id), t.id, 'baseline_recorded', { commit: 'SIMULADO', comandos: [], simulado: true });
+          return t;
+        },
         despachar: (k, threadId, o) => {
           // Como o phase run real, a sessão só existe depois de um tempo: sem a trava de despacho, o outro processo lê os
           // fatos nessa janela, não vê sessão nenhuma e despacha junto.
@@ -337,7 +348,7 @@ test('X11: a falha de um candidato antes de lançar devolve a reserva e o mesmo 
     abrirArco(p.dir, 'arco-x11', { trabalhos: AC });
     const abrirThread: NonNullable<OpcoesDoPasso['abrirThread']> = (k, o) => {
       if (o.roadmap === 'RM-901') throw new Error('worktree SIMULADA não pôde ser criada');
-      return novaThread(k, { ...o, criarWorktree: false }).thread;
+      return abrirComBaseline(k, o);
     };
     const r1 = passo(p, 'arco-x11', { abrirThread });
     assert.ok(r1.acao === 'despachou' && r1.trabalho === 'c', JSON.stringify(r1.acao));
@@ -386,18 +397,21 @@ test('X13: o claude --bg que diz o id e sai com erro deixa a reserva pendente e 
     claude.conta(p.dir, 'perfil-a');
     abrirArco(p.dir, 'arco-x13', { trabalhos: [AC[0]], maquina: 3, contas: [{ conta: 'perfil-a', sessoes: 3 }], tetoDoArco: 3 });
     const real = () => passoDoArco(p.carregado, 'arco-x13', { maquina: MAQUINA, lerReservas: reservadas(['RM-901']) });
+    // RM-058, integração (D6): a baseline real do bloco com GO, fora da trava, antes do primeiro despacho.
+    const r0 = real();
+    assert.ok(r0.acao === 'aguardar' && r0.motivo === 'baseline-gravada', JSON.stringify(r0));
     const r1 = real();
     assert.ok(r1.acao === 'recusado' && r1.motivo === 'runtime.unavailable' && r1.reserva !== null, JSON.stringify(r1.acao));
     assert.match(r1.acao === 'recusado' ? r1.detalhe : '', /a sessão pode ter aberto \(99999999-0000-4000-8000-000000000001\)/);
     let estado = lerArco(p.dir, 'arco-x13')!;
-    assert.deepEqual(estado.despachos.map(d => d.desfecho), ['pendente']);
+    assert.deepEqual(estado.despachos.map(d => d.desfecho), ['recusado', 'pendente']);
     assert.equal(estado.consumo.arco, 1, 'a sessão que pode ter aberto conta no teto');
     const r2 = real();
     assert.ok(r2.acao === 'aguardar', JSON.stringify(r2.acao));
     assert.equal(r2.acao === 'aguardar' && r2.fila?.trabalhos[0].motivo, 'retomada', 'a thread com o despacho falho vai para a retomada da N4');
     assert.equal(Number(fs.readFileSync(path.join(claude.dir, 'n'), 'utf8').trim()), 1, 'o runtime abriu uma sessão só');
     estado = lerArco(p.dir, 'arco-x13')!;
-    assert.equal(estado.despachos.length, 1, 'nenhuma reserva nova');
+    assert.equal(estado.despachos.length, 2, 'nenhuma reserva nova depois da sessão que pode ter aberto');
   } finally {
     if (codexAntes === undefined) delete process.env.CODEX_HOME; else process.env.CODEX_HOME = codexAntes;
     p.limpar(); claude.restaurar(); fs.rmSync(codex, { recursive: true, force: true });
@@ -483,6 +497,7 @@ test('X17: a retomada autorizada sai pelo passo, com a reserva e a correlação 
   const p = projetoTemporario('noctum-x17');
   try {
     const t = novaThread(p.carregado, { nome: 'parou', modo: 'auto', roadmap: 'RM-901', pedido: PEDIDO.a }).thread;
+    baselineSimulada(p.dir, t.id); // a thread chegou ao GO: o condutor já tinha gravado a baseline
     abrirArco(p.dir, 'arco-x17', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], thread: t.id }] });
     stopSemResultado(p.dir, t.id, 'GO', despacharNaThread(p.dir, t.id, 'GO', 171));
     const opcoes: OpcoesRun[] = [];

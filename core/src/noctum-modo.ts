@@ -14,9 +14,10 @@
  * pela entrada, conferido aqui com o `autorizarPeloIngresso` e o `revogarPeloIngresso` da N1) ou o diálogo nativo do host
  * pelo MCP. Argumento de ferramenta e comando de terminal nunca são resposta do dono.
  *
- * O tique (D13) junta, nesta ordem, o fechamento, o passo (ainda o da N2; o vigia da N4, já na base, não entra no lugar dele
- * nesta fatia) e o relatório.
- * É o que o cron do dono chama no piloto; a N6 não instala cron.
+ * O tique (D13) junta, nesta ordem, o fechamento, o vigia da N4 e o relatório (RM-058, integração, D7 da ork-rm058integra):
+ * o vigia reconcilia, aplica as paradas e, só com o condutor ausente, dá o passo do despacho; a parada que ele grava fecha
+ * o arco no mesmo tique, pelo fechamento, com o motivo `supervisao`. Os testes da N6 ainda passam o passo da N2 no lugar do
+ * vigia. É o que o cron do dono chama no piloto; nada aqui instala cron.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -27,13 +28,15 @@ import { ManifestoCarregado } from './manifest';
 import { MODOS_LEGADOS } from './modos';
 import { autorizarPeloIngresso, EstadoDoArco, lerArco, revogarPeloIngresso, SituacaoDoArco } from './noctum-arco';
 import { ID_DO_ARCO, RecusaDoArco, Unidade } from './noctum-envelope';
-import { OpcoesDoPasso, passoDoArco, ResultadoDoPasso } from './noctum-execucao';
+import { OpcoesDoPasso, ResultadoDoPasso } from './noctum-execucao';
 import { fecharSeDevido, lerFechamento, OpcoesDoFechamento, ResultadoDoFechamento, textoDaParada, trabalhosDoArco } from './noctum-fechamento';
 import { fatosDaFila, LeitorDeReservas } from './noctum-fila';
 import { consumoDoEscopoNaUnidade, MedicaoDoArco, textoDoConsumo } from './noctum-medicao';
-import { entregarRelatorioSeDevido, medidorDoRelatorio, OpcoesDoRelatorio, ResultadoDaEntrega, retratoDoRelatorio,
-  RetratoDoRelatorio } from './noctum-relatorio';
+import { entregarRelatorioSeDevido, FatosDaSupervisao, fatosDaSupervisao, JANELA_DE_ENTREGA_MS, medidorDoRelatorio, OpcoesDoRelatorio,
+  ResultadoDaEntrega, retratoDoRelatorio, RetratoDoRelatorio } from './noctum-relatorio';
 import { RecusaDoRegistro } from './noctum-registro';
+import { RecusaDaSupervisao } from './noctum-supervisao';
+import { OpcoesDoVigia, ResultadoDoVigia, vigiarArco } from './noctum-vigia';
 
 export const CONTRATO_INGRESSO_DO_ARCO = 'ork.noctum-ingresso/v1' as const;
 export const CONTRATO_RETRATO_DO_ARCO = 'ork.noctum-retrato/v1' as const;
@@ -142,6 +145,8 @@ export interface RetratoDoArco {
     motivo: string | null }> } | null;
   fechamento: { motivo: string; detalhe: string; em: string; paradas: string[] } | null;
   relatorio: RetratoDoRelatorio;
+  /** RM-058, integração (T3): os fatos da supervisão da N4 (isolados, contas fora, retomadas, sessões paradas e parada). */
+  supervisao: FatosDaSupervisao | null;
   decisoesPendentes: number;
   /** O que não foi lido, mais as lacunas do relatório: é aqui que a falta de recibo aparece (D3). */
   lacunas: string[];
@@ -186,9 +191,12 @@ export function retratoDoArco(carregado: ManifestoCarregado, arco: string, opcoe
   }
   const relatorio = retratoDoRelatorio(raiz, arco, estado.autorizadoPor ? conteudo : null, quando);
   lacunas.push(...relatorio.lacunas);
+  let supervisao: FatosDaSupervisao | null = null;
+  try { supervisao = fatosDaSupervisao(raiz, arco, quando); }
+  catch (e) { if (!(e instanceof RecusaDaSupervisao)) throw e; lacunas.push(`a supervisão do arco não se lê (${e.motivo})`); }
   return { contrato: CONTRATO_RETRATO_DO_ARCO, arco, quando, situacao: estado.situacao, versao: estado.versao, envelopeSha256: estado.envelopeSha256,
     janela: conteudo ? { inicio: conteudo.janela.inicio, fim: conteudo.janela.fim, fuso: conteudo.janela.fuso } : null,
-    propostaPendente: estado.propostaPendente, consumo, fila, fechamento, relatorio, decisoesPendentes: estado.decisoes.length, lacunas };
+    propostaPendente: estado.propostaPendente, consumo, fila, fechamento, relatorio, supervisao, decisoesPendentes: estado.decisoes.length, lacunas };
 }
 
 /** O retrato em texto para pessoa, em pt-BR, com os horários no fuso da janela. */
@@ -214,35 +222,67 @@ export function textoDoRetrato(r: RetratoDoArco): string {
     l.push(`Relatório da manhã: vence ${formatarNoFuso(rel.vencimentoEm)} pelo canal ${rel.canal}` +
       (rel.versoes.length ? `; ${rel.versoes.map(v => `versão ${v.versao} ${v.entregue ? 'entregue' : 'sem recibo'}`).join(', ')}` : '; nenhuma versão ainda'));
   }
+  const s = r.supervisao;
+  if (s && (s.parada || s.isolados.length || s.contasFora.length || s.retomadas?.length || s.sessoesParadas?.length)) {
+    l.push('Supervisão:', ...(s.parada ? [`  • parada: ${s.parada}`] : []), ...s.isolados.map(i => `  • isolado ${i.trabalho}: ${i.motivo}`),
+      ...s.contasFora.map(c => `  • a conta ${c.conta} saiu do arco: ${c.motivo}`), ...(s.retomadas ?? []).map(x => `  • retomada autorizada: ${x}`),
+      ...(s.sessoesParadas ?? []).map(x => `  • ${x}`));
+  }
   if (r.decisoesPendentes) l.push(`Decisões do dono no lote: ${r.decisoesPendentes} (ork noctum relatorio ${r.arco})`);
   l.push(...(r.lacunas.length ? ['Lacunas:', ...r.lacunas.map(x => `  • ${x}`)] : ['Lacunas: nenhuma']));
   return l.join('\n');
 }
 
 export interface OpcoesDoTique extends OpcoesDoFechamento, Omit<OpcoesDoRelatorio, 'medir'> {
-  /** O passo do arco; ainda o da N2 (D6): ligar o vigia da N4 aqui pede decidir quem roda o condutor e a baseline. */
+  /** O passo da N2 no lugar do vigia: só os testes da N6 o passam (MO1 a MO12), como antes da integração. */
   passo?: (carregado: ManifestoCarregado, arco: string, quando: string) => ResultadoDoPasso;
-  /** Opções do passo da N2 quando ele é o padrão (as dependências dos testes). */
+  /** Opções do passo da N2 dentro do vigia (as dependências dos testes). */
   opcoesDoPasso?: OpcoesDoPasso;
+  /** RM-058, integração (D7): o vigia da N4; em produção, `vigiarArco`. */
+  vigia?: (carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoVigia) => ResultadoDoVigia;
+  /** As dependências do vigia (a listagem do runtime, o store de perfis, a parada das sessões, o remoto). */
+  opcoesDoVigia?: OpcoesDoVigia;
 }
 
 /** A recusa tipada de uma etapa do tique: fica no resultado, e o relatório sai assim mesmo. */
-export interface FalhaDoTique { etapa: 'fechamento' | 'passo'; motivo: string; detalhe: string }
+export interface FalhaDoTique { etapa: 'fechamento' | 'passo' | 'vigia'; motivo: string; detalhe: string }
 
 export interface ResultadoDoTique {
   contrato: typeof CONTRATO_TIQUE;
   arco: string;
   quando: string;
   fechamento: ResultadoDoFechamento;
+  /** O passo do despacho: o do vigia, quando ele conduziu, ou o da N2 que o teste passou. */
   passo: ResultadoDoPasso | null;
+  /** RM-058, integração (D7): o tique do vigia, campo aditivo do mesmo contrato; `null` quando ele não rodou. */
+  vigia: ResultadoDoVigia | null;
   relatorio: ResultadoDaEntrega;
   falhas: FalhaDoTique[];
 }
 
 /**
- * D13: um tique do arco: o fechamento, o passo (só com o arco vigente e não encerrado) e o relatório, nessa ordem. Se o
- * passo encerra pela fila vazia, o fechamento roda de novo no mesmo tique. Arco nunca autorizado recusa: o modo não vale.
- * Cada etapa é isolada: a recusa tipada do fechamento ou do passo (o registro do fechamento adulterado ou ocupado, por
+ * O arco terminal e quieto: nada pendente no log e o relatório entregue, ou a janela de entrega dele (24 h depois do
+ * vencimento) acabada, quando o relatório não tenta mais (A3 do CHECK: o canal sem transporte, o terminal nunca mostrado).
+ * O vigia não roda mais, e o log dele não cresce.
+ */
+function terminalQuieto(carregado: ManifestoCarregado, arco: string, estado: EstadoDoArco, quando: string): boolean {
+  if (!['expirado', 'revogado', 'encerrado'].includes(estado.situacao)) return false;
+  if (estado.despachos.some(d => d.desfecho === 'pendente')) return false;
+  try {
+    const r = retratoDoRelatorio(carregado.raiz, arco, estado.conteudo, quando);
+    if (r.versoes.at(-1)?.entregue === true) return true;
+    return !!r.vencimentoEm && Date.parse(quando) >= Date.parse(r.vencimentoEm) + JANELA_DE_ENTREGA_MS;
+  } catch { return false; }
+}
+
+/**
+ * D13: um tique do arco: o fechamento, o vigia e o relatório, nessa ordem (D7 da ork-rm058integra). O vigia reconcilia e
+ * aplica as paradas mesmo no arco que fechou (as reservas em voo); só com o arco vigente, a supervisão sem parada e o
+ * condutor ausente ele dá o passo do despacho. Antes da janela, e no arco terminal sem reserva pendente e com o relatório
+ * entregue, o vigia não roda. Se o vigia volta com a parada da supervisão, ou o passo encerra pela fila vazia, o
+ * fechamento roda de novo no mesmo tique: quem encerra é o fechamento, nunca o vigia. Com o `passo` do teste, ele roda no
+ * lugar do vigia, só no arco vigente, como na N6. Arco nunca autorizado recusa: o modo não vale. Cada etapa é isolada: a
+ * recusa tipada do fechamento, do vigia ou do passo (o registro do fechamento ou da supervisão adulterado ou ocupado, por
  * exemplo) vira falha do tique, e o relatório da manhã sai assim mesmo; o erro que não é recusa sobe depois do relatório.
  */
 export function tiqueDoArco(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoTique = {}): ResultadoDoTique {
@@ -259,8 +299,9 @@ export function tiqueDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
   const isolada = <T>(etapa: FalhaDoTique['etapa'], fn: () => T): T | null => {
     try { return fn(); }
     catch (e) {
-      if (e instanceof RecusaDoArco || e instanceof RecusaDoRegistro) falhas.push({ etapa, motivo: e.motivo, detalhe: e.message.slice(0, 300) });
-      else erro ??= e;
+      if (e instanceof RecusaDoArco || e instanceof RecusaDoRegistro || e instanceof RecusaDaSupervisao) {
+        falhas.push({ etapa, motivo: e.motivo, detalhe: e.message.slice(0, 300) });
+      } else erro ??= e;
       return null;
     }
   };
@@ -272,10 +313,22 @@ export function tiqueDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
   };
   let fechamento = isolada('fechamento', () => fecharSeDevido(carregado, arco, deFechamento)) ?? queFalhou();
   let passo: ResultadoDoPasso | null = null;
-  if (!fechamento.fechado && erro === null && falhas.length === 0 && lerArco(raiz, arco, quando)?.situacao === 'vigente') {
-    passo = isolada('passo', () => (opcoes.passo ?? ((k, a, q) => passoDoArco(k, a, { maquina: opcoes.maquina, lerReservas: opcoes.lerReservas,
-      ...opcoes.opcoesDoPasso, quando: q })))(carregado, arco, quando));
-    if (passo?.acao === 'encerrar') fechamento = isolada('fechamento', () => fecharSeDevido(carregado, arco, deFechamento)) ?? queFalhou();
+  let vigia: ResultadoDoVigia | null = null;
+  const agora = erro === null && falhas.length === 0 ? lerArco(raiz, arco, quando) : null;
+  if (opcoes.passo) {
+    if (!fechamento.fechado && agora?.situacao === 'vigente') {
+      passo = isolada('passo', () => opcoes.passo!(carregado, arco, quando));
+      if (passo?.acao === 'encerrar') fechamento = isolada('fechamento', () => fecharSeDevido(carregado, arco, deFechamento)) ?? queFalhou();
+    }
+  } else if (agora && agora.situacao !== 'agendado' && !terminalQuieto(carregado, arco, agora, quando)) {
+    const deVigia: OpcoesDoVigia = { ...opcoes.opcoesDoVigia, quando, maquina: opcoes.maquina ?? opcoes.opcoesDoVigia?.maquina,
+      passo: { maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, ...opcoes.opcoesDoPasso, ...opcoes.opcoesDoVigia?.passo } };
+    vigia = isolada('vigia', () => (opcoes.vigia ?? vigiarArco)(carregado, arco, deVigia));
+    const doVigia = vigia?.acao === 'tique' ? vigia.passo : null;
+    passo = doVigia && doVigia.acao !== 'parado' && doVigia.acao !== 'geracao-vencida' ? doVigia : null;
+    if (vigia?.acao === 'tique' && !fechamento.fechado && (vigia.parada || passo?.acao === 'encerrar')) {
+      fechamento = isolada('fechamento', () => fecharSeDevido(carregado, arco, deFechamento)) ?? queFalhou();
+    }
   }
   let relatorio: ResultadoDaEntrega;
   try {
@@ -283,5 +336,5 @@ export function tiqueDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
       medir: opcoes.medir, supervisao: opcoes.supervisao, enviar: opcoes.enviar });
   } catch (e) { throw erro ?? e; }
   if (erro !== null) throw erro;
-  return { contrato: CONTRATO_TIQUE, arco, quando, fechamento, passo, relatorio, falhas };
+  return { contrato: CONTRATO_TIQUE, arco, quando, fechamento, passo, vigia, relatorio, falhas };
 }

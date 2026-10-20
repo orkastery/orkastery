@@ -16,7 +16,8 @@ import { registrar } from '../src/ledger';
 import { OpcoesDoPasso } from '../src/noctum-execucao';
 import { OpcoesDoVigia } from '../src/noctum-vigia';
 import { OpcoesRun, ResultadoRun } from '../src/phase';
-import { dirThread, novaThread } from '../src/thread';
+import { dirThread } from '../src/thread';
+import { abrirComBaseline } from './noctum-apoio';
 
 export const MAQUINA = 'maquina-simulada';
 
@@ -150,6 +151,7 @@ export function opcoesSimuladas(dir: string, itens: string[], registro: string[]
     ...extra,
     passo: { maquina: MAQUINA, consultarSessoes: runtime.leitura, despachar: despachoSimuladoDoArco(dir, registro, falha),
       lerReservas: () => ({ leitura: 'copia-local' as const, reservas: itens.map(item => ({ item, maquina: MAQUINA, thread: null })) }),
-      abrirThread: (k, o) => novaThread(k, { ...o, criarWorktree: false }).thread, ...extra.passo },
+      // RM-058, integração (D6): a thread aberta pelo passo já tem a baseline SIMULADA do condutor.
+      abrirThread: abrirComBaseline, ...extra.passo },
   };
 }

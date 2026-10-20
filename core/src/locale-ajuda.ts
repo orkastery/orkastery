@@ -130,9 +130,17 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   noctum responder <arco> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
                                             Recebe a autorização ou a revogação assinada pelo gateway
   noctum status [<arco>] [--json]           Retrato do arco: situação, consumo medido, fila, fechamento e lacunas
-  noctum tique <arco> [--json]              Fechamento, passo e relatório do arco, nessa ordem (o cron do dono chama)
+  noctum tique <arco> [--json]              Fechamento, vigia e relatório do arco, nessa ordem (o cron do dono chama);
+                                            o vigia reconcilia e, sem condutor vivo, dá o passo do despacho e o da entrega
   noctum relatorio <arco> [--json]          O relatório da manhã no terminal (recibo só em terminal interativo)
         [--reenviar telegram|openclaw]          reenvia as páginas sem recibo, inclusive a de envio incerto
+  noctum conduzir <arco> [--json]           O condutor do arco, que o cron do piloto relança: sai 0 com o arco terminado
+                                            ou parado, 2 em recusa, 3 com outro condutor vivo, 4 com a geração perdida
+  noctum aceite <arco> [--json]             O aceite do piloto: as medidas M1 a M10, os critérios e o veredito; sai 0 só
+                                            com aprovado, e a evidência simulada (o ensaio) nunca aprova
+        [--injecoes <arquivo>]                  a agenda das falhas injetadas, que M4 e M5 medem
+        [--limiares <arquivo>]                  os limiares do dono; o que faltar fica com a proposta, marcada
+        [--publicar <arquivo>]                  grava a versão publicável, sem dado pessoal
 
   claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"] [--fase F]
                                             Registra alegacao verificavel da thread
@@ -526,9 +534,17 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   noctum responder <arc> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
                                             Receives the authorization or revocation signed by the gateway
   noctum status [<arc>] [--json]            Arc snapshot: situation, measured usage, queue, closing and gaps
-  noctum tique <arc> [--json]               Closing, step and report of the arc, in that order (the owner cron calls it)
+  noctum tique <arc> [--json]               Closing, watcher and report of the arc, in that order (the owner cron calls it);
+                                            the watcher reconciles and, with no live conductor, takes the dispatch and delivery step
   noctum relatorio <arc> [--json]           The morning report in the terminal (receipt only in an interactive terminal)
         [--reenviar telegram|openclaw]          resends the pages without a receipt, even an uncertain one
+  noctum conduzir <arc> [--json]            The arc conductor, which the pilot cron relaunches: exits 0 with the arc ended
+                                            or stopped, 2 on refusal, 3 with another live conductor, 4 with the generation lost
+  noctum aceite <arc> [--json]              The pilot acceptance: measures M1 to M10, the criteria and the verdict; exits 0
+                                            only when approved, and simulated evidence (the rehearsal) never approves
+        [--injecoes <file>]                     the schedule of injected failures, which M4 and M5 measure
+        [--limiares <file>]                     the owner's thresholds; what is missing stays with the proposal, marked
+        [--publicar <file>]                     writes the publishable version, without personal data
 
   claims add <thread-id> <file> --claim "<claim>" [--verificar "<command>"] [--fase F]
                                             Records a verifiable claim of the thread

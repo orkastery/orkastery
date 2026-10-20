@@ -77,6 +77,12 @@ jobs:
       - name: canarios do produto
         run: node core/dist/index.js eval --so-canarios
 
+      # RM-058, integracao (D13): a regra do dono, nenhuma versao sai antes do #Noctum validado por pilotos
+      # reais. O aceite dos pilotos (docs/roadmap/evidencias/RM-058/aceite.json, com a ratificacao do dono)
+      # e conferido antes de publicar; sem ele, a publicacao para aqui, com o motivo.
+      - name: o aceite dos pilotos do #Noctum
+        run: node core/scripts/checar-release-noctum.cjs
+
       - name: publicar
         run: npm publish --access public
         working-directory: core
