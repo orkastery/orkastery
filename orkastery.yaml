@@ -128,5 +128,5 @@ policies:
   runtime_unavailable: warn
   tree_blocked: warn
   # RM-062: barreira de dado privado no ork verify, no ork ci prepare e no passo do CI (ork privado varrer).
-  # Comeca em warn e passa a block com a arvore em zero achado; excecoes em orkastery.privado.json.
-  dado_privado: warn
+  # Comecou em warn e passou a block com a arvore medida em zero achado; excecoes em orkastery.privado.json.
+  dado_privado: block
