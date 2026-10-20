@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-20T12:00:03.892Z",
+  "publicadoEm": "2026-10-20T12:21:48.789Z",
   "threads": [
     {
       "id": "ork-rm037defeit2",
@@ -26,6 +26,28 @@
         "viva": true,
         "desdeEm": null,
         "motivo": null
+      }
+    },
+    {
+      "id": "ork-rm058blocob",
+      "nome": "rm058blocob",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-058",
+      "branch": "ork/ork-rm058blocob-full",
+      "atualizadaEm": "2026-10-20T12:21:45.678Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-20T12:21:45.692Z",
+        "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
     {
