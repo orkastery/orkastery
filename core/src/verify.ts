@@ -345,13 +345,14 @@ function terminoNormal(c: ResultadoDeComando): boolean {
 /**
  * RM-037 (CHECK 3 da ork-rm037defeit2): a baseline e o verify nunca rodam sobre a worktree cujo preparo a criacao adiou
  * (o passo do arco abre a thread sob a trava de despacho) e que ainda nao deu certo. O preparo pendente roda aqui, com a
- * vez na fila pesada que a operacao ja segura e a conducao renovada pelo prazo dele; a falha recusa a operacao inteira
- * antes do primeiro comando, porque sem as dependencias a baseline chamaria de "ja falhava" a falta de pacote, e o verify,
- * de regressao.
+ * vez na fila pesada que a operacao ja segura, a conducao renovada pelo prazo dele e o executor da operacao quando ela
+ * traz um (o do sandbox do `ork_verify` do MCP, com o prazo dele). A falha recusa a operacao inteira antes do primeiro
+ * comando, porque sem as dependencias a baseline chamaria de "ja falhava" a falta de pacote, e o verify, de regressao.
  */
 function exigirDependenciasDaWorktree(carregado: ManifestoCarregado, threadId: string, cwd: string,
-  operacao: 'baseline' | 'verify', conducao: ConducaoTomada): void {
-  const preparo = prepararDependenciasPendentes(carregado, threadId, cwd, () => conducao.renovar(PRAZO_DAS_DEPENDENCIAS_MS));
+  operacao: 'baseline' | 'verify', conducao: ConducaoTomada, executor: ExecutorVerify | undefined): void {
+  const preparo = prepararDependenciasPendentes(carregado, threadId, cwd,
+    { antes: () => conducao.renovar(PRAZO_DAS_DEPENDENCIAS_MS), executor });
   if (!preparo || preparo.ok) return;
   throw new ErroDoCatalogo((m) => m.verify.dependenciasPendentesFalharam(operacao, redigirCredenciaisUrl(preparo.comando),
     preparo.code, preparo.causa === 'timeout', cwd, ultimaLinhaDoPreparo(preparo)));
@@ -370,7 +371,7 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
   const { raiz, manifesto } = carregado;
   const thread = lerThread(raiz, threadId);
   const cwd = cwdDaThread(raiz, thread);
-  exigirDependenciasDaWorktree(carregado, threadId, cwd, 'baseline', tomada);
+  exigirDependenciasDaWorktree(carregado, threadId, cwd, 'baseline', tomada, base);
   const executor = executorSobConducao(executorDaRodada(manifesto, lerRegistroDeInstabilidade(cwd), base, leitor), manifesto, tomada);
   const comandos = comandosDoManifesto(manifesto).map((c) => executor(c.nome, c.comando, cwd));
   const naoEncontrado = comandos.find((c) => c.causa === 'nao-encontrado');
@@ -534,7 +535,7 @@ function verificarSobConducao(
   const { raiz, manifesto } = carregado;
   const thread = lerThread(raiz, threadId);
   const cwd = cwdDaThread(raiz, thread);
-  exigirDependenciasDaWorktree(carregado, threadId, cwd, 'verify', conducao);
+  exigirDependenciasDaWorktree(carregado, threadId, cwd, 'verify', conducao, opcoes.executor);
   const commit = commitReal(cwd);
   const dir = dirThread(raiz, threadId);
 

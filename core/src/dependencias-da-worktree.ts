@@ -24,11 +24,18 @@ export interface PreparoDasDependencias {
   trecho: string;
 }
 
+/**
+ * Quem roda o preparo no lugar do executor do verify: o da operacao que o pediu (RM-037, CHECK 3 da ork-rm037defeit2),
+ * como o do sandbox do `ork_verify` do MCP, com o prazo e o confinamento dele.
+ */
+export type ExecutorDoPreparo = (nome: string, comando: string, cwd: string) => ResultadoDeComando;
+
 /** Roda `comando` dentro de `dir`, a worktree que acabou de nascer. */
-export function prepararDependencias(dir: string, comando: string, prazoMs = PRAZO_DAS_DEPENDENCIAS_MS): PreparoDasDependencias {
+export function prepararDependencias(dir: string, comando: string, prazoMs = PRAZO_DAS_DEPENDENCIAS_MS,
+  executor?: ExecutorDoPreparo): PreparoDasDependencias {
   // Carregado na hora: o verify importa o modulo das threads, que importa este.
   const { executar } = require('./verify') as typeof import('./verify');
-  const r = executar('dependencias', comando, dir, prazoMs);
+  const r = executor ? executor('dependencias', comando, dir) : executar('dependencias', comando, dir, prazoMs);
   return { comando, ok: r.ok, code: r.code, causa: r.causa ?? null, prazoMs, duracaoMs: r.duracaoMs ?? 0,
     trecho: r.ok ? '' : (r.trecho ?? r.resumo) };
 }

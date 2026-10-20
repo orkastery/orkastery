@@ -27,7 +27,7 @@ import { linhaDeConducao } from './conducao-texto';
 import { ErroDoCatalogo, msg } from './locale';
 import { CasoSemWorktree } from './locale-thread';
 import { exigirRemoto, refRemota } from './branch-de-estado';
-import { eventoDoPreparo, PreparoDasDependencias, prepararDependencias } from './dependencias-da-worktree';
+import { eventoDoPreparo, ExecutorDoPreparo, PreparoDasDependencias, prepararDependencias } from './dependencias-da-worktree';
 
 /** Diretorio de threads do projeto. */
 export function dirThreads(raiz: string): string {
@@ -517,23 +517,25 @@ export function dependenciasPendentes(eventos: readonly EventoLedger[], dir: str
 /**
  * RM-037 (CHECK 3 da ork-rm037defeit2): roda o preparo que a criacao adiou, antes de a baseline ou o verify rodarem um
  * comando, com a vez na fila pesada que eles ja seguram; `antes` so e chamado quando ha preparo a rodar (a renovacao da
- * conducao pelo prazo dele). Devolve o preparo rodado agora, ou `null` sem nada pendente; quem chama recusa a falha.
+ * conducao pelo prazo dele), e o `executor` da operacao, quando ela traz um (o do sandbox do MCP), roda o preparo no lugar
+ * do executor do verify. Devolve o preparo rodado agora, ou `null` sem nada pendente; quem chama recusa a falha.
  */
 export function prepararDependenciasPendentes(carregado: ManifestoCarregado, id: string, dir: string,
-  antes: () => void = () => undefined): PreparoDasDependencias | null {
+  opcoes: { antes?: () => void; executor?: ExecutorDoPreparo } = {}): PreparoDasDependencias | null {
   if (!dependenciasPendentes(lerLedger(dirThread(carregado.raiz, id)), dir)) return null;
-  antes();
-  return prepararDependenciasDaThread(carregado, id, dir);
+  opcoes.antes?.();
+  return prepararDependenciasDaThread(carregado, id, dir, opcoes.executor);
 }
 
 /**
  * RM-037 (defeito 2 de 19 e 20/10/2026): roda `worktree.dependencias` na worktree que acabou de nascer e grava o
  * resultado no ledger da thread. Sem a chave no manifesto, nada roda e nada se grava. A falha nao desfaz nada.
  */
-export function prepararDependenciasDaThread(carregado: ManifestoCarregado, id: string, dir: string): PreparoDasDependencias | null {
+export function prepararDependenciasDaThread(carregado: ManifestoCarregado, id: string, dir: string,
+  executor?: ExecutorDoPreparo): PreparoDasDependencias | null {
   const comando = carregado.manifesto.worktree.dependencias;
   if (!comando) return null;
-  const preparo = prepararDependencias(dir, comando);
+  const preparo = prepararDependencias(dir, comando, undefined, executor);
   registrar(dirThread(carregado.raiz, id), id, TIPOS_DE_EVENTO.worktreeDependencias, eventoDoPreparo(dir, preparo));
   return preparo;
 }

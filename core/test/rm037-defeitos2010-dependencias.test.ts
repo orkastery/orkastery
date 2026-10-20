@@ -230,3 +230,22 @@ test('defeito 2 (CHECK 3): a recusa do preparo adiado nas duas linguas, com o co
       'the commands',
   ]);
 });
+
+test('defeito 2 (CHECK 3): o verify com executor proprio (o do sandbox do MCP) roda o preparo pendente por ele, e a falha dele recusa', () => {
+  const p = projeto('rm037d2010-deps-adiado-executor', PREPARO);
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'adiado com executor', modo: 'auto', criarWorktree: true, adiarDependencias: true });
+    const chamados: string[] = [];
+    // O executor SIMULADO da operacao, como o do sandbox do `ork_verify`: sem rede, o preparo falha nele.
+    const executor = (nome: string, comando: string, cwd: string) => {
+      chamados.push(`${nome}:${cwd === thread.worktree ? 'worktree' : cwd}`);
+      return { nome, comando, ok: false, code: 1, causa: 'exit' as const, resumo: 'sem rede no sandbox SIMULADO',
+        trecho: 'sem rede no sandbox SIMULADO', executado: true };
+    };
+    assert.throws(() => verificar(p.carregado, thread.id, { executor }),
+      /verify\.dependencia-ausente: o preparo adiado da worktree \(worktree\.dependencias\) saiu com codigo 1: sem rede no sandbox SIMULADO/);
+    assert.deepEqual(chamados, ['dependencias:worktree'], 'so o preparo, pelo executor da operacao, e nenhum comando depois dele');
+    assert.equal(fs.existsSync(path.join(thread.worktree!, 'deps')), false, 'o comando de verdade nao rodou fora do executor');
+    assert.deepEqual(eventos(p, thread.id, 'worktree_dependencias').map((e) => [e.ok, e.code]), [[false, 1]]);
+  } finally { p.limpar(); }
+});
