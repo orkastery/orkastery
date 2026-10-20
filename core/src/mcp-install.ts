@@ -274,6 +274,7 @@ export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp
 }
 
 export function textoInstalacaoMcp(r: ResultadoInstalacaoMcp): string {
-  return `${r.dryRun?'Simulacao: nenhuma escrita.':'Configuracao MCP preparada.'} ${r.arquivo} (${r.estado}).\nAbra uma nova sessao neste projeto, conclua o consentimento nativo solicitado pelo cliente e confira a descoberta das ferramentas ork_*.\nAtivacao e uso ainda pendentes de verificacao no cliente. Respostas automaticas de elicitation nao devem estar habilitadas para decisoes do dono.`+
+  const m = msg().operacao.restante.mcp;
+  return `${r.dryRun ? m.simulacao : m.preparada} ${r.arquivo} (${r.estado}).\n${m.inicio}\n${m.ativacao}`+
     (r.transporte?.length?`\n${r.transporte.join('\n')}`:'');
 }

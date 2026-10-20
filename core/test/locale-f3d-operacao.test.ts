@@ -27,6 +27,7 @@ import { textoDoEval } from '../src/evalrunner';
 import { textoDoEstado } from '../src/memoria';
 import { textoDoIndice } from '../src/indice-vetorial';
 import { textoDaBuscaPorSignificado } from '../src/busca-semantica';
+import { textoInstalacaoMcp } from '../src/mcp-install';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -318,4 +319,18 @@ test('F3d: memory localiza estado, indice e busca mantendo dados e codigos', () 
   for (const sub of ['status', 'inventory', 'migrate', 'sync', 'search', 'index'])
     assert.equal(cobreLocale(['memory', sub], {}), true, sub);
   assert.equal(cobreLocale(['memory', 'outro'], {}), true);
+});
+
+test('F3d: instalacao do MCP localiza a orientacao sem alterar caminho ou estado', () => {
+  const resultado = { arquivo: '/tmp/projeto/.mcp.json', estado: 'novo', dryRun: true,
+    ativacao: 'pendente-no-cliente' } as const;
+  const pt = comLocale('pt-BR', () => textoInstalacaoMcp(resultado));
+  const en = comLocale('en', () => textoInstalacaoMcp(resultado));
+  assert.match(pt, /^Simulacao: nenhuma escrita\./);
+  assert.match(en, /^Simulation: no writes\./);
+  assert.match(en, /complete the native consent/);
+  assert.match(en, /\/tmp\/projeto\/\.mcp\.json \(novo\)/);
+  assert.deepEqual(linhasEmPortugues(en, ['/tmp/projeto/.mcp.json', 'novo']), []);
+  assert.equal(cobreLocale(['mcp', 'install'], {}), true);
+  assert.equal(cobreLocale(['mcp', 'serve'], {}), false);
 });

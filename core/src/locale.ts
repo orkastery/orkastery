@@ -129,7 +129,8 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'board list', 'board plan', 'board plano', 'board reap', 'board ?',
   'orquestracao status', 'orquestracao ?', 'monitor', 'licoes', 'demo',
   'fabrica list', 'fabrica publicar', 'fabrica entrar', 'fabrica sair', 'fabrica batida', 'fabrica ?', 'eval',
-  'memory status', 'memory inventory', 'memory migrate', 'memory sync', 'memory search', 'memory index', 'memory ?'];
+  'memory status', 'memory inventory', 'memory migrate', 'memory sync', 'memory search', 'memory index', 'memory ?',
+  'mcp install'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -159,6 +160,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['orquestracao', { padrao: 'status', conhecidos: ['status'] }],
   ['fabrica', { padrao: 'list', conhecidos: ['list', 'publicar', 'entrar', 'sair', 'batida'] }],
   ['memory', { padrao: 'status', conhecidos: ['status', 'inventory', 'migrate', 'sync', 'search', 'index'] }],
+  ['mcp', { padrao: null, conhecidos: ['install', 'serve'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */

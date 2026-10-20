@@ -4288,13 +4288,13 @@ function executarComando(argvBruto: string[]): number {
           (args.opcoes['ship-transport']!==undefined && typeof args.opcoes['ship-transport']!=='string') ||
           (args.opcoes.thread!==undefined && (!threadId || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(threadId))) ||
           (args.opcoes['dry-run']!==undefined && args.opcoes['dry-run']!==true))
-        throw new Error('uso: ork mcp serve|install --project <raiz absoluta> --host codex|claude-code [--ship-transport github-ssh|forja-ssh|forja-https|bare-local] [--ssh-fingerprint SHA256:... somente install forja-ssh] [--child-permissions interactive|worktree] [--owner-permissions interactive|orchestrate somente install Codex] [--dry-run somente install]');
+        throw new Error(msg().operacao.restante.mcp.uso);
       if(acao==='install') {
         void import('./mcp-install').then(({instalarMcp,textoInstalacaoMcp})=>
           console.log(textoInstalacaoMcp(instalarMcp({projeto,host,dryRun:args.opcoes['dry-run']===true,
             transporteShip:transporteDado===undefined?undefined:transporteShip as TransporteShipMcp,impressaoSsh,
             permissoesFilho:permissoesFilho as 'interactive'|'worktree',permissoesDono:permissoesDono as 'interactive'|'orchestrate'|undefined}))))
-          .catch(e=>{console.error(`mcp: ${(e as Error).message}`);process.exitCode=1;});
+          .catch(e=>{console.error(msg().operacao.restante.mcp.erro((e as Error).message));process.exitCode=1;});
         return 0;
       }
       void import('./mcp-server').then(({servirMcp})=>servirMcp({projeto,host,threadId,dispatchId,nomesProviderHerdados:nomesHerdados,transporteShip:transporteShip as TransporteShipMcp,permissoesFilho:permissoesFilho as 'interactive'|'worktree'})).catch(e=>{console.error(`mcp: ${(e as Error).message}`);process.exitCode=1;});
