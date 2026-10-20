@@ -214,7 +214,7 @@ test('DP9: exceção por caminho, por padrão e por valor silencia só o que diz
         { padrao: 'home', caminho: 'core/test/**', valor: HOME_FICTICIA, motivo: 'home inventada da fixture' },
         { padrao: 'email', caminho: 'core/test/**', valor: EMAIL_FICTICIO, motivo: 'e-mail inventado da fixture' },
         { padrao: 'home', valor: HOME_FICTICIA, motivo: 'exemplo de documentação' },
-        { padrao: 'hostname', caminho: 'docs/*.md', valor: 'fulana-*', motivo: 'máquina inventada do guia' },
+        { padrao: 'hostname', caminho: 'docs/*.md', valor: MAQUINA_FICTICIA, motivo: 'máquina inventada do guia' },
         { padrao: 'email', valor: `${TERMO_FICTICIO}@x.com.br`, motivo: 'o arquivo de exceções só passa pela lista local' },
       ],
     }, null, 2),
@@ -234,12 +234,15 @@ test('DP10: arquivo de exceções fora do contrato recusa a varredura com o moti
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'telefone', valor: 'x', motivo: 'm' }] }, /excecoes\[0\]\.padrao tem de ser/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: '*', valor: '/home/x', motivo: 'm' }] }, /excecoes\[0\]\.padrao tem de ser/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', motivo: 'm' }] }, /excecoes\[0\] sem valor\/trecho/],
-    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', valor: '*', motivo: 'm' }] }, /valor não pode ser curinga global/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', valor: '*', motivo: 'm' }] }, /valor tem de ser exato, sem curinga/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', caminho: '**', valor: '/home/x', motivo: 'm' }] }, /caminho não pode ser curinga global/],
-    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'email', valor: '**', motivo: 'm' }] }, /valor equivale a curinga global para email/],
-    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'email', valor: '*@*', motivo: 'm' }] }, /valor equivale a curinga global para email/],
-    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', valor: '/home/*', motivo: 'm' }] }, /valor equivale a curinga global para home/],
-    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'hostname', valor: '**', motivo: 'm' }] }, /valor equivale a curinga global para hostname/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'email', valor: '**', motivo: 'm' }] }, /valor tem de ser exato, sem curinga/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'email', valor: '*@*', motivo: 'm' }] }, /valor tem de ser exato, sem curinga/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', valor: '/home/*', motivo: 'm' }] }, /valor tem de ser exato, sem curinga/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'hostname', valor: '**', motivo: 'm' }] }, /valor tem de ser exato, sem curinga/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'email', valor: '*e*', motivo: 'm' }] }, /valor tem de ser exato, sem curinga/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'email', valor: '*@*.com.br', motivo: 'm' }] }, /valor tem de ser exato, sem curinga/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'hostname', valor: '*-*', motivo: 'm' }] }, /valor tem de ser exato, sem curinga/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'email', caminho: '**/*', valor: 'contato@empresa-ficticia.com.br', motivo: 'm' }] }, /caminho equivale a curinga global/],
     [{ contrato: 'ork.privado/v1', extra: 1 }, /chave desconhecida: extra/],
     [{ contrato: 'ork.privado/v1', emailsPermitidos: ['antigo@example.com'] }, /emailsPermitidos\[0\] não é um objeto/],
@@ -396,18 +399,24 @@ test('DP16: a lista local exige arquivo comum do usuário com 0600 e nunca expõ
   }
 });
 
-test('DP17: e-mail depois de URL encerrada por JSON, CSV, query ou fragmento é achado; credencial da autoridade não é', () => {
+test('DP17: e-mail depois de URL encerrada por separador de documento é achado; credencial da autoridade não é', () => {
   const dir = repo('email-depois-url', {});
-  const texto = [
-    `{"url":"https://site-ficticio.com","email":"${EMAIL_FICTICIO}"}`,
-    `https://site-ficticio.com,${EMAIL_FICTICIO}`,
+  const separadores = [';', ',', '`', '(', ')', '[', ']', '"', "'", ' ', '\t', '|'];
+  const linhasComSeparador = separadores.map((separador) => `https://site-ficticio.com${separador}${EMAIL_FICTICIO}`);
+  const texto = [...linhasComSeparador,
     `https://site-ficticio.com?email=${EMAIL_FICTICIO}`,
     `https://site-ficticio.com#${EMAIL_FICTICIO}`,
+    'nome;site;email',
+    `Fulana;https://site-ficticio.com;${EMAIL_FICTICIO}`,
     'https://usuario:senha@host-ficticio.com/caminho',
   ].join('\n') + '\n';
   const v = varrerTexto(contexto(dir), 'eventos.txt', texto);
-  assert.deepEqual(v.achados.map((a) => [a.linha, a.padrao]),
-    [[1, 'email'], [2, 'email'], [3, 'email'], [4, 'email']]);
+  assert.deepEqual(v.achados.map((a) => [a.linha, a.padrao]), [
+    ...linhasComSeparador.map((_, i) => [i + 1, 'email']),
+    [linhasComSeparador.length + 1, 'email'],
+    [linhasComSeparador.length + 2, 'email'],
+    [linhasComSeparador.length + 4, 'email'],
+  ]);
 });
 
 test('DP18: o diff lê conteúdo binário e texto marcado -diff sem textconv', () => {
