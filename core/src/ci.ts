@@ -28,6 +28,8 @@ import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
 import { ErroDoCatalogo, montadorDe, textoDoCatalogo, type Mensagens } from './locale';
+import { barreiraDaThread, linhaDoAchado, textoDaListaLocal, textoDoEscopo, varrerTexto } from './dado-privado';
+import { avisos as avisosDePolicy, bloqueantes as bloqueantesDePolicy } from './policies';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -429,7 +431,7 @@ export function destinoDoBundle(carregado: ManifestoCarregado, threadId: string)
 }
 
 export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string,
-  opcoes: { aoAvisar?: (linha: string) => void } = {}): string {
+  opcoes: { aoAvisar?: (linha: string) => void; aoInformar?: (linha: string) => void } = {}): string {
   const commands = comandosDoBundle(carregado);
   const nomeDoArquivo = arquivoDoBundle(threadId);
   const branch = branchDaWorktree(lerThread(carregado.raiz, threadId));
@@ -467,11 +469,38 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
       .map((item) => ({ id: item.claim.id, reason: item.reason! })),
     commands,
   };
+  const texto = JSON.stringify(bundle, null, 2) + '\n';
+  barreiraDoBundle(carregado, threadId, destino, path.posix.join(DIR_DO_BUNDLE, nomeDoArquivo), texto, opcoes);
   const dir = path.join(destino, '.ork-ci');
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, nomeDoArquivo);
-  fs.writeFileSync(file, JSON.stringify(bundle, null, 2) + '\n', 'utf8');
+  fs.writeFileSync(file, texto, 'utf8');
   return file;
+}
+
+/**
+ * RM-062 (F2): com a policy `dado_privado`, o diff da thread e o texto do bundle novo passam pela barreira antes de o
+ * arquivo existir. O bundle anterior da propria thread sai do diff, porque o novo o substitui. Em `block`, achado
+ * recusa e nada e gravado; em `warn`, avisa e grava. A linha da lista local (presente ou ausente) sai sempre.
+ */
+function barreiraDoBundle(carregado: ManifestoCarregado, threadId: string, destino: string, caminho: string, texto: string,
+  opcoes: { aoAvisar?: (linha: string) => void; aoInformar?: (linha: string) => void }): void {
+  const barreira = barreiraDaThread(carregado, lerThread(carregado.raiz, threadId), destino, 'ci.prepare',
+    { extra: (c) => varrerTexto(c, caminho, texto), ignorar: [caminho] });
+  if (!barreira) return;
+  const v = barreira.varredura;
+  opcoes.aoInformar?.(`dado privado (policy dado_privado em ${barreira.severidade}): ${textoDoEscopo(v)}; ` +
+    `lista local ${textoDaListaLocal(v)}`);
+  const recusas = bloqueantesDePolicy(barreira.violacoes);
+  if (recusas.length) {
+    throw new Error(`privado.achado: o bundle nao foi gerado; ${recusas.map((r) => r.detalhe).join('; ')}\n  ` +
+      [...v.achados.slice(0, 20).map(linhaDoAchado), `correcao: ${recusas[0].correcao}`].join('\n  '));
+  }
+  for (const aviso of avisosDePolicy(barreira.violacoes)) {
+    registrar(dirThread(carregado.raiz, threadId), threadId, TIPOS_DE_EVENTO.politicaAviso, { gate: 'ci.prepare',
+      policy: aviso.policy, motivo: aviso.motivo, detalhe: aviso.detalhe, correcao: aviso.correcao });
+    opcoes.aoAvisar?.(`policy ${aviso.policy}: ${aviso.detalhe}`);
+  }
 }
 
 function lerBundle(raiz: string, file: string): BundleCi {

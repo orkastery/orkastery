@@ -34,8 +34,8 @@ export interface ConfigDaMaquina {
  * que o registro das sessoes (`hitl-estado.ts`) ja seguia. RM-063 (fatia 3, achado b): a suite inteira roda com
  * `ORKASTERY_HOME` temporario, e o registro de projetos, a maquina e a rede passam a segui-lo tambem.
  */
-export function pastaDoUsuario(): string {
-  return (process.env.ORK_USUARIO_DIR ?? '').trim() || (process.env.ORKASTERY_HOME ?? '').trim() ||
+export function pastaDoUsuario(env: NodeJS.ProcessEnv = process.env): string {
+  return (env.ORK_USUARIO_DIR ?? '').trim() || (env.ORKASTERY_HOME ?? '').trim() ||
     path.join(os.homedir(), '.orkastery');
 }
 
