@@ -1,0 +1,394 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-dsnforadoamb",
+  "branch": "ork/ork-dsnforadoamb-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md",
+      "alegacao": "T1: a página RM-068 existe pelo modelo do roadmap (frontmatter com sdlc.thread ork-dsnforadoamb e modo #Auto), com o problema medido só por nome de variável, o escopo da fonte de arquivo memory.database_url_file, o limite do mesmo usuário, a migração genérica e as decisões G1 a G6 e D1 a D13; passa no markdownlint e no docs verificar.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'id: RM-068' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'thread: ork-dsnforadoamb' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'memory.database_url_file' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'pode ler um arquivo `0600` dele' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md"
+      ],
+      "criadoEm": "2026-10-20T16:02:16.638Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "T1: o índice do roadmap tem a linha da RM-068, regerada por ork docs sincronizar, e passa no markdownlint.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '| [RM-068](RM-068-dsn-fora-do-ambiente-dos-agentes.md) | DSN com senha fora do ambiente dos agentes |' docs/roadmap/README.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-20T16:02:18.478Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/dsn-da-memoria.ts",
+      "alegacao": "T2 (G2 a G4, D1, D2, D6, D7): o resolvedor único da DSN da memória lê memory.database_url_file só da pasta de segredos do ork (~/.orkastery/segredos/<nome>), com O_NOFOLLOW, fstat do descritor, dono, modo sem bit fora de 0600, até 4 KiB, uma linha e sem NOME=valor; com o arquivo declarado nunca cai para a variável; o rótulo nunca é caminho absoluto; nenhum detalhe repete o valor; os 19 casos DM passam.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'export function resolverDsn(' core/src/dsn-da-memoria.ts && grep -qF \"export const PREFIXO_DO_ARQUIVO_DA_DSN = '~/.orkastery/segredos/';\" core/src/dsn-da-memoria.ts && grep -qF 'fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK' core/src/dsn-da-memoria.ts && grep -qF '(st.mode & 0o177) !== 0' core/src/dsn-da-memoria.ts",
+        "node --test-reporter=tap core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DM[0-9]+:/{p++} END{exit !(p>=19 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T16:09:53.805Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/test/dsn-da-memoria.test.ts",
+      "alegacao": "T2: os casos DM1 a DM19 provam a forma aceita e as recusadas do caminho, a exclusividade das duas fontes, os erros sem valor, cada recusa do arquivo (modo, dono, link, pasta, ausente, conteúdo, NOME=valor), a fonte de ambiente de hoje, o rótulo, os fragmentos da DSN e o detector de URL com senha, com DSNs inventadas e ambiente injetado.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('DM[0-9]+: \" core/test/dsn-da-memoria.test.ts)\" -ge 19",
+        "node --test-reporter=tap core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DM[0-9]+:/{p++} END{exit !(p>=19 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T16:09:57.045Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "T2 (G2, G3, D3): o manifesto aceita memory.database_url_file só na forma ~/.orkastery/segredos/<nome>, recusa as duas fontes juntas, avisa orkmind sem nenhuma fonte e não repete o valor no erro de database_url_env nem no de database_url_file (casos DM1 a DM4).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'memory.database_url_env e memory.database_url_file sao exclusivos' core/src/manifest.ts && grep -qF \"erros.push('memory.database_url_env invalido (valor omitido)\" core/src/manifest.ts && ! grep -qF 'memory.database_url_env invalido: \"${variavelDaDsn}\"' core/src/manifest.ts",
+        "node --test-reporter=tap --test-name-pattern='^DM[1-4]:' core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DM[1-4]:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T16:10:00.714Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "T2 (D5): o bloco memory do manifesto tem database_url_file opcional, e o estado da memória ganha fonteDaDsn e arquivoDaDsn opcionais, com o tipo FonteDaDsn; os testes de memória existentes seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'database_url_file?: string;' core/src/types.ts && grep -qF \"export type FonteDaDsn = 'ambiente' | 'arquivo' | 'nenhuma';\" core/src/types.ts && grep -qF 'fonteDaDsn?: FonteDaDsn;' core/src/types.ts",
+        "node --test core/dist-test/test/memoria.test.js core/dist-test/test/memoria-embedding-config.test.js"
+      ],
+      "criadoEm": "2026-10-20T16:10:03.483Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/orkmind.ts",
+      "alegacao": "T3 (D4 a D6, D12): configDoManifesto lê a DSN pelo resolvedor único a cada chamada; resolverRegime degrada o arquivo ausente, inseguro ou inválido com o motivo tipado e a correção, sem cair para a variável; o estado leva fonteDaDsn e arquivoDaDsn; a guarda do driver usa o motivo da fonte e o contemSegredo usa os fragmentos da DSN (casos DR1 a DR9).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const fonte = resolverDsn(manifesto.memory, { env });' core/src/orkmind.ts && grep -qF \"if (config.dsn.trim() === '' && !driver && config.fonteDaDsn === 'arquivo') {\" core/src/orkmind.ts && grep -qF 'const proibidos = fragmentosDaDsn(this.config.dsn);' core/src/orkmind.ts && ! grep -qF 'dsn: variavel ? (process.env[variavel]' core/src/orkmind.ts",
+        "node --test-reporter=tap core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DR[0-9]+:/{p++} END{exit !(p>=9 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T16:20:04.951Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/company-brain-client.ts",
+      "alegacao": "T3: o cliente do Company Brain lê a DSN pelo resolvedor único no momento do pedido; com a fonte de arquivo, o filho recebe a DSN só em ORKMIND_DATABASE_URL, e o arquivo inseguro dá brain.configuration.missing sem chamar o filho (caso DR7); os testes do transporte seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const dsn = resolverDsn(config).dsn;' core/src/company-brain-client.ts && ! grep -qF 'process.env[config.database_url_env]' core/src/company-brain-client.ts",
+        "node --test-reporter=tap --test-name-pattern='^DR7:' core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DR7:/{p++} END{exit !(p==1 && f==0 && s==0)}' && node --test core/dist-test/test/company-brain-transport.test.js core/dist-test/test/company-brain-memory-state.test.js"
+      ],
+      "criadoEm": "2026-10-20T16:20:08.422Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/company-brain-migration.ts",
+      "alegacao": "T3: a migração do Brain lê a DSN pelo resolvedor único; com a fonte de arquivo, o filho recebe a DSN só pelo ambiente, e o arquivo inseguro recusa antes de chamar o filho (caso DR8); os testes da migração seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const dsn=resolverDsn(config).dsn;' core/src/company-brain-migration.ts && ! grep -qF 'process.env[config.database_url_env]' core/src/company-brain-migration.ts",
+        "node --test-reporter=tap --test-name-pattern='^DR8:' core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DR8:/{p++} END{exit !(p==1 && f==0 && s==0)}' && node --test core/dist-test/test/company-brain-migration.test.js core/dist-test/test/memory-migration.test.js"
+      ],
+      "criadoEm": "2026-10-20T16:20:11.762Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/memoria.ts",
+      "alegacao": "T3 (D5): o ork memory status em texto mostra, com a fonte de arquivo, o arquivo da base pelo rótulo e se a DSN está no arquivo, sem o valor; com a fonte de ambiente, as linhas de sempre (casos DR4 e DR9); os testes de degradação e de memória seguem verdes.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"if (estado.fonteDaDsn === 'arquivo') {\" core/src/memoria.ts && grep -qF '  arquivo da base       ' core/src/memoria.ts",
+        "node --test-reporter=tap --test-name-pattern='^DR(4|9):' core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DR(4|9):/{p++} END{exit !(p==2 && f==0 && s==0)}' && node --test core/dist-test/test/degradacao.test.js core/dist-test/test/memoria.test.js"
+      ],
+      "criadoEm": "2026-10-20T16:20:14.783Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "T3 (D4): MotivoDeDegradacao ganha dsn.arquivo-ausente, dsn.arquivo-inseguro e dsn.arquivo-invalido, os motivos da fonte de arquivo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"| 'dsn.arquivo-ausente'\" core/src/types.ts && grep -qF \"| 'dsn.arquivo-inseguro'\" core/src/types.ts && grep -qF \"| 'dsn.arquivo-invalido'\" core/src/types.ts"
+      ],
+      "criadoEm": "2026-10-20T16:20:16.888Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/test/dsn-da-memoria.test.ts",
+      "alegacao": "T3: os casos DR1 a DR9 provam os consumidores pelo resolvedor (regime, driver do OrkMind com CLI falso, cliente e migração do Company Brain, ork memory status) e a degradação tipada, com a DSN inventada só no ambiente do filho e nunca em estado, texto ou detalhe.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('DR[0-9]+: \" core/test/dsn-da-memoria.test.ts)\" -ge 9",
+        "node --test-reporter=tap core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DR[0-9]+:/{p++} END{exit !(p>=9 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T16:20:19.720Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/doctor.ts",
+      "alegacao": "T4 (G5, G6, D8): o ork doctor ganha o check fonte da DSN (a variável pelo nome ou o arquivo pelo rótulo com ~, nunca o valor; falha vira aviso com motivo e correção) e o check DSN no ambiente (na sessão despachada, os nomes das variáveis com a DSN do projeto e com URL com senha; fora dela, com a fonte de arquivo, a DSN do arquivo repetida no ambiente); a chave de embedding é comparada com a DSN do resolvedor; nenhum consumidor lê mais a DSN do ambiente por conta própria (casos DD1 a DD13).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'export function checarFonteDaDsn(' core/src/doctor.ts && grep -qF 'export function checarDsnNoAmbiente(' core/src/doctor.ts && grep -qF 'const dsn = resolverDsn(carregado.manifesto.memory, { env }).dsn;' core/src/doctor.ts && ! grep -rnE 'process\\.env\\[config\\.database_url_env\\]|env\\[carregado\\.manifesto\\.memory\\.database_url_env\\]' core/src",
+        "node --test-reporter=tap core/dist-test/test/dsn-doctor.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DD[0-9]+:/{p++} END{exit !(p>=13 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T16:33:13.537Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T4: as mensagens e os nomes dos checks fonte da DSN e DSN no ambiente existem em pt-BR e em inglês; o inglês sai sem pt-BR e o pt-BR de cada causa é o mesmo do resolvedor (casos DD10 e DD11); os retratos do doctor não mudam.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'fonte da DSN': 'DSN source',\" core/src/locale.ts && grep -qF \"'DSN no ambiente': 'DSN in environment',\" core/src/locale.ts && test \"$(grep -c 'dsnNoAmbienteCorrecao:' core/src/locale.ts)\" = 2 && test \"$(grep -c 'dsnCausa:' core/src/locale.ts)\" = 2",
+        "node --test-reporter=tap --test-name-pattern='^DD1[01]:' core/dist-test/test/dsn-doctor.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DD1[01]:/{p++} END{exit !(p==2 && f==0 && s==0)}' && node --test core/dist-test/test/locale-doctor.test.js core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-20T16:33:17.487Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-ambiente.ts",
+      "alegacao": "T4: sessaoDespachada(env) reconhece a sessão despachada pela identidade ou pela thread do despacho no ambiente; o check de separação da condução passa a usá-la com o mesmo resultado (casos DD6, DD7 e os testes da RM-064 fatia 2).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function sessaoDespachada(env: NodeJS.ProcessEnv = process.env): boolean {' core/src/runtime-ambiente.ts && grep -qF 'if (!runtime || sessaoDespachada(env)) return null;' core/src/doctor.ts",
+        "node --test-reporter=tap --test-name-pattern='^DD[67]:' core/dist-test/test/dsn-doctor.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DD[67]:/{p++} END{exit !(p==2 && f==0 && s==0)}' && node --test core/dist-test/test/rm064-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-20T16:33:20.904Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/test/dsn-doctor.test.ts",
+      "alegacao": "T4: os casos DD1 a DD13 provam os dois checks novos do ork doctor com o ambiente injetado e pelo CLI com ambiente montado do zero (sessão despachada, fonte de arquivo, DSN inventada numa variável): os nomes saem, a DSN e a senha não; sem fonte e fora do despacho, os checks não aparecem.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('DD[0-9]+: \" core/test/dsn-doctor.test.ts)\" -ge 13",
+        "node --test-reporter=tap core/dist-test/test/dsn-doctor.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DD[0-9]+:/{p++} END{exit !(p>=13 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T16:33:24.003Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/dsn-da-memoria.ts",
+      "alegacao": "T4: cada recusa do arquivo da DSN tem uma causa tipada (CAUSAS_DA_DSN) com o texto pt-BR em textoDaCausa, que o catálogo do doctor repete nas duas línguas; os casos DM e DD11 passam.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'export function textoDaCausa(causa: CausaDaDsn, permissao = ' core/src/dsn-da-memoria.ts && grep -qF 'export const CAUSAS_DA_DSN: readonly CausaDaDsn[]' core/src/dsn-da-memoria.ts",
+        "node --test-reporter=tap --test-name-pattern='^DD11:' core/dist-test/test/dsn-doctor.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DD11:/{p++} END{exit !(p==1 && f==0 && s==0)}' && node --test-reporter=tap core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DM[0-9]+:/{p++} END{exit !(p>=19 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T16:33:27.651Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "T5 (D9): a linha dos regimes de memória da ajuda do CLI cita a fonte de arquivo (memory.database_url_file, arquivo 0600 em ~/.orkastery/segredos/) ao lado do nome da variável, com uma fonte só e sem fallback, em pt-BR e em inglês, com o mesmo número de linhas nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'declarada em memory.database_url_file, arquivo 0600 em ~/.orkastery/segredos/, ou em' core/src/locale-ajuda.ts && grep -qF 'declared in memory.database_url_file, a 0600 file in ~/.orkastery/segredos/, or in' core/src/locale-ajuda.ts",
+        "node --test core/dist-test/test/locale-ajuda.test.js core/dist-test/test/rm044-paridade-cli-md.test.js core/dist-test/test/locale-f3a-referencia.test.js"
+      ],
+      "criadoEm": "2026-10-20T16:37:16.751Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "T5 (D9): só as cinco entradas ajuda cli do retrato pt-BR foram regeneradas por gerarCasos(), com a linha nova dos regimes de memória; o retrato inteiro segue passando no locale-f2a-snapshot.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const f=require(\"./core/test/fixtures/locale-f2a-pt-BR.json\");const k=Object.keys(f).filter(x=>f[x].includes(\"declarada em memory.database_url_file\"));process.exit(k.length===5&&k.every(x=>x.startsWith(\"ajuda cli: \"))?0:1)'",
+        "node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-20T16:37:19.398Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/memoria-e-handoff.md",
+      "alegacao": "T6: o guia da memória tem a seção da DSN por arquivo (o exemplo de memory.database_url_file, a fonte única, a pasta de segredos, a regra do arquivo, a degradação tipada, a receita para gravar sem o histórico do shell, as linhas do ork memory status, os dois checks do doctor e o limite do mesmo usuário), e a regra 2 do B6 cita as duas fontes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '### A DSN por arquivo, fora do ambiente dos agentes' docs/guias/memoria-e-handoff.md && grep -qF 'database_url_file: \"~/.orkastery/segredos/orkastery.dsn\"' docs/guias/memoria-e-handoff.md && grep -qF 'O agente roda com o mesmo usuário do dono e pode ler um arquivo `0600` dele.' docs/guias/memoria-e-handoff.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/memoria-e-handoff.md"
+      ],
+      "criadoEm": "2026-10-20T16:42:05.308Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "SECURITY.md",
+      "alegacao": "T6: a seção de segredos do SECURITY.md documenta a fonte de arquivo da DSN (o caminho, nunca o valor, só na pasta de segredos do ork, exclusiva com a variável), a regra do arquivo, o que o ork doctor acusa e o limite do mesmo usuário.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'database_url_file: \"~/.orkastery/segredos/meuproduto.dsn\"   # o CAMINHO, nunca o valor' SECURITY.md && grep -qF 'roda com o mesmo usuário e pode ler o arquivo' SECURITY.md",
+        "core/node_modules/.bin/markdownlint-cli2 SECURITY.md"
+      ],
+      "criadoEm": "2026-10-20T16:42:07.888Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/fronteira-de-confianca.md",
+      "alegacao": "T6 (G3): a matriz de caminhos da fronteira de confiança tem a linha de memory.database_url_file (só a pasta de segredos do ork, O_NOFOLLOW e conferência no descritor), e a P6 diz que a fonte de arquivo não alarga a classe.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '| `memory.database_url_file` ([RM-068](../roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md)) | manifesto | não existia |' docs/referencia/fronteira-de-confianca.md && grep -qF 'para não alargar esta classe |' docs/referencia/fronteira-de-confianca.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/fronteira-de-confianca.md"
+      ],
+      "criadoEm": "2026-10-20T16:42:10.740Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-017-memoria-orkmind.md",
+      "alegacao": "T6: a FEAT-017 cita a RM-068 no roadmap, o resolvedor e os testes novos nas fontes, e a configuração, as pré-condições e os erros com as duas fontes da DSN e os motivos de arquivo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'roadmap: [RM-006, RM-038, RM-068]' docs/produto/FEAT-017-memoria-orkmind.md && grep -qF 'core/src/dsn-da-memoria.ts#resolverDsn' docs/produto/FEAT-017-memoria-orkmind.md && grep -qF '`dsn.arquivo-inseguro`' docs/produto/FEAT-017-memoria-orkmind.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/produto/FEAT-017-memoria-orkmind.md"
+      ],
+      "criadoEm": "2026-10-20T16:42:13.653Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md",
+      "alegacao": "T6: a RM-068 liga a FEAT-017, está com documentação em revisão e testes em execução, e as evidências de teste apontam os casos DM, DR e DD; tabelas regeradas por ork docs sincronizar.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'features: [FEAT-017]' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'resolvedor: core/test/dsn-da-memoria.test.ts (DM1 a DM19 e DR1 a DR9)' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'doctor: core/test/dsn-doctor.test.ts (DD1 a DD13)' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md"
+      ],
+      "criadoEm": "2026-10-20T16:42:17.210Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T6: o CHANGELOG.md tem, em Não publicado, a linha da RM-068 (a fonte de arquivo da DSN, a regra, a degradação tipada, o resolvedor único, os checks do doctor e o limite), sem anunciar versão.",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## /{s=$0} /DSN da memória fora do ambiente dos agentes \\(RM-068\\)/{if (s==\"## Não publicado\") f=1} END{exit !f}' CHANGELOG.md",
+        "core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-20T16:42:19.674Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C26",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
