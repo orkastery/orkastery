@@ -14,6 +14,10 @@ import { textoDoGateDeTokens } from '../src/tokens';
 import { textoDaRodada, textoDoReverify } from '../src/fix';
 import { textoDoHandoff } from '../src/handoff';
 import { textoDoRecall } from '../src/recall';
+import { tabelaDeLeases } from '../src/leases';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -167,4 +171,23 @@ test('F3d: fix, handoff e recall localizam a moldura e preservam payloads', () =
     ['handoff', 'export'], ['handoff', 'recall']] as const)
     assert.equal(cobreLocale([command, sub], {}), true, `${command} ${sub}`);
   assert.equal(cobreLocale(['recall'], {}), true);
+});
+
+test('F3d: lease localiza a listagem vazia e todas as rotas públicas', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ork-f3d-lease-'));
+  try {
+    const pt = comLocale('pt-BR', () => tabelaDeLeases(dir));
+    const en = comLocale('en', () => tabelaDeLeases(dir));
+    assert.match(pt, /^Leases do projeto/);
+    assert.match(pt, /Nenhum lease tomado/);
+    assert.match(en, /^Project leases/);
+    assert.match(en, /No lease held/);
+    assert.match(en, /Resume queue: empty/);
+    assert.match(en, /Merge queue .*: empty/);
+    assert.deepEqual(linhasEmPortugues(en), []);
+    for (const sub of ['list', 'acquire', 'take', 'release'])
+      assert.equal(cobreLocale(['lease', sub], {}), true, sub);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

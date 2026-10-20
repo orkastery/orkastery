@@ -2333,6 +2333,7 @@ function comandoCi(args: Args): number {
 function comandoLease(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const ml = msg().operacao.restante.lease;
   if (sub === undefined || sub === 'list') {
     console.log(tabelaDeLeases(carregado.raiz));
     return 0;
@@ -2340,42 +2341,42 @@ function comandoLease(args: Args): number {
   if (sub === 'acquire' || sub === 'take') {
     const nome = args.posicionais[2];
     const thread = texto(args.opcoes.thread);
-    const motivo = texto(args.opcoes.motivo) ?? 'sem motivo declarado';
+    const motivo = texto(args.opcoes.motivo) ?? msg('pt-BR').operacao.restante.lease.semMotivo;
     if (!nome || !thread) {
-      console.error('uso: ork lease acquire <nome> --thread <thread-id> [--motivo "<motivo>"]');
+      console.error(ml.usoAcquire);
       return 2;
     }
     lerThread(carregado.raiz, thread);
-    const r = adquirirRegiao(carregado.raiz, nome, { thread, motivo });
+    const r = comLocale('pt-BR', () => adquirirRegiao(carregado.raiz, nome, { thread, motivo }));
     if (r.ok) {
-      console.log(`Lease ${r.nome} [${r.tipo}] adquirido pela thread ${thread}.`);
-      console.log(`  expira em ${formatarDataHoraRotulada(r.lease?.expiraEm)}`);
-      if (r.tomadoDeVencido) console.log('  (o lease anterior estava VENCIDO e foi tomado)');
+      console.log(ml.adquirido(r.nome, r.tipo, thread));
+      console.log(ml.expira(formatarDataHoraRotulada(r.lease?.expiraEm)));
+      if (r.tomadoDeVencido) console.log(ml.tomado);
       return 0;
     }
-    console.error(`Lease ${r.nome} NAO adquirido.`);
-    console.error(`  motivo tipado: ${r.motivo}`);
-    console.error(`  detalhe: ${localizarTextoRotulado(r.detalhe)}`);
-    console.error(`  posicao na fila: ${r.posicaoNaFila}`);
-    console.error(`  correcao: ${r.correcao}`);
+    console.error(ml.naoAdquirido(r.nome));
+    console.error(ml.motivoTipado(r.motivo));
+    console.error(ml.detalhe(localizarTextoRotulado(r.detalhe)));
+    console.error(ml.posicao(r.posicaoNaFila));
+    console.error(ml.correcao(r.correcao));
     return 1;
   }
   if (sub === 'release') {
     const nome = args.posicionais[2];
     if (!nome) {
-      console.error('uso: ork lease release <nome> [--thread <thread-id>] [--forcar]');
+      console.error(ml.usoRelease);
       return 2;
     }
-    const r = liberar(
+    const r = comLocale('pt-BR', () => liberar(
       carregado.raiz,
       nome,
       texto(args.opcoes.thread) ?? '',
       args.opcoes.forcar === true
-    );
+    ));
     console.log(r.detalhe);
     return r.ok ? 0 : 1;
   }
-  console.error(`subcomando desconhecido: lease ${sub}`);
+  console.error(ml.desconhecido(sub));
   return 2;
 }
 
