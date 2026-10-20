@@ -57,6 +57,12 @@ jobs:
           fi
       - name: links relativos
         run: node core/scripts/checar-links.cjs
+      # RM-062 (F1): dado privado do dono nas linhas e nos nomes de arquivo versionados: caminho de home, e-mail fora
+      # da lista permitida e hostname de maquina, com as excecoes de orkastery.privado.json (revisadas em PR). A lista
+      # local de termos privados fica fora do git e nao existe no runner: a saida diz que so os padroes genericos rodaram.
+      # Passo do job exigido, sem sexto check obrigatorio; a severidade e a da policy dado_privado do orkastery.yaml.
+      - name: dado privado nas linhas e nos nomes de arquivo
+        run: node core/dist/index.js privado varrer
       # RM-037 (fatia 3, defeito 2): PR que muda core/, adapters/ ou marketplaces/ leva linha em
       # "Nao publicado" do CHANGELOG; PR so de testes ou so de CI fica de fora. No push da main a
       # base e o proprio HEAD, e nao ha o que conferir.

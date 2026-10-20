@@ -1,0 +1,26 @@
+{
+  "contrato": "ork.privado/v1",
+  "descricao": "RM-062: o que a barreira de dado privado aceita neste repositório. Só entra exemplo inventado ou endereço público do produto, com o motivo; dado de alguém se corrige por PR, nunca vira exceção. A lista local de termos privados não mora aqui: fica fora do git.",
+  "emailsPermitidos": [
+    "*@exemplo.com",
+    "*@orkastery.local",
+    "maestro@orkastery.com",
+    "noreply@anthropic.com"
+  ],
+  "excecoes": [
+    { "padrao": "*", "caminho": "core/test/dado-privado*.test.ts", "motivo": "fixtures inventadas de cada padrão da barreira (RM-062)" },
+    { "padrao": "home", "valor": "/home/alguem", "motivo": "usuário inventado num teste da batida" },
+    { "padrao": "home", "valor": "/home/ana", "motivo": "usuário inventado num teste da rede" },
+    { "padrao": "home", "valor": "/home/fulano", "motivo": "usuário inventado num teste da coordenação" },
+    { "padrao": "home", "valor": "/home/pessoa", "motivo": "usuário de exemplo no contrato de projetos (RM-052)" },
+    { "padrao": "home", "valor": "/home/private", "motivo": "usuário inventado num teste de segurança do Maestro" },
+    { "padrao": "home", "valor": "/home/simulado", "motivo": "usuário inventado num teste da prova de canal" },
+    { "padrao": "home", "valor": "/home/teste", "motivo": "usuário inventado num teste de higiene do runtime" },
+    { "padrao": "home", "valor": "/home/u", "motivo": "usuário inventado nos testes de despacho e de transporte" },
+    { "padrao": "home", "valor": "/home/voce", "motivo": "usuário de exemplo do guia de início e do ensaio da RM-049" },
+    { "padrao": "home", "valor": "/home/x", "motivo": "usuário inventado nos testes de forja e de instalação" },
+    { "padrao": "hostname", "valor": "Meu-PC", "motivo": "nome de máquina inventado num teste da rede (sanitização do nome)" },
+    { "padrao": "hostname", "valor": "bob-laptop", "motivo": "nome de máquina inventado num teste da rede pelo MCP" },
+    { "padrao": "hostname", "valor": "desk-admin-workstation", "motivo": "nome de máquina inventado num teste da rede" }
+  ]
+}
