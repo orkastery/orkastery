@@ -2770,7 +2770,65 @@
         "node -e \"const scan=require('./core/scripts/checar-experiencia-publica.cjs'); const j=require('./.ork-ci/ork-rm061f3d.json'); const r=scan.varrer({arquivos:['.ork-ci/ork-rm061f3d.json']}); if(j.schema!=='ork.ci-bundle/v1'||j.thread!=='ork-rm061f3d'||!r.ok) process.exit(1)\""
       ],
       "criadoEm": "2026-10-20T07:26:00.637Z",
-      "estado": "pendente",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C191",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/locale-conducao.ts",
+      "alegacao": "GO-FIX 2 (achado 4 do CHECK): em inglês, a opção de esperar a vez da recusa de condução é frase natural, com sujeito (\"Wait your turn: the command below repeats this request and proceeds on its own once the current conduction ends (waiting up to 30 min).\"), e o pt-BR segue igual byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='GO-FIX 2' core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'",
+        "grep -qF 'Wait your turn: the command below repeats this request and proceeds on its own once the current conduction ends (waiting up to 30 min).' core/src/locale-conducao.ts && grep -qF 'Esperar a vez: repete este pedido e segue sozinho quando a conducao atual terminar (ate 30 min).' core/src/locale-conducao.ts"
+      ],
+      "criadoEm": "2026-10-20T07:51:48.929Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C192",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "GO-FIX 2 (achado 4 do CHECK): o teste confere a frase inglesa da opção de esperar a vez e o pt-BR de antes, byte a byte, e que a frase sai logo acima do comando que descreve (ork phase run ... --esperar 30), nas duas línguas; com a frase antiga no código, ele reprova.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='GO-FIX 2' core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'",
+        "node --test core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T07:51:51.997Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C193",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "GO-FIX 2 (achado 2 do CHECK): a página da RM-061 lista, na seção \"Seguem em pt-BR, para a F3e\", cada rota que o código mantém fora de COMANDOS_COM_LOCALE (os cinco subcomandos de master, onboarding sync, experiencia uninstall, mcp serve, brain, activation, doctor --modo, maestro e receipt-verifiers) e os resíduos do grafo e do projeto-alvo, com a F3e como fatia seguinte; a F3d deixa de dizer \"os demais comandos\" sem qualificação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node -e 'const {cobreLocale}=require(\"./core/dist/locale.js\"); const p=require(\"fs\").readFileSync(\"docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md\",\"utf8\"); const i=p.indexOf(\"**Seguem em pt-BR, para a F3e:**\"), j=p.indexOf(\"**Fora da F3e:**\"); if (i<0||j<i) process.exit(1); const sec=p.slice(i,j); for (const r of [[\"master\",\"audit\"],[\"master\",\"digest\"],[\"master\",\"migrar\"],[\"master\",\"ratificar\"],[\"master\",\"propor\"],[\"onboarding\",\"sync\"],[\"experiencia\",\"uninstall\"],[\"mcp\",\"serve\"],[\"brain\"],[\"activation\"]]) { if (cobreLocale(r,{})) { console.error(\"na lista: \"+r.join(\" \")); process.exit(1) } const nome=r[0]===\"master\"&&r[1]!==\"audit\"?r.join(\" \"):\"ork \"+r.join(\" \"); if (!sec.includes(\"`\"+nome+\"`\")) { console.error(\"falta na pagina: \"+nome); process.exit(1) } } if (cobreLocale([\"doctor\"],{modo:\"fast\"})) process.exit(1); for (const t of [\"linhasDaExtracao\",\"grafo.indice.*\",\"grafo.consulta.*\",\"`ork doctor --modo`\",\"`ork maestro`\",\"`ork receipt-verifiers`\",\"ORK_PROJETO\"]) if (!sec.includes(t)) { console.error(\"falta: \"+t); process.exit(1) } if (p.includes(\"os demais comandos do CLI principal e as três lacunas\")||!p.includes(\"A F3 sai em cinco fatias\")) process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-20T07:59:38.268Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C194",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 2 (achado 2 do CHECK): a linha da F3d no CHANGELOG, em \"Não publicado\", diz as famílias que seguiam fora da lista em vez de \"comandos restantes\" e lista o que segue em pt-BR com o CLI em inglês para a F3e: os cinco subcomandos de master, as linhas de extração e as recusas do grafo, onboarding sync, experiencia uninstall, doctor --modo, maestro, mcp serve, os erros de brain, activation e receipt-verifiers e a recusa do projeto-alvo.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const s=require(\"fs\").readFileSync(\"CHANGELOG.md\",\"utf8\").replace(/\\s+/g,\" \"); for (const t of [\"fatia F3d** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): as famílias do CLI principal que seguiam fora da lista\",\"para a fatia F3e: `ork master audit`, `master digest`, `master migrar`, `master ratificar` e `master propor`\",\"as linhas de extração do `ork grafo indexar` e o detalhe das recusas tipadas\",\"`ork onboarding sync`, `ork experiencia uninstall`, `ork doctor --modo`, `ork maestro` e `ork mcp serve`\",\"mensagens de erro de `ork brain`, `ork activation` e `ork receipt-verifiers`\",\"a recusa do projeto-alvo, que sai antes de o comando ativar o locale\"]) if (!s.includes(t)) { console.error(\"falta: \"+t); process.exit(1) } if (s.includes(\"comandos restantes do CLI principal\")) process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-20T07:59:42.850Z",
+      "estado": "verificado",
       "lint": []
     }
   ],
