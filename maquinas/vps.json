@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-20T05:15:02.485Z",
+  "publicadoEm": "2026-10-20T05:16:42.125Z",
   "threads": [
     {
       "id": "ork-rm061f3d",
@@ -32,11 +32,11 @@
       "id": "ork-rm062barreir",
       "nome": "rm062barreira",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-062",
       "branch": "ork/ork-rm062barreir-full",
-      "atualizadaEm": "2026-10-20T04:14:20.416Z",
+      "atualizadaEm": "2026-10-20T05:16:41.817Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
