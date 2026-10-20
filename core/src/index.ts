@@ -4513,6 +4513,8 @@ function executarComando(argvBruto: string[]): number {
       return executarGrafo(argv.slice(argv.indexOf('grafo') + 1),
         { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, versao: VERSAO_DO_ORK,
           contextoDaThread: (id) => lerEntradaDaThread(carregado.raiz, id),
+          // RM-061 (F3d): a familia do grafo nao importa o catalogo (fronteira do KG3); a redacao vem daqui, no locale do comando.
+          textos: msg().grafo,
           escrever: (texto) => console.log(texto) });
     }
     case 'ship':

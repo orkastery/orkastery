@@ -19,7 +19,6 @@
 import {
   TIPOS_DE_ARESTA, compararUtf8, type Acesso, type Aresta, type Evidencia, type GrafoCodigo, type No, type TipoDeAresta, type TipoDeNo,
 } from './intelligence-graph-contract';
-import { msg } from './locale';
 
 export const CONSULTA_SCHEMA = 'ork.code-graph-query/v0' as const;
 export const PROFUNDIDADE_MAXIMA = 5;
@@ -29,6 +28,46 @@ export const LIMITE_MAXIMO = 10_000;
 export const CANDIDATOS_LISTADOS = 20;
 export const AVISO_DE_PARCIALIDADE =
   'parcial: so arestas que o extrator prova; chamada por despacho de tipo, import nao resolvido e as lacunas do relatorio de extracao ficam fora';
+
+/**
+ * RM-061 (F3d, GO-FIX 1): a redacao humana da resposta. A consulta e pura e nao importa o catalogo de mensagens
+ * (fronteira do KG3): o pt-BR mora aqui, e o CLI do grafo passa a do catalogo (`msg().grafo.consulta`), no locale
+ * do comando. Um teste confere que o pt-BR do catalogo e este.
+ */
+export interface TextosDaConsulta {
+  titulo: (repositorio: string, revisao: string, chave: string, snapshot: string) => string;
+  arvore: string;
+  fontes: (lista: string, resto: number) => string;
+  marca: string;
+  pagina: (pagina: number) => string;
+  extratores: (lista: string) => string;
+  semCaminho: (de: string, para: string, sentido: string, nos: number | null) => string;
+  caminho: (de: string, para: string, sentido: string, passos: number) => string;
+  contra: string;
+  todos: string;
+  resultado: (tipo: string, alvo: string, profundidade: number | null, filtro: string, arestas: number, nos: number) => string;
+  filtro: (sentido: string, tipos: string) => string;
+  truncado: (devolvidas: number, total: number) => string;
+  parcial: string;
+}
+
+export const TEXTOS_DA_CONSULTA: TextosDaConsulta = {
+  titulo: (repositorio, revisao, chave, snapshot) => `grafo de ${repositorio} na revisao ${revisao}, indice ${chave}, snapshot ${snapshot}`,
+  arvore: 'aviso: a arvore tem mudanca rastreada; a resposta e do HEAD, nao da arvore',
+  fontes: (lista, resto) => `fontes que mudaram na arvore: ${lista}${resto ? ` e mais ${resto}` : ''}`,
+  marca: '  [fonte modificada na arvore]',
+  pagina: (pagina) => `pagina ${pagina}`,
+  extratores: (lista) => `extratores: ${lista}`,
+  semCaminho: (de, para, sentido, nos) => `sem caminho de ${de} para ${para} (sentido ${sentido}): ${nos} nos explorados`,
+  caminho: (de, para, sentido, passos) => `caminho de ${de} para ${para} (sentido ${sentido}): ${passos} passo(s)`,
+  contra: '(contra a aresta) ',
+  todos: 'todos',
+  resultado: (tipo, alvo, profundidade, filtro, arestas, nos) =>
+    `${tipo} de ${alvo} (profundidade ${profundidade}${filtro}): ${arestas} aresta(s), ${nos} no(s)`,
+  filtro: (sentido, tipos) => `, sentido ${sentido}, tipos ${tipos}`,
+  truncado: (devolvidas, total) => `truncado: ${devolvidas} de ${total} arestas, as mais perto do alvo; use --limite`,
+  parcial: AVISO_DE_PARCIALIDADE,
+};
 
 export type Sentido = 'entrada' | 'saida' | 'ambos';
 export type TipoDeConsulta = 'vizinhos' | 'chamadores' | 'importadores' | 'caminho';
@@ -391,8 +430,7 @@ export function jsonDaResposta(r: RespostaDeConsulta): string {
   return JSON.stringify(r, null, 2);
 }
 
-function linhasDaEvidencia(e: EvidenciaDaResposta): string {
-  const m = msg().grafo.consulta;
+function linhasDaEvidencia(e: EvidenciaDaResposta, m: TextosDaConsulta): string {
   const s = e.span;
   const onde = s.type === 'text'
     ? `${e.path}:${s.line_start ?? '?'}${s.line_end !== null && s.line_end !== s.line_start ? `-${s.line_end}` : ''}`
@@ -401,26 +439,25 @@ function linhasDaEvidencia(e: EvidenciaDaResposta): string {
 }
 
 /** KG5 fatia 5 (D9): a aresta cuja fonte mudou diz isso na propria linha, como o JSON diz no campo `arvore`. */
-function linhasDaAresta(a: ArestaDaResposta, prefixo = '  '): string[] {
-  const marca = a.arvore === 'modificada' ? msg().grafo.consulta.marca : '';
-  return [`${prefixo}${a.kind}  ${a.from} -> ${a.to}${marca}`, ...a.evidencias.map(linhasDaEvidencia)];
+function linhasDaAresta(a: ArestaDaResposta, m: TextosDaConsulta, prefixo = '  '): string[] {
+  const marca = a.arvore === 'modificada' ? m.marca : '';
+  return [`${prefixo}${a.kind}  ${a.from} -> ${a.to}${marca}`, ...a.evidencias.map((e) => linhasDaEvidencia(e, m))];
 }
 
 /** KG5 fatia 5 (D9): ate cinco fontes que nao tem na arvore os bytes do indice, com a situacao de cada uma. */
-function linhaDasFontesMudadas(fontes: readonly FonteDaResposta[]): string[] {
+function linhaDasFontesMudadas(fontes: readonly FonteDaResposta[], m: TextosDaConsulta): string[] {
   const mudaram = fontes.filter((f) => f.arvore !== 'igual');
   if (!mudaram.length) return [];
-  return [msg().grafo.consulta.fontes(mudaram.slice(0, 5).map((f) => `${f.path} (${f.arvore})`).join(', '), Math.max(0, mudaram.length - 5))];
+  return [m.fontes(mudaram.slice(0, 5).map((f) => `${f.path} (${f.arvore})`).join(', '), Math.max(0, mudaram.length - 5))];
 }
 
-export function textoDaResposta(r: RespostaDeConsulta): string {
+export function textoDaResposta(r: RespostaDeConsulta, m: TextosDaConsulta = TEXTOS_DA_CONSULTA): string {
   const c = r.consulta, i = r.indice;
-  const m = msg().grafo.consulta;
   const linhas = [
     m.titulo(i.repository_id, i.revision.slice(0, 12), i.chave.slice(0, 16), i.snapshot_id.slice(0, 17)),
   ];
   if (i.arvore === 'modificada') linhas.push(m.arvore);
-  linhas.push(...linhaDasFontesMudadas(r.fontes));
+  linhas.push(...linhaDasFontesMudadas(r.fontes, m));
   linhas.push(m.extratores(i.extratores.map((e) => `${e.extractor_id} ${e.extractor_version}`).join(', ')));
   if (c.tipo === 'caminho') {
     const para = r.para as NoDaResposta;
@@ -428,12 +465,12 @@ export function textoDaResposta(r: RespostaDeConsulta): string {
       linhas.push(m.semCaminho(r.alvo.rotulo, para.rotulo, c.sentido, r.nos_explorados));
     } else {
       linhas.push(m.caminho(r.alvo.rotulo, para.rotulo, c.sentido, r.caminho.length));
-      r.caminho.forEach((p, n) => linhas.push(...linhasDaAresta(p.aresta, `  ${n + 1}. ${p.sentido === 'entrada' ? m.contra : ''}`)));
+      r.caminho.forEach((p, n) => linhas.push(...linhasDaAresta(p.aresta, m, `  ${n + 1}. ${p.sentido === 'entrada' ? m.contra : ''}`)));
     }
   } else {
     const filtro = c.tipo === 'vizinhos' ? m.filtro(c.sentido, c.tipos.length === TIPOS_DE_ARESTA.length ? m.todos : c.tipos.join(',')) : '';
     linhas.push(m.resultado(c.tipo, r.alvo.rotulo, c.profundidade, filtro, r.total_arestas, r.total_nos - 1));
-    for (const a of r.arestas) linhas.push(...linhasDaAresta(a));
+    for (const a of r.arestas) linhas.push(...linhasDaAresta(a, m));
     if (r.truncado) linhas.push(m.truncado(r.arestas.length, r.total_arestas));
   }
   linhas.push(m.parcial);

@@ -4,7 +4,7 @@ import { chaveDoLocale, comLocale, cobreLocale, msg } from '../src/locale';
 import { tabelaDeModos } from '../src/modos';
 import { textoDaMigracaoModos } from '../src/modos-migracao';
 import { tabelaDeVariantes } from '../src/ciclos';
-import { linhasEmPortugues } from './locale-apoio';
+import { cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 import { CADENCIAS, textoDaCadencia } from '../src/pulse-cadencia';
 import { textoDasEstatisticas, LedgerStats } from '../src/ledger-stats';
 import { tabelaDaPolitica, textoDaRetomada } from '../src/retry';
@@ -34,7 +34,7 @@ import { textoDaBatida } from '../src/conducao-batida';
 import { textoDoStatusDaSentinela } from '../src/conducao-sentinela';
 import { linhaDaAutorizacao, textoDaAutorizacao } from '../src/autorizacao-duravel';
 import { textoDaAtualizacao } from '../src/atualizar-branch';
-import { lerPedido } from '../src/intelligence-graph-cli';
+import { lerPedido, TEXTOS_DO_GRAFO } from '../src/intelligence-graph-cli';
 import { textoDaResposta } from '../src/intelligence-graph-query';
 import { tabelaDePacks } from '../src/auditoria';
 import { tabelaDaDivida } from '../src/divida';
@@ -438,11 +438,12 @@ test('F3d: grafo localiza uso e resposta humana sem alterar o contrato JSON', ()
       snapshot_id: 'snap-1', arvore: 'limpa', extratores: [] },
     alvo: { rotulo: 'src/a.ts' }, arestas: [], total_arestas: 0, total_nos: 1,
     fontes: [], truncado: false, parcial: 'dado pt-BR do JSON' } as any;
-  const erro = (locale: 'pt-BR' | 'en') => comLocale(locale, () => {
-    try { lerPedido([]); return ''; } catch (e) { return (e as Error).message; }
-  });
-  const pt = comLocale('pt-BR', () => textoDaResposta(resposta));
-  const en = comLocale('en', () => textoDaResposta(resposta));
+  // GO-FIX 1: a familia do grafo nao importa o catalogo (fronteira do KG3); quem chama passa a redacao do locale.
+  const erro = (locale: 'pt-BR' | 'en') => {
+    try { lerPedido([], msg(locale).grafo); return ''; } catch (e) { return (e as Error).message; }
+  };
+  const pt = textoDaResposta(resposta, msg('pt-BR').grafo.consulta);
+  const en = textoDaResposta(resposta, msg('en').grafo.consulta);
   assert.match(erro('pt-BR'), /^grafo\.uso: falta o subcomando/);
   assert.match(erro('en'), /^grafo\.uso: missing subcommand/);
   assert.match(pt, /^grafo de demo na revisao/);
@@ -450,6 +451,44 @@ test('F3d: grafo localiza uso e resposta humana sem alterar o contrato JSON', ()
   assert.match(en, /0 edge\(s\), 0 node\(s\)/);
   assert.match(en, /partial: only edges proven/);
   assert.doesNotMatch(en, /dado pt-BR do JSON/);
+  // Sem a redacao, a familia fala o pt-BR dela, o mesmo do catalogo, qualquer que seja o locale ativo.
+  assert.equal(comLocale('en', () => textoDaResposta(resposta)), pt);
   assert.equal(cobreLocale(['grafo', 'status'], {}), true);
   assert.equal(cobreLocale(['grafo', 'status'], { json: true }), false);
+});
+
+/** GO-FIX 1: as folhas de duas redacoes lado a lado; cada funcao e chamada com argumentos que ligam e desligam os ramos. */
+function mesmaRedacao(familia: unknown, catalogo: unknown, onde: string): void {
+  if (typeof familia === 'function') {
+    assert.equal(typeof catalogo, 'function', onde);
+    for (const args of [['a1', 'a2', 'a3', 'a4', 'a5', 'a6'], ['', '', '', '', '', '']]) {
+      assert.equal((catalogo as (...x: string[]) => string)(...args), (familia as (...x: string[]) => string)(...args), onde);
+    }
+  } else if (familia !== null && typeof familia === 'object') {
+    assert.deepEqual(Object.keys(catalogo as object), Object.keys(familia), onde);
+    for (const [k, v] of Object.entries(familia)) mesmaRedacao(v, (catalogo as Record<string, unknown>)[k], `${onde}.${k}`);
+  } else {
+    assert.equal(catalogo, familia, onde);
+  }
+}
+
+test('F3d (GO-FIX 1): o pt-BR do catalogo do grafo e o da familia, que nao importa o catalogo', () => {
+  mesmaRedacao(TEXTOS_DO_GRAFO, msg('pt-BR').grafo, 'grafo');
+  // O campo do `grafo indexar` ocupa 13 colunas antes do valor, como na base.
+  assert.equal(msg('pt-BR').grafo.indexar.campo('revisao', 'x'), '  revisao      x');
+  assert.equal(msg('pt-BR').grafo.indexar.campo('conferencia', 'x'), '  conferencia  x');
+});
+
+test('F3d (GO-FIX 1): ork grafo recusa o uso no locale do comando, pela redacao que a borda passa', () => {
+  const c = cenario('grafo-uso');
+  try {
+    const en = ork(c, EN, false, 'grafo'), pt = ork(c, PT, false, 'grafo');
+    assert.notEqual(en.status, 0);
+    assert.match(en.stderr, /^error: grafo\.uso: missing subcommand\nusage: ork grafo indexar /);
+    assert.match(pt.stderr, /^erro: grafo\.uso: falta o subcomando\nuso: ork grafo indexar /);
+    // Com --json, o erro de uso sai como objeto, igual nas duas linguas.
+    const json = ork(c, EN, false, 'grafo', '--json');
+    assert.equal(json.stdout, ork(c, PT, false, 'grafo', '--json').stdout);
+    assert.match(json.stdout, /"detalhe": "subcomando desconhecido: --json/);
+  } finally { c.limpar(); }
 });

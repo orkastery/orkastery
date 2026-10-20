@@ -23,7 +23,8 @@ export const GRAFO_PT_BR = {
   },
   indexar: {
     titulo: (repo: string, estado: string) => `indice do grafo de ${repo}: ${estado}`,
-    campo: (nome: string, valor: string) => `  ${nome.padEnd(13)} ${valor}`,
+    // O rotulo ocupa 13 colunas antes do valor, como na base: 12 do nome e um espaco.
+    campo: (nome: string, valor: string) => `  ${nome.padEnd(12)} ${valor}`,
     campos: { revisao: 'revisao', chave: 'chave', snapshot: 'snapshot', digest: 'digest', conferencia: 'conferencia',
       nos: 'nos', arestas: 'arestas', lugar: 'lugar', motivo: 'motivo', tempo: 'tempo' },
     conferencia: (fontes: number, evidencias: number) => `conferirFontes verificada: ${fontes} fontes e ${evidencias} evidencias contra os bytes`,
@@ -87,7 +88,7 @@ export const GRAFO_EN: typeof GRAFO_PT_BR = {
     tetoJson: '--teto-bytes requires --json', tetoMin: '--teto-bytes must be at least 1', amostraExclusiva: '--conferir and --por-estrato cannot be combined', estratoMin: '--por-estrato must be at least 1',
   },
   indexar: {
-    titulo: (repo, state) => `graph index for ${repo}: ${state}`, campo: (name, value) => `  ${name.padEnd(13)} ${value}`,
+    titulo: (repo, state) => `graph index for ${repo}: ${state}`, campo: (name, value) => `  ${name.padEnd(12)} ${value}`,
     campos: { revisao: 'revision', chave: 'key', snapshot: 'snapshot', digest: 'digest', conferencia: 'check',
       nos: 'nodes', arestas: 'edges', lugar: 'location', motivo: 'reason', tempo: 'time' },
     conferencia: (sources, evidence) => `conferirFontes verified: ${sources} sources and ${evidence} evidence items against the bytes`,
