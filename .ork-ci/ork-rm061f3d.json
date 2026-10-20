@@ -1352,7 +1352,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:17:02.172Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1366,7 +1366,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:17:02.279Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1380,7 +1380,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:17:02.572Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1394,7 +1394,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:19:37.252Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1408,7 +1408,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:19:37.311Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1422,7 +1422,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:19:37.376Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1436,7 +1436,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:19:37.433Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1450,7 +1450,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:19:37.499Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1464,7 +1464,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:21:45.478Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1478,7 +1478,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:21:45.552Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1492,7 +1492,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:21:45.630Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1506,7 +1506,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:21:45.699Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1520,7 +1520,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:29:35.001Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1534,7 +1534,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:29:35.051Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1548,7 +1548,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:29:35.088Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1562,7 +1562,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:29:35.127Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1576,7 +1576,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:33:22.560Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1590,7 +1590,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:33:22.694Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1604,7 +1604,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:33:22.758Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1618,7 +1618,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:33:22.813Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1632,7 +1632,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:33:22.916Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1646,7 +1646,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:34:45.359Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1660,7 +1660,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:34:45.410Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1674,7 +1674,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:34:45.471Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1688,7 +1688,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:34:45.524Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1702,7 +1702,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:35:26.151Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1716,7 +1716,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:35:26.209Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1730,7 +1730,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:35:26.264Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1744,7 +1744,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:35:26.315Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1758,7 +1758,7 @@
         "node core/scripts/contar-mensagens-de-saida.cjs --json > /tmp/ork-rm061f3d-contador.json && grep -E '\"arquivo\": \"locale-operacao-restante.ts\"' /tmp/ork-rm061f3d-contador.json"
       ],
       "criadoEm": "2026-10-20T04:39:41.351Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1772,7 +1772,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/contador-mensagens.test.js"
       ],
       "criadoEm": "2026-10-20T04:39:41.401Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1786,7 +1786,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:42:19.196Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1800,7 +1800,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:42:19.254Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1814,7 +1814,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:42:19.304Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1828,7 +1828,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:42:19.356Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1842,7 +1842,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:42:19.409Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1856,7 +1856,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:44:28.034Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1870,7 +1870,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:44:28.077Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1884,7 +1884,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:44:28.116Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1898,7 +1898,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:44:28.166Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1912,7 +1912,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:44:28.216Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1926,7 +1926,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:46:58.851Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1940,7 +1940,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:46:58.901Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1954,7 +1954,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:46:58.941Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1968,7 +1968,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:46:58.986Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1982,7 +1982,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:47:04.393Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1996,7 +1996,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:47:04.476Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2010,7 +2010,7 @@
         "npm --prefix core run build:test && node -e 'const l=require(\"./core/dist-test/src/locale\"),m=require(\"./core/dist-test/src/conducao\"); l.comLocale(\"en\",()=>{if(!/nobody is conducting/.test(m.textoDoStatusDaConducao(\"ork-x\",null)))process.exit(1)})'"
       ],
       "criadoEm": "2026-10-20T04:48:39.652Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2024,7 +2024,7 @@
         "npm --prefix core run build:test && node -e 'const l=require(\"./core/dist-test/src/locale\"),m=require(\"./core/dist-test/src/conducao-batida\"); l.comLocale(\"en\",()=>{if(!/Another conduction heartbeat/.test(m.textoDaBatida({ocupada:true,detalhe:\"busy\"})))process.exit(1)})'"
       ],
       "criadoEm": "2026-10-20T04:48:39.711Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2038,7 +2038,7 @@
         "npm --prefix core run build:test && node -e 'const l=require(\"./core/dist-test/src/locale\"),m=require(\"./core/dist-test/src/autorizacao-duravel\"); l.comLocale(\"en\",()=>{if(!/No valid durable authorization/.test(m.textoDaAutorizacao({valida:false,motivo:\"expired\",detalhe:\"detail\"})))process.exit(1)})'"
       ],
       "criadoEm": "2026-10-20T04:48:39.776Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2052,7 +2052,7 @@
         "npm --prefix core run build:test && node -e 'const l=require(\"./core/dist-test/src/locale\"),m=require(\"./core/dist-test/src/conducao-sentinela\"); l.comLocale(\"en\",()=>{if(!/Sentinel: off/.test(m.textoDoStatusDaSentinela({maquina:\"box\",presenca:null,threads:[]})))process.exit(1)})'"
       ],
       "criadoEm": "2026-10-20T04:48:39.828Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2066,7 +2066,7 @@
         "npm --prefix core run build:test && node -e 'const l=require(\"./core/dist-test/src/locale\"),m=require(\"./core/dist-test/src/atualizar-branch\"); l.comLocale(\"en\",()=>{if(!/already contains/.test(m.textoDaAtualizacao({acao:\"ja-atualizada\",branch:\"ork/x\",base:\"main\",enviada:false})))process.exit(1)})'"
       ],
       "criadoEm": "2026-10-20T04:48:39.885Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2080,7 +2080,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:51:49.348Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2094,7 +2094,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:51:49.392Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2108,7 +2108,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:51:49.434Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2122,7 +2122,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:51:49.475Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2136,7 +2136,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:54:51.844Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2150,7 +2150,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:54:51.892Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2164,7 +2164,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:54:51.941Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2178,7 +2178,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:54:51.989Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2192,7 +2192,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:54:52.035Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2206,7 +2206,7 @@
         "grep -E \"export const AUDIT_(PT_BR|EN)\" core/src/locale-audit.ts"
       ],
       "criadoEm": "2026-10-20T04:59:19.060Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2220,7 +2220,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:59:19.104Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2234,7 +2234,7 @@
         "grep -E \"msg\\(\\)\\.audit\\.packs|m\\.cabecalho|m\\.evidencia\" core/src/auditoria.ts"
       ],
       "criadoEm": "2026-10-20T04:59:19.157Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2248,7 +2248,7 @@
         "grep -E \"msg\\(\\)\\.audit\\.rodadas|m\\.claimsPendentes|m\\.ledgerCabecalho\" core/src/auditrun.ts"
       ],
       "criadoEm": "2026-10-20T04:59:19.200Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2262,7 +2262,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T04:59:19.243Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2276,7 +2276,7 @@
         "grep -E \"msg\\(\\)\\.audit\\.divida|m\\.recorrencia|m\\.thread\" core/src/divida.ts"
       ],
       "criadoEm": "2026-10-20T04:59:27.881Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2290,7 +2290,7 @@
         "grep -E \"msg\\(\\)\\.audit\\.superficie|m\\.claims|m\\.registrar\" core/src/superficie.ts"
       ],
       "criadoEm": "2026-10-20T04:59:27.924Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2304,7 +2304,7 @@
         "grep -E \"const m = msg\\(\\)\\.audit|m\\.uso\\('run'\\)|m\\.erro\\.limite\" core/src/index.ts"
       ],
       "criadoEm": "2026-10-20T04:59:27.965Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2318,7 +2318,7 @@
         "grep -E \"lintTitulo|despachada|verifyTitulo|rodadaRegistrada\" core/src/locale-audit.ts"
       ],
       "criadoEm": "2026-10-20T05:01:07.430Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2332,7 +2332,7 @@
         "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
       ],
       "criadoEm": "2026-10-20T05:01:07.478Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2346,21 +2346,7 @@
         "node -e \"const j=require('./docs/roadmap/evidencias/RM-061/cobertura-f3d.json'); if(j.antes.catalogo.entradas!==2157||j.depois.catalogo.entradas!==3367||j.depois.cobertura!==0.5935) process.exit(1)\""
       ],
       "criadoEm": "2026-10-20T05:02:30.310Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
-      "id": "C159",
-      "thread": "ork-rm061f3d",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
-      "alegacao": "A página do RM-061 contém a tabela F3d, contratos preservados e superfícies derivadas pendentes.",
-      "negativa": false,
-      "verificar": [
-        "grep -E \"F3d \\(`8520da95`\\)|59,35%|superfícies derivadas\" docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
-      ],
-      "criadoEm": "2026-10-20T05:02:30.390Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2374,7 +2360,7 @@
         "grep -E \"CLI em inglês e pt-BR, fatia F3d|59,35%\" CHANGELOG.md"
       ],
       "criadoEm": "2026-10-20T05:02:30.458Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2388,7 +2374,7 @@
         "grep -E 'F3d .*8520da95|59,35%|superfícies derivadas' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
       ],
       "criadoEm": "2026-10-20T05:02:54.311Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2402,7 +2388,7 @@
         "node -e \"const j=require('./docs/roadmap/evidencias/RM-061/cobertura-f3d.json'); if(j.testes.suiteIntegral.resultado.indexOf('timeout 124')<0||j.testes.verifyNativo.ok!==false) process.exit(1)\""
       ],
       "criadoEm": "2026-10-20T05:47:27.368Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -2416,6 +2402,374 @@
         "grep -E '22 de 22|timeout|EPERM|86 de 161' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
       ],
       "criadoEm": "2026-10-20T05:47:27.450Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C165",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-query.ts",
+      "alegacao": "GO-FIX 1: a consulta do grafo não importa o catálogo de locale; recebe a redação por parâmetro e guarda o pt-BR da família (TEXTOS_DA_CONSULTA), e o fechamento dela e o do contexto ficam na família.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-kg1-boundary.test.js"
+      ],
+      "criadoEm": "2026-10-20T06:29:52.530Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C166",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "GO-FIX 1: o CLI do grafo só alcança a família e o Node; a redação humana vem da borda em ContextoDoCli.textos, com o pt-BR da família (TEXTOS_DO_GRAFO) como padrão.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-kg1-boundary.test.js",
+        "node --test --test-name-pattern='GO-FIX 1' core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:29:54.986Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C167",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/locale-grafo.ts",
+      "alegacao": "GO-FIX 1: o pt-BR do catálogo do grafo é o da família, folha por folha, e o campo do grafo indexar ocupa 13 colunas antes do valor, como na base.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='GO-FIX 1' core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:29:57.097Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C168",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "GO-FIX 1: o teste confere a paridade do pt-BR do grafo entre catálogo e família e a recusa de uso do ork grafo nas duas línguas, com o --json igual.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='GO-FIX 1' core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:29:59.310Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C169",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "GO-FIX 1: a borda do ork grafo passa ao CLI do grafo a redação do catálogo no locale do comando (textos: msg().grafo).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='ork grafo recusa o uso' core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:30:01.364Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C170",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "GO-FIX 1: nenhum catálogo de locale leva travessão U+2014; o custo de referência do ork ledger troca o travessão da base por parênteses nas duas línguas.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='nenhuma mensagem vazia nem igual' core/dist-test/test/locale-dado.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'",
+        "node -e \"const fs=require('fs');const d='core/src';const r=fs.readdirSync(d).filter(n=>/^locale(-[a-z]+)*[.]ts$/.test(n)&&fs.readFileSync(d+'/'+n,'utf8').includes(String.fromCharCode(0x2014)));if(r.length){console.error(r.join(' '));process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-20T06:31:51.551Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C171",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-dado.test.ts",
+      "alegacao": "GO-FIX 1: o teste do catálogo aceita, uma a uma, só as 58 folhas da F3d que são a mesma palavra nas duas línguas (rótulo de tabela, valor técnico ou comando) e segue recusando mensagem vazia, igual por descuido e travessão.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-dado.test.js"
+      ],
+      "criadoEm": "2026-10-20T06:31:53.266Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C172",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "GO-FIX 1: o ork ci prepare grava lint, ledger e bundle no escopo pt-BR em qualquer língua (D2) e imprime o aviso remontado no locale do comando.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='locale en F3d ci prepare' core/dist-test/test/locale-claims.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 2 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:37:35.825Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C173",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "GO-FIX 1: o lint do bundle (aviso, claim anterior ao lint, worktree que sumiu e recusa) nasce do catálogo, em pt-BR no escopo da gravação, e se remonta no locale do comando; o pt-BR é o de antes, byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/claim-lint.test.js core/dist-test/test/rm037-ci-prepare-worktree.test.js",
+        "node --test --test-name-pattern='locale en F3d ci prepare: o lint do bundle' core/dist-test/test/locale-claims.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:37:38.505Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C174",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/claim-lint.ts",
+      "alegacao": "GO-FIX 1: a linha do lint de claim registra o montador do catálogo, e quem a grava em pt-BR a remonta no locale do comando ao imprimir.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/claim-lint.test.js",
+        "node --test --test-name-pattern='locale en F3d ci prepare: o lint do bundle' core/dist-test/test/locale-claims.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:37:40.917Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C175",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "GO-FIX 1: o catálogo do ci traz a claim anterior ao lint, a worktree que sumiu e a recusa do lint nas duas línguas, com o pt-BR igual ao texto de antes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/claim-lint.test.js core/dist-test/test/rm037-ci-prepare-worktree.test.js core/dist-test/test/locale-dado.test.js"
+      ],
+      "criadoEm": "2026-10-20T06:37:43.108Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C176",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-claims.test.ts",
+      "alegacao": "GO-FIX 1: o teste prova que o ci prepare grava o lint em pt-BR no ledger e o mesmo bundle nas duas línguas, com o aviso e a recusa em inglês sem resíduo pt-BR; o negativo do F3b passa a registrar o ci na lista.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-claims.test.js"
+      ],
+      "criadoEm": "2026-10-20T06:37:45.032Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C177",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2a-infra.test.ts",
+      "alegacao": "GO-FIX 1: o teste lista como fora da lista só as rotas que seguem em pt-BR depois da F3d (onboarding sync, experiencia uninstall, master digest/audit/migrar/ratificar/propor, brain, activation, mcp serve) e prova que as que a F3d levou estão dentro.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='cobreLocale so com a entrada na lista' core/dist-test/test/locale-f2a-infra.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:35.390Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C178",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-cli.test.ts",
+      "alegacao": "GO-FIX 1: o negativo byte a byte usa master digest, que segue fora da lista, no lugar de modos, e compara stdout e stderr nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='comando fora da prova de conceito segue em pt-BR' core/dist-test/test/locale-cli.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:37.648Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C179",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-doctor.test.ts",
+      "alegacao": "GO-FIX 1: o negativo do ork init usa brain status, que segue fora da lista, e confere o erro do manifesto em pt-BR com LANG inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='ork init fora do repositorio recusa em ingles' core/dist-test/test/locale-doctor.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:39.890Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C180",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-erros.test.ts",
+      "alegacao": "GO-FIX 1: o negativo dos erros usa brain, que segue fora da lista, no lugar de board, com o erro do manifesto em pt-BR byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='em pt-BR e com --json as mensagens seguem as da base' core/dist-test/test/locale-erros.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:42.098Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C181",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-estado.test.ts",
+      "alegacao": "GO-FIX 1: o negativo do estado como link usa master audit, que segue fora da lista e lê o estado, no lugar de lease list, com o erro em pt-BR byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='o erro de estado segue em pt-BR com LANG ingles' core/dist-test/test/locale-estado.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:44.130Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C182",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-master.test.ts",
+      "alegacao": "GO-FIX 1: o negativo do master compara nas duas línguas os --json e master digest, que seguem fora da lista; classes e a nota saíram porque a F3d os levou à lista.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='os --json e as rotas fora da lista seguem pt-BR' core/dist-test/test/locale-master.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:48.182Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C183",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-phase.test.ts",
+      "alegacao": "GO-FIX 1: o negativo da família phase compara nas duas línguas retry policy --json, retry list --json e master digest, que seguem fora da lista.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='o que fica fora da lista segue em pt-BR com LANG=en_US' core/dist-test/test/locale-phase.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:50.404Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C184",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-verify.test.ts",
+      "alegacao": "GO-FIX 1: o negativo da família verify compara saída, erro e código nas duas línguas em retry policy --json, retry list --json e master digest, que seguem fora da lista.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='ficam o --json e master digest' core/dist-test/test/locale-verify.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:52.653Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C185",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-pulse.test.ts",
+      "alegacao": "GO-FIX 1: com a F3d, o pulse cadencia sai em inglês sem resíduo pt-BR e segue em pt-BR com LANG pt-BR; o --json do pulse continua igual nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='o pulse do CLI sai em ingles e o --json nao muda' core/dist-test/test/locale-pulse.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:55.111Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C186",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-retry.test.ts",
+      "alegacao": "GO-FIX 1: o teste da F3d confere o cabeçalho real da tabela da política nas duas línguas, o título da rota no catálogo e a tabela inglesa sem resíduo pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='policy, parse, list, resume e cancel tem catalogo bilingue' core/dist-test/test/locale-retry.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:57.050Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C187",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-061/cobertura-f3d.json",
+      "alegacao": "GO-FIX 1: o recibo registra, no mesmo contador, a cobertura integrada (main 97c2a446 em 41,26%, F3d integrada em 58,63%) e a suíte inteira fora do sandbox antes (15 falhas em 5.341) e depois (0 falha em 5.345), sem apagar o registro da sessão anterior.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const j=require('./docs/roadmap/evidencias/RM-061/cobertura-f3d.json'); const i=j.integrada, g=j.goFix1; if(i.main.cobertura!==0.4126||i.comF3d.cobertura!==0.5863||i.comF3d.catalogo.entradas!==3391||g.antes.fail!==15||g.antes.tests!==5341||g.depois.fail!==0||g.depois.tests!==5345||j.testes.verifyNativo.ok!==false) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-20T06:59:56.559Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C188",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "GO-FIX 1: a página do RM-061 registra as 15 falhas da suíte inteira e as causas, a suíte depois com 0 falha em 5.345 testes e a cobertura integrada de 58,63% ao lado da main sozinha.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE 'GO-FIX 1:.*15 falhas em 5.341 testes' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qE '0 falha em 5.345 testes' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qE '\\| Cobertura \\| 41,5% \\| 59,35% \\| 41,26% \\| 58,63% \\|' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
+      ],
+      "criadoEm": "2026-10-20T06:59:59.519Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C189",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 1: a entrada da F3d em Não publicado registra a cobertura integrada de 58,63% e as correções do grafo, do ci prepare e do custo do ork ledger, sem anunciar publicação.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE 'medida dá 58,63% \\(41,26% na `main` sozinha\\)' CHANGELOG.md && grep -qE 'o `ork ci prepare` grava o lint em pt-BR no ledger' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-20T07:00:01.644Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C190",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm061f3d.json",
+      "alegacao": "O bundle de CI da thread usa o schema esperado e passa na varredura pública do repositório (e-mail, caminho pessoal, chat id, IP privado e host interno), sem nenhum nome pessoal escrito no próprio comando; substitui a C164.",
+      "negativa": true,
+      "verificar": [
+        "node -e \"const scan=require('./core/scripts/checar-experiencia-publica.cjs'); const j=require('./.ork-ci/ork-rm061f3d.json'); const r=scan.varrer({arquivos:['.ork-ci/ork-rm061f3d.json']}); if(j.schema!=='ork.ci-bundle/v1'||j.thread!=='ork-rm061f3d'||!r.ok) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-20T07:26:00.637Z",
       "estado": "pendente",
       "lint": []
     }
