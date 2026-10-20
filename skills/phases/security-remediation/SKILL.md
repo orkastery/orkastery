@@ -15,10 +15,10 @@ Um roteador fino para a correcao que nasce de um achado `new` do laco do `ork se
 ## Como rotear
 
 ```bash
-ork fix open <thread>                # a spec exata da correcao, derivada do verify real
-ork security-scan                    # o scan no HEAD, comparado com a base
-ork fix reverify <thread>            # reexecuta o verify, e com ele o scan, por correcao
-ork decisao registrar <thread> ...   # a decisao por tras de uma dispensa (tipo A)
+ork fix open <thread>
+ork security-scan
+ork fix reverify <thread>
+ork decisao registrar <thread> ...
 ```
 
 ## O que a remediacao entrega
@@ -27,7 +27,7 @@ ork decisao registrar <thread> ...   # a decisao por tras de uma dispensa (tipo 
 2. **Segredo sai do codigo E tem rotacao declarada.** Remover do arquivo nao desfaz o vazamento (`SEC 2`): o historico nao e limpo por corrigir o codigo. A correcao so fecha com a rotacao declarada ao dono da credencial, com data, e verificada, nao prometida. O valor do segredo nunca vai ao relatorio, ao commit ou ao prompt.
 3. **Dependencia sobe para a menor versao corrigida**, a que o relatorio indica, com a justificativa da escolha no commit. Pular para a ultima traz mudanca que ninguem pediu.
 4. **A prova e o scan reexecutado.** A prova e o scan reexecutado por `ork fix reverify`, que o `ork` roda no HEAD real; o relato do agente de que "corrigiu" nao e prova. O achado precisa sair do relatorio novo, e nenhum `new` pode ter entrado.
-5. **Dispensa e correcao tipo A**, e so quando o triador classificou falso positivo. A entrada vai ao `.ork-security/dismissals.json` com `fingerprint`, `tool`, `rule`, `file`, `reason`, `decidedBy`, `decisionRef` e `date`; sem motivo e sem decisao registrada, a config e invalida e o scan sai 1.
+5. **Dispensa e correcao tipo A**, e so quando o triador classificou falso positivo. A entrada vai ao `.ork-security/dismissals.json` com `fingerprint`, `tool`, `rule`, `file`, `reason`, `decidedBy`, `decisionRef` (a referencia da decisao registrada com `ork decisao registrar`) e `date`; sem motivo e sem decisao registrada, a config e invalida e o scan sai 1.
 6. **Arquivo excluido nao se corrige.** Achado em caminho que a config do scan exclui volta a triagem: ou o achado e de outro arquivo, ou a exclusao e que esta errada, e mudar a exclusao e decisao registrada, nao atalho.
 
 ## O que o nucleo verifica por voce

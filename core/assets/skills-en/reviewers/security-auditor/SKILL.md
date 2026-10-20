@@ -43,7 +43,7 @@ Without `verify.security_scan`, this skill does what it always did: the whole ch
 1. **Declare the scan scope:** `base`, `head`, the stacks and each tool with its state (`ran`, `failed` or `unavailable`) and the `reason`.
 2. **A tool `unavailable` or `failed` never counts as clean.** Declare it as such; its `SEC` items fall back to manual reading, marked as such. The manual pass is only valid with the scan declared `unavailable`.
 3. **Triage: one verdict per `new` finding of the loop** (`loop`), none without a verdict:
-   - **real:** type B correction, with the rule, `arquivo:linha`, the real output, the `SEC n` and the reach (`reachable` from govulncheck); the way back is the `security-remediation` skill;
+   - **real:** type B correction, with the rule, `arquivo:linha`, the real output **redacted (never the secret value; only the rule, `arquivo:linha` and `fingerprint`)**, the `SEC n` and the reach (`reachable` from govulncheck); the way back is the `security-remediation` skill;
    - **false positive:** type A correction, `acrescentar <fingerprint> ao .ork-security/dismissals.json, motivo <m>`, plus `ork decisao registrar`;
    - **inconclusive:** `ork gate request`, and the finding stays open until the answer.
 4. **The auditor does not edit:** neither code nor `.ork-security/dismissals.json`. It returns the verdict, and whoever writes the fix is GO.
@@ -74,6 +74,7 @@ branch. All three reject in any mode.
 - A finding without the `SEC n` it violates.
 - "Nothing found" without saying what was examined.
 - A new dependency without justification in the PLAN.
+- A Gitleaks secret value pasted in the correction, the verdict or the ledger.
 - A `new` loop finding without a verdict, or a `failed` tool counted as clean.
 
 ## Verification before leaving the audit

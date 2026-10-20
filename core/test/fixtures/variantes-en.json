@@ -7,14 +7,14 @@
   "skills-en/governance/roadmap-keeper/SKILL.md": "d0c9c2655fe4e95dfbd55a1b114f4595997b4e1a5a42652e8a419706e66f3895",
   "skills-en/governance/scope-check-capability-map/SKILL.md": "1601ad8777b806acc2283680dd29c46b0048623ce45759b3222c07ecbe9d1a4c",
   "skills-en/observability/thread-tracing/SKILL.md": "b50e55924db1bfdc551f837d9e290991388363bd787777ab390699d98419619a",
-  "skills-en/phases/check-quality/SKILL.md": "b248c825f66519f15d7fe0ab064848ea89b77c53de05ebceb7dd5d8e781e5f06",
+  "skills-en/phases/check-quality/SKILL.md": "0fa317570afc7cd2aa1069da3ef890015d4680e93a093508d4e29c533c2b2169",
   "skills-en/phases/go-implementation/SKILL.md": "7735a955d13fabba6f36f66a74741d4fd661d3038dd0973e291ec709c9eb9666",
   "skills-en/phases/goal-definition/SKILL.md": "d9cad3b07f5c4684a725233d48791b1e1226f29503cec1f3147811c990d027c5",
   "skills-en/phases/master-metrics/SKILL.md": "85ebcd272c192d605933d9829ab643b783066d9454a2b2ffbaf6e137aabe19a7",
   "skills-en/phases/plan-specification/SKILL.md": "6f7e5094cf9991a8d39a59cd20b7744d731b9ae8fa426f5521030c3c99a99c45",
   "skills-en/phases/ship-release/SKILL.md": "12ca0578af34e3996b8b40b1cf7ec6c2466948bdd59b97535f3381c42bd1f52d",
   "skills-en/reviewers/code-reviewer/SKILL.md": "5308c8c6b52fb1873e05db3edcf485f7012cf6751ca218fdd21cb302dd276173",
-  "skills-en/reviewers/security-auditor/SKILL.md": "38607f779211c774750109680c7d2800a0df40e12ea5a78f76a228be8c5e2837",
+  "skills-en/reviewers/security-auditor/SKILL.md": "4bc4dc47a3a29e099caf63e0ae920aa6b98994be120b1841c2092392e400fe76",
   "skills-en/reviewers/test-engineer/SKILL.md": "2a39ce9f810c3a7520ac15c603c002902931a416a559b237c76e259cfe6ebd76",
   "skills-en/reviewers/web-performance-auditor/SKILL.md": "5238f5ceac73dcd6c2b605a872bd72048a5d1d22273bc1f9d5bc540c48ba6968",
   "references-en/README.md": "88e0f7073cfaf0347877fea26d58f0de4ebe084c14d2d4d18d81199bd5a50d8b",
@@ -42,5 +42,5 @@
   "adapters-en/codex/skills/ork/SKILL.md": "4cdb49b40946d14e2c6574940cb51075dd6543ad1e4a0594bcb455901e7bfc3d",
   "adapters-en/hermes/README.md": "545b642f21893d24c3d17f929e9bf16994b6babe2976249a32588d2bc10cc058",
   "adapters-en/hermes/skills/orkastery-devmaster/SKILL.md": "0b5acccbac932f6d8443a9c0d36e412957eeb6b7594aa14c535e252a02b90958",
-  "skills-en/phases/security-remediation/SKILL.md": "d0e4be8922cbf6a6f35c2eaa2b8cbf97f7e7c7fd3f84abfb027789e8df440701"
+  "skills-en/phases/security-remediation/SKILL.md": "5c198f0096e0fd1e560906bfc8fd96390c7dd4d7dd2567b3a982972b52d9029e"
 }

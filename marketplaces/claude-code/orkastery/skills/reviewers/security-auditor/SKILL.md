@@ -43,7 +43,7 @@ Sem `verify.security_scan`, esta skill faz o que sempre fez: a checklist inteira
 1. **Declare o escopo do scan:** `base`, `head`, as stacks e cada ferramenta com o estado (`ran`, `failed` ou `unavailable`) e o `reason`.
 2. **Ferramenta `unavailable` ou `failed` nunca conta como limpa.** Declare-a assim; os itens `SEC` dela voltam para a leitura manual, marcada como tal. A passagem manual so vale com o scan `unavailable` declarado.
 3. **Triagem: um veredito por achado `new` do laco** (`loop`), nenhum sem veredito:
-   - **real:** correcao tipo B, com a regra, `arquivo:linha`, a saida real, o `SEC n` e o alcance (`reachable` do govulncheck); a volta e da skill `security-remediation`;
+   - **real:** correcao tipo B, com a regra, `arquivo:linha`, a saida real **redigida (nunca o valor do segredo; so regra, `arquivo:linha` e `fingerprint`)**, o `SEC n` e o alcance (`reachable` do govulncheck); a volta e da skill `security-remediation`;
    - **falso positivo:** correcao tipo A, `acrescentar <fingerprint> ao .ork-security/dismissals.json, motivo <m>`, mais `ork decisao registrar`;
    - **inconclusivo:** `ork gate request`, e o achado fica aberto ate a resposta.
 4. **O auditor nao edita:** nem codigo, nem o `.ork-security/dismissals.json`. Ele devolve o veredito, e quem escreve a correcao e o GO.
@@ -74,6 +74,7 @@ thread. As tres reprovam em qualquer modo.
 - Achado sem o `SEC n` que ele viola.
 - "Nada encontrado" sem dizer o que foi olhado.
 - Dependencia nova sem justificativa no PLAN.
+- Valor de segredo do Gitleaks colado na correcao, no veredito ou no ledger.
 - Achado `new` do laco sem veredito, ou ferramenta `failed` contada como limpa.
 
 ## Verificacao antes de sair da auditoria

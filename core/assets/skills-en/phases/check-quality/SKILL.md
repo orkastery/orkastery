@@ -61,7 +61,7 @@ Without `verify.security_scan`, nothing in this section applies and CHECK is the
 
 1. Read `report.md` and `report.json` in `.orkastery/security-scan/<sha>/`, in the main tree; the SHA is the verified HEAD's.
 2. Zero security blockers becomes: no `new` loop finding without a resolved verdict from the `security-auditor` (real and fixed, false positive dismissed with a recorded decision, or inconclusive with the `ork gate request` answered).
-3. A `warn` finding (`new` outside the loop, such as quality, license or severity below the cut) goes to the right axis as a registered warning, with the name of who accepted it, never as a hidden blocker.
+3. A `new` finding with `loop: false` (`warn` in the report, such as quality, license or severity below the cut) goes to the right axis as a registered warning, with the name of who accepted it, never as a hidden blocker.
 4. A tool `unavailable` or `failed` is declared in the verdict and never counts as clean; with `ORK_SECURITY_SCAN_REQUIRED=1` it makes the scan exit 1.
 5. A fix coming from the scan goes back through GO-FIX, with the `security-remediation` skill; the proof is `ork fix reverify`, which reruns verify and the scan.
 

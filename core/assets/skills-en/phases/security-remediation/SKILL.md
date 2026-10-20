@@ -15,10 +15,10 @@ A thin router for the fix that comes from a `new` loop finding of `ork security-
 ## How to route
 
 ```bash
-ork fix open <thread>                # a spec exata da correcao, derivada do verify real
-ork security-scan                    # o scan no HEAD, comparado com a base
-ork fix reverify <thread>            # reexecuta o verify, e com ele o scan, por correcao
-ork decisao registrar <thread> ...   # a decisao por tras de uma dispensa (tipo A)
+ork fix open <thread>
+ork security-scan
+ork fix reverify <thread>
+ork decisao registrar <thread> ...
 ```
 
 ## What the remediation delivers
@@ -27,7 +27,7 @@ ork decisao registrar <thread> ...   # a decisao por tras de uma dispensa (tipo 
 2. **The secret leaves the code AND has a declared rotation.** Removing it from the file does not undo the leak (`SEC 2`): history is not cleaned by fixing the code. The fix only closes with the rotation declared to the credential owner, dated and verified, not promised. The secret value never goes to the report, the commit or the prompt.
 3. **A dependency goes to the lowest fixed version**, the one the report indicates, with the justification of the choice in the commit. Jumping to the latest brings changes nobody asked for.
 4. **The proof is the rerun scan.** The proof is the scan rerun by `ork fix reverify`, which `ork` runs on the real HEAD; the agent's statement that it "fixed it" is not proof. The finding must be gone from the new report, and no `new` may have come in.
-5. **A dismissal is a type A fix**, and only when the triager classified a false positive. The entry goes to `.ork-security/dismissals.json` with `fingerprint`, `tool`, `rule`, `file`, `reason`, `decidedBy`, `decisionRef` and `date`; without a reason and a recorded decision, the config is invalid and the scan exits 1.
+5. **A dismissal is a type A fix**, and only when the triager classified a false positive. The entry goes to `.ork-security/dismissals.json` with `fingerprint`, `tool`, `rule`, `file`, `reason`, `decidedBy`, `decisionRef` (the reference of the decision recorded with `ork decisao registrar`) and `date`; without a reason and a recorded decision, the config is invalid and the scan exits 1.
 6. **An excluded file is not fixed.** A finding in a path the scan config excludes goes back to triage: either the finding is in another file, or the exclusion is wrong, and changing the exclusion is a recorded decision, not a shortcut.
 
 ## What the core checks for you

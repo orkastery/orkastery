@@ -54,8 +54,8 @@
         },
         {
           "tipo": "contem",
-          "valor": "menor versao corrigida",
-          "porque": "a dependencia sobe so ate la"
+          "valor": "mudar a exclusao e decisao registrada",
+          "porque": "a exclusao nao e atalho nem corrigida em silencio"
         }
       ]
     }
