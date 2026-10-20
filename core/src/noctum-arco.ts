@@ -34,7 +34,7 @@ import { comLockInspecionavel } from './hitl-lock';
 import { chaveLocal } from './hitl-local-receipt';
 import { nativeBinding, nativeContextSchema, nativeKey } from './hitl-native';
 import { publicBindingMatches, publicReceiptAuthority, signPublicReceipt, verifyPublicReceipt } from './hitl-public-receipt';
-import { avaliarEfeito, avaliarJanela, canonico, ConteudoDoEnvelope, envelopeComTrabalhos, hashDoEnvelope, ID_DO_ARCO,
+import { avaliarEfeito, avaliarJanela, canonico, ConteudoDoEnvelope, CONTRATO_ENVELOPE_V3, envelopeComTrabalhos, hashDoEnvelope, ID_DO_ARCO,
   PedidoDeEfeito, RecusaDoArco, recusaDeExclusao, resumoDoEnvelope, shaDoPedido, Teto, validarPedidoDeAbertura } from './noctum-envelope';
 import { lerThread, listarIds, pedidoDaThread } from './thread';
 import { Fase, Thread } from './types';
@@ -505,6 +505,13 @@ function exigirEmendaSemProrrogar(d: Derivado, conteudo: ConteudoDoEnvelope, qua
   }
   if (Date.parse(conteudo.janela.inicio) !== Date.parse(janela.inicio) || Date.parse(conteudo.janela.fim) > Date.parse(janela.fim)) {
     throw new RecusaDoArco('noctum.envelope.invalido', 'emenda mantém o início e não prorroga o fim do envelope autorizado');
+  }
+  // RM-058 N3 (A4 da revisão da ork-rm058n3): a emenda não troca o contrato entre a `v3` e as outras. O consumo e as sessões de
+  // uma máquina só não estão no ramo de coordenação, e a soma entre máquinas os perderia; o arco entre máquinas nasce assim.
+  const antes = d.propostas.get(d.autorizacao.versao)!.conteudo.contrato;
+  if ((antes === CONTRATO_ENVELOPE_V3) !== (conteudo.contrato === CONTRATO_ENVELOPE_V3)) {
+    throw new RecusaDoArco('noctum.envelope.invalido', `a emenda não troca o contrato de ${antes} para ${conteudo.contrato}: ` +
+      'o arco entre máquinas começa como tal, e o de uma máquina segue assim; abra outro arco');
   }
 }
 
@@ -1070,4 +1077,23 @@ export function concluirDespacho(raiz: string, arco: string, seq: number,
     anexar(raiz, arco, log, evento, quando);
     return confirmado(raiz, arco, quando, e => e.despachos.some(x => x.seq === seq && x.desfecho !== 'pendente'), 'conclusão do despacho');
   }, true);
+}
+
+/**
+ * RM-058 N3 (D6 da ork-rm058n3): as versões do envelope que o dono autorizou neste arco, na ordem do log. O ramo de
+ * coordenação guarda registros assinados sob versões anteriores (a vaga tomada antes de uma emenda continua contando), e a
+ * leitura confere cada um com as máquinas da versão que ele diz. A vigente é a última; o recibo do dono continua conferido
+ * por `vigenteConferido`, antes de cada efeito.
+ */
+export function versoesAutorizadas(raiz: string, arco: string): Array<{ versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope }> {
+  const log = lerLog(raiz, arco), d = derivar(log.linhas);
+  const vistas = new Set<number>();
+  const versoes: Array<{ versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope }> = [];
+  for (const { evento: e } of log.linhas) {
+    if (e.tipo !== 'autorizado' || vistas.has(e.versao)) continue;
+    vistas.add(e.versao);
+    const p = d.propostas.get(e.versao)!;
+    versoes.push({ versao: p.versao, envelopeSha256: p.envelopeSha256, conteudo: p.conteudo });
+  }
+  return versoes;
 }

@@ -151,7 +151,8 @@ export interface MudancaNaBranch { caminho: string; conteudo: string | null }
  * indice temporario, blobs, `write-tree` e `commit-tree`. Push sem forca; recusa volta `false`.
  */
 export function gravarNaBranch(raiz: string, remoto: string, branch: string, ponta: string | null,
-  mudancas: readonly MudancaNaBranch[], mensagem: string, prefixo: string, rede: OpcoesDeGit = {}): string | false {
+  mudancas: readonly MudancaNaBranch[], mensagem: string, prefixo: string, rede: OpcoesDeGit = {},
+  autor?: { nome: string; email: string }): string | false {
   exigirRemoto(remoto, prefixo);
   const indice = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-branch-estado-')), 'index');
   const env = { GIT_INDEX_FILE: indice };
@@ -167,7 +168,10 @@ export function gravarNaBranch(raiz: string, remoto: string, branch: string, pon
       }
     }
     const arvore = exigirGit(raiz, ['write-tree'], prefixo, { env }).trim();
-    const commit = exigirGit(raiz, ['commit-tree', arvore, ...(ponta ? ['-p', ponta] : []), '-m', mensagem], prefixo).trim();
+    // RM-058 N3 (S6 da revisão da ork-rm058n3): quem grava pode dar a identidade do commit, para a do git da pessoa não ir ao remoto.
+    const identidade = autor ? { env: { GIT_AUTHOR_NAME: autor.nome, GIT_AUTHOR_EMAIL: autor.email, GIT_COMMITTER_NAME: autor.nome,
+      GIT_COMMITTER_EMAIL: autor.email } } : {};
+    const commit = exigirGit(raiz, ['commit-tree', arvore, ...(ponta ? ['-p', ponta] : []), '-m', mensagem], prefixo, identidade).trim();
     // `rede`: prazo e ambiente so do que vai a rede (RM-037, achado A3: o fechamento nao espera 60 s).
     const push = git(raiz, ['push', '--quiet', '--', remoto, `${commit}:refs/heads/${branch}`], rede);
     if (push.ok) {

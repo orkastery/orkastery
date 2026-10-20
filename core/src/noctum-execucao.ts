@@ -34,9 +34,9 @@ import { ErroDaFilaPesada, kernelDisponivel, tentarTravaExclusiva } from './fila
 import { ManifestoCarregado } from './manifest';
 import { ConsumoMedidoDoDespacho, concluirDespacho, reservarDespacho } from './noctum-arco';
 import { admitir, Admissao, escolherConta, fatosDeCapacidade, LeituraDeSessoes } from './noctum-capacidade';
-import { envelopeComTrabalhos, RecusaDoArco } from './noctum-envelope';
+import { envelopeComTrabalhos, envelopeMultimaquina, RecusaDoArco } from './noctum-envelope';
 import { medidoParaReserva, medirArco, MedicaoDoArco, precisaMedir } from './noctum-medicao';
-import { DecisaoDaFila, DecisoesDaSupervisao, FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila,
+import { CoordenacaoDaFila, DecisaoDaFila, DecisoesDaSupervisao, FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila,
   MOTIVO_DO_ERRO_NO_DESPACHO } from './noctum-fila';
 import { OpcoesRun, resolverDespacho, ResultadoRun, rodarFase } from './phase';
 import { lerPerfis, perfilDisponivel } from './runtime-profiles';
@@ -66,6 +66,12 @@ export interface OpcoesDoPasso {
   gravarBaseline?: (carregado: ManifestoCarregado, threadId: string, conducao: ConducaoDoVerify) => void;
   /** A reserva no log do arco; em produção, `reservarDespacho`. */
   reservar?: typeof reservarDespacho;
+  /**
+   * RM-058 N3: o que o ramo de coordenação diz a esta máquina, dado só pelo passo da máquina (`noctum-maquinas.ts`), com a
+   * reserva do despacho que toma a vaga global (S5 da revisão: ela vence a `reservar` daqui). Sem isso, o arco entre
+   * máquinas (envelope `v3`) não despacha daqui.
+   */
+  coordenacao?: CoordenacaoDaFila & { reservar: typeof reservarDespacho };
   /** RM-058 N4: as decisões da supervisão do arco (isolados e retomadas), repassadas à fila. */
   supervisao?: DecisoesDaSupervisao;
   /** RM-058 N4 (D14): os runtimes da fase, em ordem; sem eles, só o do bloco, como na N2. */
@@ -157,12 +163,18 @@ export function passoDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
   try {
     let fatos: FatosDaFila;
     try {
-      fatos = fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, supervisao: opcoes.supervisao });
+      fatos = fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, coordenacao: opcoes.coordenacao,
+        supervisao: opcoes.supervisao });
     }
     catch (e) {
       // S6 do CHECK: a recusa tipada do arco (o log adulterado, por exemplo) volta como resultado, e não como exceção.
       if (!(e instanceof RecusaDoArco)) throw e;
       return { acao: 'aguardar', ate: cadencia, motivo: e.motivo, detalhe: e.message, fila: null };
+    }
+    // N3: o arco entre máquinas só despacha pelo passo da máquina, que confere ordem, reserva e vaga global antes.
+    if (fatos.estado?.conteudo && envelopeMultimaquina(fatos.estado.conteudo) && typeof opcoes.coordenacao?.reservar !== 'function') {
+      return { acao: 'aguardar', ate: cadencia, motivo: 'noctum.coordenacao.exige-passo-da-maquina', fila: null,
+        detalhe: 'o envelope vigente é de várias máquinas: o despacho passa pelo passo da máquina, com a ordem, a reserva e a vaga global' };
     }
     const fila = montarFila(fatos);
     if (fila.decisao.acao === 'encerrar') return { acao: 'encerrar', motivo: fila.decisao.motivo, fila };
@@ -267,7 +279,7 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
   const { raiz } = carregado;
   let reserva: number;
   try {
-    reserva = (opcoes.reservar ?? reservarDespacho)(raiz, { arco, envelopeSha256: fila.envelopeSha256 ?? '', trabalho: c.trabalho,
+    reserva = (opcoes.coordenacao?.reservar ?? opcoes.reservar ?? reservarDespacho)(raiz, { arco, envelopeSha256: fila.envelopeSha256 ?? '', trabalho: c.trabalho,
       thread: c.thread?.id ?? null, fase: c.fase, runtime: c.runtime, conta: c.conta, revisao: c.fase === 'CHECK',
       ...(c.medido ? { medido: c.medido } : {}) }, c.quando).seq;
   } catch (e) {

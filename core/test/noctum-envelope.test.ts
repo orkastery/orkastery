@@ -346,8 +346,9 @@ test('E17: a v1 segue como antes da N2: hash igual ao da base e trabalhos como c
   assert.match(msg, /pedido\.trabalhos: campo desconhecido/);
   assert.match(msg, /pedido\.capacidade: campo desconhecido/);
   assert.equal(envelopeComTrabalhos(validarPedidoDeAbertura(pedido())), false, 'arco com v1 não despacha nada');
-  assert.match(recusa(() => validarPedidoDeAbertura({ ...pedido(), contrato: 'ork.noctum-envelope/v3' }), 'noctum.envelope.invalido'),
-    /ork\.noctum-envelope\/v1 ou ork\.noctum-envelope\/v2/);
+  // RM-058 N3: a v3 passou a existir; o contrato desconhecido continua recusado, agora com as três na mensagem.
+  assert.match(recusa(() => validarPedidoDeAbertura({ ...pedido(), contrato: 'ork.noctum-envelope/v9' }), 'noctum.envelope.invalido'),
+    /ork\.noctum-envelope\/v1, ork\.noctum-envelope\/v2 ou ork\.noctum-envelope\/v3/);
 });
 
 test('E18: o resumo que o dono autoriza traz o pedido inteiro, linha por linha, com tab e quebra de linha', () => {

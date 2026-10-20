@@ -150,10 +150,12 @@ export const PAUSA_DEPOIS_DA_RECUSA_MS = 60_000;
  * As recusas do núcleo que dependem da conta, da vaga, da condução ou da baseline, a do orçamento esgotado na reserva do
  * arco, e as que o próprio vigia gravou: passam, e não contam para isolar o trabalho. As outras (a árvore bloqueada, a
  * policy, o runtime indisponível no portão, o erro de contexto da thread, o erro antes de lançar) contam (RA2 da rodada 3:
- * o runtime indisponível não passa sozinho).
+ * o runtime indisponível não passa sozinho). No arco entre máquinas (A1 da rodada 3 da ork-rm058n3), a vaga global ocupada,
+ * o ramo de coordenação sem leitura e a corrida perdida por ele também passam, como a vaga local.
  */
 const RECUSAS_PASSAGEIRAS = ['runtime.quota-exhausted', 'runtime.auth-missing', 'runtime.rate-limited', 'concurrency.limite',
-  'conducao.em-andamento', 'baseline.pendente', 'noctum.orcamento.esgotado'];
+  'conducao.em-andamento', 'baseline.pendente', 'noctum.orcamento.esgotado',
+  'noctum.coordenacao.vaga-global', 'noctum.coordenacao.sem-remoto', 'noctum.coordenacao.concorrencia'];
 export const passageira = (motivo: string | null): boolean => !motivo || RECUSAS_PASSAGEIRAS.includes(motivo) || motivo.startsWith('noctum.reconciliacao.');
 
 /**
