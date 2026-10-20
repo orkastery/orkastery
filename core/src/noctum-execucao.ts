@@ -11,7 +11,9 @@
  * A baseline que o bloco com GO pede nunca roda entre a reserva e o lançamento (A1 do CHECK da ork-rm058n2): o despacho
  * recusa com `baseline.pendente`, a reserva volta, a trava de despacho é solta e só então a baseline é gravada; o passo
  * seguinte confere o envelope de novo e despacha. Desde a integração (D6 da ork-rm058integra), vale em qualquer runtime,
- * não só no codex: a entrega da N5 cobra a baseline de toda thread do arco. A falha de um candidato antes de lançar (abrir a thread, ler o
+ * não só no codex: a entrega da N5 cobra a baseline de toda thread do arco. RM-037 (CHECK 3 da ork-rm037defeit2): o preparo
+ * de `worktree.dependencias` (até 10 min) também nunca roda ali: a thread nova nasce com ele pendente (`adiarDependencias`),
+ * e a baseline o roda antes dos comandos dela, fora da trava e na fila pesada. A falha de um candidato antes de lançar (abrir a thread, ler o
  * pedido) devolve a reserva e o passo segue para o próximo (A4). Do núcleo, só a recusa de antes do lançamento devolve a
  * reserva: a recusa dos portões, e a da conta, do limite de uso ou do impedimento do dono quando nenhuma sessão foi dita.
  * Quando o runtime pode ter aberto a sessão (a falha seca dele, o id dito antes da falha, o núcleo que voltou sem sessão
@@ -323,8 +325,9 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
   try {
     if (!thread) {
       if (!c.pedido) return { ...recusar('noctum.despacho.pedido-ausente', `o trabalho ${c.trabalho} não traz pedido para abrir a thread`, null), seguir: true };
+      // RM-037 (CHECK 3 da ork-rm037defeit2): sob a trava de despacho, o preparo das dependências só fica pendente.
       thread = (opcoes.abrirThread ?? ((k, o) => novaThread(k, o).thread))(carregado, { nome: `${c.item.toLowerCase()} ${c.trabalho}`,
-        modo: 'auto', roadmap: c.item, pedido: c.pedido, criarWorktree: true });
+        modo: 'auto', roadmap: c.item, pedido: c.pedido, criarWorktree: true, adiarDependencias: true });
     }
     pedido = pedidoDaThread(raiz, thread);
   } catch (e) {

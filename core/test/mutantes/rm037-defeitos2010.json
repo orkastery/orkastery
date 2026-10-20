@@ -118,6 +118,33 @@
       "para": "if (!tarefas && !despertares)",
       "teste": "rm037-defeitos2010-ociosa",
       "nome": "^defeito 4 \\(CHECK 3\\): o Stop sem as contagens"
+    },
+    {
+      "id": "M14",
+      "descricao": "defeito 2 (CHECK 3): o passo do arco volta a rodar o preparo das dependências ao abrir a thread, dentro da vez de despachar",
+      "modulo": "noctum-execucao",
+      "de": "criarWorktree: true, adiarDependencias: true",
+      "para": "criarWorktree: true",
+      "teste": "rm037-defeitos2010-arco",
+      "nome": "^defeito 2 \\(CHECK 3\\): o passo do arco"
+    },
+    {
+      "id": "M15",
+      "descricao": "defeito 2 (CHECK 3): a baseline volta a rodar sem o preparo que a criação adiou",
+      "modulo": "verify",
+      "de": "exigirDependenciasDaWorktree(carregado, threadId, cwd, 'baseline', tomada);",
+      "para": "void tomada;",
+      "teste": "rm037-defeitos2010-dependencias",
+      "nome": "^defeito 2 \\(CHECK 3\\): a thread aberta com o preparo adiado"
+    },
+    {
+      "id": "M16",
+      "descricao": "defeito 2 (CHECK 3): o verify volta a rodar sem o preparo que a criação adiou",
+      "modulo": "verify",
+      "de": "exigirDependenciasDaWorktree(carregado, threadId, cwd, 'verify', conducao);",
+      "para": "void conducao;",
+      "teste": "rm037-defeitos2010-dependencias",
+      "nome": "^defeito 2 \\(CHECK 3\\): o preparo adiado que falha"
     }
   ]
 }
