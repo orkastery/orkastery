@@ -111,8 +111,10 @@ test('locale en F3d retry complementar: policy, parse, list, resume e cancel tem
 
   const politicaPt = comLocale('pt-BR', () => tabelaDaPolitica());
   const politicaEn = comLocale('en', () => tabelaDaPolitica());
-  assert.match(politicaPt, /^POLITICA DE RETRY/m);
-  assert.match(politicaEn, /^RETRY POLICY/m);
-  assert.match(politicaEn, /reason.*action.*automatic.*fix/m);
-  assert.doesNotMatch(politicaEn, /motivo|acao|automatica|correcao/i);
+  // GO-FIX 1: a tabela nunca teve titulo (o titulo e da rota `ork retry policy`, no catalogo); o teste confere o cabecalho dela.
+  assert.match(politicaPt, /^ {2}MOTIVO TIPADO +ACAO DE RETRY +AUTOMATICA +POR QUE$/m);
+  assert.match(politicaEn, /^ {2}TYPED REASON +RETRY ACTION +AUTOMATIC +WHY$/m);
+  assert.match(pt.politicaTitulo, /^Politica de retry por motivo tipado de gate/);
+  assert.match(en.politicaTitulo, /^Retry policy by typed gate reason/);
+  assert.deepEqual(linhasEmPortugues(politicaEn), [], politicaEn);
 });
