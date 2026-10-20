@@ -122,7 +122,12 @@ que ele vigia como saída 15, 2 e 1, iguais a uma saída do comando, e eles cont
 
 A worktree nova não traz o que o git ignora (o `node_modules`, por exemplo). Com `worktree.dependencias` no
 manifesto, o `ork` roda esse comando dentro de toda worktree que cria e grava `worktree_dependencias` no ledger;
-sem ele, a baseline que acha o comando ausente recusa com `baseline.dependencia-ausente` e diz como declará-lo:
+sem ele, a baseline que acha o comando ausente recusa com `baseline.dependencia-ausente` e diz como declará-lo.
+O passo do arco do #Noctum abre a thread segurando a vez de despachar, e o preparo, que leva até 10 minutos, não
+roda ali: a thread nasce com ele pendente (`worktree_dependencias_pendentes`), e a baseline e o verify o rodam
+antes do primeiro comando, já na fila de recursos pesados. Enquanto ele falhar, os dois recusam
+(`baseline.dependencia-ausente` ou `verify.dependencia-ausente`, com o comando para repetir na worktree), e
+nenhuma baseline é gravada sobre a worktree sem as dependências:
 
 ```yaml
 worktree:
@@ -638,7 +643,7 @@ não conta o artefato gravado pela sessão que veio depois.
 | `failed` depois de Stop correlacionado | `gate_blocked` `human.pending` com diagnóstico: a sessão falhou depois de encerrar o turno e o humano decide; nunca conclusão nem reexecução automática |
 | `failed` ou `stopped` sem Stop correlacionado | `gate_blocked` `runtime.unavailable` |
 | `blocked` com processo vivo e Stop correlacionado, sem `sessao_bloqueada` depois dele e sem `status` ocupado, em duas leituras separadas por pelo menos um intervalo do observador (5 s) | a pausa humana, sempre `gate_blocked` `human.pending`: com a prova da fase, a fase tem a prova e o humano decide; sem ela, o que faltou vai na `fonte` e no diagnóstico, e nunca `artifact.missing` automático sobre uma sessão viva que espera resposta. Nunca `fase_concluida` direto: `blocked` é o Claude Code dizendo que o texto final pediu resposta (RM-037) |
-| `working` com `status: idle` e processo vivo, depois de Stop correlacionado, sem atividade nem `sessao_bloqueada` depois dele, por 5 minutos contados da primeira leitura ociosa e nunca de antes do Stop | a regra da prova: com ela, `fase_concluida` (sem `conclusaoNativa`, porque não houve `done`); sem ela, `gate_blocked` `human.pending` (no PLAN, `artifact.missing`). O Claude Code mantém `working` a sessão cuja resposta final ele lê como "ainda há passo" e só a encerra depois de 60 minutos ociosa no prompt; nesse tempo ela segurava a condução. A que espera tarefa em segundo plano aparece `busy` e continua trabalhando (RM-037) |
+| `working` com `status: idle` e processo vivo, depois de Stop correlacionado que gravou zero tarefa em segundo plano e zero despertar agendado (`backgroundTasks: 0` e `sessionCrons: 0`), sem atividade nem `sessao_bloqueada` depois dele, por 5 minutos contados da primeira leitura ociosa e nunca de antes do Stop | a regra da prova: com ela, `fase_concluida` (sem `conclusaoNativa`, porque não houve `done`); sem ela, `gate_blocked` `human.pending` (no PLAN, `artifact.missing`). O Claude Code mantém `working` a sessão cuja resposta final ele lê como "ainda há passo" e só a encerra depois de 60 minutos ociosa no prompt; nesse tempo ela segurava a condução. O `status` sozinho não basta: no Claude Code 2.1.304, o Bash em segundo plano aparece `shell`, e o despertar agendado (`CronCreate`, `ScheduleWakeup`, `/loop`) e a tarefa MCP deixam a sessão `idle` até ela voltar a escrever. Por isso o hook do Stop manda ao `ork` as contagens de `background_tasks` e `session_crons` da entrada do Claude Code; com alguma delas acima de zero, ou com o Stop sem elas (hook ou runtime de antes), a ociosidade não encerra o turno e vale o `done` do runtime (RM-037) |
 | `working` ou `blocked` sem processo vivo em duas leituras seguidas, depois de Stop correlacionado | a regra da prova: com ela, `fase_concluida` (sem `conclusaoNativa`, porque não houve `done`); sem ela, `gate_blocked` `human.pending` (no PLAN, `artifact.missing`) |
 | `working` ou `blocked` sem processo vivo em duas leituras seguidas, sem Stop correlacionado | `gate_blocked` `runtime.unavailable` |
 | sessão ausente da consulta por mais de 10 minutos | `gate_blocked` `runtime.unavailable` |

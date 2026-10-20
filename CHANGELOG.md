@@ -329,11 +329,18 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   falhava": só o término normal do próprio comando, com código de saída de 1 a 123, tem veredito, e a falha dele no
   verify é falha sem baseline (`verify.failed`). O `core/scripts/mutante.cjs` aceita `arquivo` (um roteiro de
   `core/scripts` ou um apoio compilado de `core/dist-test/test`) no lugar de `modulo`, mas recusa alvo ou componente
-  simbólico, alvo não regular e `realpath` fora da cópia ou dessas duas pastas, sem escrever no alvo recusado. Nova chave `worktree.dependencias` no manifesto: o `ork` roda o comando dentro de toda
+  simbólico, alvo não regular e `realpath` fora da cópia ou dessas duas pastas, sem escrever no alvo recusado; o
+  `modulo` passou pela mesma conferência. Nova chave `worktree.dependencias` no manifesto: o `ork` roda o comando dentro de toda
   worktree nova (`ork thread new`, `ork worktree ensure`, `ork_thread_new`), grava `worktree_dependencias` no ledger e,
   se falhar, avisa com o comando exato sem desfazer a thread; a recusa `baseline.dependencia-ausente` diz esse
-  comando. A sessão claude-bg que deu a resposta final e ficou ociosa no prompt (`working` com `status: idle`) por
-  5 min depois do Stop vira fim do turno pela prova do `ork`, e a condução sai sem esperar os 60 min do runtime. Os
+  comando. No passo do arco do #Noctum, que abre a thread com a vez de despachar, o preparo fica pendente
+  (`worktree_dependencias_pendentes`) e roda fora da trava, antes do primeiro comando da baseline ou do verify, que
+  recusam (`baseline.dependencia-ausente`, `verify.dependencia-ausente`) enquanto ele falhar. A sessão claude-bg que
+  deu a resposta final e ficou ociosa no prompt (`working` com `status: idle`) por 5 min depois do Stop vira fim do
+  turno pela prova do `ork`, e a condução sai sem esperar os 60 min do runtime, mas só quando o Stop disse que nada
+  vai acordá-la: o hook do Stop manda ao `ork` as contagens de `background_tasks` e `session_crons` do Claude Code,
+  e com tarefa em segundo plano, despertar agendado (`CronCreate`, `ScheduleWakeup`, `/loop`) ou o Stop sem as
+  contagens, a sessão segue conduzindo. Os
   testes `prova-ativacao-roteiro` e `projeto-alvo-cli` deixam de ler o registro de projetos e o runtime da máquina de
   quem roda a suíte.
 - **Snapshot pt-BR estável com sha só de letras** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o
