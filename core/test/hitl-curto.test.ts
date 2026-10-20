@@ -22,6 +22,7 @@ import { apresentacaoCurtaDoItem } from '../src/pulse';
 import { dirThread, novaThread } from '../src/thread';
 import { registrar } from '../src/ledger';
 import { main } from '../src/index';
+import { comLocale } from '../src/locale';
 
 const QUANDO = '2026-09-28T22:10:00.000Z';
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
@@ -150,4 +151,18 @@ test('ork gate request --formato devolve o gate no contrato curto, com o código
     assert.equal(JSON.parse(saida).contrato, 'ork.hitl/v2');
     assert.throws(() => main(['gate', 'request', t.id, '--formato', 'html']), /--formato telegram\|terminal/);
   } finally { console.log = log; process.chdir(cwd); p.limpar(); }
+});
+
+test('RM-061 F3d: o contrato curto localiza a moldura em ingles e preserva o conteúdo do pedido', () => {
+  const texto = comLocale('en', () => textoDoPedidoCurto(
+    montarPedidoCurto(entradaDoPedido(pior(), '2026-09-28T19:00:00.000Z'),
+      { quando: QUANDO, responder: { tipo: 'codigo', codigo: 'DE6H' } }), 'terminal'));
+  assert.match(texto, /^Orkastery · ork-simulada · SHIP$/m);
+  assert.match(texto, /^Question: Qual é o veredito sobre push\?$/m);
+  assert.match(texto, /^Situation: Phase SHIP is stopped waiting for you/m);
+  assert.match(texto, /\[Recommendation\]/);
+  assert.match(texto, /^   why: /m);
+  assert.match(texto, /With no answer until .*the request is escalated/);
+  assert.match(texto, /No undo after completion: pushes to the protected base/);
+  assert.match(texto, /Reply on Telegram: DE6H b/);
 });

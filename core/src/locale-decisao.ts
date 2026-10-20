@@ -74,6 +74,36 @@ export const DECISAO_PT_BR = {
   dentroDoLimiar: 'ok',
   taxaDeReversao: (taxa: number | null) =>
     `\ntaxa de reversão das decisões informadas: ${taxa === null ? 'sem decisão informada ainda' : `${Math.round(taxa * 100)}%`}`,
+  curto: {
+    selo: 'Recomendação',
+    atos: {
+      dinheiro: 'gasta dinheiro', 'publicacao-externa': 'publica fora do projeto',
+      'apagar-dado': 'apaga dado', 'push-base-protegida': 'faz push na base protegida',
+    } as Record<string, string>,
+    soPergunta: 'pedido curto: só uma pergunta ork.hitl/v2 tem alternativas declaradas',
+    semRespostaRecomendada: (ate: string) => `Sem resposta${ate}, sigo com a recomendada.`,
+    semRespostaEscala: (ate: string) => `Sem resposta${ate}, o pedido é escalado.`,
+    ate: (valor: string) => ` até ${valor}`,
+    semRespostaSessao: 'Sem resposta, a sessão continua parada.',
+    semRespostaGate: 'Sem resposta, nada avança.',
+    alternativas: 'pedido curto: de 2 a 5 alternativas',
+    umaRecomendada: 'pedido curto: exatamente uma alternativa é recomendada',
+    sessaoParada: (id: string) => `A sessão ${id} está parada esperando você`,
+    faseParada: (fase: string | null) => `${fase ? `A fase ${fase}` : 'A thread'} está parada esperando você`,
+    desde: (valor: string) => ` desde ${valor}`,
+    semThread: 'sem thread',
+    semVolta: (ato: string) => `Sem volta depois de feito: ${ato}.`,
+    respostaTexto: 'Responda escrevendo o texto; ele é enviado como está.',
+    respostaTerminal: (recomendada: string, comando: string) => `feito o comando, ${recomendada}) é \`${comando}\`.`,
+    respostaDialogo: 'Responda selecionando a opção no diálogo; digitar a letra também vale.',
+    respostaTelegram: (codigo: string, recomendada: string) =>
+      `↩️ Responda: ${codigo} ${recomendada} (ou outra letra). Evidências: ${codigo} detalhes.`,
+    respostaHost: (codigo: string, recomendada: string) =>
+      `Responda pelo Telegram: ${codigo} ${recomendada} (ou outra letra); aqui, pelo diálogo do host. Evidências: ${codigo} detalhes.`,
+    contratoInvalido: 'pedido curto: contrato inválido',
+    pergunta: 'Pergunta', situacao: 'Situação', porque: 'porquê', responder: 'Responder',
+    acimaDoTeto: 'pedido curto: acima do teto de linhas',
+  },
 };
 
 export type MensagensDeDecisao = typeof DECISAO_PT_BR;
@@ -144,4 +174,34 @@ export const DECISAO_EN: MensagensDeDecisao = {
   acimaDoLimiar: (limiar) => `above ${limiar}: review`,
   dentroDoLimiar: 'ok',
   taxaDeReversao: (taxa) => `\nreversal rate of informed decisions: ${taxa === null ? 'no informed decision yet' : `${Math.round(taxa * 100)}%`}`,
+  curto: {
+    selo: 'Recommendation',
+    atos: {
+      dinheiro: 'spends money', 'publicacao-externa': 'publishes outside the project',
+      'apagar-dado': 'deletes data', 'push-base-protegida': 'pushes to the protected base',
+    },
+    soPergunta: 'short request: only an ork.hitl/v2 question has declared choices',
+    semRespostaRecomendada: (until) => `With no answer${until}, I will follow the recommendation.`,
+    semRespostaEscala: (until) => `With no answer${until}, the request is escalated.`,
+    ate: (value) => ` until ${value}`,
+    semRespostaSessao: 'With no answer, the session remains stopped.',
+    semRespostaGate: 'With no answer, nothing advances.',
+    alternativas: 'short request: expected 2 to 5 choices',
+    umaRecomendada: 'short request: exactly one choice must be recommended',
+    sessaoParada: (id) => `Session ${id} is stopped waiting for you`,
+    faseParada: (phase) => `${phase ? `Phase ${phase}` : 'The thread'} is stopped waiting for you`,
+    desde: (value) => ` since ${value}`,
+    semThread: 'no thread',
+    semVolta: (act) => `No undo after completion: ${act}.`,
+    respostaTexto: 'Write your answer; it is sent as entered.',
+    respostaTerminal: (recommended, command) => `after running the command, ${recommended}) is \`${command}\`.`,
+    respostaDialogo: 'Select the option in the dialog; typing the letter also works.',
+    respostaTelegram: (code, recommended) =>
+      `↩️ Reply: ${code} ${recommended} (or another letter). Evidence: ${code} details.`,
+    respostaHost: (code, recommended) =>
+      `Reply on Telegram: ${code} ${recommended} (or another letter); here, use the host dialog. Evidence: ${code} details.`,
+    contratoInvalido: 'short request: invalid contract',
+    pergunta: 'Question', situacao: 'Situation', porque: 'why', responder: 'Answer',
+    acimaDoTeto: 'short request: above the line limit',
+  },
 };
