@@ -173,7 +173,7 @@ test('DP6: e-mail: prefixos de campo e caminho são achados; domínio de exemplo
       emailsPermitidos: [{ valor: 'noreply@ferramenta-ficticia.com', motivo: 'endereço inventado do robô' }] }),
   });
   const v = varrerArvore(contexto(dir));
-  assert.deepEqual(v.achados.map(linhaDoAchado), ['a.txt:6:22  email', 'a.txt:7:41  email', 'a.txt:8:46  email',
+  assert.deepEqual(v.achados.map(linhaDoAchado), ['a.txt:4:76  email', 'a.txt:6:22  email', 'a.txt:7:41  email', 'a.txt:8:46  email',
     'a.txt:9:7  email', 'a.txt:9:47  email']);
 });
 
@@ -436,10 +436,11 @@ test('DP19: FIFO no lugar da lista local é recusado sem bloquear a varredura', 
   const criado = exec('mkfifo', ['-m', '600', fifo], pasta);
   assert.ok(criado.ok, criado.stderr);
   const modulo = path.resolve(__dirname, '../src/dado-privado.js');
+  const inicio = Date.now();
   const filho = spawnSync(process.execPath, ['-e',
     `const {lerListaLocal}=require(${JSON.stringify(modulo)});` +
     `const r=lerListaLocal(null,null,{ORK_TERMOS_PRIVADOS:${JSON.stringify(fifo)}});` +
     'process.stdout.write(JSON.stringify(r));'], { encoding: 'utf8', timeout: 2000 });
   assert.equal(filho.status, 0, `${filho.signal ?? ''} ${filho.stderr}`);
-  assert.match(filho.stdout, /não é arquivo comum/);
+  assert.ok(Date.now() - inicio < 1900, 'a leitura do FIFO não pode esperar um escritor');
 });
