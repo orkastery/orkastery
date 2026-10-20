@@ -135,12 +135,14 @@ const TLDS_DE_EXEMPLO = new Set(['example', 'invalid', 'test', 'localhost']);
 
 /** Hostname no formato de máquina: o hostname que não segue formato nenhum é da lista local. */
 const HOSTNAMES: readonly RegExp[] = [
-  // Nome de máquina pessoal: `<nome>-pc`, `<nome>-laptop`, `<nome>s-macbook-pro`...
+  // Nome de máquina pessoal: `<nome>-pc`, `<nome>-laptop`, `<nome>-macbook-pro`... (os exemplos daqui usam marcador,
+  // para o comentário não casar com a própria regra).
   /\b[a-z0-9]+(?:-[a-z0-9]+)*-(?:pc|laptop|desktop|notebook|workstation|thinkpad|macbook(?:-pro|-air)?|imac|mac-mini|mac-studio)\b/gi,
   // Padrões de fábrica do Windows.
   /\b(?:DESKTOP|LAPTOP)-[A-Z0-9]{6,10}\b/g,
   /\bWIN-[A-Z0-9]{8,15}\b/g,
-  // AWS (`ip-10-0-1-23`), VPS (`vps-` com 8 hexadecimais, `srv123456`, `vmi123456`) e DigitalOcean.
+  // AWS (`ip-` com os quatro números do IP), VPS (`vps-` com 8 hexadecimais, `srv` ou `vmi` com 5 dígitos ou mais) e
+  // DigitalOcean (`ubuntu-s-` com o tamanho da máquina).
   /\bip-(?:\d{1,3}-){3}\d{1,3}\b/g,
   /\bvps-[0-9a-f]{8}\b/gi,
   /\b(?:srv|vmi)\d{5,}\b/gi,
