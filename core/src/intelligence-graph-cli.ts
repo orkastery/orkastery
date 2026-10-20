@@ -16,6 +16,7 @@
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { msg } from './locale';
 import {
   TIPOS_DE_ARESTA, canonico, compararUtf8, type Aresta, type EntradaDoManifesto, type GrafoCodigo, type TipoDeAresta,
 } from './intelligence-graph-contract';
@@ -148,14 +149,14 @@ const SUBCOMANDOS: Readonly<Record<string, Especificacao>> = Object.freeze({
 interface Pedido { sub: string; posicionais: string[]; bandeiras: Set<string>; valores: Map<string, string> }
 
 function uso(motivo: string): never {
-  throw new Error(`grafo.uso: ${motivo}\n${USO_DO_GRAFO}`);
+  throw new Error(`${msg().grafo.erroUso(motivo)}\n${msg().grafo.uso.join('\n')}`);
 }
 
 export function lerPedido(argv: readonly string[]): Pedido {
   const [sub, ...resto] = argv;
-  if (!sub) uso('falta o subcomando');
+  if (!sub) uso(msg().grafo.motivos.semSub);
   const esp = SUBCOMANDOS[sub];
-  if (!Object.prototype.hasOwnProperty.call(SUBCOMANDOS, sub) || !esp) uso(`subcomando desconhecido: ${sub}`);
+  if (!Object.prototype.hasOwnProperty.call(SUBCOMANDOS, sub) || !esp) uso(msg().grafo.motivos.desconhecido(sub));
   const posicionais: string[] = [], bandeiras = new Set<string>(), valores = new Map<string, string>();
   for (let i = 0; i < resto.length; i++) {
     const a = resto[i];
@@ -165,26 +166,26 @@ export function lerPedido(argv: readonly string[]): Pedido {
     }
     const igual = a.indexOf('=');
     const nome = igual > 0 ? a.slice(2, igual) : a.slice(2);
-    if (bandeiras.has(nome) || valores.has(nome)) uso(`--${nome} repetida`);
+    if (bandeiras.has(nome) || valores.has(nome)) uso(msg().grafo.motivos.repetida(nome));
     if (esp.bandeiras.includes(nome)) {
-      if (igual > 0) uso(`--${nome} nao leva valor`);
+      if (igual > 0) uso(msg().grafo.motivos.semValor(nome));
       bandeiras.add(nome);
     } else if (esp.valores.includes(nome)) {
       const valor = igual > 0 ? a.slice(igual + 1) : resto[++i];
-      if (valor === undefined || valor === '' || (igual < 0 && valor.startsWith('--'))) uso(`--${nome} exige valor`);
+      if (valor === undefined || valor === '' || (igual < 0 && valor.startsWith('--'))) uso(msg().grafo.motivos.exigeValor(nome));
       valores.set(nome, valor);
     } else {
-      uso(`opcao desconhecida para ${sub}: ${a}`);
+      uso(msg().grafo.motivos.opcao(sub, a));
     }
   }
-  if (posicionais.length !== esp.posicionais) uso(`${sub} pede ${esp.posicionais} argumento(s), veio ${posicionais.length}`);
+  if (posicionais.length !== esp.posicionais) uso(msg().grafo.motivos.argumentos(sub, esp.posicionais, posicionais.length));
   return { sub, posicionais, bandeiras, valores };
 }
 
 function inteiro(p: Pedido, nome: string): number | undefined {
   const v = p.valores.get(nome);
   if (v === undefined) return undefined;
-  if (!/^[0-9]{1,6}$/.test(v)) uso(`--${nome} precisa ser inteiro`);
+  if (!/^[0-9]{1,6}$/.test(v)) uso(msg().grafo.motivos.inteiro(nome));
   return Number(v);
 }
 
@@ -192,13 +193,13 @@ function tipos(p: Pedido): TipoDeAresta[] | undefined {
   const v = p.valores.get('tipo');
   if (v === undefined) return undefined;
   const lista = v.split(',');
-  for (const t of lista) if (!(TIPOS_DE_ARESTA as readonly string[]).includes(t)) uso(`--tipo desconhecido: ${t} (use ${TIPOS_DE_ARESTA.join(',')})`);
+  for (const t of lista) if (!(TIPOS_DE_ARESTA as readonly string[]).includes(t)) uso(msg().grafo.motivos.tipo(t, TIPOS_DE_ARESTA.join(',')));
   return lista as TipoDeAresta[];
 }
 
 function sentido(p: Pedido): Sentido | undefined {
   const v = p.valores.get('sentido');
-  if (v !== undefined && !['entrada', 'saida', 'ambos'].includes(v)) uso(`--sentido desconhecido: ${v}`);
+  if (v !== undefined && !['entrada', 'saida', 'ambos'].includes(v)) uso(msg().grafo.motivos.sentido(v));
   return v as Sentido | undefined;
 }
 
@@ -206,8 +207,8 @@ function sentido(p: Pedido): Sentido | undefined {
 function tetoDeBytes(p: Pedido): number | undefined {
   const teto = inteiro(p, 'teto-bytes');
   if (teto === undefined) return undefined;
-  if (!p.bandeiras.has('json')) uso('--teto-bytes exige --json');
-  if (teto < 1) uso('--teto-bytes precisa ser ao menos 1');
+  if (!p.bandeiras.has('json')) uso(msg().grafo.motivos.tetoJson);
+  if (teto < 1) uso(msg().grafo.motivos.tetoMin);
   return teto;
 }
 
@@ -242,26 +243,23 @@ function indexar(ctx: ContextoDoCli, p: Pedido): number {
     return 0;
   }
   const m = r.manifesto;
+  const mi = msg().grafo.indexar;
   const linhas = [
-    `indice do grafo de ${m.repository_id}: ${r.estado}`,
-    `  revisao      ${m.revision}`,
-    `  chave        ${r.chave}`,
-    `  snapshot     ${m.snapshot_id}`,
-    `  digest       ${m.graph_digest}`,
-    `  conferencia  conferirFontes verificada: ${m.conferencia.fontes} fontes e ${m.conferencia.evidencias} evidencias contra os bytes`,
-    `  nos          ${contagem(m.contagens.nos)}`,
-    `  arestas      ${contagem(m.contagens.arestas)}`,
-    `  lugar        ${r.dir} (${mb(m.graph_bytes + m.report_bytes + m.units_bytes)})`,
+    mi.titulo(m.repository_id, r.estado), mi.campo(mi.campos.revisao, m.revision), mi.campo(mi.campos.chave, r.chave),
+    mi.campo(mi.campos.snapshot, m.snapshot_id), mi.campo(mi.campos.digest, m.graph_digest),
+    mi.campo(mi.campos.conferencia, mi.conferencia(m.conferencia.fontes, m.conferencia.evidencias)),
+    mi.campo(mi.campos.nos, contagem(m.contagens.nos)), mi.campo(mi.campos.arestas, contagem(m.contagens.arestas)),
+    mi.campo(mi.campos.lugar, `${r.dir} (${mb(m.graph_bytes + m.report_bytes + m.units_bytes)})`),
     ...linhasDaExtracao(r),
   ];
-  if (r.motivo) linhas.push(`  motivo       ${r.motivo}`);
+  if (r.motivo) linhas.push(mi.campo(mi.campos.motivo, r.motivo));
   for (const d of r.determinismo ?? []) {
-    linhas.push(`  determinismo ${d.ordem}: digest ${d.digest.slice(0, 16)}, relatorio ${d.relatorio.slice(0, 16)}, unidades ${d.unidades.slice(0, 16)}, ${d.igual ? 'igual' : 'DIFERENTE'}`);
+    linhas.push(mi.determinismo(d.ordem, d.digest.slice(0, 16), d.relatorio.slice(0, 16), d.unidades.slice(0, 16), d.igual));
   }
-  if (r.incremental) linhas.push(`  incremental  a partir do indice de ${r.incremental.base.slice(0, 12)}: ${r.incremental.igual ? 'igual a completa nos quatro arquivos' : 'DIFERENTE'}`);
-  else if (r.determinismo) linhas.push(`  incremental  nao conferido: ${r.motivo_completo ?? 'sem base'}`);
-  linhas.push(`  tempo        ${r.ms} ms`);
-  if (r.determinismo) linhas.push('aprovado');
+  if (r.incremental) linhas.push(mi.incremental(r.incremental.base.slice(0, 12), r.incremental.igual));
+  else if (r.determinismo) linhas.push(mi.naoConferido(r.motivo_completo ?? mi.semBase));
+  linhas.push(mi.campo(mi.campos.tempo, `${r.ms} ms`));
+  if (r.determinismo) linhas.push(mi.aprovado);
   ctx.escrever(linhas.join('\n'));
   return 0;
 }
@@ -291,20 +289,21 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
     ctx.escrever(JSON.stringify(r, null, 2));
     return 0;
   }
+  const ms = msg().grafo.status;
   const linhas = [
-    `grafo: HEAD ${arvore.head ? arvore.head.slice(0, 12) : 'sem commit'}, arvore ${r.arvore}`,
-    `  indice do HEAD  ${chave ?? 'indisponivel'} ${r.indice_do_head === 'ausente' ? '(ausente: rode ork grafo indexar)'
+    ms.titulo(arvore.head ? arvore.head.slice(0, 12) : ms.semCommit, r.arvore),
+    ms.indice(chave ?? ms.indisponivel, r.indice_do_head === 'ausente' ? ms.ausente
       : r.indice_do_head === 'indisponivel'
-        ? (correcao ? '(sem os analisadores nesta instalacao, nem a consulta nem o indexar rodam)' : '(sem a chave do indice: o erro esta na linha de baixo)')
-        : `(${r.indice_do_head})`}`,
-    `  analisadores    ${erro ?? descreverVersoes(analisadores as VersoesDosAnalisadores)}`,
-    ...(correcao ? [`  correcao        ${correcao}`] : []),
-    `  pasta           ${estado.dir ?? 'ainda nao criada'} (${estado.indices.length} indice(s), ${mb(estado.bytes)})`,
+        ? (correcao ? ms.semAnalisadores : ms.semChave)
+        : `(${r.indice_do_head})`),
+    ms.analisadores(erro ?? descreverVersoes(analisadores as VersoesDosAnalisadores)),
+    ...(correcao ? [ms.correcao(correcao)] : []),
+    ms.pasta(estado.dir ?? ms.naoCriada, estado.indices.length, mb(estado.bytes)),
   ];
   for (const i of estado.indices) {
     linhas.push(`  ${i.chave.slice(0, 20)}  ${i.revision ? i.revision.slice(0, 12) : '?'}  ${i.repository_id ?? '?'}  ${mb(i.bytes)}  ${i.problema ?? 'ok'}`);
   }
-  if (estado.sobras.length) linhas.push(`  sobras          ${estado.sobras.join(', ')}`);
+  if (estado.sobras.length) linhas.push(ms.sobras(estado.sobras.join(', ')));
   ctx.escrever(linhas.join('\n'));
   return 0;
 }
@@ -449,12 +448,11 @@ function contexto(ctx: ContextoDoCli, p: Pedido): number {
     const r = JSON.parse(json);
     // KG5 fatia 5 (D9): o resumo conta as ligacoes cuja fonte mudou na arvore, como o JSON marca.
     const mudadas = (r.arestas as { arvore?: string }[]).filter((a) => a.arvore === 'modificada').length;
-    ctx.escrever([`Contexto ${r.thread} @ ${r.indice.revision}`,
-      `  ${r.sementes.length}/${r.total_sementes} sementes, ${r.arestas.length}/${r.total_ligacoes} ligacoes agregadas; ${r.medida.pacote_bytes} bytes JSON`,
-      `  tamanho dos arquivos no pacote (nao descoberta): ${r.medida.leitura_crua_bytes} bytes (revisao indexada); tokens: unavailable`,
-      `  diff: ${r.fontes.diff}`,
-      ...(mudadas ? [`  ligacoes com fonte modificada na arvore: ${mudadas}`] : []),
-      `  truncado: ${r.truncado}; arvore: ${r.indice.arvore}; use --json para nos e evidencias`, json].join('\n'));
+    const mc = msg().grafo.contexto;
+    ctx.escrever([mc.titulo(r.thread, r.indice.revision),
+      mc.resumo(r.sementes.length, r.total_sementes, r.arestas.length, r.total_ligacoes, r.medida.pacote_bytes),
+      mc.tamanho(r.medida.leitura_crua_bytes), mc.diff(r.fontes.diff), ...(mudadas ? [mc.mudadas(mudadas)] : []),
+      mc.final(r.truncado, r.indice.arvore), json].join('\n'));
   }
   return 0;
 }
@@ -619,22 +617,21 @@ function conferirAmostra(grafo: GrafoCodigo, ler: (p: string) => Buffer, arquivo
       && e.extraction_method === ev.extraction_method && sha256(trecho(ler, e)) === ev.trecho_sha256);
     if (!bate) falhas.push(`${chave}: nenhuma evidencia com o trecho auditado`);
   }
-  const linhas = [
-    `amostra: ${amostra.arestas.length} arestas em ${estratos.size} estratos, auditada na revisao ${amostra.revision ?? amostra.revision_unavailable_reason}`,
-    `  vereditos ${Object.entries(vereditos).sort(([x], [y]) => compararUtf8(x, y)).map(([k, v]) => `${k}=${v}`).join(' ')}`,
-    `  conferidas contra o indice do HEAD: ${amostra.arestas.length - falhas.length} de ${amostra.arestas.length}`,
-  ];
+  const ma = msg().grafo.amostra;
+  const linhas = [ma.titulo(amostra.arestas.length, estratos.size, amostra.revision ?? amostra.revision_unavailable_reason),
+    ma.vereditos(Object.entries(vereditos).sort(([x], [y]) => compararUtf8(x, y)).map(([k, v]) => `${k}=${v}`).join(' ')),
+    ma.conferidas(amostra.arestas.length - falhas.length, amostra.arestas.length)];
   return { linhas, falhas };
 }
 
 function amostra(ctx: ContextoDoCli, p: Pedido): number {
-  if (p.valores.has('conferir') && p.valores.has('por-estrato')) uso('--conferir e --por-estrato nao combinam');
+  if (p.valores.has('conferir') && p.valores.has('por-estrato')) uso(msg().grafo.motivos.amostraExclusiva);
   const { grafo, raiz, cabecalho } = consultavel(ctx);
   const ler = leitorDaArvore(raiz, grafo);
   const arquivo = p.valores.get('conferir');
   if (arquivo === undefined) {
     const n = inteiro(p, 'por-estrato') ?? 3;
-    if (n < 1) uso('--por-estrato precisa ser ao menos 1');
+    if (n < 1) uso(msg().grafo.motivos.estratoMin);
     ctx.escrever(JSON.stringify(amostrar(grafo, ler, n, cabecalho.graph_digest), null, 2));
     return 0;
   }
@@ -642,7 +639,8 @@ function amostra(ctx: ContextoDoCli, p: Pedido): number {
   if (p.bandeiras.has('json')) {
     ctx.escrever(JSON.stringify({ schema: AMOSTRA_SCHEMA, conferencia: linhas, falhas, aprovado: falhas.length === 0 }, null, 2));
   } else {
-    ctx.escrever([...linhas, ...falhas.map((f) => `FALHA ${f}`), falhas.length ? `reprovado: ${falhas.length} falha(s)` : 'aprovado'].join('\n'));
+    const ma = msg().grafo.amostra;
+    ctx.escrever([...linhas, ...falhas.map((f) => ma.falha(f)), falhas.length ? ma.reprovado(falhas.length) : ma.aprovado].join('\n'));
   }
   return falhas.length ? 1 : 0;
 }
@@ -657,7 +655,7 @@ function limpar(ctx: ContextoDoCli, p: Pedido): number {
   }
   const r = limparIndices(ctx, { manter, manterRevisoes, tudo: p.bandeiras.has('tudo') });
   if (p.bandeiras.has('json')) ctx.escrever(JSON.stringify({ schema: STATUS_SCHEMA, manter, manter_revisoes: manterRevisoes, ...r }, null, 2));
-  else ctx.escrever([`grafo limpar: ${r.removidos.length} removido(s), ${mb(r.bytes)}`, ...r.removidos.map((x) => `  ${x.nome} ${mb(x.bytes)}`)].join('\n'));
+  else ctx.escrever([msg().grafo.limpar(r.removidos.length, mb(r.bytes)), ...r.removidos.map((x) => `  ${x.nome} ${mb(x.bytes)}`)].join('\n'));
   return 0;
 }
 

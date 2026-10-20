@@ -19,6 +19,7 @@
 import {
   TIPOS_DE_ARESTA, compararUtf8, type Acesso, type Aresta, type Evidencia, type GrafoCodigo, type No, type TipoDeAresta, type TipoDeNo,
 } from './intelligence-graph-contract';
+import { msg } from './locale';
 
 export const CONSULTA_SCHEMA = 'ork.code-graph-query/v0' as const;
 export const PROFUNDIDADE_MAXIMA = 5;
@@ -391,16 +392,17 @@ export function jsonDaResposta(r: RespostaDeConsulta): string {
 }
 
 function linhasDaEvidencia(e: EvidenciaDaResposta): string {
+  const m = msg().grafo.consulta;
   const s = e.span;
   const onde = s.type === 'text'
     ? `${e.path}:${s.line_start ?? '?'}${s.line_end !== null && s.line_end !== s.line_start ? `-${s.line_end}` : ''}`
-    : `${e.path} pagina ${s.page}`;
+    : `${e.path} ${m.pagina(s.page)}`;
   return `      ${e.extractor_id} ${e.extraction_method} ${onde} bytes ${s.byte_start}-${s.byte_end}`;
 }
 
 /** KG5 fatia 5 (D9): a aresta cuja fonte mudou diz isso na propria linha, como o JSON diz no campo `arvore`. */
 function linhasDaAresta(a: ArestaDaResposta, prefixo = '  '): string[] {
-  const marca = a.arvore === 'modificada' ? '  [fonte modificada na arvore]' : '';
+  const marca = a.arvore === 'modificada' ? msg().grafo.consulta.marca : '';
   return [`${prefixo}${a.kind}  ${a.from} -> ${a.to}${marca}`, ...a.evidencias.map(linhasDaEvidencia)];
 }
 
@@ -408,32 +410,32 @@ function linhasDaAresta(a: ArestaDaResposta, prefixo = '  '): string[] {
 function linhaDasFontesMudadas(fontes: readonly FonteDaResposta[]): string[] {
   const mudaram = fontes.filter((f) => f.arvore !== 'igual');
   if (!mudaram.length) return [];
-  const resto = mudaram.length > 5 ? ` e mais ${mudaram.length - 5}` : '';
-  return [`fontes que mudaram na arvore: ${mudaram.slice(0, 5).map((f) => `${f.path} (${f.arvore})`).join(', ')}${resto}`];
+  return [msg().grafo.consulta.fontes(mudaram.slice(0, 5).map((f) => `${f.path} (${f.arvore})`).join(', '), Math.max(0, mudaram.length - 5))];
 }
 
 export function textoDaResposta(r: RespostaDeConsulta): string {
   const c = r.consulta, i = r.indice;
+  const m = msg().grafo.consulta;
   const linhas = [
-    `grafo de ${i.repository_id} na revisao ${i.revision.slice(0, 12)}, indice ${i.chave.slice(0, 16)}, snapshot ${i.snapshot_id.slice(0, 17)}`,
+    m.titulo(i.repository_id, i.revision.slice(0, 12), i.chave.slice(0, 16), i.snapshot_id.slice(0, 17)),
   ];
-  if (i.arvore === 'modificada') linhas.push('aviso: a arvore tem mudanca rastreada; a resposta e do HEAD, nao da arvore');
+  if (i.arvore === 'modificada') linhas.push(m.arvore);
   linhas.push(...linhaDasFontesMudadas(r.fontes));
-  linhas.push(`extratores: ${i.extratores.map((e) => `${e.extractor_id} ${e.extractor_version}`).join(', ')}`);
+  linhas.push(m.extratores(i.extratores.map((e) => `${e.extractor_id} ${e.extractor_version}`).join(', ')));
   if (c.tipo === 'caminho') {
     const para = r.para as NoDaResposta;
     if (!r.caminho) {
-      linhas.push(`sem caminho de ${r.alvo.rotulo} para ${para.rotulo} (sentido ${c.sentido}): ${r.nos_explorados} nos explorados`);
+      linhas.push(m.semCaminho(r.alvo.rotulo, para.rotulo, c.sentido, r.nos_explorados));
     } else {
-      linhas.push(`caminho de ${r.alvo.rotulo} para ${para.rotulo} (sentido ${c.sentido}): ${r.caminho.length} passo(s)`);
-      r.caminho.forEach((p, n) => linhas.push(...linhasDaAresta(p.aresta, `  ${n + 1}. ${p.sentido === 'entrada' ? '(contra a aresta) ' : ''}`)));
+      linhas.push(m.caminho(r.alvo.rotulo, para.rotulo, c.sentido, r.caminho.length));
+      r.caminho.forEach((p, n) => linhas.push(...linhasDaAresta(p.aresta, `  ${n + 1}. ${p.sentido === 'entrada' ? m.contra : ''}`)));
     }
   } else {
-    const filtro = c.tipo === 'vizinhos' ? `, sentido ${c.sentido}, tipos ${c.tipos.length === TIPOS_DE_ARESTA.length ? 'todos' : c.tipos.join(',')}` : '';
-    linhas.push(`${c.tipo} de ${r.alvo.rotulo} (profundidade ${c.profundidade}${filtro}): ${r.total_arestas} aresta(s), ${r.total_nos - 1} no(s)`);
+    const filtro = c.tipo === 'vizinhos' ? m.filtro(c.sentido, c.tipos.length === TIPOS_DE_ARESTA.length ? m.todos : c.tipos.join(',')) : '';
+    linhas.push(m.resultado(c.tipo, r.alvo.rotulo, c.profundidade, filtro, r.total_arestas, r.total_nos - 1));
     for (const a of r.arestas) linhas.push(...linhasDaAresta(a));
-    if (r.truncado) linhas.push(`truncado: ${r.arestas.length} de ${r.total_arestas} arestas, as mais perto do alvo; use --limite`);
+    if (r.truncado) linhas.push(m.truncado(r.arestas.length, r.total_arestas));
   }
-  linhas.push(r.parcial);
+  linhas.push(m.parcial);
   return linhas.join('\n');
 }

@@ -87,6 +87,7 @@ import { SETUP_EN, SETUP_PT_BR } from './locale-setup';
 import { PROJETOS_EN, PROJETOS_PT_BR } from './locale-projetos';
 import { OPERACAO_RESTANTE_EN, OPERACAO_RESTANTE_PT_BR } from './locale-operacao-restante';
 import { CONDUCAO_EN, CONDUCAO_PT_BR } from './locale-conducao';
+import { GRAFO_EN, GRAFO_PT_BR } from './locale-grafo';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -133,7 +134,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'fabrica list', 'fabrica publicar', 'fabrica entrar', 'fabrica sair', 'fabrica batida', 'fabrica ?', 'eval',
   'memory status', 'memory inventory', 'memory migrate', 'memory sync', 'memory search', 'memory index', 'memory ?',
   'mcp install', 'conducao status', 'conducao assumir', 'conducao atualizar', 'conducao autorizar',
-  'conducao autorizacao', 'conducao batida', 'conducao sentinela', 'conducao ?'];
+  'conducao autorizacao', 'conducao batida', 'conducao sentinela', 'conducao ?', 'grafo'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -521,6 +522,7 @@ const PT_BR = {
   prompts: PROMPTS_PT_BR,
   conhecimento: CONHECIMENTO_PT_BR,
   conducao: CONDUCAO_PT_BR,
+  grafo: GRAFO_PT_BR,
   forja: FORJA_PT_BR,
   operacao: {
     restante: OPERACAO_RESTANTE_PT_BR,
@@ -962,6 +964,7 @@ const EN: Mensagens = {
   prompts: PROMPTS_EN,
   conhecimento: CONHECIMENTO_EN,
   conducao: CONDUCAO_EN,
+  grafo: GRAFO_EN,
   forja: FORJA_EN,
   operacao: {
     restante: OPERACAO_RESTANTE_EN,

@@ -34,6 +34,8 @@ import { textoDaBatida } from '../src/conducao-batida';
 import { textoDoStatusDaSentinela } from '../src/conducao-sentinela';
 import { linhaDaAutorizacao, textoDaAutorizacao } from '../src/autorizacao-duravel';
 import { textoDaAtualizacao } from '../src/atualizar-branch';
+import { lerPedido } from '../src/intelligence-graph-cli';
+import { textoDaResposta } from '../src/intelligence-graph-query';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -399,4 +401,27 @@ test('F3d: os resumos e a recusa de conducao saem completos nas duas linguas', (
   assert.match(en, /already contains main/);
   assert.deepEqual(linhasEmPortugues(en, ['dado preservado', 'Não publicado',
     '--ate <date> --pode merge,registrar,master,despachar [--por <your name>]']), []);
+});
+
+test('F3d: grafo localiza uso e resposta humana sem alterar o contrato JSON', () => {
+  const resposta = { consulta: { tipo: 'vizinhos', alvo: 'src/a.ts', profundidade: 1, sentido: 'ambos',
+      tipos: ['contains'], limite: 10 },
+    indice: { repository_id: 'demo', revision: 'a'.repeat(40), chave: 'b'.repeat(32),
+      snapshot_id: 'snap-1', arvore: 'limpa', extratores: [] },
+    alvo: { rotulo: 'src/a.ts' }, arestas: [], total_arestas: 0, total_nos: 1,
+    fontes: [], truncado: false, parcial: 'dado pt-BR do JSON' } as any;
+  const erro = (locale: 'pt-BR' | 'en') => comLocale(locale, () => {
+    try { lerPedido([]); return ''; } catch (e) { return (e as Error).message; }
+  });
+  const pt = comLocale('pt-BR', () => textoDaResposta(resposta));
+  const en = comLocale('en', () => textoDaResposta(resposta));
+  assert.match(erro('pt-BR'), /^grafo\.uso: falta o subcomando/);
+  assert.match(erro('en'), /^grafo\.uso: missing subcommand/);
+  assert.match(pt, /^grafo de demo na revisao/);
+  assert.match(en, /^graph for demo at revision/);
+  assert.match(en, /0 edge\(s\), 0 node\(s\)/);
+  assert.match(en, /partial: only edges proven/);
+  assert.doesNotMatch(en, /dado pt-BR do JSON/);
+  assert.equal(cobreLocale(['grafo', 'status'], {}), true);
+  assert.equal(cobreLocale(['grafo', 'status'], { json: true }), false);
 });
