@@ -45,9 +45,14 @@ Without `verify.security_scan`, this skill does what it always did: the whole ch
 3. **Triage: one verdict per `new` finding of the loop** (`loop`), none without a verdict:
    - **real:** type B correction, with the rule, `arquivo:linha`, the real output **redacted (never the secret value; only the rule, `arquivo:linha` and `fingerprint`)**, the `SEC n` and the reach (`reachable` from govulncheck); the way back is the `security-remediation` skill;
    - **false positive:** type A correction, `acrescentar <fingerprint> ao .ork-security/dismissals.json, motivo <m>`, plus `ork decisao registrar`;
-   - **inconclusive:** `ork gate request`, and the finding stays open until the answer.
-4. **The auditor does not edit:** neither code nor `.ork-security/dismissals.json`. It returns the verdict, and whoever writes the fix is GO.
-5. `existing` and `dismissed` go in the report as declared debt, never as a new blocker.
+   - **inconclusive:** no correction; the short question goes into the report, the verdict is not PASSOU and the finding stays open until the owner answers through `ork gate request` (the path is in the `check-quality` skill).
+4. **The verdict reaches GO-FIX as a CHECK claim, one per finding.** `ork fix open` derives the GO-FIX spec only from `ork verify`, and verify re-runs the claims: each failed claim becomes a correction carrying its text.
+   - real: `ork claims add <thread> <arquivo> --fase CHECK --claim "<veredito>" --verificar "<comando de verify.security_scan>"`; the command fails on HEAD and the correction is born type B (`claims.failed`);
+   - false positive: `ork claims add <thread> .ork-security/dismissals.json --fase CHECK --claim "<veredito>"`, without `--verificar`; the claim with no command is born type A (`claims.unverifiable`). The text carries no absolute term (`nenhum`, `nunca`, `sempre`, `zero`, `todos`, `nao ha`): a negative claim with no command fails and becomes type B;
+   - the `<veredito>` carries the finding id, the tool, the rule, `arquivo:linha`, the `fingerprint`, the type and the correction, and for a false positive the reason and the `eventId` of `ork decisao registrar`.
+5. **The auditor does not edit:** neither code nor `.ork-security/dismissals.json`. It returns the verdict, and whoever writes the fix is GO.
+6. **The auditor does not print secret material.** With a Gitleaks finding, no `git log -p`, `git show`, `cat` or diff of the finding's file or commit: the output goes to the transcript and to the provider, and it is a second leak. What counts is the report's `rule`, `arquivo:linha` and `fingerprint`.
+7. `existing` and `dismissed` go in the report as declared debt, never as a new blocker.
 
 ## What the core checks for you
 
@@ -76,6 +81,8 @@ branch. All three reject in any mode.
 - A new dependency without justification in the PLAN.
 - A Gitleaks secret value pasted in the correction, the verdict or the ledger.
 - A `new` loop finding without a verdict, or a `failed` tool counted as clean.
+- `git log -p`, `git show`, `cat` or a diff of a file or commit with a Gitleaks finding run by the auditor.
+- A per-finding verdict only in the report, without the CHECK claim that carries it to `ork fix open`.
 
 ## Verification before leaving the audit
 

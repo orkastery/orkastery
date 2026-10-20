@@ -43,7 +43,7 @@ ork verify <thread>                           # reexecuta no HEAD real
 
 ## With `verify.security_scan` declared
 
-Without `verify.security_scan`, this phase is the usual one. A fix that comes from a security scan finding uses the `security-remediation` skill: it fixes only the finding, and the proof is the scan rerun by `ork fix reverify`, not the agent's report.
+Without `verify.security_scan`, this phase is the usual one. A fix that comes from a security scan finding uses the `security-remediation` skill: it fixes only the finding, and the proof is the scan rerun by `ork fix reverify`, not the agent's report. The spec carries one correction per finding triaged by CHECK, with the type and the verdict text (`ork fix list <thread>`): type A closes by writing the dismissal and attaching the command that proves it with `ork claims verificar <thread> <claim> --comando "<comando>"`.
 
 ## What the core checks for you
 

@@ -45,9 +45,14 @@ Sem `verify.security_scan`, esta skill faz o que sempre fez: a checklist inteira
 3. **Triagem: um veredito por achado `new` do laco** (`loop`), nenhum sem veredito:
    - **real:** correcao tipo B, com a regra, `arquivo:linha`, a saida real **redigida (nunca o valor do segredo; so regra, `arquivo:linha` e `fingerprint`)**, o `SEC n` e o alcance (`reachable` do govulncheck); a volta e da skill `security-remediation`;
    - **falso positivo:** correcao tipo A, `acrescentar <fingerprint> ao .ork-security/dismissals.json, motivo <m>`, mais `ork decisao registrar`;
-   - **inconclusivo:** `ork gate request`, e o achado fica aberto ate a resposta.
-4. **O auditor nao edita:** nem codigo, nem o `.ork-security/dismissals.json`. Ele devolve o veredito, e quem escreve a correcao e o GO.
-5. `existing` e `dismissed` entram no relatorio como divida declarada, nunca como bloqueador novo.
+   - **inconclusivo:** sem correcao; a pergunta curta vai ao parecer, o veredito nao e PASSOU e o achado fica aberto ate a resposta do dono pelo `ork gate request` (o caminho esta na skill `check-quality`).
+4. **O veredito chega ao GO-FIX como claim do CHECK, uma por achado.** O `ork fix open` deriva a spec do GO-FIX so do `ork verify`, e o verify reexecuta as claims: cada claim reprovada vira uma correcao com o texto dela.
+   - real: `ork claims add <thread> <arquivo> --fase CHECK --claim "<veredito>" --verificar "<comando de verify.security_scan>"`; o comando reprova no HEAD e a correcao nasce tipo B (`claims.failed`);
+   - falso positivo: `ork claims add <thread> .ork-security/dismissals.json --fase CHECK --claim "<veredito>"`, sem `--verificar`; a claim sem comando nasce tipo A (`claims.unverifiable`). O texto nao leva termo absoluto (`nenhum`, `nunca`, `sempre`, `zero`, `todos`, `nao ha`): alegacao negativa sem comando reprova e vira tipo B;
+   - o `<veredito>` leva o id do achado, a ferramenta, a regra, `arquivo:linha`, o `fingerprint`, o tipo e a correcao, e no falso positivo o motivo e o `eventId` do `ork decisao registrar`.
+5. **O auditor nao edita:** nem codigo, nem o `.ork-security/dismissals.json`. Ele devolve o veredito, e quem escreve a correcao e o GO.
+6. **O auditor nao imprime material de segredo.** Com achado do Gitleaks, nada de `git log -p`, `git show`, `cat` ou diff do arquivo ou do commit do achado: a saida vai a transcricao e ao provider, e e um segundo vazamento. O que vale e a `rule`, o `arquivo:linha` e o `fingerprint` do relatorio.
+7. `existing` e `dismissed` entram no relatorio como divida declarada, nunca como bloqueador novo.
 
 ## O que o nucleo verifica por voce
 
@@ -76,6 +81,8 @@ thread. As tres reprovam em qualquer modo.
 - Dependencia nova sem justificativa no PLAN.
 - Valor de segredo do Gitleaks colado na correcao, no veredito ou no ledger.
 - Achado `new` do laco sem veredito, ou ferramenta `failed` contada como limpa.
+- `git log -p`, `git show`, `cat` ou diff de arquivo ou commit com achado do Gitleaks rodado pelo auditor.
+- Veredito por achado so no parecer, sem a claim do CHECK que o leva ao `ork fix open`.
 
 ## Verificacao antes de sair da auditoria
 

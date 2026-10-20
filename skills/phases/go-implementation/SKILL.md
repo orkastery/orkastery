@@ -43,7 +43,7 @@ ork verify <thread>                           # reexecuta no HEAD real
 
 ## Com `verify.security_scan` declarado
 
-Sem `verify.security_scan`, esta fase e a de sempre. Correcao que nasce de achado do scan de seguranca usa a skill `security-remediation`: corrige so o achado, e a prova e o scan reexecutado por `ork fix reverify`, nao o relato do agente.
+Sem `verify.security_scan`, esta fase e a de sempre. Correcao que nasce de achado do scan de seguranca usa a skill `security-remediation`: corrige so o achado, e a prova e o scan reexecutado por `ork fix reverify`, nao o relato do agente. A spec traz uma correcao por achado triado pelo CHECK, com o tipo e o texto do veredito (`ork fix list <thread>`): o tipo A fecha gravando a dispensa e anexando o comando que a prova com `ork claims verificar <thread> <claim> --comando "<comando>"`.
 
 ## O que o nucleo verifica por voce
 

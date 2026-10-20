@@ -156,6 +156,50 @@
           "porque": "a bandeira vermelha correspondente"
         }
       ]
+    },
+    {
+      "id": "security-auditor/nao-imprime-material-de-segredo",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O Gitleaks achou um segredo e o auditor quer olhar o commit para entender o contexto.",
+      "esperado": "Recusado: com achado do Gitleaks o auditor nao roda comando que imprime o arquivo ou o commit; usa regra, arquivo:linha e fingerprint.",
+      "racionalizacao": "Rodo `git log -p` no commit para ver o contexto do achado.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "nada de `git log -p`, `git show`, `cat` ou diff do arquivo ou do commit do achado",
+          "porque": "a proibicao explicita, fora da tabela"
+        },
+        {
+          "tipo": "contem",
+          "valor": "- `git log -p`, `git show`, `cat` ou diff de arquivo ou commit com achado do Gitleaks rodado pelo auditor.",
+          "porque": "a bandeira vermelha"
+        }
+      ]
+    },
+    {
+      "id": "security-auditor/veredito-chega-ao-go-fix",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "O auditor deu um veredito real e um falso positivo a dois achados `new` do laco.",
+      "esperado": "Cada veredito vira claim do CHECK que o `ork fix open` transforma em correcao do tipo certo.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "`ork claims add <thread> <arquivo> --fase CHECK --claim \"<veredito>\" --verificar \"<comando de verify.security_scan>\"`",
+          "porque": "o real vira correcao tipo B"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`ork claims add <thread> .ork-security/dismissals.json --fase CHECK --claim \"<veredito>\"`, sem `--verificar`",
+          "porque": "o falso positivo vira correcao tipo A"
+        },
+        {
+          "tipo": "contem",
+          "valor": "alegacao negativa sem comando reprova e vira tipo B",
+          "porque": "o texto que mudaria o tipo"
+        }
+      ]
     }
   ]
 }

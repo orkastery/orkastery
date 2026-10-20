@@ -58,6 +58,54 @@
           "porque": "a exclusao nao e atalho nem corrigida em silencio"
         }
       ]
+    },
+    {
+      "id": "security-remediation/segredo-sai-do-historico-da-thread",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "Um segredo real entrou num commit da thread, a branch nao foi publicada, e o achado continua `new` depois de um commit que apaga a linha.",
+      "esperado": "O commit que trouxe o segredo sai de `<base>..HEAD` pela reescrita do historico nao publicado da thread, sem push forcado, e a rotacao continua declarada; branch publicada nao se reescreve.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Segredo que entrou na thread sai do historico da thread",
+          "porque": "a regra que tira o commit do intervalo que o Gitleaks varre"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Nunca so apague a linha num commit novo",
+          "porque": "o atalho que deixa o achado `new`"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`git ls-remote --heads <remoto> <branch>` vazio",
+          "porque": "a prova de que a branch nao foi publicada antes de reescrever"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Branch ja publicada nao se reescreve",
+          "porque": "o limite da reescrita"
+        }
+      ]
+    },
+    {
+      "id": "security-remediation/uma-correcao-por-achado",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "O CHECK triou um achado real e um falso positivo e o GO-FIX recebeu a spec do `ork fix open`.",
+      "esperado": "O GO-FIX le uma correcao por achado com o tipo e o texto do veredito e fecha o tipo A anexando o comando que prova a dispensa.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "uma correcao por claim do CHECK, com o tipo e o texto do veredito (`ork fix list <thread>`)",
+          "porque": "o veredito por achado chega ao GO-FIX"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`ork claims verificar <thread> <claim> --comando \"<comando>\"`",
+          "porque": "o comando real que fecha a correcao tipo A"
+        }
+      ]
     }
   ]
 }

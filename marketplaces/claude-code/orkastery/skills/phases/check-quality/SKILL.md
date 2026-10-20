@@ -64,6 +64,8 @@ Sem `verify.security_scan`, nada desta secao vale e o CHECK e o de sempre. Com a
 3. Achado `new` com `loop: false` (`warn` no relatorio, como qualidade, licenca ou severidade abaixo do corte) vai ao eixo certo como aviso registrado, com o nome de quem aceitou, nunca como bloqueador escondido.
 4. Ferramenta `unavailable` ou `failed` e declarada no veredito e nunca conta como limpa; com `ORK_SECURITY_SCAN_REQUIRED=1` ela faz o scan sair 1.
 5. Correcao vinda do scan volta pelo GO-FIX, com a skill `security-remediation`; a prova e o `ork fix reverify`, que reexecuta o verify e o scan.
+6. O veredito por achado chega ao GO-FIX pela claim do CHECK (`--fase CHECK`), uma por achado real ou falso positivo, como a skill `security-auditor` diz. O `ork fix open <thread>` reexecuta o verify e abre uma correcao por claim reprovada, tipo B para o real (`claims.failed`) e tipo A para o falso positivo (`claims.unverifiable`), ao lado da correcao tipo B do comando `security_scan`; o `ork fix list <thread>` as mostra ao GO-FIX com o texto do veredito.
+7. Inconclusivo nao abre o pedido de dentro da sessao do CHECK: o `ork gate request` recusa enquanto o observador nao grava a conclusao da fase (`a conclusao da fase precisa estar registrada antes da pausa`), e `--motivo` so aceita escalacao tipada ja registrada no ledger (`escalacao tipada nao comprovada`). A pergunta curta vai ao parecer, a sessao termina, e quem conduz roda `ork gate request <thread> --formato telegram`, que abre a pausa do fim do bloco GO-CHECK do #Classic com o parecer nas evidencias. Em modo sem essa pausa (#Maestro, #Auto), o pedido recusa (`modo nao preve pausa humana nesta fase`): o veredito e BLOQUEADO, com a pergunta escrita, e nada segue ate o dono responder.
 
 ## O que o nucleo verifica por voce
 
@@ -92,6 +94,7 @@ a pausa, nunca a verificacao**. Cada um deles tem uma acao de retry deterministi
 - Aviso aceito sem nome de quem aceitou.
 - CHECK rodado sem baseline para comparar.
 - Achado `new` do laco sem veredito dado como zero bloqueadores.
+- `ork gate request` rodado de dentro da sessao do CHECK, ou com `--motivo` de texto livre.
 
 ## Verificacao antes de sair da fase
 

@@ -117,6 +117,49 @@
           "porque": "o warn nao e descartado"
         }
       ]
+    },
+    {
+      "id": "check-quality/inconclusivo-pelo-gate-da-pausa",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O auditor deu inconclusivo a um achado `new` do laco e a sessao do CHECK tenta abrir o pedido ao dono.",
+      "esperado": "O pedido sai depois da sessao, pelo `ork gate request` da pausa do bloco; de dentro da sessao ou com motivo livre ele recusa, e sem a pausa o veredito e BLOQUEADO.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Inconclusivo nao abre o pedido de dentro da sessao do CHECK",
+          "porque": "a recusa medida na prova ponta a ponta"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`ork gate request <thread> --formato telegram`",
+          "porque": "o comando que abre a pausa ao dono"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`modo nao preve pausa humana nesta fase`",
+          "porque": "o modo sem pausa no CHECK"
+        }
+      ]
+    },
+    {
+      "id": "check-quality/veredito-por-achado-no-fix-open",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "O CHECK reprovou pelo scan com um achado real e um falso positivo triados.",
+      "esperado": "O `ork fix open` abre uma correcao por claim do CHECK, tipo B para o real e tipo A para o falso positivo.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "`ork fix open <thread>` reexecuta o verify e abre uma correcao por claim reprovada",
+          "porque": "o mecanismo real do veredito por achado"
+        },
+        {
+          "tipo": "contem",
+          "valor": "tipo A para o falso positivo (`claims.unverifiable`)",
+          "porque": "o tipo que a claim sem comando produz"
+        }
+      ]
     }
   ]
 }
