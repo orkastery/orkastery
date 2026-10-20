@@ -81,7 +81,9 @@ test('defeito 3: o teste do roteiro roda com HOME e casa proprios; o escritor no
       path.join(__dirname, 'prova-ativacao-roteiro.test.js')], envDaMaquina({ HOME: home }),
     [path.join(home, '.orkastery', 'projetos.json'), path.join(home, '.codex', 'history.jsonl')]);
     assert.equal(r.status, 0, r.stdout.slice(-3000));
-    assert.match(r.stdout, /^ok 1 - roteiro codex \(B11\): sessao efemera/m);
+    // O Node 20 lista os casos fora do padrao como `ok N - ... # SKIP` e o 22 os omite: o numero muda, o veredito nao.
+    assert.match(r.stdout, /^ok \d+ - roteiro codex \(B11\): sessao efemera(?!.*# SKIP)/m);
+    assert.match(r.stdout, /^# fail 0$/m);
   } finally { apagar(home); }
 });
 
