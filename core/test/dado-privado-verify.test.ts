@@ -8,7 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ajustarManifesto, commitar, dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
 import { prepararBundleCi } from '../src/ci';
-import { adicionarClaim } from '../src/claims';
+import { adicionarClaim, retirarClaim } from '../src/claims';
 import { lerLedger } from '../src/ledger';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { textoDoVerify, verificar } from '../src/verify';
@@ -232,5 +232,31 @@ test('DB6: block lê binário commitado e texto -diff, reprova o verify e não g
       assert.match(erro, /^privado\.achado: o bundle nao foi gerado/);
       assert.equal(fs.existsSync(path.join(wt, '.ork-ci', `${id}.json`)), false);
     });
+  } finally { p.limpar(); }
+});
+
+test('DB7: o bundle é recalculado pelas claims ativas no momento, sem lista fixa', () => {
+  const { p, id, wt } = cenario('db7', 'block');
+  try {
+    commitar(wt, 'fatia.txt', 'fatia\n', 'fatia');
+    const antiga = adicionarClaim(p.dir, id,
+      { arquivo: 'fatia.txt', alegacao: 'alegação antiga', verificar: ['test -f fatia.txt'] });
+    const ativa = adicionarClaim(p.dir, id,
+      { arquivo: 'fatia.txt', alegacao: 'alegação ativa', verificar: ['test -f fatia.txt'] });
+    retirarClaim(p.dir, id, antiga.id, 'substituída no teste');
+
+    const idsDoBundle = (): string[] => {
+      const arquivo = comLista(null, () => prepararBundleCi(p.carregado, id));
+      const bundle = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as {
+        claims: Array<{ id: string }>;
+        deferredClaims?: Array<{ id: string }>;
+      };
+      return [...bundle.claims, ...(bundle.deferredClaims ?? [])].map((c) => c.id);
+    };
+    assert.deepEqual(idsDoBundle(), [ativa.id]);
+
+    const posterior = adicionarClaim(p.dir, id,
+      { arquivo: 'fatia.txt', alegacao: 'alegação posterior', verificar: ['test -f fatia.txt'] });
+    assert.deepEqual(idsDoBundle(), [ativa.id, posterior.id]);
   } finally { p.limpar(); }
 });
