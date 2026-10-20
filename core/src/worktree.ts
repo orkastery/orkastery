@@ -17,7 +17,8 @@ import * as path from 'node:path';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { leasesDaThread, liberar, nomeDeLease } from './leases';
 import { ManifestoCarregado } from './manifest';
-import { criarWorktree, dirThread, gravarThread, lerThread, pastaDaWorktree } from './thread';
+import { criarWorktree, dirThread, gravarThread, lerThread, pastaDaWorktree, prepararDependenciasDaThread } from './thread';
+import { PreparoDasDependencias } from './dependencias-da-worktree';
 import { Check, MotivoGate, Thread } from './types';
 import { exec, simbolo } from './util';
 import { auditarEstado, vincularEstado, comEstadoParaGit } from './estado-thread';
@@ -89,6 +90,8 @@ export interface ResultadoEnsure {
   motivo: MotivoGate | null;
   detalhe: string;
   correcao: string;
+  /** RM-037 (defeito 2 de 19 e 20/10/2026): o preparo de `worktree.dependencias` na worktree criada agora. */
+  dependencias?: PreparoDasDependencias | null;
 }
 
 /**
@@ -160,9 +163,12 @@ export function garantirWorktree(carregado: ManifestoCarregado, id: string): Res
     branchReusada: jaTemBranch,
     fonte: 'git worktree list --porcelain',
   });
+  // RM-037 (defeito 2 de 19 e 20/10/2026): a worktree recriada nasce sem o que o git ignora, como a nova.
+  const dependencias = prepararDependenciasDaThread(carregado, id, criada.dir);
   return {
     ok: true,
     criada: true,
+    dependencias,
     dir: criada.dir,
     branch: criada.branch,
     base,

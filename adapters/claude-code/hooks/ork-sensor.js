@@ -26,6 +26,13 @@ function executar() {
   if (!tipo) return;
   const payload = { observedAt: new Date().toISOString() };
   if (h.hook_event_name === 'Notification') payload.notificationType = h.notification_type;
+  // RM-037 (CHECK 3 da ork-rm037defeit2): o Stop conta o trabalho que ainda vai acordar a sessão. Com despertar agendado
+  // (CronCreate, ScheduleWakeup, /loop) ou tarefa MCP, o Claude Code mostra a sessão `idle`; só a entrada do Stop separa
+  // a sessão encerrada da que vai voltar a escrever. Runtime sem os campos não manda nada, e o ork não supõe zero.
+  if (h.hook_event_name === 'Stop') {
+    if (Array.isArray(h.background_tasks)) payload.backgroundTasks = h.background_tasks.length;
+    if (Array.isArray(h.session_crons)) payload.sessionCrons = h.session_crons.length;
+  }
   const falhaDaConta = accountFailure(h);
   if (falhaDaConta && (tipo === 'notification' || tipo === 'stop')) payload.accountFailure = falhaDaConta;
   // tool_use_id identifica replay da mesma ferramenta. Sem id do protocolo,
@@ -50,11 +57,17 @@ function executar() {
       }
     }
   }
-  const r = spawnSync(process.env.ORK_SENSOR_CLI || 'ork',
+  const enviar = (p) => spawnSync(process.env.ORK_SENSOR_CLI || 'ork',
     ['sessions', 'event', '--tipo', tipo, '--sessao', h.session_id], {
-      cwd: h.cwd, input: JSON.stringify(payload), encoding: 'utf8', timeout: 3000,
+      cwd: h.cwd, input: JSON.stringify(p), encoding: 'utf8', timeout: 3000,
       maxBuffer: 32768, windowsHide: true,
     });
+  let r = enviar(payload);
+  // O `ork` de antes das contagens recusa o campo novo antes de gravar qualquer coisa: o Stop vai de novo sem elas, como ia.
+  if (r.status === 1 && /^evento recusado: campo de payload inválido: (?:backgroundTasks|sessionCrons)$/m.test(r.stderr || '')) {
+    const { backgroundTasks: _tarefas, sessionCrons: _despertares, ...semContagens } = payload;
+    r = enviar(semContagens);
+  }
   if (r.status !== 0) {
     // Recusa conhecida não identifica o papel da sessão nem comprova ingestão.
     const semVinculo = r.status === 1 && !r.error && !r.stdout?.trim() &&

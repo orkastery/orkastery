@@ -1,0 +1,159 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-037, defeitos de condução de 19 e 20/10/2026: cada mutante devolve o comportamento de antes, e o teste do defeito o mata. Cada claim Mutante roda um deles pelo core/scripts/mutante.cjs.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "defeito 1: a baseline volta ao executor com o teto padrão de 600 s, sem o prazo do manifesto",
+      "modulo": "verify",
+      "de": "executorDaRodada(manifesto, (0, instabilidade_1.lerRegistroDeInstabilidade)(cwd), base, leitor)",
+      "para": "executorComSteal(base ?? executar, leitor)",
+      "teste": "rm037-defeitos2010-baseline",
+      "nome": "^defeito 1 \\(19 e 20/10/2026\\): a baseline aplica o prazo"
+    },
+    {
+      "id": "M2",
+      "descricao": "defeito 1: o comando sem veredito na baseline volta a valer como já falhava",
+      "modulo": "verify",
+      "de": "if (!antes || vereditoDaBaseline(antes) === 'sem-veredito')",
+      "para": "if (!antes)",
+      "teste": "rm037-defeitos2010-baseline",
+      "nome": "^defeito 1: (o comando que estourou|baseline antiga)"
+    },
+    {
+      "id": "M7",
+      "descricao": "defeito 1 (achado 1 do CHECK): a baseline morta por sinal, pelo timeout de dentro do comando ou sem código de saída volta a valer como já falhava",
+      "modulo": "verify",
+      "de": "return terminoNormal(c) ? 'ja-falhava' : 'sem-veredito';",
+      "para": "return (c.causa === undefined && c.code === -1) ? 'sem-veredito' : 'ja-falhava';",
+      "teste": "rm037-defeitos2010-baseline",
+      "nome": "^defeito 1: (so o termino normal|a baseline morta por sinal)"
+    },
+    {
+      "id": "M3",
+      "descricao": "defeito 2: a worktree nova volta a nascer sem o preparo de worktree.dependencias",
+      "modulo": "thread",
+      "de": "const comando = carregado.manifesto.worktree.dependencias;",
+      "para": "const comando = undefined;",
+      "teste": "rm037-defeitos2010-dependencias",
+      "nome": "^defeito 2 \\(19 e 20/10/2026\\)"
+    },
+    {
+      "id": "M4",
+      "descricao": "defeito 2: a recusa baseline.dependencia-ausente volta a não dizer o comando do preparo",
+      "modulo": "verify",
+      "de": "manifesto.worktree.dependencias ?? null",
+      "para": "null",
+      "teste": "rm037-defeitos2010-dependencias",
+      "nome": "^defeito 2: o preparo que falha"
+    },
+    {
+      "id": "M8",
+      "descricao": "defeito 3 (achado 2 do CHECK): o roteiro da prova volta a medir o registro de projetos da casa do usuário real (ORK_USUARIO_DIR ou ~/.orkastery), fora da casa do ork da prova",
+      "arquivo": "core/scripts/prova-ativacao.cjs",
+      "de": "hashArquivo(path.join(pastaDoUsuario(), 'projetos.json'))",
+      "para": "hashArquivo(path.join(process.env.ORK_USUARIO_DIR || path.join(home, '.orkastery'), 'projetos.json'))",
+      "teste": "rm037-defeitos2010-hermeticos",
+      "nome": "^defeito 3 \\(19 e 20/10/2026\\): o roteiro mede o registro da casa do ork da prova"
+    },
+    {
+      "id": "M9",
+      "descricao": "defeito 3 (achado 2 do CHECK): o teste do roteiro volta a rodar a prova com o HOME e a casa do ork de quem roda a suíte",
+      "arquivo": "core/dist-test/test/prova-ativacao-apoio.js",
+      "de": "const env = { ...process.env, HOME: home, ORK_USUARIO_DIR: path.join(dir, 'usuario'), ORKASTERY_HOME: path.join(dir, 'casa'),",
+      "para": "const env = { ...process.env,",
+      "teste": "rm037-defeitos2010-hermeticos",
+      "nome": "^defeito 3: o teste do roteiro roda com HOME e casa proprios"
+    },
+    {
+      "id": "M10",
+      "descricao": "defeito 3 (achado 2 do CHECK): o projeto-alvo-cli volta a chamar o CLI sem o runtime vazio, lendo as sessões reais da conta de quem roda a suíte",
+      "arquivo": "core/dist-test/test/projeto-alvo-cli.test.js",
+      "de": "env: { ...base, ...VAZIO.env, ORK_USUARIO_DIR: usuario, ...env },",
+      "para": "env: { ...base, ORK_USUARIO_DIR: usuario, ...env },",
+      "teste": "rm037-defeitos2010-hermeticos",
+      "nome": "^defeito 3: o teste projeto-alvo-cli nao chama o claude da maquina"
+    },
+    {
+      "id": "M11",
+      "descricao": "GO-FIX 2: o executor volta a aceitar link simbólico e realpath fora da cópia para o campo arquivo",
+      "arquivo": "core/scripts/mutante.cjs",
+      "de": "const componentes = relativo.split('/').filter(Boolean);",
+      "para": "return null;\n  const componentes = relativo.split('/').filter(Boolean);",
+      "teste": "noctum-mutante",
+      "nome": "^QM(?:7|8):"
+    },
+    {
+      "id": "M5",
+      "descricao": "defeito 4: working/idle depois do Stop volta a ser sessão trabalhando para sempre (só o done do runtime encerra)",
+      "modulo": "session-watcher-claude",
+      "de": "if (estado === 'working' && r.status === 'idle' && stop && !bloqueioPendente(e.eventos, e.sessao)) {",
+      "para": "if (false) {",
+      "teste": "rm037-defeitos2010-ociosa",
+      "nome": "^defeito 4 \\(19 e 20/10/2026\\)"
+    },
+    {
+      "id": "M6",
+      "descricao": "defeito 4: o prazo da ociosidade conta da primeira leitura mesmo de antes do Stop novo",
+      "modulo": "session-watcher-claude",
+      "de": "const desde = Math.max(cursor.ociosaDesde, Date.parse(stop.ts) || 0);",
+      "para": "const desde = cursor.ociosaDesde;",
+      "teste": "rm037-defeitos2010-ociosa",
+      "nome": "^defeito 4: a contagem recomeca"
+    },
+    {
+      "id": "M12",
+      "descricao": "defeito 4 (CHECK 3): a ociosidade depois do Stop volta a encerrar o turno com despertar agendado ou tarefa em segundo plano pendente",
+      "modulo": "session-watcher-claude",
+      "de": "const pendente = trabalhoPendenteDoStop(stop);",
+      "para": "const pendente = null;",
+      "teste": "rm037-defeitos2010-ociosa",
+      "nome": "^defeito 4 \\(CHECK 3\\): o Stop com despertar"
+    },
+    {
+      "id": "M13",
+      "descricao": "defeito 4 (CHECK 3): o Stop sem as contagens (hook ou runtime de antes) volta a valer como nada pendente",
+      "modulo": "session-watcher-claude",
+      "de": "if (tarefas === 0 && despertares === 0)",
+      "para": "if (!tarefas && !despertares)",
+      "teste": "rm037-defeitos2010-ociosa",
+      "nome": "^defeito 4 \\(CHECK 3\\): o Stop sem as contagens"
+    },
+    {
+      "id": "M14",
+      "descricao": "defeito 2 (CHECK 3): o passo do arco volta a rodar o preparo das dependências ao abrir a thread, dentro da vez de despachar",
+      "modulo": "noctum-execucao",
+      "de": "criarWorktree: true, adiarDependencias: true",
+      "para": "criarWorktree: true",
+      "teste": "rm037-defeitos2010-arco",
+      "nome": "^defeito 2 \\(CHECK 3\\): o passo do arco"
+    },
+    {
+      "id": "M15",
+      "descricao": "defeito 2 (CHECK 3): a baseline volta a rodar sem o preparo que a criação adiou",
+      "modulo": "verify",
+      "de": "exigirDependenciasDaWorktree(carregado, threadId, cwd, 'baseline', tomada, base);",
+      "para": "void tomada;",
+      "teste": "rm037-defeitos2010-dependencias",
+      "nome": "^defeito 2 \\(CHECK 3\\): a thread aberta com o preparo adiado"
+    },
+    {
+      "id": "M16",
+      "descricao": "defeito 2 (CHECK 3): o verify volta a rodar sem o preparo que a criação adiou",
+      "modulo": "verify",
+      "de": "exigirDependenciasDaWorktree(carregado, threadId, cwd, 'verify', conducao, opcoes.executor);",
+      "para": "void conducao;",
+      "teste": "rm037-defeitos2010-dependencias",
+      "nome": "^defeito 2 \\(CHECK 3\\): o preparo adiado que falha"
+    },
+    {
+      "id": "M17",
+      "descricao": "CHECK 3 (aviso 3): o executor volta a conferir só o alvo do campo arquivo, e o modulo compilado por link simbólico escreve fora da cópia",
+      "arquivo": "core/scripts/mutante.cjs",
+      "de": "function recusaDosAlvos(raiz, alvos) {",
+      "para": "function recusaDosAlvos(raiz, alvos) {\n  if (!alvos.some((a) => a.startsWith('core/scripts/') || a.startsWith('core/dist-test/test/'))) return null;",
+      "teste": "noctum-mutante",
+      "nome": "^QM9:"
+    }
+  ]
+}
