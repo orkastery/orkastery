@@ -1,6 +1,8 @@
 /** `ork ship`: a loop category not scanned for the candidate SHA is a `human.pending` gate (spec section 11.2). */
 
 import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
+import * as path from 'node:path';
 import { test } from 'node:test';
 import { lerLedger } from '../src/ledger';
 import type { ManifestoCarregado } from '../src/manifest';
@@ -23,8 +25,8 @@ const counts = (): ToolRun['counts'] => {
   const sev = () => ({ critical: 0, high: 0, medium: 0, low: 0, info: 0 });
   return { new: sev(), existing: sev(), dismissed: sev() };
 };
-const run = (name: string, category: Category, state: ToolState): ToolRun =>
-  ({ name, category, version: '1', executor: state === 'unavailable' ? null : 'docker', state, counts: counts() });
+const run = (name: string, category: Category, state: ToolState, reason?: string): ToolRun =>
+  ({ name, category, version: '1', executor: state === 'unavailable' ? null : 'docker', state, ...(reason ? { reason } : {}), counts: counts() });
 
 function gravar(p: ProjetoDeTeste, head: string, tools: ToolRun[]): void {
   const report: ScanReport = { schema: 'ork.security-scan/v1', base: head, head, generatedAt: '2026-10-19T00:00:00.000Z',
@@ -106,5 +108,57 @@ test('unscannedCategories: ordenado, so laco, so unavailable ou failed', () => {
       run('zizmor', 'workflow', 'failed'), run('actionlint', 'workflow', 'unavailable')]);
     assert.deepEqual(unscannedCategories(comScan(p, {}), sha), ['dependency', 'workflow']);
     assert.deepEqual(unscannedCategories(comScan(p, { chave: false }), sha), []);
+  } finally { p.limpar(); }
+});
+
+test('unscannedCategories: unsupported-ci e no-requirements-file (com outra ferramenta da categoria) nao pedem autorizacao', () => {
+  const p = projetoTemporario('ss-ship-nada-a-varrer');
+  try {
+    const sha = 'd'.repeat(40);
+    gravar(p, sha, [run('gitleaks', 'secret', 'ran'), run('actionlint', 'workflow', 'unavailable', 'unsupported-ci'),
+      run('pip-audit', 'dependency', 'unavailable', 'no-requirements-file'), run('trivy-vuln', 'dependency', 'ran')]);
+    assert.deepEqual(unscannedCategories(comScan(p, {}), sha), []);
+    const sozinho = 'e'.repeat(40);
+    gravar(p, sozinho, [run('gitleaks', 'secret', 'ran'), run('pip-audit', 'dependency', 'unavailable', 'no-requirements-file')]);
+    assert.deepEqual(unscannedCategories(comScan(p, {}), sozinho), ['dependency']);
+  } finally { p.limpar(); }
+});
+
+test('ship com unsupported-ci no relatorio entrega sem pedir --allow-unscanned', () => {
+  const p = projetoTemporario('ss-ship-gitlab-ci', true);
+  try {
+    const { thread, sha } = entrega(p);
+    gravar(p, sha, [run('gitleaks', 'secret', 'ran'), run('semgrep', 'sast', 'ran'), run('trivy-vuln', 'dependency', 'ran'),
+      run('trivy-config', 'iac', 'ran'), run('actionlint', 'workflow', 'unavailable', 'unsupported-ci')]);
+    const r = ship(comScan(p, {}), thread.id, { para: 'main' });
+    assert.equal(r.ok, true, r.detalhe);
+    assert.equal(lerLedger(dirThread(p.dir, thread.id)).some(e => e.tipo === 'ship_unscanned_authorized'), false);
+  } finally { p.limpar(); }
+});
+
+test('ship --dry-run --allow-unscanned nao grava ship_unscanned_authorized e diz o que autorizaria', () => {
+  const p = projetoTemporario('ss-ship-ensaio', true);
+  try {
+    const { thread, sha } = entrega(p);
+    gravar(p, sha, [run('gitleaks', 'secret', 'unavailable')]);
+    const r = ship(comScan(p, {}), thread.id, { para: 'main', allowUnscanned: 'paschoal', dryRun: true });
+    assert.equal(r.bloqueado, false, r.detalhe);
+    assert.equal(lerLedger(dirThread(p.dir, thread.id)).some(e => e.tipo === 'ship_unscanned_authorized'), false);
+    assert.ok(r.passos.some(x => /paschoal/.test(x) && /secret/.test(x)), r.passos.join(' | '));
+  } finally { p.limpar(); }
+});
+
+test('CLI: --allow-unscanned sem valor sai 2 e nao entrega', () => {
+  const p = projetoTemporario('ss-ship-flag-vazia', true);
+  try {
+    const { thread } = entrega(p);
+    const cli = path.resolve(__dirname, '../../dist/index.js');
+    for (const argv of [['--allow-unscanned'], ['--allow-unscanned', '--dry-run'], ['--allow-unscanned=']]) {
+      const r = spawnSync(process.execPath, [cli, 'ship', thread.id, '--para', 'main', ...argv],
+        { cwd: p.dir, encoding: 'utf8', timeout: 120000, env: { ...process.env, LANG: 'C.UTF-8' } });
+      assert.equal(r.status, 2, `${argv.join(' ')}: ${r.stdout}${r.stderr}`);
+      assert.match(r.stderr, /--allow-unscanned/);
+    }
+    assert.equal(lerLedger(dirThread(p.dir, thread.id)).some(e => e.tipo === 'ship_done' || e.tipo === 'ship_unscanned_authorized'), false);
   } finally { p.limpar(); }
 });

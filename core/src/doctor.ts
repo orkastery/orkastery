@@ -21,7 +21,7 @@ import { CHAVE_DO_FUSO, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso
 import { chooseExecutor, defaultProbe, type Probe } from './security-scan/executor';
 import { detectStacks } from './security-scan/detect';
 import { loadTools, toolsFor } from './security-scan/tools';
-import { LOOP_CATEGORIES_ANY, LOOP_CATEGORIES_HIGH } from './security-scan/types';
+import { LOOP_CATEGORIES } from './security-scan/types';
 import { Check } from './types';
 import { branchDoHead, exec, noPath, simbolo } from './util';
 import { inventariarSessoes, InventarioDeSessoes } from './sessoes-inventario';
@@ -387,8 +387,7 @@ export function checarSecurityScan(carregado: ManifestoCarregado | null, probe: 
   const nome = 'security scan';
   const m = msg().doctor;
   const tools = toolsFor(detectStacks(carregado.raiz).map(s => s.stack), loadTools());
-  const loop: readonly string[] = [...LOOP_CATEGORIES_ANY, ...LOOP_CATEGORIES_HIGH];
-  const faltando = tools.filter(t => loop.includes(t.category) && chooseExecutor(t, probe).kind === 'unavailable');
+  const faltando = tools.filter(t => LOOP_CATEGORIES.includes(t.category) && chooseExecutor(t, probe).kind === 'unavailable');
   if (probe.dockerCli() && probe.dockerDaemon()) return { nome, nivel: 'ok', detalhe: m.securityScanDocker };
   if (faltando.length === 0) return { nome, nivel: 'ok', detalhe: m.securityScanNativo };
   const lista = faltando.map(t => `${t.category}/${t.name}`).join(', ');

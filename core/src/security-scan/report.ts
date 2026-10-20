@@ -8,7 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { msg } from '../locale';
 import { dirEstado } from '../manifest';
-import { LOOP_CATEGORIES_ANY, LOOP_CATEGORIES_HIGH, type Finding, type ScanReport } from './types';
+import { LOOP_CATEGORIES, type Finding, type ScanReport, type ToolRun } from './types';
 
 export function reportDir(stateRoot: string, sha: string): string {
   return path.join(dirEstado(stateRoot), 'security-scan', sha);
@@ -40,16 +40,32 @@ export function readReport(stateRoot: string, sha: string): ScanReport | null {
   } catch { return null; }
 }
 
-const LOOP_CATEGORIES: readonly string[] = [...LOOP_CATEGORIES_ANY, ...LOOP_CATEGORIES_HIGH];
+/**
+ * "Nothing this tool can scan", declared in the report but not counted as an unscanned loop category: `unsupported-ci`
+ * (a GitLab CI file and no GitHub workflow: no analyzer for it, a known product gap) and `no-requirements-file`
+ * (pip-audit without `requirements*.txt`) when another tool of the same category ran in the round. Counted, either one
+ * would keep every such project red under REQUIRED and every ship asking for authorization.
+ */
+export function isExcusedUnscanned(tool: ToolRun, tools: readonly ToolRun[]): boolean {
+  if (tool.state !== 'unavailable') return false;
+  if (tool.reason === 'unsupported-ci') return true;
+  if (tool.reason === 'no-requirements-file') return tools.some(o => o !== tool && o.category === tool.category && o.state === 'ran');
+  return false;
+}
+
+/** Loop-category tools that did not run and are not excused (`isExcusedUnscanned`): the single rule of exit code and ship gate. */
+export function unscannedLoopTools(report: ScanReport): ToolRun[] {
+  return report.tools.filter(t => t.state !== 'ran' && LOOP_CATEGORIES.includes(t.category) && !isExcusedUnscanned(t, report.tools));
+}
 
 /**
  * 1 when a `new` finding is in the loop, or when `required` and a tool of a loop category (secret, dependency, sast, iac,
- * workflow) is unavailable or failed (never clean); `quality` and `license` tools never drive the code. Invalid
- * dismissals or config never reach a report: the command fails before.
+ * workflow) is unavailable or failed (never clean), unless excused by `isExcusedUnscanned`; `quality` and `license`
+ * tools never drive the code. Invalid dismissals or config never reach a report: the command fails before.
  */
 export function exitCodeOf(report: ScanReport, required: boolean): 0 | 1 {
   if (report.findings.some(f => f.status === 'new' && f.loop)) return 1;
-  if (required && report.tools.some(t => t.state !== 'ran' && LOOP_CATEGORIES.includes(t.category))) return 1;
+  if (required && unscannedLoopTools(report).length > 0) return 1;
   return 0;
 }
 

@@ -62,6 +62,8 @@ export const SHIP_PT_BR = {
   ciReprovouCorrecao: (contexto: string) => `publique a branch, aguarde o check ${contexto} verde no GitHub e repita o SHIP`,
   scanNaoVarrido: (categorias: string, sha: string) =>
     `o security scan nao varreu estas categorias do laco no commit ${sha}: ${categorias} (ferramenta indisponivel, com falha ou sem relatorio)`,
+  passoAutorizariaSemScan: (quem: string, categorias: string, sha: string) =>
+    `ensaio: o ship real gravaria ship_unscanned_authorized por ${quem} para ${categorias} no commit ${sha}`,
   allowUnscannedSemValor: 'erro: --allow-unscanned pede quem autoriza: ork ship <thread> --para <branch> --allow-unscanned "<quem>"',
   scanNaoVarridoCorrecao: (thread: string) =>
     `rode ork security-scan com Docker ou os binarios nativos e repita o SHIP; para entregar sem varredura, autorize: ork ship ${thread} --para <branch> --allow-unscanned "<quem>"`,
@@ -389,6 +391,8 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
   ciReprovouCorrecao: (contexto) => `publish the branch, wait for the ${contexto} check to go green on GitHub and run SHIP again`,
   scanNaoVarrido: (categorias, sha) =>
     `the security scan did not scan these loop categories at commit ${sha}: ${categorias} (tool unavailable, failed or no report)`,
+  passoAutorizariaSemScan: (quem, categorias, sha) =>
+    `dry run: the real ship would record ship_unscanned_authorized by ${quem} for ${categorias} at commit ${sha}`,
   allowUnscannedSemValor: 'error: --allow-unscanned needs who authorizes: ork ship <thread> --para <branch> --allow-unscanned "<who>"',
   scanNaoVarridoCorrecao: (thread) =>
     `run ork security-scan with Docker or the native binaries and run SHIP again; to ship unscanned, authorize it: ork ship ${thread} --para <branch> --allow-unscanned "<who>"`,

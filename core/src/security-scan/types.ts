@@ -78,6 +78,9 @@ export const LOOP_CATEGORIES_ANY: readonly Category[] = ['secret'];
 /** Categories where a new finding enters the loop at high or critical. */
 export const LOOP_CATEGORIES_HIGH: readonly Category[] = ['dependency', 'sast', 'iac', 'workflow'];
 
+/** Every loop category: the categories whose tool, unavailable or failed, leaves the loop unscanned. */
+export const LOOP_CATEGORIES: readonly Category[] = [...LOOP_CATEGORIES_ANY, ...LOOP_CATEGORIES_HIGH];
+
 export function isLoop(category: Category, severity: Severity): boolean {
   if (LOOP_CATEGORIES_ANY.includes(category)) return true;
   return LOOP_CATEGORIES_HIGH.includes(category) && (severity === 'high' || severity === 'critical');
