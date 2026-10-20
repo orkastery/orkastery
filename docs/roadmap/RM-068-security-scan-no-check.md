@@ -67,9 +67,9 @@ sdlc:
 
 | Medido | Resultado |
 | --- | --- |
-| Suíte do núcleo no HEAD da branch | 5021 testes, 5019 passam, 2 pulados, 0 falhas (base `f0396f69`: 4903 testes, 4901 passam, 2 pulados, 0 falhas) |
-| Scan do Orkastery no HEAD da branch (base = HEAD, com e sem `REQUIRED=1`) | saída 0; 0 novos, 22496 `existing` (a maior parte `quality`, fora do laço); as 9 ferramentas `ran`, Semgrep com `partial-parsing: 1`; de 162 a 270 s por rodada nas medições da branch |
-| Integração com Docker real, 3 stacks | 4 de 4 em cerca de 277 s; as 9 ferramentas rodam em cada stack |
+| Suíte do núcleo no HEAD da branch, rebaseada sobre a `main` `f5c8db22` | 5286 testes, 5284 passam, 2 pulados, 0 falhas (base `f5c8db22`: 5168 testes, 5166 passam, 2 pulados, 0 falhas) |
+| Scan do Orkastery no HEAD da branch contra a base real (`f5c8db22`, com e sem `REQUIRED=1`) | saída 0; 0 no laço; 472 novos, todos `quality` do ESLint (fora do laço), e 22484 `existing`; as 9 ferramentas `ran`, Semgrep com `partial-parsing: 1`; 499 s com o cache da base frio e 200 s com ele quente |
+| Integração com Docker real, 3 stacks | 4 de 4 (277 s antes do rebase, 486 s depois dele, com as imagens já baixadas); as 9 ferramentas rodam em cada stack |
 | Ponta a ponta, thread `#Classic` real | 2 rodadas do laço; segredo real e falso positivo atestados; dispensa registrada; reverify passa |
 | Sem Docker | 9 ferramentas `unavailable`, saída 0 (1 com `REQUIRED=1`); `ork ship` para com `human.pending`; com `--allow-unscanned`, entrega e registra |
 
