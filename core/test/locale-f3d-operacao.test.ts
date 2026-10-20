@@ -36,6 +36,9 @@ import { linhaDaAutorizacao, textoDaAutorizacao } from '../src/autorizacao-durav
 import { textoDaAtualizacao } from '../src/atualizar-branch';
 import { lerPedido } from '../src/intelligence-graph-cli';
 import { textoDaResposta } from '../src/intelligence-graph-query';
+import { tabelaDePacks } from '../src/auditoria';
+import { tabelaDaDivida } from '../src/divida';
+import { textoDaVarredura } from '../src/superficie';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -51,6 +54,31 @@ test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ing
   assert.match(en, /Simulation \(`--dry-run`\): nothing was written/);
   assert.match(en, /Cycle variants/);
   assert.deepEqual(linhasEmPortugues(en, ['orkastery.yaml']), []);
+});
+
+test('F3d: audit localiza packs, divida e superficie sem mudar contratos tecnicos', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ork-locale-audit-'));
+  try {
+    const resultado = { raiz: dir, detalhe: 'one source file scanned', frameworks: [], limitePorRegra: 5,
+      achados: [], truncados: [] } as any;
+    const pt = comLocale('pt-BR', () => [tabelaDePacks('nascente'), tabelaDaDivida(dir),
+      textoDaVarredura({ ...resultado, detalhe: 'um arquivo-fonte varrido' })].join('\n'));
+    const en = comLocale('en', () => [tabelaDePacks('nascente'), tabelaDaDivida(dir),
+      textoDaVarredura(resultado)].join('\n'));
+    assert.match(pt, /ATIVO A PARTIR DE/);
+    assert.match(pt, /Board de divida vazio/);
+    assert.match(pt, /Nenhum achado de superficie de ataque/);
+    assert.match(en, /ACTIVE FROM/);
+    assert.match(en, /Empty debt board/);
+    assert.match(en, /No attack-surface finding/);
+    assert.match(en, /Each finding carries the command/);
+    assert.equal(cobreLocale(['audit'], {}), true);
+    for (const sub of ['packs', 'run', 'list', 'show', 'prompt', 'ingest', 'verify', 'report', 'divida', 'surface'])
+      assert.equal(cobreLocale(['audit', sub], {}), true, sub);
+    assert.equal(cobreLocale(['audit', 'surface'], { json: true }), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('F3d: ledger stats e estimate têm texto equivalente nas duas línguas', () => {

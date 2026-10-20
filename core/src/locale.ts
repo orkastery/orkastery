@@ -88,6 +88,7 @@ import { PROJETOS_EN, PROJETOS_PT_BR } from './locale-projetos';
 import { OPERACAO_RESTANTE_EN, OPERACAO_RESTANTE_PT_BR } from './locale-operacao-restante';
 import { CONDUCAO_EN, CONDUCAO_PT_BR } from './locale-conducao';
 import { GRAFO_EN, GRAFO_PT_BR } from './locale-grafo';
+import { AUDIT_EN, AUDIT_PT_BR } from './locale-audit';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -134,7 +135,10 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'fabrica list', 'fabrica publicar', 'fabrica entrar', 'fabrica sair', 'fabrica batida', 'fabrica ?', 'eval',
   'memory status', 'memory inventory', 'memory migrate', 'memory sync', 'memory search', 'memory index', 'memory ?',
   'mcp install', 'conducao status', 'conducao assumir', 'conducao atualizar', 'conducao autorizar',
-  'conducao autorizacao', 'conducao batida', 'conducao sentinela', 'conducao ?', 'grafo'];
+  'conducao autorizacao', 'conducao batida', 'conducao sentinela', 'conducao ?', 'grafo',
+  'audit packs', 'audit pack', 'audit lint', 'audit run', 'audit list', 'audit show', 'audit prompt',
+  'audit ingest', 'audit finding', 'audit achado', 'audit verify', 'audit report', 'audit relatorio',
+  'audit divida', 'audit board', 'audit surface', 'audit superficie', 'audit ?'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -166,6 +170,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['memory', { padrao: 'status', conhecidos: ['status', 'inventory', 'migrate', 'sync', 'search', 'index'] }],
   ['mcp', { padrao: null, conhecidos: ['install', 'serve'] }],
   ['conducao', { padrao: null, conhecidos: ['status', 'assumir', 'atualizar', 'autorizar', 'autorizacao', 'batida', 'sentinela'] }],
+  ['audit', { padrao: 'packs', conhecidos: ['packs', 'pack', 'lint', 'run', 'list', 'show', 'prompt', 'ingest', 'finding', 'achado', 'verify', 'report', 'relatorio', 'divida', 'board', 'surface', 'superficie'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
@@ -523,6 +528,7 @@ const PT_BR = {
   conhecimento: CONHECIMENTO_PT_BR,
   conducao: CONDUCAO_PT_BR,
   grafo: GRAFO_PT_BR,
+  audit: AUDIT_PT_BR,
   forja: FORJA_PT_BR,
   operacao: {
     restante: OPERACAO_RESTANTE_PT_BR,
@@ -965,6 +971,7 @@ const EN: Mensagens = {
   conhecimento: CONHECIMENTO_EN,
   conducao: CONDUCAO_EN,
   grafo: GRAFO_EN,
+  audit: AUDIT_EN,
   forja: FORJA_EN,
   operacao: {
     restante: OPERACAO_RESTANTE_EN,
