@@ -20,6 +20,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { textoDoPlano, textoDoReap } from '../src/board';
 import { textoDoMonitor } from '../src/orquestracao';
+import { textoDasLicoes } from '../src/licoes';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -224,4 +225,20 @@ test('F3d: orquestracao e monitor localizam a visao vazia nas duas linguas', () 
   assert.equal(cobreLocale(['orquestracao', 'status'], {}), true);
   assert.equal(cobreLocale(['orquestracao', 'wat'], {}), true);
   assert.equal(cobreLocale(['monitor'], {}), true);
+});
+
+test('F3d: licoes injetadas no ciclo seguem a lingua sem traduzir evidencia', () => {
+  const resumo = { threads: 3,
+    motivos: [{ nome: 'claims.failed', threads: ['a', 'b'], dica: 'dado preservado' }],
+    classes: [{ nome: 'processo', threads: ['c'], dica: null }],
+    recentes: [{ thread: 'ork-x', score: 3, justificativa: 'justificativa preservada' }] } as any;
+  const pt = comLocale('pt-BR', () => textoDasLicoes(resumo));
+  const en = comLocale('en', () => textoDasLicoes(resumo));
+  assert.match(pt, /^Das 3 threads/);
+  assert.match(en, /^From the 3 threads/);
+  assert.match(en, /the claims\.failed block occurred/);
+  assert.match(en, /the processo failure class/);
+  assert.match(en, /closed with 3\/5/);
+  assert.match(en, /dado preservado/);
+  assert.equal(cobreLocale(['licoes'], {}), true);
 });

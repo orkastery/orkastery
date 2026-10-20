@@ -17,6 +17,7 @@ import { raizDoEstado } from './estado-thread';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { ClasseDeFalha, MasterLog, Postmortem } from './types';
 import { POLICIES_CONHECIDAS } from './policies';
+import { msg } from './locale';
 
 /** A licao de UMA thread fechada. */
 export interface LicaoDaThread {
@@ -148,16 +149,16 @@ const curto = (t: string, teto: number) => (t.length > teto ? `${t.slice(0, teto
 /** O texto da licao para o prompt. Vazio quando nao ha thread fechada para ensinar. */
 export function textoDasLicoes(r: ResumoDasLicoes): string {
   if (r.threads === 0 || (r.motivos.length === 0 && r.classes.length === 0 && r.recentes.length === 0)) return '';
-  const linhas = [`Das ${r.threads} threads ja fechadas pelo MASTER neste produto:`];
+  const m = msg().operacao.restante.licoes;
+  const linhas = [m.resumo(r.threads)];
   for (const m of r.motivos) {
-    linhas.push(`- o bloqueio ${m.nome} apareceu em ${m.threads.length} ${m.threads.length === 1 ? 'thread' : 'threads'}` +
-      (m.dica ? `; o que evita: ${m.dica}` : ''));
+    linhas.push(msg().operacao.restante.licoes.bloqueio(m.nome, m.threads.length,
+      m.threads.length === 1 ? 'thread' : 'threads', m.dica));
   }
   for (const c of r.classes) {
-    linhas.push(`- a classe de falha ${c.nome} fechou ${c.threads.length} ${c.threads.length === 1 ? 'thread' : 'threads'}` +
-      (c.dica ? `; o que evita: ${c.dica}` : ''));
+    linhas.push(m.classe(c.nome, c.threads.length, c.threads.length === 1 ? 'thread' : 'threads', c.dica));
   }
-  for (const l of r.recentes) linhas.push(`- ${l.thread} fechou com ${l.score}/5: ${curto(l.justificativa, 160)}`);
+  for (const l of r.recentes) linhas.push(m.nota(l.thread, l.score!, curto(l.justificativa, 160)));
   return linhas.join('\n');
 }
 
@@ -205,14 +206,15 @@ export function registrarPropostasNovas(raiz: string, agoraIso: string = new Dat
 
 /** `ork licoes`: o que volta no proximo GOAL e PLAN, e as propostas de policy. */
 export function textoDeLicoes(raiz: string, agoraIso: string = new Date().toISOString()): string {
+  const m = msg().operacao.restante.licoes;
   const resumo = resumoDasLicoes(raiz, null);
-  const linhas = ['Licoes que voltam no GOAL e no PLAN da proxima thread', ''];
-  linhas.push(textoDasLicoes(resumo) || 'Nenhuma thread fechada pelo MASTER ainda: nada a ensinar.');
+  const linhas = [m.titulo, ''];
+  linhas.push(textoDasLicoes(resumo) || m.nenhuma);
   const propostas = propostasDePolicy(raiz, agoraIso);
   linhas.push('');
-  linhas.push(`Propostas de policy (a mesma falha em ${PISO_DA_PROPOSTA}+ threads nos ultimos ${JANELA_DA_PROPOSTA_DIAS} dias):`);
-  if (propostas.length === 0) linhas.push('  nenhuma');
+  linhas.push(m.propostas(PISO_DA_PROPOSTA, JANELA_DA_PROPOSTA_DIAS));
+  if (propostas.length === 0) linhas.push(m.propostaNenhuma);
   for (const p of propostas) linhas.push(`  ${p.chave} em ${p.threads.length} threads (${p.threads.slice(0, 5).join(', ')})`, `    ${p.sugestao}`);
-  linhas.push('', 'Proposta nao bloqueia nada: vira policy so quando o dono a declara em `policies:` no orkastery.yaml.');
+  linhas.push('', m.fecho);
   return linhas.join('\n');
 }

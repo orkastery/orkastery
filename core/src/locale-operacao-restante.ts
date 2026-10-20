@@ -271,6 +271,21 @@ export const OPERACAO_RESTANTE_PT_BR = {
     vaiPausar: (thread: string, bloco: string, sobre: string) =>
       `  ${thread}: ${bloco} vai pausar sobre "${sobre}"`,
   },
+  licoes: {
+    resumo: (threads: number) => `Das ${threads} threads ja fechadas pelo MASTER neste produto:`,
+    bloqueio: (nome: string, total: number, unidade: string, dica: string | null) =>
+      `- o bloqueio ${nome} apareceu em ${total} ${unidade}${dica ? `; o que evita: ${dica}` : ''}`,
+    classe: (nome: string, total: number, unidade: string, dica: string | null) =>
+      `- a classe de falha ${nome} fechou ${total} ${unidade}${dica ? `; o que evita: ${dica}` : ''}`,
+    nota: (thread: string, score: number, justificativa: string) =>
+      `- ${thread} fechou com ${score}/5: ${justificativa}`,
+    titulo: 'Licoes que voltam no GOAL e no PLAN da proxima thread',
+    nenhuma: 'Nenhuma thread fechada pelo MASTER ainda: nada a ensinar.',
+    propostas: (piso: number, dias: number) =>
+      `Propostas de policy (a mesma falha em ${piso}+ threads nos ultimos ${dias} dias):`,
+    propostaNenhuma: '  nenhuma',
+    fecho: 'Proposta nao bloqueia nada: vira policy so quando o dono a declara em `policies:` no orkastery.yaml.',
+  },
 };
 
 export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
@@ -554,5 +569,19 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
     evidencia: (value) => `      evidence : ${value}`,
     correcao: (value) => `      fix      : ${value}`,
     vaiPausar: (thread, block, subject) => `  ${thread}: ${block} will pause for "${subject}"`,
+  },
+  licoes: {
+    resumo: (threads) => `From the ${threads} threads already closed by MASTER in this product:`,
+    bloqueio: (name, total, unit, hint) =>
+      `- the ${name} block occurred in ${total} ${unit}${hint ? `; how to prevent it: ${hint}` : ''}`,
+    classe: (name, total, unit, hint) =>
+      `- the ${name} failure class closed ${total} ${unit}${hint ? `; how to prevent it: ${hint}` : ''}`,
+    nota: (thread, score, reason) => `- ${thread} closed with ${score}/5: ${reason}`,
+    titulo: 'Lessons brought into the next thread\'s GOAL and PLAN',
+    nenhuma: 'No thread closed by MASTER yet: nothing to teach.',
+    propostas: (floor, days) =>
+      `Policy proposals (the same failure in ${floor}+ threads over the last ${days} days):`,
+    propostaNenhuma: '  none',
+    fecho: 'A proposal blocks nothing: it becomes policy only when the owner declares it under `policies:` in orkastery.yaml.',
   },
 };
