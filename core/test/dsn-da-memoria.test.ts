@@ -2,9 +2,11 @@
  * RM-069 (ork-dsnforadoamb): a DSN da memória fora do ambiente dos agentes.
  *
  * Os casos `DM` provam o resolvedor (`core/src/dsn-da-memoria.ts`) e a chave `memory.database_url_file` do manifesto
- * (T2); os casos `DR`, os consumidores pelo resolvedor e a degradação tipada (T3). Toda DSN é inventada, a pasta do
- * usuário do `ork` é temporária (`ORK_USUARIO_DIR` no ambiente injetado, ou no do processo, restaurado no `finally`) e
- * nenhum caso lê, compara ou imprime o ambiente de quem roda a suíte.
+ * (T2); os casos `DR`, os consumidores pelo resolvedor e a degradação tipada (T3). Os casos `DM20` a `DM26` vêm do GO-FIX 1
+ * (CHECK independente): o caminho conferido componente a componente (D17), a permissão exata (D18) e o contrato inteiro do
+ * conteúdo (D19); os mutantes de `core/test/mutantes/dsn-da-memoria.json` desfazem cada correção. Toda DSN é inventada, a
+ * pasta do usuário do `ork` é temporária (`ORK_USUARIO_DIR` no ambiente injetado, ou no do processo, restaurado no
+ * `finally`) e nenhum caso lê, compara ou imprime o ambiente de quem roda a suíte.
  */
 
 import { test } from 'node:test';
@@ -159,7 +161,7 @@ test('DM7: 0640, 0644 e 0700 são inseguros e dizem a permissão', () => {
       const texto = modo.toString(8).padStart(4, '0');
       assert.equal(r.falha, 'dsn.arquivo-inseguro', texto);
       assert.equal(r.dsn, '');
-      assert.equal(r.detalhe, `ORK_USUARIO_DIR/segredos/teste.dsn: permissão ${texto} mais aberta que 0600`);
+      assert.equal(r.detalhe, `ORK_USUARIO_DIR/segredos/teste.dsn: permissão ${texto}, diferente de 0600 e de 0400`);
       semValor(r);
     }
   } finally { p.limpar(); }
@@ -293,13 +295,28 @@ test('DM16: o rótulo segue a pasta do usuário e nunca é caminho absoluto (D2)
   } finally { p.limpar(); }
 });
 
-test('DM17: os fragmentos da DSN são ela inteira e a senha longa, crua e decodificada (D6)', () => {
+test('DM17: os fragmentos da DSN são ela inteira e a senha de qualquer tamanho, crua e decodificada (D6, D20)', () => {
   assert.deepEqual(fragmentosDaDsn(DSN), [DSN, SENHA_INVENTADA]);
   const codificada = 'postgres://usuario:senha%40de-teste-inventada@localhost/teste';
   assert.deepEqual(fragmentosDaDsn(codificada), [codificada, 'senha%40de-teste-inventada', 'senha@de-teste-inventada']);
-  assert.deepEqual(fragmentosDaDsn('postgres://usuario:curta@localhost/teste'), ['postgres://usuario:curta@localhost/teste']);
+  // A senha curta também é fragmento (o CHECK achou a barreira cega abaixo de 12 caracteres).
+  assert.deepEqual(fragmentosDaDsn('postgres://usuario:curta@localhost/teste'), ['postgres://usuario:curta@localhost/teste', 'curta']);
+  // Vários hosts da libpq (não é URL para o `new URL`), senha no parâmetro `password` e a forma `chave=valor`.
+  const hosts = 'postgresql://usuario:curta-2@h1.local:5432,h2.local:5433/teste';
+  assert.deepEqual(fragmentosDaDsn(hosts), [hosts, 'curta-2']);
+  const consulta = 'postgresql://localhost/teste?user=usuario&password=curta%2B3';
+  assert.deepEqual(fragmentosDaDsn(consulta), [consulta, 'curta%2B3', 'curta+3']);
+  assert.deepEqual(fragmentosDaDsn('host=localhost password=curta5 dbname=teste'), ['host=localhost password=curta5 dbname=teste', 'curta5']);
+  const aspas = "host=localhost password='curta 6\\'x' dbname=teste";
+  assert.deepEqual(fragmentosDaDsn(aspas), [aspas, "curta 6'x"]);
+  // Escape de porcentagem quebrado: a senha crua vale mesmo sem a decodificada.
+  assert.deepEqual(fragmentosDaDsn('postgres://usuario:p%zz@localhost/teste'), ['postgres://usuario:p%zz@localhost/teste', 'p%zz']);
+  // A fonte de ambiente não apara o valor: a DSN como veio e a aparada.
+  assert.deepEqual(fragmentosDaDsn(` ${DSN} `), [` ${DSN} `, DSN, SENHA_INVENTADA]);
+  assert.deepEqual(fragmentosDaDsn('postgres://localhost/teste'), ['postgres://localhost/teste']);
   assert.deepEqual(fragmentosDaDsn('host=localhost dbname=teste'), ['host=localhost dbname=teste']);
   assert.deepEqual(fragmentosDaDsn(''), []);
+  assert.deepEqual(fragmentosDaDsn('   '), []);
 });
 
 test('DM18: o detector de URL com senha devolve os nomes em ordem, nunca o valor (D7)', () => {
@@ -324,6 +341,173 @@ test('DM19: fim de linha \\r\\n e espaço em volta são aparados', () => {
     const r = resolverDsn(comArquivo(), { env: p.env });
     assert.equal(r.falha, null);
     assert.equal(r.dsn, DSN);
+  } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// GO-FIX 1: o caminho conferido componente a componente (D17), a permissão exata (D18) e o contrato do conteúdo (D19)
+
+/** Uma pasta temporária fora da pasta do usuário, com um arquivo da DSN 0600 dentro: o alvo de um link. */
+function pastaDeFora(nome: string): { dir: string; limpar: () => void } {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-dsn-${nome}-fora-`)));
+  fs.writeFileSync(path.join(dir, 'teste.dsn'), `${DSN}\n`);
+  fs.chmodSync(path.join(dir, 'teste.dsn'), 0o600);
+  return { dir, limpar: () => fs.rmSync(dir, { recursive: true, force: true }) };
+}
+
+/** A recusa pela pasta: inválido, a causa `pasta`, sem a DSN e sem nenhum dos caminhos reais pedidos. */
+function recusadoPelaPasta(r: DsnDaMemoria, rotulo: string, caminhos: readonly string[] = []): void {
+  assert.equal(r.falha, 'dsn.arquivo-invalido', rotulo);
+  assert.equal(r.causa, 'pasta', rotulo);
+  assert.equal(r.dsn, '', rotulo);
+  assert.match(r.detalhe, /: o caminho da pasta de segredos tem link simbólico ou algo que não é pasta$/, rotulo);
+  semValor(r);
+  for (const c of caminhos) assert.ok(!JSON.stringify(r).includes(c), `${rotulo}: o caminho real não sai`);
+}
+
+test('DM20: a pasta de segredos que é link simbólico para fora é recusada pela pasta, sem a DSN de lá', () => {
+  const p = pastaDoUsuario('dm20');
+  const fora = pastaDeFora('dm20');
+  try {
+    fs.rmSync(p.segredos, { recursive: true });
+    fs.symlinkSync(fora.dir, p.segredos);
+    recusadoPelaPasta(resolverDsn(comArquivo(), { env: p.env }), 'segredos com link para fora', [fora.dir, p.dir]);
+  } finally { fora.limpar(); p.limpar(); }
+});
+
+test('DM21: a pasta do usuário do ork que é link simbólico também é recusada; pelo caminho real, o mesmo arquivo vale', () => {
+  const p = pastaDoUsuario('dm21');
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-dsn-dm21-link-')));
+  try {
+    gravar(p, `${DSN}\n`);
+    const ligacao = path.join(base, 'casa-do-ork');
+    fs.symlinkSync(p.dir, ligacao);
+    recusadoPelaPasta(resolverDsn(comArquivo(), { env: { ORK_USUARIO_DIR: ligacao } }), 'ORK_USUARIO_DIR com link', [p.dir, base]);
+    recusadoPelaPasta(resolverDsn(comArquivo(), { env: { ORKASTERY_HOME: ligacao } }), 'ORKASTERY_HOME com link', [p.dir, base]);
+    assert.equal(resolverDsn(comArquivo(), { env: p.env }).dsn, DSN, 'controle: pela pasta real, o arquivo vale');
+  } finally { fs.rmSync(base, { recursive: true, force: true }); p.limpar(); }
+});
+
+test('DM22: a pasta de segredos ou a do usuário que não é pasta é recusada; link acima da pasta do usuário não conta (D17)', () => {
+  const p = pastaDoUsuario('dm22');
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-dsn-dm22-')));
+  try {
+    fs.rmSync(p.segredos, { recursive: true });
+    fs.writeFileSync(p.segredos, `${DSN}\n`);
+    recusadoPelaPasta(resolverDsn(comArquivo(), { env: p.env }), 'segredos é arquivo');
+    const arquivo = path.join(base, 'arquivo-no-lugar-da-pasta');
+    fs.writeFileSync(arquivo, `${DSN}\n`);
+    recusadoPelaPasta(resolverDsn(comArquivo(), { env: { ORK_USUARIO_DIR: arquivo } }), 'pasta do usuário é arquivo', [base]);
+    // O link acima da pasta do usuário é do sistema de quem roda o `ork`, não do manifesto: o caminho real ainda fecha.
+    const segredos = path.join(base, 'real', 'casa', 'segredos');
+    fs.mkdirSync(segredos, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(segredos, 'teste.dsn'), `${DSN}\n`);
+    fs.chmodSync(path.join(segredos, 'teste.dsn'), 0o600);
+    fs.symlinkSync(path.join(base, 'real'), path.join(base, 'atalho'));
+    const acima = resolverDsn(comArquivo(), { env: { ORK_USUARIO_DIR: path.join(base, 'atalho', 'casa') } });
+    assert.equal(acima.falha, null);
+    assert.equal(acima.dsn, DSN);
+  } finally { fs.rmSync(base, { recursive: true, force: true }); p.limpar(); }
+});
+
+test('DM23: a permissão vale exata, com os bits especiais: setuid, setgid e sticky sobre 0600 ou 0400 são inseguros', () => {
+  const p = pastaDoUsuario('dm23');
+  try {
+    let conferidos = 0;
+    for (const modo of [0o4600, 0o2600, 0o1600, 0o4400, 0o6600]) {
+      fs.rmSync(path.join(p.segredos, 'teste.dsn'), { force: true });
+      const arquivo = gravar(p, DSN, modo);
+      // A plataforma que não grava o bit pedido (sticky em arquivo, sem ser root) fica fora: vale o modo que o disco tem.
+      if ((fs.statSync(arquivo).mode & 0o7777) !== modo) continue;
+      conferidos++;
+      const r = resolverDsn(comArquivo(), { env: p.env });
+      const texto = modo.toString(8).padStart(4, '0');
+      assert.equal(r.falha, 'dsn.arquivo-inseguro', texto);
+      assert.equal(r.permissao, texto);
+      assert.equal(r.detalhe, `ORK_USUARIO_DIR/segredos/teste.dsn: permissão ${texto}, diferente de 0600 e de 0400`);
+      assert.equal(r.dsn, '');
+      semValor(r);
+    }
+    assert.ok(conferidos >= 2, `só ${conferidos} modo(s) especiais gravados nesta plataforma`);
+  } finally { p.limpar(); }
+});
+
+test('DM24: as guardas de linha e de controle valem antes do aparo: linha vazia a mais, controle no fim, CR sozinho e invisíveis', () => {
+  const p = pastaDoUsuario('dm24');
+  try {
+    const casos: Array<[string, string]> = [
+      [`${DSN}\n\n`, 'linhas'],
+      [`${DSN}\r\n\r\n`, 'linhas'],
+      [`${DSN}\n `, 'linhas'],
+      [`${DSN}\r`, 'linhas'],
+      [`${DSN}\u2028`, 'linhas'],
+      [`${DSN}\t`, 'controle'],
+      [`${DSN}\t\n`, 'controle'],
+      [`\t${DSN}`, 'controle'],
+      [`${DSN}\u007f`, 'controle'],
+      [`\ufeff${DSN}`, 'controle'],
+      [`postgres://usuario:${SENHA_INVENTADA}\u200b@localhost/teste`, 'controle'],
+    ];
+    for (const [i, [conteudo, causa]] of casos.entries()) {
+      gravar(p, conteudo);
+      const r = resolverDsn(comArquivo(), { env: p.env });
+      assert.equal(r.falha, 'dsn.arquivo-invalido', `caso ${i}`);
+      assert.equal(r.causa, causa, `caso ${i}`);
+      assert.equal(r.dsn, '', `caso ${i}`);
+      semValor(r);
+    }
+    for (const [i, conteudo] of [`${DSN}\n`, `${DSN}\r\n`, `  ${DSN} \n`].entries()) {
+      gravar(p, conteudo);
+      assert.equal(resolverDsn(comArquivo(), { env: p.env }).dsn, DSN, `um só fim de linha e espaço comum em volta passam (${i})`);
+    }
+  } finally { p.limpar(); }
+});
+
+test('DM25: o conteúdo é texto UTF-8 com uma DSN esquema://..., sem espaço dentro; vários hosts e esquema com + passam', () => {
+  const p = pastaDoUsuario('dm25');
+  try {
+    const casos: Array<[string | Buffer, string]> = [
+      [Buffer.concat([Buffer.from('postgres://usuario:'), Buffer.from([0xff, 0xfe, 0x80]), Buffer.from('@localhost/teste')]), 'codificacao'],
+      [SENHA_INVENTADA, 'esquema'],
+      ['localhost:5432/teste', 'esquema'],
+      ['postgres:/localhost/teste', 'esquema'],
+      ['://localhost/teste', 'esquema'],
+      ['1postgres://localhost/teste', 'esquema'],
+      ['postgres://', 'esquema'],
+      [`host=localhost password=${SENHA_INVENTADA} dbname=teste`, 'esquema'],
+      [`${DSN} extra`, 'espaco'],
+      [`postgres://usuario:${SENHA_INVENTADA}@local\u00a0host/teste`, 'espaco'],
+    ];
+    for (const [i, [conteudo, causa]] of casos.entries()) {
+      gravar(p, conteudo);
+      const r = resolverDsn(comArquivo(), { env: p.env });
+      assert.equal(r.falha, 'dsn.arquivo-invalido', `caso ${i}`);
+      assert.equal(r.causa, causa, `caso ${i}`);
+      assert.equal(r.dsn, '', `caso ${i}`);
+      semValor(r);
+    }
+    for (const dsn of [`postgresql://usuario:${SENHA_INVENTADA}@h1.local:5432,h2.local:5433/teste`,
+      `postgresql+psycopg://usuario:${SENHA_INVENTADA}@localhost/teste`, 'postgres://localhost/teste']) {
+      gravar(p, `${dsn}\n`);
+      const r = resolverDsn(comArquivo(), { env: p.env });
+      assert.equal(r.falha, null, r.detalhe);
+      assert.equal(r.dsn, dsn);
+    }
+  } finally { p.limpar(); }
+});
+
+test('DM26: o limite de 4 KiB conta o fim de linha: 4096 bytes passam, 4097 não', () => {
+  const p = pastaDoUsuario('dm26');
+  try {
+    const inicio = `postgres://usuario:${SENHA_INVENTADA}@localhost/`;
+    const exata = inicio + 'a'.repeat(LIMITE_DO_ARQUIVO_DA_DSN - inicio.length);
+    gravar(p, exata);
+    assert.equal(resolverDsn(comArquivo(), { env: p.env }).dsn, exata);
+    gravar(p, `${exata}\n`);
+    const r = resolverDsn(comArquivo(), { env: p.env });
+    assert.equal(r.falha, 'dsn.arquivo-invalido');
+    assert.equal(r.causa, 'tamanho');
+    semValor(r);
   } finally { p.limpar(); }
 });
 

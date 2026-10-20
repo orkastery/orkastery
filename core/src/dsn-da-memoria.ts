@@ -4,13 +4,17 @@
  * `memory.database_url_file`), de como o arquivo é lido e de como o `ork doctor` procura DSN no ambiente sem imprimir
  * valor.
  *
- * As regras (G2 a G4 do GOAL da ork-dsnforadoamb):
+ * As regras (G2 a G4 do GOAL da ork-dsnforadoamb, D17 a D21 do GO-FIX 1):
  *  - uma fonte só: com `database_url_file`, só o arquivo vale, e o `ork` nunca cai para a variável;
  *  - o manifesto vem do repositório, então só nomeia arquivo da pasta de segredos (`~/.orkastery/segredos/<nome>`):
  *    ele não escolhe outro arquivo do dono para mandar ao `memory.cli` (P6 da fronteira de confiança);
- *  - o arquivo é comum, do usuário que roda o `ork`, sem link simbólico, sem bit fora de 0600, com até 4 KiB e uma
- *    linha, e é lido a cada uso;
- *  - nenhum detalhe repete o valor, e o caminho sai com `~` ou com o nome da variável da pasta do usuário.
+ *  - o caminho é conferido antes de abrir: a pasta do usuário do `ork` e a de segredos são pastas comuns, sem link
+ *    simbólico, e o caminho real do arquivo é o da pasta de segredos real;
+ *  - o arquivo é comum, do usuário que roda o `ork`, sem link simbólico, com permissão 0600 ou 0400 exata (os bits
+ *    especiais contam), até 4 KiB e uma linha só com a DSN (`esquema://...`), e é lido a cada uso;
+ *  - nenhum detalhe repete o valor, e o caminho sai com `~` ou com o nome da variável da pasta do usuário;
+ *  - a DSN e a senha dela, de qualquer tamanho, nunca saem do `ork`: a resposta do processo filho que as repete é
+ *    recusada inteira na fronteira (`contemFragmentoDaDsn`).
  *
  * Só importa `node:*` e `maquina.ts`: o `orkmind.ts` carrega este módulo sem o parser do manifesto.
  */
@@ -27,6 +31,10 @@ export const PREFIXO_DO_ARQUIVO_DA_DSN = '~/.orkastery/segredos/';
 const NOME_DO_ARQUIVO = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 /** Maior arquivo de DSN aceito, em bytes. */
 export const LIMITE_DO_ARQUIVO_DA_DSN = 4096;
+/** D18: as permissões aceitas, comparadas com os bits especiais (setuid, setgid, sticky); nenhuma outra passa. */
+const PERMISSOES_ACEITAS: readonly number[] = [0o600, 0o400];
+/** D19: o esquema de URL (RFC 3986), `://` e algo depois; DSN de vários hosts da libpq não é URL para o `new URL`. */
+const DSN_COM_ESQUEMA = /^[A-Za-z][A-Za-z0-9+.-]*:\/\/\S/;
 
 /** Por que a fonte declarada não deu DSN; os mesmos nomes dos motivos de degradação da memória. */
 export type FalhaDaDsn =
@@ -40,11 +48,13 @@ export type FalhaDaDsn =
  * Por que o arquivo da DSN foi recusado. O texto pt-BR de cada causa mora em `textoDaCausa`; o catálogo do `ork doctor`
  * o repete nas duas línguas, e um teste confere que o pt-BR dos dois é o mesmo.
  */
-export type CausaDaDsn = 'forma' | 'nao-existe' | 'nao-abre' | 'link' | 'nao-e-arquivo' | 'plataforma' | 'dono' |
-  'permissao' | 'tamanho' | 'vazio' | 'linhas' | 'controle' | 'nome-valor' | 'leitura';
+export type CausaDaDsn = 'forma' | 'nao-existe' | 'nao-abre' | 'pasta' | 'link' | 'nao-e-arquivo' | 'plataforma' |
+  'dono' | 'permissao' | 'tamanho' | 'vazio' | 'codificacao' | 'linhas' | 'controle' | 'nome-valor' | 'esquema' |
+  'espaco' | 'leitura';
 
-export const CAUSAS_DA_DSN: readonly CausaDaDsn[] = ['forma', 'nao-existe', 'nao-abre', 'link', 'nao-e-arquivo',
-  'plataforma', 'dono', 'permissao', 'tamanho', 'vazio', 'linhas', 'controle', 'nome-valor', 'leitura'];
+export const CAUSAS_DA_DSN: readonly CausaDaDsn[] = ['forma', 'nao-existe', 'nao-abre', 'pasta', 'link', 'nao-e-arquivo',
+  'plataforma', 'dono', 'permissao', 'tamanho', 'vazio', 'codificacao', 'linhas', 'controle', 'nome-valor', 'esquema',
+  'espaco', 'leitura'];
 
 /** O texto pt-BR da causa, sem o valor; `permissao` só entra na causa `permissao`. */
 export function textoDaCausa(causa: CausaDaDsn, permissao = ''): string {
@@ -52,16 +62,20 @@ export function textoDaCausa(causa: CausaDaDsn, permissao = ''): string {
     case 'forma': return `memory.database_url_file fora da forma ${PREFIXO_DO_ARQUIVO_DA_DSN}<nome> (valor omitido)`;
     case 'nao-existe': return 'não existe';
     case 'nao-abre': return 'não foi possível abrir para leitura';
+    case 'pasta': return 'o caminho da pasta de segredos tem link simbólico ou algo que não é pasta';
     case 'link': return 'link simbólico não é aceito';
     case 'nao-e-arquivo': return 'não é arquivo comum';
     case 'plataforma': return 'esta plataforma não confere dono nem permissão';
     case 'dono': return 'o dono não é o usuário que roda o ork';
-    case 'permissao': return `permissão ${permissao} mais aberta que 0600`;
+    case 'permissao': return `permissão ${permissao}, diferente de 0600 e de 0400`;
     case 'tamanho': return 'maior que 4 KiB';
     case 'vazio': return 'vazio';
+    case 'codificacao': return 'não é texto UTF-8';
     case 'linhas': return 'mais de uma linha';
     case 'controle': return 'caractere de controle';
     case 'nome-valor': return 'formato NOME=valor de arquivo de ambiente; grave só a DSN';
+    case 'esquema': return 'não é DSN com esquema (como postgresql://)';
+    case 'espaco': return 'espaço dentro da DSN';
     case 'leitura': return 'não foi possível ler';
   }
 }
@@ -131,7 +145,62 @@ export function resolverDsn(memory: { database_url_env?: string; database_url_fi
     detalhe: 'nenhuma fonte declarada (memory.database_url_file ou memory.database_url_env)' };
 }
 
-/** G4: abre o arquivo sem seguir link, confere o descritor aberto (tipo, dono, modo, tamanho) e lê uma linha. */
+/**
+ * D17: o caminho do arquivo conferido componente a componente pelo `lstat`, sem seguir link e antes de abrir qualquer
+ * coisa: a pasta do usuário do `ork` e a de segredos são pastas comuns, o arquivo é arquivo comum, e o caminho real do
+ * arquivo é o da pasta de segredos real com o nome. O que fica acima da pasta do usuário (a casa de quem roda o `ork`,
+ * por exemplo) é do sistema dele, não do manifesto, e não é conferido. Devolve o `lstat` do arquivo, ou a falha.
+ */
+function conferirCaminho(pasta: string, nome: string): fs.Stats | { falha: FalhaDaDsn; causa: CausaDaDsn } {
+  const segredos = path.join(pasta, PASTA_DE_SEGREDOS);
+  const caminho = path.join(segredos, nome);
+  const ausente = (e: unknown): { falha: FalhaDaDsn; causa: CausaDaDsn } =>
+    ({ falha: 'dsn.arquivo-ausente', causa: ['ENOENT', 'ENOTDIR'].includes(codigoDoErro(e)) ? 'nao-existe' : 'nao-abre' });
+  for (const dir of [pasta, segredos]) {
+    let st: fs.Stats;
+    try { st = fs.lstatSync(dir); } catch (e) { return ausente(e); }
+    if (st.isSymbolicLink() || !st.isDirectory()) return { falha: 'dsn.arquivo-invalido', causa: 'pasta' };
+  }
+  let arquivo: fs.Stats;
+  try { arquivo = fs.lstatSync(caminho); } catch (e) { return ausente(e); }
+  if (arquivo.isSymbolicLink()) return { falha: 'dsn.arquivo-invalido', causa: 'link' };
+  if (!arquivo.isFile()) return { falha: 'dsn.arquivo-invalido', causa: 'nao-e-arquivo' };
+  try {
+    if (fs.realpathSync(caminho) !== path.join(fs.realpathSync(pasta), PASTA_DE_SEGREDOS, nome)) {
+      return { falha: 'dsn.arquivo-invalido', causa: 'pasta' };
+    }
+  } catch (e) { return ausente(e); }
+  return arquivo;
+}
+
+/**
+ * D19: o conteúdo pelo contrato inteiro, sem repetir o valor. Texto UTF-8 de até 4 KiB; um único fim de linha no fim
+ * (`\n` ou `\r\n`) é o único aparo antes das guardas de linha e de controle; depois delas, só o espaço comum em volta
+ * sai, e o que fica é uma DSN `esquema://...` sem espaço.
+ */
+function dsnDoConteudo(bruto: Buffer): { dsn: string } | { causa: CausaDaDsn } {
+  if (bruto.length > LIMITE_DO_ARQUIVO_DA_DSN) return { causa: 'tamanho' };
+  let texto: string;
+  try {
+    texto = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bruto);
+  } catch {
+    return { causa: 'codificacao' };
+  }
+  const linha = texto.endsWith('\r\n') ? texto.slice(0, -2) : texto.endsWith('\n') ? texto.slice(0, -1) : texto;
+  if (!linha.trim()) return { causa: 'vazio' };
+  if (/[\r\n\u0085\u2028\u2029]/.test(linha)) return { causa: 'linhas' };
+  if (/[\p{Cc}\p{Cf}]/u.test(linha)) return { causa: 'controle' };
+  const dsn = linha.replace(/^ +| +$/g, '');
+  if (/^[A-Z_][A-Z0-9_]*=/.test(dsn)) return { causa: 'nome-valor' };
+  if (!DSN_COM_ESQUEMA.test(dsn)) return { causa: 'esquema' };
+  if (/\s/.test(dsn)) return { causa: 'espaco' };
+  return { dsn };
+}
+
+/**
+ * G4 (D17 a D19): confere o caminho, abre o arquivo sem seguir link, confere o descritor aberto (o mesmo arquivo do
+ * `lstat`, comum, do usuário, permissão exata, tamanho) e só então lê, até o limite, pelo contrato inteiro.
+ */
 function lerArquivoDaDsn(declarado: string, env: NodeJS.ProcessEnv, uid: number | null): DsnDaMemoria {
   if (!arquivoDaDsnValido(declarado)) {
     return { fonte: 'arquivo', rotulo: `${PREFIXO_DO_ARQUIVO_DA_DSN}<nome>`, dsn: '', falha: 'dsn.arquivo-invalido',
@@ -139,18 +208,13 @@ function lerArquivoDaDsn(declarado: string, env: NodeJS.ProcessEnv, uid: number 
   }
   const nome = declarado.slice(PREFIXO_DO_ARQUIVO_DA_DSN.length);
   const rotulo = rotuloDoArquivoDaDsn(nome, env);
-  const caminho = path.join(pastaDoUsuario(env), PASTA_DE_SEGREDOS, nome);
+  const pasta = path.resolve(pastaDoUsuario(env));
+  const caminho = path.join(pasta, PASTA_DE_SEGREDOS, nome);
   const falhou = (falha: FalhaDaDsn, causa: CausaDaDsn, permissao?: string): DsnDaMemoria =>
     ({ fonte: 'arquivo', rotulo, dsn: '', falha, detalhe: `${rotulo}: ${textoDaCausa(causa, permissao)}`, causa,
       ...(permissao ? { permissao } : {}) });
-  let antes: fs.Stats;
-  try {
-    antes = fs.lstatSync(caminho);
-  } catch (e) {
-    return falhou('dsn.arquivo-ausente', ['ENOENT', 'ENOTDIR'].includes(codigoDoErro(e)) ? 'nao-existe' : 'nao-abre');
-  }
-  if (antes.isSymbolicLink()) return falhou('dsn.arquivo-invalido', 'link');
-  if (!antes.isFile()) return falhou('dsn.arquivo-invalido', 'nao-e-arquivo');
+  const antes = conferirCaminho(pasta, nome);
+  if ('falha' in antes) return falhou(antes.falha, antes.causa);
   let fd: number | null = null;
   try {
     try {
@@ -162,20 +226,24 @@ function lerArquivoDaDsn(declarado: string, env: NodeJS.ProcessEnv, uid: number 
     }
     const st = fs.fstatSync(fd);
     if (!st.isFile()) return falhou('dsn.arquivo-invalido', 'nao-e-arquivo');
-    const permissao = (st.mode & 0o777).toString(8).padStart(4, '0');
+    // O descritor aberto é o arquivo que o `lstat` conferiu: nada foi trocado entre a conferência e a abertura.
+    if (st.dev !== antes.dev || st.ino !== antes.ino) return falhou('dsn.arquivo-ausente', 'nao-abre');
+    const modo = st.mode & 0o7777;
+    const permissao = modo.toString(8).padStart(4, '0');
     if (uid === null) return falhou('dsn.arquivo-inseguro', 'plataforma', permissao);
     if (st.uid !== uid) return falhou('dsn.arquivo-inseguro', 'dono', permissao);
-    if ((st.mode & 0o177) !== 0) return falhou('dsn.arquivo-inseguro', 'permissao', permissao);
+    if (!PERMISSOES_ACEITAS.includes(modo)) return falhou('dsn.arquivo-inseguro', 'permissao', permissao);
     if (st.size > LIMITE_DO_ARQUIVO_DA_DSN) return falhou('dsn.arquivo-invalido', 'tamanho', permissao);
-    const bruto = fs.readFileSync(fd);
-    if (bruto.length > LIMITE_DO_ARQUIVO_DA_DSN) return falhou('dsn.arquivo-invalido', 'tamanho', permissao);
-    const dsn = bruto.toString('utf8').trim();
-    if (!dsn) return falhou('dsn.arquivo-invalido', 'vazio', permissao);
-    if (/[\r\n]/.test(dsn)) return falhou('dsn.arquivo-invalido', 'linhas', permissao);
-    // eslint-disable-next-line no-control-regex
-    if (/[\x00-\x1f\x7f]/.test(dsn)) return falhou('dsn.arquivo-invalido', 'controle', permissao);
-    if (/^[A-Z_][A-Z0-9_]*=/.test(dsn)) return falhou('dsn.arquivo-invalido', 'nome-valor', permissao);
-    return { fonte: 'arquivo', rotulo, dsn, falha: null, detalhe: '', permissao };
+    // Lê até um byte além do limite: o arquivo que cresceu depois do `fstat` cai no tamanho, sem ser lido inteiro.
+    const bruto = Buffer.alloc(LIMITE_DO_ARQUIVO_DA_DSN + 1);
+    let lidos = 0, n = -1;
+    while (n !== 0 && lidos < bruto.length) {
+      n = fs.readSync(fd, bruto, lidos, bruto.length - lidos, null);
+      lidos += n;
+    }
+    const conteudo = dsnDoConteudo(bruto.subarray(0, lidos));
+    if ('causa' in conteudo) return falhou('dsn.arquivo-invalido', conteudo.causa, permissao);
+    return { fonte: 'arquivo', rotulo, dsn: conteudo.dsn, falha: null, detalhe: '', permissao };
   } catch {
     return falhou('dsn.arquivo-ausente', 'leitura');
   } finally {
@@ -183,17 +251,63 @@ function lerArquivoDaDsn(declarado: string, env: NodeJS.ProcessEnv, uid: number 
   }
 }
 
+function decodificada(texto: string): string {
+  try { return decodeURIComponent(texto); } catch { return texto; }
+}
+
 /**
- * D6: o que da DSN nunca pode sair do `ork`: ela inteira e a senha com 12 caracteres ou mais, crua e decodificada.
- * DSN opaca (`chave=valor`) fica só inteira.
+ * As senhas que a DSN carrega, cruas como estão no texto: a do usuário (`esquema://usuario:senha@`, inclusive com vários
+ * hosts), a que o `new URL` lê, a do parâmetro `password` da consulta e a de `password=` na forma `chave=valor` da libpq.
+ */
+function senhasDaDsn(dsn: string): string[] {
+  const senhas: string[] = [];
+  const usuario = /^[A-Za-z][A-Za-z0-9+.-]*:\/\/([^/?#]*)@/.exec(dsn)?.[1] ?? '';
+  if (usuario.includes(':')) senhas.push(usuario.slice(usuario.indexOf(':') + 1));
+  try { senhas.push(new URL(dsn).password); } catch { /* não é URL para o `new URL`: as outras leituras valem */ }
+  const consulta = /^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^?#]*\?([^#]*)/.exec(dsn)?.[1] ?? '';
+  for (const par of consulta.split('&')) {
+    const igual = par.indexOf('=');
+    if (igual > 0 && decodificada(par.slice(0, igual)) === 'password') senhas.push(par.slice(igual + 1));
+  }
+  for (const m of dsn.matchAll(/(?:^|\s)password\s*=\s*('(?:[^'\\]|\\.)*'|(?:[^\s'\\]|\\.)+)/g)) {
+    senhas.push((m[1].startsWith("'") ? m[1].slice(1, -1) : m[1]).replace(/\\(.)/g, '$1'));
+  }
+  return senhas.filter(Boolean);
+}
+
+/**
+ * D6 e D20: o que da DSN nunca pode sair do `ork`: ela inteira (como veio e aparada) e cada senha dela, de qualquer
+ * tamanho, crua e decodificada. Senha curta ou comum também recusa a resposta legítima que tiver o mesmo trecho: a
+ * barreira prefere a recusa ao vazamento.
  */
 export function fragmentosDaDsn(dsn: string): string[] {
-  const fragmentos = dsn ? [dsn] : [];
-  try {
-    const senha = new URL(dsn).password;
-    if (senha.length >= 12) fragmentos.push(senha, decodeURIComponent(senha));
-  } catch { /* DSN opaca: só a DSN inteira */ }
-  return [...new Set(fragmentos)];
+  const texto = dsn.trim();
+  if (!texto) return [];
+  const fragmentos = [dsn, texto];
+  for (const senha of senhasDaDsn(texto)) fragmentos.push(senha, decodificada(senha));
+  return [...new Set(fragmentos.filter(Boolean))];
+}
+
+/**
+ * D21: verdadeiro quando algum texto do valor traz um dos fragmentos, em qualquer nível: as strings, as chaves de objeto
+ * e os números como saem no JSON. É a barreira da fronteira com o processo filho: a resposta que repete a DSN ou a senha
+ * é recusada inteira, com um código sem o valor, e nunca chega a saída, erro, ledger ou bundle.
+ */
+export function contemFragmento(valor: unknown, fragmentos: readonly string[]): boolean {
+  const proibidos = fragmentos.filter(Boolean);
+  const examinar = (x: unknown): boolean => {
+    if (typeof x === 'string') return proibidos.some((p) => x.includes(p));
+    if (typeof x === 'number') return examinar(String(x));
+    if (!x || typeof x !== 'object') return false;
+    if (Array.isArray(x)) return x.some(examinar);
+    return Object.entries(x).some(([k, v]) => examinar(k) || examinar(v));
+  };
+  return proibidos.length > 0 && examinar(valor);
+}
+
+/** D21: a DSN ou a senha dela em algum texto do valor (`contemFragmento` com `fragmentosDaDsn`). */
+export function contemFragmentoDaDsn(valor: unknown, dsn: string): boolean {
+  return contemFragmento(valor, fragmentosDaDsn(dsn));
 }
 
 /** D7: `esquema://usuario:senha@`, com usuário vazio aceito e senha obrigatória, em qualquer ponto do valor. */

@@ -27,7 +27,7 @@ import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { performance } from 'node:perf_hooks';
 import { Manifesto } from './types';
-import { FalhaDaDsn, fragmentosDaDsn, resolverDsn } from './dsn-da-memoria';
+import { contemFragmento, FalhaDaDsn, fragmentosDaDsn, resolverDsn } from './dsn-da-memoria';
 import {
   ColecaoDoOrk,
   ConsultaPorTag,
@@ -461,15 +461,12 @@ export class DriverCliOrkMind implements DriverDeMemoria {
   }
 
   private contemSegredo(valor: unknown): boolean {
-    // RM-069 (D6): a DSN e a senha dela pelos fragmentos de domicilio unico.
+    // RM-069 (D6, D20, D21): a DSN e a senha dela, de qualquer tamanho, pelos fragmentos e pela barreira de domicilio unico.
     const proibidos = fragmentosDaDsn(this.config.dsn);
     const nome = this.config.variavelDaChaveDeEmbedding ?? '';
     const chave = nome ? (process.env[nome] ?? '').trim() : '';
     if (chave.length >= 12) proibidos.push(chave);
-    const examinar = (x: unknown): boolean => typeof x === 'string'
-      ? proibidos.some(p => p && x.includes(p))
-      : !!x && typeof x === 'object' && Object.entries(x).some(([k, v]) => examinar(k) || examinar(v));
-    return examinar(valor);
+    return contemFragmento(valor, proibidos);
   }
 
   private rodar(pedido: Record<string, unknown>, timeoutMs: number = this.config.timeoutMs): unknown {
@@ -959,7 +956,8 @@ function correcaoDe(motivo: MotivoDeDegradacao, config: ReturnType<typeof config
       return `deixe ${config.rotuloDaDsn} como arquivo do usuario que roda o ork, com chmod 600 ` +
         '(DSN que outro usuario pode ler nao e lida)';
     case 'dsn.arquivo-invalido':
-      return `regrave ${config.rotuloDaDsn} como arquivo comum (sem link simbolico), so com a DSN, numa linha e sem NOME= na frente`;
+      return `regrave ${config.rotuloDaDsn} como arquivo comum numa pasta de segredos comum (sem link simbolico no caminho), ` +
+        'so com a DSN (esquema://...), numa linha e sem NOME= na frente';
     case 'cli.ausente':
       return `instale o OrkMind e garanta "${config.cli}" no PATH`;
     case 'orkmind.indisponivel':

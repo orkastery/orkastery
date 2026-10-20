@@ -96,7 +96,7 @@ test('DD4: arquivo com falha é aviso com o motivo, a causa e a correção do mo
   try {
     const casos: Array<[() => void, RegExp, RegExp]> = [
       [() => gravar(p.segredos, DSN, 0o644),
-        /^arquivo ORK_USUARIO_DIR\/segredos\/teste\.dsn recusado \(dsn\.arquivo-inseguro\): permissão 0644 mais aberta que 0600; /,
+        /^arquivo ORK_USUARIO_DIR\/segredos\/teste\.dsn recusado \(dsn\.arquivo-inseguro\): permissão 0644, diferente de 0600 e de 0400; /,
         /chmod 600 ORK_USUARIO_DIR\/segredos\/teste\.dsn$/],
       [() => fs.rmSync(path.join(p.segredos, 'teste.dsn')),
         /recusado \(dsn\.arquivo-ausente\): não existe; a memória cai para files, sem outra fonte$/,

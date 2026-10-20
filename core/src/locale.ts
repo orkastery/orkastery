@@ -402,16 +402,20 @@ const PT_BR = {
       forma: 'memory.database_url_file fora da forma ~/.orkastery/segredos/<nome> (valor omitido)',
       'nao-existe': 'não existe',
       'nao-abre': 'não foi possível abrir para leitura',
+      pasta: 'o caminho da pasta de segredos tem link simbólico ou algo que não é pasta',
       link: 'link simbólico não é aceito',
       'nao-e-arquivo': 'não é arquivo comum',
       plataforma: 'esta plataforma não confere dono nem permissão',
       dono: 'o dono não é o usuário que roda o ork',
-      permissao: `permissão ${permissao} mais aberta que 0600`,
+      permissao: `permissão ${permissao}, diferente de 0600 e de 0400`,
       tamanho: 'maior que 4 KiB',
       vazio: 'vazio',
+      codificacao: 'não é texto UTF-8',
       linhas: 'mais de uma linha',
       controle: 'caractere de controle',
       'nome-valor': 'formato NOME=valor de arquivo de ambiente; grave só a DSN',
+      esquema: 'não é DSN com esquema (como postgresql://)',
+      espaco: 'espaço dentro da DSN',
       leitura: 'não foi possível ler',
     }) as Record<string, string>)[causa] ?? causa,
     dsnArquivoCorrecao: (motivo: string, rotulo: string) => motivo === 'dsn.arquivo-ausente'
@@ -419,7 +423,8 @@ const PT_BR = {
         `(umask 077; cat > ${rotulo})`
       : motivo === 'dsn.arquivo-inseguro'
         ? `deixe ${rotulo} como arquivo do usuário que roda o ork, com chmod 600 ${rotulo}`
-        : `regrave ${rotulo} como arquivo comum (sem link simbólico), só com a DSN, numa linha e sem NOME= na frente`,
+        : `regrave ${rotulo} como arquivo comum numa pasta de segredos comum (sem link simbólico no caminho), só com a DSN ` +
+          '(esquema://...), numa linha e sem NOME= na frente',
     dsnNaSessao: (doProjeto: readonly string[], comSenha: readonly string[]) =>
       `no ambiente desta sessão despachada, o agente lê com env: ${[...doProjeto.map((n) => `${n} (DSN do projeto)`),
         ...comSenha.map((n) => `${n} (URL com senha)`)].join(', ')} (valor nunca impresso)`,
@@ -765,16 +770,20 @@ const EN: Mensagens = {
       forma: '`memory.database_url_file` outside the form `~/.orkastery/segredos/<name>` (value omitted)',
       'nao-existe': 'does not exist',
       'nao-abre': 'could not be opened for reading',
+      pasta: 'the path to the secrets folder has a symbolic link or something that is not a folder',
       link: 'symbolic link not accepted',
       'nao-e-arquivo': 'not a regular file',
       plataforma: 'this platform checks neither owner nor permission',
       dono: 'the owner is not the user running ork',
-      permissao: `permission ${permissao} more open than 0600`,
+      permissao: `permission ${permissao}, neither 0600 nor 0400`,
       tamanho: 'larger than 4 KiB',
       vazio: 'empty',
+      codificacao: 'not UTF-8 text',
       linhas: 'more than one line',
       controle: 'control character',
       'nome-valor': 'NAME=value environment file format; write only the DSN',
+      esquema: 'not a DSN with a scheme (such as `postgresql://`)',
+      espaco: 'whitespace inside the DSN',
       leitura: 'could not be read',
     }) as Record<string, string>)[causa] ?? causa,
     dsnArquivoCorrecao: (motivo, rotulo) => motivo === 'dsn.arquivo-ausente'
@@ -782,7 +791,8 @@ const EN: Mensagens = {
         `\`(umask 077; cat > ${rotulo})\``
       : motivo === 'dsn.arquivo-inseguro'
         ? `make \`${rotulo}\` a file owned by the user running ork, with \`chmod 600 ${rotulo}\``
-        : `rewrite \`${rotulo}\` as a regular file (no symbolic link), with only the DSN, on one line and without a NAME= prefix`,
+        : `rewrite \`${rotulo}\` as a regular file in a regular secrets folder (no symbolic link on the path), with only the ` +
+          'DSN (`scheme://...`), on one line and without a NAME= prefix',
     dsnNaSessao: (doProjeto, comSenha) =>
       `in this dispatched session's environment, the agent reads with \`env\`: ${[...doProjeto.map((n) => `${n} (project DSN)`),
         ...comSenha.map((n) => `${n} (URL with password)`)].join(', ')} (value never printed)`,
