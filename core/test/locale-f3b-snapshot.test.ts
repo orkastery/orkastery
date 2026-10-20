@@ -32,5 +32,15 @@ test('locale pt-BR F3b: SHA7 só de letras é normalizado no contexto de commit 
     normalizar('  branch ork/roadmap-reservas em aaeecea\nRede: pc-a publicou o retrato em x/y (ebcbadb, 1 tentativa(s)).\n'),
     '  branch ork/roadmap-reservas em <SHA7>\nRede: pc-a publicou o retrato em x/y (<SHA7>, 1 tentativa(s)).\n',
   );
-  assert.equal(normalizar('feito em acabada parte; (decafed) e em faceade cedo'), 'feito em acabada parte; (decafed) e em faceade cedo');
+  // O terceiro, de 19/10 à tarde (eacacee), e os outros contextos de sha da fixture, todos com sha só de letras.
+  assert.equal(
+    normalizar('Retrato removido de x/y (eacacee).\nConsultado: repositório da rede (cafebab); fim\n[warn] base main avancou para abcdefa e nao\n' +
+      'RM-001 estado.codigo: — → Mesclado (ship_done fedcbae)\nx → baddcaf (ledger)\nbranch b @ aaaaaab -> bbbbbba\n' +
+      'git merge-base --is-ancestor eeeeeef HEAD\n'),
+    'Retrato removido de x/y (<SHA7>).\nConsultado: repositório da rede (<SHA7>); fim\n[warn] base main avancou para <SHA7> e nao\n' +
+      'RM-001 estado.codigo: — → Mesclado (ship_done <SHA7>)\nx → <SHA7> (ledger)\nbranch b @ <SHA7> -> <SHA7>\n' +
+      'git merge-base --is-ancestor <SHA7> HEAD\n',
+  );
+  // Fora desses contextos, palavra de 7 letras hexadecimais fica como está.
+  assert.equal(normalizar('feito em acabada parte; e em faceade cedo; decafed'), 'feito em acabada parte; e em faceade cedo; decafed');
 });
