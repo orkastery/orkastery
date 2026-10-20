@@ -1716,46 +1716,45 @@ function comandoGate(args: Args): number {
  */
 function comandoRetry(args: Args): number {
   const sub = args.posicionais[1];
+  const mr = msg().retry, mc = mr.complementar;
 
   if (sub === 'policy') {
     const alvo = texto(args.opcoes.motivo);
     if (alvo) {
       const politica = POLITICA_DE_RETRY[alvo as keyof typeof POLITICA_DE_RETRY];
       if (!politica) {
-        console.error(`motivo tipado desconhecido: ${alvo}`);
-        console.error(`  conhecidos: ${Object.keys(POLITICA_DE_RETRY).join(', ')}`);
+        console.error(mc.motivoDesconhecido(alvo));
+        console.error(mc.conhecidos(Object.keys(POLITICA_DE_RETRY).join(', ')));
         return 2;
       }
       if (args.opcoes.json === true) {
         console.log(JSON.stringify(politica, null, 2));
         return 0;
       }
-      console.log(`motivo tipado: ${politica.motivo}`);
-      console.log(`  significado  ${DESCRICAO_DO_MOTIVO_DE_AUDITORIA[politica.motivo]}`);
-      console.log(`  acao         ${politica.acao}`);
-      console.log(`  automatica   ${politica.automatica ? 'sim' : 'nao'}`);
-      console.log(`  por que      ${politica.porque}`);
-      console.log(`  correcao     ${politica.correcao}`);
+      console.log(mc.motivo(politica.motivo));
+      console.log(mc.significado(localeAtivo() === 'en' ? mr.politica[politica.motivo].porque : DESCRICAO_DO_MOTIVO_DE_AUDITORIA[politica.motivo]));
+      console.log(mc.acao(politica.acao));
+      console.log(mc.automatica(politica.automatica ? mc.sim : mc.nao));
+      console.log(mc.porque(mr.politica[politica.motivo].porque));
+      console.log(mc.correcao(mr.politica[politica.motivo].correcao));
       return 0;
     }
     if (args.opcoes.json === true) {
       console.log(JSON.stringify(Object.values(POLITICA_DE_RETRY), null, 2));
       return 0;
     }
-    console.log('Politica de retry por motivo tipado de gate (bloco B3)');
+    console.log(mc.politicaTitulo);
     console.log('');
     console.log(tabelaDaPolitica());
     console.log('');
-    console.log('A politica e a MESMA em todos os modos: o modo afrouxa a pausa, nunca a');
-    console.log('verificacao. cost.violation nunca recebe retry automatico, e o limite de');
-    console.log('escalacao (retry.max_tentativas) pausa qualquer modo, inclusive #Auto.');
+    for (const linha of mc.politicaFecho) console.log(linha);
     return 0;
   }
 
   if (sub === 'parse') {
     const bruto = texto(args.opcoes.stderr) ?? args.posicionais.slice(2).join(' ');
     if (!bruto) {
-      console.error('uso: ork retry parse --stderr "<texto do stderr do adapter>"');
+      console.error(mc.usoParse);
       return 2;
     }
     const sinal = parseRateLimit(bruto);
@@ -1764,17 +1763,16 @@ function comandoRetry(args: Args): number {
       return sinal ? 0 : 1;
     }
     if (!sinal) {
-      console.log('Nenhum sinal de rate limit reconhecido neste texto.');
+      console.log(mc.semSinal);
       return 1;
     }
-    console.log('Sinal de rate limit reconhecido no stderr do runtime:');
-    console.log(`  fonte da hora  ${sinal.fonte}`);
-    console.log(`  reset em       ${sinal.resetEm ? formatarDataHoraRotulada(sinal.resetEm) : '(o runtime nao disse a hora)'}`);
-    console.log(`  trecho         ${sinal.trecho}`);
+    console.log(mc.sinal);
+    console.log(mc.fonte(sinal.fonte));
+    console.log(mc.reset(sinal.resetEm ? formatarDataHoraRotulada(sinal.resetEm) : mc.semHora));
+    console.log(mc.trecho(sinal.trecho));
     if (sinal.resetEm === null) {
       console.log('');
-      console.log('  Sem hora no texto, a fila usa retry.janela_padrao_min do manifesto e marca');
-      console.log('  o pedido como janela ESTIMADA. O `ork` nao inventa horario de reset.');
+      for (const linha of mc.estimada) console.log(linha);
     }
     return 0;
   }
@@ -1832,8 +1830,8 @@ function comandoRetry(args: Args): number {
     const espera = lerFilaDeRetomada(carregado.raiz).filter((p) => p.estado === 'aguardando');
     if (espera.length > 0) {
       console.log('');
-      console.log(`Proxima janela: ${formatarDataHora(espera[0].liberaEm)} (${faltaPara(espera[0])}).`);
-      console.log('Retome com: ork retry resume');
+      console.log(mc.proxima(formatarDataHora(espera[0].liberaEm), faltaPara(espera[0])));
+      console.log(mc.retome);
     }
     return 0;
   }
@@ -1864,18 +1862,18 @@ function comandoRetry(args: Args): number {
     const idPedido = args.posicionais[2];
     const motivo = texto(args.opcoes.motivo);
     if (!idPedido || !motivo) {
-      console.error('uso: ork retry cancel <id> --motivo "<motivo>"');
+      console.error(mc.usoCancel);
       return 2;
     }
     const p = cancelarPedido(carregado, idPedido, motivo);
-    console.log(`Pedido ${p.id} cancelado na fila de rate limit.`);
-    console.log(`  thread   ${p.thread}`);
-    console.log(`  fase     ${p.fase}`);
-    console.log(`  motivo   ${motivo}`);
+    console.log(mc.cancelado(p.id));
+    console.log(mc.thread(p.thread));
+    console.log(mc.fase(p.fase));
+    console.log(mc.motivoLinha(motivo));
     return 0;
   }
 
-  console.error(`subcomando desconhecido: retry ${sub ?? ''}`);
+  console.error(mc.desconhecido(sub ?? ''));
   return 2;
 }
 

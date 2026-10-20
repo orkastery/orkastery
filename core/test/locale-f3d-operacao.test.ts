@@ -7,6 +7,7 @@ import { tabelaDeVariantes } from '../src/ciclos';
 import { linhasEmPortugues } from './locale-apoio';
 import { CADENCIAS, textoDaCadencia } from '../src/pulse-cadencia';
 import { textoDasEstatisticas, LedgerStats } from '../src/ledger-stats';
+import { tabelaDaPolitica, textoDaRetomada } from '../src/retry';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -70,5 +71,17 @@ test('F3d: portfolio, creation, objective e ci têm molduras bilíngues', () => 
   assert.match(en, /left the product/);
   assert.match(en, /CI PASSED/);
   assert.match(en, /CI NOT CLEARED/);
+  assert.deepEqual(linhasEmPortugues(en), []);
+});
+
+test('F3d: retry complementar cobre policy, parse, fila, retomada e cancelamento', () => {
+  const pt = comLocale('pt-BR', () => tabelaDaPolitica());
+  const en = comLocale('en', () => [tabelaDaPolitica(), textoDaRetomada([]),
+    msg().retry.complementar.semSinal, msg().retry.complementar.cancelado('rl-1')].join('\n'));
+  assert.match(pt, /MOTIVO TIPADO/);
+  assert.match(en, /TYPED REASON/);
+  assert.match(en, /No rate-limit signal/);
+  assert.match(en, /No rate-limit queue request/);
+  assert.match(en, /Request rl-1 cancelled/);
   assert.deepEqual(linhasEmPortugues(en), []);
 });
