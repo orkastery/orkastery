@@ -4,14 +4,14 @@ tipo: roadmap
 titulo: DSN com senha fora do ambiente dos agentes
 categoria: melhoria
 pai: null
-features: []
+features: [FEAT-017]
 owner: Julio
-atualizado_em: 2026-10-20T13:01:36-03:00
+atualizado_em: 2026-10-20T13:40:22-03:00
 estado:
   ciclo: Em desenvolvimento
-  documentacao: Rascunho
+  documentacao: Em revisão
   codigo: Branch criada
-  testes: Não iniciados
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -19,6 +19,9 @@ evidencias:
   codigo:
     commit: null
     pr: null
+  testes:
+    resolvedor: core/test/dsn-da-memoria.test.ts (DM1 a DM19 e DR1 a DR9)
+    doctor: core/test/dsn-doctor.test.ts (DD1 a DD13)
 sdlc:
   thread: ork-dsnforadoamb
   modo: "#Auto"
@@ -34,7 +37,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -102,9 +105,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-20 | Julio |
-| Documentação | Rascunho | — | 2026-10-20 | Julio |
+| Documentação | Em revisão | — | 2026-10-20 | Julio |
 | Código | Branch criada | — | 2026-10-20 | Julio |
-| Testes | Não iniciados | — | 2026-10-20 | Julio |
+| Testes | Em execução | resolvedor: core/test/dsn-da-memoria.test.ts (DM1 a DM19 e DR1 a DR9) · doctor: core/test/dsn-doctor.test.ts (DD1 a DD13) | 2026-10-20 | Julio |
 | Deploy | Não implantado | — | 2026-10-20 | Julio |
 | Exposição | Flag desligada | — | 2026-10-20 | Julio |
 | Habilitação | Pendente | — | 2026-10-20 | Julio |

@@ -4,7 +4,7 @@ tipo: feature
 titulo: Memória no OrkMind com degradação honesta
 estado: vigente
 pai: MOD-05
-roadmap: [RM-006, RM-038]
+roadmap: [RM-006, RM-038, RM-068]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-10-01T02:30:00-03:00
@@ -13,18 +13,22 @@ fontes:
   codigo:
     - core/src/memoria.ts
     - core/src/orkmind.ts
+    - core/src/dsn-da-memoria.ts
     - core/src/indice-vetorial.ts
     - core/src/busca-semantica.ts
     - core/assets/orkmind_bridge.py
   testes:
     - core/test/memoria.test.ts
     - core/test/degradacao.test.ts
+    - core/test/dsn-da-memoria.test.ts
+    - core/test/dsn-doctor.test.ts
     - core/test/memoria-embeddings-estado.test.ts
     - core/test/indice-vetorial.test.ts
     - core/test/busca-semantica.test.ts
   simbolos:
     - core/src/memoria.ts#abrirMemoria
     - core/src/orkmind.ts#violacoesDeGovernanca
+    - core/src/dsn-da-memoria.ts#resolverDsn
     - core/src/memoria.ts#estadoDeEmbeddings
     - core/src/indice-vetorial.ts#indexar
     - core/src/busca-semantica.ts#buscarPorSignificado
@@ -47,7 +51,7 @@ fontes:
 ## Comportamento
 
 - **Casos de uso e operações:** ver o regime efetivo, publicar, buscar por tag, buscar por significado.
-- **Pré-condições e gatilho:** `memory.database_url_env` com o NOME da variável; ativação de escrita com aceite humano.
+- **Pré-condições e gatilho:** `memory.database_url_env` com o NOME da variável, ou `memory.database_url_file` com o arquivo da pasta de segredos; ativação de escrita com aceite humano.
 - **Fluxo principal:**
 
   1. `ork memory status` mostra regime, tenant e degradação.
@@ -56,7 +60,7 @@ fontes:
   4. `ork memory index` indexa o tenant num índice vetorial local e derivado, idempotente; `--dry-run` estima tokens e custo sem chamar o provider.
   5. `ork memory search --texto "<frase>"` busca por significado (vetor e FTS por RRF) dentro do tenant, com `deterministico: false`.
 
-- **Alternativas, erros e recuperação:** DSN ausente gera `memory_degraded` motivo `dsn.env-ausente`; escrita desligada fica pendente com `write.activation.disabled`. Embedding indisponível é motivo `embeddings.*` (chave ausente, provider fora, timeout, modelo local ausente, índice ausente, espaço vetorial divergente, orçamento excedido) e nunca derruba o regime: a busca por significado cai para o fallback local ou para FTS e declara a origem.
+- **Alternativas, erros e recuperação:** DSN ausente gera `memory_degraded` motivo `dsn.env-ausente` (variável) ou `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` e `dsn.arquivo-invalido` (arquivo), sem cair para outra fonte; escrita desligada fica pendente com `write.activation.disabled`. Embedding indisponível é motivo `embeddings.*` (chave ausente, provider fora, timeout, modelo local ausente, índice ausente, espaço vetorial divergente, orçamento excedido) e nunca derruba o regime: a busca por significado cai para o fallback local ou para FTS e declara a origem.
 - **Pós-condições:** entradas no OrkMind com proveniência (`source`, `project`, `producer`).
 - **Regras de negócio:** BR-017-01: regra crítica (`mandatory`) só nasce de humano autenticado. BR-017-02: sem fallback para outra base. BR-017-03: vetores de modelos ou dimensões diferentes nunca se comparam. BR-017-04: a busca por significado nunca devolve entrada de outro tenant e nunca entra no prompt sozinha.
 - **Critérios de aceite e testes:** Dada a DSN ausente, quando a memória abre, então o regime é `files` com o motivo tipado (`core/test/degradacao.test.ts`). Dada a chave de embedding ausente, quando a memória abre, então o regime segue `orkmind` e o estado de embeddings diz `embeddings.chave-ausente` (`core/test/memoria-embeddings-estado.test.ts`). Reindexar sem mudança não embeda nada (`core/test/indice-vetorial.test.ts`); a busca nunca devolve outro tenant (`core/test/busca-semantica.test.ts`).
@@ -71,7 +75,7 @@ fontes:
 
 ## Operação e controle
 
-- **Configuração:** `memory: orkmind` e `memory.database_url_env` no manifesto; nunca o valor da DSN. Embeddings no bloco `memory.embedding` (provider, modelo, dimensão, NOME da variável da chave, fallback local, teto de tokens); sem o bloco, desligados. Veja [a busca por significado](../guias/memoria-e-handoff.md#busca-por-significado-embeddings).
+- **Configuração:** `memory: orkmind` e uma fonte da DSN no manifesto, nunca o valor: `memory.database_url_env` (o NOME da variável) ou `memory.database_url_file` (um arquivo `0600` do dono em `~/.orkastery/segredos/`, fora do ambiente dos agentes), exclusivas ([RM-068](../roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md)). Arquivo ausente, inseguro ou inválido degrada com `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` ou `dsn.arquivo-invalido`. Embeddings no bloco `memory.embedding` (provider, modelo, dimensão, NOME da variável da chave, fallback local, teto de tokens); sem o bloco, desligados. Veja [a busca por significado](../guias/memoria-e-handoff.md#busca-por-significado-embeddings).
 - **Custo:** estimado por `ork memory index --dry-run`; a fatura fica no painel do provider. O texto indexado sai para o OpenRouter.
 - **Publicado:** a busca por significado da [RM-038](../roadmap/RM-038-busca-semantica-na-memoria.md) entrou pelo PR #30 (merge `1041f1b`) e está na versão 0.5.0.
 - **Rollback:** `ork activation disable`. A busca por significado desliga com `memory.embedding.provider: none`; o índice local é derivado e pode ser apagado de `.orkastery/memoria/vetores/`.

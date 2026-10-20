@@ -194,14 +194,74 @@ ork memory sync <thread>                         # somente atos desta thread; se
 ork memory search --colecao handoff --tags '{"project":["orkastery"],"skill":["GOAL"]}' --json
 ```
 
+### A DSN por arquivo, fora do ambiente dos agentes
+
+Com `memory.database_url_env`, a DSN mora no ambiente do processo e, por isso, no ambiente de toda
+sessão de agente que o herda: um `env` dentro da sessão a mostra. A segunda fonte tira a DSN de
+lá: um arquivo na pasta de segredos do `ork`, lido no momento do uso
+([RM-068](../roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md)).
+
+```yaml
+memory:
+  mode: orkmind
+  tenant: orkastery
+  # o CAMINHO do arquivo com a DSN, so na pasta de segredos do ork; nunca a DSN em si.
+  database_url_file: "~/.orkastery/segredos/orkastery.dsn"
+  cli: orkmind
+  timeout_ms: 15000
+```
+
+- **Uma fonte só.** `database_url_file` e `database_url_env` são exclusivos: declarar os dois
+  reprova o manifesto, e o `ork` nunca cai de uma fonte para a outra.
+- **Só a pasta de segredos.** A forma aceita é `~/.orkastery/segredos/<nome>`, sem subpasta. O
+  `~/.orkastery` é a pasta do usuário do `ork`, que segue `ORKASTERY_HOME` (e `ORK_USUARIO_DIR`).
+  O manifesto vem do repositório e não escolhe outro arquivo do dono (veja a
+  [fronteira de confiança](../referencia/fronteira-de-confianca.md)).
+- **A regra do arquivo.** Arquivo comum, do usuário que roda o `ork`, sem link simbólico, sem bit
+  de permissão fora de `0600` (`0600` e `0400` passam), com até 4 KiB e uma linha só com a DSN,
+  nunca a forma `NOME=valor` de um arquivo de ambiente. Cada uso lê o arquivo de novo: trocar a
+  DSN vale no próximo comando, inclusive no `ork mcp serve`, sem reiniciar.
+- **Degradação.** Arquivo ausente, inseguro ou inválido leva o regime a `files`, com
+  `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` ou `dsn.arquivo-invalido` e a correção. Nenhum
+  erro, detalhe, ledger ou bundle repete o valor, e o arquivo sai sempre pelo caminho com `~`.
+
+Para gravar o arquivo sem a DSN passar pelo histórico do shell (cole a DSN e feche com Ctrl-D):
+
+```bash
+install -d -m 700 ~/.orkastery/segredos
+(umask 077; cat > ~/.orkastery/segredos/orkastery.dsn)
+```
+
+O `ork memory status` mostra a fonte, sem o valor:
+
+```text
+  arquivo da base       ~/.orkastery/segredos/orkastery.dsn
+  DSN no arquivo        sim (valor nunca impresso)
+```
+
+O `ork doctor` tem dois checks para isso, que avisam e nunca reprovam:
+
+- **fonte da DSN:** a variável pelo nome, ou o arquivo pelo caminho com `~` e a permissão; a falha
+  diz o motivo e a correção;
+- **DSN no ambiente:** rodado dentro de uma sessão despachada (com `ORK_DISPATCH_ID` ou
+  `ORK_DISPATCH_THREAD` no ambiente), lista pelo nome as variáveis com a DSN do projeto e as que
+  têm URL com senha, que o agente lê com `env`; fora do despacho, com a fonte de arquivo, acusa a
+  mesma DSN ainda exportada no ambiente.
+
+**Limite.** O agente roda com o mesmo usuário do dono e pode ler um arquivo `0600` dele. O ganho é
+a senha fora de `env`, da transcrição e do contexto do modelo por acidente; isolamento forte pede
+outro usuário ou um intermediário. Um cofre que renderize o arquivo (o agente do Infisical, o
+`systemd-creds`) funciona sem mudança no `ork`, desde que grave em `~/.orkastery/segredos/<nome>`
+com `0600`.
+
 ### Três regras de integração que são código, não intenção
 
 1. **Degradação honesta.** Se o OrkMind não responde, o regime efetivo vira `files` com motivo
    tipado, e o ciclo segue. Memória semântica **melhora** o produto; ela não é requisito dele.
-2. **Isolamento por tenant, sem fallback.** A DSN vem do **nome** de uma variável de ambiente
-   declarada no manifesto. Variável não declarada ou vazia **não** vira "usa a base padrão":
-   vira degradação. Isso é o precedente de um incidente real, em que a memória de um produto
-   foi parar na base de outro.
+2. **Isolamento por tenant, sem fallback.** A DSN vem da fonte declarada no manifesto: o **nome**
+   de uma variável de ambiente ou o arquivo da pasta de segredos (acima). Fonte não declarada,
+   vazia ou recusada **não** vira "usa a base padrão": vira degradação. Isso é o precedente de um
+   incidente real, em que a memória de um produto foi parar na base de outro.
 3. **Governança.** Publicações automáticas usam `source: agent`. A exceção é uma `decision`
    derivada de `human_gate` aprovado com autoria humana e evidência verificável, publicada
    com `source: human`. O cliente não cria `mandatory`, nem `rule`/`instruction` com

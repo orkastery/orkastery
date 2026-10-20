@@ -77,9 +77,24 @@ memory:
   database_url_env: "MEUPRODUTO_ORKMIND_DATABASE_URL"   # o NOME, nunca o valor
 ```
 
-Variável não declarada ou vazia **não** vira "usa a base padrão": vira degradação para o regime
-`files`, com motivo tipado. Essa regra vem de um incidente real de vazamento de memória entre
-tenants, e por isso ela é código, e não recomendação.
+A DSN também pode vir de um arquivo, para não ficar no ambiente que as sessões de agente herdam
+([RM-068](docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md)):
+
+```yaml
+memory:
+  database_url_file: "~/.orkastery/segredos/meuproduto.dsn"   # o CAMINHO, nunca o valor
+```
+
+O manifesto só aceita arquivo da pasta de segredos do `ork` (`~/.orkastery/segredos/<nome>`), e as
+duas fontes são exclusivas. O arquivo só é lido como arquivo comum do usuário que roda o `ork`, sem
+link simbólico e sem bit de permissão fora de `0600`. O `ork doctor` diz qual fonte vale, sem o
+valor, e acusa pelo nome a DSN e as URLs com senha no ambiente de uma sessão despachada. O agente
+roda com o mesmo usuário e pode ler o arquivo: o que muda é que a senha deixa de aparecer em `env`,
+na transcrição e no contexto do modelo.
+
+Fonte não declarada, vazia ou recusada **não** vira "usa a base padrão": vira degradação para o
+regime `files`, com motivo tipado. Essa regra vem de um incidente real de vazamento de memória
+entre tenants, e por isso ela é código, e não recomendação.
 
 A policy `segredo_em_prompt: block` do manifesto barra segredo entrando no texto de um prompt,
 em **qualquer** modo de condução, inclusive no `#Auto`.

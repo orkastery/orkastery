@@ -8,6 +8,18 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **DSN da memória fora do ambiente dos agentes (RM-068)**: `memory.database_url_file` declara a DSN da memória por
+  um arquivo da pasta de segredos do `ork` (`~/.orkastery/segredos/<nome>`, que segue `ORKASTERY_HOME`), em vez da
+  variável de `memory.database_url_env`; as duas fontes são exclusivas e o `ork` nunca cai de uma para a outra. O
+  arquivo só é lido como arquivo comum do usuário que roda o `ork`, sem link simbólico, sem bit de permissão fora de
+  `0600`, com até 4 KiB e uma linha; ausente, inseguro ou inválido, a memória degrada para `files` com
+  `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` ou `dsn.arquivo-invalido`. O driver do OrkMind, o cliente e a
+  migração do Company Brain e o `ork doctor` leem a DSN pelo mesmo resolvedor, e ela continua indo só ao ambiente do
+  processo filho. O `ork doctor` ganha os checks "fonte da DSN" (a variável pelo nome ou o arquivo pelo caminho com
+  `~`, nunca o valor) e "DSN no ambiente" (numa sessão despachada, os nomes das variáveis com a DSN do projeto ou com
+  URL com senha), e o `ork memory status` mostra o arquivo. O erro de `memory.database_url_env` inválido deixa de
+  repetir o valor. O agente roda com o mesmo usuário e pode ler o arquivo: o ganho é a senha fora de `env`, da
+  transcrição e do contexto do modelo.
 - **Barreira de dado privado (RM-062, F1 e F2)**: `ork privado varrer` varre as linhas e os nomes de arquivo
   versionados atrás de caminho de home, e-mail fora da lista permitida, hostname no formato de máquina e os termos de
   uma lista local que fica fora do git (`termos-privados.txt` em `~/.orkastery/` e em `.orkastery/` do projeto, ou o
