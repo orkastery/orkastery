@@ -302,6 +302,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   vence o embutido, e o lint avisa o que não tem o par `.en`. As linhas de contrato do panorama da rede, os códigos
   HITL v2, o ledger, o `--json` e os snapshots pt-BR permanecem iguais; o prompt inglês conserva as seis fases, os
   cinco módulos, a `CENTRAL RULE` e o fecho obrigatório do GO.
+- **CLI em inglês e pt-BR, fatia F3d** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): os
+  comandos restantes do CLI principal e as três lacunas da revisão da F3c passam pelo catálogo tipado, com
+  3.367 entradas, 2.306 literais de saída ainda fora do catálogo e 59,35% de cobertura no mesmo contador. Os
+  quatro snapshots pt-BR anteriores mantêm os hashes byte a byte; `--json`, ledger, ids, códigos, comandos e
+  flags continuam contratos não traduzidos. Mods, tools do OpenClaw e cópias dos marketplaces ficam para um
+  trabalho próprio de geração reproduzível e paridade, sem tradução parcial.
 
 ### Corrigido
 

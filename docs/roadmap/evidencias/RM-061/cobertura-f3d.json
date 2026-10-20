@@ -1,0 +1,72 @@
+{
+  "schema": "ork.locale-cobertura-evidencia/v1",
+  "item": "RM-061",
+  "fatia": "F3d",
+  "thread": "ork-rm061f3d",
+  "contador": "core/scripts/contar-mensagens-de-saida.cjs",
+  "metodo": "o mesmo das fatias anteriores: literais com texto de pessoa em posicao de saida, fora do catalogo, e folhas do catalogo ingles; cobertura = entradas / (entradas + literais de saida)",
+  "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json",
+  "antes": {
+    "arvore": "79d3ebf9421d5726440fae6b95e2aaa8292e790b",
+    "descricao": "base carimbada da F3d, com F1 a F3c integradas",
+    "arquivos": 306,
+    "literaisComTexto": 5573,
+    "emPosicaoDeSaida": 3041,
+    "catalogo": { "entradas": 2157 },
+    "cobertura": 0.415
+  },
+  "depois": {
+    "arvore": "8520da9557570ed9f6a8b8fece44f021a617d409",
+    "descricao": "F3d: comandos restantes do CLI principal e tres lacunas da revisao da F3c na lingua do dono",
+    "schema": "ork.locale-cobertura/v1",
+    "arquivos": 312,
+    "literaisComTexto": 4691,
+    "emPosicaoDeSaida": 2306,
+    "arquivosComSaida": 189,
+    "catalogo": {
+      "entradas": 3367,
+      "familiasNovasOuAmpliadas": [
+        "locale-audit.ts",
+        "locale-conducao.ts",
+        "locale-grafo.ts",
+        "locale-master.ts",
+        "locale-network.ts",
+        "locale-operacao-restante.ts",
+        "locale-projetos.ts",
+        "locale-prompts.ts",
+        "locale-retry.ts",
+        "locale-setup.ts",
+        "locale.ts"
+      ]
+    },
+    "cobertura": 0.5935
+  },
+  "lacunasDaRevisaoF3c": {
+    "networkRoadmap": "o detalhe das lacunas humanas segue o locale; tipo, codigo e JSON permanecem estaveis",
+    "memoriaInjetada": "a moldura da memoria injetada no prompt segue a lingua declarada do dono",
+    "recusasPergunta": "as recusas HITL v2 da classe pergunta usam o mesmo catalogo tipado das demais recusas"
+  },
+  "snapshotsPtBR": {
+    "nota": "iguais byte a byte aos snapshots da base integrada",
+    "core/test/fixtures/locale-f2a-pt-BR.json": "3c5592b9553235ba98f3a01c81369cdc9403ea3ab052c4142c50e0573926775f",
+    "core/test/fixtures/locale-f2b-pt-BR.json": "2ed8a595fb69394c3c3ecc33a1e7890fb0c50198df1d33a97108554d40e74024",
+    "core/test/fixtures/locale-f3a-pt-BR.json": "40fe60a9346b19bbca1fb5d9b68c0a2409542d41e5fa6a3271bc5cda753ee3cc",
+    "core/test/fixtures/locale-f3b-pt-BR.json": "278230a01c1cf41145de97e38c5d12a78e5cc5915ae6ecc79e2374045eda81ae"
+  },
+  "testes": {
+    "focado": {
+      "comando": "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js",
+      "resultado": "22 testes aprovados"
+    },
+    "contador": {
+      "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json",
+      "resultado": "medicao concluida"
+    }
+  },
+  "pendencias": [
+    {
+      "superficies": ["mods", "tools do OpenClaw", "copias dos marketplaces"],
+      "motivo": "artefatos derivados precisam de catalogo de origem, geracao reproduzivel e fixtures de paridade proprias; uma traducao parcial quebraria o contrato de copia intacta"
+    }
+  ]
+}

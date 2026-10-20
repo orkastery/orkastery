@@ -212,13 +212,25 @@ A F3c mede no mesmo contador, com o recibo em [`cobertura-f3c.json`](evidencias/
 - **Templates do projeto:** com o dono em inglês, o template de fase do projeto vence o embutido e o `.en` vem antes no mesmo nível; sem o par `.en`, a fase sai em pt-BR, inteira, e o `ork prompt lint` avisa ([`prompts/README.md`](../../prompts/README.md)).
 - **Integração com a `main`:** o merge da `origin/main` (`1e88a932`) trouxe o template pt-BR v4 com o fecho obrigatório do GO. O fecho passou ao catálogo dos prompts (o pt-BR é o texto da `main`, byte a byte) e o template inglês acompanha a v4, com as mesmas variáveis, fases e ordem; um teste reprova a língua que ficar para trás. As duas colunas da direita medem a mesma `main` sem e com a F3c, medidas de novo depois do merge da RM-064 fatia 2 (`8d37c75f`), que trouxe a linha do trabalho retomável ao prompt: o template inglês ganhou a mesma linha, e o snapshot `locale-f3c-pt-BR.json` foi regerado pelos mesmos casos sobre essa `main`.
 - **Contratos preservados:** `ork network roadmap` mantém byte a byte as três linhas que os hosts e a prova de ativação leem; códigos do HITL v2, ledger e `--json` não mudam. O snapshot `locale-f3c-pt-BR.json` guarda 355 casos das cinco superfícies em pt-BR, gerados sobre a `main` de integração, e o teste os compara byte a byte. Os quatro snapshots pt-BR das fatias anteriores têm os hashes de antes na F3c e os da `main` na F3c integrada (F2b e F3b mudaram na `main` por outras threads); os dois conjuntos estão no recibo da cobertura.
-- **F3d:** ficam para a próxima fatia os demais comandos ainda fora da lista, os mods, as tools do OpenClaw e as cópias dos marketplaces. Ficam também, vistos na revisão independente da F3c: o detalhe das lacunas do `network roadmap` em inglês, que hoje sai genérico por tipo (o detalhe pt-BR segue no `--json`), o bloco de memória injetada no prompt inglês, ainda em pt-BR, e as recusas HITL v2 da classe pergunta, fora do catálogo. Essa separação mantém a F3c verificável sem misturar superfícies opcionais com os cinco itens pedidos.
+- **F3d:** os demais comandos do CLI principal e as três lacunas vistas na revisão independente da F3c entram no catálogo: o detalhe humano das lacunas de `network roadmap`, o bloco de memória injetada no prompt inglês e as recusas HITL v2 da classe pergunta. `brain` e `activation` continuam contratos JSON, e o servidor de `mcp serve` não ganha uma segunda moldura humana. Os mods, as tools do OpenClaw e as cópias dos marketplaces ficam pendentes: são artefatos derivados e precisam de catálogo de origem, geração reproduzível e fixtures próprias de paridade; uma tradução parcial quebraria o contrato de cópia intacta.
+
+A F3d mede no mesmo contador, com o recibo em [`cobertura-f3d.json`](evidencias/RM-061/cobertura-f3d.json):
+
+| Medida | Base carimbada da F3d (`79d3ebf9`) | F3d (`8520da95`) |
+| --- | --- | --- |
+| Entradas do catálogo | 2.157 | 3.367 |
+| Literais de saída fora do catálogo | 3.041 | 2.306 |
+| Cobertura | 41,5% | 59,35% |
+
+- **Comandos cobertos:** além das três lacunas da revisão, entram `modos`, `ciclos`, `setup`, `projetos`, as rotas complementares de `pulse`, `ledger`, `portfolio`, `creation`, `objective`, `ci`, `retry`, `sessions`, `gate`, `fix`, `handoff`, `recall`, `lease`, `board`, `orquestracao`, `monitor`, `licoes`, `demo`, `fabrica`, `eval`, `memory`, `mcp install`, `master`, `conducao`, `grafo` e `audit`.
+- **Contratos preservados:** comandos, flags, ids, códigos tipados, ledger e `--json` não são traduzidos. Os quatro snapshots pt-BR anteriores conservaram os mesmos hashes byte a byte; cada família nova tem exercício em pt-BR e inglês no teste focado da F3d.
+- **Fora da régua:** o contador mede `core/src`. As superfícies derivadas que ficaram pendentes não seriam representadas com honestidade pela porcentagem e ganham trabalho próprio de geração e paridade.
 
 ## Responsabilidades e histórico
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery nas fatias; A: Julio; C: revisão humana do inglês; I: quem usa o CLI em inglês.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente Claude Code redigiu esta página em #Fast, restrita à documentação. O código da F1 vem do #113, mesclado por outra thread. Revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** revisar o inglês da F2a à F3c (as frases mais visíveis ficam no corpo do PR), executar a F3d e fechar o EN5; responsável: fábrica, com a revisão do inglês pelo dono; sem data definida nesta página.
+- **Próxima ação, responsável e prazo:** fazer o CHECK independente da F3d e abrir trabalho próprio para as três superfícies derivadas pendentes; responsável: fábrica, com a revisão do inglês pelo dono; sem data definida nesta página.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
