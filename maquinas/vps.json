@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-20T02:36:03.215Z",
+  "publicadoEm": "2026-10-20T02:45:03.061Z",
   "threads": [
     {
       "id": "ork-rm058integra",
@@ -46,7 +46,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-10-20T02:25:28.132Z",
+        "desdeEm": "2026-10-20T02:44:16.381Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
@@ -80,7 +80,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-runtimesnovo-go",
-      "atualizadaEm": "2026-10-20T02:36:02.613Z",
+      "atualizadaEm": "2026-10-20T02:43:58.293Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
