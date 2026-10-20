@@ -18,6 +18,11 @@
  *   { "contrato": "ork.mutantes/v1", "mutantes": [ { "id": "M1", "descricao": "...", "modulo": "noctum-provas",
  *     "de": "<trecho exato do JS compilado>", "para": "<troca>", "teste": "noctum-provas", "nome": "^QP1:" } ] }
  *
+ * RM-037 (achado 2 do CHECK da ork-rm037defeit2): o isolamento que um teste prova pode morar fora do módulo compilado,
+ * num roteiro de `core/scripts` ou no apoio compilado de `core/dist-test/test`. Nesse caso a especificação traz `arquivo`
+ * (o caminho a partir da raiz) no lugar de `modulo`, e a troca vai só nele; a pasta dele é copiada, e não ligada, para a
+ * troca nunca chegar ao checkout.
+ *
  * Precisa do `npm run build` e do `npm run build:test` (o preparo do `ork verify` e do runner do CI já os roda).
  */
 'use strict';
@@ -31,14 +36,15 @@ const RAIZ = path.resolve(__dirname, '..', '..');
 const CONTRATO = 'ork.mutantes/v1';
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/;
 const MODULO = /^[a-z0-9][a-z0-9-]{0,63}$/;
+const ARQUIVO = /^core\/(?:scripts\/[a-z0-9][a-z0-9.-]{0,63}\.c?js|dist-test\/test\/[a-z0-9][a-z0-9.-]{0,63}\.js)$/;
 
 function falha(texto) {
   console.error(`mutante: ${texto}`);
   return 2;
 }
 
-/** A cópia com a forma do repositório: `core/dist` e `core/dist-test` copiados, o resto ligado. */
-function copiar(destino) {
+/** A cópia com a forma do repositório: as `pastas` de `core` copiadas (`dist`, `dist-test` e a do `arquivo`), o resto ligado. */
+function copiar(destino, pastas) {
   for (const nome of fs.readdirSync(RAIZ)) {
     if (nome === 'core' || nome === '.git') continue;
     fs.symlinkSync(path.join(RAIZ, nome), path.join(destino, nome));
@@ -46,7 +52,7 @@ function copiar(destino) {
   fs.mkdirSync(path.join(destino, 'core'));
   for (const nome of fs.readdirSync(path.join(RAIZ, 'core'))) {
     const de = path.join(RAIZ, 'core', nome), para = path.join(destino, 'core', nome);
-    if (nome === 'dist' || nome === 'dist-test') fs.cpSync(de, para, { recursive: true });
+    if (pastas.has(nome)) fs.cpSync(de, para, { recursive: true });
     else fs.symlinkSync(de, para);
   }
 }
@@ -60,12 +66,18 @@ function main(argv) {
   if (!spec || spec.contrato !== CONTRATO || !Array.isArray(spec.mutantes)) return falha(`a especificação não é ${CONTRATO}`);
   const m = spec.mutantes.find((x) => x && x.id === id);
   if (!m) return falha(`o mutante ${id} não está na especificação`);
-  if (!ID.test(m.id) || !MODULO.test(m.modulo) || !MODULO.test(m.teste) || typeof m.de !== 'string' || !m.de ||
+  const porArquivo = m.arquivo !== undefined;
+  const alvoOk = porArquivo ? m.modulo === undefined && typeof m.arquivo === 'string' && ARQUIVO.test(m.arquivo)
+    : typeof m.modulo === 'string' && MODULO.test(m.modulo);
+  if (!ID.test(m.id) || !alvoOk || !MODULO.test(m.teste) || typeof m.de !== 'string' || !m.de ||
       typeof m.para !== 'string' || m.de === m.para || typeof m.nome !== 'string' || !m.nome) {
-    return falha(`o mutante ${id} está fora do formato (id, modulo, de, para, teste e nome)`);
+    return falha(`o mutante ${id} está fora do formato (id, modulo ou arquivo de core/scripts ou core/dist-test/test, de, para, teste e nome)`);
   }
-  const alvos = [path.join('core', 'dist', `${m.modulo}.js`), path.join('core', 'dist-test', 'src', `${m.modulo}.js`)];
-  if (!alvos.some((a) => fs.existsSync(path.join(RAIZ, a)))) return falha(`o módulo ${m.modulo} não está compilado: rode o build e o build:test`);
+  const alvos = porArquivo ? [m.arquivo]
+    : [path.join('core', 'dist', `${m.modulo}.js`), path.join('core', 'dist-test', 'src', `${m.modulo}.js`)];
+  if (!alvos.some((a) => fs.existsSync(path.join(RAIZ, a)))) {
+    return falha(porArquivo ? `o arquivo ${m.arquivo} não existe: rode o build:test` : `o módulo ${m.modulo} não está compilado: rode o build e o build:test`);
+  }
   const teste = path.join('core', 'dist-test', 'test', `${m.teste}.test.js`);
   if (!fs.existsSync(path.join(RAIZ, teste))) return falha(`o teste ${teste} não está compilado`);
   // O trecho precisa aparecer exatamente uma vez em cada módulo compilado que existe, antes de qualquer rodada.
@@ -86,7 +98,7 @@ function main(argv) {
   }
   const copia = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-mutante-'));
   try {
-    copiar(copia);
+    copiar(copia, new Set(['dist', 'dist-test', ...presentes.map((a) => a.split(/[\\/]/)[1])]));
     for (const alvo of presentes) {
       const arquivo = path.join(copia, alvo);
       fs.writeFileSync(arquivo, fs.readFileSync(arquivo, 'utf8').replace(m.de, () => m.para));

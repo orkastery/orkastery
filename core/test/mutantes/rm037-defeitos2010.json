@@ -48,6 +48,33 @@
       "nome": "^defeito 2: o preparo que falha"
     },
     {
+      "id": "M8",
+      "descricao": "defeito 3 (achado 2 do CHECK): o roteiro da prova volta a medir o registro de projetos da casa do usuário real (ORK_USUARIO_DIR ou ~/.orkastery), fora da casa do ork da prova",
+      "arquivo": "core/scripts/prova-ativacao.cjs",
+      "de": "hashArquivo(path.join(pastaDoUsuario(), 'projetos.json'))",
+      "para": "hashArquivo(path.join(process.env.ORK_USUARIO_DIR || path.join(home, '.orkastery'), 'projetos.json'))",
+      "teste": "rm037-defeitos2010-hermeticos",
+      "nome": "^defeito 3 \\(19 e 20/10/2026\\): o roteiro mede o registro da casa do ork da prova"
+    },
+    {
+      "id": "M9",
+      "descricao": "defeito 3 (achado 2 do CHECK): o teste do roteiro volta a rodar a prova com o HOME e a casa do ork de quem roda a suíte",
+      "arquivo": "core/dist-test/test/prova-ativacao-apoio.js",
+      "de": "const env = { ...process.env, HOME: home, ORK_USUARIO_DIR: path.join(dir, 'usuario'), ORKASTERY_HOME: path.join(dir, 'casa'),",
+      "para": "const env = { ...process.env,",
+      "teste": "rm037-defeitos2010-hermeticos",
+      "nome": "^defeito 3: o teste do roteiro roda com HOME e casa proprios"
+    },
+    {
+      "id": "M10",
+      "descricao": "defeito 3 (achado 2 do CHECK): o projeto-alvo-cli volta a chamar o CLI sem o runtime vazio, lendo as sessões reais da conta de quem roda a suíte",
+      "arquivo": "core/dist-test/test/projeto-alvo-cli.test.js",
+      "de": "env: { ...base, ...VAZIO.env, ORK_USUARIO_DIR: usuario, ...env },",
+      "para": "env: { ...base, ORK_USUARIO_DIR: usuario, ...env },",
+      "teste": "rm037-defeitos2010-hermeticos",
+      "nome": "^defeito 3: o teste projeto-alvo-cli nao chama o claude da maquina"
+    },
+    {
       "id": "M5",
       "descricao": "defeito 4: working/idle depois do Stop volta a ser sessão trabalhando para sempre (só o done do runtime encerra)",
       "modulo": "session-watcher-claude",

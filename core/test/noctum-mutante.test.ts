@@ -67,3 +67,34 @@ test('QM4: o teste que já cai sem a troca não mata o mutante: o controle cai, 
   // Sem a queda, o mesmo mutante (que o teste de apoio não pega) sobrevive.
   assert.equal(rodar([{ ...ORDEM, id: 'M4', teste: 'noctum-mutante', nome: '^QM-apoio:' }], 'M4').status, 1);
 });
+
+/**
+ * RM-037 (achado 2 do CHECK da ork-rm037defeit2): o mutante por `arquivo`, no roteiro de `core/scripts` (o do contrato da
+ * forja, que passa a aceitar a forja desconhecida) e no apoio compilado de `core/dist-test/test` (o QM-apoio que cai sem o
+ * ambiente simulado). O trecho do QM-apoio é montado por partes para não aparecer de novo no próprio arquivo compilado.
+ */
+const ROTEIRO_SEM_PLANO = { id: 'M5', descricao: 'a forja desconhecida passa da conferência do plano', arquivo: 'core/scripts/forja-contrato.cjs',
+  de: 'if (!plano || !o.host', para: 'if (!o.host', teste: 'forja-contrato-script', nome: '^recusa forja desconhecida' };
+const APOIO_QUE_CAI = { id: 'M6', descricao: 'o teste de apoio cai sem o ambiente simulado', arquivo: 'core/dist-test/test/noctum-mutante.test.js',
+  de: 'node_assert_1.strict.notEqual(process.env[QUEDA_' + "SIMULADA], '1');", para: "node_assert_1.strict.equal(process.env[QUEDA_SIMULADA], '1');",
+  teste: 'noctum-mutante', nome: '^QM-apoio:' };
+
+test('QM5: com arquivo no lugar de modulo, a troca vai no roteiro de core/scripts ou no apoio de core/dist-test/test, só na cópia', () => {
+  for (const m of [ROTEIRO_SEM_PLANO, APOIO_QUE_CAI]) {
+    const alvo = path.resolve(__dirname, '../../..', m.arquivo);
+    const antes = fs.readFileSync(alvo, 'utf8');
+    const r = rodar([m], m.id);
+    assert.equal(r.status, 0, `${m.arquivo}: ${r.stdout}\n${r.stderr}`);
+    assert.match(r.stdout, new RegExp(`mutante ${m.id}: morto`));
+    assert.equal(fs.readFileSync(alvo, 'utf8'), antes, `${m.arquivo}: a troca foi só na cópia`);
+  }
+});
+
+test('QM6: arquivo fora de core/scripts e core/dist-test/test, ausente ou junto com modulo sai 2', () => {
+  for (const arquivo of ['core/src/verify.ts', 'core/scripts/../src/verify.ts', '/etc/passwd', 'core/dist-test/src/verify.js',
+    'core/scripts/nao-existe.cjs']) {
+    const r = rodar([{ ...ROTEIRO_SEM_PLANO, arquivo }], 'M5');
+    assert.equal(r.status, 2, `${arquivo}: ${r.stdout}\n${r.stderr}`);
+  }
+  assert.equal(rodar([{ ...ROTEIRO_SEM_PLANO, modulo: 'noctum-changelog' }], 'M5').status, 2, 'modulo e arquivo juntos');
+});
