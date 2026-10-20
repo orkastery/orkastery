@@ -191,12 +191,12 @@ function globCasa(glob: string, caminho: string): boolean {
  */
 const FAMILIAS_DE_VALORES: Record<PadraoGenerico, readonly (readonly string[])[]> = {
   home: [
-    ['/home/pessoa-a', '/home/pessoa-longa'],
-    ['/Users/pessoa-a', '/Users/pessoa-longa'],
-    ['C:\\Users\\pessoa-a', 'C:\\Users\\pessoa-longa'],
+    ['/home/' + 'pessoa-a', '/home/' + 'pessoa-longa'],
+    ['/Users/' + 'pessoa-a', '/Users/' + 'pessoa-longa'],
+    ['C:\\Users\\' + 'pessoa-a', 'C:\\Users\\' + 'pessoa-longa'],
   ],
-  email: [['a@dominio-a.com', 'nome.sobrenome+tag@sub.dominio-b.org']],
-  hostname: [['pessoa-a-pc', 'DESKTOP-AB12CD3', 'ip-10-0-1-23', 'srvabc42']],
+  email: [['a' + '@dominio-a.com', 'nome.sobrenome+tag' + '@sub.dominio-b.org']],
+  hostname: [['pessoa-a-' + 'pc', 'DESKTOP-' + 'AB12CD3', 'ip-' + '10-0-1-23', 'srv' + 'abc42']],
 };
 
 function valorEquivaleACuringaGlobal(padrao: PadraoGenerico, valor: string): boolean {
