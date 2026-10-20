@@ -391,7 +391,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                                  worktree.por_thread como no thread new)
 
 Regimes de memoria: files (fallback honesto) e orkmind (bloco B6, base propria por tenant
-declarada em memory.database_url_env pelo NOME da variavel de ambiente, sem fallback).
+declarada em memory.database_url_file, arquivo 0600 em ~/.orkastery/segredos/, ou em
+memory.database_url_env pelo NOME da variavel de ambiente; uma fonte so, sem fallback).
 Colecoes gravadas no OrkMind: decision, handoff, rule, learning, roadmap (source=agent,
 nunca mandatory: regra critica so nasce de humano autenticado).
 
@@ -795,7 +796,8 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
                                                  worktree.por_thread as in thread new)
 
 Memory regimes: files (honest fallback) and orkmind (block B6, own database per tenant
-declared in memory.database_url_env by the NAME of the environment variable, without fallback).
+declared in memory.database_url_file, a 0600 file in ~/.orkastery/segredos/, or in
+memory.database_url_env by the NAME of the environment variable; one source only, without fallback).
 Collections written to OrkMind: decision, handoff, rule, learning, roadmap (source=agent,
 never mandatory: a critical rule is only born from an authenticated human).
 
