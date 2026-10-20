@@ -15,8 +15,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   permissão `0600`; sem a lista, só os padrões genéricos, e a saída diz isso. A árvore e o diff incluem conteúdo
   binário com texto literal, inclusive sob `-diff`, sem descomprimir nem decodificar outros formatos. O
   relatório diz arquivo, linha, coluna e padrão, nunca o valor, o caminho da lista ou o detalhe de uma exceção sem uso,
-  e mascara o nome de arquivo com achado. As exceções em `orkastery.privado.json` exigem padrão e valor/trecho, com
-  caminho só como filtro e sem curinga semanticamente global; cada e-mail permitido é exato e tem motivo. Com a policy
+  e mascara o nome de arquivo com achado. As exceções em `orkastery.privado.json` exigem padrão e valor exato sem
+  curinga, com caminho só como filtro e sem curinga semanticamente global; cada e-mail permitido é exato e tem motivo.
+  A detecção de e-mail encerra a autoridade de URL nos separadores de documento, inclusive o `;` do CSV. Com a policy
   `dado_privado` no manifesto, o
   `ork verify` varre o diff da thread (reprova com `policy.violation` em `block`; grava `policy_warn` em `warn`) e o
   `ork ci prepare` recusa gerar o bundle com achado; sem a policy, os dois não mudam. No CI do núcleo, a varredura é

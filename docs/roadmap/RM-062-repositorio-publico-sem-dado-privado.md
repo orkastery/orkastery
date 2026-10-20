@@ -21,7 +21,7 @@ evidencias:
     pr: null
   testes:
     f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4)
-    f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB6)
+    f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7)
 sdlc:
   thread: ork-rm062barreir
   modo: "#Auto"
@@ -91,14 +91,14 @@ Os aceites acima são o que cada fatia terá de provar; não são provas já exe
 
 - **Onde roda:** no CI do núcleo, como passo do job `documentacao`, que já é check exigido (nenhum check obrigatório novo), com `ork privado varrer` sobre a árvore versionada; no `ork verify`, sobre o diff da thread contra a base; no `ork ci prepare`, sobre o mesmo diff e o texto do bundle, antes de o arquivo existir.
 - **Padrões genéricos:** caminho de home (`/home/<usuário>`, também escapado em regex e em JSON, `/Users/<usuário>` e `C:\Users\<usuário>`); e-mail fora da lista permitida (domínio reservado de exemplo, credencial de URL e remoto SSH não contam); hostname no formato de máquina (sufixo de máquina pessoal, padrões de fábrica do Windows, da AWS e de VPS, e `srv` com letras e dígitos). Hostname sem formato de máquina só a lista local pega.
-- **Exceções:** `orkastery.privado.json` (contrato `ork.privado/v1`), sempre por padrão e valor/trecho, com caminho apenas como filtro adicional e motivo obrigatório. Cada e-mail permitido é exato e tem motivo; valor ou caminho que equivalha a curinga global é recusado. Exceção nunca vale para a lista local, e o próprio arquivo de exceções passa pela lista local.
+- **Exceções:** `orkastery.privado.json` (contrato `ork.privado/v1`), sempre por padrão e valor exato, sem curinga, com caminho apenas como filtro adicional e motivo obrigatório. Cada e-mail permitido também é exato e tem motivo; caminho que equivalha a curinga global é recusado. Exceção nunca vale para a lista local, e o próprio arquivo de exceções passa pela lista local.
 - **Lista local:** `termos-privados.txt` em `~/.orkastery/` e em `.orkastery/` do projeto, ou o arquivo indicado por `ORK_TERMOS_PRIVADOS`, sempre fora do git. Só é aceita como arquivo comum do usuário atual, sem link simbólico e com permissão `0600`; arquivo inseguro ou versionado é recusado sem imprimir caminho nem conteúdo. Ausente, como no CI, só os padrões genéricos rodam.
 - **Relatório:** arquivo, linha, coluna e padrão; o nome de arquivo com achado sai com `[omitido]` no lugar do trecho; o termo da lista local sai pelo número dele na lista. Nenhum valor casado, detalhe de exceção sem uso ou caminho indicado pela variável vai ao texto, ao JSON, ao ledger ou ao bundle.
 - **Severidade:** a policy `dado_privado` do manifesto. Em `block`, o `ork verify` reprova com `policy.violation`, o `ork ci prepare` não grava o bundle e o passo do CI sai vermelho; em `warn`, todos avisam e seguem. Sem a policy, o `ork verify` e o `ork ci prepare` não mudam, e o `ork privado varrer` reprova o que achar. Neste repositório, a policy começou em `warn` e passou a `block` depois da árvore medida em zero achado.
 - **Medição da árvore:** na base carimbada (`79d3ebf9`), a varredura achou três dados reais e o resto era exemplo inventado. Os reais foram corrigidos nesta branch: a conta pessoal do dono em quatro fixtures gravadas da API do GitHub virou uma conta inventada, um teste da rede que usava o nome do dono como nome de máquina passou a usar `maquina-a`, e a regex de uma claim antiga do bundle da RM-049 deixou de procurar o caminho de home do dono pelo nome (a barreira faz essa conferência para todo arquivo). Os exemplos (usuários de home dos testes e da documentação, e-mails de domínio de teste do repositório, nomes de máquina inventados) entraram nas exceções. Depois disso, a árvore da branch tem zero achado.
 - **O que continua no histórico:** os commits anteriores a esta thread ainda trazem os três dados corrigidos agora; o histórico não é reescrito, e reescrevê-lo é decisão do dono, caso a caso (D1).
 - **Conteúdo binário:** a árvore e o diff tratam os bytes como `UTF-8`; byte nulo e `-diff` não pulam o arquivo, e texto literal continua detectável.
-- **Limites:** conteúdo comprimido ou codificado em `UTF-16`, `base64` ou outro formato não é decodificado; mensagem de commit não é varrida; o hostname da máquina que roda a varredura não entra sozinho como termo (vai para a lista local por decisão do dono); a barreira no CI dos sites, a F3 e a F4 ficam para as próximas fatias.
+- **Limites:** conteúdo comprimido ou codificado em `UTF-16`, `base64` ou outro formato não é decodificado; mensagem de commit não é varrida; o F2 lê o diff líquido contra a base, então um commit intermediário que acrescente e depois retire o dado escapa da barreira e permanece no histórico da branch, que fica para a revisão; o hostname da máquina que roda a varredura não entra sozinho como termo (vai para a lista local por decisão do dono); a barreira no CI dos sites, a F3 e a F4 ficam para as próximas fatias.
 
 ## Plano e decisões
 
@@ -141,7 +141,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Ciclo do item | Em desenvolvimento | — | 2026-10-20 | Julio |
 | Documentação | Em revisão | — | 2026-10-20 | Julio |
 | Código | Branch criada | — | 2026-10-20 | Julio |
-| Testes | Em execução | f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4) · f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB6) | 2026-10-20 | Julio |
+| Testes | Em execução | f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4) · f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7) | 2026-10-20 | Julio |
 | Deploy | Não implantado | — | 2026-10-20 | Julio |
 | Exposição | Flag desligada | — | 2026-10-20 | Julio |
 | Habilitação | Pendente | — | 2026-10-20 | Julio |
