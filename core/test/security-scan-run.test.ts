@@ -225,6 +225,23 @@ test('Review Focus 1: Gitleaks reading 0 commits of a non-empty base..HEAD fails
   assert.equal(wts.length, 2, 'only the main checkout and the test worktree remain');
 });
 
+test('zero commits scanned is tolerated when base..HEAD has no patch content (empty commits and merges only)', () => {
+  const r = repo('secscan-zero-sem-patch', { origin: true });
+  git(r.dir, 'commit', '-q', '--allow-empty', '-m', 'empty');
+  git(r.dir, 'checkout', '-q', '-b', 'side');
+  git(r.dir, 'commit', '-q', '--allow-empty', '-m', 'side empty');
+  git(r.dir, 'checkout', '-q', 'feat');
+  git(r.dir, 'merge', '-q', '--no-ff', '-m', 'merge side', 'side');
+  assert.equal(git(r.dir, 'log', '-p', '--format=', `${r.head}..HEAD`), '', 'the range has commits but no patch');
+  fake = installFakeTools();
+  process.env.ORK_FAKE_DOCKER_ZERO_COMMITS = '1';
+  const report = runScan({ root: r.dir, stateRoot: r.dir, base: r.head });
+  assert.equal(tool(report, 'gitleaks').state, 'ran', tool(report, 'gitleaks').reason);
+  // The same fake with patch content in the range still fails.
+  const strict = runScan({ root: r.dir, stateRoot: r.dir, base: r.base });
+  assert.equal(tool(strict, 'gitleaks').reason, 'zero-commits-scanned');
+});
+
 test('Review Focus 3: without origin/<base> nor a local base branch every tool fails with base-unresolved', () => {
   const r = repo('secscan-nobase', { mainBranch: 'trunk' });
   fake = installFakeTools();

@@ -154,11 +154,26 @@ interface Context {
   headTree: string; mainRoot: string; base: string; head: string;
   /** Commits in base..HEAD; null when git could not count them. */
   rangeCommits: number | null;
+  /** Whether `git log -p` of base..HEAD has patch content; computed on first use (see `rangeHasPatch`). */
+  rangePatch?: boolean;
   probe: Probe; guard: RoundGuard; images: Map<string, boolean>; deadline: number;
   baseTree?: string;
 }
 
 const remaining = (ctx: Context): number => ctx.deadline - Date.now();
+
+/**
+ * Whether base..HEAD has any patch content for Gitleaks to read. A range of merges without conflict resolution, empty
+ * commits or pure renames has none, and Gitleaks then reports 0 commits scanned with nothing skipped. A git error
+ * (including output too large for the buffer) counts as content: the strict reading keeps `zero-commits-scanned`.
+ */
+function rangeHasPatch(ctx: Context): boolean {
+  if (ctx.rangePatch === undefined) {
+    const out = git(ctx.mainRoot, ['log', '-p', '--format=', `${ctx.base}..${ctx.head}`]);
+    ctx.rangePatch = out === null || out !== '';
+  }
+  return ctx.rangePatch;
+}
 
 /** Host path of the tool config: the project's `.ork-security/<file>` in the HEAD tree, else the embedded default. */
 function configOf(t: ToolSpec, ctx: Context): string | undefined {
@@ -199,7 +214,7 @@ function scanTree(t: ToolSpec, executor: Executor, tree: string, unit: Unit, ctx
         const detail = t.category === 'secret' ? '' : lastLine(stripAnsi(r.stderr));
         return fail('failed', `exit-${r.status ?? 'signal'}${detail ? `: ${detail}` : ''}`);
       }
-      if (isGitScan && !commitsScanned(r.stderr)) return fail('failed', 'zero-commits-scanned');
+      if (isGitScan && !commitsScanned(r.stderr) && rangeHasPatch(ctx)) return fail('failed', 'zero-commits-scanned');
       if (t.stdoutFile) fs.writeFileSync(path.join(out, t.stdoutFile), r.stdout, { mode: 0o600 });
       const findings: RawFinding[] = [];
       for (const file of filesOf(t, argv)) {

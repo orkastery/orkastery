@@ -57,7 +57,10 @@ export class RoundGuard {
   }
 }
 
-function git(cwd: string, args: string[]): void { spawnSync('git', args, { cwd, stdio: 'ignore', timeout: 60000 }); }
+function git(cwd: string, args: string[]): boolean {
+  const r = spawnSync('git', args, { cwd, stdio: 'ignore', timeout: 60000 });
+  return !r.error && r.status === 0;
+}
 
 function cleanup(dir: string, state: GuardState): void {
   for (const name of state.containers) spawnSync('docker', ['rm', '-f', name], { stdio: 'ignore', timeout: 30000 });
@@ -65,11 +68,13 @@ function cleanup(dir: string, state: GuardState): void {
     const pgid = Number(fs.readFileSync(path.join(dir, f), 'utf8'));
     if (pgid > 1) try { process.kill(-pgid, 'SIGKILL'); } catch { /* already gone */ }
   }
+  let removeFailed = false;
   for (const wt of state.worktrees) {
-    git(state.mainRoot, ['worktree', 'remove', '--force', wt]);
+    if (!git(state.mainRoot, ['worktree', 'remove', '--force', wt])) removeFailed = true;
     fs.rmSync(path.dirname(wt), { recursive: true, force: true });
   }
-  if (state.worktrees.length) git(state.mainRoot, ['worktree', 'prune']);
+  // Prune only what a failed remove left registered: a blanket prune would also drop other sessions' stale entries.
+  if (removeFailed) git(state.mainRoot, ['worktree', 'prune']);
   for (const out of state.outDirs) fs.rmSync(out, { recursive: true, force: true });
   fs.rmSync(dir, { recursive: true, force: true });
 }
