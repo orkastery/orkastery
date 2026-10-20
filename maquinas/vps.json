@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-20T03:04:44.611Z",
+  "publicadoEm": "2026-10-20T03:15:03.731Z",
   "threads": [
     {
       "id": "ork-rm058integra",
@@ -15,18 +15,14 @@
       "roadmap": "RM-058",
       "branch": "ork/ork-rm058integra-full",
       "atualizadaEm": "2026-10-19T18:15:24.200Z",
-      "entregue": null,
+      "entregue": "5a1f27c2",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-19T18:28:52.223Z",
-        "motivo": "sessão e5fd8f40 sem processo (fantasma)"
-      }
+      "sessao": null
     },
     {
       "id": "ork-rm061f3d",
@@ -36,7 +32,7 @@
       "status": "aberta",
       "roadmap": "RM-061",
       "branch": "ork/ork-rm061f3d-full",
-      "atualizadaEm": "2026-10-20T03:04:44.250Z",
+      "atualizadaEm": "2026-10-20T03:13:40.932Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -58,7 +54,7 @@
       "status": "aberta",
       "roadmap": "RM-062",
       "branch": "ork/ork-rm062barreir-full",
-      "atualizadaEm": "2026-10-20T02:24:25.825Z",
+      "atualizadaEm": "2026-10-20T03:14:58.585Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
