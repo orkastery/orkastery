@@ -11,6 +11,10 @@ import { spawnSync } from 'node:child_process';
 import { dirTemporario } from './apoio';
 
 const SCRIPT = path.resolve(__dirname, '../../scripts/mutante.cjs');
+const { main: rodarMain, recusaDoAlvoArquivo } = require(SCRIPT) as {
+  main: (args: string[]) => number;
+  recusaDoAlvoArquivo: (raiz: string, relativo: string) => string | null;
+};
 
 function rodar(mutantes: Array<Record<string, string>>, id: string, contrato = 'ork.mutantes/v1', env: NodeJS.ProcessEnv = process.env) {
   const dir = dirTemporario('noctum-qm');
@@ -19,6 +23,21 @@ function rodar(mutantes: Array<Record<string, string>>, id: string, contrato = '
     fs.writeFileSync(arquivo, JSON.stringify({ contrato, mutantes }));
     return spawnSync(process.execPath, [SCRIPT, arquivo, id], { encoding: 'utf8', timeout: 300000, env });
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
+
+function rodarDireto(mutantes: Array<Record<string, string>>, id: string, contrato = 'ork.mutantes/v1') {
+  const dir = dirTemporario('noctum-qm-direto');
+  const erros: string[] = [];
+  const erroOriginal = console.error;
+  try {
+    const arquivo = path.join(dir, 'mutantes.json');
+    fs.writeFileSync(arquivo, JSON.stringify({ contrato, mutantes }));
+    console.error = (...partes: unknown[]) => { erros.push(partes.map(String).join(' ')); };
+    return { status: rodarMain([arquivo, id]), stderr: erros.join('\n') };
+  } finally {
+    console.error = erroOriginal;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 /** O ambiente SIMULADO que faz o teste de apoio cair sem mutante nenhum (o controle do QM4). */
@@ -97,4 +116,44 @@ test('QM6: arquivo fora de core/scripts e core/dist-test/test, ausente ou junto 
     assert.equal(r.status, 2, `${arquivo}: ${r.stdout}\n${r.stderr}`);
   }
   assert.equal(rodar([{ ...ROTEIRO_SEM_PLANO, modulo: 'noctum-changelog' }], 'M5').status, 2, 'modulo e arquivo juntos');
+});
+
+test('QM7: arquivo que e link simbolico e recusado sem escrever fora da copia', () => {
+  const fora = dirTemporario('noctum-qm-symlink');
+  const relativo = `core/scripts/qm7-link-${process.pid}-${Date.now()}.cjs`;
+  const alvo = path.resolve(__dirname, '../../..', relativo);
+  const sentinela = path.join(fora, 'sentinela.cjs');
+  const original = 'module.exports = "original-symlink";\n';
+  try {
+    fs.writeFileSync(sentinela, original);
+    fs.symlinkSync(sentinela, alvo);
+    const m = { id: 'QM7', descricao: 'o link simbolico nao pode escapar da copia', arquivo: relativo,
+      de: 'original-symlink', para: 'mutado-symlink', teste: 'noctum-mutante', nome: '^QM-apoio:' };
+    const r = rodarDireto([m], m.id);
+    assert.equal(r.status, 2, r.stderr);
+    assert.match(r.stderr, /link simbólico/);
+    assert.equal(fs.readFileSync(sentinela, 'utf8'), original, 'a recusa não escreve no alvo externo');
+  } finally {
+    fs.rmSync(alvo, { force: true });
+    fs.rmSync(fora, { recursive: true, force: true });
+  }
+});
+
+test('QM8: componente simbolico e recusado e arquivo regular fica contido na raiz permitida', () => {
+  const raiz = dirTemporario('noctum-qm-component');
+  const fora = dirTemporario('noctum-qm-component-outside');
+  try {
+    fs.mkdirSync(path.join(raiz, 'core'), { recursive: true });
+    fs.writeFileSync(path.join(fora, 'alvo.cjs'), 'module.exports = true;\n');
+    fs.symlinkSync(fora, path.join(raiz, 'core', 'scripts'));
+    assert.match(recusaDoAlvoArquivo(raiz, 'core/scripts/alvo.cjs') || '', /componente core\/scripts é link simbólico/);
+
+    const pastaRegular = path.join(raiz, 'core', 'dist-test', 'test');
+    fs.mkdirSync(pastaRegular, { recursive: true });
+    fs.writeFileSync(path.join(pastaRegular, 'alvo.js'), 'module.exports = true;\n');
+    assert.equal(recusaDoAlvoArquivo(raiz, 'core/dist-test/test/alvo.js'), null);
+  } finally {
+    fs.rmSync(raiz, { recursive: true, force: true });
+    fs.rmSync(fora, { recursive: true, force: true });
+  }
 });

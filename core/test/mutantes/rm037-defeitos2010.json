@@ -75,6 +75,15 @@
       "nome": "^defeito 3: o teste projeto-alvo-cli nao chama o claude da maquina"
     },
     {
+      "id": "M11",
+      "descricao": "GO-FIX 2: o executor volta a aceitar link simbólico e realpath fora da cópia para o campo arquivo",
+      "arquivo": "core/scripts/mutante.cjs",
+      "de": "const componentes = relativo.split('/').filter(Boolean);",
+      "para": "return null;\n  const componentes = relativo.split('/').filter(Boolean);",
+      "teste": "noctum-mutante",
+      "nome": "^QM(?:7|8):"
+    },
+    {
       "id": "M5",
       "descricao": "defeito 4: working/idle depois do Stop volta a ser sessão trabalhando para sempre (só o done do runtime encerra)",
       "modulo": "session-watcher-claude",
