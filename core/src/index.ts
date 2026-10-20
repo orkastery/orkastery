@@ -246,7 +246,7 @@ import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
 import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
-import { ESPERA_DA_FILA_PESADA_MS, gravarBaseline, textoDoVerify, verificar } from './verify';
+import { ESPERA_DA_FILA_PESADA_MS, gravarBaseline, linhasDaBaseline, textoDoVerify, verificar } from './verify';
 import { ErroDaFilaPesada, OcupanteDaFila } from './fila-pesada';
 import {
   auditarWorktree,
@@ -1483,9 +1483,8 @@ function comandoVerify(args: Args): number {
     const b = comLocale('pt-BR', () => gravarBaseline(carregado, id, undefined, conducao));
     console.log(m.baselineGravada(id));
     console.log(m.baselineCommit(b.commit));
-    for (const c of b.comandos) {
-      console.log(m.baselineComando(c.nome, c.ok, c.code, c.comando));
-    }
+    // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito nao sai como "ja falhava".
+    for (const linha of linhasDaBaseline(b, id)) console.log(linha);
     if (b.comandos.some((c) => !c.ok)) {
       // Ensaio de 03/10 (R7): "ja falhava" sem dizer onde ver a saida do comando.
       console.log(m.baselineSaida(caminhoThread(carregado.raiz, id), id));

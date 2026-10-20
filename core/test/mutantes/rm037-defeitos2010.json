@@ -1,0 +1,24 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-037, defeitos de condução de 19 e 20/10/2026: cada mutante devolve o comportamento de antes, e o teste do defeito o mata. Cada claim Mutante roda um deles pelo core/scripts/mutante.cjs.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "defeito 1: a baseline volta ao executor com o teto padrão de 600 s, sem o prazo do manifesto",
+      "modulo": "verify",
+      "de": "executorDaRodada(manifesto, (0, instabilidade_1.lerRegistroDeInstabilidade)(cwd), base, leitor)",
+      "para": "executorComSteal(base ?? executar, leitor)",
+      "teste": "rm037-defeitos2010-baseline",
+      "nome": "^defeito 1 \\(19 e 20/10/2026\\): a baseline aplica o prazo"
+    },
+    {
+      "id": "M2",
+      "descricao": "defeito 1: o comando sem veredito na baseline volta a valer como já falhava",
+      "modulo": "verify",
+      "de": "if (!antes || vereditoDaBaseline(antes) === 'sem-veredito')",
+      "para": "if (!antes)",
+      "teste": "rm037-defeitos2010-baseline",
+      "nome": "^defeito 1: (o comando que estourou|baseline antiga)"
+    }
+  ]
+}

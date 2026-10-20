@@ -296,19 +296,47 @@ function executorSobConducao(base: ExecutorVerify, manifesto: Manifesto, conduca
  */
 export type OrigemDaBaseline = 'cli' | 'phase.run';
 
-/** `ork verify --baseline`: grava o estado do mundo ANTES do GO. */
-export function gravarBaseline(carregado: ManifestoCarregado, threadId: string, executor: ExecutorVerify = executar,
-  conducao: ConducaoDoVerify = {}, origem: OrigemDaBaseline = 'cli'): Baseline {
-  const pedido = pedidoDoVerify(carregado, threadId, 'baseline', comandosDoManifesto(carregado.manifesto).length, conducao);
-  return comConducao(carregado.raiz, threadId, pedido, (tomada) => naFilaPesada(carregado, threadId, 'baseline', conducao,
-    () => gravarBaselineSobConducao(carregado, threadId, executorSobConducao(executor, carregado.manifesto, tomada), origem)));
+/**
+ * RM-037 (defeitos de 19 e 20/10/2026, defeito 1): o executor de uma rodada, o mesmo no verify e na baseline. O prazo
+ * de cada comando sai do manifesto (`prazoDoComando`), e o steal e medido na janela de cada um, com os testes de relogio
+ * do registro de instabilidade da arvore verificada. A baseline rodava pelo `executar` com o teto padrao de 600 s: em
+ * 20/10 a suite desta VPS passou disso, e o `test` foi gravado como "ja falhava" com o manifesto dando 2400 s.
+ */
+export function executorDaRodada(manifesto: Manifesto, instabilidade: RegistroLido, base?: ExecutorVerify,
+  leitor: LeitorProcStat = lerProcStat): ExecutorVerify {
+  return executorComSteal(base ?? ((nome, comando, cwd) => executar(nome, comando, cwd, prazoDoComando(manifesto, nome))),
+    leitor, testesDeRelogioVigentes(instabilidade));
 }
 
-function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: string, executor: ExecutorVerify,
-  origem: OrigemDaBaseline): Baseline {
+/** O que um comando da baseline prova sobre o codigo do HEAD em que ela foi gravada. */
+export type VereditoDaBaseline = 'passava' | 'ja-falhava' | 'sem-veredito';
+
+/**
+ * RM-037 (defeito 1 de 19 e 20/10/2026): so a falha com veredito vale como "ja falhava". Estouro do prazo, reprovacao
+ * so de teste com relogio sob steal e comando que nem rodou dizem que a maquina decidiu, e nao o codigo; uma falha
+ * atual desse comando nao pode passar por divida anterior. A baseline de antes da I-37 nao tem `causa`, e nela o estouro
+ * saia como `code: -1`.
+ */
+export function vereditoDaBaseline(c: ResultadoDeComando): VereditoDaBaseline {
+  if (c.ok) return 'passava';
+  if (semVereditoPorTempo(c) || c.executado === false || (c.causa === undefined && c.code === -1)) return 'sem-veredito';
+  return 'ja-falhava';
+}
+
+/** `ork verify --baseline`: grava o estado do mundo ANTES do GO. Sem `executor`, o da rodada (`executorDaRodada`). */
+export function gravarBaseline(carregado: ManifestoCarregado, threadId: string, executor?: ExecutorVerify,
+  conducao: ConducaoDoVerify = {}, origem: OrigemDaBaseline = 'cli', leitor: LeitorProcStat = lerProcStat): Baseline {
+  const pedido = pedidoDoVerify(carregado, threadId, 'baseline', comandosDoManifesto(carregado.manifesto).length, conducao);
+  return comConducao(carregado.raiz, threadId, pedido, (tomada) => naFilaPesada(carregado, threadId, 'baseline', conducao,
+    () => gravarBaselineSobConducao(carregado, threadId, executor, tomada, origem, leitor)));
+}
+
+function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: string, base: ExecutorVerify | undefined,
+  tomada: ConducaoTomada, origem: OrigemDaBaseline, leitor: LeitorProcStat): Baseline {
   const { raiz, manifesto } = carregado;
   const thread = lerThread(raiz, threadId);
   const cwd = cwdDaThread(raiz, thread);
+  const executor = executorSobConducao(executorDaRodada(manifesto, lerRegistroDeInstabilidade(cwd), base, leitor), manifesto, tomada);
   const comandos = comandosDoManifesto(manifesto).map((c) => executor(c.nome, c.comando, cwd));
   const naoEncontrado = comandos.find((c) => c.causa === 'nao-encontrado');
   if (naoEncontrado) {
@@ -324,7 +352,10 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
   registrar(dirThread(raiz, threadId), threadId, TIPOS_DE_EVENTO.baselineGravada, {
     commit: baseline.commit,
     cwd,
-    comandos: comandos.map((c) => ({ nome: c.nome, comando: c.comando, ok: c.ok, code: c.code })),
+    comandos: comandos.map((c) => ({ nome: c.nome, comando: c.comando, ok: c.ok, code: c.code, prazoMs: c.prazoMs ?? null,
+      ...(c.ok ? {} : { causa: c.causa ?? null }) })),
+    // RM-037 (defeito 1 de 19 e 20/10/2026): o que a baseline nao provou fica dito no proprio evento.
+    semVeredito: comandos.filter((c) => vereditoDaBaseline(c) === 'sem-veredito').map((c) => c.nome),
     fonte: 'execucao real no HEAD, nao relatorio de fase',
     origem,
   });
@@ -484,9 +515,8 @@ function verificarSobConducao(
 
   // I-37 (D2, D3): o prazo de cada comando sai do manifesto carregado no inicio da rodada;
   // editar o manifesto no meio dela nao muda o teto de quem ainda vai rodar.
-  const executor: ExecutorVerify = executorSobConducao(executorComSteal(opcoes.executor
-    ?? ((nome, comando, dirDeTrabalho) => executar(nome, comando, dirDeTrabalho, prazoDoComando(manifesto, nome))),
-  leitor, testesDeRelogioVigentes(instabilidade)), manifesto, conducao);
+  const executor: ExecutorVerify = executorSobConducao(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor),
+    manifesto, conducao);
 
   // I-54 (D10): o preparo roda UMA vez, antes das claims. Ele nunca e condicao para uma claim
   // passar (cada uma roda o proprio comando inteiro); ele so deixa pronta a compilacao. A
@@ -520,6 +550,8 @@ function verificarSobConducao(
   const preExistentes: ResultadoDeComando[] = [];
   const falhasSemBaseline: ResultadoDeComando[] = [];
   const estouros: ResultadoDeComando[] = [];
+  // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito na baseline nao separa regressao de divida.
+  const baselineSemVeredito = (baseline?.comandos ?? []).filter((c) => vereditoDaBaseline(c) === 'sem-veredito').map((c) => c.nome);
   for (const atual of comandos) {
     if (atual.ok) continue;
     if (semVereditoPorTempo(atual)) {
@@ -527,7 +559,7 @@ function verificarSobConducao(
       continue;
     }
     const antes = baseline?.comandos.find((c) => c.nome === atual.nome);
-    if (!antes) falhasSemBaseline.push(atual);
+    if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') falhasSemBaseline.push(atual);
     else if (antes.ok) regressoes.push(atual);
     else preExistentes.push(atual);
   }
@@ -579,6 +611,7 @@ function verificarSobConducao(
     regressoes: regressoes.map((r) => r.nome),
     preExistentes: preExistentes.map((r) => r.nome),
     falhasSemBaseline: falhasSemBaseline.map((r) => r.nome),
+    ...(baselineSemVeredito.length > 0 ? { baselineSemVeredito } : {}),
     estouros: estouros.map((r) => r.nome),
     prazoMs: manifesto.verify.timeout_ms ?? TIMEOUT_VERIFY_MS,
     steal,
@@ -618,7 +651,10 @@ function verificarSobConducao(
                   ...naoExecutados.map((c) => `${c.nome} nao foi executado`),
                   ...claims.filter((c) => c.motivo === 'verify.sem-veredito').map((c) => `${c.claim.id}: ${c.detalhe}`)]
                   .filter(Boolean).join('; ')
-                : `falha sem baseline em: ${falhasSemBaseline.map((r) => r.nome).join(', ')}`,
+                : `falha sem baseline em: ${falhasSemBaseline.map((r) => r.nome).join(', ')}` + (falhasSemBaseline
+                  .some((r) => baselineSemVeredito.includes(r.nome))
+                  ? `; a baseline nao teve veredito de ${falhasSemBaseline.filter((r) => baselineSemVeredito.includes(r.nome))
+                    .map((r) => r.nome).join(', ')} (estouro do prazo, relogio sob steal ou comando que nao rodou)` : ''),
       evidencia: `reexecucao no HEAD ${commit} em ${cwd}`,
       correcao:
         motivo === 'claims.failed'
@@ -660,6 +696,18 @@ function situacaoDoComando(c: ResultadoDeComando): string {
   if (c.causa === 'nao-encontrado') return m.naoExecutou(c.code);
   if (c.causa === 'sinal') return m.mortoPorSinal(c.code);
   return m.falhou(c.code);
+}
+
+/**
+ * RM-037 (defeito 1 de 19 e 20/10/2026): as linhas de cada comando de `ork verify --baseline`, com o veredito dele, e a
+ * linha que diz o que a baseline nao provou e como regravar.
+ */
+export function linhasDaBaseline(b: Baseline, id: string): string[] {
+  const m = msg().verify;
+  const linhas = b.comandos.map((c) => m.baselineComando(c.nome, vereditoDaBaseline(c), c.code, c.comando, situacaoDoComando(c)));
+  const semVeredito = b.comandos.filter((c) => vereditoDaBaseline(c) === 'sem-veredito').map((c) => c.nome);
+  if (semVeredito.length > 0) linhas.push(m.baselineSemVeredito(semVeredito.join(', '), id));
+  return linhas;
 }
 
 /** Texto de `ork verify`. O detalhe da claim veio do catalogo em pt-BR e sai remontado no locale ativo. */
@@ -709,7 +757,11 @@ export function textoDoVerify(r: ResultadoVerify): string {
     linhas.push(m.classificacao(r.regressoes.length, r.preExistentes.length, r.falhasSemBaseline.length));
     for (const c of r.regressoes) linhas.push(m.regressao(c.nome, c.comando));
     for (const c of r.preExistentes) linhas.push(m.preExistente(c.nome, c.comando));
-    for (const c of r.falhasSemBaseline) linhas.push(m.falhaSemBaseline(c.nome, c.comando));
+    // RM-037 (defeito 1 de 19 e 20/10/2026): a baseline existe, mas nao teve veredito deste comando.
+    const semVeredito = new Set((r.baseline?.comandos ?? []).filter((c) => vereditoDaBaseline(c) === 'sem-veredito').map((c) => c.nome));
+    for (const c of r.falhasSemBaseline) {
+      linhas.push(semVeredito.has(c.nome) ? m.falhaComBaselineSemVeredito(c.nome, c.comando) : m.falhaSemBaseline(c.nome, c.comando));
+    }
   }
   linhas.push('');
   linhas.push(r.ok ? m.verdade : m.reprovado(r.motivos.join(', ')));

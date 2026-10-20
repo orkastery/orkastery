@@ -15,8 +15,14 @@ export const VERIFY_PT_BR = {
     `baseline.dependencia-ausente: ${nome} nao executou porque o comando nao existe (codigo ${code}): ${comando}; ` +
     'instale ou prepare as dependencias antes de gravar a baseline',
   baselineCommit: (commit: string) => `  commit ${commit}`,
-  baselineComando: (nome: string, ok: boolean, code: number, comando: string) =>
-    `  ${nome.padEnd(10)} ${ok ? 'passava' : `ja falhava (codigo ${code})`}  ${comando}`,
+  // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito (estouro, relogio sob steal, nao rodou) nao vale como
+  // "ja falhava"; `situacao` e a do comando, no locale da impressao.
+  baselineComando: (nome: string, veredito: 'passava' | 'ja-falhava' | 'sem-veredito', code: number, comando: string,
+    situacao: string) => `  ${nome.padEnd(10)} ${veredito === 'passava' ? 'passava' : veredito === 'ja-falhava'
+    ? `ja falhava (codigo ${code})` : `SEM VEREDITO, ${situacao}: nao vale como "ja falhava"`}  ${comando}`,
+  baselineSemVeredito: (nomes: string, id: string) => `  sem veredito na baseline: ${nomes}; no verify, a falha deles sai ` +
+    `como falha sem baseline (verify.failed), nunca como pre-existente. Grave de novo com ork verify ${id} --baseline ` +
+    'numa hora de CPU livre, ou suba verify.timeout_ms_por_comando no manifesto',
   baselineSaida: (caminho: string, id: string) => `  saida de quem falhou: as ultimas linhas em ${caminho}, campo baseline.comandos ` +
     `(resumo e trecho); o evento baseline_recorded esta em ork phase list ${id}`,
   baselineSemComandos: '  (nenhum comando em verify: no manifesto: a baseline guarda so o commit, e o verify nao tem como separar regressao de divida)',
@@ -61,6 +67,8 @@ export const VERIFY_PT_BR = {
   regressao: (nome: string, comando: string) => `  regressao      ${nome}: ${comando}`,
   preExistente: (nome: string, comando: string) => `  pre-existente  ${nome}: ${comando}`,
   falhaSemBaseline: (nome: string, comando: string) => `  sem baseline   ${nome}: ${comando}`,
+  falhaComBaselineSemVeredito: (nome: string, comando: string) =>
+    `  sem baseline   ${nome}: ${comando} (a baseline nao teve veredito dele)`,
   verdade: 'Veredito: VERDADE SUSTENTADA (nenhum motivo bloqueante).',
   reprovado: (motivos: string) => `Veredito: REPROVADO. Motivos tipados: ${motivos}`,
   // Detalhe da claim reexecutada (vai ao ledger em pt-BR)
@@ -87,7 +95,11 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
     `baseline.missing-dependency: ${nome} did not run because the command does not exist (exit ${code}): ${comando}; ` +
     'install or prepare dependencies before recording the baseline',
   baselineCommit: (commit) => `  commit ${commit}`,
-  baselineComando: (nome, ok, code, comando) => `  ${nome.padEnd(10)} ${ok ? 'passed' : `already failing (exit ${code})`}  ${comando}`,
+  baselineComando: (nome, veredito, code, comando, situacao) => `  ${nome.padEnd(10)} ${veredito === 'passava' ? 'passed'
+    : veredito === 'ja-falhava' ? `already failing (exit ${code})` : `NO VERDICT, ${situacao}: does not count as "already failing"`}  ${comando}`,
+  baselineSemVeredito: (nomes, id) => `  no verdict in the baseline: ${nomes}; in verify, their failure is reported as a ` +
+    `failure without a baseline (\`verify.failed\`), never as pre-existing. Record it again with \`ork verify ${id} --baseline\` ` +
+    'when the CPU is free, or raise `verify.timeout_ms_por_comando` in the manifest',
   baselineSaida: (caminho, id) => `  output of the failing commands: the last lines in ${caminho}, field \`baseline.comandos\` ` +
     `(summary and excerpt); the baseline_recorded event is in \`ork phase list ${id}\``,
   baselineSemComandos: '  (no command under `verify:` in the manifest: the baseline keeps only the commit, and verify cannot tell a regression from existing debt)',
@@ -125,6 +137,7 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
   regressao: (nome, comando) => `  regression     ${nome}: ${comando}`,
   preExistente: (nome, comando) => `  pre-existing   ${nome}: ${comando}`,
   falhaSemBaseline: (nome, comando) => `  no baseline    ${nome}: ${comando}`,
+  falhaComBaselineSemVeredito: (nome, comando) => `  no baseline    ${nome}: ${comando} (the baseline had no verdict for it)`,
   verdade: 'Verdict: VERIFIED (no blocking reason).',
   reprovado: (motivos) => `Verdict: FAILED. Typed reasons: ${motivos}`,
   claimNegativaSemComando: 'negative or absolute claim without a verification command: there is no way to prove it',
