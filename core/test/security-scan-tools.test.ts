@@ -103,3 +103,9 @@ test('failure contract: every tool declares expect, wrappers do not mask exit 1'
   assert.match(by.actionlint.args.join(' '), /head -c1/);
   assert.ok(by.ruff.args.includes('--exit-zero'));
 });
+
+test('ESLint runs with a larger heap for the typed lint, and no other tool gets it', () => {
+  const tools = loadTools();
+  assert.equal(tools.find(t => t.name === 'eslint')!.env?.NODE_OPTIONS, '--max-old-space-size=6144');
+  for (const t of tools.filter(x => x.name !== 'eslint')) assert.equal(t.env?.NODE_OPTIONS, undefined, t.name);
+});

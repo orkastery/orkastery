@@ -477,7 +477,8 @@
     "env": {
       "HOME": "/tmp",
       "npm_config_cache": "/tmp/npm-cache",
-      "npm_config_update_notifier": "false"
+      "npm_config_update_notifier": "false",
+      "NODE_OPTIONS": "--max-old-space-size=6144"
     },
     "expect": {
       "files": [
