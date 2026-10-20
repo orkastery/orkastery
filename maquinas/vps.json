@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-20T14:03:39.324Z",
+  "publicadoEm": "2026-10-20T14:15:03.260Z",
   "threads": [
     {
       "id": "ork-rm037defeit2",
@@ -23,9 +23,9 @@
       "modelo": "opus",
       "esforco": "max",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-20T14:03:39.453Z",
-        "motivo": "sessão de580ed7 sem processo (fantasma)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
