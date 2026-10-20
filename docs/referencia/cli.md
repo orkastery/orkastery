@@ -14,7 +14,7 @@ utilizável como gate de pipeline.
 
 | Comando | O que faz |
 | --- | --- |
-| `ork doctor` | O que vale nesta máquina agora. **Sai diferente de zero se bloqueado**, nunca por um `warn`. Com thread aberta no projeto e nenhuma batida deste projeto no crontab, reprova com ou sem `pulse-host.json`, e a correção é `ork fabrica batida instalar`; uma rodada de até 30 min no `hitl.log` prova a batida de outro agendador (RM-063). Com a linha no crontab, a última rodada há mais de 30 min também reprova: a batida parou. O check "transporte do pulse" diz a última entrega do resumo: pelo outro host configurado é aviso; por nenhum, falha. A seção forja confere a forja do remoto `origin` (identidade, alcance, TLS, subcaminho, CLI, login, servidor, escopo, projeto e capacidades); sem remoto de forja e sem o bloco `forja:`, não aparece. Ver [o contrato da forja](contratos/forja.md) |
+| `ork doctor` | O que vale nesta máquina agora. **Sai diferente de zero se bloqueado**, nunca por um `warn`. Com thread aberta no projeto e nenhuma batida deste projeto no crontab, reprova com ou sem `pulse-host.json`, e a correção é `ork fabrica batida instalar`; uma rodada de até 30 min no `hitl.log` prova a batida de outro agendador (RM-063). Com a linha no crontab, a última rodada há mais de 30 min também reprova: a batida parou. O check "transporte do pulse" diz a última entrega do resumo: pelo outro host configurado é aviso; por nenhum, falha. A seção forja confere a forja do remoto `origin` (identidade, alcance, TLS, subcaminho, CLI, login, servidor, escopo, projeto e capacidades); sem remoto de forja e sem o bloco `forja:`, não aparece. Com `verify.security_scan` declarado, o check "security scan" é `ok` com Docker (CLI e daemon) ou com o binário nativo de toda ferramenta do laço, e `warn` (nunca `fail`) quando alguma ficaria `unavailable`: a correção manda instalar o Docker. Ver [o contrato da forja](contratos/forja.md) |
 | `ork doctor --json [--forja]` | Os mesmos checks no contrato `ork.doctor/v1` (veredito, falhas, avisos, projeto, máquina) e a batida da fábrica: threads abertas, linha no crontab, última rodada e a idade dela, `atrasada` e o `aviso` pronto para o dono. É o que a batida do host (OpenClaw e Hermes) lê de forma determinística (RM-063). A seção forja só roda com `--forja`; sem a flag, o JSON traz `forja: nao-medida` (com ela, `forja: medida`) |
 | `ork demo [--manter] [--dir D]` | A promessa em 30 s: num repositório temporário, a afirmação falsa do agente é reprovada pelo `ork verify` e a corrigida é aceita; offline, sem conta nem modelo (I-56) |
 | `ork init [--force] [--name N] [--abbrev A]` | Gera o `orkastery.yaml` do repositório |
@@ -289,6 +289,33 @@ varredura anterior e imprime só a novidade (sai `10` quando há novidade, `0` q
 há, `1` quando o runtime não respondeu).
 
 ---
+
+## Varredura de segurança
+
+| Comando | O que faz |
+| --- | --- |
+| `ork security-scan [--base <ref>] [--json]` | Varre o HEAD (conteúdo versionado, numa worktree destacada) com as ferramentas do catálogo (segredos, dependências, SAST, IaC, workflows, qualidade e licença) e compara com a base: `new`, `existing` ou `dismissed` por impressão digital. A base é `--base`, ou o merge-base com `<remoto>/<worktree.base_branch>`. Grava `report.json` e `report.md` em `.orkastery/security-scan/<sha>/` da árvore principal (também numa worktree de thread). Sem `--json`, imprime o resumo e termina com o caminho do `report.md`; com `--json`, imprime o `ScanReport` e não há linha de caminho. Opção desconhecida sai 2 |
+
+Sai 1 quando há achado `new` no laço (todo segredo novo; dependência, SAST, IaC e workflow novos em `high` ou
+`critical`; qualidade e licença nunca entram) e quando uma dispensa ou a config de `.ork-security/` é inválida (a
+mensagem nomeia a entrada; nada é varrido). Com `ORK_SECURITY_SCAN_REQUIRED=1`, ferramenta de categoria do laço
+`unavailable` ou `failed` também sai 1; sem ela, só aparece no relatório. Ferramenta indisponível ou que falhou nunca
+conta como limpa. Dois motivos são declarados no relatório sem contar como categoria não varrida, nem aqui nem no gate do
+`ork ship`: `unsupported-ci` (`.gitlab-ci.yml` sem workflow do GitHub Actions: o GitLab CI fica sem varredura, só
+declarado) e `no-requirements-file` (o `pip-audit` sem `requirements*.txt`), este só quando outra ferramenta da mesma
+categoria rodou. `ORK_SECURITY_SCAN_DEADLINE_MS` limita a rodada inteira (cada ferramenta recebe o que resta do prazo);
+o `ork verify` e o `ork ci run` a exportam ao rodar o `security_scan`, com o prazo dele menos `min(300 s, prazo/4)`.
+Nenhum valor de segredo vai ao relatório nem ao stdout.
+
+Estados de ferramenta no relatório: `ran`, `failed` e `unavailable`. O Semgrep `ran` pode levar um motivo `partial-*`
+(`partial-timeout: <n>`, `partial-parsing: <n>`): uma regra ou um trecho de arquivo foi pulado (erro de nível `warn`) e
+o resto foi varrido, e os achados obtidos valem. Se todas as regras estourarem o prazo, a ferramenta ainda lê `ran`, só
+com a contagem no motivo: confira o motivo antes de tratar a categoria `sast` como coberta. Erro de outro tipo ou de
+nível `error` deixa a ferramenta `failed`.
+
+No manifesto, `verify.security_scan` declara o comando que o `ork verify` roda (por exemplo `ork security-scan`), e
+`verify.timeout_ms_por_comando.security_scan` dá o prazo dele (o `ork init` grava 900000 junto da chave), que vale
+também para a claim cujo `--verificar` é esse mesmo comando. Sem `verify.security_scan`, nada muda.
 
 ## Verdade: claims, verify e gates
 
@@ -606,10 +633,10 @@ recursos pesados, com aviso no stderr enquanto espera (RM-058).
 
 | Comando | O que faz |
 | --- | --- |
-| `ork ship <thread> --para <branch>` | Merge `--no-ff` serializado por lease, e push **provado**. Push recusado pela proteção da base: `entrega.base-protegida`, com a orientação do PR/MR. Ver [o contrato da forja](contratos/forja.md#entrega) |
+| `ork ship <thread> --para <branch>` | Merge `--no-ff` serializado por lease, e push **provado**. Push recusado pela proteção da base: `entrega.base-protegida`, com a orientação do PR/MR. Com `verify.security_scan` declarado e sem `ci.required_for_ship`, categoria do laço (secret, dependency, sast, iac, workflow) sem varredura no SHA da candidata (ferramenta `unavailable` ou com falha, salvo `unsupported-ci` e `no-requirements-file`, ou sem relatório) para com `human.pending` antes de qualquer push; `--allow-unscanned "<quem>"` entrega mesmo assim e grava `ship_unscanned_authorized` no ledger (com `--dry-run`, só diz o que gravaria). Ver [o contrato da forja](contratos/forja.md#entrega) |
 | `ork ship registrar-pr <thread>\|--todas [--remoto R] [--json] [--dry-run]` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master <thread> --aceitar-omissao` fecha só ela (I-57; RM-008). Com `--dry-run`, também com `--repo --pr`, faz as mesmas conferências e responde `registraria`, sem gravar `ship_done`, sem mudar a fase e sem publicar a fábrica (RM-037) |
 | `ork ship registrar-pr <thread> --repo <dono/nome ou grupo/sub/projeto> --pr <n>` | PR mesclado em repositório externo declarado em `ci.external_repositories` vira `ship_done`: o PR mesclado na branch padrão do repositório, com o id da thread no título, no corpo ou na branch, e o merge dentro da ponta da base, conferidos pela API do GitHub, ou do GitLab do projeto (com subgrupos; `--pr` é o `iid` do MR), e o check declarado verde no head do PR (vazio declara repositório sem CI). Repositório não declarado é recusado; remoto que nomeia uma forja não resolvida também (`entrega.sem-leitura`: declare `forja.tipo` ou faça login na CLI), sem host de reserva (RM-037) |
-| ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]` |
+| ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--allow-unscanned <quem>] [--sem-push] [--dry-run]` |
 | `ork ship publicar <thread> [--dry-run] [--remoto R] [--json]` | Publica a branch da thread e abre o PR (MR no GitLab), com prova, só no modo que já autoriza o push (#Auto e #Maestro). Antes de qualquer efeito, confere a thread aberta, ninguém conduzindo, a branch com produto, o CHECK com veredito PASSOU depois do último commit de produto, o último `ork verify` verde no HEAD (ou só o bundle depois dele), o bundle `.ork-ci/<thread>.json` com as claims ativas e os comandos delas, a forja do remoto (GitHub ou GitLab) e os PRs (MRs) da branch. Empurra sem força o sha conferido, prova pelo `git ls-remote` (só a ref exata), reaproveita o PR (MR) aberto ou abre um com o texto do `pr-body.md` da thread (título `ship(<thread>): ...`) e grava `ship_published`, também para o push que ficou sem prova. A recusa antes de qualquer efeito não grava nada; repetido, ou com o PR já mesclado no HEAD, responde `ja-publicada`. Não aceita `--autorizar-push`: fora de #Auto e #Maestro, o push é do dono, e a correção diz o comando dele (no GitLab, `glab mr create … --description-file`). Remoto Enterprise sem `forja:` e sem login da CLI é recusado antes de escrever (`forja.desconhecida`) (RM-059) |
 | `ork ship pista [<thread>] [--remoto R] [--json]` | A pista de cada thread aberta que já está na entrega (`ork.ship-pista/v1`): as etapas CHECK, verify, bundle, branch, PR (MR no GitLab), CI, conflito e `ship_done`, e o próximo passo com a ação que o núcleo declara disponível (`publicar` ou `registrar`) e o comando. Uma leitura do remoto e uma dos PRs (MRs), só das threads que já estão na entrega; a lista cortada deixa como não lido o PR que não foi conferido um a um. Não grava nada (RM-059) |
 | `ork master <thread> --score 0-5 --justificativa "<texto>" --por <seu-nome>` | Fecha a thread: POSTMORTEM, MASTER log e score; sem `--por` humano, recusa. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |

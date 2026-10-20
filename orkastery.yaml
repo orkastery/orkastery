@@ -44,12 +44,19 @@ verify:
   # typecheck: nao detectado
   # I-54 (RM-037): compila uma vez antes das claims e confere o produto do preparo ao fim da rodada.
   preparo: "npm --prefix core run build && npm --prefix core run build:test"
+  # Security scan do proprio repositorio (ferramentas do catalogo em Docker). As fixtures vulneraveis de
+  # proposito ficam fora pelo .ork-security/config.json.
+  security_scan: "node core/dist/index.js security-scan"
   # RM-037: o teto global de 10 min nao cobre a suite quando o hipervisor rouba CPU. A mesma
   # suite mede 3,6 min com CPU livre (medido em 10/10/2026: 2753 testes, 0 falhas) e 24 a 30 min
   # com steal alto (sar de 23-24/09/2026). O runner hermetico faz `test:ci` herdar este mesmo
   # teto de `test`; build e demais comandos ficam no padrao.
   timeout_ms_por_comando:
     test: 2400000
+    # Security scan medido em 19/10/2026 na estacao, imagens ja baixadas: 172 a 270 s (base = HEAD, e base
+    # = merge-base com a main do upstream, que varre tambem a worktree da base e os commits da faixa).
+    # O prazo e 3x o maior, arredondado ao minuto; no runner hospedado o pull frio das imagens soma 1 a 2 min.
+    security_scan: 840000
 
 ci:
   # O SHIP consulta o check obrigatório no SHA candidato antes de tomar o lease da base.

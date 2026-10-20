@@ -17,4 +17,6 @@ export const TESTES_DE_INTEGRACAO_LOCAL: ReadonlySet<string> = new Set([
   'rm038-universo-ponte.test.js',
   // RM-059 (T0.10): a conferencia pontual com o sandbox real do codex, como o mcp-verify.test.js.
   'claims-conferir-sandbox.test.js',
+  // Security scan (Task 13a): o scanner com o Docker real e as imagens do catalogo.
+  'security-scan-integracao.test.js',
 ]);
