@@ -15,7 +15,7 @@ import { comLocale, msg } from '../src/locale';
 import { carregarManifesto } from '../src/manifest';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
-import { gravarBaseline } from '../src/verify';
+import { gravarBaseline, verificar } from '../src/verify';
 import { ajustarManifesto, commitar, dirTemporario, ProjetoDeTeste, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -152,5 +152,81 @@ test('defeito 2: as linhas do preparo nas duas linguas, com o comando exato e o 
       'worktree stay; before the build and the baseline, run in the worktree: `cd /tmp/wt && npm ci`',
     'Warning: preparing the worktree dependencies (`worktree.dependencias`) ran past its deadline. The thread and the worktree ' +
       'stay; before the build and the baseline, run in the worktree: `cd /tmp/wt && npm ci`',
+  ]);
+});
+
+/**
+ * CHECK 3 da ork-rm037defeit2, achado 2: o passo do arco #Noctum abre a thread segurando a trava de despacho, e o preparo
+ * (até 10 min) não pode rodar ali. A criação com `adiarDependencias` só anota o preparo como pendente; a baseline e o verify
+ * o rodam antes do primeiro comando, na fila pesada que eles já seguram, e nunca rodam sem ele.
+ */
+test('defeito 2 (CHECK 3): a thread aberta com o preparo adiado nao roda nada; a baseline roda o preparo antes dos comandos e passa', () => {
+  const p = projeto('rm037d2010-deps-adiado', PREPARO);
+  try {
+    const criada = novaThread(p.carregado, { nome: 'adiado', modo: 'auto', criarWorktree: true, adiarDependencias: true });
+    const id = criada.thread.id, wt = criada.thread.worktree!;
+    assert.equal(criada.dependencias ?? null, null, 'nada rodou na criacao');
+    assert.equal(fs.existsSync(path.join(wt, 'deps')), false);
+    const [pendente] = eventos(p, id, 'worktree_dependencias_pendentes');
+    assert.equal(pendente.dir, wt); assert.equal(pendente.comando, PREPARO);
+    assert.equal(eventos(p, id, 'worktree_dependencias').length, 0);
+    const b = gravarBaseline(p.carregado, id);
+    assert.equal(b.comandos.find((c) => c.nome === 'build')?.ok, true, 'sem o preparo, o build saia 127');
+    assert.ok(fs.existsSync(path.join(wt, 'deps', 'ferramenta')), 'o preparo rodou dentro da worktree');
+    const tipos = lerLedger(dirThread(p.dir, id)).map((e) => e.tipo);
+    assert.ok(tipos.indexOf('worktree_dependencias_pendentes') < tipos.indexOf('worktree_dependencias') &&
+      tipos.indexOf('worktree_dependencias') < tipos.indexOf('baseline_recorded'), tipos.join(' '));
+    const [preparo] = eventos(p, id, 'worktree_dependencias');
+    assert.equal(preparo.ok, true); assert.equal(preparo.dir, wt);
+    // Com o preparo ok, nada fica pendente: a baseline seguinte e o verify nao o repetem.
+    gravarBaseline(p.carregado, id);
+    verificar(p.carregado, id);
+    assert.equal(eventos(p, id, 'worktree_dependencias').length, 1);
+  } finally { p.limpar(); }
+});
+
+test('defeito 2 (CHECK 3): o preparo adiado que falha recusa a baseline e o verify antes do primeiro comando; o seguinte repete o preparo', () => {
+  const falha = 'test -f liberado || { echo cache-vazio-e-sem-rede >&2; exit 3; }; mkdir -p deps && ln -sf /bin/true deps/ferramenta';
+  const p = projeto('rm037d2010-deps-adiado-falha', falha);
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'adiado que falha', modo: 'auto', criarWorktree: true, adiarDependencias: true });
+    const wt = thread.worktree!;
+    assert.throws(() => gravarBaseline(p.carregado, thread.id), (e: Error) => {
+      assert.equal(e.message, 'baseline.dependencia-ausente: o preparo adiado da worktree (worktree.dependencias) saiu com codigo 3: ' +
+        `cache-vazio-e-sem-rede; a baseline nao foi gravada sem as dependencias. Rode na worktree cd ${wt} && ${falha}; ` +
+        'a proxima baseline repete o preparo antes dos comandos');
+      return true;
+    });
+    assert.equal(eventos(p, thread.id, 'baseline_recorded').length, 0, 'nenhuma baseline sobre a worktree sem dependencias');
+    assert.throws(() => verificar(p.carregado, thread.id), /verify\.dependencia-ausente: o preparo adiado da worktree \(worktree\.dependencias\) saiu com codigo 3/);
+    assert.equal(eventos(p, thread.id, 'verify_run').length, 0, 'nenhum verify sobre a worktree sem dependencias');
+    assert.deepEqual(eventos(p, thread.id, 'worktree_dependencias').map((e) => [e.ok, e.code]), [[false, 3], [false, 3]]);
+    // A causa resolvida na worktree: a baseline seguinte repete o preparo e grava.
+    fs.writeFileSync(path.join(wt, 'liberado'), '');
+    const b = gravarBaseline(p.carregado, thread.id);
+    assert.equal(b.comandos.find((c) => c.nome === 'build')?.ok, true);
+    assert.deepEqual(eventos(p, thread.id, 'worktree_dependencias').map((e) => e.ok), [false, false, true]);
+  } finally { p.limpar(); }
+});
+
+test('defeito 2 (CHECK 3): a recusa do preparo adiado nas duas linguas, com o codigo ou o estouro e o comando exato', () => {
+  const linhas = () => {
+    const m = msg().verify;
+    return [m.dependenciasPendentesFalharam('baseline', 'npm ci', 3, false, '/tmp/wt', 'sem rede'),
+      m.dependenciasPendentesFalharam('verify', 'npm ci', -1, true, '/tmp/wt', '')];
+  };
+  assert.deepEqual(comLocale('pt-BR', linhas), [
+    'baseline.dependencia-ausente: o preparo adiado da worktree (worktree.dependencias) saiu com codigo 3: sem rede; a baseline ' +
+      'nao foi gravada sem as dependencias. Rode na worktree cd /tmp/wt && npm ci; a proxima baseline repete o preparo antes dos comandos',
+    'verify.dependencia-ausente: o preparo adiado da worktree (worktree.dependencias) estourou o prazo; o verify nao rodou sem as ' +
+      'dependencias. Rode na worktree cd /tmp/wt && npm ci; o proximo verify repete o preparo antes dos comandos',
+  ]);
+  assert.deepEqual(comLocale('en', linhas), [
+    'baseline.missing-dependency: the deferred worktree preparation (`worktree.dependencias`) exited with code 3: sem rede; the ' +
+      'baseline was not recorded without the dependencies. Run in the worktree `cd /tmp/wt && npm ci`; the next baseline repeats ' +
+      'the preparation before the commands',
+    'verify.missing-dependency: the deferred worktree preparation (`worktree.dependencias`) ran past its deadline; verify did not ' +
+      'run without the dependencies. Run in the worktree `cd /tmp/wt && npm ci`; the next verify repeats the preparation before ' +
+      'the commands',
   ]);
 });

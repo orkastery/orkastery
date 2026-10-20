@@ -17,6 +17,13 @@ export const VERIFY_PT_BR = {
     (preparo ? `rode na worktree da thread o preparo do manifesto (worktree.dependencias): ${preparo}; depois grave a baseline de novo`
       : 'instale ou prepare as dependencias antes de gravar a baseline; para o ork preparar toda worktree nova, declare o ' +
         'comando em worktree.dependencias no manifesto'),
+  // RM-037 (CHECK 3 da ork-rm037defeit2): o preparo que a criacao adiou falhou, e a operacao nao roda sem as dependencias.
+  dependenciasPendentesFalharam: (operacao: 'baseline' | 'verify', comando: string, code: number, estourou: boolean, dir: string,
+    ultimaLinha: string) =>
+    `${operacao}.dependencia-ausente: o preparo adiado da worktree (worktree.dependencias) ` +
+    `${estourou ? 'estourou o prazo' : `saiu com codigo ${code}`}${ultimaLinha ? `: ${ultimaLinha}` : ''}; ` +
+    `${operacao === 'baseline' ? 'a baseline nao foi gravada' : 'o verify nao rodou'} sem as dependencias. Rode na worktree ` +
+    `cd ${dir} && ${comando}; ${operacao === 'baseline' ? 'a proxima baseline' : 'o proximo verify'} repete o preparo antes dos comandos`,
   baselineCommit: (commit: string) => `  commit ${commit}`,
   // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito (estouro, sinal, relogio sob steal, nao rodou) nao vale
   // como "ja falhava"; `situacao` e a do comando, no locale da impressao.
@@ -99,6 +106,12 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
     (preparo ? `run the manifest preparation (\`worktree.dependencias\`) in the thread worktree: \`${preparo}\`; then record the baseline again`
       : 'install or prepare dependencies before recording the baseline; for ork to prepare every new worktree, declare the ' +
         'command in `worktree.dependencias` in the manifest'),
+  dependenciasPendentesFalharam: (operacao, comando, code, estourou, dir, ultimaLinha) =>
+    `${operacao}.missing-dependency: the deferred worktree preparation (\`worktree.dependencias\`) ` +
+    `${estourou ? 'ran past its deadline' : `exited with code ${code}`}${ultimaLinha ? `: ${ultimaLinha}` : ''}; ` +
+    `${operacao === 'baseline' ? 'the baseline was not recorded' : 'verify did not run'} without the dependencies. Run in the ` +
+    `worktree \`cd ${dir} && ${comando}\`; ${operacao === 'baseline' ? 'the next baseline' : 'the next verify'} repeats the ` +
+    'preparation before the commands',
   baselineCommit: (commit) => `  commit ${commit}`,
   baselineComando: (nome, veredito, code, comando, situacao) => `  ${nome.padEnd(10)} ${veredito === 'passava' ? 'passed'
     : veredito === 'ja-falhava' ? `already failing (exit ${code})` : `NO VERDICT, ${situacao}: does not count as "already failing"`}  ${comando}`,
