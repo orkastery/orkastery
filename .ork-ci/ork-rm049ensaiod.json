@@ -152,7 +152,7 @@
       "alegacao": "os dois recibos do ensaio sao JSON validos, com achados e sem caminho pessoal da maquina",
       "negativa": false,
       "verificar": [
-        "node -e \"for (const f of ['ensaio-2026-10-03.json','ensaio-2026-10-03-candidato.json']) { const t=require('fs').readFileSync('docs/roadmap/evidencias/RM-049/'+f,'utf8'); const d=JSON.parse(t); if (!d.comandos.length || /claude-1000|\\/home\\/julio/.test(t)) process.exit(1); } if (JSON.parse(require('fs').readFileSync('docs/roadmap/evidencias/RM-049/ensaio-2026-10-03.json','utf8')).achados.length < 17) process.exit(1)\""
+        "node -e \"for (const f of ['ensaio-2026-10-03.json','ensaio-2026-10-03-candidato.json']) { const t=require('fs').readFileSync('docs/roadmap/evidencias/RM-049/'+f,'utf8'); const d=JSON.parse(t); if (!d.comandos.length || /claude-1000/.test(t)) process.exit(1); } if (JSON.parse(require('fs').readFileSync('docs/roadmap/evidencias/RM-049/ensaio-2026-10-03.json','utf8')).achados.length < 17) process.exit(1)\""
       ],
       "criadoEm": "2026-10-03T05:48:23.192Z",
       "estado": "verificado",

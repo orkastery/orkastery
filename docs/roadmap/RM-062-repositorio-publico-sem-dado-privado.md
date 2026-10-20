@@ -6,24 +6,27 @@ categoria: melhoria
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-12T10:59:28-03:00
+atualizado_em: 2026-10-20T00:41:35-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Mesclado
-  testes: Não iniciados
+  codigo: Branch criada
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: c12d4d0
+    commit: null
     pr: null
+  testes:
+    f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4)
+    f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7)
 sdlc:
-  thread: ork-rm062privado
-  modo: "#Fast"
+  thread: ork-rm062barreir
+  modo: "#Auto"
   fase: GO
-  status: fechada
+  status: aberta
 ---
 
 # RM-062 — Repositório público sem dado privado
@@ -34,7 +37,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -57,7 +60,7 @@ Relações: [RM-046](RM-046-go-to-open-source.md) (GoToOpenSource), [RM-047](RM-
 - **Hipótese:** se a barreira roda no CI, no `ork verify` e no `ork ci prepare`, com padrões genéricos mais uma lista local que fica fora do git, então o dado privado é pego antes do commit final e, no pior caso, antes do merge, porque a verificação deixa de depender de alguém notar.
 - **Métrica principal / linha de base / meta / janela / fonte:** ocorrências de termo privado em arquivo versionado e em nome de arquivo, medidas por `git grep` e `git ls-files` com os padrões e a lista local. Linha de base: 59 ocorrências do hostname em 24 arquivos, e 1 nome de arquivo, em 12/10/2026, antes da correção desta thread. Meta: 0 a cada PR. Janela: cada PR, no CI.
 - **Métricas de proteção:**
-  - falso positivo baixo: padrões genéricos têm lista de exceções por caminho (exemplos de documentação como `/home/usuario`) e a lista é revisada em PR;
+  - falso positivo baixo: padrões genéricos têm exceções por padrão e valor exato, com caminho apenas como filtro adicional, e a lista é revisada em PR;
   - a lista local de termos privados nunca vai ao git, ao bundle, ao ledger ou a log de CI;
   - o relatório do achado não repete o termo privado: diz o arquivo, a linha e o padrão.
 
@@ -77,12 +80,25 @@ Relações: [RM-046](RM-046-go-to-open-source.md) (GoToOpenSource), [RM-047](RM-
 
 | Fatia | Resultado | Critério de aceite verificável | Dependências |
 | --- | --- | --- | --- |
-| F1: Barreira no CI | O CI do núcleo e o dos sites varrem as linhas e os nomes de arquivo versionados. Padrões genéricos: `/home/<usuário>`, e-mails fora da lista permitida, hostnames. Mais uma lista local de termos privados, fora do git, lida só na máquina de quem roda | Um arquivo de teste com cada padrão reprova; um nome de arquivo com termo da lista reprova; a lista local ausente no CI não derruba a varredura dos padrões genéricos; o relatório não imprime o termo privado inteiro | Nenhuma |
+| F1: Barreira no CI | O CI do núcleo varre o conteúdo bruto e os nomes de arquivo versionados. Padrões genéricos: `/home/<usuário>`, e-mails fora da lista permitida, hostnames. Mais uma lista local de termos privados, fora do git, lida só na máquina de quem roda | Um arquivo de teste com cada padrão reprova; conteúdo binário com texto literal e nome de arquivo com termo da lista reprovam; a lista local ausente no CI não derruba a varredura dos padrões genéricos; o relatório não imprime o termo privado inteiro | Nenhuma |
 | F2: Barreira no `ork verify` e no `ork ci prepare` | A mesma varredura roda antes do commit final da thread, sobre o diff e sobre os nomes de arquivo, e o `ork ci prepare` recusa gerar o bundle com achado | `ork verify` falha com o achado; o bundle não é gerado com termo privado; o caminho com a lista local ausente passa só pelos padrões genéricos e diz isso | F1 |
 | F3: Nome genérico por construção | Thread que grava evidência usa nome genérico de máquina; a evidência de rede grava `maquina-a`, `maquina-b`, nunca o hostname, e o mapa entre nome genérico e máquina real fica só na lista local | Teste do gravador de evidência: o JSON e o nome do arquivo não têm o hostname, mesmo quando o ambiente o fornece | F1 |
 | F4: Relatório honesto do escape | Quando algo escapou, o relatório do PR diz o que foi corrigido, o que continua no histórico (commits anteriores) e a decisão do dono sobre reescrever ou não | Modelo de texto no guia de PR e teste que confere as três partes (corrigido, no histórico, decisão) | F1 |
 
 Os aceites acima são o que cada fatia terá de provar; não são provas já executadas. A correção do arquivo de evidência da RM-040 é a ação imediata desta thread, anterior às fatias, e não conta como F1.
+
+### F1 e F2: a barreira (thread `ork-rm062barreir`)
+
+- **Onde roda:** no CI do núcleo, como passo do job `documentacao`, que já é check exigido (nenhum check obrigatório novo), com `ork privado varrer` sobre a árvore versionada; no `ork verify`, sobre o diff da thread contra a base; no `ork ci prepare`, sobre o mesmo diff e o texto do bundle, antes de o arquivo existir.
+- **Padrões genéricos:** caminho de home (`/home/<usuário>`, também escapado em regex e em JSON, `/Users/<usuário>` e `C:\Users\<usuário>`); e-mail fora da lista permitida (domínio reservado de exemplo, credencial de URL e remoto SSH não contam); hostname no formato de máquina (sufixo de máquina pessoal, padrões de fábrica do Windows, da AWS e de VPS, e `srv` com letras e dígitos). Hostname sem formato de máquina só a lista local pega.
+- **Exceções:** `orkastery.privado.json` (contrato `ork.privado/v1`), sempre por padrão e valor exato, sem curinga, com caminho apenas como filtro adicional e motivo obrigatório. Cada e-mail permitido também é exato e tem motivo; caminho que equivalha a curinga global é recusado. Exceção nunca vale para a lista local, e o próprio arquivo de exceções passa pela lista local.
+- **Lista local:** `termos-privados.txt` em `~/.orkastery/` e em `.orkastery/` do projeto, ou o arquivo indicado por `ORK_TERMOS_PRIVADOS`, sempre fora do git. Só é aceita como arquivo comum do usuário atual, sem link simbólico e com permissão `0600`; arquivo inseguro ou versionado é recusado sem imprimir caminho nem conteúdo. Ausente, como no CI, só os padrões genéricos rodam.
+- **Relatório:** arquivo, linha, coluna e padrão; o nome de arquivo com achado sai com `[omitido]` no lugar do trecho; o termo da lista local sai pelo número dele na lista. Nenhum valor casado, detalhe de exceção sem uso ou caminho indicado pela variável vai ao texto, ao JSON, ao ledger ou ao bundle.
+- **Severidade:** a policy `dado_privado` do manifesto. Em `block`, o `ork verify` reprova com `policy.violation`, o `ork ci prepare` não grava o bundle e o passo do CI sai vermelho; em `warn`, todos avisam e seguem. Sem a policy, o `ork verify` e o `ork ci prepare` não mudam, e o `ork privado varrer` reprova o que achar. Neste repositório, a policy começou em `warn` e passou a `block` depois da árvore medida em zero achado.
+- **Medição da árvore:** na base carimbada (`79d3ebf9`), a varredura achou três dados reais e o resto era exemplo inventado. Os reais foram corrigidos nesta branch: a conta pessoal do dono em quatro fixtures gravadas da API do GitHub virou uma conta inventada, um teste da rede que usava o nome do dono como nome de máquina passou a usar `maquina-a`, e a regex de uma claim antiga do bundle da RM-049 deixou de procurar o caminho de home do dono pelo nome (a barreira faz essa conferência para todo arquivo). Os exemplos (usuários de home dos testes e da documentação, e-mails de domínio de teste do repositório, nomes de máquina inventados) entraram nas exceções. Depois disso, a árvore da branch tem zero achado.
+- **O que continua no histórico:** os commits anteriores a esta thread ainda trazem os três dados corrigidos agora; o histórico não é reescrito, e reescrevê-lo é decisão do dono, caso a caso (D1).
+- **Conteúdo binário:** a árvore e o diff tratam os bytes como `UTF-8`; byte nulo e `-diff` não pulam o arquivo, e texto literal continua detectável.
+- **Limites:** conteúdo comprimido ou codificado em `UTF-16`, `base64` ou outro formato não é decodificado; mensagem de commit não é varrida; o F2 lê o diff líquido contra a base, então um commit intermediário que acrescente e depois retire o dado escapa da barreira e permanece no histórico da branch, que fica para a revisão; o hostname da máquina que roda a varredura não entra sozinho como termo (vai para a lista local por decisão do dono); a barreira no CI dos sites, a F3 e a F4 ficam para as próximas fatias.
 
 ## Plano e decisões
 
@@ -93,7 +109,7 @@ Os aceites acima são o que cada fatia terá de provar; não são provas já exe
 
 | Risco | Probabilidade / impacto | Mitigação e contingência |
 | --- | --- | --- |
-| Falso positivo em exemplo de documentação (`/home/usuario`, e-mail de exemplo) | Alta / baixo | Lista de exceções por caminho e por padrão, revisada em PR; começar só avisando e passar a reprovar quando o ruído for zero |
+| Falso positivo em exemplo de documentação (`/home/usuario`, e-mail de exemplo) | Alta / baixo | Exceção por padrão e valor exato, com caminho opcional, motivo e revisão em PR; começar só avisando e passar a reprovar quando o ruído for zero |
 | A lista local não existe no CI | Certa / médio | O CI usa só os padrões genéricos; a lista local roda no `ork verify` e no `ork ci prepare` da máquina do dono e da fábrica |
 | O relatório do achado vira um novo vazamento | Média / alto | O relatório mostra arquivo, linha e padrão, nunca o termo; teste confere |
 | Histórico continua com o dado | Certa / médio | Dito com honestidade no PR; reescrever histórico público é decisão do dono, caso a caso |
@@ -122,13 +138,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
-| Documentação | Em revisão | — | 2026-10-12 | Julio |
-| Código | Mesclado | commit `c12d4d0` | 2026-10-12 | Julio |
-| Testes | Não iniciados | — | 2026-10-12 | Julio |
-| Deploy | Não implantado | — | 2026-10-12 | Julio |
-| Exposição | Flag desligada | — | 2026-10-12 | Julio |
-| Habilitação | Pendente | — | 2026-10-12 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-20 | Julio |
+| Documentação | Em revisão | — | 2026-10-20 | Julio |
+| Código | Branch criada | — | 2026-10-20 | Julio |
+| Testes | Em execução | f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4) · f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7) | 2026-10-20 | Julio |
+| Deploy | Não implantado | — | 2026-10-20 | Julio |
+| Exposição | Flag desligada | — | 2026-10-20 | Julio |
+| Habilitação | Pendente | — | 2026-10-20 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -136,8 +152,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery nas fatias; A: Julio; C: —; I: quem contribui com o repositório.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente Claude Code redigiu esta página e fez a correção dos nomes em #Fast, restrito à documentação e aos nomes de arquivo. Revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** abrir a F1 (barreira no CI); responsável: fábrica; sem data definida nesta página.
+- **Próxima ação, responsável e prazo:** CHECK independente da F1 e da F2 da `ork-rm062barreir`; depois, a barreira no CI dos sites, a F3 e a F4; responsável: fábrica; sem data definida nesta página.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-12 | Item criado em Desenvolvimento, com F1 a F4; arquivo de evidência da RM-040 renomeado para nome genérico | Decisão do dono de 12/10/2026 (item 5.a); o nome antigo continua nos commits anteriores | Julio |
+| 2026-10-20 | F1 (CI do núcleo) e F2 (`ork verify` e `ork ci prepare`) levadas à branch `ork-rm062barreir` para revisão; policy `dado_privado` de `warn` a `block` com a árvore em zero achado; três dados reais corrigidos | Pedido do dono para a thread #Auto; decisões D3 a D12 no ledger da thread; testes DP, DV, DB e DC | Julio |

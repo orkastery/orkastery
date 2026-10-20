@@ -22,7 +22,7 @@ import { PULSE_PT_BR } from './locale-pulse';
 
 /** Onde um gate acontece. Uma policy declara em quais gates ela vale. */
 /** RM-008 (B8): `claims.add` so avalia policy em warn; nenhum gate bloqueia o registro de claim. */
-export type PontoDeGate = 'phase.dispatch' | 'verify' | 'ship' | 'claims.add';
+export type PontoDeGate = 'phase.dispatch' | 'verify' | 'ship' | 'claims.add' | 'ci.prepare';
 
 /** O que cada motivo tipado significa, em uma linha, para a saida do CLI. */
 // RM-061 (F2b): a fonte e o catalogo pt-BR (`locale-pulse.ts`), com o ingles ao lado; o texto nao muda.

@@ -1,0 +1,676 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm062barreir",
+  "branch": "ork/ork-rm062barreir-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/src/dado-privado.ts",
+      "alegacao": "T1 (F1, D4, D5, D8, D9): o módulo da varredura de dado privado procura os padrões genéricos (home, também escapado; e-mail fora da lista permitida; hostname no formato de máquina) e os termos da lista local fora do git, na árvore versionada, no diff da thread e num texto avulso, aplica as exceções versionadas de orkastery.privado.json (nunca à lista local) e relata arquivo, linha, coluna e padrão sem o valor casado; os 14 casos DP passam.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"export const ARQUIVO_DAS_EXCECOES = 'orkastery.privado.json';\" core/src/dado-privado.ts && grep -qF \"export const VARIAVEL_DA_LISTA_LOCAL = 'ORK_TERMOS_PRIVADOS';\" core/src/dado-privado.ts && grep -qF 'export function varrerDiff(' core/src/dado-privado.ts",
+        "node --test-reporter=tap core/dist-test/test/dado-privado.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DP[0-9]+:/{p++} END{exit !(p>=14 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T03:16:57.530Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/test/dado-privado.test.ts",
+      "alegacao": "T1: os testes DP1 a DP14 provam os aceites da F1 no módulo com fixtures inventadas: um achado por padrão genérico, nome de arquivo com termo da lista local mascarado, lista local ausente dita e os genéricos seguindo, relatório sem nenhum valor casado, exceções por caminho, padrão e valor, contrato do arquivo de exceções, diff e base da thread.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('DP[0-9]+: \" core/test/dado-privado.test.ts)\" -ge 14",
+        "node --test-reporter=tap core/dist-test/test/dado-privado.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DP[0-9]+:/{p++} END{exit !(p>=14 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T03:17:14.231Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "T2 (F2, D3, D7): com policies.dado_privado em block, o ork verify varre o diff da thread contra a base e reprova com policy.violation quando acha dado privado, gravando o gate_blocked e o resumo no verify_run sem o valor casado; em warn grava policy_warn e segue; sem a policy, nada muda (casos DV1 a DV5).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"const dadoPrivado = barreiraDaThread(carregado, thread, cwd, 'verify');\" core/src/verify.ts && grep -qF \"if (dadoPrivadoBloqueia.length > 0) motivos.push('policy.violation');\" core/src/verify.ts",
+        "node --test-reporter=tap core/dist-test/test/dado-privado-verify.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DV[0-9]+:/{p++} END{exit !(p>=5 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T03:21:27.165Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/src/policies.ts",
+      "alegacao": "T2 (D3): dado_privado é policy conhecida nos gates verify e ci.prepare; avaliarPolicies monta o detalhe com a contagem, os padrões e até dez arquivo:linha, sem o valor casado, e a correção aponta o nome genérico ou a exceção em orkastery.privado.json.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const p=require(\"./core/dist/policies.js\");const d=p.POLICIES_CONHECIDAS.dado_privado;process.exit(d&&d.quando.join(\",\")===\"verify,ci.prepare\"?0:1)'",
+        "grep -qF 'export function severidadeDeclarada(manifesto: Manifesto, nome: string): Severidade | null {' core/src/policies.ts"
+      ],
+      "criadoEm": "2026-10-20T03:21:29.859Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/src/gates.ts",
+      "alegacao": "T2 (D3): o ponto de gate ci.prepare existe ao lado de verify, para a policy dado_privado valer no ork ci prepare.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"export type PontoDeGate = 'phase.dispatch' | 'verify' | 'ship' | 'claims.add' | 'ci.prepare';\" core/src/gates.ts"
+      ],
+      "criadoEm": "2026-10-20T03:21:31.757Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-verify.ts",
+      "alegacao": "T2: a seção da barreira de dado privado no texto do ork verify (escopo, lista local presente ou ausente, achados sem valor) existe em pt-BR e em inglês, e os testes de locale do verify continuam verdes.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'dadoPrivadoTitulo' core/src/locale-verify.ts)\" = 2 && test \"$(grep -c 'dadoPrivadoListaAusente' core/src/locale-verify.ts)\" = 2",
+        "node --test core/dist-test/test/locale-verify.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:21:34.120Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/test/dado-privado-verify.test.ts",
+      "alegacao": "T2 e T3: os casos DV provam a barreira no ork verify (block reprova, warn avisa, sem policy nada muda, lista ausente dita, não rastreado e nome acrescentado entram) e os casos DB provam o ork ci prepare (recusa e não grava com achado no diff ou no bundle, warn grava com aviso, sem policy nada muda, bundle anterior fora do diff), com valores inventados.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('DV[0-9]+: \" core/test/dado-privado-verify.test.ts)\" -ge 5",
+        "node --test-reporter=tap core/dist-test/test/dado-privado-verify.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DV[0-9]+:/{p++} END{exit !(p>=5 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T03:21:37.256Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "T3 (F2, D7): com policies.dado_privado, o ork ci prepare varre o diff da thread (sem o bundle anterior da própria thread) e o texto do bundle novo antes de gravar; em block, achado recusa com privado.achado e o arquivo não é gravado; em warn, grava com o aviso e o policy_warn; a linha da lista local (presente ou ausente) sai sempre; sem a policy, nada muda (casos DB1 a DB5).",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'function barreiraDoBundle(carregado: ManifestoCarregado, threadId: string, destino: string, caminho: string, texto: string,' core/src/ci.ts && grep -qF 'privado.achado: o bundle nao foi gerado;' core/src/ci.ts",
+        "node --test-reporter=tap core/dist-test/test/dado-privado-verify.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DB[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T03:23:53.508Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/test/dado-privado-verify.test.ts",
+      "alegacao": "T3: os casos DB1 a DB5 provam o ork ci prepare com a policy dado_privado: achado no diff ou termo da lista na alegação de uma claim recusa e não grava o bundle; warn grava com o aviso e a linha da lista ausente; sem a policy, nada muda; o bundle anterior da própria thread sai do diff.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('DB[0-9]+: \" core/test/dado-privado-verify.test.ts)\" -ge 4",
+        "node --test-reporter=tap core/dist-test/test/dado-privado-verify.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DB[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T03:23:58.493Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T4 (F1, D3): ork privado varrer está no despacho do CLI e entre os comandos que não resolvem projeto-alvo (varre o repositório do diretório atual); sai 1 com o relatório mascarado quando acha sob block ou sem a policy, 0 em warn, off ou sem achado, e 2 quando a varredura não roda (casos DC1 a DC4).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"case 'privado':\" core/src/index.ts && grep -qF \"const COMANDOS_SEM_PROJETO = new Set(['demo', 'ciclos', 'mcp', 'init', 'projetos', 'privado']);\" core/src/index.ts",
+        "node --test-reporter=tap core/dist-test/test/dado-privado-cli.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DC[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T03:27:11.961Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/test/dado-privado-cli.test.ts",
+      "alegacao": "T4: os casos DC1 a DC4 rodam o CLI compilado como o passo do CI: reprova com o relatório mascarado, passa sem achado, JSON no contrato ork.privado-varredura/v1 sem valor, --base só no diff, warn e off saem 0, lista local ausente dita, e o arquivo de exceções fora do contrato sai 2.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('DC[0-9]+: \" core/test/dado-privado-cli.test.ts)\" -ge 4",
+        "node --test-reporter=tap core/dist-test/test/dado-privado-cli.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DC[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T03:27:15.089Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "T4: a ajuda do ork declara privado varrer [--base REF] [--json] em pt-BR e em inglês, alinhada às outras linhas, e a paridade com a referência do CLI continua verde.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'privado varrer \\[--base REF\\] \\[--json\\]' core/src/locale-ajuda.ts)\" = 2",
+        "node --test core/dist-test/test/locale-ajuda.test.js core/dist-test/test/rm044-paridade-cli-md.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:27:17.312Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "T4: o retrato pt-BR da ajuda foi regenerado só nas cinco entradas ajuda cli, pela linha nova do privado varrer, e o teste byte a byte passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'privado varrer [--base REF] [--json]' core/test/fixtures/locale-f2a-pt-BR.json",
+        "node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:27:19.347Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "T4: a referência do CLI em pt-BR e em inglês descreve ork privado varrer (padrões, lista local fora do git, exceções versionadas, relatório sem valor e códigos de saída), e o contrato de projeto-alvo diz que privado não resolve projeto.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '| `ork privado varrer [--base REF] [--json]` |' docs/referencia/cli.md && grep -qF '| `ork privado varrer [--base REF] [--json]` |' docs/referencia/cli.en.md && grep -qF '`projetos` e `privado`, que varre o repositório do diretório atual' docs/referencia/contratos/projetos-rm052.md",
+        "node --test core/dist-test/test/locale-f3a-referencia.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:27:21.875Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "T4: a referência do CLI em inglês tem a linha de ork privado varrer, com os mesmos códigos de saída da pt-BR, e a paridade das duas referências continua verde.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '| `ork privado varrer [--base REF] [--json]` |' docs/referencia/cli.en.md && grep -qF 'Exits 1 with a finding under the `dado_privado` policy at `block` or with no policy declared' docs/referencia/cli.en.md",
+        "node --test core/dist-test/test/locale-f3a-referencia.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:27:58.377Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/projetos-rm052.md",
+      "alegacao": "T4: o contrato de projeto-alvo lista privado entre os comandos que não resolvem projeto, porque ele varre o repositório do diretório atual.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '`projetos` e `privado`, que varre o repositório do diretório atual, RM-062) também' docs/referencia/contratos/projetos-rm052.md"
+      ],
+      "criadoEm": "2026-10-20T03:27:59.923Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "T5 (F1, D6): o CI do núcleo roda node core/dist/index.js privado varrer como passo do job documentacao, que já é check exigido; o workflow continua com quatro jobs, sem sexto check obrigatório.",
+      "negativa": false,
+      "verificar": [
+        "awk '/^  documentacao:/{d=1;next} d&&/^  [a-z][a-z-]*:/{d=0} d&&/run: node core\\/dist\\/index.js privado varrer$/{a=1} END{exit !a}' .github/workflows/ci.yml",
+        "awk '/^jobs:/{j=1;next} j&&/^[^ #]/{j=0} j&&/^  [a-z][a-z-]*:/{n++} END{exit n!=4}' .github/workflows/ci.yml"
+      ],
+      "criadoEm": "2026-10-20T03:29:10.361Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "T5 (D3, D11): o manifesto do Orkastery declara a policy dado_privado, que liga a barreira no ork verify, no ork ci prepare e no passo do CI.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE '^ +dado_privado: (warn|block)$' orkastery.yaml"
+      ],
+      "criadoEm": "2026-10-20T03:29:11.993Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/forja/github/2026-10/branch.json",
+      "alegacao": "T6 (D1, D10): a fixture gravada da API do GitHub (branch) leva uma conta inventada no autor e no committer, sem a conta pessoal do dono; a varredura não acha nada nas fixtures da forja e os testes da forja passam.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c '\"login\": \"pessoa-exemplo\"' core/test/fixtures/forja/github/2026-10/branch.json)\" = 2 && test \"$(grep -c '\"email\": \"pessoa@example.com\"' core/test/fixtures/forja/github/2026-10/branch.json)\" = 2",
+        "node core/dist/index.js privado varrer --json | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>{const r=JSON.parse(s);process.exit(r.erro===null&&r.achados.filter(a=>a.arquivo.startsWith(\"core/test/fixtures/forja/\")).length===0?0:1)})'",
+        "node --test core/dist-test/test/forja-ci-github.test.js core/dist-test/test/forja-pedido-mesclado.test.js core/dist-test/test/forja-api.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:37:50.764Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/forja/github/2026-10/pr.json",
+      "alegacao": "T6 (D1, D10): a fixture gravada da API do GitHub (PR) leva a mesma conta inventada, sem a conta pessoal do dono, e o pedido mesclado continua lido igual.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c '\"login\": \"pessoa-exemplo\"' core/test/fixtures/forja/github/2026-10/pr.json)\" = 2",
+        "node --test core/dist-test/test/forja-pedido-mesclado.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:37:52.886Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/forja/github/2026-10-cabecalhos/branch.json",
+      "alegacao": "T6 (D1, D10): a fixture com cabeçalhos da API do GitHub (branch) leva a conta inventada no autor e no committer, sem a conta pessoal do dono.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c '\"login\": \"pessoa-exemplo\"' core/test/fixtures/forja/github/2026-10-cabecalhos/branch.json)\" = 2 && test \"$(grep -c '\"email\": \"pessoa@example.com\"' core/test/fixtures/forja/github/2026-10-cabecalhos/branch.json)\" = 2",
+        "node --test core/dist-test/test/forja-api.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:37:55.300Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/forja/github/2026-10-cabecalhos/pr.json",
+      "alegacao": "T6 (D1, D10): a fixture com cabeçalhos da API do GitHub (PR) leva a conta inventada, sem a conta pessoal do dono.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c '\"login\": \"pessoa-exemplo\"' core/test/fixtures/forja/github/2026-10-cabecalhos/pr.json)\" = 2"
+      ],
+      "criadoEm": "2026-10-20T03:37:57.252Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "core/test/rede.test.ts",
+      "alegacao": "T6 (D2, D10): o teste da rede que usava um nome de máquina feito com o nome do dono usa o nome genérico maquina-a, e a suíte da rede passa.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c \"'maquina-a'\" core/test/rede.test.ts)\" = 5",
+        "node --test core/dist-test/test/rede.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:37:58.849Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm049ensaiod.json",
+      "alegacao": "T6 (D10): a claim antiga do bundle da RM-049 deixou de procurar o caminho de home do dono pelo nome (a barreira faz essa conferência para todo arquivo), e o bundle continua JSON válido.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '/claude-1000/.test(t)' .ork-ci/ork-rm049ensaiod.json && node -e 'JSON.parse(require(\"fs\").readFileSync(\".ork-ci/ork-rm049ensaiod.json\",\"utf8\"))'"
+      ],
+      "criadoEm": "2026-10-20T03:38:00.906Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "T7 (D11): com a árvore medida em zero achado depois da T6, a policy dado_privado do Orkastery passou de warn a block, e ork privado varrer na árvore versionada sai 0 sem achado (com achado, sairia 1 e o passo do CI ficaria vermelho, como os casos DC3 provam).",
+      "negativa": true,
+      "verificar": [
+        "grep -qE '^ +dado_privado: block$' orkastery.yaml",
+        "node core/dist/index.js privado varrer"
+      ],
+      "criadoEm": "2026-10-20T03:41:13.350Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "T8: o índice do roadmap, regerado por ork docs sincronizar, mostra a RM-062 com os testes em execução.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE '^\\| \\[RM-062\\]\\(RM-062-repositorio-publico-sem-dado-privado\\.md\\) \\| .* \\| Em execução \\| ' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-20T03:42:12.171Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "T8: o guia de verificação descreve a policy dado_privado (opt-in, o que o ork verify e o ork ci prepare varrem, a lista local fora do git, block e warn, o relatório sem valor e as exceções versionadas).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'A `dado_privado` (RM-062) é a barreira de dado privado' docs/guias/verificacao.md && grep -qF '# dado_privado: block' docs/guias/verificacao.md"
+      ],
+      "criadoEm": "2026-10-20T03:42:14.295Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm062barreir",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T8: o CHANGELOG traz em \"Não publicado\" a linha da barreira de dado privado (RM-062, F1 e F2), sem anunciar versão.",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## Não publicado/{n=1;next} /^## /&&n{exit} n&&/\\*\\*Barreira de dado privado \\(RM-062, F1 e F2\\)\\*\\*/{a=1} END{exit !a}' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-20T03:42:16.031Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "core/src/dado-privado.ts",
+      "alegacao": "GO-FIX: a barreira inclui conteúdo binário, não serializa valor de exceção sem uso nem caminho da lista, exige lista local comum do usuário com 0600 e sem link, usa exceções granulares, e detecta e-mail depois de `/` e `campo:`.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test",
+        "node --test-reporter=tap core/dist-test/test/dado-privado.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DP[0-9]+:/{p++} END{exit !(p>=16 && f==0 && s==0)}'",
+        "node core/dist/index.js privado varrer"
+      ],
+      "criadoEm": "2026-10-20T05:27:03.807Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "core/test/dado-privado.test.ts",
+      "alegacao": "GO-FIX: DP1 a DP16 são testes comportamentais; DP6, DP10, DP11 e DP14 a DP16 reprovam os bypasses do CHECK e a mutação de exceção global.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('DP[0-9]+: \" core/test/dado-privado.test.ts)\" -ge 16",
+        "node --test-reporter=tap core/dist-test/test/dado-privado.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DP[0-9]+:/{p++} END{exit !(p>=16 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T05:27:07.667Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "core/test/dado-privado-cli.test.ts",
+      "alegacao": "GO-FIX substitui C9: DC1 a DC4 executam o CLI compilado e provam despacho, códigos de saída, JSON mascarado, diff e recusa segura; remover o despacho de `privado` derruba a claim.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\('DC[0-9]+: \" core/test/dado-privado-cli.test.ts)\" -ge 4",
+        "node --test-reporter=tap core/dist-test/test/dado-privado-cli.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DC[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T05:27:17.099Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "core/src/dado-privado.ts",
+      "alegacao": "GO-FIX 2: a barreira força conteúdo binário e arquivos -diff no diff sem textconv, detecta e-mail após URL encerrada, recusa curingas semanticamente globais e recusa FIFO sem bloquear.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test",
+        "node core/dist-test/test/dado-privado.test.js | awk '/^not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - DP[0-9]+:/{p++} END{exit !(p>=19 && f==0 && s==0)}'",
+        "node core/dist-test/test/dado-privado-verify.test.js | awk '/^not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - DB6:/{p++} END{exit !(p==1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T07:55:58.232Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "core/src/maquina.ts",
+      "alegacao": "GO-FIX 2: a pasta do usuário aceita ambiente explícito para que a lista local e seu rótulo respeitem ORK_USUARIO_DIR e ORKASTERY_HOME sem expor o caminho.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const {pastaDoUsuario}=require(\"./core/dist/maquina.js\");process.exit(pastaDoUsuario({ORK_USUARIO_DIR:\"/tmp/ork-u\",ORKASTERY_HOME:\"/tmp/ork-h\"})===\"/tmp/ork-u\"?0:1)'",
+        "node core/dist-test/test/dado-privado.test.js | awk '/^not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - DP4:/{p++} END{exit !(p==1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T07:55:58.293Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "core/test/dado-privado.test.ts",
+      "alegacao": "GO-FIX 2: DP17 a DP19 reprovam o código anterior para e-mail após URL encerrada, conteúdo binário/-diff no diff e FIFO; DP4 prova o rótulo de ORK_USUARIO_DIR, e o arquivo limpa os temporários que cria.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\\\('DP(17|18|19): \" core/test/dado-privado.test.ts)\" = 3",
+        "node --test-reporter=tap core/dist-test/test/dado-privado.test.js | awk '/^not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - DP(17|18|19):/{p++} END{exit !(p==3 && f==0 && s==0)}'",
+        "grep -qF 'for (const dir of temporarios) fs.rmSync(dir, { recursive: true, force: true });' core/test/dado-privado.test.ts"
+      ],
+      "criadoEm": "2026-10-20T07:56:18.902Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "GO-FIX 2: o guia limita a barreira ao texto literal lido como UTF-8, documenta --text --no-textconv e diz que conteúdo comprimido ou codificado não é decodificado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'O diff é lido com `--text --no-textconv`' docs/guias/verificacao.md",
+        "grep -qF 'não descomprime nem decodifica conteúdo em `UTF-16`, `base64` ou outro formato' docs/guias/verificacao.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/verificacao.md"
+      ],
+      "criadoEm": "2026-10-20T07:58:42.209Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 2: Não publicado registra a correção de binário/-diff e curingas semanticamente globais sem anunciar versão ou entrega.",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## Não publicado/{n=1;next} /^## /&&n{exit} n&&/binário com texto literal, inclusive sob `-diff`/{a=1} n&&/sem curinga semanticamente global/{b=1} END{exit !(a&&b)}' CHANGELOG.md",
+        "core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-20T07:58:42.252Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm062barreir.json",
+      "alegacao": "GO-FIX 2 substitui C32: o bundle é gerado da lista ativa lida no momento, sem intervalo fixo de IDs; claims retiradas saem e uma claim ativa posterior entra na regeneração seguinte.",
+      "negativa": false,
+      "verificar": [
+        "node --test-reporter=tap core/dist-test/test/dado-privado-verify.test.js | awk '/^not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - DB7:/{p++} END{exit !(p==1 && f==0 && s==0)}'",
+        "node -e 'const b=require(\"./.ork-ci/ork-rm062barreir.json\"),it=[...b.claims,...(b.deferredClaims||[])],ids=it.map(x=>x.id);process.exit(b.schema===\"ork.ci-bundle/v1\"&&b.thread===\"ork-rm062barreir\"&&new Set(ids).size===ids.length&&b.claims.every(c=>c.estado!==\"retirada\")?0:1)'"
+      ],
+      "criadoEm": "2026-10-20T08:00:08.470Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "core/test/dado-privado-verify.test.ts",
+      "alegacao": "GO-FIX 2: DB6 prova de ponta a ponta que block acha termo local em binário e -diff, reprova verify e não grava bundle; DB7 prova que ci prepare recalcula as claims ativas.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\\\('DB(6|7): \" core/test/dado-privado-verify.test.ts)\" = 2",
+        "node --test-reporter=tap core/dist-test/test/dado-privado-verify.test.js | awk '/^not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - DB(6|7):/{p++} END{exit !(p==2 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T08:00:08.559Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "core/test/dado-privado.test.ts",
+      "alegacao": "GO-FIX 3: DP9 usa somente exceção com valor exato, DP10 recusa *e*, *@*.com.br e *-*, e DP17 detecta e-mail após ponto e vírgula, vírgula, crase, parênteses, colchetes, aspas, espaço, tabulação e barra vertical, inclusive CSV pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\\\('DP(9|10|17): \" core/test/dado-privado.test.ts)\" = 3",
+        "npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/dado-privado.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DP(9|10|17):/{p++} END{exit !(p==3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T09:47:41.586Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "core/src/dado-privado.ts",
+      "alegacao": "GO-FIX 3: a autoridade de URL termina nos separadores de documento cobertos por DP17, exceções aceitam somente valor exato sem curinga, e a árvore versionada permanece sem achado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test",
+        "node --test-reporter=tap core/dist-test/test/dado-privado.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DP(9|10|17):/{p++} END{exit !(p==3 && f==0 && s==0)}'",
+        "node core/dist/index.js privado varrer"
+      ],
+      "criadoEm": "2026-10-20T09:49:11.590Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+      "alegacao": "GO-FIX 3 substitui C41: a página enumera DB1 a DB7, documenta exceções com valor exato sem curinga e limita F2 ao diff líquido, deixando o histórico da branch para revisão.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'DB1 a DB7' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+        "grep -qF 'sempre por padrão e valor exato, sem curinga' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+        "grep -qF 'um commit intermediário que acrescente e depois retire o dado escapa da barreira' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md"
+      ],
+      "criadoEm": "2026-10-20T09:50:44.805Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "GO-FIX 3: o guia declara que as exceções usam valor exato sem curinga e que o diff líquido não detecta dado acrescentado e retirado em commit intermediário, cujo histórico fica para revisão.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'sempre com padrão e valor exato, sem curinga' docs/guias/verificacao.md",
+        "grep -qF 'um commit intermediário que' docs/guias/verificacao.md && grep -qF 'permanece no histórico da branch' docs/guias/verificacao.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/verificacao.md"
+      ],
+      "criadoEm": "2026-10-20T09:50:44.876Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 3: Não publicado registra valor exato sem curinga nas exceções e o encerramento da autoridade de URL nos separadores de documento, inclusive ponto e vírgula de CSV.",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## Não publicado/{n=1;next} /^## /&&n{exit} n&&/valor exato sem/{a=1} n&&/inclusive o `;` do CSV/{b=1} END{exit !(a&&b)}' CHANGELOG.md",
+        "core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-20T09:50:44.915Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "GO-FIX 3: a referência do comando privado varrer descreve exceções com valor exato sem curinga, alinhada ao contrato executável.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'As exceções em `orkastery.privado.json` exigem padrão e valor exato sem curinga' docs/referencia/cli.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-20T09:52:36.877Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

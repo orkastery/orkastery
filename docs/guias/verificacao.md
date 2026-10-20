@@ -535,6 +535,7 @@ policies:
   runtime_unavailable: warn   # bloco despachado sem runtime de fallback declarado
   tree_blocked: warn          # ship com a branch da thread atras da base
   # claim_sem_prova_local: warn  # opt-in: o claims add roda o comando da claim uma vez
+  # dado_privado: block           # opt-in: dado privado no diff da thread e no bundle de CI (RM-062)
 ```
 
 | Severidade | Efeito |
@@ -564,6 +565,26 @@ registro, nem declarada em `block`. Como o `add` fica tão lento quanto o comand
 decide ligá-la é o dono do projeto. Sem a worktree da thread (apagada), nada roda e o aviso diz
 isso. Pelo MCP (`ork_claim_add`), o registro nunca roda o texto da claim, com ou sem a policy: lá a
 prova é o `ork_verify`, no sandbox.
+
+A `dado_privado` (RM-062) é a barreira de dado privado de repositório público, e também vem desligada: só vale
+se o manifesto a declarar. Com ela, o `ork verify` varre o diff da thread contra a base (as linhas acrescentadas, os
+arquivos não rastreados e os nomes de arquivo acrescentados), e o `ork ci prepare` varre o mesmo diff e o texto do
+bundle antes de gravar o arquivo. Os dois gates leem o diff líquido contra a base: um commit intermediário que
+acrescente e depois retire o dado não aparece nesse resultado e permanece no histórico da branch, que fica para a
+revisão. O diff é lido com `--text --no-textconv`, inclusive quando o Git classifica o arquivo como binário ou o
+`.gitattributes` marca `-diff`. Os padrões genéricos são caminho de home, e-mail fora da lista
+permitida e hostname no formato de máquina. A leitura trata os bytes como `UTF-8`: encontra texto literal mesmo com byte
+nulo, mas não descomprime nem decodifica conteúdo em `UTF-16`, `base64` ou outro formato. A lista local de termos privados
+(`termos-privados.txt` em `~/.orkastery/` e em `.orkastery/` do projeto, ou o arquivo de `ORK_TERMOS_PRIVADOS`) fica fora
+do git e só é lida quando é arquivo comum do usuário atual, sem link simbólico e com permissão `0600`; sem ela, só os
+padrões genéricos rodam, e a saída diz isso. Em `block`, o achado reprova com `policy.violation` e o bundle não é
+gravado; em `warn`, grava `policy_warn` e segue. O relatório diz arquivo, linha, coluna e padrão, nunca o valor casado,
+o detalhe de uma exceção sem uso nem o caminho indicado pela variável; o nome de arquivo com achado sai com
+`[omitido]`. As exceções ficam em `orkastery.privado.json`, sempre com padrão e valor exato, sem curinga (caminho é
+apenas um filtro adicional); caminho que equivalha a um curinga global é recusado, e cada e-mail permitido é exato e
+tem motivo próprio. Nenhuma permissão vale para a lista local. O
+`ork privado varrer` faz a mesma varredura na árvore versionada inteira, como o
+passo do job `documentacao` do CI do núcleo.
 
 A política `provider_policy: subscription-only` do bloco `runtime` é o que da sentido a policy
 `provider`: ela declara que este projeto só despacha pela assinatura local, e transforma
