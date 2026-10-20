@@ -13,6 +13,7 @@
     { "padrao": "home", "valor": "/home/ana", "motivo": "usuário inventado num teste da rede" },
     { "padrao": "home", "valor": "/home/fulano", "motivo": "usuário inventado num teste da coordenação" },
     { "padrao": "home", "valor": "/home/pessoa", "motivo": "usuário de exemplo no contrato de projetos (RM-052)" },
+    { "padrao": "home", "valor": "/home/plantado", "motivo": "usuário plantado no teste que confere a redação do publicável do aceite (RM-058)" },
     { "padrao": "home", "valor": "/home/private", "motivo": "usuário inventado num teste de segurança do Maestro" },
     { "padrao": "home", "valor": "/home/simulado", "motivo": "usuário inventado num teste da prova de canal" },
     { "padrao": "home", "valor": "/home/teste", "motivo": "usuário inventado num teste de higiene do runtime" },
