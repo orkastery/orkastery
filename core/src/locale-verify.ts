@@ -11,12 +11,28 @@ export const VERIFY_PT_BR = {
   uso: 'uso: ork verify <thread-id> [--baseline] [--so-claims] [--canal C] [--esperar [min]]',
   // ork verify --baseline
   baselineGravada: (id: string) => `Baseline gravada para a thread ${id}.`,
-  baselineDependenciaAusente: (nome: string, code: number, comando: string) =>
+  // RM-037 (defeito 2 de 19 e 20/10/2026): a recusa diz o comando exato do preparo, ou como declara-lo.
+  baselineDependenciaAusente: (nome: string, code: number, comando: string, preparo?: string | null) =>
     `baseline.dependencia-ausente: ${nome} nao executou porque o comando nao existe (codigo ${code}): ${comando}; ` +
-    'instale ou prepare as dependencias antes de gravar a baseline',
+    (preparo ? `rode na worktree da thread o preparo do manifesto (worktree.dependencias): ${preparo}; depois grave a baseline de novo`
+      : 'instale ou prepare as dependencias antes de gravar a baseline; para o ork preparar toda worktree nova, declare o ' +
+        'comando em worktree.dependencias no manifesto'),
+  // RM-037 (CHECK 3 da ork-rm037defeit2): o preparo que a criacao adiou falhou, e a operacao nao roda sem as dependencias.
+  dependenciasPendentesFalharam: (operacao: 'baseline' | 'verify', comando: string, code: number, estourou: boolean, dir: string,
+    ultimaLinha: string) =>
+    `${operacao}.dependencia-ausente: o preparo adiado da worktree (worktree.dependencias) ` +
+    `${estourou ? 'estourou o prazo' : `saiu com codigo ${code}`}${ultimaLinha ? `: ${ultimaLinha}` : ''}; ` +
+    `${operacao === 'baseline' ? 'a baseline nao foi gravada' : 'o verify nao rodou'} sem as dependencias. Rode na worktree ` +
+    `cd ${dir} && ${comando}; ${operacao === 'baseline' ? 'a proxima baseline' : 'o proximo verify'} repete o preparo antes dos comandos`,
   baselineCommit: (commit: string) => `  commit ${commit}`,
-  baselineComando: (nome: string, ok: boolean, code: number, comando: string) =>
-    `  ${nome.padEnd(10)} ${ok ? 'passava' : `ja falhava (codigo ${code})`}  ${comando}`,
+  // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito (estouro, sinal, relogio sob steal, nao rodou) nao vale
+  // como "ja falhava"; `situacao` e a do comando, no locale da impressao.
+  baselineComando: (nome: string, veredito: 'passava' | 'ja-falhava' | 'sem-veredito', code: number, comando: string,
+    situacao: string) => `  ${nome.padEnd(10)} ${veredito === 'passava' ? 'passava' : veredito === 'ja-falhava'
+    ? `ja falhava (codigo ${code})` : `SEM VEREDITO, ${situacao}: nao vale como "ja falhava"`}  ${comando}`,
+  baselineSemVeredito: (nomes: string, id: string) => `  sem veredito na baseline: ${nomes}; no verify, a falha deles sai ` +
+    `como falha sem baseline (verify.failed), nunca como pre-existente. Grave de novo com ork verify ${id} --baseline ` +
+    'numa hora de CPU livre, ou suba verify.timeout_ms_por_comando no manifesto',
   baselineSaida: (caminho: string, id: string) => `  saida de quem falhou: as ultimas linhas em ${caminho}, campo baseline.comandos ` +
     `(resumo e trecho); o evento baseline_recorded esta em ork phase list ${id}`,
   baselineSemComandos: '  (nenhum comando em verify: no manifesto: a baseline guarda so o commit, e o verify nao tem como separar regressao de divida)',
@@ -61,6 +77,8 @@ export const VERIFY_PT_BR = {
   regressao: (nome: string, comando: string) => `  regressao      ${nome}: ${comando}`,
   preExistente: (nome: string, comando: string) => `  pre-existente  ${nome}: ${comando}`,
   falhaSemBaseline: (nome: string, comando: string) => `  sem baseline   ${nome}: ${comando}`,
+  falhaComBaselineSemVeredito: (nome: string, comando: string) =>
+    `  sem baseline   ${nome}: ${comando} (a baseline nao teve veredito dele)`,
   verdade: 'Veredito: VERDADE SUSTENTADA (nenhum motivo bloqueante).',
   reprovado: (motivos: string) => `Veredito: REPROVADO. Motivos tipados: ${motivos}`,
   // Detalhe da claim reexecutada (vai ao ledger em pt-BR)
@@ -99,11 +117,23 @@ export const VERIFY_PT_BR = {
 export const VERIFY_EN: typeof VERIFY_PT_BR = {
   uso: 'usage: ork verify <thread-id> [--baseline] [--so-claims] [--canal C] [--esperar [min]]',
   baselineGravada: (id) => `Baseline recorded for thread ${id}.`,
-  baselineDependenciaAusente: (nome, code, comando) =>
+  baselineDependenciaAusente: (nome, code, comando, preparo) =>
     `baseline.missing-dependency: ${nome} did not run because the command does not exist (exit ${code}): ${comando}; ` +
-    'install or prepare dependencies before recording the baseline',
+    (preparo ? `run the manifest preparation (\`worktree.dependencias\`) in the thread worktree: \`${preparo}\`; then record the baseline again`
+      : 'install or prepare dependencies before recording the baseline; for ork to prepare every new worktree, declare the ' +
+        'command in `worktree.dependencias` in the manifest'),
+  dependenciasPendentesFalharam: (operacao, comando, code, estourou, dir, ultimaLinha) =>
+    `${operacao}.missing-dependency: the deferred worktree preparation (\`worktree.dependencias\`) ` +
+    `${estourou ? 'ran past its deadline' : `exited with code ${code}`}${ultimaLinha ? `: ${ultimaLinha}` : ''}; ` +
+    `${operacao === 'baseline' ? 'the baseline was not recorded' : 'verify did not run'} without the dependencies. Run in the ` +
+    `worktree \`cd ${dir} && ${comando}\`; ${operacao === 'baseline' ? 'the next baseline' : 'the next verify'} repeats the ` +
+    'preparation before the commands',
   baselineCommit: (commit) => `  commit ${commit}`,
-  baselineComando: (nome, ok, code, comando) => `  ${nome.padEnd(10)} ${ok ? 'passed' : `already failing (exit ${code})`}  ${comando}`,
+  baselineComando: (nome, veredito, code, comando, situacao) => `  ${nome.padEnd(10)} ${veredito === 'passava' ? 'passed'
+    : veredito === 'ja-falhava' ? `already failing (exit ${code})` : `NO VERDICT, ${situacao}: does not count as "already failing"`}  ${comando}`,
+  baselineSemVeredito: (nomes, id) => `  no verdict in the baseline: ${nomes}; in verify, their failure is reported as a ` +
+    `failure without a baseline (\`verify.failed\`), never as pre-existing. Record it again with \`ork verify ${id} --baseline\` ` +
+    'when the CPU is free, or raise `verify.timeout_ms_por_comando` in the manifest',
   baselineSaida: (caminho, id) => `  output of the failing commands: the last lines in ${caminho}, field \`baseline.comandos\` ` +
     `(summary and excerpt); the baseline_recorded event is in \`ork phase list ${id}\``,
   baselineSemComandos: '  (no command under `verify:` in the manifest: the baseline keeps only the commit, and verify cannot tell a regression from existing debt)',
@@ -141,6 +171,7 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
   regressao: (nome, comando) => `  regression     ${nome}: ${comando}`,
   preExistente: (nome, comando) => `  pre-existing   ${nome}: ${comando}`,
   falhaSemBaseline: (nome, comando) => `  no baseline    ${nome}: ${comando}`,
+  falhaComBaselineSemVeredito: (nome, comando) => `  no baseline    ${nome}: ${comando} (the baseline had no verdict for it)`,
   verdade: 'Verdict: VERIFIED (no blocking reason).',
   reprovado: (motivos) => `Verdict: FAILED. Typed reasons: ${motivos}`,
   claimNegativaSemComando: 'negative or absolute claim without a verification command: there is no way to prove it',

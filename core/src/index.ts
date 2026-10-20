@@ -248,7 +248,8 @@ import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
 import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
-import { ESPERA_DA_FILA_PESADA_MS, gravarBaseline, textoDoVerify, verificar } from './verify';
+import { PreparoDasDependencias, ultimaLinhaDoPreparo } from './dependencias-da-worktree';
+import { ESPERA_DA_FILA_PESADA_MS, gravarBaseline, linhasDaBaseline, textoDoVerify, verificar } from './verify';
 import { ErroDaFilaPesada, OcupanteDaFila } from './fila-pesada';
 import {
   auditarWorktree,
@@ -586,6 +587,7 @@ function comandoThread(args: Args): number {
     console.log(mt.slugEm3Partes(descreverSlug(thread.slug)));
     const linhaDaWorktreeNova = linhaDaWorktree(criada.worktreePor, gravada, variante);
     if (linhaDaWorktreeNova) console.log(linhaDaWorktreeNova);
+    relatarDependencias(criada.dependencias, thread.worktree ?? '');
     const avisoDaWorktreeNova = criada.worktreeFalharia ? avisoDeWorktreeQueFalharia(criada.worktreeFalharia)
       : avisoDaWorktree(pedido.origem, criada, carregado.manifesto);
     const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
@@ -1485,9 +1487,8 @@ function comandoVerify(args: Args): number {
     const b = comLocale('pt-BR', () => gravarBaseline(carregado, id, undefined, conducao));
     console.log(m.baselineGravada(id));
     console.log(m.baselineCommit(b.commit));
-    for (const c of b.comandos) {
-      console.log(m.baselineComando(c.nome, c.ok, c.code, c.comando));
-    }
+    // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito nao sai como "ja falhava".
+    for (const linha of linhasDaBaseline(b, id)) console.log(linha);
     if (b.comandos.some((c) => !c.ok)) {
       // Ensaio de 03/10 (R7): "ja falhava" sem dizer onde ver a saida do comando.
       console.log(m.baselineSaida(caminhoThread(carregado.raiz, id), id));
@@ -2782,6 +2783,17 @@ function comandoOrquestracao(args: Args): number {
   return 0;
 }
 
+/**
+ * RM-037 (defeito 2 de 19 e 20/10/2026): o preparo de `worktree.dependencias` na worktree nova, dito ao lado dela. A
+ * falha vai ao stderr com o comando exato e o diretorio, e a thread continua criada.
+ */
+function relatarDependencias(p: PreparoDasDependencias | null | undefined, dir: string): void {
+  if (!p) return;
+  const m = msg().worktree;
+  if (p.ok) console.log(m.dependenciasProntas(p.comando, Math.round(p.duracaoMs / 1000)));
+  else console.error(m.dependenciasFalharam(p.comando, p.code, p.causa === 'timeout', dir, ultimaLinhaDoPreparo(p)));
+}
+
 function comandoWorktree(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
@@ -2810,6 +2822,7 @@ function comandoWorktree(args: Args): number {
     console.log(m.linhaBranch(r.branch));
     console.log(m.linhaBase(r.base));
     console.log(`  ${remontar(r.detalhe)}`);
+    relatarDependencias(r.dependencias, r.dir);
     return 0;
   }
   if (sub === 'sync') {

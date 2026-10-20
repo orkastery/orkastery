@@ -14,8 +14,8 @@ import { dirEstado, ManifestoCarregado } from './manifest';
 import { montarSlug, normalizarAssunto, REGEX_SLUG, slugValido } from './slug';
 import { createHash } from 'node:crypto';
 import {
-  BlocoDeLoop, CanalDeConducao, ConducaoAtual, CriterioDePronto, DefinicaoDeModo, Fase, FASES, Manifesto, Modo, PedidoDaThread, SessaoDaThread,
-  Thread, VarianteDeCiclo,
+  BlocoDeLoop, CanalDeConducao, ConducaoAtual, CriterioDePronto, DefinicaoDeModo, EventoLedger, Fase, FASES, Manifesto, Modo, PedidoDaThread,
+  SessaoDaThread, Thread, VarianteDeCiclo,
 } from './types';
 import { agora, COMMIT_DESCONHECIDO, exec, ignorarPastaNoGit, lerJson, shaCurto, tabela } from './util';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
@@ -27,6 +27,7 @@ import { linhaDeConducao } from './conducao-texto';
 import { ErroDoCatalogo, msg } from './locale';
 import { CasoSemWorktree } from './locale-thread';
 import { exigirRemoto, refRemota } from './branch-de-estado';
+import { eventoDoPreparo, ExecutorDoPreparo, PreparoDasDependencias, prepararDependencias } from './dependencias-da-worktree';
 
 /** Diretorio de threads do projeto. */
 export function dirThreads(raiz: string): string {
@@ -389,6 +390,13 @@ export interface OpcoesNovaThread {
   roadmap?: string;
   /** RM-059 (T6.0): o pedido do builder, guardado para o render da fase quando falta `--pedido`. */
   pedido?: string;
+  /**
+   * RM-037 (CHECK 3 da ork-rm037defeit2): quem abre a thread segurando uma trava (o passo do arco #Noctum, sob o
+   * `despacho.lock` e com a reserva feita) não roda o `worktree.dependencias`, que leva até 10 min: a criação grava
+   * `worktree_dependencias_pendentes`, e a baseline ou o verify rodam o preparo antes do primeiro comando, já na fila de
+   * recursos pesados (`prepararDependenciasPendentes`).
+   */
+  adiarDependencias?: boolean;
 }
 
 /** RM-059 (T6.0): o arquivo do pedido guardado, na pasta da thread. */
@@ -463,6 +471,8 @@ export interface ResultadoNovaThread {
   worktreePor?: OrigemDaWorktree | null;
   /** P4 (CHECK): no `--dry-run`, a worktree pedida que a criacao de verdade recusaria, e por que. */
   worktreeFalharia?: { motivo: FalhaDaWorktree; dir: string; branch: string; por: OrigemDaWorktree } | null;
+  /** RM-037 (defeito 2 de 19 e 20/10/2026): o preparo de `worktree.dependencias` na worktree nova; `null` sem ele. */
+  dependencias?: PreparoDasDependencias | null;
 }
 
 /** Cria a thread: valida modo contra o manifesto, gera o slug e carimba a base. */
@@ -471,7 +481,63 @@ export function novaThread(
   opcoes: OpcoesNovaThread
 ): ResultadoNovaThread {
   if (opcoes.dryRun) return criarThreadSerializada(carregado, opcoes);
-  return withCreationLock(raizDoEstado(carregado.raiz), 'threads', () => criarThreadSerializada(carregado, opcoes));
+  const criada = withCreationLock(raizDoEstado(carregado.raiz), 'threads', () => criarThreadSerializada(carregado, opcoes));
+  // RM-037 (defeito 2 de 19 e 20/10/2026): o preparo das dependencias roda depois da trava de criacao, que espera
+  // segundos, e nao os minutos de um `npm ci`.
+  if (!criada.gravada || !criada.worktreePor || !criada.thread.worktree) return criada;
+  if (opcoes.adiarDependencias) {
+    adiarDependenciasDaThread(carregado, criada.thread.id, criada.thread.worktree);
+    return { ...criada, dependencias: null };
+  }
+  return { ...criada, dependencias: prepararDependenciasDaThread(carregado, criada.thread.id, criada.thread.worktree) };
+}
+
+/** RM-037 (CHECK 3 da ork-rm037defeit2): a criacao que nao pode esperar o preparo so o anota como pendente. */
+function adiarDependenciasDaThread(carregado: ManifestoCarregado, id: string, dir: string): void {
+  const { dependencias } = carregado.manifesto.worktree;
+  if (!dependencias) return;
+  registrar(dirThread(carregado.raiz, id), id, TIPOS_DE_EVENTO.worktreeDependenciasPendentes,
+    { dir, comando: dependencias, fonte: 'worktree.dependencias do manifesto' });
+}
+
+/**
+ * RM-037 (CHECK 3 da ork-rm037defeit2): a worktree `dir` tem o preparo adiado na criacao sem um preparo ok depois dele? O
+ * preparo que falhou nao cobre: a baseline e o verify o repetem e recusam seguir enquanto ele falhar.
+ */
+export function dependenciasPendentes(eventos: readonly EventoLedger[], dir: string): boolean {
+  let pendente = false;
+  for (const e of eventos) {
+    if (typeof e.dir !== 'string' || path.resolve(e.dir) !== path.resolve(dir)) continue;
+    if (e.tipo === TIPOS_DE_EVENTO.worktreeDependenciasPendentes) pendente = true;
+    else if (e.tipo === TIPOS_DE_EVENTO.worktreeDependencias && e.ok === true) pendente = false;
+  }
+  return pendente;
+}
+
+/**
+ * RM-037 (CHECK 3 da ork-rm037defeit2): roda o preparo que a criacao adiou, antes de a baseline ou o verify rodarem um
+ * comando, com a vez na fila pesada que eles ja seguram; `antes` so e chamado quando ha preparo a rodar (a renovacao da
+ * conducao pelo prazo dele), e o `executor` da operacao, quando ela traz um (o do sandbox do MCP), roda o preparo no lugar
+ * do executor do verify. Devolve o preparo rodado agora, ou `null` sem nada pendente; quem chama recusa a falha.
+ */
+export function prepararDependenciasPendentes(carregado: ManifestoCarregado, id: string, dir: string,
+  opcoes: { antes?: () => void; executor?: ExecutorDoPreparo } = {}): PreparoDasDependencias | null {
+  if (!dependenciasPendentes(lerLedger(dirThread(carregado.raiz, id)), dir)) return null;
+  opcoes.antes?.();
+  return prepararDependenciasDaThread(carregado, id, dir, opcoes.executor);
+}
+
+/**
+ * RM-037 (defeito 2 de 19 e 20/10/2026): roda `worktree.dependencias` na worktree que acabou de nascer e grava o
+ * resultado no ledger da thread. Sem a chave no manifesto, nada roda e nada se grava. A falha nao desfaz nada.
+ */
+export function prepararDependenciasDaThread(carregado: ManifestoCarregado, id: string, dir: string,
+  executor?: ExecutorDoPreparo): PreparoDasDependencias | null {
+  const comando = carregado.manifesto.worktree.dependencias;
+  if (!comando) return null;
+  const preparo = prepararDependencias(dir, comando, undefined, executor);
+  registrar(dirThread(carregado.raiz, id), id, TIPOS_DE_EVENTO.worktreeDependencias, eventoDoPreparo(dir, preparo));
+  return preparo;
 }
 
 /**

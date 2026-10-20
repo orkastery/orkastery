@@ -44,7 +44,15 @@ import {
 } from './memoria';
 import { Fase, Handoff, ItemInline, Ponteiro, Proveniencia, Resumo, Thread } from './types';
 import { agora, gravarJson } from './util';
+import { VereditoDaBaseline, vereditoDaBaseline } from './verify';
 import { caminhoContidoOuNulo, exigirCaminhoContido } from './procedencia';
+
+/** RM-037 (defeito 1 de 19 e 20/10/2026): o rotulo de cada comando da baseline no handoff, que vai em pt-BR. */
+const ROTULO_DA_BASELINE: Record<VereditoDaBaseline, string> = {
+  passava: 'passava',
+  'ja-falhava': 'ja falhava',
+  'sem-veredito': 'sem veredito (estouro, sinal, relogio sob steal ou nao rodou: nao vale como ja falhava)',
+};
 
 /** sha256 de um arquivo em disco, a prova de proveniencia de cada item. */
 export function sha256DoArquivo(caminho: string): string {
@@ -246,7 +254,8 @@ export function exportarHandoff(
     addInline(
       'Baseline gravada antes do GO',
       `commit ${b.commit} em ${b.gravadaEm}\n` +
-        b.comandos.map((c) => `  ${c.nome}: ${c.ok ? 'passava' : 'ja falhava'} (${c.comando})`).join('\n'),
+        // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito na baseline nao e divida anterior.
+        b.comandos.map((c) => `  ${c.nome}: ${ROTULO_DA_BASELINE[vereditoDaBaseline(c)]} (${c.comando})`).join('\n'),
       proveniencia(raiz, caminhoThreadJson, 'json:baseline')
     );
   }

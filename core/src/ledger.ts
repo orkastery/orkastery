@@ -65,6 +65,13 @@ export const TIPOS_DE_EVENTO = {
   handoffRecuperado: 'handoff_recalled',
   // Bloco B2: worktree gerenciada, fila de leases, escalonador e MASTER/score
   worktreeGarantida: 'worktree_ensured',
+  /** RM-037 (defeito 2 de 19 e 20/10/2026): o preparo de `worktree.dependencias` na worktree nova. */
+  worktreeDependencias: 'worktree_dependencias',
+  /**
+   * RM-037 (CHECK 3 da ork-rm037defeit2): o preparo que a criacao adiou (o passo do arco abre a thread sob a trava de
+   * despacho); a baseline e o verify o rodam antes do primeiro comando.
+   */
+  worktreeDependenciasPendentes: 'worktree_dependencias_pendentes',
   worktreeSincronizada: 'worktree_synced',
   worktreeAuditada: 'worktree_audited',
   worktreeLiberada: 'worktree_released',

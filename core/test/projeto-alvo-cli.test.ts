@@ -6,7 +6,7 @@
  * `ork init`, `ork thread new` e `ork fabrica entrar` alimentam o registro; `ork projetos` lista.
  */
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -14,7 +14,7 @@ import { init } from '../src/init';
 import { exigirManifesto } from '../src/manifest';
 import { exec } from '../src/util';
 import { CONTRATO_PROJETOS, registrarProjeto } from '../src/projeto-alvo';
-import { dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
+import { dirTemporario, projetoTemporario, ProjetoDeTeste, runtimeVazio } from './apoio';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 
@@ -25,12 +25,20 @@ function projeto(nome: string, abbrev: string, comRemoto = false): ProjetoDeTest
   return p;
 }
 
-/** O CLI real, com o registro do teste e sem alvo herdado do shell de quem roda a suite. */
+/**
+ * RM-037 (defeito 3 de 19 e 20/10/2026): o runtime vazio na frente do `PATH`. Sem ele, o `roadmap status` e o `maestro`
+ * daqui liam as sessoes da conta de quem roda a suite (30 chamadas ao `claude`, de 21 a 35 s nesta medida), e a chamada
+ * passava do prazo de 60 s com a maquina ocupada.
+ */
+const VAZIO = runtimeVazio('projeto-alvo-cli');
+after(() => VAZIO.limpar());
+
+/** O CLI real, com o registro e o runtime do teste e sem alvo herdado do shell de quem roda a suite. */
 function ork(usuario: string, cwd: string, args: string[], env: Record<string, string> = {}) {
   const base = { ...process.env };
   delete base.ORK_PROJETO; delete base.ORK_PROJETO_EXPLICITO;
   return spawnSync(process.execPath, [ORK, ...args], {
-    cwd, encoding: 'utf8', timeout: 60000, env: { ...base, ORK_USUARIO_DIR: usuario, ...env },
+    cwd, encoding: 'utf8', timeout: 60000, env: { ...base, ...VAZIO.env, ORK_USUARIO_DIR: usuario, ...env },
   });
 }
 
@@ -113,7 +121,7 @@ test('nome desconhecido e host sem cwd com dois projetos recusam na saida 4, com
       const alvo = path.join(falsas, cli);
       fs.writeFileSync(alvo, `#!/bin/sh\necho "${cli}" >> "${registro}"\necho 'You are not logged in' >&2\nexit 1\n`, { mode: 0o755 });
     }
-    const hermetico = { ...host, PATH: `${falsas}${path.delimiter}${process.env.PATH ?? ''}` };
+    const hermetico = { ...host, PATH: `${falsas}${path.delimiter}${VAZIO.env.PATH}` };
     for (const args of [['network', 'roadmap', '--projeto', 'github:orkastery/orkastery'], ['--projeto=github:o/r', 'network', 'roadmap']]) {
       const proprio = ork(usuario, gateway.dir, args, hermetico);
       assert.notEqual(proprio.status, 4, `${args.join(' ')}: a resolucao do projeto nao pode recusar ${proprio.stderr.slice(0, 200)}`);

@@ -185,6 +185,11 @@ export interface Manifesto {
     dir: string;
     /** Uma worktree por thread/bloco quando true (paralelismo isolado). */
     por_thread: boolean;
+    /**
+     * RM-037 (defeito 2 de 19 e 20/10/2026): o comando que prepara as dependencias de toda worktree nova, rodado dentro
+     * dela (o `node_modules` e o resto que o git ignora nao vem com o `git worktree add`). Ausente, nada roda.
+     */
+    dependencias?: string;
   };
   verify: {
     build?: string;

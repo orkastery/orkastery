@@ -39,6 +39,13 @@ export const WORKTREE_PT_BR = {
   linhaDir: (dir: string) => `  dir     ${dir}`,
   linhaBranch: (branch: string) => `  branch  ${branch}`,
   linhaBase: (base: string) => `  base    ${base} (resolvida pelo ork, nao pelo executor)`,
+  // RM-037 (defeito 2 de 19 e 20/10/2026): o preparo de `worktree.dependencias` na worktree nova (thread new e ensure).
+  dependenciasProntas: (comando: string, segundos: number) =>
+    `  dependencias  ${comando} (worktree.dependencias) ok em ${segundos} s`,
+  dependenciasFalharam: (comando: string, code: number, estourou: boolean, dir: string, ultimaLinha: string) =>
+    `Aviso: o preparo das dependencias da worktree (worktree.dependencias) ${estourou ? 'estourou o prazo' : `saiu com codigo ${code}`}` +
+    `${ultimaLinha ? `: ${ultimaLinha}` : ''}. A thread e a worktree ficam; antes do build e da baseline, rode na worktree: ` +
+    `cd ${dir} && ${comando}`,
   naoRegistrada: (dir: string) => `${dir} existe mas nao aparece em \`git worktree list\``,
   naoRegistradaCorrecao: (id: string) => `remova o diretorio ou registre a worktree; depois rode: ork worktree ensure ${id}`,
   reconcilieOEstado: (id: string) => `reconcilie o estado e rode ork worktree sync ${id}`,
@@ -153,6 +160,11 @@ export const WORKTREE_EN: MensagensDeWorktree = {
   linhaDir: (dir) => `  dir     ${dir}`,
   linhaBranch: (branch) => `  branch  ${branch}`,
   linhaBase: (base) => `  base    ${base} (resolved by ork, not by the executor)`,
+  dependenciasProntas: (comando, segundos) => `  dependencies  ${comando} (\`worktree.dependencias\`) ok in ${segundos} s`,
+  dependenciasFalharam: (comando, code, estourou, dir, ultimaLinha) =>
+    `Warning: preparing the worktree dependencies (\`worktree.dependencias\`) ${estourou ? 'ran past its deadline' : `exited with code ${code}`}` +
+    `${ultimaLinha ? `: ${ultimaLinha}` : ''}. The thread and the worktree stay; before the build and the baseline, run in the worktree: ` +
+    `\`cd ${dir} && ${comando}\``,
   naoRegistrada: (dir) => `${dir} exists but does not show up in \`git worktree list\``,
   naoRegistradaCorrecao: (id) => `remove the directory or register the worktree; then run: ork worktree ensure ${id}`,
   reconcilieOEstado: (id) => `reconcile the state and run \`ork worktree sync ${id}\``,
