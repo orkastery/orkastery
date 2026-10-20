@@ -104,6 +104,13 @@ export const OPERACAO_RESTANTE_PT_BR = {
     },
   },
   fix: {
+    usoOpen: 'uso: ork fix open <thread-id> [--so-claims] [--reverify]',
+    usoList: 'uso: ork fix list <thread-id> [--rodada N]',
+    semRodada: (thread: string) => `A thread ${thread} nao tem rodada de GO-FIX. Abra com: ork fix open ${thread}`,
+    lista: (rodada: number, thread: string) => `Correcoes da rodada ${rodada} da thread ${thread}`,
+    colunasLista: ['ID', 'TIPO', 'MOTIVO', 'ALVO', 'ESTADO', 'JULGADO POR'] as readonly string[],
+    usoReverify: 'uso: ork fix reverify <thread-id> [--rodada N] [--parcial]',
+    desconhecido: (sub: string) => `subcomando desconhecido: fix ${sub}`,
     semCorrecoes: (thread: string) => `Thread ${thread}: o CHECK PASSOU no HEAD real, nao ha correcao a abrir.\n` +
       '  (nenhum motivo tipado bloqueante em `ork verify`)',
     aberto: (thread: string, rodada: number) => `GO-FIX aberto na thread ${thread} (rodada ${rodada})`,
@@ -129,6 +136,15 @@ export const OPERACAO_RESTANTE_PT_BR = {
     coberturas: { completa: 'completa', parcial: 'parcial' } as Record<string, string>,
   },
   handoff: {
+    usoExport: 'uso: ork handoff export <thread-id> [--proxima-fase FASE]',
+    historico: (caminho: string) => `Historico: ${caminho}`,
+    usoRecall: 'uso: ork handoff recall <thread-id> <path#ancora>',
+    resolvido: (local: string) => `Ponteiro resolvido: ${local}`,
+    metodo: (valor: string) => `  metodo       ${valor}`,
+    sha: (valor: string) => `  sha256       ${valor}`,
+    linhas: (valor: string) => `  linhas       ${valor}`,
+    naoAplicavel: '(nao aplicavel)',
+    desconhecido: (sub: string | undefined) => `subcomando desconhecido: handoff ${sub}`,
     exportado: (thread: string, memory: string) => `Handoff exportado da thread ${thread} (regime memory: ${memory})`,
     de: (slug: string, fase: string | null) => `  de    ${slug} (fase ${fase})`,
     para: (slug: string, fase: string | null) => `  para  ${slug} (fase ${fase})`,
@@ -142,6 +158,7 @@ export const OPERACAO_RESTANTE_PT_BR = {
     resumivel: (total: number) => `RESUMIVEL (${total} resumo(s), com proveniencia declarada):`,
   },
   recall: {
+    uso: 'uso: ork recall <thread-id> [--fase FASE] [--id ptr-N] [--todos] [--forcar]',
     titulo: (thread: string, momento: string, regime: string, handoff: string) =>
       `Recall da thread ${thread} no momento ${momento} (regime efetivo ${regime}, handoff escrito em regime ${handoff})`,
     todos: '(todos)',
@@ -280,6 +297,13 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
     },
   },
   fix: {
+    usoOpen: 'usage: ork fix open <thread-id> [--so-claims] [--reverify]',
+    usoList: 'usage: ork fix list <thread-id> [--rodada N]',
+    semRodada: (thread) => `Thread ${thread} has no GO-FIX round. Open one with: ork fix open ${thread}`,
+    lista: (round, thread) => `Fixes from round ${round} of thread ${thread}`,
+    colunasLista: ['ID', 'TYPE', 'REASON', 'TARGET', 'STATE', 'JUDGED BY'],
+    usoReverify: 'usage: ork fix reverify <thread-id> [--rodada N] [--parcial]',
+    desconhecido: (sub) => `unknown subcommand: fix ${sub}`,
     semCorrecoes: (thread) => `Thread ${thread}: CHECK PASSED on the real HEAD; there is no fix to open.\n` +
       '  (no blocking typed reason in `ork verify`)',
     aberto: (thread, round) => `GO-FIX opened for thread ${thread} (round ${round})`,
@@ -303,6 +327,15 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
     coberturas: { completa: 'full', parcial: 'partial' },
   },
   handoff: {
+    usoExport: 'usage: ork handoff export <thread-id> [--proxima-fase PHASE]',
+    historico: (path) => `History: ${path}`,
+    usoRecall: 'usage: ork handoff recall <thread-id> <path#anchor>',
+    resolvido: (location) => `Pointer resolved: ${location}`,
+    metodo: (value) => `  method       ${value}`,
+    sha: (value) => `  sha256       ${value}`,
+    linhas: (value) => `  lines        ${value}`,
+    naoAplicavel: '(not applicable)',
+    desconhecido: (sub) => `unknown subcommand: handoff ${sub}`,
     exportado: (thread, memory) => `Handoff exported from thread ${thread} (memory regime: ${memory})`,
     de: (slug, phase) => `  from  ${slug} (phase ${phase})`,
     para: (slug, phase) => `  to    ${slug} (phase ${phase})`,
@@ -316,6 +349,7 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
     resumivel: (total) => `SUMMARIZABLE (${total} summary item(s), with declared provenance):`,
   },
   recall: {
+    uso: 'usage: ork recall <thread-id> [--fase PHASE] [--id ptr-N] [--todos] [--forcar]',
     titulo: (thread, moment, regime, handoff) =>
       `Recall for thread ${thread} at ${moment} (effective regime ${regime}, handoff written under regime ${handoff})`,
     todos: '(all)',

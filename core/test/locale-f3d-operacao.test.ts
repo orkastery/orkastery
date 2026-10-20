@@ -163,4 +163,8 @@ test('F3d: fix, handoff e recall localizam a moldura e preservam payloads', () =
   assert.match(en, /Recall for thread/);
   assert.match(en, /RESOLVED \(0/);
   assert.deepEqual(linhasEmPortugues(en, ['dado preservado']), []);
+  for (const [command, sub] of [['fix', 'open'], ['fix', 'list'], ['fix', 'reverify'],
+    ['handoff', 'export'], ['handoff', 'recall']] as const)
+    assert.equal(cobreLocale([command, sub], {}), true, `${command} ${sub}`);
+  assert.equal(cobreLocale(['recall'], {}), true);
 });

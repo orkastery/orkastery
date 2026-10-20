@@ -1891,17 +1891,18 @@ function comandoFix(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
   const id = args.posicionais[2];
+  const mf = msg().operacao.restante.fix;
 
   if (sub === 'open') {
     if (!id) {
-      console.error('uso: ork fix open <thread-id> [--so-claims] [--reverify]');
+      console.error(mf.usoOpen);
       return 2;
     }
     const conducao = { ...conducaoDoCli(args), filaPesada: filaPesadaDoCli(args, 'verify', `ork fix open ${id} --esperar 30`) };
-    const rodada = abrirRodada(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao });
+    const rodada = comLocale('pt-BR', () => abrirRodada(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao }));
     const reverify =
       args.opcoes.reverify === true && rodada.correcoes.length > 0
-        ? reverificar(carregado, id, { rodada: rodada.rodada, conducao })
+        ? comLocale('pt-BR', () => reverificar(carregado, id, { rodada: rodada.rodada, conducao }))
         : null;
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ rodada, reverify }, null, 2));
@@ -1918,14 +1919,14 @@ function comandoFix(args: Args): number {
 
   if (sub === 'list') {
     if (!id) {
-      console.error('uso: ork fix list <thread-id> [--rodada N]');
+      console.error(mf.usoList);
       return 2;
     }
     lerThread(carregado.raiz, id);
     const rodadaBruta = texto(args.opcoes.rodada);
     const rodada = rodadaBruta ? Number(rodadaBruta) : ultimaRodada(carregado.raiz, id);
     if (rodada === 0) {
-      console.log(`A thread ${id} nao tem rodada de GO-FIX. Abra com: ork fix open ${id}`);
+      console.log(mf.semRodada(id));
       return 0;
     }
     const correcoes = correcoesDaRodada(carregado.raiz, id, rodada);
@@ -1933,18 +1934,18 @@ function comandoFix(args: Args): number {
       console.log(JSON.stringify(correcoes, null, 2));
       return 0;
     }
-    console.log(`Correcoes da rodada ${rodada} da thread ${id}`);
+    console.log(mf.lista(rodada, id));
     console.log('');
     console.log(
       tabela(
-        ['ID', 'TIPO', 'MOTIVO', 'ALVO', 'ESTADO', 'JULGADO POR'],
+        [...mf.colunasLista],
         correcoes.map((c) => [
           c.id,
           c.tipo,
           c.origem,
           c.alvo,
           c.estado,
-          c.verificar.join(' && ') || '(verify completo)',
+          c.verificar.join(' && ') || mf.verifyCompleto,
         ])
       )
     );
@@ -1953,15 +1954,15 @@ function comandoFix(args: Args): number {
 
   if (sub === 'reverify') {
     if (!id) {
-      console.error('uso: ork fix reverify <thread-id> [--rodada N] [--parcial]');
+      console.error(mf.usoReverify);
       return 2;
     }
     const rodadaBruta = texto(args.opcoes.rodada);
-    const r = reverificar(carregado, id, {
+    const r = comLocale('pt-BR', () => reverificar(carregado, id, {
       conducao: { ...conducaoDoCli(args), filaPesada: filaPesadaDoCli(args, 'verify', `ork fix reverify ${id} --esperar 30`) },
       rodada: rodadaBruta ? Number(rodadaBruta) : undefined,
       parcial: args.opcoes.parcial === true,
-    });
+    }));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify(r, null, 2));
     } else {
@@ -1970,7 +1971,7 @@ function comandoFix(args: Args): number {
     return r.veredito === 'PASSOU' ? 0 : 1;
   }
 
-  console.error(`subcomando desconhecido: fix ${sub ?? ''}`);
+  console.error(mf.desconhecido(sub ?? ''));
   return 2;
 }
 
@@ -1978,40 +1979,39 @@ function comandoHandoff(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
   const id = args.posicionais[2];
+  const mh = msg().operacao.restante.handoff;
   if (sub === 'export') {
     if (!id) {
-      console.error('uso: ork handoff export <thread-id> [--proxima-fase FASE]');
+      console.error(mh.usoExport);
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
     const faseBruta = texto(args.opcoes['proxima-fase']) ?? texto(args.opcoes.fase);
-    const r = exportarHandoff(carregado, id, {
+    const r = comLocale('pt-BR', () => exportarHandoff(carregado, id, {
       proximaFase: faseBruta ? exigirFase(thread, faseBruta) : undefined,
       slugDestino: texto(args.opcoes.slug),
-    });
+    }));
     console.log(textoDoHandoff(r.handoff, r.caminho));
     console.log('');
-    console.log(`Historico: ${r.caminhoHistorico}`);
+    console.log(mh.historico(r.caminhoHistorico));
     return 0;
   }
   if (sub === 'recall') {
     const ponteiro = args.posicionais[3];
     if (!id || !ponteiro) {
-      console.error('uso: ork handoff recall <thread-id> <path#ancora>');
+      console.error(mh.usoRecall);
       return 2;
     }
-    const r = recall(carregado, id, ponteiro);
-    console.log(`Ponteiro resolvido: ${r.location}`);
-    console.log(`  metodo       ${r.metodo}`);
-    console.log(`  sha256       ${r.sha256}`);
-    console.log(
-      `  linhas       ${r.intervalo ? `${r.intervalo.inicio}-${r.intervalo.fim}` : '(nao aplicavel)'}`
-    );
+    const r = comLocale('pt-BR', () => recall(carregado, id, ponteiro));
+    console.log(mh.resolvido(r.location));
+    console.log(mh.metodo(r.metodo));
+    console.log(mh.sha(r.sha256));
+    console.log(mh.linhas(r.intervalo ? `${r.intervalo.inicio}-${r.intervalo.fim}` : mh.naoAplicavel));
     console.log('');
     console.log(r.conteudo);
     return 0;
   }
-  console.error(`subcomando desconhecido: handoff ${sub}`);
+  console.error(mh.desconhecido(sub));
   return 2;
 }
 
@@ -3855,19 +3855,19 @@ function comandoRecall(args: Args): number {
   const carregado = memoryState(exigirManifesto()).loaded;
   const id = args.posicionais[1];
   if (!id) {
-    console.error('uso: ork recall <thread-id> [--fase FASE] [--id ptr-N] [--todos] [--forcar]');
+    console.error(msg().operacao.restante.recall.uso);
     return 2;
   }
   const thread = lerThread(carregado.raiz, id);
   const faseBruta = texto(args.opcoes.fase) ?? texto(args.opcoes.momento);
   const momento = faseBruta ? exigirFase(thread, faseBruta) : undefined;
   const memoria = abrirMemoria(carregado, { leituraRestrita: { thread: id, limite: limiteDeLeitura(args.opcoes.janela) } });
-  const r = recallDaThread(carregado, memoria, id, {
+  const r = comLocale('pt-BR', () => recallDaThread(carregado, memoria, id, {
     momento,
     id: texto(args.opcoes.id),
     todos: args.opcoes.todos === true,
     forcar: args.opcoes.forcar === true,
-  });
+  }));
   if (args.opcoes.json === true) {
     console.log(JSON.stringify(r, null, 2));
   } else {

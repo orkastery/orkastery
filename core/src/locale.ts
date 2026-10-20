@@ -123,7 +123,8 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'sessions watch', 'sessions event', 'sessions list', 'sessions limpar-fantasmas', 'sessions hitl',
   'sessions request', 'sessions answer', 'sessions reconcile', 'sessions supersede', 'sessions adopt',
   'sessions logs', 'sessions stop', 'sessions attach', 'sessions ?',
-  'gate context', 'gate request', 'gate answer', 'gate next', 'gate approve', 'gate ?'];
+  'gate context', 'gate request', 'gate answer', 'gate next', 'gate approve', 'gate ?',
+  'fix open', 'fix list', 'fix reverify', 'fix ?', 'handoff export', 'handoff recall', 'handoff ?', 'recall'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -146,6 +147,8 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['sessions', { padrao: 'list', conhecidos: ['watch', 'event', 'list', 'limpar-fantasmas', 'hitl', 'request', 'answer',
     'reconcile', 'supersede', 'adopt', 'logs', 'stop', 'attach'] }],
   ['gate', { padrao: null, conhecidos: ['context', 'request', 'answer', 'next', 'approve'] }],
+  ['fix', { padrao: null, conhecidos: ['open', 'list', 'reverify'] }],
+  ['handoff', { padrao: null, conhecidos: ['export', 'recall'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
