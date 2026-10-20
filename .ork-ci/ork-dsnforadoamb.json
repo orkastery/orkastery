@@ -5,36 +5,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-dsnforadoamb",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md",
-      "alegacao": "T1: a página RM-068 existe pelo modelo do roadmap (frontmatter com sdlc.thread ork-dsnforadoamb e modo #Auto), com o problema medido só por nome de variável, o escopo da fonte de arquivo memory.database_url_file, o limite do mesmo usuário, a migração genérica e as decisões G1 a G6 e D1 a D13; passa no markdownlint e no docs verificar.",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'id: RM-068' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'thread: ork-dsnforadoamb' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'memory.database_url_file' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'pode ler um arquivo `0600` dele' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md",
-        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md"
-      ],
-      "criadoEm": "2026-10-20T16:02:16.638Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
-      "id": "C2",
-      "thread": "ork-dsnforadoamb",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/README.md",
-      "alegacao": "T1: o índice do roadmap tem a linha da RM-068, regerada por ork docs sincronizar, e passa no markdownlint.",
-      "negativa": false,
-      "verificar": [
-        "grep -qF '| [RM-068](RM-068-dsn-fora-do-ambiente-dos-agentes.md) | DSN com senha fora do ambiente dos agentes |' docs/roadmap/README.md",
-        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/README.md"
-      ],
-      "criadoEm": "2026-10-20T16:02:18.478Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
       "id": "C3",
       "thread": "ork-dsnforadoamb",
       "fase": "GOAL",
@@ -46,7 +16,7 @@
         "node --test-reporter=tap core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DM[0-9]+:/{p++} END{exit !(p>=19 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-20T16:09:53.805Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -61,7 +31,7 @@
         "node --test-reporter=tap core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DM[0-9]+:/{p++} END{exit !(p>=19 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-20T16:09:57.045Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -76,7 +46,7 @@
         "node --test-reporter=tap --test-name-pattern='^DM[1-4]:' core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DM[1-4]:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-20T16:10:00.714Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -91,7 +61,7 @@
         "node --test core/dist-test/test/memoria.test.js core/dist-test/test/memoria-embedding-config.test.js"
       ],
       "criadoEm": "2026-10-20T16:10:03.483Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -106,7 +76,7 @@
         "node --test-reporter=tap core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DR[0-9]+:/{p++} END{exit !(p>=9 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-20T16:20:04.951Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -121,7 +91,7 @@
         "node --test-reporter=tap --test-name-pattern='^DR7:' core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DR7:/{p++} END{exit !(p==1 && f==0 && s==0)}' && node --test core/dist-test/test/company-brain-transport.test.js core/dist-test/test/company-brain-memory-state.test.js"
       ],
       "criadoEm": "2026-10-20T16:20:08.422Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -136,7 +106,7 @@
         "node --test-reporter=tap --test-name-pattern='^DR8:' core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DR8:/{p++} END{exit !(p==1 && f==0 && s==0)}' && node --test core/dist-test/test/company-brain-migration.test.js core/dist-test/test/memory-migration.test.js"
       ],
       "criadoEm": "2026-10-20T16:20:11.762Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -151,7 +121,7 @@
         "node --test-reporter=tap --test-name-pattern='^DR(4|9):' core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DR(4|9):/{p++} END{exit !(p==2 && f==0 && s==0)}' && node --test core/dist-test/test/degradacao.test.js core/dist-test/test/memoria.test.js"
       ],
       "criadoEm": "2026-10-20T16:20:14.783Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -165,7 +135,7 @@
         "grep -qF \"| 'dsn.arquivo-ausente'\" core/src/types.ts && grep -qF \"| 'dsn.arquivo-inseguro'\" core/src/types.ts && grep -qF \"| 'dsn.arquivo-invalido'\" core/src/types.ts"
       ],
       "criadoEm": "2026-10-20T16:20:16.888Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -180,7 +150,7 @@
         "node --test-reporter=tap core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DR[0-9]+:/{p++} END{exit !(p>=9 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-20T16:20:19.720Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -195,7 +165,7 @@
         "node --test-reporter=tap core/dist-test/test/dsn-doctor.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DD[0-9]+:/{p++} END{exit !(p>=13 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-20T16:33:13.537Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -210,7 +180,7 @@
         "node --test-reporter=tap --test-name-pattern='^DD1[01]:' core/dist-test/test/dsn-doctor.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DD1[01]:/{p++} END{exit !(p==2 && f==0 && s==0)}' && node --test core/dist-test/test/locale-doctor.test.js core/dist-test/test/locale-f2a-snapshot.test.js"
       ],
       "criadoEm": "2026-10-20T16:33:17.487Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -225,7 +195,7 @@
         "node --test-reporter=tap --test-name-pattern='^DD[67]:' core/dist-test/test/dsn-doctor.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DD[67]:/{p++} END{exit !(p==2 && f==0 && s==0)}' && node --test core/dist-test/test/rm064-fatia2.test.js"
       ],
       "criadoEm": "2026-10-20T16:33:20.904Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -240,7 +210,7 @@
         "node --test-reporter=tap core/dist-test/test/dsn-doctor.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DD[0-9]+:/{p++} END{exit !(p>=13 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-20T16:33:24.003Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -255,7 +225,7 @@
         "node --test-reporter=tap --test-name-pattern='^DD11:' core/dist-test/test/dsn-doctor.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DD11:/{p++} END{exit !(p==1 && f==0 && s==0)}' && node --test-reporter=tap core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DM[0-9]+:/{p++} END{exit !(p>=19 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-20T16:33:27.651Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -270,7 +240,7 @@
         "node --test core/dist-test/test/locale-ajuda.test.js core/dist-test/test/rm044-paridade-cli-md.test.js core/dist-test/test/locale-f3a-referencia.test.js"
       ],
       "criadoEm": "2026-10-20T16:37:16.751Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -285,7 +255,7 @@
         "node --test core/dist-test/test/locale-f2a-snapshot.test.js"
       ],
       "criadoEm": "2026-10-20T16:37:19.398Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -300,7 +270,7 @@
         "core/node_modules/.bin/markdownlint-cli2 docs/guias/memoria-e-handoff.md"
       ],
       "criadoEm": "2026-10-20T16:42:05.308Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -315,73 +285,104 @@
         "core/node_modules/.bin/markdownlint-cli2 SECURITY.md"
       ],
       "criadoEm": "2026-10-20T16:42:07.888Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-dsnforadoamb.json",
+      "alegacao": "T7: o bundle de CI da thread é gerado pelo ork ci prepare da worktree (com a barreira de dado privado), leva as claims ativas sem id repetido e sem retirada, e não tem e-mail, caminho pessoal nem URL com senha.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const b=require(\"./.ork-ci/ork-dsnforadoamb.json\"),it=[...b.claims,...(b.deferredClaims||[])],ids=it.map(x=>x.id);process.exit(b.schema===\"ork.ci-bundle/v1\"&&b.thread===\"ork-dsnforadoamb\"&&b.branch===\"ork/ork-dsnforadoamb-full\"&&new Set(ids).size===ids.length&&b.claims.length>=25&&b.claims.every(c=>c.estado!==\"retirada\")?0:1)'",
+        "node -e 'const r=require(\"./core/scripts/checar-experiencia-publica.cjs\").varrer({arquivos:[\".ork-ci/ork-dsnforadoamb.json\"]});process.exit(r.ok?0:1)'",
+        "node -e 'const t=require(\"fs\").readFileSync(\".ork-ci/ork-dsnforadoamb.json\",\"utf8\");process.exit(new RegExp(\"[a-z][a-z0-9+.-]*:\"+\"//[^\\\\s/@:]*:[^\\\\s/@]+@\",\"i\").test(t)?1:0)'"
+      ],
+      "criadoEm": "2026-10-20T17:17:36.967Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md",
+      "alegacao": "D15 (substitui C1 e C24): a página do item, agora RM-069, segue o modelo do roadmap (sdlc.thread ork-dsnforadoamb, modo #Auto), liga a FEAT-017, diz o problema só por nome de variável, a fonte de arquivo memory.database_url_file, o limite do mesmo usuário, a migração genérica, as decisões e as evidências dos casos DM, DR e DD, sem citar o número antigo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'id: RM-069' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF '# RM-069: DSN com senha fora do ambiente dos agentes' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'thread: ork-dsnforadoamb' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'memory.database_url_file' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'pode ler um arquivo `0600` dele' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'features: [FEAT-017]' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'doctor: core/test/dsn-doctor.test.ts (DD1 a DD13)' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && ! grep -qF 'RM-068' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md"
+      ],
+      "criadoEm": "2026-10-20T18:38:20.817Z",
       "estado": "pendente",
       "lint": []
     },
     {
-      "id": "C22",
+      "id": "C29",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "D15 (substitui C2): o índice do roadmap tem a linha da RM-069, regerada por ork docs sincronizar, sem a linha do número antigo deste item, e passa no markdownlint.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '| [RM-069](RM-069-dsn-fora-do-ambiente-dos-agentes.md) | DSN com senha fora do ambiente dos agentes |' docs/roadmap/README.md && ! grep -qF 'RM-068-dsn-fora-do-ambiente-dos-agentes' docs/roadmap/README.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-20T18:38:25.002Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C30",
       "thread": "ork-dsnforadoamb",
       "fase": "GOAL",
       "arquivo": "docs/referencia/fronteira-de-confianca.md",
-      "alegacao": "T6 (G3): a matriz de caminhos da fronteira de confiança tem a linha de memory.database_url_file (só a pasta de segredos do ork, O_NOFOLLOW e conferência no descritor), e a P6 diz que a fonte de arquivo não alarga a classe.",
+      "alegacao": "D15 (substitui C22): a matriz de caminhos da fronteira de confiança tem a linha de memory.database_url_file com o link para a RM-069, e a P6 diz que a fonte de arquivo não alarga a classe.",
       "negativa": false,
       "verificar": [
-        "grep -qF '| `memory.database_url_file` ([RM-068](../roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md)) | manifesto | não existia |' docs/referencia/fronteira-de-confianca.md && grep -qF 'para não alargar esta classe |' docs/referencia/fronteira-de-confianca.md",
+        "grep -qF '| `memory.database_url_file` ([RM-069](../roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md)) | manifesto | não existia |' docs/referencia/fronteira-de-confianca.md && grep -qF 'para não alargar esta classe |' docs/referencia/fronteira-de-confianca.md",
         "core/node_modules/.bin/markdownlint-cli2 docs/referencia/fronteira-de-confianca.md"
       ],
-      "criadoEm": "2026-10-20T16:42:10.740Z",
+      "criadoEm": "2026-10-20T18:38:27.715Z",
       "estado": "pendente",
       "lint": []
     },
     {
-      "id": "C23",
+      "id": "C31",
       "thread": "ork-dsnforadoamb",
       "fase": "GOAL",
       "arquivo": "docs/produto/FEAT-017-memoria-orkmind.md",
-      "alegacao": "T6: a FEAT-017 cita a RM-068 no roadmap, o resolvedor e os testes novos nas fontes, e a configuração, as pré-condições e os erros com as duas fontes da DSN e os motivos de arquivo.",
+      "alegacao": "D15 (substitui C23): a FEAT-017 cita a RM-069 no roadmap, o resolvedor e os testes novos nas fontes, e a configuração, as pré-condições e os erros com as duas fontes da DSN e os motivos de arquivo.",
       "negativa": false,
       "verificar": [
-        "grep -qF 'roadmap: [RM-006, RM-038, RM-068]' docs/produto/FEAT-017-memoria-orkmind.md && grep -qF 'core/src/dsn-da-memoria.ts#resolverDsn' docs/produto/FEAT-017-memoria-orkmind.md && grep -qF '`dsn.arquivo-inseguro`' docs/produto/FEAT-017-memoria-orkmind.md",
+        "grep -qF 'roadmap: [RM-006, RM-038, RM-069]' docs/produto/FEAT-017-memoria-orkmind.md && grep -qF 'core/src/dsn-da-memoria.ts#resolverDsn' docs/produto/FEAT-017-memoria-orkmind.md && grep -qF '`dsn.arquivo-inseguro`' docs/produto/FEAT-017-memoria-orkmind.md",
         "core/node_modules/.bin/markdownlint-cli2 docs/produto/FEAT-017-memoria-orkmind.md"
       ],
-      "criadoEm": "2026-10-20T16:42:13.653Z",
+      "criadoEm": "2026-10-20T18:38:30.569Z",
       "estado": "pendente",
       "lint": []
     },
     {
-      "id": "C24",
-      "thread": "ork-dsnforadoamb",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md",
-      "alegacao": "T6: a RM-068 liga a FEAT-017, está com documentação em revisão e testes em execução, e as evidências de teste apontam os casos DM, DR e DD; tabelas regeradas por ork docs sincronizar.",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'features: [FEAT-017]' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'resolvedor: core/test/dsn-da-memoria.test.ts (DM1 a DM19 e DR1 a DR9)' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'doctor: core/test/dsn-doctor.test.ts (DD1 a DD13)' docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md",
-        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-068-dsn-fora-do-ambiente-dos-agentes.md"
-      ],
-      "criadoEm": "2026-10-20T16:42:17.210Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
-      "id": "C25",
+      "id": "C32",
       "thread": "ork-dsnforadoamb",
       "fase": "GOAL",
       "arquivo": "CHANGELOG.md",
-      "alegacao": "T6: o CHANGELOG.md tem, em Não publicado, a linha da RM-068 (a fonte de arquivo da DSN, a regra, a degradação tipada, o resolvedor único, os checks do doctor e o limite), sem anunciar versão.",
+      "alegacao": "D15 (substitui C25): o CHANGELOG.md tem, em Não publicado, a linha da RM-069 (a fonte de arquivo da DSN, a regra, a degradação tipada, o resolvedor único, os checks do doctor e o limite), sem anunciar versão.",
       "negativa": false,
       "verificar": [
-        "awk '/^## /{s=$0} /DSN da memória fora do ambiente dos agentes \\(RM-068\\)/{if (s==\"## Não publicado\") f=1} END{exit !f}' CHANGELOG.md",
+        "awk '/^## /{s=$0} /DSN da memória fora do ambiente dos agentes \\(RM-069\\)/{if (s==\"## Não publicado\") f=1} END{exit !f}' CHANGELOG.md",
         "core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md"
       ],
-      "criadoEm": "2026-10-20T16:42:19.674Z",
+      "criadoEm": "2026-10-20T18:38:32.694Z",
       "estado": "pendente",
       "lint": []
     }
   ],
   "deferredClaims": [
     {
-      "id": "C26",
+      "id": "C28",
       "reason": "artifact-not-in-checkout"
     }
   ],
@@ -389,6 +390,10 @@
     {
       "name": "ci",
       "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
     }
   ]
 }
