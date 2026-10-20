@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-20T21:01:01.331Z",
+  "publicadoEm": "2026-10-20T21:01:53.818Z",
   "threads": [
     {
       "id": "ork-dsnforadoamb",
@@ -23,9 +23,9 @@
       "modelo": "opus",
       "esforco": "max",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-20T21:01:01.623Z",
-        "motivo": "sessão 07ce99e9 sem processo (fantasma)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
@@ -76,22 +76,22 @@
       "id": "ork-rm061f3d",
       "nome": "rm061f3d",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-061",
       "branch": "ork/ork-rm061f3d-full",
-      "atualizadaEm": "2026-10-20T15:32:20.473Z",
+      "atualizadaEm": "2026-10-20T21:01:53.406Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "max",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-20T16:11:22.616Z",
-        "motivo": "sessão 01a159f1 encerrada (completed)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     }
   ]
