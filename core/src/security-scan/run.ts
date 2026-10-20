@@ -243,6 +243,8 @@ function scanBase(t: ToolSpec, executor: Executor, unit: Unit, ctx: Context, hea
   const tree = ctx.baseTree;
   if (unit.dir !== '.' && !fs.existsSync(path.join(tree, unit.dir))) return { kind: 'ran', findings: [] };
   if (t.category === 'workflow' && !hasWorkflows(tree)) return { kind: 'ran', findings: [] };
+  // A stack the base does not have yet (a project adopting it in this change): nothing to scan on the base, not a failure.
+  if (unit.stack && !detectStacks(tree).some(p => p.stack === unit.stack && p.dir === unit.dir)) return { kind: 'ran', findings: [] };
   const { outcome } = scanTree(t, executor, tree, unit, ctx, false);
   if (outcome.kind === 'unavailable') return { kind: 'ran', findings: [] };
   if (outcome.kind === 'ran') {
