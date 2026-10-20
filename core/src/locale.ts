@@ -116,7 +116,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'prompt list', 'prompt lint', 'prompt render', 'prompt ?',
   'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?',
   // F3d: familias restantes, acrescentadas somente quando a familia inteira entra no catalogo.
-  'modos', 'ciclos', 'setup', 'projetos'];
+  'modos', 'ciclos', 'setup', 'projetos', 'pulse cadencia', 'pulse responder'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -535,6 +535,23 @@ const PT_BR = {
       exige: 'exige', nada: 'nada', muda: 'muda os blocos do modo', sim: 'sim', nao: 'nao',
       fecho: 'A variante muda como a thread NASCE. Verificacao e gates nao mudam.',
     },
+    pulseCadencia: {
+      umaTag: 'pulse cadencia: uma tag por vez',
+      desconhecida: (tag: string, aceitas: string) => `pulse cadencia: tag desconhecida "${tag}"; use ${aceitas}`,
+      trocaSemAutor: 'pulse.cadencia: informe quem trocou a cadencia',
+      desconhecidaInterna: (tag: string) => `pulse.cadencia: tag desconhecida ${tag}`,
+      descricoes: {
+        '#OrkPulseOff': 'de 8 em 8 horas, as 08h, 16h e 00h', '#OrkPulseOn': 'de 2 em 2 horas',
+        '#OrkPulseOn-15m': 'de 15 em 15 minutos', '#OrkPulseOn-30m': 'de 30 em 30 minutos',
+        '#OrkPulseOn-60m': 'de hora em hora',
+      } as Record<string, string>,
+      texto: (descricao: string, tag: string, proxima: string) =>
+        `Pulse ${descricao} (${tag}). Pergunta para você continua saindo na hora. Próximo resumo com novidade a partir de ${proxima}.`,
+      trocada: (por: string, canal: string, quando: string) => `Trocada por ${por} (${canal}) em ${quando}.`,
+      padrao: 'Nenhuma tag gravada: vale a cadência padrão.',
+      responderUso: 'pulse responder exige --resposta-stdin e o envelope do ingresso autenticado',
+      responderFormato: 'pulse responder: --formato telegram|terminal',
+    },
   },
   setup: SETUP_PT_BR,
   projetos: PROJETOS_PT_BR,
@@ -883,6 +900,23 @@ const EN: Mensagens = {
       worktree: 'isolated worktree',
       exige: 'requires', nada: 'nothing', muda: 'changes the mode blocks', sim: 'yes', nao: 'no',
       fecho: 'The variant changes how the thread STARTS. Verification and gates do not change.',
+    },
+    pulseCadencia: {
+      umaTag: 'pulse cadencia: provide one tag at a time',
+      desconhecida: (tag, allowed) => `pulse cadencia: unknown tag "${tag}"; use ${allowed}`,
+      trocaSemAutor: 'pulse.cadencia: provide who changed the cadence',
+      desconhecidaInterna: (tag) => `pulse.cadencia: unknown tag ${tag}`,
+      descricoes: {
+        '#OrkPulseOff': 'every 8 hours, at 08:00, 16:00, and 00:00', '#OrkPulseOn': 'every 2 hours',
+        '#OrkPulseOn-15m': 'every 15 minutes', '#OrkPulseOn-30m': 'every 30 minutes',
+        '#OrkPulseOn-60m': 'hourly',
+      },
+      texto: (description, tag, next) =>
+        `Pulse ${description} (${tag}). Questions for you still go out immediately. Next summary with news starts at ${next}.`,
+      trocada: (by, channel, when) => `Changed by ${by} (${channel}) at ${when}.`,
+      padrao: 'No saved tag: the default cadence applies.',
+      responderUso: 'pulse responder requires --resposta-stdin and the authenticated ingress envelope',
+      responderFormato: 'pulse responder: --formato telegram|terminal',
     },
   },
   setup: SETUP_EN,

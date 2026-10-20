@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { comLocale } from '../src/locale';
+import { comLocale, msg } from '../src/locale';
 import { tabelaDeModos } from '../src/modos';
 import { textoDaMigracaoModos } from '../src/modos-migracao';
 import { tabelaDeVariantes } from '../src/ciclos';
 import { linhasEmPortugues } from './locale-apoio';
+import { CADENCIAS, textoDaCadencia } from '../src/pulse-cadencia';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -20,4 +21,16 @@ test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ing
   assert.match(en, /Simulation \(`--dry-run`\): nothing was written/);
   assert.match(en, /Cycle variants/);
   assert.deepEqual(linhasEmPortugues(en, ['orkastery.yaml']), []);
+});
+
+test('F3d: pulse cadencia e as recusas de responder seguem o locale', () => {
+  const quando = '2026-10-20T12:00:00.000Z';
+  const pt = comLocale('pt-BR', () => textoDaCadencia(CADENCIAS['#OrkPulseOn-60m'], quando));
+  const en = comLocale('en', () => [textoDaCadencia(CADENCIAS['#OrkPulseOn-60m'], quando),
+    msg().operacao.pulseCadencia.umaTag, msg().operacao.pulseCadencia.responderUso].join('\n'));
+  assert.match(pt, /de hora em hora/);
+  assert.match(en, /hourly/);
+  assert.match(en, /provide one tag at a time/);
+  assert.match(en, /authenticated ingress envelope/);
+  assert.deepEqual(linhasEmPortugues(en), []);
 });

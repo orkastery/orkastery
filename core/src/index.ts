@@ -1307,13 +1307,14 @@ function comandoDecisao(args: Args): number {
  */
 function comandoCadenciaDoPulse(args: Args): number {
   const carregado = exigirManifesto();
-  if (args.posicionais.length > 3) throw new Error('pulse cadencia: uma tag por vez');
+  const m = msg().operacao.pulseCadencia;
+  if (args.posicionais.length > 3) throw new Error(m.umaTag);
   const bruta = args.posicionais[2];
   const agora = new Date().toISOString();
   if (bruta !== undefined) {
     const lido = interpretarRespostaDoPulse(bruta.trim().startsWith('#') ? bruta : `#${bruta.trim()}`);
     if (lido.forma !== 'cadencia') {
-      throw new Error(`pulse cadencia: tag desconhecida "${bruta}"; use ${Object.keys(CADENCIAS).join(', ')}`);
+      throw new Error(m.desconhecida(bruta, Object.keys(CADENCIAS).join(', ')));
     }
     gravarCadencia(carregado.raiz, lido.tag, { por: texto(args.opcoes.por) ?? userInfo().username,
       canal: texto(args.opcoes.canal) ?? 'terminal', em: agora });
@@ -1326,8 +1327,8 @@ function comandoCadenciaDoPulse(args: Args): number {
   }
   console.log(textoDaCadencia(vigente, agora));
   console.log(vigente.gravada
-    ? `Trocada por ${vigente.gravada.por} (${vigente.gravada.canal}) em ${formatarDataHoraRotulada(vigente.gravada.em)}.`
-    : 'Nenhuma tag gravada: vale a cadência padrão.');
+    ? m.trocada(vigente.gravada.por, vigente.gravada.canal, formatarDataHoraRotulada(vigente.gravada.em))
+    : m.padrao);
   return 0;
 }
 
@@ -4481,13 +4482,13 @@ function executarComando(argvBruto: string[]): number {
         // I-41 (GO-FIX 1, B1 e B2): o caminho de volta do resumo. So o ingresso autenticado chama;
         // argv traz identificadores e o envelope assinado vem por stdin, como no `gate answer`.
         if (args.opcoes['resposta-stdin'] !== true || args.opcoes.resposta !== undefined || args.posicionais.length !== 2) {
-          throw new Error('pulse responder exige --resposta-stdin e o envelope do ingresso autenticado');
+          throw new Error(msg().operacao.pulseCadencia.responderUso);
         }
         const carregado = exigirManifesto();
         const envelope = lerRespostaStdin({ por: texto(args.opcoes.por), mensagem: texto(args.opcoes.mensagem),
           origem: texto(args.opcoes.origem), canal: texto(args.opcoes.canal), conta: texto(args.opcoes.conta) });
         const formato = texto(args.opcoes.formato);
-        if (formato !== undefined && formato !== 'telegram' && formato !== 'terminal') throw new Error('pulse responder: --formato telegram|terminal');
+        if (formato !== undefined && formato !== 'telegram' && formato !== 'terminal') throw new Error(msg().operacao.pulseCadencia.responderFormato);
         console.log(JSON.stringify(responderPeloPulse(carregado.raiz, envelope, { canal: formato ?? 'telegram' })));
         return 0;
       }
