@@ -490,14 +490,23 @@
       "criadoEm": "2026-10-20T06:57:55.949Z",
       "estado": "pendente",
       "lint": []
-    }
-  ],
-  "deferredClaims": [
+    },
     {
       "id": "C35",
-      "reason": "artifact-not-in-checkout"
+      "thread": "ork-rm037defeit2",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm037defeit2.json",
+      "alegacao": "Fecho do GO: o bundle de CI da thread segue o contrato ork.ci-bundle/v1, é da thread e da branch dela com base main, leva as claims ativas (35 com a dele) e só a dele adiada até ser rastreado, sem caminho de máquina nem travessão.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs');const t=fs.readFileSync('.ork-ci/ork-rm037defeit2.json','utf8');const b=JSON.parse(t);const d=b.deferredClaims||[];const ok=b.schema==='ork.ci-bundle/v1'&&b.thread==='ork-rm037defeit2'&&b.branch==='ork/ork-rm037defeit2-full'&&b.base==='main'&&b.claims.length+d.length>=35&&b.claims.every(c=>c.thread==='ork-rm037defeit2')&&d.length<=1&&d.every(x=>x.id==='C35'&&x.reason==='artifact-not-in-checkout')&&!t.includes('/hom'+'e/')&&!t.includes(String.fromCharCode(0x2014));if(!ok){console.error('bundle fora do contrato');process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-20T06:59:35.572Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
