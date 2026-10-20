@@ -1,5 +1,5 @@
 /**
- * RM-062 (F2): a barreira de dado privado no `ork verify` (DV), pela policy `dado_privado`.
+ * RM-062 (F2): a barreira de dado privado no `ork verify` (DV) e no `ork ci prepare` (DB), pela policy `dado_privado`.
  * Todo valor daqui é inventado; o arquivo entra nas exceções versionadas por caminho, só para os padrões genéricos.
  */
 import { strict as assert } from 'node:assert';
@@ -7,6 +7,8 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ajustarManifesto, commitar, dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
+import { prepararBundleCi } from '../src/ci';
+import { adicionarClaim } from '../src/claims';
 import { lerLedger } from '../src/ledger';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { textoDoVerify, verificar } from '../src/verify';
@@ -137,5 +139,71 @@ test('DV5: o arquivo não rastreado e o nome acrescentado entram; a linha que j�
     assert.deepEqual(r.dadoPrivado?.varredura.achados.map((a) => `${a.arquivo}:${a.linha ?? 'nome'}:${a.padrao}`),
       ['evidencia/[omitido].json:nome:lista-local', 'solto.txt:2:home']);
     assert.equal(r.ok, false);
+  } finally { p.limpar(); }
+});
+
+test('DB1: com dado_privado em block, achado no diff recusa o ci prepare e o bundle não é gravado', () => {
+  const { p, id, wt } = cenario('db1', 'block');
+  try {
+    commitar(wt, 'docs/nota.md', `rodou em ${HOME_FICTICIA}\n`, 'nota');
+    let erro = '';
+    comLista(null, () => { try { prepararBundleCi(p.carregado, id); } catch (e) { erro = (e as Error).message; } });
+    assert.match(erro, /^privado\.achado: o bundle nao foi gerado; .*docs\/nota\.md:1/);
+    assert.match(erro, /docs\/nota\.md:1:10 {2}home/);
+    semValores(erro, 'a recusa');
+    assert.equal(fs.existsSync(path.join(wt, '.ork-ci', `${id}.json`)), false);
+  } finally { p.limpar(); }
+});
+
+test('DB2: termo da lista local na alegação de uma claim recusa o bundle (o texto do bundle é varrido)', () => {
+  const { p, id, wt } = cenario('db2', 'block');
+  try {
+    commitar(wt, 'core/fatia.txt', 'fatia\n', 'fatia');
+    adicionarClaim(p.dir, id, { arquivo: 'core/fatia.txt', alegacao: `a fatia roda em ${TERMO_FICTICIO}`, verificar: ['test -f core/fatia.txt'] });
+    let erro = '';
+    comLista([TERMO_FICTICIO], () => { try { prepararBundleCi(p.carregado, id); } catch (e) { erro = (e as Error).message; } });
+    assert.match(erro, new RegExp(`\\.ork-ci/${id}\\.json:\\d+:\\d+ {2}lista-local \\(termo 1\\)`));
+    semValores(erro, 'a recusa');
+    assert.equal(fs.existsSync(path.join(wt, '.ork-ci', `${id}.json`)), false);
+  } finally { p.limpar(); }
+});
+
+test('DB3: com warn, o bundle sai com o aviso, o policy_warn vai ao ledger e a linha diz a lista ausente', () => {
+  const { p, id, wt } = cenario('db3', 'warn');
+  try {
+    commitar(wt, 'a.txt', `${EMAIL_FICTICIO}\n`, 'email');
+    const avisos: string[] = [];
+    const informes: string[] = [];
+    const arquivo = comLista(null, () => prepararBundleCi(p.carregado, id, { aoAvisar: (l) => avisos.push(l), aoInformar: (l) => informes.push(l) }));
+    assert.equal(fs.existsSync(arquivo), true);
+    assert.equal(avisos.length, 1);
+    assert.match(avisos[0], /^policy dado_privado: 1 achado\(s\) de dado privado \(email\)/);
+    assert.equal(informes.length, 1);
+    assert.match(informes[0], /^dado privado \(policy dado_privado em warn\): diff contra [0-9a-f]{12} \(merge-base com main\) e texto de \.ork-ci\//);
+    assert.match(informes[0], /lista local ausente \(procurada em .*\); só os padrões genéricos \(home, email, hostname\)$/);
+    const aviso = lerLedger(dirThread(p.dir, id)).filter((e) => e.tipo === 'policy_warn').at(-1)!;
+    assert.equal(aviso.gate, 'ci.prepare');
+    semValores([...avisos, ...informes].join('\n'), 'o aviso');
+  } finally { p.limpar(); }
+});
+
+test('DB4: sem a policy, o ci prepare não varre nem avisa', () => {
+  const { p, id, wt } = cenario('db4', null);
+  try {
+    commitar(wt, 'a.txt', `${HOME_FICTICIA}\n`, 'home');
+    const avisos: string[] = [];
+    const informes: string[] = [];
+    const arquivo = comLista(null, () => prepararBundleCi(p.carregado, id, { aoAvisar: (l) => avisos.push(l), aoInformar: (l) => informes.push(l) }));
+    assert.equal(fs.existsSync(arquivo), true);
+    assert.deepEqual([avisos, informes], [[], []]);
+  } finally { p.limpar(); }
+});
+
+test('DB5: o bundle anterior da própria thread sai do diff, porque o novo o substitui', () => {
+  const { p, id, wt } = cenario('db5', 'block');
+  try {
+    commitar(wt, `.ork-ci/${id}.json`, `{"velho": "${HOME_FICTICIA}"}\n`, 'bundle velho');
+    const arquivo = comLista(null, () => prepararBundleCi(p.carregado, id));
+    assert.equal(fs.readFileSync(arquivo, 'utf8').includes('fulana-de-teste'), false);
   } finally { p.limpar(); }
 });

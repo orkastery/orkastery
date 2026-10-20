@@ -2297,7 +2297,8 @@ function comandoCi(args: Args): number {
       console.error('uso: ork ci prepare <thread-id>');
       return 2;
     }
-    const arquivo = prepararBundleCi(carregado, thread, { aoAvisar: (linha) => console.log(`AVISO: ${linha}`) });
+    const arquivo = prepararBundleCi(carregado, thread, { aoAvisar: (linha) => console.log(`AVISO: ${linha}`),
+      aoInformar: (linha) => console.log(linha) });
     console.log(`Bundle de CI: ${arquivo}`);
     return 0;
   }
