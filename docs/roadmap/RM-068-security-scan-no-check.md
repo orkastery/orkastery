@@ -68,7 +68,7 @@ sdlc:
 | Medido | Resultado |
 | --- | --- |
 | Suíte do núcleo no HEAD da branch | 5009 testes, 0 falhas (base `f0396f69`: 4903 testes, 4901 passam, 2 pulados, 0 falhas) |
-| Scan do Orkastery contra a base real (`REQUIRED=1`) | saída 0, 174 achados, todos `existing`; de 172 a 270 s por rodada |
+| Scan do Orkastery no HEAD da branch (base = HEAD, com e sem `REQUIRED=1`) | saída 0; 0 novos, 22496 `existing` (a maior parte `quality`, fora do laço); as 9 ferramentas `ran`, Semgrep com `partial-parsing: 1`; de 162 a 270 s por rodada nas medições da branch |
 | Integração com Docker real, 3 stacks | 4 de 4 em cerca de 277 s; as 9 ferramentas rodam em cada stack |
 | Ponta a ponta, thread `#Classic` real | 2 rodadas do laço; segredo real e falso positivo atestados; dispensa registrada; reverify passa |
 | Sem Docker | 9 ferramentas `unavailable`, saída 0 (1 com `REQUIRED=1`); `ork ship` para com `human.pending`; com `--allow-unscanned`, entrega e registra |
@@ -78,7 +78,7 @@ sdlc:
 - **Só vale com `verify.security_scan` declarado.** Sem a chave, nada muda. O `ork init` de projeto novo grava a chave quando detecta uma stack.
 - **Nomes novos em inglês** (comando, chave, pasta, campos, estados, flags e skill), apesar de o guia de estilo pedir nomes em português: decisão do mantenedor do projeto, declarada na descrição do PR. O texto de mensagens e docs segue o pt-BR, pelo catálogo de locale.
 - **Gate do SHIP novo:** projeto com o scan declarado e sem `ci.required_for_ship` pode parar em `human.pending` onde antes entregava.
-- **O CI do Orkastery passa a rodar o scan** no `ork-verify`, com Docker no runner, e soma uma rodada de 2 a 5 minutos.
+- **O CI do Orkastery passa a rodar o scan** no `ork-verify`, com Docker no runner, e soma uma rodada de cerca de 3 a 4,5 minutos (162 a 270 s medidos na estação), mais o pull frio das imagens no runner.
 
 ## Plano e decisões
 
@@ -86,7 +86,7 @@ sdlc:
 - **Horizonte / alvo / previsão / confiança / marcos:** motor e catálogo, comando e relatório, gate do SHIP e doctor, skills do laço, o Orkastery contra si mesmo, integração com Docker real e prova ponta a ponta. Todos na branch; um PR só.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** RM-012 (CI como CHECK independente), RM-061 (texto nas duas línguas). Nenhum bloqueio.
 - **Premissas / riscos / mitigação:**
-  - Risco: o scan ficar lento no runner. Mitigação: cache da base por SHA e digest, prazo próprio por comando, medido de 172 a 270 s.
+  - Risco: o scan ficar lento no runner. Mitigação: cache da base por SHA e digest, prazo próprio por comando, medido de 162 a 270 s.
   - Risco: o scan parecer limpo sem ter varrido. Mitigação: `unavailable` e `failed` nunca contam como limpos; no CI, `REQUIRED=1`; no SHIP, `human.pending`.
   - Risco: valor de segredo vazar. Mitigação: só o hash entra na impressão digital; testes procuram o valor em toda saída.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):**

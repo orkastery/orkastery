@@ -871,7 +871,7 @@ No bundle do CI, o `ork ci prepare` leva o `security_scan` junto do `ci.command`
 não há `ci.command`), com `ORK_SECURITY_SCAN_REQUIRED=1`. No runner a ferramenta ausente ou com falha reprova o check em
 vez de ficar `unavailable` em silêncio, e a thread volta pelo laço com o relatório do CI como fonte. Dê ao
 `verify.timeout_ms_por_comando.security_scan` folga para o pull frio das imagens e o Semgrep: uma rodada completa mediu de
-170 a 270 s no próprio Orkastery (fria e quente), e o manifesto dele declara 840000 ms.
+160 a 270 s no próprio Orkastery (fria e quente), e o manifesto dele declara 840000 ms.
 
 ---
 
