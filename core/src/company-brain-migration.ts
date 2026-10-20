@@ -6,7 +6,7 @@ import { readPortfolio } from './portfolio';
 import { portfolioHistory, SourceScope, readSourceFile } from './company-brain-source';
 import { bytesHash, readJournal } from './company-brain-journal';
 import { digest, validateContract } from './company-brain-contract';
-import { resolverDsn } from './dsn-da-memoria';
+import { contemFragmentoDaDsn, resolverDsn } from './dsn-da-memoria';
 export type AdminTransport=(operation:'plan'|'apply'|'rollback',payload:unknown)=>any;
 export function brainAdmin(c:ManifestoCarregado):AdminTransport{
   const config=memoryState(c).loaded.manifesto.memory;
@@ -18,8 +18,11 @@ export function brainAdmin(c:ManifestoCarregado):AdminTransport{
     const r=spawnSync(config.cli,['brain','migration'],{cwd:os.homedir(),shell:false,encoding:'utf8',timeout:Math.min(config.timeout_ms,15000),maxBuffer:2*1024*1024,
       input:JSON.stringify({schema:'orkmind.company-brain-admin/v1',operation,payload}),
       env:{PATH:process.env.PATH??'/usr/bin:/bin',PYTHONDONTWRITEBYTECODE:'1',ORKMIND_DATABASE_URL:dsn,ORKMIND_BRAIN_TENANT:config.tenant}});
-    try{const response=JSON.parse(r.stdout);if(r.status!==0||response.state!=='ok')throw Error();return response.result;}
-    catch{throw Error('brain.migration.unconfirmed');}
+    let response:any;try{response=JSON.parse(r.stdout);}catch{throw Error('brain.migration.unconfirmed');}
+    // RM-069 (D21): a resposta que repete a DSN ou a senha dela nunca sai da migracao; recusada inteira, sem o valor.
+    if(contemFragmentoDaDsn(response,dsn))throw Error('brain.migration.secret');
+    if(r.status!==0||response?.state!=='ok')throw Error('brain.migration.unconfirmed');
+    return response.result;
   };
 }
 export function reconcileBrain(c:ManifestoCarregado,scope:SourceScope,batch:string,transport:AdminTransport=brainAdmin(c)){

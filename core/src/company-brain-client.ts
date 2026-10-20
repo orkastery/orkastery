@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { ManifestoCarregado } from './manifest';
 import { memoryState } from './project-state';
 import { CONTRACT_HASH, validateContract } from './company-brain-contract';
-import { resolverDsn } from './dsn-da-memoria';
+import { contemFragmentoDaDsn, resolverDsn } from './dsn-da-memoria';
 export const BRAIN_API = 'orkmind.company-brain-api/v1';
 export type BrainOperation = 'capabilities' | 'ingest' | 'get' | 'query' | 'receipts' | 'head';
 export interface BrainRequest { schema: typeof BRAIN_API; operation: BrainOperation; payload?: unknown; }
@@ -44,6 +44,8 @@ export function brainClient(loaded: ManifestoCarregado, execute: typeof spawnSyn
     if (result.error || result.signal) return unavailable('brain.transport.unavailable');
     try {
       const response = JSON.parse(String(result.stdout));
+      // RM-069 (D21): a resposta que repete a DSN ou a senha dela nunca sai do cliente; recusada inteira, sem o valor.
+      if (contemFragmentoDaDsn(response, dsn)) return unavailable('brain.transport.secret');
       if (response.schema !== BRAIN_API || !['ok','empty','unknown','unavailable','withheld','forbidden','conflict'].includes(response.state)) throw Error();
       if (response.state === 'ok' && result.status !== 0) throw Error();
       if (request.operation === 'capabilities' && response.state === 'ok' && response.contract_hash !== CONTRACT_HASH) return unavailable('brain.contract.mismatch');
