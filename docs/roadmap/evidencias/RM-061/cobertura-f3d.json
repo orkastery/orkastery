@@ -137,6 +137,52 @@
       "core/test/fixtures/locale-f3a-pt-BR.json": "40fe60a9346b19bbca1fb5d9b68c0a2409542d41e5fa6a3271bc5cda753ee3cc",
       "core/test/fixtures/locale-f3b-pt-BR.json": "278230a01c1cf41145de97e38c5d12a78e5cc5915ae6ecc79e2374045eda81ae",
       "core/test/fixtures/locale-f3c-pt-BR.json": "012f91eb89f2f016cc8d3edaeec927b316d1d536c1d0398e2245a435b3e51f27"
+    },
+    "goFix4": {
+      "descricao": "a F3d depois do merge da origin/main em ce102584 (o ork security-scan do #186 e as docs do #188), no mesmo contador, o script desta thread sobre o core/src de cada arvore: a main sozinha, a F3d no merge da RM-062 (GO-FIX 3) e a F3d no merge do GO-FIX 4. O #186 trouxe 37 entradas ao catalogo (28 do locale-security-scan.ts, 4 do doctor em locale.ts, 4 do ship e 1 do yaml do init) e 15 literais de saida fora dele (10 em security-scan/normalize/util.ts, 4 em security-scan/config.ts e 1 em security-scan/run.ts). Depois do merge o core/src nao muda: o resto do GO-FIX 4 e teste, fixture, docs e bundle",
+      "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json <arvore>/core/src",
+      "main": {
+        "arvore": "ce10258464b699bf78250677a5e4effed26ccaa3",
+        "arquivos": 334,
+        "literaisComTexto": 5813,
+        "emPosicaoDeSaida": 3164,
+        "arquivosComSaida": 199,
+        "catalogo": {
+          "entradas": 2226
+        },
+        "cobertura": 0.413
+      },
+      "comF3dNoGoFix3": {
+        "arvore": "2718eed9941e1732e03f568b4769e310fc541086",
+        "arquivos": 316,
+        "literaisComTexto": 4952,
+        "emPosicaoDeSaida": 2441,
+        "arquivosComSaida": 193,
+        "catalogo": {
+          "entradas": 3402
+        },
+        "cobertura": 0.5822
+      },
+      "comF3d": {
+        "arvore": "e5fef1ccb318e84ca073a3e513755abcd9ac386d",
+        "arquivos": 340,
+        "literaisComTexto": 4969,
+        "emPosicaoDeSaida": 2456,
+        "arquivosComSaida": 196,
+        "catalogo": {
+          "entradas": 3439
+        },
+        "cobertura": 0.5834
+      },
+      "snapshotsPtBR": {
+        "nota": "F2a a F3c regerados pelos casos de cada fatia no merge (e5fef1cc) saem iguais byte a byte aos da main (ce102584); F2a, F3a e F3b mudaram na main pelo #186, nao pela F3d. O F3d saiu dos casos sobre a main ce102584, sem a F3d, e difere do anterior so no caso cli grafo: amostra reprovada, que passou a escolher as arestas pelo rotulo e nao pelo edge_id, que leva a versao do Node",
+        "core/test/fixtures/locale-f2a-pt-BR.json": "f306bfa8f7ddfb7cfd1711dc0c3e59ec8ea1558c7866ef0103a3dc4ce32f789e",
+        "core/test/fixtures/locale-f2b-pt-BR.json": "2ed8a595fb69394c3c3ecc33a1e7890fb0c50198df1d33a97108554d40e74024",
+        "core/test/fixtures/locale-f3a-pt-BR.json": "edf96176b1fb6279d4de69a132098e60c5bbfe34f761fb111906a5cf89a244b0",
+        "core/test/fixtures/locale-f3b-pt-BR.json": "18e5b00755e7938692cd8f930f5fef33d5fc12f87c2ba2c8d3db431068adfdcb",
+        "core/test/fixtures/locale-f3c-pt-BR.json": "012f91eb89f2f016cc8d3edaeec927b316d1d536c1d0398e2245a435b3e51f27",
+        "core/test/fixtures/locale-f3d-pt-BR.json": "6a8a21511d69ce0b3ea9b8394e3ef65c74f0cdb3922685f727fcc32c43341bcc"
+      }
     }
   },
   "goFix1": {
