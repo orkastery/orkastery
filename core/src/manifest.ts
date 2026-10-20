@@ -17,6 +17,7 @@ import { lerFusoDoDono } from './horario';
 import { validarPreferencias } from './experiencia';
 import { ENVS_DE_PROVIDER_PAGO } from './runtime-ambiente';
 import { LIMITE_TIMEOUT_DO_UNIVERSO_MS, MODELO_DE_EMBEDDING, TIMEOUT_DO_UNIVERSO_MS } from './orkmind';
+import { arquivoDaDsnValido, PREFIXO_DO_ARQUIVO_DA_DSN } from './dsn-da-memoria';
 import { ErroDoCatalogo } from './locale';
 import { TIPOS_DE_FORJA, TipoDeForja } from './forja/contrato';
 import { branchValida } from './branch-de-estado';
@@ -601,8 +602,26 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
         'string de conexao (base propria por tenant, sem fallback para base alheia)'
     );
   } else if (variavelDaDsn !== '' && !/^[A-Z][A-Z0-9_]*$/.test(variavelDaDsn)) {
+    // RM-068 (D3): o valor nao entra no erro; uma DSN `chave=valor` colada aqui sairia inteira.
+    erros.push('memory.database_url_env invalido (valor omitido): esperado nome de variavel de ambiente, [A-Z][A-Z0-9_]*');
+  }
+  // RM-068 (G2, G3): a fonte de arquivo so nomeia arquivo da pasta de segredos do `ork`, e nunca junto da variavel.
+  const arquivoDaDsn = texto(memory.database_url_file, '').trim();
+  if (arquivoDaDsn.includes('://')) {
     erros.push(
-      `memory.database_url_env invalido: "${variavelDaDsn}" (esperado nome de variavel de ambiente, [A-Z][A-Z0-9_]*)`
+      `memory.database_url_file recebe o CAMINHO do arquivo com a DSN (${PREFIXO_DO_ARQUIVO_DA_DSN}<nome>), ` +
+        'nunca a string de conexao'
+    );
+  } else if (arquivoDaDsn !== '' && !arquivoDaDsnValido(arquivoDaDsn)) {
+    erros.push(
+      `memory.database_url_file invalido (valor omitido): esperado ${PREFIXO_DO_ARQUIVO_DA_DSN}<nome>, arquivo 0600 do ` +
+        'dono na pasta de segredos do ork (o manifesto nao escolhe outro caminho)'
+    );
+  }
+  if (variavelDaDsn !== '' && arquivoDaDsn !== '') {
+    erros.push(
+      'memory.database_url_env e memory.database_url_file sao exclusivos: declare uma fonte so ' +
+        '(o ork nunca cai de uma para a outra)'
     );
   }
   // RM-047 (fronteira de confiança): `memory.cli` escolhe o executável que o `ork doctor`, a memória e o
@@ -613,9 +632,9 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     erros.push(`memory.cli invalido: ${JSON.stringify(cliDaMemoria).slice(0, 60)} ` +
       '(esperado nome de executável no PATH, como orkmind, ou caminho absoluto; caminho relativo não é aceito)');
   }
-  if (modoDeMemoria === 'orkmind' && variavelDaDsn === '') {
+  if (modoDeMemoria === 'orkmind' && variavelDaDsn === '' && arquivoDaDsn === '') {
     avisos.push(
-      'memory.mode: orkmind sem memory.database_url_env: o regime efetivo cai para files ' +
+      'memory.mode: orkmind sem memory.database_url_file nem memory.database_url_env: o regime efetivo cai para files ' +
         '(o `ork` nao adivinha DSN, e base alheia e pior do que base nenhuma)'
     );
   }
@@ -720,6 +739,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     memory: {
       mode: modoDeMemoria,
       database_url_env: variavelDaDsn,
+      ...(arquivoDaDsn ? { database_url_file: arquivoDaDsn } : {}),
       cli: texto(memory.cli, 'orkmind'),
       tenant: texto(memory.tenant, '') || nomeProjeto,
       timeout_ms: numero(memory.timeout_ms, 15000),

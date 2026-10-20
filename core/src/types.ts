@@ -287,6 +287,11 @@ export interface Manifesto {
      * "nao declarada", e nesse caso o regime `orkmind` NAO liga (nao ha fallback).
      */
     database_url_env: string;
+    /**
+     * RM-068: CAMINHO do arquivo com a DSN, so na forma `~/.orkastery/segredos/<nome>` (a pasta de segredos do `ork`),
+     * nunca a DSN. Exclusivo com `database_url_env`; ausente ou vazio quer dizer "nao declarado".
+     */
+    database_url_file?: string;
     /** Binario do OrkMind chamado por subprocess (cliente desacoplado, sem Python embutido). */
     cli: string;
     /** Tenant/produto dono da base. Vazio herda `project.name`. */
@@ -1558,9 +1563,16 @@ export interface EstadoDaMemoria {
   dsnPresente: boolean;
   cli: string;
   tenant: string;
+  /** RM-068 (D5): de onde a DSN vem; aditivo e opcional, como `embeddings`. */
+  fonteDaDsn?: FonteDaDsn;
+  /** RM-068 (D5): o arquivo da DSN pelo rotulo com `~`, so com a fonte de arquivo; nunca o caminho real. */
+  arquivoDaDsn?: string;
   /** I-38 (D6): aditivo e opcional; consumidores antigos leem o estado sem ele. */
   embeddings?: EstadoDeEmbeddings;
 }
+
+/** RM-068: a fonte da DSN da memoria (`memory.database_url_env`, `memory.database_url_file` ou nenhuma). */
+export type FonteDaDsn = 'ambiente' | 'arquivo' | 'nenhuma';
 
 /** Resultado de uma gravacao na memoria semantica. */
 export interface ResultadoDeGravacao {
