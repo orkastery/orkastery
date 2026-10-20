@@ -322,6 +322,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Defeitos de condução de 19 e 20/10/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): a
+  baseline (`ork verify --baseline`) roda com o mesmo prazo de cada comando do verify
+  (`verify.timeout_ms_por_comando`) e a mesma medida do steal, e o comando sem veredito nela (estouro, relógio sob
+  steal, comando que não rodou) sai `SEM VEREDITO` e nunca vale como "já falhava": a falha dele no verify é falha sem
+  baseline (`verify.failed`). Nova chave `worktree.dependencias` no manifesto: o `ork` roda o comando dentro de toda
+  worktree nova (`ork thread new`, `ork worktree ensure`, `ork_thread_new`), grava `worktree_dependencias` no ledger e,
+  se falhar, avisa com o comando exato sem desfazer a thread; a recusa `baseline.dependencia-ausente` diz esse
+  comando. A sessão claude-bg que deu a resposta final e ficou ociosa no prompt (`working` com `status: idle`) por
+  5 min depois do Stop vira fim do turno pela prova do `ork`, e a condução sai sem esperar os 60 min do runtime. Os
+  testes `prova-ativacao-roteiro` e `projeto-alvo-cli` deixam de ler o registro de projetos e o runtime da máquina de
+  quem roda a suíte.
 - **Snapshot pt-BR estável com sha só de letras** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o
   teste `locale pt-BR F3b` caía quando o commit gerado no teste saía só com letras (`aaeecea`, `ebcbadb`) em dois
   contextos que o normalizador não reconhecia, `branch <b> em <sha>` e `(<sha>, N tentativa(s))`. Os dois

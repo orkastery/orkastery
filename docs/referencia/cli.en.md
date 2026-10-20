@@ -186,7 +186,7 @@ On hosts, the roadmap status comes from the network overview (RM-054, slice 2): 
 | `ork thread new <nome> --modo <MODO> --exige-runtime-diferente` | This thread's CHECK needs a runtime that GO did not use (I-43, pillar (a) of the envelope) |
 | `ork thread new <nome> --modo <MODO> --done "<critério> :: <comando>"` | An **executable** done criterion, which becomes a core claim and runs in `ork verify`. `;;` separates several; a criterion without a command is refused (I-43, pillar (b)) |
 | ↳ options | `[--slug S] [--assunto A] [--worktree auto\|DIR] [--sem-worktree] [--ciclo C] [--dry-run]` |
-| ↳ worktree | With `worktree.por_thread: true`, which `ork init` writes, the thread is born with the worktree and the branch `ork/<slug>` without a flag; with the key `false` or absent, only with `--worktree auto`. `--worktree DIR` reuses a directory that already exists; `--sem-worktree` creates the thread without one and warns what happens at `ork ship` (on the base branch, `push_direto_na_base: block`, the `ork init` default, blocks the delivery); `--dry-run` shows the worktree that would be created, or why creation would refuse it. The folder is that of the main tree, even when the command runs from inside another worktree |
+| ↳ worktree | With `worktree.por_thread: true`, which `ork init` writes, the thread is born with the worktree and the branch `ork/<slug>` without a flag; with the key `false` or absent, only with `--worktree auto`. `--worktree DIR` reuses a directory that already exists; `--sem-worktree` creates the thread without one and warns what happens at `ork ship` (on the base branch, `push_direto_na_base: block`, the `ork init` default, blocks the delivery); `--dry-run` shows the worktree that would be created, or why creation would refuse it. The folder is that of the main tree, even when the command runs from inside another worktree. With `worktree.dependencias` in the manifest, the command runs inside the new worktree, after the thread is created, and shows on the `dependencies` line; a failure goes to stderr with the exact command and does not undo the thread (RM-037) |
 | `ork thread new <nome> --modo <MODO> --roadmap RM-NNN` | Reserves the roadmap item for this machine **before** creating the thread; another machine with the same item gets `roadmap.reservado` and creates nothing (I-47) |
 | `ork thread new <nome> --modo <MODO> --pedido "<texto>"` | Stores the builder's request in `pedido.md`, in the thread folder, with the sha256 in `thread.json` and in `thread_created`; `ork prompt render` uses that request when `--pedido` is missing. An empty request, or one above 64 KiB, is refused before anything is written (RM-059) |
 | `ork roadmap status [--json]` | The single roadmap status report in the approved format: groups with icons, `#HITL` on what waits for the owner, and the closing with what needs the owner and what comes next. When a thread outside the roadmap waits for the owner, the closing gains the line `• Fora do roadmap: N thread(s) esperam você (ork pulse).` and `--json` gains the optional field `foraDoRoadmap` (`{ threads: [...] }`) (R3 of RM-049). RM-063 (F2): `sigo <thread> na fase <F>` only with the session verified alive in the runtime or with the conductor process conducting now; a ghost session, a failed dispatch or no session become `<thread> parada desde HH:MM: <motivo>`, and `--json` carries the `vida` of each one. "O que precisa de você" reads the same queue as `ork pulse` (without the forge and without recording): the owner item the closing did not yet say goes out on one line, with the optional field `filaDoDono`, and "Nada agora" only appears with nothing for the owner and the queue read in full. The channels carry the text (RM-048) |
@@ -315,7 +315,11 @@ is nothing, `1` when the runtime did not respond).
 | `ork decisao placar <thread> [--json]` | Decided versus asked per phase, reversals, decisions without a trace and the review threshold (13 per phase) |
 
 `--baseline` records the state of the world **before GO**. It is what makes it possible to separate `verify.regression`
-(a defect of this thread) from pre-existing debt.
+(a defect of this thread) from pre-existing debt. It runs with the same per-command deadline as verify
+(`verify.timeout_ms_por_comando`, then `verify.timeout_ms`) and the same steal measurement; a command without a verdict
+in it (deadline exceeded, clock under steal, or a command that did not run) is shown as `NO VERDICT` and does not count as
+"already failing": its failure in verify is a failure without a baseline (`verify.failed`). A command missing from the
+worktree refuses the baseline with `baseline.dependencia-ausente`, which states the `worktree.dependencias` command (RM-037).
 
 `gate approve` is retired and always refuses. The evidence is born from the authenticated ingress,
 is bound to the request and cryptographically revalidated on every `memory sync`. On Telegram,
@@ -537,7 +541,7 @@ Node 20.19, 22.12 or newer.
 
 | Command | What it does |
 | --- | --- |
-| `ork worktree ensure <thread>` | Ensures the thread's worktree, with the base resolved by `ork` |
+| `ork worktree ensure <thread>` | Ensures the thread's worktree, with the base resolved by `ork`; a recreated worktree runs the manifest's `worktree.dependencias`, like a new one (RM-037) |
 | `ork worktree sync <thread> [--dry-run]` | Rebases the thread's branch when the base has moved ahead. A branch without commits of its own is recreated at the base SHA (`git reset --keep`), without a rebase; with commits of its own and a rewritten base (no common ancestor, or the point where the thread left the base is no longer in it, as after a force-push), it refuses with `tree.blocked`, cause `base-reescrita`, the count from `git rev-list --count` and the `git rebase --onto` that reapplies only the thread's commits (RM-037) |
 | `ork worktree audit <thread>` | Checks the worktree **in git itself**. Exits nonzero if it diverges |
 | `ork worktree release <thread> [--forcar]` | Removes the worktree and cleans up the record |
