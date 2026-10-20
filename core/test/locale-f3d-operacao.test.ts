@@ -56,3 +56,19 @@ test('F3d: pulse cadencia e as recusas de responder seguem o locale', () => {
   assert.match(en, /authenticated ingress envelope/);
   assert.deepEqual(linhasEmPortugues(en), []);
 });
+
+test('F3d: portfolio, creation, objective e ci têm molduras bilíngues', () => {
+  const pt = comLocale('pt-BR', () => msg().operacao.produto.objective('list'));
+  const en = comLocale('en', () => {
+    const m = msg().operacao.produto;
+    return [m.portfolio.vazio, m.portfolio.naoEncontrada('p1'), m.creation.versao,
+      m.objective('list'), m.ci.resultado(true, 'ok'), m.ci.status(false, 'pending')].join('\n');
+  });
+  assert.match(pt, /saiu do produto/);
+  assert.match(en, /Portfolio is empty/);
+  assert.match(en, /positive integer/);
+  assert.match(en, /left the product/);
+  assert.match(en, /CI PASSED/);
+  assert.match(en, /CI NOT CLEARED/);
+  assert.deepEqual(linhasEmPortugues(en), []);
+});

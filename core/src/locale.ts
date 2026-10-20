@@ -116,7 +116,8 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'prompt list', 'prompt lint', 'prompt render', 'prompt ?',
   'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?',
   // F3d: familias restantes, acrescentadas somente quando a familia inteira entra no catalogo.
-  'modos', 'ciclos', 'setup', 'projetos', 'pulse cadencia', 'pulse responder', 'ledger'];
+  'modos', 'ciclos', 'setup', 'projetos', 'pulse cadencia', 'pulse responder', 'ledger',
+  'portfolio', 'creation', 'objective', 'ci'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -578,6 +579,53 @@ const PT_BR = {
       cobertura: (texto: string) => `  cobertura         ${texto}`,
       observacao: (texto: string) => texto,
     },
+    produto: {
+      portfolio: {
+        opcaoAposentada: (opcao: string) => `portfolio.opcao-aposentada: --${opcao} era do Objective Envelope, aposentado na I-43, e o\n` +
+          '  portfolio show nunca a leu. As duas vigas do envelope viraram propriedade de thread comum:\n' +
+          '    ork thread new "<nome>" --modo <MODO> --exige-runtime-diferente\n' +
+          '        o CHECK precisa de runtime que o GO nao usou\n' +
+          '    ork thread new "<nome>" --modo <MODO> --done "<criterio> :: <comando>"\n' +
+          '        criterio de pronto EXECUTAVEL, que vira claim e roda no ork verify',
+        usoInspect: 'uso: ork portfolio inspect <id> --json',
+        tipo: 'tipo deve ser product, project ou initiative',
+        vazio: 'Portfólio vazio.',
+        usoShow: 'uso: ork portfolio show <id>',
+        naoEncontrada: (id: string) => `entidade ${id} não encontrada`,
+        estado: (id: string, titulo: string, estado: string) => `${id}\n${titulo}\nEstado: ${estado}`,
+        usoCreate: 'uso: ork portfolio create <product|project|initiative> <id> --title T [--parent ID]',
+        desconhecido: (sub: string) => `subcomando desconhecido: portfolio ${sub}`,
+      },
+      creation: {
+        identidade: 'creation.identity: payload não escolhe principal',
+        usoStart: 'uso: ork creation start --input-file F --json',
+        arquivoGrande: 'creation.input: arquivo excede limite',
+        exigeId: 'creation exige id',
+        versao: 'creation exige --expected-version inteiro positivo',
+        desconhecido: 'subcomando creation desconhecido',
+      },
+      objective: (sub: string) =>
+        `objective.aposentado: o Objective Envelope saiu do produto na I-43 (subcomando "${sub}").\n` +
+        '  Ele descrevia um gate que nao bloqueava nada: das 137 threads do projeto, zero\n' +
+        '  tinham creationOrigin, que era a unica via pela qual o despacho o consultava.\n' +
+        '  As duas vigas que ele guardava viraram propriedade de thread comum:\n' +
+        '    ork thread new "<nome>" --modo <MODO> --exige-runtime-diferente\n' +
+        '        o CHECK precisa de runtime que o GO nao usou\n' +
+        '    ork thread new "<nome>" --modo <MODO> --done "<criterio> :: <comando>"\n' +
+        '        criterio de pronto EXECUTAVEL, que vira claim e roda no ork verify\n' +
+        '  Os envelopes ja gravados continuam em .orkastery/objectives, intocados.',
+      ci: {
+        usoPrepare: 'uso: ork ci prepare <thread-id>', aviso: (linha: string) => `AVISO: ${linha}`,
+        bundle: (arquivo: string) => `Bundle de CI: ${arquivo}`,
+        usoRun: 'uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo> | ork ci run --branch <branch>',
+        resultado: (ok: boolean, detalhe: string) => `${ok ? 'CI APROVADO' : 'CI REPROVADO'}: ${detalhe}`,
+        sha: 'erro: ci status: --sha exige o sha completo, de 40 caracteres hexadecimais minusculos ' +
+          '(git rev-parse HEAD); o check e consultado no commit exato, nunca por ref nem prefixo',
+        usoStatus: 'uso: ork ci status --sha <sha de 40 caracteres> [--remoto origin]',
+        status: (ok: boolean, detalhe: string) => `${ok ? 'CI VERDE' : 'CI NÃO LIBEROU'}: ${detalhe}`,
+        desconhecido: (sub: string) => `subcomando desconhecido: ci ${sub}`,
+      },
+    },
   },
   setup: SETUP_PT_BR,
   projetos: PROJETOS_PT_BR,
@@ -970,6 +1018,53 @@ const EN: Mensagens = {
         .replace(/sessao\(oes\) sem medicao de tokens$/, 'session(s) without token measurement')
         .replace(/sessao\(oes\) com tokens, mas sem tarifa de referencia$/, 'session(s) with tokens but no reference rate')
         .replace(/linha\(s\) de ledger corrompida\(s\) ignorada\(s\)$/, 'corrupt ledger line(s) ignored'),
+    },
+    produto: {
+      portfolio: {
+        opcaoAposentada: (option) => `portfolio.opcao-aposentada: --${option} belonged to the Objective Envelope, retired in I-43, and\n` +
+          '  portfolio show never read it. The envelope\'s two beams became regular thread properties:\n' +
+          '    ork thread new "<name>" --modo <MODE> --exige-runtime-diferente\n' +
+          '        CHECK requires a runtime that GO did not use\n' +
+          '    ork thread new "<name>" --modo <MODE> --done "<criterion> :: <command>"\n' +
+          '        an EXECUTABLE done criterion that becomes a claim and runs in ork verify',
+        usoInspect: 'usage: ork portfolio inspect <id> --json',
+        tipo: 'type must be product, project, or initiative',
+        vazio: 'Portfolio is empty.',
+        usoShow: 'usage: ork portfolio show <id>',
+        naoEncontrada: (id) => `entity ${id} not found`,
+        estado: (id, title, status) => `${id}\n${title}\nStatus: ${status}`,
+        usoCreate: 'usage: ork portfolio create <product|project|initiative> <id> --title T [--parent ID]',
+        desconhecido: (sub) => `unknown subcommand: portfolio ${sub}`,
+      },
+      creation: {
+        identidade: 'creation.identity: payload cannot choose the principal',
+        usoStart: 'usage: ork creation start --input-file F --json',
+        arquivoGrande: 'creation.input: file exceeds the limit',
+        exigeId: 'creation requires an id',
+        versao: 'creation requires a positive integer --expected-version',
+        desconhecido: 'unknown creation subcommand',
+      },
+      objective: (sub) =>
+        `objective.aposentado: the Objective Envelope left the product in I-43 (subcommand "${sub}").\n` +
+        '  It described a gate that blocked nothing: of the project\'s 137 threads, zero\n' +
+        '  had creationOrigin, the only path through which dispatch consulted it.\n' +
+        '  Its two beams became regular thread properties:\n' +
+        '    ork thread new "<name>" --modo <MODE> --exige-runtime-diferente\n' +
+        '        CHECK requires a runtime that GO did not use\n' +
+        '    ork thread new "<name>" --modo <MODE> --done "<criterion> :: <command>"\n' +
+        '        an EXECUTABLE done criterion that becomes a claim and runs in ork verify\n' +
+        '  Existing envelopes remain untouched in .orkastery/objectives.',
+      ci: {
+        usoPrepare: 'usage: ork ci prepare <thread-id>', aviso: (line) => `WARNING: ${line}`,
+        bundle: (file) => `CI bundle: ${file}`,
+        usoRun: 'usage: ork ci run <thread-id> [--json] | ork ci run --bundle <file> | ork ci run --branch <branch>',
+        resultado: (ok, detail) => `${ok ? 'CI PASSED' : 'CI FAILED'}: ${detail}`,
+        sha: 'error: ci status: --sha requires the full 40-character lowercase hexadecimal SHA ' +
+          '(git rev-parse HEAD); the check is queried at the exact commit, never by ref or prefix',
+        usoStatus: 'usage: ork ci status --sha <40-character sha> [--remoto origin]',
+        status: (ok, detail) => `${ok ? 'CI GREEN' : 'CI NOT CLEARED'}: ${detail}`,
+        desconhecido: (sub) => `unknown subcommand: ci ${sub}`,
+      },
     },
   },
   setup: SETUP_EN,

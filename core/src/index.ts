@@ -2162,23 +2162,17 @@ function comandoShip(args: Args): number {
 const SOBRAS_DO_OBJECTIVE = ['constraints', 'outcomes', 'threads', 'execution-runtime', 'validation-runtimes'];
 
 function recusarSobraDoObjective(opcao: string): number {
-  console.error(
-    `portfolio.opcao-aposentada: --${opcao} era do Objective Envelope, aposentado na I-43, e o\n` +
-    '  portfolio show nunca a leu. As duas vigas do envelope viraram propriedade de thread comum:\n' +
-    '    ork thread new "<nome>" --modo <MODO> --exige-runtime-diferente\n' +
-    '        o CHECK precisa de runtime que o GO nao usou\n' +
-    '    ork thread new "<nome>" --modo <MODO> --done "<criterio> :: <comando>"\n' +
-    '        criterio de pronto EXECUTAVEL, que vira claim e roda no ork verify'
-  );
+  console.error(msg().operacao.produto.portfolio.opcaoAposentada(opcao));
   return 2;
 }
 
 function comandoPortfolio(args: Args): number {
   const root = exigirManifesto().raiz;
   const sub = args.posicionais[1] ?? 'list';
+  const m = msg().operacao.produto.portfolio;
   if (sub === 'inspect') {
     const id = args.posicionais[2];
-    if (!id) { console.error('uso: ork portfolio inspect <id> --json'); return 2; }
+    if (!id) { console.error(m.usoInspect); return 2; }
     console.log(JSON.stringify(inspectPortfolio(root, id), null, 2));
     return 0;
   }
@@ -2187,26 +2181,26 @@ function comandoPortfolio(args: Args): number {
   if (sub === 'list') {
     const rawKind = args.posicionais[2];
     const kind = rawKind ? aliases[rawKind] : undefined;
-    if (rawKind && !kind) { console.error('tipo deve ser product, project ou initiative'); return 2; }
+    if (rawKind && !kind) { console.error(m.tipo); return 2; }
     const items = listEntities(root, kind, texto(args.opcoes.parent));
     console.log(args.opcoes.json === true ? JSON.stringify({ schema: 'ork.portfolio-list/v1', updatedAt: readPortfolio(root).updatedAt, items }, null, 2)
-      : items.length ? items.map((item) => `${item.id}\t${item.kind}\t${item.status}\t${item.title}`).join('\n') : 'Portfólio vazio.');
+      : items.length ? items.map((item) => `${item.id}\t${item.kind}\t${item.status}\t${item.title}`).join('\n') : m.vazio);
     return 0;
   }
   if (sub === 'show') {
     const sobra = SOBRAS_DO_OBJECTIVE.find((opcao) => args.opcoes[opcao] !== undefined);
     if (sobra) return recusarSobraDoObjective(sobra);
     const id = args.posicionais[2];
-    if (!id) { console.error('uso: ork portfolio show <id>'); return 2; }
+    if (!id) { console.error(m.usoShow); return 2; }
     const item = findEntity(root, id);
-    if (!item) { console.error(`entidade ${id} não encontrada`); return 1; }
-    console.log(args.opcoes.json === true ? JSON.stringify(item, null, 2) : `${item.id}\n${item.title}\nEstado: ${item.status}`);
+    if (!item) { console.error(m.naoEncontrada(id)); return 1; }
+    console.log(args.opcoes.json === true ? JSON.stringify(item, null, 2) : m.estado(item.id, item.title, item.status));
     return 0;
   }
   if (sub === 'create') {
     const kind = aliases[args.posicionais[2] ?? ''];
     const id = args.posicionais[3], title = texto(args.opcoes.title), parent = texto(args.opcoes.parent);
-    if (!kind || !id || !title) { console.error('uso: ork portfolio create <product|project|initiative> <id> --title T [--parent ID]'); return 2; }
+    if (!kind || !id || !title) { console.error(m.usoCreate); return 2; }
     const common = { id, title, description: texto(args.opcoes.description), ownerId: texto(args.opcoes.owner), status: texto(args.opcoes.status) as PortfolioStatus | undefined, acceptanceCriteria: split(texto(args.opcoes.acceptance), ';') };
     const item = kind === 'product' ? createProduct(root, common)
       : kind === 'project' ? createProject(root, { ...common, productId: parent ?? '', workspaceIds: split(texto(args.opcoes.workspaces)) })
@@ -2214,7 +2208,7 @@ function comandoPortfolio(args: Args): number {
     console.log(JSON.stringify({ schema: 'ork.portfolio-created/v1', item }, null, 2));
     return 0;
   }
-  console.error(`subcomando desconhecido: portfolio ${sub}`);
+  console.error(m.desconhecido(sub));
   return 2;
 }
 
@@ -2224,7 +2218,8 @@ function comandoCreation(args: Args): number {
   // Fachadas HTTP devem usar a API com principal e authorize autenticados no servidor.
   const actor: CreationActor = { principal: `local:uid:${userInfo().uid}`, authorize: () => {} };
   const sub = args.posicionais[1], id = args.posicionais[2];
-  if (args.opcoes.principal !== undefined || args.opcoes.por !== undefined) throw new Error('creation.identity: payload não escolhe principal');
+  const m = msg().operacao.produto.creation;
+  if (args.opcoes.principal !== undefined || args.opcoes.por !== undefined) throw new Error(m.identidade);
   let result: unknown;
   if (sub === 'session') {
     const portfolio = readPortfolio(loaded.raiz);
@@ -2236,20 +2231,20 @@ function comandoCreation(args: Args): number {
     };
   } else if (sub === 'start') {
     const file = texto(args.opcoes['input-file']);
-    if (!file) { console.error('uso: ork creation start --input-file F --json'); return 2; }
+    if (!file) { console.error(m.usoStart); return 2; }
     const content = fs.readFileSync(file, 'utf8');
-    if (Buffer.byteLength(content) > 100_000) throw new Error('creation.input: arquivo excede limite');
+    if (Buffer.byteLength(content) > 100_000) throw new Error(m.arquivoGrande);
     result = startCreation(loaded, actor, JSON.parse(content));
   } else if (sub === 'list') result = listCreationOperations(loaded.raiz, actor.principal);
-  else if (!id) { console.error('creation exige id'); return 2; }
+  else if (!id) { console.error(m.exigeId); return 2; }
   else if (sub === 'show' || sub === 'events') {
     const op = readCreationOperation(loaded.raiz, id, actor.principal);
     result = sub === 'events' ? { schema: 'ork.creation-events/v1', operationId: id, version: op.version, events: op.events } : op;
   } else if (sub === 'resume' || sub === 'compensate') {
     const version = Number(texto(args.opcoes['expected-version']));
-    if (!Number.isSafeInteger(version) || version < 1) { console.error('creation exige --expected-version inteiro positivo'); return 2; }
+    if (!Number.isSafeInteger(version) || version < 1) { console.error(m.versao); return 2; }
     result = sub === 'resume' ? resumeCreation(loaded, actor, id, version) : compensateCreation(loaded, actor, id, version);
-  } else { console.error('subcomando creation desconhecido'); return 2; }
+  } else { console.error(m.desconhecido); return 2; }
   console.log(JSON.stringify(result, null, 2));
   return 0;
 }
@@ -2274,17 +2269,7 @@ function comandoCreation(args: Args): number {
  */
 function comandoObjective(args: Args): number {
   const sub = args.posicionais[1] ?? 'list';
-  console.error(
-    `objective.aposentado: o Objective Envelope saiu do produto na I-43 (subcomando "${sub}").\n` +
-    '  Ele descrevia um gate que nao bloqueava nada: das 137 threads do projeto, zero\n' +
-    '  tinham creationOrigin, que era a unica via pela qual o despacho o consultava.\n' +
-    '  As duas vigas que ele guardava viraram propriedade de thread comum:\n' +
-    '    ork thread new "<nome>" --modo <MODO> --exige-runtime-diferente\n' +
-    '        o CHECK precisa de runtime que o GO nao usou\n' +
-    '    ork thread new "<nome>" --modo <MODO> --done "<criterio> :: <comando>"\n' +
-    '        criterio de pronto EXECUTAVEL, que vira claim e roda no ork verify\n' +
-    '  Os envelopes ja gravados continuam em .orkastery/objectives, intocados.'
-  );
+  console.error(msg().operacao.produto.objective(sub));
   return 2;
 }
 
@@ -2292,14 +2277,15 @@ function comandoObjective(args: Args): number {
 function comandoCi(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1] ?? 'status';
+  const m = msg().operacao.produto.ci;
   if (sub === 'prepare') {
     const thread = args.posicionais[2];
     if (!thread) {
-      console.error('uso: ork ci prepare <thread-id>');
+      console.error(m.usoPrepare);
       return 2;
     }
-    const arquivo = prepararBundleCi(carregado, thread, { aoAvisar: (linha) => console.log(`AVISO: ${linha}`) });
-    console.log(`Bundle de CI: ${arquivo}`);
+    const arquivo = prepararBundleCi(carregado, thread, { aoAvisar: (linha) => console.log(m.aviso(linha)) });
+    console.log(m.bundle(arquivo));
     return 0;
   }
   if (sub === 'run') {
@@ -2318,29 +2304,28 @@ function comandoCi(args: Args): number {
     }
     const thread = args.posicionais[2];
     if (!thread) {
-      console.error('uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo> | ork ci run --branch <branch>');
+      console.error(m.usoRun);
       return 2;
     }
     const result = executarCi(carregado, thread);
-    console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : `${result.status.ok ? 'CI APROVADO' : 'CI REPROVADO'}: ${result.status.detail}`);
+    console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : m.resultado(result.status.ok, result.status.detail));
     return result.status.ok ? 0 : 1;
   }
   if (sub === 'status') {
     const sha = texto(args.opcoes.sha) ?? args.posicionais[2] ?? exec('git', ['rev-parse', 'HEAD'], carregado.raiz).stdout.trim();
     if (!/^[0-9a-f]{40}$/.test(sha)) {
       // Ensaio de 03/10 (R4): `--sha HEAD` ou um sha curto respondiam so a linha de uso, sem dizer por que.
-      console.error('erro: ci status: --sha exige o sha completo, de 40 caracteres hexadecimais minusculos ' +
-        '(git rev-parse HEAD); o check e consultado no commit exato, nunca por ref nem prefixo');
-      console.error('uso: ork ci status --sha <sha de 40 caracteres> [--remoto origin]');
+      console.error(m.sha);
+      console.error(m.usoStatus);
       return 2;
     }
     // RM-047: recusa o `--remoto` que nao e nome de remoto mesmo com o gate de CI desligado.
     const remoto = exigirRemoto(args.opcoes.remoto === undefined ? 'origin' : args.opcoes.remoto, 'ci');
     const result = consultarCi(carregado, sha, remoto);
-    console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : `${result.ok ? 'CI VERDE' : 'CI NÃO LIBEROU'}: ${result.detail}`);
+    console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : m.status(result.ok, result.detail));
     return result.ok ? 0 : 1;
   }
-  console.error(`subcomando desconhecido: ci ${sub}`);
+  console.error(m.desconhecido(sub));
   return 2;
 }
 
