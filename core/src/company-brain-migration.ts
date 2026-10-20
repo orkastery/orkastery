@@ -6,11 +6,13 @@ import { readPortfolio } from './portfolio';
 import { portfolioHistory, SourceScope, readSourceFile } from './company-brain-source';
 import { bytesHash, readJournal } from './company-brain-journal';
 import { digest, validateContract } from './company-brain-contract';
+import { resolverDsn } from './dsn-da-memoria';
 export type AdminTransport=(operation:'plan'|'apply'|'rollback',payload:unknown)=>any;
 export function brainAdmin(c:ManifestoCarregado):AdminTransport{
   const config=memoryState(c).loaded.manifesto.memory;
   return(operation,payload)=>{
-    const dsn=config.database_url_env?process.env[config.database_url_env]:undefined;
+    // RM-068: a DSN pelo resolvedor unico (a variavel ou o arquivo da pasta de segredos).
+    const dsn=resolverDsn(config).dsn;
     if(config.mode!=='orkmind'||!dsn)throw Error('brain.configuration.missing');
     // RM-047: cwd fora do clone; um nome de interpretador em memory.cli não acha arquivo do repositório.
     const r=spawnSync(config.cli,['brain','migration'],{cwd:os.homedir(),shell:false,encoding:'utf8',timeout:Math.min(config.timeout_ms,15000),maxBuffer:2*1024*1024,

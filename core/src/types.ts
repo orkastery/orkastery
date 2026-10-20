@@ -1357,6 +1357,10 @@ export type MotivoDeDegradacao =
   | 'modo.desconhecido'
   | 'dsn.nao-declarado'
   | 'dsn.env-ausente'
+  // RM-068 (D4): a fonte de arquivo (`memory.database_url_file`) ausente, insegura ou invalida; nunca cai para a variavel.
+  | 'dsn.arquivo-ausente'
+  | 'dsn.arquivo-inseguro'
+  | 'dsn.arquivo-invalido'
   | 'cli.ausente'
   | 'orkmind.indisponivel';
 

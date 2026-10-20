@@ -2,7 +2,8 @@
  * RM-068 (ork-dsnforadoamb): a DSN da memória fora do ambiente dos agentes.
  *
  * Os casos `DM` provam o resolvedor (`core/src/dsn-da-memoria.ts`) e a chave `memory.database_url_file` do manifesto
- * (T2). Toda DSN é inventada, a pasta do usuário do `ork` é temporária (`ORK_USUARIO_DIR` no ambiente injetado) e
+ * (T2); os casos `DR`, os consumidores pelo resolvedor e a degradação tipada (T3). Toda DSN é inventada, a pasta do
+ * usuário do `ork` é temporária (`ORK_USUARIO_DIR` no ambiente injetado, ou no do processo, restaurado no `finally`) e
  * nenhum caso lê, compara ou imprime o ambiente de quem roda a suíte.
  */
 
@@ -16,7 +17,14 @@ import {
   variaveisComDsn, variaveisComUrlComSenha,
 } from '../src/dsn-da-memoria';
 import { carregarManifesto } from '../src/manifest';
+import { configDoManifesto, DriverCliOrkMind, DriverEmMemoria, resolverRegime } from '../src/orkmind';
+import { abrirMemoria, textoDoEstado } from '../src/memoria';
+import { BRAIN_API, brainClient, BrainRequest } from '../src/company-brain-client';
+import { brainAdmin } from '../src/company-brain-migration';
+import { CONTRACT_HASH } from '../src/company-brain-contract';
+import { EntradaNova, Manifesto } from '../src/types';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
+import { createHash } from 'node:crypto';
 
 /** DSN inventada; a senha tem mais de 12 caracteres, então também é fragmento proibido (D6). */
 const DSN = 'postgres://usuario:senha-de-teste-inventada@localhost/teste';
@@ -317,4 +325,210 @@ test('DM19: fim de linha \\r\\n e espaço em volta são aparados', () => {
     assert.equal(r.falha, null);
     assert.equal(r.dsn, DSN);
   } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// T3: os consumidores pelo resolvedor e a degradação tipada (casos DR)
+
+/** Roda `fn` com a pasta do usuário do `ork` no ambiente do processo (os consumidores leem `process.env`). */
+function comPastaDoUsuario<T>(p: PastaDoUsuario, fn: () => T): T {
+  const antes = process.env.ORK_USUARIO_DIR;
+  process.env.ORK_USUARIO_DIR = p.dir;
+  try { return fn(); } finally { if (antes === undefined) delete process.env.ORK_USUARIO_DIR; else process.env.ORK_USUARIO_DIR = antes; }
+}
+
+/** O manifesto do projeto de teste com `orkmind` e a fonte de arquivo (ou o que `memoria` pedir). */
+function comMemoria(projeto: ProjetoDeTeste, memoria: Partial<Manifesto['memory']> = {}): Manifesto {
+  return { ...projeto.carregado.manifesto, memory: { ...projeto.carregado.manifesto.memory, mode: 'orkmind',
+    tenant: 'orkastery', database_url_env: '', database_url_file: ARQUIVO, ...memoria } };
+}
+
+function semSegredo(texto: string, rotulo: string): void {
+  for (const proibido of [DSN, SENHA_INVENTADA]) assert.ok(!texto.includes(proibido), `vazou em ${rotulo}`);
+}
+
+const LICAO: EntradaNova = { source: 'agent', collection: 'learning', content: 'licao inventada do teste',
+  tags: { project: ['orkastery'] }, priority: 'medium', metadata: {} };
+
+/** CLI falso do OrkMind no formato que o driver aceita: o `orkmind` aponta, pelo shebang, para um Node com o corpo dado. */
+function orkmindFalso(corpo: string): { cli: string; dir: string; limpar: () => void } {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-dsn-cli-')));
+  const runner = path.join(dir, 'python');
+  fs.writeFileSync(runner, `#!${process.execPath}\n${corpo}`, { mode: 0o755 });
+  const cli = path.join(dir, 'orkmind');
+  fs.writeFileSync(cli, `#!${runner}\n`, { mode: 0o755 });
+  return { cli, dir, limpar: () => fs.rmSync(dir, { recursive: true, force: true }) };
+}
+
+test('DR1: com o arquivo válido, o regime liga e o estado diz a fonte pelo rótulo, sem o valor', () => {
+  const projeto = projetoTemporario('dsn-dr1');
+  const p = pastaDoUsuario('dr1');
+  try {
+    gravar(p, DSN);
+    const { estado, driver } = comPastaDoUsuario(p, () => resolverRegime(comMemoria(projeto), new DriverEmMemoria()));
+    assert.ok(driver);
+    assert.equal(estado.efetivo, 'orkmind');
+    assert.equal(estado.motivo, null);
+    assert.equal(estado.fonteDaDsn, 'arquivo');
+    assert.equal(estado.arquivoDaDsn, 'ORK_USUARIO_DIR/segredos/teste.dsn');
+    assert.equal(estado.variavel, '');
+    assert.equal(estado.dsnPresente, true);
+    assert.match(estado.detalhe, /ativo na base declarada por ORK_USUARIO_DIR\/segredos\/teste\.dsn: /);
+    semSegredo(JSON.stringify(estado), 'estado');
+  } finally { p.limpar(); projeto.limpar(); }
+});
+
+test('DR2: arquivo inseguro, ausente ou inválido degrada com o motivo e a correção, sem cair para a variável', () => {
+  const projeto = projetoTemporario('dsn-dr2');
+  const p = pastaDoUsuario('dr2');
+  const antes = process.env.ORKASTERY_TESTE_DSN_DR2;
+  process.env.ORKASTERY_TESTE_DSN_DR2 = DSN;
+  try {
+    const casos: Array<[() => void, string, RegExp]> = [
+      [() => gravar(p, DSN, 0o644), 'dsn.arquivo-inseguro', /chmod 600/],
+      [() => fs.rmSync(path.join(p.segredos, 'teste.dsn'), { force: true }), 'dsn.arquivo-ausente', /^grave a DSN da base propria do tenant em ORK_USUARIO_DIR\/segredos\/teste\.dsn/],
+      [() => gravar(p, `ORKMIND_DATABASE_URL=${DSN}`), 'dsn.arquivo-invalido', /sem NOME= na frente/],
+    ];
+    for (const [preparar, motivo, correcao] of casos) {
+      preparar();
+      // As duas fontes no mesmo objeto (o parser do manifesto recusaria): o resolvedor só lê o arquivo.
+      const manifesto = comMemoria(projeto, { database_url_env: 'ORKASTERY_TESTE_DSN_DR2' });
+      const { estado, driver } = comPastaDoUsuario(p, () => resolverRegime(manifesto, null));
+      assert.equal(driver, null);
+      assert.equal(estado.efetivo, 'files', motivo);
+      assert.equal(estado.motivo, motivo);
+      assert.equal(estado.dsnPresente, false);
+      assert.match(estado.detalhe, /^ORK_USUARIO_DIR\/segredos\/teste\.dsn: .*: o ork nao cai para outra fonte \(precedente memory-orkmind\)$/);
+      assert.match(estado.correcao, correcao);
+      semSegredo(JSON.stringify(estado), motivo);
+    }
+  } finally {
+    if (antes === undefined) delete process.env.ORKASTERY_TESTE_DSN_DR2; else process.env.ORKASTERY_TESTE_DSN_DR2 = antes;
+    p.limpar(); projeto.limpar();
+  }
+});
+
+test('DR3: com o arquivo válido e sem driver injetado, a DSN é achada e o motivo não é de DSN', () => {
+  const projeto = projetoTemporario('dsn-dr3');
+  const p = pastaDoUsuario('dr3');
+  try {
+    gravar(p, DSN);
+    const manifesto = comMemoria(projeto, { cli: path.join(p.dir, 'nao-existe', 'orkmind') });
+    const { estado } = comPastaDoUsuario(p, () => resolverRegime(manifesto, null));
+    assert.equal(estado.efetivo, 'files');
+    assert.ok(estado.motivo && !estado.motivo.startsWith('dsn.'), String(estado.motivo));
+    assert.equal(estado.dsnPresente, true);
+    semSegredo(JSON.stringify(estado), 'estado');
+  } finally { p.limpar(); projeto.limpar(); }
+});
+
+test('DR4: o ork memory status em texto mostra o arquivo com a fonte de arquivo e as linhas de hoje com ambiente', () => {
+  const projeto = projetoTemporario('dsn-dr4');
+  const p = pastaDoUsuario('dr4');
+  try {
+    gravar(p, DSN);
+    const arquivo = textoDoEstado(comPastaDoUsuario(p, () => resolverRegime(comMemoria(projeto), new DriverEmMemoria())).estado);
+    assert.ok(arquivo.includes('  arquivo da base       ORK_USUARIO_DIR/segredos/teste.dsn\n'), arquivo);
+    assert.ok(arquivo.includes('  DSN no arquivo        sim (valor nunca impresso)\n'), arquivo);
+    assert.ok(!arquivo.includes('variavel da base'));
+    semSegredo(arquivo, 'texto com arquivo');
+    const ambiente = textoDoEstado(resolverRegime(comMemoria(projeto,
+      { database_url_file: undefined, database_url_env: 'ORKASTERY_TESTE_DSN_DR4_AUSENTE' }), null).estado);
+    assert.ok(ambiente.includes('  variavel da base      ORKASTERY_TESTE_DSN_DR4_AUSENTE\n'), ambiente);
+    assert.ok(ambiente.includes('  DSN no ambiente       nao\n'), ambiente);
+    assert.ok(!ambiente.includes('arquivo da base'));
+  } finally { p.limpar(); projeto.limpar(); }
+});
+
+test('DR5: o driver do OrkMind leva a DSN do arquivo só ao ambiente do filho e recusa pedido com a senha', () => {
+  const projeto = projetoTemporario('dsn-dr5');
+  const p = pastaDoUsuario('dr5');
+  const f = orkmindFalso(`const fs=require('fs'),assert=require('assert/strict');
+    const q=JSON.parse(fs.readFileSync(0,'utf8'));
+    assert.equal(process.env.ORKMIND_DATABASE_URL, ${JSON.stringify(DSN)});
+    assert.ok(!process.argv.join(' ').includes(${JSON.stringify(SENHA_INVENTADA)}));
+    console.log(JSON.stringify({ok:true,id:'id-dr5',duplicada:false,collection:q.entrada.collection,detalhe:'created'}));`);
+  try {
+    gravar(p, DSN);
+    const driver = new DriverCliOrkMind(comPastaDoUsuario(p, () => configDoManifesto(comMemoria(projeto, { cli: f.cli }))));
+    assert.equal(driver.adicionar(LICAO).id, 'id-dr5');
+    const recusado = driver.adicionar({ ...LICAO, content: `licao com ${SENHA_INVENTADA}` });
+    assert.equal(recusado.ok, false);
+    assert.equal(recusado.detalhe, 'memory.transport.secret: conteudo recusado');
+  } finally { f.limpar(); p.limpar(); projeto.limpar(); }
+});
+
+test('DR6: sem DSN do arquivo, o driver recusa com o motivo da fonte e o filho não roda', () => {
+  const projeto = projetoTemporario('dsn-dr6');
+  const p = pastaDoUsuario('dr6');
+  const marca = path.join(p.dir, 'rodou');
+  const f = orkmindFalso(`require('fs').writeFileSync(${JSON.stringify(marca)}, 'x'); console.log('{}');`);
+  try {
+    gravar(p, DSN, 0o644);
+    const config = comPastaDoUsuario(p, () => configDoManifesto(comMemoria(projeto, { cli: f.cli })));
+    assert.equal(config.dsn, '');
+    assert.equal(config.falhaDaDsn, 'dsn.arquivo-inseguro');
+    const saude = new DriverCliOrkMind(config).disponivel();
+    assert.deepEqual(saude, { ok: false, detalhe: 'dsn.arquivo-inseguro' });
+    assert.equal(fs.existsSync(marca), false, 'o filho não pode rodar sem DSN');
+  } finally { f.limpar(); p.limpar(); projeto.limpar(); }
+});
+
+test('DR7: o cliente do Company Brain leva a DSN do arquivo só em ORKMIND_DATABASE_URL; arquivo inseguro não chama o filho', () => {
+  const projeto = projetoTemporario('dsn-dr7');
+  const p = pastaDoUsuario('dr7');
+  try {
+    gravar(p, DSN);
+    projeto.carregado.manifesto = comMemoria(projeto);
+    const chamadas: Array<{ args: string[]; env: Record<string, string> }> = [];
+    const run: any = (_bin: string, args: string[], opts: { env: Record<string, string> }) => {
+      chamadas.push({ args, env: opts.env });
+      return { status: 0, stdout: JSON.stringify({ schema: BRAIN_API, state: 'ok', contract_hash: CONTRACT_HASH }) };
+    };
+    const pedido: BrainRequest = { schema: BRAIN_API, operation: 'get', payload: { tenant_id: 'orkastery', id: 'proj-aaa' } };
+    assert.equal(comPastaDoUsuario(p, () => brainClient(projeto.carregado, run)(pedido)).state, 'ok');
+    assert.equal(chamadas.length, 1);
+    assert.deepEqual(chamadas[0].args, ['brain', 'request']);
+    assert.equal(chamadas[0].env.ORKMIND_DATABASE_URL, DSN);
+    assert.deepEqual(Object.keys(chamadas[0].env).sort(), ['ORKMIND_BRAIN_TENANT', 'ORKMIND_DATABASE_URL', 'PATH', 'PYTHONDONTWRITEBYTECODE']);
+    gravar(p, DSN, 0o644);
+    assert.deepEqual(comPastaDoUsuario(p, () => brainClient(projeto.carregado, run)(pedido)),
+      { schema: BRAIN_API, state: 'unavailable', error: 'brain.configuration.missing' });
+    assert.equal(chamadas.length, 1, 'arquivo inseguro não chama o filho');
+  } finally { p.limpar(); projeto.limpar(); }
+});
+
+test('DR8: a migração do Brain leva a DSN do arquivo ao filho só pelo ambiente; arquivo inseguro recusa antes', () => {
+  const projeto = projetoTemporario('dsn-dr8');
+  const p = pastaDoUsuario('dr8');
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-dsn-admin-')));
+  try {
+    const cli = path.join(dir, 'orkmind');
+    fs.writeFileSync(cli, `#!${process.execPath}
+const crypto=require('crypto');let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{
+  const sha=crypto.createHash('sha256').update(process.env.ORKMIND_DATABASE_URL||'').digest('hex');
+  console.log(JSON.stringify({state:'ok',result:{sha,args:process.argv.slice(2),operacao:JSON.parse(s).operation}}));});
+`, { mode: 0o755 });
+    gravar(p, DSN);
+    projeto.carregado.manifesto = comMemoria(projeto, { cli });
+    const r = comPastaDoUsuario(p, () => brainAdmin(projeto.carregado)('plan', { batch_id: 'b1' }));
+    assert.deepEqual(r, { sha: createHash('sha256').update(DSN).digest('hex'), args: ['brain', 'migration'], operacao: 'plan' });
+    gravar(p, DSN, 0o644);
+    assert.throws(() => comPastaDoUsuario(p, () => brainAdmin(projeto.carregado)('plan', {})), /brain\.configuration\.missing/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); p.limpar(); projeto.limpar(); }
+});
+
+test('DR9: o estado da memória em JSON não traz a DSN nem a senha, com o arquivo valendo ou falhando', () => {
+  const projeto = projetoTemporario('dsn-dr9');
+  const p = pastaDoUsuario('dr9');
+  try {
+    projeto.carregado.manifesto = comMemoria(projeto);
+    for (const modo of [0o600, 0o644]) {
+      gravar(p, DSN, modo);
+      const memoria = comPastaDoUsuario(p, () => abrirMemoria(projeto.carregado, { driver: new DriverEmMemoria() }));
+      assert.equal(memoria.estado.fonteDaDsn, 'arquivo');
+      semSegredo(JSON.stringify(memoria.estado), `estado ${modo.toString(8)}`);
+      semSegredo(textoDoEstado(memoria.estado), `texto ${modo.toString(8)}`);
+    }
+  } finally { p.limpar(); projeto.limpar(); }
 });

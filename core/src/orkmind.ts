@@ -27,6 +27,7 @@ import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { performance } from 'node:perf_hooks';
 import { Manifesto } from './types';
+import { FalhaDaDsn, fragmentosDaDsn, resolverDsn } from './dsn-da-memoria';
 import {
   ColecaoDoOrk,
   ConsultaPorTag,
@@ -35,6 +36,7 @@ import {
   EntradaDeMemoria,
   EntradaNova,
   EstadoDaMemoria,
+  FonteDaDsn,
   ForaDaBusca,
   MotivoDeDegradacao,
   PrioridadeDeMemoria,
@@ -399,10 +401,16 @@ export function entradaDoJson(bruto: unknown): EntradaDeMemoria | null {
 /** Configuracao resolvida do driver de CLI. */
 export interface ConfigDoDriver {
   cli: string;
-  /** Nome literal da variavel de ambiente do manifesto. */
+  /** Nome literal da variavel de ambiente do manifesto (vazio com a fonte de arquivo). */
   variavel: string;
-  /** Valor da DSN lido do ambiente. Vazio quer dizer "nao ligue". */
+  /** Valor da DSN lido da fonte declarada (ambiente ou arquivo). Vazio quer dizer "nao ligue". */
   dsn: string;
+  /** RM-068: de onde a DSN veio (`resolverDsn`); o rotulo e o NOME da variavel ou o arquivo com `~`. */
+  fonteDaDsn?: FonteDaDsn;
+  rotuloDaDsn?: string;
+  /** RM-068: por que a fonte nao deu DSN e o detalhe, sem o valor. */
+  falhaDaDsn?: FalhaDaDsn | null;
+  detalheDaDsn?: string;
   timeoutMs: number;
   universoTimeoutMs?: number;
   /** I-38 (D5): NOME da variavel com a chave de embedding; o valor e lido so na operacao `embed`. */
@@ -453,12 +461,11 @@ export class DriverCliOrkMind implements DriverDeMemoria {
   }
 
   private contemSegredo(valor: unknown): boolean {
-    const segredo = this.config.dsn;
-    const proibidos = [segredo];
+    // RM-068 (D6): a DSN e a senha dela pelos fragmentos de domicilio unico.
+    const proibidos = fragmentosDaDsn(this.config.dsn);
     const nome = this.config.variavelDaChaveDeEmbedding ?? '';
     const chave = nome ? (process.env[nome] ?? '').trim() : '';
     if (chave.length >= 12) proibidos.push(chave);
-    try { const senha = new URL(segredo).password; if (senha.length >= 12) proibidos.push(senha, decodeURIComponent(senha)); } catch { /* DSN opaca */ }
     const examinar = (x: unknown): boolean => typeof x === 'string'
       ? proibidos.some(p => p && x.includes(p))
       : !!x && typeof x === 'object' && Object.entries(x).some(([k, v]) => examinar(k) || examinar(v));
@@ -466,7 +473,7 @@ export class DriverCliOrkMind implements DriverDeMemoria {
   }
 
   private rodar(pedido: Record<string, unknown>, timeoutMs: number = this.config.timeoutMs): unknown {
-    if (!this.config.dsn.trim()) throw new Error('dsn.env-ausente');
+    if (!this.config.dsn.trim()) throw new Error(this.config.falhaDaDsn ?? 'dsn.env-ausente');
     if (this.contemSegredo(pedido)) throw new Error('memory.transport.secret: conteudo recusado');
     const [python, ...prefixo] = this.python();
     const ponte = [path.join(__dirname, '../assets/orkmind_bridge.py'),
@@ -910,14 +917,22 @@ export class DriverEmMemoria implements DriverDeMemoria {
   }
 }
 
-/** Config de memoria efetiva a partir do manifesto, ja com o tenant resolvido. */
-export function configDoManifesto(manifesto: Manifesto): ConfigDoDriver & { modo: string; tenant: string } {
-  const variavel = manifesto.memory.database_url_env ?? '';
+/**
+ * Config de memoria efetiva a partir do manifesto, ja com o tenant resolvido. RM-068: a DSN vem da fonte declarada
+ * (a variavel de `database_url_env` ou o arquivo de `database_url_file`) pelo resolvedor unico, lida a cada chamada (D12).
+ */
+export function configDoManifesto(manifesto: Manifesto,
+  env: NodeJS.ProcessEnv = process.env): ConfigDoDriver & { modo: string; tenant: string } {
+  const fonte = resolverDsn(manifesto.memory, { env });
   return {
     modo: manifesto.memory.mode,
     cli: manifesto.memory.cli || 'orkmind',
-    variavel,
-    dsn: variavel ? (process.env[variavel] ?? '') : '',
+    variavel: fonte.fonte === 'ambiente' ? fonte.rotulo : '',
+    dsn: fonte.dsn,
+    fonteDaDsn: fonte.fonte,
+    rotuloDaDsn: fonte.rotulo,
+    falhaDaDsn: fonte.falha,
+    detalheDaDsn: fonte.detalhe,
     timeoutMs: manifesto.memory.timeout_ms || 15000,
     universoTimeoutMs: prazoDoUniversoMs(manifesto.memory.universo_timeout_ms),
     tenant: manifesto.memory.tenant || manifesto.project.name,
@@ -934,9 +949,17 @@ function correcaoDe(motivo: MotivoDeDegradacao, config: ReturnType<typeof config
     case 'modo.desconhecido':
       return 'memory.mode aceita files ou orkmind';
     case 'dsn.nao-declarado':
-      return 'declare memory.database_url_env com o NOME da variavel de ambiente da base do tenant';
+      return 'declare memory.database_url_file (arquivo 0600 em ~/.orkastery/segredos/) ou memory.database_url_env ' +
+        'com o NOME da variavel de ambiente da base do tenant';
     case 'dsn.env-ausente':
       return `exporte ${config.variavel} com a DSN da base propria do tenant (o ork nao adivinha base)`;
+    case 'dsn.arquivo-ausente':
+      return `grave a DSN da base propria do tenant em ${config.rotuloDaDsn}, numa linha e com permissao 0600 (o ork nao adivinha base)`;
+    case 'dsn.arquivo-inseguro':
+      return `deixe ${config.rotuloDaDsn} como arquivo do usuario que roda o ork, com chmod 600 ` +
+        '(DSN que outro usuario pode ler nao e lida)';
+    case 'dsn.arquivo-invalido':
+      return `regrave ${config.rotuloDaDsn} como arquivo comum (sem link simbolico), so com a DSN, numa linha e sem NOME= na frente`;
     case 'cli.ausente':
       return `instale o OrkMind e garanta "${config.cli}" no PATH`;
     case 'orkmind.indisponivel':
@@ -961,6 +984,9 @@ export function resolverRegime(
     dsnPresente: config.dsn.trim() !== '',
     cli: config.cli,
     tenant: config.tenant,
+    // RM-068 (D5): a fonte da DSN, aditiva; o arquivo so pelo rotulo com `~`.
+    fonteDaDsn: config.fonteDaDsn ?? 'nenhuma',
+    ...(config.fonteDaDsn === 'arquivo' ? { arquivoDaDsn: config.rotuloDaDsn } : {}),
   };
   const degradar = (motivo: MotivoDeDegradacao, detalhe: string): { estado: EstadoDaMemoria; driver: null } => ({
     estado: {
@@ -979,11 +1005,18 @@ export function resolverRegime(
   if (config.modo !== 'orkmind') {
     return degradar('modo.desconhecido', `memory.mode "${config.modo}" nao e um regime conhecido`);
   }
-  // Isolamento por tenant: sem NOME de variavel declarado nao ha base, e nao ha palpite.
-  if (config.variavel === '') {
+  // Isolamento por tenant: sem fonte declarada (variavel ou arquivo) nao ha base, e nao ha palpite.
+  if (config.fonteDaDsn === 'nenhuma') {
     return degradar(
       'dsn.nao-declarado',
-      'memory.database_url_env vazio: sem base declarada o ork nao conecta em base nenhuma'
+      'memory.database_url_file e memory.database_url_env vazios: sem base declarada o ork nao conecta em base nenhuma'
+    );
+  }
+  // RM-068: o arquivo que falha degrada com o motivo dele e nunca cai para a variavel.
+  if (config.dsn.trim() === '' && !driver && config.fonteDaDsn === 'arquivo') {
+    return degradar(
+      config.falhaDaDsn ?? 'dsn.arquivo-ausente',
+      `${config.detalheDaDsn}: o ork nao cai para outra fonte (precedente memory-orkmind)`
     );
   }
   if (config.dsn.trim() === '' && !driver) {
@@ -1007,7 +1040,8 @@ export function resolverRegime(
       ...base,
       efetivo: 'orkmind' as RegimeDeMemoria,
       motivo: null,
-      detalhe: `${efetivoDriver.nome} ativo na base declarada por ${config.variavel}: ${saude.detalhe}`,
+      detalhe: `${efetivoDriver.nome} ativo na base declarada por ${config.fonteDaDsn === 'arquivo' ? config.rotuloDaDsn : config.variavel}: ` +
+        saude.detalhe,
       correcao: '',
     },
     driver: efetivoDriver,

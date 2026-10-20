@@ -1240,8 +1240,14 @@ export function textoDoEstado(estado: EstadoDaMemoria): string {
   linhas.push(`  pedido no manifesto   ${estado.pedido}`);
   linhas.push(`  regime efetivo        ${estado.efetivo}`);
   linhas.push(`  tenant                ${estado.tenant}`);
-  linhas.push(`  variavel da base      ${estado.variavel || '(nao declarada)'}`);
-  linhas.push(`  DSN no ambiente       ${estado.dsnPresente ? 'sim (valor nunca impresso)' : 'nao'}`);
+  // RM-068 (D5): com a fonte de arquivo, o arquivo pelo rotulo com `~`; com ambiente, as linhas de sempre.
+  if (estado.fonteDaDsn === 'arquivo') {
+    linhas.push(`  arquivo da base       ${estado.arquivoDaDsn ?? ''}`);
+    linhas.push(`  DSN no arquivo        ${estado.dsnPresente ? 'sim (valor nunca impresso)' : 'nao'}`);
+  } else {
+    linhas.push(`  variavel da base      ${estado.variavel || '(nao declarada)'}`);
+    linhas.push(`  DSN no ambiente       ${estado.dsnPresente ? 'sim (valor nunca impresso)' : 'nao'}`);
+  }
   linhas.push(`  cli do OrkMind        ${estado.cli}`);
   linhas.push('');
   if (estado.motivo) {
