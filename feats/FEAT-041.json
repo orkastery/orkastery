@@ -1,0 +1,9 @@
+{
+  "contrato": "ork.feat-reserva/v1",
+  "feat": "FEAT-041",
+  "por": "Paschoal Diniz",
+  "maquina": "note",
+  "thread": null,
+  "nota": "security scan no CHECK (RM-068)",
+  "em": "2026-10-20T17:12:23.979Z"
+}
