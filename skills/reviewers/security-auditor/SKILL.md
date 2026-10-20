@@ -36,6 +36,19 @@ ork doctor                           # provider e ambiente da maquina
 5. **Ausencia e afirmada como resultado**, com o que foi olhado: "nada encontrado" sem escopo e
    diferente de "auditado e limpo", e a diferenca fica escrita.
 
+## Com `verify.security_scan` declarado
+
+Sem `verify.security_scan`, esta skill faz o que sempre fez: a checklist inteira por leitura, e a passagem manual continua valendo. Com a chave declarada, o relatorio do scan (`.orkastery/security-scan/<sha>/report.json`, na arvore principal) e a evidencia de `SEC 1`, `SEC 2` e `SEC 10`, e a triagem abaixo vale.
+
+1. **Declare o escopo do scan:** `base`, `head`, as stacks e cada ferramenta com o estado (`ran`, `failed` ou `unavailable`) e o `reason`.
+2. **Ferramenta `unavailable` ou `failed` nunca conta como limpa.** Declare-a assim; os itens `SEC` dela voltam para a leitura manual, marcada como tal. A passagem manual so vale com o scan `unavailable` declarado.
+3. **Triagem: um veredito por achado `new` do laco** (`loop`), nenhum sem veredito:
+   - **real:** correcao tipo B, com a regra, `arquivo:linha`, a saida real, o `SEC n` e o alcance (`reachable` do govulncheck); a volta e da skill `security-remediation`;
+   - **falso positivo:** correcao tipo A, `acrescentar <fingerprint> ao .ork-security/dismissals.json, motivo <m>`, mais `ork decisao registrar`;
+   - **inconclusivo:** `ork gate request`, e o achado fica aberto ate a resposta.
+4. **O auditor nao edita:** nem codigo, nem o `.ork-security/dismissals.json`. Ele devolve o veredito, e quem escreve a correcao e o GO.
+5. `existing` e `dismissed` entram no relatorio como divida declarada, nunca como bloqueador novo.
+
 ## O que o nucleo verifica por voce
 
 A policy `segredo_em_prompt` roda no gate `phase.dispatch` **antes de o prompt ser gravado em
@@ -52,6 +65,7 @@ thread. As tres reprovam em qualquer modo.
 | "Colo o trecho no relatorio para o time ver" | Relatorio de vazamento que imprime o segredo e um segundo vazamento. Nomeie o padrao e a linha, redigido. |
 | "Esse bloqueador e teorico, ninguem exploraria" | Zero bloqueadores e condicao dura, nao negociavel por probabilidade estimada no olho. |
 | "A thread e `#Auto`, a auditoria pode ser mais leve" | O modo afrouxa a pausa, nunca a verificacao. A lista e a mesma; o que muda e quem espera pelo veredito. |
+| "Ja que achei, corrijo aqui mesmo" | O auditor nao edita. Auditor que corrige passa a auditar o proprio trabalho; o veredito vai ao GO e a correcao volta pelo CHECK. |
 
 ## Bandeiras vermelhas
 
@@ -60,6 +74,7 @@ thread. As tres reprovam em qualquer modo.
 - Achado sem o `SEC n` que ele viola.
 - "Nada encontrado" sem dizer o que foi olhado.
 - Dependencia nova sem justificativa no PLAN.
+- Achado `new` do laco sem veredito, ou ferramenta `failed` contada como limpa.
 
 ## Verificacao antes de sair da auditoria
 

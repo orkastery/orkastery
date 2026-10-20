@@ -55,6 +55,16 @@ e `web-performance-auditor`. Cada um roda no seu escopo e devolve achados catego
    reexecucao completa, nunca parcial.
 6. **Um veredito unico**, no diretorio da thread, com todo aviso aceito carregando seu registro.
 
+## Com `verify.security_scan` declarado
+
+Sem `verify.security_scan`, nada desta secao vale e o CHECK e o de sempre. Com a chave, o `ork verify` roda `ork security-scan` e o veredito consolida o scan:
+
+1. Leia `report.md` e `report.json` em `.orkastery/security-scan/<sha>/`, na arvore principal; o SHA e o do HEAD verificado.
+2. Zero bloqueadores de seguranca passa a ser: nenhum achado `new` do laco sem veredito resolvido do `security-auditor` (real corrigido, falso positivo dispensado com decisao registrada, ou inconclusivo com o `ork gate request` respondido).
+3. Achado `warn` (`new` fora do laco, como qualidade, licenca ou severidade abaixo do corte) vai ao eixo certo como aviso registrado, com o nome de quem aceitou, nunca como bloqueador escondido.
+4. Ferramenta `unavailable` ou `failed` e declarada no veredito e nunca conta como limpa; com `ORK_SECURITY_SCAN_REQUIRED=1` ela faz o scan sair 1.
+5. Correcao vinda do scan volta pelo GO-FIX, com a skill `security-remediation`; a prova e o `ork fix reverify`, que reexecuta o verify e o scan.
+
 ## O que o nucleo verifica por voce
 
 Os motivos tipados do `ork` fazem o veredito parar de ser conversa: `claims.failed`,
@@ -81,6 +91,7 @@ a pausa, nunca a verificacao**. Cada um deles tem uma acao de retry deterministi
 - Correcao tipo B seguida de reexecucao parcial.
 - Aviso aceito sem nome de quem aceitou.
 - CHECK rodado sem baseline para comparar.
+- Achado `new` do laco sem veredito dado como zero bloqueadores.
 
 ## Verificacao antes de sair da fase
 

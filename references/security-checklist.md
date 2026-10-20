@@ -27,8 +27,8 @@ flowchart TB
 
 | # | Verificacao | Como se comprova |
 |---|---|---|
-| 1 | Nenhum segredo na arvore de trabalho: token, chave de API, senha, bloco de chave privada, string de conexao e string de alta entropia com cara de credencial, incluindo arquivos `.env`, fixtures de teste e configs de exemplo. | Leitura do diff da branch mais varredura da arvore. O relatorio nomeia a ferramenta usada ou diz que a passagem foi manual. |
-| 2 | Nenhum segredo no historico atras da branch. Segredo commitado e depois apagado continua vazado. | `git log -p <base>..HEAD` sobre o intervalo inteiro, nao so a arvore. Bloqueador ate a credencial ser rotacionada e o historico limpo, com a rotacao verificada e nao prometida. |
+| 1 | Nenhum segredo na arvore de trabalho: token, chave de API, senha, bloco de chave privada, string de conexao e string de alta entropia com cara de credencial, incluindo arquivos `.env`, fixtures de teste e configs de exemplo. | Leitura do diff da branch mais varredura da arvore. O relatorio nomeia a ferramenta usada ou diz que a passagem foi manual. Com `verify.security_scan` declarado, a evidencia e o `security_scan` (Gitleaks na arvore); a passagem manual so vale com o scan `unavailable` declarado. |
+| 2 | Nenhum segredo no historico atras da branch. Segredo commitado e depois apagado continua vazado. | `git log -p <base>..HEAD` sobre o intervalo inteiro, nao so a arvore. Bloqueador ate a credencial ser rotacionada e o historico limpo, com a rotacao verificada e nao prometida. Com `verify.security_scan` declarado, o `security_scan` varre tambem os commits de `<base>..HEAD`; a passagem manual so vale com o scan `unavailable` declarado. |
 | 3 | Nenhuma credencial real em prompt despachado. O gate `phase.dispatch` do `ork` avalia a policy `segredo_em_prompt` ANTES de gravar o prompt em disco: prompt reprovado nao chega a existir como arquivo, porque gravar um prompt com credencial cria um segundo vazamento dentro do proprio repositorio. | `ork phase run` sai com motivo tipado `policy.violation`; o ledger registra o nome do padrao e a linha, nunca o trecho casado. |
 | 4 | Nenhuma credencial real em artefato de thread, ledger, saida de comando capturada ou no proprio relatorio de auditoria. Relatorio de vazamento que imprime o segredo e um segundo vazamento. | Leitura dos artefatos que a thread produziu. Placeholder redigido passa e e declarado como tal; credencial e referenciada por localizacao e forma redigida. |
 
@@ -46,7 +46,7 @@ flowchart TB
 | # | Verificacao | Como se comprova |
 |---|---|---|
 | 9 | Nenhuma dependencia nova sem justificativa no PLAN. Dependencia que entra sem tarefa e scope creep com superficie de ataque. | Diff dos arquivos de manifesto de pacote contra as tarefas do PLAN. |
-| 10 | Vulnerabilidade conhecida nas dependencias declaradas foi consultada, e o resultado esta no relatorio com a data e a ferramenta. Onde nao ha ferramenta, o item sai `unavailable` com o motivo. | `npm audit` onde ha dependencia de producao declarada. |
+| 10 | Vulnerabilidade conhecida nas dependencias declaradas foi consultada, e o resultado esta no relatorio com a data e a ferramenta. Onde nao ha ferramenta, o item sai `unavailable` com o motivo. | `npm audit` onde ha dependencia de producao declarada. Com `verify.security_scan` declarado, a evidencia e o `security_scan` (dependencias e `reachable` do govulncheck); a passagem manual so vale com o scan `unavailable` declarado. |
 
 ## Artefatos do repositorio
 

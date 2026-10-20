@@ -41,6 +41,10 @@ ork verify <thread>                           # reexecuta no HEAD real
    a proposal, never a commit hidden in the middle of the delivery. Whatever the diff does beyond what was agreed, the
    reviewer has to discover alone, and that is how a small delivery turns into an expensive review.
 
+## With `verify.security_scan` declared
+
+Without `verify.security_scan`, this phase is the usual one. A fix that comes from a security scan finding uses the `security-remediation` skill: it fixes only the finding, and the proof is the scan rerun by `ork fix reverify`, not the agent's report.
+
 ## What the core checks for you
 
 `ork verify` reruns claims and manifest commands on the real HEAD and compares against the baseline:

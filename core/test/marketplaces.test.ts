@@ -139,7 +139,7 @@ test('S2 a pasta Claude segue o catalogo, a versao do CLI e cada regra bloqueant
     for (let i = 0; i < 513; i++) fs.writeFileSync(path.join(c, 'extra', `a${i}.md`), 'x\n');
   });
   caso('placeholder', undefined, (c) => fs.appendFileSync(path.join(c, 'skills/core/onboarding/SKILL.md'), '\n{{ork_bin}}\n'));
-  caso('readme.contagem', /19 e a pasta tem 20/, (c) => edita(path.join(c, 'README.md'), (t) => t.replace('| 20 skills |', '| 19 skills |')));
+  caso('readme.contagem', /20 e a pasta tem 21/, (c) => edita(path.join(c, 'README.md'), (t) => t.replace('| 21 skills |', '| 20 skills |')));
   caso('readme.link', /fora da pasta/, (c) => fs.appendFileSync(path.join(c, 'README.md'), '\nVeja [o guia](../../README.md).\n'));
   caso('skill.nome', /diferente da pasta/, (c) => edita(path.join(c, 'skills/core/onboarding/SKILL.md'), (t) => t.replace(/^name: .*$/m, 'name: outro')));
   caso('frontmatter.descricao', /aspas/, (c) => edita(path.join(c, 'agents/ork-goal.md'), (t) => t.replace(/^description: ".*"$/m, 'description: Conduz a fase GOAL: sem aspas')));
@@ -211,8 +211,8 @@ test('S4 os marketplaces proprios da raiz apontam para as pastas geradas com o n
   caso('marketplace.codex', /category/, 'marketplaceCodex', (m) => { m.plugins[0].category = ''; });
 
   comCopia((dir) => {
-    edita(path.join(dir, 'marketplaces/README.md'), (t) => t.replace('20 skills, 8 comandos', '19 skills, 8 comandos'));
-    assert.ok(temAchado(gen.conferirTextosDoRepositorio(dir), 'readme.contagem', /19 skills/));
+    edita(path.join(dir, 'marketplaces/README.md'), (t) => t.replace('21 skills, 8 comandos', '20 skills, 8 comandos'));
+    assert.ok(temAchado(gen.conferirTextosDoRepositorio(dir), 'readme.contagem', /20 skills/));
     fs.writeFileSync(path.join(dir, '.gitattributes'), 'core/ export-ignore\n');
     assert.ok(temAchado(gen.conferirTextosDoRepositorio(dir), 'repo.gitattributes', /export-ignore/));
   });

@@ -1,0 +1,63 @@
+{
+  "skill": "security-remediation",
+  "casos": [
+    {
+      "id": "security-remediation/prova-e-o-scan-reexecutado",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "Um achado `new` do security scan foi triado como real e a correcao chegou ao GO.",
+      "esperado": "A correcao mexe so no achado e a prova e o scan reexecutado por `ork fix reverify`, nunca a narrativa.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "A prova e o scan reexecutado",
+          "porque": "a regra que troca relato por medicao"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`ork fix reverify`",
+          "porque": "o comando que reexecuta o verify e o scan"
+        }
+      ]
+    },
+    {
+      "id": "security-remediation/tirei-o-segredo-do-codigo",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente removeu o segredo do arquivo e declara o achado resolvido.",
+      "esperado": "Recusado: tirar do codigo nao encerra o achado, falta a rotacao declarada ao dono da credencial.",
+      "racionalizacao": "Tirei o segredo do codigo, esta resolvido.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "rotacao",
+          "porque": "a rotacao declarada e parte da correcao de segredo"
+        },
+        {
+          "tipo": "contem",
+          "valor": "o historico nao e limpo por corrigir o codigo",
+          "porque": "apagar da arvore nao apaga do historico"
+        }
+      ]
+    },
+    {
+      "id": "security-remediation/achado-em-arquivo-excluido",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O achado aponta um arquivo que a config do scan exclui.",
+      "esperado": "Nao se corrige arquivo excluido: o caso volta a triagem, e a exclusao e decisao registrada, nao atalho.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Arquivo excluido nao se corrige",
+          "porque": "a borda: excluido nao e consertado nem dispensado em silencio"
+        },
+        {
+          "tipo": "contem",
+          "valor": "menor versao corrigida",
+          "porque": "a dependencia sobe so ate la"
+        }
+      ]
+    }
+  ]
+}

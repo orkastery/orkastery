@@ -36,6 +36,19 @@ ork doctor                           # provider e ambiente da maquina
 5. **Absence is asserted as a result**, with what was examined: "nothing found" without a scope is
    different from "audited and clean", and the difference is written down.
 
+## With `verify.security_scan` declared
+
+Without `verify.security_scan`, this skill does what it always did: the whole checklist by reading, and the manual pass remains valid. With the key declared, the scan report (`.orkastery/security-scan/<sha>/report.json`, in the main tree) is the evidence for `SEC 1`, `SEC 2` and `SEC 10`, and the triage below applies.
+
+1. **Declare the scan scope:** `base`, `head`, the stacks and each tool with its state (`ran`, `failed` or `unavailable`) and the `reason`.
+2. **A tool `unavailable` or `failed` never counts as clean.** Declare it as such; its `SEC` items fall back to manual reading, marked as such. The manual pass is only valid with the scan declared `unavailable`.
+3. **Triage: one verdict per `new` finding of the loop** (`loop`), none without a verdict:
+   - **real:** type B correction, with the rule, `arquivo:linha`, the real output, the `SEC n` and the reach (`reachable` from govulncheck); the way back is the `security-remediation` skill;
+   - **false positive:** type A correction, `acrescentar <fingerprint> ao .ork-security/dismissals.json, motivo <m>`, plus `ork decisao registrar`;
+   - **inconclusive:** `ork gate request`, and the finding stays open until the answer.
+4. **The auditor does not edit:** neither code nor `.ork-security/dismissals.json`. It returns the verdict, and whoever writes the fix is GO.
+5. `existing` and `dismissed` go in the report as declared debt, never as a new blocker.
+
 ## What the core checks for you
 
 The `segredo_em_prompt` policy runs at the `phase.dispatch` gate **before the prompt is written to
@@ -52,6 +65,7 @@ branch. All three reject in any mode.
 | "I will paste the snippet in the report so the team can see it" | A leak report that prints the secret is a second leak. Name the pattern and the line, redacted. |
 | "This blocker is theoretical, nobody would exploit it" | Zero blockers is a hard condition, not negotiable by a probability estimated by eye. |
 | "The thread is `#Auto`, the audit can be lighter" | The mode loosens the pause, never the verification. The list is the same; what changes is who waits for the verdict. |
+| "Since I found it, I will fix it right here" | The auditor does not edit. An auditor who fixes ends up auditing its own work; the verdict goes to GO and the fix comes back through CHECK. |
 
 ## Bandeiras vermelhas (Red flags)
 
@@ -60,6 +74,7 @@ branch. All three reject in any mode.
 - A finding without the `SEC n` it violates.
 - "Nothing found" without saying what was examined.
 - A new dependency without justification in the PLAN.
+- A `new` loop finding without a verdict, or a `failed` tool counted as clean.
 
 ## Verification before leaving the audit
 

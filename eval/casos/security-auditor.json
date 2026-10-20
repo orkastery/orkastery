@@ -97,6 +97,45 @@
           "porque": "a bandeira vermelha correspondente"
         }
       ]
+    },
+    {
+      "id": "security-auditor/sem-security-scan-declarado",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O manifesto da thread nao declara `verify.security_scan`.",
+      "esperado": "O auditor faz o que fazia: checklist por leitura, sem exigir relatorio de scan.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Sem `verify.security_scan`",
+          "porque": "o comportamento anterior preservado"
+        },
+        {
+          "tipo": "contem",
+          "valor": "passagem manual",
+          "porque": "so vale com o scan declarado indisponivel"
+        }
+      ]
+    },
+    {
+      "id": "security-auditor/auditor-nao-edita",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O auditor quer corrigir o achado do scan ele mesmo, para economizar uma volta.",
+      "esperado": "Recusado: o auditor nao edita, devolve um veredito por achado e a correcao e do GO.",
+      "racionalizacao": "Ja que achei, corrijo aqui.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "O auditor nao edita",
+          "porque": "a regra de conduta"
+        },
+        {
+          "tipo": "contem",
+          "valor": "um veredito por achado `new`",
+          "porque": "a triagem do laco"
+        }
+      ]
     }
   ]
 }

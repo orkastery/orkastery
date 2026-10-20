@@ -98,6 +98,25 @@
           "porque": "a regra dos motivos tipados"
         }
       ]
+    },
+    {
+      "id": "check-quality/zero-bloqueadores-com-scan",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O scan do CHECK tem achado `new` do laco sem veredito de triagem e um achado `warn`.",
+      "esperado": "Nao ha zero bloqueadores: falta o veredito. O `warn` vai ao eixo certo como aviso registrado.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "nenhum achado `new` do laco sem veredito resolvido",
+          "porque": "a definicao de zero bloqueadores com o scan"
+        },
+        {
+          "tipo": "contem",
+          "valor": "aviso registrado",
+          "porque": "o warn nao e descartado"
+        }
+      ]
     }
   ]
 }

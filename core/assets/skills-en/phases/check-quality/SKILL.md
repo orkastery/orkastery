@@ -55,6 +55,16 @@ and `web-performance-auditor`. Each one runs in its own scope and returns catego
    full rerun, never a partial one.
 6. **A single verdict**, in the thread directory, with every accepted warning carrying its record.
 
+## With `verify.security_scan` declared
+
+Without `verify.security_scan`, nothing in this section applies and CHECK is the usual one. With the key, `ork verify` runs `ork security-scan` and the verdict consolidates the scan:
+
+1. Read `report.md` and `report.json` in `.orkastery/security-scan/<sha>/`, in the main tree; the SHA is the verified HEAD's.
+2. Zero security blockers becomes: no `new` loop finding without a resolved verdict from the `security-auditor` (real and fixed, false positive dismissed with a recorded decision, or inconclusive with the `ork gate request` answered).
+3. A `warn` finding (`new` outside the loop, such as quality, license or severity below the cut) goes to the right axis as a registered warning, with the name of who accepted it, never as a hidden blocker.
+4. A tool `unavailable` or `failed` is declared in the verdict and never counts as clean; with `ORK_SECURITY_SCAN_REQUIRED=1` it makes the scan exit 1.
+5. A fix coming from the scan goes back through GO-FIX, with the `security-remediation` skill; the proof is `ork fix reverify`, which reruns verify and the scan.
+
 ## What the core checks for you
 
 The typed reasons of `ork` keep the verdict from being just talk: `claims.failed`,
@@ -81,6 +91,7 @@ the pause, never the verification**. Each one has a deterministic retry action i
 - A type B fix followed by a partial rerun.
 - A warning accepted without the name of who accepted it.
 - CHECK run without a baseline to compare against.
+- A `new` loop finding without a verdict passed off as zero blockers.
 
 ## Verification before leaving the phase
 
