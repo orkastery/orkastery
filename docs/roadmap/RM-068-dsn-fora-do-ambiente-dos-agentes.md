@@ -1,0 +1,122 @@
+---
+id: RM-068
+tipo: roadmap
+titulo: DSN com senha fora do ambiente dos agentes
+categoria: melhoria
+pai: null
+features: []
+owner: Julio
+atualizado_em: 2026-10-20T13:01:36-03:00
+estado:
+  ciclo: Em desenvolvimento
+  documentacao: Rascunho
+  codigo: Branch criada
+  testes: Não iniciados
+  deploy: Não implantado
+  exposicao: Flag desligada
+  habilitacao: Pendente
+evidencias:
+  codigo:
+    commit: null
+    pr: null
+sdlc:
+  thread: ork-dsnforadoamb
+  modo: "#Auto"
+  fase: GOAL
+  status: aberta
+---
+
+# RM-068: DSN com senha fora do ambiente dos agentes
+
+> **Em uma frase:** o `ork` lê a DSN da memória de um arquivo `0600` do dono em `~/.orkastery/segredos/`, para o host deixar de exportá-la e nenhuma sessão de agente ter a senha do banco em `env`.
+
+<!-- ork-docs:relance:inicio -->
+
+| Ciclo do item | Código | Testes | Deploy | Exposição |
+| --- | --- | --- | --- | --- |
+| Em desenvolvimento | Branch criada | Não iniciados | Não implantado | Flag desligada |
+
+<!-- ork-docs:relance:fim -->
+
+**Decisão do dono de 20/10/2026 (opção 4a):** as DSNs saem do ambiente herdado pelos agentes e o `ork` passa a ler do cofre. A rotação das senhas (opção 4b) não faz parte deste item.
+
+## Problema e resultado
+
+- **Público e problema/oportunidade:** quem roda o `ork` com a memória no OrkMind e despacha agentes por um host que repassa o próprio ambiente às sessões. O gateway do Hermes carrega o arquivo de ambiente dele (`~/.hermes/.env`) e passa as variáveis a tudo o que dispara: os daemons do `claude` de cada conta, as sessões reserva, o observador de sessão e o `ork mcp serve`. Toda sessão despachada herdava a DSN com senha.
+- **Evidências e fonte:** em 20/10/2026, uma sessão de agente rodou `env | grep` e duas URLs de banco com senha entraram na transcrição e no contexto do modelo. Na mesma data, `env | cut -d= -f1` dentro de outra sessão despachada listou, só pelo nome, as duas variáveis com DSN ao lado de `ORK_DISPATCH_ID` e `ORK_DISPATCH_THREAD`. O núcleo só sabia ler a DSN do ambiente (`memory.database_url_env`, em `core/src/orkmind.ts`, no cliente e na migração do Company Brain e no `ork doctor`), então tirar a variável do host derrubava a memória.
+- **Objetivo/OKR:** a DSN sai do ambiente que os agentes herdam; o `ork` a lê de um arquivo do dono no momento do uso, e ela continua indo só ao processo filho do `orkmind`.
+- **Hipótese:** se o `ork` ler a DSN de um arquivo `0600` na pasta de segredos e o host deixar de exportá-la, então nenhuma sessão despachada a terá em `env`, porque a DSN passa a existir só no arquivo e no ambiente do processo filho do `orkmind`.
+- **Métrica principal / linha de base / meta / janela / fonte:** variáveis com DSN no ambiente de uma sessão despachada, contadas pelo nome. Linha de base em 20/10/2026: 2. Meta: 0 depois da migração da máquina. Fonte: o check `DSN no ambiente` do `ork doctor` rodado dentro da sessão despachada e a contagem em `/proc/<pid>/environ` de cada processo de agente, feita na migração (contagem, nunca valor).
+- **Métricas de proteção:** a memória continua ligada (`ork memory status` com regime efetivo `orkmind`); nenhum valor de DSN em saída, erro, ledger ou bundle; quem continua com `memory.database_url_env` não muda de comportamento.
+
+## Escopo e validação
+
+- **Incluído:**
+  - **Fonte de arquivo:** `memory.database_url_file` no manifesto, com o caminho e nunca o valor. Só vale a forma `~/.orkastery/segredos/<nome>`, na pasta do usuário do `ork` (que segue `ORKASTERY_HOME` e `ORK_USUARIO_DIR`). O arquivo é comum, do usuário que roda o `ork`, sem link simbólico, sem bit fora de `0600` (`0600` e `0400` passam), com até 4 KiB e uma linha, sem a forma `NOME=valor`. É lido a cada uso.
+  - **Uma fonte só:** `memory.database_url_env` e `memory.database_url_file` são exclusivos, e o `ork` nunca cai de uma para a outra.
+  - **Resolvedor único:** o driver do OrkMind, o cliente do Company Brain, a migração do Brain e o check da chave de embedding leem a DSN pelo mesmo resolvedor; a DSN vai só ao ambiente do filho (`ORKMIND_DATABASE_URL`).
+  - **Degradação tipada:** arquivo ausente, inseguro ou inválido leva ao regime `files` com `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` ou `dsn.arquivo-invalido` e a correção, sem o valor.
+  - **`ork doctor`:** o check `fonte da DSN` diz a variável pelo nome ou o arquivo pelo caminho com `~`, nunca o valor; o check `DSN no ambiente`, numa sessão despachada, lista pelo nome as variáveis com a DSN do projeto ou com URL com senha.
+  - **`ork memory status`:** mostra a fonte de arquivo.
+- **Fora de escopo:** a migração de cada máquina (abaixo, feita por quem opera a máquina); o agente do Infisical renderizando o arquivo (limite declarado, sem código: o agente pode gravar em `~/.orkastery/segredos/<nome>` com `0600` e o `ork` lê igual); a rotação das senhas; isolamento por outro usuário ou por um intermediário; a varredura do prompt por URL com senha; Windows, onde a conferência de dono e de modo não existe e o arquivo é recusado.
+- **Limite:** o agente roda com o mesmo usuário do dono e pode ler um arquivo `0600` dele. O ganho é que a senha deixa de aparecer em `env`, na transcrição e no contexto do modelo por acidente. Isolamento forte pediria outro usuário ou um intermediário.
+- **Entregáveis e critérios de aceite:**
+  - manifesto: a forma aceita e as recusadas, as duas fontes juntas reprovadas, nenhum erro com o valor;
+  - resolvedor: cada recusa com o motivo certo e nenhum detalhe com o valor;
+  - consumidores: com a fonte de arquivo, a DSN chega ao filho só em `ORKMIND_DATABASE_URL`;
+  - `ork doctor` e `ork memory status`: a fonte dita sem o valor; numa sessão despachada, os nomes das variáveis com DSN;
+  - cada critério com teste na suíte, com DSNs inventadas e ambiente injetado.
+- **Migração de uma instalação** (feita por quem opera a máquina, depois de o `ork` com este item estar instalado):
+  1. Atualize o `ork`: o `ork` sem este item não conhece `memory.database_url_file` e, sem `database_url_env`, cai para `files`.
+  2. Crie a pasta e o arquivo sem passar a DSN pelo histórico do shell: `install -d -m 700 ~/.orkastery/segredos`, depois `(umask 077; cat > ~/.orkastery/segredos/<nome>)`, cole a DSN e feche com Ctrl-D.
+  3. Troque `memory.database_url_env` por `memory.database_url_file: "~/.orkastery/segredos/<nome>"` no manifesto.
+  4. Tire a variável do arquivo de ambiente do host (com backup). Um serviço que precise da DSN, como a API do OrkMind, a recebe pelo `EnvironmentFile` do próprio serviço, nunca pelo gateway que repassa o ambiente aos agentes.
+  5. Reinicie o gateway do host.
+  6. Confira: `ork memory status` com o regime `orkmind` e a fonte de arquivo; `ork doctor` dentro de uma sessão despachada sem variável com DSN; a contagem das variáveis em `/proc/<pid>/environ` de cada processo de agente (contagem, nunca o valor).
+- **Piloto, medição e critérios de expansão/interrupção:** o piloto é a migração da máquina da fábrica, depois do merge. Expande com a release que levar o código. Interrompe se a memória cair para `files` sem motivo de arquivo ou se algum valor de DSN aparecer em saída, erro, ledger ou bundle.
+
+## Plano e decisões
+
+- **Prioridade / método / pontuação / justificativa / data:** alta, por decisão do dono em 20/10/2026, depois de uma credencial de banco entrar no contexto de um modelo.
+- **Horizonte / alvo / previsão / confiança / marcos:** uma thread #Auto (GOAL, PLAN e GO na mesma sessão), CHECK independente em outro runtime, SHIP e a migração da máquina da fábrica depois do merge.
+- **Dependências e bloqueios (ID, owner, próxima revisão):** a migração depende do `ork` instalado com este item; nenhum bloqueio de outro item.
+- **Premissas / riscos / mitigação:**
+  - o manifesto vem do repositório: um caminho livre deixaria um clone apontar a DSN para qualquer arquivo `0600` do dono (chave SSH, credencial de nuvem) e mandá-lo ao `memory.cli` que o mesmo manifesto escolhe; mitigação: só a pasta de segredos do `ork` (veja a [fronteira de confiança](../referencia/fronteira-de-confianca.md));
+  - o valor vazar pela correção: nenhum texto repete a DSN, e o caminho sai sempre com `~`;
+  - teste que lê o ambiente real: os testes injetam o ambiente e usam DSNs inventadas.
+- **Decisões, alternativas e ADRs (ID, decisor, data, link):** G1 a G6 (fase GOAL) e D1 a D13 (fase PLAN), da sessão da thread `ork-dsnforadoamb` em 20/10/2026, registradas no ledger dela por `ork decisao registrar`, com o que muda e o custo de reverter. As principais:
+  - G1: Infisical como limite declarado, sem código;
+  - G2: uma fonte só, sem fallback entre fontes;
+  - G3: o arquivo só na pasta de segredos do `ork`;
+  - G4: a regra do arquivo (dono, modo, sem link, tamanho, uma linha);
+  - G5: os checks novos do doctor avisam e nunca reprovam;
+  - G6: o detector de URL com senha só em sessão despachada;
+  - D10: o manifesto deste repositório só troca de fonte na migração.
+
+## Estado com evidências
+
+O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
+
+<!-- ork-docs:estado:inicio -->
+
+| Dimensão | Estado | Evidência | Data | Responsável |
+| --- | --- | --- | --- | --- |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-20 | Julio |
+| Documentação | Rascunho | — | 2026-10-20 | Julio |
+| Código | Branch criada | — | 2026-10-20 | Julio |
+| Testes | Não iniciados | — | 2026-10-20 | Julio |
+| Deploy | Não implantado | — | 2026-10-20 | Julio |
+| Exposição | Flag desligada | — | 2026-10-20 | Julio |
+| Habilitação | Pendente | — | 2026-10-20 | Julio |
+
+<!-- ork-docs:estado:fim -->
+
+## Responsabilidades e histórico
+
+- **RACI (R / A / C / I):** R: a sessão da thread `ork-dsnforadoamb`; A: Julio; C: o CHECK independente; I: a condutora da fábrica.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** uma sessão #Auto fez GOAL, PLAN e GO, com as decisões registradas no ledger; o CHECK roda em outro runtime; o dono aprova a entrega pelo modo da thread.
+- **Próxima ação, responsável e prazo:** CHECK independente da thread, depois SHIP e a migração da máquina da fábrica pela condutora.
+
+| Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
+| --- | --- | --- | --- |
+| 2026-10-20 | Item aberto: a DSN sai do ambiente dos agentes e o `ork` passa a ler um arquivo do dono | Credencial de banco no contexto de um modelo; decisão 4a do dono | Julio |
