@@ -95,10 +95,11 @@ test('locale en F2b verify: o ledger e a baseline gravados nao mudam com a lingu
   } finally { pt.limpar(); en.limpar(); }
 });
 
-test('locale en F2b verify: o que fica fora segue pt-BR com LANG en (retry list e retry policy)', () => {
+test('locale en F2b verify: o que fica fora segue pt-BR com LANG en (a F3d levou retry list e policy; ficam o --json e master digest)', () => {
   const c = cenario('verify-fora');
   try {
-    for (const args of [['retry', 'list'], ['retry', 'policy']]) {
+    // Decisao registrada no GO-FIX 1 da F3d: a sonda troca as rotas que entraram na lista pelas que seguem fora.
+    for (const args of [['retry', 'policy', '--json'], ['retry', 'list', '--json'], ['master', 'digest']]) {
       const pt = ork(c, PT, false, ...args), en = ork(c, EN, false, ...args);
       assert.equal(en.stdout, pt.stdout, args.join(' '));
       assert.equal(en.stderr, pt.stderr, args.join(' '));

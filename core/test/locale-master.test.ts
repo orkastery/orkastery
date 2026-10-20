@@ -102,12 +102,13 @@ test('locale en F2b master: MASTER log, POSTMORTEM, aceite e pedido de nota grav
   } finally { a.limpar(); b.limpar(); }
 });
 
-test('locale en F2b master: classes, a nota e os --json seguem pt-BR com LANG en', () => {
+test('locale en F2b master: os --json e as rotas fora da lista seguem pt-BR com LANG en (a F3d levou classes e a nota)', () => {
   const c = cenario('master-fora');
   try {
     preparar(c);
-    for (const args of [['master', 'classes'], ['master', '--json'], ['master', '--aceitar-omissao', '--dry-run', '--json'],
-      ['master', 'pedir', 'loc-segunda', '--formato', 'json'], ['master', 'loc-primeira', '--score', '4']]) {
+    // A F3d levou `master classes` e `master <thread> --score` a lista (decisao registrada no GO-FIX 1); `master digest` segue fora.
+    for (const args of [['master', 'digest'], ['master', '--json'], ['master', '--aceitar-omissao', '--dry-run', '--json'],
+      ['master', 'pedir', 'loc-segunda', '--formato', 'json']]) {
       const pt = ork(c, PT, false, ...args), en = ork(c, EN, false, ...args);
       const semId = (t: string) => t.replace(/"pedidoId": "[^"]+"/g, '').replace(/"criadoEm": "[^"]+"/g, '');
       assert.equal(semId(en.stdout), semId(pt.stdout), args.join(' '));
