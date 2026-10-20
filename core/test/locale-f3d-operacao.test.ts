@@ -271,4 +271,7 @@ test('F3d: fabrica e batida localizam os estados de leitura sem mudar contratos'
   assert.match(en, /Factory heartbeat/);
   assert.match(en, /installed: no/);
   assert.deepEqual(linhasEmPortugues(en, ['ork/fabrica-estado']), []);
+  for (const sub of ['list', 'publicar', 'entrar', 'sair', 'batida'])
+    assert.equal(cobreLocale(['fabrica', sub], {}), true, sub);
+  assert.equal(cobreLocale(['fabrica', 'outro'], {}), true);
 });

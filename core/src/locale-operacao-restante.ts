@@ -303,6 +303,27 @@ export const OPERACAO_RESTANTE_PT_BR = {
     mantido: (dir: string) => `(o repositorio da demo ficou em ${dir})`,
   },
   fabrica: {
+    publicou: (maquina: string, threads: number, commit: string | undefined, tentativas: number) =>
+      `Fabrica: ${maquina} publicou ${threads} thread(s) em ork/fabrica-estado (${commit}, ${tentativas} tentativa(s)).`,
+    ocupada: 'Fabrica: outra publicacao desta maquina esta em andamento; tente de novo em instantes.',
+    igual: (maquina: string) =>
+      `Fabrica: retrato de ${maquina} igual ao ultimo publicado; nada a enviar (use --forcar para publicar mesmo assim).`,
+    soQuandoPede: '  esta maquina nao entrou na fabrica compartilhada: so publica quando voce pede (ork fabrica entrar liga).',
+    manifestoPede: '  o orkastery.yaml pede a fabrica compartilhada; quem liga e a maquina, com ork fabrica entrar.',
+    entrou: (maquina: string | null) =>
+      `Fabrica: esta maquina entrou como ${maquina}; publica ao criar thread, despachar fase, entregar e fechar,`,
+    primeiro: (threads: number, commit: string | undefined) =>
+      `  e a cada batida do pulse. Primeiro retrato: ${threads} thread(s) em ork/fabrica-estado (${commit}).`,
+    maquinaAmbiente: (maquina: string) =>
+      `  AVISO: ORK_MAQUINA=${maquina} neste shell vence o arquivo; alinhe os dois.`,
+    saiu: (maquina: string, commit: string | null) => `Fabrica: ${maquina} saiu; nada mais e publicado daqui.` +
+      (commit ? ` Retrato removido de ork/fabrica-estado (${commit}).` : ' Nao havia retrato desta maquina na branch.'),
+    ambienteLiga: '  AVISO: ORK_FABRICA_COMPARTILHADA=1 neste shell ainda liga a fabrica aqui.',
+    desconhecido: (sub: string) => `subcomando desconhecido: fabrica ${sub}`,
+    uso: 'uso: ork fabrica [--json] [--sem-remoto] | fabrica publicar [--forcar] [--json] | fabrica entrar [--maquina NOME] | fabrica sair' +
+      ' | fabrica batida [status|instalar|remover] [--por Q] [--json]',
+    semRemoto: (projeto: string, remoto: string) =>
+      `Fabrica: o projeto ${projeto} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`,
     estaMaquina: ' (esta maquina)',
     maquina: (nome: string, propria: string, por: string, publicado: string, ativas: number, entregues: number) =>
       `${nome}${propria}, ${por}, publicado ${publicado}: ${ativas} thread(s) ativa(s)` +
@@ -343,6 +364,7 @@ export const OPERACAO_RESTANTE_PT_BR = {
       saiu: (linha: string) => `  saiu: ${linha}`,
       ficou: (linha: string) => `  ficou (posta à mão, não é do ork): ${linha}`,
       confira: '  confira com: ork fabrica batida status',
+      uso: 'uso: ork fabrica batida [status|instalar|remover] [--por Q] [--json]',
     },
   },
 };
@@ -659,6 +681,27 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
     mantido: (dir) => `(the demo repository was kept at ${dir})`,
   },
   fabrica: {
+    publicou: (machine, threads, commit, attempts) =>
+      `Factory: ${machine} published ${threads} thread(s) to ork/fabrica-estado (${commit}, ${attempts} attempt(s)).`,
+    ocupada: 'Factory: another publication from this machine is in progress; try again shortly.',
+    igual: (machine) =>
+      `Factory: snapshot from ${machine} matches the last publication; nothing to send (use --forcar to publish anyway).`,
+    soQuandoPede: '  this machine has not joined the shared factory: it publishes only when requested (ork fabrica entrar enables it).',
+    manifestoPede: '  orkastery.yaml requests the shared factory; the machine enables it with ork fabrica entrar.',
+    entrou: (machine) =>
+      `Factory: this machine joined as ${machine}; it publishes when creating a thread, dispatching a phase, delivering, and closing,`,
+    primeiro: (threads, commit) =>
+      `  and on every pulse heartbeat. First snapshot: ${threads} thread(s) in ork/fabrica-estado (${commit}).`,
+    maquinaAmbiente: (machine) =>
+      `  WARNING: ORK_MAQUINA=${machine} in this shell overrides the file; align both values.`,
+    saiu: (machine, commit) => `Factory: ${machine} left; nothing else is published from here.` +
+      (commit ? ` Snapshot removed from ork/fabrica-estado (${commit}).` : ' There was no snapshot for this machine on the branch.'),
+    ambienteLiga: '  WARNING: ORK_FABRICA_COMPARTILHADA=1 in this shell still enables the factory here.',
+    desconhecido: (sub) => `unknown subcommand: fabrica ${sub}`,
+    uso: 'usage: ork fabrica [--json] [--sem-remoto] | fabrica publicar [--forcar] [--json] | fabrica entrar [--maquina NAME] | fabrica sair' +
+      ' | fabrica batida [status|instalar|remover] [--por Q] [--json]',
+    semRemoto: (project, remote) =>
+      `Factory: project ${project} has no ${remote} remote; nothing was read from ork/fabrica-estado.`,
     estaMaquina: ' (this machine)',
     maquina: (name, own, by, published, active, delivered) =>
       `${name}${own}, ${by}, published ${published}: ${active} active thread(s)` +
@@ -693,6 +736,7 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
       saiu: (line) => `  removed: ${line}`,
       ficou: (line) => `  kept (manually added, not owned by ork): ${line}`,
       confira: '  check with: ork fabrica batida status',
+      uso: 'usage: ork fabrica batida [status|instalar|remover] [--por Q] [--json]',
     },
   },
 };

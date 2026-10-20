@@ -2455,6 +2455,7 @@ const CONTRATO_DO_BOARD = 'ork.board/v1';
 function comandoFabrica(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const mf = msg().operacao.restante.fabrica;
   // RM-063 (F1): a batida e do crontab desta maquina; nao le nem escreve o remoto.
   if (sub === 'batida') return comandoDaBatida(carregado, args);
   // RM-047: o remoto vem do manifesto de quem fez o repositorio; fora do formato, recusa antes do git.
@@ -2468,14 +2469,12 @@ function comandoFabrica(args: Args): number {
       if (silencioso) { registrarPublicacao(carregado.raiz, { ...r }); return 0; }
       if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
       else console.log(r.acao === 'publicou'
-        ? `Fabrica: ${r.maquina} publicou ${r.threads} thread(s) em ork/fabrica-estado (${r.commit?.slice(0, 7)}, ${r.tentativas} tentativa(s)).`
-        : r.acao === 'ocupado'
-          ? `Fabrica: outra publicacao desta maquina esta em andamento; tente de novo em instantes.`
-          : `Fabrica: retrato de ${r.maquina} igual ao ultimo publicado; nada a enviar (use --forcar para publicar mesmo assim).`);
+        ? mf.publicou(r.maquina, r.threads, r.commit?.slice(0, 7), r.tentativas)
+        : r.acao === 'ocupado' ? mf.ocupada : mf.igual(r.maquina));
       if (!fabricaCompartilhada(carregado.manifesto) && !silencioso) {
-        console.log('  esta maquina nao entrou na fabrica compartilhada: so publica quando voce pede (ork fabrica entrar liga).');
+        console.log(mf.soQuandoPede);
         // RM-047 (P5): o manifesto que pede a fabrica nao liga a publicacao desta maquina.
-        if (carregado.manifesto.fabrica.compartilhada) console.log('  o orkastery.yaml pede a fabrica compartilhada; quem liga e a maquina, com ork fabrica entrar.');
+        if (carregado.manifesto.fabrica.compartilhada) console.log(mf.manifestoPede);
       }
       return 0;
     } catch (e) {
@@ -2491,26 +2490,24 @@ function comandoFabrica(args: Args): number {
     // RM-052 (D7): a maquina que entra na fabrica deste projeto passa a conhece-lo pelo nome.
     const avisoDoRegistro = registrarProjetoEmSilencio(carregado.raiz, 'fabrica entrar');
     if (avisoDoRegistro) console.error(avisoDoRegistro);
-    console.log(`Fabrica: esta maquina entrou como ${config.nome}; publica ao criar thread, despachar fase, entregar e fechar,`);
-    console.log(`  e a cada batida do pulse. Primeiro retrato: ${r.threads} thread(s) em ork/fabrica-estado (${r.commit?.slice(0, 7)}).`);
+    console.log(mf.entrou(config.nome));
+    console.log(mf.primeiro(r.threads, r.commit?.slice(0, 7)));
     if (process.env.ORK_MAQUINA && process.env.ORK_MAQUINA.trim() !== config.nome) {
-      console.log(`  AVISO: ORK_MAQUINA=${process.env.ORK_MAQUINA} neste shell vence o arquivo; alinhe os dois.`);
+      console.log(mf.maquinaAmbiente(process.env.ORK_MAQUINA));
     }
     return 0;
   }
   if (sub === 'sair') {
     const config = gravarConfigDaMaquina({ fabricaCompartilhada: false });
     const r = removerMaquina(carregado, { remoto });
-    console.log(`Fabrica: ${nomeDaMaquina()} saiu; nada mais e publicado daqui.` +
-      (r ? ` Retrato removido de ork/fabrica-estado (${r.slice(0, 7)}).` : ' Nao havia retrato desta maquina na branch.'));
-    if (fabricaCompartilhada(carregado.manifesto)) console.log('  AVISO: ORK_FABRICA_COMPARTILHADA=1 neste shell ainda liga a fabrica aqui.');
+    console.log(mf.saiu(nomeDaMaquina(), r ? r.slice(0, 7) : null));
+    if (fabricaCompartilhada(carregado.manifesto)) console.log(mf.ambienteLiga);
     void config;
     return 0;
   }
   if (sub !== undefined && sub !== 'list') {
-    console.error(`subcomando desconhecido: fabrica ${sub}`);
-    console.error('uso: ork fabrica [--json] [--sem-remoto] | fabrica publicar [--forcar] [--json] | fabrica entrar [--maquina NOME] | fabrica sair' +
-      ' | fabrica batida [status|instalar|remover] [--por Q] [--json]');
+    console.error(mf.desconhecido(sub));
+    console.error(mf.uso);
     return 2;
   }
   // RM-052: a fabrica le a branch de UM projeto, no remoto dele; o cabecalho diz qual e o que ficou de fora.
@@ -2529,7 +2526,7 @@ function comandoFabrica(args: Args): number {
   }
   console.log([...linhasDaConsulta(consulta), ''].join('\n'));
   console.log(url === null
-    ? `Fabrica: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`
+    ? mf.semRemoto(carregado.manifesto.project.name, remoto)
     : textoDaFabrica(painel, nomeDaMaquina()));
   // RM-047 (P5): o manifesto pede a fabrica, mas quem liga a publicacao e a maquina.
   const pedida = avisoDaFabricaPedida(carregado.manifesto);
@@ -2556,7 +2553,7 @@ function comandoDaBatida(carregado: ManifestoCarregado, args: Args): number {
     console.log(json ? JSON.stringify(r, null, 2) : textoDoResultadoDaBatida(r));
     return 0;
   }
-  console.error('uso: ork fabrica batida [status|instalar|remover] [--por Q] [--json]');
+  console.error(msg().operacao.restante.fabrica.batida.uso);
   return 2;
 }
 
