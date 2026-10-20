@@ -18,7 +18,7 @@ import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { branchDaWorktree } from './worktree';
 import { cwdLocalOuNulo } from './procedencia';
 import { verificar, ResultadoVerify } from './verify';
-import { comandosDoManifesto, commitReal, executar, prazoDoComando, verificarClaim } from './verify';
+import { comandosDoManifesto, commitReal, executar, executorDoManifesto, prazoDoComando, verificarClaim } from './verify';
 import { lerClaims } from './claims';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -573,11 +573,13 @@ function rodarBundle(carregado: ManifestoCarregado, bundle: BundleCi) {
   const preparo = comandoDoPreparo
     ? executar('preparo', comandoDoPreparo, carregado.raiz, prazoDoComando(carregado.manifesto, 'preparo'))
     : null;
-  const claims = bundle.claims.map((claim) => verificarClaim(claim, carregado.raiz));
+  const claims = bundle.claims.map((claim) => verificarClaim(claim, carregado.raiz, executorDoManifesto(carregado.manifesto)));
   // O comando lógico `ci` executa o script de testes hermético (`test:ci`) e herda o mesmo teto configurado
   // para `test`. Assim a suíte não volta silenciosamente ao default de 600 s no runner hospedado.
-  const commands = bundle.commands.map((item) => executar(item.name, item.command, carregado.raiz,
-    prazoDoComando(carregado.manifesto, item.name === 'ci' ? 'test' : item.name)));
+  const doManifesto = executorDoManifesto(carregado.manifesto);
+  const commands = bundle.commands.map((item) => item.name === 'ci'
+    ? executar(item.name, item.command, carregado.raiz, prazoDoComando(carregado.manifesto, 'test'))
+    : doManifesto(item.name, item.command, carregado.raiz));
   const ok = claims.every((item) => item.verificado || item.motivo === 'claims.unverifiable') && commands.every((item) => item.ok);
   return { schema: 'ork.ci-run/v1' as const, ok, thread: bundle.thread, commit: commitReal(carregado.raiz), preparo, claims, commands };
 }

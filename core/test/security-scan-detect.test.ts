@@ -6,6 +6,8 @@ import { dirTemporario } from './apoio';
 import { detectStacks } from '../src/security-scan/detect';
 import { init } from '../src/init';
 import { exec } from '../src/util';
+import { carregarManifesto } from '../src/manifest';
+import { prazoDoComando } from '../src/verify';
 
 function repo(nome: string, arquivos: string[]): string {
   const dir = dirTemporario(nome);
@@ -62,14 +64,17 @@ test('init: repo Go escreve verify.security_scan ativo no orkastery.yaml', () =>
   const dir = repoGit('sd-init-go', ['go.mod']);
   const r = init(dir);
   assert.deepEqual(r.deteccao.stacks, ['go']);
-  assert.ok(fs.readFileSync(r.caminho, 'utf8').includes('\n  security_scan: "ork security-scan"\n'));
+  assert.ok(fs.readFileSync(r.caminho, 'utf8').includes('\n  security_scan: "ork security-scan"\n  timeout_ms_por_comando:\n    security_scan: 900000\n'));
+  const c = carregarManifesto(dir);
+  assert.deepEqual(c?.erros, []);
+  assert.equal(prazoDoComando(c!.manifesto, 'security_scan'), 900_000);
 });
 
 test('init: repo sem stack escreve a linha comentada', () => {
   const dir = repoGit('sd-init-vazio', []);
   const r = init(dir);
   assert.deepEqual(r.deteccao.stacks, []);
-  assert.ok(fs.readFileSync(r.caminho, 'utf8').includes('\n  # security_scan: "ork security-scan"\n'));
+  assert.ok(fs.readFileSync(r.caminho, 'utf8').includes('\n  # security_scan: "ork security-scan"\n  # timeout_ms_por_comando:\n  #   security_scan: 900000\n'));
 });
 
 test('init: stacks vem deduplicadas', () => {

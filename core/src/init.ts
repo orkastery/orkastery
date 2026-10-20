@@ -179,6 +179,8 @@ ${linhaVerify('test', d.verify.test)}
 ${linhaVerify('typecheck', d.verify.typecheck)}
 ${comentario(c.securityScan)}
   ${d.stacks.length > 0 ? '' : '# '}security_scan: "ork security-scan"
+  ${d.stacks.length > 0 ? '' : '# '}timeout_ms_por_comando:
+  ${d.stacks.length > 0 ? '' : '# '}  security_scan: 900000
 
 ci:
 ${comentario(c.ci)}
