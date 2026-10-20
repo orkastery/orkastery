@@ -11,6 +11,9 @@ import { tabelaDaPolitica, textoDaRetomada } from '../src/retry';
 import { textoDaLimpeza, textoDoInventario } from '../src/sessoes';
 import { textoDoRadar } from '../src/hitl';
 import { textoDoGateDeTokens } from '../src/tokens';
+import { textoDaRodada, textoDoReverify } from '../src/fix';
+import { textoDoHandoff } from '../src/handoff';
+import { textoDoRecall } from '../src/recall';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -137,4 +140,27 @@ test('F3d: gate localiza usos, autorizacao e o parecer de tokens', () => {
   assert.deepEqual(linhasEmPortugues(en), []);
   for (const sub of ['context', 'request', 'answer', 'next', 'approve'])
     assert.equal(cobreLocale(['gate', sub], {}), true, sub);
+});
+
+test('F3d: fix, handoff e recall localizam a moldura e preservam payloads', () => {
+  const rodada = { thread: 'ork-x', rodada: 0, veredito: 'PASSOU', correcoes: [], temTipoB: false,
+    spec: '', motivos: [], abertaEm: '2026-10-20T12:00:00.000Z' } as any;
+  const reverify = { thread: 'ork-x', rodada: 1, cobertura: 'completa', vereditos: [], verify: null,
+    veredito: 'PASSOU', rodadas: 1, limite: 3, escalado: false, motivos: [], razao: 'dado preservado' } as any;
+  const handoff = { thread: 'ork-x', memory: 'files', de: { slug: 'x-go', fase: 'GO' },
+    para: { slug: 'x-check', fase: 'CHECK' }, inline: [], pointers: [], summaries: [] } as any;
+  const recall = { thread: 'ork-x', momento: 'CHECK', regime: 'files', regimeDoHandoff: 'files',
+    resolvidos: [], adiados: [], falhas: [] } as any;
+  const pt = comLocale('pt-BR', () => [textoDaRodada(rodada), textoDoReverify(reverify),
+    textoDoHandoff(handoff, 'handoff.json'), textoDoRecall(recall)].join('\n'));
+  const en = comLocale('en', () => [textoDaRodada(rodada), textoDoReverify(reverify),
+    textoDoHandoff(handoff, 'handoff.json'), textoDoRecall(recall)].join('\n'));
+  assert.match(pt, /CHECK PASSOU/);
+  assert.match(en, /CHECK PASSED/);
+  assert.match(en, /CHECK-REVERIFY for thread/);
+  assert.match(en, /Handoff exported from thread/);
+  assert.match(en, /CRITICAL \(0 item/);
+  assert.match(en, /Recall for thread/);
+  assert.match(en, /RESOLVED \(0/);
+  assert.deepEqual(linhasEmPortugues(en, ['dado preservado']), []);
 });

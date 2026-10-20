@@ -45,6 +45,7 @@ import {
 import { Fase, Handoff, ItemInline, Ponteiro, Proveniencia, Resumo, Thread } from './types';
 import { agora, gravarJson } from './util';
 import { caminhoContidoOuNulo, exigirCaminhoContido } from './procedencia';
+import { msg } from './locale';
 
 /** sha256 de um arquivo em disco, a prova de proveniencia de cada item. */
 export function sha256DoArquivo(caminho: string): string {
@@ -591,32 +592,33 @@ export function recall(
 
 /** Texto de `ork handoff export`. */
 export function textoDoHandoff(h: Handoff, caminho: string): string {
+  const m = msg().operacao.restante.handoff;
   const linhas: string[] = [];
-  linhas.push(`Handoff exportado da thread ${h.thread} (regime memory: ${h.memory})`);
-  linhas.push(`  de    ${h.de.slug} (fase ${h.de.fase})`);
-  linhas.push(`  para  ${h.para.slug} (fase ${h.para.fase})`);
-  linhas.push(`  arquivo ${caminho}`);
+  linhas.push(m.exportado(h.thread, h.memory));
+  linhas.push(m.de(h.de.slug, h.de.fase));
+  linhas.push(m.para(h.para.slug, h.para.fase));
+  linhas.push(m.arquivo(caminho));
   linhas.push('');
-  linhas.push(`CRITICO (${h.inline.length} item(ns), vao inline no prompt da nova sessao):`);
+  linhas.push(m.critico(h.inline.length));
   for (const i of h.inline) {
     linhas.push(`  ${i.id}  ${i.titulo}`);
-    linhas.push(`        proveniencia: ${i.proveniencia.location} (sha256 ${i.proveniencia.sha256.slice(0, 12)})`);
+    linhas.push(m.proveniencia(i.proveniencia.location, i.proveniencia.sha256.slice(0, 12)));
   }
   linhas.push('');
-  linhas.push(`IMPORTANTE (${h.pointers.length} ponteiro(s), recuperados sob demanda):`);
+  linhas.push(m.importante(h.pointers.length));
   for (const p of h.pointers) {
     linhas.push(`  ${p.id}  ${p.titulo}`);
     linhas.push(`        location: ${p.location}  (sha256 ${p.sha256.slice(0, 12)})`);
     if (p.orkmind) linhas.push(`        orkmind:  ${p.orkmind}`);
-    linhas.push(`        quando:   ${p.retrieve_when}`);
-    linhas.push(`        recuperar: ${p.retrieve_via}`);
-    linhas.push(`        no momento: ork recall ${h.thread} --fase ${p.retrieve_when}`);
+    linhas.push(m.quando(p.retrieve_when));
+    linhas.push(m.recuperar(p.retrieve_via));
+    linhas.push(m.noMomento(h.thread, p.retrieve_when));
   }
   linhas.push('');
-  linhas.push(`RESUMIVEL (${h.summaries.length} resumo(s), com proveniencia declarada):`);
+  linhas.push(m.resumivel(h.summaries.length));
   for (const s of h.summaries) {
     linhas.push(`  ${s.id}  ${s.text}`);
-    linhas.push(`        proveniencia: ${s.provenance.location} (sha256 ${s.provenance.sha256.slice(0, 12)})`);
+    linhas.push(m.proveniencia(s.provenance.location, s.provenance.sha256.slice(0, 12)));
   }
   return linhas.join('\n');
 }
