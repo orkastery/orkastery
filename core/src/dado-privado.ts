@@ -166,11 +166,6 @@ function escaparRegex(texto: string): string {
   return texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** `*` casa qualquer sequência; sem diferença de caixa. */
-function curingaCasa(padrao: string, valor: string): boolean {
-  return new RegExp(`^${padrao.split('*').map(escaparRegex).join('.*')}$`, 'iu').test(valor);
-}
-
 /** Glob de caminho: `**` cruza pastas, `*` e `?` não. */
 function globCasa(glob: string, caminho: string): boolean {
   let re = '';
@@ -183,24 +178,6 @@ function globCasa(glob: string, caminho: string): boolean {
     else re += escaparRegex(c);
   }
   return new RegExp(`^${re}$`, 'u').test(caminho);
-}
-
-/**
- * Amostras distintas de cada família que uma exceção não pode cobrir inteira. O teste é pelo efeito do curinga, não
- * pela grafia: `**`, `*@*`, `/home/*` e formas equivalentes caem na mesma regra.
- */
-const FAMILIAS_DE_VALORES: Record<PadraoGenerico, readonly (readonly string[])[]> = {
-  home: [
-    ['/home/' + 'pessoa-a', '/home/' + 'pessoa-longa'],
-    ['/Users/' + 'pessoa-a', '/Users/' + 'pessoa-longa'],
-    ['C:\\Users\\' + 'pessoa-a', 'C:\\Users\\' + 'pessoa-longa'],
-  ],
-  email: [['a' + '@dominio-a.com', 'nome.sobrenome+tag' + '@sub.dominio-b.org']],
-  hostname: [['pessoa-a-' + 'pc', 'DESKTOP-' + 'AB12CD3', 'ip-' + '10-0-1-23', 'srv' + 'abc42']],
-};
-
-function valorEquivaleACuringaGlobal(padrao: PadraoGenerico, valor: string): boolean {
-  return FAMILIAS_DE_VALORES[padrao].some((familia) => familia.every((amostra) => curingaCasa(valor, amostra)));
 }
 
 function caminhoEquivaleACuringaGlobal(caminho: string): boolean {
@@ -221,7 +198,7 @@ function naAutoridadeDeUrl(texto: string, inicio: number): boolean {
   const prefixo = antes.slice(0, separador);
   if (!/(?:^|[^a-z0-9+.-])[a-z][a-z0-9+.-]*$/i.test(prefixo)) return false;
   const autoridade = antes.slice(separador + 3);
-  return !/[\s/?#"'<>\[\]{},]/u.test(autoridade);
+  return !/[\s/?#"'<>\[\]{},;`()|]/u.test(autoridade);
 }
 
 /** Os casamentos dos padrões genéricos e da lista local num texto, antes das exceções. */
@@ -323,11 +300,8 @@ export function lerExcecoes(raiz: string): { ok: true; valor: ArquivoDeExcecoes 
       }
     }
     if (x.valor === undefined) return fora(`excecoes[${i}] sem valor/trecho`);
-    if (x.valor === '*') return fora(`excecoes[${i}].valor não pode ser curinga global`);
+    if ((x.valor as string).includes('*')) return fora(`excecoes[${i}].valor tem de ser exato, sem curinga`);
     if (x.caminho === '**') return fora(`excecoes[${i}].caminho não pode ser curinga global`);
-    if (valorEquivaleACuringaGlobal(x.padrao as PadraoGenerico, x.valor as string)) {
-      return fora(`excecoes[${i}].valor equivale a curinga global para ${x.padrao}`);
-    }
     if (x.caminho !== undefined && caminhoEquivaleACuringaGlobal(x.caminho as string)) {
       return fora(`excecoes[${i}].caminho equivale a curinga global`);
     }
@@ -345,7 +319,7 @@ function coberto(c: Casamento, arquivo: string, excecoes: ArquivoDeExcecoes, uso
     if (i >= 0) { uso.emails.add(i); return true; }
   }
   const j = excecoes.excecoes.findIndex((e) => e.padrao === c.padrao
-    && (e.caminho === undefined || globCasa(e.caminho, arquivo)) && curingaCasa(e.valor, c.valor));
+    && (e.caminho === undefined || globCasa(e.caminho, arquivo)) && e.valor.toLowerCase() === c.valor.toLowerCase());
   if (j >= 0) { uso.excecoes.add(j); return true; }
   return false;
 }
