@@ -126,7 +126,7 @@ export const SHIP_PT_BR = {
   linhaDoRegistro: (thread: string, acao: string, motivo: string) => `  ${thread.padEnd(20)} ${acao.padEnd(13)} ${motivo}`,
   /** A acao e dado do `--json`; o texto so a traduz na impressao. */
   acoes: { 'registrou': 'registrou', 'registraria': 'registraria', 'ja-registrada': 'ja-registrada', 'sem-merge': 'sem-merge',
-    'recusada': 'recusada' } as Record<string, string>,
+    'recusada': 'recusada', 'pulada': 'pulada' } as Record<string, string>,
   avisoDeDocs: (n: number) => `Aviso: ${n} pagina(s) do roadmap com estado.codigo fora de "Mesclado" depois do merge; ` +
     'o push da base reprova em docs.paridade.merge:',
   docPendente: (id: string, arquivo: string, merge: string, thread: string, codigo: string) =>
@@ -162,6 +162,36 @@ export const SHIP_PT_BR = {
     `${repo} tem subgrupos, e um repositorio do GitHub e so dono/nome; num projeto do GitLab, o remoto ou forja.tipo: gitlab no orkastery.yaml diz a forja`,
   prExternoRegistraria: (merge: string, n: number, repo: string, gitlab = false) => `ensaio: registraria ship_done pelo merge ${merge} do ${rotuloDoPedido(n, gitlab)} de ${repo} (nada gravado)`,
   prExternoRegistrou: (merge: string, n: number, repo: string, gitlab = false) => `ship_done pelo merge ${merge} do ${rotuloDoPedido(n, gitlab)} de ${repo}`,
+  // RM-058, integração (T1.1 e D3 da ork-rm058integra): a guarda das threads do arco #Noctum nos caminhos de entrega de fora
+  // do arco (`noctum-guarda.ts`). O motivo tipado abre o texto, igual nas duas línguas.
+  guarda: {
+    situacoes: { 'proposto': 'proposto', 'agendado': 'agendado', 'vigente': 'vigente', 'expirado': 'expirado', 'revogado': 'revogado',
+      'encerrado': 'encerrado' } as Record<string, string>,
+    origens: { 'envelope': 'pela lista do envelope', 'proposta': 'pela proposta que espera o dono', 'despacho': 'pelo log de despachos do arco',
+      'correlacao': 'pelo último despacho da thread' } as Record<string, string>,
+    doArco: (thread: string, arco: string, situacao: string, origem: string) =>
+      `noctum.guarda.thread-do-arco: a thread ${thread} é trabalho do arco ${arco} (${situacao}, ${origem})`,
+    doArcoCorrecao: (arco: string) =>
+      `a entrega desta thread é do passo da entrega do arco ${arco}: o SHIP e o MASTER dela são do arco (ork noctum status ${arco})`,
+    arcoIlegivel: (thread: string, arco: string, motivo: string) =>
+      `noctum.guarda.arco-ilegivel: o último despacho da thread ${thread} foi do arco ${arco}, e o arco não se lê (${motivo})`,
+    arcoIlegivelCorrecao: (arco: string) => `inspecione o arco antes de entregar a thread por fora dele (ork noctum status ${arco})`,
+    retencao: (thread: string, arco: string, situacao: string) =>
+      `noctum.guarda.thread-do-arco: o arco ${arco} (${situacao}) despachou a thread ${thread} por último; a batida e a Sentinela ` +
+      'não a despacham, não a retomam nem a mesclam até um despacho fora do arco ou um arco novo que a liste',
+    // A2 do CHECK: o arco terminou, e a sessão que ele despachou ainda conduz a thread.
+    sessaoDoArco: (thread: string, arco: string, situacao: string, sessao: string) =>
+      `noctum.guarda.thread-do-arco: o arco ${arco} está ${situacao}, e a sessão ${sessao} que ele despachou ainda conduz a thread ${thread}: ` +
+      'ela não entrega fora do arco',
+    sessaoDoArcoCorrecao: (arco: string) =>
+      `espere a parada que o fechamento do arco pede, ou pare a sessão; sem sessão do arco em voo, a thread se entrega à mão (ork noctum status ${arco})`,
+    // M3 do CHECK 3: a reserva pendente sem o id da sessão; não há sessão a parar, e quem a resolve é o vigia.
+    reservaDoArco: (thread: string, arco: string, situacao: string, seq: number) =>
+      `noctum.guarda.thread-do-arco: o arco ${arco} está ${situacao}, e a reserva ${seq} que ele fez para a thread ${thread} pode ter aberto ` +
+      'uma sessão sem id: ela não entrega fora do arco',
+    reservaDoArcoCorrecao: (arco: string) =>
+      `espere o vigia reconciliar a reserva (ele a conclui com a sessão ou a devolve); sem sessão do arco em voo, a thread se entrega à mão (ork noctum status ${arco})`,
+  },
   // RM-059 (F7, T7.1): `ork ship publicar` e `ork ship pista`. O detalhe, a correcao e o texto das etapas vao ao
   // `--json` e ao ledger em pt-BR; a impressao os remonta no locale do comando.
   publicar: {
@@ -412,7 +442,7 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
   nenhumaComMerge: 'No open thread with a ship(<thread>) merge on the base.',
   linhaDoRegistro: (thread, acao, motivo) => `  ${thread.padEnd(20)} ${acao.padEnd(13)} ${motivo}`,
   acoes: { 'registrou': 'recorded', 'registraria': 'would record', 'ja-registrada': 'already recorded', 'sem-merge': 'no merge',
-    'recusada': 'refused' },
+    'recusada': 'refused', 'pulada': 'skipped' },
   avisoDeDocs: (n) => `Warning: ${n} roadmap page(s) with \`estado.codigo\` other than "Mesclado" after the merge; ` +
     'the push to the base fails on docs.paridade.merge:',
   docPendente: (id, arquivo, merge, thread, codigo) =>
@@ -446,6 +476,32 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     `${repo} has subgroups, and a GitHub repository is only owner/name; in a GitLab project, the remote or forja.tipo: gitlab in orkastery.yaml names the forge`,
   prExternoRegistraria: (merge, n, repo, gitlab = false) => `dry run: would record ship_done from merge ${merge} of ${rotuloDoPedido(n, gitlab)} of ${repo} (nothing written)`,
   prExternoRegistrou: (merge, n, repo, gitlab = false) => `ship_done from merge ${merge} of ${rotuloDoPedido(n, gitlab)} of ${repo}`,
+  guarda: {
+    situacoes: { 'proposto': 'proposed', 'agendado': 'scheduled', 'vigente': 'in force', 'expirado': 'expired', 'revogado': 'revoked',
+      'encerrado': 'closed' },
+    origens: { 'envelope': 'by the envelope list', 'proposta': 'by the proposal waiting for the owner', 'despacho': 'by the arc dispatch log',
+      'correlacao': 'by the last dispatch of the thread' },
+    doArco: (thread, arco, situacao, origem) =>
+      `noctum.guarda.thread-do-arco: thread ${thread} is work of arc ${arco} (${situacao}, ${origem})`,
+    doArcoCorrecao: (arco) =>
+      `this thread is delivered by the delivery step of arc ${arco}: its SHIP and MASTER belong to the arc (ork noctum status ${arco})`,
+    arcoIlegivel: (thread, arco, motivo) =>
+      `noctum.guarda.arco-ilegivel: the last dispatch of thread ${thread} came from arc ${arco}, and the arc cannot be read (${motivo})`,
+    arcoIlegivelCorrecao: (arco) => `inspect the arc before delivering the thread outside it (ork noctum status ${arco})`,
+    retencao: (thread, arco, situacao) =>
+      `noctum.guarda.thread-do-arco: arc ${arco} (${situacao}) dispatched thread ${thread} last; the beat and the Sentinel ` +
+      'do not dispatch, resume or merge it until a dispatch outside the arc or a new arc that lists it',
+    sessaoDoArco: (thread, arco, situacao, sessao) =>
+      `noctum.guarda.thread-do-arco: arc ${arco} is ${situacao}, and session ${sessao} that it dispatched still conducts thread ${thread}: ` +
+      'it does not deliver outside the arc',
+    sessaoDoArcoCorrecao: (arco) =>
+      `wait for the stop that the arc closing requests, or stop the session; with no arc session in flight, the thread is delivered by hand (ork noctum status ${arco})`,
+    reservaDoArco: (thread, arco, situacao, seq) =>
+      `noctum.guarda.thread-do-arco: arc ${arco} is ${situacao}, and reservation ${seq} that it made for thread ${thread} may have opened ` +
+      'a session without an id: it does not deliver outside the arc',
+    reservaDoArcoCorrecao: (arco) =>
+      `wait for the watcher to reconcile the reservation (it concludes it with the session or returns it); with no arc session in flight, the thread is delivered by hand (ork noctum status ${arco})`,
+  },
   publicar: {
     uso: 'usage: ork ship publicar <thread-id> [--dry-run] [--remoto R] [--json]',
     usoPista: 'usage: ork ship pista [<thread-id>] [--remoto R] [--json]',

@@ -24,6 +24,7 @@ import { raizDoEstado } from './estado-thread';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirEstado, ManifestoCarregado } from './manifest';
 import { nomeDaMaquina } from './maquina';
+import { ArcoDoPasso, arcoDoPasso, lerArcosDaRaiz } from './noctum-guarda';
 import { CasoParado, entregasDoProjeto, EstadoDaEntrega, pendenciaDoDono } from './parado-no-condutor';
 import { dirThread, lerThread, pedidoDaThread } from './thread';
 import { EventoLedger, Fase, Thread } from './types';
@@ -229,6 +230,12 @@ export interface PassoDoCondutor {
   bloqueio: { motivo: string; em: string; deDespacho: boolean } | null;
   /** A thread tem o pedido guardado na criacao (T6.0): sem ele, o render cai no texto de exemplo. */
   pedidoGuardado: boolean;
+  /**
+   * RM-058, integracao (T1.2, D3 e D4): o arco #Noctum que segura (`guarda`) ou retem (`retencao`) a thread, so quando ha
+   * um. O passo nao muda por ele, porque a fila do arco le o mesmo passo; quem age (a batida, a varredura, a Sentinela e a
+   * maquina ociosa) pula pelo campo.
+   */
+  arco?: ArcoDoPasso;
 }
 
 /** As fases que, com produto ja na branch, a sessao do bloco ja fez (ha produto, entao houve GO). */
@@ -344,16 +351,29 @@ function temPedidoGuardado(raiz: string, t: Thread): boolean {
 export function passosDoCondutor(carregado: ManifestoCarregado, opcoes: { quando?: string } = {}): PassoDoCondutor[] {
   const quando = opcoes.quando ?? new Date().toISOString();
   const entregas = entregasDoProjeto(carregado, { quando, limiarMin: 0 });
+  // RM-058, integracao (T1.2): os arcos desta raiz, lidos uma vez para todas as threads.
+  const arcos = lerArcosDaRaiz(carregado.raiz, quando);
   const passos: PassoDoCondutor[] = [];
   for (const estado of entregas.estados) {
     let t: Thread;
     try { t = lerThread(carregado.raiz, estado.thread); } catch { continue; }
     let eventos: EventoLedger[] = [];
     try { eventos = lerLedger(dirThread(carregado.raiz, t.id)); } catch { /* ledger ilegivel: sem bloqueio */ }
-    passos.push(passoDaThread(t, estado, eventos, temPedidoGuardado(carregado.raiz, t),
-      (fase) => faseJaFeita(carregado.raiz, t, fase, estado, eventos), pendenciaDoDono(t, eventos, quando)));
+    const passo = passoDaThread(t, estado, eventos, temPedidoGuardado(carregado.raiz, t),
+      (fase) => faseJaFeita(carregado.raiz, t, fase, estado, eventos), pendenciaDoDono(t, eventos, quando));
+    const arco = arcoDoPasso(carregado.raiz, arcos, t.id, eventos);
+    passos.push(arco ? { ...passo, arco } : passo);
   }
   return passos.sort((a, b) => (a.thread < b.thread ? -1 : a.thread > b.thread ? 1 : 0));
+}
+
+/**
+ * RM-058, integracao (T1.2): o passo como quem age o le. A thread que o arco segura nao tem acao nenhuma de fora; a que ele
+ * retem nao e despachada nem retomada. O motivo vai no `porque`, e o passo do nucleo (o da fila do arco) nao muda.
+ */
+export function passoDeQuemAge(p: PassoDoCondutor): PassoDoCondutor {
+  if (!p.arco || (p.arco.efeito === 'retencao' && p.acao !== 'despachar' && p.acao !== 'retomar')) return p;
+  return { ...p, acao: 'nada', fase: null, porque: p.arco.detalhe };
 }
 
 export interface StatusDaSentinela {
@@ -371,7 +391,8 @@ export function statusDaSentinela(carregado: ManifestoCarregado, opcoes: { agora
   return {
     contrato: CONTRATO_DA_SENTINELA, consultadoEm: agora.toISOString(), maquina,
     presenca: presencaDaSentinela(carregado.raiz, { agora, maquina }),
-    threads: passosDoCondutor(carregado, { quando: agora.toISOString() }),
+    // RM-058, integracao (T1.2): a Sentinela despacha o que este status diz; a thread do arco sai com `nada` e o motivo.
+    threads: passosDoCondutor(carregado, { quando: agora.toISOString() }).map(passoDeQuemAge),
   };
 }
 

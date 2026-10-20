@@ -48,6 +48,7 @@ import { AcaoPendente, agirNaVarredura, buscarBase, lerSessoes, MOTIVOS_DO_BLOQU
   trabalhoNaWorktree, VarreduraQueAge } from './varredura-acoes';
 import { branchDaWorktree } from './worktree';
 import { reconciliarSessaoSemWatcher } from './session-watcher';
+import { arcoDoPasso, ArcosDaRaiz, lerArcosDaRaiz, MOTIVO_DA_GUARDA, MOTIVO_DO_ARCO_ILEGIVEL } from './noctum-guarda';
 
 export const CONTRATO_DA_BATIDA = 'ork.conducao-batida/v1' as const;
 export const ARQUIVO_DA_BATIDA = 'conducao-batida.json';
@@ -308,6 +309,8 @@ interface ContextoDaBatida {
   vivas: ReturnType<typeof lerSessoes>['vivas'];
   canal: CanalDeConducao;
   correlacao: string;
+  /** RM-058, integracao (T1.2): os arcos #Noctum desta raiz, lidos uma vez por batida. */
+  arcos: ArcosDaRaiz;
   feitas: ItemDaBatida[];
   pendentes: ItemDaBatida[];
 }
@@ -337,6 +340,12 @@ function mesclarProntos(ctx: ContextoDaBatida, threads: Thread[], opcoes: Opcoes
       oQue: oQue ?? textoDoCatalogo((m) => m.pulse.varredura.oQue.merge(pr.numero, branch, `${remoto}/${base}`)),
       comando: comando ?? comandoDoMerge(forja, t.id, pr), evidencia: `gh pr view ${pr.numero}: ${pr.estado}, mergeable ${pr.mergeable}`,
       desdeEm: null, pr: pr.numero });
+    let eventos: ReturnType<typeof lerLedger> = [];
+    try { eventos = lerLedger(dirThread(raiz, t.id)); } catch { eventos = []; }
+    // RM-058, integracao (T1.2, D3 e D4): o PR da thread que um arco #Noctum segura ou retem nao e mesclado nem atualizado
+    // por aqui: a entrega e do passo da entrega do arco. O pulo fica no retrato, como as esperas, e nao no ledger da thread.
+    const arco = arcoDoPasso(raiz, ctx.arcos, t.id, eventos);
+    if (arco) { anotar(ctx, item('espera', arco.motivo, arco.detalhe)); continue; }
     const checks = lerChecksObrigatorios(executor, forja, pr.numero);
     if (!checks.ok) { anotar(ctx, item('espera', 'estado-desconhecido', checks.erro)); continue; }
     const avaliacao = avaliarPr(pr, checks.checks);
@@ -349,8 +358,6 @@ function mesclarProntos(ctx: ContextoDaBatida, threads: Thread[], opcoes: Opcoes
     const comando = atualizar ? `ork conducao atualizar ${t.id} --enviar` : undefined;
     const trabalho = trabalhoNaWorktree(raiz, t, ctx.quando, ctx.vivas);
     if (trabalho) { anotar(ctx, item('dono', trabalho.motivo, trabalho.texto, oQue, `ork thread status ${t.id}`)); continue; }
-    let eventos: ReturnType<typeof lerLedger> = [];
-    try { eventos = lerLedger(dirThread(raiz, t.id)); } catch { eventos = []; }
     const doDono = pendenciaDoDono(t, eventos, ctx.quando);
     if (doDono) { anotar(ctx, item('dono', 'pendencia-do-dono', doDono, oQue, `ork thread status ${t.id}`)); continue; }
     // A branch local nao pode ter trabalho que o PR nao tem: o merge o deixaria de fora, e a atualizacao o empurraria
@@ -443,6 +450,8 @@ function despacharPassos(ctx: ContextoDaBatida, passos: PassoDoCondutor[], opcoe
     const item = (resultado: ItemDaBatida['resultado'], motivo: string | null, detalhe: string): ItemDaBatida => ({
       acao: 'despachar', thread: p.thread, fase: fase ?? p.faseAtual, resultado, motivo, detalhe, oQue, comando,
       evidencia: `passo do núcleo: ${p.porque}`.slice(0, 300), desdeEm: p.desdeEm, pr: null });
+    // RM-058, integracao (T1.2, D3 e D4): a thread que um arco segura ou retem nao e despachada nem retomada por aqui.
+    if (p.arco) { anotar(ctx, item('espera', p.arco.motivo, p.arco.detalhe)); continue; }
     if (p.acao === 'despachar' && !p.pedidoGuardado) {
       anotar(ctx, item('dono', 'sem-prompt-gravado', 'a thread não tem o pedido guardado na criação: sem prompt gravado, nada sai'));
       continue;
@@ -505,6 +514,13 @@ function daVarredura(v: VarreduraQueAge, ctx: ContextoDaBatida): void {
     if (item.resultado === 'feita') ctx.feitas.push(item);
   }
   for (const p of v.pendentes) {
+    // RM-058, integracao (T1.2): a acao da thread que um arco segura espera o arco, e nao o dono.
+    if (p.motivoDoBloqueio === 'thread-do-arco') {
+      ctx.pendentes.push({ acao: p.acao as AcaoDaBatida, thread: p.thread, fase: p.fase, resultado: 'espera',
+        motivo: p.bloqueio?.startsWith(MOTIVO_DO_ARCO_ILEGIVEL) ? MOTIVO_DO_ARCO_ILEGIVEL : MOTIVO_DA_GUARDA, oQue: p.oQue,
+        detalhe: p.bloqueio ?? p.oQue, comando: `ork thread status ${p.thread}`, evidencia: p.evidencia, desdeEm: p.desdeEm, pr: null });
+      continue;
+    }
     ctx.pendentes.push({ acao: p.acao as AcaoDaBatida, thread: p.thread, fase: p.fase, resultado: 'dono',
       motivo: p.motivoDoBloqueio ?? (p.recusa ? 'acao-recusada' : semAutorizacao(ctx.leitura, p.acao as AcaoAutorizavel)),
       oQue: p.oQue, detalhe: p.recusa?.detalhe ?? p.bloqueio ?? p.oQue, comando: p.bloqueio ? `ork thread status ${p.thread}` : p.comando,
@@ -525,7 +541,7 @@ export function conduzirBatida(carregado: ManifestoCarregado, opcoes: OpcoesDaBa
   const busca = opcoes.buscar === false ? null : buscarBase(doProjeto);
   const sessoes = lerSessoes(raiz, opcoes);
   const ctx: ContextoDaBatida = { carregado: doProjeto, raiz, quando, leitura, vivas: sessoes.vivas, canal: opcoes.canal ?? canalDoProcesso(),
-    correlacao: `batida:${maquina}`, feitas: [], pendentes: [] };
+    correlacao: `batida:${maquina}`, arcos: lerArcosDaRaiz(raiz, quando), feitas: [], pendentes: [] };
   const threads = threadsAbertas(raiz);
   // RM-064 T9: um watcher que falhou no despacho não pode ocultar o fim nativo da sessão.
   // A reconciliação é local e fail-closed; a rodada seguinte deriva retomar ou pendência do dono.
@@ -644,11 +660,17 @@ export function pendentesDaUltimaBatida(raiz: string, quando: string): AcaoPende
   const saida: AcaoPendente[] = [];
   for (const i of r.pendentes) {
     if (i.acao !== 'merge' && i.acao !== 'despachar') continue;
+    // RM-058, integracao (T1.2): o pulo da thread de um arco #Noctum fica no retrato; quem diz dela ao dono e o relatorio do
+    // arco. O arco que nao se le nao tem relatorio (A6 do CHECK): o pulo dele vai a fila do dono, com o texto da guarda.
+    if (i.motivo === MOTIVO_DA_GUARDA) continue;
+    const ilegivel = i.motivo === MOTIVO_DO_ARCO_ILEGIVEL;
     try { if (lerThread(raizDoEstado(raiz), i.thread).status === 'fechada') continue; } catch { continue; }
-    // A espera que passa de 2 h (check obrigatorio parado, o GitHub sem o estado do merge) vira item do dono.
+    // A espera que passa de 2 h (check obrigatorio parado, o GitHub sem o estado do merge) vira item do dono. O arco que nao
+    // se le fica com o texto da guarda mesmo depois de 2 h (N3 do CHECK 2): a espera longa diria outra causa.
     const longa = i.resultado === 'espera' && !!i.desdeEm && Date.parse(quando) - Date.parse(i.desdeEm) > ESPERA_LONGA_MS;
-    const motivo = longa ? 'espera-longa' : i.motivo;
-    const bloqueio = ehBloqueio(motivo) ? textoDoCatalogo((m) => m.pulse.varredura.bloqueios[motivo as MotivoDoBloqueio]) : null;
+    const motivo = ilegivel ? 'thread-do-arco' : longa ? 'espera-longa' : i.motivo;
+    const bloqueio = ilegivel ? i.detalhe
+      : ehBloqueio(motivo) ? textoDoCatalogo((m) => m.pulse.varredura.bloqueios[motivo as MotivoDoBloqueio]) : null;
     const recusa = i.motivo && /-recusad[oa]$/.test(i.motivo) ? { em: r.consultadoEm, detalhe: i.detalhe } : null;
     saida.push({ acao: i.acao, thread: i.thread, fase: i.fase, sessionId: null, desdeEm: i.desdeEm, comando: i.comando, oQue: i.oQue,
       evidencia: i.evidencia, bloqueio, motivoDoBloqueio: bloqueio ? (motivo as MotivoDoBloqueio) : null, recusa });

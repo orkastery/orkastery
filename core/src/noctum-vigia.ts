@@ -21,7 +21,10 @@
  * linha nova vai ao log do arco além do desfecho das reservas: o envelope não é renovado, emendado nem prorrogado por nada
  * aqui, e o despacho só sai por conta do envelope (D13 e D14).
  *
- * Nada aqui liga o modo (D19): nenhum comando, ferramenta ou gateway chama o vigia ou o condutor nesta fatia.
+ * Nada aqui liga o modo (D19): nenhum comando, ferramenta ou gateway chama o vigia ou o condutor nesta fatia. RM-058,
+ * integração (ork-rm058integra): o tique do arco chama o vigia (D7), o `ork noctum conduzir` roda o condutor (D9), e o passo
+ * supervisionado chama a entrega da N5 depois do despacho, sob a mesma geração (D8); no tique do vigia, nada espera a fila
+ * pesada, e o verify do SHA e o da atualização ficam para o condutor.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -34,8 +37,9 @@ import { nomeDaMaquina } from './maquina';
 import { concluirDespacho, EstadoDoArco, lerArco, SituacaoDoArco } from './noctum-arco';
 import { LeituraDeSessoes } from './noctum-capacidade';
 import { envelopeComTrabalhos } from './noctum-envelope';
-import { OpcoesDoPasso, passoDoArco, ResultadoDoPasso } from './noctum-execucao';
+import { MOTIVO_DA_BASELINE_FALHA, OpcoesDoPasso, passoDoArco, ResultadoDoPasso } from './noctum-execucao';
 import { DecisoesDaSupervisao } from './noctum-fila';
+import { OpcoesDaEntrega, passoDaEntrega, ResultadoDaEntrega } from './noctum-entrega';
 import { decidirPedidos, decidirReservas, decidirSessoes, efeitosAbertos, LeitorDoRemoto, LeituraDoRuntime, listagemCompleta, ParadaDeSessao,
   paradaPorAmbiente, provaDaSessao, reconciliarEfeito, recusaDeAmbiente, retomadaPendente } from './noctum-reconciliacao';
 import { alvosDaFase, assumirConducao, ConteudoV2, contasDoArco, dirDaSupervisao, EstadoDaSupervisao, gravarComEstado,
@@ -46,6 +50,7 @@ import { cancelarPedido } from './retry';
 import { ambienteDoPerfil } from './adapters/claude-bg';
 import { lerPerfis, lerPerfisComContas, perfilDeDespacho, StoreDePerfis } from './runtime-profiles';
 import { consultarContas } from './sessoes-contas';
+import { sessoesEmVooDoArco } from './noctum-sessoes-em-voo';
 import { dirThread } from './thread';
 import { EventoLedger } from './types';
 import { exec } from './util';
@@ -65,13 +70,23 @@ export interface OpcoesDoVigia {
   lerRemoto?: LeitorDoRemoto;
   /** As dependências do passo da N2 (os testes injetam o despacho e as leituras). */
   passo?: OpcoesDoPasso;
+  /** RM-058, integração (T4, D8): as dependências do passo da entrega da N5 (a forja, o CI, o despacho do CHECK, o verify). */
+  entrega?: OpcoesDaEntrega;
+  /** O passo da entrega; em produção, `passoDaEntrega`. */
+  entregar?: (carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDaEntrega) => ResultadoDaEntrega;
   /** Testes: chamado logo depois do tique iniciado, para simular o vigia que morre no meio. */
   depoisDeIniciar?: () => void;
 }
 
-export type ResultadoConduzido = ResultadoDoPasso
+/**
+ * RM-058, integração (T4, D8): a entrega que o passo supervisionado chamou depois do despacho, quando chamou; e a exceção
+ * dela, que no tique vira lacuna e no condutor não derruba o laço.
+ */
+export interface EntregaDoPasso { entrega?: ResultadoDaEntrega | null; falhaDaEntrega?: string }
+
+export type ResultadoConduzido = (ResultadoDoPasso
   | { acao: 'parado'; motivo: string; detalhe: string }
-  | { acao: 'geracao-vencida'; detalhe: string };
+  | { acao: 'geracao-vencida'; detalhe: string }) & EntregaDoPasso;
 
 export interface ResultadoDoTique {
   acao: 'tique';
@@ -180,6 +195,24 @@ function baselineFicaParaOCondutor(_carregado: ManifestoCarregado, thread: strin
 }
 
 /**
+ * RM-058, integração (T4, D8): o vigia também não roda o verify do SHA nem o da atualização no tique; a entrega espera o
+ * condutor com o mesmo motivo da baseline. O MASTER por omissão, a reconciliação, a publicação e a integração com as provas
+ * prontas seguem no tique.
+ */
+function verifyFicaParaOCondutor(_carregado: ManifestoCarregado, thread: string): { ok: boolean } {
+  throw new ErroDaFilaPesada({ contrato: 'ork.fila-pesada-recusa/v1', motivo: 'fila-pesada.ocupada', operacao: 'verify', thread,
+    slots: 0, esperouMs: 0, ocupantes: [], texto: `o vigia não roda o verify da thread ${thread} dentro do tique: ele fica para o condutor do arco` });
+}
+
+/** A entrega fez um efeito (ou tentou um de resultado incerto)? A espera, o bloqueio e o nada não contam. */
+const fezEfeito = (e: ResultadoDaEntrega | null | undefined): boolean => !!e && e.acao !== 'aguardar' && e.acao !== 'bloqueado' && e.acao !== 'nada';
+
+/** A instância ainda tem a geração do arco? O vigia, pela geração de qualquer vigia; o condutor, pela dele (D4). */
+function daGeracaoDe(sup: EstadoDaSupervisao, quem: Instancia): boolean {
+  return quem.papel === 'vigia' ? sup.geracao?.quem.papel === 'vigia' : sup.geracao?.quem.instancia === quem.instancia;
+}
+
+/**
  * Um passo do arco com a supervisão (D5, D6, D13 a D15): para o arco parado, sai da geração vencida, espera o vigia
  * ausente (só o condutor exige: o vigia que dá o passo está presente), e chama o passo da N2 com as contas e os alvos do
  * arco e as decisões da supervisão. A recusa de ambiente fica no log e, repetida, para o arco; a parada pelo teto do arco
@@ -192,8 +225,7 @@ export function passoConduzido(carregado: ManifestoCarregado, arco: string, quem
   const parametros = parametrosDoArco(carregado, arco, quando);
   const sup = lerSupervisao(raiz, arco);
   if (sup.parada) return { acao: 'parado', motivo: sup.parada.motivo, detalhe: sup.parada.detalhe };
-  const daGeracao = quem.papel === 'vigia' ? sup.geracao?.quem.papel === 'vigia' : sup.geracao?.quem.instancia === quem.instancia;
-  if (!daGeracao) {
+  if (!daGeracaoDe(sup, quem)) {
     return { acao: 'geracao-vencida', detalhe: `a geração ${sup.geracao?.numero ?? 0} é de ${sup.geracao?.quem.papel ?? 'ninguém'} ` +
       `${sup.geracao?.quem.instancia ?? ''}; esta instância não despacha mais` };
   }
@@ -218,13 +250,49 @@ export function passoConduzido(carregado: ManifestoCarregado, arco: string, quem
     ...(visao ? { perfis: () => visao.perfis } : {}),
     ...(conteudo && estado ? { alvos: (fase, runtime, modo) => alvosDaFase(carregado, conteudo, estado, fase, runtime, modo) } : {}),
     supervisao: decisoesDaSupervisao(sup, estado) } as OpcoesDoPasso);
+  // N1 do CHECK 2: a baseline do trabalho que falhou sem ser espera isola o trabalho, com a causa: os outros seguem, e o
+  // tique e o relatório dizem por quê.
+  if (r.acao === 'recusado' && r.motivo === MOTIVO_DA_BASELINE_FALHA) isolar(carregado, arco, r.trabalho, r.thread, 'baseline-falhou', r.detalhe, quando);
   if (r.acao === 'recusado' && recusaDeAmbiente(r.detalhe)) {
     const depois = gravarNaSupervisao(carregado, arco, [{ tipo: 'recusa_de_ambiente', trabalho: r.trabalho, thread: r.thread,
       detalhe: r.detalhe.slice(0, 300) }], quando);
     const parada = paradaPorAmbiente(depois, lerArco(raiz, arco, quando)!);
     if (parada) gravarComEstado(carregado, arco, (s) => s.parada ? [] : [{ tipo: 'parada', motivo: parada.motivo, detalhe: parada.detalhe }], quando);
   }
-  return r;
+  // RM-058, integração (T4, D8): a entrega depois do despacho, no máximo um efeito, relida a supervisão: com a parada ou a
+  // geração que outro tomou entre os dois, nada é entregue por esta instância. Roda também no passo que encerra: a fila
+  // vazia ainda deve o MASTER por omissão da última entrega do arco.
+  const relida = lerSupervisao(raiz, arco);
+  if (relida.parada || !daGeracaoDe(relida, quem)) return r;
+  try {
+    const entrega = (opcoes.entregar ?? passoDaEntrega)(carregado, arco, { maquina: opcoes.maquina ?? opcoes.passo?.maquina,
+      lerReservas: opcoes.passo?.lerReservas, consultarSessoes: opcoes.passo?.consultarSessoes, ...(visao ? { perfis: () => visao.perfis } : {}),
+      ...opcoes.entrega, quando });
+    return { ...r, entrega };
+  } catch (e) {
+    return { ...r, entrega: null, falhaDaEntrega: (e instanceof Error ? e.message : String(e)).split('\n')[0].slice(0, 200) };
+  }
+}
+
+/**
+ * M1 do CHECK 3: sob a parada pelo teto, cada sessão do arco em voo que o runtime prova morta, passada a carência desde a
+ * última atividade dela, vira `sessao_morta`, seja qual for o trabalho (isolado, com as retomadas esgotadas ou na fase da
+ * entrega): a decisão de retomar não importa com o arco parado.
+ */
+function registrarMortesSobAParada(raiz: string, estado: EstadoDoArco, leitura: LeituraDoRuntime, parametros: ParametrosDaSupervisao,
+  quando: string): void {
+  for (const s of sessoesEmVooDoArco(raiz, estado)) {
+    if (!s.sessionId || !s.thread) continue;
+    let eventos: EventoLedger[];
+    try { eventos = lerLedger(dirThread(raiz, s.thread)); } catch { continue; }
+    const despacho = eventos.filter(e => e.tipo === 'phase_dispatch' && e.sessionId === s.sessionId).at(-1);
+    if (!despacho) continue;
+    const p = provaDaSessao(leitura, s.sessionId, s.conta, s.runtime, despacho.ts, parametros.ausenciaMinimaMs);
+    const ultimaAtividade = Math.max(...eventos.filter(e => e.sessionId === s.sessionId).map(e => Date.parse(e.ts)).filter(Number.isFinite));
+    if (p.estado !== 'morta' || Date.parse(quando) - ultimaAtividade < parametros.carenciaMs) continue;
+    registrarMorte(raiz, s.thread, { sessionId: s.sessionId, runtime: s.runtime, perfil: s.conta },
+      `a sessão ${s.sessionId} acabou sem resultado com o arco parado pelo teto: ${p.detalhe}`);
+  }
 }
 
 /** Grava `sessao_morta` no ledger da thread, uma vez por sessão: é o que solta a condução e a vaga (D10). */
@@ -326,7 +394,10 @@ export function vigiarArco(carregado: ManifestoCarregado, arco: string, opcoes: 
           condutor = 'assumido';
           try {
             passo = passoConduzido(carregado, arco, quem, { ...opcoes, quando,
-              passo: { ...opcoes.passo, gravarBaseline: (k, thread) => baselineFicaParaOCondutor(k, thread) } });
+              passo: { ...opcoes.passo, gravarBaseline: (k, thread) => baselineFicaParaOCondutor(k, thread) },
+              // RM-058, integração (T4, D8): no tique, nada espera a fila pesada nem a trava de despacho, e o verify fica para o condutor.
+              entrega: { ...opcoes.entrega, esperarMs: 0, verificar: (k, thread) => verifyFicaParaOCondutor(k, thread) } });
+            if (passo.falhaDaEntrega) lacunas.push(`a entrega lançou: ${passo.falhaDaEntrega}`);
           } catch (e) {
             // S7 do CHECK: o passo que lança (o adaptador do runtime, por exemplo) é lacuna do tique, e não queda do vigia.
             lacunas.push(`o passo lançou: ${(e instanceof Error ? e.message : String(e)).slice(0, 200)}`);
@@ -369,7 +440,14 @@ function reconciliarSobATravaDeDespacho(carregado: ManifestoCarregado, arco: str
       if (d.isolamento && isolar(carregado, arco, d.trabalho, d.thread, d.isolamento.motivo, d.isolamento.detalhe, quando)) contagem.isolados += 1;
     }
     const estado = lerArco(raiz, arco, quando)!;
-    if (estado.situacao !== 'vigente' || lerSupervisao(raiz, arco).parada) return;
+    const sup = lerSupervisao(raiz, arco);
+    // N2 do CHECK 2: com a parada pelo teto, o arco espera as sessões admitidas. A que o runtime prova morta sem resultado no
+    // ledger vira `sessao_morta`, sem retomada nem parada, e o fechamento pelo teto não fica preso a ela até a hora.
+    if (estado.situacao === 'vigente' && sup.parada?.motivo === 'teto-do-arco') {
+      registrarMortesSobAParada(raiz, estado, leitura, sup.parametros!, quando);
+      return;
+    }
+    if (estado.situacao !== 'vigente' || sup.parada) return;
     aplicarSessoes(carregado, arco, conteudo, leitura, quando, opcoes, lacunas, contagem, consultar);
     // B4 do CHECK: o trabalho que o núcleo recusa seguidas vezes pelo mesmo tipo de motivo (a árvore, a policy, o erro
     // antes de lançar) não volta a noite toda: no teto, e com a série durando ao menos uma cadência, é isolado. O soluço
@@ -452,8 +530,9 @@ export type ResultadoDoCondutor =
 /**
  * O condutor do arco (D4 e D6): segura a trava do condutor pela vida inteira, grava a geração nova (lida sob a trava do
  * log) com a prova, bate a cada passo e chama o passo supervisionado na cadência que a fila pede, nunca além da cadência;
- * depois de uma recusa, espera `PAUSA_DEPOIS_DA_RECUSA_MS` (B4 do CHECK), ou a cadência inteira na recusa que passa. Sai quando o arco encerra ou para, quando perde
- * a geração, ou no fim dos passos que lhe deram (os testes). `dormir` é dependência.
+ * depois de uma recusa, espera `PAUSA_DEPOIS_DA_RECUSA_MS` (B4 do CHECK), ou a cadência inteira na recusa que passa. Sai
+ * quando o arco encerra (a fila vazia, com a entrega sem efeito no passo) ou para, quando perde a geração, ou no fim dos
+ * passos que lhe deram (os testes). `dormir` é dependência.
  */
 export function conduzirArco(carregado: ManifestoCarregado, arco: string,
   opcoes: OpcoesDoVigia & { maxPassos?: number; dormir?: (ms: number) => void; relogio?: () => string } = {}): ResultadoDoCondutor {
@@ -475,14 +554,25 @@ export function conduzirArco(carregado: ManifestoCarregado, arco: string,
       const quando = relogio();
       gravarNaSupervisao(carregado, arco, [{ tipo: 'batida', quem, geracao }], quando);
       ultimo = passoConduzido(carregado, arco, quem, { ...opcoes, quando });
-      if (ultimo.acao === 'encerrar' || ultimo.acao === 'parado' || ultimo.acao === 'geracao-vencida') { passos += 1; break; }
+      // RM-058, integração (D8): a fila vazia só tira o condutor quando a entrega também não fez efeito no passo.
+      if ((ultimo.acao === 'encerrar' && !fezEfeito(ultimo.entrega)) || ultimo.acao === 'parado' || ultimo.acao === 'geracao-vencida') {
+        passos += 1;
+        break;
+      }
       // A recusa que passa (a conta, a vaga, a condução, o orçamento esgotado na reserva) espera a cadência, que é quando
       // o vigia relê as contas; a que conta (a árvore, a policy) volta depois da pausa, e repetida isola o trabalho (RA2 da
       // rodada 3).
-      const ate = ultimo.acao === 'aguardar' ? Date.parse(ultimo.ate)
+      // A5 do CHECK: o passo que acabou de gravar a baseline volta já; o `ate` dele é o relógio depois da suíte, e medir a
+      // espera do começo da iteração faria o condutor dormir a cadência inteira antes de despachar.
+      const doPasso = ultimo.acao === 'aguardar' ? (ultimo.motivo === 'baseline-gravada' ? Date.parse(quando) : Date.parse(ultimo.ate))
         : ultimo.acao === 'recusado' ? Date.parse(quando) + (passageira(ultimo.motivo) ? parametros.cadenciaMs : PAUSA_DEPOIS_DA_RECUSA_MS)
         : Date.parse(quando);
-      dormir(Math.max(0, Math.min(ate - Date.parse(quando), parametros.cadenciaMs)));
+      // RM-058, integração (D8): o menor `ate` do despacho e da entrega; a entrega que fez um efeito volta já, e a que não tem
+      // nada a entregar (ou bloqueou) não adianta o laço.
+      const e = ultimo.entrega;
+      const daEntrega = !e ? Number.POSITIVE_INFINITY : e.acao === 'aguardar' ? Date.parse(e.ate)
+        : e.acao === 'nada' || e.acao === 'bloqueado' ? Number.POSITIVE_INFINITY : Date.parse(quando);
+      dormir(Math.max(0, Math.min(Math.min(doPasso, daEntrega) - Date.parse(quando), parametros.cadenciaMs)));
     }
     return { acao: 'saiu', instancia: quem.instancia, geracao, passos, ultimo };
   } finally { fs.closeSync(fd); }

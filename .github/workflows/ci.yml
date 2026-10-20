@@ -62,6 +62,11 @@ jobs:
       # base e o proprio HEAD, e nao ha o que conferir.
       - name: linha no CHANGELOG
         run: node core/scripts/checar-changelog.cjs --base "origin/${GITHUB_BASE_REF:-main}"
+      # RM-058, integracao (D13): sem o aceite dos pilotos, nenhum texto anuncia o #Noctum como lancado,
+      # entregue, validado ou disponivel; so a negacao do verbo, entre o nome e o participio ou logo antes
+      # do nome, libera.
+      - name: o texto do #Noctum
+        run: node core/scripts/checar-release-noctum.cjs --texto
       # RM-049: o plugin dos marketplaces e copia gerada do catalogo; copia divergente reprova.
       - name: plugin dos marketplaces igual ao catalogo
         run: node core/scripts/gerar-marketplaces.cjs --verificar

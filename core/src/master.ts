@@ -702,7 +702,7 @@ export const AUTOR_DA_OMISSAO = 'nucleo ork (omissao)';
  * omissao PERMANECE no ledger, porque o ledger e append-only e a historia de que a
  * entrega passou sem revisao continua sendo verdade.
  */
-export function aceitarPorOmissao(raiz: string, id: string): AceitePorOmissao {
+export function aceitarPorOmissao(raiz: string, id: string, origem?: { arco: string }): AceitePorOmissao {
   const dir = dirThread(raiz, id);
   // A1: aceitar por default so pode carimbar nota depois de perguntar ao git se a
   // entrega ainda esta de pe. Era aqui que uma entrega revertida virava score 5.
@@ -727,6 +727,9 @@ export function aceitarPorOmissao(raiz: string, id: string): AceitePorOmissao {
       insumos: indice.parcelas.map((p) => ({ evento: p.evento, ocorrencias: p.ocorrencias, desconto: p.desconto })),
       decididoPor: AUTOR_DA_OMISSAO,
       razao: 'entrega aceita por default: ninguem pontuou. Nota humana posterior sobrescreve, e este evento permanece',
+      // RM-058, integracao (N6 do CHECK 3 da ork-rm058integra): o arco #Noctum que fez a omissao, para o aceite do piloto
+      // separar o MASTER do arco do que o dono ou outra sessao rodou na janela.
+      ...(origem ? { evidencia: { arco: origem.arco } } : {}),
     });
 
     gravarMaster(raiz, id, {

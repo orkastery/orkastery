@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dirTemporario, projetoTemporario } from './apoio';
-import { autorizarPedido, pedidoV2, prepararIngressoSimulado } from './noctum-apoio';
+import { abrirComBaseline, autorizarPedido, pedidoV2, prepararIngressoSimulado } from './noctum-apoio';
 import { depois, MIN } from './noctum-n6-apoio';
 import { registrarConducaoDaSessao } from '../src/conducao';
 import { kernelDisponivel } from '../src/fila-pesada';
@@ -19,7 +19,7 @@ import { OpcoesDoPasso, passoDoArco } from '../src/noctum-execucao';
 import { consumoDoEscopoNaUnidade, cotaDasLeituras, FontesDeMedicao, fontesDoDisco, leituraDoRollout, MedicaoDoArco,
   medidoParaReserva, medirArco, precisaMedir, textoDoConsumo, tokensDasTranscricoes } from '../src/noctum-medicao';
 import { ResultadoRun } from '../src/phase';
-import { dirThread, novaThread } from '../src/thread';
+import { dirThread } from '../src/thread';
 import { EventoLedger } from '../src/types';
 
 prepararIngressoSimulado();
@@ -229,7 +229,7 @@ test('ME9: o passo da N2 mede uma vez e despacha com o teto em minutos abaixo do
       lerReservas: () => ({ leitura: 'copia-local', reservas: ['RM-901', 'RM-902'].map(item => ({ item, maquina: 'maquina-simulada', thread: null })) }),
       consultarSessoes: () => ({ sessoes: [], fontes: [{ origem: 'simulada', ok: true, detalhe: '' }], contas: [{ runtime: 'claude-bg', perfil: null }] }),
       perfis: () => [{ id: 'perfil-a', runtime: 'claude-bg' }], despachar: despachoSimulado,
-      abrirThread: (carregado, o) => novaThread(carregado, { ...o, criarWorktree: false }).thread,
+      abrirThread: abrirComBaseline,
       medir: (_r, _e, _q) => { medicoes += 1; return medicaoCom('arco-me9', minutos); } });
     const r1 = passoDoArco(p.carregado, 'arco-me9', opcoes(10));
     assert.equal(r1.acao, 'despachou', JSON.stringify(r1.acao === 'despachou' ? '' : r1));

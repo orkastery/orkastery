@@ -26,6 +26,11 @@
  * ingresso por chaves falsas desta execução, tira do ambiente o projeto fixado e a identidade de despacho e desliga as
  * publicações em segundo plano. O piloto de verdade começa só com os valores e a autorização do dono (página da RM-058).
  *
+ * RM-058, integração (T7 da ork-rm058integra, D11): três cenários ligam as fatias de ponta a ponta pelo vigia e pelo
+ * condutor de produção (`cadeia-ligada`, `condutor-morto` e `base-que-anda`), com a entrega da N5, a baseline e o verify
+ * reais, um remoto bare de fixture e a forja, o CI, o runtime e as sessões simulados. O resultado leva `simulado: true` e
+ * as marcas que o aceite do piloto recusa (`marcas`): nada daqui conta como piloto.
+ *
  * Exige Linux com `/usr/bin/flock` (o arco só despacha com a trava do kernel) e o `core/dist` compilado
  * (`npm --prefix core run build`). Sai 0 com todas as expectativas, 1 quando alguma falha e 2 em erro de uso ou de
  * ambiente.
@@ -35,7 +40,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { randomBytes } = require('node:crypto');
+const { createHash, randomBytes } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 
 const RAIZ_DO_REPO = path.resolve(__dirname, '../..');
@@ -60,6 +65,12 @@ const GIT_FORA_DA_PASTA = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_CO
   'GIT_CONFIG_PARAMETERS'];
 /** Os executáveis que o ensaio nunca pode chamar: o runtime, a forja e os gateways de verdade. */
 const SENTINELAS = ['claude', 'codex', 'gh', 'glab', 'openclaw', 'hermes'];
+/**
+ * RM-058, integração (T7 da ork-rm058integra, D11): as marcas que o aceite do piloto recusa. O ensaio nunca vale como piloto:
+ * a máquina é a do ensaio, o remoto é de fixture, e a forja, o CI, o runtime e o canal são simulados, com as sentinelas no PATH.
+ */
+const MARCAS_DE_SIMULACAO = { maquina: MAQUINA, remoto: 'fixture', forja: 'simulada', ci: 'simulado', runtime: 'simulado', canal: 'simulado',
+  sentinelas: SENTINELAS };
 
 /** O canal simulado: confere que a mensagem veio igual pela entrada e pelo argumento, e grava ou falha pelo modo. */
 const CANAL_SIMULADO = `'use strict';
@@ -167,8 +178,8 @@ function montarApoio(raiz, n, sabotar) {
     return r.stdout.trim();
   }
 
-  /** Um repositório descartável com o manifesto do `ork init` do núcleo. */
-  function projeto(nome) {
+  /** Um repositório descartável com o manifesto do `ork init` do núcleo, com a sigla dada. */
+  function projeto(nome, sigla = 'ens') {
     const dir = path.join(raiz, nome);
     fs.mkdirSync(dir);
     git(dir, ['init', '-q', '-b', 'main']);
@@ -178,14 +189,23 @@ function montarApoio(raiz, n, sabotar) {
     fs.writeFileSync(path.join(dir, 'README.md'), '# repositório descartável do ensaio #Noctum\n');
     git(dir, ['add', 'README.md']);
     git(dir, ['commit', '-q', '-m', 'inicial']);
-    n.init.init(dir, { nome: 'ensaio-noctum', abbrev: 'ens' });
+    n.init.init(dir, { nome: 'ensaio-noctum', abbrev: sigla });
     return { nome, dir, carregado: n.manifest.exigirManifesto(dir) };
   }
 
-  /** A thread #Auto de um trabalho, como o dono a criaria, com o item e o pedido guardado. */
+  /**
+   * RM-058, integração (D6 da ork-rm058integra): a baseline SIMULADA que o condutor do arco grava antes do primeiro despacho
+   * do bloco com GO. Os cenários da N6 abrem as threads com ela, como o condutor as deixaria; o vigia nunca a grava.
+   */
+  const comBaseline = (proj, t) => {
+    n.ledger.registrar(n.thread.dirThread(proj.dir, t.id), t.id, 'baseline_recorded', { commit: 'SIMULADO', comandos: [], simulado: true });
+    return t;
+  };
+
+  /** A thread #Auto de um trabalho, como o dono a criaria, com o item e o pedido guardado (e a baseline do condutor). */
   function threadDoTrabalho(proj, numero, item) {
-    return n.thread.novaThread(proj.carregado, { nome: `ensaio trabalho ${numero}`, modo: 'auto', roadmap: item,
-      pedido: `Trabalho ${numero} SIMULADO do ensaio #Noctum.`, criarWorktree: false }).thread;
+    return comBaseline(proj, n.thread.novaThread(proj.carregado, { nome: `ensaio trabalho ${numero}`, modo: 'auto', roadmap: item,
+      pedido: `Trabalho ${numero} SIMULADO do ensaio #Noctum.`, criarWorktree: false }).thread);
   }
 
   const horarioNoFuso = (ms, fuso) => { const p = n.horario.partesLocais(ms, fuso); return `${p.hora}:${p.minuto}`; };
@@ -205,12 +225,12 @@ function montarApoio(raiz, n, sabotar) {
     return {
       contrato: 'ork.noctum-envelope/v2', arco,
       janela: { inicio: iso(inicio), fim: iso(fim), fuso },
-      destinos: [{ repositorio: 'exemplo/ensaio-noctum', base: 'main', permissoes: ['push', 'pr'] }],
+      destinos: [{ repositorio: 'exemplo/ensaio-noctum', base: 'main', permissoes: o.permissoes ?? ['push', 'pr'] }],
       orcamento: { arco: teto, porConta: contas.map((c) => ({ conta: c.conta, teto: subteto(6) })),
         porRuntime: runtimes.map((r) => ({ runtime: r.runtime, teto: subteto(8) })) },
       relatorio: { horario: horarioNoFuso(o.relatorioEm ?? fim + 30 * MIN, fuso), canal: o.canal ?? 'telegram' },
       trabalhos: o.trabalhos,
-      capacidade: { maquina: o.maquina ?? 3, porConta: contas, porRuntime: runtimes, revisao: 0 },
+      capacidade: { maquina: o.maquina ?? 3, porConta: contas, porRuntime: runtimes, revisao: o.revisao ?? 0 },
     };
   }
 
@@ -284,14 +304,19 @@ function montarApoio(raiz, n, sabotar) {
   /** As reservas da cópia local, simuladas: cada item do envelope está com esta máquina. */
   const reservas = (itens) => () => ({ leitura: 'copia-local', reservas: itens.map((item) => ({ item, maquina: MAQUINA, thread: null })) });
 
-  /** Um tique do arco no instante dado, com o runtime, as reservas, a parada e o git simulados. */
+  /**
+   * Um tique do arco no instante dado, com o runtime, as reservas, a parada e o git simulados. RM-058, integração (D7 da
+   * ork-rm058integra): o tique de produção chama o vigia da N4; os cenários da N6 passam o passo da N2 no lugar dele, como o
+   * tique os rodava, e os cenários integrados ligam o vigia e o condutor.
+   */
   function tique(proj, arco, rt, quando, itens, extra = {}) {
     rt.agora = quando;
+    const opcoesDoPasso = { maquina: MAQUINA, lerReservas: reservas(itens), despachar: rt.despachar, consultarSessoes: rt.consultarSessoes,
+      perfis: rt.perfis, abrirThread: (k, o) => comBaseline(proj, n.thread.novaThread(k, { ...o, criarWorktree: false }).thread),
+      gravarBaseline: () => { rt.baselines += 1; }, esperarVezMs: 5_000 };
     return n.modo.tiqueDoArco(proj.carregado, arco, { quando, maquina: MAQUINA, lerReservas: reservas(itens), parar: rt.parar,
       listarSessoes: rt.listarSessoes, git: () => null, ...extra,
-      opcoesDoPasso: { despachar: rt.despachar, consultarSessoes: rt.consultarSessoes, perfis: rt.perfis,
-        abrirThread: (k, o) => n.thread.novaThread(k, { ...o, criarWorktree: false }).thread,
-        gravarBaseline: () => { rt.baselines += 1; }, esperarVezMs: 5_000 } });
+      passo: (k, a, q) => n.execucao.passoDoArco(k, a, { ...opcoesDoPasso, quando: q }) });
   }
 
   const registrar = (proj, threadId, tipo, dados) => n.ledger.registrar(n.thread.dirThread(proj.dir, threadId), threadId, tipo, dados);
@@ -327,8 +352,242 @@ function montarApoio(raiz, n, sabotar) {
     try { fn(); return null; } catch (e) { if (e instanceof n.envelope.RecusaDoArco) return e.motivo; throw e; }
   }
 
+  // -------------------------------------------------------------------------
+  // RM-058, integração (T7 da ork-rm058integra, D11): o mundo dos cenários integrados.
+  // -------------------------------------------------------------------------
+
+  const FORJA = { host: 'github.com', repositorio: 'exemplo/ensaio-noctum' };
+  const CHANGELOG_DA_BASE = '# Changelog\n\nAs mudanças, da mais nova para a mais antiga.\n\n## Não publicado\n\n### Adicionado\n\n' +
+    '- **Antiga SIMULADA** (RM-900): já estava na base.\n\n## [0.1.0] - 2026-10-01\n\n- v1\n';
+  const PERFIS = ['perfil-a', 'perfil-b'];
+  const passar = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  const sha256 = (texto) => createHash('sha256').update(texto).digest('hex');
+  /** O parecer gravado pela sessão; com o relógio controlado, a data do arquivo é a do instante do cenário. */
+  function gravarParecer(arquivo, texto, ts) {
+    fs.mkdirSync(path.dirname(arquivo), { recursive: true });
+    fs.writeFileSync(arquivo, texto);
+    if (ts) fs.utimesSync(arquivo, new Date(ts), new Date(ts));
+  }
+
+  /**
+   * O mundo dos cenários integrados: o projeto com um remoto bare de fixture (push, `ls-remote` e merge do git de verdade),
+   * o CI obrigatório e o CHANGELOG com "Não publicado" na base. A forja (o `gh`), o CI, o runtime, as contas e as sessões
+   * são SIMULADOS, com os registros que o núcleo grava; o vigia, o condutor, a entrega da N5, a baseline e o verify são os
+   * de produção, com essas dependências.
+   */
+  function mundo(nome) {
+    const remoto = path.join(raiz, `${nome}-remoto.git`);
+    fs.mkdirSync(remoto);
+    git(remoto, ['init', '-q', '--bare', '-b', 'main']);
+    // O bundle do CI só aceita thread `ork-*` (`core/src/ci.ts`): o mundo integrado usa a sigla `ork`.
+    const proj = projeto(nome, 'ork');
+    git(proj.dir, ['remote', 'add', 'origin', remoto]);
+    const arquivoDoManifesto = path.join(proj.dir, 'orkastery.yaml');
+    const manifesto = fs.readFileSync(arquivoDoManifesto, 'utf8');
+    if (!manifesto.includes('required_for_ship: false')) throw new Error('o manifesto do ork init não traz required_for_ship: false');
+    fs.writeFileSync(arquivoDoManifesto, manifesto.replace('required_for_ship: false', 'required_for_ship: true'));
+    proj.carregado = n.manifest.exigirManifesto(proj.dir);
+    fs.writeFileSync(path.join(proj.dir, 'CHANGELOG.md'), CHANGELOG_DA_BASE);
+    git(proj.dir, ['add', 'CHANGELOG.md']);
+    git(proj.dir, ['commit', '-q', '-m', 'docs: o CHANGELOG da base']);
+    git(proj.dir, ['push', '-q', '-u', 'origin', 'main']);
+    const lsRemote = (ref) => git(proj.dir, ['ls-remote', 'origin', ref]).split(/\s+/)[0] ?? '';
+    const ancestral = (dir, a, b) => spawnSync('git', ['merge-base', '--is-ancestor', a, b], { cwd: dir, timeout: 60_000 }).status === 0;
+
+    // A forja SIMULADA (o `gh`): `pr list` filtra pela branch e pelo estado, com a ponta que o remoto tem agora; `pr create`
+    // abre o PR. Nenhuma outra chamada passa.
+    const prs = [];
+    const chamadasDaForja = [];
+    const opcao = (args, nomeDaOpcao) => args.find((x) => x.startsWith(`--${nomeDaOpcao}=`))?.slice(nomeDaOpcao.length + 3);
+    const executorGh = (args) => {
+      chamadasDaForja.push([...args]);
+      if (args[0] === 'pr' && args[1] === 'list') {
+        const h = opcao(args, 'head'), estado = opcao(args, 'state');
+        const lista = prs.filter((x) => (!h || x.headRefName === h) && (estado !== 'open' || x.state === 'OPEN')).map((x) => ({
+          number: x.number, state: x.state, headRefName: x.headRefName, headRefOid: lsRemote(`refs/heads/${x.headRefName}`) || x.headRefOid,
+          baseRefName: x.baseRefName, isDraft: false, isCrossRepository: false, url: `https://github.com/${FORJA.repositorio}/pull/${x.number}`,
+          createdAt: x.createdAt, mergedAt: null, mergeable: 'MERGEABLE', statusCheckRollup: [] }));
+        return { status: 0, stdout: JSON.stringify(lista), stderr: '' };
+      }
+      if (args[0] === 'pr' && args[1] === 'create') {
+        const h = opcao(args, 'head') ?? '', b = opcao(args, 'base') ?? '';
+        const numero = 300 + prs.length + 1;
+        prs.push({ number: numero, state: 'OPEN', headRefName: h, headRefOid: lsRemote(`refs/heads/${h}`), baseRefName: b, createdAt: iso(Date.now()) });
+        return { status: 0, stdout: `https://github.com/${FORJA.repositorio}/pull/${numero}\n`, stderr: '' };
+      }
+      return { status: 1, stdout: '', stderr: `forja SIMULADA: ${args.join(' ')}` };
+    };
+    // O CI SIMULADO: roda no SHA que está na ponta de um PR aberto, e fica verde (vermelho no SHA que o cenário marca).
+    const ci = { vermelhos: new Set(), chamadas: [] };
+    const executorCi = ({ sha, context, caminho }) => {
+      if (caminho && caminho.includes('/statuses')) return { ok: true, stdout: '[]', stderr: '', code: 0 };
+      ci.chamadas.push(sha);
+      const publicado = prs.some((x) => x.state === 'OPEN' && lsRemote(`refs/heads/${x.headRefName}`) === sha);
+      const checks = !publicado ? [] : [{ name: context, status: 'completed', conclusion: ci.vermelhos.has(sha) ? 'failure' : 'success',
+        html_url: `https://exemplo.invalid/check/${sha.slice(0, 7)}`, app: { slug: 'github-actions' } }];
+      return { ok: true, stdout: JSON.stringify({ check_runs: checks }), stderr: '', code: 0 };
+    };
+
+    // O runtime SIMULADO: cada despacho deixa no disco o que o `phase run` deixa, e a leitura das contas lista as sessões.
+    // `rt.agora` é o instante do cenário com relógio controlado (o do tique ou do condutor); sem ele, vale o relógio real.
+    const rt = { n: 0, agora: null, estados: new Map(), perfis: new Map(), despachos: [], paradas: [] };
+    const perfilDe = (id) => ({ id, runtime: 'claude-bg', configDir: path.join(raiz, 'contas', id) });
+    function despacharSessao(carregado, threadId, o) {
+      rt.n += 1;
+      passar(20);
+      const sessionId = `00000000-0000-4000-8007-${String(rt.n).padStart(12, '0')}`;
+      const t = n.thread.lerThread(carregado.raiz, threadId);
+      const bloco = t.blocos?.find((b) => b.fases.includes(o.fase))?.fases.join('-') ?? o.fase;
+      const prompt = o.prompt ?? `# Prompt SIMULADO da fase ${o.fase}\n`;
+      const dirT = n.thread.dirThread(carregado.raiz, threadId);
+      const absoluto = path.join(dirT, 'prompts', `${t.slug}-${o.fase.toLowerCase()}-${rt.n}.md`);
+      fs.mkdirSync(path.dirname(absoluto), { recursive: true });
+      fs.writeFileSync(absoluto, prompt);
+      const rel = path.relative(carregado.raiz, absoluto);
+      const despachadaEm = rt.agora ?? iso(Date.now());
+      const sessao = { slug: t.slug, fase: o.fase, bloco, sessionId, runtime: 'claude-bg', verificada: true, despachadaEm, promptPath: rel,
+        promptSha256: sha256(prompt), origem: 'despacho' };
+      t.sessoes = [...(t.sessoes ?? []), sessao];
+      n.thread.gravarThread(carregado.raiz, t);
+      n.conducao.registrarConducaoDaSessao(carregado.raiz, threadId, { canal: 'cli', operacao: 'phase.run', fase: o.fase, prazoMs: 12 * HORA },
+        { sessionId, runtime: 'claude-bg', perfil: o.perfil ?? null });
+      n.ledger.registrar(dirT, threadId, 'phase_dispatch', { ts: despachadaEm, fase: o.fase, slug: t.slug, bloco, sessionId, runtime: 'claude-bg',
+        perfil: o.perfil ? { id: o.perfil, runtime: 'claude-bg' } : null, promptSha256: sessao.promptSha256, promptPath: rel, cwd: t.worktree,
+        modo: t.modo, pausaAoFim: false, correlacao: o.correlacao ?? null, simulado: true });
+      n.ledger.registrar(dirT, threadId, 'phase_dispatch_verified', { ts: despachadaEm, fase: o.fase, slug: t.slug, sessionId, fonte: 'claude agents --json (SIMULADO)',
+        encontrada: true });
+      rt.estados.set(sessionId, 'working');
+      rt.perfis.set(sessionId, o.perfil ?? null);
+      rt.despachos.push({ thread: threadId, fase: o.fase, sessionId, perfil: o.perfil ?? null, prompt });
+      return { sessionId, verificada: true, bloqueado: false, motivo: null };
+    }
+    const terminal = (estado) => ['done', 'completed', 'exited', 'stopped', 'failed'].includes(estado);
+    rt.leitura = () => ({
+      sessoes: [...rt.estados].map(([sessionId, state]) => ({ sessionId, runtime: 'claude-bg', perfil: rt.perfis.get(sessionId) ?? null,
+        fantasma: false, viva: !terminal(state), state })),
+      fontes: PERFIS.map((p) => ({ origem: `claude agents --json --all (perfil ${p}, SIMULADO)`, ok: true, detalhe: '' })),
+      contas: PERFIS.map((p) => ({ runtime: 'claude-bg', perfil: perfilDe(p) })),
+    });
+    const parar = (s) => { rt.paradas.push(s.sessionId); rt.estados.set(s.sessionId, 'stopped'); return { ok: true, detalhe: 'parada SIMULADA' }; };
+    const store = { contrato: n.perfis.CONTRATO_PERFIS, perfis: PERFIS.map((id) => ({ id, runtime: 'claude-bg', configDir: perfilDe(id).configDir,
+      estado: 'ativo', esgotadoAte: null, ultimaFalha: null, ultimoUso: null, criadoEm: '2026-01-01T00:00:00.000Z' })) };
+
+    /** As dependências do vigia e do condutor de produção: o runtime, as contas, a forja e o CI simulados, e o resto real. */
+    function opcoesDoVigia(itens, extra = {}) {
+      return {
+        maquina: MAQUINA, consultarRuntime: rt.leitura, lerStore: () => store, pararSessao: parar, lerRemoto: () => ({ ok: true, sha: null }),
+        ...extra,
+        passo: { maquina: MAQUINA, lerReservas: reservas(itens), despachar: despacharSessao, consultarSessoes: rt.leitura, ...extra.passo },
+        entrega: { forja: FORJA, executorGh, executorCi, despachar: despacharSessao, ...extra.entrega },
+      };
+    }
+
+    /** O tique de produção (fechamento, vigia e relatório), no instante dado (sem ele, agora). */
+    function tique(arco, itens, quando = null, extra = {}) {
+      rt.agora = quando;
+      try {
+        return n.modo.tiqueDoArco(proj.carregado, arco, { quando: quando ?? iso(Date.now()), maquina: MAQUINA, lerReservas: reservas(itens), parar,
+          listarSessoes: () => ({ lidas: true, vivas: new Set([...rt.estados].filter(([, e]) => !terminal(e)).map(([id]) => id)) }),
+          opcoesDoVigia: opcoesDoVigia(itens, extra) });
+      } finally { rt.agora = null; }
+    }
+
+    /** O condutor de produção por `maxPassos` passos, sem dormir de verdade; `relogio` fixa o instante de cada passo. */
+    function conduzir(arco, itens, maxPassos, extra = {}) {
+      const dormidas = [];
+      rt.agora = extra.relogio ? extra.relogio() : null;
+      try {
+        const r = n.vigia.conduzirArco(proj.carregado, arco, { ...opcoesDoVigia(itens, extra), maxPassos, dormir: (ms) => { dormidas.push(ms); },
+          ...(extra.relogio ? { relogio: extra.relogio } : {}) });
+        return { ...r, dormidas };
+      } finally { rt.agora = null; }
+    }
+
+    /** O `verify_run` da sessão no SHA: verde, com a baseline e todas as claims ativas verificadas, marcado SIMULADO. */
+    function verifyDaSessao(threadId, commit, ts) {
+      const claims = n.claims.lerClaims(proj.dir, threadId).filter((x) => x.estado !== 'retirada').map((x) => ({ id: x.id, verificado: true, motivo: null }));
+      return n.ledger.registrar(n.thread.dirThread(proj.dir, threadId), threadId, 'verify_run', { ...(ts ? { ts } : {}), commit,
+        veredito: 'verdade sustentada', motivos: [], claims, baseline: { commit: 'baseline-simulada', gravadaEm: ts ?? iso(Date.now()) }, comandos: [],
+        simulado: true });
+    }
+
+    /**
+     * A sessão SIMULADA do bloco: commita na worktree a nota do item e a linha do CHANGELOG em "Não publicado" pelo vínculo
+     * da sessão, cadastra a claim e o bundle do CI, e conclui o bloco com o parecer dela, o verify e o resultado da fase. `ts`
+     * é o instante do cenário com relógio controlado.
+     */
+    function sessaoDoBloco(threadId, sessionId, ts = null) {
+      const t = n.thread.lerThread(proj.dir, threadId);
+      const wt = t.worktree;
+      const arquivo = `notas/${t.roadmap.toLowerCase()}.md`;
+      fs.mkdirSync(path.join(wt, 'notas'), { recursive: true });
+      fs.writeFileSync(path.join(wt, arquivo), `# Nota SIMULADA do ${t.roadmap}\n\nO produto que a sessão do bloco escreveu.\n`);
+      const changelog = fs.readFileSync(path.join(wt, 'CHANGELOG.md'), 'utf8')
+        .replace('### Adicionado\n\n', `### Adicionado\n\n- **Nota SIMULADA** (${t.roadmap}): o que a thread ${threadId} acrescenta.\n\n`);
+      fs.writeFileSync(path.join(wt, 'CHANGELOG.md'), changelog);
+      git(wt, ['add', '--', arquivo, 'CHANGELOG.md']);
+      git(wt, ['commit', '-q', '-m', `feat(${threadId}): a nota do ${t.roadmap}`]);
+      const produto = git(wt, ['rev-parse', 'HEAD']);
+      const sessao = t.sessoes.find((x) => x.sessionId === sessionId);
+      registrar(proj, threadId, 'mcp_git_committed', { ...(ts ? { ts } : {}), commit: produto, paths: [arquivo, 'CHANGELOG.md'], origem: 'mcp.git',
+        sessionId, despachoEm: sessao.despachadaEm });
+      n.claims.adicionarClaim(proj.dir, threadId, { arquivo, alegacao: `a nota do ${t.roadmap} existe`, verificar: [`test -f '${arquivo}'`],
+        semProvaLocal: true });
+      const bundle = n.ci.prepararBundleCi(proj.carregado, threadId);
+      git(wt, ['add', '--', path.relative(wt, bundle)]);
+      git(wt, ['commit', '-q', '-m', `ci(${threadId}): bundle`]);
+      const fonte = git(wt, ['rev-parse', 'HEAD']);
+      passar(30);
+      gravarParecer(path.join(n.thread.dirThread(proj.dir, threadId), 'docs', 'check.md'), '# CHECK SIMULADO da própria sessão\n\nVeredito: PASSOU\n', ts);
+      verifyDaSessao(threadId, fonte, ts);
+      registrar(proj, threadId, 'phase_result', { ...(ts ? { ts } : {}), fase: sessao.fase, sessionId, despachoEm: sessao.despachadaEm, origem: 'sessions.watch',
+        sensorResultId: `claude-bg:${sessionId}`, classificacao: 'fase_concluida', ok: true, runtime: 'claude-bg', simulado: true });
+      rt.estados.set(sessionId, 'completed');
+      return { produto, fonte };
+    }
+
+    /** O CHECK independente SIMULADO: o parecer, o verify no SHA revisado e o resultado com a prova do núcleo. */
+    function revisaoConcluida(threadId, sessionId, veredito = 'PASSOU', ts = null) {
+      passar(30);
+      const t = n.thread.lerThread(proj.dir, threadId);
+      const sessao = t.sessoes.find((x) => x.sessionId === sessionId);
+      const parecer = `# CHECK SIMULADO\n\nVeredito: ${veredito}\n`;
+      gravarParecer(path.join(n.thread.dirThread(proj.dir, threadId), 'docs', 'check.md'), parecer, ts);
+      const commit = git(t.worktree, ['rev-parse', 'HEAD']);
+      const v = verifyDaSessao(threadId, commit, ts);
+      registrar(proj, threadId, 'phase_result', { ...(ts ? { ts } : {}), fase: 'CHECK', sessionId, despachoEm: sessao.despachadaEm, origem: 'sessions.watch',
+        sensorResultId: `claude-bg:${sessionId}`, classificacao: 'fase_concluida', ok: true, runtime: 'claude-bg',
+        provaOrk: { ok: true, fonte: `docs/check.md gravado com veredito ${veredito}`, veredito, verify: { eventId: v.eventId, commit, ts: v.ts } },
+        artefato: { arquivo: 'docs/check.md', sha256Base: null, sha256Atual: sha256(parecer) }, simulado: true });
+      rt.estados.set(sessionId, 'completed');
+      return commit;
+    }
+
+    /** A sessão que morre sem resultado: o runtime a lista como falha, e só a supervisão a vê. */
+    const morrer = (sessionId) => rt.estados.set(sessionId, 'failed');
+
+    /** A base anda: um commit na `main` da raiz, empurrado para o remoto. */
+    function avancarBase(arquivos, mensagem) {
+      for (const [arquivo, conteudo] of Object.entries(arquivos)) {
+        fs.mkdirSync(path.dirname(path.join(proj.dir, arquivo)), { recursive: true });
+        fs.writeFileSync(path.join(proj.dir, arquivo), conteudo);
+        git(proj.dir, ['add', '--', arquivo]);
+      }
+      git(proj.dir, ['commit', '-q', '-m', mensagem]);
+      git(proj.dir, ['push', '-q', 'origin', 'main']);
+      return git(proj.dir, ['rev-parse', 'HEAD']);
+    }
+
+    /** A thread que o arco abriu para o item. */
+    const threadDoItem = (item) => n.thread.listarIds(proj.dir).map((id) => n.thread.lerThread(proj.dir, id)).find((t) => t.roadmap === item) ?? null;
+    const ledger = (threadId) => n.ledger.lerLedger(n.thread.dirThread(proj.dir, threadId));
+
+    return { proj, remoto, rt, ci, prs, chamadasDaForja, criacoesDePr: () => chamadasDaForja.filter((x) => x[0] === 'pr' && x[1] === 'create').length,
+      lsRemote, ancestral, git, tique, conduzir, sessaoDoBloco, revisaoConcluida, morrer, avancarBase, threadDoItem, ledger };
+  }
+
   return { projeto, threadDoTrabalho, pedido, assinado, abrirArco, runtime, canal, tique, registrar, concluirSessao, morrerSessao,
-    entregarComProva, entregarSemProva, reverterEntrega, ork, argvResponder, json, recusaDe, horarioNoFuso };
+    entregarComProva, entregarSemProva, reverterEntrega, ork, argvResponder, json, recusaDe, horarioNoFuso, mundo };
 }
 
 // ---------------------------------------------------------------------------
@@ -492,8 +751,8 @@ function cenarioArcoCurto(c, a, n) {
   c.esperar('o custo traz as sessões medidas contra o teto do arco, de cada conta e do runtime, e separa as sessões abertas da reserva pendente',
     /• Teto do arco: 4 sessoes de 10 sessoes/.test(texto) && /• Teto da conta perfil-a: \d sessoes de 6 sessoes/.test(texto) &&
       /• Teto do runtime claude-bg: 4 sessoes de 8 sessoes/.test(texto) && /• Sessões abertas pelo arco: 3; reservas pendentes: 1 \(/.test(texto), texto);
-  c.esperar('a supervisão da N4, que o tique ainda não chama, aparece como fonte não lida, em vez de vazia',
-    /Não lido: .*a supervisão e a retomada da N4 não rodam neste arco: o tique ainda não chama o vigia/.test(texto), texto.slice(0, 600));
+  c.esperar('a supervisão da N4 é lida do log do arco pelo relatório: sem tique do vigia neste cenário, nada a dizer e nenhuma lacuna fixa',
+    !/o tique ainda não chama o vigia|a supervisão do arco não se lê/.test(texto), texto.slice(0, 600));
   const rDepois = tq(depois(vencimento, 10 * MIN));
   c.esperar('cada página chegou ao canal uma vez só, e o tique seguinte não manda nada de novo',
     canal.doArco('arco-curto').length === paginas.length && new Set(paginas).size === paginas.length && rDepois.relatorio.enviadas === 0 &&
@@ -760,6 +1019,194 @@ function cenarioCorrecaoExplicita(c, a, n) {
     `${todas.length} mensagens`);
 }
 
+// ---------------------------------------------------------------------------
+// RM-058, integração (T7 da ork-rm058integra, D11): os cenários integrados, pelo vigia e pelo condutor de produção.
+// ---------------------------------------------------------------------------
+
+/** O resumo de um passo do condutor ou do vigia, para o detalhe das expectativas. */
+const resumoDoPasso = (p) => p ? { acao: p.acao, motivo: p.motivo, entrega: p.entrega ? { acao: p.entrega.acao, motivo: p.entrega.motivo,
+  detalhe: p.entrega.detalhe } : p.entrega, falhaDaEntrega: p.falhaDaEntrega } : null;
+
+/**
+ * A cadeia ligada, de ponta a ponta numa máquina: o pedido do dono vira thread, o condutor grava a baseline real e despacha
+ * o bloco, a sessão SIMULADA commita e conclui, a revisão independente é despachada e conclui, a publicação abre o PR na
+ * forja SIMULADA, o CI SIMULADO fica verde no SHA, a integração mescla na base do remoto bare de fixture com a prova do push,
+ * o MASTER por omissão fecha a thread, a fila vazia fecha o arco, e o relatório da manhã diz a entrega.
+ */
+function cenarioCadeiaLigada(c, a, n) {
+  const m = a.mundo('cadeia-ligada');
+  const canal = a.canal(m.proj);
+  const itens = ['RM-951'];
+  const doDono = 'Fatia SIMULADA da cadeia ligada: uma nota nova no produto.';
+  const arco = a.abrirArco(m.proj, a.pedido('arco-cadeia', { trabalhos: [{ id: 't1', item: 'RM-951', prioridade: 1, dependeDe: [], pedido: doDono }],
+    permissoes: ['push', 'pr', 'merge'], revisao: 1 }));
+  const r1 = m.tique('arco-cadeia', itens);
+  const t = m.threadDoItem('RM-951');
+  c.esperar('o pedido do dono vira a thread #Auto do item, com o pedido guardado e a worktree, aberta pelo arco no primeiro tique',
+    t?.modo === 'auto' && n.thread.pedidoDaThread(m.proj.dir, t)?.texto.includes(doDono) && !!t.worktree && fs.existsSync(t.worktree),
+    JSON.stringify({ t: t && { id: t.id, modo: t.modo, worktree: t.worktree }, passo: resumoDoPasso(r1.passo) }));
+  c.esperar('no tique, o vigia não grava a baseline: o passo espera o condutor (baseline-pendente), e nada é despachado',
+    r1.vigia?.condutor === 'assumido' && r1.passo?.acao === 'aguardar' && r1.passo.motivo === 'baseline-pendente' && m.rt.despachos.length === 0,
+    JSON.stringify({ condutor: r1.vigia?.condutor, passo: resumoDoPasso(r1.passo), falhas: r1.falhas }));
+  const k1 = m.conduzir('arco-cadeia', itens, 2);
+  const baseline = m.ledger(t.id).filter((e) => e.tipo === 'baseline_recorded');
+  c.esperar('o condutor grava a baseline real da thread e despacha o GOAL pelo runtime, com a linha do arco no pedido da sessão',
+    k1.acao === 'saiu' && k1.ultimo?.acao === 'despachou' && baseline.length === 1 && !baseline[0].simulado && m.rt.despachos.length === 1 &&
+      m.rt.despachos[0].fase === 'GOAL' && m.rt.despachos[0].prompt.includes('Esta thread é trabalho do arco `arco-cadeia` do #Noctum'),
+    JSON.stringify({ k1: resumoDoPasso(k1.ultimo), baseline: baseline.length, despachos: m.rt.despachos.map((d) => d.fase) }));
+  const { fonte } = m.sessaoDoBloco(t.id, m.rt.despachos[0].sessionId);
+  const k2 = m.conduzir('arco-cadeia', itens, 1);
+  const revisao = m.rt.despachos[1];
+  c.esperar('com o bloco concluído pela própria sessão, a entrega pede a revisão independente: um CHECK numa sessão nova, pelo condutor',
+    k2.ultimo?.entrega?.acao === 'revisao-pedida' && revisao?.fase === 'CHECK' && revisao.sessionId !== m.rt.despachos[0].sessionId,
+    JSON.stringify({ k2: resumoDoPasso(k2.ultimo), despachos: m.rt.despachos.map((d) => d.fase) }));
+  if (!revisao) return;
+  m.revisaoConcluida(t.id, revisao.sessionId);
+  const k3 = m.conduzir('arco-cadeia', itens, 1);
+  const branch = n.worktree.branchDaWorktree(n.thread.lerThread(m.proj.dir, t.id));
+  c.esperar('com a revisão PASSOU e o verify no SHA, a entrega publica: a branch no remoto de fixture e o PR na forja SIMULADA',
+    k3.ultimo?.entrega?.acao === 'publicou' && m.lsRemote(`refs/heads/${branch}`) === fonte && m.criacoesDePr() === 1,
+    JSON.stringify({ k3: resumoDoPasso(k3.ultimo), branch: m.lsRemote(`refs/heads/${branch}`), fonte }));
+  const k4 = m.conduzir('arco-cadeia', itens, 1);
+  const base = m.lsRemote('refs/heads/main');
+  const ship = m.ledger(t.id).filter((e) => e.tipo === 'ship_done');
+  c.esperar('com o CI SIMULADO verde no SHA publicado, a entrega integra na base do remoto, e o ship_done leva a prova do push e o arco',
+    k4.ultimo?.entrega?.acao === 'integrou' && ship.length === 1 && ship[0].pushVerificado === true && ship[0].evidencia?.arco === 'arco-cadeia' &&
+      m.ancestral(m.proj.dir, fonte, base) || false,
+    JSON.stringify({ k4: resumoDoPasso(k4.ultimo), ship: ship.map((e) => ({ push: e.pushVerificado, arco: e.evidencia?.arco })) }));
+  const r2 = m.tique('arco-cadeia', itens);
+  const daEntrega = r2.vigia?.passo?.entrega;
+  c.esperar('o tique seguinte faz o MASTER por omissão da entrega do arco (a thread fecha), e só então a fila vazia fecha o arco',
+    daEntrega?.acao === 'master' && n.thread.lerThread(m.proj.dir, t.id).status === 'fechada' && r2.fechamento.agora &&
+      r2.fechamento.motivo === 'fila-vazia', JSON.stringify({ passo: resumoDoPasso(r2.vigia?.passo), f: r2.fechamento.detalhe, falhas: r2.falhas }));
+  const rRel = m.tique('arco-cadeia', itens, arco.vencimento);
+  const texto = canal.doArco('arco-cadeia').join('\n');
+  c.esperar('o relatório da manhã sai no horário pelo canal combinado e dá o t1 como entregue, com o push provado',
+    rRel.relatorio.acao === 'entregue' && /• t1 \(RM-951\): thread .+ push provado/.test(texto), JSON.stringify(rRel.relatorio) + texto.slice(0, 800));
+  c.esperar('a cadeia inteira saiu sem falha de etapa no tique e sem exceção da entrega',
+    [r1, r2, rRel].every((r) => r.falhas.length === 0) && [k1, k2, k3, k4].every((k) => !k.ultimo?.falhaDaEntrega),
+    JSON.stringify([r1, r2, rRel].map((r) => r.falhas)));
+}
+
+/**
+ * O condutor que morre: o condutor grava as baselines, despacha os dois trabalhos e sai no meio (a trava solta, a geração
+ * dele fica). O vigia assume no tique: retoma a sessão que morreu e pede a revisão independente do trabalho concluído; a
+ * base anda, a atualização sai no tique, e o verify espera o condutor. O condutor relançado roda o verify real, publica,
+ * integra e faz o MASTER por omissão.
+ */
+function cenarioCondutorMorto(c, a, n) {
+  const m = a.mundo('condutor-morto');
+  const itens = ['RM-953', 'RM-954'];
+  a.abrirArco(m.proj, a.pedido('arco-morto', { trabalhos: [
+    { id: 't1', item: 'RM-953', prioridade: 1, dependeDe: [], pedido: 'Fatia SIMULADA t1 do condutor que morre.' },
+    { id: 't2', item: 'RM-954', prioridade: 2, dependeDe: [], pedido: 'Fatia SIMULADA t2 do condutor que morre.' }],
+  permissoes: ['push', 'pr', 'merge'], revisao: 1 }));
+  const t0 = Date.now();
+  const em = (min) => iso(t0 + min * MIN);
+  m.tique('arco-morto', itens, em(0));
+  const k1 = m.conduzir('arco-morto', itens, 4, { relogio: () => em(1) });
+  const t1 = m.threadDoItem('RM-953'), t2 = m.threadDoItem('RM-954');
+  const [s1, s2] = m.rt.despachos;
+  // A trava do condutor ficou livre: tomada aqui e solta na hora, para o vigia achá-la livre também.
+  const fd = n.filaPesada.tentarTravaExclusiva(path.join(n.supervisao.dirDaSupervisao(m.proj.dir, 'arco-morto'), 'condutor.lock'));
+  if (fd !== null) fs.closeSync(fd);
+  c.esperar('o condutor grava a baseline real de cada thread, despacha os dois trabalhos e sai no meio, com a trava solta',
+    k1.acao === 'saiu' && m.rt.despachos.length === 2 && s1?.thread === t1?.id && s2?.thread === t2?.id &&
+      [t1, t2].every((t) => t && m.ledger(t.id).some((e) => e.tipo === 'baseline_recorded' && !e.simulado)) && fd !== null,
+    JSON.stringify({ k1: resumoDoPasso(k1.ultimo), despachos: m.rt.despachos.map((d) => [d.thread, d.fase]) }));
+  if (!s1 || !s2) return;
+  m.sessaoDoBloco(t1.id, s1.sessionId, em(2));
+  m.morrer(s2.sessionId);
+  // Passada a carência, o vigia assume: retoma a sessão que morreu e, na entrega, pede a revisão do t1.
+  const r1 = m.tique('arco-morto', itens, em(17));
+  const retomada = m.rt.despachos[2], revisao = m.rt.despachos[3];
+  c.esperar('com o condutor fora, o vigia assume no tique e retoma a sessão morta do t2 pelo passo do arco, numa sessão nova',
+    r1.vigia?.condutor === 'assumido' && r1.vigia.retomadas === 1 && retomada?.thread === t2.id && retomada.sessionId !== s2.sessionId &&
+      n.supervisao.lerSupervisao(m.proj.dir, 'arco-morto').retomadas.some((x) => x.trabalho === 't2' && x.motivo === 'sessao-morta'),
+    JSON.stringify({ vigia: r1.vigia && { condutor: r1.vigia.condutor, retomadas: r1.vigia.retomadas, lacunas: r1.vigia.lacunas },
+      passo: resumoDoPasso(r1.vigia?.passo), despachos: m.rt.despachos.map((d) => [d.thread, d.fase]) }));
+  c.esperar('no mesmo tique, a entrega do vigia pede a revisão independente do t1 (sem esperar a trava de despacho)',
+    r1.vigia?.passo?.entrega?.acao === 'revisao-pedida' && revisao?.thread === t1.id && revisao.fase === 'CHECK',
+    JSON.stringify(resumoDoPasso(r1.vigia?.passo)));
+  if (!revisao) return;
+  m.revisaoConcluida(t1.id, revisao.sessionId, 'PASSOU', depois(em(17), 30_000));
+  const baseNova = m.avancarBase({ 'notas/de-fora.md': '# Nota SIMULADA que chegou na base, de fora do arco\n' }, 'docs: a nota de fora do arco');
+  const r2 = m.tique('arco-morto', itens, em(18));
+  const atualizou = r2.vigia?.passo?.entrega;
+  c.esperar('a base anda e a atualização sai no tique, sobre a base nova, sem o verify: ele fica para o condutor',
+    atualizou?.acao === 'atualizou' && atualizou.verify === null && m.ancestral(t1.worktree, baseNova, atualizou.para),
+    JSON.stringify(resumoDoPasso(r2.vigia?.passo)));
+  const r3 = m.tique('arco-morto', itens, em(19));
+  const espera = r3.vigia?.passo?.entrega;
+  c.esperar('no tique seguinte o verify espera o condutor: a entrega aguarda (ocupada), com o motivo de quem roda o verify',
+    espera?.acao === 'aguardar' && espera.motivo === 'noctum.entrega.ocupada' && /fica para o condutor do arco/.test(espera.detalhe),
+    JSON.stringify(resumoDoPasso(r3.vigia?.passo)));
+  const verifiesAntes = m.ledger(t1.id).filter((e) => e.tipo === 'verify_run' && !e.simulado).length;
+  const k2 = m.conduzir('arco-morto', itens, 6, { relogio: () => em(20) });
+  const reais = m.ledger(t1.id).filter((e) => e.tipo === 'verify_run' && !e.simulado);
+  const ship = m.ledger(t1.id).filter((e) => e.tipo === 'ship_done');
+  c.esperar('o condutor relançado roda o verify real no SHA atualizado, publica, integra na base nova e faz o MASTER por omissão',
+    k2.acao === 'saiu' && reais.length === verifiesAntes + 1 && reais.at(-1).commit === atualizou?.para && ship.length === 1 &&
+      ship[0].pushVerificado === true && m.ancestral(m.proj.dir, baseNova, m.lsRemote('refs/heads/main')) &&
+      n.thread.lerThread(m.proj.dir, t1.id).status === 'fechada',
+    JSON.stringify({ k2: resumoDoPasso(k2.ultimo), reais: reais.map((e) => e.commit), para: atualizou?.para, ship: ship.length,
+      status: n.thread.lerThread(m.proj.dir, t1.id).status }));
+  // M4 do CHECK 2: só o tique fecha o arco; um tique depois do condutor relançado, com o t1 entregue e o t2 na sessão nova,
+  // não o fecha pela fila vazia nem pede a parada do t2.
+  const r4 = m.tique('arco-morto', itens, em(21));
+  c.esperar('o trabalho retomado segue em curso: o arco não fecha com o t2 na sessão nova, nem no tique depois do condutor, e o t2 não é parado',
+    r4.fechamento.fechado === false && !n.arco.lerArco(m.proj.dir, 'arco-morto', em(21)).encerramento &&
+      m.rt.estados.get(retomada.sessionId) === 'working' && !m.rt.paradas.includes(retomada.sessionId),
+    JSON.stringify({ fechamento: r4.fechamento.detalhe, encerramento: n.arco.lerArco(m.proj.dir, 'arco-morto', em(21)).encerramento,
+      estados: [...m.rt.estados], paradas: m.rt.paradas, despachos: m.rt.despachos.map((d) => [d.thread, d.fase, d.sessionId.slice(-3)]) }));
+}
+
+/**
+ * A base que anda: com o candidato publicado e o CI verde, um commit chega à base do remoto antes da integração. O condutor
+ * atualiza o candidato sobre a base nova (o CHANGELOG em "Não publicado" e o bundle regravado) e roda o verify real no SHA
+ * novo, publica de novo, e a integração mescla na base nova, com a prova do push.
+ */
+function cenarioBaseQueAnda(c, a, n) {
+  const m = a.mundo('base-que-anda');
+  const itens = ['RM-952'];
+  a.abrirArco(m.proj, a.pedido('arco-base', { trabalhos: [{ id: 't1', item: 'RM-952', prioridade: 1, dependeDe: [],
+    pedido: 'Fatia SIMULADA da base que anda.' }], permissoes: ['push', 'pr', 'merge'], revisao: 1 }));
+  m.tique('arco-base', itens);
+  m.conduzir('arco-base', itens, 2);
+  const t = m.threadDoItem('RM-952');
+  if (!t || !m.rt.despachos[0]) { c.esperar('o arco abre e despacha a thread do item', false, JSON.stringify(m.rt.despachos)); return; }
+  const { fonte } = m.sessaoDoBloco(t.id, m.rt.despachos[0].sessionId);
+  m.conduzir('arco-base', itens, 1);
+  if (!m.rt.despachos[1]) { c.esperar('a entrega pede a revisão independente', false, JSON.stringify(m.rt.despachos)); return; }
+  m.revisaoConcluida(t.id, m.rt.despachos[1].sessionId);
+  const kPub = m.conduzir('arco-base', itens, 1);
+  const branch = n.worktree.branchDaWorktree(n.thread.lerThread(m.proj.dir, t.id));
+  c.esperar('o candidato chega publicado no remoto de fixture, com o PR aberto na forja SIMULADA',
+    kPub.ultimo?.entrega?.acao === 'publicou' && m.lsRemote(`refs/heads/${branch}`) === fonte, JSON.stringify(resumoDoPasso(kPub.ultimo)));
+  const baseNova = m.avancarBase({ 'notas/outra.md': '# Outra nota SIMULADA, de fora do arco\n' }, 'docs: outra nota que chegou na base');
+  const kAt = m.conduzir('arco-base', itens, 1);
+  const at = kAt.ultimo?.entrega;
+  const changelog = fs.readFileSync(path.join(t.worktree, 'CHANGELOG.md'), 'utf8');
+  const naoPublicado = changelog.slice(changelog.indexOf('## Não publicado'), changelog.indexOf('## [0.1.0]'));
+  c.esperar('com a base nova, o condutor atualiza o candidato sobre ela, com a linha da thread em "Não publicado" e o bundle regravado',
+    at?.acao === 'atualizou' && m.ancestral(t.worktree, baseNova, at.para) && naoPublicado.includes(`o que a thread ${t.id} acrescenta`) &&
+      naoPublicado.includes('Antiga SIMULADA'), JSON.stringify({ at: resumoDoPasso(kAt.ultimo), naoPublicado }));
+  const reais = m.ledger(t.id).filter((e) => e.tipo === 'verify_run' && !e.simulado);
+  c.esperar('o condutor roda o verify real no SHA novo, na mesma atualização (sem a fila pesada ocupada)',
+    at?.verify === true && reais.length === 1 && reais[0].commit === at.para, JSON.stringify({ verify: at?.verify, reais: reais.map((e) => e.commit) }));
+  const kRepub = m.conduzir('arco-base', itens, 1);
+  c.esperar('a entrega publica de novo o SHA atualizado: a branch do remoto anda até ele',
+    kRepub.ultimo?.entrega?.acao === 'publicou' && m.lsRemote(`refs/heads/${branch}`) === at?.para, JSON.stringify(resumoDoPasso(kRepub.ultimo)));
+  const kInt = m.conduzir('arco-base', itens, 1);
+  const base = m.lsRemote('refs/heads/main');
+  const ship = m.ledger(t.id).filter((e) => e.tipo === 'ship_done');
+  c.esperar('com o CI verde no SHA novo, a integração mescla na base nova, e o ship_done leva a prova do push',
+    kInt.ultimo?.entrega?.acao === 'integrou' && ship.length === 1 && ship[0].pushVerificado === true && m.ancestral(m.proj.dir, baseNova, base) &&
+      m.ancestral(m.proj.dir, at.para, base), JSON.stringify({ k: resumoDoPasso(kInt.ultimo), ship: ship.length }));
+  c.esperar('o CI SIMULADO foi lido nos dois SHAs publicados, e nenhum outro PR foi aberto',
+    m.ci.chamadas.includes(fonte) && m.ci.chamadas.includes(at?.para) && m.criacoesDePr() === 1, JSON.stringify({ ci: m.ci.chamadas, prs: m.criacoesDePr() }));
+}
+
 const CENARIOS = [
   { nome: 'ligar-o-modo', titulo: 'o transporte que liga o modo: proposta, ingresso assinado e #Noctum só com envelope vigente', fn: cenarioLigarOModo },
   { nome: 'arco-curto', titulo: 'o arco curto com falhas injetadas, do primeiro despacho ao relatório da manhã', fn: cenarioArcoCurto },
@@ -769,6 +1216,11 @@ const CENARIOS = [
   { nome: 'teto-medido', titulo: 'a medição: minutos medidos que fecham o arco e tokens que viram lacuna, nunca zero', fn: cenarioTetoMedido },
   { nome: 'sem-recibo-e-reenvio', titulo: 'a falta de recibo no retrato e o reenvio sem duplicação', fn: cenarioSemReciboEReenvio },
   { nome: 'correcao-explicita', titulo: 'a entrega informada e revertida, corrigida numa versão nova', fn: cenarioCorrecaoExplicita },
+  { nome: 'cadeia-ligada', titulo: 'a cadeia ligada: do pedido do dono à integração na base, ao MASTER por omissão e ao relatório da manhã',
+    fn: cenarioCadeiaLigada },
+  { nome: 'condutor-morto', titulo: 'o condutor que morre: o vigia assume, retoma a sessão morta, e o verify espera o condutor relançado',
+    fn: cenarioCondutorMorto },
+  { nome: 'base-que-anda', titulo: 'a base que anda: a atualização, o verify real e a integração na base nova', fn: cenarioBaseQueAnda },
 ];
 
 // ---------------------------------------------------------------------------
@@ -783,7 +1235,8 @@ function rodar(args) {
   }
   if (!fs.existsSync(CLI)) throw new ErroDeUso('falta core/dist/index.js: rode npm --prefix core run build');
   const raiz = pastaDoEnsaio();
-  const resultado = { contrato: CONTRATO, ok: false, raiz, mantida: args.manter, sabotagem: args.sabotar, inicio: iso(Date.now()), cenarios: [] };
+  const resultado = { contrato: CONTRATO, ok: false, simulado: true, marcas: MARCAS_DE_SIMULACAO, raiz, mantida: args.manter, sabotagem: args.sabotar,
+    inicio: iso(Date.now()), cenarios: [] };
   try {
     isolarAmbiente(raiz);
     const n = {
@@ -791,6 +1244,8 @@ function rodar(args) {
       conducao: doNucleo('conducao'), horario: doNucleo('horario'), hitlGates: doNucleo('hitl-gates'), envelope: doNucleo('noctum-envelope'),
       arco: doNucleo('noctum-arco'), modo: doNucleo('noctum-modo'), relatorio: doNucleo('noctum-relatorio'),
       fechamento: doNucleo('noctum-fechamento'), registro: doNucleo('noctum-registro'), filaPesada: doNucleo('fila-pesada'),
+      execucao: doNucleo('noctum-execucao'), vigia: doNucleo('noctum-vigia'), claims: doNucleo('claims'), ci: doNucleo('ci'),
+      worktree: doNucleo('worktree'), perfis: doNucleo('runtime-profiles'), supervisao: doNucleo('noctum-supervisao'),
     };
     if (!n.filaPesada.kernelDisponivel()) throw new ErroDeUso('o ensaio exige a trava do kernel (/usr/bin/flock)');
     for (const def of CENARIOS.filter((x) => escolhidos.includes(x.nome))) {

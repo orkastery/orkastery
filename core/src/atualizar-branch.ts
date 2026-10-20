@@ -20,6 +20,7 @@ import { ARQUIVO_DO_CHANGELOG, ItemDevolvido, reconciliarChangelog, temMarcadorD
 import { comConducao, ErroDeConducao, identidadeDoAmbiente } from './conducao';
 import { raizDoEstado } from './estado-thread';
 import { ManifestoCarregado } from './manifest';
+import { guardaDaThread, MotivoDaGuarda } from './noctum-guarda';
 import { diretorioDaThread } from './procedencia';
 import { lerThread } from './thread';
 import { CanalDeConducao } from './types';
@@ -32,7 +33,7 @@ export const CONTRATO_DA_ATUALIZACAO = 'ork.branch-atualizada/v1' as const;
 const PRAZO_DA_ATUALIZACAO_MS = 10 * 60 * 1000;
 
 export type MotivoDaRecusa = 'worktree-ausente' | 'branch-errada' | 'merge-em-curso' | 'worktree-suja' | 'base-ausente' |
-  'git-sem-resposta' | 'conduzida' | 'push-recusado' | 'branch-desalinhada';
+  'git-sem-resposta' | 'conduzida' | 'push-recusado' | 'branch-desalinhada' | MotivoDaGuarda;
 
 export type ResultadoDaAtualizacao = {
   contrato: typeof CONTRATO_DA_ATUALIZACAO;
@@ -89,6 +90,10 @@ export function atualizarBranchDaThread(carregado: ManifestoCarregado, threadId:
   const branch = branchDaWorktree(t);
   const cabeca = { contrato: CONTRATO_DA_ATUALIZACAO, thread: t.id, branch, base: `${remoto}/${base}` };
   const recusa = (motivo: MotivoDaRecusa, detalhe: string): ResultadoDaAtualizacao => ({ ...cabeca, acao: 'recusada', motivo, detalhe });
+  // RM-058, integracao (T1.1, D3 da ork-rm058integra): a branch da thread de um arco #Noctum e atualizada pelo passo da
+  // entrega do arco, com a regra do CHANGELOG dele; por fora, nem o comando nem a batida a mesclam.
+  const guarda = guardaDaThread(raiz, t.id);
+  if (guarda) return recusa(guarda.motivo, guarda.texto);
   let dir: string;
   try { dir = diretorioDaThread(raiz, t); } catch (e) { return recusa('worktree-ausente', (e as Error).message); }
   if (!t.worktree || !fs.existsSync(dir)) return recusa('worktree-ausente', `a thread ${t.id} não tem worktree nesta máquina`);
