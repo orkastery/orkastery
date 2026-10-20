@@ -122,6 +122,21 @@ function prazosDoVerify(verify: Record<string, ValorYaml>, erros: string[]): Pic
   return saida;
 }
 
+/**
+ * RM-037 (defeitos de 19 e 20/10/2026, defeito 2): `worktree.dependencias`, o comando que o `ork` roda dentro de toda
+ * worktree nova da thread. So vale texto: outro tipo e erro do manifesto, porque um preparo mal escrito que sumisse em
+ * silencio deixaria a worktree nova sem as dependencias, como antes. Texto vazio e o mesmo que nenhum.
+ */
+function dependenciasDaWorktree(v: ValorYaml, erros: string[]): { dependencias?: string } {
+  if (v === undefined || v === null) return {};
+  if (typeof v !== 'string') {
+    erros.push(`worktree.dependencias precisa ser o comando, em texto (recebido ${exibir(v)})`);
+    return {};
+  }
+  const comando = v.trim();
+  return comando ? { dependencias: comando } : {};
+}
+
 /** O caminho de um projeto: dois segmentos ou mais (os subgrupos do GitLab). */
 const CAMINHO_DE_PROJETO = /^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+$/;
 
@@ -669,6 +684,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       // P4 do ensaio da 0.5.0: o `ork thread new` cria a worktree sem flag quando a chave diz true. Ausente le
       // false, para o projeto que nunca a declarou seguir como era.
       por_thread: booleano(worktree.por_thread, false),
+      ...dependenciasDaWorktree(worktree.dependencias, erros),
     },
     verify: {
       build: verify.build === null || verify.build === undefined ? undefined : texto(verify.build, ''),

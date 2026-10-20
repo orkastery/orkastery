@@ -27,6 +27,7 @@ import { linhaDeConducao } from './conducao-texto';
 import { ErroDoCatalogo, msg } from './locale';
 import { CasoSemWorktree } from './locale-thread';
 import { exigirRemoto, refRemota } from './branch-de-estado';
+import { eventoDoPreparo, PreparoDasDependencias, prepararDependencias } from './dependencias-da-worktree';
 
 /** Diretorio de threads do projeto. */
 export function dirThreads(raiz: string): string {
@@ -463,6 +464,8 @@ export interface ResultadoNovaThread {
   worktreePor?: OrigemDaWorktree | null;
   /** P4 (CHECK): no `--dry-run`, a worktree pedida que a criacao de verdade recusaria, e por que. */
   worktreeFalharia?: { motivo: FalhaDaWorktree; dir: string; branch: string; por: OrigemDaWorktree } | null;
+  /** RM-037 (defeito 2 de 19 e 20/10/2026): o preparo de `worktree.dependencias` na worktree nova; `null` sem ele. */
+  dependencias?: PreparoDasDependencias | null;
 }
 
 /** Cria a thread: valida modo contra o manifesto, gera o slug e carimba a base. */
@@ -471,7 +474,23 @@ export function novaThread(
   opcoes: OpcoesNovaThread
 ): ResultadoNovaThread {
   if (opcoes.dryRun) return criarThreadSerializada(carregado, opcoes);
-  return withCreationLock(raizDoEstado(carregado.raiz), 'threads', () => criarThreadSerializada(carregado, opcoes));
+  const criada = withCreationLock(raizDoEstado(carregado.raiz), 'threads', () => criarThreadSerializada(carregado, opcoes));
+  // RM-037 (defeito 2 de 19 e 20/10/2026): o preparo das dependencias roda depois da trava de criacao, que espera
+  // segundos, e nao os minutos de um `npm ci`.
+  if (!criada.gravada || !criada.worktreePor || !criada.thread.worktree) return criada;
+  return { ...criada, dependencias: prepararDependenciasDaThread(carregado, criada.thread.id, criada.thread.worktree) };
+}
+
+/**
+ * RM-037 (defeito 2 de 19 e 20/10/2026): roda `worktree.dependencias` na worktree que acabou de nascer e grava o
+ * resultado no ledger da thread. Sem a chave no manifesto, nada roda e nada se grava. A falha nao desfaz nada.
+ */
+export function prepararDependenciasDaThread(carregado: ManifestoCarregado, id: string, dir: string): PreparoDasDependencias | null {
+  const comando = carregado.manifesto.worktree.dependencias;
+  if (!comando) return null;
+  const preparo = prepararDependencias(dir, comando);
+  registrar(dirThread(carregado.raiz, id), id, TIPOS_DE_EVENTO.worktreeDependencias, eventoDoPreparo(dir, preparo));
+  return preparo;
 }
 
 /**

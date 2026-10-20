@@ -343,7 +343,7 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
     // Uma dependencia ausente nao e divida do codigo: o comando nem chegou a existir. Gravar isso
     // como "ja falhava" faria todo verify futuro aceitar a falta da ferramenta como baseline.
     throw new ErroDoCatalogo((m) => m.verify.baselineDependenciaAusente(
-      naoEncontrado.nome, naoEncontrado.code, redigirCredenciaisUrl(naoEncontrado.comando)));
+      naoEncontrado.nome, naoEncontrado.code, redigirCredenciaisUrl(naoEncontrado.comando), manifesto.worktree.dependencias ?? null));
   }
   const baseline: Baseline = { commit: commitReal(cwd), gravadaEm: agora(), comandos };
 

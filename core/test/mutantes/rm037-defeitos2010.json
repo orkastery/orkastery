@@ -19,6 +19,24 @@
       "para": "if (!antes)",
       "teste": "rm037-defeitos2010-baseline",
       "nome": "^defeito 1: (o comando que estourou|baseline antiga)"
+    },
+    {
+      "id": "M3",
+      "descricao": "defeito 2: a worktree nova volta a nascer sem o preparo de worktree.dependencias",
+      "modulo": "thread",
+      "de": "const comando = carregado.manifesto.worktree.dependencias;",
+      "para": "const comando = undefined;",
+      "teste": "rm037-defeitos2010-dependencias",
+      "nome": "^defeito 2 \\(19 e 20/10/2026\\)"
+    },
+    {
+      "id": "M4",
+      "descricao": "defeito 2: a recusa baseline.dependencia-ausente volta a não dizer o comando do preparo",
+      "modulo": "verify",
+      "de": "manifesto.worktree.dependencias ?? null",
+      "para": "null",
+      "teste": "rm037-defeitos2010-dependencias",
+      "nome": "^defeito 2: o preparo que falha"
     }
   ]
 }

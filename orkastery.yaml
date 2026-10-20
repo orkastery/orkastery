@@ -37,6 +37,9 @@ worktree:
   base_branch: "main"
   dir: ".claude/worktrees"
   por_thread: true
+  # RM-037 (defeito 2 de 19 e 20/10/2026): o node_modules do core nao vem com o git worktree add. O ork roda este
+  # comando dentro de toda worktree nova (thread new, worktree ensure); o cache do npm primeiro, a rede so para o que faltar.
+  dependencias: "npm --prefix core ci --prefer-offline --no-audit --no-fund"
 
 verify:
   build: "npm --prefix core run build"

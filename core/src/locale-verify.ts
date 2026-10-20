@@ -11,9 +11,12 @@ export const VERIFY_PT_BR = {
   uso: 'uso: ork verify <thread-id> [--baseline] [--so-claims] [--canal C] [--esperar [min]]',
   // ork verify --baseline
   baselineGravada: (id: string) => `Baseline gravada para a thread ${id}.`,
-  baselineDependenciaAusente: (nome: string, code: number, comando: string) =>
+  // RM-037 (defeito 2 de 19 e 20/10/2026): a recusa diz o comando exato do preparo, ou como declara-lo.
+  baselineDependenciaAusente: (nome: string, code: number, comando: string, preparo?: string | null) =>
     `baseline.dependencia-ausente: ${nome} nao executou porque o comando nao existe (codigo ${code}): ${comando}; ` +
-    'instale ou prepare as dependencias antes de gravar a baseline',
+    (preparo ? `rode na worktree da thread o preparo do manifesto (worktree.dependencias): ${preparo}; depois grave a baseline de novo`
+      : 'instale ou prepare as dependencias antes de gravar a baseline; para o ork preparar toda worktree nova, declare o ' +
+        'comando em worktree.dependencias no manifesto'),
   baselineCommit: (commit: string) => `  commit ${commit}`,
   // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito (estouro, relogio sob steal, nao rodou) nao vale como
   // "ja falhava"; `situacao` e a do comando, no locale da impressao.
@@ -91,9 +94,11 @@ export const VERIFY_PT_BR = {
 export const VERIFY_EN: typeof VERIFY_PT_BR = {
   uso: 'usage: ork verify <thread-id> [--baseline] [--so-claims] [--canal C] [--esperar [min]]',
   baselineGravada: (id) => `Baseline recorded for thread ${id}.`,
-  baselineDependenciaAusente: (nome, code, comando) =>
+  baselineDependenciaAusente: (nome, code, comando, preparo) =>
     `baseline.missing-dependency: ${nome} did not run because the command does not exist (exit ${code}): ${comando}; ` +
-    'install or prepare dependencies before recording the baseline',
+    (preparo ? `run the manifest preparation (\`worktree.dependencias\`) in the thread worktree: \`${preparo}\`; then record the baseline again`
+      : 'install or prepare dependencies before recording the baseline; for ork to prepare every new worktree, declare the ' +
+        'command in `worktree.dependencias` in the manifest'),
   baselineCommit: (commit) => `  commit ${commit}`,
   baselineComando: (nome, veredito, code, comando, situacao) => `  ${nome.padEnd(10)} ${veredito === 'passava' ? 'passed'
     : veredito === 'ja-falhava' ? `already failing (exit ${code})` : `NO VERDICT, ${situacao}: does not count as "already failing"`}  ${comando}`,
