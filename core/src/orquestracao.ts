@@ -63,7 +63,7 @@ import { agora, tabela } from './util';
 import { duracaoCurta, duracaoRelativa, formatarHora, legendaDoFuso, localizarTexto } from './horario';
 import { conducaoDaThread } from './conducao';
 import { linhaDeConducao } from './conducao-texto';
-import { textoDoCatalogo } from './locale';
+import { msg, textoDoCatalogo } from './locale';
 
 
 /** Limite de atencao padrao, em minutos: parada mais velha que isso e destacada. */
@@ -586,74 +586,56 @@ export function montarMonitor(
  * ISO (o `--json` e o ledger nao mudam); aqui o horario sai no fuso do dono.
  */
 function linhaDaParada(p: ParadaDaThread, agora: string): string[] {
+  const m = msg().operacao.restante.monitor;
   const local = (texto: string) => localizarTexto(texto, { agora });
   const L: string[] = [];
-  L.push(
-    `      [${p.motivo}] parada ha ${duracaoRelativa(p.paradaHaMin)} (desde ${formatarHora(p.desdeEm, { agora })})`
-  );
-  if (p.pausaSobre) L.push(`      o humano decide: ${p.pausaSobre}`);
-  L.push(`      detalhe  : ${local(p.detalhe)}`);
-  L.push(`      evidencia: ${local(p.evidencia)}`);
-  L.push(`      correcao : ${local(p.correcao)}`);
+  L.push(m.parada(p.motivo, duracaoRelativa(p.paradaHaMin), formatarHora(p.desdeEm, { agora })));
+  if (p.pausaSobre) L.push(m.humanoDecide(local(p.pausaSobre)));
+  L.push(m.detalhe(local(p.detalhe)));
+  L.push(m.evidencia(local(p.evidencia)));
+  L.push(m.correcao(local(p.correcao)));
   return L;
 }
 
 /** Texto de `ork orquestracao status`. */
 export function textoDoMonitor(m: MonitorDeOrquestracao): string {
+  const t = msg().operacao.restante.monitor;
   const L: string[] = [];
-  L.push(
-    `Monitor de orquestracao, projeto ${m.projeto} ` +
-      `(${m.resumo.threads} thread(s) em ${m.perfis.length} perfil(is): ${m.perfis.join(', ')})`
-  );
-  L.push(
-    `  aguardando humano: ${m.resumo.aguardandoHumano} | com impedimento: ${m.resumo.comImpedimento} | ` +
-      `em andamento: ${m.resumo.emAndamento} | podem avancar: ${m.resumo.podemAvancar} | ` +
-      `fechadas: ${m.resumo.fechadas}`
-  );
-  L.push(
-    `  limite de atencao: ${m.atencaoMin} min (${m.resumo.acimaDoLimite} parada(s) acima, marcadas com !)`
-  );
+  L.push(t.titulo(m.projeto, m.resumo.threads, m.perfis.length, m.perfis.join(', ')));
+  L.push(t.resumo(m.resumo.aguardandoHumano, m.resumo.comImpedimento, m.resumo.emAndamento,
+    m.resumo.podemAvancar, m.resumo.fechadas));
+  L.push(t.limite(m.atencaoMin, m.resumo.acimaDoLimite));
   L.push(`  ${legendaDoFuso(undefined, m.consultadoEm)}`);
   if (!m.runtimeConsultado) {
-    L.push(`  [warn] ${m.runtimeDetalhe}: pausa prevista e reportada como valendo`);
+    L.push(t.runtime(m.runtimeDetalhe));
   }
   L.push('');
 
   // I-36 (T17): conducao em andamento nao e parada; ela aparece antes, com a linha unica.
   const conduzidas = m.linhas.filter((l) => l.conducao);
   if (conduzidas.length > 0) {
-    L.push('Conduzidas agora:');
+    L.push(t.conduzidas);
     for (const l of conduzidas) L.push(`  ${l.thread}: ${linhaDeConducao(l.conducao!, { agora: m.consultadoEm })}`);
     L.push('');
   }
 
   if (m.linhas.length === 0) {
-    L.push('  Nenhuma thread parada: ninguem esperando veredito humano nem impedido.');
+    L.push(t.nenhuma);
     return L.join('\n');
   }
 
   L.push(
     tabela(
-      [
-        'PERFIL',
-        'THREAD',
-        'FASE',
-        'STATUS',
-        'BLOCO QUE PAUSA',
-        'AGUARDA DO HUMANO',
-        'IMPEDIMENTO',
-        'ULTIMO EVENTO',
-        'PARADA HA',
-      ],
+      [...t.colunas],
       m.linhas.map((l) => [
         l.perfil,
         l.thread,
         l.faseAtual,
-        l.situacao,
+        t.situacoes[l.situacao] ?? l.situacao,
         l.pausas.map((p) => p.bloco || '?').join(' ') || '-',
         l.pausas.map((p) => p.pausaSobre).filter((s) => s !== '').join('; ') || '-',
-        l.impedimentos.map((p) => p.motivo).join(' ') || 'nao',
-        l.ultimoEvento ? l.ultimoEvento.tipo : '(sem ledger)',
+        l.impedimentos.map((p) => p.motivo).join(' ') || t.nao,
+        l.ultimoEvento ? l.ultimoEvento.tipo : t.semLedger,
         l.paradaHaMin === null
           ? '-'
           : `${duracaoRelativa(l.paradaHaMin)}${l.acimaDoLimite ? ' !' : ''}`,
@@ -664,7 +646,7 @@ export function textoDoMonitor(m: MonitorDeOrquestracao): string {
   const hitl = m.linhas.filter((l) => l.precisaDeHumano);
   if (hitl.length > 0) {
     L.push('');
-    L.push('Esperando VEREDITO HUMANO agora (o orquestrador deve avisar o humano):');
+    L.push(t.esperando);
     for (const l of hitl) {
       L.push(`  ${l.thread} (${l.tag}, ${l.nome})`);
       for (const p of l.pausas.filter((x) => x.sessaoViva !== true)) L.push(...linhaDaParada(p, m.consultadoEm));
@@ -674,7 +656,7 @@ export function textoDoMonitor(m: MonitorDeOrquestracao): string {
   const impedidas = m.linhas.filter((l) => l.temImpedimento);
   if (impedidas.length > 0) {
     L.push('');
-    L.push('Com IMPEDIMENTO (nao e veredito humano: e colisao, gate, limite ou janela):');
+    L.push(t.impedidas);
     for (const l of impedidas) {
       L.push(`  ${l.thread} (${l.tag}, ${l.nome})`);
       for (const p of l.impedimentos) L.push(...linhaDaParada(p, m.consultadoEm));
@@ -684,17 +666,17 @@ export function textoDoMonitor(m: MonitorDeOrquestracao): string {
   const emCurso = m.linhas.filter((l) => l.pausas.some((p) => p.sessaoViva === true));
   if (emCurso.length > 0) {
     L.push('');
-    L.push('Pausa PREVISTA, sessao ainda viva (nao avise ainda, mas ja e a proxima fila):');
+    L.push(t.previstas);
     for (const l of emCurso) {
       for (const p of l.pausas.filter((x) => x.sessaoViva === true)) {
-        L.push(`  ${l.thread}: ${p.bloco || '?'} vai pausar sobre "${p.pausaSobre}"`);
+        L.push(t.vaiPausar(l.thread, p.bloco || '?', localizarTexto(p.pausaSobre, { agora: m.consultadoEm })));
       }
     }
   }
 
   if (m.resumo.aguardandoHumano === 0 && m.resumo.comImpedimento === 0) {
     L.push('');
-    L.push('  Nenhuma thread parada: ninguem esperando veredito humano nem impedido.');
+    L.push(t.nenhuma);
   }
   return L.join('\n');
 }

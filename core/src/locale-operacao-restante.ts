@@ -238,6 +238,39 @@ export const OPERACAO_RESTANTE_PT_BR = {
     semRemoto: (projeto: string, remoto: string) =>
       `Outras maquinas: o projeto ${projeto} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`,
   },
+  monitor: {
+    desconhecido: (sub: string) => `subcomando desconhecido: orquestracao ${sub}`,
+    uso: 'uso: ork orquestracao status [--all] [--json] [--atencao N] [--so-paradas]',
+    atencao: (valor: string) => `--atencao espera minutos (inteiro >= 0), recebeu "${valor}"`,
+    titulo: (projeto: string, threads: number, perfis: number, nomes: string) =>
+      `Monitor de orquestracao, projeto ${projeto} (${threads} thread(s) em ${perfis} perfil(is): ${nomes})`,
+    resumo: (humano: number, impedimento: number, andamento: number, avancar: number, fechadas: number) =>
+      `  aguardando humano: ${humano} | com impedimento: ${impedimento} | em andamento: ${andamento} | ` +
+      `podem avancar: ${avancar} | fechadas: ${fechadas}`,
+    limite: (minutos: number, acima: number) =>
+      `  limite de atencao: ${minutos} min (${acima} parada(s) acima, marcadas com !)`,
+    runtime: (detalhe: string) => `  [warn] ${detalhe}: pausa prevista e reportada como valendo`,
+    conduzidas: 'Conduzidas agora:',
+    nenhuma: '  Nenhuma thread parada: ninguem esperando veredito humano nem impedido.',
+    colunas: ['PERFIL', 'THREAD', 'FASE', 'STATUS', 'BLOCO QUE PAUSA', 'AGUARDA DO HUMANO',
+      'IMPEDIMENTO', 'ULTIMO EVENTO', 'PARADA HA'] as readonly string[],
+    situacoes: {
+      'em-andamento': 'em-andamento', 'pode-avancar': 'pode-avancar', espera: 'espera',
+      pausada: 'pausada', fechada: 'fechada',
+    } as Record<string, string>,
+    nao: 'nao', semLedger: '(sem ledger)',
+    esperando: 'Esperando VEREDITO HUMANO agora (o orquestrador deve avisar o humano):',
+    impedidas: 'Com IMPEDIMENTO (nao e veredito humano: e colisao, gate, limite ou janela):',
+    previstas: 'Pausa PREVISTA, sessao ainda viva (nao avise ainda, mas ja e a proxima fila):',
+    parada: (motivo: string, duracao: string, desde: string) =>
+      `      [${motivo}] parada ha ${duracao} (desde ${desde})`,
+    humanoDecide: (valor: string) => `      o humano decide: ${valor}`,
+    detalhe: (valor: string) => `      detalhe  : ${valor}`,
+    evidencia: (valor: string) => `      evidencia: ${valor}`,
+    correcao: (valor: string) => `      correcao : ${valor}`,
+    vaiPausar: (thread: string, bloco: string, sobre: string) =>
+      `  ${thread}: ${bloco} vai pausar sobre "${sobre}"`,
+  },
 };
 
 export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
@@ -490,5 +523,36 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
     uso: 'usage: ork board [list|plan|reap] [--all] [--por <who>] [--json]',
     semRemoto: (project, remote) =>
       `Other machines: project ${project} has no ${remote} remote; nothing was read from ork/fabrica-estado.`,
+  },
+  monitor: {
+    desconhecido: (sub) => `unknown subcommand: orquestracao ${sub}`,
+    uso: 'usage: ork orquestracao status [--all] [--json] [--atencao N] [--so-paradas]',
+    atencao: (value) => `--atencao expects minutes (integer >= 0), received "${value}"`,
+    titulo: (project, threads, profiles, names) =>
+      `Orchestration monitor, project ${project} (${threads} thread(s) in ${profiles} profile(s): ${names})`,
+    resumo: (human, impediment, running, advance, closed) =>
+      `  waiting for a human: ${human} | with an impediment: ${impediment} | running: ${running} | ` +
+      `can advance: ${advance} | closed: ${closed}`,
+    limite: (minutes, above) =>
+      `  attention threshold: ${minutes} min (${above} stopped above it, marked with !)`,
+    runtime: (detail) => `  [warn] ${detail}: planned pause reported as active`,
+    conduzidas: 'Being conducted now:',
+    nenhuma: '  No stopped thread: nobody waiting for a human verdict or blocked.',
+    colunas: ['PROFILE', 'THREAD', 'PHASE', 'STATUS', 'PAUSING BLOCK', 'WAITING FOR HUMAN',
+      'IMPEDIMENT', 'LAST EVENT', 'STOPPED FOR'],
+    situacoes: {
+      'em-andamento': 'running', 'pode-avancar': 'can-advance', espera: 'waiting',
+      pausada: 'paused', fechada: 'closed',
+    },
+    nao: 'no', semLedger: '(no ledger)',
+    esperando: 'Waiting for a HUMAN VERDICT now (the orchestrator must notify the human):',
+    impedidas: 'With an IMPEDIMENT (not a human verdict: collision, gate, limit, or window):',
+    previstas: 'PLANNED pause, session still alive (do not notify yet; it is already the next queue):',
+    parada: (reason, duration, since) => `      [${reason}] stopped for ${duration} (since ${since})`,
+    humanoDecide: (value) => `      the human decides: ${value}`,
+    detalhe: (value) => `      detail   : ${value}`,
+    evidencia: (value) => `      evidence : ${value}`,
+    correcao: (value) => `      fix      : ${value}`,
+    vaiPausar: (thread, block, subject) => `  ${thread}: ${block} will pause for "${subject}"`,
   },
 };

@@ -2689,15 +2689,16 @@ function comandoProjetos(args: Args, projeto: string | undefined): number {
 function comandoOrquestracao(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const m = msg().operacao.restante.monitor;
   if (sub !== undefined && sub !== 'status') {
-    console.error(`subcomando desconhecido: orquestracao ${sub}`);
-    console.error('uso: ork orquestracao status [--all] [--json] [--atencao N] [--so-paradas]');
+    console.error(m.desconhecido(sub));
+    console.error(m.uso);
     return 2;
   }
   const bruto = texto(args.opcoes.atencao);
   const atencaoMin = bruto === undefined ? undefined : Number(bruto);
   if (atencaoMin !== undefined && (!Number.isFinite(atencaoMin) || atencaoMin < 0)) {
-    console.error(`--atencao espera minutos (inteiro >= 0), recebeu "${bruto}"`);
+    console.error(m.atencao(bruto ?? ''));
     return 2;
   }
   const monitor = montarMonitor(carregado, {

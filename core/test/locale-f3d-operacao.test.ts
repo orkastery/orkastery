@@ -19,6 +19,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { textoDoPlano, textoDoReap } from '../src/board';
+import { textoDoMonitor } from '../src/orquestracao';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -206,4 +207,21 @@ test('F3d: board localiza o plano, reap e rotas sem alterar o plano', () => {
   assert.deepEqual(linhasEmPortugues(en), []);
   for (const sub of ['list', 'plan', 'plano', 'reap'])
     assert.equal(cobreLocale(['board', sub], {}), true, sub);
+});
+
+test('F3d: orquestracao e monitor localizam a visao vazia nas duas linguas', () => {
+  const monitor = { projeto: 'demo', consultadoEm: '2026-10-20T12:00:00.000Z', atencaoMin: 30,
+    runtimeConsultado: true, runtimeDetalhe: '', perfis: ['default'], linhas: [],
+    resumo: { threads: 0, aguardandoHumano: 0, comImpedimento: 0, emAndamento: 0,
+      podemAvancar: 0, fechadas: 0, acimaDoLimite: 0 } } as any;
+  const pt = comLocale('pt-BR', () => textoDoMonitor(monitor));
+  const en = comLocale('en', () => textoDoMonitor(monitor));
+  assert.match(pt, /^Monitor de orquestracao/);
+  assert.match(en, /^Orchestration monitor/);
+  assert.match(en, /waiting for a human: 0/);
+  assert.match(en, /No stopped thread/);
+  assert.deepEqual(linhasEmPortugues(en), []);
+  assert.equal(cobreLocale(['orquestracao', 'status'], {}), true);
+  assert.equal(cobreLocale(['orquestracao', 'wat'], {}), true);
+  assert.equal(cobreLocale(['monitor'], {}), true);
 });
