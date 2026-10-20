@@ -511,38 +511,6 @@
       "lint": []
     },
     {
-      "id": "C40",
-      "thread": "ork-rm062barreir",
-      "fase": "GO",
-      "arquivo": "orkastery.privado.json",
-      "alegacao": "GO-FIX 2 substitui C36: o arquivo usa apenas exceções granulares com motivo, e o contrato recusa pelo efeito valor ou caminho que cubra globalmente email, home, hostname ou toda a árvore.",
-      "negativa": false,
-      "verificar": [
-        "node --test-reporter=tap core/dist-test/test/dado-privado.test.js | awk '/^not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - DP10:/{p++} END{exit !(p==1 && f==0 && s==0)}'",
-        "node -e 'const p=require(\"./core/dist/dado-privado.js\");const r=p.lerExcecoes(process.cwd());process.exit(r.ok?0:1)'",
-        "node core/dist/index.js privado varrer"
-      ],
-      "criadoEm": "2026-10-20T07:58:23.154Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C41",
-      "thread": "ork-rm062barreir",
-      "fase": "GO",
-      "arquivo": "docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
-      "alegacao": "GO-FIX 2 substitui C28: a página mantém F1/F2 em revisão, descreve binário como bytes UTF-8 com texto literal, declara os formatos codificados fora do alcance e enumera DP1-DP19, DV1-DV5 e DB1-DB6.",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'core/test/dado-privado.test.ts (DP1 a DP19)' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md && grep -qF 'DB1 a DB6' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
-        "grep -qF 'conteúdo comprimido ou codificado em `UTF-16`, `base64` ou outro formato não é decodificado' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
-        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md"
-      ],
-      "criadoEm": "2026-10-20T07:58:42.169Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C42",
       "thread": "ork-rm062barreir",
       "fase": "GO",
@@ -600,6 +568,100 @@
         "node --test-reporter=tap core/dist-test/test/dado-privado-verify.test.js | awk '/^not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - DB(6|7):/{p++} END{exit !(p==2 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-20T08:00:08.559Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "core/test/dado-privado.test.ts",
+      "alegacao": "GO-FIX 3: DP9 usa somente exceção com valor exato, DP10 recusa *e*, *@*.com.br e *-*, e DP17 detecta e-mail após ponto e vírgula, vírgula, crase, parênteses, colchetes, aspas, espaço, tabulação e barra vertical, inclusive CSV pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE \"^test\\\\('DP(9|10|17): \" core/test/dado-privado.test.ts)\" = 3",
+        "npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/dado-privado.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DP(9|10|17):/{p++} END{exit !(p==3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-20T09:47:41.586Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "core/src/dado-privado.ts",
+      "alegacao": "GO-FIX 3: a autoridade de URL termina nos separadores de documento cobertos por DP17, exceções aceitam somente valor exato sem curinga, e a árvore versionada permanece sem achado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test",
+        "node --test-reporter=tap core/dist-test/test/dado-privado.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DP(9|10|17):/{p++} END{exit !(p==3 && f==0 && s==0)}'",
+        "node core/dist/index.js privado varrer"
+      ],
+      "criadoEm": "2026-10-20T09:49:11.590Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+      "alegacao": "GO-FIX 3 substitui C41: a página enumera DB1 a DB7, documenta exceções com valor exato sem curinga e limita F2 ao diff líquido, deixando o histórico da branch para revisão.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'DB1 a DB7' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+        "grep -qF 'sempre por padrão e valor exato, sem curinga' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+        "grep -qF 'um commit intermediário que acrescente e depois retire o dado escapa da barreira' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md"
+      ],
+      "criadoEm": "2026-10-20T09:50:44.805Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "GO-FIX 3: o guia declara que as exceções usam valor exato sem curinga e que o diff líquido não detecta dado acrescentado e retirado em commit intermediário, cujo histórico fica para revisão.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'sempre com padrão e valor exato, sem curinga' docs/guias/verificacao.md",
+        "grep -qF 'um commit intermediário que' docs/guias/verificacao.md && grep -qF 'permanece no histórico da branch' docs/guias/verificacao.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/verificacao.md"
+      ],
+      "criadoEm": "2026-10-20T09:50:44.876Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 3: Não publicado registra valor exato sem curinga nas exceções e o encerramento da autoridade de URL nos separadores de documento, inclusive ponto e vírgula de CSV.",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## Não publicado/{n=1;next} /^## /&&n{exit} n&&/valor exato sem/{a=1} n&&/inclusive o `;` do CSV/{b=1} END{exit !(a&&b)}' CHANGELOG.md",
+        "core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-20T09:50:44.915Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm062barreir",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "GO-FIX 3: a referência do comando privado varrer descreve exceções com valor exato sem curinga, alinhada ao contrato executável.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'As exceções em `orkastery.privado.json` exigem padrão e valor exato sem curinga' docs/referencia/cli.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-20T09:52:36.877Z",
       "estado": "verificado",
       "lint": []
     }
