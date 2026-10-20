@@ -3,7 +3,7 @@
  * entra nas exceções versionadas por caminho, só para os padrões genéricos.
  */
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -16,6 +16,18 @@ const EMAIL_FICTICIO = 'contato@empresa-ficticia.com.br';
 const TERMO_FICTICIO = 'tralala-quarenta-e-dois';
 const VALORES = [HOME_FICTICIA, 'fulana-de-teste', EMAIL_FICTICIO, 'empresa-ficticia', TERMO_FICTICIO];
 
+const temporarios = new Set<string>();
+
+function temporario(nome: string): string {
+  const dir = dirTemporario(nome);
+  temporarios.add(dir);
+  return dir;
+}
+
+after(() => {
+  for (const dir of temporarios) fs.rmSync(dir, { recursive: true, force: true });
+});
+
 /** Roda o CLI compilado no diretório, sem a lista local (ou com a dada) e sem projeto herdado do ambiente. */
 function ork(cwd: string, args: string[], lista: string | null = null): { code: number; saida: string } {
   const env: NodeJS.ProcessEnv = { ...process.env, ORK_TERMOS_PRIVADOS: lista ?? path.join(cwd, '.nao-existe', 'termos.txt') };
@@ -27,7 +39,7 @@ function ork(cwd: string, args: string[], lista: string | null = null): { code: 
 
 /** Um repositório git sem manifesto, com os arquivos dados commitados. */
 function repo(nome: string, arquivos: Record<string, string>): string {
-  const dir = dirTemporario(`dado-privado-cli-${nome}`);
+  const dir = temporario(`dado-privado-cli-${nome}`);
   exec('git', ['init', '-q', '-b', 'main'], dir);
   exec('git', ['config', 'user.email', 'teste@orkastery.local'], dir);
   exec('git', ['config', 'user.name', 'Teste Orkastery'], dir);
@@ -94,7 +106,7 @@ test('DC4: sem a lista local diz que ela está ausente; com ela o termo reprova;
   const sem = ork(dir, []);
   assert.equal(sem.code, 0, sem.saida);
   assert.match(sem.saida, /lista local {2}ausente \(procurada em [^)]*\); só os padrões genéricos \(home, email, hostname\)/);
-  const pasta = dirTemporario('dado-privado-cli-lista');
+  const pasta = temporario('dado-privado-cli-lista');
   const arquivoDaLista = path.join(pasta, 'termos-privados.txt');
   fs.writeFileSync(arquivoDaLista, `${TERMO_FICTICIO}\n`, { mode: 0o600 });
   const com = ork(dir, [], arquivoDaLista);

@@ -13,6 +13,7 @@ import { lerLedger } from '../src/ledger';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { textoDoVerify, verificar } from '../src/verify';
 import { garantirWorktree } from '../src/worktree';
+import { exec } from '../src/util';
 
 const HOME_FICTICIA = '/home/fulana-de-teste';
 const EMAIL_FICTICIO = 'contato@empresa-ficticia.com.br';
@@ -205,5 +206,31 @@ test('DB5: o bundle anterior da própria thread sai do diff, porque o novo o sub
     commitar(wt, `.ork-ci/${id}.json`, `{"velho": "${HOME_FICTICIA}"}\n`, 'bundle velho');
     const arquivo = comLista(null, () => prepararBundleCi(p.carregado, id));
     assert.equal(fs.readFileSync(arquivo, 'utf8').includes('fulana-de-teste'), false);
+  } finally { p.limpar(); }
+});
+
+test('DB6: block lê binário commitado e texto -diff, reprova o verify e não grava o bundle', () => {
+  const { p, id, wt } = cenario('db6', 'block');
+  try {
+    fs.writeFileSync(path.join(wt, 'dados.bin'), Buffer.concat([
+      Buffer.from([0, 1, 2]), Buffer.from(` ${TERMO_FICTICIO}\n`),
+    ]));
+    fs.writeFileSync(path.join(wt, '.gitattributes'), 'notas.txt -diff\n');
+    fs.writeFileSync(path.join(wt, 'notas.txt'), `${TERMO_FICTICIO}\n`);
+    assert.ok(exec('git', ['add', '--', 'dados.bin', '.gitattributes', 'notas.txt'], wt).ok);
+    assert.ok(exec('git', ['commit', '-q', '-m', 'binario e menos diff'], wt).ok);
+
+    comLista([TERMO_FICTICIO], () => {
+      const verify = verificar(p.carregado, id, { soClaims: true });
+      assert.equal(verify.ok, false);
+      assert.deepEqual(verify.motivos, ['policy.violation']);
+      assert.deepEqual(verify.dadoPrivado?.varredura.achados.map((a) => [a.arquivo, a.padrao]),
+        [['dados.bin', 'lista-local'], ['notas.txt', 'lista-local']]);
+
+      let erro = '';
+      try { prepararBundleCi(p.carregado, id); } catch (e) { erro = (e as Error).message; }
+      assert.match(erro, /^privado\.achado: o bundle nao foi gerado/);
+      assert.equal(fs.existsSync(path.join(wt, '.ork-ci', `${id}.json`)), false);
+    });
   } finally { p.limpar(); }
 });

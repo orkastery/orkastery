@@ -3,9 +3,9 @@
  * local. O arquivo entra nas exceções versionadas por caminho, só para os padrões genéricos.
  */
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { spawnSync } from 'node:child_process';
+import { after, test } from 'node:test';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { dirTemporario } from './apoio';
 import { exec } from '../src/util';
@@ -20,6 +20,18 @@ const EMAIL_FICTICIO = 'contato@empresa-ficticia.com.br';
 const MAQUINA_FICTICIA = 'fulana-laptop';
 const TERMO_FICTICIO = 'tralala-quarenta-e-dois';
 
+const temporarios = new Set<string>();
+
+function temporario(nome: string): string {
+  const dir = dirTemporario(nome);
+  temporarios.add(dir);
+  return dir;
+}
+
+after(() => {
+  for (const dir of temporarios) fs.rmSync(dir, { recursive: true, force: true });
+});
+
 function git(dir: string, ...args: string[]): string {
   const r = exec('git', args, dir);
   assert.ok(r.ok, `git ${args.join(' ')}: ${r.stderr}`);
@@ -28,7 +40,7 @@ function git(dir: string, ...args: string[]): string {
 
 /** Um repositório de teste com os arquivos dados, commitados. */
 function repo(nome: string, arquivos: Record<string, string>): string {
-  const dir = dirTemporario(`dado-privado-${nome}`);
+  const dir = temporario(`dado-privado-${nome}`);
   git(dir, 'init', '-q', '-b', 'main');
   git(dir, 'config', 'user.email', 'teste@orkastery.local');
   git(dir, 'config', 'user.name', 'Teste Orkastery');
@@ -48,7 +60,7 @@ function escrever(dir: string, arquivos: Record<string, string>): void {
 
 /** Uma lista local num arquivo fora do repositório. */
 function lista(...termos: string[]): string {
-  const arquivo = path.join(dirTemporario('dado-privado-lista'), 'termos-privados.txt');
+  const arquivo = path.join(temporario('dado-privado-lista'), 'termos-privados.txt');
   fs.writeFileSync(arquivo, termos.join('\n') + '\n', { mode: 0o600 });
   return arquivo;
 }
@@ -107,27 +119,25 @@ test('DP3: nome de arquivo com termo da lista local é achado de nome, e o camin
 
 test('DP4: sem a lista local, os padrões genéricos seguem e a saída diz que ela está ausente e onde foi procurada', () => {
   const dir = repo('sem-lista', { 'a.txt': `${EMAIL_FICTICIO}\n` });
-  const antes = process.env.ORK_USUARIO_DIR;
-  // Uma pasta que não existe dentro da pasta pessoal: nada é escrito nela, e o caminho sai com `~`.
-  process.env.ORK_USUARIO_DIR = path.join(os.homedir(), `.ork-teste-inexistente-${process.pid}`);
-  try {
-    const env = { ...process.env };
-    delete env.ORK_TERMOS_PRIVADOS;
-    const c = contextoDaVarredura(dir, dir, env);
-    assert.ok(c.ok);
-    const v = varrerArvore(c.valor);
-    assert.deepEqual(padroes(v), ['email']);
-    assert.equal(v.listaLocal.presente, false);
-    assert.deepEqual(v.listaLocal.procurada, ['~/.orkastery/termos-privados.txt', '.orkastery/termos-privados.txt']);
-    const texto = relatorioDoDadoPrivado(v).join('\n');
-    assert.match(texto, /lista local {2}ausente \(procurada em ~\/\.orkastery\/termos-privados\.txt e \.orkastery\/termos-privados\.txt\); só os padrões genéricos \(home, email, hostname\)/);
-  } finally {
-    if (antes === undefined) delete process.env.ORK_USUARIO_DIR; else process.env.ORK_USUARIO_DIR = antes;
-  }
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ORK_USUARIO_DIR: path.join(temporario('dado-privado-usuario'), 'inexistente'),
+  };
+  delete env.ORK_TERMOS_PRIVADOS;
+  delete env.ORKASTERY_HOME;
+  const c = contextoDaVarredura(dir, dir, env);
+  assert.ok(c.ok);
+  const v = varrerArvore(c.valor);
+  assert.deepEqual(padroes(v), ['email']);
+  assert.equal(v.listaLocal.presente, false);
+  assert.deepEqual(v.listaLocal.procurada,
+    ['ORK_USUARIO_DIR/termos-privados.txt', '.orkastery/termos-privados.txt']);
+  const texto = relatorioDoDadoPrivado(v).join('\n');
+  assert.match(texto, /lista local {2}ausente \(procurada em ORK_USUARIO_DIR\/termos-privados\.txt e \.orkastery\/termos-privados\.txt\); só os padrões genéricos \(home, email, hostname\)/);
 });
 
 test('DP5: a lista local: a variável troca os caminhos, termo curto é ignorado e contado, # comenta, sem caixa, e a lista versionada é recusada', () => {
-  const pasta = dirTemporario('dado-privado-lista-pasta');
+  const pasta = temporario('dado-privado-lista-pasta');
   const arquivo = path.join(pasta, 'meus-termos.txt');
   fs.writeFileSync(arquivo, `# comentário com ${TERMO_FICTICIO}\nab\n\n  Orion-Ficticio  \norion-ficticio\nxyzzy\n`, { mode: 0o600 });
   const l = lerListaLocal(null, null, { ORK_TERMOS_PRIVADOS: arquivo });
@@ -226,6 +236,11 @@ test('DP10: arquivo de exceções fora do contrato recusa a varredura com o moti
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', motivo: 'm' }] }, /excecoes\[0\] sem valor\/trecho/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', valor: '*', motivo: 'm' }] }, /valor não pode ser curinga global/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', caminho: '**', valor: '/home/x', motivo: 'm' }] }, /caminho não pode ser curinga global/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'email', valor: '**', motivo: 'm' }] }, /valor equivale a curinga global para email/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'email', valor: '*@*', motivo: 'm' }] }, /valor equivale a curinga global para email/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', valor: '/home/*', motivo: 'm' }] }, /valor equivale a curinga global para home/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'hostname', valor: '**', motivo: 'm' }] }, /valor equivale a curinga global para hostname/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'email', caminho: '**/*', valor: 'contato@empresa-ficticia.com.br', motivo: 'm' }] }, /caminho equivale a curinga global/],
     [{ contrato: 'ork.privado/v1', extra: 1 }, /chave desconhecida: extra/],
     [{ contrato: 'ork.privado/v1', emailsPermitidos: ['antigo@example.com'] }, /emailsPermitidos\[0\] não é um objeto/],
     [{ contrato: 'ork.privado/v1', emailsPermitidos: [{ valor: '*@empresa.test', motivo: 'amplo' }] }, /endereço exato, sem curinga/],
@@ -345,7 +360,7 @@ test('DP15: exceção por caminho e padrão cobre só o trecho dito e não escon
 });
 
 test('DP16: a lista local exige arquivo comum do usuário com 0600 e nunca expõe o caminho indicado nem seu conteúdo', () => {
-  const pasta = dirTemporario('dado-privado-lista-segura');
+  const pasta = temporario('dado-privado-lista-segura');
   const termo = 'marcador-privado-ficticio';
   const arquivo = path.join(pasta, `${termo}.txt`);
   fs.writeFileSync(arquivo, `${termo}\n`, { mode: 0o600 });
@@ -379,4 +394,52 @@ test('DP16: a lista local exige arquivo comum do usuário com 0600 e nunca expõ
   } finally {
     Object.defineProperty(process, 'getuid', { configurable: true, value: getuid });
   }
+});
+
+test('DP17: e-mail depois de URL encerrada por JSON, CSV, query ou fragmento é achado; credencial da autoridade não é', () => {
+  const dir = repo('email-depois-url', {});
+  const texto = [
+    `{"url":"https://site-ficticio.com","email":"${EMAIL_FICTICIO}"}`,
+    `https://site-ficticio.com,${EMAIL_FICTICIO}`,
+    `https://site-ficticio.com?email=${EMAIL_FICTICIO}`,
+    `https://site-ficticio.com#${EMAIL_FICTICIO}`,
+    'https://usuario:senha@host-ficticio.com/caminho',
+  ].join('\n') + '\n';
+  const v = varrerTexto(contexto(dir), 'eventos.txt', texto);
+  assert.deepEqual(v.achados.map((a) => [a.linha, a.padrao]),
+    [[1, 'email'], [2, 'email'], [3, 'email'], [4, 'email']]);
+});
+
+test('DP18: o diff lê conteúdo binário e texto marcado -diff sem textconv', () => {
+  const arquivoDaLista = lista(TERMO_FICTICIO);
+  const dir = repo('diff-binario', { 'base.txt': 'limpo\n' });
+  const base = git(dir, 'rev-parse', 'HEAD');
+  fs.writeFileSync(path.join(dir, 'dados.bin'), Buffer.concat([
+    Buffer.from([0, 1, 2]), Buffer.from(` ${TERMO_FICTICIO} ${EMAIL_FICTICIO}\n`),
+  ]));
+  escrever(dir, {
+    '.gitattributes': 'notas.txt -diff\n',
+    'notas.txt': `${TERMO_FICTICIO} ${EMAIL_FICTICIO}\n`,
+  });
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-q', '-m', 'binario e menos diff');
+  const v = varrerDiff(contexto(dir, arquivoDaLista), { sha: base, ref: 'main' });
+  assert.deepEqual(v.achados.map((a) => [a.arquivo, a.padrao]), [
+    ['dados.bin', 'lista-local'], ['dados.bin', 'email'],
+    ['notas.txt', 'lista-local'], ['notas.txt', 'email'],
+  ]);
+});
+
+test('DP19: FIFO no lugar da lista local é recusado sem bloquear a varredura', () => {
+  const pasta = temporario('dado-privado-lista-fifo');
+  const fifo = path.join(pasta, 'termos-privados.txt');
+  const criado = exec('mkfifo', ['-m', '600', fifo], pasta);
+  assert.ok(criado.ok, criado.stderr);
+  const modulo = path.resolve(__dirname, '../src/dado-privado.js');
+  const filho = spawnSync(process.execPath, ['-e',
+    `const {lerListaLocal}=require(${JSON.stringify(modulo)});` +
+    `const r=lerListaLocal(null,null,{ORK_TERMOS_PRIVADOS:${JSON.stringify(fifo)}});` +
+    'process.stdout.write(JSON.stringify(r));'], { encoding: 'utf8', timeout: 2000 });
+  assert.equal(filho.status, 0, `${filho.signal ?? ''} ${filho.stderr}`);
+  assert.match(filho.stdout, /não é arquivo comum/);
 });
