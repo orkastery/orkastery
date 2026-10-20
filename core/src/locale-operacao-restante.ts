@@ -402,6 +402,78 @@ export const OPERACAO_RESTANTE_PT_BR = {
     metade: 'metade comportamental (o agente resiste a desculpa?): unavailable, julgada por humano ou por modelo, nunca por este runner',
     veredito: (ok: boolean) => `VEREDITO: ${ok ? 'verde' : 'vermelho'}`,
   },
+  memory: {
+    estado: {
+      titulo: 'Regime de memoria do projeto', pedido: (v: string) => `  pedido no manifesto   ${v}`,
+      efetivo: (v: string) => `  regime efetivo        ${v}`, tenant: (v: string) => `  tenant                ${v}`,
+      variavel: (v: string) => `  variavel da base      ${v || '(nao declarada)'}`,
+      dsn: (sim: boolean) => `  DSN no ambiente       ${sim ? 'sim (valor nunca impresso)' : 'nao'}`,
+      cli: (v: string) => `  cli do OrkMind        ${v}`, degradacao: (v: string) => `  degradacao: ${v}`,
+      correcao: (v: string) => `    correcao: ${v}`,
+      continua1: '  O ciclo NAO para por isso: em regime files o handoff continua triado em 3 niveis,',
+      continua2: '  os ponteiros continuam `path#ancora` e `ork recall` continua resolvendo.',
+      colecoes: (v: string) => `  colecoes gravadas: ${v}`,
+      governanca: '  governanca: source=agent; decision/human exige human_gate comprovado; mandatory=false e regra nunca critical.',
+    },
+    embeddings: {
+      titulo: 'Busca por significado (embeddings, nao deterministica; o recall por tag nao muda)',
+      provider: (v: string) => `  provider              ${v}`, desligada: 'none (desligada)',
+      chave: (nome: string, presente: boolean) => `  chave                 ${nome} ${presente ? 'presente' : 'ausente'} no ambiente (valor nunca impresso)`,
+      fallback: (v: string) => `  fallback local        ${v}`, naoDeclarado: '(nao declarado)',
+      cache: (dim: number | null) => `no cache (${dim} dim)`, foraCache: 'ausente do cache',
+      deps: (v: string) => `dependencias ${v}`, depsOk: 'ok', depsAusentes: 'ausentes', depsNaoSondadas: 'nao sondadas',
+      ativo: (v: string, sondado: boolean) => `  caminho ativo         ${v}${sondado ? '' : ' (ponte nao sondada)'}`,
+      universo: (n: number, colecoes: string) => `  universo da busca     ${n} entrada(s) do tenant: ${colecoes}`,
+      fora: (v: string) => `  fora da busca         ${v}`,
+      universoFalhou: (v: string) => `  universo da busca     nao lido (${v}); cobertura nao calculada`,
+      indice: (modelo: string, dim: number, vetores: number, coerentes: number | null, desatualizados: number | null) =>
+        `  indice                ${modelo} / ${dim} dim: ${vetores} vetor(es), ${coerentes ?? '?'} coerente(s), ${desatualizados ?? '?'} desatualizado(s)`,
+      cobertura: (v: string, entradas: number) => `  cobertura             ${v} de ${entradas} entrada(s) do universo da busca`,
+      aviso: (v: string) => `  aviso                 ${v}`,
+      sondaOk: (alvo: string | null, ms: number | null) => `${alvo} respondeu em ${ms} ms`,
+      sondaFalha: (motivo: string) => `sem resposta (${motivo})`, semCaminho: 'sem caminho ativo',
+      sonda: (v: string) => `  sonda                 ${v}`, motivo: (v: string) => `  motivo                ${v}`,
+    },
+    sync: {
+      titulo: (regime: string, thread: string | null) =>
+        `Sincronizacao de memoria (regime ${regime})${thread ? ` da thread ${thread}` : ''}`,
+      perfil: (perfil: string, fora: string) => `Perfil: ${perfil}; fora do perfil: ${fora || '(nenhuma)'}`,
+      pendente: (motivo: string) => `Publicacao pendente: ${motivo}`,
+      entradas: (nome: string, total: number, detalhe: string) => `  ${nome.padEnd(10)} ${total} entrada(s): ${detalhe}`,
+      humanos: (elegiveis: number, excluidos: number, falhas: number) =>
+        `  human_gate ${elegiveis} elegiveis, ${excluidos} excluidos, ${falhas} falhas`,
+      gravacao: (nome: string, valor: string) => `  ${nome.padEnd(10)} ${valor}`,
+      jaExiste: 'ja existente', gravado: 'gravado', naoGravado: (v: string) => `nao gravado: ${v}`,
+      nada: '(nada a gravar)', total: (n: number, falhas: number) => `  total ${n} tentativa(s), ${falhas} sem gravacao`,
+      correcao: (v: string) => `  correcao: ${v}`,
+    },
+    indice: {
+      custoNaoEstimado: 'nao estimado', semModelo: '(sem modelo)',
+      titulo: (alvo: string, dry: boolean, modelo: string, dim: number | null) =>
+        `Indice vetorial (${alvo}${dry ? ', --dry-run' : ''}): ${modelo}${dim ? ` / ${dim} dim` : ''}`,
+      universo: (n: number, colecoes: string, coerentes: number) =>
+        `  universo da busca    ${n} entrada(s): ${colecoes}; coerentes ${coerentes}`,
+      fora: (v: string) => `  fora da busca        ${v}`,
+      embedados: (n: number, reescritos: number, removidos: number) =>
+        `  embedados            ${n} (reescritos ${reescritos}); removidos ${removidos}`,
+      recusados: (n: number, limite: number) =>
+        `  fora do indice       ${n} recusada(s) por padrao de segredo, ${limite} acima do limite`,
+      truncados: (n: number) => `  truncados            ${n} acima do contexto do modelo local, embedados pelo comeco`,
+      estimativa: (tokens: number, custo: string, chamadas: number) =>
+        `  estimativa           ${tokens} token(s), ${custo}; chamadas ao provider ${chamadas}`,
+      arquivo: (v: string) => `  arquivo              ${v}`, motivo: (m: string, d: string) => `  motivo               ${m}: ${d}`,
+      foraMedido: (injecao: number, expiradas: number, outras: number) =>
+        `${injecao} com injection_risk e ${expiradas} expirada(s) (governanca da biblioteca), ${outras} em outras colecoes (fora da busca do ork); nada disso vai ao embed`,
+      foraNaoMedido: 'nao medido nesta base',
+    },
+    busca: {
+      titulo: (modo: string, origem: string, modelo: string) =>
+        `Busca por significado (NAO deterministica; modo ${modo}, origem ${origem}${modelo ? ` ${modelo}` : ''})`,
+      motivo: (v: string, detalhe: string) => `  motivo: ${v}${detalhe ? `; ${detalhe}` : ''}`,
+      detalhe: (v: string) => `  detalhe: ${v}`, similaridade: (v: number) => `  similaridade ${v}`,
+      resumo: (n: number) => `  ${n} resultado(s); busca por tag continua em ork memory search --tags`,
+    },
+  },
 };
 
 export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
@@ -807,5 +879,73 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
       `skills: ${skills} | cases: ${cases} | assertions: ${assertions} | failures: ${failures}`,
     metade: 'behavioral half (does the agent resist the excuse?): unavailable, judged by a human or a model, never by this runner',
     veredito: (ok) => `VERDICT: ${ok ? 'green' : 'red'}`,
+  },
+  memory: {
+    estado: {
+      titulo: 'Project memory regime', pedido: (v) => `  requested in manifest ${v}`,
+      efetivo: (v) => `  effective regime      ${v}`, tenant: (v) => `  tenant                ${v}`,
+      variavel: (v) => `  database variable     ${v || '(not declared)'}`,
+      dsn: (yes) => `  DSN in environment    ${yes ? 'yes (value never printed)' : 'no'}`,
+      cli: (v) => `  OrkMind CLI           ${v}`, degradacao: (v) => `  degradation: ${v}`,
+      correcao: (v) => `    fix: ${v}`,
+      continua1: '  The cycle does NOT stop because of this: in files regime the handoff remains sorted into 3 tiers,',
+      continua2: '  pointers remain `path#anchor`, and `ork recall` keeps resolving them.',
+      colecoes: (v) => `  stored collections: ${v}`,
+      governanca: '  governance: source=agent; decision/human requires a proven human_gate; mandatory=false and rule is never critical.',
+    },
+    embeddings: {
+      titulo: 'Search by meaning (embeddings, non-deterministic; tag recall does not change)',
+      provider: (v) => `  provider              ${v}`, desligada: 'none (disabled)',
+      chave: (name, present) => `  key                   ${name} ${present ? 'present' : 'missing'} in environment (value never printed)`,
+      fallback: (v) => `  local fallback        ${v}`, naoDeclarado: '(not declared)',
+      cache: (dim) => `in cache (${dim} dim)`, foraCache: 'missing from cache',
+      deps: (v) => `dependencies ${v}`, depsOk: 'ok', depsAusentes: 'missing', depsNaoSondadas: 'not probed',
+      ativo: (v, probed) => `  active path           ${v}${probed ? '' : ' (bridge not probed)'}`,
+      universo: (n, collections) => `  search universe       ${n} tenant entry(ies): ${collections}`,
+      fora: (v) => `  outside search        ${v}`,
+      universoFalhou: (v) => `  search universe       not read (${v}); coverage not calculated`,
+      indice: (model, dim, vectors, coherent, stale) =>
+        `  index                 ${model} / ${dim} dim: ${vectors} vector(s), ${coherent ?? '?'} coherent, ${stale ?? '?'} stale`,
+      cobertura: (v, entries) => `  coverage              ${v} of ${entries} search-universe entry(ies)`,
+      aviso: (v) => `  warning               ${v}`,
+      sondaOk: (target, ms) => `${target} answered in ${ms} ms`,
+      sondaFalha: (reason) => `no response (${reason})`, semCaminho: 'no active path',
+      sonda: (v) => `  probe                 ${v}`, motivo: (v) => `  reason                ${v}`,
+    },
+    sync: {
+      titulo: (regime, thread) => `Memory synchronization (${regime} regime)${thread ? ` for thread ${thread}` : ''}`,
+      perfil: (profile, outside) => `Profile: ${profile}; outside profile: ${outside || '(none)'}`,
+      pendente: (reason) => `Publication pending: ${reason}`,
+      entradas: (name, total, detail) => `  ${name.padEnd(10)} ${total} entry(ies): ${detail}`,
+      humanos: (eligible, excluded, failures) =>
+        `  human_gate ${eligible} eligible, ${excluded} excluded, ${failures} failures`,
+      gravacao: (name, value) => `  ${name.padEnd(10)} ${value}`,
+      jaExiste: 'already exists', gravado: 'stored', naoGravado: (v) => `not stored: ${v}`,
+      nada: '(nothing to store)', total: (n, failures) => `  total ${n} attempt(s), ${failures} not stored`,
+      correcao: (v) => `  fix: ${v}`,
+    },
+    indice: {
+      custoNaoEstimado: 'not estimated', semModelo: '(no model)',
+      titulo: (target, dry, model, dim) =>
+        `Vector index (${target}${dry ? ', --dry-run' : ''}): ${model}${dim ? ` / ${dim} dim` : ''}`,
+      universo: (n, collections, coherent) =>
+        `  search universe      ${n} entry(ies): ${collections}; coherent ${coherent}`,
+      fora: (v) => `  outside search       ${v}`,
+      embedados: (n, rewritten, removed) => `  embedded             ${n} (rewritten ${rewritten}); removed ${removed}`,
+      recusados: (n, limit) => `  outside index         ${n} rejected for secret patterns, ${limit} above the limit`,
+      truncados: (n) => `  truncated             ${n} above the local model context, embedded from the beginning`,
+      estimativa: (tokens, cost, calls) => `  estimate              ${tokens} token(s), ${cost}; provider calls ${calls}`,
+      arquivo: (v) => `  file                  ${v}`, motivo: (m, d) => `  reason                ${m}: ${d}`,
+      foraMedido: (injection, expired, others) =>
+        `${injection} with injection_risk and ${expired} expired (library governance), ${others} in other collections (outside ork search); none goes to embedding`,
+      foraNaoMedido: 'not measured in this database',
+    },
+    busca: {
+      titulo: (mode, source, model) =>
+        `Search by meaning (NON-deterministic; mode ${mode}, source ${source}${model ? ` ${model}` : ''})`,
+      motivo: (v, detail) => `  reason: ${v}${detail ? `; ${detail}` : ''}`,
+      detalhe: (v) => `  detail: ${v}`, similaridade: (v) => `  similarity ${v}`,
+      resumo: (n) => `  ${n} result(s); tag search remains available with ork memory search --tags`,
+    },
   },
 };

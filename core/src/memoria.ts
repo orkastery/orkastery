@@ -27,7 +27,7 @@ import { CONTRATO_ONBOARDING, ETAPAS_ONBOARDING, jsonCanonico, lerOnboarding } f
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { publicarGatesHumanos, ResultadoDeMemoriaHumana } from './memoria-humana';
-import { localeAtivo, Locale } from './locale';
+import { localeAtivo, Locale, msg } from './locale';
 import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
 import { caminhoPostmortem, lerMasterLog } from './master';
 import { tagDoModo } from './modos';
@@ -1228,30 +1228,31 @@ export function publicarPropostas(
 
 /** Texto de `ork memory status`. */
 export function textoDoEstado(estado: EstadoDaMemoria): string {
+  const m = msg().operacao.restante.memory.estado;
   const linhas: string[] = [];
-  linhas.push('Regime de memoria do projeto');
+  linhas.push(m.titulo);
   linhas.push('');
-  linhas.push(`  pedido no manifesto   ${estado.pedido}`);
-  linhas.push(`  regime efetivo        ${estado.efetivo}`);
-  linhas.push(`  tenant                ${estado.tenant}`);
-  linhas.push(`  variavel da base      ${estado.variavel || '(nao declarada)'}`);
-  linhas.push(`  DSN no ambiente       ${estado.dsnPresente ? 'sim (valor nunca impresso)' : 'nao'}`);
-  linhas.push(`  cli do OrkMind        ${estado.cli}`);
+  linhas.push(m.pedido(estado.pedido));
+  linhas.push(m.efetivo(estado.efetivo));
+  linhas.push(m.tenant(estado.tenant));
+  linhas.push(m.variavel(estado.variavel));
+  linhas.push(m.dsn(estado.dsnPresente));
+  linhas.push(m.cli(estado.cli));
   linhas.push('');
   if (estado.motivo) {
-    linhas.push(`  degradacao: ${estado.motivo}`);
+    linhas.push(m.degradacao(estado.motivo));
     linhas.push(`    ${estado.detalhe}`);
-    linhas.push(`    correcao: ${estado.correcao}`);
+    linhas.push(m.correcao(estado.correcao));
     linhas.push('');
     linhas.push(
-      '  O ciclo NAO para por isso: em regime files o handoff continua triado em 3 niveis,'
+      m.continua1
     );
-    linhas.push('  os ponteiros continuam `path#ancora` e `ork recall` continua resolvendo.');
+    linhas.push(m.continua2);
   } else {
     linhas.push(`  ${estado.detalhe}`);
     linhas.push('');
-    linhas.push(`  colecoes gravadas: ${COLECOES_DO_ORK.join(', ')}`);
-    linhas.push('  governanca: source=agent; decision/human exige human_gate comprovado; mandatory=false e regra nunca critical.');
+    linhas.push(m.colecoes(COLECOES_DO_ORK.join(', ')));
+    linhas.push(m.governanca);
   }
   if (estado.embeddings) linhas.push('', ...textoDosEmbeddings(estado.embeddings));
   return linhas.join('\n');
@@ -1259,68 +1260,70 @@ export function textoDoEstado(estado: EstadoDaMemoria): string {
 
 /** Secao de embeddings do `ork memory status` (I-38 D6): nome da variavel, nunca o valor. */
 export function textoDosEmbeddings(e: EstadoDeEmbeddings): string[] {
-  const linhas = ['Busca por significado (embeddings, nao deterministica; o recall por tag nao muda)', ''];
-  linhas.push(`  provider              ${e.configurado ? `${e.provider} ${e.modelo} (${e.dim} dim)` : 'none (desligada)'}`);
+  const m = msg().operacao.restante.memory.embeddings;
+  const linhas = [m.titulo, ''];
+  linhas.push(m.provider(e.configurado ? `${e.provider} ${e.modelo} (${e.dim} dim)` : m.desligada));
   if (e.configurado) {
-    linhas.push(`  chave                 ${e.variavelDaChave} ${e.chavePresente ? 'presente' : 'ausente'} no ambiente (valor nunca impresso)`);
-    linhas.push(`  fallback local        ${e.fallback.modelo ? `${e.fallback.modelo}: ${e.fallback.presente ? `no cache (${e.fallback.dim} dim)` : 'ausente do cache'}, ` +
-      `dependencias ${e.fallback.dependencias ? 'ok' : e.sondado ? 'ausentes' : 'nao sondadas'}` : '(nao declarado)'}`);
-    linhas.push(`  caminho ativo         ${e.ativo}${e.sondado ? '' : ' (ponte nao sondada)'}`);
+    linhas.push(m.chave(e.variavelDaChave, e.chavePresente));
+    linhas.push(m.fallback(e.fallback.modelo ? `${e.fallback.modelo}: ${e.fallback.presente ? m.cache(e.fallback.dim) : m.foraCache}, ` +
+      m.deps(e.fallback.dependencias ? m.depsOk : e.sondado ? m.depsAusentes : m.depsNaoSondadas) : m.naoDeclarado));
+    linhas.push(m.ativo(e.ativo, e.sondado));
   }
   if (e.universo) {
     const colecoes = Object.entries(e.universo.porColecao).map(([c, n]) => `${c} ${n}`).join(', ');
-    linhas.push(`  universo da busca     ${e.entradas} entrada(s) do tenant: ${colecoes}`);
-    linhas.push(`  fora da busca         ${textoForaDaBusca(e.universo.foraDaBusca)}`);
+    linhas.push(m.universo(e.entradas!, colecoes));
+    linhas.push(m.fora(textoForaDaBusca(e.universo.foraDaBusca)));
   } else if (e.falhaDoUniverso) {
-    linhas.push(`  universo da busca     nao lido (${e.falhaDoUniverso}); cobertura nao calculada`);
+    linhas.push(m.universoFalhou(e.falhaDoUniverso));
   }
   for (const i of e.indices) {
-    linhas.push(`  indice                ${i.modelo} / ${i.dim} dim: ${i.vetores} vetor(es), ${i.coerentes ?? '?'} coerente(s), ${i.desatualizados ?? '?'} desatualizado(s)`);
+    linhas.push(m.indice(i.modelo, i.dim, i.vetores, i.coerentes ?? null, i.desatualizados ?? null));
   }
   if (e.entradas !== null) {
-    linhas.push(`  cobertura             ${e.cobertura === null ? '-' : `${Math.round(e.cobertura * 1000) / 10}%`} de ${e.entradas} entrada(s) do universo da busca`);
+    linhas.push(m.cobertura(e.cobertura === null ? '-' : `${Math.round(e.cobertura * 1000) / 10}%`, e.entradas));
   }
-  if (e.aviso) linhas.push(`  aviso                 ${e.aviso}`);
+  if (e.aviso) linhas.push(m.aviso(e.aviso));
   if (e.sonda) {
-    linhas.push(`  sonda                 ${e.sonda.ok ? `${e.sonda.alvo} respondeu em ${e.sonda.latenciaMs} ms` : `sem resposta (${e.sonda.motivo ?? 'sem caminho ativo'})`}`);
+    linhas.push(m.sonda(e.sonda.ok ? m.sondaOk(e.sonda.alvo, e.sonda.latenciaMs) : m.sondaFalha(e.sonda.motivo ?? m.semCaminho)));
   }
   if (e.motivo) {
-    linhas.push(`  motivo                ${e.motivo}`);
+    linhas.push(m.motivo(e.motivo));
     linhas.push(`    ${e.detalhe}`);
-    linhas.push(`    correcao: ${e.correcao}`);
+    linhas.push(msg().operacao.restante.memory.estado.correcao(e.correcao));
   } else linhas.push(`  ${e.detalhe}`);
   return linhas;
 }
 
 /** Texto de `ork memory sync`. */
 export function textoDoSync(r: ResultadoDoSync): string {
+  const m = msg().operacao.restante.memory.sync;
   const linhas: string[] = [];
-  linhas.push(`Sincronizacao de memoria (regime ${r.regime})${r.thread ? ` da thread ${r.thread}` : ''}`);
-  linhas.push(`Perfil: ${r.perfil ?? 'integral'}; fora do perfil: ${(r.colecoesForaDoPerfil ?? []).join(', ') || '(nenhuma)'}`);
-  if (r.publicacao?.estado === 'pendente') linhas.push(`Publicacao pendente: ${r.publicacao.motivo}`);
+  linhas.push(m.titulo(r.regime, r.thread));
+  linhas.push(m.perfil(r.perfil ?? 'integral', (r.colecoesForaDoPerfil ?? []).join(', ')));
+  if (r.publicacao?.estado === 'pendente') linhas.push(m.pendente(r.publicacao.motivo));
   linhas.push('');
   const linha = (nome: string, s: ResultadoDaSincronizacao): void => {
     linhas.push(
-      `  ${nome.padEnd(10)} ${s.gravadas.length} entrada(s): ${s.detalhe}`
+      m.entradas(nome, s.gravadas.length, s.detalhe)
     );
   };
   linha('decision', r.decisoes);
   linha('rule', r.policies);
-  linhas.push(`  human_gate ${r.humanos.elegiveis} elegiveis, ${r.humanos.excluidos} excluidos, ${r.humanos.falhas} falhas`);
+  linhas.push(m.humanos(r.humanos.elegiveis, r.humanos.excluidos, r.humanos.falhas));
   const um = (nome: string, g: ResultadoDeGravacao | null): void => {
     linhas.push(
-      `  ${nome.padEnd(10)} ${g ? (g.ok ? `${g.duplicada ? 'ja existente' : 'gravado'} (${g.id})` : `nao gravado: ${g.detalhe}`) : '(nada a gravar)'}`
+      m.gravacao(nome, g ? (g.ok ? `${g.duplicada ? m.jaExiste : m.gravado} (${g.id})` : m.naoGravado(g.detalhe)) : m.nada)
     );
   };
   um('handoff', r.handoff);
   um('learning', r.learning);
   um('roadmap', r.roadmap);
   linhas.push('');
-  linhas.push(`  total ${r.total} tentativa(s), ${r.falhas} sem gravacao`);
+  linhas.push(m.total(r.total, r.falhas));
   if (r.regime === 'files') {
     linhas.push('');
     linhas.push(`  ${r.estado.detalhe}`);
-    linhas.push(`  correcao: ${r.estado.correcao}`);
+    linhas.push(m.correcao(r.estado.correcao));
   }
   return linhas.join('\n');
 }

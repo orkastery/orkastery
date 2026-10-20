@@ -24,6 +24,9 @@ import { textoDasLicoes } from '../src/licoes';
 import { textoDaFabrica, textoDasOutrasMaquinas } from '../src/fabrica-estado';
 import { textoDoEstadoDaBatida } from '../src/fabrica-batida';
 import { textoDoEval } from '../src/evalrunner';
+import { textoDoEstado } from '../src/memoria';
+import { textoDoIndice } from '../src/indice-vetorial';
+import { textoDaBuscaPorSignificado } from '../src/busca-semantica';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -290,4 +293,26 @@ test('F3d: eval localiza o parecer e mantem codigos de falha', () => {
   assert.match(en, /behavioral half/);
   assert.match(en, /VERDICT: red/);
   assert.equal(cobreLocale(['eval'], {}), true);
+});
+
+test('F3d: memory localiza estado, indice e busca mantendo dados e codigos', () => {
+  const estado = { pedido: 'files', efetivo: 'files', motivo: 'dsn.env-ausente', detalhe: 'dado preservado',
+    correcao: 'comando preservado', variavel: '', dsnPresente: false, cli: 'orkmind', tenant: 'demo' } as any;
+  const indice = { alvo: 'primario', modelo: null, dim: null, arquivo: null, dryRun: true, universo: 0,
+    porColecao: {}, foraDaBusca: null, latenciaUniversoMs: null, coerentes: 0, embedados: 0, reescritos: 0,
+    removidos: 0, recusados: 0, foraDoLimite: 0, truncados: 0, tokensEstimados: 0,
+    custoEstimadoUsd: null, chamadasAoProvider: 0, motivo: null, detalhe: '' } as any;
+  const busca = { texto: 'x', modo: 'hibrido', origem: 'nenhum', modeloUsado: null, deterministico: false,
+    motivo: null, detalhe: '', resultados: [], listas: { vetor: [], fts: [] }, ftsForaDoUniverso: 0,
+    coberturaDoIndice: null } as any;
+  const pt = comLocale('pt-BR', () => [textoDoEstado(estado), textoDoIndice(indice),
+    textoDaBuscaPorSignificado(busca)].join('\n'));
+  const en = comLocale('en', () => [textoDoEstado(estado), textoDoIndice(indice),
+    textoDaBuscaPorSignificado(busca)].join('\n'));
+  assert.match(pt, /^Regime de memoria/);
+  assert.match(en, /^Project memory regime/);
+  assert.match(en, /Vector index/);
+  assert.match(en, /Search by meaning/);
+  assert.match(en, /dsn\.env-ausente/);
+  assert.match(en, /dado preservado/);
 });
