@@ -4,28 +4,28 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-20T20:19:06.416Z",
+  "publicadoEm": "2026-10-20T21:01:01.331Z",
   "threads": [
     {
       "id": "ork-dsnforadoamb",
       "nome": "dsnforadoambiente",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-dsnforadoamb-full",
-      "atualizadaEm": "2026-10-20T20:19:06.015Z",
+      "atualizadaEm": "2026-10-20T21:01:00.896Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "max",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-20T21:01:01.623Z",
+        "motivo": "sessão 07ce99e9 sem processo (fantasma)"
       }
     },
     {
