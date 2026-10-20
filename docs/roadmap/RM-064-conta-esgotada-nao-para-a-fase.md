@@ -6,19 +6,19 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-13T15:30:00-03:00
+atualizado_em: 2026-10-19T23:55:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
-    pr: null
+    commit: fe590b66
+    pr: 178
 sdlc:
   thread: null
   modo: null
@@ -32,7 +32,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -186,13 +186,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-13 | Julio |
-| Documentação | Em revisão | — | 2026-10-13 | Julio |
-| Código | Branch criada | — | 2026-10-13 | Julio |
-| Testes | Em execução | — | 2026-10-13 | Julio |
-| Deploy | Não implantado | — | 2026-10-13 | Julio |
-| Exposição | Flag desligada | — | 2026-10-13 | Julio |
-| Habilitação | Pendente | — | 2026-10-13 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-19 | Julio |
+| Documentação | Em revisão | — | 2026-10-19 | Julio |
+| Código | Mesclado | commit `fe590b66` · PR #178 | 2026-10-19 | Julio |
+| Testes | Em execução | — | 2026-10-19 | Julio |
+| Deploy | Não implantado | — | 2026-10-19 | Julio |
+| Exposição | Flag desligada | — | 2026-10-19 | Julio |
+| Habilitação | Pendente | — | 2026-10-19 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -205,3 +205,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-13 | Item criado com as frentes T1 a T7 | Incidente de 13/10/2026 (I1 a I8): a conta A esgotou às 02h03 com a conta B e o Codex disponíveis, e a fábrica ficou parada até 15h00 | Julio |
+| 2026-10-19 | Estado do código corrigido de `Branch criada` para `Mesclado`, com a evidência do último merge | As fatias 1, 2 e 3 estão na `main`: `9975486e` (#173, 14/10), `8d37c75f` (#176, 19/10) e `fe590b66` (#178, 19/10). Testes seguem em execução e o ciclo não muda: a T6 e a implantação continuam abertas | Julio |
