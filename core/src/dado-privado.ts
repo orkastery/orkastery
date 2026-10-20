@@ -185,15 +185,43 @@ function globCasa(glob: string, caminho: string): boolean {
   return new RegExp(`^${re}$`, 'u').test(caminho);
 }
 
+/**
+ * Amostras distintas de cada família que uma exceção não pode cobrir inteira. O teste é pelo efeito do curinga, não
+ * pela grafia: `**`, `*@*`, `/home/*` e formas equivalentes caem na mesma regra.
+ */
+const FAMILIAS_DE_VALORES: Record<PadraoGenerico, readonly (readonly string[])[]> = {
+  home: [
+    ['/home/pessoa-a', '/home/pessoa-longa'],
+    ['/Users/pessoa-a', '/Users/pessoa-longa'],
+    ['C:\\Users\\pessoa-a', 'C:\\Users\\pessoa-longa'],
+  ],
+  email: [['a@dominio-a.com', 'nome.sobrenome+tag@sub.dominio-b.org']],
+  hostname: [['pessoa-a-pc', 'DESKTOP-AB12CD3', 'ip-10-0-1-23', 'srvabc42']],
+};
+
+function valorEquivaleACuringaGlobal(padrao: PadraoGenerico, valor: string): boolean {
+  return FAMILIAS_DE_VALORES[padrao].some((familia) => familia.every((amostra) => curingaCasa(valor, amostra)));
+}
+
+function caminhoEquivaleACuringaGlobal(caminho: string): boolean {
+  return ['arquivo.txt', 'pasta/arquivo.txt', 'pasta/interna/arquivo.txt'].every((amostra) => globCasa(caminho, amostra));
+}
+
 function emailDeExemplo(dominio: string): boolean {
   const d = dominio.toLowerCase();
   if (DOMINIOS_DE_EXEMPLO.some((e) => d === e || d.endsWith(`.${e}`))) return true;
   return TLDS_DE_EXEMPLO.has(d.slice(d.lastIndexOf('.') + 1));
 }
 
-/** O endereço começa na autoridade de uma URL, antes da primeira `/` do caminho. */
+/** O endereço começa na autoridade de uma URL, antes do caminho, query, fragmento ou delimitador do documento. */
 function naAutoridadeDeUrl(texto: string, inicio: number): boolean {
-  return /[a-z][a-z0-9+.-]*:\/\/[^/\s]*$/i.test(texto.slice(Math.max(0, inicio - 512), inicio));
+  const antes = texto.slice(Math.max(0, inicio - 512), inicio);
+  const separador = antes.lastIndexOf('://');
+  if (separador < 0) return false;
+  const prefixo = antes.slice(0, separador);
+  if (!/(?:^|[^a-z0-9+.-])[a-z][a-z0-9+.-]*$/i.test(prefixo)) return false;
+  const autoridade = antes.slice(separador + 3);
+  return !/[\s/?#"'<>\[\]{},]/u.test(autoridade);
 }
 
 /** Os casamentos dos padrões genéricos e da lista local num texto, antes das exceções. */
@@ -297,6 +325,12 @@ export function lerExcecoes(raiz: string): { ok: true; valor: ArquivoDeExcecoes 
     if (x.valor === undefined) return fora(`excecoes[${i}] sem valor/trecho`);
     if (x.valor === '*') return fora(`excecoes[${i}].valor não pode ser curinga global`);
     if (x.caminho === '**') return fora(`excecoes[${i}].caminho não pode ser curinga global`);
+    if (valorEquivaleACuringaGlobal(x.padrao as PadraoGenerico, x.valor as string)) {
+      return fora(`excecoes[${i}].valor equivale a curinga global para ${x.padrao}`);
+    }
+    if (x.caminho !== undefined && caminhoEquivaleACuringaGlobal(x.caminho as string)) {
+      return fora(`excecoes[${i}].caminho equivale a curinga global`);
+    }
     excecoes.push({ padrao: x.padrao as Excecao['padrao'], motivo: (x.motivo as string).trim(), valor: x.valor as string,
       ...(x.caminho !== undefined ? { caminho: x.caminho as string } : {}) });
   }
@@ -337,9 +371,14 @@ function relativoDentro(raiz: string, dentro: string): string | null {
 export function lerListaLocal(raizDoEstado: string | null, raiz: string | null = null,
   env: NodeJS.ProcessEnv = process.env): ListaLocal {
   const explicita = (env[VARIAVEL_DA_LISTA_LOCAL] ?? '').trim();
+  const rotuloDaPastaDoUsuario = (env.ORK_USUARIO_DIR ?? '').trim()
+    ? `ORK_USUARIO_DIR/${ARQUIVO_DA_LISTA_LOCAL}`
+    : (env.ORKASTERY_HOME ?? '').trim()
+      ? `ORKASTERY_HOME/${ARQUIVO_DA_LISTA_LOCAL}`
+      : `~/.orkastery/${ARQUIVO_DA_LISTA_LOCAL}`;
   const candidatos = explicita
     ? [{ arquivo: path.resolve(explicita), rotulo: `arquivo indicado por ${VARIAVEL_DA_LISTA_LOCAL}` }]
-    : [{ arquivo: path.join(pastaDoUsuario(), ARQUIVO_DA_LISTA_LOCAL), rotulo: `~/.orkastery/${ARQUIVO_DA_LISTA_LOCAL}` },
+    : [{ arquivo: path.join(pastaDoUsuario(env), ARQUIVO_DA_LISTA_LOCAL), rotulo: rotuloDaPastaDoUsuario },
       ...(raizDoEstado ? [{ arquivo: path.join(raizDoEstado, '.orkastery', ARQUIVO_DA_LISTA_LOCAL),
         rotulo: `.orkastery/${ARQUIVO_DA_LISTA_LOCAL}` }] : [])];
   const unicos = [...new Map(candidatos.map((c) => [c.arquivo, c])).values()];
@@ -355,7 +394,8 @@ export function lerListaLocal(raizDoEstado: string | null, raiz: string | null =
     try {
       const antes = fs.lstatSync(arquivo);
       if (antes.isSymbolicLink()) { recusada = `${rotulo} foi recusado: link simbólico não é aceito`; break; }
-      fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+      if (!antes.isFile()) { recusada = `${rotulo} foi recusado: não é arquivo comum`; break; }
+      fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
       const st = fs.fstatSync(fd);
       const uid = typeof process.getuid === 'function' ? process.getuid() : null;
       if (!st.isFile()) { recusada = `${rotulo} foi recusado: não é arquivo comum`; break; }
@@ -590,7 +630,7 @@ export function varrerDiff(contexto: ContextoDaVarredura, base: BaseDoDiff,
   const escopo: EscopoDaVarredura[] = [{ tipo: 'diff', base: base.sha, ref: base.ref }];
   const ignorar = new Set(opcoes.ignorar ?? []);
   const git = (args: string[]) => exec('git', ['-c', 'core.quotePath=false', ...args], contexto.raiz);
-  const diff = git(['diff', '--no-color', '--no-ext-diff', '--unified=0', '--no-renames', base.sha, '--']);
+  const diff = git(['diff', '--no-color', '--no-ext-diff', '--no-textconv', '--text', '--unified=0', '--no-renames', base.sha, '--']);
   const novos = git(['diff', '--name-only', '-z', '--no-renames', '--diff-filter=A', base.sha, '--']);
   const soltos = git(['ls-files', '--others', '--exclude-standard', '-z']);
   const falhou = [diff, novos, soltos].find((r) => !r.ok);
