@@ -84,6 +84,7 @@ import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
 import { CONHECIMENTO_EN, CONHECIMENTO_PT_BR } from './locale-conhecimento';
 import { FORJA_EN, FORJA_PT_BR } from './locale-forja';
 import { SETUP_EN, SETUP_PT_BR } from './locale-setup';
+import { PROJETOS_EN, PROJETOS_PT_BR } from './locale-projetos';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -115,7 +116,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'prompt list', 'prompt lint', 'prompt render', 'prompt ?',
   'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?',
   // F3d: familias restantes, acrescentadas somente quando a familia inteira entra no catalogo.
-  'modos', 'ciclos', 'setup'];
+  'modos', 'ciclos', 'setup', 'projetos'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -536,6 +537,7 @@ const PT_BR = {
     },
   },
   setup: SETUP_PT_BR,
+  projetos: PROJETOS_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -884,6 +886,7 @@ const EN: Mensagens = {
     },
   },
   setup: SETUP_EN,
+  projetos: PROJETOS_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

@@ -2646,44 +2646,45 @@ function comandoNetwork(args: Args): number {
  */
 function comandoProjetos(args: Args, projeto: string | undefined): number {
   const sub = args.posicionais[1] ?? 'list';
+  const m = msg().projetos.cli;
   if (sub === 'list' || sub === 'listar') {
     const projetos = listarProjetos();
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ contrato: CONTRATO_PROJETOS, arquivo: caminhoDoRegistro(), projetos }, null, 2));
       return 0;
     }
-    console.log(`Projetos conhecidos desta maquina (${raizParaExibir(caminhoDoRegistro())})`);
+    console.log(m.titulo(raizParaExibir(caminhoDoRegistro())));
     console.log('');
     if (projetos.length === 0) {
-      console.log('  Nenhum ainda. ork init, ork thread new e ork fabrica entrar registram; ou: ork projetos registrar <caminho>');
+      console.log(m.nenhum);
       return 0;
     }
-    console.log(tabela(['NOME', 'ABBREV', 'RAIZ', 'REMOTO', 'NO DISCO', 'ATUALIZADO'], projetos.map((p) => [
-      p.nome, p.abbrev || '-', raizParaExibir(p.raiz), p.remoto ?? 'sem remoto', p.presente ? 'sim' : 'ausente',
+    console.log(tabela([...m.cabecalho], projetos.map((p) => [
+      p.nome, p.abbrev || '-', raizParaExibir(p.raiz), p.remoto ?? m.semRemoto, p.presente ? m.sim : m.ausente,
       formatarDataHora(p.atualizadoEm)])));
     console.log('');
-    console.log('Use --projeto <nome> em qualquer comando (ORK_PROJETO vale para o shell inteiro). ' + legendaDoFuso());
+    console.log(`${m.selecao} ${legendaDoFuso()}`);
     return 0;
   }
   if (sub === 'registrar') {
     const caminho = args.posicionais[2];
-    if (caminho !== undefined && projeto !== undefined) throw new Error('uso: ork projetos registrar [caminho] (um caminho ou --projeto, não os dois)');
+    if (caminho !== undefined && projeto !== undefined) throw new Error(m.usoRegistrar);
     const alvo = caminho === undefined ? resolverProjetoAlvo({ opcao: projeto ?? null }) : null;
     const p = registrarProjeto(caminho ?? alvo?.raiz ?? process.cwd(), 'projetos registrar');
     if (args.opcoes.json === true) { console.log(JSON.stringify(p, null, 2)); return 0; }
-    console.log(`Projeto ${p.nome} (${p.abbrev || '-'}) registrado: ${raizParaExibir(p.raiz)} · ${p.remoto ?? 'sem remoto'}`);
+    console.log(m.registrado(p.nome, p.abbrev || '-', raizParaExibir(p.raiz), p.remoto ?? m.semRemoto));
     return 0;
   }
   if (sub === 'esquecer') {
     const alvo = args.posicionais[2] ?? projeto;
-    if (!alvo) throw new Error('uso: ork projetos esquecer <nome|caminho>');
+    if (!alvo) throw new Error(m.usoEsquecer);
     const sairam = esquecerProjeto(alvo);
     if (args.opcoes.json === true) { console.log(JSON.stringify(sairam, null, 2)); return 0; }
-    for (const p of sairam) console.log(`Projeto ${p.nome} esquecido: ${raizParaExibir(p.raiz)} (nada no disco foi apagado)`);
+    for (const p of sairam) console.log(m.esquecido(p.nome, raizParaExibir(p.raiz)));
     return 0;
   }
-  console.error(`subcomando desconhecido: projetos ${sub}`);
-  console.error('uso: ork projetos [--json] | projetos registrar [caminho] | projetos esquecer <nome|caminho>');
+  console.error(m.desconhecido(sub));
+  console.error(m.uso);
   return 2;
 }
 

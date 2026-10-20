@@ -28,6 +28,7 @@ import { pastaDoUsuario } from './maquina';
 import { procurarSegredos } from './policies';
 import { redigirCredenciaisUrl } from './redacao-url';
 import { exec, subirAte } from './util';
+import { msg } from './locale';
 
 export const CONTRATO_PROJETOS = 'ork.projetos/v1' as const;
 export const CONTRATO_CONSULTA = 'ork.consulta/v1' as const;
@@ -108,16 +109,18 @@ export class ErroDeProjeto extends Error {
   }
 
   get texto(): string {
+    const m = msg().projetos;
     return [
       `${this.codigo}: ${this.detalhe}`,
-      ...(this.candidatos.length ? ['Candidatos:', ...this.candidatos.map((c) => `  • ${linhaDoCandidato(c)}`)] : []),
+      ...(this.candidatos.length ? [m.candidatos, ...this.candidatos.map((c) => `  • ${linhaDoCandidato(c)}`)] : []),
       this.correcao,
     ].join('\n');
   }
 }
 
 function linhaDoCandidato(c: CandidatoDeProjeto): string {
-  return `${c.nome} (${c.abbrev || '-'}) · ${c.raiz} · ${c.remoto ?? 'sem remoto'}${c.presente ? '' : ' · ausente do disco'}`;
+  const m = msg().projetos;
+  return `${c.nome} (${c.abbrev || '-'}) · ${c.raiz} · ${c.remoto ?? m.semRemoto}${c.presente ? '' : ` · ${m.ausente}`}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -210,7 +213,7 @@ function comTrava<T>(alterar: () => T, esperaMs = 2000): T {
       let dono = 0;
       try { dono = Number(JSON.parse(fs.readFileSync(trava, 'utf8')).pid); } catch { /* trava sendo escrita */ }
       if (Number.isSafeInteger(dono) && dono > 0 && !processoVivo(dono)) { fs.rmSync(trava, { force: true }); continue; }
-      if (Date.now() >= limite) throw new Error(`registro de projetos ocupado (${trava}); tente de novo`);
+      if (Date.now() >= limite) throw new Error(msg().projetos.ocupado(trava));
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
     }
   }
@@ -229,7 +232,7 @@ function gravarRegistro(registro: RegistroDeProjetos): void {
   const dir = pastaDoUsuario(), destino = caminhoDoRegistro();
   const conteudo = JSON.stringify(registro, null, 2) + '\n';
   // Varredura final: o arquivo nunca carrega credencial, nem por um remoto mal redigido.
-  if (procurarSegredos(conteudo).length) throw new Error('registro de projetos recusado: o conteudo parece carregar segredo');
+  if (procurarSegredos(conteudo).length) throw new Error(msg().projetos.segredoConteudo);
   const temp = path.join(dir, `.${ARQUIVO}.${process.pid}.${Date.now()}.tmp`);
   try {
     fs.writeFileSync(temp, conteudo, { mode: 0o600, flag: 'wx' });
@@ -260,18 +263,18 @@ export function registrarProjeto(caminho: string, fonte: FonteDoRegistro,
     opcoes: { quando?: string; esperaMs?: number } = {}): ProjetoRegistrado {
   const achado = projetoDoCaminho(caminho);
   if (!achado) {
-    throw new ErroDeProjeto('projeto.sem-manifesto', `nenhum manifesto do ork em ${raizParaExibir(path.resolve(caminho))}`, [],
-      'Rode `ork init` na raiz do projeto antes de registrá-lo.');
+    throw new ErroDeProjeto('projeto.sem-manifesto', msg().projetos.semManifesto(raizParaExibir(path.resolve(caminho))), [],
+      msg().projetos.rodeInit);
   }
   const { raiz: canonica, carregado } = achado;
-  if (carregado.erros.length) throw new Error(`registro de projetos: manifesto inválido em ${carregado.caminho}`);
+  if (carregado.erros.length) throw new Error(msg().projetos.manifestoInvalido(carregado.caminho));
   const quando = opcoes.quando ?? new Date().toISOString();
   const novo: Omit<ProjetoRegistrado, 'registradoEm'> = {
     nome: carregado.manifesto.project.name, abbrev: carregado.manifesto.project.abbrev, raiz: canonica,
     remoto: remotoDoProjeto(canonica, carregado.manifesto.fabrica?.remoto ?? 'origin'), atualizadoEm: quando, fonte,
   };
   if (procurarSegredos(JSON.stringify(novo)).length) {
-    throw new Error('registro de projetos recusado: a entrada parece carregar segredo');
+    throw new Error(msg().projetos.segredoEntrada);
   }
   return comTrava(() => {
     const registro = lerRegistroDeProjetos();
@@ -317,12 +320,11 @@ export function registrarProjetoEmSilencio(raiz: string, fonte: FonteDoRegistro,
   const efemero = opcoes.efemero ?? diretorioEfemero;
   try {
     if (efemero(raiz) && !efemero(pastaDoUsuario())) {
-      return `aviso: projeto em pasta temporária (${raizParaExibir(path.resolve(raiz))}) não entra no registro desta máquina ` +
-        `(${caminhoDoRegistro()}); para registrá-lo mesmo assim: ork projetos registrar ${raizParaExibir(path.resolve(raiz))}`;
+      return msg().projetos.avisoTemporario(raizParaExibir(path.resolve(raiz)), caminhoDoRegistro());
     }
     registrarProjeto(raiz, fonte);
     return null;
-  } catch (e) { return `aviso: projeto não registrado em ${caminhoDoRegistro()} (${(e as Error).message})`; }
+  } catch (e) { return msg().projetos.avisoRegistro(caminhoDoRegistro(), (e as Error).message); }
 }
 
 /** Tira do registro por nome, abbrev ou caminho. Nada casou e recusa, com os registrados. */
@@ -333,8 +335,8 @@ export function esquecerProjeto(alvo: string, cwd = process.cwd()): ProjetoRegis
     const porCaminho = ehCaminho(valor) ? caminhoPossivel(valor, cwd) : null;
     const sai = registro.projetos.filter((p) => porCaminho ? p.raiz === porCaminho : casaNome(p, valor));
     if (!sai.length) {
-      throw new ErroDeProjeto('projeto.desconhecido', `"${valor}" não está no registro de projetos desta máquina`,
-        registro.projetos.map(candidatoDoRegistro), 'Veja os registrados com `ork projetos`.');
+      throw new ErroDeProjeto('projeto.desconhecido', msg().projetos.naoRegistrado(valor),
+        registro.projetos.map(candidatoDoRegistro), msg().projetos.vejaRegistrados);
     }
     registro.projetos = registro.projetos.filter((p) => !sai.includes(p));
     registro.atualizadoEm = new Date().toISOString();
@@ -374,34 +376,33 @@ function candidatoDoRegistro(p: ProjetoRegistrado): CandidatoDeProjeto {
 function raizPorCaminho(valor: string, cwd: string): string {
   const dir = path.resolve(cwd, expandirHome(valor));
   if (!fs.existsSync(dir)) {
-    throw new ErroDeProjeto('projeto.sem-manifesto', `o caminho ${raizParaExibir(dir)} não existe`, [],
-      'Informe o caminho da raiz de um projeto com orkastery.yaml, ou o nome de um projeto registrado (`ork projetos`).');
+    throw new ErroDeProjeto('projeto.sem-manifesto', msg().projetos.caminhoNaoExiste(raizParaExibir(dir)), [],
+      msg().projetos.informeRaiz);
   }
   const achada = subirAte(dir, NOME_MANIFESTO) ?? subirAte(dir, NOME_MANIFESTO_LEGADO);
   if (!achada) {
-    throw new ErroDeProjeto('projeto.sem-manifesto', `nenhum orkastery.yaml em ${raizParaExibir(dir)} nem acima dele`, [],
-      'Rode `ork init` na raiz do projeto, ou informe o nome de um projeto registrado (`ork projetos`).');
+    throw new ErroDeProjeto('projeto.sem-manifesto', msg().projetos.yamlAusente(raizParaExibir(dir)), [], msg().projetos.initOuNome);
   }
   return fs.realpathSync(achada);
 }
 
 function raizPorNome(valor: string): string {
   if (!PADRAO_DO_NOME_DE_PROJETO.test(valor)) {
-    throw new ErroDeProjeto('projeto.desconhecido', `"${valor}" não é um nome de projeto válido`,
-      lerRegistroDeProjetos().projetos.map(candidatoDoRegistro), 'Use o nome ou o abbrev de um projeto de `ork projetos`.');
+    throw new ErroDeProjeto('projeto.desconhecido', msg().projetos.nomeInvalido(valor),
+      lerRegistroDeProjetos().projetos.map(candidatoDoRegistro), msg().projetos.useNome);
   }
   const registrados = lerRegistroDeProjetos().projetos;
   const casados = registrados.filter((p) => casaNome(p, valor));
   const presentes = casados.filter((p) => manifestoPresente(p.raiz));
   if (presentes.length === 1) return presentes[0].raiz;
   if (presentes.length > 1) {
-    throw new ErroDeProjeto('projeto.ambiguo', `"${valor}" casa ${presentes.length} projetos registrados nesta máquina`,
-      presentes.map(candidatoDoRegistro), 'Repita com o caminho da raiz (`--projeto <caminho>`), ou tire a cópia que sobra com `ork projetos esquecer <caminho>`.');
+    throw new ErroDeProjeto('projeto.ambiguo', msg().projetos.ambiguo(valor, presentes.length),
+      presentes.map(candidatoDoRegistro), msg().projetos.escolhaRaiz);
   }
   throw new ErroDeProjeto('projeto.desconhecido',
-    casados.length ? `"${valor}" está registrado, mas o manifesto não está mais na raiz` : `"${valor}" não está no registro de projetos desta máquina`,
+    casados.length ? msg().projetos.semManifestoRegistrado(valor) : msg().projetos.naoRegistrado(valor),
     registrados.map(candidatoDoRegistro),
-    'Veja os registrados com `ork projetos`; registre uma cópia com `ork projetos registrar <caminho>`.');
+    msg().projetos.registreCopia);
 }
 
 /**
@@ -461,14 +462,14 @@ export function resolverProjetoAlvo(entrada: EntradaDaResolucao = {}): ProjetoAl
   if (entrada.opcao !== undefined && entrada.opcao !== null) {
     const valor = entrada.opcao.trim();
     if (!valor) {
-      throw new ErroDeProjeto('projeto.desconhecido', '--projeto sem valor', lerRegistroDeProjetos().projetos.map(candidatoDoRegistro),
-        'Uso: --projeto <nome|caminho>; os nomes registrados estão em `ork projetos`.');
+      throw new ErroDeProjeto('projeto.desconhecido', msg().projetos.opcaoSemValor,
+        lerRegistroDeProjetos().projetos.map(candidatoDoRegistro), msg().projetos.usoOpcao);
     }
     // D4 (F1 do CHECK): no host, quem pede escolhe entre os projetos da maquina pelo NOME. Caminho nao
     // entra por nenhuma tool, nem pela que repassa os argumentos como dados (os scripts do Hermes).
     if (host && ehCaminho(valor)) {
-      throw new ErroDeProjeto('projeto.desconhecido', `no host o projeto vem pelo nome registrado; o caminho "${valor}" não é aceito`,
-        lerRegistroDeProjetos().projetos.map(candidatoDoRegistro), 'Use o nome de um projeto de `ork projetos` (ex.: --projeto orkastery).');
+      throw new ErroDeProjeto('projeto.desconhecido', msg().projetos.hostCaminho(valor),
+        lerRegistroDeProjetos().projetos.map(candidatoDoRegistro), msg().projetos.hostUseNome);
     }
     return { raiz: resolverValor(valor, cwd), origem: 'opcao', pedido: valor };
   }
@@ -479,12 +480,10 @@ export function resolverProjetoAlvo(entrada: EntradaDaResolucao = {}): ProjetoAl
     if (candidatos.length === 1) return { raiz: copiaDoCwd(candidatos[0].raiz, cwd), origem: 'unico-conhecido', pedido: null };
     if (candidatos.length > 1) {
       throw new ErroDeProjeto('projeto.escolha',
-        `${candidatos.length} projetos conhecidos nesta máquina e nenhum foi pedido; o ork não escolhe pelo diretório do gateway`,
-        candidatos.map((c) => c.candidato), `Repita com o projeto pedido: parâmetro \`projeto\` da tool, ou \`--projeto <nome>\`. ${OFERTA_DA_REDE}`);
+        msg().projetos.precisaEscolher(candidatos.length), candidatos.map((c) => c.candidato),
+        msg().projetos.repitaEscolha(msg().projetos.ofertaRede));
     }
-    throw new ErroDeProjeto('projeto.nenhum', 'nenhum projeto conhecido nesta máquina e nenhum foi pedido', [],
-      'Registre o projeto com `ork projetos registrar <caminho>` (ou `ork init` na raiz dele) e repita com o nome. ' +
-      'Sem clone nesta máquina, o roadmap de um projeto vem da forja: `ork network roadmap --projeto github:dono/repo` (tool ork_network_roadmap).');
+    throw new ErroDeProjeto('projeto.nenhum', msg().projetos.nenhum, [], msg().projetos.registrePrimeiro);
   }
   return null;
 }
