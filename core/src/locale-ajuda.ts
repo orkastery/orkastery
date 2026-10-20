@@ -158,6 +158,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   ci run [<thread-id>] [--bundle ARQ]       Executa o CHECK no runner independente
         [--branch B]                         acha o bundle da thread pelo nome da branch (o CI usa)
   ci status [--sha SHA] [--remoto origin]   Consulta o check exato publicado no GitHub
+  privado varrer [--base REF] [--json]      Dado privado (home, e-mail fora da lista, hostname de maquina e a lista
+                                            local fora do git) nas linhas e nomes versionados; --base: so o diff (RM-062)
 
   gate next <thread-id> [--proximo FASE]    Gate de tokens: mesma sessao ou nova sessao
         [--ocupacao 0..1] [--fonte F] [--transcript ARQ] [--janela N] [--refazer]
@@ -552,6 +554,8 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   ci run [<thread-id>] [--bundle FILE]      Runs the CHECK on the independent runner
         [--branch B]                         finds the thread bundle by the branch name (the CI uses it)
   ci status [--sha SHA] [--remoto origin]   Queries the exact check published on GitHub
+  privado varrer [--base REF] [--json]      Private data (home, e-mail off the allow list, machine hostname and the local
+                                            list outside git) in versioned lines and names; --base: only the diff (RM-062)
 
   gate next <thread-id> [--proximo PHASE]   Token gate: same session or new session
         [--ocupacao 0..1] [--fonte F] [--transcript FILE] [--janela N] [--refazer]
