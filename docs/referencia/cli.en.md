@@ -304,6 +304,12 @@ Exits 1 when there is a `new` finding in the loop (every new secret; new depende
 counts as clean. `ORK_SECURITY_SCAN_DEADLINE_MS` bounds the whole round (each tool gets what is left of the budget).
 No secret value reaches the report or stdout.
 
+Tool states in the report: `ran`, `failed` and `unavailable`. A Semgrep `ran` may carry a `partial-*` reason
+(`partial-timeout: <n>`, `partial-parsing: <n>`): one rule or one fragment of a file was skipped (a `warn`-level error)
+and the rest was scanned, and the findings obtained count. If every rule times out, the tool still reads `ran`, with only
+the count in the reason: check the reason before treating the `sast` category as covered. An error of another type or of
+`error` level leaves the tool `failed`.
+
 In the manifest, `verify.security_scan` declares the command `ork verify` runs (for example `ork security-scan`), and
 `verify.timeout_ms_por_comando.security_scan` gives its time limit. Without `verify.security_scan`, nothing changes.
 

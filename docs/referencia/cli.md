@@ -303,6 +303,12 @@ mensagem nomeia a entrada; nada é varrido). Com `ORK_SECURITY_SCAN_REQUIRED=1`,
 conta como limpa. `ORK_SECURITY_SCAN_DEADLINE_MS` limita a rodada inteira (cada ferramenta recebe o que resta do prazo).
 Nenhum valor de segredo vai ao relatório nem ao stdout.
 
+Estados de ferramenta no relatório: `ran`, `failed` e `unavailable`. O Semgrep `ran` pode levar um motivo `partial-*`
+(`partial-timeout: <n>`, `partial-parsing: <n>`): uma regra ou um trecho de arquivo foi pulado (erro de nível `warn`) e
+o resto foi varrido, e os achados obtidos valem. Se todas as regras estourarem o prazo, a ferramenta ainda lê `ran`, só
+com a contagem no motivo: confira o motivo antes de tratar a categoria `sast` como coberta. Erro de outro tipo ou de
+nível `error` deixa a ferramenta `failed`.
+
 No manifesto, `verify.security_scan` declara o comando que o `ork verify` roda (por exemplo `ork security-scan`), e
 `verify.timeout_ms_por_comando.security_scan` dá o prazo dele. Sem `verify.security_scan`, nada muda.
 

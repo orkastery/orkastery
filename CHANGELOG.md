@@ -23,6 +23,21 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `ork ci prepare` recusa gerar o bundle com achado; sem a policy, os dois não mudam. No CI do núcleo, a varredura é
   um passo do job `documentacao`, e as fixtures da API do GitHub, um teste da rede e um bundle antigo deixaram de levar
   dado pessoal do dono.
+- **`ork security-scan`: segurança e qualidade de código no CHECK**: o novo comando varre o HEAD e a base com as
+  ferramentas oficiais em Docker, fixadas por digest (Gitleaks, Semgrep, Trivy, zizmor, actionlint, `npm audit`,
+  `pip-audit`, `govulncheck`, ESLint, Ruff e golangci-lint, para JavaScript/TypeScript, Python e Go), e compara por
+  impressão digital: cada achado é `new`, `existing` ou `dismissed`. Segredo novo e vulnerabilidade `high` ou `critical`
+  nova (dependência, SAST, IaC, workflow) fazem o comando sair 1; qualidade e licença só reportam. O relatório
+  (`report.json`, contrato `ork.security-scan/v1`, e `report.md`) vai para `.orkastery/security-scan/<sha>/` e nunca leva o
+  valor de um segredo. A config da app mora em `.ork-security/` (`config.json` e `dismissals.json`, com `reason` e
+  `decisionRef`). Com `verify.security_scan` no manifesto (o `ork init` grava quando acha uma stack), o `ork verify` roda o
+  scan como quarto comando, o CHECK faz a triagem de cada achado novo com o `security-auditor` e o GO-FIX corrige pela skill nova
+  `security-remediation`; o `ork ci prepare` leva o scan ao bundle com `ORK_SECURITY_SCAN_REQUIRED=1`, e o `ork doctor`
+  ganha o check "security scan". Sem Docker nem binário nativo a ferramenta fica `unavailable` (saída 0), e o `ork ship`
+  de projeto sem CHECK independente exigido para com `human.pending` até a autorização de `--allow-unscanned "<quem>"`,
+  gravada no ledger como `ship_unscanned_authorized`. Sem `verify.security_scan`, nada muda. Guia em
+  [`docs/guias/verificacao.md`](docs/guias/verificacao.md#8-security-scan-segurança-e-qualidade-pelo-comando-não-pela-leitura)
+  e referência em [`docs/referencia/cli.md`](docs/referencia/cli.md#varredura-de-segurança).
 - **SHIP do MCP por qualquer forja**: dois transportes novos no `ork mcp install --ship-transport`. `forja-ssh` aceita
   host e porta da forja (inclusive `forja.ssh_host`/`ssh_porta`), fixa na instalação a chave do servidor confirmada
   pelo `known_hosts` da pessoa ou por `--ssh-fingerprint`, e confere a chave a cada push com
