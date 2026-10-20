@@ -71,7 +71,8 @@ e a correção. No CLI, saída 4; com `--json`, o objeto `{erro, detalhe, candid
 
 Comandos com `--projeto` próprio recebem a opção intacta e não resolvem o alvo global: hoje,
 `network` (RM-054, `--projeto github:dono/repo`). Comandos que não leem projeto (`init`, `mcp`,
-`demo`, `ciclos`, `projetos`) também não resolvem; `init` e `mcp` recusam `--projeto`.
+`demo`, `ciclos`, `projetos` e `privado`, que varre o repositório do diretório atual, RM-062) também
+não resolvem; `init` e `mcp` recusam `--projeto`.
 
 A sessão despachada (`ork phase run`, `ork retry run` e `ork audit run`) recebe no ambiente do
 despacho `ORK_PROJETO` vazio e `ORK_PROJETO_EXPLICITO=0` (fatia 2): o projeto dela é o do próprio cwd, a

@@ -1027,13 +1027,13 @@ test('RM-053 migracao: entrar sem --maquina grava o nome que valeu, e a batida s
     const amb = ligado(f);
     naMaquina(u, () => {
       const antes = process.env.ORK_MAQUINA;
-      process.env.ORK_MAQUINA = 'julio-pc';
-      try { assert.equal(entrarNaRede({ amb }).publicacao.maquina, 'julio-pc'); }
+      process.env.ORK_MAQUINA = 'maquina-a';
+      try { assert.equal(entrarNaRede({ amb }).publicacao.maquina, 'maquina-a'); }
       finally { if (antes === undefined) delete process.env.ORK_MAQUINA; else process.env.ORK_MAQUINA = antes; }
-      assert.equal(JSON.parse(fs.readFileSync(path.join(u, 'maquina.json'), 'utf8')).nome, 'julio-pc');
+      assert.equal(JSON.parse(fs.readFileSync(path.join(u, 'maquina.json'), 'utf8')).nome, 'maquina-a');
       const batida = publicarRedeNaBatida({ amb, agoraMs: Date.now() + 2 * 60 * 60 * 1000, agora: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() });
-      assert.deepEqual([batida?.maquina, batida?.acao], ['julio-pc', 'publicou']);
-      assert.deepEqual(lerRede({ amb }).membros.map((m) => m.maquina), ['julio-pc'], 'uma maquina, um membro');
+      assert.deepEqual([batida?.maquina, batida?.acao], ['maquina-a', 'publicou']);
+      assert.deepEqual(lerRede({ amb }).membros.map((m) => m.maquina), ['maquina-a'], 'uma maquina, um membro');
     });
   } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
 });

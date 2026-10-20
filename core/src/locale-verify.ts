@@ -96,6 +96,22 @@ export const VERIFY_PT_BR = {
   filaPesadaEsperando: (operacao: string, ocupantes: string) =>
     `Esperando a vez na fila de recursos pesados (concurrency.max_parallel_heavy) para o ${operacao}: ` +
     `ocupada por ${ocupantes || 'um pedido que chegou antes'}.`,
+  // RM-062 (F2): a barreira de dado privado (policy `dado_privado`); o valor casado e o termo nunca saem.
+  dadoPrivadoTitulo: (severidade: string) => `Dado privado (policy dado_privado em ${severidade}):`,
+  dadoPrivadoEscopoArvore: 'arvore versionada inteira (sem base para o diff)',
+  dadoPrivadoEscopoDiff: (sha: string, ref: string | null) =>
+    `diff da thread contra ${sha} (${ref ? `merge-base com ${ref}` : 'base carimbada da thread'})`,
+  dadoPrivadoEscopoTexto: (nome: string) => `texto de ${nome}`,
+  dadoPrivadoEscopo: (escopo: string, arquivos: number, linhas: number, nomes: number) =>
+    `  escopo       ${escopo}: ${arquivos} arquivo(s), ${linhas} linha(s), ${nomes} nome(s)`,
+  dadoPrivadoListaPresente: (termos: number, de: string) => `  lista local  ${termos} termo(s) de ${de}`,
+  dadoPrivadoListaAusente: (onde: string) =>
+    `  lista local  ausente (procurada em ${onde}): so os padroes genericos (home, email, hostname)`,
+  dadoPrivadoErro: (erro: string) => `  NAO RODOU    ${erro}`,
+  dadoPrivadoAchados: (n: number) => n ? `  achados      ${n} (o valor casado nunca e impresso)` : '  achados      nenhum',
+  dadoPrivadoAchado: (arquivo: string, linha: number | null, coluna: number | null, padrao: string, termo?: number) =>
+    `    ${linha === null ? `${arquivo}  nome do arquivo` : `${arquivo}:${linha}:${coluna}`}  ${padrao}${termo ? ` (termo ${termo})` : ''}`,
+  dadoPrivadoMais: (n: number) => `    ... e mais ${n}`,
 };
 
 export const VERIFY_EN: typeof VERIFY_PT_BR = {
@@ -170,4 +186,17 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
   filaPesadaEsperando: (operacao, ocupantes) =>
     `Waiting for a turn in the heavy-work queue (\`concurrency.max_parallel_heavy\`) for the ${operacao}: ` +
     `held by ${ocupantes || 'a request that arrived earlier'}.`,
+  dadoPrivadoTitulo: (severidade) => `Private data (policy dado_privado at ${severidade}):`,
+  dadoPrivadoEscopoArvore: 'whole versioned tree (no base for the diff)',
+  dadoPrivadoEscopoDiff: (sha, ref) => `thread diff against ${sha} (${ref ? `merge-base with ${ref}` : 'the thread stamped base'})`,
+  dadoPrivadoEscopoTexto: (nome) => `text of ${nome}`,
+  dadoPrivadoEscopo: (escopo, arquivos, linhas, nomes) =>
+    `  scope        ${escopo}: ${arquivos} file(s), ${linhas} line(s), ${nomes} name(s)`,
+  dadoPrivadoListaPresente: (termos, de) => `  local list   ${termos} term(s) from ${de}`,
+  dadoPrivadoListaAusente: (onde) => `  local list   missing (looked in ${onde}): only the generic patterns (home, email, hostname)`,
+  dadoPrivadoErro: (erro) => `  DID NOT RUN  ${erro}`,
+  dadoPrivadoAchados: (n) => n ? `  findings     ${n} (the matched value is never printed)` : '  findings     none',
+  dadoPrivadoAchado: (arquivo, linha, coluna, padrao, termo) =>
+    `    ${linha === null ? `${arquivo}  file name` : `${arquivo}:${linha}:${coluna}`}  ${padrao}${termo ? ` (term ${termo})` : ''}`,
+  dadoPrivadoMais: (n) => `    ... and ${n} more`,
 };

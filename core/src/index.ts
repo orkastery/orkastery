@@ -123,7 +123,7 @@ import { relatorioDeEsgotamentos, textoDosEsgotamentos } from './esgotamentos';
 import { adotarSessao } from './sessoes-adopt';
 import { textoDoInventario } from './sessoes';
 import { ENV_THREAD_DO_DESPACHO, ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
-import { avaliarPolicies, linhasDeAviso } from './policies';
+import { avaliarPolicies, linhasDeAviso, severidadeDeclarada } from './policies';
 import {
   aceitarPendentesPorOmissao,
   aceitosPorOmissao,
@@ -225,6 +225,7 @@ import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLim
 import { exec, shaCurto, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
+import { contextoDaVarredura, mergeBase, relatorioDoDadoPrivado, varrerArvore, varrerDiff } from './dado-privado';
 import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, caminhoThread, canalDaSessao, dirThread, exigirFase, lerThread,
   linhaDaWorktree, listarIds, novaThread, pedidoDaThread, pedidoDeWorktree, PedidoDeWorktree, prepararPedido, resumoDaThread, tabelaDeThreads,
   threadsDaListagem,
@@ -2298,7 +2299,8 @@ function comandoCi(args: Args): number {
       console.error('uso: ork ci prepare <thread-id>');
       return 2;
     }
-    const arquivo = prepararBundleCi(carregado, thread, { aoAvisar: (linha) => console.log(`AVISO: ${linha}`) });
+    const arquivo = prepararBundleCi(carregado, thread, { aoAvisar: (linha) => console.log(`AVISO: ${linha}`),
+      aoInformar: (linha) => console.log(linha) });
     console.log(`Bundle de CI: ${arquivo}`);
     return 0;
   }
@@ -2342,6 +2344,51 @@ function comandoCi(args: Args): number {
   }
   console.error(`subcomando desconhecido: ci ${sub}`);
   return 2;
+}
+
+/**
+ * RM-062 (F1): `ork privado varrer [--base REF] [--json]`, a varredura de dado privado do repositorio do diretorio
+ * atual. Sem `--base`, os nomes e as linhas dos arquivos versionados (o passo do CI); com ela, o diff contra a
+ * merge-base com `REF` e os nao rastreados. Sai 1 com achado sob a policy `dado_privado` em `block` ou sem a policy
+ * (quem roda o comando pediu a varredura); em `warn` e `off`, 0 com o aviso. Sai 2 quando a varredura nao roda.
+ */
+function comandoPrivado(args: Args): number {
+  const uso = 'uso: ork privado varrer [--base REF] [--json]';
+  const opcoes = Object.keys(args.opcoes);
+  if (args.posicionais[1] !== 'varrer' || args.posicionais.length > 2 || opcoes.some((k) => k !== 'base' && k !== 'json') ||
+      ('json' in args.opcoes && args.opcoes.json !== true) || ('base' in args.opcoes && typeof args.opcoes.base !== 'string')) {
+    console.error(uso);
+    return 2;
+  }
+  const topo = exec('git', ['rev-parse', '--show-toplevel'], process.cwd());
+  if (!topo.ok) {
+    console.error('erro: privado varrer: o diretorio atual nao esta num repositorio git');
+    return 2;
+  }
+  const raiz = topo.stdout.trim();
+  const carregado = carregarManifesto(raiz);
+  const severidade = carregado ? severidadeDeclarada(carregado.manifesto, 'dado_privado') : null;
+  let estado: string | null = null;
+  try { estado = raizDoEstado(raiz); } catch { estado = null; }
+  const contexto = contextoDaVarredura(raiz, estado);
+  const ref = texto(args.opcoes.base);
+  const base = contexto.ok && ref ? mergeBase(raiz, ref) : null;
+  const v = !contexto.ok ? null : ref ? (base ? varrerDiff(contexto.valor, base) : null) : varrerArvore(contexto.valor);
+  const erro = !contexto.ok ? contexto.erro : !v ? `--base ${ref} nao tem merge-base com HEAD` : v.erro;
+  const achados = v?.achados.length ?? 0;
+  const reprova = !erro && achados > 0 && (severidade === null || severidade === 'block');
+  if (args.opcoes.json === true) {
+    console.log(JSON.stringify({ ...(v ?? {}), erro, severidade, ok: !erro && !reprova }, null, 2));
+  } else {
+    if (v) for (const linha of relatorioDoDadoPrivado(v)) console.log(linha);
+    const policy = severidade === null ? 'policy dado_privado nao declarada: o comando explicito reprova'
+      : `policy dado_privado em ${severidade}`;
+    console.log(erro ? `Veredito: NAO RODOU (${erro})`
+      : !achados ? 'Veredito: nenhum dado privado nas linhas e nos nomes varridos.'
+      : reprova ? `Veredito: REPROVADO (${achados} achado(s) de dado privado; ${policy})`
+      : `Veredito: AVISO (${achados} achado(s) de dado privado; ${policy}, que nao reprova)`);
+  }
+  return erro ? 2 : reprova ? 1 : 0;
 }
 
 function comandoLease(args: Args): number {
@@ -4165,7 +4212,8 @@ export function extrairOpcaoDeProjeto(argv: readonly string[]): { argv: string[]
 }
 
 /** Comandos que nao leem projeto: o alvo nao e resolvido (nem recusado) para eles. */
-const COMANDOS_SEM_PROJETO = new Set(['demo', 'ciclos', 'mcp', 'init', 'projetos']);
+// RM-062 (F1): `privado varrer` le o repositorio do diretorio atual (o checkout do CI, o clone de um site), nao o alvo.
+const COMANDOS_SEM_PROJETO = new Set(['demo', 'ciclos', 'mcp', 'init', 'projetos', 'privado']);
 
 /**
  * Fatia 2 (D3): os comandos que leem projeto e nao terminam com a linha `Projeto consultado`. Hoje so
@@ -4522,6 +4570,8 @@ function executarComando(argvBruto: string[]): number {
       return comandoVerify(args);
     case 'ci':
       return comandoCi(args);
+    case 'privado':
+      return comandoPrivado(args);
     case 'gate':
       return comandoGate(args);
     case 'retry':
