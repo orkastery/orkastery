@@ -921,28 +921,30 @@ export function motivoForaDaOmissao(raiz: string, id: string): { motivo: 'ja-fec
 
 /** Texto de `ork master <thread-id> --score`. */
 export function textoDoMaster(r: ResultadoMaster): string {
+  const m = msg().master.complementar;
   const linhas: string[] = [];
-  linhas.push(`MASTER registrado: thread ${r.thread.id} fechada.`);
-  linhas.push(`  score          ${r.masterLog.score}/5 (${r.postmortem.score.regime})`);
-  linhas.push(`  justificativa  ${r.masterLog.justificativa}`);
-  linhas.push(`  avaliado por   ${r.masterLog.avaliadoPor} em ${formatarDataHoraRotulada(r.masterLog.avaliadoEm)}`);
-  linhas.push(`  classes        ${r.masterLog.classesDeFalha.join(', ')}`);
-  linhas.push(`  fases          ${r.masterLog.fases.join(' -> ')}`);
-  linhas.push(`  entregas       ${r.postmortem.entregas.length} ship(s) concluido(s) no ledger`);
-  linhas.push(`  gates          ${r.postmortem.gatesBloqueados.length} reprovacao(oes) tipada(s)`);
+  linhas.push(m.registrado(r.thread.id));
+  linhas.push(m.score(r.masterLog.score, r.postmortem.score.regime));
+  linhas.push(m.justificativaLinha(r.masterLog.justificativa));
+  linhas.push(m.avaliado(r.masterLog.avaliadoPor, formatarDataHoraRotulada(r.masterLog.avaliadoEm)));
+  linhas.push(m.classes(r.masterLog.classesDeFalha.join(', ')));
+  linhas.push(m.fases(r.masterLog.fases.join(' -> ')));
+  linhas.push(m.entregas(r.postmortem.entregas.length));
+  linhas.push(m.gates(r.postmortem.gatesBloqueados.length));
   linhas.push('');
-  linhas.push(`  POSTMORTEM     ${r.caminhoPostmortem}`);
-  linhas.push(`  MASTER log     ${r.caminhoMasterLog} (contrato ${r.masterLog.contrato})`);
+  linhas.push(m.postmortem(r.caminhoPostmortem));
+  linhas.push(m.log(r.caminhoMasterLog, r.masterLog.contrato));
   if (r.avisos.length > 0) {
     linhas.push('');
-    for (const a of r.avisos) linhas.push(`  AVISO: ${a}`);
+    for (const a of r.avisos) linhas.push(m.aviso(a));
   }
   return linhas.join('\n');
 }
 
 /** Tabela das classes de falha fixas, para o humano escolher sem inventar. */
 export function tabelaDeClasses(): string {
-  const linhas = ['Classes de falha do POSTMORTEM (fixas, nao extensiveis pelo executor)', ''];
-  for (const c of ORDEM_DAS_CLASSES) linhas.push(`  ${c.padEnd(14)} ${CLASSES_DE_FALHA[c]}`);
+  const m = msg().master.complementar;
+  const linhas = [m.classesTitulo, ''];
+  for (const c of ORDEM_DAS_CLASSES) linhas.push(`  ${c.padEnd(14)} ${m.descricoes[c]}`);
   return linhas.join('\n');
 }

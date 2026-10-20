@@ -8,6 +8,18 @@
  * resposta `<codigo> <0 a 5> <porque>` nas duas linguas (o leitor do canal so olha o codigo e o numero).
  */
 
+const CLASSES_DE_FALHA_DO_CATALOGO: Readonly<Record<string, string>> = {
+  'sem-falha': 'a thread atravessou o ciclo sem incidente',
+  'erro-de-spec': 'o objetivo ou o plano estavam errados; a execucao seguiu a spec errada',
+  'base-avancou': 'a base mudou embaixo da thread e o trabalho precisou ser ressincronizado',
+  conflito: 'colisao de regiao entre threads, resolvida na mao',
+  'rate-limit': 'o runtime bateu limite de uso e a fase parou por isso',
+  modelo: 'o modelo errou (alucinou, ignorou instrucao, entregou self-report)',
+  processo: 'o metodo falhou: gate faltando, verificacao pulada, evidencia nao coletada',
+  'scope-creep': 'a entrega cresceu alem do que o GOAL prometia',
+  outra: 'nao cabe em nenhuma classe acima (descreva na justificativa)',
+};
+
 export const MASTER_PT_BR = {
   // ork master: o indice
   semEntregaTodas: 'Nenhuma thread aberta sem score.',
@@ -55,6 +67,38 @@ export const MASTER_PT_BR = {
   // thread-close.ts: a entrega que o MASTER exige
   encerradaAdmin: 'thread encerrada administrativamente não pode receber MASTER',
   exigeEntrega: 'MASTER exige entrega: ship_done ou artefato existente com hash verificado',
+  complementar: {
+    batchAposentado: 'master.fila-aposentada: a fila de ratificacao de score saiu na I-43. Entregue e aceito, a menos que voce diga o contrario.\n' +
+      '  ork master                     as entregas, com o indice ja derivado do ledger\n' +
+      '  ork master <id> --aceitar-omissao   aceita so esta entrega, com indice e insumos no ledger\n' +
+      '  ork master --aceitar-omissao        aceita todas as entregues (--dry-run mostra quais)\n' +
+      '  ork master <id> --score <0-5> --justificativa "<por que>" --por <humano>   para reclamar',
+    informeThread: 'informe a thread para propor MASTER',
+    usoScore: 'uso: ork master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>',
+    scoreHumano: '  o score do MASTER e humano, de 0 a 5, e a justificativa e obrigatoria.',
+    justificativa: (id: string) => `Score RECUSADO para a thread ${id}: falta --justificativa "<texto>".`,
+    justificativaRazao: '  Score sem justificativa nao vira aprendizado; o `ork` nao o registra.',
+    justificativaComando: (id: string, score: string) => `  ork master ${id} --score ${score} --justificativa "<por que este score>"`,
+    classeInvalida: (classe: string) => `classe de falha invalida: "${classe}".`,
+    classesFixas: (classes: string) => `  classes fixas: ${classes}`,
+    proposta: (chave: string, threads: number, dias: number) =>
+      `Proposta de policy: ${chave} em ${threads} threads nos ultimos ${dias} dias.`,
+    soProposta: '  So proposta: vira policy quando voce a declara em policies: no orkastery.yaml (ork licoes).',
+    proximo: 'Proximo passo: ork board --all   |   entregas e indice: ork master',
+    registrado: (id: string) => `MASTER registrado: thread ${id} fechada.`,
+    score: (valor: number, regime: string) => `  score          ${valor}/5 (${regime})`,
+    justificativaLinha: (valor: string) => `  justificativa  ${valor}`,
+    avaliado: (por: string, em: string) => `  avaliado por   ${por} em ${em}`,
+    classes: (valor: string) => `  classes        ${valor}`,
+    fases: (valor: string) => `  fases          ${valor}`,
+    entregas: (n: number) => `  entregas       ${n} ship(s) concluido(s) no ledger`,
+    gates: (n: number) => `  gates          ${n} reprovacao(oes) tipada(s)`,
+    postmortem: (arquivo: string) => `  POSTMORTEM     ${arquivo}`,
+    log: (arquivo: string, contrato: string) => `  MASTER log     ${arquivo} (contrato ${contrato})`,
+    aviso: (valor: string) => `  AVISO: ${valor}`,
+    classesTitulo: 'Classes de falha do POSTMORTEM (fixas, nao extensiveis pelo executor)',
+    descricoes: CLASSES_DE_FALHA_DO_CATALOGO,
+  },
 };
 
 export const MASTER_EN: typeof MASTER_PT_BR = {
@@ -99,4 +143,45 @@ export const MASTER_EN: typeof MASTER_PT_BR = {
     `${telegram ? '↩️ ' : ''}Reply: ${codigo} <0 to 5> <why>, for example: ${codigo} 4 delivered what I asked for.`,
   encerradaAdmin: 'a thread closed administratively cannot receive a MASTER',
   exigeEntrega: 'MASTER needs a delivery: ship_done or an existing artifact with a verified hash',
+  complementar: {
+    batchAposentado: 'master.fila-aposentada: the score ratification queue was retired in I-43. Shipped and accepted, unless you say otherwise.\n' +
+      '  ork master                     deliveries, with the index already derived from the ledger\n' +
+      '  ork master <id> --aceitar-omissao   accepts only this delivery, with the index and inputs in the ledger\n' +
+      '  ork master --aceitar-omissao        accepts every shipped delivery (`--dry-run` shows which)\n' +
+      '  ork master <id> --score <0-5> --justificativa "<why>" --por <human>   to dispute it',
+    informeThread: 'provide the thread for the MASTER proposal',
+    usoScore: 'usage: ork master <thread-id> --score 0-5 --justificativa "<text>" --por <your-name>',
+    scoreHumano: '  the MASTER score is human, from 0 to 5, and the justification is required.',
+    justificativa: (id) => `Score REJECTED for thread ${id}: missing --justificativa "<text>".`,
+    justificativaRazao: '  A score without justification does not become learning; `ork` does not record it.',
+    justificativaComando: (id, score) => `  ork master ${id} --score ${score} --justificativa "<why this score>"`,
+    classeInvalida: (failureClass) => `invalid failure class: "${failureClass}".`,
+    classesFixas: (classes) => `  fixed classes: ${classes}`,
+    proposta: (key, threads, days) => `Policy proposal: ${key} in ${threads} threads over the last ${days} days.`,
+    soProposta: '  Proposal only: it becomes policy when you declare it under policies: in orkastery.yaml (`ork licoes`).',
+    proximo: 'Next step: ork board --all   |   deliveries and index: ork master',
+    registrado: (id) => `MASTER recorded: thread ${id} closed.`,
+    score: (value, regime) => `  score          ${value}/5 (${regime})`,
+    justificativaLinha: (value) => `  justification  ${value}`,
+    avaliado: (by, at) => `  evaluated by   ${by} at ${at}`,
+    classes: (value) => `  classes        ${value}`,
+    fases: (value) => `  phases         ${value}`,
+    entregas: (n) => `  deliveries     ${n} completed ship(s) in the ledger`,
+    gates: (n) => `  gates          ${n} typed failure(s)`,
+    postmortem: (file) => `  POSTMORTEM     ${file}`,
+    log: (file, contract) => `  MASTER log     ${file} (contract ${contract})`,
+    aviso: (value) => `  WARNING: ${value}`,
+    classesTitulo: 'POSTMORTEM failure classes (fixed, not extensible by the executor)',
+    descricoes: {
+      'sem-falha': 'the thread crossed the cycle without an incident',
+      'erro-de-spec': 'the goal or plan was wrong; execution followed the wrong spec',
+      'base-avancou': 'the base changed under the thread and the work had to be resynchronized',
+      conflito: 'region collision between threads, resolved manually',
+      'rate-limit': 'the runtime hit a usage limit and the phase stopped because of it',
+      modelo: 'the model failed (hallucinated, ignored an instruction, or delivered self-report)',
+      processo: 'the method failed: missing gate, skipped verification, or uncollected evidence',
+      'scope-creep': 'the delivery grew beyond what GOAL promised',
+      outra: 'it does not fit any class above (describe it in the justification)',
+    },
+  },
 };

@@ -2849,14 +2849,7 @@ function comandoMaster(args: Args): number {
   // mudou, e para onde ir. Desaparecer sem dizer nada seria o mesmo pecado da #TAG
   // aposentada virando default.
   if (args.opcoes.batch === true || primeiro === 'batch') {
-    console.error(
-      'master.fila-aposentada: a fila de ratificacao de score saiu na I-43. ' +
-      'Entregue e aceito, a menos que voce diga o contrario.\n' +
-      '  ork master                     as entregas, com o indice ja derivado do ledger\n' +
-      '  ork master <id> --aceitar-omissao   aceita so esta entrega, com indice e insumos no ledger\n' +
-      '  ork master --aceitar-omissao        aceita todas as entregues (--dry-run mostra quais)\n' +
-      '  ork master <id> --score <0-5> --justificativa "<por que>" --por <humano>   para reclamar'
-    );
+    console.error(msg().master.complementar.batchAposentado);
     return 2;
   }
   if (args.opcoes['aceitar-omissao'] !== undefined) {
@@ -2871,18 +2864,19 @@ function comandoMaster(args: Args): number {
   }
   const propor = primeiro === 'propor';
   const id = propor ? args.posicionais[2] : primeiro;
-  if (!id) throw new Error('informe a thread para propor MASTER');
+  const mm = msg().master.complementar;
+  if (!id) throw new Error(mm.informeThread);
   const brutoScore = texto(args.opcoes.score);
   const justificativa = texto(args.opcoes.justificativa) ?? texto(args.opcoes.porque);
   if (brutoScore === undefined) {
-    console.error('uso: ork master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>');
-    console.error('  o score do MASTER e humano, de 0 a 5, e a justificativa e obrigatoria.');
+    console.error(mm.usoScore);
+    console.error(mm.scoreHumano);
     return 2;
   }
   if (!justificativa) {
-    console.error(`Score RECUSADO para a thread ${id}: falta --justificativa "<texto>".`);
-    console.error('  Score sem justificativa nao vira aprendizado; o `ork` nao o registra.');
-    console.error(`  ork master ${id} --score ${brutoScore} --justificativa "<por que este score>"`);
+    console.error(mm.justificativa(id));
+    console.error(mm.justificativaRazao);
+    console.error(mm.justificativaComando(id, brutoScore));
     return 2;
   }
   const brutasClasses = texto(args.opcoes.classe) ?? texto(args.opcoes.classes);
@@ -2890,8 +2884,8 @@ function comandoMaster(args: Args): number {
   for (const bruta of (brutasClasses ?? '').split(',').map((c) => c.trim()).filter(Boolean)) {
     const classe = parseClasse(bruta);
     if (!classe) {
-      console.error(`classe de falha invalida: "${bruta}".`);
-      console.error(`  classes fixas: ${ORDEM_DAS_CLASSES.join(', ')}`);
+      console.error(mm.classeInvalida(bruta));
+      console.error(mm.classesFixas(ORDEM_DAS_CLASSES.join(', ')));
       return 2;
     }
     classes.push(classe);
@@ -2919,12 +2913,12 @@ function comandoMaster(args: Args): number {
   // vai ao ledger do projeto uma vez por janela; virar policy continua sendo do dono.
   for (const p of registrarPropostasNovas(carregado.raiz)) {
     console.log('');
-    console.log(`Proposta de policy: ${p.chave} em ${p.threads.length} threads nos ultimos ${p.janelaDias} dias.`);
+    console.log(mm.proposta(p.chave, p.threads.length, p.janelaDias));
     console.log(`  ${p.sugestao}`);
-    console.log('  So proposta: vira policy quando voce a declara em policies: no orkastery.yaml (ork licoes).');
+    console.log(mm.soProposta);
   }
   console.log('');
-  console.log(`Proximo passo: ork board --all   |   entregas e indice: ork master`);
+  console.log(mm.proximo);
   return 0;
 }
 

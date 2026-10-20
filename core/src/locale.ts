@@ -103,7 +103,8 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
   'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
   'retry policy', 'retry parse', 'retry list', 'retry resume', 'retry cancel', 'retry ?',
-  'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status', 'docs init',
+  'master', 'master <thread>', 'master aceitar-omissao', 'master pedir', 'master classes', 'master batch',
+  'pulse', 'roadmap status', 'docs init',
   // F3b (D1): o resto do CLI, na ordem do pedido.
   'thread list', 'thread close', 'thread entrega', 'worktree ensure', 'worktree sync', 'worktree audit', 'worktree release', 'worktree ?',
   'claims add', 'claims conferir', 'claims verificar', 'claims retirar', 'claims ausente', 'claims list', 'claims ?',

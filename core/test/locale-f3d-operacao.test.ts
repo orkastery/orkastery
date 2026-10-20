@@ -28,6 +28,7 @@ import { textoDoEstado } from '../src/memoria';
 import { textoDoIndice } from '../src/indice-vetorial';
 import { textoDaBuscaPorSignificado } from '../src/busca-semantica';
 import { textoInstalacaoMcp } from '../src/mcp-install';
+import { tabelaDeClasses } from '../src/master';
 
 test('F3d: modos, migracao e ciclos preservam pt-BR e têm texto completo em ingles', () => {
   const mudanca = { dryRun: true, backup: null, mudancas: [
@@ -333,4 +334,20 @@ test('F3d: instalacao do MCP localiza a orientacao sem alterar caminho ou estado
   assert.deepEqual(linhasEmPortugues(en, ['/tmp/projeto/.mcp.json', 'novo']), []);
   assert.equal(cobreLocale(['mcp', 'install'], {}), true);
   assert.equal(cobreLocale(['mcp', 'serve'], {}), false);
+});
+
+test('F3d: MASTER complementar localiza classes, score e a recusa da fila aposentada', () => {
+  const pt = comLocale('pt-BR', () => tabelaDeClasses());
+  const en = comLocale('en', () => [tabelaDeClasses(), msg().master.complementar.usoScore,
+    msg().master.complementar.justificativa('ork-x'), msg().master.complementar.batchAposentado].join('\n'));
+  assert.match(pt, /^Classes de falha do POSTMORTEM/);
+  assert.match(en, /^POSTMORTEM failure classes/);
+  assert.match(en, /the goal or plan was wrong/);
+  assert.match(en, /Score REJECTED for thread ork-x/);
+  assert.match(en, /score ratification queue was retired/);
+  assert.deepEqual(linhasEmPortugues(en), []);
+  assert.equal(cobreLocale(['master', 'classes'], {}), true);
+  assert.equal(cobreLocale(['master', 'batch'], {}), true);
+  assert.equal(cobreLocale(['master', 'ork-x'], { score: '4' }), true);
+  assert.equal(cobreLocale(['master', 'audit'], {}), false);
 });
