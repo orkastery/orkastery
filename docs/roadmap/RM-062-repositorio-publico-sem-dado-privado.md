@@ -60,7 +60,7 @@ Relações: [RM-046](RM-046-go-to-open-source.md) (GoToOpenSource), [RM-047](RM-
 - **Hipótese:** se a barreira roda no CI, no `ork verify` e no `ork ci prepare`, com padrões genéricos mais uma lista local que fica fora do git, então o dado privado é pego antes do commit final e, no pior caso, antes do merge, porque a verificação deixa de depender de alguém notar.
 - **Métrica principal / linha de base / meta / janela / fonte:** ocorrências de termo privado em arquivo versionado e em nome de arquivo, medidas por `git grep` e `git ls-files` com os padrões e a lista local. Linha de base: 59 ocorrências do hostname em 24 arquivos, e 1 nome de arquivo, em 12/10/2026, antes da correção desta thread. Meta: 0 a cada PR. Janela: cada PR, no CI.
 - **Métricas de proteção:**
-  - falso positivo baixo: padrões genéricos têm exceções por padrão e valor/trecho, com caminho apenas como filtro adicional, e a lista é revisada em PR;
+  - falso positivo baixo: padrões genéricos têm exceções por padrão e valor exato, com caminho apenas como filtro adicional, e a lista é revisada em PR;
   - a lista local de termos privados nunca vai ao git, ao bundle, ao ledger ou a log de CI;
   - o relatório do achado não repete o termo privado: diz o arquivo, a linha e o padrão.
 
@@ -109,7 +109,7 @@ Os aceites acima são o que cada fatia terá de provar; não são provas já exe
 
 | Risco | Probabilidade / impacto | Mitigação e contingência |
 | --- | --- | --- |
-| Falso positivo em exemplo de documentação (`/home/usuario`, e-mail de exemplo) | Alta / baixo | Exceção por padrão e valor/trecho, com caminho opcional, motivo e revisão em PR; começar só avisando e passar a reprovar quando o ruído for zero |
+| Falso positivo em exemplo de documentação (`/home/usuario`, e-mail de exemplo) | Alta / baixo | Exceção por padrão e valor exato, com caminho opcional, motivo e revisão em PR; começar só avisando e passar a reprovar quando o ruído for zero |
 | A lista local não existe no CI | Certa / médio | O CI usa só os padrões genéricos; a lista local roda no `ork verify` e no `ork ci prepare` da máquina do dono e da fábrica |
 | O relatório do achado vira um novo vazamento | Média / alto | O relatório mostra arquivo, linha e padrão, nunca o termo; teste confere |
 | Histórico continua com o dado | Certa / médio | Dito com honestidade no PR; reescrever histórico público é decisão do dono, caso a caso |

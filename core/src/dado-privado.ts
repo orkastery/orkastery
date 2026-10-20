@@ -54,7 +54,7 @@ export interface Excecao {
   padrao: PadraoGenerico;
   /** Glob relativo à raiz (`**` cruza pastas, `*` não). */
   caminho?: string;
-  /** O trecho exato, sem diferença de caixa, ou com `*` como curinga estreito. */
+  /** O valor exato, sem diferença de caixa. Curinga não é aceito. */
   valor: string;
   motivo: string;
 }
@@ -299,7 +299,7 @@ export function lerExcecoes(raiz: string): { ok: true; valor: ArquivoDeExcecoes 
         return fora(`excecoes[${i}].${campo} tem de ser texto não vazio`);
       }
     }
-    if (x.valor === undefined) return fora(`excecoes[${i}] sem valor/trecho`);
+    if (x.valor === undefined) return fora(`excecoes[${i}] sem valor`);
     if ((x.valor as string).includes('*')) return fora(`excecoes[${i}].valor tem de ser exato, sem curinga`);
     if (x.caminho === '**') return fora(`excecoes[${i}].caminho não pode ser curinga global`);
     if (x.caminho !== undefined && caminhoEquivaleACuringaGlobal(x.caminho as string)) {

@@ -233,7 +233,7 @@ test('DP10: arquivo de exceções fora do contrato recusa a varredura com o moti
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', valor: '/home/x' }] }, /excecoes\[0\] sem motivo/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'telefone', valor: 'x', motivo: 'm' }] }, /excecoes\[0\]\.padrao tem de ser/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: '*', valor: '/home/x', motivo: 'm' }] }, /excecoes\[0\]\.padrao tem de ser/],
-    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', motivo: 'm' }] }, /excecoes\[0\] sem valor\/trecho/],
+    [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', motivo: 'm' }] }, /excecoes\[0\] sem valor/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', valor: '*', motivo: 'm' }] }, /valor tem de ser exato, sem curinga/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'home', caminho: '**', valor: '/home/x', motivo: 'm' }] }, /caminho não pode ser curinga global/],
     [{ contrato: 'ork.privado/v1', excecoes: [{ padrao: 'email', valor: '**', motivo: 'm' }] }, /valor tem de ser exato, sem curinga/],
