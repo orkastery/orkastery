@@ -26,6 +26,14 @@ import { reconciliarContaEsgotada } from './conta-esgotada';
 
 /** Uma consulta nativa custa cerca de 0,3 s; cinco segundos mantém o custo abaixo de 10%. */
 export const INTERVALO_WATCH_CLAUDE_MS = 5000;
+/**
+ * RM-037 (defeitos de 19 e 20/10/2026, defeito 4): quanto a sessão fica ociosa no prompt (`working` com `status: idle`)
+ * depois do Stop correlacionado até o observador tomar o turno por encerrado. O Claude Code mantém `working` a sessão cuja
+ * resposta final ele lê como "ainda há passo" e só a encerra (`done`) depois de 60 min ociosa (`bg retire <id>:
+ * idle-prompt, idle 60m` no log do daemon, medido em 20/10/2026), e nesse tempo a sessão segurava a condução. A que
+ * espera tarefa em segundo plano aparece `busy`, e a passagem do fim de uma tarefa ao turno seguinte leva segundos.
+ */
+export const OCIOSA_DEPOIS_DO_STOP_MS = 5 * 60 * 1000;
 const LIMITE_EVIDENCIA_BYTES = 4096;
 /** D15 (5): teto dos textos nativos (`state`, `status`, `id`, `kind`) e do erro do diagnóstico. */
 const LIMITE_TEXTO_NATIVO = 64;
@@ -55,6 +63,8 @@ export interface CursorClaude {
   ausenteDesde?: number; doneDesde?: number; mortoDesde?: number; desconhecidoDesde?: number; consultaFalhaDesde?: number;
   /** RM-037 (defeitosdeco D-1): primeira leitura de `blocked` vivo depois do Stop correlacionado. */
   bloqueadoDesde?: number;
+  /** RM-037 (defeito 4 de 19 e 20/10/2026): primeira leitura de `working`/`idle` vivo depois do Stop correlacionado. */
+  ociosaDesde?: number;
   /** RM-037 (fatia 5): tamanho da transcricao na ultima leitura da cota ao vivo; sem mudanca, nada a reler. */
   transcricaoBytes?: number;
   pid?: number; identidade?: IdentidadeProcesso | null;
@@ -214,6 +224,7 @@ export function classificarSessaoClaude(e: EntradaClassificacao): ClassificacaoC
   if (estado !== 'done') delete cursor.doneDesde;
   if (estado !== 'working' && estado !== 'blocked') delete cursor.mortoDesde;
   if (estado !== 'blocked') delete cursor.bloqueadoDesde;
+  if (estado !== 'working') delete cursor.ociosaDesde;
   if (['done', 'failed', 'stopped', 'working', 'blocked'].includes(estado ?? '')) delete cursor.desconhecidoDesde;
   switch (estado) {
     case 'done': {
@@ -255,6 +266,20 @@ export function classificarSessaoClaude(e: EntradaClassificacao): ClassificacaoC
         return esperaHumana();
       }
       delete cursor.bloqueadoDesde;
+      // RM-037 (defeito 4 de 19 e 20/10/2026): turno encerrado pelo Stop e a sessão ociosa no prompt, sem tarefa em
+      // segundo plano (`status: idle`; a espera por tarefa é `busy`). O runtime só a encerra depois de 60 min; passado
+      // `OCIOSA_DEPOIS_DO_STOP_MS` sem atividade, vale a prova do `ork`, como no `done`. O prazo conta da primeira leitura
+      // ociosa e nunca de antes do Stop: a sessão que voltou e parou de novo recomeça a contagem.
+      if (estado === 'working' && r.status === 'idle' && stop && !bloqueioPendente(e.eventos, e.sessao)) {
+        cursor.ociosaDesde ??= agora;
+        const desde = Math.max(cursor.ociosaDesde, Date.parse(stop.ts) || 0);
+        if (agora - desde < OCIOSA_DEPOIS_DO_STOP_MS) {
+          return espera('turno encerrado pelo Stop com a sessão ociosa no prompt (working/idle); aguardando o prazo da ociosidade');
+        }
+        return concluir(`Stop correlacionado e sessão ociosa no prompt (working/idle) por ${OCIOSA_DEPOIS_DO_STOP_MS / 60000} min, ` +
+          'sem tarefa em segundo plano', false);
+      }
+      delete cursor.ociosaDesde;
       return espera(estado === 'blocked' ? 'sessão bloqueada à espera humana' : 'sessão trabalhando');
     }
     default:

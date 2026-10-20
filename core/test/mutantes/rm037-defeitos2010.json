@@ -37,6 +37,24 @@
       "para": "null",
       "teste": "rm037-defeitos2010-dependencias",
       "nome": "^defeito 2: o preparo que falha"
+    },
+    {
+      "id": "M5",
+      "descricao": "defeito 4: working/idle depois do Stop volta a ser sessão trabalhando para sempre (só o done do runtime encerra)",
+      "modulo": "session-watcher-claude",
+      "de": "if (estado === 'working' && r.status === 'idle' && stop && !bloqueioPendente(e.eventos, e.sessao)) {",
+      "para": "if (false) {",
+      "teste": "rm037-defeitos2010-ociosa",
+      "nome": "^defeito 4 \\(19 e 20/10/2026\\)"
+    },
+    {
+      "id": "M6",
+      "descricao": "defeito 4: o prazo da ociosidade conta da primeira leitura mesmo de antes do Stop novo",
+      "modulo": "session-watcher-claude",
+      "de": "const desde = Math.max(cursor.ociosaDesde, Date.parse(stop.ts) || 0);",
+      "para": "const desde = cursor.ociosaDesde;",
+      "teste": "rm037-defeitos2010-ociosa",
+      "nome": "^defeito 4: a contagem recomeca"
     }
   ]
 }
